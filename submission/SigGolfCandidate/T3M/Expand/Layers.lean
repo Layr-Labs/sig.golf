@@ -68,8 +68,8 @@ theorem rl_mk_finish {tc : MachineState} {sig : Signature} {lay : Layer} {tree l
         (by rw [ru2.get (by decide), g _ (by decide)]; exact c8) P' M (by omega) (by omega)
         (by omega) (by omega) (by omega) (by omega) h22 h24
       have hso : sideOff leaf j = 48 := by unfold sideOff; rw [if_neg (by omega)]
-      have hc0 := curOff_bit0 lay hb
-      refine ⟨t3, if lay.val = 0 then 21 else 22, s3, by split_ifs <;> omega, p3, ?_, ?_, ?_, r3, ?_⟩
+      have hc0 := curOff_bit0 lay hb hj
+      refine ⟨t3, 22, s3, le_rfl, p3, ?_, ?_, ?_, r3, ?_⟩
       · rw [if_pos hb]; rw [hc0] at hval2; exact ⟨n0.trans hval2.1, n8.trans hval2.2⟩
       · rw [if_pos hb]; exact ⟨n48.trans hpu2.1, n56.trans hpu2.2⟩
       · rw [hso]; exact ⟨m48.trans hpu2.1, by rw [show M + 48 + 8 = M + 56 by omega]; exact m56.trans hpu2.2⟩
@@ -984,8 +984,8 @@ theorem rl_mk_finish {tc : MachineState} {sig : Signature} {lay : Layer} {tree l
         (by rw [ru2.get (by decide), g _ (by decide)]; exact c8) P' M (by omega) (by omega)
         (by omega) (by omega) (by omega) (by omega) h22 h24
       have hso : sideOff leaf j = 48 := by unfold sideOff; rw [if_neg (by omega)]
-      have hc0 := curOff_bit0 lay hb
-      refine ⟨t3, if lay.val = 0 then 21 else 22, s3, by split_ifs <;> omega, p3, ?_, ?_, ?_, r3, ?_⟩
+      have hc0 := curOff_bit0 lay hb hj
+      refine ⟨t3, 22, s3, le_rfl, p3, ?_, ?_, ?_, r3, ?_⟩
       · rw [if_pos hb]; rw [hc0] at hval2; exact ⟨n0.trans hval2.1, n8.trans hval2.2⟩
       · rw [if_pos hb]; exact ⟨n48.trans hpu2.1, n56.trans hpu2.2⟩
       · rw [hso]; exact ⟨m48.trans hpu2.1, by rw [show M + 48 + 8 = M + 56 by omega]; exact m56.trans hpu2.2⟩

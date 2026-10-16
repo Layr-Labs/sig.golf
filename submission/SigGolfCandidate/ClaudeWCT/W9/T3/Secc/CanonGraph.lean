@@ -382,8 +382,10 @@ theorem cell_separated (secrets : Secrets) : Separated (cell secrets) := by
   intro left right hne before after heq
   have h1 := hdrBlock_cell secrets left before
   have h2 := hdrBlock_cell secrets right after
+  have hl : left.toPos.len = right.toPos.len := by
+    rw [← cell_length secrets left before, ← cell_length secrets right after, heq]
   rw [heq] at h1
-  exact hne (toPos_injective (Extract.Pos.hdr_injective (toPos_bounded left) (toPos_bounded right)
+  exact hne (toPos_injective (Extract.Pos.hdr_injective (toPos_bounded left) (toPos_bounded right) hl
     (bytesLE_injective (h1.symm.trans h2))))
 theorem treeNodeAt_level {lay : Layer} {tree : Fin (2^31)} {level c : Nat} {n : TreeNode}
     (h : treeNodeAt lay tree level c = some n) : n.1.level.val = level := by
@@ -1127,12 +1129,31 @@ theorem hdrBlock_cell (secrets : Secrets) (node : Node) (labels : Labels) :
   | wctChain v=>exact CanonGraph.hdrBlock_cell secrets (.wctChain v) labels
   | forest v=>exact CanonGraph.hdrBlock_cell secrets (.forest v) labels
 
+theorem cell_length (secrets : Secrets) (node : Node) (labels : Labels) :
+    (cell secrets node labels).length=node.toPos.len := by
+  cases node with
+  | wctLeaf L=>
+    simp only [cell,Extract.wctLeafInputP,Node.toPos,Extract.Pos.len]
+    rw [Cost.pad64_length,Extract.listInput_length']
+    simp only [List.length_cons,List.length_drop,List.length_ofFn]
+  | wctNode n=>
+    simp only [cell,Node.toPos,Extract.Pos.len]
+    rw [pad64_nodeInputP,nodeInputP,block4]
+    simp only [List.length_append,bytesLE_length]
+  | chain v=>exact CanonGraph.cell_length secrets (.chain v) labels
+  | leaf v=>exact CanonGraph.cell_length secrets (.leaf v) labels
+  | node v=>exact CanonGraph.cell_length secrets (.node v) labels
+  | wctChain v=>exact CanonGraph.cell_length secrets (.wctChain v) labels
+  | forest v=>exact CanonGraph.cell_length secrets (.forest v) labels
+
 theorem cell_separated (secrets : Secrets) : Separated (cell secrets) := by
   intro left right hne before after heq
   have h1:=hdrBlock_cell secrets left before
   have h2:=hdrBlock_cell secrets right after
+  have hl : left.toPos.len = right.toPos.len := by
+    rw [← cell_length secrets left before, ← cell_length secrets right after, heq]
   rw [heq] at h1
-  exact hne (toPos_injective (Extract.Pos.hdr_injective (toPos_bounded left) (toPos_bounded right)
+  exact hne (toPos_injective (Extract.Pos.hdr_injective (toPos_bounded left) (toPos_bounded right) hl
     (bytesLE_injective (h1.symm.trans h2))))
 
 theorem ftsLabel_congr (left right : Labels) (index : Fin (2^31)) (coord : Fin 9) (level c : Nat)
@@ -1188,23 +1209,6 @@ theorem cell_congr (secrets : Secrets) (node : Node) (left right : Labels)
   | _=>exact CanonGraph.cell_congr secrets _ left right h
 
 /-- Every paired cell has its position's honest length (length-aware decoding, C3). -/
-theorem cell_length (secrets : Secrets) (node : Node) (labels : Labels) :
-    (cell secrets node labels).length=node.toPos.len := by
-  cases node with
-  | wctLeaf L=>
-    simp only [cell,Extract.wctLeafInputP,Node.toPos,Extract.Pos.len]
-    rw [Cost.pad64_length,Extract.listInput_length']
-    simp only [List.length_cons,List.length_drop,List.length_ofFn]
-  | wctNode n=>
-    simp only [cell,Node.toPos,Extract.Pos.len]
-    rw [pad64_nodeInputP,nodeInputP,block4]
-    simp only [List.length_append,bytesLE_length]
-  | chain v=>exact CanonGraph.cell_length secrets (.chain v) labels
-  | leaf v=>exact CanonGraph.cell_length secrets (.leaf v) labels
-  | node v=>exact CanonGraph.cell_length secrets (.node v) labels
-  | wctChain v=>exact CanonGraph.cell_length secrets (.wctChain v) labels
-  | forest v=>exact CanonGraph.cell_length secrets (.forest v) labels
-
 theorem posOf_cell (secrets : Secrets) (node : Node) (labels : Labels) :
     Extract.posOf (cell secrets node labels)=some node.toPos :=
   Extract.posOf_eq (toPos_bounded node) (cell_length secrets node labels) (hdrBlock_cell secrets node labels)

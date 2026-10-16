@@ -61,8 +61,11 @@ private theorem hdrBlock_forestInput_leaf (index : Nat) (pairs : List (Digest ×
   unfold forestInput WCT9.forestInput
   rw [show zero16 = bytesLE 16 (0 : Digest) by decide]
   exact hdrBlock_prefix 0 _ _
-theorem leafHash_eq_shortHash (lay : Layer) (tree leaf : Nat) (ends : List Digest) :
-    leafHash lay tree leaf ends = shortHash (leafInput lay tree leaf ends) := rfl
+/-- C4: a legacy leaf hash keeps the half `leafHalfHigh lay leaf` (high for even top leaves). -/
+theorem leafHash_eq_projHash (lay : Layer) (tree leaf : Nat) (ends : List Digest) :
+    leafHash lay tree leaf ends = projHash (leafHalfHigh lay leaf) (leafInput lay tree leaf ends) := rfl
+theorem leafHash_eq_shortHash {lay : Layer} (h : lay ≠ 0) (tree leaf : Nat) (ends : List Digest) :
+    leafHash lay tree leaf ends = shortHash (leafInput lay tree leaf ends) := leafHash_lower h tree leaf ends
 theorem forestPk_eq_shortHash (index : Nat) (pairs : List (Digest × Digest)) :
     WCT9.forestPk index pairs = shortHash (forestInput index pairs) := rfl
 theorem forestInput_pairs_injective {index : Nat} {ps qs : List (Digest × Digest)} (hl : ps.length = qs.length)
@@ -107,24 +110,6 @@ theorem leafInput_lists {lay : Layer} {tree leaf : Nat} {xs ys : List Digest} (h
     obtain ⟨-, hr⟩ := List.append_inj h' (by simp only [List.length_append, bytesLE_length])
     exact flatMap_bytes_injective hlen hr
   · exact (listInput_lists (hdr := leafTweak lay tree leaf) (hdr' := leafTweak lay tree leaf) hlen hpos h).1
-theorem leafHash_extract (answers : Answers) (lay : Layer) (tree leaf : Nat) (ends honest : List Digest)
-    (hlen : ends.length = honest.length) (hpos : 0 < honest.length)
-    (reaches : evalWithAnswerFn answers (leafHash lay tree leaf ends) =
-      evalWithAnswerFn answers (leafHash lay tree leaf honest)) :
-    ends = honest ∨
-      (HashHit answers (pad64 (leafInput lay tree leaf honest)) (pad64 (leafInput lay tree leaf ends)) ∧
-        SameHeader (pad64 (leafInput lay tree leaf ends)) (pad64 (leafInput lay tree leaf honest)) ∧
-        .inl (.inr (pad64 (leafInput lay tree leaf ends))) ∈ queried answers (leafHash lay tree leaf ends)) := by
-  by_cases heq : pad64 (leafInput lay tree leaf ends) = pad64 (leafInput lay tree leaf honest)
-  · exact Or.inl (leafInput_lists hlen hpos heq)
-  · refine Or.inr ⟨⟨heq, ?_⟩, ?_, ?_⟩
-    · rw [leafHash_eq_shortHash, leafHash_eq_shortHash, eval_shortHash, eval_shortHash] at reaches
-      exact reaches
-    · refine SameHeader.of_hdrBlock (pad64_length_congr ?_) (by rw [hdrBlock_leafInput, hdrBlock_leafInput])
-      unfold leafInput
-      rw [SigGolfCandidate.T3.leafInput_length, SigGolfCandidate.T3.leafInput_length, hlen]
-    · rw [leafHash_eq_shortHash, queried_shortHash]
-      exact List.mem_singleton_self _
 theorem forestPk_extract (answers : Answers) (index : Nat) (pairs honest : List (Digest × Digest))
     (hlen : pairs.length = honest.length)
     (reaches : evalWithAnswerFn answers (WCT9.forestPk index pairs) =
@@ -364,7 +349,8 @@ theorem merklePathW_extract (answers : Answers) (lay tree height leaf count : Na
   hashPathW_extract answers _ _ _ target _ value count reference
     (fun step _ current => merkleInputW_parse lay tree height leaf step path honestPath hpads pads current
       (target step)) reaches
-theorem merkleInputW_tree_reference (answers : Answers) (lay tree height leaf : Nat) (hlay : lay ≠ 0)
+/-- C4: the honest fold reference on every layer (the top included). -/
+theorem merkleInputW_tree_reference' (answers : Answers) (lay tree height leaf : Nat)
     (levels : List (List Digest)) (leaves : List Digest)
     (htree : WCT9.TreeLevelsL answers lay tree height leaves height levels)
     (hleaf : leaf < 2 ^ height) (step : Nat) (hstep : step < height) :
@@ -374,12 +360,21 @@ theorem merkleInputW_tree_reference (answers : Answers) (lay tree height leaf : 
       treeValue levels (step + 1) (leaf / 2 ^ (step + 1)) := by
   unfold merkleInputW merkleHighW
   dsimp only
-  rw [Correctness.sibling_pair, Correctness.div_pow_succ, WCT9.lowerNodeInputP_zero hlay]
+  rw [Correctness.sibling_pair, Correctness.div_pow_succ, WCT9.lowerNodeInputP_zero']
   have hparent : leaf / 2 ^ (step + 1) < 2 ^ (height - (step + 1)) := by
     simpa using Correctness.div_pow_bound (start := 0) (level := step + 1)
       (node := leaf) (height := height) (by omega) (by simpa using hleaf)
   have hp := htree.2.2 step hstep (leaf / 2 ^ (step + 1)) hparent
   simpa only [treeValue, Nat.sub_sub, WCT9.lowerNodeHash, WCT9.lowerHash] using hp.symm
+theorem merkleInputW_tree_reference (answers : Answers) (lay tree height leaf : Nat) (_hlay : lay ≠ 0)
+    (levels : List (List Digest)) (leaves : List Digest)
+    (htree : WCT9.TreeLevelsL answers lay tree height leaves height levels)
+    (hleaf : leaf < 2 ^ height) (step : Nat) (hstep : step < height) :
+    evalWithAnswerFn answers (halfHash (merkleHighW lay height leaf step)
+      (merkleInputW lay tree height leaf (fun j => treeValue levels j (leaf / 2 ^ j ^^^ 1)) (fun _ => 0) (fun _ => 0)
+        step (treeValue levels step (leaf / 2 ^ step)))) =
+      treeValue levels (step + 1) (leaf / 2 ^ (step + 1)) :=
+  merkleInputW_tree_reference' answers lay tree height leaf levels leaves htree hleaf step hstep
 /-! #### Leaves (C3: witness pads in the leaf header block) -/
 theorem leafInput_padded_length (lay : Layer) (tree leaf : Nat) (ends : List Digest)
     (hc : ends.length = chainCount lay) :

@@ -34,8 +34,10 @@ abbrev SCREND : Nat := 0x52010
 abbrev COEF : Nat := 0x50800
 def hook153 : BitVec 32 := 0x1890a06f
 def hook540 : BitVec 32 := 0x3791306f
-/-- The sign code: the record window at 11003 and (nested FTS r1-1) the trampolines at 21450. -/
-def NewCodeAt (im : Image) : Prop := signNew <+: im.code.drop 11003 ∧ signTramp <+: im.code.drop 21450
+/-- The sign code: the record window at 11003, (nested FTS r1-1) the trampolines at 21450 and (C4, FTS
+coordinate + 1) the coordinate-0 arena at 1700. -/
+def NewCodeAt (im : Image) : Prop :=
+  signNew <+: im.code.drop 11003 ∧ signTramp <+: im.code.drop 21450 ∧ arenaCode <+: im.code.drop 1700
 /-- [h2 lane] the sign prepass appended at word 20813 (entered from the record's copy at 20730): move digest 192 (the top
 sibling, scratch 0x7ca0) to the last scratch slot and digests 193..340 down one slot, then return to 20731. -/
 def h2SignTail : List (BitVec 32) := [0x8e37, 0xca0e0e13, 0xe3703, 0x8e3783, 0xe0e93, 0x10e0e13, 0x8f37, 0x5f0f0f13,
@@ -192,11 +194,14 @@ def cbase (c : Nat) : Nat := fieldIdx.getD c 0
 def headLook (n : Nat) : Option (BitVec 32) := if 11003 ≤ n then headCode[n - 11003]? else none
 /-- Nested FTS (r1-1): the trampolines at 21450..21666. -/
 def trampLook (n : Nat) : Option (BitVec 32) := if 21450 ≤ n then signTramp[n - 21450]? else none
-/-- A coordinate's code window, falling through to the trampolines (nested FTS r1-1). -/
+/-- C4: the coordinate-0 arena at 1700..1725 (below every coordinate window). -/
+def arenaLook (n : Nat) : Option (BitVec 32) := if 1700 ≤ n then arenaCode[n - 1700]? else none
+/-- A coordinate's code window, falling through to the trampolines (nested FTS r1-1), and below the window to the
+C4 arena. -/
 def coordLook (c n : Nat) : Option (BitVec 32) :=
   if cbase c ≤ n then
     (match (coordCodes.getD c [])[n - cbase c]? with | some w => some w | none => trampLook n)
-  else none
+  else arenaLook n
 def tailLook (n : Nat) : Option (BitVec 32) := if 20715 ≤ n then tailCode[n - 20715]? else none
 def hookLook (n : Nat) : Option (BitVec 32) :=
   if n = 153 then some hook153 else if n = 540 then some hook540 else if n = 545 then some 0x00000073 else none
@@ -266,12 +271,23 @@ theorem cbase_ge (c : Nat) (hc : c < 9) : 11003 ≤ cbase c := by
   interval_cases c <;> decide +kernel
 theorem trampLook_ok {im : Image} (h : NewCodeAt im) : LookOK im trampLook := by
   intro n w hw
-  obtain ⟨rest, hrest⟩ := h.2
+  obtain ⟨rest, hrest⟩ := h.2.1
   unfold trampLook at hw
   split at hw
   · rename_i hle
     have hlen : n - 21450 < signTramp.length := (List.getElem?_eq_some_iff.mp hw).1
     have h2 : (im.code.drop 21450)[n - 21450]? = some w := by
+      rw [← hrest, List.getElem?_append_left hlen]; exact hw
+    rwa [List.getElem?_drop, Nat.add_sub_cancel' hle] at h2
+  · cases hw
+theorem arenaLook_ok {im : Image} (h : NewCodeAt im) : LookOK im arenaLook := by
+  intro n w hw
+  obtain ⟨rest, hrest⟩ := h.2.2
+  unfold arenaLook at hw
+  split at hw
+  · rename_i hle
+    have hlen : n - 1700 < arenaCode.length := (List.getElem?_eq_some_iff.mp hw).1
+    have h2 : (im.code.drop 1700)[n - 1700]? = some w := by
       rw [← hrest, List.getElem?_append_left hlen]; exact hw
     rwa [List.getElem?_drop, Nat.add_sub_cancel' hle] at h2
   · cases hw
@@ -287,7 +303,7 @@ theorem coordLook_ok {im : Image} (h : NewCodeAt im) {c : Nat} (hc : c < 9) : Lo
       have hb := cbase_ge c hc
       rwa [show 11003 + (cbase c - 11003 + (n - cbase c)) = n by omega] at this
     · exact trampLook_ok h n w hw
-  · cases hw
+  · exact arenaLook_ok h n w hw
 theorem tailLook_ok {im : Image} (h : NewCodeAt im) : LookOK im tailLook := by
   intro n w hw
   unfold tailLook at hw

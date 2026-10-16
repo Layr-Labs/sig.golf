@@ -1680,8 +1680,8 @@ abbrev expandB := ClaudeWCT.W9.T3M.Paired.expandB
 abbrev verifyP := ClaudeWCT.W9.T3M.Paired.verifyP
 abbrev witEnc := ClaudeWCT.W9.T3M.Paired.witEnc
 
- def verifyCycleBound : Nat := 6912
- def claimedC : Nat := 7010
+ def verifyCycleBound : Nat := 6899
+ def claimedC : Nat := 6997
  def DigestCapOk (hash : Hash) (m : Message) (w : Bytes 24924) : Prop :=
   SigGolfCandidate.Research.SharedForest.jointAccountingCost
     (hash (SigGolfCandidate.T3M.toQ (SigGolfCandidate.T3.pad64

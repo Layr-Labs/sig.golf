@@ -68,7 +68,10 @@ theorem posOf_row_none {x : HashInput} {lay : Layer} {tree leaf : Nat} {hi : Bit
     have : (rowTweak lay tree leaf).toNat % 2 ^ 64 % 256 = (rowTweak lay tree leaf).toNat % 256 :=
       Nat.mod_mod_of_dvd _ (by norm_num)
     omega
-  rw [Extract.hdrKey_of_len64 hlen, hx, SigGolfCandidate.T3M.Extract.canonicalHeader_marker_ne _ hm] at he
+  -- C4: the row tweak's low word carries type byte 193, so it is no top label.
+  have hT : ¬ Extract.TopLow (Extract.hdrBlock x) := by
+    rw [hx, Extract.topLow_bytesLE_iff, append64_lowNat, hlow, hyperWord_toNat]; omega
+  rw [Extract.hdrKey_of_len64 hlen hT, hx, SigGolfCandidate.T3M.Extract.canonicalHeader_marker_ne _ hm] at he
   have hlo := congrArg (BitVec.extractLsb' 0 64) (bytesLE_injective he)
   rw [BitVec.extractLsb'_append_eq_right] at hlo
   exact Extract.rowTweak_low_ne_hdr lay tree leaf hb (by rw [← hl, hlen]) hlo
@@ -89,7 +92,12 @@ theorem posOf_digest (rho : Digest) (message : Message) (counter : BitVec 32) :
   intro p hb hl he
   have hlen : (pad64 (bytesLE 16 rho ++ bytesLE 16 (digestHeader counter) ++ bytesLE 32 message)).length = 64 := by
     rw [Cost.pad64_length]; simp only [List.length_append, bytesLE_length]
-  rw [Extract.hdrKey_of_len64 hlen,
+  -- C4: the digest header's low word is 0, so it is no top label.
+  have hT : ¬ Extract.TopLow (Extract.hdrBlock
+      (pad64 (bytesLE 16 rho ++ bytesLE 16 (digestHeader counter) ++ bytesLE 32 message))) := by
+    rw [Extract.hdrBlock_pad64 _ (by simp only [List.length_append, bytesLE_length]; omega),
+      Extract.hdrBlock_prefix, Extract.topLow_bytesLE_iff, digestHeader_lowNat]; omega
+  rw [Extract.hdrKey_of_len64 hlen hT,
     Extract.hdrBlock_pad64 _ (by simp only [List.length_append, bytesLE_length]; omega),
     Extract.hdrBlock_prefix,
     SigGolfCandidate.T3M.Extract.canonicalHeader_marker_ne _
@@ -158,7 +166,13 @@ theorem posOf_chain_offgraph (lay : Layer) (tree leaf i step : Nat) (value : Dig
   intro p hb _ he
   have hlen : (pad64 (chainInput lay tree leaf i step value)).length = 64 := by
     rw [chainInput_padded]; simp [chainInput, zero16, bytesLE_length]
-  rw [Extract.hdrKey_of_len64 hlen, chainInput_padded, Extract.hdrBlock, chainInput_header] at he
+  -- C4: a chain header's low word carries type byte 193, so it is no top label.
+  have hT : ¬ Extract.TopLow (Extract.hdrBlock (pad64 (chainInput lay tree leaf i step value))) := by
+    rw [chainInput_padded, Extract.hdrBlock, chainInput_header, Extract.topLow_bytesLE_iff, Extract.tweakLow_eq_low,
+      chainHeader_low, chainHeaderFlaggedLow_toNat]
+    have := chainHeaderLow_band lay tree leaf i step
+    split_ifs <;> omega
+  rw [Extract.hdrKey_of_len64 hlen hT, chainInput_padded, Extract.hdrBlock, chainInput_header] at he
   have hn := congrArg (List.take 8) he
   rw [canonicalHeader_low] at hn
   have hp : (bytesLE 16 p.hdr).take 8 = bytesLE 8 (p.hdr.extractLsb' 0 64) := by
@@ -177,8 +191,15 @@ theorem posOf_chain_offgraph (lay : Layer) (tree leaf i step : Nat) (value : Dig
       exact WCT9.wctNodeHeader_low_ne_chainHeader hb.2.1 _ _ _ _ _ _ _ hlo.symm
   | node lay' tree' level nd =>
       by_cases h0 : lay' = 0
-      · exact low_ne_of_firstByte _ _ (chainHeader_firstByte lay tree leaf i step)
-          (Extract.Pos.hdr_marker_lt hb (by simp [Extract.Pos.cls, h0])) hlo
+      · -- C4: a top label's low word is below 4096, a chain header's carries type byte 193.
+        subst h0
+        have hv := congrArg BitVec.toNat hlo
+        simp only [Extract.Pos.hdr] at hv
+        rw [show ((0 : Layer).val) = 0 from rfl, WCT9.merkleTweak_top_low, topNodeWord_toNat64, chainHeader_low,
+          chainHeaderFlaggedLow_toNat] at hv
+        have := chainHeaderLow_band lay tree leaf i step
+        have := topNodeWord_lt (2 ^ (height (0 : Layer) - level - 1) + nd)
+        split_ifs at hv <;> omega
       · -- C2: a lower node word has bit 55 clear (layer byte `lay' - 1 ≤ 2`), an off-graph chain header has it set.
         obtain ⟨-, -, -, -, hnd⟩ := hb
         have h7 : height lay' ≤ 7 := by revert h0; fin_cases lay' <;> decide
@@ -192,7 +213,8 @@ theorem posOf_chain_offgraph (lay : Layer) (tree leaf i step : Nat) (value : Dig
         omega
   | _ =>
       exact low_ne_of_firstByte _ _ (chainHeader_firstByte lay tree leaf i step)
-        (Extract.Pos.hdr_marker_lt hb (by simp only [Extract.Pos.cls]; (try split) <;> omega)) hlo
+        (Extract.Pos.hdr_marker_lt hb (by simp only [Extract.Pos.cls]; (try split) <;> omega)
+          (by simp only [Extract.Pos.cls]; (try split) <;> omega)) hlo
 theorem sat_chain (T : Answers) (lay : Layer) (tree leaf i start count : Nat)
     (htree : tree < 2 ^ 40) (hleaf : leaf < 2 ^ 32) (hi : i < 2 ^ 24) (hcount : start + count ≤ 7) :
     QueriesSat T (HonestQuery T) (SigGolfCandidate.T3.chain lay tree leaf i start count
@@ -284,8 +306,9 @@ theorem sat_buildLeafTop (T : Answers) (leaf : Nat) (digits : List Nat) (hvalid 
         (fun i hi => hr.2.2.1 i (by rw [hr.1]; exact hi))
       simp only [Bool.false_eq_true, ite_false]
       refine QueriesSat.bind ?_ (QueriesSat.pure' _)
-      rw [he, ← WCT9.wotsEnd_top, Extract.leafHash_eq_shortHash]
-      exact sat_shortHash _ (honestQuery_honest T (.leaf (0 : Layer) 0 leaf) hb)
+      rw [he, ← WCT9.wotsEnd_top]
+      unfold leafHash
+      exact sat_projHash _ _ (honestQuery_honest T (.leaf (0 : Layer) 0 leaf) hb)
     · simp only [ite_true]
       exact QueriesSat.pure' _
 theorem honestQuery_treeNode (T : Answers) (lay : Layer) (tree : Nat) (ht : tree < 2 ^ Extract.treeBits lay)
@@ -333,8 +356,14 @@ theorem sat_buildTopTree (T : Answers) : QueriesSat T (HonestQuery T) buildTopTr
     obtain ⟨root, values⟩ := x
     exact QueriesSat.pure' _
   · rw [eval_topRoots]
+    -- C4: `wotsTree` folds with `lowerLevels`, which equals the top `buildLevels` only propositionally.
+    have hW : evalWithAnswerFn T (buildLevels 3 0 0 (height 0)
+        ((List.range (2 ^ height 0)).map (WCT9.wotsRoot T 0 0))) = WCT9.wotsTree T 0 0 := by
+      unfold WCT9.wotsTree
+      rw [show ((0 : Layer).val) = 0 from rfl, WCT9.lowerLevels_top]
     apply sat_buildLevels
     intro level hlevel node hnode
+    rw [hW] at hnode ⊢
     exact honestQuery_treeNode T 0 0 (by decide) level node hlevel rfl hnode
 theorem sat_packedSecret (T : Answers) (lay : Layer) (tree q : Nat) (carry : Digest) :
     QueriesSat T (HonestQuery T) (WCT9.packedSecret (WCT9.lowerSeedPair lay tree) q carry) := by
@@ -709,7 +738,10 @@ theorem posOf_row_none {x : HashInput} {lay : Layer} {tree leaf : Nat} {hi : Bit
     have : (rowTweak lay tree leaf).toNat % 2 ^ 64 % 256 = (rowTweak lay tree leaf).toNat % 256 :=
       Nat.mod_mod_of_dvd _ (by norm_num)
     omega
-  rw [Extract.hdrKey_of_len64 hlen, hx, SigGolfCandidate.T3M.Extract.canonicalHeader_marker_ne _ hm] at he
+  -- C4: the row tweak's low word carries type byte 193, so it is no top label.
+  have hT : ¬ Extract.TopLow (Extract.hdrBlock x) := by
+    rw [hx, Extract.topLow_bytesLE_iff, append64_lowNat, hlow, hyperWord_toNat]; omega
+  rw [Extract.hdrKey_of_len64 hlen hT, hx, SigGolfCandidate.T3M.Extract.canonicalHeader_marker_ne _ hm] at he
   have hlo := congrArg (BitVec.extractLsb' 0 64) (bytesLE_injective he)
   rw [BitVec.extractLsb'_append_eq_right] at hlo
   exact Extract.rowTweak_low_ne_hdr lay tree leaf hb (by rw [← hl, hlen]) hlo
@@ -730,7 +762,12 @@ theorem posOf_digest (rho : Digest) (message : Message) (counter : BitVec 32) :
   intro p hb hl he
   have hlen : (pad64 (bytesLE 16 rho ++ bytesLE 16 (digestHeader counter) ++ bytesLE 32 message)).length = 64 := by
     rw [Cost.pad64_length]; simp only [List.length_append, bytesLE_length]
-  rw [Extract.hdrKey_of_len64 hlen,
+  -- C4: the digest header's low word is 0, so it is no top label.
+  have hT : ¬ Extract.TopLow (Extract.hdrBlock
+      (pad64 (bytesLE 16 rho ++ bytesLE 16 (digestHeader counter) ++ bytesLE 32 message))) := by
+    rw [Extract.hdrBlock_pad64 _ (by simp only [List.length_append, bytesLE_length]; omega),
+      Extract.hdrBlock_prefix, Extract.topLow_bytesLE_iff, digestHeader_lowNat]; omega
+  rw [Extract.hdrKey_of_len64 hlen hT,
     Extract.hdrBlock_pad64 _ (by simp only [List.length_append, bytesLE_length]; omega),
     Extract.hdrBlock_prefix,
     SigGolfCandidate.T3M.Extract.canonicalHeader_marker_ne _
@@ -799,7 +836,13 @@ theorem posOf_chain_offgraph (lay : Layer) (tree leaf i step : Nat) (value : Dig
   intro p hb _ he
   have hlen : (pad64 (chainInput lay tree leaf i step value)).length = 64 := by
     rw [chainInput_padded]; simp [chainInput, zero16, bytesLE_length]
-  rw [Extract.hdrKey_of_len64 hlen, chainInput_padded, Extract.hdrBlock, chainInput_header] at he
+  -- C4: a chain header's low word carries type byte 193, so it is no top label.
+  have hT : ¬ Extract.TopLow (Extract.hdrBlock (pad64 (chainInput lay tree leaf i step value))) := by
+    rw [chainInput_padded, Extract.hdrBlock, chainInput_header, Extract.topLow_bytesLE_iff, Extract.tweakLow_eq_low,
+      chainHeader_low, chainHeaderFlaggedLow_toNat]
+    have := chainHeaderLow_band lay tree leaf i step
+    split_ifs <;> omega
+  rw [Extract.hdrKey_of_len64 hlen hT, chainInput_padded, Extract.hdrBlock, chainInput_header] at he
   have hn := congrArg (List.take 8) he
   rw [canonicalHeader_low] at hn
   have hp : (bytesLE 16 p.hdr).take 8 = bytesLE 8 (p.hdr.extractLsb' 0 64) := by
@@ -818,8 +861,15 @@ theorem posOf_chain_offgraph (lay : Layer) (tree leaf i step : Nat) (value : Dig
       exact WCT9.wctNodeHeader_low_ne_chainHeader hb.2.1 _ _ _ _ _ _ _ hlo.symm
   | node lay' tree' level nd =>
       by_cases h0 : lay' = 0
-      · exact low_ne_of_firstByte _ _ (chainHeader_firstByte lay tree leaf i step)
-          (Extract.Pos.hdr_marker_lt hb (by simp [Extract.Pos.cls, h0])) hlo
+      · -- C4: a top label's low word is below 4096, a chain header's carries type byte 193.
+        subst h0
+        have hv := congrArg BitVec.toNat hlo
+        simp only [Extract.Pos.hdr] at hv
+        rw [show ((0 : Layer).val) = 0 from rfl, WCT9.merkleTweak_top_low, topNodeWord_toNat64, chainHeader_low,
+          chainHeaderFlaggedLow_toNat] at hv
+        have := chainHeaderLow_band lay tree leaf i step
+        have := topNodeWord_lt (2 ^ (height (0 : Layer) - level - 1) + nd)
+        split_ifs at hv <;> omega
       · -- C2: a lower node word has bit 55 clear (layer byte `lay' - 1 ≤ 2`), an off-graph chain header has it set.
         obtain ⟨-, -, -, -, hnd⟩ := hb
         have h7 : height lay' ≤ 7 := by revert h0; fin_cases lay' <;> decide
@@ -833,7 +883,8 @@ theorem posOf_chain_offgraph (lay : Layer) (tree leaf i step : Nat) (value : Dig
         omega
   | _ =>
       exact low_ne_of_firstByte _ _ (chainHeader_firstByte lay tree leaf i step)
-        (Extract.Pos.hdr_marker_lt hb (by simp only [Extract.Pos.cls]; (try split) <;> omega)) hlo
+        (Extract.Pos.hdr_marker_lt hb (by simp only [Extract.Pos.cls]; (try split) <;> omega)
+          (by simp only [Extract.Pos.cls]; (try split) <;> omega)) hlo
 theorem sat_chain (T : Answers) (lay : Layer) (tree leaf i start count : Nat)
     (htree : tree < 2 ^ 40) (hleaf : leaf < 2 ^ 32) (hi : i < 2 ^ 24) (hcount : start + count ≤ 7) :
     QueriesSat T (HonestQuery T) (SigGolfCandidate.T3.chain lay tree leaf i start count
@@ -925,8 +976,9 @@ theorem sat_buildLeafTop (T : Answers) (leaf : Nat) (digits : List Nat) (hvalid 
         (fun i hi => hr.2.2.1 i (by rw [hr.1]; exact hi))
       simp only [Bool.false_eq_true, ite_false]
       refine QueriesSat.bind ?_ (QueriesSat.pure' _)
-      rw [he, ← WCT9.wotsEnd_top, Extract.leafHash_eq_shortHash]
-      exact sat_shortHash _ (honestQuery_honest T (.leaf (0 : Layer) 0 leaf) hb)
+      rw [he, ← WCT9.wotsEnd_top]
+      unfold leafHash
+      exact sat_projHash _ _ (honestQuery_honest T (.leaf (0 : Layer) 0 leaf) hb)
     · simp only [ite_true]
       exact QueriesSat.pure' _
 theorem honestQuery_treeNode (T : Answers) (lay : Layer) (tree : Nat) (ht : tree < 2 ^ Extract.treeBits lay)
@@ -974,8 +1026,14 @@ theorem sat_buildTopTree (T : Answers) : QueriesSat T (HonestQuery T) buildTopTr
     obtain ⟨root, values⟩ := x
     exact QueriesSat.pure' _
   · rw [eval_topRoots]
+    -- C4: `wotsTree` folds with `lowerLevels`, which equals the top `buildLevels` only propositionally.
+    have hW : evalWithAnswerFn T (buildLevels 3 0 0 (height 0)
+        ((List.range (2 ^ height 0)).map (WCT9.wotsRoot T 0 0))) = WCT9.wotsTree T 0 0 := by
+      unfold WCT9.wotsTree
+      rw [show ((0 : Layer).val) = 0 from rfl, WCT9.lowerLevels_top]
     apply sat_buildLevels
     intro level hlevel node hnode
+    rw [hW] at hnode ⊢
     exact honestQuery_treeNode T 0 0 (by decide) level node hlevel rfl hnode
 theorem sat_packedSecret (T : Answers) (lay : Layer) (tree q : Nat) (carry : Digest) :
     QueriesSat T (HonestQuery T) (WCT9.packedSecret (WCT9.lowerSeedPair lay tree) q carry) := by

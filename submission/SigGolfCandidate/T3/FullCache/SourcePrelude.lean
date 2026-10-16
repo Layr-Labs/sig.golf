@@ -1087,6 +1087,9 @@ macro "nonce_safe" : tactic => `(tactic| aesop (config := { maxRuleApplications 
 theorem avoids_shortHash (input : HashInput) : Avoids protectedMessage (shortHash input) := by
   unfold shortHash; nonce_safe
 attribute [local aesop safe apply] avoids_shortHash
+theorem avoids_projHash (high : Bool) (input : HashInput) : Avoids protectedMessage (projHash high input) := by
+  unfold projHash; nonce_safe
+attribute [local aesop safe apply] avoids_projHash
 theorem avoids_mask (level index : Nat) : Avoids protectedMessage (mask level index) := by
   unfold mask pairedMask; nonce_safe
 attribute [local aesop safe apply] avoids_mask
@@ -1334,6 +1337,10 @@ omit hpair hnonce in
 theorem shortHash_allowed (input : HashInput) : AllQueriesSatisfy (shortHash input) P := by
   unfold shortHash; source_queries
 attribute [local aesop safe apply] shortHash_allowed
+omit hpair hnonce in
+theorem projHash_allowed (high : Bool) (input : HashInput) : AllQueriesSatisfy (projHash high input) P := by
+  unfold projHash; source_queries
+attribute [local aesop safe apply] projHash_allowed
 omit hpublic hnonce in
 theorem mask_allowed (level index : Nat) : AllQueriesSatisfy (mask level index) P := by
   unfold mask pairedMask; source_queries

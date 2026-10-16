@@ -54,8 +54,9 @@ theorem wctChainInputP_zero (index coord child t step : Nat) (value : Digest) :
   simp only [wctChainP, WCT9.chain, wctChainInputP_zero]
 @[simp] theorem wctNodeHashP_zero (coord index heap : Nat) (left right : Digest) :
     wctNodeHashP coord index heap left 0 0 right = WCT9.wctNodeHash coord index heap left right := by
-  simp only [wctNodeHashP, SigGolfCandidate.T3M.SecurityInputs.nodeInputPH_zero, WCT9.wctNodeHash,
-    ← SigGolfCandidate.T3M.SecurityInputs.nodeHashP_eq_shortHash, nodeHashP_zero]
+  rw [WCT9.wctNodeHash_eq_short]
+  simp only [wctNodeHashP, SigGolfCandidate.T3M.SecurityInputs.nodeInputPH_zero]
+  rfl
 theorem recoverCoordinateP_zero (sig : WCT9.Signature) (index : Nat) (output : HashOutput) (coord : WCT9.Coord)
     (prev : Digest × Digest) :
     recoverCoordinateP sig 0 index output coord prev = WCT9.recoverCoordinate sig index output coord prev := by
@@ -128,8 +129,9 @@ theorem recoverLayerPairGuardP_zero (sig : WCT9.Signature) (index : Nat) (lay : 
 theorem verifyTopP_zero (sig : WCT9.Signature) (index : Nat) (answer : Digest) (hindex : index < 2 ^ 31) :
     verifyTopP sig 0 index answer = WCT9.verifyTop sig index answer := by
   simp only [verifyTopP, WCT9.verifyTop, Pads.zero_chain', Pads.zero_chainHeader, valueP_zero,
-    chainP_zero_route _ _ _ _ _ hindex, Pads.zero_merkle', nodeHashP_zero, Pads.zero_topLeaf, Pads.zero_leafHigh,
-    leafHashW_zero, WCT9.lowerLeafHash_top]
+    chainP_zero_route _ _ _ _ _ hindex, Pads.zero_merkle', Pads.zero_merkleHigh, ← WCT9.lowerNodeHash_eqP',
+    Fin.val_zero, WCT9.lowerNodeHash_top, Pads.zero_topLeaf, Pads.zero_leafHigh, leafHashW_zero,
+    WCT9.lowerLeafHash_top]
 theorem verifyLayersBCP_zero (w : WCT9.Witness) (index : Nat) (hindex : index < 2 ^ 31) : ∀ n, n ≤ 4 → ∀ msg,
     verifyLayersBCP w 0 index n msg = WCT9.verifyLayersBC w index n msg := by
   intro n
@@ -420,13 +422,17 @@ theorem lowerPathBytes_length (lay : Layer) (leaf : Nat) (ls : LayerSignature la
     (lowerPathBytes lay leaf ls ctr).length = 16 * pathSlots lay := by
   simp [lowerPathBytes]
 theorem top_path_eq : 16 * pathSlots 0 = 64 * height 0 := rfl
+theorem topPathBytes_length {lay : Layer} (leaf : Nat) (ls : LayerSignature lay) :
+    (topPathBytes leaf ls).length = 16 * pathSlots lay := by
+  simp [topPathBytes]
 theorem layerRegion_length (N : HashOutput) (w : WCT9.Witness) (lay : Layer) :
     (layerRegion N w lay).length = 16 * pathSlots lay + 64 * chainCount lay := by
   unfold layerRegion; split
   · rename_i h
     have hl : lay = 0 := Fin.ext h
     subst hl
-    rw [layerBytes_length]; rfl
+    rw [List.length_append, topPathBytes_length, List.length_drop, layerBytes_length, top_path_eq]
+    omega
   · rw [List.length_append, lowerPathBytes_length, List.length_drop, layerBytes_length]
     omega
 theorem endpointBytes_length (sig : WCT9.Signature) (lay : Layer) :
@@ -626,7 +632,11 @@ theorem win_chain (N : HashOutput) (w : WCT9.Witness) (lay : Layer) (i : Fin (ch
   · rename_i h
     have hl : lay = 0 := Fin.ext h
     subst hl
-    rw [top_path_eq, ← Nat.add_assoc]
+    rw [window_append_right _ _ _ _ (by rw [topPathBytes_length]; omega), topPathBytes_length,
+      Nat.add_sub_cancel_left]
+    unfold window
+    rw [List.drop_drop, show 64 * height 0 + (64 * (chainCount 0 - 1 - i.val) + o) =
+      64 * height 0 + 64 * (chainCount 0 - 1 - i.val) + o by omega]
     exact layerBytes_chain _ _ _ i o ho
   · rw [window_append_right _ _ _ _ (by rw [lowerPathBytes_length]; omega), lowerPathBytes_length,
       Nat.add_sub_cancel_left]
@@ -861,20 +871,155 @@ theorem win_lowerPath (N : HashOutput) (w : WCT9.Witness) (lay : Layer) (hlay : 
   rw [win_layerRegion N w lay o m (by omega)]
   unfold layerRegion
   rw [if_neg hlay, window_append_left _ _ _ _ (by rw [lowerPathBytes_length]; exact h)]
-theorem win_topMerkle (N : HashOutput) (w : WCT9.Witness) (j : Fin (height 0)) (o : Nat) (ho : o + 16 ≤ 64) :
-    window (witList N w) (merkleBlock 0 (route (WCT9.digestIndex N) 0).1 j.val + o) 16 =
-      window (if (route (WCT9.digestIndex N) 0).1 / 2 ^ j.val % 2 = 1 then
-          bytesLE 16 ((w.signature.layers 0).path j) ++ zeros 48
-        else zeros 48 ++ bytesLE 16 ((w.signature.layers 0).path j)) o 16 := by
-  have hj := j.isLt
-  unfold merkleBlock
-  rw [if_pos (show (0 : Layer).val = 0 from rfl), Nat.add_assoc, win_layerRegion _ _ _ _ _ (by
-      change 64 * (height 0 - 1 - j.val) + o + 16 ≤ 768 + 3456
-      have : height (0 : Layer) = 12 := rfl
-      omega)]
+/-! ### C4 top path area: plan-placed siblings, honest zero high words and Z pads
+Line A (levels 0..5, row `leaf % 64`) lies in bytes `[400, 768)`, line B (levels 6..11, row `leaf / 64 % 64`) in
+`[0, 384)`; within a line the sibling slots and the pad areas `[16 P_j + 24, 16 P_j + 48)` are disjoint (kernel
+checks over the 64 rows). -/
+def topSlotA (r j : Nat) : Nat := (topPlanA.getD r []).getD j 0
+def topSlotB (r j : Nat) : Nat := (topPlanB.getD r []).getD j 0
+def topSibA (r j : Nat) : Nat := 16 * topSlotA r j + sibOff (r / 2 ^ j % 2)
+def topSibB (r j : Nat) : Nat := 16 * topSlotB r j + sibOff (r / 2 ^ j % 2)
+theorem topA_range : ∀ r < 64, ∀ j < 6, 400 ≤ 16 * topSlotA r j ∧ 16 * topSlotA r j + 64 ≤ 768 := by decide
+theorem topB_range : ∀ r < 64, ∀ j < 6, 16 * topSlotB r j + 64 ≤ 384 := by decide
+theorem topA_sib : ∀ r < 64, ∀ j < 6, ∀ j' < 6, j ≠ j' →
+    topSibA r j + 16 ≤ topSibA r j' ∨ topSibA r j' + 16 ≤ topSibA r j := by decide
+theorem topB_sib : ∀ r < 64, ∀ j < 6, ∀ j' < 6, j ≠ j' →
+    topSibB r j + 16 ≤ topSibB r j' ∨ topSibB r j' + 16 ≤ topSibB r j := by decide
+theorem topA_pad : ∀ r < 64, ∀ j < 6, ∀ j' < 6,
+    16 * topSlotA r j + 48 ≤ topSibA r j' ∨ topSibA r j' + 16 ≤ 16 * topSlotA r j + 24 := by decide
+theorem topB_pad : ∀ r < 64, ∀ j < 6, ∀ j' < 6,
+    16 * topSlotB r j + 48 ≤ topSibB r j' ∨ topSibB r j' + 16 ≤ 16 * topSlotB r j + 24 := by decide
+theorem sibOff_le (b : Nat) : sibOff b ≤ 48 := by unfold sibOff; split <;> omega
+theorem topPlanSlot_lo {leaf j : Nat} (hj : j < 6) : topPlanSlot leaf j = topSlotA (leaf % 64) j := by
+  unfold topPlanSlot topSlotA; rw [if_pos hj]
+theorem topPlanSlot_hi {leaf j : Nat} (hj : 6 ≤ j) : topPlanSlot leaf j = topSlotB (leaf / 64 % 64) (j - 6) := by
+  unfold topPlanSlot topSlotB; rw [if_neg (by omega)]
+theorem bit_lo (leaf j : Nat) (hj : j < 6) : leaf / 2 ^ j % 2 = leaf % 64 / 2 ^ j % 2 := by
+  interval_cases j <;> simp only [Nat.reducePow] <;> omega
+theorem bit_hi (leaf j : Nat) (h1 : 6 ≤ j) (h2 : j < 12) : leaf / 2 ^ j % 2 = leaf / 64 % 64 / 2 ^ (j - 6) % 2 := by
+  interval_cases j <;> simp only [Nat.reducePow, Nat.reduceSub] <;> omega
+theorem topSibSlot_lo {leaf j : Nat} (hj : j < 6) : topSibSlot leaf j = topSibA (leaf % 64) j := by
+  unfold topSibSlot topSibA; rw [topPlanSlot_lo hj, bit_lo leaf j hj]
+theorem topSibSlot_hi {leaf j : Nat} (h1 : 6 ≤ j) (h2 : j < 12) :
+    topSibSlot leaf j = topSibB (leaf / 64 % 64) (j - 6) := by
+  unfold topSibSlot topSibB; rw [topPlanSlot_hi h1, bit_hi leaf j h1 h2]
+theorem height_top : height (0 : Layer) = 12 := rfl
+theorem pathSlots_top : 16 * pathSlots (0 : Layer) = 768 := rfl
+/-- Every top window's sibling slot and pad area lie in its line's range. -/
+theorem top_ranges (leaf j : Nat) (hj : j < height 0) :
+    (j < 6 → 400 ≤ topSibSlot leaf j ∧ topSibSlot leaf j + 16 ≤ 768 ∧
+      400 ≤ 16 * topPlanSlot leaf j ∧ 16 * topPlanSlot leaf j + 48 ≤ 768) ∧
+    (6 ≤ j → topSibSlot leaf j + 16 ≤ 384 ∧ 16 * topPlanSlot leaf j + 48 ≤ 384) := by
+  rw [height_top] at hj
+  have hr : leaf % 64 < 64 := Nat.mod_lt _ (by decide)
+  have hr' : leaf / 64 % 64 < 64 := Nat.mod_lt _ (by decide)
+  refine ⟨fun h6 => ?_, fun h6 => ?_⟩
+  · have := topA_range _ hr j h6
+    have := sibOff_le (leaf % 64 / 2 ^ j % 2)
+    rw [topSibSlot_lo h6, topPlanSlot_lo h6]
+    unfold topSibA
+    omega
+  · have := topB_range _ hr' (j - 6) (by omega)
+    have := sibOff_le (leaf / 64 % 64 / 2 ^ (j - 6) % 2)
+    rw [topSibSlot_hi h6 hj, topPlanSlot_hi h6]
+    unfold topSibB
+    omega
+theorem top_sib_bound (leaf j : Nat) (hj : j < height 0) : topSibSlot leaf j + 16 ≤ 768 := by
+  have h := top_ranges leaf j hj
+  by_cases h6 : j < 6
+  · exact (h.1 h6).2.1
+  · have := (h.2 (by omega)).1; omega
+theorem top_pad_bound (leaf j : Nat) (hj : j < height 0) : 16 * topPlanSlot leaf j + 48 ≤ 768 := by
+  have h := top_ranges leaf j hj
+  by_cases h6 : j < 6
+  · exact (h.1 h6).2.2.2
+  · have := (h.2 (by omega)).2; omega
+theorem top_sib_disjoint (leaf j j' : Nat) (hj : j < height 0) (hj' : j' < height 0) (hne : j ≠ j') :
+    topSibSlot leaf j + 16 ≤ topSibSlot leaf j' ∨ topSibSlot leaf j' + 16 ≤ topSibSlot leaf j := by
+  have h := top_ranges leaf j hj
+  have h' := top_ranges leaf j' hj'
+  rw [height_top] at hj hj'
+  have hr : leaf % 64 < 64 := Nat.mod_lt _ (by decide)
+  have hr' : leaf / 64 % 64 < 64 := Nat.mod_lt _ (by decide)
+  by_cases h6 : j < 6 <;> by_cases h6' : j' < 6
+  · rw [topSibSlot_lo h6, topSibSlot_lo h6']; exact topA_sib _ hr j h6 j' h6' hne
+  · have := (h.1 h6).1; have := (h'.2 (by omega)).1; omega
+  · have := (h.2 (by omega)).1; have := (h'.1 h6').1; omega
+  · rw [topSibSlot_hi (by omega) hj, topSibSlot_hi (by omega) hj']
+    exact topB_sib _ hr' (j - 6) (by omega) (j' - 6) (by omega) (by omega)
+theorem top_pad_sib (leaf j j' : Nat) (hj : j < height 0) (hj' : j' < height 0) :
+    16 * topPlanSlot leaf j + 48 ≤ topSibSlot leaf j' ∨ topSibSlot leaf j' + 16 ≤ 16 * topPlanSlot leaf j + 24 := by
+  have h := top_ranges leaf j hj
+  have h' := top_ranges leaf j' hj'
+  rw [height_top] at hj hj'
+  have hr : leaf % 64 < 64 := Nat.mod_lt _ (by decide)
+  have hr' : leaf / 64 % 64 < 64 := Nat.mod_lt _ (by decide)
+  by_cases h6 : j < 6 <;> by_cases h6' : j' < 6
+  · rw [topPlanSlot_lo h6, topSibSlot_lo h6']; exact topA_pad _ hr j h6 j' h6'
+  · have := (h.1 h6).2.2.1; have := (h'.2 (by omega)).1; omega
+  · have := (h.2 (by omega)).2; have := (h'.1 h6').1; omega
+  · rw [topPlanSlot_hi (by omega), topSibSlot_hi (by omega) hj']
+    exact topB_pad _ hr' (j - 6) (by omega) (j' - 6) (by omega)
+section topPath
+variable (leaf : Nat) (ls : LayerSignature 0)
+theorem topPathByte_sib (j : Fin (height 0)) {i : Nat} (hi : i < 16) :
+    topPathByte leaf ls (topSibSlot leaf j.val + i) = (bytesLE 16 (ls.path j)).getD i 0 := by
+  unfold topPathByte
+  generalize hf : (List.finRange (height 0)).find? _ = r
+  rcases r with _ | j'
+  · exfalso
+    have := List.find?_eq_none.mp hf j (List.mem_finRange j)
+    simp only [decide_eq_true_eq, not_and, not_lt] at this
+    have := this (by omega)
+    omega
+  · have hp := List.find?_some hf
+    simp only [decide_eq_true_eq] at hp
+    have hjj : j' = j := by
+      by_contra hne
+      have hd := top_sib_disjoint leaf j'.val j.val j'.isLt j.isLt (fun e => hne (Fin.ext e))
+      omega
+    subst hjj
+    simp only [Nat.add_sub_cancel_left]
+theorem topPathByte_free {p : Nat}
+    (hp : ∀ j : Fin (height 0), p < topSibSlot leaf j.val ∨ topSibSlot leaf j.val + 16 ≤ p) :
+    topPathByte leaf ls p = 0 := by
+  unfold topPathByte
+  rw [List.find?_eq_none.mpr (fun j _ => by
+    have := hp j
+    simp only [decide_eq_true_eq, not_and, not_lt]
+    omega)]
+theorem topPath_sib (j : Fin (height 0)) :
+    window (topPathBytes leaf ls) (topSibSlot leaf j.val) 16 = bytesLE 16 (ls.path j) := by
+  unfold topPathBytes
+  rw [window_map_range _ _ _ _ (by rw [pathSlots_top]; exact top_sib_bound leaf j.val j.isLt),
+    List.map_congr_left (fun i hi => topPathByte_sib leaf ls j (List.mem_range.mp hi))]
+  exact map_range_getD _ _ (bytesLE_length _ _)
+theorem topPath_zero {a m : Nat} (hb : a + m ≤ 768)
+    (hc : ∀ j : Fin (height 0), a + m ≤ topSibSlot leaf j.val ∨ topSibSlot leaf j.val + 16 ≤ a) :
+    window (topPathBytes leaf ls) a m = zeros m := by
+  have hz : ∀ i, i < m → topPathByte leaf ls (a + i) = 0 := by
+    intro i hi
+    exact topPathByte_free leaf ls (fun j => by have := hc j; omega)
+  unfold topPathBytes
+  rw [window_map_range _ _ _ _ (by rw [pathSlots_top]; exact hb),
+    List.map_congr_left (fun i hi => hz i (List.mem_range.mp hi))]
+  simp [zeros, List.map_const']
+theorem topPath_pad {j : Nat} (hj : j < height 0) :
+    window (topPathBytes leaf ls) (16 * topPlanSlot leaf j + 32) 16 = zeros 16 :=
+  topPath_zero leaf ls (by have := top_pad_bound leaf j hj; omega)
+    (fun j' => by have := top_pad_sib leaf j j'.val hj j'.isLt; omega)
+theorem topPath_hp {j : Nat} (hj : j < height 0) :
+    window (topPathBytes leaf ls) (16 * topPlanSlot leaf j + 24) 8 = zeros 8 :=
+  topPath_zero leaf ls (by have := top_pad_bound leaf j hj; omega)
+    (fun j' => by have := top_pad_sib leaf j j'.val hj j'.isLt; omega)
+end topPath
+theorem win_topPath (N : HashOutput) (w : WCT9.Witness) (o m : Nat) (h : o + m ≤ 768) :
+    window (witList N w) (layerBase 0 + o) m =
+      window (topPathBytes (route (WCT9.digestIndex N) 0).1 (w.signature.layers 0)) o m := by
+  rw [win_layerRegion N w 0 o m (by rw [pathSlots_top]; omega)]
   unfold layerRegion
-  rw [if_pos (show (0 : Layer).val = 0 from rfl)]
-  exact layerBytes_merkle _ _ _ j o ho
+  rw [if_pos (show (0 : Layer).val = 0 from rfl),
+    window_append_left _ _ _ _ (by rw [topPathBytes_length, pathSlots_top]; exact h)]
 section t3b
 variable (N : HashOutput) (w : WCT9.Witness)
 theorem wpath_witEnc (lay : Layer) (j : Fin (height lay)) :
@@ -882,14 +1027,12 @@ theorem wpath_witEnc (lay : Layer) (j : Fin (height lay)) :
   by_cases hlay : lay.val = 0
   · have hl : lay = 0 := Fin.ext hlay
     subst hl
-    unfold wpath
-    rw [wdig_witEnc, win_topMerkle _ _ _ _ (by unfold sibOff; split <;> omega)]
-    unfold sibOff
-    split
-    · rw [window_append_left _ _ _ _ (by simp [bytesLE_length]), window_full _ _ (bytesLE_length _ _),
-        Correctness.readDigest_bytesLE]
-    · rw [window_append_right _ _ _ _ (by simp [zeros]), show 48 - (zeros 48).length = 0 by simp [zeros],
-        window_full _ _ (bytesLE_length _ _), Correctness.readDigest_bytesLE]
+    unfold wpath merkleBlock
+    rw [if_pos (show (0 : Layer).val = 0 from rfl), Nat.add_assoc,
+      show 16 * topPlanSlot (route (WCT9.digestIndex N) 0).1 j.val +
+        sibOff ((route (WCT9.digestIndex N) 0).1 / 2 ^ j.val % 2) =
+        topSibSlot (route (WCT9.digestIndex N) 0).1 j.val from rfl, wdig_witEnc,
+      win_topPath _ _ _ _ (top_sib_bound _ j.val j.isLt), topPath_sib, Correctness.readDigest_bytesLE]
   · have hleaf := route_leaf_lt (WCT9.digestIndex N) lay
     unfold wpath merkleBlock
     rw [if_neg hlay, Nat.add_assoc, show 16 * (lowerPlan lay (route (WCT9.digestIndex N) lay).1).getD j.val 0 +
@@ -902,13 +1045,10 @@ theorem wmerklePad_witEnc (lay : Layer) (j : Fin (height lay)) (hj : j.val + 1 <
   by_cases hlay : lay.val = 0
   · have hl : lay = 0 := Fin.ext hlay
     subst hl
-    unfold wmerklePad
-    rw [wdig_witEnc, win_topMerkle _ _ _ _ (by omega)]
-    split
-    · rw [window_append_right _ _ _ _ (by simp [bytesLE_length]), window_zeros _ _ _ (by simp [bytesLE_length]),
-        readDigest_zeros]
-    · rw [window_append_left _ _ _ _ (by simp [zeros, bytesLE_length]), window_zeros _ _ _ (by omega),
-        readDigest_zeros]
+    unfold wmerklePad merkleBlock
+    rw [if_pos (show (0 : Layer).val = 0 from rfl), Nat.add_assoc, wdig_witEnc,
+      win_topPath _ _ _ _ (by have := top_pad_bound (route (WCT9.digestIndex N) 0).1 j.val j.isLt; omega),
+      topPath_pad _ _ j.isLt, readDigest_zeros]
   · have hleaf := route_leaf_lt (WCT9.digestIndex N) lay
     have hj' : j.val + 1 < height lay := hj.resolve_right hlay
     unfold wmerklePad merkleBlock
@@ -982,22 +1122,24 @@ theorem wbcHigh_witEnc (lay : Layer) : wbcHigh (witEnc N w) (WCT9.digestIndex N)
       (by have := height_pos' (upLayer lay); omega)
     rw [rowBlock_hi _ _ hlt, win_lowerPath _ _ _ hv _ _ (by unfold lowerHiSlot; omega), lowerPath_hi hv hleaf]
     decide
-/-- C2 (FULL): the honest high tweak words of the lower fold windows are 0 (the top's are zero bytes too). -/
-theorem wmerkleHigh_witEnc (lay : Layer) (j : Fin (height lay)) (hj : j.val + 1 < height lay) :
+/-- C2 (FULL) + C4: the honest high tweak words of the fold windows are 0 (lower windows below the root, every top
+window). -/
+theorem wmerkleHigh_witEnc (lay : Layer) (j : Fin (height lay)) (hj : j.val + 1 < height lay ∨ lay.val = 0) :
     wmerkleHigh (witEnc N w) lay (route (WCT9.digestIndex N) lay).1 j.val = 0 := by
   unfold wmerkleHigh
   by_cases hlay : lay.val = 0
   · have hl : lay = 0 := Fin.ext hlay
     subst hl
-    rw [wdig_witEnc, win_topMerkle _ _ _ _ (by omega)]
-    split
-    · rw [window_append_right _ _ _ _ (by simp [bytesLE_length]), window_zeros _ _ _ (by simp [bytesLE_length]),
-        readDigest_zeros]
-      decide
-    · rw [window_append_left _ _ _ _ (by simp [zeros, bytesLE_length]), window_zeros _ _ _ (by omega),
-        readDigest_zeros]
-      decide
-  · have hleaf := route_leaf_lt (WCT9.digestIndex N) lay
+    have hb := top_pad_bound (route (WCT9.digestIndex N) 0).1 j.val j.isLt
+    rw [wdig_high, wword_witEnc]
+    unfold merkleBlock
+    rw [if_pos (show (0 : Layer).val = 0 from rfl),
+      show layerBase 0 + 16 * topPlanSlot (route (WCT9.digestIndex N) 0).1 j.val + 16 + 8 =
+        layerBase 0 + (16 * topPlanSlot (route (WCT9.digestIndex N) 0).1 j.val + 24) by omega,
+      win_topPath _ _ _ _ (by omega), topPath_hp _ _ j.isLt]
+    decide
+  · have hj : j.val + 1 < height lay := hj.resolve_right hlay
+    have hleaf := route_leaf_lt (WCT9.digestIndex N) lay
     have hb := lower_pad_bound lay hlay _ hleaf j.val j.isLt
     rw [wdig_high, wword_witEnc]
     unfold merkleBlock

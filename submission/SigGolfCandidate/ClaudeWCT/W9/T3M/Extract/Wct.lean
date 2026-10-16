@@ -271,7 +271,7 @@ theorem leaf_extract (answers : Answers) (index coord child : Nat) (pad : Digest
         Extract.Pos.len]
 theorem merkleInput_tree_reference_le (answers : Answers) (tag lay tree height completed leaf : Nat)
     (levels : List (List Digest)) (leaves : List Digest)
-    (htree : TreeLevels answers tag lay tree height leaves completed levels)
+    (htree : TreeLevels answers tag lay tree height leaves completed levels) (htop : ¬ (tag = 3 ∧ lay = 0))
     (hleaf : leaf < 2 ^ height) (step : Nat) (hstep : step < completed) (hc : completed ≤ height) :
     evalWithAnswerFn answers (shortHash
       (merkleInput tag lay tree height leaf
@@ -281,7 +281,7 @@ theorem merkleInput_tree_reference_le (answers : Answers) (tag lay tree height c
   unfold merkleInput
   dsimp only
   rw [Correctness.sibling_pair, Correctness.div_pow_succ]
-  rw [← nodeHash_eq_shortHash]
+  rw [← nodeHash_eq_shortHash (nodeHalfHigh_of_ne htop _)]
   have hparent : leaf / 2 ^ (step + 1) < 2 ^ (height - (step + 1)) := by
     simpa using Correctness.div_pow_bound (start := 0) (level := step + 1)
       (node := leaf) (height := height) (by omega) (by simpa using hleaf)
@@ -300,7 +300,7 @@ theorem merkle_reference (hj : j < 128) : ∀ step, step < 5 →
       (fun _ => 0) step (mTarget answers index c j step))) = mTarget answers index c j (step + 1) := by
   intro step hstep
   have h := merkleInput_tree_reference_le answers 3 (WCT9.nodeLayer c.val) index 7 5 j _ _
-    (ftsLevels_treeLevels answers index c) (by norm_num; omega) step hstep (by decide)
+    (ftsLevels_treeLevels answers index c) (by simp [WCT9.nodeLayer]) (by norm_num; omega) step hstep (by decide)
   have e1 : ∀ x, treeValue ((Extract.ftsLevels answers index c.val).take 6) step x =
       treeValue (Extract.ftsLevels answers index c.val) step x := fun x => WCT9.treeValue_take_lt _ (by omega) x
   have e2 : ∀ x, treeValue ((Extract.ftsLevels answers index c.val).take 6) (step + 1) x =
@@ -2333,7 +2333,15 @@ theorem posOf_padded_chain (index coord raw t step : Nat)
   have hlen : (pad64 (wctChainInputP index coord raw t step pa pb pc value)).length = 64 := by
     rw [wctChainInputP_block4,pad64_block4,block4_length]
   apply posOf_key_eq hb hlen
-  rw [hdrKey_of_len64 hlen,wctChainInputP_block4,pad64_block4,hdrBlock_block4W,
+  -- C4: an FTS chain word is at least 2^16 (coordinate nibble `coord + 1`), so it is no top label.
+  have hT : ¬ TopLow (hdrBlock (pad64 (wctChainInputP index coord raw t step pa pb pc value))) := by
+    rw [wctChainInputP_block4, pad64_block4, hdrBlock_block4W, topLow_bytesLE_iff]
+    unfold SigGolfCandidate.T3.tweakLow
+    rw [ClaudeWCT.WCT9.ftsChainHeaderP_toNat]
+    have hge := ClaudeWCT.WCT9.ftsChainLow_ge (coord := coord) (by have := hb.2.1; omega) index raw t step
+    have hlt := ClaudeWCT.WCT9.ftsChainLow_lt index coord raw t step
+    omega
+  rw [hdrKey_of_len64 hlen hT,wctChainInputP_block4,pad64_block4,hdrBlock_block4W,
     canonicalHeader_ftsChainHeaderP]
   simpa only [Pos.hdr] using (Pos.canonicalHeader_eq hb)
 

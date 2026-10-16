@@ -362,16 +362,22 @@ theorem pad64_long_length {input : HashInput} (hl : 64 < input.length) : (pad64 
   have : input.length ≤ (pad64 input).length := by
     simp only [pad64, List.length_append, List.length_replicate]; omega
   omega
-/-- A Merkle node tweak of the current scheme is no chain header at a chain step (`< 7`): the top node marker is
-64, a lower node word has byte1 `7` while a chain header at step `< 7` has byte1 `≡ step (mod 8)`. -/
+/-- A Merkle node tweak of the current scheme is no chain header at a chain step (`< 7`): the C4 top label's low word
+is `topNodeWord heap < 4096` while a chain header's low word has byte7 193; a lower node word has byte1 `7` while a
+chain header at step `< 7` has byte1 `≡ step (mod 8)`. -/
 theorem merkleTweak_ne_chainHeader {lay tree heap : Nat} (hh : lay = 0 ∨ heap < 128) (l : Layer)
     (tr leaf i step : Nat) (hs : step < 7) : WCT9.merkleTweak lay tree heap ≠ chainHeader l tr leaf i step := by
   unfold WCT9.merkleTweak
   split_ifs with h0
-  · apply ne_of_tweakMarker
-    rw [nodeTweak_top_marker]
-    unfold tweakMarker
-    have := chainHeader_firstByte l tr leaf i step
+  · intro he
+    have hl := congrArg (fun x : BitVec 128 => (x.extractLsb' 0 64).toNat) he
+    have hb := (WCT9.chainHeader_low_band l tr leaf i step).1
+    have ht := nodeTweak_top_low tree heap
+    have := topNodeWord_lt heap
+    unfold tweakLow at ht
+    have hn : ((nodeTweak 3 0 tree heap).extractLsb' 0 64).toNat = topNodeWord heap := by
+      rw [BitVec.extractLsb'_toNat, Nat.shiftRight_zero]; exact ht
+    rw [hn] at hl
     omega
   · exact WCT9.lowerTweak_ne_chainHeader (hh.resolve_left h0) _ _ _ _ _ _ _ (by omega)
 section ProgramsW

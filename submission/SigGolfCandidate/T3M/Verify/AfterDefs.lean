@@ -31,7 +31,8 @@ open SigGolfCandidate.T3 (Digest HashOutput Selection selections header)
 /-- State after the nested FTS (pc 854, with the pair already in the L3 row): tree 8's top pair in the L3 block's left slot (witness
 offset 0) and right slot (offset 48). -/
 structure FtsOut (F : FCtx) (top : Digest × Digest) (u : MachineState) : Prop where
-  glob : Glob baseK F.w F.pk u
+  /-- C4 (D7, adapted from b3cc11b): the FTS setup no longer loads `s2` (x18); the L3 block loads it from `d0`. -/
+  glob : Glob [(.x5, 0)] F.w F.pk u
   idx : u.getReg .x22 = BitVec.ofNat 64 F.idx
   pc : u.pc = pcOf layerPc
   left : DigAt u WIT top.1
@@ -57,6 +58,8 @@ structure FtsOut (F : FCtx) (top : Digest × Digest) (u : MachineState) : Prop w
   /-- `a2` after coordinate 8's last heap hash (Cm: `WIT - 16` for the high-half left top node, `WIT + 48` for the
   low-half right top node); the L3 encoding writes there. -/
   a2 : u.getReg .x12 = BitVec.ofNat 64 1200 ∨ u.getReg .x12 = BitVec.ofNat 64 1264
+  /-- C4 (D7): the stack word `ld s2,-304(s1)` reads (0xFFF). -/
+  d0 : u.getMem (BitVec.ofNat 64 (TOPB9 - 304)) = 0xFFF
 end SigGolfCandidate.T3M.Verify
 namespace SigGolfCandidate.T3M.Verify
 open SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64 SigGolfCandidate.Rv OracleComp

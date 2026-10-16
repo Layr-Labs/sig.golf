@@ -258,7 +258,17 @@ def topHdr (index : Nat) : BitVec 128 :=
 def topIn (index : Nat) (v o : Digest) : List UInt8 :=
   let pair := if (route index 0).1 / 2 ^ WCT9.topJ.val % 2 = 0 then (v, o) else (o, v)
   bytesLE 16 pair.1 ++ bytesLE 16 (topHdr index) ++ zero16 ++ bytesLE 16 pair.2
-theorem topNode_eq (index : Nat) (v o : Digest) : WCT9.topNode index v o = shortHash (topIn index v o) := rfl
+/-- C4 (adapted from b3cc11b): the top root (heap 1) keeps the low half, so `topNode` is a plain `shortHash`. -/
+theorem topNode_eq (index : Nat) (v o : Digest) : WCT9.topNode index v o = shortHash (topIn index v o) := by
+  have hl : (route index 0).1 < 4096 := by
+    have h1 : (route index 0).1 = index / 2 ^ 19 % 2 ^ 12 := rfl
+    rw [h1]; exact Nat.mod_lt _ (by norm_num)
+  have h0 : (route index 0).1 / 2 ^ (WCT9.topJ.val + 1) = 0 := Nat.div_eq_of_lt (by simp [WCT9.topJ]; omega)
+  have hh : SigGolfCandidate.T3.nodeHalfHigh 3 (0 : Layer).val
+      (2 ^ (height 0 - WCT9.topJ.val - 1) + (route index 0).1 / 2 ^ (WCT9.topJ.val + 1)) = false := by
+    rw [h0]; decide
+  unfold WCT9.topNode SigGolfCandidate.T3.nodeHash topIn topHdr
+  rw [hh, SigGolfCandidate.T3.projHash_false]
 theorem topIn_length (index : Nat) (v o : Digest) : (topIn index v o).length = 64 := by
   unfold topIn; simp [bytesLE_length, zero16]
 def lo64 (d : Digest) : Word := d.extractLsb' 0 64
@@ -834,11 +844,11 @@ theorem compact_step (s : MachineState) (hp:s.pc=pcOf 351) :
     Steps Images.expandImage s 1 1 (s.setPC (pcOf 41108)) := by
   obtain ⟨imm,hd,hoff⟩ := jalTo_sound (show jalTo (0x4d52706f#32) 351=some 41108 by decide)
   exact jal_x0_step compact_code hd hoff s hp
-theorem scatter_code : CodeAt Images.expandImage (pcOf 44043) [0x5e50206f] := by
+theorem scatter_code : CodeAt Images.expandImage (pcOf 43761) [0x24c0306f] := by
   apply codeAt_expand_current_chunk <;> decide +kernel
-theorem scatter_step (s : MachineState) (hp:s.pc=pcOf 44043) :
+theorem scatter_step (s : MachineState) (hp:s.pc=pcOf 43761) :
     Steps Images.expandImage s 1 1 (s.setPC (pcOf 46980)) := by
-  obtain ⟨imm,hd,hoff⟩ := jalTo_sound (show jalTo (0x5e50206f#32) 44043=some 46980 by decide)
+  obtain ⟨imm,hd,hoff⟩ := jalTo_sound (show jalTo (0x24c0306f#32) 43761=some 46980 by decide)
   exact jal_x0_step scatter_code hd hoff s hp
 theorem installed_srchCore : SrchCoreAt Images.expandImage := by
   apply codeAt_expand_current_chunk <;> decide +kernel

@@ -21,7 +21,8 @@ structure CoordPre (pk : Digest) (w : ClaudeWCT.W9.T3M.WBytes) (a : HashOutput) 
   le : n ≤ 9
   length : pairs.length = n
   pc : u.pc = pcOf (dispatchPc n)
-  glob : Glob baseK w pk u
+  /-- C4 (D7): `s2` (x18) is loaded only in the L3 block, so the FTS phase keeps `x5 = 0` and the data word `d0`. -/
+  glob : Glob [(.x5, 0)] w pk u
   digest : DigestAt a u
   bank : HeaderBank u
   forest : ForestData u
@@ -31,7 +32,9 @@ structure CoordPre (pk : Digest) (w : ClaudeWCT.W9.T3M.WBytes) (a : HashOutput) 
   stepTwo : u.getReg .x13 = 2
   hashLen : u.getReg .x11 = 64
   coordStep : u.getReg .x6 = 65536
-  nodeReg : u.getReg .x15 = BitVec.ofNat 64 (idxOf a * 2^27 + 1537 + 65536 * (n-1))
+  /-- C4: the FTS coordinate nibble is `coordinate + 1` (`add a5,a5,t1` in the prologue). -/
+  nodeReg : u.getReg .x15 = BitVec.ofNat 64 (idxOf a * 2^27 + 67073 + 65536 * (n-1))
+  d0 : u.getMem (BitVec.ofNat 64 dataBase7) = 0xFFF
   cached3 : u.getReg .x17 = if n < 8 then a.extractLsb' 192 64 else a.extractLsb' 192 64 ||| rankPad
   cached : u.getReg .x16 = a.extractLsb' (64 * cachedWord n) 64 ||| rankPad
   mask : u.getReg .x2 = BitVec.ofNat 64 0xfff00
@@ -73,7 +76,7 @@ structure Pre (pk : Digest) (w : ClaudeWCT.W9.T3M.WBytes) (a : HashOutput) (n : 
   le : n ≤ 9
   length : pairs.length = n
   pc : u.pc = pcOf (dispatchPc n)
-  glob : Glob baseK w pk u
+  glob : Glob [(.x5, 0)] w pk u
   digest : DigestAt a u
   bank : HeaderBank u
   forest : ForestData u
@@ -83,7 +86,8 @@ structure Pre (pk : Digest) (w : ClaudeWCT.W9.T3M.WBytes) (a : HashOutput) (n : 
   stepTwo : u.getReg .x13 = 2
   hashLen : u.getReg .x11 = 64
   coordStep : u.getReg .x6 = 65536
-  nodeReg : u.getReg .x15 = BitVec.ofNat 64 (idxOf a * 2^27 + 1537 + 65536 * (n-1))
+  nodeReg : u.getReg .x15 = BitVec.ofNat 64 (idxOf a * 2^27 + 67073 + 65536 * (n-1))
+  d0 : u.getMem (BitVec.ofNat 64 dataBase7) = 0xFFF
   cached3 : u.getReg .x17 = if n < 8 then a.extractLsb' 192 64 else a.extractLsb' 192 64 ||| rankPad
   cached : u.getReg .x16 = a.extractLsb' (64 * cachedWord n) 64 ||| rankPad
   mask : u.getReg .x2 = BitVec.ofNat 64 0xfff00
@@ -107,4 +111,6 @@ structure Pre (pk : Digest) (w : ClaudeWCT.W9.T3M.WBytes) (a : HashOutput) (n : 
   /-- C3 (stage 2): witness word 3 (the L3 row tweak's high word, a pad) is original; the merged singleton never
   writes `WIT + 16 .. WIT + 48`. -/
   layer : Orig w (fun o => (24 ≤ o ∧ o < 48) ∨ (8256 ≤ o ∧ o < 24896)) u
+  /-- Coordinate 7 carries the shared shift used by coordinate 8. -/
+  hoist : n = 8 → u.getReg .x4 = u.getReg .x17 >>> 17
 end W9Drv.SharedCoord

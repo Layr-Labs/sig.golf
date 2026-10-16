@@ -96,14 +96,15 @@ def FtsPos : Extract.Pos → Prop
   | .wctChain .. => True
   | .wctLeaf .. => True
   | .wctNode .. => True
-  | .forest _ => True
   | _ => False
+/-- C4: the query also has the position's length (`Pos.hdr_injective` needs it). -/
 def FtsQueryPos (actual : HashInput) : Prop :=
-  ∃ pos : Extract.Pos, pos.Bounded ∧ PosSource pos ∧ FtsPos pos ∧
+  ∃ pos : Extract.Pos, pos.Bounded ∧ PosSource pos ∧ FtsPos pos ∧ actual.length = pos.len ∧
     Extract.canonicalHeader (Extract.hdrBlock actual) = bytesLE 16 pos.hdr
 theorem ftsQueryPos_of_hdr {actual : HashInput} {pos : Extract.Pos} (hb : pos.Bounded) (hsrc : PosSource pos)
-    (hfts : FtsPos pos) (hdr : Extract.hdrBlock actual = bytesLE 16 pos.hdr) : FtsQueryPos actual :=
-  ⟨pos, hb, hsrc, hfts, by rw [hdr, Extract.Pos.canonicalHeader_eq hb]⟩
+    (hfts : FtsPos pos) (hlen : actual.length = pos.len) (hdr : Extract.hdrBlock actual = bytesLE 16 pos.hdr) :
+    FtsQueryPos actual :=
+  ⟨pos, hb, hsrc, hfts, hlen, by rw [hdr, Extract.Pos.canonicalHeader_eq hb]⟩
 theorem chain_queries_pos (answers : Answers) (index coord child t d : Nat) (hd : d ≤ 4) (p0 : Digest)
     (pb : BitVec 64) (p1 v : Digest) (hb : index < 2 ^ 31 ∧ coord < 9 ∧ child < 128 ∧ t < 6) :
     ∀ q ∈ queried answers (wctChainP index coord child t (4 - d) d p0 pb p1 v),
@@ -114,14 +115,16 @@ theorem chain_queries_pos (answers : Answers) (index coord child t d : Nat) (hd 
   have hs := List.mem_range.mp hs
   obtain ⟨hi, hc, hj, ht⟩ := hb
   have hbd : (Extract.Pos.wctChain index coord child t (4 - d + s)).Bounded := ⟨hi, hc, hj, ht, by omega⟩
-  refine ⟨_, rfl, .wctChain index coord child t (4 - d + s), hbd, ⟨hi, hc, hj, ht, by omega⟩, trivial, ?_⟩
+  refine ⟨_, rfl, .wctChain index coord child t (4 - d + s), hbd, ⟨hi, hc, hj, ht, by omega⟩, trivial, ?_, ?_⟩
+  · simp only [pathInput, wctChainInputP_block4, pad64_block4, Extract.Pos.len]
+    simp [block4, SphincsSecurity.bytesLE_length]
   simp only [pathInput, wctChainInputP_block4, pad64_block4, hdrBlock_block4W, Extract.Pos.hdr]
   rw [WctExtract.canonicalHeader_ftsChainHeaderP]
   have hk := Extract.Pos.canonicalHeader_eq hbd
   simp only [Extract.Pos.hdr] at hk
   exact hk
 theorem leaf_queries_pos (answers : Answers) (index coord child : Nat) (pad : Digest) (ends : List Digest)
-    (hb : index < 2 ^ 31 ∧ coord < 9 ∧ child < 128) :
+    (hb : index < 2 ^ 31 ∧ coord < 9 ∧ child < 128) (hends : ends.length = 6) :
     ∀ q ∈ queried answers (WCT9.leafHashP index coord child pad ends),
       ∃ actual, q = .inl (.inr actual) ∧ FtsQueryPos actual := by
   intro q hq
@@ -129,7 +132,10 @@ theorem leaf_queries_pos (answers : Answers) (index coord child : Nat) (pad : Di
   rw [List.mem_singleton] at hq
   subst hq
   obtain ⟨hi, hc, hj⟩ := hb
-  refine ⟨_, rfl, ftsQueryPos_of_hdr (pos := .wctLeaf index coord child) ⟨hi, hc, hj⟩ ⟨hi, hc, hj⟩ trivial ?_⟩
+  refine ⟨_, rfl, ftsQueryPos_of_hdr (pos := .wctLeaf index coord child) ⟨hi, hc, hj⟩ ⟨hi, hc, hj⟩ trivial ?_ ?_⟩
+  · unfold Extract.wctLeafInputP
+    rw [Extract.pad64_length_of_mod (by rw [Extract.listInput_length]; simp [hends]), Extract.listInput_length]
+    simp [hends, Extract.Pos.len]
   rw [Extract.hdrBlock_wctLeafInputP]
   rfl
 theorem merkle_queries_pos (answers : Answers) (index : Nat) (c : WCT9.Coord) (j : Nat) (hj : j < 128)
@@ -145,7 +151,9 @@ theorem merkle_queries_pos (answers : Answers) (index : Nat) (c : WCT9.Coord) (j
       (by norm_num; omega)
     simpa [Nat.sub_sub] using this
   have hbd : (Extract.Pos.wctNode index c.val s (j / 2 ^ (s + 1))).Bounded := ⟨hidx, c.isLt, by omega, hn⟩
-  refine ⟨_, rfl, .wctNode index c.val s (j / 2 ^ (s + 1)), hbd, hbd, trivial, ?_⟩
+  refine ⟨_, rfl, .wctNode index c.val s (j / 2 ^ (s + 1)), hbd, hbd, trivial, ?_, ?_⟩
+  · simp [pathInput, merkleInputH, nodeInputPH, block4, SphincsSecurity.bytesLE_length, pad64,
+      Extract.Pos.len]
   have he : (Extract.Pos.wctNode index c.val s (j / 2 ^ (s + 1))).hdr =
       nodeTweak 3 (WCT9.nodeLayer c.val) index (2 ^ (7 - s - 1) + j / 2 ^ (s + 1)) := rfl
   have hk := Extract.Pos.canonicalHeader_eq hbd
@@ -163,7 +171,9 @@ theorem top_queries_pos (answers : Answers) (index : Nat) (c : WCT9.Coord) (j : 
   have hn : j / 2 ^ 6 < 2 := (Nat.div_lt_iff_lt_mul (by positivity)).mpr (by norm_num; omega)
   have hbd : (Extract.Pos.wctNode index c.val 5 (j / 2 ^ 6)).Bounded :=
     ⟨hidx, c.isLt, by norm_num, by norm_num; omega⟩
-  refine ⟨_, rfl, ftsQueryPos_of_hdr (pos := .wctNode index c.val 5 (j / 2 ^ 6)) hbd hbd trivial ?_⟩
+  refine ⟨_, rfl, ftsQueryPos_of_hdr (pos := .wctNode index c.val 5 (j / 2 ^ 6)) hbd hbd trivial ?_ ?_⟩
+  · rw [wctTopInput_block4, pad64_block4]
+    simp [block4, SphincsSecurity.bytesLE_length, Extract.Pos.len]
   rw [wctTopInput_block4, pad64_block4, hdrBlock_block4W]
   rfl
 theorem coord_queries_pos (answers : Answers) (N : HashOutput) (w : WBytes) (c : WCT9.Coord)
@@ -182,7 +192,8 @@ theorem coord_queries_pos (answers : Answers) (N : HashOutput) (w : WBytes) (c :
     exact chain_queries_pos answers (WCT9.digestIndex N) c.val (WCT9.child N c).val t.val
       (WCT9.wordDigit (WCT9.rank N c) t) (WCT9.wordDigit_le_four _ t) _ _ _ _ ⟨hidx, c.isLt, hj, t.isLt⟩ q hq
   rcases List.mem_append.mp hq with hq | hq
-  · exact leaf_queries_pos answers (WCT9.digestIndex N) c.val (WCT9.child N c).val _ _ ⟨hidx, c.isLt, hj⟩ q hq
+  · exact leaf_queries_pos answers (WCT9.digestIndex N) c.val (WCT9.child N c).val _ _ ⟨hidx, c.isLt, hj⟩
+      (by rw [SigGolfCandidate.T3.Correctness.eval_mapM]; simp) q hq
   rcases List.mem_append.mp hq with hq | hq
   · exact merkle_queries_pos answers (WCT9.digestIndex N) c (WCT9.child N c).val hj hidx _ _ _ _ q hq
   rcases List.mem_append.mp hq with hq | hq
@@ -210,31 +221,47 @@ theorem take8_bytesLE16 (a : BitVec 128) : (bytesLE 16 a).take 8 = bytesLE 8 (a.
     (BitVec.extractLsb'_append_extractLsb' (w := 64) (len := 64) (x := a)).symm
   conv_lhs => rw [ha]
   rw [SigGolfCandidate.T3M.Extract.bytesLE_header_words, List.take_left' (SphincsSecurity.bytesLE_length 8 _)]
-theorem hdrClass_leafLike_of_low {x y : BitVec 128} (h : x.extractLsb' 0 64 = y.extractLsb' 0 64)
-    (hx : Extract.hdrClass x = 2) : Extract.hdrClass y = 2 ∨ Extract.hdrClass y = 3 := by
-  have hm : tweakMarker y = tweakMarker x := by
-    rw [← Extract.low_tweakMarker, ← Extract.low_tweakMarker, h]
-  have ht : tweakTag y = tweakTag x := by
-    rw [← Extract.low_tweakTag, ← Extract.low_tweakTag, h]
-  unfold Extract.hdrClass at hx ⊢
-  rw [hm, ht]
-  split_ifs at hx ⊢ <;> omega
-theorem ftsPos_cls {p : Extract.Pos} (h : FtsPos p) : p.cls ≠ 2 ∧ p.cls ≠ 3 := by
+/-- C4: the header of an FTS position (chain, leaf or node; the FTS recompute never queries the forest) has its low
+word in `[2 ^ 16, 2 ^ 58)`: above every top label (coordinate nibble `coord + 1`) and below every WOTS leaf tweak
+(type byte 193). -/
+theorem ftsPos_low {p : Extract.Pos} (hb : p.Bounded) (h : FtsPos p) :
+    2 ^ 16 ≤ tweakLow p.hdr ∧ tweakLow p.hdr < 2 ^ 58 := by
   cases p with
-  | wctNode _ _ level _ => simp only [Extract.Pos.cls]; split <;> omega
-  | wctChain => simp [Extract.Pos.cls]
-  | wctLeaf => simp [Extract.Pos.cls]
-  | forest => simp [Extract.Pos.cls]
-  | chain => exact h.elim
-  | leaf => exact h.elim
-  | node => exact h.elim
+  | wctChain index coord child t step =>
+      obtain ⟨-, hk, -, -, -⟩ := hb
+      have h1 := WCT9.ftsChainLow_ge (show coord < 15 by omega) index child t step
+      have h2 := WCT9.ftsChainLow_lt index coord child t step
+      simp only [Extract.Pos.hdr, WCT9.ftsChainHeader]
+      rw [Extract.tweakLow_eq_low, WCT9.ftsChainHeaderP_low, BitVec.toNat_ofNat,
+        Nat.mod_eq_of_lt (lt_trans h2 (by norm_num))]
+      exact ⟨h1, h2⟩
+  | wctLeaf index coord child =>
+      obtain ⟨-, hk, -⟩ := hb
+      have h1 := WCT9.ftsLeafLow_ge (show coord < 15 by omega) index child
+      have h2 := WCT9.ftsLeafLow_lt index coord child
+      simp only [Extract.Pos.hdr, WCT9.ftsLeafHeader]
+      rw [append64_lowNat, BitVec.toNat_ofNat, Nat.mod_eq_of_lt (lt_trans h2 (by norm_num))]
+      exact ⟨h1, h2⟩
+  | wctNode index coord level nd =>
+      obtain ⟨-, hk, -, -⟩ := hb
+      have hlow := WCT9.wctNodeHeader_toNat hk index (2 ^ (7 - level - 1) + nd)
+      have hge := WCT9.ftsLeafLow_ge (show coord < 15 by omega) index 0
+      have hlt := WCT9.ftsLeafLow_lt index coord 0
+      have hgeN : 2 ^ 16 ≤ WCT9.ftsNodeLowN index coord (2 ^ (7 - level - 1) + nd) := by
+        rw [WCT9.ftsNodeLowN_eq, Nat.mod_eq_of_lt (show coord + 1 < 16 by omega)]; omega
+      have hltN := WCT9.ftsNodeLowN_lt index coord (2 ^ (7 - level - 1) + nd)
+      simp only [Extract.Pos.hdr]
+      unfold tweakLow
+      rw [hlow]
+      split_ifs <;> omega
+  | _ => exact h.elim
 theorem structuralHitSrc_of_fts_hitIn (answers : Answers) (N : HashOutput) (w : WBytes)
     (h : Extract.HitIn answers
       (queried answers (recoverFtsP (witDecP N w).signature (padDecP N w) (WCT9.digestIndex N) N))) :
     StructuralHitSrc answers (entriesOf answers
       (queried answers (recoverFtsP (witDecP N w).signature (padDecP N w) (WCT9.digestIndex N) N))) := by
   obtain ⟨pos, actual, hb, hq, hh, hs⟩ := h
-  obtain ⟨actual', hqe, pos', hb', hsrc', hfts', hdr'⟩ := fts_queries_pos answers N w _ hq
+  obtain ⟨actual', hqe, pos', hb', hsrc', hfts', hlenQ, hdr'⟩ := fts_queries_pos answers N w _ hq
   have hae : actual = actual' := by simpa using hqe
   subst hae
   have hkey : Extract.hdrKey actual = bytesLE 16 pos.hdr := hs.2.trans (Extract.hdrKey_honestInput answers hb)
@@ -243,27 +270,26 @@ theorem structuralHitSrc_of_fts_hitIn (answers : Answers) (N : HashOutput) (w : 
     have : 64 ≤ actual.length := by
       rw [hlen]; cases pos <;> simp only [Extract.Pos.len] <;> (try split) <;> omega
     simp [Extract.hdrBlock]; omega
+  -- C4: the actual header's low word is the FTS position's, in `[2 ^ 16, 2 ^ 58)`.
+  have h8 : readLE ((Extract.hdrBlock actual).take 8) = tweakLow pos'.hdr := by
+    rw [← canonicalHeader_take8 h16, hdr', Extract.readLE_take8]
+  have hlo := ftsPos_low hb' hfts'
   by_cases hl : actual.length = 704 ∨ actual.length = 896
   · exfalso
-    have hl' := hl
-    rw [hlen] at hl'
-    obtain ⟨lay, tree, leaf, rfl⟩ := Extract.Pos.len_leafLen.mp hl'
-    have h1 := congrArg (List.take 8) hkey
-    rw [Extract.hdrKey_of_leafLen hl, List.take_left' (by simp; omega)] at h1
-    have h2 := congrArg (List.take 8) hdr'
-    rw [canonicalHeader_take8 h16, h1, take8_bytesLE16, take8_bytesLE16] at h2
-    have hlow := bytesLE_injective h2
-    have hc := hdrClass_leafLike_of_low hlow (by rw [Extract.Pos.hdrClass_eq hb]; rfl)
-    rw [Extract.Pos.hdrClass_eq hb'] at hc
-    have := ftsPos_cls hfts'
-    omega
-  · have hkey' : Extract.hdrKey actual = bytesLE 16 pos'.hdr := by
-      rw [Extract.hdrKey_of_not_leafLen hl, hdr']
+    rw [hlenQ] at hl
+    cases pos' <;> (try exact hfts'.elim) <;> simp [Extract.Pos.len] at hl
+  · have hT : ¬ (actual.length = 64 ∧ Extract.TopLow (Extract.hdrBlock actual)) := by
+      rintro ⟨-, ht⟩
+      unfold Extract.TopLow at ht
+      rw [h8] at ht
+      omega
+    have hkey' : Extract.hdrKey actual = bytesLE 16 pos'.hdr := by
+      rw [Extract.hdrKey_of_not_leafLen hl hT, hdr']
     have hhdr : pos.hdr = pos'.hdr := bytesLE_injective (hkey.symm.trans hkey')
-    have hpos : pos = pos' := Extract.Pos.hdr_injective hb hb' hhdr
+    have hpos : pos = pos' := Extract.Pos.hdr_injective hb hb' (hlen.symm.trans hlenQ) hhdr
     subst hpos
     refine ⟨pos, actual, _, mem_entriesOf hq, Extract.posOf_key_eq hb hlen hkey, hb, hsrc', ?_, hh⟩
-    cases pos <;> trivial
+    cases pos <;> first | trivial | exact hfts'.elim
 theorem fts_structural (answers : Answers) (N : HashOutput) (w : WBytes) (hS : Shaped N w)
     (hrun : evalWithAnswerFn answers
         (recoverFtsP (witDecP N w).signature (padDecP N w) (WCT9.digestIndex N) N) =

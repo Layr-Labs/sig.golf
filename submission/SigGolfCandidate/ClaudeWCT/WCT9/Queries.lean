@@ -24,7 +24,8 @@ theorem leafInputP_length (index coord selected : Nat) (pad : Digest) (ends : Li
     (leafInputP index coord selected pad ends).length = 128 := by
   simp only [leafInputP, List.length_append, bytesLE_length, digest_list_bytes_length, List.length_drop, hlen]
 theorem nodeHash_eq (coord index heap : Nat) (left right : Digest) :
-    wctNodeHash coord index heap left right = shortHash (nodeInput coord index heap left right) := rfl
+    wctNodeHash coord index heap left right = shortHash (nodeInput coord index heap left right) := by
+  rw [wctNodeHash_eq_short]; rfl
 theorem forestPk_eq (index : Nat) (pairs : List (Digest × Digest)) :
     forestPk index pairs = shortHash (forestInput index pairs) := rfl
 theorem leafInput_length (index coord selected : Nat) (ends : List Digest) (hlen : ends.length = 6) :

@@ -327,7 +327,8 @@ theorem ftsTree_eqP (h : Agrees answers labels) (index : Fin (2^31)) (coord : Fi
           have : 4 ≤ 2 ^ (7 - level - 1) := by
             calc 4 = 2 ^ 2 := by norm_num
               _ ≤ 2 ^ (7 - level - 1) := Nat.pow_le_pow_right (by decide) (by omega)
-          omega), WCT9.wctNodeHash, nodeHash_eq_shortHash, eval_shortHash]
+          omega), WCT9.wctNodeHash,
+          nodeHash_eq_shortHash (SigGolfCandidate.T3.nodeHalfHigh_of_ne (by simp [WCT9.nodeLayer]) _), eval_shortHash]
         rw [if_neg h5] at hinput
         rw [← hinput]
         exact congrArg (fun output : HashOutput => output.extractLsb' 0 128) (h (.wctNode n))

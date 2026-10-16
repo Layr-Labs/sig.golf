@@ -1569,7 +1569,9 @@ theorem hasTag_padded (front back : HashInput) (hfront : front.length=16)
  HasTag tag (pad64 (front ++ bytesLE 16 (header tag lay tree position index) ++ back)) :=
  ⟨lay,tree,position,index,queryHeader_padded _ _ hfront _⟩
 def RowHdr (hdr : BitVec 128) : Prop := tweakMarker hdr = 1 ∧ tweakTag hdr = 2 ∧ tweakHigh hdr = 1
-def SearchHdr (hdr : BitVec 128) : Prop := tweakMarker hdr = 0 ∨ RowHdr hdr
+/-- Search headers: the digest header (C4: whole low word 0, since top labels `256 k` have marker byte 0) or a row
+header. -/
+def SearchHdr (hdr : BitVec 128) : Prop := (tweakMarker hdr = 0 ∧ tweakLow hdr = 0) ∨ RowHdr hdr
 def RowQ (input : HashInput) : Prop := ∃ hdr, queryHeader input = bytesLE 16 hdr ∧ RowHdr hdr
 def SearchQ (input : HashInput) : Prop := ∃ hdr, queryHeader input = bytesLE 16 hdr ∧ SearchHdr hdr
 theorem RowQ.searchQ {input : HashInput} (h : RowQ input) : SearchQ input :=
@@ -1602,10 +1604,12 @@ theorem nodeTweak_not_search (tag lay tree heap : Nat) (htag : tag % 256 ≠ 2)
  by_cases h : tag = 3 ∧ lay < 4
  · obtain ⟨rfl, h4⟩ := h
    by_cases h0 : lay = 0
-   · subst h0; unfold SearchHdr RowHdr; rw [nodeTweak_top_marker]; omega
+   · subst h0; unfold SearchHdr RowHdr; rw [nodeTweak_top_low, nodeTweak_top_high]
+     have := topNodeWord_pos heap
+     omega
    · have hh := hroot rfl (by omega) h4
      unfold SearchHdr RowHdr
-     rw [nodeTweak_lower_marker h0 h4, nodeTweak_hyper_high h4]; omega
+     rw [nodeTweak_lower_marker h0 h4, nodeTweak_hyper_high h4, if_neg h0]; omega
  · by_cases hf : tag = 3 ∧ lay < 13
    · obtain ⟨rfl, h13⟩ := hf
      unfold SearchHdr RowHdr
@@ -1621,7 +1625,7 @@ theorem nodeTweak_not_search (tag lay tree heap : Nat) (htag : tag % 256 ≠ 2)
  SearchQ (encodingTrial lay tree leaf message counter) := (rowQ_encoding ..).searchQ
 @[simp] theorem searchQ_digest (rho : Digest) (message : Message) (counter : Nat) :
  SearchQ (digestTrial rho message counter) :=
- ⟨digestHeader _, queryHeader_digest .., Or.inl (digestHeader_marker _)⟩
+ ⟨digestHeader _, queryHeader_digest .., Or.inl ⟨digestHeader_marker _, digestHeader_lowNat _⟩⟩
 theorem avoids_shortHash_of_ne (secret : BitVec 256) (target input : HashInput)
  (hne : pad64 input ≠ target) : Avoids secret target (shortHash input) := by
  unfold shortHash
@@ -1915,6 +1919,8 @@ macro "hashes" : tactic => `(tactic| aesop (config := { maxRuleApplications := 1
 @[aesop safe apply] theorem hashOnly_chain (lay : Layer) (tree leaf i start count : Nat) (value : Digest) :
  HashOnly (chain lay tree leaf i start count value) := by
  unfold chain; hashes
+@[aesop safe apply] theorem hashOnly_projHash (high : Bool) (input : HashInput) : HashOnly (projHash high input) := by
+ unfold projHash; hashes
 @[aesop safe apply] theorem hashOnly_leafHash (lay : Layer) (tree leaf : Nat) (ends : List Digest) :
  HashOnly (leafHash lay tree leaf ends) := by unfold leafHash; hashes
 @[aesop safe apply] theorem hashOnly_nodeHash (tag lay tree heap : Nat) (left right : Digest) :

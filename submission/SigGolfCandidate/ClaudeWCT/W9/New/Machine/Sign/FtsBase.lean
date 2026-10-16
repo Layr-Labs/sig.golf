@@ -156,22 +156,13 @@ theorem eval_nodeLoE (s : MachineState) {c index : Nat} (h22 : s.getReg .x22 = B
     (hc : c < 9) (_hidx : index < 2 ^ 31) :
     (nodeLoE c).eval s = BitVec.ofNat 64 (nodeLo7 c index) := by
   unfold nodeLoE nodeLo7
-  by_cases h0 : c = 0
-  · subst h0
-    rw [if_pos rfl]
-    show BinOp.eval .or (BinOp.eval .sll (s.getReg .x22) (BitVec.ofNat 64 27)) (BitVec.ofNat 64 1537) = _
-    rw [binop_sll _ _ (by norm_num), h22, ofNat_shl]
-    simp only [BinOp.eval]
-    rw [ofNat_or_disjoint 1537 (index * 2 ^ 27) 27 (by norm_num) (by omega)]
-    congr 1; ring
-  · rw [if_neg h0]
-    show BinOp.eval .or (BinOp.eval .or (BinOp.eval .sll (s.getReg .x22) (BitVec.ofNat 64 27))
-      (BitVec.ofNat 64 (65536 * c))) (BitVec.ofNat 64 1537) = _
-    rw [binop_sll _ _ (by norm_num), h22, ofNat_shl]
-    simp only [BinOp.eval]
-    rw [ofNat_or_disjoint (65536 * c) (index * 2 ^ 27) 27 (by omega) (by omega),
-      ofNat_or_disjoint 1537 (index * 2 ^ 27 + 65536 * c) 16 (by norm_num) (by omega)]
-    congr 1; ring
+  show BinOp.eval .or (BinOp.eval .or (BinOp.eval .sll (s.getReg .x22) (BitVec.ofNat 64 27))
+    (BitVec.ofNat 64 (65536 * (c + 1)))) (BitVec.ofNat 64 1537) = _
+  rw [binop_sll _ _ (by norm_num), h22, ofNat_shl]
+  simp only [BinOp.eval]
+  rw [ofNat_or_disjoint (65536 * (c + 1)) (index * 2 ^ 27) 27 (by omega) (by omega),
+    ofNat_or_disjoint 1537 (index * 2 ^ 27 + 65536 * (c + 1)) 16 (by norm_num) (by omega)]
+  exact congrArg (BitVec.ofNat 64) (by ring)
 /-- Packed FTS node low word: `nodeLo7 - h` for heaps `8..127`, `nodeLo7` below. -/
 def nodeLoN (c index h : Nat) : Nat := if 8 ≤ h then nodeLo7 c index - h else nodeLo7 c index
 theorem eval_nodeLoNE (s : MachineState) {c index h : Nat} (h22 : s.getReg .x22 = BitVec.ofNat 64 index)
@@ -195,13 +186,25 @@ theorem eval_leafLoE (s : MachineState) {c index j : Nat} (h22 : s.getReg .x22 =
     (h18 : s.getReg .x18 = BitVec.ofNat 64 j) (hc : c < 9) (hj : j < 128) :
     (leafLoE c).eval s = BitVec.ofNat 64 (leafLo7 c index j) := by
   unfold leafLoE leafLo7
-  show BinOp.eval .or (BinOp.eval .or (BinOp.eval .sll (s.getReg .x22) (BitVec.ofNat 64 27))
-    (BinOp.eval .sll (s.getReg .x18) (BitVec.ofNat 64 20))) (BitVec.ofNat 64 (1537 + 65536 * c)) = _
-  rw [binop_sll _ _ (by norm_num), binop_sll _ _ (by norm_num), h22, h18, ofNat_shl, ofNat_shl]
-  simp only [BinOp.eval]
-  rw [ofNat_or_disjoint (j * 2 ^ 20) (index * 2 ^ 27) 27 (by omega) (by omega),
-    ofNat_or_disjoint (1537 + 65536 * c) (index * 2 ^ 27 + j * 2 ^ 20) 20 (by omega) (by omega)]
-  congr 1; ring
+  by_cases h0 : c = 0
+  · subst h0
+    rw [if_pos rfl]
+    show BinOp.eval .or (BinOp.eval .or (BinOp.eval .or (BinOp.eval .sll (s.getReg .x22) (BitVec.ofNat 64 27))
+      (BinOp.eval .sll (s.getReg .x18) (BitVec.ofNat 64 20))) (BitVec.ofNat 64 65536)) (BitVec.ofNat 64 1537) = _
+    rw [binop_sll _ _ (by norm_num), binop_sll _ _ (by norm_num), h22, h18, ofNat_shl, ofNat_shl]
+    simp only [BinOp.eval]
+    rw [ofNat_or_disjoint (j * 2 ^ 20) (index * 2 ^ 27) 27 (by omega) (by omega),
+      ofNat_or_disjoint 65536 (index * 2 ^ 27 + j * 2 ^ 20) 20 (by omega) (by omega),
+      ofNat_or_disjoint 1537 (index * 2 ^ 27 + j * 2 ^ 20 + 65536) 16 (by omega) (by omega)]
+    congr 1; ring
+  · rw [if_neg h0]
+    show BinOp.eval .or (BinOp.eval .or (BinOp.eval .sll (s.getReg .x22) (BitVec.ofNat 64 27))
+      (BinOp.eval .sll (s.getReg .x18) (BitVec.ofNat 64 20))) (BitVec.ofNat 64 (1537 + 65536 * (c + 1))) = _
+    rw [binop_sll _ _ (by norm_num), binop_sll _ _ (by norm_num), h22, h18, ofNat_shl, ofNat_shl]
+    simp only [BinOp.eval]
+    rw [ofNat_or_disjoint (j * 2 ^ 20) (index * 2 ^ 27) 27 (by omega) (by omega),
+      ofNat_or_disjoint (1537 + 65536 * (c + 1)) (index * 2 ^ 27 + j * 2 ^ 20) 20 (by omega) (by omega)]
+    congr 1; ring
 theorem replaceByte_toNat8 (w : BitVec 64) (pos : Nat) (hp : pos < 8) (b : BitVec 8) :
     (replaceByte w pos b).toNat =
       w.toNat % 2 ^ (8 * pos) + 2 ^ (8 * pos) * b.toNat + 2 ^ (8 * pos + 8) * (w.toNat / 2 ^ (8 * pos + 8)) := by
@@ -334,7 +337,7 @@ theorem headerE_eval (s : MachineState) {c j index : Nat}
     (headerE c).eval s = BitVec.ofNat 64 (leafLo7 c index j) := by
   unfold headerE
   rw [eval_bin,eval_bin,eval_sll_reg s h22 27 (by decide),eval_sll_reg s h18 20 (by decide),eval_cE]
-  change (BitVec.ofNat 64 (index*2^27)+BitVec.ofNat 64 (j*2^20))+BitVec.ofNat 64 (1537+65536*c) = _
+  change (BitVec.ofNat 64 (index*2^27)+BitVec.ofNat 64 (j*2^20))+BitVec.ofNat 64 (1537+65536*(c+1)) = _
   rw [ofNat_add_ofNat,ofNat_add_ofNat]
   congr 1
   unfold leafLo7
@@ -361,7 +364,7 @@ theorem loE_eval (s : MachineState) {c index : Nat} (h22:s.getReg .x22=BitVec.of
     (loE c).eval s=BitVec.ofNat 64 (nodeLo7 c index) := by
   unfold loE
   rw[eval_bin,eval_bin,eval_cE,binop_sll _ _ (by decide)]
-  change ((s.getReg .x22) <<< 27)+BitVec.ofNat 64 (1537+65536*c)=_
+  change ((s.getReg .x22) <<< 27)+BitVec.ofNat 64 (1537+65536*(c+1))=_
   rw[h22,ofNat_shl,ofNat_add_ofNat]
   congr 1
   unfold nodeLo7

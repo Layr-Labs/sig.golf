@@ -23,7 +23,7 @@ theorem probeInput_inj {a a' : WctAddr} {p p' : Fin 4} {c c' : Digest}
   have hh := probeInput_hdr a p c
   rw [h, probeInput_hdr] at hh
   have hn : (Node.wctChain (a', p') : Node) = .wctChain (a, p) :=
-    toPos_injective (Extract.Pos.hdr_injective (toPos_bounded _) (toPos_bounded _) (bytesLE_injective hh))
+    toPos_injective (Extract.Pos.hdr_injective (toPos_bounded _) (toPos_bounded _) rfl (bytesLE_injective hh))
   simp only [Node.wctChain.injEq, Prod.mk.injEq] at hn
   obtain ⟨rfl, rfl⟩ := hn
   refine ⟨rfl, rfl, ?_⟩
@@ -62,9 +62,11 @@ theorem cell_ne_probe (secrets : Secrets) (labels : Labels) (node : Node) (hnode
     (a : WctAddr) (p : Fin 4) (c : Digest) : cell secrets node labels ≠ Guess.probeInput a p c := by
   intro he
   have h1 := hdrBlock_cell secrets node labels
+  have hl : node.toPos.len = (Node.wctChain (a, p)).toPos.len := by
+    rw [← cell_length secrets node labels, he, Guess.probeInput_length]; rfl
   rw [he, probeInput_hdr] at h1
-  exact hnode (a, p) (toPos_injective (Extract.Pos.hdr_injective (toPos_bounded _) (toPos_bounded _)
-    (bytesLE_injective h1))).symm
+  exact hnode (a, p) (toPos_injective (Extract.Pos.hdr_injective (toPos_bounded _) (toPos_bounded _) hl
+    (bytesLE_injective h1).symm))
 def Hidden (node : Node) : Prop := ∃ a : WctAddr, ∃ q : Fin 4, q.val < 3 ∧ node = .wctChain (a, q)
 theorem treeLabel_outer (left right : Labels) (h : ∀ node, ¬Hidden node → left node = right node)
     (lay : Layer) (tree : Fin (2^31)) (level c : Nat) :

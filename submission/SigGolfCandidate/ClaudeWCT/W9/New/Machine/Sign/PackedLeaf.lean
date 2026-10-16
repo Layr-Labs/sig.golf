@@ -27,8 +27,11 @@ set_option maxRecDepth 10000
 set_option maxHeartbeats 0 in
 theorem signCode_drop_new : Images.signReferenceImage.code.drop 11003 = signNew ++ Images.signReferenceImage.code.drop 20771 := by
   decide +kernel
+/-- C4: the coordinate-0 arena at sign words 1700..1725. -/
+theorem arena_signImage : arenaCode <+: Images.signReferenceImage.code.drop 1700 :=
+  List.prefix_iff_eq_take.mpr (by decide +kernel)
 theorem newCodeAt_image : NewCodeAt Sign.image :=
-  ⟨⟨_, signCode_drop_new.symm⟩, ⟨Images.signReferenceImage.code.drop 21667, by decide +kernel⟩⟩
+  ⟨⟨_, signCode_drop_new.symm⟩, ⟨Images.signReferenceImage.code.drop 21667, by decide +kernel⟩, arena_signImage⟩
 
 /-! ### Hybrid base states -/
 

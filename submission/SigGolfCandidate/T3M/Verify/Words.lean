@@ -74,10 +74,10 @@ theorem ftsLeafP_eq (index coord leaf : Nat) (pad0 secret pad1 : Digest) :
       T3.shortHash (blk4 pad0 (header 9 coord index 0 leaf) secret pad1) := rfl
 theorem nodeHashP_eq (tag lay tree heap : Nat) (left pad right : Digest) :
     T3M.nodeHashP tag lay tree heap left pad right =
-      T3.shortHash (blk4 left (T3.nodeTweak tag lay tree heap) pad right) := rfl
+      T3.projHash (T3.nodeHalfHigh tag lay heap) (blk4 left (T3.nodeTweak tag lay tree heap) pad right) := rfl
 theorem nodeHash_eq (tag lay tree heap : Nat) (left right : Digest) :
     T3.nodeHash tag lay tree heap left right =
-      T3.shortHash (blk4 left (T3.nodeTweak tag lay tree heap) 0 right) := by
+      T3.projHash (T3.nodeHalfHigh tag lay heap) (blk4 left (T3.nodeTweak tag lay tree heap) 0 right) := by
   unfold T3.nodeHash blk4
   rw [bytesLE16_zero]
 theorem ftsLeaf_eq (index coord leaf : Nat) (secret : Digest) :

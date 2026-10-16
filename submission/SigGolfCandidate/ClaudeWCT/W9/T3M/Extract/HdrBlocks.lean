@@ -131,3 +131,13 @@ theorem honestInput_length (answers : Answers) (p : Pos) : (honestInput answers 
   | wctNode index coord level nd =>
       simp only [honestInput, Pos.len]
       rw [pad64_length_of_mod] <;> simp [nodeInputP]
+theorem tweakLow_eq_low (h : BitVec 128) : tweakLow h = (h.extractLsb' 0 64).toNat := by
+  unfold tweakLow; rw [BitVec.extractLsb'_toNat, Nat.shiftRight_zero]
+/-- C4: the low word of a 16-byte header is read from its first 8 bytes. -/
+theorem readLE_take8 (h : BitVec 128) : readLE ((bytesLE 16 h).take 8) = tweakLow h := by
+  have he : h = h.extractLsb' 64 64 ++ h.extractLsb' 0 64 :=
+    (BitVec.extractLsb'_append_extractLsb' (w := 64) (len := 64) (x := h)).symm
+  conv_lhs => rw [he, SigGolfCandidate.T3M.Extract.bytesLE_header_words, List.take_left' (bytesLE_length 8 _)]
+  rw [SigGolfCandidate.T3M.readLE_bytesLE, tweakLow_eq_low]
+theorem topLow_bytesLE_iff (h : BitVec 128) : TopLow (bytesLE 16 h) ↔ 1 ≤ tweakLow h ∧ tweakLow h < 2 ^ 16 := by
+  unfold TopLow; rw [readLE_take8]

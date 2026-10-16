@@ -209,6 +209,34 @@ theorem run_lv (lay j : Nat) (hl : 1 ≤ lay ∧ lay < 4) (hj : j < lvH lay - 1)
 def LPLAN : Nat := 0xff9400
 def LPlanAt (t : MachineState) : Prop :=
   ∀ k < 192, t.getMem (BitVec.ofNat 64 (LPLAN + 8 * k)) = bytesToWordLE ((ClaudeWCT.W9.Machine.Expand.lplanBytes.drop (8 * k)).take 8)
+/-! ### C4: the top-path plan table of the expander's post-pass (data offset 26496 = legacy offset 2944) -/
+/-- Line-A table (row `leaf % 64`, the six sibling slots of levels 0..5, stride 8) at `0xfffb80`. -/
+def TOPA : Nat := 0xfffb80
+/-- Line-B table (row `leaf / 64`, the six sibling slots of levels 6..11) at `0xfffd80`. -/
+def TOPB : Nat := 0xfffd80
+def topABytes : List (BitVec 8) := (SigGolfCandidate.T3M.Images.expandLegacyData.drop 2944).take 512
+def topBBytes : List (BitVec 8) := (SigGolfCandidate.T3M.Images.expandLegacyData.drop 3456).take 512
+def TopTabAt (t : MachineState) : Prop :=
+  (∀ k < 64, t.getMem (BitVec.ofNat 64 (TOPA + 8 * k)) = bytesToWordLE ((topABytes.drop (8 * k)).take 8)) ∧
+  ∀ k < 64, t.getMem (BitVec.ofNat 64 (TOPB + 8 * k)) = bytesToWordLE ((topBBytes.drop (8 * k)).take 8)
+/-- Sibling slot (16-byte unit of the 48-slot top path area) of level `jj` in row `r` of line A (levels 0..5). -/
+def slotA (r jj : Nat) : Nat := (ClaudeWCT.W9.T3M.topPlanA.getD r []).getD jj 0 + 3 * (1 - r / 2 ^ jj % 2)
+/-- Sibling slot of level `jj + 6` in row `r` of line B. -/
+def slotB (r jj : Nat) : Nat := (ClaudeWCT.W9.T3M.topPlanB.getD r []).getD jj 0 + 3 * (1 - r / 2 ^ jj % 2)
+set_option maxRecDepth 100000 in
+theorem topA_ok : ∀ r < 64, ∀ jj < 6,
+    LoadKind.bu.fromWord (bytesToWordLE ((topABytes.drop (8 * r)).take 8)) jj = BitVec.ofNat 64 (slotA r jj) := by
+  decide +kernel
+set_option maxRecDepth 100000 in
+theorem topB_ok : ∀ r < 64, ∀ jj < 6,
+    LoadKind.bu.fromWord (bytesToWordLE ((topBBytes.drop (8 * r)).take 8)) jj = BitVec.ofNat 64 (slotB r jj) := by
+  decide +kernel
+set_option maxRecDepth 100000 in
+/-- Line A's sibling slots lie in `[24, 47]`, line B's in `[0, 23]`; within a line they are pairwise distinct. -/
+theorem slots_ok : (∀ r < 64, ∀ i < 6, 24 ≤ slotA r i ∧ slotA r i ≤ 47) ∧ (∀ r < 64, ∀ i < 6, slotB r i ≤ 23) ∧
+    (∀ r < 64, ∀ i < 6, ∀ i' < 6, slotA r i = slotA r i' → i = i') ∧
+    (∀ r < 64, ∀ i < 6, ∀ i' < 6, slotB r i = slotB r i' → i = i') := by
+  decide +kernel
 def lvRow (lay r : Nat) : Nat := if lay = 1 then 64 + r else r
 set_option maxRecDepth 100000 in
 theorem lplan1_ok : ∀ r < 128, ∀ j < 7,

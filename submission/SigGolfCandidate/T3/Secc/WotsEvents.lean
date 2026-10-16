@@ -54,29 +54,8 @@ def MarkerAt (answers : Answers) (trace : List Entry) (a : ChainAddr) : Prop :=
     decode a.key.lay (low answer) = some digits ∧
     digits.getD a.chain 0 + 1 = (referenceDigits answers a.key).getD a.chain 0 ∧
     ∀ i, i ≠ a.chain → (referenceDigits answers a.key).getD i 0 ≤ digits.getD i 0
-def OtherChainRow (answers : Answers) (input : HashInput) : Prop :=
-  ∃ (a : ChainAddr) (step : Nat), Extract.posOf input =
-      some (.chain a.key.lay a.key.tree a.key.leaf a.chain step) ∧
-    ((∀ value, input ≠ chainRow a step value) ∨ depth answers a ≤ step)
-def StructuralClass (answers : Answers) (input : HashInput) (position : Extract.Pos) : Prop :=
-  match position with
-  | .chain _ _ _ _ _ => OtherChainRow answers input
-  | _ => True
-def StructuralHit (answers : Answers) (trace : List Entry) : Prop :=
-  ∃ position input answer, (input, answer) ∈ trace ∧ Extract.posOf input = some position ∧
-    position.Bounded ∧ StructuralClass answers input position ∧
-    HashHit answers (Extract.honestInput answers position) input
-def WotsPrimitive (answers : Answers) (trace : List Entry) : Prop :=
-  (∃ L, EncodingMatchAt answers trace L) ∨ StructuralHit answers trace ∨
-    (∃ a, TwoEdgeAt answers trace a) ∨
-    (∃ a b, a ≠ b ∧ ContactAt answers trace a ∧ ContactAt answers trace b) ∨
-    (∃ a, MarkerAt answers trace a ∧ ContactAt answers trace a)
 def entriesOf (answers : Answers) (qs : List Spec.Domain) : List Entry :=
   qs.filterMap fun q => match q with
     | .inl (.inr input) => some (input, answers (.inl (.inr input)))
     | _ => none
-def VerifierWots (answers : Answers) (publicKey : Digest) (forgery : Final.ForgeryP) : Prop :=
-  ∃ message witness, PaddedExtraction.WitnessOf answers publicKey forgery message witness ∧
-    evalWithAnswerFn answers (verifyP message publicKey witness) = true ∧
-    WotsPrimitive answers (entriesOf answers (queried answers (verifyP message publicKey witness)))
 end SigGolfCandidate.T3.Security.Wots

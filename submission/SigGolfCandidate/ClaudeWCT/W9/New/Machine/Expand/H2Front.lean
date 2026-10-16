@@ -7685,6 +7685,21 @@ theorem initial_plans (m : Message) (pk : PublicKey) (b : Bytes 5248) :
     Images.expandData_length Images.expandSharedData Images.expandSharedData_length
     (by change (Images.expandSharedData++Images.expandPrefixData)++Images.expandLegacyData = _;rw[List.append_assoc])
     reference_data_ok m pk b
+theorem initial_toptab (m : Message) (pk : PublicKey) (b : Bytes 5248) :
+    Compact2.TopTabAt (w9init Images.expandImage m pk b) := by
+  have he (A : Nat) (hl : Compact2.LPLAN ≤ A) (hh : A < Compact2.LPLAN+27648) (hm : A % 8 = 0) :=
+    shifted_data_mem (im:=Images.expandImage) (ref:=⟨[],Images.expandPrefixData++Images.expandLegacyData⟩)
+      Images.expandData_length Images.expandSharedData Images.expandSharedData_length
+      (by change (Images.expandSharedData++Images.expandPrefixData)++Images.expandLegacyData = _;rw[List.append_assoc])
+      reference_data_ok m pk b A hl hh hm
+  constructor
+  · intro k hk
+    rw [he _ (by unfold Compact2.TOPA Compact2.LPLAN;omega) (by unfold Compact2.TOPA Compact2.LPLAN;omega) (by unfold Compact2.TOPA;omega)]
+    exact (w9init_toptab reference_data_ok m pk (0 : Bytes 5312)).1 k hk
+  · intro k hk
+    rw [he _ (by unfold Compact2.TOPB Compact2.LPLAN;omega) (by unfold Compact2.TOPB Compact2.LPLAN;omega) (by unfold Compact2.TOPB;omega)]
+    exact (w9init_toptab reference_data_ok m pk (0 : Bytes 5312)).2 k hk
+#print axioms initial_toptab
 #print axioms initial_plans
 end ClaudeWCT.W9.Machine.Expand.SharedInit
 

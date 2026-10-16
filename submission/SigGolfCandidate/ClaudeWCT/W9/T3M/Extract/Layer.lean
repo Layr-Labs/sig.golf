@@ -34,8 +34,9 @@ theorem merkle_honestInput (answers : Answers) (lay : Layer) (hlay : lay.val = 0
   dsimp only
   rw [Correctness.sibling_pair (fun n => treeValue (wotsTree answers lay tree) step n) (leaf / 2 ^ step),
     Correctness.div_pow_succ, hlay, merkleNodeInput_top]
-/-- The honest input of a lower-tree node (C2: the packed fold input `merkleInputW` with zero pads). -/
-theorem merkle_honestInputW (answers : Answers) (lay : Layer) (hlay : lay.val ≠ 0) (tree leaf step : Nat) :
+/-- The honest input of a tree node (C2 lower trees, C4 top tree: the packed fold input `merkleInputW` with zero
+pads). -/
+theorem merkle_honestInputW' (answers : Answers) (lay : Layer) (tree leaf step : Nat) :
     honestInput answers (.node lay tree step (leaf / 2 ^ (step + 1))) =
       pad64 (merkleInputW lay.val tree (height lay) leaf
         (fun j => treeValue (wotsTree answers lay tree) j (leaf / 2 ^ j ^^^ 1)) (fun _ => 0) (fun _ => 0) step
@@ -43,11 +44,17 @@ theorem merkle_honestInputW (answers : Answers) (lay : Layer) (hlay : lay.val �
   unfold merkleInputW honestInput
   dsimp only
   rw [Correctness.sibling_pair (fun n => treeValue (wotsTree answers lay tree) step n) (leaf / 2 ^ step),
-    Correctness.div_pow_succ, WCT9.lowerNodeInputP_zero hlay]
+    Correctness.div_pow_succ, WCT9.lowerNodeInputP_zero']
+theorem merkle_honestInputW (answers : Answers) (lay : Layer) (_hlay : lay.val ≠ 0) (tree leaf step : Nat) :
+    honestInput answers (.node lay tree step (leaf / 2 ^ (step + 1))) =
+      pad64 (merkleInputW lay.val tree (height lay) leaf
+        (fun j => treeValue (wotsTree answers lay tree) j (leaf / 2 ^ j ^^^ 1)) (fun _ => 0) (fun _ => 0) step
+        (treeValue (wotsTree answers lay tree) step (leaf / 2 ^ step))) :=
+  merkle_honestInputW' answers lay tree leaf step
 theorem hdrBlock_merkleInputW (lay tree h leaf : Nat) (path : Nat → Digest) (hpads : Nat → BitVec 64)
     (pads : Nat → Digest) (step : Nat) (value : Digest) :
     hdrBlock (pad64 (merkleInputW lay tree h leaf path hpads pads step value)) =
-      bytesLE 16 (hpads step ++ WCT9.lowerNodeWord (lay - 1) tree (2 ^ (h - step - 1) + leaf / 2 ^ (step + 1))) := by
+      bytesLE 16 (hpads step ++ WCT9.merkleWord lay tree (2 ^ (h - step - 1) + leaf / 2 ^ (step + 1))) := by
   unfold merkleInputW
   dsimp only
   split <;> rw [pad64_lowerNodeInputP, WCT9.lowerNodeInputP, List.append_assoc] <;> exact hdrBlock_prefix _ _ _
@@ -57,18 +64,46 @@ theorem merkleInputW_length (lay tree h leaf : Nat) (path : Nat → Digest) (hpa
   unfold merkleInputW
   dsimp only
   split <;> rw [pad64_lowerNodeInputP, lowerNodeInputP_length]
-/-- Two lower fold inputs of the same step have the same decoding key (the high tweak word is ignored: the packed
-node word is marked). -/
+/-- C4: a top fold input carries the top label (`TopLow`: its low header word is `topNodeWord heap`). -/
+theorem topLow_merkleInputW (tree h leaf : Nat) (path : Nat → Digest) (hpads : Nat → BitVec 64)
+    (pads : Nat → Digest) (step : Nat) (value : Digest) :
+    TopLow (hdrBlock (pad64 (merkleInputW 0 tree h leaf path hpads pads step value))) := by
+  rw [hdrBlock_merkleInputW, topLow_bytesLE_iff, tweakLow_eq_low, BitVec.extractLsb'_append_eq_right,
+    WCT9.merkleWord_top, topNodeWord_toNat64]
+  exact ⟨topNodeWord_pos _, lt_trans (topNodeWord_lt _) (by norm_num)⟩
+/-- C4: two top fold inputs of the same step have the same decoding key (the key of a top label keeps only the low
+word, which is the label `topNodeWord heap`). -/
+theorem merkleInputW_sameHeader_top {tree h leaf step : Nat}
+    (path path' : Nat → Digest) (hpads hpads' : Nat → BitVec 64) (pads pads' : Nat → Digest) (value value' : Digest) :
+    SameHeader (pad64 (merkleInputW 0 tree h leaf path hpads pads step value))
+      (pad64 (merkleInputW 0 tree h leaf path' hpads' pads' step value')) := by
+  refine ⟨by rw [merkleInputW_length, merkleInputW_length], ?_⟩
+  rw [hdrKey_of_top (merkleInputW_length ..) (topLow_merkleInputW ..),
+    hdrKey_of_top (merkleInputW_length ..) (topLow_merkleInputW ..), hdrBlock_merkleInputW, hdrBlock_merkleInputW,
+    SigGolfCandidate.T3M.Extract.bytesLE_header_words, SigGolfCandidate.T3M.Extract.bytesLE_header_words,
+    List.take_left' (bytesLE_length 8 _), List.take_left' (bytesLE_length 8 _)]
+/-- Two fold inputs of the same step have the same decoding key: on the lower trees the high tweak word is ignored
+because the packed node word is marked (heap `< 128`), on the top tree (C4) because the label is `TopLow`. -/
 theorem merkleInputW_sameHeader {lay tree h leaf step : Nat} (hh : 2 ^ (h - step - 1) + leaf / 2 ^ (step + 1) < 128)
     (path path' : Nat → Digest) (hpads hpads' : Nat → BitVec 64) (pads pads' : Nat → Digest) (value value' : Digest) :
     SameHeader (pad64 (merkleInputW lay tree h leaf path hpads pads step value))
       (pad64 (merkleInputW lay tree h leaf path' hpads' pads' step value')) := by
+  by_cases h0 : lay = 0
+  · subst h0; exact merkleInputW_sameHeader_top _ _ _ _ _ _ _ _
   refine ⟨by rw [merkleInputW_length, merkleInputW_length], ?_⟩
-  rw [hdrKey_of_len64 (merkleInputW_length ..), hdrKey_of_len64 (merkleInputW_length ..),
+  have hm : ∀ heap, heap < 128 → 128 ≤ (WCT9.merkleWord lay tree heap).toNat % 256 := by
+    intro heap hh'; rw [WCT9.merkleWord_lower h0, WCT9.lowerNodeWord_toNat hh']; omega
+  have hn : ∀ (hp : BitVec 64), ¬ TopLow (bytesLE 16 (hp ++ WCT9.merkleWord lay tree
+      (2 ^ (h - step - 1) + leaf / 2 ^ (step + 1)))) := by
+    intro hp ht
+    generalize 2 ^ (h - step - 1) + leaf / 2 ^ (step + 1) = heap at hh ht
+    rw [topLow_bytesLE_iff, tweakLow_eq_low, BitVec.extractLsb'_append_eq_right, WCT9.merkleWord_lower h0,
+      WCT9.lowerNodeWord_toNat hh] at ht
+    omega
+  rw [hdrKey_of_len64 (merkleInputW_length ..) (by rw [hdrBlock_merkleInputW]; exact hn _),
+    hdrKey_of_len64 (merkleInputW_length ..) (by rw [hdrBlock_merkleInputW]; exact hn _),
     hdrBlock_merkleInputW, hdrBlock_merkleInputW]
   apply canonicalHeader_high_irrelevant
-  have hm : ∀ heap, heap < 128 → 128 ≤ (WCT9.lowerNodeWord (lay - 1) tree heap).toNat % 256 := by
-    intro heap hh'; rw [WCT9.lowerNodeWord_toNat hh']; omega
   exact hm _ hh
 theorem hdrBlock_merkleInput (tag lay tree h leaf : Nat) (path pads : Nat → Digest) (step : Nat) (value : Digest) :
     hdrBlock (pad64 (merkleInput tag lay tree h leaf path pads step value)) =
@@ -231,6 +266,33 @@ theorem layerLeaf_extract (answers : Answers) (w : WBytes) (index : Nat) (lay : 
         canonicalHeader (((chainInput _ _ _ _ _ _).drop 16).take 16)
       rw [chainInput_header]
       exact canonicalHeader_chainHeaderP _ _ _ _ _ _
+theorem foldlM_finRange_eq_hashPathW (high : Nat → Bool) (input : Nat → Digest → HashInput)
+    (count : Nat) (initial : Digest) :
+    (List.finRange count).foldlM (fun value j => WCT9.halfHash (high j.val) (input j.val value)) initial =
+      hashPathW high input count initial := by
+  unfold hashPathW
+  rw [← map_val_finRange count, List.foldlM_map]
+/-- C4: `layerP` (every fold one-word, half by heap parity) as the leaf hash followed by a half-aware hash path of
+`height lay` folds. -/
+theorem layerP_eq_hashPathW (w : WBytes) (index : Nat) (lay : Layer) (digits : List Nat) :
+    layerP w index lay digits = (layerLeafP w index lay digits >>= fun value =>
+      hashPathW (merkleHighW lay.val (height lay) (route index lay).1)
+        (merkleInputW lay.val (route index lay).2 (height lay) (route index lay).1
+          (wpath w lay (route index lay).1) (wmerkleHigh w lay (route index lay).1) (wmerklePad w lay (route index lay).1))
+        (height lay) value) := by
+  unfold layerP layerLeafP
+  rcases route index lay with ⟨leaf, tree⟩
+  dsimp only
+  rw [bind_assoc]
+  congr 1
+  funext ends
+  congr 1
+  funext value
+  rw [← foldlM_finRange_eq_hashPathW (merkleHighW lay.val (height lay) leaf)
+    (merkleInputW lay.val tree (height lay) leaf (wpath w lay leaf) (wmerkleHigh w lay leaf) (wmerklePad w lay leaf))
+    (height lay) value]
+  rfl
+/-- C4: the top layer's leaf hash and 12 folds as a half-aware hash path (`layerP` is stated for every layer). -/
 theorem layerP_extract (answers : Answers) (w : WBytes) (index : Nat) (lay : Layer) (digits : List Nat)
     (hlay : lay = 0) (hidx : index < 2 ^ 31) (hvalid : Cost.ValidDigits lay digits)
     (reaches : evalWithAnswerFn answers (layerP w index lay digits) = honestRoot answers lay (route index lay).2) :
@@ -242,54 +304,51 @@ theorem layerP_extract (answers : Answers) (w : WBytes) (index : Nat) (lay : Lay
   have hl0 : lay.val = 0 := by rw [hlay]; rfl
   have hqL : ∀ q ∈ queried answers (layerLeafP w index lay digits), q ∈ queried answers (layerP w index lay digits) := by
     intro q hq
-    rw [layerP_eq_hashPath, queried_bind]
+    rw [layerP_eq_hashPathW, queried_bind]
     exact List.mem_append_left _ hq
+  have hqM : ∀ q ∈ queried answers (hashPathW (merkleHighW lay.val (height lay) (route index lay).1)
+      (merkleInputW lay.val (route index lay).2 (height lay) (route index lay).1 (wpath w lay (route index lay).1)
+        (wmerkleHigh w lay (route index lay).1) (wmerklePad w lay (route index lay).1)) (height lay)
+      (evalWithAnswerFn answers (layerLeafP w index lay digits))),
+      q ∈ queried answers (layerP w index lay digits) := by
+    intro q hq
+    rw [layerP_eq_hashPathW, queried_bind]
+    exact List.mem_append_right _ hq
   have hleafB := route_leaf_bound index lay
   have htreeB := route_tree_bound index lay hidx
-  have hTL := WCT9.wotsTree_correct answers lay (route index lay).2
-  rw [hl0] at hTL
-  have hM := merklePath_extract answers 3 lay.val (route index lay).2 (height lay) (route index lay).1 (height lay)
-    (wpath w lay (route index lay).1) (wmerklePad w lay (route index lay).1)
+  have hM := merklePathW_extract answers lay.val (route index lay).2 (height lay) (route index lay).1
+    (height lay) (wpath w lay (route index lay).1)
     (fun j => treeValue (wotsTree answers lay (route index lay).2) j ((route index lay).1 / 2 ^ j ^^^ 1))
     (fun step => treeValue (wotsTree answers lay (route index lay).2) step ((route index lay).1 / 2 ^ step))
+    (wmerkleHigh w lay (route index lay).1) (wmerklePad w lay (route index lay).1)
     (evalWithAnswerFn answers (layerLeafP w index lay digits))
-    (by
-      rw [hl0]
-      exact merkleInput_tree_reference answers 3 0 (route index lay).2 (height lay) (route index lay).1 _ _
-        (WCT9.treeLevelsL_top.mp hTL) hleafB)
+    (fun step hstep => merkleInputW_tree_reference' answers lay.val (route index lay).2 (height lay)
+      (route index lay).1 _ _ (WCT9.wotsTree_correct answers lay (route index lay).2) hleafB step hstep)
     (by
       have h := reaches
-      rw [layerP_eq_hashPath, evalWithAnswerFn_bind] at h
+      rw [layerP_eq_hashPathW, evalWithAnswerFn_bind] at h
+      unfold pathValueW
       rw [Nat.div_eq_of_lt hleafB]
       exact h)
   rcases hM with ⟨hv0, hpath⟩ | ⟨step, hstep, hq, hhit⟩
   swap
   · exfalso
     apply hH
-    refine ⟨.node lay (route index lay).2 step ((route index lay).1 / 2 ^ (step + 1)), pad64 (pathInput answers
-      (merkleInput 3 lay.val (route index lay).2 (height lay) (route index lay).1 (wpath w lay (route index lay).1)
-        (wmerklePad w lay (route index lay).1))
+    refine ⟨.node lay (route index lay).2 step ((route index lay).1 / 2 ^ (step + 1)), pad64 (pathInputW answers
+      (merkleHighW lay.val (height lay) (route index lay).1)
+      (merkleInputW lay.val (route index lay).2 (height lay) (route index lay).1 (wpath w lay (route index lay).1)
+        (wmerkleHigh w lay (route index lay).1) (wmerklePad w lay (route index lay).1))
       (evalWithAnswerFn answers (layerLeafP w index lay digits)) step), ⟨htreeB, hstep, Or.inl hlay,
-        fun _ => by subst hlay; exact route_top_tree index hidx, ?_⟩, ?_, ?_, ?_⟩
+        fun _ => by subst hlay; exact route_top_tree index hidx, ?_⟩, hqM _ hq, ?_, ?_⟩
     · simpa only [Nat.sub_sub, Nat.zero_add] using Correctness.div_pow_bound (start := 0) (level := step + 1)
         (node := (route index lay).1) (height := height lay) (by omega) (by simpa using hleafB)
-    · rw [layerP_eq_hashPath, queried_bind]
-      exact List.mem_append_right _ hq
-    · apply hashHitAt_of_low (Pos.proj_of_low (by simp [Pos.high, hl0]))
-      rw [merkle_honestInput answers lay hl0]; exact hhit
-    · rw [merkle_honestInput answers lay hl0]
-      refine SameHeader.of_hdrBlock ?_ (by rw [pathInput, hdrBlock_merkleInput, hdrBlock_merkleInput])
-      rw [pathInput, merkleInput_length, merkleInput_length]
+    · rw [hashHitAt_iff, merkle_honestInputW' answers lay]; exact hhit
+    · rw [merkle_honestInputW' answers lay, pathInputW, hl0]
+      exact merkleInputW_sameHeader_top _ _ _ _ _ _ _ _
   rw [pow_zero, Nat.div_one, WCT9.wotsTree_leaf answers lay _ _ hleafB] at hv0
   rcases layerLeaf_extract answers w index lay digits hidx hvalid hv0 with hhit | ⟨hchains, hhi, htop⟩
   · exact absurd (hhit.mono hqL) hH
-  exact ⟨fun j hj => ⟨(hpath j hj).1, fun _ => (hpath j hj).2, fun _ h => absurd hl0 h⟩, hchains, hhi, htop⟩
-theorem foldlM_finRange_eq_hashPathW (high : Nat → Bool) (input : Nat → Digest → HashInput)
-    (count : Nat) (initial : Digest) :
-    (List.finRange count).foldlM (fun value j => WCT9.halfHash (high j.val) (input j.val value)) initial =
-      hashPathW high input count initial := by
-  unfold hashPathW
-  rw [← map_val_finRange count, List.foldlM_map]
+  exact ⟨fun j hj => ⟨(hpath j hj).1, fun _ => (hpath j hj).2.2, fun _ => (hpath j hj).2.1⟩, hchains, hhi, htop⟩
 /-- The lower path of `layerPairP` as a half-aware hash path (C2). -/
 theorem layerPairP_eq_hashPathW (w : WBytes) (index : Nat) (lay : Layer) (digits : List Nat) :
     layerPairP w index lay digits = (layerLeafP w index lay digits >>= fun value =>
@@ -402,7 +461,7 @@ theorem layerPairP_extract (answers : Answers) (w : WBytes) (index : Nat) (lay :
   · exact absurd (hhit.mono hqL) hH
   refine ⟨fun j hj => ?_, hchains, hhi, htopP⟩
   by_cases hjt : j < height lay - 1
-  · exact ⟨(hpath j hjt).1, fun _ => (hpath j hjt).2.2, fun _ _ => (hpath j hjt).2.1⟩
+  · exact ⟨(hpath j hjt).1, fun _ => (hpath j hjt).2.2, fun _ => (hpath j hjt).2.1⟩
   · have hj1 : j = height lay - 1 := by omega
     subst hj1
     exact ⟨hpair.2, fun h => by omega, fun h => by omega⟩
@@ -457,9 +516,11 @@ theorem layerP_shaped_core (answers : Answers) (N : HashOutput) (w : WBytes) (la
   simp only [hpath, hvals, hleaf, WCT9.lowerLeafHash_top]
   have hmz : ∀ j : Fin (height 0), wmerklePad w 0 (route (WCT9.digestIndex N) 0).1 j.val = 0 :=
     fun j => (hs.1 j.val j.isLt).2.1 (Or.inr hlay)
-  generalize hr : route (WCT9.digestIndex N) 0 = r at hs hzero hmz ⊢
+  have hmh : ∀ j : Fin (height 0), wmerkleHigh w 0 (route (WCT9.digestIndex N) 0).1 j.val = 0 :=
+    fun j => (hs.1 j.val j.isLt).2.2 (Or.inr hlay)
+  generalize hr : route (WCT9.digestIndex N) 0 = r at hs hzero hmz hmh ⊢
   obtain ⟨leaf, tree⟩ := r
-  dsimp only at hs hzero hmz ⊢
+  dsimp only at hs hzero hmz hmh ⊢
   have hchains : ((List.finRange (chainCount 0)).mapM fun i =>
       chainPW 0 tree leaf i.val (digits.getD i.val 0) (maxDigit 0 i.val - digits.getD i.val 0)
         (wchainPads w 0 i.val).1 (wchainPads w 0 i.val).2
@@ -483,7 +544,7 @@ theorem layerP_shaped_core (answers : Answers) (N : HashOutput) (w : WBytes) (la
   funext value
   congr 1
   funext v j
-  rw [hmz j, nodeHashP_zero]
+  rw [hmz j, hmh j, ← WCT9.lowerNodeHash_eqP', Fin.val_zero, WCT9.lowerNodeHash_top]
 theorem layerPairP_shaped_core (answers : Answers) (N : HashOutput) (w : WBytes) (lay : Layer) (digits : List Nat)
     (hs : LayerShaped answers w (WCT9.digestIndex N) lay digits) (hlay : lay.val ≠ 0) :
     layerPairP w (WCT9.digestIndex N) lay digits =
@@ -501,7 +562,7 @@ theorem layerPairP_shaped_core (answers : Answers) (N : HashOutput) (w : WBytes)
   have hmz : ∀ j : Fin (height lay - 1), wmerklePad w lay (route (WCT9.digestIndex N) lay).1 j.val = 0 :=
     fun j => (hs.1 j.val (by omega)).2.1 (Or.inl (by omega))
   have hmh : ∀ j : Fin (height lay - 1), wmerkleHigh w lay (route (WCT9.digestIndex N) lay).1 j.val = 0 :=
-    fun j => (hs.1 j.val (by omega)).2.2 (by omega) hlay
+    fun j => (hs.1 j.val (by omega)).2.2 (Or.inl (by omega))
   generalize hr : route (WCT9.digestIndex N) lay = r at hs hzero hmz hmh ⊢
   obtain ⟨leaf, tree⟩ := r
   dsimp only at hs hzero hmz hmh ⊢

@@ -20,6 +20,13 @@ theorem shortHash_cost (answers : SigGolfCandidate.T3.Correctness.Answers) (x : 
   unfold publicHash
   rw [cost_query]
   rfl
+theorem projHash_cost (answers : SigGolfCandidate.T3.Correctness.Answers) (high : Bool) (x : HashInput) :
+    cost answers (projHash high x) = (pad64 x).length / 64 := by
+  unfold projHash
+  rw [cost_bind, cost_pure, Nat.add_zero]
+  unfold publicHash
+  rw [cost_query]
+  rfl
 theorem pad64_length_ge (x : HashInput) (hx : 0 < x.length) : 64 ≤ (pad64 x).length := by
   simp only [pad64, List.length_append, List.length_replicate]
   omega
@@ -334,7 +341,7 @@ theorem cost_topNode (answers : Answers) (index : Nat) (v o : Digest) :
     cost answers (ClaudeWCT.WCT9.topNode index v o) = 1 := by
   apply le_antisymm (cost_bound answers (ClaudeWCT.WCT9.Cost.bound_topNode index v o))
   unfold ClaudeWCT.WCT9.topNode nodeHash
-  rw [ClaudeWCT.W9.T3.FullCacheExpansionCost.shortHash_cost]
+  rw [ClaudeWCT.W9.T3.FullCacheExpansionCost.projHash_cost]
   refine le_trans (by norm_num) (Nat.div_le_div_right (c := 64)
     (ClaudeWCT.W9.T3.FullCacheExpansionCost.pad64_length_ge _ ?_))
   simp only [List.length_append, SphincsSecurity.bytesLE_length, zero16, List.length_replicate]

@@ -1200,8 +1200,8 @@ theorem sign_terminates_w (imgs : Phase → Image) (Inv : BitVec 256 → Bytes 1
     (hcode : SignCodeAt (imgs .sign)) (hU : Unchanged imgs Inv) : SignTerminatesW imgs :=
   (signMain imgs Inv hcode hU).2
 theorem newCodeAt_of_drop {im : Image} (h : im.code.drop 11003 = signNew)
-    (h2 : signTramp <+: im.code.drop 21450) : NewCodeAt im := by
-  rw [NewCodeAt, h]; exact ⟨List.prefix_refl _, h2⟩
+    (h2 : signTramp <+: im.code.drop 21450) (ha : arenaCode <+: im.code.drop 1700) : NewCodeAt im := by
+  rw [NewCodeAt, h]; exact ⟨List.prefix_refl _, h2, ha⟩
 end ClaudeWCT.W9.Machine.Sign
 end
 
@@ -4939,7 +4939,8 @@ theorem codeAt_get_word {im : Image} {b : Nat} {code : List (BitVec 32)}
 
 theorem fetch_of_code {im : Image}
     (hh : CodeAt im (pcOf 11003) headCode)
-    (hi : ∀c : Fin 9,CodeAt im (pcOf (cbase c.val+1)) (innerCode c.val)) : Fetch im := by
+    (hi : ∀c : Fin 9,CodeAt im (pcOf (cbase c.val+1)) (innerCode c.val))
+    (ha : CodeAt im (pcOf 1700) arenaCode) : Fetch im := by
   constructor
   · intro n w hw
     unfold headLook at hw
@@ -4966,7 +4967,12 @@ theorem fetch_of_code {im : Image}
         rwa [show 1+(n-(cbase c+1))=n-cbase c by omega]
       have hf:=codeAt_get_word (by omega : cbase c+1<2^30) (hi ⟨c,hc⟩) hw'
       simpa [show cbase c+1+(n-(cbase c+1))=n by omega] using hf
-    · cases hw
+    · unfold arenaLook at hw
+      split at hw
+      · rename_i hle
+        have he := codeAt_get_word (by decide : 1700 < 2^30) ha hw
+        simpa [Nat.add_sub_cancel' hle] using he
+      · cases hw
 #print axioms fetch_of_code
 end ClaudeWCT.W9.Machine.Sign.SharedReuse
 
@@ -4982,6 +4988,7 @@ theorem installed_fetch : Fetch Images.signImage := by
   · apply codeAt_sign_current_slice <;> decide +kernel
   · intro c
     fin_cases c <;> apply codeAt_sign_current_slice <;> decide +kernel
+  · apply codeAt_sign_current_slice <;> decide +kernel
 #print axioms installed_fetch
 end ClaudeWCT.W9.Machine.Sign.SharedReuse
 
@@ -4993,6 +5000,8 @@ set_option maxRecDepth 100000
 set_option Elab.async false
 theorem installed_code (c : Fin 9) : CodeAt Images.signImage (pcOf (entry c.val)) (words c.val) := by
   fin_cases c <;> apply codeAt_sign_current_slice <;> decide +kernel
+theorem installed_c4Stub : CodeAt Images.signImage (pcOf c4StubPc) c4Stub := by
+  apply codeAt_sign_current_slice <;> decide +kernel
 theorem installed_look (c : Nat) (hc : c<9) : LookOK Images.signImage (look c) := by
   intro n w hw
   unfold look at hw
@@ -5003,7 +5012,11 @@ theorem installed_look (c : Nat) (hc : c<9) : LookOK Images.signImage (look c) :
       exact h ⟨c,hc⟩
     have he := SharedReuse.codeAt_get_word hb (installed_code ⟨c,hc⟩) hw
     simpa [Nat.add_sub_cancel' hle] using he
-  · cases hw
+  · split at hw
+    · rename_i hstub
+      have he := SharedReuse.codeAt_get_word (by decide : c4StubPc < 2^30) installed_c4Stub hw
+      simpa [Nat.add_sub_cancel' hstub.2] using he
+    · cases hw
 #print axioms installed_code
 #print axioms installed_look
 end ClaudeWCT.W9.Machine.Sign.SharedLeaf
@@ -5016,6 +5029,8 @@ set_option maxRecDepth 100000
 set_option Elab.async false
 theorem installed_code (c : Fin 9) : CodeAt Images.signImage (pcOf (entry c.val)) (words c.val) := by
   fin_cases c <;> apply codeAt_sign_current_slice <;> decide +kernel
+theorem installed_c4Stub : CodeAt Images.signImage (pcOf c4StubPc) c4Stub := by
+  apply codeAt_sign_current_slice <;> decide +kernel
 theorem installed_look (c : Nat) (hc : c<9) : LookOK Images.signImage (look c) := by
   intro n w hw
   unfold look at hw
@@ -5026,7 +5041,11 @@ theorem installed_look (c : Nat) (hc : c<9) : LookOK Images.signImage (look c) :
       exact h ⟨c,hc⟩
     have he := SharedReuse.codeAt_get_word hb (installed_code ⟨c,hc⟩) hw
     simpa [Nat.add_sub_cancel' hle] using he
-  · cases hw
+  · split at hw
+    · rename_i hstub
+      have he := SharedReuse.codeAt_get_word (by decide : c4StubPc < 2^30) installed_c4Stub hw
+      simpa [Nat.add_sub_cancel' hstub.2] using he
+    · cases hw
 #print axioms installed_code
 #print axioms installed_look
 end ClaudeWCT.W9.Machine.Sign.SharedNode

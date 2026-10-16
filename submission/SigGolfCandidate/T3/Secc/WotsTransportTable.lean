@@ -21,12 +21,7 @@ def GameSplit (adversary : AdversaryP) (result : FirstHit.Recorded Bool)
   checked ∈ support (FirstHit.record (GameWith.verdict PaddedGame.checker generated.value.1 interaction.value)
       interaction.state) ∧
   result = ⟨checked.value, generated.events ++ (interaction.events ++ checked.events), checked.state⟩
-def CaseABAt (adversary : AdversaryP) (result : FirstHit.Recorded Bool) (answers : Answers) : Prop :=
-  ∀ generated interaction checked, GameSplit adversary result generated interaction checked →
-    ∀ forgery, interaction.value.1 = some forgery → VerifierWots answers generated.value.1 forgery
 namespace Ref
-def Good (adversary : AdversaryP) (q : Nat) (result : FirstHit.Recorded Bool) (answers : Answers) : Prop :=
-  result.value = true ∧ chargeSum result.events ≤ q ∧ CaseABAt adversary result answers
 noncomputable def cut (state : LazyPrivate.State) (F : Answers) : Answers
   | .inl (.inl n) => F (.inl (.inl n))
   | .inl (.inr input) =>

@@ -28,6 +28,22 @@ theorem not_digest_of_marker {x : HashInput} {h : BitVec 128}
   have hh := bytesLE_injective h2
   rw [← hh, digestHeader_firstByte] at hmark
   exact hmark rfl
+/-- C4: the digest is the only query whose low header word is 0 (a top fold label may have byte0 = 0). -/
+theorem not_digest_of_low {x : HashInput} {h : BitVec 128}
+    (hx : SigGolfCandidate.T3M.Extract.hdrBlock x = bytesLE 16 h)
+    (hlow : h.toNat % 2 ^ 64 ≠ 0) : x ∉ digestInputs := by
+  intro hm
+  obtain ⟨rho, m, ctr, rfl⟩ := SigGolfCandidate.T3.Security.BPair.mem_digestInputs.mp hm
+  rw [SigGolfCandidate.T3M.Extract.hdrBlock_pad64 _
+    (by rw [SigGolfCandidate.T3.Security.BPair.digestInput_length]; omega)] at hx
+  unfold digestInput at hx
+  have h2 : bytesLE 16 (digestHeader ctr) = bytesLE 16 h :=
+    (SigGolfCandidate.T3M.Extract.hdrBlock_prefix rho (digestHeader ctr) (bytesLE 32 m)).symm.trans hx
+  have hh := bytesLE_injective h2
+  have hd := digestHeader_lowNat ctr
+  unfold tweakLow at hd
+  rw [← hh] at hlow
+  exact hlow hd
 theorem not_digest_of_packed {x : HashInput} {h : BitVec 128}
     (hx : SigGolfCandidate.T3M.Extract.hdrBlock x = bytesLE 16 h)
     (hmark : 128 ≤ h.toNat % 256) : x ∉ digestInputs :=
@@ -97,16 +113,18 @@ theorem lowerNodeHash_dn (lay : Layer) (tree heap : Nat) (left right : Digest) (
   rw [he]
   unfold shortHash publicHash
   refine SourceQueries.bind_allowed NotDN ((allQueriesSatisfy_query_iff _ _).mpr
-    (not_digest_of_marker (h := WCT9.merkleTweak lay.val tree heap) ?_ ?_)) fun _ => SourceQueries.pure_allowed _ _
+    (not_digest_of_low (h := WCT9.merkleTweak lay.val tree heap) ?_ ?_)) fun _ => SourceQueries.pure_allowed _ _
   · rw [SigGolfCandidate.T3M.SecurityInputs.pad64_block4]
     exact ClaudeWCT.W9.T3M.Extract.hdrBlock_block4 _ _ _ _
   · by_cases h0 : lay.val = 0
-    · rw [h0, WCT9.merkleTweak_top]; exact nodeTweak_marker_ne_zero _ _ _ _
+    · rw [h0, WCT9.merkleTweak_top]
+      have := nodeTweak_low_ne_zero 3 0 tree heap
+      unfold tweakLow at this
+      exact this
     · rw [WCT9.merkleTweak_lower h0]
       have h7 : height lay ≤ 7 := by fin_cases lay <;> simp_all [height]
       have h128 : heap < 128 := lt_of_lt_of_le hh (le_trans (Nat.pow_le_pow_right (by decide) h7) (by norm_num))
-      have := WCT9.lowerTweak_marker h128 lay.val tree
-      unfold tweakMarker at this
+      rw [WCT9.lowerTweak_toNat h128]
       omega
 theorem buildTreeP_dn (lay : Layer) (tree selected : Nat) (digits : List Nat) :
     AllQueriesSatisfy (WCT9.buildTreeP lay tree selected digits) NotDN :=
@@ -147,11 +165,23 @@ theorem cell_not_digest (s : CanonGraph.Secrets) (node : CanonGraph.Node) (label
         have := leafTweak_marker L.1.lay L.1.tree.val L.1.leaf.val; unfold tweakMarker at this; omega)
   | node n =>
       simp only [CanonGraph.Node.toPos, ClaudeWCT.W9.T3M.Extract.Pos.hdr] at h
-      refine not_digest_of_marker h ?_
-      have hc := ClaudeWCT.W9.T3M.Extract.Pos.hdrClass_eq (CanonGraph.toPos_bounded (.node n))
-      simp only [CanonGraph.Node.toPos, ClaudeWCT.W9.T3M.Extract.Pos.hdr, ClaudeWCT.W9.T3M.Extract.Pos.cls] at hc
-      unfold ClaudeWCT.W9.T3M.Extract.hdrClass tweakMarker at hc
-      split_ifs at hc <;> omega
+      -- C4: every Merkle node word is nonzero (top labels `topNodeWord heap ≥ 1`, lower words have byte7 193).
+      refine not_digest_of_low h ?_
+      by_cases h0 : n.1.lay.val = 0
+      · rw [h0, WCT9.merkleTweak_top]
+        have := nodeTweak_low_ne_zero 3 0 n.1.tree.val (2 ^ (height n.1.lay - n.1.level.val - 1) + n.1.idx.val)
+        unfold tweakLow at this
+        exact this
+      · have h7 : height n.1.lay ≤ 7 := by
+          have h0' : n.1.lay ≠ 0 := fun e => h0 (by rw [e]; rfl)
+          revert h0'; generalize n.1.lay = lay; intro h0'; fin_cases lay <;> simp_all [height]
+        have hh := ClaudeWCT.W9.T3M.Extract.node_heap_lt128 n.2.2.1 h7
+        rw [WCT9.merkleTweak_lower h0, WCT9.lowerTweak_toNat hh]
+        have hl := n.1.lay.isLt
+        generalize 2 ^ (height n.1.lay - n.1.level.val - 1) + n.1.idx.val = heap at hh ⊢
+        generalize n.1.tree.val = tr
+        generalize n.1.lay.val = l at hl ⊢
+        omega
   | forest index =>
       simp only [CanonGraph.Node.toPos, ClaudeWCT.W9.T3M.Extract.Pos.hdr] at h
       exact not_digest_of_marker h (by rw [header_firstByte]; decide)

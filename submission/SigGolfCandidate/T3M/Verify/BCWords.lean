@@ -39,9 +39,13 @@ def oblB : List Oblig := [.valid ⟨some (.reg .x12), 8⟩ 8, .valid ⟨some (.r
 def oblBHi : List Oblig := [.valid ⟨some (.reg .x12), 24⟩ 8, .valid ⟨some (.reg .x12), 16⟩ 8] ++ oblB
 def allowed (lay c : Nat) : List Nat :=
   if lay = 3 then [1232, 1264, 1272] else [rowA lay c + 16]
+/-- C4 (D7, adapted from b3cc11b): the L3 encoding block loads `s2` (`x18`) itself, so its run starts without the
+global `x18 = 0xFFF` fact and re-establishes it from the stack word `TOPB9 - 304` (`x18E3`). -/
+def setupGk (lay : Nat) : List (Reg × Word) := if lay = 3 then [(.x5, 0)] else baseK
+def bKS (lay c : Nat) : List (Reg × Word) := if lay = 3 then (bK lay c).filter (fun p => p.1 != .x18) else bK lay c
 def setupCheck (lay c : Nat) : Bool :=
-  specB (allowed lay c) [] baseK (runAt (preK lay) [] (setupPc lay (trPc lay c)) [])
-    (specA lay c) [] (bK lay c) (keepA lay)
+  specB (allowed lay c) [] (setupGk lay) (runAt (preK lay) [] (setupPc lay (trPc lay c)) [])
+    (specA lay c) [] (bKS lay c) (keepA lay)
 def copyCheck (lay c : Nat) : Bool :=
   setupCheck lay c &&
   (if lay = 0 then true else

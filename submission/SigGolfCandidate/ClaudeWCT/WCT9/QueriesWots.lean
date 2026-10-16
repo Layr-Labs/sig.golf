@@ -116,14 +116,14 @@ theorem ftsQuery_notDigest {index : Nat} {q : Query} (h : FtsQuery index q) : BP
   · show BPB.hdrMarker input ≠ 0
     rcases FtsInput.hdrBlock (show FtsInput index input from h) with
       ⟨coord, selected, t, step, hblock⟩ | ⟨coord, selected, -, -, hblock⟩ | ⟨coord, heap, -, -, -, hblock⟩ | hblock
-    · rw [BPB.hdrMarker_eq hblock]
+    · refine BPB.hdrMarker_ne_zero hblock ?_
       unfold tweakMarker
       rw [show ftsChainHeader index coord selected t step = ftsChainHeaderP index coord selected t step 0 from rfl,
         ftsChainHeaderP_firstByte]
       omega
-    · rw [BPB.hdrMarker_eq hblock]; unfold tweakMarker; rw [ftsLeafHeader_firstByte]; decide
-    · rw [BPB.hdrMarker_eq hblock]; exact wctNodeHeader_tweakMarker_ne_zero _ _ _
-    · rw [BPB.hdrMarker_eq hblock, header_marker]; decide
+    · refine BPB.hdrMarker_ne_zero hblock ?_; unfold tweakMarker; rw [ftsLeafHeader_firstByte]; decide
+    · exact BPB.hdrMarker_ne_zero hblock (wctNodeHeader_tweakMarker_ne_zero _ _ _)
+    · exact BPB.hdrMarker_ne_zero hblock (by rw [header_marker]; decide)
   · trivial
   · trivial
 namespace Mask

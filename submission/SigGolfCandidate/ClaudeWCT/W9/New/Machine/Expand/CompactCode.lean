@@ -9,7 +9,7 @@ open ClaudeWCT.W9.Machine.VLib
 (C2 + C3, from #866): also the trampolines `43472 .. 43488` (`Compact2.cETail`, the footer's LE64(1) at `WIT + 24`,
 and `Compact2.cRT 1..3`, the lower root windows' row-tweak pads). -/
 def compactScope (n : Nat) : Bool :=
-  decide ((33000≤n ∧ n<33285) ∨ (41108≤n ∧ n<42719) ∨ (43472≤n ∧ n<43489) ∨ (43951≤n ∧ n<44043))
+  decide ((33000≤n ∧ n<33285) ∨ (41108≤n ∧ n<42719) ∨ (43472≤n ∧ n<43489) ∨ (43951≤n ∧ n≤44043) ∨ (43500≤n ∧ n<43761))
 def compactLook (n : Nat) : Option (BitVec 32) := if compactScope n then expLook n else none
 structure CompactCodeAt (im : Image) : Prop where
   look : LookOK im compactLook
@@ -134,11 +134,11 @@ open ClaudeWCT.W9.Machine.VLib
 set_option maxHeartbeats 3000000
 set_option maxRecDepth 100000
 def compactChunkAllowed (c : Nat) : Prop :=
-  c=128 ∨ c=129 ∨ c=130 ∨ (160≤c ∧ c≤166) ∨ c=169 ∨ c=171 ∨ c=172
+  c=128 ∨ c=129 ∨ c=130 ∨ (160≤c ∧ c≤166) ∨ c=169 ∨ c=170 ∨ c=171 ∨ c=172
 /-- Window `[compactChunkLo c, compactChunkLen c)` of image chunk `c` used by `compactScope` (chunk 169 only for the
-stage-2 trampolines `43472 .. 43488`: the paired image changes words 43447 and 43449 of that chunk). -/
+stage-2 trampolines and C4 prefix; chunk 170 stops before the paired suffix jump at 43761). -/
 def compactChunkLo (c : Nat) : Nat := if c=169 then 208 else 0
-def compactChunkLen (c : Nat) : Nat := if c=172 then 11 else if c=169 then 225 else 256
+def compactChunkLen (c : Nat) : Nat := if c=172 then 12 else if c=170 then 241 else 256
 theorem compactCode_of_chunks {im : Image}
     (hc : ∀c,compactChunkAllowed c → CodeAt im (pcOf (256*c+compactChunkLo c))
       (((expChunks.getD (c-4) []).take (compactChunkLen c)).drop (compactChunkLo c))) :

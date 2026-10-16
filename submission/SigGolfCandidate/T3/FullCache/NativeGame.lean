@@ -13,14 +13,16 @@ set_option backward.isDefEq.respectTransparency false
 abbrev NonMac {α : Type} (program : M α) := AllQueriesSatisfy program MacGame.NonMac
 theorem shortHash_nonMac (input : HashInput) : NonMac (shortHash input) :=
   SourceQueries.shortHash_allowed MacGame.NonMac (fun _ => trivial) input
+theorem projHash_nonMac (high : Bool) (input : HashInput) : NonMac (projHash high input) :=
+  SourceQueries.projHash_allowed MacGame.NonMac (fun _ => trivial) high input
 theorem chain_nonMac (lay : Layer) (tree leaf i start count : Nat) (value : Digest) :
     NonMac (chain lay tree leaf i start count value) := by
   unfold chain
   exact SourceQueries.foldlM_allowed _ _ _ (fun _ _ => shortHash_nonMac _) _
 theorem leafHash_nonMac (lay : Layer) (tree leaf : Nat) (ends : List Digest) :
-    NonMac (leafHash lay tree leaf ends) := shortHash_nonMac _
+    NonMac (leafHash lay tree leaf ends) := projHash_nonMac _ _
 theorem nodeHash_nonMac (tag lay tree heap : Nat) (left right : Digest) :
-    NonMac (nodeHash tag lay tree heap left right) := shortHash_nonMac _
+    NonMac (nodeHash tag lay tree heap left right) := projHash_nonMac _ _
 theorem ftsLeaf_nonMac (index coord leaf : Nat) (value : Digest) :
     NonMac (ftsLeaf index coord leaf value) := shortHash_nonMac _
 theorem forestPk_nonMac (index : Nat) (roots : List Digest) :

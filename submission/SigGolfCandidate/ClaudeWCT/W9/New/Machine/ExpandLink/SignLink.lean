@@ -2191,7 +2191,6 @@ set_option maxRecDepth 100000
 
 /-- C1 (stage 1): the leaf stub adds at most 9 steps per leaf and the fold stub at most 6 per node
 (`SharedLeaves.cost` 6·stepC+65, node bound 68); still far below `CYCLE_LIMIT`. -/
-theorem signCost_eq : signCost=4070215902 := by decide +kernel
 theorem signCost_lt : signCost+1<CYCLE_LIMIT := by decide +kernel
 
 theorem initialState_paired (sk : SecretKey) (cache : Bytes 131072) (msg : SigGolfCandidate.T3.Message) :

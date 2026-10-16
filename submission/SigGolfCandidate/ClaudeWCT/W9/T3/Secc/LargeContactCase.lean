@@ -41,7 +41,7 @@ theorem frame_wots_route (answers : Answers) (w : WBytes) (index : Nat) (lay : L
       wpath w lay (route index lay).1 j =
           treeValue (WCT9.wotsTree answers lay (route index lay).2) j ((route index lay).1 / 2 ^ j ^^^ 1) ∧
         (j + 1 < height lay ∨ lay.val = 0 → wmerklePad w lay (route index lay).1 j = 0) ∧
-        (j + 1 < height lay → lay.val ≠ 0 → wmerkleHigh w lay (route index lay).1 j = 0))
+        (j + 1 < height lay ∨ lay.val = 0 → wmerkleHigh w lay (route index lay).1 j = 0))
     (hleaf : wleafHigh w lay = 0 ∧ (lay.val = 0 → wtopLeafPad w = 0))
     (hchains : ∀ i, i < chainCount lay →
       (depth answers ⟨routeLeaf index lay, i⟩ ≤ digits.getD i 0 →
@@ -133,7 +133,7 @@ theorem layer_wots_route (answers : Answers) (w : WBytes) (index : Nat) (lay : L
   · exact Or.inl (Or.inr (Or.inl (structuralHitSrc_mono hS hmono)))
   have hl0 : lay.val = 0 := by rw [hlay0]; rfl
   exact frame_wots_route answers w index lay msg digits hidx hfit hframe qs henc
-    (fun j hj => ⟨(hmerkle j hj).1, fun _ => (hmerkle j hj).2, fun _ h => absurd hl0 h⟩) hleaf
+    (fun j hj => ⟨(hmerkle j hj).1, fun _ => (hmerkle j hj).2.1, fun _ => (hmerkle j hj).2.2⟩) hleaf
     (fun i hi => ⟨(hchains i hi).1, fun hlt => ⟨contactAt_mono ((hchains i hi).2 hlt).1 hmono,
       fun h2 => twoEdgeAt_mono (((hchains i hi).2 hlt).2 h2) hmono⟩⟩)
 theorem layerPair_wots_route (answers : Answers) (w : WBytes) (index : Nat) (lay : Layer) (msg : WCT9.LayerMsg)
@@ -151,7 +151,7 @@ theorem layerPair_wots_route (answers : Answers) (w : WBytes) (index : Nat) (lay
   · exact Or.inl (Or.inr (Or.inl (structuralHitSrc_mono hS hmono)))
   exact frame_wots_route answers w index lay msg digits hidx hfit hframe qs henc
     (fun j hj => ⟨(hmerkle j hj).1, fun h => ((hmerkle j hj).2 (h.resolve_right hlay)).1,
-      fun h _ => ((hmerkle j hj).2 h).2⟩) hleaf
+      fun h => ((hmerkle j hj).2 (h.resolve_right hlay)).2⟩) hleaf
     (fun i hi => ⟨(hchains i hi).1, fun hlt => ⟨contactAt_mono ((hchains i hi).2 hlt).1 hmono,
       fun h2 => twoEdgeAt_mono (((hchains i hi).2 hlt).2 h2) hmono⟩⟩)
 theorem layersBC_wots_walk_route (answers : Answers) (w : WBytes) (index : Nat) (hidx : index < 2 ^ 31) :

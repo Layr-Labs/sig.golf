@@ -195,6 +195,8 @@ structure LayerIn (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index lay : Nat) 
   bufferOrig : Verify.Orig w (fun o => bufferStart lay ≤ o ∧ o < 24896) s
   /-- Layer 3: the nested FTS leaves `a2` at one of its two last heap outputs; the L3 encoding writes there. -/
   dst3 : lay = 3 → s.getReg .x12 = BitVec.ofNat 64 1200 ∨ s.getReg .x12 = BitVec.ofNat 64 1264
+  /-- C4 (D7): the L3 encoding block reloads `s2` from this stack word (0xFFF). -/
+  d0 : lay = 3 → s.getMem (BitVec.ofNat 64 (TOPB9 - 304)) = 0xFFF
 structure EncPre (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index lay c : Nat)
     (t : MachineState) : Prop where
   pc : t.pc = pcOf (trPc lay c + stepsA lay)
@@ -378,8 +380,8 @@ theorem ctr_lt (w : ClaudeWCT.W9.T3M.WBytes) (index : Nat) (lay : Layer) :
     (ClaudeWCT.W9.T3M.wbcCtr w index lay).toNat < 2 ^ 32 :=
   (ClaudeWCT.W9.T3M.wbcCtr w index lay).isLt
 theorem copy_parts (lay c : Nat) (h : BC.copyCheck lay c = true) :
-    specB (BC.allowed lay c) [] baseK (runAt (BC.preK lay) [] (T3M.setupPc lay (trPc lay c))
-      []) (BC.specA lay c) [] (BC.bK lay c) (BC.keepA lay) = true ∧
+    specB (BC.allowed lay c) [] (BC.setupGk lay) (runAt (BC.preK lay) [] (T3M.setupPc lay (trPc lay c))
+      []) (BC.specA lay c) [] (BC.bKS lay c) (BC.keepA lay) = true ∧
     (lay ≠ 0 →
       specB [] [] baseK (runAt (BC.bKB lay c) [] (trPc lay c + stepsA lay + 1)
         [.br (decide (lay = 3)), .br false, .jmp])

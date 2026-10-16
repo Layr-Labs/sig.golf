@@ -172,7 +172,8 @@ theorem shortHash_wct_ok (a rest : HashInput) (tag lay tree position index : Nat
   apply SourceQueries.bind_allowed
   · apply (allQueriesSatisfy_query_iff _ _).mpr
     show BPB.hdrMarker (pad64 (a ++ bytesLE 16 (wctHeader tag lay tree position index) ++ rest)) ≠ 0
-    unfold BPB.hdrMarker
+    apply BPB.hdrMarker_ne_zero_of_byte0
+    unfold BPB.hdrByte0
     rw [hdrBlock_pad64_prefix _ _ _ ha (bytesLE_length _ _), wctHeader_byte0]
     decide
   · intro _; exact SourceQueries.pure_allowed _ _
@@ -182,7 +183,8 @@ theorem chainInput_ok (index coord selected i step : Nat) (value : Digest) :
   apply SourceQueries.bind_allowed
   · apply (allQueriesSatisfy_query_iff _ _).mpr
     show BPB.hdrMarker (pad64 (WCT9.chainInput index coord selected i step value)) ≠ 0
-    unfold BPB.hdrMarker WCT9.chainInput
+    apply BPB.hdrMarker_ne_zero_of_byte0
+    unfold BPB.hdrByte0 WCT9.chainInput
     rw [List.append_assoc (zero16 ++ _), hdrBlock_pad64_prefix _ _ _ (by simp [zero16]) (bytesLE_length _ _),
       bytesLE16_first_toNat, WCT9.ftsChainHeader_toNat, WCT9.ftsChainLow_byte0]
     omega
@@ -198,7 +200,8 @@ theorem leafHash_ok (index coord selected : Nat) (ends : List Digest) :
   · apply (allQueriesSatisfy_query_iff _ _).mpr
     show BPB.hdrMarker (pad64 (bytesLE 16 (ends.getD 0 0) ++ bytesLE 16 (WCT9.ftsLeafHeader index coord selected) ++
       zero16 ++ (ends.drop 1).flatMap (bytesLE 16))) ≠ 0
-    unfold BPB.hdrMarker
+    apply BPB.hdrMarker_ne_zero_of_byte0
+    unfold BPB.hdrByte0
     rw [List.append_assoc (bytesLE 16 _ ++ bytesLE 16 _), hdrBlock_pad64_prefix _ _ _ (bytesLE_length _ _) (bytesLE_length _ _), bytesLE16_first_toNat,
       WCT9.ftsLeafHeader_firstByte]
     decide
@@ -210,7 +213,8 @@ theorem leafHashP_ok (index coord selected : Nat) (pad : Digest) (ends : List Di
   · apply (allQueriesSatisfy_query_iff _ _).mpr
     show BPB.hdrMarker (pad64 (bytesLE 16 (ends.getD 0 0) ++ bytesLE 16 (WCT9.ftsLeafHeader index coord selected) ++
       bytesLE 16 pad ++ (ends.drop 1).flatMap (bytesLE 16))) ≠ 0
-    unfold BPB.hdrMarker
+    apply BPB.hdrMarker_ne_zero_of_byte0
+    unfold BPB.hdrByte0
     rw [List.append_assoc (bytesLE 16 _ ++ bytesLE 16 _), hdrBlock_pad64_prefix _ _ _ (bytesLE_length _ _) (bytesLE_length _ _), bytesLE16_first_toNat,
       WCT9.ftsLeafHeader_firstByte]
     decide
@@ -223,7 +227,7 @@ theorem topHash_ok (coord index heap : Nat) (left pad right : Digest) :
       change T3M.Extract.hdrBlock (pad64 (T3M.SecurityInputs.nodeInputP 3 (WCT9.nodeLayer coord) index heap
         left pad right)) = _
       rw [T3M.SecurityInputs.pad64_nodeInputP]; exact BSuf.hdrBlock_nodeInputP _ _ _ _ _ _ _)
-    (nodeTweak_marker_ne_zero _ _ _ _))
+    (nodeTweak_marker_ne_zero (by unfold WCT9.nodeLayer; omega) _ _))
 theorem forest_header_plain (index : Nat) : header 15 0 index 0 0 = wctHeader 15 0 index 0 0 := by
   unfold wctHeader header
   rw [if_neg (by decide)]
@@ -1046,7 +1050,8 @@ theorem tail_notDigest : SharedQueries.TailAllowed BPB.NotDigestQ where
     · apply (allQueriesSatisfy_query_iff _ _).mpr
       change BPB.hdrMarker (pad64 (SigGolfCandidate.T3.chainInput lay tree leaf i step value)) ≠ 0
       rw [chainInput_padded]
-      unfold BPB.hdrMarker SigGolfCandidate.T3M.Extract.hdrBlock
+      apply BPB.hdrMarker_ne_zero_of_byte0
+      unfold BPB.hdrByte0 SigGolfCandidate.T3M.Extract.hdrBlock
       rw [chainInput_header, bytesLE16_first_toNat]
       have := chainHeader_firstByte lay tree leaf i step
       omega
@@ -1066,7 +1071,7 @@ theorem topInput_notDigest (coord index heap : Nat) (left pad right : Digest) :
         (pad64 (SigGolfCandidate.T3M.SecurityInputs.nodeInputP 3 (nodeLayer coord) index heap left pad right)) = _
       rw [SigGolfCandidate.T3M.SecurityInputs.pad64_nodeInputP]
       exact BSuf.hdrBlock_nodeInputP _ _ _ _ _ _ _)
-    (nodeTweak_marker_ne_zero _ _ _ _)
+    (nodeTweak_marker_ne_zero (by simp [nodeLayer]) _ _)
 
 theorem forest_notDigest : ForestAllowed BPB.NotDigestQ where
   coefs := WCT.ftsCoefs_ok

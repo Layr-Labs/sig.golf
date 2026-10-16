@@ -237,6 +237,29 @@ theorem w9init_lplan {im : Image} (hd : ExpandDataOK im) (m : Message) (pk : Pub
   rw [w9init_data hd _ _ _ _ (by unfold Compact2.LPLAN; omega) (by unfold Compact2.LPLAN; omega)
       (by unfold Compact2.LPLAN; omega),
     show Compact2.LPLAN + 8 * k - Compact2.LPLAN = 8 * k by omega, data_lplan hd _ (by omega)]
+/-- C4 (adapted from b3cc11b's `w9init_toptab`): the two top-path plan tables of the post-pass (legacy data offsets
+2944 / 3456 = data offsets 26496 / 27008). -/
+theorem w9init_toptab {im : Image} (hd : ExpandDataOK im) (m : Message) (pk : PublicKey) (σ : Bytes 5312) :
+    Compact2.TopTabAt (w9init im m pk σ) := by
+  have key : ∀ o : Nat, (im.data.drop (23552 + o)).take 8 =
+      (SigGolfCandidate.T3M.Images.expandLegacyData.drop o).take 8 := fun o => by
+    rw [← List.drop_drop, data_drop_legacy hd]
+  have tk : ∀ (L : List (BitVec 8)) (a k : Nat), 8 * k + 8 ≤ 512 →
+      (((L.drop a).take 512).drop (8 * k)).take 8 = (L.drop (a + 8 * k)).take 8 := fun L a k hk => by
+    rw [List.drop_take, List.drop_drop, List.take_take, Nat.min_eq_left (by omega)]
+  refine ⟨fun k hk => ?_, fun k hk => ?_⟩
+  · rw [w9init_data hd _ _ _ _ (by unfold Compact2.TOPA Compact2.LPLAN; omega)
+        (by unfold Compact2.TOPA Compact2.LPLAN; omega) (by unfold Compact2.TOPA Compact2.LPLAN; omega),
+      show Compact2.TOPA + 8 * k - Compact2.LPLAN = 23552 + (2944 + 8 * k) by unfold Compact2.TOPA Compact2.LPLAN; omega,
+      key]
+    unfold Compact2.topABytes
+    rw [tk _ _ _ (by omega)]
+  · rw [w9init_data hd _ _ _ _ (by unfold Compact2.TOPB Compact2.LPLAN; omega)
+        (by unfold Compact2.TOPB Compact2.LPLAN; omega) (by unfold Compact2.TOPB Compact2.LPLAN; omega),
+      show Compact2.TOPB + 8 * k - Compact2.LPLAN = 23552 + (3456 + 8 * k) by unfold Compact2.TOPB Compact2.LPLAN; omega,
+      key]
+    unfold Compact2.topBBytes
+    rw [tk _ _ _ (by omega)]
 theorem w9init_bank {im : Image} (hd : ExpandDataOK im) (m : Message) (pk : PublicKey) (σ : Bytes 5312) :
     HdrBankOK (w9init im m pk σ) := by
   intro k hk

@@ -62,7 +62,15 @@ theorem nodeTweak_ne_row (tag lay tree heap : Nat) (ht : tag % 256 ≠ 2)
   by_cases h : tag = 3 ∧ lay < 4
   · obtain ⟨rfl, h4⟩ := h
     obtain rfl := hlow rfl h4
-    exact notHyper_of_marker (by rw [nodeTweak_top_marker]; decide)
+    -- C4: the top label's low word is `topNodeWord heap < 4096`; a hyper word has byte7 = 193.
+    apply notHyper_of_ne_rowTweak_low
+    intro l r he
+    have hv := congrArg BitVec.toNat he
+    have hl := nodeTweak_top_low tree heap
+    have hlt := topNodeWord_lt heap
+    unfold tweakLow at hl
+    rw [BitVec.extractLsb'_toNat, Nat.shiftRight_zero, hyperWord_toNat] at hv
+    omega
   · by_cases hf : tag = 3 ∧ lay < 13
     · obtain ⟨rfl, h13⟩ := hf
       exact notHyper_of_tag (nodeTweak_fts_tag_ne (by omega) h13 _ _ (by decide) (by decide))
@@ -103,8 +111,8 @@ section Programs
 theorem respects_nodeHash (tag lay tree heap : Nat) (left right : Digest) (ht : tag % 256 ≠ 2)
     (hlow : tag = 3 → lay < 4 → lay = 0) :
     Respects NonEnc (nodeHash tag lay tree heap left right) := by
-  rw [nodeHash_eq_shortHash]
-  apply Respects.shortHash
+  rw [nodeHash_eq_projHash]
+  apply Respects.projHash
   rw [pad64_nodeInputP]
   exact nonEnc_of_hdr _ _ (Extract.hdrBlock_block4 left _ 0 right) (nodeTweak_ne_row tag lay tree heap ht hlow)
 theorem respects_buildLevel (tag lay tree h level : Nat) (nodes : List Digest) (ht : tag % 256 ≠ 2)
@@ -127,7 +135,7 @@ chain ends (every leaf hashes `chainCount lay ≥ 43`), so it is longer than 64 
 theorem respects_leafHash (lay : Layer) (tree leaf : Nat) (ends : List Digest) (hlen : 4 ≤ ends.length) :
     Respects NonEnc (leafHash lay tree leaf ends) := by
   unfold leafHash
-  exact Respects.shortHash _ (nonEnc_pad64_long _ (leafInput_long lay tree leaf ends hlen))
+  exact Respects.projHash _ _ (nonEnc_pad64_long _ (leafInput_long lay tree leaf ends hlen))
 theorem chainCount_ge4 (lay : Layer) : 4 ≤ chainCount lay := by fin_cases lay <;> decide
 theorem respects_privatePair (tag lay tree position index : Nat) :
     Respects NonEnc (privatePair tag lay tree position index) :=

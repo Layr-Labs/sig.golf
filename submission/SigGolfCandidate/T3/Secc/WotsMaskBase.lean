@@ -57,6 +57,11 @@ theorem Respects.shortHash (input : HashInput) (h : S (.inl (.inr (pad64 input))
     Respects S (T3.shortHash input) := by
   unfold T3.shortHash
   exact Respects.bind (Respects.publicHash input h) fun _ => Respects.pure' _
+/-- C4: a hash keeping either half (`T3.projHash`) issues the same single query as `shortHash`. -/
+theorem Respects.projHash (high : Bool) (input : HashInput) (h : S (.inl (.inr (pad64 input)))) :
+    Respects S (T3.projHash high input) := by
+  unfold T3.projHash
+  exact Respects.bind (Respects.publicHash input h) fun _ => Respects.pure' _
 theorem Respects.privateHash (c : Coordinate) (h : S (.inr c)) : Respects S (T3.privateHash c) :=
   fun _ _ hT => ⟨hT _ h, rfl⟩
 theorem Respects.privatePair (tag lay tree position index : Nat)
@@ -288,8 +293,8 @@ section Programs
 variable (a : ChainAddr)
 theorem respects_nodeHash (tag lay tree heap : Nat) (left right : Digest) (ht : tag % 256 ≠ 1) :
     Respects (Untouched a) (nodeHash tag lay tree heap left right) := by
-  rw [nodeHash_eq_shortHash]
-  apply Respects.shortHash
+  rw [nodeHash_eq_projHash]
+  apply Respects.projHash
   rw [pad64_nodeInputP]
   exact untouched_of_hdr a _ (nodeTweak tag lay tree heap) (Extract.hdrBlock_block4 left _ 0 right)
     (fun _ _ _ _ _ => Ne.symm (chainHeader_ne_nodeTweak _ _ _ _ _ _ _ _ _))
@@ -304,7 +309,7 @@ theorem respects_buildLevels (tag lay tree h : Nat) (leaves : List Digest) (ht :
 theorem respects_leafHash (lay : Layer) (tree leaf : Nat) (ends : List Digest) :
     Respects (Untouched a) (leafHash lay tree leaf ends) := by
   unfold leafHash
-  exact Respects.shortHash _ (untouched_of_hdr a _ (leafTweak lay tree leaf) (Extract.hdrBlock_leafInput _ _ _ _)
+  exact Respects.projHash _ _ (untouched_of_hdr a _ (leafTweak lay tree leaf) (Extract.hdrBlock_leafInput _ _ _ _)
     (fun _ _ _ _ _ => Ne.symm (chainHeader_ne_leafTweak _ _ _ _ _ _ _ _)))
 theorem respects_mask (level index : Nat) : Respects (Untouched a) (mask level index) := by
   unfold mask pairedMask

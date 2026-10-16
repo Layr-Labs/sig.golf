@@ -125,7 +125,7 @@ namespace SigGolfCandidate.T3M
 open SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64 SigGolfCandidate.Rv
 open SigGolfCandidate.T3
 theorem leafHash_eq (lay : Layer) (tree leaf : Nat) (ends : List Digest) :
-    leafHash lay tree leaf ends = shortHash (T3.leafInput lay tree leaf ends) := rfl
+    leafHash lay tree leaf ends = projHash (leafHalfHigh lay leaf) (T3.leafInput lay tree leaf ends) := rfl
 def dw (e : Digest) : List (BitVec 64) := [e.extractLsb' 0 64, e.extractLsb' 64 64]
 theorem flatMap_length16 : ∀ (L : List Digest), (L.flatMap (SphincsSecurity.bytesLE 16)).length = 16 * L.length
   | [] => rfl

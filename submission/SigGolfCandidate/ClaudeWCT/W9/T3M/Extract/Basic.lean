@@ -139,15 +139,37 @@ theorem hashHitAt_of_low {answers : Answers} {pos : Pos} {honest actual : HashIn
     HashHitAt answers pos honest actual := by
   unfold HashHitAt; rw [hp]; exact h
 def hdrBlock (input : HashInput) : HashInput := (input.drop 16).take 16
-/-- C3 (FULL, S2-2): the decoding key of an input's header block. Leaf-length inputs (704 or 896 bytes) are keyed by
-the low tweak word only (the leaf tweak's high word is a witness pad); every other input by its canonical header. -/
+/-- C4: a header block whose low word `W` (its first 8 bytes) satisfies `1 ≤ W < 2 ^ 16`. Among 64-byte positions
+only the top folds have such a label (`T3.topNodeWord`, in `[1, 4096)`): the digest has `W = 0`, every FTS word is
+`≥ 2 ^ 16` (coordinate nibble `coord + 1`), WOTS chain and lower fold words carry type byte 193. -/
+def TopLow (b : HashInput) : Prop := 1 ≤ readLE (b.take 8) ∧ readLE (b.take 8) < 2 ^ 16
+instance (b : HashInput) : Decidable (TopLow b) :=
+  inferInstanceAs (Decidable (1 ≤ readLE (b.take 8) ∧ readLE (b.take 8) < 2 ^ 16))
+/-- C3 (FULL, S2-2) + C4: the decoding key of an input's header block. Leaf-length inputs (704 or 896 bytes) and
+64-byte inputs with a top label (`TopLow`) are keyed by the low tweak word only (their high word is a witness pad);
+every other input by its canonical header. -/
 def hdrKey (x : HashInput) : HashInput :=
-  if x.length = 704 ∨ x.length = 896 then (hdrBlock x).take 8 ++ List.replicate 8 0 else canonicalHeader (hdrBlock x)
+  if x.length = 704 ∨ x.length = 896 then (hdrBlock x).take 8 ++ List.replicate 8 0
+  else if x.length = 64 ∧ TopLow (hdrBlock x) then (hdrBlock x).take 8 ++ List.replicate 8 0
+  else canonicalHeader (hdrBlock x)
 /-- Same length and same decoding key (C3 FULL; S2-2). -/
 def SameHeader (actual honest : HashInput) : Prop :=
   actual.length = honest.length ∧ hdrKey actual = hdrKey honest
-theorem hdrKey_of_len64 {x : HashInput} (h : x.length = 64) : hdrKey x = canonicalHeader (hdrBlock x) := by
-  unfold hdrKey; rw [if_neg (by omega)]
+/-- C4: a 64-byte input without a top label is keyed by its canonical header. -/
+theorem hdrKey_of_len64 {x : HashInput} (h : x.length = 64) (ht : ¬ TopLow (hdrBlock x)) :
+    hdrKey x = canonicalHeader (hdrBlock x) := by
+  unfold hdrKey; rw [if_neg (by omega), if_neg (fun h' => ht h'.2)]
+/-- C4: a 64-byte input with a top label is keyed by its low word. -/
+theorem hdrKey_of_top {x : HashInput} (h : x.length = 64) (ht : TopLow (hdrBlock x)) :
+    hdrKey x = (hdrBlock x).take 8 ++ List.replicate 8 0 := by
+  unfold hdrKey; rw [if_neg (by omega), if_pos ⟨h, ht⟩]
+theorem hdrBlock_length_of_64 {x : HashInput} (h : x.length = 64) : (hdrBlock x).length = 16 := by
+  unfold hdrBlock; simp [h]
+theorem canonicalHeader_take8 {h : HashInput} (hl : 8 ≤ h.length) : (canonicalHeader h).take 8 = h.take 8 := by
+  unfold canonicalHeader
+  split
+  · rw [List.take_append_of_le_length (by simp; omega)]; simp
+  · rfl
 theorem hdrKey_congr {a b : HashInput} (hl : a.length = b.length) (hb : hdrBlock a = hdrBlock b) :
     hdrKey a = hdrKey b := by
   unfold hdrKey; rw [hl, hb]
@@ -158,7 +180,18 @@ theorem SameHeader.of_canonical {a b : HashInput} (hl : a.length = b.length)
     (hc : canonicalHeader (hdrBlock a) = canonicalHeader (hdrBlock b)) : SameHeader a b := by
   refine ⟨hl, ?_⟩
   unfold hdrKey
-  rw [if_neg (by rw [hl]; exact hn), if_neg hn, hc]
+  rw [if_neg (by rw [hl]; exact hn), if_neg hn]
+  by_cases h64 : b.length = 64
+  · have ha := hdrBlock_length_of_64 (hl.trans h64)
+    have hb := hdrBlock_length_of_64 h64
+    have ht : (hdrBlock a).take 8 = (hdrBlock b).take 8 := by
+      rw [← canonicalHeader_take8 (by omega : 8 ≤ (hdrBlock a).length), hc,
+        canonicalHeader_take8 (by omega : 8 ≤ (hdrBlock b).length)]
+    have hT : TopLow (hdrBlock a) ↔ TopLow (hdrBlock b) := by unfold TopLow; rw [ht]
+    by_cases hT' : TopLow (hdrBlock b)
+    · rw [if_pos ⟨hl.trans h64, hT.mpr hT'⟩, if_pos ⟨h64, hT'⟩, ht]
+    · rw [if_neg (fun h => hT' (hT.mp h.2)), if_neg (fun h => hT' h.2), hc]
+  · rw [if_neg (fun h => h64 (by rw [← hl]; exact h.1)), if_neg (fun h => h64 h.1), hc]
 theorem pad64_length_congr {a b : HashInput} (h : a.length = b.length) : (pad64 a).length = (pad64 b).length := by
   simp only [pad64, List.length_append, List.length_replicate, h]
 def HitIn (answers : Answers) (qs : List Spec.Domain) : Prop :=

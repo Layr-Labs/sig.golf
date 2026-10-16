@@ -340,7 +340,14 @@ theorem structuralHit_chain {answers : Answers} {qs : List Spec.Domain} (a : Cha
   have hpos : Extract.posOf (chainInputP a.key.lay a.key.tree a.key.leaf a.chain step pad0 pad1 headerPad v) =
       some (.chain a.key.lay a.key.tree a.key.leaf a.chain step) := by
     apply Extract.posOf_key_eq hb (hlen.trans rfl)
-    rw [Extract.hdrKey_of_len64 hlen, ← pad64_chainInputP, Extract.hdrBlock_chainInputP,
+    -- C4: a chain header's low word carries type byte 193, so it is no top label.
+    have hT : ¬ Extract.TopLow
+        (Extract.hdrBlock (chainInputP a.key.lay a.key.tree a.key.leaf a.chain step pad0 pad1 headerPad v)) := by
+      rw [← pad64_chainInputP, Extract.hdrBlock_chainInputP, Extract.topLow_bytesLE_iff, SigGolfCandidate.T3M.chainHeaderP,
+        append64_lowNat, chainHeader_low, chainHeaderFlaggedLow_toNat]
+      have := chainHeaderLow_band a.key.lay a.key.tree a.key.leaf a.chain step
+      split_ifs <;> omega
+    rw [Extract.hdrKey_of_len64 hlen hT, ← pad64_chainInputP, Extract.hdrBlock_chainInputP,
       Extract.canonicalHeader_chainHeaderP]
     exact Extract.Pos.canonicalHeader_eq (p := .chain a.key.lay a.key.tree a.key.leaf a.chain step) hb
   refine ⟨_, _, _, mem_entriesOf hq, hpos, hb, ⟨htb, hsrc.1.2, hsrc.2, hstep⟩, ?_,
@@ -508,7 +515,14 @@ theorem structuralHit_chain {answers : Answers} {qs : List Spec.Domain} (a : Cha
   have hpos : Extract.posOf (chainInputP a.key.lay a.key.tree a.key.leaf a.chain step pad0 pad1 headerPad v) =
       some (.chain a.key.lay a.key.tree a.key.leaf a.chain step) := by
     apply Extract.posOf_key_eq hb (hlen.trans rfl)
-    rw [Extract.hdrKey_of_len64 hlen, ← pad64_chainInputP, Extract.hdrBlock_chainInputP,
+    -- C4: a chain header's low word carries type byte 193, so it is no top label.
+    have hT : ¬ Extract.TopLow
+        (Extract.hdrBlock (chainInputP a.key.lay a.key.tree a.key.leaf a.chain step pad0 pad1 headerPad v)) := by
+      rw [← pad64_chainInputP, Extract.hdrBlock_chainInputP, Extract.topLow_bytesLE_iff, SigGolfCandidate.T3M.chainHeaderP,
+        append64_lowNat, chainHeader_low, chainHeaderFlaggedLow_toNat]
+      have := chainHeaderLow_band a.key.lay a.key.tree a.key.leaf a.chain step
+      split_ifs <;> omega
+    rw [Extract.hdrKey_of_len64 hlen hT, ← pad64_chainInputP, Extract.hdrBlock_chainInputP,
       Extract.canonicalHeader_chainHeaderP]
     exact Extract.Pos.canonicalHeader_eq (p := .chain a.key.lay a.key.tree a.key.leaf a.chain step) hb
   refine ⟨_, _, _, mem_entriesOf hq, hpos, hb, ⟨htb, hsrc.1.2, hsrc.2, hstep⟩, ?_, trivial,

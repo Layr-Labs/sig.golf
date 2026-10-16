@@ -7,19 +7,6 @@ open SigGolfCandidate.T3.Security.Wots
 open SigGolfCandidate.T3.Correctness (Answers treeValue builtTree leafSeed leafEnd leafValue)
 set_option maxHeartbeats 1000000
 set_option backward.isDefEq.respectTransparency false
-def WotsPrimitiveSrc (answers : Answers) (trace : List Entry) : Prop :=
-  (∃ L, SourceLeaf L ∧ EncodingMatchAt answers trace L) ∨ StructuralHitSrc answers trace ∨
-    (∃ a, SourceChain a ∧ TwoEdgeAt answers trace a) ∨
-    (∃ a b, SourceChain a ∧ SourceChain b ∧ a ≠ b ∧ ContactAt answers trace a ∧ ContactAt answers trace b) ∨
-    (∃ a, SourceChain a ∧ MarkerAt answers trace a ∧ ContactAt answers trace a)
-theorem WotsPrimitiveSrc.toPrimitive {answers : Answers} {trace : List Entry} (h : WotsPrimitiveSrc answers trace) :
-    WotsPrimitive answers trace := by
-  rcases h with ⟨L, -, h⟩ | h | ⟨a, -, h⟩ | ⟨a, b, -, -, hab, ha, hb⟩ | ⟨a, -, hm, hc⟩
-  · exact Or.inl ⟨L, h⟩
-  · exact Or.inr (Or.inl h.toStructuralHit)
-  · exact Or.inr (Or.inr (Or.inl ⟨a, h⟩))
-  · exact Or.inr (Or.inr (Or.inr (Or.inl ⟨a, b, hab, ha, hb⟩)))
-  · exact Or.inr (Or.inr (Or.inr (Or.inr ⟨a, hm, hc⟩)))
 section mono
 variable {answers : Answers} {trace trace' : List Entry}
 theorem seenRow_mono {a : ChainAddr} {step : Nat} {value out : Digest} (h : SeenRow trace a step value out)
@@ -42,17 +29,5 @@ theorem markerAt_mono {a : ChainAddr} (h : MarkerAt answers trace a) (hsub : ∀
     MarkerAt answers trace' a := by
   obtain ⟨message, counter, answer, digits, hm, hne, hd, hl, hu⟩ := h
   exact ⟨message, counter, answer, digits, hsub _ hm, hne, hd, hl, hu⟩
-theorem structuralHit_mono (h : StructuralHit answers trace) (hsub : ∀ e ∈ trace, e ∈ trace') :
-    StructuralHit answers trace' := by
-  obtain ⟨position, input, answer, hm, hpos, hb, hc, hh⟩ := h
-  exact ⟨position, input, answer, hsub _ hm, hpos, hb, hc, hh⟩
-theorem WotsPrimitiveSrc.mono (h : WotsPrimitiveSrc answers trace) (hsub : ∀ e ∈ trace, e ∈ trace') :
-    WotsPrimitiveSrc answers trace' := by
-  rcases h with ⟨L, hL, h⟩ | h | ⟨a, ha, h⟩ | ⟨a, b, ha, hb, hab, h1, h2⟩ | ⟨a, ha, hm, hc⟩
-  · exact Or.inl ⟨L, hL, encodingMatchAt_mono h hsub⟩
-  · exact Or.inr (Or.inl (structuralHitSrc_mono h hsub))
-  · exact Or.inr (Or.inr (Or.inl ⟨a, ha, twoEdgeAt_mono h hsub⟩))
-  · exact Or.inr (Or.inr (Or.inr (Or.inl ⟨a, b, ha, hb, hab, contactAt_mono h1 hsub, contactAt_mono h2 hsub⟩)))
-  · exact Or.inr (Or.inr (Or.inr (Or.inr ⟨a, ha, markerAt_mono hm hsub, contactAt_mono hc hsub⟩)))
 end mono
 end SigGolfCandidate.T3.Security.WotsExtract

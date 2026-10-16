@@ -376,14 +376,6 @@ namespace Structural
 open CanonGraph (Node Labels Secrets OtherHalves cell programmed canonInputs privateEquiv)
 section Fixed
 variable (V : Finset HashInput) (hU : canonInputs ⊆ V) (s : Secrets) (o : OtherHalves) (labels : Labels)
-noncomputable def strRows : Finset HashInput :=
-  V.filter fun x => ∃ node : Node, Extract.posOf x = some node.toPos ∧ x ≠ cell s node labels
-theorem mem_strRows (x : HashInput) :
-    x ∈ strRows V s labels ↔ x ∈ V ∧ ∃ node : Node, Extract.posOf x = some node.toPos ∧ x ≠ cell s node labels :=
-  Finset.mem_filter
-def strEmbed : strRows V s labels → V := fun x => ⟨x.val, ((mem_strRows V s labels x.val).mp x.property).1⟩
-abbrev Rest := SphincsSecurity.Concrete.UniformTableSplit.Outside (strEmbed V s labels) → HashOutput
-variable (rest : Rest V s labels)
 theorem card_digest : (Fintype.card SphincsSecurity.Digest : ℝ≥0∞) = 2 ^ 128 := by
   simp [SphincsSecurity.digestBits]
   norm_num

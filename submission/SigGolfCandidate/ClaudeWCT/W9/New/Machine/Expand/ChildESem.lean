@@ -204,11 +204,11 @@ theorem nodeHdr_lo (k index heap : Nat) (hk : k < 9) (hidx : index < 2 ^ 31) :
   by_cases h : 8 ≤ heap ∧ heap < 128
   · rw [if_pos (show SigGolfCandidate.T3.FtsNew heap from h), if_pos h]
     unfold ClaudeWCT.WCT9.ftsNodeLowN Merkle.nodeLo
-    rw [Nat.mod_eq_of_lt (show k < 16 by omega), Nat.mod_eq_of_lt hidx]
+    rw [Nat.mod_eq_of_lt (show k + 1 < 16 by omega), Nat.mod_eq_of_lt hidx]
     omega
   · rw [if_neg (show ¬ SigGolfCandidate.T3.FtsNew heap from h), if_neg h]
     unfold ClaudeWCT.WCT9.ftsLeafLow Merkle.nodeLo
-    rw [Nat.mod_eq_of_lt (show k < 16 by omega), Nat.mod_eq_of_lt hidx]
+    rw [Nat.mod_eq_of_lt (show k + 1 < 16 by omega), Nat.mod_eq_of_lt hidx]
     omega
 theorem nodeHdr_hi (k index heap : Nat) (hk : k < 9) :
     (ClaudeWCT.WCT9.wctNodeHeader k index heap).extractLsb' 64 64 =
@@ -221,7 +221,7 @@ theorem childLevel_eq (k index j : Nat) (sibs : Nat → Digest) (v : Digest) (l 
     childLevel k index j sibs v l = shortHash (nodeInC k index j sibs v l) := by
   unfold childLevel nodeInC ClaudeWCT.WCT9.wctNodeHash SigGolfCandidate.T3.nodeHash
     ClaudeWCT.WCT9.wctNodeHeader blk4
-  rw [bytesLE16_zero]
+  rw [bytesLE16_zero, SigGolfCandidate.T3.nodeHalfHigh_of_ne (by simp [ClaudeWCT.WCT9.nodeLayer]), SigGolfCandidate.T3.projHash_false]
 theorem nodeInC_blocks (k index j : Nat) (sibs : Nat → Digest) (v : Digest) (l : Nat) :
     (toQ (pad64 (nodeInC k index j sibs v l))).blocks = 1 := by
   unfold nodeInC; exact blocks_blk4 _ _ _ _

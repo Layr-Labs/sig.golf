@@ -20,8 +20,20 @@ def lowerPlanL1 : List (List Nat) :=[[1,4,7,10,13,21,16],[0,4,7,10,13,21,16],[1,
 def lowerPlanL32 : List (List Nat) :=[[1,4,7,10,13,16],[0,4,7,10,13,16],[4,0,7,10,13,16],[3,0,7,10,13,16],[4,7,0,10,13,16],[3,7,0,10,13,16],[7,3,0,10,13,16],[6,3,0,10,13,16],[4,7,10,0,13,16],[3,7,10,0,13,16],[7,3,10,0,13,16],[6,3,10,0,13,16],[7,10,3,0,13,16],[6,10,3,0,13,16],[10,6,3,0,13,16],[9,6,3,0,13,16],[4,7,10,13,0,16],[3,7,10,13,0,16],[7,3,10,13,0,16],[6,3,10,13,0,16],[7,10,3,13,0,16],[6,10,3,13,0,16],[10,6,3,13,0,16],[9,6,3,13,0,16],[7,10,13,3,0,16],[6,10,13,3,0,16],[10,6,13,3,0,16],[9,6,13,3,0,16],[10,13,6,3,0,16],[9,13,6,3,0,16],[13,9,6,3,0,16],[12,9,6,3,0,16],[4,7,10,13,16,0],[3,7,10,13,16,0],[7,3,10,13,16,0],[6,3,10,13,16,0],[7,10,3,13,16,0],[6,10,3,13,16,0],[10,6,3,13,16,0],[9,6,3,13,16,0],[7,10,13,3,16,0],[6,10,13,3,16,0],[10,6,13,3,16,0],[9,6,13,3,16,0],[10,13,6,3,16,0],[9,13,6,3,16,0],[13,9,6,3,16,0],[12,9,6,3,16,0],[7,10,13,16,3,0],[6,10,13,16,3,0],[10,6,13,16,3,0],[9,6,13,16,3,0],[10,13,6,16,3,0],[9,13,6,16,3,0],[13,9,6,16,3,0],[12,9,6,16,3,0],[10,13,16,6,3,0],[9,13,16,6,3,0],[13,9,16,6,3,0],[12,9,16,6,3,0],[13,16,9,6,3,0],[12,16,9,6,3,0],[16,12,9,6,3,0],[15,12,9,6,3,0]]
 def lowerPlan (lay : Layer) (leaf : Nat) : List Nat :=
   if lay.val = 1 then lowerPlanL1.getD (leaf % 128) [] else lowerPlanL32.getD (leaf % 64) []
+/-! ### C4 top window plan (48 slots, two lines; rows from c4-top/topplan_lean.txt, generated from logs/plan_c4.json)
+Slot `s` is witness offset `layerBase 0 + 16 * s`. Line A (`topPlanA`, row `leaf % 64`) places the windows of levels
+0..5, line B (`topPlanB`, row `leaf / 64 % 64`) those of levels 6..11. A window at slot `A` holds the left input at
+`A`, the label word at `A + 1` (bytes 0..8 written by the verifier, bytes 8..16 the witness high pad), the Z pad at
+`A + 2` and the right input at `A + 3`; the sibling sits at `A + 3` when the node bit is 0 and at `A` when it is 1
+(`sibOff`). `topRootSlot k` is the slot of the root answer read by the compare of upper copy `k` (machine only). -/
+def topPlanA : List (List Nat) :=[[30,33,36,39,42,25],[29,33,36,39,42,25],[30,34,38,41,44,25],[29,34,38,41,44,25],[30,33,37,41,44,25],[29,33,37,41,44,25],[30,37,34,41,44,25],[29,37,34,41,44,25],[30,33,36,40,44,25],[29,33,36,40,44,25],[30,37,41,34,44,25],[29,37,41,34,44,25],[30,33,40,37,44,25],[29,33,40,37,44,25],[30,40,37,34,44,25],[29,40,37,34,44,25],[30,33,36,39,43,25],[29,33,36,39,43,25],[30,37,41,44,34,25],[29,37,41,44,34,25],[30,33,40,44,37,25],[29,33,40,44,37,25],[30,40,37,44,34,25],[29,40,37,44,34,25],[30,33,36,43,40,25],[29,33,36,43,40,25],[30,40,44,37,34,25],[29,40,44,37,34,25],[30,33,43,40,37,25],[29,33,43,40,37,25],[30,43,40,37,34,25],[29,43,40,37,34,25],[29,32,35,38,41,25],[28,32,35,38,41,25],[29,33,37,40,43,25],[28,33,37,40,43,25],[29,32,36,40,43,25],[28,32,36,40,43,25],[29,33,44,37,40,25],[28,33,44,37,40,25],[29,32,35,39,43,25],[28,32,35,39,43,25],[29,33,37,44,40,25],[28,33,37,44,40,25],[29,32,36,44,40,25],[28,32,36,44,40,25],[29,33,44,41,37,25],[28,33,44,41,37,25],[29,32,35,38,42,25],[28,32,35,38,42,25],[29,33,37,40,44,25],[28,33,37,40,44,25],[29,32,36,40,44,25],[28,32,36,40,44,25],[29,33,44,37,41,25],[28,33,44,37,41,25],[29,32,35,39,44,25],[28,32,35,39,44,25],[29,33,37,44,41,25],[28,33,37,44,41,25],[29,32,36,44,41,25],[28,32,36,44,41,25],[29,33,44,41,38,25],[28,33,44,41,38,25]]
+def topPlanB : List (List Nat) :=[[0,3,6,9,12,15],[0,4,7,10,13,16],[0,4,8,11,14,17],[0,5,9,12,15,18],[0,3,7,11,14,17],[0,4,8,12,15,18],[0,4,9,13,16,19],[0,5,10,14,17,20],[0,3,6,10,14,17],[0,4,7,11,15,18],[0,4,8,12,16,19],[0,5,9,13,17,20],[0,3,7,12,16,19],[0,4,8,13,17,20],[0,4,9,20,13,16],[0,5,13,10,17,20],[0,3,6,9,13,17],[0,4,7,10,14,18],[0,4,8,11,15,19],[0,5,9,12,16,20],[0,3,7,11,15,19],[0,4,8,12,16,20],[0,4,9,13,20,16],[0,5,13,17,10,20],[0,3,6,10,15,19],[0,4,7,11,16,20],[0,4,8,12,20,16],[0,5,9,16,13,20],[0,3,7,12,20,16],[0,4,8,16,13,20],[0,4,9,20,17,13],[0,5,16,13,10,20],[0,3,6,9,12,16],[0,4,7,10,13,17],[0,4,8,11,14,18],[0,5,9,12,15,19],[0,3,7,11,14,18],[0,4,8,12,15,19],[0,4,9,13,16,20],[0,5,13,17,20,10],[0,3,6,10,14,18],[0,4,7,11,15,19],[0,4,8,12,16,20],[0,5,9,16,20,13],[0,3,7,12,16,20],[0,4,8,16,20,13],[0,4,9,20,13,17],[0,5,16,13,20,10],[0,3,6,9,13,18],[0,4,7,10,14,19],[0,4,8,11,15,20],[0,5,9,12,19,16],[0,3,7,11,15,20],[0,4,8,12,19,16],[0,4,9,13,20,17],[0,5,16,20,13,10],[0,3,6,10,15,20],[0,4,7,11,19,16],[0,4,8,12,20,17],[0,5,9,19,16,13],[0,3,7,12,20,17],[0,4,8,19,16,13],[0,4,9,20,17,14],[0,5,19,16,13,10]]
+def topRootSlot : List Nat :=[14,15,16,17,16,17,18,19,16,17,18,19,18,19,15,19,16,17,18,19,18,19,15,19,18,19,15,19,15,19,12,19,19,20,21,22,21,22,23,13,21,22,23,16,23,16,20,13,21,22,23,19,23,19,20,13,23,19,20,16,20,16,17,13]
+/-- C4: slot of the level-`j` top window of leaf `leaf`. -/
+def topPlanSlot (leaf j : Nat) : Nat :=
+  if j < 6 then (topPlanA.getD (leaf % 64) []).getD j 0 else (topPlanB.getD (leaf / 64 % 64) []).getD (j - 6) 0
 def merkleBlock (lay : Layer) (leaf j : Nat) : Nat :=
-  layerBase lay + (if lay.val = 0 then 64 * (height lay - 1 - j) else 16 * (lowerPlan lay leaf).getD j 0)
+  layerBase lay + (if lay.val = 0 then 16 * topPlanSlot leaf j else 16 * (lowerPlan lay leaf).getD j 0)
 def chainBlock (lay : Layer) (i : Nat) : Nat :=
   layerBase lay + 16 * pathSlots lay + 64 * (chainCount lay - 1 - i)
 def wrho (w : WBytes) : Digest := wdig w rhoOff
@@ -156,7 +168,8 @@ def wchainHeaderPad (w : WBytes) (lay : Layer) (i : Nat) : BitVec 64 :=
 def wpath (w : WBytes) (lay : Layer) (leaf j : Nat) : Digest :=
   wdig w (merkleBlock lay leaf j + sibOff (leaf / 2 ^ j % 2))
 def wmerklePad (w : WBytes) (lay : Layer) (leaf j : Nat) : Digest := wdig w (merkleBlock lay leaf j + 32)
-/-- C2: the high tweak word of a lower fold window (witness bytes `[merkleBlock + 24, +8)`; honest 0). -/
+/-- C2 + C4: the high tweak word of a fold window (witness bytes `[merkleBlock + 24, +8)`; honest 0; C4: the top
+windows too). -/
 def wmerkleHigh (w : WBytes) (lay : Layer) (leaf j : Nat) : BitVec 64 :=
   (wdig w (merkleBlock lay leaf j + 16)).extractLsb' 64 64
 /-- C3: the top leaf pad, the first 16 bytes of the top leaf buffer (honest 0). -/
@@ -188,6 +201,8 @@ theorem layerBase_tiles : ∀ lay : Fin 3,
   decide
 theorem layerBase_end : layerBase 3 + 16 * pathSlots 3 + 64 * chainCount 3 = leafBufferBase 3 := rfl
 theorem dcOff_end : dcOff + 4 = wsize := rfl
+/-- The top layer after decoding (C4: the folds are `WCT9.lowerNodeHashP` with the witness high pad, the same as
+`topFinishP`; `topLayerP_of_decode`). Stated for any layer; it is used at `lay = 0`. -/
 def layerP (w : WBytes) (index : Nat) (lay : Layer) (digits : List Nat) : M Digest := do
   let (leaf, tree) := route index lay
   let ends ← (List.finRange (chainCount lay)).mapM fun i =>
@@ -197,28 +212,14 @@ def layerP (w : WBytes) (index : Nat) (lay : Layer) (digits : List Nat) : M Dige
   (List.finRange (height lay)).foldlM (fun value j => do
     let other := wpath w lay leaf j.val
     let pair := if leaf / 2 ^ j.val % 2 = 0 then (value, other) else (other, value)
-    nodeHashP 3 lay.val tree (2 ^ (height lay - j.val - 1) + leaf / 2 ^ (j.val + 1)) pair.1
-      (wmerklePad w lay leaf j.val) pair.2) value
+    WCT9.lowerNodeHashP lay.val tree (2 ^ (height lay - j.val - 1) + leaf / 2 ^ (j.val + 1)) pair.1
+      (wmerkleHigh w lay leaf j.val) (wmerklePad w lay leaf j.val) pair.2) value
 def layerLeafP (w : WBytes) (index : Nat) (lay : Layer) (digits : List Nat) : M Digest := do
   let (leaf, tree) := route index lay
   let ends ← (List.finRange (chainCount lay)).mapM fun i =>
     chainPW lay tree leaf i.val (digits.getD i.val 0) (maxDigit lay i.val - digits.getD i.val 0)
       (wchainPads w lay i.val).1 (wchainPads w lay i.val).2 (wchainHeaderPad w lay i.val) (wvalueFor w lay digits i.val)
   WCT9.leafHashW lay tree leaf (wtopLeafPad w) (wleafHigh w lay) ends
-theorem layerP_eq_hashPath (w : WBytes) (index : Nat) (lay : Layer) (digits : List Nat) :
-    layerP w index lay digits = (layerLeafP w index lay digits >>= fun value =>
-      hashPath (merkleInput 3 lay.val (route index lay).2 (height lay) (route index lay).1
-        (wpath w lay (route index lay).1) (wmerklePad w lay (route index lay).1)) (height lay) value) := by
-  unfold layerP layerLeafP
-  rcases route index lay with ⟨leaf, tree⟩
-  dsimp only
-  rw [bind_assoc]
-  congr 1
-  funext ends
-  congr 1
-  funext value
-  exact foldlM_finRange_eq_hashPath
-    (merkleInput 3 lay.val tree (height lay) leaf (wpath w lay leaf) (wmerklePad w lay leaf)) (height lay) value
 theorem pubGood_halfHash (high : Bool) (input : HashInput) (h : 0 < input.length) :
     AllQueriesSatisfy (WCT9.halfHash high input) PubGood := by
   rw [WCT9.halfHash_eq]
@@ -253,5 +254,5 @@ theorem pubGood_layerP (w : WBytes) (index : Nat) (lay : Layer) (digits : List N
   unfold layerP
   exact allQ_bind (allQ_mapM _ _ fun _ => pubGood_chainPW _ _ _ _ _ _ _ _ _ _) fun _ =>
     allQ_bind (pubGood_leafHashW _ _ _ _ _ _) fun _ =>
-      allQ_foldlM _ _ (fun _ _ => pubGood_nodeHashP _ _ _ _ _ _ _) _
+      allQ_foldlM _ _ (fun _ _ => pubGood_lowerNodeHashP _ _ _ _ _ _ _) _
 end ClaudeWCT.W9.T3M

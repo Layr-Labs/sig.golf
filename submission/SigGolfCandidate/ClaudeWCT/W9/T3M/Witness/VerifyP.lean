@@ -204,13 +204,15 @@ def layerGuardedPairP (w : WBytes) (index : Nat) (lay : Layer) (answer : Digest)
 def topChainP (w : WBytes) (tree leaf : Nat) (digits : List Nat) (i : Fin (chainCount 0)) (digit : Nat) : M Digest :=
   chainP 0 tree leaf i.val digit (maxDigit 0 i.val - digit) (wchainPads w 0 i.val).1 (wchainPads w 0 i.val).2
     (wchainHeaderPad w 0 i.val) (wvalueFor w 0 digits i.val)
+/-- C4: the top leaf (half by leaf parity) and the 12 top folds with the one-word label `topNodeWord heap`, the
+witness high pad `wmerkleHigh w 0` and Z pad `wmerklePad w 0` (half by heap parity; the root, heap 1, low). -/
 def topFinishP (w : WBytes) (tree leaf : Nat) (ends : List Digest) : M Digest := do
   let value ← WCT9.leafHashW 0 tree leaf (wtopLeafPad w) (wleafHigh w 0) ends
   (List.finRange (height 0)).foldlM (fun value j => do
     let other := wpath w 0 leaf j.val
     let pair := if leaf / 2 ^ j.val % 2 = 0 then (value, other) else (other, value)
-    nodeHashP 3 (0 : Layer).val tree (2 ^ (height 0 - j.val - 1) + leaf / 2 ^ (j.val + 1)) pair.1
-      (wmerklePad w 0 leaf j.val) pair.2) value
+    WCT9.lowerNodeHashP (0 : Layer).val tree (2 ^ (height 0 - j.val - 1) + leaf / 2 ^ (j.val + 1)) pair.1
+      (wmerkleHigh w 0 leaf j.val) (wmerklePad w 0 leaf j.val) pair.2) value
 def topLayerP (w : WBytes) (index : Nat) (answer : Digest) : M (Option Digest) :=
   WCT9.topDecodeRun (topChainP w (route index 0).2 (route index 0).1 (dataDigits 0 answer)) (topFinishP w (route index 0).2 (route index 0).1)
     answer
@@ -271,7 +273,8 @@ structure Pads where
   bcRight : Digest
   /-- Difference between the prefilled endpoint and its raw chain value. Honest witnesses have zero masks. -/
   endpointMask : (lay : Layer) → Fin (chainCount lay) → Digest
-  /-- C2: high tweak words of the packed lower node folds (lay 1..3, levels `< height - 1`; honest 0). -/
+  /-- C2 + C4: high tweak words of the one-word fold labels (lay 1..3 levels `< height - 1`, and every top level;
+  honest 0). -/
   merkleHigh : (lay : Layer) → Fin (height lay) → BitVec 64
   /-- C3: the top leaf pad (the leading 16 bytes of the top leaf input; honest 0). -/
   topLeaf : Digest
@@ -363,8 +366,8 @@ def verifyTopP (sig : WCT9.Signature) (pads : Pads) (index : Nat) (answer : Dige
       (List.finRange (height 0)).foldlM (fun value j => do
         let other := (sig.layers 0).path j
         let pair := if leaf / 2 ^ j.val % 2 = 0 then (value, other) else (other, value)
-        nodeHashP 3 (0 : Layer).val tree (2 ^ (height 0 - j.val - 1) + leaf / 2 ^ (j.val + 1)) pair.1
-          (pads.merkle 0 j) pair.2) value)
+        WCT9.lowerNodeHashP (0 : Layer).val tree (2 ^ (height 0 - j.val - 1) + leaf / 2 ^ (j.val + 1)) pair.1
+          (pads.merkleHigh 0 j) (pads.merkle 0 j) pair.2) value)
     answer
 def verifyLayersBCP (w : WCT9.Witness) (pads : Pads) (index : Nat) : Nat → WCT9.LayerMsg → M (Option Digest)
   | 0, _ => pure none

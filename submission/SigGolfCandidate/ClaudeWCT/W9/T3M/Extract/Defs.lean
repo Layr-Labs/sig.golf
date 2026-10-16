@@ -42,7 +42,7 @@ def LayerShaped (answers : Answers) (w : WBytes) (index : Nat) (lay : Layer) (di
     wpath w lay (route index lay).1 j =
         treeValue (wotsTree answers lay (route index lay).2) j ((route index lay).1 / 2 ^ j ^^^ 1) ∧
       (j + 1 < height lay ∨ lay.val = 0 → wmerklePad w lay (route index lay).1 j = 0) ∧
-      (j + 1 < height lay → lay.val ≠ 0 → wmerkleHigh w lay (route index lay).1 j = 0)) ∧
+      (j + 1 < height lay ∨ lay.val = 0 → wmerkleHigh w lay (route index lay).1 j = 0)) ∧
   (∀ i, i < chainCount lay →
     wvalueFor w lay digits i = wotsValue answers lay (route index lay).2 (route index lay).1 digits i ∧
       (digits.getD i 0 < maxDigit lay i →

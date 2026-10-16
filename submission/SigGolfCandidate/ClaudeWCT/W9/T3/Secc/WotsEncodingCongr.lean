@@ -48,16 +48,21 @@ theorem lowerNodeWord_marker (lay tree heap : Nat) (hh : heap < 128) :
     (WCT9.lowerNodeWord lay tree heap).toNat % 256 = 128 + heap := by
   rw [lowerNodeWord_toNat lay tree heap hh, hyperWord_toNat]
   omega
-theorem merkleTweak_marker (lay tree heap : Nat) (hh : lay = 0 ∨ heap < 128) :
-    tweakMarker (WCT9.merkleTweak lay tree heap) = if lay = 0 then 64 else 128 + heap := by
+theorem merkleTweak_marker {lay : Nat} (h0 : lay ≠ 0) (tree heap : Nat) (hh : heap < 128) :
+    tweakMarker (WCT9.merkleTweak lay tree heap) = 128 + heap := by
   unfold WCT9.merkleTweak
-  split_ifs with h0
-  · subst h0; exact nodeTweak_top_marker _ _
-  · unfold WCT9.lowerTweak
-    rw [append64_marker, lowerNodeWord_marker _ _ _ (hh.resolve_left h0)]
+  rw [if_neg h0]
+  unfold WCT9.lowerTweak
+  rw [append64_marker, lowerNodeWord_marker _ _ _ hh]
+/-- C4: the top label is no hyper word by its low word (`topNodeWord heap < 4096`, legacy `nodeTweak_ne_row`); a
+lower word by its marker `128 + heap`. -/
 theorem merkleTweak_notHyper (lay tree heap : Nat) (hh : lay = 0 ∨ heap < 128) :
-    NotHyper (WCT9.merkleTweak lay tree heap) :=
-  notHyper_of_marker (by rw [merkleTweak_marker lay tree heap hh]; split_ifs <;> omega)
+    NotHyper (WCT9.merkleTweak lay tree heap) := by
+  by_cases h0 : lay = 0
+  · subst h0
+    rw [WCT9.merkleTweak_top]
+    exact SigGolfCandidate.T3.Security.Wots.Enc.nodeTweak_ne_row 3 0 tree heap (by decide) (fun _ _ => rfl)
+  · exact notHyper_of_marker (by rw [merkleTweak_marker h0 tree heap (hh.resolve_left h0)]; omega)
 theorem respects_lowerNodeHash (lay tree heap : Nat) (left right : Digest) (hh : lay = 0 ∨ heap < 128) :
     Respects Enc.NonEnc (WCT9.lowerNodeHash lay tree heap left right) := by
   exact respects_lowerNodeHash' _ _ _ _ _ (nonEnc_of_hdr _ _ (SigGolfCandidate.T3M.Extract.hdrBlock_block4 left _ 0 right)

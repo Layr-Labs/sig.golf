@@ -93,9 +93,9 @@ def writes (k : Fin 9) (raw : Fin 128) (A : Nat) : Prop :=
 
 structure Post (L : Layout) (k : Fin 9) (raw : Fin 128) (u : MachineState)
     (computed : Digest) (t : MachineState) : Prop where
-  /-- A/B return with `jalr zero,296(ra)`; the singleton (Cm, stage 2) with `jalr zero,312(ra)`, i.e. to word 854 for
-  `returnWord 8 = 776`, the L3 entry. -/
-  pc : t.pc = pcOf (L.returnWord k + (if k.val = 8 then 78 else 74))
+  /-- A/B return with `jalr zero,296(ra)`; the singleton (Cm, stage 2) with `jalr zero,320(ra)`, i.e. to word 854 for
+  `returnWord 8 = 774`, the L3 entry. -/
+  pc : t.pc = pcOf (L.returnWord k + (if k.val = 8 then 80 else 74))
   hashLen : t.getReg .x11 = 64
   top : DigAt t (handAddr k raw) computed
   a2 : t.getReg .x12 = BitVec.ofNat 64 (outputAddr k raw)
