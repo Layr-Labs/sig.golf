@@ -40,7 +40,7 @@ structure FtsOut (F : FCtx) (top : Digest × Digest) (u : MachineState) : Prop w
   /-- C3 (stage 2): witness word 3 (the L3 encoding's row-tweak high word, honest 1) is still original; the merged
   singleton (Cm) writes its left top value at `WIT` with its junk half at `WIT - 16`, so `WIT + 16 .. WIT + 48` is
   untouched by the FTS. -/
-  wit : Orig F.w (fun o => (24 ≤ o ∧ o < 48) ∨ (8256 ≤ o ∧ o < 24896)) u
+  wit : Orig F.w (fun o => (24 ≤ o ∧ o < 48) ∨ (8256 ≤ o ∧ o < 24800)) u
   base : u.getReg .x8 = BitVec.ofNat 64 (WIT + 176)
   a1 : u.getReg .x11 = 64
   s10 : u.getReg .x26 = 6
@@ -54,7 +54,7 @@ structure FtsOut (F : FCtx) (top : Digest × Digest) (u : MachineState) : Prop w
   topBase : u.getReg .x9 = BitVec.ofNat 64 TOPB9
   top : ∀ k, k < 5 → u.getMem (BitVec.ofNat 64 (TOPLOAD + 8 * k)) =
     BitVec.ofNat 64 (topWords.getD k 0)
-  top8 : u.getMem (BitVec.ofNat 64 (TOPLOAD - 8)) = BitVec.ofNat 64 21264
+  top8 : u.getMem (BitVec.ofNat 64 (TOPLOAD - 8)) = BitVec.ofNat 64 21168
   /-- `a2` after coordinate 8's last heap hash (Cm: `WIT - 16` for the high-half left top node, `WIT + 48` for the
   low-half right top node); the L3 encoding writes there. -/
   a2 : u.getReg .x12 = BitVec.ofNat 64 1200 ∨ u.getReg .x12 = BitVec.ofNat 64 1264

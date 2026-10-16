@@ -322,15 +322,15 @@ theorem w9initC_getMem (A : Nat) (hA : A < 2 ^ 64) :
       if 0x7000 ≤ A ∧ A < 0x7000 + 5312 ∧ (A - 0x7000) % 8 = 0 then
         bytesToWordLE (((bytes b).drop (A - 0x7000)).take 8)
       else if 0xA0 ≤ A ∧ A < 0xB0 ∧ (A - 0xA0) % 8 = 0 then bytesToWordLE (((bytes pk).drop (A - 0xA0)).take 8)
-      else if 0x6620 ≤ A ∧ A < 0x6640 ∧ (A - 0x6620) % 8 = 0 then
-        bytesToWordLE (((bytes m).drop (A - 0x6620)).take 8)
+      else if 0x65c0 ≤ A ∧ A < 0x65e0 ∧ (A - 0x65c0) % 8 = 0 then
+        bytesToWordLE (((bytes m).drop (A - 0x65c0)).take 8)
       else if Compact2.LPLAN ≤ A ∧ A < Compact2.LPLAN + 27648 ∧ (A - Compact2.LPLAN) % 8 = 0 then
         bytesToWordLE ((im.data.drop (A - Compact2.LPLAN)).take 8)
       else 0 := by
   unfold w9init
   rw [MachineState.getMem_setReg, getMem_writeBytesAsWords _ _ 0x7000 A (by rw [bytes_length_e]; decide) hA,
     getMem_writeBytesAsWords _ _ 0xA0 A (by rw [bytes_length_e]; decide) hA,
-    getMem_writeBytesAsWords _ _ 0x6620 A (by rw [bytes_length_e]; decide) hA, dataBase_eq hd,
+    getMem_writeBytesAsWords _ _ 0x65c0 A (by rw [bytes_length_e]; decide) hA, dataBase_eq hd,
     getMem_writeBytesAsWords _ _ Compact2.LPLAN A (by rw [data_length hd]; decide) hA, bytes_length_e, bytes_length_e,
     bytes_length_e, data_length hd]
   rfl
@@ -395,10 +395,10 @@ theorem front_spec' {im : Image} (hP : ProAt im) (s : MachineState)
       t.getMem (BitVec.ofNat 64 0x808) = s.getMem (BitVec.ofNat 64 0x7008) ∧
       t.getMem (BitVec.ofNat 64 DIG) = s.getMem (BitVec.ofNat 64 0x7000) ∧
       t.getMem (BitVec.ofNat 64 (DIG + 8)) = s.getMem (BitVec.ofNat 64 0x7008) ∧
-      t.getMem (BitVec.ofNat 64 (DIG + 32)) = s.getMem (BitVec.ofNat 64 0x6620) ∧
-      t.getMem (BitVec.ofNat 64 (DIG + 40)) = s.getMem (BitVec.ofNat 64 0x6628) ∧
-      t.getMem (BitVec.ofNat 64 (DIG + 48)) = s.getMem (BitVec.ofNat 64 0x6630) ∧
-      t.getMem (BitVec.ofNat 64 (DIG + 56)) = s.getMem (BitVec.ofNat 64 0x6638) ∧
+      t.getMem (BitVec.ofNat 64 (DIG + 32)) = s.getMem (BitVec.ofNat 64 0x65c0) ∧
+      t.getMem (BitVec.ofNat 64 (DIG + 40)) = s.getMem (BitVec.ofNat 64 0x65c8) ∧
+      t.getMem (BitVec.ofNat 64 (DIG + 48)) = s.getMem (BitVec.ofNat 64 0x65d0) ∧
+      t.getMem (BitVec.ofNat 64 (DIG + 56)) = s.getMem (BitVec.ofNat 64 0x65d8) ∧
       RegsExcept s t [.x5, .x6, .x7, .x19, .x29, .x30] ∧
       Frame s t (fun A => A = 0x800 ∨ A = 0x808 ∨ A = DIG ∨ A = DIG + 8 ∨ A = DIG + 32 ∨ A = DIG + 40 ∨
         A = DIG + 48 ∨ A = DIG + 56) := by
@@ -435,10 +435,10 @@ theorem front_pre30' {im : Image} (hF : FrontAt im) (hP : ProAt im) (hd : Expand
     fun A hA hn => (f0' A hA hn).trans (humem A hA)
   rw [humem 0x7000 (by decide)] at w800 d0
   rw [humem 0x7008 (by decide)] at w808 d8
-  rw [humem 0x6620 (by decide)] at d32
-  rw [humem 0x6628 (by decide)] at d40
-  rw [humem 0x6630 (by decide)] at d48
-  rw [humem 0x6638 (by decide)] at d56
+  rw [humem 0x65c0 (by decide)] at d32
+  rw [humem 0x65c8 (by decide)] at d40
+  rw [humem 0x65d0 (by decide)] at d48
+  rw [humem 0x65d8 (by decide)] at d56
   obtain ⟨t, st1, p, x19, z, r1, f1⟩ := zero_spec hF.2 t0 p0
   have f : Frame s t (fun A => A = 0x800 ∨ A = 0x808 ∨ A = DIG ∨ A = DIG + 8 ∨ A = DIG + 32 ∨
       A = DIG + 40 ∨ A = DIG + 48 ∨ A = DIG + 56 ∨ A = 0x59B0 ∨ A = 0x59B8 ∨ A = 0x59C0 ∨ A = 0x59C8) :=
@@ -6624,13 +6624,13 @@ theorem getMem {im : Image} (hlen:im.data.length=29808) (hb:dataBase im=DB)
     (w9init im m pk b).getMem (BitVec.ofNat 64 A)=
       if 0x7000≤A ∧ A<0x7000+5248 ∧ (A-0x7000)%8=0 then bytesToWordLE ((bytes b).drop (A-0x7000) |>.take 8)
       else if 0xA0≤A ∧ A<0xB0 ∧ (A-0xA0)%8=0 then bytesToWordLE ((bytes pk).drop (A-0xA0) |>.take 8)
-      else if 0x6620≤A ∧ A<0x6640 ∧ (A-0x6620)%8=0 then bytesToWordLE ((bytes m).drop (A-0x6620) |>.take 8)
+      else if 0x65c0≤A ∧ A<0x65e0 ∧ (A-0x65c0)%8=0 then bytesToWordLE ((bytes m).drop (A-0x65c0) |>.take 8)
       else if DB≤A ∧ A<DB+29808 ∧ (A-DB)%8=0 then bytesToWordLE (im.data.drop (A-DB) |>.take 8)
       else 0 := by
   unfold w9init
   rw [MachineState.getMem_setReg,getMem_writeBytesAsWords _ _ 0x7000 A (by rw[bytes_length_e];decide) hA,
     getMem_writeBytesAsWords _ _ 0xA0 A (by rw[bytes_length_e];decide) hA,
-    getMem_writeBytesAsWords _ _ 0x6620 A (by rw[bytes_length_e];decide) hA,hb,
+    getMem_writeBytesAsWords _ _ 0x65c0 A (by rw[bytes_length_e];decide) hA,hb,
     getMem_writeBytesAsWords _ _ DB A (by rw[hlen];decide) hA,
     bytes_length_e,bytes_length_e,bytes_length_e,hlen]
   rfl
@@ -6704,10 +6704,10 @@ theorem tail_steps {im : Image} (hc : CodeAt im (pcOf 1) frontTail) (s : Machine
       t.getMem (BitVec.ofNat 64 0x808) = s.getMem (BitVec.ofNat 64 0x7008) ∧
       t.getMem (BitVec.ofNat 64 DIG) = s.getMem (BitVec.ofNat 64 0x7000) ∧
       t.getMem (BitVec.ofNat 64 (DIG + 8)) = s.getMem (BitVec.ofNat 64 0x7008) ∧
-      t.getMem (BitVec.ofNat 64 (DIG + 32)) = s.getMem (BitVec.ofNat 64 0x6620) ∧
-      t.getMem (BitVec.ofNat 64 (DIG + 40)) = s.getMem (BitVec.ofNat 64 0x6628) ∧
-      t.getMem (BitVec.ofNat 64 (DIG + 48)) = s.getMem (BitVec.ofNat 64 0x6630) ∧
-      t.getMem (BitVec.ofNat 64 (DIG + 56)) = s.getMem (BitVec.ofNat 64 0x6638) ∧
+      t.getMem (BitVec.ofNat 64 (DIG + 32)) = s.getMem (BitVec.ofNat 64 0x65c0) ∧
+      t.getMem (BitVec.ofNat 64 (DIG + 40)) = s.getMem (BitVec.ofNat 64 0x65c8) ∧
+      t.getMem (BitVec.ofNat 64 (DIG + 48)) = s.getMem (BitVec.ofNat 64 0x65d0) ∧
+      t.getMem (BitVec.ofNat 64 (DIG + 56)) = s.getMem (BitVec.ofNat 64 0x65d8) ∧
       RegsExcept s t [.x5, .x6, .x7, .x19, .x29, .x30] ∧
       Frame s t (fun A => A = 0x800 ∨ A = 0x808 ∨ A = DIG ∨ A = DIG + 8 ∨ A = DIG + 32 ∨ A = DIG + 40 ∨
         A = DIG + 48 ∨ A = DIG + 56) := by
@@ -6745,7 +6745,7 @@ theorem setup {im : Image} (hf:CodeAt im (pcOf 1) frontTail) (hz:CodeAt im (pcOf
     ∃t,Steps im s 37 37 t ∧ t.pc=pcOf 45056 ∧ t.getReg .x5=0 ∧
       (∀A, A=0x800 ∨ A=DIG → t.getMem (BitVec.ofNat 64 A)=s.getMem 0x7000) ∧
       (∀A, A=0x808 ∨ A=DIG+8 → t.getMem (BitVec.ofNat 64 A)=s.getMem 0x7008) ∧
-      (∀k,k<4 → t.getMem (BitVec.ofNat 64 (DIG+32+8*k))=s.getMem (BitVec.ofNat 64 (0x6620+8*k))) ∧
+      (∀k,k<4 → t.getMem (BitVec.ofNat 64 (DIG+32+8*k))=s.getMem (BitVec.ofNat 64 (0x65c0+8*k))) ∧
       (∀A,A=0x59B0 ∨ A=0x59B8 ∨ A=0x59C0 ∨ A=0x59C8 → t.getMem (BitVec.ofNat 64 A)=0) ∧
       RegsExcept s t [.x5,.x6,.x7,.x19,.x29,.x30] ∧ Frame s t Writes := by
   obtain ⟨u,su,up,u5,a0,a8,d0,d8,d32,d40,d48,d56,ru,fu⟩:=tail_steps hf s hp hx5
@@ -6793,15 +6793,15 @@ theorem prefixData {im : Image} (hlen:im.data.length=29808) (hb:dataBase im=DB)
 
 theorem msgWord {im : Image} (hlen:im.data.length=29808) (hb:dataBase im=DB)
     (m : Message) (pk : PublicKey) (b : Bytes 5248) (i : Nat) (hi:i<4) :
-    (w9init im m pk b).getMem (BitVec.ofNat 64 (0x6620+8*i))=m.extractLsb' (64*i) 64 := by
+    (w9init im m pk b).getMem (BitVec.ofNat 64 (0x65c0+8*i))=m.extractLsb' (64*i) 64 := by
   rw [getMem hlen hb _ _ _ _ (by omega),if_neg (by omega),if_neg (by omega),if_pos (by omega),
-    show 0x6620+8*i-0x6620=8*i by omega]
+    show 0x65c0+8*i-0x65c0=8*i by omega]
   exact SigGolfCandidate.T3M.Expand.bytesToWordLE_bytes_e m i (by omega)
 
 theorem zero {im : Image} (hlen:im.data.length=29808) (hb:dataBase im=DB)
     (m : Message) (pk : PublicKey) (b : Bytes 5248) (A : Nat) (hA:A<DB)
     (hs:A<0x7000 ∨ 0x7000+5248≤A) (hp:A<0xA0 ∨ 0xB0≤A)
-    (hm:A<0x6620 ∨ 0x6640≤A) :
+    (hm:A<0x65c0 ∨ 0x65e0≤A) :
     (w9init im m pk b).getMem (BitVec.ofNat 64 A)=0 := by
   rw[getMem hlen hb _ _ _ _ (by unfold DB at hA;omega),
     if_neg (by omega),if_neg (by omega),if_neg (by omega),if_neg (by omega)]
@@ -7397,7 +7397,7 @@ theorem prepare {im:Image} (he:CodeAt im (pcOf 0) [SharedCompact.entryWord])
     (s:MachineState) (message:SigGolfCandidate.T3.Message) (b:SharedCodec.CBytes)
     (hp:s.pc=pcOf 0) (h5:s.getReg .x5=0)
     (hb:∀k,k < 656 → s.getMem (BitVec.ofNat 64 (0x7000+8*k))=b.extractLsb' (64*k) 64)
-    (hm:∀k,k < 4 → s.getMem (BitVec.ofNat 64 (0x6620+8*k))=message.extractLsb' (64*k) 64)
+    (hm:∀k,k < 4 → s.getMem (BitVec.ofNat 64 (0x65c0+8*k))=message.extractLsb' (64*k) 64)
     (hd:SharedInit.DataAt s) (hh:(SharedCodec.sigDecC b).policyHints.toNat<5832) :
     ∃t,Steps im s 3249 3249 t ∧ Prepared s message b t := by
   obtain ⟨u,su,up,uz,ur,uh,ub,uf⟩:=SharedCompact.front_readout he hc s hp

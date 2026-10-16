@@ -7,15 +7,15 @@ def submission : SigGolf.Submission := SigGolfCandidate.Transfer.currentOf SigGo
 
 theorem signature_bytes : submission.sizes.signature = 5248 := rfl
 
-theorem witness_bytes : submission.sizes.witness = 24924 := rfl
+theorem witness_bytes : submission.sizes.witness = 24828 := rfl
 
 theorem cache_bytes : submission.sizes.cache = 131072 := rfl
 
 theorem layout_offsets : submission.layout =
-  { message := 26144, secretKey := 128, publicKey := 160,
+  { message := 26048, secretKey := 128, publicKey := 160,
     cache := 524288, signature := 28672, witness := 1216 } := rfl
 
-theorem certificate : SigGolf.Certificate submission 6997 := by
+theorem certificate : SigGolf.Certificate submission 6996 := by
   exact SigGolfCandidate.Packaging.certificate_ready
 
 end SigGolf.Challenge
@@ -33,3 +33,9 @@ Raw bound: 11 + (870 + 778) + 5240 = 6899. Witness charge: 98.
 S=5248, W=24924, K=131072, C=6997; score=36720256.
 The reconstructed proofs are UNCOMPILED; see HANDOFF.md for fresh emulator
 results, provenance, and the Mac build checklist. -/
+
+/- 42-slot top Merkle window (ported from a08a584, Noi1r / Ghost1032) onto the
+paired champion 63a0fde: the top path window shrinks from 48 to 42 slots, so the
+witness shrinks by 96 bytes (W 24924 -> 24828) and the witness charge drops
+from 98 to 97 with the raw bound unchanged at 6899.
+S=5248, W=24828, K=131072, C=6996; score=36715008. -/
