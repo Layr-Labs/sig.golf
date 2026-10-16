@@ -87,7 +87,7 @@ structure Pre (pk : Digest) (w : ClaudeWCT.W9.T3M.WBytes) (a : HashOutput) (n : 
   childMask : u.getReg .x27 = BitVec.ofNat 64 0x7f00000
   aTable : u.getReg .x28 = BitVec.ofNat 64 0xe3300
   jt : u.getReg .x24 = rankPad
-  childBlock : u.getReg .x29 = BitVec.ofNat 64 (if n < 8 then 0xf1b00 else 0xe7400)
+  childBlock : u.getReg .x29 = BitVec.ofNat 64 0xf1b00
   singletonTable : u.getMem (BitVec.ofNat 64 (TOPB9 - 240)) = BitVec.ofNat 64 0xe7400
   baseReg : u.getReg .x8 = BitVec.ofNat 64 (8560 - 896 * (n-1))
   pairPtr : u.getReg .x9 = BitVec.ofNat 64 TOPB9
@@ -98,4 +98,6 @@ structure Pre (pk : Digest) (w : ClaudeWCT.W9.T3M.WBytes) (a : HashOutput) (n : 
   coords : ∀ m, n ≤ m → m ≤ 9 → ∀ off, off < 896 → off % 8 = 0 → (m = 9 → 720 ≤ off) →
     (m = n → ¬ isHand n off) → W9Machine.OrigW w u (regionAddr m + off)
   layer : Orig w (fun o => (32 ≤ o ∧ o < 48) ∨ (8256 ≤ o ∧ o < 24800)) u
+  /-- Coordinate 7 hoists this shift; the intervening chain and child preserve x4/x17. -/
+  hoist : n = 8 → u.getReg .x4 = u.getReg .x17 >>> 17
 end W9Drv.SharedCoord

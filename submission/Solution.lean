@@ -15,7 +15,7 @@ theorem layout_offsets : submission.layout =
   { message := 26048, secretKey := 128, publicKey := 160,
     cache := 524288, signature := 28672, witness := 1216 } := rfl
 
-theorem certificate : SigGolf.Certificate submission 7047 := by
+theorem certificate : SigGolf.Certificate submission 7046 := by
   exact SigGolfCandidate.Packaging.certificate_ready
 
 end SigGolf.Challenge
@@ -91,3 +91,10 @@ eight stale message-address loads in signReferenceCode_0, leaving all four
 submitted program images unchanged. PR909 remains under validation. Accepted
 base PR900/soispoke; original scheme Ghost1032 and Noi1r. Full certificate and
 exact-image remote validation remain required; no local full build is claimed. -/
+
+/- Iteration61 dispatch-only hoist on accepted 834fe987: S5248/W24828/C7046.
+Reuses the coordinate-8 shift-hoist idea and proof invariant from soispoke
+b074ece6 and kobizk 07109003; does NOT import their Merkle half-swap.
+Coordinate 7 word689 computes a7>>>17; coordinate 8 dispatch 10→9 words.
+Singleton returns 78→79 words; the shared expander caller compensates by -4 bytes.
+Candidate only: no local Lean build or replay. Hosted exact certificate pending. -/

@@ -269,7 +269,7 @@ theorem good
         stepOne := rfl, stepTwo := rfl, hashLen := ?_, coordStep := rfl,
         nodeReg := ?_, cached3 := ?_, cached := ?_,
         mask := ?_, childMask := rfl, aTable := ?_, jt := hjt, childBlock := hchild, singletonTable := ?_, baseReg := hbase, pairPtr := ?_,
-        prevL := ?_, prevR := ?_, a2 := fun h => absurd h (Nat.lt_irrefl 0), coords := ?_, layer := ?_ }
+        prevL := ?_, prevR := ?_, a2 := fun h => absurd h (Nat.lt_irrefl 0), coords := ?_, layer := ?_, hoist := fun h => absurd h (by decide) }
       · intro k hk; rw [e3]; exact hu.digest k hk
       · exact ⟨fun k hk => (e3 _).trans (hu.bank.top k hk), (e3 _).trans hu.bank.top8⟩
       · exact ⟨(e3 _).trans hu.forest.zero0, (e3 _).trans hu.forest.zero1, (e3 _).trans hu.forest.header⟩
