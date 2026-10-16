@@ -197,6 +197,37 @@ theorem fts_queries_pos (answers : Answers) (N : HashOutput) (w : WBytes) :
   · obtain ⟨c, -, hq⟩ := WctExtract.queried_nfold answers _ _ 9 le_rfl q hq
     exact coord_queries_pos answers N w c _ q hq
   · simp [queried_pure] at hq
+/-! C3 (FULL): an FTS query cannot decode as a lower/top leaf. The leaf key keeps only the low header word, and every
+FTS header differs from every leaf tweak in its low word (marker and tag). -/
+theorem canonicalHeader_take8 {hdr : HashInput} (h : 8 ≤ hdr.length) :
+    (Extract.canonicalHeader hdr).take 8 = hdr.take 8 := by
+  unfold SigGolfCandidate.T3M.Extract.canonicalHeader
+  split
+  · exact List.take_left' (by simp; omega)
+  · rfl
+theorem take8_bytesLE16 (a : BitVec 128) : (bytesLE 16 a).take 8 = bytesLE 8 (a.extractLsb' 0 64) := by
+  have ha : a = a.extractLsb' 64 64 ++ a.extractLsb' 0 64 :=
+    (BitVec.extractLsb'_append_extractLsb' (w := 64) (len := 64) (x := a)).symm
+  conv_lhs => rw [ha]
+  rw [SigGolfCandidate.T3M.Extract.bytesLE_header_words, List.take_left' (SphincsSecurity.bytesLE_length 8 _)]
+theorem hdrClass_leafLike_of_low {x y : BitVec 128} (h : x.extractLsb' 0 64 = y.extractLsb' 0 64)
+    (hx : Extract.hdrClass x = 2) : Extract.hdrClass y = 2 ∨ Extract.hdrClass y = 3 := by
+  have hm : tweakMarker y = tweakMarker x := by
+    rw [← Extract.low_tweakMarker, ← Extract.low_tweakMarker, h]
+  have ht : tweakTag y = tweakTag x := by
+    rw [← Extract.low_tweakTag, ← Extract.low_tweakTag, h]
+  unfold Extract.hdrClass at hx ⊢
+  rw [hm, ht]
+  split_ifs at hx ⊢ <;> omega
+theorem ftsPos_cls {p : Extract.Pos} (h : FtsPos p) : p.cls ≠ 2 ∧ p.cls ≠ 3 := by
+  cases p with
+  | wctNode _ _ level _ => simp only [Extract.Pos.cls]; split <;> omega
+  | wctChain => simp [Extract.Pos.cls]
+  | wctLeaf => simp [Extract.Pos.cls]
+  | forest => simp [Extract.Pos.cls]
+  | chain => exact h.elim
+  | leaf => exact h.elim
+  | node => exact h.elim
 theorem structuralHitSrc_of_fts_hitIn (answers : Answers) (N : HashOutput) (w : WBytes)
     (h : Extract.HitIn answers
       (queried answers (recoverFtsP (witDecP N w).signature (padDecP N w) (WCT9.digestIndex N) N))) :
@@ -206,15 +237,33 @@ theorem structuralHitSrc_of_fts_hitIn (answers : Answers) (N : HashOutput) (w : 
   obtain ⟨actual', hqe, pos', hb', hsrc', hfts', hdr'⟩ := fts_queries_pos answers N w _ hq
   have hae : actual = actual' := by simpa using hqe
   subst hae
-  have hhdr : pos.hdr = pos'.hdr := by
-    have h1 : Extract.canonicalHeader (Extract.hdrBlock actual) =
-        Extract.canonicalHeader (Extract.hdrBlock (Extract.honestInput answers pos)) := hs
-    rw [Extract.hdrBlock_honestInput, Extract.Pos.canonicalHeader_eq hb, hdr'] at h1
-    exact bytesLE_injective h1.symm
-  have hpos : pos = pos' := Extract.Pos.hdr_injective hb hb' hhdr
-  subst hpos
-  refine ⟨pos, actual, _, mem_entriesOf hq, Extract.posOf_key_eq hb hdr', hb, hsrc', ?_, hh⟩
-  cases pos <;> trivial
+  have hkey : Extract.hdrKey actual = bytesLE 16 pos.hdr := hs.2.trans (Extract.hdrKey_honestInput answers hb)
+  have hlen : actual.length = pos.len := hs.1.trans (Extract.honestInput_length answers pos)
+  have h16 : 8 ≤ (Extract.hdrBlock actual).length := by
+    have : 64 ≤ actual.length := by
+      rw [hlen]; cases pos <;> simp only [Extract.Pos.len] <;> (try split) <;> omega
+    simp [Extract.hdrBlock]; omega
+  by_cases hl : actual.length = 704 ∨ actual.length = 896
+  · exfalso
+    have hl' := hl
+    rw [hlen] at hl'
+    obtain ⟨lay, tree, leaf, rfl⟩ := Extract.Pos.len_leafLen.mp hl'
+    have h1 := congrArg (List.take 8) hkey
+    rw [Extract.hdrKey_of_leafLen hl, List.take_left' (by simp; omega)] at h1
+    have h2 := congrArg (List.take 8) hdr'
+    rw [canonicalHeader_take8 h16, h1, take8_bytesLE16, take8_bytesLE16] at h2
+    have hlow := bytesLE_injective h2
+    have hc := hdrClass_leafLike_of_low hlow (by rw [Extract.Pos.hdrClass_eq hb]; rfl)
+    rw [Extract.Pos.hdrClass_eq hb'] at hc
+    have := ftsPos_cls hfts'
+    omega
+  · have hkey' : Extract.hdrKey actual = bytesLE 16 pos'.hdr := by
+      rw [Extract.hdrKey_of_not_leafLen hl, hdr']
+    have hhdr : pos.hdr = pos'.hdr := bytesLE_injective (hkey.symm.trans hkey')
+    have hpos : pos = pos' := Extract.Pos.hdr_injective hb hb' hhdr
+    subst hpos
+    refine ⟨pos, actual, _, mem_entriesOf hq, Extract.posOf_key_eq hb hlen hkey, hb, hsrc', ?_, hh⟩
+    cases pos <;> trivial
 theorem fts_structural (answers : Answers) (N : HashOutput) (w : WBytes) (hS : Shaped N w)
     (hrun : evalWithAnswerFn answers
         (recoverFtsP (witDecP N w).signature (padDecP N w) (WCT9.digestIndex N) N) =

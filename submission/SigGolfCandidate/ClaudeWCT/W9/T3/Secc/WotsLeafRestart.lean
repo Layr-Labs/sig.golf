@@ -62,7 +62,7 @@ theorem frontierValue_leafCongr {b : ChainAddr} (hb : WotsExtract.SourceChain b)
       simp only at hk hbc
       subst hk
       exact hC.front c hbc
-  · unfold frontierValue honestChainValue
+  · unfold frontierValue honestChainValueW
     rw [depth_congr hC hLleaf b, wotsSeed_out hC.toLeafAgree hLleaf hbl hal]
     exact eval_chain_out hC.toLeafAgree (by have := Mask.chainCount_le b.key.lay; have := hb.2; omega)
       (fun h => hal h.1) (by have := Mask.depth_le_seven T b; omega) _
@@ -645,7 +645,7 @@ theorem frontierValue_leafCongr {b : ChainAddr} (hb : WotsExtract.SourceChain7 b
       simp only at hk hbc
       subst hk
       exact hC.front c hbc
-  · unfold CanonicalRef.frontierValue honestChainValue
+  · unfold CanonicalRef.frontierValue ClaudeWCT.W9.T3.Security.Wots.honestChainValueW
     rw [CanonicalRef.Leaf.depth_congr hC.toLeafAgree b, wotsSeed_out hC.toLeafAgree hLleaf hbl hal]
     exact eval_chain_out hC.toLeafAgree (by have := Mask.chainCount_le b.key.lay; have := hb.2; omega)
       (fun h => hal h.1) (by have := CanonicalRef.Mask.depth_le_seven T (sourceMessages T) b; omega) _

@@ -32,9 +32,9 @@ theorem frontierValue_congr_honest {T T' : Answers} (h : AgreeOn (HonestQ T) T T
   have hd : depth T' (chainAt p) = depth T (chainAt p) := by
     unfold depth chainAt
     rw [referenceDigits_congr_honest h hs]
-  unfold frontierValue honestChainValue
+  unfold frontierValue honestChainValueW
   rw [hd, wotsSeed_congr_nonEnc (nonEnc_of_honest h)]
-  exact (Enc.respects_chain _ _ _ _ _ _ _).eval_eq (nonEnc_of_honest h)
+  exact (respects_chainW _ _ _ _ _ _ _).eval_eq (nonEnc_of_honest h)
 theorem contactAt_congr {T T' : Answers} (h : AgreeOn (HonestQ T) T T') (trace : List Entry)
     (p : CanonGraph.LeafPos × Fin 58) (hs : p.1.Source) :
     ContactAt T' trace (chainAt p) ↔ ContactAt T trace (chainAt p) := by
@@ -564,9 +564,10 @@ theorem frontier_decisions (a : ChainAddr) (ha : WotsExtract.SourceChain7 a) :
   have hs : WCT9.wotsSeed T' a.key.lay a.key.tree a.key.leaf a.chain =
       WCT9.wotsSeed T a.key.lay a.key.tree a.key.leaf a.chain :=
     ClaudeWCT.W9.T3.Security.Wots.Mask.wotsSeed_congr_cells _ _ _ fun p => hnon (.inr (.inl _)) trivial
-  unfold CanonicalRef.frontierValue CanonicalRef.depth honestChainValue
+  -- C3 (#866): the frontier is the chain of the current scheme.
+  unfold CanonicalRef.frontierValue CanonicalRef.depth ClaudeWCT.W9.T3.Security.Wots.honestChainValueW
   rw [referenceDigits_decisions hm hd a.key ha.1,hs]
-  exact (SigGolfCandidate.T3.Security.Wots.Enc.respects_chain _ _ _ _ _ _ _).eval_eq hnon
+  exact (ClaudeWCT.W9.T3.Security.Wots.Enc.respects_chainW _ _ _ _ _ _ _).eval_eq hnon
 
 theorem contact_decisions (trace : List Entry) (a : ChainAddr) (ha : WotsExtract.SourceChain7 a) :
     CanonicalRef.ContactAt T' messages' trace a ↔ CanonicalRef.ContactAt T messages trace a := by

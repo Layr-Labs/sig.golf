@@ -322,15 +322,15 @@ theorem w9initC_getMem (A : Nat) (hA : A < 2 ^ 64) :
       if 0x7000 ≤ A ∧ A < 0x7000 + 5312 ∧ (A - 0x7000) % 8 = 0 then
         bytesToWordLE (((bytes b).drop (A - 0x7000)).take 8)
       else if 0xA0 ≤ A ∧ A < 0xB0 ∧ (A - 0xA0) % 8 = 0 then bytesToWordLE (((bytes pk).drop (A - 0xA0)).take 8)
-      else if 0x65C0 ≤ A ∧ A < 0x65E0 ∧ (A - 0x65C0) % 8 = 0 then
-        bytesToWordLE (((bytes m).drop (A - 0x65C0)).take 8)
+      else if 0x6620 ≤ A ∧ A < 0x6640 ∧ (A - 0x6620) % 8 = 0 then
+        bytesToWordLE (((bytes m).drop (A - 0x6620)).take 8)
       else if Compact2.LPLAN ≤ A ∧ A < Compact2.LPLAN + 27648 ∧ (A - Compact2.LPLAN) % 8 = 0 then
         bytesToWordLE ((im.data.drop (A - Compact2.LPLAN)).take 8)
       else 0 := by
   unfold w9init
   rw [MachineState.getMem_setReg, getMem_writeBytesAsWords _ _ 0x7000 A (by rw [bytes_length_e]; decide) hA,
     getMem_writeBytesAsWords _ _ 0xA0 A (by rw [bytes_length_e]; decide) hA,
-    getMem_writeBytesAsWords _ _ 0x65C0 A (by rw [bytes_length_e]; decide) hA, dataBase_eq hd,
+    getMem_writeBytesAsWords _ _ 0x6620 A (by rw [bytes_length_e]; decide) hA, dataBase_eq hd,
     getMem_writeBytesAsWords _ _ Compact2.LPLAN A (by rw [data_length hd]; decide) hA, bytes_length_e, bytes_length_e,
     bytes_length_e, data_length hd]
   rfl
@@ -395,10 +395,10 @@ theorem front_spec' {im : Image} (hP : ProAt im) (s : MachineState)
       t.getMem (BitVec.ofNat 64 0x808) = s.getMem (BitVec.ofNat 64 0x7008) ∧
       t.getMem (BitVec.ofNat 64 DIG) = s.getMem (BitVec.ofNat 64 0x7000) ∧
       t.getMem (BitVec.ofNat 64 (DIG + 8)) = s.getMem (BitVec.ofNat 64 0x7008) ∧
-      t.getMem (BitVec.ofNat 64 (DIG + 32)) = s.getMem (BitVec.ofNat 64 0x65C0) ∧
-      t.getMem (BitVec.ofNat 64 (DIG + 40)) = s.getMem (BitVec.ofNat 64 0x65C8) ∧
-      t.getMem (BitVec.ofNat 64 (DIG + 48)) = s.getMem (BitVec.ofNat 64 0x65D0) ∧
-      t.getMem (BitVec.ofNat 64 (DIG + 56)) = s.getMem (BitVec.ofNat 64 0x65D8) ∧
+      t.getMem (BitVec.ofNat 64 (DIG + 32)) = s.getMem (BitVec.ofNat 64 0x6620) ∧
+      t.getMem (BitVec.ofNat 64 (DIG + 40)) = s.getMem (BitVec.ofNat 64 0x6628) ∧
+      t.getMem (BitVec.ofNat 64 (DIG + 48)) = s.getMem (BitVec.ofNat 64 0x6630) ∧
+      t.getMem (BitVec.ofNat 64 (DIG + 56)) = s.getMem (BitVec.ofNat 64 0x6638) ∧
       RegsExcept s t [.x5, .x6, .x7, .x19, .x29, .x30] ∧
       Frame s t (fun A => A = 0x800 ∨ A = 0x808 ∨ A = DIG ∨ A = DIG + 8 ∨ A = DIG + 32 ∨ A = DIG + 40 ∨
         A = DIG + 48 ∨ A = DIG + 56) := by
@@ -435,10 +435,10 @@ theorem front_pre30' {im : Image} (hF : FrontAt im) (hP : ProAt im) (hd : Expand
     fun A hA hn => (f0' A hA hn).trans (humem A hA)
   rw [humem 0x7000 (by decide)] at w800 d0
   rw [humem 0x7008 (by decide)] at w808 d8
-  rw [humem 0x65C0 (by decide)] at d32
-  rw [humem 0x65C8 (by decide)] at d40
-  rw [humem 0x65D0 (by decide)] at d48
-  rw [humem 0x65D8 (by decide)] at d56
+  rw [humem 0x6620 (by decide)] at d32
+  rw [humem 0x6628 (by decide)] at d40
+  rw [humem 0x6630 (by decide)] at d48
+  rw [humem 0x6638 (by decide)] at d56
   obtain ⟨t, st1, p, x19, z, r1, f1⟩ := zero_spec hF.2 t0 p0
   have f : Frame s t (fun A => A = 0x800 ∨ A = 0x808 ∨ A = DIG ∨ A = DIG + 8 ∨ A = DIG + 32 ∨
       A = DIG + 40 ∨ A = DIG + 48 ∨ A = DIG + 56 ∨ A = 0x59B0 ∨ A = 0x59B8 ∨ A = 0x59C0 ∨ A = 0x59C8) :=
@@ -5126,16 +5126,21 @@ theorem after_steps {im : Image} (hc : CodeAt im (pcOf 46509) afterCode)
   · intro A hA hn
     rfl
 
-def finishCode : List (BitVec 32) := bv_list% 32 [0x66e37,0xe0e13,0x18e3303,0x4c000e93,0x26eb023,0x100293,0x513]
+/-- Final pass (words 47005..47011; 47012 is the halting `ecall`): restore the L3 counter word at `WIT + 32` from
+`0x66018` and, stage 2 (C3), the L3 encoding row tweak's high word at `WIT + 24` (a witness pad, honest LE64 1),
+which the final clear of `[WIT, WIT + 8256)` erased; the halt flag `t0 = 1` is stored there (`sd t0,24(t4)` took the
+place of the old no-op `addi t3,t3,0`). -/
+def finishCode : List (BitVec 32) := bv_list% 32 [0x66e37,0x18e3303,0x4c000e93,0x26eb023,0x100293,0x5ebc23,0x513]
 sym_block finishRun := symRun { noAlias := true } finishCode (pcOf 47005) 20
 
 theorem finish_steps {im : Image} (hc : CodeAt im (pcOf 47005) finishCode)
     (s : MachineState) (hpc : s.pc=pcOf 47005) :
     ∃t, Steps im s 7 7 t ∧ t.pc=pcOf 47012 ∧
-      t.getMem 1248=s.getMem 417816 ∧ t.getReg .x5=1 ∧ t.getReg .x10=0 ∧
-      RegsExcept s t [.x5,.x6,.x10,.x28,.x29] ∧ Frame s t (fun A=>A=1248) := by
-  refine ⟨_,symRun_sound finishRun hc s hpc (by simp [finishRun.res,rv_simp]),?_,?_,?_,?_,?_,?_⟩
+      t.getMem 1248=s.getMem 417816 ∧ t.getMem 1240=1 ∧ t.getReg .x5=1 ∧ t.getReg .x10=0 ∧
+      RegsExcept s t [.x5,.x6,.x10,.x28,.x29] ∧ Frame s t (fun A=>A=1248 ∨ A=1240) := by
+  refine ⟨_,symRun_sound finishRun hc s hpc (by simp [finishRun.res,rv_simp]),?_,?_,?_,?_,?_,?_,?_⟩
   · rfl
+  · simp [finishRun.res,rv_simp]
   · simp [finishRun.res,rv_simp]
   · rfl
   · rfl
@@ -5144,7 +5149,7 @@ theorem finish_steps {im : Image} (hc : CodeAt im (pcOf 47005) finishCode)
   · intro A hA hn
     simp only [Result.toState_getMem,finishRun.res]
     t3n []
-    rw [Nat.mod_eq_of_lt (show A<18446744073709551616 by simpa using hA),if_neg hn]
+    rw [Nat.mod_eq_of_lt (show A<18446744073709551616 by simpa using hA),if_neg (by omega),if_neg (by omega)]
 #print axioms after_steps
 #print axioms finish_steps
 end ClaudeWCT.W9.Machine.Expand.SharedScatter
@@ -6619,13 +6624,13 @@ theorem getMem {im : Image} (hlen:im.data.length=29808) (hb:dataBase im=DB)
     (w9init im m pk b).getMem (BitVec.ofNat 64 A)=
       if 0x7000≤A ∧ A<0x7000+5248 ∧ (A-0x7000)%8=0 then bytesToWordLE ((bytes b).drop (A-0x7000) |>.take 8)
       else if 0xA0≤A ∧ A<0xB0 ∧ (A-0xA0)%8=0 then bytesToWordLE ((bytes pk).drop (A-0xA0) |>.take 8)
-      else if 0x65C0≤A ∧ A<0x65E0 ∧ (A-0x65C0)%8=0 then bytesToWordLE ((bytes m).drop (A-0x65C0) |>.take 8)
+      else if 0x6620≤A ∧ A<0x6640 ∧ (A-0x6620)%8=0 then bytesToWordLE ((bytes m).drop (A-0x6620) |>.take 8)
       else if DB≤A ∧ A<DB+29808 ∧ (A-DB)%8=0 then bytesToWordLE (im.data.drop (A-DB) |>.take 8)
       else 0 := by
   unfold w9init
   rw [MachineState.getMem_setReg,getMem_writeBytesAsWords _ _ 0x7000 A (by rw[bytes_length_e];decide) hA,
     getMem_writeBytesAsWords _ _ 0xA0 A (by rw[bytes_length_e];decide) hA,
-    getMem_writeBytesAsWords _ _ 0x65C0 A (by rw[bytes_length_e];decide) hA,hb,
+    getMem_writeBytesAsWords _ _ 0x6620 A (by rw[bytes_length_e];decide) hA,hb,
     getMem_writeBytesAsWords _ _ DB A (by rw[hlen];decide) hA,
     bytes_length_e,bytes_length_e,bytes_length_e,hlen]
   rfl
@@ -6699,10 +6704,10 @@ theorem tail_steps {im : Image} (hc : CodeAt im (pcOf 1) frontTail) (s : Machine
       t.getMem (BitVec.ofNat 64 0x808) = s.getMem (BitVec.ofNat 64 0x7008) ∧
       t.getMem (BitVec.ofNat 64 DIG) = s.getMem (BitVec.ofNat 64 0x7000) ∧
       t.getMem (BitVec.ofNat 64 (DIG + 8)) = s.getMem (BitVec.ofNat 64 0x7008) ∧
-      t.getMem (BitVec.ofNat 64 (DIG + 32)) = s.getMem (BitVec.ofNat 64 0x65C0) ∧
-      t.getMem (BitVec.ofNat 64 (DIG + 40)) = s.getMem (BitVec.ofNat 64 0x65C8) ∧
-      t.getMem (BitVec.ofNat 64 (DIG + 48)) = s.getMem (BitVec.ofNat 64 0x65D0) ∧
-      t.getMem (BitVec.ofNat 64 (DIG + 56)) = s.getMem (BitVec.ofNat 64 0x65D8) ∧
+      t.getMem (BitVec.ofNat 64 (DIG + 32)) = s.getMem (BitVec.ofNat 64 0x6620) ∧
+      t.getMem (BitVec.ofNat 64 (DIG + 40)) = s.getMem (BitVec.ofNat 64 0x6628) ∧
+      t.getMem (BitVec.ofNat 64 (DIG + 48)) = s.getMem (BitVec.ofNat 64 0x6630) ∧
+      t.getMem (BitVec.ofNat 64 (DIG + 56)) = s.getMem (BitVec.ofNat 64 0x6638) ∧
       RegsExcept s t [.x5, .x6, .x7, .x19, .x29, .x30] ∧
       Frame s t (fun A => A = 0x800 ∨ A = 0x808 ∨ A = DIG ∨ A = DIG + 8 ∨ A = DIG + 32 ∨ A = DIG + 40 ∨
         A = DIG + 48 ∨ A = DIG + 56) := by
@@ -6740,7 +6745,7 @@ theorem setup {im : Image} (hf:CodeAt im (pcOf 1) frontTail) (hz:CodeAt im (pcOf
     ∃t,Steps im s 37 37 t ∧ t.pc=pcOf 45056 ∧ t.getReg .x5=0 ∧
       (∀A, A=0x800 ∨ A=DIG → t.getMem (BitVec.ofNat 64 A)=s.getMem 0x7000) ∧
       (∀A, A=0x808 ∨ A=DIG+8 → t.getMem (BitVec.ofNat 64 A)=s.getMem 0x7008) ∧
-      (∀k,k<4 → t.getMem (BitVec.ofNat 64 (DIG+32+8*k))=s.getMem (BitVec.ofNat 64 (0x65C0+8*k))) ∧
+      (∀k,k<4 → t.getMem (BitVec.ofNat 64 (DIG+32+8*k))=s.getMem (BitVec.ofNat 64 (0x6620+8*k))) ∧
       (∀A,A=0x59B0 ∨ A=0x59B8 ∨ A=0x59C0 ∨ A=0x59C8 → t.getMem (BitVec.ofNat 64 A)=0) ∧
       RegsExcept s t [.x5,.x6,.x7,.x19,.x29,.x30] ∧ Frame s t Writes := by
   obtain ⟨u,su,up,u5,a0,a8,d0,d8,d32,d40,d48,d56,ru,fu⟩:=tail_steps hf s hp hx5
@@ -6788,15 +6793,15 @@ theorem prefixData {im : Image} (hlen:im.data.length=29808) (hb:dataBase im=DB)
 
 theorem msgWord {im : Image} (hlen:im.data.length=29808) (hb:dataBase im=DB)
     (m : Message) (pk : PublicKey) (b : Bytes 5248) (i : Nat) (hi:i<4) :
-    (w9init im m pk b).getMem (BitVec.ofNat 64 (0x65C0+8*i))=m.extractLsb' (64*i) 64 := by
+    (w9init im m pk b).getMem (BitVec.ofNat 64 (0x6620+8*i))=m.extractLsb' (64*i) 64 := by
   rw [getMem hlen hb _ _ _ _ (by omega),if_neg (by omega),if_neg (by omega),if_pos (by omega),
-    show 0x65C0+8*i-0x65C0=8*i by omega]
+    show 0x6620+8*i-0x6620=8*i by omega]
   exact SigGolfCandidate.T3M.Expand.bytesToWordLE_bytes_e m i (by omega)
 
 theorem zero {im : Image} (hlen:im.data.length=29808) (hb:dataBase im=DB)
     (m : Message) (pk : PublicKey) (b : Bytes 5248) (A : Nat) (hA:A<DB)
     (hs:A<0x7000 ∨ 0x7000+5248≤A) (hp:A<0xA0 ∨ 0xB0≤A)
-    (hm:A<0x65C0 ∨ 0x65E0≤A) :
+    (hm:A<0x6620 ∨ 0x6640≤A) :
     (w9init im m pk b).getMem (BitVec.ofNat 64 A)=0 := by
   rw[getMem hlen hb _ _ _ _ (by unfold DB at hA;omega),
     if_neg (by omega),if_neg (by omega),if_neg (by omega),if_neg (by omega)]
@@ -7000,17 +7005,66 @@ open ClaudeWCT.W9.T3M
 set_option maxHeartbeats 1000000
 set_option maxRecDepth 10000
 
+/-! Stage 2 (C3) seam to the paired witness readout of `ClaudeWCT/W9/T3M/Witness/Honest.lean`. The honest witness word
+at `WIT + 24` (the L3 encoding row tweak's high word) is the C3 pad, LE64 1. Neither forest pass writes it: in the
+search pass it still holds the cleared 0 (`SharedForestRun.Inv` does not track it), and the final pass restores it
+(`finishCode`). The next two theorems are the only places where the expander proofs depend on how `Honest.lean`
+states the pad; the `first` alternatives accept the plausible shapes of the readout lemma's new hypothesis. -/
+
+/-- The 64-bit witness word at offset 24 is the L3 row tweak's high word. -/
+theorem witWord24_eq_wbcHigh (w : ClaudeWCT.W9.T3M.WBytes) (index : Nat) :
+    w.extractLsb' (8*24) 64 = ClaudeWCT.W9.T3M.wbcHigh w index 3 := by
+  have h0 : ClaudeWCT.W9.T3M.rowBlock index 3 = 0 := by
+    first | rfl | simp [ClaudeWCT.W9.T3M.rowBlock]
+  unfold ClaudeWCT.W9.T3M.wbcHigh ClaudeWCT.W9.T3M.wdig
+  rw [h0]
+  apply BitVec.eq_of_getLsbD_eq
+  intro j hj
+  simp only [BitVec.getLsbD_extractLsb', hj, decide_true, Bool.true_and, show 64+j<128 by omega]
+  congr 1
+  omega
+
+/-- The honest paired witness carries the C3 pad LE64 1 at `WIT + 24` (from `Paired.wbcHigh_witEnc`, the paired
+counterpart of `wbcHigh_witEnc` in `Witness/Honest.lean`). -/
+theorem witPad24_witEnc (output : HashOutput) (witness : SharedForest.Witness) :
+    (Paired.witEnc output witness).extractLsb' (8*24) 64 = 1#64 := by
+  rw [witWord24_eq_wbcHigh _ (WCT9.digestIndex output)]
+  first
+  | exact Paired.wbcHigh_witEnc output witness 3
+  | exact Paired.wbcHigh_witEnc (output:=output) (w:=witness) 3
+  | exact Paired.wbcHigh_witEnc 3
+
+/-- The witness prefix word at `off` after a pass that wrote only the forest slots over a cleared prefix: the
+original word, except the counter word (`off = 32`, unless the counter is 0) and the C3 pad (`off = 24`). -/
+theorem prefix_of_slots_c3 (output : HashOutput) (witness : SharedForest.Witness)
+    (s t : MachineState) (W : Nat→Prop)
+    (hslots : ∀p∈Paired.forestSlots output witness.signature,∀half,half<2→W (1216+p.1+8*half))
+    (hread : ∀A,W A→W9Machine.OrigW (Paired.witEnc output witness) t A)
+    (hframe : ∀A,A<2^64→¬W A→t.getMem (BitVec.ofNat 64 A)=s.getMem (BitVec.ofNat 64 A))
+    (hzero : ∀ (off : Nat), off + 8 ≤ 8256 → off % 8 = 0 → s.getMem (BitVec.ofNat 64 (1216+off))=0)
+    (off:Nat) (hb:off+8≤8256) (ha:off%8=0) (hc:off≠32∨witness.counters 3=0) (hp:off≠24) :
+    W9Machine.OrigW (Paired.witEnc output witness) t (1216+off) := by
+  first
+  | exact PairedReadout.original_prefix_of_slots output witness s t W hslots hread hframe hzero off hb ha hc hp
+  | exact PairedReadout.original_prefix_of_slots output witness s t W hslots hread hframe hzero off hb ha ⟨hc,hp⟩
+  | exact PairedReadout.original_prefix_of_slots output witness s t W hslots hread hframe hzero off hb ha hp hc
+  | exact PairedReadout.original_prefix_of_slots output witness s t W hslots hread hframe hzero off hb ha ⟨hp,hc⟩
+  | exact PairedReadout.original_prefix_of_slots output witness s t W hslots hread hframe hzero off hb ha hc
+#print axioms witWord24_eq_wbcHigh
+#print axioms witPad24_witEnc
+#print axioms prefix_of_slots_c3
+
 theorem ScatterInv.original_prefix (output : HashOutput) (witness : SharedForest.Witness)
     (b : SharedCodec.CBytes) (s t : MachineState)
     (hin : SharedCompact.InflatedAt s b)
     (hforest : witness.signature.forest=(SharedCodec.sigDecC b).forest)
     (hi : ScatterInv s (SharedForest.rawChildFromOutput output) 9 t)
     (hz : ∀ (off : Nat), off + 8 ≤ 8256 → off % 8 = 0 → s.getMem (BitVec.ofNat 64 (1216+off))=0)
-    (off : Nat) (hb : off+8≤8256) (ha : off%8=0) (hc : off≠32∨witness.counters 3=0) :
+    (off : Nat) (hb : off+8≤8256) (ha : off%8=0) (hc : off≠32∨witness.counters 3=0) (hp : off≠24) :
     W9Machine.OrigW (Paired.witEnc output witness) t (1216+off) := by
   let writes := fun A => ∃k:Fin 9,k.val<9 ∧
     PreciseCoordinateW k.val (coordPhysical k.val (SharedForest.rawChildFromOutput output k).val) A
-  apply PairedReadout.original_prefix_of_slots output witness s t writes _ _ _ hz off hb ha hc
+  apply prefix_of_slots_c3 output witness s t writes _ _ _ hz off hb ha hc hp
   · intro p hp half hh
     obtain ⟨k,hk,hp⟩:=List.mem_flatMap.mp hp
     refine ⟨k,k.isLt,?_⟩
@@ -7109,11 +7163,11 @@ theorem ScatterInv.forest_pre (output : HashOutput) (witness : SharedForest.Witn
     (ht.frame.trans uf).mono (by intro A hA h;rcases h with h|h;exact h;exact h.elim)
   apply SharedForestRun.initial_of_original _ _ _ _ u up
   · exact SharedForestRun.fields_frame hframe hfields
-  · intro A hA hB h8
+  · intro A hA hB h8 hpad
     have ho:A-1216+8≤8256:=by omega
     have he:1216+(A-1216)=A:=by omega
     have hw:=ScatterInv.original_prefix output witness b s t hin hforest ht hz (A-1216) ho
-      (by omega) (Or.inr hc3)
+      (by omega) (Or.inr hc3) (by omega)
     rw[he] at hw
     unfold W9Machine.OrigW at hw ⊢
     rw[uf.get (by omega) (fun h=>h)]
@@ -7271,11 +7325,11 @@ theorem ScatterInv.original_prefix_forest (output : HashOutput) (witness : Share
     (hforest : witness.signature.forest=(SharedCodec.sigDecC b).forest)
     (hi : ScatterInv s (SharedForest.rawChildFromOutput output) 9 t)
     (hz : ∀ (off : Nat), off + 8 ≤ 8256 → off % 8 = 0 → s.getMem (BitVec.ofNat 64 (1216+off))=0)
-    (off : Nat) (hb : off+8≤8256) (ha : off%8=0) (hc : off≠32∨witness.counters 3=0) :
+    (off : Nat) (hb : off+8≤8256) (ha : off%8=0) (hc : off≠32∨witness.counters 3=0) (hp : off≠24) :
     W9Machine.OrigW (Paired.witEnc output witness) t (1216+off) := by
   let writes := fun A => ∃k:Fin 9,k.val<9 ∧
     PreciseCoordinateW k.val (coordPhysical k.val (SharedForest.rawChildFromOutput output k).val) A
-  apply PairedReadout.original_prefix_of_slots output witness s t writes _ _ _ hz off hb ha hc
+  apply prefix_of_slots_c3 output witness s t writes _ _ _ hz off hb ha hc hp
   · intro p hp half hh
     obtain ⟨k,hk,hp⟩:=List.mem_flatMap.mp hp
     refine ⟨k,k.isLt,?_⟩
@@ -7343,7 +7397,7 @@ theorem prepare {im:Image} (he:CodeAt im (pcOf 0) [SharedCompact.entryWord])
     (s:MachineState) (message:SigGolfCandidate.T3.Message) (b:SharedCodec.CBytes)
     (hp:s.pc=pcOf 0) (h5:s.getReg .x5=0)
     (hb:∀k,k < 656 → s.getMem (BitVec.ofNat 64 (0x7000+8*k))=b.extractLsb' (64*k) 64)
-    (hm:∀k,k < 4 → s.getMem (BitVec.ofNat 64 (0x65C0+8*k))=message.extractLsb' (64*k) 64)
+    (hm:∀k,k < 4 → s.getMem (BitVec.ofNat 64 (0x6620+8*k))=message.extractLsb' (64*k) 64)
     (hd:SharedInit.DataAt s) (hh:(SharedCodec.sigDecC b).policyHints.toNat<5832) :
     ∃t,Steps im s 3249 3249 t ∧ Prepared s message b t := by
   obtain ⟨u,su,up,uz,ur,uh,ub,uf⟩:=SharedCompact.front_readout he hc s hp

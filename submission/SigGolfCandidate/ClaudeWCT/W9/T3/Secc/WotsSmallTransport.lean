@@ -595,9 +595,15 @@ theorem structuralHitSrc_paired {T : Answers} {trace : List Entry} {inputs : Fin
     (hin : ∀ entry ∈ trace, entry.1 ∈ inputs) : PairedReference.StructuralHitIn inputs T trace := by
   obtain ⟨p,x,a,hmem,hpos,hb,hsrc,hcls,hmain,hhit⟩ := h
   cases p with
-  | chain lay tree leaf i step => exact ⟨_,x,a,hmem,hin _ hmem,hpos,hb,hsrc,hcls,hhit⟩
-  | leaf lay tree leaf => exact ⟨_,x,a,hmem,hin _ hmem,hpos,hb,hsrc,hcls,hhit⟩
-  | node lay tree level node => exact ⟨_,x,a,hmem,hin _ hmem,hpos,hb,hsrc,hcls,hhit⟩
+  | chain lay tree leaf i step =>
+    exact ⟨_,x,a,hmem,hin _ hmem,hpos,hb,hsrc,hcls,
+      by unfold Extract.Paired.HashHitAt; rw [Extract.Paired.proj_chain]; exact hhit⟩
+  | leaf lay tree leaf =>
+    exact ⟨_,x,a,hmem,hin _ hmem,hpos,hb,hsrc,hcls,
+      by unfold Extract.Paired.HashHitAt; rw [Extract.Paired.proj_leaf]; exact hhit⟩
+  | node lay tree level node =>
+    exact ⟨_,x,a,hmem,hin _ hmem,hpos,hb,hsrc,hcls,
+      by unfold Extract.Paired.HashHitAt; rw [Extract.Paired.proj_node]; exact hhit⟩
   | forest | wctChain | wctLeaf | wctNode => exact hmain.elim
 #print axioms structuralHitSrc_paired
 end ClaudeWCT.W9.T3.Security.CanonicalExtract
@@ -645,9 +651,8 @@ theorem structuralHitTrace_transfer {A T : Answers} {trace : List Entry} (hAT : 
 theorem ftsHitIn_structuralHitTrace {T : Answers} {qs : List Spec.Domain}
     (h : Extract.Paired.FtsHitIn T qs) : StructuralHitTrace T (entriesOf T qs) := by
   obtain ⟨p,x,hfts,hb,hq,hh,hs⟩ := h
-  have hp : Extract.posOf x = some p := by
-    apply Extract.posOf_key_eq hb.legacy
-    rw [hs,Extract.Paired.hdrBlock_honestInput,Extract.Pos.canonicalHeader_eq hb.legacy]
+  -- #866: `SameHeader` is `length ∧ hdrKey`; `posOf_sameHeader` is its paired `posOf_key_eq`.
+  have hp : Extract.posOf x = some p := Extract.Paired.posOf_sameHeader T p hb.legacy x hs
   refine ⟨p,x,_,SigGolfCandidate.T3.Security.WotsExtract.mem_entriesOf hq,hp,hb,?_,?_,hh⟩
   · cases p with
     | chain | leaf | node | forest => exact hfts.elim

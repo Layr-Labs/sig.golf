@@ -28,6 +28,40 @@ theorem respects_packedSecret (lay : Layer) (tree q : Nat) (carry : Digest) :
   split
   · exact Respects.bind (respects_privatePair _ _ _ _ _) fun _ => Respects.pure' _
   · exact Respects.pure' _
+/-! C2/C3 (FULL): hashes keeping a selected half, the packed lower node tweak, the chain-0 high half. -/
+theorem respects_chainW (lay : Layer) (tree leaf i start count : Nat) (v : Digest) :
+    Respects Enc.NonEnc (WCT9.chainW lay tree leaf i start count v) := by
+  exact respects_chainW' _ _ _ _ _ _ _ fun _ _ _ _ => nonEnc_chainInput _ _ _ _ _ _
+theorem respects_lowerLeafHash (lay : Layer) (tree leaf : Nat) (ends : List Digest) (hlen : 4 ≤ ends.length) :
+    Respects Enc.NonEnc (WCT9.lowerLeafHash lay tree leaf ends) := by
+  exact respects_lowerLeafHash' _ _ _ _ (nonEnc_pad64_long _ (leafInput_long lay tree leaf ends hlen))
+theorem lowerNodeWord_toNat (lay tree heap : Nat) (hh : heap < 128) :
+    (WCT9.lowerNodeWord lay tree heap).toNat = (hyperWord lay tree).toNat + 1407 + heap := by
+  unfold WCT9.lowerNodeWord WCT9.lowerK
+  have hw := hyperWord_toNat lay tree
+  have := Nat.mod_lt tree (show 0 < 2 ^ 32 by decide)
+  have := Nat.mod_lt lay (show 0 < 256 by decide)
+  rw [BitVec.toNat_add, BitVec.toNat_ofNat, Nat.mod_eq_of_lt (show 1407 + heap < 2 ^ 64 by omega),
+    Nat.mod_eq_of_lt (by omega)]
+  omega
+theorem lowerNodeWord_marker (lay tree heap : Nat) (hh : heap < 128) :
+    (WCT9.lowerNodeWord lay tree heap).toNat % 256 = 128 + heap := by
+  rw [lowerNodeWord_toNat lay tree heap hh, hyperWord_toNat]
+  omega
+theorem merkleTweak_marker (lay tree heap : Nat) (hh : lay = 0 ∨ heap < 128) :
+    tweakMarker (WCT9.merkleTweak lay tree heap) = if lay = 0 then 64 else 128 + heap := by
+  unfold WCT9.merkleTweak
+  split_ifs with h0
+  · subst h0; exact nodeTweak_top_marker _ _
+  · unfold WCT9.lowerTweak
+    rw [append64_marker, lowerNodeWord_marker _ _ _ (hh.resolve_left h0)]
+theorem merkleTweak_notHyper (lay tree heap : Nat) (hh : lay = 0 ∨ heap < 128) :
+    NotHyper (WCT9.merkleTweak lay tree heap) :=
+  notHyper_of_marker (by rw [merkleTweak_marker lay tree heap hh]; split_ifs <;> omega)
+theorem respects_lowerNodeHash (lay tree heap : Nat) (left right : Digest) (hh : lay = 0 ∨ heap < 128) :
+    Respects Enc.NonEnc (WCT9.lowerNodeHash lay tree heap left right) := by
+  exact respects_lowerNodeHash' _ _ _ _ _ (nonEnc_of_hdr _ _ (SigGolfCandidate.T3M.Extract.hdrBlock_block4 left _ 0 right)
+    (merkleTweak_notHyper lay tree heap hh))
 theorem respects_buildLeafPF (lay : Layer) (tree leaf : Nat) (digits : List Nat) (carry : Digest) :
     Respects Enc.NonEnc (WCT9.buildLeafPF lay tree leaf digits carry) := by
   unfold WCT9.buildLeafPF
@@ -35,10 +69,16 @@ theorem respects_buildLeafPF (lay : Layer) (tree leaf : Nat) (digits : List Nat)
   · unfold WCT9.lowerCoefs
     exact Respects.foldlM _ _ (fun j _ state => Respects.bind (respects_packedSecret _ _ _ _) fun _ =>
       Respects.pure' _) _
-  refine Respects.bind (Respects.foldlM _ _ (fun i _ state => ?_) _) fun state =>
-    Respects.bind (respects_leafHash _ _ _ _) fun _ => Respects.pure' _
-  exact Respects.bind (respects_chain _ _ _ _ _ _ _) fun _ =>
-    Respects.bind (respects_chain _ _ _ _ _ _ _) fun _ => Respects.pure' _
+  refine respects_bind_invT (fun state : List Digest × List Digest => state.1.length = chainCount lay)
+    (Respects.foldlM _ _ (fun i _ state => ?_) _) (fun T => ?_) fun state hstate =>
+    Respects.bind (respects_lowerLeafHash _ _ _ _ (by rw [hstate]; exact chainCount_ge4 lay)) fun _ =>
+      Respects.pure' _
+  · exact Respects.bind (respects_chainW _ _ _ _ _ _ _) fun _ =>
+      Respects.bind (respects_chainW _ _ _ _ _ _ _) fun _ => Respects.pure' _
+  · exact Correctness.eval_foldlM_range_inv T (chainCount lay) _
+      (fun done (state : List Digest × List Digest) => state.1.length = done) ([], []) rfl
+      (fun i _ state hs => by
+        simp only [evalWithAnswerFn_bind, evalWithAnswerFn_pure, List.length_append, List.length_singleton, hs])
 theorem respects_bind_inv {S : Spec.Domain → Prop} {α β : Type} {p : M α} {f : α → M β} (P : α → Prop)
     (hp : Respects S p) (hP : ∀ T, P (evalWithAnswerFn T p)) (hf : ∀ x, P x → Respects S (f x)) :
     Respects S (p >>= f) := by
@@ -69,7 +109,11 @@ theorem getD_append_length_le {levels : List (List Digest)} {nodes : List Digest
     rcases Nat.eq_or_lt_of_le hj with he | hlt
     · rw [← he, Nat.sub_self]; simpa using h2
     · rw [List.getD_eq_default _ _ (by simp; omega)]; simp
-theorem respects_buildLevelsBelow (lay tree h : Nat) (hh : h ≤ 12) (leaves : List Digest)
+theorem lowerLevel_length (answers : Answers) (lay tree h level : Nat) (nodes : List Digest) :
+    (evalWithAnswerFn answers (WCT9.lowerLevel lay tree h level nodes)).length = nodes.length / 2 := by
+  unfold WCT9.lowerLevel
+  rw [Correctness.eval_mapM, List.length_map, List.length_range]
+theorem respects_buildLevelsBelow (lay tree h : Nat) (hh : h ≤ 12) (h7 : lay ≠ 0 → h ≤ 7) (leaves : List Digest)
     (hlen : leaves.length ≤ 2 ^ h) : Respects Enc.NonEnc (WCT9.buildLevelsBelow 3 lay tree h leaves) := by
   unfold WCT9.buildLevelsBelow
   refine respects_foldlM_inv (fun levels : List (List Digest) => ∀ j, (levels.getD j []).length ≤ 2 ^ h) _ _
@@ -77,20 +121,26 @@ theorem respects_buildLevelsBelow (lay tree h : Nat) (hh : h ≤ 12) (leaves : L
   · intro level _ levels hI T
     simp only [evalWithAnswerFn_bind, evalWithAnswerFn_pure]
     refine getD_append_length_le hI ?_
-    rw [Correctness.eval_buildLevel_length]
+    rw [lowerLevel_length]
     exact le_trans (Nat.div_le_self _ _) (hI _)
   · intro level hl levels hI
     have hlev := List.mem_range'_1.mp hl
     refine Respects.bind ?_ fun _ => Respects.pure' _
-    unfold buildLevel
+    unfold WCT9.lowerLevel
     refine Respects.mapM _ _ fun i hi => ?_
     have hi' := List.mem_range.mp hi
     have hn := hI (level - 1)
     have hp : 2 ^ 1 ≤ 2 ^ (h - level) := Nat.pow_le_pow_right (by decide) (by omega)
-    have hq : 2 ^ (h - level) ≤ 2 ^ 12 := Nat.pow_le_pow_right (by decide) (by omega)
-    have hr : 2 ^ h ≤ 2 ^ 12 := Nat.pow_le_pow_right (by decide) hh
-    exact respects_nodeHash 3 lay tree _ _ _ (by decide) fun _ _ _ => by
-      rw [Nat.mod_eq_of_lt (by omega)]; omega
+    refine respects_lowerNodeHash lay tree _ _ _ ?_
+    by_cases h0 : lay = 0
+    · exact Or.inl h0
+    · right
+      have h7' := h7 h0
+      have hr : 2 ^ h ≤ 2 ^ 7 := Nat.pow_le_pow_right (by decide) h7'
+      have h128 : (2 : Nat) ^ 7 = 128 := by norm_num
+      have hB : 2 ^ h = 2 * 2 ^ (h - 1) := by rw [← pow_succ']; congr 1; omega
+      have hA : 2 ^ (h - level) ≤ 2 ^ (h - 1) := Nat.pow_le_pow_right (by decide) (by omega)
+      omega
   · intro j
     cases j with
     | zero => simpa using hlen
@@ -110,35 +160,40 @@ theorem respects_buildTreeP (lay : Layer) (tree selected : Nat) (digits : List N
   · unfold WCT9.treeRowsP
     exact Respects.foldlM _ _ (fun leaf _ state =>
       Respects.bind (respects_buildLeafPF _ _ _ _ _) fun _ => Respects.pure' _) _
-  · exact Respects.bind (respects_buildLevelsBelow _ _ _ (by fin_cases lay <;> decide) _ (le_of_eq hrows))
+  · exact Respects.bind (respects_buildLevelsBelow _ _ _ (by fin_cases lay <;> decide) (by fin_cases lay <;> decide) _
+      (le_of_eq hrows))
       fun _ => Respects.pure' _
 end Programs
+/-- A rejected encoding pair (C2/C3 FULL: an encoding block is a 64-byte input whose tweak is `hp ++ hyperWord ..`,
+with the witness high word `hp`). -/
 def RejPair (T T' : Answers) (q : Spec.Domain) : Prop :=
-  ∃ (input : HashInput) (lay : Layer) (tr lf : Nat), q = .inl (.inr input) ∧
-    SigGolfCandidate.T3M.Extract.hdrBlock input = bytesLE 16 (rowTweak lay tr lf) ∧
+  ∃ (input : HashInput) (lay : Layer) (tr lf : Nat) (hp : BitVec 64), q = .inl (.inr input) ∧ input.length = 64 ∧
+    SigGolfCandidate.T3M.Extract.hdrBlock input = bytesLE 16 (hp ++ hyperWord lay.val (tr * 2 ^ height lay + lf)) ∧
     WCT9.producerDecode lay (WCT9.encodingAnswer lay (T (.inl (.inr input)))) = none ∧
       WCT9.producerDecode lay (WCT9.encodingAnswer lay (T' (.inl (.inr input)))) = none
-theorem RejPair.layer {T T' : Answers} {input : HashInput} {lay : Layer} {tr lf : Nat}
+theorem RejPair.layer {T T' : Answers} {input : HashInput} {lay : Layer} {tr lf : Nat} {hp : BitVec 64}
     (h : RejPair T T' (.inl (.inr input)))
-    (hh : SigGolfCandidate.T3M.Extract.hdrBlock input = bytesLE 16 (rowTweak lay tr lf)) :
+    (hh : SigGolfCandidate.T3M.Extract.hdrBlock input = bytesLE 16 (hp ++ hyperWord lay.val (tr * 2 ^ height lay + lf))) :
     WCT9.producerDecode lay (WCT9.encodingAnswer lay (T (.inl (.inr input)))) = none ∧
       WCT9.producerDecode lay (WCT9.encodingAnswer lay (T' (.inl (.inr input)))) = none := by
-  obtain ⟨input', lay', tr', lf', hq, hh', h1, h2⟩ := h
+  obtain ⟨input', lay', tr', lf', hp', hq, -, hh', h1, h2⟩ := h
   have hi : input' = input := (Sum.inr.inj (Sum.inl.inj hq)).symm
   subst hi
   rw [hh] at hh'
-  have hl : lay' = lay := (Enc.rowTweak_layer (bytesLE_injective hh')).symm
+  have hl : lay' = lay := (Enc.hyperH_layer (bytesLE_injective hh')).symm
   subst hl
   exact ⟨h1, h2⟩
-theorem RejPair.mk {T T' : Answers} {input : HashInput} {lay : Layer} {tr lf : Nat}
-    (hh : SigGolfCandidate.T3M.Extract.hdrBlock input = bytesLE 16 (rowTweak lay tr lf))
+theorem RejPair.mk {T T' : Answers} {input : HashInput} {lay : Layer} {tr lf : Nat} {hp : BitVec 64}
+    (hlen : input.length = 64)
+    (hh : SigGolfCandidate.T3M.Extract.hdrBlock input = bytesLE 16 (hp ++ hyperWord lay.val (tr * 2 ^ height lay + lf)))
     (h1 : WCT9.producerDecode lay (WCT9.encodingAnswer lay (T (.inl (.inr input)))) = none)
-    (h2 : WCT9.producerDecode lay (WCT9.encodingAnswer lay (T' (.inl (.inr input)))) = none) : RejPair T T' (.inl (.inr input)) :=
-  ⟨input, lay, tr, lf, rfl, hh, h1, h2⟩
+    (h2 : WCT9.producerDecode lay (WCT9.encodingAnswer lay (T' (.inl (.inr input)))) = none) :
+    RejPair T T' (.inl (.inr input)) :=
+  ⟨input, lay, tr, lf, hp, rfl, hlen, hh, h1, h2⟩
 theorem RejPair.encHeader {T T' : Answers} {q : Spec.Domain} (h : RejPair T T' q) :
     ∃ input, q = .inl (.inr input) ∧ Enc.EncHeader input := by
-  obtain ⟨input, lay, tr, lf, hq, hh, -, -⟩ := h
-  exact ⟨input, hq, lay, tr, lf, hh⟩
+  obtain ⟨input, lay, tr, lf, hp, hq, hlen, hh, -, -⟩ := h
+  exact ⟨input, hq, hlen, lay, tr, lf, hp, hh⟩
 def AgreeOn (S : Spec.Domain → Prop) (T T' : Answers) : Prop :=
   ∀ q, S q → T' q = T q ∨ RejPair T T' q
 theorem AgreeOn.of_eq {S : Spec.Domain → Prop} {T T' : Answers} (h : ∀ q, S q → T' q = T q) : AgreeOn S T T' :=
@@ -380,14 +435,16 @@ theorem wotsTree_take_congr_nonEnc {T T' : Answers} (h : ∀ q, Enc.NonEnc q →
       intro leaf; funext i
       unfold WCT9.wotsEnd
       rw [hs]
-      exact (SigGolfCandidate.T3.Security.Wots.Enc.respects_chain _ _ _ _ _ _ _).eval_eq h
+      exact (respects_chainW _ _ _ _ _ _ _).eval_eq h
     have hr : WCT9.wotsRoot T' 0 tree = WCT9.wotsRoot T 0 tree := by
       funext leaf
       unfold WCT9.wotsRoot
       rw [he leaf]
-      exact (SigGolfCandidate.T3.Security.Wots.Enc.respects_leafHash _ _ _ _).eval_eq h
+      exact (respects_lowerLeafHash _ _ _ _ (by
+        simp only [List.length_map, List.length_range]; exact SigGolfCandidate.T3.Security.Wots.Enc.chainCount_ge4 _)).eval_eq h
     unfold WCT9.wotsTree
-    rw [hr, (SigGolfCandidate.T3.Security.Wots.Enc.respects_buildLevels 3 (0 : Layer).val tree (height 0)
+    rw [hr, show ((0 : Layer).val) = 0 from rfl, WCT9.lowerLevels_top,
+      (SigGolfCandidate.T3.Security.Wots.Enc.respects_buildLevels 3 0 tree (height 0)
       ((List.range (2 ^ height 0)).map (WCT9.wotsRoot T 0 tree)) (by decide) (fun _ => Or.inl rfl)).eval_eq h]
   · have h0 : 0 < 2 ^ height lay := by positivity
     have he := (Enc.respects_buildTreeP lay tree 0 []).eval_eq h

@@ -224,11 +224,14 @@ structure PairOpening where
 def nodesPair (nodes : Array Digest) (branch : Nat) : PairRoot :=
   (nodes.getD (4 + 2 * branch) 0, nodes.getD (5 + 2 * branch) 0)
 
-/-- The final singleton writes the low hash half directly into the layer-three
-encoding input. Paired B coordinates keep the high outer half. -/
+/-- The final singleton writes its top node directly into the layer-three
+encoding input: the right top node (heap 3) as the low hash half at `WIT + 48`,
+the left top node (heap 2) as the HIGH hash half at `WIT + 0` (stage 2, merged
+singleton "Cm": the junk low half lands below the witness, so the C3 row pad at
+`WIT + 24` stays witness memory). Paired B coordinates keep the high outer half. -/
 def sharedOuterHash (coord index heap : Nat) (left right : Digest) : M Digest :=
   let input := wctTopInput coord index heap left 0 right
-  if coord = 8 then shortHash input else highHash input
+  if coord = 8 ∧ heap = 3 then shortHash input else highHash input
 
 /-- Level four carries the preceding right node. An A coordinate uses the
 high hash half there; a B coordinate uses the low half and one additional
@@ -923,12 +926,14 @@ ancestor-only search choose digits after every lower root has been fixed. -/
 namespace SigGolfCandidate.Research.SharedForest
 open OracleComp OracleSpec SigGolfCandidate.T3 ClaudeWCT.WCT9
 
-/-- Retain each prefix while evaluating a WOTS chain once, in its ordinary order. -/
+/-- Retain each prefix while evaluating a WOTS chain once, in its ordinary order. Stage 2 (C3, #866): each step
+keeps the half `chainHigh lay i start` of its output, as `WCT9.chainW` does (the last step of chain 0 of a lower
+layer keeps the HIGH half). -/
 def chainPrefixes (lay : Layer) (tree leaf i start : Nat) :
     Nat → Digest → M (List Digest)
   | 0, value => pure [value]
   | count + 1, value => do
-      let next ← shortHash (SigGolfCandidate.T3.chainInput lay tree leaf i start value)
+      let next ← halfHash (chainHigh lay i start) (SigGolfCandidate.T3.chainInput lay tree leaf i start value)
       let tail ← chainPrefixes lay tree leaf i (start + 1) count next
       pure (value :: tail)
 
@@ -937,7 +942,7 @@ def buildLeafPrefixes (lay : Layer) (tree leaf : Nat) (carry : Digest) :
   let (coefs, carry) ← lowerCoefs lay tree leaf carry
   let prefixes ← (List.range (chainCount lay)).mapM fun i =>
     chainPrefixes lay tree leaf i 0 (maxDigit lay i) (lowerFamilySeed coefs i)
-  let root ← SigGolfCandidate.T3.leafHash lay tree leaf
+  let root ← lowerLeafHash lay tree leaf
     ((List.range (chainCount lay)).map fun i =>
       (prefixes.getD i []).getD (maxDigit lay i) 0)
   pure ((root, prefixes), carry)
@@ -1052,6 +1057,20 @@ theorem lower_chain_succ_first (lay : Layer) (tree leaf i start count : Nat) (va
   rw [show count + 1 = 1 + count by omega, SigGolfCandidate.T3.Correctness.chain_add]
   rfl
 
+/-- Stage 2 (C3): `lower_chain_succ_first` for the chain of the current scheme. -/
+theorem lower_chainW_succ_first (lay : Layer) (tree leaf i start count : Nat) (value : Digest) :
+    ClaudeWCT.WCT9.chainW lay tree leaf i start (count + 1) value = (do
+      let next ← ClaudeWCT.WCT9.halfHash (ClaudeWCT.WCT9.chainHigh lay i start)
+        (SigGolfCandidate.T3.chainInput lay tree leaf i start value)
+      ClaudeWCT.WCT9.chainW lay tree leaf i (start + 1) count next) := by
+  rw [show count + 1 = 1 + count by omega, ClaudeWCT.WCT9.chainW_add]
+  have h1 : ClaudeWCT.WCT9.chainW lay tree leaf i start 1 value =
+      ClaudeWCT.WCT9.halfHash (ClaudeWCT.WCT9.chainHigh lay i start)
+        (SigGolfCandidate.T3.chainInput lay tree leaf i start value) := by
+    unfold ClaudeWCT.WCT9.chainW
+    simp only [List.range'_one, List.foldlM_cons, List.foldlM_nil, bind_pure]
+  rw [h1]
+
 theorem eval_chainPrefixes_length (answers : Answers) (lay : Layer)
     (tree leaf i start count : Nat) (value : Digest) :
     (evalWithAnswerFn answers (chainPrefixes lay tree leaf i start count value)).length = count + 1 := by
@@ -1063,7 +1082,7 @@ theorem eval_chainPrefixes_length (answers : Answers) (lay : Layer)
 theorem eval_chainPrefixes_getD (answers : Answers) (lay : Layer)
     (tree leaf i start count : Nat) (value : Digest) (j : Nat) (hj : j ≤ count) :
     (evalWithAnswerFn answers (chainPrefixes lay tree leaf i start count value)).getD j 0 =
-      evalWithAnswerFn answers (SigGolfCandidate.T3.chain lay tree leaf i start j value) := by
+      evalWithAnswerFn answers (ClaudeWCT.WCT9.chainW lay tree leaf i start j value) := by
   induction count generalizing start value j with
   | zero =>
     have hz : j = 0 := by omega
@@ -1076,7 +1095,7 @@ theorem eval_chainPrefixes_getD (answers : Answers) (lay : Layer)
       rfl
     | succ j =>
       simp only [chainPrefixes, evalWithAnswerFn_bind, evalWithAnswerFn_pure, List.getD_cons_succ]
-      rw [ih _ _ _ (by omega), lower_chain_succ_first, evalWithAnswerFn_bind]
+      rw [ih _ _ _ (by omega), lower_chainW_succ_first, evalWithAnswerFn_bind]
 
 #print axioms eval_chainPrefixes_length
 #print axioms eval_chainPrefixes_getD
@@ -1305,7 +1324,7 @@ def prefixRows (answers : Answers) (lay : Layer) (tree leaf : Nat) : List (List 
 theorem prefixRows_getD (answers : Answers) (lay : Layer) (tree leaf i j : Nat)
     (hi : i < chainCount lay) (hj : j ≤ maxDigit lay i) :
     ((prefixRows answers lay tree leaf).getD i []).getD j 0 =
-      evalWithAnswerFn answers (SigGolfCandidate.T3.chain lay tree leaf i 0 j
+      evalWithAnswerFn answers (chainW lay tree leaf i 0 j
         (wotsSeed answers lay tree leaf i)) := by
   unfold prefixRows
   rw [List.getD_eq_getElem _ [] (by simpa)]
@@ -1321,7 +1340,7 @@ theorem buildLeafPrefixes_result (answers : Answers) {lay : Layer} (hlay : lay �
   simp only [buildLeafPrefixes, evalWithAnswerFn_bind,
     eval_lowerCoefs answers lay tree leaf carry hcarry, evalWithAnswerFn_pure, eval_mapM,
     lowerFamilySeed_eq answers hlay]
-  change ((evalWithAnswerFn answers (SigGolfCandidate.T3.leafHash lay tree leaf
+  change ((evalWithAnswerFn answers (lowerLeafHash lay tree leaf
     ((List.range (chainCount lay)).map fun i =>
       ((prefixRows answers lay tree leaf).getD i []).getD (maxDigit lay i) 0)),
     prefixRows answers lay tree leaf), _) = _
@@ -1514,11 +1533,12 @@ theorem bound_chainPrefixes (lay : Layer) (tree leaf i start count : Nat) (value
   | succ count ih =>
     unfold chainPrefixes
     have hs : CBound (fun _ => True) 1
-        (shortHash (SigGolfCandidate.T3.chainInput lay tree leaf i start value)) := by
-      apply bound_shortHash <;>
+        (halfHash (chainHigh lay i start)
+          (SigGolfCandidate.T3.chainInput lay tree leaf i start value)) := by
+      apply bound_halfHash <;>
         simp [SigGolfCandidate.T3.chainInput, pad64_length, zero16, SphincsSecurity.bytesLE_length]
     refine hs.bind' (l := count) (fun next _ => ?_) (by omega)
-    refine (ih (start + 1) next).bind' (l := 0)
+    refine (ih (start + 1) next).bind' (l := 0) (n := count)
       (fun tail ht => .pure (value :: tail) 0 (by simp [ht])) (by omega)
 
 theorem sum_map_range_eq (f : Nat → Nat) (n : Nat) :
@@ -1538,7 +1558,7 @@ theorem bound_buildLeafPrefixes (lay : Layer) (tree leaf : Nat) (carry : Digest)
       (bound_chainPrefixes lay tree leaf i 0 (maxDigit lay i) (lowerFamilySeed res.1 i)).mono
         (fun _ h => h) (fun _ _ => trivial))).bind' (l := leafHashCost lay)
     (fun prefixes hprefixes => ?_) ?_
-  · refine (bound_leafHash lay tree leaf _ (by simp)).bind' (l := 0)
+  · refine (bound_lowerLeafHash lay tree leaf _ (by simp only [List.length_map, List.length_range])).bind' (l := 0) (n := leafHashCost lay)
       (fun root _ => .pure _ 0 (by simpa using hprefixes)) (by omega)
   · unfold digitTotal
     simp only [sum_map_range_eq]
@@ -3042,14 +3062,14 @@ theorem bound_recoverLayerPair_coarse (sig : ClaudeWCT.WCT9.Signature) (index : 
   unfold recoverLayerPair
   dsimp only
   refine (Bound.mapM_list (P := GoodQuery) (List.finRange (chainCount lay)) _
-    (fun _ => 7) (fun i _ => (bound_chain _ _ _ _ _ _ _).mono_k
+    (fun _ => 7) (fun i _ => (bound_chainW _ _ _ _ _ _ _).mono_k
       (Nat.sub_le _ _ |>.trans (maxDigit_le_seven lay i.val)))).bind'
     (l := leafHashCost lay + (height lay - 1)) (fun ends hends => ?_) ?_
-  · refine (bound_leafHash lay _ _ ends (by simpa using hends)).bind (fun root _ => ?_)
+  · refine (bound_lowerLeafHash lay _ _ ends (by simpa using hends)).bind (fun root _ => ?_)
     refine ((Bound.foldlM_list (P := GoodQuery) (List.finRange (height lay - 1)) _
       (fun _ _ => True) (fun _ => 1) root trivial (fun i hi value _ => ?_)).bind' (l := 0)
       (fun _ _ => .pure _ 0 trivial) (by simp))
-    exact bound_nodeHash _ _ _ _ _ _
+    exact bound_lowerNodeHash _ _ _ _ _
   · fin_cases lay <;> decide
 
 theorem bound_topFold_coarse (sig : ClaudeWCT.WCT9.Signature) (index : Nat) (digits : List Nat) :

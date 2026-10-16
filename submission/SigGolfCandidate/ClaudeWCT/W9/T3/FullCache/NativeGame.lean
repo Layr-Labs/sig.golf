@@ -374,9 +374,7 @@ set_option maxRecDepth 100000
 theorem tail_nonMac : SharedQueries.TailAllowed NonMac where
   chainStep := fun _ _ _ _ _ _=>SourceQueries.shortHash_allowed _ (fun _=>trivial) _
   leaf := fun _ _ _ _=>SourceQueries.shortHash_allowed _ (fun _=>trivial) _
-  level := fun _ _ _ _ _=>by
-    unfold buildLevel
-    exact SourceQueries.mapM_allowed _ _ _ fun _=>Signer.nodeHash_allowed _ (fun _=>trivial) _ _ _ _ _ _
+  node := fun _ _ _ _ _ _=>Signer.lowerNodeHash_allowed_of_public _ (fun _=>trivial) _ _ _ _ _
   seed := fun _ _ _=>privatePair_nonMac _ _ _ _ _ (by decide)
   encoding := fun lay _ _ msg _=>by
     cases msg <;> exact SourceQueries.shortHash_allowed _ (fun _=>trivial) _

@@ -79,8 +79,9 @@ noncomputable def testImpl : QueryImpl RefWorld (StateT (TObs d) (OracleComp (TS
   | .inl (.inr input) =>
       match PrefixGame.rowOf a d input with
       | some p => StateT.mk fun obs =>
-          (fun w => (ChainGraph.joinOutput w (high (restTable R (.inl (.inr input)))), record obs p w)) <$>
-            prefAns L d Rev aF P p
+          (fun w => (joinHalf (WCT9.chainHigh a.key.lay a.chain p.1.val) w
+            (WCT9.halfOf (!WCT9.chainHigh a.key.lay a.chain p.1.val) (restTable R (.inl (.inr input)))),
+              record obs p w)) <$> prefAns L d Rev aF P p
       | none => StateT.lift (pubAns L d R Rev P input)
   | .inr _ => pure ()
 end Defs
@@ -92,6 +93,25 @@ theorem high_ovL (L : LeafAddr) (R : RefTables adversary) (X : LeafData L) (inpu
   | some cv =>
       rw [zeroOf_some hz, restTable_ovL_zero, high, ChainGraph.joinOutput_high]
 
+/-- C3: the half of a chain-`a` row that the prefix game keeps from the rest table is unchanged by the leaf
+override: a step-0 row keeps its high half, and the only row whose used half is high (step 6 of a lower chain 0)
+is no step-0 row. -/
+theorem otherHalf_ovL (L : LeafAddr) (R : RefTables adversary) (X : LeafData L) (a : ChainAddr) (s : Nat)
+    (v : Digest) :
+    WCT9.halfOf (!WCT9.chainHigh a.key.lay a.chain s) (restTable (ovL L R X) (.inl (.inr (chainRow a s v)))) =
+      WCT9.halfOf (!WCT9.chainHigh a.key.lay a.chain s) (restTable R (.inl (.inr (chainRow a s v)))) := by
+  cases hb : WCT9.chainHigh a.key.lay a.chain s with
+  | false => exact high_ovL L R X _
+  | true =>
+      have h6 : s = 6 := (WCT9.chainHigh_eq_true.mp hb).2.2
+      cases hz : zeroOf L (chainRow a s v) with
+      | none => rw [restTable_ovL_pub L R X _ hz]
+      | some cv =>
+          exfalso
+          have he := zeroOf_some hz
+          have hh := (chainHeader_fields (chainInput_fields he).1).2.2.2.2
+          rw [h6] at hh
+          simp at hh
 theorem ite_decide_update (g : Digest → Digest) (y lab v : Digest) :
     (if decide (y = v) then lab else g v) = Function.update g y lab v := by
   rw [Function.update_apply]
@@ -150,9 +170,10 @@ theorem testImpl_bridge (y : Free Rev → Digest) (K : Fin (WCT9.famCount L.lay)
     cases hp : PrefixGame.rowOf a d input with
     | some p =>
         simp only [simulateQ_map, simulateQ_spec_query]
-        show evalT y ((fun w => (ChainGraph.joinOutput w (high (restTable R (.inl (.inr input)))), record s p w)) <$>
-          prefAns L d Rev aF P p) = _
-        rw [evalT_map, evalT_prefAns, PMF.pure_map, high_ovL L R]
+        show evalT y ((fun w => (joinHalf (WCT9.chainHigh a.key.lay a.chain p.1.val) w
+          (WCT9.halfOf (!WCT9.chainHigh a.key.lay a.chain p.1.val) (restTable R (.inl (.inr input)))),
+            record s p w)) <$> prefAns L d Rev aF P p) = _
+        rw [evalT_map, evalT_prefAns, PMF.pure_map, PrefixGame.rowOf_some hp, otherHalf_ovL L R]
         change _ = StateT.run (_ <$> observedImpl SphincsSecurity.Concrete.OtsPrefix.uniformImpl _ (Sum.inr p)) s
         rw [StateT.run_map]
         change _ = (fun x => _) <$> PMF.pure _
@@ -366,8 +387,9 @@ noncomputable def testImpl : QueryImpl RefWorld (StateT (TObs d) (OracleComp (TS
   | .inl (.inr input) =>
       match PrefixGame.rowOf a d input with
       | some p => StateT.mk fun obs =>
-          (fun w => (ChainGraph.joinOutput w (high (B (.inl (.inr input)))), record obs p w)) <$>
-            prefAns L d Rev aF P p
+          (fun w => (joinHalf (WCT9.chainHigh a.key.lay a.chain p.1.val) w
+            (WCT9.halfOf (!WCT9.chainHigh a.key.lay a.chain p.1.val) (B (.inl (.inr input)))),
+              record obs p w)) <$> prefAns L d Rev aF P p
       | none => StateT.lift (pubAns L d B Rev P input)
   | .inr _ => pure ()
 end Defs
@@ -405,8 +427,9 @@ theorem testImpl_bridge (y : Free Rev → Digest) (q : RefWorld.Domain) :
     cases hp : PrefixGame.rowOf a d input with
     | some p =>
         simp only [simulateQ_map, simulateQ_spec_query]
-        show evalT y ((fun w => (ChainGraph.joinOutput w (high (B (.inl (.inr input)))), record s p w)) <$>
-          prefAns L d Rev aF P p) = _
+        show evalT y ((fun w => (joinHalf (WCT9.chainHigh a.key.lay a.chain p.1.val) w
+          (WCT9.halfOf (!WCT9.chainHigh a.key.lay a.chain p.1.val) (B (.inl (.inr input)))),
+            record s p w)) <$> prefAns L d Rev aF P p) = _
         rw [evalT_map, evalT_prefAns, PMF.pure_map]
         change _ = StateT.run (_ <$> observedImpl SphincsSecurity.Concrete.OtsPrefix.uniformImpl _ (Sum.inr p)) s
         rw [StateT.run_map]
@@ -535,11 +558,47 @@ theorem high_ovL (L : LeafAddr) (R : Tables U) (X : LeafData L) (input : HashInp
   | none => rw [raw_ovL_pub _ _ _ _ hz]
   | some cv => rw [zeroOf_some hz,raw_ovL_zero hU,high,ChainGraph.joinOutput_high]
 
-theorem high_fill (a : ChainAddr) (R : Tables U) (e : Digest) (input : HashInput) :
-    high (raw (RawPrefix.fill a R e) (.inl (.inr input)))=high (raw R (.inl (.inr input))) := by
+/-- Stage 2 (C3, #866 `otherHalf_ovL`): the half of a chain-`a` row that the prefix game keeps from the rest
+table (the half its step does not read) is unchanged by the leaf override: a step-0 row keeps its high half,
+and the only row whose used half is high (step 6 of a lower chain 0) is no step-0 row. -/
+theorem otherHalf_ovL (L : LeafAddr) (R : Tables U) (X : LeafData L) (a : ChainAddr) (s : Nat) (v : Digest) :
+    WCT9.halfOf (!WCT9.chainHigh a.key.lay a.chain s) (raw (ovL L R X) (.inl (.inr (chainRow a s v)))) =
+      WCT9.halfOf (!WCT9.chainHigh a.key.lay a.chain s) (raw R (.inl (.inr (chainRow a s v)))) := by
+  cases hb : WCT9.chainHigh a.key.lay a.chain s with
+  | false => exact high_ovL hU L R X _
+  | true =>
+      have h6 : s = 6 := (WCT9.chainHigh_eq_true.mp hb).2.2
+      cases hz : zeroOf L (chainRow a s v) with
+      | none => rw [raw_ovL_pub _ _ _ _ hz]
+      | some cv =>
+          exfalso
+          have he := zeroOf_some hz
+          have hh := (chainHeader_fields (chainInput_fields he).1).2.2.2.2
+          rw [h6] at hh
+          simp at hh
+
+/-- Stage 2 (C3): the filled table keeps `R`'s other half (the one the step does not read) of a chain-`a` row. -/
+theorem otherHalf_fill (a : ChainAddr) (R : Tables U) (e : Digest) (s : Nat) (v : Digest) (hs : s < 256) :
+    WCT9.halfOf (!WCT9.chainHigh a.key.lay a.chain s) (raw (RawPrefix.fill a R e) (.inl (.inr (chainRow a s v)))) =
+      WCT9.halfOf (!WCT9.chainHigh a.key.lay a.chain s) (raw R (.inl (.inr (chainRow a s v)))) := by
   unfold RawPrefix.fill
   rw [raw_ov_const hU a (by have := RawPrefix.restDepth_le a R;omega)]
-  split_ifs <;> simp only [high,ChainGraph.joinOutput_high]
+  cases hp : PrefixGame.rowOf a (RawPrefix.restDepth a R) (chainRow a s v) with
+  | none => rfl
+  | some p =>
+      simp only
+      have hin := PrefixGame.rowOf_some hp
+      have hps : p.1.val = s :=
+        (SigGolfCandidate.T3.Security.Wots.Mask.chainRow_inj
+          (by have := p.1.isLt; have := RawPrefix.restDepth_le a R; omega) hs hin.symm).1
+      rw [hps, halfOf_not_joinHalf]
+
+/-- The filled table agrees with `R` on the high half of every non-prefix query. -/
+theorem high_fill_nonprefix (a : ChainAddr) (R : Tables U) (e : Digest) (input : HashInput)
+    (hn : PrefixGame.rowOf a (RawPrefix.restDepth a R) input = none) :
+    high (raw (RawPrefix.fill a R e) (.inl (.inr input)))=high (raw R (.inl (.inr input))) := by
+  unfold RawPrefix.fill
+  rw [RawPrefix.raw_ov_nonprefix a R _ input hn]
 
 theorem normalized_public_congr {L : LeafAddr} {R R' : Tables U}
     (hC : LeafAgree L (raw R) (raw R')) (hm : sourceMessages (raw R')=sourceMessages (raw R))
@@ -581,8 +640,10 @@ theorem route_programmed {L : LeafAddr} (hL : WotsExtract.SourceLeaf7 L)
       congr 1
       funext v
       congr 1
+      -- C3 (#866): the routed answer keeps the half of the base table that the step does not read.
+      have hp7 : (p.1 : Nat) < 256 := by have := p.1.isLt; have := RawPrefix.restDepth_le a R; omega
       rw [PrefixGame.rowOf_some hp,answers_chainRow,answers_chainRow,
-        high_fill hU,high_ovL hU,high_ovL hU]
+        otherHalf_fill hU a _ e _ _ hp7,otherHalf_ovL hU,otherHalf_ovL hU]
     | none =>
       simp only [Test.withPublic,Test.publicAt]
       congr 1
@@ -603,8 +664,11 @@ theorem route_programmed {L : LeafAddr} (hL : WotsExtract.SourceLeaf7 L)
           rw [zeroOf_some hz]
           subst ha
           rw [he]
+        have hpX : PrefixGame.rowOf a (RawPrefix.restDepth a (ovL L R (K',progF g Lab K'))) input = none := by
+          rw [restDepth_ovL hl R _ a]; exact hp
+        rw [zeroOf_some hz] at hpX
         rw [zeroOf_some hz,answers_chainRow,answers_chainRow,
-          high_fill hU,high_ovL hU]
+          high_fill_nonprefix hU a _ e _ hpX,high_ovL hU]
         exact fill_zero hU hl ha hac R hd _ e cv.1 hca cv.2
   · simp only [Route.routeImpl]
 

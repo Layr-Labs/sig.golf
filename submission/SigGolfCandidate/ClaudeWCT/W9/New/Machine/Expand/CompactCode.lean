@@ -5,8 +5,11 @@ open SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64 SigGol
 open SigGolfCandidate.T3M.Verify
 open ClaudeWCT.W9.Machine.VLib
 
+/-- Code words of the compact/nested-FTS expansion that the paired expander keeps from the reference image. Stage 2
+(C2 + C3, from #866): also the trampolines `43472 .. 43488` (`Compact2.cETail`, the footer's LE64(1) at `WIT + 24`,
+and `Compact2.cRT 1..3`, the lower root windows' row-tweak pads). -/
 def compactScope (n : Nat) : Bool :=
-  decide ((33000≤n ∧ n<33285) ∨ (41108≤n ∧ n<42719) ∨ (43951≤n ∧ n<44043))
+  decide ((33000≤n ∧ n<33285) ∨ (41108≤n ∧ n<42719) ∨ (43472≤n ∧ n<43489) ∨ (43951≤n ∧ n<44043))
 def compactLook (n : Nat) : Option (BitVec 32) := if compactScope n then expLook n else none
 structure CompactCodeAt (im : Image) : Prop where
   look : LookOK im compactLook
@@ -130,10 +133,15 @@ open SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64 SigGol
 open ClaudeWCT.W9.Machine.VLib
 set_option maxHeartbeats 3000000
 set_option maxRecDepth 100000
-def compactChunkAllowed (c : Nat) : Prop := c=128 ∨ c=129 ∨ c=130 ∨ (160≤c ∧ c≤166) ∨ c=171 ∨ c=172
-def compactChunkLen (c : Nat) : Nat := if c=172 then 11 else 256
+def compactChunkAllowed (c : Nat) : Prop :=
+  c=128 ∨ c=129 ∨ c=130 ∨ (160≤c ∧ c≤166) ∨ c=169 ∨ c=171 ∨ c=172
+/-- Window `[compactChunkLo c, compactChunkLen c)` of image chunk `c` used by `compactScope` (chunk 169 only for the
+stage-2 trampolines `43472 .. 43488`: the paired image changes words 43447 and 43449 of that chunk). -/
+def compactChunkLo (c : Nat) : Nat := if c=169 then 208 else 0
+def compactChunkLen (c : Nat) : Nat := if c=172 then 11 else if c=169 then 225 else 256
 theorem compactCode_of_chunks {im : Image}
-    (hc : ∀c,compactChunkAllowed c → CodeAt im (pcOf (256*c)) ((expChunks.getD (c-4) []).take (compactChunkLen c))) :
+    (hc : ∀c,compactChunkAllowed c → CodeAt im (pcOf (256*c+compactChunkLo c))
+      (((expChunks.getD (c-4) []).take (compactChunkLen c)).drop (compactChunkLo c))) :
     CompactCodeAt im := by
   constructor
   intro n w hw
@@ -142,20 +150,25 @@ theorem compactCode_of_chunks {im : Image}
   · rename_i hs
     have hn := of_decide_eq_true hs
     have ha : compactChunkAllowed (n/256) := by unfold compactChunkAllowed; omega
-    have hl : n%256<compactChunkLen (n/256) := by unfold compactChunkLen; split <;> omega
+    have hlo : compactChunkLo (n/256) ≤ n%256 := by unfold compactChunkLo; split <;> omega
+    have hlo' : compactChunkLo (n/256) < 256 := by unfold compactChunkLo; split <;> omega
+    have hl : n%256<compactChunkLen (n/256) := by unfold compactChunkLen; split_ifs <;> omega
     have hp : 1024≤n := by omega
     unfold expLook at hw
     rw [if_pos hp] at hw
-    have ht : ((expChunks.getD (n/256-4) []).take (compactChunkLen (n/256)))[n%256]?=some w := by
-      rw [List.getElem?_take,if_pos hl]; exact hw
-    have hb : (pcOf (256*(n/256))).toNat=0x1000+4*(256*(n/256)) := by
+    have ht : (((expChunks.getD (n/256-4) []).take (compactChunkLen (n/256))).drop
+        (compactChunkLo (n/256)))[n%256-compactChunkLo (n/256)]?=some w := by
+      rw [List.getElem?_drop,show compactChunkLo (n/256)+(n%256-compactChunkLo (n/256))=n%256 by omega,
+        List.getElem?_take,if_pos hl]
+      exact hw
+    have hb : (pcOf (256*(n/256)+compactChunkLo (n/256))).toNat=0x1000+4*(256*(n/256)+compactChunkLo (n/256)) := by
       rw [pcOf,BitVec.toNat_ofNat,Nat.mod_eq_of_lt]; omega
     obtain ⟨_,_,_,hpre⟩ := hc (n/256) ha
     rw [hb] at hpre
     obtain ⟨rest,hrest⟩ := hpre
-    have hh := congrArg (·[n%256]?) hrest
+    have hh := congrArg (·[n%256-compactChunkLo (n/256)]?) hrest
     simp only [List.getElem?_append_left (List.getElem?_eq_some_iff.mp ht).1,ht,List.getElem?_drop] at hh
-    rw [show (0x1000+4*(256*(n/256))-0x1000)/4+n%256=n by omega] at hh
+    rw [show (0x1000+4*(256*(n/256)+compactChunkLo (n/256))-0x1000)/4+(n%256-compactChunkLo (n/256))=n by omega] at hh
     exact hh.symm
   · cases hw
 #print axioms compactCode_of_chunks

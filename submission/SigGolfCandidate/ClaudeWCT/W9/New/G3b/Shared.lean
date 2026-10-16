@@ -89,12 +89,12 @@ variable {answers : Answers} {trace trace' : List Entry}
 theorem contactAt_mono {a : ChainAddr} (h : ContactAt answers trace a) (hsub : ∀ e ∈ trace, e ∈ trace') :
     ContactAt answers trace' a := by
   obtain ⟨hd, value, hs⟩ := h
-  exact ⟨hd, value, SigGolfCandidate.T3.Security.WotsExtract.seenRow_mono hs hsub⟩
+  exact ⟨hd, value, ClaudeWCT.W9.T3.Security.Wots.seenRowW_mono hs hsub⟩
 theorem twoEdgeAt_mono {a : ChainAddr} (h : TwoEdgeAt answers trace a) (hsub : ∀ e ∈ trace, e ∈ trace') :
     TwoEdgeAt answers trace' a := by
   obtain ⟨hd, start, middle, h1, h2⟩ := h
-  exact ⟨hd, start, middle, SigGolfCandidate.T3.Security.WotsExtract.seenRow_mono h1 hsub,
-    SigGolfCandidate.T3.Security.WotsExtract.seenRow_mono h2 hsub⟩
+  exact ⟨hd, start, middle, ClaudeWCT.W9.T3.Security.Wots.seenRowW_mono h1 hsub,
+    ClaudeWCT.W9.T3.Security.Wots.seenRowW_mono h2 hsub⟩
 theorem encodingMatchAt_mono {L : LeafAddr} (h : EncodingMatchAt answers trace L) (hsub : ∀ e ∈ trace, e ∈ trace') :
     EncodingMatchAt answers trace' L := by
   obtain ⟨message, counter, pad, answer, hfit, hm, hne, hd⟩ := h
@@ -298,6 +298,28 @@ theorem referenceInput_ne_pad (answers : Answers) (messages : LeafAddr → WCT9.
       simp only [Option.map_some, Option.some.injEq] at h
       obtain ⟨-, -, hp, -⟩ := BC.layerEncodingRow_injective_leaf hfitRef hfit h
       exact hpad hp.symm
+/-- Stage 2 (C3, #866 `WotsExtract.xor_one_inj`). -/
+theorem xor_one_inj' {a b : BitVec 64} (h : a ^^^ 1 = b ^^^ 1) : a = b := by
+  have := congrArg (· ^^^ (1 : BitVec 64)) h
+  simpa [BitVec.xor_assoc] using this
+/-- Stage 2 (C3, #866 `referenceInput_ne_pad`): a row whose 12-byte pad is nonzero or whose high-word mask is
+nonzero (row high word `≠ 1`) is not the reference row. -/
+theorem referenceInput_ne_padW (answers : Answers) (messages : LeafAddr → WCT9.LayerMsg)
+    (L : LeafAddr) (msg : WCT9.LayerMsg) (ctr : BitVec 32) (pad : RowPad)
+    (hfitRef : Extract.msgFits L.lay (messages L)) (hfit : Extract.msgFits L.lay msg)
+    (hpad : pad.1 ≠ 0 ∨ pad.2.2 ≠ 0) : referenceInput answers messages L ≠ some (encRow L msg ctr pad) := by
+  intro h
+  unfold referenceInput at h
+  cases hs : referenceSearch answers messages L with
+  | none => rw [hs] at h; simp at h
+  | some s =>
+      rw [hs] at h
+      simp only [Option.map_some, Option.some.injEq] at h
+      obtain ⟨-, -, hp, -⟩ := BC.layerEncodingRow_injective_leaf hfitRef hfit h
+      have hh := BC.layerEncodingRow_hi_eq h
+      rcases hpad with hpad | hpad
+      · exact hpad hp.symm
+      · exact hpad (xor_one_inj' hh).symm
 
 theorem canonical_word_cases {lay : Layer} {refDigest candDigest : Digest} {refDigits candDigits : List Nat}
     (hr : WCT9.CanonicalPolicy.decode lay refDigest = some refDigits)
@@ -328,12 +350,12 @@ variable {answers : Answers} {messages : LeafAddr → WCT9.LayerMsg} {trace trac
 theorem contactAt_mono {a : ChainAddr} (h : ContactAt answers messages trace a)
     (hsub : ∀ e ∈ trace, e ∈ trace') : ContactAt answers messages trace' a := by
   obtain ⟨hd, value, hs⟩ := h
-  exact ⟨hd, value, SigGolfCandidate.T3.Security.WotsExtract.seenRow_mono hs hsub⟩
+  exact ⟨hd, value, ClaudeWCT.W9.T3.Security.Wots.seenRowW_mono hs hsub⟩
 theorem twoEdgeAt_mono {a : ChainAddr} (h : TwoEdgeAt answers messages trace a)
     (hsub : ∀ e ∈ trace, e ∈ trace') : TwoEdgeAt answers messages trace' a := by
   obtain ⟨hd, start, middle, h1, h2⟩ := h
-  exact ⟨hd, start, middle, SigGolfCandidate.T3.Security.WotsExtract.seenRow_mono h1 hsub,
-    SigGolfCandidate.T3.Security.WotsExtract.seenRow_mono h2 hsub⟩
+  exact ⟨hd, start, middle, ClaudeWCT.W9.T3.Security.Wots.seenRowW_mono h1 hsub,
+    ClaudeWCT.W9.T3.Security.Wots.seenRowW_mono h2 hsub⟩
 theorem encodingMatchAt_mono {L : LeafAddr} (h : EncodingMatchAt answers messages trace L)
     (hsub : ∀ e ∈ trace, e ∈ trace') : EncodingMatchAt answers messages trace' L := by
   obtain ⟨message, counter, pad, answer, hfit, hm, hne, hd⟩ := h

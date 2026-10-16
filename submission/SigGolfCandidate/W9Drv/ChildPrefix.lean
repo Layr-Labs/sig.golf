@@ -2687,9 +2687,16 @@ def curO (l j : Nat) : Nat := blkO j l + 48 * bitAt j l
 def sibO (l j : Nat) : Nat := if l < 6 then blkO j l + 48 * (1 - bitAt j l) else ClaudeWCT.W9.T3M.authRoot j
 def padO (j l : Nat) : Nat := blkO j l + 32
 def leafO : Nat := 688
-/-- Final singleton: the heap-2/3 fold writes its low root at `B - handO j`, i.e. `WIT + 0` (bit 6 = 0) or
-`WIT + 48` (bit 6 = 1), the layer-three input. -/
-def handO (j : Nat) : Nat := if bitAt j 6 = 0 then 176 else 128
+/-- Final singleton (merged "Cm", stage 2): the heap-2/3 fold writes its 32-byte output at `B - handO j`. The left
+top node (bit 6 = 0, heap 2) keeps its HIGH half: output at `B - 192 = WIT - 16`, value on `WIT + 0`, junk low half on
+`WIT - 16 .. WIT - 1` (below the witness). The right top node (bit 6 = 1, heap 3) keeps its LOW half at
+`B - 128 = WIT + 48`. So `WIT + 16 .. WIT + 48` (the C3 row pad at `WIT + 24`) is never written. -/
+def handO (j : Nat) : Nat := if bitAt j 6 = 0 then 192 else 128
+/-- Cm: the singleton's top node keeps its high half iff it is the left node (bit 6 clear). -/
+def topHi (j : Nat) : Bool := decide (bitAt j 6 = 0)
+/-- Cm: the computed top value lands at `B - valO j`, i.e. `WIT + 0` (bit 6 = 0) or `WIT + 48` (bit 6 = 1), the
+layer-three input. -/
+def valO (j : Nat) : Nat := if bitAt j 6 = 0 then 176 else 128
 def handReg (_j : Nat) : Reg := .x8
 def handRegN (_j : Nat) : Nat := 8
 def heapOf (l j : Nat) : Nat := 2 ^ (6 - l) + j / 2 ^ (l + 1)
@@ -2723,7 +2730,7 @@ def encLoad (rd rs imm : Nat) : BitVec 32 :=
   BitVec.ofNat 32 (imm * 2 ^ 20 + rs * 2 ^ 15 + 3 * 2 ^ 12 + rd * 2 ^ 7 + 3)
 def childTmpl (j : Nat) : List (BitVec 32) :=
   [0, encI 12 8 (outO 0 j), 0x00000073, encI 11 0 64] ++ (List.range 6).flatMap (lvlTmpl j) ++
-    [0x13c08067] ++ List.replicate (29 + childSaveC j) 0x00000013
+    [0x13808067] ++ List.replicate (29 + childSaveC j) 0x00000013
 def childWords (j : Nat) : List (BitVec 32) := childTmpl j
 def childLook (j n : Nat) : Option (BitVec 32) :=
   if childBase j ≤ n then (childWords j)[n - childBase j]? else none
@@ -2753,7 +2760,8 @@ def lvlRes (j l : Nat) : PRes :=
   ⟨⟨lvlRegs j l, lvlMem j l, lvlObl j l⟩, pcOf (childBase j + ecIdx j (l + 1)), true, lvlSt j l, lvlSt j l, [], none⟩
 def otherDest (j : Nat) : Nat := 16 * (1 - bitAt j 6)
 def aX9 (off : Nat) : Addr := ⟨some (.reg .x9), BitVec.ofNat 64 off⟩
-def retE : E := .bin .and (addC (.reg .x1) 316) (.c (~~~1#64))
+/-- Cm (stage 2): `jalr zero,312(ra)` (`0x13808067`), the L3 entry at word 854. -/
+def retE : E := .bin .and (addC (.reg .x1) 312) (.c (~~~1#64))
 def p7Res (_j : Nat) : PRes :=
   ⟨⟨RegFile.init, [], []⟩, 0, false, 1, 1, [], some retE⟩
 def childPiecesOK (j : Nat) : Bool :=
@@ -3414,8 +3422,29 @@ theorem stagesW_prefix {j off B : Nat} (hj : j < 128) (h : off ∈ stagesW j 6) 
   have hb := stagesW_bound hj (by decide) h
   unfold prefixWrites at *
   omega
-theorem handO_cases (j : Nat) : handO j = 176 ∨ handO j = 128 := by
+theorem handO_cases (j : Nat) : handO j = 192 ∨ handO j = 128 := by
   unfold handO; split <;> simp
+theorem valO_cases (j : Nat) : valO j = 176 ∨ valO j = 128 := by
+  unfold valO; split <;> simp
+/-- Cm: the kept half of the singleton's top hash output (written at `B - handO j`) is the value at `B - valO j`:
+the high half for the left top node (bit 6 = 0), the low half for the right one. -/
+theorem DigAt_top (t : MachineState) (a : BitVec 256) {j B : Nat}
+    (h12 : t.getReg .x12 = BitVec.ofNat 64 (B - handO j)) (hB : B - handO j + 32 < 2 ^ 64) (hlo : 192 ≤ B) :
+    DigAt (writeHash t a) (B - valO j) (if topHi j then a.extractLsb' 128 128 else a.extractLsb' 0 128) := by
+  by_cases h0 : bitAt j 6 = 0
+  · have ht : topHi j = true := decide_eq_true h0
+    have hv : B - valO j = B - handO j + 16 := by
+      unfold valO handO
+      split_ifs <;> omega
+    rw [if_pos ht, hv]
+    exact DigAt.writeHash_hi t a _ h12 hB
+  · have ht : topHi j = false := decide_eq_false h0
+    have hv : B - valO j = B - handO j := by
+      unfold valO handO
+      split_ifs <;> omega
+    have hn : ¬ (topHi j = true) := by rw [ht]; decide
+    rw [if_neg hn, hv]
+    exact DigAt.writeHash_lo t a _ h12 hB
 theorem last_setup {im : Image} {j : Nat} (hj : j < 128) (hcode : ChildCodeAt im j)
     {B k index : Nat} {leaf pads sibs tws : Nat → Digest} {u : MachineState}
     (hu : ChildPre j B k index leaf pads sibs tws u) (hlo : 768 ≤ B)
@@ -3455,14 +3484,15 @@ theorem last_setup {im : Image} {j : Nat} (hj : j < 128) (hcode : ChildCodeAt im
   · exact h
   · exact ⟨tw24 j 5, mem_stagesW (m := 5) (by omega) (by simp [stageW]), rfl⟩
   · exact ⟨blkO j 5 + 16, mem_stagesW (m := 5) (by omega) (by simp [stageW]), by omega⟩
-/-- The heap-2/3 level hashed for its high half (the nested FTS top node). -/
-def childLevelLo (k index j : Nat) (pads : Nat → Digest) (hps : Nat → BitVec 64) (sibs : Nat → Digest)
+/-- Cm (stage 2): the singleton's heap-2/3 level, hashed for its HIGH half (left top node, bit 6 = 0, heap 2) or
+its LOW half (right top node, bit 6 = 1, heap 3). -/
+def childLevelTop (k index j : Nat) (pads : Nat → Digest) (hps : Nat → BitVec 64) (sibs : Nat → Digest)
     (value : Digest) : M Digest :=
-  shortHash (nodeIn k index j pads hps sibs value 5)
+  SharedV3.hashSel (topHi j) (nodeIn k index j pads hps sibs value 5)
 structure HandPost (B j : Nat) (u : MachineState) (computed : Digest) (t : MachineState) : Prop where
-  pc : t.pc = (u.getReg .x1 + 316) &&& ~~~1#64
+  pc : t.pc = (u.getReg .x1 + 312) &&& ~~~1#64
   a1 : t.getReg .x11 = 64
-  top : DigAt t (B - handO j) computed
+  top : DigAt t (B - valO j) computed
   a2 : t.getReg .x12 = BitVec.ofNat 64 (B - handO j)
   keep : ∀ r : Reg, r ≠ .x3 → r ≠ .x10 → r ≠ .x11 → r ≠ .x12 → t.getReg r = u.getReg r
   frame : Frame u t (fun A => prefixWrites B A ∨ (B - handO j ≤ A ∧ A < B - handO j + 32))
@@ -3473,14 +3503,14 @@ theorem tail_good {im : Image} {j : Nat} (hj : j < 128) (hcode : ChildCodeAt im 
     (N C A : Nat) (Q : Prop) (K : Digest → OracleComp HashSpec Obs)
     (hK : ∀ computed t, HandPost B j u computed t → GoodQFor (P := P) im t N C Q A (K computed)) :
     GoodQFor (P := P) im s (N + 6) (C + 13) Q (A + 13)
-      (ccM (childLevelLo k index j pads (hpOf j tws) sibs v) K) := by
+      (ccM (childLevelTop k index j pads (hpOf j tws) sibs v) K) := by
   have hBhi := hu.baseHi
   unfold MEMORY_BYTES at hBhi
   have hho := handO_cases j
   obtain ⟨t, hst, hf, h5, hv, hin, hpc, h11, h12, hkeep, hframe⟩ :=
     last_setup hj hcode hu hlo v s hs
   have H : ∀ ans : BitVec 256, GoodQFor (P := P) im (writeHash t ans) (N + 1) (C + 1) Q (A + 1)
-      (ccM (pure (ans.extractLsb' 0 128)) K) := by
+      (ccM (pure (if topHi j then ans.extractLsb' 128 128 else ans.extractLsb' 0 128)) K) := by
     intro ans
     have hdest : B - handO j + 32 < 2 ^ 64 := by omega
     let z := (p7Res j).toState (writeHash t ans)
@@ -3496,12 +3526,12 @@ theorem tail_good {im : Image} {j : Nat} (hj : j < 128) (hcode : ChildCodeAt im 
       intro A
       rw [PRes.toState_getMem]
       simp only [p7Res, memEval_nil]
-    have hp : HandPost B j u (ans.extractLsb' 0 128) z := by
+    have hp : HandPost B j u (if topHi j then ans.extractLsb' 128 128 else ans.extractLsb' 0 128) z := by
       refine ⟨?_, ?_, ?_, ?_, ?_, ?_⟩
-      · have e : z.pc = ((writeHash t ans).getReg .x1 + 316) &&& ~~~1#64 := rfl
+      · have e : z.pc = ((writeHash t ans).getReg .x1 + 312) &&& ~~~1#64 := rfl
         rw [e, writeHash_getReg, hkeep .x1 (by decide) (by decide) (by decide) (by decide)]
       · rw [hzreg, writeHash_getReg, h11]
-      · have hd := DigAt.writeHash_lo t ans _ h12 hdest
+      · have hd := DigAt_top t ans h12 hdest (by omega)
         exact ⟨(hzmem _).trans hd.1, (hzmem _).trans hd.2⟩
       · rw [hzreg, writeHash_getReg]; exact h12
       · intro r h3 h10 h11' h12'
@@ -3521,9 +3551,11 @@ theorem tail_good {im : Image} {j : Nat} (hj : j < 128) (hcode : ChildCodeAt im 
         exact hF A hA hn
     have hfin := GoodQFor.steps (P := P) hz (hK _ z hp)
     simpa only [ccM_pure, p7Res] using hfin
-  have hh := GoodQFor.publicHash_bind (P := P) (f := fun a => (pure (a.extractLsb' 0 128) : M Digest)) (K := K) hf h5 hv hin H
+  have hh := hashSel_bind (P := P) (hi := topHi j) (f := fun d => (pure d : M Digest)) (K := K) hf h5 hv hin H
   rw [nodeIn_blocks] at hh
-  unfold childLevelLo shortHash
+  have e : (SharedV3.hashSel (topHi j) (nodeIn k index j pads (hpOf j tws) sibs v 5) >>=
+      fun d => (pure d : M Digest)) = childLevelTop k index j pads (hpOf j tws) sibs v := bind_pure _
+  rw [e] at hh
   exact GoodQFor.steps' (P := P) hst hh (by omega) (by omega) (fun q => ⟨q, by omega⟩)
 end W9Drv.SharedCProof
 end
@@ -3536,7 +3568,7 @@ open SigGolfCandidate.T3 (Digest M shortHash)
 def childProgram (k index j : Nat) (leaf pads sibs tws : Nat → Digest) : M Digest := do
   let initial ← SharedV3.hashSel (hiSel j 0) (leafBytes leaf)
   let value ← (List.range 5).foldlM (childLevelP k index j pads (hpOf j tws) sibs) initial
-  childLevelLo k index j pads (hpOf j tws) sibs value
+  childLevelTop k index j pads (hpOf j tws) sibs value
 
 theorem child_good {im : Image} {j : Nat} (hj : j < 128) (hcode : ChildCodeAt im j)
     {B k index : Nat} {leaf pads sibs tws : Nat → Digest} {u : MachineState}
@@ -3547,7 +3579,7 @@ theorem child_good {im : Image} {j : Nat} (hj : j < 128) (hcode : ChildCodeAt im
       (ccM (childProgram k index j leaf pads sibs tws) K) := by
   have H := child_prefix_good im j hj hcode B k index leaf pads sibs tws u
     (N + 6) (C + 13) (A + 13) Q
-    (fun value => ccM (childLevelLo k index j pads (hpOf j tws) sibs value) K) hu
+    (fun value => ccM (childLevelTop k index j pads (hpOf j tws) sibs value) K) hu
     (fun value state hstate => tail_good hj hcode hu hlo value state hstate N C A Q K hK)
   have hs := childSaveC_le j hj
   have H' := H.mono (A' := A + (91 - childSaveC j)) (Q' := Q) (show N + 6 + (28 - childSaveC j) ≤ N + 34 by omega)
@@ -3651,6 +3683,13 @@ theorem sharedProgram_eq (w : ClaudeWCT.W9.T3M.WBytes) (index : Nat) (k : Fin 9)
         (SharedV3.sibling w k.val (SharedV3.physical k.val raw.val))
         (SharedV3.nodeTw w k.val (SharedV3.physical k.val raw.val)) := by
   have hf : SharedV3.first k.val = false := by simp [SharedV3.first, hc]
+  -- Cm: the singleton's top-node half selector is its direction bit (bit 6 of the physical child)
+  have hd : decide (SharedV3.direction k.val (SharedV3.physical k.val raw.val) = 0) =
+      topHi (SharedV3.physical k.val raw.val) := by
+    unfold topHi bitAt SharedV3.direction SharedV3.lastLevel
+    first
+      | (rw [hf]; rfl)
+      | (simp only [hf, Bool.false_eq_true, ↓reduceIte])
   unfold SharedV3.childProgram SharedV3.childN childProgram
   simp only [SharedV3.lastLevel, hf, Bool.false_eq_true, ↓reduceIte]
   simp only [if_pos hc]
@@ -3661,7 +3700,7 @@ theorem sharedProgram_eq (w : ClaudeWCT.W9.T3M.WBytes) (index : Nat) (k : Fin 9)
     childLevelP_eq, shared_input _ _ _ _ _ 0 (by decide),
     shared_input _ _ _ _ _ 1 (by decide), shared_input _ _ _ _ _ 2 (by decide),
     shared_input _ _ _ _ _ 3 (by decide), shared_input _ _ _ _ _ 4 (by decide),
-    shared_input _ _ _ _ _ 5 (by decide), childLevelLo, hiSel]
+    shared_input _ _ _ _ _ 5 (by decide), childLevelTop, hiSel, hd]
 end W9Drv.SharedCProof
 
 /-! Contract adapters preserve all inputs across the optional compact-A jump. -/
@@ -3883,15 +3922,17 @@ theorem post_to_shared (w : ClaudeWCT.W9.T3M.WBytes) (index : Nat) (k : Fin 9)
     (computed : Digest) (ht : HandPost (coordinateBase k) (SharedV3.physical k.val raw.val) v computed t) :
     SharedChild.Post (SharedLayout.layout k) k raw u computed t := by
   have hb : 768 ≤ coordinateBase k := by unfold coordinateBase; have := k.isLt; omega
-  have hh : coordinateBase k - handO (SharedV3.physical k.val raw.val) = SharedChild.handAddr k raw := by
-    unfold SharedChild.handAddr SharedV3.direction SharedV3.lastLevel handO bitAt
+  -- Cm (stage 2): the value lands at `B - valO` (`WIT + 0` / `WIT + 48`), the hash output at `B - handO`
+  -- (`WIT - 16`, high half, for the left root; `WIT + 48`, low half, for the right root)
+  have hh : coordinateBase k - valO (SharedV3.physical k.val raw.val) = SharedChild.handAddr k raw := by
+    unfold SharedChild.handAddr SharedV3.direction SharedV3.lastLevel valO bitAt
     simp only [hf, if_pos hc, Bool.false_eq_true, ↓reduceIte]
     split_ifs <;> omega
   have ho : coordinateBase k - handO (SharedV3.physical k.val raw.val) =
       SharedChild.outputAddr k raw := by
-    unfold SharedChild.outputAddr
-    simp only [if_pos hc, ↓reduceIte]
-    exact hh
+    unfold SharedChild.outputAddr SharedChild.handAddr SharedV3.direction SharedV3.lastLevel handO bitAt
+    simp only [hf, if_pos hc, Bool.false_eq_true, ↓reduceIte]
+    split_ifs <;> omega
   refine ⟨?_, ht.a1, ?_, ?_, ?_, ?_⟩
   · rw [ht.pc, hr, hu.returnPC]
     simp only [if_pos hc, ↓reduceIte]
@@ -4789,14 +4830,14 @@ theorem tail_tbsim {im : Image} {j : Nat} (hj : j<128) (hcode : ChildCodeAt im j
     {B k index : Nat} {leaf pads sibs tws : Nat→Digest} {u : MachineState}
     (hu : ChildPre j B k index leaf pads sibs tws u) (hlo : 768≤B)
     (v : Digest) (s : MachineState) (hs : Mid j B k index u 5 v s) :
-    TBSim im sk s 13 (childLevelLo k index j pads (hpOf j tws) sibs v) (HandPost B j u) := by
+    TBSim im sk s 13 (childLevelTop k index j pads (hpOf j tws) sibs v) (HandPost B j u) := by
   have hBhi := hu.baseHi
   unfold MEMORY_BYTES at hBhi
   have hho := handO_cases j
   obtain ⟨t, hst, hf, h5, hv, hin, hpc, h11, h12, hkeep, hframe⟩ :=
     last_setup hj hcode hu hlo v s hs
   have H : ∀ ans : BitVec 256,TBSim im sk (writeHash t ans) 1
-      (pure (ans.extractLsb' 0 128)) (HandPost B j u) := by
+      (pure (if topHi j then ans.extractLsb' 128 128 else ans.extractLsb' 0 128)) (HandPost B j u) := by
     intro ans
     have hdest : B - handO j + 32 < 2 ^ 64 := by omega
     let z := (p7Res j).toState (writeHash t ans)
@@ -4812,12 +4853,12 @@ theorem tail_tbsim {im : Image} {j : Nat} (hj : j<128) (hcode : ChildCodeAt im j
       intro A
       rw [PRes.toState_getMem]
       simp only [p7Res, memEval_nil]
-    have hp : HandPost B j u (ans.extractLsb' 0 128) z := by
+    have hp : HandPost B j u (if topHi j then ans.extractLsb' 128 128 else ans.extractLsb' 0 128) z := by
       refine ⟨?_, ?_, ?_, ?_, ?_, ?_⟩
-      · have e : z.pc = ((writeHash t ans).getReg .x1 + 316) &&& ~~~1#64 := rfl
+      · have e : z.pc = ((writeHash t ans).getReg .x1 + 312) &&& ~~~1#64 := rfl
         rw [e, writeHash_getReg, hkeep .x1 (by decide) (by decide) (by decide) (by decide)]
       · rw [hzreg, writeHash_getReg, h11]
-      · have hd := DigAt.writeHash_lo t ans _ h12 hdest
+      · have hd := DigAt_top t ans h12 hdest (by omega)
         exact ⟨(hzmem _).trans hd.1, (hzmem _).trans hd.2⟩
       · rw [hzreg, writeHash_getReg]; exact h12
       · intro r h3 h10 h11' h12'
@@ -4836,9 +4877,11 @@ theorem tail_tbsim {im : Image} {j : Nat} (hj : j<128) (hcode : ChildCodeAt im j
         rw [hzmem]
         exact hF A hA hn
     simpa only [p7Res] using (TBSim.pure_steps hz hp (sk:=sk))
-  have hh:=TBSim.publicHash_bind hf h5 hv hin H
+  have hh:=TBSim.hashSel_bind (hi:=topHi j) (f:=fun d=>(pure d : M Digest)) hf h5 hv hin H
   rw [nodeIn_blocks] at hh
-  unfold childLevelLo shortHash
+  have e : (SharedV3.hashSel (topHi j) (nodeIn k index j pads (hpOf j tws) sibs v 5) >>=
+      fun d => (pure d : M Digest)) = childLevelTop k index j pads (hpOf j tws) sibs v := bind_pure _
+  rw [e] at hh
   exact (TBSim.steps hst hh).mono (by omega) (fun _ _ h=>h)
 
 theorem child_tbsim {im : Image} {j : Nat} (hj : j<128) (hcode : ChildCodeAt im j)
@@ -4962,19 +5005,21 @@ theorem post_to_shared_at {L : W9Machine.Layout} (w : ClaudeWCT.W9.T3M.WBytes) (
     (computed : Digest) (ht : HandPost (coordinateBase k) (SharedV3.physical k.val raw.val) v computed t) :
     SharedChild.Post L k raw u computed t := by
   have hb : 768 ≤ coordinateBase k := by unfold coordinateBase; have := k.isLt; omega
-  have hh : coordinateBase k - handO (SharedV3.physical k.val raw.val) = SharedChild.handAddr k raw := by
-    unfold SharedChild.handAddr SharedV3.direction SharedV3.lastLevel handO bitAt
+  -- Cm (stage 2): the value lands at `B - valO` (`WIT + 0` / `WIT + 48`), the hash output at `B - handO`
+  -- (`WIT - 16`, high half, for the left root; `WIT + 48`, low half, for the right root)
+  have hh : coordinateBase k - valO (SharedV3.physical k.val raw.val) = SharedChild.handAddr k raw := by
+    unfold SharedChild.handAddr SharedV3.direction SharedV3.lastLevel valO bitAt
     simp only [hf, if_pos hc, Bool.false_eq_true, ↓reduceIte]
     split_ifs <;> omega
   have ho : coordinateBase k - handO (SharedV3.physical k.val raw.val) =
       SharedChild.outputAddr k raw := by
-    unfold SharedChild.outputAddr
-    simp only [if_pos hc, ↓reduceIte]
-    exact hh
+    unfold SharedChild.outputAddr SharedChild.handAddr SharedV3.direction SharedV3.lastLevel handO bitAt
+    simp only [hf, if_pos hc, Bool.false_eq_true, ↓reduceIte]
+    split_ifs <;> omega
   refine ⟨?_, ht.a1, ?_, ?_, ?_, ?_⟩
   · rw [ht.pc, hr, hu.returnPC]
     simp only [if_pos hc, ↓reduceIte]
-    change (pcOf (L.returnWord k)+BitVec.ofNat 64 (4*79)) &&& ~~~1#64 = _
+    change (pcOf (L.returnWord k)+BitVec.ofNat 64 (4*78)) &&& ~~~1#64 = _
     rw [W9Drv.SharedBank.pcOf_add_words,pcOf_and_not1]
   · rw [← hh]; exact ht.top
   · rw [ht.a2, ho]

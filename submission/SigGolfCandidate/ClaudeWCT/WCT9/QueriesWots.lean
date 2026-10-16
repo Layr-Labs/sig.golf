@@ -93,9 +93,11 @@ theorem ftsQuery_nonEnc {index : Nat} {q : Query} (h : FtsQuery index q) : Enc.N
   · exact h.elim
   · rcases FtsInput.hdrBlock (show FtsInput index input from h) with
       ⟨coord, selected, t, step, hblock⟩ | ⟨coord, selected, -, -, hblock⟩ | ⟨coord, heap, hk, -, -, hblock⟩ | hblock
-    · exact Enc.nonEnc_of_hdr input _ hblock (fun lay tr lf => ftsChainHeaderP_ne_rowTweak _ _ _ _ _ 0 lay tr lf)
-    · exact Enc.nonEnc_of_hdr input _ hblock (fun lay tr lf => ftsLeafHeader_ne_rowTweak _ _ _ lay tr lf)
-    · exact Enc.nonEnc_of_hdr input _ hblock (fun lay tr lf => wctNodeHeader_ne_rowTweak hk _ _ lay tr lf)
+    · exact Enc.nonEnc_of_hdr input _ hblock (Enc.notHyper_of_marker
+        (ne_of_gt (lt_of_lt_of_le (by decide) (ftsChainHeaderP_tweakMarker index coord selected t step 0))))
+    · exact Enc.nonEnc_of_hdr input _ hblock (Enc.notHyper_of_tag (by rw [ftsLeafHeader_tweakTag]; decide))
+    · exact Enc.nonEnc_of_hdr input _ hblock (Enc.notHyper_of_tag (by
+        rw [wctNodeHeader_tweakTag hk]; split <;> decide))
     · exact Enc.nonEnc_of_hdr input _ hblock (Enc.tag_ne_four (by decide) _ _ _ _)
   · trivial
   · trivial
@@ -190,13 +192,14 @@ theorem respects_chain (coord selected t start count : Nat) (value : Digest) :
   unfold chainInput
   rw [List.append_assoc (zero16 ++ _)]
   exact Wots.Enc.nonEnc_of_hdr _ _ (hdrBlock_pad64_prefix _ _ _ (by simp [zero16]))
-    (fun lay tr lf => ftsChainHeaderP_ne_rowTweak _ _ _ _ _ 0 lay tr lf)
+    (Wots.Enc.notHyper_of_marker
+      (ne_of_gt (lt_of_lt_of_le (by decide) (ftsChainHeaderP_tweakMarker index coord selected t step 0))))
 theorem respects_leafHash (coord selected : Nat) (ends : List Digest) :
     Wots.Mask.Respects Wots.Enc.NonEnc (WCT9.leafHash index coord selected ends) := by
   unfold WCT9.leafHash
   exact Wots.Mask.Respects.shortHash _ (Wots.Enc.nonEnc_of_hdr _ _
     (hdrBlock_pad64_prefix _ _ _ (bytesLE_length _ _))
-    (fun lay tr lf => ftsLeafHeader_ne_rowTweak _ _ _ lay tr lf))
+    (Wots.Enc.notHyper_of_tag (by rw [ftsLeafHeader_tweakTag]; decide)))
 theorem respects_forestPk (pairs : List (Digest × Digest)) :
     Wots.Mask.Respects Wots.Enc.NonEnc (WCT9.forestPk index pairs) := by
   unfold WCT9.forestPk forestInput

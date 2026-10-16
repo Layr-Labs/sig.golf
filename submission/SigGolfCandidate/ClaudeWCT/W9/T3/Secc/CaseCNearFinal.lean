@@ -528,8 +528,8 @@ theorem honestMsg_short {A T : Correctness.Answers} (h : SigGolfCandidate.T3.Sec
 theorem good_short {A T : Correctness.Answers} (h : SigGolfCandidate.T3.Security.Wots.Ref.ShortAgree A T) (w : WBytes)
     (index : Nat) (lay : Layer) (hg : ClaudeWCT.W9.T3M.Extract.Good A w index lay) :
     ClaudeWCT.W9.T3M.Extract.Good T w index lay := by
-  obtain ⟨digits, ⟨hctr, hdec⟩, hpath, hchain⟩ := hg
-  refine ⟨digits, ⟨hctr, ?_⟩, ?_, ?_⟩
+  obtain ⟨digits, ⟨hctr, hdec⟩, hpath, hchain, hleaf⟩ := hg
+  refine ⟨digits, ⟨hctr, ?_⟩, ?_, ?_, hleaf⟩
   · rw [← honestMsg_short h]
     rw [← ClaudeWCT.W9.T3.Security.Wots.Ref.shortRespects_encodingHash lay _
       (by rw [ClaudeWCT.W9.T3M.BC.layerEncodingRow_length]; unfold SeccLaw.maxInputLength; omega) A T h]
@@ -542,7 +542,8 @@ theorem good_short {A T : Correctness.Answers} (h : SigGolfCandidate.T3.Security
     refine ⟨?_, h2⟩
     rw [h1]
     unfold WCT9.wotsValue
-    rw [ClaudeWCT.W9.T3.Security.Wots.Ref.wotsSeed_short h, SigGolfCandidate.T3.Security.Wots.Ref.chainValue_short h]
+    rw [ClaudeWCT.W9.T3.Security.Wots.Ref.wotsSeed_short h]
+    exact ClaudeWCT.W9.T3.Security.Wots.Ref.chainW_respects _ _ _ _ _ _ _ A T h
 theorem goodZ_short {A T : Correctness.Answers} (h : SigGolfCandidate.T3.Security.Wots.Ref.ShortAgree A T)
     (w : WBytes) (index : Nat) (lay : Layer) (hg : ClaudeWCT.W9.T3M.BC.GoodZ A w index lay) :
     ClaudeWCT.W9.T3M.BC.GoodZ T w index lay :=
@@ -1244,7 +1245,8 @@ theorem probeInput_other (T : Answers) (a : Guess.ChainAddr) (step : Fin 4) (val
     Wots.OtherInput T (Guess.probeInput a step value) := by
   let pos : Extract.Pos := .wctChain a.1.val a.2.1.val a.2.2.1.val a.2.2.2.val step.val
   have hb : pos.Bounded := ⟨a.1.isLt, a.2.1.isLt, a.2.2.1.isLt, a.2.2.2.isLt, step.isLt⟩
-  refine ⟨pos, Extract.posOf_eq hb ?_, hb, ?_, trivial⟩
+  -- #866: `posOf_eq` also takes the input length (a chain row is 64 bytes, `Pos.len` of a chain position).
+  refine ⟨pos, Extract.posOf_eq hb (Guess.probeInput_length a step value) ?_, hb, ?_, trivial⟩
   · exact Guess.hdrBlock_wctChainInput _ _ _ _ _ _
   · exact ⟨a.1.isLt, a.2.1.isLt, a.2.2.1.isLt, a.2.2.2.isLt, step.isLt⟩
 theorem decodeProbe_other (T : Answers) {x : HashInput} {probe : Guess.GCoord × Digest}
@@ -4410,7 +4412,8 @@ theorem probeInput_other_new (T : Answers) (a : Guess.ChainAddr) (step : Fin 4) 
     Wots.PairedReference.OtherInput T (Guess.probeInput a step value) := by
   let pos : Extract.Pos := .wctChain a.1.val a.2.1.val a.2.2.1.val a.2.2.2.val step.val
   have hb : pos.Bounded := ⟨a.1.isLt, a.2.1.isLt, a.2.2.1.isLt, a.2.2.2.isLt, step.isLt⟩
-  refine ⟨pos, Extract.posOf_eq hb ?_, hb, ?_, trivial⟩
+  -- #866: `posOf_eq` also takes the input length (a chain row is 64 bytes, `Pos.len` of a chain position).
+  refine ⟨pos, Extract.posOf_eq hb (Guess.probeInput_length a step value) ?_, hb, ?_, trivial⟩
   · exact Guess.hdrBlock_wctChainInput _ _ _ _ _ _
   · exact ⟨a.1.isLt, a.2.1.isLt, a.2.2.1.isLt, a.2.2.2.isLt, step.isLt⟩
 theorem decodeProbe_other_new (T : Answers) {x : HashInput} {probe : Guess.GCoord × Digest}

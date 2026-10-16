@@ -104,7 +104,7 @@ def PrefixRowAt (answers : Answers) (a : ChainAddr) (input : HashInput) : Prop :
   ∃ step value, step < depth answers a ∧ input = chainRow a step value
 noncomputable def sampleRows (a : ChainAddr) (s : RefSample) (step : Nat) (value : Digest) : Option Digest :=
   if step < depth s.answers a then
-    (s.trace.find? fun e => decide (e.1 = chainRow a step value)).map fun e => low e.2
+    (s.trace.find? fun e => decide (e.1 = chainRow a step value)).map fun e => rowHalf a step e.2
   else none
 noncomputable def prefixCount (a : ChainAddr) (s : RefSample) : Nat :=
   (s.trace.filter fun e => decide (PrefixRowAt s.answers a e.1)).length
@@ -143,7 +143,8 @@ theorem sampleView_coupled (adversary : AdversaryP) (q : Nat) (a : ChainAddr) (R
       by_cases hm : (.inl (.inr (chainRow a step value)) : RefWorld.Domain) ∈ res.1.2
       · rw [if_pos hm, if_pos hm]
         simp only [Option.map_some]
-        rw [low, PrefixGame.restTable_ov_prefix a hd R x ⟨step, hs⟩ value, ChainGraph.joinOutput_low]
+        rw [rowHalf, PrefixGame.restTable_ov_prefix a hd R x ⟨step, hs⟩ value]
+        exact congrArg some (halfOf_joinHalf _ _ _)
       · rw [if_neg hm, if_neg hm]
         rfl
     · rw [if_neg hs, dif_neg hs]
@@ -168,8 +169,8 @@ theorem reference_support_trace (adversary : AdversaryP) (q : Nat) (s : RefSampl
   exact ⟨run.2, rfl⟩
 theorem sampleRows_eq_some (a : ChainAddr) (s : RefSample) (qs : List RefWorld.Domain)
     (hs : s.trace = traceOf s.answers qs) (step : Nat) (value out : Digest) :
-    sampleRows a s step value = some out ↔ step < depth s.answers a ∧ SeenRow s.trace a step value out := by
-  unfold sampleRows SeenRow
+    sampleRows a s step value = some out ↔ step < depth s.answers a ∧ SeenRowW s.trace a step value out := by
+  unfold sampleRows SeenRowW
   rw [hs, traceOf_find]
   by_cases hstep : step < depth s.answers a
   · rw [if_pos hstep]
@@ -346,7 +347,7 @@ def PrefixRowAt (answers : Answers) (a : ChainAddr) (input : HashInput) : Prop :
   ∃ step value, step < CanonicalRef.depth answers (sourceMessages answers) a ∧ input = chainRow a step value
 noncomputable def sampleRows (a : ChainAddr) (s : RefSample) (step : Nat) (value : Digest) : Option Digest :=
   if step < CanonicalRef.depth s.answers (sourceMessages s.answers) a then
-    (s.trace.find? fun e => decide (e.1 = chainRow a step value)).map fun e => low e.2
+    (s.trace.find? fun e => decide (e.1 = chainRow a step value)).map fun e => rowHalf a step e.2
   else none
 noncomputable def prefixCount (a : ChainAddr) (s : RefSample) : Nat :=
   (s.trace.filter fun e => decide (PrefixRowAt s.answers a e.1)).length
@@ -387,7 +388,9 @@ theorem sampleView_coupled (adversary : ClaudeWCT.W9.T3M.Final.Paired.AdversaryP
       by_cases hm : (.inl (.inr (chainRow a step value)) : RefWorld.Domain) ∈ res.1.2
       · rw [if_pos hm, if_pos hm]
         simp only [Option.map_some]
-        rw [low, answers_ov_prefix (referenceInputs_subset adversary) a hd R x ⟨step, hs⟩ value, ChainGraph.joinOutput_low]
+        -- C3 (#866): a row is read through the half its step keeps.
+        rw [rowHalf, answers_ov_prefix (referenceInputs_subset adversary) a hd R x ⟨step, hs⟩ value]
+        exact congrArg some (halfOf_joinHalf _ _ _)
       · rw [if_neg hm, if_neg hm]
         rfl
     · rw [if_neg hs, dif_neg hs]
@@ -412,8 +415,8 @@ theorem reference_support_trace (adversary : ClaudeWCT.W9.T3M.Final.Paired.Adver
   exact ⟨run.2, rfl⟩
 theorem sampleRows_eq_some (a : ChainAddr) (s : RefSample) (qs : List RefWorld.Domain)
     (hs : s.trace = traceOf s.answers qs) (step : Nat) (value out : Digest) :
-    sampleRows a s step value = some out ↔ step < CanonicalRef.depth s.answers (sourceMessages s.answers) a ∧ SeenRow s.trace a step value out := by
-  unfold sampleRows SeenRow
+    sampleRows a s step value = some out ↔ step < CanonicalRef.depth s.answers (sourceMessages s.answers) a ∧ SeenRowW s.trace a step value out := by
+  unfold sampleRows SeenRowW
   rw [hs, traceOf_find]
   by_cases hstep : step < CanonicalRef.depth s.answers (sourceMessages s.answers) a
   · rw [if_pos hstep]

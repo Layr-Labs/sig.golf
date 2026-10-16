@@ -1362,26 +1362,28 @@ set_option maxHeartbeats 1000000
 set_option maxRecDepth 100000
 set_option linter.unusedSimpArgs false
 
-/-- C1: the fold of heap `h` keeps the HIGH half on the A/B top heaps (`h < halfLimit`, as in #884) and on the even
-heaps `≥ 16`; this is exactly the class selected by the machine's fold stub. -/
+/-- C1: the fold of heap `h` keeps the HIGH half on the A/B top heaps (`h < halfLimit`, as in #884), on the
+singleton's left top heap 2 (stage 2, "Cm") and on the even heaps `≥ 16`; this is exactly the class selected by
+the machine's fold stub. -/
 def high (c h : Nat) : Bool := SharedTail.clsHigh c (SharedTail.cls c h)
-theorem high_lt8 (c h : Nat) (h8:h<8) : high c h=decide (c≠8 ∧ h<SharedTail.halfLimit c) := by
+theorem high_lt8 (c h : Nat) (h8:h<8) :
+    high c h=decide ((c≠8 ∧ h<SharedTail.halfLimit c) ∨ (c=8 ∧ h=2)) := by
   -- (split_ifs would leave `False` literals inside the `↔` goals, which omega does not use)
-  have hk:SharedTail.cls c h=(if c≠8 ∧ h<SharedTail.halfLimit c then 0 else 1):=by
+  have hk:SharedTail.cls c h=(if (c≠8 ∧ h<SharedTail.halfLimit c) ∨ (c=8 ∧ h=2) then 0 else 1):=by
     unfold SharedTail.cls
     rw[if_pos (show h<16 by omega)]
   unfold high SharedTail.clsHigh
   rw[hk]
-  by_cases hA:c≠8 ∧ h<SharedTail.halfLimit c
+  by_cases hA:(c≠8 ∧ h<SharedTail.halfLimit c) ∨ (c=8 ∧ h=2)
   · rw[if_pos hA,decide_eq_true hA]
-    exact decide_eq_true (Or.inl ⟨hA.1,rfl⟩)
+    exact decide_eq_true (Or.inl rfl)
   · rw[if_neg hA,decide_eq_false hA]
     exact decide_eq_false (by omega)
 theorem high_ge8 (c h : Nat) (h8:8≤h) : high c h=WCT9.ftsHighHeap h := by
   -- (case split by hand: split_ifs would leave `False` literals that omega ignores)
   have hL:SharedTail.halfLimit c≤8:=by unfold SharedTail.halfLimit;split <;> omega
   unfold high SharedTail.clsHigh SharedTail.cls
-  rw[if_neg (show ¬(c≠8 ∧ h<SharedTail.halfLimit c) by omega)]
+  rw[if_neg (show ¬((c≠8 ∧ h<SharedTail.halfLimit c) ∨ (c=8 ∧ h=2)) by omega)]
   by_cases hx:16≤h ∧ h%2=0
   · rw[if_neg (show ¬h<16 by omega),if_neg (show ¬h%2=1 by omega),(WCT9.ftsHighHeap_iff (by omega)).mpr hx]
     exact decide_eq_true (Or.inr rfl)
@@ -2113,9 +2115,9 @@ theorem hashProgram_source (c index h : Nat) (hc:c < 9) (hh:SharedTail.limit c <
     SharedNode.hashProgram c index h (rightPads pads h) L R=
       SharedForest.sharedNode (SharedLeaf.first c) c index h pads L R := by
   by_cases hh8:h < 8
-  · unfold SharedNode.hashProgram
+  · -- (explicit rewrites, no simp sets: stage 2 adds the singleton's `c = 8 ∧ h = 2` HIGH case)
+    unfold SharedNode.hashProgram SharedForest.sharedNode
     rw[SharedNode.high_lt8 c h hh8]
-    unfold rightPads SharedForest.sharedNode SharedForest.sharedOuterHash
     by_cases hf:SharedLeaf.first c=true
     · have hc8:c ≠ 8:=by simp only[SharedLeaf.first,decide_eq_true_eq]at hf;omega
       have hh4:4 ≤ h:=by
@@ -2123,18 +2125,38 @@ theorem hashProgram_source (c index h : Nat) (hc:c < 9) (hh:SharedTail.limit c <
         rw[if_pos hf]at hh
         omega
       have hhalf:SharedTail.halfLimit c=8:=by change (if SharedLeaf.first c then 8 else 4)=8;rw[if_pos hf]
-      rw[hhalf]
-      simp only[hc8,true_and]
-      simp only[hh8,hf,hc8,and_true,decide_true,if_true,show ¬h < 4 by omega,if_false,hh4,and_self]
-      rw[if_pos (decide_eq_true_eq.mpr hc8)]
+      have hD:decide ((c≠8 ∧ h<SharedTail.halfLimit c) ∨ (c=8 ∧ h=2))=true:=
+        decide_eq_true (Or.inl ⟨hc8,by omega⟩)
+      have hr:rightPads pads h=(pads (h/2-2)).2:=by unfold rightPads;rw[if_pos ⟨hh4,hh8⟩]
+      rw[if_pos hD,hr,if_neg (show ¬h < 4 by omega),if_pos hh8]
+      (try dsimp only)
+      rw[if_pos hf]
       rfl
-    · have hh4 : SharedTail.halfLimit c=4:=by change (if SharedLeaf.first c then 8 else 4)=4;rw[if_neg hf]
-      rw[hh4]
+    · have hh2:2 ≤ h:=by
+        change (if SharedLeaf.first c then 3 else 1) < h at hh
+        rw[if_neg hf]at hh
+        omega
+      have hhalf:SharedTail.halfLimit c=4:=by change (if SharedLeaf.first c then 8 else 4)=4;rw[if_neg hf]
+      rw[hhalf]
       by_cases h4:h < 4
-      · simp only[h4,if_true,show ¬4 ≤ h by omega,false_and,if_false,true_and]
-        by_cases hc8:c=8 <;> simp only[hc8,ne_eq,not_true_eq_false,not_false_eq_true,decide_false,decide_true,if_false,if_true] <;> rfl
-      · simp only[h4,if_false,and_false,decide_false]
-        simp only[hh8,if_true,show 4 ≤ h by omega,and_self,hf,if_false];rfl
+      · have hr:rightPads pads h=0:=by unfold rightPads;rw[if_neg (show ¬(4 ≤ h ∧ h < 8) by omega)]
+        rw[hr,if_pos h4]
+        unfold SharedForest.sharedOuterHash
+        (try dsimp only)
+        by_cases hD:(c≠8 ∧ h<4) ∨ (c=8 ∧ h=2)
+        · rw[if_pos (decide_eq_true hD),if_neg (show ¬(c=8 ∧ h=3) by omega)]
+          rfl
+        · rw[if_neg (show ¬decide ((c≠8 ∧ h<4) ∨ (c=8 ∧ h=2))=true from fun hx=>hD (of_decide_eq_true hx)),
+            if_pos (show c=8 ∧ h=3 by omega)]
+          rfl
+      · have hD:¬decide ((c≠8 ∧ h<4) ∨ (c=8 ∧ h=2))=true:=fun hx=>by
+          have hx':=of_decide_eq_true hx
+          omega
+        have hr:rightPads pads h=(pads (h/2-2)).2:=by unfold rightPads;rw[if_pos ⟨by omega,hh8⟩]
+        rw[if_neg hD,hr,if_neg h4,if_pos hh8]
+        (try dsimp only)
+        rw[if_neg hf]
+        rfl
   · -- C1: heaps `≥ 8` are `wctNodeHashH`, whose half is `ftsHighHeap h`
     have hr:rightPads pads h=0:=by unfold rightPads;rw[if_neg (show ¬(4 ≤ h ∧ h < 8) by omega)]
     unfold SharedNode.hashProgram SharedForest.sharedNode

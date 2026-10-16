@@ -474,7 +474,10 @@ open SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64 SigGol
 open SigGolfCandidate.T3M SigGolfCandidate.T3M.Verify
 /-! C1 (stage 1): the fold half selector is a hook `jal zero,stub` (A/B: the former `addi t2,zero,8|4`; C: the
 displaced `lui t4,0x51`). The stub selects the HIGH half (`t3 += 16`) iff `heap < halfLimit` (A/B tops, as in
-#884) or `heap ≥ 16` and even (C1), and jumps back past Ghost's (now dead) `bgeu`/`addi t3` pair. -/
+#884) or `heap ≥ 16` and even (C1), and jumps back past Ghost's (now dead) `bgeu`/`addi t3` pair.
+Stage 2 (merged singleton "Cm"): the C stub (22565..22573, 9 words) has the A/B shape with the first test
+`heap = 2` (`addi t1,s2,-2; beq t1,zero,HI`) in place of `heap < halfLimit`, so the singleton's left top node
+(heap 2) keeps the HIGH half; heap 3 keeps the LOW half. -/
 def words0 : List (BitVec 32) := bv_list% 32 [0x50e37,0x500e0e13,0xa0cff06f,0x797463,0x10e0e13,0x51eb7,0xe8e93,0x491313,0x6e8eb3,0xe3303,0x8e3383,0x6eb023,0x7eb423,0xfff90913,0x300313,0xf2691ee3]
 def words1 : List (BitVec 32) := bv_list% 32 [0x50e37,0x500e0e13,0xee9fe06f,0x797463,0x10e0e13,0x51eb7,0xe8e93,0x491313,0x6e8eb3,0xe3303,0x8e3383,0x6eb023,0x7eb423,0xfff90913,0x100313,0xf06918e3]
 def words2 : List (BitVec 32) := bv_list% 32 [0x50e37,0x500e0e13,0xbf1fe06f,0x797463,0x10e0e13,0x51eb7,0xe8e93,0x491313,0x6e8eb3,0xe3303,0x8e3383,0x6eb023,0x7eb423,0xfff90913,0x300313,0xf26910e3]
@@ -492,7 +495,7 @@ def stub4 : List (BitVec 32) := bv_list% 32 [0x893313,0x31a63,0x1093313,0x31863,
 def stub5 : List (BitVec 32) := bv_list% 32 [0x493313,0x31a63,0x1093313,0x31863,0x197313,0x31463,0x10e0e13,0x49d0106f]
 def stub6 : List (BitVec 32) := bv_list% 32 [0x893313,0x31a63,0x1093313,0x31863,0x197313,0x31463,0x10e0e13,0x7950106f]
 def stub7 : List (BitVec 32) := bv_list% 32 [0x493313,0x31a63,0x1093313,0x31863,0x197313,0x31463,0x10e0e13,0x3d50106f]
-def stub8 : List (BitVec 32) := bv_list% 32 [0x1093313,0x31863,0x197313,0x31463,0x10e0e13,0x51eb7,0x6e90106f]
+def stub8 : List (BitVec 32) := bv_list% 32 [0xffe90313,0x30a63,0x1093313,0x31863,0x197313,0x31463,0x10e0e13,0x51eb7,0x6e10106f]
 def entry (c : Nat) : Nat := [22841, 23059, 23265, 23483, 23689, 23907, 24113, 24331, 24546].getD c 0
 def finishPc (c : Nat) : Nat := [22857, 23075, 23281, 23499, 23705, 23923, 24129, 24347, 24559].getD c 0
 def nodePc (c : Nat) : Nat := [22807, 23014, 23224, 23438, 23648, 23862, 24072, 24286, 24505].getD c 0
@@ -505,30 +508,32 @@ def look (c n : Nat) : Option (BitVec 32) :=
 def first (c : Nat) : Bool := decide (c<8 ∧ c%2=0)
 def limit (c : Nat) : Nat := if first c then 3 else 1
 def halfLimit (c : Nat) : Nat := if first c then 8 else 4
-/-- The stub's path class of heap `h`: `0` a top heap below `halfLimit` (A/B only, HIGH), `1` another heap below
-16 (LOW), `2` an odd heap `≥ 16` (LOW), `3` an even heap `≥ 16` (HIGH, C1). -/
+/-- The stub's path class of heap `h`: `0` a top heap below `halfLimit` (A/B) or the singleton's heap 2 (C, stage 2)
+(HIGH), `1` another heap below 16 (LOW), `2` an odd heap `≥ 16` (LOW), `3` an even heap `≥ 16` (HIGH, C1). -/
 def cls (c h : Nat) : Nat :=
-  if c≠8 ∧ h<halfLimit c then 0 else if h<16 then 1 else if h%2=1 then 2 else 3
-def clsHigh (c k : Nat) : Bool := decide ((c≠8 ∧ k=0) ∨ k=3)
-def stubDirs (c k : Nat) : List Dir :=
-  if c=8 then (if k≤1 then [.br true] else if k=2 then [.br false,.br true] else [.br false,.br false])
-  else if k=0 then [.br true] else if k=1 then [.br false,.br true] else if k=2 then [.br false,.br false,.br true]
+  if (c≠8 ∧ h<halfLimit c) ∨ (c=8 ∧ h=2) then 0 else if h<16 then 1 else if h%2=1 then 2 else 3
+def clsHigh (_c k : Nat) : Bool := decide (k=0 ∨ k=3)
+/-- Branch directions of the stub (the same for every coordinate since stage 2). -/
+def stubDirs (_c k : Nat) : List Dir :=
+  if k=0 then [.br true] else if k=1 then [.br false,.br true] else if k=2 then [.br false,.br false,.br true]
   else [.br false,.br false,.br false]
 def dirs (c k : Nat) (back : Bool) : List Dir := stubDirs c k++[.br back]
 def runTail (c k : Nat) (back : Bool) : Option PRes :=
   run (look c) [nodePc c,finishPc c] (entry c) (dirs c k back)
 def halfOff (high : Bool) : Nat := if high then 16 else 0
 def outWord (high : Bool) (off : Nat) : E := ldc (NOUTW+halfOff high+off)
-def cycles (c k : Nat) : Nat :=
-  if c=8 then (if k≤1 then 17 else if k=2 then 19 else 20)
-  else if k=0 then 18 else if k=1 then 19 else if k=2 then 21 else 22
+/-- Tail cycles by class (stage 2: the singleton's 18/19/21/22 equal A/B's). -/
+def cycles (_c k : Nat) : Nat := if k=0 then 18 else if k=1 then 19 else if k=2 then 21 else 22
 def ltB (n : Nat) (d : Bool) : Br := ⟨.ne,.bin .sltu (.reg .x18) (cE n),cE 0,d⟩
 def oddB (d : Bool) : Br := ⟨.ne,.bin .and (.reg .x18) (cE 1),cE 0,d⟩
+/-- Stage 2 (C stub): `addi t1,s2,-2; beq t1,zero,HI`, i.e. `heap = 2`. -/
+def eq2B (d : Bool) : Br := ⟨.eq,.bin .add (.reg .x18) (cE (2^64-2)),cE 0,d⟩
+/-- The stub's first test: `heap < halfLimit` on A/B, `heap = 2` on the singleton C. -/
+def topB (c : Nat) (d : Bool) : Br := if c=8 then eq2B d else ltB (halfLimit c) d
 def stubBranches (c k : Nat) : List Br :=
-  if c=8 then (if k≤1 then [ltB 16 true] else if k=2 then [oddB true,ltB 16 false] else [oddB false,ltB 16 false])
-  else if k=0 then [ltB (halfLimit c) true] else if k=1 then [ltB 16 true,ltB (halfLimit c) false]
-  else if k=2 then [oddB true,ltB 16 false,ltB (halfLimit c) false]
-  else [oddB false,ltB 16 false,ltB (halfLimit c) false]
+  if k=0 then [topB c true] else if k=1 then [ltB 16 true,topB c false]
+  else if k=2 then [oddB true,ltB 16 false,topB c false]
+  else [oddB false,ltB 16 false,topB c false]
 def branches (c k : Nat) (back : Bool) : List Br := ⟨.ne,x18m1,cE (limit c),back⟩::stubBranches c k
 def expected (c k : Nat) (back : Bool) : PRes :=
   pres [(.x6,cE (limit c)),(.x7,outWord (clsHigh c k) 8),(.x18,x18m1),

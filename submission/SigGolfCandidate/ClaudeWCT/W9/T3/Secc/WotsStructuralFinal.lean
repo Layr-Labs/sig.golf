@@ -29,7 +29,7 @@ structure Variant (labels : CanonGraph.Labels) (T T' : Answers) : Prop where
     x = CanonGraph.cell (CanonGraph.secretsOf T) node labels) → T (.inl (.inr x)) = T' (.inl (.inr x))
 theorem posOf_honestInput (T : Answers) (p : Extract.Pos) (hp : p.Bounded) :
     Extract.posOf (Extract.honestInput T p) = some p :=
-  Extract.posOf_eq hp (Extract.hdrBlock_honestInput T p)
+  Extract.posOf_eq hp (Extract.honestInput_length T p) (Extract.hdrBlock_honestInput T p)
 theorem Variant.honest {labels : CanonGraph.Labels} {T T' : Answers} (hv : Variant labels T T') :
     ∀ q, HonestQuery T q → T q = T' q
   | .inl (.inl n), _ => hv.coin n
@@ -184,13 +184,12 @@ theorem prob_high_eq (target : SphincsSecurity.Digest) :
 theorem prob_proj_eq (p : Extract.Pos) (target : SphincsSecurity.Digest) :
     Pr[fun answer : HashOutput => p.proj answer = target | PMF.uniformOfFintype HashOutput] =
       (Fintype.card SphincsSecurity.Digest : ℝ≥0∞)⁻¹ := by
-  cases p with
-  | wctNode i c l n =>
-      by_cases hl : l = 5
-      · simp only [Extract.Pos.proj, if_pos hl]; exact prob_high_eq target
-      · simp only [Extract.Pos.proj, if_neg hl]
-        exact SphincsSecurity.Concrete.HiddenLabelProbe.prob_truncate_eq target
-  | _ => exact SphincsSecurity.Concrete.HiddenLabelProbe.prob_truncate_eq target
+  rw [Extract.Pos.proj_eq]
+  cases p.high
+  · simp only [Bool.false_eq_true, ite_false]
+    exact SphincsSecurity.Concrete.HiddenLabelProbe.prob_truncate_eq target
+  · simp only [ite_true]
+    exact prob_high_eq target
 namespace Structural
 open SigGolfCandidate.T3.Security.Wots.Structural
 open ClaudeWCT.W9.T3.Security.CanonGraph (Node Labels Secrets OtherHalves cell programmed canonInputs privateEquiv)
@@ -564,6 +563,16 @@ theorem prob_proj_eq (position : Extract.Pos) (target : Digest) :
       exact prob_high_eq target
     · simp only [Extract.Paired.proj,if_neg h]
       exact SphincsSecurity.Concrete.HiddenLabelProbe.prob_truncate_eq target
+  -- C2/C3: the lower-tree positions use the legacy (#866) projection `Pos.proj`.
+  | chain lay tree leaf i step=>
+    rw [Extract.Paired.proj_chain]
+    exact ClaudeWCT.W9.T3.Security.Wots.prob_proj_eq _ target
+  | leaf lay tree leaf=>
+    rw [Extract.Paired.proj_leaf]
+    exact ClaudeWCT.W9.T3.Security.Wots.prob_proj_eq _ target
+  | node lay tree level node=>
+    rw [Extract.Paired.proj_node]
+    exact ClaudeWCT.W9.T3.Security.Wots.prob_proj_eq _ target
   | _=>exact SphincsSecurity.Concrete.HiddenLabelProbe.prob_truncate_eq target
 #print axioms prob_proj_eq
 end ClaudeWCT.W9.T3.Security.Wots.PairedStructural
@@ -588,7 +597,7 @@ structure Variant (labels : CanonGraph.Labels) (T T' : Answers) : Prop where
 
 theorem posOf_honestInput (T : Answers) (p : Extract.Pos) (hp : Extract.Paired.Bounded p) :
     Extract.posOf (Extract.Paired.honestInput T p) = some p :=
-  Extract.posOf_eq hp.legacy (Extract.Paired.hdrBlock_honestInput T p)
+  Extract.posOf_eq hp.legacy (Extract.Paired.honestInput_length T p) (Extract.Paired.hdrBlock_honestInput T p)
 
 
 end ClaudeWCT.W9.T3.Security.Wots.PairedStructural
@@ -959,7 +968,8 @@ theorem frontierValue_short {A T : Answers} (hAT : ShortAgree A T) (a : ChainAdd
     frontierValue A (sourceMessages A) a = frontierValue T (sourceMessages T) a := by
   unfold frontierValue
   rw [depth_short hAT, Ref.wotsSeed_short hAT]
-  exact honestChainValue_short hAT _ _ _ _ _ _
+  -- C3 (#866): the frontier is `honestChainValueW` (`Ref.honestChainValueW_short`).
+  exact Ref.honestChainValueW_short hAT _ _ _ _ _ _
 
 theorem referenceInput_short {A T : Answers} (hAT : ShortAgree A T) (L : LeafAddr) :
     referenceInput A (sourceMessages A) L = referenceInput T (sourceMessages T) L := by

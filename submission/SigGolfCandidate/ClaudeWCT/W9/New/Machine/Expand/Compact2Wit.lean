@@ -15,32 +15,84 @@ open ClaudeWCT.W9.Machine.Expand (witListV6 wctBytesV6 layerRegionV6 layerBytesB
 set_option linter.unusedSimpArgs false
 set_option maxRecDepth 100000
 open ClaudeWCT.W9.T3M (pathSlots layerBase layerBase_ge layerEnd_le layerRegion_length layer_prefix regionBase)
+/-- C3 (FULL, E6): the header as the compactor leaves it. The L3 row tweak's high word (offset 24) is still zero
+here; the buffer pass writes its LE64(1) (`Buffer.bufferMem` at absolute 1240). -/
+def preHeader (N : HashOutput) (w : WCT9.Witness) : List UInt8 :=
+  (if (WCT9.child N 8).val / 2 ^ 6 % 2 = 1 then bytesLE 16 ((w.signature.openings 8).path 6) else zeros 16) ++
+    (zeros 16 ++ (bytesLE 4 (w.counters 3) ++ (zeros 108 ++
+      ((if (WCT9.child N 8).val / 2 ^ 6 % 2 = 0 then bytesLE 16 ((w.signature.openings 8).path 6) else zeros 16) ++
+        zeros 16))))
+theorem preHeader_length (N : HashOutput) (w : WCT9.Witness) : (preHeader N w).length = 176 := by
+  simp only [preHeader, List.length_append, ClaudeWCT.W9.T3M.ite_slot_length, ClaudeWCT.W9.T3M.zeros_len,
+    bytesLE_length]
 /-- Serialized output of the in-place compactor, before the endpoint-buffer pass (nested FTS r1-1: header 176,
-regions 8080, layers, tail; 21744 bytes from `WOUT`). -/
+regions 8080, layers, tail; 21808 bytes from `WOUT`). -/
 def preBufferWitList (N : HashOutput) (w : WCT9.Witness) : List UInt8 :=
-  headerBytes N w ++ wctBytes N w.signature ++ (List.finRange 4).flatMap (layerRegion N w) ++ tailBytes w
-theorem preBufferWitList_length (N : HashOutput) (w : WCT9.Witness) : (preBufferWitList N w).length = 21744 := by
+  preHeader N w ++ wctBytes N w.signature ++ (List.finRange 4).flatMap (layerRegion N w) ++ tailBytes w
+theorem preBufferWitList_length (N : HashOutput) (w : WCT9.Witness) : (preBufferWitList N w).length = 21808 := by
   unfold preBufferWitList
-  simp only [List.length_append, headerBytes_length, wctBytes_length, layers_length, tailBytes_length]
+  simp only [List.length_append, preHeader_length, wctBytes_length, layers_length, tailBytes_length]
 
 theorem preBufferWitList_split (N : HashOutput) (w : WCT9.Witness) :
-    preBufferWitList N w = ((headerBytes N w ++ wctBytes N w.signature) ++ (List.finRange 4).flatMap (layerRegion N w)) ++
+    preBufferWitList N w = ((preHeader N w ++ wctBytes N w.signature) ++ (List.finRange 4).flatMap (layerRegion N w)) ++
       tailBytes w := rfl
 
-theorem preBufferPrefix (N : HashOutput) (w : WCT9.Witness) (off n : Nat) (h : off + n ≤ 21712) :
+/-- Two lists that differ only in bytes `[24, 32)` (16-byte head, then 8 zero bytes) agree on windows avoiding them. -/
+theorem window_mid8 (S1 P R : List UInt8) (h1 : S1.length = 16) (hP : P.length = 8) (off n : Nat)
+    (hh : off + n ≤ 24 ∨ 32 ≤ off) :
+    window (S1 ++ (zeros 16 ++ R)) off n = window (S1 ++ (zeros 8 ++ (P ++ R))) off n := by
+  rcases hh with hh | hh
+  · rw [← window_take _ 24 off n hh, ← window_take (S1 ++ (zeros 8 ++ (P ++ R))) 24 off n hh]
+    have e1 : (S1 ++ (zeros 16 ++ R)).take 24 = S1 ++ zeros 8 := by
+      rw [List.take_append, h1, List.take_of_length_le (by omega)]
+      simp [zeros]
+    have e2 : (S1 ++ (zeros 8 ++ (P ++ R))).take 24 = S1 ++ zeros 8 := by
+      rw [List.take_append, h1, List.take_of_length_le (by omega)]
+      simp [zeros]
+    rw [e1, e2]
+  · have hz16 : (zeros 16).length = 16 := by simp [zeros]
+    have hz8 : (zeros 8).length = 8 := by simp [zeros]
+    have l : window (S1 ++ (zeros 16 ++ R)) off n = window R (off - 32) n := by
+      rw [window_append_right _ _ _ _ (by rw [h1]; omega), h1, window_append_right _ _ _ _ (by rw [hz16]; omega), hz16]
+      congr 1
+    have r : window (S1 ++ (zeros 8 ++ (P ++ R))) off n = window R (off - 32) n := by
+      rw [window_append_right _ _ _ _ (by rw [h1]; omega), h1, window_append_right _ _ _ _ (by rw [hz8]; omega), hz8,
+        window_append_right _ _ _ _ (by rw [hP]; omega), hP]
+      congr 1
+    rw [l, r]
+
+theorem preBufferPrefix (N : HashOutput) (w : WCT9.Witness) (off n : Nat) (h : off + n ≤ 21776)
+    (hh : off + n ≤ 24 ∨ 32 ≤ off) :
     window (preBufferWitList N w) off n = window (ClaudeWCT.W9.T3M.witList N w) off n := by
-  have hp : (headerBytes N w ++ wctBytes N w.signature ++ (List.finRange 4).flatMap (layerRegion N w)).length =
-      21712 := by
+  have hp : (preHeader N w ++ wctBytes N w.signature ++ (List.finRange 4).flatMap (layerRegion N w)).length =
+      21776 := by
+    simp only [List.length_append, preHeader_length, wctBytes_length, layers_length]
+  have hq : (headerBytes N w ++ wctBytes N w.signature ++ (List.finRange 4).flatMap (layerRegion N w)).length =
+      21776 := by
     simp only [List.length_append, headerBytes_length, wctBytes_length, layers_length]
-  rw [preBufferWitList_split, ClaudeWCT.W9.T3M.witList_split]
-  exact (window_append_left _ _ off n (by rw [hp]; exact h)).trans
-    (window_append_left _ _ off n (by rw [hp]; exact h)).symm
+  have l : window (preBufferWitList N w) off n =
+      window (preHeader N w ++ wctBytes N w.signature ++ (List.finRange 4).flatMap (layerRegion N w)) off n := by
+    rw [preBufferWitList_split]; exact window_append_left _ _ off n (by rw [hp]; exact h)
+  have r : window (ClaudeWCT.W9.T3M.witList N w) off n =
+      window (headerBytes N w ++ wctBytes N w.signature ++ (List.finRange 4).flatMap (layerRegion N w)) off n := by
+    rw [ClaudeWCT.W9.T3M.witList_split]; exact window_append_left _ _ off n (by rw [hq]; exact h)
+  rw [l, r, ClaudeWCT.W9.T3M.headerBytes_eq]
+  unfold preHeader
+  simp only [List.append_assoc]
+  exact window_mid8 _ _ _ (ClaudeWCT.W9.T3M.ite_slot_length _ _) (bytesLE_length _ _) off n hh
+
+theorem pre_win_header (N : HashOutput) (w : WCT9.Witness) (off n : Nat) (h : off + n ≤ 176) :
+    window (preBufferWitList N w) off n = window (preHeader N w) off n := by
+  rw [preBufferWitList_split, window_append_left _ _ _ _ (by
+      simp only [List.length_append, preHeader_length, wctBytes_length, layers_length]; omega),
+    window_append_left _ _ _ _ (by simp only [List.length_append, preHeader_length, wctBytes_length]; omega),
+    window_append_left _ _ _ _ (by rw [preHeader_length]; omega)]
 
 theorem preBufferWinTail (N : HashOutput) (w : WCT9.Witness) (off n : Nat) (h : off + n ≤ 32) :
-    window (preBufferWitList N w) (21712 + off) n = window (tailBytes w) off n := by
+    window (preBufferWitList N w) (21776 + off) n = window (tailBytes w) off n := by
   rw [preBufferWitList_split, window_append_right _ _ _ _ (by
-      simp only [List.length_append, headerBytes_length, wctBytes_length, layers_length]; omega)]
-  simp only [List.length_append, headerBytes_length, wctBytes_length, layers_length, Nat.add_sub_cancel_left]
+      simp only [List.length_append, preHeader_length, wctBytes_length, layers_length]; omega)]
+  simp only [List.length_append, preHeader_length, wctBytes_length, layers_length, Nat.add_sub_cancel_left]
 
 theorem preBufferWinLayer (N : HashOutput) (w : WCT9.Witness) (lay : Layer) (j m : Nat)
     (hjm : j + m ≤ 16 * pathSlots lay + 64 * chainCount lay) :
@@ -52,9 +104,9 @@ theorem preBufferWinLayer (N : HashOutput) (w : WCT9.Witness) (lay : Layer) (j m
     (by rw [hlen, layerRegion_length]; omega)
   rw [layer_prefix N w lay, hlen] at key
   rw [preBufferWitList_split, window_append_left _ _ _ _ (by
-      simp only [List.length_append, headerBytes_length, wctBytes_length, layers_length]; omega),
-    window_append_right _ _ _ _ (by simp only [List.length_append, headerBytes_length, wctBytes_length]; omega)]
-  simp only [List.length_append, headerBytes_length, wctBytes_length]
+      simp only [List.length_append, preHeader_length, wctBytes_length, layers_length]; omega),
+    window_append_right _ _ _ _ (by simp only [List.length_append, preHeader_length, wctBytes_length]; omega)]
+  simp only [List.length_append, preHeader_length, wctBytes_length]
   rw [show layerBase lay + j - (176 + 8080) = (layerBase lay - 8256) + j by omega, key]
 
 theorem window_window' (L : List UInt8) (o m a n : Nat) (h : a + n ≤ m) :
@@ -408,7 +460,8 @@ theorem v7_free (p : Nat) (hp8 : p % 8 = 0) (hp' : p + 8 ≤ 16 * ClaudeWCT.W9.T
     (hnot : ∀ j : Fin (height lay), p ≠ ClaudeWCT.W9.T3M.lowerSibSlot lay leaf j.val ∧
       p ≠ ClaudeWCT.W9.T3M.lowerSibSlot lay leaf j.val + 8 ∧
       p ≠ 16 * (ClaudeWCT.W9.T3M.lowerPlan lay leaf).getD j.val 0 + 32 ∧
-      p ≠ 16 * (ClaudeWCT.W9.T3M.lowerPlan lay leaf).getD j.val 0 + 40) :
+      p ≠ 16 * (ClaudeWCT.W9.T3M.lowerPlan lay leaf).getD j.val 0 + 40)
+    (hhi : p ≠ ClaudeWCT.W9.T3M.lowerHiSlot lay leaf) :
     window (lowerPathBytes lay leaf ls ctr) p 8 = zeros 8 := by
   have hsl : ∀ j : Fin (height lay), ClaudeWCT.W9.T3M.lowerSibSlot lay leaf j.val % 16 = 0 := fun j => by
     unfold ClaudeWCT.W9.T3M.lowerSibSlot
@@ -424,7 +477,8 @@ theorem v7_free (p : Nat) (hp8 : p % 8 = 0) (hp' : p + 8 ≤ 16 * ClaudeWCT.W9.T
     have hc := hnot ⟨height lay - 1, by omega⟩
     simp only at hc
     unfold ClaudeWCT.W9.T3M.lowerCtrSlot
-    rw [if_neg (by omega)]
+    unfold ClaudeWCT.W9.T3M.lowerHiSlot at hhi ⊢
+    rw [if_neg (by omega), if_neg (by omega)]
   rw [List.map_congr_left hz]
   simp [zeros, List.map_const']
 end lowerC
@@ -481,6 +535,12 @@ section ident2
 variable (N : HashOutput) (w : WCT9.Witness)
 theorem layerRegion_top : layerRegion N w 0 = layerRegionV6 N w 0 := by
   unfold layerRegion layerRegionV6; simp
+theorem rootOff_eq_hi (L : Layer) (hL : L.val ≠ 0) (idx : Nat) :
+    rootOff L.val (lroute L.val idx) = ClaudeWCT.W9.T3M.lowerHiSlot L (route idx L).1 := by
+  unfold rootOff ClaudeWCT.W9.T3M.lowerHiSlot
+  rw [plan_eq, lroute_eq L hL]
+  congr 3
+  unfold rootJ; fin_cases L <;> simp_all [height]
 theorem zone_low (L : Layer) (hL : L.val ≠ 0) (o : Nat) (h1 : ClaudeWCT.W9.T3M.layerBase L ≤ o)
     (h2 : o + 8 ≤ ClaudeWCT.W9.T3M.layerBase L + (16 * ClaudeWCT.W9.T3M.pathSlots L + 64 * chainCount L))
     (h8 : o % 8 = 0) :
@@ -492,8 +552,8 @@ theorem zone_low (L : Layer) (hL : L.val ≠ 0) (o : Nat) (h1 : ClaudeWCT.W9.T3M
   have hW : WIT = 0x800 := rfl
   set leaf := (route (WCT9.digestIndex N) L).1 with hleafdef
   have hleaf : leaf < 2 ^ height L := ClaudeWCT.W9.T3M.route_leaf_lt _ _
-  have hps : 16 * ClaudeWCT.W9.T3M.pathSlots L ≤ 16 * 23 ∧ ClaudeWCT.W9.T3M.layerBase L % 16 = 0 ∧
-      ClaudeWCT.W9.T3M.pathSlots L ≥ 19 := by
+  have hps : 16 * ClaudeWCT.W9.T3M.pathSlots L ≤ 16 * 25 ∧ ClaudeWCT.W9.T3M.layerBase L % 16 = 0 ∧
+      ClaudeWCT.W9.T3M.pathSlots L ≥ 20 := by
     fin_cases L <;> simp_all [ClaudeWCT.W9.T3M.pathSlots, ClaudeWCT.W9.T3M.layerBase]
   have hlo : 8136 + layOffV6 L + 64 * (height L + chainCount L) ≤ 21832 ∧ layOffV6 L % 64 = 0 := by
     fin_cases L <;> decide
@@ -505,6 +565,12 @@ theorem zone_low (L : Layer) (hL : L.val ≠ 0) (o : Nat) (h1 : ClaudeWCT.W9.T3M
   by_cases hp : o - ClaudeWCT.W9.T3M.layerBase L < 16 * ClaudeWCT.W9.T3M.pathSlots L
   · rw [if_pos hp, window_append_left _ _ _ _ (by rw [ClaudeWCT.W9.T3M.lowerPathBytes_length]; omega)]
     unfold pathOut
+    have hro := rootOff_eq_hi L hL (WCT9.digestIndex N)
+    rw [← hleafdef] at hro
+    by_cases hrt : o - ClaudeWCT.W9.T3M.layerBase L = rootOff L.val (lroute L.val (WCT9.digestIndex N))
+    · rw [if_pos hrt, hrt, hro, ClaudeWCT.W9.T3M.lowerPath_hi hL hleaf]
+      decide
+    rw [if_neg hrt]
     rw [lroute_eq L hL, ← hleafdef]
     cases h : (List.range (lvH L.val)).find? (fun j => decide (lvHit L.val leaf j (o - ClaudeWCT.W9.T3M.layerBase L)))
       with
@@ -517,7 +583,7 @@ theorem zone_low (L : Layer) (hL : L.val ≠ 0) (o : Nat) (h1 : ClaudeWCT.W9.T3M
         rw [plan_eq] at h'
         unfold ClaudeWCT.W9.T3M.lowerSibSlot
         rw [sibOff_eq _ (Nat.mod_lt _ (by norm_num))]
-        omega)]
+        omega) (fun hh => hrt (by rw [hh, ← hro, lroute_eq L hL]))]
       simp [zeros]; rfl
     | some j =>
       simp only
@@ -704,7 +770,6 @@ the final assembly is the corresponding word of the witness. -/
 theorem wct_words (o : Nat) (ho : o < 8256) (h8 : o % 8 = 0) :
     stMem (vM N w) (WOUT + o) = BitVec.ofNat 64 (readLE (window (preBufferWitList N w) o 8)) := by
   have hWO : WOUT = 0x4c0 := rfl
-  rw [preBufferPrefix N w o 8 (by omega)]
   unfold stMem
   by_cases hh : o < 176
   · -- the header (coordinate 8's top sibling and the L3 counter)
@@ -714,8 +779,9 @@ theorem wct_words (o : Nat) (ho : o < 8256) (h8 : o % 8 = 0) :
     rw [e8] at hs
     have hd8 : hdst 8 = 1216 := rfl
     rw [plMem_at _ 9 le_rfl _ 8 (fun c hc hne => by unfold hdst; omega), if_pos (show 8 < 9 by omega), hs, hd8,
-      ClaudeWCT.W9.T3M.win_header N w o 8 (by omega), ClaudeWCT.W9.T3M.headerBytes_eq,
-      hdr_win _ _ _ (ClaudeWCT.W9.T3M.ite_slot_length _ _) (bytesLE_length _ _) (ClaudeWCT.W9.T3M.ite_slot_length _ _)
+      pre_win_header N w o 8 (by omega)]
+    unfold preHeader
+    rw [hdr_win _ _ _ (ClaudeWCT.W9.T3M.ite_slot_length _ _) (bytesLE_length _ _) (ClaudeWCT.W9.T3M.ite_slot_length _ _)
         o h8 (by omega)]
     have hw1 := R_holdw N w 8 (by omega) 1 (by omega)
     have hw0 := R_holdw N w 8 (by omega) 0 (by omega)
@@ -762,6 +828,7 @@ theorem wct_words (o : Nat) (ho : o < 8256) (h8 : o % 8 = 0) :
         · have a : ¬ o < 16 := by omega
           have hn : ¬ (o = 32) := by omega
           simp only [a, hn, m, and_self, and_true, true_and, eq_self_iff_true, ↓reduceIte, ofNat_readLE_zeros8]
+  rw [preBufferPrefix N w o 8 (by omega) (Or.inr (by omega))]
   by_cases hz : 8240 ≤ o
   · -- the 16 zero bytes after region 0
     rw [plMem_at _ 9 le_rfl _ 9 (fun c hc _ => by unfold hdst; omega), if_neg (show ¬ 9 < 9 by omega),
@@ -835,11 +902,11 @@ theorem wct_words (o : Nat) (ho : o < 8256) (h8 : o % 8 = 0) :
       simp only [n1, n2, and_self, and_true, true_and, eq_self_iff_true, ↓reduceIte]
 end final
 set_option maxHeartbeats 2000000 in
-theorem compact2_words (N : HashOutput) (w : WCT9.Witness) (i : Nat) (hi : i < 2718) :
+theorem compact2_words (N : HashOutput) (w : WCT9.Witness) (i : Nat) (hi : i < 2726) :
     (wordsOf (preBufferWitList N w)).getD i 0 =
       if 8 * i < 8256 then stMem (vM N w) (WOUT + 8 * i)
       else out2old (v6M N w) (WCT9.digestIndex N) (8 * i - 832) := by
-  rw [wordsOf_getD' _ 2718 (by rw [preBufferWitList_length]) i hi]
+  rw [wordsOf_getD' _ 2726 (by rw [preBufferWitList_length]) i hi]
   by_cases hw : 8 * i < 8256
   · rw [if_pos hw, wct_words N w (8 * i) hw (by omega)]
   rw [if_neg hw]
@@ -855,7 +922,7 @@ theorem compact2_words (N : HashOutput) (w : WCT9.Witness) (i : Nat) (hi : i < 2
       simp [layOffV6, WIT]; omega, v6M_eq N w _ (by simp [layOffV6]; omega) (by simp [layOffV6]; omega), hw6]
   rw [if_neg htop]
   obtain ⟨d1, d2, d3, c1, c2, c3⟩ := lay_consts
-  by_cases hlow : 8 * i - 832 < 20880
+  by_cases hlow : 8 * i - 832 < 20944
   · rw [if_pos hlow]
     have hW : WIT = 0x800 := rfl
     have key : ∀ L : Layer, L.val ≠ 0 → zoneLay (8 * i - 832) = L.val → ClaudeWCT.W9.T3M.layerBase L ≤ 8 * i →
@@ -879,10 +946,10 @@ theorem compact2_words (N : HashOutput) (w : WCT9.Witness) (i : Nat) (hi : i < 2
       · rw [if_neg hc, if_neg hc, show 8136 + layOffV6 L + 64 * height L + (8 * i - ClaudeWCT.W9.T3M.layerBase L -
           16 * ClaudeWCT.W9.T3M.pathSlots L) + WIT = 8136 + layOffV6 L + 64 * height L + WIT +
           (8 * i - 832 - (ClaudeWCT.W9.T3M.layerBase L - 832 + 16 * ClaudeWCT.W9.T3M.pathSlots L)) by omega]
-    by_cases hz1 : 8 * i - 832 < 14768
+    by_cases hz1 : 8 * i - 832 < 14800
     · exact key 1 (by decide) (by unfold zoneLay; rw [if_pos hz1]; rfl) (by simp [ClaudeWCT.W9.T3M.layerBase]; omega)
         (by simp [ClaudeWCT.W9.T3M.layerBase, ClaudeWCT.W9.T3M.pathSlots, chainCount]; omega)
-    · by_cases hz2 : 8 * i - 832 < 17824
+    · by_cases hz2 : 8 * i - 832 < 17872
       · exact key 2 (by decide) (by unfold zoneLay; rw [if_neg hz1, if_pos hz2]; rfl)
           (by simp [ClaudeWCT.W9.T3M.layerBase]; omega)
           (by simp [ClaudeWCT.W9.T3M.layerBase, ClaudeWCT.W9.T3M.pathSlots, chainCount]; omega)
@@ -890,20 +957,20 @@ theorem compact2_words (N : HashOutput) (w : WCT9.Witness) (i : Nat) (hi : i < 2
           (by simp [ClaudeWCT.W9.T3M.layerBase]; omega)
           (by simp [ClaudeWCT.W9.T3M.layerBase, ClaudeWCT.W9.T3M.pathSlots, chainCount]; omega)
   · rw [if_neg hlow]
-    have hrho : ∀ t, t + 8 ≤ 16 → window (preBufferWitList N w) (21712 + t) 8 = window (witListV6 N w) t 8 :=
+    have hrho : ∀ t, t + 8 ≤ 16 → window (preBufferWitList N w) (21776 + t) 8 = window (witListV6 N w) t 8 :=
         fun t ht => by
       rw [preBufferWinTail N w _ _ (by omega), v6_head N w _ (by omega)]
       unfold tailBytes headerBytesV5
       simp only [List.append_assoc]
       rw [window_append_left _ _ _ _ (by simp [bytesLE_length]; omega),
         window_append_left _ _ _ _ (by simp [bytesLE_length]; omega)]
-    rcases (show 8 * i = 21712 ∨ 8 * i = 21720 ∨ 8 * i = 21728 ∨ 8 * i = 21736 by omega) with h | h | h | h
-    · rw [if_pos (show 8 * i - 832 = 20880 by omega), h, show (21712 : Nat) = 21712 + 0 from rfl, hrho 0 (by omega),
+    rcases (show 8 * i = 21776 ∨ 8 * i = 21784 ∨ 8 * i = 21792 ∨ 8 * i = 21800 by omega) with h | h | h | h
+    · rw [if_pos (show 8 * i - 832 = 20944 by omega), h, show (21776 : Nat) = 21776 + 0 from rfl, hrho 0 (by omega),
         show WIT = WIT + 0 from rfl, v6M_eq N w 0 (by omega) (by omega)]
-    · rw [if_neg (show ¬ 8 * i - 832 = 20880 by omega), if_pos (show 8 * i - 832 = 20888 by omega), h,
-        show (21720 : Nat) = 21712 + 8 from rfl, hrho 8 (by omega), v6M_eq N w 8 (by omega) (by omega)]
-    · rw [if_neg (show ¬ 8 * i - 832 = 20880 by omega), if_neg (show ¬ 8 * i - 832 = 20888 by omega),
-        if_pos (show 8 * i - 832 = 20896 by omega), h, show (21728 : Nat) = 21712 + 16 from rfl,
+    · rw [if_neg (show ¬ 8 * i - 832 = 20944 by omega), if_pos (show 8 * i - 832 = 20952 by omega), h,
+        show (21784 : Nat) = 21776 + 8 from rfl, hrho 8 (by omega), v6M_eq N w 8 (by omega) (by omega)]
+    · rw [if_neg (show ¬ 8 * i - 832 = 20944 by omega), if_neg (show ¬ 8 * i - 832 = 20952 by omega),
+        if_pos (show 8 * i - 832 = 20960 by omega), h, show (21792 : Nat) = 21776 + 16 from rfl,
         preBufferWinTail N w _ _ (by omega)]
       unfold tailBytes
       simp only [List.append_assoc]
@@ -911,8 +978,8 @@ theorem compact2_words (N : HashOutput) (w : WCT9.Witness) (i : Nat) (hi : i < 2
         show 16 - (bytesLE 16 w.signature.rho).length = 0 by simp [bytesLE_length],
         window_append_left _ _ _ _ (by simp [zeros]), window_zeros _ _ _ (by omega)]
       rfl
-    · rw [if_neg (show ¬ 8 * i - 832 = 20880 by omega), if_neg (show ¬ 8 * i - 832 = 20888 by omega),
-        if_neg (show ¬ 8 * i - 832 = 20896 by omega), h, show (21736 : Nat) = 21712 + 24 from rfl,
+    · rw [if_neg (show ¬ 8 * i - 832 = 20944 by omega), if_neg (show ¬ 8 * i - 832 = 20952 by omega),
+        if_neg (show ¬ 8 * i - 832 = 20960 by omega), h, show (21800 : Nat) = 21776 + 24 from rfl,
         preBufferWinTail N w _ _ (by omega), ClaudeWCT.W9.T3M.tail_counter_window, v6M_eq N w 16 (by omega) (by omega),
         v6_head N w _ (by omega)]
       have hh : window (headerBytesV5 w) 16 8 = bytesLE 4 w.digestCounter ++ zeros 4 := by
@@ -949,8 +1016,10 @@ theorem preBufferEndpointWindow (N : HashOutput) (w : WCT9.Witness) (lay : Layer
       window (bytesLE 16 ((w.signature.layers lay).values i)) k 8 := by
   have hi := i.isLt
   have he := ClaudeWCT.W9.T3M.layerEnd_le lay
-  have hb : chainBlock lay i.val + 48 + k + 8 ≤ 21712 := by unfold chainBlock; omega
-  rw [preBufferPrefix N w _ _ hb]
+  have hb : chainBlock lay i.val + 48 + k + 8 ≤ 21776 := by unfold chainBlock; omega
+  have hb32 : 32 ≤ chainBlock lay i.val + 48 + k := by
+    have := ClaudeWCT.W9.T3M.layerBase_ge lay; unfold chainBlock; omega
+  rw [preBufferPrefix N w _ _ hb (Or.inr hb32)]
   rw [show chainBlock lay i.val + 48 + k = (chainBlock lay i.val + 48) + k from rfl,
     ← window_window' _ _ 16 _ 8 hk, ClaudeWCT.W9.T3M.win_chain N w lay i 48 (by omega),
     window_append_right _ _ _ _ (by simp [zeros]),
@@ -960,8 +1029,8 @@ theorem finalBufferWindow (N : HashOutput) (w : WCT9.Witness) (lay : Layer)
     (off n : Nat) (h : off + n ≤ leafBufferLen lay) :
     window (ClaudeWCT.W9.T3M.witList N w) (leafBufferBase lay + off) n =
       window (leafBufferBytes w.signature lay) off n := by
-  have hbase : 21712 ≤ leafBufferBase lay := by fin_cases lay <;> decide
-  have hbound : leafBufferBase lay + leafBufferLen lay ≤ 24800 := by fin_cases lay <;> decide
+  have hbase : 21776 ≤ leafBufferBase lay := by fin_cases lay <;> decide
+  have hbound : leafBufferBase lay + leafBufferLen lay ≤ 24896 := by fin_cases lay <;> decide
   rw [ClaudeWCT.W9.T3M.witList_split, window_append_right _ _ _ _ (by
     simp only [List.length_append, headerBytes_length, wctBytes_length, layers_length]; omega)]
   simp only [List.length_append, headerBytes_length, wctBytes_length, layers_length]
@@ -969,12 +1038,12 @@ theorem finalBufferWindow (N : HashOutput) (w : WCT9.Witness) (lay : Layer)
   have hi : 3 - lay.val < (List.finRange 4).reverse.length := by simp; omega
   have he : (List.finRange 4).reverse[3 - lay.val]'hi = lay := by fin_cases lay <;> rfl
   have hp : (((List.finRange 4).reverse.take (3 - lay.val)).map
-      (fun l => (leafBufferBytes w.signature l).length)).sum = leafBufferBase lay - 21712 := by
+      (fun l => (leafBufferBytes w.signature l).length)).sum = leafBufferBase lay - 21776 := by
     simp only [leafBufferBytes_length]; fin_cases lay <;> decide
   have hw := SigGolfCandidate.T3M.window_flatMap (List.finRange 4).reverse (leafBufferBytes w.signature)
     (3 - lay.val) hi off n (by rw [he, leafBufferBytes_length]; exact h)
   rw [hp, he] at hw
-  simpa only [leafBuffersBytes, show leafBufferBase lay + off - (176 + 8080 + 13456) = leafBufferBase lay - 21712 + off by omega]
+  simpa only [leafBuffersBytes, show leafBufferBase lay + off - (176 + 8080 + 13520) = leafBufferBase lay - 21776 + off by omega]
     using hw
 
 theorem endpointBytesWord (sig : WCT9.Signature) (lay : Layer) (off : Nat)
@@ -1016,7 +1085,7 @@ theorem topBufferWindow (sig : WCT9.Signature) (off : Nat) (hb : off + 8 ≤ 912
       exact window_zeros _ _ _ (by omega)
 
 theorem lowerBufferWindow (sig : WCT9.Signature) (lay : Layer) (hL : lay ≠ 0)
-    (off : Nat) (hb : off + 8 ≤ leafBufferLen lay) (ha : off % 8 = 0) :
+    (off : Nat) (hb : off + 8 ≤ 736) (ha : off % 8 = 0) :
     window (leafBufferBytes sig lay) off 8 =
       if off < 16 then window (endpointBytes sig lay) off 8 else if off < 32 then zeros 8
       else if off < 704 then window (endpointBytes sig lay) (off - 16) 8 else zeros 8 := by
@@ -1026,8 +1095,6 @@ theorem lowerBufferWindow (sig : WCT9.Signature) (lay : Layer) (hL : lay ≠ 0)
     all_goals rfl
   have ht : ((endpointBytes sig lay).take 16).length = 16 := by simp [hl]
   have hd : ((endpointBytes sig lay).drop 16).length = 672 := by simp [hl]
-  have hp : off + 8 ≤ 704 + (if lay = 1 ∨ lay = 2 then 16 else 32) := by
-    fin_cases lay <;> simp_all [leafBufferLen]
   simp only [leafBufferBytes, if_neg hL]
   by_cases h16 : off < 16
   · rw [if_pos h16,
@@ -1115,27 +1182,23 @@ set_option maxHeartbeats 3000000
 set_option maxRecDepth 100000
 set_option linter.unusedSimpArgs false
 
-def bufferZeroAddresses : List Nat := [22944, 22952, 23632, 23640, 23648, 23656,
-  23680, 23688, 24368, 24376, 24400, 24408, 25088, 25096,
-  25104, 25112, 25120, 25128, 26000, 26008]
+def bufferZeroAddresses : List Nat := [23008, 23016, 23696, 23704, 23712, 23720, 23744, 23752, 24432, 24440, 24448, 24456, 24480, 24488, 25168, 25176, 25184, 25192, 25200, 25208, 25216, 25224, 26096, 26104]
 def bufferEndpointAddresses : List Nat := (List.finRange 4).flatMap fun lay =>
   (List.range (chainCount lay)).flatMap fun i =>
     [1216 + leafBufferSlot lay i, 1216 + leafBufferSlot lay i + 8]
-theorem buffer_address_coverage : ∀ i : Fin 386,
-    22928 + 8 * i.val ∈ bufferEndpointAddresses ++ bufferZeroAddresses := by decide +kernel
+theorem buffer_address_coverage : ∀ i : Fin 390,
+    22992 + 8 * i.val ∈ bufferEndpointAddresses ++ bufferZeroAddresses := by decide +kernel
 
 theorem bufferMem_zeroAddress (M : Nat → Word) (A : Nat) (h : A ∈ bufferZeroAddresses) :
     Buffer.bufferMem M A = 0 := by
   simp only [bufferZeroAddresses, List.mem_cons, List.not_mem_nil, or_false] at h
-  rcases h with rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl |
-    rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl
+  rcases h with rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl
   all_goals norm_num [Buffer.bufferMem]
 
 theorem serializedMem_zeroAddress (N : HashOutput) (w : WCT9.Witness) (A : Nat)
     (h : A ∈ bufferZeroAddresses) : serializedMem N w A = 0 := by
   simp only [bufferZeroAddresses, List.mem_cons, List.not_mem_nil, or_false] at h
-  rcases h with rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl |
-    rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl
+  rcases h with rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl
   · change BitVec.ofNat 64 (readLE (window (ClaudeWCT.W9.T3M.witList N w) (leafBufferBase 3 + 16) 8)) = 0
     rw [finalBufferWindow N w 3 16 8 (by decide), lowerBufferWindow w.signature 3 (by decide) 16 (by decide) (by decide)]
     norm_num [zeros, readLE] <;> rfl
@@ -1166,6 +1229,12 @@ theorem serializedMem_zeroAddress (N : HashOutput) (w : WCT9.Witness) (A : Nat)
   · change BitVec.ofNat 64 (readLE (window (ClaudeWCT.W9.T3M.witList N w) (leafBufferBase 2 + 712) 8)) = 0
     rw [finalBufferWindow N w 2 712 8 (by decide), lowerBufferWindow w.signature 2 (by decide) 712 (by decide) (by decide)]
     norm_num [zeros, readLE] <;> rfl
+  · change BitVec.ofNat 64 (readLE (window (ClaudeWCT.W9.T3M.witList N w) (leafBufferBase 2 + 720) 8)) = 0
+    rw [finalBufferWindow N w 2 720 8 (by decide), lowerBufferWindow w.signature 2 (by decide) 720 (by decide) (by decide)]
+    norm_num [zeros, readLE] <;> rfl
+  · change BitVec.ofNat 64 (readLE (window (ClaudeWCT.W9.T3M.witList N w) (leafBufferBase 2 + 728) 8)) = 0
+    rw [finalBufferWindow N w 2 728 8 (by decide), lowerBufferWindow w.signature 2 (by decide) 728 (by decide) (by decide)]
+    norm_num [zeros, readLE] <;> rfl
   · change BitVec.ofNat 64 (readLE (window (ClaudeWCT.W9.T3M.witList N w) (leafBufferBase 1 + 16) 8)) = 0
     rw [finalBufferWindow N w 1 16 8 (by decide), lowerBufferWindow w.signature 1 (by decide) 16 (by decide) (by decide)]
     norm_num [zeros, readLE] <;> rfl
@@ -1177,6 +1246,12 @@ theorem serializedMem_zeroAddress (N : HashOutput) (w : WCT9.Witness) (A : Nat)
     norm_num [zeros, readLE] <;> rfl
   · change BitVec.ofNat 64 (readLE (window (ClaudeWCT.W9.T3M.witList N w) (leafBufferBase 1 + 712) 8)) = 0
     rw [finalBufferWindow N w 1 712 8 (by decide), lowerBufferWindow w.signature 1 (by decide) 712 (by decide) (by decide)]
+    norm_num [zeros, readLE] <;> rfl
+  · change BitVec.ofNat 64 (readLE (window (ClaudeWCT.W9.T3M.witList N w) (leafBufferBase 1 + 720) 8)) = 0
+    rw [finalBufferWindow N w 1 720 8 (by decide), lowerBufferWindow w.signature 1 (by decide) 720 (by decide) (by decide)]
+    norm_num [zeros, readLE] <;> rfl
+  · change BitVec.ofNat 64 (readLE (window (ClaudeWCT.W9.T3M.witList N w) (leafBufferBase 1 + 728) 8)) = 0
+    rw [finalBufferWindow N w 1 728 8 (by decide), lowerBufferWindow w.signature 1 (by decide) 728 (by decide) (by decide)]
     norm_num [zeros, readLE] <;> rfl
   · change BitVec.ofNat 64 (readLE (window (ClaudeWCT.W9.T3M.witList N w) (leafBufferBase 0 + 0) 8)) = 0
     rw [finalBufferWindow N w 0 0 8 (by decide), topBufferWindow w.signature 0 (by decide) (by decide)]
@@ -1218,21 +1293,27 @@ theorem mem_bufferEndpointAddresses {A : Nat} (h : A ∈ bufferEndpointAddresses
   · exact ⟨lay,i,8,hi,Or.inr rfl,h⟩
 
 theorem bufferMem_serializer (N : HashOutput) (w : WCT9.Witness) (A : Nat)
-    (hlo : 1216 ≤ A) (hhi : A < 26048) (halign : A % 8 = 0) :
+    (hlo : 1216 ≤ A) (hhi : A < 26144) (halign : A % 8 = 0) :
     Buffer.bufferMem (preBufferMem N w) A = serializedMem N w A := by
-  by_cases hprefix : A < 22928
-  · rw [Buffer.bufferMem, if_neg (by omega), if_neg (by omega)]
+  by_cases h1240 : A = 1240
+  · subst h1240
+    rw [Buffer.bufferMem, if_pos rfl]
+    unfold serializedMem
+    rw [show 1240 - 1216 = 24 from rfl, ClaudeWCT.W9.T3M.win_header_hi]
+    decide
+  by_cases hprefix : A < 22992
+  · rw [Buffer.bufferMem, if_neg h1240, if_neg (by omega), if_neg (by omega)]
     unfold preBufferMem serializedMem
-    rw [preBufferPrefix N w _ 8 (by omega)]
-  by_cases hfooter : 26016 ≤ A
-  · rw [Buffer.bufferMem, if_pos ⟨hfooter,hhi,halign⟩]
+    rw [preBufferPrefix N w _ 8 (by omega) (by omega)]
+  by_cases hfooter : 26112 ≤ A
+  · rw [Buffer.bufferMem, if_neg h1240, if_pos ⟨hfooter,hhi,halign⟩]
     unfold preBufferMem serializedMem
-    rw [show A - 3088 - 1216 = 21712 + (A - 26016) by omega,
-      show A - 1216 = 24800 + (A - 26016) by omega,
+    rw [show A - 3120 - 1216 = 21776 + (A - 26112) by omega,
+      show A - 1216 = 24896 + (A - 26112) by omega,
       preBufferWinTail N w _ 8 (by omega), ClaudeWCT.W9.T3M.win_tail N w _ 8 (by omega)]
-  · have hidx : (A - 22928) / 8 < 386 := by omega
-    have h := buffer_address_coverage ⟨(A - 22928) / 8,hidx⟩
-    have he : 22928 + 8 * ((A - 22928) / 8) = A := by omega
+  · have hidx : (A - 22992) / 8 < 390 := by omega
+    have h := buffer_address_coverage ⟨(A - 22992) / 8,hidx⟩
+    have he : 22992 + 8 * ((A - 22992) / 8) = A := by omega
     simp only [he,List.mem_append] at h
     rcases h with h | h
     · obtain ⟨lay,i,k,hi,hk,rfl⟩ := mem_bufferEndpointAddresses h
@@ -1241,26 +1322,28 @@ theorem bufferMem_serializer (N : HashOutput) (w : WCT9.Witness) (A : Nat)
     · rw [bufferMem_zeroAddress _ _ h,serializedMem_zeroAddress N w _ h]
 
 theorem bufferMem_original_congr (M M' : Nat → Word) (A : Nat)
-    (hlo : 1216 ≤ A) (hhi : A < 26048) (halign : A % 8 = 0)
-    (hmem : ∀ B, 1216 ≤ B → B < 22960 → B % 8 = 0 → M B = M' B) :
+    (hlo : 1216 ≤ A) (hhi : A < 26144) (halign : A % 8 = 0)
+    (hmem : ∀ B, 1216 ≤ B → B < 23024 → B % 8 = 0 → M B = M' B) :
     Buffer.bufferMem M A = Buffer.bufferMem M' A := by
-  by_cases hprefix : A < 22928
-  · rw [Buffer.bufferMem, if_neg (by omega), if_neg (by omega),
-      Buffer.bufferMem, if_neg (by omega), if_neg (by omega)]
+  by_cases h1240 : A = 1240
+  · subst h1240; rw [Buffer.bufferMem, if_pos rfl, Buffer.bufferMem, if_pos rfl]
+  by_cases hprefix : A < 22992
+  · rw [Buffer.bufferMem, if_neg h1240, if_neg (by omega), if_neg (by omega),
+      Buffer.bufferMem, if_neg h1240, if_neg (by omega), if_neg (by omega)]
     exact hmem A hlo (by omega) halign
-  by_cases hfooter : 26016 ≤ A
-  · rw [Buffer.bufferMem, if_pos ⟨hfooter,hhi,halign⟩,
-      Buffer.bufferMem, if_pos ⟨hfooter,hhi,halign⟩]
-    exact hmem (A-3088) (by omega) (by omega) (by omega)
-  · have hidx : (A - 22928) / 8 < 386 := by omega
-    have h := buffer_address_coverage ⟨(A - 22928) / 8,hidx⟩
-    have he : 22928 + 8 * ((A - 22928) / 8) = A := by omega
+  by_cases hfooter : 26112 ≤ A
+  · rw [Buffer.bufferMem, if_neg h1240, if_pos ⟨hfooter,hhi,halign⟩,
+      Buffer.bufferMem, if_neg h1240, if_pos ⟨hfooter,hhi,halign⟩]
+    exact hmem (A-3120) (by omega) (by omega) (by omega)
+  · have hidx : (A - 22992) / 8 < 390 := by omega
+    have h := buffer_address_coverage ⟨(A - 22992) / 8,hidx⟩
+    have he : 22992 + 8 * ((A - 22992) / 8) = A := by omega
     simp only [he,List.mem_append] at h
     rcases h with h | h
     · obtain ⟨lay,i,k,hi,hk,rfl⟩ := mem_bufferEndpointAddresses h
       rw [bufferMem_endpoint _ lay i hi k hk,bufferMem_endpoint _ lay i hi k hk]
       have hb : 1216 ≤ 1216 + chainBlock lay i + 48 + k ∧
-          1216 + chainBlock lay i + 48 + k < 22960 ∧
+          1216 + chainBlock lay i + 48 + k < 23024 ∧
           (1216 + chainBlock lay i + 48 + k) % 8 = 0 := by
         fin_cases lay <;> rcases hk with rfl | rfl
         all_goals norm_num [chainBlock,layerBase,pathSlots,chainCount] at hi ⊢ <;> omega
@@ -1268,22 +1351,22 @@ theorem bufferMem_original_congr (M M' : Nat → Word) (A : Nat)
     · rw [bufferMem_zeroAddress _ _ h,bufferMem_zeroAddress _ _ h]
 
 theorem bufferMem_words (N : HashOutput) (w : WCT9.Witness) (M : Nat → Word)
-    (hmem : ∀ i < 2718, M (1216 + 8*i) = (wordsOf (preBufferWitList N w)).getD i 0)
-    (i : Nat) (hi : i < 3104) :
+    (hmem : ∀ i < 2726, M (1216 + 8*i) = (wordsOf (preBufferWitList N w)).getD i 0)
+    (i : Nat) (hi : i < 3116) :
     Buffer.bufferMem M (1216 + 8*i) = (wordsOf (ClaudeWCT.W9.T3M.witList N w)).getD i 0 := by
-  have hm : ∀ B, 1216 ≤ B → B < 22960 → B % 8 = 0 → M B = preBufferMem N w B := by
+  have hm : ∀ B, 1216 ≤ B → B < 23024 → B % 8 = 0 → M B = preBufferMem N w B := by
     intro B hB hB' h8
-    have hj : (B-1216)/8 < 2718 := by omega
+    have hj : (B-1216)/8 < 2726 := by omega
     have he : B = 1216 + 8*((B-1216)/8) := by omega
     have h := hmem _ hj
-    rw [wordsOf_getD' _ 2718 (preBufferWitList_length N w) _ hj] at h
+    rw [wordsOf_getD' _ 2726 (preBufferWitList_length N w) _ hj] at h
     unfold preBufferMem
     have hz : 8*((B-1216)/8) = B-1216 := by omega
     rw [hz] at h
     simpa only [Nat.add_sub_of_le hB] using h
   rw [bufferMem_original_congr M (preBufferMem N w) _ (by omega) (by omega) (by omega) hm,
     bufferMem_serializer N w _ (by omega) (by omega) (by omega),
-    wordsOf_getD' _ 3104 (ClaudeWCT.W9.T3M.witList_length_eq N w) i hi]
+    wordsOf_getD' _ 3116 (ClaudeWCT.W9.T3M.witList_length_eq N w) i hi]
   unfold serializedMem
   congr 3 <;> omega
 

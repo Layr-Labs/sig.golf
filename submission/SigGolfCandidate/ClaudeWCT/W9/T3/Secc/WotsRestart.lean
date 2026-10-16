@@ -85,7 +85,7 @@ theorem fillTable_frontier (a : ChainAddr) (R : RefTables adversary) (endpoint :
   intro s0
   exact evaluate_const_succ d' endpoint s0
 theorem contact_iff_rowsInv (a : ChainAddr) (R : RefTables adversary) (endpoint : Digest) (memory : List Entry)
-    (observed : Fin (restDepth a R) → Digest → Option Digest) (hinv : RowsInv a memory observed) :
+    (observed : Fin (restDepth a R) → Digest → Option Digest) (hinv : RowsInvW a memory observed) :
     Contact observed endpoint ↔ ContactAt (fillTable a R endpoint) memory a := by
   by_cases hd0 : restDepth a R = 0
   · unfold Contact ContactAt
@@ -95,14 +95,15 @@ theorem contact_iff_rowsInv (a : ChainAddr) (R : RefTables adversary) (endpoint 
       exact absurd i.isLt (by omega)
     · rintro ⟨h, -⟩
       omega
-  unfold Contact ContactAt SeenRow
+  unfold Contact ContactAt SeenRowW
   rw [fillTable_depth, fillTable_frontier a R endpoint (by omega)]
   constructor
   · rintro ⟨i, hi, value, h⟩
     obtain ⟨answer, hm, hl⟩ := (hinv i value endpoint).mp h
-    refine ⟨by omega, value, answer, ?_, hl⟩
-    rw [show restDepth a R - 1 = i.val by omega]
-    exact hm
+    have he : restDepth a R - 1 = i.val := by omega
+    refine ⟨by omega, value, answer, ?_, ?_⟩
+    · rw [he]; exact hm
+    · rw [he]; exact hl
   · rintro ⟨hd, value, answer, hm, hl⟩
     refine ⟨⟨restDepth a R - 1, by omega⟩, by simp only; omega, value, (hinv _ value endpoint).mpr ⟨answer, hm, hl⟩⟩
 end PrefixGame
@@ -443,7 +444,8 @@ theorem fillTable_frontier (a : ChainAddr) (ha : WotsExtract.SourceLeaf7 a.key)
   intro s0
   exact ClaudeWCT.W9.T3.Security.Wots.PrefixGame.evaluate_const_succ d' endpoint s0
 theorem contact_iff_rowsInv (a : ChainAddr) (ha : WotsExtract.SourceLeaf7 a.key) (R : Tables (PairedReference.referenceInputs adversary)) (endpoint : Digest) (memory : List Entry)
-    (observed : Fin (RawPrefix.restDepth a R) → Digest → Option Digest) (hinv : RowsInv a memory observed) :
+    (observed : Fin (RawPrefix.restDepth a R) → Digest → Option Digest)
+    (hinv : ClaudeWCT.W9.T3.Security.Wots.PrefixGame.RowsInvW a memory observed) :
     Contact observed endpoint ↔ ContactAt (fillTable a R endpoint) memory a := by
   by_cases hd0 : RawPrefix.restDepth a R = 0
   · unfold Contact ContactAt CanonicalRef.ContactAt
@@ -454,15 +456,17 @@ theorem contact_iff_rowsInv (a : ChainAddr) (ha : WotsExtract.SourceLeaf7 a.key)
       exact absurd i.isLt (by omega)
     · rintro ⟨h, -⟩
       omega
-  unfold Contact ContactAt CanonicalRef.ContactAt SeenRow
-  change _ ↔ 1 ≤ depth (fillTable a R endpoint) a ∧ ∃ value answer, (chainRow a (depth (fillTable a R endpoint) a - 1) value, answer) ∈ memory ∧ low answer = frontierValue (fillTable a R endpoint) a
+  -- C3 (#866): the contact row is read through the half its step keeps (`SeenRowW`, `RowsInvW`).
+  unfold Contact ContactAt CanonicalRef.ContactAt ClaudeWCT.W9.T3.Security.Wots.SeenRowW
+  change _ ↔ 1 ≤ depth (fillTable a R endpoint) a ∧ ∃ value answer, (chainRow a (depth (fillTable a R endpoint) a - 1) value, answer) ∈ memory ∧ rowHalf a (depth (fillTable a R endpoint) a - 1) answer = frontierValue (fillTable a R endpoint) a
   rw [fillTable_depth a ha, fillTable_frontier a ha R endpoint (by omega)]
   constructor
   · rintro ⟨i, hi, value, h⟩
     obtain ⟨answer, hm, hl⟩ := (hinv i value endpoint).mp h
-    refine ⟨by omega, value, answer, ?_, hl⟩
-    rw [show RawPrefix.restDepth a R - 1 = i.val by omega]
-    exact hm
+    have he : RawPrefix.restDepth a R - 1 = i.val := by omega
+    refine ⟨by omega, value, answer, ?_, ?_⟩
+    · rw [he]; exact hm
+    · rw [he]; exact hl
   · rintro ⟨hd, value, answer, hm, hl⟩
     refine ⟨⟨RawPrefix.restDepth a R - 1, by omega⟩, by simp only; omega, value, (hinv _ value endpoint).mpr ⟨answer, hm, hl⟩⟩
 def ContactAfterStop (Stop : Answers → List Entry → Prop) (T : Answers) (trace : List Entry) (a : ChainAddr) : Prop :=

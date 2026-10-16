@@ -89,7 +89,7 @@ theorem setup_load (s : MachineState) (hsp : s.getReg .x2 = BitVec.ofNat 64 stac
   change s.getMem (s.getReg .x2 + BitVec.ofNat 64 k) = _
   rw [hsp, ofNat_add_ofNat]
 set_option maxRecDepth 100000 in
-theorem gate_orig (w : ClaudeWCT.W9.T3M.WBytes) {u s3 : MachineState} (hw : Orig w (fun o => o ≠ 24816) u)
+theorem gate_orig (w : ClaudeWCT.W9.T3M.WBytes) {u s3 : MachineState} (hw : Orig w (fun o => o ≠ 24912) u)
     (e3 : ∀ A, s3.getMem A = u.getMem A) (m : Nat) (hm9 : m ≤ 9) (off : Nat) (hoff : off < 896) (h8 : off % 8 = 0)
     (hv : m = 9 → 720 ≤ off) : W9Machine.OrigW w s3 (regionAddr m + off) := by
   unfold W9Machine.OrigW
@@ -108,7 +108,7 @@ theorem gate_orig (w : ClaudeWCT.W9.T3M.WBytes) {u s3 : MachineState} (hw : Orig
   unfold regionAddr WIT at *
   omega
 set_option maxRecDepth 100000 in
-theorem gate_slot (w : ClaudeWCT.W9.T3M.WBytes) {u s3 : MachineState} (hw : Orig w (fun o => o ≠ 24816) u)
+theorem gate_slot (w : ClaudeWCT.W9.T3M.WBytes) {u s3 : MachineState} (hw : Orig w (fun o => o ≠ 24912) u)
     (e3 : ∀ A, s3.getMem A = u.getMem A) (o : Nat) (ho : o = 720 ∨ o = 864) :
     DigAt s3 (regionAddr 0 + o) (wdig w (V3.regionOffset 0 + o)) := by
   have h0 := gate_orig w hw e3 0 (by decide) o (by omega) (by omega) (fun h => absurd h (by decide))
@@ -154,7 +154,7 @@ theorem gate_ult_const (a : HashOutput) :
     show (BitVec.ofNat 64 (734 * 2^50)).toNat = 734 * 2^50 from rfl,
     decide_eq_decide]
   omega
-theorem gate_slot (w : ClaudeWCT.W9.T3M.WBytes) {u s3 : MachineState} (hw : Orig w (fun o => o ≠ 24816) u)
+theorem gate_slot (w : ClaudeWCT.W9.T3M.WBytes) {u s3 : MachineState} (hw : Orig w (fun o => o ≠ 24912) u)
     (e3 : ∀ A, s3.getMem A = u.getMem A) (o : Nat) (ho : o = 720 ∨ o = 160) :
     DigAt s3 (regionAddr 0 + o) (wdig w (V3.regionOffset 0 + o)) := by
   have h0 := gate_orig w hw e3 0 (by decide) o (by omega) (by omega) (fun h => absurd h (by decide))
@@ -269,8 +269,7 @@ theorem good
         stepOne := rfl, stepTwo := rfl, hashLen := ?_, coordStep := rfl,
         nodeReg := ?_, cached3 := ?_, cached := ?_,
         mask := ?_, childMask := rfl, aTable := ?_, jt := hjt, childBlock := hchild, singletonTable := ?_, baseReg := hbase, pairPtr := ?_,
-        prevL := ?_, prevR := ?_, a2 := fun h => absurd h (Nat.lt_irrefl 0), coords := ?_, layer := ?_,
-        hoist := fun h => absurd h (by decide) }
+        prevL := ?_, prevR := ?_, a2 := fun h => absurd h (Nat.lt_irrefl 0), coords := ?_, layer := ?_ }
       · intro k hk; rw [e3]; exact hu.digest k hk
       · exact ⟨fun k hk => (e3 _).trans (hu.bank.top k hk), (e3 _).trans hu.bank.top8⟩
       · exact ⟨(e3 _).trans hu.forest.zero0, (e3 _).trans hu.forest.zero1, (e3 _).trans hu.forest.header⟩

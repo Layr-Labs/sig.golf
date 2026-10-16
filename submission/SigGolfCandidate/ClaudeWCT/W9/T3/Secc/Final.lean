@@ -2578,16 +2578,11 @@ def ContactFirstEvent (s : RefSample) : Prop := ∃ a, WotsExtract.SourceChain7 
 def Combined (s : RefSample) : Prop :=
  CanonicalExtract.WotsPrimitiveSrc s.answers (CanonicalRef.sourceMessages s.answers) s.trace ∨
    PairedReference.StructuralHitTrace s.answers s.trace
+/-- Stage 2 (C3, #866): `RowPad` is a triple (the row tweak's high word is a witness pad), so this is #866's
+`SmallA.chainRow_ne_encRow` (chain headers and row tweaks differ in their marker byte). -/
 theorem chainRow_ne_encRow (a : ChainAddr) (s : Nat) (v : Digest) (L : LeafAddr) (m : WCT9.LayerMsg)
-    (c : BitVec 32) (pad : RowPad) : chainRow a s v ≠ encRow L m c pad := by
-  intro h
-  have hb := congrArg ClaudeWCT.W9.T3M.Extract.hdrBlock h
-  have h1 : ClaudeWCT.W9.T3M.Extract.hdrBlock (chainRow a s v) =
-      SphincsSecurity.bytesLE 16 (chainHeader a.key.lay a.key.tree a.key.leaf a.chain s) :=
-    SigGolfCandidate.T3.chainInput_header _ _ _ _ _ _
-  rw [h1, show encRow L m c pad = pad64 (layerEncodingInputP L.lay L.tree L.leaf m c pad.1 pad.2) from rfl,
-    ClaudeWCT.W9.T3M.BC.hdrBlock_layerEncodingInputP] at hb
-  exact chainHeader_ne_rowTweak _ _ _ _ _ _ _ _ (SphincsSecurity.bytesLE_injective hb)
+    (c : BitVec 32) (pad : RowPad) : chainRow a s v ≠ encRow L m c pad :=
+  ClaudeWCT.W9.T3.Security.Wots.SmallA.chainRow_ne_encRow a s v L m c pad
 
 theorem markerContact_split (T : Answers) (trace : List Entry) (a : ChainAddr)
     (hm : CanonicalRef.MarkerAt T (CanonicalRef.sourceMessages T) trace a) (hc : CanonicalRef.ContactAt T (CanonicalRef.sourceMessages T) trace a) : MarkerFirst T trace a ∨ ContactFirst T trace a := by
@@ -3710,9 +3705,8 @@ attribute [local instance] Classical.propDecidable
 theorem ftsHitIn_false (A : Answers) (K : LargeResidual.Coord → Prop) (qs : List Spec.Domain)
     (h : Extract.Paired.FtsHitIn A qs) (hclear : AllClear A K qs) : False := by
   obtain ⟨p,x,hfts,hb,hq,hh,hs⟩ := h
-  have hp : Extract.posOf x = some p := by
-    apply Extract.posOf_key_eq hb.legacy
-    rw [hs,Extract.Paired.hdrBlock_honestInput,Extract.Pos.canonicalHeader_eq hb.legacy]
+  -- #866: `SameHeader` is `length ∧ hdrKey`; `posOf_sameHeader` is its paired `posOf_key_eq`.
+  have hp : Extract.posOf x = some p := Extract.Paired.posOf_sameHeader A p hb.legacy x hs
   apply paired_hit_false A K qs p x hq hp hb _ hh hclear
   cases p with
   | chain | leaf | node | forest => exact hfts.elim

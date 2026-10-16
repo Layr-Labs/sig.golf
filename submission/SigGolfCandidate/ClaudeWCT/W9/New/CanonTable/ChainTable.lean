@@ -122,7 +122,7 @@ theorem cell_outer (secrets secrets' : Secrets) (labels labels' : Labels)
         apply List.map_congr_left
         intro i _
         unfold endLabel
-        rw [hseeds, hchain]
+        rw [hl _ (fun ⟨a, q, _, he⟩ => Node.noConfusion he)]
       simp only [cell, hends]
   | node n =>
       simp only [cell, treeLabel_outer labels labels' hl]

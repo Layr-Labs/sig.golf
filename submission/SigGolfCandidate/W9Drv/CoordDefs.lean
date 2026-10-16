@@ -46,7 +46,8 @@ structure CoordPre (pk : Digest) (w : ClaudeWCT.W9.T3M.WBytes) (a : HashOutput) 
     u.getReg .x12 = BitVec.ofNat 64 (regionAddr n + 848)
   coords : ∀ m, n ≤ m → m ≤ 9 → ∀ off, off < 896 → off % 8 = 0 → (m = 9 → 720 ≤ off) →
     (m = n → ¬ V3.isHand off) → W9Machine.OrigW w u (regionAddr m + off)
-  layer : Orig w (fun o => (32 ≤ o ∧ o < 48) ∨ (8256 ≤ o ∧ o < 24800)) u
+  /-- C3 (FULL): witness word 3 (the L3 encoding's row-tweak high word) is still original. -/
+  layer : Orig w (fun o => (24 ≤ o ∧ o < 48) ∨ (8256 ≤ o ∧ o < 24896)) u
 end W9Drv
 
 namespace W9Drv.SharedCoord
@@ -55,7 +56,9 @@ open SigGolfCandidate.Rv SigGolfCandidate.T3M SigGolfCandidate.T3M.Verify W9Mach
 open SigGolfCandidate.T3 (Digest HashOutput)
 
 def rankPad : Word := 0x1801801800000
-def dispatchPc (n : Nat) : Nat := [89,171,257,341,425,511,595,679,765,853].getD n 853
+/-- Dispatch word of coordinate `n`; `n = 9` is the L3 entry (word 854, stage 2: the merged singleton returns with
+`jalr zero,312(ra)`). -/
+def dispatchPc (n : Nat) : Nat := [89,171,257,341,425,511,595,679,765,854].getD n 854
 
 def prevOf (w : ClaudeWCT.W9.T3M.WBytes) (pairs : List (Digest × Digest)) : Digest × Digest :=
   pairs.getLastD (SharedV3.initialPair w)
@@ -93,13 +96,15 @@ structure Pre (pk : Digest) (w : ClaudeWCT.W9.T3M.WBytes) (a : HashOutput) (n : 
   pairPtr : u.getReg .x9 = BitVec.ofNat 64 TOPB9
   prevL : DigAt u (regionAddr n + 720) (prevOf w pairs).1
   prevR : DigAt u (regionAddr n + SharedV3.handR n) (prevOf w pairs).2
-  a2 : 0 < n → u.getReg .x12 = BitVec.ofNat 64 (regionAddr n + (if n = 9 then 720 else 704)) ∨
+  /-- `a2` after the previous coordinate's last heap hash: a high-half hand-off at `+ 704` (direction 0; for `n = 9`
+  the singleton's left root, stage 2 Cm: `regionAddr 9 + 704 = WIT - 16`), else `+ 144` / the singleton's low right
+  root at `+ 768 = WIT + 48`. (The first disjunct keeps its stage-1 `if n = 9` shape, now with equal branches, so the
+  `split_ifs` proofs of the coordinate step are unchanged.) -/
+  a2 : 0 < n → u.getReg .x12 = BitVec.ofNat 64 (regionAddr n + (if n = 9 then 704 else 704)) ∨
     u.getReg .x12 = BitVec.ofNat 64 (regionAddr n + (if n = 9 then 768 else 144))
   coords : ∀ m, n ≤ m → m ≤ 9 → ∀ off, off < 896 → off % 8 = 0 → (m = 9 → 720 ≤ off) →
     (m = n → ¬ isHand n off) → W9Machine.OrigW w u (regionAddr m + off)
-  layer : Orig w (fun o => (32 ≤ o ∧ o < 48) ∨ (8256 ≤ o ∧ o < 24800)) u
-  /-- Coordinate-8 dispatch hoist: coordinate 7's dispatcher ends with `srli tp,a7,17` (word 689, after its
-  `or a7,a7,s8`), and no chain or B′ child routine of coordinate 7 writes `tp` or `a7`, so coordinate 8's dispatcher
-  finds its shared shift `a7 >>> 17` already in `tp`. -/
-  hoist : n = 8 → u.getReg .x4 = u.getReg .x17 >>> 17
+  /-- C3 (stage 2): witness word 3 (the L3 row tweak's high word, a pad) is original; the merged singleton never
+  writes `WIT + 16 .. WIT + 48`. -/
+  layer : Orig w (fun o => (24 ≤ o ∧ o < 48) ∨ (8256 ≤ o ∧ o < 24896)) u
 end W9Drv.SharedCoord

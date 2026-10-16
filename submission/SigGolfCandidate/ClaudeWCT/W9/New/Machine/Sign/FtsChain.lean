@@ -1826,23 +1826,81 @@ theorem oddB_holds (s : MachineState) {h : Nat} (h18:s.getReg .x18=BitVec.ofNat 
   rw[h18,ofNat_and_one h hh,ofNat_bne (by omega) (by decide),
     show decide (h%2≠0)=decide (h%2=1) from decide_eq_decide.mpr (by omega)]
 
+/-- Stage 2 (C stub): `addi t1,s2,-2; beq t1,zero` tests `heap = 2`. -/
+theorem eq2B_holds (s : MachineState) {h : Nat} (h18:s.getReg .x18=BitVec.ofNat 64 h) (hh:h<2^64) (d : Bool) :
+    (eq2B d).holds s ↔ decide (h=2)=d := by
+  unfold eq2B
+  change ((s.getReg .x18+BitVec.ofNat 64 (2^64-2) == BitVec.ofNat 64 0)=d) ↔ _
+  rw[h18,ofNat_add_ofNat]
+  have e:(BitVec.ofNat 64 (h+(2^64-2)) == BitVec.ofNat 64 0)=decide (h=2):=by
+    by_cases h2:h=2
+    · subst h2
+      rw[decide_eq_true rfl]
+      decide
+    · have hne:BitVec.ofNat 64 (h+(2^64-2))≠BitVec.ofNat 64 0:=by
+        intro he
+        have ht:=congrArg BitVec.toNat he
+        simp only[BitVec.toNat_ofNat] at ht
+        omega
+      rw[decide_eq_false h2]
+      exact beq_eq_false_iff_ne.mpr hne
+  rw[e]
+
+/-- The stub's first test of coordinate `c`: the class-0 (HIGH top heap) condition of `cls`. -/
+theorem topB_holds (s : MachineState) {c h : Nat} (h18:s.getReg .x18=BitVec.ofNat 64 h) (hh:h<2^64) (d : Bool) :
+    (topB c d).holds s ↔ decide ((c≠8 ∧ h<halfLimit c) ∨ (c=8 ∧ h=2))=d := by
+  have hl:halfLimit c<2^64:=by unfold halfLimit;split <;> omega
+  unfold topB
+  by_cases hc:c=8
+  · rw[if_pos hc,eq2B_holds s h18 hh]
+    have e:decide ((c≠8 ∧ h<halfLimit c) ∨ (c=8 ∧ h=2))=decide (h=2):=
+      decide_eq_decide.mpr ⟨fun hx=>by rcases hx with hx|hx <;> omega,fun hx=>Or.inr ⟨hc,hx⟩⟩
+    rw[e]
+  · rw[if_neg hc,ltB_holds s h18 hh hl]
+    have e:decide ((c≠8 ∧ h<halfLimit c) ∨ (c=8 ∧ h=2))=decide (h<halfLimit c):=
+      decide_eq_decide.mpr ⟨fun hx=>by rcases hx with hx|hx <;> omega,fun hx=>Or.inl ⟨hc,hx⟩⟩
+    rw[e]
+
 theorem stub_branches_hold (s : MachineState) {c h : Nat} (hh:h<128)
     (h18:s.getReg .x18=BitVec.ofNat 64 h) : ∀b∈stubBranches c (cls c h),b.holds s := by
-  have hl:halfLimit c<2^64:=by unfold halfLimit;split <;> omega
-  have hL:halfLimit c≤8:=by unfold halfLimit;split <;> omega
+  -- (case split by hand, no split_ifs: see the stage-1 notes on `False` literals)
   have L16:=ltB_holds s h18 (show h<2^64 by omega) (show 16<2^64 by decide)
-  have LH:=ltB_holds s h18 (show h<2^64 by omega) hl
+  have T:=topB_holds s (c:=c) h18 (show h<2^64 by omega)
   have O:=oddB_holds s h18 (show h<2^64 by omega)
+  have e0:stubBranches c 0=[topB c true]:=rfl
+  have e1:stubBranches c 1=[ltB 16 true,topB c false]:=rfl
+  have e2:stubBranches c 2=[oddB true,ltB 16 false,topB c false]:=rfl
+  have e3:stubBranches c 3=[oddB false,ltB 16 false,topB c false]:=rfl
   intro b hb
-  unfold stubBranches cls at hb
-  split_ifs at hb <;> simp only[List.mem_cons,List.not_mem_nil,or_false] at hb <;>
-    (try rcases hb with rfl|rfl|rfl) <;>
-    first
-    | exact (L16 _).mpr (by simp;omega)
-    | exact (LH _).mpr (by simp;omega)
-    | exact (O _).mpr (by simp;omega)
-    | contradiction
-    | omega
+  by_cases hP:(c≠8 ∧ h<halfLimit c) ∨ (c=8 ∧ h=2)
+  · have hk:cls c h=0:=by unfold cls;rw[if_pos hP]
+    rw[hk,e0] at hb
+    simp only[List.mem_cons,List.not_mem_nil,or_false] at hb
+    subst hb
+    exact (T true).mpr (decide_eq_true hP)
+  · have hn:=(T false).mpr (decide_eq_false hP)
+    by_cases h16:h<16
+    · have hk:cls c h=1:=by unfold cls;rw[if_neg hP,if_pos h16]
+      rw[hk,e1] at hb
+      simp only[List.mem_cons,List.not_mem_nil,or_false] at hb
+      rcases hb with rfl|rfl
+      · exact (L16 true).mpr (decide_eq_true h16)
+      · exact hn
+    · by_cases hodd:h%2=1
+      · have hk:cls c h=2:=by unfold cls;rw[if_neg hP,if_neg h16,if_pos hodd]
+        rw[hk,e2] at hb
+        simp only[List.mem_cons,List.not_mem_nil,or_false] at hb
+        rcases hb with rfl|rfl|rfl
+        · exact (O true).mpr (decide_eq_true hodd)
+        · exact (L16 false).mpr (decide_eq_false h16)
+        · exact hn
+      · have hk:cls c h=3:=by unfold cls;rw[if_neg hP,if_neg h16,if_neg hodd]
+        rw[hk,e3] at hb
+        simp only[List.mem_cons,List.not_mem_nil,or_false] at hb
+        rcases hb with rfl|rfl|rfl
+        · exact (O false).mpr (decide_eq_false hodd)
+        · exact (L16 false).mpr (decide_eq_false h16)
+        · exact hn
 
 theorem cycles_le (c k : Nat) : cycles c k≤22 := by unfold cycles;split_ifs <;> omega
 

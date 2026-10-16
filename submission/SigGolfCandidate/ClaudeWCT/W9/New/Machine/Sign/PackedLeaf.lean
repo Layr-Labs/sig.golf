@@ -396,14 +396,14 @@ theorem lower_blocks {lay : Layer} (h : lay ≠ 0) : leafBlocks lay = 11 := by
 def leafStepB (lay : Layer) (tree leaf : Nat) (digits : List Nat) (coefs : List Digest)
     (state : List Digest × List Digest) (i : Nat) : SigGolfCandidate.T3.M (List Digest × List Digest) := do
   let digit := digits.getD i 0
-  let value ← SigGolfCandidate.T3.chain lay tree leaf i 0 digit (WCT9.lowerFamilySeed coefs i)
-  let last ← SigGolfCandidate.T3.chain lay tree leaf i digit (maxDigit lay i - digit) value
+  let value ← WCT9.chainW lay tree leaf i 0 digit (WCT9.lowerFamilySeed coefs i)
+  let last ← WCT9.chainW lay tree leaf i digit (maxDigit lay i - digit) value
   pure (state.1 ++ [last], state.2 ++ [value])
 theorem buildLeafPF_eq (lay : Layer) (tree leaf : Nat) (digits : List Nat) (carry : Digest) :
     WCT9.buildLeafPF lay tree leaf digits carry = (do
       let coefs ← WCT9.lowerCoefs lay tree leaf carry
       let rows ← (List.range (chainCount lay)).foldlM (leafStepB lay tree leaf digits coefs.1) ([], [])
-      let root ← SigGolfCandidate.T3.leafHash lay tree leaf rows.1
+      let root ← WCT9.lowerLeafHash lay tree leaf rows.1
       pure ((root, rows.2), coefs.2)) := rfl
 
 section chain
@@ -414,9 +414,9 @@ theorem chain_cont (hlay : A.lay ≠ 0) (hso : A.so = false) {j : Nat} (hj : j <
     {st : List Digest × List Digest} (u : MachineState) (seed carry : Digest) (upc : u.pc = pcOf (1013 + 61))
     (hu : LeafInv s0 A j st u) (h28 : u.getReg .x28 = BitVec.ofNat 64 0) (hseed : DigAt u SEEDS seed)
     (hc : DigAt u (SEEDS + 16) carry) :
-    TSim Sign.image sk u (16 + (rungK A.lay * A.e j + 10) + (4 + (11 + slotK A.lay j)))
-      (16 + (rungC A.lay * A.e j + 10) + (4 + (11 + slotK A.lay j))) (A.e j) (A.e j)
-      ((fun r : Digest × Digest => (st.1 ++ [r.2], st.2 ++ [r.1])) <$> chainProg A j seed)
+    TSim Sign.image sk u (16 + Sign.Seed.chainK A.lay j (A.e j) + (4 + (11 + slotK A.lay j)))
+      (16 + Sign.Seed.chainCy A.lay j (A.e j) + (4 + (11 + slotK A.lay j))) (A.e j) (A.e j)
+      ((fun r : Digest × Digest => (st.1 ++ [r.2], st.2 ++ [r.1])) <$> Sign.Seed.chainProgW A j seed)
       (fun st' w => w.pc = pcOf (1013 + 41) ∧ LeafInv s0 A (j + 1) st' w ∧ DigAt w (SEEDS + 16) carry) := by
   have hsub := Sign.SeedIndependent.seedIndependentAt_sign
   have hn : A.n = 43 := lower_n hlay
@@ -435,7 +435,7 @@ theorem chain_cont (hlay : A.lay ≠ 0) (hso : A.so = false) {j : Nat} (hj : j <
   rw [map_eq_bind_pure_comp]
   refine (TSim.steps st0 (TSim.bind (k₂ := 4 + (11 + slotK A.lay j))
     (c₂ := 4 + (11 + slotK A.lay j)) (n₂ := 0) (b₂ := 0) hch (fun r w hw => ?_))).of_eq
-    (by unfold chainProg; rfl) (by omega) (by omega) (by simp) (by simp)
+    (by unfold Sign.Seed.chainProgW; rfl) (by omega) (by omega) (by simp) (by simp)
   obtain ⟨wpc, hwv, hwl, hwr, hwf⟩ := hw
   obtain ⟨x, stx, xpc, hx, hfx⟩ := Sign.Seed.leaf_postchainS hsub sk hpre hj hu wpc (u0r.trans hwr)
     (u0f.trans hwf) r.1 r.2 hwv hwl
@@ -450,7 +450,7 @@ theorem chain_cont (hlay : A.lay ≠ 0) (hso : A.so = false) {j : Nat} (hj : j <
   · unfold ChainW; omega
   · unfold ChainW; omega
 
-def chainC : Nat := 5 + lowerSeedC + 364
+def chainC : Nat := 5 + lowerSeedC + 403
 /-- State before chain `j` of a lower leaf (`j = 0`: at `SEED` after the coefficient loop). -/
 structure FSt (s0 : MachineState) (A : LeafArgs) (coefs : List Digest) (carry : Digest) (j : Nat)
     (st : List Digest × List Digest) (u : MachineState) : Prop where
@@ -503,17 +503,18 @@ theorem chain_step (hlay : A.lay ≠ 0) (hso : A.so = false) (hvS : A.valp + 16 
     (hu.carry.frame vf (by decide) (by simp) (by simp)).frame wf (by decide) (by decide) (by decide)
   have hcont := chain_cont sk hpre' hlay hso (j := j) (by omega) (st := st) w (WCT9.lowerFamilySeed coefs j) carry
     (by rw [wpc]) hinvw w28 wseed hcw'
-  have hk : 16 + (rungK A.lay * A.e j + 10) + (4 + (11 + slotK A.lay j)) ≤
-      16 + (rungC A.lay * A.e j + 10) + (4 + (11 + slotK A.lay j)) := by
-    have h1 : rungK A.lay ≤ rungC A.lay := by unfold rungK rungC; omega
-    have := Nat.mul_le_mul_right (A.e j) h1
+  have hk : 16 + Sign.Seed.chainK A.lay j (A.e j) + (4 + (11 + slotK A.lay j)) ≤
+      16 + Sign.Seed.chainCy A.lay j (A.e j) + (4 + (11 + slotK A.lay j)) := by
+    have := Sign.Seed.chainK_le_chainCy A.lay j (A.e j)
     omega
-  have hc364 : 16 + (rungC A.lay * A.e j + 10) + (4 + (11 + slotK A.lay j)) ≤ 364 := by
-    rw [lower_e hlay hso j, lower_rungC hlay, Sign.Seed.slotK_low hlay j]
+  have hc364 : 16 + Sign.Seed.chainCy A.lay j (A.e j) + (4 + (11 + slotK A.lay j)) ≤ 403 := by
+    rw [lower_e hlay hso j, Sign.Seed.chainCy_low hlay, lower_rungC hlay, Sign.Seed.slotK_low hlay j]
     split_ifs <;> omega
   have heq : leafStepB A.lay A.tree A.leaf A.digits coefs st j =
-      (fun r : Digest × Digest => (st.1 ++ [r.2], st.2 ++ [r.1])) <$> chainProg A j (WCT9.lowerFamilySeed coefs j) := by
-    simp only [leafStepB, chainProg, LeafArgs.e, LeafArgs.d, hso, Bool.false_eq_true, if_false, map_bind, map_pure]
+      (fun r : Digest × Digest => (st.1 ++ [r.2], st.2 ++ [r.1])) <$>
+        Sign.Seed.chainProgW A j (WCT9.lowerFamilySeed coefs j) := by
+    simp only [leafStepB, Sign.Seed.chainProgW, LeafArgs.e, LeafArgs.d, hso, Bool.false_eq_true, if_false, map_bind,
+      map_pure]
   rw [heq]
   refine TBSim.mono (TBSim.steps (sv.trans sw) ((hcont.toTBSim hk).mono hc364 (fun st' x hx => ?_)))
     (by unfold chainC; omega) (fun _ _ h => h)
@@ -556,7 +557,7 @@ theorem buildLeafPF_tbsim (hlay : A.lay ≠ 0) (hso : A.so = false) (hpc : s0.pc
   have hc1 : A.leaf % 2 = 1 → DigAt t1 (SEEDS + 16) carry := fun h =>
     (hcar h).frame t1f (by omega) (by omega) (by omega)
   rw [buildLeafPF_eq]
-  refine TBSim.mono (TBSim.steps st1 (TBSim.bind (W₂ := 43 * chainC + 106)
+  refine TBSim.mono (TBSim.steps st1 (TBSim.bind (W₂ := 43 * chainC + 112)
     (coef_phase sk hpre hlay h0 hs1 t1pc hc1) (fun cs u hu => ?_))) (by unfold lowLeafC coefC chainC lowerSeedC hornStepC; omega)
     (fun _ _ h => h)
   obtain ⟨upc, ucoef, ulen, ucarry, ur, uf⟩ := hu
@@ -578,7 +579,7 @@ theorem buildLeafPF_tbsim (hlay : A.lay ≠ 0) (hso : A.so = false) (hpc : s0.pc
     (fun j hj st x hx => by simpa using chain_step sk hpre hlay hso hvS hdS hdestS ulen hj hx) hF0
   rw [show List.range' 0 43 = List.range (chainCount A.lay) by rw [lower_n hlay]; exact List.range_eq_range'.symm]
     at hfold
-  refine TBSim.bind (W₁ := 43 * chainC) (W₂ := 106) hfold (fun rows x hx => ?_)
+  refine TBSim.bind (W₁ := 43 * chainC) (W₂ := 112) hfold (fun rows x hx => ?_)
   obtain ⟨xpc, -, ⟨s3, hs3, hinv3⟩, xcarry⟩ := hx
   have hpre3 := LeafPreS.transfer hpre hs3.regs hs3.base hdS
   rw [show (43 : Nat) = A.n from hn.symm] at hinv3
@@ -1345,7 +1346,7 @@ theorem buildLeafPrefixes_tbsim {im : Image} (hsub : Sign.SharedLeafCode.Code im
   have hc1 : A.leaf % 2 = 1 → DigAt t1 (SEEDS + 16) carry := fun h =>
     (hcar h).frame t1f (by omega) (by omega) (by omega)
   unfold SigGolfCandidate.Research.SharedForest.buildLeafPrefixes
-  refine TBSim.mono (TBSim.steps st1 (TBSim.bind (W₂ := 43 * chainC + 106)
+  refine TBSim.mono (TBSim.steps st1 (TBSim.bind (W₂ := 43 * chainC + 112)
     (coef_phase hsub hnew hhook sk hpre hlay h0 hs1 t1pc hc1) (fun cs u hu => ?_))) (by unfold lowLeafC coefC chainC lowerSeedC hornStepC; omega)
     (fun _ _ h => h)
   obtain ⟨upc, ucoef, ulen, ucarry, ur, uf⟩ := hu
@@ -1381,7 +1382,7 @@ theorem buildLeafPrefixes_tbsim {im : Image} (hsub : Sign.SharedLeafCode.Code im
     have hm : maxDigit A.lay i=7 := by unfold maxDigit; rw [if_neg hlay]
     rw [hm]
   rw [heq] at hfold
-  refine TBSim.bind (W₁:=43*chainC) (W₂:=106) hfold (fun rows x hx => ?_)
+  refine TBSim.bind (W₁:=43*chainC) (W₂:=112) hfold (fun rows x hx => ?_)
   obtain ⟨xpc,_,⟨s3,values,hs3,hinv3⟩,xlen,xcarry,xsaved⟩ := hx
   have hpre3 := LeafPreS.transfer hpre hs3.regs hs3.base hdS
   rw [show (43 : Nat)=A.n from hn.symm] at hinv3
@@ -1522,11 +1523,11 @@ theorem mapM_bind_len {α γ β : Type} (f : γ → M α) :
 theorem chainPrefixes_bind_last {α : Type} (lay : Layer) (tree leaf i start count : Nat)
     (v : Digest) (f : Digest → M α) :
     (chainPrefixes lay tree leaf i start count v >>= fun vs => f (vs.getD count 0)) =
-      (chain lay tree leaf i start count v >>= f) := by
+      (ClaudeWCT.WCT9.chainW lay tree leaf i start count v >>= f) := by
   induction count generalizing start v with
-  | zero => simp only [chainPrefixes,chain,List.range'_zero,List.foldlM_nil,pure_bind,List.getD_cons_zero]
+  | zero => simp only [chainPrefixes,ClaudeWCT.WCT9.chainW,List.range'_zero,List.foldlM_nil,pure_bind,List.getD_cons_zero]
   | succ count ih =>
-    simp only [chainPrefixes,chain,List.range'_succ,List.foldlM_cons,bind_assoc,pure_bind,List.getD_cons_succ]
+    simp only [chainPrefixes,ClaudeWCT.WCT9.chainW,List.range'_succ,List.foldlM_cons,bind_assoc,pure_bind,List.getD_cons_succ]
     apply bind_congr
     intro v'
     exact ih _ _
@@ -1534,7 +1535,7 @@ theorem chainPrefixes_bind_last {α : Type} (lay : Layer) (tree leaf i start cou
 theorem mapM_prefixEnds {α : Type} (lay : Layer) (tree leaf : Nat) (seed : Nat → Digest)
     (xs : List Nat) (k : List Digest → M α) :
     (xs.mapM (fun i => chainPrefixes lay tree leaf i 0 7 (seed i)) >>= fun ps => k (ends ps)) =
-      (xs.mapM (fun i => chain lay tree leaf i 0 7 (seed i)) >>= k) := by
+      (xs.mapM (fun i => ClaudeWCT.WCT9.chainW lay tree leaf i 0 7 (seed i)) >>= k) := by
   induction xs generalizing k with
   | nil => simp only [List.mapM_nil,pure_bind,ends,List.map_nil]
   | cons i xs ih =>
@@ -1544,18 +1545,18 @@ theorem mapM_prefixEnds {α : Type} (lay : Layer) (tree leaf : Nat) (seed : Nat 
         k (vs.getD 7 0 :: ends ps)) = _
     have hh : ∀ vs : List Digest, ((xs.mapM (fun j => chainPrefixes lay tree leaf j 0 7 (seed j))) >>= fun ps =>
         k (vs.getD 7 0 :: ends ps)) =
-      (xs.mapM (fun j => chain lay tree leaf j 0 7 (seed j)) >>= fun ds => k (vs.getD 7 0 :: ds)) :=
+      (xs.mapM (fun j => ClaudeWCT.WCT9.chainW lay tree leaf j 0 7 (seed j)) >>= fun ds => k (vs.getD 7 0 :: ds)) :=
       fun vs => ih (fun ds => k (vs.getD 7 0 :: ds))
     simp only [hh]
     exact chainPrefixes_bind_last lay tree leaf i 0 7 (seed i)
-      (fun last => xs.mapM (fun j => chain lay tree leaf j 0 7 (seed j)) >>= fun ds => k (last::ds))
+      (fun last => xs.mapM (fun j => ClaudeWCT.WCT9.chainW lay tree leaf j 0 7 (seed j)) >>= fun ds => k (last::ds))
 
 theorem leafRows_forget {α : Type} (lay : Layer) (tree leaf : Nat) (seed : Nat → Digest)
     (xs : List Nat) (state : List Digest × List Digest) (k : List Digest → M α) :
     (xs.foldlM (fun st i => do
-        let last ← chain lay tree leaf i 0 7 (seed i)
+        let last ← ClaudeWCT.WCT9.chainW lay tree leaf i 0 7 (seed i)
         pure (st.1++[last],st.2++[seed i])) state >>= fun st => k st.1) =
-      (xs.mapM (fun i => chain lay tree leaf i 0 7 (seed i)) >>= fun ds => k (state.1++ds)) := by
+      (xs.mapM (fun i => ClaudeWCT.WCT9.chainW lay tree leaf i 0 7 (seed i)) >>= fun ds => k (state.1++ds)) := by
   induction xs generalizing state with
   | nil => simp only [List.foldlM_nil,List.mapM_nil,pure_bind,List.append_nil]
   | cons i xs ih =>
@@ -1572,11 +1573,11 @@ theorem buildLeafPrefixes_forget {α : Type} (lay : Layer) (hlay : lay≠0)
   have hn : chainCount lay=43 := ClaudeWCT.W9.Machine.Sign.PackedLeaf.lower_n hlay
   have hm : ∀ i,maxDigit lay i=7 := by intro i; unfold maxDigit; rw [if_neg hlay]
   unfold buildLeafPrefixes ClaudeWCT.WCT9.buildLeafPF
-  have hz : ∀ i v, chain lay tree leaf i 0 0 v = pure v := fun _ _ => rfl
+  have hz : ∀ i v, ClaudeWCT.WCT9.chainW lay tree leaf i 0 0 v = pure v := fun _ _ => rfl
   simp only [bind_assoc,pure_bind,List.getD_nil,hz,Nat.sub_zero,hm]
   apply bind_congr
   intro cs
-  rw [leafRows_forget (k := fun ds => leafHash lay tree leaf ds >>= fun root => k root cs.2)]
+  rw [leafRows_forget (k := fun ds => ClaudeWCT.WCT9.lowerLeafHash lay tree leaf ds >>= fun root => k root cs.2)]
   simp only [List.nil_append]
   -- The successful map has exactly one prefix list per chain.
   have hp : ∀ ps : List (List Digest), ps.length=43 →
@@ -1586,16 +1587,16 @@ theorem buildLeafPrefixes_forget {α : Type} (lay : Layer) (hlay : lay≠0)
   -- Use the dependent-length fact in the map before forgetting its prefixes.
   have mapEq : ((List.range (chainCount lay)).mapM
       (fun i => chainPrefixes lay tree leaf i 0 7 (ClaudeWCT.WCT9.lowerFamilySeed cs.1 i)) >>= fun ps =>
-        (leafHash lay tree leaf ((List.range (chainCount lay)).map fun i => (ps.getD i []).getD 7 0) >>= fun root => k root cs.2)) =
+        (ClaudeWCT.WCT9.lowerLeafHash lay tree leaf ((List.range (chainCount lay)).map fun i => (ps.getD i []).getD 7 0) >>= fun root => k root cs.2)) =
       ((List.range (chainCount lay)).mapM
       (fun i => chainPrefixes lay tree leaf i 0 7 (ClaudeWCT.WCT9.lowerFamilySeed cs.1 i)) >>= fun ps =>
-        (leafHash lay tree leaf (ends ps) >>= fun root => k root cs.2)) := by
+        (ClaudeWCT.WCT9.lowerLeafHash lay tree leaf (ends ps) >>= fun root => k root cs.2)) := by
     apply mapM_bind_len
     intro ps hps
     rw [hp ps (by simpa only [hn,List.length_range] using hps)]
   rw [mapEq]
   exact mapM_prefixEnds lay tree leaf (ClaudeWCT.WCT9.lowerFamilySeed cs.1) _
-    (fun ds => leafHash lay tree leaf ds >>= fun root => k root cs.2)
+    (fun ds => ClaudeWCT.WCT9.lowerLeafHash lay tree leaf ds >>= fun root => k root cs.2)
 
 end ClaudeWCT.W9.Machine.Sign.SharedLeafMemory
 
@@ -1843,7 +1844,7 @@ theorem buildLeafPrefixes_precise {im : Image} (hsub : Sign.SharedLeafCode.Code 
   have hc1 : A.leaf % 2 = 1 → DigAt t1 (SEEDS + 16) carry := fun h =>
     (hcar h).frame t1f (by omega) (by omega) (by omega)
   unfold SigGolfCandidate.Research.SharedForest.buildLeafPrefixes
-  refine TBSim.mono (TBSim.steps st1 (TBSim.bind (W₂ := 43 * chainC + 106)
+  refine TBSim.mono (TBSim.steps st1 (TBSim.bind (W₂ := 43 * chainC + 112)
     (coef_phase hsub hnew hhook sk hpre hlay h0 hs1 t1pc hc1) (fun cs u hu => ?_))) (by unfold lowLeafC coefC chainC lowerSeedC hornStepC; omega)
     (fun _ _ h => h)
   obtain ⟨upc, ucoef, ulen, ucarry, ur, uf⟩ := hu
@@ -1885,7 +1886,7 @@ theorem buildLeafPrefixes_precise {im : Image} (hsub : Sign.SharedLeafCode.Code 
     have hm : maxDigit A.lay i=7 := by unfold maxDigit; rw [if_neg hlay]
     rw [hm]
   rw [heq] at hfold
-  refine TBSim.bind (W₁:=43*chainC) (W₂:=106) hfold (fun rows x hx => ?_)
+  refine TBSim.bind (W₁:=43*chainC) (W₂:=112) hfold (fun rows x hx => ?_)
   obtain ⟨⟨xpc,_,⟨s3,values,hs3,hinv3⟩,xlen,xcarry,xsaved⟩,xprecise⟩ := hx
   have hpre3 := LeafPreS.transfer hpre hs3.regs hs3.base hdS
   rw [show (43 : Nat)=A.n from hn.symm] at hinv3
@@ -2223,10 +2224,13 @@ theorem tail (hlevels : SharedTreeCode.Code im 1013) {sk : SecretKey} {cache : B
         exact ht.roots.frame (t1f.trans t2f) (by rw [ht.len]; shared_tree_sgo) (fun _ _ _ h => by
           rcases h with h | h <;> exact h) }
   have hlev := SharedTree.buildLevelsBelow_tsim hlevels sk hlp
+    (by show 1 ≤ lay.val; exact Nat.pos_of_ne_zero (fun h => hlay (Fin.ext h)))
     (by show 2 ≤ height lay; rcases hH with h | h <;> omega) t2pc
   obtain ⟨hlk, hlc⟩ := btLev_costs lay hlay tree
   change SharedTree.levKB (btLev lay tree)≤SharedTree.levCB (btLev lay tree) at hlk
-  change SharedTree.levCB (btLev lay tree)≤5889 at hlc
+  change SharedTree.levCB (btLev lay tree)≤6609 at hlc
+  -- Stage 2 (C2): `WCT9.buildLevelsBelow` is `Seed.levelsBelowW` by definition (`lowerLevel` halves).
+  rw [SigGolfCandidate.T3M.Sign.Seed.buildLevelsBelow_eq_levelsBelowW]
   refine TBSim.mono (TBSim.steps (st1.trans st2) (TBSim.bind (W₂ := 120) (TSim.toTBSim hlev hlk)
     (fun levels u hu => ?_))) (by omega) (fun _ _ h => h)
   obtain ⟨upc, uheap, ur, uf⟩ := hu

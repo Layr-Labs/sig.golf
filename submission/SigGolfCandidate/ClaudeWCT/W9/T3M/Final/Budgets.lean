@@ -43,7 +43,7 @@ theorem expand_value (P : Pending I) (m : Message) (pk : PublicKey) (s : Bytes 5
   rw [value_of_counts (F := Option.map (fun x : SigGolfCandidate.T3.HashOutput × Witness => witEnc x.1 x.2))
     (P.expand_refines m pk s), expandB, mrealize_map]
 set_option maxRecDepth 100000 in
-theorem verify_value (P : Pending I) (m : Message) (pk : PublicKey) (w : Bytes 24828) :
+theorem verify_value (P : Pending I) (m : Message) (pk : PublicKey) (w : Bytes 24924) :
     (fun r => r.value.isSome) <$> (submission I).run .verify (m, pk, w) = mrealize 0 (verifyP m pk w) := by
   have h := congrArg (fun x => (fun p : Option Unit × Nat => p.1.isSome) <$> x) (P.verify_refines m pk w)
   simp only [Functor.map_map] at h
@@ -450,7 +450,7 @@ theorem verifyP_witEnc_eval (answers : SigGolfCandidate.T3.Correctness.Answers)
     (ClaudeWCT.W9.T3M.Paired.wrho_witEnc output w)
     (ClaudeWCT.W9.T3M.Paired.wdc_witEnc output w) hd hb hg hr
     (W9Drv.SharedCanonical.forest_witEnc output w _ (WCT9.digestIndex_lt output))
-    (fun left right=>layersCanonicalBC_witEnc output w 4 left right)
+    (fun left right=>layersCanonicalBC_witEnc output w 4 left right (by decide))
 
 end ClaudeWCT.W9.T3M.Paired
 
@@ -566,7 +566,7 @@ theorem expand_value (E : EncodingFacts) (F : SourceQueries) (P : Pending I) (m 
   rw [value_of_counts (F := Option.map (fun x : SigGolfCandidate.T3.HashOutput × Witness => witEnc x.1 x.2))
     (P.expand_refines m pk s), expandB, ClaudeWCT.W9.T3M.Paired.expandB, mrealize_map]
 set_option maxRecDepth 100000 in
-theorem verify_value (E : EncodingFacts) (F : SourceQueries) (P : Pending I) (m : Message) (pk : PublicKey) (w : Bytes 24828) :
+theorem verify_value (E : EncodingFacts) (F : SourceQueries) (P : Pending I) (m : Message) (pk : PublicKey) (w : Bytes 24924) :
     (fun r => r.value.isSome) <$> (submission I).run .verify (m, pk, w) = mrealize 0 (verifyP m pk w) := by
   have h := congrArg (fun x => (fun p : Option Unit × Nat => p.1.isSome) <$> x) (P.verify_refines m pk w)
   simp only [Functor.map_map] at h

@@ -175,8 +175,8 @@ theorem msgLabel_router (vals : Coord → Digest) (a : AuxData) (L : EncLeaf) :
   by_cases hl : L.1.lay.val < 3
   · rw [dif_pos hl, dif_pos hl]
     congr 1
-    · exact (treeLabel_top _ _ _ (childIndex_treeBits L hl) 0).trans (joinLabels_low rfl)
-    · exact (treeLabel_top _ _ _ (childIndex_treeBits L hl) 1).trans (joinLabels_low rfl)
+    · exact (treeLabel_top _ _ _ (childIndex_treeBits L hl) 0).trans (joinLabels_val _ _ _)
+    · exact (treeLabel_top _ _ _ (childIndex_treeBits L hl) 1).trans (joinLabels_val _ _ _)
   · rw [dif_neg hl, dif_neg hl]
     congr 1
     · exact (ftsLabel_top _ _ _ 0).trans ((proj_top _ _ _ _).symm.trans (joinLabels_val _ _ _))
@@ -1025,8 +1025,8 @@ theorem msgLabel_router (vals : LargeResidual.Coord → Digest) (a : AuxData) (L
   by_cases hl : L.1.lay.val<3
   · rw [dif_pos hl,dif_pos hl]
     congr 1
-    · exact (treeLabel_top _ _ _ (childIndex_treeBits L hl) 0).trans (CanonGraph.Paired.joinLabels_low rfl)
-    · exact (treeLabel_top _ _ _ (childIndex_treeBits L hl) 1).trans (CanonGraph.Paired.joinLabels_low rfl)
+    · exact (treeLabel_top _ _ _ (childIndex_treeBits L hl) 0).trans (CanonGraph.Paired.joinLabels_node _ _ _)
+    · exact (treeLabel_top _ _ _ (childIndex_treeBits L hl) 1).trans (CanonGraph.Paired.joinLabels_node _ _ _)
   · rw [dif_neg hl,dif_neg hl]
     congr 1
     · exact (paired_ftsLabel_top _ _ _ 0).trans (CanonGraph.Paired.joinLabels_val _ _ _)

@@ -1339,6 +1339,9 @@ set_option maxHeartbeats 0
 def start (k : Nat) : Nat := [46513,46551,46590,46629,46668,46707,46746,46785,46824].getD k 0
 def endWord (k : Nat) : Nat := [46551,46590,46629,46668,46707,46746,46785,46824,46862].getD k 0
 def length (k : Nat) : Nat := endWord k-start k
+/-- Dispatch code of coordinate `k` (`expandSharedDriver` offsets 1457..1805). Stage 2: coordinate 8 sets
+`ra = pcOf (endWord 8 - 78)` (`addi ra,ra,-284`, was `-280`), since the merged singleton returns with
+`jalr zero,312(ra)` (was 308) to the same word 46862. -/
 def words (k : Nat) : List (BitVec 32) := [
 [0x208b7,0x16088893,0x8b203,0x25213,0x7f27213,0x8b703,0xd75713,0x3ff77713,0x2437,0x17040413,0x66e37,0xe0e13,0x10e3783,0x1b79793,0x60100313,0x6787b3,0x1421f93,0xff8fb3,0x721b93,0xe3337,0x30030313,0x6b8bb3,0x293,0x100393,0x200693,0x300993,0x400a13,0x500a93,0x600d13,0x700f13,0x4000593,0x97,0xef408093,0x871713,0xc0337,0x30313,0x670733,0x70067],
 [0x208b7,0x16088893,0x8b203,0x625213,0x7f27213,0x88b703,0xd75713,0x3ff77713,0x2437,0xdf040413,0x66e37,0xe0e13,0x10e3783,0x1b79793,0x10337,0x60130313,0x6787b3,0x1421f93,0xff8fb3,0x821b93,0xf2337,0xb0030313,0x6b8bb3,0x293,0x100393,0x200693,0x300993,0x400a13,0x500a93,0x600d13,0x700f13,0x4000593,0x97,0xef408093,0x871713,0xc0337,0x30313,0x670733,0x70067],
@@ -1348,7 +1351,7 @@ def words (k : Nat) : List (BitVec 32) := [
 [0x208b7,0x16088893,0x108b203,0x625213,0x7f27213,0x108b703,0x1975713,0x3ff77713,0x1437,0xff040413,0x66e37,0xe0e13,0x10e3783,0x1b79793,0x50337,0x60130313,0x6787b3,0x1421f93,0xff8fb3,0x821b93,0xf2337,0xb0030313,0x6b8bb3,0x293,0x100393,0x200693,0x300993,0x400a13,0x500a93,0x600d13,0x700f13,0x4000593,0x97,0xef408093,0x871713,0xc0337,0x30313,0x670733,0x70067],
 [0x208b7,0x16088893,0x188b203,0x25213,0x7f27213,0x108b703,0x2575713,0x3ff77713,0x1437,0xc7040413,0x66e37,0xe0e13,0x10e3783,0x1b79793,0x60337,0x60130313,0x6787b3,0x1421f93,0xff8fb3,0x721b93,0xe3337,0x30030313,0x6b8bb3,0x293,0x100393,0x200693,0x300993,0x400a13,0x500a93,0x600d13,0x700f13,0x4000593,0x97,0xef408093,0x871713,0xc0337,0x30313,0x670733,0x70067],
 [0x208b7,0x16088893,0x188b203,0x625213,0x7f27213,0x188b703,0xd75713,0x3ff77713,0x1437,0x8f040413,0x66e37,0xe0e13,0x10e3783,0x1b79793,0x70337,0x60130313,0x6787b3,0x1421f93,0xff8fb3,0x821b93,0xf2337,0xb0030313,0x6b8bb3,0x293,0x100393,0x200693,0x300993,0x400a13,0x500a93,0x600d13,0x700f13,0x4000593,0x97,0xef408093,0x871713,0xc0337,0x30313,0x670733,0x70067],
-[0x208b7,0x16088893,0x188b203,0x2525213,0x7f27213,0x188b703,0x1975713,0x3ff77713,0x57000413,0x66e37,0xe0e13,0x10e3783,0x1b79793,0x80337,0x60130313,0x6787b3,0x1421f93,0xff8fb3,0x821b93,0xe7337,0x40030313,0x6b8bb3,0x293,0x100393,0x200693,0x300993,0x400a13,0x500a93,0x600d13,0x700f13,0x4000593,0x97,0xee008093,0x871713,0xc0337,0x30313,0x670733,0x70067]].getD k []
+[0x208b7,0x16088893,0x188b203,0x2525213,0x7f27213,0x188b703,0x1975713,0x3ff77713,0x57000413,0x66e37,0xe0e13,0x10e3783,0x1b79793,0x80337,0x60130313,0x6787b3,0x1421f93,0xff8fb3,0x821b93,0xe7337,0x40030313,0x6b8bb3,0x293,0x100393,0x200693,0x300993,0x400a13,0x500a93,0x600d13,0x700f13,0x4000593,0x97,0xee408093,0x871713,0xc0337,0x30313,0x670733,0x70067]].getD k []
 def rawPosition (k : Nat) : Nat := [0,6,0,6,0,6,0,6,37].getD k 0
 def rawWord (k : Nat) : Nat := [0,0,1,1,2,2,3,3,3].getD k 0
 def rankPosition (k : Nat) : Nat := [13,13,25,37,13,25,37,13,25].getD k 0
@@ -1374,7 +1377,7 @@ def result (k : Nat) : Result :=
   let regs := (regs.set .x13 (.c 2)).set .x19 (.c 3)
   let regs := (regs.set .x20 (.c 4)).set .x21 (.c 5)
   let regs := (regs.set .x26 (.c 6)).set .x30 (.c 7)
-  let regs := (regs.set .x11 (.c 64)).set .x1 (.c (pcOf (endWord k-(if k=8 then 79 else 74))))
+  let regs := (regs.set .x11 (.c 64)).set .x1 (.c (pcOf (endWord k-(if k=8 then 78 else 74))))
   ⟨⟨regs,[],[]⟩,mkBin .and chainPC (.c (~~~1#64)),.jump,length k,length k⟩
 theorem checked0 : rOK (symRun {} (words 0) (pcOf (start 0)) (length 0)) (result 0)=true := by decide +kernel
 #print axioms checked0
@@ -1425,7 +1428,7 @@ theorem result_base (k : Fin 9) (u : MachineState) :
     ((result k.val).toState u).getReg .x8=BitVec.ofNat 64 (coordinateBase k) := by fin_cases k <;> rfl
 
 theorem result_return (k : Fin 9) (u : MachineState) :
-    ((result k.val).toState u).getReg .x1=pcOf (endWord k.val-(if k.val=8 then 79 else 74)) := by fin_cases k <;> rfl
+    ((result k.val).toState u).getReg .x1=pcOf (endWord k.val-(if k.val=8 then 78 else 74)) := by fin_cases k <;> rfl
 
 theorem result_pc (k : Fin 9) (u : MachineState) :
     ((result k.val).toState u).pc=((rankRead k.val u <<< 8)+0xc0000#64) &&& ~~~1#64 := by fin_cases k <;> rfl
@@ -2052,7 +2055,7 @@ set_option maxHeartbeats 1000000
 
 noncomputable def layout (image : Image) (k : Fin 9) : W9Machine.Layout :=
   ⟨image,Frozen.layout.chainWord,(SharedLayout.layout k).childWord,
-    fun _=>endWord k.val-(if k.val=8 then 79 else 74)⟩
+    fun _=>endWord k.val-(if k.val=8 then 78 else 74)⟩
 
 theorem steps (image : Image) (k : Fin 9) (u : MachineState)
     (hrun : symRun {} (words k.val) (pcOf (start k.val)) (length k.val)=some (result k.val))
@@ -2188,8 +2191,12 @@ structure Inv (w : W9Machine.WBytes) (index : Nat) (raw : Fin 9 → Fin 128) (ra
   fields : Fields index raw ranks u
   prevL : DigAt u (regionAddr n+720) prev.1
   prevR : DigAt u (regionAddr n+SharedV3.handR n) prev.2
+  /-- Original witness words of the coordinates not yet run. Stage 2 (C3): region 9 (the L3 encoding row,
+  `WIT + 0 .. WIT + 176`) excludes its offset `744` = `WIT + 24`, the row tweak's high word (a witness pad, honest
+  LE64 1). No FTS routine reads it, and in the expander's first forest pass the cleared witness prefix still holds 0
+  there (the final pass restores it, `SharedScatter.finishCode`). -/
   coords : ∀ (m : Nat), n ≤ m → m ≤ 9 → ∀ (off : Nat), off < 896 → off % 8 = 0 →
-    (m = 9 → 720 ≤ off) → (m = n → ¬ isHand n off) →
+    (m = 9 → 720 ≤ off ∧ off ≠ 744) → (m = n → ¬ isHand n off) →
     W9Machine.OrigW w u (regionAddr m + off)
   frame : Frame initial u writes
 
@@ -2322,10 +2329,11 @@ theorem next {image : Image} {w : W9Machine.WBytes} {index : Nat} {raw : Fin 9 �
         then off=SharedV3.handR (k.val+1) else off=720) → 
       DigAt t (regionAddr (k.val+1)+off) (SharedV3.topOther w k.val (SharedV3.physical k.val (raw k).val)) := by
     intro off hoff hsel
-    have ho:off≤768 ∧ off%8=0 ∧ (k.val+1=9 → 720≤off) := by
+    have ho:off≤768 ∧ off%8=0 ∧ (k.val+1=9 → off=720 ∨ off=768) := by
       unfold SharedV3.handR at hoff;split_ifs at hoff <;> omega
     exact next_other w k (raw k) u t hf off hoff hsel
-      (hu.coords (k.val+1) (by omega) (by omega) off (by omega) (by omega) ho.2.2 (fun h=>by omega))
+      (hu.coords (k.val+1) (by omega) (by omega) off (by omega) (by omega)
+        (fun h=>by have:=ho.2.2 h;omega) (fun h=>by omega))
       (hu.coords (k.val+1) (by omega) (by omega) (off+8) (by omega) (by omega)
         (fun h=>by have:=ho.2.2 h;omega) (fun h=>by omega))
   refine ⟨by omega,?_,fields_frame hfg hu.fields,?_,?_,?_,?_⟩
@@ -3225,13 +3233,15 @@ set_option maxHeartbeats 4000000
 set_option maxRecDepth 100000
 set_option Elab.async false
 theorem installed_compact_chunks (c : Nat) (hc : compactChunkAllowed c) :
-    CodeAt Images.expandImage (pcOf (256*c)) ((expChunks.getD (c-4) []).take (compactChunkLen c)) := by
-  rcases hc with rfl|rfl|rfl|hc|rfl|rfl
+    CodeAt Images.expandImage (pcOf (256*c+compactChunkLo c))
+      (((expChunks.getD (c-4) []).take (compactChunkLen c)).drop (compactChunkLo c)) := by
+  rcases hc with rfl|rfl|rfl|hc|rfl|rfl|rfl
   · apply codeAt_expand_current_chunk <;> decide +kernel
   · apply codeAt_expand_current_chunk <;> decide +kernel
   · apply codeAt_expand_current_chunk <;> decide +kernel
   · obtain ⟨hlo,hhi⟩ := hc
     interval_cases c <;> apply codeAt_expand_current_chunk <;> decide +kernel
+  · apply codeAt_expand_current_chunk <;> decide +kernel
   · apply codeAt_expand_current_chunk <;> decide +kernel
   · apply codeAt_expand_current_chunk <;> decide +kernel
 theorem installed_compact : CompactCodeAt Images.expandImage := compactCode_of_chunks installed_compact_chunks
@@ -3259,21 +3269,19 @@ set_option maxRecDepth 100000
 theorem initial_of_original (w : W9Machine.WBytes) (index : Nat)
     (raw : Fin 9→Fin 128) (ranks : Fin 9→Fin 563) (s : MachineState)
     (hp:s.pc=pcOf 46513) (hf:Fields index raw ranks s)
-    (hw:∀A,1216≤A→A+8≤9472→A%8=0→W9Machine.OrigW w s A) :
+    (hw:∀A,1216≤A→A+8≤9472→A%8=0→A≠1240→W9Machine.OrigW w s A) :
     Inv w index raw ranks s 0 (SharedV3.initialPair w) s := by
   refine ⟨by decide,hp,hf,?_,?_,?_,Frame.refl _ _⟩
-  · exact W9Machine.DigAt_origW (hw 9280 (by decide) (by decide) (by decide))
-      (hw 9288 (by decide) (by decide) (by decide)) (by decide)
-  · exact W9Machine.DigAt_origW (hw 8720 (by decide) (by decide) (by decide))
-      (hw 8728 (by decide) (by decide) (by decide)) (by decide)
+  · exact W9Machine.DigAt_origW (hw 9280 (by decide) (by decide) (by decide) (by decide))
+      (hw 9288 (by decide) (by decide) (by decide) (by decide)) (by decide)
+  · exact W9Machine.DigAt_origW (hw 8720 (by decide) (by decide) (by decide) (by decide))
+      (hw 8728 (by decide) (by decide) (by decide) (by decide)) (by decide)
   · intro m hm hm9 off ho ha h9 hhand
-    apply hw
-    · unfold regionAddr
-      by_cases he:m=9
-      · have hh:=h9 he;rw[he];omega
-      · omega
-    · unfold regionAddr;omega
-    · unfold regionAddr;omega
+    rcases (show m=9 ∨ m<9 by omega) with he|he
+    · have hh:=h9 he
+      subst he
+      apply hw <;> unfold regionAddr <;> omega
+    · apply hw <;> unfold regionAddr <;> omega
 #print axioms initial_of_original
 end ClaudeWCT.W9.Machine.Expand.SharedForestRun
 

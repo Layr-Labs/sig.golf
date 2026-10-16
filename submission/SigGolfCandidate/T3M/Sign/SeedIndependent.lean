@@ -7,7 +7,28 @@ def sub27S : List (BitVec 32) := [33171,0x79c0006f]
 def sub29S : List (BitVec 32) := List.replicate 11 0x13
 def sub40S : List (BitVec 32) := [2451]
 def sub80S : List (BitVec 32) := [4824595,623715]
-def sub120S : List (BitVec 32) := [6037011,3018291,134967,537857811,930563,9319299,7286819,8336419,134967,588189459,17707779,26096515,7286819,8336419,33857043,688915,0xfe6f3023,55221779,787347,0x580e42e3]
+/-- C2 (lower node tweak): words 1147/1148 compute `t1 = s5 + s8 + 1407` (the packed node word
+`hyperWord (lay - 1) tree + lowerK + heap`, lowerK = 1407) and 1151 sets the high tweak word `t2 = 0`. -/
+def sub120S : List (BitVec 32) := [6037011,3018291,134967,537857811,930563,9319299,7286819,8336419,134967,588189459,17707779,26096515,7286819,8336419,25854771,1475543827,4268699683,55221779,915,1477329635]
+/-- C3 (FULL, chain 0 high half): 1037 `jal zero,1667` (chain tramp), 1038 nop. -/
+def sub24S : List (BitVec 32) := [495976559,19]
+/-- C3 chain tramp at 1667: if `s3 = 0` (chain 0), `s0 ≠ 0` (lower layer) and `s4 = 6`, copy the high half
+`0x201E0..0x201F0` of the hash just written at `CHAIN + 48` onto the value slot `CHAIN + 48`; then `s4 += 1` and back
+to 1014. -/
+def chainTrampS : List (BitVec 32) := [34181731,33816675,6292243,6954083,134711,504247043,512635779,476985379,
+  478034979,1706515,3662671983]
+/-- C2 (lower leaf half): 1119 `jal zero,1660` (leaf tramp), 1120 nop. -/
+def sub106S : List (BitVec 32) := [122683503,19]
+/-- The leaf value copy 1121..1124 (`ld t1,0(t4); ld t2,8(t4); sd t1,0(s9); sd t2,8(s9)`). -/
+def sub108S : List (BitVec 32) := [963331,9352067,7122979,8172579]
+/-- C2 (lower node half): 1160..1163 `slli t3,s8,4; add t3,t3,sp; jal zero,1653; nop`. -/
+def sub147S : List (BitVec 32) := [4988435,3018291,2059403375,19]
+/-- The node value copy 1164..1169 (`ld; ld; sd; sd; addi s8,s8,1; jal zero,1131`). -/
+def sub151S : List (BitVec 32) := [963331,9352067,7221283,8270883,1838099,4137676911]
+/-- C2 node tramp at 1653: `t4 = NOUT + 16 * (1 - s8 % 2)` (high half for even heaps), back to 1164. -/
+def nodeTrampS : List (BitVec 32) := [1864467,1262355,4395795,134839,604933779,7245491,2220879983]
+/-- C2 leaf tramp at 1660: `t4 = LOUT + 16 * (1 - s2 % 2)` (high half for even leaves), back to 1121. -/
+def leafTrampS : List (BitVec 32) := [1667859,1262355,4395795,134839,1007586963,7245491,4157599855]
 def sub157S : List (BitVec 32) := [1726995,0x5f00006f]
 /-- Campaign T8D: the sign words at `1013 + 42 .. 1013 + 75` that the keygen image no longer shares (the keygen's
 top hooks at 157/159..161/192 changed); the sign keeps its own copies so that `Keygen` edits cannot reach it.
@@ -23,12 +44,12 @@ def hpmS : List (BitVec 32) := [17078931,538634899,0xfff40313,50533139,7006899,0
 def norootS : List (BitVec 32) := [1049363,0xa06a08e3,0x961ff06f]
 /-- The sign's leaf code at `b = 1013` (explicit: the shared `Keygen.sub_*` names only where the sign and keygen
 words agree and the shared run lemmas are used). -/
-def signSubL : Rv.Layout := [(0, sub_0), (1, sub_1), (2, sub_2), (8, sub_8), (9, sub_9), (23, sub_23), (24, sub_24),
+def signSubL : Rv.Layout := [(0, sub_0), (1, sub_1), (2, sub_2), (8, sub_8), (9, sub_9), (23, sub_23), (24, sub24S),
   (26, sub_26), (27, sub27S), (29, sub29S), (40, sub40S), (41, sub_41), (42, sub42S), (44, sub44S), (59, sub59S),
   (60, sub60S), (72, sub_72), (73, sub_73), (75, sub75S), (76, sub_76), (77, sub_77), (78, sub_78), (79, sub_79),
-  (80, sub80S), (82, sub_82), (83, sub_83), (92, sub_92), (95, sub_95), (96, sub_96), (105, sub_105), (106, sub_106),
-  (112, sub_112), (113, sub_113), (116, sub_116), (117, sub_117), (118, sub_118), (120, sub120S), (140, sub_140),
-  (146, sub_146), (147, sub_147), (157, sub157S), (159, sub_159)]
+  (80, sub80S), (82, sub_82), (83, sub_83), (92, sub_92), (95, sub_95), (96, sub_96), (105, sub_105), (106, sub106S),
+  (108, sub108S), (112, sub_112), (113, sub_113), (116, sub_116), (117, sub_117), (118, sub_118), (120, sub120S), (140, sub_140),
+  (146, sub_146), (147, sub147S), (151, sub151S), (157, sub157S), (159, sub_159)]
 def SeedIndependentAt (image : Image) (b : Nat) : Prop :=
   (∀ off code, (off, code) ∈ signSubL → CodeAt image (pcOf (b + off)) code) ∧
   (b = 117 ∨ b = 1013) ∧
@@ -61,9 +82,9 @@ theorem codeAt_sub_9 {image : Image} {b : Nat} (h : SeedIndependentAt image b) :
 theorem codeAt_sub_23 {image : Image} {b : Nat} (h : SeedIndependentAt image b) :
     CodeAt image (pcOf (b + 23)) sub_23 :=
   h.1 23 sub_23 (by decide +kernel)
-theorem codeAt_sub_24 {image : Image} {b : Nat} (h : SeedIndependentAt image b) :
-    CodeAt image (pcOf (b + 24)) sub_24 :=
-  h.1 24 sub_24 (by decide +kernel)
+theorem codeAt_sub24S {image : Image} {b : Nat} (h : SeedIndependentAt image b) :
+    CodeAt image (pcOf (b + 24)) sub24S :=
+  h.1 24 sub24S (by decide +kernel)
 theorem codeAt_sub_26 {image : Image} {b : Nat} (h : SeedIndependentAt image b) :
     CodeAt image (pcOf (b + 26)) sub_26 :=
   h.1 26 sub_26 (by decide +kernel)
@@ -118,9 +139,12 @@ theorem codeAt_sub_96 {image : Image} {b : Nat} (h : SeedIndependentAt image b) 
 theorem codeAt_sub_105 {image : Image} {b : Nat} (h : SeedIndependentAt image b) :
     CodeAt image (pcOf (b + 105)) sub_105 :=
   h.1 105 sub_105 (by decide +kernel)
-theorem codeAt_sub_106 {image : Image} {b : Nat} (h : SeedIndependentAt image b) :
-    CodeAt image (pcOf (b + 106)) sub_106 :=
-  h.1 106 sub_106 (by decide +kernel)
+theorem codeAt_sub106S {image : Image} {b : Nat} (h : SeedIndependentAt image b) :
+    CodeAt image (pcOf (b + 106)) sub106S :=
+  h.1 106 sub106S (by decide +kernel)
+theorem codeAt_sub108S {image : Image} {b : Nat} (h : SeedIndependentAt image b) :
+    CodeAt image (pcOf (b + 108)) sub108S :=
+  h.1 108 sub108S (by decide +kernel)
 theorem codeAt_sub_112 {image : Image} {b : Nat} (h : SeedIndependentAt image b) :
     CodeAt image (pcOf (b + 112)) sub_112 :=
   h.1 112 sub_112 (by decide +kernel)
@@ -145,9 +169,12 @@ theorem codeAt_sub_140 {image : Image} {b : Nat} (h : SeedIndependentAt image b)
 theorem codeAt_sub_146 {image : Image} {b : Nat} (h : SeedIndependentAt image b) :
     CodeAt image (pcOf (b + 146)) sub_146 :=
   h.1 146 sub_146 (by decide +kernel)
-theorem codeAt_sub_147 {image : Image} {b : Nat} (h : SeedIndependentAt image b) :
-    CodeAt image (pcOf (b + 147)) sub_147 :=
-  h.1 147 sub_147 (by decide +kernel)
+theorem codeAt_sub147S {image : Image} {b : Nat} (h : SeedIndependentAt image b) :
+    CodeAt image (pcOf (b + 147)) sub147S :=
+  h.1 147 sub147S (by decide +kernel)
+theorem codeAt_sub151S {image : Image} {b : Nat} (h : SeedIndependentAt image b) :
+    CodeAt image (pcOf (b + 151)) sub151S :=
+  h.1 151 sub151S (by decide +kernel)
 theorem codeAt_sub157S {image : Image} {b : Nat} (h : SeedIndependentAt image b) :
     CodeAt image (pcOf (b + 157)) sub157S :=
   h.1 157 sub157S (by decide +kernel)
@@ -191,6 +218,18 @@ def preS : List (BitVec 32) := [0x820416e3]
 theorem codeAt_preS {image : Image} {b : Nat} (h : SeedIndependentAt image b) : CodeAt image (pcOf 1554) preS := by
   obtain ⟨rfl, rfl⟩ := h.2.2.2.2
   exact codeAt_sign_slice (by decide +kernel) (by decide +kernel)
+theorem codeAt_nodeTrampS {image : Image} {b : Nat} (h : SeedIndependentAt image b) :
+    CodeAt image (pcOf 1653) nodeTrampS := by
+  obtain ⟨rfl, rfl⟩ := h.2.2.2.2
+  exact codeAt_sign_slice (by decide +kernel) (by decide +kernel)
+theorem codeAt_chainTrampS {image : Image} {b : Nat} (h : SeedIndependentAt image b) :
+    CodeAt image (pcOf 1667) chainTrampS := by
+  obtain ⟨rfl, rfl⟩ := h.2.2.2.2
+  exact codeAt_sign_slice (by decide +kernel) (by decide +kernel)
+theorem codeAt_leafTrampS {image : Image} {b : Nat} (h : SeedIndependentAt image b) :
+    CodeAt image (pcOf 1660) leafTrampS := by
+  obtain ⟨rfl, rfl⟩ := h.2.2.2.2
+  exact codeAt_sign_slice (by decide +kernel) (by decide +kernel)
 /-- Campaign T8D: the top chains enter the old seed copy at `b + 71` (`add t3,s6,s3`) after TOPSEED. -/
 def sub71S : List (BitVec 32) := [20647475]
 theorem codeAt_sub71S {image : Image} {b : Nat} (h : SeedIndependentAt image b) :
@@ -201,6 +240,14 @@ sym_block blkS_27 := symRun { noAlias := true } sub27S (pcOf (1013 + 27)) 100
 sym_block blkS_40 := symRun { noAlias := true } sub40S (pcOf (1013 + 40)) 100
 sym_block blkS_80 := symRun { noAlias := true } sub80S (pcOf (1013 + 80)) 100
 sym_block blkS_120 := symRun { noAlias := true } sub120S (pcOf (1013 + 120)) 100
+sym_block blkS_106 := symRun { noAlias := true } sub106S (pcOf (1013 + 106)) 100
+sym_block blkS_108 := symRun { noAlias := true } sub108S (pcOf (1013 + 108)) 100
+sym_block blkS_147 := symRun { noAlias := true } sub147S (pcOf (1013 + 147)) 100
+sym_block blkS_151 := symRun { noAlias := true } sub151S (pcOf (1013 + 151)) 100
+sym_block blkS_ntr := symRun { noAlias := true } nodeTrampS (pcOf 1653) 100
+sym_block blkS_ltr := symRun { noAlias := true } leafTrampS (pcOf 1660) 100
+sym_block blkS_24 := symRun { noAlias := true } sub24S (pcOf (1013 + 24)) 100
+sym_block blkS_ctr := symRun { noAlias := true } chainTrampS (pcOf 1667) 100
 sym_block blkS_157 := symRun { noAlias := true } sub157S (pcOf (1013 + 157)) 100
 sym_block blkS_hp := symRun { noAlias := true } hpS (pcOf 1528) 100
 sym_block blkS_hpm := symRun { noAlias := true } hpmS (pcOf 1542) 100
@@ -227,7 +274,9 @@ structure Code (image : Image) (b : Nat) : Prop where
   codeAt_sub71S : CodeAt image (pcOf (b + 71)) sub71S
   codeAt_sub80S : CodeAt image (pcOf (b + 80)) sub80S
   codeAt_sub_105 : CodeAt image (pcOf (b + 105)) sub_105
-  codeAt_sub_106 : CodeAt image (pcOf (b + 106)) sub_106
+  codeAt_sub106S : CodeAt image (pcOf (b + 106)) sub106S
+  codeAt_sub108S : CodeAt image (pcOf (b + 108)) sub108S
+  codeAt_leafTrampS : CodeAt image (pcOf 1660) leafTrampS
   codeAt_sub_112 : CodeAt image (pcOf (b + 112)) sub_112
   codeAt_sub_41 : CodeAt image (pcOf (b + 41)) sub_41
   codeAt_sub_72 : CodeAt image (pcOf (b + 72)) sub_72
@@ -276,6 +325,8 @@ set_option maxHeartbeats 2000000
   · apply codeAt_sign_current_slice <;> decide +kernel
   · apply codeAt_sign_current_slice <;> decide +kernel
   · apply codeAt_sign_current_slice <;> decide +kernel
+  · apply codeAt_sign_current_slice <;> decide +kernel
+  · apply codeAt_sign_current_slice <;> decide +kernel
 #print axioms installed_code
 end SigGolfCandidate.T3M.Sign.SharedLeafCode
 
@@ -292,7 +343,9 @@ structure Code (image : Image) (b : Nat) : Prop where
   codeAt_rev : CodeAt image (pcOf (b + 1004)) revCode
   codeAt_sub_140 : CodeAt image (pcOf (b + 140)) sub_140
   codeAt_sub_146 : CodeAt image (pcOf (b + 146)) sub_146
-  codeAt_sub_147 : CodeAt image (pcOf (b + 147)) sub_147
+  codeAt_sub147S : CodeAt image (pcOf (b + 147)) sub147S
+  codeAt_sub151S : CodeAt image (pcOf (b + 151)) sub151S
+  codeAt_nodeTrampS : CodeAt image (pcOf 1653) nodeTrampS
   codeAt_sub157S : CodeAt image (pcOf (b + 157)) sub157S
   codeAt_norootS : CodeAt image (pcOf 1551) norootS
   codeAt_norootJ : CodeAt image (pcOf 1553) norootJ
@@ -307,6 +360,8 @@ set_option maxRecDepth 100000
 theorem installed_code : Code Images.signImage 1013 := by
   constructor
   · rfl
+  · apply codeAt_sign_current_slice <;> decide +kernel
+  · apply codeAt_sign_current_slice <;> decide +kernel
   · apply codeAt_sign_current_slice <;> decide +kernel
   · apply codeAt_sign_current_slice <;> decide +kernel
   · apply codeAt_sign_current_slice <;> decide +kernel

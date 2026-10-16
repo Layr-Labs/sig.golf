@@ -53,8 +53,8 @@ theorem ftsLabel_eq (s : Secrets) (L : Labels) (index : Fin (2^31)) (coord : Fin
           cases hn
           rfl
         simp only [Option.map_some, Option.getD_some, coordVal]
-        rw [proj_toPos]
-        simp only [Node.isTop, hl, beq_iff_eq]
+        rw [proj_toPos, isTop_wctNode]
+        simp only [hl, decide_eq_true_eq]
         by_cases h6 : level = 6
         · rw [if_pos h6, if_pos (by omega)]
         · rw [if_neg h6, if_neg (by omega)]
@@ -82,21 +82,15 @@ theorem cell_eq_cellValues (s : Secrets) (L : Labels) (N : CanonGraph.Node) :
       unfold ChainGraph.prior chainChild
       by_cases h0 : p.2.val = 0
       · rw [if_pos h0, if_pos h0]; rfl
-      · rw [if_neg h0, if_neg h0]; rfl
+      · rw [if_neg h0, if_neg h0]
+        simp only [coordVal]
+        rw [proj_chain_of_lt (by simp only [ChainGraph.predecessor]; have := p.2.isLt; omega)]
+        rfl
   | leaf Lf =>
       change pad64 (Extract.leafInput _ _ _ ((List.range (chainCount Lf.1.lay)).map (endLabel s L Lf.1))) = _
       congr 3
-      funext i
-      unfold endLabel ChainGraph.value
-      have hw := width_ge Lf.1.lay i
-      have h1 : 1 ≤ maxDigit Lf.1.lay i := by
-        unfold maxDigit
-        split_ifs <;> decide
-      rw [if_neg (by omega)]
-      simp only [coordVal, endPoint, chainLabels]
-      rfl
   | node n =>
-      change pad64 (nodeInputP 3 _ _ _ (treeLabel L _ _ _ _) 0 (treeLabel L _ _ _ _)) = _
+      change pad64 (WCT9.merkleNodeInput _ _ _ (treeLabel L _ _ _ _) (treeLabel L _ _ _ _)) = _
       rw [treeLabel_eq s, treeLabel_eq s]
       rfl
   | wctChain p =>
@@ -331,7 +325,7 @@ theorem slot_cellValues (N : CanonGraph.Node) (v : Coord → Digest) :
       simp [hi]
   | node n =>
       simp only [childSlots, List.mem_append, Option.mem_toList, Option.map_eq_some_iff] at hcs
-      simp only [cellValues, nodeInputP, pad64_block4]
+      simp only [cellValues, ClaudeWCT.W9.T3.Security.Wots.Mask.merkleNodeInput_eq_block4, pad64_block4]
       rcases hcs with ⟨c, hc, rfl⟩ | ⟨c, hc, rfl⟩
       · refine ((slotValue_block4 _ _ _ _).1).trans ?_
         rw [hc]; rfl
@@ -491,7 +485,7 @@ theorem chainItem_value (h : Agrees T labels) (L : LeafPos) (digits : List Nat) 
     (hd : digits.getD i 0 ≤ 7) :
     WCT9.wotsValue T L.lay L.tree.val L.leaf.val digits i = honestValue T (chainItem L i (digits.getD i 0)) := by
   rw [leafValue_eq h L digits i hi hd, honestValue_eq h]
-  unfold chainItem ChainGraph.value
+  unfold chainItem
   by_cases h0 : digits.getD i 0 = 0
   · rw [if_pos h0, if_pos h0]; rfl
   · rw [if_neg h0, if_neg h0]; rfl
@@ -720,9 +714,15 @@ theorem treeLabel_eq (s : Secrets) (L : Labels) (lay : Layer) (tree : Fin (2^31)
   unfold treeLabel treeChild
   by_cases h0 : level=0
   · rw [if_pos h0,if_pos h0]
-    cases leafAt lay tree c <;> rfl
+    -- C2 (#866): `treeLabel` reads a lower leaf through `Pos.proj`, the paired `coordVal` through
+    -- `Extract.Paired.proj`; they agree on the lower trees (`CanonGraph.Paired.pairedProj_leaf`).
+    cases leafAt lay tree c with
+    | none => rfl
+    | some leaf => exact (congrFun (CanonGraph.Paired.pairedProj_leaf leaf) (L (.leaf leaf))).symm
   · rw [if_neg h0,if_neg h0]
-    cases treeNodeAt lay tree (level-1) c <;> rfl
+    cases treeNodeAt lay tree (level-1) c with
+    | none => rfl
+    | some n => exact (congrFun (CanonGraph.Paired.pairedProj_node n) (L (.node n))).symm
 
 theorem ftsLabel_eq (s : Secrets) (L : Labels) (index : Fin (2^31)) (coord : Fin 9) (level c : Nat) :
     CanonGraph.Paired.ftsLabel L index coord level c=((ftsChild index coord level c).map (coordVal s L)).getD 0 := by
@@ -773,17 +773,24 @@ theorem cell_eq_cellValues (s : Secrets) (L : Labels) (N : CanonGraph.Node)
       change ChainGraph.row p (ChainGraph.prior (seedsOf s) p (chainLabels L))=ChainGraph.row p _
       congr 1
       unfold ChainGraph.prior chainChild
-      split_ifs <;> rfl
+      by_cases h0 : p.2.val=0
+      · rw [if_pos h0,if_pos h0]; rfl
+      · rw [if_neg h0,if_neg h0]
+        -- C3 (#866): a chain step below the last one reads the low half of its predecessor.
+        simp only [coordVal]
+        rw [CanonGraph.Paired.pairedProj_chain,
+          proj_chain_of_lt (by simp only [ChainGraph.predecessor]; have := p.2.isLt; omega)]
+        rfl
   | leaf Lf =>
       change pad64 (Extract.leafInput _ _ _ ((List.range (chainCount Lf.1.lay)).map (endLabel s L Lf.1)))=_
       congr 3
-      funext i
-      unfold endLabel ChainGraph.value
-      have h1 : 1 ≤ maxDigit Lf.1.lay i := by unfold maxDigit; split_ifs <;> decide
-      rw [if_neg (by omega)]
-      rfl
+      -- C3 (#866): the leaf reads the used half (`Pos.proj`) of its chains' last-step labels.
+      all_goals
+        funext i
+        unfold endLabel
+        exact (congrFun (CanonGraph.Paired.pairedProj_chain (endPt Lf.1 i)) (L (.chain (endPt Lf.1 i)))).symm
   | node n =>
-      change pad64 (nodeInputP 3 _ _ _ (treeLabel L _ _ _ _) 0 (treeLabel L _ _ _ _))=_
+      change pad64 (WCT9.merkleNodeInput _ _ _ (treeLabel L _ _ _ _) (treeLabel L _ _ _ _))=_
       rw [treeLabel_eq s,treeLabel_eq s]
       rfl
   | wctChain p =>
@@ -1541,10 +1548,14 @@ attribute [local instance] Classical.propDecidable
     (L : CanonGraph.LeafPos) (digits : List Nat) (i : Nat) (hi : i<58) (hd : digits.getD i 0≤7) :
     WCT9.wotsValue T L.lay L.tree.val L.leaf.val digits i=honestValue T (chainItem L i (digits.getD i 0)) := by
   rw [CanonGraph.Paired.leafValue_eq h L digits i hi hd,honestValue_used_eq h _ (chainItem_used _ _ _)]
-  unfold chainItem ChainGraph.value
+  -- C3 (#866): `leafValue_eq` states a revealed value through `Pos.proj` of its last step's label.
+  unfold chainItem
   by_cases hz : digits.getD i 0=0
   · rw [if_pos hz,if_pos hz];rfl
-  · rw [if_neg hz,if_neg hz];rfl
+  · rw [if_neg hz,if_neg hz]
+    first
+      | rfl
+      | exact (congrFun (CanonGraph.Paired.pairedProj_chain _) _).symm
 
  theorem treeLabel_honest {T : Answers} {labels : CanonGraph.Labels} (h : CanonGraph.Paired.Agrees T labels)
     (lay : Layer) (tree : Fin (2^31)) (level c : Nat) :

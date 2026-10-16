@@ -7,15 +7,15 @@ def submission : SigGolf.Submission := SigGolfCandidate.Transfer.currentOf SigGo
 
 theorem signature_bytes : submission.sizes.signature = 5248 := rfl
 
-theorem witness_bytes : submission.sizes.witness = 24828 := rfl
+theorem witness_bytes : submission.sizes.witness = 24924 := rfl
 
 theorem cache_bytes : submission.sizes.cache = 131072 := rfl
 
 theorem layout_offsets : submission.layout =
-  { message := 26048, secretKey := 128, publicKey := 160,
+  { message := 26144, secretKey := 128, publicKey := 160,
     cache := 524288, signature := 28672, witness := 1216 } := rfl
 
-theorem certificate : SigGolf.Certificate submission 7027 := by
+theorem certificate : SigGolf.Certificate submission 7010 := by
   exact SigGolfCandidate.Packaging.certificate_ready
 
 end SigGolf.Challenge
@@ -83,5 +83,13 @@ Target: S = 5310, W = 24860, K = 131072, C = 7095; score 37674450.
 This comment records the candidate claim, not an official verification receipt.
 -/
 
-/- Combined leaf-buffer trim and shared forest candidate: S=5248, W=24828, C=7027.
-Coordinate-8 dispatch hoist and verifier half-swap are included. The exact accepting run remains required before publication. -/
+/- Shared forest candidate (paired FTS design by Ghost1032 and Noi1r, accepted #900: S=5248, C=7049,
+product=36993152), plus the FTS Merkle half-swap C1 (FTS fixed part 881 -> 872, joint cap 788 -> 778; C 7030)
+and the lower-tree half-swap and witness pads C2 + C3 of #866: in the lower trees (L1..L3) a left child
+(even heap, leaves included) is the HIGH half of its hash, each fold writes one marked tweak word whose high
+word is a witness pad, every leaf tweak's and encoding row tweak's high word is a witness pad (the L3 row's at
+WIT+24), and lower chain 0's last step keeps the high half. The FTS singleton's left top node (heap 2) keeps the
+HIGH half (written at s0-192), so WIT+16..47 is never written by the FTS. W 24860 -> 24924 (message at 26144,
+charge 98); after-FTS 5271 -> 5251; verify bound 6932 -> 6912; C 7030 -> 7010.
+S = 5248, W = 24924, K = 131072, C = 7010; product = 36788480.
+The exact accepting run remains required before publication. -/

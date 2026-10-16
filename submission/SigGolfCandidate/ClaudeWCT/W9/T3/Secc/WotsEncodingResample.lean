@@ -16,8 +16,10 @@ set_option backward.isDefEq.respectTransparency false
 namespace Enc
 open SigGolfCandidate.T3.Security.Wots.Enc
 open SigGolfCandidate.T3.Security.Wots.Enc (tsum_uniform_coe)
+/-- Canonical encoding-row index: the (unused since nested FTS) forest right slot is 0; the 12-byte pad and the
+row tweak's high word (`pad.2.2`, C2/C3 FULL) are part of the row. -/
 def EncOk (lay : Layer) (msg : WCT9.LayerMsg) (pad : RowPad) : Prop :=
-  Extract.msgFits lay msg ∧ pad.2 = 0
+  Extract.msgFits lay msg ∧ pad.2.1 = 0
 abbrev EncIndex :=
   {e : CanonGraph.LeafPos × WCT9.LayerMsg × BitVec 32 × RowPad // e.1.Source ∧ EncOk e.1.lay e.2.1 e.2.2.2}
 instance encIndex_finite : Finite EncIndex := by
@@ -26,7 +28,7 @@ instance encIndex_finite : Finite EncIndex := by
 def encInput (e : EncIndex) : HashInput := encRow (leafOf e.1.1) e.1.2.1 e.1.2.2.1 e.1.2.2.2
 def encIdx (L : CanonGraph.LeafPos) (hs : L.Source) (msg : WCT9.LayerMsg) (counter : BitVec 32) (pad : RowPad)
     (hfit : Extract.msgFits L.lay msg) : EncIndex :=
-  ⟨(L, msg, counter, (pad.1, 0)), hs, hfit, rfl⟩
+  ⟨(L, msg, counter, (pad.1, 0, pad.2.2)), hs, hfit, rfl⟩
 theorem encInput_encIdx (L : CanonGraph.LeafPos) (hs : L.Source) (msg : WCT9.LayerMsg) (counter : BitVec 32)
     (pad : RowPad) (hfit : Extract.msgFits L.lay msg) :
     encInput (encIdx L hs msg counter pad hfit) = encRow (leafOf L) msg counter pad := by
@@ -36,7 +38,7 @@ theorem encInput_encIdx (L : CanonGraph.LeafPos) (hs : L.Source) (msg : WCT9.Lay
   | forest root => exact absurd hfit id
   | pair l r => rfl
 theorem encInput_length (e : EncIndex) : (encInput e).length = 64 :=
-  ClaudeWCT.W9.T3M.BC.layerEncodingRow_length _ _ _ _ _ _ _
+  ClaudeWCT.W9.T3M.BC.layerEncodingRow_length _ _ _ _ _ _ _ _
 theorem encInput_injective : Function.Injective encInput := by
   rintro ⟨⟨L, m, c, p⟩, hs, hf, hp⟩ ⟨⟨L', m', c', p'⟩, hs', hf', hp'⟩ he
   obtain ⟨h1, h2, h3, h4, h5, h6⟩ := ClaudeWCT.W9.T3M.BC.layerEncodingRow_injective hs.routed.1 hs.routed.2
@@ -49,14 +51,18 @@ theorem encInput_injective : Function.Injective encInput := by
   have : leaf = leaf' := Fin.ext h3
   subst tree leaf
   have hpp : p = p' := by
-    obtain ⟨h6, h7⟩ := h6
-    exact Prod.ext h6 (hp.trans hp'.symm)
+    obtain ⟨h6, -, h7⟩ := h6
+    have h8 : p.2.2 = p'.2.2 := by
+      have := congrArg (fun x : BitVec 64 => x ^^^ 1) h7
+      simpa only [BitVec.xor_assoc, BitVec.xor_self, BitVec.xor_zero] using this
+    exact Prod.ext h6 (Prod.ext (hp.trans hp'.symm) h8)
   subst hpp
   rfl
 theorem encInput_short (e : EncIndex) : encInput e ∈ SeccLaw.publicUniverse :=
   SeccLaw.mem_publicUniverse _ (by rw [encInput_length]; unfold SeccLaw.maxInputLength; omega)
 theorem encInput_encHeader (e : EncIndex) : EncHeader (encInput e) :=
-  ⟨e.1.1.lay, e.1.1.tree.val, e.1.1.leaf.val, ClaudeWCT.W9.T3M.BC.hdrBlock_layerEncodingInputP _ _ _ _ _ _ _⟩
+  ⟨encInput_length e, e.1.1.lay, e.1.1.tree.val, e.1.1.leaf.val, _,
+    ClaudeWCT.W9.T3M.BC.hdrBlock_layerEncodingInputP _ _ _ _ _ _ _ _⟩
 theorem reached_encInput {T : Answers} {L : CanonGraph.LeafPos} (hs : L.Source) {input : HashInput}
     (h : Reached T (leafOf L) input) :
     ∃ c : BitVec 32,
@@ -66,11 +72,16 @@ theorem reached_encInput {T : Answers} {L : CanonGraph.LeafPos} (hs : L.Source) 
 def Free (T : Answers) (e : EncIndex) : Prop := ¬ Reached T (leafOf e.1.1) (encInput e)
 def freeSet (T : Answers) : Set EncIndex := {e | Free T e}
 theorem encRow_hdr (L : LeafAddr) (msg : WCT9.LayerMsg) (counter : BitVec 32) (pad : RowPad) :
-    Extract.hdrBlock (encRow L msg counter pad) = bytesLE 16 (rowTweak L.lay L.tree L.leaf) :=
-  ClaudeWCT.W9.T3M.BC.hdrBlock_layerEncodingInputP _ _ _ _ _ _ _
+    Extract.hdrBlock (encRow L msg counter pad) =
+      bytesLE 16 ((pad.2.2 ^^^ 1) ++ hyperWord L.lay.val (L.tree * 2 ^ height L.lay + L.leaf)) :=
+  ClaudeWCT.W9.T3M.BC.hdrBlock_layerEncodingInputP _ _ _ _ _ _ _ _
+theorem encRow_length (L : LeafAddr) (msg : WCT9.LayerMsg) (counter : BitVec 32) (pad : RowPad) :
+    (encRow L msg counter pad).length = 64 :=
+  ClaudeWCT.W9.T3M.BC.layerEncodingRow_length _ _ _ _ _ _ _ _
 theorem encInput_hdr (e : EncIndex) :
-    Extract.hdrBlock (encInput e) = bytesLE 16 (rowTweak e.1.1.lay e.1.1.tree.val e.1.1.leaf.val) :=
-  ClaudeWCT.W9.T3M.BC.hdrBlock_layerEncodingInputP _ _ _ _ _ _ _
+    Extract.hdrBlock (encInput e) = bytesLE 16 ((e.1.2.2.2.2.2 ^^^ 1) ++
+      hyperWord e.1.1.lay.val (e.1.1.tree.val * 2 ^ height e.1.1.lay + e.1.1.leaf.val)) :=
+  ClaudeWCT.W9.T3M.BC.hdrBlock_layerEncodingInputP _ _ _ _ _ _ _ _
 noncomputable def rowDec (T A : Answers) (L : CanonGraph.LeafPos) (c : Nat) : Option (List Nat) :=
   WCT9.producerDecode (leafOf L).lay (WCT9.encodingAnswer (leafOf L).lay (A (.inl (.inr (encRow (leafOf L) (leafMsg T (leafOf L))
     (BitVec.ofNat 32 c) 0)))))
@@ -265,7 +276,7 @@ theorem agree_ovc (hU : SeccLaw.publicUniverse ⊆ U) (privateTable : FullGame.F
             exact hr
           have hnf : e ∉ (cellKey (eagerAnswers U privateTable pub)).2 := fun hfree => hfree hr'
           have hrej := rej_of_cell he hnf
-          refine RejPair.mk (encInput_hdr e) hrej.2 ?_
+          refine RejPair.mk (encInput_length e) (encInput_hdr e) hrej.2 ?_
           rw [eagerAnswers_public_mem U privateTable _ ⟨encInput e, hin⟩]
           have hat := ov_at hU (cellKey (eagerAnswers U privateTable pub)).1 pub y ⟨e, he⟩
           rw [hat]
@@ -820,7 +831,8 @@ set_option backward.isDefEq.respectTransparency false
 theorem topInput_nonEnc (coord index heap : Nat) (hcoord : coord < 9) (left pad right : Digest) :
     NonEnc (.inl (.inr (pad64 (WCT9.wctTopInput coord index heap left pad right)))) := by
   apply nonEnc_of_hdr _ (WCT9.wctNodeHeader coord index heap) ?_
-    (WCT9.wctNodeHeader_ne_rowTweak hcoord index heap)
+    (SigGolfCandidate.T3.Security.Wots.Enc.notHyper_of_tag (by
+      rw [WCT9.wctNodeHeader_tweakTag hcoord]; split <;> decide))
   unfold WCT9.wctTopInput
   rw [List.append_assoc (SphincsSecurity.bytesLE 16 left ++ SphincsSecurity.bytesLE 16 _)]
   exact WCT9.hdrBlock_pad64_prefix _ _ _ (SphincsSecurity.bytesLE_length _ _)
@@ -1185,9 +1197,9 @@ set_option backward.isDefEq.respectTransparency false
 
 theorem topInput_untouched (a : ChainAddr) (coord index heap : Nat) (left pad right : Digest) :
     UntouchedP a (.inl (.inr (pad64 (WCT9.wctTopInput coord index heap left pad right)))) := by
-  apply SigGolfCandidate.T3.Security.Wots.Mask.untouched_of_hdr a _
+  apply ClaudeWCT.W9.T3.Security.Wots.Mask.untouchedP_of_hdr a _
     (WCT9.wctNodeHeader coord index heap) ?_
-    (fun _ _ _ _ _ => WCT9.wctNodeHeader_ne_chainHeader _ _ _ _ _ _ _ _)
+    (fun _ _ _ _ _ _ => WCT9.wctNodeHeader_ne_chainHeader _ _ _ _ _ _ _ _)
   unfold WCT9.wctTopInput
   rw [List.append_assoc (SphincsSecurity.bytesLE 16 left ++ SphincsSecurity.bytesLE 16 _)]
   exact WCT9.hdrBlock_pad64_prefix _ _ _ (SphincsSecurity.bytesLE_length _ _)
@@ -1393,7 +1405,8 @@ theorem respects_chainPrefixes (lay : Layer) (tree leaf i start count : Nat) (va
   | zero => exact Respects.pure' _
   | succ count ih =>
     unfold chainPrefixes
-    exact Respects.bind (Respects.shortHash _ (nonEnc_chainInput _ _ _ _ _ _)) fun _ =>
+    exact Respects.bind (ClaudeWCT.W9.T3.Security.Wots.Mask.respects_halfHash' _ _
+      (nonEnc_chainInput _ _ _ _ _ _)) fun _ =>
       Respects.bind (ih _ _) fun _ => Respects.pure' _
 
 theorem respects_buildLeafPrefixes (lay : Layer) (tree leaf : Nat) (carry : Digest) :
@@ -1404,7 +1417,8 @@ theorem respects_buildLeafPrefixes (lay : Layer) (tree leaf : Nat) (carry : Dige
     exact Respects.foldlM _ _ (fun _ _ _ => Respects.bind (respects_packedSecret _ _ _ _)
       fun _ => Respects.pure' _) _
   · exact Respects.bind (Respects.mapM _ _ fun _ _ => respects_chainPrefixes _ _ _ _ _ _ _) fun _ =>
-      Respects.bind (SigGolfCandidate.T3.Security.Wots.Enc.respects_leafHash _ _ _ _) fun _ => Respects.pure' _
+      Respects.bind (ClaudeWCT.W9.T3.Security.Wots.Enc.respects_lowerLeafHash _ _ _ _
+        (by simpa only [List.length_map, List.length_range] using chainCount_ge4 lay)) fun _ => Respects.pure' _
 
 theorem respects_buildTreePrefixes (lay : Layer) (tree selected : Nat) :
     Respects NonEnc (buildTreePrefixes lay tree selected) := by
@@ -1424,7 +1438,7 @@ theorem respects_buildTreePrefixes (lay : Layer) (tree selected : Nat) :
     split <;> simp only [evalWithAnswerFn_bind, evalWithAnswerFn_pure,
       List.length_append, List.length_singleton, hrows]
   · intro rows hrows
-    exact Respects.bind (respects_buildLevelsBelow _ _ _ (by fin_cases lay <;> decide) _
+    exact Respects.bind (respects_buildLevelsBelow _ _ _ (by fin_cases lay <;> decide) (by fin_cases lay <;> decide) _
       (le_of_eq hrows)) fun _ => Respects.pure' _
 
 theorem respects_prepareRoots (index : Nat) : Respects NonEnc (prepareRoots index) := by
@@ -1829,7 +1843,9 @@ theorem queried_length_chainPrefixes (T : Answers) (lay : Layer)
   induction count generalizing start value with
   | zero => rfl
   | succ count ih =>
-    simp only [chainPrefixes,queried_length_bind,queried_length_shortHash,queried_length_pure,ih]
+    -- C3 (#866): a prefix step is a half hash (one query).
+    simp only [chainPrefixes,queried_length_bind,ClaudeWCT.W9.T3.Security.Wots.Mask.queried_length_halfHash,
+      queried_length_pure,ih]
     omega
 
 theorem queried_length_buildLeafPrefixes (T : Answers) (lay : Layer)
@@ -1844,7 +1860,10 @@ theorem queried_length_buildLeafPrefixes (T : Answers) (lay : Layer)
   rw [queried_length_bind,queried_length_mapM T _ _ (maxDigit lay)
     (fun i _ => queried_length_chainPrefixes T lay tree leaf i 0 _ _),queried_length_bind,
     queried_length_pure]
-  have hh : ∀ ends, (SourceReplay.queried T (SigGolfCandidate.T3.leafHash lay tree leaf ends)).length=1 := fun _ => rfl
+  -- C2 (#866): the leaf is `lowerLeafHash`, a half hash (one query).
+  have hh : ∀ ends, (SourceReplay.queried T (lowerLeafHash lay tree leaf ends)).length=1 := fun _ => by
+    unfold lowerLeafHash leafHashW lowerHash
+    exact ClaudeWCT.W9.T3.Security.Wots.Mask.queried_length_halfHash _ _ _
   rw [hh]
   simp only [Wots.Mask.leafCountP,List.getD_nil,Nat.zero_add,Nat.sub_zero,Nat.add_zero,Nat.add_assoc]
 
@@ -1866,6 +1885,16 @@ theorem queried_length_prefixTreeRows (T : Answers) (lay : Layer) (tree selected
     rcases r with ⟨⟨root,prefixes⟩,carry⟩
     simp only [pure_bind,queried_length_pure,evalWithAnswerFn_bind,evalWithAnswerFn_pure,Nat.add_zero]
 
+/-- C2 (#866): a lower level makes one (half-hash) query per node. -/
+theorem queried_length_lowerLevel (T : Answers) (lay tree h level : Nat) (nodes : List Digest) :
+    (SourceReplay.queried T (lowerLevel lay tree h level nodes)).length = nodes.length / 2 := by
+  unfold lowerLevel
+  rw [queried_length_mapM T _ _ (fun _ => 1) (fun i _ => by
+      unfold lowerNodeHash lowerHash
+      exact ClaudeWCT.W9.T3.Security.Wots.Mask.queried_length_halfHash _ _ _),
+    sum_map_one, List.length_range]
+
+/-- C2 (#866): `buildLevelsBelow` folds `lowerLevel`. -/
 theorem queried_length_buildLevelsBelow_congr (T T' : Answers) (tag lay tree h : Nat)
     (leaves leaves' : List Digest) (hlen : leaves.length=leaves'.length) :
     (SourceReplay.queried T (buildLevelsBelow tag lay tree h leaves)).length=
@@ -1873,22 +1902,22 @@ theorem queried_length_buildLevelsBelow_congr (T T' : Answers) (tag lay tree h :
   unfold buildLevelsBelow
   suffices H : ∀ (ls : List Nat) (s s' : List (List Digest)), s.map List.length = s'.map List.length →
       (SourceReplay.queried T (ls.foldlM (fun levels level => do
-        let nodes ← buildLevel tag lay tree h level (levels.getD (level - 1) [])
+        let nodes ← lowerLevel lay tree h level (levels.getD (level - 1) [])
         pure (levels ++ [nodes])) s)).length =
       (SourceReplay.queried T' (ls.foldlM (fun levels level => do
-        let nodes ← buildLevel tag lay tree h level (levels.getD (level - 1) [])
+        let nodes ← lowerLevel lay tree h level (levels.getD (level - 1) [])
         pure (levels ++ [nodes])) s')).length from H _ _ _ (by simp [hlen])
   intro ls
   induction ls with
   | nil => intro s s' _; rfl
   | cons level ls ih =>
       intro s s' hs
-      simp only [List.foldlM_cons, queried_length_bind, queried_length_buildLevel, queried_length_pure,
+      simp only [List.foldlM_cons, queried_length_bind, queried_length_lowerLevel, queried_length_pure,
         Nat.add_zero, getD_length_of_map hs]
       congr 1
       apply ih
       simp only [evalWithAnswerFn_bind, evalWithAnswerFn_pure, List.map_append, List.map_cons, List.map_nil,
-        Correctness.eval_buildLevel_length, hs, getD_length_of_map hs]
+        ClaudeWCT.WCT9.eval_lowerLevel_length, hs, getD_length_of_map hs]
 
 theorem queried_length_buildTreePrefixes_congr (T T' : Answers) (lay : Layer) (hlay : lay ≠ 0)
     (tree selected : Nat) :

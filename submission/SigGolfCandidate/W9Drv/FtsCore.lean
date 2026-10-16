@@ -1174,10 +1174,10 @@ def words (k : Nat) : List (BitVec 32) :=
     [0x1003803,0x1886833,0x7f87213,0x6787b3,0x1421f93,0xffefb3,0x721b93,0x1cb8bb3,0xc8040413,0x585713,0x277733,0x700e7],
     [0xe81213,0x1b27233,0x6787b3,0xf26fb3,0xc25b93,0x1db8bb3,0xc8040413,0x1185713,0x277733,0x700e7],
     [0x1d85713,0x277733,0x7f8f213,0x6787b3,0x1421f93,0xffefb3,0x721b93,0x1cb8bb3,0xc8040413,0x700e7],
-    [0x188e8b3,0xe89213,0x1b27233,0x6787b3,0xf26fb3,0xc25b93,0x1db8bb3,0xc8040413,0x58d713,0x277733,0x118d213,0x700e7],
-    [0x227733,0x1b27233,0x6787b3,0xf26fb3,0xf104bc83,0xc25b93,0x19b8bb3,0xc8040413,0x700e7]].getD k []
+    [0x188e8b3,0xe89213,0x1b27233,0x6787b3,0xf26fb3,0xc25b93,0x1db8bb3,0xc8040413,0x58d713,0x277733,0x13,0x700e7],
+    [0x118d213,0x1b27233,0x6787b3,0xf26fb3,0xf104bc83,0xc25b93,0x19b8bb3,0xc8040413,0x118d713,0x277733,0x700e7]].getD k []
 def start (k : Nat) : Nat := [89,171,257,341,425,511,595,679,765].getD k 849
-def length (k : Nat) : Nat := [8,12,10,10,12,10,10,12,9].getD k 0
+def length (k : Nat) : Nat := [8,12,10,10,12,10,10,12,11].getD k 0
 def first (k : Nat) : Bool := decide (k < 8 ∧ k % 2 = 0)
 def rankPosition (k : Nat) : Nat := [13,13,25,37,13,25,37,13,25].getD k 13
 def result (k : Nat) : Result :=
@@ -1188,10 +1188,8 @@ def result (k : Nat) : Result :=
     else if k ≥ 6 then .reg .x17 else .reg .x16
   let rankDig : E := if k = 1 ∨ k = 4 then padded else if k = 7 then lastPadded
     else if k ≥ 7 then .reg .x17 else .reg .x16
-  -- Coordinate 8 (dispatch hoist): `tp` already holds `a7 >>> 17` (coordinate 7's word 689), so the child and rank
-  -- fields are masked directly out of `tp`.
   let child := if first k then mkBin .and childDig (.c 127)
-    else mkBin .and (if k = 8 then .reg .x4
+    else mkBin .and (if k = 8 then mkBin .srl childDig (.c 17)
       else mkBin .sll childDig (.c 14)) (.reg .x27)
   let node := if k = 0 then .reg .x15 else mkAdd (.reg .x15) (.reg .x6)
   let header := mkBin .or (if first k then mkBin .sll child (.c 20) else child) node
@@ -1199,13 +1197,11 @@ def result (k : Nat) : Result :=
   let childPC := mkAdd (if first k then mkBin .sll child (.c 7)
     else mkBin .srl child (.c 12)) (if first k then .reg .x28
       else if k = 8 then singletonBase else .reg .x29)
-  let field := mkBin .and (if k = 8 then .reg .x4
-    else mkBin .srl rankDig (.c (BitVec.ofNat 64 (rankPosition k - 8)))) (.reg .x2)
+  let field := mkBin .and (mkBin .srl rankDig (.c (BitVec.ofNat 64 (rankPosition k - 8)))) (.reg .x2)
   let regs := if k = 1 ∨ k = 4 then RegFile.init.set .x16 padded else RegFile.init
   let regs := if k = 7 then regs.set .x17 lastPadded else regs
   let regs := if k = 8 then regs.set .x25 singletonBase else regs
-  -- Coordinate 7 ends with `srli tp,a7,17` (word 689): its `tp` is the hoisted shift, not the child.
-  let regs := (regs.set .x4 (if k = 7 then mkBin .srl lastPadded (.c 17) else child)).set .x31 header
+  let regs := (regs.set .x4 child).set .x31 header
   let regs := if k = 0 then regs else (regs.set .x15 node).set .x8
     (addC (.reg .x8) (BitVec.ofNat 64 (2^64 - 896)))
   let regs := ((regs.set .x23 childPC).set .x14 field).set .x1 (.c (pcOf (start k + length k)))
@@ -1216,7 +1212,7 @@ set_option maxHeartbeats 0 in
 theorem checked : ∀ k : Fin 9,
     rOK (symRun {} (words k.val) (pcOf (start k.val)) (length k.val)) (result k.val) = true := by
   intro k; fin_cases k <;> decide +kernel
-theorem total_dispatch_words : ((List.range 9).map length).sum = 93 := by decide
+theorem total_dispatch_words : ((List.range 9).map length).sum = 95 := by decide
 theorem linked (k : Fin 9) : sliceChecked (start k.val) (words k.val) = true := by
   fin_cases k <;> decide +kernel
 
@@ -1323,13 +1319,6 @@ theorem keep (k : Fin 9) (u : MachineState) (r : Reg)
   rw [Result.toState_getReg]
   fin_cases k <;> cases r <;> first | exact False.elim (hr (by decide)) | rfl
 
-/-- Dispatch hoist: coordinate 7's dispatcher ends with `srli tp,a7,17` (word 689) after `or a7,a7,s8`, so it leaves
-coordinate 8's shared shift in `tp`. -/
-theorem hoist_seven (u : MachineState) :
-    ((result 7).toState u).getReg .x4 = ((result 7).toState u).getReg .x17 >>> 17 := by
-  rw [Result.toState_getReg, Result.toState_getReg]
-  rfl
-
 theorem node (k : Fin 9) (u : MachineState) :
     ((result k.val).toState u).getReg .x15 =
       (if k.val = 0 then u.getReg .x15 else u.getReg .x15 + u.getReg .x6) := by
@@ -1360,16 +1349,9 @@ open SigGolfCandidate.Research
 set_option maxRecDepth 100000
 set_option maxHeartbeats 0
 
-/-- The packed child expression of dispatcher `k` (the `child` of `result k`): `childDig & 127` (A), or the raw child
-moved to bits 20..26 (B, C). Coordinate 8 masks the hoisted `tp = a7 >>> 17`. -/
-def childE (k : Nat) : E :=
-  if first k then mkBin .and (childDig k) (.c 127)
-  else mkBin .and (if k = 8 then .reg .x4 else mkBin .sll (childDig k) (.c 14)) (.reg .x27)
-
 theorem packed_result (k : Fin 9) (u : MachineState)
-    (hm : u.getReg .x27 = BitVec.ofNat 64 0x7f00000)
-    (hx4 : k.val = 8 → u.getReg .x4 = u.getReg .x17 >>> 17) :
-    (childE k.val).eval u =
+    (hm : u.getReg .x27 = BitVec.ofNat 64 0x7f00000) :
+    ((result k.val).toState u).getReg .x4 =
       if first k.val then childOfWord k ((childDig k.val).eval u)
       else childOfWord k ((childDig k.val).eval u) <<< 20 := by
   fin_cases k
@@ -1393,22 +1375,21 @@ theorem packed_result (k : Fin 9) (u : MachineState)
   · change (((childDig 7).eval u) <<< 14) &&& u.getReg .x27 = ((((childDig 7).eval u) >>> 6) &&& 127#64) <<< 20
     rw [hm]
     exact packed_pair _
-  · change u.getReg .x4 &&& u.getReg .x27 = ((u.getReg .x17 >>> 37) &&& 127#64) <<< 20
-    rw [hm, hx4 rfl]
+  · change (((childDig 8).eval u) >>> 17) &&& u.getReg .x27 = ((((childDig 8).eval u) >>> 37) &&& 127#64) <<< 20
+    rw [hm]
     exact packed_singleton _
 
 theorem leaf (k : Fin 9) (u : MachineState)
-    (hm : u.getReg .x27 = BitVec.ofNat 64 0x7f00000)
-    (hx4 : k.val = 8 → u.getReg .x4 = u.getReg .x17 >>> 17) :
+    (hm : u.getReg .x27 = BitVec.ofNat 64 0x7f00000) :
     ((result k.val).toState u).getReg .x31 =
       (childOfWord k ((childDig k.val).eval u) <<< 20) |||
         ((result k.val).toState u).getReg .x15 := by
   have he : ((result k.val).toState u).getReg .x31 =
-      (if first k.val then (childE k.val).eval u <<< 20
-       else (childE k.val).eval u) |||
+      (if first k.val then ((result k.val).toState u).getReg .x4 <<< 20
+       else ((result k.val).toState u).getReg .x4) |||
         ((result k.val).toState u).getReg .x15 := by
     fin_cases k <;> rfl
-  rw [he, packed_result k u hm hx4]
+  rw [he, packed_result k u hm]
   cases first k.val <;> rfl
 
 theorem child_pc (pk : Digest) (w : ClaudeWCT.W9.T3M.WBytes) (a : HashOutput) (k : Fin 9)
@@ -1427,12 +1408,12 @@ theorem child_pc (pk : Digest) (w : ClaudeWCT.W9.T3M.WBytes) (a : HashOutput) (k
       (if first k.val then u.getReg .x28 else if k.val = 8 then
         u.getMem (BitVec.ofNat 64 (TOPB9 - 240)) else u.getReg .x29) := by
     have he : ((result k.val).toState u).getReg .x23 =
-        (if first k.val then (childE k.val).eval u <<< 7
-         else (childE k.val).eval u >>> 12) +
+        (if first k.val then ((result k.val).toState u).getReg .x4 <<< 7
+         else ((result k.val).toState u).getReg .x4 >>> 12) +
         (if first k.val then u.getReg .x28 else if k.val = 8 then
           u.getMem (u.getReg .x9 + BitVec.ofNat 64 (2^64 - 240)) else u.getReg .x29) := by
       fin_cases k <;> rfl
-    rw [he, packed_result k u hm hu.hoist, h9]
+    rw [he, packed_result k u hm, h9]
     have ha : BitVec.ofNat 64 TOPB9 + BitVec.ofNat 64 (2^64 - 240) =
         BitVec.ofNat 64 (TOPB9 - 240) := by decide +kernel
     rw [ha]
@@ -1513,7 +1494,7 @@ theorem chain_pre (pk : Digest) (w : ClaudeWCT.W9.T3M.WBytes) (a : HashOutput) (
     fin_cases k <;> simp [result, Result.toState_getReg, RegFile.get, RegFile.set, RegFile.init,
       addC_eval, E.eval, hb, Chain.base, coordinateBase]
   · change ((result k.val).toState u).getReg .x31 = _
-    rw [leaf k u hu.childMask hu.hoist, hc, hnode]
+    rw [leaf k u hu.childMask, hc, hnode]
     exact W9Drv.leafLow_or _ _ _ k.isLt hj hi
   · change ((result k.val).toState u).getReg .x1 = _
     fin_cases k <;> rfl
@@ -1560,28 +1541,13 @@ theorem padded_low (x : Word) :
   intro i hi
   interval_cases i <;> simp
 
-/-- The dispatch target (rank field) of coordinate `k`; coordinate 8 masks the hoisted `tp = a7 >>> 17`. -/
-theorem pc_shift (k : Fin 9) (u : MachineState)
-    (hx4 : k.val = 8 → u.getReg .x4 = u.getReg .x17 >>> 17) :
-    (result k.val).pc.eval u =
-      (((rankDig k.val).eval u >>> (rankPosition k.val - 8)) &&& u.getReg .x2) &&& ~~~1#64 := by
-  fin_cases k
-  · rfl
-  · rfl
-  · rfl
-  · rfl
-  · rfl
-  · rfl
-  · rfl
-  · rfl
-  · change (u.getReg .x4 &&& u.getReg .x2) &&& ~~~1#64 =
-      ((u.getReg .x17 >>> 17) &&& u.getReg .x2) &&& ~~~1#64
-    rw [hx4 rfl]
-
 theorem pc_eval (pk : Digest) (w : ClaudeWCT.W9.T3M.WBytes) (a : HashOutput) (k : Fin 9)
     (pairs : List (Digest × Digest)) (u : MachineState) (hu : SharedCoord.Pre pk w a k.val pairs u) :
     (result k.val).pc.eval u = pcOf (slotStart + 64 * SharedForest.rawForestRank a k.val) := by
-  rw [pc_shift k u hu.hoist, hu.mask, show BitVec.ofNat 64 0xfff00 = 0xfff00#64 from rfl, padded_low,
+  have he : (result k.val).pc.eval u =
+      (((rankDig k.val).eval u >>> (rankPosition k.val - 8)) &&& u.getReg .x2) &&& ~~~1#64 := by
+    fin_cases k <;> rfl
+  rw [he, hu.mask, show BitVec.ofNat 64 0xfff00 = 0xfff00#64 from rfl, padded_low,
     rankDig_eval pk w a k pairs u hu,
     padded_field _ (by fin_cases k <;> decide)]
   change (rankOfWord k (a.extractLsb' (64 * W9Drv.digWord k.val) 64) <<< 8) ||| 0xc0000#64 = _
@@ -1863,8 +1829,7 @@ theorem next (pk : Digest) (w : ClaudeWCT.W9.T3M.WBytes) (a : HashOutput) (k : F
     prevR := ?_
     a2 := ?_
     coords := ?_
-    layer := ?_
-    hoist := ?_ }
+    layer := ?_ }
   · rw [ht.pc]
     fin_cases k <;> rfl
   · refine ⟨?_, ?_⟩
@@ -1942,15 +1907,6 @@ theorem next (pk : Digest) (w : ClaudeWCT.W9.T3M.WBytes) (a : HashOutput) (k : F
       split_ifs at hn <;> split_ifs at hw <;> omega
   · exact hu.layer.frame (fun j hj h => hf _ (by unfold WIT WX at *; omega)
       (by intro hw; unfold SharedChild.writes SharedChild.outputAddr SharedChild.handAddr coordinateBase regionAddr WIT at *; split_ifs at hw <;> omega))
-  · -- dispatch hoist: `tp = a7 >>> 17` from coordinate 7's dispatcher; the chain (`Chain.clobbers`) and B′ child
-    -- (`Child.clobbers`) routines keep both `tp` and `a7`.
-    intro h8
-    have hk7 : k = ⟨7, by decide⟩ := Fin.ext (show k.val = 7 by omega)
-    subst hk7
-    rw [hr .x4 (by decide), hr .x17 (by decide)]
-    change ((SharedDispatch.result 7).toState u).getReg .x4 =
-      ((SharedDispatch.result 7).toState u).getReg .x17 >>> 17
-    exact SharedDispatch.hoist_seven u
 
 end W9Drv.SharedCoord
 
@@ -2145,11 +2101,11 @@ theorem child_cost_eq (k : Fin 9) (raw : Fin 128) :
   child_cost_all k raw
 
 theorem coordsAccept_all (a : HashOutput) :
-    coordsAccept a (List.finRange 9) = 846 + SharedForest.jointAccountingCost a := by
+    coordsAccept a (List.finRange 9) = 848 + SharedForest.jointAccountingCost a := by
   unfold coordsAccept
   simp_rw [child_cost_eq]
   have hfixed : ((List.finRange 9).map (fun k =>
-      SharedDispatch.length k.val + (if SharedV3.first k.val then 77 else 89))).sum = 846 := by decide +kernel
+      SharedDispatch.length k.val + (if SharedV3.first k.val then 77 else 89))).sum = 848 := by decide +kernel
   have hpoint : ∀ k : Fin 9,
       SharedDispatch.length k.val + (N600.rankCost (SharedForest.forestRank a k.val) +
         ((if SharedV3.first k.val then 77 else 89) + SharedForest.accountingCorrection k.val (SharedForest.rawChildFromOutput a k))) =
@@ -2200,9 +2156,9 @@ def FtsGoodByCost (acceptCost : HashOutput → Nat) (P : Hash → Prop := HashOk
     GoodQFor (P := P) Frozen.image u (N+2023) (C+2023) Q (A+acceptCost a)
       (ccM (if SharedGate.gateOk a then ftsN w a else pure none) K)
 
-/-- C1 (stage 1) + coordinate-8 dispatch hoist: 24 (gate and setup) + 93 (dispatch) + 4 x 77 + 5 x 89 (child fixed
-parts) = 870, plus the joint accounting cost (`≤ 778` on accepted digests). -/
-def ftsAcceptCost (a : HashOutput) : Nat := 870 + SharedForest.jointAccountingCost a
+/-- C1 (stage 1): 24 (gate and setup) + 95 (dispatch) + 4 x 77 + 5 x 89 (child fixed parts) = 872, plus the joint
+accounting cost (`≤ 778` on accepted digests). -/
+def ftsAcceptCost (a : HashOutput) : Nat := 872 + SharedForest.jointAccountingCost a
 
 theorem fts_good_of
     (checkLink : sliceChecked 4 SharedGate.gCheckWords = true)
@@ -2214,13 +2170,13 @@ theorem fts_good_of
   intro pk w a u N C A Q K hu hnone hnext
   let KG : Bool → OracleComp HashSpec Obs := fun b =>
     if b then ccM (ftsN w a) K else K none
-  have hg := SharedGate.good checkLink setupLink pk w a u (N + 1758) (C + 1758)
-    (A + (846 + SharedForest.jointAccountingCost a)) Q KG hu
+  have hg := SharedGate.good checkLink setupLink pk w a u (N + 1760) (C + 1760)
+    (A + (848 + SharedForest.jointAccountingCost a)) Q KG hu
     (by simpa only [KG, Bool.false_eq_true, ↓reduceIte] using hnone)
     (fun t ht => by
       have hc := all_good links chains childs pk w a (List.finRange 9) 0 [] t N C A Q K
         (by decide) (by simp) ht hnone (fun pairs st hh => hnext _ st (final pk w a pairs st hh))
-      rw [show coordsCost (List.finRange 9) = 1758 by decide, coordsAccept_all] at hc
+      rw [show coordsCost (List.finRange 9) = 1760 by decide, coordsAccept_all] at hc
       apply hc.congr
       change ccM (_ >>= finishN w) K = ccM (ftsN w a) K
       apply congrArg (fun p : M (Option (Digest × Digest)) => ccM p K)
@@ -2229,8 +2185,8 @@ theorem fts_good_of
         (List.finRange 9).foldlM (stepN w a) (some []) >>= f)
       funext state
       cases state <;> rfl)
-  change GoodQFor (P := P) Frozen.image u (N + 1782) (C + 1782) Q
-    (A + (846 + SharedForest.jointAccountingCost a) + 24) (KG (SharedGate.gateOk a)) at hg
+  change GoodQFor (P := P) Frozen.image u (N + 1784) (C + 1784) Q
+    (A + (848 + SharedForest.jointAccountingCost a) + 24) (KG (SharedGate.gateOk a)) at hg
   apply (hg.mono (by omega) (by omega) (fun hq => ⟨hq, by simp only [ftsAcceptCost]; omega⟩)).congr
   cases SharedGate.gateOk a <;> simp [KG, ccM_pure]
 
@@ -2372,7 +2328,9 @@ def canonicalChildN (index : Nat) (coord : Fin 9) (raw : Child)
   let value ← (List.range last).foldlM
     (fun value level => SharedV3.hashSel (SharedV3.hiOut child (level + 1))
       (canonicalChildInput index coord.val child path padR value level)) leaf
-  if coord.val = 8 then shortHash (canonicalChildInput index coord.val child path padR value last)
+  if coord.val = 8 then
+    SharedV3.hashSel (decide (SharedV3.direction coord.val child = 0))
+      (canonicalChildInput index coord.val child path padR value last)
   else highHash (canonicalChildInput index coord.val child path padR value last)
 
 theorem childN_canonical (w : SharedV3.WBytes) (index : Nat) (coord : Fin 9)
@@ -2556,6 +2514,29 @@ set_option maxHeartbeats 1000000
 set_option maxRecDepth 10000
 set_option backward.isDefEq.respectTransparency false
 
+/-- Stage 2 (merged singleton "Cm"): the top fold of a non-first tree. For tree 8 the left top node (heap 2,
+direction 0) keeps the HIGH half and the right one (heap 3) the LOW half, which is `sharedOuterHash`'s
+`coord = 8 ∧ heap = 3` rule at heap `2 + p / 64`. -/
+theorem canonical_top_outer (coord : Fin 9) (p : Nat) (hp : p < 128) (hf : SharedV3.first coord.val = false)
+    (input : HashInput) :
+    (if coord.val = 8 then SharedV3.hashSel (decide (SharedV3.direction coord.val p = 0)) input
+      else highHash input) =
+      (if coord.val = 8 ∧ 2 + p / 64 = 3 then shortHash input else highHash input) := by
+  have hdir : SharedV3.direction coord.val p = p / 64 := by
+    unfold SharedV3.direction SharedV3.lastLevel
+    rw [hf]
+    simp only [Bool.false_eq_true, ↓reduceIte]
+    omega
+  rw [hdir]
+  by_cases h8 : coord.val = 8
+  · rw [if_pos h8]
+    by_cases h0 : p / 64 = 0
+    · rw [if_neg (fun h => by have h2 := h.2; omega), decide_eq_true h0]
+      rfl
+    · rw [if_pos ⟨h8, by omega⟩, decide_eq_false h0]
+      rfl
+  · rw [if_neg h8, if_neg (fun h => h8 h.1)]
+
 theorem canonicalCoordinate_eq_sourceCoordinate (index : Nat) (coord : Fin 9)
     (raw : Child) (word : Rank) (values : Fin 6 → Digest) (path : Nat → Digest) (prev : PairRoot) :
     canonicalCoordinate index coord raw word values path prev =
@@ -2577,6 +2558,8 @@ theorem canonicalCoordinate_eq_sourceCoordinate (index : Nat) (coord : Fin 9)
       intro leaf
       apply bind_congr
       intro value
+      rw [canonical_top_outer coord (SharedV3.physical coord.val raw.val)
+        (SharedV3.physical_lt _ _ raw.isLt) hf]
       have heap : (128 + SharedV3.physical coord.val raw.val) / 2 ^ (5 + 1) =
           2 + SharedV3.physical coord.val raw.val / 64 := by norm_num; omega
       simp only [canonicalChildInput, sharedOuterHash, heap, show (5 : Nat) ≠ 4 by decide,

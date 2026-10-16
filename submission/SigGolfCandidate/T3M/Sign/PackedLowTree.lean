@@ -416,7 +416,7 @@ def btBodyP (leafFn : LeafFn) (lay : Layer) (tree sel : Nat) (ds : List Nat)
 def buildTreeP (leafFn : LeafFn) (lay : Layer) (tree sel : Nat) (ds : List Nat) :
     T3.M (List (List Digest) × List Digest) := do
   let state ← (List.range (2 ^ height lay)).foldlM (btBodyP leafFn lay tree sel ds) ([], [], 0)
-  let levels ← ClaudeWCT.WCT9.buildLevelsBelow 3 lay.val tree (height lay) state.1
+  let levels ← Seed.levelsBelowW lay.val tree (height lay) state.1
   pure (levels, state.2.1)
 section loop
 variable {sk : SecretKey} {cache : Bytes 131072} {lay : Layer} {tree sel : Nat} {ds : List Nat} {sb : Nat}
@@ -739,14 +739,14 @@ theorem heapH_sib {H sel i : Nat} (hi : i < H) :
   rw [h2, Nat.add_comm, Nat.add_mul_div_right _ _ (Nat.two_pow_pos i), Nat.add_comm,
     two_pow_add_xor_one (by omega)]
 theorem btLev_costs (lay : Layer) (hlay : lay ≠ 0) (tree : Nat) :
-    Seed.levKB (btLev lay tree) ≤ Seed.levCB (btLev lay tree) ∧ Seed.levCB (btLev lay tree) ≤ 5889 := by
+    Seed.levKB (btLev lay tree) ≤ Seed.levCB (btLev lay tree) ∧ Seed.levCB (btLev lay tree) ≤ 6609 := by
   rcases height_low hlay with h | h <;> simp only [Seed.levKB, Seed.levCB, btLev, h] <;> decide
 theorem bt_tail {sk : SecretKey} {cache : Bytes 131072} {lay : Layer} {tree sel : Nat} {ds : List Nat}
     {sb ret : Nat} {s s1 t : MachineState} (hs : BtPre (cfFlag := cfFlag) sk cache lay tree sel ds sb s1)
     (h4 : s1.getReg .x4 = pcOf ret) (hr0 : RegsExcept s s1 [.x4, .x13]) (hf0 : Frame s s1 (fun _ => False))
     {st : List Digest × List Digest} (ht : BtInv s1 sb sel (height lay) (2 ^ height lay) st t) :
     TBSim image sk t 19000 (do
-      let levels ← ClaudeWCT.WCT9.buildLevelsBelow 3 lay.val tree (height lay) st.1
+      let levels ← Seed.levelsBelowW lay.val tree (height lay) st.1
       pure (levels, st.2)) (BtPost (cfFlag := cfFlag) sk cache lay tree sel sb ret s) := by
   have hlay := hs.hlay
   have hH := height_low hlay
@@ -798,6 +798,7 @@ theorem bt_tail {sk : SecretKey} {cache : Bytes 131072} {lay : Layer} {tree sel 
         exact ht.roots.frame (t1f.trans t2f) (by rw [ht.len]; packed_sgo) (fun _ _ _ h => by
           rcases h with h | h <;> exact h) }
   have hlev := Seed.buildLevelsBelow_tsim SeedIndependent.seedIndependentAt_sign sk hlp
+    (by show 1 ≤ lay.val; exact Nat.pos_of_ne_zero (fun h => hlay (Fin.ext h)))
     (by show 2 ≤ height lay; rcases hH with h | h <;> omega) t2pc
   obtain ⟨hlk, hlc⟩ := btLev_costs lay hlay tree
   refine TBSim.mono (TBSim.steps (st1.trans st2) (TBSim.bind (W₂ := 120) (TSim.toTBSim hlev hlk)

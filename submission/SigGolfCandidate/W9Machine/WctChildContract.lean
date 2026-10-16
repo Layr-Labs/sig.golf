@@ -73,13 +73,19 @@ structure Pre (L : Layout) (w : WBytes) (index : Nat) (k : Fin 9) (j : Fin 128)
   twAt : ∀ l, l < 6 → DigAt u (coordinateBase k + SharedV3.blkOff (SharedV3.physical k.val j.val) l + 16) (SharedV3.nodeTw w k.val (SharedV3.physical k.val j.val) l)
 
 /-- Where the computed top value lands: the next region's leaf pad (`- 176`, direction 0) or its R pad (`- 736` =
-next region `+ 160`, direction 1); the final singleton writes its low root to `WIT + 0` / `WIT + 48`. -/
+next region `+ 160`, direction 1); the final singleton (merged "Cm", stage 2) puts its left root on `WIT + 0`
+(direction 0) and its right root on `WIT + 48` (direction 1). -/
 def handAddr (k : Fin 9) (raw : Fin 128) : Nat :=
   if SharedV3.direction k.val (SharedV3.physical k.val raw.val) = 0 then coordinateBase k - 176
   else if k.val = 8 then coordinateBase k - 128 else coordinateBase k - 736
 
+/-- Start of the 32-byte hash output carrying the computed top value: 16 bytes below the value for a high-half
+value (every A/B child, and the singleton's left root, heap 2, stage 2 Cm: the junk low half lands on
+`WIT - 16 .. WIT - 1`), at the value itself for the singleton's right root (heap 3, low half at `WIT + 48`). -/
 def outputAddr (k : Fin 9) (raw : Fin 128) : Nat :=
-  if k.val = 8 then handAddr k raw else handAddr k raw - 16
+  if k.val = 8 then
+    (if SharedV3.direction k.val (SharedV3.physical k.val raw.val) = 0 then handAddr k raw - 16 else handAddr k raw)
+  else handAddr k raw - 16
 
 def writes (k : Fin 9) (raw : Fin 128) (A : Nat) : Prop :=
   (coordinateBase k ≤ A ∧ A < coordinateBase k + 912) ∨
@@ -87,7 +93,9 @@ def writes (k : Fin 9) (raw : Fin 128) (A : Nat) : Prop :=
 
 structure Post (L : Layout) (k : Fin 9) (raw : Fin 128) (u : MachineState)
     (computed : Digest) (t : MachineState) : Prop where
-  pc : t.pc = pcOf (L.returnWord k + (if k.val = 8 then 79 else 74))
+  /-- A/B return with `jalr zero,296(ra)`; the singleton (Cm, stage 2) with `jalr zero,312(ra)`, i.e. to word 854 for
+  `returnWord 8 = 776`, the L3 entry. -/
+  pc : t.pc = pcOf (L.returnWord k + (if k.val = 8 then 78 else 74))
   hashLen : t.getReg .x11 = 64
   top : DigAt t (handAddr k raw) computed
   a2 : t.getReg .x12 = BitVec.ofNat 64 (outputAddr k raw)

@@ -50,7 +50,7 @@ theorem layer_of_shaped (answers : Answers) (N : HashOutput) (wit : WCT9.Witness
       split
       · exact ClaudeWCT.W9.T3M.wbuffer_witEnc N wit lay i
       · exact ClaudeWCT.W9.T3M.wvalue_witEnc N wit lay i
-    rw [← hv, (hs.2 i.val i.isLt).1]
+    rw [← hv, (hs.2.1 i.val i.isLt).1]
     simp [piecesSignature, WCT9.wotsPieces]
   · funext j
     rw [← ClaudeWCT.W9.T3M.wpath_witEnc N wit lay j, (hs.1 j.val j.isLt).1]
@@ -113,8 +113,8 @@ theorem layers_payload (answers : Answers) (published : SigGolfCandidate.T3.Cach
                 simp
           obtain ⟨digitsG, ⟨_, hdec⟩, hshape⟩ := hgood (Fin.ofNat 4 n)
           have hright : ClaudeWCT.W9.T3M.wbcRight (witEnc N wit) = 0 := ClaudeWCT.W9.T3M.wright3_witEnc N wit
-          rw [ClaudeWCT.W9.T3M.wbcCtr_witEnc, ClaudeWCT.W9.T3M.wbcPad_witEnc, hright, hcounter, ← hmsg,
-            ClaudeWCT.W9.T3M.encodingHash_layerEncodingInputP_zero] at hdec
+          rw [ClaudeWCT.W9.T3M.wbcCtr_witEnc, ClaudeWCT.W9.T3M.wbcPad_witEnc, ClaudeWCT.W9.T3M.wbcHigh_witEnc, hright,
+            hcounter, ← hmsg, ClaudeWCT.W9.T3M.encodingHash_layerEncodingInputP_zero] at hdec
           rw [hsome.2.2, Option.some.injEq] at hdec
           subst hdec
           rename' digits => digitsG
@@ -345,7 +345,7 @@ theorem layer_of_shaped_readout (answers : Answers) (index : Nat) (wb : WBytes)
       (route index lay).2 (route index lay).1 digits) := by
   apply SigGolfCandidate.T3M.LayerSignature.ext'
   · funext i
-    rw [← hval i, (hs.2 i.val i.isLt).1]
+    rw [← hval i, (hs.2.1 i.val i.isLt).1]
     simp [piecesSignature, WCT9.wotsPieces]
   · funext j
     rw [← hpath j, (hs.1 j.val j.isLt).1]
@@ -367,17 +367,18 @@ theorem good_shape_readout (answers : Answers) (messages : LeafAddr → WCT9.Lay
       sig.layers lay = piecesSignature lay (WCT9.wotsPieces answers lay
         (route index lay).2 (route index lay).1 digits) := by
   intro lay
-  obtain ⟨⟨digits, hframe, hs⟩, hpad⟩ := hg lay
+  obtain ⟨⟨digits, hframe, hs⟩, hpad, hhigh⟩ := hg lay
   have hd := hframe.2
+  -- C3 (#866): the honest row has the zero 12-byte pad and the row-tweak high word 1.
   have he (counter : BitVec 32) :
       WCT9.encodingHash lay (layerEncodingInputP lay (route index lay).2 (route index lay).1
-        (messages (routeLeaf index lay)) counter 0 (wbcRight wb)) =
+        (messages (routeLeaf index lay)) counter 0 (wbcRight wb) 1) =
       WCT9.encodingHash lay (WCT9.layerEncodingInput lay (route index lay).2 (route index lay).1
         (messages (routeLeaf index lay)) counter) := by
     obtain ⟨left,right,hm⟩ := hpair lay
     rw [hm]
     rfl
-  rw [hctr, hpad, he] at hd
+  rw [hctr, hpad, hhigh, he] at hd
   exact ⟨digits, hd, layer_of_shaped_readout answers index wb sig lay digits hs (hval lay digits) (hpath lay)⟩
 #print axioms good_shape_readout
 end ClaudeWCT.W9.T3.Security.CanonicalExtract

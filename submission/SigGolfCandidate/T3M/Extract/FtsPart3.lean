@@ -7,7 +7,8 @@ open Correctness (Answers treeValue)
 open SphincsSecurity (bytesLE bytesLE_length bytesLE_injective)
 set_option maxHeartbeats 1000000
 set_option maxRecDepth 10000
-set_option backward.isDefEq.respectTransparency false
+set_option backward.isDefEq.respectTransparency true
+attribute [local irreducible] buildFts evalWithAnswerFn treeValue
 theorem leavesHonest_selOk (sig : Signature) (pads : Pads) (secret : Nat → Digest) (coord : Nat) (sel : Selection)
     (hs : SelOk sel) (h : LeavesHonest coord (selectedLeaves sel) (coordValues sig coord) pads secret 7 sel.bucket) :
     ∀ j < 3, sig.secrets ⟨(coord * 3 + j) % 21, Nat.mod_lt _ (by decide)⟩ = secret (selLeaf sel j) ∧
@@ -97,10 +98,10 @@ theorem recoverFtsP_built_extract (answers : Answers) (sig : Signature) (pads : 
 private theorem ftsRootsHonest_built (answers : Answers) (index : Nat) :
     Extract.ftsRootsHonest answers index =
       (List.range 7).map (fun c => treeValue (evalWithAnswerFn answers (buildFts index c)).1 11 0) := by
-  unfold Extract.ftsRootsHonest
-  apply congrArg (fun f => (List.range 7).map f)
-  funext c
-  rw [Extract.ftsRoot, Extract.ftsLevels]
+  have h0 : @Extract.ftsRootsHonest = (fun a i => (List.range 7).map (Extract.ftsRoot a i)) := rfl
+  have h1 : @Extract.ftsRoot = (fun a i c => treeValue (Extract.ftsLevels a i c) 11 0) := rfl
+  have h2 : @Extract.ftsLevels = (fun a i c => (evalWithAnswerFn a (buildFts i c)).1) := rfl
+  rw [h0, h1, h2]
 theorem honestInput_forest (answers : Answers) (index : Nat) :
     Extract.honestInput answers (.forest index) = pad64 (Extract.forestInput index
       ((List.range 7).map fun c => treeValue (evalWithAnswerFn answers (buildFts index c)).1 11 0)) := by
@@ -113,9 +114,11 @@ theorem honestInput_ftsNode (answers : Answers) (index coord level node : Nat) (
     (hn : node < 2 ^ (11 - (level + 1))) :
     Extract.honestInput answers (.ftsNode index coord level node) =
       honInputL answers index coord (builtSecret answers index coord) (level + 1) node := by
-  rw [show builtSecret answers index coord = fun g => (evalWithAnswerFn answers (buildFts index coord)).2.getD g 0 from rfl,
-    honInputL_built answers index coord level node hl hn]
-  rw [Extract.honestInput, pad64_nodeInputP, Extract.ftsLevels]
+  have hs : @builtSecret = (fun a i c g => (evalWithAnswerFn a (buildFts i c)).2.getD g 0) := rfl
+  rw [hs, honInputL_built answers index coord level node hl hn]
+  rw [Extract.honestInput, pad64_nodeInputP]
+  have hf : @Extract.ftsLevels = (fun a i c => (evalWithAnswerFn a (buildFts i c)).1) := rfl
+  rw [hf]
   simp only [Nat.sub_sub]
 theorem honInputL_pos (answers : Answers) (index coord l n : Nat) (hl : l ≤ 11) (hn : n < 2 ^ (11 - l)) :
     (n < 2048 ∧ honInputL answers index coord (builtSecret answers index coord) l n =

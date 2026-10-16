@@ -49,12 +49,22 @@ theorem not_mem_of_sub {r : Reg} {l l' : List Reg} (hl : ∀ x ∈ l, x ∈ l') 
   fun hm => hr (hl r hm)
 section chain
 variable {sk : BitVec 256}
+theorem tb_halfHash_bind' {β : Type} {s : MachineState} {input : List UInt8} {W : Nat} (high : Bool)
+    {f : Digest → T3.M β} {Q : β → MachineState → Prop}
+    (hf : fetch image s = some (.base .ECALL)) (ht0 : s.getReg .x5 = 0)
+    (hv : hashArgumentsValid s = true) (hq : hashInput s = toQ (pad64 input))
+    (h : ∀ a : BitVec 256, TBSim image sk (writeHash s a) W (f (ClaudeWCT.WCT9.halfOf high a)) Q) :
+    TBSim image sk s (8 * (toQ (pad64 input)).blocks + W) (ClaudeWCT.WCT9.halfHash high input >>= f) Q := by
+  rw [ClaudeWCT.WCT9.halfHash_eq, bind_assoc]
+  simp only [pure_bind]
+  unfold TBSim; rw [mrealize_bind, mrealize_publicHash]
+  exact Sim.query_bind hf ht0 hv hq h
 theorem chain_step (lay : Layer) (tree leaf i st e : Nat)
     (hr : tree * 2 ^ T3.height lay + leaf < 2 ^ 31) (hf : leaf < 2 ^ T3.height lay) (hst : st < e) (he : e ≤ 7)
     (hi : i < 64) (v : Digest) (t : MachineState) (hpc : t.pc = pcOf 1031)
     (hc : ChainCtx lay.val tree leaf i t) (h20 : t.getReg .x20 = BitVec.ofNat 64 st)
     (h21 : t.getReg .x21 = BitVec.ofNat 64 e) (hv : DigAt t (CHAIN + 48) v) :
-    TBSim image sk t 45 (shortHash (chainInput lay tree leaf i st v))
+    TBSim image sk t 55 (ClaudeWCT.WCT9.halfHash (ClaudeWCT.WCT9.chainHigh lay i st) (chainInput lay tree leaf i st v))
       (fun v' u => u.pc = pcOf 1031 ∧ u.getReg .x20 = BitVec.ofNat 64 (st + 1) ∧ u.getReg .x21 = BitVec.ofNat 64 e ∧
         ChainCtx lay.val tree leaf i u ∧ DigAt u (CHAIN + 48) v' ∧ RegsExcept t u stepRegs ∧ Frame t u StepW) := by
   have hlay := lay.isLt
@@ -82,27 +92,37 @@ theorem chain_step (lay : Layer) (tree leaf i st e : Nat)
   have hv2 : hashArgumentsValid t2 = true :=
     hashArgs_const t2 CHAIN 64 (CHAIN + 48) a10 a11 a12 (by simp only [CHAIN]) (by norm_num) (by simp only [CHAIN]; omega)
       (by simp only [CHAIN]) (by simp only [CHAIN]; omega)
-  refine (TBSim.steps (s1.trans s2) (tb_shortHash_bind' (W := 2) (fetch_1046 t2 p2)
+  rw [show ClaudeWCT.WCT9.halfHash (ClaudeWCT.WCT9.chainHigh lay i st) (chainInput lay tree leaf i st v) =
+    (ClaudeWCT.WCT9.halfHash (ClaudeWCT.WCT9.chainHigh lay i st) (chainInput lay tree leaf i st v) >>= pure) by
+    rw [bind_pure]]
+  refine (TBSim.steps (s1.trans s2) (tb_halfHash_bind' (W := 2 + trXE lay.val i st) _ (fetch_1046 t2 p2)
     (by rw [r2.get (by simp), r1.get (by simp)]; exact hc.x5) hv2 hq (fun a => ?_))).mono
-    (by rw [blocks_chainInput']; fin_cases lay <;> norm_num [Keygen.headerK]) (fun _ _ h => h)
+    (by
+      have hK : Keygen.headerK lay ≤ 34 := by unfold Keygen.headerK; split_ifs <;> omega
+      have := trXE_le lay.val i st
+      rw [blocks_chainInput']; omega)
+    (fun _ _ h => h)
   have p3 : (writeHash t2 a).pc = pcOf 1047 := by rw [pc_writeHash, p2, pcOf_add4]
-  obtain ⟨u, s4, p4, u20, r4, f4⟩ := rl1047_spec (writeHash t2 a) p3 st
-    (by rw [getReg_writeHash, r2.get (by simp), r1.get (by simp)]; exact h20)
-  refine TBSim.steps s4 (TBSim.pure ⟨p4, u20, ?_, ?_, ?_, ?_, ?_⟩)
+  have hlo := DigAt.writeHash_lo t2 a (CHAIN + 48) a12 (by simp only [CHAIN]; omega)
+  have hhi : DigAt (writeHash t2 a) (CHAIN + 64) (a.extractLsb' 128 128) :=
+    DigAt.writeHash_hi t2 a (CHAIN + 48) a12 (by simp only [CHAIN]; omega)
+  obtain ⟨u, s4, p4, u20, hd, r4, f4⟩ := rl1047_spec (writeHash t2 a) p3 lay i st (by omega) (by omega)
+    (by rw [getReg_writeHash, r2.get (by simp), r1.get (by simp)]; exact hc.x8)
+    (by rw [getReg_writeHash, r2.get (by simp), r1.get (by simp)]; exact hc.x19)
+    (by rw [getReg_writeHash, r2.get (by simp), r1.get (by simp)]; exact h20) _ _ hlo hhi
+  refine TBSim.steps (W := 0) s4 (TBSim.pure ⟨p4, u20, ?_, ?_, ?_, ?_, ?_⟩)
   · rw [r4.get (by simp), getReg_writeHash, r2.get (by simp), r1.get (by simp)]; exact h21
   · have fw := Frame.writeHash t2 a (CHAIN + 48) a12 (by simp only [CHAIN]; omega)
     have fall : Frame t u StepW := ((f12.trans fw).trans f4).mono (fun A _ h => by
       unfold StepW; rcases h with (h | h) | h
       · exact Or.inl h
       · exact Or.inr h
-      · exact h.elim)
+      · simp only [CHAIN] at h ⊢; omega)
     refine hc.frame (l := stepRegs) (by simp [stepRegs]) ?_ fall
     intro r hr
     rw [r4.get (not_mem_of_sub (by simp [stepRegs]) hr), getReg_writeHash,
       r2.get (not_mem_of_sub (by simp [stepRegs]) hr), r1.get (by simp)]
-  · have hd := DigAt.writeHash_lo t2 a (CHAIN + 48) a12 (by simp only [CHAIN]; omega)
-    exact ⟨by rw [f4.get (by simp only [CHAIN]; omega) (by simp)]; exact hd.1,
-      by rw [f4.get (by simp only [CHAIN]; omega) (by simp)]; exact hd.2⟩
+  · unfold ClaudeWCT.WCT9.halfOf; exact hd
   · intro r hr
     rw [r4.get (not_mem_of_sub (by simp [stepRegs]) hr), getReg_writeHash,
       r2.get (not_mem_of_sub (by simp [stepRegs]) hr), r1.get (by simp)]
@@ -111,20 +131,20 @@ theorem chain_step (lay : Layer) (tree leaf i st e : Nat)
       unfold StepW; rcases h with (h | h) | h
       · exact Or.inl h
       · exact Or.inr h
-      · exact h.elim)
+      · simp only [CHAIN] at h ⊢; omega)
 theorem chain_loop (lay : Layer) (tree leaf i d e : Nat)
     (hr : tree * 2 ^ T3.height lay + leaf < 2 ^ 31) (hf : leaf < 2 ^ T3.height lay) (hd : d ≤ e) (he : e ≤ 7)
     (hi : i < 64) (v : Digest) (t : MachineState) (hpc : t.pc = pcOf 1031)
     (hc : ChainCtx lay.val tree leaf i t) (h20 : t.getReg .x20 = BitVec.ofNat 64 d)
     (h21 : t.getReg .x21 = BitVec.ofNat 64 e) (hv : DigAt t (CHAIN + 48) v) :
-    TBSim image sk t ((e - d) * 45 + 1) (chain lay tree leaf i d (e - d) v)
+    TBSim image sk t ((e - d) * 55 + 1) (ClaudeWCT.WCT9.chainW lay tree leaf i d (e - d) v)
       (fun v' u => u.pc = pcOf 1049 ∧ u.getReg .x21 = BitVec.ofNat 64 e ∧
         ChainCtx lay.val tree leaf i u ∧ DigAt u (CHAIN + 48) v' ∧ RegsExcept t u stepRegs ∧ Frame t u StepW) := by
   let Inv : Nat → Digest → MachineState → Prop := fun j w u =>
     u.pc = pcOf 1031 ∧ u.getReg .x20 = BitVec.ofNat 64 (d + j) ∧ u.getReg .x21 = BitVec.ofNat 64 e ∧
       ChainCtx lay.val tree leaf i u ∧ DigAt u (CHAIN + 48) w ∧ RegsExcept t u stepRegs ∧ Frame t u StepW
   have hloop := TBSim.foldlM_range' (image := image) (sk := sk) d (e - d)
-    (fun value step => shortHash (chainInput lay tree leaf i step value)) v Inv 45
+    (fun value step => ClaudeWCT.WCT9.halfHash (ClaudeWCT.WCT9.chainHigh lay i step) (chainInput lay tree leaf i step value)) v Inv 55
     (fun j hj w u hu => by
       obtain ⟨p, x20, x21, cc, dv, rr, ff⟩ := hu
       refine (chain_step lay tree leaf i (d + j) e hr hf (by omega) he hi w u p cc x20 x21 dv).mono le_rfl ?_
@@ -134,8 +154,8 @@ theorem chain_loop (lay : Layer) (tree leaf i d e : Nat)
           rcases List.mem_append.mp hr with h | h <;> exact h)
       · exact (ff.trans ff').mono (fun A _ h => by rcases h with h | h <;> exact h))
     (s := t) ⟨hpc, by simpa using h20, h21, hc, hv, RegsExcept.refl _ _, Frame.refl _ _⟩
-  have hprog : chain lay tree leaf i d (e - d) v = ((List.range' d (e - d)).foldlM
-      (fun value step => shortHash (chainInput lay tree leaf i step value)) v >>= pure) := by
+  have hprog : ClaudeWCT.WCT9.chainW lay tree leaf i d (e - d) v = ((List.range' d (e - d)).foldlM
+      (fun value step => ClaudeWCT.WCT9.halfHash (ClaudeWCT.WCT9.chainHigh lay i step) (chainInput lay tree leaf i step value)) v >>= pure) := by
     rw [bind_pure]; rfl
   rw [hprog]
   refine (TBSim.bind (W₂ := 1) hloop (fun w u hu => ?_)).mono (by omega) (fun _ _ h => h)
@@ -162,7 +182,7 @@ theorem rl_one (lay : Layer) (tree leaf i d P W n n4 : Nat)
     (h27 : t.getReg .x27 = BitVec.ofNat 64 n4) (h16 : t.getReg .x16 = BitVec.ofNat 64 P)
     (h23 : t.getReg .x23 = BitVec.ofNat 64 W) (hv : DigAt t (P + 16 * i) v)
     (hdig : t.getByte (BitVec.ofNat 64 (DIGITS + i)) = BitVec.ofNat 8 d) :
-    TBSim image sk t 356 (chain lay tree leaf i d ((endpoint lay i n4) - d) v)
+    TBSim image sk t 426 (ClaudeWCT.WCT9.chainW lay tree leaf i d ((endpoint lay i n4) - d) v)
       (fun v' u => u.pc = pcOf 1010 ∧ u.getReg .x19 = BitVec.ofNat 64 (i + 1) ∧
         u.getReg .x23 = BitVec.ofNat 64 (W - 64) ∧ ChainCtx lay.val tree leaf (i + 1) u ∧
         DigAt u (LEAFPK + slotOff lay i) v' ∧ DigAt u (W + 48) v ∧ RegsExcept t u oneRegs ∧ Frame t u (OneW lay i W)) := by
@@ -237,9 +257,10 @@ theorem rl_one (lay : Layer) (tree leaf i d P W n n4 : Nat)
         f3.get (by simp only [CHAIN]; omega) (by simp), c56, f1.get (by omega) (by simp)]; exact hv.2
   have x20' : t5.getReg .x20 = BitVec.ofNat 64 d := by rw [r5.get (by simp), r4.get (by simp)]; exact x20
   have hloop := chain_loop (sk := sk) lay tree leaf i d e hr hf hd he7 (by omega) v t5 p5 hc5 x20' x21' hv5
-  have hprog : chain lay tree leaf i d (e - d) v = (chain lay tree leaf i d (e - d) v >>= pure) := by rw [bind_pure]
+  have hprog : ClaudeWCT.WCT9.chainW lay tree leaf i d (e - d) v =
+      (ClaudeWCT.WCT9.chainW lay tree leaf i d (e - d) v >>= pure) := by rw [bind_pure]
   rw [hprog]
-  have total_cost : (1 + 16 + 1 + 2 + endpointExtra lay i n4) + ((e - d) * 45 + 1 + 17) ≤ 356 := by
+  have total_cost : (1 + 16 + 1 + 2 + endpointExtra lay i n4) + ((e - d) * 55 + 1 + 17) ≤ 426 := by
     rw [he]; unfold endpointExtra endpoint
     split_ifs <;> omega
   refine (TBSim.steps (((((s1.trans s2).trans s3).trans s4).trans s5)) (TBSim.bind (W₂ := 17) hloop
@@ -336,12 +357,22 @@ set_option autoImplicit false
 set_option maxHeartbeats 2000000
 set_option maxRecDepth 10000
 variable {im : Image} [Code im] [BCBlocks.Code im] [PackedBlocks.Code im] {sk : BitVec 256}
+theorem tb_halfHash_bind' {β : Type} {s : MachineState} {input : List UInt8} {W : Nat} (high : Bool)
+    {f : Digest → T3.M β} {Q : β → MachineState → Prop}
+    (hf : fetch im s = some (.base .ECALL)) (ht0 : s.getReg .x5 = 0)
+    (hv : hashArgumentsValid s = true) (hq : hashInput s = toQ (pad64 input))
+    (h : ∀ a : BitVec 256, TBSim im sk (writeHash s a) W (f (ClaudeWCT.WCT9.halfOf high a)) Q) :
+    TBSim im sk s (8 * (toQ (pad64 input)).blocks + W) (ClaudeWCT.WCT9.halfHash high input >>= f) Q := by
+  rw [ClaudeWCT.WCT9.halfHash_eq, bind_assoc]
+  simp only [pure_bind]
+  unfold TBSim; rw [mrealize_bind, mrealize_publicHash]
+  exact Sim.query_bind hf ht0 hv hq h
 theorem chain_step (lay : Layer) (tree leaf i st e : Nat)
     (hr : tree * 2 ^ T3.height lay + leaf < 2 ^ 31) (hf : leaf < 2 ^ T3.height lay) (hst : st < e) (he : e ≤ 7)
     (hi : i < 64) (v : Digest) (t : MachineState) (hpc : t.pc = pcOf 1031)
     (hc : ChainCtx lay.val tree leaf i t) (h20 : t.getReg .x20 = BitVec.ofNat 64 st)
     (h21 : t.getReg .x21 = BitVec.ofNat 64 e) (hv : DigAt t (CHAIN + 48) v) :
-    TBSim im sk t 45 (shortHash (chainInput lay tree leaf i st v))
+    TBSim im sk t 55 (ClaudeWCT.WCT9.halfHash (ClaudeWCT.WCT9.chainHigh lay i st) (chainInput lay tree leaf i st v))
       (fun v' u => u.pc = pcOf 1031 ∧ u.getReg .x20 = BitVec.ofNat 64 (st + 1) ∧ u.getReg .x21 = BitVec.ofNat 64 e ∧
         ChainCtx lay.val tree leaf i u ∧ DigAt u (CHAIN + 48) v' ∧ RegsExcept t u stepRegs ∧ Frame t u StepW) := by
   have hlay := lay.isLt
@@ -369,27 +400,37 @@ theorem chain_step (lay : Layer) (tree leaf i st e : Nat)
   have hv2 : hashArgumentsValid t2 = true :=
     hashArgs_const t2 CHAIN 64 (CHAIN + 48) a10 a11 a12 (by simp only [CHAIN]) (by norm_num) (by simp only [CHAIN]; omega)
       (by simp only [CHAIN]) (by simp only [CHAIN]; omega)
-  refine (TBSim.steps (s1.trans s2) (tb_shortHash_bind' (W := 2) (fetch_1046 (im := im) t2 p2)
+  rw [show ClaudeWCT.WCT9.halfHash (ClaudeWCT.WCT9.chainHigh lay i st) (chainInput lay tree leaf i st v) =
+    (ClaudeWCT.WCT9.halfHash (ClaudeWCT.WCT9.chainHigh lay i st) (chainInput lay tree leaf i st v) >>= pure) by
+    rw [bind_pure]]
+  refine (TBSim.steps (s1.trans s2) (tb_halfHash_bind' (im := im) (W := 2 + trXE lay.val i st) _ (fetch_1046 (im := im) t2 p2)
     (by rw [r2.get (by simp), r1.get (by simp)]; exact hc.x5) hv2 hq (fun a => ?_))).mono
-    (by rw [blocks_chainInput']; fin_cases lay <;> norm_num [Keygen.headerK]) (fun _ _ h => h)
+    (by
+      have hK : Keygen.headerK lay ≤ 34 := by unfold Keygen.headerK; split_ifs <;> omega
+      have := trXE_le lay.val i st
+      rw [blocks_chainInput']; omega)
+    (fun _ _ h => h)
   have p3 : (writeHash t2 a).pc = pcOf 1047 := by rw [pc_writeHash, p2, pcOf_add4]
-  obtain ⟨u, s4, p4, u20, r4, f4⟩ := rl1047_spec (im := im) (writeHash t2 a) p3 st
-    (by rw [getReg_writeHash, r2.get (by simp), r1.get (by simp)]; exact h20)
-  refine TBSim.steps s4 (TBSim.pure ⟨p4, u20, ?_, ?_, ?_, ?_, ?_⟩)
+  have hlo := DigAt.writeHash_lo t2 a (CHAIN + 48) a12 (by simp only [CHAIN]; omega)
+  have hhi : DigAt (writeHash t2 a) (CHAIN + 64) (a.extractLsb' 128 128) :=
+    DigAt.writeHash_hi t2 a (CHAIN + 48) a12 (by simp only [CHAIN]; omega)
+  obtain ⟨u, s4, p4, u20, hd, r4, f4⟩ := rl1047_spec (im := im) (writeHash t2 a) p3 lay i st (by omega) (by omega)
+    (by rw [getReg_writeHash, r2.get (by simp), r1.get (by simp)]; exact hc.x8)
+    (by rw [getReg_writeHash, r2.get (by simp), r1.get (by simp)]; exact hc.x19)
+    (by rw [getReg_writeHash, r2.get (by simp), r1.get (by simp)]; exact h20) _ _ hlo hhi
+  refine TBSim.steps (W := 0) s4 (TBSim.pure ⟨p4, u20, ?_, ?_, ?_, ?_, ?_⟩)
   · rw [r4.get (by simp), getReg_writeHash, r2.get (by simp), r1.get (by simp)]; exact h21
   · have fw := Frame.writeHash t2 a (CHAIN + 48) a12 (by simp only [CHAIN]; omega)
     have fall : Frame t u StepW := ((f12.trans fw).trans f4).mono (fun A _ h => by
       unfold StepW; rcases h with (h | h) | h
       · exact Or.inl h
       · exact Or.inr h
-      · exact h.elim)
+      · simp only [CHAIN] at h ⊢; omega)
     refine hc.frame (l := stepRegs) (by simp [stepRegs]) ?_ fall
     intro r hr
     rw [r4.get (not_mem_of_sub (by simp [stepRegs]) hr), getReg_writeHash,
       r2.get (not_mem_of_sub (by simp [stepRegs]) hr), r1.get (by simp)]
-  · have hd := DigAt.writeHash_lo t2 a (CHAIN + 48) a12 (by simp only [CHAIN]; omega)
-    exact ⟨by rw [f4.get (by simp only [CHAIN]; omega) (by simp)]; exact hd.1,
-      by rw [f4.get (by simp only [CHAIN]; omega) (by simp)]; exact hd.2⟩
+  · unfold ClaudeWCT.WCT9.halfOf; exact hd
   · intro r hr
     rw [r4.get (not_mem_of_sub (by simp [stepRegs]) hr), getReg_writeHash,
       r2.get (not_mem_of_sub (by simp [stepRegs]) hr), r1.get (by simp)]
@@ -398,21 +439,21 @@ theorem chain_step (lay : Layer) (tree leaf i st e : Nat)
       unfold StepW; rcases h with (h | h) | h
       · exact Or.inl h
       · exact Or.inr h
-      · exact h.elim)
+      · simp only [CHAIN] at h ⊢; omega)
 
 theorem chain_loop (lay : Layer) (tree leaf i d e : Nat)
     (hr : tree * 2 ^ T3.height lay + leaf < 2 ^ 31) (hf : leaf < 2 ^ T3.height lay) (hd : d ≤ e) (he : e ≤ 7)
     (hi : i < 64) (v : Digest) (t : MachineState) (hpc : t.pc = pcOf 1031)
     (hc : ChainCtx lay.val tree leaf i t) (h20 : t.getReg .x20 = BitVec.ofNat 64 d)
     (h21 : t.getReg .x21 = BitVec.ofNat 64 e) (hv : DigAt t (CHAIN + 48) v) :
-    TBSim im sk t ((e - d) * 45 + 1) (chain lay tree leaf i d (e - d) v)
+    TBSim im sk t ((e - d) * 55 + 1) (ClaudeWCT.WCT9.chainW lay tree leaf i d (e - d) v)
       (fun v' u => u.pc = pcOf 1049 ∧ u.getReg .x21 = BitVec.ofNat 64 e ∧
         ChainCtx lay.val tree leaf i u ∧ DigAt u (CHAIN + 48) v' ∧ RegsExcept t u stepRegs ∧ Frame t u StepW) := by
   let Inv : Nat → Digest → MachineState → Prop := fun j w u =>
     u.pc = pcOf 1031 ∧ u.getReg .x20 = BitVec.ofNat 64 (d + j) ∧ u.getReg .x21 = BitVec.ofNat 64 e ∧
       ChainCtx lay.val tree leaf i u ∧ DigAt u (CHAIN + 48) w ∧ RegsExcept t u stepRegs ∧ Frame t u StepW
   have hloop := TBSim.foldlM_range' (image := im) (sk := sk) d (e - d)
-    (fun value step => shortHash (chainInput lay tree leaf i step value)) v Inv 45
+    (fun value step => ClaudeWCT.WCT9.halfHash (ClaudeWCT.WCT9.chainHigh lay i step) (chainInput lay tree leaf i step value)) v Inv 55
     (fun j hj w u hu => by
       obtain ⟨p, x20, x21, cc, dv, rr, ff⟩ := hu
       refine (chain_step (im := im) lay tree leaf i (d + j) e hr hf (by omega) he hi w u p cc x20 x21 dv).mono le_rfl ?_
@@ -422,8 +463,8 @@ theorem chain_loop (lay : Layer) (tree leaf i d e : Nat)
           rcases List.mem_append.mp hr with h | h <;> exact h)
       · exact (ff.trans ff').mono (fun A _ h => by rcases h with h | h <;> exact h))
     (s := t) ⟨hpc, by simpa using h20, h21, hc, hv, RegsExcept.refl _ _, Frame.refl _ _⟩
-  have hprog : chain lay tree leaf i d (e - d) v = ((List.range' d (e - d)).foldlM
-      (fun value step => shortHash (chainInput lay tree leaf i step value)) v >>= pure) := by
+  have hprog : ClaudeWCT.WCT9.chainW lay tree leaf i d (e - d) v = ((List.range' d (e - d)).foldlM
+      (fun value step => ClaudeWCT.WCT9.halfHash (ClaudeWCT.WCT9.chainHigh lay i step) (chainInput lay tree leaf i step value)) v >>= pure) := by
     rw [bind_pure]; rfl
   rw [hprog]
   refine (TBSim.bind (W₂ := 1) hloop (fun w u hu => ?_)).mono (by omega) (fun _ _ h => h)
@@ -444,7 +485,7 @@ theorem rl_one (lay : Layer) (tree leaf i d P W n n4 : Nat)
     (h27 : t.getReg .x27 = BitVec.ofNat 64 n4) (h16 : t.getReg .x16 = BitVec.ofNat 64 P)
     (h23 : t.getReg .x23 = BitVec.ofNat 64 W) (hv : DigAt t (P + 16 * i) v)
     (hdig : t.getByte (BitVec.ofNat 64 (DIGITS + i)) = BitVec.ofNat 8 d) :
-    TBSim im sk t 356 (chain lay tree leaf i d ((endpoint lay i n4) - d) v)
+    TBSim im sk t 426 (ClaudeWCT.WCT9.chainW lay tree leaf i d ((endpoint lay i n4) - d) v)
       (fun v' u => u.pc = pcOf 1010 ∧ u.getReg .x19 = BitVec.ofNat 64 (i + 1) ∧
         u.getReg .x23 = BitVec.ofNat 64 (W - 64) ∧ ChainCtx lay.val tree leaf (i + 1) u ∧
         DigAt u (LEAFPK + slotOff lay i) v' ∧ DigAt u (W + 48) v ∧ RegsExcept t u oneRegs ∧ Frame t u (OneW lay i W)) := by
@@ -519,9 +560,10 @@ theorem rl_one (lay : Layer) (tree leaf i d P W n n4 : Nat)
         f3.get (by simp only [CHAIN]; omega) (by simp), c56, f1.get (by omega) (by simp)]; exact hv.2
   have x20' : t5.getReg .x20 = BitVec.ofNat 64 d := by rw [r5.get (by simp), r4.get (by simp)]; exact x20
   have hloop := chain_loop (im := im) (sk := sk) lay tree leaf i d e hr hf hd he7 (by omega) v t5 p5 hc5 x20' x21' hv5
-  have hprog : chain lay tree leaf i d (e - d) v = (chain lay tree leaf i d (e - d) v >>= pure) := by rw [bind_pure]
+  have hprog : ClaudeWCT.WCT9.chainW lay tree leaf i d (e - d) v =
+      (ClaudeWCT.WCT9.chainW lay tree leaf i d (e - d) v >>= pure) := by rw [bind_pure]
   rw [hprog]
-  have total_cost : (1 + 16 + 1 + 2 + endpointExtra lay i n4) + ((e - d) * 45 + 1 + 17) ≤ 356 := by
+  have total_cost : (1 + 16 + 1 + 2 + endpointExtra lay i n4) + ((e - d) * 55 + 1 + 17) ≤ 426 := by
     rw [he]; unfold endpointExtra endpoint
     split_ifs <;> omega
   refine (TBSim.steps (((((s1.trans s2).trans s3).trans s4).trans s5)) (TBSim.bind (W₂ := 17) hloop

@@ -25,7 +25,8 @@ noncomputable def routeImpl (a : ChainAddr) (d : Nat) (R : RefTables adversary) 
   | .inl (.inl n) => liftM ((SeedSpec d).query (.inl n))
   | .inl (.inr input) =>
       match rowOf a d input with
-      | some p => (fun w => ChainGraph.joinOutput w (high (restTable R (.inl (.inr input))))) <$>
+      | some p => (fun w => joinHalf (WCT9.chainHigh a.key.lay a.chain p.1.val) w
+            (WCT9.halfOf (!WCT9.chainHigh a.key.lay a.chain p.1.val) (restTable R (.inl (.inr input))))) <$>
           liftM ((SeedSpec d).query (.inr p))
       | none => pure (restTable R (.inl (.inr input)))
   | .inr _ => pure ()
@@ -426,11 +427,18 @@ theorem chain_eq (R : Tables U) (lay : Layer) (tree leaf i start count : Nat) (v
   ((SigGolfCandidate.T3.Security.Wots.Enc.respects_chain lay tree leaf i start count v)
     _ _ (nonEnc hU R)).1
 
+/-- C3 (#866): `chain_eq` for the chain of the current scheme. -/
+theorem chainW_eq (R : Tables U) (lay : Layer) (tree leaf i start count : Nat) (v : Digest) :
+    evalWithAnswerFn (answers hU R) (WCT9.chainW lay tree leaf i start count v)=
+      evalWithAnswerFn (raw R) (WCT9.chainW lay tree leaf i start count v) :=
+  ((ClaudeWCT.W9.T3.Security.Wots.Enc.respects_chainW lay tree leaf i start count v)
+    _ _ (nonEnc hU R)).1
+
 theorem frontier_eq (R : Tables U) (a : ChainAddr) (ha : WotsExtract.SourceLeaf7 a.key) :
     CanonicalRef.frontierValue (answers hU R) (sourceMessages (answers hU R)) a=
       CanonicalRef.frontierValue (raw R) zeroMessages a := by
-  unfold CanonicalRef.frontierValue SigGolfCandidate.T3M.SecurityExtraction.honestChainValue
-  rw [depth_eq hU R a ha,wotsSeed_eq,chain_eq]
+  unfold CanonicalRef.frontierValue ClaudeWCT.W9.T3.Security.Wots.honestChainValueW
+  rw [depth_eq hU R a ha,wotsSeed_eq,chainW_eq]
 end ClaudeWCT.W9.T3.Security.Wots.CanonicalRef.Normalized
 
 namespace ClaudeWCT.W9.T3.Security.Wots.CanonicalRef.Normalized
@@ -472,7 +480,8 @@ theorem answers_chainRow (R : Tables U) (a : ChainAddr) (step : Nat) (v : Digest
 theorem answers_ov_prefix (a : ChainAddr) {d : Nat} (hd : d≤256) (R : Tables U) (x : Hidden d)
     (i : Fin d) (v : Digest) :
     answers hU (RawPrefix.ov a d R x) (.inl (.inr (chainRow a i v)))=
-      ChainGraph.joinOutput (x.1 i v) (high (answers hU R (.inl (.inr (chainRow a i v))))) := by
+      joinHalf (WCT9.chainHigh a.key.lay a.chain i.val) (x.1 i v)
+        (WCT9.halfOf (!WCT9.chainHigh a.key.lay a.chain i.val) (answers hU R (.inl (.inr (chainRow a i v))))) := by
   rw [answers_chainRow,answers_chainRow,RawPrefix.raw_ov_prefix hU a hd R x]
 
 theorem answers_ov_fill_nonprefix (a : ChainAddr) (hleaf : a.key.leaf<2^24)
@@ -579,7 +588,8 @@ noncomputable def routeImpl (a : ChainAddr) (d : Nat) (prefixBase otherBase : An
   | .inl (.inl n) => liftM ((SeedSpec d).query (.inl n))
   | .inl (.inr input) =>
       match rowOf a d input with
-      | some p => (fun w => ChainGraph.joinOutput w (high (prefixBase (.inl (.inr input))))) <$>
+      | some p => (fun w => joinHalf (WCT9.chainHigh a.key.lay a.chain p.1.val) w
+            (WCT9.halfOf (!WCT9.chainHigh a.key.lay a.chain p.1.val) (prefixBase (.inl (.inr input))))) <$>
           liftM ((SeedSpec d).query (.inr p))
       | none => pure (otherBase (.inl (.inr input)))
   | .inr _ => pure ()

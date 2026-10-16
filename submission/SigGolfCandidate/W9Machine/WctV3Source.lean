@@ -148,6 +148,12 @@ def childInput (w : WBytes) (index coord physical : Nat) (padR value : Digest)
   V3.nodeInput coord index ((128 + physical) / 2 ^ (level + 1)) left
     (nodeHPad w coord physical level) (if level = 4 then padR else nodePad w coord physical level) right
 
+/-- The side of the computed top node in the next pair: 0 = left (heap 2 for the final singleton), 1 = right. -/
+def direction (coord child : Nat) : Nat := child / 2 ^ (lastLevel coord + 1) % 2
+
+/-- A/B children keep the high half of their top node. The final singleton (merged "Cm", stage 2) keeps the HIGH
+half of its left top node (heap 2, direction 0; the value lands on `WIT + 0`, the junk low half below the witness)
+and the LOW half of its right top node (heap 3, direction 1; at `WIT + 48`). -/
 def childN (w : WBytes) (index : Nat) (k : Fin 9) (raw : Fin 128) (ends : List Digest)
     (padL padR : Digest) : M Digest := do
   let leaf ← hashSel (hiOut (physical k.val raw.val) 0) (V3.leafInput k.val index raw.val padL ends)
@@ -155,14 +161,12 @@ def childN (w : WBytes) (index : Nat) (k : Fin 9) (raw : Fin 128) (ends : List D
   let n := lastLevel k.val
   let value ← (List.range n).foldlM
     (fun value level => hashSel (hiOut j (level + 1)) (childInput w index k.val j padR value level)) leaf
-  if k.val = 8 then shortHash (childInput w index k.val j padR value n)
+  if k.val = 8 then hashSel (decide (direction k.val j = 0)) (childInput w index k.val j padR value n)
   else V3.hashHi (childInput w index k.val j padR value n)
 
 def childProgram (w : WBytes) (index : Nat) (k : Fin 9) (raw : Fin 128)
     (ends : List Digest) : M Digest :=
   childN w index k raw ends (leafPad w k.val) (nodePad w k.val (physical k.val raw.val) 4)
-
-def direction (coord child : Nat) : Nat := child / 2 ^ (lastLevel coord + 1) % 2
 
 def topOtherOff (coord child : Nat) : Nat :=
   V3.regionOffset coord + (if direction coord child = 0 then handR (coord + 1) else 720) - 896

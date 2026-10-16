@@ -16,36 +16,39 @@ set_option linter.unusedSimpArgs false
 namespace Mask
 open SigGolfCandidate.T3.Security.Wots.Mask
 variable (answers : Answers) (a : ChainAddr)
+theorem chainW_alias {lay : Layer} {tree leaf : Nat} {L : LeafAddr} (h : LeafAlias lay tree leaf L) (i : Nat) :
+    WCT9.chainW lay tree leaf i = WCT9.chainW L.lay L.tree L.leaf i := by
+  funext start count value
+  unfold WCT9.chainW
+  rw [chainInput_alias h i, h.1]
 theorem eval_chain_one_maskAt {s : Nat} (hs : s < depth answers a) (v : Digest) :
-    evalWithAnswerFn (maskAt answers a) (chain a.key.lay a.key.tree a.key.leaf a.chain s 1 v) =
+    evalWithAnswerFn (maskAt answers a) (WCT9.chainW a.key.lay a.key.tree a.key.leaf a.chain s 1 v) =
       if s + 1 = depth answers a then frontierValue answers a else 0 := by
-  rw [eval_chain_one, ← chainRow_eq, maskAt_prefix answers a v hs]
+  rw [eval_chainW_one', pad64_chainInput, ← chainRow_eq, maskAt_prefix answers a v hs]
   split
-  · exact ChainGraph.joinOutput_low _ _
-  · rfl
+  · exact halfOf_joinHalf _ _ _
+  · exact halfOf_zero _
 theorem eval_chain_prefix_maskAt (hd : 1 ≤ depth answers a) (v : Digest) :
-    evalWithAnswerFn (maskAt answers a) (chain a.key.lay a.key.tree a.key.leaf a.chain 0 (depth answers a) v) =
+    evalWithAnswerFn (maskAt answers a) (WCT9.chainW a.key.lay a.key.tree a.key.leaf a.chain 0 (depth answers a) v) =
       frontierValue answers a := by
-  have h1 := Correctness.eval_chain_add (maskAt answers a) a.key.lay a.key.tree a.key.leaf a.chain 0
+  have h1 := eval_chainW_add' (maskAt answers a) a.key.lay a.key.tree a.key.leaf a.chain 0
     (depth answers a - 1) 1 v
   rw [Nat.zero_add, eval_chain_one_maskAt answers a (by omega), if_pos (Nat.sub_add_cancel hd),
     Nat.sub_add_cancel hd] at h1
   exact h1
 theorem eval_chain_maskAt (hd : 1 ≤ depth answers a) {count : Nat} (hc : depth answers a ≤ count)
     (hc' : count ≤ 256) (v : Digest) :
-    evalWithAnswerFn (maskAt answers a) (chain a.key.lay a.key.tree a.key.leaf a.chain 0 count v) =
-      evalWithAnswerFn answers (chain a.key.lay a.key.tree a.key.leaf a.chain 0 count
+    evalWithAnswerFn (maskAt answers a) (WCT9.chainW a.key.lay a.key.tree a.key.leaf a.chain 0 count v) =
+      evalWithAnswerFn answers (WCT9.chainW a.key.lay a.key.tree a.key.leaf a.chain 0 count
         (WCT9.wotsSeed answers a.key.lay a.key.tree a.key.leaf a.chain)) := by
   obtain ⟨e, rfl⟩ : ∃ e, count = depth answers a + e := ⟨count - depth answers a, by omega⟩
-  rw [Correctness.eval_chain_add, Correctness.eval_chain_add answers, Nat.zero_add,
+  rw [eval_chainW_add', eval_chainW_add' answers, Nat.zero_add,
     eval_chain_prefix_maskAt answers a hd]
-  change _ = evalWithAnswerFn answers (chain a.key.lay a.key.tree a.key.leaf a.chain (depth answers a) e
+  change _ = evalWithAnswerFn answers (WCT9.chainW a.key.lay a.key.tree a.key.leaf a.chain (depth answers a) e
     (frontierValue answers a))
   refine Respects.eval_eq (S := fun q => maskAt answers a q = answers q) ?_ (fun q hq => hq)
-  unfold chain
-  refine Respects.foldlM _ _ (fun step hstep value => Respects.shortHash _ ?_) _
+  refine respects_chainW' _ _ _ _ _ _ _ fun step value hlo hhi => ?_
   rw [pad64_chainInput, ← chainRow_eq]
-  obtain ⟨hlo, hhi⟩ := List.mem_range'_1.mp hstep
   exact maskAt_row_ge answers a value hlo (by omega)
 /-- A WOTS seed only reads the coefficient cells `lowerSeedHeader lay tree p` of its tree (every layer: the seeds
 are leaf-family evaluations, campaign X1 stage B, top leaves since campaign T8D). -/
@@ -133,8 +136,8 @@ variable (answers : Answers) (a : ChainAddr)
 theorem eval_honestChain_maskAt (lay : Layer) (tree leaf i count : Nat) (hi : i < chainCount lay)
     (hc : count ≤ 256) (hb : SlotOK a lay leaf)
     (halias : LeafAlias lay tree leaf a.key → i = a.chain → depth answers a ≤ count) :
-    evalWithAnswerFn (maskAt answers a) (chain lay tree leaf i 0 count (WCT9.wotsSeed (maskAt answers a) lay tree leaf i)) =
-      evalWithAnswerFn answers (chain lay tree leaf i 0 count (WCT9.wotsSeed answers lay tree leaf i)) := by
+    evalWithAnswerFn (maskAt answers a) (WCT9.chainW lay tree leaf i 0 count (WCT9.wotsSeed (maskAt answers a) lay tree leaf i)) =
+      evalWithAnswerFn answers (WCT9.chainW lay tree leaf i 0 count (WCT9.wotsSeed answers lay tree leaf i)) := by
   by_cases hd : depth answers a = 0
   · rw [maskAt_of_depth_zero answers a hd]
   have hi' : i < 2 ^ 24 := by
@@ -151,18 +154,15 @@ theorem eval_honestChain_maskAt (lay : Layer) (tree leaf i count : Nat) (hi : i 
       · exact Or.inl hb
       · exact Or.inl (hal'.1.trans hb)
       · exact Or.inr hb
-    rw [chain_alias hal', wotsSeed_alias _ hal' hb', wotsSeed_alias _ hal' hb']
+    rw [chainW_alias hal', wotsSeed_alias _ hal' hb', wotsSeed_alias _ hal' hb']
     exact eval_chain_maskAt answers a (by omega) (halias hal' rfl) hc _
   · rw [wotsSeed_maskAt answers a lay tree leaf i]
     apply eval_maskAt_of_respects
-    unfold chain
-    refine Respects.foldlM _ _ (fun step hstep value => Respects.shortHash _ ?_) _
+    refine respects_chainW' _ _ _ _ _ _ _ fun step value hlo hhi => ?_
     rw [pad64_chainInput]
     intro s' v' hs' heq
-    have hstep' : step < 256 := by
-      have := (List.mem_range'_1.mp hstep).2
-      omega
-    have h := chainInput_eq_chainRow hi' hc' hstep' hs' heq
+    have hstep' : step < 256 := by omega
+    have h := chainInput_eq_chainRow hi' hc' hstep' (by omega) heq
     exact hal' ⟨h.1, h.2.1⟩
 theorem wotsEnd_maskAt (lay : Layer) (tree leaf i : Nat) (hi : i < chainCount lay) (hb : SlotOK a lay leaf) :
     WCT9.wotsEnd (maskAt answers a) lay tree leaf i = WCT9.wotsEnd answers lay tree leaf i := by
@@ -181,7 +181,8 @@ theorem wotsRoot_maskAt (lay : Layer) (tree leaf : Nat) (hb : SlotOK a lay leaf)
     WCT9.wotsRoot (maskAt answers a) lay tree leaf = WCT9.wotsRoot answers lay tree leaf := by
   unfold WCT9.wotsRoot
   rw [List.map_congr_left (fun i hi => wotsEnd_maskAt answers a lay tree leaf i (List.mem_range.mp hi) hb)]
-  exact eval_maskAt_of_respects answers a (respectsP_leafHash a _ _ _ _)
+  exact eval_maskAt_of_respects answers a (respectsP_lowerLeafHash a _ _ _ _
+    (by simp only [List.length_map, List.length_range]; exact SigGolfCandidate.T3.Security.Wots.Enc.chainCount_ge4 _))
 theorem height_pow_le (lay : Layer) : 2 ^ height lay ≤ 2 ^ 12 :=
   Nat.pow_le_pow_right (by decide) (SigGolfCandidate.T3M.Extract.height_le lay)
 theorem wotsTree_maskAt (lay : Layer) (tree : Nat) (hal : lay = 0 ∨ MaskOK a) :
@@ -189,7 +190,8 @@ theorem wotsTree_maskAt (lay : Layer) (tree : Nat) (hal : lay = 0 ∨ MaskOK a) 
   unfold WCT9.wotsTree
   rw [List.map_congr_left (fun leaf hleaf => wotsRoot_maskAt answers a lay tree leaf
     (slotOK_of hal (by have := List.mem_range.mp hleaf; have := height_pow_le lay; omega)))]
-  exact eval_maskAt_of_respects answers a (respectsP_buildLevels a 3 _ _ _ _ (by decide))
+  exact eval_maskAt_of_respects answers a (respectsP_lowerLevels a _ _ _ (by fin_cases lay <;> decide) _
+    (by simp only [List.length_map, List.length_range]; exact le_rfl))
 theorem builtTree_maskAt_top :
     builtTree (maskAt answers a) 0 0 = builtTree answers 0 0 := by
   rw [← WCT9.wotsTree_top, ← WCT9.wotsTree_top, wotsTree_maskAt answers a 0 0 (Or.inl rfl)]
@@ -237,7 +239,7 @@ theorem frontierValue_maskAt_other (answers : Answers) (a b : ChainAddr) (hb : b
     (hbl : b.key.leaf < 2 ^ 24) (hal : Mask.MaskOK a)
     (halias : Mask.LeafAlias b.key.lay b.key.tree b.key.leaf a.key → b.chain = a.chain → depth answers a ≤ depth answers b) :
     frontierValue (maskAt answers a) b = frontierValue answers b := by
-  unfold frontierValue honestChainValue
+  unfold frontierValue honestChainValueW
   rw [depth_maskAt_all answers a b hal]
   exact Mask.eval_honestChain_maskAt answers a _ _ _ _ _ hb (by have := Mask.depth_le_seven answers b; omega)
     (Mask.slotOK_of (Or.inr hal) hbl) halias
@@ -272,13 +274,15 @@ set_option maxRecDepth 10000
 set_option linter.unusedSimpArgs false
 noncomputable def prefixStep (answers : Answers) (messages : LeafAddr → WCT9.LayerMsg) (a : ChainAddr) (input : HashInput) : Option Nat :=
   if h : ∃ step value, step < depth answers messages a ∧ input = chainRow a step value then some (Classical.choose h) else none
-/-- Mask of chain `a`: its rows below `depth` answer `0` (the last one answers the frontier). Seeds are evaluations
+/-- Mask of chain `a`: its rows below `depth` answer `0` (the last one answers the frontier, in the half its step
+reads, C3 #866). Seeds are evaluations
 of their leaf family at every layer (campaign X1 stage B, top leaves since campaign T8D), so no private cell is
 blanked. -/
 noncomputable def maskAt (answers : Answers) (messages : LeafAddr → WCT9.LayerMsg) (a : ChainAddr) : Answers
   | .inl (.inr input) =>
       match prefixStep answers messages a input with
-      | some step => if step + 1 = depth answers messages a then ChainGraph.joinOutput (frontierValue answers messages a) 0
+      | some step => if step + 1 = depth answers messages a then
+            joinHalf (WCT9.chainHigh a.key.lay a.chain step) (frontierValue answers messages a) 0
           else (0 : HashOutput)
       | none => answers (.inl (.inr input))
   | .inl (.inl coin) => answers (.inl (.inl coin))
@@ -333,7 +337,8 @@ theorem prefixStep_untouched {answers : Answers} {messages : LeafAddr → WCT9.L
       exact absurd heq (h step w (by have := depth_le_seven answers messages a; omega))
 theorem maskAt_public (answers : Answers) (messages : LeafAddr → WCT9.LayerMsg) (a : ChainAddr) (input : HashInput) :
     maskAt answers messages a (.inl (.inr input)) = match prefixStep answers messages a input with
-      | some step => if step + 1 = depth answers messages a then ChainGraph.joinOutput (frontierValue answers messages a) 0
+      | some step => if step + 1 = depth answers messages a then
+            joinHalf (WCT9.chainHigh a.key.lay a.chain step) (frontierValue answers messages a) 0
           else (0 : HashOutput)
       | none => answers (.inl (.inr input)) := rfl
 theorem maskAt_private (answers : Answers) (messages : LeafAddr → WCT9.LayerMsg) (a : ChainAddr) (c : Coordinate) :
@@ -349,7 +354,8 @@ theorem maskAt_untouched (answers : Answers) (messages : LeafAddr → WCT9.Layer
   · rfl
 theorem maskAt_prefix (answers : Answers) (messages : LeafAddr → WCT9.LayerMsg) (a : ChainAddr) {s : Nat} (v : Digest) (hs : s < depth answers messages a) :
     maskAt answers messages a (.inl (.inr (chainRow a s v))) =
-      if s + 1 = depth answers messages a then ChainGraph.joinOutput (frontierValue answers messages a) 0 else 0 := by
+      if s + 1 = depth answers messages a then
+        joinHalf (WCT9.chainHigh a.key.lay a.chain s) (frontierValue answers messages a) 0 else 0 := by
   have h7 := depth_le_seven answers messages a
   rw [maskAt_public, prefixStep_chainRow answers messages a v (by omega), if_pos hs]
   rfl
@@ -394,35 +400,33 @@ open SigGolfCandidate.T3.Security.Wots.Mask
 open ClaudeWCT.W9.T3.Security.Wots.Mask
 variable (answers : Answers) (messages : LeafAddr → WCT9.LayerMsg) (a : ChainAddr)
 theorem eval_chain_one_maskAt {s : Nat} (hs : s < depth answers messages a) (v : Digest) :
-    evalWithAnswerFn (maskAt answers messages a) (chain a.key.lay a.key.tree a.key.leaf a.chain s 1 v) =
+    evalWithAnswerFn (maskAt answers messages a) (WCT9.chainW a.key.lay a.key.tree a.key.leaf a.chain s 1 v) =
       if s + 1 = depth answers messages a then frontierValue answers messages a else 0 := by
-  rw [eval_chain_one, ← chainRow_eq, maskAt_prefix answers messages a v hs]
+  rw [eval_chainW_one', pad64_chainInput, ← chainRow_eq, maskAt_prefix answers messages a v hs]
   split
-  · exact ChainGraph.joinOutput_low _ _
-  · rfl
+  · exact halfOf_joinHalf _ _ _
+  · exact halfOf_zero _
 theorem eval_chain_prefix_maskAt (hd : 1 ≤ depth answers messages a) (v : Digest) :
-    evalWithAnswerFn (maskAt answers messages a) (chain a.key.lay a.key.tree a.key.leaf a.chain 0 (depth answers messages a) v) =
+    evalWithAnswerFn (maskAt answers messages a) (WCT9.chainW a.key.lay a.key.tree a.key.leaf a.chain 0 (depth answers messages a) v) =
       frontierValue answers messages a := by
-  have h1 := Correctness.eval_chain_add (maskAt answers messages a) a.key.lay a.key.tree a.key.leaf a.chain 0
+  have h1 := eval_chainW_add' (maskAt answers messages a) a.key.lay a.key.tree a.key.leaf a.chain 0
     (depth answers messages a - 1) 1 v
   rw [Nat.zero_add, eval_chain_one_maskAt answers messages a (by omega), if_pos (Nat.sub_add_cancel hd),
     Nat.sub_add_cancel hd] at h1
   exact h1
 theorem eval_chain_maskAt (hd : 1 ≤ depth answers messages a) {count : Nat} (hc : depth answers messages a ≤ count)
     (hc' : count ≤ 256) (v : Digest) :
-    evalWithAnswerFn (maskAt answers messages a) (chain a.key.lay a.key.tree a.key.leaf a.chain 0 count v) =
-      evalWithAnswerFn answers (chain a.key.lay a.key.tree a.key.leaf a.chain 0 count
+    evalWithAnswerFn (maskAt answers messages a) (WCT9.chainW a.key.lay a.key.tree a.key.leaf a.chain 0 count v) =
+      evalWithAnswerFn answers (WCT9.chainW a.key.lay a.key.tree a.key.leaf a.chain 0 count
         (WCT9.wotsSeed answers a.key.lay a.key.tree a.key.leaf a.chain)) := by
   obtain ⟨e, rfl⟩ : ∃ e, count = depth answers messages a + e := ⟨count - depth answers messages a, by omega⟩
-  rw [Correctness.eval_chain_add, Correctness.eval_chain_add answers, Nat.zero_add,
+  rw [eval_chainW_add', eval_chainW_add' answers, Nat.zero_add,
     eval_chain_prefix_maskAt answers messages a hd]
-  change _ = evalWithAnswerFn answers (chain a.key.lay a.key.tree a.key.leaf a.chain (depth answers messages a) e
+  change _ = evalWithAnswerFn answers (WCT9.chainW a.key.lay a.key.tree a.key.leaf a.chain (depth answers messages a) e
     (frontierValue answers messages a))
   refine Respects.eval_eq (S := fun q => maskAt answers messages a q = answers q) ?_ (fun q hq => hq)
-  unfold chain
-  refine Respects.foldlM _ _ (fun step hstep value => Respects.shortHash _ ?_) _
+  refine respects_chainW' _ _ _ _ _ _ _ fun step value hlo hhi => ?_
   rw [pad64_chainInput, ← chainRow_eq]
-  obtain ⟨hlo, hhi⟩ := List.mem_range'_1.mp hstep
   exact maskAt_row_ge answers messages a value hlo (by omega)
 theorem wotsSeed_maskAt (lay : Layer) (tree leaf i : Nat) :
     WCT9.wotsSeed (maskAt answers messages a) lay tree leaf i = WCT9.wotsSeed answers lay tree leaf i :=
@@ -430,8 +434,8 @@ theorem wotsSeed_maskAt (lay : Layer) (tree leaf i : Nat) :
 theorem eval_honestChain_maskAt (lay : Layer) (tree leaf i count : Nat) (hi : i < chainCount lay)
     (hc : count ≤ 256) (hb : SlotOK a lay leaf)
     (halias : LeafAlias lay tree leaf a.key → i = a.chain → depth answers messages a ≤ count) :
-    evalWithAnswerFn (maskAt answers messages a) (chain lay tree leaf i 0 count (WCT9.wotsSeed (maskAt answers messages a) lay tree leaf i)) =
-      evalWithAnswerFn answers (chain lay tree leaf i 0 count (WCT9.wotsSeed answers lay tree leaf i)) := by
+    evalWithAnswerFn (maskAt answers messages a) (WCT9.chainW lay tree leaf i 0 count (WCT9.wotsSeed (maskAt answers messages a) lay tree leaf i)) =
+      evalWithAnswerFn answers (WCT9.chainW lay tree leaf i 0 count (WCT9.wotsSeed answers lay tree leaf i)) := by
   by_cases hd : depth answers messages a = 0
   · rw [maskAt_of_depth_zero answers messages a hd]
   have hi' : i < 2 ^ 24 := by
@@ -448,18 +452,15 @@ theorem eval_honestChain_maskAt (lay : Layer) (tree leaf i count : Nat) (hi : i 
       · exact Or.inl hb
       · exact Or.inl (hal'.1.trans hb)
       · exact Or.inr hb
-    rw [chain_alias hal', wotsSeed_alias _ hal' hb', wotsSeed_alias _ hal' hb']
+    rw [chainW_alias hal', wotsSeed_alias _ hal' hb', wotsSeed_alias _ hal' hb']
     exact eval_chain_maskAt answers messages a (by omega) (halias hal' rfl) hc _
   · rw [wotsSeed_maskAt answers messages a lay tree leaf i]
     apply eval_maskAt_of_respects
-    unfold chain
-    refine Respects.foldlM _ _ (fun step hstep value => Respects.shortHash _ ?_) _
+    refine respects_chainW' _ _ _ _ _ _ _ fun step value hlo hhi => ?_
     rw [pad64_chainInput]
     intro s' v' hs' heq
-    have hstep' : step < 256 := by
-      have := (List.mem_range'_1.mp hstep).2
-      omega
-    have h := chainInput_eq_chainRow hi' hc' hstep' hs' heq
+    have hstep' : step < 256 := by omega
+    have h := chainInput_eq_chainRow hi' hc' hstep' (by omega) heq
     exact hal' ⟨h.1, h.2.1⟩
 theorem wotsEnd_maskAt (lay : Layer) (tree leaf i : Nat) (hi : i < chainCount lay) (hb : SlotOK a lay leaf) :
     WCT9.wotsEnd (maskAt answers messages a) lay tree leaf i = WCT9.wotsEnd answers lay tree leaf i := by
@@ -478,13 +479,15 @@ theorem wotsRoot_maskAt (lay : Layer) (tree leaf : Nat) (hb : SlotOK a lay leaf)
     WCT9.wotsRoot (maskAt answers messages a) lay tree leaf = WCT9.wotsRoot answers lay tree leaf := by
   unfold WCT9.wotsRoot
   rw [List.map_congr_left (fun i hi => wotsEnd_maskAt answers messages a lay tree leaf i (List.mem_range.mp hi) hb)]
-  exact eval_maskAt_of_respects answers messages a (respectsP_leafHash a _ _ _ _)
+  exact eval_maskAt_of_respects answers messages a (respectsP_lowerLeafHash a _ _ _ _
+    (by simp only [List.length_map, List.length_range]; exact SigGolfCandidate.T3.Security.Wots.Enc.chainCount_ge4 _))
 theorem wotsTree_maskAt (lay : Layer) (tree : Nat) (hal : lay = 0 ∨ MaskOK a) :
     WCT9.wotsTree (maskAt answers messages a) lay tree = WCT9.wotsTree answers lay tree := by
   unfold WCT9.wotsTree
   rw [List.map_congr_left (fun leaf hleaf => wotsRoot_maskAt answers messages a lay tree leaf
     (slotOK_of hal (by have := List.mem_range.mp hleaf; have := height_pow_le lay; omega)))]
-  exact eval_maskAt_of_respects answers messages a (respectsP_buildLevels a 3 _ _ _ _ (by decide))
+  exact eval_maskAt_of_respects answers messages a (respectsP_lowerLevels a _ _ _ (by fin_cases lay <;> decide) _
+    (by simp only [List.length_map, List.length_range]; exact le_rfl))
 theorem builtTree_maskAt_top :
     builtTree (maskAt answers messages a) 0 0 = builtTree answers 0 0 := by
   rw [← WCT9.wotsTree_top, ← WCT9.wotsTree_top, wotsTree_maskAt answers messages a 0 0 (Or.inl rfl)]
@@ -571,7 +574,8 @@ theorem frontierValue_maskAt_other (answers : Answers) (messages : LeafAddr → 
     (halias : SigGolfCandidate.T3.Security.Wots.Mask.LeafAlias b.key.lay b.key.tree b.key.leaf a.key →
       b.chain = a.chain → depth answers messages a ≤ depth answers messages b) :
     frontierValue (maskAt answers messages a) messages b = frontierValue answers messages b := by
-  unfold frontierValue honestChainValue
+  -- C3 (#866): the frontier is the chain of the current scheme (`honestChainValueW`).
+  unfold frontierValue ClaudeWCT.W9.T3.Security.Wots.honestChainValueW
   rw [depth_maskAt_all]
   exact Mask.eval_honestChain_maskAt answers messages a _ _ _ _ _ hb
     (by have := Mask.depth_le_seven answers messages b; omega)

@@ -123,6 +123,171 @@ def wctNodeHash (coord index heap : Nat) (left right : Digest) : M Digest :=
 /-- High half of a public hash. -/
 def highHash (input : HashInput) : M Digest := do
   pure ((← publicHash input).extractLsb' 128 128)
+/-! ### C2 + C3 (FULL): lower-tree half-swap, packed lower node word, witness pads, chain-0 high half
+The legacy `T3` definitions (`nodeTweak`, `nodeHash`, `leafInput`, `leafHash`, `chain`, `rowTweak`) keep their text;
+the current scheme uses the definitions below.
+* Lower trees (layers 1..3): a left child (even heap; the leaves of even index included) is the HIGH 16 bytes of its
+  hash output, a right child the low 16 bytes (`lowerHigh`). The top tree (layer 0) and the FTS keep their rules.
+* Lower node tweak: one marked word `hyperWord (lay - 1) tree + lowerK + heap` (byte0 `128 + heap`, byte1 7); its
+  high word is a witness pad (honest 0).
+* Leaf tweak high words (all layers) and the top leaf's leading 16 bytes are witness pads (honest 0); the encoding
+  row tweak's high word is a witness pad (honest 1).
+* Lower chain 0's last step (step 6) keeps the HIGH half of its output (`chainHigh`). -/
+def lowerK : Nat := 1407
+/-- Packed lower node word (`lay` = layer - 1, as in `hyperWord`). For heaps `2..127` the low 16 bits are
+`0x0780 + heap` (no carry: `hyperWord`'s low 16 bits are `0x0201`). -/
+def lowerNodeWord (lay tree heap : Nat) : BitVec 64 := hyperWord lay tree + BitVec.ofNat 64 (lowerK + heap)
+/-- C2 node tweak of lower layer `lay` (1..3) with the honest high word 0. -/
+def lowerTweak (lay tree heap : Nat) : BitVec 128 := 0#64 ++ lowerNodeWord (lay - 1) tree heap
+/-- Merkle node tweak of the current scheme: the top tree keeps `nodeTweak 3 0`, the lower trees use `lowerTweak`. -/
+def merkleTweak (lay tree heap : Nat) : BitVec 128 :=
+  if lay = 0 then nodeTweak 3 0 tree heap else lowerTweak lay tree heap
+/-- The used half of a hash output. -/
+def halfOf (high : Bool) (output : HashOutput) : Digest :=
+  if high then output.extractLsb' 128 128 else output.extractLsb' 0 128
+/-- A hash whose used half is selected by `high`. -/
+def halfHash (high : Bool) (input : HashInput) : M Digest := if high then highHash input else shortHash input
+/-- C2: heap `heap` of layer `lay` uses the high half (lower layers, even heap). -/
+def lowerHigh (lay heap : Nat) : Bool := decide (1 ≤ lay ∧ lay < 4) && decide (heap % 2 = 0)
+def lowerHalf (lay heap : Nat) (output : HashOutput) : Digest := halfOf (lowerHigh lay heap) output
+def lowerHash (lay heap : Nat) (input : HashInput) : M Digest := halfHash (lowerHigh lay heap) input
+/-- C3: the last step (step 6) of chain 0 of a lower layer keeps the high half. -/
+def chainHigh (lay : Layer) (i step : Nat) : Bool := decide (lay ≠ 0) && decide (i = 0) && decide (step = 6)
+/-- WOTS chain of the current scheme (`T3.chain` with the chain-0 high half). -/
+def chainW (lay : Layer) (tree leaf i start count : Nat) (value : Digest) : M Digest :=
+  (List.range' start count).foldlM
+    (fun value step => halfHash (chainHigh lay i step) (SigGolfCandidate.T3.chainInput lay tree leaf i step value))
+    value
+/-- Leaf tweak with the witness high word `hi` (honest 0). -/
+def leafTweakW (lay : Layer) (tree leaf : Nat) (hi : BitVec 64) : BitVec 128 :=
+  hi ++ hyperWord lay.val (tree * 2 ^ height lay + leaf)
+/-- Verifier leaf input: the top leaf has the witness pad `pad` in its leading block, a lower leaf starts with chain
+0's end (`pad` unused); the tweak high word is `hi`. `leafInputW_zero`: pads 0 give `T3.leafInput`. -/
+def leafInputW (lay : Layer) (tree leaf : Nat) (pad : Digest) (hi : BitVec 64) (ends : List Digest) : HashInput :=
+  if lay = 0 then bytesLE 16 pad ++ bytesLE 16 (leafTweakW lay tree leaf hi) ++ ends.flatMap (bytesLE 16)
+  else bytesLE 16 (ends.getD 0 0) ++ bytesLE 16 (leafTweakW lay tree leaf hi) ++ (ends.drop 1).flatMap (bytesLE 16)
+/-- Leaf hash of the current scheme (half by leaf index; the top uses the low half). -/
+def leafHashW (lay : Layer) (tree leaf : Nat) (pad : Digest) (hi : BitVec 64) (ends : List Digest) : M Digest :=
+  lowerHash lay.val leaf (leafInputW lay tree leaf pad hi ends)
+/-- Honest leaf hash of the current scheme. -/
+def lowerLeafHash (lay : Layer) (tree leaf : Nat) (ends : List Digest) : M Digest := leafHashW lay tree leaf 0 0 ends
+/-- Verifier fold input of a lower node (`lay` 1..3): witness high tweak word `hp` and pad `pad` (honest 0, 0). -/
+def lowerNodeInputP (lay tree heap : Nat) (left : Digest) (hp : BitVec 64) (pad right : Digest) : HashInput :=
+  bytesLE 16 left ++ bytesLE 16 (hp ++ lowerNodeWord (lay - 1) tree heap) ++ bytesLE 16 pad ++ bytesLE 16 right
+def lowerNodeHashP (lay tree heap : Nat) (left : Digest) (hp : BitVec 64) (pad right : Digest) : M Digest :=
+  lowerHash lay heap (lowerNodeInputP lay tree heap left hp pad right)
+/-- Honest node input of the current scheme (all layers): `left | merkleTweak | 0 | right`. -/
+def merkleNodeInput (lay tree heap : Nat) (left right : Digest) : HashInput :=
+  bytesLE 16 left ++ bytesLE 16 (merkleTweak lay tree heap) ++ zero16 ++ bytesLE 16 right
+/-- Honest node hash of the current scheme (all layers; the top is `T3.nodeHash 3 0`, `lowerNodeHash_top`). -/
+def lowerNodeHash (lay tree heap : Nat) (left right : Digest) : M Digest :=
+  lowerHash lay heap (merkleNodeInput lay tree heap left right)
+/-- `T3.buildLevel 3` with `lowerNodeHash`. -/
+def lowerLevel (lay tree h level : Nat) (nodes : List Digest) : M (List Digest) :=
+  (List.range (nodes.length / 2)).mapM fun i =>
+    lowerNodeHash lay tree (2 ^ (h-level) + i) (nodes.getD (2*i) 0) (nodes.getD (2*i+1) 0)
+/-- `T3.buildLevels 3` with `lowerLevel` (all levels, root included). -/
+def lowerLevels (lay tree h : Nat) (leaves : List Digest) : M (List (List Digest)) :=
+  (List.range' 1 h).foldlM (fun levels level => do
+    let nodes ← lowerLevel lay tree h level (levels.getD (level-1) [])
+    pure (levels ++ [nodes])) [leaves]
+theorem halfHash_eq (high : Bool) (input : HashInput) :
+    halfHash high input = publicHash input >>= fun a => pure (halfOf high a) := by
+  unfold halfHash halfOf highHash shortHash
+  cases high <;> rfl
+@[simp] theorem halfHash_false (input : HashInput) : halfHash false input = shortHash input := rfl
+@[simp] theorem halfHash_true (input : HashInput) : halfHash true input = highHash input := rfl
+@[simp] theorem halfOf_false (output : HashOutput) : halfOf false output = output.extractLsb' 0 128 := rfl
+@[simp] theorem halfOf_true (output : HashOutput) : halfOf true output = output.extractLsb' 128 128 := rfl
+theorem lowerHash_eq (lay heap : Nat) (input : HashInput) :
+    lowerHash lay heap input = publicHash input >>= fun a => pure (lowerHalf lay heap a) :=
+  halfHash_eq _ _
+theorem lowerHigh_iff (lay heap : Nat) : lowerHigh lay heap = true ↔ (1 ≤ lay ∧ lay < 4) ∧ heap % 2 = 0 := by
+  simp [lowerHigh]
+@[simp] theorem lowerHigh_top (heap : Nat) : lowerHigh 0 heap = false := by simp [lowerHigh]
+theorem lowerHigh_heap {lay e x : Nat} (he : 1 ≤ e) : lowerHigh lay (2 ^ e + x) = lowerHigh lay x := by
+  have : 2 ^ e % 2 = 0 := by
+    obtain ⟨k, rfl⟩ : ∃ k, e = k + 1 := ⟨e - 1, by omega⟩
+    rw [pow_succ]; simp
+  unfold lowerHigh
+  rw [show (2 ^ e + x) % 2 = x % 2 by omega]
+@[simp] theorem chainHigh_top (i step : Nat) : chainHigh 0 i step = false := by simp [chainHigh]
+theorem chainHigh_eq_false {lay : Layer} {i step : Nat} (h : lay = 0 ∨ i ≠ 0 ∨ step ≠ 6) :
+    chainHigh lay i step = false := by
+  simp only [chainHigh]; rcases h with h | h | h <;> simp [h]
+theorem chainHigh_eq_true {lay : Layer} {i step : Nat} :
+    chainHigh lay i step = true ↔ lay ≠ 0 ∧ i = 0 ∧ step = 6 := by
+  simp [chainHigh, and_assoc]
+theorem foldlM_congr_of_mem {α β : Type} {m : Type → Type} [Monad m] (f g : β → α → m β) :
+    ∀ (l : List α) (init : β), (∀ x ∈ l, ∀ b, f b x = g b x) → l.foldlM f init = l.foldlM g init
+  | [], _, _ => rfl
+  | x :: xs, init, h => by
+      simp only [List.foldlM_cons]
+      rw [h x List.mem_cons_self]
+      congr 1; funext b
+      exact foldlM_congr_of_mem f g xs b (fun y hy => h y (List.mem_cons_of_mem _ hy))
+/-- `chainW` is `T3.chain` when no step of the run keeps the high half. -/
+theorem chainW_of_low {lay : Layer} {i start count : Nat}
+    (h : ∀ step, start ≤ step → step < start + count → chainHigh lay i step = false)
+    (tree leaf : Nat) (value : Digest) :
+    chainW lay tree leaf i start count value = SigGolfCandidate.T3.chain lay tree leaf i start count value := by
+  unfold chainW SigGolfCandidate.T3.chain
+  apply foldlM_congr_of_mem
+  intro step hs b
+  rw [List.mem_range'_1] at hs
+  rw [h step hs.1 hs.2]; rfl
+theorem chainW_top (tree leaf i start count : Nat) (value : Digest) :
+    chainW 0 tree leaf i start count value = SigGolfCandidate.T3.chain 0 tree leaf i start count value :=
+  chainW_of_low (fun _ _ _ => chainHigh_top _ _) tree leaf value
+theorem chainW_ne_zero {lay : Layer} {i : Nat} (hi : i ≠ 0) (tree leaf start count : Nat) (value : Digest) :
+    chainW lay tree leaf i start count value = SigGolfCandidate.T3.chain lay tree leaf i start count value :=
+  chainW_of_low (fun _ _ _ => chainHigh_eq_false (Or.inr (Or.inl hi))) tree leaf value
+theorem chainW_add (lay : Layer) (tree leaf i start a b : Nat) (value : Digest) :
+    chainW lay tree leaf i start (a + b) value =
+      (chainW lay tree leaf i start a value >>= chainW lay tree leaf i (start + a) b) := by
+  unfold chainW
+  rw [← List.range'_append_1, List.foldlM_append]
+theorem leafInputW_zero (lay : Layer) (tree leaf : Nat) (ends : List Digest) :
+    leafInputW lay tree leaf 0 0 ends = SigGolfCandidate.T3.leafInput lay tree leaf ends := by
+  unfold leafInputW leafTweakW SigGolfCandidate.T3.leafInput leafTweak
+  split
+  · rw [show bytesLE 16 (0 : Digest) = zero16 by decide]; rfl
+  · rfl
+theorem lowerLeafHash_eq (lay : Layer) (tree leaf : Nat) (ends : List Digest) :
+    lowerLeafHash lay tree leaf ends = lowerHash lay.val leaf (SigGolfCandidate.T3.leafInput lay tree leaf ends) := by
+  unfold lowerLeafHash leafHashW; rw [leafInputW_zero]
+theorem lowerLeafHash_top (tree leaf : Nat) (ends : List Digest) :
+    lowerLeafHash 0 tree leaf ends = SigGolfCandidate.T3.leafHash 0 tree leaf ends := by
+  rw [lowerLeafHash_eq]; unfold lowerHash; rw [show (0 : Layer).val = 0 from rfl, lowerHigh_top]; rfl
+theorem leafHashW_top (tree leaf : Nat) (pad : Digest) (hi : BitVec 64) (ends : List Digest) :
+    leafHashW 0 tree leaf pad hi ends = shortHash (leafInputW 0 tree leaf pad hi ends) := by
+  unfold leafHashW lowerHash; rw [show (0 : Layer).val = 0 from rfl, lowerHigh_top]; rfl
+theorem lowerTweak_low (lay tree heap : Nat) :
+    (lowerTweak lay tree heap).extractLsb' 0 64 = hyperWord (lay - 1) tree + BitVec.ofNat 64 (lowerK + heap) := by
+  unfold lowerTweak lowerNodeWord; exact BitVec.extractLsb'_append_eq_right
+theorem lowerTweak_high (lay tree heap : Nat) : (lowerTweak lay tree heap).extractLsb' 64 64 = 0 := by
+  unfold lowerTweak; exact BitVec.extractLsb'_append_eq_left
+@[simp] theorem merkleTweak_top (tree heap : Nat) : merkleTweak 0 tree heap = nodeTweak 3 0 tree heap := by
+  simp [merkleTweak]
+theorem merkleTweak_lower {lay : Nat} (h : lay ≠ 0) (tree heap : Nat) :
+    merkleTweak lay tree heap = lowerTweak lay tree heap := by
+  simp [merkleTweak, h]
+theorem lowerNodeInputP_zero {lay : Nat} (h : lay ≠ 0) (tree heap : Nat) (left right : Digest) :
+    lowerNodeInputP lay tree heap left 0 0 right = merkleNodeInput lay tree heap left right := by
+  unfold lowerNodeInputP merkleNodeInput
+  rw [merkleTweak_lower h, show bytesLE 16 (0 : Digest) = zero16 by decide]; rfl
+theorem lowerNodeHash_eqP {lay : Nat} (h : lay ≠ 0) (tree heap : Nat) (left right : Digest) :
+    lowerNodeHash lay tree heap left right = lowerNodeHashP lay tree heap left 0 0 right := by
+  unfold lowerNodeHash lowerNodeHashP; rw [lowerNodeInputP_zero h]
+theorem lowerNodeHash_top (tree heap : Nat) (left right : Digest) :
+    lowerNodeHash 0 tree heap left right = nodeHash 3 0 tree heap left right := by
+  unfold lowerNodeHash lowerHash merkleNodeInput; rw [lowerHigh_top, merkleTweak_top]; rfl
+theorem lowerLevel_top (tree h level : Nat) (nodes : List Digest) :
+    lowerLevel 0 tree h level nodes = buildLevel 3 0 tree h level nodes := by
+  unfold lowerLevel buildLevel; simp only [lowerNodeHash_top]
+theorem lowerLevels_top (tree h : Nat) (leaves : List Digest) :
+    lowerLevels 0 tree h leaves = buildLevels 3 0 tree h leaves := by
+  unfold lowerLevels buildLevels; simp only [lowerLevel_top]
 /-- Nested FTS (r1-1): input of a top node (heap 2 or 3) of an FTS coordinate, with the previous coordinate's
 right top value in the pad slot. -/
 def wctTopInput (coord index heap : Nat) (left pad right : Digest) : HashInput :=
@@ -273,6 +438,23 @@ def pairEncodingInputP (up : Layer) (tree leaf : Nat) (left right : Digest) (cou
     (pad : BitVec 96) : HashInput :=
   bytesLE 16 left ++ bytesLE 16 (rowTweak up tree leaf) ++ bytesLE 4 counter ++ bytesLE 12 pad ++
     bytesLE 16 right
+/-- C2/C3 (FULL): the encoding input with the row tweak's high word `hi` a witness pad (honest 1,
+`pairEncodingInputH_one`). -/
+def pairEncodingInputH (up : Layer) (tree leaf : Nat) (left right : Digest) (counter : BitVec 32)
+    (pad : BitVec 96) (hi : BitVec 64) : HashInput :=
+  bytesLE 16 left ++ bytesLE 16 (hi ++ hyperWord up.val (tree * 2 ^ height up + leaf)) ++ bytesLE 4 counter ++
+    bytesLE 12 pad ++ bytesLE 16 right
+theorem pairEncodingInputH_one (up : Layer) (tree leaf : Nat) (left right : Digest) (counter : BitVec 32)
+    (pad : BitVec 96) : pairEncodingInputH up tree leaf left right counter pad 1 =
+      pairEncodingInputP up tree leaf left right counter pad := rfl
+/-- The encoding row tweak with the witness high word `hi` (`rowTweakW_one`: honest 1 is `T3.rowTweak`). -/
+def rowTweakW (up : Layer) (tree leaf : Nat) (hi : BitVec 64) : BitVec 128 :=
+  hi ++ hyperWord up.val (tree * 2 ^ height up + leaf)
+theorem rowTweakW_one (up : Layer) (tree leaf : Nat) : rowTweakW up tree leaf 1 = rowTweak up tree leaf := rfl
+theorem pairEncodingInputH_eq (up : Layer) (tree leaf : Nat) (left right : Digest) (counter : BitVec 32)
+    (pad : BitVec 96) (hi : BitVec 64) : pairEncodingInputH up tree leaf left right counter pad hi =
+      bytesLE 16 left ++ bytesLE 16 (rowTweakW up tree leaf hi) ++ bytesLE 4 counter ++ bytesLE 12 pad ++
+        bytesLE 16 right := rfl
 def layerEncodingInput (lay : Layer) (tree leaf : Nat) : LayerMsg → BitVec 32 → HashInput
   | .forest root, counter => encodingInput lay tree leaf root counter
   | .pair left right, counter => pairEncodingInputP lay tree leaf left right counter 0
@@ -385,9 +567,10 @@ def buildLeafP (lay : Layer) (tree leaf : Nat) (digits : List Nat) (carry : Dige
       pure (state.1 ++ [last], state.2.1 ++ [value], carry)) ([], [], carry)
   let root ← SigGolfCandidate.T3.leafHash lay tree leaf state.1
   pure ((root, state.2.1), state.2.2)
-def buildLevelsBelow (tag lay tree h : Nat) (leaves : List Digest) : M (List (List Digest)) :=
+/-- Levels `0..h-1` of a lower tree (C2: halves by `lowerLevel`; the tag argument is kept for the callers' text). -/
+def buildLevelsBelow (_tag lay tree h : Nat) (leaves : List Digest) : M (List (List Digest)) :=
   (List.range' 1 (h - 1)).foldlM (fun levels level => do
-    let nodes ← buildLevel tag lay tree h level (levels.getD (level - 1) [])
+    let nodes ← lowerLevel lay tree h level (levels.getD (level - 1) [])
     pure (levels ++ [nodes])) [leaves]
 /-! ### B4 lower arithmetic seeds: a degree-7 GF(2^128) family per leaf.
 Coefficient `j` of leaf `leaf` has ordinal `8 * leaf + j`; the even coefficient count
@@ -408,10 +591,10 @@ def buildLeafPF (lay : Layer) (tree leaf : Nat) (digits : List Nat) (carry : Dig
   let state ← (List.range (chainCount lay)).foldlM
     (fun (state : List Digest × List Digest) i => do
       let digit := digits.getD i 0
-      let value ← SigGolfCandidate.T3.chain lay tree leaf i 0 digit (lowerFamilySeed coefs i)
-      let last ← SigGolfCandidate.T3.chain lay tree leaf i digit (maxDigit lay i - digit) value
+      let value ← chainW lay tree leaf i 0 digit (lowerFamilySeed coefs i)
+      let last ← chainW lay tree leaf i digit (maxDigit lay i - digit) value
       pure (state.1 ++ [last], state.2 ++ [value])) ([], [])
-  let root ← SigGolfCandidate.T3.leafHash lay tree leaf state.1
+  let root ← lowerLeafHash lay tree leaf state.1
   pure ((root, state.2), carry)
 /-- Lower tree of layer `lay ≥ 1` (stage B: leaves built by `buildLeafPF`, the family carry threaded across leaves).
 `buildLeafP` (per-chain packed seeds) is kept for the machine proofs of the pre-stage-B sign image. -/
@@ -463,13 +646,13 @@ def recoverLayerPair (sig : Signature) (index : Nat) (lay : Layer) (digits : Lis
     M (Digest × Digest) := do
   let (leaf, tree) := route index lay
   let ends ← (List.finRange (chainCount lay)).mapM fun i =>
-    SigGolfCandidate.T3.chain lay tree leaf i.val (digits.getD i.val 0)
+    chainW lay tree leaf i.val (digits.getD i.val 0)
       (maxDigit lay i.val - digits.getD i.val 0) ((sig.layers lay).values i)
-  let value ← SigGolfCandidate.T3.leafHash lay tree leaf ends
+  let value ← lowerLeafHash lay tree leaf ends
   let top ← (List.finRange (height lay - 1)).foldlM (fun value j => do
     let other := (sig.layers lay).path (Fin.castLE (Nat.sub_le _ _) j)
     let pair := if leaf / 2 ^ j.val % 2 = 0 then (value, other) else (other, value)
-    nodeHash 3 lay.val tree (2 ^ (height lay - j.val - 1) + leaf / 2 ^ (j.val + 1)) pair.1 pair.2) value
+    lowerNodeHash lay.val tree (2 ^ (height lay - j.val - 1) + leaf / 2 ^ (j.val + 1)) pair.1 pair.2) value
   let other := (sig.layers lay).path (topLevel lay)
   pure (if leaf / 2 ^ (height lay - 1) % 2 = 0 then (top, other) else (other, top))
 /-- Lower dispatch is defined only at ranks allocated in the absolute-address table. -/
@@ -489,7 +672,7 @@ def lowerGuardedRun {α : Type} (run : Nat → M Digest) (finish : M α) (answer
 def recoverLayerPairGuard (sig : Signature) (index : Nat) (lay : Layer) (answer : Digest)
     (digits : List Nat) : M (Option (Digest × Digest)) :=
   lowerGuardedRun
-    (fun i => SigGolfCandidate.T3.chain lay (route index lay).2 (route index lay).1 i
+    (fun i => chainW lay (route index lay).2 (route index lay).1 i
       (digits.getD i 0) (maxDigit lay i - digits.getD i 0) ((sig.layers lay).values ⟨i % chainCount lay,
         Nat.mod_lt _ (by fin_cases lay <;> decide)⟩))
     (recoverLayerPair sig index lay digits) answer

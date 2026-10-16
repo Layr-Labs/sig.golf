@@ -23,12 +23,12 @@ end FCtx
 end SigGolfCandidate.T3M.Verify
 namespace SigGolfCandidate.T3M.Verify
 open SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64 SigGolfCandidate.Rv
-def layerPc : Nat := 853
+def layerPc : Nat := 854
 end SigGolfCandidate.T3M.Verify
 namespace SigGolfCandidate.T3M.Verify
 open SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64 SigGolfCandidate.Rv
 open SigGolfCandidate.T3 (Digest HashOutput Selection selections header)
-/-- State after the nested FTS (pc 853, with the pair already in the L3 row): tree 8's top pair in the L3 block's left slot (witness
+/-- State after the nested FTS (pc 854, with the pair already in the L3 row): tree 8's top pair in the L3 block's left slot (witness
 offset 0) and right slot (offset 48). -/
 structure FtsOut (F : FCtx) (top : Digest × Digest) (u : MachineState) : Prop where
   glob : Glob baseK F.w F.pk u
@@ -36,7 +36,10 @@ structure FtsOut (F : FCtx) (top : Digest × Digest) (u : MachineState) : Prop w
   pc : u.pc = pcOf layerPc
   left : DigAt u WIT top.1
   right : DigAt u (WIT + 48) top.2
-  wit : Orig F.w (fun o => (32 ≤ o ∧ o < 48) ∨ (8256 ≤ o ∧ o < 24800)) u
+  /-- C3 (stage 2): witness word 3 (the L3 encoding's row-tweak high word, honest 1) is still original; the merged
+  singleton (Cm) writes its left top value at `WIT` with its junk half at `WIT - 16`, so `WIT + 16 .. WIT + 48` is
+  untouched by the FTS. -/
+  wit : Orig F.w (fun o => (24 ≤ o ∧ o < 48) ∨ (8256 ≤ o ∧ o < 24896)) u
   base : u.getReg .x8 = BitVec.ofNat 64 (WIT + 176)
   a1 : u.getReg .x11 = 64
   s10 : u.getReg .x26 = 6
@@ -50,9 +53,10 @@ structure FtsOut (F : FCtx) (top : Digest × Digest) (u : MachineState) : Prop w
   topBase : u.getReg .x9 = BitVec.ofNat 64 TOPB9
   top : ∀ k, k < 5 → u.getMem (BitVec.ofNat 64 (TOPLOAD + 8 * k)) =
     BitVec.ofNat 64 (topWords.getD k 0)
-  top8 : u.getMem (BitVec.ofNat 64 (TOPLOAD - 8)) = BitVec.ofNat 64 21200
-  /-- `a2` after coordinate 8's last heap hash (`1216` or `1264`); the L3 encoding writes there. -/
-  a2 : u.getReg .x12 = BitVec.ofNat 64 1216 ∨ u.getReg .x12 = BitVec.ofNat 64 1264
+  top8 : u.getMem (BitVec.ofNat 64 (TOPLOAD - 8)) = BitVec.ofNat 64 21264
+  /-- `a2` after coordinate 8's last heap hash (Cm: `WIT - 16` for the high-half left top node, `WIT + 48` for the
+  low-half right top node); the L3 encoding writes there. -/
+  a2 : u.getReg .x12 = BitVec.ofNat 64 1200 ∨ u.getReg .x12 = BitVec.ofNat 64 1264
 end SigGolfCandidate.T3M.Verify
 namespace SigGolfCandidate.T3M.Verify
 open SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64 SigGolfCandidate.Rv OracleComp
