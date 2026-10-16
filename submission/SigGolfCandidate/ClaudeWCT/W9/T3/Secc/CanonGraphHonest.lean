@@ -675,29 +675,23 @@ attribute [local instance] Classical.propDecidable
       Extract.Paired.proj (.wctNode index.val coord.val level c)
         (answers (.inl (.inr (pad64 (nodeInputP 3 (WCT9.nodeLayer coord.val) index.val
           (2^(6-level)+c) left (if level=4 then (ps (c/2)).2 else 0) right))))) := by
-  let H : HashInput → HashOutput := fun input=>answers (.inl (.inr input))
-  change evalWithAnswerFn answers (Research.SharedForest.sharedNode (decide (first coord.val)) coord.val index.val
-    (2^(6-level)+c) ps left right) = Extract.Paired.proj (.wctNode index.val coord.val level c)
-      (H (pad64 (nodeInputP 3 (WCT9.nodeLayer coord.val) index.val (2^(6-level)+c)
-        left (if level=4 then (ps (c/2)).2 else 0) right)))
-  have hshort (input : HashInput) : evalWithAnswerFn answers (shortHash input)=(H (pad64 input)).extractLsb' 0 128 := rfl
-  have hhigh (input : HashInput) : evalWithAnswerFn answers (WCT9.highHash input)=(H (pad64 input)).extractLsb' 128 128 := rfl
-  have hinput (coord idx heap:Nat) (l p r:Digest) : WCT9.wctTopInput coord idx heap l p r=nodeInputP 3 (WCT9.nodeLayer coord) idx heap l p r := rfl
   have hl6:level<6 := by unfold topLevel at hl;split_ifs at hl <;> omega
-  interval_cases level <;> fin_cases coord
-  all_goals norm_num [topLevel,first] at hl
-  all_goals norm_num at hc
-  all_goals simp only [Research.SharedForest.sharedNode,Research.SharedForest.sharedOuterHash,
-      first,Extract.Paired.proj,Extract.Paired.highPosition]
-  all_goals norm_num
-  all_goals split_ifs <;> try omega
-  all_goals try { change _ = _; rfl }
-  all_goals try { rw [show (4+c)/2-2=c/2 by omega];rfl }
-  all_goals try rw [WCT9.wctNodeHash,nodeHash_eq_shortHash]
-  all_goals first | rw [hshort] | rw [hhigh]
-  all_goals norm_num
-  all_goals try rw [show (4+c)/2-2=c/2 by omega]
-  all_goals rw [hinput,pad64_nodeInputP]
+  have hu : Extract.Paired.first coord.val = true → level < 5 := by
+    intro hf
+    have hf' : first coord.val := of_decide_eq_true hf
+    simp only [topLevel, if_pos hf'] at hl
+    exact hl
+  have hd : decide (first coord.val) = Extract.Paired.first coord.val := rfl
+  rw [hd, Extract.Paired.sharedNode_eq_nodeProgramP index.val coord.val level c coord.isLt hl6 hc hu ps left right,
+    Extract.Paired.eval_nodeProgram]
+  have hpad : (if level=4 then (ps ((2^(6-level)+c)/2-2)).2 else (0:Digest)) =
+      (if level=4 then (ps (c/2)).2 else 0) := by
+    by_cases h4 : level=4
+    · subst level
+      rw [if_pos rfl, if_pos rfl, show (2^(6-4)+c)/2-2=c/2 by norm_num; omega]
+    · rw [if_neg h4, if_neg h4]
+  rw [hpad]
+  rfl
 #print axioms sharedNode_eval
 end ClaudeWCT.W9.T3.Security.CanonGraph.Paired
 
@@ -712,20 +706,33 @@ set_option backward.isDefEq.respectTransparency false
 attribute [local instance] Classical.propDecidable
 attribute [local irreducible] Research.SharedForest.sharedNodes Research.SharedForest.firstNodes Research.SharedForest.secondNodes
 
+/-- C1: the honest leaf (heap `128 + physical`) is the fixed projection of its label. -/
 theorem childRoot_eq (answers : Answers) (labels : Labels) (h : Agrees answers labels) (L : WctLeafPos) :
-    WCT9.childRoot answers L.index.val L.coord.val L.child.val
-      (pads labels L.index L.coord (L.child.val%2)).1 =
-      (labels (.wctLeaf L)).extractLsb' 0 128 := by
+    WCT9.childRootH answers (128 + Extract.Paired.physical L.coord.val L.child.val)
+      L.index.val L.coord.val L.child.val (pads labels L.index L.coord (L.child.val%2)).1 =
+      Extract.Paired.proj (.wctLeaf L.index.val L.coord.val L.child.val) (labels (.wctLeaf L)) := by
   have hends : (List.ofFn fun i : Fin 6 => WCT9.chainEnd answers L.index.val L.coord.val L.child.val i) =
       Extract.wctEnds answers L.index.val L.coord.val L.child.val := rfl
-  have hleaf : ∀ pad ends, WCT9.leafHashP L.index.val L.coord.val L.child.val pad ends =
-      shortHash (Extract.wctLeafInputP L.index.val L.coord.val L.child.val pad ends) := by
+  have hleaf : ∀ pad ends, WCT9.leafHashH (128 + Extract.Paired.physical L.coord.val L.child.val)
+      L.index.val L.coord.val L.child.val pad ends =
+      WCT9.ftsHash (128 + Extract.Paired.physical L.coord.val L.child.val)
+        (Extract.wctLeafInputP L.index.val L.coord.val L.child.val pad ends) := by
     intro pad ends
-    unfold WCT9.leafHashP WCT9.leafInputP Extract.wctLeafInputP Extract.listInput
+    unfold WCT9.leafHashH WCT9.leafInputP Extract.wctLeafInputP Extract.listInput
     simp only [List.flatMap_cons, List.append_assoc]
-  unfold WCT9.childRoot
-  rw [hleaf,hends,wctEnds_eq h L]
-  exact congrArg (fun output : HashOutput=>output.extractLsb' 0 128) (h (.wctLeaf L))
+  unfold WCT9.childRootH
+  rw [hleaf,hends,wctEnds_eq h L,WCT9.eval_ftsHash,Extract.Paired.proj_wctLeaf]
+  exact congrArg (WCT9.ftsHalf (128 + Extract.Paired.physical L.coord.val L.child.val)) (h (.wctLeaf L))
+
+theorem physical_rawLeaf (coord : Fin 9) (c : Nat) (hc : c<128) :
+    Extract.Paired.physical coord.val (rawLeaf coord.val c)=c := by
+  unfold Extract.Paired.physical Research.SharedForest.physicalChild Extract.Paired.first rawLeaf
+  by_cases hf : first coord.val
+  · have hf' : decide (coord.val<8 ∧ coord.val%2=0)=true := decide_eq_true hf
+    simp only [hf', if_pos hf, ↓reduceIte]
+  · have hf' : decide (coord.val<8 ∧ coord.val%2=0)=false := decide_eq_false hf
+    simp only [hf', if_neg hf, Bool.false_eq_true, ↓reduceIte]
+    omega
 
 theorem rawChild_eq (coord child : Nat) :
     Research.SharedForest.rawChild (decide (first coord)) child=rawLeaf coord child := by
@@ -740,6 +747,7 @@ theorem source_leaves_label (answers : Answers) (labels : Labels) (h : Agrees an
   rw [List.getD_eq_getElem _ _ (by rw [List.length_ofFn];exact hc),List.getElem_ofFn]
   rw [rawChild_eq,hps _ (by omega),pads_raw_branch labels index coord c hc]
   have he:=childRoot_eq answers labels h ⟨index,coord,⟨rawLeaf coord.val c,rawLeaf_lt _ _ hc⟩⟩
+  simp only [physical_rawLeaf coord c hc] at he
   unfold ftsLabel
   rw [if_pos rfl,dif_pos (rawLeaf_lt _ _ hc)]
   exact he

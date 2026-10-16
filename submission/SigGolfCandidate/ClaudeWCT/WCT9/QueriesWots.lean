@@ -154,6 +154,11 @@ theorem respects_buildChildF (coord selected : Nat) (word : Rank) (coefs : List 
     Wots.Mask.Respects (Wots.Mask.Untouched a) (buildChildF index coord selected word coefs pad) :=
   respects_of_allQueriesSatisfy (allQueriesSatisfy_mono (buildChildF_queries index coord selected word coefs pad hcoord hsel)
     fun _ => ftsQuery_untouched a)
+theorem respects_buildChildH (heap coord selected : Nat) (word : Rank) (coefs : List Digest) (pad : Digest)
+    (hcoord : coord < 9) (hsel : selected < 128) :
+    Wots.Mask.Respects (Wots.Mask.Untouched a) (buildChildH heap index coord selected word coefs pad) :=
+  respects_of_allQueriesSatisfy (allQueriesSatisfy_mono
+    (buildChildH_queries index heap coord selected word coefs pad hcoord hsel) fun _ => ftsQuery_untouched a)
 theorem respects_buildCoordinateF (coord : Coord) (selected : Child) (word : Rank) (prev : Digest × Digest) :
     Wots.Mask.Respects (Wots.Mask.Untouched a) (buildCoordinateF index coord selected word prev) :=
   respects_of_allQueriesSatisfy (allQueriesSatisfy_mono (buildCoordinateF_queries index coord selected word prev)
@@ -202,6 +207,11 @@ theorem respects_buildChildF (coord selected : Nat) (word : Rank) (coefs : List 
     Wots.Mask.Respects Wots.Enc.NonEnc (buildChildF index coord selected word coefs pad) :=
   respects_of_allQueriesSatisfy (allQueriesSatisfy_mono (buildChildF_queries index coord selected word coefs pad hcoord hsel)
     fun _ => ftsQuery_nonEnc)
+theorem respects_buildChildH (heap coord selected : Nat) (word : Rank) (coefs : List Digest) (pad : Digest)
+    (hcoord : coord < 9) (hsel : selected < 128) :
+    Wots.Mask.Respects Wots.Enc.NonEnc (buildChildH heap index coord selected word coefs pad) :=
+  respects_of_allQueriesSatisfy (allQueriesSatisfy_mono
+    (buildChildH_queries index heap coord selected word coefs pad hcoord hsel) fun _ => ftsQuery_nonEnc)
 theorem respects_buildCoordinateF (coord : Coord) (selected : Child) (word : Rank) (prev : Digest × Digest) :
     Wots.Mask.Respects Wots.Enc.NonEnc (buildCoordinateF index coord selected word prev) :=
   respects_of_allQueriesSatisfy (allQueriesSatisfy_mono (buildCoordinateF_queries index coord selected word prev)

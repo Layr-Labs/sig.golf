@@ -236,30 +236,30 @@ namespace ClaudeWCT.W9.Machine.Sign.SharedNext
 open SigGolfCandidate.T3M.Verify
 set_option maxHeartbeats 1000000
 set_option maxRecDepth 100000
-theorem next_run_0 : ∀ mode,mode<3 → optBeq (runNext 0 mode) (expected 0 mode)=true := by decide +kernel
-theorem next_run_1 : ∀ mode,mode<3 → optBeq (runNext 1 mode) (expected 1 mode)=true := by decide +kernel
-theorem next_run_2 : ∀ mode,mode<3 → optBeq (runNext 2 mode) (expected 2 mode)=true := by decide +kernel
-theorem next_run_3 : ∀ mode,mode<3 → optBeq (runNext 3 mode) (expected 3 mode)=true := by decide +kernel
-theorem next_run_4 : ∀ mode,mode<3 → optBeq (runNext 4 mode) (expected 4 mode)=true := by decide +kernel
-theorem next_run_5 : ∀ mode,mode<3 → optBeq (runNext 5 mode) (expected 5 mode)=true := by decide +kernel
-theorem next_run_6 : ∀ mode,mode<3 → optBeq (runNext 6 mode) (expected 6 mode)=true := by decide +kernel
-theorem next_run_7 : ∀ mode,mode<3 → optBeq (runNext 7 mode) (expected 7 mode)=true := by decide +kernel
-theorem next_run_8 : ∀ mode,mode<3 → optBeq (runNext 8 mode) (expected 8 mode)=true := by decide +kernel
+theorem next_run_0 : ∀ mode,mode<3 → ∀ odd,optBeq (runNext 0 mode odd) (expected 0 mode odd)=true := by decide +kernel
+theorem next_run_1 : ∀ mode,mode<3 → ∀ odd,optBeq (runNext 1 mode odd) (expected 1 mode odd)=true := by decide +kernel
+theorem next_run_2 : ∀ mode,mode<3 → ∀ odd,optBeq (runNext 2 mode odd) (expected 2 mode odd)=true := by decide +kernel
+theorem next_run_3 : ∀ mode,mode<3 → ∀ odd,optBeq (runNext 3 mode odd) (expected 3 mode odd)=true := by decide +kernel
+theorem next_run_4 : ∀ mode,mode<3 → ∀ odd,optBeq (runNext 4 mode odd) (expected 4 mode odd)=true := by decide +kernel
+theorem next_run_5 : ∀ mode,mode<3 → ∀ odd,optBeq (runNext 5 mode odd) (expected 5 mode odd)=true := by decide +kernel
+theorem next_run_6 : ∀ mode,mode<3 → ∀ odd,optBeq (runNext 6 mode odd) (expected 6 mode odd)=true := by decide +kernel
+theorem next_run_7 : ∀ mode,mode<3 → ∀ odd,optBeq (runNext 7 mode odd) (expected 7 mode odd)=true := by decide +kernel
+theorem next_run_8 : ∀ mode,mode<3 → ∀ odd,optBeq (runNext 8 mode odd) (expected 8 mode odd)=true := by decide +kernel
 end ClaudeWCT.W9.Machine.Sign.SharedNext
 
 namespace ClaudeWCT.W9.Machine.Sign.SharedTail
 open SigGolfCandidate.T3M.Verify
 set_option maxHeartbeats 1000000
 set_option maxRecDepth 100000
-theorem tail_run_0 : ∀ high back,optBeq (runTail 0 high back) (expected 0 high back)=true := by decide +kernel
-theorem tail_run_1 : ∀ high back,optBeq (runTail 1 high back) (expected 1 high back)=true := by decide +kernel
-theorem tail_run_2 : ∀ high back,optBeq (runTail 2 high back) (expected 2 high back)=true := by decide +kernel
-theorem tail_run_3 : ∀ high back,optBeq (runTail 3 high back) (expected 3 high back)=true := by decide +kernel
-theorem tail_run_4 : ∀ high back,optBeq (runTail 4 high back) (expected 4 high back)=true := by decide +kernel
-theorem tail_run_5 : ∀ high back,optBeq (runTail 5 high back) (expected 5 high back)=true := by decide +kernel
-theorem tail_run_6 : ∀ high back,optBeq (runTail 6 high back) (expected 6 high back)=true := by decide +kernel
-theorem tail_run_7 : ∀ high back,optBeq (runTail 7 high back) (expected 7 high back)=true := by decide +kernel
-theorem tail_run_8 : ∀ high back,optBeq (runTail 8 high back) (expected 8 high back)=true := by decide +kernel
+theorem tail_run_0 : ∀ k,k<4 → ∀ back,optBeq (runTail 0 k back) (expected 0 k back)=true := by decide +kernel
+theorem tail_run_1 : ∀ k,k<4 → ∀ back,optBeq (runTail 1 k back) (expected 1 k back)=true := by decide +kernel
+theorem tail_run_2 : ∀ k,k<4 → ∀ back,optBeq (runTail 2 k back) (expected 2 k back)=true := by decide +kernel
+theorem tail_run_3 : ∀ k,k<4 → ∀ back,optBeq (runTail 3 k back) (expected 3 k back)=true := by decide +kernel
+theorem tail_run_4 : ∀ k,k<4 → ∀ back,optBeq (runTail 4 k back) (expected 4 k back)=true := by decide +kernel
+theorem tail_run_5 : ∀ k,k<4 → ∀ back,optBeq (runTail 5 k back) (expected 5 k back)=true := by decide +kernel
+theorem tail_run_6 : ∀ k,k<4 → ∀ back,optBeq (runTail 6 k back) (expected 6 k back)=true := by decide +kernel
+theorem tail_run_7 : ∀ k,k<4 → ∀ back,optBeq (runTail 7 k back) (expected 7 k back)=true := by decide +kernel
+theorem tail_run_8 : ∀ k,k<4 → ∀ back,optBeq (runTail 8 k back) (expected 8 k back)=true := by decide +kernel
 end ClaudeWCT.W9.Machine.Sign.SharedTail
 
 namespace ClaudeWCT.W9.Machine.Sign.SharedFinish

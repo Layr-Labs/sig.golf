@@ -17,7 +17,9 @@ def childWord (coordinate child : Nat) : Nat :=
   if coordinate < 8 ∧ coordinate % 2 = 0 then 231616 + 32 * child
   else if coordinate = 8 then 235776 + 64 * child
   else 246464 + 64 * child
-def returnWord (k : Fin 9) : Nat := [97,183,267,351,437,521,605,691,775].getD k.val 0
+/-- `start k + length k` of the shared dispatcher (`W9Drv.SharedDispatch`); coordinate 8's dispatcher is 9 words
+(765..773) after the dispatch hoist, so its children receive `ra = pcOf 774` and return with `316(ra)`. -/
+def returnWord (k : Fin 9) : Nat := [97,183,267,351,437,521,605,691,774].getD k.val 0
 def layout (coordinate : Fin 9) : W9Machine.Layout :=
   ⟨Frozen.image, Frozen.layout.chainWord, fun j => childWord coordinate.val j.val, returnWord⟩
 theorem image_eq (k : Fin 9) : (layout k).image = Frozen.image := rfl

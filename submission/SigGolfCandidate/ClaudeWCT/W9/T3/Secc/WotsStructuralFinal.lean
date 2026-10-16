@@ -553,7 +553,13 @@ theorem prob_proj_eq (position : Extract.Pos) (target : Digest) :
       PMF.uniformOfFintype HashOutput]=(Fintype.card Digest:ℝ≥0∞)⁻¹ := by
   cases position with
   | wctNode index coord level node=>
-    by_cases h:Extract.Paired.highPosition coord level
+    by_cases h:Extract.Paired.highNodeAt coord level node
+    · simp only [Extract.Paired.proj,if_pos h]
+      exact prob_high_eq target
+    · simp only [Extract.Paired.proj,if_neg h]
+      exact SphincsSecurity.Concrete.HiddenLabelProbe.prob_truncate_eq target
+  | wctLeaf index coord child=>
+    by_cases h:Extract.Paired.highLeafAt coord child
     · simp only [Extract.Paired.proj,if_pos h]
       exact prob_high_eq target
     · simp only [Extract.Paired.proj,if_neg h]
@@ -847,8 +853,11 @@ theorem sharedNode_short (first : Bool) (coord index heap : Nat)
     · split
       · exact topHigh_short _ _ _ _ _ _
       · exact topLow_short _ _ _ _ _ _
-    · change ShortRespects (shortHash (WCT9.wctTopInput coord index heap left 0 right))
-      exact topLow_short _ _ _ _ _ _
+    · change ShortRespects (WCT9.ftsHash heap (WCT9.wctTopInput coord index heap left 0 right))
+      rw [WCT9.ftsHash_eq]
+      split
+      · exact topHigh_short _ _ _ _ _ _
+      · exact topLow_short _ _ _ _ _ _
 
 theorem sharedHeap_short (first : Bool) (index coord : Nat)
     (pads : Nat → PairRoot) (leaves : List Digest) :
@@ -866,8 +875,8 @@ theorem sharedLeaves_short {A T : Answers} (hAT : ShortAgree A T)
   have hraw : rawChild first physical.val < 128 := by
     have hp := physical.isLt
     cases first <;> simp only [rawChild, Bool.false_eq_true, ↓reduceIte] <;> omega
-  exact WCT9.Wots.childRoot_congr (fun query hq => hAT query (WCT9.Wots.ftsQuery_short hq))
-    coord ⟨rawChild first physical.val, hraw⟩ _
+  exact WCT9.Wots.childRootH_congr (fun query hq => hAT query (WCT9.Wots.ftsQuery_short hq))
+    (128 + physical.val) coord ⟨rawChild first physical.val, hraw⟩ _
 
 theorem sharedNodes_short {A T : Answers} (hAT : ShortAgree A T)
     (first : Bool) (index : Nat) (coord : Fin 9) (pads : Nat → PairRoot) :

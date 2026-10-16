@@ -603,7 +603,7 @@ open SigGolfCandidate.T3 ClaudeWCT.Numerics.SharedFtsCount ClaudeWCT.Numerics.Ca
 set_option maxHeartbeats 1000000
 set_option maxRecDepth 100000
 
-theorem capSet_card_value : capSet.card = 3253847717268963426595763281490520959991808 := by
+theorem capSet_card_value : capSet.card = 3255680248596076861501897566295512180326400 := by
   have h := capSet_card_scaled
   norm_num [count] at h
   omega

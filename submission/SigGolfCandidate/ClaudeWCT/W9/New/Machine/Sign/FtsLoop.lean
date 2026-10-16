@@ -1024,13 +1024,26 @@ theorem step_hook {im : Image} {c : Nat} (hlook:LookOK im (hookLook c)) (hc:c<9)
 def hashW (c j : Nat) (A : Nat) : Prop := writes A ∨
   HEAPW+16*(128+physical c j) ≤ A ∧ A<HEAPW+16*(128+physical c j)+32
 
+/-- C1: the leaf of physical child `p` uses the HIGH half of its answer iff `128 + p` is even. -/
+theorem ftsHighHeap_leaf (p : Nat) : WCT9.ftsHighHeap (128+p)=decide (p%2=0) := by
+  by_cases hx:p%2=0
+  · rw[decide_eq_true hx];exact (WCT9.ftsHighHeap_iff (by omega)).mpr ⟨by omega,by omega⟩
+  · rw[decide_eq_false hx]
+    cases hy:WCT9.ftsHighHeap (128+p)
+    · rfl
+    · exact absurd ((WCT9.ftsHighHeap_iff (by omega)).mp hy).2 (by omega)
+
+/-- C1: after the leaf `ecall` the answer is at `a2 = HEAPW + 16 (128 + p)`; the leaf value (`leafHashH`) is its
+LOW half for odd `p` and its HIGH half (at `a2 + 16`) for even `p`. The hook stub then moves it to `a2`. -/
 theorem hash_unit {im : Image} {sk : BitVec 256} {c j index sel w : Nat} {pad : Digest}
     (hlook:LookOK im (look c)) (hc:c<9) (hj:j<128) (hidx:index<2^31)
     (rows : List Digest × List Digest) {s : MachineState} (hpc:s.pc=pcOf (entry c))
     (hb:BodySt sk j index sel w s) (hr:RowsAt c j sel 6 rows s) (hp:PadAt c j pad s) :
-    TBSim im sk s 48 (WCT9.leafHashP index c j pad rows.1) (fun root t=>
+    TBSim im sk s 48 (WCT9.leafHashH (128+physical c j) index c j pad rows.1) (fun root t=>
       t.pc=pcOf (hashPc c)+4 ∧ BodySt sk j index sel w t ∧
-      DigAt t (HEAPW+16*(128+physical c j)) root ∧
+      t.getReg .x12=BitVec.ofNat 64 (HEAPW+16*(128+physical c j)) ∧
+      (physical c j%2=1 → DigAt t (HEAPW+16*(128+physical c j)) root) ∧
+      (physical c j%2=0 → DigAt t (HEAPW+16*(128+physical c j)+16) root) ∧
       (j=sel → ∀i,i<6 → DigAt t (slotV c i) (rows.2.getD i 0)) ∧
       RegsExcept s t bodyRegs ∧ Frame s t (hashW c j)) := by
   obtain ⟨u,su,ec,upc,x10,x11,x12,m16,m24,hpad,ru,fu⟩:=step_leaf hlook hc hj s hpc hb.x18 hb.x22 hp
@@ -1047,19 +1060,44 @@ theorem hash_unit {im : Image} {sk : BitVec 256} {c j index sel w : Nat} {pad : 
     rw [pad64_of_aligned _ (by rw [leafIn_len _ _ _ _ _ hrows.len1]),
       blocks_toQ ⟨by rw [leafIn_len _ _ _ _ _ hrows.len1];norm_num,
         by rw [leafIn_len _ _ _ _ _ hrows.len1]⟩,leafIn_len _ _ _ _ _ hrows.len1]
-  rw [leafHashP_eq]
-  refine (TBSim.steps su (TBSim.shortHash_bind' (W:=0) (f:=fun root=>pure root) ec hub.x5
-    (hashArgs_const u LEAFW 128 (HEAPW+16*(128+physical c j)) x10 x11 x12
-      (by ao) (by norm_num) (by ao) (by ao) (by ao)) hq (fun a=>TBSim.pure ?_))).mono
-    (by rw[hbl];unfold cycles;split_ifs <;> omega) (fun _ _ h=>h)
-  have fh:=Frame.writeHash u a (HEAPW+16*(128+physical c j)) x12 (by ao)
-  refine ⟨by rw[pc_writeHash,upc],?_,DigAt.writeHash_lo u a _ x12 (by ao),?_,?_,?_⟩
-  · exact hub.of (fun x _=>getReg_writeHash u a x : RegsExcept u (writeHash u a) []) (by simp) fh
-      (by refine ⟨?_,?_,?_,?_,?_,?_,?_,?_,?_,?_⟩ <;> ao)
-  · intro hjs i hi
-    exact (hrows.sig hjs i hi).frame fh (by unfold slotV;ao) (by unfold slotV;ao) (by unfold slotV;ao)
-  · exact (ru.trans (fun x _=>getReg_writeHash u a x : RegsExcept u (writeHash u a) [])).mono (by simp[bodyRegs])
-  · exact (fu.trans fh).mono (fun _ _ h=>h)
+  have hargs:=hashArgs_const u LEAFW 128 (HEAPW+16*(128+physical c j)) x10 x11 x12
+    (by ao) (by norm_num) (by ao) (by ao) (by ao)
+  have post:∀(a:BitVec 256) (root:Digest),
+      root=(if physical c j%2=0 then a.extractLsb' 128 128 else a.extractLsb' 0 128) →
+      (writeHash u a).pc=pcOf (hashPc c)+4 ∧ BodySt sk j index sel w (writeHash u a) ∧
+      (writeHash u a).getReg .x12=BitVec.ofNat 64 (HEAPW+16*(128+physical c j)) ∧
+      (physical c j%2=1 → DigAt (writeHash u a) (HEAPW+16*(128+physical c j)) root) ∧
+      (physical c j%2=0 → DigAt (writeHash u a) (HEAPW+16*(128+physical c j)+16) root) ∧
+      (j=sel → ∀i,i<6 → DigAt (writeHash u a) (slotV c i) (rows.2.getD i 0)) ∧
+      RegsExcept s (writeHash u a) bodyRegs ∧ Frame s (writeHash u a) (hashW c j) := by
+    intro a root hroot
+    have fh:=Frame.writeHash u a (HEAPW+16*(128+physical c j)) x12 (by ao)
+    refine ⟨by rw[pc_writeHash,upc],?_,by rw[getReg_writeHash];exact x12,fun ho=>?_,fun he=>?_,?_,?_,?_⟩
+    · exact hub.of (fun x _=>getReg_writeHash u a x : RegsExcept u (writeHash u a) []) (by simp) fh
+        (by refine ⟨?_,?_,?_,?_,?_,?_,?_,?_,?_,?_⟩ <;> ao)
+    · rw[hroot,if_neg (by omega)]
+      exact DigAt.writeHash_lo u a _ x12 (by ao)
+    · rw[hroot,if_pos he]
+      exact DigAt.writeHash_hi u a _ x12 (by ao)
+    · intro hjs i hi
+      exact (hrows.sig hjs i hi).frame fh (by unfold slotV;ao) (by unfold slotV;ao) (by unfold slotV;ao)
+    · exact (ru.trans (fun x _=>getReg_writeHash u a x : RegsExcept u (writeHash u a) [])).mono (by simp[bodyRegs])
+    · exact (fu.trans fh).mono (fun _ _ h=>h)
+  rw [leafHashH_eq',WCT9.ftsHash_eq,ftsHighHeap_leaf]
+  by_cases hev:physical c j%2=0
+  · have hd:decide (physical c j%2=0)=true:=decide_eq_true hev
+    rw[if_pos hd]
+    unfold WCT9.highHash
+    refine (TBSim.steps su (TBSim.publicHash_bind' (W:=0) (f:=fun o=>pure (o.extractLsb' 128 128)) ec hub.x5
+      hargs hq (fun a=>TBSim.pure ?_))).mono
+      (by rw[hbl];unfold cycles;split_ifs <;> omega) (fun _ _ h=>h)
+    exact post a _ (by rw[if_pos hev])
+  · have hd:¬decide (physical c j%2=0)=true:=fun hx=>hev (of_decide_eq_true hx)
+    rw[if_neg hd]
+    refine (TBSim.steps su (TBSim.shortHash_bind' (W:=0) (f:=fun root=>pure root) ec hub.x5 hargs hq
+      (fun a=>TBSim.pure ?_))).mono
+      (by rw[hbl];unfold cycles;split_ifs <;> omega) (fun _ _ h=>h)
+    exact post a _ (by rw[if_neg hev])
 end ClaudeWCT.W9.Machine.Sign.SharedLeaf
 
 namespace ClaudeWCT.W9.Machine.Sign.SharedLeaf
@@ -1097,13 +1135,15 @@ theorem child_unit {im : Image} {sk : BitVec 256} (hfetch:SharedReuse.Fetch im)
     (hword:∀i:Fin 6,w/8^i.val%8=WCT9.wordDigit word i) (hlen:coefs.length=54)
     {s : MachineState} (hpc:s.pc=pcOf (leafI c)) (hb:BodySt sk j index sel w s)
     (hcoef:CoefAt s coefs) (hpad:PadAt c j pad s) :
-    TBSim im sk s (6*stepC+49) (WCT9.buildChildF index c j word coefs pad) (fun rv t=>
+    TBSim im sk s (6*stepC+49) (WCT9.buildChildH (128+physical c j) index c j word coefs pad) (fun rv t=>
       t.pc=pcOf (hashPc c)+4 ∧ BodySt sk j index sel w t ∧
-      DigAt t (HEAPW+16*(128+physical c j)) rv.1 ∧
+      t.getReg .x12=BitVec.ofNat 64 (HEAPW+16*(128+physical c j)) ∧
+      (physical c j%2=1 → DigAt t (HEAPW+16*(128+physical c j)) rv.1) ∧
+      (physical c j%2=0 → DigAt t (HEAPW+16*(128+physical c j)+16) rv.1) ∧
       (j=sel → rv.2.length=6 ∧ ∀i,i<6→DigAt t (slotV c i) (rv.2.getD i 0)) ∧
       RegsExcept s t bodyRegs ∧ Frame s t (childW c j) ∧
       (j≠sel → ∀A,A<2^64→slotV c 0≤A→A<slotV c 6→t.getMem (BitVec.ofNat 64 A)=s.getMem (BitVec.ofNat 64 A))) := by
-  rw[buildChildF_factor]
+  rw[buildChildH_factorS]
   refine TBSim.bind (W₂:=49) (SharedReuse.rows_unit hfetch hc hj hsel hidx hw hword hlen hpc hb hcoef) (fun rows t4 h4=>?_)
   have p4:t4.pc=pcOf (lI c):=by rw[h4.pc,if_neg (by omega)]
   obtain ⟨t5,s5,p5,r5,f5⟩:=step_hook hhook hc t4 p4
@@ -1112,8 +1152,8 @@ theorem child_unit {im : Image} {sk : BitVec 256} (hfetch:SharedReuse.Fetch im)
   have hp4:=hpad.frame hc hj h4.frame (pad_not_bodyW hc hj 0 (Or.inl rfl)) (pad_not_bodyW hc hj 8 (Or.inr rfl))
   have hp5:=hp4.frame hc hj f5 (by simp) (by simp)
   refine TBSim.steps s5 (TBSim.bind (W₂:=0) (hash_unit hlook hc hj hidx rows p5 hb5 hr5 hp5) (fun root t ht=>?_))
-  obtain ⟨pt,bt,dt,vt,rt,ft⟩:=ht
-  refine TBSim.pure ⟨pt,bt,dt,fun h=>⟨h4.rws.len2,vt h⟩,?_,?_,?_⟩
+  obtain ⟨pt,bt,x12t,dlo,dhi,vt,rt,ft⟩:=ht
+  refine TBSim.pure ⟨pt,bt,x12t,dlo,dhi,fun h=>⟨h4.rws.len2,vt h⟩,?_,?_,?_⟩
   · exact ((h4.regs.trans r5).trans rt).mono (by simp[bodyRegs])
   · refine ((h4.frame.trans f5).trans ft).mono (fun A _ hA=>?_)
     rcases hA with (hA|hA)|hA
@@ -1156,9 +1196,10 @@ theorem hashPc_next (c : Nat) (hc:c<9) : pcOf (SharedLeaf.hashPc c)+4=pcOf (Shar
   have h:∀c,c<9→pcOf (SharedLeaf.hashPc c)+4=pcOf (SharedNext.entry c):=by decide +kernel
   exact h c hc
 
+/-- C1: the leaf of physical child `j` sits at heap `128 + j` (`buildChildH`), its header carries the raw child. -/
 def leafRows (index c sel : Nat) (word : WCT9.Rank) (coefs : List Digest) (pads : Nat→Digest) : M (List Digest×List Digest) :=
   (List.range 128).foldlM (fun acc j=>do
-    let (root,values)←WCT9.buildChildF index c (raw c j) word coefs (pads j)
+    let (root,values)←WCT9.buildChildH (128+j) index c (raw c j) word coefs (pads j)
     pure (acc.1++[root],if j=sel then values else acc.2)) ([],[])
 
 structure Inv (sk : BitVec 256) (c index sel w : Nat) (s0 : MachineState) (j : Nat)
@@ -1172,7 +1213,8 @@ structure Inv (sk : BitVec 256) (c index sel w : Nat) (s0 : MachineState) (j : N
   regs : RegsExcept s0 t (.x18::bodyRegs)
   frame : Frame s0 t (loopW c)
 
-def cost : Nat := 6*stepC+56
+/-- One child (`6*stepC+49`) and its next-step block with the C1 leaf stub (at most 16). -/
+def cost : Nat := 6*stepC+65
 
 theorem pad_not_loopW {c j : Nat} (hc:c<9) (hj:j<128) (off : Nat) (ho:off=0∨off=8) :
     ¬loopW c (SharedLeaf.padBase c j+off) := by
@@ -1183,6 +1225,19 @@ theorem pad_not_loopW {c j : Nat} (hc:c<9) (hj:j<128) (off : Nat) (ho:off=0∨of
   · unfold SharedLeaf.padBase at h
     split_ifs at h <;> rcases ho with rfl|rfl <;> aoh
 
+/-- `BodySt.with18` for a step that may write the heap (the C1 leaf stub writes the leaf's own slot). -/
+theorem body_with18 {j j' index sel w : Nat} {u v : MachineState} {W : Nat → Prop}
+    (h : BodySt sk j index sel w u) (hr : RegsExcept u v [.x6, .x18]) (hf : Frame u v W)
+    (hW : ∀ A, W A → HEAPW ≤ A) (h18 : v.getReg .x18 = BitVec.ofNat 64 j') : BodySt sk j' index sel w v := by
+  have g : ∀ A, A < HEAPW → v.getMem (BitVec.ofNat 64 A) = u.getMem (BitVec.ofNat 64 A) :=
+    fun A hA => hf.get (by aoh) (fun hw => by have := hW A hw; omega)
+  exact ⟨by rw [hr.get (by simp)]; exact h.x5, h18, by rw [hr.get (by simp)]; exact h.x22,
+    by rw [hr.get (by simp)]; exact h.x24, by rw [hr.get (by simp)]; exact h.x25,
+    by rw [g _ (by ao)]; exact h.p0, by rw [g _ (by ao)]; exact h.p8, by rw [g _ (by ao)]; exact h.p32,
+    by rw [g _ (by ao)]; exact h.p40, by rw [g _ (by ao)]; exact h.p48, by rw [g _ (by ao)]; exact h.p56,
+    by rw [g _ (by ao)]; exact h.z0, by rw [g _ (by ao)]; exact h.z8, by rw [g _ (by ao)]; exact h.z32,
+    by rw [g _ (by ao)]; exact h.z40⟩
+
 theorem step (hf:SharedReuse.Fetch im) {c index sel w : Nat} {word : WCT9.Rank} {coefs : List Digest}
     (hl:LookOK im (SharedLeaf.look c)) (hh:LookOK im (SharedLeaf.hookLook c))
     (hn:LookOK im (SharedNext.look c)) (hc:c<9) (hsel:sel<128) (hi:index<2^31) (hw:w<2^64)
@@ -1192,29 +1247,39 @@ theorem step (hf:SharedReuse.Fetch im) {c index sel w : Nat} {word : WCT9.Rank} 
     (j : Nat) (hj:j<128) (acc : List Digest×List Digest) (t : MachineState)
     (h:Inv sk c index sel w s0 j acc t) :
     TBSim im sk t cost (do
-      let (root,values)←WCT9.buildChildF index c (raw c j) word coefs (pads j)
+      let (root,values)←WCT9.buildChildH (128+j) index c (raw c j) word coefs (pads j)
       pure (acc.1++[root],if j=sel then values else acc.2)) (Inv sk c index sel w s0 (j+1)) := by
   have hpc:t.pc=pcOf (leafI c):=by rw[h.pc,if_pos hj]
   have hb:BodySt sk (raw c j) index (raw c sel) w t:=by have:=h.body;rwa[if_pos hj]at this
   have hrj:=SharedNext.raw_lt c hj
   have hrs:=SharedNext.raw_lt c hsel
   have hphys:=physical_raw c hj
-  refine (TBSim.bind (W₂:=7) (SharedLeaf.child_unit hf hl hh hc hrj hrs hi hw hword hlen hpc hb
+  have hcu:=SharedLeaf.child_unit hf hl hh hc hrj hrs hi hw hword hlen hpc hb
     (hcoef.frame h.frame (fun A h1 h2=>coef_not_loopW hc h1 h2))
-    ((hpad j hj).frame hc hrj h.frame (pad_not_loopW hc hrj 0 (Or.inl rfl)) (pad_not_loopW hc hrj 8 (Or.inr rfl))))
-    (fun rv u hu=>?_)).mono (by unfold cost;omega) (fun _ _ h=>h)
+    ((hpad j hj).frame hc hrj h.frame (pad_not_loopW hc hrj 0 (Or.inl rfl)) (pad_not_loopW hc hrj 8 (Or.inr rfl)))
+  rw[hphys]at hcu
+  refine (TBSim.bind (W₂:=16) hcu (fun rv u hu=>?_)).mono (by unfold cost;omega) (fun _ _ h=>h)
   obtain ⟨root,values⟩:=rv
-  obtain ⟨upc,ub,uroot,usel,uregs,uframe,unos⟩:=hu
-  rw[hphys]at uroot
-  obtain ⟨v,k,sv,hk,vpc,v18,vr,vf⟩:=SharedNext.step_next hn hc hrj u (upc.trans (hashPc_next c hc)) ub.x18
+  obtain ⟨upc,ub,u12,ulo,uhi,usel,uregs,uframe,unos⟩:=hu
+  obtain ⟨v,k,sv,hk,vpc,v18,vmem,vr,vf⟩:=SharedNext.step_next hn hc hrj u (upc.trans (hashPc_next c hc)) ub.x18
+    (A:=HEAPW+16*(128+j)) u12 (by ao) (by unfold MEMORY_BYTES;ao)
+  rw[hphys]at vmem vf
   have hm:raw c j=127 ↔ j=127:=SharedNext.raw_eq127 c hj
-  have hheap:∀A,A<2^64→v.getMem (BitVec.ofNat 64 A)=u.getMem (BitVec.ofNat 64 A):=fun A hA=>vf.get hA id
+  -- the stub writes only the leaf's own slot (and only for even `j`)
+  have hlow:∀A,A<2^64→A<HEAPW→v.getMem (BitVec.ofNat 64 A)=u.getMem (BitVec.ofNat 64 A):=
+    fun A hA hl=>vf.get hA (fun hw=>by rcases hw with ⟨_,hw|hw⟩ <;> aoh)
+  have uroot:DigAt v (HEAPW+16*(128+j)) root:=by
+    by_cases hev:j%2=0
+    · obtain ⟨m0,m8⟩:=vmem hev
+      have hd:=uhi hev
+      exact ⟨by rw[m0];exact hd.1,by rw[m8,show HEAPW+16*(128+j)+24=HEAPW+16*(128+j)+16+8 by omega];exact hd.2⟩
+    · exact (ulo (by omega)).frame vf (by ao) (fun hw=>hev hw.1) (fun hw=>hev hw.1)
   have fuv:Frame t v (Sign.childW c j):=(uframe.trans vf).mono (fun A _ ha=>by
     rcases ha with ha|ha
     · change bodyW c A ∨ _ at ha
       change bodyW c A ∨ _
       simpa only[hphys]using ha
-    · exact ha.elim)
+    · right;rcases ha with ⟨_,ha|ha⟩ <;> constructor <;> aoh)
   refine (TBSim.pure_steps' sv ?_).mono hk (fun _ _ h=>h)
   refine ⟨?_,?_,?_,fun j' hj'=>?_,fun hs=>?_,fun hs A hA h0 h6=>?_,?_,?_⟩
   · rw[vpc]
@@ -1223,10 +1288,10 @@ theorem step (hf:SharedReuse.Fetch im) {c index sel w : Nat} {word : WCT9.Rank} 
     split_ifs <;> first | rfl | omega
   · by_cases hj1:j+1<128
     · rw[if_pos hj1]
-      apply ub.with18 vr vf
+      apply body_with18 ub vr vf (fun A hw=>by rcases hw with ⟨_,rfl|rfl⟩ <;> omega)
       rw[v18,if_neg (fun he=>by have:=hm.mp he;omega),SharedNext.raw_advance c hj1]
     · rw[if_neg hj1]
-      apply ub.with18 vr vf
+      apply body_with18 ub vr vf (fun A hw=>by rcases hw with ⟨_,rfl|rfl⟩ <;> omega)
       rw[v18,if_pos (hm.mpr (by omega))]
   · simp[h.len]
   · by_cases hlt:j'<j
@@ -1235,20 +1300,25 @@ theorem step (hf:SharedReuse.Fetch im) {c index sel w : Nat} {word : WCT9.Rank} 
     · have he:j'=j:=by omega
       subst j'
       rw[List.getD_eq_getElem?_getD,List.getElem?_append_right (by rw[h.len]),h.len,Nat.sub_self]
-      exact uroot.frame vf (by ao) id id
+      exact uroot
   · by_cases hjs:j=sel
     · rw[if_pos hjs]
       obtain ⟨len,mem⟩:=usel ((raw_inj c hj hsel).mpr hjs)
-      exact ⟨len,fun i hi=>(mem i hi).frame vf (by unfold slotV;ao) id id⟩
+      exact ⟨len,fun i hi=>(mem i hi).frame vf (by unfold slotV;ao)
+        (fun hw=>by rcases hw with ⟨_,hw|hw⟩ <;> (unfold slotV at hw;aoh))
+        (fun hw=>by rcases hw with ⟨_,hw|hw⟩ <;> (unfold slotV at hw;aoh))⟩
     · rw[if_neg hjs]
       have hrjs:raw c j≠raw c sel:=fun he=>hjs ((raw_inj c hj hsel).mp he)
       obtain ⟨len,mem⟩:=h.vals (by omega)
       refine ⟨len,fun i hi=>⟨?_,?_⟩⟩
-      · rw[hheap _ (by unfold slotV;ao),unos hrjs _ (by unfold slotV;ao) (by unfold slotV;omega) (by unfold slotV;omega)]
+      · rw[hlow _ (by unfold slotV;ao) (by unfold slotV;ao),
+          unos hrjs _ (by unfold slotV;ao) (by unfold slotV;omega) (by unfold slotV;omega)]
         exact (mem i hi).1
-      · rw[hheap _ (by unfold slotV;ao),unos hrjs _ (by unfold slotV;ao) (by unfold slotV;omega) (by unfold slotV;omega)]
+      · rw[hlow _ (by unfold slotV;ao) (by unfold slotV;ao),
+          unos hrjs _ (by unfold slotV;ao) (by unfold slotV;omega) (by unfold slotV;omega)]
         exact (mem i hi).2
-  · rw[hheap A hA,unos (fun he=>by have: j=sel:=(raw_inj c hj hsel).mp he;omega) A hA h0 h6]
+  · rw[hlow A hA (by unfold slotV at h6;aoh),
+      unos (fun he=>by have: j=sel:=(raw_inj c hj hsel).mp he;omega) A hA h0 h6]
     exact h.nosig (by omega) A hA h0 h6
   · exact (h.regs.trans (uregs.trans vr)).mono (by simp[bodyRegs])
   · refine (h.frame.trans fuv).mono (fun A _ ha=>?_)
@@ -1292,7 +1362,39 @@ set_option maxHeartbeats 1000000
 set_option maxRecDepth 100000
 set_option linter.unusedSimpArgs false
 
-def high (c h : Nat) : Bool := decide (c≠8 ∧ h<SharedTail.halfLimit c)
+/-- C1: the fold of heap `h` keeps the HIGH half on the A/B top heaps (`h < halfLimit`, as in #884) and on the even
+heaps `≥ 16`; this is exactly the class selected by the machine's fold stub. -/
+def high (c h : Nat) : Bool := SharedTail.clsHigh c (SharedTail.cls c h)
+theorem high_lt8 (c h : Nat) (h8:h<8) : high c h=decide (c≠8 ∧ h<SharedTail.halfLimit c) := by
+  -- (split_ifs would leave `False` literals inside the `↔` goals, which omega does not use)
+  have hk:SharedTail.cls c h=(if c≠8 ∧ h<SharedTail.halfLimit c then 0 else 1):=by
+    unfold SharedTail.cls
+    rw[if_pos (show h<16 by omega)]
+  unfold high SharedTail.clsHigh
+  rw[hk]
+  by_cases hA:c≠8 ∧ h<SharedTail.halfLimit c
+  · rw[if_pos hA,decide_eq_true hA]
+    exact decide_eq_true (Or.inl ⟨hA.1,rfl⟩)
+  · rw[if_neg hA,decide_eq_false hA]
+    exact decide_eq_false (by omega)
+theorem high_ge8 (c h : Nat) (h8:8≤h) : high c h=WCT9.ftsHighHeap h := by
+  -- (case split by hand: split_ifs would leave `False` literals that omega ignores)
+  have hL:SharedTail.halfLimit c≤8:=by unfold SharedTail.halfLimit;split <;> omega
+  unfold high SharedTail.clsHigh SharedTail.cls
+  rw[if_neg (show ¬(c≠8 ∧ h<SharedTail.halfLimit c) by omega)]
+  by_cases hx:16≤h ∧ h%2=0
+  · rw[if_neg (show ¬h<16 by omega),if_neg (show ¬h%2=1 by omega),(WCT9.ftsHighHeap_iff (by omega)).mpr hx]
+    exact decide_eq_true (Or.inr rfl)
+  · have hf:WCT9.ftsHighHeap h=false:=by
+      cases hy:WCT9.ftsHighHeap h
+      · rfl
+      · exact absurd ((WCT9.ftsHighHeap_iff (by omega)).mp hy) hx
+    rw[hf]
+    by_cases h16:h<16
+    · rw[if_pos h16]
+      exact decide_eq_false (by omega)
+    · rw[if_neg h16,if_pos (show h%2=1 by omega)]
+      exact decide_eq_false (by omega)
 def hashProgram (c index h : Nat) (pad L R : Digest) : M Digest :=
   if high c h then publicHash (nodeIn c index h pad L R) >>= fun o=>pure (o.extractLsb' 128 128)
   else shortHash (nodeIn c index h pad L R)
@@ -1356,7 +1458,7 @@ theorem hash_unit {im : Image} {sk : BitVec 256} {c index h : Nat} {pad L R : Di
     {s : MachineState} (hpc:s.pc=pcOf (entry c))
     (h5:s.getReg .x5=0) (h18:s.getReg .x18=BitVec.ofNat 64 h) (h22:s.getReg .x22=BitVec.ofNat 64 index)
     (hL:DigAt s (HEAPW+16*(2*h)) L) (hR:DigAt s (HEAPW+16*(2*h+1)) R) (hp:PadAt c h pad s) :
-    TBSim im sk s 62 (hashProgram c index h pad L R) (fun root t=>
+    TBSim im sk s 68 (hashProgram c index h pad L R) (fun root t=>
       t.pc=pcOf (if h-1≠SharedTail.limit c then SharedTail.nodePc c else SharedTail.finishPc c) ∧
       t.getReg .x18=BitVec.ofNat 64 (h-1) ∧ DigAt t (HEAPW+16*h) root ∧
       RegsExcept s t [.x6,.x7,.x10,.x11,.x12,.x18,.x28,.x29] ∧ Frame s t (unitW h)) := by
@@ -1364,16 +1466,15 @@ theorem hash_unit {im : Image} {sk : BitVec 256} {c index h : Nat} {pad L R : Di
   have hq:=input_of_readout s u hc hi hh h18 h22 hL hR hp x10 x11 um
   have hx5:u.getReg .x5=0:=by rw[ru.get (by simp)];exact h5
   have hx18:u.getReg .x18=BitVec.ofNat 64 h:=by rw[ru.get (by simp)];exact h18
-  have hhigh:c≠8→high c h=decide (h<SharedTail.halfLimit c):=by intro h8;simp[high,h8]
-  have tail:∀(a:BitVec 256) (v:Digest),DigAt (writeHash u a) (NOUTW+SharedTail.halfOff c (high c h)) v→
-      TBSim im sk (writeHash u a) 16 (pure v) (fun root t=>
+  have tail:∀(a:BitVec 256) (v:Digest),DigAt (writeHash u a) (NOUTW+SharedTail.halfOff (high c h)) v→
+      TBSim im sk (writeHash u a) 22 (pure v) (fun root t=>
         t.pc=pcOf (if h-1≠SharedTail.limit c then SharedTail.nodePc c else SharedTail.finishPc c) ∧
         t.getReg .x18=BitVec.ofNat 64 (h-1) ∧ DigAt t (HEAPW+16*h) root ∧
         RegsExcept s t [.x6,.x7,.x10,.x11,.x12,.x18,.x28,.x29] ∧ Frame s t (unitW h)):=by
     intro a v hv
     have fh:=Frame.writeHash u a NOUTW x12 (by ao)
-    obtain ⟨t,st,hcost,tpc,t18,m0,m8,rt,ft⟩:=SharedTail.step_tail ht hc hh1 hh (high c h)
-      (decide (h-1≠SharedTail.limit c)) hhigh rfl (writeHash u a)
+    obtain ⟨t,st,hcost,tpc,t18,m0,m8,rt,ft⟩:=SharedTail.step_tail ht hc hh1 hh
+      (decide (h-1≠SharedTail.limit c)) rfl (writeHash u a)
       (by rw[pc_writeHash,upc,hashPc_tail c hc]) (by rw[getReg_writeHash];exact hx18)
     refine (TBSim.pure_steps' st ?_).mono hcost (fun _ _ h=>h)
     refine ⟨?_,t18,⟨?_,?_⟩,?_,?_⟩
@@ -1391,17 +1492,16 @@ theorem hash_unit {im : Image} {sk : BitVec 256} {c index h : Nat} {pad L R : Di
   unfold hashProgram
   by_cases hhig:high c h=true
   · rw[if_pos hhig]
-    refine (TBSim.steps su (TBSim.publicHash_bind' (W:=16) ec hx5
+    refine (TBSim.steps su (TBSim.publicHash_bind' (W:=22) ec hx5
       (hashArgs_const u NODEW 64 NOUTW x10 x11 x12 (by ao) (by norm_num) (by ao) (by ao) (by ao)) hq
       (fun a=>tail a _ ?_))).mono (by rw[blocks64 _ (nodeIn_len ..)];have:=cycles_le c (mode h);omega) (fun _ _ h=>h)
-    have h8:c≠8:=(of_decide_eq_true hhig).1
-    rw[SharedTail.halfOff,if_neg h8,if_pos hhig]
+    rw[SharedTail.halfOff,if_pos hhig]
     exact DigAt.writeHash_hi u a NOUTW x12 (by ao)
   · rw[if_neg hhig]
-    refine (TBSim.steps su (TBSim.shortHash_bind' (W:=16) ec hx5
+    refine (TBSim.steps su (TBSim.shortHash_bind' (W:=22) ec hx5
       (hashArgs_const u NODEW 64 NOUTW x10 x11 x12 (by ao) (by norm_num) (by ao) (by ao) (by ao)) hq
       (fun a=>tail a _ ?_))).mono (by rw[blocks64 _ (nodeIn_len ..)];have:=cycles_le c (mode h);omega) (fun _ _ h=>h)
-    have hoff:SharedTail.halfOff c (high c h)=0:=by unfold SharedTail.halfOff;split_ifs <;> simp_all
+    have hoff:SharedTail.halfOff (high c h)=0:=by unfold SharedTail.halfOff;rw[if_neg hhig]
     rw[hoff,Nat.add_zero]
     exact DigAt.writeHash_lo u a NOUTW x12 (by ao)
 end ClaudeWCT.W9.Machine.Sign.SharedNode
@@ -1470,7 +1570,7 @@ theorem step {c index : Nat} (hn:LookOK im (SharedNode.look c)) (ht:LookOK im (S
     (hc:c<9) (hi:index<2^31) {s0 : MachineState} {pads : Nat→Digest}
     (hpad:∀h,h<128→SharedNode.PadAt c h (pads h) s0)
     (k : Nat) (hk:k<count c) (nodes : Array Digest) (t : MachineState) (h:Inv c index s0 k nodes t) :
-    TBSim im sk t 62 (stepProgram index c pads nodes (127-k)) (Inv c index s0 (k+1)) := by
+    TBSim im sk t 68 (stepProgram index c pads nodes (127-k)) (Inv c index s0 (k+1)) := by
   have hl:=limit_bounds c
   have hk127:k<127:=by unfold count at hk;omega
   have hh1:1≤127-k:=by omega
@@ -1506,9 +1606,9 @@ theorem heap_loop {c index : Nat} (hn:LookOK im (SharedNode.look c)) (ht:LookOK 
     (hc:c<9) (hi:index<2^31) {s0 : MachineState} {pads : Nat→Digest} {leaves : List Digest}
     (hpad:∀h,h<128→SharedNode.PadAt c h (pads h) s0)
     (h0:Inv c index s0 0 ((List.replicate 128 (0:Digest)++leaves).toArray) s0) :
-    TBSim im sk s0 (count c*62) (heapProgram index c pads leaves) (Inv c index s0 (count c)) := by
+    TBSim im sk s0 (count c*68) (heapProgram index c pads leaves) (Inv c index s0 (count c)) := by
   unfold heapProgram
-  exact TBSim.foldlM_range' 0 (count c) _ _ (Inv c index s0) 62
+  exact TBSim.foldlM_range' 0 (count c) _ _ (Inv c index s0) 68
     (fun k hk nodes t ht'=>by
       simp only[Nat.zero_add]
       exact step hn ht hc hi hpad k hk nodes t ht') h0
@@ -1619,7 +1719,7 @@ theorem rows_heap (hf:SharedReuse.Fetch im) {c index sel w : Nat} {word : WCT9.R
     (hpadL:∀j, j < 128  →  SharedLeaf.PadAt c (SharedNext.raw c j) (leftPads j) s)
     (hpadR:∀h, h < 128  →  SharedNode.PadAt c h (rightPads h) s)
     (hpc:s.pc=pcOf (leafI c)) (hb:BodySt sk 0 index (SharedNext.raw c sel) w s) :
-    TBSim im sk s (128*SharedLeaves.cost+SharedTree.count c*62)
+    TBSim im sk s (128*SharedLeaves.cost+SharedTree.count c*68)
       (rowsHeap index c sel word coefs leftPads rightPads) (Post sk c index sel w s) := by
   unfold rowsHeap
   refine TBSim.bind (SharedLeaves.leaf_loop hf hl hh hn hc hsel hi hw hword hlen hcoef hpadL (SharedLeaves.Inv.init hpc hb))
@@ -1794,10 +1894,10 @@ theorem rows_finish (hf:SharedReuse.Fetch im) {c index sel w : Nat} {word : WCT9
     (hpadL:∀j, j < 128 → SharedLeaf.PadAt c (SharedNext.raw c j) (leftPads j) s)
     (hpadR:∀h, h < 128 → SharedNode.PadAt c h (rightPads h) s)
     (hpc:s.pc=pcOf (leafI c)) (hb:BodySt sk 0 index (SharedNext.raw c sel) w s) :
-    TBSim im sk s (128*SharedLeaves.cost+SharedTree.count c*62+110)
+    TBSim im sk s (128*SharedLeaves.cost+SharedTree.count c*68+110)
       (rowsHeap index c sel word coefs leftPads rightPads) (fun rv t=>Out c index s rv sel t) := by
   have hrun:=rows_heap hf hl hh hn hnode ht hc hsel hi hw hword hlen hcoef hpadL hpadR hpc hb
-  have h: TBSim im sk s (128*SharedLeaves.cost+SharedTree.count c*62+110)
+  have h: TBSim im sk s (128*SharedLeaves.cost+SharedTree.count c*68+110)
       (rowsHeap index c sel word coefs leftPads rightPads >>= pure) (fun rv t=>Out c index s rv sel t):=by
     refine TBSim.bind hrun (fun rv u hu=>?_)
     obtain ⟨t,n,st,hn,tpc,roots,paths,dummy,regs,frame⟩:=finish hfinish hpath hend hc hsel u
@@ -1865,7 +1965,7 @@ theorem coefs_rows_finish (hf:SharedReuse.Fetch im) {c old index sel w : Nat} {w
     (hpadL:∀j, j < 128 → SharedLeaf.PadAt c (SharedNext.raw c j) (leftPads j) s)
     (hpadR:∀h, h < 128 → SharedNode.PadAt c h (rightPads h) s)
     (hpc:s.pc=pcOf (lwuI c+1)) (hb:BodySt sk old index (SharedNext.raw c sel) w s) :
-    TBSim im sk s (14+27*coefStepC+(128*SharedLeaves.cost+SharedTree.count c*62+110))
+    TBSim im sk s (14+27*coefStepC+(128*SharedLeaves.cost+SharedTree.count c*68+110))
       (program index c sel word leftPads rightPads) (fun rv t=>FullOut c index s rv sel t) := by
   unfold program
   refine TBSim.bind (SharedReuse.coefs_unit hf hc hi hpc hb) (fun coefs u hu=>?_)
@@ -1965,7 +2065,7 @@ theorem raw_chosen (c : Nat) (a : BitVec 256) : SharedNext.raw c (chosen c a)=a.
   unfold chosen SharedLeaf.physical SharedNext.raw SharedLeaf.first SharedNext.first
   split_ifs <;> omega
 
-def cost (c : Nat) : Nat := 19+(14+27*SharedReuse.coefStepC+(128*SharedLeaves.cost+SharedTree.count c*62+110))
+def cost (c : Nat) : Nat := 19+(14+27*SharedReuse.coefStepC+(128*SharedLeaves.cost+SharedTree.count c*68+110))
 
 theorem coordinate (hf:SharedReuse.Fetch im) {c : Nat} (hc:c < 9) (hcode:Code im c)
     (a : BitVec 256) (hrank:rank c a < 563) (s : MachineState) (hpc:s.pc=pcOf (cbase c))
@@ -2012,32 +2112,36 @@ theorem hashProgram_source (c index h : Nat) (hc:c < 9) (hh:SharedTail.limit c <
     (pads : Nat → SharedForest.PairRoot) (L R : Digest) :
     SharedNode.hashProgram c index h (rightPads pads h) L R=
       SharedForest.sharedNode (SharedLeaf.first c) c index h pads L R := by
-  unfold SharedNode.hashProgram SharedNode.high rightPads SharedForest.sharedNode SharedForest.sharedOuterHash
-  by_cases hf:SharedLeaf.first c=true
-  · have hc8:c ≠ 8:=by simp only[SharedLeaf.first,decide_eq_true_eq]at hf;omega
-    have hh4:4 ≤ h:=by
-      change (if SharedLeaf.first c then 3 else 1) < h at hh
-      rw[if_pos hf]at hh
-      omega
-    have hhalf:SharedTail.halfLimit c=8:=by change (if SharedLeaf.first c then 8 else 4)=8;rw[if_pos hf]
-    rw[hhalf]
-    simp only[hc8,true_and]
-    by_cases hh8:h < 8
-    · simp only[hh8,hf,hc8,and_true,decide_true,if_true,show ¬h < 4 by omega,if_false,hh4,and_self]
+  by_cases hh8:h < 8
+  · unfold SharedNode.hashProgram
+    rw[SharedNode.high_lt8 c h hh8]
+    unfold rightPads SharedForest.sharedNode SharedForest.sharedOuterHash
+    by_cases hf:SharedLeaf.first c=true
+    · have hc8:c ≠ 8:=by simp only[SharedLeaf.first,decide_eq_true_eq]at hf;omega
+      have hh4:4 ≤ h:=by
+        change (if SharedLeaf.first c then 3 else 1) < h at hh
+        rw[if_pos hf]at hh
+        omega
+      have hhalf:SharedTail.halfLimit c=8:=by change (if SharedLeaf.first c then 8 else 4)=8;rw[if_pos hf]
+      rw[hhalf]
+      simp only[hc8,true_and]
+      simp only[hh8,hf,hc8,and_true,decide_true,if_true,show ¬h < 4 by omega,if_false,hh4,and_self]
       rw[if_pos (decide_eq_true_eq.mpr hc8)]
       rfl
-    · simp only[hh8,decide_false,if_false,show ¬h < 4 by omega,and_false]
-      exact (nodeHash_eq c index h L R).symm
-  · have hh4 : SharedTail.halfLimit c=4:=by change (if SharedLeaf.first c then 8 else 4)=4;rw[if_neg hf]
-    rw[hh4]
-    by_cases h4:h < 4
-    · simp only[h4,if_true,show ¬4 ≤ h by omega,false_and,if_false,true_and]
-      by_cases hc8:c=8 <;> simp only[hc8,ne_eq,not_true_eq_false,not_false_eq_true,decide_false,decide_true,if_false,if_true] <;> rfl
-    · simp only[h4,if_false,and_false,decide_false]
-      by_cases h8:h < 8
-      · simp only[h8,if_true,show 4 ≤ h by omega,and_self,hf,if_false];rfl
-      · simp only[h8,if_false,and_false]
-        exact (nodeHash_eq c index h L R).symm
+    · have hh4 : SharedTail.halfLimit c=4:=by change (if SharedLeaf.first c then 8 else 4)=4;rw[if_neg hf]
+      rw[hh4]
+      by_cases h4:h < 4
+      · simp only[h4,if_true,show ¬4 ≤ h by omega,false_and,if_false,true_and]
+        by_cases hc8:c=8 <;> simp only[hc8,ne_eq,not_true_eq_false,not_false_eq_true,decide_false,decide_true,if_false,if_true] <;> rfl
+      · simp only[h4,if_false,and_false,decide_false]
+        simp only[hh8,if_true,show 4 ≤ h by omega,and_self,hf,if_false];rfl
+  · -- C1: heaps `≥ 8` are `wctNodeHashH`, whose half is `ftsHighHeap h`
+    have hr:rightPads pads h=0:=by unfold rightPads;rw[if_neg (show ¬(4 ≤ h ∧ h < 8) by omega)]
+    unfold SharedNode.hashProgram SharedForest.sharedNode
+    rw[hr,SharedNode.high_ge8 c h (by omega),if_neg (show ¬h < 4 by omega),if_neg hh8,nodeHashH_eq,WCT9.ftsHash_eq]
+    cases WCT9.ftsHighHeap h
+    · rfl
+    · rfl
 
 theorem shared_order (c : Nat) :
     (List.range' (if SharedLeaf.first c then 4 else 2) (if SharedLeaf.first c then 124 else 126)).reverse=
@@ -2214,7 +2318,7 @@ theorem getD_append_new {α : Type} (xs : List α) (v z : α) : (xs++[v]).getD x
   rw[List.getD_eq_getElem?_getD,List.getElem?_append_right (by omega),Nat.sub_self]
   rfl
 
-def forestStepBound : Nat := 19+(14+27*SharedReuse.coefStepC+(128*SharedLeaves.cost+126*62+110))
+def forestStepBound : Nat := 19+(14+27*SharedReuse.coefStepC+(128*SharedLeaves.cost+126*68+110))
 theorem cost_le (c : Nat) : cost c ≤ forestStepBound := by
   have:=SharedTree.limit_bounds c
   unfold cost forestStepBound SharedTree.count

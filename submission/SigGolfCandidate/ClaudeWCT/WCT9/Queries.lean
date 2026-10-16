@@ -146,6 +146,23 @@ theorem allQ_highHash_of_shortHash {P : Query → Prop} (input : HashInput)
     exact ((allQueriesSatisfy_query_bind_iff _ _ _).mp h).1
   unfold highHash publicHash
   exact (allQueriesSatisfy_query_bind_iff _ _ _).mpr ⟨hq, fun _ => allQueriesSatisfy_pure _ _⟩
+/-- C1: an FTS hash (either half) makes the one query `pad64 input`. -/
+theorem bound_ftsHashP {P : Query → Prop} (heap : Nat) (input : HashInput) (k : Nat)
+    (hq : P (.inl (.inr (pad64 input)))) (hk : (pad64 input).length / 64 ≤ k) :
+    Bound P (fun _ => True) k (ftsHash heap input) := by
+  rw [ftsHash_eq]
+  split
+  · exact bound_highHashP input k hq hk
+  · exact bound_shortHashP input k hq hk
+/-- C1: an FTS hash (either half) makes the same single query as the low-half hash of the same input. -/
+theorem allQ_ftsHash_of_shortHash {P : Query → Prop} (heap : Nat) (input : HashInput)
+    (h : AllQueriesSatisfy (shortHash input) P) : AllQueriesSatisfy (ftsHash heap input) P := by
+  rw [ftsHash_eq]
+  split
+  · exact allQ_highHash_of_shortHash input h
+  · exact h
+theorem nodeHashH_eq (coord index heap : Nat) (left right : Digest) :
+    wctNodeHashH coord index heap left right = ftsHash heap (nodeInput coord index heap left right) := rfl
 theorem bound_privatePairP {P : Query → Prop} (tag lay tree position index : Nat)
     (hq : P (.inr (.inl (header tag lay tree position index)))) :
     Bound P (fun _ => True) 1 (privatePair tag lay tree position index) := by
@@ -254,6 +271,28 @@ theorem ftsBound_buildChildF (coord selected : Nat) (word : Rank) (coefs : List 
     (fun rows hrows => ?_) (by unfold childCost; omega)
   exact (ftsBound_leafHashP index coord selected pad rows.1 hcoord hsel hrows.1).bind' (l := 0)
     (fun root _ => .pure _ 0 hrows.2) (by decide)
+/-- C1: the leaf of heap `heap` makes the same two-block query as the legacy padded leaf. -/
+theorem ftsBound_leafHashH (heap coord selected : Nat) (pad : Digest) (ends : List Digest)
+    (hcoord : coord < 9) (hsel : selected < 128) (hlen : ends.length = 6) :
+    Bound (FtsQuery index) (fun _ => True) 2 (leafHashH heap index coord selected pad ends) := by
+  rw [leafHashH_eq]
+  exact bound_ftsHashP _ _ 2 (FtsInput.leaf hcoord hsel hlen)
+    (by rw [pad64_of_mod (by rw [leafInputP_length _ _ _ _ _ hlen]), leafInputP_length _ _ _ _ _ hlen])
+theorem ftsBound_nodeHashH (coord heap : Nat) (left right : Digest)
+    (hcoord : coord < 9) (hlo : 2 ≤ heap) (hhi : heap < 128) :
+    Bound (FtsQuery index) (fun _ => True) 1 (wctNodeHashH coord index heap left right) := by
+  rw [nodeHashH_eq]
+  exact bound_ftsHashP _ _ 1 (FtsInput.node left right hcoord hlo hhi)
+    (by rw [pad64_of_mod (by rw [nodeInput_length]), nodeInput_length])
+theorem ftsBound_buildChildH (heap coord selected : Nat) (word : Rank) (coefs : List Digest) (pad : Digest)
+    (hcoord : coord < 9) (hsel : selected < 128) :
+    Bound (FtsQuery index) (fun result : Digest × List Digest => result.2.length = 6)
+      childCost (buildChildH heap index coord selected word coefs pad) := by
+  rw [buildChildH_factor]
+  refine (ftsBound_childRows index coord selected word coefs hcoord hsel).bind' (l := 2)
+    (fun rows hrows => ?_) (by unfold childCost; omega)
+  exact (ftsBound_leafHashH index heap coord selected pad rows.1 hcoord hsel hrows.1).bind' (l := 0)
+    (fun root _ => .pure _ 0 hrows.2) (by decide)
 theorem ftsBound_coordRows (coord : Coord) (selected : Child) (word : Rank) (coefs : List Digest) (pad : Digest) :
     Bound (FtsQuery index) (fun _ => True) 3328 (coordRows index coord selected word coefs pad) := by
   unfold coordRows
@@ -351,6 +390,10 @@ theorem buildChildF_queries (coord selected : Nat) (word : Rank) (coefs : List D
     (hcoord : coord < 9) (hsel : selected < 128) :
     AllQueriesSatisfy (buildChildF index coord selected word coefs pad) (FtsQuery index) :=
   allQueriesSatisfy_of_bound (ftsBound_buildChildF index coord selected word coefs pad hcoord hsel)
+theorem buildChildH_queries (heap coord selected : Nat) (word : Rank) (coefs : List Digest) (pad : Digest)
+    (hcoord : coord < 9) (hsel : selected < 128) :
+    AllQueriesSatisfy (buildChildH heap index coord selected word coefs pad) (FtsQuery index) :=
+  allQueriesSatisfy_of_bound (ftsBound_buildChildH index heap coord selected word coefs pad hcoord hsel)
 theorem buildCoordinateF_queries (coord : Coord) (selected : Child) (word : Rank) (prev : Digest × Digest) :
     AllQueriesSatisfy (buildCoordinateF index coord selected word prev) (FtsQuery index) :=
   allQueriesSatisfy_of_bound (ftsBound_buildCoordinateF index coord selected word prev)

@@ -325,6 +325,14 @@ theorem highHash_free' (a : Digest) {h : BitVec 128} (rest : HashInput)
       fun _ => pure_allowed _ _
   · exact bind_allowed WFree ((allQueriesSatisfy_query_iff _ _).mpr
       (Guess.decodeProbe_of_hdrBlock_tag (hdrBlock_pad64_prefix a h rest) ht)) fun _ => pure_allowed _ _
+/-- C1: the paired leaf of heap `heap` (either half) makes only a free query. -/
+theorem wctLeafHashH_free (heap index coord selected : Nat) (pad : Digest) (ends : List Digest) :
+    AllQueriesSatisfy (WCT9.leafHashH heap index coord selected pad ends) WFree := by
+  unfold WCT9.leafHashH WCT9.leafInputP
+  rw [List.append_assoc (bytesLE 16 _ ++ bytesLE 16 _) (bytesLE 16 pad), WCT9.ftsHash_eq]
+  split
+  · exact highHash_free' _ _ (Or.inl (by rw [WCT9.ftsLeafHeader_firstByte]; decide))
+  · exact shortHash_free _ _ (by rw [WCT9.ftsLeafHeader_firstByte]; decide)
 theorem wctTopHash_free (coord index heap : Nat) (left pad right : Digest) :
     AllQueriesSatisfy (WCT9.wctTopHash coord index heap left pad right) WFree := by
   unfold WCT9.wctTopHash WCT9.wctTopInput WCT9.wctNodeHeader
@@ -460,6 +468,17 @@ theorem childRoot_world (g g' : CanonTable.HiddenF) (index : Nat) (hindex : inde
     exact chainEnd_world hU ω g g' index hindex k ⟨j, hj⟩ t
   rw [he]
   exact eval_free hU ω g g' (wctLeafHashP_free _ _ _ _ _)
+/-- C1: the paired leaf of heap `heap` does not read the hidden part of the world. -/
+theorem childRootH_world (g g' : CanonTable.HiddenF) (heap index : Nat) (hindex : index < 2 ^ 31) (k : Fin 9)
+    (j : Nat) (hj : j < 128) (pad : Digest) :
+    WCT9.childRootH (wA hU ω g) heap index k.val j pad = WCT9.childRootH (wA hU ω g') heap index k.val j pad := by
+  unfold WCT9.childRootH
+  have he : (fun t : Fin 6 => WCT9.chainEnd (wA hU ω g) index k.val j t) =
+      (fun t : Fin 6 => WCT9.chainEnd (wA hU ω g') index k.val j t) := by
+    funext t
+    exact chainEnd_world hU ω g g' index hindex k ⟨j, hj⟩ t
+  rw [he]
+  exact eval_free hU ω g g' (wctLeafHashH_free _ _ _ _ _ _)
 theorem coordLeavesWith_world (g g' : CanonTable.HiddenF) (index : Nat) (hindex : index < 2 ^ 31) (k : Fin 9)
     (pad : Digest) :
     WCT9.coordLeavesWith (wA hU ω g) index k.val pad = WCT9.coordLeavesWith (wA hU ω g') index k.val pad := by
@@ -1175,6 +1194,18 @@ theorem sharedOuterHash_free (coord index heap : Nat) (left right : Digest) :
   · exact lowTop_free _ _ _ _ _ _
   · exact wctTopHash_free _ _ _ _ _ _
 
+/-- C1: a packed node (either half) makes only a free query. -/
+theorem nodeHashH_free (coord index heap : Nat) (left right : Digest) :
+    AllQueriesSatisfy (WCT9.wctNodeHashH coord index heap left right) WFree := by
+  have he : WCT9.wctNodeHashH coord index heap left right =
+      WCT9.ftsHash heap (WCT9.wctTopInput coord index heap left 0 right) := by
+    unfold WCT9.wctNodeHashH WCT9.wctTopInput
+    rw [WCT9.bytesLE_zero16]
+  rw [he, WCT9.ftsHash_eq]
+  split
+  · exact wctTopHash_free coord index heap left 0 right
+  · exact lowTop_free coord index heap left 0 right
+
 theorem sharedNode_free (first : Bool) (coord index heap : Nat) (pads : Nat → PairRoot)
     (left right : Digest) : AllQueriesSatisfy (sharedNode first coord index heap pads left right) WFree := by
   unfold sharedNode
@@ -1184,7 +1215,7 @@ theorem sharedNode_free (first : Bool) (coord index heap : Nat) (pads : Nat → 
     · split
       · exact wctTopHash_free _ _ _ _ _ _
       · exact lowTop_free _ _ _ _ _ _
-    · exact nodeHash_free _ _ _ _ _ _
+    · exact nodeHashH_free _ _ _ _ _
 
 theorem sharedHeap_free (first : Bool) (index coord : Nat) (pads : Nat → PairRoot) (leaves : List Digest) :
     AllQueriesSatisfy (sharedHeap first index coord pads leaves) WFree := by
@@ -1205,7 +1236,7 @@ theorem sharedLeaves_world (hidden hidden' : CanonTable.HiddenF) (first : Bool)
   unfold sharedLeaves
   apply congrArg List.ofFn
   funext physical
-  exact childRoot_world hU ω hidden hidden' index hindex coord (rawChild first physical.val)
+  exact childRootH_world hU ω hidden hidden' (128 + physical.val) index hindex coord (rawChild first physical.val)
     (rawChild_lt first physical.val physical.isLt) _
 
 theorem sharedNodes_world (hidden hidden' : CanonTable.HiddenF) (first : Bool)

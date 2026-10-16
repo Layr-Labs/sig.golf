@@ -407,7 +407,8 @@ def coordinateCost (a : Alphabet) (k : Fin 9) : Nat :=
     if SharedForest.firstCoord k.val then SharedForest.aCorrection (lowField a.1 k)
     else SharedForest.bCorrection (lowField a.1 k)
 def cost (a : Alphabet) : Nat := ((List.finRange 9).map (coordinateCost a)).sum
-def capOk (a : Alphabet) : Bool := decide (cost a ≤ 788)
+/-- C1 (stage 1): the producer's joint cap 778 (`SharedForest.digestAccepted`). -/
+def capOk (a : Alphabet) : Bool := decide (cost a ≤ 778)
 def producer (a : HashOutput) : Bool := admissible a && capOk (proposal a).2
 
 theorem proposal_index (a : HashOutput) : (proposal a).1.val = ClaudeWCT.WCT9.digestIndex a := by
