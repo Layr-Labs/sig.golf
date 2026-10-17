@@ -99,7 +99,7 @@ theorem mem_handSlots {o : Nat} (h8 : o % 8 = 0) : o ∈ handSlots ↔ isHand o 
 def handBits (n : Nat) : List Nat := handSlots.map fun o => 8 * (regionOffset n + o)
 /-- The witness seen by coordinate `n` at state `u`: region `n`'s hand-off words read from memory. -/
 def viewW (w : WBytes) (n : Nat) (u : MachineState) : WBytes :=
-  setWords w (fun b => u.getMem (BitVec.ofNat 64 (0x4c0 + b / 8))) (handBits n)
+  setWords w (fun b => u.getMem (BitVec.ofNat 64 (0x520 + b / 8))) (handBits n)
 
 theorem regionOffset_mod (n : Nat) : regionOffset n % 8 = 0 := by unfold regionOffset; omega
 theorem regionOffset_le (n : Nat) : regionOffset n ≤ 7344 := by unfold regionOffset; omega
@@ -107,7 +107,7 @@ theorem regionOffset_le (n : Nat) : regionOffset n ≤ 7344 := by unfold regionO
 /-- A 64-bit witness word of the view: memory on region `n`'s hand-off words, the witness elsewhere. -/
 theorem view_word (w : WBytes) (n : Nat) (u : MachineState) (p : Nat) (hp : p % 8 = 0) (hpn : p + 8 ≤ 24028) :
     (viewW w n u).extractLsb' (8 * p) 64 =
-      if regionOffset n ≤ p ∧ isHand (p - regionOffset n) then u.getMem (BitVec.ofNat 64 (0x4c0 + p))
+      if regionOffset n ≤ p ∧ isHand (p - regionOffset n) then u.getMem (BitVec.ofNat 64 (0x520 + p))
       else w.extractLsb' (8 * p) 64 := by
   have hr := regionOffset_mod n
   have hrl := regionOffset_le n
@@ -146,7 +146,7 @@ theorem view_dig (w : WBytes) (n : Nat) (u : MachineState) (off : Nat) (h8 : off
 
 /-- On a hand-off slot pair the view holds the memory digest. -/
 theorem view_dig_hand (w : WBytes) (n : Nat) (u : MachineState) (o : Nat) (ho : o = 720 ∨ o = 864) (hn : n ≤ 8)
-    (d : Digest) (hd : DigAt u (0x4c0 + regionOffset n + o) d) :
+    (d : Digest) (hd : DigAt u (0x520 + regionOffset n + o) d) :
     wdig (viewW w n u) (regionOffset n + o) = d := by
   have hr := regionOffset_mod n
   have hrl := regionOffset_le n
@@ -206,11 +206,11 @@ theorem nodeHPad_view (w : WBytes) (n : Nat) (u : MachineState) (hn : n ≤ 8) (
   · rw [if_neg hl, if_neg hl]
 
 theorem leafPad_view (w : WBytes) (n : Nat) (u : MachineState) (hn : n ≤ 8) (d : Digest)
-    (hd : DigAt u (0x4c0 + regionOffset n + 720) d) : leafPad (viewW w n u) n = d :=
+    (hd : DigAt u (0x520 + regionOffset n + 720) d) : leafPad (viewW w n u) n = d :=
   view_dig_hand w n u 720 (Or.inl rfl) hn d hd
 
 theorem nodePad5_view (w : WBytes) (n : Nat) (u : MachineState) (hn : n ≤ 8) (j : Fin 128) (d : Digest)
-    (hd : DigAt u (0x4c0 + regionOffset n + 864) d) : nodePad (viewW w n u) n j.val 5 = d := by
+    (hd : DigAt u (0x520 + regionOffset n + 864) d) : nodePad (viewW w n u) n j.val 5 = d := by
   unfold nodePad padOff blkOff
   rw [if_neg (by decide), show regionOffset n + (832 + 32) = regionOffset n + 864 by omega]
   exact view_dig_hand w n u 864 (Or.inr rfl) hn d hd
@@ -218,7 +218,7 @@ theorem nodePad5_view (w : WBytes) (n : Nat) (u : MachineState) (hn : n ≤ 8) (
 /-- The nested child of coordinate `n` read through the view is the tree with the hand-off pads. -/
 theorem childProgram_view (w : WBytes) (index : Nat) (k : Fin 9) (u : MachineState) (j : Fin 128)
     (ends : List Digest) (padL padZ : Digest)
-    (hL : DigAt u (0x4c0 + regionOffset k.val + 720) padL) (hZ : DigAt u (0x4c0 + regionOffset k.val + 864) padZ) :
+    (hL : DigAt u (0x520 + regionOffset k.val + 720) padL) (hZ : DigAt u (0x520 + regionOffset k.val + 864) padZ) :
     childProgram (viewW w k.val u) index k j ends = childN w index k j ends padL padZ := by
   have hn : k.val ≤ 8 := by omega
   unfold childProgram childN
@@ -282,7 +282,7 @@ theorem mem_handSlots {o : Nat} (h8 : o % 8 = 0) : o ∈ handSlots ↔ isHand o 
 def handBits (n : Nat) : List Nat := handSlots.map fun o => 8 * (regionOffset n + o)
 /-- The witness seen by coordinate `n` at state `u`: region `n`'s hand-off words read from memory. -/
 def viewW (w : WBytes) (n : Nat) (u : MachineState) : WBytes :=
-  setWords w (fun b => u.getMem (BitVec.ofNat 64 (0x4c0 + b / 8))) (handBits n)
+  setWords w (fun b => u.getMem (BitVec.ofNat 64 (0x520 + b / 8))) (handBits n)
 
 theorem regionOffset_mod (n : Nat) : regionOffset n % 8 = 0 := by unfold regionOffset; omega
 theorem regionOffset_le (n : Nat) : regionOffset n ≤ 7344 := by unfold regionOffset; omega
@@ -290,7 +290,7 @@ theorem regionOffset_le (n : Nat) : regionOffset n ≤ 7344 := by unfold regionO
 /-- A 64-bit witness word of the view: memory on region `n`'s hand-off words, the witness elsewhere. -/
 theorem view_word (w : WBytes) (n : Nat) (u : MachineState) (p : Nat) (hp : p % 8 = 0) (hpn : p + 8 ≤ 24028) :
     (viewW w n u).extractLsb' (8 * p) 64 =
-      if regionOffset n ≤ p ∧ isHand (p - regionOffset n) then u.getMem (BitVec.ofNat 64 (0x4c0 + p))
+      if regionOffset n ≤ p ∧ isHand (p - regionOffset n) then u.getMem (BitVec.ofNat 64 (0x520 + p))
       else w.extractLsb' (8 * p) 64 := by
   have hr := regionOffset_mod n
   have hrl := regionOffset_le n
@@ -329,7 +329,7 @@ theorem view_dig (w : WBytes) (n : Nat) (u : MachineState) (off : Nat) (h8 : off
 
 /-- On a hand-off slot pair the view holds the memory digest. -/
 theorem view_dig_hand (w : WBytes) (n : Nat) (u : MachineState) (o : Nat) (ho : o = 720 ∨ o = 160) (hn : n ≤ 8)
-    (d : Digest) (hd : DigAt u (0x4c0 + regionOffset n + o) d) :
+    (d : Digest) (hd : DigAt u (0x520 + regionOffset n + o) d) :
     wdig (viewW w n u) (regionOffset n + o) = d := by
   have hr := regionOffset_mod n
   have hrl := regionOffset_le n
@@ -391,11 +391,11 @@ theorem nodeHPad_view (w : WBytes) (n : Nat) (u : MachineState) (hn : n ≤ 8)
   · rw [if_neg h, if_neg h]
 
 theorem leafPad_view (w : WBytes) (n : Nat) (u : MachineState) (hn : n ≤ 8) (d : Digest)
-    (hd : DigAt u (0x4c0 + regionOffset n + 720) d) : leafPad (viewW w n u) n = d :=
+    (hd : DigAt u (0x520 + regionOffset n + 720) d) : leafPad (viewW w n u) n = d :=
   view_dig_hand w n u 720 (Or.inl rfl) hn d hd
 
 theorem nodePad4_view (w : WBytes) (n : Nat) (u : MachineState) (hn : n ≤ 8)
-    (j : Fin 128) (d : Digest) (hd : DigAt u (0x4c0 + regionOffset n + 160) d) :
+    (j : Fin 128) (d : Digest) (hd : DigAt u (0x520 + regionOffset n + 160) d) :
     nodePad (viewW w n u) n j.val 4 = d := by
   rw [pad4 _ _ _ j.isLt]
   exact view_dig_hand w n u 160 (Or.inr rfl) hn d hd
@@ -412,8 +412,8 @@ theorem childInput_view (w : WBytes) (index n : Nat) (u : MachineState) (hn : n 
 
 theorem childProgram_view (w : WBytes) (index : Nat) (k : Fin 9) (u : MachineState)
     (raw : Fin 128) (ends : List Digest) (padL padR : Digest)
-    (hL : DigAt u (0x4c0 + regionOffset k.val + 720) padL)
-    (hR : DigAt u (0x4c0 + regionOffset k.val + 160) padR) :
+    (hL : DigAt u (0x520 + regionOffset k.val + 720) padL)
+    (hR : DigAt u (0x520 + regionOffset k.val + 160) padR) :
     childProgram (viewW w k.val u) index k raw ends = childN w index k raw ends padL padR := by
   have hn : k.val ≤ 8 := by omega
   let j : Fin 128 := ⟨physical k.val raw.val, physical_lt _ _ raw.isLt⟩

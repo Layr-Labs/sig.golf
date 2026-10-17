@@ -96,7 +96,7 @@ theorem mkSh_lt (lay ci leaf : Nat) : mkSh lay ci leaf < 2 ^ mkBits lay ci := Na
 theorem mkBit_lt (x k : Nat) : x / 2 ^ k % 2 < 2 := Nat.mod_lt _ (by decide +kernel)
 theorem mkBase_eq (lay : Layer) : mkBase lay.val = ClaudeWCT.W9.T3M.layerBase lay := by fin_cases lay <;> rfl
 theorem mkPS_eq (lay : Layer) : mkPS lay.val = ClaudeWCT.W9.T3M.pathSlots lay := by fin_cases lay <;> rfl
-theorem mkBase_ge (lay : Nat) (hlay : lay < 4) : 8256 ≤ mkBase lay ∧ mkBase lay % 16 = 0 := by
+theorem mkBase_ge (lay : Nat) (hlay : lay < 4) : 8160 ≤ mkBase lay ∧ mkBase lay % 16 = 0 := by
   interval_cases lay <;> decide +kernel
 theorem mkBo_low (lay leaf k : Nat) (_h0 : lay ≠ 0) : mkBo lay leaf k = mkBase lay + 16 * plan lay leaf k := rfl
 theorem mkBo_plan (lay leaf k : Nat) : mkBo lay leaf k = mkBase lay + 16 * plan lay leaf k := rfl
@@ -162,9 +162,9 @@ theorem mkCur_next (lay leaf k b : Nat) (hlay : lay < 4) (hleaf : leaf < 2 ^ hL 
     (hc : mkCi lay (k + 1) = mkCi lay k) :
     mkCur lay (mkLeafOf lay (mkCi lay k) (mkSh lay (mkCi lay k) leaf)) (k + 1) b = mkCur lay leaf (k + 1) b := by
   rw [← hc]; exact mkCur_sh lay leaf (k + 1) b hlay hleaf hk1
-/-- C4: every line-A row places window 5 at slot 21 (the upper copies start from it). -/
-theorem mkPlan_top5 (x : Nat) : plan 0 x 5 = 21 := by
-  have h : (List.range 64).all (fun r => (topPlanA.getD r []).getD 5 0 == 21) = true := by decide +kernel
+/-- C4: every line-A row places window 5 at slot 25 (the upper copies start from it). -/
+theorem mkPlan_top5 (x : Nat) : plan 0 x 5 = 25 := by
+  have h : (List.range 64).all (fun r => (topPlanA.getD r []).getD 5 0 == 25) = true := by decide +kernel
   have := List.all_eq_true.mp h (x % 64) (List.mem_range.mpr (Nat.mod_lt _ (by decide)))
   simp only [beq_iff_eq] at this
   unfold plan topPlan
@@ -215,7 +215,7 @@ theorem mkKS_succ (lay leaf k s : Nat) (h : s ∈ mkKS lay leaf (k + 1)) : s ∈
   obtain ⟨j, ⟨hj, hkj⟩, hs⟩ := h
   exact ⟨j, ⟨hj, by omega⟩, hs⟩
 theorem mkBo_facts (lay leaf k : Nat) (hlay : lay < 4) (hleaf : leaf < 2 ^ hL lay) (hk : k < hL lay) :
-    mkBo lay leaf k % 16 = 0 ∧ 8256 ≤ mkBo lay leaf k ∧ mkBo lay leaf k + 80 ≤ 19104 ∧ mkBase lay ≤ mkBo lay leaf k ∧
+    mkBo lay leaf k % 16 = 0 ∧ 8160 ≤ mkBo lay leaf k ∧ mkBo lay leaf k + 80 ≤ 19104 ∧ mkBase lay ≤ mkBo lay leaf k ∧
       mkBo lay leaf k + 64 ≤ mkBase lay + 16 * mkPS lay := by
   have hp := ((route_facts lay leaf hlay hleaf).1 k hk).1
   rw [mkBo_plan]
@@ -276,9 +276,9 @@ theorem mkHeapE_eval (lay leaf k : Nat) (hlay : lay < 4) (hleaf : leaf < 2 ^ hL 
 /-- Witness words still needed at level `k` and above (lower layers): below the layer, the pad and sibling slots
 (`mkKS`), and C2's high tweak words (upper half of the `mkKH` slots). -/
 def mkPL (lay leaf k o : Nat) : Prop :=
-  (8256 ≤ o ∧ o < mkBase lay) ∨ (mkBase lay ≤ o ∧ (o - mkBase lay) / 16 ∈ mkKS lay leaf k) ∨
+  (8160 ≤ o ∧ o < mkBase lay) ∨ (mkBase lay ≤ o ∧ (o - mkBase lay) / 16 ∈ mkKS lay leaf k) ∨
     (mkBase lay ≤ o ∧ (o - mkBase lay) % 16 = 8 ∧ (o - mkBase lay) / 16 ∈ mkKH lay leaf k)
-/-- C4: the top uses the plan predicate of the lower layers (its region below, `[8256, mkBase 0)`, is empty). -/
+/-- C4: the top uses the plan predicate of the lower layers (its region below, `[8160, mkBase 0)`, is empty). -/
 def mkP (lay leaf k _b : Nat) (o : Nat) : Prop := mkPL lay leaf k o
 theorem mkP_low (lay leaf k b o : Nat) (_h0 : lay ≠ 0) : mkP lay leaf k b o ↔ mkPL lay leaf k o := Iff.rfl
 theorem mkP_eq (lay leaf k b o : Nat) : mkP lay leaf k b o ↔ mkPL lay leaf k o := Iff.rfl
@@ -307,8 +307,8 @@ theorem mkP_rd (lay leaf k : Nat) (hlay : lay < 4) (hleaf : leaf < 2 ^ hL lay) (
 theorem mkP_step (lay leaf k : Nat) (hlay : lay < 4) (hleaf : leaf < 2 ^ hL lay) (hk1 : k + 1 < hL lay) (o : Nat)
     (h8 : o % 8 = 0) (ho : mkP lay leaf (k + 1) (leaf / 2 ^ (k + 1) % 2) o) :
     (mkP lay leaf k (leaf / 2 ^ k % 2) o ∧ o ≠ mkBo lay leaf k + 16 ∧ o ≠ mkBo lay leaf k + 24) ∧
-      (0x4c0 + o + 8 ≤ mkCur lay leaf (k + 1) (leaf / 2 ^ (k + 1) % 2) ∨
-        mkCur lay leaf (k + 1) (leaf / 2 ^ (k + 1) % 2) + 32 ≤ 0x4c0 + o) := by
+      (0x520 + o + 8 ≤ mkCur lay leaf (k + 1) (leaf / 2 ^ (k + 1) % 2) ∨
+        mkCur lay leaf (k + 1) (leaf / 2 ^ (k + 1) % 2) + 32 ≤ 0x520 + o) := by
   have hb := mkBit_lt leaf k
   have hb' := mkBit_lt leaf (k + 1)
   obtain ⟨hB16, hBlo, hBhi, hBase, hBtop⟩ := mkBo_facts lay leaf k hlay hleaf (by omega)
@@ -321,7 +321,7 @@ theorem mkP_step (lay leaf k : Nat) (hlay : lay < 4) (hleaf : leaf < 2 ^ hL lay)
     rw [mkBo_plan] at hBase hBase' ⊢
     rw [mkBo_plan]
     rcases ho with ho | ⟨hge, hs⟩ | ⟨hge, h16, hs⟩
-    · have h0 : lay ≠ 0 := by intro h; subst h; have : mkBase 0 = 8256 := rfl; omega
+    · have h0 : lay ≠ 0 := by intro h; subst h; have : mkBase 0 = 8160 := rfl; omega
       have hp1 := (hF1 (k + 1) hk1).2 h0
       exact ⟨⟨Or.inl ho, by omega, by omega⟩, Or.inl (by omega)⟩
     · obtain ⟨n1, n2⟩ := hF k hk1 _ (List.mem_append_left _ hs)
@@ -332,8 +332,8 @@ theorem mkP_step (lay leaf k : Nat) (hlay : lay < 4) (hleaf : leaf < 2 ^ hL lay)
       exact ⟨⟨Or.inr (Or.inr ⟨hge, h16, mkKH_succ _ _ _ _ hs⟩), by omega, by omega⟩, by omega⟩
 theorem mkP_leaf (lay leaf : Nat) (hlay : lay < 4) (hleaf : leaf < 2 ^ hL lay) (o : Nat) (h8 : o % 8 = 0)
     (ho : mkP lay leaf 0 (leaf / 2 ^ 0 % 2) o) :
-    (8256 ≤ o ∧ o < mkBase lay + 16 * mkPS lay) ∧
-      (0x4c0 + o + 8 ≤ mkCur lay leaf 0 (leaf / 2 ^ 0 % 2) ∨ mkCur lay leaf 0 (leaf / 2 ^ 0 % 2) + 32 ≤ 0x4c0 + o) := by
+    (8160 ≤ o ∧ o < mkBase lay + 16 * mkPS lay) ∧
+      (0x520 + o + 8 ≤ mkCur lay leaf 0 (leaf / 2 ^ 0 % 2) ∨ mkCur lay leaf 0 (leaf / 2 ^ 0 % 2) + 32 ≤ 0x520 + o) := by
   have hhL : 0 < hL lay := by interval_cases lay <;> decide +kernel
   have hb := mkBit_lt leaf 0
   obtain ⟨hB16, hBlo, hBhi, hBase, hBtop⟩ := mkBo_facts lay leaf 0 hlay hleaf hhL
@@ -344,7 +344,7 @@ theorem mkP_leaf (lay leaf : Nat) (hlay : lay < 4) (hleaf : leaf < 2 ^ hL lay) (
     unfold mkBlk
     rw [mkBo_plan] at hBase ⊢
     rcases ho with ho | ⟨hge, hs⟩ | ⟨hge, h16, hs⟩
-    · have h0 : lay ≠ 0 := by intro h; subst h; have : mkBase 0 = 8256 := rfl; omega
+    · have h0 : lay ≠ 0 := by intro h; subst h; have : mkBase 0 = 8160 := rfl; omega
       have hp1 := (hF1 0 hhL).2 h0
       exact ⟨⟨ho.1, by omega⟩, Or.inl (by omega)⟩
     · obtain ⟨n1, n2⟩ := hF _ (List.mem_append_left _ hs)
@@ -376,7 +376,7 @@ structure MkEnd (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (lay leaf : Nat) (u 
   known : KnownOK (mkKc lay ++ [(.x11, 64)]) t
   keep : ∀ r ∈ mkKeep, t.getReg r = u.getReg r
   root : DigAt t (mkDst lay leaf) root
-  orig : Orig w (fun o => 8256 ≤ o ∧ o < mkBase lay) t
+  orig : Orig w (fun o => 8160 ≤ o ∧ o < mkBase lay) t
   dstReg : t.getReg .x12 = BitVec.ofNat 64 (mkDst lay leaf)
   x10 : t.getReg .x10 = BitVec.ofNat 64 (mkBlk lay leaf (hL lay - 1))
 def mkHashInputOf (a b : Word) (f : Word → BitVec 8) : Query :=
@@ -645,7 +645,7 @@ theorem mk_node_at (lay leaf j : Nat) (hlay : lay < 4) (hleaf : leaf < 2 ^ hL la
       rwa [show mkBlk lay leaf j + 48 * 1 + 16 * 1 - 16 = mkVal lay leaf j 1 by unfold mkVal mkBlk; omega] at h
 theorem mkCur_bounds (lay leaf j b : Nat) (hlay : lay < 4) (hleaf : leaf < 2 ^ hL lay) (hj : j < hL lay)
     (hb : b < 2) :
-    WLO ≤ mkCur lay leaf j b ∧ mkCur lay leaf j b % 8 = 0 ∧ mkCur lay leaf j b + 32 ≤ 0x4c0 + 19104 := by
+    WLO ≤ mkCur lay leaf j b ∧ mkCur lay leaf j b % 8 = 0 ∧ mkCur lay leaf j b + 32 ≤ 0x520 + 19104 := by
   obtain ⟨hB16, hBlo, hBhi, -, -⟩ := mkBo_facts lay leaf j hlay hleaf hj
   unfold mkCur mkVal mkBlk WLO WIT
   omega
@@ -1110,7 +1110,7 @@ theorem merkle_good (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index : Nat) (l
           exact hkU p (lfK_mkK _ p hp')
       · intro r hr; rw [writeHash_getReg]; exact ht.keep r (mkKeep_sub _ r hr)
       · exact mk_node_at lay.val (route index lay).1 0 hlay hleaf hhL t a h12
-      · have hO : Orig w (fun o => 8256 ≤ o ∧
+      · have hO : Orig w (fun o => 8160 ≤ o ∧
             o < ClaudeWCT.W9.T3M.layerBase lay + 16 * ClaudeWCT.W9.T3M.pathSlots lay) t :=
           hu.orig.frame (fun j _ _ => hmem _)
         have hw2 := Orig_writeHash hO a _ h12 hd

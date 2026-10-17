@@ -76,7 +76,7 @@ def NewCodeSpec (im : Image) : Prop :=
     TBSim im sk s newCost (newProg m sig) (NewPost sig s)
 def w9Sub (imgs : Phase → Image) : Submission where
   sizes := ⟨5310, 24828, 131072⟩
-  layout := ⟨0x65c0, 0x80, 0xa0, 0x80000, 0x7000, 0x4c0⟩
+  layout := ⟨0x6620, 0x80, 0xa0, 0x80000, 0x7000, 0x520⟩
   image := imgs
 def zeroBlk : List (BitVec 32) := [28343,0x9a0eb823,0x9a0ebc23,0x9c0eb023,0x9c0eb423,2451,0xce4d606f]
 def FrontAt (im : Image) : Prop :=

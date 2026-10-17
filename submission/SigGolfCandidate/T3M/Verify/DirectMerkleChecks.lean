@@ -190,7 +190,7 @@ open SigGolfCandidate.T3M.Verify
 C4: the top route is checked like the lower ones (its plan has two lines, so all 4096 leaves are checked); a top left
 child at window slot 0 writes its junk low half at slot -1 (the end of the FTS area), so the `1 ≤ plan` fact is only
 claimed for the lower layers, where slot -1 is the layer below. -/
-def mkPS (lay : Nat) : Nat := [42,25,20,20].getD lay 0
+def mkPS (lay : Nat) : Nat := [48,25,20,20].getD lay 0
 def mkSib (lay leaf j : Nat) : Nat := plan lay leaf j + 3 * (1 - leaf / 2 ^ j % 2)
 def mkCs (lay leaf j : Nat) : Nat := plan lay leaf j + 3 * (leaf / 2 ^ j % 2)
 /-- Slots the fold window of level `j` still needs from the witness: the pad and the sibling. -/

@@ -13,7 +13,7 @@ def rankPad : Word := 0x006000c000060000
 structure HeaderBank (u : MachineState) : Prop where
   top : ∀ k, k < 5 → u.getMem (BitVec.ofNat 64 (TOPLOAD + 8 * k)) =
     BitVec.ofNat 64 (topWords.getD k 0)
-  top8 : u.getMem (BitVec.ofNat 64 (TOPLOAD - 8)) = BitVec.ofNat 64 21168
+  top8 : u.getMem (BitVec.ofNat 64 (TOPLOAD - 8)) = BitVec.ofNat 64 21264
 structure SetupMask (u : MachineState) : Prop where
   rankPadAt : u.getMem (BitVec.ofNat 64 (stackBase7 + 48)) = rankPad
   child : u.getMem (BitVec.ofNat 64 (dataBase7 + 368)) = BitVec.ofNat 64 0xf1b00

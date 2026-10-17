@@ -7,10 +7,10 @@ section
 namespace ClaudeWCT.W9.T3M
 open SigGolfCandidate.T3
 open SigGolfCandidate.T3M (sibOff)
-/-- Nested FTS (r1-1): region stride 896; coordinate `k`'s region starts at `176 + 896 (8 - k)` (absolute
-`1392 + 896 (8 - k)`). -/
-def regionBase (k : Nat) : Nat := 176 + 896 * (8 - k)
-def wctEnd : Nat := 8256
+/-- Nested FTS (r1-1): region stride 896; coordinate `k`'s region starts at `80 + 896 (8 - k)` (absolute
+`1392 + 896 (8 - k)`; witness trim: the witness starts at 1312). -/
+def regionBase (k : Nat) : Nat := 80 + 896 * (8 - k)
+def wctEnd : Nat := 8160
 def wctChainBlock (k t : Nat) : Nat := regionBase k + (640 - 64 * t)
 def wctLeafBlock (k : Nat) : Nat := regionBase k + 688
 def wctLeafSlot (k t : Nat) : Nat := regionBase k + (if t = 0 then 688 else 720 + 16 * t)
@@ -94,8 +94,11 @@ def wcpads (w : WBytes) (k t : Nat) : Digest × Digest :=
   (wdig w (wctChainBlock k t), wdig w (wctChainBlock k t + 32))
 /-- Nested FTS (r1-1): the supplied top sibling of coordinate `k` sits in coordinate `k + 1`'s region: its leaf pad
 slot (`regionBase k - 176`) when the computed top is the right one (bit 6 set), else its level-6 pad slot
-(`regionBase k - 32`). For `k = 8` these are the L3 block's left slot (offset 0) and the R9 slot (offset 144). -/
-def topSlot (k child : Nat) : Nat := regionBase k - (if child / 2 ^ 6 % 2 = 0 then 32 else 176)
+(`regionBase k - 32`). For `k = 8` these are the L3 block's left slot (offset 0) and the R9 slot (witness trim:
+offset 64, the 16 bytes after the L3 block's hash input). -/
+def topSlot (k child : Nat) : Nat :=
+  if k = 8 then (if child / 2 ^ 6 % 2 = 0 then 64 else 0)
+  else regionBase k - (if child / 2 ^ 6 % 2 = 0 then 32 else 176)
 def wsib (w : WBytes) (k child l : Nat) : Digest :=
   if l < 6 then wdig w (regionBase k + authSibOff child l) else wdig w (topSlot k child)
 def wmpad (w : WBytes) (k child l : Nat) : Digest := wdig w (regionBase k + authPadOff child l)

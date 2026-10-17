@@ -2688,15 +2688,16 @@ def sibO (l j : Nat) : Nat := if l < 6 then blkO j l + 48 * (1 - bitAt j l) else
 def padO (j l : Nat) : Nat := blkO j l + 32
 def leafO : Nat := 688
 /-- Final singleton (merged "Cm", stage 2): the heap-2/3 fold writes its 32-byte output at `B - handO j`. The left
-top node (bit 6 = 0, heap 2) keeps its HIGH half: output at `B - 192 = WIT - 16`, value on `WIT + 0`, junk low half on
+top node (bit 6 = 0, heap 2) keeps its HIGH half: output at `B - 96 = WIT - 16`, value on `WIT + 0`, junk low half on
 `WIT - 16 .. WIT - 1` (below the witness). The right top node (bit 6 = 1, heap 3) keeps its LOW half at
-`B - 128 = WIT + 48`. So `WIT + 16 .. WIT + 48` (the C3 row pad at `WIT + 24`) is never written. -/
-def handO (j : Nat) : Nat := if bitAt j 6 = 0 then 192 else 128
+`B - 32 = WIT + 48`. So `WIT + 16 .. WIT + 48` (the C3 row pad at `WIT + 24`) is never written. (Witness trim:
+`WIT = B - 80`; was `B - 192` / `B - 128` with `WIT = B - 176`.) -/
+def handO (j : Nat) : Nat := if bitAt j 6 = 0 then 96 else 32
 /-- Cm: the singleton's top node keeps its high half iff it is the left node (bit 6 clear). -/
 def topHi (j : Nat) : Bool := decide (bitAt j 6 = 0)
 /-- Cm: the computed top value lands at `B - valO j`, i.e. `WIT + 0` (bit 6 = 0) or `WIT + 48` (bit 6 = 1), the
 layer-three input. -/
-def valO (j : Nat) : Nat := if bitAt j 6 = 0 then 176 else 128
+def valO (j : Nat) : Nat := if bitAt j 6 = 0 then 80 else 32
 def handReg (_j : Nat) : Reg := .x8
 def handRegN (_j : Nat) : Nat := 8
 def heapOf (l j : Nat) : Nat := 2 ^ (6 - l) + j / 2 ^ (l + 1)
@@ -3422,9 +3423,9 @@ theorem stagesW_prefix {j off B : Nat} (hj : j < 128) (h : off ∈ stagesW j 6) 
   have hb := stagesW_bound hj (by decide) h
   unfold prefixWrites at *
   omega
-theorem handO_cases (j : Nat) : handO j = 192 ∨ handO j = 128 := by
+theorem handO_cases (j : Nat) : handO j = 96 ∨ handO j = 32 := by
   unfold handO; split <;> simp
-theorem valO_cases (j : Nat) : valO j = 176 ∨ valO j = 128 := by
+theorem valO_cases (j : Nat) : valO j = 80 ∨ valO j = 32 := by
   unfold valO; split <;> simp
 /-- Cm: the kept half of the singleton's top hash output (written at `B - handO j`) is the value at `B - valO j`:
 the high half for the left top node (bit 6 = 0), the low half for the right one. -/

@@ -5,7 +5,7 @@ set_option linter.unusedSimpArgs false
 namespace SigGolfCandidate.T3M.Verify
 open SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64 SigGolfCandidate.Rv
 open SigGolfCandidate.T3 (Digest)
-def WIT : Nat := 0x4c0
+def WIT : Nat := 0x520
 def WSZ : Nat := 24828
 /-- Byte bound of the 3104 loaded witness words; the last word is the 4-byte digest counter
 zero-padded by the loader, since the witness itself is `WSZ = 24828` bytes. -/
@@ -151,7 +151,7 @@ structure DataOK (s : MachineState) : Prop where
   mask : s.getMem (BitVec.ofNat 64 (TOPBASE - 8)) = 520192#64
   header : ∀ lay, lay < 4 →
     s.getMem (BitVec.ofNat 64 (hdrAddr lay)) = BitVec.ofNat 64 (hyperBase lay)
-  buffer3 : s.getMem (BitVec.ofNat 64 (TOPB9 + 56)) = 22128#64
+  buffer3 : s.getMem (BitVec.ofNat 64 (TOPB9 + 56)) = 22224#64
 theorem DataOK.prefix {s : MachineState} (h : DataOK s) (lay : Nat) (hl : lay < 4) :
     s.getMem (BitVec.ofNat 64 (hdrAddr lay)) = BitVec.ofNat 64 (hyperBase lay) :=
   h.header lay hl
