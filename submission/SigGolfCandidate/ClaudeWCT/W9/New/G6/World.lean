@@ -140,6 +140,20 @@ theorem chainStep_free (lay : Layer) (tree leaf i step : Nat) (value : Digest) :
     rw [chainInput_header] at hx
     exact WCT9.ftsChainHeaderP_ne_chainHeader _ _ _ _ _ _ _ _ _ _ _ (bytesLE_injective hx).symm
   · intro _; exact pure_allowed _ _
+theorem chainStepW_free (lay : Layer) (tree leaf i step : Nat) (value : Digest) :
+    AllQueriesSatisfy (shortHash (ClaudeWCT.WCT9.chainInputW lay tree leaf i step value)) WFree := by
+  unfold shortHash publicHash
+  apply bind_allowed WFree
+  · apply (allQueriesSatisfy_query_iff _ _).mpr
+    change Guess.decodeProbe (pad64 (ClaudeWCT.WCT9.chainInputW lay tree leaf i step value)) = none
+    rw [Guess.decodeProbe_eq_none, ClaudeWCT.WCT9.chainInputW_padded]
+    intro a p c he
+    have hx := congrArg Guess.hdrBlock he
+    rw [Guess.probeInput, Guess.hdrBlock_wctChainInput] at hx
+    change ((ClaudeWCT.WCT9.chainInputW lay tree leaf i step value).drop 16).take 16 = _ at hx
+    rw [ClaudeWCT.WCT9.chainInputW_header] at hx
+    exact WCT9.ftsChainHeaderP_ne_chainHeader _ _ _ _ _ _ _ _ _ _ _ (bytesLE_injective hx).symm
+  · intro _; exact pure_allowed _ _
 theorem chain_free (lay : Layer) (tree leaf i start count : Nat) (value : Digest) :
     AllQueriesSatisfy (chain lay tree leaf i start count value) WFree := by
   unfold chain
@@ -241,7 +255,7 @@ theorem lowerSeedPair_free (lay : Layer) (tree pair : Nat) :
   exact privatePair_free _ _ _ _ (by decide)
 theorem buildTreeP_free (lay : Layer) (tree selected : Nat) (digits : List Nat) :
     AllQueriesSatisfy (WCT9.buildTreeP lay tree selected digits) WFree :=
-  Signer.buildTreeP_allowed' WFree chain_free leafHash_free (fun lay tree heap left right hh =>
+  Signer.buildTreeP_allowed' WFree chainStepW_free leafHash_free (fun lay tree heap left right hh =>
     lowerNodeHash_free lay tree heap left right hh) lowerSeedPair_free lay tree selected digits
 theorem maskedLevel_free (nodes : List Digest) (level : Nat) :
     AllQueriesSatisfy (maskedLevel nodes level) WFree := by
@@ -1628,7 +1642,7 @@ theorem chainPrefixes_free (lay : Layer) (tree leaf i start count : Nat) (value 
   | zero => exact pure_allowed _ _
   | succ count ih =>
       -- C3 (#866): a prefix step keeps the half `chainHigh lay i start` (same query as the short hash).
-      exact bind_allowed WFree (Signer.halfHash_allowed_of_short WFree _ (chainStep_free _ _ _ _ _ _)) fun next =>
+      exact bind_allowed WFree (Signer.halfHash_allowed_of_short WFree _ (chainStepW_free _ _ _ _ _ _)) fun next =>
         bind_allowed WFree (ih _ next) fun _ => pure_allowed _ _
 
 theorem lowerCoefs_free (lay : Layer) (tree leaf : Nat) (carry : Digest) :
@@ -1659,8 +1673,8 @@ theorem buildLeafPF_free (lay : Layer) (tree leaf : Nat) (digits : List Nat) (ca
     apply bind_allowed WFree
     · apply foldlM_allowed WFree
       intro state i
-      exact bind_allowed WFree (Signer.chainW_allowed_of_chain WFree chain_free _ _ _ _ _ _ _) fun _ =>
-        bind_allowed WFree (Signer.chainW_allowed_of_chain WFree chain_free _ _ _ _ _ _ _) fun _ =>
+      exact bind_allowed WFree (Signer.chainW_allowed_of_chain WFree chainStepW_free _ _ _ _ _ _ _) fun _ =>
+        bind_allowed WFree (Signer.chainW_allowed_of_chain WFree chainStepW_free _ _ _ _ _ _ _) fun _ =>
           pure_allowed _ _
     · intro state
       exact bind_allowed WFree (Signer.lowerLeafHash_allowed_of_leafHash WFree leafHash_free _ _ _ _) fun _ =>

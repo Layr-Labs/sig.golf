@@ -18,14 +18,13 @@ def expandN0 (message : Message) (pk : Digest) (sig : WCT9.Signature) :
   let some (root, counters) ← WCT9.expandLayersBC sig index 4 (.pair top.1 top.2) | pure none
   if root ≠ pk then return none
   pure (some (output, ⟨sig, counter, fun lay => counters.getD lay.val 0⟩))
-/-- Nested FTS (r1-1): the 176 bytes before coordinate 8's region (virtual tree 9). Offset 0 is the L3 block's left
-slot (L8), 32 its counter, 48 its right slot (overwritten by the verifier with the copy of offset 144), 144 the R9
-slot. Coordinate 8's supplied top sibling sits at `topSlot 8 child` (offset 0 or 144). -/
+/-- Nested FTS (r1-1): the 80 bytes before coordinate 8's region (virtual tree 9; witness trim, was 176). Offset 0
+is the L3 block's left slot (L8), 32 its counter, 48 its right slot, 64 the R9 slot. Coordinate 8's supplied top
+sibling sits at `topSlot 8 child` (offset 0 or 64). -/
 def headerBytes (N : HashOutput) (w : WCT9.Witness) : List UInt8 :=
   (if (WCT9.child N 8).val / 2 ^ 6 % 2 = 1 then bytesLE 16 ((w.signature.openings 8).path 6) else zeros 16) ++
-    zeros 8 ++ bytesLE 8 (1 : BitVec 64) ++ bytesLE 4 (w.counters 3) ++ zeros 108 ++
-    (if (WCT9.child N 8).val / 2 ^ 6 % 2 = 0 then bytesLE 16 ((w.signature.openings 8).path 6) else zeros 16) ++
-    zeros 16
+    zeros 8 ++ bytesLE 8 (1 : BitVec 64) ++ bytesLE 4 (w.counters 3) ++ zeros 28 ++
+    (if (WCT9.child N 8).val / 2 ^ 6 % 2 = 0 then bytesLE 16 ((w.signature.openings 8).path 6) else zeros 16)
 def authByte (child : Nat) (op : WCT9.Opening) (p : Nat) : UInt8 :=
   match (List.finRange 7).find? (fun l => decide (authSibOff child l.val ≤ p ∧ p < authSibOff child l.val + 16)) with
   | some l => (bytesLE 16 (op.path l)).getD (p - authSibOff child l.val) 0
@@ -61,10 +60,14 @@ def prevSibZ (N : HashOutput) (sig : WCT9.Signature) (k : Nat) : List UInt8 :=
   if k = 0 then zeros 16 else
     if (WCT9.child N (Fin.ofNat 9 (k - 1))).val / 2 ^ 6 % 2 = 0 then
       bytesLE 16 ((sig.openings (Fin.ofNat 9 (k - 1))).path 6) else zeros 16
+/-- Pairing stage 1: region 0 keeps its first 832 bytes (its level-5 window is removed) and is followed by
+coordinate 0's level-5 sibling (`legacySib0`). -/
 def wctBytes (N : HashOutput) (sig : WCT9.Signature) : List UInt8 :=
   (List.finRange 9).reverse.flatMap fun k =>
-    regionBytes (WCT9.child N k).val (sig.openings k) (prevSibL N sig k.val) (prevSibZ N sig k.val) ++
-      (if k.val = 0 then zeros 16 else [])
+    if k.val = 0 then
+      (regionBytes (WCT9.child N k).val (sig.openings k) (prevSibL N sig k.val) (prevSibZ N sig k.val)).take 832 ++
+        bytesLE 16 ((sig.openings k).path 5)
+    else regionBytes (WCT9.child N k).val (sig.openings k) (prevSibL N sig k.val) (prevSibZ N sig k.val)
 def lowerSibSlot (lay : Layer) (leaf j : Nat) : Nat := 16 * (lowerPlan lay leaf).getD j 0 + sibOff (leaf / 2 ^ j % 2)
 def lowerCtrSlot (lay : Layer) (leaf : Nat) : Nat := 16 * (lowerPlan lay leaf).getD (height lay - 1) 0 + 32
 /-- C2/C3 (FULL): the root window's row-tweak high word (honest LE64 1). -/
@@ -88,9 +91,19 @@ def topPathByte {lay : Layer} (leaf : Nat) (ls : LayerSignature lay) (p : Nat) :
       (fun j => decide (topSibSlot leaf j.val ≤ p ∧ p < topSibSlot leaf j.val + 16)) with
   | some j => (bytesLE 16 (ls.path j)).getD (p - topSibSlot leaf j.val) 0
   | none => 0
-/-- C4: the 672-byte top path area (42 slots). -/
+/-- C4: the 768-byte top path area (48 slots). -/
 def topPathBytes {lay : Layer} (leaf : Nat) (ls : LayerSignature lay) : List UInt8 :=
   (List.range (16 * pathSlots lay)).map (topPathByte leaf ls)
+/-- Value `i` of a layer signature (0 out of range). -/
+def lsValue {lay : Layer} (ls : LayerSignature lay) (i : Nat) : Digest :=
+  if h : i < chainCount lay then ls.values ⟨i, h⟩ else 0
+/-- Pairing stage 1: pair `p` of a lower chain area (104 bytes): a 16-byte gap, G chain `2p+1`'s block
+`[value | 0 ..]` and F chain `2p+2`'s block starting 24 bytes later (value at the pair's offset 88). -/
+def pairBytes {lay : Layer} (ls : LayerSignature lay) (p : Nat) : List UInt8 :=
+  zeros 16 ++ bytesLE 16 (lsValue ls (2 * p + 1)) ++ zeros 56 ++ bytesLE 16 (lsValue ls (2 * p + 2))
+/-- Pairing stage 1: the 2248-byte chain area of a lower layer: pairs 20..0, then chain 0's F block. -/
+def lowerChainBytes {lay : Layer} (ls : LayerSignature lay) : List UInt8 :=
+  (List.range 21).reverse.flatMap (pairBytes ls) ++ zeros 48 ++ bytesLE 16 (lsValue ls 0)
 /-- C4: the top region is the plan-placed path area followed by the top chain blocks; a lower region is its
 plan-placed path area (siblings, counter, row-tweak high word) followed by its chain blocks. -/
 def layerRegion (N : HashOutput) (w : WCT9.Witness) (lay : Layer) : List UInt8 :=
@@ -98,13 +111,13 @@ def layerRegion (N : HashOutput) (w : WCT9.Witness) (lay : Layer) : List UInt8 :
     topPathBytes (route (WCT9.digestIndex N) lay).1 (w.signature.layers lay) ++
       (layerBytes lay (route (WCT9.digestIndex N) lay).1 (w.signature.layers lay)).drop (64 * height lay)
   else lowerPathBytes lay (route (WCT9.digestIndex N) lay).1 (w.signature.layers lay)
-      (w.counters (Fin.ofNat 4 (lay.val - 1))) ++
-    (layerBytes lay (route (WCT9.digestIndex N) lay).1 (w.signature.layers lay)).drop (64 * height lay)
+      (w.counters (Fin.ofNat 4 (lay.val - 1))) ++ lowerChainBytes (w.signature.layers lay)
 def endpointBytes (sig : WCT9.Signature) (lay : Layer) : List UInt8 :=
   (List.finRange (chainCount lay)).flatMap fun i => bytesLE 16 ((sig.layers lay).values i)
 def leafBufferBytes (sig : WCT9.Signature) (lay : Layer) : List UInt8 :=
   if lay = 0 then zeros 32 ++ endpointBytes sig lay ++ zeros 16
-  else (endpointBytes sig lay).take 16 ++ zeros 16 ++ (endpointBytes sig lay).drop 16 ++ zeros 32
+  else (endpointBytes sig lay).take 16 ++ zeros 16 ++ (endpointBytes sig lay).drop 16 ++
+    zeros (if lay.val = 1 then 16 else 32)
 def leafBuffersBytes (sig : WCT9.Signature) : List UInt8 :=
   (List.finRange 4).reverse.flatMap (leafBufferBytes sig)
 def tailBytes (w : WCT9.Witness) : List UInt8 :=
@@ -206,7 +219,7 @@ def slotByte (slots : List (Nat × Digest)) (offset : Nat) : UInt8 :=
   | none => 0
 
 def forestBytes (output : HashOutput) (witness : SigGolfCandidate.Research.SharedForest.Witness) : List UInt8 :=
-  (List.range 8256).map fun offset =>
+  (List.range 8096).map fun offset =>
     if 24 ≤ offset ∧ offset < 32 then (bytesLE 8 (1 : BitVec 64)).getD (offset - 24) 0
     else if 32 ≤ offset ∧ offset < 36 then (bytesLE 4 (witness.counters 3)).getD (offset - 32) 0
     else slotByte (forestSlots output witness.signature) offset
@@ -215,13 +228,13 @@ def mainWitness (witness : SigGolfCandidate.Research.SharedForest.Witness) : WCT
   ⟨mainSignature witness.signature, witness.digestCounter, witness.counters⟩
 
 def witList (output : HashOutput) (witness : SigGolfCandidate.Research.SharedForest.Witness) : List UInt8 :=
-  forestBytes output witness ++ (ClaudeWCT.W9.T3M.witList output (mainWitness witness)).drop 8256
+  forestBytes output witness ++ (ClaudeWCT.W9.T3M.witList output (mainWitness witness)).drop 8096
 
 def witEnc (output : HashOutput) (witness : SigGolfCandidate.Research.SharedForest.Witness) : WBytes :=
   BitVec.ofNat _ (readLE (witList output witness))
 
 @[simp] theorem forestBytes_length (output : HashOutput)
-    (witness : SigGolfCandidate.Research.SharedForest.Witness) : (forestBytes output witness).length = 8256 := by
+    (witness : SigGolfCandidate.Research.SharedForest.Witness) : (forestBytes output witness).length = 8096 := by
   simp [forestBytes]
 
 /-- Query-identical expansion retaining the digest output needed by the memory encoder. -/

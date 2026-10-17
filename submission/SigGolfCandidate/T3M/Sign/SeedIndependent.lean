@@ -10,8 +10,12 @@ def sub80S : List (BitVec 32) := [4824595,623715]
 /-- C2 (lower node tweak): words 1147/1148 compute `t1 = s5 + s8 + 1407` (the packed node word
 `hyperWord (lay - 1) tree + lowerK + heap`, lowerK = 1407) and 1151 sets the high tweak word `t2 = 0`. -/
 def sub120S : List (BitVec 32) := [6037011,3018291,134967,537857811,930563,9319299,7286819,8336419,134967,588189459,17707779,26096515,7286819,8336419,25854771,1475543827,4268699683,55221779,915,1477329635]
-/-- C3 (FULL, chain 0 high half): 1037 `jal zero,1667` (chain tramp), 1038 nop. -/
-def sub24S : List (BitVec 32) := [495976559,19]
+/-- Pairing stage 1: the header words `b + 9 .. b + 17` (1022..1030) still agree with the keygen's `sub_9` prefix; the
+old HASH-argument setup 1031..1035, HASH 1036 and C3 tail jump 1037 are replaced by `1031: jal zero,1732` (the G/F
+step block, `Seed.StepCode`) and nops. -/
+def sub9S : List (BitVec 32) := [0x7340006f,21201843,33788691,17047315,31679283,269706003,134711,437128723,7223331]
+def sub18S : List (BitVec 32) := [0x2f50006f]
+def sub19S : List (BitVec 32) := List.replicate 7 0x13
 /-- C3 chain tramp at 1667: if `s3 = 0` (chain 0), `s0 ≠ 0` (lower layer) and `s4 = 6`, copy the high half
 `0x201E0..0x201F0` of the hash just written at `CHAIN + 48` onto the value slot `CHAIN + 48`; then `s4 += 1` and back
 to 1014. -/
@@ -44,7 +48,7 @@ def hpmS : List (BitVec 32) := [17078931,538634899,0xfff40313,50533139,7006899,0
 def norootS : List (BitVec 32) := [1049363,0xa06a08e3,0x961ff06f]
 /-- The sign's leaf code at `b = 1013` (explicit: the shared `Keygen.sub_*` names only where the sign and keygen
 words agree and the shared run lemmas are used). -/
-def signSubL : Rv.Layout := [(0, sub_0), (1, sub_1), (2, sub_2), (8, sub_8), (9, sub_9), (23, sub_23), (24, sub24S),
+def signSubL : Rv.Layout := [(0, sub_0), (1, sub_1), (2, sub_2), (8, sub_8), (9, sub9S), (18, sub18S), (19, sub19S),
   (26, sub_26), (27, sub27S), (29, sub29S), (40, sub40S), (41, sub_41), (42, sub42S), (44, sub44S), (59, sub59S),
   (60, sub60S), (72, sub_72), (73, sub_73), (75, sub75S), (76, sub_76), (77, sub_77), (78, sub_78), (79, sub_79),
   (80, sub80S), (82, sub_82), (83, sub_83), (92, sub_92), (95, sub_95), (96, sub_96), (105, sub_105), (106, sub106S),
@@ -76,15 +80,12 @@ theorem codeAt_sub_2 {image : Image} {b : Nat} (h : SeedIndependentAt image b) :
 theorem codeAt_sub_8 {image : Image} {b : Nat} (h : SeedIndependentAt image b) :
     CodeAt image (pcOf (b + 8)) sub_8 :=
   h.1 8 sub_8 (by decide +kernel)
-theorem codeAt_sub_9 {image : Image} {b : Nat} (h : SeedIndependentAt image b) :
-    CodeAt image (pcOf (b + 9)) sub_9 :=
-  h.1 9 sub_9 (by decide +kernel)
-theorem codeAt_sub_23 {image : Image} {b : Nat} (h : SeedIndependentAt image b) :
-    CodeAt image (pcOf (b + 23)) sub_23 :=
-  h.1 23 sub_23 (by decide +kernel)
-theorem codeAt_sub24S {image : Image} {b : Nat} (h : SeedIndependentAt image b) :
-    CodeAt image (pcOf (b + 24)) sub24S :=
-  h.1 24 sub24S (by decide +kernel)
+theorem codeAt_sub9S {image : Image} {b : Nat} (h : SeedIndependentAt image b) :
+    CodeAt image (pcOf (b + 9)) sub9S :=
+  h.1 9 sub9S (by decide +kernel)
+theorem codeAt_sub18S {image : Image} {b : Nat} (h : SeedIndependentAt image b) :
+    CodeAt image (pcOf (b + 18)) sub18S :=
+  h.1 18 sub18S (by decide +kernel)
 theorem codeAt_sub_26 {image : Image} {b : Nat} (h : SeedIndependentAt image b) :
     CodeAt image (pcOf (b + 26)) sub_26 :=
   h.1 26 sub_26 (by decide +kernel)
@@ -246,7 +247,6 @@ sym_block blkS_147 := symRun { noAlias := true } sub147S (pcOf (1013 + 147)) 100
 sym_block blkS_151 := symRun { noAlias := true } sub151S (pcOf (1013 + 151)) 100
 sym_block blkS_ntr := symRun { noAlias := true } nodeTrampS (pcOf 1653) 100
 sym_block blkS_ltr := symRun { noAlias := true } leafTrampS (pcOf 1660) 100
-sym_block blkS_24 := symRun { noAlias := true } sub24S (pcOf (1013 + 24)) 100
 sym_block blkS_ctr := symRun { noAlias := true } chainTrampS (pcOf 1667) 100
 sym_block blkS_157 := symRun { noAlias := true } sub157S (pcOf (1013 + 157)) 100
 sym_block blkS_hp := symRun { noAlias := true } hpS (pcOf 1528) 100

@@ -23,7 +23,7 @@ open SigGolfCandidate.T3.Security.Wots.Mask ClaudeWCT.W9.T3.Security.Wots.Mask
 
 /-- Queries outside leaf `L`'s chain rows and family coefficient cells (every layer; top leaves since T8D). -/
 def LeafOut (L : LeafAddr) : Spec.Domain → Prop
-  | .inl (.inr input) => ∀ c step value, c < chainCount L.lay → step < 7 → input ≠ chainRow ⟨L, c⟩ step value
+  | .inl (.inr input) => ∀ c step value, c < chainCount L.lay → step < 7 → input ≠ chainRowW ⟨L, c⟩ step value
   | .inr (.inl tweak) => ∀ j, j < WCT9.famCount L.lay →
       tweak ≠ WCT9.lowerSeedHeader L.lay L.tree (WCT9.famOrdinal L.lay L.leaf j / 2)
   | _ => True
@@ -47,8 +47,12 @@ theorem leafOut_of_cover {L : LeafAddr} {q : Spec.Domain} (h : ∀ c ∈ coverAd
   rcases q with (coin | input) | (tweak | other)
   · trivial
   · intro c step value hc hs heq
-    exact h ⟨L, c⟩ (List.mem_append_left _ (List.mem_map.mpr ⟨c, List.mem_range.mpr hc, rfl⟩)) step value
-      (by omega) heq
+    have hu := h ⟨L, c⟩ (List.mem_append_left _ (List.mem_map.mpr ⟨c, List.mem_range.mpr hc, rfl⟩)) step value
+      (by omega)
+    unfold chainRowW WCT9.chainInputW at heq
+    split at heq
+    · exact hu.2 heq
+    · exact hu.1 heq
   · intro j hj heq
     apply h ⟨⟨L.lay, L.tree, 0⟩, 2 * (WCT9.famOrdinal L.lay L.leaf j / 2)⟩
       (List.mem_append_right _ (List.mem_map.mpr ⟨j, List.mem_range.mpr hj, rfl⟩))
@@ -102,11 +106,11 @@ theorem leafOut_ftsQuery {index : Nat} {q : SigGolfCandidate.T3.Spec.Domain} (h 
 /-- Chain rows outside `L` (another leaf, or a chain index beyond the leaf's chains). -/
 theorem leafOut_chainInput {lay : Layer} {tree leaf i s : Nat} (v : Digest) (hi : i < 2 ^ 24) (hs : s < 256)
     (hna : ¬(LeafAlias lay tree leaf L ∧ i < chainCount L.lay)) :
-    LeafOut L (.inl (.inr (pad64 (chainInput lay tree leaf i s v)))) := by
+    LeafOut L (.inl (.inr (pad64 (WCT9.chainInputW lay tree leaf i s v)))) := by
   intro c step value hc hstep heq
-  rw [pad64_chainInput] at heq
+  rw [pad64_chainInputW] at heq
   have hc' : c < 2 ^ 24 := by have := chainCount_le L.lay; simp only [Nat.reducePow]; omega
-  obtain ⟨hal, rfl, -, -⟩ := chainInput_eq_chainRow (a := ⟨L, c⟩) hi hc' hs (by omega) heq
+  obtain ⟨hal, rfl, -, -⟩ := chainInputW_eq_chainRowW (a := ⟨L, c⟩) hi hc' hs (by omega) heq
   exact hna ⟨hal, hc⟩
 /-- Private cells of other layers or of non-zero tags are outside `L`. -/
 theorem leafOut_header {t l tr p ix : Nat} (h : t % 256 ≠ 0 ∨ l % 256 ≠ L.lay.val) :
@@ -127,15 +131,15 @@ theorem leafOut_of_hdr (input : HashInput) (h : BitVec 128)
     (htag : ∀ (l : Layer) tr leaf i step, step < 7 → h ≠ chainHeader l tr leaf i step) :
     LeafOut L (.inl (.inr input)) := by
   intro c step value _ hs heq
-  have hb : SigGolfCandidate.T3M.Extract.hdrBlock (chainRow ⟨L, c⟩ step value) =
+  have hb : SigGolfCandidate.T3M.Extract.hdrBlock (chainRowW ⟨L, c⟩ step value) =
       SphincsSecurity.bytesLE 16 (chainHeader L.lay L.tree L.leaf c step) :=
-    chainInput_header _ _ _ _ _ _
+    WCT9.chainInputW_header _ _ _ _ _ _
   rw [heq, hb] at hblock
   exact htag _ _ _ _ _ hs (SphincsSecurity.bytesLE_injective hblock).symm
 theorem leafOut_of_length (input : HashInput) (hl : input.length ≠ 64) : LeafOut L (.inl (.inr input)) := by
   intro c step value _ _ heq
   apply hl
-  rw [heq, Mask.chainRow_length]
+  rw [heq, chainRowW_length]
 theorem foldOK_leafOut (lay tree h : Nat) (h7 : lay ≠ 0 → h ≤ 7) : Mask.FoldOK (LeafOut L) lay tree h := by
   intro level i left right hlev hi
   refine leafOut_of_hdr L _ _ (SigGolfCandidate.T3M.Extract.hdrBlock_block4 left _ 0 right)
@@ -167,7 +171,7 @@ structure LeafAgree (L : LeafAddr) (T T' : Answers) : Prop where
 every chain's frontier value. -/
 structure LeafCongr (L : LeafAddr) (T T' : Answers) : Prop extends LeafAgree L T T' where
   rows : ∀ c, c < chainCount L.lay → ∀ s v, depth T ⟨L, c⟩ ≤ s → s < 256 →
-    T' (.inl (.inr (chainRow ⟨L, c⟩ s v))) = T (.inl (.inr (chainRow ⟨L, c⟩ s v)))
+    T' (.inl (.inr (chainRowW ⟨L, c⟩ s v))) = T (.inl (.inr (chainRowW ⟨L, c⟩ s v)))
   front : ∀ c, c < chainCount L.lay → frontierValue T' ⟨L, c⟩ = frontierValue T ⟨L, c⟩
 
 section Agree
@@ -297,7 +301,7 @@ theorem eval_chainL {c count : Nat} (hc : c < chainCount L.lay) (hd : depth T �
   rw [hf]
   refine Respects.eval_eq (S := fun q => T' q = T q) ?_ (fun q hq => hq)
   refine Mask.respects_chainW' _ _ _ _ _ _ _ fun step value hlo hhi => ?_
-  rw [pad64_chainInput]
+  rw [pad64_chainInputW]
   exact hC.rows c hc step value hlo (by omega)
 include hLleaf in
 theorem wotsEnd_congr {lay : Layer} {tree leaf : Nat} (hleaf : leaf < 2 ^ 24) (i : Nat) (hi : i < chainCount lay) :
@@ -658,7 +662,7 @@ attribute [local instance] Classical.propDecidable
 structure Congr (messages : LeafAddr → WCT9.LayerMsg) (L : LeafAddr) (T T' : Answers) : Prop
     extends LeafAgree L T T' where
   rows : ∀ c, c < chainCount L.lay → ∀ s v, CanonicalRef.depth T messages ⟨L, c⟩ ≤ s → s < 256 →
-    T' (.inl (.inr (chainRow ⟨L,c⟩ s v)))=T (.inl (.inr (chainRow ⟨L,c⟩ s v)))
+    T' (.inl (.inr (chainRowW ⟨L,c⟩ s v)))=T (.inl (.inr (chainRowW ⟨L,c⟩ s v)))
   front : ∀ c, c < chainCount L.lay →
     CanonicalRef.frontierValue T' messages ⟨L,c⟩=CanonicalRef.frontierValue T messages ⟨L,c⟩
 
@@ -696,7 +700,7 @@ theorem eval_chainL {c count : Nat} (hc : c < chainCount L.lay) (hd : CanonicalR
   rw [hf]
   refine Respects.eval_eq (S := fun q => T' q = T q) ?_ (fun q hq => hq)
   refine Mask.respects_chainW' _ _ _ _ _ _ _ fun step value hlo hhi => ?_
-  rw [pad64_chainInput]
+  rw [pad64_chainInputW]
   exact hC.rows c hc step value hlo (by omega)
 include hLleaf in
 theorem wotsEnd_congr {lay : Layer} {tree leaf : Nat} (hleaf : leaf < 2 ^ 24) (i : Nat) (hi : i < chainCount lay) :

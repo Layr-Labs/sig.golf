@@ -65,6 +65,10 @@ theorem tree_lt_of_treeBits {lay : Layer} {tree : Nat} (ht : tree < 2 ^ treeBits
   lt_of_lt_of_le ht (le_trans (Nat.pow_le_pow_right (by decide) (treeBits_le lay)) (by norm_num))
 theorem leaf_lt_4096 {lay : Layer} {leaf : Nat} (hl : leaf < 2 ^ height lay) : leaf < 4096 := by
   fin_cases lay <;> simp [height] at hl ⊢ <;> omega
+/-- The honest chain value of the current scheme after `step` steps (`WCT9.chainW`; pairing stage 1: the G chains'
+interior steps keep the high half). -/
+def honestChainValueW (answers : Answers) (lay : Layer) (tree leaf i : Nat) (seed : Digest) (step : Nat) : Digest :=
+  evalWithAnswerFn answers (WCT9.chainW lay tree leaf i 0 step seed)
 inductive Pos where
   | chain (lay : Layer) (tree leaf i step : Nat)
   | leaf (lay : Layer) (tree leaf : Nat)
@@ -74,8 +78,8 @@ inductive Pos where
   | wctLeaf (index coord child : Nat)
   | wctNode (index coord level node : Nat)
 noncomputable def honestInput (answers : Answers) : Pos → HashInput
-  | .chain lay tree leaf i step => pad64 (chainInput lay tree leaf i step
-      (honestChainValue answers lay tree leaf i (wotsSeed answers lay tree leaf i) step))
+  | .chain lay tree leaf i step => pad64 (WCT9.chainInputW lay tree leaf i step
+      (honestChainValueW answers lay tree leaf i (wotsSeed answers lay tree leaf i) step))
   | .leaf lay tree leaf => pad64 (leafInput lay tree leaf
       ((List.range (chainCount lay)).map (wotsEnd answers lay tree leaf)))
   | .node lay tree level node => pad64 (WCT9.merkleNodeInput lay.val tree (2 ^ (height lay - level - 1) + node)

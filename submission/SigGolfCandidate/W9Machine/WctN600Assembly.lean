@@ -553,7 +553,7 @@ theorem merkleField_of_frame {L : Layout} {w : WBytes} {index : Nat} {k : Fin 9}
   have h1 : OrigW w u (base k + off + 8) := by
     simpa only [Nat.add_assoc] using hu.origW (off + 8) (by omega) (by omega)
   have hdig := DigAt_origW h0 h1 (by unfold base coordinateBase; omega)
-  have he : base k + off - 0x4c0 = V3.regionOffset k.val + off := by
+  have he : base k + off - 0xB58 = V3.regionOffset k.val + off := by
     unfold base coordinateBase V3.regionOffset
     omega
   rw [he] at hdig
@@ -638,7 +638,7 @@ theorem Inv.leafPost {L : Layout} {w : WBytes} {index : Nat} {k : Fin 9} {j : Fi
     have hw1 : OrigW w u (base k + 720 + 8) := by
       simpa only [Nat.add_assoc] using hu.origW 728 (by decide) (by decide)
     have hdig := DigAt_origW hw0 hw1 (by unfold base coordinateBase; omega)
-    have he : base k + 720 - 0x4c0 = V3.regionOffset k.val + 720 := by
+    have he : base k + 720 - 0xB58 = V3.regionOffset k.val + 720 := by
       unfold base coordinateBase V3.regionOffset
       omega
     rw [he] at hdig

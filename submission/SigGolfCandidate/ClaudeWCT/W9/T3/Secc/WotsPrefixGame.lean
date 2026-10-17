@@ -101,10 +101,10 @@ theorem reference_map_eq_frozen (adversary : AdversaryP) (q : Nat) (a : ChainAdd
     PMF.map_comp, PMF.map_comp]
   exact map_congr_support _ _ _ fun res hres => hfg R x res hres
 def PrefixRowAt (answers : Answers) (a : ChainAddr) (input : HashInput) : Prop :=
-  ∃ step value, step < depth answers a ∧ input = chainRow a step value
+  ∃ step value, step < depth answers a ∧ input = chainRowW a step value
 noncomputable def sampleRows (a : ChainAddr) (s : RefSample) (step : Nat) (value : Digest) : Option Digest :=
   if step < depth s.answers a then
-    (s.trace.find? fun e => decide (e.1 = chainRow a step value)).map fun e => rowHalf a step e.2
+    (s.trace.find? fun e => decide (e.1 = chainRowW a step value)).map fun e => rowHalf a step e.2
   else none
 noncomputable def prefixCount (a : ChainAddr) (s : RefSample) : Nat :=
   (s.trace.filter fun e => decide (PrefixRowAt s.answers a e.1)).length
@@ -125,7 +125,7 @@ theorem sampleView_coupled (adversary : AdversaryP) (q : Nat) (a : ChainAddr) (R
   have hdepth : depth (restTable (PrefixGame.ov a (restDepth a R) R x)) a = restDepth a R :=
     (restDepth_eq a (PrefixGame.ov a (restDepth a R) R x)).symm.trans (PrefixGame.restDepth_ov a R x)
   have hrows : ∀ (i : Fin (restDepth a R)) (v : Digest), res.2 i v =
-      if (.inl (.inr (chainRow a i v)) : RefWorld.Domain) ∈ res.1.2 then some (x.1 i v) else none := by
+      if (.inl (.inr (chainRowW a i v)) : RefWorld.Domain) ∈ res.1.2 then some (x.1 i v) else none := by
     unfold seedGame at hres
     revert hres
     intro hres i v
@@ -140,7 +140,7 @@ theorem sampleView_coupled (adversary : AdversaryP) (q : Nat) (a : ChainAddr) (R
     rw [hdepth]
     by_cases hs : step < restDepth a R
     · rw [if_pos hs, dif_pos hs, traceOf_find, hrows ⟨step, hs⟩ value]
-      by_cases hm : (.inl (.inr (chainRow a step value)) : RefWorld.Domain) ∈ res.1.2
+      by_cases hm : (.inl (.inr (chainRowW a step value)) : RefWorld.Domain) ∈ res.1.2
       · rw [if_pos hm, if_pos hm]
         simp only [Option.map_some]
         rw [rowHalf, PrefixGame.restTable_ov_prefix a hd R x ⟨step, hs⟩ value]
@@ -174,7 +174,7 @@ theorem sampleRows_eq_some (a : ChainAddr) (s : RefSample) (qs : List RefWorld.D
   rw [hs, traceOf_find]
   by_cases hstep : step < depth s.answers a
   · rw [if_pos hstep]
-    by_cases hm : (.inl (.inr (chainRow a step value)) : RefWorld.Domain) ∈ qs
+    by_cases hm : (.inl (.inr (chainRowW a step value)) : RefWorld.Domain) ∈ qs
     · rw [if_pos hm]
       simp only [Option.map_some, Option.some.injEq, hstep, true_and]
       constructor
@@ -344,10 +344,10 @@ noncomputable local instance (inputs : Finset HashInput) : SampleableType (input
 variable {U : Finset HashInput} (hU : SeccLaw.publicUniverse⊆U)
 
 def PrefixRowAt (answers : Answers) (a : ChainAddr) (input : HashInput) : Prop :=
-  ∃ step value, step < CanonicalRef.depth answers (sourceMessages answers) a ∧ input = chainRow a step value
+  ∃ step value, step < CanonicalRef.depth answers (sourceMessages answers) a ∧ input = chainRowW a step value
 noncomputable def sampleRows (a : ChainAddr) (s : RefSample) (step : Nat) (value : Digest) : Option Digest :=
   if step < CanonicalRef.depth s.answers (sourceMessages s.answers) a then
-    (s.trace.find? fun e => decide (e.1 = chainRow a step value)).map fun e => rowHalf a step e.2
+    (s.trace.find? fun e => decide (e.1 = chainRowW a step value)).map fun e => rowHalf a step e.2
   else none
 noncomputable def prefixCount (a : ChainAddr) (s : RefSample) : Nat :=
   (s.trace.filter fun e => decide (PrefixRowAt s.answers a e.1)).length
@@ -369,7 +369,7 @@ theorem sampleView_coupled (adversary : ClaudeWCT.W9.T3M.Final.Paired.AdversaryP
     (depth_eq (referenceInputs_subset adversary) _ a ha).trans
       ((RawPrefix.restDepth_eq a (RawPrefix.ov a (RawPrefix.restDepth a R) R x)).symm.trans (RawPrefix.restDepth_ov a R x))
   have hrows : ∀ (i : Fin (RawPrefix.restDepth a R)) (v : Digest), res.2 i v =
-      if (.inl (.inr (chainRow a i v)) : RefWorld.Domain) ∈ res.1.2 then some (x.1 i v) else none := by
+      if (.inl (.inr (chainRowW a i v)) : RefWorld.Domain) ∈ res.1.2 then some (x.1 i v) else none := by
     unfold seedGame at hres
     revert hres
     intro hres i v
@@ -385,7 +385,7 @@ theorem sampleView_coupled (adversary : ClaudeWCT.W9.T3M.Final.Paired.AdversaryP
     rw [hdepth]
     by_cases hs : step < RawPrefix.restDepth a R
     · rw [if_pos hs, dif_pos hs, traceOf_find, hrows ⟨step, hs⟩ value]
-      by_cases hm : (.inl (.inr (chainRow a step value)) : RefWorld.Domain) ∈ res.1.2
+      by_cases hm : (.inl (.inr (chainRowW a step value)) : RefWorld.Domain) ∈ res.1.2
       · rw [if_pos hm, if_pos hm]
         simp only [Option.map_some]
         -- C3 (#866): a row is read through the half its step keeps.
@@ -420,7 +420,7 @@ theorem sampleRows_eq_some (a : ChainAddr) (s : RefSample) (qs : List RefWorld.D
   rw [hs, traceOf_find]
   by_cases hstep : step < CanonicalRef.depth s.answers (sourceMessages s.answers) a
   · rw [if_pos hstep]
-    by_cases hm : (.inl (.inr (chainRow a step value)) : RefWorld.Domain) ∈ qs
+    by_cases hm : (.inl (.inr (chainRowW a step value)) : RefWorld.Domain) ∈ qs
     · rw [if_pos hm]
       simp only [Option.map_some, Option.some.injEq, hstep, true_and]
       constructor

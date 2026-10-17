@@ -5,9 +5,17 @@ import SigGolfCandidate.T3M.Keygen.Blocks
 section
 namespace SigGolfCandidate.T3M.Keygen.PackedBlocks
 open RiscvZkvm.Rv64 SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv SigGolfCandidate.Rv
+/-- Pairing stage 1: the sign chain header now ends at 1031 (`jal 1732`, the G/F step block), with `t3 = CHAIN`
+and no HASH arguments set. -/
+structure SignHeaderPost (s t : MachineState) (height : Nat) : Prop where
+  low : t.getMem (BitVec.ofNat 64 (0x201A0 + 16)) = packedAt s height
+  high : t.getMem (BitVec.ofNat 64 (0x201A0 + 24)) = routedAt s height >>> 32
+  x28 : t.getReg .x28 = BitVec.ofNat 64 0x201A0
+  regs : RegsExcept s t [.x6, .x7, .x28, .x30]
+  frame : Frame s t (fun A => A = 0x201A0 + 16 ∨ A = 0x201A0 + 24)
 theorem sign_header_0 (s : MachineState) (hpc : s.pc = pcOf 1022)
     (h8 : s.getReg .x8 = 0#64) :
-    ∃ t, Steps Images.signReferenceImage s 30 30 t ∧ t.pc = pcOf 1036 ∧ HeaderPost s t 12 := by
+    ∃ t, Steps Images.signReferenceImage s 25 25 t ∧ t.pc = pcOf 1031 ∧ SignHeaderPost s t 12 := by
   let s0 := run_sign_entry.res.toState s
   have h0 := steps_sign_entry s hpc
   let s1 := run_sign_layer0.res.toState s0
@@ -22,8 +30,6 @@ theorem sign_header_0 (s : MachineState) (hpc : s.pc = pcOf 1022)
     · simp [s3, s2, s1, s0, run_sign_entry.res, run_sign_layer0.res, run_sign_body.res, run_sign_store.res, rv_simp, packedAt, routedAt]
     · simp [s3, s2, s1, s0, run_sign_entry.res, run_sign_layer0.res, run_sign_body.res, run_sign_store.res, rv_simp, routedAt]
     · simp [s3, s2, s1, s0, run_sign_entry.res, run_sign_layer0.res, run_sign_body.res, run_sign_store.res, rv_simp]
-    · simp [s3, s2, s1, s0, run_sign_entry.res, run_sign_layer0.res, run_sign_body.res, run_sign_store.res, rv_simp]
-    · simp [s3, s2, s1, s0, run_sign_entry.res, run_sign_layer0.res, run_sign_body.res, run_sign_store.res, rv_simp]
     · intro r hr
       cases r <;> simp_all [s3, s2, s1, s0, run_sign_entry.res, run_sign_layer0.res, run_sign_body.res, run_sign_store.res, rv_simp] <;> rfl
     · intro A hA hn
@@ -32,7 +38,7 @@ theorem sign_header_0 (s : MachineState) (hpc : s.pc = pcOf 1022)
       rw [if_neg (by omega), if_neg (by omega)]
 theorem sign_header_1 (s : MachineState) (hpc : s.pc = pcOf 1022)
     (h8 : s.getReg .x8 = 1#64) :
-    ∃ t, Steps Images.signReferenceImage s 33 33 t ∧ t.pc = pcOf 1036 ∧ HeaderPost s t 7 := by
+    ∃ t, Steps Images.signReferenceImage s 28 28 t ∧ t.pc = pcOf 1031 ∧ SignHeaderPost s t 7 := by
   let s0 := run_sign_entry.res.toState s
   have h0 := steps_sign_entry s hpc
   let s1 := run_sign_layer0.res.toState s0
@@ -51,8 +57,6 @@ theorem sign_header_1 (s : MachineState) (hpc : s.pc = pcOf 1022)
     · simp [s5, s4, s3, s2, s1, s0, run_sign_entry.res, run_sign_layer0.res, run_sign_layer1.res, run_sign_inc.res, run_sign_body.res, run_sign_store.res, rv_simp, packedAt, routedAt]
     · simp [s5, s4, s3, s2, s1, s0, run_sign_entry.res, run_sign_layer0.res, run_sign_layer1.res, run_sign_inc.res, run_sign_body.res, run_sign_store.res, rv_simp, routedAt]
     · simp [s5, s4, s3, s2, s1, s0, run_sign_entry.res, run_sign_layer0.res, run_sign_layer1.res, run_sign_inc.res, run_sign_body.res, run_sign_store.res, rv_simp]
-    · simp [s5, s4, s3, s2, s1, s0, run_sign_entry.res, run_sign_layer0.res, run_sign_layer1.res, run_sign_inc.res, run_sign_body.res, run_sign_store.res, rv_simp]
-    · simp [s5, s4, s3, s2, s1, s0, run_sign_entry.res, run_sign_layer0.res, run_sign_layer1.res, run_sign_inc.res, run_sign_body.res, run_sign_store.res, rv_simp]
     · intro r hr
       cases r <;> simp_all [s5, s4, s3, s2, s1, s0, run_sign_entry.res, run_sign_layer0.res, run_sign_layer1.res, run_sign_inc.res, run_sign_body.res, run_sign_store.res, rv_simp] <;> rfl
     · intro A hA hn
@@ -61,7 +65,7 @@ theorem sign_header_1 (s : MachineState) (hpc : s.pc = pcOf 1022)
       rw [if_neg (by omega), if_neg (by omega)]
 theorem sign_header_2 (s : MachineState) (hpc : s.pc = pcOf 1022)
     (h8 : s.getReg .x8 = 2#64) :
-    ∃ t, Steps Images.signReferenceImage s 34 34 t ∧ t.pc = pcOf 1036 ∧ HeaderPost s t 6 := by
+    ∃ t, Steps Images.signReferenceImage s 29 29 t ∧ t.pc = pcOf 1031 ∧ SignHeaderPost s t 6 := by
   let s0 := run_sign_entry.res.toState s
   have h0 := steps_sign_entry s hpc
   let s1 := run_sign_layer0.res.toState s0
@@ -79,8 +83,6 @@ theorem sign_header_2 (s : MachineState) (hpc : s.pc = pcOf 1022)
   · constructor
     · simp [s5, s4, s3, s2, s1, s0, run_sign_entry.res, run_sign_layer0.res, run_sign_layer1.res, run_sign_layer23.res, run_sign_body.res, run_sign_store.res, rv_simp, packedAt, routedAt]
     · simp [s5, s4, s3, s2, s1, s0, run_sign_entry.res, run_sign_layer0.res, run_sign_layer1.res, run_sign_layer23.res, run_sign_body.res, run_sign_store.res, rv_simp, routedAt]
-    · simp [s5, s4, s3, s2, s1, s0, run_sign_entry.res, run_sign_layer0.res, run_sign_layer1.res, run_sign_layer23.res, run_sign_body.res, run_sign_store.res, rv_simp]
-    · simp [s5, s4, s3, s2, s1, s0, run_sign_entry.res, run_sign_layer0.res, run_sign_layer1.res, run_sign_layer23.res, run_sign_body.res, run_sign_store.res, rv_simp]
     · simp [s5, s4, s3, s2, s1, s0, run_sign_entry.res, run_sign_layer0.res, run_sign_layer1.res, run_sign_layer23.res, run_sign_body.res, run_sign_store.res, rv_simp]
     · intro r hr
       cases r <;> simp_all [s5, s4, s3, s2, s1, s0, run_sign_entry.res, run_sign_layer0.res, run_sign_layer1.res, run_sign_layer23.res, run_sign_body.res, run_sign_store.res, rv_simp] <;> rfl
@@ -90,7 +92,7 @@ theorem sign_header_2 (s : MachineState) (hpc : s.pc = pcOf 1022)
       rw [if_neg (by omega), if_neg (by omega)]
 theorem sign_header_3 (s : MachineState) (hpc : s.pc = pcOf 1022)
     (h8 : s.getReg .x8 = 3#64) :
-    ∃ t, Steps Images.signReferenceImage s 34 34 t ∧ t.pc = pcOf 1036 ∧ HeaderPost s t 6 := by
+    ∃ t, Steps Images.signReferenceImage s 29 29 t ∧ t.pc = pcOf 1031 ∧ SignHeaderPost s t 6 := by
   let s0 := run_sign_entry.res.toState s
   have h0 := steps_sign_entry s hpc
   let s1 := run_sign_layer0.res.toState s0
@@ -108,8 +110,6 @@ theorem sign_header_3 (s : MachineState) (hpc : s.pc = pcOf 1022)
   · constructor
     · simp [s5, s4, s3, s2, s1, s0, run_sign_entry.res, run_sign_layer0.res, run_sign_layer1.res, run_sign_layer23.res, run_sign_body.res, run_sign_store.res, rv_simp, packedAt, routedAt]
     · simp [s5, s4, s3, s2, s1, s0, run_sign_entry.res, run_sign_layer0.res, run_sign_layer1.res, run_sign_layer23.res, run_sign_body.res, run_sign_store.res, rv_simp, routedAt]
-    · simp [s5, s4, s3, s2, s1, s0, run_sign_entry.res, run_sign_layer0.res, run_sign_layer1.res, run_sign_layer23.res, run_sign_body.res, run_sign_store.res, rv_simp]
-    · simp [s5, s4, s3, s2, s1, s0, run_sign_entry.res, run_sign_layer0.res, run_sign_layer1.res, run_sign_layer23.res, run_sign_body.res, run_sign_store.res, rv_simp]
     · simp [s5, s4, s3, s2, s1, s0, run_sign_entry.res, run_sign_layer0.res, run_sign_layer1.res, run_sign_layer23.res, run_sign_body.res, run_sign_store.res, rv_simp]
     · intro r hr
       cases r <;> simp_all [s5, s4, s3, s2, s1, s0, run_sign_entry.res, run_sign_layer0.res, run_sign_layer1.res, run_sign_layer23.res, run_sign_body.res, run_sign_store.res, rv_simp] <;> rfl

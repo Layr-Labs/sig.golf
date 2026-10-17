@@ -80,7 +80,8 @@ theorem routeImpl_congr (K K' : Fin (WCT9.famCount L.lay) → Digest) (f f' : Fi
     cases hp : PrefixGame.rowOf a (restDepth a R) input with
     | some p =>
         simp only
-        rw [PrefixGame.rowOf_some hp, otherHalf_ovL L R, otherHalf_ovL L R]
+        have hp256 : (p.1 : Nat) < 256 := by have := p.1.isLt; have := PrefixGame.restDepth_le a R; omega
+        rw [PrefixGame.rowOf_some hp, otherHalf_ovL L R _ _ _ _ hp256, otherHalf_ovL L R _ _ _ _ hp256]
     | none =>
         simp only
         congr 1
@@ -162,7 +163,8 @@ theorem frozen_point (K : Fin (WCT9.famCount L.lay) → Digest) (p : PData L (re
       evalT (seedsY (ptL L) (revSet L R) K) (testRun GD aF p (seedsR (ptL L) (revSet L R) K)) := by
   rw [GD_prog haL hac hLleaf R hd1 GD hG aF haF K p]
   unfold testRun
-  rw [evalT_testRun R aF (mkP p (seedsR (ptL L) (revSet L R) K)) (seedsY (ptL L) (revSet L R) K) K]
+  rw [evalT_testRun R aF (mkP p (seedsR (ptL L) (revSet L R) K))
+    (by have := PrefixGame.restDepth_le a R; omega) (seedsY (ptL L) (revSet L R) K) K]
   have hfy : fY L (restDepth a R) (revSet L R) (mkP p (seedsR (ptL L) (revSet L R) K))
       (seedsY (ptL L) (revSet L R) K) = progF p.1.1 p.1.2 K := by
     funext c
@@ -185,7 +187,8 @@ theorem mix_point (K : Fin (WCT9.famCount L.lay) → Digest) (p : PData L (restD
       evalT (seedsH (ptL L) (revSet L R) aF K s) (testRun GD aF p (seedsR (ptL L) (revSet L R) K)) := by
   rw [GD_prog haL hac hLleaf R hd1 GD hG aF haF K p]
   unfold testRun
-  rw [evalT_testRun R aF (mkP p (seedsR (ptL L) (revSet L R) K)) (seedsH (ptL L) (revSet L R) aF K s) K]
+  rw [evalT_testRun R aF (mkP p (seedsR (ptL L) (revSet L R) K))
+    (by have := PrefixGame.restDepth_le a R; omega) (seedsH (ptL L) (revSet L R) aF K s) K]
   have hya : seedsH (ptL L) (revSet L R) aF K s aF = s := by unfold seedsH; rw [if_pos rfl]
   rw [hya, tY_mkP p (seedsR (ptL L) (revSet L R) K) 0,
     routeImpl_congr haL hac R hd1 K K _ (fY L (restDepth a R) (revSet L R) (mkP p (seedsR (ptL L) (revSet L R) K))

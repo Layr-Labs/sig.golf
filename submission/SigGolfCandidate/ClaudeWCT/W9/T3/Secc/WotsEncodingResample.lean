@@ -1406,7 +1406,7 @@ theorem respects_chainPrefixes (lay : Layer) (tree leaf i start count : Nat) (va
   | succ count ih =>
     unfold chainPrefixes
     exact Respects.bind (ClaudeWCT.W9.T3.Security.Wots.Mask.respects_halfHash' _ _
-      (nonEnc_chainInput _ _ _ _ _ _)) fun _ =>
+      (nonEnc_chainInputW _ _ _ _ _ _)) fun _ =>
       Respects.bind (ih _ _) fun _ => Respects.pure' _
 
 theorem respects_buildLeafPrefixes (lay : Layer) (tree leaf : Nat) (carry : Digest) :

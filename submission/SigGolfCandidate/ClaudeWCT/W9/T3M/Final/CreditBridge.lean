@@ -102,11 +102,20 @@ theorem notEnc_leafHash (lay : Layer) (tree leaf : Nat) (ends : List Digest) (hl
   unfold SigGolfCandidate.T3.leafHash
   have hl := leafInput_long lay tree leaf ends hlen
   exact notEnc_shortHash _ (by omega) (nonEnc_pad64_long _ hl)
+/-- Pairing stage 1: a chain row of the current scheme (F or G format) is no encoding row (header marker). -/
+theorem nonEnc_chainInputW (lay : Layer) (tree leaf i s : Nat) (v : Digest) :
+    NonEnc (.inl (.inr (pad64 (ClaudeWCT.WCT9.chainInputW lay tree leaf i s v)))) := by
+  apply nonEnc_of_hdr _ (SigGolfCandidate.T3.chainHeader lay tree leaf i s) _
+    (notHyper_of_marker (by
+      unfold SigGolfCandidate.T3.tweakMarker
+      have := SigGolfCandidate.T3.chainHeader_firstByte lay tree leaf i s; omega))
+  rw [ClaudeWCT.WCT9.chainInputW_padded]
+  exact ClaudeWCT.WCT9.chainInputW_header _ _ _ _ _ _
 theorem notEnc_chainW (lay : Layer) (tree leaf i start count : Nat) (v : Digest) :
     AllQueriesSatisfy (ClaudeWCT.WCT9.chainW lay tree leaf i start count v) NotEncS :=
   allQ_foldlM _ _ (fun _ _ => notEnc_halfHash _ _
-    (by simp [SigGolfCandidate.T3.chainInput, bytesLE_length, SigGolfCandidate.T3.zero16])
-    (nonEnc_chainInput _ _ _ _ _ _)) _
+    (by rw [ClaudeWCT.WCT9.chainInputW_length]; omega)
+    (nonEnc_chainInputW _ _ _ _ _ _)) _
 theorem notEnc_lowerLeafHash (lay : Layer) (tree leaf : Nat) (ends : List Digest) (hlen : 4 ≤ ends.length) :
     AllQueriesSatisfy (ClaudeWCT.WCT9.lowerLeafHash lay tree leaf ends) NotEncS := by
   have hl := leafInput_long lay tree leaf ends hlen
@@ -417,7 +426,7 @@ attribute [local reducible] SphincsSecurity.hashOutputBits ClaudeWCT.W9.T3M.subm
   SigGolfCandidate.Legacy.Output SigGolfCandidate.Legacy.Input
 set_option maxRecDepth 100000 in
 theorem expand_witness (P : Pending I) (hash : Hash) (m : Message) (pk : PublicKey) (s : Bytes 5310)
-    (w : Bytes 24828) (he : ((ClaudeWCT.W9.T3M.submission I).runWith hash .expand (m, pk, s)).value = some w) :
+    (w : Bytes 23236) (he : ((ClaudeWCT.W9.T3M.submission I).runWith hash .expand (m, pk, s)).value = some w) :
     ∃ σ' N wt, evalWithAnswerFn (machineAnswers hash 0) (ClaudeWCT.W9.T3M.expandN0 m pk σ') = some (N, wt) ∧
       w = ClaudeWCT.W9.T3M.witEnc N wt := by
   have h := congrArg (evalWithAnswerFn hash) (expand_value P m pk s)
@@ -433,7 +442,7 @@ theorem expand_witness (P : Pending I) (hash : Hash) (m : Message) (pk : PublicK
       obtain ⟨c, -, -, h0⟩ := ClaudeWCT.W9.T3M.expandN_completion _ m pk _ N wt hx
       exact ⟨_, N, wt, h0, (Option.some.inj he).symm⟩
 set_option maxRecDepth 100000 in
-theorem verify_run_ok (P : Pending I) (hash : Hash) (m : Message) (pk : PublicKey) (w : Bytes 24828)
+theorem verify_run_ok (P : Pending I) (hash : Hash) (m : Message) (pk : PublicKey) (w : Bytes 23236)
     (hagree : Agree hash (okHash hash) (mrealize 0 (ClaudeWCT.W9.T3M.verifyP m pk w))) :
     (ClaudeWCT.W9.T3M.submission I).runWith hash .verify (m, pk, w) =
       (ClaudeWCT.W9.T3M.submission I).runWith (okHash hash) .verify (m, pk, w) := by
@@ -767,7 +776,7 @@ set_option maxHeartbeats 1000000
 set_option backward.isDefEq.respectTransparency false
 
 theorem expand_witness (E : EncodingFacts) (F : SourceQueries) (P : Final.Paired.Pending I)
-    (hash : Hash) (m : Message) (pk : PublicKey) (s : Bytes 5248) (w : Bytes 24828)
+    (hash : Hash) (m : Message) (pk : PublicKey) (s : Bytes 5248) (w : Bytes 23236)
     (he : ((Final.Paired.submission I).runWith hash .expand (m,pk,s)).value=some w) :
     ∃sig output wt,evalWithAnswerFn (machineAnswers hash 0)
       (ClaudeWCT.W9.T3M.Paired.expandN m pk sig)=some (output,wt) ∧
@@ -785,7 +794,7 @@ theorem expand_witness (E : EncodingFacts) (F : SourceQueries) (P : Final.Paired
     exact ⟨_,output,wt,hx,(Option.some.inj he).symm⟩
 
 theorem verify_run_agree (E : EncodingFacts) (F : SourceQueries) (P : Final.Paired.Pending I)
-    (f g : Hash) (m : Message) (pk : PublicKey) (w : Bytes 24828)
+    (f g : Hash) (m : Message) (pk : PublicKey) (w : Bytes 23236)
     (hagree : Agree f g (mrealize 0 (ClaudeWCT.W9.T3M.Paired.verifyP m pk w))) :
     (Final.Paired.submission I).runWith f .verify (m,pk,w)=
       (Final.Paired.submission I).runWith g .verify (m,pk,w) := by

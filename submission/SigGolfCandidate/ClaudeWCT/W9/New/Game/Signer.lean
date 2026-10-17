@@ -33,7 +33,7 @@ theorem pubGood_halfHash (high : Bool) (input : HashInput) (h : 0 < input.length
 theorem lowerQuery_chainW (leaf i start count : Nat) (value : Digest) :
     AllQueriesSatisfy (chainW lay tree leaf i start count value) (LowerQuery lay tree) :=
   allQ_mono (allQ_foldlM _ _ (fun _ _ => pubGood_halfHash _ _
-    (by simp [SigGolfCandidate.T3.chainInput, bytesLE_length, zero16])) _) (fun _ h => Or.inl h)
+    (by rw [chainInputW_length]; omega)) _) (fun _ h => Or.inl h)
 /-- C2: the leaf hash of the current scheme (`lowerLeafHash`). -/
 theorem lowerQuery_lowerLeafHash (leaf : Nat) (ends : List Digest) :
     AllQueriesSatisfy (lowerLeafHash lay tree leaf ends) (LowerQuery lay tree) := by
@@ -357,14 +357,12 @@ theorem halfHash_allowed_of_short (P : SigGolfCandidate.T3.Spec.Domain → Prop)
   unfold publicHash
   exact SourceQueries.bind_allowed P ((allQueriesSatisfy_query_iff _ _).mpr hq) fun _ => SourceQueries.pure_allowed P _
 theorem chainW_allowed_of_chain (P : SigGolfCandidate.T3.Spec.Domain → Prop)
-    (hchain : ∀ (lay : Layer) tree leaf i start count value,
-      AllQueriesSatisfy (SigGolfCandidate.T3.chain lay tree leaf i start count value) P)
+    (hstep : ∀ (lay : Layer) tree leaf i step value,
+      AllQueriesSatisfy (shortHash (WCT9.chainInputW lay tree leaf i step value)) P)
     (lay : Layer) (tree leaf i start count : Nat) (value : Digest) :
     AllQueriesSatisfy (WCT9.chainW lay tree leaf i start count value) P := by
   unfold WCT9.chainW
-  refine SourceQueries.foldlM_allowed P _ _ (fun v step => halfHash_allowed_of_short P _ ?_) _
-  have h1 := hchain lay tree leaf i step 1 v
-  simpa [SigGolfCandidate.T3.chain] using h1
+  exact SourceQueries.foldlM_allowed P _ _ (fun v step => halfHash_allowed_of_short P _ (hstep lay tree leaf i step v)) _
 theorem lowerLeafHash_allowed_of_leafHash (P : SigGolfCandidate.T3.Spec.Domain → Prop)
     (hleaf : ∀ (lay : Layer) tree leaf ends, AllQueriesSatisfy (SigGolfCandidate.T3.leafHash lay tree leaf ends) P)
     (lay : Layer) (tree leaf : Nat) (ends : List Digest) :
@@ -481,8 +479,8 @@ theorem buildLevelsBelow_allowed (P : SigGolfCandidate.T3.Spec.Domain → Prop)
   rw [show k + 1 - 1 = k by omega, List.getD_eq_getElem?_getD, List.getElem?_append_right (by omega)]
   simp [hl, hnl]
 theorem buildTreeP_allowed' (P : SigGolfCandidate.T3.Spec.Domain → Prop)
-    (hchain : ∀ (lay : Layer) tree leaf i start count value,
-      AllQueriesSatisfy (SigGolfCandidate.T3.chain lay tree leaf i start count value) P)
+    (hchain : ∀ (lay : Layer) tree leaf i step value,
+      AllQueriesSatisfy (shortHash (WCT9.chainInputW lay tree leaf i step value)) P)
     (hleaf : ∀ (lay : Layer) tree leaf ends, AllQueriesSatisfy (SigGolfCandidate.T3.leafHash lay tree leaf ends) P)
     (hnode : ∀ (lay : Layer) tree heap left right, heap < 2 ^ height lay →
       AllQueriesSatisfy (WCT9.lowerNodeHash lay.val tree heap left right) P)
@@ -609,6 +607,9 @@ needs the honest heap bound `heap < 2 ^ height lay` (the packed node word's mark
 structure TailAllowed (Q : SigGolfCandidate.T3.Spec.Domain → Prop) : Prop where
   chainStep : ∀ lay tree leaf i step value,
     AllQueriesSatisfy (shortHash (SigGolfCandidate.T3.chainInput lay tree leaf i step value)) Q
+  /-- Pairing stage 1: the chain steps of the current scheme (G chains included). -/
+  chainStepW : ∀ lay tree leaf i step value,
+    AllQueriesSatisfy (shortHash (WCT9.chainInputW lay tree leaf i step value)) Q
   leaf : ∀ lay tree leaf ends, AllQueriesSatisfy (SigGolfCandidate.T3.leafHash lay tree leaf ends) Q
   node : ∀ (lay : Layer) tree heap left right, heap < 2 ^ height lay →
     AllQueriesSatisfy (lowerNodeHash lay.val tree heap left right) Q
@@ -630,7 +631,7 @@ theorem chainW_allowed (lay : Layer) (tree leaf i start count : Nat) (value : Di
     AllQueriesSatisfy (chainW lay tree leaf i start count value) Q := by
   unfold chainW
   exact SourceQueries.foldlM_allowed Q _ _ (fun _ _ =>
-    Signer.halfHash_allowed_of_short Q _ (hQ.chainStep ..)) _
+    Signer.halfHash_allowed_of_short Q _ (hQ.chainStepW ..)) _
 
 theorem lowerLeafHash_allowed (lay : Layer) (tree leaf : Nat) (ends : List Digest) :
     AllQueriesSatisfy (lowerLeafHash lay tree leaf ends) Q :=
@@ -662,7 +663,7 @@ theorem chainPrefixes_allowed (lay : Layer) (tree leaf i start count : Nat) (val
   | zero => exact SourceQueries.pure_allowed Q _
   | succ count ih =>
     unfold chainPrefixes
-    exact SourceQueries.bind_allowed Q (Signer.halfHash_allowed_of_short Q _ (hQ.chainStep ..)) fun _ =>
+    exact SourceQueries.bind_allowed Q (Signer.halfHash_allowed_of_short Q _ (hQ.chainStepW ..)) fun _ =>
       SourceQueries.bind_allowed Q (ih ..) fun _ => SourceQueries.pure_allowed Q _
 
 theorem buildLeafPrefixes_allowed (lay : Layer) (tree leaf : Nat) (carry : Digest) :

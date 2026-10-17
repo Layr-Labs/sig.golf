@@ -33,7 +33,7 @@ def mkOff (lay ci : Nat) : Nat → Nat
   | kk + 1 => mkOff lay ci kk + mkWords lay (mkLo lay ci + kk)
 /-- C4: every layer (the top included) places its windows by the plan (`plan 0` = the two-line top plan). -/
 def mkBo (lay leaf l : Nat) : Nat := mkBase lay + 16 * plan lay leaf l
-def mkBlk (lay leaf l : Nat) : Nat := 0x4c0 + mkBo lay leaf l
+def mkBlk (lay leaf l : Nat) : Nat := 0xB58 + mkBo lay leaf l
 /-- Position of the value a level reads as its current input (left slot for bit 0, right slot for bit 1). -/
 def mkVal (lay leaf l b : Nat) : Nat := mkBlk lay leaf l + 48 * b
 /-- Hash destination (`a2`) feeding level `l`: the value position, except that a left child (C2, and C4 on the top:
@@ -118,7 +118,7 @@ def mkBlockCheck (lay ci sh : Nat) : Bool :=
 def mkChunkCheck (lay ci lo n : Nat) : Bool := (List.range' lo n).all (mkBlockCheck lay ci)
 /-- C4: the root compare moved up 6 words (`133868 + 128 c`) and reads the root where upper copy `c` wrote it. -/
 def cmpPc (c : Nat) : Nat := 133868 + 128 * c
-def cmpDst (c : Nat) : Nat := 9472 + 16 * topRootSlot.getD c 0
+def cmpDst (c : Nat) : Nat := 11000 + 16 * topRootSlot.getD c 0
 def cmpK (c : Nat) : List (Reg × Word) := baseK ++ [(.x12, BitVec.ofNat 64 (cmpDst c))]
 def cmpBr1 (c : Nat) (d : Bool) : Br := ⟨.ne, .ld (kw (cmpDst c)), .ld (kw 160), d⟩
 def cmpBr2 (c : Nat) (d : Bool) : Br := ⟨.ne, .ld (kw (cmpDst c + 8)), .ld (kw 168), d⟩

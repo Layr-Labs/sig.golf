@@ -7,10 +7,10 @@ section
 namespace ClaudeWCT.W9.T3M
 open SigGolfCandidate.T3
 open SigGolfCandidate.T3M (sibOff)
-/-- Nested FTS (r1-1): region stride 896; coordinate `k`'s region starts at `176 + 896 (8 - k)` (absolute
-`1392 + 896 (8 - k)`). -/
-def regionBase (k : Nat) : Nat := 176 + 896 * (8 - k)
-def wctEnd : Nat := 8256
+/-- Nested FTS (r1-1): region stride 896; coordinate `k`'s region starts at `80 + 896 (8 - k)` (absolute
+`1392 + 896 (8 - k)`; witness trim: the witness starts at 1312). -/
+def regionBase (k : Nat) : Nat := 80 + 896 * (8 - k)
+def wctEnd : Nat := 8096
 def wctChainBlock (k t : Nat) : Nat := regionBase k + (640 - 64 * t)
 def wctLeafBlock (k : Nat) : Nat := regionBase k + 688
 def wctLeafSlot (k t : Nat) : Nat := regionBase k + (if t = 0 then 688 else 720 + 16 * t)
@@ -94,11 +94,22 @@ def wcpads (w : WBytes) (k t : Nat) : Digest × Digest :=
   (wdig w (wctChainBlock k t), wdig w (wctChainBlock k t + 32))
 /-- Nested FTS (r1-1): the supplied top sibling of coordinate `k` sits in coordinate `k + 1`'s region: its leaf pad
 slot (`regionBase k - 176`) when the computed top is the right one (bit 6 set), else its level-6 pad slot
-(`regionBase k - 32`). For `k = 8` these are the L3 block's left slot (offset 0) and the R9 slot (offset 144). -/
-def topSlot (k child : Nat) : Nat := regionBase k - (if child / 2 ^ 6 % 2 = 0 then 32 else 176)
+(`regionBase k - 32`). For `k = 8` these are the L3 block's left slot (offset 0) and the R9 slot (witness trim:
+offset 64, the 16 bytes after the L3 block's hash input). -/
+def topSlot (k child : Nat) : Nat :=
+  if k = 8 then (if child / 2 ^ 6 % 2 = 0 then 64 else 0)
+  else regionBase k - (if child / 2 ^ 6 % 2 = 0 then 32 else 176)
+/-- Pairing stage 1: the legacy level-5 window of coordinate 0 (`regionBase 0 + 832`, 64 bytes) is removed from the
+witness. The legacy padded verifier reads coordinate 0's level-5 sibling from `legacySib0` (the 16 bytes after
+region 0's leaf area; the live paired forest never uses coordinate 0's level 5) and its pad from `legacyPad0` (region
+0's zero cell at offset 816). -/
+def legacySib0 : Nat := 8080
+def legacyPad0 : Nat := regionBase 0 + 816
 def wsib (w : WBytes) (k child l : Nat) : Digest :=
-  if l < 6 then wdig w (regionBase k + authSibOff child l) else wdig w (topSlot k child)
-def wmpad (w : WBytes) (k child l : Nat) : Digest := wdig w (regionBase k + authPadOff child l)
+  if l < 6 then (if k = 0 ∧ l = 5 then wdig w legacySib0 else wdig w (regionBase k + authSibOff child l))
+  else wdig w (topSlot k child)
+def wmpad (w : WBytes) (k child l : Nat) : Digest :=
+  if k = 0 ∧ l = 5 then wdig w legacyPad0 else wdig w (regionBase k + authPadOff child l)
 /-- High tweak word of a packed FTS node (levels `< 4`) whose computed child is the right input: the verifier
 writes only the low tweak word there, the high word stays witness memory (honest 0). Elsewhere it is 0. -/
 def wmhpad (w : WBytes) (k child l : Nat) : BitVec 64 :=

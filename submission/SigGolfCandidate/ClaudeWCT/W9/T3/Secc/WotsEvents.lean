@@ -1,5 +1,6 @@
 import SigGolfCandidate.ClaudeWCT.W9.New.G3a.PaddedWitness
 import SigGolfCandidate.T3.Secc.WotsEvents
+import SigGolfCandidate.T3.Secc.WotsMaskBase
 import SigGolfCandidate.ClaudeWCT.W9.New.BC.Rows
 
 namespace ClaudeWCT.W9.T3.Security.Wots
@@ -40,12 +41,63 @@ noncomputable def depth (answers : Answers) (a : ChainAddr) : Nat :=
   (referenceDigits answers a.key).getD a.chain 0
 /-! ### C3 (FULL): the honest chain of the current scheme (`WCT9.chainW`, chain 0 of a lower layer keeps the HIGH
 half of its last step) and chain rows read through the half their step uses. -/
+/-- Pairing stage 1: a chain row of the current scheme, `WCT9.chainInputW` (F rows `0 | hdr | 0 | v`, G rows
+`v | hdr | 0 | 0`). The header determines the chain and hence the format. -/
+def chainRowW (a : ChainAddr) (step : Nat) (value : Digest) : HashInput :=
+  WCT9.chainInputW a.key.lay a.key.tree a.key.leaf a.chain step value
+theorem chainRowW_eq (a : ChainAddr) (step : Nat) (value : Digest) :
+    chainRowW a step value = WCT9.chainInputW a.key.lay a.key.tree a.key.leaf a.chain step value := rfl
+theorem chainRowW_length (a : ChainAddr) (step : Nat) (value : Digest) : (chainRowW a step value).length = 64 :=
+  WCT9.chainInputW_length _ _ _ _ _ _
+theorem pad64_chainInputW (lay : Layer) (tree leaf i step : Nat) (value : Digest) :
+    pad64 (WCT9.chainInputW lay tree leaf i step value) = WCT9.chainInputW lay tree leaf i step value :=
+  WCT9.chainInputW_padded _ _ _ _ _ _
+theorem pad64_chainRowW (a : ChainAddr) (step : Nat) (value : Digest) :
+    pad64 (chainRowW a step value) = chainRowW a step value := WCT9.chainInputW_padded _ _ _ _ _ _
+theorem chainInputW_hdr_eq {lay lay' : Layer} {tree leaf i step tree' leaf' i' step' : Nat} {value value' : Digest}
+    (h : WCT9.chainInputW lay tree leaf i step value = WCT9.chainInputW lay' tree' leaf' i' step' value') :
+    chainHeader lay tree leaf i step = chainHeader lay' tree' leaf' i' step' := by
+  have := congrArg (fun l : List UInt8 => (l.drop 16).take 16) h
+  simp only [WCT9.chainInputW_header] at this
+  exact SphincsSecurity.bytesLE_injective this
+/-- Field recovery for the format-aware chain input: equal inputs have equal headers and values. -/
+theorem chainInputW_fields {lay lay' : Layer} {tree leaf i step tree' leaf' i' step' : Nat} {value value' : Digest}
+    (h : WCT9.chainInputW lay tree leaf i step value = WCT9.chainInputW lay' tree' leaf' i' step' value') :
+    chainHeader lay tree leaf i step = chainHeader lay' tree' leaf' i' step' ∧ value = value' := by
+  have hh := chainInputW_hdr_eq h
+  obtain ⟨hl, -, -, hi, -⟩ := chainHeader_fields hh
+  have hg : WCT9.isG lay i = WCT9.isG lay' i' := by
+    subst hl
+    have h2 : i % 2 = i' % 2 := by omega
+    simp only [WCT9.isG, h2]
+  refine ⟨hh, ?_⟩
+  cases hG : WCT9.isG lay i
+  · rw [WCT9.chainInputW_F hG, WCT9.chainInputW_F (hg ▸ hG)] at h
+    exact (chainInput_fields h).2
+  · rw [WCT9.chainInputW_G hG, WCT9.chainInputW_G (hg ▸ hG)] at h
+    have := congrArg (List.take 16) h
+    simp only [List.append_assoc] at this
+    rw [List.take_left' (SphincsSecurity.bytesLE_length 16 _),
+      List.take_left' (SphincsSecurity.bytesLE_length 16 _)] at this
+    exact SphincsSecurity.bytesLE_injective this
+theorem chainRowW_inj {a : ChainAddr} {s s' : Nat} {v v' : Digest} (hs : s < 256) (hs' : s' < 256)
+    (h : chainRowW a s v = chainRowW a s' v') : s = s' ∧ v = v' := by
+  obtain ⟨hh, hv⟩ := chainInputW_fields h
+  have hp := (chainHeader_fields hh).2.2.2.2
+  exact ⟨by omega, hv⟩
+theorem chainInputW_eq_chainRowW {lay : Layer} {tree leaf i s s' : Nat} {v v' : Digest} {a : ChainAddr}
+    (hi : i < 2 ^ 24) (hc : a.chain < 2 ^ 24) (hs : s < 256) (hs' : s' < 256)
+    (h : WCT9.chainInputW lay tree leaf i s v = chainRowW a s' v') :
+    SigGolfCandidate.T3.Security.Wots.Mask.LeafAlias lay tree leaf a.key ∧ i = a.chain ∧ s = s' ∧ v = v' := by
+  obtain ⟨hh, hv⟩ := chainInputW_fields h
+  obtain ⟨hl, ht, hf, hi', hs''⟩ := chainHeader_fields hh
+  exact ⟨⟨hl, ht, hf⟩, by omega, by omega, hv⟩
 /-- The half of a chain row's output that chain `a` reads after `step`. -/
 def rowHalf (a : ChainAddr) (step : Nat) (output : HashOutput) : Digest :=
   WCT9.halfOf (WCT9.chainHigh a.key.lay a.chain step) output
 /-- A trace row of chain `a` at `step` with input value `value` whose used half is `out`. -/
 def SeenRowW (trace : List Entry) (a : ChainAddr) (step : Nat) (value out : Digest) : Prop :=
-  ∃ answer, (chainRow a step value, answer) ∈ trace ∧ rowHalf a step answer = out
+  ∃ answer, (chainRowW a step value, answer) ∈ trace ∧ rowHalf a step answer = out
 theorem seenRowW_mono {trace trace' : List Entry} {a : ChainAddr} {step : Nat} {value out : Digest}
     (h : SeenRowW trace a step value out) (hsub : ∀ e ∈ trace, e ∈ trace') : SeenRowW trace' a step value out := by
   obtain ⟨answer, hm, hl⟩ := h
@@ -74,34 +126,34 @@ theorem queried_halfHash' (answers : Answers) (high : Bool) (input : HashInput) 
     WCT9.chainW lay tree leaf i start 0 value = pure value := rfl
 theorem chainW_one' (lay : Layer) (tree leaf i start : Nat) (value : Digest) :
     WCT9.chainW lay tree leaf i start 1 value =
-      WCT9.halfHash (WCT9.chainHigh lay i start) (chainInput lay tree leaf i start value) := by
+      WCT9.halfHash (WCT9.chainHigh lay i start) (WCT9.chainInputW lay tree leaf i start value) := by
   unfold WCT9.chainW
   simp only [List.range'_one, List.foldlM_cons, List.foldlM_nil, bind_pure]
 theorem eval_chainW_one' (answers : Answers) (lay : Layer) (tree leaf i s : Nat) (v : Digest) :
     evalWithAnswerFn answers (WCT9.chainW lay tree leaf i s 1 v) =
-      WCT9.halfOf (WCT9.chainHigh lay i s) (answers (.inl (.inr (pad64 (chainInput lay tree leaf i s v))))) := by
+      WCT9.halfOf (WCT9.chainHigh lay i s) (answers (.inl (.inr (pad64 (WCT9.chainInputW lay tree leaf i s v))))) := by
   rw [chainW_one', eval_halfHash']
 theorem honestChainValueW_zero (answers : Answers) (lay : Layer) (tree leaf i : Nat) (seed : Digest) :
     honestChainValueW answers lay tree leaf i seed 0 = seed := rfl
 theorem honestChainValueW_succ (answers : Answers) (lay : Layer) (tree leaf i : Nat) (seed : Digest) (step : Nat) :
-    WCT9.halfOf (WCT9.chainHigh lay i step) (answers (.inl (.inr (pad64 (chainInput lay tree leaf i step
+    WCT9.halfOf (WCT9.chainHigh lay i step) (answers (.inl (.inr (pad64 (WCT9.chainInputW lay tree leaf i step
       (honestChainValueW answers lay tree leaf i seed step)))))) =
         honestChainValueW answers lay tree leaf i seed (step + 1) := by
   unfold honestChainValueW
   rw [eval_chainW_add', Nat.zero_add, eval_chainW_one']
-/-- Below the last step of a chain, or off chain 0 of a lower layer, the current chain is the legacy chain. -/
+/-- On an F chain (`isG = false`), below the last step of a chain or off chain 0 of a lower layer, the current
+chain is the legacy chain. -/
 theorem honestChainValueW_eq {answers : Answers} {lay : Layer} {tree leaf i : Nat} {seed : Digest} {step : Nat}
-    (h : lay = 0 ∨ i ≠ 0 ∨ step ≤ 6) :
+    (hG : WCT9.isG lay i = false) (h : lay = 0 ∨ i ≠ 0 ∨ step ≤ 6) :
     honestChainValueW answers lay tree leaf i seed step = honestChainValue answers lay tree leaf i seed step := by
   unfold honestChainValueW honestChainValue
   have hl : ∀ s, 0 ≤ s → s < 0 + step → WCT9.chainHigh lay i s = false := by
     intro s _ hs
-    apply WCT9.chainHigh_eq_false
     rcases h with h | h | h
-    · exact Or.inl h
-    · exact Or.inr (Or.inl h)
-    · exact Or.inr (Or.inr (by omega))
-  rw [WCT9.chainW_of_low hl tree leaf seed]
+    · exact WCT9.chainHigh_eq_false (Or.inl h)
+    · exact WCT9.chainHigh_eq_false_F hG (Or.inl h)
+    · exact WCT9.chainHigh_eq_false_F hG (Or.inr (by omega))
+  rw [WCT9.chainW_of_low hG hl tree leaf seed]
 theorem rowHalf_of_low {a : ChainAddr} {step : Nat} (h : WCT9.chainHigh a.key.lay a.chain step = false)
     (output : HashOutput) : rowHalf a step output = low output := by
   unfold rowHalf; rw [h]; rfl
@@ -145,7 +197,7 @@ def MarkerAt (answers : Answers) (trace : List Entry) (a : ChainAddr) : Prop :=
 def OtherChainRow (answers : Answers) (input : HashInput) : Prop :=
   ∃ (a : ChainAddr) (step : Nat), Extract.posOf input =
       some (.chain a.key.lay a.key.tree a.key.leaf a.chain step) ∧
-    ((∀ value, input ≠ chainRow a step value) ∨ depth answers a ≤ step)
+    ((∀ value, input ≠ chainRowW a step value) ∨ depth answers a ≤ step)
 def StructuralClass (answers : Answers) (input : HashInput) (position : Extract.Pos) : Prop :=
   match position with
   | .chain _ _ _ _ _ => OtherChainRow answers input
@@ -478,7 +530,7 @@ def MarkerAt (answers : Answers) (messages : LeafAddr → WCT9.LayerMsg)
 def OtherChainRow (answers : Answers) (messages : LeafAddr → WCT9.LayerMsg) (input : HashInput) : Prop :=
   ∃ (a : ChainAddr) (step : Nat), Extract.posOf input =
       some (.chain a.key.lay a.key.tree a.key.leaf a.chain step) ∧
-    ((∀ value, input ≠ chainRow a step value) ∨ depth answers messages a ≤ step)
+    ((∀ value, input ≠ chainRowW a step value) ∨ depth answers messages a ≤ step)
 
 def StructuralClass (answers : Answers) (messages : LeafAddr → WCT9.LayerMsg)
     (input : HashInput) (position : Extract.Pos) : Prop :=

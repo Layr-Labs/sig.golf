@@ -230,22 +230,23 @@ theorem hashPathW_extract (answers : Answers) (high : Nat → Bool) (input : Nat
         rw [eval_halfHash] at hr
         exact reaches.trans hr.symm
 /-! #### Chains (C3: lower chain 0's step 6 keeps the high half) -/
-/-- The honest chain value of the current scheme after `step` steps (`WCT9.chainW`). -/
-def honestChainValueW (answers : Answers) (lay : Layer) (tree leaf i : Nat) (seed : Digest) (step : Nat) : Digest :=
-  evalWithAnswerFn answers (WCT9.chainW lay tree leaf i 0 step seed)
 theorem honestChainValueW_succ (answers : Answers) (lay : Layer) (tree leaf i : Nat) (seed : Digest) (step : Nat) :
-    evalWithAnswerFn answers (halfHash (WCT9.chainHigh lay i step) (chainInput lay tree leaf i step
+    evalWithAnswerFn answers (halfHash (WCT9.chainHigh lay i step) (WCT9.chainInputW lay tree leaf i step
       (honestChainValueW answers lay tree leaf i seed step))) =
         honestChainValueW answers lay tree leaf i seed (step + 1) := by
   unfold honestChainValueW
   rw [WCT9.eval_chainW_add]
   simp [WCT9.chainW]
-/-- Before step 6 the chain of the current scheme is the legacy chain. -/
+/-- Before step 6 an F chain of the current scheme is the legacy chain. -/
 theorem honestChainValueW_eq (answers : Answers) (lay : Layer) (tree leaf i : Nat) (seed : Digest) {step : Nat}
-    (hs : step ≤ 6) :
+    (hG : WCT9.isG lay i = false) (hs : step ≤ 6) :
     honestChainValueW answers lay tree leaf i seed step = honestChainValue answers lay tree leaf i seed step := by
   unfold honestChainValueW honestChainValue
-  rw [WCT9.chainW_of_low (fun s _ hs' => WCT9.chainHigh_eq_false (Or.inr (Or.inr (by omega))))]
+  rw [WCT9.chainW_of_low hG (fun s _ hs' => WCT9.chainHigh_eq_false_F hG (Or.inr (by omega)))]
+/-- Pairing stage 1: the verifier's sub-chain input in either format. -/
+def chainPathInputW (lay : Layer) (tree leaf i start : Nat) (pad0 pad1 : Digest) (headerPad : BitVec 64) :
+    Nat → Digest → HashInput := fun step value =>
+  chainInputPW lay tree leaf i (start + step) pad0 pad1 headerPad value
 theorem wotsValue_eqW (answers : Answers) (lay : Layer) (tree leaf : Nat) (digits : List Nat) (i : Nat) :
     wotsValue answers lay tree leaf digits i =
       honestChainValueW answers lay tree leaf i (wotsSeed answers lay tree leaf i) (digits.getD i 0) := rfl
@@ -255,32 +256,32 @@ theorem wotsEnd_eqW (answers : Answers) (lay : Layer) (tree leaf i : Nat) :
 theorem chainPW_eq_hashPathW (lay : Layer) (tree leaf i start count : Nat) (pad0 pad1 : Digest)
     (headerPad : BitVec 64) (initial : Digest) :
     chainPW lay tree leaf i start count pad0 pad1 headerPad initial =
-      hashPathW (fun s => WCT9.chainHigh lay i (start + s)) (chainPathInput lay tree leaf i start pad0 pad1 headerPad)
+      hashPathW (fun s => WCT9.chainHigh lay i (start + s)) (chainPathInputW lay tree leaf i start pad0 pad1 headerPad)
         count initial := by
-  unfold chainPW hashPathW chainPathInput
+  unfold chainPW hashPathW chainPathInputW
   rw [List.range'_eq_map_range, List.foldlM_map]
 theorem chainPathW_extract (answers : Answers) (lay : Layer) (tree leaf i start count : Nat)
     (pad0 pad1 : Digest) (headerPad : BitVec 64) (value seed : Digest)
     (ht : tree < 2 ^ 31) (hl : leaf < 4096) (hi : i < 64)
     (hsteps : count = 0 ∨ start + count ≤ 8)
     (reaches : pathValueW answers (fun s => WCT9.chainHigh lay i (start + s))
-        (chainPathInput lay tree leaf i start pad0 pad1 headerPad) value count =
+        (chainPathInputW lay tree leaf i start pad0 pad1 headerPad) value count =
       honestChainValueW answers lay tree leaf i seed (start + count)) :
     (value = honestChainValueW answers lay tree leaf i seed start ∧
       (0 < count → pad0 = 0 ∧ pad1 = 0 ∧ headerPad = 0)) ∨
       ∃ step, step < count ∧
         .inl (.inr (pad64 (pathInputW answers (fun s => WCT9.chainHigh lay i (start + s))
-          (chainPathInput lay tree leaf i start pad0 pad1 headerPad) value step))) ∈
+          (chainPathInputW lay tree leaf i start pad0 pad1 headerPad) value step))) ∈
           queried answers (hashPathW (fun s => WCT9.chainHigh lay i (start + s))
-            (chainPathInput lay tree leaf i start pad0 pad1 headerPad) count value) ∧
+            (chainPathInputW lay tree leaf i start pad0 pad1 headerPad) count value) ∧
         HashHitH answers (WCT9.chainHigh lay i (start + step))
-          (pad64 (chainInput lay tree leaf i (start + step)
+          (pad64 (WCT9.chainInputW lay tree leaf i (start + step)
             (honestChainValueW answers lay tree leaf i seed (start + step))))
           (pad64 (pathInputW answers (fun s => WCT9.chainHigh lay i (start + s))
-            (chainPathInput lay tree leaf i start pad0 pad1 headerPad) value step)) := by
+            (chainPathInputW lay tree leaf i start pad0 pad1 headerPad) value step)) := by
   have h := hashPathW_extract answers (fun s => WCT9.chainHigh lay i (start + s))
-    (chainPathInput lay tree leaf i start pad0 pad1 headerPad)
-    (fun step => chainInput lay tree leaf i (start + step)
+    (chainPathInputW lay tree leaf i start pad0 pad1 headerPad)
+    (fun step => WCT9.chainInputW lay tree leaf i (start + step)
       (honestChainValueW answers lay tree leaf i seed (start + step)))
     (fun step => honestChainValueW answers lay tree leaf i seed (start + step))
     (fun _ => pad0 = 0 ∧ pad1 = 0 ∧ headerPad = 0) value count
@@ -288,9 +289,8 @@ theorem chainPathW_extract (answers : Answers) (lay : Layer) (tree leaf i start 
       honestChainValueW_succ answers lay tree leaf i seed (start + step))
     (fun step hstep current heq => by
       have hs : start + step < 8 := by rcases hsteps with hz | hb <;> omega
-      simp only [chainPathInput, chainInput_eq_zero _ _ _ _ _ _ ht hl hi hs, pad64_chainInputP] at heq
-      have hhp := chainInputP_headerPad_eq heq
-      obtain ⟨hp0, _, hp1, hv⟩ := chainInputP_fields heq
+      simp only [chainPathInputW, chainInputW_eq_zero _ _ _ _ _ _ ht hl hi hs, pad64_chainInputPW] at heq
+      obtain ⟨hp0, hhp, hp1, hv⟩ := chainInputPW_fields heq
       exact ⟨hv, hp0, hp1, hhp⟩) reaches
   rcases h with ⟨hvalue, hpads⟩ | hhit
   · exact Or.inl ⟨by simpa using hvalue, fun hcount => hpads 0 hcount⟩

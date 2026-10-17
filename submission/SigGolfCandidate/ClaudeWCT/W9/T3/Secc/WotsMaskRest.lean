@@ -17,11 +17,14 @@ open SigGolfCandidate.T3.Security.Wots.Mask
 variable (a : ChainAddr)
 theorem slotAddr_lay : (slotAddr a).key.lay = a.key.lay := by
   unfold slotAddr; split_ifs <;> rfl
+theorem untouchedP_chainInputW_of_lay {lay : Layer} (hl : lay ≠ a.key.lay) (tree leaf i s : Nat) (v : Digest) :
+    UntouchedP a (.inl (.inr (pad64 (WCT9.chainInputW lay tree leaf i s v)))) := by
+  intro step value _ heq
+  rw [pad64_chainInputW] at heq
+  exact hl (chainHeader_fields (chainInputW_fields heq).1).1
 theorem respectsP_chain_of_lay {lay : Layer} (hl : lay ≠ a.key.lay) (tree leaf i start count : Nat) (v : Digest) :
     Respects (UntouchedP a) (WCT9.chainW lay tree leaf i start count v) :=
-  respects_chainW' _ _ _ _ _ _ _ fun step value _ _ => untouchedP_of_untouched a
-    ⟨untouched_chainInput_of_lay a hl _ _ _ _ _,
-      untouched_chainInput_of_lay (slotAddr a) (by rw [slotAddr_lay]; exact hl) _ _ _ _ _⟩
+  respects_chainW' _ _ _ _ _ _ _ fun step value _ _ => untouchedP_chainInputW_of_lay a hl _ _ _ _ _
 variable {T T' : Answers} (hT : ∀ q, UntouchedP a q → T q = T' q)
 include hT
 theorem wotsSeed_congr_of_lay {lay : Layer} (hl : lay ≠ a.key.lay) (tree leaf i : Nat) :

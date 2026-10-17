@@ -117,13 +117,13 @@ theorem prefix_tail_spec (s : MachineState) (v : Digest) (a d p : Nat) (ha : a �
     (hpc : s.pc = pcOf p) (hcode : CodeAt Verify.image (pcOf p) (prefixTailWordsOf a))
     (h12 : s.getReg .x12 = BitVec.ofNat 64 d) (hd : d % 8 = 0 ∧ 0x1000 ≤ d ∧ d + 16 ≤ 0x7000)
     (h0 : s.getReg .x16 = v.extractLsb' 0 64) (h1 : s.getReg .x17 = v.extractLsb' 64 64) (hra : s.getReg .x9 = BitVec.ofNat 64 TOPB9)
-    (hmask : s.getMem 0xffbff8#64 = 520192#64) (h4 : s.getReg .x4 = 24592#64) (h10 : s.getReg .x10 = BitVec.ofNat 64 a) :
+    (hmask : s.getMem 0xffbff8#64 = 520192#64) (h4 : s.getReg .x4 = 24688#64) (h10 : s.getReg .x10 = BitVec.ofNat 64 a) :
     ∃ t, Steps Verify.image s 6 6 t ∧ t.pc = prefixTarget v ∧
       t.getReg .x16 = v.extractLsb' 0 64 ∧ t.getReg .x17 = v.extractLsb' 64 64 ∧
       t.getReg .x29 = BitVec.ofNat 64 (v.toNat / 2 ^ 122) ∧
-      t.getReg .x8 = 11808#64 ∧ t.getReg .x6 = 520192#64 ∧
+      t.getReg .x8 = 13432#64 ∧ t.getReg .x6 = 520192#64 ∧
       RegsExcept s t [.x16,.x17,.x29,.x6,.x8,.x14] ∧
-      Frame s t (fun A => A = 25064) := by
+      Frame s t (fun A => A = 25160) := by
   have hm : s.getMem (s.getReg .x9 + 232#64) = 520192#64 := by
     rw [hra]; exact hmask
   have hobl : ∀ o ∈ (prefixRes a).st.obl, o.holds s := by
@@ -132,7 +132,7 @@ theorem prefix_tail_spec (s : MachineState) (v : Digest) (a d p : Nat) (ha : a �
     rcases ho with rfl
     all_goals simp [Oblig.holds, rv_simp, accessValid_iff, MEMORY_BYTES, hra, h12, h4, TOPB9]
     all_goals omega
-  have hal : 13600 ≤ a ∧ a ≤ 13856 := by
+  have hal : 15224 ≤ a ∧ a ≤ 15480 := by
     simp only [aVals, List.mem_cons, List.not_mem_nil, or_false] at ha; omega
   refine ⟨_, symRun_sound (prefix_run a ha (pcOf p)) hcode s hpc ((Oblig.all_iff _ _).mpr hobl),
     ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
@@ -155,7 +155,7 @@ theorem prefix_tail_spec (s : MachineState) (v : Digest) (a d p : Nat) (ha : a �
   · simp only [Result.toState_getReg, prefixRes, prefixRegs, prefixBase.res, RegFile.get, RegFile.set, E.eval, BinOp.eval, hm]
   · intro r hr; cases r <;> simp at hr <;> simp [prefixRes, prefixRegs, prefixBase.res, rv_simp] <;> rfl
   · intro A hA hne
-    have hn : BitVec.ofNat 64 A ≠ 25064#64 := by
+    have hn : BitVec.ofNat 64 A ≠ 25160#64 := by
       intro he
       have he' := congrArg BitVec.toNat he
       simp only [BitVec.toNat_ofNat] at he'
@@ -255,11 +255,11 @@ structure TopEntry (u : MachineState) (v : Digest) (p : Nat) (s : MachineState) 
   lo : s.getReg .x16 = v.extractLsb' 0 64
   hi : s.getReg .x17 = v.extractLsb' 64 64
   tail : s.getReg .x29 = BitVec.ofNat 64 (v.toNat / 2 ^ 122)
-  s3 : s.getReg .x8 = 11808#64
+  s3 : s.getReg .x8 = 13432#64
   mask : s.getReg .x6 = 520192#64
   table : s.getReg .x2 = 0x7fc00#64
   regs : RegsExcept u s topEntryRegs
-  frame : Frame u s (fun A => A = 25064)
+  frame : Frame u s (fun A => A = 25160)
 def topRowA (c : Nat) : Nat := rowA 0 c
 theorem prefix_slots : (List.range 128).all (fun c => decide (topRowA c ∈ Nonbinary.aVals) &&
     (Nonbinary.prefixWordsOf (topRowA c)).isPrefixOf (codeFrom (trPc 0 c + 6))) = true := by
@@ -299,7 +299,7 @@ theorem topTransition (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index c : Nat
       TopEntry (writeHash t a) (T3.TopDualHalf.select a) (trPc 0 c) s := by
   have hc' : c < 128 := by have := BC.nCopy_eq; omega
   have ha := topRowA_mem c hc'
-  have hal : 13600 ≤ topRowA c ∧ topRowA c ≤ 13856 ∧ topRowA c % 16 = 0 := by
+  have hal : 15224 ≤ topRowA c ∧ topRowA c ≤ 15480 ∧ topRowA c % 8 = 0 := by
     simp only [Nonbinary.aVals, List.mem_cons, List.not_mem_nil, or_false] at ha; omega
   obtain ⟨d, h12, hd⟩ := ht.dst (by decide +kernel)
   change (d + 16 = topRowA c ∧ WIT + BC.layerEnd 0 + 16 ≤ topRowA c) ∨ d = topRowA c + 48 at hd
@@ -319,8 +319,8 @@ theorem topTransition (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index c : Nat
     hk (.x9, BitVec.ofNat 64 TOPB9) (by simp [BC.bK, T3M.bK, layK])
   have h15 : (writeHash t a).getReg .x2 = 0x7fc00#64 :=
     hk (.x2, 0x7fc00#64) (by simp [BC.bK, T3M.bK, layK])
-  have h4 : (writeHash t a).getReg .x4 = 24592#64 :=
-    hk (.x4, 24592#64) (by simp [BC.bK, T3M.bK, layK, bufferBias])
+  have h4 : (writeHash t a).getReg .x4 = 24688#64 :=
+    hk (.x4, 24688#64) (by simp [BC.bK, T3M.bK, layK, bufferBias])
   have hmask : (writeHash t a).getMem 0xffbff8#64 = 520192#64 := hD.mask
   have hhi := DigAt.writeHash_hi t a d h12 (by omega)
   obtain ⟨n,u,eu,hn,pu,lu,hu,ru,fu⟩ := Verify.Nonbinary.prefix_select_spec
@@ -365,12 +365,12 @@ open Nonbinary (NCtx)
 set_option maxHeartbeats 800000
 set_option linter.unusedSimpArgs false
 def nctxOf (w : ClaudeWCT.W9.T3M.WBytes) (index : Nat) (v : Digest) (p : Nat) : NCtx :=
-  ⟨w, (route index 0).2, (route index 0).1, 11808, coreDigit 0 v, p + 8⟩
+  ⟨w, (route index 0).2, (route index 0).1, 13432, coreDigit 0 v, p + 8⟩
 theorem nctx_ok (w : ClaudeWCT.W9.T3M.WBytes) (index : Nat) (v : Digest) (c : Nat) (hidx : index < 2 ^ 31) :
     (nctxOf w index v (trPc 0 c)).ok := by
   have hp := trPc_lt 0 c
   have ht : (route index 0).2 = 0 := by rw [route_snd]; exact Nat.div_eq_of_lt hidx
-  exact ⟨ht, leaf_lt index 0, by norm_num [nctxOf], by norm_num [nctxOf], by norm_num [nctxOf], by dsimp [nctxOf]; omega⟩
+  exact ⟨ht, leaf_lt index 0, by norm_num [nctxOf], by norm_num [nctxOf, Verify.WIT], by norm_num [nctxOf], by dsimp [nctxOf]; omega⟩
 theorem hyperWord_top_prefix (w : ClaudeWCT.W9.T3M.WBytes) (index : Nat) (v : Digest) (p : Nat) :
     T3.hyperWord 0 (index / 2 ^ below 0) = BitVec.ofNat 64 ((nctxOf w index v p).prefix + 385) := by
   have h1 : (route index 0).1 = index / 2 ^ 19 % 2 ^ 12 := route_fst index 0
@@ -400,19 +400,19 @@ theorem topEntry_orig (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index c : Nat
     (t s : MachineState) (a : BitVec 256)
     (ht : BC.EncPre w pk index 0 c t)
     (he : TopEntry (writeHash t a) (T3.TopDualHalf.select a) (trPc 0 c) s) :
-    Verify.Orig w (fun o => 8256 ≤ o ∧ o < layerEnd 0) s := by
+    Verify.Orig w (fun o => 8096 ≤ o ∧ o < layerEnd 0) s := by
   have hc' : c < 128 := by have := BC.nCopy_eq; omega
   have ha := topRowA_mem c hc'
-  have hal : 13600 ≤ topRowA c ∧ topRowA c ≤ 13856 := by
+  have hal : 15224 ≤ topRowA c ∧ topRowA c ≤ 15480 := by
     simp only [Nonbinary.aVals, List.mem_cons, List.not_mem_nil, or_false] at ha; omega
   obtain ⟨d, h12, hd⟩ := ht.dst (by decide +kernel)
   change (d + 16 = topRowA c ∧ WIT + BC.layerEnd 0 + 16 ≤ topRowA c) ∨ d = topRowA c + 48 at hd
-  rw [show BC.layerEnd 0 = 12384 from rfl] at hd
+  rw [show BC.layerEnd 0 = 12320 from rfl] at hd
   have ho := Orig_writeHash ht.orig a d h12 (by omega)
-  have hu : Verify.Orig w (fun o => 8256 ≤ o ∧ o < layerEnd 0) (writeHash t a) :=
+  have hu : Verify.Orig w (fun o => 8096 ≤ o ∧ o < layerEnd 0) (writeHash t a) :=
     fun j hj hp => ho j hj ⟨hp, Or.inl (by
       have hp2 := hp.2
-      have hle : layerEnd 0 = 12384 := rfl
+      have hle : layerEnd 0 = 12320 := rfl
       rw [hle] at hp2
       unfold WIT at *; omega)⟩
   exact hu.frame (fun j hj hp => he.frame.get (by unfold WIT WX at *; omega) (by norm_num [WIT, layerEnd] at *; omega))
@@ -420,23 +420,23 @@ theorem topEntry_bufferOrig (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index c
     (t s : MachineState) (a : BitVec 256)
     (ht : BC.EncPre w pk index 0 c t)
     (he : TopEntry (writeHash t a) (T3.TopDualHalf.select a) (trPc 0 c) s) :
-    Verify.Orig w (fun o => BC.bufferStart 0 ≤ o ∧ o < 24800) s := by
+    Verify.Orig w (fun o => BC.bufferStart 0 ≤ o ∧ o < 23208) s := by
   have hc' : c < 128 := by have := BC.nCopy_eq; omega
   have ha := topRowA_mem c hc'
-  have hal : 13600 ≤ topRowA c ∧ topRowA c ≤ 13856 := by
+  have hal : 15224 ≤ topRowA c ∧ topRowA c ≤ 15480 := by
     simp only [Nonbinary.aVals, List.mem_cons, List.not_mem_nil, or_false] at ha; omega
   obtain ⟨d, h12, hd⟩ := ht.dst (by decide +kernel)
   change (d + 16 = topRowA c ∧ WIT + BC.layerEnd 0 + 16 ≤ topRowA c) ∨ d = topRowA c + 48 at hd
   have ho := Orig_writeHash ht.bufferOrig a d h12 (by omega)
-  have hu : Verify.Orig w (fun o => BC.bufferStart 0 ≤ o ∧ o < 24800) (writeHash t a) :=
+  have hu : Verify.Orig w (fun o => BC.bufferStart 0 ≤ o ∧ o < 23208) (writeHash t a) :=
     fun j hj hp => ho j hj ⟨hp, Or.inr (by
       have hp1 := hp.1
       norm_num [BC.bufferStart] at hp1
       unfold WIT; omega)⟩
   exact hu.frame (fun j hj hp => he.frame.get (by unfold WIT WX at *; omega) (by norm_num [WIT, BC.bufferStart] at *; omega))
 theorem nctx_orig (w : ClaudeWCT.W9.T3M.WBytes) (index : Nat) (v : Digest) (p : Nat) (s : MachineState)
-    (ho : Verify.Orig w (fun o => 8256 ≤ o ∧ o < layerEnd 0) s)
-    (hb : Verify.Orig w (fun o => BC.bufferStart 0 ≤ o ∧ o < 24800) s) (hD : DataOK s) :
+    (ho : Verify.Orig w (fun o => 8096 ≤ o ∧ o < layerEnd 0) s)
+    (hb : Verify.Orig w (fun o => BC.bufferStart 0 ≤ o ∧ o < 23208) s) (hD : DataOK s) :
     (nctxOf w index v p).Orig0 s := by
   refine ⟨⟨?_, ?_⟩, hD⟩
   · intro i hi k hk

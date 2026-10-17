@@ -64,7 +64,7 @@ theorem steps_sign_body (s : MachineState) (hpc : s.pc = pcOf 1489) :
   exact symRun_sound run_sign_body codeAt_sign_body s hpc (by simp [run_sign_body.res, rv_simp])
 theorem codeAt_sign_store : CodeAt Images.signReferenceImage (pcOf 1028) sign_store := by decide +kernel
 theorem steps_sign_store (s : MachineState) (hpc : s.pc = pcOf 1028) :
-    Steps Images.signReferenceImage s 8 8 (run_sign_store.res.toState s) := by
+    Steps Images.signReferenceImage s 3 3 (run_sign_store.res.toState s) := by
   exact symRun_sound run_sign_store codeAt_sign_store s hpc (by simp [run_sign_store.res, rv_simp])
 theorem codeAt_expand_entry : CodeAt Images.expandReferenceImage (pcOf 1032) expand_entry := by decide +kernel
 theorem steps_expand_entry (s : MachineState) (hpc : s.pc = pcOf 1032) :
@@ -92,6 +92,6 @@ theorem steps_expand_body (s : MachineState) (hpc : s.pc = pcOf 1253) :
   exact symRun_sound run_expand_body codeAt_expand_body s hpc (by simp [run_expand_body.res, rv_simp])
 theorem codeAt_expand_store : CodeAt Images.expandReferenceImage (pcOf 1038) expand_store := by decide +kernel
 theorem steps_expand_store (s : MachineState) (hpc : s.pc = pcOf 1038) :
-    Steps Images.expandReferenceImage s 8 8 (run_expand_store.res.toState s) := by
+    Steps Images.expandReferenceImage s 3 3 (run_expand_store.res.toState s) := by
   exact symRun_sound run_expand_store codeAt_expand_store s hpc (by simp [run_expand_store.res, rv_simp])
 end SigGolfCandidate.T3M.Keygen.PackedBlocks

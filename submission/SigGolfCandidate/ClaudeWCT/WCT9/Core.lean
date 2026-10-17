@@ -172,12 +172,23 @@ odd). -/
 def lowerHigh (lay heap : Nat) : Bool := decide (lay < 4) && decide (heap % 2 = 0)
 def lowerHalf (lay heap : Nat) (output : HashOutput) : Digest := halfOf (lowerHigh lay heap) output
 def lowerHash (lay heap : Nat) (input : HashInput) : M Digest := halfHash (lowerHigh lay heap) input
-/-- C3: the last step (step 6) of chain 0 of a lower layer keeps the high half. -/
-def chainHigh (lay : Layer) (i step : Nat) : Bool := decide (lay ≠ 0) && decide (i = 0) && decide (step = 6)
-/-- WOTS chain of the current scheme (`T3.chain` with the chain-0 high half). -/
+/-- Pairing stage 1: the odd chains of the lower layers (1..3) are value-first ("G") chains: their step input is
+`value | header | 0 | 0` (header still at bytes 16..32) and every interior step (step < 6) keeps the HIGH half. -/
+def isG (lay : Layer) (i : Nat) : Bool := decide (lay ≠ 0) && decide (i % 2 = 1)
+/-- C3: the last step (step 6) of chain 0 of a lower layer keeps the high half. Pairing stage 1: so does every
+interior step (step < 6) of a G chain (`isG`). -/
+def chainHigh (lay : Layer) (i step : Nat) : Bool :=
+  decide (lay ≠ 0) && (decide (i = 0) && decide (step = 6) || decide (i % 2 = 1) && decide (step < 6))
+/-- Honest chain step input of the current scheme: `T3.chainInput` (F format) or, for a G chain,
+`value | header | 0 | 0`. -/
+def chainInputW (lay : Layer) (tree leaf i step : Nat) (value : Digest) : HashInput :=
+  if isG lay i then bytesLE 16 value ++ bytesLE 16 (SigGolfCandidate.T3.chainHeader lay tree leaf i step) ++
+    zero16 ++ zero16
+  else SigGolfCandidate.T3.chainInput lay tree leaf i step value
+/-- WOTS chain of the current scheme (`T3.chain` with the chain-0 high half and the G chains). -/
 def chainW (lay : Layer) (tree leaf i start count : Nat) (value : Digest) : M Digest :=
   (List.range' start count).foldlM
-    (fun value step => halfHash (chainHigh lay i step) (SigGolfCandidate.T3.chainInput lay tree leaf i step value))
+    (fun value step => halfHash (chainHigh lay i step) (chainInputW lay tree leaf i step value))
     value
 /-- Leaf tweak with the witness high word `hi` (honest 0). -/
 def leafTweakW (lay : Layer) (tree leaf : Nat) (hi : BitVec 64) : BitVec 128 :=
@@ -249,12 +260,64 @@ theorem lowerHigh_heap {lay e x : Nat} (he : 1 ≤ e) : lowerHigh lay (2 ^ e + x
   unfold lowerHigh
   rw [show (2 ^ e + x) % 2 = x % 2 by omega]
 @[simp] theorem chainHigh_top (i step : Nat) : chainHigh 0 i step = false := by simp [chainHigh]
-theorem chainHigh_eq_false {lay : Layer} {i step : Nat} (h : lay = 0 ∨ i ≠ 0 ∨ step ≠ 6) :
+@[simp] theorem isG_top (i : Nat) : isG 0 i = false := by simp [isG]
+theorem isG_eq_true {lay : Layer} {i : Nat} : isG lay i = true ↔ lay ≠ 0 ∧ i % 2 = 1 := by simp [isG]
+theorem isG_eq_false {lay : Layer} {i : Nat} (h : lay = 0 ∨ i % 2 = 0) : isG lay i = false := by
+  rcases h with h | h <;> simp [isG, h]
+theorem isG_zero (lay : Layer) : isG lay 0 = false := isG_eq_false (Or.inr rfl)
+theorem chainHigh_eq_false {lay : Layer} {i step : Nat}
+    (h : lay = 0 ∨ ¬ (i = 0 ∧ step = 6) ∧ ¬ (i % 2 = 1 ∧ step < 6)) :
     chainHigh lay i step = false := by
-  simp only [chainHigh]; rcases h with h | h | h <;> simp [h]
+  simp only [chainHigh]; rcases h with h | ⟨h1, h2⟩
+  · simp [h]
+  · simp only [Bool.and_eq_false_iff, Bool.or_eq_false_iff, decide_eq_false_iff_not]
+    right; constructor
+    · by_cases hi : i = 0 <;> simp_all
+    · by_cases hi : i % 2 = 1 <;> simp_all
+/-- An F chain (`isG = false`) keeps the low half except on C3's step 6 of chain 0. -/
+theorem chainHigh_eq_false_F {lay : Layer} {i step : Nat} (hG : isG lay i = false) (h : i ≠ 0 ∨ step ≠ 6) :
+    chainHigh lay i step = false := by
+  by_cases hl : lay = 0
+  · exact chainHigh_eq_false (Or.inl hl)
+  · have : i % 2 = 0 := by simp [isG, hl] at hG; omega
+    exact chainHigh_eq_false (Or.inr ⟨by omega, by omega⟩)
+/-- The terminal step (step 6) of a chain other than chain 0 keeps the low half. -/
+theorem chainHigh_six {lay : Layer} {i : Nat} (hi : i ≠ 0) : chainHigh lay i 6 = false :=
+  chainHigh_eq_false (Or.inr ⟨by omega, by omega⟩)
 theorem chainHigh_eq_true {lay : Layer} {i step : Nat} :
+    chainHigh lay i step = true ↔ lay ≠ 0 ∧ (i = 0 ∧ step = 6 ∨ i % 2 = 1 ∧ step < 6) := by
+  simp [chainHigh]
+/-- On an F chain the high steps are exactly C3's. -/
+theorem chainHigh_eq_true_F {lay : Layer} {i step : Nat} (hG : isG lay i = false) :
     chainHigh lay i step = true ↔ lay ≠ 0 ∧ i = 0 ∧ step = 6 := by
-  simp [chainHigh, and_assoc]
+  rw [chainHigh_eq_true]
+  constructor
+  · rintro ⟨hl, h | h⟩
+    · exact ⟨hl, h⟩
+    · exact absurd (isG_eq_true.mpr ⟨hl, h.1⟩) (by simp [hG])
+  · rintro ⟨hl, h⟩; exact ⟨hl, Or.inl h⟩
+theorem chainInputW_F {lay : Layer} {i : Nat} (hG : isG lay i = false) (tree leaf step : Nat) (value : Digest) :
+    chainInputW lay tree leaf i step value = SigGolfCandidate.T3.chainInput lay tree leaf i step value := by
+  simp [chainInputW, hG]
+@[simp] theorem chainInputW_top (tree leaf i step : Nat) (value : Digest) :
+    chainInputW 0 tree leaf i step value = SigGolfCandidate.T3.chainInput 0 tree leaf i step value :=
+  chainInputW_F (isG_top i) tree leaf step value
+theorem chainInputW_G {lay : Layer} {i : Nat} (hG : isG lay i = true) (tree leaf step : Nat) (value : Digest) :
+    chainInputW lay tree leaf i step value = bytesLE 16 value ++
+      bytesLE 16 (SigGolfCandidate.T3.chainHeader lay tree leaf i step) ++ zero16 ++ zero16 := by
+  simp [chainInputW, hG]
+theorem chainInputW_length (lay : Layer) (tree leaf i step : Nat) (value : Digest) :
+    (chainInputW lay tree leaf i step value).length = 64 := by
+  unfold chainInputW SigGolfCandidate.T3.chainInput
+  split <;> simp [SphincsSecurity.bytesLE_length, zero16]
+theorem chainInputW_padded (lay : Layer) (tree leaf i step : Nat) (value : Digest) :
+    pad64 (chainInputW lay tree leaf i step value) = chainInputW lay tree leaf i step value := by
+  simp [pad64, chainInputW_length]
+theorem chainInputW_header (lay : Layer) (tree leaf i step : Nat) (value : Digest) :
+    ((chainInputW lay tree leaf i step value).drop 16).take 16 =
+      bytesLE 16 (SigGolfCandidate.T3.chainHeader lay tree leaf i step) := by
+  unfold chainInputW SigGolfCandidate.T3.chainInput
+  split <;> simp [zero16, List.append_assoc, SphincsSecurity.bytesLE_length]
 theorem foldlM_congr_of_mem {α β : Type} {m : Type → Type} [Monad m] (f g : β → α → m β) :
     ∀ (l : List α) (init : β), (∀ x ∈ l, ∀ b, f b x = g b x) → l.foldlM f init = l.foldlM g init
   | [], _, _ => rfl
@@ -264,7 +327,7 @@ theorem foldlM_congr_of_mem {α β : Type} {m : Type → Type} [Monad m] (f g : 
       congr 1; funext b
       exact foldlM_congr_of_mem f g xs b (fun y hy => h y (List.mem_cons_of_mem _ hy))
 /-- `chainW` is `T3.chain` when no step of the run keeps the high half. -/
-theorem chainW_of_low {lay : Layer} {i start count : Nat}
+theorem chainW_of_low {lay : Layer} {i start count : Nat} (hG : isG lay i = false)
     (h : ∀ step, start ≤ step → step < start + count → chainHigh lay i step = false)
     (tree leaf : Nat) (value : Digest) :
     chainW lay tree leaf i start count value = SigGolfCandidate.T3.chain lay tree leaf i start count value := by
@@ -272,13 +335,15 @@ theorem chainW_of_low {lay : Layer} {i start count : Nat}
   apply foldlM_congr_of_mem
   intro step hs b
   rw [List.mem_range'_1] at hs
-  rw [h step hs.1 hs.2]; rfl
+  rw [h step hs.1 hs.2, chainInputW_F hG]; rfl
 theorem chainW_top (tree leaf i start count : Nat) (value : Digest) :
     chainW 0 tree leaf i start count value = SigGolfCandidate.T3.chain 0 tree leaf i start count value :=
-  chainW_of_low (fun _ _ _ => chainHigh_top _ _) tree leaf value
-theorem chainW_ne_zero {lay : Layer} {i : Nat} (hi : i ≠ 0) (tree leaf start count : Nat) (value : Digest) :
+  chainW_of_low (isG_top i) (fun _ _ _ => chainHigh_top _ _) tree leaf value
+/-- An F chain other than chain 0 is `T3.chain`. -/
+theorem chainW_ne_zero {lay : Layer} {i : Nat} (hi : i ≠ 0) (hG : isG lay i = false)
+    (tree leaf start count : Nat) (value : Digest) :
     chainW lay tree leaf i start count value = SigGolfCandidate.T3.chain lay tree leaf i start count value :=
-  chainW_of_low (fun _ _ _ => chainHigh_eq_false (Or.inr (Or.inl hi))) tree leaf value
+  chainW_of_low hG (fun _ _ _ => chainHigh_eq_false_F hG (Or.inl hi)) tree leaf value
 theorem chainW_add (lay : Layer) (tree leaf i start a b : Nat) (value : Digest) :
     chainW lay tree leaf i start (a + b) value =
       (chainW lay tree leaf i start a value >>= chainW lay tree leaf i (start + a) b) := by

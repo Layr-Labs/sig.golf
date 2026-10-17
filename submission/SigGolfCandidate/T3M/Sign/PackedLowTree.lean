@@ -466,8 +466,6 @@ theorem bt_leafPre {l : Nat} (hl : l < 2 ^ height lay) {t : MachineState}
       p56 := by rw [m _ (by decide) (by unfold BtW; packed_sgo), hs.base.p56]
       z0 := hz _ (by decide) (by unfold NeverW; simp)
       z8 := hz _ (by decide) (by unfold NeverW; simp)
-      z32 := hz _ (by decide) (by unfold NeverW; simp)
-      z40 := hz _ (by decide) (by unfold NeverW; simp)
       hsl := fun _ => hlay
       hdig := fun i hi => by
         rw [hn] at hi
@@ -492,6 +490,10 @@ theorem bt_leafPre {l : Nat} (hl : l < 2 ^ height lay) {t : MachineState}
         · simp [hls]
       hdigp := by show (if l = sel then DIGITS else ZDIG) + (btLeaf lay tree sel ds sb l).n ≤ 2 ^ 24
                   rw [hn]; split_ifs <;> packed_sgo
+      hdigC := by
+        show (if l = sel then DIGITS else ZDIG) + (btLeaf lay tree sel ds sb l).n ≤ 0x201C0 ∨
+          0x20210 ≤ (if l = sel then DIGITS else ZDIG)
+        right; split_ifs <;> decide
       hdigW := fun i hi => by
         rw [hn] at hi
         show ¬ LeafW (btLeaf lay tree sel ds sb l) (((if l = sel then DIGITS else ZDIG) + i) / 8 * 8)
@@ -1242,7 +1244,9 @@ open ClaudeWCT.W9.Machine.Sign
 set_option maxHeartbeats 2000000
 set_option maxRecDepth 100000
 
-def BScr (X : Nat) : Prop := 0x50000≤X ∧ X<0x76000
+/-- Pairing stage 1: also the chain scratch a G chain writes outside `LeafW` (`CHAIN+32 .. CHAIN+48`,
+`CHAIN+80 .. CHAIN+112`; the F pads `CHAIN+32/40` are zero again after each lower leaf, `Inv.z`). -/
+def BScr (X : Nat) : Prop := (0x50000≤X ∧ X<0x76000) ∨ (0x201C0≤X ∧ X<0x201D0) ∨ (0x201F0≤X ∧ X<0x20210)
 macro "shared_tree_sgo" : tactic =>
   `(tactic| ((try simp only [BScr, PRIV, SEEDS, CHAIN, NODE, NOUT, LOUT, LEAFPK, MOUT, ZDIG, DUMMY, TOP, MACBLK,
     REGION, MSG, SK, SIG, CACHE, NONCE, RHOOUT, DIG, NBUF, ENC, EOUT, FLEAF, LFOUT, FOREST, FOUT, MACOUT, TAG,
@@ -1268,6 +1272,7 @@ structure Inv (s1 : MachineState) (lay : Layer) (sb sel l : Nat)
   saved : sel<l → st.2.1.length=43 ∧ ∀ i, i<43 → ∀ k,k≤7 →
     DigAt t (SharedPrefixes.buffer lay.val i k) ((st.2.1.getD i []).getD k 0)
   carry : l%2=1 → DigAt t (SEEDS+16) st.2.2
+  z : Seed.Z32 t
 
 section leafPre
 variable {sk : SecretKey} {cache : Bytes 131072} {lay : Layer} {tree sel : Nat} {ds : List Nat} {sb : Nat}
@@ -1289,7 +1294,8 @@ theorem bt_leafPre {l : Nat} (hl : l < 2 ^ height lay) {t : MachineState}
     fun r hr' => hr.get hr'
   have m : ∀ X, X < 2 ^ 64 → ¬ BtW sb (height lay) X → t.getMem (BitVec.ofNat 64 X) = s1.getMem (BitVec.ofNat 64 X) :=
     fun X hX hn' => hf.get hX hn'
-  have hz : ∀ X, X < 2 ^ 64 → NeverW X → t.getMem (BitVec.ofNat 64 X) = 0 := fun X hX hnw =>
+  have hz : ∀ X, X < 2 ^ 64 → NeverW X → (X < 0x201C0 ∨ 0x20210 ≤ X) → t.getMem (BitVec.ofNat 64 X) = 0 :=
+    fun X hX hnw hc =>
     (m X hX (by unfold NeverW at hnw; unfold BtW; rcases hH with h | h <;> rw [h] <;> shared_tree_sgo)).trans
       (hs.base.zero X hX hnw)
   refine
@@ -1315,10 +1321,8 @@ theorem bt_leafPre {l : Nat} (hl : l < 2 ^ height lay) {t : MachineState}
       p40 := by rw [m _ (by decide) (by unfold BtW; shared_tree_sgo), hs.base.p40]
       p48 := by rw [m _ (by decide) (by unfold BtW; shared_tree_sgo), hs.base.p48]
       p56 := by rw [m _ (by decide) (by unfold BtW; shared_tree_sgo), hs.base.p56]
-      z0 := hz _ (by decide) (by unfold NeverW; simp)
-      z8 := hz _ (by decide) (by unfold NeverW; simp)
-      z32 := hz _ (by decide) (by unfold NeverW; simp)
-      z40 := hz _ (by decide) (by unfold NeverW; simp)
+      z0 := hz _ (by decide) (by unfold NeverW; simp) (by decide)
+      z8 := hz _ (by decide) (by unfold NeverW; simp) (by decide)
       hsl := fun _ => hlay
       hdig := fun i hi => by
         rw [hn] at hi
@@ -1343,6 +1347,10 @@ theorem bt_leafPre {l : Nat} (hl : l < 2 ^ height lay) {t : MachineState}
         · simp [hls]
       hdigp := by show (if l = sel then DIGITS else ZDIG) + (btLeaf lay tree sel ds sb l).n ≤ 2 ^ 24
                   rw [hn]; split_ifs <;> shared_tree_sgo
+      hdigC := by
+        show (if l = sel then DIGITS else ZDIG) + (btLeaf lay tree sel ds sb l).n ≤ 0x201C0 ∨
+          0x20210 ≤ (if l = sel then DIGITS else ZDIG)
+        right; split_ifs <;> decide
       hdigW := fun i hi => by
         rw [hn] at hi
         show ¬ LeafW (btLeaf lay tree sel ds sb l) (((if l = sel then DIGITS else ZDIG) + i) / 8 * 8)

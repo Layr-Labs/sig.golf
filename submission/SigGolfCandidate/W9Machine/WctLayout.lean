@@ -24,19 +24,19 @@ structure Budget where
   allCycles : Nat
   acceptCycles : Nat
 def layerEntryWord : Nat := 32951
-def layerWitnessOffset : Nat := 8256
+def layerWitnessOffset : Nat := 8096
 def forestRootAddress : Nat := 0x100
-/-- Nested FTS (r1-1): region `n` (tree `n`, `n ≤ 8`) at `8560 - 896 n`; region 9 is the virtual tree below tree 8
+/-- Nested FTS (r1-1): region `n` (tree `n`, `n ≤ 8`) at `10152 - 896 n`; region 9 is the virtual tree below tree 8
 (its leaf-pad and Z slots receive tree 8's top pair). -/
-def regionAddr (n : Nat) : Nat := 8560 - 896 * n
-def coordinateBase (k : Fin 9) : Nat := 1392 + 896 * (8 - k.val)
+def regionAddr (n : Nat) : Nat := 10152 - 896 * n
+def coordinateBase (k : Fin 9) : Nat := 2984 + 896 * (8 - k.val)
 def headerTable (k : Fin 9) : Nat := 0xfee600 + 512 * k.val
 def forestInputAddress : Nat := 0xffbdf0
 def pairAddress (k : Fin 9) : Nat := forestInputAddress + 32 + 32 * k.val
 abbrev WBytes := ClaudeWCT.W9.T3M.WBytes
 abbrev wdig (w : WBytes) (off : Nat) : SigGolfCandidate.T3.Digest := ClaudeWCT.W9.T3M.wdig w off
 def OrigW (w : WBytes) (s : MachineState) (A : Nat) : Prop :=
-  s.getMem (BitVec.ofNat 64 A) = w.extractLsb' (8 * (A - 0x4c0)) 64
+  s.getMem (BitVec.ofNat 64 A) = w.extractLsb' (8 * (A - 0xB58)) 64
 theorem wdig_lo (w : WBytes) (off : Nat) : (wdig w off).extractLsb' 0 64 = w.extractLsb' (8 * off) 64 := by
   unfold wdig ClaudeWCT.W9.T3M.wdig
   apply BitVec.eq_of_toNat_eq
@@ -51,8 +51,8 @@ theorem wdig_hi (w : WBytes) (off : Nat) :
   generalize w.toNat / 2 ^ (8 * off) = X
   rw [show (2 : Nat) ^ 128 = 2 ^ 64 * 2 ^ 64 by norm_num, Nat.mod_mul_right_div_self, Nat.mod_mod]
 theorem DigAt_origW {w : WBytes} {s : MachineState} {A : Nat} (h0 : OrigW w s A) (h1 : OrigW w s (A + 8))
-    (hA : 0x4c0 ≤ A) : DigAt s A (wdig w (A - 0x4c0)) := by
+    (hA : 0xB58 ≤ A) : DigAt s A (wdig w (A - 0xB58)) := by
   refine ⟨?_, ?_⟩
   · rw [h0, wdig_lo]
-  · rw [h1, wdig_hi, show A + 8 - 0x4c0 = A - 0x4c0 + 8 by omega]
+  · rw [h1, wdig_hi, show A + 8 - 0xB58 = A - 0xB58 + 8 by omega]
 end W9Machine

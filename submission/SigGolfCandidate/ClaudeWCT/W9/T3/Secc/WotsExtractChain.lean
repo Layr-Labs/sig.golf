@@ -28,7 +28,7 @@ theorem structuralHitSrc_mono {answers : Answers} {trace trace' : List Entry} (h
   exact ⟨position, input, answer, hsub _ hm, hpos, hb, hs, hc, hh⟩
 theorem otherChainRow_intro {answers : Answers} {input : HashInput} {a : ChainAddr} {step : Nat}
     (hpos : Extract.posOf input = some (.chain a.key.lay a.key.tree a.key.leaf a.chain step))
-    (h : (∀ value, input ≠ chainRow a step value) ∨ depth answers a ≤ step) : OtherChainRow answers input :=
+    (h : (∀ value, input ≠ chainRowW a step value) ∨ depth answers a ≤ step) : OtherChainRow answers input :=
   ⟨a, step, hpos, h⟩
 /-- A structural hit from a query whose header matches a source position (C2/C3: the hit compares the half
 `pos.proj` that the position's honest value uses). -/
@@ -179,13 +179,13 @@ def chainHighFrom (lay : Layer) (i start : Nat) : Nat → Bool := fun step => WC
 theorem chainPW_eq_hashPathW (lay : Layer) (tree leaf i start count : Nat)
     (pad0 pad1 : Digest) (headerPad : BitVec 64) (initial : Digest) :
     chainPW lay tree leaf i start count pad0 pad1 headerPad initial =
-      hashPathW (chainHighFrom lay i start) (chainPathInput lay tree leaf i start pad0 pad1 headerPad) count initial := by
+      hashPathW (chainHighFrom lay i start) (Extract.chainPathInputW lay tree leaf i start pad0 pad1 headerPad) count initial := by
   unfold chainPW hashPathW
   rw [List.range'_eq_map_range, List.foldlM_map]
   rfl
 theorem honestChainValueW_ref (answers : Answers) (lay : Layer) (tree leaf i start : Nat) (seed : Digest)
     (step : Nat) :
-    WCT9.halfOf (chainHighFrom lay i start step) (answers (.inl (.inr (pad64 (chainInput lay tree leaf i
+    WCT9.halfOf (chainHighFrom lay i start step) (answers (.inl (.inr (pad64 (WCT9.chainInputW lay tree leaf i
       (start + step) (honestChainValueW answers lay tree leaf i seed (start + step))))))) =
       honestChainValueW answers lay tree leaf i seed (start + (step + 1)) := by
   rw [← Nat.add_assoc]
@@ -198,45 +198,44 @@ theorem chainPW_join (answers : Answers) (lay : Layer) (tree leaf i start count 
       honestChainValueW answers lay tree leaf i seed (start + count)) :
     (value = honestChainValueW answers lay tree leaf i seed start ∧ (0 < count → pad0 = 0 ∧ pad1 = 0 ∧ headerPad = 0) ∧
       ∀ s, s ≤ count → pathValueW answers (chainHighFrom lay i start)
-        (chainPathInput lay tree leaf i start pad0 pad1 headerPad) value s =
+        (Extract.chainPathInputW lay tree leaf i start pad0 pad1 headerPad) value s =
         honestChainValueW answers lay tree leaf i seed (start + s)) ∨
     ∃ step, step < count ∧
       .inl (.inr (pad64 (pathInputW answers (chainHighFrom lay i start)
-        (chainPathInput lay tree leaf i start pad0 pad1 headerPad) value step))) ∈
+        (Extract.chainPathInputW lay tree leaf i start pad0 pad1 headerPad) value step))) ∈
         queried answers (chainPW lay tree leaf i start count pad0 pad1 headerPad value) ∧
       HashHitH (WCT9.chainHigh lay i (start + step)) answers
-        (pad64 (chainInput lay tree leaf i (start + step)
+        (pad64 (WCT9.chainInputW lay tree leaf i (start + step)
           (honestChainValueW answers lay tree leaf i seed (start + step))))
         (pad64 (pathInputW answers (chainHighFrom lay i start)
-          (chainPathInput lay tree leaf i start pad0 pad1 headerPad) value step)) ∧
+          (Extract.chainPathInputW lay tree leaf i start pad0 pad1 headerPad) value step)) ∧
       (step + 1 < count → pad0 = 0 ∧ pad1 = 0 ∧ headerPad = 0) ∧
       (∀ later, step < later → later < count →
-        pathInputW answers (chainHighFrom lay i start) (chainPathInput lay tree leaf i start pad0 pad1 headerPad)
+        pathInputW answers (chainHighFrom lay i start) (Extract.chainPathInputW lay tree leaf i start pad0 pad1 headerPad)
             value later =
-          chainInput lay tree leaf i (start + later)
+          WCT9.chainInputW lay tree leaf i (start + later)
             (honestChainValueW answers lay tree leaf i seed (start + later))) ∧
       ∀ s, step < s → s ≤ count → pathValueW answers (chainHighFrom lay i start)
-          (chainPathInput lay tree leaf i start pad0 pad1 headerPad) value s =
+          (Extract.chainPathInputW lay tree leaf i start pad0 pad1 headerPad) value s =
         honestChainValueW answers lay tree leaf i seed (start + s) := by
   rw [chainPW_eq_hashPathW] at reaches ⊢
-  have h := hashPathW_join answers (chainHighFrom lay i start) (chainPathInput lay tree leaf i start pad0 pad1 headerPad)
-    (fun step => chainInput lay tree leaf i (start + step)
+  have h := hashPathW_join answers (chainHighFrom lay i start) (Extract.chainPathInputW lay tree leaf i start pad0 pad1 headerPad)
+    (fun step => WCT9.chainInputW lay tree leaf i (start + step)
       (honestChainValueW answers lay tree leaf i seed (start + step)))
     (fun step => honestChainValueW answers lay tree leaf i seed (start + step))
     (fun _ => pad0 = 0 ∧ pad1 = 0 ∧ headerPad = 0) value count
     (fun step _ => honestChainValueW_ref answers lay tree leaf i start seed step)
     (fun step hstep current heq => by
       have hs : start + step < 8 := by rcases hsteps with hz | hb <;> omega
-      simp only [chainPathInput, chainInput_eq_zero _ _ _ _ _ _ ht hl hi hs, pad64_chainInputP] at heq
-      have hhp := chainInputP_headerPad_eq heq
-      obtain ⟨hp0, _, hp1, hv⟩ := chainInputP_fields heq
+      simp only [Extract.chainPathInputW, chainInputW_eq_zero _ _ _ _ _ _ ht hl hi hs, pad64_chainInputPW] at heq
+      obtain ⟨hp0, hhp, hp1, hv⟩ := chainInputPW_fields heq
       exact ⟨hv, hp0, hp1, hhp⟩) reaches
   rcases h with ⟨hvalue, hpads, hvals⟩ | ⟨step, hstep, hq, hhit, hlater, hvals⟩
   · exact Or.inl ⟨by simpa using hvalue, fun hcount => (hpads 0 hcount).1, hvals⟩
   · refine Or.inr ⟨step, hstep, hq, hhit, fun h => (hlater (step + 1) (by omega) h).1, ?_, hvals⟩
     intro later h1 h2
     have he := (hlater later h1 h2).2
-    simp only [pathInputW, chainPathInput, chainInput_padded, pad64_chainInputP] at he ⊢
+    simp only [pathInputW, Extract.chainPathInputW, WCT9.chainInputW_padded, pad64_chainInputPW] at he ⊢
     exact he
 theorem chainPW_frontier (answers : Answers) (lay : Layer) (tree leaf i start count : Nat)
     (pad0 pad1 : Digest) (headerPad : BitVec 64) (value seed : Digest)
@@ -247,16 +246,16 @@ theorem chainPW_frontier (answers : Answers) (lay : Layer) (tree leaf i start co
     (W : Nat) (hW : start < W) (hWc : W ≤ start + count) :
     (∃ step, step < count ∧
       .inl (.inr (pad64 (pathInputW answers (chainHighFrom lay i start)
-        (chainPathInput lay tree leaf i start pad0 pad1 headerPad) value step))) ∈
+        (Extract.chainPathInputW lay tree leaf i start pad0 pad1 headerPad) value step))) ∈
         queried answers (chainPW lay tree leaf i start count pad0 pad1 headerPad value) ∧
       HashHitH (WCT9.chainHigh lay i (start + step)) answers
-        (pad64 (chainInput lay tree leaf i (start + step)
+        (pad64 (WCT9.chainInputW lay tree leaf i (start + step)
           (honestChainValueW answers lay tree leaf i seed (start + step))))
         (pad64 (pathInputW answers (chainHighFrom lay i start)
-          (chainPathInput lay tree leaf i start pad0 pad1 headerPad) value step)) ∧
+          (Extract.chainPathInputW lay tree leaf i start pad0 pad1 headerPad) value step)) ∧
       (¬(pad0 = 0 ∧ pad1 = 0 ∧ headerPad = 0) ∨ W ≤ start + step)) ∨
     (pad0 = 0 ∧ pad1 = 0 ∧ headerPad = 0 ∧
-      pathValueW answers (chainHighFrom lay i start) (chainPathInput lay tree leaf i start pad0 pad1 headerPad) value
+      pathValueW answers (chainHighFrom lay i start) (Extract.chainPathInputW lay tree leaf i start pad0 pad1 headerPad) value
         (W - start) = honestChainValueW answers lay tree leaf i seed W) := by
   rcases chainPW_join answers lay tree leaf i start count pad0 pad1 headerPad value seed ht hl hi hsteps reaches with
     ⟨_, hpads, hvals⟩ | ⟨step, hstep, hq, hhit, _, _, hvals⟩
@@ -272,25 +271,25 @@ theorem chainPW_frontier (answers : Answers) (lay : Layer) (tree leaf i start co
 theorem chainPW_row (answers : Answers) (a : ChainAddr) (start count : Nat) (value : Digest) (s : Nat)
     (ht : a.key.tree < 2^31) (hl : a.key.leaf < 4096) (hi : a.chain < 64)
     (hsteps : start + count ≤ 8) (hs : s < count) :
-    (.inl (.inr (chainRow a (start + s)
+    (.inl (.inr (chainRowW a (start + s)
         (pathValueW answers (chainHighFrom a.key.lay a.chain start)
-          (chainPathInput a.key.lay a.key.tree a.key.leaf a.chain start 0 0 0) value s))) : Spec.Domain) ∈
+          (Extract.chainPathInputW a.key.lay a.key.tree a.key.leaf a.chain start 0 0 0) value s))) : Spec.Domain) ∈
       queried answers (chainPW a.key.lay a.key.tree a.key.leaf a.chain start count 0 0 0 value) ∧
-    rowHalf a (start + s) (answers (.inl (.inr (chainRow a (start + s)
+    rowHalf a (start + s) (answers (.inl (.inr (chainRowW a (start + s)
         (pathValueW answers (chainHighFrom a.key.lay a.chain start)
-          (chainPathInput a.key.lay a.key.tree a.key.leaf a.chain start 0 0 0) value s))))) =
+          (Extract.chainPathInputW a.key.lay a.key.tree a.key.leaf a.chain start 0 0 0) value s))))) =
       pathValueW answers (chainHighFrom a.key.lay a.chain start)
-        (chainPathInput a.key.lay a.key.tree a.key.leaf a.chain start 0 0 0) value (s + 1) := by
+        (Extract.chainPathInputW a.key.lay a.key.tree a.key.leaf a.chain start 0 0 0) value (s + 1) := by
   have hrow : pad64 (pathInputW answers (chainHighFrom a.key.lay a.chain start)
-      (chainPathInput a.key.lay a.key.tree a.key.leaf a.chain start 0 0 0) value s) =
-      chainRow a (start + s)
+      (Extract.chainPathInputW a.key.lay a.key.tree a.key.leaf a.chain start 0 0 0) value s) =
+      chainRowW a (start + s)
         (pathValueW answers (chainHighFrom a.key.lay a.chain start)
-          (chainPathInput a.key.lay a.key.tree a.key.leaf a.chain start 0 0 0) value s) := by
-    simp only [pathInputW, chainPathInput, pad64_chainInputP, chainRow]
-    exact (chainInput_eq_zero a.key.lay a.key.tree a.key.leaf a.chain (start + s) _ ht hl hi (by omega)).symm
+          (Extract.chainPathInputW a.key.lay a.key.tree a.key.leaf a.chain start 0 0 0) value s) := by
+    simp only [pathInputW, Extract.chainPathInputW, pad64_chainInputPW, chainRowW]
+    exact (chainInputW_eq_zero a.key.lay a.key.tree a.key.leaf a.chain (start + s) _ ht hl hi (by omega)).symm
   constructor
   · rw [chainPW_eq_hashPathW, ← hrow]
-    exact pathInputW_queried answers _ (chainPathInput a.key.lay a.key.tree a.key.leaf a.chain start 0 0 0) value
+    exact pathInputW_queried answers _ (Extract.chainPathInputW a.key.lay a.key.tree a.key.leaf a.chain start 0 0 0) value
       count s hs
   · rw [pathValueW_succ, hrow]
     rfl
@@ -301,7 +300,7 @@ theorem chainW_seen (answers : Answers) (a : ChainAddr) (start count : Nat) (val
     (hsub : ∀ q ∈ queried answers (chainPW a.key.lay a.key.tree a.key.leaf a.chain start count 0 0 0 value), q ∈ qs)
     (W : Nat) (hW : start < W) (hWc : W ≤ start + count)
     (hval : pathValueW answers (chainHighFrom a.key.lay a.chain start)
-      (chainPathInput a.key.lay a.key.tree a.key.leaf a.chain start 0 0 0) value (W - start) = out) :
+      (Extract.chainPathInputW a.key.lay a.key.tree a.key.leaf a.chain start 0 0 0) value (W - start) = out) :
     (∃ x, SeenRowW (entriesOf answers qs) a (W - 1) x out) ∧
       (start + 2 ≤ W → ∃ y x, SeenRowW (entriesOf answers qs) a (W - 2) y x ∧
         SeenRowW (entriesOf answers qs) a (W - 1) x out) := by
@@ -326,28 +325,28 @@ theorem chain_bounded {a : ChainAddr} {step : Nat} (hsrc : SourceChain a)
   refine ⟨by omega, by omega, by omega, by omega⟩
 theorem structuralHit_chain {answers : Answers} {qs : List Spec.Domain} (a : ChainAddr) (step : Nat)
     (pad0 pad1 : Digest) (headerPad : BitVec 64) (v : Digest)
-    (hq : (.inl (.inr (chainInputP a.key.lay a.key.tree a.key.leaf a.chain step pad0 pad1 headerPad v)) : Spec.Domain) ∈ qs)
+    (hq : (.inl (.inr (chainInputPW a.key.lay a.key.tree a.key.leaf a.chain step pad0 pad1 headerPad v)) : Spec.Domain) ∈ qs)
     (hsrc : SourceChain a) (htb : a.key.tree < 2 ^ Extract.treeBits a.key.lay)
     (hstep : step + 1 < 2 ^ width a.key.lay a.chain)
     (hhit : HashHitH (WCT9.chainHigh a.key.lay a.chain step) answers
       (Extract.honestInput answers (.chain a.key.lay a.key.tree a.key.leaf a.chain step))
-      (chainInputP a.key.lay a.key.tree a.key.leaf a.chain step pad0 pad1 headerPad v))
+      (chainInputPW a.key.lay a.key.tree a.key.leaf a.chain step pad0 pad1 headerPad v))
     (hclass : ¬(pad0 = 0 ∧ pad1 = 0 ∧ headerPad = 0) ∨ depth answers a ≤ step) :
     StructuralHitSrc answers (entriesOf answers qs) := by
   have hb := chain_bounded hsrc hstep
-  have hlen : (chainInputP a.key.lay a.key.tree a.key.leaf a.chain step pad0 pad1 headerPad v).length = 64 := by
-    simp [chainInputP, bytesLE_length]
-  have hpos : Extract.posOf (chainInputP a.key.lay a.key.tree a.key.leaf a.chain step pad0 pad1 headerPad v) =
+  have hlen : (chainInputPW a.key.lay a.key.tree a.key.leaf a.chain step pad0 pad1 headerPad v).length = 64 := by
+    exact chainInputPW_length _ _ _ _ _ _ _ _ _
+  have hpos : Extract.posOf (chainInputPW a.key.lay a.key.tree a.key.leaf a.chain step pad0 pad1 headerPad v) =
       some (.chain a.key.lay a.key.tree a.key.leaf a.chain step) := by
     apply Extract.posOf_key_eq hb (hlen.trans rfl)
     -- C4: a chain header's low word carries type byte 193, so it is no top label.
     have hT : ¬ Extract.TopLow
-        (Extract.hdrBlock (chainInputP a.key.lay a.key.tree a.key.leaf a.chain step pad0 pad1 headerPad v)) := by
-      rw [← pad64_chainInputP, Extract.hdrBlock_chainInputP, Extract.topLow_bytesLE_iff, SigGolfCandidate.T3M.chainHeaderP,
+        (Extract.hdrBlock (chainInputPW a.key.lay a.key.tree a.key.leaf a.chain step pad0 pad1 headerPad v)) := by
+      rw [Extract.hdrBlock, chainInputPW_header, Extract.topLow_bytesLE_iff, SigGolfCandidate.T3M.chainHeaderP,
         append64_lowNat, chainHeader_low, chainHeaderFlaggedLow_toNat]
       have := chainHeaderLow_band a.key.lay a.key.tree a.key.leaf a.chain step
       split_ifs <;> omega
-    rw [Extract.hdrKey_of_len64 hlen hT, ← pad64_chainInputP, Extract.hdrBlock_chainInputP,
+    rw [Extract.hdrKey_of_len64 hlen hT, Extract.hdrBlock, chainInputPW_header,
       Extract.canonicalHeader_chainHeaderP]
     exact Extract.Pos.canonicalHeader_eq (p := .chain a.key.lay a.key.tree a.key.leaf a.chain step) hb
   refine ⟨_, _, _, mem_entriesOf hq, hpos, hb, ⟨htb, hsrc.1.2, hsrc.2, hstep⟩, ?_,
@@ -355,9 +354,8 @@ theorem structuralHit_chain {answers : Answers} {qs : List Spec.Domain} (a : Cha
   refine otherChainRow_intro hpos ?_
   rcases hclass with hpad | hdepth
   · refine Or.inl fun value he => hpad ?_
-    rw [chainRow, chainInput_eq_zero _ _ _ _ _ _ hb.1 hb.2.1 hb.2.2.1 (by have := hb.2.2.2; omega)] at he
-    have hh := chainInputP_headerPad_eq he
-    obtain ⟨h0, _, h1, _⟩ := chainInputP_fields he
+    rw [chainRowW, chainInputW_eq_zero _ _ _ _ _ _ hb.1 hb.2.1 hb.2.2.1 (by have := hb.2.2.2; omega)] at he
+    obtain ⟨h0, hh, h1, _⟩ := chainInputPW_fields he
     exact ⟨h0, h1, hh⟩
   · exact Or.inr hdepth
 theorem chain_cases (answers : Answers) (a : ChainAddr) (start count : Nat)
@@ -394,25 +392,25 @@ theorem chain_cases (answers : Answers) (a : ChainAddr) (start count : Nat)
   have hc8 : start + count ≤ 8 := by omega
   have hit : ∀ step, step < count →
       .inl (.inr (pad64 (pathInputW answers (chainHighFrom a.key.lay a.chain start)
-        (chainPathInput a.key.lay a.key.tree a.key.leaf a.chain start pad0 pad1 headerPad) value step))) ∈
+        (Extract.chainPathInputW a.key.lay a.key.tree a.key.leaf a.chain start pad0 pad1 headerPad) value step))) ∈
         queried answers (chainPW a.key.lay a.key.tree a.key.leaf a.chain start count pad0 pad1 headerPad value) →
       HashHitH (WCT9.chainHigh a.key.lay a.chain (start + step)) answers
-        (pad64 (chainInput a.key.lay a.key.tree a.key.leaf a.chain (start + step)
+        (pad64 (WCT9.chainInputW a.key.lay a.key.tree a.key.leaf a.chain (start + step)
           (honestChainValueW answers a.key.lay a.key.tree a.key.leaf a.chain
             (WCT9.wotsSeed answers a.key.lay a.key.tree a.key.leaf a.chain) (start + step))))
         (pad64 (pathInputW answers (chainHighFrom a.key.lay a.chain start)
-          (chainPathInput a.key.lay a.key.tree a.key.leaf a.chain start pad0 pad1 headerPad) value step)) →
+          (Extract.chainPathInputW a.key.lay a.key.tree a.key.leaf a.chain start pad0 pad1 headerPad) value step)) →
       (¬(pad0 = 0 ∧ pad1 = 0 ∧ headerPad = 0) ∨ depth answers a ≤ start + step) → False := by
     intro step hstep hq hhit hclass
     apply hS
-    simp only [pathInputW, chainPathInput, pad64_chainInputP] at hq hhit
+    simp only [pathInputW, Extract.chainPathInputW, pad64_chainInputPW] at hq hhit
     refine structuralHit_chain a (start + step) pad0 pad1 headerPad _ (hsub _ hq) hsrc htb (by omega) ?_ hclass
     have he : Extract.honestInput answers (.chain a.key.lay a.key.tree a.key.leaf a.chain (start + step)) =
-        pad64 (chainInput a.key.lay a.key.tree a.key.leaf a.chain (start + step)
+        pad64 (WCT9.chainInputW a.key.lay a.key.tree a.key.leaf a.chain (start + step)
           (honestChainValueW answers a.key.lay a.key.tree a.key.leaf a.chain
             (WCT9.wotsSeed answers a.key.lay a.key.tree a.key.leaf a.chain) (start + step))) := by
       simp only [Extract.honestInput]
-      rw [honestChainValueW_eq (Or.inr (Or.inr (by omega)))]
+      try rfl
     rw [he]
     exact hhit
   constructor
@@ -469,7 +467,7 @@ theorem structuralHitSrc_mono {answers : Answers} {trace trace' : List Entry} (h
   exact ⟨position, input, answer, hsub _ hm, hpos, hb, hs, hc, hh⟩
 theorem otherChainRow_intro {answers : Answers} {input : HashInput} {a : ChainAddr} {step : Nat}
     (hpos : Extract.posOf input = some (.chain a.key.lay a.key.tree a.key.leaf a.chain step))
-    (h : (∀ value, input ≠ chainRow a step value) ∨ CanonicalRef.depth answers messages a ≤ step) : CanonicalRef.OtherChainRow answers messages input :=
+    (h : (∀ value, input ≠ chainRowW a step value) ∨ CanonicalRef.depth answers messages a ≤ step) : CanonicalRef.OtherChainRow answers messages input :=
   ⟨a, step, hpos, h⟩
 /-- A structural hit from a query whose header matches a source position (C2/C3: the hit compares the half
 `pos.proj` that the position's honest value uses). -/
@@ -501,28 +499,28 @@ theorem chain_bounded {a : ChainAddr} {step : Nat} (hsrc : SourceChain a)
   refine ⟨by omega, by omega, by omega, by omega⟩
 theorem structuralHit_chain {answers : Answers} {qs : List Spec.Domain} (a : ChainAddr) (step : Nat)
     (pad0 pad1 : Digest) (headerPad : BitVec 64) (v : Digest)
-    (hq : (.inl (.inr (chainInputP a.key.lay a.key.tree a.key.leaf a.chain step pad0 pad1 headerPad v)) : Spec.Domain) ∈ qs)
+    (hq : (.inl (.inr (chainInputPW a.key.lay a.key.tree a.key.leaf a.chain step pad0 pad1 headerPad v)) : Spec.Domain) ∈ qs)
     (hsrc : SourceChain a) (htb : a.key.tree < 2 ^ Extract.treeBits a.key.lay)
     (hstep : step + 1 < 2 ^ width a.key.lay a.chain)
     (hhit : HashHitH (WCT9.chainHigh a.key.lay a.chain step) answers
       (Extract.honestInput answers (.chain a.key.lay a.key.tree a.key.leaf a.chain step))
-      (chainInputP a.key.lay a.key.tree a.key.leaf a.chain step pad0 pad1 headerPad v))
+      (chainInputPW a.key.lay a.key.tree a.key.leaf a.chain step pad0 pad1 headerPad v))
     (hclass : ¬(pad0 = 0 ∧ pad1 = 0 ∧ headerPad = 0) ∨ CanonicalRef.depth answers messages a ≤ step) :
     StructuralHitSrc answers messages (entriesOf answers qs) := by
   have hb := chain_bounded hsrc hstep
-  have hlen : (chainInputP a.key.lay a.key.tree a.key.leaf a.chain step pad0 pad1 headerPad v).length = 64 := by
-    simp [chainInputP, bytesLE_length]
-  have hpos : Extract.posOf (chainInputP a.key.lay a.key.tree a.key.leaf a.chain step pad0 pad1 headerPad v) =
+  have hlen : (chainInputPW a.key.lay a.key.tree a.key.leaf a.chain step pad0 pad1 headerPad v).length = 64 := by
+    exact chainInputPW_length _ _ _ _ _ _ _ _ _
+  have hpos : Extract.posOf (chainInputPW a.key.lay a.key.tree a.key.leaf a.chain step pad0 pad1 headerPad v) =
       some (.chain a.key.lay a.key.tree a.key.leaf a.chain step) := by
     apply Extract.posOf_key_eq hb (hlen.trans rfl)
     -- C4: a chain header's low word carries type byte 193, so it is no top label.
     have hT : ¬ Extract.TopLow
-        (Extract.hdrBlock (chainInputP a.key.lay a.key.tree a.key.leaf a.chain step pad0 pad1 headerPad v)) := by
-      rw [← pad64_chainInputP, Extract.hdrBlock_chainInputP, Extract.topLow_bytesLE_iff, SigGolfCandidate.T3M.chainHeaderP,
+        (Extract.hdrBlock (chainInputPW a.key.lay a.key.tree a.key.leaf a.chain step pad0 pad1 headerPad v)) := by
+      rw [Extract.hdrBlock, chainInputPW_header, Extract.topLow_bytesLE_iff, SigGolfCandidate.T3M.chainHeaderP,
         append64_lowNat, chainHeader_low, chainHeaderFlaggedLow_toNat]
       have := chainHeaderLow_band a.key.lay a.key.tree a.key.leaf a.chain step
       split_ifs <;> omega
-    rw [Extract.hdrKey_of_len64 hlen hT, ← pad64_chainInputP, Extract.hdrBlock_chainInputP,
+    rw [Extract.hdrKey_of_len64 hlen hT, Extract.hdrBlock, chainInputPW_header,
       Extract.canonicalHeader_chainHeaderP]
     exact Extract.Pos.canonicalHeader_eq (p := .chain a.key.lay a.key.tree a.key.leaf a.chain step) hb
   refine ⟨_, _, _, mem_entriesOf hq, hpos, hb, ⟨htb, hsrc.1.2, hsrc.2, hstep⟩, ?_, trivial,
@@ -530,9 +528,8 @@ theorem structuralHit_chain {answers : Answers} {qs : List Spec.Domain} (a : Cha
   refine otherChainRow_intro hpos ?_
   rcases hclass with hpad | hdepth
   · refine Or.inl fun value he => hpad ?_
-    rw [chainRow, chainInput_eq_zero _ _ _ _ _ _ hb.1 hb.2.1 hb.2.2.1 (by have := hb.2.2.2; omega)] at he
-    have hh := chainInputP_headerPad_eq he
-    obtain ⟨h0, _, h1, _⟩ := chainInputP_fields he
+    rw [chainRowW, chainInputW_eq_zero _ _ _ _ _ _ hb.1 hb.2.1 hb.2.2.1 (by have := hb.2.2.2; omega)] at he
+    obtain ⟨h0, hh, h1, _⟩ := chainInputPW_fields he
     exact ⟨h0, h1, hh⟩
   · exact Or.inr hdepth
 theorem chain_cases (answers : Answers) (a : ChainAddr) (start count : Nat)
@@ -569,25 +566,25 @@ theorem chain_cases (answers : Answers) (a : ChainAddr) (start count : Nat)
   have hc8 : start + count ≤ 8 := by omega
   have hit : ∀ step, step < count →
       .inl (.inr (pad64 (pathInputW answers (chainHighFrom a.key.lay a.chain start)
-        (chainPathInput a.key.lay a.key.tree a.key.leaf a.chain start pad0 pad1 headerPad) value step))) ∈
+        (Extract.chainPathInputW a.key.lay a.key.tree a.key.leaf a.chain start pad0 pad1 headerPad) value step))) ∈
         queried answers (chainPW a.key.lay a.key.tree a.key.leaf a.chain start count pad0 pad1 headerPad value) →
       HashHitH (WCT9.chainHigh a.key.lay a.chain (start + step)) answers
-        (pad64 (chainInput a.key.lay a.key.tree a.key.leaf a.chain (start + step)
+        (pad64 (WCT9.chainInputW a.key.lay a.key.tree a.key.leaf a.chain (start + step)
           (honestChainValueW answers a.key.lay a.key.tree a.key.leaf a.chain
             (WCT9.wotsSeed answers a.key.lay a.key.tree a.key.leaf a.chain) (start + step))))
         (pad64 (pathInputW answers (chainHighFrom a.key.lay a.chain start)
-          (chainPathInput a.key.lay a.key.tree a.key.leaf a.chain start pad0 pad1 headerPad) value step)) →
+          (Extract.chainPathInputW a.key.lay a.key.tree a.key.leaf a.chain start pad0 pad1 headerPad) value step)) →
       (¬(pad0 = 0 ∧ pad1 = 0 ∧ headerPad = 0) ∨ CanonicalRef.depth answers messages a ≤ start + step) → False := by
     intro step hstep hq hhit hclass
     apply hS
-    simp only [pathInputW, chainPathInput, pad64_chainInputP] at hq hhit
+    simp only [pathInputW, Extract.chainPathInputW, pad64_chainInputPW] at hq hhit
     refine structuralHit_chain a (start + step) pad0 pad1 headerPad _ (hsub _ hq) hsrc htb (by omega) ?_ hclass
     have he : Extract.honestInput answers (.chain a.key.lay a.key.tree a.key.leaf a.chain (start + step)) =
-        pad64 (chainInput a.key.lay a.key.tree a.key.leaf a.chain (start + step)
+        pad64 (WCT9.chainInputW a.key.lay a.key.tree a.key.leaf a.chain (start + step)
           (honestChainValueW answers a.key.lay a.key.tree a.key.leaf a.chain
             (WCT9.wotsSeed answers a.key.lay a.key.tree a.key.leaf a.chain) (start + step))) := by
       simp only [Extract.honestInput]
-      rw [honestChainValueW_eq (Or.inr (Or.inr (by omega)))]
+      try rfl
     rw [he]
     exact hhit
   constructor

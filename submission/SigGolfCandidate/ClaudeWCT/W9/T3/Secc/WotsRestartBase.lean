@@ -144,7 +144,7 @@ theorem checkpoint_charge (q : Nat) (a : ChainAddr) (R : RefTables adversary) (s
 /-- The observed prefix rows of chain `a` are the used halves (`rowHalf`, C3) of the recorded answers. -/
 def RowsInvW (a : ChainAddr) {d : Nat} (memory : List Entry) (observed : Fin d → Digest → Option Digest) : Prop :=
   ∀ (i : Fin d) (v w : Digest), observed i v = some w ↔
-    ∃ answer, (chainRow a i v, answer) ∈ memory ∧ rowHalf a i answer = w
+    ∃ answer, (chainRowW a i v, answer) ∈ memory ∧ rowHalf a i answer = w
 theorem rowsInvW_nil (a : ChainAddr) (d : Nat) : RowsInvW a (d := d) [] (fun _ _ => none) := by
   intro i v w
   simp
@@ -163,7 +163,7 @@ theorem route_step_lazy (a : ChainAddr) {d : Nat} (hd : d ≤ 256) (R : RefTable
       Function.comp_def] at hr
     obtain ⟨answer, _, rfl⟩ := hr
     simpa [stepTrace, entryOf] using hinv
-  · cases hp : rowOf a d input with
+  · cases hp : PrefixGame.rowOf a d input with
     | none =>
         simp only [routeImpl, hp, SphincsSecurity.Concrete.PartialChainEndpoint.lazyRun_pure,
           PMF.mem_support_pure_iff] at hr
@@ -176,14 +176,14 @@ theorem route_step_lazy (a : ChainAddr) {d : Nat} (hd : d ≤ 256) (R : RefTable
           exact ⟨answer, Or.inl hm, hl⟩
         · rintro ⟨answer, hm | hm, hl⟩
           · exact ⟨answer, hm, hl⟩
-          · exact absurd (congrArg Prod.fst hm).symm (rowOf_none hp (i, v))
+          · exact absurd (congrArg Prod.fst hm).symm (PrefixGame.rowOf_none hp (i, v))
     | some p =>
         simp only [routeImpl, hp] at hr
         rw [map_eq_bind_pure_comp, SphincsSecurity.Concrete.PartialChainEndpoint.lazyRun_query_bind] at hr
         simp only [lazyImpl, StateT.run_mk, PMF.bind_map, PMF.mem_support_bind_iff, Function.comp_def,
           SphincsSecurity.Concrete.PartialChainEndpoint.lazyRun_pure, PMF.mem_support_pure_iff] at hr
         obtain ⟨w₀, hw₀, rfl⟩ := hr
-        have hin := rowOf_some hp
+        have hin := PrefixGame.rowOf_some hp
         subst hin
         intro i v w
         simp only [stepTrace, entryOf, List.mem_append, List.mem_singleton]
@@ -203,9 +203,9 @@ theorem route_step_lazy (a : ChainAddr) {d : Nat} (hd : d ≤ 256) (R : RefTable
               simp only at this
               rw [← hl, this]
               simp only [rowHalf, halfOf_joinHalf]
-        · have hne : chainRow a p.1 p.2 ≠ chainRow a i v := by
+        · have hne : chainRowW a p.1 p.2 ≠ chainRowW a i v := by
             intro he
-            obtain ⟨hs, hv⟩ := Mask.chainRow_inj (by have := p.1.isLt; omega) (by have := i.isLt; omega) he
+            obtain ⟨hs, hv⟩ := chainRowW_inj (by have := p.1.isLt; omega) (by have := i.isLt; omega) he
             exact hpi (Prod.ext (Fin.ext hs) hv)
           have hrec : record observed p w₀ i v = observed i v := by
             simp only [record]
@@ -419,7 +419,7 @@ theorem route_step_lazy (a : ChainAddr) {d : Nat} (hd : d ≤ 256) (R : Tables (
       Function.comp_def] at hr
     obtain ⟨answer, _, rfl⟩ := hr
     simpa [stepTrace, entryOf] using hinv
-  · cases hp : rowOf a d input with
+  · cases hp : PrefixGame.rowOf a d input with
     | none =>
         simp only [routeImpl, Route.routeImpl, hp, SphincsSecurity.Concrete.PartialChainEndpoint.lazyRun_pure,
           PMF.mem_support_pure_iff] at hr
@@ -432,14 +432,14 @@ theorem route_step_lazy (a : ChainAddr) {d : Nat} (hd : d ≤ 256) (R : Tables (
           exact ⟨answer, Or.inl hm, hl⟩
         · rintro ⟨answer, hm | hm, hl⟩
           · exact ⟨answer, hm, hl⟩
-          · exact absurd (congrArg Prod.fst hm).symm (rowOf_none hp (i, v))
+          · exact absurd (congrArg Prod.fst hm).symm (PrefixGame.rowOf_none hp (i, v))
     | some p =>
         simp only [routeImpl, Route.routeImpl, hp] at hr
         rw [map_eq_bind_pure_comp, SphincsSecurity.Concrete.PartialChainEndpoint.lazyRun_query_bind] at hr
         simp only [lazyImpl, StateT.run_mk, PMF.bind_map, PMF.mem_support_bind_iff, Function.comp_def,
           SphincsSecurity.Concrete.PartialChainEndpoint.lazyRun_pure, PMF.mem_support_pure_iff] at hr
         obtain ⟨w₀, hw₀, rfl⟩ := hr
-        have hin := rowOf_some hp
+        have hin := PrefixGame.rowOf_some hp
         subst hin
         intro i v w
         simp only [stepTrace, entryOf, List.mem_append, List.mem_singleton]
@@ -459,9 +459,9 @@ theorem route_step_lazy (a : ChainAddr) {d : Nat} (hd : d ≤ 256) (R : Tables (
               simp only at this
               rw [← hl, this]
               simp only [rowHalf, halfOf_joinHalf]
-        · have hne : chainRow a p.1 p.2 ≠ chainRow a i v := by
+        · have hne : chainRowW a p.1 p.2 ≠ chainRowW a i v := by
             intro he
-            obtain ⟨hs, hv⟩ := Mask.chainRow_inj (by have := p.1.isLt; omega) (by have := i.isLt; omega) he
+            obtain ⟨hs, hv⟩ := chainRowW_inj (by have := p.1.isLt; omega) (by have := i.isLt; omega) he
             exact hpi (Prod.ext (Fin.ext hs) hv)
           have hrec : record observed p w₀ i v = observed i v := by
             simp only [record]

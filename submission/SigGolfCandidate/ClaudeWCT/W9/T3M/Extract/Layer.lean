@@ -230,7 +230,7 @@ theorem layerLeaf_extract (answers : Answers) (w : WBytes) (index : Nat) (lay : 
   have hw : maxDigit lay i ≤ 7 := by unfold maxDigit; split_ifs <;> omega
   have hc := chainCount_le lay
   have hreach : pathValueW answers (fun s => WCT9.chainHigh lay i (digits.getD i 0 + s))
-      (chainPathInput lay tree leaf i (digits.getD i 0) (wchainPads w lay i).1 (wchainPads w lay i).2
+      (chainPathInputW lay tree leaf i (digits.getD i 0) (wchainPads w lay i).1 (wchainPads w lay i).2
         (wchainHeaderPad w lay i)) (wvalueFor w lay digits i) (maxDigit lay i - digits.getD i 0) =
       honestChainValueW answers lay tree leaf i (wotsSeed answers lay tree leaf i)
         (digits.getD i 0 + (maxDigit lay i - digits.getD i 0)) := by
@@ -247,7 +247,7 @@ theorem layerLeaf_extract (answers : Answers) (w : WBytes) (index : Nat) (lay : 
     have hs6 : digits.getD i 0 + step ≤ 6 := by omega
     refine ⟨.chain lay tree leaf i (digits.getD i 0 + step),
       pad64 (pathInputW answers (fun s => WCT9.chainHigh lay i (digits.getD i 0 + s))
-        (chainPathInput lay tree leaf i (digits.getD i 0) (wchainPads w lay i).1 (wchainPads w lay i).2
+        (chainPathInputW lay tree leaf i (digits.getD i 0) (wchainPads w lay i).1 (wchainPads w lay i).2
           (wchainHeaderPad w lay i)) (wvalueFor w lay digits i) step),
       ⟨htree31, hleaf12, by omega, by omega⟩, ?_, ?_, ?_⟩
     · apply hqC
@@ -255,16 +255,15 @@ theorem layerLeaf_extract (answers : Answers) (w : WBytes) (index : Nat) (lay : 
       rw [chainPW_eq_hashPathW]; exact hq
     · rw [hashHitAt_iff]
       simp only [honestInput, Pos.high]
-      rw [← honestChainValueW_eq answers lay tree leaf i _ hs6]
       exact hhit
     · refine SameHeader.of_canonical ?_ ?_ ?_
-      · rw [honestInput_length, pathInputW, chainPathInput, pad64_chainInputP]; simp [Pos.len, chainInputP_eq_block4]
+      · rw [honestInput_length, pathInputW, chainPathInputW, pad64_chainInputPW, chainInputPW_length]; simp [Pos.len]
       · rw [honestInput_length]; simp [Pos.len]
       simp only [honestInput]
-      rw [pathInputW, chainPathInput, hdrBlock_chainInputP, chainInput_padded]
-      change canonicalHeader (bytesLE 16 (chainHeaderP _ _ _ _ _ _)) =
-        canonicalHeader (((chainInput _ _ _ _ _ _).drop 16).take 16)
-      rw [chainInput_header]
+      rw [pathInputW, chainPathInputW, pad64_chainInputPW, WCT9.chainInputW_padded]
+      change canonicalHeader (((chainInputPW _ _ _ _ _ _ _ _ _).drop 16).take 16) =
+        canonicalHeader (((WCT9.chainInputW _ _ _ _ _ _).drop 16).take 16)
+      rw [chainInputPW_header, WCT9.chainInputW_header]
       exact canonicalHeader_chainHeaderP _ _ _ _ _ _
 theorem foldlM_finRange_eq_hashPathW (high : Nat → Bool) (input : Nat → Digest → HashInput)
     (count : Nat) (initial : Digest) :
@@ -487,7 +486,7 @@ theorem chainPW_zero_route (index : Nat) (lay : Layer) (i : Fin (chainCount lay)
   apply WCT9.foldlM_congr_of_mem
   intro s hs v
   rw [List.mem_range'_1] at hs
-  rw [chainInput_eq_zero _ _ _ _ _ _ ht hl hi64 (by omega)]
+  rw [chainInputW_eq_zero _ _ _ _ _ _ ht hl hi64 (by omega)]
 /-- Zero leaf pads: the verifier leaf hash is the honest one. -/
 theorem leafHashW_shaped {lay : Layer} {tree leaf : Nat} {pad : Digest} {hi : BitVec 64} (hh : hi = 0)
     (hp : lay.val = 0 → pad = 0) (ends : List Digest) :
@@ -573,14 +572,13 @@ theorem layerPairP_shaped_core (answers : Answers) (N : HashOutput) (w : WBytes)
       ((List.finRange (chainCount lay)).mapM fun i =>
       WCT9.chainW lay tree leaf i.val (digits.getD i.val 0) (maxDigit lay i.val - digits.getD i.val 0)
         (wvalueFor w lay digits i.val)) := by
-    congr 1
-    funext i
+    refine congrArg (fun f => (List.finRange (chainCount lay)).mapM f) (funext fun i => ?_)
     by_cases hd : digits.getD i.val 0 < maxDigit lay i.val
     · rw [((hs.2.1 i.val i.isLt).2 hd).1, ((hs.2.1 i.val i.isLt).2 hd).2]
       exact hzero i _ _ hindex
     · have h0 : maxDigit lay i.val - digits.getD i.val 0 = 0 := by omega
       rw [h0]
-      rfl
+      simp only [chainPW, WCT9.chainW, List.range'_zero, List.foldlM_nil]
   rw [hchains]
   congr 1
   funext ends

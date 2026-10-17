@@ -37,13 +37,13 @@ theorem submission_terminates (P : Pending I) : (submission I).Terminates := by
   | verify =>
     obtain ⟨m, pk, w⟩ := input
     exact P.verify_terminates hash m pk w
-theorem witnessCycles_eq : witnessCycles (submission I).sizes.witness = 97 := by
+theorem witnessCycles_eq : witnessCycles (submission I).sizes.witness = 91 := by
   rw [ClaudeWCT.W9.T3M.submission_sizes]
   decide
 theorem claimedC_eq : claimedC = verifyCycleBound + witnessCycles (submission I).sizes.witness := by
   rw [witnessCycles_eq]
   decide
-theorem submission_verificationBound (P : Pending I) : (submission I).VerificationBound 7094 := by
+theorem submission_verificationBound (P : Pending I) : (submission I).VerificationBound 7088 := by
   intro hash sk m
   dsimp only
   intro h
@@ -56,7 +56,7 @@ theorem submission_verificationBound (P : Pending I) : (submission I).Verificati
     (SigGolfCandidate.T3M.Verify.hashOk_okHash hash) (Credit.digestCap_okHash hash m pk _ N wt hx) hacc
   unfold verifyCycleBound at this
   omega
-theorem certificate_of (P : Pending I) (S : SourceFacts) : Certificate (submission I) 7094 where
+theorem certificate_of (P : Pending I) (S : SourceFacts) : Certificate (submission I) 7088 where
   admissible := P.admissible
   termination := submission_terminates P
   completeness := submission_complete P S
@@ -86,15 +86,15 @@ theorem submission_terminates (P : Pending I) : (submission I).Terminates := by
   | expand => obtain ⟨m,pk,s⟩:=input;exact P.expand_terminates hash m pk s
   | verify => obtain ⟨m,pk,w⟩:=input;exact P.verify_terminates hash m pk w
 
-theorem witnessCycles_eq : witnessCycles (submission I).sizes.witness=97 := by
-  change witnessCycles 24828=97
+theorem witnessCycles_eq : witnessCycles (submission I).sizes.witness=91 := by
+  change witnessCycles 23236=91
   decide
 
 theorem claimedC_eq : claimedC=verifyCycleBound+witnessCycles (submission I).sizes.witness := by
   rw [witnessCycles_eq];decide
 
 theorem submission_verificationBound (E : EncodingFacts) (F : SourceQueries) (P : Pending I) :
-    (submission I).VerificationBound 6996 := by
+    (submission I).VerificationBound 6990 := by
   intro hash sk m
   dsimp only
   intro h
@@ -116,7 +116,7 @@ open ClaudeWCT.W9.T3M (Images)
 variable {I : Images}
 
 theorem certificate_of (E : EncodingFacts) (F : SourceQueries) (P : Pending I) (S : SourceFacts) :
-    Certificate (submission I) 6996 where
+    Certificate (submission I) 6990 where
   admissible := P.admissible
   termination := submission_terminates P
   completeness := submission_complete E F P S

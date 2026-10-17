@@ -166,11 +166,16 @@ def rungR (d : Nat) (slot : Option Nat) (p : Nat) : Result :=
       | none => RegFile.init),
     [(⟨some (.reg .x10), 16⟩, .bin (.st .b 1) (.ld (addC (.reg .x10) 16)) (posE d))],
     [.align8 (.reg .x10), .valid ⟨some (.reg .x10), 17⟩ 1]⟩, .c (pcOf (p + n)), .ecall, n, n⟩
-def copyRegs (rb : Reg) (off : Word) : RegFile :=
-  (RegFile.init.set .x3 (lAt rb off 48)).set .x14 (lAt rb off 56)
-def copyMem (rb : Reg) (off : Word) (slot : Nat) : SymMem :=
-  [(⟨none, BitVec.ofNat 64 (slot + 8)⟩, lAt rb off 56), (⟨none, BitVec.ofNat 64 slot⟩, lAt rb off 48)]
-def copyObl (rb : Reg) (off : Word) : List Oblig := [.valid (kAt rb off 56) 8, .valid (kAt rb off 48) 8]
+/-- Pairing stage 1: value offset inside a chain block (`48` F, `0` G) and the hash destination offset of an
+interior step (`48` F, `-16` G: the high half lands on the value). -/
+def gVal (g : Bool) : Nat := if g then 0 else 48
+def gOut (g : Bool) : Word := if g then BitVec.ofNat 64 (2 ^ 64 - 16) else 48
+def copyRegs (rb : Reg) (off : Word) (g : Bool := false) : RegFile :=
+  (RegFile.init.set .x3 (lAt rb off (gVal g))).set .x14 (lAt rb off (gVal g + 8))
+def copyMem (rb : Reg) (off : Word) (slot : Nat) (g : Bool := false) : SymMem :=
+  [(⟨none, BitVec.ofNat 64 (slot + 8)⟩, lAt rb off (gVal g + 8)), (⟨none, BitVec.ofNat 64 slot⟩, lAt rb off (gVal g))]
+def copyObl (rb : Reg) (off : Word) (g : Bool := false) : List Oblig :=
+  [.valid (kAt rb off (gVal g + 8)) 8, .valid (kAt rb off (gVal g)) 8]
 def copyJ (rb : Reg) (off : Word) (slot : Nat) (first : Bool) (tgt : Nat) : Result :=
   ⟨⟨(copyRegs rb off).set .x25 (s9E first), copyMem rb off slot, copyObl rb off⟩, .c (pcOf tgt), .jump, 6, 6⟩
 def copyF (rb : Reg) (off : Word) (slot : Nat) (p : Nat) : Result :=
@@ -232,48 +237,54 @@ def rungRB (d : Nat) (slot : Option Nat) (p : Nat) : Result :=
     [(⟨some (.reg .x10), 16⟩, .bin (.st .b 1) (.ld (addC (.reg .x10) 16)) (posE d))],
     [.align8 (.reg .x10), .valid ⟨some (.reg .x10), 17⟩ 1]⟩, .c (pcOf (p + n)), .ecall, n, n⟩
 
-def copyMemB (rb : Reg) (off : Word) (slot : Nat) : SymMem :=
-  [(⟨some (.reg .x4), BitVec.ofNat 64 (slot + 8)⟩, lAt rb off 56), (⟨some (.reg .x4), BitVec.ofNat 64 slot⟩, lAt rb off 48)]
+def copyMemB (rb : Reg) (off : Word) (slot : Nat) (g : Bool := false) : SymMem :=
+  [(⟨some (.reg .x4), BitVec.ofNat 64 (slot + 8)⟩, lAt rb off (gVal g + 8)),
+   (⟨some (.reg .x4), BitVec.ofNat 64 slot⟩, lAt rb off (gVal g))]
 
-def copyOblB (rb : Reg) (off : Word) (slot : Nat) : List Oblig :=
+def copyOblB (rb : Reg) (off : Word) (slot : Nat) (g : Bool := false) : List Oblig :=
   [.valid ⟨some (.reg .x4), BitVec.ofNat 64 (slot + 8)⟩ 8,
-   .valid ⟨some (.reg .x4), BitVec.ofNat 64 slot⟩ 8] ++ copyObl rb off
+   .valid ⟨some (.reg .x4), BitVec.ofNat 64 slot⟩ 8] ++ copyObl rb off g
 
-def copyNB (rb : Reg) (off : Word) (slot : Nat) (tgt : Nat) : Result :=
-  ⟨⟨copyRegs rb off, copyMemB rb off slot, copyOblB rb off slot⟩, .c (pcOf tgt), .jump, 5, 5⟩
+def copyNB (rb : Reg) (off : Word) (slot : Nat) (tgt : Nat) (g : Bool := false) : Result :=
+  ⟨⟨copyRegs rb off g, copyMemB rb off slot g, copyOblB rb off slot g⟩, .c (pcOf tgt), .jump, 5, 5⟩
 
-def headJHB (rb : Reg) (off : Word) (tgt i d : Nat) (slot : Option Nat) : Result :=
+def headJHB (rb : Reg) (off : Word) (tgt i d : Nat) (slot : Option Nat) (g : Bool := false) : Result :=
   ⟨⟨((RegFile.init.set .x10 (addC (.reg rb) off)).set .x12
       (match slot with
        | some a => addC (.reg .x4) (BitVec.ofNat 64 a)
-       | none => addC (addC (.reg rb) off) 48)).set .x25 (hLoad i d),
+       | none => addC (addC (.reg rb) off) (gOut g))).set .x25 (hLoad i d),
     [(kAt rb off 16, hLoad i d)], [.valid (kAt rb off 16) 8]⟩,
     .c (pcOf tgt), .jump, 5, 5⟩
 
-def headRHB (rb : Reg) (off : Word) (d : Nat) (slot : Option Nat) (p i : Nat) : Result :=
+def headRHB (rb : Reg) (off : Word) (d : Nat) (slot : Option Nat) (p i : Nat) (g : Bool := false) : Result :=
   let n := if slot.isSome then 5 else 4
   ⟨⟨((RegFile.init.set .x10 (addC (.reg rb) off)).set .x12
       (match slot with
        | some a => addC (.reg .x4) (BitVec.ofNat 64 a)
-       | none => addC (addC (.reg rb) off) 48)).set .x25 (hLoad i d),
+       | none => addC (addC (.reg rb) off) (gOut g))).set .x25 (hLoad i d),
     [(kAt rb off 16, hLoad i d)], [.valid (kAt rb off 16) 8]⟩,
     .c (pcOf (p + n)), .ecall, n, n⟩
 
-def headRVB (rb : Reg) (off : Word) (d : Nat) (slot : Option Nat) (p i : Nat) : Result :=
+def headRVB (rb : Reg) (off : Word) (d : Nat) (slot : Option Nat) (p i : Nat) (g : Bool := false) : Result :=
   ⟨⟨((RegFile.init.set .x10 (addC (.reg rb) off)).set .x12
       (match slot with
        | some a => addC (.reg .x4) (BitVec.ofNat 64 a)
-       | none => addC (addC (.reg rb) off) 48)).set .x25 (hLoad i d),
+       | none => addC (addC (.reg rb) off) (gOut g))).set .x25 (hLoad i d),
     [(kAt rb off 16, hLoad i d)], [.valid (kAt rb off 16) 8]⟩,
     .c (pcOf (p + 4)), .ecall, 4, 4⟩
 
-def copyFHB (rb : Reg) (off : Word) (slot : Nat) (p : Nat) : Result :=
-  ⟨⟨copyRegs rb off, copyMemB rb off slot, copyOblB rb off slot⟩, .c (pcOf (p + 4)), .fuel, 4, 4⟩
+def copyFHB (rb : Reg) (off : Word) (slot : Nat) (p : Nat) (g : Bool := false) : Result :=
+  ⟨⟨copyRegs rb off g, copyMemB rb off slot g, copyOblB rb off slot g⟩, .c (pcOf (p + 4)), .fuel, 4, 4⟩
 
 def skipJB (tgt : Nat) : Result :=
   ⟨SymState.init, .c (pcOf tgt), .jump, 1, 1⟩
 
-def offL (i : Nat) : Word := BitVec.ofNat 64 (64 * (42 - i)) - BitVec.ofNat 64 1024
+/-- Pairing stage 1: chain `i`'s block inside a lower chain area (`W9.T3M.chainSlot` on layers 1..3) and its format. -/
+def lowerSlot (i : Nat) : Nat :=
+  if i = 0 then 2184 else if i % 2 = 1 then 104 * (20 - i / 2) + 16 else 104 * (21 - i / 2) + 40
+def lowerG (i : Nat) : Bool := decide (i % 2 = 1)
+/-- Pairing stage 1: chain block offsets relative to `x22` (= chain area + 520). -/
+def offL (i : Nat) : Word := BitVec.ofNat 64 (lowerSlot i) - BitVec.ofNat 64 520
 def slotL (i : Nat) : Nat := if i = 0 then 768 else 784 + 16 * i
 /-- C3: hash destination of a chain's last step. Lower chain 0 writes its last hash 16 bytes below its slot, so the
 slot receives the HIGH half and the leaf tweak's high word above it stays witness memory. -/
@@ -296,16 +307,17 @@ def rungsOK (d0 slot p : Nat) : Bool :=
   (List.range' d0 (7 - d0)).all fun m =>
     rOK (vrun (p + 2 * (m - d0)) 3) (rungRB m (if m = 6 then some slot else none) (p + 2 * (m - d0)))
 def partOK (i d p : Nat) (skip : Bool := false) : Bool :=
-  if skip then true else if d = 7 then rOK (vrun p 4) (copyFHB .x22 (offL i) (slotL i) p)
-  else rOK (vrun p 8) (headRVB .x22 (offL i) d (if d = 6 then some (slotL i) else none) p i) &&
+  if skip then true else if d = 7 then rOK (vrun p 4) (copyFHB .x22 (offL i) (slotL i) p (lowerG i))
+  else rOK (vrun p 8) (headRVB .x22 (offL i) d (if d = 6 then some (slotL i) else none) p i (lowerG i)) &&
     rungsOK (d + 1) (slotL i) (p + 5)
 def entCheck (t k : Nat) : Bool :=
   if k < rankFloor t then true else if k % 8 = 7 then
     if t = 0 then rOK (vrun (entW t k) 1) (skipJB (pcB t (k / 8 % 8) (k / 64)))
     else rOK (vrun (entW t k) 7) (copyNB .x22 (offL (3 * t)) (slotL (3 * t))
-      (pcB t (k / 8 % 8) (k / 64) + (if k / 8 % 8 = 7 then 4 else 0)))
+      (pcB t (k / 8 % 8) (k / 64) + (if k / 8 % 8 = 7 then 4 else 0)) (lowerG (3 * t)))
   else rOK (vrun (entW t k) 7) (headJHB .x22 (offL (3 * t))
-      (triBase t (k / 8 % 8) (k / 64) + 2 * (k % 8) + landOff (k % 8)) (3 * t) (k % 8) (hSlot (3 * t) (k % 8))) &&
+      (triBase t (k / 8 % 8) (k / 64) + 2 * (k % 8) + landOff (k % 8)) (3 * t) (k % 8) (hSlot (3 * t) (k % 8))
+      (lowerG (3 * t))) &&
     rOK (vrun (triBase t (k / 8 % 8) (k / 64) + 2 * (k % 8) + landOff (k % 8)) 1)
       (ecallR (triBase t (k / 8 % 8) (k / 64) + 2 * (k % 8) + landOff (k % 8)))
 def xOK (t dB dC : Nat) : Bool :=

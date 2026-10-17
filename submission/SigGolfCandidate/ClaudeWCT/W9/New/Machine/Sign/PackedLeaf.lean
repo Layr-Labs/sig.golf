@@ -90,14 +90,13 @@ theorem LeafPreS.transfer {sk : BitVec 256} {s0 s : MachineState} {A : LeafArgs}
       p56 := by rw [g _ (by decide)]; exact h.p56
       z0 := by rw [g _ (by decide)]; exact h.z0
       z8 := by rw [g _ (by decide)]; exact h.z8
-      z32 := by rw [g _ (by decide)]; exact h.z32
-      z40 := by rw [g _ (by decide)]; exact h.z40
       hsl := h.hsl
       hdig := fun i hi => by
         rw [hf.getByte (by omega) (not_bscr (by omega))]; exact h.hdig i hi
       hdigb := h.hdigb
       hdigp := h.hdigp
       hdigW := h.hdigW
+      hdigC := h.hdigC
       hv8 := h.hv8
       hv := h.hv
       hvs := h.hvs
@@ -413,195 +412,10 @@ section chain
 variable (sk : BitVec 256) {s0 : MachineState} {A : LeafArgs} (hpre : LeafPreS sk s0 A)
 include hpre
 
-theorem chain_cont (hlay : A.lay ≠ 0) (hso : A.so = false) {j : Nat} (hj : j < A.n)
-    {st : List Digest × List Digest} (u : MachineState) (seed carry : Digest) (upc : u.pc = pcOf (1013 + 61))
-    (hu : LeafInv s0 A j st u) (h28 : u.getReg .x28 = BitVec.ofNat 64 0) (hseed : DigAt u SEEDS seed)
-    (hc : DigAt u (SEEDS + 16) carry) :
-    TSim Sign.image sk u (16 + Sign.Seed.chainK A.lay j (A.e j) + (4 + (11 + slotK A.lay j)))
-      (16 + Sign.Seed.chainCy A.lay j (A.e j) + (4 + (11 + slotK A.lay j))) (A.e j) (A.e j)
-      ((fun r : Digest × Digest => (st.1 ++ [r.2], st.2 ++ [r.1])) <$> Sign.Seed.chainProgW A j seed)
-      (fun st' w => w.pc = pcOf (1013 + 41) ∧ LeafInv s0 A (j + 1) st' w ∧ DigAt w (SEEDS + 16) carry) := by
-  have hsub := Sign.SeedIndependent.seedIndependentAt_sign
-  have hn : A.n = 43 := lower_n hlay
-  have hP : PRIV = 131072 := rfl
-  have hS : SEEDS = 131136 := rfl
-  have hL : LEAFPK = 132608 := rfl
-  have hC : CHAIN = 131488 := rfl
-  have hLO : LOUT = 132032 := rfl
-  have hvs := hpre.hvs
-  have hv := hpre.hv
-  obtain ⟨u0, st0, u0pc, hcp, hcs, u0r, u0f⟩ := Sign.Seed.leaf_prechainFrom61S hsub sk hpre hj hu upc seed 0
-    (by norm_num) h28 (Sign.SeedIndependent.codeAt_sub_61 hsub) (by simpa using hseed)
-  rw [lower_sel hlay, hso] at st0
-  simp only [Bool.false_eq_true, if_false, Nat.add_zero] at st0
-  have hch := Sign.Seed.chainRun_tsim hsub sk hcp u0pc seed hcs
-  rw [map_eq_bind_pure_comp]
-  refine (TSim.steps st0 (TSim.bind (k₂ := 4 + (11 + slotK A.lay j))
-    (c₂ := 4 + (11 + slotK A.lay j)) (n₂ := 0) (b₂ := 0) hch (fun r w hw => ?_))).of_eq
-    (by unfold Sign.Seed.chainProgW; rfl) (by omega) (by omega) (by simp) (by simp)
-  obtain ⟨wpc, hwv, hwl, hwr, hwf⟩ := hw
-  obtain ⟨x, stx, xpc, hx, hfx⟩ := Sign.Seed.leaf_postchainS hsub sk hpre hj hu wpc (u0r.trans hwr)
-    (u0f.trans hwf) r.1 r.2 hwv hwl
-  rw [hso] at stx hx
-  simp only [Bool.false_eq_true, if_false] at stx hx
-  refine TSim.pure_steps stx ⟨xpc, hx, ?_⟩
-  have hsj := slot_ge A.lay j
-  have hsj' := slot_lt A.lay hj
-  have hvj : A.valp + 16 * j + 16 ≤ A.valp + 16 * A.n := by omega
-  refine ((hc.frame u0f (by omega) (by omega) (by omega)).frame hwf (by omega) ?_ ?_).frame hfx (by omega)
-    (by omega) (by omega)
-  · unfold ChainW; omega
-  · unfold ChainW; omega
-
-def chainC : Nat := 5 + lowerSeedC + 403
-/-- State before chain `j` of a lower leaf (`j = 0`: at `SEED` after the coefficient loop). -/
-structure FSt (s0 : MachineState) (A : LeafArgs) (coefs : List Digest) (carry : Digest) (j : Nat)
-    (st : List Digest × List Digest) (u : MachineState) : Prop where
-  pc : u.pc = pcOf (if j = 0 then seedI else 1013 + 41)
-  coef : CoefAtN 8 u coefs
-  inv : ∃ s, HybOf s0 s u ∧ LeafInv s A j st u
-  carry : DigAt u (SEEDS + 16) carry
-
-theorem chain_step (hlay : A.lay ≠ 0) (hso : A.so = false) (hvS : A.valp + 16 * A.n ≤ 0x50000)
-    (hdS : A.digp + A.n ≤ 0x50000) (hdestS : A.dest + 16 ≤ 0x50000) {coefs : List Digest} (hlen : coefs.length = 8)
-    {carry : Digest} {j : Nat} (hj : j < 43) {st : List Digest × List Digest} {u : MachineState}
-    (hu : FSt s0 A coefs carry j st u) :
-    TBSim Sign.image sk u chainC (leafStepB A.lay A.tree A.leaf A.digits coefs st j)
-      (FSt s0 A coefs carry (j + 1)) := by
-  have hsub := Sign.SeedIndependent.seedIndependentAt_sign
-  have hn : A.n = 43 := lower_n hlay
-  have hlay' : A.lay.val < 256 := by have := A.lay.isLt; omega
-  have hlay0 : A.lay.val ≠ 0 := fun h => hlay (Fin.ext h)
-  obtain ⟨s, hs, hinv⟩ := hu.inv
-  have g : ∀ r, r ∉ leafRegs → u.getReg r = s0.getReg r := fun r hr => by rw [hinv.regs.get hr, hs.regs]
-  obtain ⟨v, c0, sv, hc0, vpc, vr, vf⟩ : ∃ v c0, Steps Sign.image u c0 c0 v ∧ c0 ≤ 5 ∧ v.pc = pcOf seedI ∧
-      RegsExcept u v [] ∧ Frame u v (fun _ => False) := by
-    by_cases hj0 : j = 0
-    · exact ⟨u, 0, Steps.refl u, by norm_num, by rw [hu.pc, if_pos hj0], RegsExcept.refl _ _, Frame.refl _ _⟩
-    · have hpc : u.pc = pcOf (1013 + 41) := by rw [hu.pc, if_neg hj0]
-      obtain ⟨t1, st1, t1pc, t1r, t1f⟩ := Sign.Seed.sub41_spec hsub u hpc j A.n (by omega) (by omega) hinv.x19
-        (by rw [g _ (by simp [leafRegs]), hpre.x26])
-      rw [if_pos (by omega)] at t1pc
-      obtain ⟨t2, st2, t2pc, t2r, t2f⟩ := hook_spec t1 (by rw [t1pc])
-      obtain ⟨t3, st3, t3pc, t3r, t3f⟩ := step_D1 newCodeAt_image t2 t2pc (lay := A.lay.val) (j := j)
-        (by rw [t2r.get (by simp), t1r.get (by simp), g _ (by simp [leafRegs]), hpre.x8]) hlay0 hlay'
-        (by rw [t2r.get (by simp), t1r.get (by simp)]; exact hinv.x19) hj0 (by omega)
-      exact ⟨t3, _, st1.trans (st2.trans st3), by norm_num, t3pc, ((t1r.trans t2r).trans t3r).mono (by simp),
-        ((t1f.trans t2f).trans t3f).mono (fun X _ h => by simp_all)⟩
-  have hv19 : v.getReg .x19 = BitVec.ofNat 64 j := by rw [vr.get (by simp)]; exact hinv.x19
-  have hcv : CoefAtN 8 v coefs := fun k hk => (hu.coef k hk).frame vf (by unfold COEF; omega) (by simp) (by simp)
-  obtain ⟨w, kw, cw, sw, hcw, wpc, w28, wseed, wr, wf⟩ := lower_seed newCodeAt_image v vpc hv19 hj hlen hcv
-  have hs' : HybOf s0 (hyb s0 w) w := hyb_of s0 w
-  have hinvw : LeafInv (hyb s0 w) A j st w := LeafInv.rebase hinv hs hs' (vr.trans wr) (by
-      intro r hr
-      simp only [List.nil_append, List.mem_cons, List.not_mem_nil, or_false] at hr
-      rcases hr with rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl <;> decide)
-    (vf.trans wf) (fun X h => by
-      rcases h with h | h
-      · exact h.elim
-      · unfold SeedW BScr; simp only [COEF, CHAINW, PRIV, SEEDS] at *; omega)
-    hpre.hvs hvS (by omega)
-  have hpre' : LeafPreS sk (hyb s0 w) A := LeafPreS.transfer hpre hs'.regs hs'.base hdS
-  have hcw' : DigAt w (SEEDS + 16) carry :=
-    (hu.carry.frame vf (by decide) (by simp) (by simp)).frame wf (by decide) (by decide) (by decide)
-  have hcont := chain_cont sk hpre' hlay hso (j := j) (by omega) (st := st) w (WCT9.lowerFamilySeed coefs j) carry
-    (by rw [wpc]) hinvw w28 wseed hcw'
-  have hk : 16 + Sign.Seed.chainK A.lay j (A.e j) + (4 + (11 + slotK A.lay j)) ≤
-      16 + Sign.Seed.chainCy A.lay j (A.e j) + (4 + (11 + slotK A.lay j)) := by
-    have := Sign.Seed.chainK_le_chainCy A.lay j (A.e j)
-    omega
-  have hc364 : 16 + Sign.Seed.chainCy A.lay j (A.e j) + (4 + (11 + slotK A.lay j)) ≤ 403 := by
-    rw [lower_e hlay hso j, Sign.Seed.chainCy_low hlay, lower_rungC hlay, Sign.Seed.slotK_low hlay j]
-    split_ifs <;> omega
-  have heq : leafStepB A.lay A.tree A.leaf A.digits coefs st j =
-      (fun r : Digest × Digest => (st.1 ++ [r.2], st.2 ++ [r.1])) <$>
-        Sign.Seed.chainProgW A j (WCT9.lowerFamilySeed coefs j) := by
-    simp only [leafStepB, Sign.Seed.chainProgW, LeafArgs.e, LeafArgs.d, hso, Bool.false_eq_true, if_false, map_bind,
-      map_pure]
-  rw [heq]
-  refine TBSim.mono (TBSim.steps (sv.trans sw) ((hcont.toTBSim hk).mono hc364 (fun st' x hx => ?_)))
-    (by unfold chainC; omega) (fun _ _ h => h)
-  obtain ⟨xpc, hxinv, hxc⟩ := hx
-  have hxs : ∀ X, X < 2 ^ 64 → BScr X → x.getMem (BitVec.ofNat 64 X) = w.getMem (BitVec.ofNat 64 X) :=
-    fun X hX hb => (hxinv.frame.get hX (fun hl => LeafW_not_bscr hvS hdestS hl hb)).trans (hs'.scr X hX hb)
-  refine ⟨by rw [if_neg (by omega)]; exact xpc, fun k hk => ?_, ⟨hyb s0 w, ⟨hs'.regs, hs'.base,
-    fun X hX hb => (hs'.scr X hX hb).trans (hxs X hX hb).symm⟩, hxinv⟩, hxc⟩
-  have hwk : DigAt w (COEF + 16 * k) (coefs.getD k 0) :=
-    (hcv k hk).frame wf (by unfold COEF; omega) (by simp only [COEF, CHAINW]; omega)
-      (by simp only [COEF, CHAINW]; omega)
-  exact ⟨by rw [hxs _ (by unfold COEF; omega) (by unfold BScr COEF; omega)]; exact hwk.1,
-    by rw [hxs _ (by unfold COEF; omega) (by unfold BScr COEF; omega)]; exact hwk.2⟩
-
-theorem buildLeafPF_tbsim (hlay : A.lay ≠ 0) (hso : A.so = false) (hpc : s0.pc = pcOf (1013 + 27))
-    (h15 : s0.getReg .x15 = BitVec.ofNat 64 (SigGolfCandidate.T3.height A.lay))
-    (hvS : A.valp + 16 * A.n ≤ 0x50000) (hdS : A.digp + A.n ≤ 0x50000) (hdestS : A.dest + 16 ≤ 0x50000)
-    (carry : Digest) (hcar : A.leaf % 2 = 1 → DigAt s0 (SEEDS + 16) carry) :
-    TBSim Sign.image sk s0 lowLeafC (WCT9.buildLeafPF A.lay A.tree A.leaf A.digits carry)
-      (fun r t => t.pc = pcOf A.ret ∧ (A.so = false → DigAt t A.dest r.1.1) ∧ DigsAt t A.valp r.1.2 ∧
-        r.1.2.length = A.n ∧ DigAt t (SEEDS + 16) r.2 ∧ RegsExcept s0 t leafRegs ∧
-        Frame s0 t (fun X => LeafW A X ∨ BScr X)) := by
-  have hsub := Sign.SeedIndependent.seedIndependentAt_sign
-  have hn : A.n = 43 := lower_n hlay
-  have hP : PRIV = 131072 := rfl
-  have hS : SEEDS = 131136 := rfl
-  have hL : LEAFPK = 132608 := rfl
-  have hC : CHAIN = 131488 := rfl
-  have hLO : LOUT = 132032 := rfl
-  obtain ⟨t1, st1, t1pc, t1x3, t1x19, t1l16, t1l24, t1r, t1f⟩ :=
-    Sign.Seed.sub27_spec hsub s0 hpc A.lay A.tree A.leaf (by have := hpre.hroute; omega) hpre.x8 hpre.x9 hpre.x18
-      (Or.inr h15) hlay
-  have h0 : LeafInv s0 A 0 ([], []) t1 := by
-    refine ⟨t1x19, ?_, by rw [t1x3, hpre.x1], t1r.mono (by decide), t1f.mono (fun X _ h => ?_), t1l16,
-      t1l24, by simp, rfl, fun _ c hc => absurd hc (by omega), DigsAt.nil _ _⟩
-    · rw [t1r.get (by simp), hpre.x23]; simp
-    · unfold LeafW; rw [if_neg hlay]; omega
-  have hs1 : HybOf s0 s0 t1 := HybOf.refl_of (t1f.mono (fun X _ h => by
-    rcases h with h | h <;> (subst h; unfold BScr; omega)))
-  have hc1 : A.leaf % 2 = 1 → DigAt t1 (SEEDS + 16) carry := fun h =>
-    (hcar h).frame t1f (by omega) (by omega) (by omega)
-  rw [buildLeafPF_eq]
-  refine TBSim.mono (TBSim.steps st1 (TBSim.bind (W₂ := 43 * chainC + 112)
-    (coef_phase sk hpre hlay h0 hs1 t1pc hc1) (fun cs u hu => ?_))) (by unfold lowLeafC coefC chainC lowerSeedC hornStepC; omega)
-    (fun _ _ h => h)
-  obtain ⟨upc, ucoef, ulen, ucarry, ur, uf⟩ := hu
-  have hinvu : LeafInv (hyb s0 u) A 0 ([], []) u := LeafInv.rebase h0 hs1 (hyb_of s0 u) ur (by
-      intro r hr
-      simp only [coefRegs, List.mem_cons, List.not_mem_nil, or_false] at hr
-      rcases hr with rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl <;> decide)
-    uf (fun X h => by
-      unfold CoefW at h; unfold SeedW BScr
-      rcases h with h | h | h | h
-      · left; unfold COEF at h; omega
-      · right; left; exact h
-      · right; right; left; exact h
-      · right; right; right; exact h)
-    hpre.hvs hvS (by omega)
-  have hF0 : FSt s0 A cs.1 cs.2 0 ([], []) u := ⟨by rw [if_pos rfl]; exact upc, ucoef, ⟨_, hyb_of s0 u, hinvu⟩, ucarry⟩
-  have hfold := TBSim.foldlM_range' (image := Sign.image) (sk := sk) 0 43
-    (leafStepB A.lay A.tree A.leaf A.digits cs.1) ([], []) (FSt s0 A cs.1 cs.2) chainC
-    (fun j hj st x hx => by simpa using chain_step sk hpre hlay hso hvS hdS hdestS ulen hj hx) hF0
-  rw [show List.range' 0 43 = List.range (chainCount A.lay) by rw [lower_n hlay]; exact List.range_eq_range'.symm]
-    at hfold
-  refine TBSim.bind (W₁ := 43 * chainC) (W₂ := 112) hfold (fun rows x hx => ?_)
-  obtain ⟨xpc, -, ⟨s3, hs3, hinv3⟩, xcarry⟩ := hx
-  have hpre3 := LeafPreS.transfer hpre hs3.regs hs3.base hdS
-  rw [show (43 : Nat) = A.n from hn.symm] at hinv3
-  have hex := Sign.Seed.leaf_exitS hsub sk hpre3 hinv3 (by rw [xpc, if_neg (by omega)])
-  simp only [hso, Bool.false_eq_true, if_false] at hex
-  have hds := hpre.hds
-  refine TBSim.of_eq' (TBSim.bind (W₂ := 0) (f := fun r => pure ((r.1, r.2), cs.2))
-    (hex.toTBSim (by rw [lower_blocks hlay]; norm_num)) (fun r y hy => TBSim.pure ?_)) (by simp only [bind_assoc, pure_bind])
-    (by rw [lower_blocks hlay])
-  obtain ⟨ypc, ydest, yvals, ylen, -, yregs, yframe, yf⟩ := hy
-  refine ⟨ypc, fun _ => ydest trivial, yvals, ylen, xcarry.frame yf (by omega) (by omega) (by omega),
-    fun r hr => by rw [yregs.get hr, hs3.regs], fun X hX hn' => ?_⟩
-  rw [yframe.get hX (fun h => hn' (Or.inl h)), hs3.base.get hX (fun h => hn' (Or.inr h))]
-
+/-! Pairing stage 1: the legacy reference-image lower-leaf run (`chain_cont`, `chain_step`, `buildLeafPF_tbsim`,
+`packedLeafSpecV`, over `Sign.image`) was removed: it is not on the `SignLink` route (the installed producer is proved
+by `SharedLeafMemory.buildLeafPrefixes_precise`), and its `LeafInv` frames cannot absorb the G chains' scratch. -/
 end chain
-
-theorem packedLeafSpecV : SigGolfCandidate.T3M.Sign.Packed.PackedLeafSpec WCT9.buildLeafPF := by
-  intro sk A s carry hlay hso hpre hpc h15 hv hd hdest hcar
-  exact buildLeafPF_tbsim sk hpre hlay hso hpc h15 hv hd hdest carry hcar
 end ClaudeWCT.W9.Machine.Sign.PackedLeaf
 
 namespace ClaudeWCT.W9.Machine.Sign.SharedLeafMemory
@@ -616,10 +430,14 @@ open ClaudeWCT.Arith
 set_option maxRecDepth 10000
 
 
-def BScr (X : Nat) : Prop := 0x50000 ≤ X ∧ X < 0x75580
+/-- The leaf scratch. Pairing stage 1: also the chain scratch a G chain writes outside `LeafW`
+(`CHAIN+32 .. CHAIN+48` and `CHAIN+80 .. CHAIN+112`). -/
+def BScr (X : Nat) : Prop :=
+  (0x50000 ≤ X ∧ X < 0x75580) ∨ (0x201C0 ≤ X ∧ X < 0x201D0) ∨ (0x201F0 ≤ X ∧ X < 0x20210)
+instance : DecidablePred BScr := fun X => by unfold BScr; infer_instance
 /-- `s0` with the scratch region `BScr` of `t`. -/
 def hyb (s0 t : MachineState) : MachineState :=
-  { s0 with mem := fun a => if 0x50000 ≤ a.toNat ∧ a.toNat < 0x75580 then t.mem a else s0.mem a }
+  { s0 with mem := fun a => if BScr a.toNat then t.mem a else s0.mem a }
 /-- `s` is a base state for `t` relative to the leaf entry `s0`: registers of `s0`, memory of `s0` outside the
 scratch, memory of `t` on the scratch. -/
 structure HybOf (s0 s t : MachineState) : Prop where
@@ -628,25 +446,25 @@ structure HybOf (s0 s t : MachineState) : Prop where
   scr : ∀ A, A < 2 ^ 64 → BScr A → s.getMem (BitVec.ofNat 64 A) = t.getMem (BitVec.ofNat 64 A)
 theorem hyb_of (s0 t : MachineState) : HybOf s0 (hyb s0 t) t := by
   refine ⟨fun r => rfl, fun A hA hn => ?_, fun A hA h => ?_⟩
-  · show (if 0x50000 ≤ (BitVec.ofNat 64 A).toNat ∧ (BitVec.ofNat 64 A).toNat < 0x75580 then t.mem _ else s0.mem _) =
-      s0.mem _
-    rw [toNat_ofNat_lt hA, if_neg (show ¬ (0x50000 ≤ A ∧ A < 0x75580) from hn)]
-  · show (if 0x50000 ≤ (BitVec.ofNat 64 A).toNat ∧ (BitVec.ofNat 64 A).toNat < 0x75580 then t.mem _ else s0.mem _) =
-      t.mem _
-    rw [toNat_ofNat_lt hA, if_pos (show 0x50000 ≤ A ∧ A < 0x75580 from h)]
+  · show (if BScr (BitVec.ofNat 64 A).toNat then t.mem _ else s0.mem _) = s0.mem _
+    rw [toNat_ofNat_lt hA, if_neg hn]
+  · show (if BScr (BitVec.ofNat 64 A).toNat then t.mem _ else s0.mem _) = t.mem _
+    rw [toNat_ofNat_lt hA, if_pos h]
 theorem HybOf.frame {s0 s t u : MachineState} {W : Nat → Prop} (h : HybOf s0 s t) (hf : Frame t u W)
     (hW : ∀ A, W A → ¬ BScr A) : HybOf s0 s u :=
   ⟨h.regs, h.base, fun A hA hb => (h.scr A hA hb).trans (hf.get hA (fun hw => hW A hw hb)).symm⟩
 theorem HybOf.refl_of {s0 t : MachineState} (hf : Frame s0 t (fun A => ¬ BScr A)) : HybOf s0 s0 t :=
   ⟨fun _ => rfl, Frame.refl _ _, fun A hA hb => (hf.get hA (fun h => h hb)).symm⟩
 
-theorem not_bscr {X : Nat} (h : X < 0x50000) : ¬ BScr X := fun hb => by unfold BScr at hb; omega
+theorem not_bscr {X : Nat} (h : X < 0x201C0 ∨ (0x201D0 ≤ X ∧ X < 0x201F0) ∨ (0x20210 ≤ X ∧ X < 0x50000)) :
+    ¬ BScr X := fun hb => by unfold BScr at hb; omega
 
 theorem LeafPreS.transfer {sk : BitVec 256} {s0 s : MachineState} {A : LeafArgs} (h : LeafPreS sk s0 A)
     (hr : ∀ r, s.getReg r = s0.getReg r) (hf : Frame s0 s BScr) (hd : A.digp + A.n ≤ 0x50000) :
     LeafPreS sk s A := by
-  have g : ∀ X, X < 0x50000 → s.getMem (BitVec.ofNat 64 X) = s0.getMem (BitVec.ofNat 64 X) :=
-    fun X hX => hf.get (by omega) (not_bscr hX)
+  have g : ∀ X, X < 0x201C0 → s.getMem (BitVec.ofNat 64 X) = s0.getMem (BitVec.ofNat 64 X) :=
+    fun X hX => hf.get (by omega) (not_bscr (Or.inl hX))
+  have hdc := h.hdigC
   refine
     { x1 := by rw [hr]; exact h.x1
       x5 := by rw [hr]; exact h.x5
@@ -672,14 +490,13 @@ theorem LeafPreS.transfer {sk : BitVec 256} {s0 s : MachineState} {A : LeafArgs}
       p56 := by rw [g _ (by decide)]; exact h.p56
       z0 := by rw [g _ (by decide)]; exact h.z0
       z8 := by rw [g _ (by decide)]; exact h.z8
-      z32 := by rw [g _ (by decide)]; exact h.z32
-      z40 := by rw [g _ (by decide)]; exact h.z40
       hsl := h.hsl
       hdig := fun i hi => by
         rw [hf.getByte (by omega) (not_bscr (by omega))]; exact h.hdig i hi
       hdigb := h.hdigb
       hdigp := h.hdigp
       hdigW := h.hdigW
+      hdigC := h.hdigC
       hv8 := h.hv8
       hv := h.hv
       hvs := h.hvs
@@ -709,10 +526,11 @@ theorem LeafInv.rebase {s0 s t s' u : MachineState} {A : LeafArgs} {j : Nat} {st
   have hP : PRIV = 131072 := rfl
   have hS : SEEDS = 131136 := rfl
   have hL : LEAFPK = 132608 := rfl
-  have nW : ∀ X, X < 0x50000 → ¬ (X = PRIV + 16 ∨ X = PRIV + 24 ∨ (SEEDS ≤ X ∧ X < SEEDS + 32)) → ¬ W X := by
+  have nW : ∀ X, (X < 0x201C0 ∨ (0x20210 ≤ X ∧ X < 0x50000)) →
+      ¬ (X = PRIV + 16 ∨ X = PRIV + 24 ∨ (SEEDS ≤ X ∧ X < SEEDS + 32)) → ¬ W X := by
     intro X h1 h2 hw
     rcases hW X hw with h | h
-    · exact not_bscr h1 h
+    · exact not_bscr (by omega) h
     · exact h2 h
   have gr : ∀ r, r = .x19 ∨ r = .x23 ∨ r = .x3 → u.getReg r = t.getReg r := fun r h =>
     hr.get (fun hm => by
@@ -739,7 +557,8 @@ theorem LeafInv.rebase {s0 s t s' u : MachineState} {A : LeafArgs} {j : Nat} {st
       rw [ht.vlen] at h2
       exact nW X (by omega) (by simp only [PRIV, SEEDS, LEAFPK] at *; omega))
 
-theorem LeafW_not_bscr {A : LeafArgs} (hv : A.valp + 16 * A.n ≤ 0x50000) (hd : A.dest + 16 ≤ 0x50000) {X : Nat}
+theorem LeafW_not_bscr {A : LeafArgs} (hv : A.valp + 16 * A.n ≤ 0x50000) (hd : A.dest + 16 ≤ 0x50000)
+    (hdc : A.dest + 16 ≤ 0x201C0 ∨ 0x20210 ≤ A.dest) (hvc : A.valp + 16 * A.n ≤ 0x201C0 ∨ 0x20210 ≤ A.valp) {X : Nat}
     (h : LeafW A X) : ¬ BScr X := by
   have hn : A.n = 54 ∨ A.n = 43 := chainCount_cases A.lay
   unfold LeafW at h
@@ -768,9 +587,9 @@ theorem LeafInv.rebase_chain {s0 s t s' u : MachineState} {A : LeafArgs} {j : Na
     (hv : A.valp + 16*A.n ≤ 0x50000) (hj : j < A.n) :
     LeafInv s' A j st u := by
   have hn : A.n=54 ∨ A.n=43 := chainCount_cases A.lay
-  have nW : ∀ X, X<0x50000 → ¬ChainW (A.valp+16*j) X → ¬W X := by
+  have nW : ∀ X, (X<0x201C0 ∨ (0x20210≤X ∧ X<0x50000)) → ¬ChainW (A.valp+16*j) X → ¬W X := by
     intro X hX hC h
-    exact (hW X h).elim (not_bscr hX) hC
+    exact (hW X h).elim (not_bscr (by omega)) hC
   have gr : ∀ r, r=.x19 ∨ r=.x23 ∨ r=.x3 → u.getReg r=t.getReg r := by
     intro r h
     apply hr.get
@@ -802,7 +621,7 @@ theorem LeafInv.rebase_chain {s0 s t s' u : MachineState} {A : LeafArgs} {j : Na
   · exact ht.vals.frame hf (by rw [ht.vlen]; omega) (by
       intro X h1 h2
       rw [ht.vlen] at h2
-      apply nW X (by omega)
+      apply nW X (by simp only [PRIV,LEAFPK] at *; omega)
       simp only [ChainW,CHAIN,PRIV,LEAFPK] at *
       omega)
 
@@ -833,16 +652,17 @@ theorem chain_cont {im : Image}
     (t : MachineState) (seed carry : Digest)
     (hp : t.pc=pcOf (1013+61)) (ht : LeafInv s A j st t) (hs : HybOf s0 s t)
     (h28 : t.getReg .x28=0) (hseed : DigAt t SEEDS seed) (hcarry : DigAt t (SEEDS+16) carry) :
-    TBSim im sk t 630 (chainPrefixes A.lay A.tree A.leaf j 0 7 seed)
+    TBSim im sk t 665 (chainPrefixes A.lay A.tree A.leaf j 0 7 seed)
       (fun vs w => vs.length=8 ∧ w.pc=pcOf (1013+41) ∧
         ∃ base values, HybOf s0 base w ∧
           LeafInv base A (j+1) (st.1++[vs.getD 7 0],values) w ∧
           DigAt w (SEEDS+16) carry ∧
-          Frame t w (fun X => ChainW (A.valp+16*j) X ∨
+          Frame t w (fun X => Sign.Seed.ChainWS (A.valp+16*j) X ∨
             (SharedPrefixes.buffer A.lay.val j 0≤X ∧ X<SharedPrefixes.buffer A.lay.val j 7+16) ∨
             (slot A.lay j≤X ∧ X<slot A.lay j+16)) ∧
           (SharedPrefixes.selectionWord (t.getMem 0x20550) A.lay.val=t.getReg .x18 →
-            ∀ k, k≤7 → DigAt w (SharedPrefixes.buffer A.lay.val j k) (vs.getD k 0))) := by
+            ∀ k, k≤7 → DigAt w (SharedPrefixes.buffer A.lay.val j k) (vs.getD k 0)) ∧
+          (j % 2 = 0 → Sign.Seed.Z32 w)) := by
   have hn : A.n=43 := lower_n hlay
   have hvs := hpre.hvs
   have hl : 1≤A.lay.val := by
@@ -850,7 +670,8 @@ theorem chain_cont {im : Image}
     omega
   have preS : LeafPreS sk s A := LeafPreS.transfer hpre hs.regs hs.base hd
   obtain ⟨u,tu,upc,upre,uval,ur,uf⟩ := Sign.SharedLeaf.leaf_prechainFrom61S
-    hsub sk preS hj ht hp seed 0 (by decide) (by simpa using h28) hcopy (by simpa using hseed)
+    hsub sk preS hj (fun _ => (lower_e hlay hso j).le) ht hp seed 0 (by decide) (by simpa using h28) hcopy
+    (by simpa using hseed)
   rw [lower_sel hlay,hso] at tu
   simp only [Bool.false_eq_true,if_false,Nat.add_zero] at tu
   have ue : A.e j=7 := lower_e hlay hso j
@@ -873,10 +694,10 @@ theorem chain_cont {im : Image}
       change (X=CHAIN+48 ∨ X=CHAIN+56) ∨ SharedChain.loopWrites A.lay.val j 0 7 (A.valp+16*j) X at h
       rcases h with h|h
       · right; simp only [ChainW,CHAIN] at *; omega
-      · change ChainW (A.valp+16*j) X ∨
+      · change Sign.Seed.ChainWS (A.valp+16*j) X ∨
           (SharedPrefixes.buffer A.lay.val j 0≤X ∧ X<SharedPrefixes.buffer A.lay.val j 7+16) at h
         rcases h with h|h
-        · exact Or.inr h
+        · unfold Sign.Seed.ChainWS at h; unfold BScr ChainW; simp only [CHAIN] at *; omega
         · left
           have hb0 := SharedPrefixes.buffer_bounds hl (by omega) (by omega : j<43) (by decide : 0<8)
           have hb7 := SharedPrefixes.buffer_bounds hl (by omega) (by omega : j<43) (by decide : 7<8)
@@ -892,7 +713,7 @@ theorem chain_cont {im : Image}
     rw [Sign.Seed.slotK_low hlay]
     split_ifs <;> omega
   apply (TSim.pure_steps vw ?_).toTBSim (by omega) |>.mono wc (fun _ _ h => h)
-  refine ⟨ht'.1,wpc,hyb s0 v,st.2++[Sign.Packed.memDig v (A.valp+16*j)],?_,winv,?_,?_,?_⟩
+  refine ⟨ht'.1,wpc,hyb s0 v,st.2++[Sign.Packed.memDig v (A.valp+16*j)],?_,winv,?_,?_,?_,?_⟩
   · exact vS.frame wf (by
       intro X h
       have h1 := slot_ge A.lay j
@@ -904,24 +725,28 @@ theorem chain_cont {im : Image}
         (by have := slot_ge A.lay j; simp only [SEEDS,LEAFPK] at *; omega)
     all_goals
       simp only [PRIV,LEAFPK] at hvs
-      simp only [SharedChain.loopWrites,ChainW,CHAIN,SEEDS,SharedPrefixes.buffer]
+      simp only [SharedChain.loopWrites,Sign.Seed.ChainWS,ChainW,CHAIN,SEEDS,SharedPrefixes.buffer]
       omega
   · exact (vf.trans wf).mono (by
       intro X hX h
       change ((X=CHAIN+48 ∨ X=CHAIN+56) ∨ SharedChain.loopWrites A.lay.val j 0 7 (A.valp+16*j) X) ∨ _ at h
-      simp only [SharedChain.loopWrites,ChainW] at *
+      simp only [SharedChain.loopWrites,Sign.Seed.ChainWS,ChainW] at *
       omega)
   · intro selected k hk
     have uselected : SharedPrefixes.selectionWord (u.getMem 0x20550) A.lay.val=u.getReg .x18 := by
       have idx := uf 0x20550 (by decide) (by simp only [CHAIN]; omega)
       exact (congrArg (fun x => SharedPrefixes.selectionWord x A.lay.val) idx).trans
         (selected.trans (ur.get (by decide)).symm)
-    have saved := ht'.2.2.2.2.2 uselected k hk
+    have saved := ht'.2.2.2.2.2.1 uselected k hk
     have hb := SharedPrefixes.buffer_bounds hl (by omega) (by omega : j<43) (by omega : k<8)
     have h1 := slot_ge A.lay j
     have h2 := slot_lt A.lay hj
     exact saved.frame wf (by omega) (by simp only [LEAFPK] at *; omega)
       (by simp only [LEAFPK] at *; omega)
+  · intro hj2
+    have h1 := slot_ge A.lay j
+    exact (ht'.2.2.2.2.2.2 (fun h => by omega) (by decide)).frame wf (by simp only [CHAIN,LEAFPK] at *; omega)
+      (by simp only [CHAIN,LEAFPK] at *; omega)
 
 #print axioms chain_cont
 end ClaudeWCT.W9.Machine.Sign.SharedLeafMemory
@@ -1177,6 +1002,8 @@ structure PSt (s0 : MachineState) (A : LeafArgs) (coefs : List Digest) (carry : 
   carry : DigAt u (SEEDS+16) carry
   saved : Selected A s0 → ∀ i, i<j → ∀ k, k≤7 →
     DigAt u (SharedPrefixes.buffer A.lay.val i k) ((prefixes.getD i []).getD k 0)
+  /-- Pairing stage 1: after an F chain (even index) the F pads are zero. -/
+  z : j % 2 = 1 → Sign.Seed.Z32 u
 
 #print axioms LeafInv.selected
 end ClaudeWCT.W9.Machine.Sign.SharedLeafMemory
@@ -1195,7 +1022,7 @@ def prefixStep (A : LeafArgs) (coefs : List Digest) (prefixes : List (List Diges
   let vs ← chainPrefixes A.lay A.tree A.leaf j 0 7 (WCT9.lowerFamilySeed coefs j)
   pure (prefixes++[vs])
 
-def chainC : Nat := 5+lowerSeedC+630
+def chainC : Nat := 5+lowerSeedC+665
 
 theorem chain_step {im : Image} (hsub : Sign.SharedLeafCode.Code im 1013)
     (hcopy : CodeAt im (pcOf (1013+61)) Sign.Seed.sub61)
@@ -1252,7 +1079,7 @@ theorem chain_step {im : Image} (hsub : Sign.SharedLeafCode.Code im 1013)
   unfold prefixStep
   refine (TBSim.steps (sv.trans sw) (TBSim.bind (W₂:=0) hcont (fun vs x hx => TBSim.pure ?_))).mono
     (by unfold chainC; omega) (fun _ _ h => h)
-  obtain ⟨vlen,xpc,base,vals,hsx,hinvx,hcarx,xf,xsaved⟩ := hx
+  obtain ⟨vlen,xpc,base,vals,hsx,hinvx,hcarx,xf,xsaved,xz⟩ := hx
   have hxcoef : CoefAtN 8 x coefs := by
     intro k hk
     have hwk : DigAt w (COEF+16*k) (coefs.getD k 0) :=
@@ -1260,11 +1087,11 @@ theorem chain_step {im : Image} (hsub : Sign.SharedLeafCode.Code im 1013)
         (by unfold COEF; simp only [CHAINW]; omega)
     have hslot := slot_lt A.lay (by omega : j<A.n)
     exact hwk.frame xf (by unfold COEF; omega)
-      (by simp only [COEF,ChainW,CHAIN,SharedPrefixes.buffer,LEAFPK] at *; omega)
-      (by simp only [COEF,ChainW,CHAIN,SharedPrefixes.buffer,LEAFPK] at *; omega)
+      (by simp only [COEF,Sign.Seed.ChainWS,CHAIN,SharedPrefixes.buffer,LEAFPK] at *; omega)
+      (by simp only [COEF,Sign.Seed.ChainWS,CHAIN,SharedPrefixes.buffer,LEAFPK] at *; omega)
   refine ⟨by rw [if_neg (by omega)]; exact xpc,hxcoef,
     ⟨base,vals,hsx,by simpa only [ends,List.map_append,List.map_singleton] using hinvx⟩,
-    by simp only [List.length_append,List.length_singleton,hu.len],hcarx,?_⟩
+    by simp only [List.length_append,List.length_singleton,hu.len],hcarx,?_,fun hj2 => xz (by omega)⟩
   intro hsel i hi k hk
   by_cases hij : i=j
   · subst i
@@ -1283,8 +1110,8 @@ theorem chain_step {im : Image} (hsub : Sign.SharedLeafCode.Code im 1013)
       (by simp only [COEF,CHAINW]; omega) (by simp only [COEF,CHAINW]; omega)
     have hslot := slot_lt A.lay (by omega : j<A.n)
     have xSaved := wSaved.frame xf (by omega)
-      (by simp only [ChainW,CHAIN,SharedPrefixes.buffer,LEAFPK] at *; omega)
-      (by simp only [ChainW,CHAIN,SharedPrefixes.buffer,LEAFPK] at *; omega)
+      (by simp only [Sign.Seed.ChainWS,CHAIN,SharedPrefixes.buffer,LEAFPK] at *; omega)
+      (by simp only [Sign.Seed.ChainWS,CHAIN,SharedPrefixes.buffer,LEAFPK] at *; omega)
     simpa only [List.getD_eq_getElem?_getD,List.getElem?_append_left (by omega : i<prefixes.length)] using xSaved
 
 #print axioms chain_step
@@ -1366,7 +1193,8 @@ theorem buildLeafPrefixes_tbsim {im : Image} (hsub : Sign.SharedLeafCode.Code im
       · right; right; right; exact h)
     hpre.hvs hvS (by omega)
   have hF0 : PSt s0 A cs.1 cs.2 0 [] u :=
-    ⟨by rw [if_pos rfl]; exact upc,ucoef,⟨_,[],hyb_of s0 u,hinvu⟩,rfl,ucarry,by intros; omega⟩
+    ⟨by rw [if_pos rfl]; exact upc,ucoef,⟨_,[],hyb_of s0 u,hinvu⟩,rfl,ucarry,by intros; omega,
+      fun h => absurd h (by decide)⟩
   have hfold := TBSim.foldlM_range' (image:=im) (sk:=sk) 0 43
     (prefixStep A cs.1) [] (PSt s0 A cs.1 cs.2) chainC
     (fun j hj st x hx => by
@@ -1386,7 +1214,7 @@ theorem buildLeafPrefixes_tbsim {im : Image} (hsub : Sign.SharedLeafCode.Code im
     rw [hm]
   rw [heq] at hfold
   refine TBSim.bind (W₁:=43*chainC) (W₂:=112) hfold (fun rows x hx => ?_)
-  obtain ⟨xpc,_,⟨s3,values,hs3,hinv3⟩,xlen,xcarry,xsaved⟩ := hx
+  obtain ⟨xpc,_,⟨s3,values,hs3,hinv3⟩,xlen,xcarry,xsaved,_⟩ := hx
   have hpre3 := LeafPreS.transfer hpre hs3.regs hs3.base hdS
   rw [show (43 : Nat)=A.n from hn.symm] at hinv3
   have hex := Sign.SharedLeaf.leaf_exitS hsub sk hpre3 hinv3 (by rw [xpc,if_neg (by omega)])
@@ -1434,13 +1262,14 @@ theorem chain_cont_unselected {im : Image}
     (hp : t.pc=pcOf (1013+61)) (ht : LeafInv s A j st t) (hs : HybOf s0 s t)
     (h28 : t.getReg .x28=0) (hseed : DigAt t SEEDS seed) (hcarry : DigAt t (SEEDS+16) carry)
     (hmiss : SharedPrefixes.selectionWord (t.getMem 0x20550) A.lay.val ≠ t.getReg .x18) :
-    TBSim im sk t 630 (chainPrefixes A.lay A.tree A.leaf j 0 7 seed)
+    TBSim im sk t 665 (chainPrefixes A.lay A.tree A.leaf j 0 7 seed)
       (fun vs w => vs.length=8 ∧ w.pc=pcOf (1013+41) ∧
         ∃ base values, HybOf s0 base w ∧
           LeafInv base A (j+1) (st.1++[vs.getD 7 0],values) w ∧
           DigAt w (SEEDS+16) carry ∧
-          Frame t w (fun X => ChainW (A.valp+16*j) X ∨
-            (slot A.lay j≤X ∧ X<slot A.lay j+16))) := by
+          Frame t w (fun X => Sign.Seed.ChainWS (A.valp+16*j) X ∨
+            (slot A.lay j≤X ∧ X<slot A.lay j+16)) ∧
+          (j % 2 = 0 → Sign.Seed.Z32 w)) := by
   have hn : A.n=43 := lower_n hlay
   have hvs := hpre.hvs
   have hl : 1≤A.lay.val := by
@@ -1448,7 +1277,8 @@ theorem chain_cont_unselected {im : Image}
     omega
   have preS : LeafPreS sk s A := LeafPreS.transfer hpre hs.regs hs.base hd
   obtain ⟨u,tu,upc,upre,uval,ur,uf⟩ := Sign.SharedLeaf.leaf_prechainFrom61S
-    hsub sk preS hj ht hp seed 0 (by decide) (by simpa using h28) hcopy (by simpa using hseed)
+    hsub sk preS hj (fun _ => (lower_e hlay hso j).le) ht hp seed 0 (by decide) (by simpa using h28) hcopy
+    (by simpa using hseed)
   rw [lower_sel hlay,hso] at tu
   simp only [Bool.false_eq_true,if_false,Nat.add_zero] at tu
   have ue : A.e j=7 := lower_e hlay hso j
@@ -1461,7 +1291,7 @@ theorem chain_cont_unselected {im : Image}
     (A.valp+16*j) (1013+79) seed upre hl (by omega) (by omega) uval umiss
   refine (TBSim.steps tu (Sign.TBSim.of_eq (TBSim.bind (f := fun vs => pure vs) (W₂:=17) run (fun vs v ht' => ?_)) (bind_pure _) rfl)).mono (by omega) (fun _ _ h => h)
   have vr := ur.trans ht'.2.2.2.1
-  have vf := uf.trans ht'.2.2.2.2
+  have vf := uf.trans ht'.2.2.2.2.1
   have vS : HybOf s0 (hyb s0 v) v := hyb_of s0 v
   have vInv : LeafInv (hyb s0 v) A j st v := LeafInv.rebase_chain ht hs vS vr
     (by intro r hr; simp only [List.mem_append,List.mem_cons,List.not_mem_nil,or_false] at hr
@@ -1471,9 +1301,9 @@ theorem chain_cont_unselected {im : Image}
           rcases h with rfl|rfl|rfl|rfl|rfl|rfl|rfl|rfl|rfl <;> decide)
     vf (by
       intro X h
-      change (X=CHAIN+48 ∨ X=CHAIN+56) ∨ ChainW (A.valp+16*j) X at h
-      right
-      simp only [ChainW,CHAIN] at *
+      change (X=CHAIN+48 ∨ X=CHAIN+56) ∨ Sign.Seed.ChainWS (A.valp+16*j) X at h
+      unfold Sign.Seed.ChainWS at h; unfold BScr ChainW
+      simp only [CHAIN] at *
       omega) hpre.hvs hv hj
   have preV : LeafPreS sk (hyb s0 v) A := LeafPreS.transfer hpre vS.regs vS.base hd
   obtain ⟨w,vw,wpc,winv,wf⟩ := Sign.SharedLeaf.leaf_postchainS hsub sk preV hj vInv ht'.2.1
@@ -1485,25 +1315,29 @@ theorem chain_cont_unselected {im : Image}
     rw [Sign.Seed.slotK_low hlay]
     split_ifs <;> omega
   apply (TSim.pure_steps vw ?_).toTBSim (by omega) |>.mono wc (fun _ _ h => h)
-  refine ⟨ht'.1,wpc,hyb s0 v,st.2++[Sign.Packed.memDig v (A.valp+16*j)],?_,winv,?_,?_⟩
+  refine ⟨ht'.1,wpc,hyb s0 v,st.2++[Sign.Packed.memDig v (A.valp+16*j)],?_,winv,?_,?_,?_⟩
   · exact vS.frame wf (by
       intro X h
       have h1 := slot_ge A.lay j
       have h2 := slot_lt A.lay hj
       exact not_bscr (by simp only [LEAFPK] at *; omega))
   · refine ((hcarry.frame uf (by decide) (by simp only [SEEDS,CHAIN]; omega)
-        (by simp only [SEEDS,CHAIN]; omega)).frame ht'.2.2.2.2 (by decide) ?_ ?_).frame
+        (by simp only [SEEDS,CHAIN]; omega)).frame ht'.2.2.2.2.1 (by decide) ?_ ?_).frame
         wf (by decide) (by have := slot_ge A.lay j; simp only [SEEDS,LEAFPK] at *; omega)
         (by have := slot_ge A.lay j; simp only [SEEDS,LEAFPK] at *; omega)
     all_goals
       simp only [PRIV,LEAFPK] at hvs
-      simp only [SharedChain.loopWrites,ChainW,CHAIN,SEEDS,SharedPrefixes.buffer]
+      simp only [SharedChain.loopWrites,Sign.Seed.ChainWS,ChainW,CHAIN,SEEDS,SharedPrefixes.buffer]
       omega
   · exact (vf.trans wf).mono (by
       intro X hX h
-      change ((X=CHAIN+48 ∨ X=CHAIN+56) ∨ ChainW (A.valp+16*j) X) ∨ _ at h
-      simp only [SharedChain.loopWrites,ChainW] at *
+      change ((X=CHAIN+48 ∨ X=CHAIN+56) ∨ Sign.Seed.ChainWS (A.valp+16*j) X) ∨ _ at h
+      simp only [Sign.Seed.ChainWS,CHAIN] at *
       omega)
+  · intro hj2
+    have h1 := slot_ge A.lay j
+    exact (ht'.2.2.2.2.2 (fun h => by omega) (by decide)).frame wf (by simp only [CHAIN,LEAFPK] at *; omega)
+      (by simp only [CHAIN,LEAFPK] at *; omega)
 end ClaudeWCT.W9.Machine.Sign.SharedLeafMemory
 
 namespace ClaudeWCT.W9.Machine.Sign.SharedLeafMemory
@@ -1640,21 +1474,22 @@ theorem chain_cont_guarded {im : Image}
     (t : MachineState) (seed carry : Digest)
     (hp : t.pc=pcOf (1013+61)) (ht : LeafInv s A j st t) (hs : HybOf s0 s t)
     (h28 : t.getReg .x28=0) (hseed : DigAt t SEEDS seed) (hcarry : DigAt t (SEEDS+16) carry) :
-    TBSim im sk t 630 (chainPrefixes A.lay A.tree A.leaf j 0 7 seed)
+    TBSim im sk t 665 (chainPrefixes A.lay A.tree A.leaf j 0 7 seed)
       (fun vs w => vs.length=8 ∧ w.pc=pcOf (1013+41) ∧
         ∃ base values, HybOf s0 base w ∧
           LeafInv base A (j+1) (st.1++[vs.getD 7 0],values) w ∧
           DigAt w (SEEDS+16) carry ∧
-          Frame t w (fun X => ChainW (A.valp+16*j) X ∨
+          Frame t w (fun X => Sign.Seed.ChainWS (A.valp+16*j) X ∨
             (Selected A s0 ∧ SharedPrefixes.buffer A.lay.val j 0≤X ∧ X<SharedPrefixes.buffer A.lay.val j 7+16) ∨
             (slot A.lay j≤X ∧ X<slot A.lay j+16)) ∧
           (SharedPrefixes.selectionWord (t.getMem 0x20550) A.lay.val=t.getReg .x18 →
-            ∀ k, k≤7 → DigAt w (SharedPrefixes.buffer A.lay.val j k) (vs.getD k 0))) := by
+            ∀ k, k≤7 → DigAt w (SharedPrefixes.buffer A.lay.val j k) (vs.getD k 0)) ∧
+          (j % 2 = 0 → Sign.Seed.Z32 w)) := by
   by_cases hsel : Selected A s0
   · exact (chain_cont hsub hcopy hc hpref sk hpre hlay hso hv hd hvi hj t seed carry hp ht hs h28 hseed hcarry).mono
       (Nat.le_refl _) (fun vs w hw => by
-        obtain ⟨hl,hpc,b,v,hb,hi,hc,hf,hp⟩ := hw
-        refine ⟨hl,hpc,b,v,hb,hi,hc,hf.mono ?_,hp⟩
+        obtain ⟨hl,hpc,b,v,hb,hi,hc,hf,hp,hz⟩ := hw
+        refine ⟨hl,hpc,b,v,hb,hi,hc,hf.mono ?_,hp,hz⟩
         intro X hX h
         rcases h with h|h|h
         · exact Or.inl h
@@ -1664,8 +1499,8 @@ theorem chain_cont_guarded {im : Image}
       fun h => hsel ((LeafInv.selected_iff hpre hvi ht hs).mp h)
     exact (chain_cont_unselected hsub hcopy hc hpref sk hpre hlay hso hv hd hvi hj t seed carry hp ht hs h28 hseed hcarry hmiss).mono
       (Nat.le_refl _) (fun vs w hw => by
-        obtain ⟨hl,hpc,b,v,hb,hi,hc,hf⟩ := hw
-        refine ⟨hl,hpc,b,v,hb,hi,hc,hf.mono ?_,?_⟩
+        obtain ⟨hl,hpc,b,v,hb,hi,hc,hf,hz⟩ := hw
+        refine ⟨hl,hpc,b,v,hb,hi,hc,hf.mono ?_,?_,hz⟩
         · intro X hX h
           rcases h with h|h
           · exact Or.inl h
@@ -1745,7 +1580,7 @@ theorem chain_step_precise {im : Image} (hsub : Sign.SharedLeafCode.Code im 1013
   unfold prefixStep
   refine (TBSim.steps (sv.trans sw) (TBSim.bind (W₂:=0) hcont (fun vs x hx => TBSim.pure ?_))).mono
     (by unfold chainC; omega) (fun _ _ h => h)
-  obtain ⟨vlen,xpc,base,vals,hsx,hinvx,hcarx,xf,xsaved⟩ := hx
+  obtain ⟨vlen,xpc,base,vals,hsx,hinvx,hcarx,xf,xsaved,xz⟩ := hx
   have hxcoef : CoefAtN 8 x coefs := by
     intro k hk
     have hwk : DigAt w (COEF+16*k) (coefs.getD k 0) :=
@@ -1753,8 +1588,8 @@ theorem chain_step_precise {im : Image} (hsub : Sign.SharedLeafCode.Code im 1013
         (by unfold COEF; simp only [CHAINW]; omega)
     have hslot := slot_lt A.lay (by omega : j<A.n)
     exact hwk.frame xf (by unfold COEF; omega)
-      (by simp only [COEF,ChainW,CHAIN,SharedPrefixes.buffer,LEAFPK] at *; omega)
-      (by simp only [COEF,ChainW,CHAIN,SharedPrefixes.buffer,LEAFPK] at *; omega)
+      (by simp only [COEF,Sign.Seed.ChainWS,CHAIN,SharedPrefixes.buffer,LEAFPK] at *; omega)
+      (by simp only [COEF,Sign.Seed.ChainWS,CHAIN,SharedPrefixes.buffer,LEAFPK] at *; omega)
   have hprecise : Frame s0 x (Writes A s0) := by
     apply ((huf.trans vf).trans (wf.trans xf)).mono
     intro X hX h
@@ -1765,7 +1600,7 @@ theorem chain_step_precise {im : Image} (hsub : Sign.SharedLeafCode.Code im 1013
       simp only [COEF,CHAINW] at h
       omega
     · rcases h with h|h|h
-      · left; simp only [ChainW,CHAIN] at h; omega
+      · left; simp only [Sign.Seed.ChainWS,CHAIN] at h; omega
       · right
         refine ⟨h.1,?_,?_⟩ <;> simp only [SharedPrefixes.buffer] at * <;> omega
       · left
@@ -1775,7 +1610,7 @@ theorem chain_step_precise {im : Image} (hsub : Sign.SharedLeafCode.Code im 1013
   refine ⟨?_,hprecise⟩
   refine ⟨by rw [if_neg (by omega)]; exact xpc,hxcoef,
     ⟨base,vals,hsx,by simpa only [ends,List.map_append,List.map_singleton] using hinvx⟩,
-    by simp only [List.length_append,List.length_singleton,hu.len],hcarx,?_⟩
+    by simp only [List.length_append,List.length_singleton,hu.len],hcarx,?_,fun hj2 => xz (by omega)⟩
   intro hsel i hi k hk
   by_cases hij : i=j
   · subst i
@@ -1794,8 +1629,8 @@ theorem chain_step_precise {im : Image} (hsub : Sign.SharedLeafCode.Code im 1013
       (by simp only [COEF,CHAINW]; omega) (by simp only [COEF,CHAINW]; omega)
     have hslot := slot_lt A.lay (by omega : j<A.n)
     have xSaved := wSaved.frame xf (by omega)
-      (by simp only [ChainW,CHAIN,SharedPrefixes.buffer,LEAFPK] at *; omega)
-      (by simp only [ChainW,CHAIN,SharedPrefixes.buffer,LEAFPK] at *; omega)
+      (by simp only [Sign.Seed.ChainWS,CHAIN,SharedPrefixes.buffer,LEAFPK] at *; omega)
+      (by simp only [Sign.Seed.ChainWS,CHAIN,SharedPrefixes.buffer,LEAFPK] at *; omega)
     simpa only [List.getD_eq_getElem?_getD,List.getElem?_append_left (by omega : i<prefixes.length)] using xSaved
 
 end ClaudeWCT.W9.Machine.Sign.SharedLeafMemory
@@ -1827,7 +1662,8 @@ theorem buildLeafPrefixes_precise {im : Image} (hsub : Sign.SharedLeafCode.Code 
         Frame s0 t (fun X => LeafW A X ∨ BScr X) ∧
         Frame s0 t (Writes A s0) ∧
         (Selected A s0 → ∀ i, i<43 → ∀ k, k≤7 →
-          DigAt t (SharedPrefixes.buffer A.lay.val i k) ((r.1.2.getD i []).getD k 0))) := by
+          DigAt t (SharedPrefixes.buffer A.lay.val i k) ((r.1.2.getD i []).getD k 0)) ∧
+        Sign.Seed.Z32 t) := by
   have hn : A.n = 43 := lower_n hlay
   have hP : PRIV = 131072 := rfl
   have hS : SEEDS = 131136 := rfl
@@ -1864,7 +1700,8 @@ theorem buildLeafPrefixes_precise {im : Image} (hsub : Sign.SharedLeafCode.Code 
       · right; right; right; exact h)
     hpre.hvs hvS (by omega)
   have hF00 : PSt s0 A cs.1 cs.2 0 [] u :=
-    ⟨by rw [if_pos rfl]; exact upc,ucoef,⟨_,[],hyb_of s0 u,hinvu⟩,rfl,ucarry,by intros; omega⟩
+    ⟨by rw [if_pos rfl]; exact upc,ucoef,⟨_,[],hyb_of s0 u,hinvu⟩,rfl,ucarry,by intros; omega,
+      fun h => absurd h (by decide)⟩
   have hF0 : PSt s0 A cs.1 cs.2 0 [] u ∧ Frame s0 u (Writes A s0) := by
     refine ⟨hF00,(t1f.trans uf).mono ?_⟩
     intro X hX h
@@ -1890,7 +1727,7 @@ theorem buildLeafPrefixes_precise {im : Image} (hsub : Sign.SharedLeafCode.Code 
     rw [hm]
   rw [heq] at hfold
   refine TBSim.bind (W₁:=43*chainC) (W₂:=112) hfold (fun rows x hx => ?_)
-  obtain ⟨⟨xpc,_,⟨s3,values,hs3,hinv3⟩,xlen,xcarry,xsaved⟩,xprecise⟩ := hx
+  obtain ⟨⟨xpc,_,⟨s3,values,hs3,hinv3⟩,xlen,xcarry,xsaved,xz⟩,xprecise⟩ := hx
   have hpre3 := LeafPreS.transfer hpre hs3.regs hs3.base hdS
   rw [show (43 : Nat)=A.n from hn.symm] at hinv3
   have hex := Sign.SharedLeaf.leaf_exitS hsub sk hpre3 hinv3 (by rw [xpc,if_neg (by omega)])
@@ -1902,7 +1739,7 @@ theorem buildLeafPrefixes_precise {im : Image} (hsub : Sign.SharedLeafCode.Code 
     (by simp only [bind_assoc,pure_bind]) (by rw [lower_blocks hlay])
   obtain ⟨ypc,ydest,_,_,_,yregs,yframe,yf⟩ := hy
   refine ⟨ypc,ydest trivial,xlen,xcarry.frame yf (by omega) (by omega) (by omega),
-    fun r hr => by rw [yregs.get hr,hs3.regs],?_,?_,?_⟩
+    fun r hr => by rw [yregs.get hr,hs3.regs],?_,?_,?_,?_⟩
   · intro X hX hn'
     rw [yframe.get hX (fun h => hn' (Or.inl h)),hs3.base.get hX (fun h => hn' (Or.inr h))]
   · exact (xprecise.trans yf).mono (by
@@ -1914,8 +1751,31 @@ theorem buildLeafPrefixes_precise {im : Image} (hsub : Sign.SharedLeafCode.Code 
     have hlay1 : 1≤A.lay.val := by have hz : A.lay.val≠0 := fun h => hlay (Fin.ext h); omega
     have hb := SharedPrefixes.buffer_bounds (lay:=A.lay.val) hlay1 (by have := A.lay.isLt; omega) hi (by omega : k<8)
     exact (xsaved hsel i hi k hk).frame yf (by omega) (by unfold LOUT; omega) (by unfold LOUT; omega)
+  · exact (xz (by decide)).frame yf (by unfold LOUT; omega) (by unfold LOUT; omega)
 
 end ClaudeWCT.W9.Machine.Sign.SharedLeafMemory
+
+namespace SigGolfCandidate.T3M.Sign.Seed
+open RiscvZkvm.Rv64 SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv SigGolfCandidate.Rv
+open SigGolfCandidate.T3M.Keygen
+/-- Pairing stage 1: `Base.frame` when the only base cells in the write set are the F pads `CHAIN+32/40`, which are
+zero again at the end (`Z32`). -/
+theorem Base.frame_z32 {cfFlag : Nat} {sk : SecretKey} {cache : Bytes 131072} {t u : MachineState} {W : Nat → Prop}
+    {l : List Reg} (h : Base (cfFlag := cfFlag) sk cache t) (hf : Frame t u W) (hr : RegsExcept t u l)
+    (h5 : .x5 ∉ l) (hW : ∀ A, A < 2 ^ 64 → BaseA A → W A → A = CHAIN + 32 ∨ A = CHAIN + 40) (hz : Z32 u) :
+    Base (cfFlag := cfFlag) sk cache u := by
+  have hf' : Frame t u (fun A => W A ∧ A ≠ CHAIN + 32 ∧ A ≠ CHAIN + 40) := by
+    intro A hA hn
+    by_cases h32 : A = CHAIN + 32
+    · subst h32; rw [hz.1, h.zero _ (by decide) (by unfold NeverW; simp)]
+    by_cases h40 : A = CHAIN + 40
+    · subst h40; rw [hz.2, h.zero _ (by decide) (by unfold NeverW; simp)]
+    exact hf A hA (fun hw => hn ⟨hw, h32, h40⟩)
+  exact h.frame hf' hr h5 (fun A hA hb hw => by
+    rcases hW A hA hb hw.1 with h' | h'
+    · exact hw.2.1 h'
+    · exact hw.2.2 h')
+end SigGolfCandidate.T3M.Sign.Seed
 
 namespace SigGolfCandidate.T3M.Sign.SharedLowTree
 variable {cfFlag : Nat}
@@ -2012,7 +1872,7 @@ theorem body_step
     (TBSim.bind (W₂ := 2) hleaf (fun r u hu => ?_))) ?_ (fun _ _ h => h)
   rotate_left
   · rw [hk3]; unfold lowLeafC; split_ifs <;> omega
-  obtain ⟨upc,uroot,ulen,ucarry,ur,uf,uprecise,usaved⟩ := hu
+  obtain ⟨upc,uroot,ulen,ucarry,ur,uf,uprecise,usaved,uz⟩ := hu
   obtain ⟨⟨root, values⟩, carry⟩ := r
   obtain ⟨t5, st5, t5pc, t5x13, t5r, t5f⟩ := blk1191_spec hc u upc l
     (by rw [ur.get (by decide), r14.get (by simp)]; exact ht.x13)
@@ -2037,7 +1897,8 @@ theorem body_step
     · exact h.elim)
   have hc : DigAt t5 (SEEDS + 16) carry :=
     ucarry.frame t5f (by decide) (by simp) (by simp)
-  refine TBSim.pure_steps st5 ⟨t5pc,t5x13,?_,?_,?_,by simp [ht.len],?_,?_,fun _ => hc⟩
+  refine TBSim.pure_steps st5 ⟨t5pc,t5x13,?_,?_,?_,by simp [ht.len],?_,?_,fun _ => hc,
+    uz.frame t5f (by simp) (by simp)⟩
   · exact (((ht.regs.trans r14).trans ur).trans t5r).mono (by decide)
   · exact (ht.frame.trans fU).mono (fun X _ h => by rcases h with h | h <;> exact h)
   · exact (((ht.precise.trans f14).trans uprecise).trans t5f).mono (by
@@ -2264,17 +2125,23 @@ theorem tail (hlevels : SharedTreeCode.Code im 1013) {sk : SecretKey} {cache : B
     · exact Or.inr (Or.inl h)
     · exact Or.inr (Or.inr (Or.inl ⟨h.1, by omega⟩))
     · exact Or.inr (Or.inr (Or.inr h)))
-  have hW : ∀ A, A < 2 ^ 64 → BaseA A → ¬ AllW lay tree sb A := by
+  have hW : ∀ A, A < 2 ^ 64 → BaseA A → AllW lay tree sb A → A = CHAIN + 32 ∨ A = CHAIN + 40 := by
     intro A _ hb hw
     unfold BaseA NeverW Search.TOP_DATA at hb
     unfold AllW BtW LevW at hw
     simp only [btLev] at hw
     rcases hH with h | h <;> rw [h] at hw <;> shared_tree_sgo
+  have hzx : Seed.Z32 x := by
+    have fx := (t1f.trans t2f).trans (uf.trans fux)
+    refine ht.z.frame fx ?_ ?_ <;>
+    · intro h
+      simp only [LevW, btLev] at h
+      rcases hH with hh | hh <;> rw [hh] at h <;> shared_tree_sgo
   have r1x : RegsExcept s1 x (btRegs ++ [.x6] ++ [.x1, .x6, .x21] ++ levRegs ++ [.x6, .x7, .x13, .x19, .x24] ++
       [.x6, .x7, .x13, .x24, .x28] ++ [.x6, .x7, .x30]) :=
     (((((ht.regs.trans t1r).trans t2r).trans ur).trans vr).trans wr).trans xr
   obtain ⟨-, hlv⟩ := uheap
-  refine ⟨xpc,(ht.saved hsel).1,?_,?_,?_,?_,hs.base.frame f1x r1x (by decide) hW,?_,?_,?_⟩
+  refine ⟨xpc,(ht.saved hsel).1,?_,?_,?_,?_,Seed.Base.frame_z32 hs.base f1x r1x (by decide) hW hzx,?_,?_,?_⟩
   · intro i hi k hk
     have hb := SharedPrefixes.buffer_bounds (lay:=lay.val)
       (by have hz : lay.val≠0 := fun h => hlay (Fin.ext h); omega) (by have := lay.isLt; omega) hi (by omega : k<8)
@@ -2385,7 +2252,9 @@ theorem tree_tbsim {sk : SecretKey} {cache : Bytes 131072} {lay : Layer} {tree s
       hsb8 := hs.hsb8 }
   have h0 : Inv s1 lay sb sel 0 ([],[],0) s1 :=
     ⟨s1pc,s1x13,RegsExcept.refl _ _,Frame.refl _ _,Frame.refl _ _,rfl,DigsAt.nil _ _,
-      fun h => absurd h (by omega),fun h => absurd h (by decide)⟩
+      fun h => absurd h (by omega),fun h => absurd h (by decide),
+      ⟨(s1f.get (by decide) (by simp)).trans (hs.base.zero _ (by decide) (by unfold NeverW; simp)),
+        (s1f.get (by decide) (by simp)).trans (hs.base.zero _ (by decide) (by unfold NeverW; simp))⟩⟩
   have hselection1 : SharedPrefixes.selectionWord (s1.getMem 0x20550) lay.val=BitVec.ofNat 64 sel := by
     have idx : s1.getMem 0x20550=s.getMem 0x20550 := s1f.get (by decide) (by simp)
     rw [idx]; exact hselection

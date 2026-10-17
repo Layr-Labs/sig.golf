@@ -19,7 +19,7 @@ theorem bound_chainW (lay : Layer) (tree leaf i start count : Nat) (value : Dige
   unfold chainW
   refine Bound.foldlM_range'_le start count _ (fun _ _ => True) (fun _ => 1) value trivial
     (fun n _ value _ => ?_) (fun _ _ => trivial) (by simp)
-  apply bound_halfHash <;> simp [SigGolfCandidate.T3.chainInput, pad64_length, zero16, SphincsSecurity.bytesLE_length]
+  apply bound_halfHash <;> simp [chainInputW_length, pad64_length]
 theorem bound_lowerLeafHash (lay : Layer) (tree leaf : Nat) (ends : List Digest) (hlen : ends.length = chainCount lay) :
     CBound (fun _ => True) (leafHashCost lay) (lowerLeafHash lay tree leaf ends) := by
   rw [lowerLeafHash_eq]

@@ -31,11 +31,11 @@ def siblingHalfP (a : ChainAddr) (output : HashOutput) : Digest := siblingHalf (
 /-- Queries that neither are a row of chain `a` at a chain step (`< 7`; C2: a lower Merkle node input can equal a
 row at step 7, which no chain reaches) nor read `a`'s seed cell. -/
 def UntouchedP (a : ChainAddr) : Spec.Domain → Prop
-  | .inl (.inr input) => ∀ step value, step < 7 → input ≠ chainRow a step value
+  | .inl (.inr input) => ∀ step value, step < 7 → input ≠ chainRowW a step value
   | .inr (.inl tweak) => tweak ≠ seedTweakP a
   | _ => True
 noncomputable def prefixStep (answers : Answers) (a : ChainAddr) (input : HashInput) : Option Nat :=
-  if h : ∃ step value, step < depth answers a ∧ input = chainRow a step value then some (Classical.choose h) else none
+  if h : ∃ step value, step < depth answers a ∧ input = chainRowW a step value then some (Classical.choose h) else none
 /-- Mask of chain `a`: its rows below `depth` answer `0` (the last one answers the frontier, in the half its step
 reads, C3). Seeds are evaluations
 of their leaf family at every layer (campaign X1 stage B, top leaves since campaign T8D), so no private cell is
@@ -70,7 +70,12 @@ theorem untouchedP_of_untouched (a : ChainAddr) {q : Spec.Domain}
       SigGolfCandidate.T3.Security.Wots.Mask.Untouched (slotAddr a) q) : UntouchedP a q := by
   rcases q with (coin | input) | (tweak | other)
   · trivial
-  · exact fun step value hs => h.1 step value (by omega)
+  · intro step value hs heq
+    have hu := h.1 step value (by omega)
+    unfold chainRowW WCT9.chainInputW at heq
+    split at heq
+    · exact hu.2 heq
+    · exact hu.1 heq
   · show tweak ≠ seedTweakP a
     rw [← seedTweak_slotAddr]
     exact h.2
@@ -115,7 +120,7 @@ theorem depth_le_seven (answers : Answers) (a : ChainAddr) : depth answers a ≤
   · omega
 theorem prefixStep_spec {answers : Answers} {a : ChainAddr} {input : HashInput} {step : Nat}
     (h : prefixStep answers a input = some step) :
-    step < depth answers a ∧ ∃ value, input = chainRow a step value := by
+    step < depth answers a ∧ ∃ value, input = chainRowW a step value := by
   unfold prefixStep at h
   split at h
   · rename_i hex
@@ -125,21 +130,21 @@ theorem prefixStep_spec {answers : Answers} {a : ChainAddr} {input : HashInput} 
     exact ⟨hlt, value, heq⟩
   · cases h
 theorem prefixStep_chainRow (answers : Answers) (a : ChainAddr) {s : Nat} (v : Digest) (hs : s < 256) :
-    prefixStep answers a (chainRow a s v) = if s < depth answers a then some s else none := by
+    prefixStep answers a (chainRowW a s v) = if s < depth answers a then some s else none := by
   have h7 := depth_le_seven answers a
   split
   · rename_i hlt
     unfold prefixStep
     rw [dif_pos ⟨s, v, hlt, rfl⟩]
     obtain ⟨w, hw, heq⟩ := Classical.choose_spec (⟨s, v, hlt, rfl⟩ :
-      ∃ step value, step < depth answers a ∧ chainRow a s v = chainRow a step value)
-    exact congrArg some (chainRow_inj hs (by omega) heq).1.symm
+      ∃ step value, step < depth answers a ∧ chainRowW a s v = chainRowW a step value)
+    exact congrArg some (chainRowW_inj hs (by omega) heq).1.symm
   · rename_i hge
-    cases hp : prefixStep answers a (chainRow a s v) with
+    cases hp : prefixStep answers a (chainRowW a s v) with
     | none => rfl
     | some step =>
         obtain ⟨hlt, w, heq⟩ := prefixStep_spec hp
-        have := (chainRow_inj hs (by omega) heq).1
+        have := (chainRowW_inj hs (by omega) heq).1
         omega
 theorem prefixStep_untouched {answers : Answers} {a : ChainAddr} {input : HashInput}
     (h : UntouchedP a (.inl (.inr input))) : prefixStep answers a input = none := by
@@ -166,14 +171,14 @@ theorem maskAt_untouched (answers : Answers) (a : ChainAddr) {q : Spec.Domain} (
   · rfl
   · rfl
 theorem maskAt_prefix (answers : Answers) (a : ChainAddr) {s : Nat} (v : Digest) (hs : s < depth answers a) :
-    maskAt answers a (.inl (.inr (chainRow a s v))) =
+    maskAt answers a (.inl (.inr (chainRowW a s v))) =
       if s + 1 = depth answers a then joinHalf (WCT9.chainHigh a.key.lay a.chain s) (frontierValue answers a) 0
         else 0 := by
   have h7 := depth_le_seven answers a
   rw [maskAt_public, prefixStep_chainRow answers a v (by omega), if_pos hs]
   rfl
 theorem maskAt_row_ge (answers : Answers) (a : ChainAddr) {s : Nat} (v : Digest) (hs : depth answers a ≤ s)
-    (hs' : s < 256) : maskAt answers a (.inl (.inr (chainRow a s v))) = answers (.inl (.inr (chainRow a s v))) := by
+    (hs' : s < 256) : maskAt answers a (.inl (.inr (chainRowW a s v))) = answers (.inl (.inr (chainRowW a s v))) := by
   rw [maskAt_public, prefixStep_chainRow answers a v hs', if_neg (by omega)]
 theorem maskAt_of_depth_zero (answers : Answers) (a : ChainAddr) (hd : depth answers a = 0) :
     maskAt answers a = answers := by
@@ -235,7 +240,8 @@ theorem respects_halfHash' {S : Spec.Domain → Prop} (high : Bool) (input : Has
   · unfold WCT9.halfHash WCT9.highHash; simp only [↓reduceIte]
     exact Respects.bind (Respects.publicHash input h) fun _ => Respects.pure' _
 theorem respects_chainW' {S : Spec.Domain → Prop} (lay : Layer) (tree leaf i start count : Nat) (v : Digest)
-    (h : ∀ step value, start ≤ step → step < start + count → S (.inl (.inr (pad64 (chainInput lay tree leaf i step value))))) :
+    (h : ∀ step value, start ≤ step → step < start + count →
+      S (.inl (.inr (pad64 (WCT9.chainInputW lay tree leaf i step value))))) :
     Respects S (WCT9.chainW lay tree leaf i start count v) := by
   unfold WCT9.chainW
   exact Respects.foldlM _ _ (fun step hs value => respects_halfHash' _ _ (h step value
@@ -341,23 +347,21 @@ theorem lowerHeap_lt' {h level i : Nat} (hlev : 1 ≤ level) (h7 : h ≤ 7) (hi 
   · subst hz; simp at hi
   · have hB : 2 ^ h = 2 * 2 ^ (h - 1) := by rw [← pow_succ']; congr 1; omega
     omega
-theorem chainRow_length (a : ChainAddr) (step : Nat) (value : Digest) : (chainRow a step value).length = 64 := by
-  simp [chainRow, chainInput, zero16, bytesLE_length]
 theorem untouchedP_of_hdr (a : ChainAddr) (input : HashInput) (h : BitVec 128)
     (hblock : SigGolfCandidate.T3M.Extract.hdrBlock input = bytesLE 16 h)
     (htag : ∀ (l : Layer) tr leaf i step, step < 7 → h ≠ chainHeader l tr leaf i step) :
     UntouchedP a (.inl (.inr input)) := by
   intro step value hs heq
-  have hb : SigGolfCandidate.T3M.Extract.hdrBlock (chainRow a step value) =
+  have hb : SigGolfCandidate.T3M.Extract.hdrBlock (chainRowW a step value) =
       bytesLE 16 (chainHeader a.key.lay a.key.tree a.key.leaf a.chain step) :=
-    chainInput_header _ _ _ _ _ _
+    WCT9.chainInputW_header _ _ _ _ _ _
   rw [heq, hb] at hblock
   exact htag _ _ _ _ _ hs (bytesLE_injective hblock).symm
 theorem untouchedP_of_length (a : ChainAddr) (input : HashInput) (hl : input.length ≠ 64) :
     UntouchedP a (.inl (.inr input)) := by
   intro step value _ heq
   apply hl
-  rw [heq, chainRow_length]
+  rw [heq, chainRowW_length]
 theorem pad64_long_length {input : HashInput} (hl : 64 < input.length) : (pad64 input).length ≠ 64 := by
   have : input.length ≤ (pad64 input).length := by
     simp only [pad64, List.length_append, List.length_replicate]; omega

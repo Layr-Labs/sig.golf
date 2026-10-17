@@ -197,7 +197,7 @@ values, `(0, 0)` for coordinate 0. -/
 def prevVals (v : Coord → Digest) (index : Fin (2^31)) (coord : Fin 9) : Digest × Digest :=
   (((prevTop index coord 0).map v).getD 0, ((prevTop index coord 1).map v).getD 0)
 def cellValues : CanonGraph.Node → (Coord → Digest) → HashInput
-  | .chain p, v => ChainGraph.row p (v (chainChild p))
+  | .chain p, v => CanonGraph.rowW p (v (chainChild p))
   | .leaf L, v => pad64 (Extract.leafInput L.1.lay L.1.tree.val L.1.leaf.val
       ((List.range (chainCount L.1.lay)).map fun i => v (.inl (.chain (endPoint L.1 i)))))
   | .node n, v => pad64 (WCT9.merkleNodeInput n.1.lay.val n.1.tree.val

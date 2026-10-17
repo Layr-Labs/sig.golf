@@ -36,14 +36,8 @@ def srL2 : List (BitVec 32) := (srchCode.drop 37).take 2
 def srL3 : List (BitVec 32) := (srchCode.drop 39).take 2
 def srL4 : List (BitVec 32) := (srchCode.drop 41).take 2
 def srF1 : List (BitVec 32) := (srchCode.drop 44).take 1
-def w342Word : BitVec 32 := 1967296623
-
-/-- The search code and the new word 342 are in the image. -/
-def SrchAt (im : Image) : Prop := CodeAt im (pcOf 342) [w342Word] ∧ CodeAt im (pcOf 42795) srchCode
-
 /-- The H2 core can be entered after a separate policy-validation prefix. -/
 def SrchCoreAt (im : Image) : Prop := CodeAt im (pcOf 42795) srchCode
-instance {im : Image} : Coe (SrchAt im) (SrchCoreAt im) := ⟨fun h=>h.2⟩
 
 section code
 variable {im : Image} (hS : SrchCoreAt im)
@@ -78,11 +72,6 @@ sym_block h2_F1 := symRun { noAlias := true } srF1 (pcOf 42839) 50
 section specs
 variable {im : Image} (hS : SrchCoreAt im) (s : MachineState)
 include hS
-
-omit hS in
-theorem w342_step (hFull : SrchAt im) (hpc : s.pc = pcOf 342) : Steps im s 1 1 (s.setPC (pcOf 42795)) := by
-  obtain ⟨imm, hd, hoff⟩ := jalTo_sound (show jalTo w342Word 342 = some 42795 by decide)
-  exact jal_x0_step hFull.1 hd hoff s hpc
 
 theorem jal_at (n m : Nat) (hn : 42795 ≤ n) (hn' : n < 42795 + 46) (w : BitVec 32)
     (hw : (srchCode.drop (n - 42795)).take 1 = [w]) (hj : jalTo w n = some m) (hpc : s.pc = pcOf n) :
@@ -564,105 +553,6 @@ theorem shr_and (x : Nat) (hx : x < 2 ^ 64) :
   rw [show (1 : Nat) = 2 ^ 1 - 1 from rfl, Nat.and_two_pow_sub_one_eq_mod, pow_one,
     Nat.mod_eq_of_lt (lt_of_lt_of_le (Nat.mod_lt _ (by norm_num)) (by norm_num) : x / 2 ^ 30 % 2 < 2 ^ 64)]
 
-/-- The search after the layers, from word 342 to a halt address: candidate 0 is the old comparison. -/
-theorem search_entry {im : Image} (hS : SrchAt im) {sk : BitVec 256} (index : Nat) (hidx : index < 2 ^ 31)
-    (v sib root0 pk : Digest) (hsib : WCT9.setTop sib 0 = sib) (s8 : MachineState) (hpc : s8.pc = pcOf 342)
-    (hx5 : s8.getReg .x5 = 0) (henc : DigAt s8 ENC root0)
-    (hpk0 : s8.getMem (BitVec.ofNat 64 0xA0) = lo64 pk) (hpk1 : s8.getMem (BitVec.ofNat 64 0xA8) = hi64 pk)
-    (hix : s8.getMem (BitVec.ofNat 64 0x20550) = BitVec.ofNat 64 index)
-    (hblk : ∀ i < 8, s8.getMem (BitVec.ofNat 64 (NODE + 8 * i)) = (blkW index v sib).getD i 0) :
-    TBSim im sk s8 (65535 * 30 + 100)
-      (if root0 = pk then pure (some 0) else WCT9.searchTop index v sib pk WCT9.searchFuel 1) (SQ index sib s8) := by
-  have st0 := w342_step s8 hS hpc
-  have hS : SrchCoreAt im := hS.2
-  set u0 := s8.setPC (pcOf 42795) with hu0
-  have gu0 : ∀ A, u0.getMem A = s8.getMem A := fun _ => rfl
-  have ru0 : ∀ r, u0.getReg r = s8.getReg r := fun _ => rfl
-  obtain ⟨u1, st1, p1, x28, x13, x14, r1, f1⟩ := s1_spec hS u0 rfl
-  rw [gu0, gu0, henc.1, hpk0] at p1
-  rw [gu0, hpk0] at x13
-  rw [gu0, hpk1] at x14
-  have hsplit := pk_split root0 pk
-  have miss : root0 ≠ pk → ∀ (u : MachineState) (k : Nat), Steps im s8 k k u → k ≤ 12 → u.pc = pcOf 42805 →
-      (∀ r, r ≠ .x6 → r ≠ .x13 → r ≠ .x14 → r ≠ .x28 → r ≠ .x29 → u.getReg r = s8.getReg r) →
-      u.getReg .x13 = lo64 pk → u.getReg .x14 = hi64 pk → Frame s8 u (fun _ => False) →
-      TBSim im sk s8 (65535 * 30 + 100)
-        (if root0 = pk then pure (some 0) else WCT9.searchTop index v sib pk WCT9.searchFuel 1) (SQ index sib s8) := by
-    intro hne u k stu hk pu gu u13 u14 fu
-    rw [if_neg hne]
-    obtain ⟨u2, st2, p2, x7a, r2, f2⟩ := m1_spec hS u pu
-    rw [fu.get (by decide) (fun h => h), hix, shr_and index (by omega)] at p2
-    have hbit : (BitVec.ofNat 64 (index / 2 ^ 30 % 2) = 0) ↔ bitc index := by
-      rw [bitc_iff]
-      constructor
-      · intro h; have := congrArg BitVec.toNat h; simp at this; omega
-      · intro h; rw [h]; rfl
-    -- reach the setup block with x7 = sOff index
-    obtain ⟨u3, k3, st3, hk3, p3, x7b, r3, f3⟩ : ∃ u3 k3, Steps im u2 k3 k3 u3 ∧ k3 ≤ 1 ∧ u3.pc = pcOf 42813 ∧
-        u3.getReg .x7 = BitVec.ofNat 64 (sOff index) ∧ RegsExcept u2 u3 [.x7] ∧ Frame u2 u3 (fun _ => False) := by
-      by_cases hb : bitc index
-      · rw [if_pos (hbit.mpr hb)] at p2
-        obtain ⟨u3, st3, p3, x7b, r3, f3⟩ := m2_spec hS u2 p2
-        refine ⟨u3, 1, st3, le_rfl, p3, ?_, r3, f3⟩
-        rw [x7b]; unfold sOff; rw [if_pos hb]
-      · rw [if_neg (fun h => hb (hbit.mp h))] at p2
-        refine ⟨u2, 0, Steps.refl u2, by omega, p2, ?_, RegsExcept.refl _ _, Frame.refl _ _⟩
-        rw [x7a]; unfold sOff; rw [if_neg hb]
-    obtain ⟨u4, st4, p4, x28', x31', x7', x15', x10', x11', x12', x30', x17', r4, f4⟩ :=
-      sd_spec hS u3 p3 (sOff index) (sOff_cases index) x7b
-    have F4 : Frame s8 u4 (fun _ => False) :=
-      (((fu.trans f2).trans f3).trans f4).mono (fun A _ h => by
-        rcases h with ((h | h) | h) | h <;> exact h)
-    have g4 : ∀ r, r ∉ [Reg.x6, .x7, .x10, .x11, .x12, .x13, .x14, .x15, .x17, .x28, .x29, .x30, .x31] →
-        u4.getReg r = s8.getReg r := by
-      intro r hr
-      simp only [List.mem_cons, List.not_mem_nil, or_false, not_or] at hr
-      rw [r4.get (by simp [hr]),
-        r3.get (by simp [hr]), r2.get (by simp [hr]),
-        gu r hr.1 hr.2.2.2.2.2.1 hr.2.2.2.2.2.2.1 hr.2.2.2.2.2.2.2.2.2.1 hr.2.2.2.2.2.2.2.2.2.2.1]
-    have F3 : Frame s8 u3 (fun _ => False) :=
-      ((fu.trans f2).trans f3).mono (fun A _ h => by rcases h with (h | h) | h <;> exact h)
-    have hI : SInv index v sib pk s8 1 u4 := by
-      refine ⟨p4, ?_, x30', ?_, x28', x31', x10', x11', x12', ?_, ?_, x15', x17', le_rfl, by decide, ?_, ?_⟩
-      · rw [g4 _ (by decide)]; exact hx5
-      · rw [x7', F3.get (show NODE + sOff index < 2 ^ 64 by unfold sOff; split <;> simp only [NODE] <;> omega)
-          (fun h => h),
-          sOff_bwi, hblk _ (by unfold bwi; split <;> omega), blkW_hi, show 1 - 1 = 0 from rfl]
-        have e := hi64_setTop sib 0 (by decide)
-        rw [hsib] at e
-        exact e
-      · rw [r4.get (by decide), r3.get (by decide), r2.get (by decide)]; exact u13
-      · rw [r4.get (by decide), r3.get (by decide), r2.get (by decide)]; exact u14
-      · intro i hi; rw [F4.get (by simp only [NODE]; omega) (fun h => h), hblk i hi, show 1 - 1 = 0 from rfl, hsib]
-      · exact F4.mono (fun A _ h => h.elim)
-    have hloop := search_loop hS (sk := sk) index v sib pk s8 65535 1 u4 (by decide) hI
-    refine (TBSim.steps (stu.trans (st2.trans (st3.trans st4))) hloop).mono ?_ (fun _ _ h => h)
-    omega
-  by_cases hl : root0.extractLsb' 0 64 = lo64 pk
-  · rw [if_pos hl] at p1
-    obtain ⟨u2, st2, p2, r2, f2⟩ := s2_spec hS u1 p1 x28
-    rw [f1.get (by decide) (fun h => h), gu0, henc.2] at p2
-    rw [x14] at p2
-    by_cases hh : root0.extractLsb' 64 64 = hi64 pk
-    · rw [if_pos hh] at p2
-      have hroot : root0 = pk := hsplit.mpr ⟨hl, hh⟩
-      rw [if_pos hroot]
-      have st3 := jal_at hS u2 42804 351 (by decide) (by decide) 2329763951 rfl (by decide) p2
-      refine (TBSim.steps (st0.trans (st1.trans (st2.trans st3))) (TBSim.pure ⟨rfl, fun _ => ?_,
-        fun h => absurd rfl h⟩)).mono (by omega) (fun _ _ h => h)
-      intro A hA hn
-      show u2.getMem _ = s8.getMem _
-      exact (f1.trans f2) A hA (fun h => by rcases h with h | h <;> exact h)
-    · rw [if_neg hh] at p2
-      exact miss (fun h => hh (hsplit.mp h).2) u2 _ (st0.trans (st1.trans st2)) (by omega) p2
-        (fun r h6 h13 h14 h28 h29 => by rw [r2.get (by simpa using h6), r1.get (by simp [h6, h13, h14, h28, h29]), ru0])
-        (by rw [r2.get (by decide)]; exact x13) (by rw [r2.get (by decide)]; exact x14)
-        ((f1.trans f2).mono (fun A _ h => by rcases h with h | h <;> exact h))
-  · rw [if_neg hl] at p1
-    exact miss (fun h => hl (hsplit.mp h).1) u1 _ (st0.trans st1) (by omega) p1
-      (fun r h6 h13 h14 h28 h29 => by rw [r1.get (by simp [h6, h13, h14, h28, h29]), ru0]) x13 x14 f1
-
-
 theorem search_entry_core {im : Image} (hS : SrchCoreAt im) {sk : BitVec 256} (index : Nat) (hidx : index < 2 ^ 31)
     (v sib root0 pk : Digest) (hsib : WCT9.setTop sib 0 = sib) (s8 : MachineState) (hpc : s8.pc = pcOf 42795)
     (hx5 : s8.getReg .x5 = 0) (henc : DigAt s8 ENC root0)
@@ -788,42 +678,6 @@ theorem topBlk_get (sig : WCT9.Signature) (index : Nat) (v : Digest) (t : Machin
 
 /-! ### The reference expander split at the old front -/
 
-/-- After the front: the layers (with the top sibling read as given), then candidate 0 or the search. -/
-def tailProgS (pk : PublicKey) (sig : WCT9.Signature) :
-    Option (BitVec 32 × HashOutput × (Digest × Digest)) → M (Option (HashOutput × WCT9.Witness))
-  | none => pure none
-  | some (counter, N, top) => do
-    let some (v, root', counters) ← WCT9.expandLayersT sig (WCT9.digestIndex N) (WCT9.topSib sig) 4
-        (.pair top.1 top.2)
-      | pure none
-    let oc ← if root' = pk then pure (some 0) else
-      WCT9.searchTop (WCT9.digestIndex N) v (WCT9.topSib sig) pk WCT9.searchFuel 1
-    match oc with
-    | none => pure none
-    | some c => pure (some (N, ⟨WCT9.fillTop sig c, counter, fun lay => counters.getD lay.val 0⟩))
-
-theorem expandN_splitS (m : Message) (pk : PublicKey) (sig : WCT9.Signature) (hp : WCT9.proj sig = sig) :
-    ClaudeWCT.W9.T3M.expandN m pk sig = newProg m sig >>= tailProgS pk sig := by
-  unfold ClaudeWCT.W9.T3M.expandN WCT9.expandS newProg
-  rw [hp, bind_assoc]
-  dsimp only
-  refine bind_congr (fun r => ?_)
-  rcases r with _ | ⟨counter, N⟩
-  · first | rfl | (simp only [pure_bind]; done) | (simp only [pure_bind]; rfl)
-  · simp only [bind_assoc, pure_bind]
-    refine bind_congr (fun root => ?_)
-    simp only [pure_bind, tailProgS]
-    refine bind_congr (fun x => ?_)
-    rcases x with _ | ⟨v, root', counters⟩
-    · rfl
-    · by_cases h : root' = pk
-      · simp only [h, ↓reduceIte, pure_bind]
-        show _ = pure (some (N, (⟨WCT9.proj sig, counter, _⟩ : WCT9.Witness)))
-        rw [hp]
-      · simp only [h, ↓reduceIte]
-        refine bind_congr (fun oc => ?_)
-        rcases oc with _ | c <;> rfl
-
 end ClaudeWCT.W9.Machine.Expand
 end
 
@@ -840,20 +694,10 @@ theorem validate_step (s : MachineState) (hp:s.pc=pcOf 342) :
   exact jal_x0_step validate_code hd hoff s hp
 theorem compact_code : CodeAt Images.expandImage (pcOf 351) [0x4d52706f] := by
   apply codeAt_expand_current_chunk <;> decide +kernel
-theorem compact_step (s : MachineState) (hp:s.pc=pcOf 351) :
-    Steps Images.expandImage s 1 1 (s.setPC (pcOf 41108)) := by
-  obtain ⟨imm,hd,hoff⟩ := jalTo_sound (show jalTo (0x4d52706f#32) 351=some 41108 by decide)
-  exact jal_x0_step compact_code hd hoff s hp
 theorem scatter_code : CodeAt Images.expandImage (pcOf 43761) [0x24c0306f] := by
   apply codeAt_expand_current_chunk <;> decide +kernel
-theorem scatter_step (s : MachineState) (hp:s.pc=pcOf 43761) :
-    Steps Images.expandImage s 1 1 (s.setPC (pcOf 46980)) := by
-  obtain ⟨imm,hd,hoff⟩ := jalTo_sound (show jalTo (0x24c0306f#32) 43761=some 46980 by decide)
-  exact jal_x0_step scatter_code hd hoff s hp
 theorem installed_srchCore : SrchCoreAt Images.expandImage := by
   apply codeAt_expand_current_chunk <;> decide +kernel
 #print axioms installed_srchCore
 #print axioms validate_step
-#print axioms compact_step
-#print axioms scatter_step
 end ClaudeWCT.W9.Machine.Expand.SharedControl

@@ -115,8 +115,8 @@ theorem cell_outer (secrets secrets' : Secrets) (labels labels' : Labels)
     funext fun point => hl _ (fun ⟨a, q, _, he⟩ => Node.noConfusion he)
   cases node with
   | chain p =>
-      change ChainGraph.input (seedsOf secrets) p (chainLabels labels) =
-        ChainGraph.input (seedsOf secrets') p (chainLabels labels')
+      change inputW (seedsOf secrets) p (chainLabels labels) =
+        inputW (seedsOf secrets') p (chainLabels labels')
       rw [hseeds, hchain]
   | leaf L =>
       have hends : (List.range (chainCount L.1.lay)).map (endLabel secrets labels L.1) =

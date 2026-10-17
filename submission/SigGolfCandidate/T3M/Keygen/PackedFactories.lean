@@ -28,7 +28,9 @@ def sign_inc : List (BitVec 32) := [6521747]
 sym_block run_sign_inc := symRun { noAlias := true } sign_inc (pcOf 1488) 100
 def sign_body : List (BitVec 32) := [7639859,19071795,134711,437128723,33772435,8272931,33755923,16995091,50598803,7562035,0xc100f13,59711251,31679283,0xffa7393,8622995,7562035,0x809e393,7562035,0x885ff06f]
 sym_block run_sign_body := symRun { noAlias := true } sign_body (pcOf 1489) 100
-def sign_store : List (BitVec 32) := [134711,437128723,7223331,132407,436536595,67110291,132663,486934035]
+/-- Pairing stage 1: the sign header store ends at 1030 (`lui t3; addi t3; sd t1,16(t3)`); 1031 jumps to the G/F
+step block at 1732. -/
+def sign_store : List (BitVec 32) := [134711,437128723,7223331]
 sym_block run_sign_store := symRun { noAlias := true } sign_store (pcOf 1028) 100
 def expand_entry : List (BitVec 32) := [901775471]
 sym_block run_expand_entry := symRun { noAlias := true } expand_entry (pcOf 1032) 100
@@ -42,6 +44,8 @@ def expand_inc : List (BitVec 32) := [6521747]
 sym_block run_expand_inc := symRun { noAlias := true } expand_inc (pcOf 1252) 100
 def expand_body : List (BitVec 32) := [7639859,19071795,134711,437128723,33772435,8272931,33755923,16995091,50598803,7562035,0xc100f13,59711251,31679283,0xffa7393,8622995,7562035,0x809e393,7562035,0xc5dff06f]
 sym_block run_expand_body := symRun { noAlias := true } expand_body (pcOf 1253) 100
-def expand_store : List (BitVec 32) := [134711,437128723,7223331,132407,436536595,67110291,132663,486934035]
+/-- Pairing stage 1 (expand side, edited by pair1-sign only so that this shared file builds): the store ends at 1040;
+1041 jumps to the G/F step block at 43764. -/
+def expand_store : List (BitVec 32) := [134711,437128723,7223331]
 sym_block run_expand_store := symRun { noAlias := true } expand_store (pcOf 1038) 100
 end SigGolfCandidate.T3M.Keygen.PackedBlocks

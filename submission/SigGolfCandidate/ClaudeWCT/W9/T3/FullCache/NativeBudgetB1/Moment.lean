@@ -169,12 +169,16 @@ theorem avoids_chainW (lay : Layer) (tree leaf i start count : Nat) (value : Dig
   apply avoids_foldlM
   intro value step
   apply avoids_halfHash_of_ne secret target ht
-  have hh : SigGolfCandidate.T3.QuerySpace.queryHeader
-      (pad64 (SigGolfCandidate.T3.chainInput lay tree leaf i step value)) =
+  have hh : SigGolfCandidate.T3.QuerySpace.queryHeader (pad64 (ClaudeWCT.WCT9.chainInputW lay tree leaf i step value)) =
       SphincsSecurity.bytesLE 16 (chainHeader lay tree leaf i step) := by
-    simpa only [SigGolfCandidate.T3.chainInput, List.append_assoc] using
-      SigGolfCandidate.T3.QuerySpace.queryHeader_padded zero16 (zero16 ++ SphincsSecurity.bytesLE 16 value)
-        (by simp [zero16]) (chainHeader lay tree leaf i step)
+    unfold ClaudeWCT.WCT9.chainInputW
+    split
+    · simpa only [List.append_assoc] using
+        SigGolfCandidate.T3.QuerySpace.queryHeader_padded (SphincsSecurity.bytesLE 16 value) (zero16 ++ zero16)
+          (by simp [SphincsSecurity.bytesLE_length]) (chainHeader lay tree leaf i step)
+    · simpa only [SigGolfCandidate.T3.chainInput, List.append_assoc] using
+        SigGolfCandidate.T3.QuerySpace.queryHeader_padded zero16 (zero16 ++ SphincsSecurity.bytesLE 16 value)
+          (by simp [zero16]) (chainHeader lay tree leaf i step)
   exact searchQ_ne hh (chainHeader_not_search lay tree leaf i step) ht
 theorem avoids_lowerLeafHash (lay : Layer) (tree leaf : Nat) (ends : List Digest) :
     Avoids secret target (ClaudeWCT.WCT9.lowerLeafHash lay tree leaf ends) := by
@@ -965,11 +969,16 @@ theorem avoids_chainPrefixes (lay : Layer) (tree leaf i start count : Nat) (valu
       apply avoids_bind
       · -- C3 (#866): a prefix step keeps the half `chainHigh lay i start` (same query input).
         apply avoids_halfHash_of_ne secret target ht
-        have hh : queryHeader (pad64 (SigGolfCandidate.T3.chainInput lay tree leaf i start value)) =
+        have hh : queryHeader (pad64 (ClaudeWCT.WCT9.chainInputW lay tree leaf i start value)) =
             bytesLE 16 (chainHeader lay tree leaf i start) := by
-          simpa only [SigGolfCandidate.T3.chainInput, List.append_assoc] using
-            queryHeader_padded zero16 (zero16 ++ bytesLE 16 value) (by simp [zero16])
-              (chainHeader lay tree leaf i start)
+          unfold ClaudeWCT.WCT9.chainInputW
+          split
+          · simpa only [List.append_assoc] using
+              queryHeader_padded (bytesLE 16 value) (zero16 ++ zero16) (by simp [bytesLE_length])
+                (chainHeader lay tree leaf i start)
+          · simpa only [SigGolfCandidate.T3.chainInput, List.append_assoc] using
+              queryHeader_padded zero16 (zero16 ++ bytesLE 16 value) (by simp [zero16])
+                (chainHeader lay tree leaf i start)
         exact searchQ_ne hh (chainHeader_not_search lay tree leaf i start) ht
       · intro next
         exact avoids_bind (ih _ _) fun _ => avoids_pure _ _ _

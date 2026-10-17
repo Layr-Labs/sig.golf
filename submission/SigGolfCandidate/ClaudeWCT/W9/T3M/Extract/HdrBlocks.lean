@@ -82,7 +82,7 @@ theorem hdrBlock_honestInput (answers : Answers) (p : Pos) :
     hdrBlock (honestInput answers p) = bytesLE 16 p.hdr := by
   cases p with
   | chain lay tree lf i step =>
-      simp only [honestInput, Pos.hdr, chainInput_padded, hdrBlock, chainInput_header]
+      simp only [honestInput, Pos.hdr, WCT9.chainInputW_padded, hdrBlock, WCT9.chainInputW_header]
   | leaf lay tree lf => simp only [honestInput, Pos.hdr]; rw [hdrBlock_leafInput]
   | node lay tree level nd =>
       simp only [honestInput, Pos.hdr]; rw [hdrBlock_merkleNodeInput]
@@ -99,7 +99,7 @@ theorem honestInput_length (answers : Answers) (p : Pos) : (honestInput answers 
   cases p with
   | chain lay tree leaf i step =>
       simp only [honestInput, Pos.len]
-      rw [pad64_length_of_mod] <;> simp [chainInput, zero16, bytesLE_length]
+      rw [pad64_length_of_mod] <;> simp [WCT9.chainInputW_length]
   | leaf lay tree leaf =>
       simp only [honestInput, Pos.len, leafInput, SigGolfCandidate.T3.leafInput]
       split

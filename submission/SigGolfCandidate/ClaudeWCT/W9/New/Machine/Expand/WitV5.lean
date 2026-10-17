@@ -103,27 +103,6 @@ theorem region_merkleV5 (o n : Nat) (h : o + n ≤ 448) :
     window_append_left _ _ _ _ (by simp [merkleBytesV5_length, chainBytes_length, zeros]; omega),
     window_append_left _ _ _ _ (by simp [merkleBytesV5_length, chainBytes_length]; omega),
     window_append_left _ _ _ _ (by simp [merkleBytesV5_length]; omega)]
-theorem region_chainV5 (o n : Nat) (h0 : 448 ≤ o) (h : o + n ≤ 768) :
-    window (regionBytesV5 c op) o n = window (chainBytes op) (o - 448) n := by
-  unfold regionBytesV5
-  rw [window_append_left _ _ _ _ (by simp only [List.length_append, merkleBytesV5_length, chainBytes_length, leafBytesZ_length, leafBytesZ_length', zeros, List.length_replicate]; omega),
-    window_append_left _ _ _ _ (by simp [merkleBytesV5_length, chainBytes_length, zeros]; omega),
-    window_append_left _ _ _ _ (by simp [merkleBytesV5_length, chainBytes_length]; omega),
-    window_append_right _ _ _ _ (by simp [merkleBytesV5_length]; omega), merkleBytesV5_length]
-theorem region_prefixV5 (o n : Nat) (h0 : 768 ≤ o) (h : o + n ≤ 816) :
-    window (regionBytesV5 c op) o n = zeros n := by
-  unfold regionBytesV5
-  rw [window_append_left _ _ _ _ (by simp only [List.length_append, merkleBytesV5_length, chainBytes_length, leafBytesZ_length, leafBytesZ_length', zeros, List.length_replicate]; omega),
-    window_append_left _ _ _ _ (by simp [merkleBytesV5_length, chainBytes_length, zeros]; omega),
-    window_append_right _ _ _ _ (by simp [merkleBytesV5_length, chainBytes_length]; omega)]
-  simp only [List.length_append, merkleBytesV5_length, chainBytes_length]
-  exact window_zeros _ _ _ (by omega)
-theorem region_leafV5 (o n : Nat) (h0 : 816 ≤ o) (h : o + n ≤ 944) :
-    window (regionBytesV5 c op) o n = window (leafBytes op (zeros 16)) (o - 816) n := by
-  unfold regionBytesV5
-  rw [window_append_left _ _ _ _ (by simp only [List.length_append, merkleBytesV5_length, chainBytes_length, leafBytesZ_length, leafBytesZ_length', zeros, List.length_replicate]; omega),
-    window_append_right _ _ _ _ (by simp [merkleBytesV5_length, chainBytes_length, zeros]; omega)]
-  simp only [List.length_append, merkleBytesV5_length, chainBytes_length, zeros, List.length_replicate]
 theorem region_tailV5 (o n : Nat) (h0 : 944 ≤ o) (h : o + n ≤ 1024) :
     window (regionBytesV5 c op) o n = zeros n := by
   unfold regionBytesV5
@@ -131,19 +110,6 @@ theorem region_tailV5 (o n : Nat) (h0 : 944 ≤ o) (h : o + n ≤ 1024) :
   simp only [List.length_append, merkleBytesV5_length, chainBytes_length, leafBytesZ_length, leafBytesZ_length', zeros,
     List.length_replicate]
   exact window_zeros _ _ _ (by omega)
-theorem leafZ_window_zero : window (leafBytes op (zeros 16)) 0 16 = bytesLE 16 (op.values 0) :=
-  ClaudeWCT.W9.T3M.leafBytes_window_zero op _
-theorem leafZ_window_pad : window (leafBytes op (zeros 16)) 32 16 = zeros 16 :=
-  ClaudeWCT.W9.T3M.leafBytes_window_pad op _ (by simp [zeros])
-theorem leafZ_window_hdr : window (leafBytes op (zeros 16)) 16 16 = zeros 16 := by
-  unfold ClaudeWCT.W9.T3M.leafBytes
-  rw [window_append_left _ _ _ _ (by simp [bytesLE_length, zeros]),
-    window_append_left _ _ _ _ (by simp [bytesLE_length, zeros]),
-    window_append_right _ _ _ _ (by simp [bytesLE_length]), bytesLE_length]
-  exact window_zeros _ _ _ (by omega)
-theorem leafZ_window_succ (i : Fin 5) :
-    window (leafBytes op (zeros 16)) (48 + 16 * i.val) 16 = bytesLE 16 (op.values i.succ) :=
-  ClaudeWCT.W9.T3M.leafBytes_window_succ op _ (by simp [zeros]) i
 theorem merkleBytesV5_window (l : Fin 7) (o : Nat) (ho : o + 16 ≤ 64) :
     window (merkleBytesV5 c op) (64 * (6 - l.val) + o) 16 =
       window (if c / 2 ^ l.val % 2 = 1 then bytesLE 16 (op.path l) ++ zeros 48

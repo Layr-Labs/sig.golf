@@ -19,10 +19,6 @@ theorem tb_shortHash_bind' {β : Type} {s : MachineState} {input : List UInt8} {
   have := h a
   unfold TBSim at this
   simpa only [Function.comp, pure_bind] using this
-theorem tb_map {α β : Type} {s : MachineState} {W : Nat} {p : T3.M α} (f : α → β) {Q : β → MachineState → Prop}
-    (h : TBSim image sk s W p (fun a t => Q (f a) t)) : TBSim image sk s W (f <$> p) Q := by
-  rw [map_eq_bind_pure_comp]
-  exact (TBSim.bind (W₂ := 0) h (fun a t ht => TBSim.pure ht)).mono (by omega) (fun _ _ h => h)
 theorem tb_mapM_idx {γ δ : Type} (f : γ → T3.M δ) (idx : γ → Nat) (W : Nat) (Inv : List δ → MachineState → Prop) :
     ∀ (xs : List γ) (pre : List δ) {s : MachineState}, xs.map idx = List.range' pre.length xs.length →
     (∀ x ∈ xs, ∀ (pre' : List δ) t, pre'.length = idx x → Inv pre' t →

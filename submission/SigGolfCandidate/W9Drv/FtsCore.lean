@@ -414,8 +414,9 @@ theorem dispatch_chain_pre (pk : Digest) (w : ClaudeWCT.W9.T3M.WBytes) (a : Hash
         unfold Chain.base coordinateBase V3.regionOffset
         omega
       · rw [if_neg (fun h => hh (by rw [Nat.add_sub_cancel_left] at h; exact h.2))]
-        have hw := hu.coords k.val (Nat.le_refl _) (by omega) off ho h8 (by omega) (fun _ => hh)
-        have he : regionAddr k.val + off - 0x4c0 = V3.regionOffset k.val + off := by
+        have hw := hu.coords k.val (Nat.le_refl _) (by omega) off ho h8 (by omega)
+          (fun _ => by unfold legHand; rw [if_neg (by omega)]; exact hh)
+        have he : regionAddr k.val + off - 0xB58 = V3.regionOffset k.val + off := by
           unfold regionAddr V3.regionOffset; omega
         have hb : Chain.base k + off = regionAddr k.val + off := by
           unfold Chain.base coordinateBase regionAddr; omega
@@ -586,8 +587,8 @@ theorem coord_core_good (chains : N600.AllGood (P := P) Frozen.layout)
     (v u : MachineState) (padL padZ : Digest) (N C A : Nat) (Q : Prop)
     (K : Digest → OracleComp HashSpec Obs)
     (hu : N600.Pre Frozen.layout (V3.viewW w k.val v) index k j rank u)
-    (hL : DigAt v (0x4c0 + V3.regionOffset k.val + 720) padL)
-    (hZ : DigAt v (0x4c0 + V3.regionOffset k.val + 864) padZ)
+    (hL : DigAt v (0xB58 + V3.regionOffset k.val + 720) padL)
+    (hZ : DigAt v (0xB58 + V3.regionOffset k.val + 864) padZ)
     (hnext : ∀ ends entry, Chain.Post Frozen.layout (V3.viewW w k.val v) index k j u ends entry →
       ∀ computed t, Child.Post Frozen.layout k j entry computed t →
         GoodQFor (P := P) Frozen.image t N C Q A (K computed)) :
@@ -636,8 +637,8 @@ def ftsN (w : ClaudeWCT.W9.T3M.WBytes) (a : HashOutput) : M (Option (Digest × D
 two hand-off slots of region `n + 1`. -/
 def coordW (n j : Nat) (A : Nat) : Prop :=
   (regionAddr n ≤ A ∧ A < regionAddr n + 912) ∨
-    (if j / 64 % 2 = 0 then regionAddr n - 192 ≤ A ∧ A < regionAddr n - 160
-      else regionAddr n - 48 ≤ A ∧ A < regionAddr n - 16)
+    (if j / 64 % 2 = 0 then regionAddr n - (if n = 8 then 96 else 192) ≤ A ∧ A < regionAddr n - (if n = 8 then 64 else 160)
+      else regionAddr n - (if n = 8 then 32 else 48) ≤ A ∧ A < regionAddr n - (if n = 8 then 0 else 16))
 theorem coord_frame (w : ClaudeWCT.W9.T3M.WBytes) (a : HashOutput) (k : Fin 9) (v u entry t : MachineState)
     (ends : List Digest) (computed : Digest)
     (hp : Chain.Post Frozen.layout (V3.viewW w k.val v) (idxOf a) k (ClaudeWCT.WCT9.child a k)
@@ -656,25 +657,29 @@ theorem prevOf_snoc (w : ClaudeWCT.W9.T3M.WBytes) (pairs : List (Digest × Diges
   unfold prevOf; simp
 theorem regionAddr_succ (n : Nat) (hn : n < 9) : regionAddr n = regionAddr (n + 1) + 896 := by
   unfold regionAddr; omega
-theorem coordW_bounds {n j A : Nat} (hn : n < 9) (h : coordW n j A) : 1200 ≤ A ∧ A < 9472 := by
+/-- Pairing stage 1: the legacy 6-level child of coordinate 0 still writes its level-5 block (`regionAddr 0 + 832 ..
++ 912`), which now overlaps the L1 layer start `WIT + 8096 = 11000`; the bound below excludes coordinate 0 (the live
+shared route, `SharedCoord.writes_bounds`, has an A routine at coordinate 0 with frame `+ 832`). -/
+theorem coordW_bounds {n j A : Nat} (hn : n < 9) (hn0 : n ≠ 0) (h : coordW n j A) : 1200 ≤ A ∧ A < 11000 := by
   unfold coordW regionAddr at h; split_ifs at h <;> omega
 set_option maxRecDepth 100000 in
 /-- The witness top sibling of coordinate `k` survives in region `k + 1` (only the other hand-off slot is written). -/
 theorem next_other (w : ClaudeWCT.W9.T3M.WBytes) (k : Fin 9) (j : Nat) (u t : MachineState)
-    (hf : Frame u t (coordW k.val j)) (off : Nat) (hoff : off = 720 ∨ off = 864)
-    (hsel : if j / 64 % 2 = 0 then off = 864 else off = 720)
+    (hf : Frame u t (coordW k.val j)) (off : Nat) (hoff : off = legL (k.val + 1) ∨ off = legR (k.val + 1))
+    (hsel : if j / 64 % 2 = 0 then off = legR (k.val + 1) else off = legL (k.val + 1))
     (h0 : W9Machine.OrigW w u (regionAddr (k.val + 1) + off))
     (h1 : W9Machine.OrigW w u (regionAddr (k.val + 1) + (off + 8))) :
     DigAt t (regionAddr (k.val + 1) + off) (V3.topOther w k.val j) := by
   have hk := k.isLt
   have h1' : W9Machine.OrigW w u (regionAddr (k.val + 1) + off + 8) := by rw [Nat.add_assoc]; exact h1
-  have hlo : 0x4c0 ≤ regionAddr (k.val + 1) + off := by unfold regionAddr; omega
+  unfold legL legR at hoff hsel
+  have hlo : 0xB58 ≤ regionAddr (k.val + 1) + off := by unfold regionAddr; split_ifs at hoff <;> omega
   have hdig := W9Machine.DigAt_origW h0 h1' hlo
-  have he : regionAddr (k.val + 1) + off - 0x4c0 = V3.topOtherOff k.val j := by
+  have he : regionAddr (k.val + 1) + off - 0xB58 = V3.topOtherOff k.val j := by
     unfold V3.topOtherOff V3.regionOffset regionAddr
     split_ifs at hsel ⊢ <;> omega
   rw [he] at hdig
-  refine hdig.frame hf (by unfold regionAddr; omega) ?_ ?_
+  refine hdig.frame hf (by unfold regionAddr; split_ifs at hoff <;> omega) ?_ ?_
   · intro hw; unfold coordW regionAddr at hw; split_ifs at hsel hw <;> omega
   · intro hw; unfold coordW regionAddr at hw; split_ifs at hsel hw <;> omega
 set_option maxHeartbeats 1600000 in
@@ -683,6 +688,7 @@ set_option maxRecDepth 100000 in
 witness top sibling. -/
 theorem coord_next (pk : Digest) (w : ClaudeWCT.W9.T3M.WBytes) (a : HashOutput) (k : Fin 9)
     (pairs : List (Digest × Digest)) (u entry t : MachineState) (ends : List Digest) (computed : Digest)
+    (hk0 : k.val ≠ 0)
     (hu : CoordPre pk w a k.val pairs u)
     (hp : Chain.Post Frozen.layout (V3.viewW w k.val u) (idxOf a) k (ClaudeWCT.WCT9.child a k)
       (chainEntryState a k u) ends entry)
@@ -693,11 +699,11 @@ theorem coord_next (pk : Digest) (w : ClaudeWCT.W9.T3M.WBytes) (a : HashOutput) 
   have hk := k.isLt
   have hc := dispatch_chain_pre pk w a k pairs u hu
   have hf := coord_frame w a k u u entry t ends computed hp ht
-  have hm (A : Nat) (hA : A < 2^64) (hs : A < 1200 ∨ 9472 ≤ A) :
+  have hm (A : Nat) (hA : A < 2^64) (hs : A < 1200 ∨ 11000 ≤ A) :
       t.getMem (BitVec.ofNat 64 A) = u.getMem (BitVec.ofNat 64 A) := by
     apply hf A hA
     intro hw
-    have := coordW_bounds hk hw
+    have := coordW_bounds hk hk0 hw
     omega
   have hr (r : Reg) (h : r ∉ [.x3,.x10,.x11,.x12,.x14,.x25]) :
       t.getReg r = (chainEntryState a k u).getReg r := by
@@ -742,15 +748,18 @@ theorem coord_next (pk : Digest) (w : ClaudeWCT.W9.T3M.WBytes) (a : HashOutput) 
   have hbase : coordinateBase k = regionAddr k.val := by unfold coordinateBase regionAddr; omega
   have hR9 : regionAddr (k.val + 1) ≥ 496 := by unfold regionAddr; omega
   -- the other top sibling, from the witness (region k+1 is untouched outside one hand-off slot)
-  have hother : ∀ off, (off = 720 ∨ off = 864) →
-      (if (ClaudeWCT.WCT9.child a k).val / 64 % 2 = 0 then off = 864 else off = 720) →
+  have hother : ∀ off, (off = legL (k.val + 1) ∨ off = legR (k.val + 1)) →
+      (if (ClaudeWCT.WCT9.child a k).val / 64 % 2 = 0 then off = legR (k.val + 1) else off = legL (k.val + 1)) →
       DigAt t (regionAddr (k.val + 1) + off) (V3.topOther w k.val (ClaudeWCT.WCT9.child a k).val) := by
     intro off hoff hsel
+    have ho : off ≤ 880 ∧ off % 8 = 0 ∧ (k.val + 1 = 9 → 816 ≤ off) := by
+      unfold legL legR at hoff
+      split_ifs at hoff <;> omega
     exact next_other w k _ u t hf off hoff hsel
-      (hu.coords (k.val + 1) (by omega) (by omega) off (by omega) (by omega) (fun _ => by omega)
+      (hu.coords (k.val + 1) (by omega) (by omega) off (by omega) (by omega) ho.2.2
         (fun h => by omega))
-      (hu.coords (k.val + 1) (by omega) (by omega) (off + 8) (by omega) (by omega) (fun _ => by omega)
-        (fun h => by omega))
+      (hu.coords (k.val + 1) (by omega) (by omega) (off + 8) (by omega) (by omega)
+        (fun h => by have := ho.2.2 h; omega) (fun h => by omega))
   have htop : DigAt t (Child.handAddr k (ClaudeWCT.WCT9.child a k)) computed := ht.top
   refine {
     le := by omega
@@ -826,26 +835,27 @@ theorem coord_next (pk : Digest) (w : ClaudeWCT.W9.T3M.WBytes) (a : HashOutput) 
   · rw [prevOf_snoc]
     rcases hb6 with h0 | h1
     · simp only [h0, if_true]
-      have e : Child.handAddr k (ClaudeWCT.WCT9.child a k) = regionAddr (k.val + 1) + 720 := by
-        unfold Child.handAddr; rw [if_pos h0, hbase]; omega
+      have e : Child.handAddr k (ClaudeWCT.WCT9.child a k) = regionAddr (k.val + 1) + legL (k.val + 1) := by
+        unfold Child.handAddr legL; rw [hbase]; unfold regionAddr; split_ifs <;> omega
       rw [← e]; exact htop
     · simp only [h1, show (1 : Nat) ≠ 0 by decide, if_false]
-      exact hother 720 (Or.inl rfl) (by rw [if_neg (by omega)])
+      exact hother (legL (k.val + 1)) (Or.inl rfl) (by rw [if_neg (by omega)])
   · rw [prevOf_snoc]
     rcases hb6 with h0 | h1
     · simp only [h0, if_true]
-      exact hother 864 (Or.inr rfl) (by rw [if_pos h0])
+      exact hother (legR (k.val + 1)) (Or.inr rfl) (by rw [if_pos h0])
     · simp only [h1, show (1 : Nat) ≠ 0 by decide, if_false]
-      have e : Child.handAddr k (ClaudeWCT.WCT9.child a k) = regionAddr (k.val + 1) + 864 := by
-        unfold Child.handAddr; rw [if_neg (by omega), hbase]; omega
+      have e : Child.handAddr k (ClaudeWCT.WCT9.child a k) = regionAddr (k.val + 1) + legR (k.val + 1) := by
+        unfold Child.handAddr legR; rw [hbase]; unfold regionAddr; split_ifs <;> omega
       rw [← e]; exact htop
   · intro _
     have h12 := ht.a2
     unfold Child.handAddr at h12
     rw [hbase] at h12
     split_ifs at h12
-    · left; rw [h12]; congr 1; unfold regionAddr; omega
-    · right; rw [h12]; congr 1; unfold regionAddr; omega
+    all_goals first
+      | (left; rw [h12]; congr 1; unfold legL regionAddr; split_ifs <;> omega)
+      | (right; rw [h12]; congr 1; unfold legR regionAddr; split_ifs <;> omega)
   · intro m hm1 hm9 off hoff h8 hv hh
     have h0 := hu.coords m (by omega) hm9 off hoff h8 hv (fun h => by omega)
     unfold W9Machine.OrigW at h0 ⊢
@@ -860,8 +870,8 @@ theorem coord_next (pk : Digest) (w : ClaudeWCT.W9.T3M.WBytes) (a : HashOutput) 
     · have hm' : m = k.val + 1 := by omega
       subst hm'
       have hn := hh rfl
-      unfold V3.isHand at hn
-      split_ifs at hw <;> omega
+      unfold legHand V3.isHand at hn
+      split_ifs at hn <;> split_ifs at hw <;> omega
   · exact hu.layer.frame (fun j hj h => hf _ (by unfold WIT WX at *; omega)
       (by intro hw; unfold coordW regionAddr WIT at *; split_ifs at hw <;> omega))
 def finishN (w : ClaudeWCT.W9.T3M.WBytes) (state : Option (List (Digest × Digest))) :
@@ -1060,10 +1070,12 @@ theorem hashHi_top (k : Fin 9) (index j : Nat) (left pad right : Digest) :
       ClaudeWCT.WCT9.wctTopHash k.val index (2 + j / 2 ^ 6) left pad right := by
   rw [topInput_canonical]
   rfl
-theorem sibling_eq (w : ClaudeWCT.W9.T3M.WBytes) (k j l : Nat) (hl : l < 6) :
+/-- Pairing stage 1: the legacy padded verifier reads coordinate 0's level-5 sibling and pad from `legacySib0` /
+`legacyPad0` (that window left the witness), so the legacy machine-view identities exclude `k = 0, l = 5`. -/
+theorem sibling_eq (w : ClaudeWCT.W9.T3M.WBytes) (k j l : Nat) (hl : l < 6) (h05 : k ≠ 0 ∨ l ≠ 5) :
     V3.sibling w k j l = ClaudeWCT.W9.T3M.wsib w k j l := by
   unfold V3.sibling ClaudeWCT.W9.T3M.wsib ClaudeWCT.W9.T3M.authSibOff V3.sibOff V3.blkOff
-  rw [if_pos hl, if_pos hl]
+  rw [if_pos hl, if_pos hl, if_neg (show ¬ (k = 0 ∧ l = 5) by omega)]
   have hb : j / 2 ^ l % 2 = 0 ∨ j / 2 ^ l % 2 = 1 := by omega
   by_cases h5 : l < 5
   · rw [if_pos h5]
@@ -1073,9 +1085,10 @@ theorem sibling_eq (w : ClaudeWCT.W9.T3M.WBytes) (k j l : Nat) (hl : l < 6) :
     rw [show l = 5 by omega] at hb
     rcases hb with hb | hb <;>
       simp only [hb, SigGolfCandidate.T3M.sibOff, V3.regionOffset, ClaudeWCT.W9.T3M.regionBase] <;> rfl
-theorem nodePad_eq (w : ClaudeWCT.W9.T3M.WBytes) (k j l : Nat) (hl : l < 6) :
+theorem nodePad_eq (w : ClaudeWCT.W9.T3M.WBytes) (k j l : Nat) (hl : l < 6) (h05 : k ≠ 0 ∨ l ≠ 5) :
     V3.nodePad w k j l = ClaudeWCT.W9.T3M.wmpad w k j l := by
   unfold V3.nodePad ClaudeWCT.W9.T3M.wmpad ClaudeWCT.W9.T3M.authPadOff V3.padOff V3.blkOff
+  rw [if_neg (show ¬ (k = 0 ∧ l = 5) by omega)]
   by_cases h5 : l < 5
   · rw [if_pos h5]; rfl
   · rw [if_neg h5, show l = 5 by omega, ClaudeWCT.W9.T3M.authBase_five]; rfl
@@ -1117,11 +1130,11 @@ theorem fold5_canonical (w : ClaudeWCT.W9.T3M.WBytes) (index : Nat) (k : Fin 9) 
   funext value level
   have hl := level.isLt
   rw [heap_eq j.val level.val j.isLt (by omega), nodeInput_canonical k index _ _ _ _ _,
-    sibling_eq w k.val j.val level.val (by omega), nodeHPad_eq w k.val j.val level.val hl,
-    nodePad_eq w k.val j.val level.val (by omega)]
+    sibling_eq w k.val j.val level.val (by omega) (Or.inr (by omega)), nodeHPad_eq w k.val j.val level.val hl,
+    nodePad_eq w k.val j.val level.val (by omega) (Or.inr (by omega))]
   by_cases hb : j.val / 2 ^ level.val % 2 = 0 <;> simp [hb]
 theorem coordN_canonical (w : ClaudeWCT.W9.T3M.WBytes) (index : Nat) (k : Fin 9) (j : Fin 128)
-    (rank : Fin 563) (prev : Digest × Digest) (hi : index < 2 ^ 31) :
+    (rank : Fin 563) (prev : Digest × Digest) (hi : index < 2 ^ 31) (hk0 : k.val ≠ 0) :
     coordN w index k j rank prev = ClaudeWCT.W9.T3M.wctCoordP w index k j rank prev := by
   unfold coordN ClaudeWCT.W9.T3M.wctCoordP N600.program
   rw [chainProgram_canonical w index k j (N600.embed rank) hi,
@@ -1138,32 +1151,15 @@ theorem coordN_canonical (w : ClaudeWCT.W9.T3M.WBytes) (index : Nat) (k : Fin 9)
   rw [fold5_canonical]
   congr 1
   funext value
-  rw [hashHi_top, sibling_eq w k.val j.val 5 (by decide), topOther_eq]
+  rw [hashHi_top, sibling_eq w k.val j.val 5 (by decide) (Or.inl hk0), topOther_eq]
   have hb5 : j.val / 32 % 2 = 0 ∨ j.val / 32 % 2 = 1 := by omega
   have hb6 : j.val / 64 % 2 = 0 ∨ j.val / 64 % 2 = 1 := by omega
   rcases hb5 with hb5 | hb5 <;> rcases hb6 with hb6 | hb6 <;>
     simp [hb5, hb6, show (2 : Nat) ^ 5 = 32 by rfl, show (2 : Nat) ^ 6 = 64 by rfl]
-theorem ftsStartW_eq (w : ClaudeWCT.W9.T3M.WBytes) : ftsStartW w = ClaudeWCT.W9.T3M.wctStart w := by
-  unfold ftsStartW ClaudeWCT.W9.T3M.wctStart
-  rw [nodePad_eq w 0 0 5 (by decide)]
-  rfl
-theorem prevOf_eq (w : ClaudeWCT.W9.T3M.WBytes) (pairs : List (Digest × Digest)) :
-    prevOf w pairs = ClaudeWCT.WCT9.prevPair (ClaudeWCT.W9.T3M.wctStart w) pairs := by
-  unfold prevOf ClaudeWCT.WCT9.prevPair
-  rw [ftsStartW_eq]
-theorem stepN_eq (w : ClaudeWCT.W9.T3M.WBytes) (a : HashOutput) : stepN w a = ClaudeWCT.W9.T3M.wctStep w a := by
-  funext state k
-  cases state with
-  | none => rfl
-  | some pairs =>
-    unfold stepN ClaudeWCT.W9.T3M.wctStep
-    dsimp only
-    simp only [prevOf_eq, coordN_canonical w (idxOf a) k _ _ _ (ClaudeWCT.WCT9.digestIndex_lt a)]
-/-- Nested FTS (r1-1): the machine-level FTS is track A's padded verifier FTS phase. -/
-theorem ftsN_eq (w : ClaudeWCT.W9.T3M.WBytes) (a : HashOutput) : ftsN w a = ClaudeWCT.W9.T3M.wctP w a := by
-  unfold ftsN ClaudeWCT.W9.T3M.wctP
-  rw [stepN_eq]
-  congr 1
+/- Pairing stage 1: `ftsStartW_eq` / `prevOf_eq` / `stepN_eq` / `ftsN_eq` (legacy Frozen-layout machine FTS = legacy
+padded verifier FTS) were removed: the legacy machine reads coordinate 0's level-5 window at `regionAddr 0 + 832`,
+which the paired witness no longer carries (legacy `wsib`/`wmpad` read `legacySib0`/`legacyPad0` instead). They had
+no users; the live route is `SharedCoord`/`SharedCanonical` below. -/
 end W9Drv
 end
 
@@ -1510,7 +1506,7 @@ theorem chain_pre (pk : Digest) (w : ClaudeWCT.W9.T3M.WBytes) (a : HashOutput) (
       · rw [if_neg (fun h => hh (by rw [Nat.add_sub_cancel_left] at h; exact h.2))]
         have hw := hu.coords k.val (Nat.le_refl _) (by omega) off ho h8 (by omega)
           (fun _ => by simpa only [SharedCoord.isHand, if_neg (by omega : k.val ≠ 9)] using hh)
-        have he : regionAddr k.val + off - 0x4c0 = V3.regionOffset k.val + off := by
+        have he : regionAddr k.val + off - 0xB58 = V3.regionOffset k.val + off := by
           unfold regionAddr V3.regionOffset; omega
         have hb : Chain.base k + off = regionAddr k.val + off := by
           unfold Chain.base coordinateBase regionAddr; omega
@@ -1624,8 +1620,8 @@ theorem core_good (chains : ∀ k : Fin 9, N600.AllGood (P := P) (SharedLayout.l
     (v u : MachineState) (padL padR : Digest) (N C A : Nat) (Q : Prop)
     (K : Digest → OracleComp HashSpec Obs)
     (hu : N600.Pre (SharedLayout.layout k) (SharedV3.viewW w k.val v) index k raw rank u)
-    (hL : DigAt v (0x4c0 + V3.regionOffset k.val + 720) padL)
-    (hR : DigAt v (0x4c0 + V3.regionOffset k.val + 160) padR)
+    (hL : DigAt v (0xB58 + V3.regionOffset k.val + 720) padL)
+    (hR : DigAt v (0xB58 + V3.regionOffset k.val + 160) padR)
     (hnext : ∀ ends entry, Chain.Post (SharedLayout.layout k) (SharedV3.viewW w k.val v)
         index k raw u ends entry →
       ∀ computed t, SharedChild.Post (SharedLayout.layout k) k raw entry computed t →
@@ -1673,9 +1669,8 @@ theorem prevOf_snoc (w : ClaudeWCT.W9.T3M.WBytes) (pairs : List (Digest × Diges
 theorem chainWrites_childWrites (k : Fin 9) (raw : Fin 128) (addr : Nat)
     (h : Chain.writes k addr) : SharedChild.writes k raw addr := by
   left
-  simpa only [Chain.writes, Chain.base] using
-    (show coordinateBase k ≤ addr ∧ addr < coordinateBase k + 912 by
-      unfold Chain.writes Chain.base at h; omega)
+  unfold Chain.writes Chain.base at h
+  split <;> omega
 
 theorem core_frame (w : ClaudeWCT.W9.T3M.WBytes) (index : Nat) (k : Fin 9) (raw : Fin 128)
     (v u entry t : MachineState) (ends : List Digest) (computed : Digest)
@@ -1698,17 +1693,17 @@ set_option maxRecDepth 100000
 set_option maxHeartbeats 0
 
 theorem writes_bounds (k : Fin 9) (raw : Fin 128) (addr : Nat)
-    (h : SharedChild.writes k raw addr) : 1200 ≤ addr ∧ addr < 9472 := by
+    (h : SharedChild.writes k raw addr) : 1200 ≤ addr ∧ addr < 11000 := by
   have hk := k.isLt
   unfold SharedChild.writes SharedChild.outputAddr SharedChild.handAddr coordinateBase at h
   split_ifs at h <;> omega
 
 theorem hand_address (k : Fin 9) (raw : Fin 128) :
     SharedChild.handAddr k raw = regionAddr (k.val + 1) +
-      (if SharedV3.direction k.val (SharedV3.physical k.val raw.val) = 0 then 720
+      (if SharedV3.direction k.val (SharedV3.physical k.val raw.val) = 0 then SharedV3.handL (k.val + 1)
        else SharedV3.handR (k.val + 1)) := by
   have hk := k.isLt
-  unfold SharedChild.handAddr coordinateBase regionAddr SharedV3.handR
+  unfold SharedChild.handAddr coordinateBase regionAddr SharedV3.handR SharedV3.handL
   split_ifs <;> omega
 
 theorem frame_after_dispatch (w : ClaudeWCT.W9.T3M.WBytes) (a : HashOutput) (k : Fin 9)
@@ -1726,9 +1721,9 @@ theorem frame_after_dispatch (w : ClaudeWCT.W9.T3M.WBytes) (a : HashOutput) (k :
 by the witness, including the direct LOW singleton output layout. -/
 theorem next_other (w : ClaudeWCT.W9.T3M.WBytes) (k : Fin 9) (raw : Fin 128)
     (u t : MachineState) (hf : Frame u t (SharedChild.writes k raw)) (off : Nat)
-    (hoff : off = 720 ∨ off = SharedV3.handR (k.val + 1))
+    (hoff : off = SharedV3.handL (k.val + 1) ∨ off = SharedV3.handR (k.val + 1))
     (hsel : if SharedV3.direction k.val (SharedV3.physical k.val raw.val) = 0
-      then off = SharedV3.handR (k.val + 1) else off = 720)
+      then off = SharedV3.handR (k.val + 1) else off = SharedV3.handL (k.val + 1))
     (h0 : W9Machine.OrigW w u (regionAddr (k.val + 1) + off))
     (h1 : W9Machine.OrigW w u (regionAddr (k.val + 1) + (off + 8))) :
     DigAt t (regionAddr (k.val + 1) + off)
@@ -1736,24 +1731,25 @@ theorem next_other (w : ClaudeWCT.W9.T3M.WBytes) (k : Fin 9) (raw : Fin 128)
   have hk := k.isLt
   have h1' : W9Machine.OrigW w u (regionAddr (k.val + 1) + off + 8) := by
     rw [Nat.add_assoc]; exact h1
-  have hlo : 0x4c0 ≤ regionAddr (k.val + 1) + off := by
-    unfold SharedV3.handR at hoff
+  have hlo : 0xB58 ≤ regionAddr (k.val + 1) + off := by
+    unfold SharedV3.handR SharedV3.handL at hoff
     unfold regionAddr
     split_ifs at hoff <;> omega
   have hd := W9Machine.DigAt_origW h0 h1' hlo
-  have he : regionAddr (k.val + 1) + off - 0x4c0 =
+  have he : regionAddr (k.val + 1) + off - 0xB58 =
       SharedV3.topOtherOff k.val (SharedV3.physical k.val raw.val) := by
     unfold SharedV3.topOtherOff V3.regionOffset regionAddr
+    unfold SharedV3.handR SharedV3.handL at hsel ⊢
     split_ifs at hsel ⊢ <;> omega
   rw [he] at hd
   refine hd.frame hf (by
-    unfold SharedV3.handR at hoff
+    unfold SharedV3.handR SharedV3.handL at hoff
     unfold regionAddr
     split_ifs at hoff <;> omega) ?_ ?_
   all_goals
     intro hw
     unfold SharedChild.writes SharedChild.outputAddr SharedChild.handAddr coordinateBase at hw
-    unfold SharedV3.handR at hoff hsel
+    unfold SharedV3.handR SharedV3.handL at hoff hsel
     unfold regionAddr at hw
     split_ifs at hsel hw <;> omega
 
@@ -1779,7 +1775,7 @@ theorem next (pk : Digest) (w : ClaudeWCT.W9.T3M.WBytes) (a : HashOutput) (k : F
   have hk := k.isLt
   have hc := SharedDispatch.chain_pre pk w a k rank pairs u hu
   have hf := frame_after_dispatch w a k rank u entry t ends computed hp ht
-  have hm (A : Nat) (hA : A < 2^64) (hs : A < 1200 ∨ 9472 ≤ A) :
+  have hm (A : Nat) (hA : A < 2^64) (hs : A < 1200 ∨ 11000 ≤ A) :
       t.getMem (BitVec.ofNat 64 A) = u.getMem (BitVec.ofNat 64 A) := by
     apply hf A hA
     intro hw
@@ -1828,12 +1824,12 @@ theorem next (pk : Digest) (w : ClaudeWCT.W9.T3M.WBytes) (a : HashOutput) (k : F
   have hbase : coordinateBase k = regionAddr k.val := by unfold coordinateBase regionAddr; omega
   have hR9 : regionAddr (k.val + 1) ≥ 496 := by unfold regionAddr; omega
   -- the other top sibling, from the witness (region k+1 is untouched outside one hand-off slot)
-  have hother : ∀ off, (off = 720 ∨ off = SharedV3.handR (k.val + 1)) →
-      (if SharedV3.direction k.val (SharedV3.physical k.val (SharedForest.rawChildFromOutput a k).val) = 0 then off = SharedV3.handR (k.val + 1) else off = 720) →
+  have hother : ∀ off, (off = SharedV3.handL (k.val + 1) ∨ off = SharedV3.handR (k.val + 1)) →
+      (if SharedV3.direction k.val (SharedV3.physical k.val (SharedForest.rawChildFromOutput a k).val) = 0 then off = SharedV3.handR (k.val + 1) else off = SharedV3.handL (k.val + 1)) →
       DigAt t (regionAddr (k.val + 1) + off) (SharedV3.topOther w k.val (SharedV3.physical k.val (SharedForest.rawChildFromOutput a k).val)) := by
     intro off hoff hsel
-    have ho : off ≤ 768 ∧ off % 8 = 0 ∧ (k.val + 1 = 9 → 720 ≤ off) := by
-      unfold SharedV3.handR at hoff
+    have ho : off ≤ 864 ∧ off % 8 = 0 ∧ (k.val + 1 = 9 → 816 ≤ off) := by
+      unfold SharedV3.handR SharedV3.handL at hoff
       split_ifs at hoff <;> omega
     exact next_other w k _ u t hf off hoff hsel
       (hu.coords (k.val + 1) (by omega) (by omega) off (by omega) (by omega) ho.2.2
@@ -1914,11 +1910,11 @@ theorem next (pk : Digest) (w : ClaudeWCT.W9.T3M.WBytes) (a : HashOutput) (k : F
   · rw [prevOf_snoc]
     rcases hb6 with h0 | h1
     · simp only [h0, if_true]
-      have e : SharedChild.handAddr k (SharedForest.rawChildFromOutput a k) = regionAddr (k.val + 1) + 720 := by
+      have e : SharedChild.handAddr k (SharedForest.rawChildFromOutput a k) = regionAddr (k.val + 1) + SharedV3.handL (k.val + 1) := by
         rw [hand_address, if_pos h0]
       rw [← e]; exact htop
     · simp only [h1, show (1 : Nat) ≠ 0 by decide, if_false]
-      exact hother 720 (Or.inl rfl) (by rw [if_neg (by omega)])
+      exact hother (SharedV3.handL (k.val + 1)) (Or.inl rfl) (by rw [if_neg (by omega)])
   · rw [prevOf_snoc]
     rcases hb6 with h0 | h1
     · simp only [h0, if_true]
@@ -2041,7 +2037,7 @@ theorem good (links : ∀ k : Fin 9, sliceChecked (SharedDispatch.start k.val) (
       unfold SharedDispatch.chainEntryState
       rw [SharedLayout.chain_eq, slot_entry, hrank, ← hpc]
     have hk := k.isLt
-    have hreg : 0x4c0 + V3.regionOffset k.val = regionAddr k.val := by
+    have hreg : 0xB58 + V3.regionOffset k.val = regionAddr k.val := by
       unfold V3.regionOffset regionAddr; omega
     have core := core_good chains childs w (idxOf a) k (SharedForest.rawChildFromOutput a k)
       (SharedForest.forestRank a k.val) u (SharedDispatch.chainEntryState k (SharedForest.forestRank a k.val) u)
@@ -2050,7 +2046,7 @@ theorem good (links : ∀ k : Fin 9, sliceChecked (SharedDispatch.start k.val) (
         (SharedV3.physical k.val (SharedForest.rawChildFromOutput a k).val)
         top (SharedV3.topOther w k.val (SharedV3.physical k.val (SharedForest.rawChildFromOutput a k).val))])))
       (SharedDispatch.chain_pre pk w a k (SharedForest.forestRank a k.val) pairs u hu)
-      (by rw [hreg]; exact hu.prevL)
+      (by rw [hreg]; simpa only [SharedV3.handL, if_neg (by omega : k.val ≠ 9)] using hu.prevL)
       (by rw [hreg]; simpa only [SharedV3.handR, if_neg (by omega : k.val ≠ 9)] using hu.prevR)
       (fun ends entry hp computed t ht => hnext _ _
         (next pk w a k (SharedForest.forestRank a k.val) pairs u entry t ends computed hu hp ht))
@@ -2185,7 +2181,7 @@ theorem final (pk : Digest) (w : ClaudeWCT.W9.T3M.WBytes) (a : HashOutput)
     hu.coordStep, hu.pairPtr, hu.bank.top, hu.bank.top8, ?_, hu.d0⟩
   · exact hu.pc
   · have h := hu.prevL
-    rwa [show regionAddr 9 + 720 = WIT by rfl] at h
+    rwa [show regionAddr 9 + SharedV3.handL 9 = WIT by rfl] at h
   · have h := hu.prevR
     rwa [show regionAddr 9 + SharedV3.handR 9 = WIT + 48 by rfl] at h
   · rw [hu.baseReg]; rfl

@@ -55,7 +55,7 @@ theorem pubGood_layerEncodingInput (lay : Layer) (tree leaf : Nat) (msg : WCT9.L
 theorem pubGood_chainW (lay : Layer) (tree leaf i start count : Nat) (value : Digest) :
     AllQueriesSatisfy (WCT9.chainW lay tree leaf i start count value) PubGood := by
   unfold WCT9.chainW
-  exact allQ_foldlM _ _ (fun _ _ => pubGood_halfHash _ _ (by simp [chainInput, bytesLE_length, zero16])) _
+  exact allQ_foldlM _ _ (fun _ _ => pubGood_halfHash _ _ (by rw [WCT9.chainInputW_length]; omega)) _
 theorem pubGood_layerPairP (w : WBytes) (index : Nat) (lay : Layer) (digits : List Nat) :
     AllQueriesSatisfy (layerPairP w index lay digits) PubGood := by
   unfold layerPairP

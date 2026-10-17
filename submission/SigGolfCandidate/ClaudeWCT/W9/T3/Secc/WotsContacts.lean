@@ -181,7 +181,7 @@ theorem prefixRowAt_unique {answers : Answers} {a b : ChainAddr} (ha : WotsExtra
   have h7b := CanonicalRef.Mask.depth_le_seven answers (sourceMessages answers) b
   have hca : a.chain < 2 ^ 24 := by have := ha.2; have := Mask.chainCount_le a.key.lay; omega
   have hcb : b.chain < 2 ^ 24 := by have := hb.2; have := Mask.chainCount_le b.key.lay; omega
-  have h := Mask.chainInput_eq_chainRow (a := b) hca hcb (by omega) (by omega) ((Mask.chainRow_eq a s v).symm.trans he)
+  have h := chainInputW_eq_chainRowW (a := b) hca hcb (by omega) (by omega) ((chainRowW_eq a s v).symm.trans he)
   have hkey := h.1.eq_of_lt (by have := ha.1.tree_lt; omega)
     (by have := ha.1.2; have : 2 ^ height a.key.lay ≤ 2 ^ 32 :=
       Nat.pow_le_pow_right (by norm_num) (by have := height_le a.key.lay; omega); omega)

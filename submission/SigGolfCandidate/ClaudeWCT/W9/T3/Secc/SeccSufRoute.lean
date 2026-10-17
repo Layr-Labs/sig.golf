@@ -137,6 +137,22 @@ theorem layerEncoding_ok (lay : Layer) (tree leaf : Nat) (msg : WCT9.LayerMsg) (
   | pair left right =>
       exact SigGolfCandidate.T3.Security.BPB.shortHash_ok_marker
         (hdrBlock_pairEncodingInputP lay tree leaf left right counter 0) (by rw [rowTweak_marker]; decide)
+open SigGolfCandidate.T3.Security.BPB SigGolfCandidate.T3M SigGolfCandidate.T3M.SecurityInputs in
+/-- Pairing stage 1: a chain step of the current scheme (either format) is not a digest query. -/
+theorem chainStepW_ok (lay : SigGolfCandidate.T3.Layer) (tree leaf i step : Nat) (v : SigGolfCandidate.T3.Digest) :
+    AllQueriesSatisfy (SigGolfCandidate.T3.shortHash (ClaudeWCT.WCT9.chainInputW lay tree leaf i step v))
+      SigGolfCandidate.T3.Security.BPB.NotDigestQ := by
+  unfold SigGolfCandidate.T3.shortHash SigGolfCandidate.T3.publicHash
+  apply SourceQueries.bind_allowed
+  · apply (allQueriesSatisfy_query_iff _ _).mpr
+    change hdrMarker (SigGolfCandidate.T3.pad64 (ClaudeWCT.WCT9.chainInputW lay tree leaf i step v)) ≠ 0
+    rw [ClaudeWCT.WCT9.chainInputW_padded]
+    apply hdrMarker_ne_zero_of_byte0
+    unfold hdrByte0 Extract.hdrBlock
+    rw [ClaudeWCT.WCT9.chainInputW_header, bytesLE16_first_toNat]
+    have := SigGolfCandidate.T3.chainHeader_firstByte lay tree leaf i step
+    omega
+  · intro _; exact SourceQueries.pure_allowed _ _
 theorem afterDigest_ok (cache : SigGolfCandidate.T3.Cache) (rho : Digest) (output : HashOutput) :
     AllQueriesSatisfy (do
       let forest ← WCT9.signForest (WCT9.digestIndex output) output
@@ -146,7 +162,7 @@ theorem afterDigest_ok (cache : SigGolfCandidate.T3.Cache) (rho : Digest) (outpu
   apply SourceQueries.bind_allowed _ (ClaudeWCT.WCT9.Wots.BPB.signForest_ok _ output)
   intro forest
   apply SourceQueries.bind_allowed _ (ClaudeWCT.W9.T3.Security.Signer.signLayersBC_allowed' _ _ layerEncoding_ok
-    (ClaudeWCT.W9.T3.Security.Signer.buildTreeP_allowed' _ SigGolfCandidate.T3.Security.BPB.chain_ok
+    (ClaudeWCT.W9.T3.Security.Signer.buildTreeP_allowed' _ chainStepW_ok
       SigGolfCandidate.T3.Security.BPB.leafHash_ok
       (fun lay _ _ _ _ hh => lowerNodeHash_notDigest lay _ _ _ _ hh)
       (fun _ _ _ => SigGolfCandidate.T3.Security.BPB.privatePair_ok _ _ _ _ _))

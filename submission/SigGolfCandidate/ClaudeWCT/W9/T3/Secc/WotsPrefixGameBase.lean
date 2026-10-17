@@ -37,14 +37,14 @@ theorem restDepth_eq {adversary : AdversaryP} (a : ChainAddr) (R : RefTables adv
 namespace PrefixGame
 open SigGolfCandidate.T3.Security.Wots.PrefixGame
 variable {adversary : AdversaryP}
-theorem chainRow_mem (a : ChainAddr) (step : Nat) (value : Digest) :
-    chainRow a step value ∈ referenceInputs adversary := by
+theorem chainRowW_mem (a : ChainAddr) (step : Nat) (value : Digest) :
+    chainRowW a step value ∈ referenceInputs adversary := by
   unfold referenceInputs
   apply Finset.mem_union_left
   apply SeccLaw.mem_publicUniverse
-  rw [chainRow_eq]
-  have h : (chainInput a.key.lay a.key.tree a.key.leaf a.chain step value).length = 64 := by
-    simp [chainInput, zero16, SphincsSecurity.bytesLE_length]
+  rw [chainRowW_eq]
+  have h : (WCT9.chainInputW a.key.lay a.key.tree a.key.leaf a.chain step value).length = 64 := by
+    simp [WCT9.chainInputW_length]
   rw [h]
   unfold SeccLaw.maxInputLength
   omega
@@ -62,9 +62,43 @@ theorem restTable_nonmem (R : RefTables adversary) (input : HashInput) (h : inpu
   rfl
 theorem restTable_private (R : RefTables adversary) (coordinate : Coordinate) :
     restTable R (.inr coordinate) = R.1 coordinate := rfl
+/-- Pairing stage 1: the prefix row of chain `a` (current-scheme row `chainRowW`) that `input` is, if any. -/
+noncomputable def rowOf (a : ChainAddr) (d : Nat) (input : HashInput) : Option (Fin d × Digest) :=
+  if h : ∃ p : Fin d × Digest, input = chainRowW a p.1 p.2 then some (Classical.choose h) else none
+theorem rowOf_some {a : ChainAddr} {d : Nat} {input : HashInput} {p : Fin d × Digest}
+    (h : PrefixGame.rowOf a d input = some p) : input = chainRowW a p.1 p.2 := by
+  unfold PrefixGame.rowOf at h
+  split at h
+  · rename_i hex
+    cases h
+    exact Classical.choose_spec hex
+  · cases h
+theorem rowOf_none {a : ChainAddr} {d : Nat} {input : HashInput} (h : rowOf a d input = none) (p : Fin d × Digest) :
+    input ≠ chainRowW a p.1 p.2 := by
+  intro he
+  unfold PrefixGame.rowOf at h
+  rw [dif_pos ⟨p, he⟩] at h
+  cases h
+theorem rowOf_chainRow (a : ChainAddr) {d : Nat} (hd : d ≤ 256) (i : Fin d) (v : Digest) :
+    PrefixGame.rowOf a d (chainRowW a i v) = some (i, v) := by
+  cases h : PrefixGame.rowOf a d (chainRowW a i v) with
+  | none => exact absurd rfl (PrefixGame.rowOf_none h (i, v))
+  | some p =>
+      have he := PrefixGame.rowOf_some h
+      obtain ⟨hs, hv⟩ := chainRowW_inj (by omega) (by have := p.1.isLt; omega) he
+      rw [show p = (i, v) from Prod.ext (Fin.ext hs.symm) hv.symm]
+theorem rowOf_none_iff (a : ChainAddr) {d : Nat} (input : HashInput) :
+    PrefixGame.rowOf a d input = none ↔ ¬∃ step value, step < d ∧ input = chainRowW a step value := by
+  constructor
+  · rintro h ⟨step, value, hs, rfl⟩
+    exact PrefixGame.rowOf_none h (⟨step, hs⟩, value) rfl
+  · intro h
+    cases hp : PrefixGame.rowOf a d input with
+    | none => rfl
+    | some p => exact absurd ⟨p.1.val, p.2, p.1.isLt, PrefixGame.rowOf_some hp⟩ h
 noncomputable def ovPub (a : ChainAddr) (d : Nat) (pub : referenceInputs adversary → HashOutput)
     (tables : Fin d → Digest → Digest) : referenceInputs adversary → HashOutput := fun x =>
-  match rowOf a d x.val with
+  match PrefixGame.rowOf a d x.val with
   | some p => joinHalf (WCT9.chainHigh a.key.lay a.chain p.1.val) (tables p.1 p.2)
       (WCT9.halfOf (!WCT9.chainHigh a.key.lay a.chain p.1.val) (pub x))
   | none => pub x
@@ -76,16 +110,16 @@ noncomputable def ovSeed (a : ChainAddr) (R : RefTables adversary) (_seed : Dige
 noncomputable def ov (a : ChainAddr) (d : Nat) (R : RefTables adversary) (x : Hidden d) : RefTables adversary :=
   (R.1, ovPub a d R.2 x.1)
 noncomputable def rd (a : ChainAddr) (d : Nat) (R : RefTables adversary) : Hidden d :=
-  (fun i v => WCT9.halfOf (WCT9.chainHigh a.key.lay a.chain i.val) (R.2 ⟨chainRow a i v, chainRow_mem a i v⟩), 0)
+  (fun i v => WCT9.halfOf (WCT9.chainHigh a.key.lay a.chain i.val) (R.2 ⟨chainRowW a i v, chainRowW_mem a i v⟩), 0)
 theorem ovPub_row (a : ChainAddr) {d : Nat} (hd : d ≤ 256) (pub : referenceInputs adversary → HashOutput)
     (tables : Fin d → Digest → Digest) (i : Fin d) (v : Digest) :
-    ovPub a d pub tables ⟨chainRow a i v, chainRow_mem a i v⟩ =
+    ovPub a d pub tables ⟨chainRowW a i v, chainRowW_mem a i v⟩ =
       joinHalf (WCT9.chainHigh a.key.lay a.chain i.val) (tables i v)
-        (WCT9.halfOf (!WCT9.chainHigh a.key.lay a.chain i.val) (pub ⟨chainRow a i v, chainRow_mem a i v⟩)) := by
+        (WCT9.halfOf (!WCT9.chainHigh a.key.lay a.chain i.val) (pub ⟨chainRowW a i v, chainRowW_mem a i v⟩)) := by
   unfold ovPub
-  rw [rowOf_chainRow a hd i v]
+  rw [PrefixGame.rowOf_chainRow a hd i v]
 theorem ovPub_none (a : ChainAddr) {d : Nat} (pub : referenceInputs adversary → HashOutput)
-    (tables : Fin d → Digest → Digest) (x : referenceInputs adversary) (h : rowOf a d x.val = none) :
+    (tables : Fin d → Digest → Digest) (x : referenceInputs adversary) (h : PrefixGame.rowOf a d x.val = none) :
     ovPub a d pub tables x = pub x := by
   unfold ovPub
   rw [h]
@@ -108,11 +142,11 @@ theorem ov_ov_rd (a : ChainAddr) {d : Nat} (hd : d ≤ 256) (R : RefTables adver
   refine Prod.ext rfl ?_
   · funext y
     unfold ovPub
-    cases hp : rowOf a d y.val with
+    cases hp : PrefixGame.rowOf a d y.val with
     | none => simp only [hp]
     | some p =>
         simp only [hp]
-        have hy : y = ⟨chainRow a p.1 p.2, chainRow_mem a p.1 p.2⟩ := Subtype.ext (rowOf_some hp)
+        have hy : y = ⟨chainRowW a p.1 p.2, chainRowW_mem a p.1 p.2⟩ := Subtype.ext (PrefixGame.rowOf_some hp)
         subst hy
         rw [halfOf_not_joinHalf, joinHalf_halfOf]
 theorem restTable_ov_untouched (a : ChainAddr) {d : Nat} (hd : d ≤ 7) (R : RefTables adversary) (x : Hidden d)
@@ -124,21 +158,21 @@ theorem restTable_ov_untouched (a : ChainAddr) {d : Nat} (hd : d ≤ 7) (R : Ref
       unfold ov
       simp only
       rw [ovPub_none]
-      cases hp : rowOf a d input with
+      cases hp : PrefixGame.rowOf a d input with
       | none => rfl
-      | some p => exact absurd (rowOf_some hp) (hq p.1 p.2 (by have := p.1.isLt; omega))
+      | some p => exact absurd (PrefixGame.rowOf_some hp) (hq p.1 p.2 (by have := p.1.isLt; omega))
     · rw [restTable_nonmem _ _ h, restTable_nonmem _ _ h]
   · rfl
   · rfl
 theorem restTable_ov_prefix (a : ChainAddr) {d : Nat} (hd : d ≤ 256) (R : RefTables adversary) (x : Hidden d)
     (i : Fin d) (v : Digest) :
-    restTable (ov a d R x) (.inl (.inr (chainRow a i v))) =
+    restTable (ov a d R x) (.inl (.inr (chainRowW a i v))) =
       joinHalf (WCT9.chainHigh a.key.lay a.chain i.val) (x.1 i v)
-        (WCT9.halfOf (!WCT9.chainHigh a.key.lay a.chain i.val) (restTable R (.inl (.inr (chainRow a i v))))) := by
-  rw [restTable_mem _ _ (chainRow_mem a i v), restTable_mem _ _ (chainRow_mem a i v)]
+        (WCT9.halfOf (!WCT9.chainHigh a.key.lay a.chain i.val) (restTable R (.inl (.inr (chainRowW a i v))))) := by
+  rw [restTable_mem _ _ (chainRowW_mem a i v), restTable_mem _ _ (chainRowW_mem a i v)]
   exact ovPub_row a hd R.2 x.1 i v
 theorem restTable_ov_nonprefix (a : ChainAddr) {d : Nat} (R : RefTables adversary) (x : Hidden d)
-    (input : HashInput) (h : rowOf a d input = none) :
+    (input : HashInput) (h : PrefixGame.rowOf a d input = none) :
     restTable (ov a d R x) (.inl (.inr input)) = restTable R (.inl (.inr input)) := by
   by_cases hm : input ∈ referenceInputs adversary
   · rw [restTable_mem _ _ hm, restTable_mem _ _ hm]
@@ -179,8 +213,8 @@ theorem eval_chain_ov (a : ChainAddr) {d : Nat} (hd : d ≤ 256) (R : RefTables 
             (evalWithAnswerFn (restTable (ov a d R x)) (WCT9.chainW a.key.lay a.key.tree a.key.leaf a.chain s 1 v))) := by
         rw [show n + 1 = 1 + n by omega]
         exact eval_chainW_add' _ _ _ _ _ _ _ _ _
-      rw [hsplit, eval_chainW_one', pad64_chainInput]
-      have hrow : chainInput a.key.lay a.key.tree a.key.leaf a.chain s v = chainRow a (⟨s, by omega⟩ : Fin d) v := rfl
+      rw [hsplit, eval_chainW_one', pad64_chainInputW]
+      have hrow : WCT9.chainInputW a.key.lay a.key.tree a.key.leaf a.chain s v = chainRowW a (⟨s, by omega⟩ : Fin d) v := rfl
       rw [hrow, restTable_ov_prefix a hd R x]
       rw [show (⟨s, by omega⟩ : Fin d).val = s from rfl, halfOf_joinHalf, ih (s + 1) (by omega)]
       simp only [SphincsSecurity.Concrete.PartialChainEndpoint.evaluate]
@@ -218,13 +252,13 @@ attribute [local instance low] Classical.propDecidable
 namespace RawPrefix
 variable {U : Finset HashInput} (hU : SeccLaw.publicUniverse⊆U)
 include hU in
-theorem chainRow_mem (a : ChainAddr) (step : Nat) (value : Digest) :
-    chainRow a step value ∈ U := by
+theorem chainRowW_mem (a : ChainAddr) (step : Nat) (value : Digest) :
+    chainRowW a step value ∈ U := by
   apply hU
   apply SeccLaw.mem_publicUniverse
-  rw [chainRow_eq]
-  have h : (chainInput a.key.lay a.key.tree a.key.leaf a.chain step value).length = 64 := by
-    simp [chainInput, zero16, SphincsSecurity.bytesLE_length]
+  rw [chainRowW_eq]
+  have h : (WCT9.chainInputW a.key.lay a.key.tree a.key.leaf a.chain step value).length = 64 := by
+    simp [WCT9.chainInputW_length]
   rw [h]
   unfold SeccLaw.maxInputLength
   omega
@@ -244,7 +278,7 @@ theorem raw_private (R : Tables U) (coordinate : Coordinate) :
     raw R (.inr coordinate) = R.1 coordinate := rfl
 noncomputable def ovPub (a : ChainAddr) (d : Nat) (pub : U → HashOutput)
     (tables : Fin d → Digest → Digest) : U → HashOutput := fun x =>
-  match rowOf a d x.val with
+  match PrefixGame.rowOf a d x.val with
   | some p => joinHalf (WCT9.chainHigh a.key.lay a.chain p.1.val) (tables p.1 p.2)
       (WCT9.halfOf (!WCT9.chainHigh a.key.lay a.chain p.1.val) (pub x))
   | none => pub x
@@ -256,16 +290,16 @@ noncomputable def ovSeed (a : ChainAddr) (R : Tables U) (_seed : Digest) : Diges
 noncomputable def ov (a : ChainAddr) (d : Nat) (R : Tables U) (x : Hidden d) : Tables U :=
   (R.1, ovPub a d R.2 x.1)
 noncomputable def rd (a : ChainAddr) (d : Nat) (R : Tables U) : Hidden d :=
-  (fun i v => WCT9.halfOf (WCT9.chainHigh a.key.lay a.chain i.val) (R.2 ⟨chainRow a i v, chainRow_mem hU a i v⟩), 0)
+  (fun i v => WCT9.halfOf (WCT9.chainHigh a.key.lay a.chain i.val) (R.2 ⟨chainRowW a i v, chainRowW_mem hU a i v⟩), 0)
 theorem ovPub_row (a : ChainAddr) {d : Nat} (hd : d ≤ 256) (pub : U → HashOutput)
     (tables : Fin d → Digest → Digest) (i : Fin d) (v : Digest) :
-    ovPub a d pub tables ⟨chainRow a i v, chainRow_mem hU a i v⟩ =
+    ovPub a d pub tables ⟨chainRowW a i v, chainRowW_mem hU a i v⟩ =
       joinHalf (WCT9.chainHigh a.key.lay a.chain i.val) (tables i v)
-        (WCT9.halfOf (!WCT9.chainHigh a.key.lay a.chain i.val) (pub ⟨chainRow a i v, chainRow_mem hU a i v⟩)) := by
+        (WCT9.halfOf (!WCT9.chainHigh a.key.lay a.chain i.val) (pub ⟨chainRowW a i v, chainRowW_mem hU a i v⟩)) := by
   unfold ovPub
-  rw [rowOf_chainRow a hd i v]
+  rw [PrefixGame.rowOf_chainRow a hd i v]
 theorem ovPub_none (a : ChainAddr) {d : Nat} (pub : U → HashOutput)
-    (tables : Fin d → Digest → Digest) (x : U) (h : rowOf a d x.val = none) :
+    (tables : Fin d → Digest → Digest) (x : U) (h : PrefixGame.rowOf a d x.val = none) :
     ovPub a d pub tables x = pub x := by
   unfold ovPub
   rw [h]
@@ -288,11 +322,11 @@ theorem ov_ov_rd (a : ChainAddr) {d : Nat} (hd : d ≤ 256) (R : Tables U) (x : 
   refine Prod.ext rfl ?_
   · funext y
     unfold ovPub
-    cases hp : rowOf a d y.val with
+    cases hp : PrefixGame.rowOf a d y.val with
     | none => simp only [hp]
     | some p =>
         simp only [hp]
-        have hy : y = ⟨chainRow a p.1 p.2, chainRow_mem hU a p.1 p.2⟩ := Subtype.ext (rowOf_some hp)
+        have hy : y = ⟨chainRowW a p.1 p.2, chainRowW_mem hU a p.1 p.2⟩ := Subtype.ext (PrefixGame.rowOf_some hp)
         subst hy
         rw [halfOf_not_joinHalf, joinHalf_halfOf]
 theorem raw_ov_untouched (a : ChainAddr) {d : Nat} (hd : d ≤ 7) (R : Tables U) (x : Hidden d)
@@ -304,22 +338,22 @@ theorem raw_ov_untouched (a : ChainAddr) {d : Nat} (hd : d ≤ 7) (R : Tables U)
       unfold ov
       simp only
       rw [ovPub_none]
-      cases hp : rowOf a d input with
+      cases hp : PrefixGame.rowOf a d input with
       | none => rfl
-      | some p => exact absurd (rowOf_some hp) (hq p.1 p.2 (by have := p.1.isLt; omega))
+      | some p => exact absurd (PrefixGame.rowOf_some hp) (hq p.1 p.2 (by have := p.1.isLt; omega))
     · rw [raw_nonmem _ _ h, raw_nonmem _ _ h]
   · rfl
   · rfl
 include hU in
 theorem raw_ov_prefix (a : ChainAddr) {d : Nat} (hd : d ≤ 256) (R : Tables U) (x : Hidden d)
     (i : Fin d) (v : Digest) :
-    raw (ov a d R x) (.inl (.inr (chainRow a i v))) =
+    raw (ov a d R x) (.inl (.inr (chainRowW a i v))) =
       joinHalf (WCT9.chainHigh a.key.lay a.chain i.val) (x.1 i v)
-        (WCT9.halfOf (!WCT9.chainHigh a.key.lay a.chain i.val) (raw R (.inl (.inr (chainRow a i v))))) := by
-  rw [raw_mem _ _ (chainRow_mem hU a i v), raw_mem _ _ (chainRow_mem hU a i v)]
+        (WCT9.halfOf (!WCT9.chainHigh a.key.lay a.chain i.val) (raw R (.inl (.inr (chainRowW a i v))))) := by
+  rw [raw_mem _ _ (chainRowW_mem hU a i v), raw_mem _ _ (chainRowW_mem hU a i v)]
   exact ovPub_row hU a hd R.2 x.1 i v
 theorem raw_ov_nonprefix (a : ChainAddr) {d : Nat} (R : Tables U) (x : Hidden d)
-    (input : HashInput) (h : rowOf a d input = none) :
+    (input : HashInput) (h : PrefixGame.rowOf a d input = none) :
     raw (ov a d R x) (.inl (.inr input)) = raw R (.inl (.inr input)) := by
   by_cases hm : input ∈ U
   · rw [raw_mem _ _ hm, raw_mem _ _ hm]
@@ -397,8 +431,8 @@ theorem eval_chain_ov (a : ChainAddr) {d : Nat} (hd : d ≤ 256) (R : Tables U) 
             (evalWithAnswerFn (raw (ov a d R x)) (WCT9.chainW a.key.lay a.key.tree a.key.leaf a.chain s 1 v))) := by
         rw [show n + 1 = 1 + n by omega]
         exact eval_chainW_add' _ _ _ _ _ _ _ _ _
-      rw [hsplit, eval_chainW_one', pad64_chainInput]
-      have hrow : chainInput a.key.lay a.key.tree a.key.leaf a.chain s v = chainRow a (⟨s, by omega⟩ : Fin d) v := rfl
+      rw [hsplit, eval_chainW_one', pad64_chainInputW]
+      have hrow : WCT9.chainInputW a.key.lay a.key.tree a.key.leaf a.chain s v = chainRowW a (⟨s, by omega⟩ : Fin d) v := rfl
       rw [hrow, raw_ov_prefix hU a hd R x]
       rw [show (⟨s, by omega⟩ : Fin d).val = s from rfl, halfOf_joinHalf, ih (s + 1) (by omega)]
       simp only [SphincsSecurity.Concrete.PartialChainEndpoint.evaluate]

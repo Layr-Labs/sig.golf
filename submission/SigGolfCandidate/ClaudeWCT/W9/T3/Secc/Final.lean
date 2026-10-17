@@ -78,7 +78,7 @@ theorem contactAt_take_length (T : Answers) (trace : List Entry) (a : ChainAddr)
     ∃ k, ContactAt T (trace.take k) a := ⟨trace.length, by rw [List.take_length]; exact h⟩
 theorem first_contact_entry (T : Answers) (tr : List Entry) (a : ChainAddr) (k : Nat)
     (hk : ContactAt T (tr.take (k + 1)) a) (hn : ¬ContactAt T (tr.take k) a) :
-    ∃ value answer, tr[k]? = some (chainRow a (depth T a - 1) value, answer) := by
+    ∃ value answer, tr[k]? = some (chainRowW a (depth T a - 1) value, answer) := by
   obtain ⟨hd, value, answer, hm, hl⟩ := hk
   refine ⟨value, answer, ?_⟩
   rw [List.take_add_one, List.mem_append] at hm
@@ -386,7 +386,7 @@ theorem markerContact_split (T : Answers) (trace : List Entry) (a : ChainAddr)
         · exact hQj ⟨hd, value, answer', h2, hlow⟩
         rw [h1] at h2
         have he := congrArg Prod.fst (Option.some.inj h2)
-        exact ClaudeWCT.W9.T3.Security.Wots.SmallA.chainRow_ne_encRow _ _ _ _ _ _ _ he.symm
+        exact ClaudeWCT.W9.T3.Security.Wots.SmallA.chainRowW_ne_encRow _ _ _ _ _ _ _ he.symm
   · exact Or.inr ⟨kc, hQkc, hPmin kc hgt, hm⟩
 theorem primitive_cases (T : Answers) (trace : List Entry) (h : WotsExtract.WotsPrimitiveSrc T trace) :
     (∃ L, WotsExtract.SourceLeaf7 L ∧ EncodingMatchAt T trace L) ∨ WotsExtract.StructuralHitSrc T trace ∨
@@ -2109,7 +2109,7 @@ theorem contactAt_take_length (T : Answers) (trace : List Entry) (a : ChainAddr)
     ∃ k, ContactAt T (trace.take k) a := ⟨trace.length, by rw [List.take_length]; exact h⟩
 theorem first_contact_entry (T : Answers) (tr : List Entry) (a : ChainAddr) (k : Nat)
     (hk : ContactAt T (tr.take (k + 1)) a) (hn : ¬ContactAt T (tr.take k) a) :
-    ∃ value answer, tr[k]? = some (chainRow a (depth T a - 1) value, answer) := by
+    ∃ value answer, tr[k]? = some (chainRowW a (depth T a - 1) value, answer) := by
   obtain ⟨hd, value, answer, hm, hl⟩ := hk
   refine ⟨value, answer, ?_⟩
   rw [List.take_add_one, List.mem_append] at hm
@@ -2579,10 +2579,10 @@ def Combined (s : RefSample) : Prop :=
  CanonicalExtract.WotsPrimitiveSrc s.answers (CanonicalRef.sourceMessages s.answers) s.trace ∨
    PairedReference.StructuralHitTrace s.answers s.trace
 /-- Stage 2 (C3, #866): `RowPad` is a triple (the row tweak's high word is a witness pad), so this is #866's
-`SmallA.chainRow_ne_encRow` (chain headers and row tweaks differ in their marker byte). -/
-theorem chainRow_ne_encRow (a : ChainAddr) (s : Nat) (v : Digest) (L : LeafAddr) (m : WCT9.LayerMsg)
-    (c : BitVec 32) (pad : RowPad) : chainRow a s v ≠ encRow L m c pad :=
-  ClaudeWCT.W9.T3.Security.Wots.SmallA.chainRow_ne_encRow a s v L m c pad
+`SmallA.chainRowW_ne_encRow` (chain headers and row tweaks differ in their marker byte). -/
+theorem chainRowW_ne_encRow (a : ChainAddr) (s : Nat) (v : Digest) (L : LeafAddr) (m : WCT9.LayerMsg)
+    (c : BitVec 32) (pad : RowPad) : chainRowW a s v ≠ encRow L m c pad :=
+  ClaudeWCT.W9.T3.Security.Wots.SmallA.chainRowW_ne_encRow a s v L m c pad
 
 theorem markerContact_split (T : Answers) (trace : List Entry) (a : ChainAddr)
     (hm : CanonicalRef.MarkerAt T (CanonicalRef.sourceMessages T) trace a) (hc : CanonicalRef.ContactAt T (CanonicalRef.sourceMessages T) trace a) : MarkerFirst T trace a ∨ ContactFirst T trace a := by
@@ -2611,7 +2611,7 @@ theorem markerContact_split (T : Answers) (trace : List Entry) (a : ChainAddr)
         · exact hQj ⟨hd, value, answer', h2, hlow⟩
         rw [h1] at h2
         have he := congrArg Prod.fst (Option.some.inj h2)
-        exact chainRow_ne_encRow _ _ _ _ _ _ _ he.symm
+        exact chainRowW_ne_encRow _ _ _ _ _ _ _ he.symm
   · exact Or.inr ⟨kc, hQkc, hPmin kc hgt, hm⟩
 
 theorem combined_cases (s : RefSample) (h : Combined s) :

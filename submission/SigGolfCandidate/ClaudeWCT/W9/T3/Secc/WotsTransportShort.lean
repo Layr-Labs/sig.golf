@@ -22,7 +22,7 @@ theorem chainW_respects (lay : Layer) (tree leaf i start count : Nat) (value : D
     ShortRespects (WCT9.chainW lay tree leaf i start count value) := by
   unfold WCT9.chainW
   exact ShortRespects.foldlM _ _ (fun step _ v => halfHash_respects _ _
-    (short_of_le _ (by rw [chainInput_length]; omega))) value
+    (short_of_le _ (by rw [WCT9.chainInputW_length]; omega))) value
 theorem lowerLeafHash_respects (lay : Layer) (tree leaf : Nat) (ends : List Digest) (hlen : ends.length ≤ 200) :
     ShortRespects (WCT9.lowerLeafHash lay tree leaf ends) := by
   rw [WCT9.lowerLeafHash_eq]
@@ -131,7 +131,8 @@ theorem honestInput_short (position : Extract.Pos) (hb : position.Bounded) :
   cases position with
   | chain lay tree leaf i step =>
       simp only [Extract.honestInput]
-      rw [wotsSeed_short hAT, honestChainValue_short hAT]
+      rw [wotsSeed_short hAT]
+      exact congrArg (fun v => pad64 (WCT9.chainInputW lay tree leaf i step v)) (honestChainValueW_short hAT _ _ _ _ _ _)
   | leaf lay tree leaf =>
       simp only [Extract.honestInput]
       rw [List.map_congr_left (fun i _ => wotsEnd_short hAT lay tree leaf i)]
@@ -159,7 +160,7 @@ theorem honestInput_length (answers : Answers) (position : Extract.Pos) :
   cases position with
   | chain lay tree leaf i step =>
       apply short_of_le
-      rw [chainInput_length]; omega
+      rw [WCT9.chainInputW_length]; omega
   | leaf lay tree leaf =>
       apply short_of_le
       simp only [Extract.leafInput, SigGolfCandidate.T3.leafInput_length, List.length_map, List.length_range]

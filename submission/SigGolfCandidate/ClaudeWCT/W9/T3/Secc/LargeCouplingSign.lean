@@ -77,14 +77,12 @@ theorem cell_eq_cellValues (s : Secrets) (L : Labels) (N : CanonGraph.Node) :
     cell s N L = cellValues N (coordVal s L) := by
   cases N with
   | chain p =>
-      change ChainGraph.row p (ChainGraph.prior (seedsOf s) p (chainLabels L)) = ChainGraph.row p _
+      change CanonGraph.rowW p (CanonGraph.priorW (seedsOf s) p (chainLabels L)) = CanonGraph.rowW p _
       congr 1
-      unfold ChainGraph.prior chainChild
+      unfold CanonGraph.priorW chainChild
       by_cases h0 : p.2.val = 0
       · rw [if_pos h0, if_pos h0]; rfl
       · rw [if_neg h0, if_neg h0]
-        simp only [coordVal]
-        rw [proj_chain_of_lt (by simp only [ChainGraph.predecessor]; have := p.2.isLt; omega)]
         rfl
   | leaf Lf =>
       change pad64 (Extract.leafInput _ _ _ ((List.range (chainCount Lf.1.lay)).map (endLabel s L Lf.1))) = _
@@ -123,7 +121,7 @@ theorem cellValues_congr (N : CanonGraph.Node) (v v' : Coord → Digest)
     (h : ∀ cs ∈ childSlots N, v cs.1 = v' cs.1) : cellValues N v = cellValues N v' := by
   cases N with
   | chain p =>
-      have := h (chainChild p, 3) (by simp [childSlots])
+      have := h (chainChild p, if WCT9.isG p.1.layer p.1.chain.val then 0 else 3) (by simp [childSlots])
       simp only [cellValues, this]
   | leaf L =>
       simp only [cellValues]
@@ -315,8 +313,16 @@ theorem slot_cellValues (N : CanonGraph.Node) (v : Coord → Digest) :
   | chain p =>
       simp only [childSlots, List.mem_singleton] at hcs
       subst hcs
-      simp only [cellValues, chainRow_block4]
-      exact (slotValue_block4 _ _ _ _).2.2
+      simp only [cellValues, CanonGraph.rowW]
+      have hb : ∀ (x : Digest) (h : BitVec 128),
+          bytesLE 16 x ++ bytesLE 16 h ++ zero16 ++ zero16 = block4 x h 0 0 := by
+        intro x h; simp only [block4, show zero16 = bytesLE 16 (0 : Digest) by decide]
+      cases hG : WCT9.isG p.1.layer p.1.chain.val
+      · rw [WCT9.chainInputW_F hG, show SigGolfCandidate.T3.chainInput p.1.layer p.1.tree.val p.1.leaf.val
+          p.1.chain.val p.2.val (v (chainChild p)) = ChainGraph.row p (v (chainChild p)) from rfl, chainRow_block4]
+        exact (slotValue_block4 _ _ _ _).2.2
+      · rw [WCT9.chainInputW_G hG, hb]
+        exact (slotValue_block4 _ _ _ _).1
   | leaf L =>
       simp only [childSlots, List.mem_map, List.mem_range] at hcs
       obtain ⟨i, hi, rfl⟩ := hcs
@@ -770,16 +776,15 @@ theorem cell_eq_cellValues (s : Secrets) (L : Labels) (N : CanonGraph.Node)
     CanonGraph.Paired.cell s N L=cellValues N (coordVal s L) := by
   cases N with
   | chain p =>
-      change ChainGraph.row p (ChainGraph.prior (seedsOf s) p (chainLabels L))=ChainGraph.row p _
+      change CanonGraph.rowW p (CanonGraph.priorW (seedsOf s) p (chainLabels L))=CanonGraph.rowW p _
       congr 1
-      unfold ChainGraph.prior chainChild
+      unfold CanonGraph.priorW chainChild
       by_cases h0 : p.2.val=0
       · rw [if_pos h0,if_pos h0]; rfl
       · rw [if_neg h0,if_neg h0]
-        -- C3 (#866): a chain step below the last one reads the low half of its predecessor.
+        -- C3 + pairing stage 1: a chain step reads the half `chainHigh` of its predecessor's label.
         simp only [coordVal]
-        rw [CanonGraph.Paired.pairedProj_chain,
-          proj_chain_of_lt (by simp only [ChainGraph.predecessor]; have := p.2.isLt; omega)]
+        rw [CanonGraph.Paired.pairedProj_chain]
         rfl
   | leaf Lf =>
       change pad64 (Extract.leafInput _ _ _ ((List.range (chainCount Lf.1.lay)).map (endLabel s L Lf.1)))=_

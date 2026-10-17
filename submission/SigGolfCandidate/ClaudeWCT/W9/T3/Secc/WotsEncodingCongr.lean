@@ -15,6 +15,13 @@ set_option maxHeartbeats 1000000
 set_option maxRecDepth 10000
 namespace Enc
 open SigGolfCandidate.T3.Security.Wots.Enc
+/-- Pairing stage 1: a chain row of the current scheme (F or G format) is no encoding row (header marker). -/
+theorem nonEnc_chainInputW (lay : Layer) (tree leaf i s : Nat) (v : Digest) :
+    NonEnc (.inl (.inr (pad64 (WCT9.chainInputW lay tree leaf i s v)))) := by
+  apply nonEnc_of_hdr _ (chainHeader lay tree leaf i s) _
+    (notHyper_of_marker (by unfold tweakMarker; have := chainHeader_firstByte lay tree leaf i s; omega))
+  rw [WCT9.chainInputW_padded]
+  exact WCT9.chainInputW_header _ _ _ _ _ _
 section Programs
 theorem respects_signForest (index : Nat) (output : HashOutput) :
     Respects Enc.NonEnc (ClaudeWCT.WCT9.signForest index output) :=
@@ -31,7 +38,7 @@ theorem respects_packedSecret (lay : Layer) (tree q : Nat) (carry : Digest) :
 /-! C2/C3 (FULL): hashes keeping a selected half, the packed lower node tweak, the chain-0 high half. -/
 theorem respects_chainW (lay : Layer) (tree leaf i start count : Nat) (v : Digest) :
     Respects Enc.NonEnc (WCT9.chainW lay tree leaf i start count v) := by
-  exact respects_chainW' _ _ _ _ _ _ _ fun _ _ _ _ => nonEnc_chainInput _ _ _ _ _ _
+  exact respects_chainW' _ _ _ _ _ _ _ fun _ _ _ _ => nonEnc_chainInputW _ _ _ _ _ _
 theorem respects_lowerLeafHash (lay : Layer) (tree leaf : Nat) (ends : List Digest) (hlen : 4 ≤ ends.length) :
     Respects Enc.NonEnc (WCT9.lowerLeafHash lay tree leaf ends) := by
   exact respects_lowerLeafHash' _ _ _ _ (nonEnc_pad64_long _ (leafInput_long lay tree leaf ends hlen))

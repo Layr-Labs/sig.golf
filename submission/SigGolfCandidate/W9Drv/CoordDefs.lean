@@ -16,6 +16,15 @@ def ftsStartW (w : ClaudeWCT.W9.T3M.WBytes) : Digest × Digest := (V3.leafPad w 
 /-- The previous coordinate's top pair (coordinate 0: the witness pads). -/
 def prevOf (w : ClaudeWCT.W9.T3M.WBytes) (pairs : List (Digest × Digest)) : Digest × Digest :=
   pairs.getLastD (ftsStartW w)
+/-- Witness trim (legacy nested-FTS layout): region `n`'s incoming hand-off slots. Every real region keeps its leaf
+pad at `+720` and its Z slot at `+864`; the virtual region 9 (`regionAddr 9 = WIT - 816`) has them at `+816`
+(`WIT + 0`) and `+880` (the R9 slot `WIT + 64`). -/
+def legL (n : Nat) : Nat := if n = 9 then 816 else 720
+def legR (n : Nat) : Nat := if n = 9 then 880 else 864
+/-- The 32-byte hand-off windows of region `n` (legacy layout). -/
+def legHand (n off : Nat) : Prop :=
+  if n = 9 then (800 ≤ off ∧ off < 832) ∨ (864 ≤ off ∧ off < 896) else V3.isHand off
+instance (n off : Nat) : Decidable (legHand n off) := by unfold legHand; infer_instance
 structure CoordPre (pk : Digest) (w : ClaudeWCT.W9.T3M.WBytes) (a : HashOutput) (n : Nat)
     (pairs : List (Digest × Digest)) (u : MachineState) : Prop where
   le : n ≤ 9
@@ -41,16 +50,16 @@ structure CoordPre (pk : Digest) (w : ClaudeWCT.W9.T3M.WBytes) (a : HashOutput) 
   childMask : n ≥ 3 → u.getReg .x27 = BitVec.ofNat 64 0x7f00000
   jt : u.getReg .x24 = rankPad
   childBlock : u.getReg .x29 = BitVec.ofNat 64 0xf1b00
-  baseReg : u.getReg .x8 = BitVec.ofNat 64 (8560 - 896 * (n-1))
+  baseReg : u.getReg .x8 = BitVec.ofNat 64 (10152 - 896 * (n-1))
   pairPtr : u.getReg .x9 = BitVec.ofNat 64 TOPB9
-  prevL : DigAt u (regionAddr n + 720) (prevOf w pairs).1
-  prevR : DigAt u (regionAddr n + 864) (prevOf w pairs).2
-  a2 : 0 < n → u.getReg .x12 = BitVec.ofNat 64 (regionAddr n + 704) ∨
-    u.getReg .x12 = BitVec.ofNat 64 (regionAddr n + 848)
-  coords : ∀ m, n ≤ m → m ≤ 9 → ∀ off, off < 896 → off % 8 = 0 → (m = 9 → 720 ≤ off) →
-    (m = n → ¬ V3.isHand off) → W9Machine.OrigW w u (regionAddr m + off)
+  prevL : DigAt u (regionAddr n + legL n) (prevOf w pairs).1
+  prevR : DigAt u (regionAddr n + legR n) (prevOf w pairs).2
+  a2 : 0 < n → u.getReg .x12 = BitVec.ofNat 64 (regionAddr n + (legL n - 16)) ∨
+    u.getReg .x12 = BitVec.ofNat 64 (regionAddr n + (legR n - 16))
+  coords : ∀ m, n ≤ m → m ≤ 9 → ∀ off, off < 896 → off % 8 = 0 → (m = 9 → 816 ≤ off) →
+    (m = n → ¬ legHand n off) → W9Machine.OrigW w u (regionAddr m + off)
   /-- C3 (FULL): witness word 3 (the L3 encoding's row-tweak high word) is still original. -/
-  layer : Orig w (fun o => (24 ≤ o ∧ o < 48) ∨ (8256 ≤ o ∧ o < 24800)) u
+  layer : Orig w (fun o => (24 ≤ o ∧ o < 48) ∨ (8096 ≤ o ∧ o < 23208)) u
 end W9Drv
 
 namespace W9Drv.SharedCoord
@@ -67,7 +76,7 @@ def prevOf (w : ClaudeWCT.W9.T3M.WBytes) (pairs : List (Digest × Digest)) : Dig
   pairs.getLastD (SharedV3.initialPair w)
 
 def isHand (n off : Nat) : Prop :=
-  if n = 9 then (720 ≤ off ∧ off < 752) ∨ (768 ≤ off ∧ off < 800)
+  if n = 9 then (816 ≤ off ∧ off < 848) ∨ (864 ≤ off ∧ off < 896)
   else SharedV3.isHand off
 instance (n off : Nat) : Decidable (isHand n off) := by unfold isHand; infer_instance
 
@@ -96,21 +105,20 @@ structure Pre (pk : Digest) (w : ClaudeWCT.W9.T3M.WBytes) (a : HashOutput) (n : 
   jt : u.getReg .x24 = rankPad
   childBlock : u.getReg .x29 = BitVec.ofNat 64 0xf1b00
   singletonTable : u.getMem (BitVec.ofNat 64 (TOPB9 - 240)) = BitVec.ofNat 64 0xe7400
-  baseReg : u.getReg .x8 = BitVec.ofNat 64 (8560 - 896 * (n-1))
+  baseReg : u.getReg .x8 = BitVec.ofNat 64 (10152 - 896 * (n-1))
   pairPtr : u.getReg .x9 = BitVec.ofNat 64 TOPB9
-  prevL : DigAt u (regionAddr n + 720) (prevOf w pairs).1
+  prevL : DigAt u (regionAddr n + SharedV3.handL n) (prevOf w pairs).1
   prevR : DigAt u (regionAddr n + SharedV3.handR n) (prevOf w pairs).2
   /-- `a2` after the previous coordinate's last heap hash: a high-half hand-off at `+ 704` (direction 0; for `n = 9`
-  the singleton's left root, stage 2 Cm: `regionAddr 9 + 704 = WIT - 16`), else `+ 144` / the singleton's low right
-  root at `+ 768 = WIT + 48`. (The first disjunct keeps its stage-1 `if n = 9` shape, now with equal branches, so the
-  `split_ifs` proofs of the coordinate step are unchanged.) -/
-  a2 : 0 < n → u.getReg .x12 = BitVec.ofNat 64 (regionAddr n + (if n = 9 then 704 else 704)) ∨
-    u.getReg .x12 = BitVec.ofNat 64 (regionAddr n + (if n = 9 then 768 else 144))
-  coords : ∀ m, n ≤ m → m ≤ 9 → ∀ off, off < 896 → off % 8 = 0 → (m = 9 → 720 ≤ off) →
+  the singleton's left root, stage 2 Cm: `regionAddr 9 + 800 = WIT - 16` (witness trim; was `+ 704`)), else `+ 144` /
+  the singleton's low right root at `+ 864 = WIT + 48` (was `+ 768`). -/
+  a2 : 0 < n → u.getReg .x12 = BitVec.ofNat 64 (regionAddr n + (if n = 9 then 800 else 704)) ∨
+    u.getReg .x12 = BitVec.ofNat 64 (regionAddr n + (if n = 9 then 864 else 144))
+  coords : ∀ m, n ≤ m → m ≤ 9 → ∀ off, off < 896 → off % 8 = 0 → (m = 9 → 816 ≤ off) →
     (m = n → ¬ isHand n off) → W9Machine.OrigW w u (regionAddr m + off)
   /-- C3 (stage 2): witness word 3 (the L3 row tweak's high word, a pad) is original; the merged singleton never
   writes `WIT + 16 .. WIT + 48`. -/
-  layer : Orig w (fun o => (24 ≤ o ∧ o < 48) ∨ (8256 ≤ o ∧ o < 24800)) u
+  layer : Orig w (fun o => (24 ≤ o ∧ o < 48) ∨ (8096 ≤ o ∧ o < 23208)) u
   /-- Coordinate 7 carries the shared shift used by coordinate 8. -/
   hoist : n = 8 → u.getReg .x4 = u.getReg .x17 >>> 17
 end W9Drv.SharedCoord

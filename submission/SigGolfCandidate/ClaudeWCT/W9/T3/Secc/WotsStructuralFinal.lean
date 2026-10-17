@@ -1221,7 +1221,7 @@ set_option backward.isDefEq.respectTransparency false
 private def ClassDepth (D : ChainAddr → Nat) (x : HashInput) (p : Extract.Pos) : Prop :=
   match p with
   | .chain .. => ∃ (a : ChainAddr) (step : Nat), Extract.posOf x = some (.chain a.key.lay a.key.tree a.key.leaf a.chain step) ∧
-      ((∀ value, x ≠ chainRow a step value) ∨ D a ≤ step)
+      ((∀ value, x ≠ chainRowW a step value) ∨ D a ≤ step)
   | _ => True
 
 private theorem structuralClass_congr_generic (D D' : ChainAddr → Nat)

@@ -1,5 +1,11 @@
 import SigGolfCandidate.T3M.Search.ProducerData
-import SigGolfCandidate.ClaudeWCT.W9.New.Machine.Expand.NewCode
+import SigGolfCandidate.ClaudeWCT.W9.New.Machine.Expand.ExpSearch
+import SigGolfCandidate.ClaudeWCT.W9.New.Machine.Expand.Defs
+import SigGolfCandidate.ClaudeWCT.W9.New.Machine.Expand.Base
+import SigGolfCandidate.ClaudeWCT.W9.New.Machine.Expand.DrvBits
+import SigGolfCandidate.Research.V7Composed198Gate
+import SigGolfCandidate.ClaudeWCT.W9.New.Machine.Merkle.ChildDefs
+import SigGolfCandidate.ClaudeWCT.W9.New.Machine.Expand.Region
 import SigGolfCandidate.ClaudeWCT.W9.New.Machine.Expand.Compact2Lv
 import SigGolfCandidate.T3M.Expand.Layers
 
@@ -62,38 +68,11 @@ open SigGolfCandidate.T3M.Search (DIG NBUF ENC OutAt FailedAt TOP_DATA TableOK)
 open SigGolfCandidate.T3M.Expand (IDXV bytesToWordLE_bytes_e bytes_length_e extractByte_bytesToWordLE_e)
 open ClaudeWCT.W9.T3M (sigDig sigDec sigDigests sigDigests_sigDec)
 set_option linter.unusedSimpArgs false
-theorem codeAt_appL {im : Image} {pc : Word} {a b : List (BitVec 32)} (h : CodeAt im pc (a ++ b)) : CodeAt im pc a := by
-  obtain ⟨h1, h2, h3, h4⟩ := h
-  simp only [List.length_append] at h3
-  exact ⟨h1, h2, by omega, (List.prefix_append a b).trans h4⟩
-theorem codeAt_appR {im : Image} {n : Nat} {a b : List (BitVec 32)} (h : CodeAt im (pcOf n) (a ++ b))
-    (hn : 0x1000 + 4 * n + 4 * (a.length + b.length) < 2 ^ 64) : CodeAt im (pcOf (n + a.length)) b := by
-  obtain ⟨h1, h2, h3, h4⟩ := h
-  have e1 : (pcOf n).toNat = 0x1000 + 4 * n := by
-    rw [pcOf, BitVec.toNat_ofNat, Nat.mod_eq_of_lt (by omega)]
-  have e2 : (pcOf (n + a.length)).toNat = 0x1000 + 4 * (n + a.length) := by
-    rw [pcOf, BitVec.toNat_ofNat, Nat.mod_eq_of_lt (by omega)]
-  refine ⟨by omega, by omega, by omega, ?_⟩
-  rw [e2, show (0x1000 + 4 * (n + a.length) - 0x1000) / 4 = (0x1000 + 4 * n - 0x1000) / 4 + a.length by omega,
-    ← List.drop_drop]
-  rw [e1] at h4
-  obtain ⟨t, ht⟩ := h4
-  refine ⟨t, ?_⟩
-  rw [← ht, List.append_assoc, List.drop_left]
 def w9init (im : Image) (m : Message) (pk : PublicKey) {n : Nat} (σ : Bytes n) : MachineState :=
   (((((({ regs := fun _ => 0, mem := fun _ => 0, pc := 0x1000 } : MachineState).writeBytesAsWords
-    (BitVec.ofNat 64 (dataBase im)) im.data).writeBytesAsWords (BitVec.ofNat 64 0x65c0) (bytes m)).writeBytesAsWords
+    (BitVec.ofNat 64 (dataBase im)) im.data).writeBytesAsWords (BitVec.ofNat 64 0x6620) (bytes m)).writeBytesAsWords
     (BitVec.ofNat 64 0xA0) (bytes pk)).writeBytesAsWords (BitVec.ofNat 64 0x7000) (bytes σ))).setReg .x2
     (BitVec.ofNat 64 (dataBase im))
-set_option maxRecDepth 100000 in
-theorem initialState_w9 (imgs : Phase → Image) (hv : (imgs .expand).Valid (w9Sub imgs).sizes (w9Sub imgs).layout)
-    (m : Message) (pk : PublicKey) (σ : Bytes 5310) :
-    initialState (w9Sub imgs) .expand (m, pk, σ) = some (w9init (imgs .expand) m pk σ) := by
-  unfold initialState
-  simp only [show (w9Sub imgs).image .expand = imgs .expand from rfl]
-  rw [if_pos hv]
-  simp only [inputBuffers, List.foldl_cons, List.foldl_nil]
-  rfl
 set_option maxRecDepth 100000 in
 theorem hdrBankBytes_length : hdrBankBytes.length = 4608 := by decide +kernel
 set_option maxRecDepth 100000 in
@@ -135,45 +114,18 @@ theorem w9init_getMem (A : Nat) (hA : A < 2 ^ 64) :
       if 0x7000 ≤ A ∧ A < 0x7000 + 5312 ∧ (A - 0x7000) % 8 = 0 then
         bytesToWordLE (((bytes σ).drop (A - 0x7000)).take 8)
       else if 0xA0 ≤ A ∧ A < 0xB0 ∧ (A - 0xA0) % 8 = 0 then bytesToWordLE (((bytes pk).drop (A - 0xA0)).take 8)
-      else if 0x65c0 ≤ A ∧ A < 0x65e0 ∧ (A - 0x65c0) % 8 = 0 then
-        bytesToWordLE (((bytes m).drop (A - 0x65c0)).take 8)
+      else if 0x6620 ≤ A ∧ A < 0x6640 ∧ (A - 0x6620) % 8 = 0 then
+        bytesToWordLE (((bytes m).drop (A - 0x6620)).take 8)
       else if Compact2.LPLAN ≤ A ∧ A < Compact2.LPLAN + 27648 ∧ (A - Compact2.LPLAN) % 8 = 0 then
         bytesToWordLE ((im.data.drop (A - Compact2.LPLAN)).take 8)
       else 0 := by
   unfold w9init
   rw [MachineState.getMem_setReg, getMem_writeBytesAsWords _ _ 0x7000 A (by rw [bytes_length_e]; decide) hA,
     getMem_writeBytesAsWords _ _ 0xA0 A (by rw [bytes_length_e]; decide) hA,
-    getMem_writeBytesAsWords _ _ 0x65c0 A (by rw [bytes_length_e]; decide) hA, dataBase_eq hd,
+    getMem_writeBytesAsWords _ _ 0x6620 A (by rw [bytes_length_e]; decide) hA, dataBase_eq hd,
     getMem_writeBytesAsWords _ _ Compact2.LPLAN A (by rw [data_length hd]; decide) hA, bytes_length_e, bytes_length_e,
     bytes_length_e, data_length hd]
   rfl
-theorem w9init_msg (j : Nat) (hj : j < 4) :
-    (w9init im m pk σ).getMem (BitVec.ofNat 64 (0x65c0 + 8 * j)) = m.extractLsb' (64 * j) 64 := by
-  rw [w9init_getMem hd _ _ _ _ (by omega), if_neg (by omega), if_neg (by omega), if_pos (by omega),
-    show 0x65c0 + 8 * j - 0x65c0 = 8 * j by omega, bytesToWordLE_bytes_e m j (by omega)]
-theorem w9init_pk (j : Nat) (hj : j < 2) :
-    (w9init im m pk σ).getMem (BitVec.ofNat 64 (0xA0 + 8 * j)) = pk.extractLsb' (64 * j) 64 := by
-  rw [w9init_getMem hd _ _ _ _ (by omega), if_neg (by omega), if_pos (by omega),
-    show 0xA0 + 8 * j - 0xA0 = 8 * j by omega, bytesToWordLE_bytes_e pk j (by omega)]
-theorem w9init_sigw (j : Nat) (hj : j < 664) :
-    (w9init im m pk σ).getMem (BitVec.ofNat 64 (0x7000 + 8 * j)) = σ.extractLsb' (64 * j) 64 := by
-  rw [w9init_getMem hd _ _ _ _ (by omega), if_pos (by omega), show 0x7000 + 8 * j - 0x7000 = 8 * j by omega,
-    bytesToWordLE_bytes_e σ j (by omega)]
-theorem w9init_sig (k : Nat) (hk : k < 332) : DigAt (w9init im m pk σ) (0x7000 + 16 * k) (sigDig σ k) := by
-  constructor
-  · rw [show 0x7000 + 16 * k = 0x7000 + 8 * (2 * k) by ring, w9init_sigw hd _ _ _ _ (by omega)]
-    apply BitVec.eq_of_getLsbD_eq; intro i hi
-    simp [ClaudeWCT.W9.T3M.sigDig, BitVec.getLsbD_extractLsb', hi, show i < 128 by omega]; ring_nf
-  · rw [show 0x7000 + 16 * k + 8 = 0x7000 + 8 * (2 * k + 1) by ring, w9init_sigw hd _ _ _ _ (by omega)]
-    apply BitVec.eq_of_getLsbD_eq; intro i hi
-    simp [ClaudeWCT.W9.T3M.sigDig, BitVec.getLsbD_extractLsb', hi, show 64 + i < 128 by omega]; ring_nf
-theorem w9init_zero (A : Nat) (hA : A < Compact2.LPLAN)
-    (h : (A < 0x7000 ∨ 0x7000 + 5312 ≤ A) ∧ (A < 0xA0 ∨ 0xB0 ≤ A) ∧
-      ¬ (0x65c0 ≤ A ∧ A < 0x65e0 ∧ (A - 0x65c0) % 8 = 0)) :
-    (w9init im m pk σ).getMem (BitVec.ofNat 64 A) = 0 := by
-  unfold Compact2.LPLAN at hA
-  rw [w9init_getMem hd _ _ _ _ (by omega), if_neg (by omega), if_neg (by omega), if_neg h.2.2,
-    if_neg (by unfold Compact2.LPLAN; omega)]
 theorem w9init_data (A : Nat) (h1 : Compact2.LPLAN ≤ A) (h2 : A < Compact2.LPLAN + 27648)
     (h3 : (A - Compact2.LPLAN) % 8 = 0) :
     (w9init im m pk σ).getMem (BitVec.ofNat 64 A) = bytesToWordLE ((im.data.drop (A - Compact2.LPLAN)).take 8) := by
@@ -181,33 +133,12 @@ theorem w9init_data (A : Nat) (h1 : Compact2.LPLAN ≤ A) (h2 : A < Compact2.LPL
   rw [w9init_getMem hd _ _ _ _ (by omega), if_neg (by omega), if_neg (by omega), if_neg (by omega),
     if_pos (by unfold Compact2.LPLAN; omega)]
 omit hd in
-theorem w9init_x5 : (w9init im m pk σ).getReg .x5 = 0 := by
-  unfold w9init
-  rw [MachineState.getReg_setReg_ne _ _ _ _ (by decide)]
-  simp only [MachineState.getReg_writeBytesAsWords]
-  rfl
-omit hd in
 theorem w9init_pc : (w9init im m pk σ).pc = pcOf 0 := by
   unfold w9init
   rw [MachineState.pc_setReg, MachineState.pc_writeBytesAsWords, MachineState.pc_writeBytesAsWords,
     MachineState.pc_writeBytesAsWords, MachineState.pc_writeBytesAsWords]
   rfl
 end init
-def bankB : Bool :=
-  (List.range 9).all fun k =>
-    bytesToWordLE ((hdrBankBytes.drop (512 * k + 448)).take 8) == BitVec.ofNat 64 (hdr0 3 (4 + k) 0 0) &&
-    bytesToWordLE ((hdrBankBytes.drop (512 * k + 456)).take 8) == BitVec.ofNat 64 (hdr0 6 k 0 0)
-set_option maxRecDepth 100000 in
-theorem bankB_ok : bankB = true := by decide +kernel
-theorem data_word {im : Image} (hd : ExpandDataOK im) (o : Nat) (ho : o + 8 ≤ 4608) :
-    (im.data.drop (18944 + o)).take 8 = (hdrBankBytes.drop o).take 8 := by
-  rw [← List.drop_drop, data_drop_bank hd, List.drop_append_of_le_length (by rw [hdrBankBytes_length]; omega),
-    List.take_append_of_le_length (by simp [hdrBankBytes_length]; omega)]
-theorem data_cost {im : Image} (hd : ExpandDataOK im) (o : Nat) (ho : o + 8 ≤ 16384) :
-    (im.data.drop (2560 + o)).take 8 = (expCostBytes.drop o).take 8 := by
-  rw [← List.drop_drop, data_drop_cost hd, List.append_assoc,
-    List.drop_append_of_le_length (by rw [ESearch.expCostBytes_length]; omega),
-    List.take_append_of_le_length (by simp [ESearch.expCostBytes_length]; omega)]
 theorem data_plan {im : Image} (hd : ExpandDataOK im) (o : Nat) (ho : o + 8 ≤ 1024) :
     (im.data.drop (1536 + o)).take 8 = (planBytes.drop o).take 8 := by
   rw [← List.drop_drop, data_drop_plan hd, List.append_assoc, List.append_assoc,
@@ -218,13 +149,6 @@ theorem data_lplan {im : Image} (hd : ExpandDataOK im) (o : Nat) (ho : o + 8 ≤
   rw [hd, List.append_assoc, List.append_assoc, List.append_assoc,
     List.drop_append_of_le_length (by rw [lplanBytes_length]; omega),
     List.take_append_of_le_length (by simp [lplanBytes_length]; omega)]
-theorem w9init_cost {im : Image} (hd : ExpandDataOK im) (m : Message) (pk : PublicKey) (σ : Bytes 5312) :
-    ExpCostAt (w9init im m pk σ) := by
-  intro k hk
-  rw [w9init_data hd _ _ _ _ (by unfold ECOST Compact2.LPLAN; omega) (by unfold ECOST Compact2.LPLAN; omega)
-      (by unfold ECOST Compact2.LPLAN; omega),
-    show ECOST + 8 * k - Compact2.LPLAN = 2560 + 8 * k by unfold ECOST Compact2.LPLAN; omega,
-    data_cost hd _ (by omega)]
 theorem w9init_plan {im : Image} (hd : ExpandDataOK im) (m : Message) (pk : PublicKey) (σ : Bytes 5312) :
     PlanAt (w9init im m pk σ) := by
   intro k hk
@@ -260,71 +184,6 @@ theorem w9init_toptab {im : Image} (hd : ExpandDataOK im) (m : Message) (pk : Pu
       key]
     unfold Compact2.topBBytes
     rw [tk _ _ _ (by omega)]
-theorem w9init_bank {im : Image} (hd : ExpandDataOK im) (m : Message) (pk : PublicKey) (σ : Bytes 5312) :
-    HdrBankOK (w9init im m pk σ) := by
-  intro k hk
-  have hb := List.all_eq_true.mp bankB_ok k (List.mem_range.mpr hk)
-  simp only [Bool.and_eq_true, beq_iff_eq] at hb
-  obtain ⟨h2, h3⟩ := hb
-  refine ⟨?_, ?_⟩
-  · rw [w9init_data hd _ _ _ _ (by unfold HB0 Compact2.LPLAN; omega) (by unfold HB0 Compact2.LPLAN; omega)
-      (by unfold HB0 Compact2.LPLAN; omega),
-      show HB0 + 512 * k + 448 - Compact2.LPLAN = 18944 + (512 * k + 448) by unfold HB0 Compact2.LPLAN; omega,
-      data_word hd _ (by omega)]
-    exact h2
-  · rw [w9init_data hd _ _ _ _ (by unfold HB0 Compact2.LPLAN; omega) (by unfold HB0 Compact2.LPLAN; omega)
-      (by unfold HB0 Compact2.LPLAN; omega),
-      show HB0 + 512 * k + 456 - Compact2.LPLAN = 18944 + (512 * k + 456) by unfold HB0 Compact2.LPLAN; omega,
-      data_word hd _ (by omega)]
-    exact h3
-theorem w9init_table {im : Image} (hd : ExpandDataOK im) (m : Message) (pk : PublicKey) (σ : Bytes 5312) :
-    TableOK (w9init im m pk σ) := by
-  intro i hi
-  have hT : TOP_DATA = HB0 + 4608 := rfl
-  rw [getByte_eq_word _ _ (by unfold TOP_DATA; omega),
-    w9init_data hd _ _ _ _ (by unfold TOP_DATA Compact2.LPLAN; omega) (by unfold TOP_DATA Compact2.LPLAN; omega)
-      (by unfold TOP_DATA Compact2.LPLAN; omega),
-    extractByte_bytesToWordLE_e _ _ (Nat.mod_lt _ (by decide))]
-  have e : (TOP_DATA + i) / 8 * 8 - Compact2.LPLAN = 23552 + ((TOP_DATA + i) / 8 * 8 - TOP_DATA) := by
-    unfold TOP_DATA Compact2.LPLAN; omega
-  rw [e, ← List.drop_drop, data_drop_legacy hd]
-  simp only [List.getD_eq_getElem?_getD, List.getElem?_take, List.getElem?_drop,
-    if_pos (Nat.mod_lt (TOP_DATA + i) (show 0 < 8 by decide))]
-  have hidx : (TOP_DATA + i) / 8 * 8 - TOP_DATA + (TOP_DATA + i) % 8 = i := by unfold TOP_DATA; omega
-  rw [hidx]
-  exact Search.expandLegacyData_table i hi
-theorem w9init_cf {im : Image} (hd : ExpandDataOK im) (m : Message) (pk : PublicKey) (σ : Bytes 5312) :
-    SigGolfCandidate.T3M.Search.CfTableOK 0 (w9init im m pk σ) := by
-  intro i hi hi'
-  have hT : TOP_DATA = HB0 + 4608 := rfl
-  rw [getByte_eq_word _ _ (by unfold TOP_DATA; omega),
-    w9init_data hd _ _ _ _ (by unfold TOP_DATA Compact2.LPLAN; omega) (by unfold TOP_DATA Compact2.LPLAN; omega)
-      (by unfold TOP_DATA Compact2.LPLAN; omega),
-    extractByte_bytesToWordLE_e _ _ (Nat.mod_lt _ (by decide))]
-  have e : (TOP_DATA + i) / 8 * 8 - Compact2.LPLAN = 23552 + ((TOP_DATA + i) / 8 * 8 - TOP_DATA) := by
-    unfold TOP_DATA Compact2.LPLAN; omega
-  rw [e, ← List.drop_drop, data_drop_legacy hd]
-  simp only [List.getD_eq_getElem?_getD, List.getElem?_take, List.getElem?_drop,
-    if_pos (Nat.mod_lt (TOP_DATA + i) (show 0 < 8 by decide))]
-  have hidx : (TOP_DATA + i) / 8 * 8 - TOP_DATA + (TOP_DATA + i) % 8 = i := by unfold TOP_DATA; omega
-  rw [hidx]
-  exact Search.expandLegacyData_cf i hi hi'
-theorem w9init_reward {im : Image} (hd : ExpandDataOK im) (m : Message) (pk : PublicKey) (σ : Bytes 5312) :
-    SigGolfCandidate.T3M.Search.Reward.RewardTablesOK (w9init im m pk σ) := by
-  intro i hi hi'
-  have hT : TOP_DATA = HB0 + 4608 := rfl
-  rw [getByte_eq_word _ _ (by unfold TOP_DATA; omega),
-    w9init_data hd _ _ _ _ (by unfold TOP_DATA Compact2.LPLAN; omega) (by unfold TOP_DATA Compact2.LPLAN; omega)
-      (by unfold TOP_DATA Compact2.LPLAN; omega),
-    extractByte_bytesToWordLE_e _ _ (Nat.mod_lt _ (by decide))]
-  have e : (TOP_DATA + i) / 8 * 8 - Compact2.LPLAN = 23552 + ((TOP_DATA + i) / 8 * 8 - TOP_DATA) := by
-    unfold TOP_DATA Compact2.LPLAN; omega
-  rw [e, ← List.drop_drop, data_drop_legacy hd]
-  simp only [List.getD_eq_getElem?_getD, List.getElem?_take, List.getElem?_drop,
-    if_pos (Nat.mod_lt (TOP_DATA + i) (show 0 < 8 by decide))]
-  have hidx : (TOP_DATA + i) / 8 * 8 - TOP_DATA + (TOP_DATA + i) % 8 = i := by unfold TOP_DATA; omega
-  rw [hidx]
-  exact Search.expandLegacyData_reward i hi hi'
 -- [h2 lane] removed front_spec: a fact about the record's original expand word 0 / 342, which H2 replaces
 -- [h2 lane] removed front_pre30: a fact about the record's original expand word 0 / 342, which H2 replaces
 sym_block zblk := symRun { noAlias := true } zeroBlk (pcOf 42719) 20
@@ -515,15 +374,6 @@ theorem layer_words (t : MachineState) (lay : Layer) (leaf : Nat) (ls : LayerSig
       · rcases hso j' with h4 | h4 <;> omega)
   rw [hlen] at key
   exact key
-theorem readWords_zero (t : MachineState) (B n : Nat) (hB : B + 8 * n < 2 ^ 64)
-    (hz : ∀ j < n, t.getMem (BitVec.ofNat 64 (B + 8 * j)) = 0) :
-    t.readWords (BitVec.ofNat 64 B) n = List.replicate n 0 := by
-  induction n with
-  | zero => rfl
-  | succ n ih =>
-    rw [show n + 1 = n + 1 from rfl, readWords_add, ih (by omega) (fun j hj => hz j (by omega)),
-      readWords_one, hz n (by omega)]
-    simp [List.replicate_add]
 theorem frame_readWords {s t : MachineState} {W : Nat → Prop} (h : Frame s t W) (A : Nat) :
     ∀ m, A + 8 * m ≤ 2 ^ 64 → (∀ i < m, ¬ W (A + 8 * i)) →
       t.readWords (BitVec.ofNat 64 A) m = s.readWords (BitVec.ofNat 64 A) m
@@ -687,41 +537,6 @@ open SigGolfCandidate.T3M.Expand (IDXV)
 open SigGolfCandidate.T3M (window window_flatMap_const zeros)
 open SphincsSecurity (bytesLE bytesLE_length)
 set_option linter.unusedSimpArgs false
-sym_block eblk_351v6 := symRun { noAlias := true } [compactJal] (pcOf 351) 10
-section compare
-variable {im : Image} (hC : CodeAt im (pcOf 342) compareCode)
-include hC
-theorem codeAt_342W : CodeAt im (pcOf 342) SigGolfCandidate.T3M.Expand.seg_342 :=
-  codeAt_appL (codeAt_appL hC)
-theorem codeAt_348W : CodeAt im (pcOf 348) SigGolfCandidate.T3M.Expand.seg_348 :=
-  codeAt_appR (n := 342) (a := SigGolfCandidate.T3M.Expand.seg_342) (codeAt_appL hC) (by decide)
-theorem codeAt_351W : CodeAt im (pcOf 351) [compactJal] :=
-  codeAt_appR (n := 342) (a := SigGolfCandidate.T3M.Expand.seg_342 ++ SigGolfCandidate.T3M.Expand.seg_348) hC
-    (by decide)
-variable (s : MachineState)
--- [h2 lane] removed c342W: a fact about the record's original expand word 0 / 342, which H2 replaces
-theorem c348W (hpc : s.pc = pcOf 348) (h28 : s.getReg .x28 = BitVec.ofNat 64 ENC)
-    (h29 : s.getReg .x29 = BitVec.ofNat 64 0xA0) :
-    ∃ t, Steps im s 3 3 t ∧
-      t.pc = (if s.getMem (BitVec.ofNat 64 (ENC + 8)) = s.getMem (BitVec.ofNat 64 0xA8) then pcOf 351 else pcOf 354) ∧
-      RegsExcept s t [.x6, .x7] ∧ Frame s t (fun _ => False) := by
-  refine ⟨_, symRun_sound SigGolfCandidate.T3M.Expand.eblk_348 (codeAt_348W hC) s hpc
-    (by simp [SigGolfCandidate.T3M.Expand.eblk_348.res, rv_simp, accessValid_iff, MEMORY_BYTES, h28, h29, ENC]),
-    ?_, ?_, ?_⟩
-  · simp only [Result.toState_pc, SigGolfCandidate.T3M.Expand.eblk_348.res, E.eval, CmpOp.eval, rebase, rv_simp, ENC,
-      h28, h29]
-    split_ifs with h1 h2 h2 <;> simp_all
-  · ex_regs SigGolfCandidate.T3M.Expand.eblk_348.res
-  · intro A _ _; simp [SigGolfCandidate.T3M.Expand.eblk_348.res, rv_simp]
-theorem c351W (hpc : s.pc = pcOf 351) :
-    ∃ t, Steps im s 1 1 t ∧ t.pc = pcOf 41108 ∧ RegsExcept s t [] ∧ Frame s t (fun _ => False) := by
-  refine ⟨_, symRun_sound eblk_351v6 (codeAt_351W hC) s hpc (by simp [eblk_351v6.res, rv_simp]), ?_, ?_, ?_⟩
-  · simp [Result.toState_pc, eblk_351v6.res, E.eval]
-  · ex_regs eblk_351v6.res
-  · intro A _ _; simp [eblk_351v6.res, rv_simp]
-end compare
-theorem codeAt_41064 {im : Image} (hc : NewCodeAt im) : CodeAt im (pcOf 41064) [0x00000073] :=
-  codeAt_of_window hc (by decide) (by decide +kernel)
 theorem readWords_ext (t : MachineState) : ∀ (L : List Word) (A : Nat),
     (∀ i, i < L.length → t.getMem (BitVec.ofNat 64 (A + 8 * i)) = L.getD i 0) →
     t.readWords (BitVec.ofNat 64 A) L.length = L
@@ -735,62 +550,6 @@ theorem readWords_ext (t : MachineState) : ∀ (L : List Word) (A : Nat),
       rw [show A + 8 * (i + 1) = A + 8 * 1 + 8 * i by ring] at this
       simpa using this)]
     rfl
-theorem placed_words {N : HashOutput} {sig : WCT9.Signature} {t : MachineState} (hp : Placed N sig t) :
-    t.readWords (BitVec.ofNat 64 0x840) 1152 = wordsOf (wctBytesV5 N sig) := by
-  have hl : (wordsOf (wctBytesV5 N sig)).length = 1152 := length_wordsOf 1152 _ (by rw [wctBytesV5_length])
-  rw [← hl]
-  refine readWords_ext t _ 0x840 (fun i hi => ?_)
-  rw [hl] at hi
-  have hk : i / 128 < 9 := by omega
-  rw [wordsOf_getD _ 1152 (wctBytesV5_length N sig) i hi]
-  have hw : window (wctBytesV5 N sig) (8 * i) 8 =
-      window (regionBytesV5 (WCT9.child N ⟨i / 128, hk⟩).val (sig.openings ⟨i / 128, hk⟩)) (8 * (i % 128)) 8 := by
-    unfold wctBytesV5
-    rw [show 8 * i = 1024 * (i / 128) + 8 * (i % 128) by omega,
-      window_flatMap_const _ _ 1024 (fun k => regionBytesV5_length _ _) (i / 128) (by simp; omega) _ 8 (by omega)]
-    simp
-  rw [hw, show 0x840 + 8 * i = regBase (i / 128) + 8 * (i % 128) by unfold regBase; omega,
-    hp (i / 128) (i % 128) hk (by omega), regionWord]
-  have hk' : (⟨i / 128 % 9, Nat.mod_lt _ (by decide)⟩ : WCT9.Coord) = ⟨i / 128, hk⟩ := Fin.ext (Nat.mod_eq_of_lt hk)
-  rw [hk', wordsOf_getD _ 128 (regionBytesV5_length _ _) _ (by omega)]
-theorem witListW_words (t : MachineState) (N : HashOutput) (w : WCT9.Witness)
-    (hh : t.readWords (BitVec.ofNat 64 0x800) 8 = wordsOf (headerBytesV5 w))
-    (hwct : t.readWords (BitVec.ofNat 64 0x840) 1152 = wordsOf (wctBytesV5 N w.signature))
-    (hgap : t.readWords (BitVec.ofNat 64 0x2c40) 1 = List.replicate 1 0)
-    (hlay : ∀ lay : Layer, t.readWords (BitVec.ofNat 64 (lBase lay)) (8 * (height lay + chainCount lay)) =
-      wordsOf (layerRegionV6 N w lay)) :
-    t.readWords (BitVec.ofNat 64 0x800) 2873 = wordsOf (witListV5 N w) := by
-  have l1 : (headerBytesV5 w).length = 64 := headerBytesV5_length w
-  have hf : (List.finRange 4).flatMap (layerRegionV6 N w) =
-      layerRegionV6 N w 0 ++ layerRegionV6 N w 1 ++
-      layerRegionV6 N w 2 ++ layerRegionV6 N w 3 := by
-    simp only [List.finRange_succ, List.finRange_zero, List.flatMap_cons, List.flatMap_nil, List.map_cons,
-      List.map_nil, List.append_nil, List.append_assoc]
-    rfl
-  unfold witListV5
-  rw [hf]
-  simp only [List.append_assoc]
-  rw [wordsOf_append _ _ (by rw [l1]), wordsOf_append _ _ (by rw [wctBytesV5_length]),
-    wordsOf_append _ _ (by rw [show (SigGolfCandidate.T3M.zeros 8).length = 8 from List.length_replicate]),
-    wordsOf_append _ _ (by rw [layerRegionV6_length]; decide),
-    wordsOf_append _ _ (by rw [layerRegionV6_length]; decide),
-    wordsOf_append _ _ (by rw [layerRegionV6_length]; decide), ← hh, ← hwct]
-  have hz : wordsOf (SigGolfCandidate.T3M.zeros 8) = List.replicate 1 0 := by
-    rw [show SigGolfCandidate.T3M.zeros 8 = List.replicate (8 * 1) 0 from rfl, wordsOf_replicate_zero]
-  rw [hz, ← hgap]
-  have h0 := hlay 0; have h1 := hlay 1; have h2 := hlay 2; have h3 := hlay 3
-  rw [← h0, ← h1, ← h2, ← h3]
-  simp only [lBase, height, chainCount]
-  rw [show (2873 : Nat) = 8 + (1152 + (1 + (528 + (400 + (392 + 392))))) from rfl, readWords_add, readWords_add,
-    readWords_add, readWords_add, readWords_add, readWords_add]
-  rfl
-def tailProg (pk : PublicKey) (sig : WCT9.Signature) :
-    Option (BitVec 32 × HashOutput × (Digest × Digest)) → M (Option (HashOutput × WCT9.Witness))
-  | none => pure none
-  | some (counter, N, top) => do
-    let some (root, counters) ← WCT9.expandLayersBC sig (WCT9.digestIndex N) 4 (.pair top.1 top.2) | pure none
-    if root ≠ pk then return none
-    pure (some (N, ⟨sig, counter, fun lay => counters.getD lay.val 0⟩))
 -- [h2 lane] removed expandN_split: with H2, `expandN` is the searching expander; H2Search.expandN_splitS replaces it
 end ClaudeWCT.W9.Machine.Expand
 end

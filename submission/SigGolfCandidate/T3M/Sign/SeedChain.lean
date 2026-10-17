@@ -1,5 +1,5 @@
 import SigGolfCandidate.Research.V7Composed198Gate
-import SigGolfCandidate.T3M.Sign.SeedIndependent
+import SigGolfCandidate.T3M.Sign.PairStep
 
 namespace SigGolfCandidate.T3M.Sign.Seed
 open RiscvZkvm.Rv64 SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv SigGolfCandidate.Rv OracleComp
@@ -8,167 +8,12 @@ open SeedIndependent (SeedIndependentAt)
 open SigGolfCandidate.T3 (Layer Digest chainInput chain shortHash header pad64 zero16 height chainHeader)
 open SphincsSecurity (bytesLE bytesLE_length)
 set_option backward.isDefEq.respectTransparency false
-/-! ### C3 (FULL): the chain tail trampoline at 1667 -/
-def ctr0 : List (BitVec 32) := [34181731]
-def ctr1 : List (BitVec 32) := [33816675]
-def ctr2 : List (BitVec 32) := [6292243,6954083]
-def ctr3 : List (BitVec 32) := [134711,504247043,512635779,476985379,478034979,1706515,3662671983]
-def ctr4 : List (BitVec 32) := [1706515,3662671983]
-sym_block blkC0 := symRun { noAlias := true } ctr0 (pcOf 1667) 100
-sym_block blkC1 := symRun { noAlias := true } ctr1 (pcOf 1668) 100
-sym_block blkC2 := symRun { noAlias := true } ctr2 (pcOf 1669) 100
-sym_block blkC3 := symRun { noAlias := true } ctr3 (pcOf 1671) 100
-sym_block blkC4 := symRun { noAlias := true } ctr4 (pcOf 1676) 100
-theorem codeAt_ctr0 {image : Image} {b : Nat} (h : SeedIndependentAt image b) : CodeAt image (pcOf 1667) ctr0 := by
-  obtain ⟨rfl, rfl⟩ := h.2.2.2.2
-  exact codeAt_sign_slice (by decide +kernel) (by decide +kernel)
-theorem codeAt_ctr1 {image : Image} {b : Nat} (h : SeedIndependentAt image b) : CodeAt image (pcOf 1668) ctr1 := by
-  obtain ⟨rfl, rfl⟩ := h.2.2.2.2
-  exact codeAt_sign_slice (by decide +kernel) (by decide +kernel)
-theorem codeAt_ctr2 {image : Image} {b : Nat} (h : SeedIndependentAt image b) : CodeAt image (pcOf 1669) ctr2 := by
-  obtain ⟨rfl, rfl⟩ := h.2.2.2.2
-  exact codeAt_sign_slice (by decide +kernel) (by decide +kernel)
-theorem codeAt_ctr3 {image : Image} {b : Nat} (h : SeedIndependentAt image b) : CodeAt image (pcOf 1671) ctr3 := by
-  obtain ⟨rfl, rfl⟩ := h.2.2.2.2
-  exact codeAt_sign_slice (by decide +kernel) (by decide +kernel)
-theorem codeAt_ctr4 {image : Image} {b : Nat} (h : SeedIndependentAt image b) : CodeAt image (pcOf 1676) ctr4 := by
-  obtain ⟨rfl, rfl⟩ := h.2.2.2.2
-  exact codeAt_sign_slice (by decide +kernel) (by decide +kernel)
-theorem blkC3_regs (t : MachineState) : RegsExcept t (blkC3.res.toState t) [.x6, .x7, .x20, .x28] := by
-  intro r hr; simp at hr; cases r <;> simp_all [blkC3.res, rv_simp] <;> rfl
-/-- C3 (FULL): does the chain tail take the high half (chain 0 of a lower layer, after step 6)? -/
-def hiSel (lay i m : Nat) : Prop := lay ≠ 0 ∧ i = 0 ∧ m = 6
-instance (lay i m : Nat) : Decidable (hiSel lay i m) := by unfold hiSel; infer_instance
-/-- C3 (FULL): extra steps of the chain tail trampoline over the old `addi s4; jal` (2 steps). -/
-def trX (lay i m : Nat) : Nat := if i ≠ 0 then 2 else if lay = 0 then 3 else if m = 6 then 10 else 5
-theorem tramp_spec {image : Image} {b : Nat} (h : SeedIndependentAt image b) (s : MachineState)
-    (hpc : s.pc = pcOf (b + 24)) (lay i m : Nat) (hlay : lay < 2 ^ 64) (hi : i < 2 ^ 64) (hm : m < 2 ^ 63)
-    (h8 : s.getReg .x8 = BitVec.ofNat 64 lay) (h19 : s.getReg .x19 = BitVec.ofNat 64 i)
-    (h20 : s.getReg .x20 = BitVec.ofNat 64 m) (lo hv : Digest) (hlo : DigAt s (CHAIN + 48) lo)
-    (hhv : DigAt s (CHAIN + 64) hv) :
-    ∃ t, Steps image s (2 + trX lay i m) (2 + trX lay i m) t ∧ t.pc = pcOf (b + 1) ∧
-      t.getReg .x20 = BitVec.ofNat 64 (m + 1) ∧ DigAt t (CHAIN + 48) (if hiSel lay i m then hv else lo) ∧
-      RegsExcept s t [.x6, .x7, .x20, .x28] ∧ Frame s t (fun A => A = CHAIN + 48 ∨ A = CHAIN + 56) := by
-  obtain rfl := SeedIndependent.b_eq h
-  -- 1037: jal 1667
-  obtain ⟨t0, s0, p0, r0, f0⟩ : ∃ t, Steps image s 1 1 t ∧ t.pc = pcOf 1667 ∧ RegsExcept s t [] ∧
-      Frame s t (fun _ => False) := by
-    refine ⟨_, symRun_sound SeedIndependent.blkS_24 (SeedIndependent.codeAt_sub24S h) s hpc
-      (by simp [SeedIndependent.blkS_24.res, rv_simp]), ?_, ?_, ?_⟩
-    · simp [SeedIndependent.blkS_24.res, E.eval]
-    · intro r hr; cases r <;> rfl
-    · intro A hA hn; rfl
-  -- the final `addi s4,s4,1; jal 1014` at 1676
-  have last : ∀ u : MachineState, u.pc = pcOf 1676 → u.getReg .x20 = BitVec.ofNat 64 m →
-      ∃ t, Steps image u 2 2 t ∧ t.pc = pcOf (1013 + 1) ∧ t.getReg .x20 = BitVec.ofNat 64 (m + 1) ∧
-        RegsExcept u t [.x20] ∧ Frame u t (fun _ => False) := by
-    intro u hu hu20
-    refine ⟨_, symRun_sound blkC4 (codeAt_ctr4 h) u hu (by simp [blkC4.res, rv_simp]), ?_, ?_, ?_, ?_⟩
-    · simp [blkC4.res, E.eval]
-    · simp only [Result.toState_getReg, blkC4.res, rv_simp, hu20]
-      rw [ofNat_add_ofNat]
-    · intro r hr; simp at hr; cases r <;> simp_all [blkC4.res, rv_simp] <;> rfl
-    · intro A _ _; simp [blkC4.res, rv_simp]
-  have ne_of {x y : Nat} (hx : x < 2 ^ 64) (hy : y < 2 ^ 64) : (BitVec.ofNat 64 x != BitVec.ofNat 64 y) = decide (x ≠ y) := by
-    by_cases hxy : x = y
-    · subst hxy; simp
-    · have : BitVec.ofNat 64 x ≠ BitVec.ofNat 64 y := fun he => hxy ((ofNat_inj hx hy).mp he)
-      simp [hxy, this]
-  have eq_of {x y : Nat} (hx : x < 2 ^ 64) (hy : y < 2 ^ 64) : (BitVec.ofNat 64 x == BitVec.ofNat 64 y) = decide (x = y) := by
-    by_cases hxy : x = y
-    · subst hxy; simp
-    · have : BitVec.ofNat 64 x ≠ BitVec.ofNat 64 y := fun he => hxy ((ofNat_inj hx hy).mp he)
-      simp [hxy, this]
-  obtain ⟨t1, s1, p1, r1, f1⟩ : ∃ t, Steps image t0 1 1 t ∧ t.pc = (if i ≠ 0 then pcOf 1676 else pcOf 1668) ∧
-      RegsExcept t0 t [] ∧ Frame t0 t (fun _ => False) := by
-    refine ⟨_, symRun_sound blkC0 (codeAt_ctr0 h) t0 p0 (by simp [blkC0.res, rv_simp]), ?_, ?_, ?_⟩
-    · simp only [Result.toState_pc, blkC0.res, E.eval, CmpOp.eval, r0.get (by simp), h19]
-      rw [show (0#64 : Word) = BitVec.ofNat 64 0 from rfl, ne_of hi (by norm_num)]
-      by_cases hi0 : i = 0 <;> simp [hi0]
-    · intro r hr; cases r <;> rfl
-    · intro A hA hn; rfl
-  have g1 : ∀ r, r ∉ ([] : List Reg) → t1.getReg r = s.getReg r := fun r hr => (r0.trans r1).get hr
-  by_cases hi0 : i ≠ 0
-  · rw [if_pos hi0] at p1
-    obtain ⟨t2, s2, p2, x2, r2, f2⟩ := last t1 p1 (by rw [g1 _ (by simp)]; exact h20)
-    have hs : ¬ hiSel lay i m := fun hh => hi0 hh.2.1
-    refine ⟨t2, ((s0.trans s1).trans s2).of_eq (by simp [trX, hi0]) (by simp [trX, hi0]), p2, x2, ?_,
-      ((r0.trans r1).trans r2).mono (by simp), ((f0.trans f1).trans f2).mono (fun A _ hA => by simp_all)⟩
-    rw [if_neg hs]
-    exact hlo.frame ((f0.trans f1).trans f2) (by decide) (by simp) (by simp)
-  have hi0' : i = 0 := by omega
-  rw [if_neg hi0] at p1
-  obtain ⟨t2, s2, p2, r2, f2⟩ : ∃ t, Steps image t1 1 1 t ∧ t.pc = (if lay = 0 then pcOf 1676 else pcOf 1669) ∧
-      RegsExcept t1 t [] ∧ Frame t1 t (fun _ => False) := by
-    refine ⟨_, symRun_sound blkC1 (codeAt_ctr1 h) t1 p1 (by simp [blkC1.res, rv_simp]), ?_, ?_, ?_⟩
-    · simp only [Result.toState_pc, blkC1.res, E.eval, CmpOp.eval, g1 _ (by simp), h8]
-      rw [show (0#64 : Word) = BitVec.ofNat 64 0 from rfl, eq_of hlay (by norm_num)]
-      by_cases hl0 : lay = 0 <;> simp [hl0]
-    · intro r hr; cases r <;> rfl
-    · intro A hA hn; rfl
-  have g2 : ∀ r, r ∉ ([] : List Reg) → t2.getReg r = s.getReg r := fun r hr => ((r0.trans r1).trans r2).get hr
-  have f02 : Frame s t2 (fun _ => False) := ((f0.trans f1).trans f2).mono (fun A _ hA => by simp_all)
-  by_cases hl0 : lay = 0
-  · rw [if_pos hl0] at p2
-    obtain ⟨t3, s3, p3, x3, r3, f3⟩ := last t2 p2 (by rw [g2 _ (by simp)]; exact h20)
-    have hs : ¬ hiSel lay i m := fun hh => hh.1 hl0
-    refine ⟨t3, (((s0.trans s1).trans s2).trans s3).of_eq (by simp [trX, hi0', hl0]) (by simp [trX, hi0', hl0]),
-      p3, x3, ?_, (((r0.trans r1).trans r2).trans r3).mono (by simp),
-      (f02.trans f3).mono (fun A _ hA => by simp_all)⟩
-    rw [if_neg hs]
-    exact hlo.frame (f02.trans f3) (by decide) (by simp) (by simp)
-  rw [if_neg hl0] at p2
-  obtain ⟨t3, s3, p3, r3, f3⟩ : ∃ t, Steps image t2 2 2 t ∧ t.pc = (if m ≠ 6 then pcOf 1676 else pcOf 1671) ∧
-      RegsExcept t2 t [.x6] ∧ Frame t2 t (fun _ => False) := by
-    refine ⟨_, symRun_sound blkC2 (codeAt_ctr2 h) t2 p2 (by simp [blkC2.res, rv_simp]), ?_, ?_, ?_⟩
-    · simp only [Result.toState_pc, blkC2.res, E.eval, CmpOp.eval, g2 _ (by simp), h20]
-      rw [show (6#64 : Word) = BitVec.ofNat 64 6 from rfl, ne_of (by omega) (by norm_num)]
-      by_cases hm6 : m = 6 <;> simp [hm6]
-    · intro r hr; simp at hr; cases r <;> simp_all [blkC2.res, rv_simp] <;> rfl
-    · intro A hA hn; simp [blkC2.res, rv_simp]
-  have f03 : Frame s t3 (fun _ => False) := (f02.trans f3).mono (fun A _ hA => by simp_all)
-  have g3 : ∀ r, r ∉ [.x6] → t3.getReg r = s.getReg r := fun r hr => ((((r0.trans r1).trans r2).trans r3)).get
-    (by simpa using hr)
-  by_cases hm6 : m ≠ 6
-  · rw [if_pos hm6] at p3
-    obtain ⟨t4, s4, p4, x4, r4, f4⟩ := last t3 p3 (by rw [g3 _ (by simp)]; exact h20)
-    have hs : ¬ hiSel lay i m := fun hh => hm6 hh.2.2
-    refine ⟨t4, ((((s0.trans s1).trans s2).trans s3).trans s4).of_eq (by simp [trX, hi0', hl0, hm6])
-      (by simp [trX, hi0', hl0, hm6]), p4, x4, ?_, ((((r0.trans r1).trans r2).trans r3).trans r4).mono (by simp),
-      (f03.trans f4).mono (fun A _ hA => by simp_all)⟩
-    rw [if_neg hs]
-    exact hlo.frame (f03.trans f4) (by decide) (by simp) (by simp)
-  have hm6' : m = 6 := by omega
-  rw [if_neg hm6] at p3
-  have hs : hiSel lay i m := ⟨hl0, hi0', hm6'⟩
-  have hobl : Oblig.all t3 blkC3.res.st.obl := by simp [blkC3.res, rv_simp]
-  refine ⟨_, ((((s0.trans s1).trans s2).trans s3).trans (symRun_sound blkC3 (codeAt_ctr3 h) t3 p3 hobl)).of_eq
-    (by simp [trX, hi0', hl0, hm6', blkC3.res]) (by simp [trX, hi0', hl0, hm6', blkC3.res]), ?_, ?_, ?_, ?_, ?_⟩
-  · simp [blkC3.res, E.eval]
-  · simp only [Result.toState_getReg, blkC3.res, rv_simp]
-    rw [g3 .x20 (by simp), h20, hm6']; rfl
-  · rw [if_pos hs]
-    have hv3 := hhv.frame f03 (by decide) (by simp) (by simp)
-    constructor
-    · simp only [Result.toState_getMem, blkC3.res]
-      t3n []
-      exact hv3.1
-    · simp only [Result.toState_getMem, blkC3.res]
-      t3n []
-      exact hv3.2
-  · exact ((((r0.trans r1).trans r2).trans r3).trans (blkC3_regs t3)).mono (by simp)
-  · have f4 : Frame t3 (blkC3.res.toState t3) (fun A => A = CHAIN + 48 ∨ A = CHAIN + 56) := by
-      intro A hA hn
-      simp only [Result.toState_getMem, blkC3.res]
-      t3n []
-      have hA' : A % 18446744073709551616 = A := Nat.mod_eq_of_lt hA
-      rw [hA', if_neg (by simp only [CHAIN] at hn; omega), if_neg (by simp only [CHAIN] at hn; omega)]
-    exact (f03.trans f4).mono (fun A _ hA => by simp_all)
+/-- Pairing stage 1: the header ends at `b + 18` (`jal 1732`) with `t3 = CHAIN`. -/
 theorem shared_header {image : Image} {b : Nat} (h : SeedIndependentAt image b)
     (s : MachineState) (hpc : s.pc = pcOf (b + 9)) (lay : Layer)
     (h8 : s.getReg .x8 = BitVec.ofNat 64 lay.val) :
-    ∃ t, Steps image s (headerK lay) (headerK lay) t ∧ t.pc = pcOf (b + 23) ∧
-      HeaderPost s t (height lay) := by
+    ∃ t, Steps image s (headerK lay - 5) (headerK lay - 5) t ∧ t.pc = pcOf (b + 18) ∧
+      SignHeaderPost s t (height lay) := by
   obtain ⟨rfl, rfl⟩ := h.2.2.2.2
   fin_cases lay
   · exact sign_header_0 s hpc h8
@@ -184,15 +29,14 @@ theorem shared_header_source {image : Image} {b : Nat} (h : SeedIndependentAt im
     (h18 : s.getReg .x18 = BitVec.ofNat 64 leaf)
     (h19 : s.getReg .x19 = BitVec.ofNat 64 i)
     (h20 : s.getReg .x20 = BitVec.ofNat 64 step) :
-    ∃ t, Steps image s (headerK lay) (headerK lay) t ∧ t.pc = pcOf (b + 23) ∧
-      t.getReg .x10 = BitVec.ofNat 64 0x201A0 ∧ t.getReg .x11 = 64#64 ∧
-      t.getReg .x12 = BitVec.ofNat 64 (0x201A0 + 48) ∧
+    ∃ t, Steps image s (headerK lay - 5) (headerK lay - 5) t ∧ t.pc = pcOf (b + 18) ∧
+      t.getReg .x28 = BitVec.ofNat 64 0x201A0 ∧
       t.getMem (BitVec.ofNat 64 (0x201A0 + 16)) = (chainHeader lay tree leaf i step).extractLsb' 0 64 ∧
       t.getMem (BitVec.ofNat 64 (0x201A0 + 24)) = (chainHeader lay tree leaf i step).extractLsb' 64 64 ∧
-      RegsExcept s t [.x6, .x7, .x10, .x11, .x12, .x28, .x30] ∧
+      RegsExcept s t [.x6, .x7, .x28, .x30] ∧
       Frame s t (fun A => A = 0x201A0 + 16 ∨ A = 0x201A0 + 24) := by
   obtain ⟨t, st, pc, post⟩ := shared_header h s hpc lay h8
-  refine ⟨t, st, pc, post.arg0, post.arg1, post.arg2,
+  refine ⟨t, st, pc, post.x28,
     post.low.trans (packedAt_source s lay tree leaf i step hr hf hi hs h8 h9 h18 h19 h20),
     ?_, post.regs, post.frame⟩
   exact (post.high.trans (routedAt_high_zero s lay tree leaf hr h9 h18)).trans
@@ -274,9 +118,6 @@ theorem sub26_spec {image : Image} {b : Nat} (h : SeedIndependentAt image b) (s 
   · simp only [Result.toState_pc, pcE_26, blk117_26.res, rv_simp, h1, pcOf_and_max]
   · intro r hr; cases r <;> simp_all [st_26, blk117_26.res, rv_simp] <;> rfl
   · intro A _ _; simp [st_26, blk117_26.res, rv_simp]
-theorem fetch_sub23 {image : Image} {b : Nat} (h : SeedIndependentAt image b) (s : MachineState)
-    (hpc : s.pc = pcOf (b + 23)) : fetch image s = some (.base .ECALL) :=
-  ((SeedIndependent.codeAt_sub_23 h).fetch s hpc).trans rfl
 theorem sumTo_split (F : Nat → Nat) (a : Nat) : ∀ n, sumTo F (a + 1 + n) = sumTo F a + F a + sumTo (fun j => F (a + 1 + j)) n
   | 0 => by simp [sumTo]
   | n + 1 => by
@@ -285,19 +126,8 @@ theorem sumTo_split (F : Nat → Nat) (a : Nat) : ∀ n, sumTo F (a + 1 + n) = s
 def chainK (lay : Layer) (i e : Nat) : Nat := sumTo (fun m => rungK lay + trX lay.val i m) e + 10
 /-- C3 (FULL): cycles of one chain run of `e` hashes. -/
 def chainCy (lay : Layer) (i e : Nat) : Nat := sumTo (fun m => rungC lay + trX lay.val i m) e + 10
-theorem halfOf_chainHigh (lay : Layer) (i m : Nat) (a : BitVec 256) :
-    ClaudeWCT.WCT9.halfOf (ClaudeWCT.WCT9.chainHigh lay i m) a =
-      if hiSel lay.val i m then a.extractLsb' 128 128 else a.extractLsb' 0 128 := by
-  have hl : (lay ≠ 0) ↔ lay.val ≠ 0 := ⟨fun h h' => h (Fin.ext h'), fun h h' => h (by rw [h']; rfl)⟩
-  unfold ClaudeWCT.WCT9.halfOf ClaudeWCT.WCT9.chainHigh hiSel
-  by_cases h1 : lay.val ≠ 0 <;> by_cases h2 : i = 0 <;> by_cases h3 : m = 6 <;> simp_all
 /-- C2: the half of a lower leaf / node hash output kept by the machine (`16` = the HIGH half, for even indices). -/
 def hiO (x : Nat) : Nat := if x % 2 = 0 then 16 else 0
-theorem and1_ofNat (x : Nat) : BitVec.ofNat 64 x &&& 1#64 = BitVec.ofNat 64 (x % 2) := by
-  apply BitVec.eq_of_toNat_eq
-  simp only [BitVec.toNat_and, BitVec.toNat_ofNat]
-  rw [show (1 : Nat) % 2 ^ 64 = 1 by norm_num, Nat.and_one_is_mod]
-  omega
 theorem halfSel_eval (x : Nat) :
     BinOp.eval .sll (BinOp.eval .xor (BinOp.eval .and (BitVec.ofNat 64 x) 1#64) 1#64) 4#64 =
       BitVec.ofNat 64 (hiO x) := by
@@ -314,108 +144,107 @@ theorem DigAt.writeHash_lowerHalf (t : MachineState) (a : BitVec 256) (B lay x :
     exact DigAt.writeHash_lo t a B h12 hB
 section loop
 variable {image : Image} {b : Nat} (hsub : SeedIndependentAt image b) (sk : BitVec 256) {s0 : MachineState}
-  {lay : Layer} {tree leaf i cap e valp ret : Nat} (hpre : ChainPre s0 lay tree leaf i cap e valp ret)
+  {lay : Layer} {tree leaf i cap e valp ret : Nat} (hpre : ChainPreS s0 lay tree leaf i cap e valp ret)
 include hsub hpre
 omit hpre in
 theorem chain_entry (hpc : s0.pc = pcOf b) (seed : Digest) (hseed : DigAt s0 (CHAIN + 48) seed) :
-    ∃ t, Steps image s0 1 1 t ∧ ChainHead b s0 valp 0 seed t := by
+    ∃ t, Steps image s0 1 1 t ∧ ChainHeadS b s0 valp 0 seed t := by
   obtain ⟨t, st, tpc, t20, tr, tf⟩ := sub0_spec hsub s0 (by simpa using hpc)
   exact ⟨t, st, ⟨tpc, t20, tr.mono (by simp [chainRegs]), tf.mono (fun _ _ h => h.elim),
     hseed.frame tf (by decide) (by simp) (by simp)⟩⟩
-theorem chain_tail {m : Nat} {u : MachineState} (hupc : u.pc = pcOf (b + 23))
-    (h20 : u.getReg .x20 = BitVec.ofNat 64 m) (hm : m < 8) (h12 : u.getReg .x12 = BitVec.ofNat 64 (CHAIN + 48))
-    (hregs : RegsExcept s0 u chainRegs) (hfr : Frame s0 u (ChainW valp)) (a : BitVec 256) :
-    ∃ w, Steps image (writeHash u a) (2 + trX lay.val i m) (2 + trX lay.val i m) w ∧
-      ChainHead b s0 valp (m + 1) (ClaudeWCT.WCT9.halfOf (ClaudeWCT.WCT9.chainHigh lay i m) a) w ∧
-      Frame u w (fun A => CHAIN + 48 ≤ A ∧ A < CHAIN + 80) := by
-  have hwf := Frame.writeHash u a (CHAIN + 48) h12 (by decide)
-  have g : ∀ r, r ∉ chainRegs → u.getReg r = s0.getReg r := fun r hr => hregs.get hr
-  have hi := hpre.hi
-  obtain ⟨w, st, wpc, w20, wv, wr, wf⟩ := tramp_spec hsub (writeHash u a)
-    (by rw [pc_writeHash, hupc, pcOf_add4]) lay.val i m (by have := lay.isLt; omega) (by omega) (by omega)
-    (by rw [getReg_writeHash, g _ (by simp [chainRegs]), hpre.x8])
-    (by rw [getReg_writeHash, g _ (by simp [chainRegs]), hpre.x19])
-    (by rw [getReg_writeHash, h20]) _ _ (DigAt.writeHash_lo u a (CHAIN + 48) h12 (by decide))
-    (DigAt.writeHash_hi u a (CHAIN + 48) h12 (by decide))
-  have hfw : Frame u w (fun A => CHAIN + 48 ≤ A ∧ A < CHAIN + 80) := (hwf.trans wf).mono (fun A _ h => by
-    rcases h with h | h
-    · exact h
-    · simp only [CHAIN] at h ⊢; omega)
-  refine ⟨w, st, ⟨wpc, w20, ?_, ?_, ?_⟩, hfw⟩
-  · have h1 : RegsExcept u (writeHash u a) [] := fun r _ => getReg_writeHash u a r
-    refine ((hregs.trans h1).trans wr).mono ?_
-    intro r hr
-    simp only [chainRegs, List.mem_append, List.mem_cons, List.not_mem_nil, or_false] at hr ⊢
-    tauto
-  · refine (hfr.trans (hwf.trans wf)).mono ?_
-    intro A _ h; unfold ChainW; rcases h with h | h | h
-    · exact h
-    · exact Or.inr (Or.inl h)
-    · right; left; simp only [CHAIN] at h ⊢; omega
-  · rw [halfOf_chainHigh]; exact wv
-theorem chain_step {m : Nat} (hm : m < e) (hmc : m ≠ cap) {v : Digest} {t : MachineState}
-    (ht : ChainHead b s0 valp m v t) :
-    TSim image sk t (rungK lay + trX lay.val i m) (rungC lay + trX lay.val i m) 1 1
-      (ClaudeWCT.WCT9.halfHash (ClaudeWCT.WCT9.chainHigh lay i m) (chainInput lay tree leaf i m v))
-      (fun v' u => ChainHead b s0 valp (m + 1) v' u ∧
-        Frame t u (fun A => (A = CHAIN + 16 ∨ A = CHAIN + 24) ∨ (CHAIN + 48 ≤ A ∧ A < CHAIN + 80))) := by
-  have hcap := hpre.hcap
+omit hpre in
+theorem stepCode_of : StepCode image := by
+  obtain ⟨rfl, rfl⟩ := hsub.2.2.2.2
+  exact stepCode_reference
+/-- Pairing stage 1: the header from `b + 9` and the step block (`pair_rung`), from a state `t3` that agrees with the
+chain head `t` outside the header words and `valp`. -/
+theorem chain_rung {m : Nat} (hm : m < e) {v : Digest} {t t2 : MachineState}
+    (ht : ChainHeadS b s0 valp m v t) (ht2 : t2.pc = pcOf (b + 9))
+    (hr2 : RegsExcept t t2 [.x6, .x7, .x29]) (hf2 : Frame t t2 (fun A => valp ≤ A ∧ A < valp + 16)) :
+    TSim image sk t2 (headerK lay - 5 + (8 + trX lay.val i m)) (headerK lay - 5 + (15 + trX lay.val i m)) 1 1
+      (ClaudeWCT.WCT9.halfHash (ClaudeWCT.WCT9.chainHigh lay i m) (ClaudeWCT.WCT9.chainInputW lay tree leaf i m v))
+      (fun v' u => ChainHeadS b s0 valp (m + 1) v' u ∧
+        Frame t2 u (fun A => (A = CHAIN + 16 ∨ A = CHAIN + 24) ∨ (CHAIN + 32 ≤ A ∧ A < CHAIN + 112))) := by
   have he := hpre.he
   have hi := hpre.hi
+  have hvc := hpre.hvc
+  obtain rfl := SeedIndependent.b_eq hsub
+  have g : ∀ r, r ∉ chainRegs → r ∉ [.x6, .x7, .x29] → t2.getReg r = s0.getReg r := fun r hr hr' =>
+    (hr2.get hr').trans (ht.regs.get hr)
+  obtain ⟨t3, st3, t3pc, t3x28, t3w, t3w24, t3r, t3f⟩ :=
+    sub9_spec hsub t2 ht2 lay tree leaf i m hpre.hroute hpre.hleaf hi (by omega)
+    (by rw [g _ (by simp [chainRegs]) (by simp)]; exact hpre.x8)
+    (by rw [g _ (by simp [chainRegs]) (by simp)]; exact hpre.x9)
+    (by rw [g _ (by simp [chainRegs]) (by simp)]; exact hpre.x18)
+    (by rw [g _ (by simp [chainRegs]) (by simp)]; exact hpre.x19)
+    (by rw [hr2.get (by simp)]; exact ht.x20)
+  have g3 : ∀ r, r ∉ chainRegs → t3.getReg r = s0.getReg r := fun r hr =>
+    (t3r.get (fun h => hr (by simp [chainRegs] at h ⊢; rcases h with h | h | h | h <;> simp [h]))).trans
+      (g r hr (fun h => hr (by simp [chainRegs] at h ⊢; rcases h with h | h | h <;> simp [h])))
+  have f03 : Frame s0 t3 (fun A => ChainWS valp A) := ((ht.frame.trans hf2).trans t3f).mono (fun A _ h => by
+    unfold ChainWS at *; rcases h with (h | h) | h
+    · exact h
+    · exact Or.inr (Or.inr h)
+    · exact Or.inl h)
+  have hv3 : DigAt t3 (CHAIN + 48) v := (ht.val.frame hf2 (by decide) (by omega) (by omega)).frame t3f
+    (by decide) (by simp) (by simp)
+  have run := pair_rung (stepCode_of hsub) sk t3 (by rw [t3pc]) lay tree leaf i m v hi (by omega)
+    (fun hl => by have := hpre.hlow hl; omega)
+    ((g3 _ (by simp [chainRegs])).trans hpre.x5)
+    ((g3 _ (by simp [chainRegs])).trans hpre.x8)
+    ((g3 _ (by simp [chainRegs])).trans hpre.x19)
+    (by rw [t3r.get (by simp), hr2.get (by simp)]; exact ht.x20)
+    t3x28
+    (by rw [f03.get (by decide) (by unfold ChainWS; simp only [CHAIN] at *; omega)]; exact hpre.z0)
+    (by rw [f03.get (by decide) (by unfold ChainWS; simp only [CHAIN] at *; omega)]; exact hpre.z8)
+    t3w t3w24 (source_high_actual lay tree leaf i m hpre.hroute hpre.hleaf hi (by omega)) hv3
+  refine (TSim.steps st3 run).mono ?_
+  intro v' u hu
+  refine ⟨⟨hu.1, hu.2.1, ?_, ?_, hu.2.2.1⟩, ?_⟩
+  · exact (((ht.regs.trans hr2).trans t3r).trans hu.2.2.2.1).mono (by simp [chainRegs])
+  · exact (f03.trans hu.2.2.2.2.1).mono (fun A _ h => by
+      unfold ChainWS at *; rcases h with h | h
+      · exact h
+      · exact Or.inr (Or.inl h))
+  · exact (t3f.trans hu.2.2.2.2.1).mono (fun A _ h => by
+      rcases h with h | h
+      · exact Or.inl h
+      · exact Or.inr h)
+theorem chain_step {m : Nat} (hm : m < e) (hmc : m ≠ cap) {v : Digest} {t : MachineState}
+    (ht : ChainHeadS b s0 valp m v t) :
+    TSim image sk t (rungK lay + trX lay.val i m) (rungC lay + trX lay.val i m) 1 1
+      (ClaudeWCT.WCT9.halfHash (ClaudeWCT.WCT9.chainHigh lay i m) (ClaudeWCT.WCT9.chainInputW lay tree leaf i m v))
+      (fun v' u => ChainHeadS b s0 valp (m + 1) v' u ∧
+        Frame t u (fun A => (A = CHAIN + 16 ∨ A = CHAIN + 24) ∨ (CHAIN + 32 ≤ A ∧ A < CHAIN + 112))) := by
+  have hcap := hpre.hcap
+  have he := hpre.he
   have g : ∀ r, r ∉ chainRegs → t.getReg r = s0.getReg r := fun r hr => ht.regs.get hr
   have h17 : t.getReg .x17 = BitVec.ofNat 64 cap := by rw [g _ (by simp [chainRegs]), hpre.x17]
   have h21 : t.getReg .x21 = BitVec.ofNat 64 e := by rw [g _ (by simp [chainRegs]), hpre.x21]
-  have h19 : t.getReg .x19 = BitVec.ofNat 64 i := by rw [g _ (by simp [chainRegs]), hpre.x19]
-  have h8 : t.getReg .x8 = BitVec.ofNat 64 lay.val := by rw [g _ (by simp [chainRegs]), hpre.x8]
-  have h5 : t.getReg .x5 = 0 := by rw [g _ (by simp [chainRegs]), hpre.x5]
   obtain ⟨t1, st1, t1pc, t1r, t1f⟩ := sub1_spec hsub t ht.pc m cap (by omega) (by omega) ht.x20 h17
   rw [if_neg hmc] at t1pc
   obtain ⟨t2, st2, t2pc, t2r, t2f⟩ := sub8_spec hsub t1 t1pc m e (by omega) (by omega)
     (by rw [t1r.get (by simp)]; exact ht.x20) (by rw [t1r.get (by simp)]; exact h21)
   rw [if_neg (by omega)] at t2pc
-  have e12 : RegsExcept t t2 [] := (t1r.trans t2r).mono (by simp)
-  obtain ⟨t3, st3, t3pc, t3x10, t3x11, t3x12, t3w, t3w24, t3r, t3f⟩ :=
-    sub9_spec hsub t2 t2pc lay tree leaf i m hpre.hroute hpre.hleaf hi (by omega)
-    (by rw [e12.get (by simp)]; exact h8)
-    (by rw [e12.get (by simp), g _ (by simp [chainRegs]), hpre.x9])
-    (by rw [e12.get (by simp), g _ (by simp [chainRegs]), hpre.x18])
-    (by rw [e12.get (by simp)]; exact h19)
-    (by rw [e12.get (by simp)]; exact ht.x20)
-  have f13 : Frame t t3 (fun A => A = CHAIN + 16 ∨ A = CHAIN + 24) :=
-    ((t1f.trans t2f).trans t3f).mono (fun A _ h => by rcases h with (h | h) | h <;> simp_all)
-  have r13 : RegsExcept t t3 [.x6, .x7, .x10, .x11, .x12, .x28, .x30] := (e12.trans t3r).mono (by simp)
-  have hq := chain_hash hpre hm ht (f13.mono (fun A _ h => Or.inl h)) t3x10 t3x11 t3w t3w24
-  have hv : hashArgumentsValid t3 = true :=
-    hashArgs_const t3 CHAIN 64 (CHAIN + 48) t3x10 t3x11 t3x12 (by decide) (by decide) (by decide)
-      (by decide) (by decide)
-  have h5' : t3.getReg .x5 = 0 := by rw [r13.get (by simp), h5]
-  have h20' : t3.getReg .x20 = BitVec.ofNat 64 m := by rw [r13.get (by simp), ht.x20]
-  have hr3 : RegsExcept s0 t3 chainRegs := (ht.regs.trans r13).mono (by simp [chainRegs])
-  have hf3 : Frame s0 t3 (ChainW valp) :=
-    (ht.frame.trans f13).mono (fun A _ h => by unfold ChainW at *; rcases h with h | h <;> simp_all)
-  rw [ClaudeWCT.WCT9.halfHash_eq]
-  refine (TSim.steps (st1.trans (st2.trans st3)) (TSim.publicHash_bind (k := 2 + trX lay.val i m)
-    (c := 2 + trX lay.val i m) (n := 0) (b := 0)
-    (fetch_sub23 hsub t3 t3pc) h5' hv hq (fun a => ?_))).of_eq rfl ?_ ?_ ?_ ?_
-  · obtain ⟨w, stw, hw, wf⟩ := chain_tail hsub hpre t3pc h20' (by omega) t3x12 hr3 hf3 a
-    exact TSim.pure_steps stw ⟨hw, (f13.trans wf).mono (fun A _ h => by rcases h with h | h <;> simp_all)⟩
-  all_goals simp [toQ_chainInput_blocks, rungK, rungC] <;> omega
+  have run := chain_rung hsub sk hpre hm ht t2pc ((t1r.trans t2r).mono (by simp))
+    ((t1f.trans t2f).mono (fun A _ h => by simp_all))
+  refine ((TSim.steps (st1.trans st2) run).of_eq rfl ?_ ?_ rfl rfl).mono ?_
+  · unfold rungK headerK; split_ifs <;> omega
+  · unfold rungC headerK; split_ifs <;> omega
+  · intro v' u hu
+    exact ⟨hu.1, ((t1f.trans t2f).trans hu.2).mono (fun A _ h => by rcases h with (h | h) | h <;> simp_all)⟩
 theorem chain_step_cap {m : Nat} (hm : m < e) (hmc : m = cap) {v : Digest} {t : MachineState}
-    (ht : ChainHead b s0 valp m v t) :
+    (ht : ChainHeadS b s0 valp m v t) :
     TSim image sk t (rungK lay + 6 + trX lay.val i m) (rungC lay + 6 + trX lay.val i m) 1 1
-      (ClaudeWCT.WCT9.halfHash (ClaudeWCT.WCT9.chainHigh lay i m) (chainInput lay tree leaf i m v))
-      (fun v' u => ChainHead b s0 valp (m + 1) v' u ∧ DigAt u valp v ∧ Frame t u (ChainW valp)) := by
+      (ClaudeWCT.WCT9.halfHash (ClaudeWCT.WCT9.chainHigh lay i m) (ClaudeWCT.WCT9.chainInputW lay tree leaf i m v))
+      (fun v' u => ChainHeadS b s0 valp (m + 1) v' u ∧ DigAt u valp v ∧ Frame t u (ChainWS valp)) := by
   have hcap := hpre.hcap
   have he := hpre.he
-  have hi := hpre.hi
   have hvc := hpre.hvc
   have hvb := hpre.hv
   have g : ∀ r, r ∉ chainRegs → t.getReg r = s0.getReg r := fun r hr => ht.regs.get hr
   have h17 : t.getReg .x17 = BitVec.ofNat 64 cap := by rw [g _ (by simp [chainRegs]), hpre.x17]
   have h21 : t.getReg .x21 = BitVec.ofNat 64 e := by rw [g _ (by simp [chainRegs]), hpre.x21]
-  have h19 : t.getReg .x19 = BitVec.ofNat 64 i := by rw [g _ (by simp [chainRegs]), hpre.x19]
-  have h8 : t.getReg .x8 = BitVec.ofNat 64 lay.val := by rw [g _ (by simp [chainRegs]), hpre.x8]
-  have h5 : t.getReg .x5 = 0 := by rw [g _ (by simp [chainRegs]), hpre.x5]
   have h23 : t.getReg .x23 = BitVec.ofNat 64 valp := by rw [g _ (by simp [chainRegs]), hpre.x23]
   obtain ⟨t1, st1, t1pc, t1r, t1f⟩ := sub1_spec hsub t ht.pc m cap (by omega) (by omega) ht.x20 h17
   rw [if_pos hmc] at t1pc
@@ -427,40 +256,23 @@ theorem chain_step_cap {m : Nat} (hm : m < e) (hmc : m = cap) {v : Digest} {t : 
     (by rw [t2r.get (by simp), t1r.get (by simp)]; exact ht.x20)
     (by rw [t2r.get (by simp), t1r.get (by simp)]; exact h21)
   rw [if_neg (by omega)] at t3pc
-  have e13 : RegsExcept t t3 [.x6, .x7, .x29] := ((t1r.trans t2r).trans t3r).mono (by simp)
-  obtain ⟨t4, st4, t4pc, t4x10, t4x11, t4x12, t4w, t4w24, t4r, t4f⟩ :=
-    sub9_spec hsub t3 t3pc lay tree leaf i m hpre.hroute hpre.hleaf hi (by omega)
-    (by rw [e13.get (by simp)]; exact h8)
-    (by rw [e13.get (by simp), g _ (by simp [chainRegs]), hpre.x9])
-    (by rw [e13.get (by simp), g _ (by simp [chainRegs]), hpre.x18])
-    (by rw [e13.get (by simp)]; exact h19)
-    (by rw [e13.get (by simp)]; exact ht.x20)
-  have f14 : Frame t t4 (fun A => (A = CHAIN + 16 ∨ A = CHAIN + 24) ∨ (valp ≤ A ∧ A < valp + 16)) :=
-    (((t1f.trans t2f).trans t3f).trans t4f).mono (fun A _ h => by
-      rcases h with ((h | h | h) | h) | h <;> first | exact h.elim | (right; omega) | (left; exact h))
-  have r14 : RegsExcept t t4 [.x6, .x7, .x10, .x11, .x12, .x28, .x29, .x30] :=
-    (e13.trans t4r).mono (by simp)
-  have hq := chain_hash hpre hm ht f14 t4x10 t4x11 t4w t4w24
-  have hv : hashArgumentsValid t4 = true :=
-    hashArgs_const t4 CHAIN 64 (CHAIN + 48) t4x10 t4x11 t4x12 (by decide) (by decide) (by decide)
-      (by decide) (by decide)
-  have h5' : t4.getReg .x5 = 0 := by rw [r14.get (by simp), h5]
-  have h20' : t4.getReg .x20 = BitVec.ofNat 64 m := by rw [r14.get (by simp), ht.x20]
-  have hr4 : RegsExcept s0 t4 chainRegs := (ht.regs.trans r14).mono (by simp [chainRegs])
-  have hf4 : Frame s0 t4 (ChainW valp) :=
-    (ht.frame.trans f14).mono (fun A _ h => by unfold ChainW at *; rcases h with h | h | h <;> simp_all)
-  have hvv4 : DigAt t4 valp v := hvv.frame (t3f.trans t4f) (by omega)
-    (by simp; sc_omega) (by simp; sc_omega)
-  rw [ClaudeWCT.WCT9.halfHash_eq]
-  refine (TSim.steps (st1.trans (st2.trans (st3.trans st4))) (TSim.publicHash_bind (k := 2 + trX lay.val i m)
-    (c := 2 + trX lay.val i m) (n := 0) (b := 0)
-    (fetch_sub23 hsub t4 t4pc) h5' hv hq (fun a => ?_))).of_eq rfl ?_ ?_ ?_ ?_
-  · obtain ⟨w, stw, hw, wf⟩ := chain_tail hsub hpre t4pc h20' (by omega) t4x12 hr4 hf4 a
-    refine TSim.pure_steps stw ⟨hw, hvv4.frame wf (by omega) (by simp; omega) (by simp; omega), ?_⟩
-    refine (f14.trans wf).mono (fun A _ h => ?_)
-    unfold ChainW; rcases h with (h | h) | h <;> simp_all
-  all_goals simp [toQ_chainInput_blocks, rungK, rungC] <;> omega
-theorem chain_exit {v : Digest} {t : MachineState} (ht : ChainHead b s0 valp e v t) (hec : e ≠ cap) :
+  have f13 : Frame t t3 (fun A => valp ≤ A ∧ A < valp + 16) :=
+    ((t1f.trans t2f).trans t3f).mono (fun A _ h => by
+      rcases h with (h | h | h) | h <;> first | exact h.elim | omega)
+  have run := chain_rung hsub sk hpre hm ht t3pc (((t1r.trans t2r).trans t3r).mono (by simp)) f13
+  have hvv3 : DigAt t3 valp v := hvv.frame t3f (by omega) (by simp) (by simp)
+  refine ((TSim.steps (st1.trans (st2.trans st3)) run).of_eq rfl ?_ ?_ rfl rfl).mono ?_
+  · unfold rungK headerK; split_ifs <;> omega
+  · unfold rungC headerK; split_ifs <;> omega
+  · intro v' u hu
+    refine ⟨hu.1, hvv3.frame hu.2 (by omega) (by simp only [CHAIN] at *; omega)
+      (by simp only [CHAIN] at *; omega), ?_⟩
+    exact (f13.trans hu.2).mono (fun A _ h => by
+      unfold ChainWS; rcases h with h | h | h
+      · exact Or.inr (Or.inr h)
+      · exact Or.inl h
+      · exact Or.inr (Or.inl h))
+theorem chain_exit {v : Digest} {t : MachineState} (ht : ChainHeadS b s0 valp e v t) (hec : e ≠ cap) :
     ∃ u, Steps image t 3 3 u ∧ u.pc = pcOf ret ∧ RegsExcept t u [] ∧ Frame t u (fun _ => False) := by
   have he := hpre.he
   have hcap := hpre.hcap
@@ -476,7 +288,7 @@ theorem chain_exit {v : Digest} {t : MachineState} (ht : ChainHead b s0 valp e v
     (by rw [t2r.get (by simp), t1r.get (by simp), g _ (by simp [chainRegs]), hpre.x1])
   exact ⟨t3, st1.trans (st2.trans st3), t3pc, ((t1r.trans t2r).trans t3r).mono (by simp),
     ((t1f.trans t2f).trans t3f).mono (fun A _ h => by simp_all)⟩
-theorem chain_exit_cap {v : Digest} {t : MachineState} (ht : ChainHead b s0 valp e v t) (hec : e = cap) :
+theorem chain_exit_cap {v : Digest} {t : MachineState} (ht : ChainHeadS b s0 valp e v t) (hec : e = cap) :
     ∃ u, Steps image t 9 9 u ∧ u.pc = pcOf ret ∧ DigAt u valp v ∧ RegsExcept t u [.x6, .x7, .x29] ∧
       Frame t u (fun A => valp ≤ A ∧ A < valp + 16) := by
   have he := hpre.he
@@ -505,7 +317,7 @@ theorem chainRun_tsim (hpc : s0.pc = pcOf b) (seed : Digest) (hseed : DigAt s0 (
           let last ← ClaudeWCT.WCT9.chainW lay tree leaf i cap (e - cap) v
           pure (v, last))
       (fun r t => t.pc = pcOf ret ∧ DigAt t valp r.1 ∧ DigAt t (CHAIN + 48) r.2 ∧
-        RegsExcept s0 t chainRegs ∧ Frame s0 t (ChainW valp)) := by
+        RegsExcept s0 t chainRegs ∧ Frame s0 t (ChainWS valp)) := by
   have hcap := hpre.hcap
   have hvc := hpre.hvc
   have hvb := hpre.hv
@@ -513,23 +325,23 @@ theorem chainRun_tsim (hpc : s0.pc = pcOf b) (seed : Digest) (hseed : DigAt s0 (
   have p1 : TSim image sk t0 (sumTo (fun j => rungK lay + trX lay.val i (0 + j)) cap)
       (sumTo (fun j => rungC lay + trX lay.val i (0 + j)) cap)
       (sumTo (fun _ => 1) cap) (sumTo (fun _ => 1) cap)
-      (ClaudeWCT.WCT9.chainW lay tree leaf i 0 cap seed) (fun v t => ChainHead b s0 valp cap v t) := by
+      (ClaudeWCT.WCT9.chainW lay tree leaf i 0 cap seed) (fun v t => ChainHeadS b s0 valp cap v t) := by
     unfold ClaudeWCT.WCT9.chainW
-    exact TSim.foldlM_range' 0 cap _ seed (fun j v t => ChainHead b s0 valp j v t) _ _ _ _
+    exact TSim.foldlM_range' 0 cap _ seed (fun j v t => ChainHeadS b s0 valp j v t) _ _ _ _
       (fun j hj v t ht => (chain_step hsub sk hpre (m := 0 + j) (by omega) (by omega)
         (by simpa using ht)).mono (fun v' u hu => by simpa using hu.1)) h0
   rcases Nat.lt_or_ge cap e with hlt | hge
   ·
     have hsplit : ClaudeWCT.WCT9.chainW lay tree leaf i cap (e - cap) = fun v =>
-        ClaudeWCT.WCT9.halfHash (ClaudeWCT.WCT9.chainHigh lay i cap) (chainInput lay tree leaf i cap v) >>= fun v1 =>
+        ClaudeWCT.WCT9.halfHash (ClaudeWCT.WCT9.chainHigh lay i cap) (ClaudeWCT.WCT9.chainInputW lay tree leaf i cap v) >>= fun v1 =>
           (List.range' (cap + 1) (e - cap - 1)).foldlM
             (fun value step => ClaudeWCT.WCT9.halfHash (ClaudeWCT.WCT9.chainHigh lay i step)
-              (chainInput lay tree leaf i step value)) v1 := by
+              (ClaudeWCT.WCT9.chainInputW lay tree leaf i step value)) v1 := by
       funext v
       unfold ClaudeWCT.WCT9.chainW
       rw [show e - cap = e - cap - 1 + 1 by omega, List.range'_succ, List.foldlM_cons]
       rfl
-    have rest : ∀ v t, ChainHead b s0 valp cap v t →
+    have rest : ∀ v t, ChainHeadS b s0 valp cap v t →
         TSim image sk t (rungK lay + 6 + trX lay.val i cap +
             (sumTo (fun j => rungK lay + trX lay.val i (cap + 1 + j)) (e - cap - 1) + 3))
           (rungC lay + 6 + trX lay.val i cap +
@@ -538,14 +350,14 @@ theorem chainRun_tsim (hpc : s0.pc = pcOf b) (seed : Digest) (hseed : DigAt s0 (
           (1 + (sumTo (fun _ => 1) (e - cap - 1) + 0))
           (do let last ← ClaudeWCT.WCT9.chainW lay tree leaf i cap (e - cap) v; pure (v, last))
           (fun r t => t.pc = pcOf ret ∧ DigAt t valp r.1 ∧ DigAt t (CHAIN + 48) r.2 ∧
-            RegsExcept s0 t chainRegs ∧ Frame s0 t (ChainW valp)) := by
+            RegsExcept s0 t chainRegs ∧ Frame s0 t (ChainWS valp)) := by
       intro v t ht
       rw [hsplit, bind_assoc]
       refine TSim.bind (chain_step_cap hsub sk hpre hlt rfl ht) (fun v1 u hu => ?_)
       have p2 := TSim.foldlM_range' (image := image) (sk := sk) (cap + 1) (e - cap - 1)
         (fun value step => ClaudeWCT.WCT9.halfHash (ClaudeWCT.WCT9.chainHigh lay i step)
-          (chainInput lay tree leaf i step value)) v1
-        (fun j v' w => ChainHead b s0 valp (cap + 1 + j) v' w ∧ DigAt w valp v)
+          (ClaudeWCT.WCT9.chainInputW lay tree leaf i step value)) v1
+        (fun j v' w => ChainHeadS b s0 valp (cap + 1 + j) v' w ∧ DigAt w valp v)
         (fun j => rungK lay + trX lay.val i (cap + 1 + j)) (fun j => rungC lay + trX lay.val i (cap + 1 + j))
         (fun _ => 1) (fun _ => 1)
         (fun j hj v' w hw => (chain_step hsub sk hpre (m := cap + 1 + j) (by omega) (by omega)
@@ -553,7 +365,7 @@ theorem chainRun_tsim (hpc : s0.pc = pcOf b) (seed : Digest) (hseed : DigAt s0 (
             hw.2.frame hw'.2 (by omega) (by simp; omega) (by simp; omega)⟩))
         ⟨by simpa using hu.1, hu.2.1⟩
       refine TSim.bind p2 (fun last w hw => ?_)
-      have hw1 : ChainHead b s0 valp e last w := by
+      have hw1 : ChainHeadS b s0 valp e last w := by
         have := hw.1; rwa [show cap + 1 + (e - cap - 1) = e by omega] at this
       obtain ⟨x, stx, xpc, xr, xf⟩ := chain_exit hsub hpre hw1 (by omega)
       exact TSim.pure_steps stx ⟨xpc, hw.2.frame xf (by omega) (by simp) (by simp),
@@ -574,20 +386,20 @@ theorem chainRun_tsim (hpc : s0.pc = pcOf b) (seed : Digest) (hseed : DigAt s0 (
     have he : cap = e := by omega
     have hz : ClaudeWCT.WCT9.chainW lay tree leaf i cap (e - cap) = fun v => pure v := by
       funext v; rw [show e - cap = 0 by omega]; rfl
-    have rest : ∀ v t, ChainHead b s0 valp cap v t →
+    have rest : ∀ v t, ChainHeadS b s0 valp cap v t →
         TSim image sk t 9 9 0 0
           (do let last ← ClaudeWCT.WCT9.chainW lay tree leaf i cap (e - cap) v; pure (v, last))
           (fun r t => t.pc = pcOf ret ∧ DigAt t valp r.1 ∧ DigAt t (CHAIN + 48) r.2 ∧
-            RegsExcept s0 t chainRegs ∧ Frame s0 t (ChainW valp)) := by
+            RegsExcept s0 t chainRegs ∧ Frame s0 t (ChainWS valp)) := by
       intro v t ht
       rw [hz]
       simp only [pure_bind]
-      have ht' : ChainHead b s0 valp e v t := he ▸ ht
+      have ht' : ChainHeadS b s0 valp e v t := he ▸ ht
       obtain ⟨x, stx, xpc, xv, xr, xf⟩ := chain_exit_cap hsub hpre ht' he.symm
       exact TSim.pure_steps stx ⟨xpc, xv, ht'.val.frame xf (by decide) (by simp; omega)
         (by simp; omega), (ht'.regs.trans xr).mono (by simp [chainRegs]),
         (ht'.frame.trans xf).mono (fun A _ h => by
-          unfold ChainW at *; rcases h with h | h; exact h; exact Or.inr (Or.inr h))⟩
+          unfold ChainWS at *; rcases h with h | h; exact h; exact Or.inr (Or.inr h))⟩
     refine (TSim.steps st0 (TSim.bind p1 rest)).of_eq rfl ?_ ?_ ?_ ?_
     · unfold chainK; subst he; simp only [Nat.zero_add]; omega
     · unfold chainCy; subst he; simp only [Nat.zero_add]; omega
@@ -1110,11 +922,11 @@ theorem steps_sign_body {im : Image} (hc : Code im) (s : MachineState) (hpc : s.
     Steps im s 19 19 (run_sign_body.res.toState s) := by
   exact symRun_sound run_sign_body hc.body s hpc (by simp [run_sign_body.res, rv_simp])
 theorem steps_sign_store {im : Image} (hc : Code im) (s : MachineState) (hpc : s.pc = pcOf 1028) :
-    Steps im s 8 8 (run_sign_store.res.toState s) := by
+    Steps im s 3 3 (run_sign_store.res.toState s) := by
   exact symRun_sound run_sign_store hc.store s hpc (by simp [run_sign_store.res, rv_simp])
 theorem sign_header_0 {im : Image} (hc : Code im) (s : MachineState) (hpc : s.pc = pcOf 1022)
     (h8 : s.getReg .x8 = 0#64) :
-    ∃ t, Steps im s 30 30 t ∧ t.pc = pcOf 1036 ∧ HeaderPost s t 12 := by
+    ∃ t, Steps im s 25 25 t ∧ t.pc = pcOf 1031 ∧ SignHeaderPost s t 12 := by
   let s0 := run_sign_entry.res.toState s
   have h0 := steps_sign_entry hc s hpc
   let s1 := run_sign_layer0.res.toState s0
@@ -1129,8 +941,6 @@ theorem sign_header_0 {im : Image} (hc : Code im) (s : MachineState) (hpc : s.pc
     · simp [s3, s2, s1, s0, run_sign_entry.res, run_sign_layer0.res, run_sign_body.res, run_sign_store.res, rv_simp, packedAt, routedAt]
     · simp [s3, s2, s1, s0, run_sign_entry.res, run_sign_layer0.res, run_sign_body.res, run_sign_store.res, rv_simp, routedAt]
     · simp [s3, s2, s1, s0, run_sign_entry.res, run_sign_layer0.res, run_sign_body.res, run_sign_store.res, rv_simp]
-    · simp [s3, s2, s1, s0, run_sign_entry.res, run_sign_layer0.res, run_sign_body.res, run_sign_store.res, rv_simp]
-    · simp [s3, s2, s1, s0, run_sign_entry.res, run_sign_layer0.res, run_sign_body.res, run_sign_store.res, rv_simp]
     · intro r hr
       cases r <;> simp_all [s3, s2, s1, s0, run_sign_entry.res, run_sign_layer0.res, run_sign_body.res, run_sign_store.res, rv_simp] <;> rfl
     · intro A hA hn
@@ -1139,7 +949,7 @@ theorem sign_header_0 {im : Image} (hc : Code im) (s : MachineState) (hpc : s.pc
       rw [if_neg (by omega), if_neg (by omega)]
 theorem sign_header_1 {im : Image} (hc : Code im) (s : MachineState) (hpc : s.pc = pcOf 1022)
     (h8 : s.getReg .x8 = 1#64) :
-    ∃ t, Steps im s 33 33 t ∧ t.pc = pcOf 1036 ∧ HeaderPost s t 7 := by
+    ∃ t, Steps im s 28 28 t ∧ t.pc = pcOf 1031 ∧ SignHeaderPost s t 7 := by
   let s0 := run_sign_entry.res.toState s
   have h0 := steps_sign_entry hc s hpc
   let s1 := run_sign_layer0.res.toState s0
@@ -1158,8 +968,6 @@ theorem sign_header_1 {im : Image} (hc : Code im) (s : MachineState) (hpc : s.pc
     · simp [s5, s4, s3, s2, s1, s0, run_sign_entry.res, run_sign_layer0.res, run_sign_layer1.res, run_sign_inc.res, run_sign_body.res, run_sign_store.res, rv_simp, packedAt, routedAt]
     · simp [s5, s4, s3, s2, s1, s0, run_sign_entry.res, run_sign_layer0.res, run_sign_layer1.res, run_sign_inc.res, run_sign_body.res, run_sign_store.res, rv_simp, routedAt]
     · simp [s5, s4, s3, s2, s1, s0, run_sign_entry.res, run_sign_layer0.res, run_sign_layer1.res, run_sign_inc.res, run_sign_body.res, run_sign_store.res, rv_simp]
-    · simp [s5, s4, s3, s2, s1, s0, run_sign_entry.res, run_sign_layer0.res, run_sign_layer1.res, run_sign_inc.res, run_sign_body.res, run_sign_store.res, rv_simp]
-    · simp [s5, s4, s3, s2, s1, s0, run_sign_entry.res, run_sign_layer0.res, run_sign_layer1.res, run_sign_inc.res, run_sign_body.res, run_sign_store.res, rv_simp]
     · intro r hr
       cases r <;> simp_all [s5, s4, s3, s2, s1, s0, run_sign_entry.res, run_sign_layer0.res, run_sign_layer1.res, run_sign_inc.res, run_sign_body.res, run_sign_store.res, rv_simp] <;> rfl
     · intro A hA hn
@@ -1168,7 +976,7 @@ theorem sign_header_1 {im : Image} (hc : Code im) (s : MachineState) (hpc : s.pc
       rw [if_neg (by omega), if_neg (by omega)]
 theorem sign_header_2 {im : Image} (hc : Code im) (s : MachineState) (hpc : s.pc = pcOf 1022)
     (h8 : s.getReg .x8 = 2#64) :
-    ∃ t, Steps im s 34 34 t ∧ t.pc = pcOf 1036 ∧ HeaderPost s t 6 := by
+    ∃ t, Steps im s 29 29 t ∧ t.pc = pcOf 1031 ∧ SignHeaderPost s t 6 := by
   let s0 := run_sign_entry.res.toState s
   have h0 := steps_sign_entry hc s hpc
   let s1 := run_sign_layer0.res.toState s0
@@ -1186,8 +994,6 @@ theorem sign_header_2 {im : Image} (hc : Code im) (s : MachineState) (hpc : s.pc
   · constructor
     · simp [s5, s4, s3, s2, s1, s0, run_sign_entry.res, run_sign_layer0.res, run_sign_layer1.res, run_sign_layer23.res, run_sign_body.res, run_sign_store.res, rv_simp, packedAt, routedAt]
     · simp [s5, s4, s3, s2, s1, s0, run_sign_entry.res, run_sign_layer0.res, run_sign_layer1.res, run_sign_layer23.res, run_sign_body.res, run_sign_store.res, rv_simp, routedAt]
-    · simp [s5, s4, s3, s2, s1, s0, run_sign_entry.res, run_sign_layer0.res, run_sign_layer1.res, run_sign_layer23.res, run_sign_body.res, run_sign_store.res, rv_simp]
-    · simp [s5, s4, s3, s2, s1, s0, run_sign_entry.res, run_sign_layer0.res, run_sign_layer1.res, run_sign_layer23.res, run_sign_body.res, run_sign_store.res, rv_simp]
     · simp [s5, s4, s3, s2, s1, s0, run_sign_entry.res, run_sign_layer0.res, run_sign_layer1.res, run_sign_layer23.res, run_sign_body.res, run_sign_store.res, rv_simp]
     · intro r hr
       cases r <;> simp_all [s5, s4, s3, s2, s1, s0, run_sign_entry.res, run_sign_layer0.res, run_sign_layer1.res, run_sign_layer23.res, run_sign_body.res, run_sign_store.res, rv_simp] <;> rfl
@@ -1197,7 +1003,7 @@ theorem sign_header_2 {im : Image} (hc : Code im) (s : MachineState) (hpc : s.pc
       rw [if_neg (by omega), if_neg (by omega)]
 theorem sign_header_3 {im : Image} (hc : Code im) (s : MachineState) (hpc : s.pc = pcOf 1022)
     (h8 : s.getReg .x8 = 3#64) :
-    ∃ t, Steps im s 34 34 t ∧ t.pc = pcOf 1036 ∧ HeaderPost s t 6 := by
+    ∃ t, Steps im s 29 29 t ∧ t.pc = pcOf 1031 ∧ SignHeaderPost s t 6 := by
   let s0 := run_sign_entry.res.toState s
   have h0 := steps_sign_entry hc s hpc
   let s1 := run_sign_layer0.res.toState s0
@@ -1215,8 +1021,6 @@ theorem sign_header_3 {im : Image} (hc : Code im) (s : MachineState) (hpc : s.pc
   · constructor
     · simp [s5, s4, s3, s2, s1, s0, run_sign_entry.res, run_sign_layer0.res, run_sign_layer1.res, run_sign_layer23.res, run_sign_body.res, run_sign_store.res, rv_simp, packedAt, routedAt]
     · simp [s5, s4, s3, s2, s1, s0, run_sign_entry.res, run_sign_layer0.res, run_sign_layer1.res, run_sign_layer23.res, run_sign_body.res, run_sign_store.res, rv_simp, routedAt]
-    · simp [s5, s4, s3, s2, s1, s0, run_sign_entry.res, run_sign_layer0.res, run_sign_layer1.res, run_sign_layer23.res, run_sign_body.res, run_sign_store.res, rv_simp]
-    · simp [s5, s4, s3, s2, s1, s0, run_sign_entry.res, run_sign_layer0.res, run_sign_layer1.res, run_sign_layer23.res, run_sign_body.res, run_sign_store.res, rv_simp]
     · simp [s5, s4, s3, s2, s1, s0, run_sign_entry.res, run_sign_layer0.res, run_sign_layer1.res, run_sign_layer23.res, run_sign_body.res, run_sign_store.res, rv_simp]
     · intro r hr
       cases r <;> simp_all [s5, s4, s3, s2, s1, s0, run_sign_entry.res, run_sign_layer0.res, run_sign_layer1.res, run_sign_layer23.res, run_sign_body.res, run_sign_store.res, rv_simp] <;> rfl
@@ -1227,8 +1031,8 @@ theorem sign_header_3 {im : Image} (hc : Code im) (s : MachineState) (hpc : s.pc
 theorem header {im : Image} (hc : Code im) (s : MachineState)
     (hp : s.pc = pcOf 1022) (lay : SigGolfCandidate.T3.Layer)
     (h8 : s.getReg .x8 = BitVec.ofNat 64 lay.val) :
-    ∃ t, Steps im s (headerK lay) (headerK lay) t ∧ t.pc = pcOf 1036 ∧
-      HeaderPost s t (SigGolfCandidate.T3.height lay) := by
+    ∃ t, Steps im s (headerK lay - 5) (headerK lay - 5) t ∧ t.pc = pcOf 1031 ∧
+      SignHeaderPost s t (SigGolfCandidate.T3.height lay) := by
   fin_cases lay
   · exact sign_header_0 hc s hp h8
   · exact sign_header_1 hc s hp h8
@@ -1238,27 +1042,21 @@ theorem header {im : Image} (hc : Code im) (s : MachineState)
 end ClaudeWCT.W9.Machine.Sign.SharedHeader
 
 namespace ClaudeWCT.W9.Machine.Sign.SharedChain
+open SigGolfCandidate.T3M.Sign.Seed (ChainPreS ChainWS ChainHeadS)
 open RiscvZkvm.Rv64 SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv SigGolfCandidate.Rv OracleComp
 open SigGolfCandidate.T3M SigGolfCandidate.T3M.Keygen SigGolfCandidate.T3M.Keygen.PackedBlocks
 open SigGolfCandidate.T3 (Layer Digest chainInput chain shortHash header pad64 zero16 height chainHeader)
 open SphincsSecurity (bytesLE bytesLE_length)
 set_option maxHeartbeats 2000000
 set_option maxRecDepth 10000
-/-- The chain code of the installed producer. Stage 2 (C3, #866): the old increment `addi s4,s4,1; jal 1014` at 1037
-is `jal zero,1667; nop`, and the chain tail trampoline 1667..1677 (`Seed.ctr0..ctr4`) keeps the HIGH half of the
-step-6 hash of chain 0 of a lower layer before `addi s4,s4,1; jal 1014`. -/
+/-- The chain code of the installed producer. Pairing stage 1: the header ends at 1030 and 1031 jumps to the G/F step
+block (`Seed.StepCode`: block 1732..1757, HASH at 1748/1756, the C3 tail trampoline 1667..1677). -/
 structure Code (im : Image) : Prop where
   reset : CodeAt im (pcOf 1013) sub_0
   capCopy : CodeAt im (pcOf 1015) sub_2
   stop : CodeAt im (pcOf 1021) sub_8
-  increment : CodeAt im (pcOf 1037) SigGolfCandidate.T3M.Sign.SeedIndependent.sub24S
   ret : CodeAt im (pcOf 1039) sub_26
-  hash : CodeAt im (pcOf 1036) sub_23
-  tramp0 : CodeAt im (pcOf 1667) SigGolfCandidate.T3M.Sign.Seed.ctr0
-  tramp1 : CodeAt im (pcOf 1668) SigGolfCandidate.T3M.Sign.Seed.ctr1
-  tramp2 : CodeAt im (pcOf 1669) SigGolfCandidate.T3M.Sign.Seed.ctr2
-  tramp3 : CodeAt im (pcOf 1671) SigGolfCandidate.T3M.Sign.Seed.ctr3
-  tramp4 : CodeAt im (pcOf 1676) SigGolfCandidate.T3M.Sign.Seed.ctr4
+  step : SigGolfCandidate.T3M.Sign.Seed.StepCode im
   header : SharedHeader.Code im
 theorem sub0_spec {image : Image} (h : Code image) (s : MachineState)
     (hpc : s.pc = pcOf (1013 + 0)) :
@@ -1314,150 +1112,6 @@ theorem sub8_spec {image : Image} (h : Code image) (s : MachineState)
   · intro r hr; cases r <;> simp_all [st_8, blk117_8.res, rv_simp] <;> rfl
   · intro A _ _; simp [st_8, blk117_8.res, rv_simp]
 
-set_option backward.isDefEq.respectTransparency false in
-/-- Stage 2 (C3, #866): the chain tail `1037: jal 1667` and the trampoline 1667..1677 on the installed code (the
-proof of `Seed.tramp_spec`). The HIGH half `hv` replaces the value on chain 0 of a lower layer after step 6. -/
-theorem tramp_spec {image : Image} (h : Code image) (s : MachineState)
-    (hpc : s.pc = pcOf (1013 + 24)) (lay i m : Nat) (hlay : lay < 2 ^ 64) (hi : i < 2 ^ 64) (hm : m < 2 ^ 63)
-    (h8 : s.getReg .x8 = BitVec.ofNat 64 lay) (h19 : s.getReg .x19 = BitVec.ofNat 64 i)
-    (h20 : s.getReg .x20 = BitVec.ofNat 64 m) (lo hv : Digest) (hlo : DigAt s (CHAIN + 48) lo)
-    (hhv : DigAt s (CHAIN + 64) hv) :
-    ∃ t, Steps image s (2 + SigGolfCandidate.T3M.Sign.Seed.trX lay i m)
-        (2 + SigGolfCandidate.T3M.Sign.Seed.trX lay i m) t ∧ t.pc = pcOf (1013 + 1) ∧
-      t.getReg .x20 = BitVec.ofNat 64 (m + 1) ∧
-      DigAt t (CHAIN + 48) (if SigGolfCandidate.T3M.Sign.Seed.hiSel lay i m then hv else lo) ∧
-      RegsExcept s t [.x6, .x7, .x20, .x28] ∧ Frame s t (fun A => A = CHAIN + 48 ∨ A = CHAIN + 56) := by
-  -- 1037: jal 1667
-  obtain ⟨t0, s0, p0, r0, f0⟩ : ∃ t, Steps image s 1 1 t ∧ t.pc = pcOf 1667 ∧ RegsExcept s t [] ∧
-      Frame s t (fun _ => False) := by
-    refine ⟨_, symRun_sound SigGolfCandidate.T3M.Sign.SeedIndependent.blkS_24 h.increment s hpc
-      (by simp [SigGolfCandidate.T3M.Sign.SeedIndependent.blkS_24.res, rv_simp]), ?_, ?_, ?_⟩
-    · simp [SigGolfCandidate.T3M.Sign.SeedIndependent.blkS_24.res, E.eval]
-    · intro r hr; cases r <;> rfl
-    · intro A hA hn; rfl
-  -- the final `addi s4,s4,1; jal 1014` at 1676
-  have last : ∀ u : MachineState, u.pc = pcOf 1676 → u.getReg .x20 = BitVec.ofNat 64 m →
-      ∃ t, Steps image u 2 2 t ∧ t.pc = pcOf (1013 + 1) ∧ t.getReg .x20 = BitVec.ofNat 64 (m + 1) ∧
-        RegsExcept u t [.x20] ∧ Frame u t (fun _ => False) := by
-    intro u hu hu20
-    refine ⟨_, symRun_sound SigGolfCandidate.T3M.Sign.Seed.blkC4 h.tramp4 u hu
-      (by simp [SigGolfCandidate.T3M.Sign.Seed.blkC4.res, rv_simp]), ?_, ?_, ?_, ?_⟩
-    · simp [SigGolfCandidate.T3M.Sign.Seed.blkC4.res, E.eval]
-    · simp only [Result.toState_getReg, SigGolfCandidate.T3M.Sign.Seed.blkC4.res, rv_simp, hu20]
-      rw [ofNat_add_ofNat]
-    · intro r hr; simp at hr; cases r <;> simp_all [SigGolfCandidate.T3M.Sign.Seed.blkC4.res, rv_simp] <;> rfl
-    · intro A _ _; simp [SigGolfCandidate.T3M.Sign.Seed.blkC4.res, rv_simp]
-  have ne_of {x y : Nat} (hx : x < 2 ^ 64) (hy : y < 2 ^ 64) : (BitVec.ofNat 64 x != BitVec.ofNat 64 y) = decide (x ≠ y) := by
-    by_cases hxy : x = y
-    · subst hxy; simp
-    · have : BitVec.ofNat 64 x ≠ BitVec.ofNat 64 y := fun he => hxy ((ofNat_inj hx hy).mp he)
-      simp [hxy, this]
-  have eq_of {x y : Nat} (hx : x < 2 ^ 64) (hy : y < 2 ^ 64) : (BitVec.ofNat 64 x == BitVec.ofNat 64 y) = decide (x = y) := by
-    by_cases hxy : x = y
-    · subst hxy; simp
-    · have : BitVec.ofNat 64 x ≠ BitVec.ofNat 64 y := fun he => hxy ((ofNat_inj hx hy).mp he)
-      simp [hxy, this]
-  obtain ⟨t1, s1, p1, r1, f1⟩ : ∃ t, Steps image t0 1 1 t ∧ t.pc = (if i ≠ 0 then pcOf 1676 else pcOf 1668) ∧
-      RegsExcept t0 t [] ∧ Frame t0 t (fun _ => False) := by
-    refine ⟨_, symRun_sound SigGolfCandidate.T3M.Sign.Seed.blkC0 h.tramp0 t0 p0
-      (by simp [SigGolfCandidate.T3M.Sign.Seed.blkC0.res, rv_simp]), ?_, ?_, ?_⟩
-    · simp only [Result.toState_pc, SigGolfCandidate.T3M.Sign.Seed.blkC0.res, E.eval, CmpOp.eval,
-        r0.get (by simp), h19]
-      rw [show (0#64 : Word) = BitVec.ofNat 64 0 from rfl, ne_of hi (by norm_num)]
-      by_cases hi0 : i = 0 <;> simp [hi0]
-    · intro r hr; cases r <;> rfl
-    · intro A hA hn; rfl
-  have g1 : ∀ r, r ∉ ([] : List Reg) → t1.getReg r = s.getReg r := fun r hr => (r0.trans r1).get hr
-  by_cases hi0 : i ≠ 0
-  · rw [if_pos hi0] at p1
-    obtain ⟨t2, s2, p2, x2, r2, f2⟩ := last t1 p1 (by rw [g1 _ (by simp)]; exact h20)
-    have hs : ¬ SigGolfCandidate.T3M.Sign.Seed.hiSel lay i m := fun hh => hi0 hh.2.1
-    refine ⟨t2, ((s0.trans s1).trans s2).of_eq (by simp [SigGolfCandidate.T3M.Sign.Seed.trX, hi0])
-      (by simp [SigGolfCandidate.T3M.Sign.Seed.trX, hi0]), p2, x2, ?_,
-      ((r0.trans r1).trans r2).mono (by simp), ((f0.trans f1).trans f2).mono (fun A _ hA => by simp_all)⟩
-    rw [if_neg hs]
-    exact hlo.frame ((f0.trans f1).trans f2) (by decide) (by simp) (by simp)
-  have hi0' : i = 0 := by omega
-  rw [if_neg hi0] at p1
-  obtain ⟨t2, s2, p2, r2, f2⟩ : ∃ t, Steps image t1 1 1 t ∧ t.pc = (if lay = 0 then pcOf 1676 else pcOf 1669) ∧
-      RegsExcept t1 t [] ∧ Frame t1 t (fun _ => False) := by
-    refine ⟨_, symRun_sound SigGolfCandidate.T3M.Sign.Seed.blkC1 h.tramp1 t1 p1
-      (by simp [SigGolfCandidate.T3M.Sign.Seed.blkC1.res, rv_simp]), ?_, ?_, ?_⟩
-    · simp only [Result.toState_pc, SigGolfCandidate.T3M.Sign.Seed.blkC1.res, E.eval, CmpOp.eval,
-        g1 _ (by simp), h8]
-      rw [show (0#64 : Word) = BitVec.ofNat 64 0 from rfl, eq_of hlay (by norm_num)]
-      by_cases hl0 : lay = 0 <;> simp [hl0]
-    · intro r hr; cases r <;> rfl
-    · intro A hA hn; rfl
-  have g2 : ∀ r, r ∉ ([] : List Reg) → t2.getReg r = s.getReg r := fun r hr => ((r0.trans r1).trans r2).get hr
-  have f02 : Frame s t2 (fun _ => False) := ((f0.trans f1).trans f2).mono (fun A _ hA => by simp_all)
-  by_cases hl0 : lay = 0
-  · rw [if_pos hl0] at p2
-    obtain ⟨t3, s3, p3, x3, r3, f3⟩ := last t2 p2 (by rw [g2 _ (by simp)]; exact h20)
-    have hs : ¬ SigGolfCandidate.T3M.Sign.Seed.hiSel lay i m := fun hh => hh.1 hl0
-    refine ⟨t3, (((s0.trans s1).trans s2).trans s3).of_eq
-      (by simp [SigGolfCandidate.T3M.Sign.Seed.trX, hi0', hl0]) (by simp [SigGolfCandidate.T3M.Sign.Seed.trX, hi0', hl0]),
-      p3, x3, ?_, (((r0.trans r1).trans r2).trans r3).mono (by simp),
-      (f02.trans f3).mono (fun A _ hA => by simp_all)⟩
-    rw [if_neg hs]
-    exact hlo.frame (f02.trans f3) (by decide) (by simp) (by simp)
-  rw [if_neg hl0] at p2
-  obtain ⟨t3, s3, p3, r3, f3⟩ : ∃ t, Steps image t2 2 2 t ∧ t.pc = (if m ≠ 6 then pcOf 1676 else pcOf 1671) ∧
-      RegsExcept t2 t [.x6] ∧ Frame t2 t (fun _ => False) := by
-    refine ⟨_, symRun_sound SigGolfCandidate.T3M.Sign.Seed.blkC2 h.tramp2 t2 p2
-      (by simp [SigGolfCandidate.T3M.Sign.Seed.blkC2.res, rv_simp]), ?_, ?_, ?_⟩
-    · simp only [Result.toState_pc, SigGolfCandidate.T3M.Sign.Seed.blkC2.res, E.eval, CmpOp.eval,
-        g2 _ (by simp), h20]
-      rw [show (6#64 : Word) = BitVec.ofNat 64 6 from rfl, ne_of (by omega) (by norm_num)]
-      by_cases hm6 : m = 6 <;> simp [hm6]
-    · intro r hr; simp at hr; cases r <;> simp_all [SigGolfCandidate.T3M.Sign.Seed.blkC2.res, rv_simp] <;> rfl
-    · intro A hA hn; simp [SigGolfCandidate.T3M.Sign.Seed.blkC2.res, rv_simp]
-  have f03 : Frame s t3 (fun _ => False) := (f02.trans f3).mono (fun A _ hA => by simp_all)
-  have g3 : ∀ r, r ∉ [.x6] → t3.getReg r = s.getReg r := fun r hr => ((((r0.trans r1).trans r2).trans r3)).get
-    (by simpa using hr)
-  by_cases hm6 : m ≠ 6
-  · rw [if_pos hm6] at p3
-    obtain ⟨t4, s4, p4, x4, r4, f4⟩ := last t3 p3 (by rw [g3 _ (by simp)]; exact h20)
-    have hs : ¬ SigGolfCandidate.T3M.Sign.Seed.hiSel lay i m := fun hh => hm6 hh.2.2
-    refine ⟨t4, ((((s0.trans s1).trans s2).trans s3).trans s4).of_eq
-      (by simp [SigGolfCandidate.T3M.Sign.Seed.trX, hi0', hl0, hm6])
-      (by simp [SigGolfCandidate.T3M.Sign.Seed.trX, hi0', hl0, hm6]), p4, x4, ?_,
-      ((((r0.trans r1).trans r2).trans r3).trans r4).mono (by simp),
-      (f03.trans f4).mono (fun A _ hA => by simp_all)⟩
-    rw [if_neg hs]
-    exact hlo.frame (f03.trans f4) (by decide) (by simp) (by simp)
-  have hm6' : m = 6 := by omega
-  rw [if_neg hm6] at p3
-  have hs : SigGolfCandidate.T3M.Sign.Seed.hiSel lay i m := ⟨hl0, hi0', hm6'⟩
-  have hobl : Oblig.all t3 SigGolfCandidate.T3M.Sign.Seed.blkC3.res.st.obl := by
-    simp [SigGolfCandidate.T3M.Sign.Seed.blkC3.res, rv_simp]
-  refine ⟨_, ((((s0.trans s1).trans s2).trans s3).trans
-    (symRun_sound SigGolfCandidate.T3M.Sign.Seed.blkC3 h.tramp3 t3 p3 hobl)).of_eq
-    (by simp [SigGolfCandidate.T3M.Sign.Seed.trX, hi0', hl0, hm6', SigGolfCandidate.T3M.Sign.Seed.blkC3.res])
-    (by simp [SigGolfCandidate.T3M.Sign.Seed.trX, hi0', hl0, hm6', SigGolfCandidate.T3M.Sign.Seed.blkC3.res]),
-    ?_, ?_, ?_, ?_, ?_⟩
-  · simp [SigGolfCandidate.T3M.Sign.Seed.blkC3.res, E.eval]
-  · simp only [Result.toState_getReg, SigGolfCandidate.T3M.Sign.Seed.blkC3.res, rv_simp]
-    rw [g3 .x20 (by simp), h20, hm6']; rfl
-  · rw [if_pos hs]
-    have hv3 := hhv.frame f03 (by decide) (by simp) (by simp)
-    constructor
-    · simp only [Result.toState_getMem, SigGolfCandidate.T3M.Sign.Seed.blkC3.res]
-      t3n []
-      exact hv3.1
-    · simp only [Result.toState_getMem, SigGolfCandidate.T3M.Sign.Seed.blkC3.res]
-      t3n []
-      exact hv3.2
-  · exact ((((r0.trans r1).trans r2).trans r3).trans (SigGolfCandidate.T3M.Sign.Seed.blkC3_regs t3)).mono (by simp)
-  · have f4 : Frame t3 (SigGolfCandidate.T3M.Sign.Seed.blkC3.res.toState t3)
-        (fun A => A = CHAIN + 48 ∨ A = CHAIN + 56) := by
-      intro A hA hn
-      simp only [Result.toState_getMem, SigGolfCandidate.T3M.Sign.Seed.blkC3.res]
-      t3n []
-      have hA' : A % 18446744073709551616 = A := Nat.mod_eq_of_lt hA
-      rw [hA', if_neg (by simp only [CHAIN] at hn; omega), if_neg (by simp only [CHAIN] at hn; omega)]
-    exact (f03.trans f4).mono (fun A _ hA => by simp_all)
-
 theorem sub26_spec {image : Image} (h : Code image) (s : MachineState)
     (hpc : s.pc = pcOf (1013 + 26)) (k : Nat) (h1 : s.getReg .x1 = pcOf k) :
     ∃ t, Steps image s 1 1 t ∧ t.pc = pcOf k ∧ RegsExcept s t [] ∧ Frame s t (fun _ => False) := by
@@ -1468,9 +1122,6 @@ theorem sub26_spec {image : Image} (h : Code image) (s : MachineState)
   · intro r hr; cases r <;> simp_all [st_26, blk117_26.res, rv_simp] <;> rfl
   · intro A _ _; simp [st_26, blk117_26.res, rv_simp]
 
-theorem fetch_sub23 {image : Image} (h : Code image) (s : MachineState)
-    (hpc : s.pc = pcOf (1013 + 23)) : fetch image s = some (.base .ECALL) :=
-  (h.hash.fetch s hpc).trans rfl
 
 theorem shared_header_source {image : Image} (h : Code image)
     (s : MachineState) (hpc : s.pc = pcOf (1013 + 9)) (lay : Layer) (tree leaf i step : Nat)
@@ -1481,15 +1132,14 @@ theorem shared_header_source {image : Image} (h : Code image)
     (h18 : s.getReg .x18 = BitVec.ofNat 64 leaf)
     (h19 : s.getReg .x19 = BitVec.ofNat 64 i)
     (h20 : s.getReg .x20 = BitVec.ofNat 64 step) :
-    ∃ t, Steps image s (headerK lay) (headerK lay) t ∧ t.pc = pcOf (1013 + 23) ∧
-      t.getReg .x10 = BitVec.ofNat 64 0x201A0 ∧ t.getReg .x11 = 64#64 ∧
-      t.getReg .x12 = BitVec.ofNat 64 (0x201A0 + 48) ∧
+    ∃ t, Steps image s (headerK lay - 5) (headerK lay - 5) t ∧ t.pc = pcOf (1013 + 18) ∧
+      t.getReg .x28 = BitVec.ofNat 64 0x201A0 ∧
       t.getMem (BitVec.ofNat 64 (0x201A0 + 16)) = (chainHeader lay tree leaf i step).extractLsb' 0 64 ∧
       t.getMem (BitVec.ofNat 64 (0x201A0 + 24)) = (chainHeader lay tree leaf i step).extractLsb' 64 64 ∧
-      RegsExcept s t [.x6, .x7, .x10, .x11, .x12, .x28, .x30] ∧
+      RegsExcept s t [.x6, .x7, .x28, .x30] ∧
       Frame s t (fun A => A = 0x201A0 + 16 ∨ A = 0x201A0 + 24) := by
   obtain ⟨t, st, pc, post⟩ := SharedHeader.header h.header s hpc lay h8
-  refine ⟨t, st, pc, post.arg0, post.arg1, post.arg2,
+  refine ⟨t, st, pc, post.x28,
     post.low.trans (packedAt_source s lay tree leaf i step hr hf hi hs h8 h9 h18 h19 h20),
     ?_, post.regs, post.frame⟩
   exact (post.high.trans (routedAt_high_zero s lay tree leaf hr h9 h18)).trans
@@ -1500,34 +1150,18 @@ theorem shared_header_source {image : Image} (h : Code image)
 end ClaudeWCT.W9.Machine.Sign.SharedChain
 
 namespace ClaudeWCT.W9.Machine.Sign.SharedChain
+open SigGolfCandidate.T3M.Sign.Seed (ChainPreS ChainWS ChainHeadS)
 open SigGolfCandidate.T3M SigGolfCandidate.T3M.Keygen SigGolfCandidate.T3M.Keygen.PackedBlocks
 open SigGolfCandidate.T3M.Sign SigGolfCandidate.Rv
 /-- The chain instructions (stage 2: with the C3 tail trampoline) and domain header occur in the installed
 producer. -/
 theorem installed_code : Code Images.signImage := by
-  constructor
-  · apply codeAt_sign_current_slice <;> decide +kernel
-  · apply codeAt_sign_current_slice <;> decide +kernel
-  · apply codeAt_sign_current_slice <;> decide +kernel
-  · apply codeAt_sign_current_slice <;> decide +kernel
-  · apply codeAt_sign_current_slice <;> decide +kernel
-  · apply codeAt_sign_current_slice <;> decide +kernel
-  · apply codeAt_sign_current_slice <;> decide +kernel
-  · apply codeAt_sign_current_slice <;> decide +kernel
-  · apply codeAt_sign_current_slice <;> decide +kernel
-  · apply codeAt_sign_current_slice <;> decide +kernel
-  · apply codeAt_sign_current_slice <;> decide +kernel
-  · constructor
-    · apply codeAt_sign_current_slice <;> decide +kernel
-    · apply codeAt_sign_current_slice <;> decide +kernel
-    · apply codeAt_sign_current_slice <;> decide +kernel
-    · apply codeAt_sign_current_slice <;> decide +kernel
-    · apply codeAt_sign_current_slice <;> decide +kernel
-    · apply codeAt_sign_current_slice <;> decide +kernel
-    · apply codeAt_sign_current_slice <;> decide +kernel
+  refine ⟨?_, ?_, ?_, ?_, ⟨?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩,
+    ⟨?_, ?_, ?_, ?_, ?_, ?_, ?_⟩⟩ <;> (apply codeAt_sign_current_slice <;> decide +kernel)
 end ClaudeWCT.W9.Machine.Sign.SharedChain
 
 namespace ClaudeWCT.W9.Machine.Sign.SharedChain
+open SigGolfCandidate.T3M.Sign.Seed (ChainPreS ChainWS ChainHeadS)
 open RiscvZkvm.Rv64 SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv SigGolfCandidate.Rv
 open SigGolfCandidate.T3M SigGolfCandidate.T3M.Keygen
 open SigGolfCandidate.T3 (Digest)
@@ -1597,6 +1231,7 @@ theorem boundary {im : Image} (hc : Code im) (hpref : PrefixCode im)
 end ClaudeWCT.W9.Machine.Sign.SharedChain
 
 namespace ClaudeWCT.W9.Machine.Sign.SharedChain
+open SigGolfCandidate.T3M.Sign.Seed (ChainPreS ChainWS ChainHeadS)
 open RiscvZkvm.Rv64 SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv SigGolfCandidate.Rv OracleComp
 open SigGolfCandidate.T3M SigGolfCandidate.T3M.Keygen SigGolfCandidate.T3M.Keygen.PackedBlocks
 open SigGolfCandidate.T3 (Layer Digest chainInput shortHash pad64)
@@ -1604,24 +1239,28 @@ set_option maxHeartbeats 2000000
 set_option maxRecDepth 10000
 
 def hashWrites (A : Nat) : Prop :=
-  (A = CHAIN + 16 ∨ A = CHAIN + 24) ∨ (CHAIN + 48 ≤ A ∧ A < CHAIN + 80)
+  (A = CHAIN + 16 ∨ A = CHAIN + 24) ∨ (CHAIN + 32 ≤ A ∧ A < CHAIN + 112)
 
-/-- The HASH rung follows prefix retention with its exact chain query. Stage 2 (C3, #866): the rung ends in the
-chain tail trampoline (`tramp_spec`, `Seed.trX` extra steps) and keeps the half `WCT9.chainHigh lay i m`. -/
+/-- The HASH rung follows prefix retention with its exact chain query. Pairing stage 1: the header, then the G/F step
+block (`Seed.pair_rung`, `Seed.trX` extra steps); the rung keeps the half `WCT9.chainHigh lay i m` of
+`WCT9.chainInputW`. -/
 theorem hash_rung {im : Image} (hc : Code im) (sk : BitVec 256)
     (s : MachineState) (hp : s.pc = pcOf 1021) (lay : Layer)
     (tree leaf i m e cap valp ret : Nat) (v : Digest)
-    (hpre : ChainPre s lay tree leaf i cap e valp ret) (hm : m < e)
+    (hpre : ChainPreS s lay tree leaf i cap e valp ret) (hm : m < e)
     (h20 : s.getReg .x20 = BitVec.ofNat 64 m) (hval : DigAt s (CHAIN + 48) v) :
     TSim im sk s (headerK lay + 4 + SigGolfCandidate.T3M.Sign.Seed.trX lay.val i m)
       (headerK lay + 11 + SigGolfCandidate.T3M.Sign.Seed.trX lay.val i m) 1 1
-      (ClaudeWCT.WCT9.halfHash (ClaudeWCT.WCT9.chainHigh lay i m) (chainInput lay tree leaf i m v))
+      (ClaudeWCT.WCT9.halfHash (ClaudeWCT.WCT9.chainHigh lay i m) (ClaudeWCT.WCT9.chainInputW lay tree leaf i m v))
       (fun v' t => t.pc = pcOf 1014 ∧ t.getReg .x20 = BitVec.ofNat 64 (m+1) ∧
-        DigAt t (CHAIN + 48) v' ∧ RegsExcept s t chainRegs ∧ Frame s t hashWrites) := by
+        DigAt t (CHAIN + 48) v' ∧ RegsExcept s t chainRegs ∧ Frame s t hashWrites ∧
+        (SigGolfCandidate.T3M.Sign.Seed.FCh lay i → SigGolfCandidate.T3M.Sign.Seed.Z32 t ∧
+          Frame s t (fun A => (A = CHAIN + 16 ∨ A = CHAIN + 24) ∨ A = CHAIN + 32 ∨ A = CHAIN + 40 ∨
+            (CHAIN + 48 ≤ A ∧ A < CHAIN + 80)))) := by
   have he := hpre.he
   obtain ⟨u,hu,upc,ur,uf⟩ := sub8_spec hc s hp m e (by omega) (by omega) h20 hpre.x21
   rw [if_neg (by omega)] at upc
-  obtain ⟨t,ht,tpc,t10,t11,t12,t16,t24,tr,tf⟩ := shared_header_source hc u upc lay tree leaf i m
+  obtain ⟨t,ht,tpc,t28,t16,t24,tr,tf⟩ := shared_header_source hc u upc lay tree leaf i m
     hpre.hroute hpre.hleaf hpre.hi (by omega)
     (by rw [ur.get (by simp)]; exact hpre.x8)
     (by rw [ur.get (by simp)]; exact hpre.x9)
@@ -1630,47 +1269,35 @@ theorem hash_rung {im : Image} (hc : Code im) (sk : BitVec 256)
     (by rw [ur.get (by simp)]; exact h20)
   have fr : Frame s t (fun A => A = CHAIN+16 ∨ A = CHAIN+24) :=
     (uf.trans tf).mono (by intro A hA h; simpa only [false_or] using h)
-  have regs : RegsExcept s t [.x6,.x7,.x10,.x11,.x12,.x28,.x30] :=
-    (ur.trans tr).mono (by simp)
+  have regs : RegsExcept s t [.x6,.x7,.x28,.x30] := (ur.trans tr).mono (by simp)
   have tv := hval.frame fr (by decide) (by simp) (by simp)
-  have hq : hashInput t = toQ (pad64 (chainInput lay tree leaf i m v)) := by
-    have hl := chainInput_length lay tree leaf i m v
-    rw [pad64_of_aligned _ (by rw [hl])]
-    refine hashInput_toQ t _ 0 CHAIN hl t10 (by decide) (by decide) t11 (by decide) ?_
-    rw [wordsOf_chainInput,readWords_eight,t16,t24,tv.1,tv.2,
-      fr CHAIN (by decide) (by simp),fr (CHAIN+8) (by decide) (by simp),
-      fr (CHAIN+32) (by decide) (by simp),fr (CHAIN+40) (by decide) (by simp),
-      hpre.z0,hpre.z8,hpre.z32,hpre.z40]
-  have hv : hashArgumentsValid t = true :=
-    hashArgs_const t CHAIN 64 (CHAIN+48) t10 t11 t12 (by decide) (by decide) (by decide)
-      (by decide) (by decide)
-  have h5 : t.getReg .x5 = 0 := by rw [regs.get (by simp)]; exact hpre.x5
-  have hi := hpre.hi
-  rw [ClaudeWCT.WCT9.halfHash_eq]
-  refine (TSim.steps (hu.trans ht) (TSim.publicHash_bind
-    (k := 2 + SigGolfCandidate.T3M.Sign.Seed.trX lay.val i m)
-    (c := 2 + SigGolfCandidate.T3M.Sign.Seed.trX lay.val i m) (n := 0) (b := 0)
-    (fetch_sub23 hc t tpc) h5 hv hq (fun a => ?_))).of_eq rfl ?_ ?_ ?_ ?_
-  · obtain ⟨w,hw,wpc,w20,wv,wr,wf⟩ := tramp_spec hc (writeHash t a)
-      (by rw [pc_writeHash,tpc,pcOf_add4]) lay.val i m (by have := lay.isLt; omega) (by omega) (by omega)
-      (by rw [getReg_writeHash,regs.get (by simp)]; exact hpre.x8)
-      (by rw [getReg_writeHash,regs.get (by simp)]; exact hpre.x19)
-      (by rw [getReg_writeHash,regs.get (by simp)]; exact h20) _ _
-      (DigAt.writeHash_lo t a (CHAIN+48) t12 (by decide)) (DigAt.writeHash_hi t a (CHAIN+48) t12 (by decide))
-    have hf := Frame.writeHash t a (CHAIN+48) t12 (by decide)
-    have rr : RegsExcept t (writeHash t a) [] := fun r _ => getReg_writeHash t a r
-    refine TSim.pure_steps hw ⟨wpc,w20,?_,
-      ((regs.trans rr).trans wr).mono (by simp [chainRegs]),
-      ((fr.trans hf).trans wf).mono (by intro A hA h; simp only [hashWrites,CHAIN] at h ⊢; omega)⟩
-    rw [SigGolfCandidate.T3M.Sign.Seed.halfOf_chainHigh]
-    exact wv
-  -- (the step count has no literal to fold, so `simp` alone would make no progress there)
-  all_goals first | omega | (simp [toQ_chainInput_blocks] <;> omega)
+  have run := SigGolfCandidate.T3M.Sign.Seed.pair_rung hc.step sk t (by rw [tpc]) lay tree leaf i m v
+    hpre.hi (by omega) (fun hl => by have := hpre.hlow hl; omega)
+    (by rw [regs.get (by simp)]; exact hpre.x5) (by rw [regs.get (by simp)]; exact hpre.x8)
+    (by rw [regs.get (by simp)]; exact hpre.x19) (by rw [regs.get (by simp)]; exact h20) t28
+    (by rw [fr.get (by decide) (by simp only [CHAIN]; omega)]; exact hpre.z0)
+    (by rw [fr.get (by decide) (by simp only [CHAIN]; omega)]; exact hpre.z8)
+    t16 t24 (source_high_actual lay tree leaf i m hpre.hroute hpre.hleaf hpre.hi (by omega)) tv
+  refine ((TSim.steps (hu.trans ht) run).of_eq rfl ?_ ?_ rfl rfl).mono ?_
+  · unfold headerK; split_ifs <;> omega
+  · unfold headerK; split_ifs <;> omega
+  · intro v' w hw
+    exact ⟨hw.1, hw.2.1, hw.2.2.1, (regs.trans hw.2.2.2.1).mono (by simp [chainRegs]),
+      (fr.trans hw.2.2.2.2.1).mono (by
+        intro A hA h; simp only [hashWrites]; rcases h with h | h
+        · exact Or.inl h
+        · exact Or.inr h), fun hF => by
+        obtain ⟨z1, z2, zf⟩ := hw.2.2.2.2.2 hF
+        exact ⟨⟨z1, z2⟩, (fr.trans zf).mono (fun A _ h => by
+          rcases h with h | h
+          · exact Or.inl h
+          · exact Or.inr h)⟩⟩
 
 #print axioms hash_rung
 end ClaudeWCT.W9.Machine.Sign.SharedChain
 
 namespace ClaudeWCT.W9.Machine.Sign.SharedChain
+open SigGolfCandidate.T3M.Sign.Seed (ChainPreS ChainWS ChainHeadS)
 open SigGolfCandidate.T3M
 /-- Every prefix-retention block is bound to the installed Sign image. -/
 theorem installed_prefix_code : PrefixCode Images.signImage :=
@@ -1680,6 +1307,7 @@ theorem installed_prefix_code : PrefixCode Images.signImage :=
 end ClaudeWCT.W9.Machine.Sign.SharedChain
 
 namespace ClaudeWCT.W9.Machine.Sign.SharedChain
+open SigGolfCandidate.T3M.Sign.Seed (ChainPreS ChainWS ChainHeadS)
 open RiscvZkvm.Rv64 SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv SigGolfCandidate.Rv
 open SigGolfCandidate.T3M SigGolfCandidate.T3M.Keygen
 open SigGolfCandidate.T3 (Layer)
@@ -1687,14 +1315,14 @@ open SigGolfCandidate.T3 (Layer)
 /-- Prefix storage is above all chain-domain padding, so the chain precondition
 survives every complete rung and the optional capture store. -/
 theorem pre_preserved {s t : MachineState} {lay : Layer} {tree leaf i cap e valp ret : Nat}
-    (hpre : ChainPre s lay tree leaf i cap e valp ret)
+    (hpre : ChainPreS s lay tree leaf i cap e valp ret)
     (hr : RegsExcept s t chainRegs)
-    (hf : Frame s t (fun A => ChainW valp A ∨ 0x67000 < A)) :
-    ChainPre t lay tree leaf i cap e valp ret := by
+    (hf : Frame s t (fun A => ChainWS valp A ∨ 0x67000 < A)) :
+    ChainPreS t lay tree leaf i cap e valp ret := by
   have hvc := hpre.hvc
   simp only [CHAIN] at hvc
   refine ⟨?_,?_,?_,?_,?_,?_,?_,?_,?_,hpre.htree,hpre.hi,hpre.hroute,hpre.hleaf,
-    hpre.hcap,hpre.he,hpre.hv8,hpre.hv,hpre.hvc,?_,?_,?_,?_⟩
+    hpre.hcap,hpre.he,hpre.hlow,hpre.hv8,hpre.hv,hpre.hvc,?_,?_⟩
   · exact (hr.get (by decide)).trans hpre.x5
   · exact (hr.get (by decide)).trans hpre.x1
   · exact (hr.get (by decide)).trans hpre.x8
@@ -1704,15 +1332,14 @@ theorem pre_preserved {s t : MachineState} {lay : Layer} {tree leaf i cap e valp
   · exact (hr.get (by decide)).trans hpre.x19
   · exact (hr.get (by decide)).trans hpre.x21
   · exact (hr.get (by decide)).trans hpre.x23
-  · exact (hf _ (by decide) (by simp only [ChainW,CHAIN]; omega)).trans hpre.z0
-  · exact (hf _ (by decide) (by simp only [ChainW,CHAIN]; omega)).trans hpre.z8
-  · exact (hf _ (by decide) (by simp only [ChainW,CHAIN]; omega)).trans hpre.z32
-  · exact (hf _ (by decide) (by simp only [ChainW,CHAIN]; omega)).trans hpre.z40
+  · exact (hf _ (by decide) (by simp only [ChainWS,CHAIN]; omega)).trans hpre.z0
+  · exact (hf _ (by decide) (by simp only [ChainWS,CHAIN]; omega)).trans hpre.z8
 
 #print axioms pre_preserved
 end ClaudeWCT.W9.Machine.Sign.SharedChain
 
 namespace ClaudeWCT.W9.Machine.Sign.SharedChain
+open SigGolfCandidate.T3M.Sign.Seed (ChainPreS ChainWS ChainHeadS)
 open RiscvZkvm.Rv64 SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv SigGolfCandidate.Rv OracleComp
 open SigGolfCandidate.T3M SigGolfCandidate.T3M.Keygen SigGolfCandidate.T3M.Keygen.PackedBlocks
 open SigGolfCandidate.T3 (Layer Digest chainInput shortHash)
@@ -1720,7 +1347,7 @@ set_option maxHeartbeats 2000000
 set_option maxRecDepth 10000
 
 def rungWrites (lay i m valp A : Nat) : Prop :=
-  ChainW valp A ∨ A = SharedPrefixes.buffer lay i m ∨ A = SharedPrefixes.buffer lay i m + 8
+  ChainWS valp A ∨ A = SharedPrefixes.buffer lay i m ∨ A = SharedPrefixes.buffer lay i m + 8
 
 /-- Stage 2: cycle bound of one lower rung `m`: boundary `28` (+ the capture store `6` at `m = cap`), header
 `headerK ≤ 34`, the HASH `11`, and the C3 tail trampoline `Seed.trX`. -/
@@ -1732,38 +1359,32 @@ def loopW (lay i cap : Nat) : Nat → Nat → Nat
   | m, 0 => 30 + (if m = cap then 6 else 0)
   | m, count + 1 => rungW lay i cap m + loopW lay i cap (m + 1) count
 
-theorem trX_le_low (lay i m : Nat) : SigGolfCandidate.T3M.Sign.Seed.trX lay i m ≤
-    SigGolfCandidate.T3M.Sign.Seed.trX 1 0 m := by
-  -- (the right side first: split_ifs on its literal tests `0 ≠ 0`, `1 = 0` leaves goals omega cannot close)
-  have hr : SigGolfCandidate.T3M.Sign.Seed.trX 1 0 m = if m = 6 then 10 else 5 := by
-    unfold SigGolfCandidate.T3M.Sign.Seed.trX
-    rw [if_neg (show ¬((0 : Nat) ≠ 0) from fun h => h rfl), if_neg (show ¬((1 : Nat) = 0) by decide)]
-  rw [hr]
-  unfold SigGolfCandidate.T3M.Sign.Seed.trX
-  by_cases hm : m = 6
-  · rw [if_pos hm]
-    split
-    · omega
-    · split <;> omega
-  · rw [if_neg hm]
-    split
-    · omega
-    · split <;> omega
+/-- Pairing stage 1: the largest `Seed.trX` per step (G interior `11`; chain 0 of a lower layer at step 6: `14`). -/
+def trXmax (m : Nat) : Nat := if m = 6 then 14 else 11
 
-theorem loopW_le_low (lay i cap : Nat) : ∀ count m, loopW lay i cap m count ≤ loopW 1 0 cap m count
+theorem trX_le_max (lay i m : Nat) : SigGolfCandidate.T3M.Sign.Seed.trX lay i m ≤ trXmax m := by
+  unfold SigGolfCandidate.T3M.Sign.Seed.trX SigGolfCandidate.T3M.Sign.Seed.trX0 trXmax
+  split_ifs <;> omega
+
+def loopWmax (cap : Nat) : Nat → Nat → Nat
+  | m, 0 => 30 + (if m = cap then 6 else 0)
+  | m, count + 1 => 73 + trXmax m + (if m = cap then 6 else 0) + loopWmax cap (m + 1) count
+
+theorem loopW_le_max (lay i cap : Nat) : ∀ count m, loopW lay i cap m count ≤ loopWmax cap m count
   | 0, _ => le_refl _
   | count + 1, m => by
-    have h1 := trX_le_low lay i m
-    have h2 := loopW_le_low lay i cap count (m + 1)
-    simp only [loopW, rungW]
+    have h1 := trX_le_max lay i m
+    have h2 := loopW_le_max lay i cap count (m + 1)
+    simp only [loopW, loopWmax, rungW]
     omega
 
-theorem loopW_worst : ∀ e, e < 9 → ∀ cap, cap ≤ e → 1 + loopW 1 0 cap 0 e ≤ 80 * e + 37 := by
+theorem loopW_worst : ∀ e, e < 9 → ∀ cap, cap ≤ e → 1 + loopWmax cap 0 e ≤ 85 * e + 37 := by
   decide +kernel
 
-/-- Stage 2: the C3 trampoline and the capture store fit the chain budget `80 * e + 37` of #884. -/
-theorem loopW_le (lay i cap e : Nat) (he : e ≤ 8) (hcap : cap ≤ e) : 1 + loopW lay i cap 0 e ≤ 80 * e + 37 := by
-  have h1 := loopW_le_low lay i cap e 0
+/-- Pairing stage 1: the G/F step block, the C3 trampoline and the capture store fit the chain budget `85 * e + 37`
+(was `80 * e + 37`). -/
+theorem loopW_le (lay i cap e : Nat) (he : e ≤ 8) (hcap : cap ≤ e) : 1 + loopW lay i cap 0 e ≤ 85 * e + 37 := by
+  have h1 := loopW_le_max lay i cap e 0
   have h2 := loopW_worst e (by omega) cap hcap
   omega
 
@@ -1772,26 +1393,27 @@ theorem loopW_le (lay i cap e : Nat) (he : e ≤ 8) (hcap : cap ≤ e) : 1 + loo
 theorem retained_rung {im : Image} (hc : Code im) (hpref : PrefixCode im) (sk : BitVec 256)
     (s : MachineState) (hp : s.pc = pcOf 1014) (lay : Layer)
     (tree leaf i m e cap valp ret : Nat) (v : Digest)
-    (hpre : ChainPre s lay tree leaf i cap e valp ret)
+    (hpre : ChainPreS s lay tree leaf i cap e valp ret)
     (hl : 1 ≤ lay.val) (hi : i < 43) (he : e < 8) (hm : m < e)
     (hv : valp + 16 ≤ 0x67000)
     (h20 : s.getReg .x20 = BitVec.ofNat 64 m) (hval : DigAt s (CHAIN + 48) v) :
     TBSim im sk s (rungW lay.val i cap m)
-      (ClaudeWCT.WCT9.halfHash (ClaudeWCT.WCT9.chainHigh lay i m) (chainInput lay tree leaf i m v))
+      (ClaudeWCT.WCT9.halfHash (ClaudeWCT.WCT9.chainHigh lay i m) (ClaudeWCT.WCT9.chainInputW lay tree leaf i m v))
       (fun v' t => t.pc = pcOf 1014 ∧ t.getReg .x20 = BitVec.ofNat 64 (m+1) ∧
         DigAt t (CHAIN + 48) v' ∧ RegsExcept s t chainRegs ∧
         Frame s t (rungWrites lay.val i m valp) ∧
         (SharedPrefixes.selectionWord (s.getMem 0x20550) lay.val = s.getReg .x18 →
-          DigAt t (SharedPrefixes.buffer lay.val i m) v)) := by
+          DigAt t (SharedPrefixes.buffer lay.val i m) v) ∧
+        (SigGolfCandidate.T3M.Sign.Seed.FCh lay i → SigGolfCandidate.T3M.Sign.Seed.Z32 t)) := by
   obtain ⟨n,u,hn,hu,upc,ur,uf,uv,usave⟩ := boundary hc hpref s hp lay.val i m valp cap
-    hl (by omega) hi (by omega) (by have := hpre.hcap; omega) hpre.hv8 hv hpre.hvc hpre.x8 hpre.x17 hpre.x19 h20
+    hl (by omega) hi (by omega) (by have := hpre.hcap; omega) hpre.hv8 hv (hpre.hvc.imp id (fun h => by simp only [CHAIN] at *; omega)) hpre.x8 hpre.x17 hpre.x19 h20
     hpre.x23 v hval
-  have ub : Frame s u (fun A => ChainW valp A ∨ 0x67000 < A) := uf.mono (by
+  have ub : Frame s u (fun A => ChainWS valp A ∨ 0x67000 < A) := uf.mono (by
     intro A hA h
     have hb := SharedPrefixes.buffer_above_scratch (chain := i) (step := m) (half := 0) hl
     simp only [Nat.mul_zero,Nat.add_zero] at hb
     simp only [boundaryWrites] at h
-    unfold ChainW
+    unfold ChainWS
     omega)
   have preu := pre_preserved hpre (ur.mono (by simp [chainRegs])) ub
   have run := hash_rung hc sk u upc lay tree leaf i m e cap valp ret v preu hm
@@ -1802,16 +1424,17 @@ theorem retained_rung {im : Image} (hc : Code im) (hpref : PrefixCode im) (sk : 
     unfold rungW
     omega
   · intro v' t ht
-    refine ⟨ht.1,ht.2.1,ht.2.2.1,(ur.trans ht.2.2.2.1).mono (by simp [chainRegs]),?_,?_⟩
-    · exact (uf.trans ht.2.2.2.2).mono (by
+    refine ⟨ht.1,ht.2.1,ht.2.2.1,(ur.trans ht.2.2.2.1).mono (by simp [chainRegs]),?_,?_,
+      fun hF => (ht.2.2.2.2.2 hF).1⟩
+    · exact (uf.trans ht.2.2.2.2.1).mono (by
         intro A hA h
-        simp only [boundaryWrites,hashWrites,rungWrites,ChainW] at *
+        simp only [boundaryWrites,hashWrites,rungWrites,ChainWS] at *
         omega)
     · intro hs
       have hb := SharedPrefixes.buffer_above_scratch (chain := i) (step := m) (half := 0) hl
       simp only [Nat.mul_zero,Nat.add_zero] at hb
       have hb8 := SharedPrefixes.buffer_bounds hl (by omega) hi (show m<8 by omega)
-      exact (usave hs).frame ht.2.2.2.2 (by omega)
+      exact (usave hs).frame ht.2.2.2.2.1 (by omega)
         (by simp only [hashWrites,CHAIN]; omega)
         (by simp only [hashWrites,CHAIN]; omega)
 
@@ -1819,6 +1442,7 @@ theorem retained_rung {im : Image} (hc : Code im) (hpref : PrefixCode im) (sk : 
 end ClaudeWCT.W9.Machine.Sign.SharedChain
 
 namespace ClaudeWCT.W9.Machine.Sign.SharedChain
+open SigGolfCandidate.T3M.Sign.Seed (ChainPreS ChainWS ChainHeadS)
 open RiscvZkvm.Rv64 SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv SigGolfCandidate.Rv OracleComp
 open SigGolfCandidate.T3M SigGolfCandidate.T3M.Keygen SigGolfCandidate.T3M.Keygen.PackedBlocks
 open SigGolfCandidate.T3 (Layer Digest)
@@ -1828,16 +1452,17 @@ set_option maxRecDepth 10000
 theorem retained_exit {α : Type} (a : α) {im : Image} (hc : Code im) (hpref : PrefixCode im) (sk : BitVec 256)
     (s : MachineState) (hp : s.pc = pcOf 1014) (lay : Layer)
     (tree leaf i e cap valp ret : Nat) (v : Digest)
-    (hpre : ChainPre s lay tree leaf i cap e valp ret)
+    (hpre : ChainPreS s lay tree leaf i cap e valp ret)
     (hl : 1 ≤ lay.val) (hi : i < 43) (he : e < 8) (hv : valp + 16 ≤ 0x67000)
     (h20 : s.getReg .x20 = BitVec.ofNat 64 e) (hval : DigAt s (CHAIN + 48) v) :
     TBSim im sk s (30 + (if e = cap then 6 else 0)) (pure a)
       (fun a' t => a' = a ∧ t.pc = pcOf ret ∧ DigAt t (CHAIN + 48) v ∧
         RegsExcept s t chainRegs ∧ Frame s t (rungWrites lay.val i e valp) ∧
         (SharedPrefixes.selectionWord (s.getMem 0x20550) lay.val = s.getReg .x18 →
-          DigAt t (SharedPrefixes.buffer lay.val i e) v)) := by
+          DigAt t (SharedPrefixes.buffer lay.val i e) v) ∧
+        (SigGolfCandidate.T3M.Sign.Seed.Z32 s → SigGolfCandidate.T3M.Sign.Seed.Z32 t)) := by
   obtain ⟨n,u,hn,hu,upc,ur,uf,uv,usave⟩ := boundary hc hpref s hp lay.val i e valp cap
-    hl (by omega) hi he (by have := hpre.hcap; omega) hpre.hv8 hv hpre.hvc hpre.x8 hpre.x17 hpre.x19 h20
+    hl (by omega) hi he (by have := hpre.hcap; omega) hpre.hv8 hv (hpre.hvc.imp id (fun h => by simp only [CHAIN] at *; omega)) hpre.x8 hpre.x17 hpre.x19 h20
     hpre.x23 v hval
   obtain ⟨t,ht,tpc,tr,tf⟩ := sub8_spec hc u upc e e (by omega) (by omega)
     (by rw [ur.get (by decide)]; exact h20)
@@ -1860,12 +1485,19 @@ theorem retained_exit {α : Type} (a : α) {im : Image} (hc : Code im) (hpref : 
       · exact Or.inl (Or.inr (Or.inr (by omega)))
       · exact h.elim),fun hs => (usave hs).frame fr (by
         have hb := SharedPrefixes.buffer_bounds hl (by omega) hi he
-        omega) (by simp) (by simp)⟩).toTBSim (by omega) |>.mono (by omega) (fun _ _ h => h)
+        omega) (by simp) (by simp), fun hz => by
+        have hvc := hpre.hvc
+        have hb := SharedPrefixes.buffer_above_scratch (chain := i) (step := e) (half := 0) hl
+        simp only [Nat.mul_zero,Nat.add_zero] at hb
+        simp only [CHAIN] at hvc
+        exact hz.frame (uf.trans fr) (by intro h; simp only [boundaryWrites,CHAIN,or_false] at h; omega)
+          (by intro h; simp only [boundaryWrites,CHAIN,or_false] at h; omega)⟩).toTBSim (by omega) |>.mono (by omega) (fun _ _ h => h)
 
 #print axioms retained_exit
 end ClaudeWCT.W9.Machine.Sign.SharedChain
 
 namespace ClaudeWCT.W9.Machine.Sign.SharedChain
+open SigGolfCandidate.T3M.Sign.Seed (ChainPreS ChainWS ChainHeadS)
 open RiscvZkvm.Rv64 SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv SigGolfCandidate.Rv OracleComp
 open SigGolfCandidate.T3M SigGolfCandidate.T3M.Keygen SigGolfCandidate.T3M.Keygen.PackedBlocks
 open SigGolfCandidate.T3 (Layer Digest)
@@ -1874,14 +1506,14 @@ set_option maxHeartbeats 2000000
 set_option maxRecDepth 10000
 
 def loopWrites (lay i lo hi valp A : Nat) : Prop :=
-  ChainW valp A ∨ (SharedPrefixes.buffer lay i lo ≤ A ∧ A < SharedPrefixes.buffer lay i hi + 16)
+  ChainWS valp A ∨ (SharedPrefixes.buffer lay i lo ≤ A ∧ A < SharedPrefixes.buffer lay i hi + 16)
 
 /-- Stage 2 (C3, #866): one step of the retained-prefix chain keeps the half `WCT9.chainHigh lay i start`, i.e. the
 spec `SharedForest.chainPrefixes` hashes with `WCT9.halfHash (WCT9.chainHigh lay i start)` as `WCT9.chainW` does. -/
 theorem chainPrefixes_succ (lay : Layer) (tree leaf i start count : Nat) (value : Digest) :
     chainPrefixes lay tree leaf i start (count + 1) value = (do
       let next ← ClaudeWCT.WCT9.halfHash (ClaudeWCT.WCT9.chainHigh lay i start)
-        (SigGolfCandidate.T3.chainInput lay tree leaf i start value)
+        (ClaudeWCT.WCT9.chainInputW lay tree leaf i start value)
       let tail ← chainPrefixes lay tree leaf i (start + 1) count next
       pure (value :: tail)) := rfl
 
@@ -1892,13 +1524,14 @@ theorem retained_loop {im : Image} (hc : Code im) (hpref : PrefixCode im) (sk : 
     (hl : 1 ≤ lay.val) (hi : i < 43) (he : e < 8) (hv : valp + 16 ≤ 0x67000)
     (hvi : valp + 16 ≤ 0x20550 ∨ 0x20558 ≤ valp) :
     ∀ (count m : Nat), m+count=e → ∀ (v : Digest) (s : MachineState),
-    ChainPre s lay tree leaf i cap e valp ret → s.pc = pcOf 1014 →
+    ChainPreS s lay tree leaf i cap e valp ret → s.pc = pcOf 1014 →
     s.getReg .x20 = BitVec.ofNat 64 m → DigAt s (CHAIN+48) v →
     TBSim im sk s (loopW lay.val i cap m count) (chainPrefixes lay tree leaf i m count v)
       (fun vs t => vs.length=count+1 ∧ t.pc=pcOf ret ∧ DigAt t (CHAIN+48) (vs.getD count 0) ∧
         RegsExcept s t chainRegs ∧ Frame s t (loopWrites lay.val i m e valp) ∧
         (SharedPrefixes.selectionWord (s.getMem 0x20550) lay.val = s.getReg .x18 →
-          ∀ j, j≤count → DigAt t (SharedPrefixes.buffer lay.val i (m+j)) (vs.getD j 0))) := by
+          ∀ j, j≤count → DigAt t (SharedPrefixes.buffer lay.val i (m+j)) (vs.getD j 0)) ∧
+        (SigGolfCandidate.T3M.Sign.Seed.FCh lay i → SigGolfCandidate.T3M.Sign.Seed.Z32 s ∨ 0 < count → SigGolfCandidate.T3M.Sign.Seed.Z32 t)) := by
   intro count
   induction count with
   | zero =>
@@ -1909,12 +1542,12 @@ theorem retained_loop {im : Image} (hc : Code im) (hpref : PrefixCode im) (sk : 
       (retained_exit [v] hc hpref sk s hp lay tree leaf i e cap valp ret v hpre hl hi he hv h20 hval).mono
         (le_refl _) (fun vs t ht => by
           rcases ht with ⟨rfl,ht⟩
-          refine ⟨rfl,ht.1,?_,ht.2.2.1,?_,?_⟩
+          refine ⟨rfl,ht.1,?_,ht.2.2.1,?_,?_,fun _ hz => ht.2.2.2.2.2 (hz.resolve_right (by omega))⟩
           · simpa only [List.getD_cons_zero] using ht.2.1
           · exact ht.2.2.2.1.mono (by
               intro A hA h
-              change ChainW valp A ∨ A = SharedPrefixes.buffer lay.val i e ∨ A = SharedPrefixes.buffer lay.val i e + 8 at h
-              change ChainW valp A ∨ (SharedPrefixes.buffer lay.val i e ≤ A ∧ A < SharedPrefixes.buffer lay.val i e + 16)
+              change ChainWS valp A ∨ A = SharedPrefixes.buffer lay.val i e ∨ A = SharedPrefixes.buffer lay.val i e + 8 at h
+              change ChainWS valp A ∨ (SharedPrefixes.buffer lay.val i e ≤ A ∧ A < SharedPrefixes.buffer lay.val i e + 16)
               rcases h with h | h | h
               · exact Or.inl h
               · right; omega
@@ -1922,7 +1555,7 @@ theorem retained_loop {im : Image} (hc : Code im) (hpref : PrefixCode im) (sk : 
           · intro hs j hj
             have hj0 : j=0 := by omega
             subst j
-            simpa only [Nat.add_zero,List.getD_cons_zero] using ht.2.2.2.2 hs)
+            simpa only [Nat.add_zero,List.getD_cons_zero] using ht.2.2.2.2.1 hs)
   | succ count ih =>
     intro m hm v s hpre hp h20 hval
     have hm' : m<e := by omega
@@ -1933,11 +1566,11 @@ theorem retained_loop {im : Image} (hc : Code im) (hpref : PrefixCode im) (sk : 
     refine TBSim.bind (W₁ := rungW lay.val i cap m) (W₂ := loopW lay.val i cap (m+1) count) one
       (fun v' u hu => ?_)
     have uf := hu.2.2.2.2.1
-    have ub : Frame s u (fun A => ChainW valp A ∨ 0x67000<A) := uf.mono (by
+    have ub : Frame s u (fun A => ChainWS valp A ∨ 0x67000<A) := uf.mono (by
       intro A hA h
       have hb := SharedPrefixes.buffer_above_scratch (chain := i) (step := m) (half := 0) hl
       simp only [Nat.mul_zero,Nat.add_zero] at hb
-      change ChainW valp A ∨ A = SharedPrefixes.buffer lay.val i m ∨ A = SharedPrefixes.buffer lay.val i m + 8 at h
+      change ChainWS valp A ∨ A = SharedPrefixes.buffer lay.val i m ∨ A = SharedPrefixes.buffer lay.val i m + 8 at h
       rcases h with h | h | h
       · exact Or.inl h
       · right; omega
@@ -1946,12 +1579,13 @@ theorem retained_loop {im : Image} (hc : Code im) (hpref : PrefixCode im) (sk : 
     have tail := ih (m+1) (by omega) v' u upre hu.1 hu.2.1 hu.2.2.1
     refine TBSim.bind (W₁ := loopW lay.val i cap (m+1) count) (W₂ := 0) tail (fun vs t ht => TBSim.pure ?_)
     refine ⟨by simpa only [List.length_cons] using congrArg (·+1) ht.1,ht.2.1,?_,
-      (hu.2.2.2.1.trans ht.2.2.2.1).mono (by simp),?_,?_⟩
+      (hu.2.2.2.1.trans ht.2.2.2.1).mono (by simp),?_,?_,
+      fun hF _ => ht.2.2.2.2.2.2 hF (Or.inl (hu.2.2.2.2.2.2 hF))⟩
     · simpa only [List.getD_cons_succ] using ht.2.2.1
     · exact (uf.trans ht.2.2.2.2.1).mono (by
         intro A hA h
         change rungWrites lay.val i m valp A ∨ loopWrites lay.val i (m+1) e valp A at h
-        change ChainW valp A ∨ (SharedPrefixes.buffer lay.val i m ≤ A ∧ A < SharedPrefixes.buffer lay.val i e + 16)
+        change ChainWS valp A ∨ (SharedPrefixes.buffer lay.val i m ≤ A ∧ A < SharedPrefixes.buffer lay.val i e + 16)
         rcases h with (h | h | h) | (h | h)
         · exact Or.inl h
         · right; simp only [SharedPrefixes.buffer] at h ⊢; omega
@@ -1962,26 +1596,27 @@ theorem retained_loop {im : Image} (hc : Code im) (hpref : PrefixCode im) (sk : 
       have usel : SharedPrefixes.selectionWord (u.getMem 0x20550) lay.val = u.getReg .x18 := by
         have idx : u.getMem (BitVec.ofNat 64 0x20550) = s.getMem (BitVec.ofNat 64 0x20550) :=
           uf 0x20550 (by decide) (by
-            simp only [rungWrites,ChainW,CHAIN,SharedPrefixes.buffer]
+            simp only [rungWrites,ChainWS,CHAIN,SharedPrefixes.buffer]
             omega)
         exact (congrArg (fun x => SharedPrefixes.selectionWord x lay.val) idx).trans
           (hs.trans (hu.2.2.2.1.get (by simp [chainRegs])).symm)
       cases j with
       | zero =>
-        have saved := hu.2.2.2.2.2 hs
+        have saved := hu.2.2.2.2.2.1 hs
         have hb := SharedPrefixes.buffer_bounds hl (by omega) hi (show m<8 by omega)
         have lo := SharedPrefixes.buffer_above_scratch (chain := i) (step := m) (half := 0) hl
         simp only [Nat.mul_zero,Nat.add_zero] at lo
         simpa only [List.getD_cons_zero,Nat.add_zero] using saved.frame ht.2.2.2.2.1
-          (by omega) (by simp only [loopWrites,ChainW,CHAIN,SharedPrefixes.buffer] at *; omega)
-          (by simp only [loopWrites,ChainW,CHAIN,SharedPrefixes.buffer] at *; omega)
+          (by omega) (by simp only [loopWrites,ChainWS,CHAIN,SharedPrefixes.buffer] at *; omega)
+          (by simp only [loopWrites,ChainWS,CHAIN,SharedPrefixes.buffer] at *; omega)
       | succ j =>
-        have saved := ht.2.2.2.2.2 usel j (by omega)
+        have saved := ht.2.2.2.2.2.1 usel j (by omega)
         simpa only [List.getD_cons_succ,show m+(j+1)=m+1+j by omega] using saved
 #print axioms retained_loop
 end ClaudeWCT.W9.Machine.Sign.SharedChain
 
 namespace ClaudeWCT.W9.Machine.Sign.SharedChain
+open SigGolfCandidate.T3M.Sign.Seed (ChainPreS ChainWS ChainHeadS)
 open RiscvZkvm.Rv64 SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv SigGolfCandidate.Rv OracleComp
 open SigGolfCandidate.T3M SigGolfCandidate.T3M.Keygen SigGolfCandidate.T3M.Keygen.PackedBlocks
 open SigGolfCandidate.T3 (Layer Digest)
@@ -1991,14 +1626,15 @@ set_option maxHeartbeats 2000000
 theorem retained_chain {im : Image} (hc : Code im) (hpref : PrefixCode im) (sk : BitVec 256)
     (s : MachineState) (hp : s.pc = pcOf 1013) (lay : Layer)
     (tree leaf i e cap valp ret : Nat) (v : Digest)
-    (hpre : ChainPre s lay tree leaf i cap e valp ret)
+    (hpre : ChainPreS s lay tree leaf i cap e valp ret)
     (hl : 1 ≤ lay.val) (hi : i < 43) (he : e < 8) (hv : valp + 16 ≤ 0x67000)
     (hvi : valp + 16 ≤ 0x20550 ∨ 0x20558 ≤ valp) (hval : DigAt s (CHAIN+48) v) :
-    TBSim im sk s (80*e+37) (chainPrefixes lay tree leaf i 0 e v)
+    TBSim im sk s (85*e+37) (chainPrefixes lay tree leaf i 0 e v)
       (fun vs t => vs.length=e+1 ∧ t.pc=pcOf ret ∧ DigAt t (CHAIN+48) (vs.getD e 0) ∧
         RegsExcept s t chainRegs ∧ Frame s t (loopWrites lay.val i 0 e valp) ∧
         (SharedPrefixes.selectionWord (s.getMem 0x20550) lay.val = s.getReg .x18 →
-          ∀ j, j≤e → DigAt t (SharedPrefixes.buffer lay.val i j) (vs.getD j 0))) := by
+          ∀ j, j≤e → DigAt t (SharedPrefixes.buffer lay.val i j) (vs.getD j 0)) ∧
+        (SigGolfCandidate.T3M.Sign.Seed.FCh lay i → 0 < e → SigGolfCandidate.T3M.Sign.Seed.Z32 t)) := by
   obtain ⟨u,hu,upc,u20,ur,uf⟩ := sub0_spec hc s hp
   have preu := pre_preserved hpre (ur.mono (by simp [chainRegs]))
     (uf.mono (by intro A hA h; exact h.elim))
@@ -2007,18 +1643,20 @@ theorem retained_chain {im : Image} (hc : Code im) (hpref : PrefixCode im) (sk :
   refine (TBSim.steps hu run).mono (loopW_le lay.val i cap e hpre.he hpre.hcap) ?_
   intro vs t ht
   refine ⟨ht.1,ht.2.1,ht.2.2.1,(ur.trans ht.2.2.2.1).mono (by simp [chainRegs]),
-    (uf.trans ht.2.2.2.2.1).mono (by intro A hA h; exact h.elim False.elim id),?_⟩
+    (uf.trans ht.2.2.2.2.1).mono (by intro A hA h; exact h.elim False.elim id),?_,
+    fun hF he0 => ht.2.2.2.2.2.2 hF (Or.inr he0)⟩
   intro hs j hj
   have us : SharedPrefixes.selectionWord (u.getMem 0x20550) lay.val = u.getReg .x18 := by
     have idx := uf 0x20550 (by decide) (by simp)
     exact (congrArg (fun x => SharedPrefixes.selectionWord x lay.val) idx).trans
       (hs.trans (ur.get (by decide)).symm)
-  simpa only [Nat.zero_add] using ht.2.2.2.2.2 us j hj
+  simpa only [Nat.zero_add] using ht.2.2.2.2.2.1 us j hj
 
 #print axioms retained_chain
 end ClaudeWCT.W9.Machine.Sign.SharedChain
 
 namespace ClaudeWCT.W9.Machine.Sign.SharedChain
+open SigGolfCandidate.T3M.Sign.Seed (ChainPreS ChainWS ChainHeadS)
 open RiscvZkvm.Rv64 SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv SigGolfCandidate.Rv OracleComp
 open SigGolfCandidate.T3M SigGolfCandidate.T3M.Keygen SigGolfCandidate.T3M.Keygen.PackedBlocks
 open SigGolfCandidate.T3 (Layer Digest chainInput shortHash)
@@ -2061,19 +1699,20 @@ theorem unselected_boundary {im : Image} (hc : Code im) (hpref : PrefixCode im)
 theorem unselected_rung {im : Image} (hc : Code im) (hpref : PrefixCode im) (sk : BitVec 256)
     (s : MachineState) (hp : s.pc=pcOf 1014) (lay : Layer)
     (tree leaf i m e cap valp ret : Nat) (v : Digest)
-    (hpre : ChainPre s lay tree leaf i cap e valp ret)
+    (hpre : ChainPreS s lay tree leaf i cap e valp ret)
     (hl : 1≤lay.val) (hm : m<e) (hv : valp+16≤0x67000)
     (h20 : s.getReg .x20=BitVec.ofNat 64 m) (hval : DigAt s (CHAIN+48) v)
     (hmiss : SharedPrefixes.selectionWord (s.getMem 0x20550) lay.val ≠ s.getReg .x18) :
     TBSim im sk s (rungW lay.val i cap m)
-      (ClaudeWCT.WCT9.halfHash (ClaudeWCT.WCT9.chainHigh lay i m) (chainInput lay tree leaf i m v))
+      (ClaudeWCT.WCT9.halfHash (ClaudeWCT.WCT9.chainHigh lay i m) (ClaudeWCT.WCT9.chainInputW lay tree leaf i m v))
       (fun v' t => t.pc=pcOf 1014 ∧ t.getReg .x20=BitVec.ofNat 64 (m+1) ∧
-        DigAt t (CHAIN+48) v' ∧ RegsExcept s t SigGolfCandidate.T3M.Keygen.chainRegs ∧ Frame s t (ChainW valp)) := by
+        DigAt t (CHAIN+48) v' ∧ RegsExcept s t SigGolfCandidate.T3M.Keygen.chainRegs ∧ Frame s t (ChainWS valp) ∧
+        (SigGolfCandidate.T3M.Sign.Seed.FCh lay i → SigGolfCandidate.T3M.Sign.Seed.Z32 t)) := by
   obtain ⟨n,u,hn,hu,upc,ur,uf⟩ := unselected_boundary hc hpref s hp lay.val valp m cap hl
     (by have := lay.isLt; omega) hpre.hv8 hv (by have := hpre.he; omega) (by have := hpre.hcap; have := hpre.he; omega)
     hpre.x8 hpre.x23 hpre.x17 h20 hmiss
-  have ub : Frame s u (fun A => ChainW valp A ∨ 0x67000<A) := uf.mono (by
-    intro A hA h; unfold ChainW; omega)
+  have ub : Frame s u (fun A => ChainWS valp A ∨ 0x67000<A) := uf.mono (by
+    intro A hA h; unfold ChainWS; omega)
   have preu := pre_preserved hpre (ur.mono (by simp [SigGolfCandidate.T3M.Keygen.chainRegs])) ub
   have uv := hval.frame uf (by decide) (by have := hpre.hvc; omega) (by have := hpre.hvc; omega)
   have run := hash_rung hc sk u upc lay tree leaf i m e cap valp ret v preu hm
@@ -2083,19 +1722,21 @@ theorem unselected_rung {im : Image} (hc : Code im) (hpref : PrefixCode im) (sk 
     unfold rungW
     omega
   · intro v' t ht
-    refine ⟨ht.1,ht.2.1,ht.2.2.1,(ur.trans ht.2.2.2.1).mono (by simp [SigGolfCandidate.T3M.Keygen.chainRegs]),?_⟩
-    exact (uf.trans ht.2.2.2.2).mono (by intro A hA h; simp only [hashWrites,ChainW] at *; omega)
+    refine ⟨ht.1,ht.2.1,ht.2.2.1,(ur.trans ht.2.2.2.1).mono (by simp [SigGolfCandidate.T3M.Keygen.chainRegs]),?_,
+      fun hF => (ht.2.2.2.2.2 hF).1⟩
+    exact (uf.trans ht.2.2.2.2.1).mono (by intro A hA h; simp only [hashWrites,ChainWS] at *; omega)
 
 theorem unselected_exit {im : Image} (hc : Code im) (hpref : PrefixCode im) (sk : BitVec 256)
     (s : MachineState) (hp : s.pc=pcOf 1014) (lay : Layer)
     (tree leaf i e cap valp ret : Nat) (v : Digest)
-    (hpre : ChainPre s lay tree leaf i cap e valp ret)
+    (hpre : ChainPreS s lay tree leaf i cap e valp ret)
     (hl : 1≤lay.val) (hv : valp+16≤0x67000)
     (h20 : s.getReg .x20=BitVec.ofNat 64 e) (hval : DigAt s (CHAIN+48) v)
     (hmiss : SharedPrefixes.selectionWord (s.getMem 0x20550) lay.val ≠ s.getReg .x18) :
     TBSim im sk s (30+(if e=cap then 6 else 0)) (pure [v])
       (fun vs t => vs=[v] ∧ t.pc=pcOf ret ∧ DigAt t (CHAIN+48) v ∧
-        RegsExcept s t SigGolfCandidate.T3M.Keygen.chainRegs ∧ Frame s t (ChainW valp)) := by
+        RegsExcept s t SigGolfCandidate.T3M.Keygen.chainRegs ∧ Frame s t (ChainWS valp) ∧
+        (SigGolfCandidate.T3M.Sign.Seed.Z32 s → SigGolfCandidate.T3M.Sign.Seed.Z32 t)) := by
   obtain ⟨n,u,hn,hu,upc,ur,uf⟩ := unselected_boundary hc hpref s hp lay.val valp e cap hl
     (by have := lay.isLt; omega) hpre.hv8 hv (by have := hpre.he; omega) (by have := hpre.hcap; have := hpre.he; omega)
     hpre.x8 hpre.x23 hpre.x17 h20 hmiss
@@ -2107,12 +1748,16 @@ theorem unselected_exit {im : Image} (hc : Code im) (hpref : PrefixCode im) (sk 
   have fr : Frame s w (fun A => A=valp ∨ A=valp+8) := ((uf.trans tf).trans wf).mono (by simp)
   exact (TSim.pure_steps (hu.trans (ht.trans hw)) ⟨rfl,wpc,
     hval.frame fr (by decide) (by have := hpre.hvc; omega) (by have := hpre.hvc; omega),
-    ((ur.trans tr).trans wr).mono (by simp [SigGolfCandidate.T3M.Keygen.chainRegs]),fr.mono (by intro A hA h; unfold ChainW; omega)⟩).toTBSim
+    ((ur.trans tr).trans wr).mono (by simp [SigGolfCandidate.T3M.Keygen.chainRegs]),fr.mono (by intro A hA h; unfold ChainWS; omega),
+    fun hz => by
+      have hvc := hpre.hvc
+      exact hz.frame fr (by simp only [CHAIN] at *; omega) (by simp only [CHAIN] at *; omega)⟩).toTBSim
     (by omega) |>.mono (by omega) (fun _ _ h => h)
 
 end ClaudeWCT.W9.Machine.Sign.SharedChain
 
 namespace ClaudeWCT.W9.Machine.Sign.SharedChain
+open SigGolfCandidate.T3M.Sign.Seed (ChainPreS ChainWS ChainHeadS)
 open RiscvZkvm.Rv64 SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv SigGolfCandidate.Rv OracleComp
 open SigGolfCandidate.T3M SigGolfCandidate.T3M.Keygen SigGolfCandidate.T3M.Keygen.PackedBlocks
 open SigGolfCandidate.T3 (Layer Digest)
@@ -2124,12 +1769,13 @@ theorem unselected_loop {im : Image} (hc : Code im) (hpref : PrefixCode im) (sk 
     (lay : Layer) (tree leaf i e cap valp ret : Nat)
     (hl : 1≤lay.val) (hv : valp+16≤0x67000) (hvi : valp+16≤0x20550 ∨ 0x20558≤valp) :
     ∀ (count m : Nat), m+count=e → ∀ (v : Digest) (s : MachineState),
-    ChainPre s lay tree leaf i cap e valp ret → s.pc=pcOf 1014 →
+    ChainPreS s lay tree leaf i cap e valp ret → s.pc=pcOf 1014 →
     s.getReg .x20=BitVec.ofNat 64 m → DigAt s (CHAIN+48) v →
     SharedPrefixes.selectionWord (s.getMem 0x20550) lay.val ≠ s.getReg .x18 →
     TBSim im sk s (loopW lay.val i cap m count) (chainPrefixes lay tree leaf i m count v)
       (fun vs t => vs.length=count+1 ∧ t.pc=pcOf ret ∧ DigAt t (CHAIN+48) (vs.getD count 0) ∧
-        RegsExcept s t SigGolfCandidate.T3M.Keygen.chainRegs ∧ Frame s t (ChainW valp)) := by
+        RegsExcept s t SigGolfCandidate.T3M.Keygen.chainRegs ∧ Frame s t (ChainWS valp) ∧
+        (SigGolfCandidate.T3M.Sign.Seed.FCh lay i → SigGolfCandidate.T3M.Sign.Seed.Z32 s ∨ 0 < count → SigGolfCandidate.T3M.Sign.Seed.Z32 t)) := by
   intro count
   induction count with
   | zero =>
@@ -2140,7 +1786,8 @@ theorem unselected_loop {im : Image} (hc : Code im) (hpref : PrefixCode im) (sk 
         (unselected_exit hc hpref sk s hp lay tree leaf i e cap valp ret v hpre hl hv h20 hval hmiss).mono
           (le_refl _) (fun vs t ht => by
             rcases ht with ⟨rfl,ht⟩
-            exact ⟨rfl,ht.1,by simpa only [List.getD_cons_zero] using ht.2.1,ht.2.2⟩)
+            exact ⟨rfl,ht.1,by simpa only [List.getD_cons_zero] using ht.2.1,ht.2.2.1,ht.2.2.2.1,
+              fun _ hz => ht.2.2.2.2 (hz.resolve_right (by omega))⟩)
   | succ count ih =>
       intro m hm v s hpre hp h20 hval hmiss
       have run := unselected_rung hc hpref sk s hp lay tree leaf i m e cap valp ret v hpre hl
@@ -2148,29 +1795,31 @@ theorem unselected_loop {im : Image} (hc : Code im) (hpref : PrefixCode im) (sk 
       rw [chainPrefixes_succ]
       show TBSim im sk s (rungW lay.val i cap m + loopW lay.val i cap (m+1) count) _ _
       refine TBSim.bind (W₂:=loopW lay.val i cap (m+1) count) run (fun v' u hu => ?_)
-      obtain ⟨upc,u20,uval,ur,uf⟩ := hu
+      obtain ⟨upc,u20,uval,ur,uf,uz⟩ := hu
       have preu := pre_preserved hpre ur (uf.mono (by intro A hA h; exact Or.inl h))
-      have idx : u.getMem 0x20550=s.getMem 0x20550 := uf 0x20550 (by decide) (by unfold ChainW CHAIN; omega)
+      have idx : u.getMem 0x20550=s.getMem 0x20550 := uf 0x20550 (by decide) (by unfold ChainWS CHAIN; omega)
       have missu : SharedPrefixes.selectionWord (u.getMem 0x20550) lay.val ≠ u.getReg .x18 := by
         rw [idx,ur.get (by decide)]
         exact hmiss
       have rest := ih (m+1) (by omega) v' u preu upc u20 uval missu
       refine TBSim.bind (W₂:=0) rest (fun vs t ht => TBSim.pure ?_) |>.mono (by omega) (fun _ _ h => h)
-      obtain ⟨hlen,tpc,tval,tr,tf⟩ := ht
+      obtain ⟨hlen,tpc,tval,tr,tf,tz⟩ := ht
       exact ⟨by simp only [List.length_cons,hlen],tpc,
         by simpa only [List.getD_cons_succ] using tval,
-        (ur.trans tr).mono (by simp [SigGolfCandidate.T3M.Keygen.chainRegs]),(uf.trans tf).mono (by simp)⟩
+        (ur.trans tr).mono (by simp [SigGolfCandidate.T3M.Keygen.chainRegs]),(uf.trans tf).mono (by simp),
+        fun hF _ => tz hF (Or.inl (uz hF))⟩
 
 theorem unselected_chain {im : Image} (hc : Code im) (hpref : PrefixCode im) (sk : BitVec 256)
     (s : MachineState) (hp : s.pc=pcOf 1013) (lay : Layer)
     (tree leaf i e cap valp ret : Nat) (v : Digest)
-    (hpre : ChainPre s lay tree leaf i cap e valp ret)
+    (hpre : ChainPreS s lay tree leaf i cap e valp ret)
     (hl : 1≤lay.val) (hv : valp+16≤0x67000)
     (hvi : valp+16≤0x20550 ∨ 0x20558≤valp) (hval : DigAt s (CHAIN+48) v)
     (hmiss : SharedPrefixes.selectionWord (s.getMem 0x20550) lay.val ≠ s.getReg .x18) :
-    TBSim im sk s (80*e+37) (chainPrefixes lay tree leaf i 0 e v)
+    TBSim im sk s (85*e+37) (chainPrefixes lay tree leaf i 0 e v)
       (fun vs t => vs.length=e+1 ∧ t.pc=pcOf ret ∧ DigAt t (CHAIN+48) (vs.getD e 0) ∧
-        RegsExcept s t SigGolfCandidate.T3M.Keygen.chainRegs ∧ Frame s t (ChainW valp)) := by
+        RegsExcept s t SigGolfCandidate.T3M.Keygen.chainRegs ∧ Frame s t (ChainWS valp) ∧
+        (SigGolfCandidate.T3M.Sign.Seed.FCh lay i → 0 < e → SigGolfCandidate.T3M.Sign.Seed.Z32 t)) := by
   obtain ⟨u,hu,upc,u20,ur,uf⟩ := sub0_spec hc s hp
   have preu := pre_preserved hpre (ur.mono (by simp [SigGolfCandidate.T3M.Keygen.chainRegs]))
     (uf.mono (by intro A hA h; exact h.elim))
@@ -2183,7 +1832,7 @@ theorem unselected_chain {im : Image} (hc : Code im) (hpref : PrefixCode im) (sk
   refine (TBSim.steps hu run).mono (loopW_le lay.val i cap e hpre.he hpre.hcap) ?_
   intro vs t ht
   exact ⟨ht.1,ht.2.1,ht.2.2.1,(ur.trans ht.2.2.2.1).mono (by simp [SigGolfCandidate.T3M.Keygen.chainRegs]),
-    (uf.trans ht.2.2.2.2).mono (by simp)⟩
+    (uf.trans ht.2.2.2.2.1).mono (by simp), fun hF he0 => ht.2.2.2.2.2 hF (Or.inr he0)⟩
 
 end ClaudeWCT.W9.Machine.Sign.SharedChain
 
@@ -2213,6 +1862,7 @@ theorem selection_route (index : Nat) (hi : index<2^31) (lay : Layer) (hl : lay�
 end ClaudeWCT.W9.Machine.Sign.SharedPrefixes
 
 namespace ClaudeWCT.W9.Machine.Sign.SharedChain
+open SigGolfCandidate.T3M.Sign.Seed (ChainPreS ChainWS ChainHeadS)
 open RiscvZkvm.Rv64 SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv SigGolfCandidate.Rv OracleComp
 open SigGolfCandidate.T3M SigGolfCandidate.T3M.Keygen SigGolfCandidate.T3M.Keygen.PackedBlocks
 open SigGolfCandidate.T3M.Sign.Seed
@@ -2231,12 +1881,12 @@ theorem top_boundary {im : Image} (hpref : PrefixCode im) (s : MachineState)
   rw [ur.get (r := .x20) (by simp),ur.get (r := .x17) (by simp)] at tp
   exact ⟨t,hu.trans ht,tp,(ur.trans tr).mono (by simp),(uf.trans tf).mono (by simp)⟩
 
-/-- Stage 2 (C3 trampoline, #866): extra chain-tail steps of a top-layer rung, `3` on chain 0 and `2` on the others
-(`Seed.trX 0 i m`; the top layer never keeps the HIGH half). -/
-def topTr (i : Nat) : Nat := if i = 0 then 3 else 2
+/-- Extra steps of a top-layer rung: the F step block (`3`) and the C3 tail trampoline (`3` on chain 0, `2` on the
+others; the top layer never keeps the HIGH half). -/
+def topTr (i : Nat) : Nat := if i = 0 then 6 else 5
 
 theorem trX_top (i m : Nat) : SigGolfCandidate.T3M.Sign.Seed.trX (0 : Layer).val i m = topTr i := by
-  unfold SigGolfCandidate.T3M.Sign.Seed.trX topTr
+  unfold SigGolfCandidate.T3M.Sign.Seed.trX SigGolfCandidate.T3M.Sign.Seed.trX0 topTr
   by_cases hi : i = 0
   · subst hi; simp
   · simp [hi]
@@ -2244,33 +1894,55 @@ theorem trX_top (i m : Nat) : SigGolfCandidate.T3M.Sign.Seed.trX (0 : Layer).val
 section
 variable {im : Image} (hc : Code im) (hpref : PrefixCode im) (sk : SecretKey)
   {s0 : MachineState} {tree leaf i e valp ret : Nat}
-  (hpre : ChainPre s0 0 tree leaf i e e valp ret)
+  (hpre : ChainPreS s0 0 tree leaf i e e valp ret)
 include hc hpref hpre
 
+/-- The top-chain loop state: the old (narrow) chain head, and the F pads still zero (the F step block rewrites them
+with zeros, so they are not chain writes here). -/
+def TopHead (s0 : MachineState) (valp m : Nat) (v : Digest) (t : MachineState) : Prop :=
+  Keygen.ChainHead 1013 s0 valp m v t ∧ SigGolfCandidate.T3M.Sign.Seed.Z32 t
+
+omit hc hpref in
+theorem TopHead.pre {m : Nat} {v : Digest} {t : MachineState} (ht : TopHead s0 valp m v t) :
+    ChainPreS t 0 tree leaf i e e valp ret :=
+  pre_preserved hpre ht.1.regs (ht.1.frame.mono (by
+    intro A hA h; left; exact SigGolfCandidate.T3M.Sign.Seed.ChainWS_of_chainW h))
+
 theorem top_step {m : Nat} (hm : m < e) {v : Digest} {t : MachineState}
-    (ht : ChainHead 1013 s0 valp m v t) :
+    (ht : TopHead s0 valp m v t) :
     TSim im sk t (headerK 0+8+topTr i) (headerK 0+15+topTr i) 1 1
       (shortHash (chainInput 0 tree leaf i m v))
-      (fun v' u => ChainHead 1013 s0 valp (m+1) v' u) := by
+      (fun v' u => TopHead s0 valp (m+1) v' u) := by
   have he := hpre.he
-  have pt := pre_preserved hpre ht.regs (ht.frame.mono (by intro A hA h; exact Or.inl h))
-  obtain ⟨u,hu,up,ur,uf⟩ := top_boundary hpref t ht.pc pt.x8
+  have pt := ht.pre hpre
+  obtain ⟨u,hu,up,ur,uf⟩ := top_boundary hpref t ht.1.pc pt.x8
   have hne : t.getReg .x20 ≠ t.getReg .x17 := by
-    rw [ht.x20,pt.x17]
+    rw [ht.1.x20,pt.x17]
     intro hn
     have hn := congrArg BitVec.toNat hn
     simp only [BitVec.toNat_ofNat, Nat.mod_eq_of_lt (show m < 2^64 by omega), Nat.mod_eq_of_lt (show e < 2^64 by omega)] at hn
     omega
   rw [if_neg hne] at up
   have pu := pre_preserved pt (ur.mono (by simp)) (uf.mono (by simp))
-  have hv := ht.val.frame uf (by decide) (by simp) (by simp)
+  have hv := ht.1.val.frame uf (by decide) (by simp) (by simp)
+  have hzu : SigGolfCandidate.T3M.Sign.Seed.Z32 u := ht.2.frame uf (by simp) (by simp)
   have hx := trX_top i m
   refine (TSim.steps hu (hash_rung hc sk u up 0 tree leaf i m e e valp ret v pu hm
-    ((ur.get (by simp)).trans ht.x20) hv)).of_eq
-    (by rw [ClaudeWCT.WCT9.chainHigh_top, ClaudeWCT.WCT9.halfHash_false]) (by omega) (by omega) rfl rfl |>.mono ?_
+    ((ur.get (by simp)).trans ht.1.x20) hv)).of_eq
+    (by rw [ClaudeWCT.WCT9.chainHigh_top, ClaudeWCT.WCT9.halfHash_false, ClaudeWCT.WCT9.chainInputW_top])
+    (by omega) (by omega) rfl rfl |>.mono ?_
   intro v' w hw
-  refine ⟨hw.1,hw.2.1,((ht.regs.trans ur).trans hw.2.2.2.1).mono (by simp),?_,hw.2.2.1⟩
-  exact ((ht.frame.trans uf).trans hw.2.2.2.2).mono (by
+  obtain ⟨hz, hfw⟩ := hw.2.2.2.2.2 (SigGolfCandidate.T3M.Sign.Seed.FCh_top i)
+  -- the F pads are rewritten with zeros: the narrow frame `ChainW` holds semantically
+  have hfn : Frame u w (fun A => (A = CHAIN + 16 ∨ A = CHAIN + 24) ∨ (CHAIN + 48 ≤ A ∧ A < CHAIN + 80)) := by
+    intro A hA hn
+    by_cases h32 : A = CHAIN + 32
+    · subst h32; exact hz.1.trans hzu.1.symm
+    by_cases h40 : A = CHAIN + 40
+    · subst h40; exact hz.2.trans hzu.2.symm
+    exact hfw A hA (by simp only [CHAIN] at *; omega)
+  refine ⟨⟨hw.1,hw.2.1,((ht.1.regs.trans ur).trans hw.2.2.2.1).mono (by simp),?_,hw.2.2.1⟩, hz⟩
+  exact ((ht.1.frame.trans uf).trans hfn).mono (by
     intro A hA h
     rcases h with (h|h)|h
     · exact h
@@ -2281,18 +1953,18 @@ theorem top_step {m : Nat} (hm : m < e) {v : Digest} {t : MachineState}
   )
 
 theorem top_exit {v : Digest} {t : MachineState}
-    (ht : ChainHead 1013 s0 valp e v t) :
+    (ht : TopHead s0 valp e v t) :
     ∃ u, Steps im t 12 12 u ∧ u.pc = pcOf ret ∧ DigAt u valp v ∧
       RegsExcept t u [.x6,.x7,.x29] ∧ Frame t u (fun A => valp ≤ A ∧ A < valp+16) := by
   have he := hpre.he
-  have pt := pre_preserved hpre ht.regs (ht.frame.mono (by intro A hA h; exact Or.inl h))
-  obtain ⟨t1,st1,t1pc,t1r,t1f⟩ := top_boundary hpref t ht.pc pt.x8
-  rw [if_pos (ht.x20.trans pt.x17.symm)] at t1pc
+  have pt := ht.pre hpre
+  obtain ⟨t1,st1,t1pc,t1r,t1f⟩ := top_boundary hpref t ht.1.pc pt.x8
+  rw [if_pos (ht.1.x20.trans pt.x17.symm)] at t1pc
   obtain ⟨t2,st2,t2pc,t2v0,t2v8,t2r,t2f⟩ := sub2_spec hc t1 t1pc valp
     ((t1r.get (by simp)).trans pt.x23) pt.hv8 pt.hv
-  have hv1:=ht.val.frame t1f (by decide) (by simp) (by simp)
+  have hv1:=ht.1.val.frame t1f (by decide) (by simp) (by simp)
   obtain ⟨t3,st3,t3pc,t3r,t3f⟩ := sub8_spec hc t2 t2pc e e (by omega) (by omega)
-    ((t2r.get (by simp)).trans ((t1r.get (by simp)).trans ht.x20))
+    ((t2r.get (by simp)).trans ((t1r.get (by simp)).trans ht.1.x20))
     ((t2r.get (by simp)).trans ((t1r.get (by simp)).trans pt.x21))
   rw [if_pos rfl] at t3pc
   obtain ⟨t4,st4,t4pc,t4r,t4f⟩ := sub26_spec hc t3 t3pc ret
@@ -2309,30 +1981,33 @@ theorem top_exit {v : Digest} {t : MachineState}
       · exact h.elim
       · exact h.elim)
 
-/-- A top chain. Stage 2: each rung pays the C3 tail trampoline (`topTr i` steps). -/
-theorem top_chain {v : Digest} (hp : s0.pc = pcOf 1013) (hv : DigAt s0 (CHAIN+48) v) :
+/-- A top chain. Pairing stage 1: each rung pays the F step block and the C3 tail trampoline (`topTr i` steps). The F
+pads `CHAIN+32/40` are zero on entry and stay zero, so the chain writes the old set `ChainW valp`. -/
+theorem top_chain {v : Digest} (hp : s0.pc = pcOf 1013) (hv : DigAt s0 (CHAIN+48) v)
+    (hz : SigGolfCandidate.T3M.Sign.Seed.Z32 s0) :
     TSim im sk s0 ((headerK 0+8+topTr i)*e+13) ((headerK 0+15+topTr i)*e+13) e e
       (do let a ← chain 0 tree leaf i 0 e v; pure (a,a))
       (fun r t => t.pc = pcOf ret ∧ DigAt t valp r.1 ∧ DigAt t (CHAIN+48) r.2 ∧
         RegsExcept s0 t Keygen.chainRegs ∧ Frame s0 t (ChainW valp)) := by
   obtain ⟨u,hu,up,u20,ur,uf⟩ := sub0_spec hc s0 hp
-  have h0 : ChainHead 1013 s0 valp 0 v u :=
-    ⟨up,u20,ur.mono (by simp [Keygen.chainRegs]),uf.mono (by simp),hv.frame uf (by decide) (by simp) (by simp)⟩
+  have h0 : TopHead s0 valp 0 v u :=
+    ⟨⟨up,u20,ur.mono (by simp [Keygen.chainRegs]),uf.mono (by simp),hv.frame uf (by decide) (by simp) (by simp)⟩,
+      hz.frame uf (by simp) (by simp)⟩
   have run : TSim im sk u (sumTo (fun _ => headerK 0+8+topTr i) e) (sumTo (fun _ => headerK 0+15+topTr i) e)
       (sumTo (fun _ => 1) e) (sumTo (fun _ => 1) e) (chain 0 tree leaf i 0 e v)
-      (fun a t => ChainHead 1013 s0 valp e a t) := by
+      (fun a t => TopHead s0 valp e a t) := by
     unfold chain
-    exact TSim.foldlM_range' 0 e _ v (fun j a t => ChainHead 1013 s0 valp j a t) _ _ _ _
+    exact TSim.foldlM_range' 0 e _ v (fun j a t => TopHead s0 valp j a t) _ _ _ _
       (fun j hj a t ht => by simpa using top_step hc hpref sk hpre hj ht) h0
-  have rest : ∀ a t, ChainHead 1013 s0 valp e a t →
+  have rest : ∀ a t, TopHead s0 valp e a t →
       TSim im sk t 12 12 0 0 (pure (a,a))
         (fun r w => w.pc = pcOf ret ∧ DigAt w valp r.1 ∧ DigAt w (CHAIN+48) r.2 ∧
           RegsExcept s0 w Keygen.chainRegs ∧ Frame s0 w (ChainW valp)) := by
     intro a t ht
     obtain ⟨w,hw,wp,wv,wr,wf⟩ := top_exit hc hpref hpre ht
     have hvc:=hpre.hvc
-    exact TSim.pure_steps hw ⟨wp,wv,ht.val.frame wf (by decide) (by simp; omega) (by simp; omega),
-      (ht.regs.trans wr).mono (by simp [Keygen.chainRegs]),(ht.frame.trans wf).mono (by
+    exact TSim.pure_steps hw ⟨wp,wv,ht.1.val.frame wf (by decide) (by simp; omega) (by simp; omega),
+      (ht.1.regs.trans wr).mono (by simp [Keygen.chainRegs]),(ht.1.frame.trans wf).mono (by
         intro A hA h; rcases h with h|h; exact h; exact Or.inr (Or.inr h))⟩
   refine (TSim.steps hu (TSim.bind run rest)).of_eq rfl ?_ ?_ ?_ ?_
   all_goals simp only [sumTo_const,Nat.mul_comm]; omega

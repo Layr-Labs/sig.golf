@@ -458,7 +458,7 @@ theorem contact_iff_rowsInv (a : ChainAddr) (ha : WotsExtract.SourceLeaf7 a.key)
       omega
   -- C3 (#866): the contact row is read through the half its step keeps (`SeenRowW`, `RowsInvW`).
   unfold Contact ContactAt CanonicalRef.ContactAt ClaudeWCT.W9.T3.Security.Wots.SeenRowW
-  change _ ↔ 1 ≤ depth (fillTable a R endpoint) a ∧ ∃ value answer, (chainRow a (depth (fillTable a R endpoint) a - 1) value, answer) ∈ memory ∧ rowHalf a (depth (fillTable a R endpoint) a - 1) answer = frontierValue (fillTable a R endpoint) a
+  change _ ↔ 1 ≤ depth (fillTable a R endpoint) a ∧ ∃ value answer, (chainRowW a (depth (fillTable a R endpoint) a - 1) value, answer) ∈ memory ∧ rowHalf a (depth (fillTable a R endpoint) a - 1) answer = frontierValue (fillTable a R endpoint) a
   rw [fillTable_depth a ha, fillTable_frontier a ha R endpoint (by omega)]
   constructor
   · rintro ⟨i, hi, value, h⟩

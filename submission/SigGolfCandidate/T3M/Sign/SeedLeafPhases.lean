@@ -500,10 +500,13 @@ theorem chainProgW_top {A : LeafArgs} (h : A.lay = 0) (i : Nat) (seed : Digest) 
 /-- C3 (FULL): cycles of a lower chain run of 7 hashes (`chainCy`): chain 0 pays the trampoline's extra 40 cycles,
 the others 14. -/
 theorem chainCy_low {lay : Layer} (h : lay ≠ 0) (i : Nat) :
-    chainCy lay i 7 = rungC lay * 7 + 10 + (if i = 0 then 40 else 14) := by
+    chainCy lay i 7 = rungC lay * 7 + 10 + (if i % 2 = 1 then 78 else if i = 0 then 68 else 42) := by
   have hl : lay.val ≠ 0 := fun h' => h (Fin.ext h')
-  unfold chainCy trX
-  by_cases hi : i = 0 <;> simp [sumTo, hi, hl] <;> omega
+  unfold chainCy trX trX0
+  by_cases hi : i % 2 = 1
+  · have hi0 : i ≠ 0 := by omega
+    simp [sumTo, hi, hl, hi0]; omega
+  · by_cases hi0 : i = 0 <;> simp [sumTo, hi, hl, hi0] <;> omega
 theorem chainK_le_chainCy (lay : Layer) (i e : Nat) : chainK lay i e ≤ chainCy lay i e := by
   unfold chainK chainCy
   have : ∀ n, sumTo (fun m => rungK lay + trX lay.val i m) n ≤ sumTo (fun m => rungC lay + trX lay.val i m) n := by
@@ -512,13 +515,13 @@ theorem chainK_le_chainCy (lay : Layer) (i e : Nat) : chainK lay i e ≤ chainCy
     | succ n ih => simp only [sumTo]; have : rungK lay ≤ rungC lay := by unfold rungK rungC; omega
                    omega
   have := this e; omega
-theorem chainCy_top (i e : Nat) : chainCy 0 i e = (42 + (if i = 0 then 3 else 2)) * e + 10 := by
-  have h : ∀ m, rungC 0 + trX (0 : Layer).val i m = 42 + (if i = 0 then 3 else 2) := by
-    intro m; unfold trX; by_cases hi : i = 0 <;> simp [hi, rungC, headerK]
+theorem chainCy_top (i e : Nat) : chainCy 0 i e = (42 + (if i = 0 then 6 else 5)) * e + 10 := by
+  have h : ∀ m, rungC 0 + trX (0 : Layer).val i m = 42 + (if i = 0 then 6 else 5) := by
+    intro m; unfold trX trX0; by_cases hi : i = 0 <;> simp [hi, rungC, headerK]
   unfold chainCy; simp only [h, sumTo_const]; ring
-theorem chainK_top (i e : Nat) : chainK 0 i e = (35 + (if i = 0 then 3 else 2)) * e + 10 := by
-  have h : ∀ m, rungK 0 + trX (0 : Layer).val i m = 35 + (if i = 0 then 3 else 2) := by
-    intro m; unfold trX; by_cases hi : i = 0 <;> simp [hi, rungK, headerK]
+theorem chainK_top (i e : Nat) : chainK 0 i e = (35 + (if i = 0 then 6 else 5)) * e + 10 := by
+  have h : ∀ m, rungK 0 + trX (0 : Layer).val i m = 35 + (if i = 0 then 6 else 5) := by
+    intro m; unfold trX trX0; by_cases hi : i = 0 <;> simp [hi, rungK, headerK]
   unfold chainK; simp only [h, sumTo_const]; ring
 theorem slot_low {lay : Layer} (h : lay ≠ 0) (c : Nat) :
     slot lay c = if c = 0 then LEAFPK else LEAFPK + 16 * (c + 1) := by
@@ -530,14 +533,14 @@ variable {image : Image} {b : Nat} (hsub : SeedIndependentAt image b) (sk : BitV
   {A : LeafArgs} (hpre : LeafPreS sk s0 A)
 include hsub hpre
 set_option maxHeartbeats 1000000 in
-theorem leaf_prechainFrom61S {j : Nat} (hj : j < A.n) {st : List Digest × List Digest} {t : MachineState}
+theorem leaf_prechainFrom61S {j : Nat} (hj : j < A.n) (hlowe : A.lay.val ≠ 0 → A.e j ≤ 7) {st : List Digest × List Digest} {t : MachineState}
     (ht : LeafInv s0 A j st t) (hpc : t.pc = pcOf (b + 61)) (seed : Digest) (half : Nat) (hhalf : half < 2)
     (h28 : t.getReg .x28 = BitVec.ofNat 64 half)
     (hcopy : CodeAt image (pcOf (b + 61)) sub61)
     (hseed : DigAt t (SEEDS + 16 * half) seed) :
     ∃ u, Steps image t (16 + selectorExtra A.lay j + (if A.so then 1 else 0))
         (16 + selectorExtra A.lay j + (if A.so then 1 else 0)) u ∧ u.pc = pcOf b ∧
-      ChainPre u A.lay A.tree A.leaf j (A.d j) (A.e j) (A.valp + 16 * j) (b + 79) ∧
+      ChainPreS u A.lay A.tree A.leaf j (A.d j) (A.e j) (A.valp + 16 * j) (b + 79) ∧
       DigAt u (CHAIN + 48) seed ∧ RegsExcept t u [.x1, .x6, .x7, .x17, .x21, .x28, .x29, .x30] ∧
       Frame t u (fun X => X = CHAIN + 48 ∨ X = CHAIN + 56) := by
   have hn := chainCount_cases A.lay
@@ -634,8 +637,8 @@ theorem leaf_prechainFrom61S {j : Nat} (hj : j < A.n) {st : List Digest × List 
       x17 := ?_, x19 := ?_, x21 := ?_, x23 := ?_, htree := hpre.htree
       hi := by change j < 64; change A.n = 54 ∨ A.n = 43 at hn; omega
       hroute := hpre.hroute, hleaf := hpre.hleafHeight
-      hcap := ?_, he := hpre.hsteps j hj, hv8 := ?_, hv := ?_, hvc := ?_
-      z0 := ?_, z8 := ?_, z32 := ?_, z40 := ?_ },
+      hcap := ?_, he := hpre.hsteps j hj, hlow := ?_, hv8 := ?_, hv := ?_, hvc := ?_
+      z0 := ?_, z8 := ?_ },
     hseedv.frame (((t2f.trans t3f).trans t4f).trans (t5f.trans (t6f.trans uf))) (by decide)
       (by simp) (by simp), e1u, f1u⟩
   · have := (st1.trans st2).trans ((st3.trans st4).trans ((st5.trans st6).trans st7))
@@ -652,20 +655,19 @@ theorem leaf_prechainFrom61S {j : Nat} (hj : j < A.n) {st : List Digest × List 
   · unfold LeafArgs.e; split_ifs with hso
     · exact le_refl _
     · exact hdb.2 (by simpa using hso)
+  · exact hlowe
   · omega
   · omega
   · simp only [CHAIN, PRIV, LEAFPK] at hvs ⊢; omega
   · rw [fr CHAIN (by decide) (hL _ (by simp)) (by decide) (by decide), hpre.z0]
   · rw [fr (CHAIN + 8) (by decide) (hL _ (by simp)) (by decide) (by decide), hpre.z8]
-  · rw [fr (CHAIN + 32) (by decide) (hL _ (by simp)) (by decide) (by decide), hpre.z32]
-  · rw [fr (CHAIN + 40) (by decide) (hL _ (by simp)) (by decide) (by decide), hpre.z40]
 set_option maxHeartbeats 1000000 in
-theorem leaf_prechainFrom71S {j : Nat} (hj : j < A.n) {st : List Digest × List Digest} {t : MachineState}
+theorem leaf_prechainFrom71S {j : Nat} (hj : j < A.n) (hlowe : A.lay.val ≠ 0 → A.e j ≤ 7) {st : List Digest × List Digest} {t : MachineState}
     (ht : LeafInv s0 A j st t) (hpc : t.pc = pcOf (b + 71)) (seed : Digest)
     (hseed : DigAt t (CHAIN + 48) seed) :
     ∃ u, Steps image t (6 + selectorExtra A.lay j + (if A.so then 1 else 0))
         (6 + selectorExtra A.lay j + (if A.so then 1 else 0)) u ∧ u.pc = pcOf b ∧
-      ChainPre u A.lay A.tree A.leaf j (A.d j) (A.e j) (A.valp + 16 * j) (b + 79) ∧
+      ChainPreS u A.lay A.tree A.leaf j (A.d j) (A.e j) (A.valp + 16 * j) (b + 79) ∧
       DigAt u (CHAIN + 48) seed ∧ RegsExcept t u [.x1, .x6, .x7, .x17, .x21, .x28, .x29, .x30] ∧
       Frame t u (fun X => X = CHAIN + 48 ∨ X = CHAIN + 56) := by
   have hn := chainCount_cases A.lay
@@ -760,8 +762,8 @@ theorem leaf_prechainFrom71S {j : Nat} (hj : j < A.n) {st : List Digest × List 
       x17 := ?_, x19 := ?_, x21 := ?_, x23 := ?_, htree := hpre.htree
       hi := by change j < 64; change A.n = 54 ∨ A.n = 43 at hn; omega
       hroute := hpre.hroute, hleaf := hpre.hleafHeight
-      hcap := ?_, he := hpre.hsteps j hj, hv8 := ?_, hv := ?_, hvc := ?_
-      z0 := ?_, z8 := ?_, z32 := ?_, z40 := ?_ },
+      hcap := ?_, he := hpre.hsteps j hj, hlow := ?_, hv8 := ?_, hv := ?_, hvc := ?_
+      z0 := ?_, z8 := ?_ },
     hseedv.frame (((t2f.trans t3f).trans t4f).trans (t5f.trans (t6f.trans uf))) (by decide)
       (by simp) (by simp), e1u, f1u⟩
   · have := (st1.trans st2).trans ((st3.trans st4).trans ((st5.trans st6).trans st7))
@@ -778,13 +780,12 @@ theorem leaf_prechainFrom71S {j : Nat} (hj : j < A.n) {st : List Digest × List 
   · unfold LeafArgs.e; split_ifs with hso
     · exact le_refl _
     · exact hdb.2 (by simpa using hso)
+  · exact hlowe
   · omega
   · omega
   · simp only [CHAIN, PRIV, LEAFPK] at hvs ⊢; omega
   · rw [fr CHAIN (by decide) (hL _ (by simp)) (by decide) (by decide), hpre.z0]
   · rw [fr (CHAIN + 8) (by decide) (hL _ (by simp)) (by decide) (by decide), hpre.z8]
-  · rw [fr (CHAIN + 32) (by decide) (hL _ (by simp)) (by decide) (by decide), hpre.z32]
-  · rw [fr (CHAIN + 40) (by decide) (hL _ (by simp)) (by decide) (by decide), hpre.z40]
 set_option maxHeartbeats 1000000 in
 theorem leaf_postchainS {j : Nat} (hj : j < A.n) {st : List Digest × List Digest} {t u : MachineState}
     (ht : LeafInv s0 A j st t) (hupc : u.pc = pcOf (b + 79))
@@ -1531,10 +1532,13 @@ theorem chainProgW_top {A : LeafArgs} (h : A.lay = 0) (i : Nat) (seed : Digest) 
 /-- C3 (FULL): cycles of a lower chain run of 7 hashes (`chainCy`): chain 0 pays the trampoline's extra 40 cycles,
 the others 14. -/
 theorem chainCy_low {lay : Layer} (h : lay ≠ 0) (i : Nat) :
-    chainCy lay i 7 = rungC lay * 7 + 10 + (if i = 0 then 40 else 14) := by
+    chainCy lay i 7 = rungC lay * 7 + 10 + (if i % 2 = 1 then 78 else if i = 0 then 68 else 42) := by
   have hl : lay.val ≠ 0 := fun h' => h (Fin.ext h')
-  unfold chainCy trX
-  by_cases hi : i = 0 <;> simp [sumTo, hi, hl] <;> omega
+  unfold chainCy trX trX0
+  by_cases hi : i % 2 = 1
+  · have hi0 : i ≠ 0 := by omega
+    simp [sumTo, hi, hl, hi0]; omega
+  · by_cases hi0 : i = 0 <;> simp [sumTo, hi, hl, hi0] <;> omega
 theorem chainK_le_chainCy (lay : Layer) (i e : Nat) : chainK lay i e ≤ chainCy lay i e := by
   unfold chainK chainCy
   have : ∀ n, sumTo (fun m => rungK lay + trX lay.val i m) n ≤ sumTo (fun m => rungC lay + trX lay.val i m) n := by
@@ -1543,13 +1547,13 @@ theorem chainK_le_chainCy (lay : Layer) (i e : Nat) : chainK lay i e ≤ chainCy
     | succ n ih => simp only [sumTo]; have : rungK lay ≤ rungC lay := by unfold rungK rungC; omega
                    omega
   have := this e; omega
-theorem chainCy_top (i e : Nat) : chainCy 0 i e = (42 + (if i = 0 then 3 else 2)) * e + 10 := by
-  have h : ∀ m, rungC 0 + trX (0 : Layer).val i m = 42 + (if i = 0 then 3 else 2) := by
-    intro m; unfold trX; by_cases hi : i = 0 <;> simp [hi, rungC, headerK]
+theorem chainCy_top (i e : Nat) : chainCy 0 i e = (42 + (if i = 0 then 6 else 5)) * e + 10 := by
+  have h : ∀ m, rungC 0 + trX (0 : Layer).val i m = 42 + (if i = 0 then 6 else 5) := by
+    intro m; unfold trX trX0; by_cases hi : i = 0 <;> simp [hi, rungC, headerK]
   unfold chainCy; simp only [h, sumTo_const]; ring
-theorem chainK_top (i e : Nat) : chainK 0 i e = (35 + (if i = 0 then 3 else 2)) * e + 10 := by
-  have h : ∀ m, rungK 0 + trX (0 : Layer).val i m = 35 + (if i = 0 then 3 else 2) := by
-    intro m; unfold trX; by_cases hi : i = 0 <;> simp [hi, rungK, headerK]
+theorem chainK_top (i e : Nat) : chainK 0 i e = (35 + (if i = 0 then 6 else 5)) * e + 10 := by
+  have h : ∀ m, rungK 0 + trX (0 : Layer).val i m = 35 + (if i = 0 then 6 else 5) := by
+    intro m; unfold trX trX0; by_cases hi : i = 0 <;> simp [hi, rungK, headerK]
   unfold chainK; simp only [h, sumTo_const]; ring
 theorem slot_low {lay : Layer} (h : lay ≠ 0) (c : Nat) :
     slot lay c = if c = 0 then LEAFPK else LEAFPK + 16 * (c + 1) := by
@@ -1561,14 +1565,14 @@ variable {image : Image} {b : Nat} (hsub : SharedLeafCode.Code image b) (sk : Bi
   {A : LeafArgs} (hpre : LeafPreS sk s0 A)
 include hsub hpre
 set_option maxHeartbeats 1000000 in
-theorem leaf_prechainFrom61S {j : Nat} (hj : j < A.n) {st : List Digest × List Digest} {t : MachineState}
+theorem leaf_prechainFrom61S {j : Nat} (hj : j < A.n) (hlowe : A.lay.val ≠ 0 → A.e j ≤ 7) {st : List Digest × List Digest} {t : MachineState}
     (ht : LeafInv s0 A j st t) (hpc : t.pc = pcOf (b + 61)) (seed : Digest) (half : Nat) (hhalf : half < 2)
     (h28 : t.getReg .x28 = BitVec.ofNat 64 half)
     (hcopy : CodeAt image (pcOf (b + 61)) sub61)
     (hseed : DigAt t (SEEDS + 16 * half) seed) :
     ∃ u, Steps image t (16 + selectorExtra A.lay j + (if A.so then 1 else 0))
         (16 + selectorExtra A.lay j + (if A.so then 1 else 0)) u ∧ u.pc = pcOf b ∧
-      ChainPre u A.lay A.tree A.leaf j (A.d j) (A.e j) (A.valp + 16 * j) (b + 79) ∧
+      ChainPreS u A.lay A.tree A.leaf j (A.d j) (A.e j) (A.valp + 16 * j) (b + 79) ∧
       DigAt u (CHAIN + 48) seed ∧ RegsExcept t u [.x1, .x6, .x7, .x17, .x21, .x28, .x29, .x30] ∧
       Frame t u (fun X => X = CHAIN + 48 ∨ X = CHAIN + 56) := by
   have hn := chainCount_cases A.lay
@@ -1665,8 +1669,8 @@ theorem leaf_prechainFrom61S {j : Nat} (hj : j < A.n) {st : List Digest × List 
       x17 := ?_, x19 := ?_, x21 := ?_, x23 := ?_, htree := hpre.htree
       hi := by change j < 64; change A.n = 54 ∨ A.n = 43 at hn; omega
       hroute := hpre.hroute, hleaf := hpre.hleafHeight
-      hcap := ?_, he := hpre.hsteps j hj, hv8 := ?_, hv := ?_, hvc := ?_
-      z0 := ?_, z8 := ?_, z32 := ?_, z40 := ?_ },
+      hcap := ?_, he := hpre.hsteps j hj, hlow := ?_, hv8 := ?_, hv := ?_, hvc := ?_
+      z0 := ?_, z8 := ?_ },
     hseedv.frame (((t2f.trans t3f).trans t4f).trans (t5f.trans (t6f.trans uf))) (by decide)
       (by simp) (by simp), e1u, f1u⟩
   · have := (st1.trans st2).trans ((st3.trans st4).trans ((st5.trans st6).trans st7))
@@ -1683,20 +1687,19 @@ theorem leaf_prechainFrom61S {j : Nat} (hj : j < A.n) {st : List Digest × List 
   · unfold LeafArgs.e; split_ifs with hso
     · exact le_refl _
     · exact hdb.2 (by simpa using hso)
+  · exact hlowe
   · omega
   · omega
   · simp only [CHAIN, PRIV, LEAFPK] at hvs ⊢; omega
   · rw [fr CHAIN (by decide) (hL _ (by simp)) (by decide) (by decide), hpre.z0]
   · rw [fr (CHAIN + 8) (by decide) (hL _ (by simp)) (by decide) (by decide), hpre.z8]
-  · rw [fr (CHAIN + 32) (by decide) (hL _ (by simp)) (by decide) (by decide), hpre.z32]
-  · rw [fr (CHAIN + 40) (by decide) (hL _ (by simp)) (by decide) (by decide), hpre.z40]
 set_option maxHeartbeats 1000000 in
-theorem leaf_prechainFrom71S {j : Nat} (hj : j < A.n) {st : List Digest × List Digest} {t : MachineState}
+theorem leaf_prechainFrom71S {j : Nat} (hj : j < A.n) (hlowe : A.lay.val ≠ 0 → A.e j ≤ 7) {st : List Digest × List Digest} {t : MachineState}
     (ht : LeafInv s0 A j st t) (hpc : t.pc = pcOf (b + 71)) (seed : Digest)
     (hseed : DigAt t (CHAIN + 48) seed) :
     ∃ u, Steps image t (6 + selectorExtra A.lay j + (if A.so then 1 else 0))
         (6 + selectorExtra A.lay j + (if A.so then 1 else 0)) u ∧ u.pc = pcOf b ∧
-      ChainPre u A.lay A.tree A.leaf j (A.d j) (A.e j) (A.valp + 16 * j) (b + 79) ∧
+      ChainPreS u A.lay A.tree A.leaf j (A.d j) (A.e j) (A.valp + 16 * j) (b + 79) ∧
       DigAt u (CHAIN + 48) seed ∧ RegsExcept t u [.x1, .x6, .x7, .x17, .x21, .x28, .x29, .x30] ∧
       Frame t u (fun X => X = CHAIN + 48 ∨ X = CHAIN + 56) := by
   have hn := chainCount_cases A.lay
@@ -1791,8 +1794,8 @@ theorem leaf_prechainFrom71S {j : Nat} (hj : j < A.n) {st : List Digest × List 
       x17 := ?_, x19 := ?_, x21 := ?_, x23 := ?_, htree := hpre.htree
       hi := by change j < 64; change A.n = 54 ∨ A.n = 43 at hn; omega
       hroute := hpre.hroute, hleaf := hpre.hleafHeight
-      hcap := ?_, he := hpre.hsteps j hj, hv8 := ?_, hv := ?_, hvc := ?_
-      z0 := ?_, z8 := ?_, z32 := ?_, z40 := ?_ },
+      hcap := ?_, he := hpre.hsteps j hj, hlow := ?_, hv8 := ?_, hv := ?_, hvc := ?_
+      z0 := ?_, z8 := ?_ },
     hseedv.frame (((t2f.trans t3f).trans t4f).trans (t5f.trans (t6f.trans uf))) (by decide)
       (by simp) (by simp), e1u, f1u⟩
   · have := (st1.trans st2).trans ((st3.trans st4).trans ((st5.trans st6).trans st7))
@@ -1809,13 +1812,12 @@ theorem leaf_prechainFrom71S {j : Nat} (hj : j < A.n) {st : List Digest × List 
   · unfold LeafArgs.e; split_ifs with hso
     · exact le_refl _
     · exact hdb.2 (by simpa using hso)
+  · exact hlowe
   · omega
   · omega
   · simp only [CHAIN, PRIV, LEAFPK] at hvs ⊢; omega
   · rw [fr CHAIN (by decide) (hL _ (by simp)) (by decide) (by decide), hpre.z0]
   · rw [fr (CHAIN + 8) (by decide) (hL _ (by simp)) (by decide) (by decide), hpre.z8]
-  · rw [fr (CHAIN + 32) (by decide) (hL _ (by simp)) (by decide) (by decide), hpre.z32]
-  · rw [fr (CHAIN + 40) (by decide) (hL _ (by simp)) (by decide) (by decide), hpre.z40]
 set_option maxHeartbeats 1000000 in
 theorem leaf_postchainS {j : Nat} (hj : j < A.n) {st : List Digest × List Digest} {t u : MachineState}
     (ht : LeafInv s0 A j st t) (hupc : u.pc = pcOf (b + 79))

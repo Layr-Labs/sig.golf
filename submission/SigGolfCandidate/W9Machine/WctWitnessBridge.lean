@@ -7,7 +7,7 @@ open SigGolfCandidate.Rv RiscvZkvm.Rv64
 theorem Pre.origW {L : Layout} {w : WBytes} {index : Nat} {k : Fin 9} {j : Fin 128}
     {rank : Fin 666} {u : MachineState} (h : Pre L w index k j rank u)
     (off : Nat) (ho : off < 896) (ha : off % 8 = 0) : OrigW w u (base k + off) := by
-  have he : base k + off - 0x4c0 = V3.regionOffset k.val + off := by
+  have he : base k + off - 0xB58 = V3.regionOffset k.val + off := by
     simp only [base, coordinateBase, V3.regionOffset]
     omega
   simpa only [OrigW, he] using h.witness off ho ha

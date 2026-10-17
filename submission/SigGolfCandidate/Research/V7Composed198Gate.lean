@@ -933,7 +933,7 @@ def chainPrefixes (lay : Layer) (tree leaf i start : Nat) :
     Nat → Digest → M (List Digest)
   | 0, value => pure [value]
   | count + 1, value => do
-      let next ← halfHash (chainHigh lay i start) (SigGolfCandidate.T3.chainInput lay tree leaf i start value)
+      let next ← halfHash (chainHigh lay i start) (ClaudeWCT.WCT9.chainInputW lay tree leaf i start value)
       let tail ← chainPrefixes lay tree leaf i (start + 1) count next
       pure (value :: tail)
 
@@ -1061,12 +1061,12 @@ theorem lower_chain_succ_first (lay : Layer) (tree leaf i start count : Nat) (va
 theorem lower_chainW_succ_first (lay : Layer) (tree leaf i start count : Nat) (value : Digest) :
     ClaudeWCT.WCT9.chainW lay tree leaf i start (count + 1) value = (do
       let next ← ClaudeWCT.WCT9.halfHash (ClaudeWCT.WCT9.chainHigh lay i start)
-        (SigGolfCandidate.T3.chainInput lay tree leaf i start value)
+        (ClaudeWCT.WCT9.chainInputW lay tree leaf i start value)
       ClaudeWCT.WCT9.chainW lay tree leaf i (start + 1) count next) := by
   rw [show count + 1 = 1 + count by omega, ClaudeWCT.WCT9.chainW_add]
   have h1 : ClaudeWCT.WCT9.chainW lay tree leaf i start 1 value =
       ClaudeWCT.WCT9.halfHash (ClaudeWCT.WCT9.chainHigh lay i start)
-        (SigGolfCandidate.T3.chainInput lay tree leaf i start value) := by
+        (ClaudeWCT.WCT9.chainInputW lay tree leaf i start value) := by
     unfold ClaudeWCT.WCT9.chainW
     simp only [List.range'_one, List.foldlM_cons, List.foldlM_nil, bind_pure]
   rw [h1]
@@ -1534,9 +1534,9 @@ theorem bound_chainPrefixes (lay : Layer) (tree leaf i start count : Nat) (value
     unfold chainPrefixes
     have hs : CBound (fun _ => True) 1
         (halfHash (chainHigh lay i start)
-          (SigGolfCandidate.T3.chainInput lay tree leaf i start value)) := by
+          (ClaudeWCT.WCT9.chainInputW lay tree leaf i start value)) := by
       apply bound_halfHash <;>
-        simp [SigGolfCandidate.T3.chainInput, pad64_length, zero16, SphincsSecurity.bytesLE_length]
+        simp [ClaudeWCT.WCT9.chainInputW_length, pad64_length]
     refine hs.bind' (l := count) (fun next _ => ?_) (by omega)
     refine (ih (start + 1) next).bind' (l := 0) (n := count)
       (fun tail ht => .pure (value :: tail) 0 (by simp [ht])) (by omega)

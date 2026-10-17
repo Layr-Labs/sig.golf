@@ -20,16 +20,16 @@ def last (i : Nat) : Nat := topMax i - 1
 def «prefix» (c : NCtx) : Nat := 128 + 193 * 2 ^ 56 + ((c.tree * 2 ^ 12 + c.leaf) % 2 ^ 32) * 2 ^ 16
 def w0 (c : NCtx) (i : Nat) : Nat := c.prefix + i
 def w1 (c : NCtx) : Nat := hdr1 c.tree c.leaf
-def pad0 (c : NCtx) (i : Nat) : Digest := ClaudeWCT.W9.T3M.wdig c.w (c.blk i - 0x4c0)
-def pad1 (c : NCtx) (i : Nat) : Digest := ClaudeWCT.W9.T3M.wdig c.w (c.blk i - 0x4c0 + 32)
-def padHeader (c : NCtx) (i : Nat) : Word := (ClaudeWCT.W9.T3M.wdig c.w (c.blk i - 0x4c0 + 16)).extractLsb' 64 64
-def val (c : NCtx) (i : Nat) : Digest := ClaudeWCT.W9.T3M.wdig c.w (c.blk i - 0x4c0 + 48)
+def pad0 (c : NCtx) (i : Nat) : Digest := ClaudeWCT.W9.T3M.wdig c.w (c.blk i - Verify.WIT)
+def pad1 (c : NCtx) (i : Nat) : Digest := ClaudeWCT.W9.T3M.wdig c.w (c.blk i - Verify.WIT + 32)
+def padHeader (c : NCtx) (i : Nat) : Word := (ClaudeWCT.W9.T3M.wdig c.w (c.blk i - Verify.WIT + 16)).extractLsb' 64 64
+def val (c : NCtx) (i : Nat) : Digest := ClaudeWCT.W9.T3M.wdig c.w (c.blk i - Verify.WIT + 48)
 def ok (c : NCtx) : Prop :=
-  c.tree = 0 ∧ c.leaf < 4096 ∧ c.S3 % 8 = 0 ∧ 0x4c0 + 8256 + 1664 ≤ c.S3 ∧ c.S3 + 2064 ≤ 0x5000 ∧
+  c.tree = 0 ∧ c.leaf < 4096 ∧ c.S3 % 8 = 0 ∧ Verify.WIT + 8096 + 1664 ≤ c.S3 ∧ c.S3 + 2064 ≤ 0x5000 ∧
     c.ret < 209920
 def known (c : NCtx) : List (Reg × Word) :=
   [(.x5, 0), (.x11, 64), (.x7, 1), (.x13, 2), (.x19, 3), (.x20, 4), (.x21, 5), (.x26, 6),
-   (.x30, 7), (.x28, BitVec.ofNat 64 (c.prefix + 385)), (.x8, BitVec.ofNat 64 c.S3), (.x9, BitVec.ofNat 64 0xffbf10), (.x4, 24592)]
+   (.x30, 7), (.x28, BitVec.ofNat 64 (c.prefix + 385)), (.x8, BitVec.ofNat 64 c.S3), (.x9, BitVec.ofNat 64 0xffbf10), (.x4, 24688)]
 def kOf (c : NCtx) (q : Nat) : Nat :=
   c.dig (3*q) + (mx q+1)*c.dig (3*q+1) + (mx q+1)^2*c.dig (3*q+2)
 def qb (c : NCtx) (i : Nat) : Nat := gbase (i/3) (c.kOf (i/3))
@@ -50,7 +50,7 @@ def bufferEnd (c : NCtx) (i : Nat) : Nat :=
 def bufferOrig (c : NCtx) (s0 : MachineState) : Prop :=
   ∀ i, i < 54 → ∀ k < 2, OrigW c.w s0 (slot i + 8*k)
 def bufferVal (c : NCtx) (i : Nat) : Digest :=
-  if c.bufferSafe i then ClaudeWCT.W9.T3M.wdig c.w (slot i - 0x4c0) else c.val i
+  if c.bufferSafe i then ClaudeWCT.W9.T3M.wdig c.w (slot i - Verify.WIT) else c.val i
 def r8Start (c : NCtx) (i : Nat) : Nat :=
   if i = 51 then blkW c.k17 else if i = 52 then blkW c.k17 + partLen 17 (c.dig 51) else sufW (c.dig 53) (decide (c.dig 52=7))
 def startPc (c : NCtx) (i : Nat) : Nat :=
@@ -93,13 +93,13 @@ def PreHash (c : NCtx) (s0 : MachineState) (i : Nat) (acc : List Digest) (m : Na
 def EndInv (c : NCtx) (s0 : MachineState) (i : Nat) (acc : List Digest) (s : MachineState) : Prop :=
   c.Base s0 (c.Wr (i + 1)) acc s ∧ acc.length = i + 1 ∧ s.pc = pcOf (c.endPc i)
 theorem blk_props (c : NCtx) (hc : c.ok) (i : Nat) (hi : i < 54) :
-    c.blk i % 8 = 0 ∧ 0x4c0 + 8256 ≤ c.blk i ∧ c.blk i + 80 ≤ 0x5000 := by
+    c.blk i % 8 = 0 ∧ Verify.WIT + 8096 ≤ c.blk i ∧ c.blk i + 80 ≤ 0x5000 := by
   obtain ⟨-, -, h64, hlo, hhi, -⟩ := hc
-  unfold blk; refine ⟨?_, ?_, ?_⟩ <;> omega
+  unfold blk Verify.WIT at *; refine ⟨?_, ?_, ?_⟩ <;> omega
 theorem blk_le (c : NCtx) (hc : c.ok) (i : Nat) (hi : i < 54) : c.blk i + 64 * i = c.blk 0 := by
   obtain ⟨-, -, -, hlo, -⟩ := hc
   unfold blk; omega
-theorem slot_props (i : Nat) (hi : i < 54) : slot i % 16 = 0 ∧ 25136 ≤ slot i ∧ slot i + 32 ≤ 26016 := by
+theorem slot_props (i : Nat) (hi : i < 54) : slot i % 16 = 0 ∧ 25232 ≤ slot i ∧ slot i + 32 ≤ 26112 := by
   unfold slot; omega
 theorem base_off (c : NCtx) (hc : c.ok) (i : Nat) (hi : i < 54) (k : Nat) (hk : k ≤ 80) :
     BitVec.ofNat 64 c.S3 + (off i + BitVec.ofNat 64 k) = BitVec.ofNat 64 (c.blk i + k) := by
@@ -173,7 +173,7 @@ theorem pads_at {c : NCtx} {s0 t : MachineState} (hc : c.ok) (h0 : c.Orig0 s0) {
   rw [show c.blk i + 8 * 5 = c.blk i + 32 + 8 by ring] at o5
   refine ⟨DigAt_origW o0 o1 (by omega), ?_⟩
   have := DigAt_origW o4 o5 (by omega)
-  rwa [show c.blk i + 32 - 0x4c0 = c.blk i - 0x4c0 + 32 by omega] at this
+  rwa [show c.blk i + 32 - Verify.WIT = c.blk i - Verify.WIT + 32 by omega] at this
 theorem val_at {c : NCtx} {s0 t : MachineState} (hc : c.ok) (h0 : c.Orig0 s0) {i : Nat} (hi : i < 54)
     (hF : Frame s0 t (c.Wr i)) : DigAt t (c.blk i + 48) (c.val i) := by
   have hb := c.blk_props hc i hi
@@ -189,7 +189,7 @@ theorem val_at {c : NCtx} {s0 t : MachineState} (hc : c.ok) (h0 : c.Orig0 s0) {i
   rw [show c.blk i + 8 * 6 = c.blk i + 48 by ring] at o6
   rw [show c.blk i + 8 * 7 = c.blk i + 48 + 8 by ring] at o7
   have := DigAt_origW o6 o7 (by omega)
-  rwa [show c.blk i + 48 - 0x4c0 = c.blk i - 0x4c0 + 48 by omega] at this
+  rwa [show c.blk i + 48 - Verify.WIT = c.blk i - Verify.WIT + 48 by omega] at this
 theorem topMax_bounds (i : Nat) : 3 ≤ topMax i ∧ topMax i ≤ 7 := by
   unfold topMax mx; split <;> omega
 theorem topMax_hi (i : Nat) (hi : 51 ≤ i) : topMax i = 7 := by
@@ -288,7 +288,7 @@ theorem bufferVal_at {c : NCtx} {s0 t : MachineState} (h0 : c.bufferOrig s0)
   have t0 : OrigW c.w t (slot i) := by unfold OrigW at *; rw [f0]; exact o0
   have t1 : OrigW c.w t (slot i+8) := by unfold OrigW at *; rw [f1]; exact o1
   rw [bufferVal, if_pos hs]
-  exact DigAt_origW t0 t1 (by omega)
+  exact DigAt_origW t0 t1 (by unfold Verify.WIT; omega)
 
 
 theorem bufferSafe_source (c : NCtx) (digits : List Nat)
@@ -307,13 +307,13 @@ theorem bufferSafe_source (c : NCtx) (digits : List Nat)
     simp
 
 theorem bufferSlot_source (i : Nat) :
-    slot i - 0x4c0 = ClaudeWCT.W9.T3M.leafBufferSlot 0 i := by
-  simp [slot, ClaudeWCT.W9.T3M.leafBufferSlot, ClaudeWCT.W9.T3M.leafBufferBase]
+    slot i - Verify.WIT = ClaudeWCT.W9.T3M.leafBufferSlot 0 i := by
+  simp [slot, ClaudeWCT.W9.T3M.leafBufferSlot, ClaudeWCT.W9.T3M.leafBufferBase, Verify.WIT]
   omega
 
 theorem bufferVal_source (c : NCtx) (digits : List Nat)
     (hd : ∀ j, j < 54 → digits.getD j 0 = c.dig j)
-    (hS : c.S3 = 11808) (i : Nat) (hi : i < 54) :
+    (hS : c.S3 = 13432) (i : Nat) (hi : i < 54) :
     c.bufferVal i = ClaudeWCT.W9.T3M.wvalueFor c.w 0 digits i := by
   unfold bufferVal ClaudeWCT.W9.T3M.wvalueFor
   simp only [← c.bufferSafe_source digits hd i hi, bufferSlot_source]
@@ -322,7 +322,9 @@ theorem bufferVal_source (c : NCtx) (digits : List Nat)
   · unfold val ClaudeWCT.W9.T3M.wvalue
     apply congrArg (ClaudeWCT.W9.T3M.wdig c.w)
     simp only [blk, hS, ClaudeWCT.W9.T3M.chainBlock, ClaudeWCT.W9.T3M.layerBase,
-      ClaudeWCT.W9.T3M.pathSlots, chainCount, Matrix.cons_val_zero]
+      ClaudeWCT.W9.T3M.pathSlots, chainCount, Matrix.cons_val_zero, Verify.WIT,
+      ClaudeWCT.W9.T3M.chainSlot, ClaudeWCT.W9.T3M.valueOff, ClaudeWCT.WCT9.isG_top, Fin.isValue, Fin.val_zero,
+      ite_true, Bool.false_eq_true, ite_false]
     omega
 
 theorem bufferVal_nonmax (c : NCtx) (i : Nat) (h : c.dig i ≠ topMax i) :

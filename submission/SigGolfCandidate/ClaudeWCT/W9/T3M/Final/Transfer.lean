@@ -9,8 +9,8 @@ def submissionNew (I : Images) : SigGolf.Submission := currentOf (submission I)
 theorem legacyOf_submissionNew (I : Images) : legacyOf (submissionNew I) = submission I :=
   legacyOf_currentOf (submission I)
 theorem certificateNew_of {I : Images} (P : Pending I) (S : SourceFacts) :
-    SigGolf.Certificate (submissionNew I) 7094 := by
-  have hL : SigGolfCandidate.Legacy.Certificate (legacyOf (submissionNew I)) 7094 := by
+    SigGolf.Certificate (submissionNew I) 7088 := by
+  have hL : SigGolfCandidate.Legacy.Certificate (legacyOf (submissionNew I)) 7088 := by
     rw [legacyOf_submissionNew]
     exact certificate_of P S
   have hrun : RunAgrees (submissionNew I) := runAgrees_of_admissible (submissionNew I) hL.admissible
@@ -30,8 +30,8 @@ def submissionNew (I : Images) : SigGolf.Submission := currentOf (submission I)
 theorem legacyOf_submissionNew (I : Images) : legacyOf (submissionNew I) = submission I :=
   legacyOf_currentOf (submission I)
 theorem certificateNew_of {I : Images} (E : EncodingFacts) (F : SourceQueries) (P : Pending I) (S : SourceFacts) :
-    SigGolf.Certificate (submissionNew I) 6996 := by
-  have hL : SigGolfCandidate.Legacy.Certificate (legacyOf (submissionNew I)) 6996 := by
+    SigGolf.Certificate (submissionNew I) 6990 := by
+  have hL : SigGolfCandidate.Legacy.Certificate (legacyOf (submissionNew I)) 6990 := by
     rw [legacyOf_submissionNew]
     exact certificate_of E F P S
   have hrun : RunAgrees (submissionNew I) := runAgrees_of_admissible (submissionNew I) hL.admissible

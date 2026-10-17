@@ -283,7 +283,7 @@ theorem known_chain_aux {D : Coord → Prop} {c : Coord} (h : Known D c) :
       intro p hp
       simp only [Sum.inl.injEq] at hp
       subst hp
-      have hmem : (chainChild p, 3) ∈ childSlots (.chain p) := by simp [childSlots]
+      have hmem : (chainChild p, if WCT9.isG p.1.layer p.1.chain.val then 0 else 3) ∈ childSlots (.chain p) := by simp [childSlots]
       have hk := hall _ hmem
       have hih := ih _ hmem
       unfold chainChild at hk hih
@@ -594,40 +594,53 @@ set_option backward.isDefEq.respectTransparency false
 attribute [local instance] Classical.propDecidable
 def AllClear (A : Answers) (K : Coord → Prop) (qs : List Spec.Domain) : Prop :=
   ∀ X, (.inl (.inr X) : Spec.Domain) ∈ qs → Clear A K X (A (.inl (.inr X)))
+/-- Pairing stage 1: the value slot of a chain row (block 0 for a G chain, block 3 for an F chain). -/
+def vslot (lay : Layer) (i : Nat) : Nat := if WCT9.isG lay i then 0 else 3
+theorem slotValue_chainRowW (a : Wots.ChainAddr) (s : Nat) (v : Digest) :
+    slotValue (Wots.chainRowW a s v) (vslot a.key.lay a.chain) = v := by
+  unfold vslot
+  cases hG : WCT9.isG a.key.lay a.chain
+  · rw [Wots.chainRowW_eq, WCT9.chainInputW_F hG]
+    exact slotValue_chainRow a s v
+  · rw [Wots.chainRowW_eq, WCT9.chainInputW_G hG, if_pos rfl]
+    unfold slotValue
+    simp only [Nat.mul_zero, List.drop_zero, List.append_assoc]
+    rw [List.take_append_of_le_length (by rw [bytesLE_length])]
+    rw [List.take_of_length_le (by rw [bytesLE_length])]
+    exact Correctness.readDigest_bytesLE v
 theorem posOf_chainRow (a : Wots.ChainAddr) (ha : WotsExtract.SourceChain a) (s : Nat) (hs : s < 7) (v : Digest) :
-    Extract.posOf (Wots.chainRow a s v) = some (CanonGraph.Node.chain (gAddr a ha, ⟨s, hs⟩)).toPos := by
+    Extract.posOf (Wots.chainRowW a s v) = some (CanonGraph.Node.chain (gAddr a ha, ⟨s, hs⟩)).toPos := by
   apply Extract.posOf_eq (CanonGraph.toPos_bounded _)
-  · unfold Wots.chainRow
+  · unfold Wots.chainRowW
     show _ = 64
-    simp [chainInput, SphincsSecurity.bytesLE_length, zero16]
-  · unfold Wots.chainRow
-    rw [Extract.hdrBlock_wotsChainInput]
-    rfl
+    simp [WCT9.chainInputW_length]
+  · unfold Wots.chainRowW
+    exact WCT9.chainInputW_header _ _ _ _ _ _
 theorem honestInput_chainNode (A : Answers) (p : ChainGraph.Point) :
     Extract.honestInput A (CanonGraph.Node.chain p).toPos =
-      Wots.chainRow (wotsAddr p.1) p.2.val (honestChainValue A p.1.layer p.1.tree.val p.1.leaf.val p.1.chain.val
-        (WCT9.wotsSeed A p.1.layer p.1.tree.val p.1.leaf.val p.1.chain.val) p.2.val) := by
+      Wots.chainRowW (wotsAddr p.1) p.2.val (Wots.honestChainValueW A p.1.layer p.1.tree.val p.1.leaf.val
+        p.1.chain.val (WCT9.wotsSeed A p.1.layer p.1.tree.val p.1.leaf.val p.1.chain.val) p.2.val) := by
   show pad64 _ = _
-  rw [chainInput_padded]
+  rw [WCT9.chainInputW_padded]
   rfl
 theorem honestValue_chainNode (A : Answers) (p : ChainGraph.Point) :
     honestValue A (.inl (.chain p)) = Wots.honestChainValueW A p.1.layer p.1.tree.val p.1.leaf.val p.1.chain.val
         (WCT9.wotsSeed A p.1.layer p.1.tree.val p.1.leaf.val p.1.chain.val) (p.2.val + 1) := by
-  rw [← Wots.honestChainValueW_succ, Wots.honestChainValueW_eq (Or.inr (Or.inr (by have := p.2.isLt; omega)))]
+  rw [← Wots.honestChainValueW_succ]
   rfl
 theorem honestValue_chainChild (A : Answers) (p : ChainGraph.Point) :
-    honestValue A (chainChild p) = honestChainValue A p.1.layer p.1.tree.val p.1.leaf.val p.1.chain.val
+    honestValue A (chainChild p) = Wots.honestChainValueW A p.1.layer p.1.tree.val p.1.leaf.val p.1.chain.val
         (WCT9.wotsSeed A p.1.layer p.1.tree.val p.1.leaf.val p.1.chain.val) p.2.val := by
   unfold chainChild
   by_cases h0 : p.2.val = 0
-  · rw [if_pos h0, h0, honestChainValue_zero']
+  · rw [if_pos h0, h0, Wots.honestChainValueW_zero]
     exact CanonGraph.seedsOf_secretsOf A p.1
   · rw [if_neg h0, honestValue_chainNode]
     simp only [ChainGraph.predecessor]
-    rw [Wots.honestChainValueW_eq (Or.inr (Or.inr (by have := p.2.isLt; omega)))]
     congr 1
     omega
-theorem childSlots_chain (p : ChainGraph.Point) : childSlots (.chain p) = [(chainChild p, 3)] := rfl
+theorem childSlots_chain (p : ChainGraph.Point) :
+    childSlots (.chain p) = [(chainChild p, vslot p.1.layer p.1.chain.val)] := rfl
 theorem contactAt_false (A : Answers) (published : SigGolfCandidate.T3.Cache) (qs : List Spec.Domain)
     (a : Wots.ChainAddr) (ha : WotsExtract.SourceChain a) (hc : Wots.ContactAt A (Wots.entriesOf A qs) a)
     (hclear : AllClear A (Known (Disclosed A published)) qs) : False := by
@@ -642,18 +655,21 @@ theorem contactAt_false (A : Answers) (published : SigGolfCandidate.T3.Cache) (q
   let p : ChainGraph.Point := (gAddr a ha, ⟨s, hs7⟩)
   have hpos := posOf_chainRow a ha s hs7 value
   obtain ⟨hhit, hsingle, -⟩ := hclear _ hq
-  have hcv : honestValue A (chainChild p) = honestChainValue A a.key.lay a.key.tree a.key.leaf a.chain
+  have hcv : honestValue A (chainChild p) = Wots.honestChainValueW A a.key.lay a.key.tree a.key.leaf a.chain
       (WCT9.wotsSeed A a.key.lay a.key.tree a.key.leaf a.chain) s := honestValue_chainChild A p
   by_cases hv : value = honestValue A (chainChild p)
-  · have hk := hsingle (.chain p) hpos (chainChild p) 3 (childSlots_chain p) (by rw [slotValue_chainRow]; exact hv)
+  · have hk := hsingle (.chain p) hpos (chainChild p) (vslot p.1.layer p.1.chain.val) (childSlots_chain p)
+      (by rw [show vslot p.1.layer p.1.chain.val = vslot a.key.lay a.chain from rfl, slotValue_chainRowW]; exact hv)
     exact frontier_child_unknown A published (gAddr a ha) ⟨s, hs7⟩ (by
       change s + 1 = Wots.depth A (wotsAddr (gAddr a ha))
       rw [wotsAddr_gAddr]; omega) hk
   · apply hhit (.chain p) hpos
     refine ⟨fun heq => hv ?_, ?_⟩
-    · have := congrArg (fun X => slotValue X 3) heq
-      simp only [slotValue_chainRow] at this
-      rw [this, honestInput_chainNode, slotValue_chainRow, hcv]
+    · have := congrArg (fun X => slotValue X (vslot a.key.lay a.chain)) heq
+      simp only [slotValue_chainRowW] at this
+      rw [this, honestInput_chainNode]
+      erw [slotValue_chainRowW]
+      rw [hcv]
       rfl
     · rw [hans]
       change Wots.rowHalf a s answer = _
@@ -794,7 +810,7 @@ theorem known_chain_aux {D : Coord → Prop} {c : Coord} (h : LargeResidual.Pair
       intro p hp
       simp only [Sum.inl.injEq] at hp
       subst hp
-      have hmem : (chainChild p, 3) ∈ LargeResidual.Paired.childSlots (.chain p) := by simp [LargeResidual.Paired.childSlots,LargeResidual.childSlots]
+      have hmem : (chainChild p, vslot p.1.layer p.1.chain.val) ∈ LargeResidual.Paired.childSlots (.chain p) := by simp [vslot,LargeResidual.Paired.childSlots,LargeResidual.childSlots]
       have hk := hall _ hmem
       have hih := ih _ hmem
       unfold chainChild at hk hih
@@ -1040,42 +1056,41 @@ attribute [local instance] Classical.propDecidable
 def AllClear (A : Answers) (K : Coord → Prop) (qs : List Spec.Domain) : Prop :=
   ∀ X, (.inl (.inr X) : Spec.Domain) ∈ qs → LargeResidual.Paired.Clear A K X (A (.inl (.inr X)))
 theorem posOf_chainRow (a : Wots.ChainAddr) (ha : WotsExtract.SourceChain a) (s : Nat) (hs : s < 7) (v : Digest) :
-    Extract.posOf (Wots.chainRow a s v) = some (CanonGraph.Node.chain (gAddr a ha, ⟨s, hs⟩)).toPos := by
+    Extract.posOf (Wots.chainRowW a s v) = some (CanonGraph.Node.chain (gAddr a ha, ⟨s, hs⟩)).toPos := by
   apply Extract.posOf_eq (CanonGraph.toPos_bounded _)
-  · unfold Wots.chainRow
+  · unfold Wots.chainRowW
     show _ = 64
-    simp [chainInput, SphincsSecurity.bytesLE_length, zero16]
-  · unfold Wots.chainRow
-    rw [Extract.hdrBlock_wotsChainInput]
-    rfl
+    simp [WCT9.chainInputW_length]
+  · unfold Wots.chainRowW
+    exact WCT9.chainInputW_header _ _ _ _ _ _
 theorem honestInput_chainNode (A : Answers) (p : ChainGraph.Point) :
     Extract.Paired.honestInput A (CanonGraph.Node.chain p).toPos =
-      Wots.chainRow (wotsAddr p.1) p.2.val (honestChainValue A p.1.layer p.1.tree.val p.1.leaf.val p.1.chain.val
-        (WCT9.wotsSeed A p.1.layer p.1.tree.val p.1.leaf.val p.1.chain.val) p.2.val) := by
+      Wots.chainRowW (wotsAddr p.1) p.2.val (Wots.honestChainValueW A p.1.layer p.1.tree.val p.1.leaf.val
+        p.1.chain.val (WCT9.wotsSeed A p.1.layer p.1.tree.val p.1.leaf.val p.1.chain.val) p.2.val) := by
   show pad64 _ = _
-  rw [chainInput_padded]
+  rw [WCT9.chainInputW_padded]
   rfl
 theorem honestValue_chainNode (A : Answers) (p : ChainGraph.Point) :
     LargeResidual.Paired.honestValue A (.inl (.chain p)) = Wots.honestChainValueW A p.1.layer p.1.tree.val p.1.leaf.val p.1.chain.val
         (WCT9.wotsSeed A p.1.layer p.1.tree.val p.1.leaf.val p.1.chain.val) (p.2.val + 1) := by
   -- C3 (#866): the chain value after a step is the half `chainHigh` of the step's output.
-  rw [← Wots.honestChainValueW_succ, Wots.honestChainValueW_eq (Or.inr (Or.inr (by have := p.2.isLt; omega)))]
+  rw [← Wots.honestChainValueW_succ]
   show Extract.Paired.proj (CanonGraph.Node.chain p).toPos _ = _
   rw [CanonGraph.Paired.pairedProj_chain]
   rfl
 theorem honestValue_chainChild (A : Answers) (p : ChainGraph.Point) :
-    LargeResidual.Paired.honestValue A (chainChild p) = honestChainValue A p.1.layer p.1.tree.val p.1.leaf.val p.1.chain.val
+    LargeResidual.Paired.honestValue A (chainChild p) = Wots.honestChainValueW A p.1.layer p.1.tree.val p.1.leaf.val p.1.chain.val
         (WCT9.wotsSeed A p.1.layer p.1.tree.val p.1.leaf.val p.1.chain.val) p.2.val := by
   unfold chainChild
   by_cases h0 : p.2.val = 0
-  · rw [if_pos h0, h0, honestChainValue_zero']
+  · rw [if_pos h0, h0, Wots.honestChainValueW_zero]
     exact CanonGraph.seedsOf_secretsOf A p.1
   · rw [if_neg h0, honestValue_chainNode]
     simp only [ChainGraph.predecessor]
-    rw [Wots.honestChainValueW_eq (Or.inr (Or.inr (by have := p.2.isLt; omega)))]
     congr 1
     omega
-theorem childSlots_chain (p : ChainGraph.Point) : LargeResidual.Paired.childSlots (.chain p) = [(chainChild p, 3)] := rfl
+theorem childSlots_chain (p : ChainGraph.Point) :
+    LargeResidual.Paired.childSlots (.chain p) = [(chainChild p, vslot p.1.layer p.1.chain.val)] := rfl
 theorem contactAt_false (A : Answers) (published : SigGolfCandidate.T3.Cache) (qs : List Spec.Domain)
     (a : Wots.ChainAddr) (ha : WotsExtract.SourceChain7 a) (hc : Wots.CanonicalRef.ContactAt A (Wots.CanonicalRef.sourceMessages A) (Wots.entriesOf A qs) a)
     (hclear : AllClear A (LargeResidual.Paired.Known (Disclosed A published)) qs) : False := by
@@ -1093,18 +1108,21 @@ theorem contactAt_false (A : Answers) (published : SigGolfCandidate.T3.Cache) (q
   have hb : Extract.Paired.Bounded (CanonGraph.Node.chain p).toPos := by
     change (CanonGraph.Node.chain p).toPos.Bounded
     exact CanonGraph.toPos_bounded _
-  have hcv : LargeResidual.Paired.honestValue A (chainChild p) = honestChainValue A a.key.lay a.key.tree a.key.leaf a.chain
+  have hcv : LargeResidual.Paired.honestValue A (chainChild p) = Wots.honestChainValueW A a.key.lay a.key.tree a.key.leaf a.chain
       (WCT9.wotsSeed A a.key.lay a.key.tree a.key.leaf a.chain) s := honestValue_chainChild A p
   by_cases hv : value = LargeResidual.Paired.honestValue A (chainChild p)
-  · have hk := hsingle (.chain p) hb hpos (chainChild p) 3 (childSlots_chain p) (by rw [slotValue_chainRow]; exact hv)
+  · have hk := hsingle (.chain p) hb hpos (chainChild p) (vslot p.1.layer p.1.chain.val) (childSlots_chain p)
+      (by rw [show vslot p.1.layer p.1.chain.val = vslot a.key.lay a.chain from rfl, slotValue_chainRowW]; exact hv)
     exact frontier_child_unknown A published (gAddr a ha.source) ⟨s, hs7⟩ (by
       change s + 1 = Wots.CanonicalRef.depth A (Wots.CanonicalRef.sourceMessages A) (wotsAddr (gAddr a ha.source))
       rw [wotsAddr_gAddr]; omega) hk
   · apply hhit (.chain p) hb hpos
     refine ⟨fun heq => hv ?_, ?_⟩
-    · have := congrArg (fun X => slotValue X 3) heq
-      simp only [slotValue_chainRow] at this
-      rw [this, honestInput_chainNode, slotValue_chainRow, hcv]
+    · have := congrArg (fun X => slotValue X (vslot a.key.lay a.chain)) heq
+      simp only [slotValue_chainRowW] at this
+      rw [this, honestInput_chainNode]
+      erw [slotValue_chainRowW]
+      rw [hcv]
       rfl
     · rw [hans, CanonGraph.Paired.pairedProj_chain]
       change Wots.rowHalf a s answer = _

@@ -229,8 +229,18 @@ theorem depth_le_seven (answers : Answers) (a : ChainAddr) : depth answers a ≤
   · exact (depth_le_width answers a (chain_lt_of_depth answers a hd)).trans (width_le _ _)
   · omega
 theorem chainCount_le (lay : Layer) : chainCount lay ≤ 58 := chainCount_bound lay
+/-- Pairing stage 1 (W9): the G-format row `value | header | 0 | 0` of chain `a` at `step` (the current scheme's
+step input of a G chain, `WCT9.chainInputW`). -/
+def chainRowG (a : ChainAddr) (step : Nat) (value : Digest) : HashInput :=
+  bytesLE 16 value ++ bytesLE 16 (chainHeader a.key.lay a.key.tree a.key.leaf a.chain step) ++ zero16 ++ zero16
+theorem chainRowG_header (a : ChainAddr) (step : Nat) (value : Digest) :
+    Extract.hdrBlock (chainRowG a step value) =
+      bytesLE 16 (chainHeader a.key.lay a.key.tree a.key.leaf a.chain step) := by
+  simp [chainRowG, Extract.hdrBlock, zero16, List.append_assoc, bytesLE_length]
+/-- Queries that are no row of chain `a` (F format `chainRow`, nor, pairing stage 1, G format `chainRowG`) and do
+not read `a`'s seed cell. -/
 def Untouched (a : ChainAddr) : Spec.Domain → Prop
-  | .inl (.inr input) => ∀ step value, step < 256 → input ≠ chainRow a step value
+  | .inl (.inr input) => ∀ step value, step < 256 → input ≠ chainRow a step value ∧ input ≠ chainRowG a step value
   | .inr (.inl tweak) => tweak ≠ seedTweak a
   | _ => True
 theorem prefixStep_spec {answers : Answers} {a : ChainAddr} {input : HashInput} {step : Nat}
@@ -250,7 +260,7 @@ theorem prefixStep_untouched {answers : Answers} {a : ChainAddr} {input : HashIn
   | none => rfl
   | some step =>
       obtain ⟨hlt, w, heq⟩ := prefixStep_spec hp
-      exact absurd heq (h step w (by have := depth_le_seven answers a; omega))
+      exact absurd heq (h step w (by have := depth_le_seven answers a; omega)).1
 theorem maskAt_public (answers : Answers) (a : ChainAddr) (input : HashInput) :
     maskAt answers a (.inl (.inr input)) = match prefixStep answers a input with
       | some step => if step + 1 = depth answers a then ChainGraph.joinOutput (frontierValue answers a) 0
@@ -273,12 +283,17 @@ theorem untouched_of_hdr (a : ChainAddr) (input : HashInput) (h : BitVec 128)
     (hblock : Extract.hdrBlock input = bytesLE 16 h)
     (htag : ∀ (l : Layer) tr leaf i step, h ≠ chainHeader l tr leaf i step) :
     Untouched a (.inl (.inr input)) := by
-  intro step value _ heq
+  intro step value _
   have hb : Extract.hdrBlock (chainRow a step value) =
       bytesLE 16 (chainHeader a.key.lay a.key.tree a.key.leaf a.chain step) :=
     chainInput_header _ _ _ _ _ _
-  rw [heq, hb] at hblock
-  exact htag _ _ _ _ _ (bytesLE_injective hblock).symm
+  constructor
+  · intro heq
+    rw [heq, hb] at hblock
+    exact htag _ _ _ _ _ (bytesLE_injective hblock).symm
+  · intro heq
+    rw [heq, chainRowG_header] at hblock
+    exact htag _ _ _ _ _ (bytesLE_injective hblock).symm
 theorem untouched_prefixed (a : ChainAddr) (x : Digest) (rest : HashInput) {t : Nat} (ht : t % 256 ≠ 1)
     (l tr p ix : Nat) :
     Untouched a (.inl (.inr (pad64 (bytesLE 16 x ++ bytesLE 16 (header t l tr p ix) ++ rest)))) := by

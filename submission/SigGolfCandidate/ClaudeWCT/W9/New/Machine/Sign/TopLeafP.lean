@@ -863,14 +863,13 @@ theorem LeafPreS.transferT {sk : BitVec 256} {s0 s : MachineState} {A : LeafArgs
       p56 := by rw [g _ (by decide)]; exact h.p56
       z0 := by rw [g _ (by decide)]; exact h.z0
       z8 := by rw [g _ (by decide)]; exact h.z8
-      z32 := by rw [g _ (by decide)]; exact h.z32
-      z40 := by rw [g _ (by decide)]; exact h.z40
       hsl := h.hsl
       hdig := fun i hi => by
         rw [hf.getByte (by omega) (not_tscr (by omega))]; exact h.hdig i hi
       hdigb := h.hdigb
       hdigp := h.hdigp
       hdigW := h.hdigW
+      hdigC := h.hdigC
       hv8 := h.hv8
       hv := h.hv
       hvs := h.hvs
@@ -989,231 +988,9 @@ theorem tsJ_spec (s : MachineState) (hpc : s.pc = pcOf 1558) :
   · intro r hr; cases r <;> simp_all [bTsJ.res, rv_simp] <;> rfl
   · intro A _ _; simp [bTsJ.res, rv_simp]
 
-/-! ### One top chain -/
-
-section chain
-variable (sk : BitVec 256) {s0 : MachineState} {A : LeafArgs} (hpre : LeafPreS sk s0 A)
-include hpre
-
-/-- One signature-only chain from `b + 71` (seed already at `CHAIN + 48`). -/
-theorem leaf_iter71 (hso : A.so = true) {j : Nat} (hj : j < A.n) {st : List Digest × List Digest}
-    {t : MachineState} (ht : LeafInv s0 A j st t) (hpc : t.pc = pcOf (1013 + 71)) (seed : Digest)
-    (hseed : DigAt t (CHAIN + 48) seed) :
-    TSim Sign.image sk t (11 + selectorExtra A.lay j + Sign.Seed.chainK A.lay j (A.e j))
-      (11 + selectorExtra A.lay j + Sign.Seed.chainCy A.lay j (A.e j)) (A.e j) (A.e j)
-      (halfUpd A st <$> Sign.Seed.chainProgW A j seed)
-      (fun st' u => u.pc = pcOf (1013 + 41) ∧ LeafInv s0 A (j + 1) st' u ∧
-        Frame t u (fun X => (X = CHAIN + 16 ∨ X = CHAIN + 24) ∨ (CHAIN + 48 ≤ X ∧ X < CHAIN + 80) ∨
-          (slot A.lay j ≤ X ∧ X < slot A.lay j + 16) ∨ (A.valp + 16 * j ≤ X ∧ X < A.valp + 16 * j + 16))) := by
-  have hsub := Sign.SeedIndependent.seedIndependentAt_sign
-  obtain ⟨u0, st0, u0pc, hcp, hcs, u0r, u0f⟩ := Sign.Seed.leaf_prechainFrom71S hsub sk hpre hj ht hpc seed hseed
-  have hch := Sign.Seed.chainRun_tsim hsub sk hcp u0pc seed hcs
-  rw [map_eq_bind_pure_comp]
-  refine (TSim.steps st0 (TSim.bind (k₂ := 4 + (if A.so then 0 else 11 + slotK A.lay j))
-    (c₂ := 4 + (if A.so then 0 else 11 + slotK A.lay j)) (n₂ := 0) (b₂ := 0) hch
-    (fun r u hu => ?_))).of_eq (by unfold Sign.Seed.chainProgW; rfl) ?_ ?_ ?_ ?_
-  · obtain ⟨hupc, hv, hl, hur, huf⟩ := hu
-    obtain ⟨w, stw, wpc, hw, hfw⟩ := Sign.Seed.leaf_postchainS hsub sk hpre hj ht hupc (u0r.trans hur)
-      (u0f.trans huf) r.1 r.2 hv hl
-    refine TSim.pure_steps stw ⟨wpc, by simpa [halfUpd] using hw, ?_⟩
-    refine ((u0f.trans huf).trans hfw).mono (fun X _ h => ?_)
-    unfold ChainW at h
-    rcases h with ((h | h) | h | h | h) | h
-    · right; left; simp only [CHAIN] at h ⊢; omega
-    · right; left; simp only [CHAIN] at h ⊢; omega
-    · left; exact h
-    · right; left; exact h
-    · right; right; right; exact h
-    · right; right; left; exact h
-  all_goals (try simp only [hso, if_true])
-  all_goals omega
-
-/-- Cycles of one top chain: `b+41`, hook, `20746`, `jal`, HORN, `j`, then the chain from `b + 71`. -/
-def topChainC : Nat := 5 + hornCT + 1 + 341
-
-structure FStT (s0 : MachineState) (A : LeafArgs) (coefs : List Digest) (j : Nat)
-    (st : List Digest × List Digest) (u : MachineState) : Prop where
-  pc : u.pc = pcOf (1013 + 41)
-  coef : CoefAtT u coefs
-  inv : ∃ s, HybOfT s0 s u ∧ LeafInv s A j st u
-
-/-- The chain body of the signature-only `T3.buildLeafTop`. -/
-def topStepT (leaf : Nat) (digits : List Nat) (coefs : List Digest) (state : List Digest × List Digest) (i : Nat) :
-    SigGolfCandidate.T3.M (List Digest × List Digest) := do
-  let value ← chain 0 0 leaf i 0 (digits.getD i 0) (SigGolfCandidate.T3.topSeed coefs i)
-  pure (state.1, state.2 ++ [value])
-
-omit hpre in
-theorem topStep_eq (hlay : A.lay = 0) (hso : A.so = true) (htree : A.tree = 0) (coefs : List Digest)
-    (st : List Digest × List Digest) (j : Nat) :
-    topStepT A.leaf A.digits coefs st j = halfUpd A st <$> chainProg A j (familyEval coefs (j + 1)) := by
-  unfold topStepT chainProg halfUpd
-  simp only [hso, if_true, LeafArgs.e, Nat.sub_self, chain_zero, map_bind, pure_bind, map_pure, hlay, htree]
-  rfl
-
-theorem top_chain_step (hlay : A.lay = 0) (hso : A.so = true) (htree : A.tree = 0)
-    (hd7 : ∀ i < A.n, A.d i ≤ 7) (hvS : A.valp + 16 * A.n ≤ 0x60000) (hdS : A.digp + A.n ≤ 0x60000)
-    (hdestS : A.dest + 16 ≤ 0x60000) {coefs : List Digest} (hlen : coefs.length = 24) {j : Nat} (hj : j < 54)
-    {st : List Digest × List Digest} {u : MachineState} (hu : FStT s0 A coefs j st u) :
-    TBSim Sign.image sk u topChainC (topStepT A.leaf A.digits coefs st j) (FStT s0 A coefs (j + 1)) := by
-  have hsub := Sign.SeedIndependent.seedIndependentAt_sign
-  have hn : A.n = 54 := by show chainCount A.lay = 54; rw [hlay]; rfl
-  obtain ⟨s, hs, hinv⟩ := hu.inv
-  have g : ∀ r, r ∉ leafRegs → u.getReg r = s0.getReg r := fun r hr => by rw [hinv.regs.get hr, hs.regs]
-  obtain ⟨t1, st1, t1pc, t1r, t1f⟩ := Sign.Seed.sub41_spec hsub u hu.pc j A.n (by omega) (by omega) hinv.x19
-    (by rw [g _ (by simp [leafRegs]), hpre.x26])
-  rw [if_pos (by omega)] at t1pc
-  obtain ⟨t2, st2, t2pc, t2r, t2f⟩ := ClaudeWCT.W9.Machine.Sign.PackedLeaf.hook_spec t1 (by rw [t1pc])
-  obtain ⟨t3, st3, t3pc, t3r, t3f⟩ := ClaudeWCT.W9.Machine.Sign.PackedLeaf.top_spec t2 t2pc
-    (by rw [t2r.get (by simp), t1r.get (by simp), g _ (by simp [leafRegs]), hpre.x8, hlay]; rfl)
-  obtain ⟨t4, st4, t4pc, t4x1, t4r, t4f⟩ := tsJal_spec t3 t3pc
-  have e14 : RegsExcept u t4 [.x1] := (((t1r.trans t2r).trans t3r).trans t4r).mono (by simp)
-  have f14 : Frame u t4 (fun _ => False) := (((t1f.trans t2f).trans t3f).trans t4f).mono (fun _ _ h => by simp_all)
-  obtain ⟨w, n, sw, hnw, wpc, wseed, wr, wf⟩ := TopSeed.horn_run t4 t4pc (i := j) (by omega)
-    (by rw [e14.get (by simp)]; exact hinv.x19) hlen (hu.coef.frame f14 (fun _ _ _ h => h))
-  obtain ⟨w2, sw2, w2pc, w2r, w2f⟩ := tsJ_spec w (by rw [wpc, t4x1, pcOf_and_not1])
-  have hs' : HybOfT s0 (hybT s0 w2) w2 := hybT_of s0 w2
-  have hinvw : LeafInv (hybT s0 w2) A j st w2 := LeafInv.rebaseT hinv hs hs' ((e14.trans wr).trans w2r) (by
-      intro r hr
-      simp only [List.nil_append, List.cons_append, List.append_nil, List.mem_cons, List.not_mem_nil,
-        or_false] at hr
-      rcases hr with rfl | rfl | rfl | rfl | rfl | rfl <;> decide)
-    ((f14.trans wf).trans w2f) (fun X h => by
-      unfold SeedWT TScr SaveW TSAVE TCOEF at *
-      simp only [CHAIN, PRIV, SEEDS, false_or, or_false] at *
-      omega)
-    hpre.hvs hvS (by omega)
-  have hpre' : LeafPreS sk (hybT s0 w2) A := LeafPreS.transferT hpre hs'.regs hs'.base hdS
-  have hseed : DigAt w2 (CHAIN + 48) (familyEval coefs (j + 1)) := wseed.frame w2f (by decide) (by simp) (by simp)
-  have hit := leaf_iter71 sk hpre' hso (j := j) (by omega) hinvw (by rw [w2pc]) _ hseed
-  have hk : 11 + selectorExtra A.lay j + Sign.Seed.chainK A.lay j (A.e j) ≤
-      11 + selectorExtra A.lay j + Sign.Seed.chainCy A.lay j (A.e j) := by
-    have := Sign.Seed.chainK_le_chainCy A.lay j (A.e j)
-    omega
-  have hc : 11 + selectorExtra A.lay j + Sign.Seed.chainCy A.lay j (A.e j) ≤ 341 := by
-    have he : A.e j ≤ 7 := by unfold LeafArgs.e; rw [hso, if_pos rfl]; exact hd7 j (by omega)
-    have hsel : selectorExtra A.lay j ≤ 5 := by unfold selectorExtra; split_ifs <;> omega
-    have hcy : Sign.Seed.chainCy A.lay j (A.e j) ≤ 45 * 7 + 10 := by
-      rw [hlay, Sign.Seed.chainCy_top]
-      have h1 := Nat.mul_le_mul_left 45 he
-      have h2 : (42 + (if j = 0 then 3 else 2)) * A.e j ≤ 45 * A.e j :=
-        Nat.mul_le_mul_right _ (by split_ifs <;> omega)
-      omega
-    omega
-  rw [topStep_eq hlay hso htree, ← Sign.Seed.chainProgW_top hlay]
-  refine TBSim.mono (TBSim.steps (((((st1.trans st2).trans st3).trans st4).trans sw).trans sw2)
-    ((hit.toTBSim hk).mono hc (fun st' x hx => ?_))) (by unfold topChainC; omega) (fun _ _ h => h)
-  obtain ⟨xpc, hxinv, hxf⟩ := hx
-  have hxs : ∀ X, X < 2 ^ 64 → TScr X → x.getMem (BitVec.ofNat 64 X) = w2.getMem (BitVec.ofNat 64 X) :=
-    fun X hX hb => (hxinv.frame.get hX (fun hl => LeafW_not_tscr hvS hdestS hl hb)).trans (hs'.scr X hX hb)
-  refine ⟨xpc, fun k hk => ?_, ⟨hybT s0 w2, ⟨hs'.regs, hs'.base,
-    fun X hX hb => (hs'.scr X hX hb).trans (hxs X hX hb).symm⟩, hxinv⟩⟩
-  have hwk : DigAt w2 (TCOEF + 16 * k) (coefs.getD k 0) :=
-    ((hu.coef k hk).frame (f14.trans wf) (by unfold TCOEF; omega)
-      (by simp only [SaveW, TSAVE, TCOEF, CHAIN, false_or, not_or]; omega)
-      (by simp only [SaveW, TSAVE, TCOEF, CHAIN, false_or, not_or]; omega)).frame w2f (by unfold TCOEF; omega)
-      (by simp) (by simp)
-  exact ⟨by rw [hxs _ (by unfold TCOEF; omega) (by unfold TScr TSAVE TCOEF; omega)]; exact hwk.1,
-    by rw [hxs _ (by unfold TCOEF; omega) (by unfold TScr TSAVE TCOEF; omega)]; exact hwk.2⟩
-
-end chain
-
-/-! ### The top leaf -/
-
-theorem buildLeafTop_so (leaf : Nat) (digits : List Nat) :
-    SigGolfCandidate.T3.buildLeafTop leaf digits true = (SigGolfCandidate.T3.topCoefs leaf >>= fun coefs =>
-      (List.range' 0 54).foldlM (topStepT leaf digits coefs) ([], []) >>= fun st => pure (0, st.2)) := by
-  rw [← List.range_eq_range']
-  rfl
-
-theorem topLeafSpec : SigGolfCandidate.T3M.Sign.Packed.TopLeafSpec := by
-  intro sk A s0 hlay hso htree hd7 hvS hdS hdestS hpre hpc
-  have hsub := Sign.SeedIndependent.seedIndependentAt_sign
-  have hn : A.n = 54 := by show chainCount A.lay = 54; rw [hlay]; rfl
-  have hP : PRIV = 131072 := rfl
-  have hS : SEEDS = 131136 := rfl
-  have hL : LEAFPK = 132608 := rfl
-  have hC : CHAIN = 131488 := rfl
-  have hleaf : A.leaf < 4096 := by have := hpre.hleafHeight; rw [hlay] at this; exact this
-  obtain ⟨t1, st1, t1pc, t1x3, t1l16, t1l24, t1r, t1f⟩ :=
-    Sign.Seed.sub27_pre_spec hsub s0 hpc A.lay A.tree A.leaf (by have := hpre.hroute; omega) hpre.x8 hpre.x9
-      hpre.x18 (Or.inl htree)
-  obtain ⟨t2, st2, t2pc, t2r, t2f⟩ := pre0_spec t1 t1pc (by rw [t1r.get (by decide), hpre.x8, hlay]; rfl)
-  obtain ⟨t3, st3, t3pc, t3x1, t3r, t3f⟩ := jal_spec t2 t2pc
-  have e13 : RegsExcept s0 t3 [.x3, .x6, .x28, .x30, .x1] := ((t1r.trans t2r).trans t3r).mono (by simp)
-  have f13 : Frame s0 t3 (fun A => A = LEAFPK + 16 ∨ A = LEAFPK + 24) :=
-    ((t1f.trans t2f).trans t3f).mono (fun X _ h => by simp_all)
-  have hsk : SkAt sk t3 := ⟨by rw [f13.get (by decide) (by simp only [LEAFPK, PRIV]; omega)]; exact hpre.p0,
-    by rw [f13.get (by decide) (by simp only [LEAFPK, PRIV]; omega)]; exact hpre.p8,
-    by rw [f13.get (by decide) (by simp only [LEAFPK, PRIV]; omega)]; exact hpre.p32,
-    by rw [f13.get (by decide) (by simp only [LEAFPK, PRIV]; omega)]; exact hpre.p40,
-    by rw [f13.get (by decide) (by simp only [LEAFPK, PRIV]; omega)]; exact hpre.p48,
-    by rw [f13.get (by decide) (by simp only [LEAFPK, PRIV]; omega)]; exact hpre.p56⟩
-  have hcg := coefgen_tbsim sk t3 t3pc t3x1 hleaf (by rw [e13.get (by decide), hpre.x18])
-    (by rw [e13.get (by decide), hpre.x5]) hsk
-  rw [hso, buildLeafTop_so]
-  refine TBSim.mono (TBSim.steps ((st1.trans st2).trans st3) (TBSim.bind
-    (W₂ := 2 + (54 * topChainC + 3)) hcg (fun coefs u hu => ?_))) (by
-      unfold SigGolfCandidate.T3M.Sign.Packed.topLeafC cgC cgStepC topChainC hornCT hstepC; omega) (fun _ _ h => h)
-  obtain ⟨upc, ulen, ucoef, u19, ur, uf⟩ := hu
-  obtain ⟨v1, sv1, v1pc, v1r, v1f⟩ := j1053_spec u upc
-  obtain ⟨v, sv, vpc, v19, vr, vf⟩ := li19_spec v1 v1pc
-  have euv : RegsExcept s0 v ([.x3, .x6, .x28, .x30, .x1] ++ [.x10, .x11, .x12, .x19, .x29, .x30] ++ [] ++ [.x19]) :=
-    ((e13.trans ur).trans v1r).trans vr
-  have fuv : Frame s0 v (fun X => (((X = LEAFPK + 16 ∨ X = LEAFPK + 24) ∨ CgW X) ∨ False) ∨ False) :=
-    ((f13.trans uf).trans v1f).trans vf
-  have hs1 : HybOfT s0 (hybT s0 v) v := hybT_of s0 v
-  have h0 : LeafInv (hybT s0 v) A 0 ([], []) v := by
-    refine ⟨v19, ?_, ?_, fun r hr => ?_, fun X hX hn' => ?_, ?_, ?_, by simp [hso], rfl,
-      fun h => absurd h (by rw [hso]; decide), DigsAt.nil _ _⟩
-    · rw [euv.get (by simp), hpre.x23]; simp
-    · rw [vr.get (by decide), v1r.get (by decide), ur.get (by decide), t3r.get (by decide), t2r.get (by decide),
-        t1x3, hpre.x1]
-    · rw [euv.get (fun h => hr (by simp [leafRegs] at h ⊢; rcases h with h | h | h | h | h | h | h | h | h | h | h | h <;>
-        simp [h])), hs1.regs]
-    · by_cases hb : TScr X
-      · rw [hs1.scr X hX hb]
-      · have hW : ¬ ((((X = LEAFPK + 16 ∨ X = LEAFPK + 24) ∨ CgW X) ∨ False) ∨ False) := by
-          intro h
-          apply hn'
-          unfold LeafW; rw [if_pos hlay, hn]
-          rcases h with (((h | h) | h) | h) | h
-          · right; right; right; right; right; right; left; omega
-          · right; right; right; right; right; right; left; omega
-          · unfold CgW at h
-            rcases h with h | h | h | h | h
-            · left; exact h
-            · right; left; exact h
-            · right; right; left; exact h
-            · exact absurd (by unfold TScr TSAVE TCOEF; unfold CgSaveW TSAVE at h; omega) hb
-            · exact absurd (by unfold TScr TSAVE TCOEF; unfold TCOEF at h; omega) hb
-          · exact h.elim
-          · exact h.elim
-        rw [fuv.get hX hW, hs1.base.get hX hb]
-    · rw [vf.get (by decide) (by simp), v1f.get (by decide) (by simp),
-        uf.get (by decide) (by unfold CgW CgSaveW TSAVE TCOEF; simp only [PRIV, SEEDS, LEAFPK]; omega),
-        t3f.get (by decide) (by simp), t2f.get (by decide) (by simp), t1l16]
-    · rw [vf.get (by decide) (by simp), v1f.get (by decide) (by simp),
-        uf.get (by decide) (by unfold CgW CgSaveW TSAVE TCOEF; simp only [PRIV, SEEDS, LEAFPK]; omega),
-        t3f.get (by decide) (by simp), t2f.get (by decide) (by simp), t1l24]
-  have hF0 : FStT s0 A coefs 0 ([], []) v := ⟨vpc, (ucoef.frame v1f (fun _ _ _ h => h)).frame vf (fun _ _ _ h => h),
-    ⟨_, hs1, h0⟩⟩
-  have hfold := TBSim.foldlM_range' (image := Sign.image) (sk := sk) 0 54
-    (topStepT A.leaf A.digits coefs) ([], []) (FStT s0 A coefs) topChainC
-    (fun j hj st x hx => by simpa using top_chain_step sk hpre hlay hso htree hd7 hvS hdS hdestS ulen hj hx) hF0
-  refine TBSim.steps (sv1.trans sv) (TBSim.bind (W₁ := 54 * topChainC) (W₂ := 3) hfold (fun rows x hx => ?_))
-  obtain ⟨xpc, -, ⟨s3, hs3, hinv3⟩⟩ := hx
-  have hpre3 := LeafPreS.transferT hpre hs3.regs hs3.base hdS
-  rw [show (54 : Nat) = A.n from hn.symm] at hinv3
-  have hex := Sign.Seed.leaf_exitS hsub sk hpre3 hinv3 xpc
-  simp only [hso, if_true] at hex
-  refine TBSim.mono ((hex.toTBSim (by norm_num)).mono le_rfl (fun r y hy => ?_)) le_rfl (fun _ _ h => h)
-  obtain ⟨ypc, -, yvals, ylen, -, yregs, yframe, -⟩ := hy
-  refine ⟨ypc, yvals, ylen, fun r hr => by rw [yregs.get hr, hs3.regs], fun X hX hn' => ?_⟩
-  have hl : ¬ LeafW A X := fun h => hn' (Or.inl h)
-  have ht : ¬ TScr X := fun h => hn' (Or.inr ((tscr_iff X).mp h))
-  rw [yframe.get hX hl, hs3.base.get hX ht]
-
+/-! Pairing stage 1: the legacy reference-image top-leaf run (`leaf_iter71`, `top_chain_step`, `topLeafSpec` over
+`Sign.image`) was removed: it is not on the `SignLink` route (the installed producer is `SharedTopLeafP`), and the
+reference chain run now writes the widened G/F scratch. -/
 end ClaudeWCT.W9.Machine.Sign.TopLeafP
 
 namespace ClaudeWCT.W9.Machine.Sign.SharedTopSeed
@@ -2065,14 +1842,13 @@ theorem LeafPreS.transferT {sk : BitVec 256} {s0 s : MachineState} {A : LeafArgs
       p56 := by rw [g _ (by decide)]; exact h.p56
       z0 := by rw [g _ (by decide)]; exact h.z0
       z8 := by rw [g _ (by decide)]; exact h.z8
-      z32 := by rw [g _ (by decide)]; exact h.z32
-      z40 := by rw [g _ (by decide)]; exact h.z40
       hsl := h.hsl
       hdig := fun i hi => by
         rw [hf.getByte (by omega) (not_tscr (by omega))]; exact h.hdig i hi
       hdigb := h.hdigb
       hdigp := h.hdigp
       hdigW := h.hdigW
+      hdigC := h.hdigC
       hv8 := h.hv8
       hv := h.hv
       hvs := h.hvs
@@ -2212,17 +1988,23 @@ include hpre
 /-- One signature-only chain from `b + 71` (seed already at `CHAIN + 48`). -/
 theorem leaf_iter71 (hsub : Sign.SharedLeafCode.Code im 1013) (hchain : SharedChain.Code im) (hpref : SharedChain.PrefixCode im) (hlay : A.lay = 0) (hso : A.so = true) {j : Nat} (hj : j < A.n) {st : List Digest × List Digest}
     {t : MachineState} (ht : LeafInv s0 A j st t) (hpc : t.pc = pcOf (1013 + 71)) (seed : Digest)
-    (hseed : DigAt t (CHAIN + 48) seed) :
+    (hseed : DigAt t (CHAIN + 48) seed) (hz0 : Sign.Seed.Z32 s0) :
     TSim im sk t (24 + selectorExtra A.lay j + (headerK 0+8+SharedChain.topTr j) * A.e j)
       (24 + selectorExtra A.lay j + (headerK 0+15+SharedChain.topTr j) * A.e j) (A.e j) (A.e j)
       (halfUpd A st <$> chainProg A j seed)
       (fun st' u => u.pc = pcOf (1013 + 41) ∧ LeafInv s0 A (j + 1) st' u ∧
         Frame t u (fun X => (X = CHAIN + 16 ∨ X = CHAIN + 24) ∨ (CHAIN + 48 ≤ X ∧ X < CHAIN + 80) ∨
           (slot A.lay j ≤ X ∧ X < slot A.lay j + 16) ∨ (A.valp + 16 * j ≤ X ∧ X < A.valp + 16 * j + 16))) := by
-  obtain ⟨u0, st0, u0pc, hcp, hcs, u0r, u0f⟩ := Sign.SharedLeaf.leaf_prechainFrom71S hsub sk hpre hj ht hpc seed hseed
-  have hcp' : ChainPre u0 0 A.tree A.leaf j (A.e j) (A.e j) (A.valp+16*j) (1013+79) := by
+  obtain ⟨u0, st0, u0pc, hcp, hcs, u0r, u0f⟩ := Sign.SharedLeaf.leaf_prechainFrom71S hsub sk hpre hj
+    (fun h => absurd (by rw [hlay]; rfl) h) ht hpc seed hseed
+  have hcp' : Sign.Seed.ChainPreS u0 0 A.tree A.leaf j (A.e j) (A.e j) (A.valp+16*j) (1013+79) := by
     simpa only [hlay,LeafArgs.e,hso,if_true] using hcp
-  have hch := SharedChain.top_chain hchain hpref sk hcp' u0pc hcs
+  have hzt : Sign.Seed.Z32 t := hz0.frame ht.frame (by
+      intro h; have := hpre.hvs; have := hpre.hds; unfold LeafW at h; simp only [CHAIN,PRIV,SEEDS,LEAFPK,LOUT] at *
+      split_ifs at h <;> omega)
+    (by intro h; have := hpre.hvs; have := hpre.hds; unfold LeafW at h; simp only [CHAIN,PRIV,SEEDS,LEAFPK,LOUT] at *
+        split_ifs at h <;> omega)
+  have hch := SharedChain.top_chain hchain hpref sk hcp' u0pc hcs (hzt.frame u0f (by simp) (by simp))
   rw [map_eq_bind_pure_comp]
   refine (TSim.steps st0 (TSim.bind (f := fun r => pure (halfUpd A st r)) (k₂ := 4 + (if A.so then 0 else 11 + slotK A.lay j))
     (c₂ := 4 + (if A.so then 0 else 11 + slotK A.lay j)) (n₂ := 0) (b₂ := 0) hch
@@ -2244,8 +2026,9 @@ theorem leaf_iter71 (hsub : Sign.SharedLeafCode.Code im 1013) (hchain : SharedCh
   all_goals omega
 
 /-- Cycles of one top chain: `b+41`, hook, `20746`, `jal`, HORN, `j`, then the chain from `b + 71`.
-Stage 2 (C3, #866): every rung also runs the chain-0 trampoline (`SharedChain.topTr`), so 350 -> 365. -/
-def topChainC : Nat := 5 + hornCT + 1 + 365
+Stage 2 (C3, #866): every rung also runs the chain-0 trampoline (`SharedChain.topTr`), so 350 -> 365.
+Pairing stage 1: every rung also runs the F step block (3 more steps), so 365 -> 386. -/
+def topChainC : Nat := 5 + hornCT + 1 + 386
 
 structure FStT (s0 : MachineState) (A : LeafArgs) (coefs : List Digest) (j : Nat)
     (st : List Digest × List Digest) (u : MachineState) : Prop where
@@ -2270,7 +2053,7 @@ theorem topStep_eq (hlay : A.lay = 0) (hso : A.so = true) (htree : A.tree = 0) (
 theorem top_chain_step (hcode : SharedTopSeed.Code im) (hsub : Sign.SharedLeafCode.Code im 1013) (hchain : SharedChain.Code im) (hpref : SharedChain.PrefixCode im) (hseedcode : SharedSeed.Code im) (hhook : CodeAt im (pcOf 1055) Sign.seedHookCode) (hlay : A.lay = 0) (hso : A.so = true) (htree : A.tree = 0)
     (hd7 : ∀ i < A.n, A.d i ≤ 7) (hvS : A.valp + 16 * A.n ≤ 0x60000) (hdS : A.digp + A.n ≤ 0x60000)
     (hdestS : A.dest + 16 ≤ 0x60000) {coefs : List Digest} (hlen : coefs.length = 24) {j : Nat} (hj : j < 54)
-    {st : List Digest × List Digest} {u : MachineState} (hu : FStT s0 A coefs j st u) :
+    {st : List Digest × List Digest} {u : MachineState} (hu : FStT s0 A coefs j st u)  (hz0 : Sign.Seed.Z32 s0):
     TBSim im sk u topChainC (topStepT A.leaf A.digits coefs st j) (FStT s0 A coefs (j + 1)) := by
   have hn : A.n = 54 := by show chainCount A.lay = 54; rw [hlay]; rfl
   obtain ⟨s, hs, hinv⟩ := hu.inv
@@ -2301,15 +2084,17 @@ theorem top_chain_step (hcode : SharedTopSeed.Code im) (hsub : Sign.SharedLeafCo
   have hpre' : LeafPreS sk (hybT s0 w2) A := LeafPreS.transferT hpre hs'.regs hs'.base hdS
   have hseed : DigAt w2 (CHAIN + 48) (familyEval coefs (j + 1)) := wseed.frame w2f (by decide) (by simp) (by simp)
   have hit := leaf_iter71 sk hpre' hsub hchain hpref hlay hso (j := j) (by omega) hinvw (by rw [w2pc]) _ hseed
+    (hz0.frame hs'.base (by unfold TScr TSAVE TCOEF; simp only [CHAIN]; omega)
+      (by unfold TScr TSAVE TCOEF; simp only [CHAIN]; omega))
   have hk : 24 + selectorExtra A.lay j + (headerK 0+8+SharedChain.topTr j)*A.e j ≤
       24 + selectorExtra A.lay j + (headerK 0+15+SharedChain.topTr j)*A.e j := by
     have := Nat.mul_le_mul_right (A.e j)
       (show headerK 0+8+SharedChain.topTr j ≤ headerK 0+15+SharedChain.topTr j by omega)
     omega
-  have hc : 24 + selectorExtra A.lay j + (headerK 0+15+SharedChain.topTr j)*A.e j ≤ 365 := by
+  have hc : 24 + selectorExtra A.lay j + (headerK 0+15+SharedChain.topTr j)*A.e j ≤ 386 := by
     have he : A.e j ≤ 7 := by unfold LeafArgs.e; rw [hso, if_pos rfl]; exact hd7 j (by omega)
     have hsel : selectorExtra A.lay j ≤ 5 := by unfold selectorExtra; split_ifs <;> omega
-    have ht : headerK 0+15+SharedChain.topTr j ≤ 48 := by
+    have ht : headerK 0+15+SharedChain.topTr j ≤ 51 := by
       have hr : headerK 0=30 := rfl
       unfold SharedChain.topTr; rw [hr]; split <;> omega
     have := Nat.mul_le_mul ht he
@@ -2345,13 +2130,13 @@ def Spec (im : Image) : Prop :=
   ∀ (sk : SecretKey) (A : LeafArgs) (s : MachineState),
     A.lay = 0 → A.so = true → A.tree = 0 → (∀ i < A.n, A.d i ≤ 7) →
     A.valp + 16*A.n ≤ 0x60000 → A.digp+A.n ≤ 0x60000 → A.dest+16 ≤ 0x60000 →
-    LeafPreS sk s A → s.pc=pcOf (1013+27) →
+    LeafPreS sk s A → Sign.Seed.Z32 s → s.pc=pcOf (1013+27) →
     TBSim im sk s topLeafC (SigGolfCandidate.T3.buildLeafTop A.leaf A.digits A.so)
       (fun r t => t.pc=pcOf A.ret ∧ DigsAt t A.valp r.2 ∧ r.2.length=A.n ∧
         RegsExcept s t leafRegs ∧ Frame s t (fun X => LeafW A X ∨ SigGolfCandidate.T3M.Sign.Packed.TopScr X))
 
 theorem topLeafSpec (hcode : SharedTopSeed.Code im) (hsub : Sign.SharedLeafCode.Code im 1013) (hchain : SharedChain.Code im) (hpref : SharedChain.PrefixCode im) (hseedcode : SharedSeed.Code im) (hhook : CodeAt im (pcOf 1055) Sign.seedHookCode) : Spec im := by
-  intro sk A s0 hlay hso htree hd7 hvS hdS hdestS hpre hpc
+  intro sk A s0 hlay hso htree hd7 hvS hdS hdestS hpre hz0 hpc
   have hn : A.n = 54 := by show chainCount A.lay = 54; rw [hlay]; rfl
   have hP : PRIV = 131072 := rfl
   have hS : SEEDS = 131136 := rfl
@@ -2423,7 +2208,7 @@ theorem topLeafSpec (hcode : SharedTopSeed.Code im) (hsub : Sign.SharedLeafCode.
     ⟨_, hs1, h0⟩⟩
   have hfold := TBSim.foldlM_range' (image := im) (sk := sk) 0 54
     (topStepT A.leaf A.digits coefs) ([], []) (FStT s0 A coefs) topChainC
-    (fun j hj st x hx => by simpa using top_chain_step sk hpre hcode hsub hchain hpref hseedcode hhook hlay hso htree hd7 hvS hdS hdestS ulen hj hx) hF0
+    (fun j hj st x hx => by simpa using top_chain_step sk hpre hcode hsub hchain hpref hseedcode hhook hlay hso htree hd7 hvS hdS hdestS ulen hj hx hz0) hF0
   refine TBSim.steps (sv1.trans sv) (TBSim.bind (W₁ := 54 * topChainC) (W₂ := 3) hfold (fun rows x hx => ?_))
   obtain ⟨xpc, -, ⟨s3, hs3, hinv3⟩⟩ := hx
   have hpre3 := LeafPreS.transferT hpre hs3.regs hs3.base hdS

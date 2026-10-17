@@ -1,4 +1,5 @@
 import SigGolfCandidate.ClaudeWCT.W9.New.Machine.Expand.Base
+import SigGolfCandidate.ClaudeWCT.W9.New.Machine.Expand.LayoutCode
 
 namespace ClaudeWCT.W9.Machine.Expand
 open SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64 SigGolfCandidate.Rv SigGolfCandidate.T3M
@@ -11,17 +12,33 @@ and `Compact2.cRT 1..3`, the lower root windows' row-tweak pads). -/
 def compactScope (n : Nat) : Bool :=
   decide ((33000≤n ∧ n<33285) ∨ (41108≤n ∧ n<42719) ∨ (43472≤n ∧ n<43489) ∨ (43951≤n ∧ n≤44043) ∨ (43500≤n ∧ n<43761))
 def compactLook (n : Nat) : Option (BitVec 32) := if compactScope n then expLook n else none
+namespace PairCopy
+/-! Pairing stage 1: the lower-chain pair copy block at 48000 (outside the compact lookup scope). -/
+def cPC0 : List (BitVec 32) := [0x01500613]
+def cPCL : List (BitVec 32) := [0x03053303,0x0465bc23,0x03853303,0x0665b023,0x07053303,0x0065b823,0x07853303,
+  0x0065bc23,0x08050513,0x06858593,0xfff60613,0xfc061ae3]
+def cPCT : List (BitVec 32) := [0x03053303,0x0265b823,0x03853303,0x0265bc23,0x00008067]
+/-- The pair copy block's code (head, loop body, tail). -/
+structure Code (im : Image) : Prop where
+  c0 : CodeAt im (pcOf 48000) cPC0
+  cL : CodeAt im (pcOf 48001) cPCL
+  cT : CodeAt im (pcOf 48013) cPCT
+end PairCopy
 structure CompactCodeAt (im : Image) : Prop where
   look : LookOK im compactLook
+  /-- Pairing stage 1: the pair copy block 48000 .. 48017. -/
+  pair : PairCopy.Code im
+  /-- Pairing stage 1: the leaf / digest layout block 48100 .. 49225. -/
+  layout : Layout.Code im
 
-theorem CompactCodeAt.ofNew {im : Image} (h : NewCodeAt im) : CompactCodeAt im := by
-  refine ⟨?_⟩
+theorem CompactCodeAt.ofNew {im : Image} (h : NewCodeAt im) (hp : PairCopy.Code im) (hl : Layout.Code im) :
+    CompactCodeAt im := by
+  refine ⟨?_, hp, hl⟩
   intro n w hw
   unfold compactLook at hw
   split at hw
   · exact expLook_ok h n w hw
   · cases hw
-instance {im : Image} : Coe (NewCodeAt im) (CompactCodeAt im) := ⟨CompactCodeAt.ofNew⟩
 
 def compactWindowOK (n : Nat) (ws : List (BitVec 32)) : Bool :=
   (List.range ws.length).all fun i=>compactLook (n+i)==ws[i]?
@@ -33,7 +50,6 @@ theorem codeAt_of_compact_window {im : Image} (hc : CompactCodeAt im) {n : Nat} 
   simpa using this
 #print axioms CompactCodeAt.ofNew
 #print axioms codeAt_of_compact_window
-example {im : Image} (hc : NewCodeAt im) : CompactCodeAt im := hc
 end ClaudeWCT.W9.Machine.Expand
 
 namespace ClaudeWCT.W9.Machine.Expand.Compact
@@ -141,9 +157,10 @@ def compactChunkLo (c : Nat) : Nat := if c=169 then 208 else 0
 def compactChunkLen (c : Nat) : Nat := if c=172 then 12 else if c=170 then 241 else 256
 theorem compactCode_of_chunks {im : Image}
     (hc : ∀c,compactChunkAllowed c → CodeAt im (pcOf (256*c+compactChunkLo c))
-      (((expChunks.getD (c-4) []).take (compactChunkLen c)).drop (compactChunkLo c))) :
+      (((expChunks.getD (c-4) []).take (compactChunkLen c)).drop (compactChunkLo c)))
+    (hpair : PairCopy.Code im) (hlay : Layout.Code im) :
     CompactCodeAt im := by
-  constructor
+  refine ⟨?_, hpair, hlay⟩
   intro n w hw
   unfold compactLook at hw
   split at hw

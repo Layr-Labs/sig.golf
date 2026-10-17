@@ -336,6 +336,22 @@ theorem lowerNodeHash_notDigest (lay : Layer) (tree heap : Nat) (left right : Di
       rw [SigGolfCandidate.T3.append64_marker, BitVec.toNat_add, BitVec.toNat_ofNat,
         SigGolfCandidate.T3.hyperWord_toNat]
       omega
+open SigGolfCandidate.T3.Security.BPB SigGolfCandidate.T3M SigGolfCandidate.T3M.SecurityInputs in
+/-- Pairing stage 1: a chain step of the current scheme (either format) is not a digest query. -/
+theorem chainStepW_ok_rev3 (lay : SigGolfCandidate.T3.Layer) (tree leaf i step : Nat) (v : SigGolfCandidate.T3.Digest) :
+    AllQueriesSatisfy (SigGolfCandidate.T3.shortHash (ClaudeWCT.WCT9.chainInputW lay tree leaf i step v))
+      SigGolfCandidate.T3.Security.BPB.NotDigestQ := by
+  unfold SigGolfCandidate.T3.shortHash SigGolfCandidate.T3.publicHash
+  apply SourceQueries.bind_allowed
+  · apply (allQueriesSatisfy_query_iff _ _).mpr
+    change hdrMarker (SigGolfCandidate.T3.pad64 (ClaudeWCT.WCT9.chainInputW lay tree leaf i step v)) ≠ 0
+    rw [ClaudeWCT.WCT9.chainInputW_padded]
+    apply hdrMarker_ne_zero_of_byte0
+    unfold hdrByte0 Extract.hdrBlock
+    rw [ClaudeWCT.WCT9.chainInputW_header, bytesLE16_first_toNat]
+    have := SigGolfCandidate.T3.chainHeader_firstByte lay tree leaf i step
+    omega
+  · intro _; exact SourceQueries.pure_allowed _ _
 theorem wct_payNotDigest : PayNotDigest payAfterDigest := by
   intro cache rho output
   unfold payAfterDigest
@@ -345,7 +361,7 @@ theorem wct_payNotDigest : PayNotDigest payAfterDigest := by
     exact SourceQueries.bind_allowed _ (buildCoordinateF_ok _ _ _ _ _) fun _ => SourceQueries.pure_allowed _ _
   · intro state
     apply SourceQueries.bind_allowed _ (W9.T3.Security.Signer.signLayersBC_allowed' _ _ layerEncoding_ok
-      (W9.T3.Security.Signer.buildTreeP_allowed' _ BPB.chain_ok BPB.leafHash_ok
+      (W9.T3.Security.Signer.buildTreeP_allowed' _ chainStepW_ok_rev3 BPB.leafHash_ok
         (fun lay _ _ _ _ hh => lowerNodeHash_notDigest lay _ _ _ _ hh)
         (fun _ _ _ => BPB.privatePair_ok _ _ _ _ _)) (BPB.signTop_ok _) _ _ _)
     intro layers
@@ -1009,6 +1025,7 @@ variable (Q : SigGolfCandidate.T3.Spec.Domain → Prop)
 include hpublic hpair htop in
 theorem tail_public : SharedQueries.TailAllowed Q where
   chainStep := fun _ _ _ _ _ _ => SourceQueries.shortHash_allowed Q hpublic _
+  chainStepW := fun _ _ _ _ _ _ => SourceQueries.shortHash_allowed Q hpublic _
   leaf := fun _ _ _ _ => SourceQueries.shortHash_allowed Q hpublic _
   node := fun _ _ _ _ _ _ => W9.T3.Security.Signer.lowerNodeHash_allowed_of_public Q hpublic _ _ _ _ _
   seed := fun _ _ _ => SourceQueries.privatePair_allowed Q hpair _ _ _ _ _
@@ -1056,6 +1073,7 @@ theorem tail_notDigest : SharedQueries.TailAllowed BPB.NotDigestQ where
       have := chainHeader_firstByte lay tree leaf i step
       omega
     · intro _; exact SourceQueries.pure_allowed _ _
+  chainStepW := ClaudeWCT.Bank.WCT.chainStepW_ok_rev3
   leaf := BPB.leafHash_ok
   node := fun lay _ _ _ _ hh => ClaudeWCT.Bank.WCT.lowerNodeHash_notDigest lay _ _ _ _ hh
   seed := fun _ _ _ => BPB.privatePair_ok _ _ _ _ _

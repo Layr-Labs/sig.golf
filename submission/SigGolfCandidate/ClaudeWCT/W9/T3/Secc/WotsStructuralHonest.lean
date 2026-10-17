@@ -161,18 +161,18 @@ private theorem low_ne_of_firstByte (x y : BitVec 128)
   omega
 theorem posOf_chain_offgraph (lay : Layer) (tree leaf i step : Nat) (value : Digest)
     (hoff : chainHeaderSpill tree leaf i step ≠ 0) :
-    Extract.posOf (pad64 (chainInput lay tree leaf i step value)) = none := by
+    Extract.posOf (pad64 (WCT9.chainInputW lay tree leaf i step value)) = none := by
   apply posOf_eq_none
   intro p hb _ he
-  have hlen : (pad64 (chainInput lay tree leaf i step value)).length = 64 := by
-    rw [chainInput_padded]; simp [chainInput, zero16, bytesLE_length]
+  have hlen : (pad64 (WCT9.chainInputW lay tree leaf i step value)).length = 64 := by
+    rw [WCT9.chainInputW_padded]; simp [WCT9.chainInputW_length]
   -- C4: a chain header's low word carries type byte 193, so it is no top label.
-  have hT : ¬ Extract.TopLow (Extract.hdrBlock (pad64 (chainInput lay tree leaf i step value))) := by
-    rw [chainInput_padded, Extract.hdrBlock, chainInput_header, Extract.topLow_bytesLE_iff, Extract.tweakLow_eq_low,
+  have hT : ¬ Extract.TopLow (Extract.hdrBlock (pad64 (WCT9.chainInputW lay tree leaf i step value))) := by
+    rw [WCT9.chainInputW_padded, Extract.hdrBlock, WCT9.chainInputW_header, Extract.topLow_bytesLE_iff, Extract.tweakLow_eq_low,
       chainHeader_low, chainHeaderFlaggedLow_toNat]
     have := chainHeaderLow_band lay tree leaf i step
     split_ifs <;> omega
-  rw [Extract.hdrKey_of_len64 hlen hT, chainInput_padded, Extract.hdrBlock, chainInput_header] at he
+  rw [Extract.hdrKey_of_len64 hlen hT, WCT9.chainInputW_padded, Extract.hdrBlock, WCT9.chainInputW_header] at he
   have hn := congrArg (List.take 8) he
   rw [canonicalHeader_low] at hn
   have hp : (bytesLE 16 p.hdr).take 8 = bytesLE 8 (p.hdr.extractLsb' 0 64) := by
@@ -216,7 +216,8 @@ theorem posOf_chain_offgraph (lay : Layer) (tree leaf i step : Nat) (value : Dig
         (Extract.Pos.hdr_marker_lt hb (by simp only [Extract.Pos.cls]; (try split) <;> omega)
           (by simp only [Extract.Pos.cls]; (try split) <;> omega)) hlo
 theorem sat_chain (T : Answers) (lay : Layer) (tree leaf i start count : Nat)
-    (htree : tree < 2 ^ 40) (hleaf : leaf < 2 ^ 32) (hi : i < 2 ^ 24) (hcount : start + count ≤ 7) :
+    (htree : tree < 2 ^ 40) (hleaf : leaf < 2 ^ 32) (hi : i < 2 ^ 24) (hcount : start + count ≤ 7)
+    (hG : WCT9.isG lay i = false := by simp) :
     QueriesSat T (HonestQuery T) (SigGolfCandidate.T3.chain lay tree leaf i start count
       (honestChainValue T lay tree leaf i (WCT9.wotsSeed T lay tree leaf i) start)) := by
   induction count with
@@ -232,8 +233,18 @@ theorem sat_chain (T : Answers) (lay : Layer) (tree leaf i start count : Nat)
       · have hg : tree < 2^31 ∧ leaf < 4096 ∧ i < 64 ∧ start + count < 7 := by
           unfold chainHeaderSpill at hoff
           omega
+        have he : Extract.honestInput T (.chain lay tree leaf i (start + count)) =
+            pad64 (chainInput lay tree leaf i (start + count)
+              (honestChainValue T lay tree leaf i (WCT9.wotsSeed T lay tree leaf i) (start + count))) := by
+          simp only [Extract.honestInput]
+          rw [WCT9.chainInputW_F hG]
+          exact congrArg (fun v => pad64 (chainInput lay tree leaf i (start + count) v))
+            (honestChainValueW_eq hG (Or.inr (Or.inr (by omega))))
+        rw [← he]
         exact honestQuery_honest T (.chain lay tree leaf i (start + count)) hg
-      · exact Or.inl (posOf_chain_offgraph lay tree leaf i (start + count) _ hoff)
+      · refine Or.inl ?_
+        rw [← WCT9.chainInputW_F hG]
+        exact posOf_chain_offgraph lay tree leaf i (start + count) _ hoff
 theorem sat_halfHash {T : Answers} {Q : SigGolfCandidate.T3.Spec.Domain → Prop} (high : Bool) (input : HashInput)
     (h : Q (.inl (.inr (pad64 input)))) : QueriesSat T Q (WCT9.halfHash high input) := by
   intro q hq
@@ -265,11 +276,7 @@ theorem sat_chainW (T : Answers) (lay : Layer) (tree leaf i start count : Nat)
           unfold chainHeaderSpill at hoff
           omega
         refine Or.inr ⟨.chain lay tree leaf i (start + count), hg, ?_⟩
-        show pad64 (chainInput lay tree leaf i (start + count)
-            (honestChainValueW T lay tree leaf i (WCT9.wotsSeed T lay tree leaf i) (start + count))) =
-          pad64 (chainInput lay tree leaf i (start + count)
-            (honestChainValue T lay tree leaf i (WCT9.wotsSeed T lay tree leaf i) (start + count)))
-        rw [honestChainValueW_eq (Or.inr (Or.inr (by omega)))]
+        rfl
       · exact Or.inl (posOf_chain_offgraph lay tree leaf i (start + count) _ hoff)
 /-! ### Top leaves (campaign T8D: family seeds through `topCoefs`, `buildLeafTop`, `buildTopTree`) -/
 theorem sat_topCoefs (T : Answers) (leaf : Nat) : QueriesSat T (HonestQuery T) (topCoefs leaf) := by
@@ -831,18 +838,18 @@ private theorem low_ne_of_firstByte (x y : BitVec 128)
   omega
 theorem posOf_chain_offgraph (lay : Layer) (tree leaf i step : Nat) (value : Digest)
     (hoff : chainHeaderSpill tree leaf i step ≠ 0) :
-    Extract.posOf (pad64 (chainInput lay tree leaf i step value)) = none := by
+    Extract.posOf (pad64 (WCT9.chainInputW lay tree leaf i step value)) = none := by
   apply posOf_eq_none
   intro p hb _ he
-  have hlen : (pad64 (chainInput lay tree leaf i step value)).length = 64 := by
-    rw [chainInput_padded]; simp [chainInput, zero16, bytesLE_length]
+  have hlen : (pad64 (WCT9.chainInputW lay tree leaf i step value)).length = 64 := by
+    rw [WCT9.chainInputW_padded]; simp [WCT9.chainInputW_length]
   -- C4: a chain header's low word carries type byte 193, so it is no top label.
-  have hT : ¬ Extract.TopLow (Extract.hdrBlock (pad64 (chainInput lay tree leaf i step value))) := by
-    rw [chainInput_padded, Extract.hdrBlock, chainInput_header, Extract.topLow_bytesLE_iff, Extract.tweakLow_eq_low,
+  have hT : ¬ Extract.TopLow (Extract.hdrBlock (pad64 (WCT9.chainInputW lay tree leaf i step value))) := by
+    rw [WCT9.chainInputW_padded, Extract.hdrBlock, WCT9.chainInputW_header, Extract.topLow_bytesLE_iff, Extract.tweakLow_eq_low,
       chainHeader_low, chainHeaderFlaggedLow_toNat]
     have := chainHeaderLow_band lay tree leaf i step
     split_ifs <;> omega
-  rw [Extract.hdrKey_of_len64 hlen hT, chainInput_padded, Extract.hdrBlock, chainInput_header] at he
+  rw [Extract.hdrKey_of_len64 hlen hT, WCT9.chainInputW_padded, Extract.hdrBlock, WCT9.chainInputW_header] at he
   have hn := congrArg (List.take 8) he
   rw [canonicalHeader_low] at hn
   have hp : (bytesLE 16 p.hdr).take 8 = bytesLE 8 (p.hdr.extractLsb' 0 64) := by
@@ -886,7 +893,8 @@ theorem posOf_chain_offgraph (lay : Layer) (tree leaf i step : Nat) (value : Dig
         (Extract.Pos.hdr_marker_lt hb (by simp only [Extract.Pos.cls]; (try split) <;> omega)
           (by simp only [Extract.Pos.cls]; (try split) <;> omega)) hlo
 theorem sat_chain (T : Answers) (lay : Layer) (tree leaf i start count : Nat)
-    (htree : tree < 2 ^ 40) (hleaf : leaf < 2 ^ 32) (hi : i < 2 ^ 24) (hcount : start + count ≤ 7) :
+    (htree : tree < 2 ^ 40) (hleaf : leaf < 2 ^ 32) (hi : i < 2 ^ 24) (hcount : start + count ≤ 7)
+    (hG : WCT9.isG lay i = false := by simp) :
     QueriesSat T (HonestQuery T) (SigGolfCandidate.T3.chain lay tree leaf i start count
       (honestChainValue T lay tree leaf i (WCT9.wotsSeed T lay tree leaf i) start)) := by
   induction count with
@@ -902,8 +910,18 @@ theorem sat_chain (T : Answers) (lay : Layer) (tree leaf i start count : Nat)
       · have hg : tree < 2^31 ∧ leaf < 4096 ∧ i < 64 ∧ start + count < 7 := by
           unfold chainHeaderSpill at hoff
           omega
+        have he : Extract.honestInput T (.chain lay tree leaf i (start + count)) =
+            pad64 (chainInput lay tree leaf i (start + count)
+              (honestChainValue T lay tree leaf i (WCT9.wotsSeed T lay tree leaf i) (start + count))) := by
+          simp only [Extract.honestInput]
+          rw [WCT9.chainInputW_F hG]
+          exact congrArg (fun v => pad64 (chainInput lay tree leaf i (start + count) v))
+            (honestChainValueW_eq hG (Or.inr (Or.inr (by omega))))
+        rw [← he]
         exact honestQuery_honest T (.chain lay tree leaf i (start + count)) hg
-      · exact Or.inl (posOf_chain_offgraph lay tree leaf i (start + count) _ hoff)
+      · refine Or.inl ?_
+        rw [← WCT9.chainInputW_F hG]
+        exact posOf_chain_offgraph lay tree leaf i (start + count) _ hoff
 theorem sat_halfHash {T : Answers} {Q : SigGolfCandidate.T3.Spec.Domain → Prop} (high : Bool) (input : HashInput)
     (h : Q (.inl (.inr (pad64 input)))) : QueriesSat T Q (WCT9.halfHash high input) := by
   intro q hq
@@ -935,11 +953,7 @@ theorem sat_chainW (T : Answers) (lay : Layer) (tree leaf i start count : Nat)
           unfold chainHeaderSpill at hoff
           omega
         refine Or.inr ⟨.chain lay tree leaf i (start + count), hg, ?_⟩
-        show pad64 (chainInput lay tree leaf i (start + count)
-            (honestChainValueW T lay tree leaf i (WCT9.wotsSeed T lay tree leaf i) (start + count))) =
-          pad64 (chainInput lay tree leaf i (start + count)
-            (honestChainValue T lay tree leaf i (WCT9.wotsSeed T lay tree leaf i) (start + count)))
-        rw [honestChainValueW_eq (Or.inr (Or.inr (by omega)))]
+        rfl
       · exact Or.inl (posOf_chain_offgraph lay tree leaf i (start + count) _ hoff)
 /-! ### Top leaves (campaign T8D: family seeds through `topCoefs`, `buildLeafTop`, `buildTopTree`) -/
 theorem sat_topCoefs (T : Answers) (leaf : Nat) : QueriesSat T (HonestQuery T) (topCoefs leaf) := by

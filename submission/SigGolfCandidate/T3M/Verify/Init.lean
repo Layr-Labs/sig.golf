@@ -134,7 +134,7 @@ def k0 : List (Reg × Word) :=
    (.x21, 0), (.x22, 0), (.x23, 0), (.x24, 0), (.x25, 0), (.x26, 0), (.x27, 0), (.x28, 0), (.x29, 0),
    (.x30, 0), (.x31, 0)]
 def VERIFY_DATA : Nat := 0xffbde0
-def MSGADDR : Nat := 26048
+def MSGADDR : Nat := 26144
 structure InitOK (m : T3.Message) (pk : Digest) (w : ClaudeWCT.W9.T3M.WBytes) (s : MachineState) : Prop where
   known : KnownOK k0 s
   pc : s.pc = pcOf 0
@@ -155,24 +155,24 @@ theorem verifyData_header (lay : Nat) (hl : lay < 4) :
       BitVec.ofNat 64 (hyperBase lay) := by
   interval_cases lay <;> decide +kernel
 theorem verifyData_buffer3 :
-    bytesToWordLE ((((submission.image .verify).data).drop 360).take 8) = 22128#64 := by
+    bytesToWordLE ((((submission.image .verify).data).drop 360).take 8) = 22240#64 := by
   decide +kernel
 theorem verifyData_initialMask :
     bytesToWordLE ((((submission.image .verify).data).take 8)) = 0xfff#64 := by
   decide +kernel
 set_option maxRecDepth 200000 in
-theorem init_ok (m : Legacy.Message) (pk : PublicKey) (w : Bytes 24828) (s : MachineState)
+theorem init_ok (m : Legacy.Message) (pk : PublicKey) (w : Bytes 23236) (s : MachineState)
     (h : initialState submission .verify (m, pk, w) = some s) : InitOK m pk w s := by
   unfold initialState at h
   simp only [submission_admissible.2 .verify, if_true, Option.some.injEq] at h
   subst h
   have hl : inputBuffers submission.sizes submission.layout .verify (m, pk, w) =
-      [(MSGADDR, bytes m), (0xA0, bytes pk), (0x4c0, bytes w)] := rfl
+      [(MSGADDR, bytes m), (0xA0, bytes pk), (0xB58, bytes w)] := rfl
   rw [hl]
   simp only [List.foldl_cons, List.foldl_nil]
   have lm : (bytes m).length = 32 := length_bytes m
   have lp : (bytes pk).length = 16 := length_bytes pk
-  have lw : (bytes w).length = 24828 := length_bytes w
+  have lw : (bytes w).length = 23236 := length_bytes w
   have lD := verifyData_length
   have eD := dataBase_verify
   set blank : MachineState := { regs := fun _ => 0, mem := fun _ => 0, pc := 0x1000 }
@@ -180,7 +180,7 @@ theorem init_ok (m : Legacy.Message) (pk : PublicKey) (w : Bytes 24828) (s : Mac
     (submission.image .verify).data
   set s1 := s0.writeBytesAsWords (BitVec.ofNat 64 MSGADDR) (bytes m)
   set s2 := s1.writeBytesAsWords (BitVec.ofNat 64 0xA0) (bytes pk)
-  set s3 := s2.writeBytesAsWords (BitVec.ofNat 64 0x4c0) (bytes w)
+  set s3 := s2.writeBytesAsWords (BitVec.ofNat 64 0xB58) (bytes w)
   have gm : ∀ A, (s3.setReg .x2 (BitVec.ofNat 64 (dataBase (submission.image .verify)))).getMem A =
       s3.getMem A := fun A => by simp [MachineState.setReg, MachineState.getMem]
   have g0 : ∀ A, A < 2 ^ 64 → s0.getMem (BitVec.ofNat 64 A) =
@@ -203,10 +203,10 @@ theorem init_ok (m : Legacy.Message) (pk : PublicKey) (w : Bytes 24828) (s : Mac
     intro A hA
     rw [getMem_writeBytesAsWords _ s1 0xA0 A (by rw [lp]; omega) hA, lp]
   have g3 : ∀ A, A < 2 ^ 64 → s3.getMem (BitVec.ofNat 64 A) =
-      if 0x4c0 ≤ A ∧ A < 0x4c0 + 8 * ((24828 + 7) / 8) ∧ (A - 0x4c0) % 8 = 0 then
-        bytesToWordLE (((bytes w).drop (A - 0x4c0)).take 8) else s2.getMem (BitVec.ofNat 64 A) := by
+      if 0xB58 ≤ A ∧ A < 0xB58 + 8 * ((23236 + 7) / 8) ∧ (A - 0xB58) % 8 = 0 then
+        bytesToWordLE (((bytes w).drop (A - 0xB58)).take 8) else s2.getMem (BitVec.ofNat 64 A) := by
     intro A hA
-    rw [getMem_writeBytesAsWords _ s2 0x4c0 A (by rw [lw]; omega) hA, lw]
+    rw [getMem_writeBytesAsWords _ s2 0xB58 A (by rw [lw]; omega) hA, lw]
   have gb : ∀ A, VERIFY_DATA ≤ A → A < 2 ^ 24 →
       (s3.setReg .x2 (BitVec.ofNat 64 (dataBase (submission.image .verify)))).getByte
         (BitVec.ofNat 64 A) = (submission.image .verify).data.getD (A - VERIFY_DATA) 0 := by
@@ -261,7 +261,7 @@ theorem init_ok (m : Legacy.Message) (pk : PublicKey) (w : Bytes 24828) (s : Mac
   · intro k hk
     unfold MSGADDR
     rw [gm, g3 _ (by omega), if_neg (by omega), g2 _ (by omega), if_neg (by omega), g1 _ (by omega),
-      if_pos (by unfold MSGADDR; omega), show 26048 + 8 * k - MSGADDR = 8 * k by unfold MSGADDR; omega,
+      if_pos (by unfold MSGADDR; omega), show 26144 + 8 * k - MSGADDR = 8 * k by unfold MSGADDR; omega,
       bytes_word m k (by omega)]
   · refine ⟨?_, ?_⟩
     · show (s3.setReg .x2 _).getMem (BitVec.ofNat 64 0xA0) = _
@@ -273,7 +273,7 @@ theorem init_ok (m : Legacy.Message) (pk : PublicKey) (w : Bytes 24828) (s : Mac
   · intro j hj
     unfold WX at hj
     rw [gm, g3 _ (by unfold WIT; omega), if_pos (by unfold WIT; omega),
-      show WIT + 8 * j - 0x4c0 = 8 * j by unfold WIT; omega, bytes_word_lt w j (by norm_num) (by omega)]
+      show WIT + 8 * j - 0xB58 = 8 * j by unfold WIT; omega, bytes_word_lt w j (by norm_num) (by omega)]
     rfl
   · intro A hA hz
     unfold WIT at hA

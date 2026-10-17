@@ -31,13 +31,13 @@ structure LeafPreS (sk : BitVec 256) (s : MachineState) (A : LeafArgs) : Prop wh
   p56 : s.getMem (BitVec.ofNat 64 (PRIV + 56)) = 0
   z0 : s.getMem (BitVec.ofNat 64 CHAIN) = 0
   z8 : s.getMem (BitVec.ofNat 64 (CHAIN + 8)) = 0
-  z32 : s.getMem (BitVec.ofNat 64 (CHAIN + 32)) = 0
-  z40 : s.getMem (BitVec.ofNat 64 (CHAIN + 40)) = 0
   hsl : A.so = false → A.lay ≠ 0
   hdig : ∀ i < A.n, s.getByte (BitVec.ofNat 64 (A.digp + i)) = BitVec.ofNat 8 (A.d i)
   hdigb : ∀ i < A.n, A.d i < 256 ∧ (A.so = false → A.d i ≤ maxDigit A.lay i)
   hdigp : A.digp + A.n ≤ 2 ^ 24
   hdigW : ∀ i < A.n, ¬ LeafW A ((A.digp + i) / 8 * 8)
+  /-- Pairing stage 1: the digits stay clear of the widened chain scratch `CHAIN+32 .. CHAIN+112`. -/
+  hdigC : A.digp + A.n ≤ 0x201C0 ∨ 0x20210 ≤ A.digp
   hv8 : A.valp % 8 = 0
   hv : A.valp + 16 * A.n ≤ 2 ^ 24
   hvs : A.valp + 16 * A.n ≤ PRIV ∨ LEAFPK + 960 ≤ A.valp

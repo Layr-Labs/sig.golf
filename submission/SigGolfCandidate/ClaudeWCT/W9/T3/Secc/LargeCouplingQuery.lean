@@ -208,10 +208,12 @@ theorem childSlots_ne (N : CanonGraph.Node) : ∀ cs ∈ childSlots N, cs.1 ≠ 
   | chain p =>
       simp only [childSlots, List.mem_singleton] at hcs
       subst hcs
+      dsimp only
       unfold chainChild
-      split_ifs with h0
-      · exact Sum.inl_ne_inr.symm
-      · intro heq
+      by_cases h0 : p.2.val = 0
+      · rw [if_pos h0]; exact Sum.inl_ne_inr.symm
+      · rw [if_neg h0]
+        intro heq
         have h1 := congrArg (fun c : Coord => match c with | .inl (.chain x) => x.2.val | _ => 0) heq
         simp only [ChainGraph.predecessor] at h1
         omega

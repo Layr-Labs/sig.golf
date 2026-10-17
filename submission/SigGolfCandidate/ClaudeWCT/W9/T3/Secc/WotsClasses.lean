@@ -19,23 +19,34 @@ set_option linter.unusedSimpArgs false
 attribute [local instance low] Classical.propDecidable
 attribute [local irreducible] referenceGame offlineGame
 namespace SmallA
+theorem hdrBlock_chainRowW (a : ChainAddr) (s : Nat) (v : Digest) :
+    Extract.hdrBlock (chainRowW a s v) = bytesLE 16 (chainHeader a.key.lay a.key.tree a.key.leaf a.chain s) :=
+  WCT9.chainInputW_header _ _ _ _ _ _
 theorem posOf_chainRow (a : ChainAddr) (s : Nat) (v : Digest) (htree : a.key.tree < 2 ^ 31)
     (hleaf : a.key.leaf < 4096) (hc : a.chain < 64) (hs : s < 7) :
-    Extract.posOf (chainRow a s v) = some (.chain a.key.lay a.key.tree a.key.leaf a.chain s) :=
-  Extract.posOf_eq ⟨htree, hleaf, hc, hs⟩ (Mask.chainRow_length a s v)
-    (show Extract.hdrBlock (chainRow a s v) =
-        bytesLE 16 (chainHeader a.key.lay a.key.tree a.key.leaf a.chain s) from
-      SigGolfCandidate.T3.Security.Wots.SmallA.hdrBlock_chainRow a s v)
+    Extract.posOf (chainRowW a s v) = some (.chain a.key.lay a.key.tree a.key.leaf a.chain s) :=
+  Extract.posOf_eq ⟨htree, hleaf, hc, hs⟩ (chainRowW_length a s v)
+    (hdrBlock_chainRowW a s v)
+/-- Pairing stage 1: no chain row of the current scheme (F or G) is a digest query (header block). -/
+theorem chainRowW_ne_digest (a : ChainAddr) (s : Nat) (v : Digest) (rho : Digest) (m : Message) (c : BitVec 32) :
+    chainRowW a s v ≠ pad64 (digestInput rho m c) := by
+  intro h
+  have hb := congrArg Extract.hdrBlock h
+  rw [hdrBlock_chainRowW] at hb
+  change _ = SigGolfCandidate.T3M.Extract.hdrBlock _ at hb
+  rw [SigGolfCandidate.T3.Security.Wots.SmallA.hdrBlock_digest] at hb
+  exact chainHeader_ne_digestHeader _ _ _ _ _ _ (bytesLE_injective hb)
 end SmallA
-open SigGolfCandidate.T3.Security.Wots.SmallA (chainRow_ne_digest sourceChain_bounds)
+open SigGolfCandidate.T3.Security.Wots.SmallA (sourceChain_bounds)
+open ClaudeWCT.W9.T3.Security.Wots.SmallA (chainRowW_ne_digest)
 namespace SmallA
-theorem chainRow_ne_encRow (a : ChainAddr) (s : Nat) (v : Digest) (L : LeafAddr) (m : WCT9.LayerMsg)
-    (c : BitVec 32) (pad : RowPad) : chainRow a s v ≠ encRow L m c pad := by
+theorem chainRowW_ne_encRow (a : ChainAddr) (s : Nat) (v : Digest) (L : LeafAddr) (m : WCT9.LayerMsg)
+    (c : BitVec 32) (pad : RowPad) : chainRowW a s v ≠ encRow L m c pad := by
   intro h
   have hb := congrArg ClaudeWCT.W9.T3M.Extract.hdrBlock h
-  have h1 : ClaudeWCT.W9.T3M.Extract.hdrBlock (chainRow a s v) =
+  have h1 : ClaudeWCT.W9.T3M.Extract.hdrBlock (chainRowW a s v) =
       bytesLE 16 (chainHeader a.key.lay a.key.tree a.key.leaf a.chain s) :=
-    SigGolfCandidate.T3.Security.Wots.SmallA.hdrBlock_chainRow a s v
+    hdrBlock_chainRowW a s v
   rw [h1, show encRow L m c pad = pad64 (layerEncodingInputP L.lay L.tree L.leaf m c pad.1 pad.2.1 (pad.2.2 ^^^ 1)) from rfl,
     ClaudeWCT.W9.T3M.BC.hdrBlock_layerEncodingInputP] at hb
   have hm := congrArg tweakMarker (bytesLE_injective hb)
@@ -65,13 +76,13 @@ theorem prefixRow_encodingRow_disjoint (T : Answers) (input : SigGolfCandidate.T
   · exact hP
   · obtain ⟨a, -, s, v, -, rfl⟩ := hP
     obtain ⟨L, m, c, pad, -, hx⟩ := hE
-    exact SmallA.chainRow_ne_encRow a s v L m c pad hx
+    exact SmallA.chainRowW_ne_encRow a s v L m c pad hx
   · exact hP
 theorem prefixRow_digest_disjoint (T : Answers) (input : SigGolfCandidate.T3.Spec.Domain) :
     ¬(PrefixRow T input ∧ IsDigestQuery input) := by
   rintro ⟨hP, rho, m, c, rfl⟩
   obtain ⟨a, -, s, v, -, hx⟩ := hP
-  exact chainRow_ne_digest a s v rho m c hx.symm
+  exact chainRowW_ne_digest a s v rho m c hx.symm
 theorem encodingRow_otherQuery_disjoint (T : Answers) (input : SigGolfCandidate.T3.Spec.Domain) :
     ¬(EncodingRow T input ∧ OtherQuery T input) := by
   rintro ⟨hE, hO⟩
@@ -101,7 +112,7 @@ theorem prefixRow_otherQuery_disjoint (T : Answers) (input : SigGolfCandidate.T3
     have hrow := SmallA.posOf_chainRow a s v htree hleaf hc (by omega)
     rw [hrow] at hpos
     cases hpos
-    change OtherChainRow T (chainRow a s v) at hcls
+    change OtherChainRow T (chainRowW a s v) at hcls
     obtain ⟨a', s', hpos', hcase⟩ := hcls
     rw [hrow] at hpos'
     simp only [Option.some.injEq, Extract.Pos.chain.injEq] at hpos'
@@ -159,7 +170,8 @@ open SigGolfCandidate.T3 SigGolfCandidate.T3.Security SigGolfCandidate.T3.Securi
 open ClaudeWCT.W9.T3M
 open SigGolfCandidate.T3M.SecurityInputs SigGolfCandidate.T3M.SecurityExtraction
 open SigGolfCandidate.T3.Correctness (Answers)
-open SigGolfCandidate.T3.Security.Wots.SmallA (chainRow_ne_digest sourceChain_bounds)
+open SigGolfCandidate.T3.Security.Wots.SmallA (sourceChain_bounds)
+open ClaudeWCT.W9.T3.Security.Wots.SmallA (chainRowW_ne_digest)
 set_option maxHeartbeats 1000000
 set_option maxRecDepth 10000
 set_option backward.isDefEq.respectTransparency false
@@ -171,13 +183,13 @@ theorem prefixRow_encodingRow_disjoint (T : Answers) (input : SigGolfCandidate.T
   · exact hP
   · obtain ⟨a, -, s, v, -, rfl⟩ := hP
     obtain ⟨L, m, c, pad, -, hx⟩ := hE
-    exact SmallA.chainRow_ne_encRow a s v L m c pad hx
+    exact SmallA.chainRowW_ne_encRow a s v L m c pad hx
   · exact hP
 theorem prefixRow_digest_disjoint (T : Answers) (input : SigGolfCandidate.T3.Spec.Domain) :
     ¬(CanonicalRef.Normalized.Contacts.PrefixRow T input ∧ IsDigestQuery input) := by
   rintro ⟨hP, rho, m, c, rfl⟩
   obtain ⟨a, -, s, v, -, hx⟩ := hP
-  exact chainRow_ne_digest a s v rho m c hx.symm
+  exact chainRowW_ne_digest a s v rho m c hx.symm
 theorem encodingRow_otherQuery_disjoint (T : Answers) (input : SigGolfCandidate.T3.Spec.Domain) :
     ¬(EncodingRow T input ∧ OtherQuery T input) := by
   rintro ⟨hE, hO⟩
@@ -209,7 +221,7 @@ theorem prefixRow_otherQuery_disjoint (T : Answers) (input : SigGolfCandidate.T3
     have hrow := SmallA.posOf_chainRow a s v htree hleaf hc (by omega)
     rw [hrow] at hpos
     cases hpos
-    change CanonicalRef.OtherChainRow T (CanonicalRef.sourceMessages T) (chainRow a s v) at hcls
+    change CanonicalRef.OtherChainRow T (CanonicalRef.sourceMessages T) (chainRowW a s v) at hcls
     obtain ⟨a', s', hpos', hcase⟩ := hcls
     rw [hrow] at hpos'
     simp only [Option.some.injEq, Extract.Pos.chain.injEq] at hpos'

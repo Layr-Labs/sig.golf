@@ -97,6 +97,72 @@ def wctFamily (secrets : Secrets) (index : Fin (2 ^ 31)) (coord : Fin 9) : Fin 5
 def wctSeedsOf (secrets : Secrets) : WctAddr → Digest := fun a =>
   ClaudeWCT.Arith.familyEval (List.ofFn (wctFamily secrets a.1 a.2.1)) (WCT9.ftsPoint a.2.2.1.val a.2.2.2.val)
 def chainLabels (labels : Labels) : ChainGraph.Labels := fun point => labels (.chain point)
+/-! ### Pairing stage 1: chain rows of the current scheme
+
+A chain point's cell is `WCT9.chainInputW` (F rows `0 | hdr | 0 | v`, G rows `v | hdr | 0 | 0`), and its input value
+is the half `chainHigh` of the previous step's label (the HIGH half for steps `0..5` of a G chain). -/
+def rowW (point : Point) (value : Digest) : HashInput :=
+  WCT9.chainInputW point.1.layer point.1.tree.val point.1.leaf.val point.1.chain.val point.2.val value
+theorem rowW_length (point : Point) (value : Digest) : (rowW point value).length = 64 :=
+  WCT9.chainInputW_length _ _ _ _ _ _
+theorem rowW_pad64 (point : Point) (value : Digest) : pad64 (rowW point value) = rowW point value :=
+  WCT9.chainInputW_padded _ _ _ _ _ _
+/-- The half of step `m`'s output that chain `address` reads. -/
+def stepHigh (address : Address) (m : Nat) : Bool := WCT9.chainHigh address.layer address.chain.val m
+def priorW (seeds : Seeds) (point : Point) (labels : ChainGraph.Labels) : Digest :=
+  if point.2.val = 0 then seeds point.1
+  else WCT9.halfOf (stepHigh point.1 (point.2.val - 1)) (labels (ChainGraph.predecessor point))
+def inputW (seeds : Seeds) (point : Point) (labels : ChainGraph.Labels) : HashInput :=
+  rowW point (priorW seeds point labels)
+def valueW (seeds : Seeds) (labels : ChainGraph.Labels) (address : Address) (step : Nat) : Digest :=
+  if step = 0 then seeds address
+  else WCT9.halfOf (stepHigh address (step - 1)) (labels (address, ⟨(step - 1) % 7, Nat.mod_lt _ (by decide)⟩))
+theorem valueW_zero (seeds : Seeds) (labels : ChainGraph.Labels) (address : Address) :
+    valueW seeds labels address 0 = seeds address := by simp [valueW]
+theorem valueW_succ (seeds : Seeds) (labels : ChainGraph.Labels) (address : Address) (step : Fin 7) :
+    valueW seeds labels address (step.val + 1) = WCT9.halfOf (stepHigh address step.val) (labels (address, step)) := by
+  simp [valueW, Nat.mod_eq_of_lt step.isLt]
+theorem priorW_eq_valueW (seeds : Seeds) (labels : ChainGraph.Labels) (point : Point) :
+    priorW seeds point labels = valueW seeds labels point.1 point.2.val := by
+  have hmod : (point.2.val - 1) % 7 = point.2.val - 1 := Nat.mod_eq_of_lt (by have := point.2.isLt; omega)
+  simp only [priorW, valueW, ChainGraph.predecessor, hmod]
+def AgreesW (answers : Answers) (seeds : Seeds) (labels : ChainGraph.Labels) : Prop :=
+  ∀ point, answers (.inl (.inr (inputW seeds point labels))) = labels point
+theorem sourceW_step (answers : Answers) (seeds : Seeds) (labels : ChainGraph.Labels) (h : AgreesW answers seeds labels)
+    (address : Address) (step : Fin 7) :
+    evalWithAnswerFn answers (WCT9.chainW address.layer address.tree.val address.leaf.val address.chain.val
+      step.val 1 (valueW seeds labels address step.val)) = valueW seeds labels address (step.val + 1) := by
+  have hin : inputW seeds (address, step) labels = rowW (address, step) (valueW seeds labels address step.val) := by
+    rw [inputW, priorW_eq_valueW]
+  have hh := h (address, step)
+  rw [hin] at hh
+  have hc : WCT9.chainW address.layer address.tree.val address.leaf.val address.chain.val step.val 1
+      (valueW seeds labels address step.val) =
+        WCT9.halfHash (stepHigh address step.val) (rowW (address, step) (valueW seeds labels address step.val)) := by
+    simp [WCT9.chainW, List.range'_succ, rowW, stepHigh]
+  rw [hc, valueW_succ]
+  cases hs : stepHigh address step.val
+  · change WCT9.halfOf false (answers (.inl (.inr (pad64 (rowW (address, step) _))))) = _
+    rw [rowW_pad64, hh]
+  · change WCT9.halfOf true (answers (.inl (.inr (pad64 (rowW (address, step) _))))) = _
+    rw [rowW_pad64, hh]
+theorem sourceW_chain (answers : Answers) (seeds : Seeds) (labels : ChainGraph.Labels) (h : AgreesW answers seeds labels)
+    (address : Address) (start count : Nat) (hbound : start + count ≤ 7) :
+    evalWithAnswerFn answers (WCT9.chainW address.layer address.tree.val address.leaf.val address.chain.val
+      start count (valueW seeds labels address start)) = valueW seeds labels address (start + count) := by
+  induction count with
+  | zero => simp [WCT9.chainW]
+  | succ count ih =>
+      rw [show start + (count + 1) = start + count + 1 by omega]
+      have hadd : WCT9.chainW address.layer address.tree.val address.leaf.val address.chain.val start (count + 1)
+          (valueW seeds labels address start) =
+          (WCT9.chainW address.layer address.tree.val address.leaf.val address.chain.val start count
+            (valueW seeds labels address start) >>=
+            WCT9.chainW address.layer address.tree.val address.leaf.val address.chain.val (start + count) 1) := by
+        unfold WCT9.chainW
+        rw [← List.range'_append_1, List.foldlM_append]
+      rw [hadd, evalWithAnswerFn_bind, ih (by omega)]
+      exact sourceW_step answers seeds labels h address ⟨start + count, by omega⟩
 def fin58 (i : Nat) : Fin 58 := ⟨i % 58, Nat.mod_lt _ (by decide)⟩
 def fin9 (i : Nat) : Fin 9 := ⟨i % 9, Nat.mod_lt _ (by decide)⟩
 def Node.toPos : Node → Extract.Pos
@@ -164,7 +230,7 @@ def ftsPrevLabel (labels : Labels) (index : Fin (2^31)) (coord : Fin 9) : Digest
   if h : coord.val = 0 then (0, 0) else
     (ftsLabel labels index ⟨coord.val - 1, by omega⟩ 6 0, ftsLabel labels index ⟨coord.val - 1, by omega⟩ 6 1)
 def cell (secrets : Secrets) : Node → Labels → HashInput
-  | .chain p, labels => ChainGraph.input (seedsOf secrets) p (chainLabels labels)
+  | .chain p, labels => inputW (seedsOf secrets) p (chainLabels labels)
   | .leaf L, labels => pad64 (Extract.leafInput L.1.lay L.1.tree.val L.1.leaf.val
       ((List.range (chainCount L.1.lay)).map (endLabel secrets labels L.1)))
   | .node n, labels => pad64 (WCT9.merkleNodeInput n.1.lay.val n.1.tree.val
@@ -321,8 +387,8 @@ theorem cell_length (secrets : Secrets) (node : Node) (labels : Labels) :
     (cell secrets node labels).length = node.toPos.len := by
   cases node with
   | chain p =>
-      change (ChainGraph.row p _).length = _
-      rw [ChainGraph.row_length]; rfl
+      change (rowW p _).length = _
+      rw [rowW_length]; rfl
   | leaf L =>
       simp only [cell, Extract.leafInput, Node.toPos, Extract.Pos.len]
       rw [Cost.pad64_length, SigGolfCandidate.T3.leafInput_length]
@@ -351,9 +417,8 @@ theorem hdrBlock_cell (secrets : Secrets) (node : Node) (labels : Labels) :
     Extract.hdrBlock (cell secrets node labels) = bytesLE 16 node.toPos.hdr := by
   cases node with
   | chain p =>
-      change Extract.hdrBlock (chainInput p.1.layer p.1.tree.val p.1.leaf.val p.1.chain.val p.2.val _) = _
-      rw [Extract.hdrBlock_wotsChainInput]
-      rfl
+      change Extract.hdrBlock (WCT9.chainInputW p.1.layer p.1.tree.val p.1.leaf.val p.1.chain.val p.2.val _) = _
+      exact WCT9.chainInputW_header _ _ _ _ _ _
   | leaf L =>
       simp only [cell]
       rw [Extract.hdrBlock_leafInput]
@@ -451,9 +516,9 @@ theorem cell_congr (secrets : Secrets) (node : Node) (left right : Labels)
     cell secrets node left = cell secrets node right := by
   cases node with
   | chain p =>
-      change ChainGraph.input (seedsOf secrets) p (chainLabels left) =
-        ChainGraph.input (seedsOf secrets) p (chainLabels right)
-      unfold ChainGraph.input ChainGraph.prior
+      change inputW (seedsOf secrets) p (chainLabels left) =
+        inputW (seedsOf secrets) p (chainLabels right)
+      unfold inputW priorW
       split_ifs with hz
       · rfl
       · have hd := h (.chain (ChainGraph.predecessor p)) (by
@@ -575,8 +640,8 @@ theorem cell_length_le (secrets : Secrets) (node : Node) (labels : Labels) :
     (cell secrets node labels).length ≤ 4096 := by
   cases node with
   | chain p =>
-      change (ChainGraph.row p _).length ≤ 4096
-      rw [ChainGraph.row_length]; omega
+      change (rowW p _).length ≤ 4096
+      rw [rowW_length]; omega
   | leaf L =>
       simp only [cell, Extract.leafInput]
       rw [Cost.pad64_length, SigGolfCandidate.T3.leafInput_length]
@@ -936,10 +1001,10 @@ theorem proj_toPos (N : Node) (y : HashOutput) :
     N.toPos.proj y = if N.isTop then y.extractLsb' 128 128 else y.extractLsb' 0 128 := by
   rw [Extract.Pos.proj_eq]; rfl
 theorem high_chain (q : Point) : (Node.chain q).toPos.high = WCT9.chainHigh q.1.layer q.1.chain.val q.2.val := rfl
-/-- C3: a chain point below the last step uses the low half. -/
-theorem proj_chain_of_lt {q : Point} (h : q.2.val < 6) (y : HashOutput) :
-    (Node.chain q).toPos.proj y = y.extractLsb' 0 128 := by
-  rw [Extract.Pos.proj_of_low (by rw [high_chain]; exact WCT9.chainHigh_eq_false (Or.inr (Or.inr (by omega))))]
+/-- C3: a point of an F chain (`isG = false`) below the last step uses the low half. -/
+theorem proj_chain_of_lt {q : Point} (hG : WCT9.isG q.1.layer q.1.chain.val = false) (h : q.2.val < 6)
+    (y : HashOutput) : (Node.chain q).toPos.proj y = y.extractLsb' 0 128 := by
+  rw [Extract.Pos.proj_of_low (by rw [high_chain]; exact WCT9.chainHigh_eq_false_F hG (Or.inr (by omega)))]
 theorem isTop_wctNode (n : WctNodePos) : (Node.wctNode n).isTop = decide (n.1.level.val = 5) := rfl
 theorem isTop_wctLeaf (L : WctLeafPos) : (Node.wctLeaf L).isTop = false := rfl
 theorem proj_toPos_of_not_top {N : Node} (h : N.isTop = false) (y : HashOutput) :
@@ -1030,7 +1095,7 @@ theorem eager_programmed_agrees (U : Finset HashInput) (hU : canonInputs ⊆ U) 
   intro x
   rw [secretsOf_eager, privateSecrets_symm, eagerAnswers_mem]
 theorem agrees_chain {answers : Answers} {labels : Labels} (h : Agrees answers labels) :
-    ChainGraph.Agrees answers (seedsOf (secretsOf answers)) (chainLabels labels) :=
+    AgreesW answers (seedsOf (secretsOf answers)) (chainLabels labels) :=
   fun point => h (.chain point)
 theorem halfAnswer_pair (answers : Answers) (tag lay tree position index : Nat) (i : Fin 2) :
     halfAnswer answers (.inl (header tag lay tree position index), i) =
@@ -1468,9 +1533,9 @@ theorem cell_congr_nonforest (secrets : Secrets) (node : Node)
     Paired.cell secrets node left = Paired.cell secrets node right := by
   cases node with
   | chain p =>
-      change ChainGraph.input (seedsOf secrets) p (chainLabels left) =
-        ChainGraph.input (seedsOf secrets) p (chainLabels right)
-      unfold ChainGraph.input ChainGraph.prior
+      change inputW (seedsOf secrets) p (chainLabels left) =
+        inputW (seedsOf secrets) p (chainLabels right)
+      unfold inputW priorW
       split_ifs with hz
       · rfl
       · have hd := h (.chain (ChainGraph.predecessor p)) trivial (by

@@ -20,9 +20,16 @@ theorem lay_eq_of_header {lay : Layer} {t t' tree pos leaf tree' pos' leaf' : Na
   exact hl
 theorem untouched_chainInput_of_lay {lay : Layer} (hl : lay ≠ a.key.lay) (tree leaf i s : Nat) (v : Digest) :
     Untouched a (.inl (.inr (pad64 (chainInput lay tree leaf i s v)))) := by
-  intro step value _ heq
-  rw [pad64_chainInput] at heq
-  exact hl (chainHeader_fields (chainInput_fields heq).1).1
+  intro step value _
+  rw [pad64_chainInput]
+  constructor
+  · intro heq
+    exact hl (chainHeader_fields (chainInput_fields heq).1).1
+  · intro heq
+    have hb := congrArg Extract.hdrBlock heq
+    rw [chainRowG_header, show Extract.hdrBlock (chainInput lay tree leaf i s v) =
+      bytesLE 16 (chainHeader lay tree leaf i s) from chainInput_header _ _ _ _ _ _] at hb
+    exact hl (chainHeader_fields (bytesLE_injective hb)).1
 theorem respects_chain_of_lay {lay : Layer} (hl : lay ≠ a.key.lay) (tree leaf i start count : Nat) (v : Digest) :
     Respects (Untouched a) (chain lay tree leaf i start count v) := by
   unfold chain

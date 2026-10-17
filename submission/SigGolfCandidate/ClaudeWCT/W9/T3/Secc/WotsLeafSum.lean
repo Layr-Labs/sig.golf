@@ -183,7 +183,7 @@ end ErrR
 
 /-- `input` is the step-0 row of an unrevealed chain of `L` (in the table `T`). -/
 def StepZeroUnrev (L : LeafAddr) (T : Answers) (input : HashInput) : Prop :=
-  ∃ c : Fin (chainCount L.lay), depth T ⟨L, c⟩ ≠ 0 ∧ ∃ v, input = chainRow ⟨L, c⟩ 0 v
+  ∃ c : Fin (chainCount L.lay), depth T ⟨L, c⟩ ≠ 0 ∧ ∃ v, input = chainRowW ⟨L, c⟩ 0 v
 
 /-- Number of test queries of leaf `L` in a reference sample. -/
 noncomputable def NL (L : LeafAddr) (s : RefSample) : ℕ :=
@@ -216,7 +216,7 @@ theorem isTestQ_iff {L : LeafAddr} {a : ChainAddr} (haL : a.key = L) (hac : a.ch
         · rintro ⟨c, -, v, he⟩
           rw [hin] at he
           have h1 : (p.1 : ℕ) < 256 := by have := p.1.isLt; have := PrefixGame.restDepth_le a R; omega
-          obtain ⟨-, -, hs, -⟩ := chainInput_eq_chainRow (a := ⟨L, c⟩)
+          obtain ⟨-, -, hs, -⟩ := chainInputW_eq_chainRowW (a := ⟨L, c⟩)
             (by have := chainCount_le L.lay; subst haL; simp only [Nat.reducePow]; omega)
             (by have := chainCount_le L.lay; have := c.isLt; simp only [Nat.reducePow]; omega) h1 (by omega) he
           exact hs
@@ -238,7 +238,7 @@ theorem isTestQ_iff {L : LeafAddr} {a : ChainAddr} (haL : a.key = L) (hac : a.ch
               simpa using hc
             · rintro ⟨c, hc, v, he'⟩
               rw [he] at he'
-              obtain ⟨h1, -⟩ := chainRow_zero_inj cv.1.isLt he' c.isLt
+              obtain ⟨h1, -⟩ := chainRowW_zero_inj cv.1.isLt he' c.isLt
               have hcv : cv.1 = c := Fin.ext h1
               unfold revSet
               simp only [Finset.mem_filter, Finset.mem_univ, true_and]
@@ -387,7 +387,7 @@ theorem stepZero_key_unique {L L' : LeafAddr} (hL : WotsExtract.SourceLeaf L) (h
     have h2 : 2 ^ height K.lay ≤ 2 ^ 32 := Nat.pow_le_pow_right (by norm_num) (by
       have := SigGolfCandidate.T3.Security.Wots.height_le K.lay; omega)
     omega
-  obtain ⟨hal, -, -, -⟩ := chainInput_eq_chainRow (a := ⟨L', c'⟩)
+  obtain ⟨hal, -, -, -⟩ := chainInputW_eq_chainRowW (a := ⟨L', c'⟩)
     (by have := chainCount_le L.lay; have := c.isLt; simp only [Nat.reducePow]; omega)
     (by have := chainCount_le L'.lay; have := c'.isLt; simp only [Nat.reducePow]; omega) (by omega) (by omega) he
   have := hal.eq_of_lt (hb L hL).1 (hb L hL).2 (hb L' hL').1 (hb L' hL').2
@@ -709,7 +709,7 @@ open SigGolfCandidate.T3.Security.Wots.Mask ClaudeWCT.W9.T3.Security.Wots.Mask
 open SphincsSecurity.QueryCap (recorded counted calls)
 /-- `input` is the step-0 row of an unrevealed chain of `L` (in the table `T`). -/
 def StepZeroUnrev (L : LeafAddr) (T : Answers) (input : HashInput) : Prop :=
-  ∃ c : Fin (chainCount L.lay), CanonicalRef.depth T (sourceMessages T) ⟨L, c⟩ ≠ 0 ∧ ∃ v, input = chainRow ⟨L, c⟩ 0 v
+  ∃ c : Fin (chainCount L.lay), CanonicalRef.depth T (sourceMessages T) ⟨L, c⟩ ≠ 0 ∧ ∃ v, input = chainRowW ⟨L, c⟩ 0 v
 
 /-- Number of test queries of leaf `L` in a reference sample. -/
 noncomputable def NL (L : LeafAddr) (s : RefSample) : ℕ :=
@@ -742,7 +742,7 @@ theorem isTestQ_iff {L : LeafAddr} {a : ChainAddr} (haL : a.key = L) (hac : a.ch
         · rintro ⟨c, -, v, he⟩
           rw [hin] at he
           have h1 : (p.1 : ℕ) < 256 := by have := p.1.isLt; have := RawPrefix.restDepth_le a R; omega
-          obtain ⟨-, -, hs, -⟩ := chainInput_eq_chainRow (a := ⟨L, c⟩)
+          obtain ⟨-, -, hs, -⟩ := chainInputW_eq_chainRowW (a := ⟨L, c⟩)
             (by have := chainCount_le L.lay; subst haL; simp only [Nat.reducePow]; omega)
             (by have := chainCount_le L.lay; have := c.isLt; simp only [Nat.reducePow]; omega) h1 (by omega) he
           exact hs
@@ -764,7 +764,7 @@ theorem isTestQ_iff {L : LeafAddr} {a : ChainAddr} (haL : a.key = L) (hac : a.ch
               simpa using hc
             · rintro ⟨c, hc, v, he'⟩
               rw [he] at he'
-              obtain ⟨h1, -⟩ := chainRow_zero_inj cv.1.isLt he' c.isLt
+              obtain ⟨h1, -⟩ := chainRowW_zero_inj cv.1.isLt he' c.isLt
               have hcv : cv.1 = c := Fin.ext h1
               unfold revSet
               simp only [Finset.mem_filter, Finset.mem_univ, true_and]
@@ -947,7 +947,7 @@ theorem stepZero_key_unique {L L' : LeafAddr} (hL : WotsExtract.SourceLeaf L) (h
     have h2 : 2 ^ height K.lay ≤ 2 ^ 32 := Nat.pow_le_pow_right (by norm_num) (by
       have := SigGolfCandidate.T3.Security.Wots.height_le K.lay; omega)
     omega
-  obtain ⟨hal, -, -, -⟩ := chainInput_eq_chainRow (a := ⟨L', c'⟩)
+  obtain ⟨hal, -, -, -⟩ := chainInputW_eq_chainRowW (a := ⟨L', c'⟩)
     (by have := chainCount_le L.lay; have := c.isLt; simp only [Nat.reducePow]; omega)
     (by have := chainCount_le L'.lay; have := c'.isLt; simp only [Nat.reducePow]; omega) (by omega) (by omega) he
   have := hal.eq_of_lt (hb L hL).1 (hb L hL).2 (hb L' hL').1 (hb L' hL').2

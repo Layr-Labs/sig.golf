@@ -18,13 +18,16 @@ attribute [local irreducible] referenceGame offlineGame
 noncomputable local instance instFintypeCoordinate_wotsPrefixGameSim : Fintype Coordinate := coordinateFintype
 open SigGolfCandidate.T3.Security.Wots.Mask ClaudeWCT.W9.T3.Security.Wots.Mask
 namespace PrefixGame
+/-- Pairing stage 1: a query of a prefix row of chain `a` (current-scheme row `chainRowW`). -/
+def PrefixQuery (a : ChainAddr) (d : Nat) (query : RefWorld.Domain) : Prop :=
+  ∃ (i : Fin d) (v : Digest), query = .inl (.inr (chainRowW a i v))
 open SigGolfCandidate.T3.Security.Wots.PrefixGame
 variable {adversary : AdversaryP}
 noncomputable def routeImpl (a : ChainAddr) (d : Nat) (R : RefTables adversary) :
     QueryImpl RefWorld (OracleComp (SeedSpec d))
   | .inl (.inl n) => liftM ((SeedSpec d).query (.inl n))
   | .inl (.inr input) =>
-      match rowOf a d input with
+      match PrefixGame.rowOf a d input with
       | some p => (fun w => joinHalf (WCT9.chainHigh a.key.lay a.chain p.1.val) w
             (WCT9.halfOf (!WCT9.chainHigh a.key.lay a.chain p.1.val) (restTable R (.inl (.inr input))))) <$>
           liftM ((SeedSpec d).query (.inr p))
@@ -33,7 +36,7 @@ noncomputable def routeImpl (a : ChainAddr) (d : Nat) (R : RefTables adversary) 
 noncomputable def fillTable (a : ChainAddr) (R : RefTables adversary) (endpoint : Digest) : Answers :=
   restTable (ov a (restDepth a R) R (fun _ _ => endpoint, endpoint))
 theorem prefixStep_none {T : Answers} {a : ChainAddr} {input : HashInput} (h : prefixStep T a input = none) :
-    ¬∃ step value, step < depth T a ∧ input = chainRow a step value := by
+    ¬∃ step value, step < depth T a ∧ input = chainRowW a step value := by
   unfold prefixStep at h
   split at h
   · cases h
@@ -58,8 +61,8 @@ theorem maskAt_ov_fill (a : ChainAddr) (R : RefTables adversary) (x : Hidden (re
     (restDepth_eq a (ov a (restDepth a R) R _)).symm.trans (restDepth_ov a R _)
   apply maskAt_congr
   · intro input hp
-    have hnone : rowOf a (restDepth a R) input = none := by
-      rw [rowOf_none_iff]
+    have hnone : PrefixGame.rowOf a (restDepth a R) input = none := by
+      rw [PrefixGame.rowOf_none_iff]
       have := prefixStep_none hp
       rw [hdx] at this
       exact this
@@ -98,12 +101,12 @@ theorem fixed_route (a : ChainAddr) {d : Nat} (hd : d ≤ 256) (R : RefTables ad
   · simp only [QueryImpl.apply_compose, routeImpl, refImpl, simulateQ_spec_query]
     rfl
   · simp only [QueryImpl.apply_compose, routeImpl, refImpl]
-    cases hp : rowOf a d input with
+    cases hp : PrefixGame.rowOf a d input with
     | none =>
         simp only [simulateQ_pure]
         rw [restTable_ov_nonprefix a R x input hp]
     | some p =>
-        have hin := rowOf_some hp
+        have hin := PrefixGame.rowOf_some hp
         simp only [simulateQ_map, simulateQ_spec_query, simulateQ_pure]
         simp only [fixedImpl, QueryImpl.add_apply_inr]
         rw [hin, restTable_ov_prefix a hd R x p.1 p.2, ← PMF.monad_pure_eq_pure, map_pure]
@@ -123,7 +126,7 @@ theorem route_step_observed (a : ChainAddr) {d : Nat} (hd : d ≤ 256) (R : RefT
     (result : RefWorld.Range input × (Fin d → Digest → Option Digest))
     (hr : result ∈ (observedRun SphincsSecurity.Concrete.OtsPrefix.uniformImpl tables (routeImpl a d R input)
       observed).support) (i : Fin d) (v : Digest) :
-    result.2 i v = if input = .inl (.inr (chainRow a i v)) then some (tables i v) else observed i v := by
+    result.2 i v = if input = .inl (.inr (chainRowW a i v)) then some (tables i v) else observed i v := by
   rcases input with (n | input) | u
   · simp only [routeImpl] at hr
     rw [show (liftM ((SeedSpec d).query (.inl n)) : OracleComp (SeedSpec d) _) =
@@ -134,29 +137,29 @@ theorem route_step_observed (a : ChainAddr) {d : Nat} (hd : d ≤ 256) (R : RefT
       Function.comp_def] at hr
     obtain ⟨answer, _, rfl⟩ := hr
     simp
-  · cases hp : rowOf a d input with
+  · cases hp : PrefixGame.rowOf a d input with
     | none =>
         simp only [routeImpl, hp, SphincsSecurity.Concrete.PartialChainEndpoint.observedRun_pure,
           PMF.mem_support_pure_iff] at hr
         subst hr
         rw [if_neg]
         intro he
-        exact rowOf_none hp (i, v) (Sum.inr.inj (Sum.inl.inj he))
+        exact PrefixGame.rowOf_none hp (i, v) (Sum.inr.inj (Sum.inl.inj he))
     | some p =>
         simp only [routeImpl, hp] at hr
         rw [map_eq_bind_pure_comp, SphincsSecurity.Concrete.PartialChainEndpoint.observedRun_query_bind] at hr
         simp only [observedImpl, StateT.run_mk, PMF.pure_bind, Function.comp_def,
           SphincsSecurity.Concrete.PartialChainEndpoint.observedRun_pure, PMF.mem_support_pure_iff] at hr
         subst hr
-        have hin := rowOf_some hp
+        have hin := PrefixGame.rowOf_some hp
         simp only [record]
         by_cases hpi : p = (i, v)
         · subst hpi
           simp only [Function.update_self, hin, if_true]
-        · have hne : input ≠ chainRow a i v := by
+        · have hne : input ≠ chainRowW a i v := by
             rw [hin]
             intro he
-            obtain ⟨hs, hv⟩ := chainRow_inj (by have := p.1.isLt; omega) (by have := i.isLt; omega) he
+            obtain ⟨hs, hv⟩ := chainRowW_inj (by have := p.1.isLt; omega) (by have := i.isLt; omega) he
             exact hpi (Prod.ext (Fin.ext hs) hv)
           rw [if_neg (fun he => hne (Sum.inr.inj (Sum.inl.inj he)))]
           by_cases h1 : i = p.1
@@ -174,7 +177,7 @@ theorem observed_rows (a : ChainAddr) {d : Nat} (hd : d ≤ 256) (R : RefTables 
       result ∈ (observedRun SphincsSecurity.Concrete.OtsPrefix.uniformImpl tables
         (simulateQ (routeImpl a d R) (SphincsSecurity.QueryCap.recorded computation)) observed).support →
       ∀ (i : Fin d) (v : Digest), result.2 i v =
-        if (.inl (.inr (chainRow a i v)) : RefWorld.Domain) ∈ result.1.2 then some (tables i v) else observed i v := by
+        if (.inl (.inr (chainRowW a i v)) : RefWorld.Domain) ∈ result.1.2 then some (tables i v) else observed i v := by
   induction computation using OracleComp.inductionOn with
   | pure value =>
       intro observed result hr i v
@@ -196,17 +199,17 @@ theorem observed_rows (a : ChainAddr) {d : Nat} (hd : d ≤ 256) (R : RefTables 
       have htl := ih middle.1 middle.2 tail htail i v
       simp only [List.mem_cons]
       rw [htl, hstep]
-      by_cases h1 : (.inl (.inr (chainRow a i v)) : RefWorld.Domain) ∈ tail.1.2
+      by_cases h1 : (.inl (.inr (chainRowW a i v)) : RefWorld.Domain) ∈ tail.1.2
       · simp only [h1, or_true, if_true]
       · simp only [h1, if_false, or_false]
-        by_cases h2 : input = .inl (.inr (chainRow a i v))
+        by_cases h2 : input = .inl (.inr (chainRowW a i v))
         · simp only [h2, if_true]
         · simp only [h2, if_false]
           rw [if_neg (fun he => h2 he.symm)]
 theorem route_step_count (a : ChainAddr) {d : Nat} (R : RefTables adversary) (input : RefWorld.Domain)
     (first : RefWorld.Range input × Nat)
     (hfirst : first ∈ support (SphincsSecurity.QueryCap.counted IsPrefixQuery (routeImpl a d R input))) :
-    first.2 = if PrefixQuery a d input then 1 else 0 := by
+    first.2 = if PrefixGame.PrefixQuery a d input then 1 else 0 := by
   rcases input with (n | input) | u
   · simp only [routeImpl, SphincsSecurity.QueryCap.counted_query, support_map, Set.mem_image] at hfirst
     obtain ⟨answer, -, rfl⟩ := hfirst
@@ -214,13 +217,13 @@ theorem route_step_count (a : ChainAddr) {d : Nat} (R : RefTables adversary) (in
     · rintro ⟨i, v, he⟩
       cases he
     · exact fun h => h
-  · cases hp : rowOf a d input with
+  · cases hp : PrefixGame.rowOf a d input with
     | none =>
         simp only [routeImpl, hp, SphincsSecurity.QueryCap.counted_pure, mem_support_pure_iff] at hfirst
         subst hfirst
         rw [if_neg]
         rintro ⟨i, v, he⟩
-        exact rowOf_none hp (i, v) (Sum.inr.inj (Sum.inl.inj he))
+        exact PrefixGame.rowOf_none hp (i, v) (Sum.inr.inj (Sum.inl.inj he))
     | some p =>
         simp only [routeImpl, hp, SphincsSecurity.QueryCap.counted_map, SphincsSecurity.QueryCap.counted_query,
           support_map, Set.mem_image] at hfirst
@@ -229,7 +232,7 @@ theorem route_step_count (a : ChainAddr) {d : Nat} (R : RefTables adversary) (in
         simp only [Prod.mk.injEq] at hw
         dsimp only
         rw [← hw.2, if_pos (show (IsPrefixQuery (Sum.inr p : (SeedSpec d).Domain) : Prop) from trivial),
-          if_pos ⟨p.1, p.2, by rw [rowOf_some hp]⟩]
+          if_pos ⟨p.1, p.2, by rw [PrefixGame.rowOf_some hp]⟩]
   · simp only [routeImpl, SphincsSecurity.QueryCap.counted_pure, mem_support_pure_iff] at hfirst
     subst hfirst
     rw [if_neg]
@@ -239,7 +242,7 @@ theorem counted_rows (a : ChainAddr) {d : Nat} (R : RefTables adversary) {β : T
     (computation : OracleComp RefWorld β) :
     ∀ result ∈ support (SphincsSecurity.QueryCap.counted IsPrefixQuery
         (simulateQ (routeImpl a d R) (SphincsSecurity.QueryCap.recorded computation))),
-      result.2 = SphincsSecurity.QueryCap.calls (PrefixQuery a d) result.1.2 := by
+      result.2 = SphincsSecurity.QueryCap.calls (PrefixGame.PrefixQuery a d) result.1.2 := by
   induction computation using OracleComp.inductionOn with
   | pure value =>
       intro result hr
@@ -270,7 +273,7 @@ end PrefixGame
 open PrefixGame in
 noncomputable def seedCost {adversary : AdversaryP} (a : ChainAddr) (R : RefTables adversary) (result : SeedResult) :
     Nat :=
-  SphincsSecurity.QueryCap.calls (PrefixQuery a (restDepth a R)) result.2
+  SphincsSecurity.QueryCap.calls (PrefixGame.PrefixQuery a (restDepth a R)) result.2
 open PrefixGame in
 theorem seedGame_charge (adversary : AdversaryP) (q : Nat) (a : ChainAddr) (R : RefTables adversary)
     (endpoint : Digest) (result : SeedResult × Nat)
@@ -333,7 +336,7 @@ theorem maskAt_congr (answers answers' : Answers) (messages messages' : LeafAddr
   have hstep : prefixStep answers messages a = prefixStep answers' messages' a := by
     funext input
     exact congrArg (fun d : Nat =>
-      if h : ∃ step value, step<d ∧ input=chainRow a step value then some (Classical.choose h) else none) hdepth
+      if h : ∃ step value, step<d ∧ input=chainRowW a step value then some (Classical.choose h) else none) hdepth
   funext q
   rcases q with (coin | input) | c
   · exact hcoins coin
@@ -363,7 +366,7 @@ noncomputable def fill (a : ChainAddr) (R : Tables U) (endpoint : Digest) : Tabl
 
 theorem prefixStep_none {T : Answers} {messages : LeafAddr → WCT9.LayerMsg} {a : ChainAddr} {input : HashInput}
     (h : CanonicalRef.prefixStep T messages a input=none) :
-    ¬∃step value, step<CanonicalRef.depth T messages a ∧ input=chainRow a step value := by
+    ¬∃step value, step<CanonicalRef.depth T messages a ∧ input=chainRowW a step value := by
   unfold CanonicalRef.prefixStep at h
   split at h
   · cases h
@@ -380,8 +383,8 @@ theorem maskAt_ov_fill (a : ChainAddr) (R : Tables U) (x : Hidden (restDepth a R
     (restDepth_eq a (ov a (restDepth a R) R _)).symm.trans (restDepth_ov a R _)
   apply CanonicalRef.maskAt_congr
   · intro input hp
-    have hn : rowOf a (restDepth a R) input=none := by
-      rw [rowOf_none_iff]
+    have hn : PrefixGame.rowOf a (restDepth a R) input=none := by
+      rw [PrefixGame.rowOf_none_iff]
       have hh := prefixStep_none hp
       rw [hdx] at hh
       exact hh
@@ -455,17 +458,21 @@ attribute [local instance] Classical.propDecidable
 variable {U : Finset HashInput} (hU : SeccLaw.publicUniverse⊆U)
 
 theorem nonEnc_chainRow (a : ChainAddr) (step : Nat) (v : Digest) :
-    SigGolfCandidate.T3.Security.Wots.Enc.NonEnc (.inl (.inr (chainRow a step v))) := by
-  change SigGolfCandidate.T3.Security.Wots.Enc.NonEnc (.inl (.inr (chainInput a.key.lay a.key.tree a.key.leaf a.chain step v)))
-  simpa only [chainInput_padded] using
-    SigGolfCandidate.T3.Security.Wots.Enc.nonEnc_chainInput a.key.lay a.key.tree a.key.leaf a.chain step v
+    SigGolfCandidate.T3.Security.Wots.Enc.NonEnc (.inl (.inr (chainRowW a step v))) := by
+  change SigGolfCandidate.T3.Security.Wots.Enc.NonEnc (.inl (.inr (WCT9.chainInputW a.key.lay a.key.tree a.key.leaf a.chain step v)))
+  have hn := SigGolfCandidate.T3.Security.Wots.Enc.nonEnc_of_hdr _
+    (chainHeader a.key.lay a.key.tree a.key.leaf a.chain step)
+    (WCT9.chainInputW_header a.key.lay a.key.tree a.key.leaf a.chain step v)
+    (SigGolfCandidate.T3.Security.Wots.Enc.notHyper_of_marker (by
+      unfold tweakMarker; have := chainHeader_firstByte a.key.lay a.key.tree a.key.leaf a.chain step; omega))
+  exact hn
 
 theorem rowOf_encInput (a : ChainAddr) (d : Nat) (e : Wots.Enc.EncIndex) :
-    rowOf a d (Wots.Enc.encInput e)=none := by
-  cases hh : rowOf a d (Wots.Enc.encInput e) with
+    PrefixGame.rowOf a d (Wots.Enc.encInput e)=none := by
+  cases hh : PrefixGame.rowOf a d (Wots.Enc.encInput e) with
   | none => rfl
   | some p =>
-    have he := rowOf_some hh
+    have he := PrefixGame.rowOf_some hh
     have hn := nonEnc_chainRow a p.1 p.2
     apply False.elim
     apply hn
@@ -474,19 +481,19 @@ theorem rowOf_encInput (a : ChainAddr) (d : Nat) (e : Wots.Enc.EncIndex) :
     exact hc
 
 theorem answers_chainRow (R : Tables U) (a : ChainAddr) (step : Nat) (v : Digest) :
-    answers hU R (.inl (.inr (chainRow a step v)))=raw R (.inl (.inr (chainRow a step v))) :=
+    answers hU R (.inl (.inr (chainRowW a step v)))=raw R (.inl (.inr (chainRowW a step v))) :=
   nonEnc hU R _ (nonEnc_chainRow a step v)
 
 theorem answers_ov_prefix (a : ChainAddr) {d : Nat} (hd : d≤256) (R : Tables U) (x : Hidden d)
     (i : Fin d) (v : Digest) :
-    answers hU (RawPrefix.ov a d R x) (.inl (.inr (chainRow a i v)))=
+    answers hU (RawPrefix.ov a d R x) (.inl (.inr (chainRowW a i v)))=
       joinHalf (WCT9.chainHigh a.key.lay a.chain i.val) (x.1 i v)
-        (WCT9.halfOf (!WCT9.chainHigh a.key.lay a.chain i.val) (answers hU R (.inl (.inr (chainRow a i v))))) := by
+        (WCT9.halfOf (!WCT9.chainHigh a.key.lay a.chain i.val) (answers hU R (.inl (.inr (chainRowW a i v))))) := by
   rw [answers_chainRow,answers_chainRow,RawPrefix.raw_ov_prefix hU a hd R x]
 
 theorem answers_ov_fill_nonprefix (a : ChainAddr) (hleaf : a.key.leaf<2^24)
     (R : Tables U) (x : Hidden (RawPrefix.restDepth a R)) (input : HashInput)
-    (hn : rowOf a (RawPrefix.restDepth a R) input=none) :
+    (hn : PrefixGame.rowOf a (RawPrefix.restDepth a R) input=none) :
     answers hU (RawPrefix.ov a (RawPrefix.restDepth a R) R x) (.inl (.inr input))=
       answers hU (RawPrefix.fill a R (SphincsSecurity.Concrete.PartialChainEndpoint.evaluate x.1 (RawPrefix.ovSeed a R x.2)))
         (.inl (.inr input)) := by
@@ -548,7 +555,7 @@ theorem maskAt_ov_fill (a : ChainAddr) (ha : WotsExtract.SourceLeaf7 a.key)
   apply CanonicalRef.maskAt_congr
   · intro input hp
     apply answers_ov_fill_nonprefix hU a hleaf R x input
-    rw [rowOf_none_iff]
+    rw [PrefixGame.rowOf_none_iff]
     have hh := RawPrefix.prefixStep_none hp
     rw [hdx] at hh
     exact hh
@@ -587,7 +594,7 @@ noncomputable def routeImpl (a : ChainAddr) (d : Nat) (prefixBase otherBase : An
     QueryImpl RefWorld (OracleComp (SeedSpec d))
   | .inl (.inl n) => liftM ((SeedSpec d).query (.inl n))
   | .inl (.inr input) =>
-      match rowOf a d input with
+      match PrefixGame.rowOf a d input with
       | some p => (fun w => joinHalf (WCT9.chainHigh a.key.lay a.chain p.1.val) w
             (WCT9.halfOf (!WCT9.chainHigh a.key.lay a.chain p.1.val) (prefixBase (.inl (.inr input))))) <$>
           liftM ((SeedSpec d).query (.inr p))
@@ -598,7 +605,7 @@ theorem route_step_observed (a : ChainAddr) {d : Nat} (hd : d ≤ 256) (prefixBa
     (result : RefWorld.Range input × (Fin d → Digest → Option Digest))
     (hr : result ∈ (observedRun SphincsSecurity.Concrete.OtsPrefix.uniformImpl tables (routeImpl a d prefixBase otherBase input)
       observed).support) (i : Fin d) (v : Digest) :
-    result.2 i v = if input = .inl (.inr (chainRow a i v)) then some (tables i v) else observed i v := by
+    result.2 i v = if input = .inl (.inr (chainRowW a i v)) then some (tables i v) else observed i v := by
   rcases input with (n | input) | u
   · simp only [routeImpl] at hr
     rw [show (liftM ((SeedSpec d).query (.inl n)) : OracleComp (SeedSpec d) _) =
@@ -609,29 +616,29 @@ theorem route_step_observed (a : ChainAddr) {d : Nat} (hd : d ≤ 256) (prefixBa
       Function.comp_def] at hr
     obtain ⟨answer, _, rfl⟩ := hr
     simp
-  · cases hp : rowOf a d input with
+  · cases hp : PrefixGame.rowOf a d input with
     | none =>
         simp only [routeImpl, hp, SphincsSecurity.Concrete.PartialChainEndpoint.observedRun_pure,
           PMF.mem_support_pure_iff] at hr
         subst hr
         rw [if_neg]
         intro he
-        exact rowOf_none hp (i, v) (Sum.inr.inj (Sum.inl.inj he))
+        exact PrefixGame.rowOf_none hp (i, v) (Sum.inr.inj (Sum.inl.inj he))
     | some p =>
         simp only [routeImpl, hp] at hr
         rw [map_eq_bind_pure_comp, SphincsSecurity.Concrete.PartialChainEndpoint.observedRun_query_bind] at hr
         simp only [observedImpl, StateT.run_mk, PMF.pure_bind, Function.comp_def,
           SphincsSecurity.Concrete.PartialChainEndpoint.observedRun_pure, PMF.mem_support_pure_iff] at hr
         subst hr
-        have hin := rowOf_some hp
+        have hin := PrefixGame.rowOf_some hp
         simp only [record]
         by_cases hpi : p = (i, v)
         · subst hpi
           simp only [Function.update_self, hin, if_true]
-        · have hne : input ≠ chainRow a i v := by
+        · have hne : input ≠ chainRowW a i v := by
             rw [hin]
             intro he
-            obtain ⟨hs, hv⟩ := chainRow_inj (by have := p.1.isLt; omega) (by have := i.isLt; omega) he
+            obtain ⟨hs, hv⟩ := chainRowW_inj (by have := p.1.isLt; omega) (by have := i.isLt; omega) he
             exact hpi (Prod.ext (Fin.ext hs) hv)
           rw [if_neg (fun he => hne (Sum.inr.inj (Sum.inl.inj he)))]
           by_cases h1 : i = p.1
@@ -649,7 +656,7 @@ theorem observed_rows (a : ChainAddr) {d : Nat} (hd : d ≤ 256) (prefixBase oth
       result ∈ (observedRun SphincsSecurity.Concrete.OtsPrefix.uniformImpl tables
         (simulateQ (routeImpl a d prefixBase otherBase) (SphincsSecurity.QueryCap.recorded computation)) observed).support →
       ∀ (i : Fin d) (v : Digest), result.2 i v =
-        if (.inl (.inr (chainRow a i v)) : RefWorld.Domain) ∈ result.1.2 then some (tables i v) else observed i v := by
+        if (.inl (.inr (chainRowW a i v)) : RefWorld.Domain) ∈ result.1.2 then some (tables i v) else observed i v := by
   induction computation using OracleComp.inductionOn with
   | pure value =>
       intro observed result hr i v
@@ -671,17 +678,17 @@ theorem observed_rows (a : ChainAddr) {d : Nat} (hd : d ≤ 256) (prefixBase oth
       have htl := ih middle.1 middle.2 tail htail i v
       simp only [List.mem_cons]
       rw [htl, hstep]
-      by_cases h1 : (.inl (.inr (chainRow a i v)) : RefWorld.Domain) ∈ tail.1.2
+      by_cases h1 : (.inl (.inr (chainRowW a i v)) : RefWorld.Domain) ∈ tail.1.2
       · simp only [h1, or_true, if_true]
       · simp only [h1, if_false, or_false]
-        by_cases h2 : input = .inl (.inr (chainRow a i v))
+        by_cases h2 : input = .inl (.inr (chainRowW a i v))
         · simp only [h2, if_true]
         · simp only [h2, if_false]
           rw [if_neg (fun he => h2 he.symm)]
 theorem route_step_count (a : ChainAddr) {d : Nat} (prefixBase otherBase : Answers) (input : RefWorld.Domain)
     (first : RefWorld.Range input × Nat)
     (hfirst : first ∈ support (SphincsSecurity.QueryCap.counted IsPrefixQuery (routeImpl a d prefixBase otherBase input))) :
-    first.2 = if PrefixQuery a d input then 1 else 0 := by
+    first.2 = if PrefixGame.PrefixQuery a d input then 1 else 0 := by
   rcases input with (n | input) | u
   · simp only [routeImpl, SphincsSecurity.QueryCap.counted_query, support_map, Set.mem_image] at hfirst
     obtain ⟨answer, -, rfl⟩ := hfirst
@@ -689,13 +696,13 @@ theorem route_step_count (a : ChainAddr) {d : Nat} (prefixBase otherBase : Answe
     · rintro ⟨i, v, he⟩
       cases he
     · exact fun h => h
-  · cases hp : rowOf a d input with
+  · cases hp : PrefixGame.rowOf a d input with
     | none =>
         simp only [routeImpl, hp, SphincsSecurity.QueryCap.counted_pure, mem_support_pure_iff] at hfirst
         subst hfirst
         rw [if_neg]
         rintro ⟨i, v, he⟩
-        exact rowOf_none hp (i, v) (Sum.inr.inj (Sum.inl.inj he))
+        exact PrefixGame.rowOf_none hp (i, v) (Sum.inr.inj (Sum.inl.inj he))
     | some p =>
         simp only [routeImpl, hp, SphincsSecurity.QueryCap.counted_map, SphincsSecurity.QueryCap.counted_query,
           support_map, Set.mem_image] at hfirst
@@ -704,7 +711,7 @@ theorem route_step_count (a : ChainAddr) {d : Nat} (prefixBase otherBase : Answe
         simp only [Prod.mk.injEq] at hw
         dsimp only
         rw [← hw.2, if_pos (show (IsPrefixQuery (Sum.inr p : (SeedSpec d).Domain) : Prop) from trivial),
-          if_pos ⟨p.1, p.2, by rw [rowOf_some hp]⟩]
+          if_pos ⟨p.1, p.2, by rw [PrefixGame.rowOf_some hp]⟩]
   · simp only [routeImpl, SphincsSecurity.QueryCap.counted_pure, mem_support_pure_iff] at hfirst
     subst hfirst
     rw [if_neg]
@@ -714,7 +721,7 @@ theorem counted_rows (a : ChainAddr) {d : Nat} (prefixBase otherBase : Answers) 
     (computation : OracleComp RefWorld β) :
     ∀ result ∈ support (SphincsSecurity.QueryCap.counted IsPrefixQuery
         (simulateQ (routeImpl a d prefixBase otherBase) (SphincsSecurity.QueryCap.recorded computation))),
-      result.2 = SphincsSecurity.QueryCap.calls (PrefixQuery a d) result.1.2 := by
+      result.2 = SphincsSecurity.QueryCap.calls (PrefixGame.PrefixQuery a d) result.1.2 := by
   induction computation using OracleComp.inductionOn with
   | pure value =>
       intro result hr
@@ -783,12 +790,12 @@ theorem fixed_route (a : ChainAddr) (hleaf : a.key.leaf<2^24)
   · simp only [QueryImpl.apply_compose,Route.routeImpl,refImpl,simulateQ_spec_query]
     rfl
   · simp only [QueryImpl.apply_compose,Route.routeImpl,refImpl]
-    cases hp : rowOf a (RawPrefix.restDepth a R) input with
+    cases hp : PrefixGame.rowOf a (RawPrefix.restDepth a R) input with
     | none =>
       simp only [simulateQ_pure]
       rw [answers_ov_fill_nonprefix hU a hleaf R x input hp]
     | some p =>
-      have hin := rowOf_some hp
+      have hin := PrefixGame.rowOf_some hp
       simp only [simulateQ_map,simulateQ_spec_query,simulateQ_pure]
       simp only [fixedImpl,QueryImpl.add_apply_inr]
       rw [hin,answers_ov_prefix hU a hd R x p.1 p.2,←PMF.monad_pure_eq_pure,map_pure]
@@ -807,14 +814,14 @@ theorem fixed_seedGame (q : Nat) (a : ChainAddr) (ha : WotsExtract.SourceLeaf7 a
   rfl
 
 noncomputable def seedCost (a : ChainAddr) (R : Tables U) (result : SeedResult) : Nat :=
-  SphincsSecurity.QueryCap.calls (PrefixQuery a (RawPrefix.restDepth a R)) result.2
+  SphincsSecurity.QueryCap.calls (PrefixGame.PrefixQuery a (RawPrefix.restDepth a R)) result.2
 
 theorem seedGame_charge (adversary : ClaudeWCT.W9.T3M.Final.Paired.AdversaryP) (q : Nat)
     (a : ChainAddr) (R : Tables U) (endpoint : Digest) (result : SeedResult×Nat)
     (h : result∈support (SphincsSecurity.QueryCap.counted IsPrefixQuery (seedGame hU adversary q a R endpoint))) :
     result.2=seedCost a R result.1 := by
   unfold seedGame at h
-  change result.2=SphincsSecurity.QueryCap.calls (PrefixQuery a (RawPrefix.restDepth a R)) result.1.2
+  change result.2=SphincsSecurity.QueryCap.calls (PrefixGame.PrefixQuery a (RawPrefix.restDepth a R)) result.1.2
   exact Route.counted_rows a (answers hU R) (answers hU (RawPrefix.fill a R endpoint))
     (PairedReference.referenceGame (answers hU (RawPrefix.fill a R endpoint)) adversary q) result h
 end ClaudeWCT.W9.T3.Security.Wots.CanonicalRef.Normalized

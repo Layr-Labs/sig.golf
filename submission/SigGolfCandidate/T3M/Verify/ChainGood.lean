@@ -22,7 +22,7 @@ theorem blk_at (c : LCtx) (i : Nat) (hi : i < 42) :
   blkCheck_at _ _ _ (by omega) (c.dig_lt8 _ (by omega)) (c.dig_lt8 _ (by omega))
 theorem chk_headJ (c : LCtx) (i : Nat) (hi : i < 42) (h0 : i % 3 = 0) (hd : c.dig i < 7) (hRank : c.headOK i) :
     vrun (c.startPc i) 7 = some (headJHB .x22 (offL i) (c.rungPc i (c.dig i) + landOff (c.dig i)) i (c.dig i)
-      (hSlot i (c.dig i))) ∧
+      (hSlot i (c.dig i)) (lowerG i)) ∧
     vrun (c.rungPc i (c.dig i) + landOff (c.dig i)) 1 = some (ecallR (c.rungPc i (c.dig i) + landOff (c.dig i))) := by
   obtain ⟨t, rfl⟩ : ∃ t, i = 3 * t := ⟨i / 3, by omega⟩
   have et : 3 * t / 3 = t := by omega
@@ -39,7 +39,7 @@ theorem chk_headJ (c : LCtx) (i : Nat) (hi : i < 42) (h0 : i % 3 = 0) (hd : c.di
   rw [hs, hr]
   exact ⟨rOK_eq he.1, rOK_eq he.2⟩
 theorem chk_copyJ (c : LCtx) (i : Nat) (hi : i < 42) (h0 : i % 3 = 0) (hd : c.dig i = 7) (hRank : c.headOK i) (hiz : i ≠ 0) :
-    vrun (c.startPc i) 7 = some (copyNB .x22 (offL i) (slotL i) (c.endPc i)) := by
+    vrun (c.startPc i) 7 = some (copyNB .x22 (offL i) (slotL i) (c.endPc i) (lowerG i)) := by
   obtain ⟨t, rfl⟩ : ∃ t, i = 3 * t := ⟨i / 3, by omega⟩
   have et : 3 * t / 3 = t := by omega
   have he := entCheck_at t (c.kOf t) (by omega) (c.kOf_lt t (by omega))
@@ -91,7 +91,8 @@ theorem part_at (c : LCtx) (i : Nat) (hi : i ≤ 42) (hnl : i % 3 ≠ 0 ∨ i = 
 theorem chk_headR (c : LCtx) (i : Nat) (hi : i ≤ 42) (hnl : i % 3 ≠ 0 ∨ i = 42) (hck : i = 42 → c.ck < 8)
     (hd : c.dig i < 7) :
     vrun (c.startPc i) 8 =
-      some (headRVB .x22 (offL i) (c.dig i) (if c.dig i = 6 then some (slotL i) else none) (c.startPc i) i) := by
+      some (headRVB .x22 (offL i) (c.dig i) (if c.dig i = 6 then some (slotL i) else none) (c.startPc i) i
+        (lowerG i)) := by
   have hp := c.part_at i hi hnl hck (fun h => by have := h.1; omega)
   unfold partOK at hp
   simp only [partOK, Bool.false_eq_true, ite_false] at hp
@@ -99,7 +100,7 @@ theorem chk_headR (c : LCtx) (i : Nat) (hi : i ≤ 42) (hnl : i % 3 ≠ 0 ∨ i 
   exact rOK_eq hp.1
 theorem chk_copyF (c : LCtx) (i : Nat) (hi : i ≤ 42) (hnl : i % 3 ≠ 0 ∨ i = 42) (hck : i = 42 → c.ck < 8)
     (hd : c.dig i = 7) (hNS : ¬c.bufferSafe i) :
-    vrun (c.startPc i) 4 = some (copyFHB .x22 (offL i) (slotL i) (c.startPc i)) := by
+    vrun (c.startPc i) 4 = some (copyFHB .x22 (offL i) (slotL i) (c.startPc i) (lowerG i)) := by
   have hp := c.part_at i hi hnl hck hNS
   unfold partOK at hp
   simp only [Bool.false_eq_true, ite_false] at hp
@@ -156,20 +157,22 @@ theorem chk_rung' (c : LCtx) (i m : Nat) (hi : i ≤ 42) (hm : c.dig i < m) (hm6
 def rest (c : LCtx) (i m : Nat) (v : Digest) : M Digest :=
   (List.range' m (7 - m)).foldlM
     (fun v step => Verify.vHash (stepHigh i step)
-      (chainInputP c.lay c.tree c.leaf (i + c.koff) step (c.pad0 i) (c.pad1 i) (c.padHeader i) v)) v
+      (chainInputL c.lay c.tree c.leaf (i + c.koff) step (c.pad0 i) (c.pad1 i) (c.padHeader i) v (lowerG i))) v
 theorem rest_succ (c : LCtx) (i m : Nat) (h : m ≤ 6) (v : Digest) :
     c.rest i m v =
-      Verify.vHash (stepHigh i m) (chainInputP c.lay c.tree c.leaf (i + c.koff) m (c.pad0 i) (c.pad1 i) (c.padHeader i) v) >>=
+      Verify.vHash (stepHigh i m)
+        (chainInputL c.lay c.tree c.leaf (i + c.koff) m (c.pad0 i) (c.pad1 i) (c.padHeader i) v (lowerG i)) >>=
         c.rest i (m + 1) := by
   unfold rest
   rw [show 7 - m = (7 - (m + 1)) + 1 by omega, List.range'_succ, List.foldlM_cons]
 theorem rest_7 (c : LCtx) (i : Nat) (v : Digest) : c.rest i 7 v = pure v := rfl
-theorem chainInputP_pad (lay : Layer) (tree leaf i step : Nat) (p0 p1 : Digest) (headerPad : Word) (v : Digest) :
-    pad64 (chainInputP lay tree leaf i step p0 p1 headerPad v) = chainInputP lay tree leaf i step p0 p1 headerPad v :=
-  pad64_of_aligned _ (by rw [chainInputP_length])
-theorem chainInputP_blocks (lay : Layer) (tree leaf i step : Nat) (p0 p1 : Digest) (headerPad : Word) (v : Digest) :
-    (toQ (chainInputP lay tree leaf i step p0 p1 headerPad v)).blocks = 1 := by
-  rw [blocks_toQ ⟨by rw [chainInputP_length]; omega, by rw [chainInputP_length]⟩, chainInputP_length]
+theorem chainInputP_pad (lay : Layer) (tree leaf i step : Nat) (p0 p1 : Digest) (headerPad : Word) (v : Digest)
+    (g : Bool) :
+    pad64 (chainInputL lay tree leaf i step p0 p1 headerPad v g) = chainInputL lay tree leaf i step p0 p1 headerPad v g :=
+  pad64_of_aligned _ (by rw [chainInputL_length])
+theorem chainInputP_blocks (lay : Layer) (tree leaf i step : Nat) (p0 p1 : Digest) (headerPad : Word) (v : Digest)
+    (g : Bool) : (toQ (chainInputL lay tree leaf i step p0 p1 headerPad v g)).blocks = 1 := by
+  rw [blocks_toQ ⟨by rw [chainInputL_length]; omega, by rw [chainInputL_length]⟩, chainInputL_length]
 theorem partLen_le (d : Nat) : partLen d ≤ 20 := by unfold partLen; split_ifs <;> omega
 theorem partLen_ge (d : Nat) (hd : d < 8) : 4 ≤ partLen d := by unfold partLen; split_ifs <;> omega
 theorem pcB_le_pcX (t b d : Nat) (hb : b<8) (hd : d<8) :
@@ -325,7 +328,6 @@ theorem steps_good (c : LCtx) (hc : c.ok) {s0 : MachineState} (hk : ∀ p ∈ c.
         (A + preCost (m + 1) + xCost i + (if m + 1 = 6 then 2 else 1))
         (Verify.ccM (c.rest i (m + 1) (Verify.vHalf (stepHigh i m) a)) (fun v => K (acc ++ [v]))) := by
       intro a
-      rw [stepHigh_lt i m (by omega), Verify.vHalf_false]
       have hrun := c.chk_rung' i (m + 1) hi.2 (by omega) (by omega) (by omega) hck
       obtain ⟨u, hu, hp⟩ := c.rung_step hc hk i (m + 1) hi (by omega) (hrc _ (by omega) (by omega)) hrun acc _ _
         ((hpost a).1 (by omega))
@@ -504,7 +506,7 @@ theorem chain_good (c : LCtx) (hc : c.ok) {s0 : MachineState} (hk : ∀ p ∈ c.
     by_cases hz : i=0
     · subst i
       have hr := c.chk_skipJ h7 hRank
-      obtain ⟨t,ht,he⟩ := c.buffer_skip_jump h0 0 hi hSafe
+      obtain ⟨t,ht,he⟩ := c.buffer_skip_jump hc h0 0 hi hSafe
         (c.startPc_lt 0 hi.2 hc.2.2.2.2.2.2.1 hRank) hr acc hs
       obtain ⟨u,hu,hn⟩ := c.end_next hc hk 0 hi hck _ _ he
       have H := Verify.GoodQP.stepsQ ht (Verify.GoodQP.stepsQ hu (hK _ _ hn)
@@ -513,7 +515,7 @@ theorem chain_good (c : LCtx) (hc : c.ok) {s0 : MachineState} (hk : ∀ p ∈ c.
         (show C+xCost 0+1≤C+c.bufferCost 0 by simp [bufferCost,hSafe,chainCost,h7,zc,xCost])
         (fun h=>⟨h,show A+xCost 0+1≤A+c.bufferCost 0 by simp [bufferCost,hSafe,chainCost,h7,zc,xCost]⟩)
       exact H
-    · have he := c.buffer_skip_inline h0 i hi hSafe (c.bufferSafe_pc i hi.2 hz hSafe) acc hs
+    · have he := c.buffer_skip_inline hc h0 i hi hSafe (c.bufferSafe_pc i hi.2 hz hSafe) acc hs
       obtain ⟨u,hu,hn⟩ := c.end_next hc hk i hi hck _ _ he
       have hnmod : ¬(i%3=0 ∧ i≠42) := by rcases hSafe.2 with h|h|h <;> omega
       have hcost : c.bufferCost i = xCost i := by simp only [bufferCost,if_pos hSafe,chainCost,if_neg hnmod,h7,if_true,zc,show (7:Nat)≠6 by decide,if_false,Nat.sub_zero]; omega
@@ -664,21 +666,27 @@ theorem bufferSafe_iff (c : LCtx) (hlay : c.lay ≠ 0) (D : List Nat)
   simp only [bufferSafe, ClaudeWCT.WCT9.safeZeroCopy, maxDigit, if_neg hlay,
     hD i hi, hD (i-1) (by omega), ne_eq, hlay, not_false_eq_true, true_and, if_false]
 theorem bufferSlot_eq (c : LCtx) (hlay : c.lay ≠ 0) (i : Nat) :
-    c.bufferSlot i = 0x4c0 + ClaudeWCT.W9.T3M.leafBufferSlot c.lay i := by
+    c.bufferSlot i = Verify.WIT + ClaudeWCT.W9.T3M.leafBufferSlot c.lay i := by
+  have : 20104 ≤ ClaudeWCT.W9.T3M.leafBufferBase c.lay := by
+    generalize c.lay = lay; fin_cases lay <;> decide +kernel
   unfold bufferSlot bufferOffset slotL ClaudeWCT.W9.T3M.leafBufferSlot
   rw [if_neg hlay]
   split_ifs <;> omega
+theorem chainSlot_lower {lay : Layer} (hlay : lay ≠ 0) (i : Nat) :
+    ClaudeWCT.W9.T3M.chainSlot lay i = lowerSlot i := by
+  have : lay.val ≠ 0 := fun h => hlay (Fin.ext h)
+  simp [ClaudeWCT.W9.T3M.chainSlot, lowerSlot, this]
+theorem valueOff_lower {lay : Layer} (hlay : lay ≠ 0) (i : Nat) :
+    ClaudeWCT.W9.T3M.valueOff lay i = gVal (lowerG i) := by
+  simp [ClaudeWCT.W9.T3M.valueOff, gVal, lowerG, ClaudeWCT.WCT9.isG, hlay]
 theorem bufferVal_eq (c : LCtx) (hlay : c.lay ≠ 0) (D : List Nat)
     (hD : ∀ i < 43, c.dig i = D.getD i 0)
-    (hS6 : c.S6 = 0x4c0 + ClaudeWCT.W9.T3M.chainBlock c.lay 42 + 1024)
+    (hS6 : c.S6 = Verify.WIT + ClaudeWCT.W9.T3M.layerBase c.lay + 16 * ClaudeWCT.W9.T3M.pathSlots c.lay + 520)
     (i : Nat) (hi : i < 43) :
     c.bufferVal i = ClaudeWCT.W9.T3M.wvalueFor c.w c.lay D i := by
-  have hn : chainCount c.lay = 43 := by
-    have H : ∀ l : Layer, l ≠ 0 → chainCount l = 43 := by decide +kernel
-    exact H c.lay hlay
-  have hb : c.blk i - 0x4c0 = ClaudeWCT.W9.T3M.chainBlock c.lay i := by
-    unfold blk ClaudeWCT.W9.T3M.chainBlock at *
-    rw [hS6]; rw [hn] at *; simp only at *; omega
+  have hb : c.vAt i - Verify.WIT = ClaudeWCT.W9.T3M.chainBlock c.lay i + ClaudeWCT.W9.T3M.valueOff c.lay i := by
+    unfold vAt blk ClaudeWCT.W9.T3M.chainBlock
+    rw [chainSlot_lower hlay, valueOff_lower hlay, hS6]; omega
   unfold bufferVal ClaudeWCT.W9.T3M.wvalueFor
   simp only [c.bufferSafe_iff hlay D hD i hi]
   split_ifs

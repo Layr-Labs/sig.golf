@@ -13,12 +13,12 @@ def rankPad : Word := 0x006000c000060000
 structure HeaderBank (u : MachineState) : Prop where
   top : ∀ k, k < 5 → u.getMem (BitVec.ofNat 64 (TOPLOAD + 8 * k)) =
     BitVec.ofNat 64 (topWords.getD k 0)
-  top8 : u.getMem (BitVec.ofNat 64 (TOPLOAD - 8)) = BitVec.ofNat 64 21168
+  top8 : u.getMem (BitVec.ofNat 64 (TOPLOAD - 8)) = BitVec.ofNat 64 21280
 structure SetupMask (u : MachineState) : Prop where
   rankPadAt : u.getMem (BitVec.ofNat 64 (stackBase7 + 48)) = rankPad
   child : u.getMem (BitVec.ofNat 64 (dataBase7 + 368)) = BitVec.ofNat 64 0xf1b00
   jt : u.getMem (BitVec.ofNat 64 (dataBase7 + 376)) = BitVec.ofNat 64 0xfff00
-  coord : u.getMem (BitVec.ofNat 64 (dataBase7 + 464)) = BitVec.ofNat 64 8560
+  coord : u.getMem (BitVec.ofNat 64 (dataBase7 + 464)) = BitVec.ofNat 64 10152
   gate : u.getMem (BitVec.ofNat 64 (dataBase7 + 352)) = BitVec.ofNat 64 0x1524000000000000
   d0 : u.getMem (BitVec.ofNat 64 dataBase7) = BitVec.ofNat 64 0xfff
 structure ForestData (u : MachineState) : Prop where
@@ -32,7 +32,7 @@ structure GatePre (pk : Digest) (w : ClaudeWCT.W9.T3M.WBytes) (a : HashOutput) (
   forest : ForestData u
   digest : DigestAt a u
   bank : HeaderBank u
-  wit : Orig w (fun o => o ≠ 24816) u
+  wit : Orig w (fun o => o ≠ 23224) u
   setupMask : SetupMask u
   sp : u.getReg .x2 = BitVec.ofNat 64 stackBase7
 end W9Drv
@@ -45,7 +45,7 @@ structure SetupMask (u : MachineState) : Prop where
   rankPadAt : u.getMem (BitVec.ofNat 64 (stackBase7 + 48)) = BitVec.ofNat 64 0x1801801800000
   child : u.getMem (BitVec.ofNat 64 (dataBase7 + 368)) = BitVec.ofNat 64 0xf1b00
   jt : u.getMem (BitVec.ofNat 64 (dataBase7 + 376)) = BitVec.ofNat 64 0xfff00
-  coord : u.getMem (BitVec.ofNat 64 (dataBase7 + 464)) = BitVec.ofNat 64 8560
+  coord : u.getMem (BitVec.ofNat 64 (dataBase7 + 464)) = BitVec.ofNat 64 10152
   gate : u.getMem (BitVec.ofNat 64 (dataBase7 + 352)) = BitVec.ofNat 64 (734 * 2^50)
   d0 : u.getMem (BitVec.ofNat 64 dataBase7) = BitVec.ofNat 64 0xfff
   aTable : u.getMem (BitVec.ofNat 64 (dataBase7 + 56)) = BitVec.ofNat 64 0xe3300
@@ -57,7 +57,7 @@ structure Pre (pk : Digest) (w : ClaudeWCT.W9.T3M.WBytes) (a : HashOutput) (u : 
   forest : ForestData u
   digest : DigestAt a u
   bank : HeaderBank u
-  wit : Orig w (fun o => o ≠ 24816) u
+  wit : Orig w (fun o => o ≠ 23224) u
   setupMask : SetupMask u
   sp : u.getReg .x2 = BitVec.ofNat 64 stackBase7
 end W9Drv.SharedGate

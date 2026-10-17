@@ -44,7 +44,7 @@ coordinate 0, whose pads are the constant `ftsStart`. -/
 def prevTop (index : Fin (2^31)) (coord : Fin 9) (b : Fin 2) : Option Coord :=
   if h : coord.val = 0 then none else some (.inl (.wctNode (ftsTopNode index ⟨coord.val - 1, by omega⟩ b)))
 def childSlots : CanonGraph.Node → List (Coord × Nat)
-  | .chain p => [(chainChild p, 3)]
+  | .chain p => [(chainChild p, if WCT9.isG p.1.layer p.1.chain.val then 0 else 3)]
   | .leaf L => (List.range (chainCount L.1.lay)).map fun i => (.inl (.chain (endPoint L.1 i)), leafBlock L.1.lay i)
   | .node n => ((treeChild n.1.lay n.1.tree n.1.level.val (2 * n.1.idx.val)).map (·, 0)).toList ++
       ((treeChild n.1.lay n.1.tree n.1.level.val (2 * n.1.idx.val + 1)).map (·, 3)).toList

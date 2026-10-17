@@ -71,27 +71,6 @@ theorem codeAt_expand_current_chunk {b : Nat} {code : List (BitVec 32)}
   apply codeAt_expand_current_slice hb
   rw [← expandCurrentCodeTail_eq b hi]
   exact h
-def expandCodeChunks : List (List (BitVec 32)) := [Images.expandReferenceCode_0, Images.expandReferenceCode_1, Images.expandReferenceCode_2, Images.expandReferenceCode_3, Images.expandReferenceCode_4, Images.expandReferenceCode_5, Images.expandReferenceCode_6, Images.expandReferenceCode_7, Images.expandReferenceCode_8, Images.expandReferenceCode_9, Images.expandReferenceCode_10, Images.expandReferenceCode_11, Images.expandReferenceCode_12, Images.expandReferenceCode_13, Images.expandReferenceCode_14, Images.expandReferenceCode_15, Images.expandReferenceCode_16, Images.expandReferenceCode_17, Images.expandReferenceCode_18, Images.expandReferenceCode_19, Images.expandReferenceCode_20, Images.expandReferenceCode_21, Images.expandReferenceCode_22, Images.expandReferenceCode_23, Images.expandReferenceCode_24, Images.expandReferenceCode_25, Images.expandReferenceCode_26, Images.expandReferenceCode_27, Images.expandReferenceCode_28, Images.expandReferenceCode_29, Images.expandReferenceCode_30, Images.expandReferenceCode_31, Images.expandReferenceCode_32, Images.expandReferenceCode_33, Images.expandReferenceCode_34, Images.expandReferenceCode_35, Images.expandReferenceCode_36, Images.expandReferenceCode_37, Images.expandReferenceCode_38, Images.expandReferenceCode_39, Images.expandReferenceCode_40, Images.expandReferenceCode_41, Images.expandReferenceCode_42, Images.expandReferenceCode_43, Images.expandReferenceCode_44, Images.expandReferenceCode_45, Images.expandReferenceCode_46, Images.expandReferenceCode_47, Images.expandReferenceCode_48, Images.expandReferenceCode_49, Images.expandReferenceCode_50, Images.expandReferenceCode_51, Images.expandReferenceCode_52, Images.expandReferenceCode_53, Images.expandReferenceCode_54, Images.expandReferenceCode_55, Images.expandReferenceCode_56, Images.expandReferenceCode_57, Images.expandReferenceCode_58, Images.expandReferenceCode_59, Images.expandReferenceCode_60, Images.expandReferenceCode_61, Images.expandReferenceCode_62, Images.expandReferenceCode_63, Images.expandReferenceCode_64, Images.expandReferenceCode_65, Images.expandReferenceCode_66, Images.expandReferenceCode_67, Images.expandReferenceCode_68, Images.expandReferenceCode_69, Images.expandReferenceCode_70, Images.expandReferenceCode_71, Images.expandReferenceCode_72, Images.expandReferenceCode_73, Images.expandReferenceCode_74, Images.expandReferenceCode_75, Images.expandReferenceCode_76, Images.expandReferenceCode_77, Images.expandReferenceCode_78, Images.expandReferenceCode_79, Images.expandReferenceCode_80, Images.expandReferenceCode_81, Images.expandReferenceCode_82, Images.expandReferenceCode_83, Images.expandReferenceCode_84, Images.expandReferenceCode_85, Images.expandReferenceCode_86, Images.expandReferenceCode_87, Images.expandReferenceCode_88, Images.expandReferenceCode_89, Images.expandReferenceCode_90, Images.expandReferenceCode_91, Images.expandReferenceCode_92, Images.expandReferenceCode_93, Images.expandReferenceCode_94, Images.expandReferenceCode_95, Images.expandReferenceCode_96, Images.expandReferenceCode_97, Images.expandReferenceCode_98, Images.expandReferenceCode_99, Images.expandReferenceCode_100, Images.expandReferenceCode_101, Images.expandReferenceCode_102, Images.expandReferenceCode_103, Images.expandReferenceCode_104, Images.expandReferenceCode_105, Images.expandReferenceCode_106, Images.expandReferenceCode_107, Images.expandReferenceCode_108, Images.expandReferenceCode_109, Images.expandReferenceCode_110, Images.expandReferenceCode_111, Images.expandReferenceCode_112, Images.expandReferenceCode_113, Images.expandReferenceCode_114, Images.expandReferenceCode_115, Images.expandReferenceCode_116, Images.expandReferenceCode_117, Images.expandReferenceCode_118, Images.expandReferenceCode_119, Images.expandReferenceCode_120, Images.expandReferenceCode_121, Images.expandReferenceCode_122, Images.expandReferenceCode_123, Images.expandReferenceCode_124, Images.expandReferenceCode_125, Images.expandReferenceCode_126, Images.expandReferenceCode_127, Images.expandReferenceCode_128, Images.expandReferenceCode_129, Images.expandReferenceCode_130, Images.expandReferenceCode_131, Images.expandReferenceCode_132, Images.expandReferenceCode_133, Images.expandReferenceCode_134, Images.expandReferenceCode_135, Images.expandReferenceCode_136, Images.expandReferenceCode_137, Images.expandReferenceCode_138, Images.expandReferenceCode_139, Images.expandReferenceCode_140, Images.expandReferenceCode_141, Images.expandReferenceCode_142, Images.expandReferenceCode_143, Images.expandReferenceCode_144, Images.expandReferenceCode_145, Images.expandReferenceCode_146, Images.expandReferenceCode_147, Images.expandReferenceCode_148, Images.expandReferenceCode_149, Images.expandReferenceCode_150, Images.expandReferenceCode_151, Images.expandReferenceCode_152, Images.expandReferenceCode_153, Images.expandReferenceCode_154, Images.expandReferenceCode_155, Images.expandReferenceCode_156, Images.expandReferenceCode_157, Images.expandReferenceCode_158, Images.expandReferenceCode_159, Images.expandReferenceCode_160, Images.expandReferenceCode_161, Images.expandReferenceCode_162, Images.expandReferenceCode_163, Images.expandReferenceCode_164, Images.expandReferenceCode_165, Images.expandReferenceCode_166, Images.expandReferenceCode_167, Images.expandReferenceCode_168, Images.expandReferenceCode_169, Images.expandReferenceCode_170, Images.expandReferenceCode_171, Images.expandReferenceCode_172]
-theorem expandCode_flatten : Images.expandReferenceCode = expandCodeChunks.flatten := by
-  change expandCodeChunks.foldl (· ++ ·) [] = expandCodeChunks.flatten
-  rw [foldl_chunks, List.nil_append]
-theorem codeAt_expand_slice {b : Nat} {code : List (BitVec 32)}
-    (hb : 0x1000 + 4 * b + 4 * code.length < 2 ^ 64)
-    (h : (expandCodeChunks.flatten.drop b).take code.length = code) :
-    CodeAt Images.expandReferenceImage (pcOf b) code := by
-  apply codeAt_slice hb
-  change (Images.expandReferenceCode.drop b).take code.length = code
-  rw [expandCode_flatten]
-  exact h
-/-- Skip whole image chunks before reducing a small code slice. -/
-def expandCodeTail (b : Nat) : List (BitVec 32) :=
-  (expandCodeChunks.drop (b / 256)).flatten.drop (b % 256)
-set_option maxRecDepth 100000 in
-private theorem expandCodeChunks_ok :
-    (expandCodeChunks.dropLast.all fun c => c.length == 256) = true := by
-  decide +kernel
-private theorem expandCodeChunks_length : expandCodeChunks.length = 173 := by
-  decide +kernel
 private theorem expand_drop_chunks : ∀ (cs : List (List (BitVec 32))) (k : Nat),
     (cs.dropLast.all fun c => c.length == 256) = true → k < cs.length →
     cs.flatten.drop (256 * k) = (cs.drop k).flatten := by
@@ -117,22 +96,6 @@ private theorem expand_drop_chunks : ∀ (cs : List (List (BitVec 32))) (k : Nat
         rw [show 256 * (k + 1) = c.length + 256 * k by rw [hlen]; ring, ← List.drop_drop,
           List.drop_left]
         exact this
-theorem expandCodeTail_eq (b : Nat) (hb : b / 256 < 173) :
-    expandCodeTail b = expandCodeChunks.flatten.drop b := by
-  unfold expandCodeTail
-  rw [← expand_drop_chunks expandCodeChunks (b / 256) expandCodeChunks_ok
-    (by rw [expandCodeChunks_length]; exact hb), List.drop_drop]
-  congr 1
-  omega
-theorem codeAt_expand_chunk {b : Nat} {code : List (BitVec 32)}
-    (hi : b / 256 < 173)
-    (hb : 0x1000 + 4 * b + 4 * code.length < 2 ^ 64)
-    (h : (expandCodeTail b).take code.length = code) :
-    CodeAt Images.expandReferenceImage (pcOf b) code := by
-  apply codeAt_expand_slice hb
-  rw [← expandCodeTail_eq b hi]
-  exact h
-
 /-- The final chunk may hold appended producer code beyond the original chunk grid. -/
 theorem expandCodeTailLast_eq (b : Nat) (hlo : 44032 ≤ b) :
     Images.expandCode_172.drop (b - 44032) = expandCurrentCodeChunks.flatten.drop b := by
@@ -163,34 +126,11 @@ section
 namespace SigGolfCandidate.T3M.Expand
 open RiscvZkvm.Rv64 SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv SigGolfCandidate.Rv
 set_option linter.unusedVariables false
-def seg_0 : List (BitVec 32) := [1179816047,32439,7991,2148470547,963331,9352067,7286819,8336419,32439,134967,302976787,963331,9352067,7286819,8336419,28343,134967,336531219,1544467203,1552855939,7286819,8336419,28343,134967,353308435,1561244419,1569633155,7286819,8336419,814911599]
-def seg_49 : List (BitVec 32) := [134711,370019859,930947,34903187,34919571,134711,1426984467,10367011,7735,2165181971,20848675,139575,2323,6967,3289058067,1043]
-def seg_65 : List (BitVec 32) := [7340819,610556515]
-def seg_67 : List (BitVec 32) := [2451]
+def seg_0 : List (BitVec 32) := [1179816047,32439,7991,2148470547,963331,9352067,7286819,8336419,32439,134967,302976787,963331,9352067,7286819,8336419,28343,134967,336531219,1645130499,1653519235,7286819,8336419,28343,134967,353308435,1661907715,1670296451,7286819,8336419,814911599]
 def seg_68 : List (BitVec 32) := [3146515,74045539]
-def seg_70 : List (BitVec 32) := [1316627,8849203,20383539,4660755,32439,17731219,31329843,5707411,4658963,15107763,7863,2249100947,30836403,930563,9319299,6729763,7779363,1673619,4213174383]
-def seg_89 : List (BitVec 32) := [4462355,3415571,29820723,134711,1242435091,29820723,472451,7722387,7341331,898629871]
-def seg_99 : List (BitVec 32) := [2451]
-def seg_100 : List (BitVec 32) := [4195091,376035427]
-def seg_102 : List (BitVec 32) := [120587027,1047090787]
 def seg_104 : List (BitVec 32) := [4789907,32311,370019859,29787827,1640723,4462355,3415571,29820723,134711,1242435091,29820723,472835,7821075,20405811,1998355,101581411]
-def seg_120 : List (BitVec 32) := [134967,537857811,439043,8827779,7286819,8336419,134839,604933779,134967,588189459,963331,9352067,7286819,8336419,7052819,4955923,32378419,23989811,439043,8827779,7222307,8271907,1805203,100663407]
-def seg_144 : List (BitVec 32) := [134839,604933779,134967,537857811,963331,9352067,7286819,8336419,134967,588189459,439043,8827779,7286819,8336419,7052819,4955923,32378419,23989811,439043,8827779,40778787,75378723,1805203]
-def seg_167 : List (BitVec 32) := [3149331,1094585907,1050259,29791923,1674771,29842995,29787827,4919,2685600531,17047315,31679283,1980760175]
-def seg_179 : List (BitVec 32) := [33857299,31679283,134711,537792019,7223331,8272931,132407,537199891,67110291,132663,604374547]
-def seg_190 : List (BitVec 32) := [115]
-def seg_191 : List (BitVec 32) := [1673619,3911184495]
-def seg_193 : List (BitVec 32) := [6037011,25062963,30081059,7052819,4955923,32378419,30083891,9112339,4464147,263267]
 def seg_203 : List (BitVec 32) := [17698323]
 def seg_204 : List (BitVec 32) := [134839,839814803,31329843,134839,604933779,963331,9352067,7221283,8270883,1311763,3672109167]
-def seg_215 : List (BitVec 32) := [591507]
-def seg_216 : List (BitVec 32) := [120587027,40293987]
-def seg_218 : List (BitVec 32) := [4627987,32439,370052755,31329843,930563,537073251]
-def seg_224 : List (BitVec 32) := [9319171,537072227]
-def seg_226 : List (BitVec 32) := [1476243,4250923119]
-def seg_228 : List (BitVec 32) := [4919,2954035987,295827,134711,839781907,7223331,8272931,132407,839189779,134219155,132663,973473299]
-def seg_240 : List (BitVec 32) := [115]
-def seg_241 : List (BitVec 32) := [134839,974032531,134967,638521107,963331,9352067,7286819,8336419]
 def seg_249 : List (BitVec 32) := [3146771,6293395,45092115,3475,211814547,134711,1426984467,930563,218003,66063891,29620531,6509715,822083823]
 def seg_262 : List (BitVec 32) := [7735,2181959187,20848675,34871,772278291,27575,411798419,23607,1821117459,898629871]
 def seg_272 : List (BitVec 32) := [2098195,6293395,45092115,3475,211814547,134711,1426984467,930563,6509459,66063891,29620531,12801171,725614831]
@@ -199,34 +139,6 @@ def seg_295 : List (BitVec 32) := [1049619,7341971,45092115,3475,210765971,13471
 def seg_308 : List (BitVec 32) := [24119,2525892115,20848675,34871,3406301203,23479,2425064339,19511,3834383379,705691887]
 def seg_318 : List (BitVec 32) := [1043,12584851,56626451,53480851,152045715,134711,1426984467,930563,20140947,7735,4294839827,29620531,32724115,528482543]
 def seg_332 : List (BitVec 32) := [20023,3465416211,20848675,34871,2299004947,19383,3364588435,15415,4035709971,605028591]
-def seg_342 : List (BitVec 32) := [1967296623,638455315,167775891,930563,963459,7544419]
-def seg_348 : List (BitVec 32) := [9319171,9352067,7542883]
-def seg_351 : List (BitVec 32) := [1297248367,1299]
-def seg_353 : List (BitVec 32) := [115]
-def seg_824 : List (BitVec 32) := [4244701459,1126435,10564643,11614243,4462355,3415571,29820723,134711,1242435091,29820723,2579]
-def seg_835 : List (BitVec 32) := [3808787,15601203,933507,11460403,79627875]
-def seg_840 : List (BitVec 32) := [1706515,3149331,4291433187]
-def seg_843 : List (BitVec 32) := [120589843,2244566243]
-def seg_845 : List (BitVec 32) := [4791827,32439,370052755,31329843,134967,604966675,930563,9319299,7286819,8336419,1640723,1299,574619759]
-def seg_858 : List (BitVec 32) := [168106083]
-def seg_859 : List (BitVec 32) := [34210403]
-def seg_860 : List (BitVec 32) := [6037011,25062963,30081059,7052819,4955923,32378419,30083891,9112339]
-def seg_868 : List (BitVec 32) := [2963,2030611,1316627,8849203,21432115,4658963,32311,17698323,29820723,134967,772738835,471811,8860547,7286819,8336419,4919,2417165075,17047315,31679283,1388314735]
-def seg_888 : List (BitVec 32) := [33857299,31679283,134711,739118611,7223331,8272931,132407,738526483,67110291,132663,604374547]
-def seg_899 : List (BitVec 32) := [115]
-def seg_900 : List (BitVec 32) := [1049875,390070383]
-def seg_902 : List (BitVec 32) := [4294247699,1414547,3961516271]
-def seg_905 : List (BitVec 32) := [10566691,134839,604933779,963331,9352067,39923747,40973347,8467715,16856451,4294247699,1414547,1410451,3906990319]
-def seg_918 : List (BitVec 32) := [134967,537857811,33633027,42021763,7286819,8336419,134839,604933779,134967,588189459,963331,9352067,7286819,8336419,8470019,11536019,1103529651,1052179,14554803,16858627,29787827,4919,2685600531,17047315,31679283,1035993199]
-def seg_944 : List (BitVec 32) := [33857299,31679283,134711,537792019,7223331,8272931,25247235,34477667]
-def seg_952 : List (BitVec 32) := [7052819,4955923,32378419,23989811,33633027,42021763,7222307,8271907,1805203,109052015]
-def seg_962 : List (BitVec 32) := [33888867]
-def seg_963 : List (BitVec 32) := [7052819,4955923,32378419,23989811,134839,604933779,963331,9352067,40778787,75378723,1805203,54526063]
-def seg_975 : List (BitVec 32) := [6037011,25062963,17722899,30081059,7052819,4955923,32378419,30083891,9112339,2963,16858627,1997843]
-def seg_987 : List (BitVec 32) := [132407,537199891,67110291,132663,604374547]
-def seg_992 : List (BitVec 32) := [115]
-def seg_993 : List (BitVec 32) := [1049875]
-def seg_994 : List (BitVec 32) := [77955,50397459,32871]
 def seg_997 : List (BitVec 32) := [1142063215,19,19,19,19,19,19,19,19,19,19,19,2451]
 def seg_1010 : List (BitVec 32) := [229235299]
 def seg_1011 : List (BitVec 32) := [4824595,17698355,134967,487526163,930563,9319299,7286819,8336419,930563,9319299,40613923,41663523,4228615059,134711,1108217363,20844083]
@@ -234,11 +146,21 @@ def seg_1027 : List (BitVec 32) := [936451]
 def seg_1028 : List (BitVec 32) := [7342739,267363]
 def seg_1030 : List (BitVec 32) := [536871023]
 def seg_1031 : List (BitVec 32) := [89805923]
-def seg_1032 : List (BitVec 32) := [901775471,21201843,33788691,17047315,31679283,269706003,134711,437128723,7223331,132407,436536595,67110291,132663,486934035]
+def seg_1041 : List (BitVec 32) := [0x38d2906f]
+/-! Pairing stage 1: the chain step block at 43764 (G/F format select, direct HASH at 43780/43788). -/
+def seg_43764 : List (BitVec 32) := [0x0019f313,0x04040463]
+def seg_43766 : List (BitVec 32) := [0x04030263]
+def seg_43767 : List (BitVec 32) := [0x040e3423,0x040e3823,0x040e3c23,0x060e3023,0x060e3423,0x010e3303,0x046e3023,
+  0x030e0513,0x04000593,0x020e0613,0x00600313,0x006a1463]
+def seg_43779 : List (BitVec 32) := [0x030e0613]
+def seg_43780 : List (BitVec 32) := [0x73]
+def seg_43781 : List (BitVec 32) := [0x001a0a13,0xc04d606f]
+def seg_43783 : List (BitVec 32) := [0x020e3023,0x020e3423,0x000e0513,0x04000593,0x030e0613]
+def seg_43788 : List (BitVec 32) := [0x73]
+def seg_43789 : List (BitVec 32) := [0xab9ff06f]
 def seg_1046 : List (BitVec 32) := [115]
 def seg_1047 : List (BitVec 32) := [1761775727,19]
 def seg_1049 : List (BitVec 32) := [995262575,19]
-def seg_1051 : List (BitVec 32) := [19]
 def seg_1052 : List (BitVec 32) := [134839,1611566739,31329843,134839,487493267,963331,9352067,7221283,8270883,1673619,4078956655]
 def seg_1063 : List (BitVec 32) := [1901331,4395795,66257683,4228084499,132407,1610941715,198035,132663,604374547]
 def seg_1072 : List (BitVec 32) := [115]
@@ -247,270 +169,33 @@ def seg_1076 : List (BitVec 32) := [284841571]
 def seg_1077 : List (BitVec 32) := [21585459,1998355,68028515]
 def seg_1080 : List (BitVec 32) := [733955,9122691,7090211,8139811,134967,537857811,733955,9122691,7286819,8336419,134839,604933779,134967,588189459,963331,9352067,7286819,8336419,79691887]
 def seg_1099 : List (BitVec 32) := [733955,9122691,40646691,41696291,1573032047,19,134967,537857811,963331,9352067,7286819,8336419,134967,588189459,733955,9122691,7286819,8336419]
-def seg_1117 : List (BitVec 32) := [1402101871,4294839827,1050259,29791923,1707539,29974067,29787827,710049903,19,19,19,19,134711,537792019,7223331,8272931,132407,537199891,67110291,132663,604374547]
 def seg_1138 : List (BitVec 32) := [115]
 def seg_1139 : List (BitVec 32) := [17500947,4228647955,1706515,4020236399]
 def seg_1143 : List (BitVec 32) := [134839,604933779,134967,638521107,963331,9352067,7286819,8336419,32871]
-def seg_1152 : List (BitVec 32) := [131895,394474243,14897939,7566099,3489863267,3088052335]
 def seg_1158 : List (BitVec 32) := [7342739,3787051235]
 def seg_1160 : List (BitVec 32) := [4197011,3751800943]
-def seg_1162 : List (BitVec 32) := [426899,267648787,9379603,8639379,31712179,7735,4043181587,29622067,5185299,4445075,29619123,31712179,15927,859704851,29622067,3088147,2347923,29619123,31712179,24119,1432227347,29622067,2039571,1299347,29619123,31712179,50566035,2207248495]
-def seg_1190 : List (BitVec 32) := [426899,267648787,9379603,8639379,31712179,7735,4043181587,29622067,5185299,4445075,29619123,31712179,15927,859704851,29622067,3088147,2347923,29619123,31712179,24119,1432227347,29622067,2039571,1299347,29619123,31712179,50566035,3152015471]
-def seg_1218 : List (BitVec 32) := [1074693011,1073972115,267648787,9379603,8639379,31712179,7735,4043181587,29622067,5185299,4445075,29619123,31712179,15927,859704851,29622067,3088147,2347923,29619123,31712179,24119,1432227347,29622067,2039571,1299347,29619123,31712179,50566035,2795499631]
-def expL : Rv.Layout := [(0, seg_0), (30, layoutCode (Search.dsL 30)), (49, seg_49), (65, seg_65), (67, seg_67), (68, seg_68), (70, seg_70), (89, seg_89), (99, seg_99), (100, seg_100), (102, seg_102), (104, seg_104), (120, seg_120), (144, seg_144), (167, seg_167), (179, seg_179), (190, seg_190), (191, seg_191), (193, seg_193), (203, seg_203), (204, seg_204), (215, seg_215), (216, seg_216), (218, seg_218), (224, seg_224), (226, seg_226), (228, seg_228), (240, seg_240), (241, seg_241), (249, seg_249), (262, seg_262), (272, seg_272), (285, seg_285), (295, seg_295), (308, seg_308), (318, seg_318), (332, seg_332), (342, seg_342), (348, seg_348), (351, seg_351), (353, seg_353), (354, Search.kernCode 354), (824, seg_824), (835, seg_835), (840, seg_840), (843, seg_843), (845, seg_845), (858, seg_858), (859, seg_859), (860, seg_860), (868, seg_868), (888, seg_888), (899, seg_899), (900, seg_900), (902, seg_902), (905, seg_905), (918, seg_918), (944, seg_944), (952, seg_952), (962, seg_962), (963, seg_963), (975, seg_975), (987, seg_987), (992, seg_992), (993, seg_993), (994, seg_994), (997, seg_997), (1010, seg_1010), (1011, seg_1011), (1027, seg_1027), (1028, seg_1028), (1030, seg_1030), (1031, seg_1031), (1032, seg_1032), (1046, seg_1046), (1047, seg_1047), (1049, seg_1049), (1051, seg_1051), (1052, seg_1052), (1063, seg_1063), (1072, seg_1072), (1073, seg_1073), (1076, seg_1076), (1077, seg_1077), (1080, seg_1080), (1099, seg_1099), (1117, seg_1117), (1138, seg_1138), (1139, seg_1139), (1143, seg_1143), (1152, seg_1152), (1158, seg_1158), (1160, seg_1160), (1162, seg_1162), (1190, seg_1190), (1218, seg_1218), (1247, [0x00c00393, 0x00040a63, 0x00100393, 0x00740463, 0x00000393, 0x00638393, 0x00749333, 0x01230333, 0x00020e37, 0x1a0e0e13, 0x02035393, 0x007e3c23, 0x02031313, 0x01035313, 0x03041393, 0x00736333, 0x0c100f13, 0x038f1f13, 0x01e36333, 0x0ffa7393, 0x00839393, 0x00736333, 0x0809e393, 0x00736333, 0xc5dff06f])]
-theorem expL_ok : layoutOk 0 expL = true := by decide +kernel
-abbrev image : Image := Images.expandReferenceImage
-/-- The entry instruction is supplied by the compact-layout prologue. -/
-theorem codeAt_49 : CodeAt image (pcOf 49) seg_49 :=
-  codeAt_expand_chunk (by decide +kernel) (by decide +kernel) (by decide +kernel)
-theorem codeAt_65 : CodeAt image (pcOf 65) seg_65 :=
-  codeAt_expand_chunk (by decide +kernel) (by decide +kernel) (by decide +kernel)
-theorem codeAt_67 : CodeAt image (pcOf 67) seg_67 :=
-  codeAt_expand_chunk (by decide +kernel) (by decide +kernel) (by decide +kernel)
-theorem codeAt_68 : CodeAt image (pcOf 68) seg_68 :=
-  codeAt_expand_chunk (by decide +kernel) (by decide +kernel) (by decide +kernel)
-theorem codeAt_70 : CodeAt image (pcOf 70) seg_70 :=
-  codeAt_expand_chunk (by decide +kernel) (by decide +kernel) (by decide +kernel)
-theorem codeAt_89 : CodeAt image (pcOf 89) seg_89 :=
-  codeAt_expand_chunk (by decide +kernel) (by decide +kernel) (by decide +kernel)
-theorem codeAt_99 : CodeAt image (pcOf 99) seg_99 :=
-  codeAt_expand_chunk (by decide +kernel) (by decide +kernel) (by decide +kernel)
-theorem codeAt_100 : CodeAt image (pcOf 100) seg_100 :=
-  codeAt_expand_chunk (by decide +kernel) (by decide +kernel) (by decide +kernel)
-theorem codeAt_102 : CodeAt image (pcOf 102) seg_102 :=
-  codeAt_expand_chunk (by decide +kernel) (by decide +kernel) (by decide +kernel)
-theorem codeAt_104 : CodeAt image (pcOf 104) seg_104 :=
-  codeAt_expand_chunk (by decide +kernel) (by decide +kernel) (by decide +kernel)
-theorem codeAt_120 : CodeAt image (pcOf 120) seg_120 :=
-  codeAt_expand_chunk (by decide +kernel) (by decide +kernel) (by decide +kernel)
-theorem codeAt_144 : CodeAt image (pcOf 144) seg_144 :=
-  codeAt_expand_chunk (by decide +kernel) (by decide +kernel) (by decide +kernel)
-theorem codeAt_167 : CodeAt image (pcOf 167) seg_167 :=
-  codeAt_expand_chunk (by decide +kernel) (by decide +kernel) (by decide +kernel)
-theorem codeAt_179 : CodeAt image (pcOf 179) seg_179 :=
-  codeAt_expand_chunk (by decide +kernel) (by decide +kernel) (by decide +kernel)
-theorem codeAt_190 : CodeAt image (pcOf 190) seg_190 :=
-  codeAt_expand_chunk (by decide +kernel) (by decide +kernel) (by decide +kernel)
-theorem codeAt_191 : CodeAt image (pcOf 191) seg_191 :=
-  codeAt_expand_chunk (by decide +kernel) (by decide +kernel) (by decide +kernel)
-theorem codeAt_193 : CodeAt image (pcOf 193) seg_193 :=
-  codeAt_expand_chunk (by decide +kernel) (by decide +kernel) (by decide +kernel)
-theorem codeAt_203 : CodeAt image (pcOf 203) seg_203 :=
-  codeAt_expand_chunk (by decide +kernel) (by decide +kernel) (by decide +kernel)
-theorem codeAt_204 : CodeAt image (pcOf 204) seg_204 :=
-  codeAt_expand_chunk (by decide +kernel) (by decide +kernel) (by decide +kernel)
-theorem codeAt_215 : CodeAt image (pcOf 215) seg_215 :=
-  codeAt_expand_chunk (by decide +kernel) (by decide +kernel) (by decide +kernel)
-theorem codeAt_216 : CodeAt image (pcOf 216) seg_216 :=
-  codeAt_expand_chunk (by decide +kernel) (by decide +kernel) (by decide +kernel)
-theorem codeAt_218 : CodeAt image (pcOf 218) seg_218 :=
-  codeAt_expand_chunk (by decide +kernel) (by decide +kernel) (by decide +kernel)
-theorem codeAt_224 : CodeAt image (pcOf 224) seg_224 :=
-  codeAt_expand_chunk (by decide +kernel) (by decide +kernel) (by decide +kernel)
-theorem codeAt_226 : CodeAt image (pcOf 226) seg_226 :=
-  codeAt_expand_chunk (by decide +kernel) (by decide +kernel) (by decide +kernel)
-theorem codeAt_228 : CodeAt image (pcOf 228) seg_228 :=
-  codeAt_expand_chunk (by decide +kernel) (by decide +kernel) (by decide +kernel)
-theorem codeAt_240 : CodeAt image (pcOf 240) seg_240 :=
-  codeAt_expand_chunk (by decide +kernel) (by decide +kernel) (by decide +kernel)
-theorem codeAt_241 : CodeAt image (pcOf 241) seg_241 :=
-  codeAt_expand_chunk (by decide +kernel) (by decide +kernel) (by decide +kernel)
-theorem codeAt_249 : CodeAt image (pcOf 249) seg_249 :=
-  codeAt_expand_chunk (by decide +kernel) (by decide +kernel) (by decide +kernel)
-theorem codeAt_262 : CodeAt image (pcOf 262) seg_262 :=
-  codeAt_expand_chunk (by decide +kernel) (by decide +kernel) (by decide +kernel)
-theorem codeAt_272 : CodeAt image (pcOf 272) seg_272 :=
-  codeAt_expand_chunk (by decide +kernel) (by decide +kernel) (by decide +kernel)
-theorem codeAt_285 : CodeAt image (pcOf 285) seg_285 :=
-  codeAt_expand_chunk (by decide +kernel) (by decide +kernel) (by decide +kernel)
-theorem codeAt_295 : CodeAt image (pcOf 295) seg_295 :=
-  codeAt_expand_chunk (by decide +kernel) (by decide +kernel) (by decide +kernel)
-theorem codeAt_308 : CodeAt image (pcOf 308) seg_308 :=
-  codeAt_expand_chunk (by decide +kernel) (by decide +kernel) (by decide +kernel)
-theorem codeAt_318 : CodeAt image (pcOf 318) seg_318 :=
-  codeAt_expand_chunk (by decide +kernel) (by decide +kernel) (by decide +kernel)
-theorem codeAt_332 : CodeAt image (pcOf 332) seg_332 :=
-  codeAt_expand_chunk (by decide +kernel) (by decide +kernel) (by decide +kernel)
-theorem codeAt_342 : CodeAt image (pcOf 342) seg_342 :=
-  codeAt_expand_chunk (by decide +kernel) (by decide +kernel) (by decide +kernel)
-theorem codeAt_348 : CodeAt image (pcOf 348) seg_348 :=
-  codeAt_expand_chunk (by decide +kernel) (by decide +kernel) (by decide +kernel)
-theorem codeAt_351 : CodeAt image (pcOf 351) seg_351 :=
-  codeAt_expand_chunk (by decide +kernel) (by decide +kernel) (by decide +kernel)
-theorem codeAt_353 : CodeAt image (pcOf 353) seg_353 :=
-  codeAt_expand_chunk (by decide +kernel) (by decide +kernel) (by decide +kernel)
-theorem codeAt_824 : CodeAt image (pcOf 824) seg_824 :=
-  codeAt_expand_chunk (by decide +kernel) (by decide +kernel) (by decide +kernel)
-theorem codeAt_835 : CodeAt image (pcOf 835) seg_835 :=
-  codeAt_expand_chunk (by decide +kernel) (by decide +kernel) (by decide +kernel)
-theorem codeAt_840 : CodeAt image (pcOf 840) seg_840 :=
-  codeAt_expand_chunk (by decide +kernel) (by decide +kernel) (by decide +kernel)
-theorem codeAt_843 : CodeAt image (pcOf 843) seg_843 :=
-  codeAt_expand_chunk (by decide +kernel) (by decide +kernel) (by decide +kernel)
-theorem codeAt_845 : CodeAt image (pcOf 845) seg_845 :=
-  codeAt_expand_chunk (by decide +kernel) (by decide +kernel) (by decide +kernel)
-theorem codeAt_858 : CodeAt image (pcOf 858) seg_858 :=
-  codeAt_expand_chunk (by decide +kernel) (by decide +kernel) (by decide +kernel)
-theorem codeAt_859 : CodeAt image (pcOf 859) seg_859 :=
-  codeAt_expand_chunk (by decide +kernel) (by decide +kernel) (by decide +kernel)
-theorem codeAt_860 : CodeAt image (pcOf 860) seg_860 :=
-  codeAt_expand_chunk (by decide +kernel) (by decide +kernel) (by decide +kernel)
-theorem codeAt_868 : CodeAt image (pcOf 868) seg_868 :=
-  codeAt_expand_chunk (by decide +kernel) (by decide +kernel) (by decide +kernel)
-theorem codeAt_888 : CodeAt image (pcOf 888) seg_888 :=
-  codeAt_expand_chunk (by decide +kernel) (by decide +kernel) (by decide +kernel)
-theorem codeAt_899 : CodeAt image (pcOf 899) seg_899 :=
-  codeAt_expand_chunk (by decide +kernel) (by decide +kernel) (by decide +kernel)
-theorem codeAt_900 : CodeAt image (pcOf 900) seg_900 :=
-  codeAt_expand_chunk (by decide +kernel) (by decide +kernel) (by decide +kernel)
-theorem codeAt_902 : CodeAt image (pcOf 902) seg_902 :=
-  codeAt_expand_chunk (by decide +kernel) (by decide +kernel) (by decide +kernel)
-theorem codeAt_905 : CodeAt image (pcOf 905) seg_905 :=
-  codeAt_expand_chunk (by decide +kernel) (by decide +kernel) (by decide +kernel)
-theorem codeAt_918 : CodeAt image (pcOf 918) seg_918 :=
-  codeAt_expand_chunk (by decide +kernel) (by decide +kernel) (by decide +kernel)
-theorem codeAt_944 : CodeAt image (pcOf 944) seg_944 :=
-  codeAt_expand_chunk (by decide +kernel) (by decide +kernel) (by decide +kernel)
-theorem codeAt_952 : CodeAt image (pcOf 952) seg_952 :=
-  codeAt_expand_chunk (by decide +kernel) (by decide +kernel) (by decide +kernel)
-theorem codeAt_962 : CodeAt image (pcOf 962) seg_962 :=
-  codeAt_expand_chunk (by decide +kernel) (by decide +kernel) (by decide +kernel)
-theorem codeAt_963 : CodeAt image (pcOf 963) seg_963 :=
-  codeAt_expand_chunk (by decide +kernel) (by decide +kernel) (by decide +kernel)
-theorem codeAt_975 : CodeAt image (pcOf 975) seg_975 :=
-  codeAt_expand_chunk (by decide +kernel) (by decide +kernel) (by decide +kernel)
-theorem codeAt_987 : CodeAt image (pcOf 987) seg_987 :=
-  codeAt_expand_chunk (by decide +kernel) (by decide +kernel) (by decide +kernel)
-theorem codeAt_992 : CodeAt image (pcOf 992) seg_992 :=
-  codeAt_expand_chunk (by decide +kernel) (by decide +kernel) (by decide +kernel)
-theorem codeAt_993 : CodeAt image (pcOf 993) seg_993 :=
-  codeAt_expand_chunk (by decide +kernel) (by decide +kernel) (by decide +kernel)
-theorem codeAt_994 : CodeAt image (pcOf 994) seg_994 :=
-  codeAt_expand_chunk (by decide +kernel) (by decide +kernel) (by decide +kernel)
-theorem codeAt_997 : CodeAt image (pcOf 997) seg_997 :=
-  codeAt_expand_chunk (by decide +kernel) (by decide +kernel) (by decide +kernel)
-theorem codeAt_1010 : CodeAt image (pcOf 1010) seg_1010 :=
-  codeAt_expand_chunk (by decide +kernel) (by decide +kernel) (by decide +kernel)
-theorem codeAt_1011 : CodeAt image (pcOf 1011) seg_1011 :=
-  codeAt_expand_chunk (by decide +kernel) (by decide +kernel) (by decide +kernel)
-theorem codeAt_1027 : CodeAt image (pcOf 1027) seg_1027 :=
-  codeAt_expand_chunk (by decide +kernel) (by decide +kernel) (by decide +kernel)
-theorem codeAt_1028 : CodeAt image (pcOf 1028) seg_1028 :=
-  codeAt_expand_chunk (by decide +kernel) (by decide +kernel) (by decide +kernel)
-theorem codeAt_1030 : CodeAt image (pcOf 1030) seg_1030 :=
-  codeAt_expand_chunk (by decide +kernel) (by decide +kernel) (by decide +kernel)
-theorem codeAt_1031 : CodeAt image (pcOf 1031) seg_1031 :=
-  codeAt_expand_chunk (by decide +kernel) (by decide +kernel) (by decide +kernel)
-theorem codeAt_1032 : CodeAt image (pcOf 1032) seg_1032 :=
-  codeAt_expand_chunk (by decide +kernel) (by decide +kernel) (by decide +kernel)
-theorem codeAt_1046 : CodeAt image (pcOf 1046) seg_1046 :=
-  codeAt_expand_chunk (by decide +kernel) (by decide +kernel) (by decide +kernel)
-theorem codeAt_1047 : CodeAt image (pcOf 1047) seg_1047 :=
-  codeAt_expand_chunk (by decide +kernel) (by decide +kernel) (by decide +kernel)
-theorem codeAt_1049 : CodeAt image (pcOf 1049) seg_1049 :=
-  codeAt_expand_chunk (by decide +kernel) (by decide +kernel) (by decide +kernel)
-theorem codeAt_1051 : CodeAt image (pcOf 1051) seg_1051 :=
-  codeAt_expand_chunk (by decide +kernel) (by decide +kernel) (by decide +kernel)
-theorem codeAt_1052 : CodeAt image (pcOf 1052) seg_1052 :=
-  codeAt_expand_chunk (by decide +kernel) (by decide +kernel) (by decide +kernel)
-theorem codeAt_1063 : CodeAt image (pcOf 1063) seg_1063 :=
-  codeAt_expand_chunk (by decide +kernel) (by decide +kernel) (by decide +kernel)
-theorem codeAt_1072 : CodeAt image (pcOf 1072) seg_1072 :=
-  codeAt_expand_chunk (by decide +kernel) (by decide +kernel) (by decide +kernel)
-theorem codeAt_1073 : CodeAt image (pcOf 1073) seg_1073 :=
-  codeAt_expand_chunk (by decide +kernel) (by decide +kernel) (by decide +kernel)
-theorem codeAt_1076 : CodeAt image (pcOf 1076) seg_1076 :=
-  codeAt_expand_chunk (by decide +kernel) (by decide +kernel) (by decide +kernel)
-theorem codeAt_1077 : CodeAt image (pcOf 1077) seg_1077 :=
-  codeAt_expand_chunk (by decide +kernel) (by decide +kernel) (by decide +kernel)
-theorem codeAt_1080 : CodeAt image (pcOf 1080) seg_1080 :=
-  codeAt_expand_chunk (by decide +kernel) (by decide +kernel) (by decide +kernel)
-theorem codeAt_1099 : CodeAt image (pcOf 1099) seg_1099 :=
-  codeAt_expand_chunk (by decide +kernel) (by decide +kernel) (by decide +kernel)
-theorem codeAt_1138 : CodeAt image (pcOf 1138) seg_1138 :=
-  codeAt_expand_chunk (by decide +kernel) (by decide +kernel) (by decide +kernel)
-theorem codeAt_1139 : CodeAt image (pcOf 1139) seg_1139 :=
-  codeAt_expand_chunk (by decide +kernel) (by decide +kernel) (by decide +kernel)
-theorem codeAt_1143 : CodeAt image (pcOf 1143) seg_1143 :=
-  codeAt_expand_chunk (by decide +kernel) (by decide +kernel) (by decide +kernel)
-theorem codeAt_1158 : CodeAt image (pcOf 1158) seg_1158 :=
-  codeAt_expand_chunk (by decide +kernel) (by decide +kernel) (by decide +kernel)
-theorem codeAt_1160 : CodeAt image (pcOf 1160) seg_1160 :=
-  codeAt_expand_chunk (by decide +kernel) (by decide +kernel) (by decide +kernel)
-theorem codeAt_1162 : CodeAt image (pcOf 1162) seg_1162 :=
-  codeAt_expand_chunk (by decide +kernel) (by decide +kernel) (by decide +kernel)
-theorem codeAt_1190 : CodeAt image (pcOf 1190) seg_1190 :=
-  codeAt_expand_chunk (by decide +kernel) (by decide +kernel) (by decide +kernel)
-theorem codeAt_1218 : CodeAt image (pcOf 1218) seg_1218 :=
-  codeAt_expand_chunk (by decide +kernel) (by decide +kernel) (by decide +kernel)
-sym_block eblk_49 := symRun { noAlias := true } seg_49 (pcOf 49) 200
-sym_block eblk_65 := symRun { noAlias := true } seg_65 (pcOf 65) 200
-sym_block eblk_67 := symRun { noAlias := true } seg_67 (pcOf 67) 200
-sym_block eblk_68 := symRun { noAlias := true } seg_68 (pcOf 68) 200
-sym_block eblk_70 := symRun { noAlias := true } seg_70 (pcOf 70) 200
-sym_block eblk_89 := symRun { noAlias := true } seg_89 (pcOf 89) 200
-sym_block eblk_99 := symRun { noAlias := true } seg_99 (pcOf 99) 200
-sym_block eblk_100 := symRun { noAlias := true } seg_100 (pcOf 100) 200
-sym_block eblk_102 := symRun { noAlias := true } seg_102 (pcOf 102) 200
-sym_block eblk_104 := symRun { noAlias := true } seg_104 (pcOf 104) 200
-sym_block eblk_120 := symRun { noAlias := true } seg_120 (pcOf 120) 200
-sym_block eblk_144 := symRun { noAlias := true } seg_144 (pcOf 144) 200
-sym_block eblk_167 := symRun { noAlias := true } seg_167 (pcOf 167) 200
-sym_block eblk_179 := symRun { noAlias := true } seg_179 (pcOf 179) 200
-sym_block eblk_191 := symRun { noAlias := true } seg_191 (pcOf 191) 200
-sym_block eblk_193 := symRun { noAlias := true } seg_193 (pcOf 193) 200
-sym_block eblk_203 := symRun { noAlias := true } seg_203 (pcOf 203) 200
-sym_block eblk_204 := symRun { noAlias := true } seg_204 (pcOf 204) 200
-sym_block eblk_215 := symRun { noAlias := true } seg_215 (pcOf 215) 200
-sym_block eblk_216 := symRun { noAlias := true } seg_216 (pcOf 216) 200
-sym_block eblk_218 := symRun { noAlias := true } seg_218 (pcOf 218) 200
-sym_block eblk_224 := symRun { noAlias := true } seg_224 (pcOf 224) 200
-sym_block eblk_226 := symRun { noAlias := true } seg_226 (pcOf 226) 200
-sym_block eblk_228 := symRun { noAlias := true } seg_228 (pcOf 228) 200
-sym_block eblk_241 := symRun { noAlias := true } seg_241 (pcOf 241) 200
-sym_block eblk_249 := symRun { noAlias := true } seg_249 (pcOf 249) 200
 sym_block eblk_262 := symRun { noAlias := true } seg_262 (pcOf 262) 200
-sym_block eblk_272 := symRun { noAlias := true } seg_272 (pcOf 272) 200
 sym_block eblk_285 := symRun { noAlias := true } seg_285 (pcOf 285) 200
 sym_block eblk_295 := symRun { noAlias := true } seg_295 (pcOf 295) 200
 sym_block eblk_308 := symRun { noAlias := true } seg_308 (pcOf 308) 200
 sym_block eblk_318 := symRun { noAlias := true } seg_318 (pcOf 318) 200
 sym_block eblk_332 := symRun { noAlias := true } seg_332 (pcOf 332) 200
-sym_block eblk_348 := symRun { noAlias := true } seg_348 (pcOf 348) 200
-sym_block eblk_351 := symRun { noAlias := true } seg_351 (pcOf 351) 200
-sym_block eblk_824 := symRun { noAlias := true } seg_824 (pcOf 824) 200
-sym_block eblk_835 := symRun { noAlias := true } seg_835 (pcOf 835) 200
-sym_block eblk_840 := symRun { noAlias := true } seg_840 (pcOf 840) 200
-sym_block eblk_843 := symRun { noAlias := true } seg_843 (pcOf 843) 200
-sym_block eblk_845 := symRun { noAlias := true } seg_845 (pcOf 845) 200
-sym_block eblk_858 := symRun { noAlias := true } seg_858 (pcOf 858) 200
-sym_block eblk_859 := symRun { noAlias := true } seg_859 (pcOf 859) 200
-sym_block eblk_860 := symRun { noAlias := true } seg_860 (pcOf 860) 200
-sym_block eblk_868 := symRun { noAlias := true } seg_868 (pcOf 868) 200
-sym_block eblk_888 := symRun { noAlias := true } seg_888 (pcOf 888) 200
-sym_block eblk_900 := symRun { noAlias := true } seg_900 (pcOf 900) 200
-sym_block eblk_902 := symRun { noAlias := true } seg_902 (pcOf 902) 200
-sym_block eblk_905 := symRun { noAlias := true } seg_905 (pcOf 905) 200
-sym_block eblk_918 := symRun { noAlias := true } seg_918 (pcOf 918) 200
-sym_block eblk_944 := symRun { noAlias := true } seg_944 (pcOf 944) 200
-sym_block eblk_952 := symRun { noAlias := true } seg_952 (pcOf 952) 200
-sym_block eblk_962 := symRun { noAlias := true } seg_962 (pcOf 962) 200
-sym_block eblk_963 := symRun { noAlias := true } seg_963 (pcOf 963) 200
-sym_block eblk_975 := symRun { noAlias := true } seg_975 (pcOf 975) 200
-sym_block eblk_987 := symRun { noAlias := true } seg_987 (pcOf 987) 200
-sym_block eblk_993 := symRun { noAlias := true } seg_993 (pcOf 993) 200
-sym_block eblk_994 := symRun { noAlias := true } seg_994 (pcOf 994) 200
 sym_block eblk_997 := symRun { noAlias := true } seg_997 (pcOf 997) 200
 sym_block eblk_1010 := symRun { noAlias := true } seg_1010 (pcOf 1010) 200
 sym_block eblk_1011 := symRun { noAlias := true } seg_1011 (pcOf 1011) 200
-sym_block eblk_1027 := symRun { noAlias := true } seg_1027 (pcOf 1027) 200
 sym_block eblk_1028 := symRun { noAlias := true } seg_1028 (pcOf 1028) 200
 sym_block eblk_1030 := symRun { noAlias := true } seg_1030 (pcOf 1030) 200
 sym_block eblk_1031 := symRun { noAlias := true } seg_1031 (pcOf 1031) 200
-sym_block eblk_1032 := symRun { noAlias := true } seg_1032 (pcOf 1032) 200
+sym_block eblk_1041 := symRun { noAlias := true } seg_1041 (pcOf 1041) 200
+sym_block eblk_43764 := symRun { noAlias := true } seg_43764 (pcOf 43764) 200
+sym_block eblk_43766 := symRun { noAlias := true } seg_43766 (pcOf 43766) 200
+sym_block eblk_43767 := symRun { noAlias := true } seg_43767 (pcOf 43767) 200
+sym_block eblk_43779 := symRun { noAlias := true } seg_43779 (pcOf 43779) 200
+sym_block eblk_43781 := symRun { noAlias := true } seg_43781 (pcOf 43781) 200
+sym_block eblk_43783 := symRun { noAlias := true } seg_43783 (pcOf 43783) 200
+sym_block eblk_43789 := symRun { noAlias := true } seg_43789 (pcOf 43789) 200
 sym_block eblk_1047 := symRun { noAlias := true } seg_1047 (pcOf 1047) 200
 sym_block eblk_1049 := symRun { noAlias := true } seg_1049 (pcOf 1049) 200
-sym_block eblk_1051 := symRun { noAlias := true } seg_1051 (pcOf 1051) 200
 sym_block eblk_1052 := symRun { noAlias := true } seg_1052 (pcOf 1052) 200
 sym_block eblk_1063 := symRun { noAlias := true } seg_1063 (pcOf 1063) 200
 sym_block eblk_1073 := symRun { noAlias := true } seg_1073 (pcOf 1073) 200
@@ -518,14 +203,10 @@ sym_block eblk_1076 := symRun { noAlias := true } seg_1076 (pcOf 1076) 200
 sym_block eblk_1077 := symRun { noAlias := true } seg_1077 (pcOf 1077) 200
 sym_block eblk_1080 := symRun { noAlias := true } seg_1080 (pcOf 1080) 200
 sym_block eblk_1099 := symRun { noAlias := true } seg_1099 (pcOf 1099) 200
-sym_block eblk_1117 := symRun { noAlias := true } seg_1117 (pcOf 1117) 200
 sym_block eblk_1139 := symRun { noAlias := true } seg_1139 (pcOf 1139) 200
 sym_block eblk_1143 := symRun { noAlias := true } seg_1143 (pcOf 1143) 200
 sym_block eblk_1158 := symRun { noAlias := true } seg_1158 (pcOf 1158) 200
 sym_block eblk_1160 := symRun { noAlias := true } seg_1160 (pcOf 1160) 200
-sym_block eblk_1162 := symRun { noAlias := true } seg_1162 (pcOf 1162) 200
-sym_block eblk_1190 := symRun { noAlias := true } seg_1190 (pcOf 1190) 200
-sym_block eblk_1218 := symRun { noAlias := true } seg_1218 (pcOf 1218) 200
 end SigGolfCandidate.T3M.Expand
 end
 
@@ -600,27 +281,14 @@ theorem expand_banks_eq_verify :
       simp only [List.flatten_cons, List.flatten_nil, List.append_nil]]
     have hh : 195584 = front.flatten.length + 151552 := by omega
     rw [hh, ← List.drop_drop, List.drop_left]
-    let driverPrefix := expandSharedLowTail ++ List.replicate 863 (0x13 : BitVec 32) ++
-      expandSharedDriver ++ List.replicate 148571 (0x13 : BitVec 32)
-    have hp : driverPrefix.length = 151552 := by
-      change (expandSharedLowTail ++ List.replicate 863 (0x13 : BitVec 32) ++ expandSharedDriver ++ List.replicate 148571 (0x13 : BitVec 32)).length = _
-      simp only [List.length_append, List.length_replicate]
-      decide +kernel
-    change (driverPrefix ++ expandSharedBanks).drop 151552 = _
-    rw [← hp, List.drop_left]
+    -- Pairing stage 1: the driver prefix now also holds the constructor/layout blocks (48000..49738).
+    obtain ⟨driverPrefix, hdp, hp⟩ : ∃ P, expandCode_172 = P ++ expandSharedBanks ∧ P.length = 151552 :=
+      ⟨_, rfl, by decide +kernel⟩
+    rw [hdp, ← hp, List.drop_left]
   rw [he, hv, ← hpre, List.drop_left]
   rw [← hbank, List.take_left, List.take_length]
 end SigGolfCandidate.T3M.Images
 
 namespace SigGolfCandidate.T3M.Expand
 open SigGolfCandidate.Legacy.Riscv SigGolfCandidate.Rv
-/-- All verifier instruction certificates inside the shared FTS bank transport
-unchanged into the installed expansion image. -/
-theorem codeAt_shared_bank {base : Nat} {words : List (BitVec 32)}
-    (hlo : 195584 ≤ base) (hhi : base + words.length ≤ 254656)
-    (hc : CodeAt Images.verifyImage (pcOf base) words) :
-    CodeAt Images.expandImage (pcOf base) words := by
-  exact codeAt_of_window_eq (source := Images.verifyImage) (target := Images.expandImage)
-    (start := 195584) (count := 59072) hlo hhi (by decide : 4096+4*(195584+59072)<2^64)
-    Images.expand_banks_eq_verify.symm hc
 end SigGolfCandidate.T3M.Expand

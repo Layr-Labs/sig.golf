@@ -24,13 +24,15 @@ theorem wctSeed_secrets (answers : Answers) (a : WctAddr) :
   wctSeed_eq answers a
 section Honest
 variable {answers : Answers} {labels : Labels}
+/-- Pairing stage 1: the honest chain of the current scheme (`WCT9.chainW`, G chains on the high half) after `step`
+steps is the label value `valueW`. -/
 theorem chainValue_eq (h : Agrees answers labels) (a : Address) (step : Nat) (hstep : step ≤ 7) :
-    honestChainValue answers a.layer a.tree.val a.leaf.val a.chain.val
+    Wots.honestChainValueW answers a.layer a.tree.val a.leaf.val a.chain.val
       (WCT9.wotsSeed answers a.layer a.tree.val a.leaf.val a.chain.val) step =
-      ChainGraph.value (seedsOf (secretsOf answers)) (chainLabels labels) a step := by
-  have hx := ChainGraph.source_chain answers (seedsOf (secretsOf answers)) (chainLabels labels) (agrees_chain h) a 0
+      valueW (seedsOf (secretsOf answers)) (chainLabels labels) a step := by
+  have hx := sourceW_chain answers (seedsOf (secretsOf answers)) (chainLabels labels) (agrees_chain h) a 0
     step (by omega)
-  rw [ChainGraph.value_zero, seedsOf_secretsOf, Nat.zero_add] at hx
+  rw [valueW_zero, seedsOf_secretsOf, Nat.zero_add] at hx
   exact hx
 theorem maxDigit_le_seven (lay : Layer) (i : Nat) : maxDigit lay i ≤ 7 := by
   unfold maxDigit
@@ -42,15 +44,13 @@ theorem chainValueW_succ (h : Agrees answers labels) (a : Address) (m : Fin 7) :
       (WCT9.wotsSeed answers a.layer a.tree.val a.leaf.val a.chain.val) (m.val + 1) =
       (Node.chain (a, m)).toPos.proj (labels (.chain (a, m))) := by
   have hm := m.isLt
-  rw [← Wots.honestChainValueW_succ, Wots.honestChainValueW_eq (step := m.val) (Or.inr (Or.inr (by omega))),
-    chainValue_eq h a m.val (by omega)]
-  have hrow : pad64 (chainInput a.layer a.tree.val a.leaf.val a.chain.val m.val
-      (ChainGraph.value (seedsOf (secretsOf answers)) (chainLabels labels) a m.val)) =
+  rw [← Wots.honestChainValueW_succ, chainValue_eq h a m.val (by omega)]
+  have hrow : pad64 (WCT9.chainInputW a.layer a.tree.val a.leaf.val a.chain.val m.val
+      (valueW (seedsOf (secretsOf answers)) (chainLabels labels) a m.val)) =
       cell (secretsOf answers) (.chain (a, m)) labels := by
-    have hr : ∀ v, chainInput a.layer a.tree.val a.leaf.val a.chain.val m.val v = ChainGraph.row (a, m) v :=
-      fun _ => rfl
     simp only [cell]
-    rw [ChainGraph.input, ChainGraph.prior_eq_value, hr, ChainGraph.row_pad64]
+    rw [inputW, priorW_eq_valueW]
+    exact WCT9.chainInputW_padded _ _ _ _ _ _
   have hp : (Node.chain (a, m)).toPos.proj = WCT9.halfOf (WCT9.chainHigh a.layer a.chain.val m.val) := rfl
   rw [hp, hrow, h (.chain (a, m))]
 /-- C3: a revealed chain value is the seed (digit 0) or the used half of the label of the step before it. -/
@@ -378,9 +378,9 @@ theorem honestInput_eq (h : Agrees answers labels) (node : Node) :
   cases node with
   | chain p =>
       simp only [Node.toPos, Extract.honestInput]
-      rw [chainValue_eq h p.1 p.2.val (by have := p.2.isLt; omega)]
-      change pad64 (ChainGraph.row p _) = ChainGraph.row p (ChainGraph.prior _ p _)
-      rw [ChainGraph.row_pad64, ChainGraph.prior_eq_value]
+      change pad64 (rowW p (Wots.honestChainValueW answers _ _ _ _ (WCT9.wotsSeed answers _ _ _ _) _)) =
+        rowW p (priorW _ p _)
+      rw [chainValue_eq h p.1 p.2.val (by have := p.2.isLt; omega), rowW_pad64, priorW_eq_valueW]
   | leaf L =>
       simp only [Node.toPos, Extract.honestInput, cell]
       rw [leafEnds_eq h L.1]
@@ -458,7 +458,7 @@ theorem eager_programmed_agrees (U : Finset HashInput) (hU : canonInputs ⊆ U) 
   intro x
   rw [secretsOf_eager, privateSecrets_symm, eagerAnswers_mem]
 theorem agrees_chain {answers : Answers} {labels : Labels} (h : Agrees answers labels) :
-    ChainGraph.Agrees answers (seedsOf (secretsOf answers)) (chainLabels labels) :=
+    AgreesW answers (seedsOf (secretsOf answers)) (chainLabels labels) :=
   fun point => h (.chain point)
 
 section Honest
@@ -466,13 +466,15 @@ variable {answers : Answers} {labels : Labels}
 -- Stage 2 (C2/C3, #866): the paired honest section follows the #866 legacy section above (`chainValueW_succ`,
 -- `leafValue_eq`/`leafEnd_eq` through `Pos.proj` of the last chain step, `leafRoot_eq` through `Pos.proj` of the
 -- leaf label, `builtTree_eq` with `lowerNodeHash`); `Paired.cell` is `CanonGraph.cell` on the lower nodes.
+/-- Pairing stage 1: the honest chain of the current scheme (`WCT9.chainW`, G chains on the high half) after `step`
+steps is the label value `valueW`. -/
 theorem chainValue_eq (h : Agrees answers labels) (a : Address) (step : Nat) (hstep : step ≤ 7) :
-    honestChainValue answers a.layer a.tree.val a.leaf.val a.chain.val
+    Wots.honestChainValueW answers a.layer a.tree.val a.leaf.val a.chain.val
       (WCT9.wotsSeed answers a.layer a.tree.val a.leaf.val a.chain.val) step =
-      ChainGraph.value (seedsOf (secretsOf answers)) (chainLabels labels) a step := by
-  have hx := ChainGraph.source_chain answers (seedsOf (secretsOf answers)) (chainLabels labels) (agrees_chain h) a 0
+      valueW (seedsOf (secretsOf answers)) (chainLabels labels) a step := by
+  have hx := sourceW_chain answers (seedsOf (secretsOf answers)) (chainLabels labels) (agrees_chain h) a 0
     step (by omega)
-  rw [ChainGraph.value_zero, seedsOf_secretsOf, Nat.zero_add] at hx
+  rw [valueW_zero, seedsOf_secretsOf, Nat.zero_add] at hx
   exact hx
 theorem maxDigit_le_seven (lay : Layer) (i : Nat) : maxDigit lay i ≤ 7 := by
   unfold maxDigit
@@ -484,15 +486,13 @@ theorem chainValueW_succ (h : Agrees answers labels) (a : Address) (m : Fin 7) :
       (WCT9.wotsSeed answers a.layer a.tree.val a.leaf.val a.chain.val) (m.val + 1) =
       (Node.chain (a, m)).toPos.proj (labels (.chain (a, m))) := by
   have hm := m.isLt
-  rw [← Wots.honestChainValueW_succ, Wots.honestChainValueW_eq (step := m.val) (Or.inr (Or.inr (by omega))),
-    chainValue_eq h a m.val (by omega)]
-  have hrow : pad64 (chainInput a.layer a.tree.val a.leaf.val a.chain.val m.val
-      (ChainGraph.value (seedsOf (secretsOf answers)) (chainLabels labels) a m.val)) =
+  rw [← Wots.honestChainValueW_succ, chainValue_eq h a m.val (by omega)]
+  have hrow : pad64 (WCT9.chainInputW a.layer a.tree.val a.leaf.val a.chain.val m.val
+      (valueW (seedsOf (secretsOf answers)) (chainLabels labels) a m.val)) =
       cell (secretsOf answers) (.chain (a, m)) labels := by
-    have hr : ∀ v, chainInput a.layer a.tree.val a.leaf.val a.chain.val m.val v = ChainGraph.row (a, m) v :=
-      fun _ => rfl
     simp only [cell, CanonGraph.cell]
-    rw [ChainGraph.input, ChainGraph.prior_eq_value, hr, ChainGraph.row_pad64]
+    rw [inputW, priorW_eq_valueW]
+    exact WCT9.chainInputW_padded _ _ _ _ _ _
   have hp : (Node.chain (a, m)).toPos.proj = WCT9.halfOf (WCT9.chainHigh a.layer a.chain.val m.val) := rfl
   rw [hp, hrow, h (.chain (a, m))]
 /-- C3: a revealed chain value is the seed (digit 0) or the used half of the label of the step before it. -/
@@ -1079,9 +1079,9 @@ theorem honestInput_eq (answers : Answers) (labels : Labels) (h : Agrees answers
   cases node with
   | chain p=>
       simp only [Node.toPos,Extract.Paired.honestInput,Extract.honestInput]
-      rw [chainValue_eq h p.1 p.2.val (by have:=p.2.isLt;omega)]
-      change pad64 (SigGolfCandidate.T3.Security.ChainGraph.row p _)=SigGolfCandidate.T3.Security.ChainGraph.row p (SigGolfCandidate.T3.Security.ChainGraph.prior _ p _)
-      rw [SigGolfCandidate.T3.Security.ChainGraph.row_pad64,SigGolfCandidate.T3.Security.ChainGraph.prior_eq_value]
+      change pad64 (rowW p (Wots.honestChainValueW answers _ _ _ _ (WCT9.wotsSeed answers _ _ _ _) _)) =
+        rowW p (priorW _ p _)
+      rw [chainValue_eq h p.1 p.2.val (by have := p.2.isLt; omega), rowW_pad64, priorW_eq_valueW]
   | leaf L=>
       simp only [Node.toPos,Extract.Paired.honestInput,Extract.honestInput,cell,CanonGraph.cell]
       rw [leafEnds_eq h L.1]

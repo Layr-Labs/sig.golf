@@ -20,7 +20,7 @@ def chainP (index coord child chain start count : Nat) (a : Digest) (b : HeaderP
     (c value : Digest) : M Digest :=
   (List.range' start count).foldlM
     (fun v step => shortHash (chainInput index coord child chain step a b c v)) value
-def regionOffset (coord : Nat) : Nat := 176 + 896 * (8 - coord)
+def regionOffset (coord : Nat) : Nat := 80 + 896 * (8 - coord)
 def chainOffset (coord chain : Nat) : Nat := regionOffset coord + (640 - 64 * chain)
 def leafSlot (chain : Nat) : Nat := if chain = 0 then 688 else 720 + 16 * chain
 def chainPadA (w : WBytes) (coord chain : Nat) : Digest := wdig w (chainOffset coord chain)
@@ -66,8 +66,10 @@ def leafPad (w : WBytes) (coord : Nat) : Digest := wdig w (regionOffset coord + 
 def hashHi (input : HashInput) : M Digest := do
   pure ((← publicHash input).extractLsb' 128 128)
 /-- Witness slot of tree `coord`'s top sibling: the Z slot (`+864`) of the region below when the computed top
-node is the left one, its leaf pad (`+720`) otherwise; below tree 8 this is the virtual region (offsets 144, 0). -/
+node is the left one, its leaf pad (`+720`) otherwise; below tree 8 this is the virtual region (witness trim:
+offsets 64 (the R9 slot), 0). -/
 def topOtherOff (coord child : Nat) : Nat :=
+  if coord = 8 then (if child / 64 % 2 = 0 then 64 else 0) else
   if child / 64 % 2 = 0 then regionOffset coord - 32 else regionOffset coord - 176
 def topOther (w : WBytes) (coord child : Nat) : Digest := wdig w (topOtherOff coord child)
 /-- The eight 16-byte fields of the T8 leaf `end0 | header | pad | end1..end5`. -/
@@ -132,7 +134,10 @@ def sibling (w : WBytes) (coord child level : Nat) : Digest :=
 def leafPad (w : WBytes) (coord : Nat) : Digest := V3.leafPad w coord
 /-- The incoming R pad of a region: the level-four window is pinned at 128, so its pad is at 160 (the previous
 coordinate's hand-off writes 32 bytes at 144: junk low half on the level-four header, value on the pad). -/
-def handR (coord : Nat) : Nat := if coord = 9 then 768 else 160
+def handR (coord : Nat) : Nat := if coord = 9 then 864 else 160
+/-- Witness trim: the incoming leaf-pad (L) slot of a region; the virtual region 9 (offset `80 - 896`) has it at
+`816` (witness offset 0, absolute `WIT = 2904`), every real region at `720`. -/
+def handL (coord : Nat) : Nat := if coord = 9 then 816 else 720
 
 /-- C1 (FTS Merkle half-swap): the value computed at child level `m` (the leaf for `m = 0`, the output of fold
 level `m - 1` otherwise) is the high half of its hash output when it is a left input at a heap in `16..255`, i.e.
@@ -170,7 +175,7 @@ def childProgram (w : WBytes) (index : Nat) (k : Fin 9) (raw : Fin 128)
   childN w index k raw ends (leafPad w k.val) (nodePad w k.val (physical k.val raw.val) 4)
 
 def topOtherOff (coord child : Nat) : Nat :=
-  V3.regionOffset coord + (if direction coord child = 0 then handR (coord + 1) else 720) - 896
+  V3.regionOffset coord + (if direction coord child = 0 then handR (coord + 1) else handL (coord + 1)) - 896
 
 def topOther (w : WBytes) (coord child : Nat) : Digest := wdig w (topOtherOff coord child)
 

@@ -817,6 +817,7 @@ theorem leafPreS_of {s : MachineState} {A : LeafArgs} (hb : Base sk cache s) (hl
     (hdig : ∀ i < 54, s.getByte (BitVec.ofNat 64 (A.digp + i)) = BitVec.ofNat 8 (A.d i))
     (hdigb : ∀ i < 54, A.d i < 256 ∧ (A.so = false → A.d i ≤ maxDigit 0 i))
     (hdigp : A.digp + 54 ≤ 2 ^ 24) (hdigW : ∀ i < 54, ¬ LeafW A ((A.digp + i) / 8 * 8))
+    (hdigC : A.digp + 54 ≤ 0x201C0 ∨ 0x20210 ≤ A.digp)
     (hv8 : A.valp % 8 = 0) (hv : A.valp + 16 * 54 ≤ 2 ^ 24)
     (hvs : A.valp + 16 * 54 ≤ PRIV ∨ LEAFPK + 960 ≤ A.valp) (hd8 : A.so = false → A.dest % 8 = 0)
     (hd : A.dest + 16 ≤ 2 ^ 24) (hds : A.dest + 16 ≤ PRIV ∨ LEAFPK + 960 ≤ A.dest ∨ (CHAIN + 80 ≤ A.dest ∧ A.dest + 16 ≤ LOUT))
@@ -851,13 +852,12 @@ theorem leafPreS_of {s : MachineState} {A : LeafArgs} (hb : Base sk cache s) (hl
       p56 := hb.p56
       z0 := hb.zero _ (by packed_sgo) (by unfold NeverW; simp)
       z8 := hb.zero _ (by packed_sgo) (by unfold NeverW; simp)
-      z32 := hb.zero _ (by packed_sgo) (by unfold NeverW; simp)
-      z40 := hb.zero _ (by packed_sgo) (by unfold NeverW; simp)
       hsl := fun h => absurd (h.symm.trans hso) (by decide)
       hdig := fun i hi => hdig i (by rw [hn] at hi; exact hi)
       hdigb := fun i hi => by rw [hlay]; exact hdigb i (by rw [hn] at hi; exact hi)
       hdigp := by rw [hn]; exact hdigp
       hdigW := fun i hi => hdigW i (by rw [hn] at hi; exact hi)
+      hdigC := by rw [hn]; exact hdigC
       hv8 := hv8
       hv := by rw [hn]; exact hv
       hvs := by rw [hn]; exact hvs
@@ -1005,6 +1005,7 @@ theorem l0Spec_of (hTop : TopLeafSpec) (hK : CounterSearchSpec sk) : L0Spec leaf
         rw [u1f.getByte (by packed_sgo) (fun h => h)]; exact udig i hi)
       (fun i hi => ⟨by show ds.getD i 0 < 256; have := hd7 i hi; omega, fun h => by simp [tl0] at h⟩)
       (by show DIGITS + 54 ≤ 2 ^ 24; packed_sgo) (fun i hi => by unfold LeafW; simp only [tl0, LeafArgs.n, chainCount, Matrix.cons_val_zero, ↓reduceIte]; packed_sgo)
+      (Or.inr (by show 0x20210 ≤ DIGITS; packed_sgo))
       (by show (SIG + 2192) % 8 = 0; packed_sgo) (by show SIG + 2192 + 16 * 54 ≤ 2 ^ 24; packed_sgo)
       (Or.inl (by show SIG + 2192 + 16 * 54 ≤ PRIV; packed_sgo)) (fun h => by simp [tl0] at h)
       (by show dest0 + 16 ≤ 2 ^ 24; omega) (Or.inl (by show dest0 + 16 ≤ PRIV; packed_sgo))
@@ -1303,6 +1304,7 @@ theorem leafPreS_of {s : MachineState} {A : LeafArgs} (hb : SharedTopPath.StateB
     (hdig : ∀ i < 54, s.getByte (BitVec.ofNat 64 (A.digp + i)) = BitVec.ofNat 8 (A.d i))
     (hdigb : ∀ i < 54, A.d i < 256 ∧ (A.so = false → A.d i ≤ maxDigit 0 i))
     (hdigp : A.digp + 54 ≤ 2 ^ 24) (hdigW : ∀ i < 54, ¬ LeafW A ((A.digp + i) / 8 * 8))
+    (hdigC : A.digp + 54 ≤ 0x201C0 ∨ 0x20210 ≤ A.digp)
     (hv8 : A.valp % 8 = 0) (hv : A.valp + 16 * 54 ≤ 2 ^ 24)
     (hvs : A.valp + 16 * 54 ≤ PRIV ∨ LEAFPK + 960 ≤ A.valp) (hd8 : A.so = false → A.dest % 8 = 0)
     (hd : A.dest + 16 ≤ 2 ^ 24) (hds : A.dest + 16 ≤ PRIV ∨ LEAFPK + 960 ≤ A.dest ∨ (CHAIN + 80 ≤ A.dest ∧ A.dest + 16 ≤ LOUT))
@@ -1337,13 +1339,12 @@ theorem leafPreS_of {s : MachineState} {A : LeafArgs} (hb : SharedTopPath.StateB
       p56 := hb.p56
       z0 := hb.zero _ (by packed_sgo) (by unfold NeverW; simp)
       z8 := hb.zero _ (by packed_sgo) (by unfold NeverW; simp)
-      z32 := hb.zero _ (by packed_sgo) (by unfold NeverW; simp)
-      z40 := hb.zero _ (by packed_sgo) (by unfold NeverW; simp)
       hsl := fun h => absurd (h.symm.trans hso) (by decide)
       hdig := fun i hi => hdig i (by rw [hn] at hi; exact hi)
       hdigb := fun i hi => by rw [hlay]; exact hdigb i (by rw [hn] at hi; exact hi)
       hdigp := by rw [hn]; exact hdigp
       hdigW := fun i hi => hdigW i (by rw [hn] at hi; exact hi)
+      hdigC := by rw [hn]; exact hdigC
       hv8 := hv8
       hv := by rw [hn]; exact hv
       hvs := by rw [hn]; exact hvs
@@ -1372,7 +1373,7 @@ def LeafSpec (im : Image) : Prop :=
   ∀ (sk : SecretKey) (A : LeafArgs) (s : MachineState),
     A.lay = 0 → A.so = true → A.tree = 0 → (∀ i < A.n, A.d i ≤ 7) →
     A.valp + 16*A.n ≤ 0x60000 → A.digp+A.n ≤ 0x60000 → A.dest+16 ≤ 0x60000 →
-    LeafPreS sk s A → s.pc=pcOf (1013+27) →
+    LeafPreS sk s A → SigGolfCandidate.T3M.Sign.Seed.Z32 s → s.pc=pcOf (1013+27) →
     TBSim im sk s topLeafC (SigGolfCandidate.T3.buildLeafTop A.leaf A.digits A.so)
       (fun r t => t.pc=pcOf A.ret ∧ DigsAt t A.valp r.2 ∧ r.2.length=A.n ∧
         RegsExcept s t leafRegs ∧ Frame s t (fun X => LeafW A X ∨ SigGolfCandidate.T3M.Sign.Packed.TopScr X))
@@ -1408,6 +1409,7 @@ theorem top_only (hcode : SharedTopBlocks.Code im) (hTop : LeafSpec im)
         rw [u1f.getByte (by packed_sgo) (fun h => h)]; exact udig i hi)
       (fun i hi => ⟨by show ds.getD i 0 < 256; have := hd7 i hi; omega, fun h => by simp [tl0] at h⟩)
       (by show DIGITS + 54 ≤ 2 ^ 24; packed_sgo) (fun i hi => by unfold LeafW; simp only [tl0, LeafArgs.n, chainCount, Matrix.cons_val_zero, ↓reduceIte]; packed_sgo)
+      (Or.inr (by show 0x20210 ≤ DIGITS; packed_sgo))
       (by show (SIG + 2192) % 8 = 0; packed_sgo) (by show SIG + 2192 + 16 * 54 ≤ 2 ^ 24; packed_sgo)
       (Or.inl (by show SIG + 2192 + 16 * 54 ≤ PRIV; packed_sgo)) (fun h => by simp [tl0] at h)
       (by show dest0 + 16 ≤ 2 ^ 24; omega) (Or.inl (by show dest0 + 16 ≤ PRIV; packed_sgo))
@@ -1416,7 +1418,8 @@ theorem top_only (hcode : SharedTopBlocks.Code im) (hTop : LeafSpec im)
       (by change leaf < 4096; omega)
       (fun i hi => by have := hd7 i hi; change ds.getD i 0 ≤ 8; omega)
   have hL0 := hTop sk (tl0 leaf ds dest0) u1 rfl rfl rfl hd7 (by show SIG + 2192 + 16 * 54 ≤ 0x60000; packed_sgo)
-    (by show DIGITS + 54 ≤ 0x60000; packed_sgo) (by show dest0 + 16 ≤ 0x60000; omega) hp0 u1pc
+    (by show DIGITS + 54 ≤ 0x60000; packed_sgo) (by show dest0 + 16 ≤ 0x60000; omega) hp0
+    ⟨hbu1.zero _ (by decide) (by unfold NeverW; simp), hbu1.zero _ (by decide) (by unfold NeverW; simp)⟩ u1pc
   try dsimp only
   rw [signTop]
   refine TBSim.mono (TBSim.steps su1 (TBSim.bind (W₂ := 30000) hL0 (fun r0 v0 hv0 => ?_)))

@@ -126,9 +126,26 @@ theorem lowerNodeHash_dn (lay : Layer) (tree heap : Nat) (left right : Digest) (
       have h128 : heap < 128 := lt_of_lt_of_le hh (le_trans (Nat.pow_le_pow_right (by decide) h7) (by norm_num))
       rw [WCT9.lowerTweak_toNat h128]
       omega
+/-- Pairing stage 1: a step of the current scheme (F or G row) is no digest query. -/
+theorem chainStepW_dn (lay : Layer) (tree leaf i step : Nat) (value : Digest) :
+    AllQueriesSatisfy (shortHash (ClaudeWCT.WCT9.chainInputW lay tree leaf i step value)) SigGolfCandidate.T3.Security.BPair.NotDN := by
+  unfold shortHash publicHash
+  apply SourceQueries.bind_allowed SigGolfCandidate.T3.Security.BPair.NotDN
+  · apply (allQueriesSatisfy_query_iff _ _).mpr
+    intro hm
+    obtain ⟨rho, m, ctr, he⟩ := SigGolfCandidate.T3.Security.BPair.mem_digestInputs.mp hm
+    have hh := congrArg SigGolfCandidate.T3M.Extract.hdrBlock he
+    rw [ClaudeWCT.WCT9.chainInputW_padded,
+      SigGolfCandidate.T3M.Extract.hdrBlock_pad64 _ (by rw [SigGolfCandidate.T3.Security.BPair.digestInput_length]; omega)] at hh
+    change ((ClaudeWCT.WCT9.chainInputW lay tree leaf i step value).drop 16).take 16 = _ at hh
+    rw [ClaudeWCT.WCT9.chainInputW_header] at hh
+    unfold digestInput at hh
+    rw [SigGolfCandidate.T3M.Extract.hdrBlock_prefix] at hh
+    exact chainHeader_ne_digestHeader _ _ _ _ _ _ (SphincsSecurity.bytesLE_injective hh)
+  · intro _; exact SourceQueries.pure_allowed _ _
 theorem buildTreeP_dn (lay : Layer) (tree selected : Nat) (digits : List Nat) :
     AllQueriesSatisfy (WCT9.buildTreeP lay tree selected digits) NotDN :=
-  Signer.buildTreeP_allowed' NotDN SigGolfCandidate.T3.Security.BPair.chain_dn
+  Signer.buildTreeP_allowed' NotDN chainStepW_dn
     SigGolfCandidate.T3.Security.BPair.leafHash_dn
     (fun lay tree heap left right hh => lowerNodeHash_dn lay tree heap left right hh)
     (fun lay tree pair => by
@@ -376,6 +393,7 @@ set_option backward.isDefEq.respectTransparency false
 
 theorem tail_notDN : SharedQueries.TailAllowed NotDN where
   chainStep := SigGolfCandidate.T3.Security.BPair.chainStep_dn
+  chainStepW := chainStepW_dn
   leaf := SigGolfCandidate.T3.Security.BPair.leafHash_dn
   node := fun lay tree heap left right hh => WPair.lowerNodeHash_dn lay tree heap left right hh
   seed := fun _ _ _ => SigGolfCandidate.T3.Security.BPair.privatePair_dn _ _ _ _ _
