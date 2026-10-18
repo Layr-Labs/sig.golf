@@ -1228,7 +1228,7 @@ theorem case_enc_known (hcoh : Coherent U T vals nv τ a) (hrel : Rel U T vals n
         tickReq U .call
         pure (prefixValue a L ctr, st.after X)
       else (fun y => (y, st.after X)) <$>
-        testReq U (decide (X ∉ st.seen)) ⟨X, hX⟩ ⟨none, encodingHit L.1.lay (refDigest a L)⟩) ws) := by
+        testReq U (decide (X ∉ st.seen)) ⟨X, hX⟩ ⟨none, encodingHitSel L.1.lay (refDigest a L)⟩) ws) := by
   have hall := firstUnknownMsg_none hkm
   have hnp : ¬Parsed X := by rw [hXe]; exact not_parsed_of_encRow ⟨L, m, ctr, pad, hfit, rfl⟩
   have hnd : ¬IsDigestRow X := by rw [hXe]; exact encRow_not_digest L m ctr pad
@@ -1299,26 +1299,26 @@ theorem case_enc_known (hcoh : Coherent U T vals nv τ a) (hrel : Rel U T vals n
     have hfresh := hrel1.fresh X hX hnd
     have hcomp := observed_testReq (U := U) (q := q) (vals := vals) (nv := nv) (τ := τ) (st := st)
       (ws := discloseStates U q (Sum.elim vals nv) ws ((msgSlots L).map Prod.fst)) aux
-      (st.after X) X hX ⟨none, encodingHit L.1.lay (refDigest a L)⟩ hfresh
+      (st.after X) X hX ⟨none, encodingHitSel L.1.lay (refDigest a L)⟩ hfresh
     refine queryOutcome_congr hcomp ?_
     rw [effF_self _ _ (by intro g hg; cases hg)]
-    have hadm : ∀ g ∈ (⟨none, encodingHit L.1.lay (refDigest a L)⟩ : Probe WCoord).guess, ∀ parent,
-        (⟨none, encodingHit L.1.lay (refDigest a L)⟩ : Probe WCoord).hit = Hit.label parent → g.1 ≠ parent := by
+    have hadm : ∀ g ∈ (⟨none, encodingHitSel L.1.lay (refDigest a L)⟩ : Probe WCoord).guess, ∀ parent,
+        (⟨none, encodingHitSel L.1.lay (refDigest a L)⟩ : Probe WCoord).hit = Hit.label parent → g.1 ≠ parent := by
       intro g hg; cases hg
     by_cases hs : X ∈ st.seen
     · rw [if_neg (not_not.mpr hs)]
       exact continue_read_call hrel1 hlt X hX hnd hTX (fun h => h.1 hs) hcell henc
     · rw [if_pos hs]
-      by_cases hk : (⟨none, encodingHit L.1.lay (refDigest a L)⟩ : Probe WCoord).keep (Sum.elim vals nv) (τ ⟨X, hX⟩)
+      by_cases hk : (⟨none, encodingHitSel L.1.lay (refDigest a L)⟩ : Probe WCoord).keep (Sum.elim vals nv) (τ ⟨X, hX⟩)
       · rw [if_pos hk]
         have hnc : ¬(X ∉ st.seen ∧ X ∈ U ∧ ContactTest T st.known X (T (.inl (.inr X)))) := by
           rintro ⟨-, -, hc⟩
           rw [hct, hTX] at hc
-          exact ((keep_encodingHit (Sum.elim vals nv) _ _ _).mp hk) hc.2.symm
+          exact ((keep_encodingHitSel (Sum.elim vals nv) _ _ _).mp hk) hc.2.symm
         exact continue_probe hrel1 hlt X hX _ hk hadm hTX hnd hnc hcell henc
       · rw [if_neg hk]
         refine outcome_stop hrel1 hlt X _ ⟨hs, hX, (hct _).mpr ⟨hri, ?_⟩⟩ rfl
-        rw [keep_encodingHit, not_not] at hk
+        rw [keep_encodingHitSel, not_not] at hk
         rw [hTX]
         exact hk.symm
 theorem case_enc_unknown (hcoh : Coherent U T vals nv τ a) (hrel : Rel U T vals nv τ a q mon st ws)
@@ -1429,7 +1429,8 @@ structure Coherent (U : Finset HashInput) (T : Answers) (vals : Coord → Digest
     T (.inl (.inr (Wots.encRow L.toWots (msgVals vals L) ctr 0)))=prefixValue a L ctr
   search : ∀L : CanonEncoding.EncLeaf,
     Wots.CanonicalRef.referenceSearch T (Wots.CanonicalRef.sourceMessages T) L.toWots =
-      (a.sel L).bind fun r => (WCT9.CanonicalPolicy.decode L.1.lay r.2).map fun d => (BitVec.ofNat 32 r.1.val,d)
+      (a.sel L).bind fun r => (WCT9.CanonicalPolicy.decode L.1.lay r.2).map fun d =>
+        (BitVec.ofNat 32 r.1.val,d,WCT9.lowSelected L.1.lay (a.rows L r.1))
   priv : ∀c : Coordinate,(∀i : Fin 2,(c,i)∉Set.range secretCoordinate) → (∀m : Message,c≠.inr (.inl m)) →
     T (.inr c)=a.priv c
   outside : ∀X,X∉U → T (.inl (.inr X))=(0 : HashOutput)
@@ -1665,8 +1666,38 @@ theorem Coherent.sel_valid (h : Coherent U T vals nv τ a) (L : EncLeaf)
     {r : Fin (2^22)×Digest} (hs : a.sel L=some r) :
     ∃ds,WCT9.CanonicalPolicy.decode L.1.lay r.2=some ds := by
   obtain ⟨remaining,_,hr⟩ := h.sel_context L hs
-  obtain ⟨ds,hd⟩ := CanonEncoding.Paired.selectionAt_producer hr
-  exact ⟨ds,(WCT9.CanonicalPolicy.producerDecodeAt_spec hd).1⟩
+  obtain ⟨⟨ds,low⟩,hd,hv⟩ := CanonEncoding.Paired.selectionAt_producer hr
+  have hdec := (WCT9.CanonicalPolicy.producerDecodeAt_spec (WCT9.CanonicalPolicy.producerDecodeOut_spec hd).2).1
+  rw [hv] at hdec
+  exact ⟨ds,hdec⟩
+
+theorem Coherent.referenceLow (h : Coherent U T vals nv τ a) (L : CanonEncoding.EncLeaf) :
+    Wots.CanonicalRef.referenceLow T (Wots.CanonicalRef.sourceMessages T) L.toWots =
+      ((a.sel L).bind fun r => (WCT9.CanonicalPolicy.decode L.1.lay r.2).map fun _ =>
+        WCT9.lowSelected L.1.lay (a.rows L r.1)).getD true := by
+  unfold Wots.CanonicalRef.referenceLow
+  rw [h.search]
+  cases hs : a.sel L with
+  | none => rfl
+  | some r =>
+      simp only [Option.bind_some]
+      cases WCT9.CanonicalPolicy.decode L.1.lay r.2 <;> rfl
+
+theorem Coherent.routerLows_eq (h : Coherent U T vals nv τ a) (L : Wots.LeafAddr)
+    (hL : ∃L' : CanonEncoding.EncLeaf,L'.toWots=L) :
+    routerLows a L=Wots.CanonicalRef.referenceLow T (Wots.CanonicalRef.sourceMessages T) L := by
+  unfold routerLows
+  rw [dif_pos hL]
+  have hs := Classical.choose_spec hL
+  have hlay : (Classical.choose hL).1.lay=L.lay := congrArg Wots.LeafAddr.lay hs
+  conv_rhs => rw [←hs]
+  rw [h.referenceLow,hlay]
+  cases hsel : a.sel (Classical.choose hL) with
+  | none => rfl
+  | some r =>
+      obtain ⟨ds,hd⟩ := h.sel_valid _ hsel
+      have hd' : WCT9.CanonicalPolicy.decode L.lay r.2 = some ds := by rw [← hlay]; exact hd
+      simp only [Option.map_some, Option.bind_some, hd, hd', Option.getD_some]
 
 theorem Coherent.search_isSome (h : Coherent U T vals nv τ a) (L : EncLeaf) :
     (Wots.CanonicalRef.referenceSearch T (Wots.CanonicalRef.sourceMessages T) L.toWots).isSome =
@@ -1707,43 +1738,13 @@ theorem Coherent.decode_ref (h : Coherent U T vals nv τ a) (L : EncLeaf)
   · intro hd';exact decode_some_injective hd' hd
   · rintro rfl;exact hd
 
-theorem Coherent.prefix_ref (h : Coherent U T vals nv τ a) (L : EncLeaf) (ctr : BitVec 32)
-    (hp : PrefixRow a L ctr) (hs : (a.sel L).isSome)
-    (hd : WCT9.CanonicalPolicy.decode L.1.lay (WCT9.encodingAnswer L.1.lay (prefixValue a L ctr))=
-      some (Wots.CanonicalRef.referenceDigits T (Wots.CanonicalRef.sourceMessages T) L.toWots)) :
-    Wots.CanonicalRef.referenceInput T (Wots.CanonicalRef.sourceMessages T) L.toWots=
-      some (Wots.encRow L.toWots (msgVals vals L) ctr 0) := by
-  obtain ⟨r,hr⟩ := Option.isSome_iff_exists.mp hs
-  obtain ⟨remaining,hctx,hsel⟩ := h.sel_context L hr
-  obtain ⟨ds,hprod⟩ := CanonEncoding.Paired.selectionAt_producer hsel
-  have hdec := (WCT9.CanonicalPolicy.producerDecodeAt_spec hprod).1
-  have href : Wots.CanonicalRef.referenceDigits T (Wots.CanonicalRef.sourceMessages T) L.toWots=ds := by
-    rw [h.referenceDigits,hr]
-    simp only [Option.bind_some,hdec,Option.getD_some]
-  rw [href] at hd
-  obtain ⟨_,hcap,hle⟩ := hp
-  have hlt : ctr.toNat<2^22 := lt_of_lt_of_le hcap (WCT9.searchLimit_le L.1.lay)
-  have hpv : prefixValue a L ctr=a.rows L ⟨ctr.toNat,hlt⟩ := by unfold prefixValue;rw [dif_pos hlt]
-  rw [hpv] at hd
-  have hv : WCT9.encodingAnswer L.1.lay (a.rows L ⟨ctr.toNat,hlt⟩)=r.2 := decode_some_injective hd hdec
-  have hraw := (capSel_eq_some.mp hsel).1
-  have hle' := hle r hr
-  have heq : ctr.toNat=r.1.val := by
-    by_contra hne
-    have hc : (⟨ctr.toNat,hlt⟩ : Fin (2^22))<r.1 := by change ctr.toNat<r.1.val;omega
-    have hn := ((FirstSuccessTable.select_some_iff _ _ r.1 r.2).mp hraw).2 ⟨ctr.toNat,hlt⟩ hc
-    have hdAt : CanonEncoding.Paired.decodeAt L (WCT9.CanonicalPolicy.threshold L.1.lay.val remaining)
-        (a.rows L ⟨ctr.toNat,hlt⟩)=some r.2 := by
-      simp only [CanonEncoding.Paired.decodeAt,hv,hprod,Option.isSome_some,if_true]
-    rw [hdAt] at hn
-    cases hn
-  unfold Wots.CanonicalRef.referenceInput
-  rw [h.search,h.leafMsg,hr]
-  simp only [Option.bind_some,hdec,Option.map_some]
-  congr 2
-  apply BitVec.eq_of_toNat_eq
-  rw [BitVec.toNat_ofNat,←heq]
-  exact Nat.mod_eq_of_lt (by omega)
+theorem Coherent.canDecode_ref (h : Coherent U T vals nv τ a) (L : EncLeaf)
+    (hs : (a.sel L).isSome) (y : HashOutput) :
+    WCT9.encodingCanDecode L.1.lay y
+      (Wots.CanonicalRef.referenceDigits T (Wots.CanonicalRef.sourceMessages T) L.toWots) ↔
+      WCT9.encodingTarget L.1.lay (refDigest a L) y = refDigest a L :=
+  WCT9.encodingCanDecode_iff_target _ _ _ _ ((h.decode_ref L hs _).mpr rfl)
+
 end Coherent
 end ClaudeWCT.W9.T3.Security.LargeResidual.Paired
 
@@ -2306,8 +2307,9 @@ theorem contactTest_enc {A : Answers} {K : Coord→Prop} {y : HashOutput} {L : E
     ContactTest A K (Wots.encRow L.toWots m c pad) y ↔
       Wots.CanonicalRef.referenceSearch A (Wots.CanonicalRef.sourceMessages A) L.toWots≠none ∧
       Wots.CanonicalRef.referenceInput A (Wots.CanonicalRef.sourceMessages A) L.toWots≠some (Wots.encRow L.toWots m c pad) ∧
-      WCT9.CanonicalPolicy.decode L.1.lay (WCT9.encodingAnswer L.1.lay y)=
-        some (Wots.CanonicalRef.referenceDigits A (Wots.CanonicalRef.sourceMessages A) L.toWots) := by
+      Wots.CanonicalRef.NotSearched A (Wots.CanonicalRef.sourceMessages A) L.toWots (Wots.encRow L.toWots m c pad) ∧
+      WCT9.encodingCanDecode L.1.lay y
+        (Wots.CanonicalRef.referenceDigits A (Wots.CanonicalRef.sourceMessages A) L.toWots) := by
   constructor
   · rintro (⟨N',_,hN',_⟩ | ⟨L',m',c',pad',_,hX,h⟩)
     · rw [encodingRow_parsed_none] at hN';cases hN'
@@ -2758,7 +2760,8 @@ theorem case_enc_known (hcoh : LargeResidual.Paired.Coherent U T vals nv τ a) (
   have hct : ∀y : HashOutput,ContactTest T (LargeResidual.Paired.RouterState.known st) X y ↔
       (a.sel L).isSome ∧
         Wots.CanonicalRef.referenceInput T (Wots.CanonicalRef.sourceMessages T) L.toWots≠some X ∧
-        WCT9.encodingAnswer L.1.lay y=refDigest a L := by
+        Wots.CanonicalRef.NotSearched T (Wots.CanonicalRef.sourceMessages T) L.toWots X ∧
+        WCT9.encodingTarget L.1.lay (refDigest a L) y=refDigest a L := by
     intro y
     rw [hXe,LargeResidual.Paired.contactTest_enc hfit,←hXe]
     have hs : Wots.CanonicalRef.referenceSearch T (Wots.CanonicalRef.sourceMessages T) L.toWots≠none ↔
@@ -2766,10 +2769,10 @@ theorem case_enc_known (hcoh : LargeResidual.Paired.Coherent U T vals nv τ a) (
       rw [←Option.isSome_iff_ne_none,hcoh.search_isSome]
     rw [hs]
     constructor
-    · rintro ⟨hsel,hi,hd⟩
-      exact ⟨hsel,hi,(hcoh.decode_ref L hsel _).mp hd⟩
-    · rintro ⟨hsel,hi,hd⟩
-      exact ⟨hsel,hi,(hcoh.decode_ref L hsel _).mpr hd⟩
+    · rintro ⟨hsel,hi,hns,hd⟩
+      exact ⟨hsel,hi,hns,(hcoh.canDecode_ref L hsel _).mp hd⟩
+    · rintro ⟨hsel,hi,hns,hd⟩
+      exact ⟨hsel,hi,hns,(hcoh.canDecode_ref L hsel _).mpr hd⟩
   have hcell : ∀ N' : CanonGraph.Node, CanonGraph.Paired.Filtered.Used N' → X = cellValues N' vals → ∀ cs ∈ childSlots N', (LargeResidual.Paired.RouterState.known st) cs.1 :=
     fun N' hu' hN' => absurd hN' (LargeResidual.Paired.not_cell_unparsed hcoh hnp N' hu')
   have henc : ∀ (L' : EncLeaf) (ctr' : BitVec 32), X = Wots.encRow L'.toWots (msgVals vals L') ctr' 0 →
@@ -2784,13 +2787,25 @@ theorem case_enc_known (hcoh : LargeResidual.Paired.Coherent U T vals nv τ a) (
       rw [hpre.1]
       exact hcoh.prefixRow L ctr hpre.2
     have hnc : ¬(X ∉ st.seen ∧ X ∈ U ∧ ContactTest T (LargeResidual.Paired.RouterState.known st) X (T (.inl (.inr X)))) := by
+      -- A searched honest row is never an encoding contact (path-aware floors: see `NotSearched`).
       rintro ⟨-, -, hc⟩
       rw [hct] at hc
-      apply hc.2.1
-      rw [hpre.1]
-      apply hcoh.prefix_ref L ctr hpre.2 hc.1
-      rw [← hTX]
-      exact (hcoh.decode_ref L hc.1 _).mpr hc.2.2
+      obtain ⟨hsel, -, hns, -⟩ := hc
+      obtain ⟨r, hr⟩ := Option.isSome_iff_exists.mp hsel
+      obtain ⟨ds, hd⟩ := hcoh.sel_valid L hr
+      have hfound : Wots.CanonicalRef.referenceSearch T (Wots.CanonicalRef.sourceMessages T) L.toWots =
+          some (BitVec.ofNat 32 r.1.val, ds, WCT9.lowSelected L.1.lay (a.rows L r.1)) := by
+        rw [hcoh.search, hr]
+        simp only [Option.bind_some, hd, Option.map_some]
+      have hle : ctr.toNat ≤ (BitVec.ofNat 32 r.1.val).toNat := by
+        rw [BitVec.toNat_ofNat, Nat.mod_eq_of_lt (by have := r.1.isLt; omega)]
+        exact hpre.2.2.2 r hr
+      have hctr : BitVec.ofNat 32 ctr.toNat = ctr := by
+        apply BitVec.eq_of_toNat_eq
+        rw [BitVec.toNat_ofNat]
+        exact Nat.mod_eq_of_lt ctr.isLt
+      apply hns _ hfound ctr.toNat hle
+      rw [hpre.1, hcoh.leafMsg L, hctr]
     apply outcome_continue hrel1 hlt X _ hnc
       (tickState q (discloseStates U q (Sum.elim vals nv) ws ((msgSlots L).map Prod.fst)) .call)
     · rw [hnext, hTX]
@@ -2837,10 +2852,33 @@ theorem case_enc_known (hcoh : LargeResidual.Paired.Coherent U T vals nv τ a) (
           have hnc : ¬(X ∉ st.seen ∧ X ∈ U ∧ ContactTest T (LargeResidual.Paired.RouterState.known st) X (T (.inl (.inr X)))) := by
             rintro ⟨-, -, hc⟩
             rw [hct, hTX] at hc
-            exact ((keep_encodingHit (Sum.elim vals nv) _ _ _).mp hk) hc.2.2.symm
+            exact ((keep_encodingHit (Sum.elim vals nv) _ _ _).mp hk) hc.2.2.2.symm
           exact continue_probe hrel1 hlt X hX _ hk hadm hTX hnd hnc hcell henc
         · rw [if_neg hk]
-          refine outcome_stop hrel1 hlt X _ ⟨hs, hX, (hct _).mpr ⟨hsel,hri,?_⟩⟩ rfl
+          have hns : Wots.CanonicalRef.NotSearched T (Wots.CanonicalRef.sourceMessages T) L.toWots X := by
+            intro found hfound c hc heq
+            apply hpre
+            obtain ⟨r, hr⟩ := Option.isSome_iff_exists.mp hsel
+            obtain ⟨ds, hd⟩ := hcoh.sel_valid L hr
+            have hfound' : Wots.CanonicalRef.referenceSearch T (Wots.CanonicalRef.sourceMessages T) L.toWots =
+                some (BitVec.ofNat 32 r.1.val, ds, WCT9.lowSelected L.1.lay (a.rows L r.1)) := by
+              rw [hcoh.search, hr]
+              simp only [Option.bind_some, hd, Option.map_some]
+            rw [hfound'] at hfound
+            cases hfound
+            have hr1 : (BitVec.ofNat 32 r.1.val).toNat = r.1.val := by
+              rw [BitVec.toNat_ofNat]; exact Nat.mod_eq_of_lt (by have := r.1.isLt; omega)
+            rw [hr1] at hc
+            rw [hXe] at heq
+            have hc' := (encRow_encLeaf heq).2
+            obtain ⟨remaining, hctx, hselAt⟩ := hcoh.sel_context L hr
+            have hcap := (capSel_eq_some.mp hselAt).2
+            have hctrc : ctr.toNat = c := by
+              rw [hc', BitVec.toNat_ofNat]; exact Nat.mod_eq_of_lt (by have := r.1.isLt; omega)
+            refine ⟨?_, by rw [hctx]; rfl, by omega, fun r' hr' => ?_⟩
+            · rw [hXe, heq, hcoh.leafMsg L, hc']
+            · rw [hr] at hr'; cases hr'; omega
+          refine outcome_stop hrel1 hlt X _ ⟨hs, hX, (hct _).mpr ⟨hsel,hri,hns,?_⟩⟩ rfl
           rw [keep_encodingHit, not_not] at hk
           rw [hTX]
           exact hk.symm

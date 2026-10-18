@@ -15,7 +15,7 @@ theorem layout_offsets : submission.layout =
   { message := 26144, secretKey := 128, publicKey := 160,
     cache := 524288, signature := 28672, witness := 2904 } := rfl
 
-theorem certificate : SigGolf.Certificate submission 6990 := by
+theorem certificate : SigGolf.Certificate submission 6975 := by
   exact SigGolfCandidate.Packaging.certificate_ready
 
 end SigGolf.Challenge
@@ -26,10 +26,7 @@ end SigGolf.Challenge
 #print axioms SigGolf.Challenge.layout_offsets
 #print axioms SigGolf.Challenge.certificate
 
-/- Paired C4 reconstruction on stage2 b881a25 plus coordinate-8 hoist 188758f.
-C4 donor: e244da45126332f078d6c26ed610161462afa61d. Top-tree spill-down saves
-12 stores, while the coordinate-label adjustment costs one instruction.
-Raw bound: 11 + (870 + 778) + 5240 = 6899. Witness charge: 91 (pairing stage 1: W 24828 -> 23236, witness offset 1312 -> 2904).
-S=5248, W=23236, K=131072, C=6990; score=36683520.
-The reconstructed proofs are UNCOMPILED; see HANDOFF.md for fresh emulator
-results, provenance, and the Mac build checklist. -/
+/- Paired line (#900 paired FTS openings) with C1/C2/C3/C4, coordinate-8 hoist and pairing stage 1 (564ba604), plus
+the restricted top-half choice with a witness hint and path-aware credit floors (top +3, lower +4; pool 72).
+Raw bound: 11 + (870 + 778) + 5225 = 6884. Witness charge: 91 (W 23236, witness offset 2904).
+S=5248, W=23236, K=131072, C=6975; score=36604800. -/

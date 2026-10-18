@@ -361,14 +361,19 @@ theorem good_shape_readout (answers : Answers) (messages : LeafAddr → WCT9.Lay
       wvalueFor wb lay digits i.val = (sig.layers lay).values i)
     (hpath : ∀ lay (j : Fin (height lay)),
       wpath wb lay (route index lay).1 j.val = (sig.layers lay).path j) :
-    ∀ lay, ∃ digits, WCT9.CanonicalPolicy.decode lay
+    ∀ lay, HonestHint answers messages wb index lay → ∃ digits, WCT9.CanonicalPolicy.decode lay
       (evalWithAnswerFn answers (WCT9.encodingHash lay (WCT9.layerEncodingInput lay
         (route index lay).2 (route index lay).1 (messages (routeLeaf index lay)) (counters lay)))) = some digits ∧
       sig.layers lay = piecesSignature lay (WCT9.wotsPieces answers lay
         (route index lay).2 (route index lay).1 digits) := by
-  intro lay
-  obtain ⟨⟨digits, hframe, hs⟩, hpad, hhigh⟩ := hg lay
-  have hd := hframe.2
+  intro lay hhint
+  obtain ⟨himp, hpad, hhigh⟩ := hg lay
+  obtain ⟨digits, hframe, hs⟩ := himp hhint
+  have hd : WCT9.CanonicalPolicy.decode lay (evalWithAnswerFn answers (WCT9.encodingHash lay
+      (layerEncodingInputP lay (route index lay).2 (route index lay).1 (messages (routeLeaf index lay))
+        (wbcCtr wb index lay) (wbcPad wb index lay) (wbcRight wb) (wbcHigh wb index lay)))) = some digits := by
+    rw [WCT9.eval_encodingHash, ← hhint]
+    exact hframe.2
   -- C3 (#866): the honest row has the zero 12-byte pad and the row-tweak high word 1.
   have he (counter : BitVec 32) :
       WCT9.encodingHash lay (layerEncodingInputP lay (route index lay).2 (route index lay).1
@@ -403,7 +408,8 @@ theorem good_shape_witEnc (answers : Answers) (output : HashOutput)
     (w : SigGolfCandidate.Research.SharedForest.Witness)
     (hg : ∀ lay, Good answers (CanonicalRef.sourceMessages answers) (Paired.witEnc output w)
       (WCT9.digestIndex output) lay) :
-    ∀ lay, ∃ digits, WCT9.CanonicalPolicy.decode lay
+    ∀ lay, HonestHint answers (CanonicalRef.sourceMessages answers) (Paired.witEnc output w)
+      (WCT9.digestIndex output) lay → ∃ digits, WCT9.CanonicalPolicy.decode lay
       (evalWithAnswerFn answers (WCT9.encodingHash lay (WCT9.layerEncodingInput lay
         (route (WCT9.digestIndex output) lay).2 (route (WCT9.digestIndex output) lay).1
         (CanonicalRef.sourceMessages answers (routeLeaf (WCT9.digestIndex output) lay)) (w.counters lay)))) =

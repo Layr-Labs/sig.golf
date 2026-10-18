@@ -928,7 +928,7 @@ theorem layerCounterSearchAt_short (lay : Layer) (floor tree leaf : Nat) (msg : 
   | zero => exact ShortRespects.pure' _
   | succ fuel ih =>
       unfold WCT9.CanonicalPolicy.layerCounterSearchAt
-      refine ShortRespects.bind (Ref.shortRespects_encodingHash lay _ ?_) fun answer => ?_
+      refine ShortRespects.bind (fun A T hAT => hAT.public _ ?_) fun answer => ?_
       · rw [← ClaudeWCT.W9.T3M.BC.pad64_layerEncodingInputP_zero, ClaudeWCT.W9.T3M.BC.layerEncodingRow_length]
         unfold SeccLaw.maxInputLength
         omega
@@ -1186,7 +1186,7 @@ theorem referenceSearch_variant (hv : Variant labels T T') (L : LeafAddr)
       (CanonicalRef.searchOf T (CanonicalRef.sourceMessages T) L) =
     (CanonicalRef.referenceContext T' (CanonicalRef.sourceMessages T') L).bind
       (CanonicalRef.searchOf T' (CanonicalRef.sourceMessages T') L)
-  exact congrArg₂ (@Option.bind Nat (BitVec 32 × List Nat))
+  exact congrArg₂ (@Option.bind Nat (BitVec 32 × List Nat × Bool))
     (referenceContext_variant hv L hL)
     (funext fun remaining => source_search_variant hv L hL remaining)
 

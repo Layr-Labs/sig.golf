@@ -204,6 +204,12 @@ theorem eval_shortHash_layer (answers : Correctness.Answers) (lay : Layer) (tree
         (answers (.inl (.inr (pairTrial lay tree leaf (msgLeft msg) (msgRight msg) counter)))) := by
   rw [ClaudeWCT.WCT9.eval_encodingHash, ← layerTrial_eq]
   rfl
+theorem eval_publicHash_layer (answers : Correctness.Answers) (lay : Layer) (tree leaf : Nat) (msg : LayerMsg)
+    (counter : Nat) :
+    evalWithAnswerFn answers (publicHash (layerEncodingInput lay tree leaf msg (BitVec.ofNat 32 counter))) =
+      answers (.inl (.inr (pairTrial lay tree leaf (msgLeft msg) (msgRight msg) counter))) := by
+  rw [← layerTrial_eq]
+  rfl
 theorem layerCounterSearch_forest_eval (answers : Correctness.Answers) (lay : Layer) (tree leaf : Nat)
     (root : Digest) : ∀ fuel counter,
       evalWithAnswerFn answers (layerCounterSearch lay tree leaf (.forest root) counter fuel) =
@@ -319,14 +325,15 @@ set_option maxRecDepth 10000
 set_option maxHeartbeats 1000000
 set_option backward.isDefEq.respectTransparency false
 
-/-- The selected 256-bit oracle answer, with the canonical per-leaf floor. -/
-def decoder (lay : Layer) (floor : Nat) (answer : HashOutput) : Option (List Nat) :=
-  CanonicalPolicy.producerDecodeAt lay floor (encodingAnswer lay answer)
+/-- The selected 256-bit oracle answer, with the canonical per-leaf floor: the producer's digits and the
+selected half (`true` = LOW; configuration (1)+(2)). -/
+def decoder (lay : Layer) (floor : Nat) (answer : HashOutput) : Option (List Nat × Bool) :=
+  CanonicalPolicy.producerDecodeOut lay floor answer
 
 theorem search_public (lay : Layer) (floor tree leaf : Nat) (msg : LayerMsg) :
     ∀ fuel counter, CanonicalPolicy.layerCounterSearchAt lay floor tree leaf msg counter fuel =
       publicProgram (searchLoop (layerTrial lay tree leaf msg) (decoder lay floor)
-        (fun c digits => pure (BitVec.ofNat 32 c, digits)) fuel counter) := by
+        (fun c found => pure (BitVec.ofNat 32 c, found)) fuel counter) := by
   intro fuel
   induction fuel with
   | zero => intro counter; rfl
@@ -336,11 +343,11 @@ theorem search_public (lay : Layer) (floor tree leaf : Nat) (msg : LayerMsg) :
       simp only [publicProgram, simulateQ_bind, simulateQ_spec_query,
         SphincsSecurity.Concrete.oracleHash, HasQuery.query,
         SigGolfCandidate.T3.Sampling.publicHandler,
-        encodingHash, shortHash, publicHash, map_eq_bind_pure_comp, Function.comp_apply,
+        publicHash, map_eq_bind_pure_comp, Function.comp_apply,
         bind_assoc, pure_bind, layerTrial, decoder]
       apply bind_congr
       intro answer
-      cases hd : CanonicalPolicy.producerDecodeAt lay floor (encodingAnswer lay answer) <;>
+      cases hd : CanonicalPolicy.producerDecodeOut lay floor answer <;>
         simp only [simulateQ_map, simulateQ_pure, map_pure, ih, publicProgram]
 
 theorem search_failure (secret : BitVec 256) (lay : Layer) (floor tree leaf : Nat)
@@ -614,12 +621,12 @@ theorem RowsFreshFrom.cacheQuery {stage : Nat} {cache : RCache}
 later layers' fresh rows. No independence of the chosen floor is assumed here. -/
 theorem V_layerSearch_bind {α : Type} (secret : BitVec 256) (z b : ENNReal)
     (lay : Layer) (floor tree leaf : Nat) (msg : LayerMsg)
-    (next : Option (BitVec 32 × List Nat) → M α) (weight : List Nat → ENNReal)
+    (next : Option (BitVec 32 × List Nat × Bool) → M α) (weight : List Nat × Bool → ENNReal)
     (hnone : ∀ cache, RowsFreshFrom (lay.val + 1) cache → V secret z (next none) cache ≤ b)
     (hsome : ∀ cache, RowsFreshFrom (lay.val + 1) cache →
-      ∀ counter, counter < 2 ^ 32 → ∀ answer digits,
-      decoder lay floor answer = some digits →
-      V secret z (next (some (BitVec.ofNat 32 counter, digits))) cache ≤ weight digits)
+      ∀ counter, counter < 2 ^ 32 → ∀ answer found,
+      decoder lay floor answer = some found →
+      V secret z (next (some (BitVec.ofNat 32 counter, found))) cache ≤ weight found)
     (hstep : z * (acceptedWeight (decoder lay floor) weight +
       failMass (decoder lay floor) * b) ≤ b)
     (fuel counter : Nat) (hlimit : counter + fuel ≤ 2 ^ 32)
@@ -660,7 +667,8 @@ theorem avoids_search (secret : BitVec 256) {lay other : Layer} (hne : lay ≠ o
   | succ fuel ih =>
       unfold CanonicalPolicy.layerCounterSearchAt
       apply avoids_bind
-      · apply avoids_shortHash_of_ne
+      · apply (allQueriesSatisfy_query_iff _ _).mpr
+        change pad64 (layerEncodingInput lay tree leaf msg (BitVec.ofNat 32 counter)) ≠ _
         rw [show pad64 (layerEncodingInput lay tree leaf msg (BitVec.ofNat 32 counter)) =
           layerTrial lay tree leaf msg counter from rfl, layerTrial_eq]
         exact pairTrial_ne_of_layer hne tree leaf _ _ counter tree' leaf' left' right' counter'
@@ -672,7 +680,7 @@ theorem avoids_search (secret : BitVec 256) {lay other : Layer} (hne : lay ≠ o
 theorem search_preserves_rows (secret : BitVec 256) (lay : Layer)
     (floor tree leaf : Nat) (msg : LayerMsg) (counter fuel : Nat)
     (cache : RCache) (hfresh : RowsFreshFrom (lay.val + 1) cache)
-    (result : Option (BitVec 32 × List Nat) × RCache)
+    (result : Option (BitVec 32 × List Nat × Bool) × RCache)
     (hr : result ∈ support (roRun secret
       (CanonicalPolicy.layerCounterSearchAt lay floor tree leaf msg counter fuel) cache)) :
     RowsFreshFrom (lay.val + 1) result.2 := by

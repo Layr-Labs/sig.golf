@@ -1341,7 +1341,7 @@ theorem eval_recoverLayerPair_honest (answers : Answers) (sig : Signature) (inde
 def TopSearchesSucceedBC (answers : Answers) : Prop :=
   ∀ index, index < 2 ^ 31 → ∀ msg : LayerMsg, ∃ found,
     evalWithAnswerFn answers (layerCounterSearch (Fin.ofNat 4 0) (route index (Fin.ofNat 4 0)).2
-      (route index (Fin.ofNat 4 0)).1 msg 0 counterLimit) = some found
+      (route index (Fin.ofNat 4 0)).1 msg 0 (searchLimit (Fin.ofNat 4 0))) = some found
 theorem signLayersBC_length (answers : Answers) (cache : Cache) (index : Nat) :
     ∀ n msg pieces, evalWithAnswerFn answers (signLayersBC cache index n msg) = some pieces →
       pieces.length = n := by
@@ -1406,7 +1406,7 @@ theorem signLayersBC_expandLayersBC (answers : Answers) (cache : Cache) (index :
           by_cases hn0 : n = 0
           · subst n
             obtain ⟨found, hf⟩ := htop index hindex msg
-            rw [show searchLimit (Fin.ofNat 4 0) = counterLimit from rfl, hf] at hs
+            rw [hf] at hs
             cases hs
           · simp only [hs, hn0, if_false, evalWithAnswerFn_pure, reduceCtorEq] at he
       | some found =>

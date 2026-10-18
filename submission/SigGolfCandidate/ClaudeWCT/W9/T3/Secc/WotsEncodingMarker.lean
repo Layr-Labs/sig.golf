@@ -5,60 +5,6 @@ import SigGolfCandidate.ClaudeWCT.WCT9.Basic
 import SigGolfCandidate.T3.Nonbinary.EncodingCounts
 import SigGolfCandidate.T3.Nonbinary.SourceEncoding
 
-namespace ClaudeWCT.WCT9
-open SigGolfCandidate.T3
-set_option maxRecDepth 10000
-set_option maxHeartbeats 1000000
-set_option Elab.async false
-
-attribute [local irreducible] Finset.univ Finset.filter
-private def broadCount (lay : Layer) : Nat :=
-  (Finset.univ.filter fun d : Digest => (decode lay d).isSome).card
-
-private theorem broad_decoder_card (lay : Layer) : broadCount lay =
-    (if lay=0 then SigGolfResearch.NonbinaryTop.Counting.count else EncodingCounting.rawAcceptedCount lay) := by
-  unfold broadCount
-  rw [← Fintype.card_subtype]
-  by_cases hl : lay=0
-  · subst lay
-    exact Nonbinary.actual_decoder_count
-  · rw [Fintype.card_congr (EncodingCounting.acceptedDigestEquiv lay hl), EncodingCounting.accepted_words_count]
-    exact (if_neg hl).symm
-
-private theorem broad_encoding_card (lay : Layer) :
-    (Finset.univ.filter fun a : HashOutput => (decode lay (encodingAnswer lay a)).isSome).card ≤
-      broadCount lay * (7*2^126) := by
-  by_cases hl : lay=0
-  · simpa only [encodingAnswer, if_pos hl, broadCount] using
-      TopDualHalf.card_select_pred_le (fun d : Digest => (decode lay d).isSome)
-  · have hp : ∀ d : Digest, (decode lay d).isSome → lowerSpare d := by
-      intro d hd
-      obtain ⟨ds,hds⟩ := Option.isSome_iff_exists.mp hd
-      exact decode_lowerSpare hl hds
-    have hc := DualHalf.card_select_pred (fun d : Digest => (decode lay d).isSome) hp
-    exact le_of_eq (by simpa only [encodingAnswer, if_neg hl, broadCount] using hc)
-
-theorem producer_rejection_broad (lay : Layer) :
-    1000*2^256 ≤ 1001*(Finset.univ.filter fun a : HashOutput => producerDecode lay (encodingAnswer lay a)=none).card := by
-  classical
-  let accepted := Finset.univ.filter fun a : HashOutput => producerDecode lay (encodingAnswer lay a) ≠ none
-  let broad := Finset.univ.filter fun a : HashOutput => (SigGolfCandidate.T3.decode lay (encodingAnswer lay a)).isSome
-  have hsub : accepted ⊆ broad := by
-    intro a ha
-    have hne := (Finset.mem_filter.mp ha).2
-    obtain ⟨ds,hds⟩ := Option.ne_none_iff_exists'.mp hne
-    exact Finset.mem_filter.mpr ⟨Finset.mem_univ _, Option.isSome_iff_exists.mpr ⟨ds,producerDecode_decode hds⟩⟩
-  have hbound : accepted.card ≤ broadCount lay * (7*2^126) :=
-    (Finset.card_le_card hsub).trans (broad_encoding_card lay)
-  have hpart := Finset.card_filter_add_card_filter_not (s := (Finset.univ : Finset HashOutput))
-    (fun a => producerDecode lay (encodingAnswer lay a) = none)
-  simp only [Finset.card_univ, Fintype.card_bitVec] at hpart
-  change (Finset.univ.filter fun a : HashOutput => producerDecode lay (encodingAnswer lay a)=none).card + accepted.card = 2^256 at hpart
-  have hsmall : 1001 * (broadCount lay * (7*2^126)) ≤ 2^256 := by
-    rw [broad_decoder_card]
-    fin_cases lay <;> norm_num [EncodingCounting.rawAcceptedCount, SigGolfResearch.NonbinaryTop.Counting.count]
-  omega
-end ClaudeWCT.WCT9
 
 
 namespace ClaudeWCT.W9.T3.Security.Wots
@@ -77,312 +23,59 @@ attribute [local irreducible] referenceGame offlineGame
 namespace Enc
 open SigGolfCandidate.T3.Security.Wots.Enc
 def chainAt (p : CanonGraph.LeafPos × Fin 58) : ChainAddr := ⟨leafOf p.1, p.2.val⟩
-def MarkEntry (T : Answers) (a : ChainAddr) (entry : Entry) : Prop :=
-  ∃ (message : WCT9.LayerMsg) (counter : BitVec 32) (pad : RowPad) (digits : List Nat),
-    Extract.msgFits a.key.lay message ∧ entry.1 = encRow a.key message counter pad ∧
-      referenceInput T a.key ≠ some (encRow a.key message counter pad) ∧
-      decode a.key.lay (WCT9.encodingAnswer a.key.lay entry.2) = some digits ∧
-      digits.getD a.chain 0 + 1 = (referenceDigits T a.key).getD a.chain 0 ∧
-      ∀ i, i ≠ a.chain → (referenceDigits T a.key).getD i 0 ≤ digits.getD i 0
-theorem markerAt_iff (T : Answers) (trace : List Entry) (a : ChainAddr) :
-    MarkerAt T trace a ↔ ∃ entry ∈ trace, MarkEntry T a entry := by
-  constructor
-  · rintro ⟨message, counter, pad, answer, digits, hfit, hmem, hne, hd, hlow, hrest⟩
-    exact ⟨_, hmem, message, counter, pad, digits, hfit, rfl, hne, hd, hlow, hrest⟩
-  · rintro ⟨⟨input, answer⟩, hmem, message, counter, pad, digits, hfit, rfl, hne, hd, hlow, hrest⟩
-    exact ⟨message, counter, pad, answer, digits, hfit, hmem, hne, hd, hlow, hrest⟩
-theorem markerAt_congr {T T' : Answers} (h : AgreeOn (HonestQ T) T T') (trace : List Entry)
-    (p : CanonGraph.LeafPos × Fin 58) (hs : p.1.Source) :
-    MarkerAt T' trace (chainAt p) ↔ MarkerAt T trace (chainAt p) := by
-  unfold MarkerAt chainAt
-  simp only
-  rw [referenceInput_congr_honest h hs, referenceDigits_congr_honest h hs]
 theorem uniform_unit_neighbors (lay : Layer) (W : Encoding lay) (i : ChainIndex lay) :
-    Pr[fun ans => ClaudeWCT.WCT9.encodingAnswer lay ans ∈
+    Pr[fun ans => ∃ high : Bool, ClaudeWCT.WCT9.verificationAnswer lay high ans ∈
       EncodingTargets.targets lay (MixedCode.unitNeighbors W i) |
       ($ᵗ HashOutput : ProbComp HashOutput)] ≤ (371 / 4) / (2 : ENNReal)^128 := by
   classical
   let targets := EncodingTargets.targets lay (MixedCode.unitNeighbors W i)
-  change Pr[fun ans => ClaudeWCT.WCT9.encodingAnswer lay ans ∈ targets |
-    ($ᵗ HashOutput : ProbComp HashOutput)] ≤ _
   have hc : targets.card ≤ chainCount lay - 1 :=
     (EncodingTargets.targets_card _ _).trans (MixedCode.unitNeighbors_card_le W i)
-  by_cases hl : lay = 0
-  · have hprob := ClaudeWCT.WCT9.probability_top_encoding_le (fun d => d ∈ targets)
-    simp only [Function.comp_def, Finset.filter_mem_eq_inter, Finset.univ_inter] at hprob
-    simp only [ClaudeWCT.WCT9.encodingAnswer, if_pos hl]
-    have hn : targets.card ≤ 53 := by
-      have ht : chainCount lay = 54 := by rw [hl]; rfl
-      simpa only [ht,Nat.reduceSub] using hc
-    calc _ ≤ (targets.card : ENNReal) * (7 / ((4 : ENNReal) * 2^128)) := hprob
-      _ ≤ 53 * (7 / ((4 : ENNReal) * 2^128)) := mul_le_mul' (by exact_mod_cast hn) le_rfl
-      _ = _ := by
-        apply (ENNReal.toReal_eq_toReal_iff' (by finiteness) (by finiteness)).mp
-        simp only [ENNReal.toReal_mul,ENNReal.toReal_div,ENNReal.toReal_pow,ENNReal.toReal_ofNat]
-        norm_num
-  · have hp : ∀ d, d ∈ targets → lowerSpare d := by
-      intro d hd
-      obtain ⟨word,_,hword⟩ := (EncodingTargets.mem_targets _ _ _).mp hd
-      exact decode_lowerSpare hl hword
-    have hprob := ClaudeWCT.WCT9.probability_lower_encoding (fun d => d ∈ targets) hp
-    simp only [Function.comp_def, Finset.filter_mem_eq_inter, Finset.univ_inter] at hprob
-    simp only [ClaudeWCT.WCT9.encodingAnswer, if_neg hl]
-    rw [hprob]
-    have hn : targets.card ≤ 42 := by
-      have hall : ∀ l : Layer, l ≠ 0 → chainCount l = 43 := by decide +kernel
-      have hlen := hall lay hl
-      simpa only [hlen] using hc
-    calc (targets.card : ENNReal) * (7 / ((4 : ENNReal) * 2^128))
-        ≤ 42 * (7 / ((4 : ENNReal) * 2^128)) := mul_le_mul' (show (targets.card : ENNReal) ≤ 42 by exact_mod_cast hn) le_rfl
-      _ ≤ _ := by
-        apply (ENNReal.toReal_le_toReal (by finiteness) (by finiteness)).mp
-        simp only [ENNReal.toReal_mul,ENNReal.toReal_div,ENNReal.toReal_pow,ENNReal.toReal_ofNat]
-        norm_num
-theorem markEntry_cell_le_raw (T : Answers) (x : HashInput) (a : ChainAddr) :
-    Pr[fun ans => MarkEntry T a (x, ans) | ($ᵗ HashOutput : ProbComp HashOutput)] ≤ (371 / 4) / (2 : ENNReal) ^ 128 := by
-  classical
-  obtain ⟨v, hv⟩ := WotsExtract.referenceDigits_decode T a.key
-  by_cases hc : a.chain < chainCount a.key.lay
-  · let W := decodedWord hv
-    let i : Fin (MixedCode.Code.n (code a.key.lay)) := ⟨a.chain, hc⟩
-    let targets := EncodingTargets.targets a.key.lay (MixedCode.unitNeighbors W i)
-    calc _ ≤ Pr[fun output => WCT9.encodingAnswer a.key.lay output ∈ targets | ($ᵗ HashOutput : ProbComp HashOutput)] := by
-          apply probEvent_mono
-          rintro ans - ⟨message, counter, pad, digits, -, -, -, hd, hlow, hrest⟩
-          refine (EncodingTargets.source_decoded_target hd _).mpr ?_
-          rw [MixedCode.mem_unitNeighbors]
-          refine ⟨decodedWord_valid hv, decodedWord_valid hd, ?_, ?_⟩
-          · exact hlow
-          · intro j hj
-            exact hrest j.val (fun he => hj (Fin.ext he))
-      _ ≤ (371 / 4) / (2 : ENNReal) ^ 128 := uniform_unit_neighbors a.key.lay W i
-  · have hz : Pr[fun ans => MarkEntry T a (x, ans) | ($ᵗ HashOutput : ProbComp HashOutput)] = 0 := by
-      apply probEvent_eq_zero
-      rintro ans - ⟨message, counter, pad, digits, -, -, -, -, hlow, -⟩
-      have hlen := WotsExtract.referenceDigits_length T a.key
-      rw [List.getD_eq_default (referenceDigits T a.key) 0 (by omega)] at hlow
-      omega
-    rw [hz]
-    exact zero_le
-theorem markEntry_cell_le (T : Answers) (x : HashInput) (a : ChainAddr) :
-    Pr[fun ans => MarkEntry T a (x, ans) | ($ᵗ HashOutput : ProbComp HashOutput)] ≤ 93 / (2 : ENNReal)^128 := by
-  refine (markEntry_cell_le_raw T x a).trans (ENNReal.div_le_div_right ?_ _)
-  apply (ENNReal.toReal_le_toReal (by finiteness) (by finiteness)).mp
-  simp only [ENNReal.toReal_div, ENNReal.toReal_ofNat]
-  norm_num
-
-theorem rejAnswers_card_ge_tight (lay : Layer) : 1000 * 2 ^ 256 ≤ 1001 * (rejAnswers lay).card :=
-  WCT9.producer_rejection_broad lay
-
-theorem probEvent_cell_rej_le_tight (lay : Layer) (p : HashOutput → Prop) :
-    Pr[p | cell (rejAnswers lay)] ≤ 1001 / 1000 * Pr[p | ($ᵗ HashOutput : ProbComp HashOutput)] := by
-  classical
-  rw [probEvent_eq_tsum_ite, probEvent_eq_tsum_ite, ← ENNReal.tsum_mul_left]
-  refine ENNReal.tsum_le_tsum fun ans => ?_
-  split_ifs
-  · rw [SPMF.probOutput_eq_apply, cell_apply, probOutput_uniformSample]
-    split_ifs
-    · have hcard : ((1000 : ENNReal) * 2 ^ 256) ≤ 1001 * ((rejAnswers lay).card : ENNReal) := by
-        exact_mod_cast rejAnswers_card_ge_tight lay
-      calc ((rejAnswers lay).card : ENNReal)⁻¹ = 1001 / (1001 * ((rejAnswers lay).card : ENNReal)) := by
-            rw [ENNReal.div_eq_inv_mul, ENNReal.mul_inv (Or.inl (by norm_num)) (Or.inl (by norm_num)),
-              mul_comm (1001 : ENNReal)⁻¹, mul_assoc, ENNReal.inv_mul_cancel (by norm_num) (by norm_num), mul_one]
-        _ ≤ 1001 / (1000 * 2 ^ 256) := ENNReal.div_le_div_left hcard _
-        _ = 1001 / 1000 * ((Fintype.card HashOutput : Nat) : ENNReal)⁻¹ := by
-            simp only [Fintype.card_bitVec, Nat.cast_pow, Nat.cast_ofNat]
-            rw [ENNReal.div_eq_inv_mul, ENNReal.mul_inv (Or.inl (by norm_num)) (Or.inl (by norm_num)),
-              div_eq_mul_inv]
-            ring
-    · exact zero_le
-  · simp
-theorem markEntry_rej_le (T : Answers) (x : HashInput) (a : ChainAddr) :
-    Pr[fun ans => MarkEntry T a (x, ans) | cell (rejAnswers a.key.lay)] ≤ 93 / (2 : ENNReal)^128 := by
-  calc _ ≤ 1001 / 1000 * Pr[fun ans => MarkEntry T a (x, ans) |
-          ($ᵗ HashOutput : ProbComp HashOutput)] := probEvent_cell_rej_le_tight _ _
-    _ ≤ 1001 / 1000 * ((371 / 4) / (2 : ENNReal)^128) :=
-      mul_le_mul' le_rfl (markEntry_cell_le_raw T x a)
-    _ ≤ 93 / (2 : ENNReal)^128 := by
-      apply (ENNReal.toReal_le_toReal (by finiteness) (by finiteness)).mp
+  have hn : targets.card ≤ 53 := by
+    have hmax : chainCount lay ≤ 54 := by fin_cases lay <;> decide +kernel
+    omega
+  have hp : lay ≠ 0 → ∀ d, d ∈ targets → lowerSpare d := by
+    intro hl d hd
+    obtain ⟨word, _, hword⟩ := (EncodingTargets.mem_targets _ _ _).mp hd
+    exact decode_lowerSpare hl hword
+  calc _ ≤ (targets.card : ENNReal) * (7 / ((4 : ENNReal) * 2^128)) :=
+        ClaudeWCT.WCT9.probability_verification_exists_le lay targets hp
+    _ ≤ 53 * (7 / ((4 : ENNReal) * 2^128)) := mul_le_mul' (by exact_mod_cast hn) le_rfl
+    _ = _ := by
+      apply (ENNReal.toReal_eq_toReal_iff' (by finiteness) (by finiteness)).mp
       simp only [ENNReal.toReal_mul, ENNReal.toReal_div, ENNReal.toReal_pow, ENNReal.toReal_ofNat]
       norm_num
-
-theorem markEntry_init_le (T : Answers) (k : CellKey) (e : k.1) (p : CanonGraph.LeafPos × Fin 58) :
-    Pr[fun ans => WotsExtract.SourceChain7 (chainAt p) ∧ MarkEntry T (chainAt p) (encInput e.val, ans) |
-      cell (cellInit k e)] ≤ 93 / (2 : ENNReal) ^ 128 := by
-  by_cases hp : p.1 = e.val.1.1
-  · refine (probEvent_mono fun ans _ h => h.2).trans ?_
-    unfold cellInit
-    split_ifs
-    · rw [Lazy.probEvent_cell_univ]
-      exact markEntry_cell_le T _ _
-    · have h := markEntry_rej_le T (encInput e.val) (chainAt p)
-      rw [show (chainAt p).key.lay = e.val.1.1.lay from by rw [← hp]; rfl] at h
-      exact h
-  · refine le_trans (le_of_eq (probEvent_eq_zero ?_)) zero_le
-    rintro ans - ⟨hsrc, message, counter, pad, digits, -, he, -⟩
-    exact hp (encInput_leaf hsrc.1 (he.trans rfl : encInput e.val = encRow (leafOf p.1) message counter pad)).symm
-theorem markEntry_cell_le_tight (T : Answers) (x : HashInput) (a : ChainAddr) :
-    Pr[fun ans => MarkEntry T a (x, ans) | ($ᵗ HashOutput : ProbComp HashOutput)] ≤ 93 / (2 : ENNReal)^128 :=
-  markEntry_cell_le T x a
-
-theorem markEntry_rej_le_tight (T : Answers) (x : HashInput) (a : ChainAddr) :
-    Pr[fun ans => MarkEntry T a (x, ans) | cell (rejAnswers a.key.lay)] ≤ 93 / (2 : ENNReal)^128 :=
-  markEntry_rej_le T x a
-
-theorem markEntry_init_le_tight (T : Answers) (k : CellKey) (e : k.1) (p : CanonGraph.LeafPos × Fin 58) :
-    Pr[fun ans => WotsExtract.SourceChain7 (chainAt p) ∧ MarkEntry T (chainAt p) (encInput e.val, ans) |
-      cell (cellInit k e)] ≤ 93 / (2 : ENNReal)^128 := markEntry_init_le T k e p
-
-theorem markEntry_sum_init_le (T : Answers) (k : CellKey) (e : k.1) :
-    ∑ p : CanonGraph.LeafPos × Fin 58,
-      Pr[fun ans => WotsExtract.SourceChain7 (chainAt p) ∧ MarkEntry T (chainAt p) (encInput e.val, ans) |
-        cell (cellInit k e)] ≤ 5022 / (2 : ENNReal) ^ 128 := by
-  classical
-  have hb : ∀ p : CanonGraph.LeafPos × Fin 58,
-      Pr[fun ans => WotsExtract.SourceChain7 (chainAt p) ∧ MarkEntry T (chainAt p) (encInput e.val, ans) |
-        cell (cellInit k e)] ≤ if p.1 = e.val.1.1 then
-          (if p.2.val < 54 then 93 / (2 : ENNReal) ^ 128 else 0) else 0 := by
-    intro p
-    split_ifs with hp hc
-    · exact markEntry_init_le_tight T k e p
-    · apply le_of_eq
-      apply probEvent_eq_zero
-      rintro ans - ⟨hsource, -⟩
-      have hcount := chainCount_le_54 p.1.lay
-      have hchain : p.2.val < chainCount p.1.lay := hsource.2
-      omega
-    · apply le_of_eq
-      apply probEvent_eq_zero
-      rintro ans - ⟨hsrc, message, counter, pad, digits, -, he, -⟩
-      exact hp (encInput_leaf hsrc.1 (he.trans rfl : encInput e.val = encRow (leafOf p.1) message counter pad)).symm
-  refine (Finset.sum_le_sum fun p _ => hb p).trans ?_
-  rw [Fintype.sum_prod_type, Finset.sum_eq_single e.val.1.1 (fun L _ hL => by simp [hL]) (by simp)]
-  simp only [if_true]
-  have hn : (Finset.univ.filter (fun i : Fin 58 => i.val < 54)).card = 54 := by decide
-  rw [← Finset.sum_filter, Finset.sum_const, hn, nsmul_eq_mul]
-  rw [← mul_div_assoc]
-  gcongr
-  apply (ENNReal.toReal_le_toReal (by finiteness) (by finiteness)).mp
-  simp only [ENNReal.toReal_mul, ENNReal.toReal_div, ENNReal.toReal_ofNat]
-  norm_num
-theorem markEntry_noncell (U : Finset HashInput) (privateTable : FullGame.FullTable) (pub : U → HashOutput)
-    (x : HashInput) (hx : ¬ Lazy.IsCell encInput (cellKey (eagerAnswers U privateTable pub)).1 x)
-    (p : CanonGraph.LeafPos × Fin 58) :
-    ¬ (WotsExtract.SourceChain7 (chainAt p) ∧
-      MarkEntry (eagerAnswers U privateTable pub) (chainAt p) (x, eagerAnswers U privateTable pub (.inl (.inr x)))) := by
-  rintro ⟨hsrc, message, counter, pad, digits, hfit, he, hne, hdec, -⟩
-  have hin : encInput (encIdx p.1 hsrc.1 message counter pad hfit) = x :=
-    (encInput_encIdx p.1 hsrc.1 message counter pad hfit).trans he.symm
-  have hnc : ¬ (Free (eagerAnswers U privateTable pub) (encIdx p.1 hsrc.1 message counter pad hfit) ∨
-      Rej (eagerAnswers U privateTable pub) (encIdx p.1 hsrc.1 message counter pad hfit)) :=
-    fun hc => hx ⟨encIdx p.1 hsrc.1 message counter pad hfit, hc, hin⟩
-  have hreached : Reached (eagerAnswers U privateTable pub) (leafOf p.1) x := by
-    by_contra hfree
-    refine hnc (Or.inl ?_)
-    change ¬ Reached _ _ (encInput (encIdx p.1 hsrc.1 message counter pad hfit))
-    rw [hin]
-    exact hfree
-  cases hs : WCT9.producerDecode p.1.lay (WCT9.encodingAnswer p.1.lay (eagerAnswers U privateTable pub (.inl (.inr x)))) with
-  | none =>
-      refine hnc (Or.inr ⟨?_, ?_⟩)
-      · change Reached _ _ (encInput (encIdx p.1 hsrc.1 message counter pad hfit))
-        rw [hin]
-        exact hreached
-      · change WCT9.producerDecode p.1.lay (WCT9.encodingAnswer p.1.lay (eagerAnswers U privateTable pub
-          (.inl (.inr (encInput (encIdx p.1 hsrc.1 message counter pad hfit)))))) = none
-        rw [hin]
-        exact hs
-  | some w =>
-      have href := reached_valid_reference hreached hs
-      exact hne (he ▸ href)
-noncomputable def markerCount (s : RefSample) : Nat :=
-  (Finset.univ.filter fun p : CanonGraph.LeafPos × Fin 58 =>
-    WotsExtract.SourceChain7 (chainAt p) ∧ MarkerAt s.answers s.trace (chainAt p)).card
-theorem markerCount_marks (T : Answers) (trace : List Entry) (pk : Digest) :
-    markerCount ⟨T, pk, trace⟩ =
-      Lazy.marks (fun p entry => WotsExtract.SourceChain7 (chainAt p) ∧ MarkEntry T (chainAt p) entry) trace := by
-  unfold markerCount Lazy.marks
-  rw [Finset.card_filter, Finset.card_filter]
-  refine Finset.sum_congr rfl fun p _ => ?_
-  have hiff : (WotsExtract.SourceChain7 (chainAt p) ∧ MarkerAt T trace (chainAt p)) ↔
-      ∃ entry ∈ trace, WotsExtract.SourceChain7 (chainAt p) ∧ MarkEntry T (chainAt p) entry := by
-    rw [markerAt_iff]
-    constructor
-    · rintro ⟨hs, entry, hmem, hm⟩
-      exact ⟨entry, hmem, hs, hm⟩
-    · rintro ⟨entry, hmem, hs, hm⟩
-      exact ⟨hs, entry, hmem, hm⟩
-  split_ifs with h1 h2 h2
-  · rfl
-  · exact absurd (hiff.mp h1) h2
-  · exact absurd (hiff.mpr h2) h1
-  · rfl
-theorem markerCount_congr {T T' : Answers} (h : AgreeOn (HonestQ T) T T') (trace : List Entry)
-    (pk : Digest) : markerCount ⟨T', pk, trace⟩ = markerCount ⟨T, pk, trace⟩ := by
-  unfold markerCount
-  rw [Finset.card_filter, Finset.card_filter]
-  refine Finset.sum_congr rfl fun p _ => ?_
-  simp only
-  split_ifs with h1 h2 h2
-  · rfl
-  · exact absurd ⟨h1.1, (markerAt_congr h trace p h1.1.1).mp h1.2⟩ h2
-  · exact absurd ⟨h2.1, (markerAt_congr h trace p h2.1.1).mpr h2.2⟩ h1
-  · rfl
-theorem cells_marker_le [∀ k : Set EncIndex, Fintype k] [∀ k : Set EncIndex, DecidableEq k]
-    (adversary : AdversaryP) (q : Nat) (U : Finset HashInput)
-    (hU : SeccLaw.publicUniverse ⊆ U) (privateTable : FullGame.FullTable) (pub : U → HashOutput) :
-    ∑' y, PMF.uniformOfFinset (Fintype.piFinset (cellInit (cellKey (eagerAnswers U privateTable pub))))
-          (Fintype.piFinset_nonempty.mpr (cellInit_nonempty _)) y *
-        ∑' r, (liftM (offlineRun (eagerAnswers U privateTable (ov (cellKey (eagerAnswers U privateTable pub)).1 pub y)) adversary q) : PMF SeedResult) r *
-          (markerCount (mkSample (eagerAnswers U privateTable (ov (cellKey (eagerAnswers U privateTable pub)).1 pub y)) r) : ENNReal) ≤
-      (5022 / (2 : ENNReal) ^ 128) * ∑' y, PMF.uniformOfFinset (Fintype.piFinset (cellInit (cellKey (eagerAnswers U privateTable pub))))
-          (Fintype.piFinset_nonempty.mpr (cellInit_nonempty _)) y *
-        ∑' r, (liftM (offlineRun (eagerAnswers U privateTable (ov (cellKey (eagerAnswers U privateTable pub)).1 pub y)) adversary q) : PMF SeedResult) r *
-          (encodingCount (mkSample (eagerAnswers U privateTable (ov (cellKey (eagerAnswers U privateTable pub)).1 pub y)) r) : ENNReal) := by
-  rw [cell_transfer adversary q U hU privateTable pub (fun s => (markerCount s : ENNReal))
-      (fun tr => (Lazy.marks (fun p entry => WotsExtract.SourceChain7 (chainAt p) ∧
-        MarkEntry (eagerAnswers U privateTable pub) (chainAt p) entry) tr : ENNReal))
-      (fun y hy r => by
-        unfold mkSample
-        rw [markerCount_congr (agree_ovc U hU privateTable pub y hy), markerCount_marks]),
-    cell_transfer adversary q U hU privateTable pub (fun s => (encodingCount s : ENNReal))
-      (fun tr => (((tr.filter fun e => decide (EncodingInput e.1)).length : Nat) : ENNReal))
-      (fun y _ r => encodingCount_mkSample _ r)]
-  refine (Lazy.lazy_marks_init_le encInput (cellKey (eagerAnswers U privateTable pub)).1 encInput_injective
-    (eagerAnswers U privateTable pub)
-    (fun p entry => WotsExtract.SourceChain7 (chainAt p) ∧ MarkEntry (eagerAnswers U privateTable pub) (chainAt p) entry)
-    _ (cellInit (cellKey (eagerAnswers U privateTable pub))) (cellInit_nonempty _)
-    (fun e => markEntry_sum_init_le (eagerAnswers U privateTable pub) (cellKey (eagerAnswers U privateTable pub)) e)
-    (fun x hx p => markEntry_noncell U privateTable pub x hx p) _).trans ?_
-  refine mul_le_mul' le_rfl (ENNReal.tsum_le_tsum fun z => mul_le_mul' le_rfl ?_)
-  exact_mod_cast cellCount_le_encoding _ _
 end Enc
-open Enc in
-theorem reference_markerCount_le (adversary : AdversaryP) (q : Nat) :
-    ∑' s, referenceExperiment adversary q s * (Enc.markerCount s : ENNReal) ≤
-      (5022 / (2 : ENNReal) ^ 128) * ∑' s, referenceExperiment adversary q s * (encodingCount s : ENNReal) := by
-  let _ : ∀ k : Set Enc.EncIndex, Fintype k := fun k => Fintype.ofFinite k
-  let _ : ∀ k : Set Enc.EncIndex, DecidableEq k := fun k => Classical.decEq k
-  exact Enc.reference_cells_le adversary q (fun s => (Enc.markerCount s : ENNReal))
-    (fun s => (encodingCount s : ENNReal)) _
-    (fun privateTable pub => Enc.cells_marker_le adversary q (referenceInputs adversary)
-      (Enc.publicUniverse_sub adversary) privateTable pub)
-open Enc in
-theorem reference_marker_sum_le (adversary : AdversaryP) (q : Nat) :
-    ∑ a : CanonGraph.LeafPos × Fin 58,
-      Pr[fun s => WotsExtract.SourceChain7 ⟨⟨a.1.lay, a.1.tree.val, a.1.leaf.val⟩, a.2.val⟩ ∧
-        MarkerAt s.answers s.trace ⟨⟨a.1.lay, a.1.tree.val, a.1.leaf.val⟩, a.2.val⟩ | referenceExperiment adversary q] ≤
-      (5022 / 2 ^ 128 : ENNReal) * ∑' s, referenceExperiment adversary q s * (encodingCount s : ENNReal) := by
-  refine le_trans (le_of_eq ?_) (reference_markerCount_le adversary q)
-  simp only [probEvent_eq_tsum_ite, PMF.probOutput_eq_apply]
-  rw [← Summable.tsum_finsetSum (fun _ _ => ENNReal.summable)]
-  refine tsum_congr fun s => ?_
-  unfold Enc.markerCount
-  rw [Finset.card_filter, Nat.cast_sum, Finset.mul_sum]
-  refine Finset.sum_congr rfl fun p _ => ?_
-  unfold Enc.chainAt Enc.leafOf
-  split_ifs <;> simp
 end ClaudeWCT.W9.T3.Security.Wots
+
+namespace ClaudeWCT.WCT9.CanonicalRates
+open SigGolfCandidate.T3
+/-- Both halves of a uniform answer, counted separately (kept outside the `irreducible Finset.univ` section). -/
+theorem halves_card (p : Digest → Prop) [DecidablePred p] :
+    (Finset.univ.filter fun a : HashOutput => p (a.extractLsb' 0 128)).card +
+    (Finset.univ.filter fun a : HashOutput => p (a.extractLsb' 128 128)).card =
+      (Finset.univ.filter p).card * (2*2^128) := by
+  have hl := SphincsSecurity.Completeness.card_filter_low (n := 256) (w := 128) (by decide) p
+  have hh := SphincsSecurity.Completeness.card_filter_high (n := 256) (w := 128) (by decide) p
+  dsimp only [Nat.reduceSub] at hl hh
+  rw [hl, hh]
+  ring
+
+theorem encoding_broad (lay : Layer) :
+    (Finset.univ.filter fun a : HashOutput => (decode lay (encodingAnswer lay a)).isSome).card ≤
+      (Finset.univ.filter fun d : Digest => (decode lay d).isSome).card * (2*2^128) := by
+  have hsub : (Finset.univ.filter fun a : HashOutput => (decode lay (encodingAnswer lay a)).isSome) ⊆
+      (Finset.univ.filter fun a : HashOutput => (decode lay (a.extractLsb' 0 128)).isSome) ∪
+      (Finset.univ.filter fun a : HashOutput => (decode lay (a.extractLsb' 128 128)).isSome) := by
+    intro a ha
+    simp only [Finset.mem_filter, Finset.mem_union, Finset.mem_univ, true_and] at ha ⊢
+    rw [encodingAnswer_eq] at ha
+    split_ifs at ha
+    · exact Or.inl ha
+    · exact Or.inr ha
+  have hh := halves_card (fun d : Digest => (decode lay d).isSome = true)
+  exact le_trans (Finset.card_le_card hsub) ((Finset.card_union_le _ _).trans hh.le)
+end ClaudeWCT.WCT9.CanonicalRates
 
 namespace ClaudeWCT.WCT9.CanonicalRates
 open SigGolfCandidate.T3
@@ -403,44 +96,41 @@ theorem broad_decoder_card (lay : Layer) : broadCount lay =
   · rw [Fintype.card_congr (EncodingCounting.acceptedDigestEquiv lay hl), EncodingCounting.accepted_words_count]
     exact (if_neg hl).symm
 
+/-- Crude union bound (both halves): enough for the 1000/1001 rejection estimate. -/
 theorem broad_encoding_card (lay : Layer) :
     (Finset.univ.filter fun a : HashOutput => (decode lay (encodingAnswer lay a)).isSome).card ≤
-      broadCount lay * (7*2^126) := by
-  by_cases hl : lay=0
-  · simpa only [encodingAnswer, if_pos hl, broadCount] using
-      TopDualHalf.card_select_pred_le (fun d : Digest => (decode lay d).isSome)
-  · have hp : ∀ d : Digest, (decode lay d).isSome → lowerSpare d := by
-      intro d hd
-      obtain ⟨ds,hds⟩ := Option.isSome_iff_exists.mp hd
-      exact decode_lowerSpare hl hds
-    have hc := DualHalf.card_select_pred (fun d : Digest => (decode lay d).isSome) hp
-    exact le_of_eq (by simpa only [encodingAnswer, if_neg hl, broadCount] using hc)
+      broadCount lay * (2*2^128) := by
+  simpa only [broadCount] using encoding_broad lay
 
 
 theorem encodingAnswer_normal (lay : Layer) (a : HashOutput) :
     encodingAnswer (CanonicalPolicy.normalLayer lay) a=encodingAnswer lay a := by
   fin_cases lay <;> rfl
 
+theorem verificationAnswer_normal (lay : Layer) (high : Bool) (a : HashOutput) :
+    verificationAnswer (CanonicalPolicy.normalLayer lay) high a=verificationAnswer lay high a := by
+  fin_cases lay <;> rfl
+
 theorem producer_rejection_broad (lay : Layer) (floor : Nat) :
     1000*2^256 ≤ 1001*(Finset.univ.filter fun a : HashOutput =>
-      CanonicalPolicy.producerDecodeAt lay floor (encodingAnswer lay a)=none).card := by
+      CanonicalPolicy.producerDecodeOut lay floor a=none).card := by
   classical
-  let accepted := Finset.univ.filter fun a : HashOutput => CanonicalPolicy.producerDecodeAt lay floor (encodingAnswer lay a) ≠ none
+  let accepted := Finset.univ.filter fun a : HashOutput => CanonicalPolicy.producerDecodeOut lay floor a ≠ none
   let broad := Finset.univ.filter fun a : HashOutput =>
     (SigGolfCandidate.T3.decode (CanonicalPolicy.normalLayer lay) (encodingAnswer (CanonicalPolicy.normalLayer lay) a)).isSome
   have hsub : accepted ⊆ broad := by
     intro a ha
-    obtain ⟨ds,hds⟩ := Option.ne_none_iff_exists'.mp (Finset.mem_filter.mp ha).2
+    obtain ⟨⟨ds,low⟩,hds⟩ := Option.ne_none_iff_exists'.mp (Finset.mem_filter.mp ha).2
     refine Finset.mem_filter.mpr ⟨Finset.mem_univ _,Option.isSome_iff_exists.mpr ⟨ds,?_⟩⟩
     rw [encodingAnswer_normal]
-    exact (CanonicalPolicy.producerDecodeAt_spec hds).1
-  have hbound : accepted.card ≤ broadCount (CanonicalPolicy.normalLayer lay) * (7*2^126) :=
+    exact (CanonicalPolicy.producerDecodeAt_spec (CanonicalPolicy.producerDecodeOut_spec hds).2).1
+  have hbound : accepted.card ≤ broadCount (CanonicalPolicy.normalLayer lay) * (2*2^128) :=
     (Finset.card_le_card hsub).trans (broad_encoding_card _)
   have hpart := Finset.card_filter_add_card_filter_not (s := (Finset.univ : Finset HashOutput))
-    (fun a => CanonicalPolicy.producerDecodeAt lay floor (encodingAnswer lay a) = none)
+    (fun a => CanonicalPolicy.producerDecodeOut lay floor a = none)
   simp only [Finset.card_univ, Fintype.card_bitVec] at hpart
-  change (Finset.univ.filter fun a : HashOutput => CanonicalPolicy.producerDecodeAt lay floor (encodingAnswer lay a)=none).card + accepted.card = 2^256 at hpart
-  have hsmall : 1001 * (broadCount (CanonicalPolicy.normalLayer lay) * (7*2^126)) ≤ 2^256 := by
+  change (Finset.univ.filter fun a : HashOutput => CanonicalPolicy.producerDecodeOut lay floor a=none).card + accepted.card = 2^256 at hpart
+  have hsmall : 1001 * (broadCount (CanonicalPolicy.normalLayer lay) * (2*2^128)) ≤ 2^256 := by
     rw [broad_decoder_card]
     fin_cases lay <;> norm_num [CanonicalPolicy.normalLayer, EncodingCounting.rawAcceptedCount, SigGolfResearch.NonbinaryTop.Counting.count]
   omega
@@ -456,7 +146,7 @@ set_option maxHeartbeats 1000000
 attribute [local instance] Classical.propDecidable
 
 def UnitNeighborDecode (lay : Layer) (reference : List Nat) (chain : Nat) (output : HashOutput) : Prop :=
-  ∃ digits, CanonicalPolicy.decode lay (encodingAnswer lay output)=some digits ∧
+  ∃ digits, encodingCanDecode lay output digits ∧
     digits.getD chain 0+1=reference.getD chain 0 ∧
     ∀ j, j ≠ chain → reference.getD j 0 ≤ digits.getD j 0
 
@@ -471,11 +161,13 @@ theorem marker_uniform_raw (lay : Layer) (reference : List Nat) (value : Digest)
   · let W := decodedWord href'
     let i : Fin (MixedCode.Code.n (code normal)) := ⟨chain,hc⟩
     let targets := EncodingTargets.targets normal (MixedCode.unitNeighbors W i)
-    calc _ ≤ Pr[fun output => encodingAnswer normal output∈targets | ($ᵗ HashOutput : ProbComp HashOutput)] := by
+    calc _ ≤ Pr[fun output => ∃ high : Bool, verificationAnswer normal high output∈targets |
+          ($ᵗ HashOutput : ProbComp HashOutput)] := by
           apply probEvent_mono
-          rintro answer - ⟨digits,hd,hlow,hrest⟩
-          have hd' : decode normal (encodingAnswer normal answer)=some digits := by
-            rw [encodingAnswer_normal]
+          rintro answer - ⟨digits,⟨high,hd⟩,hlow,hrest⟩
+          refine ⟨high, ?_⟩
+          have hd' : decode normal (verificationAnswer normal high answer)=some digits := by
+            rw [verificationAnswer_normal]
             exact hd
           refine (EncodingTargets.source_decoded_target hd' _).mpr ?_
           rw [MixedCode.mem_unitNeighbors]
@@ -485,7 +177,7 @@ theorem marker_uniform_raw (lay : Layer) (reference : List Nat) (value : Digest)
       _ ≤ _ := ClaudeWCT.W9.T3.Security.Wots.Enc.uniform_unit_neighbors normal W i
   · have hz : Pr[UnitNeighborDecode lay reference chain | ($ᵗ HashOutput : ProbComp HashOutput)]=0 := by
       apply probEvent_eq_zero
-      rintro answer - ⟨digits,hd,hlow,hrest⟩
+      rintro answer - ⟨digits,-,hlow,hrest⟩
       have hlen := (decode_length_sum href').1
       rw [List.getD_eq_default reference 0 (by omega)] at hlow
       omega
@@ -496,7 +188,7 @@ theorem marker_uniform_raw (lay : Layer) (reference : List Nat) (value : Digest)
 open SphincsSecurity.Concrete.UniformTableCompletion
 
 noncomputable def rejectedAt (lay : Layer) (floor : Nat) : Finset HashOutput :=
-  Finset.univ.filter fun a => CanonicalPolicy.producerDecodeAt lay floor (encodingAnswer lay a)=none
+  Finset.univ.filter fun a => CanonicalPolicy.producerDecodeOut lay floor a=none
 
 theorem probEvent_rejected_le (lay : Layer) (floor : Nat) (p : HashOutput→Prop) :
     Pr[p | cell (rejectedAt lay floor)] ≤ 1001/1000*Pr[p | ($ᵗ HashOutput : ProbComp HashOutput)] := by
@@ -535,41 +227,117 @@ end ClaudeWCT.WCT9.CanonicalRates
 namespace ClaudeWCT.WCT9.CanonicalRates
 open OracleComp OracleSpec ENNReal
 open SigGolfCandidate.T3
+open SphincsSecurity.Concrete.UniformTableCompletion
 set_option maxHeartbeats 1000000
 set_option maxRecDepth 10000
 attribute [local instance] Classical.propDecidable
 
-theorem decode_equal_uniform (lay : Layer) (digits : List Nat) :
-    Pr[fun output => CanonicalPolicy.decode lay (encodingAnswer lay output)=some digits |
-      ($ᵗ HashOutput : ProbComp HashOutput)] ≤ 7/((4:ENNReal)*2^128) := by
-  let normal := CanonicalPolicy.normalLayer lay
-  let targets : Finset Digest := Finset.univ.filter fun d => decode normal d=some digits
-  have hcard : targets.card≤1 := by
-    apply Finset.card_le_one.mpr
-    intro a ha b hb
-    exact decode_some_injective (Finset.mem_filter.mp ha).2 (Finset.mem_filter.mp hb).2
-  calc _ = Pr[fun output => encodingAnswer normal output∈targets |
-      ($ᵗ HashOutput : ProbComp HashOutput)] := by
+/-- The LOW path bonus only helps: a word accepted through HIGH is accepted through LOW. -/
+theorem producerDecodeAt_true_of_false {lay : Layer} {floor : Nat} {word : Digest} {digits : List Nat}
+    (h : CanonicalPolicy.producerDecodeAt lay floor false word = some digits) :
+    CanonicalPolicy.producerDecodeAt lay floor true word = some digits := by
+  unfold CanonicalPolicy.producerDecodeAt at h ⊢
+  cases hd : CanonicalPolicy.decode lay word with
+  | none => simp [hd] at h
+  | some ds =>
+      simp only [hd] at h ⊢
+      split_ifs at h with hc
+      cases h
+      have hb : ∀ d, CanonicalPolicy.pathReward lay false d ≤ CanonicalPolicy.pathReward lay true d := by
+        intro d
+        simp only [CanonicalPolicy.pathReward, CanonicalPolicy.pathBonus_false]
+        omega
+      rw [if_pos ⟨hc.1.trans (hb _), hc.2⟩]
+
+/-- Path-aware rejected cell (both layer kinds; top bonus 3, lower bonus 4). Let `word` be accepted at `floor`
+through some half, with digits `digits`. A rejected answer that still decodes to `digits` for some witness hint has
+HIGH half `word`: if its LOW half were `word`, LOW would pass the producer predicate through the (better) LOW path
+and the producer would have selected it (top: the producer prefers a good LOW; lower: the decodable LOW is spare). -/
+theorem rejected_canDecode {lay : Layer} {floor : Nat} (hfloor : lay = 0 → floor = CanonicalPolicy.topFloor)
+    {word : Digest} {low : Bool} {digits : List Nat}
+    (href : CanonicalPolicy.producerDecodeAt lay floor low word = some digits) {a : HashOutput}
+    (hrej : CanonicalPolicy.producerDecodeOut lay floor a = none)
+    (hdec : encodingCanDecode lay a digits) :
+    a.extractLsb' 128 128 = word := by
+  obtain ⟨high, hd⟩ := hdec
+  have hword : verificationAnswer lay high a = word :=
+    canonical_decode_injective hd (CanonicalPolicy.producerDecodeAt_spec href).1
+  have hrej' : CanonicalPolicy.producerDecodeAt lay floor (lowSelected lay a) (encodingAnswer lay a) = none := by
+    unfold CanonicalPolicy.producerDecodeOut at hrej
+    simpa only [Option.map_eq_none_iff] using hrej
+  have htrue : CanonicalPolicy.producerDecodeAt lay floor true word = some digits := by
+    cases low
+    · exact producerDecodeAt_true_of_false href
+    · exact href
+  have hlowne : a.extractLsb' 0 128 = word → False := by
+    intro hlw
+    have hsel : lowSelected lay a = true := by
+      by_cases hl : lay = 0
+      · subst hl
+        have hf := hfloor rfl
+        subst hf
+        have hg : topGood (a.extractLsb' 0 128) := by
+          unfold topGood
+          rw [hlw, htrue]
+          rfl
+        simp only [lowSelected, if_true, topChooseLow, decide_eq_true_eq]
+        exact Or.inl hg
+      · have hdw := (CanonicalPolicy.producerDecodeAt_spec href).1
+        simp only [CanonicalPolicy.decode, CanonicalPolicy.normalLayer, if_neg hl] at hdw
+        have hspare : lowerSpare (a.extractLsb' 0 128) := by
+          rw [hlw]
+          exact SigGolfCandidate.T3.decode_lowerSpare (by decide : (1 : Layer) ≠ 0) hdw
+        simp [lowSelected, hl, hspare]
+    rw [encodingAnswer_eq, hsel, if_pos rfl, hlw, htrue] at hrej'
+    cases hrej'
+  by_cases hl : lay = 0
+  · subst hl
+    have hread : verificationAnswer 0 high a = TopChoice.read high a := rfl
+    rw [hread] at hword
+    unfold TopChoice.read at hword
+    split_ifs at hword
+    · exact hword
+    · exact (hlowne hword).elim
+  · rw [verificationAnswer_eq_lower lay hl, verificationLow_lower lay hl] at hword
+    split_ifs at hword
+    · exact (hlowne hword).elim
+    · exact hword
+
+/-- Rejected-cell match bound (path-aware floors): `(1001/1000)/2^128 ≤ (7/4)/2^128`. -/
+theorem canDecode_rejected_le {lay : Layer} {floor : Nat} (hfloor : lay = 0 → floor = CanonicalPolicy.topFloor)
+    {word : Digest} {low : Bool} {digits : List Nat}
+    (href : CanonicalPolicy.producerDecodeAt lay floor low word = some digits) :
+    Pr[fun a => encodingCanDecode lay a digits | cell (rejectedAt lay floor)] ≤ 7/((4:ENNReal)*2^128) := by
+  classical
+  calc _ ≤ Pr[fun a : HashOutput => a.extractLsb' 128 128 = word | cell (rejectedAt lay floor)] := by
+        apply probEvent_mono
+        intro a ha hdec
+        have hmem := SigGolfCandidate.T3.Security.Wots.Enc.Lazy.cell_nonzero_mem
+          ((SPMF.mem_support_iff _ _).mp ha)
+        have hrej : CanonicalPolicy.producerDecodeOut lay floor a = none := by
+          simpa only [rejectedAt, Finset.mem_filter, Finset.mem_univ, true_and] using hmem
+        exact rejected_canDecode hfloor href hrej hdec
+    _ ≤ 1001/1000*Pr[fun a : HashOutput => a.extractLsb' 128 128 = word |
+          ($ᵗ HashOutput : ProbComp HashOutput)] := probEvent_rejected_le _ _ _
+    _ = 1001/1000*(1/(2:ENNReal)^128) := by
         congr 1
-        funext output
-        apply propext
-        simp only [targets,Finset.mem_filter,Finset.mem_univ,true_and,normal,encodingAnswer_normal]
-        rfl
+        rw [probEvent_uniformSample]
+        have hc := SphincsSecurity.Completeness.card_filter_high (n := 256) (w := 128) (by decide)
+          (fun v : BitVec 128 => v = word)
+        have h1 : (Finset.univ.filter fun v : BitVec 128 => v = word).card = 1 := by
+          rw [Finset.filter_eq' Finset.univ word]
+          simp
+        change (Finset.univ.filter fun a : HashOutput => a.extractLsb' 128 128 = word).card = _ at hc
+        rw [hc, h1, Fintype.card_bitVec]
+        simp only [Nat.cast_mul, Nat.cast_pow, Nat.cast_ofNat, Nat.cast_one, mul_one]
+        rw [show (2:ENNReal)^256 = 2^128*2^128 by rw [← pow_add], ENNReal.div_eq_inv_mul,
+          ENNReal.mul_inv (Or.inl (by simp)) (Or.inl (by simp)),
+          mul_assoc, ENNReal.inv_mul_cancel (by simp) (by simp), mul_one, one_div]
     _ ≤ _ := by
-      by_cases hl : normal=0
-      · have hprob := probability_top_encoding_le (fun d=>d∈targets)
-        simp only [Function.comp_def,Finset.filter_mem_eq_inter,Finset.univ_inter] at hprob
-        simp only [encodingAnswer,if_pos hl]
-        exact hprob.trans (by
-          simpa only [one_mul] using mul_le_mul' (show (targets.card:ENNReal)≤1 by exact_mod_cast hcard)
-            (le_refl (7/((4:ENNReal)*2^128))))
-      · have hp : ∀d,d∈targets→lowerSpare d := fun d hd=> decode_lowerSpare hl (Finset.mem_filter.mp hd).2
-        have hprob := probability_lower_encoding (fun d=>d∈targets) hp
-        simp only [Function.comp_def,Finset.filter_mem_eq_inter,Finset.univ_inter] at hprob
-        simp only [encodingAnswer,if_neg hl]
-        rw [hprob]
-        simpa only [one_mul] using mul_le_mul' (show (targets.card:ENNReal)≤1 by exact_mod_cast hcard)
-          (le_refl (7/((4:ENNReal)*2^128)))
+      apply (ENNReal.toReal_le_toReal (by finiteness) (by finiteness)).mp
+      simp only [ENNReal.toReal_mul, ENNReal.toReal_div, ENNReal.toReal_pow, ENNReal.toReal_ofNat,
+        ENNReal.toReal_one]
+      norm_num
 
 end ClaudeWCT.WCT9.CanonicalRates
 
@@ -589,7 +357,7 @@ def MarkEntry (T : Answers) (messages : LeafAddr → WCT9.LayerMsg) (a : ChainAd
   ∃ (message : WCT9.LayerMsg) (counter : BitVec 32) (pad : RowPad) (digits : List Nat),
     Extract.msgFits a.key.lay message ∧ entry.1 = encRow a.key message counter pad ∧
       referenceInput T messages a.key ≠ some (encRow a.key message counter pad) ∧
-      WCT9.CanonicalPolicy.decode a.key.lay (WCT9.encodingAnswer a.key.lay entry.2) = some digits ∧
+      WCT9.encodingCanDecode a.key.lay entry.2 digits ∧
       digits.getD a.chain 0 + 1 = (referenceDigits T messages a.key).getD a.chain 0 ∧
       ∀ i, i ≠ a.chain → (referenceDigits T messages a.key).getD i 0 ≤ digits.getD i 0
 
@@ -701,11 +469,11 @@ set_option backward.isDefEq.respectTransparency false
 attribute [local instance] Classical.propDecidable
 
 theorem layerCounterSearch_first (T : Answers) (lay : Layer) (floor tree leaf : Nat) (msg : WCT9.LayerMsg) :
-    ∀ fuel start k digits, k<fuel →
-      (∀i<k,WCT9.CanonicalPolicy.producerDecodeAt lay floor (WCT9.encodingAnswer lay (T (.inl (.inr
-        (pad64 (WCT9.layerEncodingInput lay tree leaf msg (BitVec.ofNat 32 (start+i))))))))=none) →
-      WCT9.CanonicalPolicy.producerDecodeAt lay floor (WCT9.encodingAnswer lay (T (.inl (.inr
-        (pad64 (WCT9.layerEncodingInput lay tree leaf msg (BitVec.ofNat 32 (start+k))))))))=some digits →
+    ∀ fuel start k (digits : List Nat × Bool), k<fuel →
+      (∀i<k,WCT9.CanonicalPolicy.producerDecodeOut lay floor (T (.inl (.inr
+        (pad64 (WCT9.layerEncodingInput lay tree leaf msg (BitVec.ofNat 32 (start+i)))))))=none) →
+      WCT9.CanonicalPolicy.producerDecodeOut lay floor (T (.inl (.inr
+        (pad64 (WCT9.layerEncodingInput lay tree leaf msg (BitVec.ofNat 32 (start+k)))))))=some digits →
       evalWithAnswerFn T (WCT9.CanonicalPolicy.layerCounterSearchAt lay floor tree leaf msg start fuel)=
         some (BitVec.ofNat 32 (start+k),digits) := by
   intro fuel
@@ -713,7 +481,7 @@ theorem layerCounterSearch_first (T : Answers) (lay : Layer) (floor tree leaf : 
   | zero => intro start k digits hk; omega
   | succ fuel ih =>
       intro start k digits hk hprev hvalid
-      simp only [WCT9.CanonicalPolicy.layerCounterSearchAt,evalWithAnswerFn_bind,WCT9.eval_encodingHash]
+      simp only [WCT9.CanonicalPolicy.layerCounterSearchAt,evalWithAnswerFn_bind,eval_publicHash]
       rcases k with _ | k
       · simp only [Nat.add_zero] at hvalid ⊢
         rw [hvalid]
@@ -730,10 +498,9 @@ theorem layerCounterSearch_first (T : Answers) (lay : Layer) (floor tree leaf : 
 theorem reached_valid_reference {T : Answers} {messages : LeafAddr→WCT9.LayerMsg}
     {L : LeafAddr} {input : HashInput} (hr : Reached T messages L input)
     {remaining : Nat} (hctx : referenceContext T messages L=some remaining)
-    {digits : List Nat}
-    (hv : WCT9.CanonicalPolicy.producerDecodeAt L.lay
-      (WCT9.CanonicalPolicy.threshold L.lay.val remaining)
-      (WCT9.encodingAnswer L.lay (T (.inl (.inr input))))=some digits) :
+    {digits : List Nat × Bool}
+    (hv : WCT9.CanonicalPolicy.producerDecodeOut L.lay
+      (WCT9.CanonicalPolicy.threshold L.lay.val remaining) (T (.inl (.inr input)))=some digits) :
     referenceInput T messages L=some input := by
   obtain ⟨c,⟨hc,oldRemaining,hctx',hprev⟩,rfl⟩ := hr
   rw [hctx] at hctx'
@@ -779,9 +546,8 @@ theorem referenceInput_eq_of_noncell (T : Answers) (messages : LeafAddr → WCT9
       exact False.elim (hnc (Or.inr
         ⟨c,remaining,⟨hc,remaining,hctx,hprev⟩,hin.trans hxrow,hctx,hs⟩))
   | some ds =>
-      have hvalid : WCT9.CanonicalPolicy.producerDecodeAt L.lay
-          (WCT9.CanonicalPolicy.threshold L.lay.val remaining)
-          (WCT9.encodingAnswer L.lay (T (.inl (.inr x))))=some ds := by
+      have hvalid : WCT9.CanonicalPolicy.producerDecodeOut L.lay
+          (WCT9.CanonicalPolicy.threshold L.lay.val remaining) (T (.inl (.inr x)))=some ds := by
         rw [decodeRow_answer,←hxrow] at hs
         exact hs
       have href := reached_valid_reference ⟨c,⟨hc,remaining,hctx,hprev⟩,hxrow⟩ hctx hvalid
@@ -816,13 +582,12 @@ def MatchEntry (T : Answers) (messages : LeafAddr → WCT9.LayerMsg) (entry : En
     L.Source ∧ Extract.msgFits L.lay message ∧ entry.1 = encRow (Enc.leafOf L) message counter pad ∧
       referenceInput T messages (Enc.leafOf L) ≠ some (encRow (Enc.leafOf L) message counter pad) ∧
       referenceSearch T messages (Enc.leafOf L) ≠ none ∧
-      WCT9.CanonicalPolicy.decode L.lay (WCT9.encodingAnswer L.lay entry.2) =
-        some (referenceDigits T messages (Enc.leafOf L))
+      WCT9.encodingCanDecode L.lay entry.2 (referenceDigits T messages (Enc.leafOf L))
 
 theorem matchEntry_cell_le (T : Answers) (messages : LeafAddr → WCT9.LayerMsg) (e : Enc.EncIndex) :
     Pr[fun ans => MatchEntry T messages (Enc.encInput e,ans) | ($ᵗ HashOutput : ProbComp HashOutput)] ≤
       7/((4:ENNReal)*2^128) := by
-  apply le_trans (probEvent_mono ?_) (WCT9.CanonicalRates.decode_equal_uniform e.1.1.lay
+  apply le_trans (probEvent_mono ?_) (WCT9.probability_encodingCanDecode_le e.1.1.lay
     (referenceDigits T messages (Enc.leafOf e.1.1)))
   rintro answer - ⟨L,message,counter,pad,hsource,hfit,he,hne,hs,hdec⟩
   have hL := Enc.encInput_leaf hsource he
@@ -831,32 +596,34 @@ theorem matchEntry_cell_le (T : Answers) (messages : LeafAddr → WCT9.LayerMsg)
 
 theorem referenceSearch_producerDecode (T : Answers) (messages : LeafAddr → WCT9.LayerMsg)
     (L : LeafAddr) {remaining : Nat} (hctx : referenceContext T messages L=some remaining)
-    {c : BitVec 32} {digits : List Nat} (hs : referenceSearch T messages L=some (c,digits)) :
-    WCT9.CanonicalPolicy.producerDecodeAt L.lay (WCT9.CanonicalPolicy.threshold L.lay.val remaining)
-      (WCT9.encodingAnswer L.lay (T (.inl (.inr (encRow L (messages L) c 0)))))=some digits := by
-  have hs' : searchOf T messages L remaining=some (c,digits) := by
+    {c : BitVec 32} {digits : List Nat} {low : Bool} (hs : referenceSearch T messages L=some (c,digits,low)) :
+    WCT9.CanonicalPolicy.producerDecodeOut L.lay (WCT9.CanonicalPolicy.threshold L.lay.val remaining)
+      (T (.inl (.inr (encRow L (messages L) c 0))))=some (digits,low) := by
+  have hs' : searchOf T messages L remaining=some (c,digits,low) := by
     change (referenceContext T messages L).bind (searchOf T messages L)=_ at hs
     rw [hctx] at hs
     exact hs
   have h := counterSearch_decode T L.lay _ L.tree L.leaf (messages L)
-    (WCT9.searchLimit L.lay) 0 c digits hs'
-  rw [WCT9.eval_encodingHash,←encRow_zero] at h
+    (WCT9.searchLimit L.lay) 0 c (digits,low) hs'
+  rw [eval_publicHash,←encRow_zero] at h
   exact h
 
-theorem producerDecode_of_reference (T : Answers) (messages : LeafAddr → WCT9.LayerMsg)
+/-- Path-aware floors: the reference word was accepted through the half the producer selected. -/
+theorem reference_accepted (T : Answers) (messages : LeafAddr → WCT9.LayerMsg)
     (L : LeafAddr) {remaining : Nat} (hctx : referenceContext T messages L=some remaining)
-    (hs : referenceSearch T messages L≠none) {value : Digest}
-    (hd : WCT9.CanonicalPolicy.decode L.lay value=some (referenceDigits T messages L)) :
-    WCT9.CanonicalPolicy.producerDecodeAt L.lay (WCT9.CanonicalPolicy.threshold L.lay.val remaining)
-      value=some (referenceDigits T messages L) := by
-  obtain ⟨⟨c,digits⟩,hfound⟩ := Option.ne_none_iff_exists'.mp hs
+    (hs : referenceSearch T messages L≠none) :
+    ∃ (word : Digest) (low : Bool), WCT9.CanonicalPolicy.producerDecodeAt L.lay
+      (WCT9.CanonicalPolicy.threshold L.lay.val remaining) low word=some (referenceDigits T messages L) := by
+  obtain ⟨⟨c,digits,low⟩,hfound⟩ := Option.ne_none_iff_exists'.mp hs
   have href : referenceDigits T messages L=digits := by
     simp only [referenceDigits,hfound,Option.map_some,Option.getD_some]
-  rw [href] at hd ⊢
-  have hp := referenceSearch_producerDecode T messages L hctx hfound
-  have hv := decode_some_injective (WCT9.CanonicalPolicy.producerDecodeAt_spec hp).1 hd
-  rw [←hv]
-  exact hp
+  rw [href]
+  exact ⟨_,_,(WCT9.CanonicalPolicy.producerDecodeOut_spec (referenceSearch_producerDecode T messages L hctx hfound)).2⟩
+
+theorem threshold_top_floor (lay : Layer) (remaining : Nat) :
+    lay = 0 → WCT9.CanonicalPolicy.threshold lay.val remaining = WCT9.CanonicalPolicy.topFloor := by
+  rintro rfl
+  simp [WCT9.CanonicalPolicy.threshold]
 
 theorem matchEntry_init_le (T : Answers) (messages : LeafAddr → WCT9.LayerMsg)
     (e : (cellKey T messages).cells) :
@@ -869,18 +636,20 @@ theorem matchEntry_init_le (T : Answers) (messages : LeafAddr → WCT9.LayerMsg)
   · split
     · rw [Lazy.probEvent_cell_univ]
       exact matchEntry_cell_le T messages e.val
-    · apply le_trans (le_of_eq (probEvent_eq_zero ?_)) zero_le
-      intro ans hans hmatch
-      have hmem := Lazy.cell_nonzero_mem ((SPMF.mem_support_iff _ _).mp hans)
-      obtain ⟨L,message,counter,pad,hsource,hfit,he,hne,hs,hd⟩ := hmatch
-      have hL := Enc.encInput_leaf hsource he
-      subst hL
-      have hctx : referenceContext T messages (Enc.leafOf e.val.1.1)=some ‹Nat› := by assumption
-      have hp := producerDecode_of_reference T messages (Enc.leafOf e.val.1.1) hctx hs hd
-      have hn := (mem_rejectedAnswers _ _ _).mp hmem
-      dsimp only [Enc.leafOf] at hp
-      rw [hp] at hn
-      cases hn
+    · rename_i hctx
+      by_cases hs : referenceSearch T messages (Enc.leafOf e.val.1.1) = none
+      · apply le_trans (le_of_eq (probEvent_eq_zero ?_)) zero_le
+        rintro ans - ⟨L,message,counter,pad,hsource,hfit,he,hne,hs',hd⟩
+        have hL := Enc.encInput_leaf hsource he
+        subst hL
+        exact hs' hs
+      · obtain ⟨word,low,hword⟩ := reference_accepted T messages (Enc.leafOf e.val.1.1) hctx hs
+        refine le_trans (probEvent_mono ?_) (WCT9.CanonicalRates.canDecode_rejected_le
+          (threshold_top_floor e.val.1.1.lay _) hword)
+        rintro ans - ⟨L,message,counter,pad,hsource,hfit,he,hne,hs',hd⟩
+        have hL := Enc.encInput_leaf hsource he
+        subst hL
+        exact hd
 
 theorem matchEntry_noncell (T : Answers) (messages : LeafAddr → WCT9.LayerMsg)
     (x : HashInput) (hx : ¬Lazy.IsCell Enc.encInput (cellKey T messages).cells x) :
@@ -1161,7 +930,7 @@ theorem matchCount_pos {T : Answers} {messages : LeafAddr → WCT9.LayerMsg} {tr
     {L : LeafAddr} (hsource : WotsExtract.SourceLeaf7 L)
     (hs : referenceSearch T messages L ≠ none) (hm : EncodingMatchAt T messages trace L) :
     1 ≤ matchCount T messages trace := by
-  obtain ⟨message,counter,pad,answer,hfit,hmem,hne,hdecode⟩ := hm
+  obtain ⟨message,counter,pad,answer,hfit,hmem,hne,-,hdecode⟩ := hm
   have ht31 : L.tree < 2^31 := lt_of_lt_of_le hsource.1
     (Nat.pow_le_pow_right (by decide) (le_trans (ClaudeWCT.W9.T3M.Extract.treeBits_le _) (by decide)))
   have hl12 : L.leaf < 4096 := lt_of_lt_of_le hsource.2 (by

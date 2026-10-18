@@ -1,4 +1,5 @@
 import SigGolfCandidate.T3.Core
+import SigGolfCandidate.Choice.Gated
 
 
 namespace SigGolfCandidate.T3
@@ -301,3 +302,186 @@ theorem card_select_pred_le (p : Digest → Prop) [DecidablePred p] :
     _ ≤ _ := by omega
 
 end SigGolfCandidate.T3.TopDualHalf
+
+
+/-! ### Restricted top-half choice (ChoiceHint, configuration (1)+(2))
+The top encoding answer is a 256-bit hash output with halves LOW (bits 0..127) and HIGH (bits 128..255).
+LOW is *forced* (`blocked`) when its two top bits 126, 127 are both 0 (`LOW < 2^126`). Otherwise the witness
+hint bit (bit 4 of the witness byte at rel 22312) selects HIGH. The producer prefers LOW and falls back to HIGH when
+LOW fails its predicate and is not forced (`choose`). The verifier reads `read hint` for an arbitrary hint. -/
+namespace SigGolfCandidate.T3.TopChoice
+open SigGolfCandidate.T3 Finset
+set_option maxHeartbeats 1000000
+set_option maxRecDepth 10000
+
+/-- LOW is forced: bits 126 and 127 of LOW are both zero. -/
+def blocked (low : Digest) : Prop := low.toNat < 2 ^ 126
+instance (low : Digest) : Decidable (blocked low) := inferInstanceAs (Decidable (low.toNat < 2 ^ 126))
+def blockedSet : Finset Digest := univ.filter blocked
+/-- Low and high halves of a hash output. -/
+def lowHalf (a : HashOutput) : Digest := a.extractLsb' 0 128
+def highHalf (a : HashOutput) : Digest := a.extractLsb' 128 128
+
+/-- Verifier read of the top answer for the witness hint `high`: HIGH only when requested and LOW is not
+forced. -/
+def read (high : Bool) (a : HashOutput) : Digest :=
+  if high = true ∧ ¬ blocked (lowHalf a) then highHalf a else lowHalf a
+/-- The verifier selected the LOW half. -/
+def readLow (high : Bool) (a : HashOutput) : Bool := !(high && !decide (blocked (lowHalf a)))
+/-- Producer choice for the acceptance predicate `good`: LOW when it is good or forced, else HIGH. -/
+def choose (good : Digest → Prop) [DecidablePred good] (a : HashOutput) : Digest :=
+  if good (lowHalf a) ∨ blocked (lowHalf a) then lowHalf a else highHalf a
+/-- The producer's (honest) hint: request HIGH exactly when the producer chose it. -/
+def chooseHigh (good : Digest → Prop) [DecidablePred good] (a : HashOutput) : Bool :=
+  !decide (good (lowHalf a) ∨ blocked (lowHalf a))
+
+theorem blocked_iff_bits (low : Digest) :
+    blocked low ↔ low.toNat / 2 ^ 126 = 0 := by
+  unfold blocked
+  constructor
+  · intro h; exact Nat.div_eq_of_lt h
+  · intro h
+    have := Nat.lt_of_div_eq_zero (by positivity) h
+    exact this
+
+theorem read_chooseHigh (good : Digest → Prop) [DecidablePred good] (a : HashOutput) :
+    read (chooseHigh good a) a = choose good a := by
+  unfold read chooseHigh choose
+  by_cases hg : good (lowHalf a) <;> by_cases hb : blocked (lowHalf a) <;> simp [hg, hb]
+
+theorem readLow_chooseHigh (good : Digest → Prop) [DecidablePred good] (a : HashOutput) :
+    readLow (chooseHigh good a) a = decide (good (lowHalf a) ∨ blocked (lowHalf a)) := by
+  unfold readLow chooseHigh
+  by_cases hg : good (lowHalf a) <;> by_cases hb : blocked (lowHalf a) <;> simp [hg, hb]
+
+theorem read_eq (high : Bool) (a : HashOutput) :
+    read high a = if readLow high a then lowHalf a else highHalf a := by
+  unfold read readLow
+  cases high <;> by_cases hb : blocked (lowHalf a) <;> simp [hb]
+
+theorem read_false (a : HashOutput) : read false a = lowHalf a := by simp [read]
+theorem readLow_false (a : HashOutput) : readLow false a = true := by simp [readLow]
+theorem read_blocked (high : Bool) {a : HashOutput} (h : blocked (lowHalf a)) : read high a = lowHalf a := by
+  simp [read, h]
+theorem readLow_blocked (high : Bool) {a : HashOutput} (h : blocked (lowHalf a)) : readLow high a = true := by
+  simp [readLow, h]
+
+theorem choose_of_good (good : Digest → Prop) [DecidablePred good] {a : HashOutput} (h : good (lowHalf a)) :
+    choose good a = lowHalf a := by simp [choose, h]
+
+theorem card_blocked : blockedSet.card = 2 ^ 126 := by
+  have hc : blockedSet.card = (Finset.range (2 ^ 126)).card := by
+    apply Finset.card_bij (fun v _ => v.toNat)
+    · intro v hv
+      exact Finset.mem_range.mpr (Finset.mem_filter.mp hv).2
+    · intro a _ b _ h
+      exact BitVec.eq_of_toNat_eq h
+    · intro n hn
+      have hn' := Finset.mem_range.mp hn
+      have hb : n < 2 ^ 128 := hn'.trans (by norm_num)
+      refine ⟨BitVec.ofNat 128 n, ?_, ?_⟩
+      · apply Finset.mem_filter.mpr
+        refine ⟨Finset.mem_univ _, ?_⟩
+        change (BitVec.ofNat 128 n).toNat < 2 ^ 126
+        simpa only [BitVec.toNat_ofNat, Nat.mod_eq_of_lt hb] using hn'
+      · simp only [BitVec.toNat_ofNat, Nat.mod_eq_of_lt hb]
+  simpa only [Finset.card_range] using hc
+
+/-- The split of a hash output into (LOW, HIGH). -/
+noncomputable def splitEquiv : HashOutput ≃ Digest × Digest :=
+  SphincsSecurity.splitHashOutputEquiv 128 (by decide)
+
+theorem splitEquiv_apply (a : HashOutput) : splitEquiv a = (lowHalf a, highHalf a) := rfl
+
+/-- Every read (for any hint, possibly chosen after seeing the whole answer) lies in the gated accepted set. -/
+theorem read_mem_accepted (targets : Finset Digest) (high : Bool) (a : HashOutput)
+    (h : read high a ∈ targets) : splitEquiv a ∈ Choice.Gated.accepted targets blockedSet := by
+  rw [Choice.Gated.mem_accepted, splitEquiv_apply]
+  unfold read at h
+  split_ifs at h with hc
+  · exact Or.inr ⟨fun hb => hc.2 (Finset.mem_filter.mp hb).2, h⟩
+  · exact Or.inl h
+
+/-- The 7/4 point-mass bound: the witness hint may depend on the complete hash answer. -/
+theorem card_read_le (targets : Finset Digest) (hint : HashOutput → Bool) :
+    (univ.filter fun a => read (hint a) a ∈ targets).card ≤ targets.card * (7 * 2 ^ 126) := by
+  have hq := Choice.Gated.quarter_upper targets blockedSet (2 ^ 126)
+    (by rw [Fintype.card_bitVec]; norm_num) card_blocked
+  calc _ ≤ (univ.filter fun a : HashOutput => splitEquiv a ∈ Choice.Gated.accepted targets blockedSet).card :=
+        Finset.card_le_card (fun a ha => Finset.mem_filter.mpr ⟨Finset.mem_univ _,
+          read_mem_accepted targets (hint a) a (Finset.mem_filter.mp ha).2⟩)
+    _ = (Choice.Gated.accepted targets blockedSet).card := by
+        refine Finset.card_equiv splitEquiv fun a => ?_
+        simp only [Finset.mem_filter, Finset.mem_univ, true_and]
+    _ ≤ _ := hq
+
+/-- The union over all hints. -/
+theorem card_read_exists_le (targets : Finset Digest) :
+    (univ.filter fun a => ∃ high : Bool, read high a ∈ targets).card ≤ targets.card * (7 * 2 ^ 126) := by
+  classical
+  let hint : HashOutput → Bool := fun a => decide (read true a ∈ targets)
+  refine le_trans (Finset.card_le_card ?_) (card_read_le targets hint)
+  intro a ha
+  obtain ⟨high, hh⟩ := (Finset.mem_filter.mp ha).2
+  refine Finset.mem_filter.mpr ⟨Finset.mem_univ _, ?_⟩
+  by_cases ht : read true a ∈ targets
+  · simpa [hint, ht] using ht
+  · have hf : read false a ∈ targets := by cases high <;> simp_all
+    simpa [hint, ht] using hf
+
+/-- Number of LOW words that are neither good nor forced (each lets HIGH through). -/
+def freeCount (good : Digest → Prop) [DecidablePred good] : Nat :=
+  (univ.filter fun v : Digest => ¬ (good v ∨ blocked v)).card
+
+theorem freeCount_add (good : Digest → Prop) [DecidablePred good] :
+    freeCount good + (univ.filter fun v : Digest => good v ∧ ¬ blocked v).card = 3 * 2 ^ 126 := by
+  have hc : freeCount good = Fintype.card Digest - (univ.filter fun v : Digest => good v ∨ blocked v).card :=
+    DualHalf.card_compl_generic (fun v : Digest => good v ∨ blocked v)
+  have hu : (univ.filter fun v : Digest => good v ∨ blocked v) =
+      blockedSet ∪ (univ.filter fun v : Digest => good v ∧ ¬ blocked v) := by
+    ext v
+    simp only [Finset.mem_filter, Finset.mem_univ, true_and, Finset.mem_union, blockedSet]
+    by_cases hb : blocked v
+    · exact ⟨fun _ => Or.inl hb, fun _ => Or.inr hb⟩
+    · exact ⟨fun h => Or.inr ⟨h.resolve_right hb, hb⟩, fun h => h.elim (fun h' => absurd h' hb) (fun h' => Or.inl h'.1)⟩
+  have hd : Disjoint blockedSet (univ.filter fun v : Digest => good v ∧ ¬ blocked v) := by
+    rw [Finset.disjoint_left]
+    intro v h1 h2
+    exact (Finset.mem_filter.mp h2).2.2 (Finset.mem_filter.mp h1).2
+  have hle : (univ.filter fun v : Digest => good v ∨ blocked v).card ≤ Fintype.card Digest :=
+    Finset.card_le_univ _
+  rw [hu, Finset.card_union_of_disjoint hd, card_blocked] at hc hle
+  rw [Fintype.card_bitVec] at hc hle
+  omega
+
+/-- Exact producer selection count: every good LOW is kept; a free LOW lets HIGH through. -/
+theorem card_choose_pred (good : Digest → Prop) [DecidablePred good] (p : Digest → Prop) [DecidablePred p]
+    (hp : ∀ d, p d → good d) :
+    (univ.filter fun a : HashOutput => p (choose good a)).card =
+      (univ.filter p).card * (2 ^ 128 + freeCount good) := by
+  have he : (univ.filter fun a : HashOutput => p (choose good a)).card =
+      (univ.filter fun x : Digest × Digest => if good x.1 ∨ blocked x.1 then p x.1 else p x.2).card := by
+    refine Finset.card_equiv splitEquiv fun a => ?_
+    simp only [Finset.mem_filter, Finset.mem_univ, true_and, splitEquiv_apply]
+    unfold choose
+    split_ifs <;> rfl
+  rw [he, DualHalf.card_mode (fun v => good v ∨ blocked v) p p (fun d h => Or.inl (hp d h)),
+    Fintype.card_bitVec]
+  unfold freeCount
+  ring
+
+/-- Selection count with the forced-set complement made explicit. -/
+theorem card_choose_pred_eq (good : Digest → Prop) [DecidablePred good] (p : Digest → Prop) [DecidablePred p]
+    (hp : ∀ d, p d → good d) (K : Nat) (hK : (univ.filter fun v : Digest => good v ∧ ¬ blocked v).card = K) :
+    (univ.filter fun a : HashOutput => p (choose good a)).card =
+      (univ.filter p).card * (2 ^ 128 + 3 * 2 ^ 126 - K) := by
+  rw [card_choose_pred good p hp]
+  have := freeCount_add good
+  rw [hK] at this
+  have hK' : K ≤ 3 * 2 ^ 126 := by rw [← this]; exact Nat.le_add_left _ _
+  rw [Nat.eq_sub_of_add_eq this, Nat.add_sub_assoc hK']
+
+end SigGolfCandidate.T3.TopChoice
+
+#print axioms SigGolfCandidate.T3.TopChoice.card_read_le
+#print axioms SigGolfCandidate.T3.TopChoice.card_choose_pred_eq

@@ -476,13 +476,6 @@ theorem tableGood_failure_le (digestFail encodingFail : ENNReal)
   replace he' := he'.trans (mul_le_mul' encodingFamilyBC_card_le le_rfl)
   simp only [tableGood, not_searchesSucceed_iff]
   exact (probEvent_or_le law _ _).trans (add_le_add hd' he')
-theorem tableGood_failure_small_of_acceptance (p : ℝ) (hp : 1 / 5026 ≤ p) (hp1 : p ≤ 1)
-    (haccept : Pr[fun answer => (digestDecode answer).isSome |
-      ($ᵗ HashOutput : ProbComp HashOutput)] = ENNReal.ofReal p) :
-    Pr[fun outputs => ¬tableGood outputs |
-      ($ᵗ (SearchKey → HashOutput) : ProbComp _)] ≤ 1 / (2 : ENNReal) ^ 65 :=
-  (tableGood_failure_le _ _ (digest_failure_power_of_acceptance p hp hp1 haccept) ClaudeWCT.W9.T3.ProducerV5.producer_failure_power).trans
-    (union_ennreal 384 65 union_real_65)
 def tableGoodFor (message : Message) (outputs : SearchKey → HashOutput) : Prop :=
   SearchesSucceedFor (Presampling.tableAnswers outputs zeroAnswers) message
 theorem not_searchesSucceedFor_iff (answers : Answers) (message : Message) :
@@ -521,29 +514,6 @@ theorem tableGoodFor_failure_le (message : Message) (digestFail encodingFail : E
   replace he' := he'.trans (mul_le_mul' encodingFamilyBC_card_le le_rfl)
   simp only [tableGoodFor, not_searchesSucceedFor_iff]
   exact (probEvent_or_le law _ _).trans (add_le_add hd' he')
-theorem tableGoodFor_failure_small_of_acceptance (message : Message) (p : ℝ) (hp : 1 / 5026 ≤ p) (hp1 : p ≤ 1)
-    (haccept : Pr[fun answer => (digestDecode answer).isSome |
-      ($ᵗ HashOutput : ProbComp HashOutput)] = ENNReal.ofReal p) :
-    Pr[fun outputs => ¬tableGoodFor message outputs |
-      ($ᵗ (SearchKey → HashOutput) : ProbComp _)] ≤ 1 / (2 : ENNReal) ^ 298 :=
-  (tableGoodFor_failure_le message _ _ (digest_failure_power_of_acceptance p hp hp1 haccept)
-    ClaudeWCT.W9.T3.ProducerV5.producer_failure_power).trans (union_ennreal 128 298 union_real_298)
-theorem tableGood_failure_small :
-    Pr[fun outputs => ¬tableGood outputs |
-      ($ᵗ (SearchKey → HashOutput) : ProbComp _)] ≤ 1 / (2 : ENNReal) ^ 65 :=
-  tableGood_failure_small_of_acceptance (BaseAudit.V5.p0 : ℝ) (by norm_num [BaseAudit.V5.p0, BaseAudit.V5.J])
-    (by norm_num [BaseAudit.V5.p0, BaseAudit.V5.J]) digest_probability_eq_p0
-theorem tableGoodFor_failure_small (message : Message) :
-    Pr[fun outputs => ¬tableGoodFor message outputs |
-      ($ᵗ (SearchKey → HashOutput) : ProbComp _)] ≤ 1 / (2 : ENNReal) ^ 298 :=
-  tableGoodFor_failure_small_of_acceptance message (BaseAudit.V5.p0 : ℝ) (by norm_num [BaseAudit.V5.p0, BaseAudit.V5.J])
-    (by norm_num [BaseAudit.V5.p0, BaseAudit.V5.J]) digest_probability_eq_p0
-theorem tableGoodFor_failure_128 (message : Message) :
-    Pr[fun outputs => ¬tableGoodFor message outputs |
-      ($ᵗ (SearchKey → HashOutput) : ProbComp _)] ≤ 1 / (2 : ENNReal) ^ 128 := by
-  refine (tableGoodFor_failure_small message).trans ?_
-  simp only [one_div, ENNReal.inv_le_inv]
-  exact pow_le_pow_right₀ (by norm_num) (by decide)
 def tableGoodForNonces (nonces : Message → HashOutput) (outputs : SearchKey → HashOutput) : Prop :=
   (∀ message : Message, ∃ found,
     evalWithAnswerFn (Presampling.tableAnswers outputs zeroAnswers)
@@ -591,28 +561,6 @@ theorem not_tableGoodForNonces_iff (nonces : Message → HashOutput)
   classical
   simp only [tableGoodForNonces, EncodingSearchesSucceedBC,
     ← Option.ne_none_iff_exists', not_and_or, not_forall, not_not, DigestFailed, EncodingFailedBC]
-theorem tableGoodForNonces_failure_le (nonces : Message → HashOutput) :
-    Pr[fun outputs => ¬tableGoodForNonces nonces outputs |
-      ($ᵗ (SearchKey → HashOutput) : ProbComp _)] ≤
-      (2 : ENNReal) ^ 256 * (1 / 2 ^ 450) + (2 : ENNReal) ^ 301 * (1 / 2 ^ 600) := by
-  let law := ($ᵗ (SearchKey → HashOutput) : ProbComp _)
-  have hd' := finite_family_failure_le law
-    (fun (message : Message) outputs => DigestFailed ((nonces message).extractLsb' 0 128, message)
-      (Presampling.tableAnswers outputs zeroAnswers)) (1 / (2 : ENNReal) ^ 450)
-    (fun message => (Presampling.digestSearch_table_failure zeroAnswers
-      ((nonces message).extractLsb' 0 128, message)).le.trans digest_failure_power)
-  have he' := finite_family_failure_le law
-    (fun family outputs => EncodingFailedBC family (Presampling.tableAnswers outputs zeroAnswers))
-      (1 / (2 : ENNReal) ^ 600)
-    (encodingFamily_table_failure _ ClaudeWCT.W9.T3.ProducerV5.producer_failure_power)
-  rw [Fintype.card_bitVec, Nat.cast_pow, Nat.cast_ofNat] at hd'
-  replace he' := he'.trans (mul_le_mul' encodingFamilyBC_card_le le_rfl)
-  simp only [not_tableGoodForNonces_iff]
-  exact (probEvent_or_le law _ _).trans (add_le_add hd' he')
-theorem tableGoodForNonces_failure_small (nonces : Message → HashOutput) :
-    Pr[fun outputs => ¬tableGoodForNonces nonces outputs |
-      ($ᵗ (SearchKey → HashOutput) : ProbComp _)] ≤ 1 / (2 : ENNReal) ^ 193 :=
-  (tableGoodForNonces_failure_le nonces).trans (union_ennreal 256 193 BaseAudit.V5.completeness_union)
 theorem union_failure_small_bc {α ι κ : Type} [Fintype ι] [Fintype κ] (law : ProbComp α)
     (digestFailed : ι → α → Prop) (encodingFailed : κ → α → Prop)
     (hι : Fintype.card ι ≤ 2 ^ 256) (hκ : Fintype.card κ ≤ 2 ^ 301)

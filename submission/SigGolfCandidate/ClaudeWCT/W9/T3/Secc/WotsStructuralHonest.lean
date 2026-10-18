@@ -1402,8 +1402,8 @@ theorem sat_searchPreparedLayers (T : Answers) (cache : SigGolfCandidate.T3.Cach
       0 (searchLimit 0)) with
   | none => exact QueriesSat.pure' _
   | some found =>
-      obtain ⟨counter,digits⟩ := found
-      have hd := (canonical_search_valid_credit T 0 _ _ _ _ _ _ counter digits
+      obtain ⟨counter,digits,low⟩ := found
+      have hd := (canonical_search_valid_credit T 0 _ _ _ _ _ _ counter digits low
         (ClaudeWCT.W9.T3.Security.Wots.searchLimit_fits _) hs).1
       dsimp only
       split

@@ -94,18 +94,22 @@ theorem claimedC_eq : claimedC=verifyCycleBound+witnessCycles (submission I).siz
   rw [witnessCycles_eq];decide
 
 theorem submission_verificationBound (E : EncodingFacts) (F : SourceQueries) (P : Pending I) :
-    (submission I).VerificationBound 6990 := by
+    (submission I).VerificationBound 6975 := by
   intro hash sk m
   dsimp only
   intro h
   obtain ⟨pk,s,w,he,hacc,hcyc⟩:=Credit.honest_success_verify_cf (submission I) hash sk m h
   obtain ⟨sig,output,wt,hx,rfl⟩:=Credit.Paired.expand_witness E F P hash m pk s w he
   obtain ⟨floors,hfloors,hagree⟩:=Credit.Paired.agree_verifyP hash m pk sig output wt hx
-  have heq:=Credit.Paired.verify_run_agree E F P hash (okHashBy floors hash) m pk _ hagree
+  have heq:=Credit.Paired.verify_run_agree E F P hash (okHashBy floors wt.topHigh hash) m pk _ hagree
   rw [hcyc,witnessCycles_eq,heq]
   rw [heq] at hacc
-  have hc:=P.verify_accept_cycles floors hfloors (okHashBy floors hash) m pk _
-    (hashOkBy_okHashBy floors hash) (Credit.Paired.digestCap_okHashBy floors hash m pk sig output wt hx) hacc
+  have hok : HashOkBy floors (ClaudeWCT.W9.T3M.wtopHigh (ClaudeWCT.W9.T3M.Paired.witEnc output wt))
+      (okHashBy floors wt.topHigh hash) := by
+    rw [ClaudeWCT.W9.T3M.PairedReadout.wtopHigh_witEnc]
+    exact hashOkBy_okHashBy floors wt.topHigh hash
+  have hc:=P.verify_accept_cycles floors hfloors (okHashBy floors wt.topHigh hash) m pk _
+    hok (Credit.Paired.digestCap_okHashBy floors wt.topHigh hash m pk sig output wt hx) hacc
   unfold verifyCycleBound at hc
   omega
 end ClaudeWCT.W9.T3M.Final.Paired
@@ -116,7 +120,7 @@ open ClaudeWCT.W9.T3M (Images)
 variable {I : Images}
 
 theorem certificate_of (E : EncodingFacts) (F : SourceQueries) (P : Pending I) (S : SourceFacts) :
-    Certificate (submission I) 6990 where
+    Certificate (submission I) 6975 where
   admissible := P.admissible
   termination := submission_terminates P
   completeness := submission_complete E F P S

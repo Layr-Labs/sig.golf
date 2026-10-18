@@ -642,22 +642,176 @@ def producerDecode (lay : Layer) (answer : Digest) : Option (List Nat) :=
   | some digits => if producerFloor lay + dispatchPenalty lay digits ≤ wordCredit lay digits + 4 * savedCopies lay digits ∧ producerZeroBound lay digits ∧ producerRankBound lay answer then some digits else none
   | none => none
 def lowerSearchLimit : Nat := 2 ^ 21
-def searchLimit (lay : Layer) : Nat := if lay = 0 then counterLimit else lowerSearchLimit
+/-- Top counter window 2^21 (configuration (1)+(2), final PORT: two choice trials per counter keep the worst-case
+sign cost below 2^32). The legacy `T3.counterLimit` (2^22, the legacy T3 scheme and the presampling key space) is
+unchanged; the canonical searches use `searchLimit`. -/
+def topSearchLimit : Nat := 2 ^ 21
+def searchLimit (lay : Layer) : Nat := if lay = 0 then topSearchLimit else lowerSearchLimit
 /-- The verifier accepts every 32-bit counter: its window is the whole `BitVec 32` range, so the layer check
 never rejects. The signer still searches `searchLimit`. -/
 def verifyWindow : Nat := 2 ^ 32
 theorem ctr_not_ge_verifyWindow (c : BitVec 32) : ¬c.toNat ≥ verifyWindow := by
   unfold verifyWindow; exact Nat.not_le.mpr c.isLt
-/-- The top layer selects the low half when its high bit is set. Lower layers
-select it when both reserved bits are set; otherwise the high half is selected. -/
+/-! ### Canonical policy core (configuration (1)+(2), "e7b" top head)
+Defined before the encoding selector because the top producer choice uses the canonical top predicate.
+* `totalCredit` = 72 (credit pool), `topFloor` = 18 (every top search uses it).
+* Path-aware credit: `credit lay low digits = reward + bonus·[low] - dispatchPenalty` where `low` = the
+  LOW half of the 256-bit answer was selected (`lowSelected`); bonus 4 on lower layers, 3 on the top layer
+  (the e7b head reads the hint first: honest LOW costs 4 cycles, HIGH 7). -/
+namespace CanonicalPolicy
+/-- The credit pool every canonical path must reach. -/
+def totalCredit : Nat := 72
+/-- The (fixed) top credit floor (on the path-aware credit). -/
+def topFloor : Nat := 18
+/-- All three lower layers use digit sum 201. Layer 1's existing broad decoder
+has the same lower digit layout and this exact target. -/
+def normalLayer (lay : Layer) : Layer := if lay = 0 then 0 else 1
+def decode (lay : Layer) (answer : Digest) : Option (List Nat) :=
+  SigGolfCandidate.T3.decode (normalLayer lay) answer
+/-- Word reward (credited instructions) of a decoded word, independent of the selected half. -/
+def reward (lay : Layer) (digits : List Nat) : Nat :=
+  wordCredit lay digits + 4 * savedCopies lay digits
+/-- Path bonus: a lower layer whose LOW half was selected saves 4 verify cycles, the top layer 3. -/
+def pathBonus (lay : Layer) (low : Bool) : Nat := if low = true then (if lay = 0 then 3 else 4) else 0
+/-- Path-aware reward. -/
+def pathReward (lay : Layer) (low : Bool) (digits : List Nat) : Nat :=
+  reward lay digits + pathBonus lay low
+/-- Path-aware credit ("ec"). -/
+def credit (lay : Layer) (low : Bool) (digits : List Nat) : Nat :=
+  pathReward lay low digits - dispatchPenalty lay digits
+def nextResidual (residual : Nat) (lay : Layer) (low : Bool) (digits : List Nat) : Nat :=
+  residual - credit lay low digits
+/-- The canonical producer predicate at floor `floor` for a word selected through half `low`. -/
+def producerDecodeAt (lay : Layer) (floor : Nat) (low : Bool) (answer : Digest) : Option (List Nat) :=
+  match decode lay answer with
+  | some digits =>
+      if floor + dispatchPenalty lay digits ≤ pathReward lay low digits ∧
+          producerZeroBound lay digits ∧ producerRankBound lay answer then some digits
+      else none
+  | none => none
+theorem pathBonus_top (low : Bool) : pathBonus 0 low = if low then 3 else 0 := by
+  cases low <;> simp [pathBonus]
+theorem pathBonus_lower {lay : Layer} (hl : lay ≠ 0) (low : Bool) :
+    pathBonus lay low = if low then 4 else 0 := by
+  cases low <;> simp [pathBonus, hl]
+@[simp] theorem pathBonus_false (lay : Layer) : pathBonus lay false = 0 := by simp [pathBonus]
+theorem pathBonus_le (lay : Layer) (low : Bool) : pathBonus lay low ≤ 4 := by
+  unfold pathBonus; split_ifs <;> omega
+theorem pathReward_top (low : Bool) (digits : List Nat) :
+    pathReward 0 low digits = reward 0 digits + (if low then 3 else 0) := by
+  simp [pathReward, pathBonus_top]
+theorem credit_top (low : Bool) (digits : List Nat) :
+    credit 0 low digits = reward 0 digits + (if low then 3 else 0) - dispatchPenalty 0 digits := by
+  simp [credit, pathReward_top]
+/-- Lower layers carry no dispatch penalty. -/
+theorem credit_lower {lay : Layer} (hl : lay ≠ 0) (low : Bool) (digits : List Nat) :
+    credit lay low digits = reward lay digits + (if low then 4 else 0) := by
+  simp [credit, pathReward, pathBonus_lower hl, dispatchPenalty, hl]
+end CanonicalPolicy
+
+/-- The canonical top producer predicate on the LOW half (with the LOW path bonus); the producer chooses LOW when
+it holds or LOW is forced, else HIGH (whose acceptance is then decided at `low = false`). -/
+def topGood (word : Digest) : Prop :=
+  (CanonicalPolicy.producerDecodeAt 0 CanonicalPolicy.topFloor true word).isSome = true
+instance : DecidablePred topGood := fun word => by unfold topGood; infer_instance
+
+/-- Canonical producer choice: LOW when it passes the top producer predicate or is forced
+(`TopChoice.blocked`: bits 126, 127 of LOW both zero), else HIGH. -/
+def topChooseLow (answer : HashOutput) : Bool :=
+  decide (topGood (answer.extractLsb' 0 128) ∨ TopChoice.blocked (answer.extractLsb' 0 128))
+
+/-- The producer's canonical word. The top layer uses the restricted choice; lower layers retain the
+reserved-bit rule (`DualHalf.select`). -/
 def encodingAnswer (lay : Layer) (answer : HashOutput) : Digest :=
-  if lay = 0 then TopDualHalf.select answer else DualHalf.select answer
+  if lay = 0 then TopChoice.choose topGood answer else DualHalf.select answer
+
+/-- Whether the producer's canonical word is the LOW half of the answer. -/
+def lowSelected (lay : Layer) (answer : HashOutput) : Bool :=
+  if lay = 0 then topChooseLow answer else decide (lowerSpare (answer.extractLsb' 0 128))
+
+/-- The honest witness hint (top layer only): request HIGH exactly when the producer chose it. Stored in the
+witness byte at rel 22312 as `16` (HIGH) or `0`; it adds no signature bytes. -/
+def encodingHigh (lay : Layer) (answer : HashOutput) : Bool :=
+  if lay = 0 then !topChooseLow answer else false
+
+/-- Verifier selection for an arbitrary witness hint `high` (top only; HIGH is refused when LOW is forced).
+Lower layers ignore the hint. -/
+def verificationAnswer (lay : Layer) (high : Bool) (answer : HashOutput) : Digest :=
+  if lay = 0 then TopChoice.read high answer else DualHalf.select answer
+
+/-- The verifier's cheap path (`true` = LOW path). Top (e7b head, hint read first): the hint bit clear (cost 4);
+a set hint costs 7 whichever half is then read. Lower layers: LOW is selected iff it is spare. -/
+def verificationLow (lay : Layer) (high : Bool) (answer : HashOutput) : Bool :=
+  if lay = 0 then !high else decide (lowerSpare (answer.extractLsb' 0 128))
+
+def verificationHash (lay : Layer) (high : Bool) (input : HashInput) : M Digest :=
+  verificationAnswer lay high <$> publicHash input
+
+theorem encodingAnswer_top (answer : HashOutput) :
+    encodingAnswer 0 answer = TopChoice.choose topGood answer := rfl
+theorem encodingAnswer_top_eq (answer : HashOutput) :
+    encodingAnswer 0 answer = if topChooseLow answer then answer.extractLsb' 0 128 else answer.extractLsb' 128 128 := by
+  simp only [encodingAnswer, if_true, TopChoice.choose, topChooseLow, TopChoice.lowHalf, TopChoice.highHalf]
+  split_ifs <;> simp_all
+theorem encodingAnswer_lower (lay : Layer) (hl : lay ≠ 0) (answer : HashOutput) :
+    encodingAnswer lay answer = DualHalf.select answer := by simp [encodingAnswer, hl]
+
+/-- The expander's canonical hint selects exactly the signer's word. -/
+theorem verificationAnswer_honest (lay : Layer) (answer : HashOutput) :
+    verificationAnswer lay (encodingHigh lay answer) answer = encodingAnswer lay answer := by
+  by_cases hl : lay = 0
+  · subst hl; simp only [verificationAnswer, encodingHigh, encodingAnswer, if_true]
+    exact TopChoice.read_chooseHigh topGood answer
+  · simp [verificationAnswer, encodingAnswer, hl]
+theorem verificationLow_honest (lay : Layer) (answer : HashOutput) :
+    verificationLow lay (encodingHigh lay answer) answer = lowSelected lay answer := by
+  by_cases hl : lay = 0
+  · subst hl; simp only [verificationLow, encodingHigh, lowSelected, if_true, Bool.not_not]
+  · simp [verificationLow, lowSelected, hl]
+/-- The honest top hint is the negated selected half. -/
+theorem encodingHigh_top (answer : HashOutput) : encodingHigh 0 answer = !lowSelected 0 answer := rfl
+theorem verificationAnswer_lower (lay : Layer) (hl : lay ≠ 0) (high : Bool) (answer : HashOutput) :
+    verificationAnswer lay high answer = encodingAnswer lay answer := by
+  simp [verificationAnswer, encodingAnswer, hl]
+theorem verificationLow_lower (lay : Layer) (hl : lay ≠ 0) (high : Bool) (answer : HashOutput) :
+    verificationLow lay high answer = lowSelected lay answer := by
+  simp [verificationLow, lowSelected, hl]
+theorem verificationAnswer_eq_lower (lay : Layer) (hl : lay ≠ 0) (high : Bool) (answer : HashOutput) :
+    verificationAnswer lay high answer =
+      if verificationLow lay high answer then answer.extractLsb' 0 128 else answer.extractLsb' 128 128 := by
+  simp only [verificationAnswer, verificationLow, hl, if_false, DualHalf.select, DualHalf.selectPair]
+  by_cases hs : lowerSpare (answer.extractLsb' 0 128) <;> simp [hs]
+theorem encodingAnswer_eq (lay : Layer) (answer : HashOutput) :
+    encodingAnswer lay answer =
+      if lowSelected lay answer then answer.extractLsb' 0 128 else answer.extractLsb' 128 128 := by
+  by_cases hl : lay = 0
+  · subst hl
+    simpa [lowSelected] using encodingAnswer_top_eq answer
+  · rw [← verificationAnswer_lower lay hl false, ← verificationLow_lower lay hl false]
+    exact verificationAnswer_eq_lower lay hl false answer
 
 def encodingHash (lay : Layer) (input : HashInput) : M Digest :=
   encodingAnswer lay <$> publicHash input
 
 theorem encodingHash_top (input : HashInput) :
-    encodingHash 0 input = TopDualHalf.select <$> publicHash input := rfl
+    encodingHash 0 input = TopChoice.choose topGood <$> publicHash input := rfl
+
+theorem verificationHash_lower (lay : Layer) (hl : lay ≠ 0) (high : Bool) (input : HashInput) :
+    verificationHash lay high input = encodingHash lay input := by
+  unfold verificationHash encodingHash
+  congr 1
+  funext answer
+  exact verificationAnswer_lower lay hl high answer
+
+theorem verificationHash_bind {β : Type} (lay : Layer) (high : Bool) (input : HashInput) (f : Digest → M β) :
+    verificationHash lay high input >>= f = publicHash input >>= fun a => f (verificationAnswer lay high a) := by
+  unfold verificationHash
+  simp only [map_eq_bind_pure_comp, bind_assoc, pure_bind, Function.comp_apply]
+
+theorem verificationHash_congr (lay : Layer) (high : Bool) {x y : HashInput} (h : pad64 x = pad64 y) :
+    verificationHash lay high x = verificationHash lay high y := by
+  unfold verificationHash publicHash
+  rw [h]
 
 theorem encodingAnswer_lower_low (lay : Layer) (hl : lay ≠ 0) (answer : HashOutput)
     (hspare : lowerSpare (answer.extractLsb' 0 128)) :
@@ -939,73 +1093,58 @@ def verify (message : Message) (pk : Digest) (w : Witness) : M Bool := do
 def keygen := SigGolfCandidate.T3.keygen
 end ClaudeWCT.WCT9
 
-/-! Canonical ancestor-only policy for the paired-forest research construction.
-These definitions are separate from the currently installed submission. A lower
-leaf's threshold depends only on credits of its canonical ancestors. -/
+/-! Canonical ancestor-only policy for the paired-forest construction (configuration (1)+(2)).
+A lower leaf's threshold depends only on the path-aware credits of its canonical ancestors. -/
 namespace ClaudeWCT.WCT9.CanonicalPolicy
 open OracleComp OracleSpec SigGolfCandidate.T3
-
-def totalCredit : Nat := 63
 
 /-- The paired gate needs this larger finite search window for simultaneous
 completeness over every256-bit message. It does not change the moment model. -/
 def ftsSearchLimit : Nat := 2 ^ 21
 
+/-- Layer-1 floors by residual `r ≤ 54` (= 72 - 18). -/
 def lowerOneThresholds : List Nat :=
-  [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
-   1,2,3,4,5,6,7,7,8,9,10,11,11,12,13,14,15,16,17]
+  [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+   1,2,3,4,5,6,6,7,8,9,10,11,11,12,13,14,15,16]
 
+/-- Layer-2 floors by residual `r ≤ 38`. -/
 def lowerTwoThresholds : List Nat :=
-  [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,2,3,4,5,6,6,7,8,9,10,11,12,13,14,15,16,17]
+  [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19]
+
+/-- Largest lower floor (policy hints use radix `lowerFloorMax + 1 = 20`). -/
+def lowerFloorMax : Nat := 19
 
 /-- Out-of-range lower residuals deliberately have an impossible threshold. -/
 def threshold (stage residual : Nat) : Nat :=
-  if stage = 0 then 16
+  if stage = 0 then topFloor
   else if stage = 1 then lowerOneThresholds.getD residual 301
   else if stage = 2 then lowerTwoThresholds.getD residual 301
-  else if stage = 3 ∧ residual ≤ 17 then residual
+  else if stage = 3 ∧ residual ≤ 19 then residual
   else 301
 
-/-- All three lower layers use digit sum201. Layer1's existing broad decoder
-has the same lower digit layout and this exact target. -/
-def normalLayer (lay : Layer) : Layer := if lay = 0 then 0 else 1
+/-- Producer decode of a complete 256-bit answer: the canonically selected word's digits and the selected
+half (`true` = LOW). -/
+def producerDecodeOut (lay : Layer) (floor : Nat) (answer : HashOutput) : Option (List Nat × Bool) :=
+  (producerDecodeAt lay floor (lowSelected lay answer) (encodingAnswer lay answer)).map
+    fun digits => (digits, lowSelected lay answer)
 
-def decode (lay : Layer) (answer : Digest) : Option (List Nat) :=
-  SigGolfCandidate.T3.decode (normalLayer lay) answer
-
-def reward (lay : Layer) (digits : List Nat) : Nat :=
-  wordCredit lay digits + 4 * savedCopies lay digits
-
-def credit (lay : Layer) (digits : List Nat) : Nat :=
-  reward lay digits - dispatchPenalty lay digits
-
-def nextResidual (residual : Nat) (lay : Layer) (digits : List Nat) : Nat :=
-  residual - credit lay digits
-
-def producerDecodeAt (lay : Layer) (floor : Nat) (answer : Digest) : Option (List Nat) :=
-  match decode lay answer with
-  | some digits =>
-      if floor + dispatchPenalty lay digits ≤ reward lay digits ∧
-          producerZeroBound lay digits ∧ producerRankBound lay answer then some digits
-      else none
-  | none => none
-
+/-- Canonical counter search; returns the counter, the digits and the selected half (`true` = LOW). -/
 def layerCounterSearchAt (lay : Layer) (floor tree leaf : Nat) (msg : LayerMsg)
-    (counter : Nat) : Nat → M (Option (BitVec 32 × List Nat))
+    (counter : Nat) : Nat → M (Option (BitVec 32 × List Nat × Bool))
   | 0 => pure none
   | fuel + 1 => do
-      let answer ← encodingHash lay (layerEncodingInput lay tree leaf msg (BitVec.ofNat 32 counter))
-      match producerDecodeAt lay floor answer with
+      let answer ← publicHash (layerEncodingInput lay tree leaf msg (BitVec.ofNat 32 counter))
+      match producerDecodeOut lay floor answer with
       | none => layerCounterSearchAt lay floor tree leaf msg (counter + 1) fuel
-      | some digits => pure (some (BitVec.ofNat 32 counter, digits))
+      | some found => pure (some (BitVec.ofNat 32 counter, found))
 
 theorem normalLayer_target (lay : Layer) :
-    target (normalLayer lay) = if lay = 0 then 145 else 201 := by
+    target (normalLayer lay) = if lay = 0 then 146 else 201 := by
   by_cases h : lay = 0 <;> simp [normalLayer, h, target]
 
-theorem producerDecodeAt_spec {lay : Layer} {floor : Nat} {answer : Digest} {digits : List Nat}
-    (h : producerDecodeAt lay floor answer = some digits) :
-    decode lay answer = some digits ∧ floor + dispatchPenalty lay digits ≤ reward lay digits ∧
+theorem producerDecodeAt_spec {lay : Layer} {floor : Nat} {low : Bool} {answer : Digest} {digits : List Nat}
+    (h : producerDecodeAt lay floor low answer = some digits) :
+    decode lay answer = some digits ∧ floor + dispatchPenalty lay digits ≤ pathReward lay low digits ∧
       producerZeroBound lay digits ∧ producerRankBound lay answer := by
   unfold producerDecodeAt at h
   cases hd : decode lay answer with
@@ -1016,21 +1155,38 @@ theorem producerDecodeAt_spec {lay : Layer} {floor : Nat} {answer : Digest} {dig
       cases h
       exact ⟨rfl, hc⟩
 
-theorem producerDecodeAt_credit {lay : Layer} {floor : Nat} {answer : Digest} {digits : List Nat}
-    (h : producerDecodeAt lay floor answer = some digits) : floor ≤ credit lay digits := by
+theorem producerDecodeAt_credit {lay : Layer} {floor : Nat} {low : Bool} {answer : Digest} {digits : List Nat}
+    (h : producerDecodeAt lay floor low answer = some digits) : floor ≤ credit lay low digits := by
   have hc := (producerDecodeAt_spec h).2.1
   unfold credit
   omega
 
-theorem threshold_top (residual : Nat) : threshold 0 residual = 16 := by
-  simp [threshold]
+theorem producerDecodeOut_spec {lay : Layer} {floor : Nat} {answer : HashOutput} {digits : List Nat} {low : Bool}
+    (h : producerDecodeOut lay floor answer = some (digits, low)) :
+    low = lowSelected lay answer ∧
+      producerDecodeAt lay floor low (encodingAnswer lay answer) = some digits := by
+  unfold producerDecodeOut at h
+  cases hd : producerDecodeAt lay floor (lowSelected lay answer) (encodingAnswer lay answer) with
+  | none => simp [hd] at h
+  | some ds =>
+      simp only [hd, Option.map_some, Option.some.injEq, Prod.mk.injEq] at h
+      obtain ⟨rfl, rfl⟩ := h
+      exact ⟨rfl, hd⟩
 
-theorem nextResidual_le (residual : Nat) (lay : Layer) (digits : List Nat) :
-    nextResidual residual lay digits ≤ residual := Nat.sub_le _ _
+theorem producerDecodeOut_credit {lay : Layer} {floor : Nat} {answer : HashOutput} {digits : List Nat}
+    {low : Bool} (h : producerDecodeOut lay floor answer = some (digits, low)) : floor ≤ credit lay low digits :=
+  producerDecodeAt_credit (producerDecodeOut_spec h).2
 
-theorem residual_composition (residual : Nat) (lay₁ lay₂ : Layer) (digits₁ digits₂ : List Nat) :
-    nextResidual (nextResidual residual lay₁ digits₁) lay₂ digits₂ =
-      residual - (credit lay₁ digits₁ + credit lay₂ digits₂) := by
+theorem threshold_top (residual : Nat) : threshold 0 residual = 18 := by
+  simp [threshold, topFloor]
+
+theorem nextResidual_le (residual : Nat) (lay : Layer) (low : Bool) (digits : List Nat) :
+    nextResidual residual lay low digits ≤ residual := Nat.sub_le _ _
+
+theorem residual_composition (residual : Nat) (lay₁ lay₂ : Layer) (low₁ low₂ : Bool)
+    (digits₁ digits₂ : List Nat) :
+    nextResidual (nextResidual residual lay₁ low₁ digits₁) lay₂ low₂ digits₂ =
+      residual - (credit lay₁ low₁ digits₁ + credit lay₂ low₂ digits₂) := by
   simp [nextResidual, Nat.sub_sub]
 
 theorem threshold_zero : threshold 1 0 = 0 ∧ threshold 2 0 = 0 ∧ threshold 3 0 = 0 := by
@@ -1046,40 +1202,40 @@ open SigGolfCandidate.T3
 set_option maxRecDepth 10000
 set_option maxHeartbeats 1000000
 
-theorem lower_one_progress : ∀ r : Fin 52,
-    threshold 1 r.val ≤ 17 ∧ r.val - threshold 1 r.val < 35 := by decide +kernel
+theorem lower_one_progress : ∀ r : Fin 55,
+    threshold 1 r.val ≤ 19 ∧ r.val - threshold 1 r.val < 39 := by decide +kernel
 
-theorem lower_two_progress : ∀ r : Fin 35,
-    threshold 2 r.val ≤ 17 ∧ r.val - threshold 2 r.val < 18 := by decide +kernel
+theorem lower_two_progress : ∀ r : Fin 39,
+    threshold 2 r.val ≤ 19 ∧ r.val - threshold 2 r.val < 20 := by decide +kernel
 
-theorem lower_three_progress (r : Nat) (hr : r < 18) :
-    threshold 3 r = r := by simp [threshold, show r ≤ 17 by omega]
+theorem lower_three_progress (r : Nat) (hr : r < 20) :
+    threshold 3 r = r := by simp [threshold, show r ≤ 19 by omega]
 
-theorem accepted_top_residual {answer : Digest} {digits : List Nat}
-    (h : producerDecodeAt 0 16 answer = some digits) : nextResidual 63 0 digits < 52 := by
+theorem accepted_top_residual {answer : Digest} {low : Bool} {digits : List Nat}
+    (h : producerDecodeAt 0 18 low answer = some digits) : nextResidual 72 0 low digits < 55 := by
   have hc := producerDecodeAt_credit h
   unfold nextResidual
   omega
 
-theorem accepted_one_residual (r : Fin 52) {answer : Digest} {digits : List Nat}
-    (h : producerDecodeAt 1 (threshold 1 r.val) answer = some digits) :
-    nextResidual r.val 1 digits < 35 := by
+theorem accepted_one_residual (r : Fin 55) {answer : Digest} {low : Bool} {digits : List Nat}
+    (h : producerDecodeAt 1 (threshold 1 r.val) low answer = some digits) :
+    nextResidual r.val 1 low digits < 39 := by
   have hc := producerDecodeAt_credit h
   have hp := (lower_one_progress r).2
   unfold nextResidual
   omega
 
-theorem accepted_two_residual (r : Fin 35) {answer : Digest} {digits : List Nat}
-    (h : producerDecodeAt 2 (threshold 2 r.val) answer = some digits) :
-    nextResidual r.val 2 digits < 18 := by
+theorem accepted_two_residual (r : Fin 39) {answer : Digest} {low : Bool} {digits : List Nat}
+    (h : producerDecodeAt 2 (threshold 2 r.val) low answer = some digits) :
+    nextResidual r.val 2 low digits < 20 := by
   have hc := producerDecodeAt_credit h
   have hp := (lower_two_progress r).2
   unfold nextResidual
   omega
 
-theorem accepted_three_residual (r : Fin 18) {answer : Digest} {digits : List Nat}
-    (h : producerDecodeAt 3 (threshold 3 r.val) answer = some digits) :
-    nextResidual r.val 3 digits = 0 := by
+theorem accepted_three_residual (r : Fin 20) {answer : Digest} {low : Bool} {digits : List Nat}
+    (h : producerDecodeAt 3 (threshold 3 r.val) low answer = some digits) :
+    nextResidual r.val 3 low digits = 0 := by
   have hc := producerDecodeAt_credit h
   rw [lower_three_progress r.val r.isLt] at hc
   exact Nat.sub_eq_zero_of_le hc

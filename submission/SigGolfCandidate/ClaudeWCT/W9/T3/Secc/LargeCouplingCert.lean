@@ -1251,51 +1251,6 @@ theorem bank_cert_le (hUpub : SeccLaw.publicUniverse ⊆ U) (initLaw : PMF AuxDa
     _ ≤ psi q RouterState.initial + coeffQ q * Mass / 2 ^ 128 := hpsi
     _ ≤ _ := add_le_add (psi_initial q) le_rfl
 end Bank
-theorem large_cert_bound (adversary : AdversaryP) (q : Nat) (hq : q ≤ 2 ^ 127) : LargeCertBound adversary q hq := by
-  unfold LargeCertBound
-  have hsplit : Pr[fun z => QueryRecorded.CleanWin q z.1 ∧ ¬Contact adversary q z ∧
-      NoOvR adversary (QueryRecorded.recordedTrace z.1) z.2 | SeccLaw.completedExperiment adversary q hq] ≤
-      Pr[fun z => QueryRecorded.CleanWin q z.1 ∧ ¬Contact adversary q z ∧ BPB.SignerComplete z.2 ∧
-        NoOvR adversary (QueryRecorded.recordedTrace z.1) z.2 | SeccLaw.completedExperiment adversary q hq] +
-      Pr[fun z => ¬BPB.SignerComplete z.2 | SeccLaw.completedExperiment adversary q hq] := by
-    refine le_trans (Wots.Ref.pmf_probEvent_mono _ fun z _ h => ?_) (probEvent_or_le _ _ _)
-    by_cases hcomp : BPB.SignerComplete z.2
-    · exact Or.inl ⟨h.1, h.2.1, hcomp, h.2.2⟩
-    · exact Or.inr hcomp
-  have hsi : Pr[fun z => ¬BPB.SignerComplete z.2 | SeccLaw.completedExperiment adversary q hq] ≤
-      ((2 : ENNReal) ^ 137)⁻¹ :=
-    (BPB.signerIncomplete_le adversary q hq).trans
-      (by rw [one_div]; exact ENNReal.inv_le_inv.mpr (pow_le_pow_right₀ one_le_two (by norm_num)))
-  have habs : ((2 : ENNReal) ^ 137)⁻¹ + ((2 : ENNReal) ^ 137)⁻¹ ≤ largeReserveAbsolute := by
-    rw [ClaudeWCT.W9.T3.Security.SeccClosingW9.largeReserveAbsolute_def]
-    calc ((2 : ENNReal) ^ 137)⁻¹ + ((2 : ENNReal) ^ 137)⁻¹ = ((2 : ENNReal) ^ 136)⁻¹ := by
-          rw [← two_mul, show (2 : ENNReal) ^ 137 = 2 * 2 ^ 136 by rw [← pow_succ']]
-          rw [ENNReal.mul_inv (Or.inl (by norm_num)) (Or.inl (by norm_num)), ← mul_assoc,
-            ENNReal.mul_inv_cancel (by norm_num) (by norm_num), one_mul]
-      _ ≤ _ := ENNReal.inv_le_inv.mpr (pow_le_pow_right₀ one_le_two (by norm_num))
-  have hmain := add_le_add (hsplit.trans (add_le_add ((cert_le_lazy adversary q hq).trans
-    (bank_cert_le (Wots.Ref.referenceInputs_universe adversary) initLaw adversary q)) hsi))
-    (le_refl (((2 : ENNReal) ^ 137)⁻¹))
-  refine (hmain.trans (le_of_eq (add_assoc _ _ _))).trans ((add_le_add le_rfl habs).trans ?_)
-  have hrm : (∑' r, Pr[= r | lazyRun (auxLaw initLaw) q (router (Wots.referenceInputs adversary) adversary q)
-      LargeResidual.initial] * (r.2.counters.mass : ENNReal)) = routerMass adversary q := rfl
-  have hexc_eq : (if q ≤ 2 ^ 121 then (23 / 100000 : ENNReal) else 247 / 100000) =
-      (if q ≤ 2 ^ 121 then excessRate54 else excessRate) := by
-    rw [ClaudeWCT.W9.T3.Security.SeccClosingW9.excessRate54_def,
-      ClaudeWCT.W9.T3.Security.SeccClosingW9.excessRate_def]
-  rw [hrm, hexc_eq]
-  unfold coeffQ
-  calc
-    _ = (if q ≤ 2 ^ 121 then 127 / 64 else 1) * routerMass adversary q / 2 ^ 128 +
-        (q : ENNReal) * (if q ≤ 2 ^ 121 then excessRate54 else excessRate) / 2 ^ 128 + largeReserveAbsolute := by
-      rw [add_comm ((q : ENNReal) * (if q ≤ 2 ^ 121 then excessRate54 else excessRate) / 2 ^ 128)]
-    _ ≤ _ := add_le_add (le_add_right (le_add_right le_rfl)) le_rfl
-theorem large_route (adversary : AdversaryP) (q : Nat) (hq : q ≤ 2 ^ 127) :
-    Pr[QueryRecorded.CleanWin q | PaddedGame.tracedExperiment adversary q hq] ≤ largeBound q :=
-  large_route_of_cert adversary q hq (large_cert_bound adversary q hq)
-theorem large_route_hlarge : ∀ (adversary : AdversaryP) (q : Nat) (hq : q ≤ 2 ^ 127), ClaudeWCT.W9.T3.Security.SeccClosingW9.budgetSplit ≤ q →
-    Pr[QueryRecorded.CleanWin q | PaddedGame.tracedExperiment adversary q hq] ≤ largeBound q :=
-  fun adversary q hq _ => large_route adversary q hq
 end ClaudeWCT.W9.T3.Security.LargeCoupling
 end
 

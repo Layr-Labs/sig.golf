@@ -902,11 +902,11 @@ theorem expandN_recovered (answers : Correctness.Answers) (message : Message) (p
     (w : SigGolfCandidate.Research.SharedForest.Witness)
     (he : evalWithAnswerFn answers (expandN message pk sig)=some (output,w)) :
     ∃ result,evalWithAnswerFn answers (recoveredWitness w output)=some result ∧
-      policyHintsValid w.signature.policyHints result.digits=true ∧
+      policyHintsValid w.signature.policyHints result.digits result.lows=true ∧
       (∀lay,w.counters lay=result.counters.getD lay.val 0) ∧
       evalWithAnswerFn answers (digest w.signature.rho message w.digestCounter)=output ∧
-      digestAccepted output=true := by
-  obtain ⟨_,counter,result,c,hs,hr,hh,hw,hc,hcs⟩ := expandN_selections answers message pk sig output w he
+      digestAccepted output=true ∧ w.topHigh = !(result.lows.getD 0 true) := by
+  obtain ⟨_,counter,result,c,hs,hr,hh,hw,hc,hcs,htop⟩ := expandN_selections answers message pk sig output w he
   let index := WCT9.digestIndex output
   let forest := evalWithAnswerFn answers (recoverForest index (forestSelectionFromOutput output)
     (forestWordsFromOutput output) sig.forest)
@@ -924,7 +924,7 @@ theorem expandN_recovered (answers : Correctness.Answers) (message : Message) (p
     exact hr1
   have hs' := sharedDigestSearch_some answers sig.rho message WCT9.digestAttemptLimit 0
     counter output (by decide) hs
-  refine ⟨result',?_,?_,?_,?_,hs'.2.2.1⟩
+  refine ⟨result',?_,?_,?_,?_,hs'.2.2.1,htop⟩
   · rw [recoveredWitness,evalWithAnswerFn_bind,hw]
     exact hr2
   · rw [hw,hints_retained]

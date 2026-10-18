@@ -24,9 +24,6 @@ theorem pending_of_machine {I : Images} (M : MachineFacts I) : Pending I where
   verify_refines := M.verify_refines
   verify_terminates := M.verify_terminates
   verify_accept_cycles := M.verify_accept_cycles
-theorem certificate_of_security {I : Images} (security : SecurityP) (M : MachineFacts I) :
-    SigGolf.Certificate (submissionNew I) 7088 :=
-  certificateNew_of (pending_of_machine M) (sourceFacts_of_securityP security)
 end ClaudeWCT.W9.T3M.Final
 
 namespace ClaudeWCT.W9.T3M.Final.Paired
@@ -52,6 +49,6 @@ theorem pending_of_machine {I : Images} (M : MachineFacts I) : Pending I where
   verify_terminates := M.verify_terminates
   verify_accept_cycles := M.verify_accept_cycles
 theorem certificate_of_security {I : Images} (security : SecurityP) (M : MachineFacts I) :
-    SigGolf.Certificate (submissionNew I) 6990 :=
+    SigGolf.Certificate (submissionNew I) 6975 :=
   certificateNew_of encodingFacts sourceQueries_holds (pending_of_machine M) (sourceFacts_of_securityP security)
 end ClaudeWCT.W9.T3M.Final.Paired

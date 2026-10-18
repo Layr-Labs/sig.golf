@@ -174,31 +174,42 @@ open ClaudeWCT.W9.T3M
 set_option maxHeartbeats 1000000
 set_option maxRecDepth 10000
 
+theorem eval_publicHash (answers : Answers) (input : HashInput) :
+    evalWithAnswerFn answers (publicHash input) = answers (.inl (.inr (pad64 input))) := rfl
+
 theorem counterSearch_decode (answers : Answers) (lay : Layer) (floor tree leaf : Nat)
-    (msg : WCT9.LayerMsg) : ∀ fuel start c digits,
+    (msg : WCT9.LayerMsg) : ∀ fuel start c found,
     evalWithAnswerFn answers (WCT9.CanonicalPolicy.layerCounterSearchAt lay floor tree leaf msg start fuel) =
-      some (c, digits) →
-    WCT9.CanonicalPolicy.producerDecodeAt lay floor
-      (evalWithAnswerFn answers (WCT9.encodingHash lay (WCT9.layerEncodingInput lay tree leaf msg c))) =
-      some digits := by
+      some (c, found) →
+    WCT9.CanonicalPolicy.producerDecodeOut lay floor
+      (evalWithAnswerFn answers (publicHash (WCT9.layerEncodingInput lay tree leaf msg c))) =
+      some found := by
   intro fuel
   induction fuel with
-  | zero => intro start c digits h; simp [WCT9.CanonicalPolicy.layerCounterSearchAt] at h
+  | zero => intro start c found h; simp [WCT9.CanonicalPolicy.layerCounterSearchAt] at h
   | succ fuel ih =>
-      intro start c digits h
+      intro start c found h
       rw [WCT9.CanonicalPolicy.layerCounterSearchAt, evalWithAnswerFn_bind] at h
-      cases hd : WCT9.CanonicalPolicy.producerDecodeAt lay floor
-        (evalWithAnswerFn answers (WCT9.encodingHash lay
+      cases hd : WCT9.CanonicalPolicy.producerDecodeOut lay floor
+        (evalWithAnswerFn answers (publicHash
           (WCT9.layerEncodingInput lay tree leaf msg (BitVec.ofNat 32 start)))) with
-      | none => rw [hd] at h; exact ih (start + 1) c digits h
+      | none => rw [hd] at h; exact ih (start + 1) c found h
       | some ds =>
           rw [hd, evalWithAnswerFn_pure] at h
           cases h
           exact hd
 
+theorem counterSearch_accepted (answers : Answers) (lay : Layer) (floor tree leaf : Nat)
+    (msg : WCT9.LayerMsg) (fuel start : Nat) (c : BitVec 32) (digits : List Nat) (low : Bool)
+    (h : evalWithAnswerFn answers (WCT9.CanonicalPolicy.layerCounterSearchAt lay floor tree leaf msg start fuel) =
+      some (c, digits, low)) :
+    ∃ value, WCT9.CanonicalPolicy.producerDecodeAt lay floor low value = some digits :=
+  ⟨_, (WCT9.CanonicalPolicy.producerDecodeOut_spec
+    (counterSearch_decode answers lay floor tree leaf msg fuel start c (digits, low) h)).2⟩
+
 theorem referenceSearch_decode (answers : Answers) (messages : LeafAddr → WCT9.LayerMsg)
-    (L : LeafAddr) {c : BitVec 32} {digits : List Nat}
-    (h : referenceSearch answers messages L = some (c, digits)) :
+    (L : LeafAddr) {c : BitVec 32} {digits : List Nat} {low : Bool}
+    (h : referenceSearch answers messages L = some (c, digits, low)) :
     WCT9.CanonicalPolicy.decode L.lay
       (WCT9.encodingAnswer L.lay (answers (.inl (.inr (encRow L (messages L) c 0))))) = some digits := by
   unfold referenceSearch selected at h
@@ -208,9 +219,9 @@ theorem referenceSearch_decode (answers : Answers) (messages : LeafAddr → WCT9
       rw [hc] at h
       have hd := counterSearch_decode answers L.lay
         (WCT9.CanonicalPolicy.threshold L.lay.val remaining) L.tree L.leaf (messages L)
-        (WCT9.searchLimit L.lay) 0 c digits h
+        (WCT9.searchLimit L.lay) 0 c (digits, low) h
       rw [encRow_zero]
-      exact (WCT9.CanonicalPolicy.producerDecodeAt_spec hd).1
+      exact (WCT9.CanonicalPolicy.producerDecodeAt_spec (WCT9.CanonicalPolicy.producerDecodeOut_spec hd).2).1
 
 theorem referenceDigits_decode (answers : Answers) (messages : LeafAddr → WCT9.LayerMsg)
     (L : LeafAddr) :
@@ -219,7 +230,7 @@ theorem referenceDigits_decode (answers : Answers) (messages : LeafAddr → WCT9
   cases hs : referenceSearch answers messages L with
   | none => exact dummyDigits_valid (WCT9.CanonicalPolicy.normalLayer L.lay)
   | some found =>
-      obtain ⟨c, digits⟩ := found
+      obtain ⟨c, digits, low⟩ := found
       exact ⟨_, referenceSearch_decode answers messages L hs⟩
 
 theorem normalLayer_chainCount (lay : Layer) :
@@ -272,7 +283,7 @@ theorem referenceInput_ne (answers : Answers) (messages : LeafAddr → WCT9.Laye
   cases hs : referenceSearch answers messages L with
   | none => rw [hs] at h; simp at h
   | some s =>
-      obtain ⟨c, w'⟩ := s
+      obtain ⟨c, w', low⟩ := s
       rw [hs] at h
       simp only [Option.map_some, Option.some.injEq] at h
       obtain ⟨hm, hc, -⟩ := BC.layerEncodingRow_injective_leaf hfitRef hfit h
@@ -320,6 +331,43 @@ theorem referenceInput_ne_padW (answers : Answers) (messages : LeafAddr → WCT9
       rcases hpad with hpad | hpad
       · exact hpad hp.symm
       · exact hpad (xor_one_inj' hh).symm
+
+/-- Equality with the reference row fixes the authenticated message and the pads, whichever permitted half a
+witness opens (configuration (1)+(2)). -/
+theorem referenceInput_eq_msg_pad (answers : Answers) (messages : LeafAddr → WCT9.LayerMsg)
+    (L : LeafAddr) (msg : WCT9.LayerMsg) (ctr : BitVec 32) (pad : RowPad)
+    (hfitRef : Extract.msgFits L.lay (messages L)) (hfit : Extract.msgFits L.lay msg)
+    (h : referenceInput answers messages L = some (encRow L msg ctr pad)) :
+    msg = messages L ∧ pad.1 = 0 ∧ pad.2.2 = 0 := by
+  unfold referenceInput at h
+  cases hs : referenceSearch answers messages L with
+  | none => rw [hs] at h; simp at h
+  | some s =>
+      rw [hs] at h
+      simp only [Option.map_some, Option.some.injEq] at h
+      obtain ⟨hm, -, hp, -⟩ := BC.layerEncodingRow_injective_leaf hfitRef hfit h
+      have hh := BC.layerEncodingRow_hi_eq h
+      exact ⟨hm.symm, hp.symm, (xor_one_inj' hh).symm⟩
+
+theorem referenceInput_ne_msg (answers : Answers) (messages : LeafAddr → WCT9.LayerMsg)
+    (L : LeafAddr) (msg : WCT9.LayerMsg) (ctr : BitVec 32) (pad : RowPad)
+    (hfitRef : Extract.msgFits L.lay (messages L)) (hfit : Extract.msgFits L.lay msg)
+    (hne : msg ≠ messages L) : referenceInput answers messages L ≠ some (encRow L msg ctr pad) :=
+  fun h => hne (referenceInput_eq_msg_pad answers messages L msg ctr pad hfitRef hfit h).1
+
+/-- A row with a non-honest message or nonzero pads is none of the search's honest rows. -/
+theorem notSearched_of_ne (answers : Answers) (messages : LeafAddr → WCT9.LayerMsg)
+    (L : LeafAddr) (msg : WCT9.LayerMsg) (ctr : BitVec 32) (pad : RowPad)
+    (hfitRef : Extract.msgFits L.lay (messages L)) (hfit : Extract.msgFits L.lay msg)
+    (hne : msg ≠ messages L ∨ pad.1 ≠ 0 ∨ pad.2.2 ≠ 0) :
+    NotSearched answers messages L (encRow L msg ctr pad) := by
+  intro found _ c _ heq
+  obtain ⟨hm, -, hp, -⟩ := BC.layerEncodingRow_injective_leaf hfitRef hfit heq.symm
+  have hh := BC.layerEncodingRow_hi_eq heq.symm
+  rcases hne with hne | hne | hne
+  · exact hne hm.symm
+  · exact hne hp.symm
+  · exact hne (xor_one_inj' hh).symm
 
 theorem canonical_word_cases {lay : Layer} {refDigest candDigest : Digest} {refDigits candDigits : List Nat}
     (hr : WCT9.CanonicalPolicy.decode lay refDigest = some refDigits)

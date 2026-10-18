@@ -67,8 +67,8 @@ namespace SigGolfCandidate.T3M.Expand.BC
 open RiscvZkvm.Rv64 SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv SigGolfCandidate.Rv OracleComp
 open SigGolfCandidate.T3 (Layer Digest route height chainCount target width maxDigit counterLimit decode)
 open SigGolfCandidate.T3M.Search (ENC EOUT DIGITS NODE NOUT csN4 CsW csRegs csT csOk
-  KernAt kernAt_expand topDigits lowDigits decode_top decode_low)
-open SigGolfCandidate.T3M.Search.BC (CsArgs CsPre CsPost counterSearch_tbsim)
+  KernAt topDigits lowDigits decode_top decode_low)
+open SigGolfCandidate.T3M.Search.BC (CsArgs CsPre CsPost)
 open ClaudeWCT
 set_option autoImplicit false
 def entryOf : Nat → Nat
@@ -191,8 +191,8 @@ namespace SigGolfCandidate.T3M.Expand.BC
 open RiscvZkvm.Rv64 SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv SigGolfCandidate.Rv OracleComp
 open SigGolfCandidate.T3 (Layer Digest route height chainCount target width maxDigit counterLimit decode)
 open SigGolfCandidate.T3M.Search (ENC EOUT DIGITS NODE NOUT csN4 CsW csRegs csT csOk
-  KernAt kernAt_expand topDigits lowDigits decode_top decode_low)
-open SigGolfCandidate.T3M.Search.BC (CsArgs CsPre CsPost counterSearch_tbsim)
+  KernAt topDigits lowDigits decode_top decode_low)
+open SigGolfCandidate.T3M.Search.BC (CsArgs CsPre CsPost)
 open ClaudeWCT
 set_option autoImplicit false
 section step

@@ -14,7 +14,7 @@ def stepsA (lay : Nat) : Nat := if lay = 3 then 6 else if lay = 0 then 5 else 7
 def retOff (lay : Nat) : Nat := if lay = 0 then 10 else if lay = 3 then 38 else 41
 def s6v (lay : Nat) : Nat := [13432,16144,18712,21280].getD lay 0
 def s3v : Nat := 13432
-def tgtL (lay : Nat) : Nat := [145,201,201,201].getD lay 0
+def tgtL (lay : Nat) : Nat := [146,201,201,201].getD lay 0
 def hw (t lay : Nat) : Nat := 1 + 256 * t + 65536 * lay
 def rejEcall : Nat := 3431
 def stabIdx (lay : Nat) : Nat := [209768,209640,209576,209512].getD lay 0

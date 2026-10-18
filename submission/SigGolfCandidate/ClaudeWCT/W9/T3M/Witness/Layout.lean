@@ -193,6 +193,20 @@ def wmerkleHigh (w : WBytes) (lay : Layer) (leaf j : Nat) : BitVec 64 :=
 def wtopLeafPad (w : WBytes) : Digest := wdig w (leafBufferBase 0)
 /-- C3: the leaf tweak's high word (witness bytes `[leafBufferBase lay + 24, +8)`; honest 0). -/
 def wleafHigh (w : WBytes) (lay : Layer) : BitVec 64 := (wdig w (leafBufferBase lay + 16)).extractLsb' 64 64
+/-- Restricted top choice (configuration (1)+(2), e7b head): the choice hint byte is witness byte
+`choiceOff = 22312` (= `leafBufferBase 0 + 16`, the low byte of the top leaf tweak's low word, which the verifier
+overwrites with the leaf label after reading the hint; absolute 2904 + 22312 = 25216). The hint is bit 7; expand
+writes 128 (HIGH) or 0 (LOW). -/
+def choiceOff : Nat := 22312
+theorem choiceOff_eq : choiceOff = leafBufferBase 0 + 16 := rfl
+/-- The raw choice hint byte. -/
+def wchoice (w : WBytes) : BitVec 8 := w.extractLsb' (8 * choiceOff) 8
+/-- The verifier's top hint: bit 7 of the choice byte (the other 7 bits are ignored). -/
+def wtopHigh (w : WBytes) : Bool := (wchoice w).getLsbD 7
+/-- The honest choice byte for the hint `high`. -/
+def choiceByte (high : Bool) : UInt8 := if high then 128 else 0
+theorem choiceByte_bit7 (high : Bool) : (choiceByte high).toBitVec.getLsbD 7 = high := by
+  cases high <;> decide
 /-- Pairing stage 1: the padded step input in either format (header in bytes 16..32 in both): `chainInputP` (F) or
 `value | header | pad0 | pad1` (G). -/
 def chainInputPW (lay : Layer) (tree leaf i step : Nat) (pad0 pad1 : Digest) (headerPad : BitVec 64)

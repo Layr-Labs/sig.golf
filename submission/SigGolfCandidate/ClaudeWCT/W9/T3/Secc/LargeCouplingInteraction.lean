@@ -1149,8 +1149,9 @@ theorem _root_.ClaudeWCT.W9.T3.Security.LargeResidual.Paired.Coherent.signItems_
   rw [h.layerItems_eq]
 
 theorem assembleSig_congr (rho : Digest) (output : HashOutput) (v v' : Coord→Digest)
-    (d : Wots.LeafAddr→List Nat) (h : ∀c∈LargeResidual.Paired.signItemsWith d output,v c=v' c) :
-    LargeResidual.Paired.assembleSig rho output v d=LargeResidual.Paired.assembleSig rho output v' d := by
+    (d : Wots.LeafAddr→List Nat) (l : Wots.LeafAddr→Bool)
+    (h : ∀c∈LargeResidual.Paired.signItemsWith d output,v c=v' c) :
+    LargeResidual.Paired.assembleSig rho output v d l=LargeResidual.Paired.assembleSig rho output v' d l := by
   have hfts : ∀c∈LargeResidual.Paired.ftsItems (digestIndex output) output,v c=v' c :=
     fun c hc => h c (List.mem_append_left _ hc)
   have hlay : ∀c∈layerItems d (digestIndex output),v c=v' c :=
@@ -1184,14 +1185,16 @@ theorem assembleSig_congr (rho : Digest) (output : HashOutput) (v v' : Coord→D
     exact hlay c (List.mem_flatMap.mpr ⟨lay,List.mem_finRange lay,List.mem_append_right _ hc⟩)
 
 theorem assembleSig_digits (rho : Digest) (output : HashOutput) (v : Coord→Digest)
-    (d d' : Wots.LeafAddr→List Nat)
-    (h : ∀lay,d (routeAddr (digestIndex output).val lay)=d' (routeAddr (digestIndex output).val lay)) :
-    LargeResidual.Paired.assembleSig rho output v d=LargeResidual.Paired.assembleSig rho output v d' := by
+    (d d' : Wots.LeafAddr→List Nat) (l l' : Wots.LeafAddr→Bool)
+    (h : ∀lay,d (routeAddr (digestIndex output).val lay)=d' (routeAddr (digestIndex output).val lay))
+    (hl : ∀lay,l (routeAddr (digestIndex output).val lay)=l' (routeAddr (digestIndex output).val lay)) :
+    LargeResidual.Paired.assembleSig rho output v d l=LargeResidual.Paired.assembleSig rho output v d' l' := by
   unfold LargeResidual.Paired.assembleSig
   congr 1
   · unfold hintsOf
     change ∀lay,d (routeAddr (WCT9.digestIndex output) lay)=d' (routeAddr (WCT9.digestIndex output) lay) at h
-    rw [h 0,h 1,h 2]
+    change ∀lay,l (routeAddr (WCT9.digestIndex output) lay)=l' (routeAddr (WCT9.digestIndex output) lay) at hl
+    rw [h 0,h 1,h 2,hl 0,hl 1,hl 2]
   · funext lay
     rw [layerChains_congr d d' _ lay (h lay)]
 end Coherent
@@ -1316,7 +1319,8 @@ noncomputable def finishOut (T : Answers) (vals : Coord → Digest) (rho : Diges
     Option SigGolfCandidate.Research.SharedForest.Signature :=
   match found with
   | some (_, N) => if RouteOk T (WCT9.digestIndex N) then
-      some (assembleSig rho N vals (Wots.CanonicalRef.referenceDigits T (Wots.CanonicalRef.sourceMessages T))) else none
+      some (assembleSig rho N vals (Wots.CanonicalRef.referenceDigits T (Wots.CanonicalRef.sourceMessages T))
+        (Wots.CanonicalRef.referenceLow T (Wots.CanonicalRef.sourceMessages T))) else none
   | none => none
 noncomputable def finishWorld (T : Answers) (U : Finset HashInput) (q : Nat) (labels : WCoord → Digest)
     (ws : LargeResidual.State WCoord (Cell U)) (found : Option (BitVec 32 × HashOutput)) :
@@ -1342,10 +1346,13 @@ theorem observed_signFinish (hcoh : LargeResidual.Paired.Coherent U T vals nv τ
         rw [observed_discloseAll, observed_pure, hcoh.signItems_eq]
         have hs : assembleSig rho N
             (lookupVal ((LargeResidual.Paired.signItems T N).map (fun c => (c, Sum.elim vals nv (.inl c)))))
-            (routerDigits a) =
-            assembleSig rho N vals (Wots.CanonicalRef.referenceDigits T (Wots.CanonicalRef.sourceMessages T)) := by
-          rw [assembleSig_digits rho N _ _ (Wots.CanonicalRef.referenceDigits T (Wots.CanonicalRef.sourceMessages T)) (fun lay =>
-            hcoh.routerDigits_eq _ (routeAddr_enc _ (LargeResidual.digestIndex N).isLt lay))]
+            (routerDigits a) (routerLows a) =
+            assembleSig rho N vals (Wots.CanonicalRef.referenceDigits T (Wots.CanonicalRef.sourceMessages T))
+              (Wots.CanonicalRef.referenceLow T (Wots.CanonicalRef.sourceMessages T)) := by
+          rw [assembleSig_digits rho N _ _ (Wots.CanonicalRef.referenceDigits T (Wots.CanonicalRef.sourceMessages T))
+            _ (Wots.CanonicalRef.referenceLow T (Wots.CanonicalRef.sourceMessages T)) (fun lay =>
+            hcoh.routerDigits_eq _ (routeAddr_enc _ (LargeResidual.digestIndex N).isLt lay)) (fun lay =>
+            hcoh.routerLows_eq _ (routeAddr_enc _ (LargeResidual.digestIndex N).isLt lay))]
           apply assembleSig_congr
           intro c' hc'
           exact lookupVal_map (fun c => Sum.elim vals nv (.inl c)) _ c' hc'

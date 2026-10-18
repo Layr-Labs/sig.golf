@@ -2,6 +2,7 @@ import SigGolfCandidate.ClaudeWCT.W9.New.G3a.PaddedWitness
 import SigGolfCandidate.T3.Secc.WotsEvents
 import SigGolfCandidate.T3.Secc.WotsMaskBase
 import SigGolfCandidate.ClaudeWCT.W9.New.BC.Rows
+import SigGolfCandidate.Choice.Probability
 
 namespace ClaudeWCT.W9.T3.Security.Wots
 open OracleComp OracleSpec ENNReal
@@ -227,32 +228,34 @@ theorem parent_layer_lt (L : LeafAddr) (h : L.lay.val ≠ 0) : (parent L).lay.va
   simp only [parent]
   omega
 
-abbrev Search := LeafAddr → Nat → Option (BitVec 32 × List Nat)
-abbrev Credit := Layer → List Nat → Nat
+/-- A canonical search result: the counter, the digits and the selected half (`true` = LOW). -/
+abbrev Search := LeafAddr → Nat → Option (BitVec 32 × List Nat × Bool)
+/-- Path-aware credit: layer, selected half (`true` = LOW), digits. -/
+abbrev Credit := Layer → Bool → List Nat → Nat
 
 /-- Remaining credit after the canonical search at a leaf. The recursion goes
     from a leaf to its ancestors and never depends on a descendant or an FTS
     digest. Failure of an ancestor propagates to the descendant. -/
 def after (search : Search) (credit : Credit) (L : LeafAddr) : Option Nat :=
-  (if L.lay.val = 0 then some 63 else after search credit (parent L)).bind fun remaining =>
-    (search L remaining).map fun found => remaining - credit L.lay found.2
+  (if L.lay.val = 0 then some WCT9.CanonicalPolicy.totalCredit else after search credit (parent L)).bind fun remaining =>
+    (search L remaining).map fun found => remaining - credit L.lay found.2.2 found.2.1
 termination_by L.lay.val
 decreasing_by exact parent_layer_lt L (by assumption)
 
 def context (search : Search) (credit : Credit) (L : LeafAddr) : Option Nat :=
-  if L.lay.val = 0 then some 63 else after search credit (parent L)
+  if L.lay.val = 0 then some WCT9.CanonicalPolicy.totalCredit else after search credit (parent L)
 
-def selected (search : Search) (credit : Credit) (L : LeafAddr) : Option (BitVec 32 × List Nat) :=
+def selected (search : Search) (credit : Credit) (L : LeafAddr) : Option (BitVec 32 × List Nat × Bool) :=
   (context search credit L).bind (search L)
 
 theorem after_eq (search : Search) (credit : Credit) (L : LeafAddr) :
     after search credit L = (context search credit L).bind fun remaining =>
-      (search L remaining).map fun found => remaining - credit L.lay found.2 := by
+      (search L remaining).map fun found => remaining - credit L.lay found.2.2 found.2.1 := by
   rw [after]
   rfl
 
 theorem context_top (search : Search) (credit : Credit) (L : LeafAddr) (h : L.lay.val = 0) :
-    context search credit L = some 63 := by simp only [context, if_pos h]
+    context search credit L = some WCT9.CanonicalPolicy.totalCredit := by simp only [context, if_pos h]
 
 theorem context_parent (search : Search) (credit : Credit) (L : LeafAddr) (h : L.lay.val ≠ 0) :
     context search credit L = after search credit (parent L) := by simp only [context, if_neg h]
@@ -354,7 +357,7 @@ noncomputable def referenceContext (answers : SigGolfCandidate.T3.Correctness.An
   context (searchOf answers messages) WCT9.CanonicalPolicy.credit
 
 noncomputable def referenceSearch (answers : SigGolfCandidate.T3.Correctness.Answers)
-    (messages : LeafAddr → WCT9.LayerMsg) : LeafAddr → Option (BitVec 32 × List Nat) :=
+    (messages : LeafAddr → WCT9.LayerMsg) : LeafAddr → Option (BitVec 32 × List Nat × Bool) :=
   selected (searchOf answers messages) WCT9.CanonicalPolicy.credit
 
 theorem referenceSearch_congr
@@ -375,9 +378,9 @@ theorem referenceContext_congr
   exact context_congr WCT9.CanonicalPolicy.credit hsearch L
 
 noncomputable def decodeRow (answers : SigGolfCandidate.T3.Correctness.Answers)
-    (L : LeafAddr) (floor : Nat) (message : WCT9.LayerMsg) (counter : Nat) : Option (List Nat) :=
-  WCT9.CanonicalPolicy.producerDecodeAt L.lay floor
-    (evalWithAnswerFn answers (WCT9.encodingHash L.lay
+    (L : LeafAddr) (floor : Nat) (message : WCT9.LayerMsg) (counter : Nat) : Option (List Nat × Bool) :=
+  WCT9.CanonicalPolicy.producerDecodeOut L.lay floor
+    (evalWithAnswerFn answers (publicHash
       (WCT9.layerEncodingInput L.lay L.tree L.leaf message (BitVec.ofNat 32 counter))))
 
 /-- It suffices to preserve decisions on the original reached prefix. In
@@ -414,10 +417,10 @@ theorem search_congr (answers answers' : SigGolfCandidate.T3.Correctness.Answers
       conv_rhs => rw [evalWithAnswerFn_bind]
       change evalWithAnswerFn answers' (match decodeRow answers' L floor message start with
         | none => WCT9.CanonicalPolicy.layerCounterSearchAt L.lay floor L.tree L.leaf message (start + 1) fuel
-        | some digits => pure (some (BitVec.ofNat 32 start, digits))) =
+        | some found => pure (some (BitVec.ofNat 32 start, found))) =
         evalWithAnswerFn answers (match decodeRow answers L floor message start with
         | none => WCT9.CanonicalPolicy.layerCounterSearchAt L.lay floor L.tree L.leaf message (start + 1) fuel
-        | some digits => pure (some (BitVec.ofNat 32 start, digits)))
+        | some found => pure (some (BitVec.ofNat 32 start, found)))
       rw [hzero]
       cases hd : decodeRow answers L floor message start with
       | none => exact hrest hd
@@ -472,8 +475,13 @@ set_option maxRecDepth 10000
 
 noncomputable def referenceDigits (answers : Answers) (messages : LeafAddr → WCT9.LayerMsg)
     (L : LeafAddr) : List Nat :=
-  ((referenceSearch answers messages L).map Prod.snd).getD
+  ((referenceSearch answers messages L).map fun found => found.2.1).getD
     (dummyDigits (WCT9.CanonicalPolicy.normalLayer L.lay))
+
+/-- The half the canonical search selected (`true` = LOW; `true` when the search fails). -/
+noncomputable def referenceLow (answers : Answers) (messages : LeafAddr → WCT9.LayerMsg)
+    (L : LeafAddr) : Bool :=
+  ((referenceSearch answers messages L).map fun found => found.2.2).getD true
 
 noncomputable def depth (answers : Answers) (messages : LeafAddr → WCT9.LayerMsg)
     (a : ChainAddr) : Nat := (referenceDigits answers messages a.key).getD a.chain 0
@@ -512,18 +520,28 @@ def TwoEdgeAt (answers : Answers) (messages : LeafAddr → WCT9.LayerMsg)
     ClaudeWCT.W9.T3.Security.Wots.SeenRowW trace a (depth answers messages a - 1) middle
       (frontierValue answers messages a)
 
+/-- Configuration (1)+(2): `input` is none of the canonical search's own honest rows (honest message, zero pads)
+up to the selected counter. With path-aware floors a rejected honest row can still decode, through its other
+half, to the reference word; a forgery through such a row has honest message and pads and is covered by `Good`
+(any counter), so the encoding-match event excludes these rows. -/
+def NotSearched (answers : Answers) (messages : LeafAddr → WCT9.LayerMsg) (L : LeafAddr) (input : HashInput) :
+    Prop :=
+  ∀ found, referenceSearch answers messages L = some found →
+    ∀ c : Nat, c ≤ found.1.toNat → input ≠ encRow L (messages L) (BitVec.ofNat 32 c) 0
+
 def EncodingMatchAt (answers : Answers) (messages : LeafAddr → WCT9.LayerMsg)
     (trace : List Entry) (L : LeafAddr) : Prop :=
   ∃ message counter pad answer, Extract.msgFits L.lay message ∧ (encRow L message counter pad, answer) ∈ trace ∧
     referenceInput answers messages L ≠ some (encRow L message counter pad) ∧
-    WCT9.CanonicalPolicy.decode L.lay (WCT9.encodingAnswer L.lay answer) = some (referenceDigits answers messages L)
+    NotSearched answers messages L (encRow L message counter pad) ∧
+    WCT9.encodingCanDecode L.lay answer (referenceDigits answers messages L)
 
 def MarkerAt (answers : Answers) (messages : LeafAddr → WCT9.LayerMsg)
     (trace : List Entry) (a : ChainAddr) : Prop :=
   ∃ message counter pad answer digits, Extract.msgFits a.key.lay message ∧
     (encRow a.key message counter pad, answer) ∈ trace ∧
     referenceInput answers messages a.key ≠ some (encRow a.key message counter pad) ∧
-    WCT9.CanonicalPolicy.decode a.key.lay (WCT9.encodingAnswer a.key.lay answer) = some digits ∧
+    WCT9.encodingCanDecode a.key.lay answer digits ∧
     digits.getD a.chain 0 + 1 = (referenceDigits answers messages a.key).getD a.chain 0 ∧
     ∀ i, i ≠ a.chain → (referenceDigits answers messages a.key).getD i 0 ≤ digits.getD i 0
 

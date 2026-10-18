@@ -1172,8 +1172,8 @@ theorem wotsPieces_congr {lay : Layer} {tree leaf : Nat} (hleaf : leaf<2^24)
 
 include hLleaf in
 theorem fixedPrepared_pieces_congr (index : Nat) (hi : index<2^31) (lay : Layer) (hlay : lay≠0)
-    {counter : BitVec 32} {digits : List Nat}
-    (hsearch : CanonicalRef.referenceSearch T messages (sourceLeaf index lay)=some (counter,digits))
+    {counter : BitVec 32} {digits : List Nat} {low : Bool}
+    (hsearch : CanonicalRef.referenceSearch T messages (sourceLeaf index lay)=some (counter,digits,low))
     (htree : L.tree<2^40) :
     preparedPieces lay (route index lay).1 (fixedPrepared T' index lay) digits=
       preparedPieces lay (route index lay).1 (fixedPrepared T index lay) digits := by
@@ -1234,20 +1234,20 @@ theorem searchPreparedLayers_leafEq {T T' : Answers} {L : LeafAddr}
     dsimp only [messages]
     rw [fixedPrepared_pair,sourceMessages_route_lower T index 2 (by decide)]; rfl
   have h3 : LayerMsg.pair forest.1 forest.2=messages (sourceLeaf index 3) := hforest
-  have hc0 : referenceContext T messages (sourceLeaf index 0)=some 63 := rfl
+  have hc0 : referenceContext T messages (sourceLeaf index 0)=some WCT9.CanonicalPolicy.totalCredit := rfl
   dsimp only
   unfold searchPreparedLayers
   dsimp only
   rw [hlevels 1,hlevels 2,hlevels 3,h0,h1,h2,h3]
-  refine ExecEq.bind (hs 0 63 hc0) ?_
+  refine ExecEq.bind (hs 0 WCT9.CanonicalPolicy.totalCredit hc0) ?_
   intro found0 hr0
   cases found0 with
   | none => exact ExecEq.pure' _ _ _
   | some found0 =>
-    rcases found0 with ⟨counter0,digits0⟩
+    rcases found0 with ⟨counter0,digits0,low0⟩
     have href0 := referenceSearch_of_run hc0 hr0
     have hc1 : referenceContext T messages (sourceLeaf index 1)=
-        some (CanonicalPolicy.nextResidual 63 0 digits0) := by
+        some (CanonicalPolicy.nextResidual WCT9.CanonicalPolicy.totalCredit 0 low0 digits0) := by
       apply context_parent_success (leaf:=sourceLeaf index 1) (by change 1 ≠ 0; decide)
       · rw [sourceLeaf_parent index 1 (by decide)]; exact hc0
       · rw [sourceLeaf_parent index 1 (by decide)]; exact href0
@@ -1259,10 +1259,10 @@ theorem searchPreparedLayers_leafEq {T T' : Answers} {L : LeafAddr}
       cases found1 with
       | none => exact ExecEq.pure' _ _ _
       | some found1 =>
-        rcases found1 with ⟨counter1,digits1⟩
+        rcases found1 with ⟨counter1,digits1,low1⟩
         have href1 := referenceSearch_of_run hc1 hr1
         have hc2 : referenceContext T messages (sourceLeaf index 2)=
-            some (CanonicalPolicy.nextResidual (CanonicalPolicy.nextResidual 63 0 digits0) 1 digits1) := by
+            some (CanonicalPolicy.nextResidual (CanonicalPolicy.nextResidual WCT9.CanonicalPolicy.totalCredit 0 low0 digits0) 1 low1 digits1) := by
           apply context_parent_success (leaf:=sourceLeaf index 2) (by change 2 ≠ 0; decide)
           · rw [sourceLeaf_parent index 2 (by decide)]; exact hc1
           · rw [sourceLeaf_parent index 2 (by decide)]; exact href1
@@ -1274,11 +1274,11 @@ theorem searchPreparedLayers_leafEq {T T' : Answers} {L : LeafAddr}
           cases found2 with
           | none => exact ExecEq.pure' _ _ _
           | some found2 =>
-            rcases found2 with ⟨counter2,digits2⟩
+            rcases found2 with ⟨counter2,digits2,low2⟩
             have href2 := referenceSearch_of_run hc2 hr2
             have hc3 : referenceContext T messages (sourceLeaf index 3)=
                 some (CanonicalPolicy.nextResidual
-                  (CanonicalPolicy.nextResidual (CanonicalPolicy.nextResidual 63 0 digits0) 1 digits1) 2 digits2) := by
+                  (CanonicalPolicy.nextResidual (CanonicalPolicy.nextResidual WCT9.CanonicalPolicy.totalCredit 0 low0 digits0) 1 low1 digits1) 2 low2 digits2) := by
               apply context_parent_success (leaf:=sourceLeaf index 3) (by change 3 ≠ 0; decide)
               · rw [sourceLeaf_parent index 3 (by decide)]; exact hc2
               · rw [sourceLeaf_parent index 3 (by decide)]; exact href2
@@ -1290,7 +1290,7 @@ theorem searchPreparedLayers_leafEq {T T' : Answers} {L : LeafAddr}
               cases found3 with
               | none => exact ExecEq.pure' _ _ _
               | some found3 =>
-                rcases found3 with ⟨counter3,digits3⟩
+                rcases found3 with ⟨counter3,digits3,low3⟩
                 have href3 := referenceSearch_of_run hc3 hr3
                 have hv0 := CanonicalRef.Mask.source_digits_valid T messages 0 href0 rfl
                 have ht : ExecEq T T' (signTop cache (route index 0).1 digits0)

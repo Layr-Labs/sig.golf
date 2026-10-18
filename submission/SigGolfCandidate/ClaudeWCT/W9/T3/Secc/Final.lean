@@ -793,10 +793,6 @@ theorem pairTerm_leW9 (q : Nat) (hs : q ≤ SeccClosingW9.budgetSplit) :
 end SmallR
 theorem twoContactsBound (adversary : AdversaryP) (q : Nat) (hq : q < 2 ^ 128) : TwoContactsBound adversary q :=
   reference_twoContacts_le adversary q hq
-theorem markerSumBound (adversary : AdversaryP) (q : Nat) : MarkerSumBound adversary q :=
-  reference_marker_sum_le adversary q
-theorem contactFirstBound (adversary : AdversaryP) (q : Nat) : ContactFirstBound adversary q :=
-  reference_contactFirst_le adversary q
 /-- The clean win splits into cases A/B, case C without FTS overflow, signer incompleteness, and the FTS overflow
 event (campaign X1 stage A; bounded by `fts_overflow_le`). -/
 theorem cleanWin_le_cases (adversary : AdversaryP) (q : Nat) (hq : q ≤ 2 ^ 127) :
@@ -820,103 +816,6 @@ theorem cleanWin_le_cases (adversary : AdversaryP) (q : Nat) (hq : q ≤ 2 ^ 127
         ClaudeWCT.W9.T3.Security.logNoOverflow_of_not_ftsOverflow adversary q hq z hz hov g i c hs⟩))
     · exact absurd h (CaseC.caseCSignedPinned_impossible adversary q hq z hz hclean)
   · exact Or.inl (Or.inr hcomp)
-theorem small_route (hC : CaseCSmallBound) :
-    ∀ (adversary : AdversaryP) (q : Nat) (hq : q ≤ 2 ^ 127), 1 ≤ q → q ≤ SeccClosingW9.budgetSplit →
-      Pr[QueryRecorded.CleanWin q | PaddedGame.tracedExperiment adversary q hq] ≤ SeccClosingW9.smallBound q := by
-  intro adversary q hq hq1 hs
-  have hq128 : q < 2 ^ 128 := lt_of_le_of_lt hq (by norm_num)
-  have hbudget := reference_class_budget adversary q hq
-  have hab := (caseABSrc_le_reference adversary q hq).trans (reference_primitive_le adversary q hq128
-    (twoContactsBound adversary q hq128) (contactFirstBound adversary q) (markerSumBound adversary q))
-  have hc := hC adversary q hq hq1 hs
-  have k1 : prefixCoeffW9 q / 2 ^ 128 ≤ SmallR.classRateW9 / 2 ^ 128 := by gcongr; exact SmallR.prefixCoeffW9_le q hs
-  have k2 : encodingCoeffW9 q / 2 ^ 128 ≤ SmallR.classRateW9 / 2 ^ 128 := by gcongr; exact SmallR.encodingCoeffW9_le q hs
-  have k3 : (2 ^ 128 : ENNReal)⁻¹ ≤ SmallR.classRateW9 / 2 ^ 128 := by
-    rw [← one_div]; exact ENNReal.div_le_div_right SmallR.one_le_classRateW9 _
-  have k4 : (1 + SeccClosingW9.cacheRate) / 2 ^ 128 ≤ SmallR.classRateW9 / 2 ^ 128 := by gcongr; exact SmallR.digestRate_leW9
-  generalize refExpect adversary q prefixClassCount = EP at hbudget hab
-  generalize refExpect adversary q encodingCount = EE at hbudget hab
-  generalize refExpect adversary q otherCount = EO at hbudget hab
-  generalize SeccLaw.expectedCharge adversary q hq digestClass = EM at hbudget hc
-  have hcq : SmallR.classRateW9 / 2 ^ 128 * (EP + EE + EO + EM) ≤ SmallR.classRateW9 * ((q : ENNReal) / 2 ^ 128) := by
-    calc SmallR.classRateW9 / 2 ^ 128 * (EP + EE + EO + EM) ≤ SmallR.classRateW9 / 2 ^ 128 * q := by gcongr
-      _ = SmallR.classRateW9 * ((q : ENNReal) / 2 ^ 128) := by rw [div_eq_mul_inv, div_eq_mul_inv]; ring
-  have hex := SmallR.excess_leW9 q
-  have hnear := SmallR.nearTerm_le q hs
-  have hpair := SmallR.pairTerm_leW9 q hs
-  -- signer incompleteness (2^-698, or 2^-298 after the X1 lower-target change) is charged as 2^-138
-  have hinc : Pr[fun z => ¬BPB.SignerComplete z.2 | SeccLaw.completedExperiment adversary q hq] ≤
-      ((2 : ENNReal) ^ 138)⁻¹ :=
-    (BPB.signerIncomplete_le adversary q hq).trans (by
-      rw [one_div]
-      exact ENNReal.inv_le_inv.mpr (pow_le_pow_right₀ one_le_two (by norm_num)))
-  have hov := ClaudeWCT.W9.T3.Security.fts_overflow_le adversary q hq
-  have herr := SmallR.errTerm_le adversary q hs
-  apply SeccClosingW9.smallBound_of_le q _ (SmallR.classRateW9 + 247 / 100000 + 1 / 100000) (75701 / 500)
-    ((2 : ENNReal)⁻¹ ^ 700 + ((2 : ENNReal) ^ 138)⁻¹ + ((2 : ENNReal) ^ 137)⁻¹)
-  · rw [SeccClosingW9.smallCoefficient_def]
-    unfold SmallR.classRateW9
-    apply (ENNReal.toReal_le_toReal (by finiteness) (by finiteness)).mp
-    simp (disch := finiteness) only [ENNReal.toReal_add, ENNReal.toReal_div, ENNReal.toReal_ofNat,
-      ENNReal.toReal_one]
-    norm_num
-  · exact le_of_eq SeccClosingW9.smallQuadratic_def.symm
-  · rw [SeccClosingW9.smallAbsolute_def]
-    apply (ENNReal.toReal_le_toReal (by finiteness) (by finiteness)).mp
-    simp (disch := finiteness) only [ENNReal.toReal_add, ENNReal.toReal_div, ENNReal.toReal_inv, ENNReal.toReal_pow,
-      ENNReal.toReal_ofNat, ENNReal.toReal_one]
-    norm_num
-  generalize errCoeffW9 q * Leaf.errTot adversary q = ER at hab herr
-  generalize (q : ENNReal) / 2 ^ 128 = x at hcq hex hnear hpair herr
-  calc Pr[QueryRecorded.CleanWin q | PaddedGame.tracedExperiment adversary q hq]
-      ≤ Pr[fun z => QueryRecorded.CleanWin q z.1 ∧ CaseABSrc adversary z |
-            SeccLaw.completedExperiment adversary q hq] +
-          Pr[fun z => QueryRecorded.CleanWin q z.1 ∧ CaseC.CaseCFreshPinned adversary z ∧ WPair.NoOverflow adversary z |
-            SeccLaw.completedExperiment adversary q hq] +
-          Pr[fun z => ¬BPB.SignerComplete z.2 | SeccLaw.completedExperiment adversary q hq] +
-          Pr[fun z => QueryRecorded.CleanWin q z.1 ∧ ClaudeWCT.W9.T3.Security.FtsOverflow z.1 |
-            SeccLaw.completedExperiment adversary q hq] :=
-        cleanWin_le_cases adversary q hq
-    _ ≤ (prefixCoeffW9 q / 2 ^ 128 * EP + encodingCoeffW9 q / 2 ^ 128 * EE + (2 ^ 128 : ENNReal)⁻¹ * EO +
-            ER) +
-          ((1 + SeccClosingW9.cacheRate) / 2 ^ 128 * EM +
-            (q : ENNReal) * SeccClosingW9.excessRate / 2 ^ 128 + nearTerm q + BPair.pairTerm q +
-            (2 : ENNReal)⁻¹ ^ 700) + ((2 : ENNReal) ^ 138)⁻¹ + ((2 : ENNReal) ^ 137)⁻¹ :=
-        add_le_add (add_le_add (add_le_add hab hc) hinc) hov
-    _ ≤ (SmallR.classRateW9 / 2 ^ 128 * EP + SmallR.classRateW9 / 2 ^ 128 * EE + SmallR.classRateW9 / 2 ^ 128 * EO +
-            (702 / 1000) * x ^ 2) +
-          (SmallR.classRateW9 / 2 ^ 128 * EM + 247 / 100000 * x + ((1501 / 10) * x ^ 2 + 1 / 100000 * x) + (6 / 10) * x ^ 2 +
-            (2 : ENNReal)⁻¹ ^ 700) + ((2 : ENNReal) ^ 138)⁻¹ + ((2 : ENNReal) ^ 137)⁻¹ := by gcongr
-    _ = SmallR.classRateW9 / 2 ^ 128 * (EP + EE + EO + EM) +
-          (247 / 100000 * x + ((1501 / 10) * x ^ 2 + 1 / 100000 * x) + (6 / 10) * x ^ 2 + (702 / 1000) * x ^ 2 +
-            ((2 : ENNReal)⁻¹ ^ 700 + ((2 : ENNReal) ^ 138)⁻¹ + ((2 : ENNReal) ^ 137)⁻¹)) := by
-        ring
-    _ ≤ SmallR.classRateW9 * x + (247 / 100000 * x + ((1501 / 10) * x ^ 2 + 1 / 100000 * x) + (6 / 10) * x ^ 2 +
-          (702 / 1000) * x ^ 2 + ((2 : ENNReal)⁻¹ ^ 700 + ((2 : ENNReal) ^ 138)⁻¹ + ((2 : ENNReal) ^ 137)⁻¹)) := by
-        gcongr
-    _ = (SmallR.classRateW9 + 247 / 100000 + 1 / 100000) * x + ((1501 / 10 : ENNReal) + 6 / 10 + 702 / 1000) * x ^ 2 +
-          ((2 : ENNReal)⁻¹ ^ 700 + ((2 : ENNReal) ^ 138)⁻¹ + ((2 : ENNReal) ^ 137)⁻¹) := by
-        ring
-    _ ≤ (SmallR.classRateW9 + 247 / 100000 + 1 / 100000) * x + (75701 / 500) * x ^ 2 +
-          ((2 : ENNReal)⁻¹ ^ 700 + ((2 : ENNReal) ^ 138)⁻¹ + ((2 : ENNReal) ^ 137)⁻¹) := by
-        gcongr
-        apply (ENNReal.toReal_le_toReal (by finiteness) (by finiteness)).mp
-        simp (disch := finiteness) only [ENNReal.toReal_add, ENNReal.toReal_div, ENNReal.toReal_ofNat]
-        norm_num
-theorem securityP_of_small (hC : CaseCSmallBound)
-    (hlarge : ∀ (adversary : AdversaryP) (q : Nat) (hq : q ≤ 2 ^ 127), SeccClosingW9.budgetSplit ≤ q →
-      Pr[QueryRecorded.CleanWin q | PaddedGame.tracedExperiment adversary q hq] ≤ SeccClosingW9.largeBound q) :
-    SecurityP := by
-  apply PaddedGame.securityP_of_clean_bound
-  intro adversary q hpositive hq
-  have key : Pr[QueryRecorded.CleanWin q | PaddedGame.tracedExperiment adversary q hq] + SeccClosingW9.secTerms q ≤
-      (q : ENNReal) / 2 ^ 127 := by
-    by_cases hs : q ≤ SeccClosingW9.budgetSplit
-    · exact (add_le_add (small_route hC adversary q hq hpositive hs) le_rfl).trans
-        (SeccClosingW9.small_closing q hpositive hs)
-    · exact (add_le_add (hlarge adversary q hq (by omega)) le_rfl).trans
-        (SeccClosingW9.large_closing q (by omega) hq)
-  simpa only [SeccClosingW9.secTerms, add_assoc] using key
 end ClaudeWCT.W9.T3.Security.Wots
 end
 section
@@ -925,28 +824,6 @@ open OracleComp OracleSpec OracleComp.EvalDist ENNReal
 open SigGolfCandidate.T3.Security (QueryRecorded.CleanWin)
 open ClaudeWCT.W9.T3.Security.SeccClosingW9 (budgetSplit largeBound)
 open ClaudeWCT.W9.T3M.Final (AdversaryP SecurityP)
-def LargeRouteBound : Prop :=
-  ∀ (adversary : AdversaryP) (q : Nat) (hq : q ≤ 2 ^ 127), budgetSplit ≤ q →
-    Pr[QueryRecorded.CleanWin q | ClaudeWCT.W9.T3.Security.PaddedGame.tracedExperiment adversary q hq] ≤
-      largeBound q
-/-- The small case-C bound from the near and pair bounds on runs without FTS overflow (campaign X1 stage A). -/
-theorem caseCSmallBound_of
-    (hnear : ClaudeWCT.W9.T3.Security.CaseC.NearBoundOn ClaudeWCT.W9.T3.Security.CaseC.caseCExtraction
-      ClaudeWCT.W9.T3.Security.CaseC.NearQ ClaudeWCT.W9.T3.Security.WPair.NoOverflow
-      ClaudeWCT.W9.T3.Security.Wots.nearTerm)
-    (hpair : ClaudeWCT.W9.T3.Security.WPair.PairGuessBoundNO SigGolfCandidate.T3.Security.BPair.pairTerm) :
-    ClaudeWCT.W9.T3.Security.Wots.CaseCSmallBound :=
-  ClaudeWCT.W9.T3.Security.CaseC.caseC_small_bound ClaudeWCT.W9.T3.Security.CaseC.caseCExtraction
-    ClaudeWCT.W9.T3.Security.CaseC.caseCSplitInterface ClaudeWCT.W9.T3.Security.WPair.NoOverflow
-    ClaudeWCT.W9.T3.Security.Wots.nearTerm SigGolfCandidate.T3.Security.BPair.pairTerm
-    ClaudeWCT.Numerics.WCTPrice.wct_excessBound_2_32 hnear hpair
-theorem t3_securityP
-    (hnear : ClaudeWCT.W9.T3.Security.CaseC.NearBoundOn ClaudeWCT.W9.T3.Security.CaseC.caseCExtraction
-      ClaudeWCT.W9.T3.Security.CaseC.NearQ ClaudeWCT.W9.T3.Security.WPair.NoOverflow
-      ClaudeWCT.W9.T3.Security.Wots.nearTerm)
-    (hpair : ClaudeWCT.W9.T3.Security.WPair.PairGuessBoundNO SigGolfCandidate.T3.Security.BPair.pairTerm)
-    (hlarge : LargeRouteBound) : SecurityP :=
-  ClaudeWCT.W9.T3.Security.Wots.securityP_of_small (caseCSmallBound_of hnear hpair) hlarge
 end ClaudeWCT.W9.T3.Secc
 end
 
@@ -1066,6 +943,71 @@ set_option maxHeartbeats 1000000
 set_option maxRecDepth 10000
 set_option backward.isDefEq.respectTransparency false
 
+/-- Configuration (1)+(2): the recovered top message is the source message once the three lower layers have honest
+shapes (the top shape itself is not needed; it is what the honest top hint then provides). -/
+theorem recoveredMessage_top_source (answers : Answers) (sig : SigGolfCandidate.Research.SharedForest.Signature)
+    (index : Nat) (input : WCT9.LayerMsg) (result : RecoveredLayers) (messages : Layer → WCT9.LayerMsg)
+    (hinput : input = messages 3)
+    (hlower : ∀ n, n < 3 → messages (Fin.ofNat 4 n) =
+      .pair (WCT9.builtPair answers (Fin.ofNat 4 (n+1)) (route index (Fin.ofNat 4 (n+1))).2).1
+        (WCT9.builtPair answers (Fin.ofNat 4 (n+1)) (route index (Fin.ofNat 4 (n+1))).2).2)
+    (hselections : ∀ lay : Layer, evalWithAnswerFn answers
+      (WCT9.CanonicalPolicy.layerCounterSearchAt lay (hintFloor sig.policyHints lay)
+        (route index lay).2 (route index lay).1
+        (recoveredMessage answers sig index 4 input result.digits lay) 0 (WCT9.searchLimit lay)) =
+          some (result.counters.getD lay.val 0, result.digits.getD lay.val [], result.lows.getD lay.val true))
+    (hshape : ∀ lay : Layer, lay ≠ 0 → ∃ digits,
+      WCT9.CanonicalPolicy.decode lay (evalWithAnswerFn answers (WCT9.encodingHash lay
+        (WCT9.layerEncodingInput lay (route index lay).2 (route index lay).1 (messages lay)
+          (result.counters.getD lay.val 0)))) = some digits ∧
+      sig.layers lay = piecesSignature lay
+        (WCT9.wotsPieces answers lay (route index lay).2 (route index lay).1 digits)) :
+    recoveredMessage answers sig index 4 input result.digits 0 = messages 0 := by
+  have step (lay : Layer) (hl : lay ≠ 0)
+      (hm : recoveredMessage answers sig index 4 input result.digits lay = messages lay) :
+      sig.layers lay = piecesSignature lay
+        (WCT9.wotsPieces answers lay (route index lay).2 (route index lay).1 (result.digits.getD lay.val [])) ∧
+      Cost.ValidDigits lay (result.digits.getD lay.val []) := by
+    have hs := hselections lay
+    rw [hm] at hs
+    have hlim := WCT9.searchLimit_le lay
+    have hp := (canonical_search_some' answers lay (hintFloor sig.policyHints lay)
+      (route index lay).2 (route index lay).1 (messages lay) (WCT9.searchLimit lay) 0
+      (result.counters.getD lay.val 0) (result.digits.getD lay.val []) (result.lows.getD lay.val true)
+      (by unfold counterLimit at hlim; omega) hs).2.2.2
+    have hd := (WCT9.CanonicalPolicy.producerDecodeAt_spec hp).1
+    obtain ⟨ds, hds, hfields⟩ := hshape lay hl
+    have heq := Option.some.inj (hds.symm.trans hd)
+    subst ds
+    exact ⟨hfields, canonical_decode_valid hd⟩
+  have h3 := step 3 (by decide) (by change input = messages 3; exact hinput)
+  have h2 := step 2 (by decide) (by
+    change WCT9.LayerMsg.pair
+      (evalWithAnswerFn answers (WCT9.recoverLayerPair (mainSignature sig) index 3 (result.digits.getD 3 []))).1
+      (evalWithAnswerFn answers (WCT9.recoverLayerPair (mainSignature sig) index 3 (result.digits.getD 3 []))).2 = messages 2
+    have hp := recoveredPair_of_pieces answers sig index 3 _ h3.2 h3.1
+    change evalWithAnswerFn answers (WCT9.recoverLayerPair (mainSignature sig) index 3
+      (result.digits.getD 3 [])) = WCT9.builtPair answers 3 (route index 3).2 at hp
+    rw [hp]
+    exact (hlower 2 (by decide)).symm)
+  have h1 := step 1 (by decide) (by
+    change WCT9.LayerMsg.pair
+      (evalWithAnswerFn answers (WCT9.recoverLayerPair (mainSignature sig) index 2 (result.digits.getD 2 []))).1
+      (evalWithAnswerFn answers (WCT9.recoverLayerPair (mainSignature sig) index 2 (result.digits.getD 2 []))).2 = messages 1
+    have hp := recoveredPair_of_pieces answers sig index 2 _ h2.2 h2.1
+    change evalWithAnswerFn answers (WCT9.recoverLayerPair (mainSignature sig) index 2
+      (result.digits.getD 2 [])) = WCT9.builtPair answers 2 (route index 2).2 at hp
+    rw [hp]
+    exact (hlower 1 (by decide)).symm)
+  change WCT9.LayerMsg.pair
+    (evalWithAnswerFn answers (WCT9.recoverLayerPair (mainSignature sig) index 1 (result.digits.getD 1 []))).1
+    (evalWithAnswerFn answers (WCT9.recoverLayerPair (mainSignature sig) index 1 (result.digits.getD 1 []))).2 = messages 0
+  have hp := recoveredPair_of_pieces answers sig index 1 _ h1.2 h1.1
+  change evalWithAnswerFn answers (WCT9.recoverLayerPair (mainSignature sig) index 1
+    (result.digits.getD 1 [])) = WCT9.builtPair answers 1 (route index 1).2 at hp
+  rw [hp]
+  exact (hlower 0 (by decide)).symm
+
 theorem expanded_canonical_selections (answers : Answers) (message : Message) (pk : Digest)
     (sig : SigGolfCandidate.Research.SharedForest.Signature) (output : HashOutput)
     (w : SigGolfCandidate.Research.SharedForest.Witness)
@@ -1075,17 +1017,17 @@ theorem expanded_canonical_selections (answers : Answers) (message : Message) (p
     (hf : evalWithAnswerFn answers (recoverForest (WCT9.digestIndex output)
       (forestSelectionFromOutput output) (forestWordsFromOutput output) sig.forest) =
         forestCommitment answers (WCT9.digestIndex output)) :
-    ∃ digits : List (List Nat),
-      policyHintsValid w.signature.policyHints digits = true ∧
+    ∃ (digits : List (List Nat)) (lows : List Bool),
+      policyHintsValid w.signature.policyHints digits lows = true ∧
       (∀ lay, evalWithAnswerFn answers (WCT9.CanonicalPolicy.layerCounterSearchAt lay
         (hintFloor w.signature.policyHints lay) (route (WCT9.digestIndex output) lay).2
         (route (WCT9.digestIndex output) lay).1
         (CanonicalRef.sourceMessages answers (routeLeaf (WCT9.digestIndex output) lay))
-        0 (WCT9.searchLimit lay)) = some (w.counters lay, digits.getD lay.val [])) ∧
+        0 (WCT9.searchLimit lay)) = some (w.counters lay, digits.getD lay.val [], lows.getD lay.val true)) ∧
       ∀ lay, w.signature.layers lay = piecesSignature lay (WCT9.wotsPieces answers lay
         (route (WCT9.digestIndex output) lay).2 (route (WCT9.digestIndex output) lay).1
         (digits.getD lay.val [])) := by
-  obtain ⟨_, counter, result, c, _, hr, hvalid, hsig, _, hcs⟩ := Paired.expandN_selections answers message pk sig output w he
+  obtain ⟨_, counter, result, c, _, hr, hvalid, hsig, _, hcs, hhigh⟩ := Paired.expandN_selections answers message pk sig output w he
   have hs := recoverHintedLayers_selections answers (fillTopSignature sig 0) (WCT9.digestIndex output)
     (((fillTopSignature sig 0).layers 0).path WCT9.topJ) 4 le_rfl _ result hr
   let input : WCT9.LayerMsg := .pair
@@ -1097,9 +1039,10 @@ theorem expanded_canonical_selections (answers : Answers) (message : Message) (p
       (WCT9.CanonicalPolicy.layerCounterSearchAt lay (hintFloor w.signature.policyHints lay)
         (route (WCT9.digestIndex output) lay).2 (route (WCT9.digestIndex output) lay).1
         (recoveredMessage answers w.signature (WCT9.digestIndex output) 4 input result.digits lay)
-        0 (WCT9.searchLimit lay)) = some (result.counters.getD lay.val 0, result.digits.getD lay.val []) := by
+        0 (WCT9.searchLimit lay)) = some (result.counters.getD lay.val 0, result.digits.getD lay.val [],
+          result.lows.getD lay.val true) := by
     intro lay
-    have hx := hs.2.2 lay lay.isLt
+    have hx := hs.2.2.2 lay lay.isLt
     change evalWithAnswerFn answers
       (WCT9.CanonicalPolicy.layerCounterSearchAt lay (hintFloor sig.policyHints lay)
         (route (WCT9.digestIndex output) lay).2 (route (WCT9.digestIndex output) lay).1
@@ -1108,16 +1051,7 @@ theorem expanded_canonical_selections (answers : Answers) (message : Message) (p
     rw [recoveredMessage_fill answers sig _ 4 le_rfl _ _ lay lay.isLt 0] at hx
     rw [hsig, hints_retained, recoveredMessage_fill answers sig _ 4 le_rfl _ _ lay lay.isLt c]
     exact hx
-  have hshape := good_shape_witEnc answers output w hg
-  have hshape' : ∀ lay, ∃ ds, WCT9.CanonicalPolicy.decode lay
-      (evalWithAnswerFn answers (WCT9.encodingHash lay (WCT9.layerEncodingInput lay
-        (route (WCT9.digestIndex output) lay).2 (route (WCT9.digestIndex output) lay).1
-        (CanonicalRef.sourceMessages answers (routeLeaf (WCT9.digestIndex output) lay))
-        (result.counters.getD lay.val 0)))) = some ds ∧
-      w.signature.layers lay = piecesSignature lay (WCT9.wotsPieces answers lay
-        (route (WCT9.digestIndex output) lay).2 (route (WCT9.digestIndex output) lay).1 ds) := by
-    intro lay
-    simpa only [hcs lay] using hshape lay
+  have hshape0 := good_shape_witEnc answers output w hg
   have hi : WCT9.digestIndex output < 2^31 := Nat.mod_lt _ (by decide)
   have lower : ∀ n, n < 3 → CanonicalRef.sourceMessages answers
       (routeLeaf (WCT9.digestIndex output) (Fin.ofNat 4 n)) =
@@ -1129,10 +1063,56 @@ theorem expanded_canonical_selections (answers : Answers) (message : Message) (p
   have hin : input = CanonicalRef.sourceMessages answers (routeLeaf (WCT9.digestIndex output) 3) := by
     dsimp only [input]
     rw [hf, sourceMessages_bottom answers _ hi]
+  have hshapeL : ∀ lay : Layer, lay ≠ 0 → ∃ ds, WCT9.CanonicalPolicy.decode lay
+      (evalWithAnswerFn answers (WCT9.encodingHash lay (WCT9.layerEncodingInput lay
+        (route (WCT9.digestIndex output) lay).2 (route (WCT9.digestIndex output) lay).1
+        (CanonicalRef.sourceMessages answers (routeLeaf (WCT9.digestIndex output) lay))
+        (result.counters.getD lay.val 0)))) = some ds ∧
+      w.signature.layers lay = piecesSignature lay (WCT9.wotsPieces answers lay
+        (route (WCT9.digestIndex output) lay).2 (route (WCT9.digestIndex output) lay).1 ds) := by
+    intro lay hl
+    simpa only [hcs lay] using hshape0 lay (honestHint_lower answers _ _ _ hl)
+  have htop := recoveredMessage_top_source answers w.signature (WCT9.digestIndex output) input result
+    (fun lay => CanonicalRef.sourceMessages answers (routeLeaf (WCT9.digestIndex output) lay)) hin lower hsel hshapeL
+  -- The expander's hint is the producer's choice at the (source) top row.
+  have hhint0 : HonestHint answers (CanonicalRef.sourceMessages answers) (Paired.witEnc output w)
+      (WCT9.digestIndex output) 0 := by
+    have hs0 := hsel 0
+    rw [htop] at hs0
+    have hlim := WCT9.searchLimit_le 0
+    have hlow := (canonical_search_some' answers 0 (hintFloor w.signature.policyHints 0)
+      (route (WCT9.digestIndex output) 0).2 (route (WCT9.digestIndex output) 0).1
+      (CanonicalRef.sourceMessages answers (routeLeaf (WCT9.digestIndex output) 0)) (WCT9.searchLimit 0) 0
+      (result.counters.getD 0 0) (result.digits.getD 0 []) (result.lows.getD 0 true)
+      (by unfold counterLimit at hlim; omega) hs0).2.2.1
+    obtain ⟨-, hpad, hhi⟩ := hg 0
+    obtain ⟨left, right, hm⟩ := sourceMessages_pair answers (routeLeaf (WCT9.digestIndex output) 0)
+    unfold HonestHint
+    rw [Paired.wbcCtr_witEnc, hpad, hhi, PairedReadout.wtopHigh_witEnc, hhigh]
+    have hrow : pad64 (layerEncodingInputP 0 (route (WCT9.digestIndex output) 0).2
+        (route (WCT9.digestIndex output) 0).1 (CanonicalRef.sourceMessages answers (routeLeaf (WCT9.digestIndex output) 0))
+        (w.counters 0) 0 (wbcRight (Paired.witEnc output w)) 1) =
+        pad64 (WCT9.layerEncodingInput 0 (route (WCT9.digestIndex output) 0).2 (route (WCT9.digestIndex output) 0).1
+          (CanonicalRef.sourceMessages answers (routeLeaf (WCT9.digestIndex output) 0)) (w.counters 0)) := by
+      rw [hm]; rfl
+    rw [hrow, hcs 0, hlow]
+    exact WCT9.verificationAnswer_honest 0 _
+  have hshape' : ∀ lay, ∃ ds, WCT9.CanonicalPolicy.decode lay
+      (evalWithAnswerFn answers (WCT9.encodingHash lay (WCT9.layerEncodingInput lay
+        (route (WCT9.digestIndex output) lay).2 (route (WCT9.digestIndex output) lay).1
+        (CanonicalRef.sourceMessages answers (routeLeaf (WCT9.digestIndex output) lay))
+        (result.counters.getD lay.val 0)))) = some ds ∧
+      w.signature.layers lay = piecesSignature lay (WCT9.wotsPieces answers lay
+        (route (WCT9.digestIndex output) lay).2 (route (WCT9.digestIndex output) lay).1 ds) := by
+    intro lay
+    by_cases hl : lay = 0
+    · subst hl
+      simpa only [hcs 0] using hshape0 0 hhint0
+    · exact hshapeL lay hl
   have hall := recoveredSelections_canonical answers w.signature (WCT9.digestIndex output)
     input result (fun lay => CanonicalRef.sourceMessages answers (routeLeaf (WCT9.digestIndex output) lay))
     hin lower hsel hshape'
-  refine ⟨result.digits, ?_, ?_, fun lay => (hall lay).2⟩
+  refine ⟨result.digits, result.lows, ?_, ?_, fun lay => (hall lay).2⟩
   · rw [hsig, hints_retained]
     exact hvalid
   · intro lay
@@ -1196,13 +1176,13 @@ theorem signFromOutput_canonical_selections (answers : Answers) (cache : SigGolf
     (hcache : cache.region = cacheRegion (maskedTop answers)) (rho : Digest)
     (counter : BitVec 32) (output : HashOutput) (w : SigGolfCandidate.Research.SharedForest.Witness)
     (he : evalWithAnswerFn answers (signFromOutput cache rho counter output) = some w) :
-    ∃ digits : List (List Nat),
-      policyHintsValid w.signature.policyHints digits = true ∧
+    ∃ (digits : List (List Nat)) (lows : List Bool),
+      policyHintsValid w.signature.policyHints digits lows = true ∧
       (∀ lay, evalWithAnswerFn answers (WCT9.CanonicalPolicy.layerCounterSearchAt lay
         (hintFloor w.signature.policyHints lay) (route (WCT9.digestIndex output) lay).2
         (route (WCT9.digestIndex output) lay).1
         (CanonicalRef.sourceMessages answers (routeLeaf (WCT9.digestIndex output) lay))
-        0 (WCT9.searchLimit lay)) = some (w.counters lay,digits.getD lay.val [])) ∧
+        0 (WCT9.searchLimit lay)) = some (w.counters lay,digits.getD lay.val [],lows.getD lay.val true)) ∧
       ∀ lay, w.signature.layers lay = piecesSignature lay (WCT9.wotsPieces answers lay
         (route (WCT9.digestIndex output) lay).2 (route (WCT9.digestIndex output) lay).1
         (digits.getD lay.val [])) := by
@@ -1210,7 +1190,7 @@ theorem signFromOutput_canonical_selections (answers : Answers) (cache : SigGolf
     signFromOutput_components answers cache rho counter output w he
   have facts := searchPreparedLayers_some answers cache (WCT9.digestIndex output) _ _ result hs
   have hi : WCT9.digestIndex output<2^31 := WCT9.digestIndex_lt output
-  refine ⟨result.digits, ?_, ?_, ?_⟩
+  refine ⟨result.digits, result.lows, ?_, ?_, ?_⟩
   · rw [hhints]
     exact facts.hints_valid
   · intro lay
@@ -1269,12 +1249,12 @@ theorem expanded_eq_signer_signature (answers : Answers) (cache : SigGolfCandida
       forestCommitment answers (WCT9.digestIndex output) := by
     rw [hforestSig,hforest]
     exact recoverForest_commitment answers _ _ _
-  obtain ⟨da,hva,hsa,hpa⟩ := expanded_canonical_selections answers message pk sig output w he hg hf
-  obtain ⟨db,hvb,hsb,hpb⟩ := signFromOutput_canonical_selections answers cache hcache sig.rho counter output signed hs
+  obtain ⟨da,la,hva,hsa,hpa⟩ := expanded_canonical_selections answers message pk sig output w he hg hf
+  obtain ⟨db,lb,hvb,hsb,hpb⟩ := signFromOutput_canonical_selections answers cache hcache sig.rho counter output signed hs
   obtain ⟨_,_,hrho,_,hfs,_,_,_⟩ := signFromOutput_components answers cache sig.rho counter output signed hs
   apply signature_unique_of_selections answers (WCT9.digestIndex output)
     (fun lay => CanonicalRef.sourceMessages answers (routeLeaf (WCT9.digestIndex output) lay))
-    w.signature signed.signature w.counters signed.counters da db _ (hforest.trans hfs.symm)
+    w.signature signed.signature w.counters signed.counters da db la lb _ (hforest.trans hfs.symm)
     hva hvb hsa hsb hpa hpb
   rw [hsig,nonce_retained,hrho]
 

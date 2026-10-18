@@ -212,9 +212,9 @@ theorem topTail_spec {image : Image} {b : Nat} {rewardCondition : Prop} (hK : Ke
     (s : MachineState) (v : Digest) (sum : Nat) (hsum : sum ≤ 4335)
     (hpc : s.pc = pcOf (b + 353))
     (h28 : s.getReg .x28 = topWindow v 17) (h7 : s.getReg .x7 = v.extractLsb' 64 64)
-    (h25 : s.getReg .x25 = BitVec.ofNat 64 sum) (h17 : s.getReg .x17 = 145#64) :
+    (h25 : s.getReg .x25 = BitVec.ofNat 64 sum) (h17 : s.getReg .x17 = 146#64) :
     ∃ t, Steps image s 9 9 t ∧
-      t.pc = (if sum + tailWeight v = 145 then pcOf (b + 362) else pcOf (b + 468)) ∧
+      t.pc = (if sum + tailWeight v = 146 then pcOf (b + 362) else pcOf (b + 104)) ∧
       t.getReg .x25 = BitVec.ofNat 64 (sum + tailWeight v) ∧
       RegsExcept s t [.x25,.x29] ∧ Frame s t (fun _ => False) := by
   refine ⟨_, symRun_sound (run_top353 hK.2.1) (codeAt_top353 hK) s hpc
@@ -223,7 +223,7 @@ theorem topTail_spec {image : Image} {b : Nat} {rewardCondition : Prop} (hK : Ke
       E.eval, CmpOp.eval, BinOp.eval, h28, h25, h17, h7,
       BitVec.toNat_ofNat, Nat.reduceMod, topTail_sum v sum]
     have hh : sum + tailWeight v < 2 ^ 64 := by have := tailWeight_le v; omega
-    simp only [bne_iff_ne, ne_eq, BitVec.sub_eq_iff_eq_add, BitVec.zero_add, ofNat_inj hh (by decide : 145 < 2 ^ 64)]
+    simp only [bne_iff_ne, ne_eq, BitVec.sub_eq_iff_eq_add, BitVec.zero_add, ofNat_inj hh (by decide : 146 < 2 ^ 64)]
     split_ifs <;> first | rfl | omega
   · simpa only [Result.toState_getReg, topState353, tb354_353.res, rv_simp,
       h28, h25, h7, BitVec.toNat_ofNat, Nat.reduceMod] using topTail_sum v sum
@@ -578,9 +578,9 @@ theorem topCheck_spec {image : Image} {b : Nat} {rewardCondition : Prop} (hK : K
     (s : MachineState) (v : Digest)
     (hpc : s.pc = pcOf (b + 265))
     (h6 : s.getReg .x6 = v.extractLsb' 0 64) (h7 : s.getReg .x7 = v.extractLsb' 64 64)
-    (h17 : s.getReg .x17 = 145#64) (ht : SumTableOK s) :
+    (h17 : s.getReg .x17 = 146#64) (ht : SumTableOK s) :
     ∃ t, Steps image s 97 97 t ∧
-      t.pc = (if topLookupSum v = 145 then pcOf (b + 362) else pcOf (b + 468)) ∧
+      t.pc = (if topLookupSum v = 146 then pcOf (b + 362) else pcOf (b + 104)) ∧
       t.getReg .x25 = BitVec.ofNat 64 (topLookupSum v) ∧
       t.getReg .x30 = BitVec.ofNat 64 TOP_DATA ∧
       RegsExcept s t foldRegs ∧ Frame s t (fun _ => False) := by
@@ -898,6 +898,14 @@ theorem TBSim.shortHash_bind {β : Type} {image : Image} {sk : BitVec 256} {s : 
   have := h a
   unfold TBSim at this
   simpa only [Function.comp, pure_bind] using this
+theorem TBSim.publicHash_bindC {β : Type} {image : Image} {sk : BitVec 256} {s : MachineState}
+    {input : List UInt8} {W : Nat} {f : T3.HashOutput → T3.M β} {Q : β → MachineState → Prop}
+    (hf : fetch image s = some (.base .ECALL)) (ht0 : s.getReg .x5 = 0)
+    (hv : hashArgumentsValid s = true) (hq : hashInput s = toQ (T3.pad64 input))
+    (h : ∀ a, TBSim image sk (writeHash s a) W (f a) Q) :
+    TBSim image sk s (8 * (toQ (T3.pad64 input)).blocks + W) (T3.publicHash input >>= f) Q := by
+  unfold TBSim; rw [mrealize_bind, mrealize_publicHash]
+  exact Sim.query_bind hf ht0 hv hq h
 theorem TBSim.encodingHash_bind {β : Type} {image : Image} {sk : BitVec 256} {s : MachineState}
     {lay : Layer} {input : List UInt8} {W : Nat} {f : Digest → T3.M β} {Q : β → MachineState → Prop}
     (hf : fetch image s = some (.base .ECALL)) (ht0 : s.getReg .x5 = 0)

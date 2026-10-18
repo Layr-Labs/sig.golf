@@ -56,7 +56,7 @@ set_option backward.isDefEq.respectTransparency false
 
 def prologueBase : Nat := 44096
 def policyAddress : Nat := 417792
-def prologueWords : List (BitVec 32) := [0x8eb7,0x470e8e93,0xeb303,0x8eb383,0x303de13,0x66f37,0xf0f13,0x1cf3023,0x1039393,0x103d393,0x17b7,0x6c878793,0x14fe7863,0x8eb7,0x468e8e93,0x8f37,0x4b8f0f13,0x87b7,0xb3078793,0xeb703,0xef3023,0xff8e8e93,0xff8f0f13,0xfefef8e3,0x8f37,0xb70f0f13,0x6f3023,0x7f3423,0x8eb7,0xb28e8e93,0x8f37,0xb68f0f13,0x77b7,0x58078793,0xeb703,0xef3023,0xff8e8e93,0xff8f0f13,0xfefef8e3,0x7f37,0x5b0f0f13,0xf3023,0xf3423,0x7eb7,0x578e8e93,0x7f37,0x5a8f0f13,0x77b7,0x3f078793,0xeb703,0xef3023,0xff8e8e93,0xff8f0f13,0xfefef8e3,0x7f37,0x410f0f13,0xf3023,0xf3423,0x7eb7,0x3e8e8e93,0x7f37,0x408f0f13,0x77b7,0x26078793,0xeb703,0xef3023,0xff8e8e93,0xff8f0f13,0xfefef8e3,0x7f37,0x270f0f13,0xf3023,0xf3423,0x7eb7,0x258e8e93,0x7f37,0x268f0f13,0x77b7,0xd078793,0xeb703,0xef3023,0xff8e8e93,0xff8f0f13,0xfefef8e3,0x7f37,0xd0f0f13,0xf3023,0xf3423,0x313,0x393,0x713,0x793,0xe13,0xe93,0xf13,0xd89d406f,0xb08d506f]
+def prologueWords : List (BitVec 32) := [0x8eb7,0x470e8e93,0xeb303,0x8eb383,0x303de13,0x66f37,0xf0f13,0x1cf3023,0x1039393,0x103d393,0x27b7,0xf4078793,0x14fe7863,0x8eb7,0x468e8e93,0x8f37,0x4b8f0f13,0x87b7,0xb3078793,0xeb703,0xef3023,0xff8e8e93,0xff8f0f13,0xfefef8e3,0x8f37,0xb70f0f13,0x6f3023,0x7f3423,0x8eb7,0xb28e8e93,0x8f37,0xb68f0f13,0x77b7,0x58078793,0xeb703,0xef3023,0xff8e8e93,0xff8f0f13,0xfefef8e3,0x7f37,0x5b0f0f13,0xf3023,0xf3423,0x7eb7,0x578e8e93,0x7f37,0x5a8f0f13,0x77b7,0x3f078793,0xeb703,0xef3023,0xff8e8e93,0xff8f0f13,0xfefef8e3,0x7f37,0x410f0f13,0xf3023,0xf3423,0x7eb7,0x3e8e8e93,0x7f37,0x408f0f13,0x77b7,0x26078793,0xeb703,0xef3023,0xff8e8e93,0xff8f0f13,0xfefef8e3,0x7f37,0x270f0f13,0xf3023,0xf3423,0x7eb7,0x258e8e93,0x7f37,0x268f0f13,0x77b7,0xd078793,0xeb703,0xef3023,0xff8e8e93,0xff8f0f13,0xfefef8e3,0x7f37,0xd0f0f13,0xf3023,0xf3423,0x313,0x393,0x713,0x793,0xe13,0xe93,0xf13,0xd89d406f,0xb08d506f]
 def tailWords : List (BitVec 32) := [0x8eb7,0x470e8e93,0xeb303,0x8eb383,0x303de13,0x66f37,0xf0f13,0x1cf3023,0x1039393,0x103d393]
 
 sym_block tailRun := symRun { noAlias := true } tailWords (pcOf prologueBase) 50
@@ -71,18 +71,18 @@ set_option maxHeartbeats 1000000
 set_option maxRecDepth 10000
 set_option backward.isDefEq.respectTransparency false
 
-def guardWords : List (BitVec 32) := [0x17b7,0x6c878793,0x14fe7863]
+def guardWords : List (BitVec 32) := [0x27b7,0xf4078793,0x14fe7863]
 sym_block guardRun := symRun { noAlias := true } guardWords (pcOf 44106) 20
 
 theorem guard_spec {im : Image} (hc : CodeAt im (pcOf 44106) guardWords)
     (s : MachineState) (hpc : s.pc = pcOf 44106)
     (H : Nat) (hH : H < 65536) (hr : s.getReg .x28 = BitVec.ofNat 64 H) :
-    ∃ t, Steps im s 3 3 t ∧ t.pc = (if H < 5832 then pcOf 44109 else pcOf 44192) ∧
+    ∃ t, Steps im s 3 3 t ∧ t.pc = (if H < 8000 then pcOf 44109 else pcOf 44192) ∧
       RegsExcept s t [.x15] ∧ Frame s t (fun _ => False) := by
   refine ⟨_, symRun_sound guardRun hc s hpc ?_, ?_, ?_, ?_⟩
   · simp [guardRun.res, rv_simp]
   · simp only [Result.toState_pc, guardRun.res, rv_simp, hr]
-    by_cases h : H < 5832
+    by_cases h : H < 8000
     · simp [h, BitVec.ult]
       omega
     · simp [h, BitVec.ult]
@@ -719,7 +719,7 @@ structure AdapterCodeAt (im : Image) : Prop where
 
 theorem adapter_spec {im : Image} (hc : AdapterCodeAt im)
     (s : MachineState) (hpc : s.pc = pcOf 44096)
-    (H : Nat) (hH : H < 5832) (hh : s.getMem 0x8478 >>> 48 = BitVec.ofNat 64 H) :
+    (H : Nat) (hH : H < 8000) (hh : s.getMem 0x8478 >>> 48 = BitVec.ofNat 64 H) :
     ∃ t, Steps im s 3211 3211 t ∧ t.pc = pcOf 1 ∧
       (∀ r ∈ [.x6,.x7,.x14,.x15,.x28,.x29,.x30], t.getReg r = 0) ∧
       RegsExcept s t [.x6,.x7,.x14,.x15,.x28,.x29,.x30] ∧
@@ -853,7 +853,7 @@ def serializedWord (read : Nat → Word) (k : Nat) : Word :=
 
 theorem adapter_readout {im : Image} (hc : AdapterCodeAt im)
     (s : MachineState) (hpc : s.pc = pcOf 44096)
-    (H : Nat) (hH : H < 5832) (hh : s.getMem 0x8478 >>> 48 = BitVec.ofNat 64 H) :
+    (H : Nat) (hH : H < 8000) (hh : s.getMem 0x8478 >>> 48 = BitVec.ofNat 64 H) :
     ∃ t, Steps im s 3211 3211 t ∧ t.pc = pcOf 1 ∧
       (∀ r ∈ [.x6,.x7,.x14,.x15,.x28,.x29,.x30], t.getReg r = 0) ∧
       RegsExcept s t [.x6,.x7,.x14,.x15,.x28,.x29,.x30] ∧
@@ -926,7 +926,7 @@ theorem entry_step {im : Image} (hc : CodeAt im (pcOf 0) [entryWord])
 
 theorem front_readout {im : Image} (he : CodeAt im (pcOf 0) [entryWord])
     (hc : AdapterCodeAt im) (s : MachineState) (hpc : s.pc = pcOf 0)
-    (H : Nat) (hH : H < 5832) (hh : s.getMem 0x8478 >>> 48 = BitVec.ofNat 64 H) :
+    (H : Nat) (hH : H < 8000) (hh : s.getMem 0x8478 >>> 48 = BitVec.ofNat 64 H) :
     ∃ t, Steps im s 3212 3212 t ∧ t.pc = pcOf 1 ∧
       (∀ r ∈ [.x6,.x7,.x14,.x15,.x28,.x29,.x30], t.getReg r = 0) ∧
       RegsExcept s t [.x6,.x7,.x14,.x15,.x28,.x29,.x30] ∧

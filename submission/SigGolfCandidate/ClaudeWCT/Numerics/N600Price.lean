@@ -4757,7 +4757,7 @@ theorem card_filter_congr_generic {α : Type} [Fintype α]
   exact Finset.filter_congr (fun a _ => h a)
 
 theorem top_split (w s c : Nat) (hs : s ≤ 219) (hc : c < 244) :
-    256*w+s = 256*145+c+12 ↔ w=145 ∧ s=c+12 := by omega
+    256*w+s = 256*146+c+12 ↔ w=146 ∧ s=c+12 := by omega
 
 theorem lower_split (z w s zeros c : Nat) (hs : s ≤ 117) (hw : w ≤ 301)
     (hc : c < 128) :
@@ -4781,8 +4781,8 @@ attribute [local irreducible] digit
   SigGolfResearch.LowerEffectiveCounting.tail
 
 theorem top_event (credit : Nat) (hc : credit < 244) (w : SigGolfResearch.NonbinaryTop.Codec.Word) :
-    SigGolfResearch.NonbinaryTop.EffectiveCounting.stat w = 256*145+credit+12 ↔
-      SigGolfResearch.NonbinaryTop.Counting.weight w = 145 ∧
+    SigGolfResearch.NonbinaryTop.EffectiveCounting.stat w = 256*146+credit+12 ↔
+      SigGolfResearch.NonbinaryTop.Counting.weight w = 146 ∧
       SigGolfResearch.NonbinaryTop.EffectiveCounting.score w = credit+12 := by
   rw [SigGolfResearch.NonbinaryTop.EffectiveCounting.stat_eq]
   exact top_split _ _ _ (SigGolfResearch.NonbinaryTop.EffectiveCounting.score_le w) hc
@@ -4799,9 +4799,9 @@ theorem top_card : Fintype.card SigGolfResearch.NonbinaryTop.Codec.Word < 2^136 
 
 theorem top_digit (credit : Nat) (hc : credit < 244) :
     digit 136 SigGolfResearch.NonbinaryTop.EffectiveCounting.packed
-      (256*145+credit+12) =
+      (256*146+credit+12) =
     (univ.filter fun w : SigGolfResearch.NonbinaryTop.Codec.Word =>
-      SigGolfResearch.NonbinaryTop.Counting.weight w = 145 ∧
+      SigGolfResearch.NonbinaryTop.Counting.weight w = 146 ∧
       SigGolfResearch.NonbinaryTop.EffectiveCounting.score w = credit+12).card := by
   exact digit_histogram_of_weighted _ _ _ _ _ top_card top_weighted (top_event credit hc)
 end ClaudeWCT.Numerics.CanonicalCounting
@@ -5130,7 +5130,7 @@ theorem gate_split (w s c : Nat) (g : Prop) [Decidable g]
     constructor
     · intro he
       have he' : 256*w+s = 256*145+c+12 := by omega
-      exact ⟨(top_split w s c hs hc).1 he' |>.1, (top_split w s c hs hc).1 he' |>.2, hg⟩
+      exact ⟨by omega, by omega, hg⟩
     · rintro ⟨hw', hs', _⟩
       omega
   · rw [if_neg hg, Nat.mul_zero, Nat.add_zero]
@@ -5353,13 +5353,13 @@ end ClaudeWCT.Numerics.SharedPathList
 
 namespace ClaudeWCT.Numerics.CanonicalHistogram
 open CanonicalCompression
-theorem top_histogram_digits : ∀ c : Fin 204,
-    coefficient 136 (packHistogram 136 16 204 topAcceptedHistogram) c.val =
-      histogramWeight topAcceptedHistogram (c.val+16) := by decide +kernel
+theorem top_histogram_digits : ∀ c : Fin 205,
+    coefficient 136 (packHistogram 136 15 205 topCounts) c.val =
+      histogramWeight topCounts (c.val+15) := by decide +kernel
 
 theorem lower_histogram_digits : ∀ c : Fin 128,
-    coefficient 132 (packHistogram 132 0 128 lowerHistogram) c.val =
-      histogramWeight lowerHistogram c.val := by decide +kernel
+    coefficient 132 (packHistogram 132 0 128 lowerCounts) c.val =
+      histogramWeight lowerCounts c.val := by decide +kernel
 end ClaudeWCT.Numerics.CanonicalHistogram
 
 namespace ClaudeWCT.Numerics.CanonicalCounting
@@ -5748,51 +5748,10 @@ local notation "topGateCount" credit:arg =>
     SigGolfResearch.NonbinaryTop.EffectiveCounting.score w = credit+12 ∧
     SigGolfResearch.NonbinaryTop.EffectiveCounting.gateWord w).card
 
-theorem top_counts_bound (credit : Nat) :
-    topCount credit + 2 * topGateCount credit < 2^136 := by
-  have h1 : topCount credit ≤ Fintype.card SigGolfResearch.NonbinaryTop.Codec.Word :=
-    Finset.card_filter_le _ _
-  have h2 : topGateCount credit ≤ Fintype.card SigGolfResearch.NonbinaryTop.Codec.Word :=
-    Finset.card_filter_le _ _
-  have h3 := CanonicalCounting.top_card_three
-  omega
-
 theorem counting_digit_eq (bits p i : Nat) :
     CanonicalCounting.digit bits p i = SharedDigitBlock.digit (2^bits) p i :=
   bits_digit_eq bits p i
 
-theorem top_count_digit (i : Nat) (hi : i<204) :
-    SharedDigitBlock.digit (2^136) SigGolfResearch.NonbinaryTop.EffectiveCounting.packed
-      (256*145+16+12+i) = topCount (i+16) := by
-  have h := CanonicalCounting.top_digit (i+16) (by omega)
-  rw [counting_digit_eq] at h
-  have he : 256*145+16+12+i = 256*145+(i+16)+12 := by omega
-  rw [he]
-  exact h
-
-theorem top_gate_count_digit (i : Nat) (hi : i<204) :
-    SharedDigitBlock.digit (2^136) SigGolfResearch.NonbinaryTop.EffectiveCounting.gatePacked
-      (65536+(256*145+16+12)+i) = topGateCount (i+16) := by
-  have h := CanonicalCounting.top_gate_digit (i+16) (by omega)
-  rw [counting_digit_eq] at h
-  have he : 65536+(256*145+16+12)+i = 65536+256*145+(i+16)+12 := by omega
-  rw [he]
-  exact h
-
-theorem top_counts_from_packed (encoded : Nat)
-    (he : encoded =
-      (SigGolfResearch.NonbinaryTop.EffectiveCounting.packed >>> (136*(256*145+16+12))) % 2^(136*204) +
-      2*((SigGolfResearch.NonbinaryTop.EffectiveCounting.gatePacked >>> (136*(65536+(256*145+16+12)))) % 2^(136*204)))
-    (i : Nat) (hi : i<204) :
-    coefficient 136 encoded i = topCount (i+16)+2*topGateCount (i+16) := by
-  have he' := he
-  simp only [shift_window_eq] at he'
-  exact (bits_digit_eq 136 encoded i).trans
-    (two_window_digits (2^136) 204 (256*145+16+12) (65536+(256*145+16+12))
-      SigGolfResearch.NonbinaryTop.EffectiveCounting.packed
-      SigGolfResearch.NonbinaryTop.EffectiveCounting.gatePacked encoded (by positivity)
-      (fun j => topCount (j+16)) (fun j => topGateCount (j+16))
-      top_count_digit top_gate_count_digit (fun j _ => top_counts_bound (j+16)) he' i hi)
 end ClaudeWCT.Numerics.CanonicalHistogram
 
 
@@ -5832,20 +5791,6 @@ end ClaudeWCT.Numerics.SharedPathPacked
 namespace ClaudeWCT.Numerics.CanonicalHistogram
 open Finset CanonicalCompression
 
-theorem top_histogram_counts_of_check (hcheck : topHistogramCheck = true) (c : Fin 204) :
-    (univ.filter fun w : SigGolfResearch.NonbinaryTop.Codec.Word =>
-      SigGolfResearch.NonbinaryTop.Counting.weight w = 145 ∧
-      SigGolfResearch.NonbinaryTop.EffectiveCounting.score w = c.val+16+12).card +
-    2*(univ.filter fun w : SigGolfResearch.NonbinaryTop.Codec.Word =>
-      SigGolfResearch.NonbinaryTop.Counting.weight w = 145 ∧
-      SigGolfResearch.NonbinaryTop.EffectiveCounting.score w = c.val+16+12 ∧
-      SigGolfResearch.NonbinaryTop.EffectiveCounting.gateWord w).card =
-    histogramWeight topAcceptedHistogram (c.val+16) := by
-  have he : packHistogram 136 16 204 topAcceptedHistogram =
-      (SigGolfResearch.NonbinaryTop.EffectiveCounting.packed >>> (136*(256*145+16+12))) % 2^(136*204) +
-      2*((SigGolfResearch.NonbinaryTop.EffectiveCounting.gatePacked >>> (136*(65536+(256*145+16+12)))) % 2^(136*204)) :=
-    by simpa only [topHistogramCheck, decide_eq_true_eq] using hcheck
-  exact (top_counts_from_packed _ he c.val c.isLt).symm.trans (top_histogram_digits c)
 end ClaudeWCT.Numerics.CanonicalHistogram
 
 
@@ -5968,23 +5913,6 @@ open OracleComp OracleSpec ENNReal Finset CanonicalCompression
 open SigGolfCandidate.T3 ClaudeWCT.WCT9
 open ClaudeWCT.W9.T3.ProducerV5.Canonical
 
-theorem selected_top_histogram_card (hcheck : topHistogramCheck = true)
-    (floor : Nat) (c : Fin 204) (hf : floor ≤ c.val+16) :
-    (univ.filter fun answer : HashOutput => accepted 0 floor
-      (fun ds => CanonicalPolicy.credit 0 ds = c.val+16) (encodingAnswer 0 answer)).card =
-      histogramWeight topAcceptedHistogram (c.val+16)*2^127 := by
-  rw [selected_top_credit_card floor (c.val+16) hf]
-  rw [top_histogram_counts_of_check hcheck c]
-
-theorem selected_top_histogram_probability (hcheck : topHistogramCheck = true)
-    (floor : Nat) (c : Fin 204) (hf : floor ≤ c.val+16) :
-    Pr[fun answer => accepted 0 floor (fun ds => CanonicalPolicy.credit 0 ds = c.val+16)
-      (encodingAnswer 0 answer) | ($ᵗ HashOutput : ProbComp HashOutput)] =
-      (histogramWeight topAcceptedHistogram (c.val+16) : ENNReal)/2^129 := by
-  rw [selected_uniform_probability _ _ _ _ (selected_top_histogram_card hcheck floor c hf)]
-  simp only [Nat.cast_mul, Nat.cast_pow, Nat.cast_ofNat]
-  rw [show (2 : ENNReal)^256 = 2^129*2^127 by rw [← pow_add]]
-  exact ENNReal.mul_div_mul_right _ _ (by simp) (by simp)
 end ClaudeWCT.Numerics.CanonicalHistogram
 
 namespace ClaudeWCT.Numerics.CanonicalCounting
@@ -6237,52 +6165,12 @@ theorem lower_windows_fold (p : Nat) :
   intro z _
   exact shift_window_eq 132 p (65536*z.val+128*201) 128
 
-theorem lower_counts_from_digits (p encoded : Nat)
-    (hd : ∀ (z : Fin 6) (i : Nat), i<128 →
-      SharedDigitBlock.digit (2^132) p (65536*z.val+128*201+i) = lowerFiber z.val i)
-    (he : encoded = 7*(List.range 6).foldl (fun s zeros =>
-      s + ((p >>> (132*(65536*zeros+128*201))) % 2^(132*128))) 0)
-    (i : Nat) (hi : i<128) : coefficient 132 encoded i = 7*lowerCount i := by
-  have hsum (j : Nat) (hj : j<128) :
-      (∑ z : Fin 6, 7*SharedDigitBlock.digit (2^132) p (65536*z.val+128*201+j)) =
-        7*lowerCount j := by
-    rw [← Finset.mul_sum, ← lower_fibers j]
-    apply congrArg (fun n : Nat => 7*n)
-    apply Finset.sum_congr rfl
-    intro z _
-    exact hd z j hj
-  have he' : encoded = ∑ z : Fin 6,
-      7*(p / (2^132)^(65536*z.val+128*201) % (2^132)^128) := by
-    rw [he, lower_windows_fold, Finset.mul_sum]
-  rw [coefficient, bits_digit_eq, he']
-  exact (SharedDigitBlock.digit_window_sum (2^132) 128 (fun _ : Fin 6 => p)
-    (fun z => 65536*z.val+128*201) (fun _ => 7) (by positivity)
-    (fun j hj => by rw [hsum j hj]; exact lower_counts_bound j) i hi).trans (hsum i hi)
 end ClaudeWCT.Numerics.CanonicalHistogram
 
 namespace ClaudeWCT.Numerics.CanonicalHistogram
 open Finset CanonicalCompression
 set_option maxRecDepth 100000
 
-theorem lower_histogram_counts_of_check
-    (hd : ∀ (z : Fin 6) (i : Nat), i<128 →
-      SharedDigitBlock.digit (2^132) SigGolfResearch.LowerEffectiveCounting.packed
-        (65536*z.val+128*201+i) =
-      (univ.filter fun w : SigGolfResearch.LowerEffectiveCounting.«Word» =>
-        SigGolfResearch.LowerEffectiveCounting.zeros w = z.val ∧
-        SigGolfResearch.LowerEffectiveCounting.weight w = 201 ∧
-        SigGolfResearch.LowerEffectiveCounting.score w = i).card)
-    (hcheck : lowerHistogramCheck = true) (c : Fin 128) :
-    7*(univ.filter fun w : SigGolfResearch.LowerEffectiveCounting.«Word» =>
-      SigGolfResearch.LowerEffectiveCounting.zeros w ≤ 5 ∧
-      SigGolfResearch.LowerEffectiveCounting.weight w = 201 ∧
-      SigGolfResearch.LowerEffectiveCounting.score w = c.val).card =
-    histogramWeight lowerHistogram c.val := by
-  have he : packHistogram 132 0 128 lowerHistogram =
-      7*(List.range 6).foldl (fun s zeros => s +
-        ((SigGolfResearch.LowerEffectiveCounting.packed >>> (132*(65536*zeros+128*201))) % 2^(132*128))) 0 :=
-    by simpa only [lowerHistogramCheck, decide_eq_true_eq] using hcheck
-  exact (lower_counts_from_digits _ _ hd he c.val c.isLt).symm.trans (lower_histogram_digits c)
 end ClaudeWCT.Numerics.CanonicalHistogram
 
 
@@ -6411,23 +6299,6 @@ variable (hd : ∀ (z : Fin 6) (i : Nat), i<128 →
     SigGolfResearch.LowerEffectiveCounting.score w = i).card)
 include hd
 
-theorem selected_lower_histogram_card (hcheck : lowerHistogramCheck = true)
-    (lay : Layer) (hl : lay ≠ 0) (floor : Nat) (c : Fin 128) (hf : floor ≤ c.val) :
-    (univ.filter fun answer : HashOutput => accepted lay floor
-      (fun ds => CanonicalPolicy.credit lay ds = c.val) (encodingAnswer lay answer)).card =
-      histogramWeight lowerHistogram c.val*2^126 := by
-  rw [selected_lower_credit_card lay hl floor c.val hf, ← Nat.mul_assoc,
-    Nat.mul_comm _ 7, lower_histogram_counts_of_check hd hcheck c]
-
-theorem selected_lower_histogram_probability (hcheck : lowerHistogramCheck = true)
-    (lay : Layer) (hl : lay ≠ 0) (floor : Nat) (c : Fin 128) (hf : floor ≤ c.val) :
-    Pr[fun answer => accepted lay floor (fun ds => CanonicalPolicy.credit lay ds = c.val)
-      (encodingAnswer lay answer) | ($ᵗ HashOutput : ProbComp HashOutput)] =
-      (histogramWeight lowerHistogram c.val : ENNReal)/2^130 := by
-  rw [selected_uniform_probability _ _ _ _ (selected_lower_histogram_card hd hcheck lay hl floor c hf)]
-  simp only [Nat.cast_mul, Nat.cast_pow, Nat.cast_ofNat]
-  rw [show (2 : ENNReal)^256 = 2^130*2^126 by rw [← pow_add]]
-  exact ENNReal.mul_div_mul_right _ _ (by simp) (by simp)
 end ClaudeWCT.Numerics.CanonicalHistogram
 
 

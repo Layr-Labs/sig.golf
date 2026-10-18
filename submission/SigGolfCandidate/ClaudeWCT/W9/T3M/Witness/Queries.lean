@@ -445,7 +445,7 @@ theorem public_layerCounterSearchAt (lay : Layer) (floor tree leaf : Nat)
   | zero => unfold CanonicalPolicy.layerCounterSearchAt; exact public_pure _
   | succ fuel ih =>
     unfold CanonicalPolicy.layerCounterSearchAt
-    refine public_bind (public_encodingHash _ _) fun result => ?_
+    refine public_bind (public_publicHash _) fun result => ?_
     split
     · exact ih _
     · exact public_pure _
@@ -456,7 +456,7 @@ theorem public_recoverHintedLayers (sig : Signature) (index : Nat) (other : Dige
   | succ n ih =>
     unfold recoverHintedLayers
     refine public_bind (public_layerCounterSearchAt _ _ _ _ _ _ _) fun result => ?_
-    rcases result with _ | ⟨counter,digits⟩
+    rcases result with _ | ⟨counter,digits,low⟩
     · exact public_pure _
     · dsimp only
       split

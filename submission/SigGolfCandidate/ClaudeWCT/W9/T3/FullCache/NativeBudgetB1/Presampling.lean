@@ -163,16 +163,16 @@ theorem search_none_iff (answers : Correctness.Answers) (lay : Layer) (floor tre
     (msg : LayerMsg) :
     ∀ fuel counter,
       evalWithAnswerFn answers (CanonicalPolicy.layerCounterSearchAt lay floor tree leaf msg counter fuel) = none ↔
-      ∀ offset, offset < fuel → CanonicalPolicy.producerDecodeAt lay floor (evalWithAnswerFn answers
-        (encodingHash lay (layerEncodingInput lay tree leaf msg (BitVec.ofNat 32 (counter + offset))))) = none := by
+      ∀ offset, offset < fuel → CanonicalPolicy.producerDecodeOut lay floor (evalWithAnswerFn answers
+        (publicHash (layerEncodingInput lay tree leaf msg (BitVec.ofNat 32 (counter + offset))))) = none := by
   intro fuel
   induction fuel with
   | zero => intro counter; simp [CanonicalPolicy.layerCounterSearchAt]
   | succ fuel ih =>
       intro counter
       simp only [CanonicalPolicy.layerCounterSearchAt, evalWithAnswerFn_bind]
-      cases hd : CanonicalPolicy.producerDecodeAt lay floor (evalWithAnswerFn answers
-        (encodingHash lay (layerEncodingInput lay tree leaf msg (BitVec.ofNat 32 counter)))) with
+      cases hd : CanonicalPolicy.producerDecodeOut lay floor (evalWithAnswerFn answers
+        (publicHash (layerEncodingInput lay tree leaf msg (BitVec.ofNat 32 counter)))) with
       | none =>
           simp only [hd, ih]
           constructor
@@ -208,10 +208,10 @@ theorem search_none_table (L : Nat) (hL : L≤2^22) (outputs : SearchKey → Has
   rw [search_none_iff]
   have hv (c : Nat) (hc : c<L) :
       evalWithAnswerFn (tableAnswers outputs fallback)
-        (encodingHash lay (layerEncodingInput lay (routedTree lay r) (routedLeaf lay r) msg
-          (BitVec.ofNat 32 (0+c)))) = encodingAnswer lay
+        (publicHash (layerEncodingInput lay (routedTree lay r) (routedLeaf lay r) msg
+          (BitVec.ofNat 32 (0+c)))) =
         (outputs (.inl ((lay,r,msgLeft msg,msgRight msg),Fin.castLE hL ⟨c,hc⟩))) := by
-    rw [Nat.zero_add,eval_shortHash_layer]
+    rw [Nat.zero_add,PairRows.eval_publicHash_layer]
     have hinput : PairRows.pairTrial lay (routedTree lay r) (routedLeaf lay r) (msgLeft msg) (msgRight msg) c =
         searchQuery (.inl ((lay,r,msgLeft msg,msgRight msg),Fin.castLE hL ⟨c,hc⟩)) := rfl
     rw [hinput,tableAnswers_apply]
@@ -262,10 +262,10 @@ theorem search_none_agreement (L : Nat) (hL : L≤2^22) (outputs : SearchKey →
   rw [search_none_iff]
   have hv (c : Nat) (hc : c<L) :
       evalWithAnswerFn answers
-        (encodingHash lay (layerEncodingInput lay (routedTree lay r) (routedLeaf lay r) msg
-          (BitVec.ofNat 32 (0+c)))) = encodingAnswer lay
+        (publicHash (layerEncodingInput lay (routedTree lay r) (routedLeaf lay r) msg
+          (BitVec.ofNat 32 (0+c)))) =
         (outputs (.inl ((lay,r,msgLeft msg,msgRight msg),Fin.castLE hL ⟨c,hc⟩))) := by
-    rw [Nat.zero_add,eval_shortHash_layer]
+    rw [Nat.zero_add,PairRows.eval_publicHash_layer]
     have hinput : PairRows.pairTrial lay (routedTree lay r) (routedLeaf lay r) (msgLeft msg) (msgRight msg) c =
         searchQuery (.inl ((lay,r,msgLeft msg,msgRight msg),Fin.castLE hL ⟨c,hc⟩)) := rfl
     rw [hinput,hagree]

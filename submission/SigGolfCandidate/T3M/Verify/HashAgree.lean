@@ -75,30 +75,35 @@ end SigGolfCandidate.T3M.Verify
 
 namespace SigGolfCandidate.T3M.Verify
 open OracleComp OracleSpec SigGolfCandidate.Legacy
-def BadAnsBy (floors : T3.Layer → Nat) (lay : T3.Layer) (a : BitVec 256) : Prop :=
-  (∃ ds, ClaudeWCT.WCT9.CanonicalPolicy.decode lay (ClaudeWCT.WCT9.encodingAnswer lay a) = some ds ∧
-    ClaudeWCT.WCT9.wordCredit lay ds + 4 * ClaudeWCT.WCT9.savedCopies lay ds <
+def BadAnsBy (floors : T3.Layer → Nat) (high : Bool) (lay : T3.Layer) (a : BitVec 256) : Prop :=
+  (∃ ds, ClaudeWCT.WCT9.CanonicalPolicy.decode lay (ClaudeWCT.WCT9.verificationAnswer lay high a) = some ds ∧
+    ClaudeWCT.WCT9.CanonicalPolicy.pathReward lay (ClaudeWCT.WCT9.verificationLow lay high a) ds <
       floors lay + ClaudeWCT.WCT9.dispatchPenalty lay ds)
 open Classical in
-noncomputable def okHashBy (floors : T3.Layer → Nat) (hash : Hash) : Hash :=
-  fun q => if ∃ lay : T3.Layer, EncQ lay.val q ∧ BadAnsBy floors lay (hash q) then BitVec.allOnes 256 else hash q
-theorem okHashBy_eq (floors : T3.Layer → Nat) (hash : Hash) {q : Query} (h : ¬ ∃ lay : T3.Layer, EncQ lay.val q ∧ BadAnsBy floors lay (hash q)) :
-    okHashBy floors hash q = hash q := by
+/-- Replace every encoding answer whose verifier-read word (for the hint `high`) is below its floor. -/
+noncomputable def okHashBy (floors : T3.Layer → Nat) (high : Bool) (hash : Hash) : Hash :=
+  fun q => if ∃ lay : T3.Layer, EncQ lay.val q ∧ BadAnsBy floors high lay (hash q) then BitVec.allOnes 256 else hash q
+theorem okHashBy_eq (floors : T3.Layer → Nat) (high : Bool) (hash : Hash) {q : Query}
+    (h : ¬ ∃ lay : T3.Layer, EncQ lay.val q ∧ BadAnsBy floors high lay (hash q)) :
+    okHashBy floors high hash q = hash q := by
   unfold okHashBy
   rw [if_neg h]
-theorem okHashBy_eq_of_not_enc (floors : T3.Layer → Nat) (hash : Hash) {q : Query} (h : ∀ lay : T3.Layer, ¬ EncQ lay.val q) :
-    okHashBy floors hash q = hash q :=
-  okHashBy_eq floors hash (fun ⟨lay, h', _⟩ => h lay h')
-theorem canonical_decode_allOnes (lay : T3.Layer) : ClaudeWCT.WCT9.CanonicalPolicy.decode lay (ClaudeWCT.WCT9.encodingAnswer lay (BitVec.allOnes 256)) = none := by
-  revert lay
+theorem okHashBy_eq_of_not_enc (floors : T3.Layer → Nat) (high : Bool) (hash : Hash) {q : Query}
+    (h : ∀ lay : T3.Layer, ¬ EncQ lay.val q) :
+    okHashBy floors high hash q = hash q :=
+  okHashBy_eq floors high hash (fun ⟨lay, h', _⟩ => h lay h')
+theorem canonical_decode_allOnes (lay : T3.Layer) (high : Bool) :
+    ClaudeWCT.WCT9.CanonicalPolicy.decode lay (ClaudeWCT.WCT9.verificationAnswer lay high (BitVec.allOnes 256)) = none := by
+  revert lay high
   decide +kernel
-theorem hashOkBy_okHashBy (floors : T3.Layer → Nat) (hash : Hash) : HashOkBy floors (okHashBy floors hash) := by
+theorem hashOkBy_okHashBy (floors : T3.Layer → Nat) (high : Bool) (hash : Hash) :
+    HashOkBy floors high (okHashBy floors high hash) := by
   intro lay q hq ds hds
-  by_cases hb : ∃ lay' : T3.Layer, EncQ lay'.val q ∧ BadAnsBy floors lay' (hash q)
+  by_cases hb : ∃ lay' : T3.Layer, EncQ lay'.val q ∧ BadAnsBy floors high lay' (hash q)
   · unfold okHashBy at hds
     rw [if_pos hb, canonical_decode_allOnes] at hds
     cases hds
-  · rw [okHashBy_eq floors hash hb] at hds
+  · rw [okHashBy_eq floors high hash hb] at hds ⊢
     by_contra hc
     exact hb ⟨lay, hq, ds, hds, by omega⟩
 end SigGolfCandidate.T3M.Verify

@@ -582,7 +582,7 @@ theorem cost_recoverHintedLayers_other (answers : Answers) (sig : Signature)
       (route index (Fin.ofNat 4 n)).1 msg 0 (searchLimit (Fin.ofNat 4 n))) with
     | none => rfl
     | some found =>
-      obtain ⟨counter, digits⟩ := found
+      obtain ⟨counter, digits, low⟩ := found
       by_cases hn : n = 0
       · subst hn
         simp only [if_true, cost_bind, cost_topNode, cost_pure]

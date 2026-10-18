@@ -740,11 +740,30 @@ set_option maxRecDepth 10000
 set_option backward.isDefEq.respectTransparency false
 variable {messages : LeafAddr → WCT9.LayerMsg}
 
-/-- Stage 2 (C3, #866 `BC.GoodZ`): the honest row also has the row-tweak high word 1 (a witness pad). -/
+/-- Configuration (1)+(2): the witness hint opens the producer's half at the honest encoding row of `lay`.
+It always holds on lower layers (`honestHint_lower`); on the top layer a witness may open the other half. -/
+def HonestHint (answers : Answers) (messages : LeafAddr → WCT9.LayerMsg)
+    (w : WBytes) (index : Nat) (lay : Layer) : Prop :=
+  WCT9.verificationAnswer lay (wtopHigh w) (answers (.inl (.inr (pad64 (layerEncodingInputP lay (route index lay).2
+      (route index lay).1 (messages (routeLeaf index lay)) (wbcCtr w index lay) (wbcPad w index lay) (wbcRight w)
+      (wbcHigh w index lay)))))) =
+    WCT9.encodingAnswer lay (answers (.inl (.inr (pad64 (layerEncodingInputP lay (route index lay).2
+      (route index lay).1 (messages (routeLeaf index lay)) (wbcCtr w index lay) (wbcPad w index lay) (wbcRight w)
+      (wbcHigh w index lay))))))
+
+theorem honestHint_lower (answers : Answers) (messages : LeafAddr → WCT9.LayerMsg)
+    (w : WBytes) (index : Nat) {lay : Layer} (hl : lay ≠ 0) : HonestHint answers messages w index lay :=
+  WCT9.verificationAnswer_lower lay hl _ _
+
+/-- Stage 2 (C3, #866 `BC.GoodZ`): the honest row also has the row-tweak high word 1 (a witness pad).
+Configuration (1)+(2): the frame and shape are claimed only when the witness hint is the producer's one (the
+reference commit's `GoodZ`); a witness that opens the other half of the honest top row is covered by the
+contact/marker analysis or yields this vacuous case. -/
 def Good (answers : Answers) (messages : LeafAddr → WCT9.LayerMsg)
     (w : WBytes) (index : Nat) (lay : Layer) : Prop :=
-  (∃ digits, Extract.CanonicalFrame answers w index lay (messages (routeLeaf index lay)) digits ∧
-    Extract.LayerShaped answers w index lay digits) ∧ wbcPad w index lay = 0 ∧ wbcHigh w index lay = 1
+  (HonestHint answers messages w index lay →
+    ∃ digits, Extract.CanonicalFrame answers w index lay (messages (routeLeaf index lay)) digits ∧
+      Extract.LayerShaped answers w index lay digits) ∧ wbcPad w index lay = 0 ∧ wbcHigh w index lay = 1
 
 theorem frame_wots (answers : Answers) (w : WBytes) (index : Nat) (lay : Layer) (msg : WCT9.LayerMsg)
     (digits : List Nat) (hidx : index < 2 ^ 31) (hfit : Extract.msgFits lay msg)
@@ -770,7 +789,7 @@ theorem frame_wots (answers : Answers) (w : WBytes) (index : Nat) (lay : Layer) 
       (msg = messages (routeLeaf index lay) ∧ Good answers messages w index lay) := by
   classical
   have hdec : WCT9.CanonicalPolicy.decode (routeLeaf index lay).lay
-      (WCT9.encodingAnswer (routeLeaf index lay).lay (answers (.inl (.inr (encRow (routeLeaf index lay) msg
+      (WCT9.verificationAnswer (routeLeaf index lay).lay (wtopHigh w) (answers (.inl (.inr (encRow (routeLeaf index lay) msg
         (wbcCtr w index lay) (wbcPad w index lay, wbcRight w, wbcHigh w index lay ^^^ 1)))))) = some digits := by
     rw [ClaudeWCT.W9.T3.Security.WotsExtract.encRow_wit]; exact hframe.2
   have hencE : (encRow (routeLeaf index lay) msg (wbcCtr w index lay) (wbcPad w index lay, wbcRight w, wbcHigh w index lay ^^^ 1),
@@ -795,7 +814,7 @@ theorem frame_wots (answers : Answers) (w : WBytes) (index : Nat) (lay : Layer) 
       exact (hchains i hi).1 (le_of_eq hdi)
     by_cases hm : msg = messages (routeLeaf index lay)
     · by_cases hp : wbcPad w index lay = 0 ∧ wbcHigh w index lay = 1
-      · exact Or.inr ⟨hm, ⟨digits, hm ▸ hframe, hshape⟩, hp⟩
+      · exact Or.inr ⟨hm, fun _ => ⟨digits, hm ▸ hframe, hshape⟩, hp⟩
       · have hpad : (wbcPad w index lay, wbcRight w, wbcHigh w index lay ^^^ 1).1 ≠ 0 ∨
             (wbcPad w index lay, wbcRight w, wbcHigh w index lay ^^^ 1).2.2 ≠ 0 := by
           by_cases hp1 : wbcPad w index lay = 0
@@ -806,19 +825,48 @@ theorem frame_wots (answers : Answers) (w : WBytes) (index : Nat) (lay : Layer) 
             simpa using h1
           · exact Or.inl hp1
         refine Or.inl (Or.inl ⟨routeLeaf index lay, hsrc, msg, wbcCtr w index lay,
-          (wbcPad w index lay, wbcRight w, wbcHigh w index lay ^^^ 1), _, hfit, hencE, ?_, ?_⟩)
+          (wbcPad w index lay, wbcRight w, wbcHigh w index lay ^^^ 1), _, hfit, hencE, ?_, ?_, ?_⟩)
         · exact CanonicalRef.referenceInput_ne_padW answers messages _ msg _ _ hfitRef hfit hpad
-        · rw [← heq]; exact hdec
+        · exact CanonicalRef.notSearched_of_ne answers messages _ msg _ _ hfitRef hfit (Or.inr hpad)
+        · rw [← heq]; exact ⟨wtopHigh w, hdec⟩
     · refine Or.inl (Or.inl ⟨routeLeaf index lay, hsrc, msg, wbcCtr w index lay,
-        (wbcPad w index lay, wbcRight w, wbcHigh w index lay ^^^ 1), _, hfit, hencE, ?_, ?_⟩)
-      · exact CanonicalRef.referenceInput_ne answers messages _ msg _ _ hfitRef hfit hdec (Or.inl hm)
-      · rw [← heq]; exact hdec
+        (wbcPad w index lay, wbcRight w, wbcHigh w index lay ^^^ 1), _, hfit, hencE, ?_, ?_, ?_⟩)
+      · exact CanonicalRef.referenceInput_ne_msg answers messages _ msg _ _ hfitRef hfit hm
+      · exact CanonicalRef.notSearched_of_ne answers messages _ msg _ _ hfitRef hfit (Or.inl hm)
+      · rw [← heq]; exact ⟨wtopHigh w, hdec⟩
   · have hne : digits ≠ CanonicalRef.referenceDigits answers messages (routeLeaf index lay) := by
       intro he; rw [he] at hlow; omega
+    by_cases hri : CanonicalRef.referenceInput answers messages (routeLeaf index lay) = some
+        (encRow (routeLeaf index lay) msg (wbcCtr w index lay) (wbcPad w index lay, wbcRight w, wbcHigh w index lay ^^^ 1))
+    · -- The honest row itself, read through the other half: the frame claim is vacuous.
+      obtain ⟨hm, hp1, hp2⟩ := CanonicalRef.referenceInput_eq_msg_pad answers messages _ msg _ _ hfitRef hfit hri
+      refine Or.inr ⟨hm, fun hh => ?_, hp1, ?_⟩
+      · exfalso
+        apply hne
+        have hs : CanonicalRef.referenceSearch answers messages (routeLeaf index lay) ≠ none := by
+          intro hs; unfold CanonicalRef.referenceInput at hri; rw [hs] at hri; cases hri
+        obtain ⟨⟨c, rd, low⟩, hfound⟩ := Option.ne_none_iff_exists'.mp hs
+        have hrow : encRow (routeLeaf index lay) (messages (routeLeaf index lay)) c 0 =
+            encRow (routeLeaf index lay) msg (wbcCtr w index lay) (wbcPad w index lay, wbcRight w, wbcHigh w index lay ^^^ 1) := by
+          unfold CanonicalRef.referenceInput at hri
+          rw [hfound] at hri
+          exact Option.some.inj hri
+        have href := CanonicalRef.referenceSearch_decode answers messages (routeLeaf index lay) hfound
+        rw [hrow, ClaudeWCT.W9.T3.Security.WotsExtract.encRow_wit] at href
+        rw [ClaudeWCT.W9.T3.Security.WotsExtract.encRow_wit] at hdec
+        subst hm
+        have hh' : WCT9.verificationAnswer lay (wtopHigh w) _ = WCT9.encodingAnswer lay _ := hh
+        have hcan := hdec
+        erw [hh'] at hcan
+        have hrd : CanonicalRef.referenceDigits answers messages (routeLeaf index lay) = rd := by
+          simp only [CanonicalRef.referenceDigits, hfound, Option.map_some, Option.getD_some]
+        rw [hrd]
+        exact Option.some.inj (hcan.symm.trans href)
+      · have hp2' : wbcHigh w index lay ^^^ 1 = 0 := hp2
+        exact CanonicalRef.xor_one_inj' (hp2'.trans (by decide : (0 : BitVec 64) = 1 ^^^ 1))
     refine Or.inl (Or.inr (Or.inr (Or.inr (Or.inr ⟨⟨routeLeaf index lay, i⟩, hsrcC7 i hi,
       ⟨msg, wbcCtr w index lay, (wbcPad w index lay, wbcRight w, wbcHigh w index lay ^^^ 1), _, digits, hfit, hencE,
-        CanonicalRef.referenceInput_ne answers messages _ msg _ _ hfitRef hfit hdec (Or.inr hne),
-        hdec, hlow, ?_⟩, hcontact i hi (by change digits.getD i 0 < (CanonicalRef.referenceDigits answers messages (routeLeaf index lay)).getD i 0; omega)⟩))))
+        hri, ⟨wtopHigh w, hdec⟩, hlow, ?_⟩, hcontact i hi (by change digits.getD i 0 < (CanonicalRef.referenceDigits answers messages (routeLeaf index lay)).getD i 0; omega)⟩))))
     intro k hk
     by_cases hkc : k < chainCount lay
     · exact hother k hkc hk

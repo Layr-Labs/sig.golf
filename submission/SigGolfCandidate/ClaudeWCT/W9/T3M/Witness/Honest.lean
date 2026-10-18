@@ -2006,6 +2006,168 @@ theorem wle32_prefixEnc (p : List UInt8) (hp : p.length=8096) (N : HashOutput) (
   change wle32 (BitVec.ofNat _ (readLE (prefixList p N w))) off=_
   rw [wle32,h]
   exact congrArg (fun bs=>BitVec.ofNat 32 (readLE bs)) (prefix_window p hp N w off 4 ho)
+
+/-! ### Configuration (1)+(2): the top choice hint byte
+`Paired.witEnc` writes `choiceByte witness.topHigh` at witness byte `choiceOff = 22312` (`Paired.witList :=
+witListBase.set choiceOff ..`). Every other byte is the former paired encoding `baseEnc`
+(= `prefixEnc (forestBytes ..) ..`), so readouts whose window avoids `choiceOff` transfer unchanged. -/
+def baseEnc (output : HashOutput) (witness : SigGolfCandidate.Research.SharedForest.Witness) : WBytes :=
+  prefixEnc (Paired.forestBytes output witness) output (Paired.mainWitness witness)
+
+theorem extract_ofNat_width (x n m s len : Nat) (h1 : s + len ≤ n) (h2 : s + len ≤ m) :
+    (BitVec.ofNat n x).extractLsb' s len = (BitVec.ofNat m x).extractLsb' s len := by
+  apply BitVec.eq_of_getLsbD_eq
+  intro i hi
+  simp only [BitVec.getLsbD_extractLsb', BitVec.getLsbD_ofNat, hi, decide_true, Bool.true_and,
+    show s + i < n by omega, show s + i < m by omega]
+
+theorem extract_readLE (L : List UInt8) (n off k : Nat) (hk : off + k ≤ n) :
+    (BitVec.ofNat (8 * n) (readLE L)).extractLsb' (8 * off) (8 * k) =
+      BitVec.ofNat (8 * k) (readLE ((L.drop off).take k)) := by
+  rw [extract_ofNat_width (readLE L) (8 * n) (8 * (n + L.length)) _ _ (by omega) (by omega)]
+  apply extract_readLE_lt
+  calc readLE L < 256 ^ L.length := SigGolfCandidate.T3M.readLE_lt L
+    _ = 2 ^ (8 * L.length) := by rw [pow_mul]; norm_num
+    _ ≤ 2 ^ (8 * (n + L.length)) := Nat.pow_le_pow_right (by norm_num) (by omega)
+
+theorem window_set (l : List UInt8) (c : Nat) (x : UInt8) (off k : Nat) (h : off + k ≤ c ∨ c < off) :
+    ((l.set c x).drop off).take k = (l.drop off).take k := by
+  rw [List.drop_set]
+  split_ifs with hc
+  · rfl
+  · rcases h with h | h
+    · exact List.take_set_of_le (by omega)
+    · omega
+
+theorem witEnc_getLsbD (output : HashOutput) (witness : SigGolfCandidate.Research.SharedForest.Witness)
+    (i : Nat) (hi : i / 8 ≠ choiceOff) :
+    (Paired.witEnc output witness).getLsbD i = (baseEnc output witness).getLsbD i := by
+  by_cases hw : i < 8 * 23236
+  · have e : ∀ x : WBytes, x.getLsbD i = (x.extractLsb' (8 * (i / 8)) (8 * 1)).getLsbD (i % 8) := by
+      intro x
+      rw [BitVec.getLsbD_extractLsb']
+      simp [show i % 8 < 8 * 1 by omega, show 8 * (i / 8) + i % 8 = i by omega]
+    have hx : (Paired.witEnc output witness).extractLsb' (8 * (i / 8)) (8 * 1) =
+        (baseEnc output witness).extractLsb' (8 * (i / 8)) (8 * 1) := by
+      unfold Paired.witEnc baseEnc prefixEnc Paired.witList
+      rw [extract_readLE _ 23236 _ 1 (by omega), extract_readLE _ 23236 _ 1 (by omega),
+        window_set _ _ _ _ _ (by omega)]
+      try rfl
+    rw [e (Paired.witEnc output witness), e (baseEnc output witness), hx]
+  · rw [BitVec.getLsbD_of_ge _ _ (by omega), BitVec.getLsbD_of_ge _ _ (by omega)]
+
+theorem witEnc_extract (output : HashOutput) (witness : SigGolfCandidate.Research.SharedForest.Witness)
+    (off k : Nat) (h : off + k ≤ choiceOff ∨ choiceOff < off) :
+    (Paired.witEnc output witness).extractLsb' (8 * off) (8 * k) =
+      (baseEnc output witness).extractLsb' (8 * off) (8 * k) := by
+  apply BitVec.eq_of_getLsbD_eq
+  intro j hj
+  rw [BitVec.getLsbD_extractLsb', BitVec.getLsbD_extractLsb', witEnc_getLsbD _ _ _ (by omega)]
+
+theorem wdig_witEnc_base (output : HashOutput) (witness : SigGolfCandidate.Research.SharedForest.Witness)
+    (off : Nat) (h : off + 16 ≤ choiceOff ∨ choiceOff < off) :
+    wdig (Paired.witEnc output witness) off = wdig (baseEnc output witness) off :=
+  witEnc_extract output witness off 16 h
+
+theorem wle32_witEnc_base (output : HashOutput) (witness : SigGolfCandidate.Research.SharedForest.Witness)
+    (off : Nat) (h : off + 4 ≤ choiceOff ∨ choiceOff < off) :
+    wle32 (Paired.witEnc output witness) off = wle32 (baseEnc output witness) off :=
+  witEnc_extract output witness off 4 h
+
+theorem witListBase_length (output : HashOutput) (witness : SigGolfCandidate.Research.SharedForest.Witness) :
+    (Paired.witListBase output witness).length = 23240 := by
+  simp [Paired.witListBase, witList_length_eq]
+
+theorem wtopHigh_witEnc (output : HashOutput) (witness : SigGolfCandidate.Research.SharedForest.Witness) :
+    wtopHigh (Paired.witEnc output witness) = witness.topHigh := by
+  have hlen : choiceOff < (Paired.witListBase output witness).length := by
+    rw [witListBase_length]; decide
+  unfold wtopHigh wchoice
+  have e : (Paired.witEnc output witness).extractLsb' (8 * choiceOff) 8 =
+      (Paired.witEnc output witness).extractLsb' (8 * choiceOff) (8 * 1) := rfl
+  rw [e]
+  unfold Paired.witEnc
+  rw [extract_readLE _ 23236 choiceOff 1 (by decide)]
+  have hd : ((Paired.witList output witness).drop choiceOff).take 1 = [choiceByte witness.topHigh] := by
+    unfold Paired.witList
+    rw [List.drop_set, if_neg (lt_irrefl _), Nat.sub_self]
+    obtain ⟨y, ys, hy⟩ : ∃ y ys, (Paired.witListBase output witness).drop choiceOff = y :: ys := by
+      cases h : (Paired.witListBase output witness).drop choiceOff with
+      | nil => have := congrArg List.length h; simp at this; omega
+      | cons y ys => exact ⟨y, ys, rfl⟩
+    rw [hy]; rfl
+  rw [hd]
+  cases witness.topHigh <;> decide
+
+theorem getD_getD_le (T : List (List Nat)) (B : Nat) (hT : ∀ r ∈ T, ∀ x ∈ r, x ≤ B) (i j : Nat) :
+    (T.getD i []).getD j 0 ≤ B := by
+  rw [List.getD_eq_getElem?_getD, List.getD_eq_getElem?_getD]
+  cases h1 : T[i]? with
+  | none => simp
+  | some r =>
+    have hr : r ∈ T := List.mem_of_getElem? h1
+    cases h2 : r[j]? with
+    | none => simp [h2]
+    | some x => simpa [h2] using hT r hr x (List.mem_of_getElem? h2)
+theorem topPlanA_le : ∀ r ∈ topPlanA, ∀ x ∈ r, x ≤ 47 := by decide +kernel
+theorem topPlanB_le : ∀ r ∈ topPlanB, ∀ x ∈ r, x ≤ 47 := by decide +kernel
+theorem lowerPlanL1_le : ∀ r ∈ lowerPlanL1, ∀ x ∈ r, x ≤ 21 := by decide +kernel
+theorem lowerPlanL32_le : ∀ r ∈ lowerPlanL32, ∀ x ∈ r, x ≤ 21 := by decide +kernel
+theorem topPlanSlot_le (leaf j : Nat) : topPlanSlot leaf j ≤ 47 := by
+  unfold topPlanSlot; split
+  · exact getD_getD_le _ _ topPlanA_le _ _
+  · exact getD_getD_le _ _ topPlanB_le _ _
+theorem lowerPlan_le (lay : Layer) (leaf j : Nat) : (lowerPlan lay leaf).getD j 0 ≤ 21 := by
+  unfold lowerPlan; split
+  · exact getD_getD_le _ _ lowerPlanL1_le _ _
+  · exact getD_getD_le _ _ lowerPlanL32_le _ _
+/-- Every Merkle window (and so every encoding row) lies below the top leaf buffer. -/
+theorem merkleBlock_le (lay : Layer) (leaf j : Nat) : merkleBlock lay leaf j + 64 ≤ 22296 := by
+  have h1 := topPlanSlot_le leaf j
+  have h2 := lowerPlan_le lay leaf j
+  unfold merkleBlock
+  fin_cases lay <;> simp [layerBase] at h2 ⊢ <;> omega
+/-- Every chain block lies below the top leaf buffer. -/
+theorem chainBlock_le (lay : Layer) (i : Nat) : chainBlock lay i + 64 ≤ 22296 := by
+  unfold chainBlock chainSlot
+  fin_cases lay <;> simp [layerBase, pathSlots, chainCount] <;> (try split_ifs) <;> omega
+theorem leafBufferSlot_choice (lay : Layer) (i : Nat) (hi : i < chainCount lay) :
+    (leafBufferSlot lay i + 16 ≤ choiceOff ∨ choiceOff < leafBufferSlot lay i) ∧
+      leafBufferSlot lay i + 16 ≤ 23236 := by
+  have := leafBufferSlot_bounds lay i hi
+  unfold leafBufferSlot choiceOff at *
+  fin_cases lay <;> simp [leafBufferBase, chainCount] at * <;> (try split_ifs at *) <;> omega
+theorem rowBlock_le (index : Nat) (lay : Layer) : rowBlock index lay + 64 ≤ 22296 := by
+  unfold rowBlock
+  split
+  · omega
+  · exact merkleBlock_le _ _ _
+
+theorem wbcCtr_witEnc_base (output : HashOutput) (witness : SigGolfCandidate.Research.SharedForest.Witness)
+    (index : Nat) (lay : Layer) :
+    wbcCtr (Paired.witEnc output witness) index lay = wbcCtr (baseEnc output witness) index lay := by
+  have := rowBlock_le index lay
+  unfold wbcCtr bcCounterOff
+  exact wle32_witEnc_base output witness _ (Or.inl (by unfold choiceOff; omega))
+theorem wbcPad_witEnc_base (output : HashOutput) (witness : SigGolfCandidate.Research.SharedForest.Witness)
+    (index : Nat) (lay : Layer) :
+    wbcPad (Paired.witEnc output witness) index lay = wbcPad (baseEnc output witness) index lay := by
+  have := rowBlock_le index lay
+  unfold wbcPad bcCounterOff
+  exact witEnc_extract output witness _ 12 (Or.inl (by unfold choiceOff; omega))
+theorem wbcHigh_witEnc_base (output : HashOutput) (witness : SigGolfCandidate.Research.SharedForest.Witness)
+    (index : Nat) (lay : Layer) :
+    wbcHigh (Paired.witEnc output witness) index lay = wbcHigh (baseEnc output witness) index lay := by
+  have := rowBlock_le index lay
+  unfold wbcHigh
+  rw [wdig_witEnc_base output witness _ (Or.inl (by unfold choiceOff; omega))]
+theorem wdig_hi_extract (x : WBytes) (off : Nat) :
+    (wdig x off).extractLsb' 64 64 = x.extractLsb' (8 * (off + 8)) (8 * 8) := by
+  apply BitVec.eq_of_getLsbD_eq
+  intro i hi
+  simp only [wdig, BitVec.getLsbD_extractLsb']
+  simp [hi, show 64 + i < 128 by omega, show 8 * off + (64 + i) = 8 * (off + 8) + i by omega,
+    show i < 8 * 8 by omega]
 #print axioms wdig_prefixEnc
 #print axioms wle32_prefixEnc
 end ClaudeWCT.W9.T3M.PairedReadout
@@ -2192,22 +2354,31 @@ set_option maxRecDepth 10000
 set_option backward.isDefEq.respectTransparency false
 
 @[simp] theorem wrho_witEnc (output : HashOutput) (w : SigGolfCandidate.Research.SharedForest.Witness) :
-    wrho (witEnc output w) = w.signature.rho :=
-  PairedReadout.wrho_prefixEnc _ (forestBytes_length output w) output (mainWitness w)
+    wrho (witEnc output w) = w.signature.rho := by
+  rw [show wrho (witEnc output w) = wrho (PairedReadout.baseEnc output w) from
+    PairedReadout.wdig_witEnc_base output w rhoOff (Or.inr (by decide))]
+  exact PairedReadout.wrho_prefixEnc _ (forestBytes_length output w) output (mainWitness w)
 
 @[simp] theorem wdc_witEnc (output : HashOutput) (w : SigGolfCandidate.Research.SharedForest.Witness) :
-    wdc (witEnc output w) = w.digestCounter :=
-  PairedReadout.wdc_prefixEnc _ (forestBytes_length output w) output (mainWitness w)
+    wdc (witEnc output w) = w.digestCounter := by
+  rw [show wdc (witEnc output w) = wdc (PairedReadout.baseEnc output w) from
+    PairedReadout.wle32_witEnc_base output w dcOff (Or.inr (by decide))]
+  exact PairedReadout.wdc_prefixEnc _ (forestBytes_length output w) output (mainWitness w)
 
 theorem wvalue_witEnc (output : HashOutput) (w : SigGolfCandidate.Research.SharedForest.Witness)
     (lay : Layer) (i : Fin (chainCount lay)) :
-    wvalue (witEnc output w) lay i.val = (w.signature.layers lay).values i :=
-  PairedReadout.wvalue_prefixEnc _ (forestBytes_length output w) output (mainWitness w) lay i
+    wvalue (witEnc output w) lay i.val = (w.signature.layers lay).values i := by
+  have hb := PairedReadout.chainBlock_le lay i.val
+  have hv : valueOff lay i.val ≤ 48 := by unfold valueOff; split_ifs <;> omega
+  rw [show wvalue (witEnc output w) lay i.val = wvalue (PairedReadout.baseEnc output w) lay i.val from
+    PairedReadout.wdig_witEnc_base output w _ (Or.inl (by unfold choiceOff; omega))]
+  exact PairedReadout.wvalue_prefixEnc _ (forestBytes_length output w) output (mainWitness w) lay i
 
 theorem wbuffer_witEnc (output : HashOutput) (w : SigGolfCandidate.Research.SharedForest.Witness)
     (lay : Layer) (i : Fin (chainCount lay)) :
-    wdig (witEnc output w) (leafBufferSlot lay i.val) = (w.signature.layers lay).values i :=
-  PairedReadout.wbuffer_prefixEnc _ (forestBytes_length output w) output (mainWitness w) lay i
+    wdig (witEnc output w) (leafBufferSlot lay i.val) = (w.signature.layers lay).values i := by
+  rw [PairedReadout.wdig_witEnc_base output w _ (PairedReadout.leafBufferSlot_choice lay i.val i.isLt).1]
+  exact PairedReadout.wbuffer_prefixEnc _ (forestBytes_length output w) output (mainWitness w) lay i
 
 theorem wvalueFor_witEnc (output : HashOutput) (w : SigGolfCandidate.Research.SharedForest.Witness)
     (lay : Layer) (digits : List Nat) (i : Fin (chainCount lay)) :
@@ -2220,11 +2391,19 @@ theorem wvalueFor_witEnc (output : HashOutput) (w : SigGolfCandidate.Research.Sh
 theorem wpath_witEnc (output : HashOutput) (w : SigGolfCandidate.Research.SharedForest.Witness)
     (lay : Layer) (i : Fin (height lay)) :
     wpath (witEnc output w) lay (route (WCT9.digestIndex output) lay).1 i.val =
-      (w.signature.layers lay).path i :=
-  PairedReadout.wpath_prefixEnc _ (forestBytes_length output w) output (mainWitness w) lay i
+      (w.signature.layers lay).path i := by
+  have hb := PairedReadout.merkleBlock_le lay (route (WCT9.digestIndex output) lay).1 i.val
+  have hs : ∀ x, SigGolfCandidate.T3M.sibOff x ≤ 48 := fun x => by
+    unfold SigGolfCandidate.T3M.sibOff; split_ifs <;> omega
+  have hs' := hs ((route (WCT9.digestIndex output) lay).1 / 2 ^ i.val % 2)
+  rw [show wpath (witEnc output w) lay (route (WCT9.digestIndex output) lay).1 i.val =
+      wpath (PairedReadout.baseEnc output w) lay (route (WCT9.digestIndex output) lay).1 i.val from
+    PairedReadout.wdig_witEnc_base output w _ (Or.inl (by unfold choiceOff; omega))]
+  exact PairedReadout.wpath_prefixEnc _ (forestBytes_length output w) output (mainWitness w) lay i
 
 @[simp] theorem wbcCtr_witEnc (output : HashOutput) (w : SigGolfCandidate.Research.SharedForest.Witness)
     (lay : Layer) : wbcCtr (witEnc output w) (WCT9.digestIndex output) lay = w.counters lay := by
+  rw [PairedReadout.wbcCtr_witEnc_base]
   by_cases hl : lay = 3
   · subst lay
     exact PairedReadout.wctr3_countedPrefix (w.counters 3)
@@ -2574,6 +2753,7 @@ theorem wdig_paired_slot (output : HashOutput) (witness : SharedForest.Witness)
     (a : Nat) (d : Digest) (hm : (a,d)∈Paired.forestSlots output witness.signature) :
     wdig (Paired.witEnc output witness) a=d := by
   have hr:=forestSlot_layout output witness.signature (a,d) hm
+  rw [wdig_witEnc_base output witness a (Or.inl (by unfold choiceOff; omega))]
   change wdig (prefixEnc (countedPrefix (witness.counters 3) (readSlot (Paired.forestSlots output witness.signature))) output (Paired.mainWitness witness)) a=d
   rw [wdig_prefixEnc_left _ (countedPrefix_length _ _) _ _ _ hr.2.1,
     countedPrefix_digest _ _ (fun p hp=>(forestSlot_layout _ _ p hp).1)
@@ -2581,6 +2761,7 @@ theorem wdig_paired_slot (output : HashOutput) (witness : SharedForest.Witness)
 
 theorem wpad3_paired (output : HashOutput) (witness : SharedForest.Witness) :
     wbcPad (Paired.witEnc output witness) (WCT9.digestIndex output) 3=0 := by
+  rw [wbcPad_witEnc_base]
   exact wpad3_countedPrefix (witness.counters 3) (Paired.forestSlots output witness.signature)
     (fun p hp=>by have hh:=forestSlot_layout output witness.signature p hp;omega) output (Paired.mainWitness witness)
 #print axioms forestSlot_entry
@@ -2648,12 +2829,14 @@ theorem wbcPad_witEnc (output : HashOutput) (witness : SharedForest.Witness) (la
     wbcPad (witEnc output witness) (WCT9.digestIndex output) lay=0 := by
   by_cases h:lay=3
   · subst lay;exact PairedReadout.wpad3_paired output witness
-  · exact PairedReadout.wbcPad_prefixEnc (forestBytes output witness) (forestBytes_length _ _) output (mainWitness witness) lay h
+  · rw [PairedReadout.wbcPad_witEnc_base]
+    exact PairedReadout.wbcPad_prefixEnc (forestBytes output witness) (forestBytes_length _ _) output (mainWitness witness) lay h
 
 /-- Stage 2 (C2/C3): the honest paired witness has every encoding row tweak high word 1 (the L3 one at `WIT + 24` in
 the forest prefix, the others in the retained tail); the paired counterpart of `ClaudeWCT.W9.T3M.wbcHigh_witEnc`. -/
 theorem wbcHigh_witEnc (output : HashOutput) (witness : SharedForest.Witness) (lay : Layer) :
     wbcHigh (witEnc output witness) (WCT9.digestIndex output) lay=1 := by
+  rw [PairedReadout.wbcHigh_witEnc_base]
   by_cases h:lay=3
   · subst lay
     exact PairedReadout.wbcHigh3_countedPrefix (witness.counters 3)
@@ -2878,9 +3061,11 @@ theorem extract_witEnc_zero_field (output : HashOutput) (witness : SharedForest.
     (h0 : k.val≠0 ∨ q.1+q.2≤832) :
     (Paired.witEnc output witness).extractLsb' (8*(V3.regionOffset k.val+q.1)) (8*q.2)=0 := by
   have hf:=zeroFields_free (physicalChildren output k) q hq
+  have hb : V3.regionOffset k.val+q.1+q.2≤8096 := by have hk:=k.isLt;unfold V3.regionOffset;omega
+  rw [witEnc_extract output witness _ _ (Or.inl (by unfold choiceOff; omega))]
   change (prefixEnc (countedPrefix (witness.counters 3) (readSlot (Paired.forestSlots output witness.signature))) output (Paired.mainWitness witness)).extractLsb' _ _=0
   apply extract_prefixEnc_free
-  · have hk:=k.isLt;unfold V3.regionOffset;omega
+  · exact hb
   · right;left;unfold V3.regionOffset;omega
   · right;unfold V3.regionOffset;omega
   · intro p hp
@@ -2987,6 +3172,9 @@ theorem SlotAt.initial_free {children : Fin 9→Fin 128} {counts : Fin 9→Nat} 
 theorem initial_word_zero (output : HashOutput) (witness : SharedForest.Witness)
     (off:Nat) (ho:off=160∨off=720) :
     W9Machine.wdig (Paired.witEnc output witness) (V3.regionOffset 0+off)=0 := by
+  have hb : V3.regionOffset 0+off+16≤8096 := by rcases ho with ho|ho <;> rw[ho] <;> decide
+  change (Paired.witEnc output witness).extractLsb' (8*(V3.regionOffset 0+off)) (8*16)=0
+  rw [witEnc_extract output witness _ _ (Or.inl (by unfold choiceOff; omega))]
   change (prefixEnc (countedPrefix (witness.counters 3) (readSlot (Paired.forestSlots output witness.signature))) output (Paired.mainWitness witness)).extractLsb' _ (8*16)=0
   apply extract_prefixEnc_free
   · rcases ho with ho|ho <;> rw[ho] <;> decide
@@ -3030,6 +3218,8 @@ theorem original_prefix_of_slots (output : HashOutput) (witness : SharedForest.W
     · exact hw (by simpa[he] using hslots p hp 0 (by decide))
     · exact hw (by simpa[he,Nat.add_assoc] using hslots p hp 1 (by decide))
   have hz:(Paired.witEnc output witness).extractLsb' (8*off) 64=0:=by
+    change (Paired.witEnc output witness).extractLsb' (8*off) (8*8)=0
+    rw [witEnc_extract output witness _ _ (Or.inl (by unfold choiceOff; omega))]
     change (prefixEnc (countedPrefix (witness.counters 3) (readSlot (Paired.forestSlots output witness.signature))) output (Paired.mainWitness witness)).extractLsb' _ (8*8)=0
     refine extract_prefixEnc_free _ _ _ _ _ _ hb ?_ (by omega) hf
     rcases hc with hc|hc
@@ -3086,11 +3276,13 @@ end ClaudeWCT.W9.T3M.PairedReadout
 namespace ClaudeWCT.W9.T3M.Paired
 open SigGolfCandidate.T3 SigGolfCandidate.T3M SigGolfCandidate.Research
 
+/-- Configuration (1)+(2): away from the word holding the choice hint byte (`hc`). -/
 theorem word_witEnc_tail (output : HashOutput) (witness : SharedForest.Witness)
-    (off : Nat) (ho : 8096≤off) :
+    (off : Nat) (ho : 8096≤off) (hc : off+8≤choiceOff ∨ choiceOff<off) :
     (witEnc output witness).extractLsb' (8*off) 64=
-      (ClaudeWCT.W9.T3M.witEnc output (mainWitness witness)).extractLsb' (8*off) 64 :=
-  PairedReadout.word_prefixEnc _ (PairedReadout.countedPrefix_length _ _) _ _ off ho
+      (ClaudeWCT.W9.T3M.witEnc output (mainWitness witness)).extractLsb' (8*off) 64 := by
+  rw [show (64:Nat)=8*8 from rfl, PairedReadout.witEnc_extract output witness off 8 hc]
+  exact PairedReadout.word_prefixEnc _ (PairedReadout.countedPrefix_length _ _) _ _ off ho
 #print axioms word_witEnc_tail
 end ClaudeWCT.W9.T3M.Paired
 
@@ -3124,91 +3316,142 @@ open SigGolfCandidate.T3M (nodeHashP_zero)
 set_option maxHeartbeats 1000000
 set_option maxRecDepth 10000
 
+/-- Configuration (1)+(2): the retained tail away from the choice hint byte `choiceOff` (the top leaf tweak's
+low word, which the program never reads as data; its high word is `hlh`). -/
+def TailAgree (a b : WBytes) : Prop :=
+  ∀ off, 8096 ≤ off → (off + 16 ≤ choiceOff ∨ choiceOff < off) → wdig a off = wdig b off
+
+theorem chainCount_pos (lay : Layer) : 0 < chainCount lay := by fin_cases lay <;> decide
+
 /-- Layer execution reads its chain and Merkle data only from the retained tail. -/
-theorem layer_tail_fields (a b : WBytes)
-    (h : ∀ off,8096≤off→wdig a off=wdig b off) (lay : Layer) :
+theorem layer_tail_fields (a b : WBytes) (h : TailAgree a b) (lay : Layer) :
     (∀ i,wchainPads a lay i=wchainPads b lay i) ∧
     (∀ i,wchainHeaderPad a lay i=wchainHeaderPad b lay i) ∧
-    (∀ digits i,wvalueFor a lay digits i=wvalueFor b lay digits i) ∧
+    (∀ digits (i : Fin (chainCount lay)),wvalueFor a lay digits i.val=wvalueFor b lay digits i.val) ∧
+    (∀ digits i,wvalueFor a lay digits (i % chainCount lay)=wvalueFor b lay digits (i % chainCount lay)) ∧
     (∀ leaf j,wpath a lay leaf j=wpath b lay leaf j) ∧
     (∀ leaf j,wmerklePad a lay leaf j=wmerklePad b lay leaf j) := by
   have hb : 8096≤layerBase lay := by fin_cases lay <;> decide
   have hl : 8096≤leafBufferBase lay := by fin_cases lay <;> decide
-  refine ⟨?_,?_,?_,?_,?_⟩
-  · intro i;unfold wchainPads;congr 1 <;> apply h <;> unfold chainBlock <;> omega
-  · intro i;unfold wchainHeaderPad;rw[h _ (by unfold chainBlock;omega)]
-  · intro digits i;unfold wvalueFor;split
-    · apply h;unfold leafBufferSlot;omega
-    · unfold wvalue;apply h;unfold chainBlock;omega
-  · intro leaf j;unfold wpath;apply h;unfold merkleBlock;omega
-  · intro leaf j;unfold wmerklePad;apply h;unfold merkleBlock;omega
+  have hh : ∀ off, 8096 ≤ off → off + 16 ≤ 22312 → wdig a off = wdig b off :=
+    fun off h1 h2 => h off h1 (Or.inl (by unfold choiceOff; omega))
+  have hvf : ∀ digits i, i < chainCount lay → wvalueFor a lay digits i = wvalueFor b lay digits i := by
+    intro digits i hi
+    unfold wvalueFor
+    split
+    · have := PairedReadout.leafBufferSlot_choice lay i hi
+      exact h _ (by unfold leafBufferSlot; omega) this.1
+    · have := PairedReadout.chainBlock_le lay i
+      have hv : valueOff lay i ≤ 48 := by unfold valueOff; split_ifs <;> omega
+      unfold wvalue
+      exact hh _ (by unfold chainBlock; omega) (by omega)
+  refine ⟨?_,?_,fun digits i => hvf digits i.val i.isLt,
+    fun digits i => hvf digits _ (Nat.mod_lt _ (chainCount_pos lay)),?_,?_⟩
+  · intro i
+    have := PairedReadout.chainBlock_le lay i
+    have h0 : pad0Off lay i ≤ 48 := by unfold pad0Off; split_ifs <;> omega
+    have h1 : pad1Off lay i ≤ 48 := by unfold pad1Off; split_ifs <;> omega
+    unfold wchainPads
+    rw [hh _ (by unfold chainBlock; omega) (by omega), hh _ (by unfold chainBlock; omega) (by omega)]
+  · intro i
+    have := PairedReadout.chainBlock_le lay i
+    unfold wchainHeaderPad
+    rw [hh _ (by unfold chainBlock; omega) (by omega)]
+  · intro leaf j
+    have := PairedReadout.merkleBlock_le lay leaf j
+    have hs : SigGolfCandidate.T3M.sibOff (leaf / 2 ^ j % 2) ≤ 48 := by
+      unfold SigGolfCandidate.T3M.sibOff; split_ifs <;> omega
+    unfold wpath
+    exact hh _ (by unfold merkleBlock; omega) (by omega)
+  · intro leaf j
+    have := PairedReadout.merkleBlock_le lay leaf j
+    unfold wmerklePad
+    exact hh _ (by unfold merkleBlock; omega) (by omega)
 
-theorem topLeafPad_tail (a b : WBytes)
-    (h : ∀ off,8096≤off→wdig a off=wdig b off) : wtopLeafPad a=wtopLeafPad b := by
+theorem topLeafPad_tail (a b : WBytes) (h : TailAgree a b) : wtopLeafPad a=wtopLeafPad b := by
   unfold wtopLeafPad
-  exact h _ (by decide)
+  exact h _ (by decide) (Or.inl (by decide))
 
-theorem leafHigh_tail (a b : WBytes)
-    (h : ∀ off,8096≤off→wdig a off=wdig b off) (lay : Layer) :
-    wleafHigh a lay=wleafHigh b lay := by
-  have hl : 8096≤leafBufferBase lay := by fin_cases lay <;> decide
-  unfold wleafHigh
-  rw [h _ (by omega)]
-
-theorem merkleHigh_tail (a b : WBytes)
-    (h : ∀ off,8096≤off→wdig a off=wdig b off) (lay : Layer) (leaf j : Nat) :
+theorem merkleHigh_tail (a b : WBytes) (h : TailAgree a b) (lay : Layer) (leaf j : Nat) :
     wmerkleHigh a lay leaf j=wmerkleHigh b lay leaf j := by
   have hb : 8096≤layerBase lay := by fin_cases lay <;> decide
+  have := PairedReadout.merkleBlock_le lay leaf j
   unfold wmerkleHigh
-  rw [h _ (by unfold merkleBlock; omega)]
+  rw [h _ (by unfold merkleBlock; omega) (Or.inl (by unfold choiceOff; omega))]
 
-theorem layerPairP_tail (a b : WBytes)
-    (h : ∀ off,8096≤off→wdig a off=wdig b off) (index : Nat) (lay : Layer) (digits : List Nat) :
+theorem layerPairP_tail (a b : WBytes) (h : TailAgree a b) (hlh : ∀ lay, wleafHigh a lay = wleafHigh b lay)
+    (index : Nat) (lay : Layer) (digits : List Nat) :
     layerPairP a index lay digits=layerPairP b index lay digits := by
-  obtain ⟨hcp,hh,hv,hp,hm⟩ := layer_tail_fields a b h lay
-  simp only [layerPairP,hcp,hh,hv,hp,hm,topLeafPad_tail a b h,leafHigh_tail a b h,merkleHigh_tail a b h]
+  obtain ⟨hcp,hh,hv,-,hp,hm⟩ := layer_tail_fields a b h lay
+  simp only [layerPairP,hcp,hh,hv,hp,hm,topLeafPad_tail a b h,hlh,merkleHigh_tail a b h]
 
-theorem layerGuardedPairP_tail (a b : WBytes)
-    (h : ∀ off,8096≤off→wdig a off=wdig b off) (index : Nat) (lay : Layer)
-    (answer : Digest) (digits : List Nat) :
+theorem layerGuardedPairP_tail (a b : WBytes) (h : TailAgree a b) (hlh : ∀ lay, wleafHigh a lay = wleafHigh b lay)
+    (index : Nat) (lay : Layer) (answer : Digest) (digits : List Nat) :
     layerGuardedPairP a index lay answer digits=layerGuardedPairP b index lay answer digits := by
-  obtain ⟨hcp,hh,hv,hp,hm⟩ := layer_tail_fields a b h lay
+  obtain ⟨hcp,hh,-,hv,hp,hm⟩ := layer_tail_fields a b h lay
   have hc : layerChainP a index lay digits=layerChainP b index lay digits := by
     funext i;simp only [layerChainP,hcp,hh,hv]
-  simp only [layerGuardedPairP,hc,layerPairP_tail a b h]
+  simp only [layerGuardedPairP,hc,layerPairP_tail a b h hlh]
 
-theorem topLayerP_tail (a b : WBytes)
-    (h : ∀ off,8096≤off→wdig a off=wdig b off) (index : Nat) (answer : Digest) :
+theorem topLayerP_tail (a b : WBytes) (h : TailAgree a b) (hlh : ∀ lay, wleafHigh a lay = wleafHigh b lay)
+    (index : Nat) (answer : Digest) :
     topLayerP a index answer=topLayerP b index answer := by
-  obtain ⟨hcp,hh,hv,hp,hm⟩ := layer_tail_fields a b h 0
+  obtain ⟨hcp,hh,hv,-,hp,hm⟩ := layer_tail_fields a b h 0
   have hc : topChainP a (route index 0).2 (route index 0).1 (dataDigits 0 answer)=
       topChainP b (route index 0).2 (route index 0).1 (dataDigits 0 answer) := by
     funext i digit;simp only [topChainP,hcp,hh,hv]
   have hf : topFinishP a (route index 0).2 (route index 0).1=
       topFinishP b (route index 0).2 (route index 0).1 := by
-    funext ends;simp only [topFinishP,hp,hm,topLeafPad_tail a b h,leafHigh_tail a b h,merkleHigh_tail a b h]
+    funext ends;simp only [topFinishP,hp,hm,topLeafPad_tail a b h,hlh,merkleHigh_tail a b h]
   simp only [topLayerP,hc,hf]
 
-theorem layersCanonicalBC_tail (a b : WBytes) (index : Nat)
-    (h : ∀ off,8096≤off→wdig a off=wdig b off)
+/-- `layersCanonicalBC` with the top choice hint as an explicit argument (it reads `wtopHigh w`). -/
+def layersCanonicalBCH (high : Bool) (w : WBytes) (index : Nat) : Nat → WCT9.LayerMsg → M (Option Digest)
+  | 0, _ => pure none
+  | n + 1, msg => do
+      let lay : Layer := Fin.ofNat 4 n
+      let counter := wbcCtr w index lay
+      if counter.toNat ≥ WCT9.verifyWindow then return none
+      let (leaf, tree) := route index lay
+      let answer ← ClaudeWCT.WCT9.verificationHash lay high
+        (layerEncodingInputP lay tree leaf msg counter (wbcPad w index lay) (wbcRight w) (wbcHigh w index lay))
+      if n = 0 then topLayerP w index answer
+      else do
+        let some digits := WCT9.CanonicalPolicy.decode lay answer | pure none
+        let some pair ← layerGuardedPairP w index lay answer digits | pure none
+        layersCanonicalBCH high w index n (.pair pair.1 pair.2)
+
+theorem layersCanonicalBC_eq_H (w : WBytes) (index : Nat) :
+    ∀ n msg, layersCanonicalBC w index n msg = layersCanonicalBCH (wtopHigh w) w index n msg := by
+  intro n
+  induction n with
+  | zero => intro msg; rfl
+  | succ n ih =>
+    intro msg
+    rw [layersCanonicalBC, layersCanonicalBCH]
+    simp only [ih]
+    rfl
+
+theorem layersCanonicalBCH_tail (high : Bool) (a b : WBytes) (index : Nat) (h : TailAgree a b)
+    (hlh : ∀ lay, wleafHigh a lay = wleafHigh b lay)
     (hc : ∀ lay,wbcCtr a index lay=wbcCtr b index lay)
     (hp : ∀ lay,wbcPad a index lay=wbcPad b index lay)
     (hh : ∀ lay,wbcHigh a index lay=wbcHigh b index lay) :
-    ∀n left right,layersCanonicalBC a index n (.pair left right)=
-      layersCanonicalBC b index n (.pair left right) := by
+    ∀n left right,layersCanonicalBCH high a index n (.pair left right)=
+      layersCanonicalBCH high b index n (.pair left right) := by
   intro n
   induction n with
   | zero=>intro left right;rfl
   | succ n ih=>
     intro left right
     -- Stage 2 (C2/C3): the encoding row tweak's high word `wbcHigh` is a witness pad (`hh`).
-    simp only [layersCanonicalBC,hc,hp,hh,layerEncodingInputP,topLayerP_tail a b h,
-      layerGuardedPairP_tail a b h,ih]
+    simp only [layersCanonicalBCH,hc,hp,hh,layerEncodingInputP,topLayerP_tail a b h hlh,
+      layerGuardedPairP_tail a b h hlh,ih]
 
 /-- Canonical decoding is the only changed branch in the retained WOTS program. -/
-theorem layersCanonicalBC_legacy_witEnc (output : HashOutput)
+theorem layersCanonicalBCH_legacy_witEnc (output : HashOutput)
     (w : SigGolfCandidate.Research.SharedForest.Witness) : ∀n, n ≤ 4 → ∀ left right,
-    layersCanonicalBC (ClaudeWCT.W9.T3M.witEnc output (mainWitness w))
+    layersCanonicalBCH w.topHigh (ClaudeWCT.W9.T3M.witEnc output (mainWitness w))
       (WCT9.digestIndex output) n (.pair left right) =
       SigGolfCandidate.Research.SharedForest.verifyLayers w (WCT9.digestIndex output) n (.pair left right) := by
   intro n
@@ -3225,13 +3468,13 @@ theorem layersCanonicalBC_legacy_witEnc (output : HashOutput)
       apply recoverLayerPairGuardP_zero _ _ _ _ _ (WCT9.digestIndex_lt output)
       intro e; have := congrArg Fin.val e; simp [Fin.val_ofNat] at this; omega
     by_cases h0 : n = 0
-    · simp only [layersCanonicalBC,SigGolfCandidate.Research.SharedForest.verifyLayers,
+    · simp only [layersCanonicalBCH,SigGolfCandidate.Research.SharedForest.verifyLayers,
         ClaudeWCT.W9.T3M.wbcCtr_witEnc,ClaudeWCT.W9.T3M.wbcPad_witEnc,ClaudeWCT.W9.T3M.wbcHigh_witEnc,
         topLayerP_dec output,layerGuardedPairP_dec output,
         witDecP_witEnc,padDecP_witEnc,verifyTopP_zero _ _ _ (WCT9.digestIndex_lt output),
         layerEncodingInputP,WCT9.layerEncodingInput,WCT9.pairEncodingInputH_one,h0,↓reduceIte]
       rfl
-    · simp only [layersCanonicalBC,SigGolfCandidate.Research.SharedForest.verifyLayers,
+    · simp only [layersCanonicalBCH,SigGolfCandidate.Research.SharedForest.verifyLayers,
         ClaudeWCT.W9.T3M.wbcCtr_witEnc,ClaudeWCT.W9.T3M.wbcPad_witEnc,ClaudeWCT.W9.T3M.wbcHigh_witEnc,
         topLayerP_dec output,layerGuardedPairP_dec output,
         witDecP_witEnc,padDecP_witEnc,hguard h0,
@@ -3250,11 +3493,22 @@ theorem layersCanonicalBC_witEnc (output : HashOutput)
     (w : SigGolfCandidate.Research.SharedForest.Witness) (n : Nat) (left right : Digest) (hn : n ≤ 4) :
     layersCanonicalBC (witEnc output w) (WCT9.digestIndex output) n (.pair left right)=
       SigGolfCandidate.Research.SharedForest.verifyLayers w (WCT9.digestIndex output) n (.pair left right) := by
-  have ht : ∀ off,8096≤off→wdig (witEnc output w) off=
-      wdig (ClaudeWCT.W9.T3M.witEnc output (mainWitness w)) off := by
-    intro off ho
+  rw [layersCanonicalBC_eq_H, PairedReadout.wtopHigh_witEnc]
+  have ht : TailAgree (witEnc output w) (ClaudeWCT.W9.T3M.witEnc output (mainWitness w)) := by
+    intro off ho hc
+    rw [PairedReadout.wdig_witEnc_base output w off hc]
     exact PairedReadout.wdig_prefixEnc (forestBytes output w) (forestBytes_length output w)
       output (mainWitness w) off ho
+  have hlh : ∀ lay, wleafHigh (witEnc output w) lay =
+      wleafHigh (ClaudeWCT.W9.T3M.witEnc output (mainWitness w)) lay := by
+    intro lay
+    have hl : 8096 ≤ leafBufferBase lay := by fin_cases lay <;> decide
+    have hw : leafBufferBase lay + 16 + 8 + 8 ≤ choiceOff ∨ choiceOff < leafBufferBase lay + 16 + 8 := by
+      fin_cases lay <;> decide
+    unfold wleafHigh
+    rw [PairedReadout.wdig_hi_extract, PairedReadout.wdig_hi_extract, PairedReadout.witEnc_extract output w _ _ hw]
+    exact PairedReadout.word_prefixEnc (forestBytes output w) (forestBytes_length output w)
+      output (mainWitness w) _ (by omega)
   have hc : ∀ lay,wbcCtr (witEnc output w) (WCT9.digestIndex output) lay=
       wbcCtr (ClaudeWCT.W9.T3M.witEnc output (mainWitness w)) (WCT9.digestIndex output) lay := by
     intro lay
@@ -3268,8 +3522,8 @@ theorem layersCanonicalBC_witEnc (output : HashOutput)
       wbcHigh (ClaudeWCT.W9.T3M.witEnc output (mainWitness w)) (WCT9.digestIndex output) lay := by
     intro lay
     rw [ClaudeWCT.W9.T3M.Paired.wbcHigh_witEnc,ClaudeWCT.W9.T3M.wbcHigh_witEnc]
-  exact (layersCanonicalBC_tail _ _ _ ht hc hp hh n left right).trans
-    (layersCanonicalBC_legacy_witEnc output w n hn left right)
+  exact (layersCanonicalBCH_tail _ _ _ _ ht hlh hc hp hh n left right).trans
+    (layersCanonicalBCH_legacy_witEnc output w n hn left right)
 
 theorem expandN_fillTopSignature (message : Message) (pk : Digest)
     (sig : SigGolfCandidate.Research.SharedForest.Signature) (c : Nat) :

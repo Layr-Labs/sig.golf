@@ -30,7 +30,8 @@ def k_101 : List (BitVec 32) := [1683,32871]
 def k_103s : List (BitVec 32) := [0x5790006f]
 def k_103e : List (BitVec 32) := [0x4742906f]
 def k_103 (b : Nat) : List (BitVec 32) := if b = 354 then k_103e else k_103s
-def k_104 : List (BitVec 32) := [19,19,19,19,19,19,19,19]
+/-- Top choice retry hook (r3-lean-sign): the top sum check fails into `b + 104`, which jumps to `choice_r`. -/
+def k_104 (b : Nat) : List (BitVec 32) := (if b = 354 then [0x1652906f] else [0x6911306f]) ++ [19,19,19,19,19,19,19]
 def k_112 : List (BitVec 32) := [2451]
 def k_113s : List (BitVec 32) := [617689199,0x4c698c63]
 def k_113e : List (BitVec 32) := [634548335,0x4c698c63]
@@ -49,8 +50,8 @@ def k_259e : List (BitVec 32) := [0x3e42906f,0x13,0x13,0x13]
 def k_259 (b : Nat) : List (BitVec 32) := if b = 354 then k_259e else k_259s
 def k_263 : List (BitVec 32) := [0x13,0x13]
 def k_265 (b : Nat) : List (BitVec 32) :=
-  if b = 354 then [0xffff37,0x30e13,0x7fe7e93,0x1ee8eb3,0xecc83,0x7e5e13,0x7fe7e93,0x1ee8eb3,0xece83,0x1dc8cb3,0x7e5e13,0x7fe7e93,0x1ee8eb3,0xece83,0x1dc8cb3,0x7e5e13,0x7fe7e93,0x1ee8eb3,0xece83,0x1dc8cb3,0x7e5e13,0x7fe7e93,0x1ee8eb3,0xece83,0x1dc8cb3,0x7e5e13,0x7fe7e93,0x1ee8eb3,0xece83,0x1dc8cb3,0x7e5e13,0x7fe7e93,0x1ee8eb3,0xece83,0x1dc8cb3,0x7e5e13,0x7fe7e93,0x1ee8eb3,0xece83,0x1dc8cb3,0x7e5e13,0x7fe7e93,0x1ee8eb3,0xece83,0x1dc8cb3,0x7e5e13,0x139e93,0x1ceee33,0x7fe7e93,0x1ee8eb3,0xece83,0x1dc8cb3,0x7e5e13,0x7fe7e93,0x1ee8eb3,0xece83,0x1dc8cb3,0x7e5e13,0x7fe7e93,0x1ee8eb3,0xece83,0x1dc8cb3,0x7e5e13,0x7fe7e93,0x1ee8eb3,0xece83,0x1dc8cb3,0x7e5e13,0x7fe7e93,0x1ee8eb3,0xece83,0x1dc8cb3,0x7e5e13,0x7fe7e93,0x1ee8eb3,0xece83,0x1dc8cb3,0x7e5e13,0x7fe7e93,0x1ee8eb3,0xece83,0x1dc8cb3,0x7e5e13,0x7fe7e93,0x1ee8eb3,0xece83,0x1dc8cb3,0x7e5e13,0x7e7e93,0x1dc8cb3,0x3e5e93,0x7efe93,0x1dc8cb3,0x3d3de93,0x1dc8cb3,0x411c8eb3,0x1a0e9663,0x2312906f,0x20ab7,0x420a8a93,0x80f0f13,0x7f37e13,0x2e1e13,0x1ee0e33,0xe6e83,0x1da8023,0x8ede93,0x1da80a3,0x8ede93,0x1da8123,0x735313,0x3939e13,0x1c36333,0x73d393,0x3a8a93,0x1a0a13,0x11a3e13,0xfc0e10e3,0x737e13,0x1ca8123,0x335313,0x737e13,0x1ca8023,0x335313,0x737e13,0x1ca80a3,0x8067,0x30513,0x38593,0x613,0x1100a13,0x7f57e13,0x2e1e13,0x1ee0e33,0x83e4e03,0x1c60633,0x755513,0x3959e13,0x1c56533,0x75d593,0xfffa0a13,0xfc0a1ce3,0x757e13,0xffae0e13,0x1e3e13,0x1c60633,0x355513,0x757e13,0xffae0e13,0x1e3e13,0x1c60633,0x355513,0xffa50e13,0x1e3e13,0x1c60633,0x963e13,0xa0e1e63,0xa13,0xf11ff06f,0x960410e3,0xffff37,0x277f4e03,0x940e0ae3,0x278f3303,0x280f3383,0x8100c93,0xa13,0xeedff06f,0x138e13,0x3fe1e13,0x1c34333,0x139393,0x23d393]
-  else [0xffff37,0x30e13,0x7fe7e93,0x1ee8eb3,0xecc83,0x7e5e13,0x7fe7e93,0x1ee8eb3,0xece83,0x1dc8cb3,0x7e5e13,0x7fe7e93,0x1ee8eb3,0xece83,0x1dc8cb3,0x7e5e13,0x7fe7e93,0x1ee8eb3,0xece83,0x1dc8cb3,0x7e5e13,0x7fe7e93,0x1ee8eb3,0xece83,0x1dc8cb3,0x7e5e13,0x7fe7e93,0x1ee8eb3,0xece83,0x1dc8cb3,0x7e5e13,0x7fe7e93,0x1ee8eb3,0xece83,0x1dc8cb3,0x7e5e13,0x7fe7e93,0x1ee8eb3,0xece83,0x1dc8cb3,0x7e5e13,0x7fe7e93,0x1ee8eb3,0xece83,0x1dc8cb3,0x7e5e13,0x139e93,0x1ceee33,0x7fe7e93,0x1ee8eb3,0xece83,0x1dc8cb3,0x7e5e13,0x7fe7e93,0x1ee8eb3,0xece83,0x1dc8cb3,0x7e5e13,0x7fe7e93,0x1ee8eb3,0xece83,0x1dc8cb3,0x7e5e13,0x7fe7e93,0x1ee8eb3,0xece83,0x1dc8cb3,0x7e5e13,0x7fe7e93,0x1ee8eb3,0xece83,0x1dc8cb3,0x7e5e13,0x7fe7e93,0x1ee8eb3,0xece83,0x1dc8cb3,0x7e5e13,0x7fe7e93,0x1ee8eb3,0xece83,0x1dc8cb3,0x7e5e13,0x7fe7e93,0x1ee8eb3,0xece83,0x1dc8cb3,0x7e5e13,0x7e7e93,0x1dc8cb3,0x3e5e93,0x7efe93,0x1dc8cb3,0x3d3de93,0x1dc8cb3,0x411c8eb3,0x1a0e9663,0x7591306f,0x20ab7,0x420a8a93,0x80f0f13,0x7f37e13,0x2e1e13,0x1ee0e33,0xe6e83,0x1da8023,0x8ede93,0x1da80a3,0x8ede93,0x1da8123,0x735313,0x3939e13,0x1c36333,0x73d393,0x3a8a93,0x1a0a13,0x11a3e13,0xfc0e10e3,0x737e13,0x1ca8123,0x335313,0x737e13,0x1ca8023,0x335313,0x737e13,0x1ca80a3,0x8067,0x30513,0x38593,0x613,0x1100a13,0x7f57e13,0x2e1e13,0x1ee0e33,0x83e4e03,0x1c60633,0x755513,0x3959e13,0x1c56533,0x75d593,0xfffa0a13,0xfc0a1ce3,0x757e13,0xffae0e13,0x1e3e13,0x1c60633,0x355513,0x757e13,0xffae0e13,0x1e3e13,0x1c60633,0x355513,0xffa50e13,0x1e3e13,0x1c60633,0x963e13,0xa0e1e63,0xa13,0xf11ff06f,0x960410e3,0xffff37,0x277f4e03,0x940e0ae3,0x278f3303,0x280f3383,0x8100c93,0xa13,0xeedff06f,0x138e13,0x3fe1e13,0x1c34333,0x139393,0x23d393]
+  if b = 354 then [0xffff37,0x30e13,0x7fe7e93,0x1ee8eb3,0xecc83,0x7e5e13,0x7fe7e93,0x1ee8eb3,0xece83,0x1dc8cb3,0x7e5e13,0x7fe7e93,0x1ee8eb3,0xece83,0x1dc8cb3,0x7e5e13,0x7fe7e93,0x1ee8eb3,0xece83,0x1dc8cb3,0x7e5e13,0x7fe7e93,0x1ee8eb3,0xece83,0x1dc8cb3,0x7e5e13,0x7fe7e93,0x1ee8eb3,0xece83,0x1dc8cb3,0x7e5e13,0x7fe7e93,0x1ee8eb3,0xece83,0x1dc8cb3,0x7e5e13,0x7fe7e93,0x1ee8eb3,0xece83,0x1dc8cb3,0x7e5e13,0x7fe7e93,0x1ee8eb3,0xece83,0x1dc8cb3,0x7e5e13,0x139e93,0x1ceee33,0x7fe7e93,0x1ee8eb3,0xece83,0x1dc8cb3,0x7e5e13,0x7fe7e93,0x1ee8eb3,0xece83,0x1dc8cb3,0x7e5e13,0x7fe7e93,0x1ee8eb3,0xece83,0x1dc8cb3,0x7e5e13,0x7fe7e93,0x1ee8eb3,0xece83,0x1dc8cb3,0x7e5e13,0x7fe7e93,0x1ee8eb3,0xece83,0x1dc8cb3,0x7e5e13,0x7fe7e93,0x1ee8eb3,0xece83,0x1dc8cb3,0x7e5e13,0x7fe7e93,0x1ee8eb3,0xece83,0x1dc8cb3,0x7e5e13,0x7fe7e93,0x1ee8eb3,0xece83,0x1dc8cb3,0x7e5e13,0x7e7e93,0x1dc8cb3,0x3e5e93,0x7efe93,0x1dc8cb3,0x3d3de93,0x1dc8cb3,0x411c8eb3,0xbe0e9ee3,0x2312906f,0x20ab7,0x420a8a93,0x80f0f13,0x7f37e13,0x2e1e13,0x1ee0e33,0xe6e83,0x1da8023,0x8ede93,0x1da80a3,0x8ede93,0x1da8123,0x735313,0x3939e13,0x1c36333,0x73d393,0x3a8a93,0x1a0a13,0x11a3e13,0xfc0e10e3,0x737e13,0x1ca8123,0x335313,0x737e13,0x1ca8023,0x335313,0x737e13,0x1ca80a3,0x8067,0x30513,0x38593,0x613,0x1100a13,0x7f57e13,0x2e1e13,0x1ee0e33,0x83e4e03,0x1c60633,0x755513,0x3959e13,0x1c56533,0x75d593,0xfffa0a13,0xfc0a1ce3,0x757e13,0xffae0e13,0x1e3e13,0x1c60633,0x355513,0x757e13,0xffae0e13,0x1e3e13,0x1c60633,0x355513,0xffa50e13,0x1e3e13,0x1c60633,0x963e13,0xa0e1e63,0xa13,0xf11ff06f,0x960410e3,0xffff37,0x277f4e03,0x940e0ae3,0x278f3303,0x280f3383,0x8100c93,0xa13,0xeedff06f,0x138e13,0x3fe1e13,0x1c34333,0x139393,0x23d393]
+  else [0xffff37,0x30e13,0x7fe7e93,0x1ee8eb3,0xecc83,0x7e5e13,0x7fe7e93,0x1ee8eb3,0xece83,0x1dc8cb3,0x7e5e13,0x7fe7e93,0x1ee8eb3,0xece83,0x1dc8cb3,0x7e5e13,0x7fe7e93,0x1ee8eb3,0xece83,0x1dc8cb3,0x7e5e13,0x7fe7e93,0x1ee8eb3,0xece83,0x1dc8cb3,0x7e5e13,0x7fe7e93,0x1ee8eb3,0xece83,0x1dc8cb3,0x7e5e13,0x7fe7e93,0x1ee8eb3,0xece83,0x1dc8cb3,0x7e5e13,0x7fe7e93,0x1ee8eb3,0xece83,0x1dc8cb3,0x7e5e13,0x7fe7e93,0x1ee8eb3,0xece83,0x1dc8cb3,0x7e5e13,0x139e93,0x1ceee33,0x7fe7e93,0x1ee8eb3,0xece83,0x1dc8cb3,0x7e5e13,0x7fe7e93,0x1ee8eb3,0xece83,0x1dc8cb3,0x7e5e13,0x7fe7e93,0x1ee8eb3,0xece83,0x1dc8cb3,0x7e5e13,0x7fe7e93,0x1ee8eb3,0xece83,0x1dc8cb3,0x7e5e13,0x7fe7e93,0x1ee8eb3,0xece83,0x1dc8cb3,0x7e5e13,0x7fe7e93,0x1ee8eb3,0xece83,0x1dc8cb3,0x7e5e13,0x7fe7e93,0x1ee8eb3,0xece83,0x1dc8cb3,0x7e5e13,0x7fe7e93,0x1ee8eb3,0xece83,0x1dc8cb3,0x7e5e13,0x7e7e93,0x1dc8cb3,0x3e5e93,0x7efe93,0x1dc8cb3,0x3d3de93,0x1dc8cb3,0x411c8eb3,0xbe0e9ee3,0x7591306f,0x20ab7,0x420a8a93,0x80f0f13,0x7f37e13,0x2e1e13,0x1ee0e33,0xe6e83,0x1da8023,0x8ede93,0x1da80a3,0x8ede93,0x1da8123,0x735313,0x3939e13,0x1c36333,0x73d393,0x3a8a93,0x1a0a13,0x11a3e13,0xfc0e10e3,0x737e13,0x1ca8123,0x335313,0x737e13,0x1ca8023,0x335313,0x737e13,0x1ca80a3,0x8067,0x30513,0x38593,0x613,0x1100a13,0x7f57e13,0x2e1e13,0x1ee0e33,0x83e4e03,0x1c60633,0x755513,0x3959e13,0x1c56533,0x75d593,0xfffa0a13,0xfc0a1ce3,0x757e13,0xffae0e13,0x1e3e13,0x1c60633,0x355513,0x757e13,0xffae0e13,0x1e3e13,0x1c60633,0x355513,0xffa50e13,0x1e3e13,0x1c60633,0x963e13,0xa0e1e63,0xa13,0xf11ff06f,0x960410e3,0xffff37,0x277f4e03,0x940e0ae3,0x278f3303,0x280f3383,0x8100c93,0xa13,0xeedff06f,0x138e13,0x3fe1e13,0x1c34333,0x139393,0x23d393]
 def k_438 : List (BitVec 32) := [854675,263267]
 def k_440 : List (BitVec 32) := [0xfffd0a93]
 def k_441 : List (BitVec 32) := [2579]
@@ -67,14 +68,14 @@ def k_467 (_b : Nat) : List (BitVec 32) := [0x8067]
 def k_468s : List (BitVec 32) := [1673619,0x4bc1306f]
 def k_468e : List (BitVec 32) := [1673619,0x4cc2706f]
 def k_468 (b : Nat) : List (BitVec 32) := if b = 354 then k_468e else k_468s
-def kernL (b : Nat) : Rv.Layout := [(0, k_0), (2, k_2), (3, k_3), (7, k_7), (9, k_9), (31, k_31), (40, k_40), (43, k_43), (44, k_44), (47, k_47), (48, k_48), (51, k_51), (52, k_52), (53, k_53), (97, k_97), (99, k_99), (101, k_101), (103, k_103 b), (104, k_104), (112, k_112), (113, k_113 b), (115, k_115), (123, k_123), (124, k_124 b), (130, k_130 b), (132, k_132), (259, k_259 b), (263, k_263), (265, k_265 b), (438, k_438), (440, k_440), (441, k_441), (442, k_442), (443, k_443), (446, k_446), (448, k_448), (452, k_452), (453, k_453), (461, k_461), (462, k_462), (466, k_466), (467, k_467 b), (468, k_468 b)]
+def kernL (b : Nat) : Rv.Layout := [(0, k_0), (2, k_2), (3, k_3), (7, k_7), (9, k_9), (31, k_31), (40, k_40), (43, k_43), (44, k_44), (47, k_47), (48, k_48), (51, k_51), (52, k_52), (53, k_53), (97, k_97), (99, k_99), (101, k_101), (103, k_103 b), (104, k_104 b), (112, k_112), (113, k_113 b), (115, k_115), (123, k_123), (124, k_124 b), (130, k_130 b), (132, k_132), (259, k_259 b), (263, k_263), (265, k_265 b), (438, k_438), (440, k_440), (441, k_441), (442, k_442), (443, k_443), (446, k_446), (448, k_448), (452, k_452), (453, k_453), (461, k_461), (462, k_462), (466, k_466), (467, k_467 b), (468, k_468 b)]
 def kernCode (b : Nat) : List (BitVec 32) := layoutCode (kernL b)
 theorem kernL_ok {b : Nat} (hb : b = 354 ∨ b = 543) : layoutOk 0 (kernL b) = true := by
   rcases hb with rfl | rfl <;> decide +kernel
 def capBase (b : Nat) : Nat := if b = 354 then 41066 else 20771
 def a_0 : List (BitVec 32) := [2097975,6940771]
 def a_2 : List (BitVec 32) := [268387]
-def a_3 : List (BitVec 32) := [4195127,6915171]
+def a_3 : List (BitVec 32) := [0x200337,6915171]
 def a_5s : List (BitVec 32) := [0xda8ec06f]
 def a_5e : List (BitVec 32) := [0xd98d806f]
 def a_5 (b : Nat) : List (BitVec 32) := if b = 354 then a_5e else a_5s
@@ -105,7 +106,7 @@ def c_0s : List (BitVec 32) := [0xfff34313,0xfff00e13,0x9e5e13,29606835,0xbfcec0
 def c_0e : List (BitVec 32) := [0xfff34313,0xfff00e13,0x9e5e13,29606835,0x929d606f]
 def c_0 (b : Nat) : List (BitVec 32) := if b = 354 then c_0e else c_0s
 def topEntryCode (b : Nat) : List (BitVec 32) := if b = 354 then [0x4812806f] else [0xb41306f]
-def topSelect0 : List (BitVec 32) := [0x3c663]
+def topSelect0 : List (BitVec 32) := [0x0200006f]
 def topSelect1 : List (BitVec 32) := [0x1063303,0x1863383]
 def topSelectL : Rv.Layout := [(0,topSelect0),(1,topSelect1)]
 def topSelectCode : List (BitVec 32) := layoutCode topSelectL
@@ -138,13 +139,34 @@ def selectorL (b : Nat) : Rv.Layout := [(0,selector0),(2,selector2),(6,selector6
 def selectorCode (b : Nat) : List (BitVec 32) := layoutCode (selectorL b)
 theorem selectorL_ok {b : Nat} (hb : b=354 ∨ b=543) : layoutOk 0 (selectorL b)=true := by
   rcases hb with rfl | rfl <;> decide +kernel
+/-! Restricted top choice (configuration (1)+(2)), code in the former pad after the top flip block:
+`choice_a` (flag := 0, check LOW), `choice_r` (a failed top check: retry with HIGH unless the flag is set or
+LOW is forced), the rejection jump, and `pa` (path-aware lower credit: `s4 += 4` when LOW is spare).
+The choice flag is the scratch word `0x667F8`. -/
+def choiceBase (b : Nat) : Nat := if b = 354 then 43040 else 21032
+def choiceA : List (BitVec 32) := [0x00066e37,0x7e0e3c23,0xfe5ff06f]
+def choiceR0 : List (BitVec 32) := [0x00066e37,0x7f8e3e83,0x020e9663]
+def choiceR3 : List (BitVec 32) := [0x00020e37,0x2a8e3383,0x03e3de93,0x000e8e63]
+def choiceR7 : List (BitVec 32) := [0x08000e93,0x00066f37,0x7fdf3c23,0x2b0e3303,0x2b8e3383,0xfb1ff06f]
+def choiceRej (b : Nat) : List (BitVec 32) := if b = 354 then [0xc19d606f] else [0xeecec06f]
+def pa0 : List (BitVec 32) := [0x00020eb7,0x2a0ebf03,0x2a8ebe83,0x01eefeb3,0x000ed463]
+def pa5 : List (BitVec 32) := [0x004a0a13]
+def paJ (b : Nat) : List (BitVec 32) := if b = 354 then [0x4090306f] else [0x6700106f]
+/-- Target of `pa`: the lower floor hook. -/
+def paTarget (b : Nat) : Nat := if b = 354 then 46905 else 22491
+def choiceL (b : Nat) : Rv.Layout := [(0,choiceA),(3,choiceR0),(6,choiceR3),(10,choiceR7),(16,choiceRej b),
+  (17,pa0),(22,pa5),(23,paJ b)]
+def choiceCode (b : Nat) : List (BitVec 32) := layoutCode (choiceL b)
+theorem choiceL_ok {b : Nat} (hb : b=354 ∨ b=543) : layoutOk 0 (choiceL b)=true := by
+  rcases hb with rfl | rfl <;> decide +kernel
 def KernAt (image : Image) (b : Nat) (rewardCondition : Prop := Reward.RewardAt image b) : Prop :=
   (CodeAt image (pcOf b) (kernCode b) ∧ CodeAt image (pcOf (capBase b)) (appCode b)) ∧ (b = 354 ∨ b = 543) ∧
     CodeAt image (pcOf (prxBase b)) (p_0 b) ∧
     (CodeAt image (pcOf (tcBase b)) (c_0 b) ∧ CodeAt image (pcOf (tcEntry b)) (topEntryCode b) ∧
       CodeAt image (pcOf (topSelectBase b)) topSelectCode) ∧
     CodeAt image (pcOf (zBase b)) (zeroCode b) ∧
-    CodeAt image (pcOf (selectorBase b)) (selectorCode b) ∧ rewardCondition
+    CodeAt image (pcOf (selectorBase b)) (selectorCode b) ∧
+    CodeAt image (pcOf (choiceBase b)) (choiceCode b) ∧ rewardCondition
 theorem codeAt_k_0 {image : Image} {b : Nat} {rewardCondition : Prop} (h : KernAt image b rewardCondition) :
     CodeAt image (pcOf (b + 0)) k_0 :=
   codeAt_sublayout h.1.1 (kernL_ok h.2.1) (i := 0) rfl
@@ -200,7 +222,7 @@ theorem codeAt_k_103 {image : Image} {b : Nat} {rewardCondition : Prop} (h : Ker
     CodeAt image (pcOf (b + 103)) (k_103 b) :=
   codeAt_sublayout h.1.1 (kernL_ok h.2.1) (i := 17) rfl
 theorem codeAt_k_104 {image : Image} {b : Nat} {rewardCondition : Prop} (h : KernAt image b rewardCondition) :
-    CodeAt image (pcOf (b + 104)) k_104 :=
+    CodeAt image (pcOf (b + 104)) (k_104 b) :=
   codeAt_sublayout h.1.1 (kernL_ok h.2.1) (i := 18) rfl
 theorem codeAt_k_112 {image : Image} {b : Nat} {rewardCondition : Prop} (h : KernAt image b rewardCondition) :
     CodeAt image (pcOf (b + 112)) k_112 :=
@@ -316,87 +338,16 @@ theorem codeAt_topSelect {image : Image} {b : Nat} {rewardCondition : Prop} (h :
 theorem codeAt_zero {image : Image} {b : Nat} {rewardCondition : Prop} (h : KernAt image b rewardCondition) (i o : Nat) (seg : List (BitVec 32))
     (hs : (zeroL b)[i]? = some (o, seg)) : CodeAt image (pcOf (zBase b + o)) seg :=
   codeAt_sublayout h.2.2.2.2.1 (zeroL_ok h.2.1) hs
-theorem kernCode_expand : (Images.expandReferenceImage.code.drop 354).take (kernCode 354).length = kernCode 354 := by
-  change (Images.expandReferenceCode.drop 354).take _ = _
-  rw [Images.Slices.expandReferenceCode_drop_eq 354 (by decide)]
-  decide +kernel
-theorem kernCode_sign : (Images.signReferenceImage.code.drop 543).take (kernCode 543).length = kernCode 543 := by
-  change (Images.signReferenceCode.drop 543).take _ = _
-  rw [Images.Slices.signReferenceCode_drop_eq 543 (by decide)]
-  decide +kernel
-theorem appCode_expand : (Images.expandReferenceImage.code.drop 41066).take (appCode 354).length = appCode 354 := by
-  change (Images.expandReferenceCode.drop 41066).take _ = _
-  rw [Images.Slices.expandReferenceCode_drop_eq 41066 (by decide)]
-  decide +kernel
-theorem appCode_sign : (Images.signReferenceImage.code.drop 20771).take (appCode 543).length = appCode 543 := by
-  change (Images.signReferenceCode.drop 20771).take _ = _
-  rw [Images.Slices.signReferenceCode_drop_eq 20771 (by decide)]
-  decide +kernel
-theorem prxCode_expand : (Images.expandReferenceImage.code.drop 42726).take (p_0 354).length = p_0 354 := by
-  change (Images.expandReferenceCode.drop 42726).take _ = _
-  rw [Images.Slices.expandReferenceCode_drop_eq 42726 (by decide)]
-  decide +kernel
-theorem tcCode_expand : (Images.expandReferenceImage.code.drop 43035).take (c_0 354).length = c_0 354 := by
-  change (Images.expandReferenceCode.drop 43035).take _ = _
-  rw [Images.Slices.expandReferenceCode_drop_eq 43035 (by decide)]
-  decide +kernel
-theorem prxCode_sign : (Images.signReferenceImage.code.drop 1508).take (p_0 543).length = p_0 543 := by
-  change (Images.signReferenceCode.drop 1508).take _ = _
-  rw [Images.Slices.signReferenceCode_drop_eq 1508 (by decide)]
-  decide +kernel
-theorem tcCode_sign : (Images.signReferenceImage.code.drop 21027).take (c_0 543).length = c_0 543 := by
-  change (Images.signReferenceCode.drop 21027).take _ = _
-  rw [Images.Slices.signReferenceCode_drop_eq 21027 (by decide)]
-  decide +kernel
-theorem zeroCode_expand : (Images.expandReferenceImage.code.drop 42841).take (zeroCode 354).length = zeroCode 354 := by
-  change (Images.expandReferenceCode.drop 42841).take _ = _
-  rw [Images.Slices.expandReferenceCode_drop_eq 42841 (by decide)]
-  decide +kernel
-theorem zeroCode_sign : (Images.signReferenceImage.code.drop 20832).take (zeroCode 543).length = zeroCode 543 := by
-  change (Images.signReferenceCode.drop 20832).take _ = _
-  rw [Images.Slices.signReferenceCode_drop_eq 20832 (by decide)]
-  decide +kernel
-theorem selectorCode_expand : (Images.expandReferenceImage.code.drop 42939).take (selectorCode 354).length = selectorCode 354 := by
-  change (Images.expandReferenceCode.drop 42939).take _ = _
-  rw [Images.Slices.expandReferenceCode_drop_eq 42939 (by decide)]
-  decide +kernel
-theorem selectorCode_sign : (Images.signReferenceImage.code.drop 20930).take (selectorCode 543).length = selectorCode 543 := by
-  change (Images.signReferenceCode.drop 20930).take _ = _
-  rw [Images.Slices.signReferenceCode_drop_eq 20930 (by decide)]
-  decide +kernel
+theorem codeAt_choice {image : Image} {b : Nat} {rewardCondition : Prop} (h : KernAt image b rewardCondition) (i o : Nat) (seg : List (BitVec 32))
+    (hs : (choiceL b)[i]? = some (o, seg)) : CodeAt image (pcOf (choiceBase b + o)) seg :=
+  codeAt_sublayout h.2.2.2.2.2.2.1 (choiceL_ok h.2.1) hs
+theorem KernAt.reward {image : Image} {b : Nat} {rewardCondition : Prop} (h : KernAt image b rewardCondition) :
+    rewardCondition := h.2.2.2.2.2.2.2
 theorem codeAt_selector {image : Image} {b : Nat} {rewardCondition : Prop} (h : KernAt image b rewardCondition) (i o : Nat) (seg : List (BitVec 32))
     (hs : (selectorL b)[i]? = some (o,seg)) : CodeAt image (pcOf (selectorBase b+o)) seg :=
   codeAt_sublayout h.2.2.2.2.2.1 (selectorL_ok h.2.1) hs
-theorem topEntry_expand : (Images.expandReferenceImage.code.drop 1272).take (topEntryCode 354).length = (topEntryCode 354) := by
-  change (Images.expandReferenceCode.drop 1272).take _ = _
-  rw [Images.Slices.expandReferenceCode_drop_eq 1272 (by decide)]
-  decide +kernel
-theorem topSelect_expand : (Images.expandReferenceImage.code.drop 43032).take topSelectCode.length = topSelectCode := by
-  change (Images.expandReferenceCode.drop 43032).take _ = _
-  rw [Images.Slices.expandReferenceCode_drop_eq 43032 (by decide)]
-  decide +kernel
-theorem topEntry_sign : (Images.signReferenceImage.code.drop 1523).take (topEntryCode 543).length = (topEntryCode 543) := by
-  change (Images.signReferenceCode.drop 1523).take _ = _
-  rw [Images.Slices.signReferenceCode_drop_eq 1523 (by decide)]
-  decide +kernel
-theorem topSelect_sign : (Images.signReferenceImage.code.drop 21024).take topSelectCode.length = topSelectCode := by
-  change (Images.signReferenceCode.drop 21024).take _ = _
-  rw [Images.Slices.signReferenceCode_drop_eq 21024 (by decide)]
-  decide +kernel
-theorem kernAt_expand : KernAt Images.expandReferenceImage 354 :=
-  ⟨⟨codeAt_slice (by decide +kernel) kernCode_expand, codeAt_slice (by decide +kernel) appCode_expand⟩, Or.inl rfl,
-    codeAt_slice (by decide +kernel) prxCode_expand,
-    ⟨codeAt_slice (by decide +kernel) tcCode_expand, codeAt_slice (by decide +kernel) topEntry_expand,
-      codeAt_slice (by decide +kernel) topSelect_expand⟩,
-    codeAt_slice (by decide +kernel) zeroCode_expand,
-    codeAt_slice (by decide +kernel) selectorCode_expand, Reward.at_expand⟩
-theorem kernAt_sign : KernAt Images.signReferenceImage 543 :=
-  ⟨⟨codeAt_slice (by decide +kernel) kernCode_sign, codeAt_slice (by decide +kernel) appCode_sign⟩, Or.inr rfl,
-    codeAt_slice (by decide +kernel) prxCode_sign,
-    ⟨codeAt_slice (by decide +kernel) tcCode_sign, codeAt_slice (by decide +kernel) topEntry_sign,
-      codeAt_slice (by decide +kernel) topSelect_sign⟩,
-    codeAt_slice (by decide +kernel) zeroCode_sign,
-    codeAt_slice (by decide +kernel) selectorCode_sign, Reward.at_sign⟩
+-- r3-lean-sign: the reference-image kernel facts (`kernAt_sign`/`kernAt_expand`) were removed: the reference
+-- images keep the pre-choice kernel; the live routes use `installed_kernel` on the current images.
 sym_block blk354_0 := symRun { noAlias := true } k_0 (pcOf (354 + 0)) 200
 sym_block blk543_0 := symRun { noAlias := true } k_0 (pcOf (543 + 0)) 200
 sym_block blk354_3 := symRun { noAlias := true } k_3 (pcOf (354 + 3)) 200
@@ -675,7 +626,7 @@ theorem run_263 {b : Nat} (hb : b = 354 ∨ b = 543) :
   · exact blk354_263.trans (congrArg some (by kernel_rfl))
   · exact blk543_263.trans (congrArg some (by kernel_rfl))
 def st_265 : SymState := blk354_265.res.st
-def pcE_265 (b : Nat) : E := rebase blk354_265.res.pc (pcOf (b + 468)) (pcOf (b + 362))
+def pcE_265 (b : Nat) : E := rebase blk354_265.res.pc (pcOf (b + 104)) (pcOf (b + 362))
 theorem run_265 {b : Nat} (hb : b = 354 ∨ b = 543) :
     symRun { noAlias := true } (k_265 b) (pcOf (b + 265)) 200 =
       some ⟨st_265, pcE_265 b, blk354_265.res.stop, blk354_265.res.steps, blk354_265.res.cycles⟩ := by

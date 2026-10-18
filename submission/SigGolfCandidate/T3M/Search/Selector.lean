@@ -162,7 +162,7 @@ theorem topRun_entry {b : Nat} (hb : b=354 ∨ b=543) :
 sym_block top354_gate := symRun {noAlias:=true} (topSelect0) (pcOf (topSelectBase 354+0)) 200
 sym_block top543_gate := symRun {noAlias:=true} (topSelect0) (pcOf (topSelectBase 543+0)) 200
 def topState_gate : SymState := top354_gate.res.st
-def topPc_gate (b : Nat) : E := rebase top354_gate.res.pc (pcOf (tcBase b)) (pcOf (topSelectBase b+1))
+def topPc_gate (b : Nat) : E := .c (pcOf (choiceBase b))
 theorem topRun_gate {b : Nat} (hb : b=354 ∨ b=543) :
     symRun {noAlias:=true} (topSelect0) (pcOf (topSelectBase b+0)) 200 =
     some ⟨topState_gate,topPc_gate b,top354_gate.res.stop,top354_gate.res.steps,top354_gate.res.cycles⟩ := by
@@ -199,63 +199,287 @@ theorem top_entry_spec {image : Image} {b : Nat} {rewardCondition : Prop} (hK : 
   · rfl
   · intro r hr; cases r <;> simp_all [topState_entry,top354_entry.res,rv_simp] <;> rfl
   · intro A _ _; simp [topState_entry,top354_entry.res,rv_simp]
+/-- The top select gate is now `jal zero, choice_a`. -/
 theorem top_gate_spec {image : Image} {b : Nat} {rewardCondition : Prop} (hK : KernAt image b rewardCondition)
-    (s : MachineState) (hpc : s.pc=pcOf (topSelectBase b)) (v : T3.Digest)
-    (h7 : s.getReg .x7=v.extractLsb' 64 64) :
-    ∃ t, Steps image s 1 1 t ∧
-      t.pc=(if T3.TopDualHalf.gate v then pcOf (tcBase b) else pcOf (topSelectBase b+1)) ∧
+    (s : MachineState) (hpc : s.pc=pcOf (topSelectBase b)) :
+    ∃ t, Steps image s 1 1 t ∧ t.pc=pcOf (choiceBase b) ∧
       RegsExcept s t [] ∧ Frame s t (fun _ => False) := by
   refine ⟨_,symRun_sound (topRun_gate hK.2.1) (codeAt_topSelect hK 0 0 topSelect0 rfl) s hpc
     (by simp [topState_gate,top354_gate.res,rv_simp]),?_,?_,?_⟩
-  · simp only [Result.toState_pc,topPc_gate,rebase,top354_gate.res,E.eval,CmpOp.eval,h7]
-    rw [BitVec.slt_zero_eq_msb,top_gate_msb]
-    by_cases h : T3.TopDualHalf.gate v <;> simp [h]
+  · rfl
   · intro r hr; cases r <;> simp_all [topState_gate,top354_gate.res,rv_simp] <;> rfl
   · intro A _ _; simp [topState_gate,top354_gate.res,rv_simp]
-theorem top_load_spec {image : Image} {b : Nat} {rewardCondition : Prop} (hK : KernAt image b rewardCondition)
-    (s : MachineState) (hpc : s.pc=pcOf (topSelectBase b+1)) (v : T3.Digest)
-    (h12 : s.getReg .x12=BitVec.ofNat 64 EOUT)
-    (hm0 : s.getMem (BitVec.ofNat 64 (EOUT+16))=v.extractLsb' 0 64)
-    (hm1 : s.getMem (BitVec.ofNat 64 (EOUT+24))=v.extractLsb' 64 64) :
-    ∃ t, Steps image s 2 2 t ∧ t.pc=pcOf (tcBase b) ∧
-      t.getReg .x6=v.extractLsb' 0 64 ∧ t.getReg .x7=v.extractLsb' 64 64 ∧
-      RegsExcept s t [.x6,.x7] ∧ Frame s t (fun _ => False) := by
-  refine ⟨_,symRun_sound (topRun_load hK.2.1) (codeAt_topSelect hK 1 1 topSelect1 rfl) s hpc
-    (by simp [topState_load,top354_load.res,rv_simp,h12,EOUT,accessValid_iff,MEMORY_BYTES]),?_,?_,?_,?_,?_⟩
-  · rfl
-  · simpa [topState_load,top354_load.res,rv_simp,h12,EOUT] using hm0
-  · simpa [topState_load,top354_load.res,rv_simp,h12,EOUT] using hm1
-  · intro r hr; simp at hr; cases r <;> simp_all [topState_load,top354_load.res,rv_simp] <;> rfl
-  · intro A _ _; simp [topState_load,top354_load.res,rv_simp]
+/-! ### Restricted top choice: `choice_a`, `choice_r` and the path-aware lower credit `pa`. -/
+/-- The choice flag scratch word. -/
+abbrev FLAG : Nat := 0x667F8
+theorem choice_code {image : Image} {b : Nat} {rewardCondition : Prop} (hK : KernAt image b rewardCondition)
+    (i o : Nat) (seg : List (BitVec 32)) (hs : (choiceL b)[i]? = some (o,seg)) :
+    CodeAt image (pcOf (choiceBase b+o)) seg := codeAt_choice hK i o seg hs
+sym_block chA354 := symRun {noAlias:=true} choiceA (pcOf (choiceBase 354+0)) 200
+sym_block chA543 := symRun {noAlias:=true} choiceA (pcOf (choiceBase 543+0)) 200
+def chAState : SymState := chA354.res.st
+theorem chARun {b : Nat} (hb : b=354 ∨ b=543) :
+    symRun {noAlias:=true} choiceA (pcOf (choiceBase b+0)) 200 =
+    some ⟨chAState,.c (pcOf (tcBase b)),chA354.res.stop,chA354.res.steps,chA354.res.cycles⟩ := by
+  rcases hb with rfl | rfl
+  · exact chA354.trans (congrArg some (by kernel_rfl))
+  · exact chA543.trans (congrArg some (by kernel_rfl))
+sym_block chR0354 := symRun {noAlias:=true} choiceR0 (pcOf (choiceBase 354+3)) 200
+sym_block chR0543 := symRun {noAlias:=true} choiceR0 (pcOf (choiceBase 543+3)) 200
+def chR0State : SymState := chR0354.res.st
+def chR0Pc (b : Nat) : E := rebase chR0354.res.pc (pcOf (choiceBase b+16)) (pcOf (choiceBase b+6))
+theorem chR0Run {b : Nat} (hb : b=354 ∨ b=543) :
+    symRun {noAlias:=true} choiceR0 (pcOf (choiceBase b+3)) 200 =
+    some ⟨chR0State,chR0Pc b,chR0354.res.stop,chR0354.res.steps,chR0354.res.cycles⟩ := by
+  rcases hb with rfl | rfl
+  · exact chR0354.trans (congrArg some (by kernel_rfl))
+  · exact chR0543.trans (congrArg some (by kernel_rfl))
+sym_block chR3354 := symRun {noAlias:=true} choiceR3 (pcOf (choiceBase 354+6)) 200
+sym_block chR3543 := symRun {noAlias:=true} choiceR3 (pcOf (choiceBase 543+6)) 200
+def chR3State : SymState := chR3354.res.st
+def chR3Pc (b : Nat) : E := rebase chR3354.res.pc (pcOf (choiceBase b+16)) (pcOf (choiceBase b+10))
+theorem chR3Run {b : Nat} (hb : b=354 ∨ b=543) :
+    symRun {noAlias:=true} choiceR3 (pcOf (choiceBase b+6)) 200 =
+    some ⟨chR3State,chR3Pc b,chR3354.res.stop,chR3354.res.steps,chR3354.res.cycles⟩ := by
+  rcases hb with rfl | rfl
+  · exact chR3354.trans (congrArg some (by kernel_rfl))
+  · exact chR3543.trans (congrArg some (by kernel_rfl))
+sym_block chR7354 := symRun {noAlias:=true} choiceR7 (pcOf (choiceBase 354+10)) 200
+sym_block chR7543 := symRun {noAlias:=true} choiceR7 (pcOf (choiceBase 543+10)) 200
+def chR7State : SymState := chR7354.res.st
+theorem chR7Run {b : Nat} (hb : b=354 ∨ b=543) :
+    symRun {noAlias:=true} choiceR7 (pcOf (choiceBase b+10)) 200 =
+    some ⟨chR7State,.c (pcOf (tcBase b)),chR7354.res.stop,chR7354.res.steps,chR7354.res.cycles⟩ := by
+  rcases hb with rfl | rfl
+  · exact chR7354.trans (congrArg some (by kernel_rfl))
+  · exact chR7543.trans (congrArg some (by kernel_rfl))
+sym_block chJ354 := symRun {noAlias:=true} (choiceRej 354) (pcOf (choiceBase 354+16)) 200
+sym_block chJ543 := symRun {noAlias:=true} (choiceRej 543) (pcOf (choiceBase 543+16)) 200
+def chJState : SymState := chJ354.res.st
+theorem chJRun {b : Nat} (hb : b=354 ∨ b=543) :
+    symRun {noAlias:=true} (choiceRej b) (pcOf (choiceBase b+16)) 200 =
+    some ⟨chJState,.c (pcOf (b+468)),chJ354.res.stop,chJ354.res.steps,chJ354.res.cycles⟩ := by
+  rcases hb with rfl | rfl
+  · exact chJ354.trans (congrArg some (by kernel_rfl))
+  · exact chJ543.trans (congrArg some (by kernel_rfl))
+sym_block pa0354 := symRun {noAlias:=true} pa0 (pcOf (choiceBase 354+17)) 200
+sym_block pa0543 := symRun {noAlias:=true} pa0 (pcOf (choiceBase 543+17)) 200
+def pa0State : SymState := pa0354.res.st
+def pa0Pc (b : Nat) : E := rebase pa0354.res.pc (pcOf (choiceBase b+23)) (pcOf (choiceBase b+22))
+theorem pa0Run {b : Nat} (hb : b=354 ∨ b=543) :
+    symRun {noAlias:=true} pa0 (pcOf (choiceBase b+17)) 200 =
+    some ⟨pa0State,pa0Pc b,pa0354.res.stop,pa0354.res.steps,pa0354.res.cycles⟩ := by
+  rcases hb with rfl | rfl
+  · exact pa0354.trans (congrArg some (by kernel_rfl))
+  · exact pa0543.trans (congrArg some (by kernel_rfl))
+sym_block pa5354 := symRun {noAlias:=true} pa5 (pcOf (choiceBase 354+22)) 200
+sym_block pa5543 := symRun {noAlias:=true} pa5 (pcOf (choiceBase 543+22)) 200
+def pa5State : SymState := pa5354.res.st
+theorem pa5Run {b : Nat} (hb : b=354 ∨ b=543) :
+    symRun {noAlias:=true} pa5 (pcOf (choiceBase b+22)) 200 =
+    some ⟨pa5State,.c (pcOf (choiceBase b+23)),pa5354.res.stop,pa5354.res.steps,pa5354.res.cycles⟩ := by
+  rcases hb with rfl | rfl
+  · exact pa5354.trans (congrArg some (by kernel_rfl))
+  · exact pa5543.trans (congrArg some (by kernel_rfl))
+sym_block paJ354 := symRun {noAlias:=true} (paJ 354) (pcOf (choiceBase 354+23)) 200
+sym_block paJ543 := symRun {noAlias:=true} (paJ 543) (pcOf (choiceBase 543+23)) 200
+def paJState : SymState := paJ354.res.st
+theorem paJRun {b : Nat} (hb : b=354 ∨ b=543) :
+    symRun {noAlias:=true} (paJ b) (pcOf (choiceBase b+23)) 200 =
+    some ⟨paJState,.c (pcOf (paTarget b)),paJ354.res.stop,paJ354.res.steps,paJ354.res.cycles⟩ := by
+  rcases hb with rfl | rfl
+  · exact paJ354.trans (congrArg some (by kernel_rfl))
+  · exact paJ543.trans (congrArg some (by kernel_rfl))
+/-- `choice_a`: clear the choice flag and check the LOW half (already in `x6`, `x7`). -/
+theorem choiceA_spec {image : Image} {b : Nat} {rewardCondition : Prop} (hK : KernAt image b rewardCondition)
+    (s : MachineState) (hpc : s.pc=pcOf (choiceBase b)) :
+    ∃ t, Steps image s 3 3 t ∧ t.pc=pcOf (tcBase b) ∧ t.getMem (BitVec.ofNat 64 FLAG)=0 ∧
+      RegsExcept s t [.x28] ∧ Frame s t (fun A => A=FLAG) := by
+  refine ⟨_,symRun_sound (chARun hK.2.1) (choice_code hK 0 0 choiceA rfl) s hpc
+    (by simp [chAState,chA354.res,rv_simp,accessValid_iff,MEMORY_BYTES]),rfl,?_,?_,?_⟩
+  · simp only [Result.toState_getMem,chAState,chA354.res]; t3n []
+  · intro r hr; simp at hr; cases r <;> simp_all [chAState,chA354.res,rv_simp] <;> rfl
+  · intro A hA hn
+    simp only [Result.toState_getMem,chAState,chA354.res]; t3n []
+    rw [if_neg (by simp only [FLAG] at hn; omega)]
+theorem choiceR0_spec {image : Image} {b : Nat} {rewardCondition : Prop} (hK : KernAt image b rewardCondition)
+    (s : MachineState) (hpc : s.pc=pcOf (choiceBase b+3)) :
+    ∃ t, Steps image s 3 3 t ∧
+      t.pc=(if s.getMem (BitVec.ofNat 64 FLAG)=0 then pcOf (choiceBase b+6) else pcOf (choiceBase b+16)) ∧
+      RegsExcept s t [.x28,.x29] ∧ Frame s t (fun _ => False) := by
+  refine ⟨_,symRun_sound (chR0Run hK.2.1) (choice_code hK 1 3 choiceR0 rfl) s hpc
+    (by simp [chR0State,chR0354.res,rv_simp,accessValid_iff,MEMORY_BYTES]),?_,?_,?_⟩
+  · simp only [Result.toState_pc,chR0Pc,rebase,chR0354.res,E.eval,CmpOp.eval,BinOp.eval]
+    t3n []
+    by_cases h : s.getMem (BitVec.ofNat 64 FLAG)=0
+    · simp [FLAG] at h; simp [h]
+    · simp [FLAG] at h; simp [h]
+  · intro r hr; simp at hr; cases r <;> simp_all [chR0State,chR0354.res,rv_simp] <;> rfl
+  · intro A _ _; simp [chR0State,chR0354.res,rv_simp]
+/-- LOW is forced exactly when bits 126 and 127 of LOW are both zero (`TopChoice.blocked`). -/
+theorem choiceR3_spec {image : Image} {b : Nat} {rewardCondition : Prop} (hK : KernAt image b rewardCondition)
+    (s : MachineState) (hpc : s.pc=pcOf (choiceBase b+6)) (low : BitVec 128)
+    (hm : s.getMem (BitVec.ofNat 64 (EOUT+8))=low.extractLsb' 64 64) :
+    ∃ t, Steps image s 4 4 t ∧
+      t.pc=(if low.toNat < 2 ^ 126 then pcOf (choiceBase b+16) else pcOf (choiceBase b+10)) ∧
+      t.getReg .x28=BitVec.ofNat 64 0x20000 ∧
+      RegsExcept s t [.x7,.x28,.x29] ∧ Frame s t (fun _ => False) := by
+  refine ⟨_,symRun_sound (chR3Run hK.2.1) (choice_code hK 2 6 choiceR3 rfl) s hpc
+    (by simp [chR3State,chR3354.res,rv_simp,accessValid_iff,MEMORY_BYTES]),?_,?_,?_,?_⟩
+  · simp only [Result.toState_pc,chR3Pc,rebase,chR3354.res,E.eval,CmpOp.eval,BinOp.eval]
+    t3n []
+    have hm' : s.getMem 131752#64 = low.extractLsb' 64 64 := by simpa [EOUT] using hm
+    rw [hm']
+    by_cases h : low.toNat < 2 ^ 126
+    · have := (ext64_shr_eq_zero low 62 (by decide)).mpr (by simpa using h)
+      have h2 : low.toNat < 85070591730234615865843651857942052864 := by simpa using h
+      rw [if_pos h2]; simp [this]
+    · have h' : ¬ (low.extractLsb' 64 64 >>> 62 = 0#64) := fun e =>
+        h (by simpa using (ext64_shr_eq_zero low 62 (by decide)).mp e)
+      have h2 : ¬ low.toNat < 85070591730234615865843651857942052864 := by simpa using h
+      rw [if_neg h2]; simp [h']
+  · simp [chR3State,chR3354.res,rv_simp]
+  · intro r hr; simp at hr; cases r <;> simp_all [chR3State,chR3354.res,rv_simp] <;> rfl
+  · intro A _ _; simp [chR3State,chR3354.res,rv_simp]
+theorem choiceR7_spec {image : Image} {b : Nat} {rewardCondition : Prop} (hK : KernAt image b rewardCondition)
+    (s : MachineState) (hpc : s.pc=pcOf (choiceBase b+10)) (high : BitVec 128)
+    (h28 : s.getReg .x28=BitVec.ofNat 64 0x20000)
+    (hm0 : s.getMem (BitVec.ofNat 64 (EOUT+16))=high.extractLsb' 0 64)
+    (hm1 : s.getMem (BitVec.ofNat 64 (EOUT+24))=high.extractLsb' 64 64) :
+    ∃ t, Steps image s 6 6 t ∧ t.pc=pcOf (tcBase b) ∧
+      t.getReg .x6=high.extractLsb' 0 64 ∧ t.getReg .x7=high.extractLsb' 64 64 ∧
+      t.getMem (BitVec.ofNat 64 FLAG)=BitVec.ofNat 64 128 ∧
+      RegsExcept s t [.x6,.x7,.x29,.x30] ∧ Frame s t (fun A => A=FLAG) := by
+  refine ⟨_,symRun_sound (chR7Run hK.2.1) (choice_code hK 3 10 choiceR7 rfl) s hpc
+    (by simp [chR7State,chR7354.res,rv_simp,accessValid_iff,MEMORY_BYTES,h28]),rfl,?_,?_,?_,?_,?_⟩
+  · simpa [chR7State,chR7354.res,rv_simp,h28,EOUT] using hm0
+  · simpa [chR7State,chR7354.res,rv_simp,h28,EOUT] using hm1
+  · simp only [Result.toState_getMem,chR7State,chR7354.res]; t3n []
+  · intro r hr; simp at hr; cases r <;> simp_all [chR7State,chR7354.res,rv_simp] <;> rfl
+  · intro A hA hn
+    simp only [Result.toState_getMem,chR7State,chR7354.res]; t3n []
+    rw [if_neg (by simp only [FLAG] at hn; omega)]
+theorem choiceRej_spec {image : Image} {b : Nat} {rewardCondition : Prop} (hK : KernAt image b rewardCondition)
+    (s : MachineState) (hpc : s.pc=pcOf (choiceBase b+16)) :
+    ∃ t, Steps image s 1 1 t ∧ t.pc=pcOf (b+468) ∧ RegsExcept s t [] ∧ Frame s t (fun _ => False) := by
+  refine ⟨_,symRun_sound (chJRun hK.2.1) (choice_code hK 4 16 (choiceRej b) rfl) s hpc
+    (by simp [chJState,chJ354.res,rv_simp]),rfl,?_,?_⟩
+  · intro r hr; cases r <;> simp_all [chJState,chJ354.res,rv_simp] <;> rfl
+  · intro A _ _; simp [chJState,chJ354.res,rv_simp]
+/-- `choice_r` (entered after a failed top check). With the flag clear and LOW not forced, it loads HIGH,
+sets the flag and returns to the top flip; otherwise it rejects the counter. -/
+theorem choiceR_spec {image : Image} {b : Nat} {rewardCondition : Prop} (hK : KernAt image b rewardCondition)
+    (s : MachineState) (hpc : s.pc=pcOf (choiceBase b+3)) (a : BitVec 256)
+    (hm8 : s.getMem (BitVec.ofNat 64 (EOUT+8))=(a.extractLsb' 0 128).extractLsb' 64 64)
+    (hm16 : s.getMem (BitVec.ofNat 64 (EOUT+16))=(a.extractLsb' 128 128).extractLsb' 0 64)
+    (hm24 : s.getMem (BitVec.ofNat 64 (EOUT+24))=(a.extractLsb' 128 128).extractLsb' 64 64) :
+    ∃ k t, Steps image s k k t ∧ k ≤ 13 ∧
+      (if s.getMem (BitVec.ofNat 64 FLAG)=0 ∧ ¬ T3.TopChoice.blocked (a.extractLsb' 0 128) then
+        t.pc=pcOf (tcBase b) ∧ t.getReg .x6=(a.extractLsb' 128 128).extractLsb' 0 64 ∧
+          t.getReg .x7=(a.extractLsb' 128 128).extractLsb' 64 64 ∧
+          t.getMem (BitVec.ofNat 64 FLAG)=BitVec.ofNat 64 128
+      else t.pc=pcOf (b+468)) ∧
+      RegsExcept s t [.x6,.x7,.x28,.x29,.x30] ∧ Frame s t (fun A => A=FLAG) := by
+  obtain ⟨u,su,pu,ru,fu⟩ := choiceR0_spec hK s hpc
+  by_cases hf : s.getMem (BitVec.ofNat 64 FLAG)=0
+  · rw [if_pos hf] at pu
+    obtain ⟨v,sv,pv,v28,rv,fv⟩ := choiceR3_spec hK u pu (a.extractLsb' 0 128)
+      (by rw [fu.get (by unfold EOUT; omega) (by simp)]; exact hm8)
+    by_cases hb : T3.TopChoice.blocked (a.extractLsb' 0 128)
+    · have hb' : (a.extractLsb' 0 128).toNat < 2 ^ 126 := hb
+      rw [if_pos hb'] at pv
+      obtain ⟨t,st,pt,rt,ft⟩ := choiceRej_spec hK v pv
+      refine ⟨_,t,(su.trans sv).trans st,by omega,?_,((ru.trans rv).trans rt).mono (by decide),
+        ((fu.trans fv).trans ft).mono (fun _ _ h => by simp at h)⟩
+      rw [if_neg (fun h => h.2 hb)]; exact pt
+    · have hb' : ¬ (a.extractLsb' 0 128).toNat < 2 ^ 126 := hb
+      rw [if_neg hb'] at pv
+      obtain ⟨t,st,pt,t6,t7,tf,rt,ft⟩ := choiceR7_spec hK v pv (a.extractLsb' 128 128) v28
+        (by rw [fv.get (by unfold EOUT; omega) (by simp),fu.get (by unfold EOUT; omega) (by simp)]; exact hm16)
+        (by rw [fv.get (by unfold EOUT; omega) (by simp),fu.get (by unfold EOUT; omega) (by simp)]; exact hm24)
+      refine ⟨_,t,(su.trans sv).trans st,by omega,?_,((ru.trans rv).trans rt).mono (by decide),
+        ((fu.trans fv).trans ft).mono (fun _ _ h => by simpa using h)⟩
+      rw [if_pos ⟨hf,hb⟩]; exact ⟨pt,t6,t7,tf⟩
+  · rw [if_neg hf] at pu
+    obtain ⟨t,st,pt,rt,ft⟩ := choiceRej_spec hK u pu
+    refine ⟨_,t,su.trans st,by omega,?_,(ru.trans rt).mono (by decide),
+      (fu.trans ft).mono (fun _ _ h => by simp at h)⟩
+    rw [if_neg (fun h => hf h.1)]; exact pt
+/-- `pa`: add the path bonus 4 to the lower reward accumulator `s4` (`x20`) when LOW is spare. -/
+theorem pa_spec {image : Image} {b : Nat} {rewardCondition : Prop} (hK : KernAt image b rewardCondition)
+    (s : MachineState) (hpc : s.pc=pcOf (choiceBase b+17)) (low : BitVec 128) (acc : Nat)
+    (hacc : acc + 4 < 2 ^ 64)
+    (hm0 : s.getMem (BitVec.ofNat 64 EOUT)=low.extractLsb' 0 64)
+    (hm8 : s.getMem (BitVec.ofNat 64 (EOUT+8))=low.extractLsb' 64 64)
+    (h20 : s.getReg .x20=BitVec.ofNat 64 acc) :
+    ∃ k t, Steps image s k k t ∧ k ≤ 7 ∧ t.pc=pcOf (paTarget b) ∧
+      t.getReg .x20=BitVec.ofNat 64 (acc+if T3.lowerSpare low then 4 else 0) ∧
+      RegsExcept s t [.x20,.x29,.x30] ∧ Frame s t (fun _ => False) := by
+  obtain ⟨u,su,pu,ru,fu⟩ : ∃ u, Steps image s 5 5 u ∧
+      u.pc=(if T3.lowerSpare low then pcOf (choiceBase b+22) else pcOf (choiceBase b+23)) ∧
+      RegsExcept s u [.x29,.x30] ∧ Frame s u (fun _ => False) := by
+    refine ⟨_,symRun_sound (pa0Run hK.2.1) (choice_code hK 5 17 pa0 rfl) s hpc
+      (by simp [pa0State,pa0354.res,rv_simp,accessValid_iff,MEMORY_BYTES]),?_,?_,?_⟩
+    · have h0 : s.getMem 131744#64 = low.extractLsb' 0 64 := by simpa [EOUT] using hm0
+      have h8 : s.getMem 131752#64 = low.extractLsb' 64 64 := by simpa [EOUT] using hm8
+      have hm := spare_msb low
+      rw [BitVec.and_comm] at hm
+      simp only [Result.toState_pc,pa0Pc,rebase,pa0354.res,E.eval,CmpOp.eval,BinOp.eval,h0,h8,
+        BitVec.slt_zero_eq_msb,hm]
+      by_cases h : T3.lowerSpare low <;> simp [h]
+    · intro r hr; simp at hr; cases r <;> simp_all [pa0State,pa0354.res,rv_simp] <;> rfl
+    · intro A _ _; simp [pa0State,pa0354.res,rv_simp]
+  have jump : ∀ w : MachineState, w.pc=pcOf (choiceBase b+23) →
+      ∃ t, Steps image w 1 1 t ∧ t.pc=pcOf (paTarget b) ∧ RegsExcept w t [] ∧ Frame w t (fun _ => False) := by
+    intro w hw
+    refine ⟨_,symRun_sound (paJRun hK.2.1) (choice_code hK 7 23 (paJ b) rfl) w hw
+      (by simp [paJState,paJ354.res,rv_simp]),rfl,?_,?_⟩
+    · intro r hr; cases r <;> simp_all [paJState,paJ354.res,rv_simp] <;> rfl
+    · intro A _ _; simp [paJState,paJ354.res,rv_simp]
+  by_cases h : T3.lowerSpare low
+  · rw [if_pos h] at pu
+    obtain ⟨v,sv,pv,v20,rv,fv⟩ : ∃ v, Steps image u 1 1 v ∧ v.pc=pcOf (choiceBase b+23) ∧
+        v.getReg .x20=u.getReg .x20+BitVec.ofNat 64 4 ∧ RegsExcept u v [.x20] ∧ Frame u v (fun _ => False) := by
+      refine ⟨_,symRun_sound (pa5Run hK.2.1) (choice_code hK 6 22 pa5 rfl) u pu
+        (by simp [pa5State,pa5354.res,rv_simp]),rfl,?_,?_,?_⟩
+      · simp [pa5State,pa5354.res,rv_simp]
+      · intro r hr; simp at hr; cases r <;> simp_all [pa5State,pa5354.res,rv_simp] <;> rfl
+      · intro A _ _; simp [pa5State,pa5354.res,rv_simp]
+    obtain ⟨t,st,pt,rt,ft⟩ := jump v pv
+    refine ⟨7,t,(su.trans sv).trans st,le_refl _,pt,?_,((ru.trans rv).trans rt).mono (by decide),
+      ((fu.trans fv).trans ft).mono (fun _ _ h => by simp at h)⟩
+    rw [rt.get (by decide),v20,ru.get (by decide),h20,if_pos h,BitVec.ofNat_add]
+  · rw [if_neg h] at pu
+    obtain ⟨t,st,pt,rt,ft⟩ := jump u pu
+    refine ⟨6,t,su.trans st,by omega,pt,?_,(ru.trans rt).mono (by decide),
+      (fu.trans ft).mono (fun _ _ h => by simp at h)⟩
+    rw [rt.get (by decide),ru.get (by decide),h20,if_neg h,Nat.add_zero]
+sym_block rt354 := symRun {noAlias:=true} (k_104 354) (pcOf (354+104)) 200
+sym_block rt543 := symRun {noAlias:=true} (k_104 543) (pcOf (543+104)) 200
+def rtState : SymState := rt354.res.st
+theorem rtRun {b : Nat} (hb : b=354 ∨ b=543) :
+    symRun {noAlias:=true} (k_104 b) (pcOf (b+104)) 200 =
+    some ⟨rtState,.c (pcOf (choiceBase b+3)),rt354.res.stop,rt354.res.steps,rt354.res.cycles⟩ := by
+  rcases hb with rfl | rfl
+  · exact rt354.trans (congrArg some (by kernel_rfl))
+  · exact rt543.trans (congrArg some (by kernel_rfl))
+/-- A failed top sum check (`b + 104`) retries through `choice_r`. -/
+theorem retry_spec {image : Image} {b : Nat} {rewardCondition : Prop} (hK : KernAt image b rewardCondition)
+    (s : MachineState) (hpc : s.pc=pcOf (b+104)) :
+    ∃ t, Steps image s 1 1 t ∧ t.pc=pcOf (choiceBase b+3) ∧ RegsExcept s t [] ∧ Frame s t (fun _ => False) := by
+  refine ⟨_,symRun_sound (rtRun hK.2.1) (codeAt_k_104 hK) s hpc (by simp [rtState,rt354.res,rv_simp]),rfl,?_,?_⟩
+  · intro r hr; cases r <;> simp_all [rtState,rt354.res,rv_simp] <;> rfl
+  · intro A _ _; simp [rtState,rt354.res,rv_simp]
+/-- Top entry: `jal` to the select gate, `jal` to `choice_a`, clear the flag; LOW stays in `x6`, `x7`. -/
 theorem top_select_spec {image : Image} {b : Nat} {rewardCondition : Prop} (hK : KernAt image b rewardCondition)
-    (s : MachineState) (hpc : s.pc=pcOf (tcEntry b)) (a : BitVec 256)
-    (h6 : s.getReg .x6=(a.extractLsb' 0 128).extractLsb' 0 64)
-    (h7 : s.getReg .x7=(a.extractLsb' 0 128).extractLsb' 64 64)
-    (h12 : s.getReg .x12=BitVec.ofNat 64 EOUT)
-    (hm0 : s.getMem (BitVec.ofNat 64 (EOUT+16))=(a.extractLsb' 128 128).extractLsb' 0 64)
-    (hm1 : s.getMem (BitVec.ofNat 64 (EOUT+24))=(a.extractLsb' 128 128).extractLsb' 64 64) :
-    ∃ k t, Steps image s k k t ∧ k ≤ 4 ∧ t.pc=pcOf (tcBase b) ∧
-      t.getReg .x6=(T3.TopDualHalf.select a).extractLsb' 0 64 ∧
-      t.getReg .x7=(T3.TopDualHalf.select a).extractLsb' 64 64 ∧
-      RegsExcept s t [.x6,.x7] ∧ Frame s t (fun _ => False) := by
+    (s : MachineState) (hpc : s.pc=pcOf (tcEntry b)) :
+    ∃ t, Steps image s 5 5 t ∧ t.pc=pcOf (tcBase b) ∧ t.getMem (BitVec.ofNat 64 FLAG)=0 ∧
+      RegsExcept s t [.x28] ∧ Frame s t (fun A => A=FLAG) := by
   obtain ⟨u,su,pu,ru,fu⟩ := top_entry_spec hK s hpc
-  obtain ⟨v,sv,pv,rv,fv⟩ := top_gate_spec hK u pu (a.extractLsb' 0 128)
-    ((ru.get (by decide)).trans h7)
-  have rr := ru.trans rv
-  have ff := fu.trans fv
-  by_cases h : T3.TopDualHalf.gate (a.extractLsb' 0 128)
-  · rw [if_pos h] at pv
-    simp only [T3.TopDualHalf.select,T3.TopDualHalf.selectPair,if_pos h]
-    exact ⟨2,v,su.trans sv,by omega,pv,(rr.get (by decide)).trans h6,
-      (rr.get (by decide)).trans h7,rr.mono (by decide),ff.mono (by simp)⟩
-  · rw [if_neg h] at pv
-    simp only [T3.TopDualHalf.select,T3.TopDualHalf.selectPair,if_neg h]
-    obtain ⟨t,st,pt,g6,g7,rt,ft⟩ := top_load_spec hK v pv (a.extractLsb' 128 128)
-      ((rr.get (by decide)).trans h12)
-      (by rw [ff.get (by unfold EOUT;omega) (by simp)];exact hm0)
-      (by rw [ff.get (by unfold EOUT;omega) (by simp)];exact hm1)
-    exact ⟨4,t,(su.trans sv).trans st,by omega,pt,g6,g7,
-      (rr.trans rt).mono (by decide),(ff.trans ft).mono (by simp)⟩
+  obtain ⟨v,sv,pv,rv,fv⟩ := top_gate_spec hK u pu
+  obtain ⟨t,st,pt,mt,rt,ft⟩ := choiceA_spec hK v pv
+  exact ⟨t,(su.trans sv).trans st,pt,mt,((ru.trans rv).trans rt).mono (by decide),
+    ((fu.trans fv).trans ft).mono (fun _ _ h => by simpa using h)⟩
 
 end SigGolfCandidate.T3M.Search
 

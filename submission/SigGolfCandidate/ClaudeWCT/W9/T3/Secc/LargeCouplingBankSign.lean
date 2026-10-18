@@ -835,6 +835,10 @@ theorem hit_encodingHit (lay : Layer) (t : Digest) :
     ∀ p, (encodingHit lay t : Hit WCoord) = .label p → ∃ c' : Coord, p = .inl c' := by
   intro p hp
   simp [encodingHit] at hp
+theorem hit_encodingHitSel (lay : Layer) (t : Digest) :
+    ∀ p, (encodingHitSel lay t : Hit WCoord) = .label p → ∃ c' : Coord, p = .inl c' := by
+  intro p hp
+  simp [encodingHitSel] at hp
 variable (aux : (input : AuxSpec.Domain) → PMF (AuxSpec.Range input)) (q : Nat)
 theorem bank_routeQuery (a : AuxData) (st : RouterState) (ws : LargeResidual.State WCoord (Cell U)) (X : HashInput)
     (hinv : BankInv U ws st) (hlt : st.calls < q)
@@ -897,7 +901,7 @@ theorem bank_routeQuery (a : AuxData) (st : RouterState) (ws : LargeResidual.Sta
             apply ((hnd hndX).of_disc U hd).1
             exact ⟨fun row hr => rfl, rfl, rfl, fun m => rfl⟩
           · rw [ev_lazy_map]
-            exact ev_testReq_le U aux q _ ⟨X, hX⟩ _ (inlTest_none _ (hit_encodingHit _ _))
+            exact ev_testReq_le U aux q _ ⟨X, hX⟩ _ (inlTest_none _ (hit_encodingHitSel _ _))
               s1 _ _ (((hnd hndX).of_disc U hd).map U _)
       · rw [dif_neg he]
         by_cases hd : IsDigestRow X

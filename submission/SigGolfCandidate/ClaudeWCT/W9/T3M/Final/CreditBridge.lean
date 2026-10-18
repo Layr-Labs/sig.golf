@@ -477,49 +477,54 @@ end ClaudeWCT.W9.T3M.Final.Credit
 end
 
 namespace ClaudeWCT.W9.T3M.Final.Credit
+open OracleComp OracleSpec
 open SigGolfCandidate.Legacy
-open SigGolfCandidate.T3 (Layer Digest pad64)
-open SigGolfCandidate.T3M (toQ)
+open SigGolfCandidate.T3 (Layer Digest HashInput pad64)
+open SigGolfCandidate.T3M (toQ mrealize mrealize_map)
 open SigGolfCandidate.T3M.Verify
 
-theorem hfg_okBy (floors : Layer → Nat) (hash : Hash) :
-    ∀ q, (∀ lay : Layer, ¬ EncQ lay.val q) → hash q = okHashBy floors hash q :=
-  fun _ h => (okHashBy_eq_of_not_enc floors hash h).symm
+theorem hfg_okBy (floors : Layer → Nat) (high : Bool) (hash : Hash) :
+    ∀ q, (∀ lay : Layer, ¬ EncQ lay.val q) → hash q = okHashBy floors high hash q :=
+  fun _ h => (okHashBy_eq_of_not_enc floors high hash h).symm
 
-theorem okHashBy_producer (floors : Layer → Nat) (hash : Hash) (lay : Layer)
+theorem mrealize_verificationHash (lay : Layer) (high : Bool) (y : HashInput) :
+    mrealize 0 (ClaudeWCT.WCT9.verificationHash lay high y) =
+      ClaudeWCT.WCT9.verificationAnswer lay high <$>
+        (liftM (HashSpec.query (toQ (pad64 y))) : OracleComp HashSpec _) := by
+  rw [ClaudeWCT.WCT9.verificationHash, mrealize_map, SigGolfCandidate.T3M.mrealize_publicHash]
+
+/-- An encoding answer accepted by the canonical producer (with the honest hint on the top) is not replaced by
+`okHashBy` once its path-aware credit reaches the floor. -/
+theorem okHashBy_accepted_credit (floors : Layer → Nat) (high : Bool) (hash : Hash) (lay : Layer)
     (floor tree leaf : Nat) (msg : ClaudeWCT.WCT9.LayerMsg) (c : BitVec 32)
-    {digits : List Nat} (hf : floors lay ≤ floor)
-    (hp : ClaudeWCT.WCT9.CanonicalPolicy.producerDecodeAt lay floor
-      (ClaudeWCT.WCT9.encodingAnswer lay
-        (hash (toQ (pad64 (ClaudeWCT.WCT9.layerEncodingInput lay tree leaf msg c))))) = some digits) :
+    {digits : List Nat} {low : Bool}
+    (hhigh : lay = 0 → high = ClaudeWCT.WCT9.encodingHigh 0
+      (hash (toQ (pad64 (ClaudeWCT.WCT9.layerEncodingInput lay tree leaf msg c)))))
+    (hf : floors lay ≤ ClaudeWCT.WCT9.CanonicalPolicy.credit lay low digits)
+    (hp : ClaudeWCT.WCT9.CanonicalPolicy.producerDecodeOut lay floor
+        (hash (toQ (pad64 (ClaudeWCT.WCT9.layerEncodingInput lay tree leaf msg c)))) = some (digits, low)) :
     hash (toQ (pad64 (ClaudeWCT.WCT9.layerEncodingInput lay tree leaf msg c))) =
-      okHashBy floors hash (toQ (pad64 (ClaudeWCT.WCT9.layerEncodingInput lay tree leaf msg c))) := by
-  refine (okHashBy_eq floors hash ?_).symm
+      okHashBy floors high hash (toQ (pad64 (ClaudeWCT.WCT9.layerEncodingInput lay tree leaf msg c))) := by
+  refine (okHashBy_eq floors high hash ?_).symm
   rintro ⟨lay', hq, ds, hds, hlow⟩
-  obtain rfl := encQ_layer lay lay' tree leaf msg c hq
-  have hs := ClaudeWCT.WCT9.CanonicalPolicy.producerDecodeAt_spec hp
-  rw [hs.1] at hds
+  have hll := encQ_layer lay lay' tree leaf msg c hq
+  subst lay'
+  obtain ⟨hl, hpd⟩ := ClaudeWCT.WCT9.CanonicalPolicy.producerDecodeOut_spec hp
+  have hs := ClaudeWCT.WCT9.CanonicalPolicy.producerDecodeAt_spec hpd
+  set a := hash (toQ (pad64 (ClaudeWCT.WCT9.layerEncodingInput lay tree leaf msg c)))
+  have hva : ClaudeWCT.WCT9.verificationAnswer lay high a = ClaudeWCT.WCT9.encodingAnswer lay a ∧
+      ClaudeWCT.WCT9.verificationLow lay high a = low := by
+    by_cases h0 : lay = 0
+    · subst h0
+      rw [hhigh rfl, ClaudeWCT.WCT9.verificationAnswer_honest, ClaudeWCT.WCT9.verificationLow_honest, hl]
+      exact ⟨rfl, rfl⟩
+    · rw [ClaudeWCT.WCT9.verificationAnswer_lower lay h0, ClaudeWCT.WCT9.verificationLow_lower lay h0, hl]
+      exact ⟨rfl, rfl⟩
+  rw [hva.1, hs.1] at hds
   cases hds
-  have hc := hs.2.1
-  unfold ClaudeWCT.WCT9.CanonicalPolicy.reward at hc
-  omega
-theorem okHashBy_accepted_credit (floors : Layer → Nat) (hash : Hash) (lay : Layer)
-    (floor tree leaf : Nat) (msg : ClaudeWCT.WCT9.LayerMsg) (c : BitVec 32)
-    {digits : List Nat} (hf : floors lay ≤ ClaudeWCT.WCT9.CanonicalPolicy.credit lay digits)
-    (hp : ClaudeWCT.WCT9.CanonicalPolicy.producerDecodeAt lay floor
-      (ClaudeWCT.WCT9.encodingAnswer lay
-        (hash (toQ (pad64 (ClaudeWCT.WCT9.layerEncodingInput lay tree leaf msg c))))) = some digits) :
-    hash (toQ (pad64 (ClaudeWCT.WCT9.layerEncodingInput lay tree leaf msg c))) =
-      okHashBy floors hash (toQ (pad64 (ClaudeWCT.WCT9.layerEncodingInput lay tree leaf msg c))) := by
-  refine (okHashBy_eq floors hash ?_).symm
-  rintro ⟨lay', hq, ds, hds, hlow⟩
-  obtain rfl := encQ_layer lay lay' tree leaf msg c hq
-  have hs := ClaudeWCT.WCT9.CanonicalPolicy.producerDecodeAt_spec hp
-  rw [hs.1] at hds
-  cases hds
+  rw [hva.2] at hlow
   have hc := hs.2.1
   unfold ClaudeWCT.WCT9.CanonicalPolicy.credit at hf
-  unfold ClaudeWCT.WCT9.CanonicalPolicy.reward at hc hf
   omega
 end ClaudeWCT.W9.T3M.Final.Credit
 
@@ -539,17 +544,19 @@ theorem agree_layers (floors : Layer → Nat) (hash : Hash) (sig : SigGolfCandid
     ∀ n, n ≤ 4 → ∀ msg result,
       evalWithAnswerFn (machineAnswers hash 0)
         (recoverHintedLayers sig index ((sig.layers 0).path topJ) n msg) = some result →
-      (∀ lay : Layer, lay.val < n → floors lay ≤ CanonicalPolicy.credit lay (result.digits.getD lay.val [])) →
+      (∀ lay : Layer, lay.val < n →
+        floors lay ≤ CanonicalPolicy.credit lay (result.lows.getD lay.val true) (result.digits.getD lay.val [])) →
       ∀ w : SigGolfCandidate.Research.SharedForest.Witness, w.signature = sig →
         (∀ lay : Layer, lay.val < n → w.counters lay = result.counters.getD lay.val 0) →
-        Agree hash (okHashBy floors hash) (mrealize 0 (verifyLayers w index n msg)) := by
+        w.topHigh = !(result.lows.getD 0 true) →
+        Agree hash (okHashBy floors w.topHigh hash) (mrealize 0 (verifyLayers w index n msg)) := by
   intro n
   induction n with
   | zero =>
       intro _ msg result he
       simp [recoverHintedLayers] at he
   | succ n ih =>
-      intro hn msg result he hf w hw hc
+      intro hn msg result he hf w hw hc hh
       simp only [recoverHintedLayers, evalWithAnswerFn_bind] at he
       cases hs : evalWithAnswerFn (machineAnswers hash 0) (CanonicalPolicy.layerCounterSearchAt (Fin.ofNat 4 n)
         (hintFloor sig.policyHints (Fin.ofNat 4 n))
@@ -557,34 +564,60 @@ theorem agree_layers (floors : Layer → Nat) (hash : Hash) (sig : SigGolfCandid
         (searchLimit (Fin.ofNat 4 n))) with
       | none => simp only [hs, evalWithAnswerFn_pure, reduceCtorEq] at he
       | some found =>
-          obtain ⟨counter, digits⟩ := found
+          obtain ⟨counter, digits, low⟩ := found
           have hlim := searchLimit_le (Fin.ofNat 4 n)
           obtain ⟨_, hbound, hproducer⟩ := canonical_search_some (machineAnswers hash 0) (Fin.ofNat 4 n)
             (hintFloor sig.policyHints (Fin.ofNat 4 n))
             (route index (Fin.ofNat 4 n)).2 (route index (Fin.ofNat 4 n)).1 msg
-            (searchLimit (Fin.ofNat 4 n)) 0 counter digits (by unfold counterLimit at hlim; omega) hs
-          have hdecode := (CanonicalPolicy.producerDecodeAt_spec hproducer).1
+            (searchLimit (Fin.ofNat 4 n)) 0 counter digits low (by unfold counterLimit at hlim; omega) hs
+          have hpd := (CanonicalPolicy.producerDecodeOut_spec hproducer)
+          have hdecode := (CanonicalPolicy.producerDecodeAt_spec hpd.2).1
           have hnot : ¬counter.toNat ≥ verifyWindow := ctr_not_ge_verifyWindow counter
           have hlay := ofNat_layer_val n (by omega)
           simp only [hs] at he
-          have hproducerRaw := hproducer
-          rw [eval_encodingHash] at hproducer
+          have hevp : evalWithAnswerFn (machineAnswers hash 0)
+              (SigGolfCandidate.T3.publicHash (layerEncodingInput (Fin.ofNat 4 n) (route index (Fin.ofNat 4 n)).2
+                (route index (Fin.ofNat 4 n)).1 msg counter)) =
+              hash (SigGolfCandidate.T3M.toQ (SigGolfCandidate.T3.pad64 (layerEncodingInput (Fin.ofNat 4 n)
+                (route index (Fin.ofNat 4 n)).2 (route index (Fin.ofNat 4 n)).1 msg counter))) := by
+            rw [← eval_mrealize, SigGolfCandidate.T3M.mrealize_publicHash, eval_liftQ]
+          rw [hevp] at hproducer
           by_cases hn0 : n = 0
           · subst n
             simp only [if_true, evalWithAnswerFn_bind, evalWithAnswerFn_pure, Option.some.injEq] at he
             subst result
-            have hfloor : floors (Fin.ofNat 4 0) ≤ CanonicalPolicy.credit (Fin.ofNat 4 0) digits :=
+            have hfloor : floors (Fin.ofNat 4 0) ≤ CanonicalPolicy.credit (Fin.ofNat 4 0) low digits :=
               hf _ (by decide)
-            have hq := okHashBy_accepted_credit floors hash _ _ _ _ msg counter hfloor hproducer
+            have hhigh : w.topHigh = encodingHigh 0 (hash (SigGolfCandidate.T3M.toQ (SigGolfCandidate.T3.pad64
+                (layerEncodingInput (Fin.ofNat 4 0) (route index (Fin.ofNat 4 0)).2
+                  (route index (Fin.ofNat 4 0)).1 msg counter)))) := by
+              rw [hh, encodingHigh_top]
+              simp only [List.getD_cons_zero]
+              rw [hpd.1, hevp]
+              rfl
+            have hq := okHashBy_accepted_credit floors w.topHigh hash _ _ _ _ msg counter
+              (fun _ => hhigh) hfloor hproducer
             have hcounter : w.counters (Fin.ofNat 4 0) = counter := by
               rw [hc _ (by rw [hlay]; omega), hlay]; rfl
             simp only [verifyLayers, hcounter, hnot, ite_false]
             refine (agree_mrealize_bind _ _).mpr ⟨?_, ?_⟩
-            · rw [mrealize_encodingHash, agree_map_iff]
+            · rw [mrealize_verificationHash, agree_map_iff]
               exact ⟨hq, trivial⟩
             · simp only [if_true, ↓reduceIte]
-              rw [verifyTop_of_decode _ _ hdecode, SigGolfCandidate.T3M.mrealize_map, agree_map_iff]
-              exact agree_mrealize (notEnc_recoverLayer _ _ _ _ (by rfl)) (hfg_okBy floors hash)
+              have hva : evalWithAnswerFn (machineAnswers hash 0) (verificationHash (Fin.ofNat 4 0) w.topHigh
+                  (layerEncodingInput (Fin.ofNat 4 0) (route index (Fin.ofNat 4 0)).2 (route index (Fin.ofNat 4 0)).1
+                    msg counter)) =
+                  evalWithAnswerFn (machineAnswers hash 0) (encodingHash (Fin.ofNat 4 0)
+                    (layerEncodingInput (Fin.ofNat 4 0) (route index (Fin.ofNat 4 0)).2 (route index (Fin.ofNat 4 0)).1
+                      msg counter)) := by
+                rw [← eval_mrealize, ← eval_mrealize, mrealize_verificationHash, mrealize_encodingHash,
+                  evalWithAnswerFn_map, evalWithAnswerFn_map, eval_liftQ, hhigh]
+                exact verificationAnswer_honest 0 _
+              have hdec' : CanonicalPolicy.decode (Fin.ofNat 4 0) (evalWithAnswerFn (machineAnswers hash 0)
+                  (encodingHash (Fin.ofNat 4 0) (layerEncodingInput (Fin.ofNat 4 0) (route index (Fin.ofNat 4 0)).2
+                    (route index (Fin.ofNat 4 0)).1 msg counter))) = some digits := hdecode
+              rw [hva, verifyTop_of_decode _ _ hdec', SigGolfCandidate.T3M.mrealize_map, agree_map_iff]
+              exact agree_mrealize (notEnc_recoverLayer _ _ _ _ (by rfl)) (hfg_okBy floors w.topHigh hash)
           · simp only [hn0, if_false, evalWithAnswerFn_bind] at he
             cases hr : evalWithAnswerFn (machineAnswers hash 0)
                 (recoverHintedLayers sig index ((sig.layers 0).path topJ) n
@@ -596,32 +629,46 @@ theorem agree_layers (floors : Layer → Nat) (hash : Hash) (sig : SigGolfCandid
             | some previous =>
                 simp only [hr, evalWithAnswerFn_pure, Option.some.injEq] at he
                 subst result
-                obtain ⟨hlen, hdlen, _⟩ := recoverHintedLayers_verified (machineAnswers hash 0) sig index n (by omega) _ _ hr
-                have hfloor : floors (Fin.ofNat 4 n) ≤ CanonicalPolicy.credit (Fin.ofNat 4 n) digits := by
+                obtain ⟨hlen, hdlen, hllen, _⟩ :=
+                  recoverHintedLayers_verified (machineAnswers hash 0) sig index n (by omega) _ _ hr
+                have hfloor : floors (Fin.ofNat 4 n) ≤ CanonicalPolicy.credit (Fin.ofNat 4 n) low digits := by
                   have h := hf (Fin.ofNat 4 n) (by rw [hlay]; omega)
                   simpa only [hlay, List.getD_append_right previous.digits [digits] [] n (by omega),
-                    hdlen, Nat.sub_self, List.getD_cons_zero] using h
-                have hq := okHashBy_accepted_credit floors hash _ _ _ _ msg counter hfloor hproducer
+                    List.getD_append_right previous.lows [low] true n (by omega),
+                    hdlen, hllen, Nat.sub_self, List.getD_cons_zero] using h
+                have hnonzero : (Fin.ofNat 4 n : Layer) ≠ 0 := by
+                  intro h; have := congrArg Fin.val h; rw [hlay] at this; exact hn0 this
+                have hq := okHashBy_accepted_credit floors w.topHigh hash _ _ _ _ msg counter
+                  (fun h0 => absurd h0 hnonzero) hfloor hproducer
                 have hcounter : w.counters (Fin.ofNat 4 n) = counter := by
                   rw [hc _ (by rw [hlay]; omega), hlay,
                     List.getD_append_right previous.counters [counter] 0 n (by omega), hlen]
                   simp
-                simp only [verifyLayers, hcounter, hnot, ite_false]
+                simp only [verifyLayers, hcounter, hnot, ite_false,
+                  verificationHash_lower (Fin.ofNat 4 n) hnonzero]
                 refine (agree_mrealize_bind _ _).mpr ⟨?_, ?_⟩
                 · rw [mrealize_encodingHash, agree_map_iff]
                   exact ⟨hq, trivial⟩
-                · have hnonzero : (Fin.ofNat 4 n : Layer) ≠ 0 := by
-                    intro h; have := congrArg Fin.val h; rw [hlay] at this; exact hn0 this
-                  have hgood := (CanonicalPolicy.producerDecodeAt_spec hproducerRaw).2.2.2.resolve_left hnonzero
-                  simp only [hn0, if_false, hdecode,
-                    recoverLayerPairGuard_of_good _ _ _ _ _ hgood, bind_map_left]
+                · have hgood := (CanonicalPolicy.producerDecodeAt_spec hpd.2).2.2.2.resolve_left hnonzero
+                  have hdecode' : CanonicalPolicy.decode (Fin.ofNat 4 n) (evalWithAnswerFn (machineAnswers hash 0)
+                      (encodingHash (Fin.ofNat 4 n) (layerEncodingInput (Fin.ofNat 4 n) (route index (Fin.ofNat 4 n)).2
+                        (route index (Fin.ofNat 4 n)).1 msg counter))) = some digits := by
+                    rw [eval_encodingHash]; rw [hevp] at hdecode; exact hdecode
+                  have hgood' : lowerRankGood (evalWithAnswerFn (machineAnswers hash 0)
+                      (encodingHash (Fin.ofNat 4 n) (layerEncodingInput (Fin.ofNat 4 n) (route index (Fin.ofNat 4 n)).2
+                        (route index (Fin.ofNat 4 n)).1 msg counter))) := by
+                    rw [eval_encodingHash]; rw [hevp] at hgood; exact hgood
+                  simp only [hn0, if_false, hdecode',
+                    recoverLayerPairGuard_of_good _ _ _ _ _ hgood', bind_map_left]
                   refine (agree_mrealize_bind _ _).mpr
-                    ⟨agree_mrealize (notEnc_recoverLayerPair _ _ _ _) (hfg_okBy floors hash), ?_⟩
+                    ⟨agree_mrealize (notEnc_recoverLayerPair _ _ _ _) (hfg_okBy floors w.topHigh hash), ?_⟩
                   rw [hw]
-                  refine ih (by omega) _ _ hr (fun lay hsmall => ?_) w hw (fun lay hsmall => ?_)
+                  refine ih (by omega) _ _ hr (fun lay hsmall => ?_) w hw (fun lay hsmall => ?_) ?_
                   · have h := hf lay (by omega)
-                    simpa only [List.getD_append previous.digits [digits] [] lay.val (by omega)] using h
+                    simpa only [List.getD_append previous.digits [digits] [] lay.val (by omega),
+                      List.getD_append previous.lows [low] true lay.val (by omega)] using h
                   · rw [hc lay (by omega), List.getD_append previous.counters [counter] 0 lay.val (by omega)]
+                  · rw [hh, List.getD_append previous.lows [low] true 0 (by omega)]
 end ClaudeWCT.W9.T3M.Final.Credit.Paired
 
 namespace ClaudeWCT.W9.T3M.Final.Credit.Paired
@@ -726,11 +773,12 @@ theorem recovered_credit_floors (answers : SigGolfCandidate.T3.Correctness.Answe
     (sig : SigGolfCandidate.Research.SharedForest.Signature) (index : Nat) (other : Digest)
     (msg : LayerMsg) (result : RecoveredLayers)
     (he : evalWithAnswerFn answers (recoverHintedLayers sig index other 4 msg) = some result)
-    (hh : policyHintsValid sig.policyHints result.digits = true) :
-    CreditFloors (fun lay => min 63 (CanonicalPolicy.credit lay (result.digits.getD lay.val []))) := by
+    (hh : policyHintsValid sig.policyHints result.digits result.lows = true) :
+    CreditFloors (fun lay => min 72
+      (CanonicalPolicy.credit lay (result.lows.getD lay.val true) (result.digits.getD lay.val []))) := by
   apply creditFloors_clip
-  exact policyHints_credit_sum _ _ hh (fun lay =>
-    (recoverHintedLayers_credit answers sig index other 4 le_rfl msg result he).2 lay lay.isLt)
+  exact policyHints_credit_sum _ _ _ hh (fun lay =>
+    (recoverHintedLayers_credit answers sig index other 4 le_rfl msg result he).2.2 lay lay.isLt)
 
 theorem agree_verify (hash : Hash) (message : SigGolfCandidate.T3.Message) (pk : Digest)
     (w : SigGolfCandidate.Research.SharedForest.Witness) (output : HashOutput) (result : RecoveredLayers)
@@ -741,23 +789,27 @@ theorem agree_verify (hash : Hash) (message : SigGolfCandidate.T3.Message) (pk :
           (forestSelectionFromOutput output) (forestWordsFromOutput output) w.signature.forest)).1
           (evalWithAnswerFn (machineAnswers hash 0) (recoverForest (digestIndex output)
           (forestSelectionFromOutput output) (forestWordsFromOutput output) w.signature.forest)).2)) = some result)
-    (hh : policyHintsValid w.signature.policyHints result.digits = true)
-    (hc : ∀ lay, w.counters lay = result.counters.getD lay.val 0) :
+    (hh : policyHintsValid w.signature.policyHints result.digits result.lows = true)
+    (hc : ∀ lay, w.counters lay = result.counters.getD lay.val 0)
+    (htop : w.topHigh = !(result.lows.getD 0 true)) :
     ∃ floors : Layer → Nat, CreditFloors floors ∧
-      Agree hash (okHashBy floors hash) (mrealize 0 (SigGolfCandidate.Research.SharedForest.verify message pk w)) := by
-  let floors : Layer → Nat := fun lay => min 63 (CanonicalPolicy.credit lay (result.digits.getD lay.val []))
+      Agree hash (okHashBy floors w.topHigh hash)
+        (mrealize 0 (SigGolfCandidate.Research.SharedForest.verify message pk w)) := by
+  let floors : Layer → Nat := fun lay =>
+    min 72 (CanonicalPolicy.credit lay (result.lows.getD lay.val true) (result.digits.getD lay.val []))
   refine ⟨floors, recovered_credit_floors _ _ _ _ _ result hr hh, ?_⟩
   unfold SigGolfCandidate.Research.SharedForest.verify
   split
   · trivial
-  · refine (agree_mrealize_bind _ _).mpr ⟨agree_mrealize (notEnc_digest _ _ _) (hfg_okBy floors hash), ?_⟩
+  · refine (agree_mrealize_bind _ _).mpr ⟨agree_mrealize (notEnc_digest _ _ _) (hfg_okBy floors w.topHigh hash), ?_⟩
     rw [hd]
     split
     · trivial
-    · refine (agree_mrealize_bind _ _).mpr ⟨agree_mrealize (notEnc_forest _ _ _ _) (hfg_okBy floors hash), ?_⟩
+    · refine (agree_mrealize_bind _ _).mpr
+        ⟨agree_mrealize (notEnc_forest _ _ _ _) (hfg_okBy floors w.topHigh hash), ?_⟩
       refine (agree_mrealize_bind _ _).mpr ⟨?_, ?_⟩
       · exact agree_layers floors hash w.signature (digestIndex output) 4 le_rfl _ result hr
-          (fun lay _ => Nat.min_le_right _ _) w rfl (fun lay _ => hc lay)
+          (fun lay _ => Nat.min_le_right _ _) w rfl (fun lay _ => hc lay) htop
       · split <;> trivial
 end ClaudeWCT.W9.T3M.Final.Credit.Paired
 
@@ -868,27 +920,27 @@ theorem agree_verifyP (hash : Hash) (message : SigGolfCandidate.T3.Message) (pk 
     (w : SigGolfCandidate.Research.SharedForest.Witness)
     (he : evalWithAnswerFn (machineAnswers hash 0) (ClaudeWCT.W9.T3M.Paired.expandN message pk sig)=some (output,w)) :
     ∃ floors : Layer → Nat,CreditFloors floors ∧
-      Agree hash (okHashBy floors hash)
+      Agree hash (okHashBy floors w.topHigh hash)
         (mrealize 0 (ClaudeWCT.W9.T3M.Paired.verifyP message pk (ClaudeWCT.W9.T3M.Paired.witEnc output w))) := by
-  obtain ⟨result,hr,hh,hc,hd,ha⟩ := ClaudeWCT.W9.T3M.Paired.expandN_recovered _ message pk sig output w he
+  obtain ⟨result,hr,hh,hc,hd,ha,htop⟩ := ClaudeWCT.W9.T3M.Paired.expandN_recovered _ message pk sig output w he
   simp only [ClaudeWCT.W9.T3M.Paired.recoveredWitness,evalWithAnswerFn_bind] at hr
-  obtain ⟨floors,hfloors,hagree⟩ := agree_verify hash message pk w output result hd hr hh hc
+  obtain ⟨floors,hfloors,hagree⟩ := agree_verify hash message pk w output result hd hr hh hc htop
   obtain ⟨hg,hrank,_⟩ := accepted_conditions output ha
-  refine ⟨floors,hfloors,agree_verifyP_source_of hash (okHashBy floors hash) message pk _ output w
+  refine ⟨floors,hfloors,agree_verifyP_source_of hash (okHashBy floors w.topHigh hash) message pk _ output w
     (ClaudeWCT.W9.T3M.Paired.wrho_witEnc output w)
     (ClaudeWCT.W9.T3M.Paired.wdc_witEnc output w) hd hg hrank
     (W9Drv.SharedCanonical.forest_witEnc output w _ (WCT9.digestIndex_lt output))
     (fun left right=>ClaudeWCT.W9.T3M.Paired.layersCanonicalBC_witEnc output w 4 left right (by decide)) hagree⟩
 
-theorem digestCap_okHashBy (floors : Layer → Nat) (hash : Hash)
+theorem digestCap_okHashBy (floors : Layer → Nat) (high : Bool) (hash : Hash)
     (message : SigGolfCandidate.T3.Message) (pk : Digest)
     (sig : SigGolfCandidate.Research.SharedForest.Signature) (output : HashOutput)
     (w : SigGolfCandidate.Research.SharedForest.Witness)
     (he : evalWithAnswerFn (machineAnswers hash 0) (ClaudeWCT.W9.T3M.Paired.expandN message pk sig)=some (output,w)) :
-    Final.Paired.DigestCapOk (okHashBy floors hash) message (ClaudeWCT.W9.T3M.Paired.witEnc output w) := by
-  obtain ⟨_,_,_,_,hd,ha⟩ := ClaudeWCT.W9.T3M.Paired.expandN_recovered _ message pk sig output w he
-  have hagree := agree_mrealize (notEnc_digest w.signature.rho message w.digestCounter) (hfg_okBy floors hash)
-  have hd' : evalWithAnswerFn (machineAnswers (okHashBy floors hash) 0)
+    Final.Paired.DigestCapOk (okHashBy floors high hash) message (ClaudeWCT.W9.T3M.Paired.witEnc output w) := by
+  obtain ⟨_,_,_,_,hd,ha,_⟩ := ClaudeWCT.W9.T3M.Paired.expandN_recovered _ message pk sig output w he
+  have hagree := agree_mrealize (notEnc_digest w.signature.rho message w.digestCounter) (hfg_okBy floors high hash)
+  have hd' : evalWithAnswerFn (machineAnswers (okHashBy floors high hash) 0)
       (SigGolfCandidate.T3.digest w.signature.rho message w.digestCounter)=output := by
     rw [←eval_mrealize,←agree_eval hagree,eval_mrealize,hd]
   rw [←eval_mrealize] at hd'

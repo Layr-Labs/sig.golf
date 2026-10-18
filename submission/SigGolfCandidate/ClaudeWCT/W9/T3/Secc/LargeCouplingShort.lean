@@ -310,8 +310,13 @@ theorem contactTest_short (K : Coord → Prop) (X : HashInput) (y : HashOutput) 
     LargeResidual.Paired.ContactTest A K X y ↔ LargeResidual.Paired.ContactTest T K X y := by
   have hin : ∀ N : CanonGraph.Node, Extract.Paired.honestInput A N.toPos = Extract.Paired.honestInput T N.toPos :=
     fun N => honestInput_short_all hAT _ (toPos_bounded N)
+  have hns : Wots.CanonicalRef.NotSearched A (Wots.CanonicalRef.sourceMessages A) =
+      Wots.CanonicalRef.NotSearched T (Wots.CanonicalRef.sourceMessages T) := by
+    funext L' x
+    unfold Wots.CanonicalRef.NotSearched
+    rw [Wots.CanonicalRef.referenceSearch_short hAT, Wots.CanonicalRef.sourceMessages_short hAT]
   unfold LargeResidual.Paired.ContactTest LargeResidual.Paired.StructuralContact LargeResidual.Paired.EncodingContact
-  simp only [honestValue_short hAT, hin, Wots.CanonicalRef.referenceSearch_short hAT, Wots.CanonicalRef.referenceInput_short hAT, Wots.CanonicalRef.referenceDigits_short hAT]
+  simp only [honestValue_short hAT, hin, Wots.CanonicalRef.referenceSearch_short hAT, Wots.CanonicalRef.referenceInput_short hAT, Wots.CanonicalRef.referenceDigits_short hAT, hns]
 theorem digestSearch_short (rho : Digest) (m : Message) :
     ∀ fuel c, evalWithAnswerFn A (SigGolfCandidate.Research.SharedForest.sharedDigestSearch rho m c fuel) = evalWithAnswerFn T (SigGolfCandidate.Research.SharedForest.sharedDigestSearch rho m c fuel) := by
   intro fuel

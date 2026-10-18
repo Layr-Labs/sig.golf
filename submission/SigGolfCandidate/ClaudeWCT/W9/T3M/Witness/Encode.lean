@@ -227,8 +227,27 @@ def forestBytes (output : HashOutput) (witness : SigGolfCandidate.Research.Share
 def mainWitness (witness : SigGolfCandidate.Research.SharedForest.Witness) : WCT9.Witness :=
   ⟨mainSignature witness.signature, witness.digestCounter, witness.counters⟩
 
-def witList (output : HashOutput) (witness : SigGolfCandidate.Research.SharedForest.Witness) : List UInt8 :=
+/-- The encoded witness bytes without the choice hint (byte `choiceOff` is 0 there). -/
+def witListBase (output : HashOutput) (witness : SigGolfCandidate.Research.SharedForest.Witness) : List UInt8 :=
   forestBytes output witness ++ (ClaudeWCT.W9.T3M.witList output (mainWitness witness)).drop 8096
+
+/-- Configuration (1)+(2): the choice hint byte (`choiceByte witness.topHigh`) at `choiceOff`. -/
+def witList (output : HashOutput) (witness : SigGolfCandidate.Research.SharedForest.Witness) : List UInt8 :=
+  (witListBase output witness).set choiceOff (choiceByte witness.topHigh)
+
+theorem witList_length (output : HashOutput) (witness : SigGolfCandidate.Research.SharedForest.Witness) :
+    (witList output witness).length = (witListBase output witness).length := by
+  simp [witList]
+
+theorem witList_getD_choice (output : HashOutput) (witness : SigGolfCandidate.Research.SharedForest.Witness)
+    (h : choiceOff < (witListBase output witness).length) :
+    (witList output witness).getD choiceOff 0 = choiceByte witness.topHigh := by
+  simp [witList, List.getD_eq_getElem?_getD, List.getElem?_set_self h]
+
+theorem witList_getD_ne (output : HashOutput) (witness : SigGolfCandidate.Research.SharedForest.Witness)
+    {i : Nat} (hi : i ≠ choiceOff) :
+    (witList output witness).getD i 0 = (witListBase output witness).getD i 0 := by
+  simp [witList, List.getD_eq_getElem?_getD, List.getElem?_set_ne (Ne.symm hi)]
 
 def witEnc (output : HashOutput) (witness : SigGolfCandidate.Research.SharedForest.Witness) : WBytes :=
   BitVec.ofNat _ (readLE (witList output witness))
@@ -240,18 +259,19 @@ def witEnc (output : HashOutput) (witness : SigGolfCandidate.Research.SharedFore
 /-- Query-identical expansion retaining the digest output needed by the memory encoder. -/
 def expandN (message : Message) (pk : Digest) (sig : SigGolfCandidate.Research.SharedForest.Signature) :
     M (Option (HashOutput × SigGolfCandidate.Research.SharedForest.Witness)) := do
-  if sig.policyHints.toNat ≥ 5832 then return none
+  if sig.policyHints.toNat ≥ 8000 then return none
   let sig0 := fillTopSignature sig 0
   let some (counter, output) ← sharedDigestSearch sig0.rho message 0 WCT9.digestAttemptLimit | pure none
   let index := WCT9.digestIndex output
   let forest ← recoverForest index (forestSelectionFromOutput output) (forestWordsFromOutput output) sig0.forest
   let some layers ← recoverHintedLayers sig0 index ((sig0.layers 0).path WCT9.topJ)
     4 (.pair forest.1 forest.2) | pure none
-  if !policyHintsValid sig0.policyHints layers.digits then return none
+  if !policyHintsValid sig0.policyHints layers.digits layers.lows then return none
   if layers.root = pk then
-    return some (output, ⟨sig0, counter, fun lay => layers.counters.getD lay.val 0⟩)
+    return some (output, ⟨sig0, counter, fun lay => layers.counters.getD lay.val 0, !(layers.lows.getD 0 true)⟩)
   let some c ← WCT9.searchTop index layers.foldedTop ((sig0.layers 0).path WCT9.topJ) pk WCT9.searchFuel 1 | pure none
-  pure (some (output, ⟨fillTopSignature sig0 c, counter, fun lay => layers.counters.getD lay.val 0⟩))
+  pure (some (output, ⟨fillTopSignature sig0 c, counter, fun lay => layers.counters.getD lay.val 0,
+    !(layers.lows.getD 0 true)⟩))
 
 def expandB (message : Message) (pk : Digest) (sig : SigGolfCandidate.Research.SharedForest.Signature) :
     M (Option WBytes) := (Option.map fun p => witEnc p.1 p.2) <$> expandN message pk sig
@@ -483,7 +503,7 @@ theorem expandN_selections (answers : Answers) (message : Message) (pk : Digest)
     (sig : SigGolfCandidate.Research.SharedForest.Signature) (output : HashOutput)
     (w : SigGolfCandidate.Research.SharedForest.Witness)
     (he : evalWithAnswerFn answers (expandN message pk sig) = some (output,w)) :
-    sig.policyHints.toNat < 5832 ∧ ∃ counter result c,
+    sig.policyHints.toNat < 8000 ∧ ∃ counter result c,
       evalWithAnswerFn answers (sharedDigestSearch sig.rho message 0 WCT9.digestAttemptLimit) =
         some (counter, output) ∧
       evalWithAnswerFn answers (recoverHintedLayers (fillTopSignature sig 0) (WCT9.digestIndex output)
@@ -492,14 +512,14 @@ theorem expandN_selections (answers : Answers) (message : Message) (pk : Digest)
           (forestSelectionFromOutput output) (forestWordsFromOutput output) sig.forest)).1
           (evalWithAnswerFn answers (recoverForest (WCT9.digestIndex output)
           (forestSelectionFromOutput output) (forestWordsFromOutput output) sig.forest)).2)) = some result ∧
-      policyHintsValid sig.policyHints result.digits = true ∧
+      policyHintsValid sig.policyHints result.digits result.lows = true ∧
       w.signature = fillTopSignature sig c ∧ w.digestCounter = counter ∧
-      (∀ lay, w.counters lay = result.counters.getD lay.val 0) := by
+      (∀ lay, w.counters lay = result.counters.getD lay.val 0) ∧ w.topHigh = !(result.lows.getD 0 true) := by
   unfold expandN at he
   simp only [show (fillTopSignature sig 0).rho = sig.rho from rfl,
     show (fillTopSignature sig 0).forest = sig.forest from rfl,
     show (fillTopSignature sig 0).policyHints = sig.policyHints from rfl] at he
-  by_cases hh : sig.policyHints.toNat ≥ 5832
+  by_cases hh : sig.policyHints.toNat ≥ 8000
   · simp only [hh, if_true, evalWithAnswerFn_pure, reduceCtorEq] at he
   · simp only [hh, if_false, evalWithAnswerFn_bind] at he
     cases hd : evalWithAnswerFn answers (sharedDigestSearch sig.rho message 0 WCT9.digestAttemptLimit) with
@@ -518,12 +538,12 @@ theorem expandN_selections (answers : Answers) (message : Message) (pk : Digest)
         | some result =>
             dsimp only [forest] at hr
             simp only [hr] at he
-            by_cases hp : policyHintsValid sig.policyHints result.digits = true
+            by_cases hp : policyHintsValid sig.policyHints result.digits result.lows = true
             · simp only [hp, Bool.not_true, Bool.false_eq_true, if_false] at he
               by_cases hk : result.root = pk
               · simp only [hk, if_true, evalWithAnswerFn_pure, Option.some.injEq, Prod.mk.injEq] at he
                 obtain ⟨rfl, rfl⟩ := he
-                exact ⟨by omega, counter, result, 0, (by first | exact hd | rfl), (by first | exact hr | rfl), hp, rfl, rfl, fun _ => rfl⟩
+                exact ⟨by omega, counter, result, 0, (by first | exact hd | rfl), (by first | exact hr | rfl), hp, rfl, rfl, fun _ => rfl, rfl⟩
               · simp only [hk, if_false, evalWithAnswerFn_bind] at he
                 cases hc : evalWithAnswerFn answers (WCT9.searchTop (WCT9.digestIndex N) result.foldedTop
                   (((fillTopSignature sig 0).layers 0).path WCT9.topJ) pk WCT9.searchFuel 1) with
@@ -532,7 +552,7 @@ theorem expandN_selections (answers : Answers) (message : Message) (pk : Digest)
                     simp only [hc, evalWithAnswerFn_pure, Option.some.injEq, Prod.mk.injEq] at he
                     obtain ⟨rfl, rfl⟩ := he
                     exact ⟨by omega, counter, result, c, (by first | exact hd | rfl), (by first | exact hr | rfl), hp,
-                      fillTopSignature_fillTopSignature sig 0 c, rfl, fun _ => rfl⟩
+                      fillTopSignature_fillTopSignature sig 0 c, rfl, fun _ => rfl, rfl⟩
             · have hp0 := Bool.eq_false_of_not_eq_true hp
               simp only [hp0, Bool.not_false, if_true, evalWithAnswerFn_pure, reduceCtorEq] at he
 

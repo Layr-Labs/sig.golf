@@ -555,7 +555,12 @@ theorem wotsPrimitiveSrc_transfer {A T : Answers} {trace : List Entry} (hAT : Sh
   have hrefd : CanonicalRef.referenceDigits A (CanonicalRef.sourceMessages A) = CanonicalRef.referenceDigits T (CanonicalRef.sourceMessages T) := funext (CanonicalRef.referenceDigits_short hAT)
   rcases h with ⟨L, hsrc, hL⟩ | hS | ⟨a, hsrc, ha⟩ | ⟨a, b, hsa, hsb, hab, ha, hb⟩ | ⟨a, hsrc, ha, hc⟩
   · refine Or.inl ⟨L, hsrc, ?_⟩
-    simpa only [CanonicalRef.EncodingMatchAt, hrefi, hrefd] using hL
+    have hns : CanonicalRef.NotSearched A (CanonicalRef.sourceMessages A) =
+        CanonicalRef.NotSearched T (CanonicalRef.sourceMessages T) := by
+      funext L' x
+      unfold CanonicalRef.NotSearched
+      rw [CanonicalRef.referenceSearch_short hAT, CanonicalRef.sourceMessages_short hAT]
+    simpa only [CanonicalRef.EncodingMatchAt, hrefi, hrefd, hns] using hL
   · refine Or.inr (Or.inl ?_)
     obtain ⟨position, input, answer, hmem, hpos, hbounded, hsource, hclass, hmain, hhit⟩ := hS
     refine ⟨position, input, answer, hmem, hpos, hbounded, hsource, ?_, hmain, ?_⟩

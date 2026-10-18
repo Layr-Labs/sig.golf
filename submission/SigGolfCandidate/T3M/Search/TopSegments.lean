@@ -58,7 +58,7 @@ def topSeg346 : List (BitVec 32) := [31231155,8281619]
 def topSeg348 : List (BitVec 32) := [0x7fe7e93,32411315]
 def topSeg350 : List (BitVec 32) := [970371]
 def topSeg351 : List (BitVec 32) := [31231155,8281619]
-def topSeg353 : List (BitVec 32) := [0x7e7e93,31231155,0x3e5e93,0x7efe93,31231155,0x3d3de93,31231155,0x411c8eb3,437163619]
+def topSeg353 : List (BitVec 32) := [0x7e7e93,31231155,0x3e5e93,0x7efe93,31231155,0x3d3de93,31231155,0x411c8eb3,0xbe0e9ee3]
 def topSeg362 (b : Nat) : List (BitVec 32) := (if b=354 then [0x2312906f] else [0x7591306f]) ++ [133815,0x420a8a93,0x80f0f13,0x7f37e13,3022355,32378419]
 def topSeg369 : List (BitVec 32) := [945795]
 def topSeg370 : List (BitVec 32) := [31096867]
@@ -767,7 +767,7 @@ theorem codeAt_top353 {image : Image} {b : Nat} {rewardCondition : Prop} (h : Ke
 sym_block tb354_353 := symRun { noAlias := true } topSeg353 (pcOf (354 + 353)) 200
 sym_block tb543_353 := symRun { noAlias := true } topSeg353 (pcOf (543 + 353)) 200
 def topState353 : SymState := tb354_353.res.st
-def topEnd353 (b : Nat) : E := rebase tb354_353.res.pc (pcOf (b + 468)) (pcOf (b + 362))
+def topEnd353 (b : Nat) : E := rebase tb354_353.res.pc (pcOf (b + 104)) (pcOf (b + 362))
 theorem run_top353 {b : Nat} (hb : b = 354 ∨ b = 543) :
     symRun { noAlias := true } topSeg353 (pcOf (b + 353)) 200 =
       some ⟨topState353, topEnd353 b, tb354_353.res.stop, tb354_353.res.steps, tb354_353.res.cycles⟩ := by

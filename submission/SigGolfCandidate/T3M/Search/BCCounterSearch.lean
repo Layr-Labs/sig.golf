@@ -15,7 +15,7 @@ set_option linter.unusedSimpArgs false
 set_option linter.unnecessarySeqFocus false
 set_option Elab.async false
 set_option maxRecDepth 8192
-def capLimit (lay : Nat) : Nat := if lay = 0 then 2 ^ 22 else 2 ^ 21
+def capLimit (lay : Nat) : Nat := if lay = 0 then 2 ^ 21 else 2 ^ 21
 def scanM : BitVec 64 := 1317624576693539401#64
 def lanes6 (x : BitVec 64) : BitVec 64 := x >>> 1 &&& x >>> 2 &&& (x ^^^ 18446744073709551615#64) &&& scanM
 def scanX (c lo hi : BitVec 64) : BitVec 64 :=
@@ -565,14 +565,14 @@ theorem capA2_spec {rewardCondition : Prop} (hK : KernAt image b rewardCondition
 theorem capA3_spec {rewardCondition : Prop} (hK : KernAt image b rewardCondition) (s : MachineState) (hpc : s.pc = pcOf (capBase b + 3)) (i : Nat)
     (hi : i < 2 ^ 64) (h19 : s.getReg .x19 = BitVec.ofNat 64 i) :
     ∃ t, Steps image s 2 2 t ∧
-      t.pc = (if i = 2 ^ 22 then pcOf (capBase b + 6) else pcOf (capBase b + 5)) ∧
+      t.pc = (if i = 2 ^ 21 then pcOf (capBase b + 6) else pcOf (capBase b + 5)) ∧
       RegsExcept s t [.x6] ∧ Frame s t (fun _ => False) := by
   refine ⟨_, symRun_sound (runa_3 hK.2.1) (codeAt_a_3 hK) s hpc (by simp [sta_3, blkA354_3.res, rv_simp]),
     ?_, ?_, ?_⟩
   · simp only [Result.toState_pc, pcEa_3, rebase, blkA354_3.res, E.eval, CmpOp.eval, h19]
-    by_cases h : i = 2 ^ 22
+    by_cases h : i = 2 ^ 21
     · subst h; simp
-    · have : (BitVec.ofNat 64 i == 4194304#64) = false := by
+    · have : (BitVec.ofNat 64 i == 2097152#64) = false := by
         rw [beq_eq_false_iff_ne, ne_eq, ofNat_eq_iff]; omega
       rw [this, if_neg (by simp), if_neg h]
   · intro r hr; simp at hr; cases r <;> simp_all [sta_3, blkA354_3.res, rv_simp] <;> rfl
@@ -611,8 +611,8 @@ theorem cap_spec {rewardCondition : Prop} (hK : KernAt image b rewardCondition) 
     · rw [if_pos hz] at p1
       obtain ⟨t2, s2, p2, r2, f2⟩ := capA3_spec hK t1 p1 i hi64
         (by rw [r1.get (by decide), r0.get (by decide), h19])
-      have hcap : capLimit lay = 2 ^ 22 := by unfold capLimit; rw [if_pos hz]
-      by_cases htop : i = 2 ^ 22
+      have hcap : capLimit lay = 2 ^ 21 := by unfold capLimit; rw [if_pos hz]
+      by_cases htop : i = 2 ^ 21
       · rw [if_pos htop] at p2
         obtain ⟨t3, s3, p3, r3, f3⟩ := capA6_spec hK t2 p2
         refine ⟨_, _, s0.trans (s1.trans (s2.trans s3)), by rw [if_pos hz], by rw [p3, hcap, if_pos htop],
@@ -1019,438 +1019,8 @@ theorem TrialSt.step {b : Nat} {A : CsArgs} {s0 u u' : MachineState} {i : Nat} (
   · exact (h.frame.trans hf).mono (fun A _ h' => by simp only [or_false] at h'; exact h')
 theorem TrialSt.reg {b : Nat} {A : CsArgs} {s0 u : MachineState} {i : Nat} (h : TrialSt b A s0 i u)
     {r : Reg} (hr : r ∉ csRegs) : u.getReg r = s0.getReg r := h.regs.get hr
-section trial
-variable {image : Image} {b : Nat} {sk : BitVec 256}
-theorem cs_next {A : CsArgs} {s0 u : MachineState} {i F W : Nat} {Q : Option (BitVec 32 × List Nat) → MachineState → Prop}
-    {rewardCondition : Prop} (hK : KernAt image b rewardCondition) (hu : TrialSt b A s0 i u) (hpc : u.pc = pcOf (b + 468)) (hi : i < capLimit A.lay.val)
-    (ih : ∀ t, CsInv b A s0 (i + 1) t → TBSim image sk t W (WCT9.layerCounterSearch A.lay A.tree A.leaf A.msg (i + 1) F) Q) :
-    TBSim image sk u (2 + W) (WCT9.layerCounterSearch A.lay A.tree A.leaf A.msg (i + 1) F) Q := by
-  obtain ⟨t1, s1, p1, h19, r1, f1⟩ := cs468_spec hK u hpc i hu.x19
-  have hcap := capLimit_le A.lay.val
-  refine TBSim.steps s1 (ih t1 ⟨p1, by omega, h19, ?_, ?_, ⟨i, by omega, ?_⟩, ?_, ?_⟩)
-  · rw [f1.get (by simp only [ENC]; omega) (by simp), hu.h16]
-  · rw [f1.get (by simp only [ENC]; omega) (by simp), hu.h24]
-  · rw [f1.get (by simp only [ENC]; omega) (by simp), hu.c32]
-  · exact (hu.regs.trans r1).mono (by decide)
-  · exact (hu.frame.trans f1).mono (fun A _ h' => by simp only [or_false] at h'; exact h')
-theorem chainCount_eq (lay : Layer) : T3.chainCount lay = if lay = 0 then 54 else 43 := by
-  fin_cases lay <;> rfl
-theorem target_lt (lay : Layer) : T3.target lay < 2 ^ 63 := by
-  fin_cases lay <;> decide
-theorem getD_map_range {f : Nat → Nat} {n j : Nat} (hj : j < n) : ((List.range n).map f).getD j 0 = f j := by
-  simp [List.getD_eq_getElem?_getD, hj]
-structure RewardReady (b : Nat) (A : CsArgs) (s0 : MachineState) (i : Nat) (ds : List Nat) (t : MachineState) : Prop where
-  pc : t.pc = pcOf A.ret
-  trial : TrialSt b A s0 i t
-  len : ds.length=T3.chainCount A.lay
-  digs : ∀ j < T3.chainCount A.lay, t.getByte (BitVec.ofNat 64 (DIGITS+j))=BitVec.ofNat 8 (ds.getD j 0)
-  sum : (t.getReg .x25).toNat ≤ T3.target A.lay
-theorem cs_success {A : CsArgs} {s0 u : MachineState} {i : Nat} {ds : List Nat}
-    {rewardCondition : Prop} (hK : KernAt image b rewardCondition) (hpre : CsPre b A s0) (hu : RewardReady b A s0 i ds u)
-    (hi : i < capLimit A.lay.val) (answer : Digest) (hdec : T3.decode A.lay answer = some ds) :
-    TBSim image sk u 0 (pure (some (BitVec.ofNat 32 i,ds))) (CsPost image b A s0) := by
-  have hcap := capLimit_le A.lay.val
-  have hc : (BitVec.ofNat 32 i).toNat=i := by rw [BitVec.toNat_ofNat]; omega
-  refine TBSim.pure ⟨hu.pc,?_,?_,?_,⟨answer,hdec⟩,hu.len,hu.digs,hu.trial.regs,hu.trial.frame,hu.sum⟩
-  · rw [hc]; omega
-  · rw [hc]; exact hu.trial.x19
-  · rw [hc]; exact hu.trial.c32
-
-theorem cs_prepare {A : CsArgs} {s0 u : MachineState} {i : Nat} {rewardCondition : Prop} (hK : KernAt image b rewardCondition) (hpre : CsPre b A s0)
-    (hu : TrialSt b A s0 i u) (hpc : u.pc = pcOf (b + 433)) (hi : i < 2 ^ 22) (hlz : A.lay ≠ 0)
-    (v : Digest) (hv : T3.lowerSpare v) (S : Nat) (ds : List Nat) (hdec : T3.decode A.lay v = some ds)
-    (hds : ds = lowDigits v ++ [T3.target A.lay - S]) (hS : S ≤ T3.target A.lay)
-    (h6 : u.getReg .x6 = v.extractLsb' 0 64) (h7 : u.getReg .x7 = v.extractLsb' 64 64)
-    (h25 : u.getReg .x25 = BitVec.ofNat 64 S) :
-    ∃ k t, Steps image u k k t ∧ k ≤ 815 ∧ RewardReady b A s0 i ds t := by
-  have hl0 : A.lay.val ≠ 0 := fun h => hlz (Fin.ext h)
-  obtain ⟨u1, su1, pu1, a6, a7, ru1, fu1⟩ := Credit.align_spec hK u hpc v hv h6 h7
-  have hu1 := hu.step ru1 (by decide) fu1
-  obtain ⟨k, t, st, kle, tpc, tdig, tchk, tr, tf⟩ := cs_tail hK u1 pu1 (BitVec.ofNat 128 (T3.lowerWord v)) A.lay.val
-    (T3.target A.lay) S A.ret A.lay.isLt (target_lt _) (fun _ => hS)
-    (by rw [hu1.reg (by decide), hpre.x1]) (by rw [hu1.reg (by decide), hpre.x8])
-    (by rw [hu1.reg (by decide), hpre.x17]) (by rw [ru1.get (by decide), h25])
-    (by rw [hu1.reg (by decide), hpre.x26, chainCount_eq]; simp [hlz, hl0])
-    (by rw [hu1.reg (by decide), hpre.x27, csN4]; simp [hlz, hl0]) a6 a7
-  rw [if_neg hl0] at kle tdig
-  have hfr := (hu1.frame.trans tf).mono (fun A _ h => by
-    rcases h with h | h
-    · exact h
-    · exact Or.inr (Or.inr (Or.inr (Or.inr h))))
-  have hregs : RegsExcept s0 t csRegs := (hu1.regs.trans tr).mono (by decide)
-  refine ⟨5+k,t,su1.trans st,by omega,?_,?_,?_,?_,?_⟩
-  · simpa [hlz] using tpc
-  · refine ⟨?_,?_,?_,?_,hregs,hfr⟩
-    · rw [tr.get (by decide),hu1.x19]
-    · rw [tf.get (by unfold ENC; omega) (by unfold DigW DIGITS ENC; omega),hu1.h16]
-    · rw [tf.get (by unfold ENC; omega) (by unfold DigW DIGITS ENC; omega),hu1.h24]
-    · rw [tf.get (by unfold ENC; omega) (by unfold DigW DIGITS ENC; omega),hu1.c32]
-  · rw [hds,chainCount_eq,if_neg hlz]; simp [lowDigits_length]
-  · intro j hj
-    rw [chainCount_eq,if_neg hlz] at hj
-    rw [hds]
-    rcases Nat.lt_succ_iff_lt_or_eq.1 hj with hj | rfl
-    · rw [List.getD_append _ _ _ _ (by rw [lowDigits_length];exact hj),lowDigits_eq,getD_map_range hj]
-      simpa only [if_neg hl0] using tdig j hj
-    · rw [List.getD_append_right _ _ _ _ (by rw [lowDigits_length]),lowDigits_length]
-      simpa using tchk hl0
-  · rw [tr.get (by decide),ru1.get (by decide),h25,BitVec.toNat_ofNat]
-    have := target_lt A.lay
-    omega
-theorem TrialSt.table {A : CsArgs} {s0 u : MachineState} {i : Nat}
-    (hu : TrialSt b A s0 i u) (ht : TableOK s0) : TableOK u :=
-  ht.frame hu.frame (by intro j hj; unfold CsW DigW TOP_DATA ENC EOUT DIGITS; omega)
-theorem TrialSt.cf {A : CsArgs} {s0 u : MachineState} {i : Nat} {flag : Nat}
-    (hu : TrialSt b A s0 i u) (ht : CfTableOK flag s0) : CfTableOK flag u :=
-  ht.frame hu.frame (by intro j hj hj'; unfold CsW DigW TOP_DATA ENC EOUT DIGITS; omega)
-theorem TrialSt.reward {A : CsArgs} {s0 u : MachineState} {i : Nat}
-    (hu : TrialSt b A s0 i u) (ht : Reward.RewardTablesOK s0) : Reward.RewardTablesOK u :=
-  ht.frame hu.frame (by intro j hj hj'; unfold CsW DigW TOP_DATA ENC EOUT DIGITS; omega)
-theorem cs_top_prepare {A : CsArgs} {s0 u : MachineState} {i : Nat} {rewardCondition : Prop} (hK : KernAt image b rewardCondition)
-    (hpre : CsPre b A s0) (hu : TrialSt b A s0 i u) (hpc : u.pc = pcOf (b + 363))
-    (hi : i < 2 ^ 22) (hlz : A.lay = 0) (v : Digest)
-    (hvalid : T3.topRanksValid (T3.topFlip v) = true)
-    (hdec : T3.decode A.lay (T3.topFlip v) = some (topDigits (T3.topFlip v)))
-    (h6 : u.getReg .x6 = v.extractLsb' 0 64) (h7 : u.getReg .x7 = v.extractLsb' 64 64)
-    (h30 : u.getReg .x30 = BitVec.ofNat 64 TOP_DATA) (h25 : u.getReg .x25 = 145#64) (h20 : u.getReg .x20 = 0) :
-    ∃ t, Steps image u 301 301 t ∧ RewardReady b A s0 i (topDigits (T3.topFlip v)) t := by
-  obtain ⟨t, st, tpc, tdig, tr, tf⟩ := topUnpack_spec hK u v hvalid (hu.table hpre.table) hpc h6 h7 h30 h20 A.ret
-    (by rw [hu.reg (by decide),hpre.x1])
-  have hregs : RegsExcept s0 t csRegs := (hu.regs.trans tr).mono (by decide)
-  have hfr : Frame s0 t CsW := (hu.frame.trans tf).mono (fun A _ h => by
-    rcases h with h | h
-    · exact h
-    · exact Or.inr (Or.inr (Or.inr (Or.inr h))))
-  refine ⟨t,st,?_,?_,?_,?_,?_⟩
-  · simpa [hlz] using tpc
-  · refine ⟨?_,?_,?_,?_,hregs,hfr⟩
-    · rw [tr.get (by decide),hu.x19]
-    · rw [tf.get (by unfold ENC;omega) (by unfold TopUnpack.Writes DIGITS ENC;omega),hu.h16]
-    · rw [tf.get (by unfold ENC;omega) (by unfold TopUnpack.Writes DIGITS ENC;omega),hu.h24]
-    · rw [tf.get (by unfold ENC;omega) (by unfold TopUnpack.Writes DIGITS ENC;omega),hu.c32]
-  · rw [hlz,topDigits_length];rfl
-  · intro j hj
-    rw [hlz] at hj
-    change j<54 at hj
-    rw [tdig j hj]
-    simp only [topDigits,getD_map_range hj]
-  · rw [tr.get (by decide),h25,hlz];decide
-theorem cs_answer {A : CsArgs} {s0 t : MachineState} {i : Nat} {rewardCondition : Prop} (hK : KernAt image b rewardCondition) (hpre : CsPre b A s0)
-    (hI : CsInv b A s0 i t) (hi : i < capLimit A.lay.val) :
-    ∃ k t2, Steps image t k k t2 ∧ k ≤ (if A.lay = 0 then 14 else 12) ∧ t2.pc = pcOf (b + 123) ∧
-      fetch image t2 = some (.base .ECALL) ∧
-      t2.getReg .x5 = 0 ∧ hashArgumentsValid t2 = true ∧
-      hashInput t2 = toQ (T3.pad64 (WCT9.layerEncodingInput A.lay A.tree A.leaf A.msg (BitVec.ofNat 32 i))) ∧
-      t2.getReg .x12 = BitVec.ofNat 64 EOUT ∧ TrialSt b A s0 i t2 := by
-  have hcap := capLimit_le A.lay.val
-  obtain ⟨k1, t1, s1, k1le, p1, r1, f1⟩ := cap_spec hK t hI.pc A.lay.val i A.lay.isLt hI.hi
-    (by rw [hI.regs.get (by decide), hpre.x8]) hI.x19
-  rw [if_neg (by omega)] at p1
-  obtain ⟨x, hx, hx32⟩ := hI.c32
-  obtain ⟨t2, s2, p2, c32, h10, h11, h12, r2, f2⟩ := cs115_spec hK t1 p1 i x (by omega) hx
-    (by rw [r1.get (by decide), hI.x19]) (by rw [f1.get (by simp only [ENC]; omega) (by simp), hx32])
-  have fr : Frame s0 t2 CsW := ((hI.frame.trans f1).trans f2).mono (fun A _ h => by
-    simp only [or_false] at h; rcases h with h | h
-    · exact h
-    · exact Or.inr (Or.inr (Or.inl h)))
-  have mem : ∀ A, A < 2 ^ 64 → ¬ CsW A → t2.getMem (BitVec.ofNat 64 A) = s0.getMem (BitVec.ofNat 64 A) :=
-    fun A hA hn => fr.get hA hn
-  have hT : TrialSt b A s0 i t2 := by
-    refine ⟨?_, ?_, ?_, c32, ((hI.regs.trans r1).trans r2).mono (by decide), fr⟩
-    · rw [r2.get (by decide), r1.get (by decide), hI.x19]
-    · rw [f2.get (by simp only [ENC]; omega) (by simp only [ENC]; omega), f1.get (by simp only [ENC]; omega) (by simp),
-        hI.h16]
-    · rw [f2.get (by simp only [ENC]; omega) (by simp only [ENC]; omega), f1.get (by simp only [ENC]; omega) (by simp),
-        hI.h24]
-  have hk : k1 + 8 ≤ (if A.lay = 0 then 14 else 12) := by
-    have hl0 : (A.lay.val = 0) ↔ A.lay = 0 := ⟨fun h => Fin.ext h, fun h => by rw [h]; rfl⟩
-    by_cases h : A.lay = 0
-    · rw [if_pos (hl0.2 h)] at k1le; rw [if_pos h]; omega
-    · rw [if_neg (fun h' => h (hl0.1 h'))] at k1le; rw [if_neg h]; omega
-  refine ⟨_, t2, s1.trans s2, hk, p2, (codeAt_k_123 hK).fetch _ p2, by rw [hT.reg (by decide), hpre.x5],
-    hashArgs_const t2 ENC 64 EOUT h10 h11 h12 (by decide) (by decide) (by decide) (by decide) (by decide),
-    ?_, h12, hT⟩
-  have hc : (BitVec.ofNat 32 i).toNat = i := by rw [BitVec.toNat_ofNat]; omega
-  refine hashInput_toQ t2 _ 0 ENC (encodingInput_length _ _ _ _ _) h10 (by decide) (by decide) h11 (by decide) ?_
-  rw [readWords_eight, wordsOf_encodingInput, hc]
-  have nw : ∀ A, A = ENC ∨ A = ENC + 8 ∨ A = ENC + 40 ∨ A = ENC + 48 ∨ A = ENC + 56 → ¬ CsW A := by
-    intro A hA; simp only [CsW, DigW, ENC, EOUT, DIGITS] at hA ⊢; omega
-  rw [mem _ (by simp only [ENC]; omega) (nw _ (by omega)), mem _ (by simp only [ENC]; omega) (nw _ (by omega)),
-    hT.h16, hT.h24, c32, mem _ (by simp only [ENC]; omega) (nw _ (by omega)),
-    mem _ (by simp only [ENC]; omega) (nw _ (by omega)), mem _ (by simp only [ENC]; omega) (nw _ (by omega)),
-    hpre.m0, hpre.m8, hpre.z40, hpre.r48, hpre.r56]
-theorem TrialSt.hash {A : CsArgs} {s0 t2 : MachineState} {i : Nat} (hT : TrialSt b A s0 i t2)
-    (h12 : t2.getReg .x12 = BitVec.ofNat 64 EOUT) (a : BitVec 256) : TrialSt b A s0 i (writeHash t2 a) := by
-  have fw := Frame.writeHash t2 a EOUT h12 (by decide)
-  refine ⟨by rw [getReg_writeHash, hT.x19], ?_, ?_, ?_, ?_, ?_⟩
-  · rw [fw.get (by simp only [ENC]; omega) (by simp only [ENC, EOUT]; omega), hT.h16]
-  · rw [fw.get (by simp only [ENC]; omega) (by simp only [ENC, EOUT]; omega), hT.h24]
-  · rw [fw.get (by simp only [ENC]; omega) (by simp only [ENC, EOUT]; omega), hT.c32]
-  · intro r hr; rw [getReg_writeHash]; exact hT.regs r hr
-  · exact (hT.frame.trans fw).mono (fun A _ h => by
-      rcases h with h | h
-      · exact h
-      · exact Or.inr (Or.inr (Or.inr (Or.inl h))))
-theorem cfFlag_lt (b : Nat) : cfFlag b < 256 := by unfold cfFlag; split <;> omega
-theorem cs_exhaust {A : CsArgs} {s0 t : MachineState} {i : Nat} {rewardCondition : Prop} (hK : KernAt image b rewardCondition) (hpre : CsPre b A s0)
-    (hI : CsInv b A s0 i t) (hi : i = capLimit A.lay.val) :
-    TBSim image sk t (0 * csT A.lay + csOk A.lay) (WCT9.layerCounterSearch A.lay A.tree A.leaf A.msg i 0)
-      (CsPost image b A s0) := by
-  obtain ⟨k1, t1, s1, k1le, p1, r1, f1⟩ := cap_spec hK t hI.pc A.lay.val i A.lay.isLt hI.hi
-    (by rw [hI.regs.get (by decide), hpre.x8]) hI.x19
-  rw [if_pos hi] at p1
-  have hk1 : k1 ≤ 6 := by split_ifs at k1le <;> omega
-  have h8 : t1.getReg .x8 = BitVec.ofNat 64 A.lay.val := by
-    rw [r1.get (by decide), hI.regs.get (by decide), hpre.x8]
-  have fr1 : Frame s0 t1 CsW := (hI.frame.trans f1).mono (fun A _ h => by simp only [or_false] at h; exact h)
-  have hcf1 : CfTableOK (cfFlag b) t1 :=
-    hpre.cf.frame fr1 (by intro j hj hj'; unfold CsW DigW TOP_DATA ENC EOUT DIGITS; omega)
-  have prog : WCT9.layerCounterSearch A.lay A.tree A.leaf A.msg i 0 = pure none := rfl
-  rw [prog]
-  by_cases hd : A.lay = 0 ∧ b = 543
-  · have hfl : cfFlag b ≠ 0 := by unfold cfFlag; rw [if_pos hd.2]; omega
-    obtain ⟨t2, s2, p2, g6, g7, g20, g25, g30, r2, f2⟩ := Credit.exhaust_dummy hK t1 p1
-      (by rw [h8, hd.1]; rfl) (cfFlag b) (cfFlag_lt b) hcf1 hfl
-    have ht2 : TableOK t2 := hpre.table.frame (fr1.trans f2 |>.mono (fun A _ h => by
-      simp only [or_false] at h; exact h)) (by intro j hj; unfold CsW DigW TOP_DATA ENC EOUT DIGITS; omega)
-    obtain ⟨t3, s3, p3, dig3, r3, f3⟩ := topUnpack_spec hK t2 Credit.dummyDigest
-      Credit.dummy_valid ht2 p2 g6 g7 g30 g20 A.ret
-      (by rw [r2.get (by decide),r1.get (by decide),hI.regs.get (by decide),hpre.x1])
-    refine (TBSim.steps (s1.trans (s2.trans s3)) (TBSim.pure ?_)).mono ?_ (fun _ _ h => h)
-    · change (if A.lay = 0 ∧ b = 543 then DummyOut A s0 t3 else _)
-      rw [if_pos hd]
-      refine ⟨p3,?_,?_,?_,?_,?_⟩
-      · intro j hj
-        rw [dig3 j hj,←Credit.dummy_digits]
-        simp only [topDigits,getD_map_range hj]
-      · obtain ⟨x,hx,hx32⟩ := hI.c32
-        rw [f3.get (by unfold ENC;omega) (by unfold TopUnpack.Writes DIGITS ENC;omega),
-          f2.get (by unfold ENC;omega) (by simp),f1.get (by unfold ENC;omega) (by simp),hx32,BitVec.toNat_ofNat]
-        omega
-      · exact (((hI.regs.trans r1).trans r2).trans r3).mono (by decide)
-      · exact ((fr1.trans f2).trans f3).mono (fun A _ h => by
-          rcases h with (h|h)|h
-          · exact h
-          · exact absurd h id
-          · exact Or.inr (Or.inr (Or.inr (Or.inr h))))
-      · rw [r3.get (by decide),g25];decide
-    · unfold csOk;rw [if_pos hd.1];omega
-  · have hfl : A.lay.val ≠ 0 ∨ cfFlag b = 0 := by
-      by_cases hz : A.lay = 0
-      · right; unfold cfFlag; rw [if_neg (fun h => hd ⟨hz, h⟩)]
-      · left; exact fun h => hz (Fin.ext h)
-    obtain ⟨n, t2, hn, s2, p2, r2, f2⟩ := Credit.exhaust_fail hK t1 p1 A.lay.val A.lay.isLt h8 (cfFlag b)
-      (cfFlag_lt b) hcf1 hfl
-    obtain ⟨t3, s3, p3, h5, h10, hf⟩ := cs0_spec hK t2 p2
-    refine (TBSim.steps (s1.trans (s2.trans s3)) (TBSim.pure ?_)).mono ?_ (fun _ _ h => h)
-    · change (if A.lay = 0 ∧ b = 543 then DummyOut A s0 t3 else _)
-      rw [if_neg hd]
-      exact ⟨p3, h5, h10, hf⟩
-    · unfold csOk; split_ifs <;> omega
-theorem cs_loop {A : CsArgs} {s0 : MachineState} (hK : KernAt image b) (hpre : CsPre b A s0) :
-    ∀ F i t, i + F = capLimit A.lay.val → CsInv b A s0 i t →
-      TBSim image sk t (F * csT A.lay + csOk A.lay) (WCT9.layerCounterSearch A.lay A.tree A.leaf A.msg i F)
-        (CsPost image b A s0) := by
-  have hl0 : (A.lay.val = 0) ↔ A.lay = 0 := ⟨fun h => Fin.ext h,fun h => by rw [h];rfl⟩
-  have hcap := capLimit_le A.lay.val
-  intro F
-  induction F with
-  | zero =>
-    intro i t h hI
-    exact cs_exhaust hK hpre hI (by omega)
-  | succ F ih =>
-    intro i t h hI
-    have hi : i < capLimit A.lay.val := by omega
-    have hi22 : i < 2 ^ 22 := by omega
-    obtain ⟨k2,t2,s2,k2le,p2,hf,h5,hv,hq,h12,hT⟩ := cs_answer hK hpre hI hi
-    have prog : WCT9.layerCounterSearch A.lay A.tree A.leaf A.msg i (F+1) =
-        (WCT9.encodingHash A.lay (WCT9.layerEncodingInput A.lay A.tree A.leaf A.msg (BitVec.ofNat 32 i)) >>= fun answer =>
-          match WCT9.producerDecode A.lay answer with
-          | none => WCT9.layerCounterSearch A.lay A.tree A.leaf A.msg (i+1) F
-          | some digits => pure (some (BitVec.ofNat 32 i,digits))) := rfl
-    have ih' : ∀ t, CsInv b A s0 (i+1) t → TBSim image sk t (F*csT A.lay+csOk A.lay)
-        (WCT9.layerCounterSearch A.lay A.tree A.leaf A.msg (i+1) F) (CsPost image b A s0) :=
-      fun t ht => ih (i+1) t (by omega) ht
-    rw [prog]
-    refine (TBSim.steps s2 (TBSim.encodingHash_bind hf h5 hv hq
-      (W:=F*csT A.lay+csOk A.lay+(csT A.lay-(if A.lay=0 then 22 else 20))) (fun a => ?_))).mono ?_ (fun _ _ h => h)
-    swap
-    · rw [blocks_encodingInput,Nat.succ_mul];unfold csT at *;split_ifs at k2le ⊢ <;> omega
-    set v := WCT9.encodingAnswer A.lay a with hvdef
-    have hT3 := hT.hash h12 a
-    have p3 : (writeHash t2 a).pc=pcOf (b+124) := by rw [pc_writeHash,p2,pcOf_add4]
-    have hd := DigAt.writeHash_lo t2 a EOUT h12 (by decide)
-    have hhi := DigAt.writeHash_hi t2 a EOUT h12 (by decide)
-    obtain ⟨t4,s4,p4,h6,h7,h25,r4,f4⟩ := cs124_spec hK (writeHash t2 a) p3 A.lay.val A.lay.isLt
-      (by rw [hT3.reg (by decide),hpre.x8])
-    rw [hd.1] at h6
-    rw [hd.2] at h7
-    have hT4 := hT3.step r4 (by decide) f4
-    by_cases hlz : A.lay=0
-    · rw [if_pos (hl0.2 hlz)] at p4
-      obtain ⟨kg,tg,sg,hkg,pg,g6,g7,rg,fg⟩ := top_select_spec hK t4 p4 a h6 h7
-        (by rw [r4.get (by decide),getReg_writeHash,h12])
-        (by rw [f4.get (by unfold EOUT;omega) (by simp)];exact hhi.1)
-        (by rw [f4.get (by unfold EOUT;omega) (by simp)];exact hhi.2)
-      have he : v=T3.TopDualHalf.select a := by simp [hvdef,WCT9.encodingAnswer,hlz]
-      rw [←he] at g6 g7
-      obtain ⟨tc,sc,pcc,h6c,h7c,rc,fc⟩ := tc_spec hK tg pg v g6 g7
-      have sc := sg.trans sc
-      have hTc := (hT4.step rg (by decide) fg).step rc (by decide) fc
-      clear_value v
-      obtain ⟨w,rfl⟩ : ∃ w,v=T3.topFlip w := ⟨T3.topFlip v,(T3.topFlip_topFlip v).symm⟩
-      rw [T3.topFlip_topFlip] at h6c h7c
-      have hdec := decode_top_lookup w
-      rw [←hlz] at hdec
-      obtain ⟨t5,s5,p5,r5,f5⟩ := cs263_spec hK tc pcc
-      have hT5 := hTc.step r5 (by decide) f5
-      obtain ⟨t6,s6,p6,h25',h30',r6,f6⟩ := topCheck_spec hK t5 w p5
-        (by rw [r5.get (by decide),h6c]) (by rw [r5.get (by decide),h7c])
-        (by rw [hT5.reg (by decide),hpre.x17,hlz];rfl) (hT5.table hpre.table).sum
-      have hT6 := hT5.step r6 (by decide) f6
-      by_cases hs : topLookupSum w=145
-      · rw [if_pos hs] at p6
-        have hd' : T3.decode A.lay (T3.topFlip w)=some (topDigits (T3.topFlip w)) := by rw [hdec,if_pos hs]
-        have hpd := producerDecode_top (T3.topFlip w) (by simpa [hlz] using hd')
-        rw [←hlz] at hpd
-        rw [hpd]
-        have hvalid := ((topLookupSum_eq_iff w).mp hs).1
-        obtain ⟨t7,s7,p7,r7,f7⟩ := TopUnpack.jump_spec hK t6 p6
-        have hT7 := hT6.step r7 (by decide) f7
-        obtain ⟨tf,sf,pf,rf,ff⟩ := Reward.PackedTop.top_spec hK.2.1 hK.2.2.2.2.2.2 t7 w
-          (hT7.reward hpre.reward) hvalid p7
-          (by rw [r7.get (by decide),r6.get (by decide),r5.get (by decide),h6c])
-          (by rw [r7.get (by decide),r6.get (by decide),r5.get (by decide),h7c])
-        have hTf := hT7.step rf (by decide) ff
-        change tf.pc=(if rewardOK 0 (topDigits (T3.topFlip w)) then _ else _) at pf
-        rw [←hlz] at pf
-        by_cases hok : rewardOK A.lay (topDigits (T3.topFlip w))
-        · rw [if_pos hok] at pf
-          simp only [if_pos hok]
-          obtain ⟨t8,s8,p8,g20,r8,f8⟩ := Credit.ok_spec hK tf pf
-          have hT8 := hTf.step r8 (by decide) f8
-          obtain ⟨t9,s9,hR⟩ := cs_top_prepare hK hpre hT8 p8 hi22 hlz w hvalid hd'
-            (by rw [r8.get (by decide),rf.get (by decide),r7.get (by decide),r6.get (by decide),r5.get (by decide),h6c])
-            (by rw [r8.get (by decide),rf.get (by decide),r7.get (by decide),r6.get (by decide),r5.get (by decide),h7c])
-            (by rw [r8.get (by decide),rf.get (by decide),r7.get (by decide),h30'])
-            (by rw [r8.get (by decide),rf.get (by decide),r7.get (by decide)];simpa only [hs] using h25') g20
-          have done := cs_success (sk:=sk) hK hpre hR hi (T3.topFlip w) hd'
-          refine (TBSim.steps ((((((((s4.trans sc).trans s5).trans s6).trans s7).trans sf).trans s8).trans s9)) done).mono ?_ (fun _ _ h => h)
-          simp only [csT,csOk,if_pos hlz];omega
-        · rw [if_neg hok] at pf
-          simp only [if_neg hok]
-          refine (TBSim.steps ((((((s4.trans sc).trans s5).trans s6).trans s7).trans sf))
-            (cs_next hK hTf pf hi ih')).mono ?_ (fun _ _ h => h)
-          simp only [csT,csOk,if_pos hlz];omega
-      · rw [if_neg hs] at p6
-        have hd' : T3.decode A.lay (T3.topFlip w)=none := by rw [hdec,if_neg hs]
-        have hpd : WCT9.producerDecode A.lay (T3.topFlip w)=none := by simp [WCT9.producerDecode,hd']
-        rw [hpd]
-        refine (TBSim.steps (((s4.trans sc).trans s5).trans s6) (cs_next hK hT6 p6 hi ih')).mono ?_ (fun _ _ h => h)
-        simp only [csT,csOk,if_pos hlz];omega
-    · rw [if_neg (fun h => hlz (hl0.1 h))] at p4
-      obtain ⟨td,sd,pd,rd,fd⟩ := cs130_spec hK t4 p4
-      have hTd := hT4.step rd (by decide) fd
-      obtain ⟨ks,t5,ss,hs7,p5,h6s,h7s,r5,f5⟩ := selector_spec hK td pd a A.lay hlz
-        ((rd.get (by decide)).trans h6) ((rd.get (by decide)).trans h7)
-        (by rw [rd.get (by decide),r4.get (by decide),getReg_writeHash,h12])
-        (by rw [fd.get (by unfold EOUT;omega) (by simp),f4.get (by unfold EOUT;omega) (by simp)];exact hhi.1)
-        (by rw [fd.get (by unfold EOUT;omega) (by simp),f4.get (by unfold EOUT;omega) (by simp)];exact hhi.2)
-      have s5 := sd.trans ss
-      have hT5 := hTd.step r5 (by decide) f5
-      change t5.pc=(if T3.lowerSpare v then _ else _) at p5
-      change t5.getReg .x6=v.extractLsb' 0 64 at h6s
-      change t5.getReg .x7=v.extractLsb' 64 64 at h7s
-      have hdec := decode_low A.lay hlz v
-      by_cases hr : T3.lowerSpare v
-      · rw [if_pos hr] at p5
-        obtain ⟨t6,s6,p6,h25',h28',r6,f6⟩ := cs132_spec hK t5 p5 v (T3.target A.lay) (target_lt _) h6s h7s
-          (by rw [r5.get (by decide),rd.get (by decide),h25]) (by rw [hT5.reg (by decide),hpre.x17])
-        have hT6 := hT5.step r6 (by decide) f6
-        by_cases hs : (lowDigits v).sum≤T3.target A.lay ∧ T3.target A.lay-(lowDigits v).sum<8
-        · rw [if_pos hs] at p6
-          obtain ⟨t7,s7,p7,r7,f7⟩ := cs259_spec hK t6 p6
-          have hT7 := hT6.step r7 (by decide) f7
-          have hd' : T3.decode A.lay v=some (lowDigits v++[T3.target A.lay-(lowDigits v).sum]) := by rw [hdec,if_pos ⟨hr,hs⟩]
-          rw [producerDecode_lower hlz v _ hd' rfl]
-          obtain ⟨k8,n8,t8,s8,n8le,p8,r8,f8⟩ := zero_rank_spec hK t7 p7 v (T3.target A.lay)
-            (by
-              have h : ∀ lay : T3.Layer,T3.target lay<256 := by decide
-              exact h A.lay) hs.1
-            (by rw [r7.get (by decide),r6.get (by decide),h6s])
-            (by rw [r7.get (by decide),r6.get (by decide),h7s])
-            (by rw [hT7.reg (by decide),hpre.x17]) (by rw [r7.get (by decide),h25'])
-            (lowZeros_bound v (by
-              have hmin : ∀ lay : T3.Layer,lay≠0 → 199≤T3.target lay := by decide
-              have ht := hmin A.lay hlz;omega))
-          have hT8 := hT7.step r8 (by decide) f8
-          by_cases hok : (lowDigits v++[T3.target A.lay-(lowDigits v).sum]).count 0≤5 ∧ Rank.rankOK v
-          · rw [if_pos hok] at p8
-            simp only [hok.1,hok.2,and_true]
-            have hTables : Reward.RewardTablesOK t8 := hpre.reward.frame hT8.frame
-              (by intro j hj hj'; unfold CsW DigW TOP_DATA ENC EOUT DIGITS; omega)
-            obtain ⟨tR,sR,pR,rR,fR⟩ := LowerLUT.lower_spec hK.2.1 hK.2.2.2.2.2.2 t8 A.lay hlz v hTables p8
-              (by rw [r8.get (by decide),r7.get (by decide),r6.get (by decide),h6s])
-              (by rw [r8.get (by decide),r7.get (by decide),r6.get (by decide),h7s])
-              (by rw [hT8.reg (by decide),hpre.x8])
-              (by rw [hT8.reg (by decide),hpre.x17])
-              (by rw [r8.get (by decide),r7.get (by decide),h25']) hs.1 hs.2
-            have hTR := hT8.step rR (by decide) fR
-            change tR.pc=(if rewardOK A.lay (lowDigits v++[T3.target A.lay-(lowDigits v).sum])
-              then pcOf (b+433) else pcOf (b+468)) at pR
-            by_cases hreward : rewardOK A.lay (lowDigits v++[T3.target A.lay-(lowDigits v).sum])
-            · rw [if_pos hreward] at pR ⊢
-              obtain ⟨k9,t9,s9,k9le,hR⟩ := cs_prepare hK hpre hTR pR hi22 hlz v hr _ _ hd' rfl hs.1
-                (by rw [rR.get (by decide),r8.get (by decide),r7.get (by decide),r6.get (by decide),h6s])
-                (by rw [rR.get (by decide),r8.get (by decide),r7.get (by decide),r6.get (by decide),h7s])
-                (by rw [rR.get (by decide),r8.get (by decide),r7.get (by decide),h25'])
-              have done := cs_success (sk:=sk) hK hpre hR hi v hd'
-              refine (TBSim.steps ((((((s4.trans s5).trans s6).trans s7).trans s8).trans sR).trans s9) done).mono ?_ (fun _ _ h => h)
-              simp only [csT,csOk,if_neg hlz];omega
-            · rw [if_neg hreward] at pR ⊢
-              refine (TBSim.steps (((((s4.trans s5).trans s6).trans s7).trans s8).trans sR)
-                (cs_next hK hTR pR hi ih')).mono ?_ (fun _ _ h => h)
-              simp only [csT,csOk,if_neg hlz];omega
-          · rw [if_neg hok] at p8
-            have hno : ¬ (rewardOK A.lay (lowDigits v++[T3.target A.lay-(lowDigits v).sum]) ∧
-                (lowDigits v++[T3.target A.lay-(lowDigits v).sum]).count 0≤5 ∧ Rank.rankOK v) := fun hh => hok hh.2
-            simp only [if_neg hno]
-            refine (TBSim.steps ((((s4.trans s5).trans s6).trans s7).trans s8) (cs_next hK hT8 p8 hi ih')).mono ?_ (fun _ _ h => h)
-            simp only [csT,csOk,if_neg hlz];omega
-        · rw [if_neg hs] at p6
-          have hd' : T3.decode A.lay v=none := by rw [hdec,if_neg (fun h => hs h.2)]
-          have hpd : WCT9.producerDecode A.lay v=none := by simp [WCT9.producerDecode,hd']
-          rw [hpd]
-          refine (TBSim.steps ((s4.trans s5).trans s6) (cs_next hK hT6 p6 hi ih')).mono ?_ (fun _ _ h => h)
-          simp only [csT,csOk,if_neg hlz];omega
-      · rw [if_neg hr] at p5
-        have hd' : T3.decode A.lay v=none := by rw [hdec,if_neg (fun h => hr h.1)]
-        have hpd : WCT9.producerDecode A.lay v=none := by simp [WCT9.producerDecode,hd']
-        rw [hpd]
-        refine (TBSim.steps (s4.trans s5) (cs_next hK hT5 p5 hi ih')).mono ?_ (fun _ _ h => h)
-        simp only [csT,csOk,if_neg hlz];omega
-theorem counterSearch_tbsim {A : CsArgs} {s0 : MachineState} (hK : KernAt image b) (hpre : CsPre b A s0) :
-    TBSim image sk s0 (18 + capLimit A.lay.val * csT A.lay + csOk A.lay)
-      (WCT9.layerCounterSearch A.lay A.tree A.leaf A.msg 0 (WCT9.searchLimit A.lay)) (CsPost image b A s0) := by
-  obtain ⟨t, st, pt, h16, h24, h19, rt, ft⟩ := cs103_spec hK s0 hpre.pc A.lay A.tree A.leaf hpre.hroute
-    hpre.x8 hpre.x9 hpre.x18 hpre.x15
-  obtain ⟨t', st', pt', rt', ft'⟩ := cs113_spec hK t pt
-  have hI : CsInv b A s0 0 t' := by
-    refine ⟨pt', Nat.zero_le _, by rw [rt'.get (by decide), h19], by rw [ft'.get (by simp only [ENC]; omega) (by simp), h16],
-      by rw [ft'.get (by simp only [ENC]; omega) (by simp), h24], ?_,
-      (rt.trans rt').mono (by decide), (ft.trans ft').mono (fun A _ h => by
-        rcases h with h | h
-        · rcases h with h | h
-          · exact Or.inl h
-          · exact Or.inr (Or.inl h)
-        · exact absurd h id)⟩
-    obtain ⟨x, hx, hx32⟩ := hpre.c32
-    exact ⟨x, hx, by rw [ft'.get (by simp only [ENC]; omega) (by simp), ft.get (by simp only [ENC]; omega)
-      (by simp only [ENC]; omega), hx32]⟩
-  rw [← capLimit_eq]
-  have := TBSim.steps st (TBSim.steps st' (cs_loop (sk := sk) hK hpre (capLimit A.lay.val) 0 t' (by omega) hI))
-  exact this.mono (le_of_eq (by ring)) (fun _ _ h => h)
-end trial
+-- r3-lean-sign: the legacy (bit-127 selector) BC counter-search loop was removed; the kernel now implements the
+-- restricted top choice (see `Canonical.cs_loop`).
 structure FailedAt (b : Nat) (t : MachineState) : Prop where
   pc : t.pc = pcOf (b + 2)
   x5 : t.getReg .x5 = 1
@@ -1495,31 +1065,6 @@ theorem CsPreS.toCsPre {b : Nat} {s : MachineState} {lay : Layer} {tree leaf : N
     (h : CsPreS b s lay tree leaf msg ret) : CsPre b ⟨lay, tree, leaf, msg, ret⟩ s :=
   ⟨h.pc, h.x1, h.x5, h.x8, h.x9, h.x18, h.x17, h.x26, h.x27, h.htree, h.hleaf, h.hroute, h.x15, h.msg.1, h.msg.2,
     ⟨_, h.c32, (BitVec.ofNat_toNat _ _).trans (BitVec.setWidth_eq _)|>.symm⟩, h.z40, h.r48, h.r56, h.table, h.cf, h.reward⟩
-theorem counterSearch_spec {image : Image} {b : Nat} {sk : BitVec 256} (hK : KernAt image b)
-    (s : MachineState) (lay : Layer) (tree leaf : Nat) (msg : WCT9.LayerMsg) (ret : Nat)
-    (h : CsPreS b s lay tree leaf msg ret) :
-    TBSim image sk s (csCostS lay) (WCT9.layerCounterSearch lay tree leaf msg 0 (WCT9.searchLimit lay))
-      (CsPostS b s lay ret) := by
-  refine (counterSearch_tbsim (sk := sk) hK h.toCsPre).mono ?_ (fun r t ht => ?_)
-  · show 18 + capLimit lay.val * csT lay + csOk lay ≤
-      (if lay = 0 then T3.counterLimit * 270 else WCT9.lowerSearchLimit * 380) + 8192
-    have hl0 : (lay.val = 0) ↔ lay = 0 := ⟨fun h => Fin.ext h, fun h => by rw [h]; rfl⟩
-    unfold capLimit csT csOk T3.counterLimit WCT9.lowerSearchLimit
-    by_cases h : lay = 0
-    · rw [if_pos (hl0.2 h), if_pos h, if_pos h, if_pos h]; norm_num
-    · rw [if_neg (fun h' => h (hl0.1 h')), if_neg h, if_neg h, if_neg h]; norm_num
-  · rcases r with _ | ⟨c, ds⟩
-    · change (if lay = 0 ∧ b = 543 then DummyOut _ s t else _) at ht
-      show (if lay = 0 ∧ b = 543 then DummyOutS s ret t else FailedAt b t)
-      split_ifs at ht ⊢ with hd
-      · obtain ⟨tpc, dig, c32, hr, hf, h25⟩ := ht
-        exact ⟨tpc, by rw [hr.get (by decide), h.x5], dig, c32, hr, hf, h25⟩
-      · exact ⟨ht.1, ht.2.1, ht.2.2.1⟩
-    · obtain ⟨tpc, hc, _, h32, hdec, _, hdig, hr, hf, h25⟩ := ht
-      refine ⟨tpc, ?_, hdec, hdig, ?_, hr, hf, h25⟩
-      · rw [hr.get (by decide), h.x5]
-      · rw [h32, BitVec.toNat_ofNat]
-        omega
 end SigGolfCandidate.T3M.Search.BC
 end
 end
@@ -1585,29 +1130,40 @@ set_option maxRecDepth 32768
 
 def lowerAddCode : List (BitVec 32) := bv_list% 32 [0x41988e33,0xffae0e13,0x1e3e13,0x1ca0a33]
 def lowerJumpCode : List (BitVec 32) := bv_list% 32 [0x7100106f]
+/-- `21015: jal zero, pa` (path-aware lower credit, choice block). -/
+def floorJumpCode : List (BitVec 32) := bv_list% 32 [0x0880006f]
 def lowerBranchCode : List (BitVec 32) := bv_list% 32 [0x1ca6463]
 def lowerBadCode : List (BitVec 32) := bv_list% 32 [0xf5cec06f]
-def topBranchCode : List (BitVec 32) := bv_list% 32 [0x1c00e13,0x1ca6463]
-def topJumpCode : List (BitVec 32) := bv_list% 32 [0x8c0106f]
-def topBadCode : List (BitVec 32) := bv_list% 32 [0x8c8ec06f]
+/-- `21438: jal zero, topcr` (path-aware top credit). -/
+def topBranchCode : List (BitVec 32) := bv_list% 32 [0xbf5ff06f]
+/-- `topcr` (21179): `s4 += 3` on the LOW path (choice flag clear), then the floor test `s4 < 30` (floor 18 + 12)
+fails into `choice_r`, else `jal` to the top credit hook. -/
+def topCr0 : List (BitVec 32) := bv_list% 32 [0x00066e37,0x7f8e3e03,0x000e1463]
+def topCr3 : List (BitVec 32) := bv_list% 32 [0x003a0a13]
+def topCr4 : List (BitVec 32) := bv_list% 32 [0x01e00e13,0xdbca66e3]
+def topCr6 : List (BitVec 32) := bv_list% 32 [0x4880106f]
 sym_block lowerAddRun := symRun {noAlias:=true} lowerAddCode (pcOf 21011) 6
-sym_block lowerFloorJumpRun := symRun {noAlias:=true} lowerJumpCode (pcOf 21015) 2
+sym_block lowerFloorJumpRun := symRun {noAlias:=true} floorJumpCode (pcOf 21015) 2
 sym_block lowerCreditJumpRun := symRun {noAlias:=true} lowerJumpCode (pcOf 21019) 2
 sym_block lowerBranchRun := symRun {noAlias:=true} lowerBranchCode (pcOf 21018) 2
 sym_block lowerBadRun := symRun {noAlias:=true} lowerBadCode (pcOf 21020) 2
-sym_block topBranchRun := symRun {noAlias:=true} topBranchCode (pcOf 21438) 3
-sym_block topCreditJumpRun := symRun {noAlias:=true} topJumpCode (pcOf 21440) 2
-sym_block topBadRun := symRun {noAlias:=true} topBadCode (pcOf 21441) 2
+sym_block topBranchRun := symRun {noAlias:=true} topBranchCode (pcOf 21438) 2
+sym_block topCr0Run := symRun {noAlias:=true} topCr0 (pcOf 21179) 4
+sym_block topCr3Run := symRun {noAlias:=true} topCr3 (pcOf 21182) 2
+sym_block topCr4Run := symRun {noAlias:=true} topCr4 (pcOf 21183) 3
+sym_block topCr6Run := symRun {noAlias:=true} topCr6 (pcOf 21185) 2
 
 structure Code (image : Image) : Prop where
   scoring : CanonicalReward.PrefixAt image 543
-  floorJump : CodeAt image (pcOf 21015) lowerJumpCode
+  floorJump : CodeAt image (pcOf 21015) floorJumpCode
   lowerBranch : CodeAt image (pcOf 21018) lowerBranchCode
   lowerJump : CodeAt image (pcOf 21019) lowerJumpCode
   lowerBad : CodeAt image (pcOf 21020) lowerBadCode
   topBranch : CodeAt image (pcOf 21438) topBranchCode
-  topJump : CodeAt image (pcOf 21440) topJumpCode
-  topBad : CodeAt image (pcOf 21441) topBadCode
+  cr0 : CodeAt image (pcOf 21179) topCr0
+  cr3 : CodeAt image (pcOf 21182) topCr3
+  cr4 : CodeAt image (pcOf 21183) topCr4
+  cr6 : CodeAt image (pcOf 21185) topCr6
   floorHook : CodeAt image (pcOf 22491) lowerFloorCode
   lowerHook : CodeAt image (pcOf 22495) lowerCreditCode
   topHook : CodeAt image (pcOf 22499) topCreditCode
@@ -1632,9 +1188,9 @@ theorem lowerAdd_steps {image : Image} (hc : CodeAt image (pcOf 21011) lowerAddC
   · intro r hr; cases r <;> simp at hr <;> rfl
   · intro A _ _; rfl
 
-theorem lowerFloorJump_steps {image : Image} (hc : CodeAt image (pcOf 21015) lowerJumpCode)
+theorem lowerFloorJump_steps {image : Image} (hc : CodeAt image (pcOf 21015) floorJumpCode)
     (s : MachineState) (hp : s.pc=pcOf 21015) :
-    ∃ t, Steps image s 1 1 t ∧ t.pc=pcOf 22491 ∧ RegsExcept s t [] ∧ Frame s t (fun _=>False) := by
+    ∃ t, Steps image s 1 1 t ∧ t.pc=pcOf (choiceBase 543+17) ∧ RegsExcept s t [] ∧ Frame s t (fun _=>False) := by
   refine ⟨_,symRun_sound lowerFloorJumpRun hc s hp (by simp [lowerFloorJumpRun.res,rv_simp]),rfl,?_,?_⟩
   · intro r hr; cases r <;> rfl
   · intro A _ _; rfl
@@ -1666,28 +1222,50 @@ theorem lowerBad_steps {image : Image} (hc : CodeAt image (pcOf 21020) lowerBadC
   · intro A _ _; rfl
 
 theorem topBranch_steps {image : Image} (hc : CodeAt image (pcOf 21438) topBranchCode)
-    (s : MachineState) (hp : s.pc=pcOf 21438) (a : Nat) (ha : a<2^64)
-    (h20 : s.getReg .x20=BitVec.ofNat 64 a) :
-    ∃ t, Steps image s 2 2 t ∧ t.pc=(if 28≤a then pcOf 21440 else pcOf 21441) ∧
-      RegsExcept s t [.x28] ∧ Frame s t (fun _=>False) := by
-  refine ⟨_,symRun_sound topBranchRun hc s hp (by simp [topBranchRun.res,rv_simp]),?_,?_,?_⟩
-  · change (if (s.getReg .x20).ult 28#64 then _ else _)=_
-    rw [h20,ofNat_ult a 28 ha (by decide)]
-    split_ifs <;> simp_all [E.eval] <;> omega
-  · intro r hr; cases r <;> simp at hr <;> rfl
-  · intro A _ _; rfl
-
-theorem topCreditJump_steps {image : Image} (hc : CodeAt image (pcOf 21440) topJumpCode)
-    (s : MachineState) (hp : s.pc=pcOf 21440) :
-    ∃ t, Steps image s 1 1 t ∧ t.pc=pcOf 22499 ∧ RegsExcept s t [] ∧ Frame s t (fun _=>False) := by
-  refine ⟨_,symRun_sound topCreditJumpRun hc s hp (by simp [topCreditJumpRun.res,rv_simp]),rfl,?_,?_⟩
+    (s : MachineState) (hp : s.pc=pcOf 21438) :
+    ∃ t, Steps image s 1 1 t ∧ t.pc=pcOf 21179 ∧ RegsExcept s t [] ∧ Frame s t (fun _=>False) := by
+  refine ⟨_,symRun_sound topBranchRun hc s hp (by simp [topBranchRun.res,rv_simp]),rfl,?_,?_⟩
   · intro r hr; cases r <;> rfl
   · intro A _ _; rfl
 
-theorem topBad_steps {image : Image} (hc : CodeAt image (pcOf 21441) topBadCode)
-    (s : MachineState) (hp : s.pc=pcOf 21441) :
-    ∃ t, Steps image s 1 1 t ∧ t.pc=pcOf 1011 ∧ RegsExcept s t [] ∧ Frame s t (fun _=>False) := by
-  refine ⟨_,symRun_sound topBadRun hc s hp (by simp [topBadRun.res,rv_simp]),rfl,?_,?_⟩
+theorem topCr0_steps {image : Image} (hc : CodeAt image (pcOf 21179) topCr0)
+    (s : MachineState) (hp : s.pc=pcOf 21179) :
+    ∃ t, Steps image s 3 3 t ∧
+      t.pc=(if s.getMem (BitVec.ofNat 64 FLAG)=0 then pcOf 21182 else pcOf 21183) ∧
+      RegsExcept s t [.x28] ∧ Frame s t (fun _=>False) := by
+  refine ⟨_,symRun_sound topCr0Run hc s hp (by simp [topCr0Run.res,rv_simp,accessValid_iff,MEMORY_BYTES]),?_,?_,?_⟩
+  · simp only [Result.toState_pc,topCr0Run.res,E.eval,CmpOp.eval,BinOp.eval]
+    t3n []
+    by_cases h : s.getMem (BitVec.ofNat 64 FLAG)=0
+    · simp [FLAG] at h; simp [h]
+    · simp [FLAG] at h; simp [h]
+  · intro r hr; simp at hr; cases r <;> simp_all [topCr0Run.res,rv_simp] <;> rfl
+  · intro A _ _; simp [topCr0Run.res,rv_simp]
+
+theorem topCr3_steps {image : Image} (hc : CodeAt image (pcOf 21182) topCr3)
+    (s : MachineState) (hp : s.pc=pcOf 21182) (a : Nat) (h20 : s.getReg .x20=BitVec.ofNat 64 a) :
+    ∃ t, Steps image s 1 1 t ∧ t.pc=pcOf 21183 ∧ t.getReg .x20=BitVec.ofNat 64 (a+3) ∧
+      RegsExcept s t [.x20] ∧ Frame s t (fun _=>False) := by
+  refine ⟨_,symRun_sound topCr3Run hc s hp (by simp [topCr3Run.res,rv_simp]),rfl,?_,?_,?_⟩
+  · simp [topCr3Run.res,rv_simp,h20,BitVec.ofNat_add]
+  · intro r hr; simp at hr; cases r <;> simp_all [topCr3Run.res,rv_simp] <;> rfl
+  · intro A _ _; simp [topCr3Run.res,rv_simp]
+
+theorem topCr4_steps {image : Image} (hc : CodeAt image (pcOf 21183) topCr4)
+    (s : MachineState) (hp : s.pc=pcOf 21183) (a : Nat) (ha : a<2^64) (h20 : s.getReg .x20=BitVec.ofNat 64 a) :
+    ∃ t, Steps image s 2 2 t ∧ t.pc=(if 30≤a then pcOf 21185 else pcOf (choiceBase 543+3)) ∧
+      RegsExcept s t [.x28] ∧ Frame s t (fun _=>False) := by
+  refine ⟨_,symRun_sound topCr4Run hc s hp (by simp [topCr4Run.res,rv_simp]),?_,?_,?_⟩
+  · change (if (s.getReg .x20).ult 30#64 then _ else _)=_
+    rw [h20,ofNat_ult a 30 ha (by decide)]
+    split_ifs <;> simp_all [E.eval,choiceBase] <;> omega
+  · intro r hr; cases r <;> simp at hr <;> rfl
+  · intro A _ _; rfl
+
+theorem topCr6_steps {image : Image} (hc : CodeAt image (pcOf 21185) topCr6)
+    (s : MachineState) (hp : s.pc=pcOf 21185) :
+    ∃ t, Steps image s 1 1 t ∧ t.pc=pcOf 22499 ∧ RegsExcept s t [] ∧ Frame s t (fun _=>False) := by
+  refine ⟨_,symRun_sound topCr6Run hc s hp (by simp [topCr6Run.res,rv_simp]),rfl,?_,?_⟩
   · intro r hr; cases r <;> rfl
   · intro A _ _; rfl
 end SigGolfCandidate.T3M.Search.CanonicalHooks
@@ -1701,20 +1279,25 @@ set_option maxRecDepth 32768
 
 def CreditW (A : Nat) : Prop := A=0x66018
 
-theorem lower_spec {image : Image} (hC : Code image) (s : MachineState) (v : Digest)
+/-- Lower reward with the path-aware bonus (`pa`): `low` = the LOW half at `EOUT` is spare. -/
+theorem lower_spec {image : Image} (hK : KernAt image 543 (Code image)) (s : MachineState) (v : Digest)
     (ht : Reward.RewardTablesOK s) (hp : s.pc=pcOf (Reward.base 543 false))
     (h6 : s.getReg .x6=v.extractLsb' 0 64) (h7 : s.getReg .x7=v.extractLsb' 64 64)
+    (L : BitVec 128) (hm0 : s.getMem (BitVec.ofNat 64 EOUT)=L.extractLsb' 0 64)
+    (hm8 : s.getMem (BitVec.ofNat 64 (EOUT+8))=L.extractLsb' 64 64)
     (T S floor : Nat) (h17 : s.getReg .x17=BitVec.ofNat 64 T)
     (h25 : s.getReg .x25=BitVec.ofNat 64 S) (hST : S≤T) (hc : T-S<8)
-    (hf : floor<18) (hm : s.getMem (0x66010#64)=BitVec.ofNat 64 floor) :
-    let a := partialScore v 14+(if T-S=6 then 1 else 0)
-    ∃ t, Steps image s (if floor≤a then 88 else 84) (if floor≤a then 88 else 84) t ∧
-      t.pc=(if floor≤a then pcOf 976 else pcOf 1011) ∧
-      (floor≤a → t.getMem (0x66018#64)=BitVec.ofNat 64 a) ∧
-      RegsExcept s t [.x10,.x11,.x20,.x28,.x29] ∧ Frame s t CreditW := by
-  dsimp only
-  let a := partialScore v 14+(if T-S=6 then 1 else 0)
-  have ha : a<2^64 := by have h := partial_bound v 14; dsimp [a];split_ifs <;> omega
+    (hf : floor<20) (hm : s.getMem (0x66010#64)=BitVec.ofNat 64 floor) :
+    ∃ k t, Steps image s k k t ∧ k≤95 ∧
+      t.pc=(if floor≤partialScore v 14+(if T-S=6 then 1 else 0)+(if T3.lowerSpare L then 4 else 0)
+        then pcOf 976 else pcOf 1011) ∧
+      (floor≤partialScore v 14+(if T-S=6 then 1 else 0)+(if T3.lowerSpare L then 4 else 0) →
+        t.getMem (0x66018#64)=BitVec.ofNat 64 (partialScore v 14+(if T-S=6 then 1 else 0)+(if T3.lowerSpare L then 4 else 0))) ∧
+      RegsExcept s t [.x10,.x11,.x20,.x28,.x29,.x30] ∧ Frame s t CreditW := by
+  have hC := hK.reward
+  have ha0 : partialScore v 14+(if T-S=6 then 1 else 0)<2^60 := by have h := partial_bound v 14; split_ifs <;> omega
+  have ha : partialScore v 14+(if T-S=6 then 1 else 0)+(if T3.lowerSpare L then 4 else 0)<2^64 := by
+    split_ifs <;> omega
   obtain ⟨u,su,pu,ux11,ux20,ru,fu⟩ := CanonicalReward.Lower.init_spec (Or.inr rfl) hC.scoring s hp
   obtain ⟨v1,sv,pv,vx,rv,fv⟩ := CanonicalReward.Lower.loop_spec (Or.inr rfl) hC.scoring u v
     (ht.frame fu (by simp)) pu ((ru.get (by decide)).trans h6) ((ru.get (by decide)).trans h7) ux11 ux20 14 (by omega)
@@ -1724,34 +1307,45 @@ theorem lower_spec {image : Image} (hC : Code image) (s : MachineState) (v : Dig
   obtain ⟨v2,s2,p2,x2,r2,f2⟩ := lowerAdd_steps had v1 (by simpa [Reward.base] using pv) (partialScore v 14) T S hST vx
     (((ru.trans rv).get (by decide)).trans h17) (((ru.trans rv).get (by decide)).trans h25) hc
   obtain ⟨v3,s3,p3,r3,f3⟩ := lowerFloorJump_steps hC.floorJump v2 p2
-  obtain ⟨v4,s4,p4,x4,r4,f4⟩ := lowerFloor_steps hC.floorHook v3 p3 (BitVec.ofNat 64 floor) (by
-    rw [f3.get (by decide) (by simp),f2.get (by decide) (by simp),fv.get (by decide) (by simp),fu.get (by decide) (by simp),hm])
-  have x20 : v4.getReg .x20=BitVec.ofNat 64 a := by rw [r4.get (by decide),r3.get (by decide),x2]
-  obtain ⟨v5,s5,p5,r5,f5⟩ := lowerBranch_steps hC.lowerBranch v4 p4 a floor ha (by omega) x20 x4
-  by_cases hg : floor≤partialScore v 14+(if T-S=6 then 1 else 0)
+  have f03 := ((fu.trans fv).trans f2).trans f3
+  obtain ⟨kp,vp,sp,kple,pp,xp,rp,fp⟩ := pa_spec hK v3 p3 L (partialScore v 14+(if T-S=6 then 1 else 0)) (by omega)
+    (by rw [f03.get (by decide) (by simp)]; exact hm0) (by rw [f03.get (by decide) (by simp)]; exact hm8)
+    (by rw [r3.get (by decide),x2])
+  obtain ⟨v4,s4,p4,x4,r4,f4⟩ := lowerFloor_steps hC.floorHook vp (by simpa [paTarget] using pp)
+    (BitVec.ofNat 64 floor) (by rw [fp.get (by decide) (by simp),f03.get (by decide) (by simp),hm])
+  have x20 : v4.getReg .x20=BitVec.ofNat 64 (partialScore v 14+(if T-S=6 then 1 else 0)+(if T3.lowerSpare L then 4 else 0)) := by
+    rw [r4.get (by decide),xp]
+  obtain ⟨v5,s5,p5,r5,f5⟩ := lowerBranch_steps hC.lowerBranch v4 p4 _ floor ha (by omega) x20 x4
+  have rr := ((((ru.trans rv).trans r2).trans r3).trans rp).trans r4
+  have ff := (f03.trans fp).trans f4
+  by_cases hg : floor≤partialScore v 14+(if T-S=6 then 1 else 0)+(if T3.lowerSpare L then 4 else 0)
   · rw [if_pos hg] at p5
     obtain ⟨v6,s6,p6,r6,f6⟩ := lowerCreditJump_steps hC.lowerJump v5 p5
-    obtain ⟨t,st,pt,mt,rt,ft⟩ := lowerCredit_steps hC.lowerHook v6 p6 (BitVec.ofNat 64 a)
+    obtain ⟨t,st,pt,mt,rt,ft⟩ := lowerCredit_steps hC.lowerHook v6 p6 _
       (by rw [r6.get (by decide),r5.get (by decide),x20])
-    refine ⟨t,?_,by simpa [hg] using pt,fun _=>mt,?_,?_⟩
-    · simpa [hg] using ((((((su.trans sv).trans s2).trans s3).trans s4).trans s5).trans s6).trans st
-    · exact ((((((ru.trans rv).trans r2).trans r3).trans r4).trans r5).trans r6).trans rt |>.mono (by decide)
-    · exact ((((((fu.trans fv).trans f2).trans f3).trans f4).trans f5).trans f6).trans ft |>.mono (by simp [CreditW])
+    refine ⟨_,t,(((((((su.trans sv).trans s2).trans s3).trans sp).trans s4).trans s5).trans s6).trans st,
+      by omega,by rw [if_pos hg]; exact pt,fun _=>mt,?_,?_⟩
+    · exact ((rr.trans r5).trans r6).trans rt |>.mono (by decide)
+    · exact ((ff.trans f5).trans f6).trans ft |>.mono (by simp [CreditW])
   · rw [if_neg hg] at p5
     obtain ⟨t,st,pt,rt,ft⟩ := lowerBad_steps hC.lowerBad v5 p5
-    refine ⟨t,?_,by simpa [hg] using pt,fun h=>False.elim (hg h),?_,?_⟩
-    · simpa [hg] using (((((su.trans sv).trans s2).trans s3).trans s4).trans s5).trans st
-    · exact (((((ru.trans rv).trans r2).trans r3).trans r4).trans r5).trans rt |>.mono (by decide)
-    · exact (((((fu.trans fv).trans f2).trans f3).trans f4).trans f5).trans ft |>.mono (by simp [CreditW])
+    refine ⟨_,t,((((((su.trans sv).trans s2).trans s3).trans sp).trans s4).trans s5).trans st,
+      by omega,?_,fun h=>False.elim (hg h),?_,?_⟩
+    · rw [if_neg hg]; exact pt
+    · exact (rr.trans r5).trans rt |>.mono (by decide)
+    · exact (ff.trans f5).trans ft |>.mono (by simp [CreditW])
 
+/-- Top reward with the path-aware LOW bonus 3 (`topcr`); the choice flag is clear exactly on the LOW trial. -/
 theorem top_spec {image : Image} (hC : Code image) (s : MachineState) (v : Digest)
     (ht : Reward.RewardTablesOK s) (hv : T3.topRanksValid (T3.topFlip v)=true)
     (hp : s.pc=pcOf (Reward.base 543 true))
-    (h6 : s.getReg .x6=v.extractLsb' 0 64) (h7 : s.getReg .x7=v.extractLsb' 64 64) :
-    ∃ t, Steps image s (if 28≤Reward.packedTopScore v then 103 else 98)
-        (if 28≤Reward.packedTopScore v then 103 else 98) t ∧
-      t.pc=(if 28≤Reward.packedTopScore v then pcOf 965 else pcOf 1011) ∧
-      (28≤Reward.packedTopScore v → t.getMem (0x66018#64)=BitVec.ofNat 64 (Reward.packedTopScore v-12)) ∧
+    (h6 : s.getReg .x6=v.extractLsb' 0 64) (h7 : s.getReg .x7=v.extractLsb' 64 64)
+    (low : Bool) (hfl : s.getMem (BitVec.ofNat 64 FLAG)=0 ↔ low=true) :
+    ∃ k t, Steps image s k k t ∧
+      k≤(if 30 ≤ Reward.packedTopScore v+(if low then 3 else 0) then 108 else 102) ∧
+      t.pc=(if 30 ≤ Reward.packedTopScore v+(if low then 3 else 0) then pcOf 965 else pcOf (choiceBase 543+3)) ∧
+      (30 ≤ Reward.packedTopScore v+(if low then 3 else 0) →
+        t.getMem (0x66018#64)=BitVec.ofNat 64 (Reward.packedTopScore v+(if low then 3 else 0)-12)) ∧
       RegsExcept s t [.x10,.x11,.x20,.x28,.x29] ∧ Frame s t CreditW := by
   obtain ⟨t1,s1,p1,g11,g20,r1,f1⟩ := CanonicalReward.Top.init_spec (Or.inr rfl) hC.scoring s hp
   obtain ⟨t2,s2,p2,g2,r2,f2⟩ := CanonicalReward.Top.iter (Or.inr rfl) hC.scoring t1 v 18 (by decide)
@@ -1759,24 +1353,44 @@ theorem top_spec {image : Image} (hC : Code image) (s : MachineState) (v : Diges
   rw [Reward.PackedTop.runningSum_eq] at g2
   have he := Reward.packedTopScore_reward v hv
   have hb := Reward.total_reward_bound 0 (topDigits (T3.topFlip v))
-  have ha : Reward.packedTopScore v<2^64 := by omega
   obtain ⟨t3,s3,p3,r3,f3⟩ := topBranch_steps hC.topBranch t2 (by simpa [Reward.base,Reward.PackedTop.start] using p2)
-    (Reward.packedTopScore v) ha g2
-  by_cases hg : 28≤Reward.packedTopScore v
-  · rw [if_pos hg] at p3
-    obtain ⟨t4,s4,p4,r4,f4⟩ := topCreditJump_steps hC.topJump t3 p3
-    obtain ⟨t,st,pt,mt,rt,ft⟩ := topCredit_steps hC.topHook t4 p4 (Reward.packedTopScore v) (by omega) ha
-      (by rw [r4.get (by decide),r3.get (by decide),g2])
-    refine ⟨t,?_,by simpa [hg] using pt,fun _=>mt,?_,?_⟩
-    · simpa [hg,Reward.PackedTop.start] using (((s1.trans s2).trans s3).trans s4).trans st
-    · exact (((r1.trans r2).trans r3).trans r4).trans rt |>.mono (by decide)
-    · exact (((f1.trans f2).trans f3).trans f4).trans ft |>.mono (by simp [CreditW])
-  · rw [if_neg hg] at p3
-    obtain ⟨t,st,pt,rt,ft⟩ := topBad_steps hC.topBad t3 p3
-    refine ⟨t,?_,by simpa [hg] using pt,fun h=>False.elim (hg h),?_,?_⟩
-    · simpa [hg,Reward.PackedTop.start] using ((s1.trans s2).trans s3).trans st
-    · exact ((r1.trans r2).trans r3).trans rt |>.mono (by decide)
-    · exact ((f1.trans f2).trans f3).trans ft |>.mono (by simp [CreditW])
+  obtain ⟨t4,s4,p4,r4,f4⟩ := topCr0_steps hC.cr0 t3 p3
+  have hflag : t3.getMem (BitVec.ofNat 64 FLAG)=s.getMem (BitVec.ofNat 64 FLAG) := by
+    rw [f3.get (by decide) (by simp),f2.get (by decide) (by simp),f1.get (by decide) (by simp)]
+  rw [hflag] at p4
+  have x20 : t4.getReg .x20=BitVec.ofNat 64 (Reward.packedTopScore v) := by
+    rw [r4.get (by decide),r3.get (by decide),g2]
+  obtain ⟨t5,k5,s5,k5le,p5,x5,r5,f5⟩ : ∃ t5 k5, Steps image t4 k5 k5 t5 ∧ k5≤1 ∧ t5.pc=pcOf 21183 ∧
+      t5.getReg .x20=BitVec.ofNat 64 (Reward.packedTopScore v+(if low then 3 else 0)) ∧
+      RegsExcept t4 t5 [.x20] ∧ Frame t4 t5 (fun _=>False) := by
+    cases low
+    · have hne : ¬ s.getMem (BitVec.ofNat 64 FLAG)=0 := fun h => by simpa using hfl.mp h
+      rw [if_neg hne] at p4
+      exact ⟨t4,0,Steps.refl _,by omega,p4,by simpa using x20,RegsExcept.refl _ _,fun _ _ _=>rfl⟩
+    · rw [if_pos (hfl.mpr rfl)] at p4
+      obtain ⟨t5,s5,p5,x5,r5,f5⟩ := topCr3_steps hC.cr3 t4 p4 _ x20
+      exact ⟨t5,1,s5,le_refl _,p5,by simpa using x5,r5,f5⟩
+  have ha3 : Reward.packedTopScore v+(if low then 3 else 0)<2^64 := by split <;> omega
+  obtain ⟨t6,s6,p6,r6,f6⟩ := topCr4_steps hC.cr4 t5 p5 (Reward.packedTopScore v+(if low then 3 else 0)) ha3 x5
+  have rr := (((r1.trans r2).trans r3).trans r4).trans r5
+  have ff := (((f1.trans f2).trans f3).trans f4).trans f5
+  have hs12 : (3 : Nat)+(Reward.PackedTop.start 18-3)=95 := by decide
+  by_cases hg : 30≤Reward.packedTopScore v+(if low then 3 else 0)
+  · rw [if_pos hg] at p6
+    obtain ⟨t7,s7,p7,r7,f7⟩ := topCr6_steps hC.cr6 t6 p6
+    obtain ⟨t,st,pt,mt,rt,ft⟩ := topCredit_steps hC.topHook t7 p7 (Reward.packedTopScore v+(if low then 3 else 0))
+      (by omega) ha3 (by rw [r7.get (by decide),r6.get (by decide),x5])
+    refine ⟨_,t,((((((s1.trans s2).trans s3).trans s4).trans s5).trans s6).trans s7).trans st,?_,
+      by rw [if_pos hg]; exact pt,fun _=>mt,?_,?_⟩
+    · rw [if_pos hg]; omega
+    · exact ((rr.trans r6).trans r7).trans rt |>.mono (by decide)
+    · exact ((ff.trans f6).trans f7).trans ft |>.mono (by simp [CreditW])
+  · rw [if_neg hg] at p6
+    refine ⟨_,t6,(((((s1.trans s2).trans s3).trans s4).trans s5).trans s6),?_,
+      by rw [if_neg hg]; exact p6,fun h=>False.elim (hg h),?_,?_⟩
+    · rw [if_neg hg]; omega
+    · exact (rr.trans r6) |>.mono (by decide)
+    · exact (ff.trans f6) |>.mono (by simp [CreditW])
 #print axioms lower_spec
 #print axioms top_spec
 end SigGolfCandidate.T3M.Search.CanonicalHooks
@@ -1788,49 +1402,65 @@ open ClaudeWCT WCT9.CanonicalPolicy
 set_option maxHeartbeats 1200000
 set_option maxRecDepth 32768
 
-theorem lower_reward (lay : Layer) (hl : lay≠0) (v : Digest) (T S : Nat) :
-    LowerLUT.partialScore v 14+(if T-S=6 then 1 else 0)=
-      credit lay (lowDigits v++[T-S]) := by
+theorem lower_reward (lay : Layer) (hl : lay≠0) (v : Digest) (T S : Nat) (low : Bool) :
+    LowerLUT.partialScore v 14+(if T-S=6 then 1 else 0)+(if low then 4 else 0)=
+      credit lay low (lowDigits v++[T-S]) := by
   have h := LowerLUT.packed_reward lay hl v (T-S)
-  simpa [LowerLUT.partialScore,credit,reward,WCT9.dispatchPenalty,hl] using h
-
-theorem top_reward (v : Digest) (hv : T3.topRanksValid (T3.topFlip v)=true) :
-    Reward.packedTopScore v-12=credit 0 (topDigits (T3.topFlip v)) := by
-  have h := Reward.packedTopScore_reward v hv
-  unfold credit reward
+  rw [credit_lower hl]
+  simp only [LowerLUT.partialScore,reward] at h ⊢
   omega
 
-theorem lower_spec_credit {image : Image} (hC : Code image) (s : MachineState) (lay : Layer) (hl : lay≠0)
-    (v : Digest) (ht : Reward.RewardTablesOK s) (hp : s.pc=pcOf (Reward.base 543 false))
+theorem lower_spec_credit {image : Image} (hK : KernAt image 543 (Code image)) (s : MachineState) (lay : Layer)
+    (hl : lay≠0) (v : Digest) (ht : Reward.RewardTablesOK s) (hp : s.pc=pcOf (Reward.base 543 false))
     (h6 : s.getReg .x6=v.extractLsb' 0 64) (h7 : s.getReg .x7=v.extractLsb' 64 64)
+    (L : BitVec 128) (hm0 : s.getMem (BitVec.ofNat 64 EOUT)=L.extractLsb' 0 64)
+    (hm8 : s.getMem (BitVec.ofNat 64 (EOUT+8))=L.extractLsb' 64 64)
     (T S floor : Nat) (h17 : s.getReg .x17=BitVec.ofNat 64 T)
     (h25 : s.getReg .x25=BitVec.ofNat 64 S) (hST : S≤T) (hc : T-S<8)
-    (hf : floor<18) (hm : s.getMem (0x66010#64)=BitVec.ofNat 64 floor) :
-    let good := floor+WCT9.dispatchPenalty lay (lowDigits v++[T-S])≤reward lay (lowDigits v++[T-S])
-    ∃ t, Steps image s (if good then 88 else 84) (if good then 88 else 84) t ∧
+    (hf : floor<20) (hm : s.getMem (0x66010#64)=BitVec.ofNat 64 floor) :
+    let low := decide (T3.lowerSpare L)
+    let good := floor+WCT9.dispatchPenalty lay (lowDigits v++[T-S])≤pathReward lay low (lowDigits v++[T-S])
+    ∃ k t, Steps image s k k t ∧ k≤95 ∧
       t.pc=(if good then pcOf 976 else pcOf 1011) ∧
-      (good → t.getMem (0x66018#64)=BitVec.ofNat 64 (credit lay (lowDigits v++[T-S]))) ∧
-      RegsExcept s t [.x10,.x11,.x20,.x28,.x29] ∧ Frame s t CreditW := by
-  have h := lower_spec hC s v ht hp h6 h7 T S floor h17 h25 hST hc hf hm
-  rw [lower_reward lay hl v T S] at h
-  simpa [credit,WCT9.dispatchPenalty,hl] using h
+      (good → t.getMem (0x66018#64)=BitVec.ofNat 64 (credit lay low (lowDigits v++[T-S]))) ∧
+      RegsExcept s t [.x10,.x11,.x20,.x28,.x29,.x30] ∧ Frame s t CreditW := by
+  dsimp only
+  have h := lower_spec hK s v ht hp h6 h7 L hm0 hm8 T S floor h17 h25 hST hc hf hm
+  have e := lower_reward lay hl v T S (decide (T3.lowerSpare L))
+  have e' : (if T3.lowerSpare L then 4 else 0)=(if decide (T3.lowerSpare L) then 4 else 0) := by
+    by_cases hs : T3.lowerSpare L <;> simp [hs]
+  have hg : (floor+WCT9.dispatchPenalty lay (lowDigits v++[T-S])≤
+      pathReward lay (decide (T3.lowerSpare L)) (lowDigits v++[T-S]))↔
+      floor≤credit lay (decide (T3.lowerSpare L)) (lowDigits v++[T-S]) := by
+    simp [credit,WCT9.dispatchPenalty,hl]
+  rw [e',e] at h
+  simpa only [hg] using h
+
+theorem top_reward (v : Digest) (hv : T3.topRanksValid (T3.topFlip v)=true) (low : Bool) :
+    Reward.packedTopScore v+(if low then 3 else 0)-12=credit 0 low (topDigits (T3.topFlip v)) := by
+  have h := Reward.packedTopScore_reward v hv
+  rw [credit_top]
+  unfold reward
+  split <;> omega
 
 theorem top_spec_credit {image : Image} (hC : Code image) (s : MachineState) (v : Digest)
     (ht : Reward.RewardTablesOK s) (hv : T3.topRanksValid (T3.topFlip v)=true)
     (hp : s.pc=pcOf (Reward.base 543 true))
-    (h6 : s.getReg .x6=v.extractLsb' 0 64) (h7 : s.getReg .x7=v.extractLsb' 64 64) :
-    let good := 16+WCT9.dispatchPenalty 0 (topDigits (T3.topFlip v))≤reward 0 (topDigits (T3.topFlip v))
-    ∃ t, Steps image s (if good then 103 else 98) (if good then 103 else 98) t ∧
-      t.pc=(if good then pcOf 965 else pcOf 1011) ∧
-      (good → t.getMem (0x66018#64)=BitVec.ofNat 64 (credit 0 (topDigits (T3.topFlip v)))) ∧
+    (h6 : s.getReg .x6=v.extractLsb' 0 64) (h7 : s.getReg .x7=v.extractLsb' 64 64)
+    (low : Bool) (hfl : s.getMem (BitVec.ofNat 64 FLAG)=0 ↔ low=true) :
+    let good := 18+WCT9.dispatchPenalty 0 (topDigits (T3.topFlip v))≤pathReward 0 low (topDigits (T3.topFlip v))
+    ∃ k t, Steps image s k k t ∧ k≤(if good then 108 else 102) ∧
+      t.pc=(if good then pcOf 965 else pcOf (choiceBase 543+3)) ∧
+      (good → t.getMem (0x66018#64)=BitVec.ofNat 64 (credit 0 low (topDigits (T3.topFlip v)))) ∧
       RegsExcept s t [.x10,.x11,.x20,.x28,.x29] ∧ Frame s t CreditW := by
   have he := Reward.packedTopScore_reward v hv
-  have hi : (28≤Reward.packedTopScore v)↔
-      16+WCT9.dispatchPenalty 0 (topDigits (T3.topFlip v))≤reward 0 (topDigits (T3.topFlip v)) := by
+  have hi : (30≤Reward.packedTopScore v+(if low then 3 else 0))↔
+      18+WCT9.dispatchPenalty 0 (topDigits (T3.topFlip v))≤pathReward 0 low (topDigits (T3.topFlip v)) := by
+    rw [pathReward_top]
     unfold reward
-    omega
-  have h := top_spec hC s v ht hv hp h6 h7
-  simpa only [hi,top_reward v hv] using h
+    split <;> omega
+  have h := top_spec hC s v ht hv hp h6 h7 low hfl
+  simpa only [hi,top_reward v hv low] using h
 #print axioms lower_spec_credit
 #print axioms top_spec_credit
 end SigGolfCandidate.T3M.Search.CanonicalHooks
@@ -1849,7 +1479,7 @@ structure CsArgs where
   msg : WCT9.LayerMsg
   ret : Nat
   floor : Nat
-def csT (lay : Layer) : Nat := if lay = 0 then 270 else 382
+def csT (lay : Layer) : Nat := if lay = 0 then 503 else 389
 def csOk (lay : Layer) : Nat := if lay = 0 then 4096 else 4096
 theorem capLimit_le (n : Nat) : capLimit n ≤ 2 ^ 22 := by unfold capLimit; split_ifs <;> omega
 theorem capLimit_eq (lay : Layer) : capLimit lay.val = WCT9.searchLimit lay := by
@@ -1861,27 +1491,65 @@ theorem length_filter_range (n : Nat) (p : Nat → Prop) [DecidablePred p] :
   | succ n ih =>
     rw [List.range_succ, List.filter_append, List.length_append, ih, Finset.sum_range_succ]
     by_cases h : p n <;> simp [h]
-def rewardOK (lay : Layer) (floor : Nat) (ds : List Nat) : Prop :=
-  floor + WCT9.dispatchPenalty lay ds ≤ WCT9.wordCredit lay ds + 4 * WCT9.savedCopies lay ds
-instance (lay : Layer) (floor : Nat) (ds : List Nat) : Decidable (rewardOK lay floor ds) := by unfold rewardOK; infer_instance
-theorem reward_credit_le {lay : Layer} {floor : Nat} {ds : List Nat}
-    (h : rewardOK lay floor ds) : floor ≤ WCT9.CanonicalPolicy.credit lay ds := by
-  unfold rewardOK WCT9.CanonicalPolicy.credit WCT9.CanonicalPolicy.reward at *
+/-- Path-aware producer reward test (`low` = the LOW half was selected). -/
+def rewardOK (lay : Layer) (floor : Nat) (low : Bool) (ds : List Nat) : Prop :=
+  floor + WCT9.dispatchPenalty lay ds ≤ WCT9.CanonicalPolicy.pathReward lay low ds
+instance (lay : Layer) (floor : Nat) (low : Bool) (ds : List Nat) : Decidable (rewardOK lay floor low ds) := by
+  unfold rewardOK; infer_instance
+theorem reward_credit_le {lay : Layer} {floor : Nat} {low : Bool} {ds : List Nat}
+    (h : rewardOK lay floor low ds) : floor ≤ WCT9.CanonicalPolicy.credit lay low ds := by
+  unfold rewardOK WCT9.CanonicalPolicy.credit at *
   omega
-theorem producerDecode_top (v : Digest) (floor : Nat) {ds : List Nat}
+theorem producerDecode_top (v : Digest) (floor : Nat) (low : Bool) {ds : List Nat}
     (hd : WCT9.CanonicalPolicy.decode 0 v = some ds) :
-    WCT9.CanonicalPolicy.producerDecodeAt 0 floor v = if rewardOK 0 floor ds then some ds else none := by
-  simp [WCT9.CanonicalPolicy.producerDecodeAt,hd,WCT9.producerZeroBound,WCT9.producerRankBound,rewardOK,WCT9.CanonicalPolicy.reward]
-theorem producerDecode_lower {lay : Layer} (hlz : lay≠0) (v : Digest) (floor c : Nat) {ds : List Nat}
+    WCT9.CanonicalPolicy.producerDecodeAt 0 floor low v = if rewardOK 0 floor low ds then some ds else none := by
+  simp [WCT9.CanonicalPolicy.producerDecodeAt,hd,WCT9.producerZeroBound,WCT9.producerRankBound,rewardOK]
+theorem producerDecode_lower {lay : Layer} (hlz : lay≠0) (v : Digest) (floor c : Nat) (low : Bool) {ds : List Nat}
     (hd : WCT9.CanonicalPolicy.decode lay v=some ds) (hds : ds=lowDigits v++[c]) :
-    WCT9.CanonicalPolicy.producerDecodeAt lay floor v=
-      if rewardOK lay floor ds ∧ (lowDigits v++[c]).count 0≤5 ∧ Rank.rankOK v then some ds else none := by
+    WCT9.CanonicalPolicy.producerDecodeAt lay floor low v=
+      if rewardOK lay floor low ds ∧ (lowDigits v++[c]).count 0≤5 ∧ Rank.rankOK v then some ds else none := by
   simp [WCT9.CanonicalPolicy.producerDecodeAt,hd,WCT9.producerZeroBound,WCT9.producerRankBound,
-    rewardOK,WCT9.CanonicalPolicy.reward,Rank.rankOK,Rank.rankFloor,WCT9.producerRankFloor,hlz,hds,filter_zero_count]
+    rewardOK,Rank.rankOK,Rank.rankFloor,WCT9.producerRankFloor,hlz,hds,filter_zero_count]
+/-! Producer output on a full 256-bit answer, split by the machine's trial order. -/
+theorem producerDecodeOut_top_low (a : BitVec 256) {ds : List Nat}
+    (h : WCT9.CanonicalPolicy.producerDecodeAt 0 18 true (a.extractLsb' 0 128) = some ds) :
+    WCT9.CanonicalPolicy.producerDecodeOut 0 18 a = some (ds, true) := by
+  have hg : WCT9.topGood (a.extractLsb' 0 128) := by
+    unfold WCT9.topGood; rw [show WCT9.CanonicalPolicy.topFloor = 18 from rfl, h]; rfl
+  have hl : WCT9.lowSelected 0 a = true := by
+    simp [WCT9.lowSelected, WCT9.topChooseLow, hg]
+  have he : WCT9.encodingAnswer 0 a = a.extractLsb' 0 128 := by
+    rw [WCT9.encodingAnswer_eq, hl]; rfl
+  unfold WCT9.CanonicalPolicy.producerDecodeOut
+  rw [he, hl, h]; rfl
+theorem producerDecodeOut_top_blocked (a : BitVec 256)
+    (h : WCT9.CanonicalPolicy.producerDecodeAt 0 18 true (a.extractLsb' 0 128) = none)
+    (hb : T3.TopChoice.blocked (a.extractLsb' 0 128)) :
+    WCT9.CanonicalPolicy.producerDecodeOut 0 18 a = none := by
+  have hl : WCT9.lowSelected 0 a = true := by
+    simp [WCT9.lowSelected, WCT9.topChooseLow, hb]
+  have he : WCT9.encodingAnswer 0 a = a.extractLsb' 0 128 := by
+    rw [WCT9.encodingAnswer_eq, hl]; rfl
+  unfold WCT9.CanonicalPolicy.producerDecodeOut
+  rw [he, hl, h]; rfl
+theorem producerDecodeOut_top_high (a : BitVec 256)
+    (h : WCT9.CanonicalPolicy.producerDecodeAt 0 18 true (a.extractLsb' 0 128) = none)
+    (hb : ¬ T3.TopChoice.blocked (a.extractLsb' 0 128)) :
+    WCT9.CanonicalPolicy.producerDecodeOut 0 18 a =
+      (WCT9.CanonicalPolicy.producerDecodeAt 0 18 false (a.extractLsb' 128 128)).map (·, false) := by
+  have hg : ¬ WCT9.topGood (a.extractLsb' 0 128) := by
+    unfold WCT9.topGood; rw [show WCT9.CanonicalPolicy.topFloor = 18 from rfl, h]; simp
+  have hl : WCT9.lowSelected 0 a = false := by
+    simp [WCT9.lowSelected, WCT9.topChooseLow, hg, hb]
+  have he : WCT9.encodingAnswer 0 a = a.extractLsb' 128 128 := by
+    rw [WCT9.encodingAnswer_eq, hl]; rfl
+  unfold WCT9.CanonicalPolicy.producerDecodeOut
+  rw [he, hl]
 def cfFlag (_b : Nat) : Nat := 0
 abbrev csRegs : List Reg := [.x6, .x7, .x10, .x11, .x12, .x19, .x20, .x21, .x25, .x28, .x29, .x30]
 def CsW (A : Nat) : Prop :=
-  A = ENC + 16 ∨ A = ENC + 24 ∨ A = ENC + 32 ∨ (EOUT ≤ A ∧ A < EOUT + 32) ∨ (DigW A ∨ CanonicalHooks.CreditW A)
+  A = ENC + 16 ∨ A = ENC + 24 ∨ A = ENC + 32 ∨ (EOUT ≤ A ∧ A < EOUT + 32) ∨
+    (DigW A ∨ (CanonicalHooks.CreditW A ∨ A = FLAG))
 structure CsPre (b : Nat) (A : CsArgs) (s : MachineState) : Prop where
   pc : s.pc = pcOf (b + 103)
   x1 : s.getReg .x1 = pcOf A.ret
@@ -1905,8 +1573,8 @@ structure CsPre (b : Nat) (A : CsArgs) (s : MachineState) : Prop where
   table : TableOK s
   cf : CfTableOK (cfFlag b) s
   reward : Reward.RewardTablesOK s
-  floorLt : A.floor<18
-  floorTop : A.lay=0 → A.floor=16
+  floorLt : A.floor<20
+  floorTop : A.lay=0 → A.floor=18
   floorMem : A.lay≠0 → s.getMem (0x66010#64)=BitVec.ofNat 64 A.floor
 structure CsInv (b : Nat) (A : CsArgs) (s0 : MachineState) (i : Nat) (t : MachineState) : Prop where
   pc : t.pc = pcOf (capBase b)
@@ -1922,16 +1590,17 @@ def DummyOut (A : CsArgs) (s0 t : MachineState) : Prop :=
     (∀ j < 54, t.getByte (BitVec.ofNat 64 (DIGITS + j)) = BitVec.ofNat 8 (T3.dummyTop.getD j 0)) ∧
     (t.getMem (BitVec.ofNat 64 (ENC + 32))).toNat < 2 ^ 32 ∧ RegsExcept s0 t csRegs ∧ Frame s0 t CsW ∧
     (t.getReg .x25).toNat ≤ 129
-def CsPost (image : Image) (b : Nat) (A : CsArgs) (s0 : MachineState) : Option (BitVec 32 × List Nat) → MachineState → Prop
+def CsPost (image : Image) (b : Nat) (A : CsArgs) (s0 : MachineState) :
+    Option (BitVec 32 × List Nat × Bool) → MachineState → Prop
   | none, t => t.pc = pcOf (b + 2) ∧ t.getReg .x5 = BitVec.ofNat 64 1 ∧ t.getReg .x10 = BitVec.ofNat 64 1 ∧
       fetch image t = some (.base .ECALL)
-  | some (c, ds), t => t.pc = pcOf A.ret ∧ c.toNat < 2 ^ 22 ∧ t.getReg .x19 = BitVec.ofNat 64 c.toNat ∧
+  | some (c, ds, low), t => t.pc = pcOf A.ret ∧ c.toNat < 2 ^ 22 ∧ t.getReg .x19 = BitVec.ofNat 64 c.toNat ∧
       t.getMem (BitVec.ofNat 64 (ENC + 32)) = BitVec.ofNat 64 c.toNat ∧
       (∃ v, WCT9.CanonicalPolicy.decode A.lay v = some ds) ∧ ds.length = T3.chainCount A.lay ∧
       (∀ j < T3.chainCount A.lay, t.getByte (BitVec.ofNat 64 (DIGITS + j)) = BitVec.ofNat 8 (ds.getD j 0)) ∧
       RegsExcept s0 t csRegs ∧ Frame s0 t CsW ∧ (t.getReg .x25).toNat ≤ T3.target (WCT9.CanonicalPolicy.normalLayer A.lay) ∧
-      t.getMem (0x66018#64)=BitVec.ofNat 64 (WCT9.CanonicalPolicy.credit A.lay ds) ∧
-      A.floor ≤ WCT9.CanonicalPolicy.credit A.lay ds
+      t.getMem (0x66018#64)=BitVec.ofNat 64 (WCT9.CanonicalPolicy.credit A.lay low ds) ∧
+      A.floor ≤ WCT9.CanonicalPolicy.credit A.lay low ds
 structure TrialSt (b : Nat) (A : CsArgs) (s0 : MachineState) (i : Nat) (u : MachineState) : Prop where
   x19 : u.getReg .x19 = BitVec.ofNat 64 i
   h16 : u.getMem (BitVec.ofNat 64 (ENC + 16)) = rowLo A.lay A.tree A.leaf
@@ -1966,12 +1635,26 @@ theorem TrialSt.stepCredit {b : Nat} {A : CsArgs} {s0 u u' : MachineState} {i : 
   · rw [hf.get (by unfold ENC;omega) (by unfold CanonicalHooks.CreditW ENC;omega),h.h24]
   · rw [hf.get (by unfold ENC;omega) (by unfold CanonicalHooks.CreditW ENC;omega),h.c32]
   · exact (h.regs.trans hr).mono (fun r hr'=>by rcases List.mem_append.1 hr' with h1|h1;exact h1;exact (hL' r h1).1)
-  · exact (h.frame.trans hf).mono (fun A _ h'=>by rcases h' with h'|h';exact h';exact Or.inr (Or.inr (Or.inr (Or.inr (Or.inr h')))))
+  · exact (h.frame.trans hf).mono (fun A _ h'=>by
+      rcases h' with h'|h';exact h';exact Or.inr (Or.inr (Or.inr (Or.inr (Or.inr (Or.inl h'))))))
+theorem TrialSt.stepFlag {b : Nat} {A : CsArgs} {s0 u u' : MachineState} {i : Nat}
+    (h : TrialSt b A s0 i u) {L : List Reg} (hr : RegsExcept u u' L)
+    (hL : L.all (fun r=>decide (r∈csRegs ∧ r≠.x19))=true)
+    (hf : Frame u u' (fun A => A = FLAG)) : TrialSt b A s0 i u' := by
+  have hL' : ∀ r∈L, r∈csRegs ∧ r≠.x19 := fun r hr=>by simpa using List.all_eq_true.1 hL r hr
+  refine ⟨?_,?_,?_,?_,?_,?_⟩
+  · rw [hr.get (fun h'=>(hL' _ h').2 rfl),h.x19]
+  · rw [hf.get (by unfold ENC;omega) (by unfold FLAG ENC;omega),h.h16]
+  · rw [hf.get (by unfold ENC;omega) (by unfold FLAG ENC;omega),h.h24]
+  · rw [hf.get (by unfold ENC;omega) (by unfold FLAG ENC;omega),h.c32]
+  · exact (h.regs.trans hr).mono (fun r hr'=>by rcases List.mem_append.1 hr' with h1|h1;exact h1;exact (hL' r h1).1)
+  · exact (h.frame.trans hf).mono (fun A _ h'=>by
+      rcases h' with h'|h';exact h';exact Or.inr (Or.inr (Or.inr (Or.inr (Or.inr (Or.inr h'))))))
 theorem TrialSt.reg {b : Nat} {A : CsArgs} {s0 u : MachineState} {i : Nat} (h : TrialSt b A s0 i u)
     {r : Reg} (hr : r ∉ csRegs) : u.getReg r = s0.getReg r := h.regs.get hr
 section trial
 variable {image : Image} {b : Nat} {sk : BitVec 256}
-theorem cs_next {A : CsArgs} {s0 u : MachineState} {i F W : Nat} {Q : Option (BitVec 32 × List Nat) → MachineState → Prop}
+theorem cs_next {A : CsArgs} {s0 u : MachineState} {i F W : Nat} {Q : Option (BitVec 32 × List Nat × Bool) → MachineState → Prop}
     {rewardCondition : Prop} (hK : KernAt image b rewardCondition) (hu : TrialSt b A s0 i u) (hpc : u.pc = pcOf (b + 468)) (hi : i < capLimit A.lay.val)
     (ih : ∀ t, CsInv b A s0 (i + 1) t → TBSim image sk t W (WCT9.CanonicalPolicy.layerCounterSearchAt A.lay A.floor A.tree A.leaf A.msg (i + 1) F) Q) :
     TBSim image sk u (2 + W) (WCT9.CanonicalPolicy.layerCounterSearchAt A.lay A.floor A.tree A.leaf A.msg (i + 1) F) Q := by
@@ -1989,18 +1672,19 @@ theorem target_lt (lay : Layer) : T3.target lay < 2 ^ 63 := by
   fin_cases lay <;> decide
 theorem getD_map_range {f : Nat → Nat} {n j : Nat} (hj : j < n) : ((List.range n).map f).getD j 0 = f j := by
   simp [List.getD_eq_getElem?_getD, hj]
-structure RewardReady (b : Nat) (A : CsArgs) (s0 : MachineState) (i : Nat) (ds : List Nat) (t : MachineState) : Prop where
+structure RewardReady (b : Nat) (A : CsArgs) (s0 : MachineState) (i : Nat) (ds : List Nat) (low : Bool)
+    (t : MachineState) : Prop where
   pc : t.pc = pcOf A.ret
   trial : TrialSt b A s0 i t
   len : ds.length=T3.chainCount A.lay
   digs : ∀ j < T3.chainCount A.lay, t.getByte (BitVec.ofNat 64 (DIGITS+j))=BitVec.ofNat 8 (ds.getD j 0)
   sum : (t.getReg .x25).toNat ≤ T3.target (WCT9.CanonicalPolicy.normalLayer A.lay)
-  credit : t.getMem (0x66018#64)=BitVec.ofNat 64 (WCT9.CanonicalPolicy.credit A.lay ds)
-theorem cs_success {A : CsArgs} {s0 u : MachineState} {i : Nat} {ds : List Nat}
-    {rewardCondition : Prop} (hK : KernAt image b rewardCondition) (hpre : CsPre b A s0) (hu : RewardReady b A s0 i ds u)
+  credit : t.getMem (0x66018#64)=BitVec.ofNat 64 (WCT9.CanonicalPolicy.credit A.lay low ds)
+theorem cs_success {A : CsArgs} {s0 u : MachineState} {i : Nat} {ds : List Nat} {low : Bool}
+    {rewardCondition : Prop} (hK : KernAt image b rewardCondition) (hpre : CsPre b A s0) (hu : RewardReady b A s0 i ds low u)
     (hi : i < capLimit A.lay.val) (answer : Digest) (hdec : WCT9.CanonicalPolicy.decode A.lay answer = some ds)
-    (hfloor : A.floor ≤ WCT9.CanonicalPolicy.credit A.lay ds) :
-    TBSim image sk u 0 (pure (some (BitVec.ofNat 32 i,ds))) (CsPost image b A s0) := by
+    (hfloor : A.floor ≤ WCT9.CanonicalPolicy.credit A.lay low ds) :
+    TBSim image sk u 0 (pure (some (BitVec.ofNat 32 i,ds,low))) (CsPost image b A s0) := by
   have hcap := capLimit_le A.lay.val
   have hc : (BitVec.ofNat 32 i).toNat=i := by rw [BitVec.toNat_ofNat]; omega
   refine TBSim.pure ⟨hu.pc,?_,?_,?_,⟨answer,hdec⟩,hu.len,hu.digs,hu.trial.regs,hu.trial.frame,hu.sum,hu.credit,hfloor⟩
@@ -2013,9 +1697,9 @@ theorem cs_prepare {A : CsArgs} {s0 u : MachineState} {i : Nat} {rewardCondition
     (v : Digest) (hv : T3.lowerSpare v) (S : Nat) (ds : List Nat) (hdec : WCT9.CanonicalPolicy.decode A.lay v = some ds)
     (hds : ds = lowDigits v ++ [T3.target (WCT9.CanonicalPolicy.normalLayer A.lay) - S]) (hS : S ≤ T3.target (WCT9.CanonicalPolicy.normalLayer A.lay))
     (h6 : u.getReg .x6 = v.extractLsb' 0 64) (h7 : u.getReg .x7 = v.extractLsb' 64 64)
-    (h25 : u.getReg .x25 = BitVec.ofNat 64 S)
-    (hcredit : u.getMem (0x66018#64)=BitVec.ofNat 64 (WCT9.CanonicalPolicy.credit A.lay ds)) :
-    ∃ k t, Steps image u k k t ∧ k ≤ 815 ∧ RewardReady b A s0 i ds t := by
+    (h25 : u.getReg .x25 = BitVec.ofNat 64 S) (low : Bool)
+    (hcredit : u.getMem (0x66018#64)=BitVec.ofNat 64 (WCT9.CanonicalPolicy.credit A.lay low ds)) :
+    ∃ k t, Steps image u k k t ∧ k ≤ 815 ∧ RewardReady b A s0 i ds low t := by
   have hl0 : A.lay.val ≠ 0 := fun h => hlz (Fin.ext h)
   obtain ⟨u1, su1, pu1, a6, a7, ru1, fu1⟩ := Credit.align_spec hK u hpc v hv h6 h7
   have hu1 := hu.step ru1 (by decide) fu1
@@ -2053,22 +1737,22 @@ theorem cs_prepare {A : CsArgs} {s0 u : MachineState} {i : Nat} {rewardCondition
   · rw [tf.get (by decide) (by unfold DigW DIGITS;omega),fu1.get (by decide) (by simp),hcredit]
 theorem TrialSt.table {A : CsArgs} {s0 u : MachineState} {i : Nat}
     (hu : TrialSt b A s0 i u) (ht : TableOK s0) : TableOK u :=
-  ht.frame hu.frame (by intro j hj; unfold CsW CanonicalHooks.CreditW DigW TOP_DATA ENC EOUT DIGITS; omega)
+  ht.frame hu.frame (by intro j hj; unfold CsW CanonicalHooks.CreditW DigW TOP_DATA ENC EOUT DIGITS FLAG; omega)
 theorem TrialSt.cf {A : CsArgs} {s0 u : MachineState} {i : Nat} {flag : Nat}
     (hu : TrialSt b A s0 i u) (ht : CfTableOK flag s0) : CfTableOK flag u :=
-  ht.frame hu.frame (by intro j hj hj'; unfold CsW CanonicalHooks.CreditW DigW TOP_DATA ENC EOUT DIGITS; omega)
+  ht.frame hu.frame (by intro j hj hj'; unfold CsW CanonicalHooks.CreditW DigW TOP_DATA ENC EOUT DIGITS FLAG; omega)
 theorem TrialSt.reward {A : CsArgs} {s0 u : MachineState} {i : Nat}
     (hu : TrialSt b A s0 i u) (ht : Reward.RewardTablesOK s0) : Reward.RewardTablesOK u :=
-  ht.frame hu.frame (by intro j hj hj'; unfold CsW CanonicalHooks.CreditW DigW TOP_DATA ENC EOUT DIGITS; omega)
+  ht.frame hu.frame (by intro j hj hj'; unfold CsW CanonicalHooks.CreditW DigW TOP_DATA ENC EOUT DIGITS FLAG; omega)
 theorem cs_top_prepare {A : CsArgs} {s0 u : MachineState} {i : Nat} {rewardCondition : Prop} (hK : KernAt image b rewardCondition)
     (hpre : CsPre b A s0) (hu : TrialSt b A s0 i u) (hpc : u.pc = pcOf (b + 363))
     (hi : i < 2 ^ 22) (hlz : A.lay = 0) (v : Digest)
     (hvalid : T3.topRanksValid (T3.topFlip v) = true)
     (hdec : WCT9.CanonicalPolicy.decode A.lay (T3.topFlip v) = some (topDigits (T3.topFlip v)))
     (h6 : u.getReg .x6 = v.extractLsb' 0 64) (h7 : u.getReg .x7 = v.extractLsb' 64 64)
-    (h30 : u.getReg .x30 = BitVec.ofNat 64 TOP_DATA) (h25 : u.getReg .x25 = 145#64) (h20 : u.getReg .x20 = 0)
-    (hcredit : u.getMem (0x66018#64)=BitVec.ofNat 64 (WCT9.CanonicalPolicy.credit A.lay (topDigits (T3.topFlip v)))) :
-    ∃ t, Steps image u 301 301 t ∧ RewardReady b A s0 i (topDigits (T3.topFlip v)) t := by
+    (h30 : u.getReg .x30 = BitVec.ofNat 64 TOP_DATA) (h25 : u.getReg .x25 = 146#64) (h20 : u.getReg .x20 = 0) (low : Bool)
+    (hcredit : u.getMem (0x66018#64)=BitVec.ofNat 64 (WCT9.CanonicalPolicy.credit A.lay low (topDigits (T3.topFlip v)))) :
+    ∃ t, Steps image u 301 301 t ∧ RewardReady b A s0 i (topDigits (T3.topFlip v)) low t := by
   obtain ⟨t, st, tpc, tdig, tr, tf⟩ := topUnpack_spec hK u v hvalid (hu.table hpre.table) hpc h6 h7 h30 h20 A.ret
     (by rw [hu.reg (by decide),hpre.x1])
   have hregs : RegsExcept s0 t csRegs := (hu.regs.trans tr).mono (by decide)
@@ -2130,7 +1814,7 @@ theorem cs_answer {A : CsArgs} {s0 t : MachineState} {i : Nat} {rewardCondition 
   refine hashInput_toQ t2 _ 0 ENC (BC.encodingInput_length _ _ _ _ _) h10 (by decide) (by decide) h11 (by decide) ?_
   rw [readWords_eight, BC.wordsOf_encodingInput, hc]
   have nw : ∀ A, A = ENC ∨ A = ENC + 8 ∨ A = ENC + 40 ∨ A = ENC + 48 ∨ A = ENC + 56 → ¬ CsW A := by
-    intro A hA; simp only [CsW, CanonicalHooks.CreditW, DigW, ENC, EOUT, DIGITS] at hA ⊢; omega
+    intro A hA; simp only [CsW, CanonicalHooks.CreditW, DigW, ENC, EOUT, DIGITS, FLAG] at hA ⊢; omega
   rw [mem _ (by simp only [ENC]; omega) (nw _ (by omega)), mem _ (by simp only [ENC]; omega) (nw _ (by omega)),
     hT.h16, hT.h24, c32, mem _ (by simp only [ENC]; omega) (nw _ (by omega)),
     mem _ (by simp only [ENC]; omega) (nw _ (by omega)), mem _ (by simp only [ENC]; omega) (nw _ (by omega)),
@@ -2162,7 +1846,7 @@ theorem cs_exhaust {A : CsArgs} {s0 t : MachineState} {i : Nat}
     rw [r1.get (by decide),hI.regs.get (by decide),hpre.x8]
   have fr1 : Frame s0 t1 CsW := (hI.frame.trans f1).mono (fun A _ h=>by simpa using h)
   have hcf : CfTableOK 0 t1 := hpre.cf.frame fr1
-    (by intro j hj hj';unfold CsW CanonicalHooks.CreditW DigW TOP_DATA ENC EOUT DIGITS;omega)
+    (by intro j hj hj';unfold CsW CanonicalHooks.CreditW DigW TOP_DATA ENC EOUT DIGITS FLAG;omega)
   obtain ⟨n,t2,hn,s2,p2,r2,f2⟩ := Credit.exhaust_fail hK t1 p1 A.lay.val A.lay.isLt h8 0
     (by decide) hcf (Or.inr rfl)
   obtain ⟨t3,s3,p3,h5,h10,hf⟩ := cs0_spec hK t2 p2
@@ -2182,6 +1866,82 @@ set_option maxHeartbeats 1500000
 set_option maxRecDepth 32768
 set_option linter.unusedSimpArgs false
 variable {image : Image} {sk : BitVec 256}
+/-- One top trial (r3-lean-sign): from the top flip (`tcBase`) with the raw half `v` in `x6`, `x7` and the choice flag
+clear exactly on the LOW trial, either accept (`RewardReady`) or reach `choice_r`. -/
+theorem top_trial {A : CsArgs} {s0 u : MachineState} {i : Nat}
+    (hK : KernAt image 543 (CanonicalHooks.Code image)) (hpre : CsPre 543 A s0) (hlz : A.lay = 0)
+    (hu : TrialSt 543 A s0 i u) (hpc : u.pc = pcOf (tcBase 543)) (hi22 : i < 2 ^ 22) (v : Digest)
+    (h6 : u.getReg .x6 = v.extractLsb' 0 64) (h7 : u.getReg .x7 = v.extractLsb' 64 64)
+    (low : Bool) (hfl : u.getMem (BitVec.ofNat 64 FLAG) = 0 ↔ low = true) :
+    (∀ ds, WCT9.CanonicalPolicy.producerDecodeAt 0 18 low v = some ds →
+      ∃ k t, Steps image u k k t ∧ k ≤ 520 ∧ RewardReady 543 A s0 i ds low t ∧
+        WCT9.CanonicalPolicy.decode A.lay v = some ds ∧ A.floor ≤ WCT9.CanonicalPolicy.credit A.lay low ds) ∧
+    (WCT9.CanonicalPolicy.producerDecodeAt 0 18 low v = none →
+      ∃ k t, Steps image u k k t ∧ k ≤ 207 ∧ t.pc = pcOf (choiceBase 543 + 3) ∧ TrialSt 543 A s0 i t ∧
+        Frame u t (fun A => A = 0x66018)) := by
+  have hfloor : A.floor = 18 := hpre.floorTop hlz
+  obtain ⟨tc,sc,pcc,h6c,h7c,rc,fc⟩ := tc_spec hK u hpc v h6 h7
+  have hTc := hu.step rc (by decide) fc
+  obtain ⟨w,rfl⟩ : ∃ w, v = T3.topFlip w := ⟨T3.topFlip v,(T3.topFlip_topFlip v).symm⟩
+  rw [T3.topFlip_topFlip] at h6c h7c
+  have hdec : WCT9.CanonicalPolicy.decode 0 (T3.topFlip w)=
+      (if topLookupSum w=146 then some (topDigits (T3.topFlip w)) else none) := by
+    simpa [WCT9.CanonicalPolicy.decode,WCT9.CanonicalPolicy.normalLayer] using decode_top_lookup w
+  obtain ⟨t5,s5,p5,r5,f5⟩ := cs263_spec hK tc pcc
+  have hT5 := hTc.step r5 (by decide) f5
+  obtain ⟨t6,s6,p6,h25',h30',r6,f6⟩ := topCheck_spec hK t5 w p5
+    (by rw [r5.get (by decide),h6c]) (by rw [r5.get (by decide),h7c])
+    (by rw [hT5.reg (by decide),hpre.x17,hlz];rfl) (hT5.table hpre.table).sum
+  have hT6 := hT5.step r6 (by decide) f6
+  by_cases hs : topLookupSum w=146
+  · rw [if_pos hs] at p6
+    have hd' : WCT9.CanonicalPolicy.decode 0 (T3.topFlip w)=some (topDigits (T3.topFlip w)) := by rw [hdec,if_pos hs]
+    have hpd := producerDecode_top (T3.topFlip w) 18 low hd'
+    have hvalid := ((topLookupSum_eq_iff w).mp hs).1
+    obtain ⟨t7,s7,p7,r7,f7⟩ := TopUnpack.jump_spec hK t6 p6
+    have hT7 := hT6.step r7 (by decide) f7
+    have hfl7 : t7.getMem (BitVec.ofNat 64 FLAG) = 0 ↔ low = true := by
+      rw [f7.get (by decide) (by simp),f6.get (by decide) (by simp),f5.get (by decide) (by simp),
+        fc.get (by decide) (by simp)]; exact hfl
+    obtain ⟨kf,tf,sf,kfle,pf,mf,rf,ff⟩ := CanonicalHooks.top_spec_credit hK.reward t7 w
+      (hT7.reward hpre.reward) hvalid p7
+      (by rw [r7.get (by decide),r6.get (by decide),r5.get (by decide),h6c])
+      (by rw [r7.get (by decide),r6.get (by decide),r5.get (by decide),h7c]) low hfl7
+    have hTf := hT7.stepCredit rf (by decide) (ff.mono (fun A _ h => h))
+    change kf ≤ (if rewardOK 0 18 low (topDigits (T3.topFlip w)) then _ else _) at kfle
+    change tf.pc=(if rewardOK 0 18 low (topDigits (T3.topFlip w)) then _ else _) at pf
+    change (rewardOK 0 18 low (topDigits (T3.topFlip w)) → _) at mf
+    by_cases hok : rewardOK 0 18 low (topDigits (T3.topFlip w))
+    · rw [if_pos hok] at pf kfle
+      rw [if_pos hok] at hpd
+      refine ⟨fun ds hds => ?_, fun hn => (by rw [hpd] at hn; cases hn)⟩
+      rw [hpd] at hds; cases hds
+      obtain ⟨t8,s8,p8,g20,r8,f8⟩ := Credit.ok_spec hK tf pf
+      have hT8 := hTf.step r8 (by decide) f8
+      obtain ⟨t9,s9,hR⟩ := cs_top_prepare hK hpre hT8 p8 hi22 hlz w hvalid (by rw [hlz]; exact hd')
+        (by rw [r8.get (by decide),rf.get (by decide),r7.get (by decide),r6.get (by decide),r5.get (by decide),h6c])
+        (by rw [r8.get (by decide),rf.get (by decide),r7.get (by decide),r6.get (by decide),r5.get (by decide),h7c])
+        (by rw [r8.get (by decide),rf.get (by decide),r7.get (by decide),h30'])
+        (by rw [r8.get (by decide),rf.get (by decide),r7.get (by decide)];simpa only [hs] using h25') g20 low
+        (by rw [f8.get (by decide) (by simp),hlz];exact mf hok)
+      refine ⟨_,t9,(((((((sc.trans s5).trans s6).trans s7).trans sf).trans s8).trans s9)),by omega,hR,
+        by rw [hlz]; exact hd',?_⟩
+      rw [hfloor,hlz]; exact reward_credit_le hok
+    · rw [if_neg hok] at pf kfle
+      rw [if_neg hok] at hpd
+      refine ⟨fun ds hds => (by rw [hpd] at hds; cases hds), fun _ => ?_⟩
+      exact ⟨_,tf,((((sc.trans s5).trans s6).trans s7).trans sf),by omega,pf,hTf,
+        ((((fc.trans f5).trans f6).trans f7).trans ff).mono (fun A _ h => by
+          simp only [false_or] at h; exact h)⟩
+  · rw [if_neg hs] at p6
+    have hd' : WCT9.CanonicalPolicy.decode 0 (T3.topFlip w)=none := by rw [hdec,if_neg hs]
+    have hpd : WCT9.CanonicalPolicy.producerDecodeAt 0 18 low (T3.topFlip w)=none := by
+      simp [WCT9.CanonicalPolicy.producerDecodeAt,hd']
+    refine ⟨fun ds hds => (by rw [hpd] at hds; cases hds), fun _ => ?_⟩
+    obtain ⟨t7,s7,p7,r7,f7⟩ := retry_spec hK t6 p6
+    exact ⟨_,t7,(((sc.trans s5).trans s6).trans s7),by omega,p7,hT6.step r7 (by decide) f7,
+      (((fc.trans f5).trans f6).trans f7).mono (fun A _ h => by simp at h)⟩
+
 theorem cs_loop {A : CsArgs} {s0 : MachineState} (hK : KernAt image 543 (CanonicalHooks.Code image)) (hpre : CsPre 543 A s0) :
     ∀ F i t, i + F = capLimit A.lay.val → CsInv 543 A s0 i t →
       TBSim image sk t (F * csT A.lay + csOk A.lay) (WCT9.CanonicalPolicy.layerCounterSearchAt A.lay A.floor A.tree A.leaf A.msg i F)
@@ -2199,19 +1959,18 @@ theorem cs_loop {A : CsArgs} {s0 : MachineState} (hK : KernAt image 543 (Canonic
     have hi22 : i < 2 ^ 22 := by omega
     obtain ⟨k2,t2,s2,k2le,p2,hf,h5,hv,hq,h12,hT⟩ := cs_answer hK hpre hI hi
     have prog : WCT9.CanonicalPolicy.layerCounterSearchAt A.lay A.floor A.tree A.leaf A.msg i (F+1) =
-        (WCT9.encodingHash A.lay (WCT9.layerEncodingInput A.lay A.tree A.leaf A.msg (BitVec.ofNat 32 i)) >>= fun answer =>
-          match WCT9.CanonicalPolicy.producerDecodeAt A.lay A.floor answer with
+        (T3.publicHash (WCT9.layerEncodingInput A.lay A.tree A.leaf A.msg (BitVec.ofNat 32 i)) >>= fun answer =>
+          match WCT9.CanonicalPolicy.producerDecodeOut A.lay A.floor answer with
           | none => WCT9.CanonicalPolicy.layerCounterSearchAt A.lay A.floor A.tree A.leaf A.msg (i+1) F
-          | some digits => pure (some (BitVec.ofNat 32 i,digits))) := rfl
+          | some found => pure (some (BitVec.ofNat 32 i,found))) := rfl
     have ih' : ∀ t, CsInv 543 A s0 (i+1) t → TBSim image sk t (F*csT A.lay+csOk A.lay)
         (WCT9.CanonicalPolicy.layerCounterSearchAt A.lay A.floor A.tree A.leaf A.msg (i+1) F) (CsPost image 543 A s0) :=
       fun t ht => ih (i+1) t (by omega) ht
     rw [prog]
-    refine (TBSim.steps s2 (TBSim.encodingHash_bind hf h5 hv hq
+    refine (TBSim.steps s2 (TBSim.publicHash_bindC hf h5 hv hq
       (W:=F*csT A.lay+csOk A.lay+(csT A.lay-(if A.lay=0 then 22 else 20))) (fun a => ?_))).mono ?_ (fun _ _ h => h)
     swap
     · rw [BC.blocks_encodingInput,Nat.succ_mul];unfold csT at *;split_ifs at k2le ⊢ <;> omega
-    set v := WCT9.encodingAnswer A.lay a with hvdef
     have hT3 := hT.hash h12 a
     have p3 : (writeHash t2 a).pc=pcOf (543+124) := by rw [pc_writeHash,p2,pcOf_add4]
     have hd := DigAt.writeHash_lo t2 a EOUT h12 (by decide)
@@ -2221,75 +1980,90 @@ theorem cs_loop {A : CsArgs} {s0 : MachineState} (hK : KernAt image 543 (Canonic
     rw [hd.1] at h6
     rw [hd.2] at h7
     have hT4 := hT3.step r4 (by decide) f4
+    -- the answer halves stay in `EOUT .. EOUT + 32` (frames below never write there)
+    have mL0 : ∀ w : MachineState, w.getMem (BitVec.ofNat 64 EOUT) = t4.getMem (BitVec.ofNat 64 EOUT) →
+        w.getMem (BitVec.ofNat 64 EOUT) = (a.extractLsb' 0 128).extractLsb' 0 64 := by
+      intro w hw; rw [hw,f4.get (by unfold EOUT;omega) (by simp)]; exact hd.1
+    have mL8 : ∀ w : MachineState, w.getMem (BitVec.ofNat 64 (EOUT+8)) = t4.getMem (BitVec.ofNat 64 (EOUT+8)) →
+        w.getMem (BitVec.ofNat 64 (EOUT+8)) = (a.extractLsb' 0 128).extractLsb' 64 64 := by
+      intro w hw; rw [hw,f4.get (by unfold EOUT;omega) (by simp)]; exact hd.2
+    have mH0 : ∀ w : MachineState, w.getMem (BitVec.ofNat 64 (EOUT+16)) = t4.getMem (BitVec.ofNat 64 (EOUT+16)) →
+        w.getMem (BitVec.ofNat 64 (EOUT+16)) = (a.extractLsb' 128 128).extractLsb' 0 64 := by
+      intro w hw; rw [hw,f4.get (by unfold EOUT;omega) (by simp)]; exact hhi.1
+    have mH8 : ∀ w : MachineState, w.getMem (BitVec.ofNat 64 (EOUT+24)) = t4.getMem (BitVec.ofNat 64 (EOUT+24)) →
+        w.getMem (BitVec.ofNat 64 (EOUT+24)) = (a.extractLsb' 128 128).extractLsb' 64 64 := by
+      intro w hw; rw [hw,f4.get (by unfold EOUT;omega) (by simp)]; exact hhi.2
     by_cases hlz : A.lay=0
     · rw [if_pos (hl0.2 hlz)] at p4
-      obtain ⟨kg,tg,sg,hkg,pg,g6,g7,rg,fg⟩ := top_select_spec hK t4 p4 a h6 h7
-        (by rw [r4.get (by decide),getReg_writeHash,h12])
-        (by rw [f4.get (by unfold EOUT;omega) (by simp)];exact hhi.1)
-        (by rw [f4.get (by unfold EOUT;omega) (by simp)];exact hhi.2)
-      have he : v=T3.TopDualHalf.select a := by simp [hvdef,WCT9.encodingAnswer,hlz]
-      rw [←he] at g6 g7
-      obtain ⟨tc,sc,pcc,h6c,h7c,rc,fc⟩ := tc_spec hK tg pg v g6 g7
-      have sc := sg.trans sc
-      have hTc := (hT4.step rg (by decide) fg).step rc (by decide) fc
-      clear_value v
-      obtain ⟨w,rfl⟩ : ∃ w,v=T3.topFlip w := ⟨T3.topFlip v,(T3.topFlip_topFlip v).symm⟩
-      rw [T3.topFlip_topFlip] at h6c h7c
-      have hdec : WCT9.CanonicalPolicy.decode 0 (T3.topFlip w)=
-          (if topLookupSum w=145 then some (topDigits (T3.topFlip w)) else none) := by
-        simpa [WCT9.CanonicalPolicy.decode,WCT9.CanonicalPolicy.normalLayer] using decode_top_lookup w
-      rw [←hlz] at hdec
-      obtain ⟨t5,s5,p5,r5,f5⟩ := cs263_spec hK tc pcc
-      have hT5 := hTc.step r5 (by decide) f5
-      obtain ⟨t6,s6,p6,h25',h30',r6,f6⟩ := topCheck_spec hK t5 w p5
-        (by rw [r5.get (by decide),h6c]) (by rw [r5.get (by decide),h7c])
-        (by rw [hT5.reg (by decide),hpre.x17,hlz];rfl) (hT5.table hpre.table).sum
-      have hT6 := hT5.step r6 (by decide) f6
-      by_cases hs : topLookupSum w=145
-      · rw [if_pos hs] at p6
-        have hd' : WCT9.CanonicalPolicy.decode A.lay (T3.topFlip w)=some (topDigits (T3.topFlip w)) := by rw [hdec,if_pos hs]
-        have hpd := producerDecode_top (T3.topFlip w) A.floor (by simpa [hlz] using hd')
-        rw [←hlz] at hpd
-        rw [hpd]
-        have hvalid := ((topLookupSum_eq_iff w).mp hs).1
-        obtain ⟨t7,s7,p7,r7,f7⟩ := TopUnpack.jump_spec hK t6 p6
-        have hT7 := hT6.step r7 (by decide) f7
-        obtain ⟨tf,sf,pf,mf,rf,ff⟩ := CanonicalHooks.top_spec_credit hK.2.2.2.2.2.2 t7 w
-          (hT7.reward hpre.reward) hvalid p7
-          (by rw [r7.get (by decide),r6.get (by decide),r5.get (by decide),h6c])
-          (by rw [r7.get (by decide),r6.get (by decide),r5.get (by decide),h7c])
-        have hTf := hT7.stepCredit rf (by decide) ff
-        change tf.pc=(if rewardOK 0 16 (topDigits (T3.topFlip w)) then _ else _) at pf
-        change Steps image t7 (if rewardOK 0 16 (topDigits (T3.topFlip w)) then 103 else 98)
-          (if rewardOK 0 16 (topDigits (T3.topFlip w)) then 103 else 98) tf at sf
-        change (rewardOK 0 16 (topDigits (T3.topFlip w)) → _) at mf
-        rw [←hpre.floorTop hlz,←hlz] at pf sf mf
-        by_cases hok : rewardOK A.lay A.floor (topDigits (T3.topFlip w))
-        · rw [if_pos hok] at pf sf
-          simp only [if_pos hok]
-          obtain ⟨t8,s8,p8,g20,r8,f8⟩ := Credit.ok_spec hK tf pf
-          have hT8 := hTf.step r8 (by decide) f8
-          obtain ⟨t9,s9,hR⟩ := cs_top_prepare hK hpre hT8 p8 hi22 hlz w hvalid hd'
-            (by rw [r8.get (by decide),rf.get (by decide),r7.get (by decide),r6.get (by decide),r5.get (by decide),h6c])
-            (by rw [r8.get (by decide),rf.get (by decide),r7.get (by decide),r6.get (by decide),r5.get (by decide),h7c])
-            (by rw [r8.get (by decide),rf.get (by decide),r7.get (by decide),h30'])
-            (by rw [r8.get (by decide),rf.get (by decide),r7.get (by decide)];simpa only [hs] using h25') g20
-            (by rw [f8.get (by decide) (by simp)];exact mf hok)
-          have done := cs_success (sk:=sk) hK hpre hR hi (T3.topFlip w) hd' (reward_credit_le hok)
-          refine (TBSim.steps ((((((((s4.trans sc).trans s5).trans s6).trans s7).trans sf).trans s8).trans s9)) done).mono ?_ (fun _ _ h => h)
-          simp only [csT,csOk,if_pos hlz];omega
-        · rw [if_neg hok] at pf sf
-          simp only [if_neg hok]
-          refine (TBSim.steps ((((((s4.trans sc).trans s5).trans s6).trans s7).trans sf))
-            (cs_next hK hTf pf hi ih')).mono ?_ (fun _ _ h => h)
-          simp only [csT,csOk,if_pos hlz];omega
-      · rw [if_neg hs] at p6
-        have hd' : WCT9.CanonicalPolicy.decode A.lay (T3.topFlip w)=none := by rw [hdec,if_neg hs]
-        have hpd : WCT9.CanonicalPolicy.producerDecodeAt A.lay A.floor (T3.topFlip w)=none := by simp [WCT9.CanonicalPolicy.producerDecodeAt,hd']
-        rw [hpd]
-        refine (TBSim.steps (((s4.trans sc).trans s5).trans s6) (cs_next hK hT6 p6 hi ih')).mono ?_ (fun _ _ h => h)
+      have hfl : A.floor = 18 := hpre.floorTop hlz
+      have e : WCT9.CanonicalPolicy.producerDecodeOut A.lay A.floor a = WCT9.CanonicalPolicy.producerDecodeOut 0 18 a := by
+        rw [hlz,hfl]
+      rw [e]
+      obtain ⟨tg,sg,pg,gflag,rg,fg⟩ := top_select_spec hK t4 p4
+      have hTg := hT4.stepFlag rg (by decide) fg
+      have fgE : ∀ X, X ≠ FLAG → X < 2^64 → tg.getMem (BitVec.ofNat 64 X) = t4.getMem (BitVec.ofNat 64 X) :=
+        fun X hX hX' => fg.get hX' hX
+      obtain ⟨hLs,hLn⟩ := top_trial hK hpre hlz hTg pg hi22 (a.extractLsb' 0 128)
+        (by rw [rg.get (by decide),h6]) (by rw [rg.get (by decide),h7]) true (by simp [gflag])
+      cases hL : WCT9.CanonicalPolicy.producerDecodeAt 0 18 true (a.extractLsb' 0 128) with
+      | some ds =>
+        rw [producerDecodeOut_top_low a hL]
+        obtain ⟨k,t,st,kle,hR,hdec,hfloor⟩ := hLs ds hL
+        have done := cs_success (sk:=sk) hK hpre hR hi _ hdec hfloor
+        refine (TBSim.steps ((s4.trans sg).trans st) done).mono ?_ (fun _ _ h => h)
         simp only [csT,csOk,if_pos hlz];omega
+      | none =>
+        obtain ⟨k,t,st,kle,pt,hTt,ft⟩ := hLn hL
+        have ftE : ∀ X, X ≠ 0x66018 → X < 2^64 → t.getMem (BitVec.ofNat 64 X) = tg.getMem (BitVec.ofNat 64 X) :=
+          fun X hX hX' => ft.get hX' hX
+        obtain ⟨kr,tr,sr,krle,hr,rr,fr⟩ := choiceR_spec hK t pt a
+          (mL8 t (by rw [ftE _ (by unfold EOUT;omega) (by unfold EOUT;omega),fgE _ (by unfold EOUT FLAG;omega) (by unfold EOUT;omega)]))
+          (mH0 t (by rw [ftE _ (by unfold EOUT;omega) (by unfold EOUT;omega),fgE _ (by unfold EOUT FLAG;omega) (by unfold EOUT;omega)]))
+          (mH8 t (by rw [ftE _ (by unfold EOUT;omega) (by unfold EOUT;omega),fgE _ (by unfold EOUT FLAG;omega) (by unfold EOUT;omega)]))
+        have tflag : t.getMem (BitVec.ofNat 64 FLAG) = 0 := by rw [ftE _ (by unfold FLAG;omega) (by unfold FLAG;omega)]; exact gflag
+        have hTr := hTt.stepFlag rr (by decide) fr
+        by_cases hb : T3.TopChoice.blocked (a.extractLsb' 0 128)
+        · rw [producerDecodeOut_top_blocked a hL hb]
+          rw [if_neg (fun h => h.2 hb)] at hr
+          refine (TBSim.steps (((s4.trans sg).trans st).trans sr) (cs_next hK hTr hr hi ih')).mono ?_ (fun _ _ h => h)
+          simp only [csT,csOk,if_pos hlz];omega
+        · rw [producerDecodeOut_top_high a hL hb]
+          rw [if_pos ⟨tflag,hb⟩] at hr
+          obtain ⟨pr,r6',r7',rflag⟩ := hr
+          obtain ⟨hHs,hHn⟩ := top_trial hK hpre hlz hTr pr hi22 (a.extractLsb' 128 128) r6' r7' false
+            (by rw [rflag]; decide)
+          have frE : ∀ X, X ≠ FLAG → X < 2^64 → tr.getMem (BitVec.ofNat 64 X) = t.getMem (BitVec.ofNat 64 X) :=
+            fun X hX hX' => fr.get hX' hX
+          cases hH : WCT9.CanonicalPolicy.producerDecodeAt 0 18 false (a.extractLsb' 128 128) with
+          | some ds =>
+            obtain ⟨k',t',st',kle',hR,hdec,hfloor⟩ := hHs ds hH
+            have done := cs_success (sk:=sk) hK hpre hR hi _ hdec hfloor
+            refine (TBSim.steps ((((s4.trans sg).trans st).trans sr).trans st') done).mono ?_ (fun _ _ h => h)
+            simp only [csT,csOk,if_pos hlz];omega
+          | none =>
+            obtain ⟨k',t',st',kle',pt',hTt',ft'⟩ := hHn hH
+            have ftE' : ∀ X, X ≠ 0x66018 → X < 2^64 → t'.getMem (BitVec.ofNat 64 X) = tr.getMem (BitVec.ofNat 64 X) :=
+              fun X hX hX' => ft'.get hX' hX
+            have back : ∀ X, X ≠ FLAG → X ≠ 0x66018 → X < 2^64 →
+                t'.getMem (BitVec.ofNat 64 X) = t4.getMem (BitVec.ofNat 64 X) := by
+              intro X h1 h2 h3; rw [ftE' X h2 h3,frE X h1 h3,ftE X h2 h3,fgE X h1 h3]
+            obtain ⟨kr',tr',sr',krle',hr',rr',fr'⟩ := choiceR_spec hK t' pt' a
+              (mL8 t' (back _ (by unfold EOUT FLAG;omega) (by unfold EOUT;omega) (by unfold EOUT;omega)))
+              (mH0 t' (back _ (by unfold EOUT FLAG;omega) (by unfold EOUT;omega) (by unfold EOUT;omega)))
+              (mH8 t' (back _ (by unfold EOUT FLAG;omega) (by unfold EOUT;omega) (by unfold EOUT;omega)))
+            have t'flag : t'.getMem (BitVec.ofNat 64 FLAG) = BitVec.ofNat 64 128 := by
+              rw [ftE' _ (by unfold FLAG;omega) (by unfold FLAG;omega)]; exact rflag
+            rw [if_neg (fun h => by rw [t'flag] at h; exact absurd h.1 (by decide))] at hr'
+            have hTr' := hTt'.stepFlag rr' (by decide) fr'
+            refine (TBSim.steps (((((s4.trans sg).trans st).trans sr).trans st').trans sr')
+              (cs_next hK hTr' hr' hi ih')).mono ?_ (fun _ _ h => h)
+            simp only [csT,csOk,if_pos hlz];omega
     · rw [if_neg (fun h => hlz (hl0.1 h))] at p4
+      set v := WCT9.encodingAnswer A.lay a with hvdef
+      set low := decide (T3.lowerSpare (a.extractLsb' 0 128)) with hlowdef
+      have hlow : WCT9.lowSelected A.lay a = low := by simp [WCT9.lowSelected,hlz,hlowdef]
+      unfold WCT9.CanonicalPolicy.producerDecodeOut
+      rw [hlow]
       obtain ⟨td,sd,pd,rd,fd⟩ := cs130_spec hK t4 p4
       have hTd := hT4.step rd (by decide) fd
       obtain ⟨ks,t5,ss,hs7,p5,h6s,h7s,r5,f5⟩ := selector_spec hK td pd a A.lay hlz
@@ -2316,7 +2090,7 @@ theorem cs_loop {A : CsArgs} {s0 : MachineState} (hK : KernAt image 543 (Canonic
           obtain ⟨t7,s7,p7,r7,f7⟩ := cs259_spec hK t6 p6
           have hT7 := hT6.step r7 (by decide) f7
           have hd' : WCT9.CanonicalPolicy.decode A.lay v=some (lowDigits v++[T3.target (WCT9.CanonicalPolicy.normalLayer A.lay)-(lowDigits v).sum]) := by rw [hdec,if_pos ⟨hr,hs⟩]
-          rw [producerDecode_lower hlz v A.floor _ hd' rfl]
+          rw [producerDecode_lower hlz v A.floor _ low hd' rfl]
           obtain ⟨k8,n8,t8,s8,n8le,p8,r8,f8⟩ := zero_rank_spec hK t7 p7 v (T3.target (WCT9.CanonicalPolicy.normalLayer A.lay))
             (by
               have h : ∀ lay : T3.Layer,T3.target lay<256 := by decide
@@ -2328,52 +2102,54 @@ theorem cs_loop {A : CsArgs} {s0 : MachineState} (hK : KernAt image 543 (Canonic
               have hmin : ∀ lay : T3.Layer,lay≠0 → 199≤T3.target lay := by decide
               have ht := hmin (WCT9.CanonicalPolicy.normalLayer A.lay) hnormal;omega))
           have hT8 := hT7.step r8 (by decide) f8
+          have fL8 : Frame t4 t8 (fun _ => False) := ((((((fd.trans f5).trans f6).trans f7).trans f8)).mono
+            (fun A _ h => by simp at h))
           by_cases hok : (lowDigits v++[T3.target (WCT9.CanonicalPolicy.normalLayer A.lay)-(lowDigits v).sum]).count 0≤5 ∧ Rank.rankOK v
           · rw [if_pos hok] at p8
-            simp only [hok.1,hok.2,and_true]
             have hTables : Reward.RewardTablesOK t8 := hpre.reward.frame hT8.frame
-              (by intro j hj hj'; unfold CsW CanonicalHooks.CreditW DigW TOP_DATA ENC EOUT DIGITS; omega)
-            obtain ⟨tR,sR,pR,mR,rR,fR⟩ := CanonicalHooks.lower_spec_credit hK.2.2.2.2.2.2 t8 A.lay hlz v hTables p8
+              (by intro j hj hj'; unfold CsW CanonicalHooks.CreditW DigW TOP_DATA ENC EOUT DIGITS FLAG; omega)
+            obtain ⟨kR,tR,sR,kRle,pR,mR,rR,fR⟩ := CanonicalHooks.lower_spec_credit hK t8 A.lay hlz v hTables p8
               (by rw [r8.get (by decide),r7.get (by decide),r6.get (by decide),h6s])
               (by rw [r8.get (by decide),r7.get (by decide),r6.get (by decide),h7s])
+              (a.extractLsb' 0 128) (mL0 t8 (fL8.get (by decide) (by simp))) (mL8 t8 (fL8.get (by decide) (by simp)))
               (T3.target (WCT9.CanonicalPolicy.normalLayer A.lay)) (lowDigits v).sum A.floor
               (by rw [hT8.reg (by decide),hpre.x17])
               (by rw [r8.get (by decide),r7.get (by decide),h25']) hs.1 hs.2 hpre.floorLt
-              (by rw [hT8.frame.get (by decide) (by unfold CsW CanonicalHooks.CreditW ENC EOUT DigW DIGITS;omega),hpre.floorMem hlz])
+              (by rw [hT8.frame.get (by decide) (by unfold CsW CanonicalHooks.CreditW ENC EOUT DigW DIGITS FLAG;omega),hpre.floorMem hlz])
             have hTR := hT8.stepCredit rR (by decide) fR
-            change tR.pc=(if rewardOK A.lay A.floor (lowDigits v++[T3.target (WCT9.CanonicalPolicy.normalLayer A.lay)-(lowDigits v).sum])
+            change tR.pc=(if rewardOK A.lay A.floor low (lowDigits v++[T3.target (WCT9.CanonicalPolicy.normalLayer A.lay)-(lowDigits v).sum])
               then pcOf (543+433) else pcOf (543+468)) at pR
-            change Steps image t8 (if rewardOK A.lay A.floor (lowDigits v++[T3.target (WCT9.CanonicalPolicy.normalLayer A.lay)-(lowDigits v).sum]) then 88 else 84)
-              (if rewardOK A.lay A.floor (lowDigits v++[T3.target (WCT9.CanonicalPolicy.normalLayer A.lay)-(lowDigits v).sum]) then 88 else 84) tR at sR
-            change (rewardOK A.lay A.floor (lowDigits v++[T3.target (WCT9.CanonicalPolicy.normalLayer A.lay)-(lowDigits v).sum]) → _) at mR
-            by_cases hreward : rewardOK A.lay A.floor (lowDigits v++[T3.target (WCT9.CanonicalPolicy.normalLayer A.lay)-(lowDigits v).sum])
-            · rw [if_pos hreward] at pR sR ⊢
+            change (rewardOK A.lay A.floor low (lowDigits v++[T3.target (WCT9.CanonicalPolicy.normalLayer A.lay)-(lowDigits v).sum]) → _) at mR
+            by_cases hreward : rewardOK A.lay A.floor low (lowDigits v++[T3.target (WCT9.CanonicalPolicy.normalLayer A.lay)-(lowDigits v).sum])
+            · rw [if_pos hreward] at pR
+              simp only [hreward,hok,and_self,if_true]
               obtain ⟨k9,t9,s9,k9le,hR⟩ := cs_prepare hK hpre hTR pR hi22 hlz v hr _ _ hd' rfl hs.1
                 (by rw [rR.get (by decide),r8.get (by decide),r7.get (by decide),r6.get (by decide),h6s])
                 (by rw [rR.get (by decide),r8.get (by decide),r7.get (by decide),r6.get (by decide),h7s])
-                (by rw [rR.get (by decide),r8.get (by decide),r7.get (by decide),h25']) (mR hreward)
+                (by rw [rR.get (by decide),r8.get (by decide),r7.get (by decide),h25']) low (mR hreward)
               have done := cs_success (sk:=sk) hK hpre hR hi v hd' (reward_credit_le hreward)
               refine (TBSim.steps ((((((s4.trans s5).trans s6).trans s7).trans s8).trans sR).trans s9) done).mono ?_ (fun _ _ h => h)
               simp only [csT,csOk,if_neg hlz];omega
-            · rw [if_neg hreward] at pR sR ⊢
+            · rw [if_neg hreward] at pR
+              simp only [hreward,false_and,if_false]
               refine (TBSim.steps (((((s4.trans s5).trans s6).trans s7).trans s8).trans sR)
                 (cs_next hK hTR pR hi ih')).mono ?_ (fun _ _ h => h)
               simp only [csT,csOk,if_neg hlz];omega
           · rw [if_neg hok] at p8
-            have hno : ¬ (rewardOK A.lay A.floor (lowDigits v++[T3.target (WCT9.CanonicalPolicy.normalLayer A.lay)-(lowDigits v).sum]) ∧
+            have hno : ¬ (rewardOK A.lay A.floor low (lowDigits v++[T3.target (WCT9.CanonicalPolicy.normalLayer A.lay)-(lowDigits v).sum]) ∧
                 (lowDigits v++[T3.target (WCT9.CanonicalPolicy.normalLayer A.lay)-(lowDigits v).sum]).count 0≤5 ∧ Rank.rankOK v) := fun hh => hok hh.2
             simp only [if_neg hno]
             refine (TBSim.steps ((((s4.trans s5).trans s6).trans s7).trans s8) (cs_next hK hT8 p8 hi ih')).mono ?_ (fun _ _ h => h)
             simp only [csT,csOk,if_neg hlz];omega
         · rw [if_neg hs] at p6
           have hd' : WCT9.CanonicalPolicy.decode A.lay v=none := by rw [hdec,if_neg (fun h => hs h.2)]
-          have hpd : WCT9.CanonicalPolicy.producerDecodeAt A.lay A.floor v=none := by simp [WCT9.CanonicalPolicy.producerDecodeAt,hd']
+          have hpd : WCT9.CanonicalPolicy.producerDecodeAt A.lay A.floor low v=none := by simp [WCT9.CanonicalPolicy.producerDecodeAt,hd']
           rw [hpd]
           refine (TBSim.steps ((s4.trans s5).trans s6) (cs_next hK hT6 p6 hi ih')).mono ?_ (fun _ _ h => h)
           simp only [csT,csOk,if_neg hlz];omega
       · rw [if_neg hr] at p5
         have hd' : WCT9.CanonicalPolicy.decode A.lay v=none := by rw [hdec,if_neg (fun h => hr h.1)]
-        have hpd : WCT9.CanonicalPolicy.producerDecodeAt A.lay A.floor v=none := by simp [WCT9.CanonicalPolicy.producerDecodeAt,hd']
+        have hpd : WCT9.CanonicalPolicy.producerDecodeAt A.lay A.floor low v=none := by simp [WCT9.CanonicalPolicy.producerDecodeAt,hd']
         rw [hpd]
         refine (TBSim.steps (s4.trans s5) (cs_next hK hT5 p5 hi ih')).mono ?_ (fun _ _ h => h)
         simp only [csT,csOk,if_neg hlz];omega
@@ -2408,7 +2184,7 @@ theorem counterSearch_tbsim {A : CsArgs} {s0 : MachineState} (hK : KernAt image 
   have := TBSim.steps st (TBSim.steps st' (cs_loop (sk := sk) hK hpre (capLimit A.lay.val) 0 t' (by omega) hI))
   exact this.mono (le_of_eq (by ring)) (fun _ _ h => h)
 
-def csCost (lay : Layer) : Nat := (if lay=0 then T3.counterLimit*270 else WCT9.lowerSearchLimit*382)+8192
+def csCost (lay : Layer) : Nat := (if lay=0 then WCT9.topSearchLimit*503 else WCT9.lowerSearchLimit*389)+8192
 
 theorem counterSearch_good {A : CsArgs} {s0 : MachineState}
     (hK : KernAt image 543 (CanonicalHooks.Code image)) (hp : CsPre 543 A s0) :
@@ -2417,7 +2193,7 @@ theorem counterSearch_good {A : CsArgs} {s0 : MachineState}
       (CsPost image 543 A s0) := by
   refine (counterSearch_tbsim hK hp).mono ?_ (fun _ _ h=>h)
   have hl0 : (A.lay.val=0)↔A.lay=0 := ⟨fun h=>Fin.ext h,fun h=>by rw [h];rfl⟩
-  unfold csCost capLimit csT csOk T3.counterLimit WCT9.lowerSearchLimit
+  unfold csCost capLimit csT csOk WCT9.topSearchLimit WCT9.lowerSearchLimit
   by_cases h : A.lay=0
   · rw [if_pos (hl0.2 h),if_pos h,if_pos h,if_pos h];norm_num
   · rw [if_neg (fun h'=>h (hl0.1 h')),if_neg h,if_neg h,if_neg h];norm_num

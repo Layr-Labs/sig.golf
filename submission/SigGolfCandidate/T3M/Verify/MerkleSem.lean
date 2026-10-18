@@ -1211,6 +1211,12 @@ theorem layerLoop_succ (w : ClaudeWCT.W9.T3M.WBytes) (index n : Nat) (hn : n < 4
   rw [ClaudeWCT.W9.T3M.layersCanonicalBC, layerHead]
   dsimp only
   simp only [hn0, ↓reduceIte]
+  have hlay0 : (Fin.ofNat 4 n : Layer) ≠ 0 := by
+    intro h
+    have := congrArg Fin.val h
+    simp [Fin.val_ofNat, Nat.mod_eq_of_lt hn] at this
+    exact hn0 this
+  rw [ClaudeWCT.WCT9.verificationHash_lower _ hlay0]
   split_ifs with hc
   · rfl
   · congr 1
@@ -1231,7 +1237,8 @@ theorem layerLoop_succ (w : ClaudeWCT.W9.T3M.WBytes) (index n : Nat) (hn : n < 4
 theorem layerLoop_one (w : ClaudeWCT.W9.T3M.WBytes) (index : Nat) (msg : LayerMsg) :
     BC.layerLoop w index 1 msg =
       if (ClaudeWCT.W9.T3M.wbcCtr w index 0).toNat ≥ ClaudeWCT.WCT9.verifyWindow then pure none else
-      ClaudeWCT.WCT9.encodingHash 0 (ClaudeWCT.W9.T3M.layerEncodingInputP 0 (route index 0).2 (route index 0).1 msg
+      ClaudeWCT.WCT9.verificationHash 0 (ClaudeWCT.W9.T3M.wtopHigh w)
+        (ClaudeWCT.W9.T3M.layerEncodingInputP 0 (route index 0).2 (route index 0).1 msg
         (ClaudeWCT.W9.T3M.wbcCtr w index 0) (ClaudeWCT.W9.T3M.wbcPad w index 0) (ClaudeWCT.W9.T3M.wbcRight w)
         (ClaudeWCT.W9.T3M.wbcHigh w index 0)) >>=
         ClaudeWCT.W9.T3M.topLayerP w index := by

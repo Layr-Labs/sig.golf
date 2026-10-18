@@ -868,7 +868,11 @@ theorem rowsContext_prefix_congr
   let E := encLeafOf leaf hleaf
   have he : E.toWots=leaf := encLeafOf_toWots leaf hleaf
   have hc : rowsContext (Function.curry f) E.toWots=some remaining := by rw [he]; exact hctx
-  rw [←he,searchRows_toWots,searchRows_toWots,selectionAt_prefix_congr f g hfg E remaining hc]
+  rw [←he,searchRows_toWots,searchRows_toWots]
+  exact selection_result_congr (Function.curry f) (Function.curry g) E remaining _
+    (selectionAt_prefix_congr f g hfg E remaining hc)
+    (fun r hsel => (hfg (E, r.1) ⟨remaining, hc, selectionAt_lt hsel,
+      fun r' hr' => by rw [hsel] at hr'; cases hr'; exact le_rfl⟩).symm)
 
 attribute [local irreducible] rowsContext selectionAt
 
@@ -1162,6 +1166,33 @@ theorem coherent_psi (sec : Secrets) (vals : Coord → Digest) (nv : Message →
       exact hpubX x.val x.property
     rw [referenceSearch_eq_filtered U hU hE _ labels res hpub L]
     rw [hres,sel_psi U hE a ha labels τ L]
+    cases hsel : a.sel L with
+    | none => rfl
+    | some r =>
+      simp only [Option.bind_some]
+      have hctxsel : CanonEncoding.Paired.selectionsOfRows a.rows L = some r := by
+        rw [← congrFun ha L]; exact hsel
+      unfold CanonEncoding.Paired.selectionsOfRows at hctxsel
+      cases hctx : CanonEncoding.Paired.rowsContext a.rows L.toWots with
+      | none => rw [hctx] at hctxsel; cases hctxsel
+      | some remaining =>
+        rw [hctx, Option.bind_some] at hctxsel
+        have hcap := CanonEncoding.Paired.selectionAt_lt hctxsel
+        have hpre : LargeResidual.Paired.PrefixRow a L (BitVec.ofNat 32 r.1.val) := by
+          have hc : (BitVec.ofNat 32 r.1.val).toNat = r.1.val := by
+            rw [BitVec.toNat_ofNat]; exact Nat.mod_eq_of_lt (by have := r.1.isLt; omega)
+          refine ⟨by rw [hctx]; rfl, by rw [hc]; exact hcap, ?_⟩
+          intro r' hr'
+          rw [hsel] at hr'; cases hr'
+          rw [hc]
+        have hrow : residualPsi U hE labels a.rows τ (CanonEncoding.Paired.encCell U hE labels (L, r.1)) =
+            a.rows L r.1 := by
+          rw [residualPsi, CanonEncoding.Paired.residualPsi0,
+            SphincsSecurity.Concrete.UniformTableSplit.overwrite_embed]
+          unfold mix
+          rw [if_pos ((rowPrefix_iff a ha L r.1).mpr hpre)]
+          rfl
+        rw [hrow]
   ·
     intro c hc hn
     change privPsi s nv a.priv c = a.priv c

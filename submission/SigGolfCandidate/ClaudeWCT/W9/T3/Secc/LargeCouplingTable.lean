@@ -695,14 +695,14 @@ theorem signDisclosed_logSeeds (hcoh : LargeResidual.Paired.Coherent U T vals nv
         omega
       refine (mem_logSeeds T _ _ w).mpr ⟨rfl, N, ?_, h1.symm, h2.symm, hdig⟩
       rw [WPair.Paired.mem_loggedOutputs]
-      refine ⟨_, List.mem_singleton_self _, assembleSig (nv request.message) N vals (Wots.CanonicalRef.referenceDigits T (Wots.CanonicalRef.sourceMessages T)), ?_, ?_⟩
+      refine ⟨_, List.mem_singleton_self _, assembleSig (nv request.message) N vals (Wots.CanonicalRef.referenceDigits T (Wots.CanonicalRef.sourceMessages T)) (Wots.CanonicalRef.referenceLow T (Wots.CanonicalRef.sourceMessages T)), ?_, ?_⟩
       · change evalWithAnswerFn T (PairedOuter.FullGame.authenticatedSign published request) = _
         rw [hsource request hc, hsd]
         unfold finishOut
         dsimp only
         rw [if_pos hok]
       · unfold WPair.Paired.signedOutput
-        have hrho : (assembleSig (nv request.message) N vals (Wots.CanonicalRef.referenceDigits T (Wots.CanonicalRef.sourceMessages T))).rho = nv request.message := rfl
+        have hrho : (assembleSig (nv request.message) N vals (Wots.CanonicalRef.referenceDigits T (Wots.CanonicalRef.sourceMessages T)) (Wots.CanonicalRef.referenceLow T (Wots.CanonicalRef.sourceMessages T))).rho = nv request.message := rfl
         rw [hrho, ← hcoh.privateNonce]
         unfold LargeResidual.Paired.signDigest at hsd
         rw [hsd]
@@ -800,15 +800,15 @@ theorem lowerZeros_card (T : Answers) (L : LowerLeaf) : (lowerZeros T L).card + 
       have hc : ∀lay : Layer,3≤WCT9.famCount lay := by intro lay;fin_cases lay <;> decide
       exact hc L.1.1
     | some found =>
-      obtain ⟨counter,digits⟩ := found
-      have hd : ∃floor value,WCT9.CanonicalPolicy.producerDecodeAt K.lay floor value=some digits := by
+      obtain ⟨counter,digits,low⟩ := found
+      have hd : ∃floor value,WCT9.CanonicalPolicy.producerDecodeAt K.lay floor low value=some digits := by
         unfold Wots.CanonicalRef.referenceSearch Wots.CanonicalRef.selected at hs
         cases hc : Wots.CanonicalRef.context (Wots.CanonicalRef.searchOf T (Wots.CanonicalRef.sourceMessages T)) WCT9.CanonicalPolicy.credit K with
         | none => rw [hc] at hs;cases hs
         | some remaining =>
           rw [hc] at hs
-          exact ⟨_,_,Wots.CanonicalRef.counterSearch_decode T K.lay _ K.tree K.leaf (Wots.CanonicalRef.sourceMessages T K)
-            (WCT9.searchLimit K.lay) 0 counter digits hs⟩
+          exact ⟨_,Wots.CanonicalRef.counterSearch_accepted T K.lay _ K.tree K.leaf (Wots.CanonicalRef.sourceMessages T K)
+            (WCT9.searchLimit K.lay) 0 counter digits low hs⟩
       simp only [Wots.CanonicalRef.referenceDigits,hs,Option.map_some,Option.getD_some]
       obtain ⟨floor,value,hd⟩ := hd
       have hp := WCT9.CanonicalPolicy.producerDecodeAt_spec hd

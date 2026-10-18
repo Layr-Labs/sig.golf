@@ -445,7 +445,8 @@ end
 
 namespace ClaudeWCT.W9.T3M
 open OracleComp OracleSpec SigGolfCandidate.T3
-/-- Padded canonical layers retain the machine ordering of rank checks and HASH calls. -/
+/-- Padded canonical layers retain the machine ordering of rank checks and HASH calls. Configuration (1)+(2): the
+top word is read with the witness choice hint `wtopHigh w` (`WCT9.verificationHash`; lower layers ignore it). -/
 def layersCanonicalBC (w : WBytes) (index : Nat) : Nat → WCT9.LayerMsg → M (Option Digest)
   | 0, _ => pure none
   | n + 1, msg => do
@@ -453,8 +454,8 @@ def layersCanonicalBC (w : WBytes) (index : Nat) : Nat → WCT9.LayerMsg → M (
       let counter := wbcCtr w index lay
       if counter.toNat ≥ WCT9.verifyWindow then return none
       let (leaf, tree) := route index lay
-      let answer ← ClaudeWCT.WCT9.encodingHash lay (layerEncodingInputP lay tree leaf msg counter (wbcPad w index lay) (wbcRight w)
-        (wbcHigh w index lay))
+      let answer ← ClaudeWCT.WCT9.verificationHash lay (wtopHigh w)
+        (layerEncodingInputP lay tree leaf msg counter (wbcPad w index lay) (wbcRight w) (wbcHigh w index lay))
       if n = 0 then topLayerP w index answer
       else do
         let some digits := WCT9.CanonicalPolicy.decode lay answer | pure none

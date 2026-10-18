@@ -211,7 +211,7 @@ set_option backward.isDefEq.respectTransparency false
 def CanonicalFrame (answers : Answers) (w : WBytes) (index : Nat) (lay : Layer) (msg : WCT9.LayerMsg) (digits : List Nat) :
     Prop :=
   (wbcCtr w index lay).toNat < WCT9.verifyWindow ∧
-    ClaudeWCT.WCT9.CanonicalPolicy.decode lay (evalWithAnswerFn answers (ClaudeWCT.WCT9.encodingHash lay (layerEncodingInputP lay (route index lay).2 (route index lay).1
+    ClaudeWCT.WCT9.CanonicalPolicy.decode lay (evalWithAnswerFn answers (ClaudeWCT.WCT9.verificationHash lay (wtopHigh w) (layerEncodingInputP lay (route index lay).2 (route index lay).1
       msg (wbcCtr w index lay) (wbcPad w index lay) (wbcRight w) (wbcHigh w index lay)))) = some digits
 
 theorem queried_map_canonical {α β : Type} (answers : Answers) (f : α → β) (p : M α) :
@@ -222,7 +222,7 @@ theorem queried_map_canonical {α β : Type} (answers : Answers) (f : α → β)
 theorem layersCanonicalBC_succ_eq (w : WBytes) (index n : Nat) (msg : WCT9.LayerMsg) :
     layersCanonicalBC w index (n + 1) msg =
       if (wbcCtr w index (Fin.ofNat 4 n)).toNat ≥ WCT9.verifyWindow then pure none else
-      (ClaudeWCT.WCT9.encodingHash (Fin.ofNat 4 n) (layerEncodingInputP (Fin.ofNat 4 n) (route index (Fin.ofNat 4 n)).2
+      (ClaudeWCT.WCT9.verificationHash (Fin.ofNat 4 n) (wtopHigh w) (layerEncodingInputP (Fin.ofNat 4 n) (route index (Fin.ofNat 4 n)).2
           (route index (Fin.ofNat 4 n)).1 msg (wbcCtr w index (Fin.ofNat 4 n)) (wbcPad w index (Fin.ofNat 4 n)) (wbcRight w)
           (wbcHigh w index (Fin.ofNat 4 n))) >>= fun answer =>
         if n = 0 then topLayerP w index answer
@@ -259,7 +259,7 @@ theorem layersCanonicalBC_succ_split (answers : Answers) (w : WBytes) (index n :
   rw [if_neg hc] at h ⊢
   rw [evalWithAnswerFn_bind] at h
   rw [queried_bind]
-  generalize hans : evalWithAnswerFn answers (ClaudeWCT.WCT9.encodingHash (Fin.ofNat 4 n) (layerEncodingInputP (Fin.ofNat 4 n)
+  generalize hans : evalWithAnswerFn answers (ClaudeWCT.WCT9.verificationHash (Fin.ofNat 4 n) (wtopHigh w) (layerEncodingInputP (Fin.ofNat 4 n)
     (route index (Fin.ofNat 4 n)).2 (route index (Fin.ofNat 4 n)).1 msg (wbcCtr w index (Fin.ofNat 4 n))
     (wbcPad w index (Fin.ofNat 4 n)) (wbcRight w) (wbcHigh w index (Fin.ofNat 4 n)))) = answer at h ⊢
   have hdig : ∃ digits, ClaudeWCT.WCT9.CanonicalPolicy.decode (Fin.ofNat 4 n) answer = some digits := by

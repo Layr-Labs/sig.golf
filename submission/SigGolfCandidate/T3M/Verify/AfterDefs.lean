@@ -76,10 +76,13 @@ end SigGolfCandidate.T3M.Verify
 namespace SigGolfCandidate.T3M.Verify
 open SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64 SigGolfCandidate.Rv OracleComp
 open SigGolfCandidate.T3 (Digest HashOutput)
+/-- Configuration (1)+(2): the hash hypothesis is read with the witness top-choice hint `wtopHigh w`
+(`HashOkBy floors high`, path-aware credit). -/
 def AfterGoodBudget (acceptCycles : Nat) : Prop :=
   ∀ (floors : T3.Layer → Nat), CreditFloors floors →
   ∀ (pk : Digest) (w : ClaudeWCT.W9.T3M.WBytes) (Q : Prop), Q →
     ∀ (a : HashOutput) (top : Digest × Digest) (u : MachineState),
       FtsOut ⟨pk, w, a⟩ top u →
-      GoodQP (HashOkBy floors) u 8050 8050 Q acceptCycles (ccM (afterFts pk w (ClaudeWCT.WCT9.digestIndex a) (some top)) Kb)
+      GoodQP (HashOkBy floors (ClaudeWCT.W9.T3M.wtopHigh w)) u 8050 8050 Q acceptCycles
+        (ccM (afterFts pk w (ClaudeWCT.WCT9.digestIndex a) (some top)) Kb)
 end SigGolfCandidate.T3M.Verify

@@ -816,15 +816,15 @@ theorem revSet_card_le (L : LeafAddr) (R : Tables U) :
     have hc : ∀ lay : Layer,3≤WCT9.famCount lay := by intro lay;fin_cases lay <;> decide
     exact hc L.lay
   | some found =>
-    obtain ⟨c,ds⟩ := found
-    have hd : ∃ floor value,WCT9.CanonicalPolicy.producerDecodeAt L.lay floor value=some ds := by
+    obtain ⟨c,ds,low⟩ := found
+    have hd : ∃ floor value,WCT9.CanonicalPolicy.producerDecodeAt L.lay floor low value=some ds := by
       unfold CanonicalRef.referenceSearch CanonicalRef.selected at hs
       cases hc : CanonicalRef.context (CanonicalRef.searchOf (raw R) zeroMessages) WCT9.CanonicalPolicy.credit L with
       | none => rw [hc] at hs;cases hs
       | some remaining =>
         rw [hc] at hs
-        exact ⟨_,_,CanonicalRef.counterSearch_decode (raw R) L.lay _ L.tree L.leaf (zeroMessages L)
-          (WCT9.searchLimit L.lay) 0 c ds hs⟩
+        exact ⟨_,CanonicalRef.counterSearch_accepted (raw R) L.lay _ L.tree L.leaf (zeroMessages L)
+          (WCT9.searchLimit L.lay) 0 c ds low hs⟩
     simp only [CanonicalRef.referenceDigits,hs,Option.map_some,Option.getD_some]
     obtain ⟨floor,value,hd⟩ := hd
     have hp := WCT9.CanonicalPolicy.producerDecodeAt_spec hd

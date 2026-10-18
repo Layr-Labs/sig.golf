@@ -194,6 +194,9 @@ theorem hashOnly_packedSecret (pairQuery : Nat → M (Digest × Digest)) (h : �
 @[aesop safe apply] theorem hashOnly_encodingHash (lay : Layer) (input : HashInput) :
     HashOnly (ClaudeWCT.WCT9.encodingHash lay input) := by
   exact (ClaudeWCT.WCT9.allQueries_encodingHash_iff lay input _).mpr (hashOnly_shortHash input)
+@[aesop safe apply] theorem hashOnly_verificationHash (lay : Layer) (high : Bool) (input : HashInput) :
+    HashOnly (ClaudeWCT.WCT9.verificationHash lay high input) := by
+  exact (ClaudeWCT.WCT9.allQueries_verificationHash_iff lay high input _).mpr (hashOnly_shortHash input)
 @[aesop safe apply] theorem hashOnly_layerCounterSearch (lay : Layer) (tree leaf : Nat)
     (msg : ClaudeWCT.WCT9.LayerMsg) (counter fuel : Nat) :
     HashOnly (ClaudeWCT.WCT9.layerCounterSearch lay tree leaf msg counter fuel) := by
@@ -544,28 +547,6 @@ theorem honest_prepared_failure_zero (secret : BitVec 256) (message : Message)
     exact hagree (Presampling.preparedCache_apply outputs key)
   exact (fixed_replay secret hash _ (hashOnly_honestProgram message)).trans
     (congrArg (pure : Bool → ProbComp Bool) (honestProgram_true_for _ message hsrc))
-theorem honest_failure_small_of_acceptance (secret : BitVec 256) (message : Message)
-    (p : ℝ) (hp : 1 / 5026 ≤ p) (hp1 : p ≤ 1)
-    (haccept : Pr[fun answer => (ClaudeWCT.W9.T3.Sampling.digestDecode answer).isSome |
-      ($ᵗ HashOutput : ProbComp HashOutput)] = ENNReal.ofReal p) :
-    Pr[fun value => value = false |
-      (simulateQ SphincsSecurity.romImpl (realize secret (honestProgram message))).run' ∅] ≤
-        1 / (2 : ENNReal) ^ 298 := by
-  exact (failure_le_bad_table secret (honestProgram message) (Budgets.tableGoodFor message)
-    (honest_prepared_failure_zero secret message)).trans
-    (Budgets.tableGoodFor_failure_small_of_acceptance message p hp hp1 haccept)
-theorem honest_failure_small (secret : BitVec 256) (message : Message) :
-    Pr[fun value => value = false |
-      (simulateQ SphincsSecurity.romImpl (realize secret (honestProgram message))).run' ∅] ≤
-        1 / (2 : ENNReal) ^ 298 :=
-  (failure_le_bad_table secret (honestProgram message) (Budgets.tableGoodFor message)
-    (honest_prepared_failure_zero secret message)).trans (Budgets.tableGoodFor_failure_small message)
-theorem honest_failure_128 (secret : BitVec 256) (message : Message) :
-    Pr[fun value => value = false |
-      (simulateQ SphincsSecurity.romImpl (realize secret (honestProgram message))).run' ∅] ≤
-        1 / (2 : ENNReal) ^ 128 :=
-  (failure_le_bad_table secret (honestProgram message) (Budgets.tableGoodFor message)
-    (honest_prepared_failure_zero secret message)).trans (Budgets.tableGoodFor_failure_128 message)
 noncomputable local instance : SampleableType NonceSampling.NonceOutputs := NonceSampling.nonceSampler
 theorem everyMessage_prepared_failure_zero (secret : BitVec 256)
     (nonces : NonceSampling.NonceOutputs) (outputs : NonceSampling.SearchOutputs)
@@ -587,29 +568,6 @@ theorem everyMessage_prepared_failure_zero (secret : BitVec 256)
     (fixedAnswers secret hash) hgood hsearch hnonce
   exact (fixed_replay secret hash _ hashOnly_everyMessageProgram).trans
     (congrArg (pure : Bool → ProbComp Bool) (everyMessageProgram_true_of_complete _ hcomplete))
-theorem everyMessage_failure_small (secret : BitVec 256) :
-    Pr[fun value => value = false |
-      (simulateQ SphincsSecurity.romImpl (realize secret everyMessageProgram)).run' ∅] ≤
-        1 / (2 : ENNReal) ^ 193 := by
-  have hp := congrArg (fun law => probEvent law (fun value : Bool => value = false))
-    (NonceSampling.presample_source secret everyMessageProgram)
-  simp only [probEvent_evalSPMF] at hp
-  rw [hp]
-  apply probEvent_bind_le_of_forall_le
-  intro nonces _
-  refine (probEvent_bind_le_probEvent
-    (p := fun outputs => ¬Budgets.tableGoodForNonces nonces outputs)
-    (fun outputs _ hgood => everyMessage_prepared_failure_zero secret nonces outputs (not_not.mp hgood))).trans
-    (Budgets.tableGoodForNonces_failure_small nonces)
-theorem source_completeness (secret : BitVec 256) :
-    1 - 1 / (2 : ENNReal) ^ 128 ≤
-      Pr[= true | (simulateQ SphincsSecurity.romImpl (realize secret everyMessageProgram)).run' ∅] := by
-  have hf := everyMessage_failure_small secret
-  rw [probEvent_eq_eq_probOutput] at hf
-  have hsmall : 1 / (2 : ENNReal) ^ 193 ≤ 1 / (2 : ENNReal) ^ 128 := by norm_num
-  rw [probOutput_true_eq_sub]
-  simp only [probFailure_eq_zero, tsub_zero]
-  exact tsub_le_tsub_left (hf.trans hsmall) 1
 end ClaudeWCT.W9.T3.Completeness
 end
 section
@@ -658,12 +616,6 @@ theorem avoids_signForest (secret : BitVec 256) (target : HashInput)
     Avoids secret target (ClaudeWCT.WCT9.signForest index output) :=
   ClaudeWCT.WCT9.Wots.allQueriesSatisfy_mono (ClaudeWCT.WCT9.signForest_queries index output)
     (fun q hq => avoidsQuery_of_fts secret target ht index q hq)
-theorem sourceFreshness (secret : BitVec 256) : Budgets.SourceFreshness secret where
-  forest := by
-    intro index output cache hc result hr
-    exact ClaudeWCT.W9.T3.PairRows.preserves_pairBelow secret _
-      (fun target ht => avoids_signForest secret target ht.searchQ index output)
-      4 cache hc result hr
 end ClaudeWCT.W9.T3.Freshness
 end
 section
@@ -673,29 +625,11 @@ open ClaudeWCT.WCT9 (Signature Witness digestAttemptLimit)
 open ClaudeWCT.WCT9.Rev3 (sign expand verify signPayload)
 open SigGolfCandidate.T3 hiding Signature Witness sign expand verify signPayload digestSearch admissible
 open SigGolfCandidate.T3.Sampling (RCache roRun V)
-open ClaudeWCT.W9.T3.Budgets (V_sign_of_freshness_for realized_sign_exponential_budget_of_freshness_for)
 open SigGolfCandidate.T3.Budgets (signingZ signingZ_pow)
 open ClaudeWCT.W9.T3.PairRows (AllSearchesFreshBC)
 set_option maxHeartbeats 1000000
 set_option maxRecDepth 10000
 set_option backward.isDefEq.respectTransparency false
-theorem V_sign_le_signingMoment (secret : BitVec 256) (cache : Cache) (message : Message)
-    (rcache : RCache) (hc : AllSearchesFreshBC rcache) :
-    V secret signingZ (sign cache message) rcache ≤ ClaudeWCT.W9.T3.Budgets.signingMoment :=
-  V_sign_of_freshness_for secret (ClaudeWCT.W9.T3.Freshness.sourceFreshness secret) _
-    (fun index output => ⟨_, ClaudeWCT.WCT9.Cost.bound_signForest index output⟩) cache message rcache hc
-theorem V_sign_le_two (secret : BitVec 256) (cache : Cache) (message : Message)
-    (rcache : RCache) (hc : AllSearchesFreshBC rcache) :
-    V secret signingZ (sign cache message) rcache ≤ 2 :=
-  (V_sign_le_signingMoment secret cache message rcache hc).trans ClaudeWCT.W9.T3.Budgets.signingMoment_le_two
-theorem realized_sign_exponential_budget (secret : BitVec 256) (cache : Cache)
-    (message : Message) (rcache : RCache) (hc : AllSearchesFreshBC rcache) :
-    expectedValue ((simulateQ SphincsSecurity.romImpl
-      (Cost.World.countBlocks (realize secret (sign cache message)))).run' rcache)
-      (fun result => (2 : ENNReal) ^ ((result.2 : ℝ) / 131072)) ≤ 2 :=
-  realized_sign_exponential_budget_of_freshness_for secret
-    (ClaudeWCT.W9.T3.Freshness.sourceFreshness secret) (by norm_num)
-    (fun index output => ⟨_, ClaudeWCT.WCT9.Cost.bound_signForest index output⟩) cache message rcache hc
 def honestSignCount (message : Message) : M (Option Signature × Nat) := do
   let keys ← keygen
   Cost.countBlocks (sign keys.2 message)
@@ -707,32 +641,6 @@ theorem honestSignCount_realize (secret : BitVec 256) (message : Message) :
   congr 1
   funext keys
   exact Cost.realize_count secret _
-theorem honest_sign_exponential_budget (secret : BitVec 256) (message : Message) :
-    expectedValue (roRun secret (honestSignCount message) ∅)
-      (fun result => (2 : ENNReal) ^ ((result.1.2 : ℝ) / 131072)) ≤ 2 := by
-  rw [honestSignCount, SigGolfCandidate.T3.Sampling.roRun_bind, expectedValue_bind]
-  apply expectedValue_le_of_support
-  intro keys hkeys
-  have h := V_sign_le_two secret keys.1.2 message keys.2
-    (ClaudeWCT.W9.T3.PairRows.keygen_fresh_from_empty_bc secret keys hkeys)
-  simpa only [V, signingZ_pow] using h
-theorem realized_honest_sign_exponential_budget (secret : BitVec 256) (message : Message) :
-    expectedValue ((simulateQ SphincsSecurity.romImpl (do
-      let keys ← realize secret keygen
-      Cost.World.countBlocks (realize secret (sign keys.2 message)))).run' ∅)
-      (fun result => (2 : ENNReal) ^ ((result.2 : ℝ) / 131072)) ≤ 2 := by
-  rw [← honestSignCount_realize secret message, StateT.run'_eq, expectedValue_map]
-  exact honest_sign_exponential_budget secret message
-theorem uniform_message_sign_exponential_budget (secret : BitVec 256) :
-    expectedValue (do
-      let message ← ($ᵗ Message : ProbComp Message)
-      (simulateQ SphincsSecurity.romImpl (realize secret (honestSignCount message))).run' ∅)
-      (fun result => (2 : ENNReal) ^ ((result.2 : ℝ) / 131072)) ≤ 2 := by
-  rw [expectedValue_bind]
-  apply expectedValue_le_of_support
-  intro message _
-  rw [StateT.run'_eq, expectedValue_map]
-  exact honest_sign_exponential_budget secret message
 end ClaudeWCT.W9.T3.BudgetClosure
 end
 section
@@ -751,23 +659,6 @@ set_option maxHeartbeats 1000000
 set_option backward.isDefEq.respectTransparency false
 def honestJointCounts (message : Message) : M (Nat × Nat) :=
   jointCounts keygen (fun keys => sign keys.2 message) (fun keys sig => expand message keys.1 sig)
-theorem joint_sign_exponential_budget (secret : BitVec 256) (message : Message) :
-    expectedValue (roRun secret (honestJointCounts message) ∅)
-      (fun result => (2 : ENNReal) ^ ((result.1.1 : ℝ) / 131072)) ≤ 2 := by
-  refine le_trans ?_ (ClaudeWCT.W9.T3.BudgetClosure.honest_sign_exponential_budget secret message)
-  simp only [honestJointCounts, jointCounts, ClaudeWCT.W9.T3.BudgetClosure.honestSignCount,
-    SigGolfCandidate.T3.Sampling.roRun_bind, expectedValue_bind]
-  apply expectedValue_mono
-  intro keys
-  apply expectedValue_mono
-  rintro ⟨⟨sig, signCost⟩, rcache⟩
-  cases sig with
-  | none => simp only [SigGolfCandidate.T3.Sampling.roRun_pure, expectedValue_pure, le_refl]
-  | some sig =>
-    simp only [SigGolfCandidate.T3.Sampling.roRun_bind, expectedValue_bind]
-    apply expectedValue_le_of_support
-    intro expanded _
-    simp only [SigGolfCandidate.T3.Sampling.roRun_pure, expectedValue_pure, le_refl]
 theorem hashOnly_honestJointCounts (message : Message) :
     SigGolfCandidate.T3.SourceReplay.HashOnly (honestJointCounts message) := by
   unfold honestJointCounts jointCounts
@@ -796,26 +687,6 @@ theorem support_joint_cost_le (secret : BitVec 256) (message : Message)
     (hashOnly_honestJointCounts message) ∅ result hr
   rw [heval]
   exact joint_cost_le _ message
-theorem honest_expand_exponential_budget (secret : BitVec 256) (message : Message) :
-    expectedValue (roRun secret (honestJointCounts message) ∅)
-      (fun result => (2 : ENNReal) ^ ((result.1.2 : ℝ) / 1048576)) ≤ 2 := by
-  refine le_trans ?_ (joint_sign_exponential_budget secret message)
-  apply expectedValue_mono_of_support
-  intro result hr
-  apply ENNReal.rpow_le_rpow_of_exponent_le (by norm_num)
-  have hn : (result.1.2 : ℝ) ≤ 8 * (result.1.1 : ℝ) := by
-    exact_mod_cast support_joint_cost_le secret message result hr
-  linarith
-theorem uniform_message_expand_exponential_budget (secret : BitVec 256) :
-    expectedValue (do
-      let message ← ($ᵗ Message : ProbComp Message)
-      (simulateQ SphincsSecurity.romImpl (realize secret (honestJointCounts message))).run' ∅)
-      (fun result => (2 : ENNReal) ^ ((result.2 : ℝ) / 1048576)) ≤ 2 := by
-  rw [expectedValue_bind]
-  apply expectedValue_le_of_support
-  intro message _
-  rw [StateT.run'_eq, expectedValue_map]
-  exact honest_expand_exponential_budget secret message
 end ClaudeWCT.W9.T3.ExpansionClosure
 end
 section
@@ -1062,9 +933,9 @@ theorem V_signFromOutput_certified (secret : BitVec 256) (cache : SigGolfCandida
     (hfresh : RowsFreshFrom 0 rcache) :
     V secret SigGolfCandidate.T3.Budgets.signingZ
       (signFromOutput cache rho counter output) rcache ≤
-      SigGolfCandidate.T3.Budgets.signingZ^112636 * ((initialBound : ENNReal)/scale) := by
+      SigGolfCandidate.T3.Budgets.signingZ^112637 * ((initialBound : ENNReal)/scale) := by
   have h := V_signFromOutput_fixed secret SigGolfCandidate.T3.Budgets.signingZ
-    (SigGolfCandidate.T3.Budgets.signingZ^169 * ((initialBound : ENNReal)/scale))
+    (SigGolfCandidate.T3.Budgets.signingZ^170 * ((initialBound : ENNReal)/scale))
     (SigGolfCandidate.Budget.one_le_zOf _) cache rho counter output rcache ?_
   · simpa only [← mul_assoc, ← pow_add] using h
   · intro forest hforest prepared hprepared
@@ -1248,7 +1119,7 @@ set_option backward.isDefEq.respectTransparency false
   | zero => unfold CanonicalPolicy.layerCounterSearchAt; exact hashOnly_pure _
   | succ fuel ih =>
     unfold CanonicalPolicy.layerCounterSearchAt
-    refine hashOnly_bind (hashOnly_encodingHash _ _) fun result => ?_
+    refine hashOnly_bind (SigGolfCandidate.T3.SourceReplay.hashOnly_publicHash _) fun result => ?_
     split
     · exact ih _
     · exact hashOnly_pure _
@@ -1259,7 +1130,7 @@ set_option backward.isDefEq.respectTransparency false
   | succ n ih =>
     unfold recoverHintedLayers
     refine hashOnly_bind (hashOnly_layerCounterSearchAt _ _ _ _ _ _ _) fun result => ?_
-    rcases result with _ | ⟨counter,digits⟩
+    rcases result with _ | ⟨counter,digits,low⟩
     · exact hashOnly_pure _
     · dsimp only
       split
@@ -1321,7 +1192,7 @@ set_option backward.isDefEq.respectTransparency false
     dsimp only
     split
     · exact hashOnly_pure _
-    · refine hashOnly_bind (hashOnly_encodingHash _ _) fun answer => ?_
+    · refine hashOnly_bind (hashOnly_verificationHash _ _ _) fun answer => ?_
       split
       · exact hashOnly_verifyTop _ _ _
       · split
@@ -1477,7 +1348,7 @@ set_option maxHeartbeats 1000000
 set_option backward.isDefEq.respectTransparency false
 
 noncomputable def digestMoment : ENNReal := (ftsBound:ENNReal)/scale
-noncomputable def postMoment : ENNReal := signingZ^112636*((initialBound:ENNReal)/scale)
+noncomputable def postMoment : ENNReal := signingZ^112637*((initialBound:ENNReal)/scale)
 noncomputable def payloadMoment : ENNReal := signingZ^2*(digestMoment*postMoment)
 noncomputable def signingMoment : ENNReal := signingZ^2*payloadMoment
 
@@ -1540,9 +1411,9 @@ theorem V_sign_certified (secret : BitVec 256) (cache : SigGolfCandidate.T3.Cach
     (privateMac_preserves_fresh secret cache.region rcache hfresh checked hc)
 
 theorem signingMoment_eq : signingMoment =
-    signingZ^112640*(((ftsBound:ENNReal)/scale)*((initialBound:ENNReal)/scale)) := by
+    signingZ^112641*(((ftsBound:ENNReal)/scale)*((initialBound:ENNReal)/scale)) := by
   unfold signingMoment payloadMoment digestMoment postMoment
-  rw [show 112640=2+2+112636 by decide,pow_add,pow_add]
+  rw [show 112641=2+2+112637 by decide,pow_add,pow_add]
   ac_rfl
 
 theorem signingMoment_le_two : signingMoment ≤ 2 := by
@@ -1553,7 +1424,7 @@ theorem signingMoment_le_two : signingMoment ≤ 2 := by
     (by simp)).mp
   simp only [ENNReal.toReal_mul,ENNReal.toReal_pow,ENNReal.toReal_div,ENNReal.toReal_natCast,
     ENNReal.toReal_ofNat]
-  have hfixed : signingZ.toReal^112640≤(fixedBound:ℝ)/scale :=
+  have hfixed : signingZ.toReal^112641≤(fixedBound:ℝ)/scale :=
     (pow_le_pow_left₀ ENNReal.toReal_nonneg hz _).trans fixed_ratio_bound
   calc
     _ ≤ ((fixedBound:ℝ)/scale)*(((ftsBound:ℝ)/scale)*((initialBound:ℝ)/scale)) := by gcongr
@@ -1680,8 +1551,8 @@ abbrev expandB := ClaudeWCT.W9.T3M.Paired.expandB
 abbrev verifyP := ClaudeWCT.W9.T3M.Paired.verifyP
 abbrev witEnc := ClaudeWCT.W9.T3M.Paired.witEnc
 
- def verifyCycleBound : Nat := 6899
- def claimedC : Nat := 6990
+ def verifyCycleBound : Nat := 6884
+ def claimedC : Nat := 6975
  def DigestCapOk (hash : Hash) (m : Message) (w : Bytes 23236) : Prop :=
   SigGolfCandidate.Research.SharedForest.jointAccountingCost
     (hash (SigGolfCandidate.T3M.toQ (SigGolfCandidate.T3.pad64
@@ -1716,7 +1587,7 @@ abbrev witEnc := ClaudeWCT.W9.T3M.Paired.witEnc
  def VerifyAcceptCycles : Prop := ∀ (floors : SigGolfCandidate.T3.Layer→Nat),
   SigGolfCandidate.T3M.Verify.CreditFloors floors →
   ∀ (hash : Hash) (m : Message) (pk : PublicKey) (w : Bytes 23236),
-  SigGolfCandidate.T3M.Verify.HashOkBy floors hash → DigestCapOk hash m w →
+  SigGolfCandidate.T3M.Verify.HashOkBy floors (ClaudeWCT.W9.T3M.wtopHigh w) hash → DigestCapOk hash m w →
   ((submission I).runWith hash .verify (m,pk,w)).value.isSome=true →
     ((submission I).runWith hash .verify (m,pk,w)).cycles≤verifyCycleBound
  structure Pending : Prop where

@@ -528,7 +528,7 @@ theorem respects_layerCounterSearchAt (a : ChainAddr) (lay : Layer) (floor tree 
   | succ fuel ih =>
       intro counter
       simp only [WCT9.CanonicalPolicy.layerCounterSearchAt]
-      refine Respects.bind (respects_layerEncoding a _ _ _ _ _) fun answer => ?_
+      refine Respects.bind (Respects.publicHash _ (untouched_layerEncoding a _ _ _ _ _)) fun answer => ?_
       split
       · exact ih _
       · exact Respects.pure' _

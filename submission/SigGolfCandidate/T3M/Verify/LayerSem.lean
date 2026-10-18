@@ -1585,12 +1585,14 @@ theorem selectedView_answer (lay : Layer) (hlay : lay ≠ 0) (a : BitVec 256) :
   · rw [selectedView, if_neg hs, ClaudeWCT.WCT9.encodingAnswer_lower_high lay hlay a hs]
     exact highView_extract a 0 128
 
+/-- Path-aware lower encoding block (configuration (1)+(2)): the LOW half costs `bCy`, the HIGH half `bCy + 4`. -/
 theorem encB_step (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index : Nat) (lay : Layer) (hlay : lay ≠ 0) (c : Nat)
     (hc : c < nCopy lay.val) (hidx : index < 2 ^ 31) (t : MachineState) (ht : EncPre w pk index lay.val c t)
     (a : BitVec 256) :
     (canonicalDecode lay (ansD (selectedView a)) = none → ∃ v k cy, Steps image (writeHash t a) k cy v ∧
         (fetch image v = none ∨ (fetch image v = some (.base .ECALL) ∧ v.getReg .x5 = 1 ∧ v.getReg .x10 = 1)) ∧ k ≤ 27 ∧ cy ≤ 30) ∧
-    (canonicalDecode lay (ansD (selectedView a)) ≠ none → ∃ s0 k cy, Steps image (writeHash t a) k cy s0 ∧ k ≤ bSt lay.val+4 ∧ cy ≤ bCy lay.val+4 ∧
+    (canonicalDecode lay (ansD (selectedView a)) ≠ none → ∃ s0 k cy, Steps image (writeHash t a) k cy s0 ∧ k ≤ bSt lay.val+4 ∧
+        cy + (if lowerSpare (ansD a) then 4 else 0) ≤ bCy lay.val+4 ∧
         (lctxOf w index lay (selectedView a)).ok ∧
         (∀ p ∈ (lctxOf w index lay (selectedView a)).known, s0.getReg p.1 = p.2) ∧
         (lctxOf w index lay (selectedView a)).Orig0 s0 ∧
@@ -1609,7 +1611,7 @@ theorem encB_step (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index : Nat) (lay
       exact ⟨v,k,cy,hst,Or.inr ⟨hf,h5,h10⟩,hk,hcy⟩
     · intro hn
       obtain ⟨s0,hst,hrest⟩ := H.2 hn
-      exact ⟨s0,bSt lay.val,bCy lay.val,hst,by omega,by omega,hrest⟩
+      exact ⟨s0,bSt lay.val,bCy lay.val,hst,by omega,by simp [hlo],hrest⟩
   · simp only [selectedView, if_neg hlo]
     by_cases hhi : lowerSpare (ansD (highView a))
     · have H := encB_step_hi w pk index lay hlay c hc hidx t ht a hlo hhi
@@ -1619,7 +1621,7 @@ theorem encB_step (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index : Nat) (lay
         exact ⟨v,k,cy,hst,Or.inr ⟨hf,h5,h10⟩,hk,hcy⟩
       · intro hn
         obtain ⟨s0,hst,hrest⟩ := H.2 hn
-        exact ⟨s0,bSt lay.val+4,bCy lay.val+4,hst,le_refl _,le_refl _,hrest⟩
+        exact ⟨s0,bSt lay.val+4,bCy lay.val+4,hst,le_refl _,by simp [hlo],hrest⟩
     · constructor
       · intro _
         obtain ⟨v,hst,hf⟩ := encB_step_trap w pk index lay hlay c hc t ht a hlo hhi

@@ -1185,10 +1185,10 @@ theorem encodingMatch_false (A : Answers) (K : Coord → Prop) (qs : List Spec.D
     (hs : referenceSearch A (sourceMessages A) L ≠ none)
     (h : EncodingMatchAt A (sourceMessages A) (Wots.entriesOf A qs) L)
     (hclear : AllClear A K qs) : False := by
-  obtain ⟨m,ctr,pad,answer,hfit,hm,hne,hdec⟩ := h
+  obtain ⟨m,ctr,pad,answer,hfit,hm,hne,hns,hdec⟩ := h
   obtain ⟨hq,ha⟩ := WotsExtract.mem_entriesOf_iff.mp hm
   obtain ⟨E,rfl⟩ := source_encLeaf L hL
-  exact (hclear _ hq).2.2 ⟨E,m,ctr,pad,hfit,rfl,hs,hne,by rw [ha];exact hdec⟩
+  exact (hclear _ hq).2.2 ⟨E,m,ctr,pad,hfit,rfl,hs,hne,hns,by rw [ha];exact hdec⟩
 
 theorem wotsPrimitive_false (A : Answers) (published : SigGolfCandidate.T3.Cache)
     (qs : List Spec.Domain)

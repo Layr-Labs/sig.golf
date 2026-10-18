@@ -718,7 +718,13 @@ theorem layerCounterSearchAt_allowed (lay : Layer) (floor tree leaf : Nat)
   | zero => exact SourceQueries.pure_allowed Q _
   | succ fuel ih =>
     unfold CanonicalPolicy.layerCounterSearchAt
-    apply SourceQueries.bind_allowed Q (hQ.encoding ..)
+    -- the canonical search queries `publicHash` directly (the choice is applied by `producerDecodeOut`);
+    -- its query set is the one of `encodingHash` (a pure map of the same query).
+    have hpub : AllQueriesSatisfy (publicHash (layerEncodingInput lay tree leaf msg (BitVec.ofNat 32 counter))) Q := by
+      have h := hQ.encoding lay tree leaf msg (BitVec.ofNat 32 counter)
+      change AllQueriesSatisfy ((encodingAnswer lay) <$> publicHash _) Q at h
+      simpa only [AllQueriesSatisfy, isQueryBound_map_iff] using h
+    apply SourceQueries.bind_allowed Q hpub
     intro answer
     split
     · exact ih _
@@ -730,28 +736,28 @@ theorem searchPreparedLayers_allowed (cache : SigGolfCandidate.T3.Cache) (index 
   unfold searchPreparedLayers
   apply SourceQueries.bind_allowed Q (layerCounterSearchAt_allowed Q hQ ..)
   intro found
-  rcases found with _ | ⟨counter0,digits0⟩
+  rcases found with _ | ⟨counter0,digits0,low0⟩
   · exact SourceQueries.pure_allowed Q _
   · dsimp only
     split
     · exact SourceQueries.pure_allowed Q _
     · apply SourceQueries.bind_allowed Q (layerCounterSearchAt_allowed Q hQ ..)
       intro found
-      rcases found with _ | ⟨counter1,digits1⟩
+      rcases found with _ | ⟨counter1,digits1,low1⟩
       · exact SourceQueries.pure_allowed Q _
       · dsimp only
         split
         · exact SourceQueries.pure_allowed Q _
         · apply SourceQueries.bind_allowed Q (layerCounterSearchAt_allowed Q hQ ..)
           intro found
-          rcases found with _ | ⟨counter2,digits2⟩
+          rcases found with _ | ⟨counter2,digits2,low2⟩
           · exact SourceQueries.pure_allowed Q _
           · dsimp only
             split
             · exact SourceQueries.pure_allowed Q _
             · apply SourceQueries.bind_allowed Q (layerCounterSearchAt_allowed Q hQ ..)
               intro found
-              rcases found with _ | ⟨counter3,digits3⟩
+              rcases found with _ | ⟨counter3,digits3,low3⟩
               · exact SourceQueries.pure_allowed Q _
               · exact SourceQueries.bind_allowed Q (hQ.top ..) fun _ => SourceQueries.pure_allowed Q _
 

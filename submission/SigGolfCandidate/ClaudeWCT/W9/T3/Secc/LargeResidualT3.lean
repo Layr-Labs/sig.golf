@@ -217,8 +217,9 @@ def EncodingContact (A : Answers) (input : HashInput) (answer : HashOutput) : Pr
   input=Wots.encRow L.toWots m ctr pad ∧
   Wots.CanonicalRef.referenceSearch A (Wots.CanonicalRef.sourceMessages A) L.toWots≠none ∧
   Wots.CanonicalRef.referenceInput A (Wots.CanonicalRef.sourceMessages A) L.toWots≠some input ∧
-  WCT9.CanonicalPolicy.decode L.1.lay (WCT9.encodingAnswer L.1.lay answer)=
-    some (Wots.CanonicalRef.referenceDigits A (Wots.CanonicalRef.sourceMessages A) L.toWots)
+  Wots.CanonicalRef.NotSearched A (Wots.CanonicalRef.sourceMessages A) L.toWots input ∧
+  WCT9.encodingCanDecode L.1.lay answer
+    (Wots.CanonicalRef.referenceDigits A (Wots.CanonicalRef.sourceMessages A) L.toWots)
 
 def ContactTest (A : Answers) (K : Coord→Prop) (input : HashInput) (answer : HashOutput) : Prop :=
  StructuralContact A K input answer ∨ EncodingContact A input answer

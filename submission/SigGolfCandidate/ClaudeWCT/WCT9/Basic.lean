@@ -464,6 +464,24 @@ theorem eval_encodingHash (answers : SigGolfCandidate.T3.Correctness.Answers) (l
     evalWithAnswerFn answers (encodingHash lay input) =
       encodingAnswer lay (answers (.inl (.inr (pad64 input)))) := rfl
 
+theorem eval_verificationHash (answers : SigGolfCandidate.T3.Correctness.Answers) (lay : Layer) (high : Bool)
+    (input : HashInput) :
+    evalWithAnswerFn answers (verificationHash lay high input) =
+      verificationAnswer lay high (answers (.inl (.inr (pad64 input)))) := rfl
+
+/-- With the honest hint of the actual answer, the verifier reads the producer's word. -/
+theorem eval_verificationHash_honest (answers : SigGolfCandidate.T3.Correctness.Answers) (lay : Layer)
+    (input : HashInput) {high : Bool} (hh : high = encodingHigh lay (answers (.inl (.inr (pad64 input))))) :
+    evalWithAnswerFn answers (verificationHash lay high input) = evalWithAnswerFn answers (encodingHash lay input) := by
+  rw [eval_verificationHash, eval_encodingHash, hh]
+  exact verificationAnswer_honest lay _
+
+theorem allQueries_verificationHash_iff (lay : Layer) (high : Bool) (input : HashInput) (P : Spec.Domain → Prop) :
+    AllQueriesSatisfy (verificationHash lay high input) P ↔ AllQueriesSatisfy (shortHash input) P := by
+  change AllQueriesSatisfy ((verificationAnswer lay high) <$> publicHash input) P ↔
+    AllQueriesSatisfy ((fun a : HashOutput => a.extractLsb' 0 128) <$> publicHash input) P
+  simp only [AllQueriesSatisfy, isQueryBound_map_iff]
+
 theorem allQueries_encodingHash_iff (lay : Layer) (input : HashInput) (P : Spec.Domain → Prop) :
     AllQueriesSatisfy (encodingHash lay input) P ↔ AllQueriesSatisfy (shortHash input) P := by
   change AllQueriesSatisfy ((encodingAnswer lay) <$> publicHash input) P ↔

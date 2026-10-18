@@ -371,12 +371,12 @@ structure CellKey where
   contexts : Enc.EncIndex → Option Nat
 
 noncomputable def rejectedAnswers (lay : Layer) (remaining : Nat) : Finset HashOutput :=
-  Finset.univ.filter fun answer => WCT9.CanonicalPolicy.producerDecodeAt lay
-    (WCT9.CanonicalPolicy.threshold lay.val remaining) (WCT9.encodingAnswer lay answer) = none
+  Finset.univ.filter fun answer => WCT9.CanonicalPolicy.producerDecodeOut lay
+    (WCT9.CanonicalPolicy.threshold lay.val remaining) answer = none
 
 theorem mem_rejectedAnswers (lay : Layer) (remaining : Nat) (answer : HashOutput) :
-    answer ∈ rejectedAnswers lay remaining ↔ WCT9.CanonicalPolicy.producerDecodeAt lay
-      (WCT9.CanonicalPolicy.threshold lay.val remaining) (WCT9.encodingAnswer lay answer) = none := by
+    answer ∈ rejectedAnswers lay remaining ↔ WCT9.CanonicalPolicy.producerDecodeOut lay
+      (WCT9.CanonicalPolicy.threshold lay.val remaining) answer = none := by
   simp only [rejectedAnswers, Finset.mem_filter, Finset.mem_univ, true_and]
 
 theorem rejectedAnswers_nonempty (lay : Layer) (remaining : Nat) :
@@ -384,7 +384,7 @@ theorem rejectedAnswers_nonempty (lay : Layer) (remaining : Nat) :
   refine ⟨BitVec.allOnes 256, (mem_rejectedAnswers _ _ _).mpr ?_⟩
   have hd : WCT9.CanonicalPolicy.decode lay (WCT9.encodingAnswer lay (BitVec.allOnes 256)) = none := by
     fin_cases lay <;> decide +kernel
-  simp only [WCT9.CanonicalPolicy.producerDecodeAt, hd]
+  simp only [WCT9.CanonicalPolicy.producerDecodeOut, WCT9.CanonicalPolicy.producerDecodeAt, hd, Option.map_none]
 
 noncomputable def cellInit (key : CellKey) (entry : key.cells) : Finset HashOutput :=
   if entry.val ∈ key.free then Finset.univ
@@ -616,11 +616,11 @@ theorem cellKey_congr {answers answers' : Answers}
 
 theorem decodeRow_answer (answers : Answers) (leaf : LeafAddr) (floor : Nat)
     (message : WCT9.LayerMsg) (counter : Nat) :
-    decodeRow answers leaf floor message counter = WCT9.CanonicalPolicy.producerDecodeAt leaf.lay floor
-      (WCT9.encodingAnswer leaf.lay (answers (.inl (.inr
-        (encRow leaf message (BitVec.ofNat 32 counter) 0))))) := by
+    decodeRow answers leaf floor message counter = WCT9.CanonicalPolicy.producerDecodeOut leaf.lay floor
+      (answers (.inl (.inr (encRow leaf message (BitVec.ofNat 32 counter) 0)))) := by
   unfold decodeRow
-  rw [WCT9.eval_encodingHash, encRow_zero]
+  rw [encRow_zero]
+  rfl
 
 end ClaudeWCT.W9.T3.Security.Wots.CanonicalRef
 
@@ -648,9 +648,9 @@ private theorem leafOf_sourcePosition (leaf : LeafAddr) (hs : WotsExtract.Source
 theorem rejected_answer {answers : Answers} {messages : LeafAddr → WCT9.LayerMsg}
     {entry : Enc.EncIndex} (hr : entry ∈ rejectedSet answers messages) {remaining : Nat}
     (hctx : referenceContext answers messages (Enc.leafOf entry.1.1) = some remaining) :
-    WCT9.CanonicalPolicy.producerDecodeAt entry.1.1.lay
+    WCT9.CanonicalPolicy.producerDecodeOut entry.1.1.lay
       (WCT9.CanonicalPolicy.threshold entry.1.1.lay.val remaining)
-      (WCT9.encodingAnswer entry.1.1.lay (answers (.inl (.inr (Enc.encInput entry))))) = none := by
+      (answers (.inl (.inr (Enc.encInput entry)))) = none := by
   obtain ⟨counter, oldRemaining, _, hin, hold, hnone⟩ := hr
   rw [hctx] at hold
   cases hold
@@ -702,7 +702,6 @@ theorem overwrite_decisions {U : Finset HashInput} (hU : SeccLaw.publicUniverse 
     rw [hentryctx] at hv
     exact ((mem_rejectedAnswers _ _ _).mp hv).trans hold.symm
   · apply congrArg
-    apply congrArg
     exact Enc.ov_other _ pub values ⟨_, hin⟩ (fun other hother heq =>
       hcell ((Enc.encInput_injective heq) ▸ hother))
 
@@ -1049,12 +1048,12 @@ theorem sourceMessages_route_bottom (answers : Answers) (index : Nat) (hindex : 
 
 theorem context_parent_success {answers : Answers} {messages : LeafAddr → WCT9.LayerMsg}
     {leaf : LeafAddr} (hpositive : leaf.lay.val ≠ 0) {remaining : Nat}
-    {counter : BitVec 32} {digits : List Nat}
+    {counter : BitVec 32} {digits : List Nat} {low : Bool}
     (hcontext : referenceContext answers messages (parent leaf) = some remaining)
-    (hsearch : referenceSearch answers messages (parent leaf) = some (counter, digits)) :
+    (hsearch : referenceSearch answers messages (parent leaf) = some (counter, digits, low)) :
     referenceContext answers messages leaf =
-      some (WCT9.CanonicalPolicy.nextResidual remaining (parent leaf).lay digits) := by
-  change (if leaf.lay.val = 0 then some 63 else
+      some (WCT9.CanonicalPolicy.nextResidual remaining (parent leaf).lay low digits) := by
+  change (if leaf.lay.val = 0 then some WCT9.CanonicalPolicy.totalCredit else
     after (searchOf answers messages) WCT9.CanonicalPolicy.credit (parent leaf)) = _
   rw [if_neg hpositive, after_eq]
   change (referenceContext answers messages (parent leaf)).bind _ = _
@@ -1078,10 +1077,10 @@ set_option maxRecDepth 10000
 set_option backward.isDefEq.respectTransparency false
 
 theorem referenceSearch_of_context {answers : Answers} {messages : LeafAddr → WCT9.LayerMsg}
-    {leaf : LeafAddr} {remaining : Nat} {counter : BitVec 32} {digits : List Nat}
+    {leaf : LeafAddr} {remaining : Nat} {counter : BitVec 32} {digits : List Nat} {low : Bool}
     (hc : referenceContext answers messages leaf = some remaining)
-    (hs : searchOf answers messages leaf remaining = some (counter, digits)) :
-    referenceSearch answers messages leaf = some (counter, digits) := by
+    (hs : searchOf answers messages leaf remaining = some (counter, digits, low)) :
+    referenceSearch answers messages leaf = some (counter, digits, low) := by
   change (referenceContext answers messages leaf).bind _ = _
   rw [hc]
   exact hs
@@ -1110,7 +1109,7 @@ theorem searchOf_route_bottom (answers : Answers) (index : Nat) (hindex : index 
   rfl
 
 def preparedContext (result : CanonicalLayers) (lay : Layer) : Nat :=
-  if lay.val = 0 then 63
+  if lay.val = 0 then WCT9.CanonicalPolicy.totalCredit
   else if lay.val = 1 then preparedResidual1 result
   else if lay.val = 2 then preparedResidual2 result
   else preparedResidual3 result
@@ -1125,15 +1124,15 @@ theorem searchPreparedLayers_reference (answers : Answers) (cache : SigGolfCandi
       referenceContext answers (sourceMessages answers) (sourceLeaf index lay) =
         some (preparedContext result lay) ∧
       referenceSearch answers (sourceMessages answers) (sourceLeaf index lay) =
-        some (result.counters.getD lay.val 0, result.digits.getD lay.val []) := by
+        some (result.counters.getD lay.val 0, result.digits.getD lay.val [], result.lows.getD lay.val true) := by
   rw [prepareRoots_result] at he
   have hf := searchPreparedLayers_some answers cache index _ _ result he
-  have hc0 : referenceContext answers (sourceMessages answers) (sourceLeaf index 0) = some 63 := rfl
-  have hd0 : searchOf answers (sourceMessages answers) (sourceLeaf index 0) 63 =
-      some (result.counters.getD 0 0, result.digits.getD 0 []) := by
+  have hc0 : referenceContext answers (sourceMessages answers) (sourceLeaf index 0) = some WCT9.CanonicalPolicy.totalCredit := rfl
+  have hd0 : searchOf answers (sourceMessages answers) (sourceLeaf index 0) WCT9.CanonicalPolicy.totalCredit =
+      some (result.counters.getD 0 0, result.digits.getD 0 [], result.lows.getD 0 true) := by
     rw [searchOf_route_lower answers index 0 (by decide)]
     change evalWithAnswerFn answers (WCT9.CanonicalPolicy.layerCounterSearchAt 0
-      (WCT9.CanonicalPolicy.threshold 0 63) (route index 0).2 (route index 0).1
+      (WCT9.CanonicalPolicy.threshold 0 WCT9.CanonicalPolicy.totalCredit) (route index 0).2 (route index 0).1
       (.pair (WCT9.builtPair answers 1 (route index 1).2).1
         (WCT9.builtPair answers 1 (route index 1).2).2) 0 (WCT9.searchLimit 0)) = _
     simpa only [fixedPrepared_pair, WCT9.CanonicalPolicy.totalCredit, Fin.isValue, Nat.reduceAdd] using hf.search0
@@ -1144,7 +1143,7 @@ theorem searchPreparedLayers_reference (answers : Answers) (cache : SigGolfCandi
     · rw [sourceLeaf_parent index 1 (by decide)]; exact hc0
     · rw [sourceLeaf_parent index 1 (by decide)]; exact hs0
   have hd1 : searchOf answers (sourceMessages answers) (sourceLeaf index 1) (preparedResidual1 result) =
-      some (result.counters.getD 1 0, result.digits.getD 1 []) := by
+      some (result.counters.getD 1 0, result.digits.getD 1 [], result.lows.getD 1 true) := by
     rw [searchOf_route_lower answers index 1 (by decide)]
     change evalWithAnswerFn answers (WCT9.CanonicalPolicy.layerCounterSearchAt 1
       (WCT9.CanonicalPolicy.threshold 1 (preparedResidual1 result)) (route index 1).2 (route index 1).1
@@ -1158,7 +1157,7 @@ theorem searchPreparedLayers_reference (answers : Answers) (cache : SigGolfCandi
     · rw [sourceLeaf_parent index 2 (by decide)]; exact hc1
     · rw [sourceLeaf_parent index 2 (by decide)]; exact hs1
   have hd2 : searchOf answers (sourceMessages answers) (sourceLeaf index 2) (preparedResidual2 result) =
-      some (result.counters.getD 2 0, result.digits.getD 2 []) := by
+      some (result.counters.getD 2 0, result.digits.getD 2 [], result.lows.getD 2 true) := by
     rw [searchOf_route_lower answers index 2 (by decide)]
     change evalWithAnswerFn answers (WCT9.CanonicalPolicy.layerCounterSearchAt 2
       (WCT9.CanonicalPolicy.threshold 2 (preparedResidual2 result)) (route index 2).2 (route index 2).1
@@ -1172,7 +1171,7 @@ theorem searchPreparedLayers_reference (answers : Answers) (cache : SigGolfCandi
     · rw [sourceLeaf_parent index 3 (by decide)]; exact hc2
     · rw [sourceLeaf_parent index 3 (by decide)]; exact hs2
   have hd3 : searchOf answers (sourceMessages answers) (sourceLeaf index 3) (preparedResidual3 result) =
-      some (result.counters.getD 3 0, result.digits.getD 3 []) := by
+      some (result.counters.getD 3 0, result.digits.getD 3 [], result.lows.getD 3 true) := by
     rw [searchOf_route_bottom answers index hindex]
     exact hf.search3
   have hs3 := referenceSearch_of_context hc3 hd3
@@ -1346,6 +1345,13 @@ theorem encodingHash_queries (T : Answers) (lay : Layer) (input : HashInput) :
     List.append_nil]
   rfl
 
+theorem publicHash_queries (T : Answers) (input : HashInput) :
+    SourceReplay.queried T (publicHash input) = [.inl (.inr (pad64 input))] := by
+  have h := encodingHash_queries T 0 input
+  rw [show WCT9.encodingHash 0 input = WCT9.encodingAnswer 0 <$> publicHash input from rfl,
+    map_eq_bind_pure_comp, SourceReplay.queried_bind] at h
+  simpa only [Function.comp_apply, SourceReplay.queried_pure, List.append_nil] using h
+
 theorem search_queries_congr (T T' : Answers) (L : LeafAddr) (floor : Nat)
     (message : WCT9.LayerMsg) : ∀ fuel start,
     (∀ c < fuel, (∀ c' < c, decodeRow T L floor message (start+c')=none) →
@@ -1372,8 +1378,8 @@ theorem search_queries_congr (T T' : Answers) (L : LeafAddr) (floor : Nat)
               simpa only [Nat.add_assoc,Nat.add_left_comm,Nat.add_comm] using hp)
         simpa only [Nat.add_assoc,Nat.add_left_comm,Nat.add_comm] using hnext
       rw [WCT9.CanonicalPolicy.layerCounterSearchAt]
-      conv_lhs => rw [SourceReplay.queried_bind, encodingHash_queries]
-      conv_rhs => rw [SourceReplay.queried_bind, encodingHash_queries]
+      conv_lhs => rw [SourceReplay.queried_bind, publicHash_queries]
+      conv_rhs => rw [SourceReplay.queried_bind, publicHash_queries]
       change _ ++ SourceReplay.queried T' (match decodeRow T' L floor message start with
         | none => WCT9.CanonicalPolicy.layerCounterSearchAt L.lay floor L.tree L.leaf message (start+1) fuel
         | some digits => pure (some (BitVec.ofNat 32 start,digits))) =
@@ -1560,12 +1566,12 @@ theorem search_runEq {T T' : Answers} {messages : LeafAddr → LayerMsg}
   exact ⟨search_congr T T' leaf _ _ _ _ hd,search_queries_congr T T' leaf _ _ _ _ hd⟩
 
 theorem referenceSearch_of_run {T : Answers} {messages : LeafAddr → LayerMsg}
-    {leaf : LeafAddr} {remaining : Nat} {counter : BitVec 32} {digits : List Nat}
+    {leaf : LeafAddr} {remaining : Nat} {counter : BitVec 32} {digits : List Nat} {low : Bool}
     (hc : referenceContext T messages leaf=some remaining)
     (hr : evalWithAnswerFn T (CanonicalPolicy.layerCounterSearchAt leaf.lay
       (CanonicalPolicy.threshold leaf.lay.val remaining) leaf.tree leaf.leaf
-      (messages leaf) 0 (searchLimit leaf.lay))= some (counter,digits)) :
-    referenceSearch T messages leaf= some (counter,digits) :=
+      (messages leaf) 0 (searchLimit leaf.lay))= some (counter,digits,low)) :
+    referenceSearch T messages leaf= some (counter,digits,low) :=
   referenceSearch_of_context hc hr
 
 end ClaudeWCT.W9.T3.Security.Wots.CanonicalRef
@@ -1595,19 +1601,19 @@ theorem searchPreparedLayers_runEq {T T' : Answers} {messages : LeafAddr → Lay
   have hs (lay : Layer) (remaining : Nat)
       (hc : referenceContext T messages (sourceLeaf index lay)=some remaining) :=
     search_runEq hdecisions (sourceLeaf index lay) (sourceLeaf_source index hi lay) remaining hc
-  have hc0 : referenceContext T messages (sourceLeaf index 0)=some 63 := rfl
+  have hc0 : referenceContext T messages (sourceLeaf index 0)=some WCT9.CanonicalPolicy.totalCredit := rfl
   unfold searchPreparedLayers
   dsimp only
   rw [h0,h1,h2,h3]
-  refine RunEq.bind (hs 0 63 hc0) ?_
+  refine RunEq.bind (hs 0 WCT9.CanonicalPolicy.totalCredit hc0) ?_
   intro found0 hr0
   cases found0 with
   | none => exact RunEq.pure' _ _ _
   | some found0 =>
-    rcases found0 with ⟨counter0,digits0⟩
+    rcases found0 with ⟨counter0,digits0,low0⟩
     have href0 := referenceSearch_of_run hc0 hr0
     have hc1 : referenceContext T messages (sourceLeaf index 1)=
-        some (CanonicalPolicy.nextResidual 63 0 digits0) := by
+        some (CanonicalPolicy.nextResidual WCT9.CanonicalPolicy.totalCredit 0 low0 digits0) := by
       apply context_parent_success (leaf:=sourceLeaf index 1) (by change 1 ≠ 0; decide)
       · rw [sourceLeaf_parent index 1 (by decide)]; exact hc0
       · rw [sourceLeaf_parent index 1 (by decide)]; exact href0
@@ -1619,10 +1625,10 @@ theorem searchPreparedLayers_runEq {T T' : Answers} {messages : LeafAddr → Lay
       cases found1 with
       | none => exact RunEq.pure' _ _ _
       | some found1 =>
-        rcases found1 with ⟨counter1,digits1⟩
+        rcases found1 with ⟨counter1,digits1,low1⟩
         have href1 := referenceSearch_of_run hc1 hr1
         have hc2 : referenceContext T messages (sourceLeaf index 2)=
-            some (CanonicalPolicy.nextResidual (CanonicalPolicy.nextResidual 63 0 digits0) 1 digits1) := by
+            some (CanonicalPolicy.nextResidual (CanonicalPolicy.nextResidual WCT9.CanonicalPolicy.totalCredit 0 low0 digits0) 1 low1 digits1) := by
           apply context_parent_success (leaf:=sourceLeaf index 2) (by change 2 ≠ 0; decide)
           · rw [sourceLeaf_parent index 2 (by decide)]; exact hc1
           · rw [sourceLeaf_parent index 2 (by decide)]; exact href1
@@ -1634,11 +1640,11 @@ theorem searchPreparedLayers_runEq {T T' : Answers} {messages : LeafAddr → Lay
           cases found2 with
           | none => exact RunEq.pure' _ _ _
           | some found2 =>
-            rcases found2 with ⟨counter2,digits2⟩
+            rcases found2 with ⟨counter2,digits2,low2⟩
             have href2 := referenceSearch_of_run hc2 hr2
             have hc3 : referenceContext T messages (sourceLeaf index 3)=
                 some (CanonicalPolicy.nextResidual
-                  (CanonicalPolicy.nextResidual (CanonicalPolicy.nextResidual 63 0 digits0) 1 digits1) 2 digits2) := by
+                  (CanonicalPolicy.nextResidual (CanonicalPolicy.nextResidual WCT9.CanonicalPolicy.totalCredit 0 low0 digits0) 1 low1 digits1) 2 low2 digits2) := by
               apply context_parent_success (leaf:=sourceLeaf index 3) (by change 3 ≠ 0; decide)
               · rw [sourceLeaf_parent index 3 (by decide)]; exact hc2
               · rw [sourceLeaf_parent index 3 (by decide)]; exact href2
@@ -1650,7 +1656,7 @@ theorem searchPreparedLayers_runEq {T T' : Answers} {messages : LeafAddr → Lay
               cases found3 with
               | none => exact RunEq.pure' _ _ _
               | some found3 =>
-                rcases found3 with ⟨counter3,digits3⟩
+                rcases found3 with ⟨counter3,digits3,low3⟩
                 exact RunEq.bind (RunEq.of_respects
                   (SigGolfCandidate.T3.Security.Wots.Enc.respects_signTop _ _ _) hnon)
                   fun _ _ => RunEq.pure' _ _ _
@@ -1992,7 +1998,7 @@ theorem wotsPieces_maskAt (lay : Layer) (tree leaf : Nat) (digits : List Nat)
     wotsTree_maskAt answers messages a lay tree (Or.inr hmask)]
 
 theorem sourceLeaf_alias {index : Nat} (hindex : index<2^31) {lay : Layer} {counter : BitVec 32}
-    {digits : List Nat} (hsearch : referenceSearch answers messages (sourceLeaf index lay)=some (counter,digits))
+    {digits : List Nat} {low : Bool} (hsearch : referenceSearch answers messages (sourceLeaf index lay)=some (counter,digits,low))
     (htree : a.key.tree<2^40) (hleaf : a.key.leaf<2^24)
     (hal : LeafAlias lay (route index lay).2 (route index lay).1 a.key) :
     depth answers messages a≤digits.getD a.chain 0 := by
@@ -2002,8 +2008,8 @@ theorem sourceLeaf_alias {index : Nat} (hindex : index<2^31) {lay : Layer} {coun
   rw [←hk,hsearch]
   simp
 
-theorem source_digits_valid (lay : Layer) {counter : BitVec 32} {digits : List Nat}
-    {leaf : LeafAddr} (hsearch : referenceSearch answers messages leaf=some (counter,digits))
+theorem source_digits_valid (lay : Layer) {counter : BitVec 32} {digits : List Nat} {low : Bool}
+    {leaf : LeafAddr} (hsearch : referenceSearch answers messages leaf=some (counter,digits,low))
     (hlay : leaf.lay=lay) : Cost.ValidDigits lay digits := by
   subst lay
   have hd := referenceSearch_decode answers messages leaf hsearch
@@ -2012,8 +2018,8 @@ theorem source_digits_valid (lay : Layer) {counter : BitVec 32} {digits : List N
   simpa only [normalLayer_maxDigit] using hv i (by simpa only [normalLayer_chainCount] using hi)
 
 theorem fixedPrepared_pieces_maskAt (index : Nat) (hi : index<2^31) (lay : Layer) (hlay : lay≠0)
-    {counter : BitVec 32} {digits : List Nat}
-    (hsearch : referenceSearch answers messages (sourceLeaf index lay)=some (counter,digits))
+    {counter : BitVec 32} {digits : List Nat} {low : Bool}
+    (hsearch : referenceSearch answers messages (sourceLeaf index lay)=some (counter,digits,low))
     (htree : a.key.tree<2^40) (hleaf : a.key.leaf<2^24) :
     preparedPieces lay (route index lay).1 (fixedPrepared (maskAt answers messages a) index lay) digits =
       preparedPieces lay (route index lay).1 (fixedPrepared answers index lay) digits := by
@@ -2109,20 +2115,20 @@ theorem searchPreparedLayers_maskEq (T : Answers) (a : ChainAddr)
     dsimp only [messages]
     rw [fixedPrepared_pair,sourceMessages_route_lower T index 2 (by decide)]; rfl
   have h3 : LayerMsg.pair forest.1 forest.2=messages (sourceLeaf index 3) := hforest
-  have hc0 : referenceContext T messages (sourceLeaf index 0)=some 63 := rfl
+  have hc0 : referenceContext T messages (sourceLeaf index 0)=some WCT9.CanonicalPolicy.totalCredit := rfl
   dsimp only
   unfold searchPreparedLayers
   dsimp only
   rw [hlevels 1,hlevels 2,hlevels 3,h0,h1,h2,h3]
-  refine ExecEq.bind (hs 0 63 hc0) ?_
+  refine ExecEq.bind (hs 0 WCT9.CanonicalPolicy.totalCredit hc0) ?_
   intro found0 hr0
   cases found0 with
   | none => exact ExecEq.pure' _ _ _
   | some found0 =>
-    rcases found0 with ⟨counter0,digits0⟩
+    rcases found0 with ⟨counter0,digits0,low0⟩
     have href0 := referenceSearch_of_run hc0 hr0
     have hc1 : referenceContext T messages (sourceLeaf index 1)=
-        some (CanonicalPolicy.nextResidual 63 0 digits0) := by
+        some (CanonicalPolicy.nextResidual WCT9.CanonicalPolicy.totalCredit 0 low0 digits0) := by
       apply context_parent_success (leaf:=sourceLeaf index 1) (by change 1 ≠ 0; decide)
       · rw [sourceLeaf_parent index 1 (by decide)]; exact hc0
       · rw [sourceLeaf_parent index 1 (by decide)]; exact href0
@@ -2134,10 +2140,10 @@ theorem searchPreparedLayers_maskEq (T : Answers) (a : ChainAddr)
       cases found1 with
       | none => exact ExecEq.pure' _ _ _
       | some found1 =>
-        rcases found1 with ⟨counter1,digits1⟩
+        rcases found1 with ⟨counter1,digits1,low1⟩
         have href1 := referenceSearch_of_run hc1 hr1
         have hc2 : referenceContext T messages (sourceLeaf index 2)=
-            some (CanonicalPolicy.nextResidual (CanonicalPolicy.nextResidual 63 0 digits0) 1 digits1) := by
+            some (CanonicalPolicy.nextResidual (CanonicalPolicy.nextResidual WCT9.CanonicalPolicy.totalCredit 0 low0 digits0) 1 low1 digits1) := by
           apply context_parent_success (leaf:=sourceLeaf index 2) (by change 2 ≠ 0; decide)
           · rw [sourceLeaf_parent index 2 (by decide)]; exact hc1
           · rw [sourceLeaf_parent index 2 (by decide)]; exact href1
@@ -2149,11 +2155,11 @@ theorem searchPreparedLayers_maskEq (T : Answers) (a : ChainAddr)
           cases found2 with
           | none => exact ExecEq.pure' _ _ _
           | some found2 =>
-            rcases found2 with ⟨counter2,digits2⟩
+            rcases found2 with ⟨counter2,digits2,low2⟩
             have href2 := referenceSearch_of_run hc2 hr2
             have hc3 : referenceContext T messages (sourceLeaf index 3)=
                 some (CanonicalPolicy.nextResidual
-                  (CanonicalPolicy.nextResidual (CanonicalPolicy.nextResidual 63 0 digits0) 1 digits1) 2 digits2) := by
+                  (CanonicalPolicy.nextResidual (CanonicalPolicy.nextResidual WCT9.CanonicalPolicy.totalCredit 0 low0 digits0) 1 low1 digits1) 2 low2 digits2) := by
               apply context_parent_success (leaf:=sourceLeaf index 3) (by change 3 ≠ 0; decide)
               · rw [sourceLeaf_parent index 3 (by decide)]; exact hc2
               · rw [sourceLeaf_parent index 3 (by decide)]; exact href2
@@ -2165,7 +2171,7 @@ theorem searchPreparedLayers_maskEq (T : Answers) (a : ChainAddr)
               cases found3 with
               | none => exact ExecEq.pure' _ _ _
               | some found3 =>
-                rcases found3 with ⟨counter3,digits3⟩
+                rcases found3 with ⟨counter3,digits3,low3⟩
                 have href3 := referenceSearch_of_run hc3 hr3
                 have hv0 := Mask.source_digits_valid T messages 0 href0 rfl
                 have ht : ExecEq T T' (signTop cache (route index 0).1 digits0)
@@ -2416,22 +2422,22 @@ theorem search (L : CanonGraph.LeafPos) (hL : L.Source) (floor : Nat) : ∀ fuel
     intro counter
     simp only [CanonicalPolicy.layerCounterSearchAt,evalWithAnswerFn_bind]
     have hh : evalWithAnswerFn (eagerAnswers U priv (table left right hleft hright hU pub))
-        (encodingHash L.lay (layerEncodingInput L.lay L.tree.val L.leaf.val
+        (publicHash (layerEncodingInput L.lay L.tree.val L.leaf.val
           (right (ClaudeWCT.W9.T3.Security.Wots.Enc.leafOf L)) (BitVec.ofNat 32 counter)))=
       evalWithAnswerFn (eagerAnswers U priv pub)
-        (encodingHash L.lay (layerEncodingInput L.lay L.tree.val L.leaf.val
+        (publicHash (layerEncodingInput L.lay L.tree.val L.leaf.val
           (left (ClaudeWCT.W9.T3.Security.Wots.Enc.leafOf L)) (BitVec.ofNat 32 counter))) := by
-      rw [eval_encodingHash,eval_encodingHash]
+      rw [ClaudeWCT.W9.T3.Security.Wots.CanonicalRef.eval_publicHash,
+        ClaudeWCT.W9.T3.Security.Wots.CanonicalRef.eval_publicHash]
       have hr := congrArg (fun input : HashInput =>
-        encodingAnswer L.lay (eagerAnswers U priv (table left right hleft hright hU pub) (.inl (.inr input))))
+        eagerAnswers U priv (table left right hleft hright hU pub) (.inl (.inr input)))
         (ClaudeWCT.W9.T3.Security.Wots.encRow_zero (ClaudeWCT.W9.T3.Security.Wots.Enc.leafOf L)
           (right (ClaudeWCT.W9.T3.Security.Wots.Enc.leafOf L)) (BitVec.ofNat 32 counter))
       have hl := congrArg (fun input : HashInput =>
-        encodingAnswer L.lay (eagerAnswers U priv pub (.inl (.inr input))))
+        eagerAnswers U priv pub (.inl (.inr input)))
         (ClaudeWCT.W9.T3.Security.Wots.encRow_zero (ClaudeWCT.W9.T3.Security.Wots.Enc.leafOf L)
           (left (ClaudeWCT.W9.T3.Security.Wots.Enc.leafOf L)) (BitVec.ofNat 32 counter))
-      exact hr.symm.trans ((congrArg (encodingAnswer L.lay)
-        (answers_row left right hleft hright hU priv pub L hL (BitVec.ofNat 32 counter) 0)).trans hl)
+      exact hr.symm.trans ((answers_row left right hleft hright hU priv pub L hL (BitVec.ofNat 32 counter) 0).trans hl)
     rw [hh]
     split
     · exact ih _
@@ -2612,36 +2618,35 @@ set_option backward.isDefEq.respectTransparency false
 attribute [local instance] Classical.propDecidable
 
 def decodeAt (L : EncLeaf) (floor : Nat) (answer : HashOutput) : Option Digest :=
-  if (WCT9.CanonicalPolicy.producerDecodeAt L.1.lay floor
-    (WCT9.encodingAnswer L.1.lay answer)).isSome then
+  if (WCT9.CanonicalPolicy.producerDecodeOut L.1.lay floor answer).isSome then
     some (WCT9.encodingAnswer L.1.lay answer) else none
+/-- The canonical search as a first-success selection over its rows. The search result (digits and selected
+half) is read back from the selected row's answer. -/
 theorem counterSearch_select (answers : Answers) (lay : Layer) (floor : Nat) (tree leaf : Nat) (message : WCT9.LayerMsg)
     (decodeLay : HashOutput → Option Digest)
     (hdecode : ∀ answer, decodeLay answer =
-      if (WCT9.CanonicalPolicy.producerDecodeAt lay floor (WCT9.encodingAnswer lay answer)).isSome then some (WCT9.encodingAnswer lay answer) else none) :
+      if (WCT9.CanonicalPolicy.producerDecodeOut lay floor answer).isSome then some (WCT9.encodingAnswer lay answer) else none) :
     ∀ fuel start, evalWithAnswerFn answers (WCT9.CanonicalPolicy.layerCounterSearchAt lay floor tree leaf message start fuel) =
       (FirstSuccessTable.select decodeLay (fun i : Fin fuel =>
           answers (.inl (.inr (pad64 (WCT9.layerEncodingInput lay tree leaf message
             (BitVec.ofNat 32 (start + i.val)))))))).bind
-        fun r => (WCT9.CanonicalPolicy.producerDecodeAt lay floor r.2).map fun digits => (BitVec.ofNat 32 (start + r.1.val), digits) := by
+        fun r => (WCT9.CanonicalPolicy.producerDecodeOut lay floor (answers (.inl (.inr (pad64
+          (WCT9.layerEncodingInput lay tree leaf message (BitVec.ofNat 32 (start + r.1.val)))))))).map
+            fun found => (BitVec.ofNat 32 (start + r.1.val), found) := by
   intro fuel
   induction fuel with
   | zero => intro start; rfl
   | succ fuel ih =>
       intro start
-      simp only [WCT9.CanonicalPolicy.layerCounterSearchAt, evalWithAnswerFn_bind, WCT9.eval_encodingHash]
+      simp only [WCT9.CanonicalPolicy.layerCounterSearchAt, evalWithAnswerFn_bind,
+        Wots.CanonicalRef.eval_publicHash]
       rw [FirstSuccessTable.select]
-      have h0 : answers (.inl (.inr (pad64 (WCT9.layerEncodingInput lay tree leaf message
-          (BitVec.ofNat 32 (start + (0 : Fin (fuel + 1)).val)))))) =
-          answers (.inl (.inr (pad64 (WCT9.layerEncodingInput lay tree leaf message (BitVec.ofNat 32 start))))) := by
-        simp only [Fin.val_zero, Nat.add_zero]
-      rw [h0, hdecode]
-      generalize answers (.inl (.inr (pad64 (WCT9.layerEncodingInput lay tree leaf message
-        (BitVec.ofNat 32 start))))) = A
-      cases hd : WCT9.CanonicalPolicy.producerDecodeAt lay floor (WCT9.encodingAnswer lay A) with
-      | some digits =>
-          simp only [hd, Option.isSome_some, if_true, evalWithAnswerFn_pure, Option.bind_some, Option.map_some,
-            Fin.val_zero, Nat.add_zero]
+      simp only [Fin.val_zero, Nat.add_zero, hdecode]
+      cases hd : WCT9.CanonicalPolicy.producerDecodeOut lay floor (answers (.inl (.inr (pad64
+          (WCT9.layerEncodingInput lay tree leaf message (BitVec.ofNat 32 start)))))) with
+      | some found =>
+          simp only [Option.isSome_some, if_true, evalWithAnswerFn_pure, Option.bind_some, Option.map_some,
+            Fin.val_zero, Nat.add_zero, hd]
       | none =>
           simp only [Option.isSome_none, Bool.false_eq_true, if_false]
           rw [ih (start + 1)]
@@ -2658,6 +2663,7 @@ theorem counterSearch_select (answers : Answers) (lay : Layer) (floor : Nat) (tr
           | some r =>
               simp only [Option.map_some, Option.bind_some, Fin.val_succ,
                 show start + (r.1.val + 1) = start + 1 + r.1.val by omega]
+              rw [show start + (r.1.val + 1) = start + 1 + r.1.val by omega]
 
 def encLeafOf (L : Wots.LeafAddr) (h : WotsExtract.SourceLeaf7 L) : EncLeaf :=
   ⟨⟨L.lay, ⟨L.tree, lt_of_lt_of_le h.1 (by
@@ -2688,12 +2694,25 @@ abbrev Rows := EncLeaf → Fin (2^22) → HashOutput
 noncomputable def selectionAt (rows : Rows) (L : EncLeaf) (remaining : Nat) : Selection :=
   capSel L (FirstSuccessTable.select
     (decodeAt L (WCT9.CanonicalPolicy.threshold L.1.lay.val remaining)) (rows L))
+/-- Read the canonical result (digits, selected half) back from row `k` of leaf `L`. -/
+noncomputable def rowResult (rows : Rows) (L : EncLeaf) (floor : Nat) (k : Nat) :
+    Option (BitVec 32 × List Nat × Bool) :=
+  if hk : k < 2^22 then
+    (WCT9.CanonicalPolicy.producerDecodeOut L.1.lay floor (rows L ⟨k, hk⟩)).map fun found =>
+      (BitVec.ofNat 32 k, found)
+  else none
+theorem rowResult_eq_of_row {rows rows' : Rows} {L : EncLeaf} {floor : Nat} {c : Fin (2^22)}
+    (h : rows L c = rows' L c) : rowResult rows L floor c.val = rowResult rows' L floor c.val := by
+  unfold rowResult
+  split
+  · rename_i hk
+    have hc : (⟨c.val, hk⟩ : Fin (2^22)) = c := Fin.ext rfl
+    rw [hc, h]
+  · rfl
 noncomputable def searchRows (rows : Rows) : Wots.CanonicalRef.Search := fun L remaining =>
   if h : WotsExtract.SourceLeaf7 L then
     (selectionAt rows (encLeafOf L h) remaining).bind fun r =>
-      (WCT9.CanonicalPolicy.producerDecodeAt L.lay
-        (WCT9.CanonicalPolicy.threshold L.lay.val remaining) r.2).map fun ds =>
-          (BitVec.ofNat 32 r.1.val,ds)
+      rowResult rows (encLeafOf L h) (WCT9.CanonicalPolicy.threshold L.lay.val remaining) r.1.val
   else none
 noncomputable def rowsContext (rows : Rows) : Wots.LeafAddr → Option Nat :=
   Wots.CanonicalRef.context (searchRows rows) WCT9.CanonicalPolicy.credit
@@ -2716,11 +2735,28 @@ set_option maxRecDepth 10000
 set_option backward.isDefEq.respectTransparency false
 attribute [local instance] Classical.propDecidable
 
+theorem selectionAt_lt {rows : Rows} {L : EncLeaf} {remaining : Nat} {r : Fin (2^22) × Digest}
+    (h : selectionAt rows L remaining = some r) : r.1.val < WCT9.searchLimit L.1.lay :=
+  (capSel_eq_some.mp h).2
+
+theorem option_bind_congr_some {A B : Type} {o : Option A} {f g : A → Option B}
+    (h : ∀ a, o = some a → f a = g a) : o.bind f = o.bind g := by
+  cases o with
+  | none => rfl
+  | some a => exact h a rfl
+
+/-- Two row tables with the same selection and the same selected row give the same canonical result. -/
+theorem selection_result_congr (f g : Rows) (L : EncLeaf) (remaining floor : Nat)
+    (hsel : selectionAt g L remaining = selectionAt f L remaining)
+    (hrow : ∀ r, selectionAt f L remaining = some r → g L r.1 = f L r.1) :
+    ((selectionAt g L remaining).bind fun r => rowResult g L floor r.1.val) =
+      ((selectionAt f L remaining).bind fun r => rowResult f L floor r.1.val) := by
+  rw [hsel]
+  exact option_bind_congr_some (fun r hr => rowResult_eq_of_row (hrow r hr))
+
 theorem searchRows_toWots (rows : Rows) (L : EncLeaf) (remaining : Nat) :
     searchRows rows L.toWots remaining = (selectionAt rows L remaining).bind fun r =>
-      (WCT9.CanonicalPolicy.producerDecodeAt L.1.lay
-        (WCT9.CanonicalPolicy.threshold L.1.lay.val remaining) r.2).map fun ds =>
-          (BitVec.ofNat 32 r.1.val,ds) := by
+      rowResult rows L (WCT9.CanonicalPolicy.threshold L.1.lay.val remaining) r.1.val := by
   simp only [searchRows, dif_pos (source_toWots L), encLeafOf_self]
   rfl
 
@@ -2733,9 +2769,7 @@ theorem searchOf_eq_selectionAt (answers : Answers) (messages : Wots.LeafAddr �
     (rows : Rows) (hrows : RowAgreement answers messages rows) (L : EncLeaf) (remaining : Nat) :
     Wots.CanonicalRef.searchOf answers messages L.toWots remaining =
       (selectionAt rows L remaining).bind fun r =>
-        (WCT9.CanonicalPolicy.producerDecodeAt L.1.lay
-          (WCT9.CanonicalPolicy.threshold L.1.lay.val remaining) r.2).map fun ds =>
-            (BitVec.ofNat 32 r.1.val,ds) := by
+        rowResult rows L (WCT9.CanonicalPolicy.threshold L.1.lay.val remaining) r.1.val := by
   let floor := WCT9.CanonicalPolicy.threshold L.1.lay.val remaining
   change evalWithAnswerFn answers (WCT9.CanonicalPolicy.layerCounterSearchAt L.1.lay floor
     L.1.tree.val L.1.leaf.val (messages L.toWots) 0 (WCT9.searchLimit L.1.lay)) = _
@@ -2748,12 +2782,18 @@ theorem searchOf_eq_selectionAt (answers : Answers) (messages : Wots.LeafAddr �
     funext i
     rw [Nat.zero_add]
     exact hrows L (Fin.castLE hle i)
-  rw [hr]
-  simp only [Nat.zero_add]
+  have hcont : (fun r : Fin (WCT9.searchLimit L.1.lay) × Digest =>
+      (WCT9.CanonicalPolicy.producerDecodeOut L.1.lay floor (answers (.inl (.inr (pad64
+        (WCT9.layerEncodingInput L.1.lay L.1.tree.val L.1.leaf.val (messages L.toWots)
+          (BitVec.ofNat 32 (0 + r.1.val)))))))).map fun found => (BitVec.ofNat 32 (0 + r.1.val), found)) =
+      fun r => rowResult rows L floor r.1.val := by
+    funext r
+    have hk : r.1.val < 2^22 := lt_of_lt_of_le r.1.isLt hle
+    rw [Nat.zero_add, rowResult, dif_pos hk]
+    rw [hrows L ⟨r.1.val, hk⟩]
+  rw [hr, hcont]
   unfold selectionAt capSel
-  exact select_castLE_bind (decodeAt L floor) hle (rows L)
-    (fun k v => (WCT9.CanonicalPolicy.producerDecodeAt L.1.lay floor v).map fun ds =>
-      (BitVec.ofNat 32 k,ds))
+  exact select_castLE_bind (decodeAt L floor) hle (rows L) (fun k _ => rowResult rows L floor k)
 
 theorem searchRows_eq (answers : Answers) (messages : Wots.LeafAddr → WCT9.LayerMsg)
     (rows : Rows) (hrows : RowAgreement answers messages rows) (L : Wots.LeafAddr)
@@ -2773,12 +2813,10 @@ theorem rowsContext_eq (answers : Answers) (messages : Wots.LeafAddr → WCT9.La
     (fun _ h hp => Wots.CanonicalRef.source_parent h hp)
     (fun L hL remaining _ => searchRows_eq answers messages rows hrows L hL remaining) hL
 
-noncomputable def decodedSelection (rows : Rows) (L : EncLeaf) : Option (BitVec 32 × List Nat) :=
+noncomputable def decodedSelection (rows : Rows) (L : EncLeaf) : Option (BitVec 32 × List Nat × Bool) :=
   (rowsContext rows L.toWots).bind fun remaining =>
     (selectionAt rows L remaining).bind fun r =>
-      (WCT9.CanonicalPolicy.producerDecodeAt L.1.lay
-        (WCT9.CanonicalPolicy.threshold L.1.lay.val remaining) r.2).map fun ds =>
-          (BitVec.ofNat 32 r.1.val,ds)
+      rowResult rows L (WCT9.CanonicalPolicy.threshold L.1.lay.val remaining) r.1.val
 
 theorem referenceSearch_eq_rows (answers : Answers) (messages : Wots.LeafAddr → WCT9.LayerMsg)
     (rows : Rows) (hrows : RowAgreement answers messages rows) (L : EncLeaf) :
@@ -2805,37 +2843,38 @@ set_option backward.isDefEq.respectTransparency false
 
 theorem selectionAt_producer {rows : Rows} {L : EncLeaf} {remaining : Nat}
     {r : Fin (2^22) × Digest} (hsel : selectionAt rows L remaining = some r) :
-    ∃ ds, WCT9.CanonicalPolicy.producerDecodeAt L.1.lay
-      (WCT9.CanonicalPolicy.threshold L.1.lay.val remaining) r.2=some ds := by
+    ∃ found, WCT9.CanonicalPolicy.producerDecodeOut L.1.lay
+      (WCT9.CanonicalPolicy.threshold L.1.lay.val remaining) (rows L r.1) = some found ∧
+      WCT9.encodingAnswer L.1.lay (rows L r.1) = r.2 := by
   have hs := (capSel_eq_some.mp hsel).1
   have hd := (FirstSuccessTable.select_some_iff _ _ r.1 r.2).mp hs |>.1
-  cases he : WCT9.CanonicalPolicy.producerDecodeAt L.1.lay
-      (WCT9.CanonicalPolicy.threshold L.1.lay.val remaining)
-      (WCT9.encodingAnswer L.1.lay (rows L r.1)) with
+  cases he : WCT9.CanonicalPolicy.producerDecodeOut L.1.lay
+      (WCT9.CanonicalPolicy.threshold L.1.lay.val remaining) (rows L r.1) with
   | none => simp only [decodeAt,he,Option.isSome_none,Bool.false_eq_true,if_false] at hd; cases hd
-  | some ds =>
+  | some found =>
       have hv : WCT9.encodingAnswer L.1.lay (rows L r.1)=r.2 := by
         simpa only [decodeAt,he,Option.isSome_some,if_true,Option.some.injEq] using hd
-      exact ⟨ds,hv ▸ he⟩
+      exact ⟨found,rfl,hv⟩
 
 theorem selectionAt_decoder (rows : Rows) (L : EncLeaf) (remaining : Nat) :
     ((selectionAt rows L remaining).bind fun r =>
-      (WCT9.CanonicalPolicy.producerDecodeAt L.1.lay
-        (WCT9.CanonicalPolicy.threshold L.1.lay.val remaining) r.2).map fun ds =>
-          (BitVec.ofNat 32 r.1.val,ds)) =
+      rowResult rows L (WCT9.CanonicalPolicy.threshold L.1.lay.val remaining) r.1.val) =
     ((selectionAt rows L remaining).bind fun r =>
       (WCT9.CanonicalPolicy.decode L.1.lay r.2).map fun ds =>
-        (BitVec.ofNat 32 r.1.val,ds)) := by
+        (BitVec.ofNat 32 r.1.val,ds,WCT9.lowSelected L.1.lay (rows L r.1))) := by
   cases he : selectionAt rows L remaining with
   | none => rfl
   | some r =>
-      obtain ⟨ds,hd⟩ := selectionAt_producer he
-      simp only [Option.bind_some, hd, (WCT9.CanonicalPolicy.producerDecodeAt_spec hd).1]
+      obtain ⟨⟨ds,low⟩,hd,hv⟩ := selectionAt_producer he
+      have hspec := WCT9.CanonicalPolicy.producerDecodeOut_spec hd
+      have hdec := (WCT9.CanonicalPolicy.producerDecodeAt_spec hspec.2).1
+      rw [hv] at hdec
+      simp only [Option.bind_some, rowResult, dif_pos r.1.isLt, hd, Option.map_some, hdec, hspec.1]
 
 theorem decodedSelection_eq (rows : Rows) (L : EncLeaf) :
     decodedSelection rows L = (selectionsOfRows rows L).bind fun r =>
       (WCT9.CanonicalPolicy.decode L.1.lay r.2).map fun ds =>
-        (BitVec.ofNat 32 r.1.val,ds) := by
+        (BitVec.ofNat 32 r.1.val,ds,WCT9.lowSelected L.1.lay (rows L r.1)) := by
   unfold decodedSelection selectionsOfRows
   rw [Option.bind_assoc]
   apply congrArg (Option.bind (rowsContext rows L.toWots))
@@ -2847,7 +2886,7 @@ theorem referenceSearch_eq_selections (answers : Answers) (messages : Wots.LeafA
     Wots.CanonicalRef.referenceSearch answers messages L.toWots =
       (selectionsOfRows rows L).bind fun r =>
         (WCT9.CanonicalPolicy.decode L.1.lay r.2).map fun ds =>
-          (BitVec.ofNat 32 r.1.val,ds) :=
+          (BitVec.ofNat 32 r.1.val,ds,WCT9.lowSelected L.1.lay (rows L r.1)) :=
   (referenceSearch_eq_rows answers messages rows hrows L).trans (decodedSelection_eq rows L)
 
 #print axioms referenceSearch_eq_selections
@@ -3004,7 +3043,7 @@ theorem referenceSearch_eq_filtered (U : Finset HashInput) (hU : CanonGraph.Pair
     Wots.CanonicalRef.referenceSearch answers (Wots.CanonicalRef.sourceMessages answers) L.toWots =
       (selectionsOfRows (fun L c => residual (encCell U hE labels (L,c))) L).bind fun r =>
         (WCT9.CanonicalPolicy.decode L.1.lay r.2).map fun ds =>
-          (BitVec.ofNat 32 r.1.val,ds) :=
+          (BitVec.ofNat 32 r.1.val,ds,WCT9.lowSelected L.1.lay (residual (encCell U hE labels (L,r.1)))) :=
   referenceSearch_eq_selections answers _ _ (rowAgreement_filtered U hU hE answers labels residual hpub) L
 
 #print axioms referenceSearch_eq_filtered

@@ -130,18 +130,6 @@ theorem signerIncomplete_le_table (adversary : AdversaryP) (q : Nat) (hq : q ≤
           eagerSide (Wots.referenceInputs adversary) (GameWith.idealGame PaddedGame.checker adversary) (∅, ∅)] :=
         Wots.Ref.recorded_eq_eager adversary fun _ A => ¬ClaudeWCT.W9.T3.Budgets.tableGood (searchTable A)
     _ ≤ _ := eager_incomplete_le adversary
-theorem signerIncomplete_le (adversary : AdversaryP) (q : Nat) (hq : q ≤ 2 ^ 127) :
-    Pr[fun z => ¬SignerComplete z.2 | SeccLaw.completedExperiment adversary q hq] ≤ 1 / (2 : ENNReal) ^ 298 := by
-  refine (signerIncomplete_le_table adversary q hq).trans ?_
-  refine (ClaudeWCT.W9.T3.Budgets.tableGood_failure_le _ _ ClaudeWCT.W9.T3.Budgets.digest_failure_power_900
-    ClaudeWCT.W9.T3.ProducerV5.producer_failure_power).trans ?_
-  have hreal : (2 : ℝ) ^ 384 * (1 / 2 ^ 900) + 2 ^ 301 * (1 / 2 ^ 600) ≤ 1 / 2 ^ 298 := by
-    set_option exponentiation.threshold 2048 in norm_num
-  have hcast := ENNReal.ofReal_le_ofReal hreal
-  rw [ENNReal.ofReal_add (by positivity) (by positivity), ENNReal.ofReal_mul (by positivity),
-    ENNReal.ofReal_mul (by positivity)] at hcast
-  simpa only [ENNReal.ofReal_pow (show 0 ≤ (2 : ℝ) by norm_num), ENNReal.ofReal_ofNat,
-    SigGolfCandidate.T3.Budgets.ofReal_inv_two_pow] using hcast
 end ClaudeWCT.W9.T3.Security.BPB
 
 namespace ClaudeWCT.W9.T3.Security.Wots.PairedSearchTable

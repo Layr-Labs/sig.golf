@@ -125,20 +125,44 @@ noncomputable instance instSeedsWCoord : ClaudeWCT.W9.T3.Security.FamResidual.Se
       have h5 : w.2.2.2 = w'.2.2.2 := Fin.ext (by omega)
       have : w = w' := Prod.ext h1 (Prod.ext h2 (Prod.ext h4 h5))
       rw [this]
-/-- Encoding rows compare the same half selected by the actual encoding oracle. -/
+/-- Configuration (1)+(2): the target probe covers every permitted opening of the answer (both top halves unless
+LOW is forced), so it detects any witness hint (`WCT9.encodingTarget`, 7/4 point mass). -/
 noncomputable def encodingHit (lay : Layer) (target : Digest) : Hit WCoord :=
-  .selectedTarget target (fun answer => decide (if lay = 0 then TopDualHalf.gate (answer.extractLsb' 0 128) else lowerSpare (answer.extractLsb' 0 128)))
+  .selectedTarget target (fun answer => decide (if lay = 0 then answer.extractLsb' 0 128 = target ∨
+    TopChoice.blocked (answer.extractLsb' 0 128) else lowerSpare (answer.extractLsb' 0 128)))
 
 theorem encodingHit_answerValue (lay : Layer) (target : Digest) (answer : HashOutput) :
-    (encodingHit lay target).answerValue answer = WCT9.encodingAnswer lay answer := by
+    (encodingHit lay target).answerValue answer = WCT9.encodingTarget lay target answer := by
   have hlow : SigGolfCandidate.T3.Security.LargeResidual.low answer = answer.extractLsb' 0 128 := rfl
   by_cases hl : lay = 0
-  · simp [hlow, encodingHit, Hit.answerValue, WCT9.encodingAnswer, hl, TopDualHalf.select, TopDualHalf.selectPair]
-  · simp [hlow, encodingHit, Hit.answerValue, WCT9.encodingAnswer, hl, DualHalf.select, DualHalf.selectPair]
+  · simp [hlow, encodingHit, Hit.answerValue, WCT9.encodingTarget, hl]
+  · simp [hlow, encodingHit, Hit.answerValue, WCT9.encodingTarget, WCT9.encodingAnswer, hl, DualHalf.select,
+      DualHalf.selectPair]
+
+/-- Legacy (non-Paired) route: the probe compares the producer's selected half. -/
+noncomputable def encodingHitSel (lay : Layer) (target : Digest) : Hit WCoord :=
+  .selectedTarget target (fun answer => decide (if lay = 0 then WCT9.topGood (answer.extractLsb' 0 128) ∨
+    TopChoice.blocked (answer.extractLsb' 0 128) else lowerSpare (answer.extractLsb' 0 128)))
+
+theorem encodingHitSel_answerValue (lay : Layer) (target : Digest) (answer : HashOutput) :
+    (encodingHitSel lay target).answerValue answer = WCT9.encodingAnswer lay answer := by
+  have hlow : SigGolfCandidate.T3.Security.LargeResidual.low answer = answer.extractLsb' 0 128 := rfl
+  by_cases hl : lay = 0
+  · subst hl
+    rw [WCT9.encodingAnswer_top_eq]
+    simp [hlow, encodingHitSel, Hit.answerValue, WCT9.topChooseLow]
+  · simp [hlow, encodingHitSel, Hit.answerValue, WCT9.encodingAnswer, hl, DualHalf.select, DualHalf.selectPair]
+
+theorem keep_encodingHitSel (labels : WCoord → Digest) (lay : Layer) (target : Digest) (answer : HashOutput) :
+    (⟨none, encodingHitSel lay target⟩ : Probe WCoord).keep labels answer ↔
+      target ≠ WCT9.encodingAnswer lay answer := by
+  unfold Probe.keep
+  rw [encodingHitSel_answerValue]
+  simp [Probe.guessMiss, encodingHitSel, Hit.miss]
 
 theorem keep_encodingHit (labels : WCoord → Digest) (lay : Layer) (target : Digest) (answer : HashOutput) :
     (⟨none, encodingHit lay target⟩ : Probe WCoord).keep labels answer ↔
-      target ≠ WCT9.encodingAnswer lay answer := by
+      target ≠ WCT9.encodingTarget lay target answer := by
   unfold Probe.keep
   rw [encodingHit_answerValue]
   simp [Probe.guessMiss, encodingHit, Hit.miss]
@@ -280,7 +304,7 @@ noncomputable def routeQuery (a : AuxData) (st : RouterState) (X : HashInput) :
           if X = Wots.encRow L.toWots (msgVals (lookupVal pairs) L) ctr 0 ∧ PrefixRow a L ctr then do
             tickReq U .call
             pure (prefixValue a L ctr, st')
-          else (fun y => (y, st')) <$> testReq U first ⟨X, h⟩ ⟨none, encodingHit L.1.lay (refDigest a L)⟩
+          else (fun y => (y, st')) <$> testReq U first ⟨X, h⟩ ⟨none, encodingHitSel L.1.lay (refDigest a L)⟩
     else if IsDigestRow X then
       (fun y => (y, if st.Fresh X then { st' with births := (X, y) :: st.births } else st')) <$> readReq U ⟨X, h⟩ .mass
     else (fun y => (y, st')) <$> readReq U ⟨X, h⟩ .call
@@ -596,6 +620,12 @@ noncomputable def routerDigits (a : AuxData) (L : Wots.LeafAddr) : List Nat :=
   if h : ∃L' : CanonEncoding.EncLeaf,L'.toWots=L then
     ((a.sel (Classical.choose h)).bind fun r => WCT9.CanonicalPolicy.decode L.lay r.2).getD (Wots.dummyDigits (WCT9.CanonicalPolicy.normalLayer L.lay))
   else Wots.dummyDigits L.lay
+
+/-- The selected half of the router's canonical selection (`true` = LOW). -/
+noncomputable def routerLows (a : AuxData) (L : Wots.LeafAddr) : Bool :=
+  if h : ∃L' : CanonEncoding.EncLeaf,L'.toWots=L then
+    ((a.sel (Classical.choose h)).map fun r => WCT9.lowSelected L.lay (a.rows (Classical.choose h) r.1)).getD true
+  else true
 
 def RouteOkR (a : AuxData) (index : Nat) : Prop :=
   ∀lay : Layer,∃(L : CanonEncoding.EncLeaf)(r : Fin (2^22)×Digest),

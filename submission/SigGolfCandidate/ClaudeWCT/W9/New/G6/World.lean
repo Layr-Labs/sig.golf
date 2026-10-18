@@ -1717,7 +1717,8 @@ theorem canonicalSearch_free (lay : Layer) (floor tree leaf : Nat) (msg : LayerM
   | zero => exact pure_allowed _ _
   | succ fuel ih =>
       unfold CanonicalPolicy.layerCounterSearchAt
-      apply bind_allowed WFree (layerEncoding_free _ _ _ _ _)
+      apply bind_allowed WFree ((SigGolfCandidate.T3.Security.SourceQueries.map_allowed_iff WFree
+        (ClaudeWCT.WCT9.encodingAnswer lay) _).mp (layerEncoding_free lay tree leaf msg _))
       intro answer
       split
       · exact ih _
@@ -1802,7 +1803,8 @@ theorem signFromOutput_answers (hidden : CanonTable.HiddenF) (cache : SigGolfCan
         (evalWithAnswerFn (wA hU omega 0) (prepareRoots (digestIndex output)))
         (forestCommitment (wA hU omega 0) (digestIndex output)))).map
         (fun layers => (⟨assembleWith (wA hU omega hidden) (rho, output, layers), counter,
-          fun lay => layers.counters.getD lay.val 0⟩ : SigGolfCandidate.Research.SharedForest.Witness)) := by
+          fun lay => layers.counters.getD lay.val 0, !(layers.lows.getD 0 true)⟩ :
+            SigGolfCandidate.Research.SharedForest.Witness)) := by
   simp only [signFromOutput, evalWithAnswerFn_bind]
   rw [buildForest_commitment, eval_free hU omega hidden 0 (prepareRoots_free _),
     forestCommitment_world hU omega hidden 0 (digestIndex output) (digestIndex_lt output),

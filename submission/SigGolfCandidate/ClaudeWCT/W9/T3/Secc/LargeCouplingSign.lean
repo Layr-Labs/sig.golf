@@ -946,16 +946,18 @@ def assembleForest (output : HashOutput) (v : Coord→Digest) : SigGolfCandidate
     openingValues output v (secondCoordinate p),fun l => openingPath output v (secondCoordinate p) l.val⟩,
    ⟨openingValues output v 8,fun l => openingPath output v 8 l.val⟩⟩
 
-def hintsOf (index : Nat) (digitsOf : Wots.LeafAddr→List Nat) : BitVec 16 :=
-  let r1 := WCT9.CanonicalPolicy.nextResidual 63 0 (digitsOf (routeAddr index 0))
-  let r2 := WCT9.CanonicalPolicy.nextResidual r1 1 (digitsOf (routeAddr index 1))
-  let r3 := WCT9.CanonicalPolicy.nextResidual r2 2 (digitsOf (routeAddr index 2))
-  BitVec.ofNat 16 (WCT9.CanonicalPolicy.threshold 1 r1+18*WCT9.CanonicalPolicy.threshold 2 r2+
-    324*WCT9.CanonicalPolicy.threshold 3 r3)
+/-- Policy hints (radix 20) from the path-aware residual chain (`lowsOf` = selected halves). -/
+def hintsOf (index : Nat) (digitsOf : Wots.LeafAddr→List Nat) (lowsOf : Wots.LeafAddr→Bool) : BitVec 16 :=
+  let r1 := WCT9.CanonicalPolicy.nextResidual WCT9.CanonicalPolicy.totalCredit 0 (lowsOf (routeAddr index 0))
+    (digitsOf (routeAddr index 0))
+  let r2 := WCT9.CanonicalPolicy.nextResidual r1 1 (lowsOf (routeAddr index 1)) (digitsOf (routeAddr index 1))
+  let r3 := WCT9.CanonicalPolicy.nextResidual r2 2 (lowsOf (routeAddr index 2)) (digitsOf (routeAddr index 2))
+  BitVec.ofNat 16 (WCT9.CanonicalPolicy.threshold 1 r1+20*WCT9.CanonicalPolicy.threshold 2 r2+
+    400*WCT9.CanonicalPolicy.threshold 3 r3)
 
-def assembleSig (rho : Digest) (output : HashOutput) (v : Coord→Digest) (digitsOf : Wots.LeafAddr→List Nat) :
-    SigGolfCandidate.Research.SharedForest.Signature :=
-  ⟨rho,hintsOf (WCT9.digestIndex output) digitsOf,assembleForest output v,
+def assembleSig (rho : Digest) (output : HashOutput) (v : Coord→Digest) (digitsOf : Wots.LeafAddr→List Nat)
+    (lowsOf : Wots.LeafAddr→Bool) : SigGolfCandidate.Research.SharedForest.Signature :=
+  ⟨rho,hintsOf (WCT9.digestIndex output) digitsOf lowsOf,assembleForest output v,
     fun lay => piecesSignature lay ((layerChains digitsOf (digestIndex output) lay).map v,
       (layerPath (digestIndex output) lay).map v)⟩
 
@@ -1002,7 +1004,7 @@ noncomputable def signFinish (a : AuxData) (st : RouterState) (rho : Digest)
       if RouteOkR a (WCT9.digestIndex output) then do
         let items := signItemsWith (routerDigits a) output
         let pairs ← discloseAll U items
-        pure (some (assembleSig rho output (lookupVal pairs) (routerDigits a)),
+        pure (some (assembleSig rho output (lookupVal pairs) (routerDigits a) (routerLows a)),
           {st with disclosed:=st.disclosed++items})
       else pure (none,st)
 
@@ -1173,23 +1175,28 @@ set_option maxRecDepth 10000
 set_option backward.isDefEq.respectTransparency false
 attribute [local instance] Classical.propDecidable
 
- theorem referenceDigits_some (T : Answers) (L : Wots.LeafAddr) (c : BitVec 32) (digits : List Nat)
-    (h : referenceSearch T (sourceMessages T) L=some (c,digits)) :
+ theorem referenceDigits_some (T : Answers) (L : Wots.LeafAddr) (c : BitVec 32) (digits : List Nat) (low : Bool)
+    (h : referenceSearch T (sourceMessages T) L=some (c,digits,low)) :
     referenceDigits T (sourceMessages T) L=digits := by
   simp only [referenceDigits,h,Option.map_some,Option.getD_some]
+
+ theorem referenceLow_some (T : Answers) (L : Wots.LeafAddr) (c : BitVec 32) (digits : List Nat) (low : Bool)
+    (h : referenceSearch T (sourceMessages T) L=some (c,digits,low)) :
+    referenceLow T (sourceMessages T) L=low := by
+  simp only [referenceLow,h,Option.map_some,Option.getD_some]
 
  theorem route_search_of_context (T : Answers) (index : Nat) (hok : RouteOk T index)
     (lay : Layer) (remaining : Nat)
     (hc : referenceContext T (sourceMessages T) (sourceLeaf index lay)=some remaining) :
-    ∃ c d, referenceSearch T (sourceMessages T) (sourceLeaf index lay)=some (c,d) ∧
-      searchOf T (sourceMessages T) (sourceLeaf index lay) remaining=some (c,d) := by
+    ∃ c d l, referenceSearch T (sourceMessages T) (sourceLeaf index lay)=some (c,d,l) ∧
+      searchOf T (sourceMessages T) (sourceLeaf index lay) remaining=some (c,d,l) := by
   have hs := hok lay
   change (referenceSearch T (sourceMessages T) (sourceLeaf index lay)).isSome at hs
   cases he : referenceSearch T (sourceMessages T) (sourceLeaf index lay) with
   | none => simp [he] at hs
   | some found =>
-    rcases found with ⟨c,d⟩
-    refine ⟨c,d,rfl,?_⟩
+    rcases found with ⟨c,d,l⟩
+    refine ⟨c,d,l,rfl,?_⟩
     change (referenceContext T (sourceMessages T) (sourceLeaf index lay)).bind _ = _ at he
     simpa only [hc,Option.bind_some] using he
 
@@ -1197,75 +1204,76 @@ attribute [local instance] Classical.propDecidable
     (index : Nat) (hi : index<2^31) (hok : RouteOk T index) :
     ∃ result, evalWithAnswerFn T (searchPreparedLayers cache index
       (evalWithAnswerFn T (prepareRoots index)) (SigGolfCandidate.Research.SharedForest.forestCommitment T index))=some result := by
-  have hc0 : referenceContext T (sourceMessages T) (sourceLeaf index 0)=some 63 := rfl
-  obtain ⟨c0,d0,href0,hs0⟩ := route_search_of_context T index hok 0 63 hc0
+  have hc0 : referenceContext T (sourceMessages T) (sourceLeaf index 0)=some WCT9.CanonicalPolicy.totalCredit := rfl
+  obtain ⟨c0,d0,l0,href0,hs0⟩ := route_search_of_context T index hok 0 WCT9.CanonicalPolicy.totalCredit hc0
   rw [searchOf_route_lower T index 0 (by decide)] at hs0
-  have hd0 := (canonical_search_some T 0 16 (route index 0).2 (route index 0).1
+  have hd0 := (canonical_search_some' T 0 (WCT9.CanonicalPolicy.threshold 0 WCT9.CanonicalPolicy.totalCredit)
+    (route index 0).2 (route index 0).1
     (.pair (ClaudeWCT.WCT9.builtPair T 1 (route index 1).2).1
       (ClaudeWCT.WCT9.builtPair T 1 (route index 1).2).2)
-    (WCT9.searchLimit 0) 0 c0 d0 (by decide) hs0).2.2
-  let r1 := WCT9.CanonicalPolicy.nextResidual 63 0 d0
-  have hr1 : r1<52 := WCT9.CanonicalPolicy.accepted_top_residual hd0
-  have hf1 : WCT9.CanonicalPolicy.threshold 1 r1<18 := by
+    (WCT9.searchLimit 0) 0 c0 d0 l0 (ClaudeWCT.W9.T3.Security.Wots.searchLimit_fits _) hs0).2.2.2
+  let r1 := WCT9.CanonicalPolicy.nextResidual WCT9.CanonicalPolicy.totalCredit 0 l0 d0
+  have hr1 : r1<55 := WCT9.CanonicalPolicy.accepted_top_residual
+    (by rwa [WCT9.CanonicalPolicy.threshold_top] at hd0)
+  have hf1 : WCT9.CanonicalPolicy.threshold 1 r1<20 := by
     have h := (WCT9.CanonicalPolicy.lower_one_progress ⟨r1,hr1⟩).1
-    change WCT9.CanonicalPolicy.threshold 1 r1≤17 at h
+    change WCT9.CanonicalPolicy.threshold 1 r1≤19 at h
     omega
   have hc1 : referenceContext T (sourceMessages T) (sourceLeaf index 1)=some r1 := by
     apply context_parent_success (leaf:=sourceLeaf index 1) (by change 1≠0;decide)
     · rw [sourceLeaf_parent index 1 (by decide)];exact hc0
     · rw [sourceLeaf_parent index 1 (by decide)];exact href0
-  obtain ⟨c1,d1,href1,hs1⟩ := route_search_of_context T index hok 1 r1 hc1
+  obtain ⟨c1,d1,l1,href1,hs1⟩ := route_search_of_context T index hok 1 r1 hc1
   rw [searchOf_route_lower T index 1 (by decide)] at hs1
-  have hd1 := (canonical_search_some T 1 (WCT9.CanonicalPolicy.threshold 1 r1)
+  have hd1 := (canonical_search_some' T 1 (WCT9.CanonicalPolicy.threshold 1 r1)
     (route index 1).2 (route index 1).1
     (.pair (ClaudeWCT.WCT9.builtPair T 2 (route index 2).2).1
       (ClaudeWCT.WCT9.builtPair T 2 (route index 2).2).2)
-    (WCT9.searchLimit 1) 0 c1 d1 (by decide) hs1).2.2
-  let r2 := WCT9.CanonicalPolicy.nextResidual r1 1 d1
-  have hr2 : r2<35 := WCT9.CanonicalPolicy.accepted_one_residual ⟨r1,hr1⟩ hd1
-  have hf2 : WCT9.CanonicalPolicy.threshold 2 r2<18 := by
+    (WCT9.searchLimit 1) 0 c1 d1 l1 (ClaudeWCT.W9.T3.Security.Wots.searchLimit_fits _) hs1).2.2.2
+  let r2 := WCT9.CanonicalPolicy.nextResidual r1 1 l1 d1
+  have hr2 : r2<39 := WCT9.CanonicalPolicy.accepted_one_residual ⟨r1,hr1⟩ hd1
+  have hf2 : WCT9.CanonicalPolicy.threshold 2 r2<20 := by
     have h := (WCT9.CanonicalPolicy.lower_two_progress ⟨r2,hr2⟩).1
-    change WCT9.CanonicalPolicy.threshold 2 r2≤17 at h
+    change WCT9.CanonicalPolicy.threshold 2 r2≤19 at h
     omega
   have hc2 : referenceContext T (sourceMessages T) (sourceLeaf index 2)=some r2 := by
     apply context_parent_success (leaf:=sourceLeaf index 2) (by change 2≠0;decide)
     · rw [sourceLeaf_parent index 2 (by decide)];exact hc1
     · rw [sourceLeaf_parent index 2 (by decide)];exact href1
-  obtain ⟨c2,d2,href2,hs2⟩ := route_search_of_context T index hok 2 r2 hc2
+  obtain ⟨c2,d2,l2,href2,hs2⟩ := route_search_of_context T index hok 2 r2 hc2
   rw [searchOf_route_lower T index 2 (by decide)] at hs2
-  have hd2 := (canonical_search_some T 2 (WCT9.CanonicalPolicy.threshold 2 r2)
+  have hd2 := (canonical_search_some' T 2 (WCT9.CanonicalPolicy.threshold 2 r2)
     (route index 2).2 (route index 2).1
     (.pair (ClaudeWCT.WCT9.builtPair T 3 (route index 3).2).1
       (ClaudeWCT.WCT9.builtPair T 3 (route index 3).2).2)
-    (WCT9.searchLimit 2) 0 c2 d2 (by decide) hs2).2.2
-  let r3 := WCT9.CanonicalPolicy.nextResidual r2 2 d2
-  have hr3 : r3<18 := WCT9.CanonicalPolicy.accepted_two_residual ⟨r2,hr2⟩ hd2
-  have hf3 : WCT9.CanonicalPolicy.threshold 3 r3<18 := by
+    (WCT9.searchLimit 2) 0 c2 d2 l2 (ClaudeWCT.W9.T3.Security.Wots.searchLimit_fits _) hs2).2.2.2
+  let r3 := WCT9.CanonicalPolicy.nextResidual r2 2 l2 d2
+  have hr3 : r3<20 := WCT9.CanonicalPolicy.accepted_two_residual ⟨r2,hr2⟩ hd2
+  have hf3 : WCT9.CanonicalPolicy.threshold 3 r3<20 := by
     rwa [WCT9.CanonicalPolicy.lower_three_progress r3 hr3]
   have hc3 : referenceContext T (sourceMessages T) (sourceLeaf index 3)=some r3 := by
     apply context_parent_success (leaf:=sourceLeaf index 3) (by change 3≠0;decide)
     · rw [sourceLeaf_parent index 3 (by decide)];exact hc2
     · rw [sourceLeaf_parent index 3 (by decide)];exact href2
-  obtain ⟨c3,d3,href3,hs3⟩ := route_search_of_context T index hok 3 r3 hc3
+  obtain ⟨c3,d3,l3,href3,hs3⟩ := route_search_of_context T index hok 3 r3 hc3
   rw [searchOf_route_bottom T index hi] at hs3
   have hs0' : evalWithAnswerFn T (WCT9.CanonicalPolicy.layerCounterSearchAt 0
-      (WCT9.CanonicalPolicy.threshold 0 63) (route index 0).2 (route index 0).1
-      (.pair (ClaudeWCT.WCT9.builtPair T 1 (route index 1).2).1 (ClaudeWCT.WCT9.builtPair T 1 (route index 1).2).2) 0 (WCT9.searchLimit 0))=some (c0,d0) := hs0
+      (WCT9.CanonicalPolicy.threshold 0 WCT9.CanonicalPolicy.totalCredit) (route index 0).2 (route index 0).1
+      (.pair (ClaudeWCT.WCT9.builtPair T 1 (route index 1).2).1 (ClaudeWCT.WCT9.builtPair T 1 (route index 1).2).2) 0 (WCT9.searchLimit 0))=some (c0,d0,l0) := hs0
   have hs1' : evalWithAnswerFn T (WCT9.CanonicalPolicy.layerCounterSearchAt 1
       (WCT9.CanonicalPolicy.threshold 1 r1) (route index 1).2 (route index 1).1
-      (.pair (ClaudeWCT.WCT9.builtPair T 2 (route index 2).2).1 (ClaudeWCT.WCT9.builtPair T 2 (route index 2).2).2) 0 (WCT9.searchLimit 1))=some (c1,d1) := hs1
+      (.pair (ClaudeWCT.WCT9.builtPair T 2 (route index 2).2).1 (ClaudeWCT.WCT9.builtPair T 2 (route index 2).2).2) 0 (WCT9.searchLimit 1))=some (c1,d1,l1) := hs1
   have hs2' : evalWithAnswerFn T (WCT9.CanonicalPolicy.layerCounterSearchAt 2
       (WCT9.CanonicalPolicy.threshold 2 r2) (route index 2).2 (route index 2).1
-      (.pair (ClaudeWCT.WCT9.builtPair T 3 (route index 3).2).1 (ClaudeWCT.WCT9.builtPair T 3 (route index 3).2).2) 0 (WCT9.searchLimit 2))=some (c2,d2) := hs2
+      (.pair (ClaudeWCT.WCT9.builtPair T 3 (route index 3).2).1 (ClaudeWCT.WCT9.builtPair T 3 (route index 3).2).2) 0 (WCT9.searchLimit 2))=some (c2,d2,l2) := hs2
   have hs3' : evalWithAnswerFn T (WCT9.CanonicalPolicy.layerCounterSearchAt 3
       (WCT9.CanonicalPolicy.threshold 3 r3) (route index 3).2 (route index 3).1
-      (.pair (SigGolfCandidate.Research.SharedForest.forestCommitment T index).1 (SigGolfCandidate.Research.SharedForest.forestCommitment T index).2) 0 (WCT9.searchLimit 3))=some (c3,d3) := hs3
-  have hn1 : ¬WCT9.CanonicalPolicy.threshold 1 r1≥18 := by omega
-  have hn2 : ¬WCT9.CanonicalPolicy.threshold 2 r2≥18 := by omega
-  have hn3 : ¬WCT9.CanonicalPolicy.threshold 3 r3≥18 := by omega
+      (.pair (SigGolfCandidate.Research.SharedForest.forestCommitment T index).1 (SigGolfCandidate.Research.SharedForest.forestCommitment T index).2) 0 (WCT9.searchLimit 3))=some (c3,d3,l3) := hs3
+  have hn1 : ¬WCT9.CanonicalPolicy.threshold 1 r1≥20 := by omega
+  have hn2 : ¬WCT9.CanonicalPolicy.threshold 2 r2≥20 := by omega
+  have hn3 : ¬WCT9.CanonicalPolicy.threshold 3 r3≥20 := by omega
   dsimp only [r1,r2,r3] at hs1' hs2' hs3' hn1 hn2 hn3
-  simp only [prepareRoots_result,searchPreparedLayers,fixedPrepared_pair,
-    WCT9.CanonicalPolicy.totalCredit,evalWithAnswerFn_bind]
+  simp only [prepareRoots_result,searchPreparedLayers,fixedPrepared_pair,evalWithAnswerFn_bind]
   rw [hs0']
   simp only [hn1,if_false,evalWithAnswerFn_bind]
   rw [hs1']
@@ -1298,20 +1306,29 @@ attribute [local instance] Classical.propDecidable
     (he : evalWithAnswerFn T (searchPreparedLayers cache index
       (evalWithAnswerFn T (prepareRoots index)) (SigGolfCandidate.Research.SharedForest.forestCommitment T index))=some result) (lay : Layer) :
     result.digits.getD lay.val []=referenceDigits T (sourceMessages T) (routeAddr index lay) :=
-  (referenceDigits_some T _ _ _ (searchPreparedLayers_reference T cache index hi result he lay).2).symm
+  (referenceDigits_some T _ _ _ _ (searchPreparedLayers_reference T cache index hi result he lay).2).symm
+
+ theorem prepared_lows_eq {T : Answers} {cache : SigGolfCandidate.T3.Cache} {index : Nat}
+    (hi : index<2^31) {result : CanonicalLayers}
+    (he : evalWithAnswerFn T (searchPreparedLayers cache index
+      (evalWithAnswerFn T (prepareRoots index)) (SigGolfCandidate.Research.SharedForest.forestCommitment T index))=some result) (lay : Layer) :
+    result.lows.getD lay.val true=referenceLow T (sourceMessages T) (routeAddr index lay) :=
+  (referenceLow_some T _ _ _ _ (searchPreparedLayers_reference T cache index hi result he lay).2).symm
 
  theorem prepared_hints_eq {T : Answers} {cache : SigGolfCandidate.T3.Cache} {index : Nat}
     (hi : index<2^31) {result : CanonicalLayers}
     (he : evalWithAnswerFn T (searchPreparedLayers cache index
       (evalWithAnswerFn T (prepareRoots index)) (SigGolfCandidate.Research.SharedForest.forestCommitment T index))=some result) :
-    result.policyHints=hintsOf index (referenceDigits T (sourceMessages T)) := by
+    result.policyHints=hintsOf index (referenceDigits T (sourceMessages T)) (referenceLow T (sourceMessages T)) := by
   have hf := searchPreparedLayers_some T cache index _ _ result he
   rw [hf.hints_eq]
   have h0 : result.digits.getD 0 []=_ := prepared_digits_eq hi he 0
   have h1 : result.digits.getD 1 []=_ := prepared_digits_eq hi he 1
   have h2 : result.digits.getD 2 []=_ := prepared_digits_eq hi he 2
-  simp only [hintsOf,preparedResidual1,preparedResidual2,preparedResidual3,
-    WCT9.CanonicalPolicy.totalCredit,h0,h1,h2]
+  have l0 : result.lows.getD 0 true=_ := prepared_lows_eq hi he 0
+  have l1 : result.lows.getD 1 true=_ := prepared_lows_eq hi he 1
+  have l2 : result.lows.getD 2 true=_ := prepared_lows_eq hi he 2
+  simp only [hintsOf,preparedResidual1,preparedResidual2,preparedResidual3,h0,h1,h2,l0,l1,l2]
 
 end ClaudeWCT.W9.T3.Security.LargeResidual.Paired
 
@@ -1651,7 +1668,8 @@ noncomputable local instance : DecidableEq SigGolfCandidate.T3.Cache := Classica
       | none => none
       | some (_,N) => if RouteOk T (WCT9.digestIndex N) then
           some (assembleSig (evalWithAnswerFn T (privateNonce m)) N (honestValue T)
-            (Wots.CanonicalRef.referenceDigits T (Wots.CanonicalRef.sourceMessages T)))
+            (Wots.CanonicalRef.referenceDigits T (Wots.CanonicalRef.sourceMessages T))
+            (Wots.CanonicalRef.referenceLow T (Wots.CanonicalRef.sourceMessages T)))
         else none := by
   have hf := CanonGraph.Paired.Filtered.completeLabels_agrees h
   simp only [SigGolfCandidate.Research.SharedForest.signPayload,evalWithAnswerFn_bind,signDigest]
@@ -1690,7 +1708,8 @@ noncomputable local instance : DecidableEq SigGolfCandidate.T3.Cache := Classica
         | none => none
         | some (_,N) => if RouteOk T (WCT9.digestIndex N) then
             some (assembleSig (evalWithAnswerFn T (privateNonce request.message)) N (honestValue T)
-              (Wots.CanonicalRef.referenceDigits T (Wots.CanonicalRef.sourceMessages T)))
+              (Wots.CanonicalRef.referenceDigits T (Wots.CanonicalRef.sourceMessages T))
+              (Wots.CanonicalRef.referenceLow T (Wots.CanonicalRef.sourceMessages T)))
           else none
       else none := by
   unfold PairedOuter.FullGame.authenticatedSign

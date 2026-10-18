@@ -710,10 +710,10 @@ def FtsGoodByCost
 def AfterGoodBudget
     (FtsOut : Digest → WB → HashOutput → Digest × Digest → MachineState → Prop)
     (afterProgram : Digest → WB → Nat → Option (Digest × Digest) → M Bool)
-    (acceptCycles : Nat) (P : Hash → Prop) : Prop :=
+    (acceptCycles : Nat) (P : WB → Hash → Prop) : Prop :=
   ∀ (pk : Digest) (w : WB) (Q : Prop), Q →
     ∀ (a : HashOutput) (top : Digest × Digest) (u : MachineState),
-      FtsOut pk w a top u → GoodQP P u 8050 8050 Q acceptCycles
+      FtsOut pk w a top u → GoodQP (P w) u 8050 8050 Q acceptCycles
         (ccM (afterProgram pk w (ClaudeWCT.WCT9.digestIndex a) (some top)) Kb)
 
 section
@@ -721,7 +721,7 @@ variable {GatePre : Digest → WB → HashOutput → MachineState → Prop}
   {FtsOut : Digest → WB → HashOutput → Digest × Digest → MachineState → Prop}
   {ftsProgram : WB → HashOutput → M (Option (Digest × Digest))}
   {afterProgram : Digest → WB → Nat → Option (Digest × Digest) → M Bool}
-  {cost : HashOutput → Nat} {P : Hash → Prop} {ovh aG cap : Nat}
+  {cost : HashOutput → Nat} {P : WB → Hash → Prop} {ovh aG cap : Nat}
 
 def afterDigest (ftsProgram : WB → HashOutput → M (Option (Digest × Digest)))
     (afterProgram : Digest → WB → Nat → Option (Digest × Digest) → M Bool)
@@ -740,15 +740,15 @@ abbrev Pre (P : Hash → Prop) (cost : HashOutput → Nat) (cap : Nat)
   P hash ∧ cost (hash (digestQ m w)) ≤ cap
 
 theorem afterDigest_good
-    (fts : FtsGoodByCost GatePre FtsOut ftsProgram (fun a => ovh + cost a) P)
+    (fts : ∀ w : WB, FtsGoodByCost GatePre FtsOut ftsProgram (fun a => ovh + cost a) (P w))
     (after : AfterGoodBudget FtsOut afterProgram aG P)
     (hnone : ∀ pk w i, afterProgram pk w i none = pure false)
     (m : SigGolfCandidate.Legacy.Message) (pk : PublicKey) (w : WB) (a : HashOutput) (u : MachineState)
     (hu : GatePre pk w a u) :
-    GoodQP (fun hash => hash (digestQ m w) = a ∧ Pre P cost cap m w hash)
+    GoodQP (fun hash => hash (digestQ m w) = a ∧ Pre (P w) cost cap m w hash)
       u (8050+2023) (8050+2023) True (aG+(ovh+cap))
       (ccM (afterDigest ftsProgram afterProgram pk w a) Kb) := by
-  have h := fts pk w a u 8050 8050 aG True
+  have h := fts w pk w a u 8050 8050 aG True
     (fun r => ccM (afterProgram pk w (ClaudeWCT.WCT9.digestIndex a) r) Kb) hu
     (by rw [hnone]; simp only [ccM_pure, Kb])
     (fun top t ht => after pk w True trivial a top t ht)
@@ -764,16 +764,16 @@ theorem afterDigest_good
 
 theorem verify_good
     (hprefix : W9Fin.V7.PrefixGood GatePre)
-    (fts : FtsGoodByCost GatePre FtsOut ftsProgram (fun a => ovh + cost a) P)
+    (fts : ∀ w : WB, FtsGoodByCost GatePre FtsOut ftsProgram (fun a => ovh + cost a) (P w))
     (after : AfterGoodBudget FtsOut afterProgram aG P)
     (hnone : ∀ pk w i, afterProgram pk w i none = pure false)
     (m : SigGolfCandidate.Legacy.Message) (pk : PublicKey) (w : WB) (s : MachineState)
     (hs : initialState submission .verify (m,pk,w) = some s) :
-    GoodQP (Pre P cost cap m w) s 10083 10084 True (aG+(ovh+cap)+11)
+    GoodQP (Pre (P w) cost cap m w) s 10083 10084 True (aG+(ovh+cap)+11)
       (ccM (verifyP ftsProgram afterProgram m pk w) Kb) := by
   unfold verifyP
   rw [ccM_bind]
-  exact hprefix m pk w s hs (Pre P cost cap m w) (8050+2023) (8050+2023)
+  exact hprefix m pk w s hs (Pre (P w) cost cap m w) (8050+2023) (8050+2023)
     (aG+(ovh+cap)) True
     (fun o => ccM (match o with
       | some a => afterDigest ftsProgram afterProgram pk w a
@@ -783,12 +783,12 @@ theorem verify_good
 
 theorem verify_good_6997
     (hprefix : W9Fin.V7.PrefixGood GatePre)
-    (fts : FtsGoodByCost GatePre FtsOut ftsProgram (fun a => 870 + cost a) P)
-    (after : AfterGoodBudget FtsOut afterProgram 5240 P)
+    (fts : ∀ w : WB, FtsGoodByCost GatePre FtsOut ftsProgram (fun a => 870 + cost a) (P w))
+    (after : AfterGoodBudget FtsOut afterProgram 5225 P)
     (hnone : ∀ pk w i, afterProgram pk w i none = pure false)
     (m : SigGolfCandidate.Legacy.Message) (pk : PublicKey) (w : WB) (s : MachineState)
     (hs : initialState submission .verify (m,pk,w) = some s) :
-    GoodQP (Pre P cost 778 m w) s 10083 10084 True 6899
+    GoodQP (Pre (P w) cost 778 m w) s 10083 10084 True 6884
       (ccM (verifyP ftsProgram afterProgram m pk w) Kb) :=
   verify_good hprefix fts after hnone m pk w s hs
 end
@@ -834,17 +834,20 @@ theorem fts_installed {P : Hash → Prop} :
   exact goodQP_frozen.mp h
 
 theorem after_installed (floors : SigGolfCandidate.T3.Layer → Nat) (hcredit : CreditFloors floors) :
-    AfterGoodBudget installedOut SigGolfCandidate.T3M.Verify.afterFts 5240 (HashOkBy floors) :=
+    AfterGoodBudget installedOut SigGolfCandidate.T3M.Verify.afterFts 5225
+      (fun w => HashOkBy floors (ClaudeWCT.W9.T3M.wtopHigh w)) :=
   fun pk w Q hQ answer top state hstate =>
     SigGolfCandidate.T3M.after_good_budget floors hcredit pk w Q hQ answer top state hstate
 
 theorem installed_verify_good (floors : SigGolfCandidate.T3.Layer → Nat) (hcredit : CreditFloors floors)
     (message : SigGolfCandidate.Legacy.Message) (pk : PublicKey) (witness : WB) (state : MachineState)
     (hstate : initialState submission .verify (message, pk, witness) = some state) :
-    GoodQP (Pre (HashOkBy floors) SigGolfCandidate.Research.SharedForest.jointAccountingCost 778 message witness)
-      state 10083 10084 True 6899
+    GoodQP (Pre (HashOkBy floors (ClaudeWCT.W9.T3M.wtopHigh witness))
+      SigGolfCandidate.Research.SharedForest.jointAccountingCost 778 message witness)
+      state 10083 10084 True 6884
       (ccM (verifyP installedFts SigGolfCandidate.T3M.Verify.afterFts message pk witness) Kb) :=
-  verify_good_6997 W9Fin.V7.prefixGood fts_installed (after_installed floors hcredit)
+  verify_good_6997 (P := fun w => HashOkBy floors (ClaudeWCT.W9.T3M.wtopHigh w)) W9Fin.V7.prefixGood
+    (fun _ => fts_installed) (after_installed floors hcredit)
     (fun _ _ _ => rfl) message pk witness state hstate
 end W9Fin.V7.Canonical
 
@@ -903,7 +906,7 @@ abbrev pairedSubmission := ClaudeWCT.W9.T3M.Paired.submission
 def Inputs : Prop := ∀ (floors : SigGolfCandidate.T3.Layer→Nat), CreditFloors floors →
   ∀ (m : SigGolfCandidate.Legacy.Message) (pk : PublicKey) (w : Bytes 23236) (s : MachineState),
   initialState SigGolfCandidate.T3M.submission .verify (m,pk,w)=some s →
-  GoodQP (fun hash => HashOkBy floors hash ∧ DigestCapOk hash m w) s 10083 10084 True 6899
+  GoodQP (fun hash => HashOkBy floors (ClaudeWCT.W9.T3M.wtopHigh w) hash ∧ DigestCapOk hash m w) s 10083 10084 True 6884
     (ccM (ClaudeWCT.W9.T3M.Paired.verifyP m pk w) Kb)
 
 theorem init_paired (I : ClaudeWCT.W9.T3M.Images) (hI : I.verify=Images.verifyImage)
@@ -917,7 +920,7 @@ theorem init_paired (I : ClaudeWCT.W9.T3M.Images) (hI : I.verify=Images.verifyIm
     SigGolfCandidate.T3M.submission_verify,hI]
   rfl
 
-theorem fixed_credit : CreditFloors (fun _ => 16) := by
+theorem fixed_credit : CreditFloors (fun _ => 18) := by
   unfold CreditFloors
   constructor
   · intro lay;norm_num

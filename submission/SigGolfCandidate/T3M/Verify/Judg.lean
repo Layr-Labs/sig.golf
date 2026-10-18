@@ -347,6 +347,19 @@ theorem GoodQP.encodingHash_bind_pre {P : Hash → Prop} {β : Type} {s : Machin
     (A + 8 * (toQ (pad64 input)).blocks)
     (ccM (publicHash input >>= fun a => f (ClaudeWCT.WCT9.encodingAnswer lay a)) K)
   exact GoodQP.publicHash_bind_pre hf ht0 hv hin h
+/-- Configuration (1)+(2): the verifier-side read (`WCT9.verificationHash lay high`, top word chosen by the witness
+hint `high`). -/
+theorem GoodQP.verificationHash_bind_pre {P : Hash → Prop} {β : Type} {s : MachineState}
+    {N C A : Nat} {Q : Prop} {lay : Layer} {high : Bool}
+    {input : List UInt8} {f : Digest → M β} {K : β → OracleComp HashSpec Obs}
+    (hf : fetch image s = some (.base .ECALL)) (ht0 : s.getReg .x5 = 0)
+    (hv : hashArgumentsValid s = true) (hin : hashInput s = toQ (pad64 input))
+    (h : ∀ a : BitVec 256, GoodQP (fun hash => hash (toQ (pad64 input)) = a ∧ P hash)
+      (writeHash s a) N C Q A (ccM (f (ClaudeWCT.WCT9.verificationAnswer lay high a)) K)) :
+    GoodQP P s (N + 1) (C + 8 * (toQ (pad64 input)).blocks) Q
+      (A + 8 * (toQ (pad64 input)).blocks) (ccM (ClaudeWCT.WCT9.verificationHash lay high input >>= f) K) := by
+  rw [ClaudeWCT.WCT9.verificationHash_bind]
+  exact GoodQP.publicHash_bind_pre hf ht0 hv hin h
 /-! C2/C3: projected hashes (`vHash high` keeps bytes 0..16 or 16..32 of the answer); `vHash` agrees with the
 spec's `WCT9.halfHash` (bridge in `LayerLower`). Adapted from b3cc11b's `projHash` judgments. -/
 def vHalf (high : Bool) (a : BitVec 256) : Digest := if high then a.extractLsb' 128 128 else a.extractLsb' 0 128
