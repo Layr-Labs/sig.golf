@@ -1,0 +1,127 @@
+import SigGolfCandidate.ClaudeWCT_W9_New_G5_PaddedExtraction
+import SigGolfCandidate.T3_Secc_SeccSufSigned
+
+namespace ClaudeWCT.W9.T3.Security.BPB
+open OracleComp OracleSpec OracleComp.EvalDist ENNReal
+open SigGolfCandidate.T3 SigGolfCandidate.T3.Security
+open ClaudeWCT.W9.T3M (wrho wdc)
+open ClaudeWCT.W9.T3M (WBytes Shaped)
+open ClaudeWCT.W9.T3M.Final (AdversaryP ForgeryP)
+set_option maxHeartbeats 1000000
+set_option maxRecDepth 10000
+set_option backward.isDefEq.respectTransparency false
+attribute [local instance] Classical.propDecidable
+noncomputable local instance instDecidableEqCache_w9seccSufSigned : DecidableEq SigGolfCandidate.T3.Cache :=
+  Classical.decEq _
+def SignerComplete (answers : Correctness.Answers) : Prop :=
+  (∀ (rho : Digest) (m : Message),
+      (evalWithAnswerFn answers (WCT9.digestSearch rho m 0 WCT9.digestAttemptLimit)).isSome) ∧
+    ∀ (lay : Layer), lay ≠ 0 → ∀ (tree leaf : Nat) (msg : WCT9.LayerMsg), tree < 2 ^ 25 → leaf < 2 ^ height lay →
+      (evalWithAnswerFn answers (WCT9.layerCounterSearch lay tree leaf msg 0 (WCT9.searchLimit lay))).isSome
+def CaseCAt (answers : Correctness.Answers) (message : Message) (witness : WBytes)
+    (events : List FirstHit.QueryEvent) : Prop :=
+  ∃ digestAnswer : HashOutput, (wdc witness).toNat < WCT9.digestVerifyWindow ∧
+    evalWithAnswerFn answers (digest (wrho witness) message (wdc witness)) = digestAnswer ∧
+    (∃ prior, (⟨prior, .inl (.inr (pad64 (digestInput (wrho witness) message (wdc witness)))), digestAnswer⟩ :
+      FirstHit.QueryEvent) ∈ events) ∧ Shaped digestAnswer witness ∧
+    (∀ lay : Layer, ClaudeWCT.W9.T3M.BC.GoodZ answers witness (WCT9.digestIndex digestAnswer) lay) ∧
+    ClaudeWCT.W9.T3M.WctExtract.WctHonest answers digestAnswer witness ∧ SignerComplete answers
+def SignedDigest (log : QueryLog Requests) (message : Message) (witness : WBytes) : Prop :=
+  ∃ entry ∈ log, entry.1.message = message ∧ ∃ signature, entry.2 = some signature ∧
+    signature.rho = wrho witness
+def GameCaseC (adversary : AdversaryP) (answers : Correctness.Answers) (signed : Prop → Prop)
+    (result : FirstHit.Recorded Bool) : Prop :=
+  ∃ generated ∈ support (FirstHit.record keygen (∅, ∅)),
+    ∃ interaction ∈ support (FirstHit.record
+      (FullGame.loggedWith (FullGame.authenticatedSign generated.value.2)
+        (adversary generated.value.1 generated.value.2)) generated.state),
+      SourceReplay.Extends interaction.state result.state ∧
+      generated.value.1 = ClaudeWCT.W9.T3M.Extract.honestRoot answers 0 0 ∧
+      interaction.value.2.length ≤ 2 ^ 32 ∧
+      ∃ forgery, interaction.value.1 = some forgery ∧ PaddedExtraction.Fresh interaction.value.2 forgery ∧
+      ∃ message witness, PaddedExtraction.WitnessOf answers generated.value.1 forgery message witness ∧
+        signed (SignedDigest interaction.value.2 message witness) ∧
+        CaseCAt answers message witness result.events
+abbrev CaseCSigned (adversary : AdversaryP) (z : PaddedGame.TraceResult × Correctness.Answers) : Prop :=
+  GameCaseC adversary z.2 id (QueryRecorded.recordedTrace z.1)
+theorem logged_resolves {α : Type} (published : SigGolfCandidate.T3.Cache)
+    (program : OracleComp LazyPrivate.Interaction α)
+    (before : LazyPrivate.State) (result : (α × QueryLog Requests) × LazyPrivate.State)
+    (hr : result ∈ support (LazyPrivate.run (FullGame.loggedWith (FullGame.authenticatedSign published) program)
+      before)) :
+    ∀ entry ∈ result.1.2, SourceReplay.Resolves result.2 (FullGame.authenticatedSign published entry.1) entry.2 := by
+  induction program using OracleComp.inductionOn generalizing before result with
+  | pure value =>
+      rw [FullGame.loggedWith_pure, LazyPrivate.run_pure, support_pure, Set.mem_singleton_iff] at hr
+      subst result
+      simp
+  | query_bind input next ih =>
+      cases input with
+      | inl input =>
+          rw [FullGame.loggedWith_world, LazyPrivate.run_bind, mem_support_bind_iff] at hr
+          obtain ⟨middle, _, hr⟩ := hr
+          exact ih middle.1 middle.2 result hr
+      | inr request =>
+          rw [FullGame.loggedWith_request, LazyPrivate.run_bind, mem_support_bind_iff] at hr
+          obtain ⟨middle, hm, hr⟩ := hr
+          rw [LazyPrivate.run_map, support_map] at hr
+          obtain ⟨last, hl, rfl⟩ := hr
+          intro entry he
+          rcases List.mem_cons.mp he with he | he
+          · subst entry
+            exact (SourceReplay.resolves_of_run _ (CountedPrivate.authenticatedSign_hashOnly published request)
+              before middle hm).mono (SourceReplay.run_extends _ middle.2 last hl)
+          · exact ih middle.1 middle.2 last hl entry he
+def payloadForNonce (cache : SigGolfCandidate.T3.Cache) (rho : Digest) (message : Message) :
+    M (Option Signature) := do
+  let some (_, output) ← WCT9.digestSearch rho message 0 WCT9.digestAttemptLimit | pure none
+  let forest ← WCT9.signForest (WCT9.digestIndex output) output
+  let some pieces ← WCT9.signLayersBC cache (WCT9.digestIndex output) 4 (.pair forest.2.1 forest.2.2) | pure none
+  pure (some (WCT9.assembledSignature rho forest.1 pieces))
+theorem signPayload_nonce (cache : SigGolfCandidate.T3.Cache) (message : Message) :
+    WCT9.Rev3.signPayload cache message =
+      (privateNonce message >>= fun rho => payloadForNonce cache rho message) := by
+  rw [WCT9.Rev3.signPayload_eq]
+  rfl
+theorem eval_authenticatedSign (answers : Correctness.Answers) (published : SigGolfCandidate.T3.Cache)
+    (request : Request) :
+    evalWithAnswerFn answers (FullGame.authenticatedSign published request) =
+      if request.cache = published then
+        evalWithAnswerFn answers (payloadForNonce published
+          (evalWithAnswerFn answers (privateNonce request.message)) request.message)
+      else none := by
+  unfold FullGame.authenticatedSign
+  simp only [evalWithAnswerFn_bind]
+  by_cases hc : request.cache = published
+  · rw [if_pos hc, if_pos hc]
+    show evalWithAnswerFn answers (WCT9.Rev3.signPayload request.cache request.message) = _
+    rw [signPayload_nonce, evalWithAnswerFn_bind, hc]
+  · rw [if_neg hc, if_neg hc, evalWithAnswerFn_pure]
+theorem authenticatedSign_payload (answers : Correctness.Answers) (published : SigGolfCandidate.T3.Cache)
+    (request : Request) (sig : Signature)
+    (h : evalWithAnswerFn answers (FullGame.authenticatedSign published request) = some sig) :
+    request.cache = published ∧ sig.rho = evalWithAnswerFn answers (privateNonce request.message) ∧
+      evalWithAnswerFn answers (payloadForNonce published sig.rho request.message) = some sig := by
+  rw [eval_authenticatedSign] at h
+  by_cases hc : request.cache = published
+  · rw [if_pos hc] at h
+    have hrho : sig.rho = evalWithAnswerFn answers (privateNonce request.message) := by
+      unfold payloadForNonce at h
+      simp only [evalWithAnswerFn_bind] at h
+      generalize evalWithAnswerFn answers (WCT9.digestSearch (evalWithAnswerFn answers (privateNonce request.message))
+        request.message 0 WCT9.digestAttemptLimit) = found at h
+      rcases found with _ | ⟨_, output⟩
+      · simp at h
+      · simp only [evalWithAnswerFn_bind] at h
+        generalize evalWithAnswerFn answers (WCT9.signLayersBC published (WCT9.digestIndex output) 4
+          (.pair (evalWithAnswerFn answers (WCT9.signForest (WCT9.digestIndex output) output)).2.1
+            (evalWithAnswerFn answers (WCT9.signForest (WCT9.digestIndex output) output)).2.2)) = layers at h
+        rcases layers with _ | pieces
+        · simp at h
+        · simp only [evalWithAnswerFn_pure, Option.some.injEq] at h
+          rw [← h]
+          rfl
+    exact ⟨hc, hrho, by rw [hrho]; exact h⟩
+  · rw [if_neg hc] at h
+    cases h
+end ClaudeWCT.W9.T3.Security.BPB
