@@ -1,0 +1,555 @@
+import SigGolfCandidate.T3M_Verify_Nonbinary_LayerPrefix
+import SigGolfCandidate.T3M_Verify_Nonbinary_TopAlias
+import SigGolfCandidate.T3M_Verify_LayerSem
+import SigGolfCandidate.T3M_Verify_Nonbinary_ChainsDispatchCtx
+import SigGolfCandidate.T3M_Mem
+import SigGolfCandidate.T3_Nonbinary_LowerLayout
+
+set_option Elab.async false
+
+-- Top-half selection (formerly Nonbinary/TopSelect.lean, folded here for the 1000-entry limit).
+section
+namespace SigGolfCandidate.T3M.Verify.Nonbinary
+open SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64 SigGolfCandidate.Rv
+set_option maxHeartbeats 600000
+set_option linter.unusedSimpArgs false
+theorem byte7_ult (lo : BitVec 128) :
+    BitVec.ult ((extractByte (lo.extractLsb' 64 64) 7).zeroExtend 64) 64#64 = decide (T3.TopChoice.blocked lo) := by
+  have hl := lo.isLt
+  unfold T3.TopChoice.blocked extractByte
+  simp only [BitVec.ult, BitVec.toNat_setWidth, BitVec.truncate_eq_setWidth, BitVec.toNat_ushiftRight,
+    BitVec.extractLsb'_toNat, Nat.shiftRight_eq_div_pow, BitVec.toNat_ofNat]
+  have h1 : lo.toNat / 2 ^ 64 < 2 ^ 64 := by
+    rw [Nat.div_lt_iff_lt_mul (by positivity), ← Nat.pow_add]; exact hl
+  rw [Nat.mod_eq_of_lt h1, Nat.div_div_eq_div_mul, ← Nat.pow_add]
+  have h2 : lo.toNat / 2 ^ (64 + 7 * 8) < 2 ^ 8 := by
+    rw [Nat.div_lt_iff_lt_mul (by positivity), ← Nat.pow_add]; exact hl
+  rw [Nat.mod_eq_of_lt h2, Nat.mod_eq_of_lt (lt_trans h2 (by norm_num))]
+  apply Bool.eq_iff_iff.mpr
+  simp only [decide_eq_true_eq]
+  rw [Nat.div_lt_iff_lt_mul (by positivity)]
+  norm_num
+theorem lb_ge_zero (b : BitVec 8) :
+    (!BitVec.slt (b.signExtend 64) (0 : BitVec 64)) = !b.getLsbD 7 := by
+  rw [show (0 : BitVec 64) = 0#64 from rfl, BitVec.slt_zero_eq_msb, BitVec.msb_signExtend]
+  simp [BitVec.msb_eq_getLsbD_last]
+
+end SigGolfCandidate.T3M.Verify.Nonbinary
+end
+
+
+section
+namespace SigGolfCandidate.T3M.Verify.Nonbinary
+open SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64 SigGolfCandidate.Rv
+open SigGolfCandidate.T3 (Digest)
+set_option maxRecDepth 65536
+set_option maxHeartbeats 600000
+set_option linter.unusedSimpArgs false
+theorem tail_field (v : Digest) : (v.extractLsb' 64 64 >>> 58) = BitVec.ofNat 64 (v.toNat / 2 ^ 122) := by
+  apply BitVec.eq_of_toNat_eq
+  have hv := v.isLt
+  simp only [BitVec.toNat_ushiftRight, BitVec.extractLsb'_toNat, Nat.shiftRight_eq_div_pow, BitVec.toNat_ofNat]
+  omega
+def prefixTarget (v : Digest) : Word := BitVec.ofNat 64 (4096 * (v.toNat % 128) + 1168)
+theorem jump_target (half : Digest) :
+    (((half.extractLsb' 0 64) <<< ((12#64 : Word).toNat % 64) &&& 520192#64) + 1168#64) &&&
+      18446744073709551614#64 = prefixTarget half := by
+  have e1 : (12#64 : Word).toNat % 64 = (BitVec.ofNat 64 12).toNat := by decide +kernel
+  have e2 : (18446744073709551614#64 : Word) = ~~~1#64 := by decide +kernel
+  have hx : (half.extractLsb' 0 64).toNat % 128 = half.toNat % 128 := by
+    simp only [BitVec.extractLsb'_toNat, Nat.shiftRight_eq_div_pow, pow_zero, Nat.div_one]
+    exact Nat.mod_mod_of_dvd _ (show 128 ∣ 2 ^ 64 by decide +kernel)
+  have e3 : (1168#64 : Word) = BitVec.ofNat 64 (1168) := by norm_num
+  rw [e1, e2, e3, SigGolfCandidate.T3M.Nonbinary.prologue_value, prefixTarget, hx]
+/-- One 6-word dispatch block of the d6b head (`hi`: the HIGH block at `a2+16`). -/
+theorem prefix_end_spec (s : MachineState) (hi : Bool) (half : Digest) (d q : Nat)
+    (hpc : s.pc = pcOf q) (hcode : CodeAt Verify.image (pcOf q) (if hi then dHigh else dLow))
+    (h12 : s.getReg .x12 = BitVec.ofNat 64 d) (hd : d % 8 = 0 ∧ 0x1000 ≤ d ∧ d + 32 ≤ 0x7000)
+    (hh : DigAt s (d + (if hi then 16 else 0)) half) (h6 : s.getReg .x6 = 520192#64) :
+    ∃ t, Steps Verify.image s 6 6 t ∧ t.pc = prefixTarget half ∧
+      t.getReg .x16 = half.extractLsb' 0 64 ∧ t.getReg .x17 = half.extractLsb' 64 64 ∧
+      t.getReg .x29 = BitVec.ofNat 64 (half.toNat / 2 ^ 122) ∧
+      RegsExcept s t [.x16,.x17,.x29,.x14] ∧ Frame s t (fun _ => False) := by
+  cases hi with
+  | false =>
+    simp only [Bool.false_eq_true, if_false, Nat.add_zero] at hcode hh
+    have m0 : s.getMem (s.getReg .x12) = half.extractLsb' 0 64 := by rw [h12]; exact hh.1
+    have m8 : s.getMem (s.getReg .x12 + 8#64) = half.extractLsb' 64 64 := by
+      rw [h12, show (8#64 : Word) = BitVec.ofNat 64 8 from rfl, ofNat_add_ofNat]; exact hh.2
+    have es := symRun_sound (dLow_run (pcOf q)) hcode s hpc (by
+      simp [dLowBase.res, rv_simp, h12, accessValid_iff, MEMORY_BYTES]; omega)
+    refine ⟨_, es, ?_, ?_, ?_, ?_, ?_, ?_⟩
+    · simp only [Result.toState_pc, dLowBase.res, E.eval, BinOp.eval, m0, h6]
+      exact jump_target half
+    · simp only [Result.toState_getReg, dLowBase.res, RegFile.get, E.eval, m0]
+    · simpa only [Result.toState_getReg, dLowBase.res, RegFile.get, E.eval, BinOp.eval] using m8
+    · simp only [Result.toState_getReg, dLowBase.res, RegFile.get, E.eval, BinOp.eval, m8, UnOp.eval]
+      exact tail_field half
+    · intro r hr; cases r <;> simp at hr <;> simp [dLowBase.res, rv_simp] <;> rfl
+    · intro A _ _; simp [dLowBase.res, rv_simp]
+  | true =>
+    simp only [if_true] at hcode hh
+    have m0 : s.getMem (s.getReg .x12 + 16#64) = half.extractLsb' 0 64 := by
+      rw [h12, show (16#64 : Word) = BitVec.ofNat 64 16 from rfl, ofNat_add_ofNat]; exact hh.1
+    have m8 : s.getMem (s.getReg .x12 + 24#64) = half.extractLsb' 64 64 := by
+      rw [h12, show (24#64 : Word) = BitVec.ofNat 64 24 from rfl, ofNat_add_ofNat]
+      simpa [Nat.add_assoc] using hh.2
+    have es := symRun_sound (dHigh_run (pcOf q)) hcode s hpc (by
+      simp [dHighBase.res, rv_simp, h12, accessValid_iff, MEMORY_BYTES]; omega)
+    refine ⟨_, es, ?_, ?_, ?_, ?_, ?_, ?_⟩
+    · simp only [Result.toState_pc, dHighBase.res, E.eval, BinOp.eval, m0, h6]
+      exact jump_target half
+    · simpa only [Result.toState_getReg, dHighBase.res, RegFile.get, E.eval, BinOp.eval] using m0
+    · simpa only [Result.toState_getReg, dHighBase.res, RegFile.get, E.eval, BinOp.eval] using m8
+    · simp only [Result.toState_getReg, dHighBase.res, RegFile.get, E.eval, BinOp.eval, m8, UnOp.eval]
+      exact tail_field half
+    · intro r hr; cases r <;> simp at hr <;> simp [dHighBase.res, rv_simp] <;> rfl
+    · intro A _ _; simp [dHighBase.res, rv_simp]
+/-- Exact cycle cost of the d6b selector before its 6-word dispatch block: hint clear 4, hint set 6 (HIGH, or LOW
+forced). -/
+def selCost (high : Bool) (_a : BitVec 256) : Nat := if high then 6 else 4
+def selMax : Nat := 6
+theorem selCost_le (high : Bool) (a : BitVec 256) : selCost high a ≤ selMax := by
+  unfold selCost selMax; split_ifs <;> omega
+/-- The whole d6b top head (18 words at `h+6`): loads the verifier-read half `TopChoice.read high a` into a6/a7
+and dispatches to its first digit group, in exactly `selCost high a + 6` cycles. -/
+theorem prefix_head_spec (s : MachineState) (a : BitVec 256) (high : Bool) (ra d p : Nat) (hra : ra ∈ aVals)
+    (hpc : s.pc = pcOf p) (hc : CodeAt Verify.image (pcOf p) (prefixWordsOf ra))
+    (h12 : s.getReg .x12 = BitVec.ofNat 64 d) (hd : d % 8 = 0 ∧ 0x1000 ≤ d ∧ d + 32 ≤ 0x7000)
+    (h11 : s.getReg .x11 = 64#64) (h4 : s.getReg .x4 = 24704#64)
+    (h9 : s.getReg .x9 = BitVec.ofNat 64 TOPB9) (hmask : s.getMem 0xffbff8#64 = 520192#64)
+    (h10 : s.getReg .x10 = BitVec.ofNat 64 ra)
+    (hhint : (extractByte (s.getMem 25232#64) 0).getLsbD selHintBit = high)
+    (hlo : DigAt s d (a.extractLsb' 0 128))
+    (hhi : DigAt s (d+16) (a.extractLsb' 128 128)) :
+    ∃ t, Steps Verify.image s (selCost high a + 6) (selCost high a + 6) t ∧
+      t.pc = prefixTarget (T3.TopChoice.read high a) ∧
+      t.getReg .x16 = (T3.TopChoice.read high a).extractLsb' 0 64 ∧
+      t.getReg .x17 = (T3.TopChoice.read high a).extractLsb' 64 64 ∧
+      t.getReg .x29 = BitVec.ofNat 64 ((T3.TopChoice.read high a).toNat / 2 ^ 122) ∧
+      t.getReg .x8 = 14128#64 ∧ t.getReg .x6 = 520192#64 ∧
+      RegsExcept s t [.x16,.x17,.x29,.x6,.x8,.x14,.x3] ∧ Frame s t (fun _ => False) := by
+  have hsub : ∀ (pre seg post : List (BitVec 32)), prefixWordsOf ra = pre ++ seg ++ post →
+      CodeAt Verify.image (pcOf (p + pre.length)) seg := by
+    intro pre seg post he
+    have h := hc
+    rw [he] at h
+    have h' := CodeAt.drop_prefix (pre := pre) (seg := seg) (post := post) h
+    rwa [pcOf, ofNat_add_ofNat, show 0x1000 + 4 * p + 4 * pre.length = 0x1000 + 4 * (p + pre.length) by ring] at h'
+  have hc0 : CodeAt Verify.image (pcOf p) (dProWordsOf ra) := by
+    simpa using hsub [] (dProWordsOf ra) (dHint ++ dHead ++ dLow ++ dHigh) (by simp [prefixWordsOf])
+  have hc2 : CodeAt Verify.image (pcOf (p+2)) dHint := by
+    simpa [dProWordsOf] using hsub (dProWordsOf ra) dHint (dHead ++ dLow ++ dHigh) (by simp [prefixWordsOf])
+  have hc4 : CodeAt Verify.image (pcOf (p+4)) dHead := by
+    simpa [dProWordsOf, dHint] using hsub (dProWordsOf ra ++ dHint) dHead (dLow ++ dHigh) (by simp [prefixWordsOf])
+  have hc6 : CodeAt Verify.image (pcOf (p+6)) dLow := by
+    simpa [dProWordsOf, dHint, dHead] using
+      hsub (dProWordsOf ra ++ dHint ++ dHead) dLow dHigh (by simp [prefixWordsOf])
+  have hc12 : CodeAt Verify.image (pcOf (p+12)) dHigh := by
+    simpa [dProWordsOf, dHint, dHead, dLow] using
+      hsub (dProWordsOf ra ++ dHint ++ dHead ++ dLow) dHigh [] (by simp [prefixWordsOf])
+  have hhint : (extractByte (s.getMem 25232#64) 0).getLsbD 7 = high := hhint
+  have hal : 15336 ≤ ra ∧ ra ≤ 15528 := by
+    simp only [aVals, List.mem_cons, List.not_mem_nil, or_false] at hra; omega
+  -- `ld t1,232(s1); addi s0,a0,K`
+  have hm : s.getMem (s.getReg .x9 + 232#64) = 520192#64 := by rw [h9]; exact hmask
+  have e0 := symRun_sound (dPro_run ra hra (pcOf p)) hc0 s hpc (by
+    simp [dProRes, dProRegs, dProBase.res, rv_simp, h9, accessValid_iff, MEMORY_BYTES, TOPB9])
+  let u := (dProRes ra (pcOf p)).toState s
+  have ru : RegsExcept s u [.x6,.x8] := by
+    intro r hr; cases r <;> simp at hr <;> simp [u, dProRes, dProRegs, dProBase.res, rv_simp] <;> rfl
+  have fu : Frame s u (fun _ => False) := by
+    intro A _ _; simp [u, dProRes, dProRegs, dProBase.res, rv_simp]
+  have pu : u.pc = pcOf (p+2) := by
+    simp [u, dProRes, rv_simp, pcOf, ofNat_add_ofNat, Nat.mul_add, Nat.add_assoc]
+  have u6 : u.getReg .x6 = 520192#64 := by
+    simp only [u, Result.toState_getReg, dProRes, dProRegs, dProBase.res, RegFile.get, RegFile.set, E.eval]
+    exact hm
+  have u8 : u.getReg .x8 = 14128#64 := by
+    simp only [u, Result.toState_getReg, dProRes, dProRegs, RegFile.get, RegFile.set, E.eval, BinOp.eval, h10]
+    apply BitVec.eq_of_toNat_eq
+    simp only [BitVec.toNat_add, BitVec.toNat_ofNat]
+    omega
+  have h12u : u.getReg .x12 = BitVec.ofNat 64 d := (ru.get (by decide)).trans h12
+  have h4u : u.getReg .x4 = 24704#64 := (ru.get (by decide)).trans h4
+  have hmemu : u.getMem 25232#64 = s.getMem 25232#64 := fu.get (A := 25232) (by omega) (by simp)
+  -- `lb gp,528(tp); bge gp,zero,LOW`
+  have e1 := symRun_sound (dHint_run (pcOf (p+2))) hc2 u pu (by
+    simp [dHintRes, dHintBase.res, rv_simp, h4u, accessValid_iff, MEMORY_BYTES])
+  let v := (dHintRes (pcOf (p+2))).toState u
+  have rv : RegsExcept u v [.x3] := by
+    intro r hr; cases r <;> simp_all [v, dHintRes, dHintBase.res, rv_simp] <;> rfl
+  have fv : Frame u v (fun _ => False) := by
+    intro A _ _; simp [v, dHintRes, dHintBase.res, rv_simp]
+  have hhb : hintByte.eval u = (extractByte (s.getMem 25232#64) 0).signExtend 64 := by
+    simp only [hintByte, E.eval, UnOp.eval, LoadKind.fromWord, BinOp.eval]
+    rw [show (u.getReg Reg.x4 + 528) = 25232#64 by rw [h4u]; rfl, hmemu]
+  have hcmp : CmpOp.ge.eval (hintByte.eval u) ((E.c 0).eval u) = !high := by
+    simp only [CmpOp.eval, E.eval]; rw [hhb, lb_ge_zero, hhint]
+  have pv : v.pc = if high then pcOf (p+4) else pcOf (p+6) := by
+    simp only [v, Result.toState_pc, dHintRes]
+    simp only [E.eval] at hcmp ⊢
+    simp only [hcmp]
+    cases high
+    · simp [pcOf, ofNat_add_ofNat, Nat.mul_add, Nat.add_assoc]
+    · simp [pcOf, ofNat_add_ofNat, Nat.mul_add, Nat.add_assoc]
+  have h12v : v.getReg .x12 = BitVec.ofNat 64 d := (rv.get (by decide)).trans h12u
+  have h6v : v.getReg .x6 = 520192#64 := (rv.get (by decide)).trans u6
+  have h8v : v.getReg .x8 = 14128#64 := (rv.get (by decide)).trans u8
+  have fsv : Frame s v (fun _ => False) := (fu.trans fv).mono (by simp)
+  have dig : ∀ (x : MachineState) (o : Nat) (half : BitVec 128), Frame s x (fun _ => False) → DigAt s (d+o) half →
+      o ≤ 16 → DigAt x (d+o) half := fun x o half hf hh ho =>
+    hh.frame hf (by omega) (by simp) (by simp)
+  cases high with
+  | false =>
+    rw [if_neg (by simp)] at pv
+    obtain ⟨t, et, pt, t16, t17, t29, rt, ft⟩ := prefix_end_spec v false (a.extractLsb' 0 128) d (p+6) pv
+      (by simpa using hc6) h12v hd (by simpa using dig v 0 _ fsv (by simpa using hlo) (by omega)) h6v
+    have hr : T3.TopChoice.read false a = a.extractLsb' 0 128 := T3.TopChoice.read_false a
+    refine ⟨t, by rw [show selCost false a + 6 = 2 + 2 + 6 from rfl]; exact (e0.trans e1).trans et,
+      by rw [pt, hr], by rw [t16, hr], by rw [t17, hr], by rw [t29, hr],
+      by rw [rt.get (by decide), h8v], by rw [rt.get (by decide), h6v],
+      ((ru.trans rv).trans rt).mono (by decide), ((fu.trans fv).trans ft).mono (by simp)⟩
+  | true =>
+    rw [if_pos rfl] at pv
+    -- `lbu gp,15(a2); bgeu gp,a1,HIGH`
+    have hlo1 : v.getMem (v.getReg .x12 + 8#64) = (a.extractLsb' 0 128).extractLsb' 64 64 := by
+      rw [h12v, show (8#64 : Word) = BitVec.ofNat 64 8 from rfl, ofNat_add_ofNat, fsv.get (by omega) (by simp), hlo.2]
+    have e2 := symRun_sound (dHead_run (pcOf (p+4))) hc4 v pv (by
+      simp [dHeadRes, dHeadBase.res, rv_simp, h12v, accessValid_iff, MEMORY_BYTES]; omega)
+    let w := (dHeadRes (pcOf (p+4))).toState v
+    have rw' : RegsExcept v w [.x3] := by
+      intro r hr; cases r <;> simp_all [w, dHeadRes, dHeadBase.res, rv_simp] <;> rfl
+    have fw : Frame v w (fun _ => False) := by
+      intro A _ _; simp [w, dHeadRes, dHeadBase.res, rv_simp]
+    have hb : headByte.eval v = (extractByte ((a.extractLsb' 0 128).extractLsb' 64 64) 7).zeroExtend 64 := by
+      simp only [headByte, E.eval, UnOp.eval, LoadKind.fromWord, BinOp.eval]
+      rw [show (v.getReg Reg.x12 + 8) = v.getReg .x12 + 8#64 from rfl, hlo1]
+    have h11v : v.getReg .x11 = 64#64 := (rv.get (by decide)).trans ((ru.get (by decide)).trans h11)
+    have hcmp : CmpOp.geu.eval (headByte.eval v) ((E.reg .x11).eval v) =
+        !decide (T3.TopChoice.blocked (a.extractLsb' 0 128)) := by
+      simp only [CmpOp.eval, E.eval]; rw [hb, h11v, byte7_ult]
+    have pw : w.pc = if T3.TopChoice.blocked (a.extractLsb' 0 128) then pcOf (p+6) else pcOf (p+12) := by
+      simp only [w, Result.toState_pc, dHeadRes]
+      simp only [E.eval] at hcmp ⊢
+      simp only [hcmp]
+      by_cases hbl : T3.TopChoice.blocked (a.extractLsb' 0 128)
+      · simp [hbl, pcOf, ofNat_add_ofNat, Nat.mul_add, Nat.add_assoc]
+      · simp [hbl, pcOf, ofNat_add_ofNat, Nat.mul_add, Nat.add_assoc]
+    have h12w : w.getReg .x12 = BitVec.ofNat 64 d := (rw'.get (by decide)).trans h12v
+    have h6w : w.getReg .x6 = 520192#64 := (rw'.get (by decide)).trans h6v
+    have h8w : w.getReg .x8 = 14128#64 := (rw'.get (by decide)).trans h8v
+    have fsw : Frame s w (fun _ => False) := (fsv.trans fw).mono (by simp)
+    by_cases hbl : T3.TopChoice.blocked (a.extractLsb' 0 128)
+    · rw [if_pos hbl] at pw
+      obtain ⟨t, et, pt, t16, t17, t29, rt, ft⟩ := prefix_end_spec w false (a.extractLsb' 0 128) d (p+6) pw
+        (by simpa using hc6) h12w hd (by simpa using dig w 0 _ fsw (by simpa using hlo) (by omega)) h6w
+      have hr : T3.TopChoice.read true a = a.extractLsb' 0 128 := T3.TopChoice.read_blocked true hbl
+      refine ⟨t, by rw [show selCost true a + 6 = 2 + 2 + 2 + 6 from rfl]; exact ((e0.trans e1).trans e2).trans et,
+        by rw [pt, hr], by rw [t16, hr], by rw [t17, hr], by rw [t29, hr],
+        by rw [rt.get (by decide), h8w], by rw [rt.get (by decide), h6w],
+        (((ru.trans rv).trans rw').trans rt).mono (by decide), (((fu.trans fv).trans fw).trans ft).mono (by simp)⟩
+    · rw [if_neg hbl] at pw
+      obtain ⟨t, et, pt, t16, t17, t29, rt, ft⟩ := prefix_end_spec w true (a.extractLsb' 128 128) d (p+12) pw
+        (by simpa using hc12) h12w hd (by simpa using dig w 16 _ fsw hhi (by omega)) h6w
+      have hr : T3.TopChoice.read true a = a.extractLsb' 128 128 := by
+        simp [T3.TopChoice.read, T3.TopChoice.lowHalf, T3.TopChoice.highHalf, hbl]
+      refine ⟨t, by rw [show selCost true a + 6 = 2 + 2 + 2 + 6 from rfl]; exact ((e0.trans e1).trans e2).trans et,
+        by rw [pt, hr], by rw [t16, hr], by rw [t17, hr], by rw [t29, hr],
+        by rw [rt.get (by decide), h8w], by rw [rt.get (by decide), h6w],
+        (((ru.trans rv).trans rw').trans rt).mono (by decide), (((fu.trans fv).trans fw).trans ft).mono (by simp)⟩
+theorem testBit_topMask (i : Nat) : (2 ^ 119 - 1 : Nat).testBit i = decide (i < 119) := by
+  rw [Nat.testBit_two_pow_sub_one]
+theorem flip_getLsbD (v : Digest) (i : Nat) (hi : i < 128) :
+    (T3.topFlip v).getLsbD i = (v.getLsbD i ^^ decide (i < 119)) := by
+  unfold T3.topFlip T3.topMask
+  rw [BitVec.getLsbD_xor, BitVec.getLsbD_ofNat, testBit_topMask]
+  simp [hi]
+theorem flip_lo (v : Digest) : ~~~((T3.topFlip v).extractLsb' 0 64) = v.extractLsb' 0 64 := by
+  apply BitVec.eq_of_getLsbD_eq; intro i hi
+  rw [BitVec.getLsbD_not, BitVec.getLsbD_extractLsb', BitVec.getLsbD_extractLsb', flip_getLsbD v _ (by omega)]
+  simp [hi, show i < 119 by omega]
+theorem flip_hi (v : Digest) :
+    ~~~((T3.topFlip v).extractLsb' 64 64) ^^^ SigGolfCandidate.T3M.Nonbinary.hiMask = v.extractLsb' 64 64 := by
+  apply BitVec.eq_of_getLsbD_eq; intro i hi
+  rw [BitVec.getLsbD_xor, BitVec.getLsbD_not, BitVec.getLsbD_extractLsb', BitVec.getLsbD_extractLsb',
+    flip_getLsbD v _ (by omega)]
+  unfold SigGolfCandidate.T3M.Nonbinary.hiMask
+  rw [BitVec.getLsbD_ofNat, show (2 : Nat) ^ 64 - 2 ^ 55 = 2 ^ 55 * (2 ^ 9 - 1) by norm_num, Nat.testBit_two_pow_mul,
+    Nat.testBit_two_pow_sub_one]
+  by_cases h : i < 55
+  · simp [hi, h, show 64 + i < 119 by omega, show ¬ 55 ≤ i by omega]
+  · simp [hi, h, show ¬ 64 + i < 119 by omega, show i - 55 < 9 by omega, show 55 ≤ i by omega]
+theorem flip_toNat (v : Digest) : (T3.topFlip v).toNat = v.toNat ^^^ (2 ^ 119 - 1) := by
+  unfold T3.topFlip T3.topMask
+  rw [BitVec.toNat_xor, BitVec.toNat_ofNat, Nat.mod_eq_of_lt (by norm_num)]
+theorem flip_tail (v : Digest) : (T3.topFlip v).toNat / 2 ^ 122 = v.toNat / 2 ^ 122 := by
+  rw [flip_toNat]
+  apply Nat.eq_of_testBit_eq; intro j
+  rw [Nat.testBit_div_two_pow, Nat.testBit_div_two_pow, Nat.testBit_xor, testBit_topMask]
+  simp [show ¬ (j + 122 < 119) by omega]
+theorem flip_low7 (v : Digest) : (T3.topFlip v).toNat % 128 = 127 - v.toNat % 128 := by
+  rw [flip_toNat, show (v.toNat ^^^ (2 ^ 119 - 1)) % 128 = (v.toNat ^^^ (2 ^ 119 - 1)) % 2 ^ 7 from rfl,
+    show v.toNat % 128 = v.toNat % 2 ^ 7 from rfl, Nat.xor_mod_two_pow,
+    show (2 ^ 119 - 1) % 2 ^ 7 = 127 by norm_num]
+  have hl := Nat.mod_lt v.toNat (show 0 < 2 ^ 7 by decide +kernel)
+  generalize v.toNat % 2 ^ 7 = y at hl ⊢
+  interval_cases y <;> rfl
+theorem prefixTarget_flip (v : Digest) :
+    prefixTarget v = BitVec.ofNat 64 (4096 * (127 - (T3.topFlip v).toNat % 128) + 1168) := by
+  unfold prefixTarget
+  rw [flip_low7]
+  congr 2
+  have := Nat.mod_lt v.toNat (show 0 < 128 by decide +kernel)
+  omega
+end SigGolfCandidate.T3M.Verify.Nonbinary
+end
+section
+namespace SigGolfCandidate.T3M.Verify.Nonbinary
+open SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64 SigGolfCandidate.Rv
+set_option maxRecDepth 65536
+set_option maxHeartbeats 600000
+def rejectJumpCode : List (BitVec 32) := [0xea8fa06f]
+sym_block rejectJumpBase := symRun { noAlias := true } rejectJumpCode (pcOf 9147) 20
+theorem rejectJump_at : CodeAt Verify.image (pcOf 9147) rejectJumpCode := by
+  have h := codeAt_from 9147 (by decide +kernel)
+  have hp : rejectJumpCode <+: codeFrom 9147 := by decide +kernel
+  exact ⟨by decide +kernel, by decide +kernel, by decide +kernel, hp.trans h.2.2.2⟩
+def rejectExitCode : List (BitVec 32) := [1049235,1049875]
+sym_block rejectExitBase := symRun { noAlias := true } rejectExitCode (pcOf 3429) 20
+theorem rejectExit_at : CodeAt Verify.image (pcOf 3429) rejectExitCode := by
+  have h := codeAt_from 3429 (by decide +kernel)
+  have hp : rejectExitCode <+: codeFrom 3429 := by decide +kernel
+  exact ⟨by decide +kernel, by decide +kernel, by decide +kernel, hp.trans h.2.2.2⟩
+theorem reject_halt (s : MachineState) (hpc : s.pc = pcOf 9147) :
+    ∃ t, Steps Verify.image s 3 3 t ∧ fetch Verify.image t = some (.base .ECALL) ∧
+      t.getReg .x5 = 1 ∧ t.getReg .x10 = 1 := by
+  have e1 := symRun_sound rejectJumpBase rejectJump_at s hpc (by simp [rejectJumpBase.res, rv_simp])
+  have p1 : (rejectJumpBase.res.toState s).pc = pcOf 3429 := by simp [rejectJumpBase.res, rv_simp, pcOf]
+  have e2 := symRun_sound rejectExitBase rejectExit_at (rejectJumpBase.res.toState s) p1
+    (by simp [rejectExitBase.res, rv_simp])
+  refine ⟨_, e1.trans e2, ?_, ?_, ?_⟩
+  · have h : CodeAt Verify.image (pcOf 3431) [0x00000073] := by
+      have h := codeAt_from 3431 (by decide +kernel)
+      have hp : [0x00000073] <+: codeFrom 3431 := by decide +kernel
+      exact ⟨by decide +kernel, by decide +kernel, by decide +kernel, hp.trans h.2.2.2⟩
+    exact h.fetch _ (by simp [rejectExitBase.res, rv_simp, pcOf])
+  · simp [rejectExitBase.res, rv_simp]
+  · simp [rejectExitBase.res, rv_simp]
+end SigGolfCandidate.T3M.Verify.Nonbinary
+end
+section
+namespace SigGolfCandidate.T3M
+open SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64 SigGolfCandidate.Rv
+open SigGolfCandidate.T3M.Verify
+open SigGolfCandidate.T3 (Digest)
+set_option maxHeartbeats 800000
+set_option linter.unusedSimpArgs false
+/-- Configuration (1)+(2): the selector also writes `gp` (x3) and `a2` (x12); both are dead after the head. -/
+def topEntryRegs : List Reg := [.x16,.x17,.x29,.x6,.x8,.x14,.x3,.x12]
+structure TopEntry (u : MachineState) (v : Digest) (p : Nat) (s : MachineState) : Prop where
+  pc : s.pc = Nonbinary.prefixTarget v
+  ra : s.getReg .x9 = BitVec.ofNat 64 TOPB9
+  lo : s.getReg .x16 = v.extractLsb' 0 64
+  hi : s.getReg .x17 = v.extractLsb' 64 64
+  tail : s.getReg .x29 = BitVec.ofNat 64 (v.toNat / 2 ^ 122)
+  s3 : s.getReg .x8 = 14128#64
+  mask : s.getReg .x6 = 520192#64
+  table : s.getReg .x2 = 0x7fc00#64
+  regs : RegsExcept u s topEntryRegs
+  frame : Frame u s (fun A => A = 25160)
+def topRowA (c : Nat) : Nat := rowA 0 c
+theorem prefix_slots : (List.range 128).all (fun c => decide (topRowA c ∈ Nonbinary.aVals) &&
+    (Nonbinary.prefixWordsOf (topRowA c)).isPrefixOf (codeFrom (trPc 0 c + 6))) = true := by
+  decide +kernel
+theorem topRowA_mem (c : Nat) (hc : c < 128) : topRowA c ∈ Nonbinary.aVals := by
+  have h := List.all_eq_true.mp prefix_slots c (List.mem_range.mpr hc)
+  simp only [Bool.and_eq_true, decide_eq_true_eq] at h
+  exact h.1
+theorem prefix_at (c : Nat) (hc : c < 128) :
+    CodeAt image (pcOf (trPc 0 c + 6)) (Nonbinary.prefixWordsOf (topRowA c)) := by
+  have hp := trPc_lt 0 c
+  have h := codeAt_from (trPc 0 c + 6) (by omega)
+  have h2 := List.all_eq_true.mp prefix_slots c (List.mem_range.mpr hc)
+  simp only [Bool.and_eq_true, decide_eq_true_eq] at h2
+  have hpre : Nonbinary.prefixWordsOf (topRowA c) <+: codeFrom (trPc 0 c + 6) :=
+    List.isPrefixOf_iff_prefix.mp h2.2
+  refine ⟨?_, ?_, ?_, hpre.trans h.2.2.2⟩
+  · unfold pcOf; simp only [BitVec.toNat_ofNat]; omega
+  · unfold pcOf; simp only [BitVec.toNat_ofNat]; omega
+  · unfold pcOf
+    simp only [BitVec.toNat_ofNat, Nonbinary.prefixWordsOf, List.length_append,
+      Nonbinary.dProWordsOf, Nonbinary.dHint, Nonbinary.dHead, Nonbinary.dLow, Nonbinary.dHigh,
+      List.length_cons, List.length_nil]
+    omega
+theorem prefix_sub_at (c : Nat) (hc : c < 128) (pre seg post : List (BitVec 32))
+    (he : Nonbinary.prefixWordsOf (topRowA c) = pre ++ seg ++ post) :
+    CodeAt image (pcOf (trPc 0 c + 6 + pre.length)) seg := by
+  have h := prefix_at c hc
+  rw [he] at h
+  have h' := CodeAt.drop_prefix (pre := pre) (seg := seg) (post := post) h
+  rwa [pcOf, ofNat_add_ofNat,
+    show 0x1000 + 4 * (trPc 0 c + 6) + 4 * pre.length =
+      0x1000 + 4 * (trPc 0 c + 6 + pre.length) by ring] at h'
+/-- The witness choice byte (rel 21104, abs 25232) is the low byte of its witness word. -/
+theorem extractByte_wword_choice (w : ClaudeWCT.W9.T3M.WBytes) :
+    extractByte (wword w (ClaudeWCT.W9.T3M.choiceOff / 8)) 0 = ClaudeWCT.W9.T3M.wchoice w := by
+  apply BitVec.eq_of_getLsbD_eq
+  intro i hi
+  simp only [extractByte, wword, ClaudeWCT.W9.T3M.wchoice, ClaudeWCT.W9.T3M.choiceOff, BitVec.truncate_eq_setWidth,
+    BitVec.getLsbD_setWidth, BitVec.getLsbD_ushiftRight, BitVec.getLsbD_extractLsb', Nat.zero_mul, Nat.zero_add]
+  simp [hi, show i < 64 by omega]
+theorem topTransition (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index c : Nat) (hc : c < nCopy 0)
+    (t : MachineState) (ht : BC.EncPre w pk index 0 c t) (a : BitVec 256) :
+    ∃ n s, Steps image (writeHash t a) n n s ∧ n ≤ 13 ∧
+      n = Verify.Nonbinary.selCost (ClaudeWCT.W9.T3M.wtopHigh w) a + 6 ∧
+      TopEntry (writeHash t a) (T3.TopChoice.read (ClaudeWCT.W9.T3M.wtopHigh w) a) (trPc 0 c) s := by
+  have hc' : c < 128 := by have := BC.nCopy_eq; omega
+  have ha := topRowA_mem c hc'
+  have hal : 15272 ≤ topRowA c ∧ topRowA c ≤ 15528 ∧ topRowA c % 8 = 0 := by
+    simp only [Nonbinary.aVals, List.mem_cons, List.not_mem_nil, or_false] at ha; omega
+  obtain ⟨d, h12, hd⟩ := ht.dst (by decide +kernel)
+  change (d + 16 = topRowA c ∧ WIT + BC.layerEnd 0 + 16 ≤ topRowA c) ∨ d = topRowA c + 48 at hd
+  have hdA : d % 8 = 0 ∧ 0x1000 ≤ d ∧ d + 32 ≤ 0x7000 := by omega
+  have hk : KnownOK (BC.bK 0 c) (writeHash t a) := fun p hp => by rw [writeHash_getReg]; exact ht.glob.1 p hp
+  have hpc : (writeHash t a).pc = pcOf (trPc 0 c + 6) := by
+    rw [writeHash_pc, ht.pc]
+    change pcOf (trPc 0 c + 5) + 4 = pcOf (trPc 0 c + 6)
+    simpa only [Nat.add_assoc] using pcOf_add4 (trPc 0 c + 5)
+  have hglob := Glob_writeHash ht.glob a d h12 (safeDest_hi d (by unfold WLO WIT; omega) hdA.1 (by omega))
+  have hv := DigAt.writeHash_lo t a d h12 (by omega)
+  have h12s : (writeHash t a).getReg .x12 = BitVec.ofNat 64 d := by rw [writeHash_getReg]; exact h12
+  have hD := hglob.2.2.2.2.2
+  have h10 : (writeHash t a).getReg .x10 = BitVec.ofNat 64 (topRowA c) :=
+    hk (.x10, BitVec.ofNat 64 (rowA 0 c)) (by simp [BC.bK])
+  have hra : (writeHash t a).getReg .x9 = BitVec.ofNat 64 TOPB9 :=
+    hk (.x9, BitVec.ofNat 64 TOPB9) (by simp [BC.bK, T3M.bK, layK])
+  have h15 : (writeHash t a).getReg .x2 = 0x7fc00#64 :=
+    hk (.x2, 0x7fc00#64) (by simp [BC.bK, T3M.bK, layK])
+  have h4 : (writeHash t a).getReg .x4 = 24704#64 :=
+    hk (.x4, 24704#64) (by simp [BC.bK, T3M.bK, layK, bufferBias])
+  have h11 : (writeHash t a).getReg .x11 = 64#64 :=
+    hk (.x11, 64#64) (by simp [BC.bK, T3M.bK, layK])
+  have hmask : (writeHash t a).getMem 0xffbff8#64 = 520192#64 := hD.mask
+  have hhi := DigAt.writeHash_hi t a d h12 (by omega)
+  -- the choice hint byte (witness rel 21104 = abs 25232) is still the original witness byte
+  have hhint : (extractByte ((writeHash t a).getMem 25232#64) 0).getLsbD Nonbinary.selHintBit =
+      ClaudeWCT.W9.T3M.wtopHigh w := by
+    have ho := Orig_writeHash ht.bufferOrig a d h12 (by omega)
+    have hw := ho.word ClaudeWCT.W9.T3M.choiceOff (by decide) (by unfold WX; decide)
+      ⟨⟨by norm_num [BC.bufferStart, ClaudeWCT.W9.T3M.choiceOff], by norm_num [ClaudeWCT.W9.T3M.choiceOff]⟩,
+        Or.inr (by unfold WIT ClaudeWCT.W9.T3M.choiceOff; omega)⟩
+    rw [show (25232#64 : Word) = BitVec.ofNat 64 (WIT + ClaudeWCT.W9.T3M.choiceOff) from rfl, hw,
+      extractByte_wword_choice]
+    rfl
+  obtain ⟨z, ez, pz, lo, hi, tl, s3, mask, rz, fz⟩ := Verify.Nonbinary.prefix_head_spec
+    (writeHash t a) a (ClaudeWCT.W9.T3M.wtopHigh w) (topRowA c) d (trPc 0 c + 6) ha hpc (prefix_at c hc')
+    h12s hdA h11 h4 hra hmask h10 hhint hv hhi
+  have hn := Verify.Nonbinary.selCost_le (ClaudeWCT.W9.T3M.wtopHigh w) a
+  unfold Verify.Nonbinary.selMax at hn
+  refine ⟨_,z,ez,by omega,rfl,⟨pz,?_,lo,hi,tl,s3,mask,?_,?_,?_⟩⟩
+  · rw [rz.get (by decide),hra]
+  · rw [rz.get (by decide),h15]
+  · exact rz.mono (by simp [topEntryRegs])
+  · exact fz.mono (by simp)
+theorem topEntry_encoded {u s : MachineState} {v : Digest} {p : Nat} (he : TopEntry u v p s) :
+    Nonbinary.NCtx.Encoded (T3.topFlip v) s :=
+  ⟨by rw [he.lo, Verify.Nonbinary.flip_lo], by rw [he.hi, Verify.Nonbinary.flip_hi],
+    by rw [he.tail, Verify.Nonbinary.flip_tail], he.mask, he.table⟩
+end SigGolfCandidate.T3M
+end
+section
+namespace SigGolfCandidate.T3M
+open SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64 SigGolfCandidate.Rv
+open SigGolfCandidate.T3M.Verify
+open SigGolfCandidate.T3 (Digest route coreDigit)
+open Nonbinary (NCtx)
+set_option maxHeartbeats 800000
+set_option linter.unusedSimpArgs false
+def nctxOf (w : ClaudeWCT.W9.T3M.WBytes) (index : Nat) (v : Digest) (p : Nat) : NCtx :=
+  ⟨w, (route index 0).2, (route index 0).1, 14128, coreDigit 0 v, p + 8⟩
+theorem nctx_ok (w : ClaudeWCT.W9.T3M.WBytes) (index : Nat) (v : Digest) (c : Nat) (hidx : index < 2 ^ 31) :
+    (nctxOf w index v (trPc 0 c)).ok := by
+  have hp := trPc_lt 0 c
+  have ht : (route index 0).2 = 0 := by rw [route_snd]; exact Nat.div_eq_of_lt hidx
+  exact ⟨ht, leaf_lt index 0, by norm_num [nctxOf], by norm_num [nctxOf, Verify.WIT], by norm_num [nctxOf], by dsimp [nctxOf]; omega⟩
+theorem hyperWord_top_prefix (w : ClaudeWCT.W9.T3M.WBytes) (index : Nat) (v : Digest) (p : Nat) :
+    T3.hyperWord 0 (index / 2 ^ below 0) = BitVec.ofNat 64 ((nctxOf w index v p).prefix + 385) := by
+  have h1 : (route index 0).1 = index / 2 ^ 19 % 2 ^ 12 := route_fst index 0
+  have h2 : (route index 0).2 = index / 2 ^ (19 + 12) := route_snd index 0
+  unfold T3.hyperWord NCtx.prefix
+  simp only [nctxOf, h1, h2, show below 0 = 19 from rfl]
+  congr 1
+  norm_num
+  omega
+theorem nctx_known (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index c : Nat) (t s : MachineState) (a : BitVec 256)
+    (ht : BC.EncPre w pk index 0 c t)
+    (he : TopEntry (writeHash t a) (T3.TopChoice.read (ClaudeWCT.W9.T3M.wtopHigh w) a) (trPc 0 c) s) :
+    KnownOK (nctxOf w index (T3.TopChoice.read (ClaudeWCT.W9.T3M.wtopHigh w) a) (trPc 0 c)).known s := by
+  have hprefix : s.getReg .x28 =
+      BitVec.ofNat 64 ((nctxOf w index (T3.TopChoice.read (ClaudeWCT.W9.T3M.wtopHigh w) a) (trPc 0 c)).prefix + 385) := by
+    rw [he.regs.get (by simp [topEntryRegs]), writeHash_getReg, ht.word]
+    exact hyperWord_top_prefix w index _ _
+  intro p hp
+  simp only [NCtx.known, List.mem_cons, List.not_mem_nil, or_false] at hp
+  rcases hp with rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl
+  all_goals try exact he.s3
+  all_goals try exact he.ra
+  all_goals try exact hprefix
+  all_goals rw [he.regs.get (by simp [topEntryRegs]), writeHash_getReg]
+  all_goals exact ht.glob.1 _ (by simp [BC.bK, T3M.bK, layK, baseK, bufferBias])
+theorem topEntry_orig (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index c : Nat) (hc : c < nCopy 0)
+    (t s : MachineState) (a : BitVec 256)
+    (ht : BC.EncPre w pk index 0 c t)
+    (he : TopEntry (writeHash t a) (T3.TopChoice.read (ClaudeWCT.W9.T3M.wtopHigh w) a) (trPc 0 c) s) :
+    Verify.Orig w (fun o => 7664 ≤ o ∧ o < layerEnd 0) s := by
+  have hc' : c < 128 := by have := BC.nCopy_eq; omega
+  have ha := topRowA_mem c hc'
+  have hal : 15272 ≤ topRowA c ∧ topRowA c ≤ 15528 := by
+    simp only [Nonbinary.aVals, List.mem_cons, List.not_mem_nil, or_false] at ha; omega
+  obtain ⟨d, h12, hd⟩ := ht.dst (by decide +kernel)
+  change (d + 16 = topRowA c ∧ WIT + BC.layerEnd 0 + 16 ≤ topRowA c) ∨ d = topRowA c + 48 at hd
+  rw [show BC.layerEnd 0 = 11144 from rfl] at hd
+  have ho := Orig_writeHash ht.orig a d h12 (by omega)
+  have hu : Verify.Orig w (fun o => 7664 ≤ o ∧ o < layerEnd 0) (writeHash t a) :=
+    fun j hj hp => ho j hj ⟨hp, Or.inl (by
+      have hp2 := hp.2
+      have hle : layerEnd 0 = 11144 := rfl
+      rw [hle] at hp2
+      unfold WIT at *; omega)⟩
+  exact hu.frame (fun j hj hp => he.frame.get (by unfold WIT WX at *; omega) (by norm_num [WIT, layerEnd] at *; omega))
+theorem topEntry_bufferOrig (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index c : Nat) (hc : c < nCopy 0)
+    (t s : MachineState) (a : BitVec 256)
+    (ht : BC.EncPre w pk index 0 c t)
+    (he : TopEntry (writeHash t a) (T3.TopChoice.read (ClaudeWCT.W9.T3M.wtopHigh w) a) (trPc 0 c) s) :
+    Verify.Orig w (fun o => BC.bufferStart 0 ≤ o ∧ o < 21984) s := by
+  have hc' : c < 128 := by have := BC.nCopy_eq; omega
+  have ha := topRowA_mem c hc'
+  have hal : 15272 ≤ topRowA c ∧ topRowA c ≤ 15528 := by
+    simp only [Nonbinary.aVals, List.mem_cons, List.not_mem_nil, or_false] at ha; omega
+  obtain ⟨d, h12, hd⟩ := ht.dst (by decide +kernel)
+  change (d + 16 = topRowA c ∧ WIT + BC.layerEnd 0 + 16 ≤ topRowA c) ∨ d = topRowA c + 48 at hd
+  have ho := Orig_writeHash ht.bufferOrig a d h12 (by omega)
+  have hu : Verify.Orig w (fun o => BC.bufferStart 0 ≤ o ∧ o < 21984) (writeHash t a) :=
+    fun j hj hp => ho j hj ⟨hp, Or.inr (by
+      have hp1 := hp.1
+      norm_num [BC.bufferStart] at hp1
+      unfold WIT; omega)⟩
+  exact hu.frame (fun j hj hp => he.frame.get (by unfold WIT WX at *; omega) (by norm_num [WIT, BC.bufferStart] at *; omega))
+theorem nctx_orig (w : ClaudeWCT.W9.T3M.WBytes) (index : Nat) (v : Digest) (p : Nat) (s : MachineState)
+    (ho : Verify.Orig w (fun o => 7664 ≤ o ∧ o < layerEnd 0) s)
+    (hb : Verify.Orig w (fun o => BC.bufferStart 0 ≤ o ∧ o < 21984) s) (hD : DataOK s) :
+    (nctxOf w index v p).Orig0 s := by
+  refine ⟨⟨?_, ?_⟩, hD⟩
+  · intro i hi k hk
+    have hts := NCtx.topSlot_props i hi
+    apply origW_of ho _
+    all_goals simp only [NCtx.blk, nctxOf]
+    all_goals norm_num [WIT, WX, layerEnd] at *
+    all_goals omega
+  · intro i hi k hk
+    apply origW_of hb _
+    all_goals norm_num [Nonbinary.slot, WIT, WX, BC.bufferStart] at *
+    all_goals omega
+end SigGolfCandidate.T3M
+end

@@ -1,0 +1,74 @@
+import SigGolfCandidate.W9Machine_WctV3Source
+import SigGolfCandidate.W9Machine_WctPackedRuns
+import SigGolfCandidate.T3M_Verify_ChainSem
+set_option Elab.async false
+
+set_option autoImplicit false
+namespace W9Machine
+open SigGolfCandidate.T3M SigGolfCandidate.Rv RiscvZkvm.Rv64
+theorem chainPrefix_shift (index coord child : Nat) :
+    V3.chainPrefix index coord child = ((index <<< 11) ||| (coord + 1) ||| (child <<< 4)) <<< 16 := by
+  have hi : index <<< 27 = (index <<< 11) <<< 16 := by
+    simp only [Nat.shiftLeft_eq]; omega
+  have hc : child <<< 20 = (child <<< 4) <<< 16 := by
+    simp only [Nat.shiftLeft_eq]; omega
+  rw [Nat.shiftLeft_or_distrib, Nat.shiftLeft_or_distrib]
+  simp only [V3.chainPrefix, hi, hc]
+theorem chainPrefix_value (index coord child : Nat) (hk : coord < 9) (hj : child < 128) :
+    V3.chainPrefix index coord child = 65536 * (2048 * index + 16 * child + (coord + 1)) := by
+  rw [chainPrefix_shift, Nat.or_assoc, Nat.or_comm (coord + 1) (child <<< 4),
+    ← Nat.shiftLeft_add_eq_or_of_lt (by omega : coord + 1 < 2 ^ 4)]
+  have hl : (child <<< 4) + (coord + 1) < 2 ^ 11 := by
+    simp only [Nat.shiftLeft_eq]; omega
+  rw [← Nat.shiftLeft_add_eq_or_of_lt hl]
+  simp only [Nat.shiftLeft_eq]
+  omega
+theorem chainLow_add (index coord child chain digit : Nat) (hc : chain < 6) (hd : digit < 4) :
+    V3.chainLow index coord child chain digit =
+      V3.chainPrefix index coord child + (128 + 4 * chain + 256 * digit) := by
+  have hlo : 128 ||| (chain <<< 2) ||| (digit <<< 8) = 128 + 4 * chain + 256 * digit := by
+    interval_cases chain <;> interval_cases digit <;> decide
+  unfold V3.chainLow
+  rw [hlo, Nat.or_comm, chainPrefix_shift,
+    ← Nat.shiftLeft_add_eq_or_of_lt (by omega : 128 + 4 * chain + 256 * digit < 2 ^ 16)]
+theorem leafLow_eq (index coord child : Nat) (hi : index < 2 ^ 31) (hk : coord < 9) (hj : child < 128) :
+    V3.leafLow index coord child = 1537 + V3.chainPrefix index coord child := by
+  rw [chainPrefix_value _ _ _ hk hj]
+  unfold V3.leafLow ClaudeWCT.WCT9.ftsLeafLow
+  rw [Nat.mod_eq_of_lt (by omega : coord + 1 < 16), Nat.mod_eq_of_lt hj, Nat.mod_eq_of_lt hi]
+  omega
+theorem packedHeader_eval (s : MachineState) (index coord child chain digit : Nat)
+    (hp : s.getReg .x31 = BitVec.ofNat 64 (V3.leafLow index coord child))
+    (hi : index < 2 ^ 31) (hk : coord < 9) (hj : child < 128)
+    (hc : chain < 6) (hd : digit < 4) :
+    (packedHeader chain digit).eval s = BitVec.ofNat 64 (V3.chainLow index coord child chain digit) := by
+  simp only [packedHeader, addC_eval, E.eval, hp]
+  rw [leafLow_eq _ _ _ hi hk hj, chainLow_add _ _ _ _ _ hc hd, chainPrefix_value _ _ _ hk hj]
+  apply BitVec.eq_of_toNat_eq
+  simp only [BitVec.toNat_add, BitVec.toNat_sub, BitVec.toNat_ofNat]
+  have hc' : 128 + 4 * chain + 256 * digit < 1537 := by omega
+  rw [Nat.mod_eq_of_lt (by omega : 128 + 4 * chain + 256 * digit < 2 ^ 64),
+    Nat.mod_eq_of_lt (by omega : 1537 < 2 ^ 64),
+    Nat.mod_eq_of_lt (by omega : 1537 + 65536 * (2048 * index + 16 * child + (coord + 1)) < 2 ^ 64)]
+  omega
+theorem packedPos_eval (s : MachineState) (digit : Nat) (hd : digit < 4)
+    (h7 : s.getReg .x7 = 1) (h13 : s.getReg .x13 = 2) (h19 : s.getReg .x19 = 3) :
+    (packedPos digit).eval s = BitVec.ofNat 64 digit := by
+  interval_cases digit <;> simp [packedPos, E.eval, h7, h13, h19]
+theorem wct_header_step (k index child t old digit : Nat) (hk : k < 9)
+    (hi : index < 2 ^ 31) (hj : child < 128) (ht : t < 6) (ho : old < 4) (hd : digit < 4) :
+    StoreKind.merge .b (BitVec.ofNat 64 (V3.chainLow index k child t old)) 1
+      (BitVec.ofNat 64 digit) = BitVec.ofNat 64 (V3.chainLow index k child t digit) := by
+  have heq : ∀ d, d < 4 → V3.chainLow index k child t d =
+      (128 + 4 * t) + 256 * d + 2 ^ 16 * (2048 * index + 16 * child + (k + 1)) := by
+    intro d h
+    rw [chainLow_add _ _ _ _ _ ht h, chainPrefix_value _ _ _ hk hj]
+    omega
+  rw [heq old ho, heq digit hd]
+  apply stepByte _ (128 + 4 * t) (2048 * index + 16 * child + (k + 1)) digit
+    (by omega) (by omega) (by omega)
+  all_goals
+    rw [BitVec.toNat_ofNat, Nat.mod_eq_of_lt
+      (by omega : 128 + 4 * t + 256 * old + 2 ^ 16 * (2048 * index + 16 * child + (k + 1)) < 2 ^ 64)]
+    omega
+end W9Machine

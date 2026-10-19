@@ -1,0 +1,106 @@
+import SigGolfCandidate.T3M_Search_Decode
+set_option Elab.async false
+
+namespace SigGolfCandidate.T3M.Search
+open RiscvZkvm.Rv64 SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv SigGolfCandidate.Rv
+open SigGolfCandidate.T3 (Digest)
+abbrev TOP_DATA : Nat := 16773120
+def rankDigit (r i : Nat) : Nat := r / 5 ^ i % 5
+def rankWeight (r : Nat) : Nat := r % 5 + r / 5 % 5 + r / 25 % 5
+def rankLookup (r : Nat) : Nat := if r < 125 then rankWeight r else 255
+def topRank (v : Digest) (j : Nat) : Nat := v.toNat / 2 ^ (7 * j) % 128
+def rankDigits (v : Digest) : List Nat := (List.range 17).map (topRank v)
+/-- Campaign T8D (NF17): the raw radix-8 digits of chains 53 (bits 119..121), 51 (122..124) and 52 (125..127). -/
+def tailWeight (v : Digest) : Nat := v.toNat / 2 ^ 119 % 8 + v.toNat / 2 ^ 122 % 8 + v.toNat / 2 ^ 125 % 8
+def topLookupSum (v : Digest) : Nat := ((rankDigits v).map rankLookup).sum + tailWeight v
+def rankCredit (r : Nat) : Nat :=
+  (if r % 5 = 3 then 1 else 0) + (if r / 5 % 5 = 3 then 1 else 0) + (if r / 25 % 5 = 3 then 1 else 0)
+def tableByte (i : Nat) : BitVec 8 := BitVec.ofNat 8 <|
+  if i < 128 then rankLookup i
+  else if i < 628 then if (i - 128) % 4 < 3 then rankDigit ((i - 128) / 4) ((i - 128) % 4)
+    else rankCredit ((i - 128) / 4)
+  else 0
+/-- Campaign T8D: the flipped code of `T3.dummyTop` (30 threes, 21 twos, [4,4,5]) stored at TOP_DATA + 632. -/
+def dummyDigestNat : Nat := 237591654474925061491741830032548916957
+def cfByte (flag : Nat) (i : Nat) : BitVec 8 := BitVec.ofNat 8 <|
+  if i = 631 then flag
+  else if 632 ≤ i ∧ i < 648 then dummyDigestNat / 256 ^ (i - 632) % 256
+  else 0
+def CfTableOK (flag : Nat) (s : MachineState) : Prop :=
+  ∀ i, 628 ≤ i → i < 648 → s.getByte (BitVec.ofNat 64 (TOP_DATA + i)) = cfByte flag i
+theorem CfTableOK.frame {flag : Nat} {s t : MachineState} {W : Nat → Prop} (h : CfTableOK flag s)
+    (hf : Frame s t W) (hd : ∀ i, 628 ≤ i → i < 648 → ¬ W ((TOP_DATA + i) / 8 * 8)) : CfTableOK flag t := by
+  intro i hi hj
+  exact (hf.getByte (by unfold TOP_DATA; omega) (hd i hi hj)).trans (h i hi hj)
+def SumTableOK (s : MachineState) : Prop :=
+  ∀ i, i < 128 → s.getByte (BitVec.ofNat 64 (TOP_DATA + i)) = BitVec.ofNat 8 (rankLookup i)
+def TableOK (s : MachineState) : Prop :=
+  ∀ i, i < 628 → s.getByte (BitVec.ofNat 64 (TOP_DATA + i)) = tableByte i
+theorem TableOK.sum {s : MachineState} (h : TableOK s) : SumTableOK s := by
+  intro i hi
+  rw [h i (by omega)]
+  simp [tableByte, hi]
+theorem TableOK.frame {s t : MachineState} {W : Nat → Prop} (h : TableOK s)
+    (hf : Frame s t W) (hd : ∀ i, i < 628 → ¬ W ((TOP_DATA + i) / 8 * 8)) : TableOK t := by
+  intro i hi
+  exact (hf.getByte (by unfold TOP_DATA; omega) (hd i hi)).trans (h i hi)
+theorem SumTableOK.frame {s t : MachineState} {W : Nat → Prop} (h : SumTableOK s)
+    (hf : Frame s t W) (hd : ∀ i, i < 128 → ¬ W ((TOP_DATA + i) / 8 * 8)) : SumTableOK t := by
+  intro i hi
+  exact (hf.getByte (by unfold TOP_DATA; omega) (hd i hi)).trans (h i hi)
+theorem rankWeight_le (r : Nat) : rankWeight r ≤ 12 := by unfold rankWeight; omega
+theorem rankLookup_le (r : Nat) : rankLookup r ≤ 255 := by
+  unfold rankLookup
+  split_ifs
+  · have := rankWeight_le r; omega
+  · omega
+theorem rankLookup_bad (r : Nat) (h : ¬ r < 125) : rankLookup r = 255 := by simp [rankLookup, h]
+theorem topDigits_grouped (v : Digest) :
+    (topDigits (T3.topFlip v)).sum = ((rankDigits v).map rankWeight).sum + tailWeight v := by
+  simp only [topDigits, rankDigits, List.map_map, Function.comp_def, rankWeight, topRank, tailWeight,
+    List.range_succ, List.range_zero, List.nil_append, List.map_append, List.map_cons,
+    List.map_nil, List.sum_append, List.sum_cons, List.sum_nil]
+  norm_num [T3.coreDigit, T3.topCode_topFlip, T3.topRawShift]
+  omega
+theorem topRanksValid_iff (v : Digest) :
+    T3.topRanksValid (T3.topFlip v) = true ↔ ∀ r ∈ rankDigits v, r < 125 := by
+  simp [T3.topRanksValid, rankDigits, topRank, T3.topCode_topFlip]
+private theorem map_sum_entry_le {xs : List Nat} (f : Nat → Nat) {r : Nat} (h : r ∈ xs) :
+    f r ≤ (xs.map f).sum := by
+  induction xs with
+  | nil => simp at h
+  | cons a xs ih =>
+    simp only [List.mem_cons] at h
+    simp only [List.map_cons, List.sum_cons]
+    rcases h with rfl | h
+    · omega
+    · have := ih h; omega
+theorem topLookupSum_good (v : Digest) (h : T3.topRanksValid (T3.topFlip v) = true) :
+    topLookupSum v = (topDigits (T3.topFlip v)).sum := by
+  rw [topDigits_grouped]
+  unfold topLookupSum
+  apply congrArg (fun x : Nat => x + tailWeight v)
+  apply congrArg List.sum
+  apply List.map_congr_left
+  intro r hr
+  simp [rankLookup, (topRanksValid_iff v).mp h r hr]
+theorem topLookupSum_eq_iff (v : Digest) :
+    topLookupSum v = 146 ↔ T3.topRanksValid (T3.topFlip v) = true ∧ (topDigits (T3.topFlip v)).sum = 146 := by
+  constructor
+  · intro h
+    have hv : T3.topRanksValid (T3.topFlip v) = true := by
+      rw [topRanksValid_iff]
+      intro r hr
+      have hb := map_sum_entry_le rankLookup hr
+      by_contra hn
+      rw [rankLookup_bad r hn] at hb
+      unfold topLookupSum at h
+      omega
+    exact ⟨hv, (topLookupSum_good v hv).symm.trans h⟩
+  · rintro ⟨hv, hsum⟩
+    exact (topLookupSum_good v hv).trans hsum
+theorem decode_top_lookup (v : Digest) :
+    T3.decode 0 (T3.topFlip v) = if topLookupSum v = 146
+      then some (topDigits (T3.topFlip v)) else none := by
+  simp only [decode_top, topLookupSum_eq_iff]
+end SigGolfCandidate.T3M.Search
