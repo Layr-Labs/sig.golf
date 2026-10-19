@@ -1,0 +1,82 @@
+import SigGolfCandidate.ClaudeWCT_W9_T3_Secc_WotsMaskChain
+import SigGolfCandidate.T3_Secc_WotsMaskRest
+
+namespace ClaudeWCT.W9.T3.Security.Wots
+open OracleComp OracleSpec ENNReal
+attribute [local instance] Classical.propDecidable
+open SigGolfCandidate.T3 SigGolfCandidate.T3.Security SigGolfCandidate.T3.Security.Wots
+open ClaudeWCT.W9.T3M ClaudeWCT.W9.T3M.Final
+open SigGolfCandidate.T3M.SecurityInputs SigGolfCandidate.T3M.SecurityExtraction
+open SigGolfCandidate.T3.Correctness (Answers treeValue builtTree leafSeed leafEnd leafValue)
+open SphincsSecurity (bytesLE bytesLE_length bytesLE_injective)
+set_option maxHeartbeats 1000000
+set_option maxRecDepth 10000
+set_option linter.unusedSimpArgs false
+namespace Mask
+open SigGolfCandidate.T3.Security.Wots.Mask
+variable (a : ChainAddr)
+theorem slotAddr_lay : (slotAddr a).key.lay = a.key.lay := by
+  unfold slotAddr; split_ifs <;> rfl
+theorem untouchedP_chainInputW_of_lay {lay : Layer} (hl : lay ≠ a.key.lay) (tree leaf i s : Nat) (v : Digest) :
+    UntouchedP a (.inl (.inr (pad64 (WCT9.chainInputW lay tree leaf i s v)))) := by
+  intro step value _ heq
+  rw [pad64_chainInputW] at heq
+  exact hl (chainHeader_fields (chainInputW_fields heq).1).1
+theorem respectsP_chain_of_lay {lay : Layer} (hl : lay ≠ a.key.lay) (tree leaf i start count : Nat) (v : Digest) :
+    Respects (UntouchedP a) (WCT9.chainW lay tree leaf i start count v) :=
+  respects_chainW' _ _ _ _ _ _ _ fun step value _ _ => untouchedP_chainInputW_of_lay a hl _ _ _ _ _
+variable {T T' : Answers} (hT : ∀ q, UntouchedP a q → T q = T' q)
+include hT
+theorem wotsSeed_congr_of_lay {lay : Layer} (hl : lay ≠ a.key.lay) (tree leaf i : Nat) :
+    WCT9.wotsSeed T lay tree leaf i = WCT9.wotsSeed T' lay tree leaf i := by
+  apply wotsSeed_congr_cells
+  intro p
+  apply hT (.inr (.inl _))
+  intro h
+  apply hl
+  unfold seedTweakP seedTweak WCT9.lowerSeedHeader at h
+  split_ifs at h <;> exact lay_eq_of_header a h
+theorem wotsEnd_congr_of_lay {lay : Layer} (hl : lay ≠ a.key.lay) (tree leaf i : Nat) :
+    WCT9.wotsEnd T lay tree leaf i = WCT9.wotsEnd T' lay tree leaf i := by
+  unfold WCT9.wotsEnd
+  rw [wotsSeed_congr_of_lay a hT hl]
+  exact (respectsP_chain_of_lay a hl _ _ _ _ _ _).eval_eq hT
+theorem wotsRoot_congr_of_lay {lay : Layer} (hl : lay ≠ a.key.lay) (tree leaf : Nat) :
+    WCT9.wotsRoot T lay tree leaf = WCT9.wotsRoot T' lay tree leaf := by
+  unfold WCT9.wotsRoot
+  rw [List.map_congr_left (fun i _ => wotsEnd_congr_of_lay a hT hl tree leaf i)]
+  exact (respectsP_lowerLeafHash a _ _ _ _ (by
+    simp only [List.length_map, List.length_range]; exact SigGolfCandidate.T3.Security.Wots.Enc.chainCount_ge4 _)).eval_eq hT
+theorem wotsTree_congr_of_lay {lay : Layer} (hl : lay ≠ a.key.lay) (tree : Nat) :
+    WCT9.wotsTree T lay tree = WCT9.wotsTree T' lay tree := by
+  unfold WCT9.wotsTree
+  have hr : WCT9.wotsRoot T lay tree = WCT9.wotsRoot T' lay tree :=
+    funext (wotsRoot_congr_of_lay a hT hl tree)
+  rw [hr]
+  split_ifs
+  · exact (respectsP_buildTopLevels a _).eval_eq hT
+  · exact (respectsP_lowerLevels a _ _ _ (by fin_cases lay <;> decide) _
+      (by simp only [List.length_map, List.length_range]; exact le_rfl)).eval_eq hT
+theorem honestTop_congr (index : Nat) : Extract.honestTop T index = Extract.honestTop T' index := by
+  rw [Extract.honestTop_eq_wct9, Extract.honestTop_eq_wct9]
+  exact ClaudeWCT.WCT9.Wots.honestTop_congr (fun _ hq => hT _ (ftsQuery_untouchedP a hq))
+theorem leafMsg_congr : leafMsg T a.key = leafMsg T' a.key := by
+  unfold leafMsg
+  split
+  · rename_i h
+    unfold Extract.honestPair
+    rw [wotsTree_congr_of_lay a hT (fun he => by
+      have := congrArg Fin.val he
+      simp only at this
+      omega)]
+  · rw [honestTop_congr a hT _]
+theorem referenceSearch_congr : referenceSearch T a.key = referenceSearch T' a.key := by
+  unfold referenceSearch
+  rw [leafMsg_congr a hT]
+  exact (respectsP_layerCounterSearch a _ _ _ _ _ _).eval_eq hT
+end Mask
+theorem depth_congr (a : ChainAddr) (T T' : Answers) (hT : ∀ q, UntouchedP a q → T q = T' q) :
+    depth T a = depth T' a := by
+  unfold depth referenceDigits
+  rw [Mask.referenceSearch_congr a hT]
+end ClaudeWCT.W9.T3.Security.Wots

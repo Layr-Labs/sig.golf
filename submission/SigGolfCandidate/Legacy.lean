@@ -1,4 +1,4 @@
-import SigGolfCandidate.Legacy.Security
+import SigGolfCandidate.Legacy_Security
 
 section
 namespace SigGolfCandidate.Legacy
