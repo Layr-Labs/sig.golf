@@ -103,13 +103,14 @@ theorem leafInput_lists {lay : Layer} {tree leaf : Nat} {xs ys : List Digest} (h
     (h : pad64 (leafInput lay tree leaf xs) = pad64 (leafInput lay tree leaf ys)) : xs = ys := by
   unfold leafInput SigGolfCandidate.T3.leafInput at h
   split at h
-  · have hl : (zero16 ++ bytesLE 16 (leafTweak lay tree leaf) ++ xs.flatMap (bytesLE 16)).length =
-        (zero16 ++ bytesLE 16 (leafTweak lay tree leaf) ++ ys.flatMap (bytesLE 16)).length := by
+  · have hl : (zero16 ++ bytesLE 16 (leafTweak lay tree leaf) ++ zero16 ++ zero16 ++ xs.flatMap (bytesLE 16)).length =
+        (zero16 ++ bytesLE 16 (leafTweak lay tree leaf) ++ zero16 ++ zero16 ++ ys.flatMap (bytesLE 16)).length := by
       simp only [List.length_append, digest_list_bytes_length, hlen]
     have h' := Sampling.pad64_inj_of_length hl h
     obtain ⟨-, hr⟩ := List.append_inj h' (by simp only [List.length_append, bytesLE_length])
     exact flatMap_bytes_injective hlen hr
   · exact (listInput_lists (hdr := leafTweak lay tree leaf) (hdr' := leafTweak lay tree leaf) hlen hpos h).1
+
 theorem forestPk_extract (answers : Answers) (index : Nat) (pairs honest : List (Digest × Digest))
     (hlen : pairs.length = honest.length)
     (reaches : evalWithAnswerFn answers (WCT9.forestPk index pairs) =
@@ -396,18 +397,58 @@ theorem leafInputW_parse {lay : Layer} {tree leaf : Nat} {pad : Digest} {hi : Bi
   rw [leafInput, ← WCT9.leafInputW_zero] at h
   unfold WCT9.leafInputW at h
   split at h
-  · have hl : (bytesLE 16 pad ++ bytesLE 16 (WCT9.leafTweakW lay tree leaf hi) ++ ends.flatMap (bytesLE 16)).length =
-        (bytesLE 16 (0 : Digest) ++ bytesLE 16 (WCT9.leafTweakW lay tree leaf 0) ++
+  · have hl : (bytesLE 16 pad ++ bytesLE 16 (WCT9.leafTweakW lay tree leaf hi) ++ zero16 ++ zero16 ++
+          ends.flatMap (bytesLE 16)).length =
+        (bytesLE 16 (0 : Digest) ++ bytesLE 16 (WCT9.leafTweakW lay tree leaf 0) ++ zero16 ++ zero16 ++
           honest.flatMap (bytesLE 16)).length := by
       simp only [List.length_append, bytesLE_length, digest_list_bytes_length, hlen]
     have h' := Sampling.pad64_inj_of_length hl h
     obtain ⟨h1, hr⟩ := List.append_inj h' (by simp only [List.length_append, bytesLE_length])
+    obtain ⟨h1, -⟩ := List.append_inj h1 (by simp only [List.length_append, bytesLE_length])
+    obtain ⟨h1, -⟩ := List.append_inj h1 (by simp only [List.length_append, bytesLE_length])
     obtain ⟨hp, ht⟩ := List.append_inj h1 (by simp only [bytesLE_length])
     exact ⟨flatMap_bytes_injective hlen hr, (append64_inj (bytesLE_injective ht)).1, fun _ => bytesLE_injective hp⟩
   · rename_i h0
     obtain ⟨he, hh⟩ := listInput_lists (hdr := WCT9.leafTweakW lay tree leaf hi)
       (hdr' := WCT9.leafTweakW lay tree leaf 0) hlen hpos h
     exact ⟨he, (append64_inj hh).1, fun e => absurd e h0⟩
+/-- Campaign R6: the verifier's leaf input with the top leaf's 32-byte witness gap; equal padded inputs force the
+honest ends, a zero tweak high word, a zero top pad and a zero gap (SEC B9 / R5). -/
+theorem leafInputWG_parse {lay : Layer} {tree leaf : Nat} {pad : Digest} {hi : BitVec 64} {gap : Digest × Digest}
+    {ends honest : List Digest} (hlen : ends.length = honest.length) (hpos : 0 < honest.length)
+    (h : pad64 (WCT9.leafInputWG lay tree leaf pad hi gap ends) = pad64 (leafInput lay tree leaf honest)) :
+    ends = honest ∧ hi = 0 ∧ (lay = 0 → pad = 0) ∧ (lay = 0 → gap = (0, 0)) := by
+  rw [leafInput, ← WCT9.leafInputW_zero, ← WCT9.leafInputWG_zero] at h
+  unfold WCT9.leafInputWG at h
+  split at h
+  · have hl : (bytesLE 16 pad ++ bytesLE 16 (WCT9.leafTweakW lay tree leaf hi) ++ bytesLE 16 gap.1 ++
+          bytesLE 16 gap.2 ++ ends.flatMap (bytesLE 16)).length =
+        (bytesLE 16 (0 : Digest) ++ bytesLE 16 (WCT9.leafTweakW lay tree leaf 0) ++ bytesLE 16 (0 : Digest) ++
+          bytesLE 16 (0 : Digest) ++ honest.flatMap (bytesLE 16)).length := by
+      simp only [List.length_append, bytesLE_length, digest_list_bytes_length, hlen]
+    have h' := Sampling.pad64_inj_of_length hl h
+    obtain ⟨h1, hr⟩ := List.append_inj h' (by simp only [List.length_append, bytesLE_length])
+    obtain ⟨h1, hg2⟩ := List.append_inj h1 (by simp only [List.length_append, bytesLE_length])
+    obtain ⟨h1, hg1⟩ := List.append_inj h1 (by simp only [List.length_append, bytesLE_length])
+    obtain ⟨hp, ht⟩ := List.append_inj h1 (by simp only [bytesLE_length])
+    exact ⟨flatMap_bytes_injective hlen hr, (append64_inj (bytesLE_injective ht)).1, fun _ => bytesLE_injective hp,
+      fun _ => Prod.ext (bytesLE_injective hg1) (bytesLE_injective hg2)⟩
+  · rename_i h0
+    obtain ⟨he, hh⟩ := listInput_lists (hdr := WCT9.leafTweakW lay tree leaf hi)
+      (hdr' := WCT9.leafTweakW lay tree leaf 0) hlen hpos h
+    exact ⟨he, (append64_inj hh).1, fun e => absurd e h0, fun e => absurd e h0⟩
+theorem hdrBlock_leafInputWG (lay : Layer) (tree leaf : Nat) (pad : Digest) (hi : BitVec 64) (gap : Digest × Digest)
+    (ends : List Digest) :
+    hdrBlock (pad64 (WCT9.leafInputWG lay tree leaf pad hi gap ends)) =
+      bytesLE 16 (WCT9.leafTweakW lay tree leaf hi) := by
+  unfold WCT9.leafInputWG
+  split
+  · rw [hdrBlock_pad64 _ (by simp only [List.length_append, bytesLE_length]; omega), List.append_assoc,
+      List.append_assoc, List.append_assoc]
+    exact hdrBlock_prefix _ _ _
+  · rw [hdrBlock_pad64 _ (by simp only [List.length_append, bytesLE_length]; omega), List.append_assoc]
+    exact hdrBlock_prefix _ _ _
+
 theorem leafHashW_extract (answers : Answers) (lay : Layer) (tree leaf : Nat) (pad : Digest) (hi : BitVec 64)
     (ends honest : List Digest) (hlen : ends.length = honest.length) (hc : honest.length = chainCount lay)
     (reaches : evalWithAnswerFn answers (WCT9.leafHashW lay tree leaf pad hi ends) =
@@ -442,6 +483,44 @@ theorem leafHashW_extract (answers : Answers) (lay : Layer) (tree leaf : Nat) (p
       rw [SigGolfCandidate.T3M.Extract.bytesLE_header_words, SigGolfCandidate.T3M.Extract.bytesLE_header_words,
         List.take_left' (bytesLE_length 8 _), List.take_left' (bytesLE_length 8 _)]
     · unfold WCT9.leafHashW WCT9.lowerHash
+      rw [queried_halfHash]
+      exact List.mem_singleton_self _
+/-- Campaign R6: `leafHashW_extract` for the verifier leaf hash with the top leaf's 32-byte witness gap. -/
+theorem leafHashWG_extract (answers : Answers) (lay : Layer) (tree leaf : Nat) (pad : Digest) (hi : BitVec 64)
+    (gap : Digest × Digest) (ends honest : List Digest) (hlen : ends.length = honest.length)
+    (hc : honest.length = chainCount lay)
+    (reaches : evalWithAnswerFn answers (WCT9.leafHashWG lay tree leaf pad hi gap ends) =
+      evalWithAnswerFn answers (WCT9.lowerLeafHash lay tree leaf honest)) :
+    (ends = honest ∧ hi = 0 ∧ (lay = 0 → pad = 0) ∧ (lay = 0 → gap = (0, 0))) ∨
+      (HashHitH answers (WCT9.lowerHigh lay.val leaf) (pad64 (leafInput lay tree leaf honest))
+          (pad64 (WCT9.leafInputWG lay tree leaf pad hi gap ends)) ∧
+        SameHeader (pad64 (WCT9.leafInputWG lay tree leaf pad hi gap ends)) (pad64 (leafInput lay tree leaf honest)) ∧
+        .inl (.inr (pad64 (WCT9.leafInputWG lay tree leaf pad hi gap ends))) ∈
+          queried answers (WCT9.leafHashWG lay tree leaf pad hi gap ends)) := by
+  have hpos : 0 < honest.length := by rw [hc]; fin_cases lay <;> decide
+  by_cases heq : pad64 (WCT9.leafInputWG lay tree leaf pad hi gap ends) = pad64 (leafInput lay tree leaf honest)
+  · exact Or.inl (leafInputWG_parse hlen hpos heq)
+  · right
+    refine ⟨⟨heq, ?_⟩, ?_, ?_⟩
+    · rw [WCT9.lowerLeafHash_eq] at reaches
+      unfold WCT9.leafHashWG WCT9.lowerHash at reaches
+      rw [eval_halfHash, eval_halfHash] at reaches
+      exact reaches
+    · have hl : (pad64 (WCT9.leafInputWG lay tree leaf pad hi gap ends)).length =
+          (pad64 (leafInput lay tree leaf honest)).length :=
+        pad64_length_congr (by
+          rw [leafInputWG_length]; unfold leafInput
+          rw [SigGolfCandidate.T3.leafInput_length, SigGolfCandidate.T3.leafInput_length, hlen])
+      have hll : (pad64 (leafInput lay tree leaf honest)).length = 704 ∨
+          (pad64 (leafInput lay tree leaf honest)).length = 896 := by
+        rw [leafInput_padded_length lay tree leaf honest hc]; split <;> simp
+      refine ⟨hl, ?_⟩
+      unfold hdrKey
+      rw [if_pos (by rw [hl]; exact hll), if_pos hll, hdrBlock_leafInputWG, hdrBlock_leafInput]
+      unfold WCT9.leafTweakW leafTweak
+      rw [SigGolfCandidate.T3M.Extract.bytesLE_header_words, SigGolfCandidate.T3M.Extract.bytesLE_header_words,
+        List.take_left' (bytesLE_length 8 _), List.take_left' (bytesLE_length 8 _)]
+    · unfold WCT9.leafHashWG WCT9.lowerHash
       rw [queried_halfHash]
       exact List.mem_singleton_self _
 end halfPath

@@ -38,7 +38,7 @@ section main
 variable {sk : SecretKey} {s1 : MachineState} (hs : KStart sk s1)
 include hs
 theorem payload_tsim :
-    TSim image sk s1 473464973 480784511 983038 1036286 keygenPayload (PayloadPost sk) := by
+    TSim image sk s1 216223885 223629439 995326 1048574 keygenPayload (PayloadPost sk) := by
   unfold keygenPayload
   refine (TSim.bind (k₂ := 143458) (c₂ := 172123) (n₂ := 4095) (b₂ := 4095) (buildTopTree_tsim hs)
     (fun levels t ht => ?_)).of_eq rfl rfl rfl rfl rfl

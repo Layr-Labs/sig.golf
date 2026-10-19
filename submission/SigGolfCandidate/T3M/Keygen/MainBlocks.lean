@@ -14,7 +14,7 @@ theorem blk0_spec (s : MachineState) (hpc : s.pc = pcOf 0) :
     ∃ t, Steps image s 26 26 t ∧ t.pc = pcOf 26 ∧
       t.getReg .x2 = BitVec.ofNat 64 TOP ∧ t.getReg .x5 = 0 ∧ t.getReg .x8 = BitVec.ofNat 64 0 ∧
       t.getReg .x9 = BitVec.ofNat 64 0 ∧ t.getReg .x18 = BitVec.ofNat 64 0 ∧
-      t.getReg .x22 = BitVec.ofNat 64 ZDIG ∧ t.getReg .x26 = BitVec.ofNat 64 54 ∧
+      t.getReg .x22 = BitVec.ofNat 64 ZDIG ∧ t.getReg .x26 = BitVec.ofNat 64 52 ∧
       t.getReg .x27 = BitVec.ofNat 64 51 ∧ t.getReg .x31 = BitVec.ofNat 64 0 ∧
       t.getMem (BitVec.ofNat 64 PRIV) = s.getMem (BitVec.ofNat 64 0x80) ∧
       t.getMem (BitVec.ofNat 64 (PRIV + 8)) = s.getMem (BitVec.ofNat 64 0x88) ∧

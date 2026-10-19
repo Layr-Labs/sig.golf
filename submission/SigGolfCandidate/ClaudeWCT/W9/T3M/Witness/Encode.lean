@@ -105,17 +105,20 @@ def pairBytes {lay : Layer} (ls : LayerSignature lay) (p : Nat) : List UInt8 :=
 def lowerChainBytes {lay : Layer} (ls : LayerSignature lay) : List UInt8 :=
   (List.range 21).reverse.flatMap (pairBytes ls) ++ zeros 48 ++ bytesLE 16 (lsValue ls 0)
 /-- C4: the top region is the plan-placed path area followed by the top chain blocks; a lower region is its
-plan-placed path area (siblings, counter, row-tweak high word) followed by its chain blocks. -/
+plan-placed path area (siblings, counter, row-tweak high word) followed by its chain blocks. Campaign R6: the top
+chain area starts with the two dead blocks (128 zero bytes), so chains 0..51 keep main's blocks. -/
 def layerRegion (N : HashOutput) (w : WCT9.Witness) (lay : Layer) : List UInt8 :=
   if lay.val = 0 then
     topPathBytes (route (WCT9.digestIndex N) lay).1 (w.signature.layers lay) ++
+      zeros (64 * (topChainBlocks - chainCount lay)) ++
       (layerBytes lay (route (WCT9.digestIndex N) lay).1 (w.signature.layers lay)).drop (64 * height lay)
   else lowerPathBytes lay (route (WCT9.digestIndex N) lay).1 (w.signature.layers lay)
       (w.counters (Fin.ofNat 4 (lay.val - 1))) ++ lowerChainBytes (w.signature.layers lay)
 def endpointBytes (sig : WCT9.Signature) (lay : Layer) : List UInt8 :=
   (List.finRange (chainCount lay)).flatMap fun i => bytesLE 16 ((sig.layers lay).values i)
+/-- Campaign R6: the top leaf buffer is `0^16 | tweak (0^16 here) | gap 0^32 | end_0..end_51 | 0^16` (912 bytes). -/
 def leafBufferBytes (sig : WCT9.Signature) (lay : Layer) : List UInt8 :=
-  if lay = 0 then zeros 32 ++ endpointBytes sig lay ++ zeros 16
+  if lay = 0 then zeros 64 ++ endpointBytes sig lay ++ zeros 16
   else (endpointBytes sig lay).take 16 ++ zeros 16 ++ (endpointBytes sig lay).drop 16 ++
     zeros (if lay.val = 1 then 16 else 32)
 def leafBuffersBytes (sig : WCT9.Signature) : List UInt8 :=
@@ -153,6 +156,7 @@ def padDecP (N : HashOutput) (w : WBytes) : Pads where
   merkleHigh lay j := if j.val + 1 < height lay ∨ lay.val = 0 then
     wmerkleHigh w lay (route (WCT9.digestIndex N) lay).1 j.val else 0
   topLeaf := wtopLeafPad w
+  topGap := wtopLeafGap w
   leafHigh lay := wleafHigh w lay
   bcHigh lay := wbcHigh w (WCT9.digestIndex N) lay ^^^ 1
 @[simp] theorem valueP_dec (N : HashOutput) (w : WBytes) (lay : Layer) (digits : List Nat)
@@ -286,7 +290,7 @@ def ftsStep (w : WBytes) (output : HashOutput) (state : Option (List (Digest × 
   pure (some (pairs ++ [pair]))
 
 def ftsP (w : WBytes) (output : HashOutput) : M (Option (Digest × Digest)) := do
-  if !(decide (output.toNat / 2^242 % 16384 < 734) : Bool) then return none
+  if !(decide (output.toNat / 2^242 % 16384 < 804) : Bool) then return none
   let some pairs ← (List.finRange 9).foldlM (ftsStep w output) (some []) | pure none
   pure (some (pairs.getLastD (SharedV3.initialPair w)))
 
@@ -399,14 +403,14 @@ theorem fts_fold_success (answers : Answers) (w : WBytes) (output : HashOutput) 
 
 theorem ftsP_success (answers : Answers) (w : WBytes) (output : HashOutput) (top : Digest × Digest)
     (h : evalWithAnswerFn answers (ftsP w output) = some top) :
-    output.toNat / 2^242 % 16384 < 734 ∧
+    output.toNat / 2^242 % 16384 < 804 ∧
     (∀ coord : Fin 9, rawForestRank output coord.val < 563) ∧
     evalWithAnswerFn answers (SharedV3.forest w (WCT9.digestIndex output)
       (rawChildFromOutput output) (fun k => WCT9.embed (forestRank output k.val))) = top ∧
     queried answers (SharedV3.forest w (WCT9.digestIndex output)
       (rawChildFromOutput output) (fun k => WCT9.embed (forestRank output k.val))) =
       queried answers (ftsP w output) := by
-  have hg : output.toNat / 2^242 % 16384 < 734 := by
+  have hg : output.toNat / 2^242 % 16384 < 804 := by
     by_contra hn
     simp only [ftsP, hn, decide_false, Bool.not_false, ↓reduceIte, evalWithAnswerFn_pure] at h
     cases h

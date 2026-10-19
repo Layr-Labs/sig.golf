@@ -75,12 +75,13 @@ theorem sum_add_four_zero_le : ∀ (ds ms : List Nat), ds.length = ms.length →
   | [], _ :: _, hl, _, _ => by simp at hl
   | _ :: _, [], hl, _, _ => by simp at hl
 
-theorem top_capacity : ((List.range (chainCount 0)).map (maxDigit 0)).sum = 225 := by decide
+/-- Campaign R6: 24·5 + 27·4 + 7. -/
+theorem top_capacity : ((List.range (chainCount 0)).map (maxDigit 0)).sum = 235 := by decide
 
 theorem top_maxDigit_ge (i : Nat) : 4 ≤ maxDigit 0 i := by unfold maxDigit; split_ifs <;> omega
 
-/-- **At most 20 revealed seeds per top leaf** (for top targets `≥ 142`). -/
-theorem top_zero_count_le (htarget : 142 ≤ target 0) {value : Digest} {digits : List Nat}
+/-- **At most 20 revealed seeds per top leaf** (structural; campaign R6: for top targets `≥ 153`, capacity 235). -/
+theorem top_zero_count_le (htarget : 153 ≤ target 0) {value : Digest} {digits : List Nat}
     (h : decode 0 value = some digits) : (digits.filter (· = 0)).length ≤ 20 := by
   obtain ⟨hlen, hsum⟩ := decode_length_sum h
   have key := sum_add_four_zero_le digits ((List.range (chainCount 0)).map (maxDigit 0)) (by simp [hlen])

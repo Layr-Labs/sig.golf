@@ -31,9 +31,7 @@ theorem length_openings (s : WCT9.Signature) :
   rw [List.length_flatMap]
   simp only [List.map_ofFn, Function.comp_def, length_openingList]
   rfl
-theorem length_sigDigests (s : WCT9.Signature) : (sigDigests s).length = 332 := by
-  simp only [sigDigests, List.length_append, List.length_singleton, length_openings, length_layerList]
-  rfl
+
 def layIdx (lay : Layer) : Nat := (![118, 184, 234, 283] : Layer → Nat) lay
 section getD
 theorem getD_flatMap_chunks {α β : Type} (f : α → List β) (n : Nat) (d : β) (hf : ∀ a, (f a).length = n) :
@@ -74,36 +72,7 @@ theorem sigDigests_tail (k : Nat) (hk : 118 ≤ k) : (sigDigests s).getD k 0 =
   unfold sigDigests
   rw [getD_append_right' (by simp only [List.length_append, List.length_singleton, length_openings]; omega)]
   simp only [List.length_append, List.length_singleton, length_openings]
-theorem sigDigests_layer (lay : Layer) (i : Nat) (hi : i < chainCount lay + height lay) :
-    (sigDigests s).getD (layIdx lay + i) 0 = (layerList s lay).getD i 0 := by
-  have l0 := length_layerList s 0
-  have l1 := length_layerList s 1
-  have l2 := length_layerList s 2
-  rw [chainCount_0, height_0] at l0
-  rw [chainCount_1, height_1] at l1
-  rw [chainCount_2, height_2] at l2
-  fin_cases lay
-  · show (sigDigests s).getD (118 + i) 0 = (layerList s 0).getD i 0
-    have hi' : i < 66 := hi
-    rw [sigDigests_tail s _ (by omega), show 118 + i - 118 = i by omega, getD_append_left' (by omega)]
-  · show (sigDigests s).getD (184 + i) 0 = (layerList s 1).getD i 0
-    have hi' : i < 50 := hi
-    rw [sigDigests_tail s _ (by omega), getD_append_right' (by omega), l0, getD_append_left' (by omega),
-      show 184 + i - 118 - 66 = i by omega]
-  · show (sigDigests s).getD (234 + i) 0 = (layerList s 2).getD i 0
-    have hi' : i < 49 := hi
-    rw [sigDigests_tail s _ (by omega), getD_append_right' (by omega), l0, getD_append_right' (by omega), l1,
-      getD_append_left' (by omega), show 234 + i - 118 - 66 - 50 = i by omega]
-  · show (sigDigests s).getD (283 + i) 0 = (layerList s 3).getD i 0
-    rw [sigDigests_tail s _ (by omega), getD_append_right' (by omega), l0, getD_append_right' (by omega), l1,
-      getD_append_right' (by omega), l2, show 283 + i - 118 - 66 - 50 - 49 = i by omega]
-theorem sigDigests_layValue (lay : Layer) (i : Nat) (hi : i < chainCount lay) :
-    (sigDigests s).getD (layIdx lay + i) 0 = (s.layers lay).values ⟨i, hi⟩ := by
-  rw [sigDigests_layer s lay i (by omega), layerList, getD_append_left' (by simpa using hi), getD_ofFn']
-theorem sigDigests_layPath (lay : Layer) (j : Nat) (hj : j < height lay) :
-    (sigDigests s).getD (layIdx lay + (chainCount lay + j)) 0 = (s.layers lay).path ⟨j, hj⟩ := by
-  rw [sigDigests_layer s lay _ (by omega), layerList, getD_append_right' (by simp), List.length_ofFn,
-    Nat.add_sub_cancel_left, getD_ofFn']
+
 end getD
 def sigDig (b : Bytes 5312) (k : Nat) : Digest := b.extractLsb' (128 * k) 128
 def sigDec (b : Bytes 5312) : WCT9.Signature where
@@ -112,97 +81,9 @@ def sigDec (b : Bytes 5312) : WCT9.Signature where
   layers := fun lay => ⟨fun i => sigDig b (layIdx lay + i.val), fun j => sigDig b (layIdx lay + (chainCount lay + j.val))⟩
 theorem pow_5312 : (2 : Nat) ^ (8 * 5312) = 2 ^ (128 * 332) := congrArg (fun n => 2 ^ n) rfl
 def sigB (s : WCT9.Signature) : Bytes 5312 := BitVec.ofNat _ (readLE (WCT9.serialize s))
-set_option exponentiation.threshold 50000 in
-theorem sigB_toNat (s : WCT9.Signature) : (sigB s).toNat = digNat (sigDigests s) := by
-  have hlt := digNat_lt (sigDigests s)
-  rw [length_sigDigests] at hlt
-  rw [sigB, BitVec.toNat_ofNat, serialize_eq, ← digNat, Nat.mod_eq_of_lt (lt_of_lt_of_eq hlt pow_5312.symm)]
 theorem sigDig_toNat (b : Bytes 5312) (k : Nat) : (sigDig b k).toNat = b.toNat / 2 ^ (128 * k) % 2 ^ 128 := by
   rw [sigDig, BitVec.extractLsb'_toNat, Nat.shiftRight_eq_div_pow]
-theorem sigDig_sigB (s : WCT9.Signature) (k : Nat) : sigDig (sigB s) k = (sigDigests s).getD k 0 := by
-  apply BitVec.eq_of_toNat_eq
-  rw [sigDig_toNat, sigB_toNat, digNat_digit]
-theorem sigDec_sigB (s : WCT9.Signature) : sigDec (sigB s) = s := by
-  have hd := sigDig_sigB s
-  have hr := sigDigests_rho s
-  have hv := sigDigests_value s
-  have hp := sigDigests_path s
-  have hlv := sigDigests_layValue s
-  have hlp := sigDigests_layPath s
-  rcases s with ⟨rho, openings, layers⟩
-  generalize sigB ⟨rho, openings, layers⟩ = b at hd ⊢
-  unfold sigDec
-  congr 1
-  · rw [hd]; exact hr
-  · funext k
-    have hv' := hv k
-    have hp' := hp k
-    simp only at hv' hp'
-    rcases ho : openings k with ⟨vals, path⟩
-    rw [ho] at hv' hp'
-    congr 1
-    · funext t; rw [hd]; exact hv' t
-    · funext l; rw [hd]; exact hp' l
-  · funext lay
-    have hv' := hlv lay
-    have hpa' := hlp lay
-    simp only at hv' hpa'
-    rcases hl : layers lay with ⟨vals, path⟩
-    rw [hl] at hv' hpa'
-    congr 1
-    · funext i; rw [hd]; exact hv' i.val i.isLt
-    · funext j; rw [hd]; exact hpa' j.val j.isLt
-theorem sigDigests_sigDec (b : Bytes 5312) (k : Nat) (hk : k < 332) :
-    (sigDigests (sigDec b)).getD k 0 = sigDig b k := by
-  by_cases h0 : k = 0
-  · subst h0; exact sigDigests_rho _
-  by_cases h1 : k < 118
-  · have hq : (k - 1) / 13 < 9 := by omega
-    have e : k = 1 + 13 * (⟨(k - 1) / 13, hq⟩ : WCT9.Coord).val + (k - 1) % 13 := by simp; omega
-    by_cases hr : (k - 1) % 13 < 6
-    · have := sigDigests_value (sigDec b) ⟨(k - 1) / 13, hq⟩ ⟨(k - 1) % 13, hr⟩
-      simp only at this
-      rw [← e] at this
-      rw [this]
-      show sigDig b (1 + 13 * ((k - 1) / 13) + (k - 1) % 13) = sigDig b k
-      rw [← e]
-    · have := sigDigests_path (sigDec b) ⟨(k - 1) / 13, hq⟩ ⟨(k - 1) % 13 - 6, by omega⟩
-      simp only at this
-      rw [show 1 + 13 * ((k - 1) / 13) + 6 + ((k - 1) % 13 - 6) = k by omega] at this
-      rw [this]
-      show sigDig b (1 + 13 * ((k - 1) / 13) + 6 + ((k - 1) % 13 - 6)) = sigDig b k
-      rw [show 1 + 13 * ((k - 1) / 13) + 6 + ((k - 1) % 13 - 6) = k by omega]
-  have key : ∀ (lay : Layer) (i : Nat), i < chainCount lay + height lay → layIdx lay + i = k →
-      (sigDigests (sigDec b)).getD k 0 = sigDig b k := by
-    intro lay i hi he
-    subst he
-    rw [sigDigests_layer _ lay i hi]
-    unfold layerList
-    by_cases hc : i < chainCount lay
-    · rw [getD_append_left' (by simpa using hc), getD_ofFn' _ i hc]; rfl
-    · rw [getD_append_right' (by simp; omega), List.length_ofFn, getD_ofFn' _ (i - chainCount lay) (by omega)]
-      show sigDig b (layIdx lay + (chainCount lay + (i - chainCount lay))) = _
-      rw [show chainCount lay + (i - chainCount lay) = i by omega]
-  by_cases h3 : k < 184
-  · exact key 0 (k - 118) (by rw [chainCount_0, height_0]; omega) (by simp [layIdx]; omega)
-  by_cases h4 : k < 234
-  · exact key 1 (k - 184) (by rw [chainCount_1, height_1]; omega) (by simp [layIdx]; omega)
-  by_cases h5 : k < 283
-  · exact key 2 (k - 234) (by rw [chainCount_2, height_2]; omega) (by simp [layIdx]; omega)
-  · exact key 3 (k - 283) (by rw [chainCount_3, height_3]; omega) (by simp [layIdx]; omega)
-set_option exponentiation.threshold 50000 in
-theorem sigB_sigDec (b : Bytes 5312) : sigB (sigDec b) = b := by
-  apply BitVec.eq_of_toNat_eq
-  rw [sigB_toNat]
-  apply digNat_eq_of_digits
-  · rw [length_sigDigests]; exact lt_of_lt_of_eq b.isLt pow_5312
-  · intro k hk
-    rw [length_sigDigests] at hk
-    rw [sigDigests_sigDec b k hk, sigDig_toNat]
-theorem sigB_injective : Function.Injective sigB := fun s t h => by
-  rw [← sigDec_sigB s, ← sigDec_sigB t, h]
-theorem sigDec_injective : Function.Injective sigDec := fun a b h => by
-  rw [← sigB_sigDec a, ← sigB_sigDec b, h]
+
 theorem sigDig_lo (b : Bytes 5312) (k : Nat) : (sigDig b k).extractLsb' 0 64 = b.extractLsb' (64 * (2 * k)) 64 := by
   apply BitVec.eq_of_toNat_eq
   simp only [sigDig, BitVec.extractLsb'_toNat, Nat.shiftRight_eq_div_pow, pow_zero, Nat.div_one]

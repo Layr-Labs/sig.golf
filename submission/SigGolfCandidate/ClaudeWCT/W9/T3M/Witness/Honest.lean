@@ -23,6 +23,8 @@ set_option linter.unusedSimpArgs false
 @[simp] theorem Pads.zero_toT3 : (0 : Pads).toT3 = 0 := rfl
 @[simp] theorem Pads.zero_merkleHigh (lay : Layer) (j : Fin (height lay)) : (0 : Pads).merkleHigh lay j = 0 := rfl
 @[simp] theorem Pads.zero_topLeaf : (0 : Pads).topLeaf = 0 := rfl
+/-- Campaign R6: the honest top-leaf gap is `(0, 0)`. -/
+@[simp] theorem Pads.zero_topGap : (0 : Pads).topGap = (0, 0) := rfl
 @[simp] theorem Pads.zero_leafHigh (lay : Layer) : (0 : Pads).leafHigh lay = 0 := rfl
 @[simp] theorem Pads.zero_bcHigh (lay : Layer) : (0 : Pads).bcHigh lay ^^^ 1 = 1 := by
   show (0 : BitVec 64) ^^^ 1 = 1; decide
@@ -129,8 +131,9 @@ theorem verifyTopP_zero (sig : WCT9.Signature) (index : Nat) (answer : Digest) (
     verifyTopP sig 0 index answer = WCT9.verifyTop sig index answer := by
   simp only [verifyTopP, WCT9.verifyTop, Pads.zero_chain', Pads.zero_chainHeader, valueP_zero,
     chainP_zero_route _ _ _ _ _ hindex, Pads.zero_merkle', Pads.zero_merkleHigh, ← WCT9.lowerNodeHash_eqP',
-    Fin.val_zero, WCT9.lowerNodeHash_top, Pads.zero_topLeaf, Pads.zero_leafHigh, leafHashW_zero,
-    WCT9.lowerLeafHash_top]
+    Fin.val_zero, WCT9.lowerNodeHash_top, Pads.zero_topLeaf, Pads.zero_topGap, WCT9.leafHashWG_zero,
+    Pads.zero_leafHigh, leafHashW_zero, WCT9.lowerLeafHash_top]
+
 theorem verifyLayersBCP_zero (w : WCT9.Witness) (index : Nat) (hindex : index < 2 ^ 31) : ∀ n, n ≤ 4 → ∀ msg,
     verifyLayersBCP w 0 index n msg = WCT9.verifyLayersBC w index n msg := by
   intro n
@@ -445,9 +448,13 @@ theorem layerRegion_length (N : HashOutput) (w : WCT9.Witness) (lay : Layer) :
   · rename_i h
     have hl : lay = 0 := Fin.ext h
     subst hl
-    rw [List.length_append, topPathBytes_length, List.length_drop, layerBytes_length, top_path_eq]
-    simp; ring
+    have hz : (zeros (64 * (topChainBlocks - chainCount 0))).length = 128 := by
+      rw [show chainCount 0 = 52 from rfl, show topChainBlocks = 54 from rfl]; simp [zeros]
+    rw [List.length_append, List.length_append, topPathBytes_length, hz, List.length_drop, layerBytes_length,
+      show chainCount 0 = 52 from rfl, show topChainBlocks = 54 from rfl, show height 0 = 12 from rfl,
+      show pathSlots 0 = 48 from rfl]
   · rw [List.length_append, lowerPathBytes_length, lowerChainBytes_length]
+
 theorem endpointBytes_length (sig : WCT9.Signature) (lay : Layer) :
     (endpointBytes sig lay).length = 16 * chainCount lay := by
   simp [endpointBytes, List.length_flatMap, bytesLE_length, List.sum_replicate, Nat.mul_comm]
@@ -696,14 +703,22 @@ theorem win_chain (N : HashOutput) (w : WCT9.Witness) (lay : Layer) (i : Fin (ch
   · rename_i h
     have hl : lay = 0 := Fin.ext h
     subst hl
-    rw [window_append_right _ _ _ _ (by rw [topPathBytes_length]; omega), topPathBytes_length,
-      Nat.add_sub_cancel_left]
+    have hc52 : chainCount 0 = 52 := rfl
+    have htb : topChainBlocks = 54 := rfl
+    have hi52 : i.val < 52 := lt_of_lt_of_eq i.isLt hc52
+    have hz : (zeros (64 * (topChainBlocks - chainCount 0))).length = 128 := by
+      rw [hc52, htb]; simp [zeros]
+    have hcs : chainSlot 0 i.val = 64 * (53 - i.val) := by
+      show 64 * (topChainBlocks - 1 - i.val) = _; rw [htb]
+    rw [window_append_right _ _ _ _ (by rw [List.length_append, topPathBytes_length, hz, hcs]; omega),
+      List.length_append, topPathBytes_length, hz, hcs,
+      show 16 * pathSlots 0 + (64 * (53 - i.val) + o) - (16 * pathSlots 0 + 128) =
+        64 * (chainCount 0 - 1 - i.val) + o by omega]
     have hc : chainCell 0 (w.signature.layers 0) i.val = zeros 48 ++ bytesLE 16 ((w.signature.layers 0).values i) := by
       simp [chainCell, lsValue, hi]
     rw [hc]
     unfold window
-    rw [List.drop_drop, show chainSlot 0 i.val = 64 * (chainCount 0 - 1 - i.val) from rfl,
-      show 64 * height 0 + (64 * (chainCount 0 - 1 - i.val) + o) =
+    rw [List.drop_drop, show 64 * height 0 + (64 * (chainCount 0 - 1 - i.val) + o) =
       64 * height 0 + 64 * (chainCount 0 - 1 - i.val) + o by omega]
     exact layerBytes_chain _ _ _ i o ho
   · rename_i h
@@ -712,6 +727,7 @@ theorem win_chain (N : HashOutput) (w : WCT9.Witness) (lay : Layer) (i : Fin (ch
     rw [window_append_right _ _ _ _ (by rw [lowerPathBytes_length]; omega), lowerPathBytes_length,
       Nat.add_sub_cancel_left]
     exact lowerChain_window hl _ i.val hi43 o ho
+
 section t3
 variable (N : HashOutput) (w : WCT9.Witness)
 theorem wvalue_witEnc (lay : Layer) (i : Fin (chainCount lay)) :
@@ -1103,7 +1119,9 @@ theorem win_topPath (N : HashOutput) (w : WCT9.Witness) (o m : Nat) (h : o + m �
   rw [win_layerRegion N w 0 o m (by rw [pathSlots_top]; omega)]
   unfold layerRegion
   rw [if_pos (show (0 : Layer).val = 0 from rfl),
+    window_append_left _ _ _ _ (by rw [List.length_append, topPathBytes_length, pathSlots_top]; omega),
     window_append_left _ _ _ _ (by rw [topPathBytes_length, pathSlots_top]; exact h)]
+
 section t3b
 variable (N : HashOutput) (w : WCT9.Witness)
 theorem wpath_witEnc (lay : Layer) (j : Fin (height lay)) :
@@ -1657,9 +1675,10 @@ theorem win_endpointBytes (sig : WCT9.Signature) (lay : Layer) (i : Fin (chainCo
     i.val (by simpa using i.isLt) 0 16 (by omega)
   simpa [endpointBytes, window_full _ _ (bytesLE_length _ _)] using h
 
+/-- Campaign R6: top end `i` at offset `64 + 16 i` of the top leaf buffer (after the 32-byte gap). -/
 theorem win_leafBufferBytes (sig : WCT9.Signature) (lay : Layer) (i : Fin (chainCount lay)) :
     window (leafBufferBytes sig lay)
-      (if lay = 0 then 32 + 16 * i.val else if i.val = 0 then 0 else 16 + 16 * i.val) 16 =
+      (if lay = 0 then 64 + 16 * i.val else if i.val = 0 then 0 else 16 + 16 * i.val) 16 =
       bytesLE 16 ((sig.layers lay).values i) := by
   have hi := i.isLt
   have hc : 0 < chainCount lay := by fin_cases lay <;> decide
@@ -1699,7 +1718,7 @@ theorem win_leafBuffersBytes (sig : WCT9.Signature) (lay : Layer) (i : Fin (chai
       (fun l => (leafBufferBytes sig l).length)).sum = leafBufferBase lay - 20104 := by
     simp only [leafBufferBytes_length]
     fin_cases lay <;> decide
-  let off := if lay = 0 then 32 + 16 * i.val else if i.val = 0 then 0 else 16 + 16 * i.val
+  let off := if lay = 0 then 64 + 16 * i.val else if i.val = 0 then 0 else 16 + 16 * i.val
   have hb : off + 16 ≤ (leafBufferBytes sig lay).length := by
     rw [leafBufferBytes_length]
     fin_cases lay <;> norm_num [off, leafBufferLen, chainCount] at *
@@ -1714,6 +1733,7 @@ theorem win_leafBuffersBytes (sig : WCT9.Signature) (lay : Layer) (i : Fin (chai
     omega
   rw [hoff]
   exact h.trans (win_leafBufferBytes sig lay i)
+
 theorem win_leafBuffer (N : HashOutput) (w : WCT9.Witness) (lay : Layer) (o n : Nat) (h : o + n ≤ leafBufferLen lay) :
     window (witList N w) (leafBufferBase lay + o) n = window (leafBufferBytes w.signature lay) o n := by
   have hidx : 3 - lay.val < (List.finRange 4).reverse.length := by simp; omega
@@ -1773,9 +1793,19 @@ theorem wbuffer_witEnc (N : HashOutput) (w : WCT9.Witness) (lay : Layer)
   rw [window_append_left _ _ _ _ (by rw [leafBuffersBytes_length]; omega)]
   rw [show 80 + 8016 + 12008 = 20104 by decide,
     win_leafBuffersBytes, Correctness.readDigest_bytesLE]
+/-- Campaign R6: the honest top-leaf gap (witness bytes 22328..22359) is zero. -/
+theorem wtopLeafGap_witEnc (N : HashOutput) (w : WCT9.Witness) : wtopLeafGap (witEnc N w) = (0, 0) := by
+  have hz : ∀ o, o + 16 ≤ 64 → wdig (witEnc N w) (leafBufferBase 0 + o) = 0 := by
+    intro o ho
+    rw [wdig_witEnc, win_leafBuffer N w 0 o 16 (by simp [leafBufferLen] <;> omega)]
+    unfold leafBufferBytes
+    rw [if_pos rfl, window_append_left _ _ _ _ (by simp only [List.length_append, zeros, List.length_replicate]; omega),
+      window_append_left _ _ _ _ (by simp [zeros]; omega), window_zeros _ _ _ (by omega), readDigest_zeros]
+  unfold wtopLeafGap
+  rw [hz 32 (by norm_num), hz 48 (by norm_num)]
 theorem padDecP_witEnc (N : HashOutput) (w : WCT9.Witness) : padDecP N (witEnc N w) = 0 := by
   unfold padDecP
-  show Pads.mk _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ = Pads.mk _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+  show Pads.mk _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ = Pads.mk _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
   congr 1
   · funext k t; exact wcpads_witEnc N w k t
   · funext k t; exact wcHeaderPad_witEnc N w k t
@@ -1803,8 +1833,10 @@ theorem padDecP_witEnc (N : HashOutput) (w : WCT9.Witness) : padDecP N (witEnc N
     · rename_i h; exact wmerkleHigh_witEnc N w lay j h
     · rfl
   · exact wtopLeafPad_witEnc N w
+  · exact wtopLeafGap_witEnc N w
   · funext lay; exact wleafHigh_witEnc N w lay
   · funext lay; rw [wbcHigh_witEnc N w lay]; decide
+
 end ClaudeWCT.W9.T3M
 end
 section
@@ -2130,7 +2162,8 @@ theorem merkleBlock_le (lay : Layer) (leaf j : Nat) : merkleBlock lay leaf j + 6
 /-- Every chain block lies below the top leaf buffer. -/
 theorem chainBlock_le (lay : Layer) (i : Nat) : chainBlock lay i + 64 ≤ 22296 := by
   unfold chainBlock chainSlot
-  fin_cases lay <;> simp [layerBase, pathSlots, chainCount] <;> (try split_ifs) <;> omega
+  fin_cases lay <;> simp [layerBase, pathSlots, chainCount, topChainBlocks] <;> (try split_ifs) <;> omega
+
 theorem leafBufferSlot_choice (lay : Layer) (i : Nat) (hi : i < chainCount lay) :
     (leafBufferSlot lay i + 16 ≤ choiceOff ∨ choiceOff < leafBufferSlot lay i) ∧
       leafBufferSlot lay i + 16 ≤ 23236 := by
@@ -3372,6 +3405,12 @@ theorem topLeafPad_tail (a b : WBytes) (h : TailAgree a b) : wtopLeafPad a=wtopL
   unfold wtopLeafPad
   exact h _ (by decide) (Or.inl (by decide))
 
+/-- Campaign R6: the top-leaf gap lies in the retained tail (above the choice byte). -/
+theorem topLeafGap_tail (a b : WBytes) (h : TailAgree a b) : wtopLeafGap a=wtopLeafGap b := by
+  unfold wtopLeafGap
+  rw [h (leafBufferBase 0 + 32) (by decide) (Or.inr (by decide)),
+    h (leafBufferBase 0 + 48) (by decide) (Or.inr (by decide))]
+
 theorem merkleHigh_tail (a b : WBytes) (h : TailAgree a b) (lay : Layer) (leaf j : Nat) :
     wmerkleHigh a lay leaf j=wmerkleHigh b lay leaf j := by
   have hb : 8096≤layerBase lay := by fin_cases lay <;> decide
@@ -3402,7 +3441,7 @@ theorem topLayerP_tail (a b : WBytes) (h : TailAgree a b) (hlh : ∀ lay, wleafH
     funext i digit;simp only [topChainP,hcp,hh,hv]
   have hf : topFinishP a (route index 0).2 (route index 0).1=
       topFinishP b (route index 0).2 (route index 0).1 := by
-    funext ends;simp only [topFinishP,hp,hm,topLeafPad_tail a b h,hlh,merkleHigh_tail a b h]
+    funext ends;simp only [topFinishP,hp,hm,topLeafPad_tail a b h,topLeafGap_tail a b h,hlh,merkleHigh_tail a b h]
   simp only [topLayerP,hc,hf]
 
 /-- `layersCanonicalBC` with the top choice hint as an explicit argument (it reads `wtopHigh w`). -/

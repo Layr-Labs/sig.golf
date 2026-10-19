@@ -146,10 +146,10 @@ theorem l295_spec (hpc : s.pc = pcOf 295) (index : Nat) (hi : index < 2 ^ 31)
 
 theorem l318_spec (hpc : s.pc = pcOf 318) (index : Nat) (hi : index < 2 ^ 31)
     (hidx : s.getMem (BitVec.ofNat 64 IDXV) = BitVec.ofNat 64 index) :
-    ∃ t, Steps im s 14 14 t ∧ t.pc = pcOf 457 ∧ t.getReg .x1 = pcOf 332 ∧
+    ∃ t, Steps im s 14 14 t ∧ t.pc = pcOf 49795 ∧ t.getReg .x1 = pcOf 332 ∧
       t.getReg .x8 = BitVec.ofNat 64 0 ∧ t.getReg .x15 = BitVec.ofNat 64 12 ∧
-      t.getReg .x26 = BitVec.ofNat 64 54 ∧ t.getReg .x27 = BitVec.ofNat 64 51 ∧
-      t.getReg .x17 = BitVec.ofNat 64 146 ∧
+      t.getReg .x26 = BitVec.ofNat 64 52 ∧ t.getReg .x27 = BitVec.ofNat 64 51 ∧
+      t.getReg .x17 = BitVec.ofNat 64 153 ∧
       t.getReg .x18 = BitVec.ofNat 64 (index / 2 ^ 19 % 2 ^ 12) ∧ t.getReg .x9 = BitVec.ofNat 64 (index / 2 ^ 31) ∧
       RegsExcept s t [.x1, .x6, .x7, .x8, .x9, .x15, .x17, .x18, .x26, .x27, .x28] ∧
       Frame s t (fun _ => False) := by
@@ -266,13 +266,14 @@ theorem l332_spec (hpc : s.pc = pcOf 332) (c : Nat) (h19 : s.getReg .x19 = BitVe
 end
 theorem lentry_spec (lay : Layer) (s : MachineState) (hpc : s.pc = pcOf (lE lay)) (index : Nat) (hi : index < 2 ^ 31)
     (hidx : s.getMem (BitVec.ofNat 64 IDXV) = BitVec.ofNat 64 index) :
-    ∃ t, Steps im s (lK lay) (lK lay) t ∧ t.pc = pcOf 457 ∧ t.getReg .x1 = pcOf (lR1 lay) ∧
+    ∃ t, Steps im s (lK lay) (lK lay) t ∧ t.pc = pcOf (if lay=0 then 49795 else 457) ∧ t.getReg .x1 = pcOf (lR1 lay) ∧
       t.getReg .x8 = BitVec.ofNat 64 lay.val ∧ t.getReg .x15 = BitVec.ofNat 64 (height lay) ∧
       t.getReg .x26 = BitVec.ofNat 64 (chainCount lay) ∧ t.getReg .x27 = BitVec.ofNat 64 (csN4 lay) ∧
-      t.getReg .x17 = BitVec.ofNat 64 (if lay=0 then 146 else 201) ∧
+      t.getReg .x17 = BitVec.ofNat 64 (if lay=0 then 153 else 201) ∧
       t.getReg .x18 = BitVec.ofNat 64 (route index lay).1 ∧ t.getReg .x9 = BitVec.ofNat 64 (route index lay).2 ∧
       RegsExcept s t [.x1, .x6, .x7, .x8, .x9, .x15, .x17, .x18, .x26, .x27, .x28] ∧
       Frame s t (fun _ => False) := by
+  -- Campaign R6: the top entry (318) ends with `jal KCOPY` (49795); KCOPY then enters the counter search at 457.
   rw [route_fst, route_snd]
   fin_cases lay
   · exact l318_spec (im := im) s hpc index hi hidx

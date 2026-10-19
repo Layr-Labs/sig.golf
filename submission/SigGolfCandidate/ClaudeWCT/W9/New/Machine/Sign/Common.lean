@@ -106,9 +106,9 @@ def ftsC : Nat := 114000000
 def FtsGood (im : Image) : Prop :=
   NewCodeAt im → ∀ (sk : BitVec 256) (N : HashOutput) (s : MachineState), FtsPre sk N s →
     TBSim im sk s ftsC (WCT9.signForest (WCT9.digestIndex N) N) (FtsPost s)
-/-- H2: scratch slot (relative to digest 127) read for compact output slot `p`: digest 192 (the top sibling,
-slot 65) goes last, digests 193..340 move down one slot. -/
-def cpIdx (p : Nat) : Nat := if p < 65 then p else if p < 213 then p + 1 else 65
+/-- H2: scratch slot (relative to slot 139, the first R6 top value) read for compact output slot `p`: slot 202 (the
+top sibling, `p = 63`) goes last, slots 203..350 move down one slot (campaign R6; main: relative to 137, 65 / 213). -/
+def cpIdx (p : Nat) : Nat := if p < 63 then p else if p < 211 then p + 1 else 63
 def CompactPost (s t : MachineState) : Prop :=
   t.pc = pcOf 20745 ∧ t.getReg .x5 = 1 ∧ t.getReg .x10 = 0 ∧
     (∀ k < 428, t.getMem (BitVec.ofNat 64 (SIG + 1888 + 8 * k)) =

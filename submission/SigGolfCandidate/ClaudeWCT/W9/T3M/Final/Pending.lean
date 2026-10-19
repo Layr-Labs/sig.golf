@@ -708,7 +708,7 @@ def KeygenRunCounts : Prop := ∀ sk : SecretKey,
 def KeygenRunWith : Prop := ∀ (hash : Hash) (sk : SecretKey),
   (submission I).runWith hash .keygen sk =
     ⟨some (((evalWithAnswerFn hash (mrealize sk keygen)).1 : PublicKey),
-      cacheB (evalWithAnswerFn hash (mrealize sk keygen)).2), true, 483274415, 983040, 1036288⟩
+      cacheB (evalWithAnswerFn hash (mrealize sk keygen)).2), true, 226119343, 995328, 1048576⟩
 def SignRefines : Prop := ∀ (sk : SecretKey) (cache : Bytes 131072) (m : Message),
   (fun r => (r.value, r.hashCalls, r.hashCompressions)) <$> (submission I).run .sign (sk, cache, m) =
     (fun p => (p.1.map sigBC, p.2.1, p.2.2)) <$> countBoth (mrealize sk (sign (cacheDec cache) m))
@@ -1551,8 +1551,8 @@ abbrev expandB := ClaudeWCT.W9.T3M.Paired.expandB
 abbrev verifyP := ClaudeWCT.W9.T3M.Paired.verifyP
 abbrev witEnc := ClaudeWCT.W9.T3M.Paired.witEnc
 
- def verifyCycleBound : Nat := 6884
- def claimedC : Nat := 6975
+ def verifyCycleBound : Nat := 6912
+ def claimedC : Nat := 7003
  def DigestCapOk (hash : Hash) (m : Message) (w : Bytes 23236) : Prop :=
   SigGolfCandidate.Research.SharedForest.jointAccountingCost
     (hash (SigGolfCandidate.T3M.toQ (SigGolfCandidate.T3.pad64
@@ -1564,18 +1564,18 @@ abbrev witEnc := ClaudeWCT.W9.T3M.Paired.witEnc
  def KeygenRunWith : Prop := ∀ (hash : Hash) (sk : SecretKey),
   (submission I).runWith hash .keygen sk=
     ⟨some (((evalWithAnswerFn hash (mrealize sk keygen)).1 : PublicKey),
-      cacheB (evalWithAnswerFn hash (mrealize sk keygen)).2),true,483274415,983040,1036288⟩
+      cacheB (evalWithAnswerFn hash (mrealize sk keygen)).2),true,226119343,995328,1048576⟩
  def SignRefines : Prop := ∀ (sk : SecretKey) (cache : Bytes 131072) (m : Message),
   (fun r => (r.value,r.hashCalls,r.hashCompressions)) <$> (submission I).run .sign (sk,cache,m)=
     (fun p => (p.1.map sigBC,p.2.1,p.2.2)) <$> countBoth (mrealize sk (sign (cacheDec cache) m))
  def SignTerminates : Prop := ∀ (hash : Hash) (sk : SecretKey) (cache : Bytes 131072) (m : Message),
   ((submission I).runWith hash .sign (sk,cache,m)).finished=true ∧
     ((submission I).runWith hash .sign (sk,cache,m)).cycles<CYCLE_LIMIT
- def ExpandRefines : Prop := ∀ (m : Message) (pk : PublicKey) (s : Bytes 5248),
+ def ExpandRefines : Prop := ∀ (m : Message) (pk : PublicKey) (s : Bytes 5216),
   (fun r => (r.value,r.hashCalls,r.hashCompressions)) <$> (submission I).run .expand (m,pk,s)=
     (fun p => (p.1.map (fun x => witEnc x.1 x.2),p.2.1,p.2.2)) <$>
       countBoth (mrealize 0 (expandN m pk (sigDecC s)))
- def ExpandTerminates : Prop := ∀ (hash : Hash) (m : Message) (pk : PublicKey) (s : Bytes 5248),
+ def ExpandTerminates : Prop := ∀ (hash : Hash) (m : Message) (pk : PublicKey) (s : Bytes 5216),
   ((submission I).runWith hash .expand (m,pk,s)).finished=true ∧
     ((submission I).runWith hash .expand (m,pk,s)).cycles<CYCLE_LIMIT
  def VerifyRefines : Prop := ∀ (m : Message) (pk : PublicKey) (w : Bytes 23236),

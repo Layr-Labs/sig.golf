@@ -14,7 +14,7 @@ def stepsA (lay : Nat) : Nat := if lay = 3 then 6 else if lay = 0 then 5 else 7
 def retOff (lay : Nat) : Nat := if lay = 0 then 10 else if lay = 3 then 38 else 41
 def s6v (lay : Nat) : Nat := [13432,16144,18712,21280].getD lay 0
 def s3v : Nat := 13432
-def tgtL (lay : Nat) : Nat := [146,201,201,201].getD lay 0
+def tgtL (lay : Nat) : Nat := [153,201,201,201].getD lay 0
 def hw (t lay : Nat) : Nat := 1 + 256 * t + 65536 * lay
 def rejEcall : Nat := 3431
 def stabIdx (lay : Nat) : Nat := [209768,209640,209576,209512].getD lay 0
@@ -151,8 +151,13 @@ def spareTrap (lay c : Nat) : Nat := ([[],[142021,142149,142277,142405,142533,14
 def rejBothSpare (lay c : Nat) : Spec :=
   ⟨[], [], spareTrap lay c, false, 8, [spareHiBr lay true, spareBr lay true], none, 8⟩
 def lfAllowed (lay : Nat) : List Nat := [bufferBase lay+16,bufferBase lay+24]
+/-- Campaign R6: the global register facts kept through layer `lay`'s leaf and merkle code. The R6 top prologue
+loads `s2 = 856064` (the r6 table base), and nothing after it restores main's `s2 = 0xFFF` (the top leaf, merkle and
+root compare never read `s2`), so the top keeps only `t0 = 0`; lower layers keep `baseK`. -/
+def gkL (lay : Nat) : List (Reg × Word) := if lay = 0 then [(.x5, 0)] else baseK
+theorem gkL_low {lay : Nat} (h : lay ≠ 0) : gkL lay = baseK := if_neg h
 def leafK (lay : Nat) : List (Reg × Word) :=
-  baseK ++ (if lay = 0 then [(.x5, 0), (.x6, 520192)] else [(.x7, 1), (.x5, 0)]) ++ [(.x4,BitVec.ofNat 64 (bufferBias lay))]
+  gkL lay ++ (if lay = 0 then [(.x5, 0), (.x6, 520192)] else [(.x7, 1), (.x5, 0)]) ++ [(.x4,BitVec.ofNat 64 (bufferBias lay))]
 def x14lf (lay : Nat) : E :=
   if lay = 0 then .bin .sll (.bin .add (.bin .and (.reg .x31) (kw 63)) (kw 1117)) (kw 9)
   else if lay = 1 then .bin .sll (.reg .x23) (kw 12)

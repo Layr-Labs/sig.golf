@@ -27,7 +27,7 @@ theorem submission_terminates (P : Pending I) : (submission I).Terminates := by
   cases phase with
   | keygen =>
     rw [P.keygen_runWith hash input]
-    exact ⟨rfl, show (483274415 : ℕ) < 2 ^ 32 by norm_num⟩
+    exact ⟨rfl, show (226119343 : ℕ) < 2 ^ 32 by norm_num⟩
   | sign =>
     obtain ⟨sk, cache, m⟩ := input
     exact P.sign_terminates hash sk cache m
@@ -56,13 +56,6 @@ theorem submission_verificationBound (P : Pending I) : (submission I).Verificati
     (SigGolfCandidate.T3M.Verify.hashOk_okHash hash) (Credit.digestCap_okHash hash m pk _ N wt hx) hacc
   unfold verifyCycleBound at this
   omega
-theorem certificate_of (P : Pending I) (S : SourceFacts) : Certificate (submission I) 7088 where
-  admissible := P.admissible
-  termination := submission_terminates P
-  completeness := submission_complete P S
-  compressionBounds := submission_compressionBounds P S
-  security := submission_secure (qfacts S) P S.securityP
-  verificationBound := submission_verificationBound P
 end ClaudeWCT.W9.T3M.Final
 
 namespace ClaudeWCT.W9.T3M.Final.Paired
@@ -81,7 +74,7 @@ theorem submission_terminates (P : Pending I) : (submission I).Terminates := by
   cases phase with
   | keygen =>
     rw [P.keygen_runWith hash input]
-    exact ⟨rfl,show (483274415 : Nat)<2^32 by norm_num⟩
+    exact ⟨rfl,show (226119343 : Nat)<2^32 by norm_num⟩
   | sign => obtain ⟨sk,cache,m⟩:=input;exact P.sign_terminates hash sk cache m
   | expand => obtain ⟨m,pk,s⟩:=input;exact P.expand_terminates hash m pk s
   | verify => obtain ⟨m,pk,w⟩:=input;exact P.verify_terminates hash m pk w
@@ -94,7 +87,7 @@ theorem claimedC_eq : claimedC=verifyCycleBound+witnessCycles (submission I).siz
   rw [witnessCycles_eq];decide
 
 theorem submission_verificationBound (E : EncodingFacts) (F : SourceQueries) (P : Pending I) :
-    (submission I).VerificationBound 6975 := by
+    (submission I).VerificationBound 7003 := by
   intro hash sk m
   dsimp only
   intro h
@@ -120,7 +113,7 @@ open ClaudeWCT.W9.T3M (Images)
 variable {I : Images}
 
 theorem certificate_of (E : EncodingFacts) (F : SourceQueries) (P : Pending I) (S : SourceFacts) :
-    Certificate (submission I) 6975 where
+    Certificate (submission I) 7003 where
   admissible := P.admissible
   termination := submission_terminates P
   completeness := submission_complete E F P S

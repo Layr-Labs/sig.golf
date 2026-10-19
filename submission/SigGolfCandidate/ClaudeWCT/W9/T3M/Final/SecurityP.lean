@@ -61,7 +61,7 @@ inductive ForgeryP where
 
 abbrev AdversaryP := Digest → Cache → OracleComp (OracleWorld + Requests) (Option ForgeryP)
 
-/-- Strong novelty compares the complete5248-byte wire signature, including
+/-- Strong novelty compares the complete 5216-byte wire signature, including
 its canonical policy hints and the112-bit serialized top sibling. -/
 noncomputable def checkForgeryP (publicKey : Digest) (log : QueryLog Requests) : ForgeryP → M Bool := by
   classical

@@ -54,7 +54,21 @@ def e_hdrE : List (BitVec 32) := [134711,537792019,7223331,8272931,132407,537199
 sym_block eb_hdrE := symRun { noAlias := true } e_hdrE (pcOf 1129) 30
 def e_hpA : List (BitVec 32) := [0xf49333,19071795,16978707,538141459,50601747,31679283,0xc100f13,59711251,31679283,134711,0x600e0e13,7223331,932899,267875]
 sym_block eb_hpA := symRun { noAlias := true } e_hpA (pcOf 42741) 30
-def e_hpZ : List (BitVec 32) := [929827,930851,0xbb0d706f]
+/-- R6 expand (EXP image swap): `42755 j KPAD` (49819). -/
+def e_hpZ : List (BitVec 32) := [0x6610606f]
+/-- KPAD (49819..49825): zero the leaf's pad16 (`LEAFPK + 0..15`) and the 32-byte pad (`LEAFPK + 32..63`), then
+`j 1009`. -/
+def e_kpad : List (BitVec 32) := [0xe3023,0xe3423,0x20e3023,0x20e3423,0x20e3823,0x20e3c23,0xd40d006f]
+sym_block eb_kpad := symRun { noAlias := true } e_kpad (pcOf 49819) 30
+/-- KMAX (49812..49818): `x21` = top chain cap 7 (i >= s11 = 51), 4 (i >= 24), 5; then `j 1031`. -/
+def e_kmax0 : List (BitVec 32) := [0x700a93,0x1b9da63]
+sym_block eb_kmax0 := symRun { noAlias := true } e_kmax0 (pcOf 49812) 30
+def e_kmax1 : List (BitVec 32) := [0x400a93,0x1800e13,0x1c9d463]
+sym_block eb_kmax1 := symRun { noAlias := true } e_kmax1 (pcOf 49814) 30
+def e_kmax2 : List (BitVec 32) := [0x500a93,0xdb4d006f]
+sym_block eb_kmax2 := symRun { noAlias := true } e_kmax2 (pcOf 49817) 30
+def e_kmax3 : List (BitVec 32) := [0xdb4d006f]
+sym_block eb_kmax3 := symRun { noAlias := true } e_kmax3 (pcOf 49818) 30
 sym_block eb_hpZ := symRun { noAlias := true } e_hpZ (pcOf 42755) 30
 def e_hpJ : List (BitVec 32) := [0xbb0d706f]
 sym_block eb_hpJ := symRun { noAlias := true } e_hpJ (pcOf 42757) 30
@@ -66,7 +80,8 @@ def e_slB : List (BitVec 32) := [624739]
 sym_block eb_slB := symRun { noAlias := true } e_slB (pcOf 42760) 30
 def e_slN : List (BitVec 32) := [17698323,0xc48d706f]
 sym_block eb_slN := symRun { noAlias := true } e_slN (pcOf 42761) 30
-def e_slT : List (BitVec 32) := [34475539,0xc40d706f]
+/-- R6 expand (EXP image swap): `42763 addi t3,t3,64` (top slot of chain i at leaf + 64 + 16 i). -/
+def e_slT : List (BitVec 32) := [0x40e0e13,0xc40d706f]
 sym_block eb_slT := symRun { noAlias := true } e_slT (pcOf 42763) 30
 def e_slZ : List (BitVec 32) := [0xc40d706f]
 sym_block eb_slZ := symRun { noAlias := true } e_slZ (pcOf 42764) 30
@@ -97,8 +112,13 @@ def trXE (lay i m : Nat) : Nat := if i ≠ 0 then 2 else if lay = 0 then 3 else 
 theorem trXE_le (lay i m : Nat) : trXE lay i m ≤ 10 := by unfold trXE; split_ifs <;> omega
 /-- C2 (FULL) + C4: offset of the current value (a left child) in the node output: every layer reads the high half. -/
 def hiOff (_lay : Nat) : Nat := 16
-def slotOff (lay : T3.Layer) (c : Nat) : Nat := if lay = 0 then 16 * c + 32 else if c = 0 then 0 else 16 * c + 16
-def hpK (lay : T3.Layer) : Nat := if lay = 0 then 19 else 17
+def slotOff (lay : T3.Layer) (c : Nat) : Nat := if lay = 0 then 16 * c + 64 else if c = 0 then 0 else 16 * c + 16
+def hpK (lay : T3.Layer) : Nat := if lay = 0 then 24 else 17
+/-- R6 top leaf: the 32-byte pad words `LEAFPK + 32 .. LEAFPK + 56` (zeroed by KPAD). -/
+def TopPadW (A : Nat) : Prop := A = LEAFPK + 32 ∨ A = LEAFPK + 40 ∨ A = LEAFPK + 48 ∨ A = LEAFPK + 56
+def TopPadZero (t : MachineState) : Prop :=
+  t.getMem (BitVec.ofNat 64 (LEAFPK + 32)) = 0 ∧ t.getMem (BitVec.ofNat 64 (LEAFPK + 40)) = 0 ∧
+    t.getMem (BitVec.ofNat 64 (LEAFPK + 48)) = 0 ∧ t.getMem (BitVec.ofNat 64 (LEAFPK + 56)) = 0
 def slK (lay : T3.Layer) (i : Nat) : Nat := if lay = 0 then 5 else if i = 0 then 5 else 6
 def hdrK (lay : Nat) : Nat := if lay = 0 then 19 else 31
 section blocks
@@ -283,6 +303,11 @@ class Code (im : Image) : Prop where
   e_hdrE_at : CodeAt im (pcOf 1129) e_hdrE
   e_hpA_at : CodeAt im (pcOf 42741) e_hpA
   e_hpZ_at : CodeAt im (pcOf 42755) e_hpZ
+  e_kpad_at : CodeAt im (pcOf 49819) e_kpad
+  e_kmax0_at : CodeAt im (pcOf 49812) e_kmax0
+  e_kmax1_at : CodeAt im (pcOf 49814) e_kmax1
+  e_kmax2_at : CodeAt im (pcOf 49817) e_kmax2
+  e_kmax3_at : CodeAt im (pcOf 49818) e_kmax3
   e_hpJ_at : CodeAt im (pcOf 42757) e_hpJ
   e_w1009_at : CodeAt im (pcOf 1009) e_w1009
   e_slA_at : CodeAt im (pcOf 42758) e_slA
@@ -345,8 +370,9 @@ theorem rl997_spec (hpc : s.pc = pcOf 997) (lay : T3.Layer) (tree leaf : Nat)
       t.getMem (BitVec.ofNat 64 (LEAFPK + 16)) = T3.hyperWord lay.val (tree * 2 ^ T3.height lay + leaf) ∧
       t.getMem (BitVec.ofNat 64 (LEAFPK + 24)) = 0 ∧
       (lay = 0 → t.getMem (BitVec.ofNat 64 LEAFPK) = 0 ∧ t.getMem (BitVec.ofNat 64 (LEAFPK + 8)) = 0) ∧
+      (lay = 0 → TopPadZero t) ∧
       RegsExcept s t [.x6, .x7, .x19, .x28, .x30] ∧
-      Frame s t (fun A => A = LEAFPK ∨ A = LEAFPK + 8 ∨ A = LEAFPK + 16 ∨ A = LEAFPK + 24) := by
+      Frame s t (fun A => A = LEAFPK ∨ A = LEAFPK + 8 ∨ A = LEAFPK + 16 ∨ A = LEAFPK + 24 ∨ TopPadW A) := by
   have hl := lay.isLt
   obtain ⟨t1, s1, p1, r1, f1⟩ : ∃ t, Steps im s 1 1 t ∧ t.pc = pcOf 42741 ∧ RegsExcept s t [] ∧
       Frame s t (fun _ => False) := by
@@ -393,30 +419,38 @@ theorem rl997_spec (hpc : s.pc = pcOf 997) (lay : T3.Layer) (tree leaf : Nat)
       t3n []
       simp only [LEAFPK] at hn
       rw [if_neg (by omega), if_neg (by omega)]
-  obtain ⟨t3, s3, p3, z0, r3, f3⟩ : ∃ t, Steps im t2 (if lay = 0 then 3 else 1) (if lay = 0 then 3 else 1) t ∧
+  obtain ⟨t3, s3, p3, z0, zp, r3, f3⟩ : ∃ t, Steps im t2 (if lay = 0 then 8 else 1) (if lay = 0 then 8 else 1) t ∧
       t.pc = pcOf 1009 ∧
       (lay = 0 → t.getMem (BitVec.ofNat 64 LEAFPK) = 0 ∧ t.getMem (BitVec.ofNat 64 (LEAFPK + 8)) = 0) ∧
-      RegsExcept t2 t [] ∧ Frame t2 t (fun A => A = LEAFPK ∨ A = LEAFPK + 8) := by
+      (lay = 0 → TopPadZero t) ∧
+      RegsExcept t2 t [] ∧ Frame t2 t (fun A => A = LEAFPK ∨ A = LEAFPK + 8 ∨ TopPadW A) := by
     by_cases h0 : lay = 0
     · rw [if_pos h0] at p2
-      refine ⟨_, (symRun_sound eb_hpZ (Code.e_hpZ_at (im := im)) t2 p2
-        (by simp [eb_hpZ.res, rv_simp, x28, accessValid_iff, MEMORY_BYTES, LEAFPK])).of_eq (by simp [h0, eb_hpZ.res])
-        (by simp [h0, eb_hpZ.res]),
-        ?_, fun _ => ⟨?_, ?_⟩, ?_, ?_⟩
-      · simp [Result.toState_pc, eb_hpZ.res, E.eval]
-      · simp only [Result.toState_getMem, eb_hpZ.res]
-        t3n [x28, LEAFPK]
-      · simp only [Result.toState_getMem, eb_hpZ.res]
-        t3n [x28, LEAFPK]
-      · intro r hr; cases r <;> rfl
+      obtain ⟨u, su, pu, ru, fu⟩ : ∃ u, Steps im t2 1 1 u ∧ u.pc = pcOf 49819 ∧ RegsExcept t2 u [] ∧
+          Frame t2 u (fun _ => False) := by
+        refine ⟨_, symRun_sound eb_hpZ (Code.e_hpZ_at (im := im)) t2 p2 (by simp [eb_hpZ.res, rv_simp]), ?_, ?_, ?_⟩
+        · simp [Result.toState_pc, eb_hpZ.res, E.eval]
+        · intro r hr; cases r <;> rfl
+        · intro A _ _; rfl
+      have u28 : u.getReg .x28 = BitVec.ofNat 64 LEAFPK := by rw [ru.get (by decide), x28]
+      refine ⟨_, (su.trans (symRun_sound eb_kpad (Code.e_kpad_at (im := im)) u pu
+        (by simp [eb_kpad.res, rv_simp, u28, accessValid_iff, MEMORY_BYTES, LEAFPK]))).of_eq (by simp [h0, eb_kpad.res])
+        (by simp [h0, eb_kpad.res]),
+        ?_, fun _ => ⟨?_, ?_⟩, fun _ => ⟨?_, ?_, ?_, ?_⟩, ?_, ?_⟩
+      · simp [Result.toState_pc, eb_kpad.res, E.eval]
+      all_goals first
+        | (simp only [Result.toState_getMem, eb_kpad.res]; t3n [u28, LEAFPK]; done)
+        | skip
+      · intro r hr; rw [Result.toState_getReg]; rw [← ru.get hr]
+        cases r <;> first | rfl | exact (hr (by decide)).elim
       · intro A hA hn
-        simp only [Result.toState_getMem, eb_hpZ.res]
-        t3n [x28]
-        simp only [LEAFPK] at hn ⊢
-        rw [if_neg (by omega), if_neg (by omega)]
+        simp only [Result.toState_getMem, eb_kpad.res]
+        t3n [u28]
+        simp only [LEAFPK, TopPadW] at hn ⊢
+        split_ifs <;> first | (exfalso; omega) | exact fu.get hA (by simp)
     · rw [if_neg h0] at p2
       refine ⟨_, (symRun_sound eb_hpJ (Code.e_hpJ_at (im := im)) t2 p2 (by simp [eb_hpJ.res, rv_simp])).of_eq (by simp [h0, eb_hpJ.res])
-        (by simp [h0, eb_hpJ.res]), ?_, fun h => absurd h h0, ?_, ?_⟩
+        (by simp [h0, eb_hpJ.res]), ?_, fun h => absurd h h0, fun h => absurd h h0, ?_, ?_⟩
       · simp [Result.toState_pc, eb_hpJ.res, E.eval]
       · intro r hr; cases r <;> rfl
       · intro A hA hn; rfl
@@ -428,17 +462,22 @@ theorem rl997_spec (hpc : s.pc = pcOf 997) (lay : T3.Layer) (tree leaf : Nat)
     · intro r hr; simp at hr; cases r <;> simp_all [eb_w1009.res, rv_simp] <;> rfl
     · intro A _ _; simp [eb_w1009.res, rv_simp]
   refine ⟨t4, (((s1.trans s2).trans s3).trans s4).of_eq (by unfold hpK; split_ifs <;> simp_all)
-    (by unfold hpK; split_ifs <;> simp_all), p4, x19, ?_, ?_, fun h => ?_,
+    (by unfold hpK; split_ifs <;> simp_all), p4, x19, ?_, ?_, fun h => ?_, fun h => ?_,
     (((r1.trans r2).trans r3).trans r4).mono (by decide),
     (((f1.trans f2).trans f3).trans f4).mono (fun A _ h => by
-      rcases h with ((h | h) | h) | h <;> simp only [LEAFPK] at h ⊢ <;> omega)⟩
+      rcases h with ((h | h) | h) | h <;> simp only [LEAFPK, TopPadW] at h ⊢ <;> omega)⟩
   · rw [f4.get (by simp only [LEAFPK]; omega) (by simp), f3.get (by simp only [LEAFPK]; omega)
-      (by simp only [LEAFPK]; omega), m16]
+      (by simp only [LEAFPK, TopPadW]; omega), m16]
   · rw [f4.get (by simp only [LEAFPK]; omega) (by simp), f3.get (by simp only [LEAFPK]; omega)
-      (by simp only [LEAFPK]; omega), m24]
+      (by simp only [LEAFPK, TopPadW]; omega), m24]
   · obtain ⟨a, b⟩ := z0 h
     exact ⟨by rw [f4.get (by simp only [LEAFPK]; omega) (by simp), a],
       by rw [f4.get (by simp only [LEAFPK]; omega) (by simp), b]⟩
+  · obtain ⟨a, b, c, d⟩ := zp h
+    exact ⟨by rw [f4.get (by simp only [LEAFPK]; omega) (by simp), a],
+      by rw [f4.get (by simp only [LEAFPK]; omega) (by simp), b],
+      by rw [f4.get (by simp only [LEAFPK]; omega) (by simp), c],
+      by rw [f4.get (by simp only [LEAFPK]; omega) (by simp), d]⟩
 
 theorem rl1010_spec (hpc : s.pc = pcOf 1010) (i n : Nat) (hi : i < 2 ^ 63) (hn : n < 2 ^ 63)
     (h19 : s.getReg .x19 = BitVec.ofNat 64 i) (h26 : s.getReg .x26 = BitVec.ofNat 64 n) :
@@ -545,17 +584,73 @@ theorem rl1030_spec (hpc : s.pc = pcOf 1030) :
   · ex_regs eblk_1030.res
   · intro A _ _; simp [eblk_1030.res, rv_simp]
 
+/-- R6 top chain caps (KMAX): 7 for the checksum chain (`i >= s11 = 51`), 4 for the r5 chains, 5 for the r6 chains. -/
+def kmaxCap (i n4 : Nat) : Nat := if n4 ≤ i then 7 else if 24 ≤ i then 4 else 5
+def kmaxSteps (i n4 : Nat) : Nat := if n4 ≤ i then 4 else if 24 ≤ i then 7 else 8
 theorem rl1158_spec (hpc : s.pc = pcOf 1158) (i n4 : Nat) (hi : i < 2 ^ 63) (hn : n4 < 2 ^ 63)
     (h19 : s.getReg .x19 = BitVec.ofNat 64 i) (h27 : s.getReg .x27 = BitVec.ofNat 64 n4) :
-    ∃ t, Steps im s 2 2 t ∧ t.pc = (if i < n4 then pcOf 1160 else pcOf 1031) ∧
-      t.getReg .x21 = BitVec.ofNat 64 7 ∧ RegsExcept s t [.x21] ∧ Frame s t (fun _ => False) := by
-  refine ⟨_, symRun_sound eblk_1158 (Code.codeAt_1158 (im := im)) s hpc (by simp [eblk_1158.res, rv_simp]), ?_, ?_, ?_, ?_⟩
-  · simp only [Result.toState_pc, eblk_1158.res, E.eval, CmpOp.eval, h19, h27]
-    rw [ex_slt i n4 hi hn]
-    by_cases hi' : i < n4 <;> simp [hi']
-  · simp [eblk_1158.res, rv_simp]
-  · ex_regs eblk_1158.res
-  · intro A _ _; simp [eblk_1158.res, rv_simp]
+    ∃ t, Steps im s (kmaxSteps i n4) (kmaxSteps i n4) t ∧ t.pc = pcOf 1031 ∧
+      t.getReg .x21 = BitVec.ofNat 64 (kmaxCap i n4) ∧ RegsExcept s t [.x21, .x28] ∧ Frame s t (fun _ => False) := by
+  obtain ⟨t0, s0, p0, r0, f0⟩ : ∃ t, Steps im s 1 1 t ∧ t.pc = pcOf 49812 ∧ RegsExcept s t [] ∧
+      Frame s t (fun _ => False) := by
+    refine ⟨_, symRun_sound eblk_1158 (Code.codeAt_1158 (im := im)) s hpc (by simp [eblk_1158.res, rv_simp]), ?_, ?_, ?_⟩
+    · simp [Result.toState_pc, eblk_1158.res, E.eval]
+    · intro r hr; cases r <;> rfl
+    · intro A _ _; rfl
+  have g19 : t0.getReg .x19 = BitVec.ofNat 64 i := by rw [r0.get (by decide), h19]
+  have g27 : t0.getReg .x27 = BitVec.ofNat 64 n4 := by rw [r0.get (by decide), h27]
+  obtain ⟨t1, s1, p1, x1, r1, f1⟩ : ∃ t, Steps im t0 2 2 t ∧
+      t.pc = (if i < n4 then pcOf 49814 else pcOf 49818) ∧ t.getReg .x21 = BitVec.ofNat 64 7 ∧
+      RegsExcept t0 t [.x21] ∧ Frame t0 t (fun _ => False) := by
+    refine ⟨_, symRun_sound eb_kmax0 (Code.e_kmax0_at (im := im)) t0 p0 (by simp [eb_kmax0.res, rv_simp]), ?_, ?_, ?_, ?_⟩
+    · simp only [Result.toState_pc, eb_kmax0.res, E.eval, CmpOp.eval, g19, g27]
+      rw [ex_slt i n4 hi hn]
+      by_cases hi' : i < n4 <;> simp [hi']
+    · simp [eb_kmax0.res, rv_simp]
+    · ex_regs eb_kmax0.res
+    · intro A _ _; simp [eb_kmax0.res, rv_simp]
+  have j3 : ∀ u : MachineState, u.pc = pcOf 49818 → ∃ v, Steps im u 1 1 v ∧ v.pc = pcOf 1031 ∧
+      RegsExcept u v [] ∧ Frame u v (fun _ => False) := fun u hu => by
+    refine ⟨_, symRun_sound eb_kmax3 (Code.e_kmax3_at (im := im)) u hu (by simp [eb_kmax3.res, rv_simp]), ?_, ?_, ?_⟩
+    · simp [Result.toState_pc, eb_kmax3.res, E.eval]
+    · intro r hr; cases r <;> rfl
+    · intro A _ _; rfl
+  by_cases hin : i < n4
+  · rw [if_pos hin] at p1
+    have g19' : t1.getReg .x19 = BitVec.ofNat 64 i := by rw [r1.get (by decide), g19]
+    obtain ⟨t2, s2, p2, x2, r2, f2⟩ : ∃ t, Steps im t1 3 3 t ∧
+        t.pc = (if i < 24 then pcOf 49817 else pcOf 49818) ∧ t.getReg .x21 = BitVec.ofNat 64 4 ∧
+        RegsExcept t1 t [.x21, .x28] ∧ Frame t1 t (fun _ => False) := by
+      refine ⟨_, symRun_sound eb_kmax1 (Code.e_kmax1_at (im := im)) t1 p1 (by simp [eb_kmax1.res, rv_simp]), ?_, ?_, ?_, ?_⟩
+      · simp only [Result.toState_pc, eb_kmax1.res, E.eval, CmpOp.eval, g19']
+        rw [show (24#64 : Word) = BitVec.ofNat 64 24 from rfl, ex_slt i 24 hi (by norm_num)]
+        by_cases hi' : i < 24 <;> simp [hi']
+      · simp [eb_kmax1.res, rv_simp]
+      · ex_regs eb_kmax1.res
+      · intro A _ _; simp [eb_kmax1.res, rv_simp]
+    by_cases h24 : i < 24
+    · rw [if_pos h24] at p2
+      obtain ⟨t3, s3, p3, x3, r3, f3⟩ : ∃ t, Steps im t2 2 2 t ∧ t.pc = pcOf 1031 ∧
+          t.getReg .x21 = BitVec.ofNat 64 5 ∧ RegsExcept t2 t [.x21] ∧ Frame t2 t (fun _ => False) := by
+        refine ⟨_, symRun_sound eb_kmax2 (Code.e_kmax2_at (im := im)) t2 p2 (by simp [eb_kmax2.res, rv_simp]), ?_, ?_, ?_, ?_⟩
+        · simp [Result.toState_pc, eb_kmax2.res, E.eval]
+        · simp [eb_kmax2.res, rv_simp]
+        · ex_regs eb_kmax2.res
+        · intro A _ _; simp [eb_kmax2.res, rv_simp]
+      refine ⟨t3, (((s0.trans s1).trans s2).trans s3).of_eq (by unfold kmaxSteps; split_ifs <;> omega) (by unfold kmaxSteps; split_ifs <;> omega),
+        p3, by rw [x3, kmaxCap, if_neg (by omega), if_neg (by omega)], (((r0.trans r1).trans r2).trans r3).mono (by decide),
+        (((f0.trans f1).trans f2).trans f3).mono (fun A _ h => by simp_all)⟩
+    · rw [if_neg h24] at p2
+      obtain ⟨t3, s3, p3, r3, f3⟩ := j3 t2 p2
+      refine ⟨t3, (((s0.trans s1).trans s2).trans s3).of_eq (by unfold kmaxSteps; split_ifs <;> omega) (by unfold kmaxSteps; split_ifs <;> omega),
+        p3, by rw [r3.get (by decide), x2, kmaxCap, if_neg (by omega), if_pos (by omega)],
+        (((r0.trans r1).trans r2).trans r3).mono (by decide),
+        (((f0.trans f1).trans f2).trans f3).mono (fun A _ h => by simp_all)⟩
+  · rw [if_neg hin] at p1
+    obtain ⟨t3, s3, p3, r3, f3⟩ := j3 t1 p1
+    refine ⟨t3, ((s0.trans s1).trans s3).of_eq (by unfold kmaxSteps; split_ifs <;> omega) (by unfold kmaxSteps; split_ifs <;> omega),
+      p3, by rw [r3.get (by decide), x1, kmaxCap, if_pos (by omega)], ((r0.trans r1).trans r3).mono (by decide),
+      ((f0.trans f1).trans f3).mono (fun A _ h => by simp_all)⟩
 
 theorem rl1160_spec (hpc : s.pc = pcOf 1160) :
     ∃ t, Steps im s 2 2 t ∧ t.pc = pcOf 1031 ∧ t.getReg .x21 = BitVec.ofNat 64 4 ∧
@@ -924,7 +1019,7 @@ theorem rl1049_spec (hpc : s.pc = pcOf 1049) (lay : T3.Layer) (i : Nat) (hi : i 
   by_cases h0 : lay = 0
   · rw [if_pos h0] at p2
     obtain ⟨t3, s3, p3, y28, r3, f3⟩ : ∃ t, Steps im t2 2 2 t ∧ t.pc = pcOf 1052 ∧
-        t.getReg .x28 = BitVec.ofNat 64 (16 * i + 32) ∧ RegsExcept t2 t [.x28] ∧ Frame t2 t (fun _ => False) := by
+        t.getReg .x28 = BitVec.ofNat 64 (16 * i + 64) ∧ RegsExcept t2 t [.x28] ∧ Frame t2 t (fun _ => False) := by
       refine ⟨_, symRun_sound eb_slT (Code.e_slT_at (im := im)) t2 p2 (by simp [eb_slT.res, rv_simp]), ?_, ?_, ?_, ?_⟩
       · simp [Result.toState_pc, eb_slT.res, E.eval]
       · simp only [Result.toState_getReg, eb_slT.res, rv_simp, x28, ofNat_add_ofNat]
@@ -1417,7 +1512,9 @@ theorem installed_packed : PackedBlocks.Code Images.expandImage := by
 theorem installed_bc : BCBlocks.Code Images.expandImage := by
   constructor <;> apply codeAt_expand_current_chunk <;> decide +kernel
 theorem installed_code : Code Images.expandImage := by
-  constructor <;> apply codeAt_expand_current_chunk <;> decide +kernel
+  constructor <;> first
+    | (apply codeAt_expand_current_chunk <;> decide +kernel)
+    | (apply codeAt_expand_last <;> decide +kernel)
 #print axioms installed_packed
 #print axioms installed_bc
 #print axioms installed_code

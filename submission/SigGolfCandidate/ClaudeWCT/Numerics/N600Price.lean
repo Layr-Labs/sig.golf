@@ -1,6 +1,4 @@
-import SigGolfCandidate.ClaudeWCT.W9.T3.FullCache.NativeBudgetB1.ProducerDecodeV5
 import SigGolfCandidate.T3.Gate6.ChildCounting
-import SigGolfCandidate.T3.Nonbinary.Counting
 import SigGolfCandidate.Research.V7Composed198Gate
 import Mathlib.Analysis.Convex.SpecificFunctions.Basic
 import SigGolfCandidate.ClaudeWCT.Numerics.N600PriceChecks
@@ -14,8 +12,6 @@ import SigGolfCandidate.ClaudeWCT.Numerics.LawAverage
 set_option Elab.async false
 set_option maxRecDepth 100000
 section
-
-
 
 
 namespace ClaudeWCT.Numerics.N600
@@ -394,7 +390,6 @@ end
 section
 
 
-
 namespace ClaudeWCT.Numerics.N600
 open Finset ENNReal
 open ClaudeWCT.Numerics.Thinning (env nearEnv env_le_one env_cons_le nearEnv_le_one nearEnv_cons_le)
@@ -492,24 +487,6 @@ theorem theta_excess_le_square_v5 (value mean : ENNReal) (hvalue : value ≠ ⊤
     simp (disch := finiteness) only [ENNReal.toReal_add, ENNReal.toReal_mul, ENNReal.toReal_pow,
       ENNReal.toReal_sub_of_le hlarge hvalue, ENNReal.toReal_div, ENNReal.toReal_ofNat]
     nlinarith [sq_nonneg (value.toReal - mean.toReal - 81 / 125)]
-theorem theta_excess_le_square_54 (value mean : ENNReal) (hvalue : value ≠ ⊤) (hmean : mean ≤ 675 / 1000) :
-    (5232 / 1000) * (value - 2031 / 1024) + 2 * mean * value ≤ value ^ 2 + mean ^ 2 := by
-  have hmf : mean ≠ ⊤ := ne_top_of_le_ne_top (by finiteness) hmean
-  have hmr : mean.toReal ≤ 675 / 1000 := by
-    have h := (ENNReal.toReal_le_toReal hmf (by finiteness)).mpr hmean
-    simpa only [ENNReal.toReal_div, ENNReal.toReal_ofNat] using h
-  have hm0 : 0 ≤ mean.toReal := ENNReal.toReal_nonneg
-  by_cases hsmall : value ≤ 2031 / 1024
-  · rw [tsub_eq_zero_of_le hsmall, mul_zero, zero_add]
-    apply (ENNReal.toReal_le_toReal (by finiteness) (by finiteness)).mp
-    simp (disch := finiteness) only [ENNReal.toReal_mul, ENNReal.toReal_pow, ENNReal.toReal_add,
-      ENNReal.toReal_ofNat]
-    nlinarith [sq_nonneg (value.toReal - mean.toReal)]
-  · have hlarge : 2031 / 1024 ≤ value := le_of_not_ge hsmall
-    apply (ENNReal.toReal_le_toReal (by finiteness) (by finiteness)).mp
-    simp (disch := finiteness) only [ENNReal.toReal_add, ENNReal.toReal_mul, ENNReal.toReal_pow,
-      ENNReal.toReal_sub_of_le hlarge hvalue, ENNReal.toReal_div, ENNReal.toReal_ofNat]
-    nlinarith [sq_nonneg (value.toReal - mean.toReal - 654 / 250)]
 theorem priceN_ne_top (W : List (Fin (2 ^ 31) × (Fin 9 → C × β))) : priceN val W ≠ ⊤ := by
   unfold priceN
   exact ENNReal.mul_ne_top priceScale_ne_top
@@ -571,35 +548,6 @@ theorem law_price_excess_le [SampleableType (Fin 9 → C × β)] (hβ : Fintype.
     _ = (1000 / 1296 : ENNReal) * ((1296 / 1000) * lawAvg M T (fun W => priceN val W - 1023 / 1024)) := by
         rw [← mul_assoc, hi, one_mul]
     _ ≤ (1000 / 1296 : ENNReal) * (3200 / 1000000) := mul_le_mul' le_rfl hcancel
-    _ ≤ _ := by
-        apply (ENNReal.toReal_le_toReal (by finiteness) (by finiteness)).mp
-        norm_num [ENNReal.toReal_mul, ENNReal.toReal_div]
-theorem law_price_excess_le_54 [SampleableType (Fin 9 → C × β)] (hβ : Fintype.card β = 563)
-    (hC : Fintype.card C = 128) (h₁ : W1Table val) (h₂ : W2Table val) (hlaw : LawOK vc κ) :
-    lawAvg (marked (α := Fin (2 ^ 31)) vc) T (fun W => priceN val W - 2031 / 1024) ≤ 6117 / 10000000 := by
-  set M := marked (α := Fin (2 ^ 31)) vc
-  have hmean := law_price_mean_le val hT1 hT2 hβ hC h₁ hlaw
-  have hsecond := law_price_second_le val hT1 hT2 hβ hC h₁ h₂ hlaw
-  set mean := lawAvg M T (priceN val)
-  have hm : mean ≠ ⊤ := ne_top_of_le_ne_top (by finiteness) hmean
-  have h := lawAvg_mono M T (fun W : List (Fin (2 ^ 31) × (Fin 9 → C × β)) =>
-    theta_excess_le_square_54 (priceN val W) mean (priceN_ne_top val W) hmean)
-  rw [lawAvg_add, lawAvg_add, lawAvg_mul_left, lawAvg_mul_left,
-    lawAvg_const M (marked_sum_one vc hlaw.sum_one) T] at h
-  have hcancel : (5232 / 1000 : ENNReal) * lawAvg M T (fun W => priceN val W - 2031 / 1024) ≤ 3200 / 1000000 := by
-    apply ENNReal.le_of_add_le_add_right (a := 2 * mean ^ 2) (by finiteness)
-    calc
-      _ = (5232 / 1000 : ENNReal) * lawAvg M T (fun W => priceN val W - 2031 / 1024) + 2 * mean * mean := by ring
-      _ ≤ lawAvg M T (fun W => priceN val W ^ 2) + mean ^ 2 := h
-      _ ≤ (mean ^ 2 + 3200 / 1000000) + mean ^ 2 := add_le_add hsecond le_rfl
-      _ = _ := by ring
-  have hi : (1000 / 5232 : ENNReal) * (5232 / 1000) = 1 := by
-    apply (ENNReal.toReal_eq_toReal_iff' (by finiteness) (by finiteness)).mp
-    norm_num [ENNReal.toReal_mul, ENNReal.toReal_div]
-  calc
-    _ = (1000 / 5232 : ENNReal) * ((5232 / 1000) * lawAvg M T (fun W => priceN val W - 2031 / 1024)) := by
-        rw [← mul_assoc, hi, one_mul]
-    _ ≤ (1000 / 5232 : ENNReal) * (3200 / 1000000) := mul_le_mul' le_rfl hcancel
     _ ≤ _ := by
         apply (ENNReal.toReal_le_toReal (by finiteness) (by finiteness)).mp
         norm_num [ENNReal.toReal_mul, ENNReal.toReal_div]
@@ -676,17 +624,6 @@ theorem near_le_sub : (291 / 1 : ENNReal) ≤ 300 - 1 / 16 := by
     apply (ENNReal.toReal_le_toReal (by finiteness) (by finiteness)).mp; norm_num [ENNReal.toReal_div])
     (by finiteness)]
   norm_num [ENNReal.toReal_div]
-theorem lawOK_uniform (hne : Fintype.card (Fin 9 → C × β) ≠ 0) :
-    LawOK (fun _ : Fin 9 → C × β => (Fintype.card (Fin 9 → C × β) : ENNReal)⁻¹) 1 where
-  sum_one := by
-    rw [sum_const, card_univ, nsmul_eq_mul, ENNReal.mul_inv_cancel (by exact_mod_cast hne)
-      (ENNReal.natCast_ne_top _)]
-  density := fun _ => by rw [one_mul]
-  one_le := le_rfl
-  rate := by
-    apply (ENNReal.toReal_le_toReal (by finiteness) (by unfold LN LD; finiteness)).mp
-    simp only [LN, LD]
-    norm_num [ENNReal.toReal_mul, ENNReal.toReal_div, ENNReal.toReal_inv]
 noncomputable def uniformOn (S : Finset (Fin 9 → C × β)) (x : Fin 9 → C × β) : ENNReal :=
   open Classical in if x ∈ S then (S.card : ENNReal)⁻¹ else 0
 theorem lawOK_uniformOn (S : Finset (Fin 9 → C × β)) (hS : S.Nonempty)
@@ -733,30 +670,6 @@ theorem lawOK_uniformOn' (S : Finset (Fin 9 → C × β)) (hS : S.Nonempty) (Nco
   rwa [hcard, hNs] at h
 section Uniform
 variable [SampleableType (Fin 9 → C × β)] [SampleableType (Fin (2 ^ 31) × (Fin 9 → C × β))]
-theorem lawAvg_marked_uniform (T : ℕ) (f : List (Fin (2 ^ 31) × (Fin 9 → C × β)) → ENNReal) :
-    lawAvg (marked (α := Fin (2 ^ 31)) (fun _ : Fin 9 → C × β => (Fintype.card (Fin 9 → C × β) : ENNReal)⁻¹)) T f =
-      uniformWordAverage T f := by
-  rw [← lawAvg_uniform]
-  congr 1
-  funext p
-  simp only [marked, Fintype.card_prod]
-  rw [Nat.cast_mul, ENNReal.mul_inv (Or.inl (by simp)) (Or.inl (ENNReal.natCast_ne_top _))]
-theorem uniform_price_excess_le {T : ℕ} (hT1 : 2 ^ 32 ≤ T) (hT2 : T ≤ 2 ^ 32)
-    (hβ : Fintype.card β = 563) (hC : Fintype.card C = 128) (h₁ : W1Table val) (h₂ : W2Table val) :
-    uniformWordAverage T (fun W : List (Fin (2 ^ 31) × (Fin 9 → C × β)) => priceN val W - 1023 / 1024) ≤
-      247 / 100000 := by
-  rw [← lawAvg_marked_uniform]
-  exact law_price_excess_le val hT1 hT2 hβ hC h₁ h₂ (lawOK_uniform (by simp [hβ, hC]))
-theorem uniform_price_mean_le {T : ℕ} (hT1 : 2 ^ 32 ≤ T) (hT2 : T ≤ 2 ^ 32)
-    (hβ : Fintype.card β = 563) (hC : Fintype.card C = 128) (h₁ : W1Table val) :
-    uniformWordAverage T (priceN (C := C) val) ≤ 675 / 1000 := by
-  rw [← lawAvg_marked_uniform]
-  exact law_price_mean_le val hT1 hT2 hβ hC h₁ (lawOK_uniform (by simp [hβ, hC]))
-theorem uniform_nearPrice_le {T : ℕ} (hT1 : 2 ^ 32 ≤ T) (hT2 : T ≤ 2 ^ 32)
-    (hβ : Fintype.card β = 563) (hC : Fintype.card C = 128) (h₁ : W1Table val) (hf : ∀ i, WFTable val i) :
-    uniformWordAverage T (nearPriceN (C := C) val) ≤ 291 / 1 := by
-  rw [← lawAvg_marked_uniform]
-  exact law_nearPrice_le val hT1 hT2 hβ hC h₁ hf (lawOK_uniform (by simp [hβ, hC]))
 end Uniform
 end Law
 end ClaudeWCT.Numerics.N600
@@ -922,40 +835,6 @@ theorem law_price_excess_le_winsor (val : β → Fin 6 → ℕ)
 end WinsorInterface
 end ClaudeWCT.Numerics.N600
 
-namespace ClaudeWCT.Numerics.Winsor
-open Finset
-/-- A retained subdistribution pays its bin-specific bound; omitted mass pays `M`. -/
-theorem finite_retained_payoff_le {α β : Type*} [Fintype α] [Fintype β]
-    [DecidableEq β] (label : α → β) (weight fee : α → ℝ) (retained pay : β → ℝ) (M : ℝ)
-    (hfee : ∀ a, fee a ≤ weight a * pay (label a))
-    (hpay : ∀ b, pay b ≤ M)
-    (hret : ∀ b, retained b ≤ ∑ a, if label a = b then weight a else 0) :
-    ∑ a, fee a ≤ ∑ b, retained b * pay b + M * ((∑ a, weight a) - ∑ b, retained b) := by
-  classical
-  have hdisc : (∑ b, retained b * (M-pay b)) ≤
-      ∑ a, weight a * (M-pay (label a)) := by
-    calc
-      _ ≤ ∑ b, (∑ a, if label a=b then weight a else 0) * (M-pay b) :=
-        sum_le_sum fun b _ => mul_le_mul_of_nonneg_right (hret b) (sub_nonneg.mpr (hpay b))
-      _ = _ := by
-        simp_rw [sum_mul]
-        rw [sum_comm]
-        apply sum_congr rfl
-        intro a _
-        simp
-  calc
-    _ ≤ ∑ a, weight a * pay (label a) := sum_le_sum fun a _ => hfee a
-    _ = M * (∑ a, weight a) - ∑ a, weight a * (M-pay (label a)) := by
-      rw [mul_sum, ← sum_sub_distrib]
-      apply sum_congr rfl
-      intro a _
-      ring
-    _ ≤ M * (∑ a, weight a) - ∑ b, retained b * (M-pay b) := by linarith
-    _ = _ := by
-      simp_rw [mul_sub]
-      rw [sum_sub_distrib, ← sum_mul]
-      ring
-end ClaudeWCT.Numerics.Winsor
 
 namespace ClaudeWCT.Numerics.Winsor
 open Finset
@@ -982,30 +861,6 @@ theorem tensor_retained_le {ι α β : Type*} [Fintype ι] [DecidableEq ι] [Fin
         have he : ∃ i, label (xs i) ≠ bs i := by simpa only [funext_iff, not_forall] using h
         obtain ⟨i, hi⟩ := he
         exact prod_eq_zero (mem_univ i) (if_neg hi)
-/-- Combining bins preserves domination of a finite retained measure. -/
-theorem retained_pushforward_le {α β γ : Type*} [Fintype α] [Fintype β]
-    [DecidableEq β] [DecidableEq γ] (label : α → β) (group : β → γ)
-    (weight : α → ℕ) (retained : β → ℕ)
-    (hret : ∀ b, retained b ≤ ∑ a, if label a=b then weight a else 0) (c : γ) :
-    (∑ b, if group b=c then retained b else 0) ≤
-      ∑ a, if group (label a)=c then weight a else 0 := by
-  classical
-  calc
-    _ ≤ ∑ b, if group b=c then ∑ a, if label a=b then weight a else 0 else 0 := by
-      apply sum_le_sum
-      intro b _
-      split_ifs <;> first | exact hret b | exact le_rfl
-    _ = _ := by
-      simp_rw [ite_sum_zero]
-      rw [sum_comm]
-      apply sum_congr rfl
-      intro a _
-      have hh : ∀ b, (if group b=c then if label a=b then weight a else 0 else 0) =
-          (if label a=b then if group b=c then weight a else 0 else 0) := by
-        intro b
-        split_ifs <;> rfl
-      simp_rw [hh]
-      simp
 end ClaudeWCT.Numerics.Winsor
 
 namespace ClaudeWCT.Numerics.N600
@@ -1058,10 +913,6 @@ theorem coverageRetainedFastPack_eq (b r : ℕ) :
 end ClaudeWCT.Numerics.N600
 
 namespace ClaudeWCT.Numerics.N600
-theorem coverageFastBinnedPack_eq (b r : ℕ) : coverageFastBinnedPack b r = coverageBinnedPack b r := by
-  simp only [coverageFastBinnedPack, coverageRetainedFastPack_eq, coverageBinnedPack]
-theorem coverageFastProductPack_eq (r : ℕ) : coverageFastProductPack r = coverageProductPack r := by
-  simp only [coverageFastProductPack, coverageFastBinnedPack_eq, coverageProductPack]
 open Finset Polynomial
 variable {β C : Type} [Fintype β] [Fintype C] [DecidableEq C]
 theorem fullCoverage_card_product {r n : ℕ} (val : β → Fin 6 → ℕ) (E : Fin r → Fin n → C × β) :
@@ -1621,11 +1472,6 @@ theorem coverageCoefficientDots_mass (P : ℕ[X]) (ds : List (ℕ × ℕ)) (k : 
     simp only [Nat.add_zero, Nat.add_assoc, Nat.add_comm 1]
     exact Nat.add_comm _ _
 
-theorem coverageCoefficientDots_mass_le (P : ℕ[X]) (ds : List (ℕ × ℕ)) :
-    (coverageCoefficientDots P ds 0).1 ≤ P.eval 1 := by
-  rw [coverageCoefficientDots_mass]
-  simp only [Nat.zero_add]
-  exact sum_coeff_le_eval_one P (range ds.length)
 
 end ClaudeWCT.Numerics.N600
 
@@ -1949,11 +1795,6 @@ theorem bucketResidual_real (val : β → Fin 6 → ℕ) (L : List (Fin 9 → C 
     ENNReal.ofReal_sub _ (by norm_num), ENNReal.ofReal_toReal (bucketPrice_ne_top val L), ENNReal.ofReal_one]
   rfl
 
-theorem bucketExpIncrement_ne_top (val : β → Fin 6 → ℕ) (L : List (Fin 9 → C × β)) :
-    bucketExpIncrement val L ≠ ⊤ := by rw [bucketExpIncrement_real]; exact ENNReal.ofReal_ne_top
-
-theorem bucketResidual_ne_top (val : β → Fin 6 → ℕ) (L : List (Fin 9 → C × β)) :
-    bucketResidual val L ≠ ⊤ := by rw [bucketResidual_real]; exact ENNReal.ofReal_ne_top
 
 theorem bucketPrice_ofFn_real {r : ℕ} (val : β → Fin 6 → ℕ)
     (hβ : Fintype.card β=563) (hC : Fintype.card C=128) (E : Fin r → Fin 9 → C × β) :
@@ -2303,60 +2144,8 @@ theorem positive_part_exp (x theta t : ℝ) (ht : 0 < t) :
     rw [hcancel]
     exact hp
 
-theorem split_excess (price capped residual theta t : ℝ)
-    (ht : 0 < t) (hr : 0 ≤ residual) (hsplit : price ≤ capped + residual) :
-    max 0 (price - theta) ≤ residual + (3 / (8 * t)) *
-      Real.exp (-t * theta) * Real.exp (t * capped) := by
-  have h := positive_part_exp capped theta t ht
-  apply max_le
-  · positivity
-  · have hc := le_max_right 0 (capped - theta)
-    linarith
-
-/-- A single capped exponential estimate closes both endpoints of the
-continuous large-query envelope and the small-query bank threshold. -/
-theorem endpoint_high :
-    (3 / 48 : ℝ) * Real.exp (61 / 10 - 6 * (2 - 2 / 1250 - 1 / 1024)) +
-      3 / 5000 ≤ 49 / 62500 := by
-  let x : ℝ := 6 * (2 - 2 / 1250 - 1 / 1024) - 61 / 10
-  have hx : (0 : ℝ) ≤ x := by norm_num [x]
-  have he : (340 : ℝ) ≤ Real.exp x := by
-    refine le_trans ?_ (Real.sum_le_exp_of_nonneg hx 16)
-    norm_num [x, Finset.sum_range_succ, Nat.factorial]
-  have hi : (Real.exp x)⁻¹ ≤ (340 : ℝ)⁻¹ :=
-    (inv_le_inv₀ (Real.exp_pos x) (by norm_num)).2 he
-  have hn : 61 / 10 - 6 * (2 - 2 / 1250 - 1 / 1024) = -x := by dsimp [x]; ring
-  rw [hn, Real.exp_neg]
-  norm_num at hi ⊢
-  linarith
-
-theorem endpoint_small :
-    (3 / 48 : ℝ) * Real.exp (61 / 10 - 6 * (249 / 125 - 1 / 1024)) +
-      3 / 5000 ≤ 1 / 1000 := by
-  let x : ℝ := 6 * (249 / 125 - 1 / 1024) - 61 / 10
-  have hx : (0 : ℝ) ≤ x := by norm_num [x]
-  have he : (200 : ℝ) ≤ Real.exp x := by
-    refine le_trans ?_ (Real.sum_le_exp_of_nonneg hx 16)
-    norm_num [x, Finset.sum_range_succ, Nat.factorial]
-  have hi : (Real.exp x)⁻¹ ≤ (200 : ℝ)⁻¹ :=
-    (inv_le_inv₀ (Real.exp_pos x) (by norm_num)).2 he
-  have hn : 61 / 10 - 6 * (249 / 125 - 1 / 1024) = -x := by dsimp [x]; ring
-  rw [hn, Real.exp_neg]
-  norm_num at hi ⊢
-  linarith
-
-theorem endpoint_low :
-    (3 / 48 : ℝ) * Real.exp (61 / 10 - 6 * (1 - 1 / 1024)) +
-      3 / 5000 ≤ 49 / 100 := by
-  have hx : (61 / 10 - 6 * (1 - 1 / 1024) : ℝ) ≤ 1 := by norm_num
-  have he := (Real.exp_le_exp.mpr hx).trans (le_of_lt Real.exp_one_lt_d9)
-  nlinarith
 
 #print axioms positive_part_exp
-#print axioms split_excess
-#print axioms endpoint_high
-#print axioms endpoint_small
-#print axioms endpoint_low
 end ClaudeWCT.Numerics.SharedPathWinsor
 
 namespace ClaudeWCT.Numerics.SharedPathWinsor
@@ -2477,20 +2266,6 @@ end ClaudeWCT.Numerics.SharedPathWinsor
 
 namespace ClaudeWCT.Numerics.CanonicalCompression
 
-/-- Moment of a truncated rejection loop, given the success-weighted continuation. -/
-noncomputable def retryMoment (z good bad : ℝ) : Nat → ℝ
-  | 0 => 1
-  | fuel + 1 => z * (good + bad * retryMoment z good bad fuel)
-
-theorem retryMoment_le (z good bad value : ℝ) (hz : 0 ≤ z) (hbad : 0 ≤ bad)
-    (hbase : 1 ≤ value) (hstep : z * (good + bad * value) ≤ value) :
-    ∀ fuel, retryMoment z good bad fuel ≤ value := by
-  intro fuel
-  induction fuel with
-  | zero => exact hbase
-  | succ fuel ih =>
-      exact (mul_le_mul_of_nonneg_left
-        (add_le_add le_rfl (mul_le_mul_of_nonneg_left ih hbad)) hz).trans hstep
 
 /-- Convert a checked integer row into the real-valued rejection-loop inequality. -/
 theorem transition_sound (zn zd den weighted value rejected unit : Nat)
@@ -2515,51 +2290,9 @@ theorem transition_sound (zn zd den weighted value rejected unit : Nat)
   rw [← sub_nonpos, he]
   exact div_nonpos_of_nonpos_of_nonneg (sub_nonpos.mpr hcast) (by positivity)
 
-#print axioms retryMoment_le
 #print axioms transition_sound
 end ClaudeWCT.Numerics.CanonicalCompression
 
-namespace ClaudeWCT.Numerics.SharedPathWinsor.Canonical
-set_option maxHeartbeats 1000000
-set_option maxRecDepth 10000
-
-/-- A conservative scalar certificate for gate734/cap788. Its two moment
-premises, at most6.87 and0.00075, still require a finite coverage proof. -/
-theorem endpoint_middle :
-    (3 / 48 : ℝ) * Real.exp (687 / 100 - 6 * (99847 / 50000 - 1 / 1024)) +
-      3 / 4000 ≤ 23 / 20000 := by
-  let x : ℝ := 6 * (99847 / 50000 - 1 / 1024) - 687 / 100
-  have hx : (0 : ℝ) ≤ x := by norm_num [x]
-  have he : (160 : ℝ) ≤ Real.exp x := by
-    refine le_trans ?_ (Real.sum_le_exp_of_nonneg hx 18)
-    norm_num [x, Finset.sum_range_succ, Nat.factorial]
-  have hi : (Real.exp x)⁻¹ ≤ (160 : ℝ)⁻¹ :=
-    (inv_le_inv₀ (Real.exp_pos x) (by norm_num)).2 he
-  have hn : 687 / 100 - 6 * (99847 / 50000 - 1 / 1024) = -x := by dsimp [x]; ring
-  rw [hn, Real.exp_neg]
-  norm_num at hi ⊢
-  linarith
-
-theorem endpoint_high :
-    (3 / 48 : ℝ) * Real.exp (687 / 100 - 6 * (2 - 6 / 2500 - 1 / 1024)) +
-      3 / 4000 ≤ 147 / 125000 := by
-  have h := endpoint_middle
-  have he := Real.exp_le_exp.mpr (show
-      (687 / 100 - 6 * (2 - 6 / 2500 - 1 / 1024) : ℝ) ≤
-        687 / 100 - 6 * (99847 / 50000 - 1 / 1024) by norm_num)
-  linarith
-
-theorem endpoint_low :
-    (3 / 48 : ℝ) * Real.exp (687 / 100 - 6 * (1 - 1 / 1024)) +
-      3 / 4000 ≤ 49 / 100 := by
-  have hx : (687 / 100 - 6 * (1 - 1 / 1024) : ℝ) ≤ 1 := by norm_num
-  have he := (Real.exp_le_exp.mpr hx).trans (le_of_lt Real.exp_one_lt_d9)
-  nlinarith
-
-#print axioms endpoint_middle
-#print axioms endpoint_high
-#print axioms endpoint_low
-end ClaudeWCT.Numerics.SharedPathWinsor.Canonical
 
 namespace ClaudeWCT.Numerics.SharedPathWinsor
 open Finset
@@ -2580,27 +2313,6 @@ theorem exp_secant (t x u : ℝ) (hx : 0 ≤ x) (hxu : x ≤ u) (hu : 0 < u) :
   rw [he] at hc
   nlinarith
 
-theorem capped_exp_ratio (t x cap pivot pay : ℝ)
-    (ht : 0 ≤ t) (hx : 0 ≤ x) (hc : 0 < cap) (hp : 0 < pivot)
-    (hpay : 0 ≤ pay)
-    (hbelow : x ≤ cap → x ≤ pivot ∧ pivot ≤ cap)
-    (habove : cap ≤ x → cap ≤ pivot ∧ pivot ≤ x)
-    (hbound : Real.exp (t * min pivot cap) - 1 ≤ pivot * pay) :
-    Real.exp (t * min x cap) - 1 ≤ x * pay := by
-  by_cases hxc : x ≤ cap
-  · rw [min_eq_left hxc]
-    obtain ⟨hxp, hpc⟩ := hbelow hxc
-    rw [min_eq_left hpc] at hbound
-    have hs := exp_secant t x pivot hx hxp hp
-    have hm := mul_le_mul_of_nonneg_left hbound (div_nonneg hx hp.le)
-    have he : x / pivot * (pivot * pay) = x * pay := by field_simp
-    rw [he] at hm
-    exact hs.trans hm
-  · have hcx : cap ≤ x := le_of_lt (lt_of_not_ge hxc)
-    obtain ⟨hcp, hpx⟩ := habove hcx
-    rw [min_eq_right hcx]
-    rw [min_eq_right hcp] at hbound
-    exact hbound.trans (mul_le_mul_of_nonneg_right hpx hpay)
 end ClaudeWCT.Numerics.SharedPathWinsor
 
 namespace ClaudeWCT.Numerics.SharedCoverage
@@ -2854,7 +2566,6 @@ theorem coordinatePoly_coeff_below {β : Type*} [Fintype β]
 end ClaudeWCT.Numerics.SharedCoverage
 
 
-
 namespace ClaudeWCT.Numerics.SharedPathReflection
 
 theorem bin_pair_bounds_of_check (hcheck : binRunsCheck = true)
@@ -2929,7 +2640,6 @@ theorem geometric_bin_interval (c b : Nat)
 end ClaudeWCT.Numerics.SharedPathReflection
 
 
-
 namespace ClaudeWCT.Numerics.SharedCoverage
 open Finset Polynomial
 open ClaudeWCT.Numerics.N600 ClaudeWCT.Numerics.SharedPathReflection
@@ -3000,133 +2710,6 @@ end ClaudeWCT.Numerics.SharedCoverage
 
 
 namespace ClaudeWCT.Numerics.SharedPathReflection
-open Finset Polynomial
-
-def bucketArray {α : Type*} (xs : List α) (bin weight : α → Nat) (a : Array Nat) : Array Nat :=
-  xs.foldl (fun acc x => acc.set! (bin x) (acc[bin x]! + weight x)) a
-
-theorem bucketArray_model {α : Type*} (xs : List α) (bin weight : α → Nat)
-    (a : Array Nat) (N : Nat) (ha : a.size = N)
-    (hbin : ∀ x ∈ xs, bin x < N) :
-    (bucketArray xs bin weight a).size = N ∧
-      ∀ i, (bucketArray xs bin weight a)[i]! = a[i]! +
-        (xs.map (fun x => if bin x = i then weight x else 0)).sum := by
-  induction xs generalizing a with
-  | nil => simp [bucketArray, ha]
-  | cons x xs ih =>
-    let a' := a.set! (bin x) (a[bin x]! + weight x)
-    have ha' : a'.size = N := by simp only [a', Array.size_set!, ha]
-    have hx : bin x < a.size := by rw [ha]; exact hbin x (by simp)
-    have hr := ih a' ha' (fun y hy => hbin y (by simp [hy]))
-    refine ⟨hr.1, fun i => ?_⟩
-    have hi : a'[i]! = a[i]! + (if bin x = i then weight x else 0) := by
-      by_cases h : bin x = i
-      · subst i
-        calc a'[bin x]! = a[bin x]! + weight x := Array.getElem!_set!_self _ _ _ hx
-             _ = _ := by simp
-      · simp only [a', Array.getElem!_set!_ne a (bin x) i _ h, if_neg h, Nat.add_zero]
-    change (bucketArray xs bin weight a')[i]! = _
-    rw [hr.2 i, hi]
-    simp only [List.map_cons, List.sum_cons, Nat.add_assoc]
-
-theorem bucketArray_zero_model {α : Type*} (xs : List α) (bin weight : α → Nat)
-    (N : Nat) (hbin : ∀ x ∈ xs, bin x < N) :
-    (bucketArray xs bin weight (Array.replicate N 0)).size = N ∧
-      ∀ i, (bucketArray xs bin weight (Array.replicate N 0))[i]! =
-        (xs.map (fun x => if bin x = i then weight x else 0)).sum := by
-  have h := bucketArray_model xs bin weight (Array.replicate N 0) N (by simp) hbin
-  refine ⟨h.1, fun i => ?_⟩
-  rw [h.2 i]
-  have hz : (Array.replicate N (0 : Nat))[i]! = 0 := by
-    by_cases hi : i < N <;> simp [getElem!_def, Array.getElem?_replicate, hi]
-  simp only [hz, Nat.zero_add]
-
-theorem coupled_bucket_fst {α : Type*} (xs : List α) (bin w₀ w₁ : α → Nat)
-    (a : Binned) :
-    (xs.foldl (fun acc x =>
-      { probability := acc.probability.set! (bin x) (acc.probability[bin x]! + w₀ x)
-        first := acc.first.set! (bin x) (acc.first[bin x]! + w₁ x) } :
-        Binned → α → Binned) a).probability = bucketArray xs bin w₀ a.probability := by
-  induction xs generalizing a with
-  | nil => rfl
-  | cons x xs ih => simpa only [List.foldl_cons, bucketArray] using ih _
-
-theorem coupled_bucket_snd {α : Type*} (xs : List α) (bin w₀ w₁ : α → Nat)
-    (a : Binned) :
-    (xs.foldl (fun acc x =>
-      { probability := acc.probability.set! (bin x) (acc.probability[bin x]! + w₀ x)
-        first := acc.first.set! (bin x) (acc.first[bin x]! + w₁ x) } :
-        Binned → α → Binned) a).first = bucketArray xs bin w₁ a.first := by
-  induction xs generalizing a with
-  | nil => rfl
-  | cons x xs ih => simpa only [List.foldl_cons, bucketArray] using ih _
-
-#print axioms bucketArray_zero_model
-#print axioms coupled_bucket_fst
-end ClaudeWCT.Numerics.SharedPathReflection
-
-
-namespace ClaudeWCT.Numerics.SharedPathReflection
-open Finset Polynomial
-open ClaudeWCT.Numerics.N600
-
-noncomputable def listPolynomial : List Nat → Nat[X]
-  | [] => 0
-  | a :: xs => Polynomial.C a + X * listPolynomial xs
-
-theorem listPolynomial_coeff (xs : List Nat) (i : Nat) :
-    (listPolynomial xs).coeff i = xs[i]?.getD 0 := by
-  induction xs generalizing i with
-  | nil => simp [listPolynomial]
-  | cons a xs ih =>
-    cases i with
-    | zero => simp [listPolynomial]
-    | succ i => simp [listPolynomial, ih]
-
-theorem listPolynomial_eval (xs : List Nat) (bits : Nat) :
-    (listPolynomial xs).eval (2^bits) =
-      xs.foldr (fun a s => a + (s <<< bits)) 0 := by
-  induction xs with
-  | nil => simp [listPolynomial]
-  | cons a xs ih => simp [listPolynomial, ih, Nat.shiftLeft_eq, Nat.mul_comm]
-
-theorem pack_eq_eval (a : Array Nat) (bits : Nat) :
-    pack bits a = (listPolynomial a.toList).eval (2^bits) :=
-  (listPolynomial_eval a.toList bits).symm
-
-theorem coefficient_eval (P : Nat[X]) (bits : Nat)
-    (hcoeff : ∀ i, P.coeff i < 2^bits) (i : Nat) :
-    coefficient bits (P.eval (2^bits)) i = P.coeff i := by
-  unfold coefficient
-  rw [Nat.shiftRight_eq_div_pow, pow_mul]
-  exact ClaudeWCT.Numerics.eval_div_pow_mod (by positivity) i P hcoeff
-
-theorem unpack_get (bits length p : Nat) (i : Fin length) :
-    (unpack bits length p)[i.val]?.getD 0 = coefficient bits p i.val := by
-  simp [unpack, Array.getElem?_eq_getElem, i.isLt]
-
-theorem multiply_get (bits : Nat) (a b : Array Nat)
-    (hcoeff : ∀ i, (listPolynomial a.toList * listPolynomial b.toList).coeff i < 2^bits)
-    (i : Fin (a.size + b.size - 1)) :
-    (multiply bits a b)[i.val]?.getD 0 =
-      (listPolynomial a.toList * listPolynomial b.toList).coeff i.val := by
-  rw [multiply, unpack_get, pack_eq_eval, pack_eq_eval, ← Polynomial.eval_mul]
-  exact coefficient_eval _ bits hcoeff i.val
-
-theorem coefficientLE_eval_one {P Q : Nat[X]} (h : CoeffLE P Q) :
-    P.eval 1 ≤ Q.eval 1 := by
-  calc P.eval 1 = ∑ i ∈ P.support, P.coeff i := by
-         simp [Polynomial.eval_eq_sum, Polynomial.sum_def]
-       _ ≤ ∑ i ∈ P.support, Q.coeff i := Finset.sum_le_sum (fun i _ => h i)
-       _ ≤ Q.eval 1 := sum_coeff_le_eval_one Q P.support
-
-#print axioms listPolynomial_coeff
-#print axioms multiply_get
-#print axioms coefficientLE_eval_one
-end ClaudeWCT.Numerics.SharedPathReflection
-
-
-namespace ClaudeWCT.Numerics.SharedPathReflection
 
 theorem geometric_add_interval (d b : Nat)
     (hu : 100 ^ b * (101 ^ d + 100 ^ d) ≤ 101 ^ (b+d))
@@ -3147,96 +2730,8 @@ theorem geometric_add_interval (d b : Nat)
   · apply (div_le_div_iff₀ hD (by positivity)).mpr
     nlinarith
 
-theorem geometric_add_shift (i j b : Nat) (hji : j ≤ i)
-    (h : (101/100 : ℝ)^((i-j)+b)*(100/101) ≤ (101/100 : ℝ)^(i-j)+1 ∧
-      (101/100 : ℝ)^(i-j)+1 ≤ (101/100 : ℝ)^((i-j)+b)) :
-    (101/100 : ℝ)^(i+b)*(100/101) ≤ (101/100 : ℝ)^i+(101/100 : ℝ)^j ∧
-      (101/100 : ℝ)^i+(101/100 : ℝ)^j ≤ (101/100 : ℝ)^(i+b) := by
-  have hp : (0 : ℝ) ≤ (101/100 : ℝ)^j := by positivity
-  have he : j + (i-j) = i := by omega
-  have he' : j + ((i-j)+b) = i+b := by omega
-  have h₀ := mul_le_mul_of_nonneg_left h.1 hp
-  have h₁ := mul_le_mul_of_nonneg_left h.2 hp
-  simpa only [mul_add, mul_one, ← mul_assoc, ← pow_add, he, he'] using And.intro h₀ h₁
-
-theorem product_intervals (a c : ℝ) (i j k l : Nat)
-    (ha : 0 ≤ a) (hc : 0 ≤ c)
-    (hA : (101/100 : ℝ)^i*(100/101)^k ≤ a ∧ a ≤ (101/100 : ℝ)^i)
-    (hC : (101/100 : ℝ)^j*(100/101)^l ≤ c ∧ c ≤ (101/100 : ℝ)^j) :
-    (101/100 : ℝ)^(i+j)*(100/101)^(k+l) ≤ a*c ∧
-      a*c ≤ (101/100 : ℝ)^(i+j) := by
-  constructor
-  · have h := mul_le_mul hA.1 hC.1 (by positivity) ha
-    calc (101/100 : ℝ)^(i+j)*(100/101)^(k+l) =
-        ((101/100 : ℝ)^i*(100/101)^k) * ((101/100 : ℝ)^j*(100/101)^l) := by
-          rw [pow_add, pow_add]; ring
-         _ ≤ a*c := h
-  · rw [pow_add]
-    exact mul_le_mul hA.2 hC.2 hc (by positivity)
-
-theorem sum_intervals (a c : ℝ) (i j k out : Nat)
-    (hA : (101/100 : ℝ)^i*(100/101)^k ≤ a ∧ a ≤ (101/100 : ℝ)^i)
-    (hC : (101/100 : ℝ)^j*(100/101)^k ≤ c ∧ c ≤ (101/100 : ℝ)^j)
-    (hOut : (101/100 : ℝ)^out*(100/101) ≤ (101/100 : ℝ)^i+(101/100 : ℝ)^j ∧
-      (101/100 : ℝ)^i+(101/100 : ℝ)^j ≤ (101/100 : ℝ)^out) :
-    (101/100 : ℝ)^out*(100/101)^(k+1) ≤ a+c ∧
-      a+c ≤ (101/100 : ℝ)^out := by
-  constructor
-  · have h := mul_le_mul_of_nonneg_right hOut.1 (show 0 ≤ (100/101 : ℝ)^k by positivity)
-    rw [add_mul] at h
-    have he : (101/100 : ℝ)^out*(100/101)^(k+1) =
-        ((101/100 : ℝ)^out*(100/101))*(100/101)^k := by rw [pow_succ]; ring
-    rw [he]
-    exact h.trans (add_le_add hA.1 hC.1)
-  · exact (add_le_add hA.2 hC.2).trans hOut.2
 
 #print axioms geometric_add_interval
-#print axioms product_intervals
-#print axioms sum_intervals
-end ClaudeWCT.Numerics.SharedPathReflection
-
-
-namespace ClaudeWCT.Numerics.SharedPathReflection
-open Finset Polynomial
-
-theorem coordinateBinned_probability (K r : Nat) :
-    (coordinateBinned K r).probability =
-      bucketArray (List.range (563*r+1)) (fun c => bins[c]?.getD 0)
-        (fun c => coefficient 512 (coordinatePacked 512 K r) c) (Array.replicate 1024 0) := by
-  unfold coordinateBinned
-  exact coupled_bucket_fst _ _ _ _ _
-
-theorem coordinateBinned_first (K r : Nat) :
-    (coordinateBinned K r).first =
-      bucketArray (List.range (563*r+1)) (fun c => bins[c]?.getD 0)
-        (fun c => c * coefficient 512 (coordinatePacked 512 K r) c) (Array.replicate 1024 0) := by
-  unfold coordinateBinned
-  exact coupled_bucket_snd _ _ _ _ _
-
-theorem coordinateBinned_model (K r : Nat)
-    (hbin : ∀ c < 563*r+1, bins[c]?.getD 0 < 1024)
-    (P : Nat[X]) (hPacked : coordinatePacked 512 K r = P.eval (2^512))
-    (hCoeff : ∀ c, P.coeff c < 2^512) :
-    (coordinateBinned K r).probability.size = 1024 ∧
-    (coordinateBinned K r).first.size = 1024 ∧
-    (∀ b, (coordinateBinned K r).probability[b]! =
-      ((List.range (563*r+1)).map (fun c => if bins[c]?.getD 0 = b then P.coeff c else 0)).sum) ∧
-    (∀ b, (coordinateBinned K r).first[b]! =
-      ((List.range (563*r+1)).map (fun c => if bins[c]?.getD 0 = b then c * P.coeff c else 0)).sum) := by
-  have hp := bucketArray_zero_model (List.range (563*r+1)) (fun c => bins[c]?.getD 0)
-    (fun c => coefficient 512 (coordinatePacked 512 K r) c) 1024
-    (fun c hc => hbin c (List.mem_range.mp hc))
-  have hf := bucketArray_zero_model (List.range (563*r+1)) (fun c => bins[c]?.getD 0)
-    (fun c => c * coefficient 512 (coordinatePacked 512 K r) c) 1024
-    (fun c hc => hbin c (List.mem_range.mp hc))
-  rw [coordinateBinned_probability, coordinateBinned_first]
-  refine ⟨hp.1, hf.1, ?_, ?_⟩
-  · intro b
-    simpa only [hPacked, coefficient_eval P 512 hCoeff] using hp.2 b
-  · intro b
-    simpa only [hPacked, coefficient_eval P 512 hCoeff] using hf.2 b
-
-#print axioms coordinateBinned_model
 end ClaudeWCT.Numerics.SharedPathReflection
 
 
@@ -3301,30 +2796,6 @@ theorem coordinate_near_sum {β : Type} [Fintype β]
 
 #print axioms coordinate_first_sum
 #print axioms coordinate_near_sum
-end ClaudeWCT.Numerics.SharedCoverage
-
-
-namespace ClaudeWCT.Numerics.SharedCoverage
-open Finset Polynomial
-open ClaudeWCT.Numerics.N600
-
-theorem coordinate_coefficient_lt {β : Type*} [Fintype β]
-    (val : β → Fin 6 → Nat) (hβ : Fintype.card β = 563)
-    (K r : Nat) (hK : K ≤ 128) (hr : r ≤ 20) (P : Nat[X])
-    (hP : ∀ c, P.coeff c ≤
-      #{E : Fin r → Fin K × β | coordinateCoverage val E = c}) :
-    ∀ c, P.coeff c < 2^512 := by
-  intro c
-  have hc : #{E : Fin r → Fin K × β | coordinateCoverage val E = c} ≤
-      Fintype.card (Fin r → Fin K × β) :=
-    (Finset.card_le_card (Finset.filter_subset _ _)).trans_eq (Finset.card_univ)
-  simp only [Fintype.card_fun, Fintype.card_fin, Fintype.card_prod, hβ] at hc
-  calc P.coeff c ≤ (K*563)^r := (hP c).trans hc
-       _ ≤ (128*563)^r := Nat.pow_le_pow_left (Nat.mul_le_mul_right 563 hK) r
-       _ ≤ (128*563)^20 := Nat.pow_le_pow_right (by decide) hr
-       _ < 2^512 := by decide +kernel
-
-#print axioms coordinate_coefficient_lt
 end ClaudeWCT.Numerics.SharedCoverage
 
 
@@ -3623,133 +3094,6 @@ theorem independent_forest_near {α β : Type*} [Fintype α] [Fintype β]
 #print axioms independent_forest_near
 end ClaudeWCT.Numerics.SharedCoverage
 
-namespace ClaudeWCT.Numerics.SharedPathWinsor
-
-theorem capped_fee_below (t x cap u E : ℝ)
-    (hx : 0 ≤ x) (hxu : x ≤ u) (hu : 0 < u) (huc : u ≤ cap)
-    (hE : Real.exp (t*u) ≤ E) :
-    Real.exp (t * min x cap) - 1 ≤ x * ((E-1)/u) := by
-  rw [min_eq_left (hxu.trans huc)]
-  have hs := exp_secant t x u hx hxu hu
-  have hm := mul_le_mul_of_nonneg_left (sub_le_sub_right hE 1) (div_nonneg hx hu.le)
-  calc
-    Real.exp (t*x)-1 ≤ (x/u)*(Real.exp (t*u)-1) := hs
-    _ ≤ (x/u)*(E-1) := hm
-    _ = x*((E-1)/u) := by ring
-
-theorem capped_fee_above (t x cap l E : ℝ)
-    (hcl : cap ≤ l) (hlx : l ≤ x) (hl : 0 < l)
-    (hE : Real.exp (t*cap) ≤ E) (h1 : 1 ≤ E) :
-    Real.exp (t * min x cap) - 1 ≤ x * ((E-1)/l) := by
-  rw [min_eq_right (hcl.trans hlx)]
-  have hpay : 0 ≤ (E-1)/l := div_nonneg (by linarith) hl.le
-  calc
-    Real.exp (t*cap)-1 ≤ E-1 := by linarith
-    _ = l*((E-1)/l) := by field_simp
-    _ ≤ x*((E-1)/l) := mul_le_mul_of_nonneg_right hlx hpay
-
-theorem capped_fee_global (t x cap E : ℝ)
-    (ht : 0 ≤ t) (hx : 0 ≤ x) (hc : 0 < cap)
-    (hE : Real.exp (t*cap) ≤ E) :
-    Real.exp (t * min x cap) - 1 ≤ x * ((E-1)/cap) := by
-  have h1 : 1 ≤ E := (Real.one_le_exp (mul_nonneg ht hc.le)).trans hE
-  by_cases hxc : x ≤ cap
-  · exact capped_fee_below t x cap cap E hx hxc hc le_rfl hE
-  · exact capped_fee_above t x cap cap E le_rfl (le_of_not_ge hxc) hc hE h1
-
-theorem residual_fee_upper (x cap u : ℝ)
-    (hx : 0 ≤ x) (hcap : 0 ≤ cap) (hxu : x ≤ u) (hu : 0 < u) :
-    max 0 (x-cap) ≤ x * (max 0 (u-cap)/u) := by
-  by_cases hxc : x ≤ cap
-  · rw [max_eq_left (by linarith : x-cap ≤ 0)]
-    positivity
-  · have hcx : cap < x := lt_of_not_ge hxc
-    have hcu : 0 ≤ u-cap := by linarith
-    rw [max_eq_right (by linarith : 0 ≤ x-cap), max_eq_right hcu]
-    have hm : cap*x ≤ cap*u := mul_le_mul_of_nonneg_left hxu hcap
-    have he : x*((u-cap)/u) = (x*(u-cap))/u := by ring
-    rw [he]
-    apply (le_div_iff₀ hu).2
-    nlinarith
-
-#print axioms capped_fee_global
-#print axioms residual_fee_upper
-end ClaudeWCT.Numerics.SharedPathWinsor
-
-namespace ClaudeWCT.Numerics.SharedFees
-
-def paidPlain (base : Nat) : List (Nat × Nat) → Nat → Nat × Nat × Nat
-  | [], _ => (0,0,0)
-  | (m,t)::fs,p =>
-    let n := p % base
-    let v := paidPlain base fs (p / base)
-    (n+v.1,n*m+v.2.1,n*t+v.2.2)
-
-theorem paidPlain_zero (base : Nat) (fs : List (Nat × Nat)) :
-    paidPlain base fs 0 = (0,0,0) := by
-  induction fs with
-  | nil => rfl
-  | cons e fs ih => simp [paidPlain, ih]
-
-theorem paidDots_plain (fs : List (Nat × Nat)) (p : Nat) :
-    paidDots fs p = paidPlain (2^4096) fs p := by
-  induction fs generalizing p with
-  | nil => rfl
-  | cons e fs ih =>
-    rcases e with ⟨m,t⟩
-    by_cases hp : p=0
-    · simp [hp, paidDots, paidPlain_zero]
-    · simp only [paidDots, if_neg hp, paidPlain, ih,
-        Nat.shiftRight_eq_div_pow, Nat.and_two_pow_sub_one_eq_mod]
-
-theorem paidPlain_mod (base : Nat) (fs : List (Nat × Nat)) (p : Nat) :
-    paidPlain base fs (p % base^fs.length) = paidPlain base fs p := by
-  induction fs generalizing p with
-  | nil => rfl
-  | cons e fs ih =>
-    rcases e with ⟨m,t⟩
-    simp only [List.length_cons, Nat.pow_succ, paidPlain,
-      Nat.mod_mul_left_mod, Nat.mod_mul_left_div_self, ih]
-
-theorem paidPlain_append (base : Nat) (as bs : List (Nat × Nat)) (p : Nat) :
-    paidPlain base (as++bs) p =
-      let a := paidPlain base as p
-      let b := paidPlain base bs (p / base^as.length)
-      (a.1+b.1,a.2.1+b.2.1,a.2.2+b.2.2) := by
-  induction as generalizing p with
-  | nil => simp [paidPlain]
-  | cons e as ih =>
-    rcases e with ⟨m,t⟩
-    simp only [List.cons_append, List.length_cons, paidPlain, ih, Nat.pow_succ,
-      Nat.div_div_eq_div_mul]
-    rw [Nat.mul_comm base (base^as.length)]
-    simp only [Nat.add_assoc]
-
-theorem paidTree_plain (fuel : Nat) (fs : List (Nat × Nat)) (p : Nat) :
-    paidTree fuel fs p = paidPlain (2^4096) fs p := by
-  induction fuel generalizing fs p with
-  | zero => exact paidDots_plain fs p
-  | succ fuel ih =>
-    by_cases hp : p=0
-    · simp [paidTree, hp, paidPlain_zero]
-    · let half := fs.length/2
-      have hlen : (fs.take half).length = half := by
-        rw [List.length_take, Nat.min_eq_left (Nat.div_le_self _ _)]
-      have he := paidPlain_append (2^4096) (fs.take half) (fs.drop half) p
-      rw [List.take_append_drop, hlen] at he
-      have hlo : paidPlain (2^4096) (fs.take half) (p % (2^4096)^half) =
-          paidPlain (2^4096) (fs.take half) p := by
-        simpa only [hlen] using paidPlain_mod (2^4096) (fs.take half) p
-      dsimp only [half] at hlo he
-      simp only [paidTree, if_neg hp, ih, Nat.shiftRight_eq_div_pow, Nat.pow_mul, hlo]
-      exact he.symm
-
-theorem paidTree_eq (fuel : Nat) (fs : List (Nat × Nat)) (p : Nat) :
-    paidTree fuel fs p = paidDots fs p := by
-  rw [paidTree_plain, paidDots_plain]
-
-#print axioms paidTree_eq
-end ClaudeWCT.Numerics.SharedFees
 
 namespace ClaudeWCT.Numerics.SharedCoverage
 open Finset
@@ -3919,19 +3263,6 @@ theorem forest_near_data {β : Type} [Fintype β]
 #print axioms forest_near_data
 end ClaudeWCT.Numerics.SharedCoverage
 
-namespace ClaudeWCT.Numerics.SharedCoverage
-open ClaudeWCT.Numerics.SharedMoments
-
-theorem forest_alphabet_card {β : Type} [Fintype β]
-    (hβ : Fintype.card β = 563) (r : Nat) :
-    Fintype.card (ForestHistory β r) = alphabetSize ^ r := by
-  simp only [ForestHistory, PairHistory, Fintype.card_prod, Fintype.card_fun,
-    Fintype.card_fin, hβ, alphabetSize]
-  simp only [mul_pow, ← pow_mul]
-  ring
-
-#print axioms forest_alphabet_card
-end ClaudeWCT.Numerics.SharedCoverage
 
 namespace ClaudeWCT.Numerics.SharedFees
 open ClaudeWCT.Numerics.N600
@@ -3943,8 +3274,6 @@ theorem scale_pos : 0 < scale := by norm_num [scale]
 theorem ceil_mul_bound (n d : Nat) (hd : 0 < d) : n ≤ ceilDiv n d * d :=
   winsorCeil_mul_le n d hd
 
-theorem ceil_ratio_bound (n d : Nat) (hd : 0 < d) :
-    (n : ℝ)/d ≤ (ceilDiv n d : ℝ) := winsorCeil_ratio_le n d hd
 
 theorem expUpper_sound (x : Nat) (hx : x ≤ 8*scale) :
     Real.exp ((x : ℝ)/scale) ≤ (expUpper x : ℝ)/scale := by
@@ -3960,308 +3289,10 @@ theorem expUpper_sound (x : Nat) (hx : x ≤ 8*scale) :
     omega
   · exact ceil_mul_bound (scale * taylorNum scale (ceilDiv x 8)^8) (taylorDen scale^8) hd
 
-theorem expUpper_ge (x : Nat) (hx : x ≤ 8*scale) : scale ≤ expUpper x := by
-  have he := expUpper_sound x hx
-  have hS : (0 : ℝ) < scale := by exact_mod_cast scale_pos
-  have h1 : 1 ≤ Real.exp ((x : ℝ)/scale) := Real.one_le_exp (by positivity)
-  have h := (le_div_iff₀ hS).mp (h1.trans he)
-  simpa only [one_mul, Nat.cast_le] using h
-
-theorem cap_argument_bound : ceilDiv (36*scale) 5 ≤ 8*scale := by
-  unfold ceilDiv
-  have h := scale_pos
-  omega
-
-theorem capExp_sound : Real.exp (36/5 : ℝ) ≤ (capExp : ℝ)/scale := by
-  have hS : (0 : ℝ) < scale := by exact_mod_cast scale_pos
-  have hr := ceil_ratio_bound (36*scale) 5 (by decide)
-  have he : (36/5 : ℝ) ≤ (ceilDiv (36*scale) 5 : ℝ)/scale := by
-    apply (le_div_iff₀ hS).2
-    push_cast at hr
-    nlinarith
-  exact (Real.exp_le_exp.mpr he).trans (expUpper_sound _ cap_argument_bound)
-
-theorem capExp_ge : scale ≤ capExp := expUpper_ge _ cap_argument_bound
-
-theorem maxFee_ratio_bound :
-    ((capExp : ℝ)/scale-1)/(6/5) ≤ (maxFee : ℝ)/scale := by
-  have hS : (0 : ℝ) < scale := by exact_mod_cast scale_pos
-  have hm := ceil_mul_bound (5*(capExp-scale)) 6 (by decide)
-  change 5*(capExp-scale) ≤ maxFee*6 at hm
-  have hmR : (5 : ℝ)*((capExp : ℝ)-scale) ≤ (maxFee : ℝ)*6 := by
-    have hc : (5 : ℝ) * ((capExp-scale : Nat) : ℝ) ≤ (maxFee : ℝ)*6 := by exact_mod_cast hm
-    simpa only [Nat.cast_sub capExp_ge] using hc
-  apply (div_le_div_iff₀ (by norm_num : (0:ℝ)<6/5) hS).2
-  have he : ((capExp : ℝ)/scale-1)*scale = (capExp : ℝ)-scale := by
-    field_simp
-  rw [he]
-  linarith
-
-theorem global_fee_sound (x : ℝ) (hx : 0 ≤ x) :
-    Real.exp (6 * min x (6/5)) - 1 ≤ x * ((maxFee : ℝ)/scale) := by
-  have he := capped_fee_global 6 x (6/5) ((capExp : ℝ)/scale)
-    (by norm_num) hx (by norm_num) (by convert capExp_sound using 1 <;> norm_num)
-  exact he.trans (mul_le_mul_of_nonneg_left maxFee_ratio_bound hx)
 
 #print axioms expUpper_sound
-#print axioms global_fee_sound
 end ClaudeWCT.Numerics.SharedFees
 
-namespace ClaudeWCT.Numerics.SharedFees
-open ClaudeWCT.Numerics.SharedPathWinsor
-
-theorem ceil_le (n d k : Nat) (hd : 0 < d) (hn : n ≤ k*d) :
-    ceilDiv n d ≤ k := by
-  unfold ceilDiv
-  apply (Nat.div_le_iff_le_mul hd).2
-  omega
-
-theorem rounded_ratio (E u v : Nat) (hE : scale ≤ E) (hu : 0 < u) (hv : 0 < v) :
-    ((E : ℝ)/scale-1)/((u : ℝ)/v) ≤
-      (ceilDiv ((E-scale)*v) u : ℝ)/scale := by
-  have hS : (0 : ℝ) < scale := by exact_mod_cast scale_pos
-  have huR : (0 : ℝ) < u := by exact_mod_cast hu
-  have hvR : (0 : ℝ) < v := by exact_mod_cast hv
-  have hc := ceil_mul_bound ((E-scale)*v) u hu
-  have hcR : ((E : ℝ)-scale)*v ≤ (ceilDiv ((E-scale)*v) u : ℝ)*u := by
-    have := (show ((E-scale : Nat) : ℝ)*v ≤ (ceilDiv ((E-scale)*v) u : ℝ)*u by exact_mod_cast hc)
-    simpa only [Nat.cast_sub hE] using this
-  apply (div_le_div_iff₀ (div_pos huR hvR) hS).2
-  have he : ((E : ℝ)/scale-1)*scale = (E : ℝ)-scale := by field_simp
-  rw [he, ← mul_div_assoc]
-  exact (le_div_iff₀ hvR).2 hcR
-
-theorem below_fee_sound (u v : Nat) (x : ℝ) (hu : 0 < u) (hv : 0 < v)
-    (hcap : 5*u ≤ 6*v) (hx : 0 ≤ x) (hxu : x ≤ (u : ℝ)/v) :
-    Real.exp (6 * min x (6/5)) - 1 ≤
-      x * ((ceilDiv ((expUpper (ceilDiv (6*scale*u) v)-scale)*v) u : ℝ)/scale) := by
-  have hS : (0 : ℝ) < scale := by exact_mod_cast scale_pos
-  have huR : (0 : ℝ) < u := by exact_mod_cast hu
-  have hvR : (0 : ℝ) < v := by exact_mod_cast hv
-  have harg : ceilDiv (6*scale*u) v ≤ 8*scale := by
-    apply ceil_le _ _ _ hv
-    have hSn := scale_pos
-    nlinarith
-  have hround := ceil_mul_bound (6*scale*u) v hv
-  have hrR : (6 : ℝ)*scale*u ≤ (ceilDiv (6*scale*u) v : ℝ)*v := by exact_mod_cast hround
-  have hearg : (6 : ℝ)*((u : ℝ)/v) ≤ (ceilDiv (6*scale*u) v : ℝ)/scale := by
-    apply (le_div_iff₀ hS).2
-    rw [show (6 : ℝ)*((u : ℝ)/v)*scale = (6*scale*u)/v by ring]
-    exact (div_le_iff₀ hvR).2 hrR
-  have he := (Real.exp_le_exp.mpr hearg).trans (expUpper_sound _ harg)
-  have huc : (u : ℝ)/v ≤ 6/5 := by
-    apply (div_le_iff₀ hvR).2
-    have hc : (5 : ℝ)*u ≤ 6*v := by exact_mod_cast hcap
-    linarith
-  have h := capped_fee_below 6 x (6/5) ((u : ℝ)/v)
-    ((expUpper (ceilDiv (6*scale*u) v) : ℝ)/scale) hx hxu (div_pos huR hvR) huc he
-  exact h.trans (mul_le_mul_of_nonneg_left
-    (rounded_ratio _ u v (expUpper_ge _ harg) hu hv) hx)
-
-theorem capped_fee_above_loose (x l E : ℝ) (hl : 0 < l) (hlx : l ≤ x)
-    (hE : Real.exp (36/5 : ℝ) ≤ E) (h1 : 1 ≤ E) :
-    Real.exp (6*min x (6/5))-1 ≤ x*((E-1)/l) := by
-  have he : Real.exp (6*min x (6/5)) ≤ E := by
-    apply le_trans (Real.exp_le_exp.mpr ?_) hE
-    have := min_le_right x (6/5)
-    linarith
-  have hp : 0 ≤ (E-1)/l := div_nonneg (by linarith) hl.le
-  calc
-    Real.exp (6*min x (6/5))-1 ≤ E-1 := by linarith
-    _ = l*((E-1)/l) := by field_simp
-    _ ≤ x*((E-1)/l) := mul_le_mul_of_nonneg_right hlx hp
-
-theorem above_fee_sound (L : Nat) (x : ℝ) (hL : 0 < L)
-    (hlx : (L : ℝ)/scale ≤ x) :
-    Real.exp (6*min x (6/5))-1 ≤
-      x*((ceilDiv (scale*(capExp-scale)) L : ℝ)/scale) := by
-  have hS : (0 : ℝ) < scale := by exact_mod_cast scale_pos
-  have hLR : (0 : ℝ) < L := by exact_mod_cast hL
-  have hx : 0 ≤ x := (div_pos hLR hS).le.trans hlx
-  have h1 : (1 : ℝ) ≤ (capExp : ℝ)/scale := by
-    exact (le_div_iff₀ hS).2 (by exact_mod_cast capExp_ge)
-  have h := capped_fee_above_loose x ((L : ℝ)/scale)
-    ((capExp : ℝ)/scale) (div_pos hLR hS) hlx capExp_sound h1
-  have hr := rounded_ratio capExp L scale capExp_ge hL scale_pos
-  rw [Nat.mul_comm (capExp-scale) scale] at hr
-  exact h.trans (mul_le_mul_of_nonneg_left hr hx)
-
-#print axioms below_fee_sound
-#print axioms above_fee_sound
-end ClaudeWCT.Numerics.SharedFees
-
-namespace ClaudeWCT.Numerics.SharedFees
-open ClaudeWCT.Numerics.SharedPathWinsor
-
-theorem residual_round (u v : Nat) (hu : 0 < u) (hv : 0 < v) :
-    max 0 ((u : ℝ)/v-6/5)/((u : ℝ)/v) ≤
-      (ceilDiv (scale*(u*5-v*6)) (u*5) : ℝ)/scale := by
-  have hS : (0 : ℝ) < scale := by exact_mod_cast scale_pos
-  have huR : (0 : ℝ) < u := by exact_mod_cast hu
-  have hvR : (0 : ℝ) < v := by exact_mod_cast hv
-  by_cases h : v*6 ≤ u*5
-  · have hR : (v : ℝ)*6 ≤ (u : ℝ)*5 := by exact_mod_cast h
-    have hd : 0 ≤ (u : ℝ)/v-6/5 := by
-      have hr : (6/5 : ℝ) ≤ (u : ℝ)/v := (le_div_iff₀ hvR).2 (by linarith)
-      linarith
-    rw [max_eq_right hd]
-    have he : (((u : ℝ)/v)-6/5)/((u : ℝ)/v) = ((u : ℝ)*5-v*6)/((u : ℝ)*5) := by
-      field_simp
-      <;> ring
-    rw [he]
-    apply (div_le_div_iff₀ (by positivity : (0 : ℝ) < (u : ℝ)*5) hS).2
-    have hc := ceil_mul_bound (scale*(u*5-v*6)) (u*5) (by omega)
-    have hcR : (scale : ℝ)*((u*5-v*6 : Nat) : ℝ) ≤
-        (ceilDiv (scale*(u*5-v*6)) (u*5) : ℝ)*((u : ℝ)*5) := by exact_mod_cast hc
-    rw [Nat.cast_sub h] at hcR
-    push_cast at hcR
-    nlinarith
-  · have hR : (u : ℝ)*5 ≤ (v : ℝ)*6 := by exact_mod_cast (Nat.le_of_lt (Nat.lt_of_not_ge h))
-    have hd : (u : ℝ)/v-6/5 ≤ 0 := by
-      have hr : (u : ℝ)/v ≤ 6/5 := (div_le_iff₀ hvR).2 (by linarith)
-      linarith
-    rw [max_eq_left hd, zero_div]
-    positivity
-
-theorem residual_fee_sound (u v : Nat) (x : ℝ) (hu : 0 < u) (hv : 0 < v)
-    (hx : 0 ≤ x) (hxu : x ≤ (u : ℝ)/v) :
-    max 0 (x-6/5) ≤ x*((ceilDiv (scale*(u*5-v*6)) (u*5) : ℝ)/scale) := by
-  have huR : (0 : ℝ) < u := by exact_mod_cast hu
-  have hvR : (0 : ℝ) < v := by exact_mod_cast hv
-  exact (residual_fee_upper x (6/5) ((u : ℝ)/v) hx (by norm_num) hxu
-    (div_pos huR hvR)).trans (mul_le_mul_of_nonneg_left (residual_round u v hu hv) hx)
-
-#print axioms residual_fee_sound
-end ClaudeWCT.Numerics.SharedFees
-
-namespace ClaudeWCT.Numerics.SharedFees
-
-theorem floor_ratio_le (n d : Nat) (hd : 0 < d) :
-    ((n/d : Nat) : ℝ) ≤ (n : ℝ)/d := by
-  have hdR : (0 : ℝ) < d := by exact_mod_cast hd
-  exact (le_div_iff₀ hdR).2 (by exact_mod_cast Nat.div_mul_le_self n d)
-
-theorem scaled_floor_le (n d : Nat) (hd : 0 < d) :
-    (((scale*n/d : Nat) : ℝ)/scale) ≤ (n : ℝ)/d := by
-  have hS : (0 : ℝ) < scale := by exact_mod_cast scale_pos
-  have h := floor_ratio_le (scale*n) d hd
-  rw [Nat.cast_mul] at h
-  apply (div_le_iff₀ hS).2
-  rw [show (n : ℝ)/d*(scale : ℝ) = (scale : ℝ)*n/d by ring]
-  exact h
-
-theorem scaled_floor_pos (n d : Nat) (hd : 0 < d) (hcap : 6*d ≤ 5*n) :
-    0 < scale*n/d := by
-  have hS : 1 ≤ scale := scale_pos
-  have hnd : d ≤ n := by omega
-  have hm : n ≤ scale*n := by nlinarith
-  exact Nat.div_pos (hnd.trans hm) hd
-
-theorem expectedRun_sound (lo hi : Nat) (x : ℝ) (hx : 0 ≤ x)
-    (hlo : (((734*101^lo*100^13 : Nat) : ℝ)/(2^66*100^lo*101^13 : Nat)) ≤ x)
-    (hhi : x ≤ ((734*101^hi : Nat) : ℝ)/(2^66*100^hi : Nat)) :
-    Real.exp (6*min x (6/5))-1 ≤ x*((expectedRun lo hi).1 : ℝ)/scale ∧
-    max 0 (x-6/5) ≤ x*((expectedRun lo hi).2 : ℝ)/scale := by
-  let un := 734*101^hi
-  let ud := 2^66*100^hi
-  let ln := 734*101^lo
-  let ld := 2^66*100^lo
-  have hu : 0 < un := by dsimp [un]; positivity
-  have hd : 0 < ud := by dsimp [ud]; positivity
-  have hld : 0 < ld*101^13 := by dsimp [ld]; positivity
-  change x ≤ (un : ℝ)/ud at hhi
-  change ((ln*100^13 : Nat) : ℝ)/(ld*101^13 : Nat) ≤ x at hlo
-  constructor
-  · change Real.exp (6*min x (6/5))-1 ≤
-      x*((if un*5 ≤ ud*6 then
-        ceilDiv ((expUpper (ceilDiv (6*scale*un) ud)-scale)*ud) un
-      else if ln*100^13*5 ≥ ld*101^13*6 then
-        ceilDiv (scale*(capExp-scale)) (scale*ln*100^13/(ld*101^13))
-      else maxFee : Nat) : ℝ)/scale
-    rw [mul_div_assoc]
-    split_ifs with hb ha
-    · exact below_fee_sound un ud x hu hd (by omega) hx hhi
-    · apply above_fee_sound
-      · rw [Nat.mul_assoc scale ln]
-        apply scaled_floor_pos _ _ hld
-        nlinarith [ha]
-      · have h := scaled_floor_le (ln*100^13) (ld*101^13) hld
-        rw [← Nat.mul_assoc] at h
-        exact h.trans hlo
-    · exact global_fee_sound x hx
-  · change max 0 (x-6/5) ≤
-      x*((ceilDiv (scale*(un*5-ud*6)) (un*5) : Nat) : ℝ)/scale
-    rw [mul_div_assoc]
-    exact residual_fee_sound un ud x hu hd hx hhi
-
-#print axioms expectedRun_sound
-end ClaudeWCT.Numerics.SharedFees
-
-namespace ClaudeWCT.Numerics.SharedFees
-
-theorem run_valid_of_chunks
-    (hsize : feeRuns.size = 1578)
-    (hchunks : ∀ block : Nat, block < 25 → feeChunk block = true)
-    (i : Nat) (hi : i < feeRuns.size) :
-    let e := feeRuns[i]?.getD (0,0,0,0)
-    e.1 ≤ e.2.1 ∧ (e.2.2.1,e.2.2.2) = expectedRun e.1 e.2.1 ∧
-      e.2.2.1 ≤ maxFee ∧ e.2.2.2 ≤ scale := by
-  have hib : i < 1578 := by omega
-  have hb := hchunks (i/64) (by omega)
-  rw [feeChunk, List.all_eq_true] at hb
-  have hj := hb (i%64) (by simp only [List.mem_range]; omega)
-  have he : 64*(i/64)+i%64 = i := by omega
-  simpa only [he, if_pos hi, decide_eq_true_eq] using hj
-
-#print axioms run_valid_of_chunks
-end ClaudeWCT.Numerics.SharedFees
-
-namespace ClaudeWCT.Numerics.SharedFees
-set_option maxRecDepth 100000
-
-theorem indexed_list_member {α : Type} (xs : List (Nat × α)) (fallback : α)
-    (N : Nat) (hidx : xs.map Prod.fst = List.range N) (i : Nat) (hi : i < N) :
-    (i, ((xs.map Prod.snd)[i]?.getD fallback)) ∈ xs := by
-  have hlen : xs.length = N := by simpa using congrArg List.length hidx
-  have hx : i < xs.length := by omega
-  have he : xs[i]?.getD (i,fallback) = xs[i] := by simp [List.getElem?_eq_getElem hx]
-  have hfst := congrArg (fun ys : List Nat => ys[i]?.getD 0) hidx
-  simp only [List.getElem?_map, List.getElem?_eq_getElem hx, Option.map_some,
-    Option.getD_some, List.getElem?_range hi] at hfst
-  have hmem : xs[i] ∈ xs := List.mem_of_getElem rfl
-  have heq : (i, ((xs.map Prod.snd)[i]?.getD fallback)) = xs[i] := by
-    simp only [List.getElem?_map, List.getElem?_eq_getElem hx, Option.map_some, Option.getD_some]
-    exact Prod.ext hfst.symm rfl
-  rw [heq]
-  exact hmem
-
-theorem fee_lookup_member (hidx : feeEntries.map Prod.fst = List.range 7210)
-    (i : Nat) (hi : i < 7210) : (i, fees[i]?.getD (0,0)) ∈ feeEntries := by
-  simpa only [fees, List.getElem?_toArray] using
-    indexed_list_member feeEntries (0,0) 7210 hidx i hi
-
-attribute [local irreducible] feeEntries fees feeRuns
-
-theorem fee_lookup_run (hordered : ∀ e ∈ feeRuns.toList, e.1 ≤ e.2.1)
-    (hidx : feeEntries.map Prod.fst = List.range 7210)
-    (i : Nat) (hi : i < 7210) :
-    ∃ e ∈ feeRuns.toList, e.1 ≤ i ∧ i ≤ e.2.1 ∧ fees[i]?.getD (0,0) = (e.2.2.1,e.2.2.2) := by
-  have h := fee_lookup_member hidx i hi
-  rw [feeEntries, List.mem_flatMap] at h
-  obtain ⟨e, he, hm⟩ := h
-  rw [List.mem_map] at hm
-  obtain ⟨j, hj, hpair⟩ := hm
-  have hji : j = i := congrArg Prod.fst hpair
-  subst j
-  simp only [List.mem_range'] at hj
-  obtain ⟨k, hk, hki⟩ := hj
-  have hord := hordered e he
-  refine ⟨e, he, by omega, ?_, ?_⟩
-  · omega
-  · exact (congrArg Prod.snd hpair).symm
-
-#print axioms fee_lookup_run
-end ClaudeWCT.Numerics.SharedFees
 
 namespace ClaudeWCT.Numerics.CanonicalCounting
 open scoped BigOperators Polynomial
@@ -4290,186 +3321,6 @@ theorem digit_histogram {α : Type} [Fintype α] (g : α → Nat) (bits : Nat)
 
 
 end ClaudeWCT.Numerics.CanonicalCounting
-
-namespace ClaudeWCT.Numerics.SharedFees
-
-noncomputable def upperValue (i : Nat) : ℝ :=
-  ((734*101^i : Nat) : ℝ)/(2^66*100^i : Nat)
-noncomputable def lowerValue (i : Nat) : ℝ :=
-  ((734*101^i*100^13 : Nat) : ℝ)/(2^66*100^i*101^13 : Nat)
-
-theorem upperValue_power (i : Nat) :
-    upperValue i = (734 : ℝ)/2^66 * ((101 : ℝ)/100)^i := by
-  unfold upperValue
-  push_cast
-  rw [div_pow]
-  ring
-
-theorem lowerValue_power (i : Nat) :
-    lowerValue i = upperValue i * ((100 : ℝ)/101)^13 := by
-  unfold lowerValue upperValue
-  push_cast
-  rw [div_pow]
-  ring
-
-theorem upperValue_mono {i j : Nat} (hij : i ≤ j) : upperValue i ≤ upperValue j := by
-  rw [upperValue_power, upperValue_power]
-  apply mul_le_mul_of_nonneg_left _ (by positivity)
-  exact pow_le_pow_right₀ (by norm_num : (1 : ℝ) ≤ 101/100) hij
-
-theorem lowerValue_mono {i j : Nat} (hij : i ≤ j) : lowerValue i ≤ lowerValue j := by
-  rw [lowerValue_power, lowerValue_power]
-  exact mul_le_mul_of_nonneg_right (upperValue_mono hij) (by positivity)
-
-theorem run_contains_fee_sound (lo i hi m r : Nat) (x : ℝ)
-    (hloi : lo ≤ i) (hihi : i ≤ hi) (hx : 0 ≤ x)
-    (hlo : lowerValue i ≤ x) (hhi : x ≤ upperValue i)
-    (hfee : (m,r) = expectedRun lo hi) :
-    Real.exp (6*min x (6/5))-1 ≤ x*(m : ℝ)/scale ∧
-    max 0 (x-6/5) ≤ x*(r : ℝ)/scale := by
-  have h := expectedRun_sound lo hi x hx ((lowerValue_mono hloi).trans hlo)
-    (hhi.trans (upperValue_mono hihi))
-  rw [← hfee] at h
-  exact h
-
-#print axioms run_contains_fee_sound
-end ClaudeWCT.Numerics.SharedFees
-
-namespace ClaudeWCT.Numerics.SharedFees
-set_option maxRecDepth 100000
-attribute [local irreducible] feeEntries fees feeRuns
-
-theorem fee_run_values (hsize : feeRuns.size = 1578)
-    (hchunks : ∀ block : Nat, block < 25 → feeChunk block = true)
-    (e : Nat × Nat × Nat × Nat) (he : e ∈ feeRuns.toList) :
-    e.1 ≤ e.2.1 ∧ (e.2.2.1,e.2.2.2) = expectedRun e.1 e.2.1 ∧
-      e.2.2.1 ≤ maxFee ∧ e.2.2.2 ≤ scale := by
-  obtain ⟨i, hi, hie⟩ := List.getElem_of_mem he
-  have hi' : i < feeRuns.size := by simpa using hi
-  have hlookup : feeRuns[i]?.getD (0,0,0,0) = e := by
-    rw [Array.getElem?_eq_getElem hi', Option.getD_some]
-    simpa only [Array.getElem_toList] using hie
-  have h := run_valid_of_chunks hsize hchunks i hi'
-  rw [hlookup] at h
-  exact h
-
-theorem fee_lookup_sound (hsize : feeRuns.size = 1578)
-    (hchunks : ∀ block : Nat, block < 25 → feeChunk block = true)
-    (hidx : feeEntries.map Prod.fst = List.range 7210)
-    (i : Nat) (hi : i < 7210) (x : ℝ) (hx : 0 ≤ x)
-    (hlo : lowerValue i ≤ x) (hhi : x ≤ upperValue i) :
-    Real.exp (6*min x (6/5))-1 ≤ x*((fees[i]?.getD (0,0)).1 : ℝ)/scale ∧
-    max 0 (x-6/5) ≤ x*((fees[i]?.getD (0,0)).2 : ℝ)/scale := by
-  have hv := fee_run_values hsize hchunks
-  have hord : ∀ e ∈ feeRuns.toList, e.1 ≤ e.2.1 := fun e he => (hv e he).1
-  obtain ⟨e, he, hloi, hihi, hfee⟩ := fee_lookup_run hord hidx i hi
-  rw [hfee]
-  exact run_contains_fee_sound e.1 i e.2.1 e.2.2.1 e.2.2.2 x hloi hihi hx hlo hhi
-    (hv e he).2.1
-
-#print axioms fee_lookup_sound
-end ClaudeWCT.Numerics.SharedFees
-
-namespace ClaudeWCT.Numerics.CanonicalCounting
-
-theorem eq_of_digits (B : Nat) (hB : 0 < B) (n : Nat) (a b : Nat)
-    (ha : a < B^n) (hb : b < B^n)
-    (hd : ∀ i : Nat, i < n → a/B^i%B = b/B^i%B) : a = b := by
-  induction n generalizing a b with
-  | zero => simp only [Nat.pow_zero] at ha hb; omega
-  | succ n ih =>
-    have ha' : a/B < B^n := by
-      apply (Nat.div_lt_iff_lt_mul hB).2
-      simpa only [Nat.pow_succ] using ha
-    have hb' : b/B < B^n := by
-      apply (Nat.div_lt_iff_lt_mul hB).2
-      simpa only [Nat.pow_succ] using hb
-    have hd' : ∀ i : Nat, i < n → (a/B)/B^i%B = (b/B)/B^i%B := by
-      intro i hi
-      have h := hd (i+1) (by omega)
-      simpa only [Nat.div_div_eq_div_mul, ← Nat.pow_succ'] using h
-    have hq := ih (a/B) (b/B) ha' hb' hd'
-    have h0 := hd 0 (by omega)
-    simp only [Nat.pow_zero, Nat.div_one] at h0
-    have ea := Nat.mod_add_div a B
-    have eb := Nat.mod_add_div b B
-    rw [h0, hq] at ea
-    omega
-
-#print axioms eq_of_digits
-end ClaudeWCT.Numerics.CanonicalCounting
-
-namespace ClaudeWCT.Numerics.SharedFees
-
-theorem chunks_25 {P : Nat → Prop}
-    (h0 : P 0)
-    (h1 : P 1)
-    (h2 : P 2)
-    (h3 : P 3)
-    (h4 : P 4)
-    (h5 : P 5)
-    (h6 : P 6)
-    (h7 : P 7)
-    (h8 : P 8)
-    (h9 : P 9)
-    (h10 : P 10)
-    (h11 : P 11)
-    (h12 : P 12)
-    (h13 : P 13)
-    (h14 : P 14)
-    (h15 : P 15)
-    (h16 : P 16)
-    (h17 : P 17)
-    (h18 : P 18)
-    (h19 : P 19)
-    (h20 : P 20)
-    (h21 : P 21)
-    (h22 : P 22)
-    (h23 : P 23)
-    (h24 : P 24) : ∀ i : Nat, i < 25 → P i := by
-  intro i hi
-  interval_cases i
-  · exact h0
-  · exact h1
-  · exact h2
-  · exact h3
-  · exact h4
-  · exact h5
-  · exact h6
-  · exact h7
-  · exact h8
-  · exact h9
-  · exact h10
-  · exact h11
-  · exact h12
-  · exact h13
-  · exact h14
-  · exact h15
-  · exact h16
-  · exact h17
-  · exact h18
-  · exact h19
-  · exact h20
-  · exact h21
-  · exact h22
-  · exact h23
-  · exact h24
-
-end ClaudeWCT.Numerics.SharedFees
-
-namespace ClaudeWCT.Numerics.SharedFees
-
-theorem all_chunks : ∀ block : Nat, block < 25 → feeChunk block = true :=
-  chunks_25 (P := fun block => feeChunk block = true)
-    first_fee_chunk fee_chunk_1 fee_chunk_2 fee_chunk_3 fee_chunk_4 fee_chunk_5 fee_chunk_6 fee_chunk_7 fee_chunk_8 fee_chunk_9 fee_chunk_10 fee_chunk_11 fee_chunk_12 fee_chunk_13 fee_chunk_14 fee_chunk_15 fee_chunk_16 fee_chunk_17 fee_chunk_18 fee_chunk_19 fee_chunk_20 fee_chunk_21 fee_chunk_22 fee_chunk_23 fee_chunk_24
-
-theorem fees_sound (i : Nat) (hi : i < 7210) (x : ℝ) (hx : 0 ≤ x)
-    (hlo : lowerValue i ≤ x) (hhi : x ≤ upperValue i) :
-    Real.exp (6*min x (6/5))-1 ≤ x*((fees[i]?.getD (0,0)).1 : ℝ)/scale ∧
-    max 0 (x-6/5) ≤ x*((fees[i]?.getD (0,0)).2 : ℝ)/scale :=
-  fee_lookup_sound fee_runs_count all_chunks fee_indices i hi x hx hlo hhi
-
-end ClaudeWCT.Numerics.SharedFees
 
 
 namespace SigGolfCandidate.Research.SharedFtsModel
@@ -4553,9 +3404,12 @@ theorem weighted_pair {α : Type} [Fintype α]
       (∑ a, R ^ f a)^n * (∑ a, R ^ g a)^m := by
   rw [Fintype.sum_prod_type]
   simp only [pow_add]
-  rw [← Finset.sum_mul_sum,
-    SigGolfResearch.NonbinaryTop.Counting.weighted_tuples,
-    SigGolfResearch.NonbinaryTop.Counting.weighted_tuples]
+  have tuples : ∀ (h : α → Nat) (k : Nat), (∑ d : Fin k → α, R ^ (∑ i, h (d i))) = (∑ a : α, R ^ h a) ^ k := by
+    intro h k
+    classical
+    simpa only [Fintype.piFinset_univ, Finset.prod_pow_eq_pow_sum] using
+      (Finset.sum_pow' (Finset.univ : Finset α) (fun a => R ^ h a) k).symm
+  rw [← Finset.sum_mul_sum, tuples, tuples]
 
 theorem weighted_words : (∑ w : «Word», radix ^ weight w) = fieldForestPacked := by
   calc
@@ -4574,11 +3428,7 @@ theorem accepted_card : (Finset.univ.filter fun w : «Word» => weight w ≤ 103
     (by norm_num [radix]) word_card_small, weighted_words]
   rfl
 
-theorem accepted_card_exact :
-    (Finset.univ.filter fun w : «Word» => weight w ≤ 103).card * 4^9 = count := by
-  rw [accepted_card, field_retained_eq]
 
-#print axioms accepted_card_exact
 end SigGolfCandidate.Research.SharedFtsModel
 
 
@@ -4609,31 +3459,31 @@ theorem grouped_weight (f : Fin 9 → Coordinate) :
   norm_num [Fin.succ]
   omega
 
-def encodeFields (w : «Word») (index : BitVec 31) (gate : Fin 734) : Fields :=
+def encodeFields (w : «Word») (index : BitVec 31) (gate : Fin 804) : Fields :=
   (fun k => BitVec.ofNat 5 (ungroup w k).1.val,
    fun k => BitVec.ofNat 10 (ungroup w k).2.val,
    index, BitVec.ofNat 14 gate.val)
 def decodeFields (f : Fields) : «Word» :=
   group (fun k => (⟨(f.1 k).toNat, (f.1 k).isLt⟩, decodedRank f k))
 
-theorem cost_encode_nat (w : «Word») (index : BitVec 31) (gate : Fin 734) (k : Fin 9) :
+theorem cost_encode_nat (w : «Word») (index : BitVec 31) (gate : Fin 804) (k : Fin 9) :
     ((encodeFields w index gate).1 k).toNat = (ungroup w k).1.val := by
   simp only [encodeFields, BitVec.toNat_ofNat]
   exact Nat.mod_eq_of_lt (ungroup w k).1.isLt
 
-theorem rank_encode_nat (w : «Word») (index : BitVec 31) (gate : Fin 734) (k : Fin 9) :
+theorem rank_encode_nat (w : «Word») (index : BitVec 31) (gate : Fin 804) (k : Fin 9) :
     ((encodeFields w index gate).2.1 k).toNat = (ungroup w k).2.val := by
   simp only [encodeFields, BitVec.toNat_ofNat]
   apply Nat.mod_eq_of_lt
   have h := (ungroup w k).2.isLt
   omega
 
-theorem decodedRank_encode (w : «Word») (index : BitVec 31) (gate : Fin 734) (k : Fin 9) :
+theorem decodedRank_encode (w : «Word») (index : BitVec 31) (gate : Fin 804) (k : Fin 9) :
     decodedRank (encodeFields w index gate) k = (ungroup w k).2 := by
   apply Fin.ext
   simp only [decodedRank, rank_encode_nat, Nat.mod_eq_of_lt (ungroup w k).2.isLt]
 
-theorem decode_encode (w : «Word») (index : BitVec 31) (gate : Fin 734) :
+theorem decode_encode (w : «Word») (index : BitVec 31) (gate : Fin 804) :
     decodeFields (encodeFields w index gate) = w := by
   have h : (fun k => (⟨((encodeFields w index gate).1 k).toNat,
       ((encodeFields w index gate).1 k).isLt⟩, decodedRank (encodeFields w index gate) k)) = ungroup w := by
@@ -4645,7 +3495,7 @@ theorem decode_encode (w : «Word») (index : BitVec 31) (gate : Fin 734) :
   rw [h]
   exact groupEquiv.apply_symm_apply w
 
-theorem cost_encode (w : «Word») (index : BitVec 31) (gate : Fin 734) :
+theorem cost_encode (w : «Word») (index : BitVec 31) (gate : Fin 804) :
     cost (encodeFields w index gate) = 675 + weight w := by
   have hc : coordinateCost (encodeFields w index gate) = fun k =>
       75 + coordWeight (SharedForest.firstCoord k.val) (ungroup w k) := by
@@ -4667,7 +3517,7 @@ set_option maxHeartbeats 2000000
 attribute [local irreducible] SharedDigestFields.cost SharedDigestFields.coordinateCost ClaudeWCT.WCT9.routineCost
 
 theorem accepted_iff (f : Fields) : accepted f = true ↔
-    f.2.2.2.toNat < 734 ∧ (∀ k, (f.2.1 k).toNat < 563) ∧ cost f ≤ 778 := by
+    f.2.2.2.toNat < 804 ∧ (∀ k, (f.2.1 k).toNat < 563) ∧ cost f ≤ 778 := by
   simp only [accepted, Bool.and_eq_true, decide_eq_true_eq, List.all_eq_true]
   simp only [List.mem_finRange, forall_const]
   tauto
@@ -4676,7 +3526,7 @@ theorem ungroup_decode (f : Fields) : ungroup (decodeFields f) =
     fun k => (⟨(f.1 k).toNat, (f.1 k).isLt⟩, decodedRank f k) :=
   groupEquiv.symm_apply_apply (fun k => (⟨(f.1 k).toNat, (f.1 k).isLt⟩, decodedRank f k))
 
-theorem encode_decode (f : Fields) (hg : f.2.2.2.toNat < 734)
+theorem encode_decode (f : Fields) (hg : f.2.2.2.toNat < 804)
     (hr : ∀ k, (f.2.1 k).toNat < 563) :
     encodeFields (decodeFields f) f.2.2.1 ⟨f.2.2.2.toNat,hg⟩ = f := by
   apply Prod.ext
@@ -4697,11 +3547,11 @@ theorem encode_decode (f : Fields) (hg : f.2.2.2.toNat < 734)
         change f.2.2.2.toNat % 2^14 = f.2.2.2.toNat
         exact Nat.mod_eq_of_lt f.2.2.2.isLt
 
-theorem accepted_encode (w : «Word») (hw : weight w ≤ 103) (index : BitVec 31) (gate : Fin 734) :
+theorem accepted_encode (w : «Word») (hw : weight w ≤ 103) (index : BitVec 31) (gate : Fin 804) :
     accepted (encodeFields w index gate) = true := by
   apply (accepted_iff _).mpr
   refine ⟨?_, ?_, ?_⟩
-  · change gate.val % 2^14 < 734
+  · change gate.val % 2^14 < 804
     rw [Nat.mod_eq_of_lt (by have h := gate.isLt; omega)]
     exact gate.isLt
   · intro k
@@ -4718,7 +3568,7 @@ theorem weight_decode (f : Fields) (hf : accepted f = true) : weight (decodeFiel
   omega
 
 def acceptedEquiv : {f : Fields // accepted f = true} ≃
-    {w : «Word» // weight w ≤ 103} × BitVec 31 × Fin 734 where
+    {w : «Word» // weight w ≤ 103} × BitVec 31 × Fin 804 where
   toFun f := (⟨decodeFields f.val, weight_decode f.val f.property⟩,
     f.val.2.2.1, ⟨f.val.2.2.2.toNat, ((accepted_iff _).mp f.property).1⟩)
   invFun v := ⟨encodeFields v.1.val v.2.1 v.2.2, accepted_encode _ v.1.property _ _⟩
@@ -4736,7 +3586,7 @@ def acceptedEquiv : {f : Fields // accepted f = true} ≃
         exact Nat.mod_eq_of_lt (by have h := v.2.2.isLt; omega)
 
 theorem accepted_fields_card : Fintype.card {f : Fields // accepted f = true} =
-    (Finset.univ.filter fun w : «Word» => weight w ≤ 103).card * 2^31 * 734 := by
+    (Finset.univ.filter fun w : «Word» => weight w ≤ 103).card * 2^31 * 804 := by
   rw [Fintype.card_congr acceptedEquiv]
   simp only [Fintype.card_prod, Fintype.card_bitVec, Fintype.card_fin,
     Fintype.card_subtype (fun w : «Word» => weight w ≤ 103)]
@@ -4756,8 +3606,6 @@ theorem card_filter_congr_generic {α : Type} [Fintype α]
   apply congrArg Finset.card
   exact Finset.filter_congr (fun a _ => h a)
 
-theorem top_split (w s c : Nat) (hs : s ≤ 219) (hc : c < 244) :
-    256*w+s = 256*146+c+12 ↔ w=146 ∧ s=c+12 := by omega
 
 theorem lower_split (z w s zeros c : Nat) (hs : s ≤ 117) (hw : w ≤ 301)
     (hc : c < 128) :
@@ -4773,37 +3621,7 @@ theorem digit_histogram_of_weighted {α : Type} [Fintype α]
   exact ((congrArg (fun n => digit bits n k) hp).symm.trans
     (digit_histogram g bits hc k)).trans (card_filter_congr_generic _ _ he)
 
-attribute [local irreducible] digit
-  SigGolfResearch.NonbinaryTop.EffectiveCounting.group5
-  SigGolfResearch.NonbinaryTop.EffectiveCounting.group8
-  SigGolfResearch.NonbinaryTop.EffectiveCounting.gateGroup8
-  SigGolfResearch.LowerEffectiveCounting.group
-  SigGolfResearch.LowerEffectiveCounting.tail
 
-theorem top_event (credit : Nat) (hc : credit < 244) (w : SigGolfResearch.NonbinaryTop.Codec.Word) :
-    SigGolfResearch.NonbinaryTop.EffectiveCounting.stat w = 256*146+credit+12 ↔
-      SigGolfResearch.NonbinaryTop.Counting.weight w = 146 ∧
-      SigGolfResearch.NonbinaryTop.EffectiveCounting.score w = credit+12 := by
-  rw [SigGolfResearch.NonbinaryTop.EffectiveCounting.stat_eq]
-  exact top_split _ _ _ (SigGolfResearch.NonbinaryTop.EffectiveCounting.score_le w) hc
-
-
-theorem top_weighted : (∑ w : SigGolfResearch.NonbinaryTop.Codec.Word,
-    (2^136)^SigGolfResearch.NonbinaryTop.EffectiveCounting.stat w) =
-      SigGolfResearch.NonbinaryTop.EffectiveCounting.packed :=
-  SigGolfResearch.NonbinaryTop.EffectiveCounting.weighted_words (2^136)
-
-
-theorem top_card : Fintype.card SigGolfResearch.NonbinaryTop.Codec.Word < 2^136 :=
-  Nat.lt_of_lt_of_le SigGolfResearch.NonbinaryTop.Counting.word_card_small (Nat.sub_le _ _)
-
-theorem top_digit (credit : Nat) (hc : credit < 244) :
-    digit 136 SigGolfResearch.NonbinaryTop.EffectiveCounting.packed
-      (256*146+credit+12) =
-    (univ.filter fun w : SigGolfResearch.NonbinaryTop.Codec.Word =>
-      SigGolfResearch.NonbinaryTop.Counting.weight w = 146 ∧
-      SigGolfResearch.NonbinaryTop.EffectiveCounting.score w = credit+12).card := by
-  exact digit_histogram_of_weighted _ _ _ _ _ top_card top_weighted (top_event credit hc)
 end ClaudeWCT.Numerics.CanonicalCounting
 
 
@@ -5114,56 +3932,6 @@ theorem digit_sub (B n a b : Nat) (hB : 0<B) (ha : a<B^n) (hb : b<B^n)
 end ClaudeWCT.Numerics.SharedDigitBlock
 
 
-namespace ClaudeWCT.Numerics.CanonicalCounting
-open scoped BigOperators
-open Finset
-attribute [local irreducible] digit
-  SigGolfResearch.NonbinaryTop.EffectiveCounting.group5
-  SigGolfResearch.NonbinaryTop.EffectiveCounting.gateGroup8
-
-theorem gate_split (w s c : Nat) (g : Prop) [Decidable g]
-    (hs : s ≤ 219) (hw : w ≤ 225) (hc : c < 244) :
-    256*w+s+65536*(if g then 1 else 0) = 65536+256*145+c+12 ↔
-      w=145 ∧ s=c+12 ∧ g := by
-  by_cases hg : g
-  · rw [if_pos hg, Nat.mul_one]
-    constructor
-    · intro he
-      have he' : 256*w+s = 256*145+c+12 := by omega
-      exact ⟨by omega, by omega, hg⟩
-    · rintro ⟨hw', hs', _⟩
-      omega
-  · rw [if_neg hg, Nat.mul_zero, Nat.add_zero]
-    constructor
-    · intro he
-      omega
-    · rintro ⟨_, _, hg'⟩
-      exact (hg hg').elim
-
-theorem top_gate_event (credit : Nat) (hc : credit < 244) (w : SigGolfResearch.NonbinaryTop.Codec.Word) :
-    SigGolfResearch.NonbinaryTop.EffectiveCounting.gateStat w = 65536+256*145+credit+12 ↔
-      SigGolfResearch.NonbinaryTop.Counting.weight w = 145 ∧
-      SigGolfResearch.NonbinaryTop.EffectiveCounting.score w = credit+12 ∧
-      SigGolfResearch.NonbinaryTop.EffectiveCounting.gateWord w := by
-  rw [SigGolfResearch.NonbinaryTop.EffectiveCounting.gateStat_eq]
-  exact gate_split _ _ _ _ (SigGolfResearch.NonbinaryTop.EffectiveCounting.score_le w)
-    (SigGolfResearch.NonbinaryTop.EffectiveCounting.weight_le_225 w) hc
-
-theorem top_gate_weighted : (∑ w : SigGolfResearch.NonbinaryTop.Codec.Word,
-    (2^136)^SigGolfResearch.NonbinaryTop.EffectiveCounting.gateStat w) =
-      SigGolfResearch.NonbinaryTop.EffectiveCounting.gatePacked :=
-  SigGolfResearch.NonbinaryTop.EffectiveCounting.gate_weighted_words (2^136)
-
-theorem top_gate_digit (credit : Nat) (hc : credit < 244) :
-    digit 136 SigGolfResearch.NonbinaryTop.EffectiveCounting.gatePacked (65536+256*145+credit+12) =
-      (univ.filter fun w : SigGolfResearch.NonbinaryTop.Codec.Word =>
-        SigGolfResearch.NonbinaryTop.Counting.weight w = 145 ∧
-        SigGolfResearch.NonbinaryTop.EffectiveCounting.score w = credit+12 ∧
-        SigGolfResearch.NonbinaryTop.EffectiveCounting.gateWord w).card := by
-  exact digit_histogram_of_weighted _ _ _ _ _ top_card top_gate_weighted (top_gate_event credit hc)
-end ClaudeWCT.Numerics.CanonicalCounting
-
-
 namespace ClaudeWCT.Numerics.SharedPathPacked
 open ClaudeWCT.Numerics.SharedDigitBlock
 set_option maxHeartbeats 2000000
@@ -5353,40 +4121,12 @@ end ClaudeWCT.Numerics.SharedPathList
 
 namespace ClaudeWCT.Numerics.CanonicalHistogram
 open CanonicalCompression
-theorem top_histogram_digits : ∀ c : Fin 205,
-    coefficient 136 (packHistogram 136 15 205 topCounts) c.val =
-      histogramWeight topCounts (c.val+15) := by decide +kernel
 
 theorem lower_histogram_digits : ∀ c : Fin 128,
     coefficient 132 (packHistogram 132 0 128 lowerCounts) c.val =
       histogramWeight lowerCounts c.val := by decide +kernel
 end ClaudeWCT.Numerics.CanonicalHistogram
 
-namespace ClaudeWCT.Numerics.CanonicalCounting
-open scoped BigOperators
-open Finset
-
-theorem top_card_three : 3 * Fintype.card SigGolfResearch.NonbinaryTop.Codec.Word < 2^136 := by
-  norm_num [SigGolfResearch.NonbinaryTop.Codec.Word,
-    SigGolfResearch.NonbinaryTop.Codec.Triple8, SigGolfResearch.NonbinaryTop.Codec.Triple5,
-    Fintype.card_prod, Fintype.card_fun]
-
-theorem lower_card_seven : 7 * Fintype.card SigGolfResearch.LowerEffectiveCounting.«Word» < 2^132 := by
-  let forget : SigGolfResearch.LowerEffectiveCounting.«Word» →
-      (Fin 14 → SigGolfResearch.NonbinaryTop.Codec.Triple8) × Fin 8 :=
-    fun w => (fun q => (w.1 q).val, w.2)
-  have hi : Function.Injective forget := by
-    intro a b hab
-    apply Prod.ext
-    · funext q
-      apply Subtype.ext
-      exact congrFun (congrArg Prod.fst hab) q
-    · change (forget a).2 = (forget b).2
-      exact congrArg Prod.snd hab
-  have hc := Fintype.card_le_of_injective forget hi
-  norm_num [Fintype.card_prod, Fintype.card_fun, SigGolfResearch.NonbinaryTop.Codec.Triple8] at hc ⊢
-  omega
-end ClaudeWCT.Numerics.CanonicalCounting
 
 namespace ClaudeWCT.Numerics.CanonicalCounting
 open Finset
@@ -5459,18 +4199,8 @@ theorem bucketSeries_poly (bs : List Nat) (c p : Nat) :
       congr 1
       omega
 
-theorem binnedPoly_coeff (bs : List Nat) (f : Nat → Nat) (k : Nat) :
-    (binnedPoly bs f).coeff k =
-      (bs.mapIdx (fun j b => if b=k then f j else 0)).sum := by
-  induction bs generalizing f with
-  | nil => simp [binnedPoly]
-  | cons b bs ih =>
-    simp only [binnedPoly, Polynomial.coeff_add, Polynomial.coeff_C_mul,
-      Polynomial.coeff_X_pow, List.mapIdx_cons, List.sum_cons, ih]
-    simp only [mul_ite, Nat.mul_one, Nat.mul_zero, eq_comm]
 
 #print axioms bucketSeries_poly
-#print axioms binnedPoly_coeff
 end ClaudeWCT.Numerics.SharedPathList
 
 
@@ -5487,30 +4217,6 @@ theorem shift_window_eq (bits p start len : Nat) :
     (p >>> (bits*start)) % 2^(bits*len) = p / (2^bits)^start % (2^bits)^len := by
   simp only [Nat.shiftRight_eq_div_pow, pow_mul]
 
-theorem two_window_digits (B len start gateStart p g encoded : Nat) (hB : 0<B)
-    (f h : Nat → Nat)
-    (hp : ∀ i, i<len → digit B p (start+i) = f i)
-    (hg : ∀ i, i<len → digit B g (gateStart+i) = h i)
-    (hbound : ∀ i, i<len → f i + 2*h i < B)
-    (he : encoded = p / B^start % B^len + 2*(g / B^gateStart % B^len))
-    (i : Nat) (hi : i<len) : digit B encoded i = f i + 2*h i := by
-  let ps : Fin 2 → Nat := ![p,g]
-  let starts : Fin 2 → Nat := ![start,gateStart]
-  let coeffs : Fin 2 → Nat := ![1,2]
-  have hs (j : Nat) (hj : j<len) :
-      (∑ a : Fin 2, coeffs a * digit B (ps a) (starts a+j)) = f j+2*h j := by
-    simp only [Fin.sum_univ_two, ps, starts, coeffs, Matrix.cons_val_zero,
-      Matrix.cons_val_one, Nat.one_mul, hp j hj, hg j hj]
-  have hsmall (j : Nat) (hj : j<len) :
-      (∑ a : Fin 2, coeffs a * digit B (ps a) (starts a+j)) < B := by
-    rw [hs j hj]
-    exact hbound j hj
-  have hn : (∑ a : Fin 2, coeffs a * (ps a / B^(starts a) % B^len)) = encoded := by
-    simp only [Fin.sum_univ_two, ps, starts, coeffs, Matrix.cons_val_zero,
-      Matrix.cons_val_one, Nat.one_mul]
-    exact he.symm
-  rw [← hn]
-  exact (digit_window_sum B len ps starts coeffs hB hsmall i hi).trans (hs i hi)
 end ClaudeWCT.Numerics.CanonicalHistogram
 
 
@@ -5570,11 +4276,6 @@ theorem binnedPoly_mono (bs : List Nat) (f g : Nat → Nat)
   · exact h i i.isLt
   · rfl
 
-theorem binnedPoly_eval_one (bs : List Nat) (f : Nat → Nat) :
-    (binnedPoly bs f).eval 1 = ∑ i : Fin bs.length, f i := by
-  rw [binnedPoly_eq_sum, Polynomial.eval_finset_sum]
-  simp only [Polynomial.eval_mul, Polynomial.eval_C, Polynomial.eval_pow,
-    Polynomial.eval_X, one_pow, Nat.mul_one]
 
 #print axioms binnedPoly_eq_sum
 #print axioms binnedPoly_mono
@@ -5677,84 +4378,6 @@ theorem forest_coverage_le {β : Type} [Fintype β]
 end ClaudeWCT.Numerics.SharedCoverage
 
 
-namespace ClaudeWCT.Numerics.SharedFees
-open ENNReal
-open ClaudeWCT.Numerics.N600 ClaudeWCT.Numerics.SharedMoments
-open ClaudeWCT.Numerics.PoissonReflect
-open SphincsSecurity.Concrete
-set_option maxHeartbeats 2000000
-set_option maxRecDepth 100000
-
-theorem shared_mgf_bound_of_rows (T : Nat) (hT : 2^32 ≤ T)
-    (κ : ENNReal) (hκ : 1 ≤ κ)
-    (hlam : (T : ENNReal) * (2^31:ENNReal)⁻¹ * κ ≤ (2013623:ENNReal)/1000000)
-    (g : Nat → ENNReal)
-    (hpay : ∀ r ≤ 80, g r ≤ κ^r *
-      ((16^r * (certifiedPayoff r).1 : Nat) : ENNReal) /
-        ((maxFee*alphabetSize*fieldSize^(9*r) : Nat) : ENNReal))
-    (htail : ∀ r, 80<r → g r ≤ 1) :
-    ((maxFee*priceScaleTotal : Nat) : ENNReal)/scale *
-      binomialAverage (2^31:ENNReal)⁻¹ T g ≤ (69:ENNReal)/10 := by
-  apply poissonCheckQ_sound_tilt (Qv := fieldSize)
-    (f := fun r => 16^r * (certifiedPayoff r).1)
-    (dbase := maxFee*alphabetSize) (sn := maxFee*priceScaleTotal)
-    (sd := scale) (Mn := 69) (Md := 10) (R := 80)
-    (show poissonCheckQ _ _ _ _ _ _ _ _ _ _ _ _ = true from shared_mgf_checked)
-    (by norm_num [fieldSize]) (by norm_num) (by norm_num)
-    (by decide +kernel) (by norm_num [scale]) (by norm_num)
-    rate_le_one κ hκ hlam (rejection_window_sharp T hT) g
-  · intro r hr
-    simpa only [mul_div_assoc] using hpay r hr
-  · exact htail
-
-theorem shared_residual_bound_of_rows (T : Nat) (hT : 2^32 ≤ T)
-    (κ : ENNReal) (hκ : 1 ≤ κ)
-    (hlam : (T : ENNReal) * (2^31:ENNReal)⁻¹ * κ ≤ (2013623:ENNReal)/1000000)
-    (g : Nat → ENNReal)
-    (hpay : ∀ r ≤ 80, g r ≤ κ^r *
-      ((16^r * (certifiedPayoff r).2 : Nat) : ENNReal) /
-        ((scale*alphabetSize*fieldSize^(9*r) : Nat) : ENNReal))
-    (htail : ∀ r, 80<r → g r ≤ 1) :
-    (priceScaleTotal : ENNReal) *
-      binomialAverage (2^31:ENNReal)⁻¹ T g ≤ (193:ENNReal)/250000 := by
-  have h := poissonCheckQ_sound_tilt (Qv := fieldSize)
-    (f := fun r => 16^r * (certifiedPayoff r).2)
-    (dbase := scale*alphabetSize) (sn := priceScaleTotal)
-    (sd := 1) (Mn := 193) (Md := 250000) (R := 80)
-    (show poissonCheckQ _ _ _ _ _ _ _ _ _ _ _ _ = true from shared_residual_checked)
-    (by norm_num [fieldSize]) (by norm_num) (by norm_num)
-    (by norm_num [scale, alphabetSize]) (by norm_num) (by norm_num)
-    rate_le_one κ hκ hlam (rejection_window_sharp T hT) g
-    (fun r hr => by simpa only [mul_div_assoc] using hpay r hr) htail
-  simpa only [Nat.cast_one, Nat.cast_ofNat, div_one] using h
-
-#print axioms shared_mgf_bound_of_rows
-#print axioms shared_residual_bound_of_rows
-end ClaudeWCT.Numerics.SharedFees
-
-namespace ClaudeWCT.Numerics.CanonicalHistogram
-open Finset
-open scoped BigOperators
-set_option quotPrecheck false
-
-local notation "topCount" credit:arg =>
-  (univ.filter fun w : SigGolfResearch.NonbinaryTop.Codec.Word =>
-    SigGolfResearch.NonbinaryTop.Counting.weight w = 145 ∧
-    SigGolfResearch.NonbinaryTop.EffectiveCounting.score w = credit+12).card
-
-local notation "topGateCount" credit:arg =>
-  (univ.filter fun w : SigGolfResearch.NonbinaryTop.Codec.Word =>
-    SigGolfResearch.NonbinaryTop.Counting.weight w = 145 ∧
-    SigGolfResearch.NonbinaryTop.EffectiveCounting.score w = credit+12 ∧
-    SigGolfResearch.NonbinaryTop.EffectiveCounting.gateWord w).card
-
-theorem counting_digit_eq (bits p i : Nat) :
-    CanonicalCounting.digit bits p i = SharedDigitBlock.digit (2^bits) p i :=
-  bits_digit_eq bits p i
-
-end ClaudeWCT.Numerics.CanonicalHistogram
-
-
 namespace ClaudeWCT.Numerics.SharedPathPacked
 open Finset Polynomial
 open scoped BigOperators Polynomial
@@ -5788,78 +4411,6 @@ theorem window_prefix_interval (P : Nat[X])
 #print axioms window_prefix_interval
 end ClaudeWCT.Numerics.SharedPathPacked
 
-namespace ClaudeWCT.Numerics.CanonicalHistogram
-open Finset CanonicalCompression
-
-end ClaudeWCT.Numerics.CanonicalHistogram
-
-
-namespace ClaudeWCT.Numerics.SharedCoverage
-open Finset
-open ClaudeWCT.Numerics.N600 ClaudeWCT.Numerics.SharedMoments
-open ClaudeWCT.Numerics.Thinning
-set_option maxHeartbeats 2000000
-set_option maxRecDepth 100000
-
-theorem coordinate_near_le {β : Type} [Fintype β]
-    (val : β → Fin 6 → Nat) (hβ : Fintype.card β = 563)
-    {K r : Nat} (E : Fin r → Fin K × β) : coordinateNear val E ≤ 6*(K*563) := by
-  classical
-  unfold coordinateNear
-  calc _ ≤ ∑ _i : Fin 6, K*563 := Finset.sum_le_sum (fun i _ =>
-          (Finset.card_le_card (Finset.filter_subset _ _)).trans_eq
-            (by simp only [Finset.card_univ, Fintype.card_prod, Fintype.card_fin, hβ]))
-       _ = _ := by simp only [Finset.sum_const, Finset.card_univ, Fintype.card_fin, nsmul_eq_mul, Nat.cast_id]
-
-theorem pair_near_le {β : Type} [Fintype β]
-    (val : β → Fin 6 → Nat) (hβ : Fintype.card β = 563)
-    {r : Nat} (h : PairHistory β r) : pairNear val h ≤ 12*(2*(64*563)^2) := by
-  have hs (s : Fin 2) : selectorKernel
-      (fun _ A B => coordinateNear val A * coordinateCoverage val B +
-        coordinateCoverage val A * coordinateNear val B) h.1 h.2.1 h.2.2 s ≤ 12*(64*563)^2 := by
-    unfold selectorKernel
-    calc _ ≤ (6*(64*563))*(64*563)+(64*563)*(6*(64*563)) :=
-          Nat.add_le_add
-            (Nat.mul_le_mul (coordinate_near_le val hβ _) (coordinate_coverage_le val hβ _))
-            (Nat.mul_le_mul (coordinate_coverage_le val hβ _) (coordinate_near_le val hβ _))
-         _ = _ := by ring
-  unfold pairNear
-  exact (Nat.add_le_add (hs 0) (hs 1)).trans_eq (by ring)
-
-theorem marked_product_const (a b : Nat) (k : Fin 4) :
-    (∏ i : Fin 4, if i=k then a else b) = a*b^3 := by
-  fin_cases k <;> simp [Fin.prod_univ_succ] <;> ring
-
-theorem forest_near_le {β : Type} [Fintype β]
-    (val : β → Fin 6 → Nat) (hβ : Fintype.card β = 563)
-    {r : Nat} (h : ForestHistory β r) : forestNear val h ≤ 54*alphabetSize := by
-  let D : Nat := 2*(64*563)^2
-  have hmark (k : Fin 4) :
-      (∏ i, if i=k then pairNear val (h.1 i) else pairCoverage val (h.1 i)) ≤ 12*D^4 := by
-    calc _ ≤ ∏ i : Fin 4, if i=k then 12*D else D := by
-              apply Finset.prod_le_prod'
-              intro i _
-              split_ifs
-              · exact pair_near_le val hβ _
-              · exact pair_coverage_le val hβ _
-         _ = 12*D^4 := by rw [marked_product_const]; ring
-  have hs : (∑ k : Fin 4, ∏ i, if i=k then pairNear val (h.1 i) else
-      pairCoverage val (h.1 i)) ≤ 4*(12*D^4) := by
-    simpa only [Finset.sum_const, Finset.card_univ, Fintype.card_fin, nsmul_eq_mul, Nat.cast_id] using
-      Finset.sum_le_sum (fun k (_ : k ∈ (Finset.univ : Finset (Fin 4))) => hmark k)
-  have hp : (∏ i : Fin 4, pairCoverage val (h.1 i)) ≤ D^4 := by
-    calc _ ≤ ∏ _i : Fin 4, D := Finset.prod_le_prod' (fun i _ => pair_coverage_le val hβ _)
-         _ = _ := by rw [Fin.prod_const]
-  unfold forestNear
-  calc _ ≤ (4*(12*D^4))*(128*563) + D^4*(6*(128*563)) :=
-          Nat.add_le_add
-            (Nat.mul_le_mul hs (coordinate_coverage_le val hβ h.2))
-            (Nat.mul_le_mul hp (coordinate_near_le val hβ h.2))
-       _ = 54*alphabetSize := by unfold alphabetSize D; ring
-
-#print axioms forest_near_le
-end ClaudeWCT.Numerics.SharedCoverage
-
 
 namespace ClaudeWCT.Numerics.SharedMoments
 open ENNReal
@@ -5868,23 +4419,6 @@ open SphincsSecurity.Concrete
 set_option maxHeartbeats 2000000
 set_option maxRecDepth 100000
 
-theorem first_bound_of_rows (T : Nat) (hT : 2^32 ≤ T)
-    (κ : ENNReal) (hκ : 1 ≤ κ)
-    (hlam : (T : ENNReal)*(2^31:ENNReal)⁻¹*κ ≤ (2013623:ENNReal)/1000000)
-    (g : Nat → ENNReal)
-    (hpay : ∀ r ≤ 80, g r ≤ κ^r *
-      ((16^r*forestMoment r : Nat) : ENNReal) /
-        ((alphabetSize*fieldSize^(9*r) : Nat) : ENNReal))
-    (htail : ∀ r, 80<r → g r ≤ 1) :
-    (priceScaleTotal : ENNReal)*binomialAverage (2^31:ENNReal)⁻¹ T g ≤ (845:ENNReal)/1000 := by
-  have h := poissonCheckQ_sound_tilt (Qv := fieldSize)
-    (f := fun r => 16^r*forestMoment r) (dbase := alphabetSize)
-    (sn := priceScaleTotal) (sd := 1) (Mn := 845) (Md := 1000) (R := 80)
-    first_moment_checked (by norm_num [fieldSize]) (by norm_num) (by norm_num)
-    (by norm_num [alphabetSize]) (by norm_num) (by norm_num)
-    rate_le_one κ hκ hlam (rejection_window_sharp T hT) g
-    (fun r hr => by simpa only [mul_div_assoc] using hpay r hr) htail
-  simpa only [Nat.cast_one, Nat.cast_ofNat, div_one] using h
 
 theorem near_bound_of_rows (T : Nat) (hT : 2^32 ≤ T)
     (κ : ENNReal) (hκ : 1 ≤ κ)
@@ -5894,47 +4428,18 @@ theorem near_bound_of_rows (T : Nat) (hT : 2^32 ≤ T)
       ((16^r*forestNearMoment r : Nat) : ENNReal) /
         ((54*alphabetSize*fieldSize^(9*r) : Nat) : ENNReal))
     (htail : ∀ r, 80<r → g r ≤ 1) :
-    ((54*priceScaleTotal : Nat) : ENNReal)*binomialAverage (2^31:ENNReal)⁻¹ T g ≤ 350 := by
+    ((54*priceScaleTotal : Nat) : ENNReal)*binomialAverage (2^31:ENNReal)⁻¹ T g ≤ 385 := by
   have h := poissonCheckQ_sound_tilt (Qv := fieldSize)
     (f := fun r => 16^r*forestNearMoment r) (dbase := 54*alphabetSize)
-    (sn := 54*priceScaleTotal) (sd := 1) (Mn := 350) (Md := 1) (R := 80)
+    (sn := 54*priceScaleTotal) (sd := 1) (Mn := 385) (Md := 1) (R := 80)
     near_moment_checked (by norm_num [fieldSize]) (by norm_num) (by norm_num)
     (by norm_num [alphabetSize]) (by norm_num) (by norm_num)
     rate_le_one κ hκ hlam (rejection_window_sharp T hT) g
     (fun r hr => by simpa only [mul_div_assoc] using hpay r hr) htail
   simpa only [Nat.cast_one, Nat.cast_ofNat, div_one] using h
 
-#print axioms first_bound_of_rows
 #print axioms near_bound_of_rows
 end ClaudeWCT.Numerics.SharedMoments
-
-namespace ClaudeWCT.Numerics.CanonicalHistogram
-open OracleComp OracleSpec ENNReal Finset CanonicalCompression
-open SigGolfCandidate.T3 ClaudeWCT.WCT9
-open ClaudeWCT.W9.T3.ProducerV5.Canonical
-
-end ClaudeWCT.Numerics.CanonicalHistogram
-
-namespace ClaudeWCT.Numerics.CanonicalCounting
-open scoped BigOperators
-open Finset
-theorem lower_event (zeros credit : Nat) (hc : credit < 128) (w : SigGolfResearch.LowerEffectiveCounting.Word) :
-    SigGolfResearch.LowerEffectiveCounting.stat w = 65536*zeros+128*201+credit ↔
-      SigGolfResearch.LowerEffectiveCounting.zeros w = zeros ∧
-      SigGolfResearch.LowerEffectiveCounting.weight w = 201 ∧
-      SigGolfResearch.LowerEffectiveCounting.score w = credit := by
-  rw [SigGolfResearch.LowerEffectiveCounting.stat_eq]
-  exact lower_split _ _ _ _ _ (SigGolfResearch.LowerEffectiveCounting.score_le w)
-    (SigGolfResearch.LowerEffectiveCounting.weight_le w) hc
-
-attribute [local irreducible] SigGolfResearch.LowerEffectiveCounting.packedAt
-set_option maxRecDepth 100000 in
-theorem lower_weighted : (∑ w : SigGolfResearch.LowerEffectiveCounting.Word,
-    (2^132)^SigGolfResearch.LowerEffectiveCounting.stat w) =
-      SigGolfResearch.LowerEffectiveCounting.packed :=
-  SigGolfResearch.LowerEffectiveCounting.weighted_words_at (2^132)
-
-end ClaudeWCT.Numerics.CanonicalCounting
 
 
 namespace ClaudeWCT.Numerics.SharedPathList
@@ -5954,33 +4459,7 @@ theorem weighted_fiber_count {α : Type} [Fintype α] (value : α → Nat) (c j 
   · simp only [ha, if_true, Nat.mul_one]
   · simp only [if_neg ha, Nat.mul_zero]
 
-theorem bucket_retained_lower {α : Type} [Fintype α]
-    (value : α → Nat) (bs : List Nat) (c : Nat) (P : Nat[X])
-    (hP : ∀ j, P.coeff j < 2^512)
-    (hcount : ∀ j, P.coeff j ≤ (Finset.univ.filter fun a => value a=j).card)
-    (hprob : ∀ j, (binnedPoly bs P.coeff).coeff j < 2^1024)
-    (hfirst : ∀ j, (binnedPoly bs (fun j => (c+j)*P.coeff j)).coeff j < 2^1024)
-    (k : Nat) :
-    ((bucket bs c (P.eval (2^512))).1 / (2^1024)^k % 2^1024 ≤
-      ∑ a, if h : value a < bs.length then
-        (if bs[value a]'h = k then 1 else 0) else 0) ∧
-    ((bucket bs c (P.eval (2^512))).2 / (2^1024)^k % 2^1024 ≤
-      ∑ a, if h : value a < bs.length then
-        (if bs[value a]'h = k then c+value a else 0) else 0) := by
-  classical
-  rw [bucket_polynomial bs c P hP]
-  constructor
-  · rw [ClaudeWCT.Numerics.eval_div_pow_mod (pow_pos (by decide) _) k _ hprob]
-    apply binnedPoly_fiber_lower bs value (fun _ => 1) P.coeff
-    intro j _
-    simpa only [Finset.card_filter] using hcount j
-  · rw [ClaudeWCT.Numerics.eval_div_pow_mod (pow_pos (by decide) _) k _ hfirst]
-    apply binnedPoly_fiber_lower bs value (fun a => c+value a) (fun j => (c+j)*P.coeff j)
-    intro j _
-    rw [weighted_fiber_count]
-    exact Nat.mul_le_mul_left (c+j) (hcount j)
 
-#print axioms bucket_retained_lower
 end ClaudeWCT.Numerics.SharedPathList
 
 
@@ -6121,58 +4600,6 @@ theorem directedFirst_digit (a pref : Cell) (lo hi shift : Nat)
 #print axioms directedFirst_digit
 end ClaudeWCT.Numerics.SharedPathPacked
 
-namespace ClaudeWCT.Numerics.CanonicalHistogram
-open Finset
-open scoped BigOperators
-set_option quotPrecheck false
-set_option maxHeartbeats 2000000
-set_option maxRecDepth 100000
-
-local notation "lowerCount" credit:arg =>
-  (univ.filter fun w : SigGolfResearch.LowerEffectiveCounting.«Word» =>
-    SigGolfResearch.LowerEffectiveCounting.zeros w ≤ 5 ∧
-    SigGolfResearch.LowerEffectiveCounting.weight w = 201 ∧
-    SigGolfResearch.LowerEffectiveCounting.score w = credit).card
-
-local notation "lowerFiber" z:arg credit:arg =>
-  (univ.filter fun w : SigGolfResearch.LowerEffectiveCounting.«Word» =>
-    SigGolfResearch.LowerEffectiveCounting.zeros w = z ∧
-    SigGolfResearch.LowerEffectiveCounting.weight w = 201 ∧
-    SigGolfResearch.LowerEffectiveCounting.score w = credit).card
-
-theorem lower_fibers (credit : Nat) : (∑ z : Fin 6, lowerFiber z.val credit) = lowerCount credit := by
-  rw [CanonicalCounting.count_fibers_fin]
-  apply congrArg Finset.card
-  apply Finset.filter_congr
-  intro w _
-  omega
-
-theorem lower_counts_bound (credit : Nat) : 7*lowerCount credit < 2^132 := by
-  have h : lowerCount credit ≤ Fintype.card SigGolfResearch.LowerEffectiveCounting.«Word» :=
-    Finset.card_filter_le _ _
-  have hbound := CanonicalCounting.lower_card_seven
-  omega
-
-theorem lower_windows_fold (p : Nat) :
-    (List.range 6).foldl (fun s zeros =>
-      s + ((p >>> (132*(65536*zeros+128*201))) % 2^(132*128))) 0 =
-    ∑ z : Fin 6, p / (2^132)^(65536*z.val+128*201) % (2^132)^128 := by
-  have hfold (f : Nat → Nat) : (List.range 6).foldl (fun s z => s+f z) 0 =
-      ∑ z : Fin 6, f z.val := by
-    simp [List.range_succ, Fin.sum_univ_succ, Nat.add_assoc, Nat.add_comm, Nat.add_left_comm]
-  rw [hfold]
-  apply Finset.sum_congr rfl
-  intro z _
-  exact shift_window_eq 132 p (65536*z.val+128*201) 128
-
-end ClaudeWCT.Numerics.CanonicalHistogram
-
-namespace ClaudeWCT.Numerics.CanonicalHistogram
-open Finset CanonicalCompression
-set_option maxRecDepth 100000
-
-end ClaudeWCT.Numerics.CanonicalHistogram
-
 
 namespace ClaudeWCT.Numerics.SharedCoverage
 open Finset
@@ -6283,24 +4710,6 @@ theorem directed_histogram_lower {α β : Type} [Fintype α] [Fintype β]
 #print axioms directed_histogram_lower
 end ClaudeWCT.Numerics.SharedPathPacked
 
-namespace ClaudeWCT.Numerics.CanonicalHistogram
-open OracleComp OracleSpec ENNReal Finset CanonicalCompression
-open SigGolfCandidate.T3 ClaudeWCT.WCT9
-open ClaudeWCT.W9.T3.ProducerV5.Canonical
-set_option maxRecDepth 100000
-set_option linter.constructorNameAsVariable false
-
-variable (hd : ∀ (z : Fin 6) (i : Nat), i<128 →
-  SharedDigitBlock.digit (2^132) SigGolfResearch.LowerEffectiveCounting.packed
-    (65536*z.val+128*201+i) =
-  (univ.filter fun w : SigGolfResearch.LowerEffectiveCounting.«Word» =>
-    SigGolfResearch.LowerEffectiveCounting.zeros w = z.val ∧
-    SigGolfResearch.LowerEffectiveCounting.weight w = 201 ∧
-    SigGolfResearch.LowerEffectiveCounting.score w = i).card)
-include hd
-
-end ClaudeWCT.Numerics.CanonicalHistogram
-
 
 namespace ClaudeWCT.Numerics.SharedCoverage
 open Finset Polynomial ClaudeWCT.Numerics.N600
@@ -6402,15 +4811,10 @@ theorem pair_mass_small (r : Nat) (hr : r≤20) :
   have hp := Nat.pow_le_pow_right (n:=2*(64*563)^2) (by decide : 0<2*(64*563)^2) hr
   exact (Nat.mul_le_mul_right _ hp).trans_lt (by decide +kernel)
 
-theorem forest_mass_small (r : Nat) (hr : r≤20) :
-    alphabetSize^r*alphabetSize < 2^4096 := by
-  have hp := Nat.pow_le_pow_right (n:=alphabetSize) (by decide : 0<alphabetSize) hr
-  exact (Nat.mul_le_mul_right _ hp).trans_lt (by decide +kernel)
 
 #print axioms forest_history_card
 #print axioms coordinate_mass_small
 #print axioms pair_mass_small
-#print axioms forest_mass_small
 end ClaudeWCT.Numerics.SharedCoverage
 
 
@@ -6781,25 +5185,6 @@ theorem weightedHistogram_partition {ι α : Type} [Fintype ι] [Fintype α]
 end ClaudeWCT.Numerics.SharedCoverage
 
 
-namespace ClaudeWCT.Numerics.CanonicalCounting
-open scoped BigOperators
-open Finset
-
-theorem lower_card : Fintype.card SigGolfResearch.LowerEffectiveCounting.«Word» < 2^132 :=
-  Nat.lt_of_lt_of_le SigGolfResearch.LowerEffectiveCounting.word_card_small (Nat.sub_le _ _)
-
-theorem lower_digit (zeros credit : Nat) (hc : credit < 128) :
-    digit 132 SigGolfResearch.LowerEffectiveCounting.packed
-      (65536*zeros+128*201+credit) =
-    (univ.filter fun w : SigGolfResearch.LowerEffectiveCounting.«Word» =>
-      SigGolfResearch.LowerEffectiveCounting.zeros w = zeros ∧
-      SigGolfResearch.LowerEffectiveCounting.weight w = 201 ∧
-      SigGolfResearch.LowerEffectiveCounting.score w = credit).card := by
-  exact digit_histogram_of_weighted _ _ _ _ _ lower_card lower_weighted (lower_event zeros credit hc)
-#print axioms lower_digit
-end ClaudeWCT.Numerics.CanonicalCounting
-
-
 namespace ClaudeWCT.Numerics.SharedPathList
 set_option maxHeartbeats 2000000
 set_option maxRecDepth 100000
@@ -6931,48 +5316,6 @@ theorem mergeBin_interval (e : Fin addRuns.length) (i j : Nat) (hj : j ≤ i)
 
 #print axioms mergeBin_interval
 end ClaudeWCT.Numerics.SharedPathList
-
-namespace ClaudeWCT.Numerics.SharedPathWinsor.Rows18
-set_option maxHeartbeats 1000000
-set_option maxRecDepth 10000
-
-/-- A conservative scalar certificate for gate734/cap788. Its two moment
-premises, at most6.9 and0.000772, still require a finite coverage proof. -/
-theorem endpoint_middle :
-    (3 / 48 : ℝ) * Real.exp (69 / 10 - 6 * (99847 / 50000 - 1 / 1024)) +
-      193 / 250000 ≤ 147 / 125000 := by
-  let x : ℝ := 6 * (99847 / 50000 - 1 / 1024) - 69 / 10
-  have hx : (0 : ℝ) ≤ x := by norm_num [x]
-  have he : (155 : ℝ) ≤ Real.exp x := by
-    refine le_trans ?_ (Real.sum_le_exp_of_nonneg hx 18)
-    norm_num [x, Finset.sum_range_succ, Nat.factorial]
-  have hi : (Real.exp x)⁻¹ ≤ (155 : ℝ)⁻¹ :=
-    (inv_le_inv₀ (Real.exp_pos x) (by norm_num)).2 he
-  have hn : 69 / 10 - 6 * (99847 / 50000 - 1 / 1024) = -x := by dsimp [x]; ring
-  rw [hn, Real.exp_neg]
-  norm_num at hi ⊢
-  linarith
-
-theorem endpoint_high :
-    (3 / 48 : ℝ) * Real.exp (69 / 10 - 6 * (2 - 6 / 2500 - 1 / 1024)) +
-      193 / 250000 ≤ 147 / 125000 := by
-  have h := endpoint_middle
-  have he := Real.exp_le_exp.mpr (show
-      (69 / 10 - 6 * (2 - 6 / 2500 - 1 / 1024) : ℝ) ≤
-        69 / 10 - 6 * (99847 / 50000 - 1 / 1024) by norm_num)
-  linarith
-
-theorem endpoint_low :
-    (3 / 48 : ℝ) * Real.exp (69 / 10 - 6 * (1 - 1 / 1024)) +
-      193 / 250000 ≤ 49 / 100 := by
-  have hx : (69 / 10 - 6 * (1 - 1 / 1024) : ℝ) ≤ 1 := by norm_num
-  have he := (Real.exp_le_exp.mpr hx).trans (le_of_lt Real.exp_one_lt_d9)
-  nlinarith
-
-#print axioms endpoint_middle
-#print axioms endpoint_high
-#print axioms endpoint_low
-end ClaudeWCT.Numerics.SharedPathWinsor.Rows18
 
 
 namespace ClaudeWCT.Numerics.CanonicalCompression
@@ -7180,19 +5523,8 @@ theorem RoundedInterval.forest (bins : Fin 4 → Nat) (xs : Fin 4 → ℝ)
   rw [hc] at hp
   exact hp.mul hy
 
-theorem RoundedInterval.fee_bounds {bin : Nat} {x : ℝ}
-    (hx : RoundedInterval 13 bin x) :
-    ClaudeWCT.Numerics.SharedFees.lowerValue bin ≤ (734 : ℝ)/2^66*x ∧
-      (734 : ℝ)/2^66*x ≤ ClaudeWCT.Numerics.SharedFees.upperValue bin := by
-  simp only [ClaudeWCT.Numerics.SharedFees.lowerValue_power,
-    ClaudeWCT.Numerics.SharedFees.upperValue_power]
-  constructor
-  · have h := mul_le_mul_of_nonneg_left hx.lower (by positivity : (0 : ℝ) ≤ 734/2^66)
-    simpa only [mul_assoc, mul_left_comm, mul_comm] using h
-  · exact mul_le_mul_of_nonneg_left hx.upper (by positivity)
 
 #print axioms RoundedInterval.forest
-#print axioms RoundedInterval.fee_bounds
 end ClaudeWCT.Numerics.SharedPathList
 
 
@@ -7412,50 +5744,6 @@ theorem coordinate_coverage_pos {β C : Type} [Fintype β] [Fintype C] [Decidabl
 end ClaudeWCT.Numerics.SharedCoverage
 
 
-namespace ClaudeWCT.Numerics.SharedFees
-open Finset Polynomial ClaudeWCT.Numerics.SharedDigitBlock
-open scoped BigOperators Polynomial
-set_option maxHeartbeats 2000000
-set_option maxRecDepth 100000
-
-theorem paidPlain_sums (B : Nat) (fs : List (Nat × Nat)) (p : Nat) :
-    paidPlain B fs p =
-      (∑ i : Fin fs.length, digit B p i.val,
-       ∑ i : Fin fs.length, digit B p i.val * fs[i].1,
-       ∑ i : Fin fs.length, digit B p i.val * fs[i].2) := by
-  induction fs generalizing p with
-  | nil => simp only [paidPlain, List.length_nil, Fin.sum_univ_zero]
-  | cons e fs ih =>
-    rw [paidPlain, ih]
-    simp only [List.length_cons, Fin.sum_univ_succ,
-      Fin.getElem_fin, List.getElem_cons_zero, List.getElem_cons_succ, Fin.val_zero, Fin.val_succ,
-      digit, Nat.pow_zero, Nat.div_one, Nat.pow_succ,
-      Nat.div_div_eq_div_mul, Nat.mul_comm]
-
-theorem paidTree_polynomial (fuel : Nat) (fs : List (Nat × Nat)) (P : Nat[X])
-    (hc : ∀ j, P.coeff j < 2^4096) :
-    paidTree fuel fs (P.eval (2^4096)) =
-      (∑ i : Fin fs.length, P.coeff i.val,
-       ∑ i : Fin fs.length, P.coeff i.val * fs[i].1,
-       ∑ i : Fin fs.length, P.coeff i.val * fs[i].2) := by
-  rw [paidTree_plain, paidPlain_sums]
-  have hd (i : Nat) : digit (2^4096) (P.eval (2^4096)) i = P.coeff i :=
-    ClaudeWCT.Numerics.eval_div_pow_mod (by positivity) i P hc
-  simp only [hd]
-
-theorem paidTree_polynomial_mass (fuel : Nat) (fs : List (Nat × Nat)) (P : Nat[X])
-    (hc : ∀ j, P.coeff j < 2^4096) :
-    (paidTree fuel fs (P.eval (2^4096))).1 ≤ P.eval 1 := by
-  rw [paidTree_polynomial fuel fs P hc]
-  dsimp only
-  rw [Fin.sum_univ_eq_sum_range]
-  exact ClaudeWCT.Numerics.N600.sum_coeff_le_eval_one P (Finset.range fs.length)
-
-#print axioms paidTree_polynomial
-#print axioms paidTree_polynomial_mass
-end ClaudeWCT.Numerics.SharedFees
-
-
 namespace ClaudeWCT.Numerics.SharedCoverage
 open Finset Polynomial ClaudeWCT.Numerics.N600 ClaudeWCT.Numerics.SharedDigitBlock
 open scoped BigOperators Polynomial
@@ -7659,60 +5947,6 @@ theorem histogram_paid_bound {α : Type} [Fintype α]
 #print axioms histogram_paid_bound
 end ClaudeWCT.Numerics.SharedFees
 
-namespace ClaudeWCT.Numerics.CanonicalCompression
-set_option maxRecDepth 10000
-set_option maxHeartbeats 1000000
-
-theorem ceilDiv_mul_ge_left (n d : Nat) (hd : 0 < d) : n ≤ d * ceilDiv n d := by
-  unfold ceilDiv
-  have hrem := Nat.mod_lt (n + d - 1) hd
-  have hdiv := Nat.mod_add_div (n + d - 1) d
-  omega
-
-theorem mulUp_sound (a b : Nat) :
-    (a : ℝ) / scale * ((b : ℝ) / scale) ≤ (mulUp a b : ℝ) / scale := by
-  have hs : 0 < scale := by norm_num [scale]
-  have hh := ceilDiv_mul_ge_left (a*b) scale hs
-  have hc : (a : ℝ) * b ≤ (scale : ℝ) * mulUp a b := by
-    exact_mod_cast hh
-  have hsR : (0 : ℝ) < scale := by exact_mod_cast hs
-  rw [div_mul_div_comm]
-  apply (div_le_div_iff₀ (mul_pos hsR hsR) hsR).2
-  nlinarith
-
-/-- The reflected repeated-squaring evaluator rounds every multiplication up. -/
-theorem powerUp_sound (base exponent : Nat) :
-    ((base : ℝ) / scale) ^ exponent ≤ (powerUp base exponent : ℝ) / scale := by
-  induction exponent using Nat.strong_induction_on generalizing base with
-  | h exponent ih =>
-      rw [powerUp]
-      by_cases he : exponent = 0
-      · simp [he, scale]
-      · rw [if_neg he]
-        have hhalf : exponent / 2 < exponent := Nat.div_lt_self (Nat.pos_of_ne_zero he) (by decide)
-        have hi := ih (exponent / 2) hhalf (mulUp base base)
-        have hbase : (0 : ℝ) ≤ (base : ℝ) / scale := by positivity
-        have hsq : ((base : ℝ) / scale) ^ 2 ≤ (mulUp base base : ℝ) / scale := by
-          simpa only [pow_two] using mulUp_sound base base
-        have hh : ((base : ℝ) / scale) ^ (2 * (exponent / 2)) ≤
-            (powerUp (mulUp base base) (exponent / 2) : ℝ) / scale := by
-          rw [pow_mul]
-          exact (pow_le_pow_left₀ (sq_nonneg _) hsq _).trans hi
-        split_ifs with hp
-        · convert hh using 1
-          congr 1
-          omega
-        · have hm : exponent % 2 = 1 := by omega
-          have hrepr : exponent = 1 + 2 * (exponent / 2) := by omega
-          conv_lhs => rw [hrepr, pow_add, pow_one]
-          exact (mul_le_mul_of_nonneg_left hh hbase).trans
-            (mulUp_sound base (powerUp (mulUp base base) (exponent / 2)))
-
-#print axioms ceilDiv_mul_ge_left
-#print axioms mulUp_sound
-#print axioms powerUp_sound
-end ClaudeWCT.Numerics.CanonicalCompression
-
 
 namespace ClaudeWCT.Numerics.SharedDigitBlock
 open Finset Polynomial ClaudeWCT.Numerics.N600
@@ -7726,12 +5960,6 @@ theorem packedPoly_eval (B n p : Nat) (hp : p<B^n) :
     (packedPoly B n p).eval B=p := by
   rw [packedPoly, polyOf_eval, packFun_digits, Nat.mod_eq_of_lt hp]
 
-theorem packedPoly_coeff_lt (B n p : Nat) (hB : 0<B) (j : Nat) :
-    (packedPoly B n p).coeff j<B := by
-  rw [packedPoly, polyOf_coeff]
-  split_ifs
-  · exact Nat.mod_lt _ hB
-  · exact hB
 
 theorem packedPoly_below (B n p : Nat) (Q : Nat[X])
     (hd : ∀ j, j<n → digit B p j≤Q.coeff j) :
@@ -7798,27 +6026,8 @@ theorem histogram_moment_bound {α : Type} [Fintype α]
     (fun j _ => by simpa only [weightedHistogram_coeff] using hP j) hm hglobal hlocal
   simpa only [htotal] using h
 
-theorem sum_fin_list_getD {α : Type} (fs : List α) (fallback : α) (f : Nat → α → Nat) :
-    (∑ i : Fin fs.length, f i.val fs[i]) =
-      ∑ j ∈ range fs.length, f j (fs[j]?.getD fallback) := by
-  calc _ = ∑ i : Fin fs.length, f i.val (fs[i.val]?.getD fallback) := by
-         apply Finset.sum_congr rfl
-         intro i _
-         simp only [List.getElem?_eq_getElem i.isLt, Option.getD_some, Fin.getElem_fin]
-       _ = _ := Fin.sum_univ_eq_sum_range (fun j => f j (fs[j]?.getD fallback)) fs.length
-
-theorem paidTree_polynomial_range (fuel : Nat) (fs : List (Nat × Nat)) (P : Nat[X])
-    (hc : ∀ j, P.coeff j<2^4096) :
-    paidTree fuel fs (P.eval (2^4096)) =
-      (∑ j ∈ range fs.length, P.coeff j,
-       ∑ j ∈ range fs.length, P.coeff j*(fs[j]?.getD (0,0)).1,
-       ∑ j ∈ range fs.length, P.coeff j*(fs[j]?.getD (0,0)).2) := by
-  rw [paidTree_polynomial fuel fs P hc, Fin.sum_univ_eq_sum_range,
-    sum_fin_list_getD fs (0,0) (fun j e => P.coeff j*e.1),
-    sum_fin_list_getD fs (0,0) (fun j e => P.coeff j*e.2)]
 
 #print axioms histogram_moment_bound
-#print axioms paidTree_polynomial_range
 end ClaudeWCT.Numerics.SharedFees
 
 namespace ClaudeWCT.Numerics.CanonicalCompression
@@ -8776,68 +6985,6 @@ theorem pairFirst_histogram {β : Type} [Fintype β]
 #print axioms pairFirst_histogram
 end ClaudeWCT.Numerics.SharedPathPair
 
-namespace ClaudeWCT.Numerics.SharedFees
-open Finset Polynomial ClaudeWCT.Numerics.N600 ClaudeWCT.Numerics.SharedCoverage
-open scoped BigOperators Polynomial
-set_option maxHeartbeats 2000000
-set_option maxRecDepth 100000
-set_option Elab.async false
-attribute [local irreducible] feeRuns feeEntries fees scale maxFee
-
-theorem fees_bound_of_chunks (hsize : feeRuns.size = 1578)
-    (hchunks : ∀ block : Nat, block < 25 → feeChunk block = true)
-    (hidx : feeEntries.map Prod.fst = List.range 7210) (i : Nat) (hi : i < 7210) :
-    (fees[i]?.getD (0,0)).1 ≤ maxFee ∧ (fees[i]?.getD (0,0)).2 ≤ scale :=  by
-  have hv :=  fee_run_values hsize hchunks
-  obtain ⟨e,he,_,_,hfee⟩ :=  fee_lookup_run (fun e he  => (hv e he).1) hidx i hi
-  rw [hfee]
-  exact (hv e he).2.2
-
-theorem histogram_winsor_pair {α : Type} [Fintype α]
-    (good : α → Prop) [DecidablePred good] (bin weight : α → Nat)
-    (P : Nat[X]) (total : Nat) (κ : ℝ) (hκ : 0 ≤ κ)
-    (hP : CoeffLE P (weightedHistogram good bin weight))
-    (htotal : (∑ a, weight a) = total)
-    (hsize : feeRuns.size = 1578)
-    (hchunks : ∀ block : Nat, block < 25 → feeChunk block = true)
-    (hidx : feeEntries.map Prod.fst = List.range 7210)
-    (hinterval : ∀ a, good a →
-      lowerValue (bin a) ≤ κ*(weight a : ℝ) ∧ κ*(weight a : ℝ) ≤ upperValue (bin a)) :
-    (∑ a, (Real.exp (6*min (κ*(weight a : ℝ)) (6/5))-1))  ≤ 
-      κ/(scale : ℝ)*(((∑ j ∈ range 7210, P.coeff j*(fees[j]?.getD (0,0)).1)+
-        maxFee*(total-∑ j ∈ range 7210, P.coeff j) : Nat) : ℝ) ∧
-    (∑ a, max 0 (κ*(weight a : ℝ)-6/5))  ≤ 
-      κ/(scale : ℝ)*(((∑ j ∈ range 7210, P.coeff j*(fees[j]?.getD (0,0)).2)+
-        scale*(total-∑ j ∈ range 7210, P.coeff j) : Nat) : ℝ) :=  by
-  have hS : (0 : ℝ) < scale :=  by exact_mod_cast scale_pos
-  have hnon (a : α) : 0 ≤ κ*(weight a : ℝ) :=  mul_nonneg hκ (Nat.cast_nonneg _)
-  have hfee :=  fees_bound_of_chunks hsize hchunks hidx
-  have hlocal (a : α) (ha : good a) (hb : bin a < 7210) := 
-    fee_lookup_sound hsize hchunks hidx (bin a) hb (κ*(weight a : ℝ))
-      (hnon a) (hinterval a ha).1 (hinterval a ha).2
-  constructor
-  · apply histogram_moment_bound 7210 total maxFee good bin weight P hP htotal
-      (fun a  => Real.exp (6*min (κ*(weight a : ℝ)) (6/5))-1)
-      (fun j  => (fees[j]?.getD (0,0)).1) (κ/scale) (div_nonneg hκ hS.le)
-      (fun j hj  => (hfee j hj).1)
-    · intro a
-      convert global_fee_sound (κ*(weight a : ℝ)) (hnon a) using 1  <;> ring
-    · intro a ha hb
-      convert (hlocal a ha hb).1 using 1  <;> ring
-  · apply histogram_moment_bound 7210 total scale good bin weight P hP htotal
-      (fun a  => max 0 (κ*(weight a : ℝ)-6/5))
-      (fun j  => (fees[j]?.getD (0,0)).2) (κ/scale) (div_nonneg hκ hS.le)
-      (fun j hj  => (hfee j hj).2)
-    · intro a
-      have h : max 0 (κ*(weight a : ℝ)-6/5) ≤ κ*(weight a : ℝ) := 
-        max_le (hnon a) (by linarith)
-      convert h using 1
-      field_simp
-    · intro a ha hb
-      convert (hlocal a ha hb).2 using 1  <;> ring
-
-#print axioms histogram_winsor_pair
-end ClaudeWCT.Numerics.SharedFees
 
 namespace ClaudeWCT.Numerics.SharedPathForest
 open Finset Polynomial ClaudeWCT.Numerics.N600
@@ -8872,21 +7019,6 @@ theorem encodedForest_histogram {β : Type} [Fintype β]
   exact forest_histogram_lower val r gp bp gq bq _ _
     (packedPoly_below _ _ _ _ hp) (packedPoly_below _ _ _ _ hq)
 
-theorem encodedForest_coeff_small {β : Type} [Fintype β]
-    (val : β → Fin 6 → Nat) (hβ : Fintype.card β = 563) (r p q : Nat) (hr : r ≤ 20)
-    (gp : PairHistory β r → Prop) [DecidablePred gp] (bp : PairHistory β r → Nat)
-    (gq : (Fin r → Fin 128×β) → Prop) [DecidablePred gq]
-    (bq : (Fin r → Fin 128×β) → Nat)
-    (hp : ∀ j, j < 2048 → digit (2^1024) p j ≤
-      (weightedHistogram gp bp (pairCoverage val)).coeff j)
-    (hq : ∀ j, j < 1024 → digit (2^1024) q j ≤
-      (weightedHistogram gq bq (coordinateCoverage val)).coeff j)
-    (j : Nat) : (encodedForestPoly p q).coeff j < 2^4096 := by
-  have h := encodedForest_histogram val r p q gp bp gq bq hp hq
-  refine histogram_lower_coeff_lt _ _ _ _ h alphabetSize (2^4096)
-    (fun h _ => forest_coverage_le val hβ h) ?_ j
-  rw [forest_history_card hβ r]
-  exact forest_mass_small r hr
 
 theorem forest_interval {β : Type} [Fintype β]
     (val : β → Fin 6 → Nat) (r : Nat)
@@ -8902,7 +7034,6 @@ theorem forest_interval {β : Type} [Fintype β]
   simpa only [forestCoverage, Nat.cast_mul, Nat.cast_prod] using hf
 
 #print axioms encodedForest_histogram
-#print axioms encodedForest_coeff_small
 #print axioms forest_interval
 end ClaudeWCT.Numerics.SharedPathForest
 
@@ -8912,7 +7043,7 @@ open scoped BigOperators Polynomial ENNReal
 set_option maxHeartbeats 2000000
 set_option maxRecDepth 100000
 set_option Elab.async false
-attribute [local irreducible] feeRuns feeEntries fees scale maxFee
+attribute [local irreducible] feeRuns feeEntries fees scale
 
 theorem ofReal_sum_nat_bound {α : Type} [Fintype α]
     (f : α → ℝ) (κ : ℝ) (A B : Nat) (hκ : 0 ≤ κ) (hB : 0 < B)
@@ -8926,48 +7057,7 @@ theorem ofReal_sum_nat_bound {α : Type} [Fintype α]
       rw [ENNReal.ofReal_mul (div_nonneg hκ hBR.le), ENNReal.ofReal_div_of_pos hBR,
         ENNReal.ofReal_natCast, ENNReal.ofReal_natCast]
 
-theorem histogram_winsor_pair_ennreal {α : Type} [Fintype α]
-    (good : α → Prop) [DecidablePred good] (bin weight : α → Nat)
-    (P : Nat[X]) (total : Nat) (κ : ℝ) (hκ : 0 ≤ κ)
-    (hP : CoeffLE P (weightedHistogram good bin weight))
-    (htotal : (∑ a, weight a) = total)
-    (hsize : feeRuns.size = 1578)
-    (hchunks : ∀ block : Nat, block < 25 → feeChunk block = true)
-    (hidx : feeEntries.map Prod.fst = List.range 7210)
-    (hinterval : ∀ a, good a →
-      lowerValue (bin a) ≤ κ*(weight a : ℝ) ∧ κ*(weight a : ℝ) ≤ upperValue (bin a)) :
-    (∑ a, ENNReal.ofReal (Real.exp (6*min (κ*(weight a : ℝ)) (6/5))-1)) ≤
-      ENNReal.ofReal κ/(scale : ENNReal)*
-        (((∑ j ∈ range 7210, P.coeff j*(fees[j]?.getD (0,0)).1)+
-          maxFee*(total-∑ j ∈ range 7210, P.coeff j) : Nat) : ENNReal) ∧
-    (∑ a, ENNReal.ofReal (max 0 (κ*(weight a : ℝ)-6/5))) ≤
-      ENNReal.ofReal κ/(scale : ENNReal)*
-        (((∑ j ∈ range 7210, P.coeff j*(fees[j]?.getD (0,0)).2)+
-          scale*(total-∑ j ∈ range 7210, P.coeff j) : Nat) : ENNReal) := by
-  have h := histogram_winsor_pair good bin weight P total κ hκ hP htotal hsize hchunks hidx hinterval
-  constructor
-  · apply ofReal_sum_nat_bound _ κ _ scale hκ scale_pos _ h.1
-    intro a
-    apply sub_nonneg.mpr
-    exact Real.one_le_exp (mul_nonneg (by norm_num)
-      (le_min (mul_nonneg hκ (Nat.cast_nonneg _)) (by norm_num)))
-  · exact ofReal_sum_nat_bound _ κ _ scale hκ scale_pos (fun _ => le_max_left _ _) h.2
 
-theorem capped_payoff_of_coverage_bound (x κ D : ℝ)
-    (hx : 0 ≤ x) (hbound : x ≤ κ*D) :
-    Real.exp (6*min x (6/5))-1 ≤ (maxFee : ℝ)*κ*D/scale ∧
-    max 0 (x-6/5) ≤ κ*D := by
-  have hS : (0 : ℝ) < scale := by exact_mod_cast scale_pos
-  constructor
-  · calc
-      _ ≤ x*((maxFee : ℝ)/scale) := global_fee_sound x hx
-      _ ≤ κ*D*((maxFee : ℝ)/scale) := mul_le_mul_of_nonneg_right hbound
-        (div_nonneg (Nat.cast_nonneg _) hS.le)
-      _ = _ := by ring
-  · exact (max_le hx (by linarith)).trans hbound
-
-#print axioms histogram_winsor_pair_ennreal
-#print axioms capped_payoff_of_coverage_bound
 end ClaudeWCT.Numerics.SharedFees
 
 namespace ClaudeWCT.Numerics.SharedPathForest
@@ -9035,18 +7125,6 @@ theorem actual_histogram {β : Type} [Fintype β]
     (fun j _ => coordinate_first_histogram val hβ 128 (by simp) ⟨r,by omega⟩
       (hp 128 (by simp) r le_rfl) j)
 
-theorem actual_coeff_small {β : Type} [Fintype β]
-    (val : β → Fin 6 → Nat) (hβ : Fintype.card β=563)
-    (r : Nat) (hr : r≤20)
-    (hp : ∀ K, K∈[64,128] → ∀ u, u≤r → ∀ j, (coordinatePoly K u).coeff j ≤
-      (univ.filter fun E : Fin u → Fin K×β => coordinateCoverage val E=j).card) (j : Nat) :
-    (actualPoly r).coeff j<2^4096 := by
-  classical
-  exact encodedForest_coeff_small val hβ r _ _ hr (pairGood val) (pairBin val)
-    (coordinateGood val) (coordinateBin val)
-    (pairFirst_histogram val hβ r hr (hp 64 (by simp))).2
-    (fun j _ => coordinate_first_histogram val hβ 128 (by simp) ⟨r,by omega⟩
-      (hp 128 (by simp) r le_rfl) j) j
 
 theorem actual_interval {β : Type} [Fintype β] (val : β → Fin 6 → Nat)
     {r : Nat} (hr : 0<r) (h : ForestHistory β r) (hg : actualGood val h) :
@@ -9056,136 +7134,9 @@ theorem actual_interval {β : Type} [Fintype β] (val : β → Fin 6 → Nat)
 
 #print axioms actual_encoding
 #print axioms actual_histogram
-#print axioms actual_coeff_small
 #print axioms actual_interval
 end ClaudeWCT.Numerics.SharedPathForest
 
-
-namespace ClaudeWCT.Numerics.SharedFees
-open Finset Polynomial ClaudeWCT.Numerics.N600 ClaudeWCT.Numerics.SharedCoverage
-open ClaudeWCT.Numerics.SharedMoments
-open scoped BigOperators Polynomial ENNReal
-set_option maxHeartbeats 2000000
-set_option maxRecDepth 100000
-set_option Elab.async false
-attribute [local irreducible] fees scale maxFee
-
-theorem rowDots_polynomial (r : Nat) (hr : r ≤ 20) (P : Nat[X])
-    (henc : SharedPathPacked.forest r = P.eval (2^4096))
-    (hc : ∀ j, P.coeff j < 2^4096) :
-    rowDots r =
-      ((∑ j ∈ range 7210, P.coeff j*(fees[j]?.getD (0,0)).1)+
-        maxFee*(forestMoment r-∑ j ∈ range 7210, P.coeff j),
-       (∑ j ∈ range 7210, P.coeff j*(fees[j]?.getD (0,0)).2)+
-        scale*(forestMoment r-∑ j ∈ range 7210, P.coeff j)) := by
-  rw [rowDots, if_pos hr, henc, paidTree_polynomial_range 10 fees.toList P hc]
-  simp only [Array.length_toList, fee_count, Array.getElem?_toList]
-
-theorem rowDots_winsor_pair_ennreal {α : Type} [Fintype α]
-    (good : α → Prop) [DecidablePred good] (bin weight : α → Nat)
-    (r : Nat) (hr : r ≤ 20) (P : Nat[X]) (κ : ℝ) (hκ : 0 ≤ κ)
-    (henc : SharedPathPacked.forest r = P.eval (2^4096))
-    (hc : ∀ j, P.coeff j < 2^4096)
-    (hP : CoeffLE P (weightedHistogram good bin weight))
-    (htotal : (∑ a, weight a) = forestMoment r)
-    (hsize : feeRuns.size = 1578)
-    (hchunks : ∀ block : Nat, block < 25 → feeChunk block = true)
-    (hinterval : ∀ a, good a →
-      lowerValue (bin a) ≤ κ*(weight a : ℝ) ∧ κ*(weight a : ℝ) ≤ upperValue (bin a)) :
-    (∑ a, ENNReal.ofReal (Real.exp (6*min (κ*(weight a : ℝ)) (6/5))-1)) ≤
-      ENNReal.ofReal κ/(scale : ENNReal)*((rowDots r).1 : ENNReal) ∧
-    (∑ a, ENNReal.ofReal (max 0 (κ*(weight a : ℝ)-6/5))) ≤
-      ENNReal.ofReal κ/(scale : ENNReal)*((rowDots r).2 : ENNReal) := by
-  rw [rowDots_polynomial r hr P henc hc]
-  exact histogram_winsor_pair_ennreal good bin weight P (forestMoment r) κ hκ
-    hP htotal hsize hchunks fee_indices hinterval
-
-#print axioms rowDots_polynomial
-#print axioms rowDots_winsor_pair_ennreal
-end ClaudeWCT.Numerics.SharedFees
-
-namespace ClaudeWCT.Numerics.SharedFees
-open Finset
-open scoped BigOperators ENNReal
-set_option maxHeartbeats 2000000
-set_option maxRecDepth 100000
-set_option Elab.async false
-attribute [local irreducible] scale maxFee
-
-theorem finite_payoff_global {α : Type} [Fintype α]
-    (weight : α → Nat) (total : Nat) (κ : ℝ) (hκ : 0 ≤ κ)
-    (htotal : (∑ a, weight a) = total) :
-    (∑ a, ENNReal.ofReal (Real.exp (6*min (κ*(weight a : ℝ)) (6/5))-1)) ≤
-      ENNReal.ofReal κ/(scale : ENNReal)*((maxFee*total : Nat) : ENNReal) ∧
-    (∑ a, ENNReal.ofReal (max 0 (κ*(weight a : ℝ)-6/5))) ≤
-      ENNReal.ofReal κ/(scale : ENNReal)*((scale*total : Nat) : ENNReal) := by
-  have hS : (0 : ℝ) < scale := by exact_mod_cast scale_pos
-  have htotalR : (∑ a, (weight a : ℝ)) = (total : ℝ) := by exact_mod_cast htotal
-  have hx (a : α) : 0 ≤ κ*(weight a : ℝ) := mul_nonneg hκ (Nat.cast_nonneg _)
-  constructor
-  · apply ofReal_sum_nat_bound _ κ _ scale hκ scale_pos
-      (fun a => sub_nonneg.mpr (Real.one_le_exp
-        (mul_nonneg (by norm_num) (le_min (hx a) (by norm_num)))))
-    calc
-      _ ≤ ∑ a, κ*(weight a : ℝ)*((maxFee : ℝ)/scale) :=
-        Finset.sum_le_sum (fun a _ => global_fee_sound _ (hx a))
-      _ = κ/(scale : ℝ)*((maxFee*total : Nat) : ℝ) := by
-        rw [← Finset.sum_mul, ← Finset.mul_sum, htotalR, Nat.cast_mul]
-        ring
-  · apply ofReal_sum_nat_bound _ κ _ scale hκ scale_pos (fun _ => le_max_left _ _)
-    calc
-      _ ≤ ∑ a, κ*(weight a : ℝ) := Finset.sum_le_sum
-        (fun a _ => max_le (hx a) (by linarith))
-      _ = κ/(scale : ℝ)*((scale*total : Nat) : ℝ) := by
-        rw [← Finset.mul_sum, htotalR, Nat.cast_mul]
-        field_simp
-
-#print axioms finite_payoff_global
-end ClaudeWCT.Numerics.SharedFees
-
-
-namespace ClaudeWCT.Numerics.SharedFees
-open ClaudeWCT.Numerics.N600
-open Finset Polynomial ClaudeWCT.Numerics.SharedCoverage ClaudeWCT.Numerics.SharedMoments
-open ClaudeWCT.Numerics.SharedPathForest ClaudeWCT.Numerics.SharedPathList
-open scoped BigOperators Polynomial ENNReal
-set_option maxHeartbeats 1000000
-set_option maxRecDepth 100000
-set_option Elab.async false
-
-theorem actual_forest_fee_row {β : Type} [Fintype β]
-    (val : β → Fin 6 → Nat) (hβ : Fintype.card β=563)
-    (r : Nat) (hr0 : 0<r) (hr : r≤20)
-    (hp : ∀ K, K∈[64,128] → ∀ u, u≤r → ∀ j, (coordinatePoly K u).coeff j ≤
-      (univ.filter fun E : Fin u → Fin K×β => coordinateCoverage val E=j).card)
-    (htotal : (∑ h : ForestHistory β r, forestCoverage val h) = forestMoment r) :
-    (∑ h : ForestHistory β r, ENNReal.ofReal
-      (Real.exp (6*min ((734:ℝ)/2^66*(forestCoverage val h : ℝ)) (6/5))-1)) ≤
-      ENNReal.ofReal ((734:ℝ)/2^66)/(scale:ENNReal)*((rowDots r).1:ENNReal) ∧
-    (∑ h : ForestHistory β r, ENNReal.ofReal
-      (max 0 ((734:ℝ)/2^66*(forestCoverage val h : ℝ)-6/5))) ≤
-      ENNReal.ofReal ((734:ℝ)/2^66)/(scale:ENNReal)*((rowDots r).2:ENNReal) := by
-  classical
-  exact rowDots_winsor_pair_ennreal (actualGood val) (actualBin val) (forestCoverage val)
-    r hr (actualPoly r) ((734:ℝ)/2^66) (by positivity)
-    (actual_encoding val hβ r hr hp) (actual_coeff_small val hβ r hr hp)
-    (actual_histogram val hβ r hr hp) htotal fee_runs_count all_chunks
-    (fun h hh => SharedPathList.RoundedInterval.fee_bounds (actual_interval val hr0 h hh))
-
-theorem actual_forest_fee_global {β : Type} [Fintype β]
-    (val : β → Fin 6 → Nat) (r : Nat)
-    (htotal : (∑ h : ForestHistory β r, forestCoverage val h) = forestMoment r) :
-    (∑ h : ForestHistory β r, ENNReal.ofReal
-      (Real.exp (6*min ((734:ℝ)/2^66*(forestCoverage val h : ℝ)) (6/5))-1)) ≤
-      ENNReal.ofReal ((734:ℝ)/2^66)/(scale:ENNReal)*((maxFee*forestMoment r:Nat):ENNReal) ∧
-    (∑ h : ForestHistory β r, ENNReal.ofReal
-      (max 0 ((734:ℝ)/2^66*(forestCoverage val h : ℝ)-6/5))) ≤
-      ENNReal.ofReal ((734:ℝ)/2^66)/(scale:ENNReal)*((scale*forestMoment r:Nat):ENNReal) := by
-  exact finite_payoff_global (forestCoverage val) (forestMoment r) ((734:ℝ)/2^66) (by positivity) htotal
-
-#print axioms actual_forest_fee_row
-#print axioms actual_forest_fee_global
-end ClaudeWCT.Numerics.SharedFees
 
 namespace ClaudeWCT.Numerics.SharedPathPacked
 open ClaudeWCT.Numerics.SharedPathList (Cell coordinate)
@@ -9217,23 +7168,12 @@ theorem pairChunkWith_eq_fast : pairChunkWith = pairChunkWithFast := by
   unfold pairChunkWith pairChunkWithFast
   rw [addFirst_eq_fast]
 
-theorem pairChunkWith_append (coord : Nat → Nat → Cell) (r start a b : Nat) :
-    pairChunkWith coord r start (a+b) =
-      pairChunkWith coord r start a + pairChunkWith coord r (start+a) b := by
-  unfold pairChunkWith
-  rw [← List.range'_append_1]
-  simp only [foldl_weighted_sum, List.map_append, List.sum_append, Nat.zero_add]
 
 theorem pairFirst_eq_chunk (r : Nat) :
     pairFirst r = pairChunkWith coordinate r 0 (r+1) := by
   unfold pairFirst pairChunkWith
   rw [List.range_eq_range']
 
-theorem pairFirst_eq_two_chunks (r m : Nat) (hm : m ≤ r+1) :
-    pairFirst r = pairChunkWith coordinate r 0 m +
-      pairChunkWith coordinate r m (r+1-m) := by
-  rw [pairFirst_eq_chunk, ← Nat.add_sub_of_le hm, pairChunkWith_append]
-  simp only [Nat.zero_add, Nat.add_sub_cancel_left]
 
 theorem pairChunkWith_congr (coord other : Nat → Nat → Cell) (r start size : Nat)
     (h : ∀ t, t ≤ r → coord 64 t = other 64 t) :
@@ -9246,7 +7186,6 @@ theorem pairChunkWith_congr (coord other : Nat → Nat → Cell) (r start size :
   unfold pairChunkWith
   rw [he]
 
-#print axioms pairFirst_eq_two_chunks
 #print axioms pairChunkWith_congr
 end ClaudeWCT.Numerics.SharedPathPacked
 
@@ -9359,7 +7298,7 @@ open scoped BigOperators Polynomial
 set_option maxHeartbeats 1000000
 set_option maxRecDepth 100000
 set_option Elab.async false
-attribute [local irreducible] fees maxFee scale
+attribute [local irreducible] fees scale
 
 def feeValue (which i : Nat) : Nat :=
   if which=0 then 1 else if which=1 then (fees[i]?.getD (0,0)).1 else (fees[i]?.getD (0,0)).2
@@ -9369,10 +7308,6 @@ def packedFee (which : Nat) : Nat :=
 
 def packedDot (p q : Nat) : Nat := ((p*q) >>> (4096*7209)) % 2^4096
 
-def convolutionDots (r p : Nat) : Nat × Nat :=
-  let mass := packedDot p (packedFee 0)
-  let lost := forestMoment r-mass
-  (packedDot p (packedFee 1)+maxFee*lost, packedDot p (packedFee 2)+scale*lost)
 
 theorem packedFee_model (which : Nat) :
     packedFee which = (reverseFeePoly 7210 (feeValue which)).eval (2^4096) := by
@@ -9393,45 +7328,7 @@ theorem packedDot_fee (P : Nat[X]) (p which : Nat)
   rw [packedFee_model, hp]
   exact convolution_shift P 4096 7210 (feeValue which) hmass
 
-theorem convolutionDots_model (P : Nat[X]) (r p : Nat)
-    (hp : p=P.eval (2^4096))
-    (hmass : ∀ which, which ≤ 2 → P.eval 1*(∑ i ∈ range 7210, feeValue which i) < 2^4096) :
-    convolutionDots r p =
-      ((∑ i ∈ range 7210, P.coeff i*(fees[i]?.getD (0,0)).1)+
-        maxFee*(forestMoment r-∑ i ∈ range 7210, P.coeff i),
-       (∑ i ∈ range 7210, P.coeff i*(fees[i]?.getD (0,0)).2)+
-        scale*(forestMoment r-∑ i ∈ range 7210, P.coeff i)) := by
-  rw [convolutionDots, packedDot_fee P p 0 hp (hmass 0 (by decide)),
-    packedDot_fee P p 1 hp (hmass 1 (by decide)),
-    packedDot_fee P p 2 hp (hmass 2 (by decide))]
-  simp only [feeValue, show ¬(1:Nat)=0 by decide, show ¬(2:Nat)=0 by decide,
-    show ¬(2:Nat)=1 by decide, if_true, if_false, mul_one]
 
-theorem feeValue_sum_small
-    (hfee : ∀ i, i < 7210 → (fees[i]?.getD (0,0)).1 ≤ maxFee ∧ (fees[i]?.getD (0,0)).2 ≤ scale)
-    (hmax : maxFee ≤ 2^140) (hscale : scale ≤ 2^140) (which : Nat) :
-    (∑ i ∈ range 7210, feeValue which i) < 2^160 := by
-  have hb (i : Nat) (hi : i∈range 7210) : feeValue which i ≤ 2^140 := by
-    unfold feeValue
-    split_ifs
-    · exact Nat.one_le_pow _ _ (by decide)
-    · exact (hfee i (Finset.mem_range.mp hi)).1.trans hmax
-    · exact (hfee i (Finset.mem_range.mp hi)).2.trans hscale
-  calc
-    _  ≤  ∑ _i ∈ range 7210, (2:Nat)^140 := Finset.sum_le_sum hb
-    _ = 7210*2^140 := by simp
-    _  <  2^160 := by decide +kernel
-
-theorem convolution_mass_small (P : Nat[X])
-    (hmass : P.eval 1 ≤ 2^3072)
-    (hfee : ∀ i, i < 7210 → (fees[i]?.getD (0,0)).1 ≤ maxFee ∧ (fees[i]?.getD (0,0)).2 ≤ scale)
-    (hmax : maxFee ≤ 2^140) (hscale : scale ≤ 2^140) (which : Nat) :
-    P.eval 1*(∑ i ∈ range 7210, feeValue which i) < 2^4096 := by
-  have hf := feeValue_sum_small hfee hmax hscale which
-  exact (Nat.mul_le_mul hmass hf.le).trans_lt (by decide +kernel)
-
-#print axioms convolutionDots_model
-#print axioms convolution_mass_small
 end ClaudeWCT.Numerics.SharedFees
 
 namespace ClaudeWCT.Numerics.SharedFees
@@ -9442,25 +7339,13 @@ set_option maxHeartbeats 1000000
 set_option maxRecDepth 100000
 set_option Elab.async false
 
-theorem maxFee_small : maxFee ≤ 2^140 := by decide +kernel
-theorem scale_small : scale ≤ 2^140 := by decide +kernel
 
 theorem forest_mass_3072 (r : Nat) (hr : r ≤ 20) :
     alphabetSize^r*alphabetSize ≤ 2^3072 := by
   have hp := Nat.pow_le_pow_right (n:=alphabetSize) (by decide : 0 < alphabetSize) hr
   exact (Nat.mul_le_mul_right _ hp).trans (by decide +kernel)
 
-theorem rowDots_convolution (r : Nat) (hr : r ≤ 20) (P : Nat[X])
-    (henc : SharedPathPacked.forest r = P.eval (2^4096))
-    (hc : ∀ j, P.coeff j < 2^4096)
-    (hmass : P.eval 1 ≤ 2^3072) :
-    rowDots r = convolutionDots r (SharedPathPacked.forest r) := by
-  have hfee := fees_bound_of_chunks fee_runs_count all_chunks fee_indices
-  exact (rowDots_polynomial r hr P henc hc).trans
-    (convolutionDots_model P r _ henc (fun w _ =>
-      convolution_mass_small P hmass hfee maxFee_small scale_small w)).symm
 
-#print axioms rowDots_convolution
 end ClaudeWCT.Numerics.SharedFees
 
 namespace ClaudeWCT.Numerics.SharedFees
@@ -9566,10 +7451,6 @@ elab "certify_fee_vector " which:num cached:ident proof:ident : command => do
 
 certify_fee_vector 0 MassFee mass_fee_checked
 #print axioms mass_fee_checked
-certify_fee_vector 1 MgfFee mgf_fee_checked
-#print axioms mgf_fee_checked
-certify_fee_vector 2 ResFee res_fee_checked
-#print axioms res_fee_checked
 end ClaudeWCT.Numerics.SharedGeneratedFeeVector
 
 namespace ClaudeWCT.Numerics.SharedGeneratedFeeVector
@@ -9584,14 +7465,8 @@ theorem feeEntries_length : feeEntries.length=7210 := by
 
 theorem packedFee_0_checked : packedFee 0=MassFee :=
   (packedFeeVector_eq 0 feeEntries_length).symm.trans mass_fee_checked
-theorem packedFee_1_checked : packedFee 1=MgfFee :=
-  (packedFeeVector_eq 1 feeEntries_length).symm.trans mgf_fee_checked
-theorem packedFee_2_checked : packedFee 2=ResFee :=
-  (packedFeeVector_eq 2 feeEntries_length).symm.trans res_fee_checked
 
 #print axioms packedFee_0_checked
-#print axioms packedFee_1_checked
-#print axioms packedFee_2_checked
 end ClaudeWCT.Numerics.SharedGeneratedFeeVector
 
 namespace ClaudeWCT.Numerics.SharedPathPacked
@@ -10165,24 +8040,6 @@ theorem forest_eq_of_inputs (r p : Nat) (q : Cell)
 #print axioms forest_eq_of_inputs
 end ClaudeWCT.Numerics.SharedPathPacked
 
-namespace ClaudeWCT.Numerics.SharedFees
-open ClaudeWCT.Numerics.SharedMoments
-set_option maxHeartbeats 1000000
-set_option maxRecDepth 100000
-set_option Elab.async false
-
-theorem convolutionDots_eq_of_fees (r p mass mgf res : Nat)
-    (h0 : packedFee 0=mass) (h1 : packedFee 1=mgf) (h2 : packedFee 2=res) :
-    convolutionDots r p =
-      (packedDot p mgf + maxFee*(forestMoment r-packedDot p mass),
-       packedDot p res + scale*(forestMoment r-packedDot p mass)) := by
-  subst mass
-  subst mgf
-  subst res
-  rfl
-
-#print axioms convolutionDots_eq_of_fees
-end ClaudeWCT.Numerics.SharedFees
 
 namespace ClaudeWCT.Numerics.SharedGeneratedForest
 open Lean Elab Command
@@ -10209,12 +8066,6 @@ theorem forest_5_checked : forest 5=Forest_5 := by
     pair_5_checked coordinate_128_5_checked).trans (by rw [spread_eq_fast]; decide +kernel)
 #print axioms forest_5_checked
 
-theorem convolution_5_checked : convolutionDots 5 (forest 5)=certifiedPayoff 5 := by
-  have hf := congrArg (convolutionDots 5) forest_5_checked
-  exact hf.trans ((convolutionDots_eq_of_fees 5 Forest_5 MassFee MgfFee ResFee
-    packedFee_0_checked packedFee_1_checked packedFee_2_checked).trans (by decide +kernel))
-#print axioms convolution_5_checked
-
 
 end ClaudeWCT.Numerics.SharedGeneratedForest
 
@@ -10236,11 +8087,6 @@ theorem forest_6_checked : forest 6=Forest_6 := by
     pair_6_checked coordinate_128_6_checked).trans (by rw [spread_eq_fast]; decide +kernel)
 #print axioms forest_6_checked
 
-theorem convolution_6_checked : convolutionDots 6 (forest 6)=certifiedPayoff 6 := by
-  have hf := congrArg (convolutionDots 6) forest_6_checked
-  exact hf.trans ((convolutionDots_eq_of_fees 6 Forest_6 MassFee MgfFee ResFee
-    packedFee_0_checked packedFee_1_checked packedFee_2_checked).trans (by decide +kernel))
-#print axioms convolution_6_checked
 
 noncomputable def Forest_7 : Nat := forest_numeral% 7
 
@@ -10249,11 +8095,6 @@ theorem forest_7_checked : forest 7=Forest_7 := by
     pair_7_checked coordinate_128_7_checked).trans (by rw [spread_eq_fast]; decide +kernel)
 #print axioms forest_7_checked
 
-theorem convolution_7_checked : convolutionDots 7 (forest 7)=certifiedPayoff 7 := by
-  have hf := congrArg (convolutionDots 7) forest_7_checked
-  exact hf.trans ((convolutionDots_eq_of_fees 7 Forest_7 MassFee MgfFee ResFee
-    packedFee_0_checked packedFee_1_checked packedFee_2_checked).trans (by decide +kernel))
-#print axioms convolution_7_checked
 
 noncomputable def Forest_8 : Nat := forest_numeral% 8
 
@@ -10262,11 +8103,6 @@ theorem forest_8_checked : forest 8=Forest_8 := by
     pair_8_checked coordinate_128_8_checked).trans (by rw [spread_eq_fast]; decide +kernel)
 #print axioms forest_8_checked
 
-theorem convolution_8_checked : convolutionDots 8 (forest 8)=certifiedPayoff 8 := by
-  have hf := congrArg (convolutionDots 8) forest_8_checked
-  exact hf.trans ((convolutionDots_eq_of_fees 8 Forest_8 MassFee MgfFee ResFee
-    packedFee_0_checked packedFee_1_checked packedFee_2_checked).trans (by decide +kernel))
-#print axioms convolution_8_checked
 
 noncomputable def Forest_9 : Nat := forest_numeral% 9
 
@@ -10274,12 +8110,6 @@ theorem forest_9_checked : forest 9=Forest_9 := by
   exact (forest_eq_of_inputs 9 Pair_9 Coordinate_128_9
     pair_9_checked coordinate_128_9_checked).trans (by rw [spread_eq_fast]; decide +kernel)
 #print axioms forest_9_checked
-
-theorem convolution_9_checked : convolutionDots 9 (forest 9)=certifiedPayoff 9 := by
-  have hf := congrArg (convolutionDots 9) forest_9_checked
-  exact hf.trans ((convolutionDots_eq_of_fees 9 Forest_9 MassFee MgfFee ResFee
-    packedFee_0_checked packedFee_1_checked packedFee_2_checked).trans (by decide +kernel))
-#print axioms convolution_9_checked
 
 
 end ClaudeWCT.Numerics.SharedGeneratedForest
@@ -10380,12 +8210,6 @@ theorem forest_10_checked : forest 10=Forest_10 := by
     pair_10_checked coordinate_128_10_checked).trans (by rw [spread_eq_fast]; decide +kernel)
 #print axioms forest_10_checked
 
-theorem convolution_10_checked : convolutionDots 10 (forest 10)=certifiedPayoff 10 := by
-  have hf := congrArg (convolutionDots 10) forest_10_checked
-  exact hf.trans ((convolutionDots_eq_of_fees 10 Forest_10 MassFee MgfFee ResFee
-    packedFee_0_checked packedFee_1_checked packedFee_2_checked).trans (by decide +kernel))
-#print axioms convolution_10_checked
-
 
 end ClaudeWCT.Numerics.SharedGeneratedForest
 
@@ -10406,12 +8230,6 @@ theorem forest_11_checked : forest 11=Forest_11 := by
   exact (forest_eq_of_inputs 11 Pair_11 Coordinate_128_11
     pair_11_checked coordinate_128_11_checked).trans (by rw [spread_eq_fast]; decide +kernel)
 #print axioms forest_11_checked
-
-theorem convolution_11_checked : convolutionDots 11 (forest 11)=certifiedPayoff 11 := by
-  have hf := congrArg (convolutionDots 11) forest_11_checked
-  exact hf.trans ((convolutionDots_eq_of_fees 11 Forest_11 MassFee MgfFee ResFee
-    packedFee_0_checked packedFee_1_checked packedFee_2_checked).trans (by decide +kernel))
-#print axioms convolution_11_checked
 
 
 end ClaudeWCT.Numerics.SharedGeneratedForest
@@ -10434,12 +8252,6 @@ theorem forest_12_checked : forest 12=Forest_12 := by
     pair_12_checked coordinate_128_12_checked).trans (by rw [spread_eq_fast]; decide +kernel)
 #print axioms forest_12_checked
 
-theorem convolution_12_checked : convolutionDots 12 (forest 12)=certifiedPayoff 12 := by
-  have hf := congrArg (convolutionDots 12) forest_12_checked
-  exact hf.trans ((convolutionDots_eq_of_fees 12 Forest_12 MassFee MgfFee ResFee
-    packedFee_0_checked packedFee_1_checked packedFee_2_checked).trans (by decide +kernel))
-#print axioms convolution_12_checked
-
 
 end ClaudeWCT.Numerics.SharedGeneratedForest
 
@@ -10460,12 +8272,6 @@ theorem forest_13_checked : forest 13=Forest_13 := by
   exact (forest_eq_of_inputs 13 Pair_13 Coordinate_128_13
     pair_13_checked coordinate_128_13_checked).trans (by rw [spread_eq_fast]; decide +kernel)
 #print axioms forest_13_checked
-
-theorem convolution_13_checked : convolutionDots 13 (forest 13)=certifiedPayoff 13 := by
-  have hf := congrArg (convolutionDots 13) forest_13_checked
-  exact hf.trans ((convolutionDots_eq_of_fees 13 Forest_13 MassFee MgfFee ResFee
-    packedFee_0_checked packedFee_1_checked packedFee_2_checked).trans (by decide +kernel))
-#print axioms convolution_13_checked
 
 
 end ClaudeWCT.Numerics.SharedGeneratedForest
@@ -10569,12 +8375,6 @@ theorem forest_14_checked : forest 14=Forest_14 := by
   exact (forest_eq_of_inputs 14 Pair_14 Coordinate_128_14
     pair_14_checked coordinate_128_14_checked).trans (by rw [spread_eq_fast]; decide +kernel)
 #print axioms forest_14_checked
-
-theorem convolution_14_checked : convolutionDots 14 (forest 14)=certifiedPayoff 14 := by
-  have hf := congrArg (convolutionDots 14) forest_14_checked
-  exact hf.trans ((convolutionDots_eq_of_fees 14 Forest_14 MassFee MgfFee ResFee
-    packedFee_0_checked packedFee_1_checked packedFee_2_checked).trans (by decide +kernel))
-#print axioms convolution_14_checked
 
 
 end ClaudeWCT.Numerics.SharedGeneratedForest
@@ -10682,12 +8482,6 @@ theorem forest_15_checked : forest 15=Forest_15 := by
   exact (forest_eq_of_inputs 15 Pair_15 Coordinate_128_15
     pair_15_checked coordinate_128_15_checked).trans (by rw [spread_eq_fast]; decide +kernel)
 #print axioms forest_15_checked
-
-theorem convolution_15_checked : convolutionDots 15 (forest 15)=certifiedPayoff 15 := by
-  have hf := congrArg (convolutionDots 15) forest_15_checked
-  exact hf.trans ((convolutionDots_eq_of_fees 15 Forest_15 MassFee MgfFee ResFee
-    packedFee_0_checked packedFee_1_checked packedFee_2_checked).trans (by decide +kernel))
-#print axioms convolution_15_checked
 
 
 end ClaudeWCT.Numerics.SharedGeneratedForest
@@ -10799,12 +8593,6 @@ theorem forest_16_checked : forest 16=Forest_16 := by
   exact (forest_eq_of_inputs 16 Pair_16 Coordinate_128_16
     pair_16_checked coordinate_128_16_checked).trans (by rw [spread_eq_fast]; decide +kernel)
 #print axioms forest_16_checked
-
-theorem convolution_16_checked : convolutionDots 16 (forest 16)=certifiedPayoff 16 := by
-  have hf := congrArg (convolutionDots 16) forest_16_checked
-  exact hf.trans ((convolutionDots_eq_of_fees 16 Forest_16 MassFee MgfFee ResFee
-    packedFee_0_checked packedFee_1_checked packedFee_2_checked).trans (by decide +kernel))
-#print axioms convolution_16_checked
 
 
 end ClaudeWCT.Numerics.SharedGeneratedForest
@@ -10920,12 +8708,6 @@ theorem forest_17_checked : forest 17=Forest_17 := by
   exact (forest_eq_of_inputs 17 Pair_17 Coordinate_128_17
     pair_17_checked coordinate_128_17_checked).trans (by rw [spread_eq_fast]; decide +kernel)
 #print axioms forest_17_checked
-
-theorem convolution_17_checked : convolutionDots 17 (forest 17)=certifiedPayoff 17 := by
-  have hf := congrArg (convolutionDots 17) forest_17_checked
-  exact hf.trans ((convolutionDots_eq_of_fees 17 Forest_17 MassFee MgfFee ResFee
-    packedFee_0_checked packedFee_1_checked packedFee_2_checked).trans (by decide +kernel))
-#print axioms convolution_17_checked
 
 
 end ClaudeWCT.Numerics.SharedGeneratedForest
@@ -11051,29 +8833,5 @@ theorem forest_18_checked : forest 18=Forest_18 := by
     pair_18_checked coordinate_128_18_checked).trans (by rw [spread_eq_fast]; decide +kernel)
 #print axioms forest_18_checked
 
-theorem convolution_18_checked : convolutionDots 18 (forest 18)=certifiedPayoff 18 := by
-  have hf := congrArg (convolutionDots 18) forest_18_checked
-  exact hf.trans ((convolutionDots_eq_of_fees 18 Forest_18 MassFee MgfFee ResFee
-    packedFee_0_checked packedFee_1_checked packedFee_2_checked).trans (by decide +kernel))
-#print axioms convolution_18_checked
 
-theorem convolution_rows_checked (r : Nat) (hlo : 5 ≤ r) (hhi : r ≤ 18) :
-    convolutionDots r (forest r)=certifiedPayoff r := by
-  interval_cases r
-  · exact convolution_5_checked
-  · exact convolution_6_checked
-  · exact convolution_7_checked
-  · exact convolution_8_checked
-  · exact convolution_9_checked
-  · exact convolution_10_checked
-  · exact convolution_11_checked
-  · exact convolution_12_checked
-  · exact convolution_13_checked
-  · exact convolution_14_checked
-  · exact convolution_15_checked
-  · exact convolution_16_checked
-  · exact convolution_17_checked
-  · exact convolution_18_checked
-
-#print axioms convolution_rows_checked
 end ClaudeWCT.Numerics.SharedGeneratedForest

@@ -50,14 +50,15 @@ variable {sk : BitVec 256}
 def oneRegs : List Reg := [.x6, .x7, .x10, .x11, .x12, .x19, .x20, .x21, .x23, .x28, .x29, .x30]
 def OneW (lay : T3.Layer) (i W : Nat) (A : Nat) : Prop :=
   StepW A ∨ A = LEAFPK + slotOff lay i ∨ A = LEAFPK + slotOff lay i + 8 ∨ A = W + 48 ∨ A = W + 56
+/-- Chain caps: R6 top (KMAX) 5 / 4 / 7 (checksum chain `i >= n4 = 51`), lower layers 7. -/
 def endpoint (lay : Layer) (i n4 : Nat) : Nat :=
-  if lay = 0 then (if i < n4 then 4 else 7) else 7
+  if lay = 0 then SharedRecover.kmaxCap i n4 else 7
 def endpointExtra (lay : Layer) (i n4 : Nat) : Nat :=
-  if lay = 0 then (if i < n4 then 5 else 3) else 0
+  if lay = 0 then 1 + SharedRecover.kmaxSteps i n4 else 0
 def ChW (lay : T3.Layer) (WC k : Nat) (A : Nat) : Prop :=
   StepW A ∨ (∃ c < k, A = LEAFPK + slotOff lay c ∨ A = LEAFPK + slotOff lay c + 8) ∨
     (∃ c < k, A = WC - 64 * c + 48 ∨ A = WC - 64 * c + 56)
-theorem not_ChW_of {lay : T3.Layer} {WC k A : Nat} (hk : k ≤ 58) (h1 : WC + 64 ≤ A) (h2 : A < CHAIN + 16 ∨ CHAIN + 112 ≤ A)
+theorem not_ChW_of {lay : T3.Layer} {WC k A : Nat} (hk : k ≤ 56) (h1 : WC + 64 ≤ A) (h2 : A < CHAIN + 16 ∨ CHAIN + 112 ≤ A)
     (h3 : A < LEAFPK ∨ LEAFPK + 16 * 60 ≤ A) : ¬ ChW lay WC k A := by
   unfold ChW StepW
   rintro (h | ⟨c, hc, h | h⟩ | ⟨c, _, h | h⟩) <;> simp only [CHAIN, LEAFPK] at h h2 h3 <;>
@@ -345,13 +346,13 @@ theorem rl_one (lay : Layer) (tree leaf i d P W n n4 : Nat)
     (h27 : t.getReg .x27 = BitVec.ofNat 64 n4) (h16 : t.getReg .x16 = BitVec.ofNat 64 P)
     (h23 : t.getReg .x23 = BitVec.ofNat 64 W) (hv : DigAt t (P + 16 * i) v)
     (hdig : t.getByte (BitVec.ofNat 64 (DIGITS + i)) = BitVec.ofNat 8 d) :
-    TBSim im sk t 454 (ClaudeWCT.WCT9.chainW lay tree leaf i d ((endpoint lay i n4) - d) v)
+    TBSim im sk t 456 (ClaudeWCT.WCT9.chainW lay tree leaf i d ((endpoint lay i n4) - d) v)
       (fun v' u => u.pc = pcOf 1010 ∧ u.getReg .x19 = BitVec.ofNat 64 (i + 1) ∧
         u.getReg .x23 = BitVec.ofNat 64 (W - 64) ∧ ChainCtx lay.val tree leaf (i + 1) u ∧
         DigAt u (LEAFPK + slotOff lay i) v' ∧ DigAt u (W + 48) v ∧ RegsExcept t u oneRegs ∧ Frame t u (OneW lay i W)) := by
   have hlay := lay.isLt
   set e := (endpoint lay i n4) with he
-  have he7 : e ≤ 7 := by rw [he]; unfold endpoint; split_ifs <;> omega
+  have he7 : e ≤ 7 := by rw [he]; unfold endpoint SharedRecover.kmaxCap; split_ifs <;> omega
   obtain ⟨t1, s1, p1, r1, f1⟩ := rl1010_spec (im := im) t hpc i n (by omega) (by omega) hc.x19 h26
   rw [if_neg (by omega)] at p1
   obtain ⟨t2, s2, p2, c48, c56, w48, w56, x23, x28, r2, f2⟩ := rl1011_spec (im := im) t1 p1 i P W hP hPi hP8 hW8 hW hW'
@@ -365,7 +366,7 @@ theorem rl_one (lay : Layer) (tree leaf i d P W n n4 : Nat)
   obtain ⟨t4, s4, p4, x21, r4, f4⟩ := rl1028_spec (im := im) t3 p3 lay.val (by omega)
     (by rw [r3.get (by simp), r2.get (by simp), r1.get (by simp)]; exact hc.x8)
   obtain ⟨t5, s5, p5, x21', r5, f5⟩ : ∃ t5, Steps im t4 (endpointExtra lay i n4) (endpointExtra lay i n4) t5 ∧
-      t5.pc = pcOf 1031 ∧ t5.getReg .x21 = BitVec.ofNat 64 e ∧ RegsExcept t4 t5 [.x21] ∧
+      t5.pc = pcOf 1031 ∧ t5.getReg .x21 = BitVec.ofNat 64 e ∧ RegsExcept t4 t5 [.x21, .x28] ∧
       Frame t4 t5 (fun _ => False) := by
     have hl0 : lay.val = 0 ↔ lay = 0 := by simp
     by_cases hl : lay = 0
@@ -374,20 +375,11 @@ theorem rl_one (lay : Layer) (tree leaf i d P W n n4 : Nat)
       have rr := (((r1.trans r2).trans r3).trans r4).trans ra
       obtain ⟨tb, qb, pb, xb, rb, fb⟩ := rl1158_spec (im := im) ta pa i n4 (by omega) (by omega)
         (by rw [rr.get (by simp)]; exact hc.x19) (by rw [rr.get (by simp)]; exact h27)
-      by_cases hi' : i < n4
-      · rw [if_pos hi'] at pb
-        obtain ⟨tc, qc, pc, xc, rc, fc⟩ := rl1160_spec (im := im) tb pb
-        refine ⟨tc, ?_, pc, ?_, ?_, ?_⟩
-        · simpa only [endpointExtra, if_pos hl, if_pos hi'] using (qa.trans qb).trans qc
-        · simpa only [he, endpoint, if_pos hl, if_pos hi'] using xc
-        · exact ((ra.trans rb).trans rc).mono (by simp)
-        · exact ((fa.trans fb).trans fc).mono (by simp)
-      · rw [if_neg hi'] at pb
-        refine ⟨tb, ?_, pb, ?_, ?_, ?_⟩
-        · simpa only [endpointExtra, if_pos hl, if_neg hi'] using qa.trans qb
-        · simpa only [he, endpoint, if_pos hl, if_neg hi'] using xb
-        · exact (ra.trans rb).mono (by simp)
-        · exact (fa.trans fb).mono (by simp)
+      refine ⟨tb, ?_, pb, ?_, ?_, ?_⟩
+      · simpa only [endpointExtra, if_pos hl] using qa.trans qb
+      · simpa only [he, endpoint, if_pos hl] using xb
+      · exact (ra.trans rb).mono (by simp)
+      · exact (fa.trans fb).mono (by simp)
     · rw [if_neg (fun hv => hl (hl0.mp hv))] at p4
       exact ⟨t4, by simpa [endpointExtra, hl] using Steps.refl t4, p4,
         by simpa [he, endpoint, hl] using x21, RegsExcept.refl _ _, Frame.refl _ _⟩
@@ -398,7 +390,7 @@ theorem rl_one (lay : Layer) (tree leaf i d P W n n4 : Nat)
       · exact h.elim
       · exact h.elim
       · exact h.elim)
-  have r15 : RegsExcept t t5 ([] ++ [.x6, .x7, .x23, .x28, .x29, .x30] ++ [.x20] ++ [.x21] ++ [.x21]) :=
+  have r15 : RegsExcept t t5 ([] ++ [.x6, .x7, .x23, .x28, .x29, .x30] ++ [.x20] ++ [.x21] ++ [.x21, .x28]) :=
     (((r1.trans r2).trans r3).trans r4).trans r5
   have g5 : ∀ r, r ∉ [Reg.x6, .x7, .x20, .x21, .x23, .x28, .x29, .x30] → t5.getReg r = t.getReg r :=
     fun r hr => r15.get (fun hm => hr (by simp only [List.mem_append, List.mem_cons, List.not_mem_nil, or_false] at hm ⊢; tauto))
@@ -421,8 +413,8 @@ theorem rl_one (lay : Layer) (tree leaf i d P W n n4 : Nat)
   have hprog : ClaudeWCT.WCT9.chainW lay tree leaf i d (e - d) v =
       (ClaudeWCT.WCT9.chainW lay tree leaf i d (e - d) v >>= pure) := by rw [bind_pure]
   rw [hprog]
-  have total_cost : (1 + 16 + 1 + 2 + endpointExtra lay i n4) + ((e - d) * 59 + 1 + 17) ≤ 454 := by
-    rw [he]; unfold endpointExtra endpoint
+  have total_cost : (1 + 16 + 1 + 2 + endpointExtra lay i n4) + ((e - d) * 59 + 1 + 17) ≤ 456 := by
+    rw [he]; unfold endpointExtra endpoint SharedRecover.kmaxCap SharedRecover.kmaxSteps
     split_ifs <;> omega
   refine (TBSim.steps (((((s1.trans s2).trans s3).trans s4).trans s5)) (TBSim.bind (W₂ := 17) hloop
     (fun v' u hu => ?_))).mono (by

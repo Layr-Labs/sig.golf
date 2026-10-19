@@ -3,16 +3,35 @@ import SigGolfCandidate.ClaudeWCT.W9.T3M.Witness.VerifyP
 namespace ClaudeWCT.W9.T3M
 open OracleComp OracleSpec SigGolfCandidate.T3
 open SigGolfCandidate.T3M (chainP nodeHashP recoverLayerP)
+/-- Campaign R6: on the top layer the skipped-copy reads see the same digits with or without the checksum digit
+(chain 51 is never a safe zero copy, `51 % 3 = 0`). -/
+theorem safeZeroCopy_top_append (answer : Digest) (c i : Nat) (hi : i < 52) :
+    WCT9.safeZeroCopy 0 (dataDigits 0 answer ++ [c]) i ↔ WCT9.safeZeroCopy 0 (dataDigits 0 answer) i := by
+  have hl := WCT9.dataDigits_top_length answer
+  unfold WCT9.safeZeroCopy
+  by_cases h51 : i < 51
+  · rw [List.getD_append _ _ _ i (by omega), List.getD_append _ _ _ (i - 1) (by omega)]
+  · have : i = 51 := by omega
+    subst this
+    simp
+theorem wvalueFor_top_append (w : WBytes) (answer : Digest) (c i : Nat) (hi : i < 52) :
+    wvalueFor w 0 (dataDigits 0 answer ++ [c]) i = wvalueFor w 0 (dataDigits 0 answer) i := by
+  unfold wvalueFor
+  rw [if_congr (safeZeroCopy_top_append answer c i hi) rfl rfl]
 theorem topLayerP_of_decode (w : WBytes) (index : Nat) {answer : Digest} {digits : List Nat}
     (h : decode 0 answer = some digits) : topLayerP w index answer = some <$> layerP w index 0 digits := by
   unfold topLayerP
   rw [WCT9.topDecodeRun_of_decode h]
   have hd := (WCT9.decode_top_some h).2.2.2
-  rw [← hd]
   unfold layerP topChainP topFinishP
   generalize route index 0 = p
   obtain ⟨leaf, tree⟩ := p
+  have hv : ∀ i : Fin (chainCount 0), wvalueFor w 0 (dataDigits 0 answer) i.val = wvalueFor w 0 digits i.val := by
+    intro i
+    rw [hd, wvalueFor_top_append w answer _ i.val i.isLt]
+  simp only [hv]
   rfl
+
 theorem topLayerP_of_decode_none (w : WBytes) (index : Nat) {answer : Digest} (h : decode 0 answer = none) :
     topLayerP w index answer =
       (fun _ => none) <$> WCT9.topRejectChains (topChainP w (route index 0).2 (route index 0).1 (dataDigits 0 answer)) answer := by

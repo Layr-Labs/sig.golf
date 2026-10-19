@@ -230,12 +230,12 @@ theorem AfterDs.base {sk : SecretKey} {cache : Bytes 131072} {m : Message} {rho 
   · unfold NeverW at hn
     rw [h.frame.get hA (by unfold FrontW; sg_omega)]
     exact sinit_zero sk cache m A (by unfold SIGN_DATA; sg_omega) (by sg_omega)
-  · exact (sinit_table sk cache m).frame h.frame (by
-      intro i hi; unfold FrontW Search.TOP_DATA; sg_omega)
   · exact (sinit_cf sk cache m).frame h.frame (by
       intro i hi hi'; unfold FrontW Search.TOP_DATA; sg_omega)
   · exact (sinit_reward sk cache m).frame h.frame (by
       intro i hi hi'; unfold FrontW Search.TOP_DATA; sg_omega)
+  · exact (sinit_r6 sk cache m).frame h.frame (by decide) (by
+      intro i hi; unfold FrontW; sg_omega)
 theorem frame_readWords {s t : MachineState} {W : Nat → Prop} (h : Frame s t W) (A : Nat) :
     ∀ m, A + 8 * m ≤ 2 ^ 64 → (∀ i < m, ¬ W (A + 8 * i)) →
       t.readWords (BitVec.ofNat 64 A) m = s.readWords (BitVec.ofNat 64 A) m
@@ -652,12 +652,12 @@ theorem NoncePost.base {sk : SecretKey} {cache : Bytes 131072} {m : Message} {rh
   · unfold NeverW at hn
     rw [h.frame.get hA (by unfold FrontW; sg_omega)]
     exact sinit_zero sk cache m A (by unfold SIGN_DATA; sg_omega) (by sg_omega)
-  · exact (sinit_table sk cache m).frame h.frame (by
-      intro i hi; unfold FrontW Search.TOP_DATA; sg_omega)
   · exact (sinit_cf sk cache m).frame h.frame (by
       intro i hi hi'; unfold FrontW Search.TOP_DATA; sg_omega)
   · exact (sinit_reward sk cache m).frame h.frame (by
       intro i hi hi'; unfold FrontW Search.TOP_DATA; sg_omega)
+  · exact (sinit_r6 sk cache m).frame h.frame (by decide) (by
+      intro i hi; unfold FrontW; sg_omega)
 end SigGolfCandidate.T3M.Sign.Boundary
 end
 section

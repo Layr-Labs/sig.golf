@@ -207,8 +207,12 @@ open RiscvZkvm.Rv64 SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv SigGol
 open SigGolfCandidate.T3M.Keygen (PRIV SEEDS CHAIN NODE NOUT LOUT LEAFPK MOUT ZDIG DUMMY TOP REGION)
 set_option maxHeartbeats 2000000
 set_option maxRecDepth 10000
+/-- Campaign R6: the top-signing call at 441 with word 445 `addi s7,s7,-1872` (top values at `SIG + 2224`,
+slot 139; main `-1904`, slot 137). -/
+def seg_441S : List (BitVec 32) := [1052563,133943,1108019987,35767,0x8b0b8b93,344981743]
+sym_block blk_441S := symRun { noAlias := true } seg_441S (pcOf 441) 100
 structure Code (im : Image) : Prop where
-  codeAt_441 : CodeAt im (pcOf 441) seg_441
+  codeAt_441 : CodeAt im (pcOf 441) seg_441S
   codeAt_447 : CodeAt im (pcOf 447) seg_447
   codeAt_1433 : CodeAt im (pcOf 1433) seg_1433
   codeAt_1438 : CodeAt im (pcOf 1438) seg_1438
@@ -219,17 +223,17 @@ variable {im : Image}
 theorem blk441_spec (hcode : Code im) (s : MachineState) (hpc : s.pc = pcOf 441) :
     ∃ t, Steps im s 6 6 t ∧ t.pc = pcOf (1013 + 27) ∧ t.getReg .x1 = pcOf 447 ∧
       t.getReg .x31 = BitVec.ofNat 64 1 ∧ t.getReg .x22 = BitVec.ofNat 64 DIGITS ∧
-      t.getReg .x23 = BitVec.ofNat 64 (SIG + 2192) ∧
+      t.getReg .x23 = BitVec.ofNat 64 (SIG + 2224) ∧
       RegsExcept s t [.x1, .x22, .x23, .x31] ∧ Frame s t (fun _ => False) := by
-  refine ⟨_, symRun_sound blk_441 hcode.codeAt_441 s hpc (by simp [blk_441.res, rv_simp]),
+  refine ⟨_, symRun_sound blk_441S hcode.codeAt_441 s hpc (by simp [blk_441S.res, rv_simp]),
     ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
-  · simp [blk_441.res, E.eval]
-  · simp [blk_441.res, rv_simp]
-  · simp [blk_441.res, rv_simp]
-  · simp [blk_441.res, rv_simp]
-  · simp [blk_441.res, rv_simp]
-  · intro r hr; simp at hr; cases r <;> simp_all [blk_441.res, rv_simp] <;> rfl
-  · intro A _ _; simp [blk_441.res, rv_simp]
+  · simp [blk_441S.res, E.eval]
+  · simp [blk_441S.res, rv_simp]
+  · simp [blk_441S.res, rv_simp]
+  · simp [blk_441S.res, rv_simp]
+  · simp [blk_441S.res, rv_simp]
+  · intro r hr; simp at hr; cases r <;> simp_all [blk_441S.res, rv_simp] <;> rfl
+  · intro A _ _; simp [blk_441S.res, rv_simp]
 theorem blk447_spec (hcode : Code im) (s : MachineState) (hpc : s.pc = pcOf 447) :
     ∃ t, Steps im s 1 1 t ∧ t.pc = pcOf 1433 ∧
       RegsExcept s t [] ∧ Frame s t (fun _ => False) := by

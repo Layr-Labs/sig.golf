@@ -131,6 +131,64 @@ theorem constant_sum_backward_witness {ι : Type} [Fintype ι] (a b : ι → Nat
   by_contra hn
   push_neg at hn
   exact hne (constant_sum_antichain a b hn hs)
+/-! ### Campaign R6: radix-6 triples and little-endian bit-field packing -/
+abbrev Triple6 := Fin 3 → Fin 6
+def rank6 (d : Triple6) : Fin 216 :=
+  ⟨(d 0).val + 6 * (d 1).val + 36 * (d 2).val, by
+    have := (d 0).isLt; have := (d 1).isLt; have := (d 2).isLt; omega⟩
+def digits6 (r : Fin 216) : Triple6 := fun i =>
+  if i=0 then ⟨r.val % 6, Nat.mod_lt _ (by decide)⟩
+  else if i=1 then ⟨r.val / 6 % 6, Nat.mod_lt _ (by decide)⟩
+  else ⟨r.val / 36, by have := r.isLt; omega⟩
+theorem digits6_rank6 (d : Triple6) : digits6 (rank6 d)=d := by
+  funext i; apply Fin.ext
+  have h0 := (d 0).isLt; have h1 := (d 1).isLt; have h2 := (d 2).isLt
+  fin_cases i <;> simp [digits6,rank6] <;> omega
+theorem rank6_digits6 (r : Fin 216) : rank6 (digits6 r)=r := by
+  apply Fin.ext
+  have := r.isLt
+  simp [rank6,digits6]
+  omega
+def triple6Equiv : Triple6 ≃ Fin 216 where
+  toFun := rank6
+  invFun := digits6
+  left_inv := digits6_rank6
+  right_inv := rank6_digits6
+/-- Little-endian packing of bit fields `(width, value)`. -/
+def packF : List (Nat × Nat) → Nat
+  | [] => 0
+  | p :: l => p.2 + 2 ^ p.1 * packF l
+/-- Total width of a field list. -/
+def widthF (l : List (Nat × Nat)) : Nat := (l.map Prod.fst).sum
+theorem widthF_cons (p : Nat × Nat) (l : List (Nat × Nat)) : widthF (p :: l) = p.1 + widthF l := by
+  simp [widthF]
+theorem packF_lt (l : List (Nat × Nat)) (h : ∀ p ∈ l, p.2 < 2 ^ p.1) : packF l < 2 ^ widthF l := by
+  induction l with
+  | nil => simp [packF, widthF]
+  | cons p l ih =>
+    have hp := h p (by simp)
+    have hl := ih (fun q hq => h q (by simp [hq]))
+    rw [packF, widthF_cons, pow_add]
+    have : 2 ^ p.1 * packF l + 2 ^ p.1 ≤ 2 ^ p.1 * 2 ^ widthF l := by
+      rw [← Nat.mul_succ]; exact Nat.mul_le_mul_left _ hl
+    omega
+/-- Field `k` of a packing sits at bit offset `widthF (l.take k)`. -/
+theorem packF_field (l : List (Nat × Nat)) (h : ∀ p ∈ l, p.2 < 2 ^ p.1) (k : Nat) (hk : k < l.length) :
+    packF l / 2 ^ widthF (l.take k) % 2 ^ (l[k]).1 = (l[k]).2 := by
+  induction l generalizing k with
+  | nil => simp at hk
+  | cons p l ih =>
+    have hp := h p (by simp)
+    cases k with
+    | zero =>
+      simp only [List.take_zero, widthF, List.map_nil, List.sum_nil, pow_zero, Nat.div_one,
+        List.getElem_cons_zero, packF]
+      rw [Nat.add_mul_mod_self_left, Nat.mod_eq_of_lt hp]
+    | succ k =>
+      simp only [List.take_succ_cons, widthF_cons, List.getElem_cons_succ, packF]
+      rw [pow_add, ← Nat.div_div_eq_div_mul, Nat.add_mul_div_left _ _ (by positivity),
+        Nat.div_eq_of_lt hp, Nat.zero_add]
+      exact ih (fun q hq => h q (by simp [hq])) k (by simpa using hk)
 end SigGolfResearch.NonbinaryTop.Codec
 #print axioms SigGolfResearch.NonbinaryTop.Codec.digits5_rank5
 #print axioms SigGolfResearch.NonbinaryTop.Codec.rank5_digits5
@@ -139,3 +197,4 @@ end SigGolfResearch.NonbinaryTop.Codec
 #print axioms SigGolfResearch.NonbinaryTop.Codec.encode_injective
 #print axioms SigGolfResearch.NonbinaryTop.Codec.constant_sum_antichain
 #print axioms SigGolfResearch.NonbinaryTop.Codec.constant_sum_backward_witness
+#print axioms SigGolfResearch.NonbinaryTop.Codec.packF_field

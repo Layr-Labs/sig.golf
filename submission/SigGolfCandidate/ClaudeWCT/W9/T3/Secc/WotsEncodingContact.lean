@@ -44,9 +44,9 @@ theorem contacts_mono (T : Answers) (messages : LeafAddr → WCT9.LayerMsg) {tra
 noncomputable def costL (T : Answers) (messages : LeafAddr → WCT9.LayerMsg) (F : Set ClaudeWCT.W9.T3.Security.Wots.Enc.EncIndex) : List Entry → List Entry → Nat
   | _, [] => 0
   | hist, e :: rest =>
-      (if Lazy.IsCell ClaudeWCT.W9.T3.Security.Wots.Enc.encInput F e.1 then 93 * contacts T messages hist else 0) + costL T messages F (hist ++ [e]) rest
+      (if Lazy.IsCell ClaudeWCT.W9.T3.Security.Wots.Enc.encInput F e.1 then 90 * contacts T messages hist else 0) + costL T messages F (hist ++ [e]) rest
 theorem costL_le (T : Answers) (messages : LeafAddr → WCT9.LayerMsg) (F : Set ClaudeWCT.W9.T3.Security.Wots.Enc.EncIndex) :
-    ∀ (trace hist : List Entry), costL T messages F hist trace ≤ 93 * trace.length * contacts T messages (hist ++ trace) := by
+    ∀ (trace hist : List Entry), costL T messages F hist trace ≤ 90 * trace.length * contacts T messages (hist ++ trace) := by
   intro trace
   induction trace with
   | nil => intro hist; simp [costL]
@@ -57,7 +57,7 @@ theorem costL_le (T : Answers) (messages : LeafAddr → WCT9.LayerMsg) (F : Set 
         contacts_mono T messages (fun x hx => List.mem_append_left _ hx)
       have h2 := ih (hist ++ [e])
       rw [List.append_assoc, List.singleton_append] at h2
-      have h3 : (if Lazy.IsCell ClaudeWCT.W9.T3.Security.Wots.Enc.encInput F e.1 then 93 * contacts T messages hist else 0) ≤ 93 * contacts T messages hist := by
+      have h3 : (if Lazy.IsCell ClaudeWCT.W9.T3.Security.Wots.Enc.encInput F e.1 then 90 * contacts T messages hist else 0) ≤ 90 * contacts T messages hist := by
         split_ifs <;> omega
       rw [List.length_cons]
       nlinarith
@@ -77,7 +77,7 @@ theorem cfk_new {T : Answers} {messages : LeafAddr → WCT9.LayerMsg} {h : List 
   · rw [List.take_of_length_le (by rw [List.length_append, List.length_singleton]; omega)] at hnm
     exact absurd hm hnm
 noncomputable def cfCharge (T : Answers) (messages : LeafAddr → WCT9.LayerMsg) (F : Set ClaudeWCT.W9.T3.Security.Wots.Enc.EncIndex) (h : FreeMonoid Entry) : RefWorld.Domain → Nat
-  | .inl (.inr x) => if Lazy.IsCell ClaudeWCT.W9.T3.Security.Wots.Enc.encInput F x then 93 * contacts T messages h.toList else 0
+  | .inl (.inr x) => if Lazy.IsCell ClaudeWCT.W9.T3.Security.Wots.Enc.encInput F x then 90 * contacts T messages h.toList else 0
   | _ => 0
 theorem costL_step (T : Answers) (messages : LeafAddr → WCT9.LayerMsg) (F : Set ClaudeWCT.W9.T3.Security.Wots.Enc.EncIndex) (h : FreeMonoid Entry) (input : RefWorld.Domain)
     (answer : RefWorld.Range input) (tail : FreeMonoid Entry) :
@@ -96,7 +96,7 @@ variable [∀ k : Set ClaudeWCT.W9.T3.Security.Wots.Enc.EncIndex, Fintype k] [�
 theorem cf_step (T : Answers) (messages : LeafAddr → WCT9.LayerMsg) (F : Set ClaudeWCT.W9.T3.Security.Wots.Enc.EncIndex) (init : F → Finset HashOutput)
     (hcell : ∀ (e : F) (p : CanonGraph.LeafPos × Fin 58),
       Pr[fun ans => WotsExtract.SourceChain7 (ClaudeWCT.W9.T3.Security.Wots.Enc.chainAt p) ∧ MarkEntry T messages (ClaudeWCT.W9.T3.Security.Wots.Enc.chainAt p) (ClaudeWCT.W9.T3.Security.Wots.Enc.encInput e.val, ans) |
-        cell (init e)] ≤ 93 / (2 : ENNReal) ^ 128)
+        cell (init e)] ≤ 90 / (2 : ENNReal) ^ 128)
     (hother : ∀ x, ¬ Lazy.IsCell ClaudeWCT.W9.T3.Security.Wots.Enc.encInput F x → ∀ p,
       ¬ (WotsExtract.SourceChain7 (ClaudeWCT.W9.T3.Security.Wots.Enc.chainAt p) ∧ MarkEntry T messages (ClaudeWCT.W9.T3.Security.Wots.Enc.chainAt p) (x, T (.inl (.inr x)))))
     (h : FreeMonoid Entry) (allowed : F → Finset HashOutput) (hc : Lazy.Consistent ClaudeWCT.W9.T3.Security.Wots.Enc.encInput F init h allowed)
@@ -150,14 +150,14 @@ theorem cf_step (T : Answers) (messages : LeafAddr → WCT9.LayerMsg) (F : Set C
               exact ⟨hs, hcon⟩
           _ ≤ ∑ p ∈ S, Pr[fun ans => MarkEntry T messages (ClaudeWCT.W9.T3.Security.Wots.Enc.chainAt p) (x, ans) | cell (init e₀)] :=
               probEvent_exists_finset_le_sum S _ _
-          _ ≤ ∑ p ∈ S, 93 / (2 : ENNReal) ^ 128 := by
+          _ ≤ ∑ p ∈ S, 90 / (2 : ENNReal) ^ 128 := by
               refine Finset.sum_le_sum fun p hp => ?_
               have hsrc : WotsExtract.SourceChain7 (ClaudeWCT.W9.T3.Security.Wots.Enc.chainAt p) := by
                 simp only [S, Finset.mem_filter, Finset.mem_univ, true_and] at hp
                 exact hp.1
               rw [← hx₀]
               exact (probEvent_mono fun ans _ h => ⟨hsrc, h⟩).trans (hcell e₀ p)
-          _ = (2 ^ 128 : ENNReal)⁻¹ * ((93 * contacts T messages h.toList : Nat) : ENNReal) := by
+          _ = (2 ^ 128 : ENNReal)⁻¹ * ((90 * contacts T messages h.toList : Nat) : ENNReal) := by
               rw [Finset.sum_const, nsmul_eq_mul]
               unfold contacts
               push_cast
@@ -177,7 +177,7 @@ theorem lazy_cf_le {α : Type} (T : Answers) (messages : LeafAddr → WCT9.Layer
     (hinit : ∀ e, (init e).Nonempty)
     (hcell : ∀ (e : F) (p : CanonGraph.LeafPos × Fin 58),
       Pr[fun ans => WotsExtract.SourceChain7 (ClaudeWCT.W9.T3.Security.Wots.Enc.chainAt p) ∧ MarkEntry T messages (ClaudeWCT.W9.T3.Security.Wots.Enc.chainAt p) (ClaudeWCT.W9.T3.Security.Wots.Enc.encInput e.val, ans) |
-        cell (init e)] ≤ 93 / (2 : ENNReal) ^ 128)
+        cell (init e)] ≤ 90 / (2 : ENNReal) ^ 128)
     (hother : ∀ x, ¬ Lazy.IsCell ClaudeWCT.W9.T3.Security.Wots.Enc.encInput F x → ∀ p,
       ¬ (WotsExtract.SourceChain7 (ClaudeWCT.W9.T3.Security.Wots.Enc.chainAt p) ∧ MarkEntry T messages (ClaudeWCT.W9.T3.Security.Wots.Enc.chainAt p) (x, T (.inl (.inr x)))))
     (C : OracleComp RefWorld α) :
@@ -268,7 +268,7 @@ end Congr
 
 noncomputable def cfInd (s : RefSample) : ENNReal := if CFK s.answers (sourceMessages s.answers) s.trace then 1 else 0
 noncomputable def cfCost (s : RefSample) : ENNReal :=
-  ((93*s.trace.length*contacts s.answers (sourceMessages s.answers) s.trace:Nat):ENNReal)
+  ((90*s.trace.length*contacts s.answers (sourceMessages s.answers) s.trace:Nat):ENNReal)
 
 end ClaudeWCT.W9.T3.Security.Wots.CanonicalRef.Contact93
 
@@ -306,7 +306,7 @@ theorem cells_cf_le [∀ k : Set Enc.EncIndex, Fintype k] [∀ k : Set Enc.EncIn
           (overwrite_decisions hU privateTable pub _ (fun leaf _ => sourceMessages_fit _ leaf) y hy)
           (overwrite_nonEnc privateTable pub _ y) _)])
   have hright := cell_transfer adversary q U hU privateTable pub cfCost
-      (fun tr => ((93*tr.length*contacts (eagerAnswers U privateTable pub) (sourceMessages (eagerAnswers U privateTable pub)) tr:Nat):ENNReal))
+      (fun tr => ((90*tr.length*contacts (eagerAnswers U privateTable pub) (sourceMessages (eagerAnswers U privateTable pub)) tr:Nat):ENNReal))
       (fun y hy r => by
         unfold cfCost mkSample
         rw [contacts_decisions (fun leaf _ => sourceMessages_overwrite privateTable pub _ y leaf)
@@ -375,7 +375,7 @@ theorem contacts_le_contactCount (s : RefSample) : contacts s.answers (sourceMes
   exact hp
 theorem cfCost_le (adversary : ClaudeWCT.W9.T3M.Final.Paired.AdversaryP) (q : Nat) :
     ∑' s, PairedReference.referenceExperiment adversary q s * cfCost s ≤
-      ((93 * q : Nat) : ENNReal) * ∑' s, PairedReference.referenceExperiment adversary q s * (Normalized.Contacts.contactCount s : ENNReal) := by
+      ((90 * q : Nat) : ENNReal) * ∑' s, PairedReference.referenceExperiment adversary q s * (Normalized.Contacts.contactCount s : ENNReal) := by
   rw [← ENNReal.tsum_mul_left]
   refine ENNReal.tsum_le_tsum fun s => ?_
   by_cases hs : PairedReference.referenceExperiment adversary q s = 0
@@ -389,7 +389,7 @@ theorem reference_contactFirst_le (adversary : ClaudeWCT.W9.T3M.Final.Paired.Adv
     Pr[fun s => ∃ a, WotsExtract.SourceChain7 a ∧
         ∃ k, CanonicalRef.ContactAt s.answers (sourceMessages s.answers) (s.trace.take k) a ∧ ¬CanonicalRef.MarkerAt s.answers (sourceMessages s.answers) (s.trace.take k) a ∧
           CanonicalRef.MarkerAt s.answers (sourceMessages s.answers) s.trace a | PairedReference.referenceExperiment adversary q] ≤
-      93 * ((q : ENNReal) / 2 ^ 128) * ∑' s, PairedReference.referenceExperiment adversary q s * (Normalized.Contacts.contactCount s : ENNReal) := by
+      90 * ((q : ENNReal) / 2 ^ 128) * ∑' s, PairedReference.referenceExperiment adversary q s * (Normalized.Contacts.contactCount s : ENNReal) := by
   calc _ ≤ ∑' s, PairedReference.referenceExperiment adversary q s * cfInd s := by
         rw [probEvent_eq_tsum_ite]
         refine ENNReal.tsum_le_tsum fun s => ?_
@@ -399,7 +399,7 @@ theorem reference_contactFirst_le (adversary : ClaudeWCT.W9.T3M.Final.Paired.Adv
           rw [cfInd, if_pos ⟨p, ha, hcf⟩, mul_one, PMF.probOutput_eq_apply]
         · exact zero_le
     _ ≤ (2 ^ 128 : ENNReal)⁻¹ * ∑' s, PairedReference.referenceExperiment adversary q s * cfCost s := reference_cfInd_le adversary q
-    _ ≤ (2 ^ 128 : ENNReal)⁻¹ * (((93 * q : Nat) : ENNReal) *
+    _ ≤ (2 ^ 128 : ENNReal)⁻¹ * (((90 * q : Nat) : ENNReal) *
           ∑' s, PairedReference.referenceExperiment adversary q s * (Normalized.Contacts.contactCount s : ENNReal)) :=
         mul_le_mul' le_rfl (cfCost_le adversary q)
     _ = _ := by

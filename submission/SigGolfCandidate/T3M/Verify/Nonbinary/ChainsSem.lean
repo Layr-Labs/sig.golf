@@ -37,9 +37,6 @@ def qB (c : NCtx) (i : Nat) : Nat := gB (i/3) (c.kOf (i/3))
 def qC (c : NCtx) (i : Nat) : Nat := gC (i/3) (c.kOf (i/3))
 def qX (c : NCtx) (i : Nat) : Nat := gX (i/3) (c.kOf (i/3))
 def entPc (c : NCtx) (q : Nat) : Nat := entW q (c.kOf q)
-/-- Slot index of group 17 (campaign T8D): the top field `d51 + 8 d52` (bits 122..127). -/
-def k17 (c : NCtx) : Nat := c.dig 51 + 8 * c.dig 52
-/-- Start of the group-17 chain code (chains 51/52 in `BLOCK[k17]`, chain 53 in `SUFFIX[d53]`). -/
 def bufferSafe (c : NCtx) (i : Nat) : Prop :=
   c.dig i = topMax i ∧
     (i = 0 ∨ (0 < i ∧ i % 3 ≠ 0 ∧ c.dig (i-1) = topMax (i-1)))
@@ -48,26 +45,27 @@ instance (c : NCtx) (i : Nat) : Decidable (c.bufferSafe i) := by
 def bufferEnd (c : NCtx) (i : Nat) : Nat :=
   slot i + (if i = 0 ∨ c.dig (i-1) = topMax (i-1) then 0 else 16)
 def bufferOrig (c : NCtx) (s0 : MachineState) : Prop :=
-  ∀ i, i < 54 → ∀ k < 2, OrigW c.w s0 (slot i + 8*k)
+  ∀ i, i < 52 → ∀ k < 2, OrigW c.w s0 (slot i + 8*k)
 def bufferVal (c : NCtx) (i : Nat) : Digest :=
   if c.bufferSafe i then ClaudeWCT.W9.T3M.wdig c.w (slot i - Verify.WIT) else c.val i
-def r8Start (c : NCtx) (i : Nat) : Nat :=
-  if i = 51 then blkW c.k17 else if i = 52 then blkW c.k17 + partLen 17 (c.dig 51) else sufW (c.dig 53) (decide (c.dig 52=7))
+/-- Start of chain `i`. Campaign R6: the checksum chain 51 starts at its arm `ckArm d51`. (There is no chain 52; the
+value at `i = 52` is unused.) -/
 def startPc (c : NCtx) (i : Nat) : Nat :=
   if i < 51 then (if i%3=0 then leadPc (i/3) (c.kOf (i/3)) else if i%3=1 then c.qB i else c.qC i)
-  else c.r8Start i
+  else if i = 51 then ckArm (c.dig 51) else ckTail (c.dig 51)
 def rungPc (c : NCtx) (i m : Nat) : Nat :=
   if i%3=0 ∧ i < 51 then c.qb i+2*m
   else c.startPc i + (if c.dig i = last i then 2 else 3) + 2*(m-c.dig i)
+/-- End of chain `i`. Campaign R6: the checksum chain 51 (never buffer-safe) ends at the final tail `ckTail d51`. -/
 def endPc (c : NCtx) (i : Nat) : Nat :=
   if i < 51 then (if i%3=0 then c.qB i else if i%3=1 then c.qC i else c.qX i)
-  else c.r8Start i + partLen 17 (c.dig i)-(if c.bufferSafe i then 4 else 0)
+  else ckTail (c.dig 51)
 def Wr (c : NCtx) (i : Nat) (A : Nat) : Prop :=
   (slot 0 ≤ A ∧ A < c.bufferEnd i) ∨ (c.S3 - 1664 + 64 * (54 - i) ≤ A ∧ A < c.blk 0 + 80)
 def WrIn (c : NCtx) (i : Nat) (A : Nat) : Prop :=
   c.Wr i A ∨ (c.blk i + 16 ≤ A ∧ A < c.blk i + 32) ∨ (c.blk i + 48 ≤ A ∧ A < c.blk i + 80)
 def Orig0 (c : NCtx) (s0 : MachineState) : Prop :=
-  ((∀ i, i < 54 → ∀ k < 8, OrigW c.w s0 (c.blk i + 8 * k)) ∧ c.bufferOrig s0) ∧ Verify.DataOK s0
+  ((∀ i, i < 52 → ∀ k < 8, OrigW c.w s0 (c.blk i + 8 * k)) ∧ c.bufferOrig s0) ∧ Verify.DataOK s0
 def Base (c : NCtx) (s0 : MachineState) (W : Nat → Prop) (acc : List Digest) (s : MachineState) : Prop :=
   (∀ x, x ∉ chainRegs → s.getReg x = s0.getReg x) ∧ Frame s0 s W ∧
     (∀ j < acc.length, DigAt s (slot j) (acc.getD j 0))
@@ -92,22 +90,23 @@ def PreHash (c : NCtx) (s0 : MachineState) (i : Nat) (acc : List Digest) (m : Na
     t.pc = pcOf (c.rungPc i m + (if m = last i then 2 else 1)) ∧ fetch vimage t = some (.base .ECALL)
 def EndInv (c : NCtx) (s0 : MachineState) (i : Nat) (acc : List Digest) (s : MachineState) : Prop :=
   c.Base s0 (c.Wr (i + 1)) acc s ∧ acc.length = i + 1 ∧ s.pc = pcOf (c.endPc i)
-theorem blk_props (c : NCtx) (hc : c.ok) (i : Nat) (hi : i < 54) :
+theorem blk_props (c : NCtx) (hc : c.ok) (i : Nat) (hi : i < 52) :
     c.blk i % 8 = 0 ∧ Verify.WIT + 8096 ≤ c.blk i ∧ c.blk i + 80 ≤ 0x5000 := by
   obtain ⟨-, -, h64, hlo, hhi, -⟩ := hc
   unfold blk Verify.WIT at *; refine ⟨?_, ?_, ?_⟩ <;> omega
-theorem blk_le (c : NCtx) (hc : c.ok) (i : Nat) (hi : i < 54) : c.blk i + 64 * i = c.blk 0 := by
+theorem blk_le (c : NCtx) (hc : c.ok) (i : Nat) (hi : i < 52) : c.blk i + 64 * i = c.blk 0 := by
   obtain ⟨-, -, -, hlo, -⟩ := hc
   unfold blk; omega
-theorem slot_props (i : Nat) (hi : i < 54) : slot i % 16 = 0 ∧ 25232 ≤ slot i ∧ slot i + 32 ≤ 26112 := by
+/-- Campaign R6: the 52 top leaf slots `25264 + 16 i` (the checksum chain's 32-byte HASH output ends at 26112). -/
+theorem slot_props (i : Nat) (hi : i < 52) : slot i % 16 = 0 ∧ 25232 ≤ slot i ∧ slot i + 32 ≤ 26112 := by
   unfold slot; omega
-theorem base_off (c : NCtx) (hc : c.ok) (i : Nat) (hi : i < 54) (k : Nat) (hk : k ≤ 80) :
+theorem base_off (c : NCtx) (hc : c.ok) (i : Nat) (hi : i < 52) (k : Nat) (hk : k ≤ 80) :
     BitVec.ofNat 64 c.S3 + (off i + BitVec.ofNat 64 k) = BitVec.ofNat 64 (c.blk i + k) := by
   obtain ⟨-, -, -, hlo, hhi, -⟩ := hc
   unfold off blk
   rw [ofNat_add_off _ _ _ _ (by omega) (by omega), show c.S3 + 64 * (53 - i) - 1664 = c.S3 - 1664 + 64 * (53 - i) by
     omega]
-theorem base_off0 (c : NCtx) (hc : c.ok) (i : Nat) (hi : i < 54) :
+theorem base_off0 (c : NCtx) (hc : c.ok) (i : Nat) (hi : i < 52) :
     BitVec.ofNat 64 c.S3 + off i = BitVec.ofNat 64 (c.blk i) := by
   obtain ⟨-, -, -, hlo, hhi, -⟩ := hc
   unfold off blk
@@ -117,10 +116,10 @@ theorem prefix_props (c : NCtx) : c.prefix % 2 ^ 16 = 128 ∧ c.prefix < 2 ^ 64 
   have h := Nat.mod_lt (c.tree * 2 ^ 12 + c.leaf) (by norm_num : 0 < 2 ^ 32)
   unfold «prefix»
   constructor <;> omega
-theorem w0_lt (c : NCtx) (i m : Nat) (hi : i < 54) (hm : m < 256) : c.w0 i + 2 ^ 8 * m < 2 ^ 64 := by
+theorem w0_lt (c : NCtx) (i m : Nat) (hi : i < 52) (hm : m < 256) : c.w0 i + 2 ^ 8 * m < 2 ^ 64 := by
   have h := Nat.mod_lt (c.tree * 2 ^ 12 + c.leaf) (by norm_num : 0 < 2 ^ 32)
   unfold w0 «prefix»; omega
-theorem w0_header (c : NCtx) (hc : c.ok) (i m : Nat) (hi : i < 54) (hm : m < 8) :
+theorem w0_header (c : NCtx) (hc : c.ok) (i m : Nat) (hi : i < 52) (hm : m < 8) :
     BitVec.ofNat 64 (c.w0 i + 2 ^ 8 * m) = (chainHeader 0 c.tree c.leaf i m).extractLsb' 0 64 := by
   rw [chainHeader_low_bounded _ _ _ _ _ (by omega) hm
     (by rw [hc.1]; decide +kernel) hc.2.1]
@@ -128,7 +127,7 @@ theorem w0_header (c : NCtx) (hc : c.ok) (i m : Nat) (hi : i < 54) (hm : m < 8) 
   simp only [w0, «prefix», packedPrefix, packedHi, show height 0 = 12 from rfl, Fin.val_zero,
     Nat.zero_mul, Nat.add_zero]
   ring
-theorem chain_hashInput (c : NCtx) (hc : c.ok) (i m : Nat) (hi : i < 54) (hm : m < 8) (v : Digest)
+theorem chain_hashInput (c : NCtx) (hc : c.ok) (i m : Nat) (hi : i < 52) (hm : m < 8) (v : Digest)
     (t : MachineState) (h10 : t.getReg .x10 = BitVec.ofNat 64 (c.blk i))
     (h11 : t.getReg .x11 = BitVec.ofNat 64 (64 * (0 + 1)))
     (hp0 : DigAt t (c.blk i) (c.pad0 i)) (hp1 : DigAt t (c.blk i + 32) (c.pad1 i))
@@ -147,14 +146,14 @@ theorem chain_hashInput (c : NCtx) (hc : c.ok) (i m : Nat) (hi : i < 54) (hm : m
     show c.blk i + 32 + 8 * 2 = c.blk i + 48 by ring, hv.1, hv.2, w0_header c hc i m hi hm]
   rfl
 theorem orig_frame {c : NCtx} {s0 t : MachineState} {W : Nat → Prop} (hF : Frame s0 t W) (h0 : c.Orig0 s0)
-    (hc : c.ok) {i k : Nat} (hi : i < 54) (hk : k < 8) (hW : ¬ W (c.blk i + 8 * k)) :
+    (hc : c.ok) {i k : Nat} (hi : i < 52) (hk : k < 8) (hW : ¬ W (c.blk i + 8 * k)) :
     OrigW c.w t (c.blk i + 8 * k) := by
   have := c.blk_props hc i hi
   unfold OrigW
   rw [hF _ (by omega) hW]
   exact h0.1.1 i hi k hk
 theorem pads_at {c : NCtx} {s0 t : MachineState} (hc : c.ok) (h0 : c.Orig0 s0) {i : Nat}
-    (hi : i < 54) (hF : Frame s0 t (c.WrIn i)) :
+    (hi : i < 52) (hF : Frame s0 t (c.WrIn i)) :
     DigAt t (c.blk i) (c.pad0 i) ∧ DigAt t (c.blk i + 32) (c.pad1 i) := by
   have hb := c.blk_props hc i hi
   have nW : ∀ k, k = 0 ∨ k = 1 ∨ k = 4 ∨ k = 5 → ¬ c.WrIn i (c.blk i + 8 * k) := by
@@ -174,7 +173,7 @@ theorem pads_at {c : NCtx} {s0 t : MachineState} (hc : c.ok) (h0 : c.Orig0 s0) {
   refine ⟨DigAt_origW o0 o1 (by omega), ?_⟩
   have := DigAt_origW o4 o5 (by omega)
   rwa [show c.blk i + 32 - Verify.WIT = c.blk i - Verify.WIT + 32 by omega] at this
-theorem val_at {c : NCtx} {s0 t : MachineState} (hc : c.ok) (h0 : c.Orig0 s0) {i : Nat} (hi : i < 54)
+theorem val_at {c : NCtx} {s0 t : MachineState} (hc : c.ok) (h0 : c.Orig0 s0) {i : Nat} (hi : i < 52)
     (hF : Frame s0 t (c.Wr i)) : DigAt t (c.blk i + 48) (c.val i) := by
   have hb := c.blk_props hc i hi
   have nW : ∀ k, k = 6 ∨ k = 7 → ¬ c.Wr i (c.blk i + 8 * k) := by
@@ -191,11 +190,13 @@ theorem val_at {c : NCtx} {s0 t : MachineState} (hc : c.ok) (h0 : c.Orig0 s0) {i
   have := DigAt_origW o6 o7 (by omega)
   rwa [show c.blk i + 48 - Verify.WIT = c.blk i - Verify.WIT + 48 by omega] at this
 theorem topMax_bounds (i : Nat) : 3 ≤ topMax i ∧ topMax i ≤ 7 := by
-  unfold topMax mx; split <;> omega
+  unfold topMax mx; split_ifs <;> omega
 theorem topMax_hi (i : Nat) (hi : 51 ≤ i) : topMax i = 7 := by
-  unfold topMax mx; rw [if_neg (by omega)]
-theorem topMax_lo (i : Nat) (hi : i < 51) : topMax i = 4 := by
+  unfold topMax mx; rw [if_neg (by omega), if_neg (by omega)]
+theorem topMax_r6 (i : Nat) (hi : i < 24) : topMax i = 5 := by
   unfold topMax mx; rw [if_pos (by omega)]
+theorem topMax_r5 (i : Nat) (h24 : 24 ≤ i) (hi : i < 51) : topMax i = 4 := by
+  unfold topMax mx; rw [if_neg (by omega), if_pos (by omega)]
 theorem last_bounds (i : Nat) : 2 ≤ last i ∧ last i ≤ 6 := by
   have := topMax_bounds i; unfold last; omega
 theorem rungPc_succ (c : NCtx) (i m : Nat) (hd : c.dig i ≤ m) :
@@ -276,7 +277,7 @@ theorem bufferSafe_protected (c : NCtx) (i A : Nat) (hs : c.bufferSafe i)
   omega
 
 theorem bufferVal_at {c : NCtx} {s0 t : MachineState} (h0 : c.bufferOrig s0)
-    {i : Nat} (hi : i < 54) (hs : c.bufferSafe i)
+    {i : Nat} (hi : i < 52) (hs : c.bufferSafe i)
     (hb : c.blk 0 + 80 ≤ slot 0) (hF : Frame s0 t (c.Wr i)) :
     DigAt t (slot i) (c.bufferVal i) := by
   have hp := slot_props i hi
@@ -291,16 +292,15 @@ theorem bufferVal_at {c : NCtx} {s0 t : MachineState} (h0 : c.bufferOrig s0)
   exact DigAt_origW t0 t1 (by unfold Verify.WIT; omega)
 
 
-theorem bufferSafe_source (c : NCtx) (digits : List Nat)
-    (hd : ∀ j, j < 54 → digits.getD j 0 = c.dig j)
-    (i : Nat) (hi : i < 54) : c.bufferSafe i ↔ ClaudeWCT.WCT9.safeZeroCopy 0 digits i := by
+theorem bufferSafe_source (c : NCtx) (digits : List Nat) (i : Nat)
+    (hd : ∀ j, j ≤ i → digits.getD j 0 = c.dig j) : c.bufferSafe i ↔ ClaudeWCT.WCT9.safeZeroCopy 0 digits i := by
   have hm : ∀ j, maxDigit 0 j = topMax j := by
     intro j
     unfold maxDigit topMax mx
     simp only [ite_true]
     split_ifs <;> omega
   unfold bufferSafe ClaudeWCT.WCT9.safeZeroCopy
-  rw [hd i hi, hm]
+  rw [hd i (le_refl _), hm]
   by_cases hz : i = 0
   · simp [hz]
   · rw [hd (i-1) (by omega), hm]
@@ -311,26 +311,26 @@ theorem bufferSlot_source (i : Nat) :
   simp [slot, ClaudeWCT.W9.T3M.leafBufferSlot, ClaudeWCT.W9.T3M.leafBufferBase, Verify.WIT]
   omega
 
-theorem bufferVal_source (c : NCtx) (digits : List Nat)
-    (hd : ∀ j, j < 54 → digits.getD j 0 = c.dig j)
-    (hS : c.S3 = 13432) (i : Nat) (hi : i < 54) :
+theorem bufferVal_source (c : NCtx) (digits : List Nat) (i : Nat)
+    (hd : ∀ j, j ≤ i → digits.getD j 0 = c.dig j)
+    (hS : c.S3 = 13432) :
     c.bufferVal i = ClaudeWCT.W9.T3M.wvalueFor c.w 0 digits i := by
   unfold bufferVal ClaudeWCT.W9.T3M.wvalueFor
-  simp only [← c.bufferSafe_source digits hd i hi, bufferSlot_source]
+  simp only [← c.bufferSafe_source digits i hd, bufferSlot_source]
   split
   · rfl
   · unfold val ClaudeWCT.W9.T3M.wvalue
     apply congrArg (ClaudeWCT.W9.T3M.wdig c.w)
     simp only [blk, hS, ClaudeWCT.W9.T3M.chainBlock, ClaudeWCT.W9.T3M.layerBase,
       ClaudeWCT.W9.T3M.pathSlots, chainCount, Matrix.cons_val_zero, Verify.WIT,
-      ClaudeWCT.W9.T3M.chainSlot, ClaudeWCT.W9.T3M.valueOff, ClaudeWCT.WCT9.isG_top, Fin.isValue, Fin.val_zero,
+      ClaudeWCT.W9.T3M.chainSlot, ClaudeWCT.W9.T3M.topChainBlocks, ClaudeWCT.W9.T3M.valueOff, ClaudeWCT.WCT9.isG_top, Fin.isValue, Fin.val_zero,
       ite_true, Bool.false_eq_true, ite_false]
     omega
 
 theorem bufferVal_nonmax (c : NCtx) (i : Nat) (h : c.dig i ≠ topMax i) :
     c.bufferVal i = c.val i := by simp [bufferVal, bufferSafe, h]
 
-theorem rungPc_end (c : NCtx) (hds : c.DigitsOk) (i : Nat) (hi : i < 54) (hd : c.dig i < topMax i) :
+theorem rungPc_end (c : NCtx) (hds : c.DigitsOk) (i : Nat) (hi : i < 52) (hd : c.dig i < topMax i) :
     c.rungPc i (last i) + 3 = c.endPc i := by
   have hm := topMax_bounds i
   have hl : last i+1=topMax i := by unfold last; omega
@@ -340,11 +340,14 @@ theorem rungPc_end (c : NCtx) (hds : c.DigitsOk) (i : Nat) (hi : i < 54) (hd : c
     have hdq : c.dig i < mx (i/3) := hd
     by_cases h0 : i%3=0
     · have ei : 3*(i/3)=i := by omega
-      have hskip : skipA (i/3) (c.kOf (i/3))=false := by
+      have hskipA : skipA (i/3) (c.kOf (i/3))=false := by
         simp [skipA,k1,ei,Nat.ne_of_lt hdq]
-      simp only [rungPc,endPc,qb,qB,h0,h51,true_and,if_true,gB,hskip,Bool.false_eq_true,if_false,Nat.sub_zero]
+      have hskipB : skipB (i/3) (c.kOf (i/3))=false := by
+        simp [skipB,k1,ei,Nat.ne_of_lt hdq]
+      simp only [rungPc,endPc,qb,qB,h0,h51,true_and,if_true,gB,hskipA,hskipB,Bool.false_eq_true,if_false,
+        Nat.sub_zero,Nat.add_zero]
       unfold last topMax at *
-      omega
+      split_ifs <;> omega
     · by_cases h1 : i%3=1
       · have ei : 3*(i/3)+1=i := by omega
         have hskip : skipB (i/3) (c.kOf (i/3))=false := by
@@ -362,13 +365,16 @@ theorem rungPc_end (c : NCtx) (hds : c.DigitsOk) (i : Nat) (hi : i < 54) (hd : c
         unfold partLen
         rw [if_neg (Nat.ne_of_lt hdq)]
         split_ifs <;> omega
-  · have h7 := topMax_hi i (by omega)
-    have hn : ¬ c.bufferSafe i := fun h => Nat.ne_of_lt hd h.1
-    simp only [rungPc,endPc,startPc,h51,and_false,if_false,hn,Nat.sub_zero]
+  · have hi51 : i = 51 := by omega
+    subst hi51
+    have h7 := topMax_hi 51 (by omega)
+    simp only [rungPc,endPc,startPc,h51,and_false,if_false,if_true,Nat.sub_zero,ckTail]
     unfold partLen
-    simp only [mx,show ¬ (17:Nat)<17 by decide,if_false]
-    have hd7 : c.dig i < 7 := by omega
+    simp only [mx,show ¬ (17:Nat)<17 by decide,show ¬ (17:Nat)<8 by decide,if_false]
+    have hd7 : c.dig 51 < 7 := by omega
     simp only [if_neg (Nat.ne_of_lt hd7)]
+    unfold last at *
+    rw [h7] at *
     split_ifs <;> omega
 theorem posE_eval (c : NCtx) {s0 s : MachineState} (hk : ∀ p ∈ c.known, s0.getReg p.1 = p.2)
     (hR : ∀ x ∉ chainRegs, s.getReg x = s0.getReg x) (i m : Nat) (hm : m ≤ last i) :
@@ -384,20 +390,22 @@ theorem posE_eval (c : NCtx) {s0 s : MachineState} (hk : ∀ p ∈ c.known, s0.g
   · exact kr .x20 4 (by simp [known]) (by decide +kernel)
   · exact kr .x21 5 (by simp [known]) (by decide +kernel)
   · exact kr .x26 6 (by simp [known]) (by decide +kernel)
-theorem w0_low (c : NCtx) (i m : Nat) (hi : i < 54) (hm : m < 256) :
+theorem w0_low (c : NCtx) (i m : Nat) (hi : i < 52) (hm : m < 256) :
     (BitVec.ofNat 64 (c.w0 i + 2 ^ 8 * m)).toNat % 2 ^ 8 = 128 + i ∧
       (BitVec.ofNat 64 (c.w0 i + 2 ^ 8 * m)).toNat / 2 ^ 16 = c.prefix / 2 ^ 16 := by
   rw [BitVec.toNat_ofNat, Nat.mod_eq_of_lt (w0_lt c i m hi hm)]
   have hp := c.prefix_props
   unfold w0; constructor <;> omega
-theorem w0_low0 (c : NCtx) (i : Nat) (hi : i < 54) :
+theorem w0_low0 (c : NCtx) (i : Nat) (hi : i < 52) :
     (BitVec.ofNat 64 (c.w0 i)).toNat % 2 ^ 8 = 128 + i ∧
       (BitVec.ofNat 64 (c.w0 i)).toNat / 2 ^ 16 = c.prefix / 2 ^ 16 := by
   have := w0_low c i 0 hi (by omega)
   rwa [Nat.mul_zero, Nat.add_zero] at this
 def tableJump (c : NCtx) (i : Nat) : Nat := if (i%3=0 ∧ i<51) ∧ rowInl (i/3) (c.kOf (i/3))=false then 1 else 0
+/-- Cycles of chain `i` at digit `d`. Campaign R6: a buffer-safe chain costs its table jump (chain 0's r6 cell `jal`,
+1 cycle; every other buffer-safe chain is skipped in place). -/
 def chainCost (c : NCtx) (i d : Nat) : Nat :=
-  if d=topMax i then (if c.bufferSafe i then 0 else 4+c.tableJump i)
+  if d=topMax i then (if c.bufferSafe i then c.tableJump i else 4+c.tableJump i)
   else 4+c.tableJump i+9*(topMax i-d)-(if d+1=topMax i then 1 else 0)
 def chainsCost (c : NCtx) (i k : Nat) : Nat :=
   ((List.range' i k).map fun j => c.chainCost j (c.dig j)).sum

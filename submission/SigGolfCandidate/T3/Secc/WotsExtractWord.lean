@@ -9,7 +9,8 @@ open SphincsSecurity (bytesLE bytesLE_length bytesLE_injective)
 set_option maxHeartbeats 1000000
 set_option maxRecDepth 10000
 set_option backward.isDefEq.respectTransparency false
-def dummyDigest0 : Digest := BitVec.ofNat 128 237607354018182363071369194017674268962
+/-- Campaign R6: the D1c word of `dummyTop` (`0x40bb44891224489122818181818181a9`; spare bit 0, not blocked). -/
+def dummyDigest0 : Digest := BitVec.ofNat 128 86042941306506535594123339452299444649
 def dummyDigestLow : Digest := BitVec.ofNat 128 267364716866451649887797291077026409910
 def dummyDigest (lay : Layer) : Digest := if lay.val = 0 then dummyDigest0 else dummyDigestLow
 theorem dummyDigest_decode (lay : Layer) : decode lay (dummyDigest lay) = some (dummyDigits lay) := by
@@ -22,6 +23,7 @@ theorem dummyDigest_decode (lay : Layer) : decode lay (dummyDigest lay) = some (
     decide +kernel
   · show decode 3 dummyDigestLow = some (dummyDigits 3)
     decide +kernel
+
 end SigGolfCandidate.T3.Security.WotsExtract
 namespace SigGolfCandidate.T3.Security.Wots
 open SigGolfCandidate.T3 SigGolfCandidate.T3.Security.WotsExtract

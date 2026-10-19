@@ -13,7 +13,7 @@ def NeverW (A : Nat) : Prop :=
 def BaseA (A : Nat) : Prop :=
   A = PRIV ∨ A = PRIV + 8 ∨ A = PRIV + 32 ∨ A = PRIV + 40 ∨ A = PRIV + 48 ∨ A = PRIV + 56 ∨
     (REGION ≤ A ∧ A < REGION + 131040) ∨ NeverW A ∨
-      (Search.TOP_DATA ≤ A ∧ A < Search.TOP_DATA + 2944)
+      (Search.TOP_DATA ≤ A ∧ A < Search.TOP_DATA + 3744)
 structure Base (sk : SecretKey) (cache : Bytes 131072) (t : MachineState) (cfFlag : Nat := 1) : Prop where
   x5 : t.getReg .x5 = 0
   p0 : t.getMem (BitVec.ofNat 64 PRIV) = sk.extractLsb' 0 64
@@ -24,9 +24,12 @@ structure Base (sk : SecretKey) (cache : Bytes 131072) (t : MachineState) (cfFla
   p56 : t.getMem (BitVec.ofNat 64 (PRIV + 56)) = 0
   region : ∀ k < 16380, t.getMem (BitVec.ofNat 64 (REGION + 8 * k)) = cache.extractLsb' (64 * (k + 4)) 64
   zero : ∀ A < 2 ^ 64, NeverW A → t.getMem (BitVec.ofNat 64 A) = 0
-  table : Search.TableOK t
-  cf : Search.CfTableOK cfFlag t
-  reward : Search.Reward.RewardTablesOK t
+  /-- Campaign R6: only the choice flag byte (TOP_DATA + 631) of the cf block is read. -/
+  cf : Search.CfFlagOK cfFlag t
+  /-- Campaign R6: only the lower reward tables (TOP_DATA + 1024..2047) are read. -/
+  reward : Search.Reward.LowerTablesOK t
+  /-- Campaign R6: the packed top tables (1696 bytes at `TOP_DATA + 2048 = 0xFFF800`) read by the top kernel. -/
+  r6 : Search.R6TableOK 0xFFF800 t
 variable {cfFlag : Nat}
 theorem Base.frame {sk : SecretKey} {cache : Bytes 131072} {t u : MachineState} {W : Nat → Prop}
     {l : List Reg} (h : Base (cfFlag := cfFlag) sk cache t) (hf : Frame t u W) (hr : RegsExcept t u l) (h5 : .x5 ∉ l)
@@ -43,15 +46,15 @@ theorem Base.frame {sk : SecretKey} {cache : Bytes 131072} {t u : MachineState} 
   · rw [g _ (by sg_omega) (by unfold BaseA; right; right; right; right; right; right; left; sg_omega),
       h.region k hk]
   · rw [g _ hA (by unfold BaseA; right; right; right; right; right; right; right; left; exact hn), h.zero A hA hn]
-  · exact h.table.frame hf (fun i hi => hW _ (by unfold Search.TOP_DATA; omega) (by
-      unfold BaseA
-      right; right; right; right; right; right; right; right
-      unfold Search.TOP_DATA; omega))
   · exact h.cf.frame hf (fun i hi hi' => hW _ (by unfold Search.TOP_DATA; omega) (by
       unfold BaseA
       right; right; right; right; right; right; right; right
       unfold Search.TOP_DATA; omega))
   · exact h.reward.frame hf (fun i hi hi' => hW _ (by unfold Search.TOP_DATA; omega) (by
+      unfold BaseA
+      right; right; right; right; right; right; right; right
+      unfold Search.TOP_DATA; omega))
+  · exact h.r6.frame hf (by decide) (fun i hi => hW _ (by omega) (by
       unfold BaseA
       right; right; right; right; right; right; right; right
       unfold Search.TOP_DATA; omega))

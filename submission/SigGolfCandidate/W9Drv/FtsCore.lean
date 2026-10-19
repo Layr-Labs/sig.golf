@@ -735,7 +735,7 @@ theorem coord_next (pk : Digest) (w : ClaudeWCT.W9.T3M.WBytes) (a : HashOutput) 
     · change (t.getMem (BitVec.ofNat 64 CTRW)).toNat / 2 ^ 32 = 0
       rw [hm CTRW (by decide) (Or.inl (by decide))]
       exact hhalf
-    · refine ⟨?_, fun lay hl => ?_, ?_⟩
+    · refine ⟨?_, fun lay hl => ?_, ?_, ?_⟩
       · rw [hm (TOPBASE-8) (by unfold TOPBASE; omega) (Or.inr (by unfold TOPBASE; omega))]
         exact hdata.mask
       · have hb := hdrAddr_bounds lay
@@ -743,6 +743,8 @@ theorem coord_next (pk : Digest) (w : ClaudeWCT.W9.T3M.WBytes) (a : HashOutput) 
         exact hdata.header lay hl
       · rw [hm (TOPB9+56) (by unfold TOPB9; omega) (Or.inr (by unfold TOPB9; omega))]
         exact hdata.buffer3
+      · rw [hm (TOPB9-288) (by unfold TOPB9; omega) (Or.inr (by unfold TOPB9; omega))]
+        exact hdata.mask6
   have hb6 : (ClaudeWCT.WCT9.child a k).val / 64 % 2 = 0 ∨ (ClaudeWCT.WCT9.child a k).val / 64 % 2 = 1 := by omega
   have hra := regionAddr_succ k.val hk
   have hbase : coordinateBase k = regionAddr k.val := by unfold coordinateBase regionAddr; omega
@@ -1811,7 +1813,7 @@ theorem next (pk : Digest) (w : ClaudeWCT.W9.T3M.WBytes) (a : HashOutput) (k : F
     · change (t.getMem (BitVec.ofNat 64 CTRW)).toNat / 2 ^ 32 = 0
       rw [hm CTRW (by decide) (Or.inl (by decide))]
       exact hhalf
-    · refine ⟨?_, fun lay hl => ?_, ?_⟩
+    · refine ⟨?_, fun lay hl => ?_, ?_, ?_⟩
       · rw [hm (TOPBASE-8) (by unfold TOPBASE; omega) (Or.inr (by unfold TOPBASE; omega))]
         exact hdata.mask
       · have hb := hdrAddr_bounds lay
@@ -1819,6 +1821,8 @@ theorem next (pk : Digest) (w : ClaudeWCT.W9.T3M.WBytes) (a : HashOutput) (k : F
         exact hdata.header lay hl
       · rw [hm (TOPB9+56) (by unfold TOPB9; omega) (Or.inr (by unfold TOPB9; omega))]
         exact hdata.buffer3
+      · rw [hm (TOPB9-288) (by unfold TOPB9; omega) (Or.inr (by unfold TOPB9; omega))]
+        exact hdata.mask6
   have hb6 : SharedV3.direction k.val (SharedV3.physical k.val (SharedForest.rawChildFromOutput a k).val) = 0 ∨ SharedV3.direction k.val (SharedV3.physical k.val (SharedForest.rawChildFromOutput a k).val) = 1 := by unfold SharedV3.direction; omega
   have hra := regionAddr_succ k.val hk
   have hbase : coordinateBase k = regionAddr k.val := by unfold coordinateBase regionAddr; omega

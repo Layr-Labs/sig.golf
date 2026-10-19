@@ -103,7 +103,7 @@ theorem maskOK_of_lt {a : ChainAddr} (h : a.key.leaf < 2 ^ 24) : MaskOK a := Or.
 theorem wotsSeed_maskAt (lay : Layer) (tree leaf i : Nat) :
     WCT9.wotsSeed (maskAt answers a) lay tree leaf i = WCT9.wotsSeed answers lay tree leaf i :=
   wotsSeed_congr_private (fun c => maskAt_private answers a c) lay tree leaf i
-/-- Seeds of aliased leaves agree: the coefficient cells only see `tree % 2 ^ 40` and, for the top layer (24
+/-- Seeds of aliased leaves agree: the coefficient cells only see `tree % 2 ^ 40` and, for the top layer (10
 coefficients, an even count), `leaf % 2 ^ 32`; lower leaves (17 coefficients) need small leaf indices. -/
 theorem wotsSeed_alias (T : Answers) {lay : Layer} {tree leaf : Nat} {L : LeafAddr}
     (h : LeafAlias lay tree leaf L) (hb : lay = 0 ∨ (leaf < 2 ^ 24 ∧ L.leaf < 2 ^ 24)) (i : Nat) :
@@ -118,8 +118,8 @@ theorem wotsSeed_alias (T : Answers) {lay : Layer} {tree leaf : Nat} {L : LeafAd
     unfold WCT9.famOrdinal
     generalize j.val = jv at hj ⊢
     rcases hb with h0 | ⟨hl, hL⟩
-    · have h24 : WCT9.famCount L.lay = 24 := by rw [h0]; rfl
-      rw [h24] at hj ⊢
+    · have h10 : WCT9.famCount L.lay = 10 := by rw [h0]; rfl
+      rw [h10] at hj ⊢
       omega
     · have he : leaf = L.leaf := by
         rw [Nat.mod_eq_of_lt (by omega), Nat.mod_eq_of_lt (by omega)] at hlf
@@ -134,6 +134,7 @@ theorem wotsSeed_alias (T : Answers) {lay : Layer} {tree leaf : Nat} {L : LeafAd
     unfold WCT9.seedHalf
     rw [hpar]
   rw [WCT9.wotsSeed_fam, WCT9.wotsSeed_fam, hc]
+
 end Mask
 namespace Mask
 open SigGolfCandidate.T3.Security.Wots.Mask

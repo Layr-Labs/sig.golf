@@ -157,6 +157,10 @@ theorem verifyData_header (lay : Nat) (hl : lay < 4) :
 theorem verifyData_buffer3 :
     bytesToWordLE ((((submission.image .verify).data).drop 360).take 8) = 22240#64 := by
   decide +kernel
+/-- Campaign R6: verify data word 16 is the r6 field mask 0xFF00. -/
+theorem verifyData_mask6 :
+    bytesToWordLE ((((submission.image .verify).data).drop 16).take 8) = 65280#64 := by
+  decide +kernel
 theorem verifyData_initialMask :
     bytesToWordLE ((((submission.image .verify).data).take 8)) = 0xfff#64 := by
   decide +kernel
@@ -279,7 +283,7 @@ theorem init_ok (m : Legacy.Message) (pk : PublicKey) (w : Bytes 23236) (s : Mac
     unfold WIT at hA
     rw [gm, g3 _ (by omega), if_neg (by omega), g2 _ (by omega), if_neg (by omega), g1 _ (by omega),
       if_neg (by unfold MSGADDR; omega), g0z A (by unfold VERIFY_DATA; omega)]
-  · refine ⟨?_, ?_, ?_⟩
+  · refine ⟨?_, ?_, ?_, ?_⟩
     · rw [gm, g3 _ (by unfold TOPBASE; omega), if_neg (by unfold TOPBASE; omega),
         g2 _ (by unfold TOPBASE; omega), if_neg (by unfold TOPBASE; omega),
         g1 _ (by unfold TOPBASE; omega), if_neg (by unfold TOPBASE MSGADDR; omega),
@@ -301,6 +305,12 @@ theorem init_ok (m : Legacy.Message) (pk : PublicKey) (w : Bytes 23236) (s : Mac
         g0 _ (by unfold TOPB9; omega), if_pos (by unfold TOPB9 VERIFY_DATA; omega),
         show TOPB9 + 56 - VERIFY_DATA = 360 by unfold TOPB9 VERIFY_DATA; omega,
         verifyData_buffer3]
+    · rw [gm, g3 _ (by unfold TOPB9; omega), if_neg (by unfold TOPB9; omega),
+        g2 _ (by unfold TOPB9; omega), if_neg (by unfold TOPB9; omega),
+        g1 _ (by unfold TOPB9; omega), if_neg (by unfold TOPB9 MSGADDR; omega),
+        g0 _ (by unfold TOPB9; omega), if_pos (by unfold TOPB9 VERIFY_DATA; omega),
+        show TOPB9 - 288 - VERIFY_DATA = 16 by unfold TOPB9 VERIFY_DATA; omega,
+        verifyData_mask6]
   · simp [MachineState.setReg, MachineState.getReg]
     exact congrArg (BitVec.ofNat 64) eD
 end SigGolfCandidate.T3M.Verify

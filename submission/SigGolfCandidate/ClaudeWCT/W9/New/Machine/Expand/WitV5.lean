@@ -13,8 +13,23 @@ def bcTopBlockV6 (lay : Layer) (leaf : Nat) (ls : LayerSignature lay) (ctr : Bit
   else zeros 32 ++ bytesLE 4 ctr ++ zeros 12 ++ bytesLE 16 (ls.path (WCT9.topLevel lay))
 def layerBytesBCV6 (lay : Layer) (leaf : Nat) (ls : LayerSignature lay) (ctr : BitVec 32) : List UInt8 :=
   bcTopBlockV6 lay leaf ls ctr ++ (layerBytes lay leaf ls).drop 64
+/-- Campaign R6: dead chain blocks of the expander's staging region: the top keeps main's 54 chain blocks
+(`topChainBlocks`), so the blocks of main's chains 52/53 (directly above the path blocks) stay zero. -/
+def vGap (lay : Layer) : Nat := if lay.val = 0 then ClaudeWCT.W9.T3M.topChainBlocks - chainCount lay else 0
+/-- Campaign R6: 64-byte blocks of the staging region of layer `lay` (top 12 + 2 + 52 = 66, as main). -/
+def vBlocks (lay : Layer) : Nat := height lay + vGap lay + chainCount lay
+/-- Campaign R6: insert the dead blocks after the path blocks. -/
+def gapV6 (lay : Layer) (L : List UInt8) : List UInt8 :=
+  L.take (64 * height lay) ++ zeros (64 * vGap lay) ++ L.drop (64 * height lay)
+theorem vGap_top : vGap 0 = 2 := rfl
+theorem vGap_low (lay : Layer) (h : lay.val ≠ 0) : vGap lay = 0 := by unfold vGap; rw [if_neg h]
+theorem gapV6_low (lay : Layer) (h : lay.val ≠ 0) (L : List UInt8) : gapV6 lay L = L := by
+  unfold gapV6; rw [vGap_low lay h]; simp [zeros]
+theorem vBlocks_low (lay : Layer) (h : lay.val ≠ 0) : vBlocks lay = height lay + chainCount lay := by
+  unfold vBlocks; rw [vGap_low lay h, Nat.add_zero]
+theorem vBlocks_vals : vBlocks 0 = 66 ∧ vBlocks 1 = 50 ∧ vBlocks 2 = 49 ∧ vBlocks 3 = 49 := by decide
 def layerRegionV6 (N : HashOutput) (w : WCT9.Witness) (lay : Layer) : List UInt8 :=
-  if lay.val = 0 then layerBytes lay (route (WCT9.digestIndex N) lay).1 (w.signature.layers lay)
+  if lay.val = 0 then gapV6 lay (layerBytes lay (route (WCT9.digestIndex N) lay).1 (w.signature.layers lay))
   else layerBytesBCV6 lay (route (WCT9.digestIndex N) lay).1 (w.signature.layers lay)
     (w.counters (Fin.ofNat 4 (lay.val - 1)))
 /-- Staging region of the compaction pass (nested FTS): the witness region with both pads zero (896 bytes). -/
@@ -69,15 +84,23 @@ theorem layerBytesBCV6_length (lay : Layer) (leaf : Nat) (ls : LayerSignature la
   have := height_pos lay
   have : 64 ≤ 64 * (height lay + chainCount lay) := by nlinarith
   omega
+theorem gapV6_length (lay : Layer) (L : List UInt8) (hL : L.length = 64 * (height lay + chainCount lay)) :
+    (gapV6 lay L).length = 64 * vBlocks lay := by
+  unfold gapV6 vBlocks
+  simp only [List.length_append, List.length_take, List.length_drop, hL, zeros, List.length_replicate]
+  rw [Nat.min_eq_left (by nlinarith)]
+  rw [Nat.mul_add, Nat.mul_add, Nat.mul_add]; omega
 theorem layerRegionV6_length (N : HashOutput) (w : WCT9.Witness) (lay : Layer) :
-    (layerRegionV6 N w lay).length = 64 * (height lay + chainCount lay) := by
+    (layerRegionV6 N w lay).length = 64 * vBlocks lay := by
   unfold layerRegionV6; split
-  · exact SigGolfCandidate.T3M.layerBytes_length _ _ _
-  · exact layerBytesBCV6_length _ _ _ _
+  · exact gapV6_length _ _ (SigGolfCandidate.T3M.layerBytes_length _ _ _)
+  · rename_i h
+    rw [layerBytesBCV6_length]; unfold vBlocks; rw [vGap_low lay h, Nat.add_zero]
 theorem layersV6_length (N : HashOutput) (w : WCT9.Witness) :
     ((List.finRange 4).flatMap (layerRegionV6 N w)).length = 13696 := by
   simp only [List.length_flatMap, layerRegionV6_length]
-  simp [List.finRange, height, chainCount]
+  simp [List.finRange, vBlocks, vGap, ClaudeWCT.W9.T3M.topChainBlocks, height, chainCount]
+
 theorem witListV5_length (N : HashOutput) (w : WCT9.Witness) : (witListV5 N w).length = 22984 := by
   unfold witListV5
   simp only [List.length_append, headerBytesV5_length, wctBytesV5_length, zeros,

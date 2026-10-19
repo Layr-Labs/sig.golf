@@ -2,7 +2,7 @@ import SigGolfCandidate.T3M.Keygen.PackedBlocks
 
 namespace SigGolfCandidate.T3M.Keygen
 open RiscvZkvm.Rv64 SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv SigGolfCandidate.Rv
-def seg_0 : List (BitVec 32) := [659,0x8000e93,134967,963331,9352067,7286819,8336419,0x9000e93,134967,34541331,963331,9352067,7286819,8336419,134967,34551843,34552867,1043,1171,56626451,53480851,3987,133943,0x460b0b13,327991,2323]
+def seg_0 : List (BitVec 32) := [659,0x8000e93,134967,963331,9352067,7286819,8336419,0x9000e93,134967,34541331,963331,9352067,7286819,8336419,134967,34551843,34552867,1043,1171,54529299,53480851,3987,133943,0x460b0b13,327991,2323]
 def seg_26 : List (BitVec 32) := [4919,40456803]
 def seg_28 : List (BitVec 32) := [138167,0xa00b8b93,6882227,4428691,2329779,465567983]
 def seg_34 : List (BitVec 32) := [1640723,0xfddff06f]
@@ -96,25 +96,30 @@ def sub106K : List (BitVec 32) := [5152403,0x41d60eb3,17740547,26129283,7122979,
 def sub120K : List (BitVec 32) := [6037011,3018291,134967,537857811,930563,9319299,7286819,8336419,134967,588189459,17707779,26096515,7286819,8336419,33857043,30073651,25363251,0xfe6f3023,0xfe0f3423,1867411]
 def sub140K : List (BitVec 32) := [5152403,132407,537199891,67110291,132663,604374547]
 def sub147K : List (BitVec 32) := [4988435,3018291,0x41d60eb3,17740547,26129283,7221283,8270883,19,1838099,0xf69ff06f]
-/-- Offsets where the keygen's leaf subroutine differs from `subL` (T8D: 27, 42, 44, 75; C4: 96, 106, 120, 140, 147). -/
+/-- Campaign R6 (word 199): the keygen's chain-end slot step is `addi t3, t3, 48` (top leaf `P | 0^32 | ends`); the
+sign keeps `sub_82` (`addi t3, t3, 16`). -/
+def sub82K : List (BitVec 32) := [0x30e0e13]
+/-- Offsets where the keygen's leaf subroutine differs from `subL` (T8D: 27, 42, 44, 75; C4: 96, 106, 120, 140, 147;
+R6: 82). -/
 def kOwn (off : Nat) : Bool := off = 27 || off = 42 || off = 44 || off = 75 || off = 96 || off = 106 || off = 120 ||
-  off = 140 || off = 147
+  off = 140 || off = 147 || off = 82
 /-- The keygen copy of the leaf subroutine (offsets relative to 117). -/
 def kSubL : Rv.Layout := subL.map fun p =>
   if p.1 = 27 then (27, sub27K) else if p.1 = 42 then (42, sub42K) else if p.1 = 44 then (44, sub44K)
   else if p.1 = 75 then (75, sub75K) else if p.1 = 96 then (96, sub96K) else if p.1 = 106 then (106, sub106K)
   else if p.1 = 120 then (120, sub120K) else if p.1 = 140 then (140, sub140K) else if p.1 = 147 then (147, sub147K)
-  else p
+  else if p.1 = 82 then (82, sub82K) else p
 theorem kSubL_ok : layoutOk 0 kSubL = true := by decide +kernel
-/-- COEFGEN (612..640): the 12 private pairs `privatePair 0 0 0 (12 leaf + j) 0` into the 24 coefficients at COEF. -/
-def coefgenCode : List (BitVec 32) := [138295,12586771,65603379,34019091,1533715,3731,132407,15022115,343075,67110291,67438099,115,67449347,4993059,75837955,4994083,84226563,4995107,92615171,4996131,34343955,1052435,34545427,31917875,2002579,12586771,4226717923,2451,32871]
-/-- HORN (642..682): `familyEval coefs a3` into CHAIN + 48. -/
-def hornCode : List (BitVec 32) := [1811,1939,136503,402982163,136631,4278519059,2067,3091,531,1555,429715,2031379,985187,15222835,16534579,12730931,66576147,1447443,31876659,66543379,1546131,31975347,1513235,2023059,4228814563,1187603,32000051,2236179,32000051,7479059,32000051,4737075,343811,31999795,8732419,32262067,4172616419,134967,485439523,486489123,32871]
-/-- CAP (684..688): `s5 = maxDigit 0 s3` (4 below chain 51, else 7). -/
-def capCode : List (BitVec 32) := [4197011,53481235,2246690531,7342739,2220879983]
+/-- COEFGEN (612..640): the 5 private pairs `privatePair 0 0 0 (5 leaf + j) 0` into the 10 coefficients at COEF
+(campaign R6: words 613 and 637 `li t5, 5`). -/
+def coefgenCode : List (BitVec 32) := [138295,5246739,65603379,34019091,1533715,3731,132407,15022115,343075,67110291,67438099,115,67449347,4993059,75837955,4994083,84226563,4995107,92615171,4996131,34343955,1052435,34545427,31917875,2002579,5246739,4226717923,2451,32871]
+/-- HORN (642..682): `familyEval coefs a3` into CHAIN + 48 (campaign R6: word 645 starts at coefficient 9). -/
+def hornCode : List (BitVec 32) := [1811,1939,136503,168101139,136631,4278519059,2067,3091,531,1555,429715,2031379,985187,15222835,16534579,12730931,66576147,1447443,31876659,66543379,1546131,31975347,1513235,2023059,4228814563,1187603,32000051,2236179,32000051,7479059,32000051,4737075,343811,31999795,8732419,32262067,4172616419,134967,485439523,486489123,32871]
+/-- CAP (684..691): `s5 = maxDigit 0 s3` (campaign R6: 5 below chain 24, 4 below chain 51, else 7). -/
+def capCode : List (BitVec 32) := [0x500a93,0x1800f13,0x85e9c6e3,0x400a93,0x3300f13,0x85e9c0e3,0x700a93,0x839ff06f]
 def seg_542 : List (BitVec 32) :=
   List.replicate 45 0x00000013 ++ packedHelper ++ coefgenCode ++ [0x00000013] ++ hornCode ++ [0x00000013] ++
-    capCode ++ List.replicate 428 0x00000013
+    capCode ++ List.replicate 425 0x00000013
 def mainL : Rv.Layout := [(0, seg_0), (26, seg_26), (28, seg_28), (34, seg_34), (36, seg_36), (39, seg_39), (48, seg_48), (50, seg_50), (51, seg_51), (52, seg_52), (64, seg_64), (65, seg_65), (81, seg_81), (84, seg_84), (113, seg_113), (114, seg_114), (116, seg_116), (117, layoutCode kSubL), (277, seg_277), (289, seg_289), (295, seg_295), (309, seg_309), (310, seg_310), (330, seg_330), (334, seg_334), (542, seg_542), (1117, maxDigitCode), (1121, revCode)]
 theorem mainL_ok : layoutOk 0 mainL = true := by decide +kernel
 abbrev image : Image := Images.keygenImage
@@ -184,9 +189,9 @@ theorem subAt_keygen : SubAt image 117 := by
   refine ⟨?_, Or.inl rfl, codeAt_max, codeAt_1121, rfl, rfl⟩
   intro off code hm hk
   simp only [kOwn, Bool.or_eq_false_iff, decide_eq_false_iff_not] at hk
-  obtain ⟨⟨⟨⟨⟨⟨⟨⟨h27, h42⟩, h44⟩, h75⟩, h96⟩, h106⟩, h120⟩, h140⟩, h147⟩ := hk
+  obtain ⟨⟨⟨⟨⟨⟨⟨⟨⟨h27, h42⟩, h44⟩, h75⟩, h96⟩, h106⟩, h120⟩, h140⟩, h147⟩, h82⟩ := hk
   have hp : (off, code) ∈ kSubL := List.mem_map.mpr ⟨(off, code), hm, by
-    simp [h27, h42, h44, h75, h96, h106, h120, h140, h147]⟩
+    simp [h27, h42, h44, h75, h96, h106, h120, h140, h147, h82]⟩
   obtain ⟨i, hi⟩ := List.mem_iff_getElem?.mp hp
   exact codeAt_sublayout codeAt_kSubCode kSubL_ok hi
 /-- C4: a keygen-only segment of `kSubL` at `117 + off`. -/
@@ -261,9 +266,9 @@ theorem codeAt_sub_79 {image : Image} {b : Nat} (h : SubAt image b) :
 theorem codeAt_sub_80 {image : Image} {b : Nat} (h : SubAt image b) :
     CodeAt image (pcOf (b + 80)) sub_80 :=
   h.1 80 sub_80 (by decide +kernel) (by decide)
-theorem codeAt_sub_82 {image : Image} {b : Nat} (h : SubAt image b) :
-    CodeAt image (pcOf (b + 82)) sub_82 :=
-  h.1 82 sub_82 (by decide +kernel) (by decide)
+theorem codeAt_sub82K {image : Image} {b : Nat} (h : SubAt image b) :
+    CodeAt image (pcOf (b + 82)) sub82K :=
+  codeAt_kSub h (by decide +kernel)
 theorem codeAt_sub_83 {image : Image} {b : Nat} (h : SubAt image b) :
     CodeAt image (pcOf (b + 83)) sub_83 :=
   h.1 83 sub_83 (by decide +kernel) (by decide)

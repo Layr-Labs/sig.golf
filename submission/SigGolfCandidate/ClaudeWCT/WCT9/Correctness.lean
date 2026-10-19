@@ -825,7 +825,7 @@ def lowerCoef (answers : Answers) (lay : Layer) (tree leaf : Nat) (j : Fin lower
 def lowerSeed (answers : Answers) (lay : Layer) (tree leaf i : Nat) : Digest :=
   ClaudeWCT.Arith.familyEval (List.ofFn (lowerCoef answers lay tree leaf)) (lowerPoint i)
 /-! ### Campaign T8D: one seed family per leaf at every layer (security-facing view)
-Top leaves (24 coefficients, `Correctness.topCoefN`) and lower leaves (17 coefficients, `lowerCoefN`) are both read
+Top leaves (campaign R6: 10 coefficients, `Correctness.topCoefN`) and lower leaves (17 coefficients, `lowerCoefN`) are both read
 through the cells `lowerSeedPair lay tree (famOrdinal lay leaf j / 2)`, half `famOrdinal lay leaf j % 2`, and the seed
 of chain `i` is the family evaluated at `i + 1` (`wotsSeed_fam`). -/
 def famCount (lay : Layer) : Nat := if lay = 0 then topCoefCount else lowerCoefCount
@@ -834,7 +834,8 @@ def famCoefN (answers : Answers) (lay : Layer) (tree leaf j : Nat) : Digest :=
   seedHalf (evalWithAnswerFn answers (lowerSeedPair lay tree (famOrdinal lay leaf j / 2))) (famOrdinal lay leaf j)
 def famCoef (answers : Answers) (lay : Layer) (tree leaf : Nat) (j : Fin (famCount lay)) : Digest :=
   famCoefN answers lay tree leaf j.val
-theorem famCount_top : famCount 0 = 24 := rfl
+/-- Campaign R6: 10 top coefficients (5 pairs). -/
+theorem famCount_top : famCount 0 = 10 := rfl
 theorem famCount_lower {lay : Layer} (h : lay ≠ 0) : famCount lay = 8 := by
   unfold famCount; rw [if_neg h]; rfl
 theorem famCount_ge (lay : Layer) : 8 ≤ famCount lay := by

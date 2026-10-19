@@ -266,7 +266,7 @@ theorem mem_lowerZeros (T : Answers) (L : LowerLeaf) (a : ChainGraph.Address) :
       Wots.depth T (SigGolfCandidate.T3.Security.LargeCoupling.wotsAddr a) = 0 := by
   unfold lowerZeros
   simp only [Finset.mem_filter, Finset.mem_univ, true_and]
-/-- At most `famCount − 3` revealed seeds per leaf (14 lower, `lower_zero_count_le`; 20 top, `top_zero_count_le`). -/
+/-- At most `famCount − 3` revealed seeds per leaf (campaign R6: the producer zero filter, top ≤ 7 of 10, lower ≤ 5 of 8). -/
 theorem lowerZeros_card (T : Answers) (L : LowerLeaf) : (lowerZeros T L).card + 3 ≤ WCT9.famCount L.1.1 := by
   set K : Wots.LeafAddr := ⟨L.1.1, L.1.2.1.val, L.1.2.2.val⟩ with hK
   set ds := Wots.referenceDigits T K with hds
@@ -274,16 +274,8 @@ theorem lowerZeros_card (T : Answers) (L : LowerLeaf) : (lowerZeros T L).card + 
   rw [← hds] at hp
   have hdec := WCT9.producerDecode_decode hp
   have hlen : ds.length = chainCount L.1.1 := (SigGolfCandidate.T3.decode_length_sum hdec).1
-  have hzero : (ds.filter (· = 0)).length + 3 ≤ WCT9.famCount L.1.1 := by
-    by_cases h0 : L.1.1 = 0
-    · have h0' : K.lay = 0 := h0
-      rw [h0'] at hdec
-      have := ClaudeWCT.WCT9.top_zero_count_le ClaudeWCT.WCT9.top_target_ge hdec
-      rw [h0, WCT9.famCount_top]
-      omega
-    · have := WCT9.lower_zero_count_le_producer h0 hp
-      rw [WCT9.famCount_lower h0]
-      omega
+  have hzero : (ds.filter (· = 0)).length + 3 ≤ WCT9.famCount L.1.1 :=
+    Wots.Leaf.zeroBound_famCount (WCT9.producerDecode_zeroBound hp)
   refine le_trans (Nat.add_le_add_right (Finset.card_le_card_of_injOn
     (t := (Finset.range ds.length).filter fun i => ds.getD i 0 = 0) (fun a => a.chain.val) ?_ ?_) 3) ?_
   · intro a ha
@@ -302,6 +294,7 @@ theorem lowerZeros_card (T : Answers) (L : LowerLeaf) : (lowerZeros T L).card + 
     simp only [Prod.mk.injEq] at hL
     exact ChainGraph.Address.ext hL.1 hL.2.1 hL.2.2 (Fin.ext hab)
   · rw [idx_zero_card]; exact hzero
+
 theorem layerItems_seed_lt (digitsOf : Wots.LeafAddr → List Nat) (index : Fin (2 ^ 31)) (a : ChainGraph.Address)
     (h : (.inr (.inl a) : Coord) ∈ layerItems digitsOf index) : a.chain.val < chainCount a.layer := by
   unfold layerItems at h
@@ -787,7 +780,7 @@ theorem mem_lowerZeros (T : Answers) (L : LowerLeaf) (a : ChainGraph.Address) :
       Wots.CanonicalRef.depth T (Wots.CanonicalRef.sourceMessages T) (SigGolfCandidate.T3.Security.LargeCoupling.wotsAddr a) = 0 := by
   unfold lowerZeros
   simp only [Finset.mem_filter, Finset.mem_univ, true_and]
-/-- At most `famCount − 3` revealed seeds per leaf (14 lower, `lower_zero_count_le`; 20 top, `top_zero_count_le`). -/
+/-- At most `famCount − 3` revealed seeds per leaf (campaign R6: the producer zero filter, top ≤ 7 of 10, lower ≤ 5 of 8). -/
 theorem lowerZeros_card (T : Answers) (L : LowerLeaf) : (lowerZeros T L).card + 3 ≤ WCT9.famCount L.1.1 := by
   set K : Wots.LeafAddr := ⟨L.1.1, L.1.2.1.val, L.1.2.2.val⟩ with hK
   set ds := Wots.CanonicalRef.referenceDigits T (Wots.CanonicalRef.sourceMessages T) K with hds
@@ -811,16 +804,7 @@ theorem lowerZeros_card (T : Answers) (L : LowerLeaf) : (lowerZeros T L).card + 
             (WCT9.searchLimit K.lay) 0 counter digits low hs⟩
       simp only [Wots.CanonicalRef.referenceDigits,hs,Option.map_some,Option.getD_some]
       obtain ⟨floor,value,hd⟩ := hd
-      have hp := WCT9.CanonicalPolicy.producerDecodeAt_spec hd
-      by_cases hz : L.1.1=0
-      · have hdec : decode 0 value=some digits := by
-          simpa only [WCT9.CanonicalPolicy.decode,WCT9.CanonicalPolicy.normalLayer,show K.lay=0 from hz,ite_true] using hp.1
-        have hb := WCT9.top_zero_count_le WCT9.top_target_ge hdec
-        rw [hz,WCT9.famCount_top]
-        omega
-      · have hb := hp.2.2.1.resolve_left hz
-        rw [WCT9.famCount_lower hz]
-        omega
+      exact Wots.Leaf.zeroBound_famCount (WCT9.CanonicalPolicy.producerDecodeAt_spec hd).2.2.1
   refine le_trans (Nat.add_le_add_right (Finset.card_le_card_of_injOn
     (t := (Finset.range ds.length).filter fun i => ds.getD i 0 = 0) (fun a => a.chain.val) ?_ ?_) 3) ?_
   · intro a ha
@@ -839,6 +823,7 @@ theorem lowerZeros_card (T : Answers) (L : LowerLeaf) : (lowerZeros T L).card + 
     simp only [Prod.mk.injEq] at hL
     exact ChainGraph.Address.ext hL.1 hL.2.1 hL.2.2 (Fin.ext hab)
   · rw [idx_zero_card]; exact hzero
+
 theorem layerItems_seed_lt (digitsOf : Wots.LeafAddr → List Nat) (index : Fin (2 ^ 31)) (a : ChainGraph.Address)
     (h : (.inr (.inl a) : Coord) ∈ layerItems digitsOf index) : a.chain.val < chainCount a.layer := by
   unfold layerItems at h

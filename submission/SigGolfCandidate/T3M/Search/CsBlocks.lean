@@ -9,17 +9,6 @@ set_option Elab.async false
 set_option maxRecDepth 8192
 set_option linter.unusedTactic false
 set_option linter.unreachableTactic false
-theorem ext_shr_ofNat (v : BitVec 128) (base k : Nat) (hk : k < 64) :
-    v.extractLsb' base 64 >>> k = BitVec.ofNat 64 (v.toNat / 2 ^ (base + k) % 2 ^ (64 - k)) := by
-  have := ext_shr_mask v base k (64 - k) (by omega)
-  rw [← this]
-  apply BitVec.eq_of_getLsbD_eq
-  intro i hi
-  simp only [BitVec.getLsbD_and, BitVec.getLsbD_ushiftRight, BitVec.getLsbD_extractLsb',
-    BitVec.getLsbD_ofNat, Nat.testBit_two_pow_sub_one, hi, decide_true, Bool.true_and]
-  by_cases h : i < 64 - k
-  · simp [h]
-  · simp [h, show ¬ k + i < 64 by omega]
 theorem ofNat_sub_ult8 (T S : Nat) (hT : T < 2 ^ 63) (hS : S < 2 ^ 63) :
     (BitVec.ofNat 64 T - BitVec.ofNat 64 S).ult 8#64 = decide (S ≤ T ∧ T - S < 8) := by
   simp only [BitVec.ult, BitVec.toNat_sub, BitVec.toNat_ofNat]
@@ -88,8 +77,6 @@ theorem prx_spec {rewardCondition : Prop} (hK : KernAt image b rewardCondition) 
     t3n []
     simp only [ENC] at hn
     rw [if_neg (by omega), if_neg (by omega)]
-theorem rowTweak_eq_rowLo (lay : T3.Layer) (tree leaf : Nat) :
-    T3.rowTweak lay tree leaf = BitVec.ofNat 64 1 ++ rowLo lay tree leaf := rfl
 theorem rowTweak_lo (lay : T3.Layer) (tree leaf : Nat) :
     (T3.rowTweak lay tree leaf).extractLsb' 0 64 = rowLo lay tree leaf :=
   BitVec.extractLsb'_append_eq_right
@@ -188,32 +175,6 @@ theorem cs124_spec {rewardCondition : Prop} (hK : KernAt image b rewardCondition
   · simp [st_124, blk354_124.res, rv_simp]
   · intro r hr; simp at hr; cases r <;> simp_all [st_124, blk354_124.res, rv_simp] <;> rfl
   · intro A _ _; simp [st_124, blk354_124.res, rv_simp]
-theorem topFlip_lo (v : T3.Digest) : (T3.topFlip v).extractLsb' 0 64 = v.extractLsb' 0 64 ^^^ BitVec.ofNat 64 (2 ^ 64 - 1) := by
-  rw [T3.topFlip, BitVec.extractLsb'_xor]; congr 1
-theorem topFlip_hi (v : T3.Digest) : (T3.topFlip v).extractLsb' 64 64 = v.extractLsb' 64 64 ^^^ BitVec.ofNat 64 (2 ^ 55 - 1) := by
-  rw [T3.topFlip, BitVec.extractLsb'_xor]; congr 1
-theorem tc_spec {rewardCondition : Prop} (hK : KernAt image b rewardCondition) (s : MachineState) (hpc : s.pc = pcOf (tcBase b)) (v : T3.Digest)
-    (h6 : s.getReg .x6 = v.extractLsb' 0 64) (h7 : s.getReg .x7 = v.extractLsb' 64 64) :
-    ∃ t, Steps image s 5 5 t ∧ t.pc = pcOf (b + 263) ∧
-      t.getReg .x6 = (T3.topFlip v).extractLsb' 0 64 ∧ t.getReg .x7 = (T3.topFlip v).extractLsb' 64 64 ∧
-      RegsExcept s t [.x6, .x7, .x28] ∧ Frame s t (fun _ => False) := by
-  refine ⟨_, symRun_sound (runc_0 hK.2.1) (codeAt_c_0 hK) s hpc (by simp [stc_0, blkC354_0.res, rv_simp]),
-    ?_, ?_, ?_, ?_, ?_⟩
-  · simp [pcEc_0, blkC354_0.res, E.eval]
-  · rw [topFlip_lo]; simp [stc_0, blkC354_0.res, rv_simp, h6]
-  · rw [topFlip_hi]; simp [stc_0, blkC354_0.res, rv_simp, h7]
-  · intro r hr; simp at hr; cases r <;> simp_all [stc_0, blkC354_0.res, rv_simp] <;> rfl
-  · intro A _ _; simp [stc_0, blkC354_0.res, rv_simp]
-theorem ext64_shr_eq_zero (v : BitVec 128) (k : Nat) (hk : k < 64) :
-    (v.extractLsb' 64 64 >>> k = 0#64) ↔ v.toNat < 2 ^ (64 + k) := by
-  rw [ext_shr_ofNat v 64 k hk, show (0#64) = BitVec.ofNat 64 0 from rfl, ofNat_eq_iff]
-  have hv := v.isLt
-  have h1 : v.toNat / 2 ^ (64 + k) < 2 ^ (64 - k) := by
-    rw [Nat.div_lt_iff_lt_mul (by positivity), ← Nat.pow_add, show 64 - k + (64 + k) = 128 by omega]; exact hv
-  have h2 : v.toNat / 2 ^ (64 + k) < 2 ^ 64 := lt_of_lt_of_le h1 (Nat.pow_le_pow_right (by decide) (by omega))
-  simp only [Nat.mod_eq_of_lt h1, Nat.zero_mod]
-  rw [Nat.mod_eq_of_lt (show v.toNat / 2 ^ (64 + k) < 18446744073709551616 from h2),
-    Nat.div_eq_zero_iff_lt (by positivity)]
 theorem spare_msb (v : BitVec 128) :
     (v.extractLsb' 0 64 &&& v.extractLsb' 64 64).msb = decide (T3.lowerSpare v) := by
   rw [BitVec.msb_and, BitVec.msb_eq_getLsbD_last, BitVec.msb_eq_getLsbD_last]
@@ -229,15 +190,6 @@ theorem cs130_spec {rewardCondition : Prop} (hK : KernAt image b rewardCondition
   · simp [pcE_130, E.eval]
   · intro r hr; cases r <;> simp_all [st_130, blk354_130.res, rv_simp] <;> rfl
   · intro A _ _; simp [st_130, blk354_130.res, rv_simp]
-/-- Campaign T8D (NF17): the former 2^125 range check at `b + 263` is two NOPs. -/
-theorem cs263_spec {rewardCondition : Prop} (hK : KernAt image b rewardCondition) (s : MachineState) (hpc : s.pc = pcOf (b + 263)) :
-    ∃ t, Steps image s 2 2 t ∧ t.pc = pcOf (b + 265) ∧
-      RegsExcept s t [] ∧ Frame s t (fun _ => False) := by
-  refine ⟨_, symRun_sound (run_263 hK.2.1) (codeAt_k_263 hK) s hpc (by simp [st_263, blk354_263.res, rv_simp]),
-    ?_, ?_, ?_⟩
-  · simp [pcE_263, E.eval]
-  · intro r hr; simp at hr; cases r <;> simp_all [st_263, blk354_263.res, rv_simp] <;> rfl
-  · intro A _ _; simp [st_263, blk354_263.res, rv_simp]
 theorem cs132_spec {rewardCondition : Prop} (hK : KernAt image b rewardCondition) (s : MachineState) (hpc : s.pc = pcOf (b + 132)) (v : BitVec 128)
     (T : Nat) (hT : T < 2 ^ 63) (h6 : s.getReg .x6 = v.extractLsb' 0 64) (h7 : s.getReg .x7 = v.extractLsb' 64 64)
     (h25 : s.getReg .x25 = BitVec.ofNat 64 0) (h17 : s.getReg .x17 = BitVec.ofNat 64 T) :

@@ -57,16 +57,18 @@ theorem leafHash_eq_projHash (lay : Layer) (tree leaf : Nat) (ends : List Digest
 theorem leafInput_eq_listInput {lay : Layer} (h0 : lay ≠ 0) (tree leaf : Nat) (ends : List Digest) :
     leafInput lay tree leaf ends = listInput (ends.getD 0 0) (leafTweak lay tree leaf) (ends.drop 1) := by
   simp only [leafInput, T3.leafInput, h0, if_false, listInput]
+/-- Campaign R6: the top leaf input `0^16 | tweak | 0^32 | ends`. -/
 theorem leafInput_top (tree leaf : Nat) (ends : List Digest) :
     leafInput 0 tree leaf ends = bytesLE 16 (0 : Digest) ++ bytesLE 16 (leafTweak 0 tree leaf) ++
-      ends.flatMap (bytesLE 16) := by
+      (zero16 ++ zero16 ++ ends.flatMap (bytesLE 16)) := by
   have hz : bytesLE 16 (0 : Digest) = zero16 := by decide
-  simp only [leafInput, T3.leafInput, if_true, hz]
+  simp only [leafInput, T3.leafInput, if_true, hz, List.append_assoc]
+
 theorem hdrBlock_leafInput (lay : Layer) (tree leaf : Nat) (ends : List Digest) :
     hdrBlock (pad64 (leafInput lay tree leaf ends)) = bytesLE 16 (leafTweak lay tree leaf) := by
   by_cases h0 : lay = 0
   · subst h0
-    rw [leafInput_top, hdrBlock_pad64 _ (by simp [bytesLE_length]; omega), List.append_assoc]
+    rw [leafInput_top, hdrBlock_pad64 _ (by simp [bytesLE_length] <;> omega)]
     exact hdrBlock_prefix _ _ _
   · rw [leafInput_eq_listInput h0]
     exact hdrBlock_listInput _ _ _
@@ -76,11 +78,14 @@ theorem leafInput_ends {lay : Layer} {tree leaf : Nat} {xs ys : List Digest} (hl
   by_cases h0 : lay = 0
   · subst h0
     rw [leafInput_top, leafInput_top] at h
-    have hl : (bytesLE 16 (0 : Digest) ++ bytesLE 16 (leafTweak 0 tree leaf) ++ xs.flatMap (bytesLE 16)).length =
-        (bytesLE 16 (0 : Digest) ++ bytesLE 16 (leafTweak 0 tree leaf) ++ ys.flatMap (bytesLE 16)).length := by
+    have hl : (bytesLE 16 (0 : Digest) ++ bytesLE 16 (leafTweak 0 tree leaf) ++
+          (zero16 ++ zero16 ++ xs.flatMap (bytesLE 16))).length =
+        (bytesLE 16 (0 : Digest) ++ bytesLE 16 (leafTweak 0 tree leaf) ++
+          (zero16 ++ zero16 ++ ys.flatMap (bytesLE 16))).length := by
       simp only [List.length_append, bytesLE_length, digest_list_bytes_length, hlen]
     have h := Sampling.pad64_inj_of_length hl h
     obtain ⟨-, hr⟩ := List.append_inj h (by simp only [List.length_append, bytesLE_length])
+    obtain ⟨-, hr⟩ := List.append_inj hr (by simp only [List.length_append, zero16, List.length_replicate])
     exact flatMap_bytes_injective hlen hr
   · rw [leafInput_eq_listInput h0, leafInput_eq_listInput h0] at h
     exact (listInput_lists hlen hpos h).1

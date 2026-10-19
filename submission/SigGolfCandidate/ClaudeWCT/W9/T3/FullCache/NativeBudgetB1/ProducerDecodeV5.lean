@@ -4,310 +4,633 @@ import SigGolfCandidate.ClaudeWCT.Numerics.LowerZeroCreditCount
 import SigGolfCandidate.ClaudeWCT.Numerics.TopCreditCount
 import SigGolfCandidate.ClaudeWCT.W9.T3.FullCache.NativeBudgetB1.CompletenessV5
 
-namespace SigGolfResearch.NonbinaryTop.EffectiveCounting
+/-! Campaign R6 + RC (COUNT): the R6 top digests and the counting model `R6Top.Word`.
+`encode` packs the 17 ranks into the D1c word (r6 fields at 8g, r5 fields at 7q flipped, r6 group 7 at 119, spare
+bit 127 zero); it is a bijection onto the words with `topRanksValid`. The decoded digit statistics (digit sum, zero
+digits with the checksum, `wordCredit`, `savedCopies`, `topDispatchPenalty`) are the model statistics. -/
+namespace SigGolfResearch.R6Top
+open Finset SigGolfCandidate.T3 SigGolfCandidate.T3.Nonbinary
 open scoped BigOperators
-open Codec Finset Counting
 set_option maxHeartbeats 1000000
 set_option maxRecDepth 100000
-set_option exponentiation.threshold 100000
-set_option Elab.async false
 set_option linter.constructorNameAsVariable false
+set_option linter.unusedSimpArgs false
 
-/-- Safe leaf-buffer copies are local to a triple, plus the first top digit. -/
-def copies5 (first : Bool) (d : Triple5) : Nat :=
-  (if first && decide ((d 0).val = 4) then 1 else 0) +
-  (if (d 0).val = 4 ∧ (d 1).val = 4 then 1 else 0) +
-  (if (d 1).val = 4 ∧ (d 2).val = 4 then 1 else 0)
-def copies8 (d : Triple8) : Nat :=
-  (if (d 0).val = 7 ∧ (d 1).val = 7 then 1 else 0) +
-  (if (d 1).val = 7 ∧ (d 2).val = 7 then 1 else 0)
-def hasPenalty (q : Fin 17) : Bool := decide (q.val ≠ 9 ∧ q.val < 13)
-/-- A penalized group's extra one shifts the global signed score by twelve. -/
-def score5 (first penalized : Bool) (d : Triple5) : Nat :=
-  CreditCounting.credit5 d + 4 * copies5 first d +
-    if penalized then (if tripleSum5 d < 3 then 0 else 1) else 0
-def score8 (d : Triple8) : Nat := CreditCounting.credit8 d + 4 * copies8 d
-def score (w : Codec.Word) : Nat :=
-  (∑ q : Fin 17, score5 (decide (q.val = 0)) (hasPenalty q) (w.1 q)) + score8 w.2
-def stat5 (first penalized : Bool) (d : Triple5) : Nat :=
-  256 * tripleSum5 d + score5 first penalized d
-def stat8 (d : Triple8) : Nat := 256 * tripleSum8 d + score8 d
-def stat (w : Codec.Word) : Nat :=
-  (∑ q : Fin 17, stat5 (decide (q.val = 0)) (hasPenalty q) (w.1 q)) + stat8 w.2
+/-! ### Bit-field packing -/
+def packF : List (Nat × Nat) → Nat
+  | [] => 0
+  | p :: t => p.2 + 2 ^ p.1 * packF t
+def offF : List (Nat × Nat) → Nat → Nat
+  | [], _ => 0
+  | _ :: _, 0 => 0
+  | p :: t, k + 1 => p.1 + offF t k
+def widthF : List (Nat × Nat) → Nat
+  | [] => 0
+  | p :: t => p.1 + widthF t
 
-theorem stat_eq (w : Codec.Word) : stat w = 256 * weight w + score w := by
-  simp only [stat, stat5, stat8, weight, score, Finset.sum_add_distrib, ← Finset.mul_sum]
-  ring
+theorem packF_lt : ∀ (L : List (Nat × Nat)), (∀ p ∈ L, p.2 < 2 ^ p.1) → packF L < 2 ^ widthF L
+  | [], _ => by simp [packF, widthF]
+  | p :: t, h => by
+    have hp := h p (by simp)
+    have ht := packF_lt t (fun q hq => h q (by simp [hq]))
+    simp only [packF, widthF, pow_add]
+    have : packF t + 1 ≤ 2 ^ widthF t := ht
+    nlinarith [Nat.one_le_two_pow (n := p.1)]
 
-theorem score5_le (first penalized : Bool) (d : Triple5) :
-    score5 first penalized d ≤ 12 + if first then 4 else 0 := by
-  revert first penalized d
-  decide +kernel
+theorem packF_field : ∀ (L : List (Nat × Nat)) (k : Nat), (∀ p ∈ L, p.2 < 2 ^ p.1) → (hk : k < L.length) →
+    packF L / 2 ^ offF L k % 2 ^ (L[k]'hk).1 = (L[k]'hk).2
+  | [], k, _, hk => by simp at hk
+  | p :: t, 0, h, _ => by
+    have hp := h p (by simp)
+    simp only [packF, offF, pow_zero, Nat.div_one, List.getElem_cons_zero]
+    rw [Nat.add_mul_mod_self_left, Nat.mod_eq_of_lt hp]
+  | p :: t, k + 1, h, hk => by
+    have hp := h p (by simp)
+    have ih := packF_field t k (fun q hq => h q (by simp [hq])) (by simpa using hk)
+    simp only [packF, offF, List.getElem_cons_succ, pow_add, ← Nat.div_div_eq_div_mul]
+    rw [Nat.add_mul_div_left _ _ (by positivity), Nat.div_eq_of_lt hp, Nat.zero_add]
+    exact ih
 
-theorem score8_le (d : Triple8) : score8 d ≤ 11 := by
-  have hc := CreditCounting.credit8_le d
-  have hs : copies8 d ≤ 2 := by unfold copies8; split_ifs <;> omega
-  unfold score8
-  omega
+/-- The D1c fields of a model word (before the r5 flip). -/
+def fields (w : R6Word) : List (Nat × Nat) :=
+  [(8, (w.1 0).val + 40), (8, (w.1 1).val), (8, (w.1 2).val), (8, (w.1 3).val), (8, (w.1 4).val),
+    (8, (w.1 5).val), (8, (w.1 6).val),
+    (7, (w.2 0).val), (7, (w.2 1).val), (7, (w.2 2).val), (7, (w.2 3).val), (7, (w.2 4).val), (7, (w.2 5).val),
+    (7, (w.2 6).val), (7, (w.2 7).val), (7, (w.2 8).val),
+    (8, (w.1 7).val), (1, 0)]
 
-theorem score_le (w : Codec.Word) : score w ≤ 219 := by
-  have hs : (∑ q : Fin 17, score5 (decide (q.val = 0)) (hasPenalty q) (w.1 q)) ≤
-      ∑ q : Fin 17, (12 + if q.val = 0 then 4 else 0) := by
-    apply Finset.sum_le_sum
-    intro q _
-    simpa using score5_le (decide (q.val = 0)) (hasPenalty q) (w.1 q)
-  have hbound : (∑ q : Fin 17, (12 + if q.val = 0 then 4 else 0)) = 208 := by
-    decide +kernel
-  have ht := score8_le w.2
-  rw [hbound] at hs
-  unfold score
-  omega
+theorem fields_bound (w : R6Word) : ∀ p ∈ fields w, p.2 < 2 ^ p.1 := by
+  simp only [fields, List.forall_mem_cons, List.forall_mem_nil, and_true]
+  exact ⟨by have := (w.1 0).isLt; norm_num; omega,
+    by have := (w.1 1).isLt; norm_num; omega,
+    by have := (w.1 2).isLt; norm_num; omega,
+    by have := (w.1 3).isLt; norm_num; omega,
+    by have := (w.1 4).isLt; norm_num; omega,
+    by have := (w.1 5).isLt; norm_num; omega,
+    by have := (w.1 6).isLt; norm_num; omega,
+    by have := (w.2 0).isLt; norm_num; omega,
+    by have := (w.2 1).isLt; norm_num; omega,
+    by have := (w.2 2).isLt; norm_num; omega,
+    by have := (w.2 3).isLt; norm_num; omega,
+    by have := (w.2 4).isLt; norm_num; omega,
+    by have := (w.2 5).isLt; norm_num; omega,
+    by have := (w.2 6).isLt; norm_num; omega,
+    by have := (w.2 7).isLt; norm_num; omega,
+    by have := (w.2 8).isLt; norm_num; omega,
+    by have := (w.1 7).isLt; norm_num; omega,
+    by norm_num⟩
 
-def group5 (y : Nat) (first penalized : Bool) : Nat := ∑ d : Triple5, y ^ stat5 first penalized d
-def group8 (y : Nat) : Nat := ∑ d : Triple8, y ^ stat8 d
+def code (w : R6Word) : Nat := packF (fields w)
+theorem code_lt (w : R6Word) : code w < 2 ^ 128 := by
+  have h := packF_lt _ (fields_bound w)
+  have hw : widthF (fields w) = 128 := rfl
+  rw [hw] at h
+  exact h
 
-theorem weighted_words (y : Nat) :
-    (∑ w : Codec.Word, y ^ stat w) =
-      group5 y true true * group5 y false true ^ 11 * group5 y false false ^ 5 * group8 y := by
-  rw [Fintype.sum_prod_type]
-  simp only [stat, pow_add]
-  rw [← Finset.sum_mul_sum]
-  have h : (∑ f : Fin 17 → Triple5,
-      y ^ (∑ q : Fin 17, stat5 (decide (q.val = 0)) (hasPenalty q) (f q))) =
-      ∏ q : Fin 17, group5 y (decide (q.val = 0)) (hasPenalty q) := by
-    simpa only [group5, ← Finset.prod_pow_eq_pow_sum] using
-      (Fintype.prod_sum fun (q : Fin 17) (d : Triple5) =>
-        y ^ stat5 (decide (q.val = 0)) (hasPenalty q) d).symm
-  rw [h]
-  change (∏ q : Fin 17, group5 y (decide (q.val = 0)) (hasPenalty q)) * group8 y = _
-  norm_num [Fin.prod_univ_succ, hasPenalty]
-  ring_nf
-  simp
+/-- The digest of a model word. -/
+def encode (w : R6Word) : Digest := topFlip (BitVec.ofNat 128 (code w))
 
-def packed : Nat := group5 radix true true * group5 radix false true ^ 11 *
-  group5 radix false false ^ 5 * group8 radix
+theorem topCode_encode (w : R6Word) : topCode (encode w) = code w := by
+  rw [encode, topCode_topFlip, BitVec.toNat_ofNat, Nat.mod_eq_of_lt (code_lt w)]
 
-theorem truncated_card (cut : Nat) (hc : 0 < cut) :
-    (univ.filter fun w : Codec.Word => stat w < cut).card =
-      (packed % radix ^ cut) % (radix - 1) := by
-  classical
-  unfold packed
-  rw [← weighted_words radix]
+theorem code_field (w : R6Word) (k : Nat) (hk : k < 18) :
+    code w / 2 ^ offF (fields w) k % 2 ^ ((fields w)[k]'(by simpa [fields] using hk)).1 =
+      ((fields w)[k]'(by simpa [fields] using hk)).2 :=
+  packF_field _ k (fields_bound w) _
+
+theorem r6Raw_encode (w : R6Word) (g : Fin 8) :
+    r6Raw (encode w) g.val = if g.val = 0 then (w.1 g).val + 40 else (w.1 g).val := by
+  unfold r6Raw r6Shift
+  rw [topCode_encode]
+  fin_cases g
+  · exact code_field w 0 (by decide)
+  · exact code_field w 1 (by decide)
+  · exact code_field w 2 (by decide)
+  · exact code_field w 3 (by decide)
+  · exact code_field w 4 (by decide)
+  · exact code_field w 5 (by decide)
+  · exact code_field w 6 (by decide)
+  · exact code_field w 16 (by decide)
+
+theorem r6Rank_encode (w : R6Word) (g : Fin 8) : r6Rank (encode w) g.val = (w.1 g).val := by
+  by_cases h : g = 0
+  · subst h
+    have := r6Raw_encode w 0
+    rw [Fin.val_zero, if_pos rfl] at this
+    unfold r6Rank
+    rw [Fin.val_zero, if_pos rfl, this, Nat.add_sub_cancel]
+  · have hg : g.val ≠ 0 := fun e => h (Fin.ext e)
+    have := r6Raw_encode w g
+    rw [if_neg hg] at this
+    unfold r6Rank
+    rw [if_neg hg, this]
+
+theorem r6Valid_encode (w : R6Word) (g : Fin 8) : r6Valid (encode w) g.val = true := by
+  by_cases h : g = 0
+  · subst h
+    have := r6Raw_encode w 0
+    rw [Fin.val_zero, if_pos rfl] at this
+    unfold r6Valid
+    rw [Fin.val_zero, if_pos rfl, this]
+    simp
+  · have hg : g.val ≠ 0 := fun e => h (Fin.ext e)
+    have := r6Raw_encode w g
+    rw [if_neg hg] at this
+    unfold r6Valid
+    rw [if_neg hg, this]
+    simpa using (w.1 g).isLt
+
+theorem r5Rank_encode (w : R6Word) (j : Fin 9) : r5Rank (encode w) (8 + j.val) = (w.2 j).val := by
+  unfold r5Rank
+  rw [topCode_encode]
+  fin_cases j
+  · exact code_field w 7 (by decide)
+  · exact code_field w 8 (by decide)
+  · exact code_field w 9 (by decide)
+  · exact code_field w 10 (by decide)
+  · exact code_field w 11 (by decide)
+  · exact code_field w 12 (by decide)
+  · exact code_field w 13 (by decide)
+  · exact code_field w 14 (by decide)
+  · exact code_field w 15 (by decide)
+
+theorem topSpare_encode (w : R6Word) : topSpare (encode w) = 0 := by
+  unfold topSpare
+  rw [topCode_encode]
+  exact code_field w 17 (by decide)
+
+end SigGolfResearch.R6Top
+
+namespace SigGolfResearch.R6Top
+open Finset SigGolfCandidate.T3 SigGolfCandidate.T3.Nonbinary
+open scoped BigOperators
+set_option maxHeartbeats 1000000
+set_option maxRecDepth 100000
+set_option linter.constructorNameAsVariable false
+set_option linter.unusedSimpArgs false
+
+theorem topRanksValid_encode (w : R6Word) : topRanksValid (encode w) = true := by
+  unfold topRanksValid
+  simp only [Bool.and_eq_true, decide_eq_true_eq, List.all_eq_true, List.mem_range, List.mem_range'_1]
+  refine ⟨⟨topSpare_encode w, fun g hg => r6Valid_encode w ⟨g, hg⟩⟩, fun q hq => ?_⟩
+  have h := r5Rank_encode w ⟨q - 8, by omega⟩
+  simp only [show 8 + (q - 8) = q by omega] at h
+  rw [h]; exact (w.2 _).isLt
+
+/-- The model word of a digest: its 17 ranks (reduced, so that `wordOf` is total). -/
+def wordOf (v : Digest) : R6Word :=
+  (fun g => ⟨r6Rank v g.val % 216, Nat.mod_lt _ (by decide)⟩,
+    fun j => ⟨r5Rank v (8 + j.val) % 125, Nat.mod_lt _ (by decide)⟩)
+
+theorem wordOf_encode (w : R6Word) : wordOf (encode w) = w := by
+  refine Prod.ext (funext fun g => Fin.ext ?_) (funext fun j => Fin.ext ?_)
+  · simp only [wordOf, r6Rank_encode]; exact Nat.mod_eq_of_lt (w.1 g).isLt
+  · simp only [wordOf, r5Rank_encode]; exact Nat.mod_eq_of_lt (w.2 j).isLt
+
+theorem dataDigits_encode_wordOf (v : Digest) (hv : topRanksValid v = true) :
+    dataDigits 0 (encode (wordOf v)) = dataDigits 0 v := by
+  obtain ⟨-, h6, h5⟩ := topRanksValid_parts hv
+  unfold dataDigits
+  apply List.map_congr_left
+  intro i hi
+  have hi : i < 51 := by simpa [dataCount] using hi
+  unfold coreDigit
+  simp only [if_true]
+  split_ifs with h24
+  · have hg : i / 3 < 8 := by omega
+    have := r6Rank_encode (wordOf v) ⟨i / 3, hg⟩
+    simp only [Fin.val_mk] at this
+    rw [this]
+    show r6Rank v (i / 3) % 216 / 6 ^ (i % 3) % 6 = _
+    rw [Nat.mod_eq_of_lt (r6Rank_lt (h6 _ hg))]
+  · have hq : i / 3 - 8 < 9 := by omega
+    have := r5Rank_encode (wordOf v) ⟨i / 3 - 8, hq⟩
+    simp only [Fin.val_mk, show 8 + (i / 3 - 8) = i / 3 by omega] at this
+    rw [this]
+    show r5Rank v (8 + (i / 3 - 8)) % 125 / 5 ^ (i % 3) % 5 = _
+    rw [show 8 + (i / 3 - 8) = i / 3 by omega, Nat.mod_eq_of_lt (h5 _ (by omega) (by omega))]
+
+theorem encode_wordOf (v : Digest) (hv : topRanksValid v = true) : encode (wordOf v) = v :=
+  top_digest_injective (dataDigits_encode_wordOf v hv) (topRanksValid_encode _) hv
+
+theorem card_bij_generic {α β : Type} [Fintype α] [Fintype β] (P : α → Prop) [DecidablePred P]
+    (Q : β → Prop) [DecidablePred Q] (e : β → α) (d : α → β) (h1 : ∀ b, Q b → P (e b))
+    (h2 : ∀ a, P a → Q (d a)) (h3 : ∀ b, Q b → d (e b) = b) (h4 : ∀ a, P a → e (d a) = a) :
+    (univ.filter P).card = (univ.filter Q).card := by
   symm
-  rw [SigGolfResearch.Gate6.mod_pow_sum_generic hc _ stat
-      (by simpa only [Finset.card_univ] using Nat.lt_of_lt_of_le word_card_small (Nat.sub_le _ _)),
-    SigGolfResearch.Gate6.sum_pow_mod_pred_generic (by norm_num [radix]),
-    Nat.mod_eq_of_lt ((Finset.card_filter_le _ _).trans_lt (by simpa using word_card_small))]
+  apply Finset.card_bij' (fun b _ => e b) (fun a _ => d a)
+  · intro b hb; exact Finset.mem_filter.mpr ⟨Finset.mem_univ _, h1 b (Finset.mem_filter.mp hb).2⟩
+  · intro a ha; exact Finset.mem_filter.mpr ⟨Finset.mem_univ _, h2 a (Finset.mem_filter.mp ha).2⟩
+  · intro b hb; exact h3 b (Finset.mem_filter.mp hb).2
+  · intro a ha; exact h4 a (Finset.mem_filter.mp ha).2
 
-theorem card_model_of_check (n : Nat)
-    (h : (packed % radix ^ 37376) % (radix - 1) -
-      (packed % radix ^ 37153) % (radix - 1) = n) :
-    (univ.filter fun w : Codec.Word => weight w = 145 ∧ 33 ≤ score w).card = n := by
-  classical
-  have hs : (univ.filter fun w : Codec.Word => weight w = 145 ∧ 33 ≤ score w) =
-      (univ.filter fun w : Codec.Word => stat w < 37376) \
-        (univ.filter fun w : Codec.Word => stat w < 37153) := by
-    ext w
-    have hc := score_le w
-    have he := stat_eq w
-    simp only [mem_filter, mem_univ, true_and, mem_sdiff]
-    omega
-  rw [hs, card_sdiff_of_subset]
-  · rw [truncated_card _ (by decide), truncated_card _ (by decide), h]
-  · intro w hw
-    simp only [mem_filter, mem_univ, true_and] at hw ⊢
-    omega
+/-- Counting valid digests is counting model words. -/
+theorem card_encode (P : Digest → Prop) [DecidablePred P] (hP : ∀ v, P v → topRanksValid v = true) :
+    (univ.filter P).card = (univ.filter fun w : R6Word => P (encode w)).card :=
+  card_bij_generic P (fun w => P (encode w)) encode wordOf (fun _ h => h)
+    (fun v h => by show P (encode (wordOf v)); rw [encode_wordOf v (hP v h)]; exact h)
+    (fun w _ => wordOf_encode w) (fun v h => encode_wordOf v (hP v h))
 
+/-! ### Digit statistics of `encode w` -/
+theorem core_encode6 (w : R6Word) (g : Fin 8) (k : Nat) (hk : k < 3) :
+    coreDigit 0 (encode w) (3 * g.val + k) = dg 6 (w.1 g).val k := by
+  rw [top_core_r6 _ _ _ g.isLt hk, r6Rank_encode]; rfl
 
-end SigGolfResearch.NonbinaryTop.EffectiveCounting
-namespace SigGolfResearch.NonbinaryTop.EffectiveCounting
-open Finset Codec Counting
+theorem core_encode5 (w : R6Word) (j : Fin 9) (k : Nat) (hk : k < 3) :
+    coreDigit 0 (encode w) (3 * (8 + j.val) + k) = dg 5 (w.2 j).val k := by
+  rw [top_core_r5 _ _ _ (by omega) (by omega) hk, r5Rank_encode]; rfl
+
+theorem getD_digits (v : Digest) (chk i : Nat) :
+    (dataDigits 0 v ++ [chk]).getD i 0 = if i < 51 then coreDigit 0 v i else if i = 51 then chk else 0 := by
+  have hl : (dataDigits 0 v).length = 51 := by simp [dataDigits, dataCount]
+  split_ifs with h1 h2
+  · rw [List.getD_append _ _ _ _ (by omega)]
+    simp [dataDigits, dataCount, List.getD_eq_getElem?_getD, h1]
+  · subst h2; rw [List.getD_append_right _ _ _ _ (by omega)]; simp [hl]
+  · exact List.getD_eq_default _ _ (by simp [hl]; omega)
+
+theorem filter_range_length (n : Nat) (p : Nat → Prop) [DecidablePred p] :
+    ((List.range n).filter fun i => decide (p i)).length = ∑ i ∈ range n, ind (p i) := by
+  induction n with
+  | zero => simp
+  | succ n ih =>
+    rw [List.range_succ, List.filter_append, List.length_append, ih, Finset.sum_range_succ]
+    by_cases h : p n <;> simp [h, ind]
+
+theorem list_sum_range_map (n : Nat) (f : Nat → Nat) :
+    ((List.range n).map f).sum = ∑ i ∈ range n, f i := by
+  induction n with
+  | zero => simp
+  | succ n ih => rw [List.range_succ, List.map_append, List.sum_append, ih, Finset.sum_range_succ]; simp
+
+theorem sum_blocks (f : Nat → Nat) (n : Nat) :
+    ∑ i ∈ range (3 * n), f i = ∑ g ∈ range n, (f (3 * g) + f (3 * g + 1) + f (3 * g + 2)) := by
+  induction n with
+  | zero => simp
+  | succ n ih =>
+    rw [show 3 * (n + 1) = 3 * n + 1 + 1 + 1 by ring, Finset.sum_range_succ, Finset.sum_range_succ,
+      Finset.sum_range_succ, ih, Finset.sum_range_succ]
+    ring_nf
+
+/-- A chain sum over the 52 top chains splits into the 8 r6 triples, the 9 r5 triples and the checksum. -/
+theorem sum_52 (f : Nat → Nat) :
+    ∑ i ∈ range 52, f i = (∑ g : Fin 8, (f (3 * g.val) + f (3 * g.val + 1) + f (3 * g.val + 2))) +
+      (∑ j : Fin 9, (f (3 * (8 + j.val)) + f (3 * (8 + j.val) + 1) + f (3 * (8 + j.val) + 2))) + f 51 := by
+  rw [Finset.sum_range_succ, show 51 = 3 * 17 by rfl, sum_blocks, show 17 = 8 + 9 by rfl, Finset.sum_range_add,
+    Finset.sum_range, Finset.sum_range]
+
+theorem sum_51 (f : Nat → Nat) :
+    ∑ i ∈ range 51, f i = (∑ g : Fin 8, (f (3 * g.val) + f (3 * g.val + 1) + f (3 * g.val + 2))) +
+      (∑ j : Fin 9, (f (3 * (8 + j.val)) + f (3 * (8 + j.val) + 1) + f (3 * (8 + j.val) + 2))) := by
+  rw [show 51 = 3 * 17 by rfl, sum_blocks, show 17 = 8 + 9 by rfl, Finset.sum_range_add,
+    Finset.sum_range, Finset.sum_range]
+
+end SigGolfResearch.R6Top
+
+namespace SigGolfResearch.R6Top
+open Finset SigGolfCandidate.T3 SigGolfCandidate.T3.Nonbinary ClaudeWCT.WCT9
+open scoped BigOperators
 set_option maxHeartbeats 1000000
 set_option maxRecDepth 100000
-set_option exponentiation.threshold 100000
-set_option Elab.async false
 set_option linter.constructorNameAsVariable false
+set_option linter.unusedSimpArgs false
 
-def count : Nat := 83400240069434534984140569709320435
+theorem ind_congr {p q : Prop} [Decidable p] [Decidable q] (h : p ↔ q) : ind p = ind q := by
+  unfold ind; by_cases hp : p
+  · rw [if_pos hp, if_pos (h.mp hp)]
+  · rw [if_neg hp, if_neg (fun hq => hp (h.mpr hq))]
 
-theorem exact_packed_count :
-    (packed % radix ^ 37376) % (radix - 1) -
-      (packed % radix ^ 37153) % (radix - 1) = count := by
-  decide +kernel
+/-! Digits of `encode w` followed by a checksum digit. -/
+theorem getD6 (w : R6Word) (chk : Nat) (g : Fin 8) (k : Nat) (hk : k < 3) :
+    (dataDigits 0 (encode w) ++ [chk]).getD (3 * g.val + k) 0 = dg 6 (w.1 g).val k := by
+  rw [getD_digits, if_pos (by omega), core_encode6 w g k hk]
+theorem getD5 (w : R6Word) (chk : Nat) (j : Fin 9) (k : Nat) (hk : k < 3) :
+    (dataDigits 0 (encode w) ++ [chk]).getD (3 * (8 + j.val) + k) 0 = dg 5 (w.2 j).val k := by
+  rw [getD_digits, if_pos (by omega), core_encode5 w j k hk]
+theorem getD51 (w : R6Word) (chk : Nat) : (dataDigits 0 (encode w) ++ [chk]).getD 51 0 = chk := by
+  rw [getD_digits, if_neg (by omega), if_pos rfl]
+theorem max6 (g : Fin 8) (k : Nat) (hk : k < 3) : maxDigit 0 (3 * g.val + k) = 5 := by
+  have := g.isLt; unfold maxDigit; simp only [if_true]; rw [if_pos (by omega)]
+theorem max5 (j : Fin 9) (k : Nat) (hk : k < 3) : maxDigit 0 (3 * (8 + j.val) + k) = 4 := by
+  have := j.isLt; unfold maxDigit; simp only [if_true]; rw [if_neg (by omega), if_pos (by omega)]
 
-theorem card_model :
-    (univ.filter fun w : Codec.Word => weight w = 145 ∧ 33 ≤ score w).card = count :=
-  card_model_of_check count exact_packed_count
+/-- The three digits of block `g` (r6) and `j` (r5) of `encode w`, in the shape the chain sums use. -/
+theorem blk6 (w : R6Word) (chk : Nat) (g : Fin 8) :
+    (dataDigits 0 (encode w) ++ [chk]).getD (3 * g.val) 0 = dg 6 (w.1 g).val 0 ∧
+    (dataDigits 0 (encode w) ++ [chk]).getD (3 * g.val + 1) 0 = dg 6 (w.1 g).val 1 ∧
+    (dataDigits 0 (encode w) ++ [chk]).getD (3 * g.val + 2) 0 = dg 6 (w.1 g).val 2 ∧
+    maxDigit 0 (3 * g.val) = 5 ∧ maxDigit 0 (3 * g.val + 1) = 5 ∧ maxDigit 0 (3 * g.val + 2) = 5 :=
+  ⟨by simpa using getD6 w chk g 0 (by decide), getD6 w chk g 1 (by decide), getD6 w chk g 2 (by decide),
+    by simpa using max6 g 0 (by decide), max6 g 1 (by decide), max6 g 2 (by decide)⟩
+theorem blk5 (w : R6Word) (chk : Nat) (j : Fin 9) :
+    (dataDigits 0 (encode w) ++ [chk]).getD (3 * (8 + j.val)) 0 = dg 5 (w.2 j).val 0 ∧
+    (dataDigits 0 (encode w) ++ [chk]).getD (3 * (8 + j.val) + 1) 0 = dg 5 (w.2 j).val 1 ∧
+    (dataDigits 0 (encode w) ++ [chk]).getD (3 * (8 + j.val) + 2) 0 = dg 5 (w.2 j).val 2 ∧
+    maxDigit 0 (3 * (8 + j.val)) = 4 ∧ maxDigit 0 (3 * (8 + j.val) + 1) = 4 ∧ maxDigit 0 (3 * (8 + j.val) + 2) = 4 :=
+  ⟨by simpa using getD5 w chk j 0 (by decide), getD5 w chk j 1 (by decide), getD5 w chk j 2 (by decide),
+    by simpa using max5 j 0 (by decide), max5 j 1 (by decide), max5 j 2 (by decide)⟩
 
+def credits (w : R6Word) : Nat := (∑ g : Fin 8, tcredit 6 (w.1 g).val) + ∑ j : Fin 9, tcredit 5 (w.2 j).val
+def copies (w : R6Word) : Nat :=
+  (∑ g : Fin 8, tcopies 6 (decide (g.val = 0)) (w.1 g).val) + ∑ j : Fin 9, tcopies 5 false (w.2 j).val
+def penalty (w : R6Word) : Nat := ∑ j : Fin 9, ind (pen j = true ∧ tsum 5 (w.2 j).val < 3)
 
-/-- The half gate is the high bit of top chain 52. -/
-def gateWord (w : Codec.Word) : Prop := 4 ≤ (w.2 1).val
-instance (w : Codec.Word) : Decidable (gateWord w) := inferInstanceAs (Decidable (4 ≤ (w.2 1).val))
-def gateStat8 (d : Triple8) : Nat := stat8 d + 65536 * if 4 ≤ (d 1).val then 1 else 0
-def gateStat (w : Codec.Word) : Nat :=
-  (∑ q : Fin 17, stat5 (decide (q.val = 0)) (hasPenalty q) (w.1 q)) + gateStat8 w.2
+theorem wordCredit_encode (w : R6Word) (chk : Nat) :
+    wordCredit 0 (dataDigits 0 (encode w) ++ [chk]) = credits w + ind (chk + 1 = 7) := by
+  unfold wordCredit
+  rw [show chainCount 0 = 52 from rfl, filter_range_length, sum_52, getD51, show maxDigit 0 51 = 7 from rfl]
+  unfold credits
+  congr 2
+  · apply Finset.sum_congr rfl; intro g _
+    obtain ⟨a0, a1, a2, m0, m1, m2⟩ := blk6 w chk g
+    rw [a0, a1, a2, m0, m1, m2]; rfl
+  · apply Finset.sum_congr rfl; intro j _
+    obtain ⟨a0, a1, a2, m0, m1, m2⟩ := blk5 w chk j
+    rw [a0, a1, a2, m0, m1, m2]; rfl
 
-theorem gateStat_eq (w : Codec.Word) :
-    gateStat w = 256 * weight w + score w + 65536 * if gateWord w then 1 else 0 := by
-  have h := stat_eq w
-  by_cases hg : gateWord w
-  · have hg' : 4 ≤ (w.2 1).val := hg
-    simp only [gateStat, gateStat8, if_pos hg', if_pos hg]
-    simpa only [stat, Nat.add_assoc] using congrArg (fun n : Nat => n + 65536) h
-  · have hg' : ¬4 ≤ (w.2 1).val := hg
-    simp only [gateStat, gateStat8, if_neg hg', if_neg hg, Nat.mul_zero, Nat.add_zero]
-    exact h
+theorem savedCopies_encode (w : R6Word) (chk : Nat) :
+    savedCopies 0 (dataDigits 0 (encode w) ++ [chk]) = copies w := by
+  unfold savedCopies
+  rw [show chainCount 0 = 52 from rfl, filter_range_length, sum_52]
+  have h51 : ind (safeZeroCopy 0 (dataDigits 0 (encode w) ++ [chk]) 51) = 0 := by
+    apply ind_neg; unfold safeZeroCopy; omega
+  rw [h51, Nat.add_zero]
+  unfold copies
+  congr 1
+  · apply Finset.sum_congr rfl; intro g _
+    obtain ⟨a0, a1, a2, m0, m1, m2⟩ := blk6 w chk g
+    unfold tcopies
+    congr 1; congr 1
+    · apply ind_congr; unfold safeZeroCopy; rw [a0, m0]
+      constructor
+      · rintro ⟨h1, h2 | ⟨h2, _⟩ | ⟨_, h2, _⟩⟩
+        · exact ⟨by simp; omega, h1⟩
+        · exact absurd rfl h2
+        · omega
+      · rintro ⟨h1, h2⟩; exact ⟨h2, Or.inl (by simp at h1; omega)⟩
+    · apply ind_congr; unfold safeZeroCopy
+      rw [a1, m1, show 3 * g.val + 1 - 1 = 3 * g.val by omega, a0, m0]
+      constructor
+      · rintro ⟨h1, h2 | ⟨h2, _⟩ | ⟨_, _, h3⟩⟩
+        · omega
+        · exact absurd rfl h2
+        · exact ⟨h1, h3⟩
+      · rintro ⟨h1, h2⟩; exact ⟨h1, Or.inr (Or.inr ⟨by omega, by omega, h2⟩)⟩
+    · apply ind_congr; unfold safeZeroCopy
+      rw [a2, m2, show 3 * g.val + 2 - 1 = 3 * g.val + 1 by omega, a1, m1]
+      constructor
+      · rintro ⟨h1, h2 | ⟨h2, _⟩ | ⟨_, _, h3⟩⟩
+        · omega
+        · exact absurd rfl h2
+        · exact ⟨h1, h3⟩
+      · rintro ⟨h1, h2⟩; exact ⟨h1, Or.inr (Or.inr ⟨by omega, by omega, h2⟩)⟩
+  · apply Finset.sum_congr rfl; intro j _
+    obtain ⟨a0, a1, a2, m0, m1, m2⟩ := blk5 w chk j
+    unfold tcopies
+    congr 1; congr 1
+    · apply ind_congr; unfold safeZeroCopy; rw [a0, m0]
+      constructor
+      · rintro ⟨h1, h2 | ⟨h2, _⟩ | ⟨_, h2, _⟩⟩
+        · omega
+        · exact absurd rfl h2
+        · omega
+      · rintro ⟨h1, _⟩; exact absurd h1 (by simp)
+    · apply ind_congr; unfold safeZeroCopy
+      rw [a1, m1, show 3 * (8 + j.val) + 1 - 1 = 3 * (8 + j.val) by omega, a0, m0]
+      constructor
+      · rintro ⟨h1, h2 | ⟨h2, _⟩ | ⟨_, _, h3⟩⟩
+        · omega
+        · exact absurd rfl h2
+        · exact ⟨h1, h3⟩
+      · rintro ⟨h1, h2⟩; exact ⟨h1, Or.inr (Or.inr ⟨by omega, by omega, h2⟩)⟩
+    · apply ind_congr; unfold safeZeroCopy
+      rw [a2, m2, show 3 * (8 + j.val) + 2 - 1 = 3 * (8 + j.val) + 1 by omega, a1, m1]
+      constructor
+      · rintro ⟨h1, h2 | ⟨h2, _⟩ | ⟨_, _, h3⟩⟩
+        · omega
+        · exact absurd rfl h2
+        · exact ⟨h1, h3⟩
+      · rintro ⟨h1, h2⟩; exact ⟨h1, Or.inr (Or.inr ⟨by omega, by omega, h2⟩)⟩
 
-theorem weight_le_225 (w : Codec.Word) : weight w ≤ 225 := by
-  have h5 (d : Triple5) : tripleSum5 d ≤ 12 := by revert d; decide +kernel
-  have h8 (d : Triple8) : tripleSum8 d ≤ 21 := by revert d; decide +kernel
-  have hs := Finset.sum_le_sum (fun q (_ : q ∈ (Finset.univ : Finset (Fin 17))) => h5 (w.1 q))
-  have ht := h8 w.2
-  simp only [Finset.sum_const, Finset.card_univ, Fintype.card_fin, smul_eq_mul] at hs
+theorem penalty_encode (w : R6Word) (chk : Nat) :
+    topDispatchPenalty (dataDigits 0 (encode w) ++ [chk]) = penalty w := by
+  unfold topDispatchPenalty
+  rw [filter_range_length, show 17 = 8 + 9 by rfl, Finset.sum_range_add, Finset.sum_range, Finset.sum_range]
+  have h0 : (∑ g : Fin 8, ind ((g.val = 8 ∨ g.val = 10 ∨ g.val = 11 ∨ g.val = 12) ∧
+      (dataDigits 0 (encode w) ++ [chk]).getD (3 * g.val) 0 + (dataDigits 0 (encode w) ++ [chk]).getD (3 * g.val + 1) 0 +
+        (dataDigits 0 (encode w) ++ [chk]).getD (3 * g.val + 2) 0 < 3)) = 0 := by
+    apply Finset.sum_eq_zero; intro g _; apply ind_neg; have := g.isLt; omega
+  rw [h0, Nat.zero_add]
+  unfold penalty
+  apply Finset.sum_congr rfl; intro j _
+  obtain ⟨a0, a1, a2, -, -, -⟩ := blk5 w chk j
+  rw [a0, a1, a2]
+  apply ind_congr
+  unfold pen tsum
+  have := j.isLt
+  simp only [decide_eq_true_eq]
+  omega
+
+theorem sum_encode (w : R6Word) : (dataDigits 0 (encode w)).sum = weight w := by
+  unfold dataDigits
+  rw [show dataCount 0 = 51 from rfl, list_sum_range_map, sum_51]
   unfold weight
+  congr 1
+  · apply Finset.sum_congr rfl; intro g _
+    rw [show 3 * g.val = 3 * g.val + 0 by rfl, core_encode6 w g 0 (by decide), core_encode6 w g 1 (by decide),
+      core_encode6 w g 2 (by decide)]; rfl
+  · apply Finset.sum_congr rfl; intro j _
+    rw [show 3 * (8 + j.val) = 3 * (8 + j.val) + 0 by rfl, core_encode5 w j 0 (by decide),
+      core_encode5 w j 1 (by decide), core_encode5 w j 2 (by decide)]; rfl
+
+theorem zeros_encode (w : R6Word) (chk : Nat) :
+    ((dataDigits 0 (encode w) ++ [chk]).filter (· = 0)).length = zeros w + ind (chk = 0) := by
+  rw [List.filter_append, List.length_append]
+  congr 1
+  · unfold dataDigits
+    rw [show dataCount 0 = 51 from rfl, List.filter_map, List.length_map]
+    rw [show ((List.range 51).filter ((fun x => decide (x = 0)) ∘ coreDigit 0 (encode w))) =
+      (List.range 51).filter (fun i => decide (coreDigit 0 (encode w) i = 0)) from rfl, filter_range_length, sum_51]
+    unfold zeros
+    congr 1
+    · apply Finset.sum_congr rfl; intro g _
+      rw [show 3 * g.val = 3 * g.val + 0 by rfl, core_encode6 w g 0 (by decide), core_encode6 w g 1 (by decide),
+        core_encode6 w g 2 (by decide)]; rfl
+    · apply Finset.sum_congr rfl; intro j _
+      rw [show 3 * (8 + j.val) = 3 * (8 + j.val) + 0 by rfl, core_encode5 w j 0 (by decide),
+        core_encode5 w j 1 (by decide), core_encode5 w j 2 (by decide)]; rfl
+  · unfold ind; by_cases h : chk = 0 <;> simp [h]
+
+theorem score_penalty (w : R6Word) : score w + penalty w = credits w + 4 * copies w + 4 := by
+  have hb (j : Fin 9) : (if pen j = true then ind (3 ≤ tsum 5 (w.2 j).val) else 0) +
+      ind (pen j = true ∧ tsum 5 (w.2 j).val < 3) = ind (pen j = true) := by
+    unfold ind; by_cases hp : pen j = true <;> by_cases ht : 3 ≤ tsum 5 (w.2 j).val <;> simp [hp, ht] <;> omega
+  have h4 : (∑ j : Fin 9, ind (pen j = true)) = 4 := by decide
+  have hs := Finset.sum_congr rfl (fun j (_ : j ∈ (univ : Finset (Fin 9))) => hb j)
+  rw [Finset.sum_add_distrib, h4] at hs
+  unfold score credits copies penalty tscore
+  simp only [Finset.sum_add_distrib, ← Finset.mul_sum, Bool.false_eq_true, ↓reduceIte, Nat.add_zero,
+    Finset.sum_const_zero] at hs ⊢
   omega
 
-def gateGroup8 (y : Nat) : Nat := ∑ d : Triple8, y ^ gateStat8 d
-def gatePacked : Nat := group5 radix true true * group5 radix false true ^ 11 *
-  group5 radix false false ^ 5 * gateGroup8 radix
+end SigGolfResearch.R6Top
 
-theorem gate_weighted_words (y : Nat) :
-    (∑ w : Codec.Word, y ^ gateStat w) =
-      group5 y true true * group5 y false true ^ 11 * group5 y false false ^ 5 * gateGroup8 y := by
-  rw [Fintype.sum_prod_type]
-  simp only [gateStat, pow_add]
-  rw [← Finset.sum_mul_sum]
-  have h : (∑ f : Fin 17 → Triple5,
-      y ^ (∑ q : Fin 17, stat5 (decide (q.val = 0)) (hasPenalty q) (f q))) =
-      ∏ q : Fin 17, group5 y (decide (q.val = 0)) (hasPenalty q) := by
-    simpa only [group5, ← Finset.prod_pow_eq_pow_sum] using
-      (Fintype.prod_sum fun (q : Fin 17) (d : Triple5) =>
-        y ^ stat5 (decide (q.val = 0)) (hasPenalty q) d).symm
-  rw [h]
-  change (∏ q : Fin 17, group5 y (decide (q.val = 0)) (hasPenalty q)) * gateGroup8 y = _
-  norm_num [Fin.prod_univ_succ, hasPenalty]
-  ring_nf
+/-! Campaign R6 + RC (COUNT): exact counts of the canonical top producer (no path bonus) by credit. -/
+namespace SigGolfResearch.R6Top
+open Finset SigGolfCandidate.T3 SigGolfCandidate.T3.Nonbinary ClaudeWCT.WCT9
+open scoped BigOperators
+set_option maxHeartbeats 1000000
+set_option maxRecDepth 100000
+set_option linter.constructorNameAsVariable false
+set_option linter.unusedSimpArgs false
+
+/-- The canonical top producer accepts `v` at floor 0 without the path bonus, with credit `c`. -/
+def acc (c : Nat) (v : Digest) : Prop :=
+  match CanonicalPolicy.producerDecodeAt 0 0 false v with
+  | none => False
+  | some ds => CanonicalPolicy.credit 0 false ds = c
+instance (c : Nat) : DecidablePred (acc c) := fun v => by
+  unfold acc; split <;> infer_instance
+
+theorem acc_iff (c : Nat) (v : Digest) :
+    acc c v ↔ ∃ ds, CanonicalPolicy.producerDecodeAt 0 0 false v = some ds ∧ CanonicalPolicy.credit 0 false ds = c := by
+  unfold acc; cases CanonicalPolicy.producerDecodeAt 0 0 false v <;> simp
+
+theorem decode_canonical_top (v : Digest) : CanonicalPolicy.decode 0 v = decode 0 v := by
+  simp [CanonicalPolicy.decode, CanonicalPolicy.normalLayer]
+
+theorem acc_valid (c : Nat) (v : Digest) (h : acc c v) : topRanksValid v = true := by
+  obtain ⟨ds, hd, -⟩ := (acc_iff c v).mp h
+  have hs := (CanonicalPolicy.producerDecodeAt_spec hd).1
+  rw [decode_canonical_top] at hs
+  exact (decode_top_some hs).2.1
+
+theorem acc_encode_iff (c : Nat) (w : R6Word) : acc c (encode w) ↔ accepts c w := by
+  rw [acc_iff]
+  have hv := topRanksValid_encode w
+  have hS := sum_encode w
+  unfold accepts
+  by_cases hdec : weight w ≤ 153 ∧ 153 - weight w < 8
+  · have hd := decode_top_of (encode w).isLt hv (by rw [hS]; exact hdec.1) (by rw [hS]; exact hdec.2)
+    rw [show target 0 = 153 from rfl, hS] at hd
+    unfold CanonicalPolicy.producerDecodeAt
+    rw [decode_canonical_top, hd]
+    simp only
+    set chk := 153 - weight w with hchk
+    have hz := zeros_encode w chk
+    have hc := wordCredit_encode w chk
+    have hp := penalty_encode w chk
+    have hcp := savedCopies_encode w chk
+    have hsp := score_penalty w
+    have hpl : penalty w ≤ 4 := by
+      unfold penalty
+      calc (∑ j : Fin 9, ind (pen j = true ∧ tsum 5 (w.2 j).val < 3)) ≤ ∑ j : Fin 9, ind (pen j = true) :=
+            Finset.sum_le_sum fun j _ => by unfold ind; split_ifs <;> simp_all
+        _ = 4 := by decide
+    have e1 : ind (chk + 1 = 7) = ind (weight w = 147) := ind_congr (by omega)
+    have e2 : ind (chk = 0) = ind (weight w = 153) := ind_congr (by omega)
+    have i1 := ind_le (weight w = 147)
+    simp only [CanonicalPolicy.pathReward, CanonicalPolicy.reward, CanonicalPolicy.pathBonus_false, Nat.add_zero,
+      CanonicalPolicy.credit, dispatchPenalty, if_true, producerZeroBound, producerZeroMax, producerRankBound,
+      true_or, and_true]
+    rw [hz, hc, hp, hcp, e1, e2]
+    constructor
+    · rintro ⟨ds, hds, hcr⟩
+      split_ifs at hds with hcond
+      · cases hds
+        refine ⟨by omega, hdec.1, hcond.2, by omega⟩
+    · rintro ⟨h1, h2, h3, h4⟩
+      refine ⟨_, if_pos ⟨by omega, h3⟩, by omega⟩
+  · have hd : decode 0 (encode w) = none := by
+      cases h : decode 0 (encode w) with
+      | none => rfl
+      | some ds =>
+        obtain ⟨-, -, ⟨h1, h2⟩, -⟩ := decode_top_some h
+        rw [hS] at h1 h2
+        exact absurd ⟨h1, h2⟩ hdec
+    unfold CanonicalPolicy.producerDecodeAt
+    rw [decode_canonical_top, hd]
+    simp only [reduceCtorEq, false_and, exists_false, false_iff, not_and]
+    intro h1 h2
+    exact absurd ⟨h2, by omega⟩ hdec
+
+theorem high_bits (X r : Nat) (h7 : X / 2 ^ 119 % 256 = r) (hs : X / 2 ^ 127 % 2 = 0) (hlt : X < 2 ^ 128) :
+    X < 2 ^ 126 ↔ r < 128 := by
+  simp only [Nat.reducePow] at *
+  omega
+
+theorem blocked_encode (w : R6Word) : TopChoice.blocked (encode w) ↔ ¬ isFree w := by
+  have h7 : r6Raw (encode w) 7 = (w.1 7).val := by
+    have := r6Raw_encode w 7
+    rw [if_neg (by decide)] at this
+    exact this
+  unfold r6Raw r6Shift at h7
+  rw [if_pos rfl] at h7
+  have hs := topSpare_encode w
+  unfold topSpare at hs
+  have hlt : topCode (encode w) < 2 ^ 128 := by rw [topCode_encode]; exact code_lt w
+  have key := high_bits _ _ h7 hs hlt
+  unfold TopChoice.blocked isFree
+  rw [← topCode_lt_iff _ 126 (by decide), key]
+  omega
+
+/-- Exact count of the top words of credit `c` accepted by the canonical producer (no path bonus). -/
+theorem card_acc (c : Nat) (hc1 : 16 ≤ c) (hc2 : c < 147) :
+    (univ.filter (acc c)).card = histW topCountsR6 c := by
+  rw [card_encode (acc c) (acc_valid c), ← model_count_of_check topCountsR6 false histCheck_all c hc1 hc2]
+  apply congrArg Finset.card
+  apply Finset.filter_congr
+  intro w _
+  rw [acc_encode_iff]
+  unfold Qc
   simp
 
-theorem gate_truncated_card (cut : Nat) (hc : 0 < cut) :
-    (univ.filter fun w : Codec.Word => gateStat w < cut).card =
-      (gatePacked % radix ^ cut) % (radix - 1) := by
-  classical
-  unfold gatePacked
-  rw [← gate_weighted_words radix]
-  symm
-  rw [SigGolfResearch.Gate6.mod_pow_sum_generic hc _ gateStat
-      (by simpa only [Finset.card_univ] using Nat.lt_of_lt_of_le word_card_small (Nat.sub_le _ _)),
-    SigGolfResearch.Gate6.sum_pow_mod_pred_generic (by norm_num [radix]),
-    Nat.mod_eq_of_lt ((Finset.card_filter_le _ _).trans_lt (by simpa using word_card_small))]
+/-- Exact count of those whose LOW half is not forced. -/
+theorem card_acc_free (c : Nat) (hc1 : 16 ≤ c) (hc2 : c < 147) :
+    (univ.filter fun v => acc c v ∧ ¬ TopChoice.blocked v).card = histW topFreeCountsR6 c := by
+  rw [card_encode (fun v => acc c v ∧ ¬ TopChoice.blocked v) (fun v h => acc_valid c v h.1),
+    ← model_count_of_check topFreeCountsR6 true histCheck_free c hc1 hc2]
+  apply congrArg Finset.card
+  apply Finset.filter_congr
+  intro w _
+  rw [acc_encode_iff, blocked_encode]
+  unfold Qc
+  simp only [not_not, forall_const]
+  exact And.comm
 
-def gateCount : Nat := 63440602704496645076755857690454972
+end SigGolfResearch.R6Top
 
-theorem gate_exact_packed_count :
-    (gatePacked % radix ^ 102912) % (radix - 1) -
-      (gatePacked % radix ^ 102689) % (radix - 1) = gateCount := by
-  decide +kernel
+namespace SigGolfResearch.R6Top
+open Finset SigGolfCandidate.T3 ClaudeWCT.WCT9
+set_option linter.constructorNameAsVariable false
 
-theorem gate_card_model :
-    (univ.filter fun w : Codec.Word => weight w = 145 ∧ 33 ≤ score w ∧ gateWord w).card = gateCount := by
-  classical
-  have hs : (univ.filter fun w : Codec.Word => weight w = 145 ∧ 33 ≤ score w ∧ gateWord w) =
-      (univ.filter fun w : Codec.Word => gateStat w < 102912) \
-        (univ.filter fun w : Codec.Word => gateStat w < 102689) := by
-    ext w
-    have hc := score_le w
-    have hw := weight_le_225 w
-    have he := gateStat_eq w
-    simp only [mem_filter, mem_univ, true_and, mem_sdiff]
-    by_cases hg : gateWord w <;> simp [hg] at he ⊢ <;> omega
-  rw [hs, card_sdiff_of_subset]
-  · rw [gate_truncated_card _ (by decide), gate_truncated_card _ (by decide), gate_exact_packed_count]
-  · intro w hw
-    simp only [mem_filter, mem_univ, true_and] at hw ⊢
-    omega
+theorem acc_le (c : Nat) (v : Digest) (h : acc c v) : c ≤ 146 := by
+  have hv := acc_valid c v h
+  rw [← encode_wordOf v hv] at h
+  have ha := (acc_encode_iff c _).mp h
+  have hs := score_le (wordOf v)
+  have hi := ind_le (weight (wordOf v) = 147)
+  unfold accepts at ha
+  omega
 
-/-! Restricted top choice (configuration (1)+(2)): LOW is forced iff bits 126, 127 of the top word are zero,
-i.e. iff the digit of top chain 52 (bits 125..127) is below 2. `freeWord`: LOW is not forced. -/
-def freeWord (w : Codec.Word) : Prop := 2 ≤ (w.2 1).val
-instance (w : Codec.Word) : Decidable (freeWord w) := inferInstanceAs (Decidable (2 ≤ (w.2 1).val))
-def freeStat8 (d : Triple8) : Nat := stat8 d + 65536 * if 2 ≤ (d 1).val then 1 else 0
-def freeStat (w : Codec.Word) : Nat :=
-  (∑ q : Fin 17, stat5 (decide (q.val = 0)) (hasPenalty q) (w.1 q)) + freeStat8 w.2
+theorem histW_eq_zero (l : List (Nat × Nat)) (c : Nat) (h : ∀ e ∈ l, e.1 ≠ c) : histW l c = 0 := by
+  induction l with
+  | nil => rfl
+  | cons e t ih =>
+    unfold histW at ih ⊢
+    rw [List.map_cons, List.sum_cons, if_neg (h e (by simp)), ih (fun e' he' => h e' (by simp [he']))]
 
-theorem freeStat_eq (w : Codec.Word) :
-    freeStat w = 256 * weight w + score w + 65536 * if freeWord w then 1 else 0 := by
-  have h := stat_eq w
-  by_cases hg : freeWord w
-  · have hg' : 2 ≤ (w.2 1).val := hg
-    simp only [freeStat, freeStat8, if_pos hg', if_pos hg]
-    simpa only [stat, Nat.add_assoc] using congrArg (fun n : Nat => n + 65536) h
-  · have hg' : ¬2 ≤ (w.2 1).val := hg
-    simp only [freeStat, freeStat8, if_neg hg', if_neg hg, Nat.mul_zero, Nat.add_zero]
-    exact h
+theorem topCountsR6_lt : ∀ e ∈ topCountsR6, e.1 < 94 := by decide
+theorem topFreeCountsR6_lt : ∀ e ∈ topFreeCountsR6, e.1 < 94 := by decide
 
-def freeGroup8 (y : Nat) : Nat := ∑ d : Triple8, y ^ freeStat8 d
-def freePacked : Nat := group5 radix true true * group5 radix false true ^ 11 *
-  group5 radix false false ^ 5 * freeGroup8 radix
+/-- Campaign R6 + RC: the LOW-good (credit `≥ 16` without the bonus, i.e. top floor 19 with the LOW bonus 3) top words
+whose LOW half is not forced. Equals the packet's `freeCount`. -/
+def freeCountR6 : Nat := (topFreeCountsR6.map Prod.snd).sum
+theorem freeCountR6_value : freeCountR6 = 43816752562692919204629932487685850 := by decide
+theorem freeCountR6_hist : ((List.range' 16 131).map (histW topFreeCountsR6)).sum = freeCountR6 := by decide +kernel
 
-theorem free_weighted_words (y : Nat) :
-    (∑ w : Codec.Word, y ^ freeStat w) =
-      group5 y true true * group5 y false true ^ 11 * group5 y false false ^ 5 * freeGroup8 y := by
-  rw [Fintype.sum_prod_type]
-  simp only [freeStat, pow_add]
-  rw [← Finset.sum_mul_sum]
-  have h : (∑ f : Fin 17 → Triple5,
-      y ^ (∑ q : Fin 17, stat5 (decide (q.val = 0)) (hasPenalty q) (f q))) =
-      ∏ q : Fin 17, group5 y (decide (q.val = 0)) (hasPenalty q) := by
-    simpa only [group5, ← Finset.prod_pow_eq_pow_sum] using
-      (Fintype.prod_sum fun (q : Fin 17) (d : Triple5) =>
-        y ^ stat5 (decide (q.val = 0)) (hasPenalty q) d).symm
-  rw [h]
-  change (∏ q : Fin 17, group5 y (decide (q.val = 0)) (hasPenalty q)) * freeGroup8 y = _
-  norm_num [Fin.prod_univ_succ, hasPenalty]
-  ring_nf
-  simp
+end SigGolfResearch.R6Top
 
-theorem free_truncated_card (cut : Nat) (hc : 0 < cut) :
-    (univ.filter fun w : Codec.Word => freeStat w < cut).card =
-      (freePacked % radix ^ cut) % (radix - 1) := by
-  classical
-  unfold freePacked
-  rw [← free_weighted_words radix]
-  symm
-  rw [SigGolfResearch.Gate6.mod_pow_sum_generic hc _ freeStat
-      (by simpa only [Finset.card_univ] using Nat.lt_of_lt_of_le word_card_small (Nat.sub_le _ _)),
-    SigGolfResearch.Gate6.sum_pow_mod_pred_generic (by norm_num [radix]),
-    Nat.mod_eq_of_lt ((Finset.card_filter_le _ _).trans_lt (by simpa using word_card_small))]
-
-/-- Top words at target 146 accepted by the canonical top producer on the LOW path (e7b: credit + 3 ≥ 18, i.e.
-score ≥ 15 + 12) whose LOW is not forced. -/
-def freeCount : Nat := 62603755540080218178176754635310864
-
-theorem free_exact_packed_count :
-    (freePacked % radix ^ 103168) % (radix - 1) -
-      (freePacked % radix ^ 102939) % (radix - 1) = freeCount := by
-  decide +kernel
-
-theorem free_card_model :
-    (univ.filter fun w : Codec.Word => weight w = 146 ∧ 27 ≤ score w ∧ freeWord w).card = freeCount := by
-  classical
-  have hs : (univ.filter fun w : Codec.Word => weight w = 146 ∧ 27 ≤ score w ∧ freeWord w) =
-      (univ.filter fun w : Codec.Word => freeStat w < 103168) \
-        (univ.filter fun w : Codec.Word => freeStat w < 102939) := by
-    ext w
-    have hc := score_le w
-    have hw := weight_le_225 w
-    have he := freeStat_eq w
-    simp only [mem_filter, mem_univ, true_and, mem_sdiff]
-    by_cases hg : freeWord w <;> simp [hg] at he ⊢ <;> omega
-  rw [hs, card_sdiff_of_subset]
-  · rw [free_truncated_card _ (by decide), free_truncated_card _ (by decide), free_exact_packed_count]
-  · intro w hw
-    simp only [mem_filter, mem_univ, true_and] at hw ⊢
-    omega
-
-
-end SigGolfResearch.NonbinaryTop.EffectiveCounting
 
 namespace SigGolfResearch.LowerEffectiveCounting
 open scoped BigOperators
@@ -588,7 +911,7 @@ theorem producerDecode_lower_isSome_iff (lay : Layer) (hl : lay ≠ 0) (v : Dige
     simp only
     rw [wordCredit_lower lay hl _ hlen]
     simp only [ClaudeWCT.WCT9.dispatchPenalty, hl, if_false, Nat.add_zero,
-      ClaudeWCT.WCT9.producerZeroBound, producerRankBound, false_or, filter_zero_count,
+      ClaudeWCT.WCT9.producerZeroBound, ClaudeWCT.WCT9.producerZeroMax, producerRankBound, false_or, filter_zero_count,
       lowerWord_eq_ofS1, ClaudeWCT.Numerics.LowerRank.RankGood]
     constructor
     · intro h
@@ -631,80 +954,6 @@ theorem filter_length_eq_sum (l : List ℕ) (p : ℕ → Bool) :
     rw [List.filter_cons, List.map_cons, List.sum_cons, ← ih]
     split <;> simp_all
     omega
-theorem wordCredit_top (v : Digest) : wordCredit 0 (dataDigits 0 v) = topCredit v := by
-  unfold wordCredit topCredit
-  rw [show chainCount 0 = 54 from rfl, filter_length_eq_sum]
-  congr 1
-  apply List.map_congr_left
-  intro i hi
-  have hi' : i < 54 := List.mem_range.mp hi
-  have hg : (dataDigits 0 v).getD i 0 = coreDigit 0 v i := by
-    simp [dataDigits, dataCount, hi']
-  rw [hg]
-  by_cases h51 : i < 51
-  · simp only [maxDigit, h51, if_true]
-    split_ifs <;> simp_all
-  · simp only [maxDigit, h51, if_true, if_false]
-    split_ifs <;> simp_all
-theorem decode_top_eq (v : Digest) : decode 0 v = if 2 ^ 128 ≤ v.toNat then none else
-    if topRanksValid v = true ∧ (dataDigits 0 v).sum = target 0 then some (dataDigits 0 v) else none := by
-  simp only [decode, encodedBits, if_true]
-  by_cases h1 : 2 ^ 128 ≤ v.toNat
-  · simp
-  · simp only [h1, if_false]
-    by_cases h2 : topRanksValid v = true ∧ (dataDigits 0 v).sum = target 0
-    · simp [h2.1, h2.2]
-    · rw [if_neg h2]
-      simp only [Bool.and_eq_true, decide_eq_true_eq]
-      rw [if_neg h2]
-theorem producerDecode_top_isSome_iff (v : Digest) :
-    (producerDecode 0 v).isSome ↔ ∃ w, Decoder.parse 17 (topFlip v).toNat = some w ∧
-      Counting.weight w = target 0 ∧ producerFloor 0 + ClaudeWCT.WCT9.dispatchPenalty 0 (SigGolfCandidate.T3.Nonbinary.wordDigits w) ≤
-        CreditCounting.credit w + 4 * ClaudeWCT.WCT9.savedCopies 0 (SigGolfCandidate.T3.Nonbinary.wordDigits w) := by
-  unfold producerDecode
-  rw [decode_top_eq]
-  simp only [producerZeroBound, producerRankBound, eq_self_iff_true, true_or, and_true]
-  constructor
-  · intro h
-    by_cases h1 : 2 ^ 128 ≤ v.toNat
-    · rw [if_pos h1] at h; simp at h
-    · rw [if_neg h1] at h
-      by_cases h2 : topRanksValid v = true ∧ (dataDigits 0 v).sum = target 0
-      · rw [if_pos h2] at h
-        simp only at h
-        split_ifs at h with h3
-        · obtain ⟨w, hw⟩ := Option.isSome_iff_exists.mp
-            ((SigGolfCandidate.T3.Nonbinary.parse_top_isSome_iff v).mpr h2.1)
-          refine ⟨w, hw, ?_, ?_⟩
-          · rw [← SigGolfCandidate.T3.Nonbinary.wordDigits_sum, ← SigGolfCandidate.T3.Nonbinary.dataDigits_parse hw]
-            exact h2.2
-          · rw [← SigGolfCandidate.T3.Nonbinary.topCredit_parse hw, ← wordCredit_top,
-              ← SigGolfCandidate.T3.Nonbinary.dataDigits_parse hw]
-            exact h3
-        · simp at h
-      · rw [if_neg h2] at h; simp at h
-  · rintro ⟨w, hw, hweight, hcredit⟩
-    have hp := (SigGolfCandidate.T3.Nonbinary.parse_top_isSome_iff v).mp (by rw [hw]; rfl)
-    have h2 : topRanksValid v = true ∧ (dataDigits 0 v).sum = target 0 := by
-      refine ⟨hp, ?_⟩
-      rw [SigGolfCandidate.T3.Nonbinary.dataDigits_parse hw, SigGolfCandidate.T3.Nonbinary.wordDigits_sum]
-      exact hweight
-    rw [if_neg (Nat.not_le.mpr v.isLt), if_pos h2]
-    simp only
-    rw [if_pos (by rw [wordCredit_top, SigGolfCandidate.T3.Nonbinary.topCredit_parse hw,
-      SigGolfCandidate.T3.Nonbinary.dataDigits_parse hw]; exact hcredit)]
-    rfl
-theorem card_producer_top (T f n : ℕ) (hT : target 0 = T) (hf : producerFloor 0 = f)
-    (hn : (univ.filter fun w : Codec.Word => Counting.weight w = T ∧
-      f + ClaudeWCT.WCT9.dispatchPenalty 0 (SigGolfCandidate.T3.Nonbinary.wordDigits w) ≤
-        CreditCounting.credit w + 4 * ClaudeWCT.WCT9.savedCopies 0 (SigGolfCandidate.T3.Nonbinary.wordDigits w)).card = n) :
-    (univ.filter fun v : Digest => (producerDecode 0 v).isSome).card = n := by
-  classical
-  rw [← hn, ← ClaudeWCT.Numerics.TopCredit.card_parse_filter]
-  refine Finset.card_equiv topFlipEquiv fun v => ?_
-  simp only [mem_filter, mem_univ, true_and]
-  rw [producerDecode_top_isSome_iff, hT, hf]
-  rfl
 noncomputable def producerCount (lay : Layer) : ℕ :=
   (univ.filter fun v : Digest => (producerDecode lay v).isSome).card
 
@@ -735,91 +984,6 @@ theorem selected_lower_count_transport (p : Digest → Prop) [DecidablePred p]
   exact hc.trans (congrArg (fun n : Nat => n * (7 * 2^126)) hn)
 
 end SelectedCardinality
-
-open scoped BigOperators
-open SigGolfResearch.NonbinaryTop.EffectiveCounting
-
-theorem topWord_getD (w : Codec.Word) (i : Nat) (hi : i < 54) :
-    (SigGolfCandidate.T3.Nonbinary.wordDigits w).getD i 0 =
-      if h : i < 51 then (w.1 ⟨i / 3, by omega⟩ ⟨i % 3, Nat.mod_lt _ (by decide)⟩).val
-      else (w.2 ⟨(i - 51) % 3, Nat.mod_lt _ (by decide)⟩).val := by
-  interval_cases i <;> rfl
-
-attribute [local irreducible] SigGolfCandidate.T3.Nonbinary.wordDigits
-
-def topCopyFlag (w : Codec.Word) (i : Nat) : Nat :=
-  if ClaudeWCT.WCT9.safeZeroCopy 0 (SigGolfCandidate.T3.Nonbinary.wordDigits w) i then 1 else 0
-
-theorem topCopyFlag_block (w : Codec.Word) (q : Fin 17) :
-    ([3*q.val, 3*q.val+1, 3*q.val+2].map (topCopyFlag w)).sum =
-      copies5 (decide (q.val = 0)) (w.1 q) := by
-  fin_cases q <;>
-    simp [topCopyFlag, ClaudeWCT.WCT9.safeZeroCopy, maxDigit, topWord_getD, copies5, and_comm, -List.getD_eq_getElem?_getD]
-  all_goals split_ifs <;> omega
-
-theorem topCopyFlag_tail (w : Codec.Word) :
-    ([51,52,53].map (topCopyFlag w)).sum = copies8 w.2 := by
-  simp [topCopyFlag, ClaudeWCT.WCT9.safeZeroCopy, maxDigit, topWord_getD, copies8, and_comm, -List.getD_eq_getElem?_getD]
-  all_goals split_ifs <;> omega
-
-theorem savedCopies_top_word (w : Codec.Word) :
-    ClaudeWCT.WCT9.savedCopies 0 (SigGolfCandidate.T3.Nonbinary.wordDigits w) =
-      (∑ q : Fin 17, copies5 (decide (q.val = 0)) (w.1 q)) + copies8 w.2 := by
-  unfold ClaudeWCT.WCT9.savedCopies
-  rw [filter_length_eq_sum]
-  rw [show chainCount 0 = 54 from rfl]
-  simp only [decide_eq_true_eq]
-  rw [show (fun i => if ClaudeWCT.WCT9.safeZeroCopy 0
-      (SigGolfCandidate.T3.Nonbinary.wordDigits w) i then (1 : Nat) else 0) = topCopyFlag w from rfl]
-  have hi : List.range 54 =
-      (List.ofFn fun q : Fin 17 => [3*q.val, 3*q.val+1, 3*q.val+2]).flatten ++ [51,52,53] := by
-    decide +kernel
-  rw [hi, List.map_append, List.sum_append, topCopyFlag_tail]
-  apply congrArg (fun n : Nat => n + copies8 w.2)
-  rw [List.map_flatten, List.sum_flatten]
-  simp only [List.map_map, List.map_ofFn, Function.comp_def, topCopyFlag_block, List.sum_ofFn]
-
-theorem dispatchPenalty_top_word (w : Codec.Word) :
-    ClaudeWCT.WCT9.dispatchPenalty 0 (SigGolfCandidate.T3.Nonbinary.wordDigits w) =
-      ∑ q : Fin 17, if hasPenalty q && decide (Counting.tripleSum5 (w.1 q) < 3) then 1 else 0 := by
-  unfold ClaudeWCT.WCT9.dispatchPenalty
-  rw [if_pos rfl]
-  unfold ClaudeWCT.WCT9.topDispatchPenalty
-  rw [filter_length_eq_sum]
-  simp only [Fin.sum_univ_succ]
-  simp [SigGolfCandidate.T3.Nonbinary.wordDigits, List.ofFn_succ,
-    List.range_succ, hasPenalty, Counting.tripleSum5, Fin.sum_univ_succ, Nat.add_assoc]
-
-
-theorem top_score_add_penalty (w : Codec.Word) :
-    EffectiveCounting.score w +
-      ClaudeWCT.WCT9.dispatchPenalty 0 (SigGolfCandidate.T3.Nonbinary.wordDigits w) =
-        CreditCounting.credit w +
-          4 * ClaudeWCT.WCT9.savedCopies 0 (SigGolfCandidate.T3.Nonbinary.wordDigits w) + 12 := by
-  rw [savedCopies_top_word, dispatchPenalty_top_word]
-  have hs (q : Fin 17) :
-      score5 (decide (q.val = 0)) (hasPenalty q) (w.1 q) +
-        (if hasPenalty q && decide (Counting.tripleSum5 (w.1 q) < 3) then 1 else 0) =
-      CreditCounting.credit5 (w.1 q) + 4 * copies5 (decide (q.val = 0)) (w.1 q) +
-        (if hasPenalty q then 1 else 0) := by
-    unfold score5
-    cases hp : hasPenalty q <;> by_cases ht : Counting.tripleSum5 (w.1 q) < 3 <;> simp [hp, ht]
-  have h := Finset.sum_congr rfl (fun q (_ : q ∈ (Finset.univ : Finset (Fin 17))) => hs q)
-  have h12 : (∑ q : Fin 17, if hasPenalty q then (1 : Nat) else 0) = 12 := by decide +kernel
-  simp only [Finset.sum_add_distrib, ← Finset.mul_sum, h12] at h
-  unfold EffectiveCounting.score EffectiveCounting.score8 CreditCounting.credit
-  omega
-
-theorem gate_of_top_parse {v : Digest} {w : Codec.Word}
-    (hw : Decoder.parse 17 (topFlip v).toNat = some w) :
-    TopDualHalf.gate v ↔ EffectiveCounting.gateWord w := by
-  have hd := SigGolfCandidate.T3.Nonbinary.coreDigit_parse8 hw (1 : Fin 3)
-  change topCode v / 2 ^ 125 % 8 = (w.2 1).val at hd
-  rw [topCode_div_high v 125 (by decide)] at hd
-  have hv := v.isLt
-  unfold TopDualHalf.gate EffectiveCounting.gateWord
-  norm_num at hd hv ⊢
-  omega
 
 end ClaudeWCT.W9.T3.ProducerV5
 
@@ -1073,9 +1237,9 @@ theorem accepted_lowerSpare (lay : Layer) (hl : lay ≠ 0) (floor : Nat)
     simpa only [CanonicalPolicy.decode, CanonicalPolicy.normalLayer, if_neg hl] using hs
   exact decode_lowerSpare (by decide : (1 : Layer) ≠ 0) hd'
 
-/-- The canonical top predicate (floor 18 with the LOW bonus 3) holds for every word whose reward reaches a floor
-`≥ 15`. -/
-theorem accepted_topGood {floor : Nat} (hf : 15 ≤ floor) {P : List Nat → Prop} {value : Digest}
+/-- The canonical top predicate (floor 19 with the LOW bonus 3) holds for every word whose reward reaches a floor
+`≥ 16`. -/
+theorem accepted_topGood {floor : Nat} (hf : 16 ≤ floor) {P : List Nat → Prop} {value : Digest}
     (h : accepted 0 floor P value) : topGood value := by
   obtain ⟨ds, hd, _⟩ := (accepted_iff 0 floor P value).mp h
   have hs := CanonicalPolicy.producerDecodeAt_spec hd
@@ -1098,7 +1262,7 @@ noncomputable def topFreeCount : Nat :=
 
 /-- The restricted choice: a producer-accepted top word is selected with weight `2^128 + 3*2^126 - topFreeCount`
 (over `2^256`). -/
-theorem selected_top_card (floor : Nat) (hf : 15 ≤ floor) (P : List Nat → Prop) [DecidablePred P]
+theorem selected_top_card (floor : Nat) (hf : 16 ≤ floor) (P : List Nat → Prop) [DecidablePred P]
     (n : Nat) (hn : (univ.filter (accepted 0 floor P)).card = n) :
     (univ.filter fun answer : HashOutput => accepted 0 floor P (encodingAnswer 0 answer)).card =
       n * (2^128 + 3*2^126 - topFreeCount) := by
@@ -1152,139 +1316,11 @@ theorem accepted_lower_eq_one (lay : Layer) (hl : lay ≠ 0) (floor : Nat)
   simp only [accepted_decode_iff]
   fin_cases lay <;>
     simp_all [CanonicalPolicy.decode, CanonicalPolicy.normalLayer, CanonicalPolicy.reward,
-      dispatchPenalty, wordCredit, savedCopies, safeZeroCopy, producerZeroBound, producerRankBound,
+      dispatchPenalty, wordCredit, savedCopies, safeZeroCopy, producerZeroBound, producerZeroMax, producerRankBound,
       chainCount, maxDigit]
-end ClaudeWCT.W9.T3.ProducerV5.Canonical
-
-namespace ClaudeWCT.W9.T3.ProducerV5.Canonical
-open OracleComp OracleSpec ENNReal Finset
-open SigGolfCandidate.T3 ClaudeWCT.WCT9
-open SigGolfResearch.NonbinaryTop
-
-theorem accepted_top_parse (floor : Nat) (P : List Nat → Prop) (v : Digest) :
-    accepted 0 floor P v ↔ ∃ w : Codec.Word,
-      Decoder.parse 17 (topFlip v).toNat = some w ∧ Counting.weight w = 146 ∧
-      floor + dispatchPenalty 0 (SigGolfCandidate.T3.Nonbinary.wordDigits w) ≤
-        CanonicalPolicy.reward 0 (SigGolfCandidate.T3.Nonbinary.wordDigits w) ∧
-      P (SigGolfCandidate.T3.Nonbinary.wordDigits w) := by
-  rw [accepted_decode_iff]
-  simp only [CanonicalPolicy.decode, CanonicalPolicy.normalLayer, if_pos rfl,
-    producerZeroBound, producerRankBound, eq_self_iff_true, ite_true, true_or, true_and]
-  rw [SigGolfCandidate.T3.Nonbinary.decode_top_eq_map]
-  change (∃ digits,
-    (((Decoder.parse 17 (topFlip v).toNat).filter fun w => decide (Counting.weight w = 146)).map
-      SigGolfCandidate.T3.Nonbinary.wordDigits) = some digits ∧
-      floor + dispatchPenalty 0 digits ≤ CanonicalPolicy.reward 0 digits ∧ P digits) ↔ _
-  simp only [Option.map_eq_some_iff, Option.filter_eq_some_iff, decide_eq_true_eq]
-  constructor
-  · rintro ⟨ds, ⟨w, ⟨hp, hw⟩, he⟩, hf, hP⟩
-    subst ds
-    exact ⟨w, hp, hw, hf, hP⟩
-  · rintro ⟨w, hp, hw, hf, hP⟩
-    exact ⟨_, ⟨w, ⟨hp, hw⟩, rfl⟩, hf, hP⟩
-
-theorem accepted_top_credit_parse (floor credit : Nat) (v : Digest) :
-    accepted 0 floor (fun ds => CanonicalPolicy.credit 0 false ds = credit) v ↔
-      ∃ w : Codec.Word, Decoder.parse 17 (topFlip v).toNat = some w ∧
-        Counting.weight w = 146 ∧ floor ≤ credit ∧ EffectiveCounting.score w = credit+12 := by
-  rw [accepted_top_parse]
-  apply exists_congr
-  intro w
-  by_cases hp : Decoder.parse 17 (topFlip v).toNat = some w
-  · simp only [hp, true_and]
-    have hword : wordCredit 0 (SigGolfCandidate.T3.Nonbinary.wordDigits w) = CreditCounting.credit w := by
-      rw [← SigGolfCandidate.T3.Nonbinary.dataDigits_parse hp,
-        ClaudeWCT.W9.T3.ProducerV5.wordCredit_top,
-        SigGolfCandidate.T3.Nonbinary.topCredit_parse hp]
-    have hscore := top_score_add_penalty w
-    simp only [CanonicalPolicy.credit, CanonicalPolicy.pathReward, CanonicalPolicy.pathBonus_false, Nat.add_zero,
-      CanonicalPolicy.reward, hword]
-    omega
-  · simp only [hp, false_and]
-end ClaudeWCT.W9.T3.ProducerV5.Canonical
-
-namespace ClaudeWCT.W9.T3.ProducerV5.Canonical
-open OracleComp OracleSpec ENNReal Finset
-open SigGolfCandidate.T3 ClaudeWCT.WCT9
-open SigGolfResearch.NonbinaryTop
-
-theorem accepted_top_credit_card (floor credit : Nat) (hf : floor ≤ credit) :
-    (univ.filter (accepted 0 floor (fun ds => CanonicalPolicy.credit 0 false ds = credit))).card =
-      (univ.filter fun w : Codec.Word => Counting.weight w = 146 ∧
-        EffectiveCounting.score w = credit+12).card := by
-  classical
-  rw [← ClaudeWCT.Numerics.TopCredit.card_parse_filter]
-  refine Finset.card_equiv topFlipEquiv fun v => ?_
-  simp only [mem_filter, mem_univ, true_and]
-  rw [accepted_top_credit_parse]
-  simp only [hf, true_and]
-  rfl
-
-theorem free_of_top_parse {v : Digest} {w : Codec.Word}
-    (hw : Decoder.parse 17 (topFlip v).toNat = some w) :
-    ¬ TopChoice.blocked v ↔ EffectiveCounting.freeWord w := by
-  have hd := SigGolfCandidate.T3.Nonbinary.coreDigit_parse8 hw (1 : Fin 3)
-  change topCode v / 2 ^ 125 % 8 = (w.2 1).val at hd
-  rw [topCode_div_high v 125 (by decide)] at hd
-  have hv := v.isLt
-  unfold TopChoice.blocked EffectiveCounting.freeWord
-  norm_num at hd hv ⊢
-  omega
-
-theorem topGood_iff (v : Digest) : topGood v ↔ accepted 0 15 (fun _ => True) v := by
-  rw [accepted_iff]
-  unfold topGood
-  constructor
-  · intro h
-    obtain ⟨ds, hd⟩ := Option.isSome_iff_exists.mp h
-    have hs := CanonicalPolicy.producerDecodeAt_spec hd
-    refine ⟨ds, ?_, trivial⟩
-    unfold CanonicalPolicy.producerDecodeAt
-    simp only [hs.1]
-    have hc : 15 + dispatchPenalty 0 ds ≤ CanonicalPolicy.pathReward 0 false ds := by
-      have := hs.2.1
-      simp only [CanonicalPolicy.pathReward_top, if_true, if_false, Bool.false_eq_true,
-        CanonicalPolicy.topFloor] at this ⊢
-      omega
-    rw [if_pos ⟨hc, hs.2.2.1, hs.2.2.2⟩]
-  · rintro ⟨ds, hd, _⟩
-    have := accepted_topGood (floor := 15) le_rfl (P := fun _ => True) ((accepted_iff 0 15 _ v).mpr ⟨ds, hd, trivial⟩)
-    exact this
-
-/-- The exact number of canonical-accepted top words whose LOW is not forced. -/
-theorem topFreeCount_eq : topFreeCount = EffectiveCounting.freeCount := by
-  classical
-  rw [← EffectiveCounting.free_card_model, ← ClaudeWCT.Numerics.TopCredit.card_parse_filter]
-  unfold topFreeCount
-  refine Finset.card_equiv topFlipEquiv fun v => ?_
-  simp only [mem_filter, mem_univ, true_and]
-  change (topGood v ∧ ¬ TopChoice.blocked v) ↔
-    ∃ w, Decoder.parse 17 (topFlip v).toNat = some w ∧
-      Counting.weight w = 146 ∧ 27 ≤ EffectiveCounting.score w ∧ EffectiveCounting.freeWord w
-  rw [topGood_iff, accepted_top_parse]
-  constructor
-  · rintro ⟨⟨w, hw, ht, hc, _⟩, hb⟩
-    have hs := top_score_add_penalty w
-    have hword : wordCredit 0 (SigGolfCandidate.T3.Nonbinary.wordDigits w) = CreditCounting.credit w := by
-      rw [← SigGolfCandidate.T3.Nonbinary.dataDigits_parse hw,
-        ClaudeWCT.W9.T3.ProducerV5.wordCredit_top,
-        SigGolfCandidate.T3.Nonbinary.topCredit_parse hw]
-    simp only [CanonicalPolicy.reward, hword] at hc
-    exact ⟨w, hw, ht, by omega, (free_of_top_parse hw).mp hb⟩
-  · rintro ⟨w, hw, ht, hc, hg⟩
-    have hs := top_score_add_penalty w
-    have hword : wordCredit 0 (SigGolfCandidate.T3.Nonbinary.wordDigits w) = CreditCounting.credit w := by
-      rw [← SigGolfCandidate.T3.Nonbinary.dataDigits_parse hw,
-        ClaudeWCT.W9.T3.ProducerV5.wordCredit_top,
-        SigGolfCandidate.T3.Nonbinary.topCredit_parse hw]
-    refine ⟨⟨w, hw, ht, ?_, trivial⟩, (free_of_top_parse hw).mpr hg⟩
-    simp only [CanonicalPolicy.reward, hword]
-    omega
-
-/-- e7b: the HIGH half is selected with weight `3*2^126 - freeCount` (over `2^256`) per accepted HIGH word. -/
-def topHighWeight : Nat := 3*2^126 - EffectiveCounting.freeCount
 
 end ClaudeWCT.W9.T3.ProducerV5.Canonical
+
 namespace ClaudeWCT.W9.T3.ProducerV5.Canonical
 open OracleComp OracleSpec ENNReal Finset
 open SigGolfCandidate.T3 ClaudeWCT.WCT9
@@ -1296,11 +1332,22 @@ theorem accepted_credit_floor {lay : Layer} {floor credit : Nat} {v : Digest}
   obtain ⟨ds, hd, hc⟩ := (accepted_iff lay floor _ v).mp h
   exact hc ▸ CanonicalPolicy.producerDecodeAt_credit hd
 
+/-- Campaign R6: dropping the floor keeps a producer-accepted top word (no path bonus). -/
+theorem pda_zero_of {floor : Nat} {v : Digest} {ds : List Nat}
+    (h : CanonicalPolicy.producerDecodeAt 0 floor false v = some ds) :
+    CanonicalPolicy.producerDecodeAt 0 0 false v = some ds := by
+  have hs := CanonicalPolicy.producerDecodeAt_spec h
+  unfold CanonicalPolicy.producerDecodeAt
+  rw [hs.1]
+  dsimp only
+  rw [if_pos ⟨by have := hs.2.1; omega, hs.2.2⟩]
+
+/-- Campaign R6: a top credit (no path bonus) is at most 146 (model score `≤ 149`). -/
 theorem accepted_top_credit_le {floor credit : Nat} {v : Digest}
-    (h : accepted 0 floor (fun ds => CanonicalPolicy.credit 0 false ds = credit) v) : credit ≤ 207 := by
-  obtain ⟨w, _, _, _, hs⟩ := (accepted_top_credit_parse floor credit v).mp h
-  have hw := EffectiveCounting.score_le w
-  omega
+    (h : accepted 0 floor (fun ds => CanonicalPolicy.credit 0 false ds = credit) v) : credit ≤ 146 := by
+  obtain ⟨ds, hd, hc⟩ := (accepted_iff 0 floor _ v).mp h
+  exact SigGolfResearch.R6Top.acc_le credit v
+    ((SigGolfResearch.R6Top.acc_iff credit v).mpr ⟨ds, pda_zero_of hd, hc⟩)
 
 theorem selected_credit_card_zero_of_lt (lay : Layer) (floor credit : Nat) (hf : credit < floor) :
     (univ.filter fun answer : HashOutput => accepted lay floor
@@ -1311,7 +1358,7 @@ theorem selected_credit_card_zero_of_lt (lay : Layer) (floor credit : Nat) (hf :
   have := accepted_credit_floor h
   omega
 
-theorem selected_top_credit_card_zero_of_gt (floor credit : Nat) (hc : 207 < credit) :
+theorem selected_top_credit_card_zero_of_gt (floor credit : Nat) (hc : 146 < credit) :
     (univ.filter fun answer : HashOutput => accepted 0 floor
       (fun ds => CanonicalPolicy.credit 0 false ds = credit) (encodingAnswer 0 answer)).card = 0 := by
   apply Finset.card_eq_zero.mpr
@@ -1471,7 +1518,7 @@ theorem accepted_lower_model (floor : Nat) (P : List Nat → Prop) (v : Digest) 
     rw [← hds] at hf hz hP
     simp only [dispatchPenalty, show (1 : Layer) ≠ 0 by decide, if_false, Nat.add_zero,
       reward_lower_model] at hf
-    simp only [producerZeroBound, show (1 : Layer) ≠ 0 by decide, false_or,
+    simp only [producerZeroBound, producerZeroMax, show (1 : Layer) ≠ 0 by decide, if_false, false_or,
       filter_zero_count, digits_zeros] at hz
     exact ⟨w, he, hw, hf, hz, hP⟩
   · rintro ⟨w, he, hw, hf, hz, hP⟩
@@ -1479,13 +1526,14 @@ theorem accepted_lower_model (floor : Nat) (P : List Nat → Prop) (v : Digest) 
     refine ⟨digits w, decode_encode_201 w hw, ?_, ?_, ?_, hP⟩
     · simpa only [dispatchPenalty, show (1 : Layer) ≠ 0 by decide, if_false,
         Nat.add_zero, reward_lower_model] using hf
-    · simpa only [producerZeroBound, show (1 : Layer) ≠ 0 by decide, false_or,
+    · simpa only [producerZeroBound, producerZeroMax, show (1 : Layer) ≠ 0 by decide, if_false, false_or,
         filter_zero_count, digits_zeros] using hz
     · simpa only [producerRankBound, show (1 : Layer) ≠ 0 by decide, false_or,
         SigGolfResearch.LowerEffectiveCounting.encode, lowerWord_lowerPack (ClaudeWCT.Numerics.LowerCredit.equiv_lt _),
         ClaudeWCT.Numerics.LowerRank.RankGood, producerRankFloor,
         ClaudeWCT.Numerics.LowerRank.rankFloor]
         using rankGood_encode w
+
 end ClaudeWCT.W9.T3.ProducerV5.Canonical
 
 namespace ClaudeWCT.W9.T3.ProducerV5.Canonical
@@ -1766,24 +1814,130 @@ theorem top_decoder_event (floor c : Nat) (hf : 3 ≤ floor) (answer : HashOutpu
     · rintro ⟨ds, hd, hc⟩
       exact ⟨(ds, false), by rw [hd]; rfl, hc⟩
 
-/-- Top word count at target 146 with credit `c` (`score = c + 12`). -/
+/-- Campaign R6: accepted top words of credit `c` (canonical producer at floor 0, no path bonus). -/
 noncomputable def topWordCount (c : Nat) : Nat :=
-  (univ.filter fun w : SigGolfResearch.NonbinaryTop.Codec.Word =>
-    SigGolfResearch.NonbinaryTop.Counting.weight w = 146 ∧
-      SigGolfResearch.NonbinaryTop.EffectiveCounting.score w = c + 12).card
+  (univ.filter (accepted 0 0 (fun ds => CanonicalPolicy.credit 0 false ds = c))).card
+
+theorem card_filter_congr' {α : Type} [Fintype α] (p q : α → Prop) [DecidablePred p] [DecidablePred q]
+    (h : ∀ a, p a ↔ q a) : (univ.filter p).card = (univ.filter q).card :=
+  congrArg Finset.card (Finset.filter_congr fun a _ => h a)
+
+theorem accepted_credit_acc (c : Nat) (v : Digest) :
+    accepted 0 0 (fun ds => CanonicalPolicy.credit 0 false ds = c) v ↔ SigGolfResearch.R6Top.acc c v := by
+  rw [accepted_iff, SigGolfResearch.R6Top.acc_iff]
+
+theorem accepted_credit_floor_iff (floor c : Nat) (hf : floor ≤ c) (v : Digest) :
+    accepted 0 floor (fun ds => CanonicalPolicy.credit 0 false ds = c) v ↔
+      accepted 0 0 (fun ds => CanonicalPolicy.credit 0 false ds = c) v := by
+  rw [accepted_iff, accepted_iff]
+  apply exists_congr; intro ds
+  constructor
+  · rintro ⟨hd, hc⟩; exact ⟨pda_zero_of hd, hc⟩
+  · rintro ⟨hd, hc⟩
+    refine ⟨?_, hc⟩
+    have hs := (producerDecodeAt_eq_some_iff _ _ _ _ _).mp hd
+    apply (producerDecodeAt_eq_some_iff _ _ _ _ _).mpr
+    refine ⟨hs.1, ?_, hs.2.2⟩
+    have h1 := hs.2.1
+    simp only [CanonicalPolicy.credit] at hc
+    omega
+
+theorem accepted_top_credit_card (floor credit : Nat) (hf : floor ≤ credit) :
+    (univ.filter (accepted 0 floor (fun ds => CanonicalPolicy.credit 0 false ds = credit))).card =
+      topWordCount credit :=
+  card_filter_congr' _ _ (accepted_credit_floor_iff floor credit hf)
+
+/-- Campaign R6 + RC: the exact top credit law (credits `≥ 16`), from the R6 generating polynomial. -/
+theorem topWordCount_eq (c : Nat) (hc : 16 ≤ c) :
+    topWordCount c = SigGolfResearch.R6Top.histW SigGolfResearch.R6Top.topCountsR6 c := by
+  by_cases h147 : c < 147
+  · unfold topWordCount
+    rw [card_filter_congr' _ (SigGolfResearch.R6Top.acc c) (accepted_credit_acc c),
+      SigGolfResearch.R6Top.card_acc c hc h147]
+  · have h0 : topWordCount c = 0 := by
+      unfold topWordCount
+      rw [Finset.card_eq_zero, Finset.filter_eq_empty_iff]
+      intro v _ hv
+      have := SigGolfResearch.R6Top.acc_le c v ((accepted_credit_acc c v).mp hv)
+      omega
+    rw [h0, SigGolfResearch.R6Top.histW_eq_zero _ _
+      (fun e he => by have := SigGolfResearch.R6Top.topCountsR6_lt e he; omega)]
+
+/-- Campaign R6 + RC (top floor 19, LOW bonus 3): the LOW-good predicate is acceptance at 16 without the bonus. -/
+theorem topGood_iff (v : Digest) : topGood v ↔ accepted 0 16 (fun _ => True) v := by
+  unfold topGood
+  rw [show CanonicalPolicy.topFloor = 19 from rfl, producerDecodeAt_top_true 19 (by decide), accepted_iff]
+  simp only [and_true]
+  exact Option.isSome_iff_exists
+
+/-- The credit of a top word (0 when the producer rejects it at floor 0). -/
+def creditOf (v : Digest) : Nat :=
+  match CanonicalPolicy.producerDecodeAt 0 0 false v with
+  | none => 0
+  | some ds => CanonicalPolicy.credit 0 false ds
+
+theorem creditOf_of_acc {c : Nat} {v : Digest} (h : SigGolfResearch.R6Top.acc c v) : creditOf v = c := by
+  obtain ⟨ds, hd, hc⟩ := (SigGolfResearch.R6Top.acc_iff c v).mp h
+  unfold creditOf; rw [hd]; exact hc
+
+theorem accepted16_iff (v : Digest) :
+    accepted 0 16 (fun _ => True) v ↔ ∃ c, 16 ≤ c ∧ SigGolfResearch.R6Top.acc c v := by
+  rw [accepted_iff]
+  constructor
+  · rintro ⟨ds, hd, -⟩
+    have hc := CanonicalPolicy.producerDecodeAt_credit hd
+    exact ⟨_, hc, (SigGolfResearch.R6Top.acc_iff _ v).mpr ⟨ds, pda_zero_of hd, rfl⟩⟩
+  · rintro ⟨c, hc, ha⟩
+    have h := (accepted_credit_floor_iff 16 c hc v).mpr ((accepted_credit_acc c v).mpr ha)
+    obtain ⟨ds, hd, -⟩ := (accepted_iff _ _ _ v).mp h
+    exact ⟨ds, hd, trivial⟩
+
+theorem fiber_free (c : Nat) (hc : 16 ≤ c) (v : Digest) :
+    ((accepted 0 16 (fun _ => True) v ∧ ¬ TopChoice.blocked v) ∧ creditOf v = c) ↔
+      (SigGolfResearch.R6Top.acc c v ∧ ¬ TopChoice.blocked v) := by
+  constructor
+  · rintro ⟨⟨ha, hb⟩, he⟩
+    obtain ⟨c', -, hc'⟩ := (accepted16_iff v).mp ha
+    have := creditOf_of_acc hc'
+    subst he
+    rw [this]; exact ⟨hc', hb⟩
+  · rintro ⟨ha, hb⟩
+    exact ⟨⟨(accepted16_iff v).mpr ⟨c, hc, ha⟩, hb⟩, creditOf_of_acc ha⟩
+
+/-- Campaign R6 + RC: the exact number of LOW-good top words whose LOW is not forced. -/
+theorem topFreeCount_eq : topFreeCount = SigGolfResearch.R6Top.freeCountR6 := by
+  unfold topFreeCount
+  rw [card_filter_congr' _ (fun v => accepted 0 16 (fun _ => True) v ∧ ¬ TopChoice.blocked v)
+    (fun v => and_congr_left' (topGood_iff v))]
+  rw [SigGolfResearch.R6Top.fiber_card_filter (fun v => accepted 0 16 (fun _ => True) v ∧ ¬ TopChoice.blocked v)
+    creditOf (List.range' 16 131).toFinset (fun v hv => by
+      obtain ⟨c, hc, ha⟩ := (accepted16_iff v).mp hv.1
+      rw [creditOf_of_acc ha, List.mem_toFinset, List.mem_range'_1]
+      have := SigGolfResearch.R6Top.acc_le c v ha
+      omega)]
+  rw [← SigGolfResearch.R6Top.freeCountR6_hist, ← List.sum_toFinset _ List.nodup_range']
+  apply Finset.sum_congr rfl
+  intro c hc
+  have hc' := List.mem_range'_1.mp (List.mem_toFinset.mp hc)
+  rw [Finset.filter_filter, card_filter_congr' _ (fun v => SigGolfResearch.R6Top.acc c v ∧ ¬ TopChoice.blocked v)
+    (fun v => fiber_free c hc'.1 v)]
+  exact SigGolfResearch.R6Top.card_acc_free c hc'.1 (by omega)
+
+/-- Campaign R6 + RC: the HIGH half is selected with weight `3*2^126 - freeCount` per accepted HIGH word. -/
+def topHighWeight : Nat := 3*2^126 - SigGolfResearch.R6Top.freeCountR6
 
 theorem topFreeCount_eq_filter :
-    (univ.filter fun v : Digest => topGood v ∧ ¬ TopChoice.blocked v).card = SigGolfResearch.NonbinaryTop.EffectiveCounting.freeCount :=
+    (univ.filter fun v : Digest => topGood v ∧ ¬ TopChoice.blocked v).card = SigGolfResearch.R6Top.freeCountR6 :=
   topFreeCount_eq
 
 theorem freeCount_add_top :
-    TopChoice.freeCount topGood + SigGolfResearch.NonbinaryTop.EffectiveCounting.freeCount = 3 * 2 ^ 126 := by
+    TopChoice.freeCount topGood + SigGolfResearch.R6Top.freeCountR6 = 3 * 2 ^ 126 := by
   have h := TopChoice.freeCount_add topGood
   rw [topFreeCount_eq_filter] at h
   exact h
 
 /-- Pure arithmetic (keeps `TopChoice.freeCount topGood` abstract for the kernel). -/
-theorem highWeight_arith (F : Nat) (h : F + SigGolfResearch.NonbinaryTop.EffectiveCounting.freeCount = 3 * 2 ^ 126) : F = topHighWeight := by
+theorem highWeight_arith (F : Nat) (h : F + SigGolfResearch.R6Top.freeCountR6 = 3 * 2 ^ 126) : F = topHighWeight := by
   unfold topHighWeight
   omega
 
@@ -1807,9 +1961,9 @@ theorem card_choose_path_generic (good : Digest → Prop) [DecidablePred good] (
   unfold TopChoice.freeCount
   norm_num
 
-/-- The e7b top selection count at credit `c ≥ floor ≥ 18`: weight `2^128` through LOW (credit `c - 3`),
+/-- The e7b top selection count at credit `c ≥ floor ≥ 19`: weight `2^128` through LOW (credit `c - 3`),
 `topHighWeight` through HIGH (credit `c`). -/
-theorem selected_top_path_card (floor c : Nat) (hf : 18 ≤ floor) (hc : floor ≤ c) :
+theorem selected_top_path_card (floor c : Nat) (hf : 19 ≤ floor) (hc : floor ≤ c) :
     (univ.filter fun answer : HashOutput => ∃ dl, CanonicalPolicy.producerDecodeOut 0 floor answer = some dl ∧
         CanonicalPolicy.credit 0 dl.2 dl.1 = c).card =
       topWordCount (c - 3) * 2^128 + topHighWeight * topWordCount c := by
@@ -1830,7 +1984,6 @@ theorem selected_top_path_card (floor c : Nat) (hf : 18 ≤ floor) (hc : floor �
       | none => rfl
       | some ds => simp only; omega
     rw [hq, accepted_top_credit_card (floor - 3) (c - 3) (by omega)]
-    rfl
   have hhi : (univ.filter (accepted 0 floor (fun ds => CanonicalPolicy.credit 0 false ds = c))).card =
       topWordCount c := accepted_top_credit_card floor c hc
   have hfree : TopChoice.freeCount topGood = topHighWeight := freeCount_eq_compl

@@ -52,7 +52,7 @@ open ClaudeWCT.W9.T3M (Images)
 variable (I : Images)
 theorem keygen_run_eq (hadm : (submission I).Admissible) (sk : SecretKey) :
     (submission I).run .keygen sk = SigGolfCandidate.T3M.submission.run .keygen sk := by
-  have hvA : ((submission I).image .keygen).Valid ⟨5248, 23236, 131072⟩ ⟨0x6620, 0x80, 0xa0, 0x80000, 0x7000, 0xB58⟩ :=
+  have hvA : ((submission I).image .keygen).Valid ⟨5216, 23236, 131072⟩ ⟨0x6620, 0x80, 0xa0, 0x80000, 0x7000, 0xB58⟩ :=
     hadm.2 .keygen
   have hvB : (SigGolfCandidate.T3M.submission.image .keygen).Valid
       ⟨SigGolfCandidate.T3M.submission.sizes.signature, SigGolfCandidate.T3M.submission.sizes.witness, 131072⟩

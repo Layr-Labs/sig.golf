@@ -20,7 +20,7 @@ open SigGolfCandidate.T3M
 open SigGolfCandidate.T3M.Expand (ex_valid ex_ne bytesToWordLE_bytes_e bytes_length_e extractByte_bytesToWordLE_e extractByte_toNat_e word_ext_bytes_e)
 open SigGolfCandidate.T3 (Digest HashOutput M)
 open SigGolfCandidate.T3M.Search (DIG)
-open ClaudeWCT.W9.T3M (sigDig sigDec sigDigests sigDigests_sigDec)
+open ClaudeWCT.W9.T3M (sigDig sigDec sigDigests)
 set_option linter.unusedSimpArgs false
 set_option maxRecDepth 10000
 
@@ -56,8 +56,11 @@ set_option backward.isDefEq.respectTransparency false
 
 def prologueBase : Nat := 44096
 def policyAddress : Nat := 417792
-def prologueWords : List (BitVec 32) := [0x8eb7,0x470e8e93,0xeb303,0x8eb383,0x303de13,0x66f37,0xf0f13,0x1cf3023,0x1039393,0x103d393,0x27b7,0xf4078793,0x14fe7863,0x8eb7,0x468e8e93,0x8f37,0x4b8f0f13,0x87b7,0xb3078793,0xeb703,0xef3023,0xff8e8e93,0xff8f0f13,0xfefef8e3,0x8f37,0xb70f0f13,0x6f3023,0x7f3423,0x8eb7,0xb28e8e93,0x8f37,0xb68f0f13,0x77b7,0x58078793,0xeb703,0xef3023,0xff8e8e93,0xff8f0f13,0xfefef8e3,0x7f37,0x5b0f0f13,0xf3023,0xf3423,0x7eb7,0x578e8e93,0x7f37,0x5a8f0f13,0x77b7,0x3f078793,0xeb703,0xef3023,0xff8e8e93,0xff8f0f13,0xfefef8e3,0x7f37,0x410f0f13,0xf3023,0xf3423,0x7eb7,0x3e8e8e93,0x7f37,0x408f0f13,0x77b7,0x26078793,0xeb703,0xef3023,0xff8e8e93,0xff8f0f13,0xfefef8e3,0x7f37,0x270f0f13,0xf3023,0xf3423,0x7eb7,0x258e8e93,0x7f37,0x268f0f13,0x77b7,0xd078793,0xeb703,0xef3023,0xff8e8e93,0xff8f0f13,0xfefef8e3,0x7f37,0xd0f0f13,0xf3023,0xf3423,0x313,0x393,0x713,0x793,0xe13,0xe93,0xf13,0xd89d406f,0xb08d506f]
-def tailWords : List (BitVec 32) := [0x8eb7,0x470e8e93,0xeb303,0x8eb383,0x303de13,0x66f37,0xf0f13,0x1cf3023,0x1039393,0x103d393]
+/-- Campaign R6 (S 5216): the expand image's words 44096..44192 (EXP image swap: 44097 tail at 33872, 44110/44114
+main move 354..649 -> 368..663, 44121/44122 `j KSIB` (49826), 44125/44127 middle move 176..353 -> 184..361; word 44123
+is dead). -/
+def prologueWords : List (BitVec 32) := [0x8eb7,0x450e8e93,0xeb303,0x8eb383,0x303de13,0x66f37,0xf0f13,0x1cf3023,0x1039393,0x103d393,0x27b7,0xf4078793,0x14fe7863,0x8eb7,0x448e8e93,0x8f37,0x4b8f0f13,0x87b7,0xb1078793,0xeb703,0xef3023,0xff8e8e93,0xff8f0f13,0xfefef8e3,0x8f37,0xb50f0f13,0x1210506f,0x7f3423,0x8eb7,0xb08e8e93,0x8f37,0xb48f0f13,0x77b7,0x58078793,0xeb703,0xef3023,0xff8e8e93,0xff8f0f13,0xfefef8e3,0x7f37,0x5b0f0f13,0xf3023,0xf3423,0x7eb7,0x578e8e93,0x7f37,0x5a8f0f13,0x77b7,0x3f078793,0xeb703,0xef3023,0xff8e8e93,0xff8f0f13,0xfefef8e3,0x7f37,0x410f0f13,0xf3023,0xf3423,0x7eb7,0x3e8e8e93,0x7f37,0x408f0f13,0x77b7,0x26078793,0xeb703,0xef3023,0xff8e8e93,0xff8f0f13,0xfefef8e3,0x7f37,0x270f0f13,0xf3023,0xf3423,0x7eb7,0x258e8e93,0x7f37,0x268f0f13,0x77b7,0xd078793,0xeb703,0xef3023,0xff8e8e93,0xff8f0f13,0xfefef8e3,0x7f37,0xd0f0f13,0xf3023,0xf3423,0x313,0x393,0x713,0x793,0xe13,0xe93,0xf13,0xd89d406f,0xb08d506f]
+def tailWords : List (BitVec 32) := [0x8eb7,0x450e8e93,0xeb303,0x8eb383,0x303de13,0x66f37,0xf0f13,0x1cf3023,0x1039393,0x103d393]
 
 sym_block tailRun := symRun { noAlias := true } tailWords (pcOf prologueBase) 50
 
@@ -305,15 +308,15 @@ set_option maxHeartbeats 1000000
 set_option maxRecDepth 10000
 set_option backward.isDefEq.respectTransparency false
 
-def mainHighSetupWords : List (BitVec 32) := [0x8eb7,0x468e8e93,0x8f37,0x4b8f0f13,0x87b7,0xb3078793]
+def mainHighSetupWords : List (BitVec 32) := [0x8eb7,0x448e8e93,0x8f37,0x4b8f0f13,0x87b7,0xb1078793]
 sym_block mainHighSetup := symRun { noAlias := true } mainHighSetupWords (pcOf 44109) 30
 
 theorem mainHigh_setup {im : Image} (hc : CodeAt im (pcOf 44109) mainHighSetupWords)
     (s : MachineState) (hpc : s.pc = pcOf 44109) :
     ∃ t, Steps im s 6 6 t ∧ t.pc = pcOf 44115 ∧
-      t.getReg .x29 = BitVec.ofNat 64 33896 ∧
+      t.getReg .x29 = BitVec.ofNat 64 33864 ∧
       t.getReg .x30 = BitVec.ofNat 64 33976 ∧
-      t.getReg .x15 = BitVec.ofNat 64 31536 ∧
+      t.getReg .x15 = BitVec.ofNat 64 31504 ∧
       RegsExcept s t [.x15,.x29,.x30] ∧ Frame s t (fun _ => False) := by
   refine ⟨_, symRun_sound mainHighSetup hc s hpc ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
   · simp [mainHighSetup.res, rv_simp]
@@ -331,11 +334,11 @@ theorem mainHigh_move {im : Image} (hs : CodeAt im (pcOf 44109) mainHighSetupWor
     (s : MachineState) (hpc : s.pc = pcOf 44109) :
     ∃ t, Steps im s 1486 1486 t ∧ t.pc = pcOf 44120 ∧
       (∀ i, i ≤ 295 → t.getMem (BitVec.ofNat 64 (31616 + 8 * i)) =
-        s.getMem (BitVec.ofNat 64 (31536 + 8 * i))) ∧
+        s.getMem (BitVec.ofNat 64 (31504 + 8 * i))) ∧
       RegsExcept s t [.x14,.x15,.x29,.x30] ∧
       Frame s t (fun A => 31616 ≤ A ∧ A < 33984) := by
   obtain ⟨u,su,pu,u29,u30,u15,ru,fu⟩ := mainHigh_setup hs s hpc
-  obtain ⟨t,ut,pt,r29,r30,mt,rt,ft⟩ := copy_loop (pcOf 44115) hc 31536 31616
+  obtain ⟨t,ut,pt,r29,r30,mt,rt,ft⟩ := copy_loop (pcOf 44115) hc 31504 31616
     (by decide) (by decide) (by decide) (by decide) 295 u (by decide) pu u29 u30 u15
   refine ⟨t, su.trans ut, ?_, ?_, ?_, ?_⟩
   · exact pt
@@ -348,14 +351,14 @@ theorem mainHigh_move {im : Image} (hs : CodeAt im (pcOf 44109) mainHighSetupWor
 #print axioms mainHigh_move
 
 
-def middleSetupWords : List (BitVec 32) := [0x8eb7,0xb28e8e93,0x8f37,0xb68f0f13,0x77b7,0x58078793]
+def middleSetupWords : List (BitVec 32) := [0x8eb7,0xb08e8e93,0x8f37,0xb48f0f13,0x77b7,0x58078793]
 sym_block middleSetup := symRun { noAlias := true } middleSetupWords (pcOf 44124) 30
 
 theorem middle_setup {im : Image} (hc : CodeAt im (pcOf 44124) middleSetupWords)
     (s : MachineState) (hpc : s.pc = pcOf 44124) :
     ∃ t, Steps im s 6 6 t ∧ t.pc = pcOf 44130 ∧
-      t.getReg .x29 = BitVec.ofNat 64 31528 ∧
-      t.getReg .x30 = BitVec.ofNat 64 31592 ∧
+      t.getReg .x29 = BitVec.ofNat 64 31496 ∧
+      t.getReg .x30 = BitVec.ofNat 64 31560 ∧
       t.getReg .x15 = BitVec.ofNat 64 30080 ∧
       RegsExcept s t [.x15,.x29,.x30] ∧ Frame s t (fun _ => False) := by
   refine ⟨_, symRun_sound middleSetup hc s hpc ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
@@ -372,14 +375,14 @@ theorem middle_setup {im : Image} (hc : CodeAt im (pcOf 44124) middleSetupWords)
 theorem middle_move {im : Image} (hs : CodeAt im (pcOf 44124) middleSetupWords)
     (hc : CodeAt im (pcOf 44130) copyWords)
     (s : MachineState) (hpc : s.pc = pcOf 44124) :
-    ∃ t, Steps im s 916 916 t ∧ t.pc = pcOf 44135 ∧
-      (∀ i, i ≤ 181 → t.getMem (BitVec.ofNat 64 (30144 + 8 * i)) =
+    ∃ t, Steps im s 896 896 t ∧ t.pc = pcOf 44135 ∧
+      (∀ i, i ≤ 177 → t.getMem (BitVec.ofNat 64 (30144 + 8 * i)) =
         s.getMem (BitVec.ofNat 64 (30080 + 8 * i))) ∧
       RegsExcept s t [.x14,.x15,.x29,.x30] ∧
-      Frame s t (fun A => 30144 ≤ A ∧ A < 31600) := by
+      Frame s t (fun A => 30144 ≤ A ∧ A < 31568) := by
   obtain ⟨u,su,pu,u29,u30,u15,ru,fu⟩ := middle_setup hs s hpc
   obtain ⟨t,ut,pt,r29,r30,mt,rt,ft⟩ := copy_loop (pcOf 44130) hc 30080 30144
-    (by decide) (by decide) (by decide) (by decide) 181 u (by decide) pu u29 u30 u15
+    (by decide) (by decide) (by decide) (by decide) 177 u (by decide) pu u29 u30 u15
   refine ⟨t, su.trans ut, ?_, ?_, ?_, ?_⟩
   · exact pt
   · intro i hi
@@ -528,26 +531,80 @@ set_option maxHeartbeats 1000000
 set_option maxRecDepth 10000
 set_option backward.isDefEq.respectTransparency false
 
-def restoreTailWords : List (BitVec 32) := [0x8f37,0xb70f0f13,0x6f3023,0x7f3423]
+/-- R6: words 44120..44122 (`lui t5,0x8 ; addi t5,t5,-1200 ; j KSIB`); word 44123 is dead. -/
+def restoreTailWords : List (BitVec 32) := [0x8f37,0xb50f0f13,0x1210506f]
 sym_block restoreTailRun := symRun { noAlias := true } restoreTailWords (pcOf 44120) 20
+/-- R6 KSIB (49826): the kept top sibling words to decompacted digest 181 (31568/31576), digests 182/183 zeroed
+(31584..31615), then back to 44124. -/
+def ksibWords : List (BitVec 32) := [0x6f3023,0x7f3423,0xf3823,0xf3c23,0x20f3023,0x20f3423,0xed0fa06f]
+sym_block ksibRun := symRun { noAlias := true } ksibWords (pcOf 49826) 20
 
-theorem restoreTail_spec {im : Image} (hc : CodeAt im (pcOf 44120) restoreTailWords)
+theorem restoreJump_spec {im : Image} (hc : CodeAt im (pcOf 44120) restoreTailWords)
     (s : MachineState) (hpc : s.pc = pcOf 44120) :
-    ∃ t, Steps im s 4 4 t ∧ t.pc = pcOf 44124 ∧
-      t.getMem 31600 = s.getReg .x6 ∧ t.getMem 31608 = s.getReg .x7 ∧
-      RegsExcept s t [.x30] ∧ Frame s t (fun A => A = 31600 ∨ A = 31608) := by
-  refine ⟨_, symRun_sound restoreTailRun hc s hpc ?_, ?_, ?_, ?_, ?_, ?_⟩
-  · simp [restoreTailRun.res, rv_simp, accessValid_iff, MEMORY_BYTES]
+    ∃ t, Steps im s 3 3 t ∧ t.pc = pcOf 49826 ∧ t.getReg .x30 = BitVec.ofNat 64 31568 ∧
+      RegsExcept s t [.x30] ∧ Frame s t (fun _ => False) := by
+  refine ⟨_, symRun_sound restoreTailRun hc s hpc ?_, ?_, ?_, ?_, ?_⟩
+  · simp [restoreTailRun.res, rv_simp]
   · rfl
-  · simp [restoreTailRun.res, rv_simp]
-  · simp [restoreTailRun.res, rv_simp]
+  · rfl
+  · intro r hr
+    cases r <;> first | exact (hr (by decide)).elim | rfl
+  · intro A hA h
+    rfl
+
+theorem ksib_spec {im : Image} (hc : CodeAt im (pcOf 49826) ksibWords)
+    (s : MachineState) (hpc : s.pc = pcOf 49826) (h30 : s.getReg .x30 = BitVec.ofNat 64 31568) :
+    ∃ t, Steps im s 7 7 t ∧ t.pc = pcOf 44124 ∧
+      t.getMem 31568 = s.getReg .x6 ∧ t.getMem 31576 = s.getReg .x7 ∧
+      t.getMem 31584 = 0 ∧ t.getMem 31592 = 0 ∧ t.getMem 31600 = 0 ∧ t.getMem 31608 = 0 ∧
+      RegsExcept s t [] ∧ Frame s t (fun A => 31568 ≤ A ∧ A < 31616) := by
+  refine ⟨_, symRun_sound ksibRun hc s hpc ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
+  · simp [ksibRun.res, rv_simp, accessValid_iff, MEMORY_BYTES, h30]
+  · rfl
+  · first
+      | (simp [ksibRun.res, rv_simp, h30]; done)
+      | (simp only [Result.toState_getMem, ksibRun.res]; t3n [h30]; done)
+      | (simp only [Result.toState_getMem, ksibRun.res]; t3n [h30]; simp)
+  · first
+      | (simp [ksibRun.res, rv_simp, h30]; done)
+      | (simp only [Result.toState_getMem, ksibRun.res]; t3n [h30]; done)
+      | (simp only [Result.toState_getMem, ksibRun.res]; t3n [h30]; simp)
+  · first
+      | (simp [ksibRun.res, rv_simp, h30]; done)
+      | (simp only [Result.toState_getMem, ksibRun.res]; t3n [h30]; done)
+      | (simp only [Result.toState_getMem, ksibRun.res]; t3n [h30]; simp)
+  · first
+      | (simp [ksibRun.res, rv_simp, h30]; done)
+      | (simp only [Result.toState_getMem, ksibRun.res]; t3n [h30]; done)
+      | (simp only [Result.toState_getMem, ksibRun.res]; t3n [h30]; simp)
+  · first
+      | (simp [ksibRun.res, rv_simp, h30]; done)
+      | (simp only [Result.toState_getMem, ksibRun.res]; t3n [h30]; done)
+      | (simp only [Result.toState_getMem, ksibRun.res]; t3n [h30]; simp)
+  · first
+      | (simp [ksibRun.res, rv_simp, h30]; done)
+      | (simp only [Result.toState_getMem, ksibRun.res]; t3n [h30]; done)
+      | (simp only [Result.toState_getMem, ksibRun.res]; t3n [h30]; simp)
   · intro r hr
     cases r <;> first | exact (hr (by decide)).elim | rfl
   · intro A hA hne
-    simp only [Result.toState_getMem, restoreTailRun.res]
-    t3n []
-    rw [Nat.mod_eq_of_lt (show A < 18446744073709551616 by simpa using hA),
-      if_neg (by omega), if_neg (by omega)]
+    simp only [Result.toState_getMem, ksibRun.res]
+    t3n [h30]
+    have hA' : A < 18446744073709551616 := by simpa using hA
+    split_ifs <;> first | rfl | omega
+
+theorem restoreTail_spec {im : Image} (hc : CodeAt im (pcOf 44120) restoreTailWords)
+    (hk : CodeAt im (pcOf 49826) ksibWords)
+    (s : MachineState) (hpc : s.pc = pcOf 44120) :
+    ∃ t, Steps im s 10 10 t ∧ t.pc = pcOf 44124 ∧
+      t.getMem 31568 = s.getReg .x6 ∧ t.getMem 31576 = s.getReg .x7 ∧
+      t.getMem 31584 = 0 ∧ t.getMem 31592 = 0 ∧ t.getMem 31600 = 0 ∧ t.getMem 31608 = 0 ∧
+      RegsExcept s t [.x30] ∧ Frame s t (fun A => 31568 ≤ A ∧ A < 31616) := by
+  obtain ⟨u, su, pu, u30, ru, fu⟩ := restoreJump_spec hc s hpc
+  obtain ⟨t, ut, pt, m0, m8, z16, z24, z32, z40, rt, ft⟩ := ksib_spec hk u pu u30
+  refine ⟨t, su.trans ut, pt, m0.trans (ru.get (by decide)), m8.trans (ru.get (by decide)),
+    z16, z24, z32, z40, (ru.trans rt).mono (by decide), ?_⟩
+  exact (fu.trans ft).mono (by intro A _ h; rcases h with h | h; exact h.elim; exact h)
 
 #print axioms restoreTail_spec
 
@@ -676,10 +733,10 @@ set_option backward.isDefEq.respectTransparency false
 theorem tail_full {im : Image} (hc : CodeAt im (pcOf prologueBase) tailWords)
     (s : MachineState) (hpc : s.pc = pcOf prologueBase) :
     ∃ t, Steps im s 10 10 t ∧ t.pc = pcOf (prologueBase + 10) ∧
-      t.getReg .x6 = s.getMem 0x8470 ∧
-      t.getReg .x7 = (s.getMem 0x8478 <<< 16) >>> 16 ∧
-      t.getReg .x28 = s.getMem 0x8478 >>> 48 ∧
-      t.getMem (BitVec.ofNat 64 policyAddress) = s.getMem 0x8478 >>> 48 ∧
+      t.getReg .x6 = s.getMem 0x8450 ∧
+      t.getReg .x7 = (s.getMem 0x8458 <<< 16) >>> 16 ∧
+      t.getReg .x28 = s.getMem 0x8458 >>> 48 ∧
+      t.getMem (BitVec.ofNat 64 policyAddress) = s.getMem 0x8458 >>> 48 ∧
       RegsExcept s t [.x6,.x7,.x28,.x29,.x30] ∧
       Frame s t (fun A => A = policyAddress) := by
   refine ⟨_, symRun_sound tailRun hc s hpc ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
@@ -711,6 +768,8 @@ structure AdapterCodeAt (im : Image) : Prop where
   pair1Setup : CodeAt im (pcOf 44169) pair1SetupWords
   pair1Loop : CodeAt im (pcOf 44175) copyWords
   restoreTail : CodeAt im (pcOf 44120) restoreTailWords
+  /-- R6: the KSIB block at 49826 (sibling to digest 181, digests 182/183 zeroed). -/
+  ksib : CodeAt im (pcOf 49826) ksibWords
   zero91 : CodeAt im (pcOf 44135) zero91Words
   zero65 : CodeAt im (pcOf 44150) zero65Words
   zero39 : CodeAt im (pcOf 44165) zero39Words
@@ -719,15 +778,16 @@ structure AdapterCodeAt (im : Image) : Prop where
 
 theorem adapter_spec {im : Image} (hc : AdapterCodeAt im)
     (s : MachineState) (hpc : s.pc = pcOf 44096)
-    (H : Nat) (hH : H < 8000) (hh : s.getMem 0x8478 >>> 48 = BitVec.ofNat 64 H) :
-    ∃ t, Steps im s 3211 3211 t ∧ t.pc = pcOf 1 ∧
+    (H : Nat) (hH : H < 8000) (hh : s.getMem 0x8458 >>> 48 = BitVec.ofNat 64 H) :
+    ∃ t, Steps im s 3197 3197 t ∧ t.pc = pcOf 1 ∧
       (∀ r ∈ [.x6,.x7,.x14,.x15,.x28,.x29,.x30], t.getReg r = 0) ∧
       RegsExcept s t [.x6,.x7,.x14,.x15,.x28,.x29,.x30] ∧
       t.getMem (BitVec.ofNat 64 policyAddress) = BitVec.ofNat 64 H ∧
-      t.getMem 31600 = s.getMem 33904 ∧
-      t.getMem 31608 = (s.getMem 33912 <<< 16) >>> 16 ∧
-      (∀ i, i ≤ 295 → t.getMem (BitVec.ofNat 64 (31616 + 8 * i)) = s.getMem (BitVec.ofNat 64 (31536 + 8 * i))) ∧
-      (∀ i, i ≤ 181 → t.getMem (BitVec.ofNat 64 (30144 + 8 * i)) = s.getMem (BitVec.ofNat 64 (30080 + 8 * i))) ∧
+      t.getMem 31568 = s.getMem 33872 ∧
+      t.getMem 31576 = (s.getMem 33880 <<< 16) >>> 16 ∧
+      t.getMem 31584 = 0 ∧ t.getMem 31592 = 0 ∧ t.getMem 31600 = 0 ∧ t.getMem 31608 = 0 ∧
+      (∀ i, i ≤ 295 → t.getMem (BitVec.ofNat 64 (31616 + 8 * i)) = s.getMem (BitVec.ofNat 64 (31504 + 8 * i))) ∧
+      (∀ i, i ≤ 177 → t.getMem (BitVec.ofNat 64 (30144 + 8 * i)) = s.getMem (BitVec.ofNat 64 (30080 + 8 * i))) ∧
       (∀ i, i ≤ 49 → t.getMem (BitVec.ofNat 64 (29728 + 8 * i)) = s.getMem (BitVec.ofNat 64 (29680 + 8 * i))) ∧
       (∀ i, i ≤ 49 → t.getMem (BitVec.ofNat 64 (29312 + 8 * i)) = s.getMem (BitVec.ofNat 64 (29280 + 8 * i))) ∧
       (∀ i, i ≤ 49 → t.getMem (BitVec.ofNat 64 (28896 + 8 * i)) = s.getMem (BitVec.ofNat 64 (28880 + 8 * i))) ∧
@@ -740,7 +800,7 @@ theorem adapter_spec {im : Image} (hc : AdapterCodeAt im)
   obtain ⟨s2, st2, pc2, r2, f2⟩ := guard_spec hc.guard s1 pc1 H (by omega) (x281.trans hh)
   rw [if_pos hH] at pc2
   obtain ⟨s3, st3, pc3, m3, r3, f3⟩ := mainHigh_move hc.mainHighSetup hc.mainHighLoop s2 pc2
-  obtain ⟨s4, st4, pc4, m4a, m4b, r4, f4⟩ := restoreTail_spec hc.restoreTail s3 pc3
+  obtain ⟨s4, st4, pc4, m4a, m4b, z4a, z4b, z4c, z4d, r4, f4⟩ := restoreTail_spec hc.restoreTail hc.ksib s3 pc3
   obtain ⟨s5, st5, pc5, m5, r5, f5⟩ := middle_move hc.middleSetup hc.middleLoop s4 pc4
   obtain ⟨s6, st6, pc6, m6a, m6b, r6, f6⟩ := zero91_spec hc.zero91 s5 pc5
   obtain ⟨s7, st7, pc7, m7, r7, f7⟩ := pair3_move hc.pair3Setup hc.pair3Loop s6 pc6
@@ -750,8 +810,12 @@ theorem adapter_spec {im : Image} (hc : AdapterCodeAt im)
   obtain ⟨s11, st11, pc11, m11, r11, f11⟩ := pair1_move hc.pair1Setup hc.pair1Loop s10 pc10
   obtain ⟨s12, st12, pc12, m12a, m12b, r12, f12⟩ := zero13_spec hc.zero13 s11 pc11
   obtain ⟨t, st13, pc13, zeros, r13, f13⟩ := cleanup_spec hc.cleanup s12 pc12
-  change s4.getMem (BitVec.ofNat 64 31600) = _ at m4a
-  change s4.getMem (BitVec.ofNat 64 31608) = _ at m4b
+  change s4.getMem (BitVec.ofNat 64 31568) = _ at m4a
+  change s4.getMem (BitVec.ofNat 64 31576) = _ at m4b
+  change s4.getMem (BitVec.ofNat 64 31584) = _ at z4a
+  change s4.getMem (BitVec.ofNat 64 31592) = _ at z4b
+  change s4.getMem (BitVec.ofNat 64 31600) = _ at z4c
+  change s4.getMem (BitVec.ofNat 64 31608) = _ at z4d
   change s6.getMem (BitVec.ofNat 64 30128) = _ at m6a
   change s6.getMem (BitVec.ofNat 64 30136) = _ at m6b
   change s8.getMem (BitVec.ofNat 64 29712) = _ at m8a
@@ -760,16 +824,24 @@ theorem adapter_spec {im : Image} (hc : AdapterCodeAt im)
   change s10.getMem (BitVec.ofNat 64 29304) = _ at m10b
   change s12.getMem (BitVec.ofNat 64 28880) = _ at m12a
   change s12.getMem (BitVec.ofNat 64 28888) = _ at m12b
-  refine ⟨t, ?_, pc13, zeros, ?_, ?_, ?_, ?_, ?_ , ?_ , ?_ , ?_ , ?_ , ?_ , ?_ , ?_ , ?_ , ?_ , ?_ , ?_ , ?_ , ?_ ⟩
+  refine ⟨t, ?_, pc13, zeros, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
   · exact ((((((((((((st1.trans st2).trans st3).trans st4).trans st5).trans st6).trans st7).trans st8).trans st9).trans st10).trans st11).trans st12).trans st13)
   · exact ((((((((((((r1.trans r2).trans r3).trans r4).trans r5).trans r6).trans r7).trans r8).trans r9).trans r10).trans r11).trans r12).trans r13).mono (by decide)
   · rw [f13 policyAddress (by norm_num [policyAddress] <;> omega) (by norm_num [policyAddress] <;> omega), f12 policyAddress (by norm_num [policyAddress] <;> omega) (by norm_num [policyAddress] <;> omega), f11 policyAddress (by norm_num [policyAddress] <;> omega) (by norm_num [policyAddress] <;> omega), f10 policyAddress (by norm_num [policyAddress] <;> omega) (by norm_num [policyAddress] <;> omega), f9 policyAddress (by norm_num [policyAddress] <;> omega) (by norm_num [policyAddress] <;> omega), f8 policyAddress (by norm_num [policyAddress] <;> omega) (by norm_num [policyAddress] <;> omega), f7 policyAddress (by norm_num [policyAddress] <;> omega) (by norm_num [policyAddress] <;> omega), f6 policyAddress (by norm_num [policyAddress] <;> omega) (by norm_num [policyAddress] <;> omega), f5 policyAddress (by norm_num [policyAddress] <;> omega) (by norm_num [policyAddress] <;> omega), f4 policyAddress (by norm_num [policyAddress] <;> omega) (by norm_num [policyAddress] <;> omega), f3 policyAddress (by norm_num [policyAddress] <;> omega) (by norm_num [policyAddress] <;> omega), f2 policyAddress (by norm_num [policyAddress] <;> omega) (by norm_num [policyAddress] <;> omega), meta1, hh]
+  · change t.getMem (BitVec.ofNat 64 31568) = _
+    rw [f13 31568 (by norm_num [policyAddress] <;> omega) (by norm_num [policyAddress] <;> omega), f12 31568 (by norm_num [policyAddress] <;> omega) (by norm_num [policyAddress] <;> omega), f11 31568 (by norm_num [policyAddress] <;> omega) (by norm_num [policyAddress] <;> omega), f10 31568 (by norm_num [policyAddress] <;> omega) (by norm_num [policyAddress] <;> omega), f9 31568 (by norm_num [policyAddress] <;> omega) (by norm_num [policyAddress] <;> omega), f8 31568 (by norm_num [policyAddress] <;> omega) (by norm_num [policyAddress] <;> omega), f7 31568 (by norm_num [policyAddress] <;> omega) (by norm_num [policyAddress] <;> omega), f6 31568 (by norm_num [policyAddress] <;> omega) (by norm_num [policyAddress] <;> omega), f5 31568 (by norm_num [policyAddress] <;> omega) (by norm_num [policyAddress] <;> omega), m4a, r3.get (by decide), r2.get (by decide), x61]
+  · change t.getMem (BitVec.ofNat 64 31576) = _
+    rw [f13 31576 (by norm_num [policyAddress] <;> omega) (by norm_num [policyAddress] <;> omega), f12 31576 (by norm_num [policyAddress] <;> omega) (by norm_num [policyAddress] <;> omega), f11 31576 (by norm_num [policyAddress] <;> omega) (by norm_num [policyAddress] <;> omega), f10 31576 (by norm_num [policyAddress] <;> omega) (by norm_num [policyAddress] <;> omega), f9 31576 (by norm_num [policyAddress] <;> omega) (by norm_num [policyAddress] <;> omega), f8 31576 (by norm_num [policyAddress] <;> omega) (by norm_num [policyAddress] <;> omega), f7 31576 (by norm_num [policyAddress] <;> omega) (by norm_num [policyAddress] <;> omega), f6 31576 (by norm_num [policyAddress] <;> omega) (by norm_num [policyAddress] <;> omega), f5 31576 (by norm_num [policyAddress] <;> omega) (by norm_num [policyAddress] <;> omega), m4b, r3.get (by decide), r2.get (by decide), x71]
+  · change t.getMem (BitVec.ofNat 64 31584) = _
+    rw [f13 31584 (by norm_num [policyAddress] <;> omega) (by norm_num [policyAddress] <;> omega), f12 31584 (by norm_num [policyAddress] <;> omega) (by norm_num [policyAddress] <;> omega), f11 31584 (by norm_num [policyAddress] <;> omega) (by norm_num [policyAddress] <;> omega), f10 31584 (by norm_num [policyAddress] <;> omega) (by norm_num [policyAddress] <;> omega), f9 31584 (by norm_num [policyAddress] <;> omega) (by norm_num [policyAddress] <;> omega), f8 31584 (by norm_num [policyAddress] <;> omega) (by norm_num [policyAddress] <;> omega), f7 31584 (by norm_num [policyAddress] <;> omega) (by norm_num [policyAddress] <;> omega), f6 31584 (by norm_num [policyAddress] <;> omega) (by norm_num [policyAddress] <;> omega), f5 31584 (by norm_num [policyAddress] <;> omega) (by norm_num [policyAddress] <;> omega), z4a]
+  · change t.getMem (BitVec.ofNat 64 31592) = _
+    rw [f13 31592 (by norm_num [policyAddress] <;> omega) (by norm_num [policyAddress] <;> omega), f12 31592 (by norm_num [policyAddress] <;> omega) (by norm_num [policyAddress] <;> omega), f11 31592 (by norm_num [policyAddress] <;> omega) (by norm_num [policyAddress] <;> omega), f10 31592 (by norm_num [policyAddress] <;> omega) (by norm_num [policyAddress] <;> omega), f9 31592 (by norm_num [policyAddress] <;> omega) (by norm_num [policyAddress] <;> omega), f8 31592 (by norm_num [policyAddress] <;> omega) (by norm_num [policyAddress] <;> omega), f7 31592 (by norm_num [policyAddress] <;> omega) (by norm_num [policyAddress] <;> omega), f6 31592 (by norm_num [policyAddress] <;> omega) (by norm_num [policyAddress] <;> omega), f5 31592 (by norm_num [policyAddress] <;> omega) (by norm_num [policyAddress] <;> omega), z4b]
   · change t.getMem (BitVec.ofNat 64 31600) = _
-    rw [f13 31600 (by norm_num [policyAddress] <;> omega) (by norm_num [policyAddress] <;> omega), f12 31600 (by norm_num [policyAddress] <;> omega) (by norm_num [policyAddress] <;> omega), f11 31600 (by norm_num [policyAddress] <;> omega) (by norm_num [policyAddress] <;> omega), f10 31600 (by norm_num [policyAddress] <;> omega) (by norm_num [policyAddress] <;> omega), f9 31600 (by norm_num [policyAddress] <;> omega) (by norm_num [policyAddress] <;> omega), f8 31600 (by norm_num [policyAddress] <;> omega) (by norm_num [policyAddress] <;> omega), f7 31600 (by norm_num [policyAddress] <;> omega) (by norm_num [policyAddress] <;> omega), f6 31600 (by norm_num [policyAddress] <;> omega) (by norm_num [policyAddress] <;> omega), f5 31600 (by norm_num [policyAddress] <;> omega) (by norm_num [policyAddress] <;> omega), m4a, r3.get (by decide), r2.get (by decide), x61]
+    rw [f13 31600 (by norm_num [policyAddress] <;> omega) (by norm_num [policyAddress] <;> omega), f12 31600 (by norm_num [policyAddress] <;> omega) (by norm_num [policyAddress] <;> omega), f11 31600 (by norm_num [policyAddress] <;> omega) (by norm_num [policyAddress] <;> omega), f10 31600 (by norm_num [policyAddress] <;> omega) (by norm_num [policyAddress] <;> omega), f9 31600 (by norm_num [policyAddress] <;> omega) (by norm_num [policyAddress] <;> omega), f8 31600 (by norm_num [policyAddress] <;> omega) (by norm_num [policyAddress] <;> omega), f7 31600 (by norm_num [policyAddress] <;> omega) (by norm_num [policyAddress] <;> omega), f6 31600 (by norm_num [policyAddress] <;> omega) (by norm_num [policyAddress] <;> omega), f5 31600 (by norm_num [policyAddress] <;> omega) (by norm_num [policyAddress] <;> omega), z4c]
   · change t.getMem (BitVec.ofNat 64 31608) = _
-    rw [f13 31608 (by norm_num [policyAddress] <;> omega) (by norm_num [policyAddress] <;> omega), f12 31608 (by norm_num [policyAddress] <;> omega) (by norm_num [policyAddress] <;> omega), f11 31608 (by norm_num [policyAddress] <;> omega) (by norm_num [policyAddress] <;> omega), f10 31608 (by norm_num [policyAddress] <;> omega) (by norm_num [policyAddress] <;> omega), f9 31608 (by norm_num [policyAddress] <;> omega) (by norm_num [policyAddress] <;> omega), f8 31608 (by norm_num [policyAddress] <;> omega) (by norm_num [policyAddress] <;> omega), f7 31608 (by norm_num [policyAddress] <;> omega) (by norm_num [policyAddress] <;> omega), f6 31608 (by norm_num [policyAddress] <;> omega) (by norm_num [policyAddress] <;> omega), f5 31608 (by norm_num [policyAddress] <;> omega) (by norm_num [policyAddress] <;> omega), m4b, r3.get (by decide), r2.get (by decide), x71]
+    rw [f13 31608 (by norm_num [policyAddress] <;> omega) (by norm_num [policyAddress] <;> omega), f12 31608 (by norm_num [policyAddress] <;> omega) (by norm_num [policyAddress] <;> omega), f11 31608 (by norm_num [policyAddress] <;> omega) (by norm_num [policyAddress] <;> omega), f10 31608 (by norm_num [policyAddress] <;> omega) (by norm_num [policyAddress] <;> omega), f9 31608 (by norm_num [policyAddress] <;> omega) (by norm_num [policyAddress] <;> omega), f8 31608 (by norm_num [policyAddress] <;> omega) (by norm_num [policyAddress] <;> omega), f7 31608 (by norm_num [policyAddress] <;> omega) (by norm_num [policyAddress] <;> omega), f6 31608 (by norm_num [policyAddress] <;> omega) (by norm_num [policyAddress] <;> omega), f5 31608 (by norm_num [policyAddress] <;> omega) (by norm_num [policyAddress] <;> omega), z4d]
   · intro i hi
-    rw [f13 (31616 + 8 * i) (by norm_num [policyAddress] <;> omega) (by norm_num [policyAddress] <;> omega), f12 (31616 + 8 * i) (by norm_num [policyAddress] <;> omega) (by norm_num [policyAddress] <;> omega), f11 (31616 + 8 * i) (by norm_num [policyAddress] <;> omega) (by norm_num [policyAddress] <;> omega), f10 (31616 + 8 * i) (by norm_num [policyAddress] <;> omega) (by norm_num [policyAddress] <;> omega), f9 (31616 + 8 * i) (by norm_num [policyAddress] <;> omega) (by norm_num [policyAddress] <;> omega), f8 (31616 + 8 * i) (by norm_num [policyAddress] <;> omega) (by norm_num [policyAddress] <;> omega), f7 (31616 + 8 * i) (by norm_num [policyAddress] <;> omega) (by norm_num [policyAddress] <;> omega), f6 (31616 + 8 * i) (by norm_num [policyAddress] <;> omega) (by norm_num [policyAddress] <;> omega), f5 (31616 + 8 * i) (by norm_num [policyAddress] <;> omega) (by norm_num [policyAddress] <;> omega), f4 (31616 + 8 * i) (by norm_num [policyAddress] <;> omega) (by norm_num [policyAddress] <;> omega), m3 i hi, f2 (31536 + 8 * i) (by norm_num [policyAddress] <;> omega) (by norm_num [policyAddress] <;> omega), f1 (31536 + 8 * i) (by norm_num [policyAddress] <;> omega) (by norm_num [policyAddress] <;> omega)]
+    rw [f13 (31616 + 8 * i) (by norm_num [policyAddress] <;> omega) (by norm_num [policyAddress] <;> omega), f12 (31616 + 8 * i) (by norm_num [policyAddress] <;> omega) (by norm_num [policyAddress] <;> omega), f11 (31616 + 8 * i) (by norm_num [policyAddress] <;> omega) (by norm_num [policyAddress] <;> omega), f10 (31616 + 8 * i) (by norm_num [policyAddress] <;> omega) (by norm_num [policyAddress] <;> omega), f9 (31616 + 8 * i) (by norm_num [policyAddress] <;> omega) (by norm_num [policyAddress] <;> omega), f8 (31616 + 8 * i) (by norm_num [policyAddress] <;> omega) (by norm_num [policyAddress] <;> omega), f7 (31616 + 8 * i) (by norm_num [policyAddress] <;> omega) (by norm_num [policyAddress] <;> omega), f6 (31616 + 8 * i) (by norm_num [policyAddress] <;> omega) (by norm_num [policyAddress] <;> omega), f5 (31616 + 8 * i) (by norm_num [policyAddress] <;> omega) (by norm_num [policyAddress] <;> omega), f4 (31616 + 8 * i) (by norm_num [policyAddress] <;> omega) (by norm_num [policyAddress] <;> omega), m3 i hi, f2 (31504 + 8 * i) (by norm_num [policyAddress] <;> omega) (by norm_num [policyAddress] <;> omega), f1 (31504 + 8 * i) (by norm_num [policyAddress] <;> omega) (by norm_num [policyAddress] <;> omega)]
   · intro i hi
     rw [f13 (30144 + 8 * i) (by norm_num [policyAddress] <;> omega) (by norm_num [policyAddress] <;> omega), f12 (30144 + 8 * i) (by norm_num [policyAddress] <;> omega) (by norm_num [policyAddress] <;> omega), f11 (30144 + 8 * i) (by norm_num [policyAddress] <;> omega) (by norm_num [policyAddress] <;> omega), f10 (30144 + 8 * i) (by norm_num [policyAddress] <;> omega) (by norm_num [policyAddress] <;> omega), f9 (30144 + 8 * i) (by norm_num [policyAddress] <;> omega) (by norm_num [policyAddress] <;> omega), f8 (30144 + 8 * i) (by norm_num [policyAddress] <;> omega) (by norm_num [policyAddress] <;> omega), f7 (30144 + 8 * i) (by norm_num [policyAddress] <;> omega) (by norm_num [policyAddress] <;> omega), f6 (30144 + 8 * i) (by norm_num [policyAddress] <;> omega) (by norm_num [policyAddress] <;> omega), m5 i hi, f4 (30080 + 8 * i) (by norm_num [policyAddress] <;> omega) (by norm_num [policyAddress] <;> omega), f3 (30080 + 8 * i) (by norm_num [policyAddress] <;> omega) (by norm_num [policyAddress] <;> omega), f2 (30080 + 8 * i) (by norm_num [policyAddress] <;> omega) (by norm_num [policyAddress] <;> omega), f1 (30080 + 8 * i) (by norm_num [policyAddress] <;> omega) (by norm_num [policyAddress] <;> omega)]
   · intro i hi
@@ -802,14 +874,14 @@ end ClaudeWCT.W9.Machine.Expand.SharedCompact
 namespace ClaudeWCT.W9.Machine.Expand.SharedCompact
 open SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64 SigGolfCandidate.Rv
 open SigGolfCandidate.T3M
-def adapterLayout : SigGolfCandidate.Rv.Layout := [(0, tailWords), (10, guardWords), (13, mainHighSetupWords), (19, copyWords), (24, restoreTailWords), (28, middleSetupWords), (34, copyWords), (39, zero91Words), (43, pair3SetupWords), (49, copyWords), (54, zero65Words), (58, pair2SetupWords), (64, copyWords), (69, zero39Words), (73, pair1SetupWords), (79, copyWords), (84, zero13Words), (88, cleanupWords), (96, [0xb08d506f])]
+def adapterLayout : SigGolfCandidate.Rv.Layout := [(0, tailWords), (10, guardWords), (13, mainHighSetupWords), (19, copyWords), (24, restoreTailWords), (27, [0x7f3423]), (28, middleSetupWords), (34, copyWords), (39, zero91Words), (43, pair3SetupWords), (49, copyWords), (54, zero65Words), (58, pair2SetupWords), (64, copyWords), (69, zero39Words), (73, pair1SetupWords), (79, copyWords), (84, zero13Words), (88, cleanupWords), (96, [0xb08d506f])]
 
 theorem adapterLayout_ok : layoutOk 0 adapterLayout = true := by decide +kernel
 
 theorem adapterLayout_code : layoutCode adapterLayout = prologueWords := by decide +kernel
 
-theorem adapter_codeAt {im : Image} (hc : CodeAt im (pcOf 44096) prologueWords) :
-    AdapterCodeAt im := by
+theorem adapter_codeAt {im : Image} (hc : CodeAt im (pcOf 44096) prologueWords)
+    (hk : CodeAt im (pcOf 49826) ksibWords) : AdapterCodeAt im := by
   have hl : CodeAt im (pcOf 44096) (layoutCode adapterLayout) := by
     rw [adapterLayout_code]; exact hc
   constructor
@@ -817,20 +889,21 @@ theorem adapter_codeAt {im : Image} (hc : CodeAt im (pcOf 44096) prologueWords) 
   · exact codeAt_sublayout hl adapterLayout_ok (i := 1) (o := 10) (seg := guardWords) (by decide +kernel)
   · exact codeAt_sublayout hl adapterLayout_ok (i := 2) (o := 13) (seg := mainHighSetupWords) (by decide +kernel)
   · exact codeAt_sublayout hl adapterLayout_ok (i := 3) (o := 19) (seg := copyWords) (by decide +kernel)
-  · exact codeAt_sublayout hl adapterLayout_ok (i := 5) (o := 28) (seg := middleSetupWords) (by decide +kernel)
-  · exact codeAt_sublayout hl adapterLayout_ok (i := 6) (o := 34) (seg := copyWords) (by decide +kernel)
-  · exact codeAt_sublayout hl adapterLayout_ok (i := 8) (o := 43) (seg := pair3SetupWords) (by decide +kernel)
-  · exact codeAt_sublayout hl adapterLayout_ok (i := 9) (o := 49) (seg := copyWords) (by decide +kernel)
-  · exact codeAt_sublayout hl adapterLayout_ok (i := 11) (o := 58) (seg := pair2SetupWords) (by decide +kernel)
-  · exact codeAt_sublayout hl adapterLayout_ok (i := 12) (o := 64) (seg := copyWords) (by decide +kernel)
-  · exact codeAt_sublayout hl adapterLayout_ok (i := 14) (o := 73) (seg := pair1SetupWords) (by decide +kernel)
-  · exact codeAt_sublayout hl adapterLayout_ok (i := 15) (o := 79) (seg := copyWords) (by decide +kernel)
+  · exact codeAt_sublayout hl adapterLayout_ok (i := 6) (o := 28) (seg := middleSetupWords) (by decide +kernel)
+  · exact codeAt_sublayout hl adapterLayout_ok (i := 7) (o := 34) (seg := copyWords) (by decide +kernel)
+  · exact codeAt_sublayout hl adapterLayout_ok (i := 9) (o := 43) (seg := pair3SetupWords) (by decide +kernel)
+  · exact codeAt_sublayout hl adapterLayout_ok (i := 10) (o := 49) (seg := copyWords) (by decide +kernel)
+  · exact codeAt_sublayout hl adapterLayout_ok (i := 12) (o := 58) (seg := pair2SetupWords) (by decide +kernel)
+  · exact codeAt_sublayout hl adapterLayout_ok (i := 13) (o := 64) (seg := copyWords) (by decide +kernel)
+  · exact codeAt_sublayout hl adapterLayout_ok (i := 15) (o := 73) (seg := pair1SetupWords) (by decide +kernel)
+  · exact codeAt_sublayout hl adapterLayout_ok (i := 16) (o := 79) (seg := copyWords) (by decide +kernel)
   · exact codeAt_sublayout hl adapterLayout_ok (i := 4) (o := 24) (seg := restoreTailWords) (by decide +kernel)
-  · exact codeAt_sublayout hl adapterLayout_ok (i := 7) (o := 39) (seg := zero91Words) (by decide +kernel)
-  · exact codeAt_sublayout hl adapterLayout_ok (i := 10) (o := 54) (seg := zero65Words) (by decide +kernel)
-  · exact codeAt_sublayout hl adapterLayout_ok (i := 13) (o := 69) (seg := zero39Words) (by decide +kernel)
-  · exact codeAt_sublayout hl adapterLayout_ok (i := 16) (o := 84) (seg := zero13Words) (by decide +kernel)
-  · exact codeAt_sublayout hl adapterLayout_ok (i := 17) (o := 88) (seg := cleanupWords) (by decide +kernel)
+  · exact hk
+  · exact codeAt_sublayout hl adapterLayout_ok (i := 8) (o := 39) (seg := zero91Words) (by decide +kernel)
+  · exact codeAt_sublayout hl adapterLayout_ok (i := 11) (o := 54) (seg := zero65Words) (by decide +kernel)
+  · exact codeAt_sublayout hl adapterLayout_ok (i := 14) (o := 69) (seg := zero39Words) (by decide +kernel)
+  · exact codeAt_sublayout hl adapterLayout_ok (i := 17) (o := 84) (seg := zero13Words) (by decide +kernel)
+  · exact codeAt_sublayout hl adapterLayout_ok (i := 18) (o := 88) (seg := cleanupWords) (by decide +kernel)
 
 #print axioms adapter_codeAt
 
@@ -843,69 +916,115 @@ set_option maxHeartbeats 1000000
 set_option maxRecDepth 10000
 set_option backward.isDefEq.respectTransparency false
 
+/-- R6 (S 5216): the decompacted words (332 digests): the codec's inflated layout up to the kept top sibling (digest
+181 = words 362/363, from compact words 650/651), two zero digests 182/183 (words 364..367, main's 54-value top),
+then compact words 354..649 at 368..663. -/
 def serializedWord (read : Nat → Word) (k : Nat) : Word :=
   if k < 26 then read k else if k < 28 then 0 else
   if k < 78 then read (k - 2) else if k < 80 then 0 else
   if k < 130 then read (k - 4) else if k < 132 then 0 else
   if k < 182 then read (k - 6) else if k < 184 then 0 else
-  if k < 366 then read (k - 8) else if k = 366 then read 654 else
-  if k = 367 then (read 655 <<< 16) >>> 16 else read (k - 10)
+  if k < 362 then read (k - 8) else if k = 362 then read 650 else
+  if k = 363 then (read 651 <<< 16) >>> 16 else if k < 368 then 0 else read (k - 14)
 
 theorem adapter_readout {im : Image} (hc : AdapterCodeAt im)
     (s : MachineState) (hpc : s.pc = pcOf 44096)
-    (H : Nat) (hH : H < 8000) (hh : s.getMem 0x8478 >>> 48 = BitVec.ofNat 64 H) :
-    ∃ t, Steps im s 3211 3211 t ∧ t.pc = pcOf 1 ∧
+    (H : Nat) (hH : H < 8000) (hh : s.getMem 0x8458 >>> 48 = BitVec.ofNat 64 H) :
+    ∃ t, Steps im s 3197 3197 t ∧ t.pc = pcOf 1 ∧
       (∀ r ∈ [.x6,.x7,.x14,.x15,.x28,.x29,.x30], t.getReg r = 0) ∧
       RegsExcept s t [.x6,.x7,.x14,.x15,.x28,.x29,.x30] ∧
       t.getMem (BitVec.ofNat 64 policyAddress) = BitVec.ofNat 64 H ∧
       (∀ k, k < 664 → t.getMem (BitVec.ofNat 64 (0x7000 + 8 * k)) =
         serializedWord (fun j => s.getMem (BitVec.ofNat 64 (0x7000 + 8 * j))) k) ∧
       Frame s t (fun A => A = policyAddress ∨ (0x70d0 ≤ A ∧ A < 0x84c0)) := by
-  obtain ⟨t, steps, pc, zregs, regs, hints, low, high, main, middle, pair3, pair2, pair1,
+  obtain ⟨t, steps, pc, zregs, regs, hints, low, high, z182a, z182b, z183a, z183b, main, middle, pair3, pair2, pair1,
     z91a, z91b, z65a, z65b, z39a, z39b, z13a, z13b, frame⟩ := adapter_spec hc s hpc H hH hh
   refine ⟨t, steps, pc, zregs, regs, hints, ?_, frame⟩
   intro k hk
   unfold serializedWord
-  split_ifs with h26 h28 h78 h80 h130 h132 h182 h184 h366 he366 he367
-  · exact frame (0x7000 + 8 * k) (by omega) (by dsimp [policyAddress]; omega)
-  · have e : k = 26 ∨ k = 27 := by omega
+  by_cases c0 : k < 26
+  · rw [if_pos c0]
+    exact frame (0x7000 + 8 * k) (by omega) (by dsimp [policyAddress]; omega)
+  rw [if_neg c0]
+  by_cases c1 : k < 28
+  · rw [if_pos c1]
+    have e : k = 26 ∨ k = 27 := by omega
     rcases e with rfl | rfl
     · exact z13a
     · exact z13b
-  · rw [show 0x7000 + 8 * k = 28896 + 8 * (k - 28) by omega,
-      pair1 (k - 28) (by omega)]
+  rw [if_neg c1]
+  by_cases c2 : k < 78
+  · rw [if_pos c2]
+    dsimp only
+    rw [show 0x7000 + 8 * k = 28896 + 8 * (k - 28) by omega, pair1 (k - 28) (by omega)]
     congr 2
     omega
-  · have e : k = 78 ∨ k = 79 := by omega
+  rw [if_neg c2]
+  by_cases c3 : k < 80
+  · rw [if_pos c3]
+    have e : k = 78 ∨ k = 79 := by omega
     rcases e with rfl | rfl
     · exact z39a
     · exact z39b
-  · rw [show 0x7000 + 8 * k = 29312 + 8 * (k - 80) by omega,
-      pair2 (k - 80) (by omega)]
+  rw [if_neg c3]
+  by_cases c4 : k < 130
+  · rw [if_pos c4]
+    dsimp only
+    rw [show 0x7000 + 8 * k = 29312 + 8 * (k - 80) by omega, pair2 (k - 80) (by omega)]
     congr 2
     omega
-  · have e : k = 130 ∨ k = 131 := by omega
+  rw [if_neg c4]
+  by_cases c5 : k < 132
+  · rw [if_pos c5]
+    have e : k = 130 ∨ k = 131 := by omega
     rcases e with rfl | rfl
     · exact z65a
     · exact z65b
-  · rw [show 0x7000 + 8 * k = 29728 + 8 * (k - 132) by omega,
-      pair3 (k - 132) (by omega)]
+  rw [if_neg c5]
+  by_cases c6 : k < 182
+  · rw [if_pos c6]
+    dsimp only
+    rw [show 0x7000 + 8 * k = 29728 + 8 * (k - 132) by omega, pair3 (k - 132) (by omega)]
     congr 2
     omega
-  · have e : k = 182 ∨ k = 183 := by omega
+  rw [if_neg c6]
+  by_cases c7 : k < 184
+  · rw [if_pos c7]
+    have e : k = 182 ∨ k = 183 := by omega
     rcases e with rfl | rfl
     · exact z91a
     · exact z91b
-  · rw [show 0x7000 + 8 * k = 30144 + 8 * (k - 184) by omega,
-      middle (k - 184) (by omega)]
+  rw [if_neg c7]
+  by_cases c8 : k < 362
+  · rw [if_pos c8]
+    dsimp only
+    rw [show 0x7000 + 8 * k = 30144 + 8 * (k - 184) by omega, middle (k - 184) (by omega)]
     congr 2
     omega
-  · subst k; exact low
-  · subst k; exact high
-  · rw [show 0x7000 + 8 * k = 31616 + 8 * (k - 368) by omega,
-      main (k - 368) (by omega)]
-    congr 2
-    omega
+  rw [if_neg c8]
+  by_cases c9 : k = 362
+  · subst c9
+    rw [if_pos rfl]
+    exact low
+  rw [if_neg c9]
+  by_cases c10 : k = 363
+  · subst c10
+    rw [if_pos rfl]
+    exact high
+  rw [if_neg c10]
+  by_cases c11 : k < 368
+  · rw [if_pos c11]
+    have e : k = 364 ∨ k = 365 ∨ k = 366 ∨ k = 367 := by omega
+    rcases e with rfl | rfl | rfl | rfl
+    · exact z182a
+    · exact z182b
+    · exact z183a
+    · exact z183b
+  rw [if_neg c11]
+  dsimp only
+  rw [show 0x7000 + 8 * k = 31616 + 8 * (k - 368) by omega, main (k - 368) (by omega)]
+  congr 2
+  omega
 
 #print axioms adapter_readout
 
@@ -926,8 +1045,8 @@ theorem entry_step {im : Image} (hc : CodeAt im (pcOf 0) [entryWord])
 
 theorem front_readout {im : Image} (he : CodeAt im (pcOf 0) [entryWord])
     (hc : AdapterCodeAt im) (s : MachineState) (hpc : s.pc = pcOf 0)
-    (H : Nat) (hH : H < 8000) (hh : s.getMem 0x8478 >>> 48 = BitVec.ofNat 64 H) :
-    ∃ t, Steps im s 3212 3212 t ∧ t.pc = pcOf 1 ∧
+    (H : Nat) (hH : H < 8000) (hh : s.getMem 0x8458 >>> 48 = BitVec.ofNat 64 H) :
+    ∃ t, Steps im s 3198 3198 t ∧ t.pc = pcOf 1 ∧
       (∀ r ∈ [.x6,.x7,.x14,.x15,.x28,.x29,.x30], t.getReg r = 0) ∧
       RegsExcept s t [.x6,.x7,.x14,.x15,.x28,.x29,.x30] ∧
       t.getMem (BitVec.ofNat 64 policyAddress) = BitVec.ofNat 64 H ∧
@@ -946,10 +1065,11 @@ open SigGolfCandidate.T3M SigGolfCandidate.Rv
 
 theorem installed_adapter_codeAt : AdapterCodeAt Images.expandImage := by
   apply adapter_codeAt
-  apply codeAt_expand_current_chunk
-  · decide +kernel
-  · decide +kernel
-  · decide +kernel
+  · apply codeAt_expand_current_chunk
+    · decide +kernel
+    · decide +kernel
+    · decide +kernel
+  · apply codeAt_expand_last <;> decide +kernel
 
 theorem installed_entry_codeAt : CodeAt Images.expandImage (pcOf 0) [entryWord] := by
   apply codeAt_expand_current_chunk

@@ -7,18 +7,24 @@ open SigGolfCandidate.T3 (Layer Digest chainCount width maxDigit chain chainInpu
 open SphincsSecurity (bytesLE bytesLE_length)
 def n4 (lay : Layer) : Nat := if lay = 0 then 51 else 0
 def leafBlocks (lay : Layer) : Nat := (16 * (chainCount lay + 1) + 63) / 64
-theorem chainCount_cases (lay : Layer) : chainCount lay = 54 ∨ chainCount lay = 43 := by
+/-- Campaign R6: 52 top chains. -/
+theorem chainCount_cases (lay : Layer) : chainCount lay = 52 ∨ chainCount lay = 43 := by
   fin_cases lay <;> simp [chainCount]
+
 theorem n4_le (lay : Layer) : n4 lay ≤ chainCount lay := by
   unfold n4; split_ifs with h
   · subst h; simp [chainCount]
   · omega
+/-- Campaign R6: top chains 0..23 radix 6, 24..50 radix 5, 51 radix 8; lower chains radix 8. -/
 theorem maxDigit_shape (lay : Layer) (i : Nat) :
-    maxDigit lay i = if lay = 0 then (if i < n4 lay then 4 else 7) else 7 := by
+    maxDigit lay i = if lay = 0 then (if i < 24 then 5 else if i < n4 lay then 4 else 7) else 7 := by
   unfold maxDigit n4
-  split_ifs <;> rfl
+  split_ifs <;> first | rfl | omega
+
+/-- Steps of the sign's cap selector `j 2010 ; 2010..2016` (campaign R6: 8 below 24, 6 below 51, 3 for the checksum
+chain); lower layers skip it. -/
 def selectorExtra (lay : Layer) (i : Nat) : Nat :=
-  if lay = 0 then (if i < n4 lay then 5 else 3) else 0
+  if lay = 0 then (if i < 24 then 8 else if i < n4 lay then 6 else 3) else 0
 def slotK (lay : Layer) (i : Nat) : Nat := if lay = 0 then 1 else if i = 0 then 0 else 1
 structure LeafArgs where
   lay : Layer
@@ -179,15 +185,18 @@ theorem leafHalf_lt (A : LeafArgs) (seeds : Digest × Digest) (pair : Nat) (stat
   cases hso : A.so
   · simp only [Bool.false_eq_true, if_false, LeafArgs.e, hso, map_bind, map_pure]
   · simp only [if_true, LeafArgs.e, hso, Nat.sub_self, chain_zero, map_bind, pure_bind, map_pure]
+/-- Campaign R6: the top leaf input is `0^16 | tweak | 0^32 | ends` (896 bytes). -/
 theorem leafInput_words (A : LeafArgs) (h0 : A.lay = 0) (ends : List Digest) (hlen : ends.length = A.n) :
     wordsOf (pad64 (T3.leafInput A.lay A.tree A.leaf ends)) =
-      [0, 0] ++ [T3.hyperWord A.lay.val (A.tree * 2 ^ T3.height A.lay + A.leaf), 0] ++
+      [0, 0] ++ [T3.hyperWord A.lay.val (A.tree * 2 ^ T3.height A.lay + A.leaf), 0] ++ [0, 0, 0, 0] ++
         wordsOf (ends.flatMap (bytesLE 16)) := by
-  have hn54 : A.n = 54 := by show chainCount A.lay = 54; rw [h0]; rfl
+  have hn52 : A.n = 52 := by show chainCount A.lay = 52; rw [h0]; rfl
   have hfl : (ends.flatMap (bytesLE 16)).length = 16 * A.n := by
     rw [List.length_flatMap]; simp [bytesLE_length, hlen]; ring
   unfold T3.leafInput
-  rw [if_pos h0, pad64_of_aligned _ (by simp only [List.length_append, bytesLE_length, T3.zero16, List.length_replicate, hfl, hn54]),
+  rw [if_pos h0, pad64_of_aligned _ (by simp only [List.length_append, bytesLE_length, T3.zero16, List.length_replicate, hfl, hn52]),
+    wordsOf_append _ _ (by simp only [List.length_append, bytesLE_length, T3.zero16, List.length_replicate] <;> omega),
+    wordsOf_append _ _ (by simp only [List.length_append, bytesLE_length, T3.zero16, List.length_replicate] <;> omega),
     wordsOf_append _ _ (by simp only [List.length_append, bytesLE_length, T3.zero16, List.length_replicate] <;> omega),
     wordsOf_append _ _ (by simp only [T3.zero16, List.length_replicate] <;> omega), wordsOf_zero16, wordsOf_bytesLE16]
   unfold T3.leafTweak
@@ -195,12 +204,12 @@ theorem leafInput_words (A : LeafArgs) (h0 : A.lay = 0) (ends : List Digest) (hl
   rfl
 theorem leafInput_length (A : LeafArgs) (h0 : A.lay = 0) (ends : List Digest) (hlen : ends.length = A.n) :
     (pad64 (T3.leafInput A.lay A.tree A.leaf ends)).length = 64 * leafBlocks A.lay := by
-  have hn54 : A.n = 54 := by show chainCount A.lay = 54; rw [h0]; rfl
+  have hn52 : A.n = 52 := by show chainCount A.lay = 52; rw [h0]; rfl
   have hfl : (ends.flatMap (bytesLE 16)).length = 16 * A.n := by
     rw [List.length_flatMap]; simp [bytesLE_length, hlen]; ring
   unfold T3.leafInput
   rw [if_pos h0, pad64_length]
-  simp only [List.length_append, bytesLE_length, T3.zero16, List.length_replicate, hfl, hn54, leafBlocks,
+  simp only [List.length_append, bytesLE_length, T3.zero16, List.length_replicate, hfl, hn52, leafBlocks,
     show chainCount A.lay = A.n from rfl]
 /-- Retired in campaign T8D: the keygen top leaf (family seeds) is `buildLeafTop_tsim` in `T3M/Keygen/TopLeaf.lean`.
 The name is kept because `T3M/Sign/PackedLowTree.lean` lists it in an `open` clause. -/

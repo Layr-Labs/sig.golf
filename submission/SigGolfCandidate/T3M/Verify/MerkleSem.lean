@@ -360,7 +360,7 @@ def mkW0 (lay tree : Nat) : Word := if lay = 0 then 64#64 else T3.hyperWord (lay
 structure MAfter (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (lay leaf : Nat) (u : MachineState) (k : Nat) (v : Digest)
     (s : MachineState) : Prop where
   pc : s.pc = pcOf (mkEc lay leaf k + 1)
-  glob : Glob baseK w pk s
+  glob : Glob (gkL lay) w pk s
   known : KnownOK (mkLvlK lay k) s
   keep : ∀ r ∈ mkKeep, s.getReg r = u.getReg r
   /-- The level-`k` input sits at its value slot (C2: a lower left node was written 16 bytes low). -/
@@ -372,7 +372,7 @@ structure MAfter (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (lay leaf : Nat) (u
 structure MkEnd (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (lay leaf : Nat) (u : MachineState) (root : Digest) (t : MachineState) :
     Prop where
   pc : t.pc = pcOf (mkFin lay leaf + 1)
-  glob : Glob baseK w pk t
+  glob : Glob (gkL lay) w pk t
   known : KnownOK (mkKc lay ++ [(.x11, 64)]) t
   keep : ∀ r ∈ mkKeep, t.getReg r = u.getReg r
   root : DigAt t (mkDst lay leaf) root
@@ -651,7 +651,7 @@ theorem mkCur_bounds (lay leaf j b : Nat) (hlay : lay < 4) (hleaf : leaf < 2 ^ h
   omega
 theorem lvl_after (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (lay leaf : Nat) (u : MachineState) (hlay : lay < 4)
     (hleaf : leaf < 2 ^ hL lay) (k : Nat) (hk : k < hL lay) (t : MachineState)
-    (hglob : Glob baseK w pk t) (hknown : KnownOK (mkKc lay ++ [(.x11, 64)]) t)
+    (hglob : Glob (gkL lay) w pk t) (hknown : KnownOK (mkKc lay ++ [(.x11, 64)]) t)
     (hkeep : ∀ r ∈ mkKeep, t.getReg r = u.getReg r)
     (h28 : lay ≠ 0 → t.getReg .x28 = T3.hyperWord (lay - 1) (u.getReg .x31).toNat)
     (horig : Orig w (fun o => mkP lay leaf k (leaf / 2 ^ k % 2) o ∧ o ≠ mkBo lay leaf k + 16 ∧
@@ -718,12 +718,12 @@ theorem lfK_mkK (lay : Nat) : ∀ p ∈ mkK lay, p ∈ lfK lay := by
   intro p hp
   by_cases h0 : lay = 0
   · subst h0
-    simp only [mkK, if_pos, baseK, List.mem_append, List.mem_cons, List.not_mem_nil, or_false] at hp
+    simp only [mkK, gkL, ↓reduceIte, List.mem_append, List.mem_cons, List.not_mem_nil, or_false] at hp
     repeat' first | subst p | rcases hp with hp | hp
-    all_goals simp [lfK, postLf, leafK, lfKeepK, baseK]
-  · simp only [mkK, h0, if_false, baseK, List.mem_append, List.mem_cons, List.not_mem_nil, or_false] at hp
+    all_goals simp [lfK, postLf, leafK, lfKeepK, gkL]
+  · simp only [mkK, gkL_low h0, h0, if_false, baseK, List.mem_append, List.mem_cons, List.not_mem_nil, or_false] at hp
     repeat' first | subst p | rcases hp with hp | hp
-    all_goals simp [lfK, postLf, leafK, lfKeepK, h0, baseK]
+    all_goals simp [lfK, postLf, leafK, lfKeepK, h0, gkL_low h0, baseK]
 theorem lvl_step (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index : Nat) (lay : Layer) (u : MachineState) (hidx : index < 2 ^ 31)
     (hs7 : lay.val = 0 → u.getReg .x23 = BitVec.ofNat 64 (dispatchHeap lay.val (route index lay).1))
     (hx6 : lay.val = 0 → u.getReg .x6 = 520192)
@@ -829,7 +829,8 @@ theorem lvl_step (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index : Nat) (lay 
         hl0, hk5, show mkLo 0 1 = 6 from rfl, hb, hc6]
       rfl
     obtain ⟨hinp, horig⟩ := lvl_input w pk index lay u hidx hs7 ht5 k hk v s t hs hmem h10 h11
-    have hglob : Glob baseK w pk t := ht.glob _ _ _ (ht1.glob _ _ _ hs.glob (RelOK.nil s)) (RelOK.nil t1)
+    have hglob : Glob (gkL lay.val) w pk t := by
+      rw [hl0]; exact ht.glob _ _ _ (ht1.glob _ _ _ hs.glob (RelOK.nil s)) (RelOK.nil t1)
     have hknown : KnownOK (mkKc lay.val ++ [(.x11, 64)]) t := by
       intro p hp
       rcases List.mem_append.mp hp with hp | hp
@@ -881,7 +882,7 @@ theorem lvl_step (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index : Nat) (lay 
       hkt (.x12, BitVec.ofNat 64 (mkNextA2 lay.val (mkCi lay.val k)
         (mkSh lay.val (mkCi lay.val k) (route index lay).1) (k - mkLo lay.val (mkCi lay.val k)))) (by simp [mkLvlPostN])
     obtain ⟨hinp, horig⟩ := lvl_input w pk index lay u hidx hs7 ht5 k hk v s t hs hmem h10 h11
-    have hglob : Glob baseK w pk t := ht.glob _ _ _ hs.glob (RelOK.nil s)
+    have hglob : Glob (gkL lay.val) w pk t := ht.glob _ _ _ hs.glob (RelOK.nil s)
     have hknown : KnownOK (mkKc lay.val ++ [(.x11, 64)]) t := by
       intro p hp
       rcases List.mem_append.mp hp with hp | hp
@@ -1042,8 +1043,8 @@ theorem merkle_good (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index : Nat) (l
     (K : Digest → OracleComp HashSpec Obs) (N C A : Nat) (Q : Prop)
     (hK : ∀ root t, MkStop w pk lay.val (route index lay).1 u root t → GoodQP P t N C Q A (K root)) :
     GoodQP P u (N + mkFuel lay.val) (C + mkCyc lay.val) Q (A + mkCyc lay.val)
-      (ccM (ClaudeWCT.WCT9.leafHashW lay (route index lay).2 (route index lay).1 (ClaudeWCT.W9.T3M.wtopLeafPad w)
-        (ClaudeWCT.W9.T3M.wleafHigh w lay) ends >>= merklePrefix w index lay) K) := by
+      (ccM (ClaudeWCT.WCT9.leafHashWG lay (route index lay).2 (route index lay).1 (ClaudeWCT.W9.T3M.wtopLeafPad w)
+        (ClaudeWCT.W9.T3M.wleafHigh w lay) (ClaudeWCT.W9.T3M.wtopLeafGap w) ends >>= merklePrefix w index lay) K) := by
   have hlay := lay.isLt
   have hleaf : (route index lay).1 < 2 ^ hL lay.val := leaf_lt index lay
   have hkU : KnownOK (lfK lay.val) u := hu.glob.1
@@ -1087,7 +1088,7 @@ theorem merkle_good (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index : Nat) (l
     refine hashArgs_of t (lfBase lay.val) (lfBytes lay.val) _ (h10.trans h10u) (h11.trans h11u) h12
       (by fin_cases lay <;> decide +kernel) (by fin_cases lay <;> decide +kernel) (by fin_cases lay <;> decide +kernel)
       hc8 (by omega)
-  have hG : Glob baseK w pk t := ht.glob _ _ _ hu.glob (RelOK.nil u)
+  have hG : Glob (gkL lay.val) w pk t := ht.glob _ _ _ hu.glob (RelOK.nil u)
   have H : ∀ a : BitVec 256, GoodQP P (writeHash t a) (N + mkFuelR lay.val 0 (mkStop lay.val))
       (C + mkCycR lay.val 0 (mkStop lay.val)) Q (A + mkCycR lay.val 0 (mkStop lay.val))
       (ccM (merklePrefix w index lay (Verify.vHalf (ClaudeWCT.WCT9.lowerHigh lay.val (route index lay).1) a)) K) := by
@@ -1134,12 +1135,23 @@ theorem merkle_good (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index : Nat) (l
   have h5 : t.getReg .x5 = 0 := hkt (.x5, 0) (by simp [mkEntPost, mkKc, baseK])
   have hg := GoodQP.vHash_bind _ (f := merklePrefix w index lay) (K := K) (ht.ecall rfl) h5 hv hin H
   rw [hu.hashInput.2] at hg
-  rw [show ClaudeWCT.WCT9.leafHashW lay (route index lay).2 (route index lay).1 (ClaudeWCT.W9.T3M.wtopLeafPad w)
-      (ClaudeWCT.W9.T3M.wleafHigh w lay) ends = Verify.vHash (ClaudeWCT.WCT9.lowerHigh lay.val (route index lay).1)
+  rw [show ClaudeWCT.WCT9.leafHashWG lay (route index lay).2 (route index lay).1 (ClaudeWCT.W9.T3M.wtopLeafPad w)
+      (ClaudeWCT.W9.T3M.wleafHigh w lay) (ClaudeWCT.W9.T3M.wtopLeafGap w) ends =
+        Verify.vHash (ClaudeWCT.WCT9.lowerHigh lay.val (route index lay).1)
         (lfIn w lay (route index lay).2 (route index lay).1 ends) from (LCtx.vHash_eq_halfHash _ _).symm]
   have hst := ht.steps
   simp only [BC.mkEntSpec, Nat.reduceEqDiff, and_false, if_false] at hst
   exact GoodQP.stepsQ hst hg (by unfold mkFuel; omega) (by unfold mkCyc; omega) (fun q => ⟨q, by unfold mkCyc; omega⟩)
+/-- Campaign R6: `merkle_good` on a lower layer, where the leaf hash ignores the top gap (`leafHashW`). -/
+theorem merkle_good_low (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index : Nat) (lay : Layer) (hlay0 : lay ≠ 0)
+    (ends : List Digest) (u : MachineState) (hidx : index < 2 ^ 31) (hu : LeafOut w pk index lay ends u)
+    (K : Digest → OracleComp HashSpec Obs) (N C A : Nat) (Q : Prop)
+    (hK : ∀ root t, MkStop w pk lay.val (route index lay).1 u root t → GoodQP P t N C Q A (K root)) :
+    GoodQP P u (N + mkFuel lay.val) (C + mkCyc lay.val) Q (A + mkCyc lay.val)
+      (ccM (ClaudeWCT.WCT9.leafHashW lay (route index lay).2 (route index lay).1 (ClaudeWCT.W9.T3M.wtopLeafPad w)
+        (ClaudeWCT.W9.T3M.wleafHigh w lay) ends >>= merklePrefix w index lay) K) := by
+  have h := merkle_good w pk index lay ends u hidx hu K N C A Q hK
+  rwa [leafHashWG_low lay hlay0] at h
 open ClaudeWCT.WCT9 (LayerMsg)
 def mkMessage (w : ClaudeWCT.W9.T3M.WBytes) (index : Nat) (lay : Layer) (v : Digest) : LayerMsg :=
   if lay.val = 0 then .forest v else

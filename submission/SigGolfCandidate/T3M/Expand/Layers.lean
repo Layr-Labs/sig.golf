@@ -85,6 +85,17 @@ structure LZero (s : MachineState) : Prop where
   n32 : s.getMem (BitVec.ofNat 64 (NODE + 32)) = 0
   n40 : s.getMem (BitVec.ofNat 64 (NODE + 40)) = 0
   e40 : s.getMem (BitVec.ofNat 64 (ENC + 40)) = 0
+/-- Campaign R6: the packed R6 table block of the expand data (`TOP_DATA + 0..1023` and `TOP_DATA + 2048..2719`) as
+the doublewords KCOPY copies to RAM 0xA0000 (`KCopy.SrcW` in `Expand.Canon`, the same proposition). -/
+def R6Src (s : MachineState) : Prop :=
+  (∀ k, k < 128 → s.getMem (BitVec.ofNat 64 (0xFFF000 + 8 * k)) =
+    BitVec.ofNat 64 (Search.r6Entry (2 * k) + 2 ^ 32 * Search.r6Entry (2 * k + 1))) ∧
+  (∀ k, k < 84 → s.getMem (BitVec.ofNat 64 (0xFFF800 + 8 * k)) =
+    BitVec.ofNat 64 (Search.r6Entry (2 * (128 + k)) + 2 ^ 32 * Search.r6Entry (2 * (128 + k) + 1)))
+theorem R6Src.frame {s t : MachineState} {W : Nat → Prop} (h : R6Src s) (hf : Frame s t W)
+    (hd : ∀ A, 0xFFF000 ≤ A → A < 0xFFFAA0 → ¬ W A) : R6Src t :=
+  ⟨fun k hk => (hf.get (by omega) (hd _ (by omega) (by omega))).trans (h.1 k hk),
+    fun k hk => (hf.get (by omega) (hd _ (by omega) (by omega))).trans (h.2 k hk)⟩
 structure LInv (sig : WCT9.Signature) (index n : Nat) (value : WCT9.LayerMsg) (s : MachineState) : Prop where
   pc : s.pc = pcOf (entryOf n)
   hn : n ≤ 4
@@ -97,9 +108,10 @@ structure LInv (sig : WCT9.Signature) (index n : Nat) (value : WCT9.LayerMsg) (s
   c32 : ∃ x < 2 ^ 32, s.getMem (BitVec.ofNat 64 (ENC + 32)) = BitVec.ofNat 64 x
   sigl : SigLayersAt s sig
   z : LZero s
-  table : Search.TableOK s
-  cf : Search.CfTableOK 0 s
-  reward : Search.Reward.RewardTablesOK s
+  /-- Campaign R6: the packed R6 block (read by KCOPY before the top search; replaces main's `TableOK` / `CfTableOK`). -/
+  src : R6Src s
+  /-- Campaign R6: the lower reward tables (TOP_DATA + 1024..2047); 2048.. holds the R6 block. -/
+  reward : Search.Reward.LowerTablesOK s
 def HalfAt (t : MachineState) (D k : Nat) (v : BitVec 32) : Prop :=
   (t.getMem (BitVec.ofNat 64 D)).extractLsb' (32 * k) 32 = v
 def HalfFrame (s t : MachineState) (n : Nat) : Prop :=
@@ -362,12 +374,12 @@ theorem recoverLayerPair_tbsim {sk : BitVec 256} {s0 : MachineState} {wsig : WCT
   have hWMC := hpre.hWMC
   have hWM := hpre.hWM
   have hP0 := hpre.hP
-  obtain ⟨t1, st1, p1, x19, l16, l24, -, r1, f1⟩ := rl997_spec (im := im) s0 hpre.pc lay tree leaf
+  obtain ⟨t1, st1, p1, x19, l16, l24, -, -, r1, f1⟩ := rl997_spec (im := im) s0 hpre.pc lay tree leaf
     (by have hidx := hpre.hidx; dsimp [tree, leaf]; fin_cases lay <;> norm_num [route, height] at * <;> omega)
     hpre.x8 hpre.x9 hpre.x18 hpre.x15
-  have f1g : ∀ A, A < 2 ^ 64 → A ≠ LEAFPK → A ≠ LEAFPK + 8 → A ≠ LEAFPK + 16 → A ≠ LEAFPK + 24 →
+  have f1g : ∀ A, A < 2 ^ 64 → A ≠ LEAFPK → A ≠ LEAFPK + 8 → A ≠ LEAFPK + 16 → A ≠ LEAFPK + 24 → ¬ TopPadW A →
       t1.getMem (BitVec.ofNat 64 A) = s0.getMem (BitVec.ofNat 64 A) :=
-    fun A hA h1 h2 h3 h4 => f1.get hA (by rintro (h | h | h | h) <;> contradiction)
+    fun A hA h1 h2 h3 h4 h5 => f1.get hA (by rintro (h | h | h | h | h) <;> contradiction)
   have hI0 : ChainsInv t1 lay tree leaf P WC (chainCount lay) (csN4 lay) (lval sig lay) [] t1 := by
     refine ⟨p1, ⟨?_, ?_, ?_, ?_, x19, ?_, ?_⟩, ?_, fun j hj => absurd hj (by simp), fun j hj => absurd hj (by simp),
       RegsExcept.refl _ _, Frame.refl _ _⟩
@@ -375,8 +387,8 @@ theorem recoverLayerPair_tbsim {sk : BitVec 256} {s0 : MachineState} {wsig : WCT
     · rw [r1.get (by decide), hpre.x8]
     · rw [r1.get (by decide), hpre.x9]
     · rw [r1.get (by decide), hpre.x18]
-    · rw [f1g _ (by decide) (by decide) (by decide) (by decide) (by decide), hpre.c0]
-    · rw [f1g _ (by decide) (by decide) (by decide) (by decide) (by decide), hpre.c8]
+    · rw [f1g _ (by decide) (by decide) (by decide) (by decide) (by decide) (by unfold TopPadW; decide), hpre.c0]
+    · rw [f1g _ (by decide) (by decide) (by decide) (by decide) (by decide) (by unfold TopPadW; decide), hpre.c8]
     · rw [r1.get (by decide), hpre.x23]; simp
   unfold recoverLayerPairN
   refine (TBSim.steps st1 (TBSim.bind (W₂ := 10 + 8 * leafBlocks' lay + 13 + height lay * 75)
@@ -390,7 +402,7 @@ theorem recoverLayerPair_tbsim {sk : BitVec 256} {s0 : MachineState} {wsig : WCT
     (by rw [rv1.get (by decide), hC.regs.get (by decide), r1.get (by decide)]; exact hpre.x26)
   have fu2 : Frame u v2 (fun _ => False) := (fv1.trans fv2).mono (fun A _ h => by rcases h with h | h <;> exact h)
   have ru2 : RegsExcept u v2 [.x6, .x10, .x11, .x12] := (rv1.trans rv2).mono (by decide)
-  have fs2 : Frame s0 v2 (fun A => ((A = LEAFPK ∨ A = LEAFPK + 8 ∨ A = LEAFPK + 16 ∨ A = LEAFPK + 24) ∨
+  have fs2 : Frame s0 v2 (fun A => ((A = LEAFPK ∨ A = LEAFPK + 8 ∨ A = LEAFPK + 16 ∨ A = LEAFPK + 24 ∨ TopPadW A) ∨
       ChW lay WC ends.length A) ∨ False) := (f1.trans hC.frame).trans fu2
   have hn43 : chainCount lay = 43 := chainCount_ne0 lay hlow
   have hhd16 : v2.getMem (BitVec.ofNat 64 (LEAFPK + 16)) = T3.hyperWord lay.val (tree * 2 ^ height lay + leaf) := by
@@ -444,7 +456,7 @@ theorem recoverLayerPair_tbsim {sk : BitVec 256} {s0 : MachineState} {wsig : WCT
   have pc3 : tc.pc = pcOf 1073 := by rw [htc, pc_writeHash, pv2, pcOf_add4]
   have rtc : RegsExcept s0 tc oneRegs := fun r hr => by rw [htc, getReg_writeHash]; exact rs2 r hr
   have fwc := Frame.writeHash v2 a NOUT h12 (by decide)
-  have ftc : Frame s0 tc (fun A => (((A = LEAFPK ∨ A = LEAFPK + 8 ∨ A = LEAFPK + 16 ∨ A = LEAFPK + 24) ∨
+  have ftc : Frame s0 tc (fun A => (((A = LEAFPK ∨ A = LEAFPK + 8 ∨ A = LEAFPK + 16 ∨ A = LEAFPK + 24 ∨ TopPadW A) ∨
       ChW lay WC ends.length A) ∨
       False) ∨ (NOUT ≤ A ∧ A < NOUT + 32)) := fs2.trans fwc
   have hfar' : ∀ A, A < 2 ^ 64 → WC + 64 ≤ A → (A < CHAIN ∨ CHAIN + 112 ≤ A) → (A < LEAFPK ∨ LEAFPK + 960 ≤ A) →
@@ -452,7 +464,7 @@ theorem recoverLayerPair_tbsim {sk : BitVec 256} {s0 : MachineState} {wsig : WCT
     intro A hA h1 h2 h3 h4
     refine ftc.get hA ?_
     rintro (((h | h) | h) | h)
-    · simp only [CHAIN, LEAFPK] at h h2 h3; omega
+    · simp only [CHAIN, LEAFPK, TopPadW] at h h2 h3; omega
     · exact not_ChW_of (by omega) h1 (by simp only [CHAIN] at h2 ⊢; omega) (by simp only [LEAFPK] at h3 ⊢; omega) h
     · exact h
     · simp only [NOUT] at h h4; omega
@@ -517,7 +529,7 @@ theorem recoverLayerPair_tbsim {sk : BitVec 256} {s0 : MachineState} {wsig : WCT
     rcases h with (((hX | hC) | hF) | hN) | hT
     · left; left
       unfold RlScratch
-      rcases hX with h | h | h | h <;> simp only [CHAIN, LEAFPK] at h ⊢ <;> omega
+      rcases hX with h | h | h | h <;> simp only [CHAIN, LEAFPK, TopPadW] at h ⊢ <;> omega
     · unfold ChW StepW at hC
       rcases hC with (h | h) | ⟨c, hc, h⟩ | ⟨c, hc, h⟩
       · left; left; unfold RlScratch; omega

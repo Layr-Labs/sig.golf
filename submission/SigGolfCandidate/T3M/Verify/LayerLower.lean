@@ -134,7 +134,7 @@ theorem leafL_step (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index : Nat) (la
   have hkL : ∀ q ∈ chainK lay.val, s0.getReg q.1 = q.2 := hG.1
   have hknown : KnownOK (leafK lay.val) t := by
     intro p hp
-    simp only [leafK, baseK, if_neg h0, List.mem_append, List.mem_cons, List.not_mem_nil, or_false] at hp
+    simp only [leafK, gkL_low h0, baseK, if_neg h0, List.mem_append, List.mem_cons, List.not_mem_nil, or_false] at hp
     rcases hp with ((rfl | rfl) | rfl | rfl) | rfl
     · rw [hR .x5 (by simp [chainRegs])]; exact hkL (_, _) (by simp [chainK, baseK])
     · rw [hR .x18 (by simp [chainRegs])]; exact hkL (_, _) (by simp [chainK, baseK])
@@ -175,7 +175,7 @@ theorem leafL_step (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index : Nat) (la
   have hlf := leaf_lt index lay
   obtain ⟨hg1, hg2, hg3, hg4⟩ := geomL lay hlay
   have hS6 : L.S6 = s6v lay.val := rfl
-  refine ⟨?_, ?_, fun h => absurd h hlay, ?_, ?_, ?_, ?_, ?_, ?_, fun h => absurd h hlay, ?_⟩
+  refine ⟨?_, ?_, fun h => absurd h hlay, ?_, ?_, ?_, ?_, ?_, ?_, fun h => absurd h hlay, fun h => absurd h hlay, ?_⟩
   · rw [hu.spc (tgtLf lay.val) (by simp [specLf, h0])]
     simp only [tgtLf, if_neg h0, E.eval, BinOp.eval, addC_eval]
     rw [hR .x23 (by simp [chainRegs]), h23]
@@ -187,7 +187,7 @@ theorem leafL_step (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index : Nat) (la
         rw [this] at hA
         simp only [show L.i0 = 0 from rfl, slotL, if_neg (by omega : ¬43=0), if_pos rfl] at hA
         split_ifs at hA <;> rcases hA with hA | hA <;> omega)
-      (fun p hp => hknown p (by simp [leafK, hp]))
+      (fun p hp => hknown p (by simp [leafK, gkL_low h0, hp]))
     have hGu := hu.glob _ w pk hGt (RelOK.nil t)
     refine ⟨fun p hp => ?_, hGu.2.1, hGu.2.2.1, hGu.2.2.2.1, hGu.2.2.2.2⟩
     rcases List.mem_append.mp hp with hp | hp
@@ -747,12 +747,13 @@ def merkleP (w : ClaudeWCT.W9.T3M.WBytes) (index : Nat) (lay : Layer) (value : D
       (ClaudeWCT.W9.T3M.wmerklePad w lay (route index lay).1 j.val) pair.2) value
 theorem layerP_eq (w : ClaudeWCT.W9.T3M.WBytes) (index : Nat) (digits : List Nat) :
     ClaudeWCT.W9.T3M.layerP w index 0 digits = chainsP w 0 (route index 0).2 (route index 0).1 digits >>= fun ends =>
-      ClaudeWCT.WCT9.leafHashW 0 (route index 0).2 (route index 0).1 (ClaudeWCT.W9.T3M.wtopLeafPad w)
-        (ClaudeWCT.W9.T3M.wleafHigh w 0) ends >>= merkleP w index 0 := by
+      ClaudeWCT.WCT9.leafHashWG 0 (route index 0).2 (route index 0).1 (ClaudeWCT.W9.T3M.wtopLeafPad w)
+        (ClaudeWCT.W9.T3M.wleafHigh w 0) (ClaudeWCT.W9.T3M.wtopLeafGap w) ends >>= merkleP w index 0 := by
   unfold ClaudeWCT.W9.T3M.layerP chainsP merkleP
   generalize route index 0 = p
   obtain ⟨leaf, tree⟩ := p
   rfl
+
 def layerHead {β : Type} (w : ClaudeWCT.W9.T3M.WBytes) (index : Nat) (lay : Layer) (M : ClaudeWCT.WCT9.LayerMsg)
     (R : List Digest → T3.M (Option β)) : T3.M (Option β) :=
   if (ClaudeWCT.W9.T3M.wbcCtr w index lay).toNat ≥ ClaudeWCT.WCT9.verifyWindow then pure none else
@@ -807,7 +808,8 @@ theorem lctx_prefix_eq (w : ClaudeWCT.W9.T3M.WBytes) (index : Nat) (lay : Layer)
   unfold LCtx.coreChain ClaudeWCT.W9.T3M.layerChainP
   rw [Nat.mod_eq_of_lt hc]
   rfl
-theorem chainCount_top : chainCount (0 : Layer) = 54 := by decide +kernel
+theorem chainCount_top : chainCount (0 : Layer) = 52 := by decide +kernel
+
 theorem layerCost_low (w : ClaudeWCT.W9.T3M.WBytes) (index : Nat) (lay : Layer) (hlay : lay ≠ 0) (a : BitVec 256)
     (ds : List Nat) (hds : canonicalDecode lay (ansD a) = some ds) :
     stepsA lay.val + 8 + (bCy lay.val+4) + (lctxOf w index lay a).lowCost + lfStepsL =

@@ -218,7 +218,7 @@ def topChainP (w : WBytes) (tree leaf : Nat) (digits : List Nat) (i : Fin (chain
 /-- C4: the top leaf (half by leaf parity) and the 12 top folds with the one-word label `topNodeWord heap`, the
 witness high pad `wmerkleHigh w 0` and Z pad `wmerklePad w 0` (half by heap parity; the root, heap 1, low). -/
 def topFinishP (w : WBytes) (tree leaf : Nat) (ends : List Digest) : M Digest := do
-  let value ← WCT9.leafHashW 0 tree leaf (wtopLeafPad w) (wleafHigh w 0) ends
+  let value ← WCT9.leafHashWG 0 tree leaf (wtopLeafPad w) (wleafHigh w 0) (wtopLeafGap w) ends
   (List.finRange (height 0)).foldlM (fun value j => do
     let other := wpath w 0 leaf j.val
     let pair := if leaf / 2 ^ j.val % 2 = 0 then (value, other) else (other, value)
@@ -289,13 +289,15 @@ structure Pads where
   merkleHigh : (lay : Layer) → Fin (height lay) → BitVec 64
   /-- C3: the top leaf pad (the leading 16 bytes of the top leaf input; honest 0). -/
   topLeaf : Digest
+  /-- Campaign R6: the top leaf's 32-byte gap after the tweak (witness 22328..22359; honest `(0, 0)`). -/
+  topGap : Digest × Digest
   /-- C3: the leaf tweak's high word (honest 0). -/
   leafHigh : Layer → BitVec 64
   /-- C2/C3: XOR mask of the encoding row tweak's high word (the verifier uses `bcHigh lay ^^^ 1`; honest mask 0). -/
   bcHigh : Layer → BitVec 64
 instance : Zero Pads :=
   ⟨⟨fun _ _ => (0, 0), fun _ _ => 0, fun _ _ => 0, fun _ _ => 0, fun _ => 0, fun _ _ => (0, 0), fun _ _ => 0, fun _ _ => 0,
-    fun _ => 0, 0, fun _ _ => 0, fun _ _ => 0, 0, fun _ => 0, fun _ => 0⟩⟩
+    fun _ => 0, 0, fun _ _ => 0, fun _ _ => 0, 0, (0, 0), fun _ => 0, fun _ => 0⟩⟩
 def Pads.toT3 (pads : Pads) : SigGolfCandidate.T3M.Pads :=
   ⟨fun _ => 0, fun _ => 0, pads.chain, pads.merkle, pads.chainHeader⟩
 def recoverCoordinateP (sig : WCT9.Signature) (pads : Pads) (index : Nat) (output : HashOutput)
@@ -373,7 +375,7 @@ def verifyTopP (sig : WCT9.Signature) (pads : Pads) (index : Nat) (answer : Dige
     (fun i digit => chainP 0 tree leaf i.val digit (maxDigit 0 i.val - digit) (pads.chain 0 i).1
       (pads.chain 0 i).2 (pads.chainHeader 0 i) (valueP sig pads 0 (dataDigits 0 answer) i))
     (fun ends => do
-      let value ← WCT9.leafHashW 0 tree leaf pads.topLeaf (pads.leafHigh 0) ends
+      let value ← WCT9.leafHashWG 0 tree leaf pads.topLeaf (pads.leafHigh 0) pads.topGap ends
       (List.finRange (height 0)).foldlM (fun value j => do
         let other := (sig.layers 0).path j
         let pair := if leaf / 2 ^ j.val % 2 = 0 then (value, other) else (other, value)

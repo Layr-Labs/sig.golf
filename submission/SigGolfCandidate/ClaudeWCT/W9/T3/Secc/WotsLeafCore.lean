@@ -410,6 +410,15 @@ theorem card_filter_getD_zero' (n : ℕ) (l : List ℕ) (hl : l.length = n) :
 theorem dummyDigits_zero (lay : Layer) : ((dummyDigits lay).filter (· = 0)).length = 0 := by
   fin_cases lay <;> decide
 
+/-- Campaign R6: the producer zero filter (top ≤ 7 of 52 chains with 10 coefficients, lower ≤ 5 of 43 with 8) leaves
+every unrevealed seed of a leaf family 3 degrees of freedom. -/
+theorem zeroBound_famCount {lay : Layer} {ds : List Nat} (h : WCT9.producerZeroBound lay ds) :
+    (ds.filter (· = 0)).length + 3 ≤ WCT9.famCount lay := by
+  unfold WCT9.producerZeroBound WCT9.producerZeroMax at h
+  by_cases h0 : lay = 0
+  · rw [if_pos h0] at h; rw [h0, WCT9.famCount_top]; omega
+  · rw [if_neg h0] at h; rw [WCT9.famCount_lower h0]; omega
+
 /-- **Revealed chains per leaf**: at most `famCount − 3` (top: ≤ 20 of the 54 chains with 24
 coefficients; B4 lower producer, including checksum and dummy fallback: ≤ 5 of the 43 chains with
 8 coefficients), so every unrevealed seed keeps 3 degrees of freedom. The broad decoder is not narrowed. -/
@@ -421,15 +430,8 @@ theorem revSet_card_le {L : LeafAddr} (R : RefTables adversary) :
       Finset.univ.filter fun c : Fin (chainCount L.lay) => (referenceDigits (restTable R) L).getD c 0 = 0 := rfl
   rw [e, card_filter_getD_zero' _ _ hspec]
   obtain ⟨value, hp⟩ := ClaudeWCT.W9.T3.Security.WotsExtract.referenceDigits_producerDecode (restTable R) L
-  by_cases h0 : L.lay = 0
-  · have hd := WCT9.producerDecode_decode hp
-    rw [h0] at hd
-    have := WCT9.top_zero_count_le WCT9.top_target_ge hd
-    rw [h0, WCT9.famCount_top]
-    omega
-  · have := WCT9.lower_zero_count_le_producer h0 hp
-    rw [WCT9.famCount_lower h0]
-    omega
+  exact zeroBound_famCount (WCT9.producerDecode_zeroBound hp)
+
 #print axioms revSet_card_le
 
 /-! ### Probability bookkeeping -/
@@ -827,16 +829,7 @@ theorem revSet_card_le (L : LeafAddr) (R : Tables U) :
           (WCT9.searchLimit L.lay) 0 c ds low hs⟩
     simp only [CanonicalRef.referenceDigits,hs,Option.map_some,Option.getD_some]
     obtain ⟨floor,value,hd⟩ := hd
-    have hp := WCT9.CanonicalPolicy.producerDecodeAt_spec hd
-    by_cases hz : L.lay=0
-    · have hdec : decode 0 value=some ds := by
-        simpa only [WCT9.CanonicalPolicy.decode,WCT9.CanonicalPolicy.normalLayer,hz,ite_true] using hp.1
-      have hb := WCT9.top_zero_count_le WCT9.top_target_ge hdec
-      rw [hz,WCT9.famCount_top]
-      omega
-    · have hb := hp.2.2.1.resolve_left hz
-      rw [WCT9.famCount_lower hz]
-      omega
+    exact zeroBound_famCount (WCT9.CanonicalPolicy.producerDecodeAt_spec hd).2.2.1
 
 end ClaudeWCT.W9.T3.Security.Wots.CanonicalRef.Normalized.Core
 

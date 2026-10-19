@@ -41,7 +41,8 @@ def sub42S : List (BitVec 32) := [0x3ac1306f,67310179]
 def sub44S : List (BitVec 32) := [1695251,17044243,34479891,31679283,1270547,295827,34152211,31712179,134711,7223331,8272931,132407,67110291,132663,67503635]
 def sub59S : List (BitVec 32) := [115]
 def sub60S : List (BitVec 32) := [1703443,5119507,134839,68062867,31329843,134967,487526163,930563,9319299,7286819,8336419,20647475]
-def sub75S : List (BitVec 32) := [0x6750006f]
+/-- Campaign R6: `j 2010` (the cap block moved to 2010..2016). -/
+def sub75S : List (BitVec 32) := [0x6690006f]
 /-- Campaign T8D: the leaf prologue `1528..1541` ends with `j 1554` (PRE: `bne s0` / `jal ra,COEFGEN` / `j 1053`). -/
 def hpS : List (BitVec 32) := [0xf49333,19071795,16978707,538141459,50601747,31679283,0xc100f13,59711251,31679283,134711,0x600e0e13,7223331,932899,0x340006f]
 def hpmS : List (BitVec 32) := [17078931,538634899,0xfff40313,50533139,7006899,0xc100313,58921747,7006899,0xa75ff06f]
@@ -57,7 +58,7 @@ def signSubL : Rv.Layout := [(0, sub_0), (1, sub_1), (2, sub_2), (8, sub_8), (9,
 def SeedIndependentAt (image : Image) (b : Nat) : Prop :=
   (∀ off code, (off, code) ∈ signSubL → CodeAt image (pcOf (b + off)) code) ∧
   (b = 117 ∨ b = 1013) ∧
-  (CodeAt image (pcOf (b + 1000)) Sign.maxDigitCodeS ∧
+  (CodeAt image (pcOf (b + 997)) Sign.maxDigitCodeS ∧
    CodeAt image (pcOf (b + 1004)) revCode ∧
    (image = Images.signReferenceImage ∧ b = 1013))
 private theorem signSubL_ok : layoutOk 0 signSubL = true := by decide +kernel
@@ -185,14 +186,19 @@ theorem codeAt_sub_159 {image : Image} {b : Nat} (h : SeedIndependentAt image b)
 theorem codeAt_rev {image : Image} {b : Nat} (h : SeedIndependentAt image b) :
     CodeAt image (pcOf (b + 1004)) revCode := h.2.2.2.1
 theorem codeAt_maxLow {image : Image} {b : Nat} (h : SeedIndependentAt image b) :
-    CodeAt image (pcOf (b + 1000)) Sign.maxLowS := by
-  have q := codeAt_sublayout (L := Sign.maxLayoutS) (b := b + 1000) h.2.2.1 Sign.maxLayoutS_ok
+    CodeAt image (pcOf (b + 997)) Sign.maxLowS := by
+  have q := codeAt_sublayout (L := Sign.maxLayoutS) (b := b + 997) h.2.2.1 Sign.maxLayoutS_ok
     (i := 0) (o := 0) (seg := Sign.maxLowS) (by kernel_rfl)
   simpa only [Nat.add_zero] using q
+theorem codeAt_maxMid {image : Image} {b : Nat} (h : SeedIndependentAt image b) :
+    CodeAt image (pcOf (b + 999)) Sign.maxMidS := by
+  have q := codeAt_sublayout (L := Sign.maxLayoutS) (b := b + 997) h.2.2.1 Sign.maxLayoutS_ok
+    (i := 1) (o := 2) (seg := Sign.maxMidS) (by kernel_rfl)
+  simpa [Nat.add_assoc] using q
 theorem codeAt_maxHigh {image : Image} {b : Nat} (h : SeedIndependentAt image b) :
-    CodeAt image (pcOf (b + 1002)) maxHigh := by
-  have q := codeAt_sublayout (L := Sign.maxLayoutS) (b := b + 1000) h.2.2.1 Sign.maxLayoutS_ok
-    (i := 1) (o := 2) (seg := maxHigh) (by kernel_rfl)
+    CodeAt image (pcOf (b + 1002)) Sign.maxHighS := by
+  have q := codeAt_sublayout (L := Sign.maxLayoutS) (b := b + 997) h.2.2.1 Sign.maxLayoutS_ok
+    (i := 2) (o := 5) (seg := Sign.maxHighS) (by kernel_rfl)
   simpa [Nat.add_assoc] using q
 theorem codeAt_sub_61 {image : Image} {b : Nat} (h : SeedIndependentAt image b) :
     CodeAt image (pcOf (b + 61)) (sub_60.drop 1) := by
@@ -256,7 +262,9 @@ sym_block blkS_nrj := symRun { noAlias := true } norootJ (pcOf 1553) 100
 sym_block blkS_pre := symRun { noAlias := true } preS (pcOf 1554) 100
 sym_block blkS_71 := symRun { noAlias := true } sub71S (pcOf (1013 + 71)) 100
 sym_block blkS_75 := symRun { noAlias := true } sub75S (pcOf (1013 + 75)) 100
-sym_block blkS_maxLow := symRun { noAlias := true } Sign.maxLowS (pcOf (1013 + 1000)) 100
+sym_block blkS_maxLow := symRun { noAlias := true } Sign.maxLowS (pcOf (1013 + 997)) 100
+sym_block blkS_maxMid := symRun { noAlias := true } Sign.maxMidS (pcOf (1013 + 999)) 100
+sym_block blkS_maxHigh := symRun { noAlias := true } Sign.maxHighS (pcOf (1013 + 1002)) 100
 end SigGolfCandidate.T3M.Sign.SeedIndependent
 
 
@@ -266,8 +274,9 @@ open SigGolfCandidate.T3M SigGolfCandidate.T3M.Keygen SigGolfCandidate.T3M.Sign.
 structure Code (image : Image) (b : Nat) : Prop where
   base : b = 1013
   codeAt_hpS : CodeAt image (pcOf 1528) hpS
-  codeAt_maxHigh : CodeAt image (pcOf (b + 1002)) maxHigh
-  codeAt_maxLow : CodeAt image (pcOf (b + 1000)) Sign.maxLowS
+  codeAt_maxHigh : CodeAt image (pcOf (b + 1002)) Sign.maxHighS
+  codeAt_maxMid : CodeAt image (pcOf (b + 999)) Sign.maxMidS
+  codeAt_maxLow : CodeAt image (pcOf (b + 997)) Sign.maxLowS
   codeAt_preS : CodeAt image (pcOf 1554) preS
   codeAt_sub27S : CodeAt image (pcOf (b + 27)) sub27S
   codeAt_sub40S : CodeAt image (pcOf (b + 40)) sub40S
@@ -301,32 +310,7 @@ set_option maxHeartbeats 2000000
  theorem installed_code : Code Images.signImage 1013 := by
   constructor
   · rfl
-  · apply codeAt_sign_current_slice <;> decide +kernel
-  · apply codeAt_sign_current_slice <;> decide +kernel
-  · apply codeAt_sign_current_slice <;> decide +kernel
-  · apply codeAt_sign_current_slice <;> decide +kernel
-  · apply codeAt_sign_current_slice <;> decide +kernel
-  · apply codeAt_sign_current_slice <;> decide +kernel
-  · apply codeAt_sign_current_slice <;> decide +kernel
-  · apply codeAt_sign_current_slice <;> decide +kernel
-  · apply codeAt_sign_current_slice <;> decide +kernel
-  · apply codeAt_sign_current_slice <;> decide +kernel
-  · apply codeAt_sign_current_slice <;> decide +kernel
-  · apply codeAt_sign_current_slice <;> decide +kernel
-  · apply codeAt_sign_current_slice <;> decide +kernel
-  · apply codeAt_sign_current_slice <;> decide +kernel
-  · apply codeAt_sign_current_slice <;> decide +kernel
-  · apply codeAt_sign_current_slice <;> decide +kernel
-  · apply codeAt_sign_current_slice <;> decide +kernel
-  · apply codeAt_sign_current_slice <;> decide +kernel
-  · apply codeAt_sign_current_slice <;> decide +kernel
-  · apply codeAt_sign_current_slice <;> decide +kernel
-  · apply codeAt_sign_current_slice <;> decide +kernel
-  · apply codeAt_sign_current_slice <;> decide +kernel
-  · apply codeAt_sign_current_slice <;> decide +kernel
-  · apply codeAt_sign_current_slice <;> decide +kernel
-  · apply codeAt_sign_current_slice <;> decide +kernel
-  · apply codeAt_sign_current_slice <;> decide +kernel
+  all_goals (apply codeAt_sign_current_slice <;> decide +kernel)
 #print axioms installed_code
 end SigGolfCandidate.T3M.Sign.SharedLeafCode
 

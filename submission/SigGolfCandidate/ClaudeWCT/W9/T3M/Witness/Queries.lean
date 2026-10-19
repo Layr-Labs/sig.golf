@@ -90,8 +90,9 @@ theorem pubGood_verifyTopP (sig : WCT9.Signature) (pads : Pads) (index : Nat) (a
     AllQueriesSatisfy (verifyTopP sig pads index answer) PubGood := by
   unfold verifyTopP
   exact allQ_topDecodeRun _ _ _ (fun _ _ => pubGood_chainP _ _ _ _ _ _ _ _ _ _) fun _ =>
-    allQ_bind (pubGood_leafHashW _ _ _ _ _ _) fun _ =>
+    allQ_bind (pubGood_leafHashWG _ _ _ _ _ _ _) fun _ =>
       allQ_foldlM _ _ (fun _ _ => pubGood_lowerNodeHashP _ _ _ _ _ _ _) _
+
 theorem pubGood_topLayerP (w : WBytes) (index : Nat) (answer : Digest) :
     AllQueriesSatisfy (topLayerP w index answer) PubGood := by
   cases hd : decode 0 answer with

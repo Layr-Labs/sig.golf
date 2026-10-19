@@ -12,13 +12,13 @@ def mkEntSpec (lay ci sh : Nat) : Spec :=
   let st := if lay = 0 ∧ ci = 1 then 2 else 1
   ⟨[], [], mkShp lay ci sh + 1, true, st, [], none, st⟩
 def mkEntCheck (lay ci sh : Nat) : Bool :=
-  mkSpecB [] [] baseK (mkEntK lay ci) [] (mkTabW lay ci sh) []
+  mkSpecB [] [] (gkL lay) (mkEntK lay ci) [] (mkTabW lay ci sh) []
     (mkEntSpec lay ci sh) [] (mkEntPost lay ci sh) mkEntKeep
 def mkLvlSpecN (lay ci sh kk : Nat) : Spec :=
   { T3M.mkLvlSpecN lay ci sh kk with
     pc := mkShp lay ci sh + mkOff lay ci (kk + 1) + mkMove lay (mkLo lay ci + kk) }
 def mkLvlCheckN (lay ci sh kk : Nat) : Bool :=
-  mkSpecB (mkLvlAllow lay (mkLeafOf lay ci sh) (mkLo lay ci + kk)) [] baseK
+  mkSpecB (mkLvlAllow lay (mkLeafOf lay ci sh) (mkLo lay ci + kk)) [] (gkL lay)
     (mkLvlKN lay ci sh kk) [] (mkShp lay ci sh + mkOff lay ci kk + 2) []
     (mkLvlSpecN lay ci sh kk) [] (mkLvlPostN lay ci sh kk)
     (mkKeep ++ (.x14 :: mkLvlKeep lay (mkLo lay ci + kk)))

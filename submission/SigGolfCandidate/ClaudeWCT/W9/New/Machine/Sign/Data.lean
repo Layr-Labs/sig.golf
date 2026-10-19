@@ -63,7 +63,8 @@ def coordCode8_2 : List (BitVec 32) := [(SigGolfCandidate.T3M.Images.signReferen
 def coordCode8_3 : List (BitVec 32) := [(SigGolfCandidate.T3M.Images.signReferenceCode_79).drop 199,(SigGolfCandidate.T3M.Images.signReferenceCode_80).take 199].flatten
 def coordCode8_4 : List (BitVec 32) := ((SigGolfCandidate.T3M.Images.signReferenceCode_80).drop 199).take 36
 def coordCode8 : List (BitVec 32) := coordCode8_0 ++ coordCode8_1 ++ coordCode8_2 ++ coordCode8_3 ++ coordCode8_4
-def tailCode_0 : List (BitVec 32) := [(SigGolfCandidate.T3M.Images.signReferenceCode_80).drop 235,(SigGolfCandidate.T3M.Images.signReferenceCode_81).take 35].flatten
+/-- Campaign R6: the tail window of the CURRENT sign image (word 20731 `addi t3,t3,-1872`: compaction source 0x78B0). -/
+def tailCode_0 : List (BitVec 32) := [(SigGolfCandidate.T3M.Images.signCode_80).drop 235,(SigGolfCandidate.T3M.Images.signCode_81).take 35].flatten
 def tailCode : List (BitVec 32) := tailCode_0
 def fieldIdx : List Nat := [11186,12238,13297,14357,15417,16476,17536,18596,19655]
 def coordCodes : List (List (BitVec 32)) := [coordCode0, coordCode1, coordCode2, coordCode3, coordCode4, coordCode5, coordCode6, coordCode7, coordCode8]

@@ -158,16 +158,6 @@ def ForestCovered {β : Type} [Fintype β] (val : β → Fin 6 → Nat) {r : Nat
     (h : ForestHistory β r) (a : ForestChoice β) : Prop :=
   (∀ p, PairCovered val (h.1 p) (a.1 p)) ∧ CovAt val a.2.1 (val a.2.2) h.2
 
-theorem card_and_prod {α β : Type} [Fintype α] [Fintype β] (p : α → Prop) (q : β → Prop) :
-    #{a : α × β | p a.1 ∧ q a.2} = #{a : α | p a} * #{b : β | q b} := by
-  classical
-  simp only [card_filter, Fintype.sum_prod_type]
-  rw [sum_mul_sum]
-  apply sum_congr rfl
-  intro a _
-  apply sum_congr rfl
-  intro b _
-  by_cases hp : p a <;> by_cases hq : q b <;> simp [hp,hq]
 
 noncomputable def pairCoveredEquiv {β : Type} [Fintype β] (val : β → Fin 6 → Nat) {r : Nat}
     (h : PairHistory β r) :
@@ -341,21 +331,6 @@ theorem bucketEnv_ofFn {β : Type} [Fintype β] (val : β → Fin 6 → Nat) {r 
   simp_rw [listAlphabetCovered_ofFn]
   rw [← natCast_card_filter, alphabetCovered_card]
 
-theorem bucketEnv_mono {β : Type} [Fintype β] (val : β → Fin 6 → Nat)
-    (a : AlphabetOf β) (W : List (AlphabetOf β)) : bucketEnv val W ≤ bucketEnv val (a::W) := by
-  unfold bucketEnv finiteAverage
-  apply ENNReal.div_le_div_right
-  apply sum_le_sum
-  intro target _
-  split_ifs with h1 h2
-  · exact le_rfl
-  · apply False.elim
-    apply h2
-    intro k t
-    obtain ⟨e,he,hc⟩ := h1 k t
-    exact ⟨e,List.mem_cons_of_mem a he,hc⟩
-  · exact zero_le_one
-  · exact le_rfl
 
 theorem coveredP_bucket (W : List Proposal) (N : SigGolfCandidate.T3.HashOutput) :
     CoveredP W N ↔ ListAlphabetCovered ClaudeWCT.WCT9.wordDigit
@@ -371,7 +346,7 @@ theorem coveredP_bucket (W : List Proposal) (N : SigGolfCandidate.T3.HashOutput)
     exact ⟨((proposal N).1,a),(WCTEnvelope.mem_atIndex _ _ _).mp ha,rfl,h2,h3⟩
 
 theorem price_scale :
-    (2:ENNReal)^128 * ((734*2^62:Nat):ENNReal) *
+    (2:ENNReal)^128 * ((804*2^62:Nat):ENNReal) *
       (SharedMoments.alphabetSize:ENNReal) * ((2^256:Nat):ENNReal)⁻¹ =
       (SharedMoments.priceScaleTotal:ENNReal)/(2^31) := by
   apply (ENNReal.toReal_eq_toReal_iff' (by finiteness) (by finiteness)).mp
@@ -408,37 +383,6 @@ theorem price_eq_buckets (W : List Proposal) :
 #print axioms price_eq_buckets
 end ClaudeWCT.Bank.Paired
 
-namespace ClaudeWCT.Bank.Paired
-open Finset ENNReal ClaudeWCT.Numerics
-open SigGolfCandidate.T3.BPORS.History (atIndex)
-open SphincsSecurity.Concrete (binomialAverage)
-set_option maxHeartbeats 1000000
-set_option maxRecDepth 10000
-attribute [local instance] Classical.propDecidable
-attribute [local irreducible] Finset.univ
-
-/-- The actual cap-conditioned bucket law is bounded by the finite paired
-history model, for any nonnegative payoff, including capped MGF and residual. -/
-theorem law_bucket_payoff_le (r : Nat) (f : ENNReal → ENNReal) :
-    Law.lawAvg honestCoordLaw r (fun W => f (bucketEnv ClaudeWCT.WCT9.wordDigit W)) ≤
-      kappa^r * ((∑ h : SharedCoverage.ForestHistory (Fin 563) r,
-        f ((SharedCoverage.forestCoverage ClaudeWCT.WCT9.wordDigit h : ENNReal)/
-          SharedMoments.alphabetSize))/(SharedMoments.alphabetSize:ENNReal)^r) := by
-  have hc : Fintype.card (AlphabetOf (Fin 563)) = SharedMoments.alphabetSize :=
-    alphabet_card (Fintype.card_fin 563)
-  have hf (h : Fin r → Alphabet) :
-      f (bucketEnv ClaudeWCT.WCT9.wordDigit (List.ofFn h)) =
-        f ((SharedCoverage.forestCoverage ClaudeWCT.WCT9.wordDigit (splitHistory h) : ENNReal)/
-          SharedMoments.alphabetSize) :=
-    congrArg f ((bucketEnv_ofFn ClaudeWCT.WCT9.wordDigit h).trans
-      (congrArg (fun n : Nat =>
-        (SharedCoverage.forestCoverage ClaudeWCT.WCT9.wordDigit (splitHistory h) : ENNReal)/(n:ENNReal)) hc))
-  exact law_history_le r (fun W => f (bucketEnv ClaudeWCT.WCT9.wordDigit W))
-    (fun h => f ((SharedCoverage.forestCoverage ClaudeWCT.WCT9.wordDigit h : ENNReal)/
-      SharedMoments.alphabetSize)) hf
-
-
-end ClaudeWCT.Bank.Paired
 
 namespace ClaudeWCT.Bank.Paired
 open ENNReal Finset ClaudeWCT.Numerics
@@ -548,7 +492,7 @@ set_option maxHeartbeats 1000000
 set_option maxRecDepth 100000
 attribute [local irreducible] Finset.univ
 
-noncomputable def feeCoefficient : ENNReal := 734/2^66
+noncomputable def feeCoefficient : ENNReal := 804/2^66
 
 theorem price_coefficient :
     (SharedMoments.priceScaleTotal:ENNReal)/(2^31)/(SharedMoments.alphabetSize:ENNReal) = feeCoefficient := by
@@ -570,46 +514,14 @@ theorem priceBucket_ofFn {r : Nat} (h : Fin r → Alphabet) :
   simp only [div_eq_mul_inv]
   ring
 
-theorem law_priceBucket_payoff_le (r : Nat) (f : ENNReal → ENNReal) :
-    Law.lawAvg honestCoordLaw r (fun W => f (priceBucket W)) ≤
-      kappa^r * ((∑ h : SharedCoverage.ForestHistory (Fin 563) r,
-        f (feeCoefficient*(SharedCoverage.forestCoverage ClaudeWCT.WCT9.wordDigit h:ENNReal)))/
-        (SharedMoments.alphabetSize:ENNReal)^r) :=
-  law_history_le r (fun W => f (priceBucket W))
-    (fun h => f (feeCoefficient*(SharedCoverage.forestCoverage ClaudeWCT.WCT9.wordDigit h:ENNReal)))
-    (fun h => congrArg f (priceBucket_ofFn h))
 
 theorem lawAvg_div {β : Type} [Fintype β] (v : β → ENNReal) (r : Nat)
     (f : List β → ENNReal) (C : ENNReal) :
     Law.lawAvg v r (fun W => f W/C) = Law.lawAvg v r f/C := by
   simpa only [div_eq_mul_inv,mul_comm] using Law.lawAvg_mul_left v r C⁻¹ f
 
-theorem law_normalized_fee_row (r : Nat) (f : ENNReal → ENNReal)
-    (S M fee : ENNReal) (hS0 : S ≠ 0) (hSt : S ≠ ⊤) (hM0 : M ≠ 0) (hMt : M ≠ ⊤)
-    (hfee : (∑ h : SharedCoverage.ForestHistory (Fin 563) r,
-      f (feeCoefficient*(SharedCoverage.forestCoverage ClaudeWCT.WCT9.wordDigit h:ENNReal))) ≤
-        feeCoefficient/S*fee) :
-    Law.lawAvg honestCoordLaw r
-      (fun W => f (priceBucket W)/(M*feeCoefficient*SharedMoments.alphabetSize/S)) ≤
-        kappa^r*fee/(M*(SharedMoments.alphabetSize:ENNReal)^(r+1)) := by
-  rw [lawAvg_div]
-  calc
-    _ ≤ (kappa^r * ((∑ h : SharedCoverage.ForestHistory (Fin 563) r,
-        f (feeCoefficient*(SharedCoverage.forestCoverage ClaudeWCT.WCT9.wordDigit h:ENNReal)))/
-        (SharedMoments.alphabetSize:ENNReal)^r))/(M*feeCoefficient*SharedMoments.alphabetSize/S) :=
-      ENNReal.div_le_div_right (law_priceBucket_payoff_le r f) _
-    _ ≤ (kappa^r*((feeCoefficient/S)*fee)/(SharedMoments.alphabetSize:ENNReal)^r)/
-        (M*feeCoefficient*SharedMoments.alphabetSize/S) := by
-      apply ENNReal.div_le_div_right
-      rw [mul_div_assoc]
-      exact mul_le_mul' le_rfl (ENNReal.div_le_div_right hfee _)
-    _ = _ := normalize_row_arithmetic feeCoefficient S M SharedMoments.alphabetSize kappa fee r
-      (by norm_num [feeCoefficient]) (by unfold feeCoefficient; finiteness)
-      hS0 hSt hM0 hMt (by norm_num [SharedMoments.alphabetSize]) (by finiteness)
 
 #print axioms priceBucket_ofFn
-#print axioms law_priceBucket_payoff_le
-#print axioms law_normalized_fee_row
 end ClaudeWCT.Bank.Paired
 
 
@@ -648,18 +560,6 @@ set_option maxRecDepth 100000
   rw [hp]
   ring
 
- theorem law_normalized_fee_row_fields (r M S fee : Nat) (hM : 0<M) (hS : 0<S)
-    (f : ENNReal → ENNReal)
-    (hfee : (∑ h : SharedCoverage.ForestHistory (Fin 563) r,
-      f (feeCoefficient*(SharedCoverage.forestCoverage ClaudeWCT.WCT9.wordDigit h:ENNReal))) ≤
-        feeCoefficient/(S:ENNReal)*(fee:ENNReal)) :
-    Law.lawAvg honestCoordLaw r
-      (fun W => f (priceBucket W)/((M:ENNReal)*feeCoefficient*SharedMoments.alphabetSize/S)) ≤
-      kappa^r*((16^r*fee:Nat):ENNReal)/
-        ((M*SharedMoments.alphabetSize*SharedMoments.fieldSize^(9*r):Nat):ENNReal) := by
-  rw [← normalized_denominator r M fee hM kappa]
-  exact law_normalized_fee_row r f S M fee (by positivity) (by finiteness)
-    (by positivity) (by finiteness) hfee
 
  theorem law_normalized_le_one (r : Nat) (f : List Alphabet → ENNReal) (C : ENNReal)
     (hC0 : C ≠ 0) (hCt : C ≠ ⊤) (hbound : ∀ W, f W≤C) :
@@ -687,7 +587,6 @@ set_option maxRecDepth 100000
     _ = _ := by rw [ENNReal.mul_inv_cancel hC0 hCt,mul_one]
 
 #print axioms normalized_denominator
-#print axioms law_normalized_fee_row_fields
 #print axioms law_normalized_le_one
 #print axioms coordAverage_scaled
 end ClaudeWCT.Bank.Paired
@@ -721,46 +620,13 @@ set_option maxRecDepth 100000
  theorem priceBucket_ne_top (W : List Alphabet) : priceBucket W ≠ ⊤ :=
   ne_top_of_le_ne_top (by unfold feeCoefficient; finiteness) (priceBucket_le W)
 
- noncomputable def cappedIncrement (x : ENNReal) : ENNReal :=
-  ENNReal.ofReal (Real.exp (6*(min x ((6:ENNReal)/5)).toReal))-1
- noncomputable def cappedResidual (x : ENNReal) : ENNReal := x-(6:ENNReal)/5
 
- theorem cappedIncrement_real (x : ENNReal) (hx : x ≠ ⊤) :
-    cappedIncrement x = ENNReal.ofReal (Real.exp (6*min x.toReal (6/5))-1) := by
-  rw [cappedIncrement,ENNReal.toReal_min hx (by finiteness),ENNReal.toReal_div]
-  norm_num only [ENNReal.toReal_ofNat]
-  rw [ENNReal.ofReal_sub _ (by norm_num),ENNReal.ofReal_one]
-
- theorem cappedResidual_real (x : ENNReal) (hx : x ≠ ⊤) :
-    cappedResidual x = ENNReal.ofReal (max 0 (x.toReal-6/5)) := by
-  rw [ENNReal.ofReal_max,ENNReal.ofReal_zero,max_eq_right (by positivity),
-    ENNReal.ofReal_sub _ (by norm_num),ENNReal.ofReal_toReal hx]
-  rw [ENNReal.ofReal_div_of_pos (by norm_num : (0:ℝ)<5)]
-  norm_num [cappedResidual]
-
- theorem feeCoefficient_real : feeCoefficient.toReal = (734:ℝ)/2^66 := by
+ theorem feeCoefficient_real : feeCoefficient.toReal = (804:ℝ)/2^66 := by
   norm_num [feeCoefficient,ENNReal.toReal_div]
 
- theorem cappedIncrement_nat (n : Nat) :
-    cappedIncrement (feeCoefficient*(n:ENNReal)) =
-      ENNReal.ofReal (Real.exp (6*min ((734:ℝ)/2^66*(n:ℝ)) (6/5))-1) := by
-  rw [cappedIncrement_real _ (by unfold feeCoefficient; finiteness),
-    ENNReal.toReal_mul,feeCoefficient_real,ENNReal.toReal_natCast]
-
- theorem cappedResidual_nat (n : Nat) :
-    cappedResidual (feeCoefficient*(n:ENNReal)) =
-      ENNReal.ofReal (max 0 ((734:ℝ)/2^66*(n:ℝ)-6/5)) := by
-  rw [cappedResidual_real _ (by unfold feeCoefficient; finiteness),
-    ENNReal.toReal_mul,feeCoefficient_real,ENNReal.toReal_natCast]
-
- theorem cappedResidual_bound (W : List Alphabet) :
-    cappedResidual (priceBucket W) ≤ feeCoefficient*SharedMoments.alphabetSize :=
-  (tsub_le_self).trans (priceBucket_le W)
 
 #print axioms bucketEnv_le_one
 #print axioms priceBucket_le
-#print axioms cappedIncrement_nat
-#print axioms cappedResidual_nat
 end ClaudeWCT.Bank.Paired
 
 namespace ClaudeWCT.Bank.Paired
@@ -784,85 +650,10 @@ set_option maxRecDepth 100000
     _ = (M:ENNReal)*((2^31:ENNReal)*(feeCoefficient*SharedMoments.alphabetSize))*(S:ENNReal)⁻¹ := by ring
     _ = _ := by rw [he]
 
- theorem coordAverage_bound_of_rows (T M S : Nat) (hM : 0<M) (hS : 0<S)
-    (f : ENNReal → ENNReal) (fees : Nat → Nat) (bound : ENNReal)
-    (hfees : ∀ r≤80, (∑ h : SharedCoverage.ForestHistory (Fin 563) r,
-      f (feeCoefficient*(SharedCoverage.forestCoverage ClaudeWCT.WCT9.wordDigit h:ENNReal))) ≤
-        feeCoefficient/(S:ENNReal)*(fees r:ENNReal))
-    (hpoint : ∀ W, f (priceBucket W) ≤
-      (M:ENNReal)*feeCoefficient*SharedMoments.alphabetSize/S)
-    (hcheck : ∀ g : Nat → ENNReal,
-      (∀ r≤80, g r ≤ kappa^r*((16^r*fees r:Nat):ENNReal)/
-        ((M*SharedMoments.alphabetSize*SharedMoments.fieldSize^(9*r):Nat):ENNReal)) →
-      (∀ r,80 < r → g r ≤ 1) →
-      ((M*SharedMoments.priceScaleTotal:Nat):ENNReal)/S *
-        binomialAverage (2^31:ENNReal)⁻¹ T g ≤ bound) :
-    (2^31:ENNReal)*Law.coordAverage (2^31:ENNReal)⁻¹ honestCoordLaw T
-      (fun W => f (priceBucket W)) ≤ bound := by
-  let C : ENNReal := (M:ENNReal)*feeCoefficient*SharedMoments.alphabetSize/S
-  have hC0 : C≠0 := by
-    have hMc : (M:ENNReal) ≠ 0 := by exact_mod_cast hM.ne'
-    have hfc : feeCoefficient ≠ 0 := by norm_num [feeCoefficient]
-    have hDc : (SharedMoments.alphabetSize:ENNReal) ≠ 0 := by norm_num [SharedMoments.alphabetSize]
-    exact ENNReal.div_ne_zero.mpr ⟨mul_ne_zero (mul_ne_zero hMc hfc) hDc, ENNReal.natCast_ne_top S⟩
-  have hCt : C≠⊤ := by dsimp [C,feeCoefficient]; finiteness
-  let g : Nat → ENNReal := fun r => Law.lawAvg honestCoordLaw r (fun W => f (priceBucket W)/C)
-  have hg := hcheck g (fun r hr => law_normalized_fee_row_fields r M S (fees r) hM hS f (hfees r hr))
-    (fun r _ => law_normalized_le_one r (fun W => f (priceBucket W)) C hC0 hCt hpoint)
-  calc
-    _ = ((2^31:ENNReal)*C)*Law.coordAverage (2^31:ENNReal)⁻¹ honestCoordLaw T
-      (fun W => f (priceBucket W)/C) :=
-      (coordAverage_scaled honestCoordLaw T (fun W => f (priceBucket W)) C (2^31) (2^31:ENNReal)⁻¹ hC0 hCt).symm
-    _ = ((M*SharedMoments.priceScaleTotal:Nat):ENNReal)/S *
-        binomialAverage (2^31:ENNReal)⁻¹ T g := by
-      rw [show (2^31:ENNReal)*C=((M*SharedMoments.priceScaleTotal:Nat):ENNReal)/S from normalizer_scale M S]
-      rfl
-    _ ≤ bound := hg
 
 #print axioms normalizer_scale
-#print axioms coordAverage_bound_of_rows
 end ClaudeWCT.Bank.Paired
 
-namespace ClaudeWCT.Bank.Paired
-open ENNReal Finset ClaudeWCT.Numerics
-open SharedFees SharedMoments
-set_option maxHeartbeats 1000000
-set_option maxRecDepth 100000
-
- theorem cappedIncrement_bound (W : List Alphabet) :
-    cappedIncrement (priceBucket W) ≤
-      (maxFee:ENNReal)*feeCoefficient*alphabetSize/scale := by
-  have hx := ENNReal.toReal_mono (by unfold feeCoefficient; finiteness) (priceBucket_le W)
-  rw [ENNReal.toReal_mul,feeCoefficient_real,ENNReal.toReal_natCast] at hx
-  have h := (capped_payoff_of_coverage_bound (priceBucket W).toReal
-    ((734:ℝ)/2^66) (alphabetSize:ℝ) ENNReal.toReal_nonneg hx).1
-  rw [cappedIncrement_real _ (priceBucket_ne_top W)]
-  calc
-    _ ≤ ENNReal.ofReal ((maxFee:ℝ)*((734:ℝ)/2^66)*(alphabetSize:ℝ)/scale) :=
-      ENNReal.ofReal_le_ofReal h
-    _ = _ := by
-      rw [ENNReal.ofReal_div_of_pos (by exact_mod_cast scale_pos : (0:ℝ)<scale),
-        ENNReal.ofReal_mul (by positivity), ENNReal.ofReal_mul (by positivity)]
-      simp only [ENNReal.ofReal_natCast]
-      rw [← feeCoefficient_real, ENNReal.ofReal_toReal (by unfold feeCoefficient; finiteness)]
-
- theorem residual_normalizer :
-    (scale:ENNReal)*feeCoefficient*alphabetSize/scale = feeCoefficient*alphabetSize := by
-  have hs0 : (scale:ENNReal) ≠ 0 := by exact_mod_cast scale_pos.ne'
-  have hst : (scale:ENNReal) ≠ ⊤ := by finiteness
-  simp only [div_eq_mul_inv]
-  calc _ = (feeCoefficient*alphabetSize)*((scale:ENNReal)*(scale:ENNReal)⁻¹) := by ring
-       _ = _ := by rw [ENNReal.mul_inv_cancel hs0 hst,mul_one]
-
- theorem cappedResidual_normalized_bound (W : List Alphabet) :
-    cappedResidual (priceBucket W) ≤
-      (scale:ENNReal)*feeCoefficient*alphabetSize/scale := by
-  rw [residual_normalizer]
-  exact cappedResidual_bound W
-
-#print axioms cappedIncrement_bound
-#print axioms cappedResidual_normalized_bound
-end ClaudeWCT.Bank.Paired
 
 namespace ClaudeWCT.Bank.Paired
 open ENNReal Finset ClaudeWCT.Numerics
@@ -870,22 +661,6 @@ open SharedFees SharedMoments SphincsSecurity.Concrete
 set_option maxHeartbeats 1000000
 set_option maxRecDepth 100000
 
-/-- The finite coverage certificate still to be supplied by the paired
-histogram calculation. All sampling and conditioning factors are outside it. -/
-def FiniteFeeBound : Prop := ∀ r≤80,
-  (∑ h : SharedCoverage.ForestHistory (Fin 563) r,
-    cappedIncrement (feeCoefficient*(SharedCoverage.forestCoverage ClaudeWCT.WCT9.wordDigit h:ENNReal))) ≤
-      feeCoefficient/(scale:ENNReal)*((certifiedPayoff r).1:ENNReal) ∧
-  (∑ h : SharedCoverage.ForestHistory (Fin 563) r,
-    cappedResidual (feeCoefficient*(SharedCoverage.forestCoverage ClaudeWCT.WCT9.wordDigit h:ENNReal))) ≤
-      feeCoefficient/(scale:ENNReal)*((certifiedPayoff r).2:ENNReal)
-
- theorem fee_positive : 0 < maxFee := by
-  by_contra hn
-  have hz : maxFee=0 := Nat.eq_zero_of_not_pos hn
-  have h := (capped_payoff_of_coverage_bound 1 1 1 (by norm_num) (by norm_num)).1
-  rw [hz] at h
-  norm_num at h
 
  theorem kappa_horizon : ((2^32:Nat):ENNReal)*(2^31:ENNReal)⁻¹*kappa ≤
     (2013623:ENNReal)/1000000 := by
@@ -897,90 +672,12 @@ def FiniteFeeBound : Prop := ∀ r≤80,
   rw [h]
   exact kappa_rate
 
- theorem coord_mgf_certified (hfees : FiniteFeeBound) :
-    (2^31:ENNReal)*Law.coordAverage (2^31:ENNReal)⁻¹ honestCoordLaw (2^32)
-      (fun W => cappedIncrement (priceBucket W)) ≤ (69:ENNReal)/10 := by
-  apply coordAverage_bound_of_rows (2^32) maxFee scale fee_positive scale_pos
-    cappedIncrement (fun r => (certifiedPayoff r).1) (69/10)
-    (fun r hr => (hfees r hr).1) cappedIncrement_bound
-  intro g hp ht
-  exact shared_mgf_bound_of_rows (2^32) le_rfl kappa kappa_one_le kappa_horizon g hp ht
-
- theorem coord_residual_certified (hfees : FiniteFeeBound) :
-    (2^31:ENNReal)*Law.coordAverage (2^31:ENNReal)⁻¹ honestCoordLaw (2^32)
-      (fun W => cappedResidual (priceBucket W)) ≤ (193:ENNReal)/250000 := by
-  apply coordAverage_bound_of_rows (2^32) scale scale scale_pos scale_pos
-    cappedResidual (fun r => (certifiedPayoff r).2) (193/250000)
-    (fun r hr => (hfees r hr).2) cappedResidual_normalized_bound
-  intro g hp ht
-  have h := shared_residual_bound_of_rows (2^32) le_rfl kappa kappa_one_le kappa_horizon g hp ht
-  have hs0 : (scale:ENNReal) ≠ 0 := by exact_mod_cast scale_pos.ne'
-  have hst : (scale:ENNReal) ≠ ⊤ := by finiteness
-  have he : ((scale*priceScaleTotal:Nat):ENNReal)/(scale:ENNReal) =
-      (priceScaleTotal:ENNReal) := by
-    simp only [Nat.cast_mul,div_eq_mul_inv]
-    calc _ = (priceScaleTotal:ENNReal)*((scale:ENNReal)*(scale:ENNReal)⁻¹) := by ring
-         _ = _ := by rw [ENNReal.mul_inv_cancel hs0 hst,mul_one]
-  rwa [he]
-
- theorem finiteFees_of_real
-    (hfees : ∀ r≤80,
-      (∑ h : SharedCoverage.ForestHistory (Fin 563) r,
-        ENNReal.ofReal (Real.exp (6*min ((734:ℝ)/2^66*
-          (SharedCoverage.forestCoverage ClaudeWCT.WCT9.wordDigit h:ℝ)) (6/5))-1)) ≤
-        ENNReal.ofReal ((734:ℝ)/2^66)/(scale:ENNReal)*((certifiedPayoff r).1:ENNReal) ∧
-      (∑ h : SharedCoverage.ForestHistory (Fin 563) r,
-        ENNReal.ofReal (max 0 ((734:ℝ)/2^66*
-          (SharedCoverage.forestCoverage ClaudeWCT.WCT9.wordDigit h:ℝ)-6/5))) ≤
-        ENNReal.ofReal ((734:ℝ)/2^66)/(scale:ENNReal)*((certifiedPayoff r).2:ENNReal)) :
-    FiniteFeeBound := by
-  intro r hr
-  have hf : ENNReal.ofReal ((734:ℝ)/2^66)=feeCoefficient := by
-    rw [←feeCoefficient_real,ENNReal.ofReal_toReal (by unfold feeCoefficient; finiteness)]
-  simpa only [cappedIncrement_nat,cappedResidual_nat,hf] using hfees r hr
-
-#print axioms coord_mgf_certified
-#print axioms coord_residual_certified
-#print axioms finiteFees_of_real
 end ClaudeWCT.Bank.Paired
 
 namespace ClaudeWCT.Bank.Paired
 open ENNReal Finset ClaudeWCT.Numerics
 set_option maxHeartbeats 1000000
 set_option maxRecDepth 100000
-
- theorem price_excess_certified (hfees : FiniteFeeBound) (theta resultBound : ℝ)
-    (htheta : 0 ≤ theta)
-    (hscalar : (3/48)*Real.exp (69/10-6*theta)+193/250000 ≤ resultBound) :
-    Law.lawAvg honestLaw (2^32) (fun W => price W-ENNReal.ofReal theta) ≤
-      ENNReal.ofReal resultBound := by
-  apply price_excess_of_bucket_bounds (2^32) (6/5) (by finiteness)
-    theta 6 (69/10) (193/250000) resultBound htheta (by norm_num) (by norm_num) (by norm_num)
-  · have h := coord_mgf_certified hfees
-    simpa only [cappedIncrement, ENNReal.ofReal_div_of_pos (by norm_num : (0:ℝ)<10),
-      ENNReal.ofReal_ofNat] using h
-  · have h := coord_residual_certified hfees
-    simpa only [cappedResidual, ENNReal.ofReal_div_of_pos (by norm_num : (0:ℝ)<250000),
-      ENNReal.ofReal_ofNat] using h
-  · convert hscalar using 1 <;> norm_num
-
- theorem excess_middle_certified (hfees : FiniteFeeBound) :
-    Law.lawAvg honestLaw (2^32)
-      (fun W => price W-ENNReal.ofReal ((99847:ℝ)/50000-1/1024)) ≤
-        ENNReal.ofReal ((147:ℝ)/125000) :=
-  price_excess_certified hfees _ _ (by norm_num) SharedPathWinsor.Rows18.endpoint_middle
-
- theorem excess_high_certified (hfees : FiniteFeeBound) :
-    Law.lawAvg honestLaw (2^32)
-      (fun W => price W-ENNReal.ofReal ((2:ℝ)-6/2500-1/1024)) ≤
-        ENNReal.ofReal ((147:ℝ)/125000) :=
-  price_excess_certified hfees _ _ (by norm_num) SharedPathWinsor.Rows18.endpoint_high
-
- theorem excess_low_certified (hfees : FiniteFeeBound) :
-    Law.lawAvg honestLaw (2^32)
-      (fun W => price W-ENNReal.ofReal ((1:ℝ)-1/1024)) ≤
-        ENNReal.ofReal ((49:ℝ)/100) :=
-  price_excess_certified hfees _ _ (by norm_num) SharedPathWinsor.Rows18.endpoint_low
 
  theorem tsub_convex (x theta eta a b : ENNReal) (hab : a+b=1) :
     x-(a*theta+b*eta) ≤ a*(x-theta)+b*(x-eta) := by
@@ -1021,25 +718,7 @@ set_option maxRecDepth 100000
       rw [←ENNReal.ofReal_mul ha0,←ENNReal.ofReal_mul ht0,
         ←ENNReal.ofReal_add (mul_nonneg ha0 hA) (mul_nonneg ht0 hB)]
 
- theorem excess_large_certified (hfees : FiniteFeeBound) (y : ℝ)
-    (hy0 : 3/2500 ≤ y) (hy1 : y ≤ 1/2) :
-    Law.lawAvg honestLaw (2^32)
-      (fun W => price W-ENNReal.ofReal (2-2*y-1/1024)) ≤
-        ENNReal.ofReal ((49/50)*y) := by
-  let t : ℝ := (y-3/2500)/(1/2-3/2500)
-  have ht0 : 0≤t := div_nonneg (sub_nonneg.mpr hy0) (by norm_num)
-  have ht1 : t≤1 := (div_le_one (by norm_num : (0:ℝ)<1/2-3/2500)).2 (by linarith)
-  have h := price_excess_affine (2^32) (2-6/2500-1/1024) (1-1/1024)
-    (147/125000) (49/100) t (by norm_num) (by norm_num) (by norm_num) (by norm_num)
-    ht0 ht1 (excess_high_certified hfees) (excess_low_certified hfees)
-  have harg : (1-t)*(2-6/2500-1/1024)+t*(1-1/1024) = 2-2*y-1/1024 := by
-    dsimp [t]; ring
-  have hval : (1-t)*(147/125000)+t*(49/100)=(49/50)*y := by dsimp [t]; ring
-  simpa only [harg,hval] using h
-
-#print axioms price_excess_certified
 #print axioms price_excess_affine
-#print axioms excess_large_certified
 end ClaudeWCT.Bank.Paired
 
 namespace ClaudeWCT.Bank.Paired
@@ -1057,39 +736,8 @@ set_option maxRecDepth 100000
   simp only [Law.law_marked_atIndex v hv, Finset.sum_const,Finset.card_univ,nsmul_eq_mul]
   rfl
 
- theorem law_price_coordAverage (T : Nat) :
-    Law.lawAvg honestLaw T price =
-      (2^31:ENNReal)*Law.coordAverage (2^31:ENNReal)⁻¹ honestCoordLaw T priceBucket := by
-  have he : price = fun W => ∑ i : Fin (2^31),priceBucket (atIndex i W) := funext price_eq_sum
-  rw [he]
-  have h := law_marked_sum (α:=Fin (2^31)) honestCoordLaw honestCoordLaw_sum T priceBucket
-  simpa only [honestLaw,Fintype.card_fin,Nat.cast_pow,Nat.cast_ofNat] using h
-
- theorem first_finite_row (r : Nat) (hr : r≤80) :
-    (∑ h : SharedCoverage.ForestHistory (Fin 563) r,
-      feeCoefficient*(SharedCoverage.forestCoverage ClaudeWCT.WCT9.wordDigit h:ENNReal)) =
-        feeCoefficient*(forestMoment r:ENNReal) := by
-  rw [← Finset.mul_sum,←Nat.cast_sum]
-  have h := SharedCoverage.forest_coverage_data ClaudeWCT.WCT9.wordDigit (Fintype.card_fin 563)
-    WCTEnvelope.w1Table_wordDigit rows_checked r (by omega)
-  exact congrArg (fun n : Nat => feeCoefficient*(n:ENNReal)) h
-
- theorem law_price_mean_bound : Law.lawAvg honestLaw (2^32) price ≤ (845:ENNReal)/1000 := by
-  rw [law_price_coordAverage]
-  apply coordAverage_bound_of_rows (2^32) 1 1 (by norm_num) (by norm_num)
-    id forestMoment (845/1000)
-  · intro r hr
-    simpa only [id_eq,Nat.cast_one,div_one] using (first_finite_row r hr).le
-  · intro W
-    simpa only [id_eq,Nat.cast_one,one_mul,div_one] using priceBucket_le W
-  · intro g hp ht
-    have h := first_bound_of_rows (2^32) le_rfl kappa kappa_one_le kappa_horizon g
-      (by simpa only [Nat.one_mul] using hp) ht
-    simpa only [Nat.one_mul,Nat.cast_one,div_one] using h
 
 #print axioms law_marked_sum
-#print axioms law_price_coordAverage
-#print axioms law_price_mean_bound
 end ClaudeWCT.Bank.Paired
 
 namespace ClaudeWCT.Bank.Paired
@@ -1636,11 +1284,11 @@ set_option maxRecDepth 100000
     WCTEnvelope.w1Table_wordDigit WCTEnvelope.wfTable_wordDigit rows_checked r (by omega)
   exact congrArg (fun n : Nat => feeCoefficient*(n:ENNReal)) h
 
- theorem law_nearPrice_mean_bound : Law.lawAvg honestLaw (2^32) nearPrice ≤ 350 := by
+ theorem law_nearPrice_mean_bound : Law.lawAvg honestLaw (2^32) nearPrice ≤ 385 := by
   rw [law_nearPrice_coordAverage]
   apply coordAverage_history_bound (2^32) 54 1 (by norm_num) (by norm_num)
     nearBucket (fun _ h => feeCoefficient*(SharedCoverage.forestNear ClaudeWCT.WCT9.wordDigit h:ENNReal))
-    forestNearMoment 350
+    forestNearMoment 385
   · intro r _ h
     exact nearBucket_ofFn_le h
   · intro r hr
@@ -1733,7 +1381,7 @@ noncomputable def withCoverage {P : Type} [Fintype P] [SampleableType P]
 
 noncomputable def nearLawSpec : FtsBankSpec Proposal :=
   withCoverage lawSpec nearScore NearCovered one_le_nearScore nearScore_append_mono
-    nearPrice average_nearScore 350
+    nearPrice average_nearScore 385
     ((Law.lawAvg_mono honestLaw (2^32) (fun _ => tsub_le_self)).trans law_nearPrice_mean_bound)
 
 #print axioms nearLawSpec
@@ -1769,133 +1417,3 @@ theorem wordDigit_coordinate_coeff (K : Nat) (hK : K ∈ [64,128])
 
 #print axioms wordDigit_coordinate_coeff
 end ClaudeWCT.Numerics.SharedCoverage
-
-namespace ClaudeWCT.Numerics.SharedFees
-open Finset
-open ClaudeWCT.Numerics.N600 ClaudeWCT.Numerics.SharedMoments
-open ClaudeWCT.Numerics.SharedCoverage
-open ClaudeWCT.Numerics.WCTEnvelope
-set_option maxRecDepth 100000
-set_option maxHeartbeats 1000000
-set_option Elab.async false
-
-theorem certifiedPayoff_global (r : Nat) (hr : r=0 ∨ 19≤r) :
-    certifiedPayoff r=(maxFee*forestMoment r,scale*forestMoment r) := by
-  rcases hr with h | h
-  · subst r
-    decide +kernel
-  · have he : r=(r-19)+19 := by omega
-    rw [he]
-    rfl
-
-theorem wordDigit_finite_payoffs
-    (hrows : ∀ r, 1≤r → r≤18 → rowDots r=certifiedPayoff r)
-    (r : Nat) (hr : r≤80) :
-    (∑ h : ForestHistory (Fin 563) r, ENNReal.ofReal
-      (Real.exp (6*min ((734:ℝ)/2^66*(forestCoverage ClaudeWCT.WCT9.wordDigit h : ℝ)) (6/5))-1)) ≤
-      ENNReal.ofReal ((734:ℝ)/2^66)/(scale:ENNReal)*((certifiedPayoff r).1:ENNReal) ∧
-    (∑ h : ForestHistory (Fin 563) r, ENNReal.ofReal
-      (max 0 ((734:ℝ)/2^66*(forestCoverage ClaudeWCT.WCT9.wordDigit h : ℝ)-6/5))) ≤
-      ENNReal.ofReal ((734:ℝ)/2^66)/(scale:ENNReal)*((certifiedPayoff r).2:ENNReal) := by
-  have ht := forest_coverage_data ClaudeWCT.WCT9.wordDigit (Fintype.card_fin 563)
-    w1Table_wordDigit rows_checked r (by omega)
-  by_cases hg : r=0 ∨ 19≤r
-  · rw [certifiedPayoff_global r hg]
-    exact actual_forest_fee_global ClaudeWCT.WCT9.wordDigit r ht
-  · have hlo : 1≤r := by omega
-    have hhi : r≤18 := by omega
-    have h := actual_forest_fee_row ClaudeWCT.WCT9.wordDigit (Fintype.card_fin 563)
-      r hlo (by omega) (fun K hK u hu j =>
-        wordDigit_coordinate_coeff K hK u (by omega) j) ht
-    rwa [hrows r hlo hhi] at h
-
-#print axioms certifiedPayoff_global
-#print axioms wordDigit_finite_payoffs
-end ClaudeWCT.Numerics.SharedFees
-
-namespace ClaudeWCT.Numerics.SharedFees
-open Finset Polynomial
-open ClaudeWCT.Numerics.N600 ClaudeWCT.Numerics.SharedMoments
-open ClaudeWCT.Numerics.SharedCoverage ClaudeWCT.Numerics.SharedPathForest
-set_option maxRecDepth 100000
-set_option maxHeartbeats 1000000
-set_option Elab.async false
-
-theorem wordDigit_rowDots_convolution (r : Nat) (hr : r≤20) :
-    rowDots r=convolutionDots r (SharedPathPacked.forest r) := by
-  have hp : ∀ K, K∈[64,128] → ∀ u, u≤r → ∀ j, (coordinatePoly K u).coeff j ≤
-      (univ.filter fun E : Fin u → Fin K × Fin 563 =>
-        coordinateCoverage ClaudeWCT.WCT9.wordDigit E=j).card :=
-    fun K hK u hu j => wordDigit_coordinate_coeff K hK u (by omega) j
-  exact rowDots_convolution r hr (actualPoly r)
-    (actual_encoding ClaudeWCT.WCT9.wordDigit (Fintype.card_fin 563) r hr hp)
-    (actual_coeff_small ClaudeWCT.WCT9.wordDigit (Fintype.card_fin 563) r hr hp)
-    ((actual_mass_le ClaudeWCT.WCT9.wordDigit (Fintype.card_fin 563) r hr hp).trans
-      (forest_mass_3072 r hr))
-
-#print axioms wordDigit_rowDots_convolution
-end ClaudeWCT.Numerics.SharedFees
-
-namespace ClaudeWCT.Numerics.SharedFees
-set_option maxHeartbeats 1000000
-set_option maxRecDepth 100000
-set_option Elab.async false
-
-theorem smallRows_checked (r : Nat) (hr : r≤4) : rowDots r=certifiedPayoff r := by
-  interval_cases r
-  · exact row_0
-  · exact row_1
-  · exact row_2
-  · exact row_3
-  · exact row_4
-
-theorem wordDigit_rows_of_convolutions
-    (hconv : ∀ r, 5≤r → r≤18 →
-      convolutionDots r (SharedPathPacked.forest r)=certifiedPayoff r)
-    (r : Nat) (hlo : 1≤r) (hhi : r≤18) : rowDots r=certifiedPayoff r := by
-  by_cases hs : r≤4
-  · exact smallRows_checked r hs
-  · exact (wordDigit_rowDots_convolution r (by omega)).trans (hconv r (by omega) hhi)
-
-#print axioms smallRows_checked
-#print axioms wordDigit_rows_of_convolutions
-end ClaudeWCT.Numerics.SharedFees
-
-namespace ClaudeWCT.Bank.Paired
-open ClaudeWCT.Numerics
-
-theorem finiteFees_of_convolutions
-    (hconv : ∀ r, 5≤r → r≤18 →
-      SharedFees.convolutionDots r (SharedPathPacked.forest r)=SharedFees.certifiedPayoff r) :
-    FiniteFeeBound :=
-  finiteFees_of_real (fun r hr => SharedFees.wordDigit_finite_payoffs
-    (SharedFees.wordDigit_rows_of_convolutions hconv) r hr)
-
-#print axioms finiteFees_of_convolutions
-end ClaudeWCT.Bank.Paired
-
-namespace ClaudeWCT.Bank.Paired
-/-- Every row in the exact paired-forest fee envelope is kernel checked. -/
-theorem finiteFees_checked : FiniteFeeBound :=
-  finiteFees_of_convolutions ClaudeWCT.Numerics.SharedGeneratedForest.convolution_rows_checked
-#print axioms finiteFees_checked
-end ClaudeWCT.Bank.Paired
-
-namespace ClaudeWCT.Bank.Paired
-open ENNReal Finset ClaudeWCT.Numerics
-set_option maxHeartbeats 1000000
-set_option maxRecDepth 10000
-
-theorem excess_tiny_certified (hfees : FiniteFeeBound) :
-    Law.lawAvg honestLaw (2^32)
-      (fun W=>price W-ENNReal.ofReal ((249:ℝ)/125-1/1024)) ≤
-        ENNReal.ofReal ((18:ℝ)/5000) := by
-  have h:=price_excess_affine (2^32) (99847/50000-1/1024) (1-1/1024)
-    (147/125000) (49/100) (247/49847) (by norm_num) (by norm_num)
-    (by norm_num) (by norm_num) (by norm_num) (by norm_num)
-    (excess_middle_certified hfees) (excess_low_certified hfees)
-  have ht:(1-(247:ℝ)/49847)*(99847/50000-1/1024)+(247/49847)*(1-1/1024)=249/125-1/1024:=by norm_num
-  rw[ht] at h
-  exact h.trans (ENNReal.ofReal_le_ofReal (by norm_num))
-#print axioms excess_tiny_certified
-end ClaudeWCT.Bank.Paired

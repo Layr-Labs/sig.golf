@@ -282,7 +282,8 @@ theorem wctHeader_inj {tag lay tree position index tag' lay' tree' position' ind
   exact ⟨e1, e2, tree_of_split htr htr' e3 e5, e4, e6⟩
 theorem serializeOpening_length (opened : Opening) : (serializeOpening opened).length = 208 := by
   simp only [serializeOpening, List.length_append, digest_list_bytes_length, List.length_ofFn]
-theorem serialize_length (sig : Signature) : (serialize sig).length = 5312 := by
+/-- Campaign R6: 52 top values (5312 - 2·16). -/
+theorem serialize_length (sig : Signature) : (serialize sig).length = 5280 := by
   simp only [serialize, List.length_append, bytesLE_length, List.length_flatMap,
     List.map_ofFn, Function.comp_def, List.length_flatten]
   simp_rw [serializeOpening_length, serializeLayer_length]

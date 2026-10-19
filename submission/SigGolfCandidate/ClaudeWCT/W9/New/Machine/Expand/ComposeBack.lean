@@ -66,7 +66,7 @@ open SigGolfCandidate.T3M
 open SigGolfCandidate.T3 (Digest HashOutput M)
 open SigGolfCandidate.T3M.Search (DIG NBUF ENC OutAt FailedAt TOP_DATA TableOK)
 open SigGolfCandidate.T3M.Expand (IDXV bytesToWordLE_bytes_e bytes_length_e extractByte_bytesToWordLE_e)
-open ClaudeWCT.W9.T3M (sigDig sigDec sigDigests sigDigests_sigDec)
+open ClaudeWCT.W9.T3M (sigDig sigDec sigDigests)
 set_option linter.unusedSimpArgs false
 def w9init (im : Image) (m : Message) (pk : PublicKey) {n : Nat} (σ : Bytes n) : MachineState :=
   (((((({ regs := fun _ => 0, mem := fun _ => 0, pc := 0x1000 } : MachineState).writeBytesAsWords
@@ -247,9 +247,12 @@ theorem wordsOf_zeros48_dig (d : Digest) :
     show SigGolfCandidate.T3M.zeros 48 = List.replicate (8 * 6) 0 from rfl, wordsOf_replicate_zero]
   rfl
 def lBase (lay : Layer) : Nat := ![0x2c48, 0x3CC8, 0x4948, 0x5588] lay
+/-- Campaign R6: the top staging region keeps main's 66 blocks; chain 0's block is the highest
+(`lWC = lBase + 64 * (vBlocks - 1)`), and the two blocks above the path (main's chains 52/53) are dead. -/
 theorem lBase_eq (lay : Layer) : lWM lay = lBase lay + 64 * (height lay - 1) ∧
-    lWC lay = lBase lay + 64 * height lay + 64 * (chainCount lay - 1) := by
+    lWC lay = lBase lay + 64 * height lay + 64 * vGap lay + 64 * (chainCount lay - 1) := by
   fin_cases lay <;> decide
+
 def mkWords (leaf j : Nat) (p : Digest) : List Word :=
   if leaf / 2 ^ j % 2 = 1 then [p.extractLsb' 0 64, p.extractLsb' 64 64, 0, 0, 0, 0, 0, 0]
   else [0, 0, 0, 0, 0, 0, p.extractLsb' 0 64, p.extractLsb' 64 64]
@@ -275,6 +278,41 @@ theorem layerBytes_words (lay : Layer) (leaf : Nat) (ls : LayerSignature lay) :
     intro i; simp [bytesLE_length, SigGolfCandidate.T3M.zeros]
   rw [wordsOf_append _ _ (by rw [length_flatMap_const _ 64 hm]; omega),
     wordsOf_flatMap64 _ hm, wordsOf_flatMap64 _ hc, List.flatten_append]
+  rw [flatMap_eq_flatten _ (fun j => mkWords leaf j.val (ls.path j)) (fun j => by
+      unfold mkWords
+      split_ifs
+      · exact wordsOf_dig_zeros48 _
+      · exact wordsOf_zeros48_dig _),
+    flatMap_eq_flatten _ (fun i => chWords (ls.values i)) (fun i => wordsOf_zeros48_dig _)]
+/-- Campaign R6: the staging blocks with the dead (zero) blocks between the path and the chain blocks. -/
+def layBlocksV (lay : Layer) (leaf : Nat) (ls : LayerSignature lay) : List (List Word) :=
+  (List.finRange (height lay)).reverse.map (fun j => mkWords leaf j.val (ls.path j)) ++
+    List.replicate (vGap lay) (List.replicate 8 0) ++
+    (List.finRange (chainCount lay)).reverse.map (fun i => chWords (ls.values i))
+theorem flatten_replicate8 : ∀ g : Nat, (List.replicate g (List.replicate 8 (0 : Word))).flatten = List.replicate (8 * g) 0
+  | 0 => rfl
+  | g + 1 => by
+    rw [List.replicate_succ, List.flatten_cons, flatten_replicate8 g,
+      show 8 * (g + 1) = 8 + 8 * g by ring, List.replicate_add]
+theorem gapBytes_words (lay : Layer) (leaf : Nat) (ls : LayerSignature lay) :
+    wordsOf (gapV6 lay (SigGolfCandidate.T3M.layerBytes lay leaf ls)) = (layBlocksV lay leaf ls).flatten := by
+  have hm : ∀ j : Fin (height lay), ((if leaf / 2 ^ j.val % 2 = 1 then bytesLE 16 (ls.path j) ++
+      SigGolfCandidate.T3M.zeros 48 else SigGolfCandidate.T3M.zeros 48 ++ bytesLE 16 (ls.path j))).length = 64 := by
+    intro j; split_ifs <;> simp [bytesLE_length, SigGolfCandidate.T3M.zeros]
+  have hc : ∀ i : Fin (chainCount lay), (SigGolfCandidate.T3M.zeros 48 ++ bytesLE 16 (ls.values i)).length = 64 := by
+    intro i; simp [bytesLE_length, SigGolfCandidate.T3M.zeros]
+  have hP := length_flatMap_const _ 64 hm (List.finRange (height lay)).reverse
+  simp only [List.length_reverse, List.length_finRange] at hP
+  have hZ : (SigGolfCandidate.T3M.zeros (64 * vGap lay)).length = 64 * vGap lay := by
+    simp [SigGolfCandidate.T3M.zeros]
+  unfold gapV6 SigGolfCandidate.T3M.layerBytes layBlocksV
+  rw [List.take_left' hP, List.drop_left' hP,
+    wordsOf_append _ _ (by simp only [List.length_append, hP, hZ]; omega),
+    wordsOf_append _ _ (by simp only [List.length_append, hP, hZ]; omega),
+    wordsOf_flatMap64 _ hm, wordsOf_flatMap64 _ hc,
+    show SigGolfCandidate.T3M.zeros (64 * vGap lay) = List.replicate (8 * (8 * vGap lay)) 0 by
+      simp [SigGolfCandidate.T3M.zeros]; ring_nf,
+    wordsOf_replicate_zero, List.flatten_append, List.flatten_append, flatten_replicate8]
   rw [flatMap_eq_flatten _ (fun j => mkWords leaf j.val (ls.path j)) (fun j => by
       unfold mkWords
       split_ifs
@@ -321,30 +359,49 @@ theorem getD_rev_finRange_map {β : Type} (n : Nat) (f : Fin n → β) (d : β) 
     ((List.finRange n).reverse.map f).getD k d = f ⟨n - 1 - k, by omega⟩ := by
   rw [List.getD_eq_getElem?_getD, List.getElem?_map, List.getElem?_reverse (by simp; omega)]
   simp [show n - 1 - k < n by omega]
+theorem zero_block (t : MachineState) (B : Nat) (hz : ∀ r < 8, t.getMem (BitVec.ofNat 64 (B + 8 * r)) = 0) :
+    t.readWords (BitVec.ofNat 64 B) 8 = List.replicate 8 0 := by
+  rw [readWords_eight]
+  have h0 := hz 0 (by omega); have h1 := hz 1 (by omega); have h2 := hz 2 (by omega)
+  have h3 := hz 3 (by omega); have h4 := hz 4 (by omega); have h5 := hz 5 (by omega)
+  have h6 := hz 6 (by omega); have h7 := hz 7 (by omega)
+  simp only [Nat.mul_zero, Nat.add_zero, Nat.mul_one] at h0 h1
+  rw [h0, h1, show B + 16 = B + 8 * 2 by ring, h2, show B + 24 = B + 8 * 3 by ring, h3,
+    show B + 32 = B + 8 * 4 by ring, h4, show B + 40 = B + 8 * 5 by ring, h5,
+    show B + 48 = B + 8 * 6 by ring, h6, show B + 56 = B + 8 * 7 by ring, h7]
+  rfl
+theorem vGap_le (lay : Layer) : vGap lay ≤ 2 := by fin_cases lay <;> decide
+/-- Campaign R6: the staging region of layer `lay` (`vBlocks lay` blocks, the top with its two dead blocks). -/
 theorem layer_words (t : MachineState) (lay : Layer) (leaf : Nat) (ls : LayerSignature lay)
     (hv : ∀ i (h : i < chainCount lay), DigAt t (lWC lay - 64 * i + 48) (ls.values ⟨i, h⟩))
     (hp : ∀ j (h : j < height lay), DigAt t (lWM lay - 64 * j + sideOff leaf j) (ls.path ⟨j, h⟩))
-    (hz : ∀ A, lBase lay ≤ A → A < lBase lay + 64 * (height lay + chainCount lay) →
+    (hz : ∀ A, lBase lay ≤ A → A < lBase lay + 64 * vBlocks lay →
       ¬ RlWit lay leaf (lWC lay) (lWM lay) A → t.getMem (BitVec.ofNat 64 A) = 0) :
-    t.readWords (BitVec.ofNat 64 (lBase lay)) (8 * (height lay + chainCount lay)) =
-      wordsOf (SigGolfCandidate.T3M.layerBytes lay leaf ls) := by
+    t.readWords (BitVec.ofNat 64 (lBase lay)) (8 * vBlocks lay) =
+      wordsOf (gapV6 lay (SigGolfCandidate.T3M.layerBytes lay leaf ls)) := by
   obtain ⟨hWM, hWC⟩ := lBase_eq lay
   have hH := height_le lay
   have hH1 : 1 ≤ height lay := by fin_cases lay <;> decide
   have hN1 : 1 ≤ chainCount lay := by fin_cases lay <;> decide
+  have hG := vGap_le lay
+  have hVB : vBlocks lay = height lay + vGap lay + chainCount lay := rfl
   have hso : ∀ j, sideOff leaf j = 0 ∨ sideOff leaf j = 48 := fun j => by unfold sideOff; split_ifs <;> simp
-  rw [layerBytes_words]
-  have hlen : (layBlocks lay leaf ls).length = height lay + chainCount lay := by simp [layBlocks]
-  have hl8 : ∀ b ∈ layBlocks lay leaf ls, b.length = 8 := by
+  rw [gapBytes_words]
+  have hlen : (layBlocksV lay leaf ls).length = vBlocks lay := by
+    simp only [layBlocksV, vBlocks, List.length_append, List.length_map, List.length_reverse, List.length_finRange,
+      List.length_replicate]
+  have hl8 : ∀ b ∈ layBlocksV lay leaf ls, b.length = 8 := by
     intro b hb
-    simp only [layBlocks, List.mem_append, List.mem_map] at hb
-    rcases hb with ⟨j, _, rfl⟩ | ⟨i, _, rfl⟩
+    simp only [layBlocksV, List.mem_append, List.mem_map, List.mem_replicate] at hb
+    rcases hb with (⟨j, _, rfl⟩ | ⟨_, rfl⟩) | ⟨i, _, rfl⟩
     · unfold mkWords; split_ifs <;> rfl
     · rfl
-  have key := readWords_blocks t (layBlocks lay leaf ls) (lBase lay) hl8 (fun k hk => by
+    · rfl
+  have key := readWords_blocks t (layBlocksV lay leaf ls) (lBase lay) hl8 (fun k hk => by
     rw [hlen] at hk
     by_cases hkH : k < height lay
-    · rw [layBlocks, List.getD_append _ _ _ _ (by simp; omega), getD_rev_finRange_map _ _ _ _ hkH]
+    · rw [layBlocksV, List.getD_append _ _ _ _ (by simp; omega), List.getD_append _ _ _ _ (by simp; omega),
+        getD_rev_finRange_map _ _ _ _ hkH]
       obtain ⟨j, hj⟩ : ∃ j, j = height lay - 1 - k := ⟨_, rfl⟩
       have hB : lBase lay + 64 * k = lWM lay - 64 * j := by omega
       have e : (⟨height lay - 1 - k, by omega⟩ : Fin (height lay)) = ⟨j, by omega⟩ := Fin.ext hj.symm
@@ -359,12 +416,26 @@ theorem layer_words (t : MachineState) (lay : Layer) (leaf : Nat) (ls : LayerSig
       · rcases eq_or_ne j' j with rfl | hne
         · omega
         · rcases hso j' with h4 | h4 <;> rw [h4] at h <;> omega
-    · rw [layBlocks, List.getD_append_right _ _ _ _ (by simp; omega), List.length_map, List.length_reverse,
-        List.length_finRange, getD_rev_finRange_map _ _ _ _ (by omega)]
-      obtain ⟨i, hi⟩ : ∃ i, i = chainCount lay - 1 - (k - height lay) := ⟨_, rfl⟩
+    by_cases hkG : k < height lay + vGap lay
+    · rw [layBlocksV, List.getD_append _ _ _ _ (by simp; omega), List.getD_append_right _ _ _ _ (by simp; omega)]
+      simp only [List.length_map, List.length_reverse, List.length_finRange]
+      have hr : (List.replicate (vGap lay) (List.replicate 8 (0 : Word))).getD (k - height lay) [] =
+          List.replicate 8 0 := by
+        rw [List.getD_eq_getElem?_getD]; simp [show k - height lay < vGap lay by omega]
+      rw [hr]
+      refine zero_block t _ (fun r hr => hz _ (by omega) (by omega) ?_)
+      rintro (⟨i, hi, h | h⟩ | ⟨j', hj', h | h⟩)
+      · omega
+      · omega
+      · rcases hso j' with h4 | h4 <;> rw [h4] at h <;> omega
+      · rcases hso j' with h4 | h4 <;> rw [h4] at h <;> omega
+    · rw [layBlocksV, List.getD_append_right _ _ _ _ (by simp; omega), List.length_append, List.length_map,
+        List.length_reverse, List.length_finRange, List.length_replicate,
+        getD_rev_finRange_map _ _ _ _ (by omega)]
+      obtain ⟨i, hi⟩ : ∃ i, i = chainCount lay - 1 - (k - (height lay + vGap lay)) := ⟨_, rfl⟩
       have hB : lBase lay + 64 * k = lWC lay - 64 * i := by omega
-      have e : (⟨chainCount lay - 1 - (k - height lay), by omega⟩ : Fin (chainCount lay)) = ⟨i, by omega⟩ :=
-        Fin.ext hi.symm
+      have e : (⟨chainCount lay - 1 - (k - (height lay + vGap lay)), by omega⟩ : Fin (chainCount lay)) =
+          ⟨i, by omega⟩ := Fin.ext hi.symm
       rw [hB, e]
       refine ch_block t _ _ (hv i (by omega)) (fun r hr => hz _ (by omega) (by omega) ?_)
       rintro (⟨i', hi', h | h⟩ | ⟨j', hj', h | h⟩)
@@ -432,8 +503,8 @@ theorem layerBytesBC_words (lay : Layer) (leaf : Nat) (ls : LayerSignature lay) 
   have hH1 : 1 ≤ height lay := by fin_cases lay <;> decide
   rw [wordsOf_append _ _ (by rw [bcTopBlockV6_length]), bcTop_words,
     wordsOf_drop64 _ (by rw [SigGolfCandidate.T3M.layerBytes_length]; omega), layerBytes_words]
-theorem layerBC_words (t : MachineState) (lay : Layer) (leaf : Nat) (ls : LayerSignature lay) (c : BitVec 32)
-    (hv : ∀ i (h : i < chainCount lay), DigAt t (lWC lay - 64 * i + 48) (ls.values ⟨i, h⟩))
+theorem layerBC_words (t : MachineState) (lay : Layer) (h0 : lay.val ≠ 0) (leaf : Nat) (ls : LayerSignature lay)
+    (c : BitVec 32) (hv : ∀ i (h : i < chainCount lay), DigAt t (lWC lay - 64 * i + 48) (ls.values ⟨i, h⟩))
     (hp : ∀ j (h : j < height lay), DigAt t (lWM lay - 64 * j + sideOff leaf j) (ls.path ⟨j, h⟩))
     (hc : t.getMem (BitVec.ofNat 64 (lBase lay + 32)) = BitVec.ofNat 64 c.toNat)
     (hz : ∀ A, lBase lay ≤ A → A < lBase lay + 64 * (height lay + chainCount lay) →
@@ -441,6 +512,7 @@ theorem layerBC_words (t : MachineState) (lay : Layer) (leaf : Nat) (ls : LayerS
     t.readWords (BitVec.ofNat 64 (lBase lay)) (8 * (height lay + chainCount lay)) =
       wordsOf (layerBytesBCV6 lay leaf ls c) := by
   obtain ⟨hWM, hWC⟩ := lBase_eq lay
+  have hg0 := vGap_low lay h0
   have hH1 : 1 ≤ height lay := by fin_cases lay <;> decide
   have hN1 : 1 ≤ chainCount lay := by fin_cases lay <;> decide
   have hlB : lBase lay + 64 * (height lay + chainCount lay) < 2 ^ 64 := by fin_cases lay <;> decide
@@ -475,10 +547,11 @@ theorem layerBC_words (t : MachineState) (lay : Layer) (leaf : Nat) (ls : LayerS
     (fun j h => dig' _ _ (by rcases hso j with h4 | h4 <;> omega) (hRne _ (Or.inr ⟨j, h, Or.inl rfl⟩))
       (hRne _ (Or.inr ⟨j, h, Or.inr rfl⟩)) (hp j h))
     (fun A h1 h2 hn => by
+      rw [vBlocks_low lay h0] at h2
       by_cases he : A = lBase lay + 32
       · rw [he, g0]
       · rw [g' A (by omega) he]; exact hz A h1 h2 hn he)
-  rw [layerBytes_words] at hW'
+  rw [vBlocks_low lay h0, gapV6_low lay h0, layerBytes_words] at hW'
   rw [layerBytesBC_words]
   have eM : 8 * (height lay + chainCount lay) = 8 + (8 * (height lay + chainCount lay) - 8) := by omega
   rw [eM, readWords_add] at hW' ⊢

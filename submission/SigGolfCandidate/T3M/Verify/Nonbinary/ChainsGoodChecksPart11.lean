@@ -61,13 +61,12 @@ section
 namespace SigGolfCandidate.T3M.Nonbinary
 set_option maxRecDepth 200000
 set_option maxHeartbeats 2000000
-theorem fault_top_word (q : Nat) (hq : q<17) (h0 : q≠0) : (lcode (entOff q)).head?=some 0 := by
-  interval_cases q <;> first | contradiction | decide +kernel
-theorem fault_prefix_word : (lcode (entOff 0+1)).head?=some 0 := by decide +kernel
-theorem fault_top126_word (q : Nat) (hq : q<17) (h0 : q≠0) (he : 1024≤entOff q) :
+/-- R6: the r5 groups' (8 <= q < 17) invalid ranks 125 / 126 land on zero words. -/
+theorem fault_top_word (q : Nat) (hq : q<17) (h8 : 8≤q) : (lcode (entOff q)).head?=some 0 := by
+  interval_cases q <;> decide +kernel
+theorem fault_top126_word (q : Nat) (hq : q<17) (h8 : 8≤q) (he : 1024≤entOff q) :
     (lcode (entOff q-1024)).head?=some 0 := by
-  interval_cases q <;> first | contradiction | (norm_num [entOff] at he; done) | decide +kernel
-theorem fault_prefix126_word : (lcode (entOff 0+1-1024)).head?=some 0 := by decide +kernel
+  interval_cases q <;> first | (norm_num [entOff] at he; done) | decide +kernel
 end SigGolfCandidate.T3M.Nonbinary
 end
 section
@@ -117,16 +116,22 @@ theorem static_false_of_row_false (q k : Nat) (h : rowInl q k=false) : inl q=fal
 theorem rowInl_lt (q k : Nat) (h : rowInl q k=true) : q<17 := by
   simp [rowInl, inl] at h
   omega
+theorem rowInl_ge (q k : Nat) (h : rowInl q k=true) : 8≤q := by
+  simp [rowInl, inl] at h
+  omega
 theorem inlineCheck_at (q k : Nat) (hq : rowInl q k=true) (hk : k<125) : inlineCheck q k=true := by
   cases hn : inl q
   · have hq17 := rowInl_lt q k hq
-    have h := entCheck_at q k hq17 hn (by simp [mx,hq17]; omega)
+    have h8 := rowInl_ge q k hq
+    have h := entCheck_at q k hq17 hn (by simp [mx,hq17,show ¬ q<8 by omega]; omega)
     simpa only [entCheck,hq,if_true] using h
   · exact inlineCheck_static_at q k hn hk
 theorem mx_inl (q : Nat) (hq : inl q=true) : mx q=4 := by
-  simp [inl] at hq; unfold mx; rw [if_pos (by omega)]
+  simp [inl] at hq; unfold mx; rw [if_neg (by omega), if_pos (by omega)]
 theorem mx_rowInl (q k : Nat) (hq : rowInl q k=true) : mx q=4 := by
-  exact if_pos (rowInl_lt q k hq)
+  have h1 := rowInl_lt q k hq
+  have h2 := rowInl_ge q k hq
+  unfold mx; rw [if_neg (by omega), if_pos h1]
 theorem s8Check_at (q k : Nat) (hq : q<17) (hk : k<(mx q+1)^3) : s8Check q k=true := by
   cases hn : inl q
   · have h := tripleCheck_at q hq hn
@@ -163,6 +168,16 @@ theorem bge9_at (k : Nat) (hk : k<125) (he : k%2=0) : vrun (cellW 9 k) 1=some (b
   have h2 := h.2
   rw [if_pos (by simp [he])] at h2
   exact rOK_eq h2
+/-! ### R6: guards, checksum landings and arms (Part4) -/
+theorem guard6Check_at (g raw : Nat) (hg : g<8) (hr : raw<256) : guard6Check g raw=true := by
+  have h : guard6All g=true := by
+    interval_cases g
+    exacts [guard6All_0, guard6All_1, guard6All_2, guard6All_3, guard6All_4, guard6All_5, guard6All_6, guard6All_7]
+  exact List.all_eq_true.mp h raw (List.mem_range.mpr hr)
+theorem ckGuardCheck_at (ds : Nat) (hd : ds<229) : ckGuardCheck ds=true :=
+  List.all_eq_true.mp ckGuardAll_ok ds (List.mem_range.mpr hd)
+theorem ckArmCheck_at (d : Nat) (hd : d<8) : ckArmCheck d=true :=
+  List.all_eq_true.mp ckArmAll_ok d (List.mem_range.mpr hd)
 end SigGolfCandidate.T3M.Nonbinary
 end
 end

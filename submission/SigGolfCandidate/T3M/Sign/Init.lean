@@ -6,7 +6,7 @@ open RiscvZkvm.Rv64 SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv SigGol
 open SigGolfCandidate.T3 (Cache Region cacheBytes readLE)
 open SigGolfCandidate.T3M.Keygen (PRIV SEEDS CHAIN NODE NOUT LOUT LEAFPK MOUT ZDIG DUMMY TOP MACBLK REGION)
 open SphincsSecurity (bytesLE bytesLE_length)
-open SigGolfCandidate.T3M.Search (TOP_DATA TableOK signData_length signData_table)
+open SigGolfCandidate.T3M.Search (TOP_DATA signData_length)
 theorem readWords_of_get (t : MachineState) (A : Nat) :
     ∀ (m : Nat) (l : List Word), l.length = m →
       (∀ j < m, t.getMem (BitVec.ofNat 64 (A + 8 * j)) = l.getD j 0) → t.readWords (BitVec.ofNat 64 A) m = l
@@ -106,42 +106,41 @@ theorem sinit_region (sk : SecretKey) (cache : Bytes 131072) (m : Message) :
       (cacheDec cache).tag.extractLsb' 128 64, (cacheDec cache).tag.extractLsb' 192 64].length ≤ 4 + j by
       rw [List.length_cons, List.length_cons, List.length_cons, List.length_singleton]; omega)]
   rw [List.length_cons, List.length_cons, List.length_cons, List.length_singleton, Nat.add_sub_cancel_left]
+/-- A byte of the top data block (`TOP_DATA + i`, sign data offset 81920 + i) in the initial state. -/
+theorem sinit_topByte (sk : SecretKey) (cache : Bytes 131072) (m : Message) (i : Nat) (hi : i < 4096)
+    (b : BitVec 8) (hb : Images.signData.getD (81920 + i) 0 = b) :
+    (sinit sk cache m).getByte (BitVec.ofNat 64 (TOP_DATA + i)) = b := by
+  rw [getByte_eq_word _ _ (by simp only [TOP_DATA]; omega),
+    sinit_getMem _ _ _ _ (by simp only [TOP_DATA]; omega),
+    if_neg (by simp only [TOP_DATA]; omega), if_neg (by simp only [TOP_DATA]; omega), if_neg (by simp only [TOP_DATA]; omega),
+    sdata_getMem _ (by simp only [TOP_DATA]; omega), if_pos (by simp only [TOP_DATA, SIGN_DATA]; omega),
+    Keygen.extractByte_bytesToWordLE _ _ (Nat.mod_lt _ (by decide))]
+  simp only [List.getD_eq_getElem?_getD, List.getElem?_take, List.getElem?_drop,
+    if_pos (Nat.mod_lt (TOP_DATA + i) (show 0 < 8 by decide))]
+  have hidx : (TOP_DATA + i) / 8 * 8 - SIGN_DATA + (TOP_DATA + i) % 8 = 81920 + i := by simp only [TOP_DATA, SIGN_DATA]; omega
+  rw [hidx]
+  exact hb
+/-- Campaign R6: the choice flag byte (TOP_DATA + 631) is 1 in the initial state. -/
 theorem sinit_cf (sk : SecretKey) (cache : Bytes 131072) (m : Message) :
-    Search.CfTableOK 1 (sinit sk cache m) := by
-  intro i hi hj
-  rw [getByte_eq_word _ _ (by simp only [TOP_DATA]; omega),
-    sinit_getMem _ _ _ _ (by simp only [TOP_DATA]; omega),
-    if_neg (by simp only [TOP_DATA]; omega), if_neg (by simp only [TOP_DATA]; omega), if_neg (by simp only [TOP_DATA]; omega),
-    sdata_getMem _ (by simp only [TOP_DATA]; omega), if_pos (by simp only [TOP_DATA, SIGN_DATA]; omega),
-    Keygen.extractByte_bytesToWordLE _ _ (Nat.mod_lt _ (by decide))]
-  simp only [List.getD_eq_getElem?_getD, List.getElem?_take, List.getElem?_drop,
-    if_pos (Nat.mod_lt (TOP_DATA + i) (show 0 < 8 by decide))]
-  have hidx : (TOP_DATA + i) / 8 * 8 - SIGN_DATA + (TOP_DATA + i) % 8 = 81920 + i := by simp only [TOP_DATA, SIGN_DATA]; omega
-  rw [hidx]
-  exact Search.signData_cf i hi hj
+    Search.CfFlagOK 1 (sinit sk cache m) :=
+  sinit_topByte sk cache m 631 (by omega) _ Search.signData_flag
+/-- Campaign R6: the lower reward tables (TOP_DATA + 1024..2047) in the initial state. -/
 theorem sinit_reward (sk : SecretKey) (cache : Bytes 131072) (m : Message) :
-    Search.Reward.RewardTablesOK (sinit sk cache m) := by
-  intro i hi hj
-  rw [getByte_eq_word _ _ (by simp only [TOP_DATA]; omega),
-    sinit_getMem _ _ _ _ (by simp only [TOP_DATA]; omega),
-    if_neg (by simp only [TOP_DATA]; omega), if_neg (by simp only [TOP_DATA]; omega), if_neg (by simp only [TOP_DATA]; omega),
-    sdata_getMem _ (by simp only [TOP_DATA]; omega), if_pos (by simp only [TOP_DATA, SIGN_DATA]; omega),
-    Keygen.extractByte_bytesToWordLE _ _ (Nat.mod_lt _ (by decide))]
-  simp only [List.getD_eq_getElem?_getD, List.getElem?_take, List.getElem?_drop,
-    if_pos (Nat.mod_lt (TOP_DATA + i) (show 0 < 8 by decide))]
-  have hidx : (TOP_DATA + i) / 8 * 8 - SIGN_DATA + (TOP_DATA + i) % 8 = 81920 + i := by simp only [TOP_DATA, SIGN_DATA]; omega
-  rw [hidx]
-  exact Search.signData_reward i hi hj
-theorem sinit_table (sk : SecretKey) (cache : Bytes 131072) (m : Message) : TableOK (sinit sk cache m) := by
+    Search.Reward.LowerTablesOK (sinit sk cache m) := fun i hi hj =>
+  sinit_topByte sk cache m i (by omega) _ (Search.signData_lowerReward i hi hj)
+/-- Campaign R6: the packed top tables at `0xFFF800` (sign data offset 81920 + 2048) in the initial state. -/
+theorem sinit_r6 (sk : SecretKey) (cache : Bytes 131072) (m : Message) :
+    Search.R6TableOK 0xFFF800 (sinit sk cache m) := by
   intro i hi
-  rw [getByte_eq_word _ _ (by simp only [TOP_DATA]; omega),
-    sinit_getMem _ _ _ _ (by simp only [TOP_DATA]; omega),
-    if_neg (by simp only [TOP_DATA]; omega), if_neg (by simp only [TOP_DATA]; omega), if_neg (by simp only [TOP_DATA]; omega),
-    sdata_getMem _ (by simp only [TOP_DATA]; omega), if_pos (by simp only [TOP_DATA, SIGN_DATA]; omega),
+  rw [getByte_eq_word _ _ (by omega),
+    sinit_getMem _ _ _ _ (by omega),
+    if_neg (by omega), if_neg (by omega), if_neg (by omega),
+    sdata_getMem _ (by omega), if_pos (by simp only [SIGN_DATA]; omega),
     Keygen.extractByte_bytesToWordLE _ _ (Nat.mod_lt _ (by decide))]
   simp only [List.getD_eq_getElem?_getD, List.getElem?_take, List.getElem?_drop,
-    if_pos (Nat.mod_lt (TOP_DATA + i) (show 0 < 8 by decide))]
-  have hidx : (TOP_DATA + i) / 8 * 8 - SIGN_DATA + (TOP_DATA + i) % 8 = 81920 + i := by simp only [TOP_DATA, SIGN_DATA]; omega
+    if_pos (Nat.mod_lt (0xFFF800 + i) (show 0 < 8 by decide))]
+  have hidx : (0xFFF800 + i) / 8 * 8 - SIGN_DATA + (0xFFF800 + i) % 8 = 81920 + 2048 + i := by
+    simp only [SIGN_DATA]; omega
   rw [hidx]
-  exact signData_table i hi
+  exact Search.signData_r6table i hi
 end SigGolfCandidate.T3M.Sign

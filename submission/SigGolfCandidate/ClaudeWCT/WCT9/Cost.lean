@@ -281,20 +281,20 @@ theorem bound_signLayersBC (cache : Cache) (index : Nat) :
       by_cases hn : n = 0
       · subst n
         simp only [ite_true]
-        have hlen : ((out.map Prod.snd).getD dummyTop).length = 54 := by
+        have hlen : ((out.map Prod.snd).getD dummyTop).length = 52 := by
           cases out with
           | none => decide
           | some pair =>
               obtain ⟨counter, digits⟩ := pair
               exact (hout counter digits rfl).1
-        have hsum : ((out.map Prod.snd).getD dummyTop).sum = 126 ∨
+        have hsum : ((out.map Prod.snd).getD dummyTop).sum = 153 ∨
             ((out.map Prod.snd).getD dummyTop).sum = target 0 := by
           cases out with
           | none => first | exact Or.inl (by decide) | exact Or.inr (by decide)
           | some pair =>
               obtain ⟨counter, digits⟩ := pair
               exact Or.inr (hout counter digits rfl).2.1
-        have h126 : 126 ≤ target 0 := by decide
+        have h126 : 153 ≤ target 0 := by decide
         have hle : ((out.map Prod.snd).getD dummyTop).sum ≤ target 0 := by
           rcases hsum with h | h <;> omega
         first
@@ -418,8 +418,8 @@ theorem bound_verifyTop (sig : Signature) (index : Nat) (answer : Digest) :
 def verifyLayersCostBC : Nat → Nat
   | 0 => 0
   | n + 1 => (if n = 0 then capacity 0 else recoverLayerPairCost (Fin.ofNat 4 n)) + verifyLayersCostBC n
-/-- Campaign T8E: 225 (top capacity) + 119 + 118 + 118 (lower targets 199/199/199). -/
-theorem verifyLayersCostBC_four_le : verifyLayersCostBC 4 ≤ 580 := by decide
+/-- Campaign R6: 235 (top capacity) + 119 + 118 + 118 (lower targets 199/199/199). -/
+theorem verifyLayersCostBC_four_le : verifyLayersCostBC 4 ≤ 590 := by decide
 theorem bound_verifyLayersBC (w : Witness) (index : Nat) :
     ∀ n msg, CBound (fun _ => True) (n + verifyLayersCostBC n) (verifyLayersBC w index n msg) := by
   intro n
@@ -509,17 +509,18 @@ theorem bound_signWith (limit : Nat) (cache : Cache) (message : Message) :
   split
   · exact .pure _ _ trivial
   · exact bound_signPayloadWith limit cache message
+/-- Campaign R6: 1 + 140 (FTS) + 4 + 590 (layers) = 735 ≤ 736 (main 726). -/
 theorem bound_verifyWith (limit : Nat) (message : Message) (pk : Digest) (w : Witness) :
-    CBound (fun _ => True) 726 (verifyWith limit message pk w) := by
+    CBound (fun _ => True) 736 (verifyWith limit message pk w) := by
   unfold verifyWith
   split
   · exact .pure _ _ trivial
-  · refine (bound_digest w.signature.rho message w.digestCounter).bind' (l := 725)
+  · refine (bound_digest w.signature.rho message w.digestCounter).bind' (l := 735)
       (fun output _ => ?_) (by decide)
     dsimp only
     split
     · exact .pure _ _ trivial
-    · refine (bound_recoverFts w.signature _ output).bind' (l := 585) (fun root _ => ?_) (by decide)
+    · refine (bound_recoverFts w.signature _ output).bind' (l := 595) (fun root _ => ?_) (by decide)
       refine (bound_verifyLayersBC w _ 4 (.pair root.1 root.2)).bind' (l := 0) (fun r _ => ?_)
         (by have := verifyLayersCostBC_four_le; omega)
       cases r <;> exact .pure _ 0 trivial
@@ -550,7 +551,7 @@ theorem bound_sign (cache : Cache) (message : Message) :
     CBound (fun _ => True) (signPayloadFixed + 2 + digestAttemptLimit + 4 * counterLimit) (Rev3.sign cache message) :=
   bound_signWith digestAttemptLimit cache message
 theorem bound_verify (message : Message) (pk : Digest) (w : Witness) :
-    CBound (fun _ => True) 726 (Rev3.verify message pk w) :=
+    CBound (fun _ => True) 736 (Rev3.verify message pk w) :=
   bound_verifyWith digestAttemptLimit message pk w
 theorem sign_compression_ceiling (secret : BitVec 256) (cache : Cache) (message : Message) :
     ∀ result ∈ support (World.countBlocks (realize secret (Rev3.sign cache message))),
@@ -563,7 +564,7 @@ theorem sign_compression_ceiling (secret : BitVec 256) (cache : Cache) (message 
   rw [layerFixedCost_four] at h
   exact hc.trans (by norm_num [digestAttemptLimit, counterLimit]; omega)
 theorem verify_compression_bound (secret : BitVec 256) (message : Message) (pk : Digest) (w : Witness) :
-    ∀ result ∈ support (World.countBlocks (realize secret (Rev3.verify message pk w))), result.2 ≤ 726 := by
+    ∀ result ∈ support (World.countBlocks (realize secret (Rev3.verify message pk w))), result.2 ≤ 736 := by
   intro result hr
   rw [World.countBlocks, ← realize_count] at hr
   exact (bound_verify message pk w).count_support result (realize_support_subset secret _ hr) |>.2

@@ -1159,13 +1159,13 @@ sym_block RInitJ := symRun cfgC cInitJ (pcOf 43951) 40
 sym_block RETail := symRun cfgC cETail (pcOf 43472) 40
 sym_block RInitB := symRun cfgC cInitB (pcOf 43953) 40
 def MemEq (M N : Nat → Word) : Prop := ∀ A < 2^64, M A=N A
-theorem lbS_low : ∀ k < 183, 1256 ≤ Layout.sK k := by decide
+theorem lbS_low : ∀ k < 181, 1256 ≤ Layout.sK k := by decide
 theorem lbMem_congr (M N : Nat → Word) (h : ∀ B, B ≠ 1240 → M B = N B) (A : Nat) (hA : A ≠ 1240) :
     Layout.lbMem M A = Layout.lbMem N A := by
   unfold Layout.lbMem Layout.itMem Layout.hitVal
   split_ifs with h1 h2
   · exact h _ (by omega)
-  · cases hf : (List.range 183).find? (fun k => decide (Layout.slotK k ≤ A ∧ A < Layout.slotK k + 16)) with
+  · cases hf : (List.range 181).find? (fun k => decide (Layout.slotK k ≤ A ∧ A < Layout.slotK k + 16)) with
     | none => rfl
     | some k =>
       have hk := List.mem_range.mp (List.mem_of_find?_eq_some hf)
@@ -1175,9 +1175,9 @@ theorem lbMem_congr (M N : Nat → Word) (h : ∀ B, B ≠ 1240 → M B = N B) (
 section
 variable {im : Image} (hc : CompactCodeAt im)
 include hc
-/-- Pairing stage 1: the buffer pass from 42716 to the top-path post-pass at 43500 (1 + 1 + 5 + 1 + 2287 steps). -/
+/-- Pairing stage 1: the buffer pass from 42716 to the top-path post-pass at 43500 (1 + 1 + 5 + 1 + 2275 steps). -/
 theorem buffer_spec (s : MachineState) (hpc : s.pc=pcOf 42716) :
-    ∃ t, Steps im s 2295 2295 t ∧ t.pc=pcOf 43500 ∧
+    ∃ t, Steps im s 2283 2283 t ∧ t.pc=pcOf 43500 ∧
       MemEq (fun A=>t.getMem (BitVec.ofNat 64 A)) (bufferMem (fun A=>s.getMem (BitVec.ofNat 64 A))) := by
   have s0 := symRun_sound REntry (code_cEntry hc) s hpc (by simp [REntry.res, rv_simp])
   set u0 := REntry.res.toState s
@@ -1212,10 +1212,10 @@ theorem buffer_spec (s : MachineState) (hpc : s.pc=pcOf 42716) :
     have hB : ∀ B, B ≠ 1240 → B < 2 ^ 64 → u3.getMem (BitVec.ofNat 64 B) = s.getMem (BitVec.ofNat 64 B) :=
       fun B hb hB' => by rw [m3 B hB', if_neg hb]
     unfold Layout.lbMem Layout.itMem Layout.hitVal
-    have hlt : ∀ k < 183, Layout.sK k + 16 ≤ 23008 := fun k hk => (Layout.tab_facts.2.2.2.2.2.2.2.2 k hk).2.1
+    have hlt : ∀ k < 181, Layout.sK k + 16 ≤ 23008 := fun k hk => (Layout.tab_facts.2.2.2.2.2.2.2.2 k hk).2.1
     split_ifs with h1 h2
     · exact hB _ (by omega) (by omega)
-    · cases hf : (List.range 183).find? (fun k => decide (Layout.slotK k ≤ A ∧ A < Layout.slotK k + 16)) with
+    · cases hf : (List.range 181).find? (fun k => decide (Layout.slotK k ≤ A ∧ A < Layout.slotK k + 16)) with
       | none => rfl
       | some k =>
         have hk := List.mem_range.mp (List.mem_of_find?_eq_some hf)
@@ -1224,7 +1224,7 @@ theorem buffer_spec (s : MachineState) (hpc : s.pc=pcOf 42716) :
         exact hB _ (by omega) (by omega)
     · exact hB _ h hA
 theorem buffer_prefix_spec (s : MachineState) (hpc : s.pc=pcOf 42716) :
-    ∃ t, Steps im s 2295 2295 t ∧ t.pc=pcOf 43500 ∧
+    ∃ t, Steps im s 2283 2283 t ∧ t.pc=pcOf 43500 ∧
       MemEq (fun A=>t.getMem (BitVec.ofNat 64 A)) (bufferMem (fun A=>s.getMem (BitVec.ofNat 64 A))) :=
   buffer_spec hc s hpc
 end
@@ -1773,11 +1773,11 @@ theorem ppPlace_congr (M M' : Nat → Word) (h : ∀ B < 2 ^ 64, M B = M' B) (le
     · exact h _ (by omega)
     · exact ih (by omega) A hA
 end Post
-/-- Pairing stage 1: the buffer pass (layout block), then the top-path post-pass (2295 + 546 steps, to 43761). -/
+/-- Pairing stage 1: the buffer pass (layout block), then the top-path post-pass (2283 + 546 steps, to 43761). -/
 theorem bufferPost_prefix_spec {im : Image} (hc : CompactCodeAt im) (s : MachineState) (hpc : s.pc = pcOf 42716)
     (leaf : Nat) (hl : leaf < 4096) (hix : s.getMem (BitVec.ofNat 64 96) >>> 52 = BitVec.ofNat 64 leaf)
     (ht : TopTabAt s) :
-    ∃ t, Steps im s 2841 2841 t ∧ t.pc = pcOf 43761 ∧
+    ∃ t, Steps im s 2829 2829 t ∧ t.pc = pcOf 43761 ∧
       ∀ A < 2 ^ 64, ¬ (Post.SCR ≤ A ∧ A < Post.SCR + 192) →
         t.getMem (BitVec.ofNat 64 A) = Post.ppPlace (bufferMem (fun B => s.getMem (BitVec.ofNat 64 B))) leaf 12 A := by
   have hTA : TOPA = 16776064 := rfl

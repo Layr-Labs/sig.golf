@@ -12,10 +12,6 @@ def lanes0 (x : BitVec 64) : BitVec 64 :=
 
 def clear (x : BitVec 64) : BitVec 64 := x &&& (x - 1#64)
 
-sym_block z354_0 := symRun {noAlias := true} z_0 (pcOf 42841) 200
-sym_block z543_0 := symRun {noAlias := true} z_0 (pcOf 20832) 200
-sym_block z354_2 := symRun {noAlias := true} z_2 (pcOf 42843) 200
-sym_block z543_2 := symRun {noAlias := true} z_2 (pcOf 20834) 200
 sym_block z354_5 := symRun {noAlias := true} z_5 (pcOf 42846) 200
 sym_block z543_5 := symRun {noAlias := true} z_5 (pcOf 20837) 200
 sym_block z354_22 := symRun {noAlias := true} z_22 (pcOf 42863) 200
@@ -37,26 +33,10 @@ sym_block z543_36 := symRun {noAlias := true} (z_36 543) (pcOf 20868) 200
 sym_block z354_37 := symRun {noAlias := true} (z_37 354) (pcOf 42878) 200
 sym_block z543_37 := symRun {noAlias := true} (z_37 543) (pcOf 20869) 200
 
-def end0 (b : Nat) : E := rebase z354_0.res.pc (pcOf (zBase b + 5)) (pcOf (zBase b + 2))
-def end2 (b : Nat) : E := rebase z354_2.res.pc (pcOf (zBase b + 37)) (pcOf (zBase b + 5))
 def end22 (b : Nat) : E := rebase z354_22.res.pc (pcOf (zBase b + 27)) (pcOf (zBase b + 23))
 def end27 (b : Nat) : E := rebase z354_27.res.pc (pcOf (zBase b + 32)) (pcOf (zBase b + 28))
 def end32 (b : Nat) : E := rebase z354_32.res.pc (pcOf (zBase b + 34)) (pcOf (zBase b + 33))
 def end34 (b : Nat) : E := rebase z354_34.res.pc (pcOf (zBase b + 37)) (pcOf (zBase b + 36))
-
-theorem run0 {b : Nat} (hb : b = 354 ∨ b = 543) :
-    symRun {noAlias := true} z_0 (pcOf (zBase b)) 200 =
-      some ⟨z354_0.res.st, end0 b, z354_0.res.stop, z354_0.res.steps, z354_0.res.cycles⟩ := by
-  rcases hb with rfl | rfl
-  · exact z354_0.trans (congrArg some (by kernel_rfl))
-  · exact z543_0.trans (congrArg some (by kernel_rfl))
-
-theorem run2 {b : Nat} (hb : b = 354 ∨ b = 543) :
-    symRun {noAlias := true} z_2 (pcOf (zBase b + 2)) 200 =
-      some ⟨z354_2.res.st, end2 b, z354_2.res.stop, z354_2.res.steps, z354_2.res.cycles⟩ := by
-  rcases hb with rfl | rfl
-  · exact z354_2.trans (congrArg some (by kernel_rfl))
-  · exact z543_2.trans (congrArg some (by kernel_rfl))
 
 theorem run5 {b : Nat} (hb : b = 354 ∨ b = 543) :
     symRun {noAlias := true} z_5 (pcOf (zBase b + 5)) 200 =
@@ -163,31 +143,6 @@ theorem clear_hi_spec {rewardCondition : Prop} (hK : KernAt image b rewardCondit
   · simp [z354_28.res, rv_simp]
   · intro r hr; cases r <;> simp_all [z354_28.res, rv_simp] <;> rfl
   · intro A _ _; simp [z354_28.res, rv_simp]
-
-theorem entry_spec {rewardCondition : Prop} (hK : KernAt image b rewardCondition) (s : MachineState) (hpc : s.pc = pcOf (zBase b))
-    (lay : Nat) (hl : lay < 4) (h8 : s.getReg .x8 = BitVec.ofNat 64 lay) :
-    ∃ t, Steps image s 2 2 t ∧ t.pc = pcOf (zBase b + (if lay ≠ 3 then 2 else 5)) ∧
-      RegsExcept s t [.x30] ∧ Frame s t (fun _ => False) := by
-  refine ⟨_, symRun_sound (run0 hK.2.1) (codeAt_zero hK 0 0 z_0 (by rfl)) s hpc
-    (by simp [z354_0.res, rv_simp]), ?_, ?_, ?_⟩
-  · simp only [Result.toState_pc, end0, rebase, z354_0.res, E.eval, CmpOp.eval, BinOp.eval, h8]
-    interval_cases lay <;> simp
-  · intro r hr; cases r <;> simp_all [z354_0.res, rv_simp] <;> rfl
-  · intro A _ _; simp [z354_0.res, rv_simp]
-
-theorem extra_credit_spec {rewardCondition : Prop} (hK : KernAt image b rewardCondition) (s : MachineState) (hpc : s.pc = pcOf (zBase b + 2)) :
-    ∃ t, Steps image s 3 3 t ∧
-      t.pc = pcOf (zBase b + (if clear (s.getReg .x28) = 0#64 then 37 else 5)) ∧
-      RegsExcept s t [.x28, .x29] ∧ Frame s t (fun _ => False) := by
-  refine ⟨_, symRun_sound (run2 hK.2.1) (codeAt_zero hK 1 2 z_2 (by rfl)) s hpc
-    (by simp [z354_2.res, rv_simp]), ?_, ?_, ?_⟩
-  · simp only [Result.toState_pc, end2, rebase, z354_2.res, E.eval, CmpOp.eval, BinOp.eval]
-    have hm : ∀ y : BitVec 64, y + 18446744073709551615#64 = y - 1#64 := fun y => by
-      rw [BitVec.sub_eq_add_neg]; rfl
-    simp only [clear, hm]
-    split_ifs <;> simp_all
-  · intro r hr; cases r <;> simp_all [z354_2.res, rv_simp] <;> rfl
-  · intro A _ _; simp [z354_2.res, rv_simp]
 
 theorem test_lo_spec {rewardCondition : Prop} (hK : KernAt image b rewardCondition) (s : MachineState) (hpc : s.pc = pcOf (zBase b + 22)) :
     ∃ t, Steps image s 1 1 t ∧

@@ -486,7 +486,7 @@ theorem nodeTweak_fts_ne_header {lay : Nat} (h4 : 4 ≤ lay) (h13 : lay < 13) (t
   · exact ne_of_tweakTag (by rw [nodeTweak_fts_tag h4 h13, if_neg hn, header_tag]; omega)
 theorem leafInput_length (lay : Layer) (tree leaf : Nat) (ends : List Digest) :
     (leafInput lay tree leaf ends).length =
-      if lay = 0 then 32 + 16 * ends.length else 32 + 16 * (ends.length - 1) := by
+      if lay = 0 then 64 + 16 * ends.length else 32 + 16 * (ends.length - 1) := by
   unfold leafInput
   split_ifs
   · simp [zero16, SphincsSecurity.bytesLE_length, List.length_flatMap, List.map_const', List.sum_replicate]

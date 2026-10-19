@@ -159,52 +159,8 @@ theorem eval_countCalls_bind_congr (answers : Correctness.Answers) {α β : Type
   have h1 := eval_countCalls_fst answers oa
   unfold Cost.countCalls at h1 ⊢
   rw [Cost.countWith_bind, Cost.countWith_bind, evalWithAnswerFn_bind, evalWithAnswerFn_bind, h1, h]
-theorem verifyP_witEnc_eval (answers : Correctness.Answers) (m : Message) (pk : Digest) (σ : Signature)
-    (N : HashOutput) (w : Witness) (he : evalWithAnswerFn answers (expandN m pk σ) = some (N, w)) :
-    evalWithAnswerFn answers (Cost.countCalls (verifyP m pk (witEnc N w))) =
-      evalWithAnswerFn answers (Cost.countCalls (verify m pk w)) := by
-  have F := expandN_facts answers m pk σ N w he
-  have hsel := selectionsOk_of_admissible N F.adm
-  have hc := chosenOk_of N hsel
-  have hle := slotBase_seven_le N hc F.adm
-  obtain ⟨root, hroot⟩ := F.root
-  have htail : ∀ k : Fin 115, slotBase (selections N) 7 ≤ k.val → w.signature.proof k = 0 := by
-    rw [F.sig]
-    exact eval_recoverFtsP_tail answers σ 0 _ _ hc hle root (by rw [recoverFtsP_zero]; exact hroot)
-  have hv : verifyP m pk (witEnc N w) =
-      digest w.signature.rho m w.digestCounter >>= verifyTailP pk (witEnc N w) := by
-    rw [verifyP_eq_tail]
-    unfold digestP
-    rw [wdc_witEnc, wrho_witEnc, if_neg (by have := F.dc; omega), bind_map_left]
-  have hw : verify m pk w = digest w.signature.rho m w.digestCounter >>= fun N' => verifyPadsTail pk N' w 0 := by
-    rw [← verifyPads_zero]
-    unfold verifyPads
-    rw [if_neg (by have := F.dc; omega)]
-  rw [hv, hw]
-  apply eval_countCalls_bind_congr
-  rw [F.sig, F.digest, verifyTailP_shaped pk N _ (shaped_witEnc N w hsel F.adm),
-    witDecP_witEnc N w hc hle htail, padDecP_witEnc N w hc hle]
-theorem verifyPWitEncEval_holds : VerifyPWitEncEval := verifyP_witEnc_eval
 theorem eval_expandB (answers : Correctness.Answers) (m : Message) (pk : Digest) (σ : Signature) :
     evalWithAnswerFn answers (expandB m pk σ) =
       (evalWithAnswerFn answers (expandN m pk σ)).map (fun x => witEnc x.1 x.2) := by
   unfold expandB; rw [eval_map]
-theorem honestB_eval (answers : Correctness.Answers) (m : Message) :
-    evalWithAnswerFn answers (honestProgramB m) = evalWithAnswerFn answers (honestProgramCore m) := by
-  unfold honestProgramB honestProgramCore
-  simp only [evalWithAnswerFn_bind]
-  cases hs : evalWithAnswerFn answers (sign (evalWithAnswerFn answers keygen).2 m) with
-  | none => rfl
-  | some sig =>
-      simp only []
-      rw [expand_eq_expandN, evalWithAnswerFn_bind, evalWithAnswerFn_bind, eval_map, eval_expandB]
-      cases hx : evalWithAnswerFn answers (expandN m (evalWithAnswerFn answers keygen).1 sig) with
-      | none => rfl
-      | some x =>
-          obtain ⟨N, w⟩ := x
-          simp only [Option.map_some]
-          have := verifyP_witEnc_eval answers m _ sig N w hx
-          have h1 := congrArg Prod.fst this
-          rwa [eval_countCalls_fst, eval_countCalls_fst] at h1
-theorem honestBEval_holds : HonestBEval := honestB_eval
 end SigGolfCandidate.T3M

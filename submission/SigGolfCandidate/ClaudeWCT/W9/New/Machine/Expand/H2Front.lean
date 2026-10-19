@@ -375,7 +375,7 @@ sym_block zero0Run := symRun {noAlias:=true} zero0Code (pcOf 46937) 20
 def sub0Code : List (BitVec 32) := [0x406a8ab3]
 sym_block sub0Run := symRun {noAlias:=true} sub0Code (pcOf 46939) 20
 theorem first0_steps {im : Image} (hc : CodeAt im (pcOf 46933) first0Code)
-    (s : MachineState) (hp : s.pc=pcOf 46933) (R C : Nat) (hR : R≤72) (hC : C<2^64)
+    (s : MachineState) (hp : s.pc=pcOf 46933) (R C : Nat) (hR : R≤73) (hC : C<2^64)
     (h21 : s.getReg .x21=BitVec.ofNat 64 R) (hm : s.getMem 417856=BitVec.ofNat 64 C) :
     ∃t,Steps im s 4 4 t ∧ t.pc=(if C<R then pcOf 46939 else pcOf 46937) ∧
       t.getReg .x6=BitVec.ofNat 64 C ∧ RegsExcept s t [.x6,.x28] ∧ Frame s t (fun _=>False) := by
@@ -401,7 +401,7 @@ theorem zero0_steps {im : Image} (hc : CodeAt im (pcOf 46937) zero0Code)
   · intro A hA hn;rfl
 
 theorem sub0_steps {im : Image} (hc : CodeAt im (pcOf 46939) sub0Code)
-    (s : MachineState) (hp : s.pc=pcOf 46939) (R C : Nat) (hR : R≤72) (hC : C<R)
+    (s : MachineState) (hp : s.pc=pcOf 46939) (R C : Nat) (hR : R≤73) (hC : C<R)
     (h21 : s.getReg .x21=BitVec.ofNat 64 R) (h6 : s.getReg .x6=BitVec.ofNat 64 C) :
     ∃t,Steps im s 1 1 t ∧ t.pc=pcOf 46940 ∧ t.getReg .x21=BitVec.ofNat 64 (R-C) ∧
       RegsExcept s t [.x21] ∧ Frame s t (fun _=>False) := by
@@ -419,7 +419,7 @@ class Residual0Code (im : Image) : Prop where
   sub : CodeAt im (pcOf 46939) sub0Code
 
 theorem residual0_steps {im : Image} [hc : Residual0Code im]
-    (s : MachineState) (hp : s.pc=pcOf 46933) (R C : Nat) (hR : R≤72) (hC : C<2^64)
+    (s : MachineState) (hp : s.pc=pcOf 46933) (R C : Nat) (hR : R≤73) (hC : C<2^64)
     (h21 : s.getReg .x21=BitVec.ofNat 64 R) (hm : s.getMem 417856=BitVec.ofNat 64 C) :
     ∃t n,n≤6 ∧ Steps im s n n t ∧ t.pc=pcOf 46940 ∧ t.getReg .x21=BitVec.ofNat 64 (R-C) ∧
       RegsExcept s t [.x6,.x21,.x28] ∧ Frame s t (fun _=>False) := by
@@ -440,7 +440,7 @@ sym_block zero1Run := symRun {noAlias:=true} zero1Code (pcOf 46953) 20
 def sub1Code : List (BitVec 32) := [0x406a8ab3]
 sym_block sub1Run := symRun {noAlias:=true} sub1Code (pcOf 46955) 20
 theorem first1_steps {im : Image} (hc : CodeAt im (pcOf 46949) first1Code)
-    (s : MachineState) (hp : s.pc=pcOf 46949) (R C : Nat) (hR : R≤72) (hC : C<2^64)
+    (s : MachineState) (hp : s.pc=pcOf 46949) (R C : Nat) (hR : R≤73) (hC : C<2^64)
     (h21 : s.getReg .x21=BitVec.ofNat 64 R) (hm : s.getMem 417864=BitVec.ofNat 64 C) :
     ∃t,Steps im s 4 4 t ∧ t.pc=(if C<R then pcOf 46955 else pcOf 46953) ∧
       t.getReg .x6=BitVec.ofNat 64 C ∧ RegsExcept s t [.x6,.x28] ∧ Frame s t (fun _=>False) := by
@@ -466,7 +466,7 @@ theorem zero1_steps {im : Image} (hc : CodeAt im (pcOf 46953) zero1Code)
   · intro A hA hn;rfl
 
 theorem sub1_steps {im : Image} (hc : CodeAt im (pcOf 46955) sub1Code)
-    (s : MachineState) (hp : s.pc=pcOf 46955) (R C : Nat) (hR : R≤72) (hC : C<R)
+    (s : MachineState) (hp : s.pc=pcOf 46955) (R C : Nat) (hR : R≤73) (hC : C<R)
     (h21 : s.getReg .x21=BitVec.ofNat 64 R) (h6 : s.getReg .x6=BitVec.ofNat 64 C) :
     ∃t,Steps im s 1 1 t ∧ t.pc=pcOf 46956 ∧ t.getReg .x21=BitVec.ofNat 64 (R-C) ∧
       RegsExcept s t [.x21] ∧ Frame s t (fun _=>False) := by
@@ -484,7 +484,7 @@ class Residual1Code (im : Image) : Prop where
   sub : CodeAt im (pcOf 46955) sub1Code
 
 theorem residual1_steps {im : Image} [hc : Residual1Code im]
-    (s : MachineState) (hp : s.pc=pcOf 46949) (R C : Nat) (hR : R≤72) (hC : C<2^64)
+    (s : MachineState) (hp : s.pc=pcOf 46949) (R C : Nat) (hR : R≤73) (hC : C<2^64)
     (h21 : s.getReg .x21=BitVec.ofNat 64 R) (hm : s.getMem 417864=BitVec.ofNat 64 C) :
     ∃t n,n≤6 ∧ Steps im s n n t ∧ t.pc=pcOf 46956 ∧ t.getReg .x21=BitVec.ofNat 64 (R-C) ∧
       RegsExcept s t [.x6,.x21,.x28] ∧ Frame s t (fun _=>False) := by
@@ -505,7 +505,7 @@ sym_block zero2Run := symRun {noAlias:=true} zero2Code (pcOf 46970) 20
 def sub2Code : List (BitVec 32) := [0x406a8ab3]
 sym_block sub2Run := symRun {noAlias:=true} sub2Code (pcOf 46972) 20
 theorem first2_steps {im : Image} (hc : CodeAt im (pcOf 46966) first2Code)
-    (s : MachineState) (hp : s.pc=pcOf 46966) (R C : Nat) (hR : R≤72) (hC : C<2^64)
+    (s : MachineState) (hp : s.pc=pcOf 46966) (R C : Nat) (hR : R≤73) (hC : C<2^64)
     (h21 : s.getReg .x21=BitVec.ofNat 64 R) (hm : s.getMem 417872=BitVec.ofNat 64 C) :
     ∃t,Steps im s 4 4 t ∧ t.pc=(if C<R then pcOf 46972 else pcOf 46970) ∧
       t.getReg .x6=BitVec.ofNat 64 C ∧ RegsExcept s t [.x6,.x28] ∧ Frame s t (fun _=>False) := by
@@ -531,7 +531,7 @@ theorem zero2_steps {im : Image} (hc : CodeAt im (pcOf 46970) zero2Code)
   · intro A hA hn;rfl
 
 theorem sub2_steps {im : Image} (hc : CodeAt im (pcOf 46972) sub2Code)
-    (s : MachineState) (hp : s.pc=pcOf 46972) (R C : Nat) (hR : R≤72) (hC : C<R)
+    (s : MachineState) (hp : s.pc=pcOf 46972) (R C : Nat) (hR : R≤73) (hC : C<R)
     (h21 : s.getReg .x21=BitVec.ofNat 64 R) (h6 : s.getReg .x6=BitVec.ofNat 64 C) :
     ∃t,Steps im s 1 1 t ∧ t.pc=pcOf 46973 ∧ t.getReg .x21=BitVec.ofNat 64 (R-C) ∧
       RegsExcept s t [.x21] ∧ Frame s t (fun _=>False) := by
@@ -549,7 +549,7 @@ class Residual2Code (im : Image) : Prop where
   sub : CodeAt im (pcOf 46972) sub2Code
 
 theorem residual2_steps {im : Image} [hc : Residual2Code im]
-    (s : MachineState) (hp : s.pc=pcOf 46966) (R C : Nat) (hR : R≤72) (hC : C<2^64)
+    (s : MachineState) (hp : s.pc=pcOf 46966) (R C : Nat) (hR : R≤73) (hC : C<2^64)
     (h21 : s.getReg .x21=BitVec.ofNat 64 R) (hm : s.getMem 417872=BitVec.ofNat 64 C) :
     ∃t n,n≤6 ∧ Steps im s n n t ∧ t.pc=pcOf 46973 ∧ t.getReg .x21=BitVec.ofNat 64 (R-C) ∧
       RegsExcept s t [.x6,.x21,.x28] ∧ Frame s t (fun _=>False) := by
@@ -570,7 +570,8 @@ open SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64 SigGol
 set_option autoImplicit false
 set_option maxHeartbeats 1500000
 set_option maxRecDepth 10000
-def initCode : List (BitVec 32) := [0x66e37,0xe0e13,0xe3a03,0x4800a93]
+/-- RC: `46932 li s5,73` (policy-hint residual = pool 73 - top credit). -/
+def initCode : List (BitVec 32) := [0x66e37,0xe0e13,0xe3a03,0x4900a93]
 sym_block initRun := symRun {noAlias:=true} initCode (pcOf 46929) 100
 def range1Code : List (BitVec 32) := [0x3700393,0x87afc63]
 sym_block range1Run := symRun {noAlias:=true} range1Code (pcOf 46940) 100
@@ -585,7 +586,7 @@ sym_block goodRun := symRun {noAlias:=true} goodCode (pcOf 46978) 100
 def badCode : List (BitVec 32) := [0xf7cd206f]
 sym_block badRun := symRun {noAlias:=true} badCode (pcOf 46979) 100
 theorem range1_steps {im : Image} (hc : CodeAt im (pcOf 46940) range1Code)
-    (s : MachineState) (hp : s.pc=pcOf 46940) (R : Nat) (hR : R≤72)
+    (s : MachineState) (hp : s.pc=pcOf 46940) (R : Nat) (hR : R≤73)
     (h21 : s.getReg .x21=BitVec.ofNat 64 R) :
     ∃t,Steps im s 2 2 t ∧ t.pc=(if R<55 then pcOf 46942 else pcOf 46979) ∧
       RegsExcept s t [.x7] ∧ Frame s t (fun _=>False) := by
@@ -598,7 +599,7 @@ theorem range1_steps {im : Image} (hc : CodeAt im (pcOf 46940) range1Code)
   · intro A hA hn;rfl
 #print axioms range1_steps
 theorem range2_steps {im : Image} (hc : CodeAt im (pcOf 46956) range2Code)
-    (s : MachineState) (hp : s.pc=pcOf 46956) (R : Nat) (hR : R≤72)
+    (s : MachineState) (hp : s.pc=pcOf 46956) (R : Nat) (hR : R≤73)
     (h21 : s.getReg .x21=BitVec.ofNat 64 R) :
     ∃t,Steps im s 2 2 t ∧ t.pc=(if R<39 then pcOf 46958 else pcOf 46979) ∧
       RegsExcept s t [.x7] ∧ Frame s t (fun _=>False) := by
@@ -611,7 +612,7 @@ theorem range2_steps {im : Image} (hc : CodeAt im (pcOf 46956) range2Code)
   · intro A hA hn;rfl
 #print axioms range2_steps
 theorem range3_steps {im : Image} (hc : CodeAt im (pcOf 46973) range3Code)
-    (s : MachineState) (hp : s.pc=pcOf 46973) (R : Nat) (hR : R≤72)
+    (s : MachineState) (hp : s.pc=pcOf 46973) (R : Nat) (hR : R≤73)
     (h21 : s.getReg .x21=BitVec.ofNat 64 R) :
     ∃t,Steps im s 2 2 t ∧ t.pc=(if R<20 then pcOf 46975 else pcOf 46979) ∧
       RegsExcept s t [.x7] ∧ Frame s t (fun _=>False) := by
@@ -627,7 +628,7 @@ theorem init_steps {im : Image} (hc : CodeAt im (pcOf 46929) initCode)
     (s : MachineState) (hp : s.pc=pcOf 46929) (hints : Nat)
     (hm : s.getMem (0x66000#64)=BitVec.ofNat 64 hints) :
     ∃t,Steps im s 4 4 t ∧ t.pc=pcOf 46933 ∧ t.getReg .x20=BitVec.ofNat 64 hints ∧
-      t.getReg .x21=72 ∧ RegsExcept s t [.x20,.x21,.x28] ∧ Frame s t (fun _=>False) := by
+      t.getReg .x21=73 ∧ RegsExcept s t [.x20,.x21,.x28] ∧ Frame s t (fun _=>False) := by
   refine ⟨_,symRun_sound initRun hc s hp (by simp [initRun.res,rv_simp]),rfl,?_,rfl,?_,?_⟩
   · simp [initRun.res,rv_simp,hm]
   · intro r hr;cases r <;> first | exact (hr (by decide)).elim | rfl
@@ -810,7 +811,7 @@ theorem div400 (n : Nat) (hn : n<2^64) : rv64_divu (BitVec.ofNat 64 n) 400#64=Bi
   omega
 
 theorem last_steps {im : Image} (hc : CodeAt im (pcOf 46975) lastCode)
-    (s : MachineState) (hp : s.pc=pcOf 46975) (R H : Nat) (hR : R≤72) (hH : H<8000)
+    (s : MachineState) (hp : s.pc=pcOf 46975) (R H : Nat) (hR : R≤73) (hH : H<8000)
     (h21 : s.getReg .x21=BitVec.ofNat 64 R) (h20 : s.getReg .x20=BitVec.ofNat 64 H) :
     ∃t,Steps im s 3 6 t ∧ t.pc=(if H/400=R then pcOf 46978 else pcOf 46979) ∧
       RegsExcept s t [.x7,.x29] ∧ Frame s t (fun _=>False) := by
@@ -863,7 +864,7 @@ structure Code (im : Image) : Prop where
 
 def regs : List Reg := [.x6,.x7,.x21,.x28,.x29]
 theorem phase1_steps {im : Image} (hc : Code im)
-    (s : MachineState) (hp : s.pc=pcOf 46933) (R C H : Nat) (hR : R≤72) (hC : C<2^64) (hH : H<8000)
+    (s : MachineState) (hp : s.pc=pcOf 46933) (R C H : Nat) (hR : R≤73) (hC : C<2^64) (hH : H<8000)
     (h21 : s.getReg .x21=BitVec.ofNat 64 R) (h20 : s.getReg .x20=BitVec.ofNat 64 H)
     (hm : s.getMem (417856#64)=BitVec.ofNat 64 C)
     (T : Nat→Nat) (hT : ∀ r,r<55 → T r<20)
@@ -894,7 +895,7 @@ theorem phase1_steps {im : Image} (hc : Code im)
     · exact (fu.trans fv).mono (by simp)
 #print axioms phase1_steps
 theorem phase2_steps {im : Image} (hc : Code im)
-    (s : MachineState) (hp : s.pc=pcOf 46949) (R C H : Nat) (hR : R≤72) (hC : C<2^64) (hH : H<8000)
+    (s : MachineState) (hp : s.pc=pcOf 46949) (R C H : Nat) (hR : R≤73) (hC : C<2^64) (hH : H<8000)
     (h21 : s.getReg .x21=BitVec.ofNat 64 R) (h20 : s.getReg .x20=BitVec.ofNat 64 H)
     (hm : s.getMem (417864#64)=BitVec.ofNat 64 C)
     (T : Nat→Nat) (hT : ∀ r,r<39 → T r<20)
@@ -925,7 +926,7 @@ theorem phase2_steps {im : Image} (hc : Code im)
     · exact (fu.trans fv).mono (by simp)
 #print axioms phase2_steps
 theorem phase3_steps {im : Image} (hc : Code im)
-    (s : MachineState) (hp : s.pc=pcOf 46966) (R C H : Nat) (hR : R≤72) (hC : C<2^64) (hH : H<8000)
+    (s : MachineState) (hp : s.pc=pcOf 46966) (R C H : Nat) (hR : R≤73) (hC : C<2^64) (hH : H<8000)
     (h21 : s.getReg .x21=BitVec.ofNat 64 R) (h20 : s.getReg .x20=BitVec.ofNat 64 H)
     (hm : s.getMem (417872#64)=BitVec.ofNat 64 C) :
     ∃t n c,n≤11 ∧ c≤14 ∧ Steps im s n c t ∧
@@ -960,7 +961,7 @@ set_option maxHeartbeats 2500000
 set_option maxRecDepth 20000
 
 abbrev Condition (H C0 C1 C2 : Nat) (T1 T2 : Nat→Nat) : Prop :=
-  let R1:=72-C0
+  let R1:=73-C0
   let R2:=R1-C1
   let R3:=R2-C2
   R1<55 ∧ R2<39 ∧ R3<20 ∧ H%20=T1 R1 ∧ H/20%20=T2 R2 ∧ H/400=R3
@@ -979,21 +980,21 @@ theorem validate_steps {im : Image} (hc : Code im)
       t.pc=(if Condition H C0 C1 C2 T1 T2 then pcOf 42795 else pcOf 354) ∧
       RegsExcept s t [.x6,.x7,.x20,.x21,.x28,.x29] ∧ Frame s t (fun _=>False) := by
   obtain ⟨u,su,pu,u20,u21,ru,fu⟩:=init_steps hc.init s hp H hm
-  obtain ⟨v,n1,c1,hn1,hc1,sv,pv,v21,rv,fv⟩:=phase1_steps hc u pu 72 C0 H (by omega) hC0 hH u21 u20
+  obtain ⟨v,n1,c1,hn1,hc1,sv,pv,v21,rv,fv⟩:=phase1_steps hc u pu 73 C0 H (by omega) hC0 hH u21 u20
     (by rw [fu.get (by decide) (by simp)];exact hm0) T1 ht1
     (fun r hr=>by rw [fu.getByte (by omega) (by simp)];exact hb1 r hr)
-  by_cases h1 : 72-C0<55 ∧ H%20=T1 (72-C0)
+  by_cases h1 : 73-C0<55 ∧ H%20=T1 (73-C0)
   · rw [if_pos h1] at pv
-    obtain ⟨w,n2,c2,hn2,hc2,sw,pw,w21,rw_,fw⟩:=phase2_steps hc v pv (72-C0) C1 H (by omega) hC1 hH v21
+    obtain ⟨w,n2,c2,hn2,hc2,sw,pw,w21,rw_,fw⟩:=phase2_steps hc v pv (73-C0) C1 H (by omega) hC1 hH v21
       (by rw [rv.get (by decide)];exact u20)
       (by rw [fv.get (by decide) (by simp),fu.get (by decide) (by simp)];exact hm1) T2 ht2
       (fun r hr=>by rw [fv.getByte (by omega) (by simp),fu.getByte (by omega) (by simp)];exact hb2 r hr)
-    by_cases h2 : 72-C0-C1<39 ∧ H/20%20=T2 (72-C0-C1)
+    by_cases h2 : 73-C0-C1<39 ∧ H/20%20=T2 (73-C0-C1)
     · rw [if_pos h2] at pw
-      obtain ⟨x,n3,c3,hn3,hc3,sx,px,x21,rx,fx⟩:=phase3_steps hc w pw (72-C0-C1) C2 H (by omega) hC2 hH w21
+      obtain ⟨x,n3,c3,hn3,hc3,sx,px,x21,rx,fx⟩:=phase3_steps hc w pw (73-C0-C1) C2 H (by omega) hC2 hH w21
         (by rw [rw_.get (by decide),rv.get (by decide)];exact u20)
         (by rw [fw.get (by decide) (by simp),fv.get (by decide) (by simp),fu.get (by decide) (by simp)];exact hm2)
-      by_cases h3 : 72-C0-C1-C2<20 ∧ H/400=72-C0-C1-C2
+      by_cases h3 : 73-C0-C1-C2<20 ∧ H/400=73-C0-C1-C2
       · rw [if_pos h3] at px
         obtain ⟨t,st,pt,rt,ft⟩:=good_steps hc.good x px
         refine ⟨t,4+n1+n2+n3+1,4+c1+c2+c3+1,by omega,by omega,(((su.trans sv).trans sw).trans sx).trans st,?_,?_,?_⟩
@@ -1556,9 +1557,9 @@ set_option maxRecDepth 100000
 def DB : Nat := 16747408
 
 theorem getMem {im : Image} (hlen:im.data.length=29808) (hb:dataBase im=DB)
-    (m : Message) (pk : PublicKey) (b : Bytes 5248) (A : Nat) (hA:A<2^64) :
+    (m : Message) (pk : PublicKey) (b : Bytes 5216) (A : Nat) (hA:A<2^64) :
     (w9init im m pk b).getMem (BitVec.ofNat 64 A)=
-      if 0x7000≤A ∧ A<0x7000+5248 ∧ (A-0x7000)%8=0 then bytesToWordLE ((bytes b).drop (A-0x7000) |>.take 8)
+      if 0x7000≤A ∧ A<0x7000+5216 ∧ (A-0x7000)%8=0 then bytesToWordLE ((bytes b).drop (A-0x7000) |>.take 8)
       else if 0xA0≤A ∧ A<0xB0 ∧ (A-0xA0)%8=0 then bytesToWordLE ((bytes pk).drop (A-0xA0) |>.take 8)
       else if 0x6620≤A ∧ A<0x6640 ∧ (A-0x6620)%8=0 then bytesToWordLE ((bytes m).drop (A-0x6620) |>.take 8)
       else if DB≤A ∧ A<DB+29808 ∧ (A-DB)%8=0 then bytesToWordLE (im.data.drop (A-DB) |>.take 8)
@@ -1572,7 +1573,7 @@ theorem getMem {im : Image} (hlen:im.data.length=29808) (hb:dataBase im=DB)
   rfl
 
 theorem dataByte {im : Image} (hlen:im.data.length=29808) (hb:dataBase im=DB)
-    (m : Message) (pk : PublicKey) (b : Bytes 5248) (i : Nat) (hi:i<29808) :
+    (m : Message) (pk : PublicKey) (b : Bytes 5216) (i : Nat) (hi:i<29808) :
     (w9init im m pk b).getByte (BitVec.ofNat 64 (DB+i))=im.data.getD i 0 := by
   rw [getByte_eq_word _ _ (by unfold DB;omega),getMem hlen hb _ _ _ _ (by unfold DB;omega),
     if_neg (by unfold DB;omega),if_neg (by unfold DB;omega),if_neg (by unfold DB;omega),
@@ -1584,11 +1585,21 @@ theorem dataByte {im : Image} (hlen:im.data.length=29808) (hb:dataBase im=DB)
   omega
 
 theorem signatureWord {im : Image} (hlen:im.data.length=29808) (hb:dataBase im=DB)
-    (m : Message) (pk : PublicKey) (b : Bytes 5248) (i : Nat) (hi:i<656) :
+    (m : Message) (pk : PublicKey) (b : Bytes 5216) (i : Nat) (hi:i<656) :
     (w9init im m pk b).getMem (BitVec.ofNat 64 (0x7000+8*i))=b.extractLsb' (64*i) 64 := by
-  rw [getMem hlen hb _ _ _ _ (by omega),if_pos (by omega),
-    show 0x7000+8*i-0x7000=8*i by omega]
-  exact SigGolfCandidate.T3M.Expand.bytesToWordLE_bytes_e b i (by omega)
+  by_cases h : i < 652
+  · rw [getMem hlen hb _ _ _ _ (by omega),if_pos (by omega),
+      show 0x7000+8*i-0x7000=8*i by omega]
+    exact SigGolfCandidate.T3M.Expand.bytesToWordLE_bytes_e b i (by omega)
+  · -- S 5216: words 652..655 lie past the signature (zero memory) and past the 41728-bit value (zero bits)
+    rw [getMem hlen hb _ _ _ _ (by omega),if_neg (by omega),if_neg (by omega),if_neg (by omega),
+      if_neg (by unfold DB; omega)]
+    apply BitVec.eq_of_toNat_eq
+    rw [BitVec.extractLsb'_toNat]
+    have hb' : b.toNat < 2 ^ (64*i) :=
+      lt_of_lt_of_le b.isLt (Nat.pow_le_pow_right (by norm_num) (by omega))
+    rw [Nat.shiftRight_eq_div_pow, Nat.div_eq_of_lt hb']
+    rfl
 
 #print axioms getMem
 #print axioms dataByte
@@ -1721,22 +1732,22 @@ set_option maxRecDepth 100000
 
 theorem prefixData {im : Image} (hlen:im.data.length=29808) (hb:dataBase im=DB)
     (pref tail : List (BitVec 8)) (hp:pref.length=2160) (hd:im.data=pref++tail)
-    (m : Message) (pk : PublicKey) (b : Bytes 5248) :
+    (m : Message) (pk : PublicKey) (b : Bytes 5216) :
     ∀i,i<2160 → (w9init im m pk b).getByte (BitVec.ofNat 64 (DB+i))=pref.getD i 0 := by
   intro i hi
   rw [dataByte hlen hb m pk b i (by omega),hd]
   simp only [List.getD_eq_getElem?_getD,List.getElem?_append,hp,if_pos hi]
 
 theorem msgWord {im : Image} (hlen:im.data.length=29808) (hb:dataBase im=DB)
-    (m : Message) (pk : PublicKey) (b : Bytes 5248) (i : Nat) (hi:i<4) :
+    (m : Message) (pk : PublicKey) (b : Bytes 5216) (i : Nat) (hi:i<4) :
     (w9init im m pk b).getMem (BitVec.ofNat 64 (0x6620+8*i))=m.extractLsb' (64*i) 64 := by
   rw [getMem hlen hb _ _ _ _ (by omega),if_neg (by omega),if_neg (by omega),if_pos (by omega),
     show 0x6620+8*i-0x6620=8*i by omega]
   exact SigGolfCandidate.T3M.Expand.bytesToWordLE_bytes_e m i (by omega)
 
 theorem zero {im : Image} (hlen:im.data.length=29808) (hb:dataBase im=DB)
-    (m : Message) (pk : PublicKey) (b : Bytes 5248) (A : Nat) (hA:A<DB)
-    (hs:A<0x7000 ∨ 0x7000+5248≤A) (hp:A<0xA0 ∨ 0xB0≤A)
+    (m : Message) (pk : PublicKey) (b : Bytes 5216) (A : Nat) (hA:A<DB)
+    (hs:A<0x7000 ∨ 0x7000+5216≤A) (hp:A<0xA0 ∨ 0xB0≤A)
     (hm:A<0x6620 ∨ 0x6640≤A) :
     (w9init im m pk b).getMem (BitVec.ofNat 64 A)=0 := by
   rw[getMem hlen hb _ _ _ _ (by unfold DB at hA;omega),
@@ -1755,7 +1766,7 @@ set_option maxRecDepth 10000
 theorem invalid_front {im : Image} (he:CodeAt im (pcOf 0) [entryWord])
     (ht:CodeAt im (pcOf 44096) tailWords) (hg:CodeAt im (pcOf 44106) guardWords)
     (hj:CodeAt im (pcOf 44192) [0xb08d506f]) (s : MachineState) (hp:s.pc=pcOf 0)
-    (H : Nat) (hlo:8000≤H) (hhi:H<65536) (hh:s.getMem 0x8478 >>> 48=BitVec.ofNat 64 H) :
+    (H : Nat) (hlo:8000≤H) (hhi:H<65536) (hh:s.getMem 0x8458 >>> 48=BitVec.ofNat 64 H) :
     ∃t,Steps im s 15 15 t ∧ t.pc=pcOf 354 ∧
       RegsExcept s t [.x6,.x7,.x15,.x28,.x29,.x30] ∧ Frame s t (fun A=>A=policyAddress) := by
   obtain ⟨u,su,up,u6,u7,u28,um,ru,fu⟩:=tail_full ht (s.setPC (pcOf 44096)) rfl
@@ -1803,7 +1814,7 @@ theorem dataBase_of_length {im:Image} (h:im.data.length=29808) : dataBase im=DB 
 theorem installed_dataBase : dataBase Images.expandImage=DB :=
   dataBase_of_length Images.expandData_length
 
-theorem initial_data (m : Message) (pk : PublicKey) (b : Bytes 5248) :
+theorem initial_data (m : Message) (pk : PublicKey) (b : Bytes 5216) :
     DataAt (w9init Images.expandImage m pk b) := by
   exact prefixData Images.expandData_length installed_dataBase Images.expandSharedData
     (Images.expandPrefixData++Images.expandLegacyData) Images.expandSharedData_length
@@ -1820,16 +1831,23 @@ open SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64 Claude
 set_option maxHeartbeats 1000000
 set_option maxRecDepth 10000
 
+/-- Campaign R6 (S 5216): the machine's 332 decompacted digest slots. Up to the kept top sibling (slot 181) they are
+the codec's inflated layout; slots 182/183 are zero (main's 54-value top keeps the lower layers at their PCs); slot
+k >= 184 holds the codec's inflated slot k - 2. -/
+def machineRead (b : SharedCodec.CBytes) (k : Nat) : Digest :=
+  if k < 182 then SharedCodec.inflatedRead (0:Digest) (SharedCodec.digC b) k
+  else if k < 184 then 0 else SharedCodec.inflatedRead (0:Digest) (SharedCodec.digC b) (k-2)
+
 def InflatedAt (s : MachineState) (b : SharedCodec.CBytes) : Prop :=
-  ∀k,k<332 → DigAt s (0x7000+16*k)
-    (SharedCodec.inflatedRead (0:Digest) (SharedCodec.digC b) k)
+  ∀k,k<332 → DigAt s (0x7000+16*k) (machineRead b k)
 
 theorem InflatedAt.value {s : MachineState} {b : SharedCodec.CBytes} (h : InflatedAt s b)
     (k : Fin 9) (i : Fin 6) :
     DigAt s (SharedScatter.coordSource k.val+16*i.val)
       (Paired.coordinateValues (SharedCodec.sigDecC b).forest k i) := by
   have hh:=h (1+13*k.val+i.val) (by have:=k.isLt;have:=i.isLt;omega)
-  rw [inflated_coordinate_value] at hh
+  rw [machineRead,if_pos (show 1+13*k.val+i.val<182 by have:=k.isLt;have:=i.isLt;omega),
+    inflated_coordinate_value] at hh
   convert hh using 1 <;> unfold SharedScatter.coordSource <;> omega
 
 theorem InflatedAt.path {s : MachineState} {b : SharedCodec.CBytes} (h : InflatedAt s b)
@@ -1838,7 +1856,8 @@ theorem InflatedAt.path {s : MachineState} {b : SharedCodec.CBytes} (h : Inflate
       (Paired.coordinatePath (SharedCodec.sigDecC b).forest k level) := by
   have hb:level<7:=by split_ifs at hl <;> omega
   have hh:=h (1+13*k.val+6+level) (by have:=k.isLt;omega)
-  rw [inflated_coordinate_path b k level hl] at hh
+  rw [machineRead,if_pos (show 1+13*k.val+6+level<182 by have:=k.isLt;omega),
+    inflated_coordinate_path b k level hl] at hh
   convert hh using 1 <;> unfold SharedScatter.coordSource <;> omega
 #print axioms InflatedAt.value
 #print axioms InflatedAt.path
@@ -2029,10 +2048,46 @@ set_option maxRecDepth 10000
 theorem serializedWord_congr (r q : Nat→BitVec 64) (k : Nat) (hk:k<664)
     (h : ∀ j, j < 656 → r j = q j) : serializedWord r k=serializedWord q k := by
   unfold serializedWord
-  split_ifs <;> first | rfl | rw[h _ (by omega)]
+  by_cases c0 : k<26
+  · rw [if_pos c0,if_pos c0]; exact h _ (by omega)
+  rw [if_neg c0,if_neg c0]
+  by_cases c1 : k<28
+  · rw [if_pos c1,if_pos c1]
+  rw [if_neg c1,if_neg c1]
+  by_cases c2 : k<78
+  · rw [if_pos c2,if_pos c2]; exact h _ (by omega)
+  rw [if_neg c2,if_neg c2]
+  by_cases c3 : k<80
+  · rw [if_pos c3,if_pos c3]
+  rw [if_neg c3,if_neg c3]
+  by_cases c4 : k<130
+  · rw [if_pos c4,if_pos c4]; exact h _ (by omega)
+  rw [if_neg c4,if_neg c4]
+  by_cases c5 : k<132
+  · rw [if_pos c5,if_pos c5]
+  rw [if_neg c5,if_neg c5]
+  by_cases c6 : k<182
+  · rw [if_pos c6,if_pos c6]; exact h _ (by omega)
+  rw [if_neg c6,if_neg c6]
+  by_cases c7 : k<184
+  · rw [if_pos c7,if_pos c7]
+  rw [if_neg c7,if_neg c7]
+  by_cases c8 : k<362
+  · rw [if_pos c8,if_pos c8]; exact h _ (by omega)
+  rw [if_neg c8,if_neg c8]
+  by_cases c9 : k=362
+  · rw [if_pos c9,if_pos c9]; exact h _ (by omega)
+  rw [if_neg c9,if_neg c9]
+  by_cases c10 : k=363
+  · rw [if_pos c10,if_pos c10,h 651 (by omega)]
+  rw [if_neg c10,if_neg c10]
+  by_cases c11 : k<368
+  · rw [if_pos c11,if_pos c11]
+  rw [if_neg c11,if_neg c11]
+  exact h _ (by omega)
 
 theorem hints_word (b : SharedCodec.CBytes) :
-    b.extractLsb' (64*655) 64 >>> 48 = (b.extractLsb' (8*5246) 16).setWidth 64 := by
+    b.extractLsb' (64*651) 64 >>> 48 = (b.extractLsb' (8*5214) 16).setWidth 64 := by
   apply BitVec.eq_of_getLsbD_eq
   intro j hj
   simp only [BitVec.getLsbD_ushiftRight,BitVec.getLsbD_extractLsb',BitVec.getLsbD_setWidth,
@@ -2047,8 +2102,55 @@ theorem hints_word (b : SharedCodec.CBytes) :
       show decide (j<16)=false from decide_eq_false h]
     simp
 
+/-- R6: the machine's decompacted words are the codec's, with the two zero digests 182/183 (words 364..367)
+inserted after the kept top sibling. -/
+theorem serializedWord_hi (read : Nat→BitVec 64) (k : Nat) (h : 368 ≤ k) :
+    serializedWord read k=read (k-14) := by
+  unfold serializedWord
+  rw [if_neg (show ¬k<26 by omega),if_neg (show ¬k<28 by omega),if_neg (show ¬k<78 by omega),
+    if_neg (show ¬k<80 by omega),if_neg (show ¬k<130 by omega),if_neg (show ¬k<132 by omega),
+    if_neg (show ¬k<182 by omega),if_neg (show ¬k<184 by omega),if_neg (show ¬k<362 by omega),
+    if_neg (show ¬k=362 by omega),if_neg (show ¬k=363 by omega),if_neg (show ¬k<368 by omega)]
+
+theorem codecWord_hi (read : Nat→BitVec 64) (j : Nat) (h : 364 ≤ j) :
+    SharedCodec.serializedWord read j=read (j-10) := by
+  unfold SharedCodec.serializedWord
+  rw [if_neg (show ¬j<26 by omega),if_neg (show ¬j<28 by omega),if_neg (show ¬j<78 by omega),
+    if_neg (show ¬j<80 by omega),if_neg (show ¬j<130 by omega),if_neg (show ¬j<132 by omega),
+    if_neg (show ¬j<182 by omega),if_neg (show ¬j<184 by omega),if_neg (show ¬j<362 by omega),
+    if_neg (show ¬j=362 by omega),if_neg (show ¬j=363 by omega)]
+
+/-- R6: the machine's decompacted words are the codec's, with the two zero digests 182/183 (words 364..367)
+inserted after the kept top sibling. -/
 theorem serializedWord_eq (read : Nat→BitVec 64) (k : Nat) :
-    serializedWord read k=SharedCodec.serializedWord read k := by rfl
+    serializedWord read k=(if k<364 then SharedCodec.serializedWord read k else if k<368 then 0
+      else SharedCodec.serializedWord read (k-4)) := by
+  by_cases h1 : k<362
+  · rw [if_pos (show k<364 by omega)]
+    unfold serializedWord SharedCodec.serializedWord
+    simp only [h1, if_true]
+  by_cases h2 : k<368
+  · have e : k=362 ∨ k=363 ∨ k=364 ∨ k=365 ∨ k=366 ∨ k=367 := by omega
+    rcases e with rfl | rfl | rfl | rfl | rfl | rfl <;> rfl
+  rw [if_neg (show ¬k<364 by omega),if_neg h2,serializedWord_hi read k (by omega),
+    codecWord_hi read (k-4) (by omega),show k-4-10=k-14 by omega]
+
+theorem zero_extract (i : Nat) : (0:Digest).extractLsb' (64*i) 64=0 := by
+  apply BitVec.eq_of_toNat_eq
+  simp [BitVec.extractLsb'_toNat]
+
+theorem serializedWord_machine (b : SharedCodec.CBytes) (k i : Nat) (hi : i<2) :
+    serializedWord (fun j=>b.extractLsb' (64*j) 64) (2*k+i)=(machineRead b k).extractLsb' (64*i) 64 := by
+  rw [serializedWord_eq]
+  unfold machineRead
+  by_cases h1 : k<182
+  · rw [if_pos (show 2*k+i<364 by omega),if_pos h1]
+    exact SharedCodec.serializedWord_digC b k i hi
+  · rw [if_neg (show ¬2*k+i<364 by omega),if_neg h1]
+    by_cases h2 : k<184
+    · rw [if_pos (show 2*k+i<368 by omega),if_pos h2,zero_extract]
+    · rw [if_neg (show ¬2*k+i<368 by omega),if_neg h2,show 2*k+i-4=2*(k-2)+i by omega]
+      exact SharedCodec.serializedWord_digC b (k-2) i hi
 
 theorem inflatedAt_of_words (s : MachineState) (b : SharedCodec.CBytes)
     (hw : ∀ k, k < 664 → s.getMem (BitVec.ofNat 64 (0x7000+8*k))=
@@ -2056,14 +2158,13 @@ theorem inflatedAt_of_words (s : MachineState) (b : SharedCodec.CBytes)
   intro k hk
   have hlo:=hw (2*k) (by omega)
   have hhi:=hw (2*k+1) (by omega)
-  rw [serializedWord_eq] at hlo hhi
   constructor
   · rw [show 0x7000+16*k=0x7000+8*(2*k) by omega]
     exact hlo.trans (by simpa only [Nat.add_zero,Nat.mul_zero] using
-      SharedCodec.serializedWord_digC b k 0 (by decide))
+      serializedWord_machine b k 0 (by decide))
   · rw [show 0x7000+16*k+8=0x7000+8*(2*k+1) by omega]
     exact hhi.trans (by simpa only [Nat.mul_one] using
-      SharedCodec.serializedWord_digC b k 1 (by decide))
+      serializedWord_machine b k 1 (by decide))
 
 #print axioms serializedWord_congr
 #print axioms hints_word
@@ -2160,10 +2261,10 @@ set_option maxRecDepth 10000
 
 theorem hints_of_signature (s : MachineState) (b : SharedCodec.CBytes)
     (hsig : ∀ j, j < 656 → s.getMem (BitVec.ofNat 64 (0x7000+8*j))=b.extractLsb' (64*j) 64) :
-    s.getMem 0x8478 >>> 48=BitVec.ofNat 64 (SharedCodec.sigDecC b).policyHints.toNat := by
-  have hh : s.getMem 0x8478=b.extractLsb' (64*655) 64 := hsig 655 (by decide)
+    s.getMem 0x8458 >>> 48=BitVec.ofNat 64 (SharedCodec.sigDecC b).policyHints.toNat := by
+  have hh : s.getMem 0x8458=b.extractLsb' (64*651) 64 := hsig 651 (by decide)
   rw [hh,hints_word]
-  change (b.extractLsb' (8*5246) 16).setWidth 64=BitVec.ofNat 64 (b.extractLsb' (8*5246) 16).toNat
+  change (b.extractLsb' (8*5214) 16).setWidth 64=BitVec.ofNat 64 (b.extractLsb' (8*5214) 16).toNat
   apply BitVec.eq_of_toNat_eq
   simp only [BitVec.toNat_setWidth,BitVec.toNat_ofNat]
 
@@ -2329,8 +2430,10 @@ namespace ClaudeWCT.W9.Machine.Expand.SharedCompact
 open SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64 SigGolfCandidate.Rv SigGolfCandidate.T3M
 open ClaudeWCT.W9.T3M
 
-theorem InflatedAt.forest {s:MachineState} {b:SharedCodec.CBytes} (h:InflatedAt s b) : ForestAt s b :=
-  fun k hk=>h k (by omega)
+theorem InflatedAt.forest {s:MachineState} {b:SharedCodec.CBytes} (h:InflatedAt s b) : ForestAt s b := by
+  intro k hk
+  have hh:=h k (by omega)
+  rwa [machineRead,if_pos (show k<182 by omega)] at hh
 
 theorem ForestAt.frame {s t:MachineState} {b:SharedCodec.CBytes} (h:ForestAt s b)
     {W:Nat → Prop} (hf:Frame s t W)
@@ -2375,7 +2478,7 @@ theorem prepare {im:Image} (he:CodeAt im (pcOf 0) [SharedCompact.entryWord])
     (hb:∀k,k < 656 → s.getMem (BitVec.ofNat 64 (0x7000+8*k))=b.extractLsb' (64*k) 64)
     (hm:∀k,k < 4 → s.getMem (BitVec.ofNat 64 (0x6620+8*k))=message.extractLsb' (64*k) 64)
     (hd:SharedInit.DataAt s) (hh:(SharedCodec.sigDecC b).policyHints.toNat<8000) :
-    ∃t,Steps im s 3249 3249 t ∧ Prepared s message b t := by
+    ∃t,Steps im s 3235 3235 t ∧ Prepared s message b t := by
   obtain ⟨u,su,up,uz,ur,uh,ub,uf⟩:=SharedCompact.front_readout he hc s hp
     (SharedCodec.sigDecC b).policyHints.toNat hh (SharedCompact.hints_of_signature s b hb)
   have ui:SharedCompact.InflatedAt u b:=SharedCompact.inflatedAt_of_readout s u b hb ub
@@ -2479,32 +2582,59 @@ set_option maxRecDepth 10000
 theorem legacyByte {im : Image} (hlen : im.data.length = 29808)
     (pre : List (BitVec 8)) (hp : pre.length = 25712)
     (hd : im.data = pre ++ Images.expandLegacyData)
-    (m : Message) (pk : PublicKey) (b : Bytes 5248) (i : Nat) (hi : i < 4096) :
+    (m : Message) (pk : PublicKey) (b : Bytes 5216) (i : Nat) (hi : i < 4096) :
     (w9init im m pk b).getByte (BitVec.ofNat 64 (TOP_DATA + i)) = Images.expandLegacyData.getD i 0 := by
   rw [show TOP_DATA + i = DB + (25712+i) by unfold TOP_DATA DB; omega,
     dataByte hlen (dataBase_of_length hlen) m pk b _ (by omega), hd]
   exact getD_prefixed pre Images.expandLegacyData 25712 i hp
 
+/-- Campaign R6: the packed R6 table block as bytes gives the doublewords KCOPY copies (the same check as the sign's
+`Sign.Main.r6_dword_bytes`). -/
+theorem r6_dword_bytesE : ∀ k, k < 212 → ∀ j, j < 8 →
+    extractByte (BitVec.ofNat 64 (r6Entry (2 * k) + 2 ^ 32 * r6Entry (2 * k + 1))) j = r6TableByte (8 * k + j) := by
+  decide +kernel
+
+theorem word_of_legacy {im : Image} (hlen : im.data.length = 29808)
+    (pre : List (BitVec 8)) (hp : pre.length = 25712)
+    (hd : im.data = pre ++ Images.expandLegacyData)
+    (m : Message) (pk : PublicKey) (b : Bytes 5216) (o k : Nat) (ho : o % 8 = 0) (hk : k < 212)
+    (hlt : o + 8 ≤ 4096)
+    (hb : ∀ j, j < 8 → Images.expandLegacyData.getD (o + j) 0 = r6TableByte (8 * k + j)) :
+    (w9init im m pk b).getMem (BitVec.ofNat 64 (TOP_DATA + o)) =
+      BitVec.ofNat 64 (r6Entry (2 * k) + 2 ^ 32 * r6Entry (2 * k + 1)) := by
+  apply Keygen.word_ext_bytes
+  intro j hj
+  have hg := legacyByte hlen pre hp hd m pk b (o + j) (by omega)
+  rw [getByte_eq_word _ _ (by unfold TOP_DATA; omega),
+    show (TOP_DATA + (o + j)) / 8 * 8 = TOP_DATA + o by unfold TOP_DATA; omega,
+    show (TOP_DATA + (o + j)) % 8 = j by unfold TOP_DATA; omega] at hg
+  rw [hg, hb j hj, r6_dword_bytesE k hk j hj]
+
+/-- Campaign R6: the initial expand data holds the packed R6 block (KCOPY's source) and the lower reward tables
+(`TOP_DATA + 1024..2047`). Main's `TableOK` / `CfTableOK 0` / `RewardTablesOK` are false on the R6 data. -/
 theorem initial_tables_of_data {im : Image} (hlen : im.data.length = 29808)
     (pre : List (BitVec 8)) (hp : pre.length = 25712)
     (hd : im.data = pre ++ Images.expandLegacyData)
-    (m : Message) (pk : PublicKey) (b : Bytes 5248) :
-    TableOK (w9init im m pk b) ∧ CfTableOK 0 (w9init im m pk b) ∧
-      Reward.RewardTablesOK (w9init im m pk b) := by
-  refine ⟨?_, ?_, ?_⟩
-  · intro i hi
-    rw [legacyByte hlen pre hp hd m pk b i (by omega)]
-    exact expandLegacyData_table i hi
+    (m : Message) (pk : PublicKey) (b : Bytes 5216) :
+    SigGolfCandidate.T3M.Expand.BC.R6Src (w9init im m pk b) ∧ Reward.LowerTablesOK (w9init im m pk b) := by
+  refine ⟨⟨fun k hk => ?_, fun k hk => ?_⟩, ?_⟩
+  · rw [show 0xFFF000 + 8 * k = TOP_DATA + 8 * k by unfold TOP_DATA; omega]
+    exact word_of_legacy hlen pre hp hd m pk b (8 * k) k (by omega) (by omega) (by omega)
+      (fun j hj => expandLegacyData_r6tableA (8 * k + j) (by omega))
+  · rw [show 0xFFF800 + 8 * k = TOP_DATA + (2048 + 8 * k) by unfold TOP_DATA; omega]
+    exact word_of_legacy hlen pre hp hd m pk b (2048 + 8 * k) (128 + k) (by omega) (by omega) (by omega)
+      (fun j hj => by
+        have h := expandLegacyData_r6tableB (1024 + 8 * k + j) (by omega) (by omega)
+        rw [show 1024 + (1024 + 8 * k + j) = 2048 + 8 * k + j by omega,
+          show 1024 + 8 * k + j = 8 * (128 + k) + j by omega] at h
+        exact h)
   · intro i hi hj
     rw [legacyByte hlen pre hp hd m pk b i (by omega)]
-    exact expandLegacyData_cf i hi hj
-  · intro i hi hj
-    rw [legacyByte hlen pre hp hd m pk b i (by omega)]
-    exact expandLegacyData_reward i hi hj
+    exact expandLegacyData_lowerReward i hi hj
 
-theorem initial_tables (m : Message) (pk : PublicKey) (b : Bytes 5248) :
-    TableOK (w9init Images.expandImage m pk b) ∧ CfTableOK 0 (w9init Images.expandImage m pk b) ∧
-      Reward.RewardTablesOK (w9init Images.expandImage m pk b) := by
+theorem initial_tables (m : Message) (pk : PublicKey) (b : Bytes 5216) :
+    SigGolfCandidate.T3M.Expand.BC.R6Src (w9init Images.expandImage m pk b) ∧
+      Reward.LowerTablesOK (w9init Images.expandImage m pk b) := by
   exact initial_tables_of_data Images.expandData_length
     (Images.expandSharedData ++ Images.expandPrefixData)
     (by simp only [List.length_append, Images.expandSharedData_length, Images.expandPrefixData_length])
@@ -2527,40 +2657,67 @@ theorem inflated_main (b : SharedCodec.CBytes) (i : Nat) (hi : 114 ≤ i) :
     if_pos (show 13 < i+4 by omega),if_pos (show 39 < i+4 by omega),if_pos (show 65 < i+4 by omega),if_pos (show 91 < i+4 by omega)]
   congr 1
 
+/-- R6: after the +19-digest handoff move the top values start at 30864 (slot 137), the top path follows, two zero
+slots, and the lower layers start at main's 31920 (slot 203). -/
 theorem lP_shared (lay : Layer) :
-    SigGolfCandidate.T3M.Expand.lP lay=30864+16*(SharedCodec.layIdx lay-114) ∧
-    114 ≤ SharedCodec.layIdx lay ∧ SharedCodec.layIdx lay+chainCount lay+height lay ≤ 328 := by
+    SigGolfCandidate.T3M.Expand.lP lay=30864+16*(SharedCodec.layIdx lay-114+(if lay=0 then 0 else 2)) ∧
+    114 ≤ SharedCodec.layIdx lay ∧ SharedCodec.layIdx lay+chainCount lay+height lay ≤ 326 ∧
+    (lay=0 → SharedCodec.layIdx lay+chainCount lay+height lay ≤ 178) ∧ (lay≠0 → 178 ≤ SharedCodec.layIdx lay) := by
   fin_cases lay <;> decide
+
+theorem machine_main (b : SharedCodec.CBytes) (j : Nat) (hj : j<64 ∨ 66≤j) :
+    SharedCompact.machineRead b (118+j)=SharedCodec.digC b (if j<64 then 114+j else 112+j) := by
+  unfold SharedCompact.machineRead
+  rcases hj with hj | hj
+  · rw [if_pos (show 118+j<182 by omega),if_pos hj,show 118+j=(114+j)+4 by omega,inflated_main b _ (by omega)]
+  · rw [if_neg (show ¬118+j<182 by omega),if_neg (show ¬118+j<184 by omega),if_neg (show ¬j<64 by omega),
+      show 118+j-2=(112+j)+4 by omega,inflated_main b _ (by omega)]
 
 theorem main_readout {b : SharedCodec.CBytes} {s t : MachineState}
     (hsource : SharedCompact.InflatedAt s b)
     (hmove : ∀i<428,t.getMem (BitVec.ofNat 64 (30864+8*i))=s.getMem (BitVec.ofNat 64 (30560+8*i))) :
     SigGolfCandidate.T3M.Expand.BC.SigLayersAt t (SharedForest.mainSignature (SharedCodec.sigDecC b)) := by
-  have hrows : ∀i<214,DigAt t (30864+16*i) (SharedCodec.digC b (114+i)) := by
-    intro i hi
-    have h:=hsource (118+i) (by omega)
-    rw [show 118+i=(114+i)+4 by omega,inflated_main b _ (by omega)] at h
-    have ha:0x7000+16*(114+i+4)=30560+16*i:=by omega
+  have hrows : ∀j,j<214 → (j<64 ∨ 66≤j) →
+      DigAt t (30864+16*j) (SharedCodec.digC b (if j<64 then 114+j else 112+j)) := by
+    intro j hj hjj
+    have h:=hsource (118+j) (by omega)
+    rw [machine_main b j hjj] at h
+    have ha:0x7000+16*(118+j)=30560+16*j:=by omega
     rw [ha] at h
     refine ⟨?_,?_⟩
-    · have hm:=hmove (2*i) (by omega)
-      rw [show 30864+8*(2*i)=30864+16*i by omega,show 30560+8*(2*i)=30560+16*i by omega] at hm
+    · have hm:=hmove (2*j) (by omega)
+      rw [show 30864+8*(2*j)=30864+16*j by omega,show 30560+8*(2*j)=30560+16*j by omega] at hm
       exact hm.trans h.1
-    · have hm:=hmove (2*i+1) (by omega)
-      rw [show 30864+8*(2*i+1)=30864+16*i+8 by omega,show 30560+8*(2*i+1)=30560+16*i+8 by omega] at hm
+    · have hm:=hmove (2*j+1) (by omega)
+      rw [show 30864+8*(2*j+1)=30864+16*j+8 by omega,show 30560+8*(2*j+1)=30560+16*j+8 by omega] at hm
       exact hm.trans h.2
+  have hlay : ∀ (lay : Layer) (i : Nat), i<chainCount lay+height lay →
+      DigAt t (SigGolfCandidate.T3M.Expand.lP lay+16*i) (SharedCodec.digC b (SharedCodec.layIdx lay+i)) := by
+    intro lay i hi
+    obtain ⟨hp,hl,hh,h0,h1⟩:=lP_shared lay
+    by_cases hz : lay=0
+    · have hb:=h0 hz
+      rw [if_pos hz] at hp
+      have h:=hrows (SharedCodec.layIdx lay-114+i) (by omega) (Or.inl (by omega))
+      rw [if_pos (show SharedCodec.layIdx lay-114+i<64 by omega),
+        show 114+(SharedCodec.layIdx lay-114+i)=SharedCodec.layIdx lay+i by omega,
+        show 30864+16*(SharedCodec.layIdx lay-114+i)=SigGolfCandidate.T3M.Expand.lP lay+16*i by rw[hp];omega] at h
+      exact h
+    · have hb:=h1 hz
+      rw [if_neg hz] at hp
+      have h:=hrows (SharedCodec.layIdx lay-114+2+i) (by omega) (Or.inr (by omega))
+      rw [if_neg (show ¬SharedCodec.layIdx lay-114+2+i<64 by omega),
+        show 112+(SharedCodec.layIdx lay-114+2+i)=SharedCodec.layIdx lay+i by omega,
+        show 30864+16*(SharedCodec.layIdx lay-114+2+i)=SigGolfCandidate.T3M.Expand.lP lay+16*i by rw[hp];omega] at h
+      exact h
   intro lay
-  obtain ⟨hp,hl,hh⟩:=lP_shared lay
   constructor
   · intro i hi
-    have h:=hrows (SharedCodec.layIdx lay-114+i) (by omega)
-    rw [show 114+(SharedCodec.layIdx lay-114+i)=SharedCodec.layIdx lay+i by omega,
-      show 30864+16*(SharedCodec.layIdx lay-114+i)=SigGolfCandidate.T3M.Expand.lP lay+16*i by rw[hp];omega] at h
-    exact h
+    exact hlay lay i (by omega)
   · intro j hj
-    have h:=hrows (SharedCodec.layIdx lay-114+chainCount lay+j) (by omega)
-    rw [show 114+(SharedCodec.layIdx lay-114+chainCount lay+j)=SharedCodec.layIdx lay+chainCount lay+j by omega,
-      show 30864+16*(SharedCodec.layIdx lay-114+chainCount lay+j)=SigGolfCandidate.T3M.Expand.lP lay+16*chainCount lay+16*j by rw[hp];omega] at h
+    have h:=hlay lay (chainCount lay+j) (by omega)
+    rw [show SharedCodec.layIdx lay+(chainCount lay+j)=SharedCodec.layIdx lay+chainCount lay+j by omega,
+      show SigGolfCandidate.T3M.Expand.lP lay+16*(chainCount lay+j)=SigGolfCandidate.T3M.Expand.lP lay+16*chainCount lay+16*j by omega] at h
     exact h
 #print axioms main_readout
 end ClaudeWCT.W9.Machine.Expand.SharedHandoff
@@ -2586,13 +2743,13 @@ theorem layer_inv {b : SharedCodec.CBytes} {s t : MachineState} {index : Nat} {p
     (hf : Frame s t Writes)
     (hc32 : ∃x<2^32,s.getMem (BitVec.ofNat 64 (ENC+32))=BitVec.ofNat 64 x)
     (hz : SigGolfCandidate.T3M.Expand.BC.LZero s)
-    (htab : Search.TableOK s) (hcf : Search.CfTableOK 0 s) (hrew : Search.Reward.RewardTablesOK s)
+    (hsrc : SigGolfCandidate.T3M.Expand.BC.R6Src s) (hrew : Search.Reward.LowerTablesOK s)
     (hhint : (SharedCodec.sigDecC b).policyHints.toNat<8000)
     (hhmem : s.getMem 0x66000=BitVec.ofNat 64 (SharedCodec.sigDecC b).policyHints.toNat) :
     SigGolfCandidate.T3M.Expand.SharedLayers.LInv (SharedForest.mainSignature (SharedCodec.sigDecC b))
       (SharedCodec.sigDecC b).policyHints index 4 (.pair pair.1 pair.2) t := by
   have keep (A : Nat) (ha : A<2^64) (hw : ¬Writes A) := hf.get ha hw
-  refine ⟨⟨hp,by decide,h5,hi,?_,?_,?_,?_,?_,main_readout hin hmove,?_,?_,?_,?_⟩,hhint,?_⟩
+  refine ⟨⟨hp,by decide,h5,hi,?_,?_,?_,?_,?_,main_readout hin hmove,?_,?_,?_⟩,hhint,?_⟩
   · exact (keep _ (by decide) (by unfold Writes; decide)).trans hidx
   · exact ⟨(hroots 0 (by simp)).trans hL.1,(hroots 8 (by simp)).trans hL.2⟩
   · intro _
@@ -2605,8 +2762,7 @@ theorem layer_inv {b : SharedCodec.CBytes} {s t : MachineState} {index : Nat} {p
       (keep _ (by decide) (by unfold Writes; decide)).trans hz.n32,
       (keep _ (by decide) (by unfold Writes; decide)).trans hz.n40,
       (keep _ (by decide) (by unfold Writes; decide)).trans hz.e40⟩
-  · exact htab.frame hf (by intro i hi;unfold Writes Search.TOP_DATA;omega)
-  · exact hcf.frame hf (by intro i hi hj;unfold Writes Search.TOP_DATA;omega)
+  · exact hsrc.frame hf (by intro A h1 h2;unfold Writes;omega)
   · exact hrew.frame hf (by intro i hi hj;unfold Writes Search.TOP_DATA;omega)
   · exact (keep _ (by decide) (by unfold Writes; decide)).trans hhmem
 #print axioms layer_inv
@@ -2619,7 +2775,7 @@ set_option maxRecDepth 100000
 
 theorem shifted_data_mem {im ref : Image} (hlen : im.data.length=29808)
     (pre : List (BitVec 8)) (hp : pre.length=2160) (hd : im.data=pre++ref.data)
-    (href : ExpandDataOK ref) (m : Message) (pk : PublicKey) (b : Bytes 5248)
+    (href : ExpandDataOK ref) (m : Message) (pk : PublicKey) (b : Bytes 5216)
     (A : Nat) (hlo : Compact2.LPLAN≤A) (hhi : A<Compact2.LPLAN+27648) (hal : A%8=0) :
     (w9init im m pk b).getMem (BitVec.ofNat 64 A)=
       (w9init ref m pk (0 : Bytes 5312)).getMem (BitVec.ofNat 64 A) := by
@@ -2632,7 +2788,7 @@ theorem shifted_data_mem {im ref : Image} (hlen : im.data.length=29808)
 
 theorem initial_plans_of_data {im ref : Image} (hlen : im.data.length=29808)
     (pre : List (BitVec 8)) (hp : pre.length=2160) (hd : im.data=pre++ref.data)
-    (href : ExpandDataOK ref) (m : Message) (pk : PublicKey) (b : Bytes 5248) :
+    (href : ExpandDataOK ref) (m : Message) (pk : PublicKey) (b : Bytes 5216) :
     ClaudeWCT.W9.Machine.Expand.PlanAt (w9init im m pk b) ∧ Compact2.LPlanAt (w9init im m pk b) := by
   constructor
   · intro k hk
@@ -2652,14 +2808,14 @@ theorem reference_data_ok : ExpandDataOK (⟨[],Images.expandPrefixData++Images.
     rfl
   rw [hp]
 
-theorem initial_plans (m : Message) (pk : PublicKey) (b : Bytes 5248) :
+theorem initial_plans (m : Message) (pk : PublicKey) (b : Bytes 5216) :
     ClaudeWCT.W9.Machine.Expand.PlanAt (w9init Images.expandImage m pk b) ∧
       Compact2.LPlanAt (w9init Images.expandImage m pk b) := by
   exact initial_plans_of_data (ref:=⟨[],Images.expandPrefixData++Images.expandLegacyData⟩)
     Images.expandData_length Images.expandSharedData Images.expandSharedData_length
     (by change (Images.expandSharedData++Images.expandPrefixData)++Images.expandLegacyData = _;rw[List.append_assoc])
     reference_data_ok m pk b
-theorem initial_toptab (m : Message) (pk : PublicKey) (b : Bytes 5248) :
+theorem initial_toptab (m : Message) (pk : PublicKey) (b : Bytes 5216) :
     Compact2.TopTabAt (w9init Images.expandImage m pk b) := by
   have he (A : Nat) (hl : Compact2.LPLAN ≤ A) (hh : A < Compact2.LPLAN+27648) (hm : A % 8 = 0) :=
     shifted_data_mem (im:=Images.expandImage) (ref:=⟨[],Images.expandPrefixData++Images.expandLegacyData⟩)
@@ -2704,8 +2860,8 @@ theorem decoded_projection (b : SharedCodec.CBytes) :
     have hj : j.val=11 := h.2
     simpa only [SharedCodec.sigDecC,SharedCodec.layIdx,List.getElem_cons_zero,
       Matrix.cons_val_zero,SigGolfCandidate.T3.chainCount,hj,Nat.reduceAdd,
-      SharedCodec.digC,show ¬(179<179) by decide,if_false,if_pos rfl,ite_true] using
-      hset (b.extractLsb' (128*327) 112)
+      SharedCodec.digC,show ¬(177<177) by decide,if_false,if_pos rfl,ite_true] using
+      hset (b.extractLsb' (128*325) 112)
   next => rfl
 
 theorem main_projection (b : SharedCodec.CBytes) :
@@ -2726,7 +2882,7 @@ set_option maxHeartbeats 1000000
 set_option maxRecDepth 10000
 
 theorem public_key_of_length {im : Image} (hlen : im.data.length=29808)
-    (m : Message) (pk : PublicKey) (b : Bytes 5248) :
+    (m : Message) (pk : PublicKey) (b : Bytes 5216) :
     DigAt (w9init im m pk b) 0xA0 pk := by
   have hword (i : Nat) (hi : i<2) :
       (w9init im m pk b).getMem (BitVec.ofNat 64 (0xA0+8*i))=pk.extractLsb' (64*i) 64 := by
@@ -2736,25 +2892,25 @@ theorem public_key_of_length {im : Image} (hlen : im.data.length=29808)
   exact ⟨hword 0 (by decide),hword 1 (by decide)⟩
 
 theorem region_zero_of_length {im : Image} (hlen : im.data.length=29808)
-    (m : Message) (pk : PublicKey) (b : Bytes 5248) :
+    (m : Message) (pk : PublicKey) (b : Bytes 5216) :
     ∀A,0x2c48≤A → A<0x61c8 → (w9init im m pk b).getMem (BitVec.ofNat 64 A)=0 := by
   intro A hlo hhi
   exact zero hlen (dataBase_of_length hlen) m pk b A
     (by unfold DB;omega) (Or.inl (by omega)) (Or.inr (by omega)) (Or.inl (by omega))
 
 theorem layer_zero_of_length {im : Image} (hlen : im.data.length=29808)
-    (m : Message) (pk : PublicKey) (b : Bytes 5248) :
+    (m : Message) (pk : PublicKey) (b : Bytes 5216) :
     SigGolfCandidate.T3M.Expand.BC.LZero (w9init im m pk b) := by
   constructor <;> apply zero hlen (dataBase_of_length hlen) m pk b <;>
     simp only [CHAIN,NODE,ENC,DB] <;> omega
 
 theorem counter_of_length {im : Image} (hlen : im.data.length=29808)
-    (m : Message) (pk : PublicKey) (b : Bytes 5248) :
+    (m : Message) (pk : PublicKey) (b : Bytes 5216) :
     ∃x<2^32,(w9init im m pk b).getMem (BitVec.ofNat 64 (ENC+32))=BitVec.ofNat 64 x := by
   refine ⟨0,by decide,?_⟩
   apply zero hlen (dataBase_of_length hlen) m pk b <;> simp only [ENC,DB] <;> omega
 
-theorem initial_thresholds (m : Message) (pk : PublicKey) (b : Bytes 5248) :
+theorem initial_thresholds (m : Message) (pk : PublicKey) (b : Bytes 5216) :
     (∀r,r<55 → (w9init Images.expandImage m pk b).getByte (BitVec.ofNat 64 (16749456+r))=
       BitVec.ofNat 8 (ClaudeWCT.WCT9.CanonicalPolicy.threshold 1 r)) ∧
     (∀r,r<39 → (w9init Images.expandImage m pk b).getByte (BitVec.ofNat 64 (16749520+r))=

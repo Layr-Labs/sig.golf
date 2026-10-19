@@ -9,13 +9,8 @@ abbrev NOUT : Nat := 0x20240
 abbrev ENC : Nat := 0x20260
 abbrev EOUT : Nat := 0x202A0
 abbrev DIGITS : Nat := 0x20420
-abbrev SEL : Nat := 0x204A0
 @[simp] theorem pcOf_and_max (k : Nat) : pcOf k &&& 18446744073709551614#64 = pcOf k :=
   pcOf_and_not1 k
-theorem pcOf_inj {a b : Nat} (ha : 0x1000 + 4 * a < 2 ^ 64) (hb : 0x1000 + 4 * b < 2 ^ 64)
-    (h : pcOf a = pcOf b) : a = b := by
-  have := (ofNat_inj ha hb).mp h
-  omega
 theorem extractByte_replaceByte_same (w : Word) (k : Nat) (hk : k < 8) (b : BitVec 8) :
     extractByte (replaceByte w k b) k = b := by
   apply BitVec.eq_of_getLsbD_eq

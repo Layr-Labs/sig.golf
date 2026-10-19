@@ -34,20 +34,6 @@ lemma freshW_of_inv {T : Transcript (submission I).sizes} {k : ℕ} {lg : QueryL
     unfold Transcript.freshMessage at hfresh
     simp only [Bool.not_eq_true', List.any_eq_false, beq_iff_eq] at hfresh
     exact hfresh _ hmem rfl
-lemma freshS_of_inv {T : Transcript (submission I).sizes} {k : ℕ} {lg : QueryLog Requests} {c : ℕ}
-    (hI : Inv T k lg c) {m : Message} {s : Bytes (submission I).sizes.signature}
-    (hfresh : T.freshSignature m s = true) : freshS lg m (sigDecC s) = true := by
-  rw [freshS_iff]
-  rintro ⟨e, he, h1, h2⟩
-  obtain ⟨σ', hσ', hp⟩ := ClaudeWCT.WCT9.map_some_inv h2
-  have hmem := hI.2.2.2.2 e he σ' hσ'
-  have hs : sigBC σ' = s := by rw [← sigBC_proj, hp, proj_sigDecC, sigBC_sigDecC]
-  rw [h1, hs] at hmem
-  unfold Transcript.freshSignature at hfresh
-  simp only [Bool.not_eq_true'] at hfresh
-  have : T.signed.contains (m, s) = true := List.contains_iff_mem.mpr hmem
-  rw [this] at hfresh
-  cases hfresh
 lemma inv_record {T : Transcript (submission I).sizes} {k : ℕ} {lg : QueryLog Requests} {c : ℕ}
     (hI : Inv T k lg c) (hk : k < LIFETIME) (m : Message) (cache : Cache)
     (r : Option Signature) (calls : ℕ) :
@@ -66,63 +52,6 @@ lemma inv_record {T : Transcript (submission I).sizes} {k : ℕ} {lg : QueryLog 
     subst hσ
     simp [recordVC]
 variable (I) (A : Adversary (submission I).sizes)
-theorem rel_main (F : QFacts) (P : Pending I) (sk : SecretKey) (pk : Digest) :
-    ∀ (n : ℕ) (s : A.State) (T : Transcript (submission I).sizes) (k : ℕ) (lg : QueryLog Requests) (c : ℕ),
-      Inv T k lg c → Rel (orgK I A sk (pk : PublicKey) n s T) (absK I A sk pk n s k lg c) RFin := by
-  intro n
-  induction n with
-  | zero =>
-    intro s T k lg c _
-    rw [orgK_zero]
-    exact Rel.pure_left _ _ (rfin_false _)
-  | succ n ih =>
-    intro s T k lg c hI
-    cases hstep : A.step s with
-    | submit f =>
-      cases f with
-      | witness m w =>
-        rw [orgK_submit_witness F P hstep, absK_submit_witness F hstep, liftM_countFrom_shift,
-          hrealize_public 0 sk (F.public_verifyP _ _ _), Functor.map_map, liftM_map]
-        refine Rel.of_map _ _ _ fun z => ?_
-        intro hwon
-        simp only [Bool.and_eq_true] at hwon
-        refine ⟨?_, ?_⟩
-        · simp only [length_of_inv hI, freshW_of_inv hI hwon.2, hwon.1, Bool.true_and]
-        · simp [hI.1]
-      | signature m σ =>
-        rw [orgK_submit_signature F P hstep, absK_submit_signature F hstep, liftM_countFrom_shift,
-          hrealize_public 0 sk (F.public_expandB _ _ _), bind_map_left]
-        refine Rel.bind_eq _ fun p => ?_
-        rcases p with ⟨_ | w, e⟩
-        · exact Rel.pure_left _ _ (rfin_false _)
-        · simp only
-          rw [liftM_countFrom_shift, hrealize_public 0 sk (F.public_verifyP _ _ _), Functor.map_map,
-            liftM_map]
-          refine Rel.of_map _ _ _ fun z => ?_
-          intro hwon
-          simp only [Bool.and_eq_true] at hwon
-          refine ⟨?_, ?_⟩
-          · simp only [length_of_inv hI, freshS_of_inv hI hwon.2, hwon.1, Bool.true_and]
-          · simp [hI.1, Nat.add_assoc]
-    | hash y resume =>
-      rw [orgK_hash hstep, absK_hash hstep]
-      refine Rel.bind_eq _ fun a => ih _ _ _ _ _ ?_
-      obtain ⟨hc, hs, hlen, hk, hent⟩ := hI
-      exact ⟨by simp [hc], hs, hlen, hk, hent⟩
-    | sample m resume =>
-      rw [orgK_sample hstep, absK_sample hstep]
-      exact Rel.bind_eq _ fun a => ih _ _ _ _ _ hI
-    | step next =>
-      rw [orgK_step hstep, absK_step hstep]
-      exact ih _ _ _ _ _ hI
-    | sign req resume =>
-      by_cases hk : T.signingRequests < LIFETIME
-      · have hk' : k < LIFETIME := hI.2.1 ▸ hk
-        rw [orgK_sign_lt F P hstep hk, absK_sign_lt F hstep hk', liftM_countFrom_shift, bind_map_left]
-        refine Rel.bind_eq _ fun p => ih _ _ _ _ _ ?_
-        exact inv_record hI hk' req.message _ p.1 p.2
-      · rw [orgK_sign_ge hstep hk]
-        exact Rel.pure_left _ _ (rfin_false _)
 theorem realExperimentP_eq (F : QFacts) (rounds : ℕ) :
     realExperimentP (reductionP I A rounds) =
       SphincsSecurity.sampleMasterSeed >>= fun secret =>
@@ -133,25 +62,7 @@ theorem realExperimentP_eq (F : QFacts) (rounds : ℕ) :
   refine bind_congr fun secret => ?_
   rw [derivation_realize, countHashQueries_eq, src_top F secret rounds]
   rfl
-theorem probEvent_le (F : QFacts) (P : Pending I) (rounds Q : ℕ) :
-    Pr[fun r => r.won = true ∧ r.hashCalls ≤ Q | (submission I).securityExperiment A rounds] ≤
-      Pr[fun r => r.1 = true ∧ r.2 ≤ Q | realExperimentP (reductionP I A rounds)] := by
-  rw [securityExperiment_eq I A F P rounds, realExperimentP_eq I A F rounds]
-  unfold orgGame
-  rw [simulateQ_bind, roSim.run'_liftM_bind, ← sampleSecretKey_eq]
-  refine probEvent_bind_le' _ fun sk => ?_
-  refine Rel.probEvent_le (R := RFin) (roImpl (List UInt8) (BitVec 256)) ?_ _ _ ?_ ∅
-  · refine Rel.bind_eq _ fun a => ?_
-    exact rel_main I A F P sk a.1.1 rounds _ _ 0 [] a.2 ⟨rfl, rfl, rfl, Nat.zero_le _, by simp⟩
-  · intro r b hR hE
-    obtain ⟨h1, h2⟩ := hR hE.1
-    exact ⟨h1, h2 ▸ hE.2⟩
 variable {I}
-theorem submission_secure (F : QFacts) (P : Pending I) (hS : SecurityP) : (submission I).Secure := by
-  intro A rounds Q hQ
-  calc _ ≤ _ := probEvent_le I A F P rounds Q
-    _ ≤ (Q : ℝ≥0∞) / 2 ^ 127 := hS _ Q hQ
-    _ = (Q : ℝ≥0∞) / 2 ^ SECURITY_BITS := rfl
 end ClaudeWCT.W9.T3M.Final
 
 section

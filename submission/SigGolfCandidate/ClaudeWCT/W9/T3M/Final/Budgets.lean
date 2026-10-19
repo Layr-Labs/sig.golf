@@ -51,29 +51,8 @@ theorem verify_value (P : Pending I) (m : Message) (pk : PublicKey) (w : Bytes 2
   have e : (fun p : Bool × Nat => ((if p.1 then some () else none : Option Unit)).isSome) = Prod.fst := by
     funext p; rcases p with ⟨_ | _, n⟩ <;> rfl
   rw [e, SigGolfCandidate.T3M.fst_countCalls]
-set_option maxRecDepth 100000 in
-theorem successPipe_eq (P : Pending I) (sk : SecretKey) (m : Message) :
-    successPipe (submission I) sk m = mrealize sk (honestProgramB m) := by
-  unfold successPipe honestProgramB
-  rw [keygen_value P, bind_map_left, mrealize_bind]
-  refine bind_congr fun kp => ?_
-  simp only
-  rw [sign_value P, bind_map_left, cacheDec_cacheB, mrealize_bind]
-  refine bind_congr fun s => ?_
-  rcases s with _ | σ
-  · rfl
-  · simp only [Option.map_some]
-    rw [expand_value P, sigDecC_sigBC, expandB_proj, mrealize_bind, mrealize_public 0 sk (publicOnly_expandB m kp.1 σ)]
-    refine bind_congr fun e => ?_
-    rcases e with _ | w
-    · rfl
-    · exact (verify_value P m _ w).trans (mrealize_public 0 sk (publicOnly_verifyP m kp.1 w))
 noncomputable def foldB : M Bool := foldAll msgs honestProgramB true
 noncomputable def foldC : M Bool := foldAll msgs honestProgramCore true
-theorem allSucceed_eq (P : Pending I) (sk : SecretKey) :
-    HonestSummary.allSucceed <$> (submission I).allMessages sk = mrealize sk foldB := by
-  rw [allSucceed_allMessages, foldB, mrealize_foldAll]
-  exact congrArg (fun F => foldAll msgs F true) (funext fun m => by rw [success_honest_eq, successPipe_eq P])
 theorem eval_foldAll_B (L : List SigGolfCandidate.T3.Message) (sk : SecretKey) (hash : Hash) :
     evalWithAnswerFn hash (mrealize sk (foldAll L honestProgramB true)) =
       evalWithAnswerFn hash (mrealize sk (foldAll L honestProgramCore true)) := by
@@ -117,17 +96,6 @@ theorem withRandomOracle_core (S : SourceFacts) (sk : SecretKey) :
   rw [mrealize_eq_relabel, ← run'_relabel_on toQ {l | Aligned l} toQ_injOn _ (allQ_hrealize sk hgood) ∅ ∅
     (fun _ _ => rfl), everyMessageProgram_eq, realize_eq_liftM sk hhash, SphincsSecurity.romImpl,
     QueryImpl.simulateQ_add_liftM_right]
-theorem submission_complete (P : Pending I) (S : SourceFacts) : (submission I).Complete := by
-  intro sk
-  have hP : Pr[fun summary => summary.allSucceed = true | withRandomOracle ((submission I).allMessages sk)] =
-      Pr[= true | withRandomOracle (mrealize sk foldB)] := by
-    rw [← allSucceed_eq P sk, withRandomOracle_map', ← probEvent_eq_eq_probOutput, probEvent_map]
-    rfl
-  have hB : Pr[= true | withRandomOracle (mrealize sk foldB)] =
-      Pr[= true | withRandomOracle (mrealize sk foldC)] :=
-    probOutput_congr_evalSPMF (randomOracle_congr _ _ (eval_foldB sk)) true
-  rw [hP, hB, withRandomOracle_core S sk]
-  exact S.source_completeness sk
 end ClaudeWCT.W9.T3M.Final
 end
 section
@@ -196,13 +164,6 @@ theorem abstract_expand_raw_cost (P : Pending I) (m : Message) (pk : PublicKey)
     ((submission I).run .expand (m,pk,sig))
     (Option.map (fun x : SigGolfCandidate.T3.HashOutput × Witness => witEnc x.1 x.2))
     (P.expand_refines m pk sig) (goodQ_expandN _ _ _)
-theorem abstract_expand_encoded_cost (P : Pending I) (m : Message) (pk : PublicKey)
-    (sig : Signature) (hash : Hash) :
-    (evalWithAnswerFn hash ((submission I).run .expand (m,pk,sigBC sig))).hashCompressions =
-      (evalWithAnswerFn hash (mrealize 0 (SigGolfCandidate.T3.Cost.countBlocks (expandN m pk sig)))).2 := by
-  have h := abstract_expand_raw_cost P m pk (sigBC sig) hash
-  rw [sigDecC_sigBC, expandN_proj] at h
-  exact h
 theorem eval_expand_blocks (answers : SigGolfCandidate.T3.Correctness.Answers) (m : SigGolfCandidate.T3.Message)
     (pk : Digest) (σ : Signature) :
     (evalWithAnswerFn answers (SigGolfCandidate.T3.Cost.countBlocks (expand m pk σ))).2 =
@@ -220,20 +181,9 @@ theorem sign_count_value (P : Pending I) (sk : SecretKey) (cache : Cache)
     eval_cost_fst, ← eval_mrealize hash sk (sign cache m)]
   exact h
 set_option maxRecDepth 100000 in
-theorem expand_count_cost (P : Pending I) (sk : SecretKey) (m : Message)
-    (pk : PublicKey) (sig : Signature) (hash : Hash) :
-    ((submission I).runWith hash .expand (m,pk,sigBC sig)).hashCompressions =
-      evalWithAnswerFn hash (Prod.snd <$> mrealize sk (SigGolfCandidate.T3.Cost.countBlocks (expand m pk sig))) := by
-  have h := abstract_expand_encoded_cost P m pk sig hash
-  have hp : AllQueriesSatisfy (SigGolfCandidate.T3.Cost.countBlocks (expandN m pk sig)) isPublic :=
-    allQ_countWith SigGolfCandidate.T3.Cost.weight (publicOnly_expandN m pk sig)
-  rw [mrealize_public 0 sk hp, eval_mrealize] at h
-  rw [evalWithAnswerFn_map, eval_mrealize, eval_expand_blocks]
-  exact h
-set_option maxRecDepth 100000 in
 theorem costs_keygen_eval (P : Pending I) (sk : SecretKey) (m : Message) (hash : Hash) :
     evalWithAnswerFn hash ((fun r => r.costs .keygen) <$> (submission I).honest sk m) =
-      evalWithAnswerFn hash (pure 1036288 : OracleComp HashSpec ℕ) := by
+      evalWithAnswerFn hash (pure 1048576 : OracleComp HashSpec ℕ) := by
   rw [evalWithAnswerFn_map, SigGolfCandidate.T3M.Final.eval_costs_keygen, P.keygen_runWith]
   rfl
 set_option maxRecDepth 100000 in
@@ -251,24 +201,6 @@ theorem costs_sign_eval (P : Pending I) (sk : SecretKey) (m : Message) (hash : H
       (evalWithAnswerFn_map hash Prod.snd _).symm)
   exact h.trans (congrArg (evalWithAnswerFn hash)
     (generic_count_pipeline sk keygen (fun key => SigGolfCandidate.T3.Cost.countBlocks (sign key.2 m)) Prod.snd))
-set_option maxRecDepth 100000 in
-theorem costs_expand_eval (P : Pending I) (sk : SecretKey) (m : Message) (hash : Hash) :
-    evalWithAnswerFn hash ((fun r => r.costs .expand) <$> (submission I).honest sk m) =
-      evalWithAnswerFn hash ((fun r => r.2) <$>
-        mrealize sk (ClaudeWCT.W9.T3.ExpansionClosure.honestJointCounts m)) := by
-  have hk : ((submission I).runWith hash .keygen sk).value =
-      some ((evalWithAnswerFn hash (mrealize sk keygen)).1,
-        cacheB (evalWithAnswerFn hash (mrealize sk keygen)).2) :=
-    congrArg RunResult.value (P.keygen_runWith hash sk)
-  have h := generic_outer_expand_cost (submission I) hash sk m (mrealize sk keygen)
-    (fun key => (key.1, cacheB key.2))
-    (fun key => mrealize sk (SigGolfCandidate.T3.Cost.countBlocks (sign key.2 m))) Prod.fst sigBC
-    (fun key sig => Prod.snd <$> mrealize sk (SigGolfCandidate.T3.Cost.countBlocks (expand m key.1 sig)))
-    hk (fun key => sign_count_value P sk key.2 m hash)
-    (fun key sig => expand_count_cost P sk m key.1 sig hash)
-  exact h.trans (congrArg (evalWithAnswerFn hash)
-    (generic_joint_count_pipeline sk keygen (fun key => sign key.2 m)
-      (fun key sig => expand m key.1 sig)))
 theorem keygen_bound (P : Pending I) (sk : SecretKey) (m : Message) :
     expectedValue (withRandomOracle ((submission I).honest sk m)) (fun result => ENNReal.ofReal
       (Real.rpow 2 ((result.costs .keygen : ℝ) / (Phase.keygen.budget : ℝ)))) ≤ 2 := by
@@ -278,10 +210,10 @@ theorem keygen_bound (P : Pending I) (sk : SecretKey) (m : Message) :
       = expectedValue (withRandomOracle ((fun r => r.costs .keygen) <$> (submission I).honest sk m))
           (fun n : ℕ => ENNReal.ofReal (Real.rpow 2 ((n : ℝ) / (Phase.keygen.budget : ℝ)))) := by
         rw [withRandomOracle_map', expectedValue_map]
-    _ = expectedValue (withRandomOracle (pure 1036288 : OracleComp HashSpec ℕ))
+    _ = expectedValue (withRandomOracle (pure 1048576 : OracleComp HashSpec ℕ))
           (fun n : ℕ => ENNReal.ofReal (Real.rpow 2 ((n : ℝ) / (Phase.keygen.budget : ℝ)))) :=
         expectedValue_congr_evalSPMF h _
-    _ = ENNReal.ofReal (Real.rpow 2 (((1036288 : ℕ) : ℝ) / (Phase.keygen.budget : ℝ))) := by
+    _ = ENNReal.ofReal (Real.rpow 2 (((1048576 : ℕ) : ℝ) / (Phase.keygen.budget : ℝ))) := by
         rw [withRandomOracle_pure, expectedValue_pure]
     _ ≤ ENNReal.ofReal (Real.rpow 2 1) := by
         refine ENNReal.ofReal_le_ofReal (Real.rpow_le_rpow_of_exponent_le (by norm_num) ?_)
@@ -315,42 +247,6 @@ theorem sign_bound (P : Pending I) (S : SourceFacts) (sk : SecretKey) (m : Messa
         rw [two_rpow_eq', show Phase.sign.budget = 2 ^ 17 from rfl]
         norm_num
     _ ≤ 2 := S.honest_sign_exponential_budget sk m
-set_option maxRecDepth 100000 in
-theorem expand_bound (P : Pending I) (S : SourceFacts) (sk : SecretKey) (m : Message) :
-    expectedValue (withRandomOracle ((submission I).honest sk m)) (fun result => ENNReal.ofReal
-      (Real.rpow 2 ((result.costs .expand : ℝ) / (Phase.expand.budget : ℝ)))) ≤ 2 := by
-  have hgood : AllQueriesSatisfy (ClaudeWCT.W9.T3.ExpansionClosure.honestJointCounts m)
-      SigGolfCandidate.T3.Cost.GoodQuery :=
-    allQ_honestJointCounts SigGolfCandidate.T3M.goodQ_keygen goodQ_sign goodQ_expand m
-  have hhash : AllQueriesSatisfy (ClaudeWCT.W9.T3.ExpansionClosure.honestJointCounts m) isHash :=
-    allQ_honestJointCounts S.hashOnly_keygen S.hashOnly_sign S.hashOnly_expand m
-  have h := randomOracle_congr _ _ (costs_expand_eval P sk m)
-  calc expectedValue (withRandomOracle ((submission I).honest sk m)) (fun result => ENNReal.ofReal
-        (Real.rpow 2 ((result.costs .expand : ℝ) / (Phase.expand.budget : ℝ))))
-      = expectedValue (withRandomOracle ((fun r => r.costs .expand) <$> (submission I).honest sk m))
-          (fun n : ℕ => ENNReal.ofReal (Real.rpow 2 ((n : ℝ) / (Phase.expand.budget : ℝ)))) := by
-        rw [withRandomOracle_map', expectedValue_map]
-    _ = expectedValue (withRandomOracle ((fun r => r.2) <$>
-          mrealize sk (ClaudeWCT.W9.T3.ExpansionClosure.honestJointCounts m)))
-          (fun n : ℕ => ENNReal.ofReal (Real.rpow 2 ((n : ℝ) / (Phase.expand.budget : ℝ)))) :=
-        expectedValue_congr_evalSPMF h _
-    _ = expectedValue (SigGolfCandidate.T3.Sampling.roRun sk
-          (ClaudeWCT.W9.T3.ExpansionClosure.honestJointCounts m) ∅)
-          (fun result => (2 : ℝ≥0∞) ^ ((result.1.2 : ℝ) / 1048576)) := by
-        rw [withRandomOracle_map', withRandomOracle_mrealize sk hgood hhash, Functor.map_map, expectedValue_map]
-        refine congrArg _ (funext fun r => ?_)
-        rw [two_rpow_eq', show Phase.expand.budget = 2 ^ 20 from rfl]
-        norm_num
-    _ ≤ 2 := S.honest_expand_exponential_budget sk m
-theorem submission_compressionBounds (P : Pending I) (S : SourceFacts) : (submission I).CompressionBounds := by
-  intro sk phase hphase
-  unfold Submission.honestWorkload
-  refine expectedValue_bind_le_of_le fun m => ?_
-  simp only [Phase.budgeted, List.mem_cons, List.not_mem_nil, or_false] at hphase
-  rcases hphase with rfl | rfl | rfl
-  · exact keygen_bound P sk m
-  · exact sign_bound P S sk m
-  · exact expand_bound P S sk m
 end ClaudeWCT.W9.T3M.Final
 end
 
@@ -362,7 +258,7 @@ set_option maxHeartbeats 1000000
 set_option maxRecDepth 10000
 
 theorem ftsP_accepted (w : WBytes) (output : HashOutput)
-    (hg : output.toNat/2^242%16384<734)
+    (hg : output.toNat/2^242%16384<804)
     (hr : ∀ k : Fin 9,rawForestRank output k.val<563) :
     ftsP w output = (do
       let p ← SharedV3.forest w (WCT9.digestIndex output) (rawChildFromOutput output)
@@ -396,7 +292,7 @@ theorem verifyP_source_of (answers : SigGolfCandidate.T3.Correctness.Answers)
     (hrho : wrho wb=w.signature.rho) (hdc : wdc wb=w.digestCounter)
     (hd : evalWithAnswerFn answers (digest w.signature.rho message w.digestCounter)=output)
     (hbound : w.digestCounter.toNat<WCT9.digestVerifyWindow)
-    (hg : output.toNat/2^242%16384<734)
+    (hg : output.toNat/2^242%16384<804)
     (hr : ∀ k : Fin 9,rawForestRank output k.val<563)
     (hf : SharedV3.forest wb (WCT9.digestIndex output) (rawChildFromOutput output)
       (fun k=>WCT9.embed (forestRank output k.val)) =
@@ -561,7 +457,7 @@ theorem sign_value (E : EncodingFacts) (F : SourceQueries) (P : Pending I) (sk :
       Option.map sigBC <$> mrealize sk (sign (cacheDec cache) m) :=
   value_of_counts (F := Option.map sigBC) (P.sign_refines sk cache m)
 set_option maxRecDepth 100000 in
-theorem expand_value (E : EncodingFacts) (F : SourceQueries) (P : Pending I) (m : Message) (pk : PublicKey) (s : Bytes 5248) :
+theorem expand_value (E : EncodingFacts) (F : SourceQueries) (P : Pending I) (m : Message) (pk : PublicKey) (s : Bytes 5216) :
     (fun r => r.value) <$> (submission I).run .expand (m, pk, s) = mrealize 0 (expandB m pk (sigDecC s)) := by
   rw [value_of_counts (F := Option.map (fun x : SigGolfCandidate.T3.HashOutput × Witness => witEnc x.1 x.2))
     (P.expand_refines m pk s), expandB, ClaudeWCT.W9.T3M.Paired.expandB, mrealize_map]
@@ -711,7 +607,7 @@ theorem abstract_sign_encoded_value (E : EncodingFacts) (F : SourceQueries) (P :
   rw [cacheDec_cacheB] at h
   exact h
 theorem abstract_expand_raw_cost (E : EncodingFacts) (F : SourceQueries) (P : Pending I) (m : Message) (pk : PublicKey)
-    (sig : Bytes 5248) (hash : Hash) :
+    (sig : Bytes 5216) (hash : Hash) :
     (evalWithAnswerFn hash ((submission I).run .expand (m,pk,sig))).hashCompressions =
       (evalWithAnswerFn hash (mrealize 0 (SigGolfCandidate.T3.Cost.countBlocks (expandN m pk (sigDecC sig))))).2 := by
   exact abstract_count_refinement 0 hash (expandN m pk (sigDecC sig))
@@ -755,7 +651,7 @@ theorem expand_count_cost (E : EncodingFacts) (F : SourceQueries) (P : Pending I
 set_option maxRecDepth 100000 in
 theorem costs_keygen_eval (E : EncodingFacts) (F : SourceQueries) (P : Pending I) (sk : SecretKey) (m : Message) (hash : Hash) :
     evalWithAnswerFn hash ((fun r => r.costs .keygen) <$> (submission I).honest sk m) =
-      evalWithAnswerFn hash (pure 1036288 : OracleComp HashSpec ℕ) := by
+      evalWithAnswerFn hash (pure 1048576 : OracleComp HashSpec ℕ) := by
   rw [evalWithAnswerFn_map, SigGolfCandidate.T3M.Final.eval_costs_keygen, P.keygen_runWith]
   rfl
 set_option maxRecDepth 100000 in
@@ -800,10 +696,10 @@ theorem keygen_bound (E : EncodingFacts) (F : SourceQueries) (P : Pending I) (sk
       = expectedValue (withRandomOracle ((fun r => r.costs .keygen) <$> (submission I).honest sk m))
           (fun n : ℕ => ENNReal.ofReal (Real.rpow 2 ((n : ℝ) / (Phase.keygen.budget : ℝ)))) := by
         rw [withRandomOracle_map', expectedValue_map]
-    _ = expectedValue (withRandomOracle (pure 1036288 : OracleComp HashSpec ℕ))
+    _ = expectedValue (withRandomOracle (pure 1048576 : OracleComp HashSpec ℕ))
           (fun n : ℕ => ENNReal.ofReal (Real.rpow 2 ((n : ℝ) / (Phase.keygen.budget : ℝ)))) :=
         expectedValue_congr_evalSPMF h _
-    _ = ENNReal.ofReal (Real.rpow 2 (((1036288 : ℕ) : ℝ) / (Phase.keygen.budget : ℝ))) := by
+    _ = ENNReal.ofReal (Real.rpow 2 (((1048576 : ℕ) : ℝ) / (Phase.keygen.budget : ℝ))) := by
         rw [withRandomOracle_pure, expectedValue_pure]
     _ ≤ ENNReal.ofReal (Real.rpow 2 1) := by
         refine ENNReal.ofReal_le_ofReal (Real.rpow_le_rpow_of_exponent_le (by norm_num) ?_)

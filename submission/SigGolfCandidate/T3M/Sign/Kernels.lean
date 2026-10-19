@@ -30,44 +30,4 @@ def dsCost : Nat := attemptLimit * 700 + 100
 def DigestSearchSpec (sk : BitVec 256) : Prop :=
   ∀ (s : MachineState) (rho : Digest) (m : Message), DsPre s rho m →
     TBSim image sk s dsCost (digestSearch rho m 0 attemptLimit) (DsPost s)
-def csRegs : List Reg := [.x6, .x7, .x10, .x11, .x12, .x19, .x20, .x21, .x25, .x28, .x29, .x30]
-def CsW (X : Nat) : Prop :=
-  X = ENC + 16 ∨ X = ENC + 24 ∨ X = ENC + 32 ∨ (EOUT ≤ X ∧ X < EOUT + 32) ∨ (DIGITS ≤ X ∧ X < DIGITS + 64)
-structure CsPre (s : MachineState) (lay : Layer) (tree leaf : Nat) (msg : Digest) (ret : Nat) : Prop where
-  pc : s.pc = pcOf 646
-  x1 : s.getReg .x1 = pcOf ret
-  x5 : s.getReg .x5 = 0
-  x8 : s.getReg .x8 = BitVec.ofNat 64 lay.val
-  x9 : s.getReg .x9 = BitVec.ofNat 64 tree
-  x18 : s.getReg .x18 = BitVec.ofNat 64 leaf
-  x17 : s.getReg .x17 = BitVec.ofNat 64 (target lay)
-  x26 : s.getReg .x26 = BitVec.ofNat 64 (chainCount lay)
-  x27 : s.getReg .x27 = BitVec.ofNat 64 (Keygen.n4 lay)
-  htree : tree < 2 ^ 32
-  hleaf : leaf < 2 ^ 32
-  msg : DigAt s ENC msg
-  c32 : (s.getMem (BitVec.ofNat 64 (ENC + 32))).toNat < 2 ^ 32
-  z40 : s.getMem (BitVec.ofNat 64 (ENC + 40)) = 0
-  z48 : s.getMem (BitVec.ofNat 64 (ENC + 48)) = 0
-  z56 : s.getMem (BitVec.ofNat 64 (ENC + 56)) = 0
-  table : Search.TableOK s
-def DummyRet (s : MachineState) (ret : Nat) (t : MachineState) : Prop :=
-  t.pc = pcOf ret ∧ t.getReg .x5 = 0 ∧
-    (∀ i < 54, t.getByte (BitVec.ofNat 64 (DIGITS + i)) = BitVec.ofNat 8 (T3.dummyTop.getD i 0)) ∧
-    (t.getMem (BitVec.ofNat 64 (ENC + 32))).toNat < 2 ^ 32 ∧ RegsExcept s t csRegs ∧ Frame s t CsW ∧
-    (t.getReg .x25).toNat ≤ 126
-def CsPost (s : MachineState) (lay : Layer) (ret : Nat) : Option (BitVec 32 × List Nat) → MachineState → Prop
-  | none, t => if lay = 0 then DummyRet s ret t else Failed t
-  | some (_, ds), t => t.pc = pcOf ret ∧ t.getReg .x5 = 0 ∧ (∃ v, decode lay v = some ds) ∧
-      (∀ i < chainCount lay, t.getByte (BitVec.ofNat 64 (DIGITS + i)) = BitVec.ofNat 8 (ds.getD i 0)) ∧
-      (t.getMem (BitVec.ofNat 64 (ENC + 32))).toNat < 2 ^ 32 ∧ RegsExcept s t csRegs ∧ Frame s t CsW ∧
-      (t.getReg .x25).toNat ≤ target lay
-def csCost (lay : Layer) : Nat := counterLimit * (if lay = 0 then 412 else 160) + 2000
-def CounterSearchSpec (sk : BitVec 256) : Prop :=
-  ∀ (s : MachineState) (lay : Layer) (tree leaf : Nat) (msg : Digest) (ret : Nat),
-    CsPre s lay tree leaf msg ret →
-      TBSim image sk s (csCost lay) (counterSearch lay tree leaf msg 0 counterLimit) (CsPost s lay ret)
-structure Kernels (sk : BitVec 256) : Prop where
-  digest : DigestSearchSpec sk
-  counter : CounterSearchSpec sk
 end SigGolfCandidate.T3M.Sign

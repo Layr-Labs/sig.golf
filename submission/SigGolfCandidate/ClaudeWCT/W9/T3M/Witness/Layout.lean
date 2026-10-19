@@ -40,12 +40,14 @@ def merkleBlock (lay : Layer) (leaf j : Nat) : Nat :=
 /-- Pairing stage 1: offset of chain `i`'s block inside the chain area of layer `lay`. Top: 64-byte F blocks, chain 0
 highest. Lower layers: chain 0's F block is highest (offset 2184); pair `p` (G chain `2p+1`, F chain `2p+2`) occupies
 `[104 (20 - p), +104)`: a 16-byte junk gap, the G block at `+16` and the F block at `+40` (overlapping the G block's
-zero tail). -/
+zero tail). Campaign R6: the top chain area keeps main's 54 blocks (`topChainBlocks`); chains 0..51 keep main's
+blocks and the two lowest blocks (main's chains 52/53, 128 bytes) are dead (honest 0, never read). -/
+def topChainBlocks : Nat := 54
 def chainSlot (lay : Layer) (i : Nat) : Nat :=
-  if lay.val = 0 then 64 * (chainCount lay - 1 - i)
+  if lay.val = 0 then 64 * (topChainBlocks - 1 - i)
   else if i = 0 then 2184 else if i % 2 = 1 then 104 * (20 - i / 2) + 16 else 104 * (21 - i / 2) + 40
 /-- Bytes of the chain area of layer `lay`. -/
-def chainArea (lay : Layer) : Nat := if lay.val = 0 then 64 * chainCount lay else 2248
+def chainArea (lay : Layer) : Nat := if lay.val = 0 then 64 * topChainBlocks else 2248
 def chainBlock (lay : Layer) (i : Nat) : Nat :=
   layerBase lay + 16 * pathSlots lay + chainSlot lay i
 def wrho (w : WBytes) : Digest := wdig w rhoOff
@@ -65,8 +67,10 @@ def wvalue (w : WBytes) (lay : Layer) (i : Nat) : Digest := wdig w (chainBlock l
 /-- Offsets in expanded witness memory, before its 2048-byte machine base. -/
 def leafBufferBase (lay : Layer) : Nat := (![22296,21576,20840,20104] : Layer → Nat) lay
 
+/-- Campaign R6: top end `i` sits at `leafBufferBase 0 + 64 + 16 i` (after the 16-byte pad, the 16-byte tweak and
+the 32-byte gap `wtopLeafGap`); lower layers unchanged. -/
 def leafBufferSlot (lay : Layer) (i : Nat) : Nat :=
-  leafBufferBase lay + (if lay = 0 then 32+16*i else if i = 0 then 0 else 16+16*i)
+  leafBufferBase lay + (if lay = 0 then 64+16*i else if i = 0 then 0 else 16+16*i)
 
 /-- The verifier reads a skipped endpoint from its preserved leaf-buffer slot.
 No equality with the redundant old chain value is assumed for arbitrary witnesses. -/
@@ -191,6 +195,9 @@ def wmerkleHigh (w : WBytes) (lay : Layer) (leaf j : Nat) : BitVec 64 :=
   (wdig w (merkleBlock lay leaf j + 16)).extractLsb' 64 64
 /-- C3: the top leaf pad, the first 16 bytes of the top leaf buffer (honest 0). -/
 def wtopLeafPad (w : WBytes) : Digest := wdig w (leafBufferBase 0)
+/-- Campaign R6: the top leaf's 32-byte gap after the tweak, witness bytes `[22328, 22360)` (absolute
+`[25232, 25264)`); the verifier hashes it as found (SEC B9 / R5), honest expand writes zeros. -/
+def wtopLeafGap (w : WBytes) : Digest × Digest := (wdig w (leafBufferBase 0 + 32), wdig w (leafBufferBase 0 + 48))
 /-- C3: the leaf tweak's high word (witness bytes `[leafBufferBase lay + 24, +8)`; honest 0). -/
 def wleafHigh (w : WBytes) (lay : Layer) : BitVec 64 := (wdig w (leafBufferBase lay + 16)).extractLsb' 64 64
 /-- Restricted top choice (configuration (1)+(2), e7b head): the choice hint byte is witness byte
@@ -293,7 +300,7 @@ theorem layerBase_tiles : ∀ lay : Fin 3,
 theorem layerBase_end : layerBase 3 + 16 * pathSlots 3 + chainArea 3 = leafBufferBase 3 := rfl
 /-- Every chain block lies inside its layer's chain area. -/
 theorem chainSlot_bound (lay : Layer) (i : Nat) (hi : i < chainCount lay) : chainSlot lay i + 64 ≤ chainArea lay := by
-  unfold chainSlot chainArea
+  unfold chainSlot chainArea topChainBlocks
   fin_cases lay <;> simp [chainCount] at hi ⊢ <;> (try split_ifs) <;> omega
 theorem chainSlot_G {lay : Layer} {i : Nat} (hl : lay ≠ 0) (ho : i % 2 = 1) :
     chainSlot lay i = 104 * (20 - i / 2) + 16 := by
@@ -313,7 +320,7 @@ def layerP (w : WBytes) (index : Nat) (lay : Layer) (digits : List Nat) : M Dige
   let ends ← (List.finRange (chainCount lay)).mapM fun i =>
     chainPW lay tree leaf i.val (digits.getD i.val 0) (maxDigit lay i.val - digits.getD i.val 0)
       (wchainPads w lay i.val).1 (wchainPads w lay i.val).2 (wchainHeaderPad w lay i.val) (wvalueFor w lay digits i.val)
-  let value ← WCT9.leafHashW lay tree leaf (wtopLeafPad w) (wleafHigh w lay) ends
+  let value ← WCT9.leafHashWG lay tree leaf (wtopLeafPad w) (wleafHigh w lay) (wtopLeafGap w) ends
   (List.finRange (height lay)).foldlM (fun value j => do
     let other := wpath w lay leaf j.val
     let pair := if leaf / 2 ^ j.val % 2 = 0 then (value, other) else (other, value)
@@ -324,7 +331,7 @@ def layerLeafP (w : WBytes) (index : Nat) (lay : Layer) (digits : List Nat) : M 
   let ends ← (List.finRange (chainCount lay)).mapM fun i =>
     chainPW lay tree leaf i.val (digits.getD i.val 0) (maxDigit lay i.val - digits.getD i.val 0)
       (wchainPads w lay i.val).1 (wchainPads w lay i.val).2 (wchainHeaderPad w lay i.val) (wvalueFor w lay digits i.val)
-  WCT9.leafHashW lay tree leaf (wtopLeafPad w) (wleafHigh w lay) ends
+  WCT9.leafHashWG lay tree leaf (wtopLeafPad w) (wleafHigh w lay) (wtopLeafGap w) ends
 theorem pubGood_halfHash (high : Bool) (input : HashInput) (h : 0 < input.length) :
     AllQueriesSatisfy (WCT9.halfHash high input) PubGood := by
   rw [WCT9.halfHash_eq]
@@ -341,6 +348,15 @@ theorem leafInputW_length_pos (lay : Layer) (tree leaf : Nat) (pad : Digest) (hi
 theorem pubGood_leafHashW (lay : Layer) (tree leaf : Nat) (pad : Digest) (hi : BitVec 64) (ends : List Digest) :
     AllQueriesSatisfy (WCT9.leafHashW lay tree leaf pad hi ends) PubGood :=
   pubGood_lowerHash _ _ _ (leafInputW_length_pos lay tree leaf pad hi ends)
+/-- Campaign R6: the gap does not change the leaf input length. -/
+theorem leafInputWG_length (lay : Layer) (tree leaf : Nat) (pad : Digest) (hi : BitVec 64) (gap : Digest × Digest)
+    (ends : List Digest) :
+    (WCT9.leafInputWG lay tree leaf pad hi gap ends).length = (leafInput lay tree leaf ends).length := by
+  unfold WCT9.leafInputWG leafInput
+  split <;> simp [SphincsSecurity.bytesLE_length, zero16] <;> omega
+theorem pubGood_leafHashWG (lay : Layer) (tree leaf : Nat) (pad : Digest) (hi : BitVec 64) (gap : Digest × Digest)
+    (ends : List Digest) : AllQueriesSatisfy (WCT9.leafHashWG lay tree leaf pad hi gap ends) PubGood :=
+  pubGood_lowerHash _ _ _ (by rw [leafInputWG_length, leafInput_length]; split_ifs <;> omega)
 theorem pubGood_lowerLeafHash (lay : Layer) (tree leaf : Nat) (ends : List Digest) :
     AllQueriesSatisfy (WCT9.lowerLeafHash lay tree leaf ends) PubGood := pubGood_leafHashW _ _ _ _ _ _
 theorem pubGood_lowerNodeHashP (lay tree heap : Nat) (l : Digest) (hp : BitVec 64) (p r : Digest) :
@@ -357,6 +373,6 @@ theorem pubGood_layerP (w : WBytes) (index : Nat) (lay : Layer) (digits : List N
     AllQueriesSatisfy (layerP w index lay digits) PubGood := by
   unfold layerP
   exact allQ_bind (allQ_mapM _ _ fun _ => pubGood_chainPW _ _ _ _ _ _ _ _ _ _) fun _ =>
-    allQ_bind (pubGood_leafHashW _ _ _ _ _ _) fun _ =>
+    allQ_bind (pubGood_leafHashWG _ _ _ _ _ _ _) fun _ =>
       allQ_foldlM _ _ (fun _ _ => pubGood_lowerNodeHashP _ _ _ _ _ _ _) _
 end ClaudeWCT.W9.T3M

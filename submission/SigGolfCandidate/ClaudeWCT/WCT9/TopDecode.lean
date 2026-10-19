@@ -94,8 +94,17 @@ theorem recoverLayerPairGuard_of_good (sig : Signature) (index : Nat) (lay : Lay
 /-- Only producer-selected lower words, not all broad-decoder words, satisfy the B4 cap. -/
 theorem lower_zero_count_le_producer {lay : Layer} (hlay : lay ≠ 0)
     {value : Digest} {digits : List Nat} (h : producerDecode lay value = some digits) :
-    (digits.filter (· = 0)).length ≤ 5 :=
-  (producerDecode_zeroBound h).resolve_left hlay
+    (digits.filter (· = 0)).length ≤ 5 := by
+  have hz := producerDecode_zeroBound h
+  unfold producerZeroBound producerZeroMax at hz
+  rwa [if_neg hlay] at hz
+/-- Campaign R6: a producer-selected top word has at most 7 zero digits, the checksum included (the producer filter
+of the 10-coefficient top seed family, margin 3). -/
+theorem top_zero_count_le_producer {value : Digest} {digits : List Nat} (h : producerDecode 0 value = some digits) :
+    (digits.filter (· = 0)).length ≤ 7 := by
+  have hz := producerDecode_zeroBound h
+  unfold producerZeroBound producerZeroMax at hz
+  simpa using hz
 theorem producerDecode_of {lay : Layer} {answer : Digest} {digits : List Nat}
     (hd : decode lay answer = some digits) (hc : producerFloor lay + dispatchPenalty lay digits ≤ wordCredit lay digits + 4 * savedCopies lay digits)
     (hz : producerZeroBound lay digits) (hr : producerRankBound lay answer) : producerDecode lay answer = some digits := by
@@ -127,45 +136,105 @@ theorem searchLimit_le (lay : Layer) : searchLimit lay ≤ counterLimit := by
   unfold searchLimit topSearchLimit lowerSearchLimit counterLimit
   split <;> norm_num
 theorem lowerSearchLimit_eq : lowerSearchLimit = 2 ^ 21 := rfl
-theorem chainCount_top : chainCount 0 = 54 := rfl
+theorem chainCount_top : chainCount 0 = 52 := rfl
+theorem dataDigits_top_length (answer : Digest) : (dataDigits 0 answer).length = 51 := by
+  simp [dataDigits, dataCount]
+/-- Campaign R6: a decoded top word has valid fields (spare bit 0, 8 r6 ranks < 216, 9 r5 ranks < 125), its checksum
+digit `target 0 - sum` lies in `[0, 7]`, and the digits are the 51 data digits followed by the checksum digit. -/
 theorem decode_top_some {answer : Digest} {digits : List Nat} (h : decode 0 answer = some digits) :
-    answer.toNat < 2 ^ encodedBits 0 ∧ topRanksValid answer = true ∧ (dataDigits 0 answer).sum = target 0 ∧
-      digits = dataDigits 0 answer := by
+    answer.toNat < 2 ^ encodedBits 0 ∧ topRanksValid answer = true ∧
+      ((dataDigits 0 answer).sum ≤ target 0 ∧ target 0 - (dataDigits 0 answer).sum < 8) ∧
+      digits = dataDigits 0 answer ++ [target 0 - (dataDigits 0 answer).sum] := by
   unfold decode at h
   split at h
   · cases h
   · rename_i hg
-    simp only [↓reduceIte, Bool.and_eq_true, decide_eq_true_eq] at h
+    simp only [↓reduceIte] at h
     split at h
     · rename_i hc
       cases h
       exact ⟨by omega, hc.1, hc.2, rfl⟩
     · cases h
 theorem decode_top_of {answer : Digest} (hg : answer.toNat < 2 ^ encodedBits 0)
-    (hr : topRanksValid answer = true) (hs : (dataDigits 0 answer).sum = target 0) :
-    decode 0 answer = some (dataDigits 0 answer) := by
+    (hr : topRanksValid answer = true) (hs : (dataDigits 0 answer).sum ≤ target 0)
+    (hc : target 0 - (dataDigits 0 answer).sum < 8) :
+    decode 0 answer = some (dataDigits 0 answer ++ [target 0 - (dataDigits 0 answer).sum]) := by
   unfold decode
   rw [if_neg (by omega)]
-  simp only [↓reduceIte, hr, hs, decide_true, Bool.and_self]
+  simp only [↓reduceIte, hr, hs, hc, and_self]
 theorem topGroupBad_eq_false_iff (answer : Digest) (i : Nat) :
-    topGroupBad answer i = false ↔ ¬(i % 3 = 0 ∧ i < 51 ∧ 125 ≤ topCode answer / 2 ^ (7 * (i / 3)) % 128) := by
+    topGroupBad answer i = false ↔
+      ¬(i % 3 = 0 ∧ i < 51 ∧ topGroupValid answer (i / 3) = false) ∧ ¬(i = 51 ∧ topChecksumOk answer = false) := by
   unfold topGroupBad
-  exact decide_eq_false_iff_not
+  simp only [Bool.or_eq_false_iff, decide_eq_false_iff_not]
+/-- Campaign R6: apart from the spare bit, `topRanksValid` is exactly the per-group checks of the 51 data chains. -/
 theorem topRanksValid_iff_good (answer : Digest) :
-    topRanksValid answer = true ↔ ∀ i : Fin (chainCount 0), topGroupBad answer i.val = false := by
+    topRanksValid answer = true ↔
+      topSpare answer = 0 ∧ ∀ i : Fin (chainCount 0), i.val < 51 → topGroupBad answer i.val = false := by
   unfold topRanksValid
-  simp only [List.all_eq_true, List.mem_range, decide_eq_true_eq, topGroupBad_eq_false_iff]
+  simp only [Bool.and_eq_true, decide_eq_true_eq, List.all_eq_true, List.mem_range, List.mem_range'_1]
   constructor
-  · intro h i hb
-    have hi : i.val < 54 := i.isLt
-    exact absurd hb.2.2 (Nat.not_le.mpr (h (i.val / 3) (by omega)))
-  · intro h j hj
-    by_contra hc
-    apply h ⟨3 * j, by rw [chainCount_top]; omega⟩
-    refine ⟨by simp, by simp only; omega, ?_⟩
-    simp only
-    rw [show 3 * j / 3 = j by omega]
-    exact Nat.not_lt.mp hc
+  · rintro ⟨⟨hs, h6⟩, h5⟩
+    refine ⟨hs, fun i hi => (topGroupBad_eq_false_iff answer i.val).2 ⟨fun ⟨_, _, hv⟩ => ?_, fun ⟨he, _⟩ => by omega⟩⟩
+    unfold topGroupValid at hv
+    split_ifs at hv with hg
+    · rw [h6 _ hg] at hv; cases hv
+    · have h5' := h5 (i.val / 3) ⟨by omega, by omega⟩
+      simp only [decide_eq_false_iff_not] at hv
+      exact hv h5'
+  · rintro ⟨hs, h⟩
+    have hv : ∀ g, g < 17 → topGroupValid answer g = true := by
+      intro g hg
+      have hb := ((topGroupBad_eq_false_iff answer (3 * g)).1
+        (h ⟨3 * g, by rw [chainCount_top]; omega⟩ (by simp only; omega))).1
+      by_contra hc
+      exact hb ⟨by omega, by omega, by rw [show 3 * g / 3 = g by omega]; simpa using hc⟩
+    refine ⟨⟨hs, fun g hg => ?_⟩, fun q hq => ?_⟩
+    · simpa [topGroupValid, hg] using hv g (by omega)
+    · have := hv q (by omega)
+      simpa [topGroupValid, show ¬ q < 8 by omega] using this
+/-- Campaign R6: the top decoder accepts iff the spare bit is 0 and no check of the verifier's chain loop fires. -/
+theorem decode_top_isSome_iff (answer : Digest) :
+    (decode 0 answer).isSome = true ↔
+      topSpare answer = 0 ∧ ∀ i : Fin (chainCount 0), topGroupBad answer i.val = false := by
+  have hlt : answer.toNat < 2 ^ encodedBits 0 := answer.isLt
+  constructor
+  · intro h
+    obtain ⟨digits, hd⟩ := Option.isSome_iff_exists.mp h
+    obtain ⟨-, hr, ⟨hs, hc⟩, -⟩ := decode_top_some hd
+    obtain ⟨hsp, hg⟩ := (topRanksValid_iff_good answer).1 hr
+    refine ⟨hsp, fun i => ?_⟩
+    by_cases hi : i.val < 51
+    · exact hg i hi
+    · have hi51 : i.val = 51 := by have : i.val < 52 := i.isLt; omega
+      rw [topGroupBad_eq_false_iff]
+      refine ⟨fun ⟨_, h2, _⟩ => by omega, fun ⟨_, hk⟩ => ?_⟩
+      unfold topChecksumOk at hk
+      simp only [decide_eq_false_iff_not, not_and, not_lt] at hk
+      have := hk hs
+      omega
+  · rintro ⟨hsp, hg⟩
+    have hr : topRanksValid answer = true := (topRanksValid_iff_good answer).2 ⟨hsp, fun i _ => hg i⟩
+    have hk := ((topGroupBad_eq_false_iff answer 51).1 (hg ⟨51, by rw [chainCount_top]; omega⟩)).2
+    have hk' : topChecksumOk answer = true := by
+      by_contra hc
+      exact hk ⟨rfl, by simpa using hc⟩
+    unfold topChecksumOk at hk'
+    simp only [decide_eq_true_eq] at hk'
+    rw [decode_top_of hlt hr hk'.1 hk'.2]
+    rfl
+/-- Campaign R6: the digit the verifier runs on top chain `i` is the decoded digit `i` (checksum included). -/
+theorem topRunDigit_of_decode {answer : Digest} {digits : List Nat} (h : decode 0 answer = some digits) (i : Nat)
+    (hi : i < 52) : topRunDigit answer i = digits.getD i 0 := by
+  obtain ⟨-, -, -, rfl⟩ := decode_top_some h
+  have hl := dataDigits_top_length answer
+  unfold topRunDigit
+  split_ifs with h51
+  · rw [List.getD_append _ _ _ _ (by omega)]
+  · have : i = 51 := by omega
+    subst this
+    rw [List.getD_append_right _ _ _ _ (by omega), hl]
+    rfl
 section Loop
 variable (run : Fin (chainCount 0) → Nat → M Digest) (answer : Digest)
 theorem topDecodeStep_none (i : Fin (chainCount 0)) : topDecodeStep run answer none i = pure none := rfl
@@ -174,7 +243,7 @@ theorem topDecodeStep_bad (ends : List Digest) (i : Fin (chainCount 0)) (h : top
   simp only [topDecodeStep, h, ↓reduceIte]
 theorem topDecodeStep_good (ends : List Digest) (i : Fin (chainCount 0)) (h : topGroupBad answer i.val = false) :
     topDecodeStep run answer (some ends) i =
-      (fun value => some (ends ++ [value])) <$> run i ((dataDigits 0 answer).getD i.val 0) := by
+      (fun value => some (ends ++ [value])) <$> run i (topRunDigit answer i.val) := by
   simp only [topDecodeStep, h, Bool.false_eq_true, ↓reduceIte, map_eq_bind_pure_comp]
   rfl
 theorem foldlM_topDecodeStep_none :
@@ -185,7 +254,7 @@ theorem foldlM_topDecodeStep_none :
 theorem foldlM_topDecodeStep_good :
     ∀ (L : List (Fin (chainCount 0))) (acc : List Digest), (∀ i ∈ L, topGroupBad answer i.val = false) →
       L.foldlM (topDecodeStep run answer) (some acc) =
-        (fun ends => some (acc ++ ends)) <$> L.mapM (fun i => run i ((dataDigits 0 answer).getD i.val 0))
+        (fun ends => some (acc ++ ends)) <$> L.mapM (fun i => run i (topRunDigit answer i.val))
   | [], acc, _ => by simp
   | i :: L, acc, h => by
       rw [List.foldlM_cons, List.mapM_cons, topDecodeStep_good run answer acc i (h i List.mem_cons_self),
@@ -227,17 +296,24 @@ theorem topDecodeRun_of_decode {run : Fin (chainCount 0) → Nat → M Digest} {
     {answer : Digest} {digits : List Nat} (h : decode 0 answer = some digits) :
     topDecodeRun run finish answer =
       some <$> ((List.finRange (chainCount 0)).mapM (fun i => run i (digits.getD i.val 0)) >>= finish) := by
-  obtain ⟨hg, hr, hs, rfl⟩ := decode_top_some h
+  have hsome : (decode 0 answer).isSome = true := by rw [h]; rfl
+  obtain ⟨hsp, hgood⟩ := (decode_top_isSome_iff answer).1 hsome
+  have hfun : (fun i : Fin (chainCount 0) => run i (topRunDigit answer i.val)) =
+      fun i => run i (digits.getD i.val 0) := by
+    funext i
+    rw [topRunDigit_of_decode h i.val i.isLt]
   unfold topDecodeRun
-  rw [if_neg (by omega), foldlM_topDecodeStep_good run answer _ []
-    (fun i _ => (topRanksValid_iff_good answer).1 hr i), bind_map_left, map_bind]
-  simp only [List.nil_append, hs, ne_eq, not_true_eq_false, ↓reduceIte]
+  rw [if_neg (by have := answer.isLt; simp only [encodedBits]; omega), if_neg (by simpa using hsp),
+    foldlM_topDecodeStep_good run answer _ [] (fun i _ => hgood i), bind_map_left, map_bind, hfun]
+  simp only [List.nil_append]
+/-- Campaign R6: chains run before a top rejection (none when the spare bit is set). -/
 def topRejectLength (answer : Digest) : Nat :=
   if answer.toNat ≥ 2 ^ encodedBits 0 then 0
+  else if topSpare answer ≠ 0 then 0
   else (List.finRange (chainCount 0)).findIdx fun i => topGroupBad answer i.val
 def topRejectChains (run : Fin (chainCount 0) → Nat → M Digest) (answer : Digest) : M (List Digest) :=
   ((List.finRange (chainCount 0)).take (topRejectLength answer)).mapM
-    fun i => run i ((dataDigits 0 answer).getD i.val 0)
+    fun i => run i (topRunDigit answer i.val)
 theorem topDecodeRun_of_decode_none {run : Fin (chainCount 0) → Nat → M Digest}
     {finish : List Digest → M Digest} {answer : Digest} (h : decode 0 answer = none) :
     topDecodeRun run finish answer = (fun _ => none) <$> topRejectChains run answer := by
@@ -246,6 +322,10 @@ theorem topDecodeRun_of_decode_none {run : Fin (chainCount 0) → Nat → M Dige
   · rw [if_pos hg, if_pos hg]
     simp
   rw [if_neg hg, if_neg hg]
+  by_cases hsp : topSpare answer ≠ 0
+  · rw [if_pos hsp, if_pos hsp]
+    simp
+  rw [if_neg hsp, if_neg hsp]
   generalize hL : List.finRange (chainCount 0) = L
   generalize hk : L.findIdx (fun i => topGroupBad answer i.val) = k
   have hgood : ∀ i ∈ L.take k, topGroupBad answer i.val = false := by
@@ -265,17 +345,15 @@ theorem topDecodeRun_of_decode_none {run : Fin (chainCount 0) → Nat → M Dige
     rw [List.drop_eq_getElem_cons hlt, List.foldlM_cons, topDecodeStep_bad run answer _ _ hbad, pure_bind,
       foldlM_topDecodeStep_none, pure_bind]
     rfl
-  · have hkL : k = L.length := le_antisymm (hk ▸ List.findIdx_le_length) (by omega)
+  · exfalso
+    have hkL : k = L.length := le_antisymm (hk ▸ List.findIdx_le_length) (by omega)
     have hall : ∀ i : Fin (chainCount 0), topGroupBad answer i.val = false := by
       intro i
       have := List.findIdx_eq_length.mp (hk.trans hkL)
       exact this i (hL ▸ List.mem_finRange i)
-    have hr := (topRanksValid_iff_good answer).2 hall
-    have hs : (dataDigits 0 answer).sum ≠ target 0 := fun hs => by
-      rw [decode_top_of (by omega) hr hs] at h
-      cases h
-    rw [show L.drop k = [] by rw [hkL]; exact List.drop_length]
-    simp [hs]
+    have hs := (decode_top_isSome_iff answer).2 ⟨by simpa using hsp, hall⟩
+    rw [h] at hs
+    cases hs
 theorem eval_topDecodeRun_none (answers : QueryImpl Spec Id) {run : Fin (chainCount 0) → Nat → M Digest}
     {finish : List Digest → M Digest} {answer : Digest} (h : decode 0 answer = none) :
     evalWithAnswerFn answers (topDecodeRun run finish answer) = none := by
@@ -290,41 +368,34 @@ theorem decode_of_eval_topDecodeRun (answers : QueryImpl Spec Id) {run : Fin (ch
   | some digits => exact ⟨digits, rfl⟩
 theorem topRejectLength_le (answer : Digest) : topRejectLength answer ≤ chainCount 0 := by
   unfold topRejectLength
-  split
+  split_ifs
+  · exact Nat.zero_le _
   · exact Nat.zero_le _
   · exact List.findIdx_le_length.trans (le_of_eq List.length_finRange)
-theorem dataDigits_top_getD (answer : Digest) {i : Nat} (hi : i < 54) :
+theorem dataDigits_top_getD (answer : Digest) {i : Nat} (hi : i < 51) :
     (dataDigits 0 answer).getD i 0 = coreDigit 0 answer i := by
   simp [dataDigits, dataCount, List.getD_eq_getElem?_getD, hi]
+/-- Campaign R6: the canonical top credit of a decoded word is the legacy `topCredit` (every chain one below its
+maximum, the checksum included). -/
 theorem wordCredit_top {answer : Digest} {digits : List Nat} (h : decode 0 answer = some digits) :
     wordCredit 0 digits = topCredit answer := by
   obtain ⟨-, -, -, rfl⟩ := decode_top_some h
   unfold wordCredit topCredit
-  have key : ∀ L : List Nat, (∀ i ∈ L, i < 54) →
-      (L.filter fun i => (dataDigits 0 answer).getD i 0 + 1 = maxDigit 0 i).length =
-        (L.map fun i => if coreDigit 0 answer i = (if i < 51 then 3 else 6) then 1 else 0).sum := by
-    intro L hL
+  rw [chainCount_top]
+  generalize dataDigits 0 answer ++ [target 0 - (dataDigits 0 answer).sum] = ds
+  have key : ∀ L : List Nat, (L.filter fun i => ds.getD i 0 + 1 = maxDigit 0 i).length =
+      (L.map fun i => if ds.getD i 0 + 1 = maxDigit 0 i then 1 else 0).sum := by
+    intro L
     induction L with
     | nil => rfl
     | cons i L ih =>
-        have hi := hL i List.mem_cons_self
-        rw [List.filter_cons, List.map_cons, List.sum_cons, dataDigits_top_getD answer hi,
-          ← ih (fun j hj => hL j (List.mem_cons_of_mem _ hj))]
-        have hm : maxDigit 0 i = if i < 51 then 4 else 7 := rfl
-        by_cases hc : coreDigit 0 answer i = (if i < 51 then 3 else 6)
-        · have hp : (decide (coreDigit 0 answer i + 1 = maxDigit 0 i)) = true := by
-            rw [decide_eq_true_eq, hm, hc]; split <;> rfl
-          rw [if_pos hp, if_pos hc, List.length_cons]
+        by_cases hc : ds.getD i 0 + 1 = maxDigit 0 i
+        · rw [List.filter_cons_of_pos (by simpa using hc), List.length_cons, List.map_cons, List.sum_cons, if_pos hc,
+            ih]
           omega
-        · have hp : (decide (coreDigit 0 answer i + 1 = maxDigit 0 i)) = false := by
-            rw [decide_eq_false_iff_not, hm]
-            intro he
-            apply hc
-            split at he <;> split <;> omega
-          rw [if_neg (by simp [hp]), if_neg hc]
+        · rw [List.filter_cons_of_neg (by simpa using hc), List.map_cons, List.sum_cons, if_neg hc, ih]
           omega
-  rw [chainCount_top]
-  exact key _ (fun i hi => List.mem_range.mp hi)
+  exact key _
 theorem verifyTop_of_decode (sig : WCT9.Signature) (index : Nat) {answer : Digest} {digits : List Nat}
     (h : decode 0 answer = some digits) :
     verifyTop sig index answer = some <$> recoverLayer (toT3Signature sig) index 0 digits := by

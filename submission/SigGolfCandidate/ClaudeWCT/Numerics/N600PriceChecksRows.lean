@@ -1,8 +1,25 @@
-import SigGolfCandidate.ClaudeWCT.W9.T3.FullCache.NativeBudgetB1.ProducerDecodeV5
-import SigGolfCandidate.ClaudeWCT.WCT9.Core
+import SigGolfCandidate.ClaudeWCT.WCT9.Codebook
 import SigGolfCandidate.ClaudeWCT.Numerics.CoverageHistogramWork
 import SigGolfCandidate.ClaudeWCT.Numerics.N600Data
 import SigGolfCandidate.ClaudeWCT.Numerics.Kernel
+-- R6 hygiene: the external (Mathlib/VCVio/RiscvZkvm) imports that used to arrive through ProducerDecodeV5 / WCT9.Core
+import Mathlib.Algebra.Field.ZMod
+import Mathlib.Algebra.Polynomial.Degree.Operations
+import Mathlib.Algebra.Polynomial.Roots
+import Mathlib.Analysis.Complex.ExponentialBounds
+import Mathlib.Analysis.SpecialFunctions.Pow.Real
+import Mathlib.Data.FinEnum
+import Mathlib.Data.Nat.Choose.Basic
+import Mathlib.Data.Nat.ModEq
+import Mathlib.NumberTheory.LucasLehmer
+import Mathlib.Tactic.FinCases
+import Mathlib.Tactic.NormNum
+import RiscvZkvm.Interpreter.Decode
+import RiscvZkvm.Rv64.Execution
+import VCVio.EvalDist.BitVec
+import VCVio.EvalDist.Bool
+import VCVio.EvalDist.Expectation
+import VCVio.OracleComp.QueryTracking.QueryBound.Basic
 
 -- Keep the independent kernel certificates sequential to bound peak memory.
 set_option Elab.async false
@@ -1866,17 +1883,6 @@ def winsorRowDots (r : Nat) : Nat × Nat :=
     let missed := xNum r ^ 9 - v.1
     (v.2.1 + 3000 * winsorScale * missed, v.2.2 + winsorScale * missed)
   else (3000 * winsorScale * xNum r ^ 9, winsorScale * xNum r ^ 9)
-def winsorRowBounds (r : Nat) : Nat × Nat :=
-  let dots := winsorRowDots r
-  let num := 1353 * 2^24 * 13533529 * LN^r
-  let den := 100000000 * LD^r * fact r * Q^(9*r)
-  (winsorCeil (num * dots.1) den, winsorCeil (num * dots.2) den)
-def winsorTailBound : Nat := winsorCeil (winsorScale * A * LN^81) (LD^81 * fact 81)
-def winsorBounds : Nat × Nat :=
-  (List.range 81).foldr (fun r p =>
-    let b := winsorRowBounds r
-    (b.1 + p.1, b.2 + p.2)) (3000*winsorTailBound,winsorTailBound)
-def winsorCheck : Bool := winsorBounds.1 ≤ 8*winsorScale && 5000*winsorBounds.2 ≤ winsorScale
 end ClaudeWCT.Numerics.N600
 
 namespace ClaudeWCT.Numerics.N600
@@ -2023,7 +2029,6 @@ def row (r : Nat) : Nat × Nat :=
 
 theorem row_eq (r : Nat) : row r = winsorRowDots r := by
   simp only [row, bins_eq, sums_eq, winsorRowDots, coverageProductLinear]
-
 
 
 end StreamCheck

@@ -1,12 +1,12 @@
 import SigGolfCandidate.ClaudeWCT.W9.New.Machine.Expand.CompactLoop
 import SigGolfCandidate.ClaudeWCT.W9.New.Machine.Expand.LayoutCode
 
-/-! # Pairing stage 1: the leaf / digest layout block (expand words 48100 .. 49225)
+/-! # Pairing stage 1: the leaf / digest layout block (expand words 48100 .. 49213)
 
 Entered by `43953: jal 48100` (after `43472..43476`), it copies the staged rho / digest counter (32 bytes at 23008) to
-the witness tail at 26112, clears `[23008, 26112)` (388 words), then fills the four leaf buffers: 183 chunks
+the witness tail at 26112, clears `[23008, 26112)` (388 words), then fills the four leaf buffers: 181 chunks
 `lui a0; addi a0,S; ld t1,0(a0); sd t1,X(a1); ld t1,8(a0); sd t1,X+8(a1)`, each group preceded by `li a1,D`
-(D = 23008 / 23744 / 24480 / 25232), and returns with `jal 43500`. Sources `S` (chain values in the final paired
+(D = 23008 / 23744 / 24480 / 25264), and returns with `jal 43500`. Sources `S` (chain values in the final paired
 layout) lie below 23008. -/
 
 namespace ClaudeWCT.W9.Machine.Expand.Layout
@@ -21,21 +21,21 @@ def chunkRes (S X p : Nat) : Result :=
     [.valid ⟨some (.reg .x11), BitVec.ofNat 64 (X + 8)⟩ 8, .ne ⟨none, BitVec.ofNat 64 (S + 8)⟩
       ⟨some (.reg .x11), BitVec.ofNat 64 X⟩, .valid ⟨some (.reg .x11), BitVec.ofNat 64 X⟩ 8]⟩,
     .c (pcOf (p + 6)), .endOfCode, 6, 6⟩
-theorem run_chunk (k : Nat) (hk : k < 183) :
+theorem run_chunk (k : Nat) (hk : k < 181) :
     symRun cfgC (lbCodes.getD k []) (pcOf (pcK k)) 40 = some (chunkRes (sK k) (xK k) (pcK k)) := by
   interval_cases k <;> kernel_rfl
 def headRes (D p : Nat) : Result := ⟨⟨RegFile.init.set .x11 (.c (BitVec.ofNat 64 D)), [], []⟩, .c (pcOf (p + 2)),
   .endOfCode, 2, 2⟩
 theorem run_head (g : Nat) (hg : g < 4) :
     symRun cfgC (lbHeadCodes.getD g []) (pcOf (lbHeadPc.getD g 0)) 40 =
-      some (headRes ([23008, 23744, 24480, 25232].getD g 0) (lbHeadPc.getD g 0)) := by
+      some (headRes ([23008, 23744, 24480, 25264].getD g 0) (lbHeadPc.getD g 0)) := by
   interval_cases g <;> kernel_rfl
 sym_block RTop := symRun cfgC cTop (pcOf 48100) 40
 sym_block RClr0 := symRun cfgC cClr0 (pcOf 48112) 40
 sym_block RClrL := symRun cfgC cClrL (pcOf 48116) 40
-sym_block RRet := symRun cfgC cRet (pcOf 49225) 40
+sym_block RRet := symRun cfgC cRet (pcOf 49213) 40
 
-theorem slot_mono : ∀ k j, k < j → j < 183 → slotK k + 16 ≤ slotK j := by
+theorem slot_mono : ∀ k j, k < j → j < 181 → slotK k + 16 ≤ slotK j := by
   intro k j hkj hj
   induction j with
   | zero => omega
@@ -54,8 +54,8 @@ def itMem (M : Nat → Word) (j A : Nat) : Word :=
   else if 23008 ≤ A ∧ A < 26112 ∧ A % 8 = 0 then hitVal M j A
   else M A
 /-- The memory after the whole layout block. -/
-def lbMem (M : Nat → Word) (A : Nat) : Word := itMem M 183 A
-theorem hitVal_succ (M : Nat → Word) (j A : Nat) (hj : j < 183) :
+def lbMem (M : Nat → Word) (A : Nat) : Word := itMem M 181 A
+theorem hitVal_succ (M : Nat → Word) (j A : Nat) (hj : j < 181) :
     hitVal M (j + 1) A = if slotK j ≤ A ∧ A < slotK j + 16 then M (sK j + (A - slotK j)) else hitVal M j A := by
   unfold hitVal
   rw [List.range_succ, List.find?_append]
@@ -84,11 +84,11 @@ theorem itMem_zero (M : Nat → Word) (A : Nat) : clrM M 388 A = itMem M 0 A := 
 def itemsLen (j : Nat) : Nat := ((List.range j).map itemLen).sum
 theorem itemsLen_succ (j : Nat) : itemsLen (j + 1) = itemsLen j + itemLen j := by
   unfold itemsLen; rw [List.range_succ, List.map_append, List.sum_append]; simp
-theorem itemsLen_all : itemsLen 183 = 1106 := by decide
+theorem itemsLen_all : itemsLen 181 = 1094 := by decide
 section
 variable {im : Image} (hc : Code im)
 include hc
-theorem item_spec (k : Nat) (hk : k < 183) (M : Nat → Word) (s : MachineState) (hpc : s.pc = pcOf (itemPc k))
+theorem item_spec (k : Nat) (hk : k < 181) (M : Nat → Word) (s : MachineState) (hpc : s.pc = pcOf (itemPc k))
     (h11 : hdK k = false → s.getReg .x11 = BitVec.ofNat 64 (dK k))
     (hm : ∀ A < 2 ^ 64, s.getMem (BitVec.ofNat 64 A) = itMem M k A) :
     ∃ t, Steps im s (itemLen k) (itemLen k) t ∧ t.pc = pcOf (pcK k + 6) ∧
@@ -99,9 +99,9 @@ theorem item_spec (k : Nat) (hk : k < 183) (M : Nat → Word) (s : MachineState)
   have hsl := slot_mono 0 k
   have hsl0 := tab_facts.2.2.2.2.2.2.1
   have hslE : slotK k + 16 ≤ 26112 := by
-    by_cases h : k = 182
+    by_cases h : k = 180
     · subst h; exact tab_facts.2.2.2.2.2.2.2.1
-    · have := slot_mono k 182 (by omega) (by omega); have := tab_facts.2.2.2.2.2.2.2.1; omega
+    · have := slot_mono k 180 (by omega) (by omega); have := tab_facts.2.2.2.2.2.2.2.1; omega
   -- reach the chunk with x11 = dK k
   obtain ⟨u, su, pu, u11, ru, fu, hlen⟩ : ∃ u, Steps im s (itemLen k - 6) (itemLen k - 6) u ∧ u.pc = pcOf (pcK k) ∧
       u.getReg .x11 = BitVec.ofNat 64 (dK k) ∧ RegsExcept s u [.x11] ∧ Frame s u (fun _ => False) ∧
@@ -111,7 +111,7 @@ theorem item_spec (k : Nat) (hk : k < 183) (M : Nat → Word) (s : MachineState)
         RegsExcept.refl _ _, Frame.refl _ _, by simp [itemLen, hh]⟩
     · have hg : grpK k < 4 := by unfold grpK; split_ifs <;> omega
       have hpcg := tab_facts.2.2.2.1 k hk hh
-      have hD : [23008, 23744, 24480, 25232].getD (grpK k) 0 = dK k := by
+      have hD : [23008, 23744, 24480, 25264].getD (grpK k) 0 = dK k := by
         unfold hdK at hh; simp only [Bool.or_eq_true, beq_iff_eq] at hh
         rcases hh with ((h | h) | h) | h <;> subst h <;> decide
       have hrun := run_head (grpK k) hg
@@ -246,9 +246,9 @@ theorem clr_loop (s : MachineState) (hpc : s.pc = pcOf 48116) (M : Nat → Word)
       · rw [if_neg h1, if_neg (by omega)]
 theorem items_loop (M : Nat → Word) (s : MachineState) (hpc : s.pc = pcOf 48119)
     (hm : ∀ A < 2 ^ 64, s.getMem (BitVec.ofNat 64 A) = itMem M 0 A) :
-    ∀ j, j ≤ 183 → ∃ t, Steps im s (itemsLen j) (itemsLen j) t ∧
-      t.pc = pcOf (if j < 183 then itemPc j else 49225) ∧
-      (0 < j → j < 183 → hdK j = false → t.getReg .x11 = BitVec.ofNat 64 (dK j)) ∧
+    ∀ j, j ≤ 181 → ∃ t, Steps im s (itemsLen j) (itemsLen j) t ∧
+      t.pc = pcOf (if j < 181 then itemPc j else 49213) ∧
+      (0 < j → j < 181 → hdK j = false → t.getReg .x11 = BitVec.ofNat 64 (dK j)) ∧
       ∀ A < 2 ^ 64, t.getMem (BitVec.ofNat 64 A) = itMem M j A := by
   intro j
   induction j with
@@ -261,17 +261,17 @@ theorem items_loop (M : Nat → Word) (s : MachineState) (hpc : s.pc = pcOf 4811
     obtain ⟨u, su, pu, u11, ru, mu⟩ := item_spec hc j (by omega) M t pt
       (fun hh => t11 (tab_facts.2.2.2.2.1 j (by omega) hh).1 (by omega) hh) mt
     refine ⟨u, (st.trans su).of_eq (itemsLen_succ j).symm (itemsLen_succ j).symm, ?_, ?_, mu⟩
-    · by_cases hj' : j + 1 < 183
+    · by_cases hj' : j + 1 < 181
       · rcases (tab_facts.1 j (by omega)) with h | h
         · rw [pu, h, if_pos hj']
         · omega
-      · have : j = 182 := by omega
+      · have : j = 180 := by omega
         subst this; rw [pu, if_neg (by omega), tab_facts.2.1]
     · intro _ hj' hh
       rw [u11, (tab_facts.2.2.2.2.1 (j + 1) hj' hh).2, Nat.add_sub_cancel]
-/-- Pairing stage 1: the whole layout block, 48100 -> 43500 in 2287 steps. -/
+/-- Pairing stage 1: the whole layout block, 48100 -> 43500 in 2275 steps. -/
 theorem layout_spec (s : MachineState) (hpc : s.pc = pcOf 48100) :
-    ∃ t, Steps im s 2287 2287 t ∧ t.pc = pcOf 43500 ∧
+    ∃ t, Steps im s 2275 2275 t ∧ t.pc = pcOf 43500 ∧
       ∀ A < 2 ^ 64, t.getMem (BitVec.ofNat 64 A) = lbMem (fun B => s.getMem (BitVec.ofNat 64 B)) A := by
   have hM : MEMORY_BYTES = 16777216 := rfl
   obtain ⟨t1, s1, p1, m1⟩ := top_spec hc s hpc
@@ -286,7 +286,7 @@ theorem layout_spec (s : MachineState) (hpc : s.pc = pcOf 48100) :
   obtain ⟨t3, s3, p3, _, _, _, m3⟩ := clr_loop hc t2 p2 _ x10 x11 (fun A hA => by rw [f2 A hA, m1 A hA]) 388
     (by omega) le_rfl
   rw [if_neg (by omega)] at p3
-  obtain ⟨t4, s4, p4, _, m4⟩ := items_loop hc _ t3 p3 (fun A hA => by rw [m3 A hA, itMem_zero]) 183 le_rfl
+  obtain ⟨t4, s4, p4, _, m4⟩ := items_loop hc _ t3 p3 (fun A hA => by rw [m3 A hA, itMem_zero]) 181 le_rfl
   rw [if_neg (by omega)] at p4
   refine ⟨_, ((((s1.trans s2).trans s3).trans s4).trans (symRun_sound RRet hc.ret t4 p4
     (by simp [RRet.res, rv_simp]))).of_eq (by rw [itemsLen_all]; simp [RRet.res]) (by rw [itemsLen_all]; simp [RRet.res]),

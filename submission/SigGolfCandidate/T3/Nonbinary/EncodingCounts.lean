@@ -1,4 +1,5 @@
 import SigGolfCandidate.T3.Gate6.DigestCounting
+import SigGolfCandidate.T3.Nonbinary.CreditFilter
 
 noncomputable section
 namespace SigGolfCandidate.T3.EncodingCounting
@@ -215,8 +216,10 @@ def acceptedDigestEquiv (lay : Layer) (hl : lay≠0) :
     apply Subtype.ext
     apply Fin.ext
     exact packWord_word lay hl _
+/-- Words accepted by `searchDecode`: top = the R6 legacy credited count (`R6Credit.count`, checksum window and credit at
+least 7); lower layers unchanged. -/
 def acceptedCount (lay : Layer) : Nat :=
-  ![67567856205106535693258756678239530,
+  ![70924784661680998479659805406180633,
     58782472808233403853217196834292020,
     46428947739236900406585478288441112,
     46428947739236900406585478288441112] lay
@@ -225,7 +228,7 @@ theorem decoder_acceptance_count (lay : Layer) :
   classical
   by_cases hl : lay=0
   · subst lay
-    simpa [acceptedCount,SigGolfResearch.NonbinaryTop.CreditCounting.count] using
+    simpa [acceptedCount,SigGolfResearch.NonbinaryTop.R6Credit.count] using
       Nonbinary.searchDecode_top_count
   · simp_rw [Nonbinary.searchDecode_lower hl]
     rw [Fintype.card_congr (acceptedDigestEquiv lay hl),accepted_words_count]
