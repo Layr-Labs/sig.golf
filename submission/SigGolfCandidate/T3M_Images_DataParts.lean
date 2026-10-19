@@ -1,0 +1,5 @@
+import SigGolfCandidate.T3M_Images_DataPartsSign
+import SigGolfCandidate.T3M_Images_DataPartsExpand
+import SigGolfCandidate.T3M_Images_DataPartsVerify
+set_option Elab.async false
+
