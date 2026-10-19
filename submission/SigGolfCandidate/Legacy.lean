@@ -1,4 +1,5 @@
-import SigGolfCandidate.Legacy.Security
+import SigGolfCandidate.Legacy_Security
+set_option Elab.async false
 
 section
 namespace SigGolfCandidate.Legacy

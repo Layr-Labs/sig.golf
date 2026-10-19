@@ -1,0 +1,19 @@
+import SigGolfCandidate.SphincsSecurity_Proof_Scheme_Cached
+set_option Elab.async false
+
+namespace SphincsSecurity.Concrete
+open OracleComp OracleSpec
+theorem CachedRun.messageDigest_cached {f : QueryImpl HashSpec Id}
+    {cache : QueryCache HashSpec} {parameter : PublicParameter} {root : Digest}
+    {message : Message} {randomness : Randomness}
+    (hrun : CachedRun cache f (messageDigest parameter root message randomness)) :
+    cache (tweakableHashInput parameter .message
+      (messageDigestPayload root message randomness)) ≠ none := by
+  apply hrun
+  rw [messageDigest]
+  apply queriedInputs_mono_bind_left
+  change tweakableHashInput parameter .message
+      (messageDigestPayload root message randomness) ∈
+    [tweakableHashInput parameter .message (messageDigestPayload root message randomness)]
+  simp
+end SphincsSecurity.Concrete
