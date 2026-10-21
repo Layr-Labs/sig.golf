@@ -540,7 +540,7 @@ theorem sign_eq (P : Pending I) (sk : SecretKey) (cache : Bytes 131072) (m : Mes
   rw [mrealize_eq_relabel] at h
   exact h
 set_option maxRecDepth 100000 in
-theorem expand_eq (P : Pending I) (m : Message) (pk : PublicKey) (s : Bytes 5239) :
+theorem expand_eq (P : Pending I) (m : Message) (pk : PublicKey) (s : Bytes 5195) :
     (fun r => (r.value, r.hashCalls)) <$> (submission I).run .expand (m, pk, s) =
       SigGolfCandidate.Bridge.countCalls (relabel toQ (hrealize 0 (expandB m pk (sigDecC s)))) := by
   have h := calls_of_counts

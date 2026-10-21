@@ -18,21 +18,24 @@ abbrev Coordinate := BitVec 128 ⊕ (Message ⊕ Region)
 abbrev Spec := SphincsSecurity.OracleWorld + (Coordinate →ₒ HashOutput)
 abbrev M := OracleComp Spec
 def height (lay : Layer) : Nat := ![12, 7, 6, 6] lay
-def chainCount (lay : Layer) : Nat := ![54, 43, 43, 43] lay
-def dataCount (lay : Layer) : Nat := if lay = 0 then 54 else 42
-/-- Bits per chain digit. Campaign T8D (TOP2 NF17): every chain, top included, has at most 8 positions, so 3. -/
+/-- Campaign T51: the top WOTS has 51 chains (27 radix-6, 21 radix-5, an r7 pair, a radix-6 checksum). -/
+def chainCount (lay : Layer) : Nat := ![51, 43, 43, 43] lay
+/-- Data digits read from the encoding word; the last chain of every layer is a checksum (T51: top chain 50). -/
+def dataCount (lay : Layer) : Nat := if lay = 0 then 50 else 42
+/-- Bits per chain digit: every chain, top included, has at most 8 positions, so 3. -/
 def width (_lay : Layer) (_i : Nat) : Nat := 3
-/-- Largest digit of chain `i`. Campaign T8D (TOP2 NF17): the top WOTS has 51 radix-5 chains and 3 radix-8 chains
-(51..53); every lower chain is radix 8. -/
+/-- Largest digit of chain `i`. Campaign T51: top chains 0..26 are radix 6 (9 triples g0..g8), 27..47 radix 5
+(#938's r5 groups q9..q15), 48 and 49 radix 7 (the r7 pair), chain 50 the radix-6 checksum; every lower chain is
+radix 8. -/
 def maxDigit (lay : Layer) (i : Nat) : Nat :=
-  if lay = 0 then (if i < 51 then 4 else 7) else 7
-/-- Digit-sum targets: top 146 (NF17, configuration (1)+(2): restricted top choice), lower layers 201/202/202. -/
-def target (lay : Layer) : Nat := ![146, 201, 202, 202] lay
-/-- Encoding values are below `2 ^ encodedBits lay`. Campaign T8D: the top encoding uses all 128 bits (the radix-8
-digits of chains 51/52 sit in bits 122..127), so there is no range bound on any layer. -/
+  if lay = 0 then (if i < 27 then 5 else if i < 48 then 4 else if i < 50 then 6 else 5) else 7
+/-- Digit-sum targets: top 152 (T51, restricted top choice), lower layers 201/202/202. -/
+def target (lay : Layer) : Nat := ![152, 201, 202, 202] lay
+/-- Encoding values are below `2 ^ encodedBits lay`: no range bound on any layer. The T51 top word uses all 128 bits
+(its fields partition bits 0..127; no spare bit). -/
 def encodedBits (_lay : Layer) : Nat := 128
-/-- Sum of the largest digits of a layer: top 51·4 + 3·7 = 225, lower 43·7 = 301. -/
-def capacity (lay : Layer) : Nat := if lay = 0 then 225 else 301
+/-- Sum of the largest digits of a layer: top 27·5 + 21·4 + 2·6 + 5 = 236, lower 43·7 = 301. -/
+def capacity (lay : Layer) : Nat := if lay = 0 then 236 else 301
 def attemptLimit : Nat := 2 ^ 20
 def counterLimit : Nat := 2 ^ 22
 def coordinates : Nat := 7
@@ -195,8 +198,10 @@ def nodeTweak (tag lay tree heap : Nat) : BitVec 128 :=
     (if 8 ≤ heap ∧ heap < 128 then 0#64 ++ ftsNodeWordH (lay - 4) tree heap
      else BitVec.ofNat 64 heap ++ ftsNodeWord (lay - 4) tree)
   else header tag lay tree 0 heap
+/-- Leaf input. Campaign T51 ("endpad"): the top leaf is `end_0 | tweak | end_1..end_50` (832 bytes, 13 blocks), the
+same shape as a lower leaf (#938: `0^16 | tweak | end_0..end_53`, 896 bytes). -/
 def leafInput (lay : Layer) (tree leaf : Nat) (ends : List Digest) : HashInput :=
-  if lay = 0 then zero16 ++ bytesLE 16 (leafTweak lay tree leaf) ++ ends.flatMap (bytesLE 16)
+  if lay = 0 then bytesLE 16 (ends.getD 0 0) ++ bytesLE 16 (leafTweak lay tree leaf) ++ (ends.drop 1).flatMap (bytesLE 16)
   else bytesLE 16 (ends.getD 0 0) ++ bytesLE 16 (leafTweak lay tree leaf) ++ (ends.drop 1).flatMap (bytesLE 16)
 /-- Leaf hash. C4: a top leaf of even index keeps the high half (`leafHalfHigh`). -/
 def leafHash (lay : Layer) (tree leaf : Nat) (ends : List Digest) : M Digest :=
@@ -234,14 +239,15 @@ Every top node at height `h ∈ 1..11` (level `h` of `buildTopLevels`; heap `2^(
 `n < topNonceCap h` of `topNodeHashN heap n left right` whose zero bits (`topZeroOk h`) are clear; if no trial
 passes, the last one (`n = topNonceCap h - 1`) is kept. The nonce is the 64-bit counter at bytes 32..39 of the node
 input (bytes 40..47 stay 0); `n = 0` gives the old zero pad. Zero bits: the top `topZeroBits h` bits of the 128-bit
-node value for `h ≤ 10`, bits 98..108 for `h = 11` (img-v6; high-word mask 0x7FF << 34). The root (height 12) has no nonce. -/
-/-- img-v6: `b_h = h` (66 bits; img-final/v4 had [0,2,2,3,4,5,6,7,8,8,8,8] = 61). -/
-def topZeroAlloc : List Nat := [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
+node value for `h ≤ 10`, bits 104..111 for `h = 11` (T51; #938: bits 98..108). The root (height 12) has no nonce.
+A height with `b_h = 0` passes its first trial (nonce 0). -/
+/-- Campaign T51: `b_1..b_11 = 0,0,1,1,2,3,4,5,6,7,8` (37 bits; #938 img-v6 had `b_h = h`, 66 bits). -/
+def topZeroAlloc : List Nat := [0, 0, 0, 1, 1, 2, 3, 4, 5, 6, 7, 8]
 def topZeroBits (h : Nat) : Nat := topZeroAlloc.getD h 0
 /-- Trial cap `104 << b`. -/
 def topNonceCap (h : Nat) : Nat := 104 * 2 ^ topZeroBits h
 def topZeroOk (h : Nat) (value : Digest) : Bool :=
-  if h = 11 then value.toNat / 2 ^ 98 % 2 ^ 11 == 0 else value.toNat / 2 ^ (128 - topZeroBits h) == 0
+  if h = 11 then value.toNat / 2 ^ 104 % 2 ^ 8 == 0 else value.toNat / 2 ^ (128 - topZeroBits h) == 0
 def nonceBytes (n : Nat) : HashInput := bytesLE 16 (BitVec.ofNat 128 (n % 2 ^ 64))
 def topNodeInput (heap n : Nat) (left right : Digest) : HashInput :=
   bytesLE 16 left ++ bytesLE 16 (nodeTweak 3 0 0 heap) ++ nonceBytes n ++ bytesLE 16 right
@@ -266,21 +272,21 @@ def buildTopLevels (leaves : List Digest) : M (List (List Digest)) :=
   (List.range' 1 12).foldlM (fun levels level => do
     let nodes ← buildTopLevel level (levels.getD (level-1) [])
     pure (levels ++ [nodes])) [leaves]
-/-! ### Top WOTS seed families (img-v6: families of 4 leaves, 39 coefficients, carry-packed)
-Top leaf `leaf` belongs to the family `f = leaf / 4`, whose 39 GF(2^128) coefficients are the ordinals
-`topCoefOrdinal leaf j = 39 f + j` (`j < 39`); ordinal `o` is half `o % 2` (low half first) of the private pair
-`topSeedPair (o / 2)` = `privatePair 0 0 0 (o / 2) 0` (= `WCT9.lowerSeedPair 0 0 (o / 2)`). 39 is odd, so an odd
+/-! ### Top WOTS seed families (families of 4 leaves, carry-packed; T51: 31 coefficients, #938 img-v6: 39)
+Top leaf `leaf` belongs to the family `f = leaf / 4`, whose 31 GF(2^128) coefficients are the ordinals
+`topCoefOrdinal leaf j = 31 f + j` (`j < 31`); ordinal `o` is half `o % 2` (low half first) of the private pair
+`topSeedPair (o / 2)` = `privatePair 0 0 0 (o / 2) 0` (= `WCT9.lowerSeedPair 0 0 (o / 2)`). 31 is odd, so an odd
 family starts with the high half of the pair whose low half ends the previous (even) family: the carry.
-* Signer form `topCoefs leaf`: the 20 pairs `39 f / 2 + j` (`j < 20`), flattened, then `drop (f % 2)`, `take 39`.
-* Keygen form `topCoefsK f carry`: the pairs `39 f / 2 + j` for `j ∈ [f % 2, 20)` (first pair `(39 f + f % 2) / 2`,
-  `20 - f % 2` queries) appended to `[]` (even `f`) or `[carry]` (odd `f`); returns the 39 coefficients and the
-  carry slot (`acc.getD 39 0`: ordinal `39 (f + 1)` for even `f`), as the keygen machine's `ktop` (1149..1166, loop
-  618..638) does.
+* Signer form `topCoefs leaf`: the 16 pairs `31 f / 2 + j` (`j < 16`), flattened, then `drop (f % 2)`, `take 31`.
+* Keygen form `topCoefsK f carry`: the pairs `31 f / 2 + j` for `j ∈ [f % 2, 16)` (first pair `(31 f + f % 2) / 2`,
+  `16 - f % 2` queries) appended to `[]` (even `f`) or `[carry]` (odd `f`); returns the 31 coefficients and the
+  carry slot (`acc.getD 31 0`: ordinal `31 (f + 1)` for even `f`), as the keygen machine's `ktop` does.
+31 = zero cap 7 x 4 leaves + 3: the producer reveals at most 7 seeds of a leaf (`WCT9.producerZeroCap 0`).
 The seed of chain `i` of leaf `leaf` is `familyEval coefs (topPoint leaf i)`, `topPoint leaf i = (leaf % 4) · 64 + i + 1`
-(`≤ 3 · 64 + 54 = 246`). The pre-T8D per-chain top seeds (`privatePair 0 0 0 pair leaf`) are retired;
+(`≤ 3 · 64 + 51 = 243`). The pre-T8D per-chain top seeds (`privatePair 0 0 0 pair leaf`) are retired;
 `buildLeaf`/`buildTree` remain for the T3 lower layers. -/
-def topCoefCount : Nat := 39
-def topCoefPairs : Nat := 20
+def topCoefCount : Nat := 31
+def topCoefPairs : Nat := 16
 def topCoefOrdinal (leaf j : Nat) : Nat := topCoefCount * (leaf / 4) + j
 def topSeedPair (pair : Nat) : M (Digest × Digest) := privatePair 0 0 0 pair 0
 /-- The pairs `first + j`, `j ∈ [start, topCoefPairs)`, appended low half first to `init`. -/
@@ -288,22 +294,24 @@ def topPairsFrom (first start : Nat) (init : List Digest) : M (List Digest) :=
   (List.range' start (topCoefPairs - start)).foldlM (fun acc j => do
     let p ← topSeedPair (first + j)
     pure (acc ++ [p.1, p.2])) init
-/-- Signer form: the 39 coefficients of top leaf `leaf`'s family, recomputed from 20 pairs. -/
+/-- Signer form: the 31 coefficients of top leaf `leaf`'s family, recomputed from 16 pairs. -/
 def topCoefs (leaf : Nat) : M (List Digest) := do
   let acc ← topPairsFrom (topCoefCount * (leaf / 4) / 2) 0 []
   pure ((acc.drop (leaf / 4 % 2)).take topCoefCount)
-/-- Keygen form (family `f`, carry from family `f - 1`): the 39 coefficients and the next carry. -/
+/-- Keygen form (family `f`, carry from family `f - 1`): the 31 coefficients and the next carry. -/
 def topCoefsK (f : Nat) (carry : Digest) : M (List Digest × Digest) := do
   let acc ← topPairsFrom (topCoefCount * f / 2) (f % 2) (if f % 2 = 0 then [] else [carry])
   pure (acc.take topCoefCount, acc.getD topCoefCount 0)
 def topPoint (leaf i : Nat) : Nat := leaf % 4 * 64 + i + 1
 def topSeed (coefs : List Digest) (leaf i : Nat) : Digest := ClaudeWCT.Arith.familyEval coefs (topPoint leaf i)
 /-! ### Witness stack (opus-wstack, charge 86): top chain pairing
-The even top chains `0, 2, .., 52` are value-first ("G") chains: their step input is `value | header | 0 | 0` and every
+The even top chains `0, 2, .., 50` are value-first ("G") chains: their step input is `value | header | 0 | 0` and every
 interior step (`step + 1 < maxDigit 0 i`) keeps the HIGH half; the terminal step keeps the low half. Their F partners
-are `1, 3, .., 53`. -/
-def topIsG (i : Nat) : Bool := decide (i % 2 = 0) && decide (i ≤ 52)
-def topChainHigh (i step : Nat) : Bool := topIsG i && decide (step + 1 < maxDigit 0 i)
+are `1, 3, .., 49`; T51's chain 50 is a G chain without an F partner.
+Campaign T51: chain 0 keeps the HIGH half on EVERY step, its terminal step included (its end `end_0` precedes the
+leaf tweak in the endpad leaf; the verifier writes its terminal answer at the leaf slot - 16, like a lower chain 0). -/
+def topIsG (i : Nat) : Bool := decide (i % 2 = 0) && decide (i ≤ 50)
+def topChainHigh (i step : Nat) : Bool := topIsG i && (decide (step + 1 < maxDigit 0 i) || decide (i = 0))
 def topChainInput (leaf i step : Nat) (value : Digest) : HashInput :=
   if topIsG i then bytesLE 16 value ++ bytesLE 16 (chainHeader 0 0 leaf i step) ++ zero16 ++ zero16
   else chainInput 0 0 leaf i step value
@@ -393,19 +401,46 @@ def keygen : M (Digest × Cache) := do
   let tag ← privateMac region
   pure (publicKey, ⟨tag, region⟩)
 def lowerShift (i : Nat) : Nat := if i < 21 then 3 * i else 64 + 3 * (i - 21)
-def topMask : Nat := 2 ^ 119 - 1
+/-! ### T51 top word
+Fields of the 128-bit top word `v` (they partition bits 0..127; no spare bit):
+* r6 groups `g0..g6` in bits `8 g .. 8 g + 7`, `g7` in 112..119, `g8` in 120..127 (chains `3 g .. 3 g + 2`,
+  `rank = d0 + 6 d1 + 36 d2 < 216`); `g0` stores `raw = rank + 40` (valid iff `raw ≥ 40`), `g1..g8` store
+  `raw = rank` (valid iff `raw < 216`);
+* the r7 pair (chains 48, 49) in bits 56..62, stored flipped (`rank = 127 - raw7 = d48 + 7 d49 < 49`);
+* #938's r5 groups `q9..q15` in bits `7 q .. 7 q + 6` (63..111), stored flipped (`rank = 127 - raw7 < 125`,
+  chains `3 q .. 3 q + 2`, `rank = d0 + 5 d1 + 25 d2`).
+The checksum chain 50 is not stored: its digit is `target 0 - sum` and must lie in `[0, 5]` (`decode`). -/
+/-- T51: the flipped 7-bit fields (r7 pair and r5 groups, bits 56..111). -/
+def topMask : Nat := 2 ^ 112 - 2 ^ 56
 def topFlip (value : Digest) : Digest := value ^^^ BitVec.ofNat 128 topMask
+/-- The top word with its 7-bit fields unflipped (the r6 fields unchanged). -/
 def topCode (value : Digest) : Nat := (topFlip value).toNat
-/-- Bit position of the raw radix-8 digit of top chain `i ∈ {51, 52, 53}` (campaign T8D, NF17): chain 53 at bits
-119..121, chains 51/52 at bits 122..124 / 125..127. -/
+/-- Legacy (NF17) bit position of a raw radix-8 top digit; unused by the T51 top word. -/
 def topRawShift (i : Nat) : Nat := if i = 53 then 119 else 122 + 3 * (i - 51)
+/-- T51: bit position of r6 group `g` (`g0..g6` at `8 g`, `g7` at 112, `g8` at 120). -/
+def r6Shift (g : Nat) : Nat := if g < 7 then 8 * g else 112 + 8 * (g - 7)
+/-- T51: raw 8-bit field of r6 group `g` (read through `topCode`, which leaves the r6 fields unchanged). -/
+def r6Raw (value : Digest) (g : Nat) : Nat := topCode value / 2 ^ r6Shift g % 256
+/-- T51: rank of r6 group `g` (group 0 is offset by 40). -/
+def r6Rank (value : Digest) (g : Nat) : Nat := if g = 0 then r6Raw value 0 - 40 else r6Raw value g
+/-- T51: range check of r6 group `g`. -/
+def r6Valid (value : Digest) (g : Nat) : Bool :=
+  if g = 0 then decide (40 ≤ r6Raw value 0) else decide (r6Raw value g < 216)
+/-- T51: rank of r5 group `q` (9..15): `127 - raw` of bits `7 q .. 7 q + 6`. -/
+def r5Rank (value : Digest) (q : Nat) : Nat := topCode value / 2 ^ (7 * q) % 128
+/-- T51: rank of the r7 pair: `127 - raw` of bits 56..62 (`d48 + 7 d49`). -/
+def r7Rank (value : Digest) : Nat := topCode value / 2 ^ 56 % 128
 def coreDigit (lay : Layer) (value : Digest) (i : Nat) : Nat :=
   if lay = 0 then
-    if i < 51 then (topCode value / 2^(7*(i/3)) % 128) / 5^(i%3) % 5
-    else topCode value / 2 ^ topRawShift i % 8
+    if i < 27 then r6Rank value (i / 3) / 6 ^ (i % 3) % 6
+    else if i < 48 then r5Rank value (i / 3) / 5 ^ (i % 3) % 5
+    else if i < 50 then r7Rank value / 7 ^ (i - 48) % 7
+    else 0
   else value.toNat / 2 ^ lowerShift i % 8
+/-- T51: every r6 group in range, every r5 rank below 125, the r7 rank below 49. -/
 def topRanksValid (value : Digest) : Bool :=
-  (List.range 17).all fun j => decide (topCode value / 2^(7*j) % 128 < 125)
+  (List.range 9).all (r6Valid value) && (List.range' 9 7).all (fun q => decide (r5Rank value q < 125)) &&
+    decide (r7Rank value < 49)
 def dataDigits (lay : Layer) (value : Digest) : List Nat :=
   (List.range (dataCount lay)).map (coreDigit lay value)
 def lowerSpare (value : Digest) : Prop := value.toNat / 2 ^ 63 % 2 = 1 ∧ value.toNat / 2 ^ 127 % 2 = 1
@@ -419,19 +454,23 @@ def decode (lay : Layer) (value : Digest) : Option (List Nat) :=
   let digits := dataDigits lay value
   let total := digits.sum
   if lay = 0 then
-    if topRanksValid value && decide (total = target lay) then some digits else none
+    if topRanksValid value = true ∧ total ≤ target lay ∧ target lay - total < 6 then
+      some (digits ++ [target lay - total])
+    else none
   else if lowerSpare value ∧ total ≤ target lay ∧ target lay - total < 8 then
     some (digits ++ [target lay - total])
   else none
 def creditFloor (lay : Layer) : Nat := ![7, 0, 0, 0] lay
+/-- Legacy T3 top credit (T51 digits): chains whose digit is one below the maximum, the checksum included. -/
 def topCredit (value : Digest) : Nat :=
-  ((List.range 54).map fun i => if coreDigit 0 value i = (if i < 51 then 3 else 6) then 1 else 0).sum
+  ((List.range 51).map fun i =>
+    if (dataDigits 0 value ++ [target 0 - (dataDigits 0 value).sum]).getD i 0 + 1 = maxDigit 0 i then 1 else 0).sum
 def encCredit (lay : Layer) (value : Digest) : Nat := if lay = 0 then topCredit value else 0
 def searchDecode (lay : Layer) (value : Digest) : Option (List Nat) :=
   if encCredit lay value < creditFloor lay then none else decode lay value
-/-- Top digits signed when the top counter search is exhausted (NF17 at target 146): 30 threes,
-21 twos, then radix-8 digits 4, 5, 5 (sum 146, no zero digit). -/
-def dummyTop : List Nat := List.replicate 30 3 ++ List.replicate 21 2 ++ [4,5,5]
+/-- Top digits signed when the top counter search is exhausted (T51 at target 152): 50 threes (chains 0..49), checksum 2
+(sum 152, no zero digit; word `0x818144891224489167818181818181a9`). -/
+def dummyTop : List Nat := List.replicate 50 3 ++ [2]
 def encodingInput (lay : Layer) (tree leaf : Nat) (message : Digest) (counter : BitVec 32) : HashInput :=
   bytesLE 16 message ++ bytesLE 16 (rowTweak lay tree leaf) ++ bytesLE 4 counter
 def counterSearch (lay : Layer) (tree leaf : Nat) (message : Digest) (counter : Nat) :

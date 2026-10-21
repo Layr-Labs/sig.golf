@@ -867,7 +867,8 @@ theorem famPoint_top (leaf i : Nat) : famPoint 0 leaf i = topPoint leaf i := by
 theorem famOrdinal_top (leaf j : Nat) : famOrdinal 0 leaf j = topCoefOrdinal leaf j := by
   unfold famOrdinal famBase topCoefOrdinal; rw [famOf_top]; simp
 theorem famSize_top (f : Nat) : famSize 0 f = topCoefCount := by unfold famSize; simp
-theorem famCount_top : famCount 0 = 39 := rfl
+theorem famCount_top : famCount 0 = 31 := rfl
+
 theorem famCount_ge (lay : Layer) : 8 ≤ famCount lay := by
   unfold famCount famBase; split_ifs <;> decide
 theorem famCount_le (lay : Layer) : famCount lay ≤ 39 := famBase_le lay

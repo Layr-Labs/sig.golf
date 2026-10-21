@@ -459,11 +459,11 @@ theorem middle_boundFam (S : FamScheme) {Cmax : Nat} (H : CanonicalRef.Normalize
       q/(2:ENNReal)^146+(2:ENNReal)⁻¹^700+((2:ENNReal)^152)⁻¹+
       q/((2^256:Nat):ENNReal)≤(q:ENNReal)/2^127 := by
   apply clean_outer_ennrealG adversary q hq
-  apply middle_clean_closingG adversary q hq hlow hhigh (149/125000) le_rfl ?_
+  apply middle_clean_closingG adversary q hq hlow hhigh (1153/1000000) le_rfl ?_
     (completed_partial_certifiedG adversary q hq)
   have hp:=CanonicalWeighted.primitive_middle_realFam S H hC adversary q hq hhigh
   have h:=clean_probability_real_ofG adversary q hq (completed_split_canonical adversary q hq)
-    (99847/50000) (149/125000) (by finiteness) (by finiteness) (by
+    (99847/50000) (1153/1000000) (by finiteness) (by finiteness) (by
       simpa (disch:=positivity) only [ENNReal.ofReal_div_of_pos,ENNReal.ofReal_ofNat,ENNReal.ofReal_one] using
         ENNReal.ofReal_le_ofReal (by norm_num : (1:ℝ)/1024≤99847/50000))
     excess_middle_actualG (by simpa only [ENNReal.toReal_div,ENNReal.toReal_ofNat] using! hp)

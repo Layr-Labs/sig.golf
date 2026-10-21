@@ -29,12 +29,12 @@ namespace ClaudeWCT.W9.T3M.Paired
 open SigGolfCandidate.Legacy
 
 def submission (I : Images) : Submission where
-  sizes := ⟨5239, 22012, 131072⟩
+  sizes := ⟨5195, 22012, 131072⟩
   layout := ⟨0x6620, 0x80, 0xa0, 0x80000, 0x7000, 0x1020⟩
   image := (ClaudeWCT.W9.T3M.submission I).image
 
 variable (I : Images)
-@[simp] theorem submission_sizes : (submission I).sizes = ⟨5239, 22012, 131072⟩ := rfl
+@[simp] theorem submission_sizes : (submission I).sizes = ⟨5195, 22012, 131072⟩ := rfl
 @[simp] theorem submission_layout : (submission I).layout = ⟨0x6620, 0x80, 0xa0, 0x80000, 0x7000, 0x1020⟩ := rfl
 @[simp] theorem submission_image : (submission I).image = (ClaudeWCT.W9.T3M.submission I).image := rfl
 @[simp] theorem submission_keygen : (submission I).image .keygen = SigGolfCandidate.T3M.Images.keygenImage := rfl

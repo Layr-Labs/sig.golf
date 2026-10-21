@@ -127,10 +127,11 @@ def layerRegion (N : HashOutput) (w : WCT9.Witness) (lay : Layer) : List UInt8 :
       (w.counters (Fin.ofNat 4 (lay.val - 1))) ++ lowerChainBytes (w.signature.layers lay)
 def endpointBytes (sig : WCT9.Signature) (lay : Layer) : List UInt8 :=
   (List.finRange (chainCount lay)).flatMap fun i => bytesLE 16 ((sig.layers lay).values i)
-/-- Witness stack (charge 86): leaf buffers 720 bytes apart (the 16-byte tails are removed): top
-`zeros32 ++ 54 endpoints` (896 bytes), lower `end0 | zeros16 | end1..end42 | zeros16` (720 bytes). -/
+/-- Witness stack (charge 86): leaf buffers 720 bytes apart (the 16-byte tails are removed): top (T51 "endpad")
+`end0 | zeros16 | end1..end50 | zeros64` (896 bytes; #938: `zeros32 ++ 54 endpoints`), lower
+`end0 | zeros16 | end1..end42 | zeros16` (720 bytes). -/
 def leafBufferBytes (sig : WCT9.Signature) (lay : Layer) : List UInt8 :=
-  if lay = 0 then zeros 32 ++ endpointBytes sig lay
+  if lay = 0 then (endpointBytes sig lay).take 16 ++ zeros 16 ++ (endpointBytes sig lay).drop 16 ++ zeros 64
   else (endpointBytes sig lay).take 16 ++ zeros 16 ++ (endpointBytes sig lay).drop 16 ++ zeros 16
 def leafBuffersBytes (sig : WCT9.Signature) : List UInt8 :=
   (List.finRange 4).reverse.flatMap (leafBufferBytes sig)
@@ -166,7 +167,7 @@ def padDecP (N : HashOutput) (w : WBytes) : Pads where
   endpointMask lay i := wvalue w lay i.val ^^^ wdig w (leafBufferSlot lay i.val)
   merkleHigh lay j := if j.val + 1 < height lay ∨ lay.val = 0 then
     wmerkleHigh w lay (route (WCT9.digestIndex N) lay).1 j.val else 0
-  topLeaf := wtopLeafPad w
+  topLeaf := 0  -- T51 ("endpad"): the top leaf has no witness pad (its leading block is end_0), see `WCT9.leafInputW`
   leafHigh lay := wleafHigh w lay
   bcHigh lay := wbcHigh w (WCT9.digestIndex N) lay ^^^ 1
 @[simp] theorem valueP_dec (N : HashOutput) (w : WBytes) (lay : Layer) (digits : List Nat)
@@ -322,7 +323,7 @@ def ftsStep (w : WBytes) (output : HashOutput) (state : Option (List (Digest × 
   pure (some (pairs ++ [pair]))
 
 def ftsP (w : WBytes) (output : HashOutput) : M (Option (Digest × Digest)) := do
-  if !(decide (output.toNat / 2^242 % 16384 < 734) : Bool) then return none
+  if !(decide (output.toNat / 2^242 % 16384 < 791) : Bool) then return none
   let some pairs ← (List.finRange 9).foldlM (ftsStep w output) (some []) | pure none
   pure (some (pairs.getLastD (SharedV3.initialPair w)))
 
@@ -435,14 +436,14 @@ theorem fts_fold_success (answers : Answers) (w : WBytes) (output : HashOutput) 
 
 theorem ftsP_success (answers : Answers) (w : WBytes) (output : HashOutput) (top : Digest × Digest)
     (h : evalWithAnswerFn answers (ftsP w output) = some top) :
-    output.toNat / 2^242 % 16384 < 734 ∧
+    output.toNat / 2^242 % 16384 < 791 ∧
     (∀ coord : Fin 9, rawForestRank output coord.val < 563) ∧
     evalWithAnswerFn answers (SharedV3.forest w (WCT9.digestIndex output)
       (rawChildFromOutput output) (fun k => WCT9.embed (forestRank output k.val))) = top ∧
     queried answers (SharedV3.forest w (WCT9.digestIndex output)
       (rawChildFromOutput output) (fun k => WCT9.embed (forestRank output k.val))) =
       queried answers (ftsP w output) := by
-  have hg : output.toNat / 2^242 % 16384 < 734 := by
+  have hg : output.toNat / 2^242 % 16384 < 791 := by
     by_contra hn
     simp only [ftsP, hn, decide_false, Bool.not_false, ↓reduceIte, evalWithAnswerFn_pure] at h
     cases h

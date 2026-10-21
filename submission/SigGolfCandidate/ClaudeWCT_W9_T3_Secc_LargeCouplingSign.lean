@@ -193,19 +193,9 @@ theorem slotValue_ftsLeaf_pad (hdr : BitVec 128) (p : Digest) (values : List Dig
 theorem slotValue_leafInput (lay : Layer) (tree leaf : Nat) (values : List Digest) (i : Nat) (hi : i < values.length) :
     slotValue (pad64 (Extract.leafInput lay tree leaf values)) (leafBlock lay i) = values.getD i 0 := by
   unfold Extract.leafInput SigGolfCandidate.T3.leafInput leafBlock
-  by_cases h0 : lay = 0
-  · rw [if_pos h0, if_pos h0]
-    have hl16 : zero16.length = 16 := by simp [zero16]
-    have hflat : (values.flatMap (bytesLE 16)).length = 16 * values.length := by
-      simp [List.length_flatMap, bytesLE_length, List.sum_replicate, List.map_const', Nat.mul_comm]
-    rw [slotValue_pad64 _ _ (by simp only [List.length_append, hl16, bytesLE_length, hflat]; omega),
-      show i + 2 = i + 1 + 1 by omega, List.append_assoc, slotValue_shift _ _ _ hl16,
-      slotValue_shift _ _ _ (bytesLE_length _ _)]
-    have h := SigGolfCandidate.T3.Security.LargeResidual.slotValue_flatMap values [] i hi
-    rw [List.append_nil] at h
-    exact h
-  · rw [if_neg h0, if_neg h0]
-    exact slotValue_listOf (leafTweak lay tree leaf) values i hi
+  rw [ite_self, ite_self]
+  exact slotValue_listOf (leafTweak lay tree leaf) values i hi
+
 theorem slotValue_pairs (pairs : List (Digest × Digest)) :
     ∀ c, c < pairs.length →
       slotValue (pairs.flatMap fun p => bytesLE 16 p.1 ++ bytesLE 16 p.2) (2 * c) = (pairs.getD c (0, 0)).1 ∧

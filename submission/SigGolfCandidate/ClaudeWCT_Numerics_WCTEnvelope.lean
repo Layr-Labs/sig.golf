@@ -371,7 +371,7 @@ theorem coveredP_bucket (W : List Proposal) (N : SigGolfCandidate.T3.HashOutput)
     exact ⟨((proposal N).1,a),(WCTEnvelope.mem_atIndex _ _ _).mp ha,rfl,h2,h3⟩
 
 theorem price_scale :
-    (2:ENNReal)^128 * ((734*2^62:Nat):ENNReal) *
+    (2:ENNReal)^128 * ((791*2^62:Nat):ENNReal) *
       (SharedMoments.alphabetSize:ENNReal) * ((2^256:Nat):ENNReal)⁻¹ =
       (SharedMoments.priceScaleTotal:ENNReal)/(2^31) := by
   apply (ENNReal.toReal_eq_toReal_iff' (by finiteness) (by finiteness)).mp
@@ -548,7 +548,7 @@ set_option maxHeartbeats 1000000
 set_option maxRecDepth 100000
 attribute [local irreducible] Finset.univ
 
-noncomputable def feeCoefficient : ENNReal := 734/2^66
+noncomputable def feeCoefficient : ENNReal := 791/2^66
 
 theorem price_coefficient :
     (SharedMoments.priceScaleTotal:ENNReal)/(2^31)/(SharedMoments.alphabetSize:ENNReal) = feeCoefficient := by
@@ -879,18 +879,18 @@ set_option maxRecDepth 100000
   rw [ENNReal.ofReal_div_of_pos (by norm_num : (0:ℝ)<5)]
   norm_num [cappedResidual]
 
- theorem feeCoefficient_real : feeCoefficient.toReal = (734:ℝ)/2^66 := by
+ theorem feeCoefficient_real : feeCoefficient.toReal = (791:ℝ)/2^66 := by
   norm_num [feeCoefficient,ENNReal.toReal_div]
 
  theorem cappedIncrement_nat (n : Nat) :
     cappedIncrement (feeCoefficient*(n:ENNReal)) =
-      ENNReal.ofReal (Real.exp (6*min ((734:ℝ)/2^66*(n:ℝ)) (6/5))-1) := by
+      ENNReal.ofReal (Real.exp (6*min ((791:ℝ)/2^66*(n:ℝ)) (6/5))-1) := by
   rw [cappedIncrement_real _ (by unfold feeCoefficient; finiteness),
     ENNReal.toReal_mul,feeCoefficient_real,ENNReal.toReal_natCast]
 
  theorem cappedResidual_nat (n : Nat) :
     cappedResidual (feeCoefficient*(n:ENNReal)) =
-      ENNReal.ofReal (max 0 ((734:ℝ)/2^66*(n:ℝ)-6/5)) := by
+      ENNReal.ofReal (max 0 ((791:ℝ)/2^66*(n:ℝ)-6/5)) := by
   rw [cappedResidual_real _ (by unfold feeCoefficient; finiteness),
     ENNReal.toReal_mul,feeCoefficient_real,ENNReal.toReal_natCast]
 
@@ -999,10 +999,10 @@ set_option maxRecDepth 100000
   have hx := ENNReal.toReal_mono (by unfold feeCoefficient; finiteness) (priceBucket_le W)
   rw [ENNReal.toReal_mul,feeCoefficient_real,ENNReal.toReal_natCast] at hx
   have h := (capped_payoff_of_coverage_bound (priceBucket W).toReal
-    ((734:ℝ)/2^66) (alphabetSize:ℝ) ENNReal.toReal_nonneg hx).1
+    ((791:ℝ)/2^66) (alphabetSize:ℝ) ENNReal.toReal_nonneg hx).1
   rw [cappedIncrement_real _ (priceBucket_ne_top W)]
   calc
-    _ ≤ ENNReal.ofReal ((maxFee:ℝ)*((734:ℝ)/2^66)*(alphabetSize:ℝ)/scale) :=
+    _ ≤ ENNReal.ofReal ((maxFee:ℝ)*((791:ℝ)/2^66)*(alphabetSize:ℝ)/scale) :=
       ENNReal.ofReal_le_ofReal h
     _ = _ := by
       rw [ENNReal.ofReal_div_of_pos (by exact_mod_cast scale_pos : (0:ℝ)<scale),
@@ -1118,57 +1118,6 @@ def FiniteFeeBound : Prop := ∀ r≤80,
   norm_num [ClaudeWCT.Numerics.SharedFtsCount.total, ClaudeWCT.Numerics.SharedFtsCount.count,
     ENNReal.toReal_div, ENNReal.toReal_mul, ENNReal.toReal_inv]
 
-/-- Honest shared MGF through thinning: `≤ 6.945` for cap 777 (same `FiniteFeeBound` rows). -/
- theorem coord_mgf_certified (hfees : FiniteFeeBound) :
-    (2^31:ENNReal)*Law.coordAverage (2^31:ENNReal)⁻¹ honestCoordLaw (2^32)
-      (fun W => cappedIncrement (priceBucket W)) ≤ (6945:ENNReal)/1000 := by
-  apply coordAverage_bound_of_rows (2^32) maxFee scale fee_positive scale_pos
-    cappedIncrement (fun r => (certifiedPayoff r).1) (6945/1000)
-    (fun _ _ h => cappedIncrement_mono h)
-    (fun r hr => (hfees r hr).1) cappedIncrement_bound
-  intro g hp ht
-  exact shared_mgf_bound_of_rows (2^32) _ kappa_mul_rate_le_one (thin_window _ le_rfl)
-    1 le_rfl thin_lambda g hp ht
-
-/-- Honest shared residual through thinning: `≤ 7831e-7` for cap 777. -/
- theorem coord_residual_certified (hfees : FiniteFeeBound) :
-    (2^31:ENNReal)*Law.coordAverage (2^31:ENNReal)⁻¹ honestCoordLaw (2^32)
-      (fun W => cappedResidual (priceBucket W)) ≤ (7831:ENNReal)/10000000 := by
-  apply coordAverage_bound_of_rows (2^32) scale scale scale_pos scale_pos
-    cappedResidual (fun r => (certifiedPayoff r).2) (7831/10000000)
-    (fun _ _ h => cappedResidual_mono h)
-    (fun r hr => (hfees r hr).2) cappedResidual_normalized_bound
-  intro g hp ht
-  have h := shared_residual_bound_of_rows (2^32) _ kappa_mul_rate_le_one (thin_window _ le_rfl)
-    1 le_rfl thin_lambda g hp ht
-  have hs0 : (scale:ENNReal) ≠ 0 := by exact_mod_cast scale_pos.ne'
-  have hst : (scale:ENNReal) ≠ ⊤ := by finiteness
-  have he : ((scale*priceScaleTotal:Nat):ENNReal)/(scale:ENNReal) =
-      (priceScaleTotal:ENNReal) := by
-    simp only [Nat.cast_mul,div_eq_mul_inv]
-    calc _ = (priceScaleTotal:ENNReal)*((scale:ENNReal)*(scale:ENNReal)⁻¹) := by ring
-         _ = _ := by rw [ENNReal.mul_inv_cancel hs0 hst,mul_one]
-  rwa [he]
-
- theorem finiteFees_of_real
-    (hfees : ∀ r≤80,
-      (∑ h : SharedCoverage.ForestHistory (Fin 563) r,
-        ENNReal.ofReal (Real.exp (6*min ((734:ℝ)/2^66*
-          (SharedCoverage.forestCoverage ClaudeWCT.WCT9.wordDigit h:ℝ)) (6/5))-1)) ≤
-        ENNReal.ofReal ((734:ℝ)/2^66)/(scale:ENNReal)*((certifiedPayoff r).1:ENNReal) ∧
-      (∑ h : SharedCoverage.ForestHistory (Fin 563) r,
-        ENNReal.ofReal (max 0 ((734:ℝ)/2^66*
-          (SharedCoverage.forestCoverage ClaudeWCT.WCT9.wordDigit h:ℝ)-6/5))) ≤
-        ENNReal.ofReal ((734:ℝ)/2^66)/(scale:ENNReal)*((certifiedPayoff r).2:ENNReal)) :
-    FiniteFeeBound := by
-  intro r hr
-  have hf : ENNReal.ofReal ((734:ℝ)/2^66)=feeCoefficient := by
-    rw [←feeCoefficient_real,ENNReal.ofReal_toReal (by unfold feeCoefficient; finiteness)]
-  simpa only [cappedIncrement_nat,cappedResidual_nat,hf] using hfees r hr
-
-#print axioms coord_mgf_certified
-#print axioms coord_residual_certified
-#print axioms finiteFees_of_real
 end ClaudeWCT.Bank.Paired
 
 /-! Scalar endpoints for the cap-777 thinned certificate (shared MGF `6.945`, residual `7831e-7`). -/
@@ -1176,101 +1125,12 @@ namespace ClaudeWCT.Numerics.SharedPathWinsor.Rows18Thin
 set_option maxHeartbeats 1000000
 set_option maxRecDepth 10000
 
-theorem endpoint_middle :
-    (3 / 48 : ℝ) * Real.exp (6945 / 1000 - 6 * (99847 / 50000 - 1 / 1024)) +
-      7831 / 10000000 ≤ 149 / 125000 := by
-  let x : ℝ := 6 * (99847 / 50000 - 1 / 1024) - 6945 / 1000
-  have hx : (0 : ℝ) ≤ x := by norm_num [x]
-  have he : (153 : ℝ) ≤ Real.exp x := by
-    refine le_trans ?_ (Real.sum_le_exp_of_nonneg hx 18)
-    norm_num [x, Finset.sum_range_succ, Nat.factorial]
-  have hi : (Real.exp x)⁻¹ ≤ (153 : ℝ)⁻¹ :=
-    (inv_le_inv₀ (Real.exp_pos x) (by norm_num)).2 he
-  have hn : 6945 / 1000 - 6 * (99847 / 50000 - 1 / 1024) = -x := by dsimp [x]; ring
-  rw [hn, Real.exp_neg]
-  norm_num at hi ⊢
-  linarith
-
-theorem endpoint_high :
-    (3 / 48 : ℝ) * Real.exp (6945 / 1000 - 6 * (2 - 6 / 2500 - 1 / 1024)) +
-      7831 / 10000000 ≤ 2979 / 2500000 := by
-  let x : ℝ := 6 * (2 - 6 / 2500 - 1 / 1024) - 6945 / 1000
-  have hx : (0 : ℝ) ≤ x := by norm_num [x]
-  have he : (1535 / 10 : ℝ) ≤ Real.exp x := by
-    refine le_trans ?_ (Real.sum_le_exp_of_nonneg hx 18)
-    norm_num [x, Finset.sum_range_succ, Nat.factorial]
-  have hi : (Real.exp x)⁻¹ ≤ (1535 / 10 : ℝ)⁻¹ :=
-    (inv_le_inv₀ (Real.exp_pos x) (by norm_num)).2 he
-  have hn : 6945 / 1000 - 6 * (2 - 6 / 2500 - 1 / 1024) = -x := by dsimp [x]; ring
-  rw [hn, Real.exp_neg]
-  norm_num at hi ⊢
-  linarith
-
-theorem endpoint_tiny :
-    (3 / 48 : ℝ) * Real.exp (6945 / 1000 - 6 * (249 / 125 - 1 / 1024)) +
-      7831 / 10000000 ≤ 18 / 5000 := by
-  let x : ℝ := 6 * (249 / 125 - 1 / 1024) - 6945 / 1000
-  have hx : (0 : ℝ) ≤ x := by norm_num [x]
-  have he : (100 : ℝ) ≤ Real.exp x := by
-    refine le_trans ?_ (Real.sum_le_exp_of_nonneg hx 18)
-    norm_num [x, Finset.sum_range_succ, Nat.factorial]
-  have hi : (Real.exp x)⁻¹ ≤ (100 : ℝ)⁻¹ :=
-    (inv_le_inv₀ (Real.exp_pos x) (by norm_num)).2 he
-  have hn : 6945 / 1000 - 6 * (249 / 125 - 1 / 1024) = -x := by dsimp [x]; ring
-  rw [hn, Real.exp_neg]
-  norm_num at hi ⊢
-  linarith
-
-theorem endpoint_low :
-    (3 / 48 : ℝ) * Real.exp (6945 / 1000 - 6 * (1 - 1 / 1024)) +
-      7831 / 10000000 ≤ 49 / 100 := by
-  have hx : (6945 / 1000 - 6 * (1 - 1 / 1024) : ℝ) ≤ 1 := by norm_num
-  have he := (Real.exp_le_exp.mpr hx).trans (le_of_lt Real.exp_one_lt_d9)
-  nlinarith
-
-#print axioms endpoint_middle
-#print axioms endpoint_high
-#print axioms endpoint_tiny
-#print axioms endpoint_low
 end ClaudeWCT.Numerics.SharedPathWinsor.Rows18Thin
 
 namespace ClaudeWCT.Bank.Paired
 open ENNReal Finset ClaudeWCT.Numerics
 set_option maxHeartbeats 1000000
 set_option maxRecDepth 100000
-
- theorem price_excess_certified (hfees : FiniteFeeBound) (theta resultBound : ℝ)
-    (htheta : 0 ≤ theta)
-    (hscalar : (3/48)*Real.exp (6945/1000-6*theta)+7831/10000000 ≤ resultBound) :
-    Law.lawAvg honestLaw (2^32) (fun W => price W-ENNReal.ofReal theta) ≤
-      ENNReal.ofReal resultBound := by
-  apply price_excess_of_bucket_bounds (2^32) (6/5) (by finiteness)
-    theta 6 (6945/1000) (7831/10000000) resultBound htheta (by norm_num) (by norm_num) (by norm_num)
-  · have h := coord_mgf_certified hfees
-    simpa only [cappedIncrement, ENNReal.ofReal_div_of_pos (by norm_num : (0:ℝ)<1000),
-      ENNReal.ofReal_ofNat] using h
-  · have h := coord_residual_certified hfees
-    simpa only [cappedResidual, ENNReal.ofReal_div_of_pos (by norm_num : (0:ℝ)<10000000),
-      ENNReal.ofReal_ofNat] using h
-  · convert hscalar using 1 <;> norm_num
-
- theorem excess_middle_certified (hfees : FiniteFeeBound) :
-    Law.lawAvg honestLaw (2^32)
-      (fun W => price W-ENNReal.ofReal ((99847:ℝ)/50000-1/1024)) ≤
-        ENNReal.ofReal ((149:ℝ)/125000) :=
-  price_excess_certified hfees _ _ (by norm_num) SharedPathWinsor.Rows18Thin.endpoint_middle
-
- theorem excess_high_certified (hfees : FiniteFeeBound) :
-    Law.lawAvg honestLaw (2^32)
-      (fun W => price W-ENNReal.ofReal ((2:ℝ)-6/2500-1/1024)) ≤
-        ENNReal.ofReal ((2979:ℝ)/2500000) :=
-  price_excess_certified hfees _ _ (by norm_num) SharedPathWinsor.Rows18Thin.endpoint_high
-
- theorem excess_low_certified (hfees : FiniteFeeBound) :
-    Law.lawAvg honestLaw (2^32)
-      (fun W => price W-ENNReal.ofReal ((1:ℝ)-1/1024)) ≤
-        ENNReal.ofReal ((49:ℝ)/100) :=
-  price_excess_certified hfees _ _ (by norm_num) SharedPathWinsor.Rows18Thin.endpoint_low
 
  theorem tsub_convex (x theta eta a b : ENNReal) (hab : a+b=1) :
     x-(a*theta+b*eta) ≤ a*(x-theta)+b*(x-eta) := by
@@ -1311,28 +1171,7 @@ set_option maxRecDepth 100000
       rw [←ENNReal.ofReal_mul ha0,←ENNReal.ofReal_mul ht0,
         ←ENNReal.ofReal_add (mul_nonneg ha0 hA) (mul_nonneg ht0 hB)]
 
- theorem excess_large_certified (hfees : FiniteFeeBound) (y : ℝ)
-    (hy0 : 3/2500 ≤ y) (hy1 : y ≤ 1/2) :
-    Law.lawAvg honestLaw (2^32)
-      (fun W => price W-ENNReal.ofReal (2-2*y-1/1024)) ≤
-        ENNReal.ofReal ((993/1000)*y) := by
-  let t : ℝ := (y-3/2500)/(1/2-3/2500)
-  have ht0 : 0≤t := div_nonneg (sub_nonneg.mpr hy0) (by norm_num)
-  have ht1 : t≤1 := (div_le_one (by norm_num : (0:ℝ)<1/2-3/2500)).2 (by linarith)
-  have h := price_excess_affine (2^32) (2-6/2500-1/1024) (1-1/1024)
-    (2979/2500000) (49/100) t (by norm_num) (by norm_num) (by norm_num) (by norm_num)
-    ht0 ht1 (excess_high_certified hfees) (excess_low_certified hfees)
-  have harg : (1-t)*(2-6/2500-1/1024)+t*(1-1/1024) = 2-2*y-1/1024 := by
-    dsimp [t]; ring
-  have hgap : (993/1000)*y-((1-t)*(2979/2500000)+t*(49/100)) = t*(13/2000) := by
-    dsimp [t]; ring
-  have hval : (1-t)*(2979/2500000)+t*(49/100) ≤ (993/1000)*y := by nlinarith
-  rw [harg] at h
-  exact h.trans (ENNReal.ofReal_le_ofReal hval)
-
-#print axioms price_excess_certified
 #print axioms price_excess_affine
-#print axioms excess_large_certified
 end ClaudeWCT.Bank.Paired
 
 namespace ClaudeWCT.Bank.Paired
@@ -1367,10 +1206,10 @@ set_option maxRecDepth 100000
     WCTEnvelope.w1Table_wordDigit rows_checked r (by omega)
   exact congrArg (fun n : Nat => feeCoefficient*(n:ENNReal)) h
 
- theorem law_price_mean_bound : Law.lawAvg honestLaw (2^32) price ≤ (849:ENNReal)/1000 := by
+ theorem law_price_mean_bound : Law.lawAvg honestLaw (2^32) price ≤ (915:ENNReal)/1000 := by
   rw [law_price_coordAverage]
   apply coordAverage_bound_of_rows (2^32) 1 1 (by norm_num) (by norm_num)
-    id forestMoment (849/1000) (fun _ _ h => h)
+    id forestMoment (915/1000) (fun _ _ h => h)
   · intro r hr
     simpa only [id_eq,Nat.cast_one,div_one] using (first_finite_row r hr).le
   · intro W
@@ -1956,11 +1795,11 @@ set_option maxRecDepth 100000
     WCTEnvelope.w1Table_wordDigit WCTEnvelope.wfTable_wordDigit rows_checked r (by omega)
   exact congrArg (fun n : Nat => feeCoefficient*(n:ENNReal)) h
 
- theorem law_nearPrice_mean_bound : Law.lawAvg honestLaw (2^32) nearPrice ≤ 351 := by
+ theorem law_nearPrice_mean_bound : Law.lawAvg honestLaw (2^32) nearPrice ≤ 378 := by
   rw [law_nearPrice_coordAverage]
   apply coordAverage_history_bound (2^32) 54 1 (by norm_num) (by norm_num)
     nearBucket (fun _ h => feeCoefficient*(SharedCoverage.forestNear ClaudeWCT.WCT9.wordDigit h:ENNReal))
-    forestNearMoment 351 (fun L b R => nearBucket_insert L R b)
+    forestNearMoment 378 (fun L b R => nearBucket_insert L R b)
   · intro r _ h
     exact nearBucket_ofFn_le h
   · intro r hr
@@ -2054,7 +1893,7 @@ noncomputable def withCoverage {P : Type} [Fintype P] [SampleableType P]
 
 noncomputable def nearLawSpec : FtsBankSpec Proposal :=
   withCoverage lawSpec nearScore NearCovered one_le_nearScore nearScore_append_mono
-    nearPrice average_nearScore 351
+    nearPrice average_nearScore 378
     ((Law.lawAvg_mono honestLaw (2^32) (fun _ => tsub_le_self)).trans law_nearPrice_mean_bound)
 
 #print axioms nearLawSpec
@@ -2100,38 +1939,6 @@ set_option maxRecDepth 100000
 set_option maxHeartbeats 1000000
 set_option Elab.async false
 
-theorem certifiedPayoff_global (r : Nat) (hr : r=0 ∨ 19≤r) :
-    certifiedPayoff r=(maxFee*forestMoment r,scale*forestMoment r) := by
-  rcases hr with h | h
-  · subst r
-    decide +kernel
-  · have he : r=(r-19)+19 := by omega
-    rw [he]
-    rfl
-
-theorem wordDigit_finite_payoffs
-    (hrows : ∀ r, 1≤r → r≤18 → rowDots r=certifiedPayoff r)
-    (r : Nat) (hr : r≤80) :
-    (∑ h : ForestHistory (Fin 563) r, ENNReal.ofReal
-      (Real.exp (6*min ((734:ℝ)/2^66*(forestCoverage ClaudeWCT.WCT9.wordDigit h : ℝ)) (6/5))-1)) ≤
-      ENNReal.ofReal ((734:ℝ)/2^66)/(scale:ENNReal)*((certifiedPayoff r).1:ENNReal) ∧
-    (∑ h : ForestHistory (Fin 563) r, ENNReal.ofReal
-      (max 0 ((734:ℝ)/2^66*(forestCoverage ClaudeWCT.WCT9.wordDigit h : ℝ)-6/5))) ≤
-      ENNReal.ofReal ((734:ℝ)/2^66)/(scale:ENNReal)*((certifiedPayoff r).2:ENNReal) := by
-  have ht := forest_coverage_data ClaudeWCT.WCT9.wordDigit (Fintype.card_fin 563)
-    w1Table_wordDigit rows_checked r (by omega)
-  by_cases hg : r=0 ∨ 19≤r
-  · rw [certifiedPayoff_global r hg]
-    exact actual_forest_fee_global ClaudeWCT.WCT9.wordDigit r ht
-  · have hlo : 1≤r := by omega
-    have hhi : r≤18 := by omega
-    have h := actual_forest_fee_row ClaudeWCT.WCT9.wordDigit (Fintype.card_fin 563)
-      r hlo (by omega) (fun K hK u hu j =>
-        wordDigit_coordinate_coeff K hK u (by omega) j) ht
-    rwa [hrows r hlo hhi] at h
-
-#print axioms certifiedPayoff_global
-#print axioms wordDigit_finite_payoffs
 end ClaudeWCT.Numerics.SharedFees
 
 namespace ClaudeWCT.Numerics.SharedFees
@@ -2185,21 +1992,9 @@ end ClaudeWCT.Numerics.SharedFees
 namespace ClaudeWCT.Bank.Paired
 open ClaudeWCT.Numerics
 
-theorem finiteFees_of_convolutions
-    (hconv : ∀ r, 5≤r → r≤18 →
-      SharedFees.convolutionDots r (SharedPathPacked.forest r)=SharedFees.certifiedPayoff r) :
-    FiniteFeeBound :=
-  finiteFees_of_real (fun r hr => SharedFees.wordDigit_finite_payoffs
-    (SharedFees.wordDigit_rows_of_convolutions hconv) r hr)
-
-#print axioms finiteFees_of_convolutions
 end ClaudeWCT.Bank.Paired
 
 namespace ClaudeWCT.Bank.Paired
-/-- Every row in the exact paired-forest fee envelope is kernel checked. -/
-theorem finiteFees_checked : FiniteFeeBound :=
-  finiteFees_of_convolutions ClaudeWCT.Numerics.SharedGeneratedForest.convolution_rows_checked
-#print axioms finiteFees_checked
 end ClaudeWCT.Bank.Paired
 
 namespace ClaudeWCT.Bank.Paired
@@ -2207,12 +2002,4 @@ open ENNReal Finset ClaudeWCT.Numerics
 set_option maxHeartbeats 1000000
 set_option maxRecDepth 10000
 
-/-- Cap 777: the tiny threshold has its own endpoint (exact value `0.0012037 ≤ 18/5000`); the old
-middle/low interpolation would give `0.003614 > 18/5000` with the new middle value. -/
-theorem excess_tiny_certified (hfees : FiniteFeeBound) :
-    Law.lawAvg honestLaw (2^32)
-      (fun W=>price W-ENNReal.ofReal ((249:ℝ)/125-1/1024)) ≤
-        ENNReal.ofReal ((18:ℝ)/5000) :=
-  price_excess_certified hfees _ _ (by norm_num) SharedPathWinsor.Rows18Thin.endpoint_tiny
-#print axioms excess_tiny_certified
 end ClaudeWCT.Bank.Paired

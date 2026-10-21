@@ -37,6 +37,7 @@ def ktI : List (BitVec 32) := kchkCode.take 3
 def ktN : List (BitVec 32) := (kchkCode.drop 3).take 3
 def ktC0 : List (BitVec 32) := (kchkCode.drop 6).take 2
 def ktC1 : List (BitVec 32) := (kchkCode.drop 8).take 3
+def ktC2 : List (BitVec 32) := (kchkCode.drop 11).take 1
 def ktC3 : List (BitVec 32) := (kchkCode.drop 12).take 2
 def ktC5 : List (BitVec 32) := (kchkCode.drop 15).take 6
 def ktC6 : List (BitVec 32) := (kchkCode.drop 21).take 2
@@ -56,6 +57,7 @@ theorem codeAt_ktI : CodeAt image (pcOf 721) ktI := by decide +kernel
 theorem codeAt_ktN : CodeAt image (pcOf 724) ktN := by decide +kernel
 theorem codeAt_ktC0 : CodeAt image (pcOf 727) ktC0 := by decide +kernel
 theorem codeAt_ktC1 : CodeAt image (pcOf 729) ktC1 := by decide +kernel
+theorem codeAt_ktC2 : CodeAt image (pcOf 732) ktC2 := by decide +kernel
 theorem codeAt_ktC3 : CodeAt image (pcOf 733) ktC3 := by decide +kernel
 theorem codeAt_ktC5 : CodeAt image (pcOf 736) ktC5 := by decide +kernel
 theorem codeAt_ktC6 : CodeAt image (pcOf 742) ktC6 := by decide +kernel
@@ -76,6 +78,7 @@ sym_block btI := symRun { noAlias := true } ktI (pcOf 721) 100
 sym_block btN := symRun { noAlias := true } ktN (pcOf 724) 100
 sym_block btC0 := symRun { noAlias := true } ktC0 (pcOf 727) 100
 sym_block btC1 := symRun { noAlias := true } ktC1 (pcOf 729) 100
+sym_block btC2 := symRun { noAlias := true } ktC2 (pcOf 732) 100
 sym_block btC3 := symRun { noAlias := true } ktC3 (pcOf 733) 100
 sym_block btC5 := symRun { noAlias := true } ktC5 (pcOf 736) 100
 sym_block btC6 := symRun { noAlias := true } ktC6 (pcOf 742) 100
@@ -86,9 +89,10 @@ sym_block btL2 := symRun { noAlias := true } ktL2 (pcOf 754) 100
 sym_block btL3 := symRun { noAlias := true } ktL3 (pcOf 759) 100
 sym_block btOK := symRun { noAlias := true } ktOK (pcOf 760) 100
 
-/-- Mask of the zero test on the high word of a top node of height `h` (`1 ≤ h ≤ 11`). -/
+/-- Mask of the zero test on the high word of a top node of height `h` (`1 ≤ h ≤ 11`). Campaign T51: `h = 11` tests
+node bits 104..111 (high-word mask `0xFF << 40`). -/
 def maskN (h : Nat) : Nat :=
-  if h = 11 then (2 ^ 11 - 1) * 2 ^ 34 else (2 ^ topZeroBits h - 1) * 2 ^ (64 - topZeroBits h)
+  if h = 11 then (2 ^ 8 - 1) * 2 ^ 40 else (2 ^ topZeroBits h - 1) * 2 ^ (64 - topZeroBits h)
 
 /-! ### Jumps -/
 theorem kt230_spec (s : MachineState) (hpc : s.pc = pcOf 230) :
@@ -179,21 +183,45 @@ theorem ktC0_spec (s : MachineState) (hpc : s.pc = pcOf 727) (h : Nat) (hh : h <
       simp [hc, this]
   · intro r hr; simp at hr; cases r <;> simp_all [btC0.res, rv_simp] <;> rfl
   · intro A _ _; simp [btC0.res, rv_simp]
-/-- 729..731 (img-v6: the clamp `max h 2` is gone, `jal 733`): `a4 = h`. -/
-theorem ktC1_spec (s : MachineState) (hpc : s.pc = pcOf 729) (h : Nat)
+/-- 729..731 (campaign T51): `a4 = h - 3`, `t3 = 3`, `blt a3, t3, 760` (heights 1, 2: no nonce search). -/
+theorem ktC1_spec (s : MachineState) (hpc : s.pc = pcOf 729) (h : Nat) (hh : h < 2 ^ 63)
     (h13 : s.getReg .x13 = BitVec.ofNat 64 h) :
-    ∃ t, Steps image s 3 3 t ∧ t.pc = pcOf 733 ∧
-      t.getReg .x14 = BitVec.ofNat 64 h ∧ RegsExcept s t [.x14, .x28] ∧ Frame s t (fun _ => False) := by
+    ∃ t, Steps image s 3 3 t ∧ t.pc = (if h < 3 then pcOf 760 else pcOf 732) ∧
+      (3 ≤ h → t.getReg .x14 = BitVec.ofNat 64 (h - 3)) ∧ RegsExcept s t [.x14, .x28] ∧
+      Frame s t (fun _ => False) := by
   refine ⟨_, symRun_sound btC1 codeAt_ktC1 s hpc (by simp [btC1.res, rv_simp]), ?_, ?_, ?_, ?_⟩
-  · simp [btC1.res, Result.toState_pc, E.eval]
-  · simp [btC1.res, rv_simp, h13]
+  · simp only [Result.toState_pc, btC1.res, E.eval, CmpOp.eval, RegFile.get, h13]
+    rw [show (3#64 : Word) = BitVec.ofNat 64 3 from rfl, ofNat_slt h 3 hh (by norm_num)]
+    by_cases hc : h < 3 <;> simp [hc]
+  · intro h3
+    simp only [Result.toState_getReg, btC1.res, rv_simp, h13]
+    apply BitVec.eq_of_toNat_eq
+    first
+      | (rw [BitVec.toNat_add]; simp only [BitVec.toNat_ofNat]; omega)
+      | (rw [BitVec.toNat_sub]; simp only [BitVec.toNat_ofNat]; omega)
   · intro r hr; simp at hr; cases r <;> simp_all [btC1.res, rv_simp] <;> rfl
   · intro A _ _; simp [btC1.res, rv_simp]
-/-- 733..734 (img-v6: the clamp `min _ 8` is gone, `jal 736`). -/
+/-- 732 (campaign T51): `bne a4, zero, 736` (`h = 3` falls through to 733). -/
+theorem ktC2_spec (s : MachineState) (hpc : s.pc = pcOf 732) (b : Nat) (hb : b < 2 ^ 64)
+    (h14 : s.getReg .x14 = BitVec.ofNat 64 b) :
+    ∃ t, Steps image s 1 1 t ∧ t.pc = (if b = 0 then pcOf 733 else pcOf 736) ∧ RegsExcept s t [] ∧
+      Frame s t (fun _ => False) := by
+  refine ⟨_, symRun_sound btC2 codeAt_ktC2 s hpc (by simp [btC2.res, rv_simp]), ?_, ?_, ?_⟩
+  · simp only [Result.toState_pc, btC2.res, E.eval, CmpOp.eval, RegFile.get, h14]
+    by_cases hc : b = 0
+    · subst hc; simp
+    · have : BitVec.ofNat 64 b ≠ 0#64 := by
+        rw [Ne, show (0#64) = BitVec.ofNat 64 0 from rfl, ofNat_inj hb (by norm_num)]; exact hc
+      simp [hc, this]
+  · intro r hr; cases r <;> simp_all [btC2.res, rv_simp] <;> rfl
+  · intro A _ _; simp [btC2.res, rv_simp]
+/-- 733..734 (campaign T51, `h = 3`): `a4 = 1`, `j 736`. -/
 theorem ktC3_spec (s : MachineState) (hpc : s.pc = pcOf 733) :
-    ∃ t, Steps image s 2 2 t ∧ t.pc = pcOf 736 ∧ RegsExcept s t [.x28] ∧ Frame s t (fun _ => False) := by
-  refine ⟨_, symRun_sound btC3 codeAt_ktC3 s hpc (by simp [btC3.res, rv_simp]), ?_, ?_, ?_⟩
+    ∃ t, Steps image s 2 2 t ∧ t.pc = pcOf 736 ∧ t.getReg .x14 = BitVec.ofNat 64 1 ∧ RegsExcept s t [.x14] ∧
+      Frame s t (fun _ => False) := by
+  refine ⟨_, symRun_sound btC3 codeAt_ktC3 s hpc (by simp [btC3.res, rv_simp]), ?_, ?_, ?_, ?_⟩
   · simp [btC3.res, Result.toState_pc, E.eval]
+  · simp [btC3.res, rv_simp]
   · intro r hr; simp at hr; cases r <;> simp_all [btC3.res, rv_simp] <;> rfl
   · intro A _ _; simp [btC3.res, rv_simp]
 theorem ktC5_spec (s : MachineState) (hpc : s.pc = pcOf 736) (b h : Nat) (hb : 1 ≤ b) (hb' : b ≤ 11)
@@ -212,7 +240,7 @@ theorem ktC5_spec (s : MachineState) (hpc : s.pc = pcOf 736) (b h : Nat) (hb : 1
   · intro r hr; simp at hr; cases r <;> simp_all [btC5.res, rv_simp] <;> rfl
   · intro A _ _; simp [btC5.res, rv_simp]
 theorem ktC6_spec (s : MachineState) (hpc : s.pc = pcOf 742) :
-    ∃ t, Steps image s 2 2 t ∧ t.pc = pcOf 744 ∧ t.getReg .x16 = BitVec.ofNat 64 ((2 ^ 11 - 1) * 2 ^ 34) ∧
+    ∃ t, Steps image s 2 2 t ∧ t.pc = pcOf 744 ∧ t.getReg .x16 = BitVec.ofNat 64 ((2 ^ 8 - 1) * 2 ^ 40) ∧
       RegsExcept s t [.x16] ∧ Frame s t (fun _ => False) := by
   refine ⟨_, symRun_sound btC6 codeAt_ktC6 s hpc (by simp [btC6.res, rv_simp]), ?_, ?_, ?_, ?_⟩
   · simp [btC6.res, Result.toState_pc, E.eval]
@@ -400,39 +428,56 @@ theorem zero_test_hi (v : BitVec 128) (b : Nat) (hb : b ≤ 64) :
     rw [Nat.div_lt_iff_lt_mul (Nat.two_pow_pos _), ← Nat.pow_add, show b + (128 - b) = 128 by omega]
     exact v.isLt
   rw [Nat.mod_eq_of_lt hv]
-/-- img-v6: the `h = 11` zero test, high-word mask `0x7FF << 34` = node bits 98..108. -/
-theorem zero_test_bits98 (v : BitVec 128) :
-    (v.extractLsb' 64 64 &&& BitVec.ofNat 64 ((2 ^ 11 - 1) * 2 ^ 34) = 0#64) ↔
-      v.toNat / 2 ^ 98 % 2 ^ 11 = 0 := by
+/-- Campaign T51: the `h = 11` zero test, high-word mask `0xFF << 40` = node bits 104..111. -/
+theorem zero_test_bits104 (v : BitVec 128) :
+    (v.extractLsb' 64 64 &&& BitVec.ofNat 64 ((2 ^ 8 - 1) * 2 ^ 40) = 0#64) ↔
+      v.toNat / 2 ^ 104 % 2 ^ 8 = 0 := by
   rw [← BitVec.toNat_inj, BitVec.toNat_and, BitVec.toNat_ofNat, Nat.mod_eq_of_lt (by norm_num), hiword_toNat,
     BitVec.toNat_zero, land_mask_eq_zero, Nat.div_div_eq_div_mul, ← Nat.pow_add]
-/-- img-v6: `b_h = h`. -/
-theorem topZeroBits_eq (h : Nat) (h1 : 1 ≤ h) (h11 : h ≤ 11) : topZeroBits h = h := by
+/-- Campaign T51: `b_h = 0,0,1,1,2,3,4,5,6,7,8` (#938: `b_h = h`). -/
+theorem topZeroBits_eq (h : Nat) (h1 : 1 ≤ h) (h11 : h ≤ 11) : topZeroBits h = SigGolfCandidate.T3.topZeroAlloc.getD h 0 := rfl
+theorem topZeroBits_ge3 (h : Nat) (h3 : 3 ≤ h) (h11 : h ≤ 11) : topZeroBits h = if h = 3 then 1 else h - 3 := by
   interval_cases h <;> rfl
+theorem ktopZeroBits_le (h : Nat) : topZeroBits h ≤ 8 := by
+  unfold topZeroBits T3.topZeroAlloc
+  rcases h with _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | h <;> simp
 /-- The machine's zero test (KCHK 746..749) is `topZeroOk`. -/
 theorem zero_test (v : Digest) (h : Nat) (h1 : 1 ≤ h) (h11 : h ≤ 11) :
     (v.extractLsb' 64 64 &&& BitVec.ofNat 64 (maskN h) = 0#64) ↔ topZeroOk h v = true := by
   unfold maskN topZeroOk
   by_cases hc : h = 11
-  · rw [if_pos hc, if_pos hc, zero_test_bits98, beq_iff_eq]
-  · rw [if_neg hc, if_neg hc, zero_test_hi v _ (by rw [topZeroBits_eq h h1 h11]; omega), beq_iff_eq]
-/-- Steps (= cycles) of the KCHK setup 727..745 at height `h ∈ 1..11` (img-v6: no clamps). -/
+  · rw [if_pos hc, if_pos hc, zero_test_bits104, beq_iff_eq]
+  · rw [if_neg hc, if_neg hc, zero_test_hi v _ (by have := ktopZeroBits_le h; omega), beq_iff_eq]
+/-- Steps (= cycles) of the KCHK setup 727..745 at height `h ∈ 3..11` (campaign T51: `b = h - 3`, `h = 3` sets
+`b = 1` at 733..734). -/
 def setupK (h : Nat) : Nat :=
-  15 + (if h = 11 then 2 else 0)
+  14 + (if h = 3 then 2 else 0) + (if h = 11 then 2 else 0)
 theorem setupK_le (h : Nat) : setupK h ≤ 18 := by unfold setupK; split_ifs <;> omega
-theorem ksetup_spec (s : MachineState) (hpc : s.pc = pcOf 727) (h : Nat) (h1 : 1 ≤ h) (h11 : h ≤ 11)
+theorem ksetup_spec (s : MachineState) (hpc : s.pc = pcOf 727) (h : Nat) (h3 : 3 ≤ h) (h11 : h ≤ 11)
     (h13 : s.getReg .x13 = BitVec.ofNat 64 h) :
     ∃ t, Steps image s (setupK h) (setupK h) t ∧ t.pc = pcOf 746 ∧
       t.getReg .x16 = BitVec.ofNat 64 (maskN h) ∧ t.getReg .x17 = BitVec.ofNat 64 (topNonceCap h) ∧
       RegsExcept s t [.x14, .x16, .x17, .x28] ∧ Frame s t (fun _ => False) := by
   obtain ⟨t1, st1, p1, r1, f1⟩ := ktC0_spec s hpc h (by omega) h13
   rw [if_neg (by omega)] at p1
-  obtain ⟨t2, st2, p2, x14_2, r2, f2⟩ := ktC1_spec t1 p1 h (by rw [r1.get (by simp)]; exact h13)
-  obtain ⟨t4, st4, p4, r4, f4⟩ := ktC3_spec t2 p2
-  have hb := topZeroBits_eq h h1 h11
-  have r14 : RegsExcept s t4 [.x28, .x14, .x28, .x28] := (r1.trans r2).trans r4
-  have x14_4 : t4.getReg .x14 = BitVec.ofNat 64 h := by rw [r4.get (by simp)]; exact x14_2
-  obtain ⟨t6, st6, p6, x16_6, r6, f6⟩ := ktC5_spec t4 p4 h h h1 h11 (by omega)
+  obtain ⟨t2, st2, p2, x14_2, r2, f2⟩ := ktC1_spec t1 p1 h (by omega) (by rw [r1.get (by simp)]; exact h13)
+  rw [if_neg (by omega)] at p2
+  obtain ⟨t3, st3, p3, r3, f3⟩ := ktC2_spec t2 p2 (h - 3) (by omega) (x14_2 h3)
+  have hb := topZeroBits_ge3 h h3 h11
+  obtain ⟨t4, st4, p4, x14_4, r4, f4⟩ : ∃ t4, Steps image t3 (if h = 3 then 2 else 0) (if h = 3 then 2 else 0) t4 ∧
+      t4.pc = pcOf 736 ∧ t4.getReg .x14 = BitVec.ofNat 64 (topZeroBits h) ∧ RegsExcept t3 t4 [.x14] ∧
+      Frame t3 t4 (fun _ => False) := by
+    by_cases hc : h = 3
+    · rw [if_pos (show h - 3 = 0 by omega)] at p3
+      obtain ⟨u, su, pu, xu, ru, fu⟩ := ktC3_spec t3 p3
+      exact ⟨u, by rw [if_pos hc]; exact su, pu, by rw [xu, hb, if_pos hc], ru, fu⟩
+    · rw [if_neg (show h - 3 ≠ 0 by omega)] at p3
+      refine ⟨t3, by rw [if_neg hc]; exact Steps.refl _, p3, ?_, RegsExcept.refl _ _, Frame.refl _ _⟩
+      rw [r3.get (by simp), x14_2 h3, hb, if_neg hc]
+  have r14 : RegsExcept s t4 ([.x28] ++ [.x14, .x28] ++ [] ++ [.x14]) := ((r1.trans r2).trans r3).trans r4
+  have hb1 : 1 ≤ topZeroBits h := by rw [hb]; split_ifs <;> omega
+  have hb8 : topZeroBits h ≤ 11 := by have := ktopZeroBits_le h; omega
+  obtain ⟨t6, st6, p6, x16_6, r6, f6⟩ := ktC5_spec t4 p4 (topZeroBits h) h hb1 hb8 (by omega)
     x14_4 (by rw [r14.get (by simp)]; exact h13)
   obtain ⟨t7, st7, p7, x16_7, r7, f7⟩ : ∃ t7, Steps image t6 (if h = 11 then 2 else 0) (if h = 11 then 2 else 0) t7 ∧
       t7.pc = pcOf 744 ∧ t7.getReg .x16 = BitVec.ofNat 64 (maskN h) ∧ RegsExcept t6 t7 [.x16] ∧
@@ -443,15 +488,15 @@ theorem ksetup_spec (s : MachineState) (hpc : s.pc = pcOf 727) (h : Nat) (h1 : 1
       exact ⟨u, by rw [if_pos hc]; exact su, pu, by rw [xu]; unfold maskN; rw [if_pos hc], ru, fu⟩
     · rw [if_neg hc] at p6
       refine ⟨t6, by rw [if_neg hc]; exact Steps.refl _, p6, ?_, RegsExcept.refl _ _, Frame.refl _ _⟩
-      rw [x16_6]; unfold maskN; rw [if_neg hc, hb]
-  obtain ⟨t8, st8, p8, x17_8, r8, f8⟩ := ktC7_spec t7 p7 h h11
+      rw [x16_6]; unfold maskN; rw [if_neg hc]
+  obtain ⟨t8, st8, p8, x17_8, r8, f8⟩ := ktC7_spec t7 p7 (topZeroBits h) hb8
     (by rw [r7.get (by simp), r6.get (by simp)]; exact x14_4)
-  refine ⟨t8, Steps.of_eq (st1.trans (st2.trans (st4.trans (st6.trans (st7.trans st8)))))
-    ?_ ?_, p8, by rw [r8.get (by simp)]; exact x16_7, by rw [x17_8]; unfold topNonceCap; rw [hb], ?_, ?_⟩
+  refine ⟨t8, Steps.of_eq (st1.trans (st2.trans (st3.trans (st4.trans (st6.trans (st7.trans st8))))))
+    ?_ ?_, p8, by rw [r8.get (by simp)]; exact x16_7, by rw [x17_8]; rfl, ?_, ?_⟩
   · unfold setupK; split_ifs <;> omega
   · unfold setupK; split_ifs <;> omega
   · exact (((r14.trans r6).trans r7).trans r8).mono (by simp)
-  · exact (((((f1.trans f2).trans f4).trans f6).trans f7).trans f8).mono
+  · exact ((((((f1.trans f2).trans f3).trans f4).trans f6).trans f7).trans f8).mono
       (fun _ _ h => by simp_all)
 
 theorem nonce_words (n : Nat) (hn : n < 2 ^ 64) : wordsOf (nonceBytes n) = [BitVec.ofNat 64 n, 0] := by
@@ -758,6 +803,20 @@ theorem nodeHash_top (heap : Nat) (l r : Digest) :
       pure (T3.projHalf (T3.nodeHalfHigh 3 0 heap) a) := by
   unfold nodeHash T3.projHash topNodeInput
   rw [nonceBytes_zero]
+/-- Campaign T51: a height with `b_h = 0` (heights 1, 2) keeps its first trial (nonce 0): the node is the plain node
+hash. -/
+theorem topNodeAt_b0 (h heap : Nat) (l r : Digest) (hb : topZeroBits h = 0) :
+    Prod.snd <$> topNodeAt h heap l r = nodeHash 3 0 0 heap l r := by
+  have h11 : h ≠ 11 := by intro e; subst e; simp [topZeroBits, T3.topZeroAlloc] at hb
+  have hcap : topNonceCap h - 1 = 102 + 1 := by unfold topNonceCap; simp [hb]
+  unfold topNodeAt
+  rw [hcap, topNonceSearch_eq, topNodeHashN_bind, nodeHash_top, map_bind]
+  congr 1; funext a
+  have hz : topZeroOk h (T3.projHalf (T3.nodeHalfHigh 3 0 heap) a) = true := by
+    unfold topZeroOk
+    rw [if_neg h11, hb, Nat.sub_zero, Nat.div_eq_of_lt (BitVec.isLt _)]
+    rfl
+  simp only [trialTail, hz, if_true, map_pure]
 
 section node
 variable {image' : Image} (sk : BitVec 256) {s0 : MachineState} {B : LevArgs} {leaves : List Digest}
@@ -908,10 +967,35 @@ theorem tnode {ℓ : Nat} (hl : ℓ < 12) {levels : List (List Digest)} {pre : L
       ((out_after_hash t2 a _ F.x12).frame (f1.trans f2) (by simp only [NOUT]; omega)
         (fun h => by rcases h with h | h <;> exact h) (fun h => by rcases h with h | h <;> exact h))
     exact TBSim.pure_steps (s1.trans (s2.trans sw)) (node_post hpre htop hh12 hl hi ht r02 f02 hw)
+  by_cases hsmall : ℓ + 1 ≤ 2
+  · -- campaign T51: heights 1, 2 (`b_h = 0`): 727..731 jump to KOK with the first trial
+    have hb0 : topZeroBits (ℓ + 1) = 0 := by
+      have : ℓ ≤ 1 := by omega
+      interval_cases ℓ <;> rfl
+    rw [if_neg hroot, topNodeAt_b0 _ _ _ _ hb0, nodeHash_top]
+    refine (TBSim.steps st (TBSim.publicHash_bind hf F.x5 hv hq (W := 18) (fun a => ?_))).mono
+      (by unfold nodeW; rw [if_neg hroot, topNodeInput_blocks]; have : 1 ≤ topNonceCap (ℓ + 1) := by
+            unfold topNonceCap; exact Nat.mul_pos (by norm_num) (Nat.two_pow_pos _)
+          omega) (fun _ _ h => h)
+    obtain ⟨u1, s1, p1, r1, f1⟩ := kt264_spec (writeHash t2 a) (by rw [pc_writeHash, p2, pcOf_add4])
+    obtain ⟨u2, s2, p2', r2, f2⟩ := ktC0_spec u1 p1 (ℓ + 1) (by omega)
+      (by rw [r1.get (by simp), getReg_writeHash]; exact x13)
+    rw [if_neg hroot] at p2'
+    obtain ⟨u3, s3, p3, -, r3, f3⟩ := ktC1_spec u2 p2' (ℓ + 1) (by omega)
+      (by rw [r2.get (by simp), r1.get (by simp), getReg_writeHash]; exact x13)
+    rw [if_pos (by omega)] at p3
+    obtain ⟨w, sw, hw⟩ := kok_run F p3 (L := [] ++ [] ++ [.x28] ++ [.x14, .x28]) (by decide)
+      ((((hw0 a).trans r1).trans r2).trans r3)
+      (((((hwf a).trans f1).trans f2).trans f3).mono (fun X _ h => by
+        rcases h with ((h | h) | h) | h; exact h; exact h.elim; exact h.elim; exact h.elim))
+      ((out_after_hash t2 a _ F.x12).frame ((f1.trans f2).trans f3) (by simp only [NOUT]; omega)
+        (fun h => by rcases h with (h | h) | h <;> exact h) (fun h => by rcases h with (h | h) | h <;> exact h))
+    exact TBSim.pure_steps (s1.trans (s2.trans (s3.trans sw))) (node_post hpre htop hh12 hl hi ht r02 f02 hw)
   · rw [if_neg hroot]
-    have h1 : 1 ≤ ℓ + 1 := by omega
+    have h1 : 3 ≤ ℓ + 1 := by omega
+    have h1' : 1 ≤ ℓ + 1 := by omega
     have h11 : ℓ + 1 ≤ 11 := by omega
-    have hcap := topNonceCap_le (ℓ + 1) h1 h11
+    have hcap := topNonceCap_le (ℓ + 1) h1' h11
     apply TBSim.map
     unfold topNodeAt
     rw [topNonceSearch_eq, topNodeHashN_bind]
@@ -930,7 +1014,7 @@ theorem tnode {ℓ : Nat} (hl : ℓ < 12) {levels : List (List Digest)} {pre : L
           rcases h with (h | h) | h; exact h; exact h.elim; exact h.elim),
         (out_after_hash t2 a _ F.x12).frame (f1.trans f2) (by simp only [NOUT]; omega)
           (fun h => by rcases h with h | h <;> exact h) (fun h => by rcases h with h | h <;> exact h)⟩
-    exact (TBSim.steps (s1.trans s2) (trial_loop sk F (ℓ + 1) h1 h11 _ 0 a u2 hts (by omega))).mono
+    exact (TBSim.steps (s1.trans s2) (trial_loop sk F (ℓ + 1) h1' h11 _ 0 a u2 hts (by omega))).mono
       (by omega) (fun res w hw => node_post hpre htop hh12 hl hi ht r02 f02 hw)
 
 /-- Cycle bound of tree level `ℓ` (nodes of height `ℓ + 1`). -/

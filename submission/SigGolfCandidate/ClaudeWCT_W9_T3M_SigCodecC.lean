@@ -27,44 +27,6 @@ def sigDecC (b : CBytes) : WCT9.Signature where
 def sigBC (s : WCT9.Signature) : CBytes :=
   BitVec.ofNat _ (digNat ((sigDigests s).eraseIdx 183) + 2 ^ (128 * 331) * (((sigDigests s).getD 183 0).toNat % 2 ^ 112))
 
-theorem sigDigests_sigDecC (b : CBytes) (k : Nat) (hk : k < 332) :
-    (sigDigests (sigDecC b)).getD k 0 = digC b k := by
-  by_cases h0 : k = 0
-  · subst h0; exact sigDigests_rho _
-  by_cases h1 : k < 118
-  · have hq : (k - 1) / 13 < 9 := by omega
-    have e : k = 1 + 13 * (⟨(k - 1) / 13, hq⟩ : WCT9.Coord).val + (k - 1) % 13 := by simp; omega
-    by_cases hr : (k - 1) % 13 < 6
-    · have := sigDigests_value (sigDecC b) ⟨(k - 1) / 13, hq⟩ ⟨(k - 1) % 13, hr⟩
-      simp only at this
-      rw [← e] at this
-      rw [this]
-      show digC b (1 + 13 * ((k - 1) / 13) + (k - 1) % 13) = digC b k
-      rw [← e]
-    · have := sigDigests_path (sigDecC b) ⟨(k - 1) / 13, hq⟩ ⟨(k - 1) % 13 - 6, by omega⟩
-      simp only at this
-      rw [show 1 + 13 * ((k - 1) / 13) + 6 + ((k - 1) % 13 - 6) = k by omega] at this
-      rw [this]
-      show digC b (1 + 13 * ((k - 1) / 13) + 6 + ((k - 1) % 13 - 6)) = digC b k
-      rw [show 1 + 13 * ((k - 1) / 13) + 6 + ((k - 1) % 13 - 6) = k by omega]
-  have key : ∀ (lay : Layer) (i : Nat), i < chainCount lay + height lay → layIdx lay + i = k →
-      (sigDigests (sigDecC b)).getD k 0 = digC b k := by
-    intro lay i hi he
-    subst he
-    rw [sigDigests_layer _ lay i hi]
-    unfold layerList
-    by_cases hc : i < chainCount lay
-    · rw [getD_append_left' (by simpa using hc), getD_ofFn' _ i hc]; rfl
-    · rw [getD_append_right' (by simp; omega), List.length_ofFn, getD_ofFn' _ (i - chainCount lay) (by omega)]
-      show digC b (layIdx lay + (chainCount lay + (i - chainCount lay))) = _
-      rw [show chainCount lay + (i - chainCount lay) = i by omega]
-  by_cases h3 : k < 184
-  · exact key 0 (k - 118) (by rw [chainCount_0, height_0]; omega) (by simp [layIdx]; omega)
-  by_cases h4 : k < 234
-  · exact key 1 (k - 184) (by rw [chainCount_1, height_1]; omega) (by simp [layIdx]; omega)
-  by_cases h5 : k < 283
-  · exact key 2 (k - 234) (by rw [chainCount_2, height_2]; omega) (by simp [layIdx]; omega)
-  · exact key 3 (k - 283) (by rw [chainCount_3, height_3]; omega) (by simp [layIdx]; omega)
 
 theorem cDig_toNat (b : CBytes) (k : Nat) : (cDig b k).toNat = b.toNat / 2 ^ (128 * k) % 2 ^ 128 := by
   rw [cDig, BitVec.extractLsb'_toNat, Nat.shiftRight_eq_div_pow]
@@ -79,8 +41,6 @@ theorem getD_eraseIdx {α : Type} (l : List α) (i j : Nat) (d : α) :
   simp only [List.getD_eq_getElem?_getD, List.getElem?_eraseIdx]
   split <;> rfl
 
-theorem length_eraseIdx_sig (s : WCT9.Signature) : ((sigDigests s).eraseIdx 183).length = 331 := by
-  rw [List.length_eraseIdx, length_sigDigests]; decide
 
 theorem mod_digit (B n k : Nat) (hk : k < n) :
     B % 2 ^ (128 * n) / 2 ^ (128 * k) % 2 ^ 128 = B / 2 ^ (128 * k) % 2 ^ 128 := by
@@ -101,74 +61,8 @@ theorem split_div (D T A : Nat) (hD : D < 2 ^ A) : (D + 2 ^ A * T) / 2 ^ A = T :
 theorem pow_5310 : (2 : Nat) ^ (8 * 5310) = 2 ^ (128 * 331) * 2 ^ 112 := by rw [← pow_add]
 
 set_option exponentiation.threshold 50000 in
-theorem sigBC_sigDecC (b : CBytes) : sigBC (sigDecC b) = b := by
-  apply BitVec.eq_of_toNat_eq
-  unfold sigBC
-  rw [BitVec.toNat_ofNat]
-  have h331 : digNat ((sigDigests (sigDecC b)).eraseIdx 183) = b.toNat % 2 ^ (128 * 331) := by
-    apply digNat_eq_of_digits
-    · rw [length_eraseIdx_sig]; exact Nat.mod_lt _ (by positivity)
-    · intro k hk
-      rw [length_eraseIdx_sig] at hk
-      rw [getD_eraseIdx, mod_digit _ 331 k hk]
-      split
-      · rename_i hlt
-        rw [sigDigests_sigDecC b k (by omega), digC, if_pos hlt, cDig_toNat]
-      · rename_i hge
-        rw [sigDigests_sigDecC b (k + 1) (by omega), digC, if_neg (by omega), if_neg (by omega),
-          show k + 1 - 1 = k by omega, cDig_toNat]
-  have htail : ((sigDigests (sigDecC b)).getD 183 0).toNat % 2 ^ 112 = b.toNat / 2 ^ (128 * 331) := by
-    rw [sigDigests_sigDecC b 183 (by decide), digC, if_neg (by decide), if_pos rfl, cDig_toNat]
-    have := cTail_lt b
-    rw [Nat.mod_eq_of_lt (show b.toNat / 2 ^ (128 * 331) < 2 ^ 128 from
-      lt_of_lt_of_le this (Nat.pow_le_pow_right (by norm_num) (by norm_num))), Nat.mod_eq_of_lt this]
-  rw [h331, htail, Nat.mod_add_div]
-  exact Nat.mod_eq_of_lt b.isLt
 
-/-- Two signatures that agree everywhere but the omitted bits have the same digests away from index 183. -/
-theorem sigDigests_proj_getD (s : WCT9.Signature) (k : Nat) (hk : k < 332) (h183 : k ≠ 183) :
-    (sigDigests (WCT9.proj s)).getD k 0 = (sigDigests s).getD k 0 := by
-  by_cases h0 : k = 0
-  · subst h0; rw [sigDigests_rho, sigDigests_rho]; rfl
-  by_cases h1 : k < 118
-  · have hq : (k - 1) / 13 < 9 := by omega
-    have e : k = 1 + 13 * (⟨(k - 1) / 13, hq⟩ : WCT9.Coord).val + (k - 1) % 13 := by simp; omega
-    rw [e, sigDigests_opening _ _ _ (by omega), sigDigests_opening _ _ _ (by omega)]
-    rfl
-  have key : ∀ (lay : Layer) (i : Nat), i < chainCount lay + height lay → layIdx lay + i = k →
-      (sigDigests (WCT9.proj s)).getD k 0 = (sigDigests s).getD k 0 := by
-    intro lay i hi he
-    subst he
-    rw [sigDigests_layer _ lay i hi, sigDigests_layer _ lay i hi]
-    unfold layerList
-    have hl : (WCT9.proj s).layers lay = WCT9.fillLayer lay (s.layers lay) 0 := rfl
-    rw [hl]
-    by_cases hc : i < chainCount lay
-    · rw [getD_append_left' (by simpa using hc), getD_append_left' (by simpa using hc)]; rfl
-    · rw [getD_append_right' (by simp; omega), getD_append_right' (by simp; omega), List.length_ofFn,
-        List.length_ofFn, getD_ofFn' _ (i - chainCount lay) (by omega), getD_ofFn' _ (i - chainCount lay) (by omega)]
-      apply WCT9.fillLayer_path_ne
-      intro hh
-      have hlay : lay = 0 := Fin.ext hh.1
-      subst hlay
-      simp only [Fin.val_mk] at hh
-      apply h183
-      show layIdx 0 + i = 183
-      rw [chainCount_0] at hc hh
-      simp only [layIdx]
-      norm_num at hh ⊢
-      omega
-  by_cases h3 : k < 184
-  · exact key 0 (k - 118) (by rw [chainCount_0, height_0]; omega) (by simp [layIdx]; omega)
-  by_cases h4 : k < 234
-  · exact key 1 (k - 184) (by rw [chainCount_1, height_1]; omega) (by simp [layIdx]; omega)
-  by_cases h5 : k < 283
-  · exact key 2 (k - 234) (by rw [chainCount_2, height_2]; omega) (by simp [layIdx]; omega)
-  · exact key 3 (k - 283) (by rw [chainCount_3, height_3]; omega) (by simp [layIdx]; omega)
 
-theorem sigDigests_183 (s : WCT9.Signature) : (sigDigests s).getD 183 0 = WCT9.topSib s := by
-  have := sigDigests_layPath s 0 11 (by decide)
-  exact this
 
 theorem digC_183 (b : CBytes) : digC b 183 = cDig b 331 := by
   unfold digC; rw [if_neg (by decide), if_pos rfl]
@@ -191,25 +85,6 @@ theorem digNat_append (L1 L2 : List Digest) : digNat (L1 ++ L2) = digNat L1 + 2 
       show 128 * (L.length + 1) = 128 + 128 * L.length by ring, pow_add]
     ring
 
-theorem compactList_eq (s : WCT9.Signature) :
-    compactList s = (sigDigests s).eraseIdx 183 ++ [(sigDigests s).getD 183 0] := by
-  apply List.ext_getElem?
-  intro k
-  have hl := length_eraseIdx_sig s
-  by_cases hk : k < 332
-  · rw [List.getElem?_eq_getElem (by simp only [compactList, List.length_map, List.length_range]; omega),
-      List.getElem?_eq_getElem (by simp only [List.length_append, hl, List.length_singleton]; omega)]
-    refine congrArg some ?_
-    simp only [compactList, List.getElem_map, List.getElem_range]
-    by_cases h331 : k < 331
-    · rw [List.getElem_append_left (by omega), ← List.getD_eq_getElem _ 0, getD_eraseIdx]
-      unfold cIdx
-      split <;> first | rfl | omega | (split <;> first | rfl | omega)
-    · rw [List.getElem_append_right (by omega)]
-      simp only [hl, show k - 331 = 0 by omega, List.getElem_cons_zero]
-      unfold cIdx; rw [if_neg (by omega), if_neg (by omega)]
-  · rw [List.getElem?_eq_none (by simp only [compactList, List.length_map, List.length_range]; omega),
-      List.getElem?_eq_none (by simp only [List.length_append, hl, List.length_singleton]; omega)]
 
 theorem mod_split (X y A M : Nat) (hX : X < 2 ^ A) (hM : 0 < M) :
     (X + 2 ^ A * y) % (2 ^ A * M) = X + 2 ^ A * (y % M) := by
@@ -221,15 +96,6 @@ theorem mod_split (X y A M : Nat) (hX : X < 2 ^ A) (hM : 0 < M) :
   have h1 : 2 ^ A * (y % M) + 2 ^ A ≤ 2 ^ A * M := by
     rw [← Nat.mul_succ]; exact Nat.mul_le_mul_left _ hr
   omega
-theorem sigBC_toNat_compact (s : WCT9.Signature) :
-    (sigBC s).toNat = digNat (compactList s) % 2 ^ (8 * 5310) := by
-  rw [compactList_eq, digNat_append, length_eraseIdx_sig, digNat_cons, digNat_nil, Nat.mul_zero, Nat.add_zero]
-  unfold sigBC
-  rw [BitVec.toNat_ofNat]
-  have h1 := digNat_lt ((sigDigests s).eraseIdx 183)
-  rw [length_eraseIdx_sig] at h1
-  have e : (2 : Nat) ^ (8 * 5310) = 2 ^ (128 * 331) * 2 ^ 112 := by rw [← pow_add]
-  rw [e, mod_split _ _ _ _ h1 (by positivity), mod_split _ _ _ _ h1 (by positivity), Nat.mod_mod]
 end ClaudeWCT.W9.T3M
 
 /-! Compact serialization for the shared forest. -/
@@ -250,7 +116,8 @@ def layerList (s : SharedSignature) (lay : Layer) : List Digest :=
 def sigDigests (s : SharedSignature) : List Digest :=
   (([s.rho] ++ (List.ofFn s.forest.pairs).flatMap pairList) ++ singletonList s.forest.singleton) ++
     (layerList s 0 ++ (layerList s 1 ++ (layerList s 2 ++ layerList s 3)))
-def layIdx (lay : Layer) : Nat := (![114,180,230,279] : Layer → Nat) lay
+/-- T51: top values at 114..164, top path 165..176, L1 at 177, L2 at 227, L3 at 276 (325 digests). -/
+def layIdx (lay : Layer) : Nat := (![114,177,227,276] : Layer → Nat) lay
 theorem pairList_length (p : PairOpening) : (pairList p).length = 25 := by simp [pairList]
 theorem singletonList_length (p : SingletonOpening) : (singletonList p).length = 13 := by
   simp [singletonList]
@@ -261,32 +128,33 @@ theorem pairs_length (s : SharedSignature) : ((List.ofFn s.forest.pairs).flatMap
 theorem layerList_length (s : SharedSignature) (lay : Layer) :
     (layerList s lay).length = chainCount lay + height lay := by
   simp only [layerList, List.length_append, List.length_ofFn]
-theorem sigDigests_length (s : SharedSignature) : (sigDigests s).length = 328 := by
+theorem sigDigests_length (s : SharedSignature) : (sigDigests s).length = 325 := by
   simp only [sigDigests, List.length_append, List.length_singleton, pairs_length,
     singletonList_length, layerList_length]
   rfl
 
-/-- img-v6: the 5,239-byte compact signature. -/
-abbrev CBytes := Bytes 5239
+/-- T51: the 5,195-byte compact signature (324 digests + an 11-byte tail; #938 img-v6: 5,239 bytes). -/
+abbrev CBytes := Bytes 5195
 def cDig (b : CBytes) (k : Nat) : Digest := b.extractLsb' (128 * k) 128
-/-- Offset of the X field in the top bits of the path node at height `j` (`j = 1..10`). -/
-def xOff (j : Nat) : Nat := j * (j - 1) / 2
+/-- Offset of the X field in the top `b_j = topZeroBits j` bits of the path node at height `j` (`j = 1..10`):
+`Σ_{h < j} b_h` = 0, 1, 2, 4, 7, 11, 16, 22 for `j = 3..10` (heights 1, 2 carry no bits). -/
+def xOff (j : Nat) : Nat := ((List.range j).map topZeroBits).sum
 def clearTop (j : Nat) (d : Digest) : Digest := BitVec.ofNat 128 (d.toNat % 2 ^ (128 - j))
 def topBits (j : Nat) (d : Digest) : Nat := d.toNat / 2 ^ (128 - j)
-/-- The 55-bit X field read from the top bits of the path nodes 1..10 (digests 169..178). -/
+/-- T51: the 29-bit X field read from the top `b_j` bits of the path nodes of heights 3..10 (digests 168..175). -/
 def xOfB (b : CBytes) : Nat :=
-  topBits 1 (cDig b 169) + topBits 2 (cDig b 170) * 2 ^ 1 + topBits 3 (cDig b 171) * 2 ^ 3 +
-  topBits 4 (cDig b 172) * 2 ^ 6 + topBits 5 (cDig b 173) * 2 ^ 10 + topBits 6 (cDig b 174) * 2 ^ 15 +
-  topBits 7 (cDig b 175) * 2 ^ 21 + topBits 8 (cDig b 176) * 2 ^ 28 + topBits 9 (cDig b 177) * 2 ^ 36 +
-  topBits 10 (cDig b 178) * 2 ^ 45
-/-- Decoded digest `k`: path nodes 1..10 lose their top bits; index 179 (top sibling) = tail 56 bits + X bits 0..41. -/
+  topBits 1 (cDig b 168) + topBits 1 (cDig b 169) * 2 ^ 1 + topBits 2 (cDig b 170) * 2 ^ 2 +
+  topBits 3 (cDig b 171) * 2 ^ 4 + topBits 4 (cDig b 172) * 2 ^ 7 + topBits 5 (cDig b 173) * 2 ^ 11 +
+  topBits 6 (cDig b 174) * 2 ^ 16 + topBits 7 (cDig b 175) * 2 ^ 22
+/-- Decoded digest `k`: the path nodes of heights 1..10 (digests 166..175) lose their top `b_j` bits; index 176 (top
+sibling) = tail 88 bits + X bits 0..15 (bits 88..103; bits 104..127 zero, 112..127 brute-forced by expand). -/
 def digC (b : CBytes) (k : Nat) : Digest :=
-  if k < 179 then (if 169 ≤ k then clearTop (k - 168) (cDig b k) else cDig b k)
-  else if k = 179 then BitVec.ofNat 128 (b.toNat / 2 ^ (128 * 327) % 2 ^ 56 + xOfB b % 2 ^ 42 * 2 ^ 56)
+  if k < 176 then (if 166 ≤ k then clearTop (topZeroBits (k - 165)) (cDig b k) else cDig b k)
+  else if k = 176 then BitVec.ofNat 128 (b.toNat / 2 ^ (128 * 324) % 2 ^ 88 + xOfB b % 2 ^ 16 * 2 ^ 88)
   else cDig b (k - 1)
 def sigDecC (b : CBytes) : SharedSignature where
   rho := digC b 0
-  policyHints := BitVec.ofNat 16 (xOfB b / 2 ^ 42)
+  policyHints := BitVec.ofNat 16 (xOfB b / 2 ^ 16)
   forest := {
     pairs := fun p => {
       firstValues := fun i => digC b (1 + 25 * p.val + i.val)
@@ -299,21 +167,25 @@ def sigDecC (b : CBytes) : SharedSignature where
   layers := fun lay => {
     values := fun i => digC b (layIdx lay + i.val)
     path := fun i => digC b (layIdx lay + chainCount lay + i.val) }
-/-- X = top sibling bits 56..97 (42) | hint (13 bits) << 42. -/
+/-- T51: X = top sibling bits 88..103 (16) | hint (13 bits) << 16 (29 bits). -/
 def xField (s : SharedSignature) : Nat :=
-  ((sigDigests s).getD 179 0).toNat / 2 ^ 56 % 2 ^ 42 + s.policyHints.toNat % 2 ^ 13 * 2 ^ 42
+  ((sigDigests s).getD 176 0).toNat / 2 ^ 88 % 2 ^ 16 + s.policyHints.toNat % 2 ^ 13 * 2 ^ 16
+/-- T51: the path node of height `j` with X bits `xOff j ..` in its top `b_j = topZeroBits j` bits. -/
 def packD (j : Nat) (d : Digest) (x : Nat) : Digest :=
-  BitVec.ofNat 128 (d.toNat % 2 ^ (128 - j) + x / 2 ^ xOff j % 2 ^ j * 2 ^ (128 - j))
+  BitVec.ofNat 128 (d.toNat % 2 ^ (128 - topZeroBits j) +
+    x / 2 ^ xOff j % 2 ^ topZeroBits j * 2 ^ (128 - topZeroBits j))
 def encList (s : SharedSignature) : List Digest :=
-  (List.range 327).map fun k => if 169 ≤ k ∧ k ≤ 178 then packD (k - 168) (((sigDigests s).eraseIdx 179).getD k 0)
-    (xField s) else ((sigDigests s).eraseIdx 179).getD k 0
+  (List.range 324).map fun k => if 166 ≤ k ∧ k ≤ 175 then packD (k - 165) (((sigDigests s).eraseIdx 176).getD k 0)
+    (xField s) else ((sigDigests s).eraseIdx 176).getD k 0
 def sigBC (s : SharedSignature) : CBytes :=
-  BitVec.ofNat _ (digNat (encList s) + 2 ^ (128 * 327) * (((sigDigests s).getD 179 0).toNat % 2 ^ 56))
-theorem compact_length : 327 * 16 + 7 = 5239 := by decide
-/-- The normal form a decoded signature has (img-v6): path tops 1..10 clear, top sibling below bit 98, hint 13 bits. -/
+  BitVec.ofNat _ (digNat (encList s) + 2 ^ (128 * 324) * (((sigDigests s).getD 176 0).toNat % 2 ^ 88))
+theorem compact_length : 324 * 16 + 11 = 5195 := by decide
+/-- The normal form a decoded signature has (T51): path tops of heights 1..10 clear (`b_j` bits), top sibling below
+bit 104, hint 13 bits. -/
 def normD (k : Nat) (d : Digest) : Digest :=
-  if 169 ≤ k ∧ k ≤ 178 then clearTop (k - 168) d else if k = 179 then BitVec.ofNat 128 (d.toNat % 2 ^ 98) else d
-theorem normD_of_lt (k : Nat) (d : Digest) (hk : k < 169) : normD k d = d := by
+  if 166 ≤ k ∧ k ≤ 175 then clearTop (topZeroBits (k - 165)) d
+  else if k = 176 then BitVec.ofNat 128 (d.toNat % 2 ^ 104) else d
+theorem normD_of_lt (k : Nat) (d : Digest) (hk : k < 166) : normD k d = d := by
   unfold normD; rw [if_neg (by omega), if_neg (by omega)]
 theorem sigDigests_rho (s : SharedSignature) : (sigDigests s).getD 0 0 = s.rho := by rfl
 theorem sigDigests_pair (s : SharedSignature) (p : Fin 4) (i : Nat) (hi : i < 25) :
@@ -371,19 +243,19 @@ theorem sigDigests_layer (s : SharedSignature) (lay : Layer) (i : Nat) (hi : i <
   rw [chainCount_2, height_2] at l2
   fin_cases lay
   · show (sigDigests s).getD (114 + i) 0 = (layerList s 0).getD i 0
-    have hi' : i < 66 := hi
+    have hi' : i < 63 := hi
     rw [sigDigests_tail s _ (by omega), show 114 + i - 114 = i by omega, getD_append_left' (by omega)]
-  · show (sigDigests s).getD (180 + i) 0 = (layerList s 1).getD i 0
+  · show (sigDigests s).getD (177 + i) 0 = (layerList s 1).getD i 0
     have hi' : i < 50 := hi
     rw [sigDigests_tail s _ (by omega), getD_append_right' (by omega), l0, getD_append_left' (by omega),
-      show 180 + i - 114 - 66 = i by omega]
-  · show (sigDigests s).getD (230 + i) 0 = (layerList s 2).getD i 0
+      show 177 + i - 114 - 63 = i by omega]
+  · show (sigDigests s).getD (227 + i) 0 = (layerList s 2).getD i 0
     have hi' : i < 49 := hi
     rw [sigDigests_tail s _ (by omega), getD_append_right' (by omega), l0, getD_append_right' (by omega), l1,
-      getD_append_left' (by omega), show 230 + i - 114 - 66 - 50 = i by omega]
-  · show (sigDigests s).getD (279 + i) 0 = (layerList s 3).getD i 0
+      getD_append_left' (by omega), show 227 + i - 114 - 63 - 50 = i by omega]
+  · show (sigDigests s).getD (276 + i) 0 = (layerList s 3).getD i 0
     rw [sigDigests_tail s _ (by omega), getD_append_right' (by omega), l0, getD_append_right' (by omega), l1,
-      getD_append_right' (by omega), l2, show 279 + i - 114 - 66 - 50 - 49 = i by omega]
+      getD_append_right' (by omega), l2, show 276 + i - 114 - 63 - 50 - 49 = i by omega]
 theorem sigDigests_layValue (s : SharedSignature) (lay : Layer) (i : Nat) (hi : i < chainCount lay) :
     (sigDigests s).getD (layIdx lay + i) 0 = (s.layers lay).values ⟨i, hi⟩ := by
   rw [sigDigests_layer s lay i (by omega), layerList, getD_append_left' (by simpa using hi), getD_ofFn']
@@ -396,32 +268,24 @@ end ClaudeWCT.W9.T3M.SharedCodec
 
 
 namespace ClaudeWCT.W9.T3M.SharedCodec
-/-- Internal expansion retains the four unused seventh A-path slots. -/
+/-- Internal expansion retains the four unused seventh A-path slots. T51: the expander's slot layout keeps #938's
+lower-layer slots, so the top path follows the 51 top values (slots 169..180) and three unused slots 181..183 precede
+L1 (slot 184): digest `k` sits at slot `k + 4` for `114 ≤ k ≤ 176`, `k + 7` for `k ≥ 177`. -/
 def internalFullIndex (k : Nat) : Nat :=
   k + (if 13 ≤ k then 1 else 0) + (if 38 ≤ k then 1 else 0) +
-    (if 63 ≤ k then 1 else 0) + (if 88 ≤ k then 1 else 0)
+    (if 63 ≤ k then 1 else 0) + (if 88 ≤ k then 1 else 0) + (if 177 ≤ k then 3 else 0)
 def externalFullIndex (k : Nat) : Nat :=
   k - ((if 13 < k then 1 else 0) + (if 39 < k then 1 else 0) +
-    (if 65 < k then 1 else 0) + (if 91 < k then 1 else 0))
-def internalDummy (k : Nat) : Bool := decide (k = 13 ∨ k = 39 ∨ k = 65 ∨ k = 91)
+    (if 65 < k then 1 else 0) + (if 91 < k then 1 else 0) + (if 183 < k then 3 else 0))
+def internalDummy (k : Nat) : Bool := decide (k = 13 ∨ k = 39 ∨ k = 65 ∨ k = 91 ∨ k = 181 ∨ k = 182 ∨ k = 183)
 theorem internalFullIndex_spec (k : Nat) :
-    internalFullIndex k = k + (([13,38,63,88].filter fun skip => decide (skip ≤ k)).length) := by
-  by_cases h13 : 13 ≤ k
-  · by_cases h38 : 38 ≤ k
-    · by_cases h63 : 63 ≤ k
-      · by_cases h88 : 88 ≤ k
-        · simp [internalFullIndex,h13,h38,h63,h88]
-        · simp [internalFullIndex,h13,h38,h63,h88]
-      · have h88 : ¬88 ≤ k := by omega
-        simp [internalFullIndex,h13,h38,h63,h88]
-    · have h63 : ¬63 ≤ k := by omega
-      have h88 : ¬88 ≤ k := by omega
-      simp [internalFullIndex,h13,h38,h63,h88]
-  · have h38 : ¬38 ≤ k := by omega
-    have h63 : ¬63 ≤ k := by omega
-    have h88 : ¬88 ≤ k := by omega
-    simp [internalFullIndex,h13,h38,h63,h88]
-theorem internalFullIndex_bound (k : Nat) (hk : k < 328) : internalFullIndex k < 332 := by
+    internalFullIndex k = k + (([13,38,63,88].filter fun skip => decide (skip ≤ k)).length) +
+      (if 177 ≤ k then 3 else 0) := by
+  unfold internalFullIndex
+  by_cases h13 : 13 ≤ k <;> by_cases h38 : 38 ≤ k <;> by_cases h63 : 63 ≤ k <;> by_cases h88 : 88 ≤ k <;>
+    simp [h13, h38, h63, h88] <;> omega
+
+theorem internalFullIndex_bound (k : Nat) (hk : k < 325) : internalFullIndex k < 332 := by
   unfold internalFullIndex
   split_ifs <;> omega
 theorem internalFullIndex_dummy (k : Nat) : internalDummy (internalFullIndex k) = false := by
@@ -437,10 +301,13 @@ theorem inflatedRead_internal {α : Type} (zero : α) (read : Nat → α) (k : N
     inflatedRead zero read (internalFullIndex k) = read k := by
   simp only [inflatedRead, internalFullIndex_dummy, Bool.false_eq_true, ↓reduceIte,
     internalFullIndex_inverse]
-theorem internalFullIndex_main (k : Nat) (hk : 114 ≤ k) : internalFullIndex k = k + 4 := by
+theorem internalFullIndex_main (k : Nat) (hk : 114 ≤ k) (hk' : k ≤ 176) : internalFullIndex k = k + 4 := by
   unfold internalFullIndex
-  rw [if_pos (by omega), if_pos (by omega), if_pos (by omega), if_pos (by omega)]
-theorem internalFullIndex_tail : internalFullIndex 179 = 183 := by rfl
+  rw [if_pos (by omega), if_pos (by omega), if_pos (by omega), if_pos (by omega), if_neg (by omega)]
+theorem internalFullIndex_lower (k : Nat) (hk : 177 ≤ k) : internalFullIndex k = k + 7 := by
+  unfold internalFullIndex
+  rw [if_pos (by omega), if_pos (by omega), if_pos (by omega), if_pos (by omega), if_pos hk]
+theorem internalFullIndex_tail : internalFullIndex 176 = 180 := by rfl
 end ClaudeWCT.W9.T3M.SharedCodec
 
 namespace ClaudeWCT.W9.T3M.SharedCodec
@@ -456,18 +323,7 @@ def serializedWord (read : Nat → BitVec 64) (k : Nat) : BitVec 64 :=
   if k < 366 then read (k - 8) else if k = 366 then read 654 else
   if k = 367 then (read 655 <<< 16) >>> 16 else read (k - 10)
 
-theorem serializedWord_index (read : Nat → BitVec 64) (k i : Nat) (hi : i < 2) :
-    serializedWord read (2*k+i) =
-      if internalDummy k then 0 else if k = 183 then
-        (if i = 0 then read 654 else (read 655 <<< 16) >>> 16)
-      else read (2*(if externalFullIndex k < 179 then externalFullIndex k else externalFullIndex k - 1)+i) := by
-  have hi' : i = 0 ∨ i = 1 := by omega
-  rcases hi' with rfl | rfl
-  all_goals unfold serializedWord internalDummy externalFullIndex
-  all_goals split_ifs <;> simp_all only [decide_eq_true_eq, decide_eq_false_iff_not, not_true_eq_false, not_false_eq_true, ↓reduceIte]
-  all_goals try (first | rfl | omega | (congr 1 <;> omega))
-
-theorem externalFullIndex_tail_iff (k : Nat) : externalFullIndex k = 179 ↔ k = 183 := by
+theorem externalFullIndex_tail_iff (k : Nat) : externalFullIndex k = 176 ↔ k = 180 := by
   unfold externalFullIndex
   split_ifs <;> omega
 
@@ -492,103 +348,115 @@ set_option maxRecDepth 100000
 set_option exponentiation.threshold 50000
 
 theorem length_eraseIdx_sig (s : SharedSignature) :
-    ((sigDigests s).eraseIdx 179).length = 327 := by
+    ((sigDigests s).eraseIdx 176).length = 324 := by
   rw [List.length_eraseIdx,sigDigests_length];decide
 
-theorem encList_length (s : SharedSignature) : (encList s).length = 327 := by simp [encList]
+theorem encList_length (s : SharedSignature) : (encList s).length = 324 := by simp [encList]
 
-theorem encList_getD (s : SharedSignature) (k : Nat) (hk : k < 327) :
-    (encList s).getD k 0 = if 169 ≤ k ∧ k ≤ 178 then packD (k - 168) (((sigDigests s).eraseIdx 179).getD k 0)
-      (xField s) else ((sigDigests s).eraseIdx 179).getD k 0 := by
+theorem encList_getD (s : SharedSignature) (k : Nat) (hk : k < 324) :
+    (encList s).getD k 0 = if 166 ≤ k ∧ k ≤ 175 then packD (k - 165) (((sigDigests s).eraseIdx 176).getD k 0)
+      (xField s) else ((sigDigests s).eraseIdx 176).getD k 0 := by
   simp [encList, List.getD_eq_getElem?_getD, hk]
 
 theorem sigBC_toNat (s : SharedSignature) :
-    (sigBC s).toNat = digNat (encList s) + 2^(128*327)*(((sigDigests s).getD 179 0).toNat%2^56) := by
+    (sigBC s).toNat = digNat (encList s) + 2^(128*324)*(((sigDigests s).getD 176 0).toNat%2^88) := by
   unfold sigBC
   rw [BitVec.toNat_ofNat]
   apply Nat.mod_eq_of_lt
   have hD := digNat_lt (encList s)
   rw [encList_length] at hD
-  have hT := lt_split _ _ _ _ hD (Nat.mod_lt ((sigDigests s).getD 179 0).toNat (show 0<2^56 by positivity))
+  have hT := lt_split _ _ _ _ hD (Nat.mod_lt ((sigDigests s).getD 176 0).toNat (show 0<2^88 by positivity))
   simpa only [←pow_add] using hT
 
-theorem encoded_low (s : SharedSignature) : (sigBC s).toNat%2^(128*327)=digNat (encList s) := by
+theorem encoded_low (s : SharedSignature) : (sigBC s).toNat%2^(128*324)=digNat (encList s) := by
   have hD := digNat_lt (encList s)
   rw [encList_length] at hD
   rw [sigBC_toNat, split_mod _ _ _ hD]
 
 theorem encoded_tail (s : SharedSignature) :
-    (sigBC s).toNat/2^(128*327)%2^56=((sigDigests s).getD 179 0).toNat%2^56 := by
+    (sigBC s).toNat/2^(128*324)%2^88=((sigDigests s).getD 176 0).toNat%2^88 := by
   have hD := digNat_lt (encList s)
   rw [encList_length] at hD
   rw [sigBC_toNat, split_div _ _ _ hD, Nat.mod_mod]
 
-theorem cDig_sigBC (s : SharedSignature) (j : Nat) (hj : j<327) : cDig (sigBC s) j=(encList s).getD j 0 := by
+theorem cDig_sigBC (s : SharedSignature) (j : Nat) (hj : j<324) : cDig (sigBC s) j=(encList s).getD j 0 := by
   apply BitVec.eq_of_toNat_eq
   rw [cDig,BitVec.extractLsb'_toNat,Nat.shiftRight_eq_div_pow,←digNat_digit]
-  rw [←mod_digit _ 327 j hj,encoded_low]
+  rw [←mod_digit _ 324 j hj,encoded_low]
 
-theorem pack_facts (j : Nat) (hj : 1 ≤ j ∧ j ≤ 10) (d : Digest) (x : Nat) :
-    clearTop j (packD j d x) = clearTop j d ∧ topBits j (packD j d x) = x / 2 ^ xOff j % 2 ^ j := by
-  have hd : d.toNat % 2 ^ (128 - j) < 2 ^ (128 - j) := Nat.mod_lt _ (by positivity)
-  have hf : x / 2 ^ xOff j % 2 ^ j < 2 ^ j := Nat.mod_lt _ (by positivity)
-  have hlt : d.toNat % 2 ^ (128 - j) + x / 2 ^ xOff j % 2 ^ j * 2 ^ (128 - j) < 2 ^ 128 := by
-    have : x / 2 ^ xOff j % 2 ^ j * 2 ^ (128 - j) ≤ (2 ^ j - 1) * 2 ^ (128 - j) := Nat.mul_le_mul_right _ (by omega)
-    have e : (2 ^ j - 1) * 2 ^ (128 - j) + 2 ^ (128 - j) = 2 ^ 128 := by
-      rw [Nat.sub_mul, one_mul, ← pow_add, show j + (128 - j) = 128 by omega]
-      have : 2 ^ (128 - j) ≤ 2 ^ 128 := Nat.pow_le_pow_right (by norm_num) (by omega)
+theorem pack_gen (b : Nat) (hb : b ≤ 128) (d : Digest) (y : Nat) :
+    clearTop b (BitVec.ofNat 128 (d.toNat % 2 ^ (128 - b) + y % 2 ^ b * 2 ^ (128 - b))) = clearTop b d ∧
+      topBits b (BitVec.ofNat 128 (d.toNat % 2 ^ (128 - b) + y % 2 ^ b * 2 ^ (128 - b))) = y % 2 ^ b := by
+  have hd : d.toNat % 2 ^ (128 - b) < 2 ^ (128 - b) := Nat.mod_lt _ (by positivity)
+  have hf : y % 2 ^ b < 2 ^ b := Nat.mod_lt _ (by positivity)
+  have hlt : d.toNat % 2 ^ (128 - b) + y % 2 ^ b * 2 ^ (128 - b) < 2 ^ 128 := by
+    have : y % 2 ^ b * 2 ^ (128 - b) ≤ (2 ^ b - 1) * 2 ^ (128 - b) := Nat.mul_le_mul_right _ (by omega)
+    have e : (2 ^ b - 1) * 2 ^ (128 - b) + 2 ^ (128 - b) = 2 ^ 128 := by
+      rw [Nat.sub_mul, one_mul, ← pow_add, show b + (128 - b) = 128 by omega]
+      have : 2 ^ (128 - b) ≤ 2 ^ 128 := Nat.pow_le_pow_right (by norm_num) (by omega)
       omega
     omega
-  unfold clearTop topBits packD
+  unfold clearTop topBits
   rw [BitVec.toNat_ofNat, Nat.mod_eq_of_lt hlt]
   refine ⟨?_, ?_⟩
   · rw [Nat.add_mul_mod_self_right, Nat.mod_mod]
   · rw [Nat.add_mul_div_right _ _ (by positivity), Nat.div_eq_of_lt hd, zero_add]
 
-theorem xField_lt (s : SharedSignature) : xField s < 2 ^ 55 := by
+theorem topZeroBits_le_eight (j : Nat) (hj : j ≤ 11) : topZeroBits j ≤ 8 := by interval_cases j <;> decide
+
+/-- T51: the X bits stored in the top `b_j = topZeroBits j` bits of a packed path node (`b` names `b_j`). -/
+theorem pack_facts (j b : Nat) (hj : 1 ≤ j ∧ j ≤ 10) (hb : topZeroBits j = b) (d : Digest) (x : Nat) :
+    clearTop b (packD j d x) = clearTop b d ∧ topBits b (packD j d x) = x / 2 ^ xOff j % 2 ^ b := by
+  subst hb
+  exact pack_gen (topZeroBits j) (by have := topZeroBits_le_eight j (by omega); omega) d (x / 2 ^ xOff j)
+
+theorem xOff_vals : xOff 3 = 0 ∧ xOff 4 = 1 ∧ xOff 5 = 2 ∧ xOff 6 = 4 ∧ xOff 7 = 7 ∧ xOff 8 = 11 ∧ xOff 9 = 16 ∧
+    xOff 10 = 22 := by decide
+
+theorem xField_lt (s : SharedSignature) : xField s < 2 ^ 29 := by
   unfold xField
-  have h1 := Nat.mod_lt (((sigDigests s).getD 179 0).toNat / 2 ^ 56) (show 0 < 2 ^ 42 by positivity)
+  have h1 := Nat.mod_lt (((sigDigests s).getD 176 0).toNat / 2 ^ 88) (show 0 < 2 ^ 16 by positivity)
   have h2 := Nat.mod_lt s.policyHints.toNat (show 0 < 2 ^ 13 by positivity)
   omega
 
 theorem xOfB_sigBC (s : SharedSignature) : xOfB (sigBC s) = xField s := by
   have hx := xField_lt s
+  obtain ⟨o3, o4, o5, o6, o7, o8, o9, o10⟩ := xOff_vals
   unfold xOfB
-  simp only [cDig_sigBC s _ (by norm_num : (169:Nat) < 327), cDig_sigBC s _ (by norm_num : (170:Nat) < 327),
-    cDig_sigBC s _ (by norm_num : (171:Nat) < 327), cDig_sigBC s _ (by norm_num : (172:Nat) < 327),
-    cDig_sigBC s _ (by norm_num : (173:Nat) < 327), cDig_sigBC s _ (by norm_num : (174:Nat) < 327),
-    cDig_sigBC s _ (by norm_num : (175:Nat) < 327), cDig_sigBC s _ (by norm_num : (176:Nat) < 327),
-    cDig_sigBC s _ (by norm_num : (177:Nat) < 327), cDig_sigBC s _ (by norm_num : (178:Nat) < 327)]
-  simp only [encList_getD s _ (by norm_num : (169:Nat) < 327), encList_getD s _ (by norm_num : (170:Nat) < 327),
-    encList_getD s _ (by norm_num : (171:Nat) < 327), encList_getD s _ (by norm_num : (172:Nat) < 327),
-    encList_getD s _ (by norm_num : (173:Nat) < 327), encList_getD s _ (by norm_num : (174:Nat) < 327),
-    encList_getD s _ (by norm_num : (175:Nat) < 327), encList_getD s _ (by norm_num : (176:Nat) < 327),
-    encList_getD s _ (by norm_num : (177:Nat) < 327), encList_getD s _ (by norm_num : (178:Nat) < 327)]
+  simp only [cDig_sigBC s _ (by norm_num : (168:Nat) < 324), cDig_sigBC s _ (by norm_num : (169:Nat) < 324),
+    cDig_sigBC s _ (by norm_num : (170:Nat) < 324), cDig_sigBC s _ (by norm_num : (171:Nat) < 324),
+    cDig_sigBC s _ (by norm_num : (172:Nat) < 324), cDig_sigBC s _ (by norm_num : (173:Nat) < 324),
+    cDig_sigBC s _ (by norm_num : (174:Nat) < 324), cDig_sigBC s _ (by norm_num : (175:Nat) < 324)]
+  simp only [encList_getD s _ (by norm_num : (168:Nat) < 324), encList_getD s _ (by norm_num : (169:Nat) < 324),
+    encList_getD s _ (by norm_num : (170:Nat) < 324), encList_getD s _ (by norm_num : (171:Nat) < 324),
+    encList_getD s _ (by norm_num : (172:Nat) < 324), encList_getD s _ (by norm_num : (173:Nat) < 324),
+    encList_getD s _ (by norm_num : (174:Nat) < 324), encList_getD s _ (by norm_num : (175:Nat) < 324)]
   norm_num only [if_true, and_self, ite_true]
-  rw [(pack_facts 1 (by norm_num) _ _).2, (pack_facts 2 (by norm_num) _ _).2, (pack_facts 3 (by norm_num) _ _).2,
-    (pack_facts 4 (by norm_num) _ _).2, (pack_facts 5 (by norm_num) _ _).2, (pack_facts 6 (by norm_num) _ _).2,
-    (pack_facts 7 (by norm_num) _ _).2, (pack_facts 8 (by norm_num) _ _).2, (pack_facts 9 (by norm_num) _ _).2,
-    (pack_facts 10 (by norm_num) _ _).2]
-  simp only [xOff]
+  rw [(pack_facts 3 1 (by norm_num) rfl _ _).2, (pack_facts 4 1 (by norm_num) rfl _ _).2,
+    (pack_facts 5 2 (by norm_num) rfl _ _).2, (pack_facts 6 3 (by norm_num) rfl _ _).2,
+    (pack_facts 7 4 (by norm_num) rfl _ _).2, (pack_facts 8 5 (by norm_num) rfl _ _).2,
+    (pack_facts 9 6 (by norm_num) rfl _ _).2, (pack_facts 10 7 (by norm_num) rfl _ _).2,
+    o3, o4, o5, o6, o7, o8, o9, o10]
   norm_num
   omega
 
-theorem digC_sigBC (s : SharedSignature) (k : Nat) (hk : k<328) :
+theorem digC_sigBC (s : SharedSignature) (k : Nat) (hk : k<325) :
     digC (sigBC s) k = normD k ((sigDigests s).getD k 0) := by
-  by_cases hlt : k<179
+  by_cases hlt : k<176
   · rw [digC, if_pos hlt, cDig_sigBC s k (by omega), encList_getD s k (by omega), getD_eraseIdx, if_pos hlt]
-    by_cases hp : 169 ≤ k
-    · rw [if_pos hp, if_pos ⟨hp, by omega⟩, (pack_facts _ ⟨by omega, by omega⟩ _ _).1, normD, if_pos ⟨hp, by omega⟩]
+    by_cases hp : 166 ≤ k
+    · rw [if_pos hp, if_pos ⟨hp, by omega⟩, (pack_facts _ _ ⟨by omega, by omega⟩ rfl _ _).1, normD,
+        if_pos ⟨hp, by omega⟩]
     · rw [if_neg hp, if_neg (by omega), normD_of_lt _ _ (by omega)]
-  · by_cases he : k=179
+  · by_cases he : k=176
     · subst he
       rw [digC, if_neg (by decide), if_pos rfl, encoded_tail, xOfB_sigBC, normD, if_neg (by decide), if_pos rfl]
       congr 1
       unfold xField
-      have h56 := Nat.mod_lt (((sigDigests s).getD 179 0).toNat / 2 ^ 56) (show 0 < 2 ^ 42 by positivity)
-      have hm : ((sigDigests s).getD 179 0).toNat % 2 ^ 98 =
-          ((sigDigests s).getD 179 0).toNat % 2 ^ 56 + 2 ^ 56 * (((sigDigests s).getD 179 0).toNat / 2 ^ 56 % 2 ^ 42) := by
-        rw [show (2:Nat) ^ 98 = 2 ^ 56 * 2 ^ 42 by norm_num, Nat.mod_mul]
+      have h88 := Nat.mod_lt (((sigDigests s).getD 176 0).toNat / 2 ^ 88) (show 0 < 2 ^ 16 by positivity)
+      have hm : ((sigDigests s).getD 176 0).toNat % 2 ^ 104 =
+          ((sigDigests s).getD 176 0).toNat % 2 ^ 88 + 2 ^ 88 * (((sigDigests s).getD 176 0).toNat / 2 ^ 88 % 2 ^ 16) := by
+        rw [show (2:Nat) ^ 104 = 2 ^ 88 * 2 ^ 16 by norm_num, Nat.mod_mul]
       rw [hm]
       omega
     · rw [digC, if_neg hlt, if_neg he, cDig_sigBC s (k-1) (by omega), encList_getD s _ (by omega),
@@ -597,11 +465,11 @@ theorem digC_sigBC (s : SharedSignature) (k : Nat) (hk : k<328) :
 
 theorem policyHints_sigDecC_sigBC (s : SharedSignature) :
     (sigDecC (sigBC s)).policyHints = BitVec.ofNat 16 (s.policyHints.toNat % 2 ^ 13) := by
-  change BitVec.ofNat 16 (xOfB (sigBC s) / 2 ^ 42) = _
+  change BitVec.ofNat 16 (xOfB (sigBC s) / 2 ^ 16) = _
   rw [xOfB_sigBC]
   unfold xField
   congr 1
-  have h1 := Nat.mod_lt (((sigDigests s).getD 179 0).toNat / 2 ^ 56) (show 0 < 2 ^ 42 by positivity)
+  have h1 := Nat.mod_lt (((sigDigests s).getD 176 0).toNat / 2 ^ 88) (show 0 < 2 ^ 16 by positivity)
   omega
 
 #print axioms digC_sigBC
@@ -663,14 +531,14 @@ theorem forest_sigDecC_sigBC (s : SharedSignature) :
   simp only [h,h'] at hp hs
   cases hp;cases hs;rfl
 
-/-- img-v6 normal form (what the 5,239-byte codec keeps). -/
+/-- Normal form (what the compact codec keeps; T51: 5,195 bytes). -/
 def normalizeV6 (s : SharedSignature) : SharedSignature :=
   { s with
     policyHints := BitVec.ofNat 16 (s.policyHints.toNat % 2 ^ 13)
     layers := fun lay => ⟨(s.layers lay).values,
       fun j => normD (layIdx lay + chainCount lay + j.val) ((s.layers lay).path j)⟩ }
 
-theorem normD_of_out (k : Nat) (d : Digest) (hk : k < 169 ∨ 179 < k) : normD k d = d := by
+theorem normD_of_out (k : Nat) (d : Digest) (hk : k < 166 ∨ 176 < k) : normD k d = d := by
   unfold normD; rw [if_neg (by omega), if_neg (by omega)]
 
 theorem sigDecC_sigBC (s : SharedSignature) : sigDecC (sigBC s) = normalizeV6 s := by
@@ -681,12 +549,12 @@ theorem sigDecC_sigBC (s : SharedSignature) : sigDecC (sigBC s) = normalizeV6 s 
   have hf := forest_sigDecC_sigBC s
   have hl : (sigDecC (sigBC s)).layers=(normalizeV6 s).layers := by
     funext lay
-    have hc : layIdx lay+chainCount lay≤328 := by fin_cases lay <;> decide
-    have hp : layIdx lay+chainCount lay+height lay≤328 := by fin_cases lay <;> decide
+    have hc : layIdx lay+chainCount lay≤325 := by fin_cases lay <;> decide
+    have hp : layIdx lay+chainCount lay+height lay≤325 := by fin_cases lay <;> decide
     have hv : ((sigDecC (sigBC s)).layers lay).values=((normalizeV6 s).layers lay).values := by
       funext i
       change digC (sigBC s) (layIdx lay+i.val)=(s.layers lay).values i
-      have hn : layIdx lay+i.val < 169 ∨ 179 < layIdx lay+i.val := by
+      have hn : layIdx lay+i.val < 166 ∨ 176 < layIdx lay+i.val := by
         fin_cases lay <;> simp [layIdx,chainCount] at * <;> omega
       rw [digC_sigBC s _ (by omega),normD_of_out _ _ hn,sigDigests_layValue]
     have hpath : ((sigDecC (sigBC s)).layers lay).path=((normalizeV6 s).layers lay).path := by
@@ -720,7 +588,7 @@ set_option maxHeartbeats 1000000
 set_option maxRecDepth 100000
 set_option exponentiation.threshold 50000
 
-theorem sigDigests_sigDecC (b : CBytes) (k : Nat) (hk : k<328) :
+theorem sigDigests_sigDecC (b : CBytes) (k : Nat) (hk : k<325) :
     (sigDigests (sigDecC b)).getD k 0=digC b k := by
   by_cases h0:k=0
   · subst h0;exact sigDigests_rho _
@@ -769,35 +637,49 @@ theorem sigDigests_sigDecC (b : CBytes) (k : Nat) (hk : k<328) :
     · rw [getD_append_right' (by simp;omega),List.length_ofFn,getD_ofFn' _ (i-chainCount lay) (by omega)]
       change digC b (layIdx lay+chainCount lay+(i-chainCount lay))=_
       congr 1;omega
-  by_cases h1:k<180
+  by_cases h1:k<177
   · exact key 0 (k-114) (by rw [chainCount_0,height_0];omega) (by simp [layIdx];omega)
-  by_cases h2:k<230
-  · exact key 1 (k-180) (by rw [chainCount_1,height_1];omega) (by simp [layIdx];omega)
-  by_cases h3:k<279
-  · exact key 2 (k-230) (by rw [chainCount_2,height_2];omega) (by simp [layIdx];omega)
-  · exact key 3 (k-279) (by rw [chainCount_3,height_3];omega) (by simp [layIdx];omega)
+  by_cases h2:k<227
+  · exact key 1 (k-177) (by rw [chainCount_1,height_1];omega) (by simp [layIdx];omega)
+  by_cases h3:k<276
+  · exact key 2 (k-227) (by rw [chainCount_2,height_2];omega) (by simp [layIdx];omega)
+  · exact key 3 (k-276) (by rw [chainCount_3,height_3];omega) (by simp [layIdx];omega)
 
 theorem topBits_lt (j : Nat) (hj : j ≤ 128) (d : Digest) : topBits j d < 2 ^ j := by
   unfold topBits
   rw [Nat.div_lt_iff_lt_mul (by positivity), ← pow_add, show j + (128 - j) = 128 by omega]
   exact d.isLt
 
-theorem xOfB_digit (b : CBytes) (j : Nat) (h1 : 1 ≤ j) (h10 : j ≤ 10) :
-    xOfB b / 2 ^ xOff j % 2 ^ j = topBits j (cDig b (168 + j)) := by
-  have t1 := topBits_lt 1 (by norm_num) (cDig b 169); have t2 := topBits_lt 2 (by norm_num) (cDig b 170)
-  have t3 := topBits_lt 3 (by norm_num) (cDig b 171); have t4 := topBits_lt 4 (by norm_num) (cDig b 172)
-  have t5 := topBits_lt 5 (by norm_num) (cDig b 173); have t6 := topBits_lt 6 (by norm_num) (cDig b 174)
-  have t7 := topBits_lt 7 (by norm_num) (cDig b 175); have t8 := topBits_lt 8 (by norm_num) (cDig b 176)
-  have t9 := topBits_lt 9 (by norm_num) (cDig b 177); have t10 := topBits_lt 10 (by norm_num) (cDig b 178)
-  unfold xOfB
-  interval_cases j <;> norm_num [xOff] at * <;> omega
+theorem topBits_zero (d : Digest) : topBits 0 d = 0 := by
+  unfold topBits; exact Nat.div_eq_of_lt d.isLt
 
-theorem xOfB_lt (b : CBytes) : xOfB b < 2 ^ 55 := by
-  have t1 := topBits_lt 1 (by norm_num) (cDig b 169); have t2 := topBits_lt 2 (by norm_num) (cDig b 170)
-  have t3 := topBits_lt 3 (by norm_num) (cDig b 171); have t4 := topBits_lt 4 (by norm_num) (cDig b 172)
-  have t5 := topBits_lt 5 (by norm_num) (cDig b 173); have t6 := topBits_lt 6 (by norm_num) (cDig b 174)
-  have t7 := topBits_lt 7 (by norm_num) (cDig b 175); have t8 := topBits_lt 8 (by norm_num) (cDig b 176)
-  have t9 := topBits_lt 9 (by norm_num) (cDig b 177); have t10 := topBits_lt 10 (by norm_num) (cDig b 178)
+theorem xOfB_digit (b : CBytes) (j : Nat) (h1 : 1 ≤ j) (h10 : j ≤ 10) :
+    xOfB b / 2 ^ xOff j % 2 ^ topZeroBits j = topBits (topZeroBits j) (cDig b (165 + j)) := by
+  have t3 := topBits_lt 1 (by norm_num) (cDig b 168); have t4 := topBits_lt 1 (by norm_num) (cDig b 169)
+  have t5 := topBits_lt 2 (by norm_num) (cDig b 170); have t6 := topBits_lt 3 (by norm_num) (cDig b 171)
+  have t7 := topBits_lt 4 (by norm_num) (cDig b 172); have t8 := topBits_lt 5 (by norm_num) (cDig b 173)
+  have t9 := topBits_lt 6 (by norm_num) (cDig b 174); have t10 := topBits_lt 7 (by norm_num) (cDig b 175)
+  obtain ⟨o3, o4, o5, o6, o7, o8, o9, o10⟩ := xOff_vals
+  unfold xOfB
+  interval_cases j
+  · rw [show topZeroBits 1 = 0 from rfl, topBits_zero]; exact Nat.mod_one _
+  · rw [show topZeroBits 2 = 0 from rfl, topBits_zero]; exact Nat.mod_one _
+  all_goals
+    first
+      | (rw [o3, show topZeroBits 3 = 1 from rfl]; norm_num at *; omega)
+      | (rw [o4, show topZeroBits 4 = 1 from rfl]; norm_num at *; omega)
+      | (rw [o5, show topZeroBits 5 = 2 from rfl]; norm_num at *; omega)
+      | (rw [o6, show topZeroBits 6 = 3 from rfl]; norm_num at *; omega)
+      | (rw [o7, show topZeroBits 7 = 4 from rfl]; norm_num at *; omega)
+      | (rw [o8, show topZeroBits 8 = 5 from rfl]; norm_num at *; omega)
+      | (rw [o9, show topZeroBits 9 = 6 from rfl]; norm_num at *; omega)
+      | (rw [o10, show topZeroBits 10 = 7 from rfl]; norm_num at *; omega)
+
+theorem xOfB_lt (b : CBytes) : xOfB b < 2 ^ 29 := by
+  have t3 := topBits_lt 1 (by norm_num) (cDig b 168); have t4 := topBits_lt 1 (by norm_num) (cDig b 169)
+  have t5 := topBits_lt 2 (by norm_num) (cDig b 170); have t6 := topBits_lt 3 (by norm_num) (cDig b 171)
+  have t7 := topBits_lt 4 (by norm_num) (cDig b 172); have t8 := topBits_lt 5 (by norm_num) (cDig b 173)
+  have t9 := topBits_lt 6 (by norm_num) (cDig b 174); have t10 := topBits_lt 7 (by norm_num) (cDig b 175)
   unfold xOfB
   norm_num at *
   omega
@@ -805,12 +687,12 @@ theorem xOfB_lt (b : CBytes) : xOfB b < 2 ^ 55 := by
 theorem xField_sigDecC (b : CBytes) : xField (sigDecC b) = xOfB b := by
   have hx := xOfB_lt b
   unfold xField
-  rw [sigDigests_sigDecC b 179 (by decide)]
-  change (digC b 179).toNat / 2 ^ 56 % 2 ^ 42 + (BitVec.ofNat 16 (xOfB b / 2 ^ 42)).toNat % 2 ^ 13 * 2 ^ 42 = _
+  rw [sigDigests_sigDecC b 176 (by decide)]
+  change (digC b 176).toNat / 2 ^ 88 % 2 ^ 16 + (BitVec.ofNat 16 (xOfB b / 2 ^ 16)).toNat % 2 ^ 13 * 2 ^ 16 = _
   rw [digC, if_neg (by decide), if_pos rfl, BitVec.toNat_ofNat, BitVec.toNat_ofNat]
-  have ht := Nat.mod_lt (b.toNat / 2 ^ (128 * 327)) (show 0 < 2 ^ 56 by positivity)
-  have hlt : b.toNat / 2 ^ (128 * 327) % 2 ^ 56 + xOfB b % 2 ^ 42 * 2 ^ 56 < 2 ^ 128 := by
-    have := Nat.mod_lt (xOfB b) (show 0 < 2 ^ 42 by positivity)
+  have ht := Nat.mod_lt (b.toNat / 2 ^ (128 * 324)) (show 0 < 2 ^ 88 by positivity)
+  have hlt : b.toNat / 2 ^ (128 * 324) % 2 ^ 88 + xOfB b % 2 ^ 16 * 2 ^ 88 < 2 ^ 128 := by
+    have := Nat.mod_lt (xOfB b) (show 0 < 2 ^ 16 by positivity)
     norm_num at *
     omega
   rw [Nat.mod_eq_of_lt hlt]
@@ -818,15 +700,17 @@ theorem xField_sigDecC (b : CBytes) : xField (sigDecC b) = xOfB b := by
   omega
 
 theorem packD_clear (j : Nat) (hj : 1 ≤ j ∧ j ≤ 10) (c : Digest) (x : Nat)
-    (hx : x / 2 ^ xOff j % 2 ^ j = topBits j c) : packD j (clearTop j c) x = c := by
+    (hx : x / 2 ^ xOff j % 2 ^ topZeroBits j = topBits (topZeroBits j) c) :
+    packD j (clearTop (topZeroBits j) c) x = c := by
+  have hb := topZeroBits_le_eight j (by omega)
   apply BitVec.eq_of_toNat_eq
   unfold packD clearTop
   unfold topBits at hx
   rw [hx, BitVec.toNat_ofNat, BitVec.toNat_ofNat]
-  have hm : c.toNat % 2 ^ (128 - j) < 2 ^ 128 :=
+  have hm : c.toNat % 2 ^ (128 - topZeroBits j) < 2 ^ 128 :=
     lt_of_lt_of_le (Nat.mod_lt _ (by positivity)) (Nat.pow_le_pow_right (by norm_num) (by omega))
   rw [Nat.mod_eq_of_lt hm, Nat.mod_mod]
-  have e := Nat.mod_add_div c.toNat (2 ^ (128 - j))
+  have e := Nat.mod_add_div c.toNat (2 ^ (128 - topZeroBits j))
   rw [mul_comm] at e
   rw [e]
   exact Nat.mod_eq_of_lt c.isLt
@@ -834,18 +718,18 @@ theorem packD_clear (j : Nat) (hj : 1 ≤ j ∧ j ≤ 10) (c : Digest) (x : Nat)
 theorem sigBC_sigDecC (b : CBytes) : sigBC (sigDecC b)=b := by
   apply BitVec.eq_of_toNat_eq
   rw [sigBC_toNat]
-  have hD : digNat (encList (sigDecC b))=b.toNat%2^(128*327) := by
+  have hD : digNat (encList (sigDecC b))=b.toNat%2^(128*324) := by
     apply digNat_eq_of_digits
     · rw [encList_length];exact Nat.mod_lt _ (by positivity)
     · intro k hk
       rw [encList_length] at hk
-      rw [mod_digit _ 327 k hk, encList_getD _ k hk, getD_eraseIdx]
-      by_cases hp : 169 ≤ k ∧ k ≤ 178
+      rw [mod_digit _ 324 k hk, encList_getD _ k hk, getD_eraseIdx]
+      by_cases hp : 166 ≤ k ∧ k ≤ 175
       · rw [if_pos hp, if_pos (by omega), sigDigests_sigDecC b k (by omega), xField_sigDecC]
-        have hj : 1 ≤ k - 168 ∧ k - 168 ≤ 10 := by omega
-        have hdig := xOfB_digit b (k - 168) hj.1 hj.2
-        rw [show 168 + (k - 168) = k by omega] at hdig
-        have hc : digC b k = clearTop (k - 168) (cDig b k) := by
+        have hj : 1 ≤ k - 165 ∧ k - 165 ≤ 10 := by omega
+        have hdig := xOfB_digit b (k - 165) hj.1 hj.2
+        rw [show 165 + (k - 165) = k by omega] at hdig
+        have hc : digC b k = clearTop (topZeroBits (k - 165)) (cDig b k) := by
           rw [digC, if_pos (by omega), if_pos (by omega)]
         rw [hc, packD_clear _ hj _ _ hdig, cDig, BitVec.extractLsb'_toNat, Nat.shiftRight_eq_div_pow]
       · rw [if_neg hp]
@@ -856,21 +740,20 @@ theorem sigBC_sigDecC (b : CBytes) : sigBC (sigDecC b)=b := by
         · rename_i hge
           rw [sigDigests_sigDecC b (k+1) (by omega),digC,if_neg (by omega),if_neg (by omega),
             show k+1-1=k by omega,cDig,BitVec.extractLsb'_toNat,Nat.shiftRight_eq_div_pow]
-  have hT : ((sigDigests (sigDecC b)).getD 179 0).toNat%2^56=b.toNat/2^(128*327)%2^56 := by
-    rw [sigDigests_sigDecC b 179 (by decide),digC,if_neg (by decide),if_pos rfl,BitVec.toNat_ofNat]
-    have hlt : b.toNat / 2 ^ (128 * 327) % 2 ^ 56 + xOfB b % 2 ^ 42 * 2 ^ 56 < 2 ^ 128 := by
-      have := Nat.mod_lt (xOfB b) (show 0 < 2 ^ 42 by positivity)
-      have := Nat.mod_lt (b.toNat / 2 ^ (128 * 327)) (show 0 < 2 ^ 56 by positivity)
+  have hT : ((sigDigests (sigDecC b)).getD 176 0).toNat%2^88=b.toNat/2^(128*324)%2^88 := by
+    rw [sigDigests_sigDecC b 176 (by decide),digC,if_neg (by decide),if_pos rfl,BitVec.toNat_ofNat]
+    have hlt : b.toNat / 2 ^ (128 * 324) % 2 ^ 88 + xOfB b % 2 ^ 16 * 2 ^ 88 < 2 ^ 128 := by
+      have := Nat.mod_lt (xOfB b) (show 0 < 2 ^ 16 by positivity)
+      have := Nat.mod_lt (b.toNat / 2 ^ (128 * 324)) (show 0 < 2 ^ 88 by positivity)
       norm_num at *
       omega
     rw [Nat.mod_eq_of_lt hlt, Nat.add_mul_mod_self_right, Nat.mod_mod]
   rw [hD,hT]
-  have hb : b.toNat / 2 ^ (128 * 327) < 2 ^ 56 := by
+  have hb : b.toNat / 2 ^ (128 * 324) < 2 ^ 88 := by
     rw [Nat.div_lt_iff_lt_mul (by positivity), ← pow_add]
     exact b.isLt
   rw [Nat.mod_eq_of_lt hb]
   exact Nat.mod_add_div _ _
-#print axioms sigBC_sigDecC
 end ClaudeWCT.W9.T3M.SharedCodec
 
 namespace ClaudeWCT.W9.T3M.SharedCodec
@@ -889,14 +772,14 @@ theorem normalizeV6_fill (sig : SharedSignature) (c : Nat) :
     obtain ⟨hl, hj⟩ := h
     have : lay = 0 := Fin.ext hl
     subst this
-    have hidx : layIdx 0 + SigGolfCandidate.T3.chainCount 0 + j.val = 179 := by
+    have hidx : layIdx 0 + SigGolfCandidate.T3.chainCount 0 + j.val = 176 := by
       simp [layIdx, SigGolfCandidate.T3.chainCount, hj]
     rw [hidx]
     unfold normD
     rw [if_neg (by decide), if_pos rfl, if_neg (by decide), if_pos rfl, ClaudeWCT.WCT9.setTop_toNat]
     congr 1
-    rw [Nat.add_mod, Nat.mod_mod_of_dvd _ (Nat.pow_dvd_pow 2 (by norm_num : 98 ≤ 109)),
-      show c % 2 ^ 19 * 2 ^ 109 % 2 ^ 98 = 0 from
+    rw [Nat.add_mod, Nat.mod_mod_of_dvd _ (Nat.pow_dvd_pow 2 (by norm_num : 104 ≤ 112)),
+      show c % 2 ^ 16 * 2 ^ 112 % 2 ^ 104 = 0 from
         Nat.mod_eq_zero_of_dvd (Dvd.dvd.mul_left (Nat.pow_dvd_pow 2 (by norm_num)) _), add_zero, Nat.mod_mod]
   · rfl
 
@@ -911,7 +794,7 @@ theorem sigBC_fillTopSignature (sig : SharedSignature) (c : Nat) :
 
 #print axioms sigBC_fillTopSignature
 
-theorem layIdx_ge (l : SigGolfCandidate.T3.Layer) (h : l.val ≠ 0) : 180 ≤ layIdx l := by
+theorem layIdx_ge (l : SigGolfCandidate.T3.Layer) (h : l.val ≠ 0) : 177 ≤ layIdx l := by
   revert h; revert l; decide
 
 /-- The codec's normal form is the normal form `SharedForest.normTop` that `expand` applies first. -/
@@ -926,10 +809,10 @@ theorem normalizeV6_eq_normTop (s : SharedSignature) : normalizeV6 s = normTop s
   · have hl : lay = 0 := Fin.ext h0
     subst hl
     rw [if_pos (show ((0 : SigGolfCandidate.T3.Layer) : Nat) = 0 from rfl)]
-    have hk : layIdx 0 + SigGolfCandidate.T3.chainCount 0 + j.val = 168 + j.val := rfl
+    have hk : layIdx 0 + SigGolfCandidate.T3.chainCount 0 + j.val = 165 + j.val := rfl
     rw [hk]
     unfold normD normPathD clearTop
-    rw [show 168 + j.val - 168 = j.val by omega]
+    rw [show 165 + j.val - 165 = j.val by omega]
     split_ifs <;> first | rfl | (exfalso; omega)
   · rw [if_neg h0]
     apply normD_of_out
@@ -942,4 +825,105 @@ theorem sigDecC_sigBC_normTop (s : SharedSignature) : sigDecC (sigBC s) = normTo
   (sigDecC_sigBC s).trans (normalizeV6_eq_normTop s)
 
 #print axioms sigDecC_sigBC_normTop
+end ClaudeWCT.W9.T3M.SharedCodec
+
+/-! ## T51 decoded-signature facts (KEYCODEC, round 2)
+
+The expander's decoder DEC (words 54569..54738) writes digest `k` of the 5,195-byte signature at slot
+`internalFullIndex k` (16 bytes per slot from `0x7000`), zero at the dummy slots (`internalDummy`), and the hint
+`xOfB b / 2^16` at `0x66000`. `fill_sigDecC`: the decoded signature has its brute-forced field (top sibling bits
+112..127) clear. The `inflatedRead_*` lemmas read the slot layout back without letting the kernel unfold `digC` against
+`inflatedRead` (that comparison blows up on T51's `digC`). -/
+namespace ClaudeWCT.W9.T3M.SharedCodec
+open SigGolfCandidate.Legacy SigGolfCandidate.T3
+open SigGolfCandidate.Research.SharedForest
+set_option maxHeartbeats 1000000
+set_option maxRecDepth 100000
+set_option exponentiation.threshold 50000
+
+/-- T51: the decoded top sibling (digest 176) is below `2^104` (bits 104..111 zero-test, 112..127 filled by expand). -/
+theorem digC_176_lt (b : CBytes) : (digC b 176).toNat < 2 ^ 104 := by
+  rw [digC, if_neg (by decide), if_pos rfl, BitVec.toNat_ofNat]
+  have h1 := Nat.mod_lt (b.toNat / 2 ^ (128 * 324)) (show 0 < 2 ^ 88 by positivity)
+  have h2 := Nat.mod_lt (xOfB b) (show 0 < 2 ^ 16 by positivity)
+  have hlt : b.toNat / 2 ^ (128 * 324) % 2 ^ 88 + xOfB b % 2 ^ 16 * 2 ^ 88 < 2 ^ 104 := by
+    norm_num at *
+    omega
+  rw [Nat.mod_eq_of_lt (lt_trans hlt (by norm_num))]
+  exact hlt
+
+/-- T51: the decoded signature has its brute-forced top-sibling field (bits 112..127) clear. -/
+theorem fill_sigDecC (b : CBytes) : fillTopSignature (sigDecC b) 0 = sigDecC b := by
+  have hl : (fun lay => ClaudeWCT.WCT9.fillLayer lay ((sigDecC b).layers lay) 0) = (sigDecC b).layers := by
+    funext lay
+    have hp : (fun j : Fin (height lay) => if lay.val = 0 ∧ j.val = 11 then
+        ClaudeWCT.WCT9.setTop (((sigDecC b).layers lay).path j) 0 else ((sigDecC b).layers lay).path j) =
+        ((sigDecC b).layers lay).path := by
+      funext j
+      split
+      · rename_i h
+        obtain ⟨hl0, hj⟩ := h
+        have : lay = 0 := Fin.ext hl0
+        subst this
+        apply BitVec.eq_of_toNat_eq
+        rw [ClaudeWCT.WCT9.setTop_toNat]
+        change (digC b (layIdx 0 + chainCount 0 + j.val)).toNat % 2 ^ 112 + 0 % 2 ^ 16 * 2 ^ 112 =
+          (digC b (layIdx 0 + chainCount 0 + j.val)).toNat
+        have hidx : layIdx 0 + chainCount 0 + j.val = 176 := by
+          simp [layIdx, chainCount, hj]
+        rw [hidx, Nat.zero_mod, Nat.zero_mul, Nat.add_zero]
+        exact Nat.mod_eq_of_lt (lt_trans (digC_176_lt b) (by norm_num))
+      · rfl
+    unfold ClaudeWCT.WCT9.fillLayer
+    rw [hp]
+  unfold fillTopSignature
+  rw [hl]
+
+/-- T51: the decoded policy hints are the top 13 bits of the 29-bit X field. -/
+theorem policyHints_sigDecC_toNat (b : CBytes) : (sigDecC b).policyHints.toNat = xOfB b / 2 ^ 16 := by
+  change (BitVec.ofNat 16 (xOfB b / 2 ^ 16)).toNat = _
+  rw [BitVec.toNat_ofNat]
+  apply Nat.mod_eq_of_lt
+  have := xOfB_lt b
+  rw [Nat.div_lt_iff_lt_mul (by positivity)]
+  norm_num at *
+  omega
+
+theorem policyHints_sigDecC_lt (b : CBytes) : (sigDecC b).policyHints.toNat < 2 ^ 13 := by
+  rw [policyHints_sigDecC_toNat]
+  have := xOfB_lt b
+  rw [Nat.div_lt_iff_lt_mul (by positivity)]
+  norm_num at *
+  omega
+
+/-! ### The slot layout (`internalFullIndex`) read back through `inflatedRead` -/
+
+theorem inflatedRead_main {α : Type} (z : α) (read : Nat → α) (k : Nat) (hk : 114 ≤ k) (hk' : k ≤ 176) :
+    inflatedRead z read (k + 4) = read k := by
+  rw [← internalFullIndex_main k hk hk', inflatedRead_internal]
+
+theorem inflatedRead_lower {α : Type} (z : α) (read : Nat → α) (k : Nat) (hk : 177 ≤ k) :
+    inflatedRead z read (k + 7) = read k := by
+  rw [← internalFullIndex_lower k hk, inflatedRead_internal]
+
+/-- Slot 0 is `rho` (stated through `inflatedRead_internal`, so the kernel never unfolds `digC` against `inflatedRead`). -/
+theorem inflatedRead_rho (b : CBytes) : inflatedRead (0 : Digest) (digC b) 0 = (sigDecC b).rho :=
+  inflatedRead_internal (0 : Digest) (digC b) 0
+
+theorem inflatedRead_dummy {α : Type} (z : α) (read : Nat → α) (k : Nat) (hk : internalDummy k = true) :
+    inflatedRead z read k = z := by
+  unfold inflatedRead; rw [if_pos hk]
+
+theorem externalFullIndex_lt (k : Nat) (hk : k < 332) (hd : internalDummy k = false) : externalFullIndex k < 325 := by
+  simp only [internalDummy, decide_eq_false_iff_not] at hd
+  unfold externalFullIndex
+  split_ifs <;> omega
+
+theorem internalFullIndex_external (k : Nat) (hd : internalDummy k = false) :
+    internalFullIndex (externalFullIndex k) = k := by
+  simp only [internalDummy, decide_eq_false_iff_not] at hd
+  unfold internalFullIndex externalFullIndex
+  split_ifs <;> omega
+
+#print axioms fill_sigDecC
 end ClaudeWCT.W9.T3M.SharedCodec
