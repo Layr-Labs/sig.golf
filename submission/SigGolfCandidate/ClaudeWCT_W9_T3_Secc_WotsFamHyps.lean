@@ -11,11 +11,11 @@ namespace ClaudeWCT.W9.T3.Security.Wots.CanonicalRef.Normalized.FamTot
 open SigGolfCandidate.T3
 open ClaudeWCT.W9.T3.Security.Wots.FamRestart
 
-theorem chainCount_cases (lay : Layer) : chainCount lay = if lay = 0 then 54 else 43 := by
+theorem chainCount_cases (lay : Layer) : chainCount lay = if lay = 0 then 51 else 43 := by
   fin_cases lay <;> rfl
 
 /-- The scheme of the `Correctness` layout (v6 lower 7-leaf families, top per-leaf until the top port): charge
-`max(1 · 54, 7 · 43) = 301`. -/
+`max(1 · 51, 7 · 43) = 301`. -/
 def layoutHyps : FamHyps layoutScheme 301 where
   caps := layoutCaps
   grp_le lay := by show WCT9.famGrp lay ≤ 2 ^ 20; unfold WCT9.famGrp; split_ifs <;> norm_num
@@ -27,7 +27,7 @@ def layoutHyps : FamHyps layoutScheme 301 where
     show (WCT9.famGrp lay - 1) * WCT9.famStride lay + chainCount lay < 1024
     unfold WCT9.famGrp WCT9.famStride; rw [chainCount_cases]; split_ifs <;> decide
 
-/-- v6: lower 7-leaf (stride 43), top 4-leaf (stride 64) families, charge `max(4·54, 7·43) = 301`. -/
+/-- v6: lower 7-leaf (stride 43), top 4-leaf (stride 64) families, charge `max(4·51, 7·43) = 301`. -/
 def v6Hyps (hs : V6.V6SeedSpec) (hz : V6.V6ZeroSpec) : FamHyps (V6.v6Scheme hs) 301 where
   caps := V6.v6Caps hs hz
   grp_le lay := by show V6.grp lay ≤ 2 ^ 20; unfold V6.grp; split_ifs <;> norm_num

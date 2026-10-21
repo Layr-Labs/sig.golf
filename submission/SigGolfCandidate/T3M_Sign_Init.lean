@@ -107,32 +107,99 @@ theorem sinit_region (sk : SecretKey) (cache : Bytes 131072) (m : Message) :
       (cacheDec cache).tag.extractLsb' 128 64, (cacheDec cache).tag.extractLsb' 192 64].length ≤ 4 + j by
       rw [List.length_cons, List.length_cons, List.length_cons, List.length_singleton]; omega)]
   rw [List.length_cons, List.length_cons, List.length_cons, List.length_singleton, Nat.add_sub_cancel_left]
+/-- Campaign T51: a byte of the top data block (`TOP_DATA + i`, sign data offset 82048 + i) in the initial state. -/
+theorem sinit_topByte (sk : SecretKey) (cache : Bytes 131072) (m : Message) (i : Nat) (hi : i < 4096)
+    (b : BitVec 8) (hb : Images.signData.getD (82048 + i) 0 = b) :
+    (sinit sk cache m).getByte (BitVec.ofNat 64 (TOP_DATA + i)) = b := by
+  rw [getByte_eq_word _ _ (by simp only [TOP_DATA]; omega),
+    sinit_getMem _ _ _ _ (by simp only [TOP_DATA]; omega),
+    if_neg (by simp only [TOP_DATA]; omega), if_neg (by simp only [TOP_DATA]; omega), if_neg (by simp only [TOP_DATA]; omega),
+    sdata_getMem _ (by simp only [TOP_DATA]; omega), if_pos (by simp only [TOP_DATA, SIGN_DATA]; omega),
+    Keygen.extractByte_bytesToWordLE _ _ (Nat.mod_lt _ (by decide))]
+  simp only [List.getD_eq_getElem?_getD, List.getElem?_take, List.getElem?_drop,
+    if_pos (Nat.mod_lt (TOP_DATA + i) (show 0 < 8 by decide))]
+  have hidx : (TOP_DATA + i) / 8 * 8 - SIGN_DATA + (TOP_DATA + i) % 8 = 82048 + i := by simp only [TOP_DATA, SIGN_DATA]; omega
+  rw [hidx]
+  rw [List.getD_eq_getElem?_getD] at hb
+  exact hb
+/-- Campaign T51: only the choice flag byte (TOP_DATA + 631) is read; it is 1 in the initial state. -/
 theorem sinit_cf (sk : SecretKey) (cache : Bytes 131072) (m : Message) :
-    Search.CfTableOK 1 (sinit sk cache m) := by
-  intro i hi hj
-  rw [getByte_eq_word _ _ (by simp only [TOP_DATA]; omega),
-    sinit_getMem _ _ _ _ (by simp only [TOP_DATA]; omega),
-    if_neg (by simp only [TOP_DATA]; omega), if_neg (by simp only [TOP_DATA]; omega), if_neg (by simp only [TOP_DATA]; omega),
-    sdata_getMem _ (by simp only [TOP_DATA]; omega), if_pos (by simp only [TOP_DATA, SIGN_DATA]; omega),
-    Keygen.extractByte_bytesToWordLE _ _ (Nat.mod_lt _ (by decide))]
-  simp only [List.getD_eq_getElem?_getD, List.getElem?_take, List.getElem?_drop,
-    if_pos (Nat.mod_lt (TOP_DATA + i) (show 0 < 8 by decide))]
-  have hidx : (TOP_DATA + i) / 8 * 8 - SIGN_DATA + (TOP_DATA + i) % 8 = 82048 + i := by simp only [TOP_DATA, SIGN_DATA]; omega
-  rw [hidx]
-  exact Search.signData_cf i hi hj
+    Search.CfFlagOK 1 (sinit sk cache m) :=
+  sinit_topByte sk cache m 631 (by omega) _ Search.signData_flag
+/-- Campaign T51: the lower reward tables (TOP_DATA + 1024..2047) in the initial state. -/
 theorem sinit_reward (sk : SecretKey) (cache : Bytes 131072) (m : Message) :
-    Search.Reward.RewardTablesOK (sinit sk cache m) := by
-  intro i hi hj
-  rw [getByte_eq_word _ _ (by simp only [TOP_DATA]; omega),
-    sinit_getMem _ _ _ _ (by simp only [TOP_DATA]; omega),
-    if_neg (by simp only [TOP_DATA]; omega), if_neg (by simp only [TOP_DATA]; omega), if_neg (by simp only [TOP_DATA]; omega),
-    sdata_getMem _ (by simp only [TOP_DATA]; omega), if_pos (by simp only [TOP_DATA, SIGN_DATA]; omega),
-    Keygen.extractByte_bytesToWordLE _ _ (Nat.mod_lt _ (by decide))]
-  simp only [List.getD_eq_getElem?_getD, List.getElem?_take, List.getElem?_drop,
-    if_pos (Nat.mod_lt (TOP_DATA + i) (show 0 < 8 by decide))]
-  have hidx : (TOP_DATA + i) / 8 * 8 - SIGN_DATA + (TOP_DATA + i) % 8 = 82048 + i := by simp only [TOP_DATA, SIGN_DATA]; omega
-  rw [hidx]
-  exact Search.signData_reward i hi hj
+    Search.Reward.LowerTablesOK (sinit sk cache m) := fun i hi hj =>
+  sinit_topByte sk cache m i (by omega) _ (Search.signData_lowerReward i hi hj)
+
+/-! ### Campaign T51: the packed top tables (1892 bytes at `0xFFF800 = TOP_DATA + 2048`) as the 473 `lwu` words -/
+/-- Checks dword `k` of a byte list against the T51 entries `2k` (low half) and `2k + 1` (high half, `< 473`). -/
+def t51Chk : Nat → List (BitVec 8) → Bool
+  | k, b0 :: b1 :: b2 :: b3 :: b4 :: b5 :: b6 :: b7 :: rest =>
+      (extractWord32 (bytesToWordLE [b0, b1, b2, b3, b4, b5, b6, b7]) 0 ==
+        BitVec.ofNat 32 (Search.T51.tEntry (2 * k))) &&
+      (decide (473 ≤ 2 * k + 1) || (extractWord32 (bytesToWordLE [b0, b1, b2, b3, b4, b5, b6, b7]) 1 ==
+        BitVec.ofNat 32 (Search.T51.tEntry (2 * k + 1)))) &&
+      t51Chk (k + 1) rest
+  | _, [] => true
+  | _, _ => false
+set_option maxRecDepth 100000 in
+theorem t51_chk : t51Chk 0 ((Images.signLegacyData.drop 2048).take 1896) = true := by decide +kernel
+set_option maxRecDepth 100000 in
+theorem t51Slice_length : ((Images.signLegacyData.drop 2048).take 1896).length = 1896 := by decide +kernel
+theorem t51Chk_get : ∀ (m k : Nat) (l : List (BitVec 8)), t51Chk k l = true → 8 * m + 8 ≤ l.length →
+    extractWord32 (bytesToWordLE ((l.drop (8 * m)).take 8)) 0 = BitVec.ofNat 32 (Search.T51.tEntry (2 * (k + m))) ∧
+    (2 * (k + m) + 1 < 473 →
+      extractWord32 (bytesToWordLE ((l.drop (8 * m)).take 8)) 1 = BitVec.ofNat 32 (Search.T51.tEntry (2 * (k + m) + 1)))
+  | m, k, b0 :: b1 :: b2 :: b3 :: b4 :: b5 :: b6 :: b7 :: rest, h, hl => by
+    simp only [t51Chk, Bool.and_eq_true, Bool.or_eq_true, beq_iff_eq, decide_eq_true_eq] at h
+    rcases m with _ | m
+    · refine ⟨by simpa using h.1.1, fun hlt => ?_⟩
+      rcases h.1.2 with h' | h'
+      · simp at hlt; omega
+      · simpa using h'
+    · have := t51Chk_get m (k + 1) rest h.2 (by simp at hl; omega)
+      rw [show 8 * (m + 1) = 8 + 8 * m by omega, ← List.drop_drop]
+      simpa [show k + 1 + m = k + (m + 1) by omega] using this
+  | m, k, [], _, hl => by simp at hl
+  | m, k, [_], _, hl => by simp at hl <;> omega
+  | m, k, [_, _], _, hl => by simp at hl <;> omega
+  | m, k, [_, _, _], _, hl => by simp at hl <;> omega
+  | m, k, [_, _, _, _], _, hl => by simp at hl <;> omega
+  | m, k, [_, _, _, _, _], _, hl => by simp at hl <;> omega
+  | m, k, [_, _, _, _, _, _], _, hl => by simp at hl <;> omega
+  | m, k, [_, _, _, _, _, _, _], _, hl => by simp at hl <;> omega
+theorem signData_drop_legacy (n : Nat) : Images.signData.drop (82048 + n) = Images.signLegacyData.drop n := by
+  have h1 := Search.signZtData_length
+  have h2 := Images.signPrefixData_length
+  have e1 : Images.signZtData.length ≤ 82048 + n := by omega
+  have e2 : Images.signPrefixData.length ≤ 82048 + n - Images.signZtData.length := by omega
+  rw [Images.signData, List.drop_append, List.drop_eq_nil_of_le e1, List.nil_append, List.drop_append,
+    List.drop_eq_nil_of_le e2, List.nil_append, h1, h2, show 82048 + n - 128 - 81920 = n by omega]
+theorem t51_slice (m : Nat) (hm : 8 * m + 8 ≤ 1896) :
+    ((((Images.signLegacyData.drop 2048).take 1896).drop (8 * m)).take 8) =
+      (Images.signLegacyData.drop (2048 + 8 * m)).take 8 := by
+  rw [List.drop_take, List.drop_drop, List.take_take, show min 8 (1896 - 8 * m) = 8 by omega]
+/-- Campaign T51: the packed top tables at `0xFFF800` as the 473 `lwu` words in the initial state. -/
+theorem sinit_t51 (sk : SecretKey) (cache : Bytes 131072) (m : Message) :
+    Search.T51.T51TableW 0xFFF800 (sinit sk cache m) := by
+  intro f hf
+  have hlt : 0xFFF800 + 4 * f < 2 ^ 64 := by omega
+  unfold MachineState.getWord32
+  have ha : alignToDword (BitVec.ofNat 64 (0xFFF800 + 4 * f)) = BitVec.ofNat 64 (0xFFF800 + 8 * (f / 2)) := by
+    apply BitVec.eq_of_toNat_eq
+    rw [alignToDword_toNat, toNat_ofNat_lt hlt, toNat_ofNat_lt (by omega)]
+    omega
+  have hb : byteOffset (BitVec.ofNat 64 (0xFFF800 + 4 * f)) / 4 = f % 2 := by
+    rw [byteOffset_eq, toNat_ofNat_lt hlt]; omega
+  rw [ha, hb, sinit_getMem _ _ _ _ (by omega), if_neg (by omega), if_neg (by omega), if_neg (by omega),
+    sdata_getMem _ (by omega), if_pos (by simp only [SIGN_DATA]; omega),
+    show 0xFFF800 + 8 * (f / 2) - SIGN_DATA = 82048 + (2048 + 8 * (f / 2)) by simp only [SIGN_DATA]; omega,
+    signData_drop_legacy, ← t51_slice (f / 2) (by omega)]
+  have hr := t51Chk_get (f / 2) 0 _ t51_chk (by rw [t51Slice_length]; omega)
+  rw [Nat.zero_add] at hr
+  rcases Nat.mod_two_eq_zero_or_one f with h0 | h1
+  · rw [h0, hr.1, show 2 * (f / 2) = f by omega]
+  · rw [h1, hr.2 (by omega), show 2 * (f / 2) + 1 = f by omega]
 theorem sinit_table (sk : SecretKey) (cache : Bytes 131072) (m : Message) : TableOK (sinit sk cache m) := by
   intro i hi
   rw [getByte_eq_word _ _ (by simp only [TOP_DATA]; omega),

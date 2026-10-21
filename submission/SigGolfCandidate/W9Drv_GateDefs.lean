@@ -22,7 +22,8 @@ structure SetupMask (u : MachineState) : Prop where
   gate : u.getMem (BitVec.ofNat 64 (dataBase7 + 352)) = BitVec.ofNat 64 0x1524000000000000
   d0 : u.getMem (BitVec.ofNat 64 dataBase7) = BitVec.ofNat 64 0xfff
 structure ForestData (u : MachineState) : Prop where
-  zero0 : u.getMem (BitVec.ofNat 64 (dataBase7 + 16)) = 0
+  /-- Campaign T51: verify data word 2 (bytes 16..23) is the r6 field mask 0xFF00 (only propagated here). -/
+  zero0 : u.getMem (BitVec.ofNat 64 (dataBase7 + 16)) = BitVec.ofNat 64 0xFF00
   zero1 : u.getMem (BitVec.ofNat 64 (dataBase7 + 24)) = 0
   header : u.getMem (BitVec.ofNat 64 (dataBase7 + 32)) = BitVec.ofNat 64 0xf01
 structure GatePre (pk : Digest) (w : ClaudeWCT.W9.T3M.WBytes) (a : HashOutput) (u : MachineState) : Prop where
@@ -46,7 +47,7 @@ structure SetupMask (u : MachineState) : Prop where
   child : u.getMem (BitVec.ofNat 64 (dataBase7 + 368)) = BitVec.ofNat 64 0xf1b00
   jt : u.getMem (BitVec.ofNat 64 (dataBase7 + 376)) = BitVec.ofNat 64 0xfff00
   coord : u.getMem (BitVec.ofNat 64 (dataBase7 + 464)) = BitVec.ofNat 64 10992
-  gate : u.getMem (BitVec.ofNat 64 (dataBase7 + 352)) = BitVec.ofNat 64 (734 * 2^50)
+  gate : u.getMem (BitVec.ofNat 64 (dataBase7 + 352)) = BitVec.ofNat 64 (791 * 2^50)
   d0 : u.getMem (BitVec.ofNat 64 dataBase7) = BitVec.ofNat 64 0xfff
   aTable : u.getMem (BitVec.ofNat 64 (dataBase7 + 56)) = BitVec.ofNat 64 0xe3300
   singleton : u.getMem (BitVec.ofNat 64 (dataBase7 + 64)) = BitVec.ofNat 64 0xe7400

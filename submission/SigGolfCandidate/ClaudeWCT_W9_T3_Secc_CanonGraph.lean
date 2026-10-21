@@ -546,6 +546,7 @@ theorem cell_length (secrets : Secrets) (node : Node) (labels : Labels) (hp : ¬
   | forest index =>
       simp only [cell, Extract.forestInput, Node.toPos, Extract.Pos.len]
       rw [Cost.pad64_length, WCT9.forestInput_length _ _ (by simp)]
+
 theorem hdrBlock_cell (secrets : Secrets) (node : Node) (labels : Labels) (hp : ¬ PhantomAt node labels) :
     Extract.hdrBlock (cell secrets node labels) = bytesLE 16 node.toPos.hdr := by
   cases node with

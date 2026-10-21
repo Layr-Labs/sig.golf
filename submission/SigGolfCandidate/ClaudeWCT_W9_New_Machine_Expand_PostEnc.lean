@@ -212,17 +212,19 @@ theorem layerRegion_eq (N : HashOutput) (w : WCT9.Witness) (lay : Layer) (hl : l
 theorem leafBuffer_ext (sig : WCT9.Signature) (lay : Layer) :
     ∃ Z, OldW.leafBufferBytes sig lay = ClaudeWCT.W9.T3M.leafBufferBytes sig lay ++ Z := by
   have he : ∀ l, OldW.endpointBytes sig l = ClaudeWCT.W9.T3M.endpointBytes sig l := fun _ => rfl
+  have key : ∀ (A : List UInt8) (a b : Nat), b ≤ a → A ++ zeros a = (A ++ zeros b) ++ zeros (a - b) := by
+    intro A a b h
+    rw [List.append_assoc]
+    congr 1
+    unfold zeros
+    rw [← List.replicate_add]
+    congr 1
+    omega
   fin_cases lay
-  · exact ⟨zeros 16, by simp [OldW.leafBufferBytes, ClaudeWCT.W9.T3M.leafBufferBytes, he]⟩
-  · exact ⟨[], by simp [OldW.leafBufferBytes, ClaudeWCT.W9.T3M.leafBufferBytes, he]⟩
-  · refine ⟨zeros 16, ?_⟩
-    simp only [OldW.leafBufferBytes, ClaudeWCT.W9.T3M.leafBufferBytes, he]
-    simp [zeros, List.replicate_add]
-    all_goals rfl
-  · refine ⟨zeros 16, ?_⟩
-    simp only [OldW.leafBufferBytes, ClaudeWCT.W9.T3M.leafBufferBytes, he]
-    simp [zeros, List.replicate_add]
-    all_goals rfl
+  · exact ⟨_, key _ 80 64 (by omega)⟩
+  · exact ⟨_, key _ 16 16 (by omega)⟩
+  · exact ⟨_, key _ 32 16 (by omega)⟩
+  · exact ⟨_, key _ 32 16 (by omega)⟩
 
 theorem leafBuffer_win (sig : WCT9.Signature) (lay : Layer) (j : Nat)
     (h : j + 8 ≤ ClaudeWCT.W9.T3M.leafBufferLen lay) :
@@ -333,21 +335,35 @@ theorem old_chainBlock (i : Nat) (hi : i < 54) : OldW.chainBlock 0 i = 8864 + 64
   rw [if_pos (show (0 : Layer).val = 0 from rfl)]
   have h1 : OldW.layerBase 0 = 8096 := rfl
   have h2 : OldW.pathSlots 0 = 48 := rfl
-  have h3 : chainCount (0 : Layer) = 54 := rfl
-  rw [h1, h2, h3] <;> omega
+  rw [h1, h2]
 
 /-- Old top chain `i` (`64`-byte F block, value at `+48`). -/
 theorem old_value_win (N : HashOutput) (w : WCT9.Witness) (i h : Nat) (hi : i < 54) (hh : h < 2) :
     window (OldW.witList N w) (8864 + 64 * (53 - i) + 48 + 8 * h) 8 =
       window (bytesLE 16 (ClaudeWCT.W9.T3M.lsValue (w.signature.layers 0) i)) (8 * h) 8 := by
-  have e := OldW.win_chain N w 0 ⟨i, by simpa [chainCount] using hi⟩ 48 (by omega)
-  simp only at e
-  rw [old_chainBlock i hi] at e
-  rw [win_sub _ _ _ hh, e]
-  unfold OldW.chainCell
-  rw [if_neg (by rw [OldW.isG_eq_false (Or.inl rfl)]; decide),
-    window_append_right _ _ _ _ (by rw [zeros_length]),
-    zeros_length, Nat.sub_self, window_full _ _ (bytesLE_length _ _), lsValue_eq]
+  by_cases h51 : i < 51
+  · have e := OldW.win_chain N w 0 ⟨i, by simpa [chainCount] using h51⟩ 48 (by omega)
+    simp only at e
+    rw [old_chainBlock i hi] at e
+    rw [win_sub _ _ _ hh, e]
+    unfold OldW.chainCell
+    rw [if_neg (by rw [OldW.isG_eq_false (Or.inl rfl)]; decide),
+      window_append_right _ _ _ _ (by rw [zeros_length]),
+      zeros_length, Nat.sub_self, window_full _ _ (bytesLE_length _ _), lsValue_eq]
+  · -- T51: the blocks of #938's chains 51..53 are zero (and so is `lsValue` there)
+    have hv : ClaudeWCT.W9.T3M.lsValue (w.signature.layers 0) i = 0 := by
+      unfold ClaudeWCT.W9.T3M.lsValue
+      rw [dif_neg (by simpa [chainCount] using h51)]
+    rw [hv, ClaudeWCT.WCT9.bytesLE_zero16, show SigGolfCandidate.T3.zero16 = zeros 16 from rfl,
+      window_zeros _ _ _ (by omega),
+      show 8864 + 64 * (53 - i) + 48 + 8 * h = OldW.layerBase 0 + (768 + (64 * (53 - i) + 48 + 8 * h)) by
+        show _ = 8096 + _; omega,
+      OldW.win_layerRegion N w 0 _ 8 (by show _ ≤ 16 * 48 + 3456; omega)]
+    unfold OldW.layerRegion
+    rw [if_pos (show (0 : Layer).val = 0 from rfl),
+      window_append_right _ _ _ _ (by rw [OldW.topPathBytes_length, OldW.pathSlots_top]; omega),
+      OldW.topPathBytes_length, OldW.pathSlots_top, Nat.add_sub_cancel_left,
+      window_append_left _ _ _ _ (by rw [zeros_length]; omega), window_zeros _ _ _ (by omega)]
 
 theorem top_word (N : HashOutput) (w : WCT9.Witness) (M : Nat → Word)
     (hO : ∀ o, 8096 ≤ o → o < 12320 → o % 8 = 0 →

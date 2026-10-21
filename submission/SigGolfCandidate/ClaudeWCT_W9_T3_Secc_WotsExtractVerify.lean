@@ -274,7 +274,7 @@ theorem structuralHitSrc_of_fts_hitIn (answers : Answers) (N : HashOutput) (w : 
   have h8 : readLE ((Extract.hdrBlock actual).take 8) = tweakLow pos'.hdr := by
     rw [← canonicalHeader_take8 h16, hdr', Extract.readLE_take8]
   have hlo := ftsPos_low hb' hfts'
-  by_cases hl : actual.length = 704 ∨ actual.length = 896
+  by_cases hl : actual.length = 704 ∨ actual.length = 832
   · exfalso
     rw [hlenQ] at hl
     cases pos' <;> (try exact hfts'.elim) <;> simp [Extract.Pos.len] at hl

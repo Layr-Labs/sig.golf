@@ -545,7 +545,6 @@ theorem topLayerP_witEncN (output : HashOutput) (w : SigGolfCandidate.Research.S
     rw [hv i.val, hb i.val i.isLt]
   · rw [show (noncePads w.topNonces).topLeaf = (0 : Pads).topLeaf from rfl, ← hz]
     simp only [padDecP]
-    exact wtopLeafPad_N output w
   · rw [show (noncePads w.topNonces).leafHigh 0 = (0 : Pads).leafHigh 0 from rfl, ← hz]
     simp only [padDecP]
     exact wleafHigh_N output w 0
@@ -565,6 +564,7 @@ theorem topLayerP_witEncN (output : HashOutput) (w : SigGolfCandidate.Research.S
       simp only [Fin.val_zero, or_true, true_and, hj, ↓reduceIte] at h0 ⊢
       rw [hj11, wmerklePad_root_N output w, ← hj11]
       exact h0
+
 end ClaudeWCT.W9.T3M.PairedNonce
 
 /-! ### HonestN 6: the retained layers on `witEncN` are the scheme's `verifyLayers` -/

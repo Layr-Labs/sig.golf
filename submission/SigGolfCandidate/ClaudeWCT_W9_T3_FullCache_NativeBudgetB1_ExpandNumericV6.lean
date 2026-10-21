@@ -110,22 +110,62 @@ end ClaudeWCT.Numerics.V6Budgets
 
 namespace SigGolfCandidate.Research.SharedExpansionV6
 open ClaudeWCT.W9.T3.TopMoment
+open Finset
 
-theorem expandExcessNumeric_holds : ExpandExcessNumeric := by
-  simpa [ExpandExcessNumeric, avgF, excessWeight, SigGolfCandidate.Research.SharedForest.expandReplayExtra,
-    ClaudeWCT.Numerics.V6Budgets.avgF19, ClaudeWCT.Numerics.V6Budgets.excessWeightV6] using
-    ClaudeWCT.Numerics.V6Budgets.expand_excess_numeric
+/-! Campaign T51: the brute-forced sibling field has 16 bits (`TopMoment.avgF` over `2^16`), so the expand excess
+numeric is a monotone bound: every field value is at most `2^16 - 1`, and
+`2^((8/7)(427665 + 65535)/2^20) ≤ 1.9` (kernel power check). -/
+theorem avgF_le_of (φ : Nat → ENNReal) (B : ENNReal) (h : ∀ c, c < 2 ^ 16 → φ c ≤ B) : avgF φ ≤ B := by
+  unfold avgF
+  calc ∑ c ∈ range (2 ^ 16), ((2 : ENNReal) ^ 16)⁻¹ * φ c ≤ ∑ _c ∈ range (2 ^ 16), ((2 : ENNReal) ^ 16)⁻¹ * B :=
+        Finset.sum_le_sum fun c hc => mul_le_mul' le_rfl (h c (mem_range.mp hc))
+    _ = B := by
+        rw [Finset.sum_const, card_range, nsmul_eq_mul, ← mul_assoc, Nat.cast_pow, Nat.cast_ofNat,
+          ENNReal.mul_inv_cancel (by simp) (by simp), one_mul]
 
-#print axioms expandExcessNumeric_holds
+theorem expand_field_power_checked :
+    ClaudeWCT.Numerics.CanonicalCompression.powerUp ClaudeWCT.Numerics.V6Budgets.expandWFix (427665 + 65535) * 10 ≤
+      19 * ClaudeWCT.Numerics.CanonicalCompression.scale := by
+  decide +kernel
+
+theorem excessWeight_field_max : excessWeight 65535 ≤ ENNReal.ofReal (19 / 10) := by
+  have he : excessWeight 65535 = ClaudeWCT.Numerics.V6Budgets.excessWeightV6 65535 := by
+    unfold excessWeight ClaudeWCT.Numerics.V6Budgets.excessWeightV6 SigGolfCandidate.Research.SharedForest.expandReplayExtra
+    norm_num
+  rw [he, ClaudeWCT.Numerics.V6Budgets.excessWeightV6_eq]
+  apply ENNReal.ofReal_le_ofReal
+  have hw := ClaudeWCT.Numerics.V6Budgets.expand_w_le.trans ClaudeWCT.Numerics.V6Budgets.expandW_fix
+  have hw0 : (0 : ℝ) ≤ (2:ℝ)^(1/((917504:ℕ):ℝ)) := by positivity
+  have hp := ClaudeWCT.Numerics.CanonicalCompression.powerUp_ratio_ge ClaudeWCT.Numerics.V6Budgets.expandWFix
+    (427665 + 65535)
+  have hc := expand_field_power_checked
+  have hs0 : (0 : ℝ) < ClaudeWCT.Numerics.CanonicalCompression.scale := by
+    norm_num [ClaudeWCT.Numerics.CanonicalCompression.scale]
+  have hc' : (ClaudeWCT.Numerics.CanonicalCompression.powerUp ClaudeWCT.Numerics.V6Budgets.expandWFix
+      (427665 + 65535) : ℝ) * 10 ≤ 19 * (ClaudeWCT.Numerics.CanonicalCompression.scale : ℝ) := by exact_mod_cast hc
+  calc ((2:ℝ)^(1/((917504:ℕ):ℝ)))^(427665 + 65535)
+      ≤ ((ClaudeWCT.Numerics.V6Budgets.expandWFix : ℝ) / ClaudeWCT.Numerics.CanonicalCompression.scale) ^
+          (427665 + 65535) := pow_le_pow_left₀ hw0 hw _
+    _ ≤ (ClaudeWCT.Numerics.CanonicalCompression.powerUp ClaudeWCT.Numerics.V6Budgets.expandWFix
+          (427665 + 65535) : ℝ) / ClaudeWCT.Numerics.CanonicalCompression.scale := hp
+    _ ≤ 19 / 10 := by
+        rw [div_le_iff₀ hs0]; linarith
 
 /-- N2b with slack: `E_{c₂,c₃}[2^((8/7)(K + max c₂ c₃)/2^20)] ≤ 1.9`. -/
 def ExpandExcessNumeric19 : Prop :=
   avgF (fun c2 => avgF (fun c3 => excessWeight (max c2 c3))) ≤ ENNReal.ofReal (19 / 10)
 
 theorem expandExcessNumeric19_holds : ExpandExcessNumeric19 := by
-  simpa [ExpandExcessNumeric19, avgF, excessWeight, SigGolfCandidate.Research.SharedForest.expandReplayExtra,
-    ClaudeWCT.Numerics.V6Budgets.avgF19, ClaudeWCT.Numerics.V6Budgets.excessWeightV6] using
-    ClaudeWCT.Numerics.V6Budgets.expand_excess_numeric19
+  unfold ExpandExcessNumeric19
+  apply avgF_le_of; intro c2 hc2
+  apply avgF_le_of; intro c3 hc3
+  exact (excessWeight_mono (by omega : max c2 c3 ≤ 65535)).trans excessWeight_field_max
 
+theorem expandExcessNumeric_holds : ExpandExcessNumeric :=
+  expandExcessNumeric19_holds.trans (by
+    rw [show (2 : ENNReal) = ENNReal.ofReal 2 by norm_num]
+    exact ENNReal.ofReal_le_ofReal (by norm_num))
+
+#print axioms expandExcessNumeric_holds
 #print axioms expandExcessNumeric19_holds
 end SigGolfCandidate.Research.SharedExpansionV6

@@ -125,7 +125,7 @@ structure ChainPre (s : MachineState) (lay : Layer) (tree leaf i cap e valp ret 
   x21 : s.getReg .x21 = BitVec.ofNat 64 e
   x23 : s.getReg .x23 = BitVec.ofNat 64 valp
   htree : tree < 2 ^ 32
-  hi : i < 54
+  hi : i < 51
   hroute : tree * 2 ^ T3.height lay + leaf < 2 ^ 31
   hleaf : leaf < 2 ^ T3.height lay
   hcap : cap ≤ e
@@ -201,7 +201,7 @@ theorem kchain_rung {m : Nat} (hm : m < e) {v : Digest} {t t2 : MachineState}
   obtain ⟨rfl, rfl⟩ := hsub.2.2.2.2
   have g : ∀ r, r ∉ chainRegs → r ∉ [.x6, .x7, .x29] → t2.getReg r = s0.getReg r := fun r hr hr' =>
     (hr2.get hr').trans (ht.regs.get hr)
-  have hmd : maxDigit 0 i ≤ 7 := by rw [kmd]; split <;> omega
+  have hmd : maxDigit 0 i ≤ 7 := by rw [kmd]; split_ifs <;> omega
   obtain ⟨t3, st3, t3pc, t3x28, t3w, t3w24, t3r, t3f⟩ :=
     sub9_spec hsub t2 ht2 0 0 leaf i m hpre.hroute hpre.hleaf (by omega) (by omega)
     (by rw [g _ (by simp [chainRegs]) (by simp)]; exact hpre.x8)
@@ -224,6 +224,7 @@ theorem kchain_rung {m : Nat} (hm : m < e) {v : Digest} {t t2 : MachineState}
     ((g3 _ (by simp [chainRegs])).trans hpre.x8)
     ((g3 _ (by simp [chainRegs])).trans hpre.x19)
     (by rw [t3r.get (by simp), hr2.get (by simp)]; exact ht.x20)
+    ((g3 _ (by simp [chainRegs])).trans (hpre.x21.trans (by rw [hpre.he])))
     t3x28
     (by rw [f03.get (by decide) (by unfold ChainW; simp only [CHAIN] at *; omega)]; exact hpre.z0)
     (by rw [f03.get (by decide) (by unfold ChainW; simp only [CHAIN] at *; omega)]; exact hpre.z8)
@@ -248,7 +249,7 @@ theorem chain_step {m : Nat} (hm : m < e) (hmc : m ≠ cap) {v : Digest} {t : Ma
         Frame t u (fun A => (A = CHAIN + 16 ∨ A = CHAIN + 24) ∨ (CHAIN + 32 ≤ A ∧ A < CHAIN + 112))) := by
   have hcap := hpre.hcap
   have he := hpre.he
-  have hmd : maxDigit 0 i ≤ 7 := by rw [kmd]; split <;> omega
+  have hmd : maxDigit 0 i ≤ 7 := by rw [kmd]; split_ifs <;> omega
   have g : ∀ r, r ∉ chainRegs → t.getReg r = s0.getReg r := fun r hr => ht.regs.get hr
   have h17 : t.getReg .x17 = BitVec.ofNat 64 cap := by rw [g _ (by simp [chainRegs]), hpre.x17]
   have h21 : t.getReg .x21 = BitVec.ofNat 64 e := by rw [g _ (by simp [chainRegs]), hpre.x21]
@@ -273,7 +274,7 @@ theorem chain_step_cap {m : Nat} (hm : m < e) (hmc : m = cap) {v : Digest} {t : 
   have he := hpre.he
   have hvc := hpre.hvc
   have hvb := hpre.hv
-  have hmd : maxDigit 0 i ≤ 7 := by rw [kmd]; split <;> omega
+  have hmd : maxDigit 0 i ≤ 7 := by rw [kmd]; split_ifs <;> omega
   have g : ∀ r, r ∉ chainRegs → t.getReg r = s0.getReg r := fun r hr => ht.regs.get hr
   have h17 : t.getReg .x17 = BitVec.ofNat 64 cap := by rw [g _ (by simp [chainRegs]), hpre.x17]
   have h21 : t.getReg .x21 = BitVec.ofNat 64 e := by rw [g _ (by simp [chainRegs]), hpre.x21]
@@ -308,7 +309,7 @@ theorem chain_exit {v : Digest} {t : MachineState} (ht : ChainHead b s0 valp e v
     ∃ u, Steps image t 3 3 u ∧ u.pc = pcOf ret ∧ RegsExcept t u [] ∧ Frame t u (fun _ => False) := by
   have he := hpre.he
   have hcap := hpre.hcap
-  have hmd : maxDigit 0 i ≤ 7 := by rw [kmd]; split <;> omega
+  have hmd : maxDigit 0 i ≤ 7 := by rw [kmd]; split_ifs <;> omega
   have g : ∀ r, r ∉ chainRegs → t.getReg r = s0.getReg r := fun r hr => ht.regs.get hr
   obtain ⟨t1, st1, t1pc, t1r, t1f⟩ := sub1_spec hsub t ht.pc e cap (by omega) (by omega) ht.x20
     (by rw [g _ (by simp [chainRegs]), hpre.x17])
@@ -326,7 +327,7 @@ theorem chain_exit_cap {v : Digest} {t : MachineState} (ht : ChainHead b s0 valp
       Frame t u (fun A => valp ≤ A ∧ A < valp + 16) := by
   have he := hpre.he
   have hcap := hpre.hcap
-  have hmd : maxDigit 0 i ≤ 7 := by rw [kmd]; split <;> omega
+  have hmd : maxDigit 0 i ≤ 7 := by rw [kmd]; split_ifs <;> omega
   have g : ∀ r, r ∉ chainRegs → t.getReg r = s0.getReg r := fun r hr => ht.regs.get hr
   obtain ⟨t1, st1, t1pc, t1r, t1f⟩ := sub1_spec hsub t ht.pc e cap (by omega) (by omega) ht.x20
     (by rw [g _ (by simp [chainRegs]), hpre.x17])

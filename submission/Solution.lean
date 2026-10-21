@@ -5,7 +5,7 @@ namespace SigGolf.Challenge
 
 def submission : SigGolf.Submission := SigGolfCandidate.Transfer.currentOf SigGolfCandidate.T3M.Paired.submission
 
-theorem signature_bytes : submission.sizes.signature = 5239 := rfl
+theorem signature_bytes : submission.sizes.signature = 5195 := rfl
 
 theorem witness_bytes : submission.sizes.witness = 22012 := rfl
 
@@ -15,7 +15,7 @@ theorem layout_offsets : submission.layout =
   { message := 26144, secretKey := 128, publicKey := 160,
     cache := 524288, signature := 28672, witness := 4128 } := rfl
 
-theorem certificate : SigGolf.Certificate submission 6966 := by
+theorem certificate : SigGolf.Certificate submission 7008 := by
   exact SigGolfCandidate.Packaging.certificate_ready
 
 end SigGolf.Challenge
@@ -26,4 +26,4 @@ end SigGolf.Challenge
 #print axioms SigGolf.Challenge.layout_offsets
 #print axioms SigGolf.Challenge.certificate
 
-/- S=5239, W=22012, K=131072, C=6966; score=36494874. -/
+/- S=5195, W=22012, K=131072, C=7008; score=36406560. -/
