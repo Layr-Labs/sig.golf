@@ -1,5 +1,9 @@
 import SigGolf
 import SigGolfCandidate.Packaging_Ready
+import SigGolfCandidate.Toward95Bounds
+import SigGolfCandidate.Toward200LeanerBounds
+import SigGolfCandidate.Toward45FrontierBounds
+import SigGolfCandidate.Toward80LeanerBreakthrough
 
 namespace SigGolf.Challenge
 
