@@ -126,7 +126,7 @@ open SigGolfCandidate.T3 (Digest HashOutput M)
 set_option maxRecDepth 100000
 set_option maxHeartbeats 0
 
-def gateOk (a : HashOutput) : Bool := decide (a.toNat / 2^242 % 16384 < 734)
+def gateOk (a : HashOutput) : Bool := decide (a.toNat / 2^242 % 16384 < 804)
 def gCheckWords : List (BitVec 32) := [0x1803883,0x16013e83,0xfd8ec63]
 def gCheck : Result :=
   { W9Drv.gCheck with pc := .ite .ltu (.ld (.c (BitVec.ofNat 64 24))) (.ld (addC (.reg .x2) 352)) (.c (pcOf 68)) (.c (pcOf 7)) }
@@ -145,12 +145,12 @@ theorem gSetup_linked : sliceChecked 68 gSetupWords = true := by decide +kernel
 theorem gSetup_checked : rOK (symRun {} gSetupWords (pcOf 68) 21) gSetup = true := by decide +kernel
 
 theorem gate_ult_const (a : HashOutput) :
-    BitVec.ult (a.extractLsb' 192 64) (BitVec.ofNat 64 (734 * 2^50)) = gateOk a := by
+    BitVec.ult (a.extractLsb' 192 64) (BitVec.ofNat 64 (804 * 2^50)) = gateOk a := by
   unfold gateOk
-  change (a.extractLsb' 192 64).ult (BitVec.ofNat 64 (734 * 2^50)) = decide (a.toNat / 2^242 % 2^14 < 734)
+  change (a.extractLsb' 192 64).ult (BitVec.ofNat 64 (804 * 2^50)) = decide (a.toNat / 2^242 % 2^14 < 804)
   rw [← SigGolfCandidate.Research.V7Composed198Gate.gate_shift50_toNat]
   simp only [BitVec.ult, BitVec.toNat_ushiftRight, Nat.shiftRight_eq_div_pow,
-    show (BitVec.ofNat 64 (734 * 2^50)).toNat = 734 * 2^50 from rfl,
+    show (BitVec.ofNat 64 (804 * 2^50)).toNat = 804 * 2^50 from rfl,
     decide_eq_decide]
   omega
 theorem gate_slot (w : ClaudeWCT.W9.T3M.WBytes) {u s3 : MachineState} (hw : Orig w (fun o => o ≠ 22000) u)
@@ -191,7 +191,7 @@ theorem good
   have hw3 : s1.getMem (BitVec.ofNat 64 24) = a.extractLsb' 192 64 := by
     have := hu.digest 3 (by decide +kernel)
     simpa [MachineState.getMem, m1] using this
-  have hgate : s1.getMem ((addC (.reg .x2) 352).eval s1) = BitVec.ofNat 64 (734 * 2^50) := by
+  have hgate : s1.getMem ((addC (.reg .x2) 352).eval s1) = BitVec.ofNat 64 (804 * 2^50) := by
     change s1.getMem ((addC (.reg .x2) (BitVec.ofNat 64 352)).eval s1) = _
     rw [setup_load s1 hu.sp 352]
     exact hu.setupMask.gate

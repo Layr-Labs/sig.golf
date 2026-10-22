@@ -802,7 +802,7 @@ theorem stage_good {sig : WCT9.Signature} {hints : BitVec 16} {index n : Nat} {v
       by rw [g1 _ (by decide)]; exact (hI.right (by omega)).1, by rw [g1 _ (by decide)]; exact (hI.right (by omega)).2, htable1,
       hI.cf.frame f1 (by intro i hi hi' h; exact h),
       hI.reward.frame f1 (by intro i hi hi' h; exact h), hI.zt.frame f1 (by intro r hr h; exact h),
-      hintFloor_lt hints lay, (fun he => by change lay=0 at he; change hintFloor hints lay=19;rw [he];rfl), hI.hintsLt, rfl, by rw [g1 _ (by decide)]; exact hI.hintsMem⟩
+      hintFloor_lt hints lay, (fun he => by change lay=0 at he; change hintFloor hints lay=22;rw [he];rfl), hI.hintsLt, rfl, by rw [g1 _ (by decide)]; exact hI.hintsMem⟩
   unfold stage
   change TBSim im sk s _ (_ >>= _) _
   refine (TBSim.steps s1 (TBSim.bind (W₂ := 10 + rlCost lay)
@@ -1344,7 +1344,7 @@ set_option maxRecDepth 10000
 
 /-- img-v6 machine policy check: pool 74, hints `484·f1 + 22·f2 + f3`; L1 residual < 56, L2 < 41, L3 < 22. -/
 def policyCondition (hints : BitVec 16) (digits : List (List Nat)) (lows : List Bool) : Prop :=
-  let r1:=74-CanonicalPolicy.credit 0 (lows.getD 0 true) (digits.getD 0 [])
+  let r1:=77-CanonicalPolicy.credit 0 (lows.getD 0 true) (digits.getD 0 [])
   let r2:=r1-CanonicalPolicy.credit 1 (lows.getD 1 true) (digits.getD 1 [])
   let r3:=r2-CanonicalPolicy.credit 2 (lows.getD 2 true) (digits.getD 2 [])
   r1<56 ∧ r2<41 ∧ r3<22 ∧
@@ -1353,7 +1353,7 @@ def policyCondition (hints : BitVec 16) (digits : List (List Nat)) (lows : List 
 
 theorem policyCondition_iff (hints : BitVec 16) (digits : List (List Nat)) (lows : List Bool)
     (hh : hints.toNat<8000) (hlen : digits.length=4)
-    (hc0 : 19≤CanonicalPolicy.credit 0 (lows.getD 0 true) (digits.getD 0 []))
+    (hc0 : 22≤CanonicalPolicy.credit 0 (lows.getD 0 true) (digits.getD 0 []))
     (hc1 : SharedForest.hintFloor hints 1≤CanonicalPolicy.credit 1 (lows.getD 1 true) (digits.getD 1 []))
     (hc2 : SharedForest.hintFloor hints 2≤CanonicalPolicy.credit 2 (lows.getD 2 true) (digits.getD 2 [])) :
     policyCondition hints digits lows ↔ SharedForest.policyHintsValid hints digits lows=true := by
@@ -1378,16 +1378,16 @@ theorem policyCondition_iff (hints : BitVec 16) (digits : List (List Nat)) (lows
     rw [CanonicalPolicy.lower_three_progress _ hR3]
     exact he3
   · rintro ⟨hH,he1,he2,he3⟩
-    have hr1 : 74-CanonicalPolicy.credit 0 (lows.getD 0 true) (digits.getD 0 [])<56 := by omega
+    have hr1 : 77-CanonicalPolicy.credit 0 (lows.getD 0 true) (digits.getD 0 [])<56 := by omega
     have ht1 := (CanonicalPolicy.lower_one_progress ⟨_,hr1⟩).2
     simp only [Fin.val_mk] at ht1
-    have hr2 : 74-CanonicalPolicy.credit 0 (lows.getD 0 true) (digits.getD 0 [])-
+    have hr2 : 77-CanonicalPolicy.credit 0 (lows.getD 0 true) (digits.getD 0 [])-
         CanonicalPolicy.credit 1 (lows.getD 1 true) (digits.getD 1 [])<41 := by
       rw [←he1] at ht1
       omega
     have ht2 := (CanonicalPolicy.lower_two_progress ⟨_,hr2⟩).2
     simp only [Fin.val_mk] at ht2
-    have hr3 : 74-CanonicalPolicy.credit 0 (lows.getD 0 true) (digits.getD 0 [])-
+    have hr3 : 77-CanonicalPolicy.credit 0 (lows.getD 0 true) (digits.getD 0 [])-
         CanonicalPolicy.credit 1 (lows.getD 1 true) (digits.getD 1 [])-
         CanonicalPolicy.credit 2 (lows.getD 2 true) (digits.getD 2 [])<22 := by
       rw [←he2] at ht2

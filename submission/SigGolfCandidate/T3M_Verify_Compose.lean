@@ -714,7 +714,7 @@ theorem layers_good (floors : T3.Layer → Nat) (hbound : ∀ lay, floors lay �
 theorem after_good (floors : T3.Layer → Nat) (hcredit : CreditFloors floors) (pk : Digest) (w : ClaudeWCT.W9.T3M.WBytes) (Q : Prop) (hQ : Q) (a : HashOutput)
     (top : Digest × Digest) (u : MachineState)
     (h : FtsOut ⟨pk, w, a⟩ top u) :
-    GoodQP (HashOkBy floors (ClaudeWCT.W9.T3M.wtopHigh w)) u 8050 8050 Q 5222
+    GoodQP (HashOkBy floors (ClaudeWCT.W9.T3M.wtopHigh w)) u 8050 8050 Q 5219
       (ccM (afterFts pk w (ClaudeWCT.WCT9.digestIndex a) (some top)) Kb) := by
   have hidx : ClaudeWCT.WCT9.digestIndex a < 2 ^ 31 := ClaudeWCT.WCT9.digestIndex_lt a
   obtain ⟨t, hst, hL3⟩ := layerIn_of_fts w pk _ top.1 top.2 u hidx h.glob h.idx h.pc h.left h.right h.wit h.base h.a1
@@ -729,7 +729,7 @@ theorem after_good (floors : T3.Layer → Nat) (hcredit : CreditFloors floors) (
   rw [lFuel_4, lCyc_4, lCycA_4 floors hcredit.1] at hg
   have htotal := hcredit.2
   exact GoodQP.stepsQ hst hg (by omega) (by omega) (fun q => ⟨q, by omega⟩)
-theorem after_good_budget : AfterGoodBudget 5222 :=
+theorem after_good_budget : AfterGoodBudget 5219 :=
   fun floors hcredit pk w Q hQ a top u h => after_good floors hcredit pk w Q hQ a top u h
 end SigGolfCandidate.T3M
 end

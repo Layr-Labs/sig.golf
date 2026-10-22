@@ -181,12 +181,12 @@ set_option maxHeartbeats 1000000
 set_option maxRecDepth 10000
 set_option exponentiation.threshold 1024
 
-/-- Seed error of a `g`-leaf family charge `C ≤ 305` (`43 g ≤ 305`) on the live small window. -/
-theorem grouped_seed_error (C y : ℝ) (hC0 : 0 ≤ C) (hC : C ≤ 305) (hy0 : 0 ≤ y) (hy : y ≤ 3 / 2500) :
-    2 * C * y ^ 3 / (1 - y) ≤ (733 / 1000) * y ^ 2 := by
+/-- Seed error of a `g`-leaf family charge `C ≤ 301` (`43 g ≤ 301`) on the live small window. -/
+theorem grouped_seed_error (C y : ℝ) (hC0 : 0 ≤ C) (hC : C ≤ 301) (hy0 : 0 ≤ y) (hy : y ≤ 3 / 2500) :
+    2 * C * y ^ 3 / (1 - y) ≤ (7233 / 10000) * y ^ 2 := by
   have hd : 0 < 1 - y := by linarith
   apply (div_le_iff₀ hd).2
-  have hcoef : 2 * C * y ≤ (733 / 1000) * (1 - y) := by nlinarith
+  have hcoef : 2 * C * y ≤ (7233 / 10000) * (1 - y) := by nlinarith
   nlinarith [mul_le_mul_of_nonneg_right hcoef (sq_nonneg y)]
 
 /-- At `2 C ≤ 540` (`g ≤ 6`) the installed seed-error chain (`canonical_seed_error`) applies unchanged. -/
@@ -196,32 +196,35 @@ theorem grouped_seed_error_installed (C y : ℝ) (hC : 2 * C ≤ 540) (_hy0 : 0 
   apply div_le_div_of_nonneg_right _ hd.le
   exact mul_le_mul_of_nonneg_right hC (by positivity)
 
-/-- The weighting coefficients on the two small windows, with the error weight tightened to `1061/1000`
-(exact values: middle `1.0470…` at `w = 1023/50000`, tiny `1.0600…` at `w = 3/100`). -/
+/-- The weighting coefficients on the two small windows, with the error weight tightened to `10471/10000`
+(exact values: middle `1.0470…` at `w = 1023/50000`, tiny `1.0340…` at `w = 17/1000`). -/
 theorem middle_coefficients_t (y : ℝ) (hy0 : 0≤y) (hy : y≤3/2500) :
     canonicalPrefix y (1023/50000)≤99847/50000 ∧
     canonicalEncoding y (1023/50000)≤99847/50000 ∧
-    canonicalError y (1023/50000)≤1061/1000 :=
+    canonicalError y (1023/50000)≤10471/10000 :=
   ⟨(middle_coefficients y hy0 hy).1, (middle_coefficients y hy0 hy).2.1,
     (canonicalError_mono hy0 hy (by norm_num) (by norm_num) (by norm_num)).trans
       (by norm_num [canonicalError])⟩
 theorem tiny_coefficients_t (y : ℝ) (hy0 : 0≤y) (hy : y≤1/2^28) :
-    canonicalPrefix y (3/100)≤249/125 ∧ canonicalEncoding y (3/100)≤249/125 ∧
-    canonicalError y (3/100)≤1061/1000 :=
-  ⟨(tiny_coefficients y hy0 hy).1, (tiny_coefficients y hy0 hy).2.1,
-    (canonicalError_mono hy0 hy (by norm_num) (by norm_num) (by norm_num)).trans
+    canonicalPrefix y (17/1000)≤249/125 ∧ canonicalEncoding y (17/1000)≤249/125 ∧
+    canonicalError y (17/1000)≤10471/10000 :=
+  ⟨(canonicalPrefix_mono hy0 hy (by norm_num) (by norm_num) (by norm_num)).trans
+      (by norm_num [canonicalPrefix]),
+   (canonicalEncoding_mono hy0 hy (by norm_num) (by norm_num)).trans
+      (by norm_num [canonicalEncoding]),
+   (canonicalError_mono hy0 hy (by norm_num) (by norm_num) (by norm_num)).trans
       (by norm_num [canonicalError])⟩
 theorem grouped_weighted_error (y err coefficient : ℝ)
-    (hc0 : 0 ≤ coefficient) (hc : coefficient ≤ 1061 / 1000)
-    (he : err ≤ (733 / 1000) * y ^ 2) : coefficient * err ≤ (778 / 1000) * y ^ 2 := by
-  calc coefficient * err ≤ coefficient * ((733 / 1000) * y ^ 2) := mul_le_mul_of_nonneg_left he hc0
-    _ ≤ (1061 / 1000) * ((733 / 1000) * y ^ 2) := mul_le_mul_of_nonneg_right hc (by positivity)
+    (hc0 : 0 ≤ coefficient) (hc : coefficient ≤ 10471 / 10000)
+    (he : err ≤ (7233 / 10000) * y ^ 2) : coefficient * err ≤ (758 / 1000) * y ^ 2 := by
+  calc coefficient * err ≤ coefficient * ((7233 / 10000) * y ^ 2) := mul_le_mul_of_nonneg_left he hc0
+    _ ≤ (10471 / 10000) * ((7233 / 10000) * y ^ 2) := mul_le_mul_of_nonneg_right hc (by positivity)
     _ ≤ _ := by nlinarith [sq_nonneg y]
 
-/-- Live middle window with the `g ≤ 7` family error: quadratic `767/1000 + 778/1000 = 1545/1000` (r3x: excess `149/125000`). -/
+/-- Live middle window with the `g ≤ 7` family error: quadratic `823/1000 + 758/1000 = 1581/1000` (Route C: excess `1158/1000000`). -/
 theorem grouped_middle_closing (y excess : ℝ) (hlow : 1 / 2 ^ 28 ≤ y)
-    (hhigh : y ≤ 3 / 2500) (hexcess : excess ≤ 149 / 125000) :
-    (99847 / 50000) * y + y * excess + (1545 / 1000) * y ^ 2 + 1 / 2 ^ 136 +
+    (hhigh : y ≤ 3 / 2500) (hexcess : excess ≤ 1158 / 1000000) :
+    (99847 / 50000) * y + y * excess + (1581 / 1000) * y ^ 2 + 1 / 2 ^ 136 +
       (y / 2 ^ 18 + 1 / 2 ^ 700 + 1 / 2 ^ 152 + y / 2 ^ 128) ≤ 2 * y := by
   have hn : 0 ≤ y := le_trans (by positivity) hlow
   have he := mul_le_mul_of_nonneg_left hexcess hn
@@ -241,8 +244,8 @@ theorem grouped_middle_closing (y excess : ℝ) (hlow : 1 / 2 ^ 28 ≤ y)
     linarith
   nlinarith
 
-/-- Tiny window: the class budget `3/2` plus the family error `799/1000` stay below the installed `3`. -/
-theorem grouped_tiny_quadratic : (3 / 2 : ℝ) + 778 / 1000 ≤ 3 := by norm_num
+/-- Tiny window: the class budget `3/2` plus the family error `758/1000` stay below the installed `3`. -/
+theorem grouped_tiny_quadratic : (3 / 2 : ℝ) + 758 / 1000 ≤ 3 := by norm_num
 
 /-- The bound is sharp in `C`: `C = 306` already fails the middle window at `y = 3/2500` (absolute terms dropped). -/
 theorem grouped_middle_fails_306 :

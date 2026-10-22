@@ -121,24 +121,24 @@ theorem topHighWeight_eq : topHighWeight = TopZero.topHighW := by
   rw [topHighWeight, SigGolfResearch.NonbinaryTop.ZeroCounting.zeroFreeCard_eq]
   rfl
 
-/-- The d6b top selection law at the canonical floor 19, with the top producer zero cap 9. -/
-theorem selected_top_histogram_card (hcheck : TopZero.topHistogramCheck = true) (c : Nat) (hc : 19 ≤ c) (hc' : c < 220) :
-    (univ.filter fun answer : HashOutput => ∃ dl, CanonicalPolicy.producerDecodeOut 0 19 answer = some dl ∧
+/-- The d6b top selection law at the canonical floor 22, with the top producer zero cap 9. -/
+theorem selected_top_histogram_card (hcheck : TopZero.topHistogramCheck = true) (c : Nat) (hc : 22 ≤ c) (hc' : c < 220) :
+    (univ.filter fun answer : HashOutput => ∃ dl, CanonicalPolicy.producerDecodeOut 0 22 answer = some dl ∧
         CanonicalPolicy.credit 0 dl.2 dl.1 = c).card =
       histogramWeight TopZero.topAcceptedHistogram c := by
-  rw [selected_top_path_card 19 c le_rfl hc, TopZero.topAcceptedHistogram, histogramWeight_split,
+  rw [selected_top_path_card 22 c le_rfl hc, TopZero.topAcceptedHistogram, histogramWeight_split,
     if_pos (by omega : 2 ≤ c), topWordCount_eq hcheck (c - 2) (by omega) (by omega),
     topWordCount_eq hcheck c (by omega) hc', topHighWeight_eq]
   ring
 
-theorem selected_top_histogram_probability (hcheck : TopZero.topHistogramCheck = true) (c : Nat) (hc : 19 ≤ c)
+theorem selected_top_histogram_probability (hcheck : TopZero.topHistogramCheck = true) (c : Nat) (hc : 22 ≤ c)
     (hc' : c < 220) :
-    Pr[fun answer => ∃ dl, CanonicalPolicy.producerDecodeOut 0 19 answer = some dl ∧
+    Pr[fun answer => ∃ dl, CanonicalPolicy.producerDecodeOut 0 22 answer = some dl ∧
         CanonicalPolicy.credit 0 dl.2 dl.1 = c | ($ᵗ HashOutput : ProbComp HashOutput)] =
       (histogramWeight TopZero.topAcceptedHistogram c : ENNReal) / topDen := by
   classical
   rw [probEvent_uniformSample]
-  rw [show (univ.filter fun answer : HashOutput => ∃ dl, CanonicalPolicy.producerDecodeOut 0 19 answer = some dl ∧
+  rw [show (univ.filter fun answer : HashOutput => ∃ dl, CanonicalPolicy.producerDecodeOut 0 22 answer = some dl ∧
         CanonicalPolicy.credit 0 dl.2 dl.1 = c) = _ from rfl, selected_top_histogram_card hcheck c hc hc']
   simp only [Fintype.card_bitVec, topDen, Nat.cast_pow, Nat.cast_ofNat]
 

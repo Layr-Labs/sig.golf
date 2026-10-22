@@ -2614,14 +2614,14 @@ theorem gate_eval (s : MachineState) (a : BitVec 256) (ha:OutAt s NBUF a) :
 
 theorem gate_spec (m : Bool) (hl:LookOK im (look m)) (s : MachineState) (hpc:s.pc=pcOf (base m+15))
     (a : BitVec 256) (ha:OutAt s NBUF a) :
-    ∃t,Steps im s 6 6 t ∧ t.pc=(if gateN a < 734 then pcOf (base m+21) else pcOf (next m)) ∧
+    ∃t,Steps im s 6 6 t ∧ t.pc=(if gateN a < 804 then pcOf (base m+21) else pcOf (next m)) ∧
       (m=true → t.getReg .x17=BitVec.ofNat 64 NBUF) ∧
       RegsExcept s t [.x6,.x7,.x17,.x28] ∧ Frame s t (fun _=>False) := by
-  have hbr:∀b∈(expectedGate m (decide (¬gateN a < 734))).brs,b.holds s:=by
+  have hbr:∀b∈(expectedGate m (decide (¬gateN a < 804))).brs,b.holds s:=by
     intro b hb
     simp only[expectedGate,pres,pres2,List.mem_singleton]at hb
     subst hb
-    exact geu_holds s gateE (gateN a) 734 (by unfold gateN;omega) (by decide) (gate_eval s a ha)
+    exact geu_holds s gateE (gateN a) 804 (by unfold gateN;omega) (by decide) (gate_eval s a ha)
   obtain ⟨hs,hp,-,hr,hm⟩:=SearchM.piece hl (gate_run m _) s hpc rfl hbr rfl
   refine ⟨_,hs,?_,?_,?_,fun A _ _=>by rw[hm];rfl⟩
   · rw[hp];simp only[expectedGate,pres,pres2,decide_eq_true_eq]
@@ -2942,10 +2942,10 @@ set_option linter.unusedSimpArgs false
 attribute [local instance] Classical.propDecidable
 variable {im : Image}
 
-def acceptedTest (a : BitVec 256) : Bool := decide (gateN a < 734) &&
+def acceptedTest (a : BitVec 256) : Bool := decide (gateN a < 804) &&
   (List.range 9).all (fun k=>decide (rankN a k < 563)) && decide (psum a 9 ≤ 777)
 theorem acceptedTest_iff (a : BitVec 256) : acceptedTest a=true ↔
-    gateN a < 734 ∧ (∀k,k < 9 → rankN a k < 563) ∧ psum a 9 ≤ 777 := by
+    gateN a < 804 ∧ (∀k,k < 9 → rankN a k < 563) ∧ psum a 9 ≤ 777 := by
   simp only[acceptedTest,Bool.and_eq_true,decide_eq_true_eq,List.all_eq_true,List.mem_range,and_assoc]
 
 theorem checks_spec (m : Bool) (hl:LookOK im (look m)) (s : MachineState)
@@ -2954,7 +2954,7 @@ theorem checks_spec (m : Bool) (hl:LookOK im (look m)) (s : MachineState)
       Frame s t (fun _=>False) ∧ t.pc=(if acceptedTest a then pcOf (accepted m) else pcOf (next m)) ∧
       (acceptedTest a=true → t.getReg .x17=BitVec.ofNat 64 NBUF) := by
   obtain ⟨t1,s1,p1,r17,r1,f1⟩:=gate_spec m hl s hpc a ha
-  by_cases hg:gateN a < 734
+  by_cases hg:gateN a < 804
   · rw[if_pos hg]at p1
     obtain ⟨t2,s2,p2,sm2,tb2,r172,r2,f2⟩:=init_spec m hl t1 p1 r17
     obtain ⟨t3,c3,s3,b3,r3,f3,p3⟩:=fields_from m hl a 9 0 rfl t2 p2

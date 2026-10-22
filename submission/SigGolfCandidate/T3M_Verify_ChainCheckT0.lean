@@ -1,9 +1,11 @@
 import SigGolfCandidate.T3M_Verify_ChainCheckParts
 -- serialization only (no declarations used): keeps this ~14 GB module from building in parallel with the other heavy ones under the verifier's 2-job / 24 GiB limit
-import SigGolfCandidate.ClaudeWCT_Numerics_N600Price
+import SigGolfCandidate.ClaudeWCT_W9_New_Machine_Sign_Main
+import SigGolfCandidate.ClaudeWCT_Numerics_RouteCRows
 
 namespace SigGolfCandidate.T3M
 set_option maxRecDepth 100000
+set_option Elab.async false
 private theorem triCheck_part_0_0 : triCheck 0 0 16 = true := by decide +kernel
 private theorem triCheck_part_0_16 : triCheck 0 16 16 = true := by decide +kernel
 private theorem triCheck_part_0_32 : triCheck 0 32 16 = true := by decide +kernel

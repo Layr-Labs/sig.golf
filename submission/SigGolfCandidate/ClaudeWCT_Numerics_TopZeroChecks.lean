@@ -109,16 +109,16 @@ theorem zfree_truncated_card (cut : Nat) (hc : 0 < cut) :
 
 def zfreeWindow (z : Nat) : Nat :=
   (zfpacked % radix ^ (65536*z+256*146+256)) % (radix - 1) -
-  (zfpacked % radix ^ (65536*z+256*146+29)) % (radix - 1)
+  (zfpacked % radix ^ (65536*z+256*146+32)) % (radix - 1)
 
 theorem zfree_window_card (z : Nat) :
-    (univ.filter fun w : FreeWord => weight (toWord w) = 146 ∧ 29 ≤ score (toWord w) ∧
+    (univ.filter fun w : FreeWord => weight (toWord w) = 146 ∧ 32 ≤ score (toWord w) ∧
       zeros (toWord w) = z).card = zfreeWindow z := by
   classical
-  have heq : (univ.filter fun w : FreeWord => weight (toWord w) = 146 ∧ 29 ≤ score (toWord w) ∧
+  have heq : (univ.filter fun w : FreeWord => weight (toWord w) = 146 ∧ 32 ≤ score (toWord w) ∧
         zeros (toWord w) = z) =
       (univ.filter fun w : FreeWord => zstat (toWord w) < 65536*z+256*146+256) \
-        (univ.filter fun w : FreeWord => zstat (toWord w) < 65536*z+256*146+29) := by
+        (univ.filter fun w : FreeWord => zstat (toWord w) < 65536*z+256*146+32) := by
     ext w
     have hc := score_le (toWord w)
     have hw := weight_le_225 (toWord w)
@@ -152,7 +152,7 @@ theorem free_card_transfer (P : Codec.Word → Prop) [DecidablePred P] :
 theorem zeroFreeCard_windows : zeroFreeCard = ∑ z ∈ range 10, zfreeWindow z := by
   classical
   have h1 : zeroFreeCard = (univ.filter fun w : Codec.Word =>
-      (weight w = 146 ∧ 29 ≤ score w ∧ zeros w ≤ 9) ∧ freeWord w).card := by
+      (weight w = 146 ∧ 32 ≤ score w ∧ zeros w ≤ 9) ∧ freeWord w).card := by
     unfold zeroFreeCard
     apply congrArg Finset.card
     apply Finset.filter_congr
@@ -163,11 +163,11 @@ theorem zeroFreeCard_windows : zeroFreeCard = ∑ z ∈ range 10, zfreeWindow z 
   rw [h1, free_card_transfer]
   rw [card_eq_sum_card_fiberwise (f := fun w : FreeWord => zeros (toWord w))
       (s := univ.filter fun w : FreeWord =>
-        weight (toWord w) = 146 ∧ 29 ≤ score (toWord w) ∧ zeros (toWord w) ≤ 9)
+        weight (toWord w) = 146 ∧ 32 ≤ score (toWord w) ∧ zeros (toWord w) ≤ 9)
       (t := range 10) (by
     intro w hw
     change w ∈ (univ.filter fun w : FreeWord =>
-      weight (toWord w) = 146 ∧ 29 ≤ score (toWord w) ∧ zeros (toWord w) ≤ 9) at hw
+      weight (toWord w) = 146 ∧ 32 ≤ score (toWord w) ∧ zeros (toWord w) ≤ 9) at hw
     change zeros (toWord w) ∈ range 10
     simp only [mem_filter, mem_univ, true_and] at hw
     simp only [mem_range]
@@ -185,8 +185,8 @@ theorem zeroFreeCard_windows : zeroFreeCard = ∑ z ∈ range 10, zfreeWindow z 
   · rintro ⟨h1, h2, h4⟩
     exact ⟨⟨h1, h2, by omega⟩, h4⟩
 
-/-- `|C_L∖B|` with the zero cap: top words of weight 146, score ≥ 29 (floor 19, d6b LOW bonus 2), LOW not forced, ≤ 9 zero digits. -/
-def zeroFreeCount : Nat := 61572646385634194677600334351063624
+/-- `|C_L∖B|` with the zero cap: top words of weight 146, score ≥ 32 (floor 22, d6b LOW bonus 2), LOW not forced, ≤ 9 zero digits. -/
+def zeroFreeCount : Nat := 59170261448886803489697968615038982
 
 theorem zfree_windows_eq : (∑ z ∈ range 10, zfreeWindow z) = zeroFreeCount := by
   decide +kernel
@@ -229,11 +229,22 @@ def topChoiceFree : Nat := SigGolfResearch.NonbinaryTop.ZeroCounting.zeroFreeCou
 def topHighW : Nat := 3 * 2 ^ 126 - topChoiceFree
 
 /-- d6b split with the zero cap: LOW (credit `c + 2`, weight `2^128`) or HIGH (credit `c`, weight `topHighW`).
-Entries below the top floor 19 never matter. -/
+Entries below the top floor 22 never matter. -/
 def topAcceptedHistogram : List (Nat × Nat) :=
   topCounts.flatMap fun e => [(e.1 + 2, e.2 * 2 ^ 128), (e.1, e.2 * topHighW)]
 
-def initialBound : Nat := 365801715909214252278842008745583317961
+def initialBound : Nat := 366685143351409374129633767570141236346
+
+/-- Route C FTS gate 804 numerator and moment bound. -/
+def ftsNum804 : Nat := 804 * 563 ^ 9 * 51927206731424509281114869451843031004872704
+def ftsBound804 : Nat := 348541379862003485906952570493087807821
+
+theorem fts_moment_checked_804 :
+    ftsNum804 ≤ ftsDen ∧ zNum * (ftsDen - ftsNum804) < zDen * ftsDen ∧
+      zNum * ftsNum804 * scale ≤ ftsBound804 * (zDen * ftsDen - zNum * (ftsDen - ftsNum804)) := by
+  decide +kernel
+
+theorem fts_tail_checked_804 : tailCheck ftsNum804 ftsDen 512 = true := by decide +kernel
 
 /-- img-v6 fixed sign cost (opus-crumbs PORT v6 C): 112324 compressions. -/
 def fixedSignCost : Nat := 112324
@@ -242,7 +253,7 @@ def fixedSignCost : Nat := 112324
 def fixedBound : Nat := 616328186735326113110974222695394189508
 
 theorem initial_checked :
-    recurrenceCheck topDen topAcceptedHistogram 19 74 rowOne initialBound = true := by
+    recurrenceCheck topDen topAcceptedHistogram 22 77 rowOne initialBound = true := by
   decide +kernel
 
 theorem fixed_power_checked :
@@ -250,14 +261,15 @@ theorem fixed_power_checked :
   decide +kernel
 
 theorem full_moment_checked :
-    mulUp (mulUp fixedBound ftsBound) initialBound * 100000 < 199895 * scale := by
+    mulUp (mulUp fixedBound ftsBound804) initialBound * 100000 < 199950 * scale := by
   decide +kernel
 
-/-- Top tail at the 2^20 top counter window (block 256 = 2^20 / 4096), floor 19. -/
-theorem top_tail_checked : tailCheck (acceptedMass topAcceptedHistogram 19) topDen 256 = true := by
+/-- Top tail at the 2^20 top counter window (block 256 = 2^20 / 4096), floor 22. -/
+theorem top_tail_checked : tailCheck (acceptedMass topAcceptedHistogram 22) topDen 256 = true := by
   decide +kernel
 
 theorem initialBound_ge_scale : scale ≤ initialBound := by norm_num [scale, initialBound]
+theorem ftsBound804_ge_scale : scale ≤ ftsBound804 := by norm_num [scale, ftsBound804]
 
 #print axioms initial_checked
 #print axioms fixed_power_checked
@@ -266,9 +278,23 @@ theorem initialBound_ge_scale : scale ≤ initialBound := by norm_num [scale, in
 end ClaudeWCT.Numerics.TopZero
 
 namespace ClaudeWCT.Numerics.TopZero
+open ENNReal
 open CanonicalCompression hiding topChoiceFree topHighW topCounts topAcceptedHistogram
 set_option maxHeartbeats 1000000
 set_option maxRecDepth 10000
+
+theorem fts_ratio_step_804 : ((zNum:ENNReal)/zDen)*
+    ((1-(ftsNum804:ENNReal)/ftsDen)*((ftsBound804:ENNReal)/scale)+
+      (1-(1-(ftsNum804:ENNReal)/ftsDen)))≤(ftsBound804:ENNReal)/scale := by
+  have hp : (ftsNum804:ENNReal)/ftsDen ≤ 1 := by
+    apply (ENNReal.div_le_iff (by norm_num [ftsDen]) (by simp only [scale,zDen,ftsDen]; finiteness)).mpr
+    norm_num [ftsNum804,ftsDen]
+  have hf : 1-(ftsNum804:ENNReal)/ftsDen ≤ 1 := tsub_le_self
+  apply (ENNReal.toReal_le_toReal (by simp only [scale,zDen,ftsDen]; finiteness) (by simp only [scale,zDen,ftsDen]; finiteness)).mp
+  rw [ENNReal.toReal_mul,ENNReal.toReal_add (by simp only [scale,zDen,ftsDen]; finiteness) (by simp only [scale,zDen,ftsDen]; finiteness),
+    ENNReal.toReal_mul,ENNReal.toReal_sub_of_le hp (by simp),
+    ENNReal.toReal_sub_of_le hf (by simp),ENNReal.toReal_sub_of_le hp (by simp)]
+  norm_num [ENNReal.toReal_div,zNum,zDen,ftsNum804,ftsDen,ftsBound804,scale]
 
 theorem fixed_ratio_bound : ((zNum:ℝ)/zDen)^fixedSignCost≤(fixedBound:ℝ)/scale := by
   have hs : (0:ℝ)<scale := by norm_num [scale]
@@ -282,12 +308,12 @@ theorem fixed_ratio_bound : ((zNum:ℝ)/zDen)^fixedSignCost≤(fixedBound:ℝ)/s
     _ ≤ _ := hp.trans (div_le_div_of_nonneg_right (by exact_mod_cast fixed_power_checked) hs.le)
 
 theorem envelope_ratio_le_two_of (F X : Nat) (hX : X ≤ 200000)
-    (hn : mulUp (mulUp F ftsBound) initialBound * 100000 < X * scale) :
-    ((F:ℝ)/scale)*(((ftsBound:ℝ)/scale)*((initialBound:ℝ)/scale))≤2 := by
+    (hn : mulUp (mulUp F ftsBound804) initialBound * 100000 < X * scale) :
+    ((F:ℝ)/scale)*(((ftsBound804:ℝ)/scale)*((initialBound:ℝ)/scale))≤2 := by
   have hs : (0:ℝ)<scale := by norm_num [scale]
-  have hmul2 := mulUp_ratio_ge (mulUp F ftsBound) initialBound
-  have hnum : (mulUp (mulUp F ftsBound) initialBound:ℝ)/scale<X/100000 := by
-    have hreal : (mulUp (mulUp F ftsBound) initialBound:ℝ)*100000<X*(scale:ℝ) := by exact_mod_cast hn
+  have hmul2 := mulUp_ratio_ge (mulUp F ftsBound804) initialBound
+  have hnum : (mulUp (mulUp F ftsBound804) initialBound:ℝ)/scale<X/100000 := by
+    have hreal : (mulUp (mulUp F ftsBound804) initialBound:ℝ)*100000<X*(scale:ℝ) := by exact_mod_cast hn
     apply (div_lt_iff₀ hs).mpr
     nlinarith
   have hX' : (X:ℝ)/100000 ≤ 2 := by
@@ -295,17 +321,17 @@ theorem envelope_ratio_le_two_of (F X : Nat) (hX : X ≤ 200000)
     rw [div_le_iff₀ (by norm_num)]
     linarith
   calc
-    _ = (((F:ℝ)/scale)*((ftsBound:ℝ)/scale))*((initialBound:ℝ)/scale) := by ring
-    _ ≤ ((mulUp F ftsBound:ℝ)/scale)*((initialBound:ℝ)/scale) := by
+    _ = (((F:ℝ)/scale)*((ftsBound804:ℝ)/scale))*((initialBound:ℝ)/scale) := by ring
+    _ ≤ ((mulUp F ftsBound804:ℝ)/scale)*((initialBound:ℝ)/scale) := by
         gcongr
-        exact mulUp_ratio_ge F ftsBound
+        exact mulUp_ratio_ge F ftsBound804
     _ ≤ _ := hmul2
     _ ≤ 2 := hnum.le.trans hX'
 
-/-- Full moment ≤ 2 (1.99895) for the img-v6 fixed sign cost 112324 (cap 777, pool 74, floor 19, d6b). -/
+/-- Full moment ≤ 2 (1.99913) for the img-v6 fixed sign cost 112324 (cap 777, pool 77, floor 22, gate 804, d6b). -/
 theorem envelope_ratio_le_two : ((fixedBound:ℝ)/scale)*
-    (((ftsBound:ℝ)/scale)*((initialBound:ℝ)/scale))≤2 :=
-  envelope_ratio_le_two_of fixedBound 199895 (by norm_num) full_moment_checked
+    (((ftsBound804:ℝ)/scale)*((initialBound:ℝ)/scale))≤2 :=
+  envelope_ratio_le_two_of fixedBound 199950 (by norm_num) full_moment_checked
 
 #print axioms fixed_ratio_bound
 #print axioms envelope_ratio_le_two

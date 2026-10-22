@@ -1291,14 +1291,14 @@ set_option maxRecDepth 10000
 set_option maxHeartbeats 1000000
 set_option backward.isDefEq.respectTransparency false
 
-noncomputable def digestMoment : ENNReal := (ftsBound:ENNReal)/scale
+noncomputable def digestMoment : ENNReal := (ClaudeWCT.Numerics.TopZero.ftsBound804:ENNReal)/scale
 noncomputable def postMoment : ENNReal := signingZ^112320*((ClaudeWCT.Numerics.TopZero.initialBound:ENNReal)/scale)
 noncomputable def payloadMoment : ENNReal := signingZ^2*(digestMoment*postMoment)
 noncomputable def signingMoment : ENNReal := signingZ^2*payloadMoment
 
 theorem digestMoment_ge_one : 1 ≤ digestMoment := by
   apply (ENNReal.toReal_le_toReal (by simp) (by unfold digestMoment scale; finiteness)).mp
-  norm_num [digestMoment,ENNReal.toReal_div,ftsBound,scale]
+  norm_num [digestMoment,ENNReal.toReal_div,ClaudeWCT.Numerics.TopZero.ftsBound804,scale]
 
 theorem postMoment_ge_one : 1 ≤ postMoment := by
   apply one_le_mul (one_le_pow₀ (SigGolfCandidate.Budget.one_le_zOf _))
@@ -1313,11 +1313,11 @@ theorem digest_moment_step : signingZ*
     (SphincsSecurity.Completeness.failMass (DigestGeneric.decoder digestAccepted)*digestMoment+
       (1-SphincsSecurity.Completeness.failMass (DigestGeneric.decoder digestAccepted))) ≤ digestMoment := by
   have hfail : SphincsSecurity.Completeness.failMass (DigestGeneric.decoder digestAccepted)=
-      1-(ftsNum:ENNReal)/ftsDen := by
+      1-(ClaudeWCT.Numerics.TopZero.ftsNum804:ENNReal)/ftsDen := by
     rw [SigGolfCandidate.T3.Budgets.failMass_eq_one_sub_accept,
       DigestGeneric.decoder_acceptance,ClaudeWCT.Bank.Paired.digestAccepted_acceptance_exact]
   rw [hfail]
-  exact (mul_le_mul' signing_z_ratio le_rfl).trans fts_ratio_step
+  exact (mul_le_mul' signing_z_ratio le_rfl).trans ClaudeWCT.Numerics.TopZero.fts_ratio_step_804
 
 theorem V_sharedDigestSearch (secret : BitVec 256) (rho : Digest) (message : Message)
     (fuel counter : Nat) (hlimit : counter+fuel≤2^32) (cache : RCache)
@@ -1355,7 +1355,7 @@ theorem V_sign_certified (secret : BitVec 256) (cache : SigGolfCandidate.T3.Cach
     (privateMac_preserves_fresh secret cache.region rcache hfresh checked hc)
 
 theorem signingMoment_eq : signingMoment =
-    signingZ^112324*(((ftsBound:ENNReal)/scale)*((ClaudeWCT.Numerics.TopZero.initialBound:ENNReal)/scale)) := by
+    signingZ^112324*(((ClaudeWCT.Numerics.TopZero.ftsBound804:ENNReal)/scale)*((ClaudeWCT.Numerics.TopZero.initialBound:ENNReal)/scale)) := by
   unfold signingMoment payloadMoment digestMoment postMoment
   rw [show 112324=2+2+112320 by decide,pow_add,pow_add]
   ac_rfl
@@ -1390,7 +1390,7 @@ theorem signingMoment_le_two (hfix : SchemeFixedCostV6) : signingMoment ≤ 2 :=
     ((pow_le_pow_right₀ hz1 hfix).trans (pow_le_pow_left₀ ENNReal.toReal_nonneg hz _)).trans
       ClaudeWCT.Numerics.TopZero.fixed_ratio_bound
   calc
-    _ ≤ ((ClaudeWCT.Numerics.TopZero.fixedBound:ℝ)/scale)*(((ftsBound:ℝ)/scale)*
+    _ ≤ ((ClaudeWCT.Numerics.TopZero.fixedBound:ℝ)/scale)*(((ClaudeWCT.Numerics.TopZero.ftsBound804:ℝ)/scale)*
         ((ClaudeWCT.Numerics.TopZero.initialBound:ℝ)/scale)) := by gcongr
     _ ≤ 2 := ClaudeWCT.Numerics.TopZero.envelope_ratio_le_two
 
@@ -1520,8 +1520,8 @@ abbrev witEnc := ClaudeWCT.W9.T3M.Paired.witEnc
 /-- img-v6: the honest expand output carries the top node nonces (`Paired.witEncN`). -/
 abbrev witEncN := ClaudeWCT.W9.T3M.Paired.witEncN
 
- def verifyCycleBound : Nat := 6880
- def claimedC : Nat := 6966
+ def verifyCycleBound : Nat := 6877
+ def claimedC : Nat := 6963
  def DigestCapOk (hash : Hash) (m : Message) (w : Bytes 22012) : Prop :=
   SigGolfCandidate.Research.SharedForest.jointAccountingCost
     (hash (SigGolfCandidate.T3M.toQ (SigGolfCandidate.T3.pad64

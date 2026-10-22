@@ -311,10 +311,10 @@ def zeros5 (d : Triple5) : Nat := ∑ i : Fin 3, if (d i).val = 0 then 1 else 0
 def zeros8 (d : Triple8) : Nat := ∑ i : Fin 3, if (d i).val = 0 then 1 else 0
 def zeros (w : Codec.Word) : Nat := (∑ q : Fin 17, zeros5 (w.1 q)) + zeros8 w.2
 
-/-- Zero-capped canonical free top words: LOW-path accepted at floor 19 with the d6b LOW bonus 2 (score ≥ 29), LOW not forced, at most
+/-- Zero-capped canonical free top words: LOW-path accepted at floor 22 with the d6b LOW bonus 2 (score ≥ 32), LOW not forced, at most
 9 zero digits. Kept as a cardinality; its value is decided downstream (`ClaudeWCT.Numerics.TopZero`). -/
 def zeroFreeCard : Nat :=
-  (univ.filter fun w : Codec.Word => weight w = 146 ∧ 29 ≤ score w ∧ freeWord w ∧ zeros w ≤ 9).card
+  (univ.filter fun w : Codec.Word => weight w = 146 ∧ 32 ≤ score w ∧ freeWord w ∧ zeros w ≤ 9).card
 
 end SigGolfResearch.NonbinaryTop.EffectiveCounting
 
@@ -1102,9 +1102,9 @@ theorem accepted_lowerSpare (lay : Layer) (hl : lay ≠ 0) (floor : Nat)
     simpa only [CanonicalPolicy.decode, CanonicalPolicy.normalLayer, if_neg hl] using hs
   exact decode_lowerSpare (by decide : (1 : Layer) ≠ 0) hd'
 
-/-- The canonical top predicate (floor 19 with the d6b LOW bonus 2) holds for every word whose reward reaches a floor
-`≥ 17`. -/
-theorem accepted_topGood {floor : Nat} (hf : 17 ≤ floor) {P : List Nat → Prop} {value : Digest}
+/-- The canonical top predicate (floor 22 with the d6b LOW bonus 2) holds for every word whose reward reaches a floor
+`≥ 20`. -/
+theorem accepted_topGood {floor : Nat} (hf : 20 ≤ floor) {P : List Nat → Prop} {value : Digest}
     (h : accepted 0 floor P value) : topGood value := by
   obtain ⟨ds, hd, _⟩ := (accepted_iff 0 floor P value).mp h
   have hs := CanonicalPolicy.producerDecodeAt_spec hd
@@ -1127,7 +1127,7 @@ noncomputable def topFreeCount : Nat :=
 
 /-- The restricted choice: a producer-accepted top word is selected with weight `2^128 + 3*2^126 - topFreeCount`
 (over `2^256`). -/
-theorem selected_top_card (floor : Nat) (hf : 17 ≤ floor) (P : List Nat → Prop) [DecidablePred P]
+theorem selected_top_card (floor : Nat) (hf : 20 ≤ floor) (P : List Nat → Prop) [DecidablePred P]
     (n : Nat) (hn : (univ.filter (accepted 0 floor P)).card = n) :
     (univ.filter fun answer : HashOutput => accepted 0 floor P (encodingAnswer 0 answer)).card =
       n * (2^128 + 3*2^126 - topFreeCount) := by
@@ -1263,7 +1263,7 @@ theorem free_of_top_parse {v : Digest} {w : Codec.Word}
   norm_num at hd hv ⊢
   omega
 
-theorem topGood_iff (v : Digest) : topGood v ↔ accepted 0 17 (fun _ => True) v := by
+theorem topGood_iff (v : Digest) : topGood v ↔ accepted 0 20 (fun _ => True) v := by
   rw [accepted_iff]
   unfold topGood
   constructor
@@ -1273,14 +1273,14 @@ theorem topGood_iff (v : Digest) : topGood v ↔ accepted 0 17 (fun _ => True) v
     refine ⟨ds, ?_, trivial⟩
     unfold CanonicalPolicy.producerDecodeAt
     simp only [hs.1]
-    have hc : 17 + dispatchPenalty 0 ds ≤ CanonicalPolicy.pathReward 0 false ds := by
+    have hc : 20 + dispatchPenalty 0 ds ≤ CanonicalPolicy.pathReward 0 false ds := by
       have := hs.2.1
       simp only [CanonicalPolicy.pathReward_top, if_true, if_false, Bool.false_eq_true,
         CanonicalPolicy.topFloor] at this ⊢
       omega
     rw [if_pos ⟨hc, hs.2.2.1, hs.2.2.2⟩]
   · rintro ⟨ds, hd, _⟩
-    have := accepted_topGood (floor := 17) le_rfl (P := fun _ => True) ((accepted_iff 0 17 _ v).mpr ⟨ds, hd, trivial⟩)
+    have := accepted_topGood (floor := 20) le_rfl (P := fun _ => True) ((accepted_iff 0 20 _ v).mpr ⟨ds, hd, trivial⟩)
     exact this
 
 /-- The exact number of canonical-accepted (zero-capped) top words whose LOW is not forced. -/
@@ -1293,7 +1293,7 @@ theorem topFreeCount_eq : topFreeCount = EffectiveCounting.zeroFreeCard := by
   simp only [mem_filter, mem_univ, true_and]
   change (topGood v ∧ ¬ TopChoice.blocked v) ↔
     ∃ w, Decoder.parse 17 (topFlip v).toNat = some w ∧
-      Counting.weight w = 146 ∧ 29 ≤ EffectiveCounting.score w ∧ EffectiveCounting.freeWord w ∧
+      Counting.weight w = 146 ∧ 32 ≤ EffectiveCounting.score w ∧ EffectiveCounting.freeWord w ∧
         EffectiveCounting.zeros w ≤ 9
   rw [topGood_iff, accepted_top_parse]
   constructor
@@ -1848,9 +1848,9 @@ theorem card_choose_path_generic (good : Digest → Prop) [DecidablePred good] (
   unfold TopChoice.freeCount
   norm_num
 
-/-- The d6b top selection count at credit `c ≥ floor ≥ 19`: weight `2^128` through LOW (credit `c - 2`),
+/-- The d6b top selection count at credit `c ≥ floor ≥ 22`: weight `2^128` through LOW (credit `c - 2`),
 `topHighWeight` through HIGH (credit `c`). -/
-theorem selected_top_path_card (floor c : Nat) (hf : 19 ≤ floor) (hc : floor ≤ c) :
+theorem selected_top_path_card (floor c : Nat) (hf : 22 ≤ floor) (hc : floor ≤ c) :
     (univ.filter fun answer : HashOutput => ∃ dl, CanonicalPolicy.producerDecodeOut 0 floor answer = some dl ∧
         CanonicalPolicy.credit 0 dl.2 dl.1 = c).card =
       topWordCount (c - 2) * 2^128 + topHighWeight * topWordCount c := by

@@ -4609,31 +4609,31 @@ theorem grouped_weight (f : Fin 9 → Coordinate) :
   norm_num [Fin.succ]
   omega
 
-def encodeFields (w : «Word») (index : BitVec 31) (gate : Fin 734) : Fields :=
+def encodeFields (w : «Word») (index : BitVec 31) (gate : Fin 804) : Fields :=
   (fun k => BitVec.ofNat 5 (ungroup w k).1.val,
    fun k => BitVec.ofNat 10 (ungroup w k).2.val,
    index, BitVec.ofNat 14 gate.val)
 def decodeFields (f : Fields) : «Word» :=
   group (fun k => (⟨(f.1 k).toNat, (f.1 k).isLt⟩, decodedRank f k))
 
-theorem cost_encode_nat (w : «Word») (index : BitVec 31) (gate : Fin 734) (k : Fin 9) :
+theorem cost_encode_nat (w : «Word») (index : BitVec 31) (gate : Fin 804) (k : Fin 9) :
     ((encodeFields w index gate).1 k).toNat = (ungroup w k).1.val := by
   simp only [encodeFields, BitVec.toNat_ofNat]
   exact Nat.mod_eq_of_lt (ungroup w k).1.isLt
 
-theorem rank_encode_nat (w : «Word») (index : BitVec 31) (gate : Fin 734) (k : Fin 9) :
+theorem rank_encode_nat (w : «Word») (index : BitVec 31) (gate : Fin 804) (k : Fin 9) :
     ((encodeFields w index gate).2.1 k).toNat = (ungroup w k).2.val := by
   simp only [encodeFields, BitVec.toNat_ofNat]
   apply Nat.mod_eq_of_lt
   have h := (ungroup w k).2.isLt
   omega
 
-theorem decodedRank_encode (w : «Word») (index : BitVec 31) (gate : Fin 734) (k : Fin 9) :
+theorem decodedRank_encode (w : «Word») (index : BitVec 31) (gate : Fin 804) (k : Fin 9) :
     decodedRank (encodeFields w index gate) k = (ungroup w k).2 := by
   apply Fin.ext
   simp only [decodedRank, rank_encode_nat, Nat.mod_eq_of_lt (ungroup w k).2.isLt]
 
-theorem decode_encode (w : «Word») (index : BitVec 31) (gate : Fin 734) :
+theorem decode_encode (w : «Word») (index : BitVec 31) (gate : Fin 804) :
     decodeFields (encodeFields w index gate) = w := by
   have h : (fun k => (⟨((encodeFields w index gate).1 k).toNat,
       ((encodeFields w index gate).1 k).isLt⟩, decodedRank (encodeFields w index gate) k)) = ungroup w := by
@@ -4645,7 +4645,7 @@ theorem decode_encode (w : «Word») (index : BitVec 31) (gate : Fin 734) :
   rw [h]
   exact groupEquiv.apply_symm_apply w
 
-theorem cost_encode (w : «Word») (index : BitVec 31) (gate : Fin 734) :
+theorem cost_encode (w : «Word») (index : BitVec 31) (gate : Fin 804) :
     cost (encodeFields w index gate) = 675 + weight w := by
   have hc : coordinateCost (encodeFields w index gate) = fun k =>
       75 + coordWeight (SharedForest.firstCoord k.val) (ungroup w k) := by
@@ -4667,7 +4667,7 @@ set_option maxHeartbeats 2000000
 attribute [local irreducible] SharedDigestFields.cost SharedDigestFields.coordinateCost ClaudeWCT.WCT9.routineCost
 
 theorem accepted_iff (f : Fields) : accepted f = true ↔
-    f.2.2.2.toNat < 734 ∧ (∀ k, (f.2.1 k).toNat < 563) ∧ cost f ≤ 777 := by
+    f.2.2.2.toNat < 804 ∧ (∀ k, (f.2.1 k).toNat < 563) ∧ cost f ≤ 777 := by
   simp only [accepted, Bool.and_eq_true, decide_eq_true_eq, List.all_eq_true]
   simp only [List.mem_finRange, forall_const]
   tauto
@@ -4676,7 +4676,7 @@ theorem ungroup_decode (f : Fields) : ungroup (decodeFields f) =
     fun k => (⟨(f.1 k).toNat, (f.1 k).isLt⟩, decodedRank f k) :=
   groupEquiv.symm_apply_apply (fun k => (⟨(f.1 k).toNat, (f.1 k).isLt⟩, decodedRank f k))
 
-theorem encode_decode (f : Fields) (hg : f.2.2.2.toNat < 734)
+theorem encode_decode (f : Fields) (hg : f.2.2.2.toNat < 804)
     (hr : ∀ k, (f.2.1 k).toNat < 563) :
     encodeFields (decodeFields f) f.2.2.1 ⟨f.2.2.2.toNat,hg⟩ = f := by
   apply Prod.ext
@@ -4697,11 +4697,11 @@ theorem encode_decode (f : Fields) (hg : f.2.2.2.toNat < 734)
         change f.2.2.2.toNat % 2^14 = f.2.2.2.toNat
         exact Nat.mod_eq_of_lt f.2.2.2.isLt
 
-theorem accepted_encode (w : «Word») (hw : weight w ≤ 102) (index : BitVec 31) (gate : Fin 734) :
+theorem accepted_encode (w : «Word») (hw : weight w ≤ 102) (index : BitVec 31) (gate : Fin 804) :
     accepted (encodeFields w index gate) = true := by
   apply (accepted_iff _).mpr
   refine ⟨?_, ?_, ?_⟩
-  · change gate.val % 2^14 < 734
+  · change gate.val % 2^14 < 804
     rw [Nat.mod_eq_of_lt (by have h := gate.isLt; omega)]
     exact gate.isLt
   · intro k
@@ -4718,7 +4718,7 @@ theorem weight_decode (f : Fields) (hf : accepted f = true) : weight (decodeFiel
   omega
 
 def acceptedEquiv : {f : Fields // accepted f = true} ≃
-    {w : «Word» // weight w ≤ 102} × BitVec 31 × Fin 734 where
+    {w : «Word» // weight w ≤ 102} × BitVec 31 × Fin 804 where
   toFun f := (⟨decodeFields f.val, weight_decode f.val f.property⟩,
     f.val.2.2.1, ⟨f.val.2.2.2.toNat, ((accepted_iff _).mp f.property).1⟩)
   invFun v := ⟨encodeFields v.1.val v.2.1 v.2.2, accepted_encode _ v.1.property _ _⟩
@@ -4736,7 +4736,7 @@ def acceptedEquiv : {f : Fields // accepted f = true} ≃
         exact Nat.mod_eq_of_lt (by have h := v.2.2.isLt; omega)
 
 theorem accepted_fields_card : Fintype.card {f : Fields // accepted f = true} =
-    (Finset.univ.filter fun w : «Word» => weight w ≤ 102).card * 2^31 * 734 := by
+    (Finset.univ.filter fun w : «Word» => weight w ≤ 102).card * 2^31 * 804 := by
   rw [Fintype.card_congr acceptedEquiv]
   simp only [Fintype.card_prod, Fintype.card_bitVec, Fintype.card_fin,
     Fintype.card_subtype (fun w : «Word» => weight w ≤ 102)]

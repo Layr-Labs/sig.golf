@@ -768,7 +768,7 @@ theorem recovered_credit_floors (answers : SigGolfCandidate.T3.Correctness.Answe
     (msg : LayerMsg) (result : RecoveredLayers)
     (he : evalWithAnswerFn answers (recoverHintedLayers sig index other 4 msg) = some result)
     (hh : policyHintsValid sig.policyHints result.digits result.lows = true) :
-    CreditFloors (fun lay => min 74
+    CreditFloors (fun lay => min 77
       (CanonicalPolicy.credit lay (result.lows.getD lay.val true) (result.digits.getD lay.val []))) := by
   apply creditFloors_clip
   exact policyHints_credit_sum _ _ _ hh (fun lay =>
@@ -790,7 +790,7 @@ theorem agree_verify (hash : Hash) (message : SigGolfCandidate.T3.Message) (pk :
       Agree hash (okHashBy floors w.topHigh hash)
         (mrealize 0 (SigGolfCandidate.Research.SharedForest.verify message pk w)) := by
   let floors : Layer → Nat := fun lay =>
-    min 74 (CanonicalPolicy.credit lay (result.lows.getD lay.val true) (result.digits.getD lay.val []))
+    min 77 (CanonicalPolicy.credit lay (result.lows.getD lay.val true) (result.digits.getD lay.val []))
   refine ⟨floors, recovered_credit_floors _ _ _ _ _ result hr hh, ?_⟩
   unfold SigGolfCandidate.Research.SharedForest.verify
   split
@@ -867,7 +867,7 @@ theorem agree_verifyP_source_of (f g : Hash) (message : SigGolfCandidate.T3.Mess
     (hrho : wrho wb=w.signature.rho) (hdc : wdc wb=w.digestCounter)
     (hd : evalWithAnswerFn (machineAnswers f 0)
       (SigGolfCandidate.T3.digest w.signature.rho message w.digestCounter)=output)
-    (hg : output.toNat/2^242%16384<734)
+    (hg : output.toNat/2^242%16384<804)
     (hr : ∀ k : Fin 9,rawForestRank output k.val<563)
     (hf : SharedV3.forest wb (WCT9.digestIndex output) (rawChildFromOutput output)
       (fun k=>WCT9.embed (forestRank output k.val)) =

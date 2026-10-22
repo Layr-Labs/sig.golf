@@ -499,16 +499,16 @@ theorem lower_decoder_credit_lt (lay : Layer) (hl : lay ≠ 0) {floor : Nat} {an
   obtain ⟨ds, l⟩ := dl
   exact producerDecodeAt_lower_credit_lt lay hl (CanonicalPolicy.producerDecodeOut_spec h).2
 
-/-- The exact selected-credit law of the canonical top search (floor 19, restricted choice, d6b, top zero cap 9). -/
+/-- The exact selected-credit law of the canonical top search (floor 22, restricted choice, d6b, top zero cap 9). -/
 theorem selected_top_probability (c : Fin 220) :
-    Pr[fun answer => ∃ dl, decoder 0 19 answer = some dl ∧ dcredit 0 dl = c.val |
+    Pr[fun answer => ∃ dl, decoder 0 22 answer = some dl ∧ dcredit 0 dl = c.val |
       ($ᵗ HashOutput : ProbComp HashOutput)] =
-      if 19 ≤ c.val then (histogramWeight ClaudeWCT.Numerics.TopZero.topAcceptedHistogram c.val : ENNReal) / topDen else 0 := by
-  by_cases hc : 19 ≤ c.val
+      if 22 ≤ c.val then (histogramWeight ClaudeWCT.Numerics.TopZero.topAcceptedHistogram c.val : ENNReal) / topDen else 0 := by
+  by_cases hc : 22 ≤ c.val
   · rw [if_pos hc]
     exact selected_top_histogram_probability ClaudeWCT.Numerics.TopZero.top_histogram_checked c.val hc c.isLt
   · rw [if_neg hc]
-    exact selected_probability_below 0 19 c.val (by omega)
+    exact selected_probability_below 0 22 c.val (by omega)
 
 /-- The exact selected-credit law of a canonical lower search (path-aware). -/
 theorem selected_lower_probability (lay : Layer) (hl : lay ≠ 0) (floor : Nat) (c : Fin 128) :
@@ -672,8 +672,8 @@ structure SearchEnvelope (z : ENNReal) where
   one_ge : ∀ r, r < 56 → 1 ≤ one r
   two_ge : ∀ r, r < 41 → 1 ≤ two r
   three_ge : ∀ r, r < 22 → 1 ≤ three r
-  initial_step : z * (acceptedWeight (decoder 0 19) (fun dl => one (nextResidual 74 0 dl.2 dl.1)) +
-    SphincsSecurity.Completeness.failMass (decoder 0 19) * initial) ≤ initial
+  initial_step : z * (acceptedWeight (decoder 0 22) (fun dl => one (nextResidual 77 0 dl.2 dl.1)) +
+    SphincsSecurity.Completeness.failMass (decoder 0 22) * initial) ≤ initial
   one_step : ∀ r, r < 56 → z *
     (acceptedWeight (decoder 1 (threshold 1 r)) (fun dl => two (nextResidual r 1 dl.2 dl.1)) +
      SphincsSecurity.Completeness.failMass (decoder 1 (threshold 1 r)) * one r) ≤ one r
@@ -700,42 +700,42 @@ theorem V_searchPreparedLayers (secret : BitVec 256) (z : ENNReal) (hz : 1 ≤ z
   unfold searchPreparedLayers
   simp only [CanonicalPolicy.totalCredit, threshold_top]
   apply V_layerSearch_bind (secret := secret) (z := z) (lay := 0)
-    (weight := fun dl => z^178 * E.one (nextResidual 74 0 dl.2 dl.1))
+    (weight := fun dl => z^178 * E.one (nextResidual 77 0 dl.2 dl.1))
   · intro rc _
     simpa only [V_pure] using one_le_mul hfactor E.initial_ge
   · intro rc hr counter hc answer dl0 hd0
     obtain ⟨ds0, l0⟩ := dl0
     have hd0' := decoder_spec hd0
     have hres1 := accepted_top_residual hd0'
-    have hp1 : threshold 1 (nextResidual 74 0 l0 ds0) < 16 :=
-      lower_one_floor_lt ⟨nextResidual 74 0 l0 ds0, hres1⟩
-    simp only [show ¬ (threshold 1 (nextResidual 74 0 l0 ds0) ≥ 16) by omega, ↓reduceIte]
+    have hp1 : threshold 1 (nextResidual 77 0 l0 ds0) < 16 :=
+      lower_one_floor_lt ⟨nextResidual 77 0 l0 ds0, hres1⟩
+    simp only [show ¬ (threshold 1 (nextResidual 77 0 l0 ds0) ≥ 16) by omega, ↓reduceIte]
     apply V_layerSearch_bind (secret := secret) (z := z) (lay := 1)
-      (weight := fun dl => z^178 * E.two (nextResidual (nextResidual 74 0 l0 ds0) 1 dl.2 dl.1))
+      (weight := fun dl => z^178 * E.two (nextResidual (nextResidual 77 0 l0 ds0) 1 dl.2 dl.1))
     · intro rc _
       simpa only [V_pure] using one_le_mul hfactor (E.one_ge _ hres1)
     · intro rc hr counter1 hc1 answer1 dl1 hd1
       obtain ⟨ds1, l1⟩ := dl1
       have hd1' := decoder_spec hd1
-      have hres2 : nextResidual (nextResidual 74 0 l0 ds0) 1 l1 ds1 < 41 :=
-        accepted_one_residual ⟨nextResidual 74 0 l0 ds0, hres1⟩ hd1'
-      have hp2 : threshold 2 (nextResidual (nextResidual 74 0 l0 ds0) 1 l1 ds1) ≤ 19 :=
-        (lower_two_progress ⟨nextResidual (nextResidual 74 0 l0 ds0) 1 l1 ds1, hres2⟩).1
-      simp only [show ¬ (threshold 2 (nextResidual (nextResidual 74 0 l0 ds0) 1 l1 ds1) ≥ 22) by omega,
+      have hres2 : nextResidual (nextResidual 77 0 l0 ds0) 1 l1 ds1 < 41 :=
+        accepted_one_residual ⟨nextResidual 77 0 l0 ds0, hres1⟩ hd1'
+      have hp2 : threshold 2 (nextResidual (nextResidual 77 0 l0 ds0) 1 l1 ds1) ≤ 19 :=
+        (lower_two_progress ⟨nextResidual (nextResidual 77 0 l0 ds0) 1 l1 ds1, hres2⟩).1
+      simp only [show ¬ (threshold 2 (nextResidual (nextResidual 77 0 l0 ds0) 1 l1 ds1) ≥ 22) by omega,
         ↓reduceIte]
       apply V_layerSearch_bind (secret := secret) (z := z) (lay := 2)
         (weight := fun dl => z^178 * E.three
-          (nextResidual (nextResidual (nextResidual 74 0 l0 ds0) 1 l1 ds1) 2 dl.2 dl.1))
+          (nextResidual (nextResidual (nextResidual 77 0 l0 ds0) 1 l1 ds1) 2 dl.2 dl.1))
       · intro rc _
         simpa only [V_pure] using one_le_mul hfactor (E.two_ge _ hres2)
       · intro rc hr counter2 hc2 answer2 dl2 hd2
         obtain ⟨ds2, l2⟩ := dl2
         have hd2' := decoder_spec hd2
-        have hres3 : nextResidual (nextResidual (nextResidual 74 0 l0 ds0) 1 l1 ds1) 2 l2 ds2 < 22 :=
-          accepted_two_residual ⟨nextResidual (nextResidual 74 0 l0 ds0) 1 l1 ds1, hres2⟩ hd2'
+        have hres3 : nextResidual (nextResidual (nextResidual 77 0 l0 ds0) 1 l1 ds1) 2 l2 ds2 < 22 :=
+          accepted_two_residual ⟨nextResidual (nextResidual 77 0 l0 ds0) 1 l1 ds1, hres2⟩ hd2'
         have hp3 := lower_three_progress _ hres3
         simp only [show ¬ (threshold 3
-            (nextResidual (nextResidual (nextResidual 74 0 l0 ds0) 1 l1 ds1) 2 l2 ds2) ≥ 22) by omega,
+            (nextResidual (nextResidual (nextResidual 77 0 l0 ds0) 1 l1 ds1) 2 l2 ds2) ≥ 22) by omega,
           ↓reduceIte]
         apply V_layerSearch_bind (secret := secret) (z := z) (lay := 3) (weight := fun _ => z^178)
         · intro rc _
@@ -754,7 +754,7 @@ theorem V_searchPreparedLayers (secret : BitVec 256) (z : ENNReal) (hz : 1 ≤ z
           simp only [V_pure]
           exact le_rfl
         · simpa only [mul_one] using scaled_step z
-            (E.three (nextResidual (nextResidual (nextResidual 74 0 l0 ds0) 1 l1 ds1) 2 l2 ds2))
+            (E.three (nextResidual (nextResidual (nextResidual 77 0 l0 ds0) 1 l1 ds1) 2 l2 ds2))
             (z^178) _ (fun _ => 1) (E.three_step _ hres3)
         · decide
         · exact hr
@@ -798,25 +798,25 @@ noncomputable def envelope_of_rows
     (htopDen : 0 < topDen) (hlowerDen : 0 < lowerDen)
     (htopHist : ∀ e ∈ topHist, e.1 < 220)
     (hlowerHist : ∀ e ∈ lowerHist, e.1 < 128)
-    (htopBound : ∀ answer dl, decoder 0 19 answer = some dl → dcredit 0 dl < 220)
+    (htopBound : ∀ answer dl, decoder 0 22 answer = some dl → dcredit 0 dl < 220)
     (hlowerBound : ∀ (lay : Layer), lay ≠ 0 → ∀ floor answer dl,
       decoder lay floor answer = some dl → dcredit lay dl < 128)
     (htopLaw : ∀ i : Fin 220,
-      Pr[fun answer => ∃ dl, decoder 0 19 answer = some dl ∧ dcredit 0 dl = i.val |
+      Pr[fun answer => ∃ dl, decoder 0 22 answer = some dl ∧ dcredit 0 dl = i.val |
         ($ᵗ HashOutput : ProbComp HashOutput)] =
-        if 19 ≤ i.val then (histogramWeight topHist i.val : ENNReal)/topDen else 0)
+        if 22 ≤ i.val then (histogramWeight topHist i.val : ENNReal)/topDen else 0)
     (hlowerLaw : ∀ (lay : Layer), lay ≠ 0 → ∀ floor (i : Fin 128),
       Pr[fun answer => ∃ dl, decoder lay floor answer = some dl ∧ dcredit lay dl = i.val |
         ($ᵗ HashOutput : ProbComp HashOutput)] =
         if floor ≤ i.val then (histogramWeight lowerHist i.val : ENNReal)/lowerDen else 0)
-    (hinitial : recurrenceCheck topDen topHist 19 74 one initial = true)
+    (hinitial : recurrenceCheck topDen topHist 22 77 one initial = true)
     (hone : ∀ r, r < 56 → recurrenceCheck lowerDen lowerHist (threshold 1 r) r two
       (one[r]?.getD 0) = true)
     (htwo : ∀ r, r < 41 → recurrenceCheck lowerDen lowerHist (threshold 2 r) r three
       (two[r]?.getD 0) = true)
     (hthree : ∀ r, r < 22 → recurrenceCheck lowerDen lowerHist (threshold 3 r) r #[scale]
       (three[r]?.getD 0) = true) : SearchEnvelope ((zNum : ENNReal)/zDen) := by
-  have h0 := decoder_recurrence 220 (decoder 0 19) (dcredit 0) topHist 19 74 topDen one initial
+  have h0 := decoder_recurrence 220 (decoder 0 22) (dcredit 0) topHist 22 77 topDen one initial
     htopDen htopBound htopHist htopLaw hinitial
   have h1 (r : Nat) (hr : r < 56) := decoder_recurrence 128 (decoder 1 (threshold 1 r))
     (dcredit 1) lowerHist (threshold 1 r) r lowerDen two (one[r]?.getD 0) hlowerDen
@@ -945,11 +945,11 @@ set_option maxRecDepth 100000
 set_option backward.isDefEq.respectTransparency false
 
 theorem top_acceptance :
-    Pr[fun a => (decoder 0 19 a).isSome | ($ᵗ HashOutput : ProbComp HashOutput)] =
-      (acceptedMass ClaudeWCT.Numerics.TopZero.topAcceptedHistogram 19 : ENNReal)/topDen := by
+    Pr[fun a => (decoder 0 22 a).isSome | ($ᵗ HashOutput : ProbComp HashOutput)] =
+      (acceptedMass ClaudeWCT.Numerics.TopZero.topAcceptedHistogram 22 : ENNReal)/topDen := by
   rw [← acceptedWeight_one_probability]
-  exact acceptedWeight_acceptedMass 220 (decoder 0 19) (dcredit 0)
-    ClaudeWCT.Numerics.TopZero.topAcceptedHistogram 19 topDen
+  exact acceptedWeight_acceptedMass 220 (decoder 0 22) (dcredit 0)
+    ClaudeWCT.Numerics.TopZero.topAcceptedHistogram 22 topDen
     (fun a dl hd => top_decoder_credit_lt (by norm_num) hd) (by decide +kernel)
     selected_top_probability
 
@@ -967,7 +967,7 @@ theorem ofReal_nat_ratio (n d : Nat) (hd : 0<d) :
   push_cast
   rw [ENNReal.ofReal_div_of_pos (by exact_mod_cast hd), ENNReal.ofReal_natCast, ENNReal.ofReal_natCast]
 
-def topFailureRate : ℚ := (acceptedMass ClaudeWCT.Numerics.TopZero.topAcceptedHistogram 19 : ℚ)/topDen
+def topFailureRate : ℚ := (acceptedMass ClaudeWCT.Numerics.TopZero.topAcceptedHistogram 22 : ℚ)/topDen
 def lowerFailureRate : ℚ := (acceptedMass lowerHistogram 19 : ℚ)/lowerDen
 /-- L3 (img-v6 floors up to 21, window `3·2^20`). -/
 def lowerThreeFailureRate : ℚ := (acceptedMass lowerHistogram 21 : ℚ)/lowerDen
@@ -986,7 +986,7 @@ theorem lower_three_failure_rate_440_checked : 0≤lowerThreeFailureRate ∧ low
     (440 : ℚ)*0.6931471808≤(3*2^20)*lowerThreeFailureRate := by decide +kernel
 
 /-- Top search window `topSearchLimit` (= 2^20). -/
-theorem top_failure_power_440 : failMass (decoder 0 19)^topSearchLimit≤1/(2:ENNReal)^440 := by
+theorem top_failure_power_440 : failMass (decoder 0 22)^topSearchLimit≤1/(2:ENNReal)^440 := by
   apply ClaudeWCT.W9.T3.Budgets.V5.failure_power_of_rate _ topFailureRate
     topSearchLimit 440 top_failure_rate_440_checked.1 top_failure_rate_440_checked.2.1 _ top_failure_rate_440_checked.2.2
   rw [top_acceptance, topFailureRate, ofReal_nat_ratio _ _ (by decide)]
@@ -1030,7 +1030,7 @@ floors are below 20 (clipped at 19), L3 floors below 22). -/
 abbrev EncodingContext := EncodingFamilyBC × Fin 22
 
 def contextFloor (context : EncodingContext) : Nat :=
-  if context.1.1=0 then 19 else if context.1.1=3 then context.2.val else min context.2.val 19
+  if context.1.1=0 then 22 else if context.1.1=3 then context.2.val else min context.2.val 19
 
 def ContextFailed (context : EncodingContext) (answers : Correctness.Answers) : Prop :=
   evalWithAnswerFn answers (CanonicalPolicy.layerCounterSearchAt context.1.1 (contextFloor context)
@@ -1115,7 +1115,7 @@ def ContextGood (answers : Answers) : Prop := ∀ context, ¬ContextFailed conte
 
 theorem context_good_at_route (answers : Answers) (hgood : ContextGood answers)
     (index : Nat) (hi : index<2^31) (lay : Layer) (floor : Nat)
-    (hf : if lay=0 then floor=19 else if lay=3 then floor<22 else floor<20) (left right : Digest) :
+    (hf : if lay=0 then floor=22 else if lay=3 then floor<22 else floor<20) (left right : Digest) :
     ∃ found, evalWithAnswerFn answers (CanonicalPolicy.layerCounterSearchAt lay floor
       (route index lay).2 (route index lay).1 (.pair left right) 0 (searchLimit lay))=some found := by
   let routed : Fin (2^32) := ⟨(route index lay).2*2^height lay+(route index lay).1,
@@ -1129,7 +1129,7 @@ theorem context_good_at_route (answers : Answers) (hgood : ContextGood answers)
   have hh := hgood context
   have hfloor : contextFloor context=floor := by
     by_cases hl : lay=0
-    · have hf' : floor=19 := by simpa only [hl,if_true] using hf
+    · have hf' : floor=22 := by simpa only [hl,if_true] using hf
       simpa only [contextFloor,context,hl,if_true] using hf'.symm
     · by_cases h3 : lay=3
       · dsimp only [contextFloor,context]; rw [if_neg hl, if_pos h3, if_neg hl]
@@ -1155,12 +1155,12 @@ theorem searchPreparedLayers_complete (answers : Answers) (hgood : ContextGood a
     (cache : SigGolfCandidate.T3.Cache) (index : Nat) (hi : index<2^31)
     (prepared : PreparedRoots) (forest : PairRoot) :
     ∃ result, evalWithAnswerFn answers (searchPreparedLayers cache index prepared forest)=some result := by
-  obtain ⟨⟨c0,d0,l0⟩,hs0⟩ := context_good_at_route answers hgood index hi 0 19 (by rfl)
+  obtain ⟨⟨c0,d0,l0⟩,hs0⟩ := context_good_at_route answers hgood index hi 0 22 (by rfl)
     (topPair 1 prepared.one.levels).1 (topPair 1 prepared.one.levels).2
-  have hd0 := (canonical_search_some' answers 0 19 (route index 0).2 (route index 0).1
+  have hd0 := (canonical_search_some' answers 0 22 (route index 0).2 (route index 0).1
     (.pair (topPair 1 prepared.one.levels).1 (topPair 1 prepared.one.levels).2)
     (searchLimit 0) 0 c0 d0 l0 (by decide) hs0).2.2.2
-  let r1 := CanonicalPolicy.nextResidual 74 0 l0 d0
+  let r1 := CanonicalPolicy.nextResidual 77 0 l0 d0
   have hr1 : r1<56 := CanonicalPolicy.accepted_top_residual hd0
   have hf1' : CanonicalPolicy.threshold 1 r1<16 := CanonicalPolicy.lower_one_floor_lt ⟨r1,hr1⟩
   have hf1 : CanonicalPolicy.threshold 1 r1<20 := by omega

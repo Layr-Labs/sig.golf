@@ -41,10 +41,10 @@ def v6Hyps (hs : V6.V6SeedSpec) (hz : V6.V6ZeroSpec) : FamHyps (V6.v6Scheme hs) 
     show (V6.grp lay - 1) * V6.stride lay + chainCount lay < 1024
     unfold V6.grp V6.stride; rw [chainCount_cases]; split_ifs <;> decide
 
-/-- v6 small-route seed error: `errTotF ≤ (733/1000) y²` on `y ≤ 3/2500` (via `602 y³/(1-y)`). -/
+/-- v6 small-route seed error: `errTotF ≤ (7233/10000) y²` on `y ≤ 3/2500` (via `602 y³/(1-y)`). -/
 theorem v6_seedError (hs : V6.V6SeedSpec) (hz : V6.V6ZeroSpec) (adversary : ClaudeWCT.W9.T3M.Final.Paired.AdversaryP)
     (q : Nat) (hq : q < 2 ^ 128) (hy : (q : ℝ) / 2 ^ 128 ≤ 3 / 2500) :
-    (errTotF (V6.v6Scheme hs) adversary q).toReal ≤ (733 / 1000) * ((q : ℝ) / 2 ^ 128) ^ 2 :=
+    (errTotF (V6.v6Scheme hs) adversary q).toReal ≤ (7233 / 10000) * ((q : ℝ) / 2 ^ 128) ^ 2 :=
   seedErrorBoundF (v6Hyps hs hz) (by norm_num) adversary q hq hy
 
 #print axioms layoutHyps

@@ -655,3 +655,90 @@ theorem tiny_closing_rows18 (y excess : ℝ) (hlow : 1 / 2 ^ 128 ≤ y)
 
 #print axioms tiny_closing_rows18
 end SigGolfCandidate.Research.V7Composed198Closing.CanonicalWindow
+
+/-! Route C at gate 804 (R6 campaign, stream RC): the near bank grows from 350 to at most 385
+(near moment 382.4 at gate 804), so the quadratic near allowance becomes `194 y^2` and the middle
+coefficient `1537/1000`. The excess budget `147/125000` is unchanged. -/
+namespace SigGolfCandidate.Research.V7Composed198Closing.CanonicalWindowRC
+set_option maxHeartbeats 1000000
+set_option maxRecDepth 10000
+set_option exponentiation.threshold 1024
+
+theorem paired_partial_denominator (y pwin nb : ℝ) (hy0 : 0 ≤ y) (hy : y ≤ 3 / 2500) (hnb : nb ≤ 385)
+    (h : pwin ≤ ((nb + 1 / 1024) / (2 * (1 - y)) + 1 / (2 * (1 - y) ^ 2)) * y ^ 2) :
+    pwin ≤ (19325 / 100) * y ^ 2 := by
+  have hd : 0 < 2 * (1 - y) := by linarith
+  have hn : (nb + (1 : ℝ) / 1024) / (2 * (1 - y)) ≤ 19274 / 100 := by
+    apply (div_le_iff₀ hd).2
+    nlinarith
+  have hbase : 0 < 1 - y := by linarith
+  have hs : 0 < 2 * (1 - y) ^ 2 := by positivity
+  have hp : (1 : ℝ) / (2 * (1 - y) ^ 2) ≤ 51 / 100 := by
+    apply (div_le_iff₀ hs).2
+    have hz : (997 : ℝ) / 1000 ≤ 1 - y := by linarith
+    nlinarith [sq_nonneg (1 - y - (997 : ℝ) / 1000)]
+  exact h.trans (mul_le_mul_of_nonneg_right (by linarith) (sq_nonneg y))
+
+theorem charge (y z near : ℝ) (hy0 : 0 ≤ y) (hy1 : y ≤ 3 / 2500)
+    (hn : 0 ≤ near) (hcost : near * (1 - y) ≤ z) (hquad : near ≤ (19325 / 100) * y ^ 2) :
+    z + near - (99847 / 50000) * z ≤ (823 / 1000) * y ^ 2 := by
+  have hny := mul_le_mul_of_nonneg_left hy1 hn
+  have hz : z + near - (99847 / 50000) * z ≤ (4257 / 1000000) * near := by
+    nlinarith
+  nlinarith [sq_nonneg y]
+
+theorem class_budget (p e o m y near : ℝ)
+    (hp : 0 ≤ p) (he : 0 ≤ e) (ho : 0 ≤ o) (hm : 0 ≤ m)
+    (hbudget : p + e + o + m ≤ y) (hy : y ≤ 3 / 2500)
+    (hn : 0 ≤ near) (hcost : near * (1 - y) ≤ o) (hquad : near ≤ (19325 / 100) * y ^ 2) :
+    (99847 / 50000) * (p + e + m) + o + near ≤ (99847 / 50000) * y + (823 / 1000) * y ^ 2 := by
+  have hy0 : 0 ≤ y := by linarith
+  have hc := charge y o near hy0 hy hn hcost hquad
+  nlinarith
+
+theorem middle_closing (y excess : ℝ) (hlow : 1 / 2 ^ 28 ≤ y)
+    (hhigh : y ≤ 3 / 2500) (hexcess : excess ≤ 1158 / 1000000) :
+    (99847 / 50000) * y + y * excess + (1533 / 1000) * y ^ 2 + 1 / 2 ^ 136 +
+      (y / 2 ^ 18 + 1 / 2 ^ 700 + 1 / 2 ^ 152 + y / 2 ^ 128) ≤ 2 * y := by
+  have hn : 0 ≤ y := le_trans (by positivity) hlow
+  have he := mul_le_mul_of_nonneg_left hexcess hn
+  have hsq : y ^ 2 ≤ (3 / 2500) * y := by
+    nlinarith [mul_le_mul_of_nonneg_left hhigh hn]
+  have habs : (1 : ℝ) / 2 ^ 136 ≤ y / 2 ^ 108 := by
+    have h := div_le_div_of_nonneg_right hlow (show (0 : ℝ) ≤ 2 ^ 108 by positivity)
+    norm_num at h ⊢
+    linarith
+  have h700 : (1 : ℝ) / 2 ^ 700 ≤ y / 2 ^ 672 := by
+    have h := div_le_div_of_nonneg_right hlow (show (0 : ℝ) ≤ 2 ^ 672 by positivity)
+    norm_num at h ⊢
+    linarith
+  have h152 : (1 : ℝ) / 2 ^ 152 ≤ y / 2 ^ 124 := by
+    have h := div_le_div_of_nonneg_right hlow (show (0 : ℝ) ≤ 2 ^ 124 by positivity)
+    norm_num at h ⊢
+    linarith
+  nlinarith
+
+theorem tiny_charge (y z near : ℝ) (hy0 : 0 ≤ y) (hy1 : y ≤ 1 / 2 ^ 28)
+    (hn : 0 ≤ near) (hcost : near * (1 - y) ≤ z) (hquad : near ≤ (19325 / 100) * y ^ 2) :
+    z + near - (249 / 125) * z ≤ (17 / 10) * y ^ 2 := by
+  have hny := mul_le_mul_of_nonneg_left hy1 hn
+  have hz : z + near - (249 / 125) * z ≤ (1 / 120) * near := by
+    nlinarith
+  nlinarith [sq_nonneg y]
+
+theorem tiny_class_budget (p e o m y near : ℝ)
+    (hp : 0 ≤ p) (he : 0 ≤ e) (ho : 0 ≤ o) (hm : 0 ≤ m)
+    (hbudget : p + e + o + m ≤ y) (hy : y ≤ 1 / 2 ^ 28)
+    (hn : 0 ≤ near) (hcost : near * (1 - y) ≤ o) (hquad : near ≤ (19325 / 100) * y ^ 2) :
+    (249 / 125) * (p + e + m) + o + near ≤ (249 / 125) * y + (17 / 10) * y ^ 2 := by
+  have hy0 : 0 ≤ y := by linarith
+  have hc := tiny_charge y o near hy0 hy hn hcost hquad
+  nlinarith
+
+#print axioms paired_partial_denominator
+#print axioms charge
+#print axioms class_budget
+#print axioms middle_closing
+#print axioms tiny_charge
+#print axioms tiny_class_budget
+end SigGolfCandidate.Research.V7Composed198Closing.CanonicalWindowRC
