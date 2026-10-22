@@ -9,11 +9,11 @@ open SigGolfCandidate.T3 (Layer Digest buildLeafTopC topFamilyCoefs topTreeStep 
   height chainCount width)
 def kgLeaf (j : Nat) : LeafArgs := ⟨0, 0, j, [], false, ZDIG, DUMMY, TOP + 16 * (4096 + j), 34⟩
 def kgLev : LevArgs := ⟨3, 0, 0, 12, TOP, 39⟩
-theorem kgLeaf_n (j : Nat) : (kgLeaf j).n = 54 := rfl
+theorem kgLeaf_n (j : Nat) : (kgLeaf j).n = 51 := rfl
 theorem kgLev_costs : kgLev.levK = 159782 ∧ kgLev.levC = 188447 ∧ kgLev.levN = 4095 := by decide
 def W1 (X : Nat) : Prop :=
   X = PRIV + 16 ∨ X = PRIV + 24 ∨ (SEEDS ≤ X ∧ X < SEEDS + 32) ∨ X = CHAIN + 16 ∨ X = CHAIN + 24 ∨
-    (CHAIN + 32 ≤ X ∧ X < CHAIN + 112) ∨ (LEAFPK + 16 ≤ X ∧ X < LEAFPK + 896) ∨ (LOUT ≤ X ∧ X < LOUT + 32) ∨
+    (CHAIN + 32 ≤ X ∧ X < CHAIN + 112) ∨ (LEAFPK ≤ X ∧ X < LEAFPK + 896) ∨ (LOUT ≤ X ∧ X < LOUT + 32) ∨
     (DUMMY ≤ X ∧ X < DUMMY + 864) ∨ (TOP + 65536 ≤ X ∧ X < TOP + 131072) ∨ (KCOEF ≤ X ∧ X < KCOEF + 640)
 def loopRegs : List Reg := tRegs ++ [.x18, .x25]
 /-- img-v6: the keygen leaf loop before leaf `j`, state `st = (roots, coefficients, carry)` of `topTreeStep`. -/
@@ -38,7 +38,7 @@ theorem kgLeaf_pre {j : Nat} (hj : j < 4096) {t : MachineState} (hr : RegsExcept
     (hf : Frame s1 t W1) (h18 : t.getReg .x18 = BitVec.ofNat 64 j) (h1 : t.getReg .x1 = pcOf 34)
     (h23 : t.getReg .x23 = BitVec.ofNat 64 DUMMY)
     (h25 : t.getReg .x25 = BitVec.ofNat 64 (TOP + 16 * (4096 + j))) :
-    LeafPre sk t (kgLeaf j) := by
+    TopPre sk t (kgLeaf j) := by
   have g : ∀ r, r ∉ loopRegs → t.getReg r = s1.getReg r := fun r hr' => hr.get hr'
   have m : ∀ X, X < 2 ^ 64 → ¬ W1 X → t.getMem (BitVec.ofNat 64 X) = s1.getMem (BitVec.ofNat 64 X) :=
     fun X hX hn => hf.get hX hn
@@ -73,8 +73,6 @@ theorem kgLeaf_pre {j : Nat} (hj : j < 4096) {t : MachineState} (hr : RegsExcept
       z0 := z _ (by decide) (by unfold W1; decide) (by decide) (by decide)
       z8 := z _ (by decide) (by unfold W1; decide) (by decide) (by decide)
       top0 := ⟨rfl, rfl⟩
-      zhead := ⟨z _ (by decide) (by unfold W1; decide) (by decide) (by decide),
-        z _ (by decide) (by unfold W1; decide) (by decide) (by decide)⟩
       hdig := fun i hi => by
         rw [kgLeaf_n] at hi
         have hw : ¬ W1 ((ZDIG + i) / 8 * 8) := by unfold W1; kg_omega
@@ -83,7 +81,7 @@ theorem kgLeaf_pre {j : Nat} (hj : j < 4096) {t : MachineState} (hr : RegsExcept
           hs.zero _ (by kg_omega) (by kg_omega) (by kg_omega), extractByte_zero]
         rfl
       hdigb := fun i _ => ⟨by show [].getD i 0 < 256; simp, fun _ => by show [].getD i 0 ≤ _; simp⟩
-      hdigp := by show ZDIG + 54 ≤ 2 ^ 24; decide
+      hdigp := by show ZDIG + 51 ≤ 2 ^ 24; decide
       hdigW := fun i hi => by
         rw [kgLeaf_n] at hi
         unfold LeafW
@@ -91,16 +89,17 @@ theorem kgLeaf_pre {j : Nat} (hj : j < 4096) {t : MachineState} (hr : RegsExcept
         dsimp only [kgLeaf]
         kg_omega
       hv8 := show DUMMY % 8 = 0 by decide
-      hv := by show DUMMY + 16 * 54 ≤ 2 ^ 24; decide
+      hv := by show DUMMY + 16 * 51 ≤ 2 ^ 24; decide
       hvs := Or.inr (by show LEAFPK + 960 ≤ DUMMY; decide)
       hd8 := by show (TOP + 16 * (4096 + j)) % 8 = 0; kg_omega
       hd := by show TOP + 16 * (4096 + j) + 16 ≤ 2 ^ 24; kg_omega
       hds := Or.inr (Or.inl (by show LEAFPK + 960 ≤ TOP + 16 * (4096 + j); kg_omega))
-      hdv := Or.inr (by show DUMMY + 16 * 54 ≤ TOP + 16 * (4096 + j); kg_omega) }
+      hdv := Or.inr (by show DUMMY + 16 * 51 ≤ TOP + 16 * (4096 + j); kg_omega) }
 omit hs in
 theorem kgLeaf_top (j : Nat) : TopArgs (kgLeaf j) :=
-  ⟨rfl, rfl, Or.inl (by show DUMMY + 16 * 54 ≤ KCOEF; decide),
-    Or.inr (by show KCOEF + 640 ≤ TOP + 16 * (4096 + j); kg_omega), Or.inl (by show ZDIG + 54 ≤ KCOEF; decide)⟩
+  ⟨rfl, rfl, Or.inl (by show DUMMY + 16 * 51 ≤ KCOEF; decide),
+    Or.inr (by show KCOEF + 640 ≤ TOP + 16 * (4096 + j); kg_omega), Or.inl (by show ZDIG + 51 ≤ KCOEF; decide),
+    Or.inl (by show ZDIG + 51 ≤ LEAFPK; decide)⟩
 /-- Cycle bound of one keygen leaf-loop iteration (26..34 and the top leaf). -/
 def leafLoopW : Nat := 10 + topLeafW
 theorem leafLoop_body {j : Nat} (hj : j < 4096) (acc : List Digest × List Digest × Digest) (t : MachineState)
@@ -114,7 +113,7 @@ theorem leafLoop_body {j : Nat} (hj : j < 4096) (acc : List Digest × List Diges
     (by rw [t1r.get (by decide), g _ (by decide), hs.x2])
   have r12 : RegsExcept t t2 [.x6, .x1, .x7, .x23, .x25] := t1r.trans t2r
   have f12 : Frame t t2 (fun _ => False) := (t1f.trans t2f).mono (fun X _ h => by simp at h)
-  have hpre : LeafPre sk t2 (kgLeaf j) :=
+  have hpre : TopPre sk t2 (kgLeaf j) :=
     kgLeaf_pre hs hj ((ht.regs.trans r12).mono (by simp [loopRegs, tRegs, leafRegs]))
       ((ht.frame.trans f12).mono (fun X _ h => by rcases h with h | h; exact h; exact h.elim))
       (by rw [r12.get (by decide)]; exact ht.x18) t2x1 t2x23 t2x25
@@ -136,17 +135,18 @@ theorem leafLoop_body {j : Nat} (hj : j < 4096) (acc : List Digest × List Diges
   refine TSim.pure_steps st3 ⟨t3pc, t3x18, ?_, ?_, by simp [ht.len], ?_, ?_⟩
   · exact (((ht.regs.trans r12).trans ur).trans t3r).mono (by simp [loopRegs, tRegs, leafRegs])
   · refine (((ht.frame.trans f12).trans uf).trans t3f).mono (fun X _ h => ?_)
-    rcases h with ((h | h) | h | h) | h
+    rcases h with ((h | h) | h | h | h) | h
     · exact h
     · exact h.elim
     · unfold LeafW at h
       simp only [kgLeaf_n] at h
       unfold W1
       change X = PRIV + 16 ∨ X = PRIV + 24 ∨ (SEEDS ≤ X ∧ X < SEEDS + 32) ∨ X = CHAIN + 16 ∨
-        X = CHAIN + 24 ∨ (CHAIN + 32 ≤ X ∧ X < CHAIN + 112) ∨ (LEAFPK + 16 ≤ X ∧ X < LEAFPK + 16 * (54 + 2)) ∨
-        (LOUT ≤ X ∧ X < LOUT + 32) ∨ (DUMMY ≤ X ∧ X < DUMMY + 16 * 54) ∨
+        X = CHAIN + 24 ∨ (CHAIN + 32 ≤ X ∧ X < CHAIN + 112) ∨ (LEAFPK + 16 ≤ X ∧ X < LEAFPK + 16 * (51 + 2)) ∨
+        (LOUT ≤ X ∧ X < LOUT + 32) ∨ (DUMMY ≤ X ∧ X < DUMMY + 16 * 51) ∨
         (TOP + 16 * (4096 + j) ≤ X ∧ X < TOP + 16 * (4096 + j) + 16) at h
       kg_omega
+    · unfold W1; kg_omega
     · unfold W1; kg_omega
     · exact h.elim
   · have hd : DigAt u (TOP + 65536 + 16 * acc.1.length) root := by
@@ -156,15 +156,16 @@ theorem leafLoop_body {j : Nat} (hj : j < 4096) (acc : List Digest × List Diges
       refine ht.roots.frame ((f12.trans uf).mono (fun X _ h => h)) (by rw [ht.len]; kg_omega) ?_
       intro B h1 h2 h
       rw [ht.len] at h2
-      rcases h with h | h | h
+      rcases h with h | h | h | h
       · exact h
       · unfold LeafW at h
         simp only [kgLeaf_n] at h
         change B = PRIV + 16 ∨ B = PRIV + 24 ∨ (SEEDS ≤ B ∧ B < SEEDS + 32) ∨ B = CHAIN + 16 ∨
-          B = CHAIN + 24 ∨ (CHAIN + 32 ≤ B ∧ B < CHAIN + 112) ∨ (LEAFPK + 16 ≤ B ∧ B < LEAFPK + 16 * (54 + 2)) ∨
-          (LOUT ≤ B ∧ B < LOUT + 32) ∨ (DUMMY ≤ B ∧ B < DUMMY + 16 * 54) ∨
+          B = CHAIN + 24 ∨ (CHAIN + 32 ≤ B ∧ B < CHAIN + 112) ∨ (LEAFPK + 16 ≤ B ∧ B < LEAFPK + 16 * (51 + 2)) ∨
+          (LOUT ≤ B ∧ B < LOUT + 32) ∨ (DUMMY ≤ B ∧ B < DUMMY + 16 * 51) ∨
           (TOP + 16 * (4096 + j) ≤ B ∧ B < TOP + 16 * (4096 + j) + 16) at h
         kg_omega
+      · kg_omega
       · kg_omega
     exact (hold.snoc hd).frame t3f (by simp only [List.length_append, List.length_singleton, ht.len]; kg_omega)
       (fun _ _ _ h => h)

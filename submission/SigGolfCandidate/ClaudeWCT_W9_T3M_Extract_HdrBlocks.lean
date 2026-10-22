@@ -90,12 +90,10 @@ theorem hdrBlock_wotsChainInput (lay : Layer) (tree leaf i step : Nat) (value : 
 theorem hdrBlock_leafInput (lay : Layer) (tree leaf : Nat) (ends : List Digest) :
     hdrBlock (pad64 (leafInput lay tree leaf ends)) = bytesLE 16 (leafTweak lay tree leaf) := by
   unfold leafInput SigGolfCandidate.T3.leafInput
-  split
-  · rw [hdrBlock_pad64' _ (by simp [zero16, bytesLE_length]), show zero16 = bytesLE 16 (0 : Digest) from
-      bytesLE_zero'.symm, List.append_assoc]
-    exact hdrBlock_prefix' 0 _ _
+  split <;>
   · rw [hdrBlock_pad64' _ (by simp [bytesLE_length]; omega), List.append_assoc]
     exact hdrBlock_prefix' _ _ _
+
 theorem listInput_length' (first : Digest) (hdr : BitVec 128) (rest : List Digest) :
     (listInput first hdr rest).length = 32 + 16 * rest.length := by
   simp only [listInput, List.length_append, bytesLE_length, digest_list_bytes_length]
@@ -125,9 +123,10 @@ theorem honestInput_length (answers : Answers) (p : Pos) : (honestInput answers 
       simp only [honestInput, Pos.len, leafInput, SigGolfCandidate.T3.leafInput]
       split
       · rename_i h0
+        have hc' : chainCount lay = 51 := by subst h0; rfl
         rw [pad64_length_of_mod] <;>
-          simp only [List.length_append, bytesLE_length, zero16, List.length_replicate, digest_list_bytes_length,
-            List.length_map, List.length_range, h0] <;> decide
+          simp only [List.length_append, bytesLE_length, digest_list_bytes_length, List.length_drop,
+            List.length_map, List.length_range, hc'] <;> decide
       · rename_i h0
         have hc' : chainCount lay = 43 := by fin_cases lay <;> simp_all <;> decide
         rw [pad64_length_of_mod] <;>
@@ -152,6 +151,7 @@ theorem honestInput_length (answers : Answers) (p : Pos) : (honestInput answers 
   | wctNode index coord level nd =>
       simp only [honestInput, Pos.len]
       rw [pad64_length_of_mod] <;> simp [nodeInputP]
+
 theorem tweakLow_eq_low (h : BitVec 128) : tweakLow h = (h.extractLsb' 0 64).toNat := by
   unfold tweakLow; rw [BitVec.extractLsb'_toNat, Nat.shiftRight_zero]
 /-- C4: the low word of a 16-byte header is read from its first 8 bytes. -/

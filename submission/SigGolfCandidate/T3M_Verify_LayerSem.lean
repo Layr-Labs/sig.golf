@@ -249,9 +249,11 @@ open SigGolfCandidate.T3 (Digest HashOutput Layer route height chainCount counte
 def below (lay : Nat) : Nat := [19,12,6,0].getD lay 0
 def layerEnd (lay : Nat) : Nat := [11144,13792,16360,18928].getD lay 0
 theorem hL_eq (lay : Layer) : hL lay.val = height lay := by fin_cases lay <;> rfl
-def slotT (i : Nat) : Nat := 25248 + 16 * i
+/-- Campaign T51 (endpad top leaf): `end_0` at 25216, the tweak at 25232, `end_i` at `25232 + 16 i` (`i >= 1`). -/
+def slotT (i : Nat) : Nat := if i = 0 then 25216 else 25232 + 16 * i
 theorem below_eq (lay : Layer) : below lay.val = (![19, 12, 6, 0] : Layer → Nat) lay := by fin_cases lay <;> rfl
 theorem tgtL_eq (lay : Layer) : tgtL lay.val = canonicalTarget lay := by fin_cases lay <;> rfl
+
 abbrev LayerIn := BC.LayerIn
 theorem route_fst (index : Nat) (lay : Layer) : (route index lay).1 = index / 2 ^ below lay.val % 2 ^ hL lay.val := by
   simp only [route, below_eq, hL_eq]

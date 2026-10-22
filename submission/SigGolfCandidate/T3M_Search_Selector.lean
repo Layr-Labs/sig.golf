@@ -152,7 +152,7 @@ theorem selector_spec {image : Image} {b : Nat} {rewardCondition : Prop} (hK : K
 sym_block top354_entry := symRun {noAlias:=true} (topEntryCode 354) (pcOf (tcEntry 354)) 200
 sym_block top543_entry := symRun {noAlias:=true} (topEntryCode 543) (pcOf (tcEntry 543)) 200
 def topState_entry : SymState := top354_entry.res.st
-def topPc_entry (b : Nat) : E := .c (pcOf (topSelectBase b))
+def topPc_entry (b : Nat) : E := .c (pcOf (kEntry b))
 theorem topRun_entry {b : Nat} (hb : b=354 ∨ b=543) :
     symRun {noAlias:=true} (topEntryCode b) (pcOf (tcEntry b)) 200 =
     some ⟨topState_entry,topPc_entry b,top354_entry.res.stop,top354_entry.res.steps,top354_entry.res.cycles⟩ := by
@@ -190,9 +190,10 @@ theorem top_gate_msb (v : T3.Digest) :
       · rfl
       · exact False.elim (h ((T3.TopDualHalf.gate_iff_getLsbD v).mpr hv))
     simpa [h] using hh
+/-- Campaign T51: the top dispatch `tcEntry` jumps to the T51 kernel `K_ENTRY` (`kEntry b`). -/
 theorem top_entry_spec {image : Image} {b : Nat} {rewardCondition : Prop} (hK : KernAt image b rewardCondition)
     (s : MachineState) (hpc : s.pc=pcOf (tcEntry b)) :
-    ∃ t, Steps image s 1 1 t ∧ t.pc=pcOf (topSelectBase b) ∧
+    ∃ t, Steps image s 1 1 t ∧ t.pc=pcOf (kEntry b) ∧
       RegsExcept s t [] ∧ Frame s t (fun _ => False) := by
   refine ⟨_,symRun_sound (topRun_entry hK.2.1) (codeAt_topEntry hK) s hpc
     (by simp [topState_entry,top354_entry.res,rv_simp]),?_,?_,?_⟩
@@ -470,16 +471,6 @@ theorem retry_spec {image : Image} {b : Nat} {rewardCondition : Prop} (hK : Kern
   refine ⟨_,symRun_sound (rtRun hK.2.1) (codeAt_k_104 hK) s hpc (by simp [rtState,rt354.res,rv_simp]),rfl,?_,?_⟩
   · intro r hr; cases r <;> simp_all [rtState,rt354.res,rv_simp] <;> rfl
   · intro A _ _; simp [rtState,rt354.res,rv_simp]
-/-- Top entry: `jal` to the select gate, `jal` to `choice_a`, clear the flag; LOW stays in `x6`, `x7`. -/
-theorem top_select_spec {image : Image} {b : Nat} {rewardCondition : Prop} (hK : KernAt image b rewardCondition)
-    (s : MachineState) (hpc : s.pc=pcOf (tcEntry b)) :
-    ∃ t, Steps image s 5 5 t ∧ t.pc=pcOf (tcBase b) ∧ t.getMem (BitVec.ofNat 64 FLAG)=0 ∧
-      RegsExcept s t [.x28] ∧ Frame s t (fun A => A=FLAG) := by
-  obtain ⟨u,su,pu,ru,fu⟩ := top_entry_spec hK s hpc
-  obtain ⟨v,sv,pv,rv,fv⟩ := top_gate_spec hK u pu
-  obtain ⟨t,st,pt,mt,rt,ft⟩ := choiceA_spec hK v pv
-  exact ⟨t,(su.trans sv).trans st,pt,mt,((ru.trans rv).trans rt).mono (by decide),
-    ((fu.trans fv).trans ft).mono (fun _ _ h => by simpa using h)⟩
 
 end SigGolfCandidate.T3M.Search
 
@@ -579,8 +570,8 @@ theorem packed_reward (lay : Layer) (hl : lay ≠ 0) (v : Digest) (c : Nat) :
       ((List.range 43).map (Reward.reward false (lowDigits v ++ [c]))).sum := by
     rw [hrew]
     simp only [wordCredit, savedCopies, hcount]
-    have hcredit := Reward.credit_layer lay (lowDigits v ++ [c])
-    have hsaved := Reward.saved_layer lay (lowDigits v ++ [c])
+    have hcredit := Reward.credit_layer lay hl (lowDigits v ++ [c])
+    have hsaved := Reward.saved_layer lay hl (lowDigits v ++ [c])
     simp only [hl, decide_false] at hcredit hsaved
     simp only [hcredit, hsaved]
   rw [heq, sum_groups]
@@ -667,7 +658,7 @@ theorem score_lookup (first : Bool) (r : Nat) : score first r=Reward.lowerLookup
     by_cases h0 : r%8=7 <;> by_cases h1 : r/8%8=7 <;> by_cases h2 : r/64%8=7 <;>
     simp [h0,h1,h2] <;> omega
 
-theorem lookup_table (s : MachineState) (ht : Reward.RewardTablesOK s) (q r : Nat) (hq : q<14) (hr : r<512) :
+theorem lookup_table (s : MachineState) (ht : Reward.LowerTablesOK s) (q r : Nat) (hq : q<14) (hr : r<512) :
     s.getByte (BitVec.ofNat 64 ((if q=0 then 16774144 else 16774656)+r)) =
       BitVec.ofNat 8 (score (decide (q=0)) r) := by
   by_cases hq0 : q=0
@@ -715,7 +706,7 @@ theorem load_address (q r : Nat) (_hr : r<512) :
     rw [← BitVec.ofNat_add,Nat.add_comm]
 
 theorem gadget_spec {image : Image} {b : Nat} (hb : b=354 ∨ b=543) (hR : Reward.RewardAt image b)
-    (s : MachineState) (q : Nat) (hq : q<14) (v : Digest) (ht : Reward.RewardTablesOK s)
+    (s : MachineState) (q : Nat) (hq : q<14) (v : Digest) (ht : Reward.LowerTablesOK s)
     (hp : s.pc=pcOf (Reward.base b false+3+5*q))
     (h6 : s.getReg .x6=v.extractLsb' 0 64) (h7 : s.getReg .x7=v.extractLsb' 64 64)
     (h11 : s.getReg .x11=16775168#64) :
@@ -739,7 +730,7 @@ theorem gadget_spec {image : Image} {b : Nat} (hb : b=354 ∨ b=543) (hR : Rewar
     norm_num
     split_ifs <;> omega
   have sl := steps_lbu hc (by simpa only [Nat.add_assoc] using pu) hdec hv
-  have ht' : Reward.RewardTablesOK u := ht.frame fu (by simp)
+  have ht' : Reward.LowerTablesOK u := ht.frame fu (by simp)
   have hm := lookup_table u ht' q (rank v q) hq hr
   rw [ha,hm] at sl
   have hw : (BitVec.ofNat 8 (score (decide (q=0)) (rank v q))).zeroExtend 64 =
@@ -782,7 +773,7 @@ theorem partial_bound (v : Digest) (n : Nat) : partialScore v n≤12*n := by
     omega
 
 theorem loop_spec {image : Image} {b : Nat} (hb : b=354 ∨ b=543) (hR : Reward.RewardAt image b)
-    (s : MachineState) (v : Digest) (ht : Reward.RewardTablesOK s)
+    (s : MachineState) (v : Digest) (ht : Reward.LowerTablesOK s)
     (hp : s.pc=pcOf (Reward.base b false+3))
     (h6 : s.getReg .x6=v.extractLsb' 0 64) (h7 : s.getReg .x7=v.extractLsb' 64 64)
     (h11 : s.getReg .x11=16775168#64) (h20 : s.getReg .x20=0) (n : Nat) (hn : n≤14) :
@@ -884,7 +875,7 @@ theorem exit_spec {image : Image} {b o : Nat} (hb : b=354 ∨ b=543) (hR : Rewar
 
 
 theorem lower_spec {image : Image} {b : Nat} (hb : b=354 ∨ b=543) (hR : Reward.RewardAt image b)
-    (s : MachineState) (lay : Layer) (hl : lay≠0) (v : Digest) (ht : Reward.RewardTablesOK s)
+    (s : MachineState) (lay : Layer) (hl : lay≠0) (v : Digest) (ht : Reward.LowerTablesOK s)
     (hp : s.pc=pcOf (Reward.base b false))
     (h6 : s.getReg .x6=v.extractLsb' 0 64) (h7 : s.getReg .x7=v.extractLsb' 64 64)
     (h8 : s.getReg .x8=BitVec.ofNat 64 lay.val)
@@ -1005,7 +996,7 @@ theorem add_spec {image : Image} {b : Nat} (hb : b=354 ∨ b=543) (hR : Canonica
   · intro A _ _; simp [addResult,SymState.init,rv_simp]
 
 theorem gadget_spec {image : Image} {b : Nat} (hb : b=354 ∨ b=543) (hR : CanonicalReward.PrefixAt image b)
-    (s : MachineState) (q : Nat) (hq : q<14) (v : Digest) (ht : Reward.RewardTablesOK s)
+    (s : MachineState) (q : Nat) (hq : q<14) (v : Digest) (ht : Reward.LowerTablesOK s)
     (hp : s.pc=pcOf (Reward.base b false+3+5*q))
     (h6 : s.getReg .x6=v.extractLsb' 0 64) (h7 : s.getReg .x7=v.extractLsb' 64 64)
     (h11 : s.getReg .x11=16775168#64) :
@@ -1029,7 +1020,7 @@ theorem gadget_spec {image : Image} {b : Nat} (hb : b=354 ∨ b=543) (hR : Canon
     norm_num
     split_ifs <;> omega
   have sl := steps_lbu hc (by simpa only [Nat.add_assoc] using pu) hdec hv
-  have ht' : Reward.RewardTablesOK u := ht.frame fu (by simp)
+  have ht' : Reward.LowerTablesOK u := ht.frame fu (by simp)
   have hm := lookup_table u ht' q (rank v q) hq hr
   rw [ha,hm] at sl
   have hw : (BitVec.ofNat 8 (score (decide (q=0)) (rank v q))).zeroExtend 64 =
@@ -1058,7 +1049,7 @@ theorem gadget_spec {image : Image} {b : Nat} (hb : b=354 ∨ b=543) (hR : Canon
 
 
 theorem loop_spec {image : Image} {b : Nat} (hb : b=354 ∨ b=543) (hR : CanonicalReward.PrefixAt image b)
-    (s : MachineState) (v : Digest) (ht : Reward.RewardTablesOK s)
+    (s : MachineState) (v : Digest) (ht : Reward.LowerTablesOK s)
     (hp : s.pc=pcOf (Reward.base b false+3))
     (h6 : s.getReg .x6=v.extractLsb' 0 64) (h7 : s.getReg .x7=v.extractLsb' 64 64)
     (h11 : s.getReg .x11=16775168#64) (h20 : s.getReg .x20=0) (n : Nat) (hn : n≤14) :

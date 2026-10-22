@@ -28,8 +28,9 @@ def TopLevelsOK (levels : List (List Digest)) : Prop :=
 def OKUpTo (k : Nat) (levels : List (List Digest)) : Prop :=
   ∀ j, 1 ≤ j → j ≤ k → ∀ v ∈ levels.getD j [], topZeroOk j v = true
 
-/-- Probability that one node search at height `h` exhausts its cap. -/
-noncomputable def capFail (h : Nat) : ℝ≥0∞ := (1 - ((2 : ℝ≥0∞) ^ h)⁻¹) ^ topNonceCap h
+/-- Probability that one node search at height `h` exhausts its cap (T51: acceptance `2^-b_h`, `b_h = topZeroBits h`;
+`b_h = 0` never fails). -/
+noncomputable def capFail (h : Nat) : ℝ≥0∞ := (1 - ((2 : ℝ≥0∞) ^ topZeroBits h)⁻¹) ^ topNonceCap h
 
 /-- Per-level contribution. -/
 noncomputable def elev (level : Nat) : ℝ≥0∞ := ((2 ^ (12 - level) : ℕ) : ℝ≥0∞) * capFail level
@@ -95,14 +96,14 @@ theorem E_node {β : Type} (secret : BitVec 256) (h heap : Nat) (h1 : 1 ≤ h) (
   rw [bind_map_left]
   unfold topNodeAt
   have hcap : topNonceCap h - 1 < 2 ^ 64 := by
-    unfold topNonceCap; rw [topZeroBits_eq h1 h11]
-    have : (2 : Nat) ^ h ≤ 2 ^ 11 := Nat.pow_le_pow_right (by norm_num) h11
-    have : (104 : Nat) * 2 ^ 11 < 2 ^ 64 := by norm_num
+    unfold topNonceCap
+    have : (2 : Nat) ^ topZeroBits h ≤ 2 ^ 8 := Nat.pow_le_pow_right (by norm_num) (topZeroBits_le h h11)
+    have : (104 : Nat) * 2 ^ 8 < 2 ^ 64 := by norm_num
     omega
   have hcap1 : topNonceCap h - 1 + 1 = topNonceCap h := by
     unfold topNonceCap; have : 0 < 2 ^ topZeroBits h := by positivity
     omega
-  set p : ℝ≥0∞ := ((2 : ℝ≥0∞) ^ h)⁻¹ with hpdef
+  set p : ℝ≥0∞ := ((2 : ℝ≥0∞) ^ topZeroBits h)⁻¹ with hpdef
   have hp1 : p ≤ 1 := by
     rw [hpdef, ← prob_topAccept h1 h11 heap]; exact probEvent_le_one
   have hres := Ev_topNonceSearch_fuel secret h heap left right (fun x => next x.2) F
@@ -299,14 +300,18 @@ theorem capBase_real (h : Nat) (h1 : 1 ≤ h) (h11 : h ≤ 11) : (1 - 1 / 2 ^ h 
 
 theorem capFail_le (h : Nat) (h1 : 1 ≤ h) (h11 : h ≤ 11) : capFail h ≤ ENNReal.ofReal ((3 / 8 : ℝ) ^ 104) := by
   unfold capFail topNonceCap
-  rw [topZeroBits_eq h1 h11, inv_two_pow_eq]
-  have hx : (0 : ℝ) ≤ 1 / 2 ^ h := by positivity
-  have hx1 : 1 / 2 ^ h ≤ (1 : ℝ) := by
-    rw [div_le_one (by positivity)]; exact one_le_pow₀ (by norm_num)
-  rw [← ENNReal.ofReal_one, ← ENNReal.ofReal_sub _ hx, ← ENNReal.ofReal_pow (by linarith)]
-  apply ENNReal.ofReal_le_ofReal
-  rw [mul_comm 104, pow_mul]
-  exact pow_le_pow_left₀ (pow_nonneg (by linarith) _) (capBase_real h h1 h11) 104
+  have hb8 := topZeroBits_le h h11
+  generalize topZeroBits h = b at hb8 ⊢
+  rcases Nat.eq_zero_or_pos b with rfl | hb1
+  · simp
+  · rw [inv_two_pow_eq]
+    have hx : (0 : ℝ) ≤ 1 / 2 ^ b := by positivity
+    have hx1 : 1 / 2 ^ b ≤ (1 : ℝ) := by
+      rw [div_le_one (by positivity)]; exact one_le_pow₀ (by norm_num)
+    rw [← ENNReal.ofReal_one, ← ENNReal.ofReal_sub _ hx, ← ENNReal.ofReal_pow (by linarith)]
+    apply ENNReal.ofReal_le_ofReal
+    rw [mul_comm 104, pow_mul]
+    exact pow_le_pow_left₀ (pow_nonneg (by linarith) _) (capBase_real b hb1 (by omega)) 104
 
 theorem elev_sum_le : ((List.range' 1 11).map elev).sum ≤ ENNReal.ofReal (1 / 2 ^ 135) := by
   have h1 : ((List.range' 1 11).map elev).sum ≤

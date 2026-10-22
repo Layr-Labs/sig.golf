@@ -146,10 +146,10 @@ theorem l295_spec (hpc : s.pc = pcOf 295) (index : Nat) (hi : index < 2 ^ 31)
 
 theorem l318_spec (hpc : s.pc = pcOf 318) (index : Nat) (hi : index < 2 ^ 31)
     (hidx : s.getMem (BitVec.ofNat 64 IDXV) = BitVec.ofNat 64 index) :
-    ∃ t, Steps im s 14 14 t ∧ t.pc = pcOf 457 ∧ t.getReg .x1 = pcOf 332 ∧
+    ∃ t, Steps im s 14 14 t ∧ t.pc = pcOf 54522 ∧ t.getReg .x1 = pcOf 332 ∧
       t.getReg .x8 = BitVec.ofNat 64 0 ∧ t.getReg .x15 = BitVec.ofNat 64 12 ∧
-      t.getReg .x26 = BitVec.ofNat 64 54 ∧ t.getReg .x27 = BitVec.ofNat 64 51 ∧
-      t.getReg .x17 = BitVec.ofNat 64 146 ∧
+      t.getReg .x26 = BitVec.ofNat 64 51 ∧ t.getReg .x27 = BitVec.ofNat 64 51 ∧
+      t.getReg .x17 = BitVec.ofNat 64 152 ∧
       t.getReg .x18 = BitVec.ofNat 64 (index / 2 ^ 19 % 2 ^ 12) ∧ t.getReg .x9 = BitVec.ofNat 64 (index / 2 ^ 31) ∧
       RegsExcept s t [.x1, .x6, .x7, .x8, .x9, .x15, .x17, .x18, .x26, .x27, .x28] ∧
       Frame s t (fun _ => False) := by
@@ -266,13 +266,14 @@ theorem l332_spec (hpc : s.pc = pcOf 332) (c : Nat) (h19 : s.getReg .x19 = BitVe
 end
 theorem lentry_spec (lay : Layer) (s : MachineState) (hpc : s.pc = pcOf (lE lay)) (index : Nat) (hi : index < 2 ^ 31)
     (hidx : s.getMem (BitVec.ofNat 64 IDXV) = BitVec.ofNat 64 index) :
-    ∃ t, Steps im s (lK lay) (lK lay) t ∧ t.pc = pcOf 457 ∧ t.getReg .x1 = pcOf (lR1 lay) ∧
+    ∃ t, Steps im s (lK lay) (lK lay) t ∧ t.pc = pcOf (if lay=0 then 54522 else 457) ∧ t.getReg .x1 = pcOf (lR1 lay) ∧
       t.getReg .x8 = BitVec.ofNat 64 lay.val ∧ t.getReg .x15 = BitVec.ofNat 64 (height lay) ∧
       t.getReg .x26 = BitVec.ofNat 64 (chainCount lay) ∧ t.getReg .x27 = BitVec.ofNat 64 (csN4 lay) ∧
-      t.getReg .x17 = BitVec.ofNat 64 (if lay=0 then 146 else 201) ∧
+      t.getReg .x17 = BitVec.ofNat 64 (if lay=0 then 152 else 201) ∧
       t.getReg .x18 = BitVec.ofNat 64 (route index lay).1 ∧ t.getReg .x9 = BitVec.ofNat 64 (route index lay).2 ∧
       RegsExcept s t [.x1, .x6, .x7, .x8, .x9, .x15, .x17, .x18, .x26, .x27, .x28] ∧
       Frame s t (fun _ => False) := by
+  -- Campaign T51: the top entry (318) ends with `jal KCOPY` (54522); KCOPY then enters the counter search at 457.
   rw [route_fst, route_snd]
   fin_cases lay
   · exact l318_spec (im := im) s hpc index hi hidx
@@ -303,5 +304,143 @@ set_option maxRecDepth 100000
 set_option Elab.async false
 theorem installed_entry : EntryCode Images.expandImage := by
   constructor <;> apply codeAt_expand_current_chunk <;> decide +kernel
+
 #print axioms installed_entry
 end SigGolfCandidate.T3M.Expand.SharedRecover
+
+/-! ## T51 KCOPY (54522..54531, from 331 `jal ra, 54522`): copy the 1,896-byte shared kernel table window
+`0xFF9E00 .. 0xFFA568` (237 doublewords; the 1,892-byte block + 4 bytes) to RAM `0xA0000`, then `j 457`. -/
+namespace SigGolfCandidate.T3M.Expand.KCopy
+open RiscvZkvm.Rv64 SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv SigGolfCandidate.Rv
+set_option maxHeartbeats 1000000
+set_option maxRecDepth 10000
+
+def headWords : List (BitVec 32) := [0x000a0eb7,0x00ffae37,0xe00e0e13,0x768e0f13]
+def loopWords : List (BitVec 32) := [0xe3303,0x6eb023,0x8e0e13,0x8e8e93,0xffee68e3]
+def tailWords : List (BitVec 32) := [0xb18cb06f]
+
+sym_block loopRun := symRun { noAlias := true } loopWords (pcOf 54526) 50
+sym_block headRun := symRun { noAlias := true } headWords (pcOf 54522) 10
+sym_block tailRun := symRun { noAlias := true } tailWords (pcOf 54531) 10
+
+theorem loop_regs (s : MachineState) :
+    RegsExcept s (loopRun.res.toState s) [.x6,.x28,.x29] := by
+  intro r hr; simp at hr; cases r <;> simp_all [loopRun.res, rv_simp] <;> rfl
+
+theorem loop_step {im : Image} (hc : CodeAt im (pcOf 54526) loopWords)
+    (s : MachineState) (hpc : s.pc = pcOf 54526) (S D F : Nat)
+    (hS8 : S % 8 = 0) (hD8 : D % 8 = 0) (hS : S + 8 ≤ 2 ^ 24) (hD : D + 8 ≤ 2 ^ 24) (hF : F < 2 ^ 64)
+    (h28 : s.getReg .x28 = BitVec.ofNat 64 S) (h29 : s.getReg .x29 = BitVec.ofNat 64 D)
+    (h30 : s.getReg .x30 = BitVec.ofNat 64 F) :
+    ∃ t, Steps im s 5 5 t ∧ t.pc = (if S + 8 < F then pcOf 54526 else pcOf 54531) ∧
+      t.getReg .x28 = BitVec.ofNat 64 (S + 8) ∧ t.getReg .x29 = BitVec.ofNat 64 (D + 8) ∧
+      t.getMem (BitVec.ofNat 64 D) = s.getMem (BitVec.ofNat 64 S) ∧
+      RegsExcept s t [.x6,.x28,.x29] ∧ Frame s t (fun A => A = D) := by
+  refine ⟨_, symRun_sound loopRun hc s hpc ?_, ?_, ?_, ?_, ?_, loop_regs s, ?_⟩
+  · simp [loopRun.res, rv_simp, h28, h29, accessValid_iff, MEMORY_BYTES]
+    omega
+  · have hlt : (BitVec.ofNat 64 (S + 8)).ult (BitVec.ofNat 64 F) = decide (S + 8 < F) := by
+      simp only [BitVec.ult, BitVec.toNat_ofNat, Nat.mod_eq_of_lt (show S + 8 < 2 ^ 64 by omega),
+        Nat.mod_eq_of_lt hF]
+    simp only [Result.toState_pc, loopRun.res, E.eval, BinOp.eval, CmpOp.eval, h28, h30, ofNat_add_ofNat,
+      ofNat_add8, ofNat_add8', hlt]
+    by_cases h : S + 8 < F <;> simp [h] <;> rfl
+  · simp only [Result.toState_getReg, loopRun.res, rv_simp, h28, ofNat_add_ofNat, ofNat_add8, ofNat_add8']
+  · simp only [Result.toState_getReg, loopRun.res, rv_simp, h29, ofNat_add_ofNat, ofNat_add8, ofNat_add8']
+  · simp only [Result.toState_getMem, loopRun.res]
+    t3n [h28, h29]
+    simp
+  · intro A hA hne
+    simp only [Result.toState_getMem, loopRun.res]
+    t3n [h29]
+    split_ifs with he
+    · exfalso; apply hne; omega
+    · rfl
+
+/-- `n + 1` iterations of the copy loop, ascending, source `S`, destination `D`, end `S + 8 (n + 1)`. -/
+theorem loop_copy {im : Image} (hc : CodeAt im (pcOf 54526) loopWords) :
+    ∀ n (s : MachineState) (S D : Nat), S % 8 = 0 → D % 8 = 0 → S + 8 * (n + 1) ≤ 2 ^ 24 →
+      D + 8 * (n + 1) ≤ S → s.pc = pcOf 54526 →
+      s.getReg .x28 = BitVec.ofNat 64 S → s.getReg .x29 = BitVec.ofNat 64 D →
+      s.getReg .x30 = BitVec.ofNat 64 (S + 8 * (n + 1)) →
+      ∃ t, Steps im s (5 * (n + 1)) (5 * (n + 1)) t ∧ t.pc = pcOf 54531 ∧
+        t.getReg .x28 = BitVec.ofNat 64 (S + 8 * (n + 1)) ∧
+        t.getReg .x29 = BitVec.ofNat 64 (D + 8 * (n + 1)) ∧
+        (∀ i, i ≤ n → t.getMem (BitVec.ofNat 64 (D + 8 * i)) = s.getMem (BitVec.ofNat 64 (S + 8 * i))) ∧
+        RegsExcept s t [.x6,.x28,.x29] ∧ Frame s t (fun A => D ≤ A ∧ A < D + 8 * (n + 1)) := by
+  intro n
+  induction n with
+  | zero =>
+    intro s S D hS8 hD8 hS hD hpc h28 h29 h30
+    obtain ⟨t, st, pt, r28, r29, mt, rt, ft⟩ := loop_step hc s hpc S D (S + 8 * (0 + 1))
+      hS8 hD8 (by omega) (by omega) (by omega) h28 h29 h30
+    refine ⟨t, st, by simpa using pt, by simpa using r28, by simpa using r29, ?_, rt, ft.mono (by intro A _ h; omega)⟩
+    intro i hi
+    have hi0 : i = 0 := by omega
+    subst hi0
+    simpa using mt
+  | succ n ih =>
+    intro s S D hS8 hD8 hS hD hpc h28 h29 h30
+    obtain ⟨u, su, pu, u28, u29, mu, ru, fu⟩ := loop_step hc s hpc S D (S + 8 * (n + 1 + 1))
+      hS8 hD8 (by omega) (by omega) (by omega) h28 h29 h30
+    have hpu : u.pc = pcOf 54526 := by rw [pu, if_pos (by omega)]
+    obtain ⟨t, ut, pt, t28, t29, mt, rt, ft⟩ := ih u (S + 8) (D + 8) (by omega) (by omega) (by omega) (by omega)
+      hpu u28 u29 (by rw [ru.get (by decide), h30]; congr 1; ring)
+    refine ⟨t, ?_, pt, by rw [t28]; congr 1; ring, by rw [t29]; congr 1; ring, ?_, (ru.trans rt).mono (by decide), ?_⟩
+    · convert su.trans ut using 1 <;> ring
+    · intro i hi
+      rcases i with _ | i
+      · rw [ft _ (by omega) (by omega)]
+        simpa using mu
+      · have h1 := mt i (by omega)
+        rw [show D + 8 * (i + 1) = D + 8 + 8 * i by ring, h1, show S + 8 + 8 * i = S + 8 * (i + 1) by ring]
+        exact fu _ (by omega) (by omega)
+    · exact (fu.trans ft).mono (by intro A _ h; rcases h with h | h <;> omega)
+
+theorem head_spec {im : Image} (hc : CodeAt im (pcOf 54522) headWords) (s : MachineState) (hpc : s.pc = pcOf 54522) :
+    ∃ t, Steps im s 4 4 t ∧ t.pc = pcOf 54526 ∧ t.getReg .x28 = BitVec.ofNat 64 0xFF9E00 ∧
+      t.getReg .x29 = BitVec.ofNat 64 0xA0000 ∧ t.getReg .x30 = BitVec.ofNat 64 0xFFA568 ∧
+      RegsExcept s t [.x28,.x29,.x30] ∧ Frame s t (fun _ => False) := by
+  refine ⟨_, symRun_sound headRun hc s hpc (by simp [headRun.res, rv_simp]), ?_, ?_, ?_, ?_, ?_, ?_⟩
+  · rfl
+  · simp [headRun.res, rv_simp]
+  · simp [headRun.res, rv_simp]
+  · simp [headRun.res, rv_simp]
+  · intro r hr; cases r <;> first | rfl | exact (hr (by decide)).elim
+  · intro A _ _; simp [headRun.res, rv_simp]
+
+theorem tail_spec {im : Image} (hc : CodeAt im (pcOf 54531) tailWords) (s : MachineState) (hpc : s.pc = pcOf 54531) :
+    ∃ t, Steps im s 1 1 t ∧ t.pc = pcOf 457 ∧ RegsExcept s t [] ∧ Frame s t (fun _ => False) := by
+  refine ⟨_, symRun_sound tailRun hc s hpc (by simp [tailRun.res, rv_simp]), ?_, ?_, ?_⟩
+  · rfl
+  · intro r hr; cases r <;> rfl
+  · intro A _ _; simp [tailRun.res, rv_simp]
+
+/-- KCOPY's code (a class, so the layer-recovery sections can take it as an instance like `EntryCode`). -/
+class Code (im : Image) : Prop where
+  head : CodeAt im (pcOf 54522) headWords
+  loop : CodeAt im (pcOf 54526) loopWords
+  tail : CodeAt im (pcOf 54531) tailWords
+
+/-- KCOPY: 1,190 steps from 54522 to the counter search entry 457, copying the 237 doublewords at `0xFF9E00` to RAM
+`0xA0000 .. 0xA0768`. -/
+theorem kcopy_spec {im : Image} [Code im] (s : MachineState) (hpc : s.pc = pcOf 54522) :
+    ∃ u, Steps im s 1190 1190 u ∧ u.pc = pcOf 457 ∧
+      (∀ k, k < 237 → u.getMem (BitVec.ofNat 64 (0xA0000 + 8 * k)) = s.getMem (BitVec.ofNat 64 (0xFF9E00 + 8 * k))) ∧
+      RegsExcept s u [.x6,.x28,.x29,.x30] ∧ Frame s u (fun A => 0xA0000 ≤ A ∧ A < 0xA0768) := by
+  obtain ⟨t0, s0, p0, a28, a29, a30, r0, f0⟩ := head_spec (Code.head (im := im)) s hpc
+  obtain ⟨t1, s1, p1, b28, b29, m1, r1, f1⟩ := loop_copy (Code.loop (im := im)) 236 t0 0xFF9E00 0xA0000
+    (by decide) (by decide) (by decide) (by decide) p0 a28 a29 (by rw [a30])
+  obtain ⟨u, s4, p4, r4, f4⟩ := tail_spec (Code.tail (im := im)) t1 p1
+  refine ⟨u, ((s0.trans s1).trans s4).of_eq (by norm_num) (by norm_num), p4, ?_, ?_, ?_⟩
+  · intro k hk
+    rw [f4.get (by omega) (by simp), m1 k (by omega), f0.get (by omega) (by simp)]
+  · exact ((r0.trans r1).trans r4).mono (by decide)
+  · exact ((f0.trans f1).trans f4).mono (fun A _ h => by
+      rcases h with ((h | h) | h) <;> first | exact h.elim | omega)
+
+theorem installed_code : Code Images.expandImage := by
+  constructor <;> (apply codeAt_t51_at <;> decide)
+
+#print axioms kcopy_spec
+end SigGolfCandidate.T3M.Expand.KCopy

@@ -52,12 +52,14 @@ theorem lower_zero_count_le {lay : Layer} (hlay : lay ≠ 0) (htarget : 197 ≤ 
 theorem lower_target_ge (lay : Layer) (hlay : lay ≠ 0) : 197 ≤ target lay := by
   revert hlay; fin_cases lay <;> decide
 
-/-! ### Revealed seeds of a top leaf (campaign T8D, TOP2 NF17)
+/-! ### Revealed seeds of a top leaf (campaign T51)
 
-The top WOTS has 51 radix-5 chains (digits `≤ 4`) and 3 radix-8 chains (digits `≤ 7`), capacity `51·4 + 3·7 = 225`.
-A zero digit loses at least `4` from the capacity, so a top codeword with digit sum `T` has at most `(225 - T)/4`
-zero digits: `≤ 20` for `T ≥ 142` (`top_zero_count_le`). With 24 coefficients per top leaf family every unrevealed
-top seed keeps `24 - 20 ≥ 3` degrees of freedom (`|R| + 3 ≤ 24`). The dummy top codeword has no zero digit. -/
+The T51 top WOTS has 27 radix-6 chains (digits `≤ 5`), 21 radix-5 chains (`≤ 4`), the radix-7 pair (`≤ 6`) and the
+radix-6 checksum chain (`≤ 5`): capacity `27·5 + 21·4 + 2·6 + 5 = 236`. A zero digit loses at least `4` from the
+capacity, so a top codeword with digit sum `T` has at most `(236 - T)/4` zero digits: `≤ 21` for `T ≥ 152`
+(`top_zero_count_le`). With 31 coefficients per 4-leaf top family (`famCount_top`) every unrevealed top seed keeps
+`31 - 21 ≥ 3` degrees of freedom even without the producer cap (the producer cap is 7). The dummy top codeword has no
+zero digit. (#938: 54 chains, capacity 225, `≤ 20` zeros for `T ≥ 142`, 24 coefficients.) -/
 
 /-- Digits bounded entrywise by `ms`, every bound `≥ 4`: the sum plus `4` per zero digit is at most `ms.sum`. -/
 theorem sum_add_four_zero_le : ∀ (ds ms : List Nat), ds.length = ms.length →
@@ -75,13 +77,15 @@ theorem sum_add_four_zero_le : ∀ (ds ms : List Nat), ds.length = ms.length →
   | [], _ :: _, hl, _, _ => by simp at hl
   | _ :: _, [], hl, _, _ => by simp at hl
 
-theorem top_capacity : ((List.range (chainCount 0)).map (maxDigit 0)).sum = 225 := by decide
+/-- Campaign T51: 27·5 + 21·4 + 2·6 + 5. -/
+theorem top_capacity : ((List.range (chainCount 0)).map (maxDigit 0)).sum = 236 := by decide
 
 theorem top_maxDigit_ge (i : Nat) : 4 ≤ maxDigit 0 i := by unfold maxDigit; split_ifs <;> omega
 
-/-- **At most 20 revealed seeds per top leaf** (for top targets `≥ 142`). -/
-theorem top_zero_count_le (htarget : 142 ≤ target 0) {value : Digest} {digits : List Nat}
-    (h : decode 0 value = some digits) : (digits.filter (· = 0)).length ≤ 20 := by
+/-- **At most 21 revealed seeds per top leaf** (for top targets `≥ 152`; campaign T51, restated from `≤ 20` for
+`≥ 142` on #938's capacity 225). -/
+theorem top_zero_count_le (htarget : 152 ≤ target 0) {value : Digest} {digits : List Nat}
+    (h : decode 0 value = some digits) : (digits.filter (· = 0)).length ≤ 21 := by
   obtain ⟨hlen, hsum⟩ := decode_length_sum h
   have key := sum_add_four_zero_le digits ((List.range (chainCount 0)).map (maxDigit 0)) (by simp [hlen])
     (fun i => by
@@ -98,7 +102,7 @@ theorem top_zero_count_le (htarget : 142 ≤ target 0) {value : Digest} {digits 
   omega
 
 /-- The current top target satisfies the hypothesis of `top_zero_count_le`. -/
-theorem top_target_ge : 142 ≤ target 0 := by decide
+theorem top_target_ge : 152 ≤ target 0 := by decide
 
 /-- The dummy top codeword has no zero digit. -/
 theorem dummyTop_zero : (dummyTop.filter (· = 0)).length = 0 := by decide

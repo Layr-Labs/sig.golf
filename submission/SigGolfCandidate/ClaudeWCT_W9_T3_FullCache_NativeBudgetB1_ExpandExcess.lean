@@ -33,8 +33,8 @@ theorem cost_searchTop_le_hit (answers : Answers) (index : Nat) (v sib pk : Dige
       have := ih (c0 + 1) c (by omega) (by omega) h3
       omega
 
-/-- The brute-forced field of a top sibling: bits 109..127 (19 bits). -/
-def topField (d : Digest) : Nat := d.toNat / 2 ^ 109
+/-- The brute-forced field of a top sibling (T51): bits 112..127 (16 bits; `setTop_self`, `top_lt`). -/
+def topField (d : Digest) : Nat := d.toNat / 2 ^ 112
 
 /-- **img-v6 refined expand cost**: on a signature whose full (unfilled) top path recovers to the key, the brute
 force costs at most the omitted field of the true top sibling (`topField`), instead of `searchFuel`. -/

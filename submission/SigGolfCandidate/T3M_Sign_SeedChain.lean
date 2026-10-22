@@ -897,6 +897,7 @@ producer. -/
 theorem installed_code : Code Images.signImage := by
   refine ⟨?_, ?_, ?_, ?_, ⟨?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩,
     ⟨?_, ?_, ?_, ?_, ?_, ?_, ?_⟩⟩ <;> (apply codeAt_sign_current_slice <;> decide +kernel)
+
 end ClaudeWCT.W9.Machine.Sign.SharedChain
 
 namespace ClaudeWCT.W9.Machine.Sign.SharedChain
@@ -1002,7 +1003,7 @@ theorem hash_rung {im : Image} (hc : Code im) (sk : BitVec 256)
   obtain ⟨u,hu,upc,ur,uf⟩ := sub8_spec hc s hp m e (by omega) (by omega) h20 hpre.x21
   rw [if_neg (by omega)] at upc
   obtain ⟨t,ht,tpc,t28,t16,t24,tr,tf⟩ := shared_header_source hc u upc lay tree leaf i m
-    hpre.hroute hpre.hleaf hpre.hi (by omega)
+    hpre.hroute hpre.hleaf (by have := hpre.hi; omega) (by omega)
     (by rw [ur.get (by simp)]; exact hpre.x8)
     (by rw [ur.get (by simp)]; exact hpre.x9)
     (by rw [ur.get (by simp)]; exact hpre.x18)
@@ -1018,7 +1019,7 @@ theorem hash_rung {im : Image} (hc : Code im) (sk : BitVec 256)
     (by rw [regs.get (by simp)]; exact hpre.x19) (by rw [regs.get (by simp)]; exact h20) t28
     (by rw [fr.get (by decide) (by simp only [CHAIN]; omega)]; exact hpre.z0)
     (by rw [fr.get (by decide) (by simp only [CHAIN]; omega)]; exact hpre.z8)
-    t16 t24 (source_high_actual lay tree leaf i m hpre.hroute hpre.hleaf hpre.hi (by omega)) tv
+    t16 t24 (source_high_actual lay tree leaf i m hpre.hroute hpre.hleaf (by have := hpre.hi; omega) (by omega)) tv
   refine ((TSim.steps (hu.trans ht) run).of_eq rfl ?_ ?_ rfl rfl).mono ?_
   · unfold headerK; split_ifs <;> omega
   · unfold headerK; split_ifs <;> omega

@@ -36,7 +36,9 @@ def ftsChild (index : Fin (2^31)) (coord : Fin 9) (level c : Nat) : Option Coord
   else (ftsNodeAt index coord (level - 1) c).map fun n => .inl (.wctNode n)
 def endPoint (L : LeafPos) (i : Nat) : ChainGraph.Point :=
   (⟨L.lay, L.tree, L.leaf, fin58 i⟩, ⟨(maxDigit L.lay i - 1) % 7, Nat.mod_lt _ (by decide)⟩)
-def leafBlock (lay : Layer) (i : Nat) : Nat := if lay = 0 then i + 2 else listBlock i
+/-- Block of chain end `i` in a WOTS leaf input. Campaign T51 ("endpad"): the top leaf `end_0 | tweak | end_1 ..` has
+the lower shape (#938: `pad | tweak | end_0 ..`, block `i + 2`). -/
+def leafBlock (lay : Layer) (i : Nat) : Nat := if lay = 0 then listBlock i else listBlock i
 /-- Block of FTS end `t` in the padded FTS leaf `end0 | hdr | pad | end1..end5` (campaign T8). -/
 def ftsLeafSlot (t : Nat) : Nat := if t = 0 then 0 else t + 2
 /-- Pad source of FTS coordinate `coord` (nested FTS r1-1): top node `b` of coordinate `coord - 1`; none for

@@ -1225,6 +1225,34 @@ theorem costOf_nonneg (k : ℕ) (P : Par) (hP : ParFacts P) (x : ℝ) (hx : 0 �
       linarith
     · exact le_rfl
 
+theorem scarf_shift (θ m vv z : ℝ) : scarf (θ - z) m vv = scarf θ (m + z) vv := by
+  unfold scarf; ring_nf
+
+/-- Every route-C cost is monotone in the bucket price (needed for the cap-777 thinning). -/
+theorem costOf_mono (k : ℕ) (P : Par) (hP : ParFacts P) {x y : ℝ} (hx : 0 ≤ x) (hxy : x ≤ y) :
+    costOf k P x ≤ costOf k P y := by
+  match k with
+  | 0 => exact min_le_min hxy le_rfl
+  | 1 => exact pow_le_pow_left₀ (le_min hx hP.c0.le) (min_le_min hxy le_rfl) 2
+  | 2 =>
+    show (if (P.c0 : ℝ) < x then (1 : ℝ) else 0) ≤ (if (P.c0 : ℝ) < y then (1 : ℝ) else 0)
+    by_cases h : (P.c0 : ℝ) < x
+    · rw [if_pos h, if_pos (lt_of_lt_of_le h hxy)]
+    · rw [if_neg h]; split_ifs <;> norm_num
+  | 3 => exact max_le_max le_rfl (sub_le_sub_right hxy _)
+  | 4 =>
+    show Real.exp (P.a * min x P.c0) - 1 ≤ Real.exp (P.a * min y P.c0) - 1
+    exact sub_le_sub_right (Real.exp_le_exp.mpr
+      (mul_le_mul_of_nonneg_left (min_le_min hxy le_rfl) hP.a)) 1
+  | k + 5 =>
+    show (if (P.c0 : ℝ) < x then scarf (P.θ - x) P.m P.vv else 0) ≤
+      (if (P.c0 : ℝ) < y then scarf (P.θ - y) P.m P.vv else 0)
+    by_cases h : (P.c0 : ℝ) < x
+    · rw [if_pos h, if_pos (lt_of_lt_of_le h hxy), scarf_shift, scarf_shift]
+      exact RouteC.scarf_mono (by linarith) le_rfl hP.vv
+    · rw [if_neg h]
+      exact costOf_nonneg (k + 5) P hP y (hx.trans hxy)
+
 /-! ### Bins at a general gate -/
 
 theorem upperQ_real (g j : ℕ) : (upperQ g j : ℝ) = (g : ℝ) / 2 ^ 66 * ((101 : ℝ) / 100) ^ j := by

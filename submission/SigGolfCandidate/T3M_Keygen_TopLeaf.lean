@@ -5,10 +5,10 @@ import SigGolfCandidate.ClaudeWCT_W9_New_Machine_Sign_GfMul
 # Keygen top leaf with family seeds (campaign T8D, TOP2 NF17)
 
 The keygen image's top-leaf routine (entry 144) first runs KTOP (img-v6, 612 -> 1149..1168 + the pair loop 618..640:
-at a family start `leaf % 4 = 0` the family's private pairs `privatePair 0 0 0 (39 f / 2 + j) 0`, `j ∈ [f % 2, 20)`,
-copied to the coefficient buffer at `KCOEF`, an odd family first copying the carry slot 39 to slot 0; otherwise
-nothing: `topFamilyCoefs`), then for every chain `i < 54` runs
-HORN (642 -> KHORN 1169..1176, loop 647..682: `familyEval coefs (topPoint leaf i)`, 39 coefficients, into `CHAIN + 48`), the per-chain cap table CAP (684..688: `maxDigit 0 i`),
+at a family start `leaf % 4 = 0` the family's private pairs `privatePair 0 0 0 (31 f / 2 + j) 0`, `j ∈ [f % 2, 16)`,
+copied to the coefficient buffer at `KCOEF`, an odd family first copying the carry slot 31 to slot 0; otherwise
+nothing: `topFamilyCoefs`), then for every chain `i < 51` (campaign T51) runs
+HORN (642 -> KHORN 1169..1176, loop 647..682: `familyEval coefs (topPoint leaf i)`, 31 coefficients, into `CHAIN + 48`), the per-chain cap table CAP (684..688: `maxDigit 0 i`),
 the shared chain routine (117) and stores the chain end; finally the leaf hash. This file proves the blocks, the two
 new loops and `buildLeafTop_tsim` (refinement of `T3.buildLeafTop leaf []` with exact step/cycle/hash counts).
 -/
@@ -44,6 +44,10 @@ def kgHF : List (BitVec 32) := (hornCode.drop 25).take 12
 def kgHE : List (BitVec 32) := (hornCode.drop 37).take 4
 def kgC1 : List (BitVec 32) := capCode.take 3
 def kgC2 : List (BitVec 32) := capCode.drop 3
+/-- Campaign T51: the CAP continuation at 770 (`i < 48`, `i < 50`, chain 50). -/
+def kgC3 : List (BitVec 32) := capCont.take 2
+def kgC4 : List (BitVec 32) := (capCont.drop 2).take 3
+def kgC5 : List (BitVec 32) := capCont.drop 5
 def kfA : List (BitVec 32) := ktopCode.take 2
 def kfB : List (BitVec 32) := (ktopCode.drop 2).take 10
 def kfD : List (BitVec 32) := (ktopCode.drop 12).take 5
@@ -70,6 +74,9 @@ theorem codeAt_kgHF : CodeAt image (pcOf 667) kgHF := by decide +kernel
 theorem codeAt_kgHE : CodeAt image (pcOf 679) kgHE := by decide +kernel
 theorem codeAt_kgC1 : CodeAt image (pcOf 684) kgC1 := by decide +kernel
 theorem codeAt_kgC2 : CodeAt image (pcOf 687) kgC2 := by decide +kernel
+theorem codeAt_kgC3 : CodeAt image (pcOf 770) kgC3 := by decide +kernel
+theorem codeAt_kgC4 : CodeAt image (pcOf 772) kgC4 := by decide +kernel
+theorem codeAt_kgC5 : CodeAt image (pcOf 775) kgC5 := by decide +kernel
 theorem codeAt_kfA : CodeAt image (pcOf 1149) kfA := by decide +kernel
 theorem codeAt_kfB : CodeAt image (pcOf 1151) kfB := by decide +kernel
 theorem codeAt_kfD : CodeAt image (pcOf 1161) kfD := by decide +kernel
@@ -95,6 +102,9 @@ sym_block bkHF := symRun { noAlias := true } kgHF (pcOf 667) 100
 sym_block bkHE := symRun { noAlias := true } kgHE (pcOf 679) 100
 sym_block bkC1 := symRun { noAlias := true } kgC1 (pcOf 684) 100
 sym_block bkC2 := symRun { noAlias := true } kgC2 (pcOf 687) 100
+sym_block bkC3 := symRun { noAlias := true } kgC3 (pcOf 770) 100
+sym_block bkC4 := symRun { noAlias := true } kgC4 (pcOf 772) 100
+sym_block bkC5 := symRun { noAlias := true } kgC5 (pcOf 775) 100
 sym_block bkfA := symRun { noAlias := true } kfA (pcOf 1149) 100
 sym_block bkfB := symRun { noAlias := true } kfB (pcOf 1151) 100
 sym_block bkfD := symRun { noAlias := true } kfD (pcOf 1161) 100
@@ -181,37 +191,81 @@ theorem kg192_spec (s : MachineState) (hpc : s.pc = pcOf 192) :
   · intro r hr; cases r <;> simp_all [bk192.res, rv_simp] <;> rfl
   · intro A _ _; simp [bk192.res, rv_simp]
 
-/-- CAP (684..688): `s5 = maxDigit 0 i`, then 193. -/
+/-- Steps of CAP (campaign T51): 3 (`i < 27`), 7 (`i < 48`), 10 (`i < 50`), 12 (chain 50). -/
+def capK (i : Nat) : Nat := if i < 27 then 3 else if i < 48 then 7 else if i < 50 then 10 else 12
+/-- CAP (684..688, 770..776): `s5 = maxDigit 0 i`, then 193. -/
 theorem kgCap_spec (s : MachineState) (hpc : s.pc = pcOf 684) (i : Nat) (hi : i < 2 ^ 63)
     (h19 : s.getReg .x19 = BitVec.ofNat 64 i) :
-    ∃ t, Steps image s (if i < 51 then 3 else 5) (if i < 51 then 3 else 5) t ∧ t.pc = pcOf 193 ∧
+    ∃ t, Steps image s (capK i) (capK i) t ∧ t.pc = pcOf 193 ∧
       t.getReg .x21 = BitVec.ofNat 64 (maxDigit 0 i) ∧ RegsExcept s t [.x21, .x30] ∧
       Frame s t (fun _ => False) := by
   obtain ⟨t1, st1, t1pc, t1x21, t1r, t1f⟩ : ∃ t, Steps image s 3 3 t ∧
-      t.pc = (if i < 51 then pcOf 193 else pcOf 687) ∧ t.getReg .x21 = BitVec.ofNat 64 4 ∧
+      t.pc = (if i < 27 then pcOf 193 else pcOf 687) ∧ t.getReg .x21 = BitVec.ofNat 64 5 ∧
       RegsExcept s t [.x21, .x30] ∧ Frame s t (fun _ => False) := by
     refine ⟨_, symRun_sound bkC1 codeAt_kgC1 s hpc (by simp [bkC1.res, rv_simp]), ?_, ?_, ?_, ?_⟩
     · simp only [Result.toState_pc, bkC1.res, E.eval, CmpOp.eval, h19,
-        ofNat_slt i 51 hi (by norm_num)]
-      by_cases h : i < 51 <;> simp [h]
+        ofNat_slt i 27 hi (by norm_num)]
+      by_cases h : i < 27 <;> simp [h]
     · simp [bkC1.res, rv_simp]
     · intro r hr; simp at hr; cases r <;> simp_all [bkC1.res, rv_simp] <;> rfl
     · intro A _ _; simp [bkC1.res, rv_simp]
-  by_cases h : i < 51
-  · rw [if_pos h] at t1pc
-    refine ⟨t1, by simpa [h] using st1, t1pc, ?_, t1r, t1f⟩
-    rw [t1x21]; simp [maxDigit, h]
-  · rw [if_neg h] at t1pc
-    obtain ⟨t2, st2, t2pc, t2x21, t2r, t2f⟩ : ∃ t, Steps image t1 2 2 t ∧ t.pc = pcOf 193 ∧
-        t.getReg .x21 = BitVec.ofNat 64 7 ∧ RegsExcept t1 t [.x21] ∧ Frame t1 t (fun _ => False) := by
-      refine ⟨_, symRun_sound bkC2 codeAt_kgC2 t1 t1pc (by simp [bkC2.res, rv_simp]), ?_, ?_, ?_, ?_⟩
-      · simp [bkC2.res, Result.toState_pc, E.eval]
-      · simp [bkC2.res, rv_simp]
-      · intro r hr; simp at hr; cases r <;> simp_all [bkC2.res, rv_simp] <;> rfl
-      · intro A _ _; simp [bkC2.res, rv_simp]
-    refine ⟨t2, by simpa [h] using st1.trans st2, t2pc, ?_, (t1r.trans t2r).mono (by simp),
-      (t1f.trans t2f).mono (fun _ _ h => by simp_all)⟩
-    rw [t2x21]; simp [maxDigit, h]
+  by_cases h27 : i < 27
+  · rw [if_pos h27] at t1pc
+    refine ⟨t1, by simpa [capK, h27] using st1, t1pc, ?_, t1r, t1f⟩
+    rw [t1x21]; simp [maxDigit, h27]
+  rw [if_neg h27] at t1pc
+  obtain ⟨t2, st2, t2pc, t2x21, t2r, t2f⟩ : ∃ t, Steps image t1 2 2 t ∧ t.pc = pcOf 770 ∧
+      t.getReg .x21 = BitVec.ofNat 64 4 ∧ RegsExcept t1 t [.x21] ∧ Frame t1 t (fun _ => False) := by
+    refine ⟨_, symRun_sound bkC2 codeAt_kgC2 t1 t1pc (by simp [bkC2.res, rv_simp]), ?_, ?_, ?_, ?_⟩
+    · simp [bkC2.res, Result.toState_pc, E.eval]
+    · simp [bkC2.res, rv_simp]
+    · intro r hr; simp at hr; cases r <;> simp_all [bkC2.res, rv_simp] <;> rfl
+    · intro A _ _; simp [bkC2.res, rv_simp]
+  have r19 : t2.getReg .x19 = BitVec.ofNat 64 i := by rw [t2r.get (by simp), t1r.get (by simp)]; exact h19
+  obtain ⟨t3, st3, t3pc, t3r, t3f⟩ : ∃ t, Steps image t2 2 2 t ∧
+      t.pc = (if i < 48 then pcOf 193 else pcOf 772) ∧ RegsExcept t2 t [.x30] ∧ Frame t2 t (fun _ => False) := by
+    refine ⟨_, symRun_sound bkC3 codeAt_kgC3 t2 t2pc (by simp [bkC3.res, rv_simp]), ?_, ?_, ?_⟩
+    · simp only [Result.toState_pc, bkC3.res, E.eval, CmpOp.eval, r19,
+        ofNat_slt i 48 hi (by norm_num)]
+      by_cases h : i < 48 <;> simp [h]
+    · intro r hr; simp at hr; cases r <;> simp_all [bkC3.res, rv_simp] <;> rfl
+    · intro A _ _; simp [bkC3.res, rv_simp]
+  have r12 : RegsExcept s t3 ([.x21, .x30] ++ [.x21] ++ [.x30]) := (t1r.trans t2r).trans t3r
+  have f12 : Frame s t3 (fun _ => False) := ((t1f.trans t2f).trans t3f).mono (fun _ _ h => by simp_all)
+  by_cases h48 : i < 48
+  · rw [if_pos h48] at t3pc
+    refine ⟨t3, by simpa [capK, h27, h48] using (st1.trans st2).trans st3, t3pc, ?_, r12.mono (by simp), f12⟩
+    rw [t3r.get (by simp), t2x21]; simp [maxDigit, h27, h48]
+  rw [if_neg h48] at t3pc
+  have r19' : t3.getReg .x19 = BitVec.ofNat 64 i := by rw [t3r.get (by simp)]; exact r19
+  obtain ⟨t4, st4, t4pc, t4x21, t4r, t4f⟩ : ∃ t, Steps image t3 3 3 t ∧
+      t.pc = (if i < 50 then pcOf 193 else pcOf 775) ∧ t.getReg .x21 = BitVec.ofNat 64 6 ∧
+      RegsExcept t3 t [.x21, .x30] ∧ Frame t3 t (fun _ => False) := by
+    refine ⟨_, symRun_sound bkC4 codeAt_kgC4 t3 t3pc (by simp [bkC4.res, rv_simp]), ?_, ?_, ?_, ?_⟩
+    · simp only [Result.toState_pc, bkC4.res, E.eval, CmpOp.eval, r19',
+        ofNat_slt i 50 hi (by norm_num)]
+      by_cases h : i < 50 <;> simp [h]
+    · simp [bkC4.res, rv_simp]
+    · intro r hr; simp at hr; cases r <;> simp_all [bkC4.res, rv_simp] <;> rfl
+    · intro A _ _; simp [bkC4.res, rv_simp]
+  have r14 : RegsExcept s t4 ([.x21, .x30] ++ [.x21] ++ [.x30] ++ [.x21, .x30]) := r12.trans t4r
+  have f14 : Frame s t4 (fun _ => False) := (f12.trans t4f).mono (fun _ _ h => by simp_all)
+  by_cases h50 : i < 50
+  · rw [if_pos h50] at t4pc
+    refine ⟨t4, by simpa [capK, h27, h48, h50] using ((st1.trans st2).trans st3).trans st4, t4pc, ?_,
+      r14.mono (by simp), f14⟩
+    rw [t4x21]; simp [maxDigit, h27, h48, h50]
+  rw [if_neg h50] at t4pc
+  obtain ⟨t5, st5, t5pc, t5x21, t5r, t5f⟩ : ∃ t, Steps image t4 2 2 t ∧ t.pc = pcOf 193 ∧
+      t.getReg .x21 = BitVec.ofNat 64 5 ∧ RegsExcept t4 t [.x21] ∧ Frame t4 t (fun _ => False) := by
+    refine ⟨_, symRun_sound bkC5 codeAt_kgC5 t4 t4pc (by simp [bkC5.res, rv_simp]), ?_, ?_, ?_, ?_⟩
+    · simp [bkC5.res, Result.toState_pc, E.eval]
+    · simp [bkC5.res, rv_simp]
+    · intro r hr; simp at hr; cases r <;> simp_all [bkC5.res, rv_simp] <;> rfl
+    · intro A _ _; simp [bkC5.res, rv_simp]
+  refine ⟨t5, by simpa [capK, h27, h48, h50] using (((st1.trans st2).trans st3).trans st4).trans st5, t5pc, ?_,
+    (r14.trans t5r).mono (by simp), (f14.trans t5f).mono (fun _ _ h => by simp_all)⟩
+  rw [t5x21]; simp [maxDigit, h27, h48, h50]
 
 /-! ## COEFGEN blocks -/
 /-! ## img-v6 KTOP / KHORN blocks (1149..1176) -/
@@ -248,21 +302,21 @@ theorem kshr2 (q : Nat) (hq : q < 2 ^ 64) :
     BitVec.ofNat 64 q >>> (2 : Nat) &&& 1#64 = BitVec.ofNat 64 (q / 4 % 2) := by
   rw [ofNat_shr q 2 hq, ofNat_and1]; rfl
 theorem kfB_x14 (leaf : Nat) (hleaf : leaf < 2 ^ 32) :
-    (BitVec.ofNat 64 leaf >>> (2 : Nat) * 39#64 + BitVec.ofNat 64 (leaf / 4 % 2)) >>> (1 : Nat) <<< (32 : Nat) |||
-      1#64 = BitVec.ofNat 64 (1 + 2 ^ 32 * (39 * (leaf / 4) / 2 + leaf / 4 % 2)) := by
+    (BitVec.ofNat 64 leaf >>> (2 : Nat) * 31#64 + BitVec.ofNat 64 (leaf / 4 % 2)) >>> (1 : Nat) <<< (32 : Nat) |||
+      1#64 = BitVec.ofNat 64 (1 + 2 ^ 32 * (31 * (leaf / 4) / 2 + leaf / 4 % 2)) := by
   have e1 : BitVec.ofNat 64 leaf >>> (2 : Nat) = BitVec.ofNat 64 (leaf / 4) := by
     rw [ofNat_shr leaf 2 (by omega)]; rfl
-  have e2 : BitVec.ofNat 64 (leaf / 4) * 39#64 = BitVec.ofNat 64 (leaf / 4 * 39) := by
+  have e2 : BitVec.ofNat 64 (leaf / 4) * 31#64 = BitVec.ofNat 64 (leaf / 4 * 31) := by
     apply BitVec.eq_of_toNat_eq; simp [BitVec.toNat_mul]
   rw [e1, e2, ofNat_add_ofNat, ofNat_shr _ 1 (by omega), ofNat_shl, show (1#64) = BitVec.ofNat 64 1 from rfl,
-    ofNat_or_disjoint 1 ((leaf / 4 * 39 + leaf / 4 % 2) / 2 ^ 1 * 2 ^ 32) 32 (by norm_num) (by omega)]
+    ofNat_or_disjoint 1 ((leaf / 4 * 31 + leaf / 4 % 2) / 2 ^ 1 * 2 ^ 32) 32 (by norm_num) (by omega)]
   congr 1; omega
-/-- 1151..1160: `s8 = KCOEF`, `f = s2 >> 2`, `t4 = f & 1`, `a4 = ((39 f + t4) >> 1) << 32 | 1`, `beq t4, zero, 1166`
+/-- 1151..1160: `s8 = KCOEF`, `f = s2 >> 2`, `t4 = f & 1`, `a4 = ((31 f + t4) >> 1) << 32 | 1`, `beq t4, zero, 1166`
 (the `mul` costs 4 cycles). -/
 theorem kfB_spec (s : MachineState) (hpc : s.pc = pcOf 1151) (leaf : Nat) (hleaf : leaf < 2 ^ 32)
     (h18 : s.getReg .x18 = BitVec.ofNat 64 leaf) :
     ∃ t, Steps image s 10 13 t ∧ t.pc = (if leaf / 4 % 2 = 0 then pcOf 1166 else pcOf 1161) ∧
-      t.getReg .x14 = BitVec.ofNat 64 (1 + 2 ^ 32 * (39 * (leaf / 4) / 2 + leaf / 4 % 2)) ∧
+      t.getReg .x14 = BitVec.ofNat 64 (1 + 2 ^ 32 * (31 * (leaf / 4) / 2 + leaf / 4 % 2)) ∧
       t.getReg .x24 = BitVec.ofNat 64 KCOEF ∧ t.getReg .x29 = BitVec.ofNat 64 (leaf / 4 % 2) ∧
       RegsExcept s t [.x14, .x24, .x29, .x30] ∧ Frame s t (fun _ => False) := by
   have h2 : (2#64).toNat % 64 = 2 := by decide
@@ -285,11 +339,11 @@ theorem kfB_spec (s : MachineState) (hpc : s.pc = pcOf 1151) (leaf : Nat) (hleaf
   · intro r hr; simp at hr; cases r <;> simp_all [bkfB.res, rv_simp] <;> rfl
   · intro A _ _; simp [bkfB.res, rv_simp]
 
-/-- 1161..1165 (odd family): copy the carry slot 39 to slot 0, `s8 += 16`. -/
+/-- 1161..1165 (odd family): copy the carry slot 31 to slot 0, `s8 += 16`. -/
 theorem kfD_spec (s : MachineState) (hpc : s.pc = pcOf 1161) (h24 : s.getReg .x24 = BitVec.ofNat 64 KCOEF) :
     ∃ t, Steps image s 5 5 t ∧ t.pc = pcOf 1166 ∧
-      t.getMem (BitVec.ofNat 64 KCOEF) = s.getMem (BitVec.ofNat 64 (KCOEF + 624)) ∧
-      t.getMem (BitVec.ofNat 64 (KCOEF + 8)) = s.getMem (BitVec.ofNat 64 (KCOEF + 632)) ∧
+      t.getMem (BitVec.ofNat 64 KCOEF) = s.getMem (BitVec.ofNat 64 (KCOEF + 496)) ∧
+      t.getMem (BitVec.ofNat 64 (KCOEF + 8)) = s.getMem (BitVec.ofNat 64 (KCOEF + 504)) ∧
       t.getReg .x24 = BitVec.ofNat 64 (KCOEF + 16) ∧
       RegsExcept s t [.x4, .x24] ∧ Frame s t (fun A => A = KCOEF ∨ A = KCOEF + 8) := by
   have hobl : Oblig.all s bkfD.res.st.obl := by
@@ -333,12 +387,12 @@ theorem kfF_spec (s : MachineState) (hpc : s.pc = pcOf 1167) (ret : Nat) (h1 : s
   · intro r hr; simp at hr; cases r <;> simp_all [bkfF.res, rv_simp] <;> rfl
   · intro A _ _; simp [bkfF.res, rv_simp]
 
-/-- 1169..1176 (KHORN): point `a3 += (s2 & 3) << 6`, `a4 = a5 = 0`, `a1 = KCOEF`, `a0 = KCOEF + 16 · 39`,
+/-- 1169..1176 (KHORN): point `a3 += (s2 & 3) << 6`, `a4 = a5 = 0`, `a1 = KCOEF`, `a0 = KCOEF + 16 · 31`,
 `jal 647`. -/
 theorem khA_spec (s : MachineState) (hpc : s.pc = pcOf 1169) (leaf d : Nat) (hd : d < 2 ^ 32)
     (h18 : s.getReg .x18 = BitVec.ofNat 64 leaf) (h13 : s.getReg .x13 = BitVec.ofNat 64 d) :
     ∃ t, Steps image s 8 8 t ∧ t.pc = pcOf 647 ∧ t.getReg .x13 = BitVec.ofNat 64 (d + leaf % 4 * 64) ∧
-      t.getReg .x10 = BitVec.ofNat 64 (KCOEF + 16 * 39) ∧ t.getReg .x11 = BitVec.ofNat 64 KCOEF ∧
+      t.getReg .x10 = BitVec.ofNat 64 (KCOEF + 16 * 31) ∧ t.getReg .x11 = BitVec.ofNat 64 KCOEF ∧
       t.getReg .x14 = BitVec.ofNat 64 0 ∧ t.getReg .x15 = BitVec.ofNat 64 0 ∧
       RegsExcept s t [.x10, .x11, .x13, .x14, .x15, .x30] ∧ Frame s t (fun _ => False) := by
   refine ⟨_, symRun_sound bkhA codeAt_khA s hpc (by simp [bkhA.res, rv_simp]), ?_, ?_, ?_, ?_, ?_, ?_, ?_,
@@ -385,11 +439,11 @@ theorem kgCG1_spec (s : MachineState) (hpc : s.pc = pcOf 618) :
 theorem fetch_kg623 (s : MachineState) (hpc : s.pc = pcOf 623) : fetch image s = some (.base .ECALL) :=
   (codeAt_kg623.fetch s hpc).trans rfl
 
-/-- 624..638: copy the 32-byte answer to `KCOEF + a`, next pair, `bne t4, 20` (img-v6 count 20). -/
-theorem kgCG2_spec (s : MachineState) (hpc : s.pc = pcOf 624) (j p a : Nat) (hj : j < 20) (ha : a + 32 ≤ 640) (ha8 : a % 8 = 0)
+/-- 624..638: copy the 32-byte answer to `KCOEF + a`, next pair, `bne t4, 16` (campaign T51: count 16). -/
+theorem kgCG2_spec (s : MachineState) (hpc : s.pc = pcOf 624) (j p a : Nat) (hj : j < 16) (ha : a + 32 ≤ 640) (ha8 : a % 8 = 0)
     (h10 : s.getReg .x10 = BitVec.ofNat 64 PRIV) (h24 : s.getReg .x24 = BitVec.ofNat 64 (KCOEF + a))
     (h29 : s.getReg .x29 = BitVec.ofNat 64 j) (h14 : s.getReg .x14 = BitVec.ofNat 64 p) :
-    ∃ t, Steps image s 15 15 t ∧ t.pc = (if j + 1 < 20 then pcOf 618 else pcOf 639) ∧
+    ∃ t, Steps image s 15 15 t ∧ t.pc = (if j + 1 < 16 then pcOf 618 else pcOf 639) ∧
       t.getReg .x14 = BitVec.ofNat 64 (p + 2 ^ 32) ∧ t.getReg .x24 = BitVec.ofNat 64 (KCOEF + a + 32) ∧
       t.getReg .x29 = BitVec.ofNat 64 (j + 1) ∧
       (∀ k < 4, t.getMem (BitVec.ofNat 64 (KCOEF + a + 8 * k)) = s.getMem (BitVec.ofNat 64 (SEEDS + 8 * k))) ∧
@@ -402,14 +456,14 @@ theorem kgCG2_spec (s : MachineState) (hpc : s.pc = pcOf 624) (j p a : Nat) (hj 
     and_intros <;> first | trivial | omega
   refine ⟨_, symRun_sound bkCG2 codeAt_kgCG2 s hpc hobl, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
   · simp only [Result.toState_pc, bkCG2.res, E.eval, CmpOp.eval, h29]
-    by_cases h : j + 1 < 20
+    by_cases h : j + 1 < 16
     · rw [if_pos h]
       simp only [BinOp.eval, ofNat_add_ofNat, bne_iff_ne, ne_eq, ofNat_inj (show j + 1 < 2 ^ 64 by omega)
-        (show 20 < 2 ^ 64 by norm_num)]
+        (show 16 < 2 ^ 64 by norm_num)]
       rw [if_pos (by omega)]
     · rw [if_neg h]
       simp only [BinOp.eval, ofNat_add_ofNat, bne_iff_ne, ne_eq, ofNat_inj (show j + 1 < 2 ^ 64 by omega)
-        (show 20 < 2 ^ 64 by norm_num)]
+        (show 16 < 2 ^ 64 by norm_num)]
       rw [if_neg (by omega)]
   · t3n [bkCG2.res, h14]
   · t3n [bkCG2.res, h24] <;> (try simp only [KCOEF]) <;> omega
@@ -678,7 +732,7 @@ theorem khb_loop {t0 : MachineState} {d a : Nat} (ha : a < 2 ^ 128) (hd : d < 2 
 /-- Steps of one Horner step (HK, bit loop, HF). -/
 def hornStepK (d : Nat) : Nat := 18 + hbCost 10 d
 /-- Steps (= cycles) of HORN at the point `d`. -/
-def hornK (d : Nat) : Nat := 13 + 39 * hornStepK d
+def hornK (d : Nat) : Nat := 13 + 31 * hornStepK d
 
 /-- Registers HORN may change. -/
 def khornRegs : List Reg := [.x4, .x10, .x11, .x12, .x13, .x14, .x15, .x16, .x24, .x29, .x30]
@@ -708,7 +762,7 @@ theorem lim3_zero_hi' (a b : BitVec 64) : lim3 a b (BitVec.ofNat 64 0) = lim2 a 
 
 /-- One Horner step: HK, the bit loop and HF. -/
 theorem khorner_step {s0 : MachineState} {d : Nat} {coefs : List Digest} (hd : d < 2 ^ 10)
-    (hlen : coefs.length = 39) (hcoef : DigsAt s0 KCOEF coefs) {m : Nat} (hm : m < 39) {t : MachineState}
+    (hlen : coefs.length = 31) (hcoef : DigsAt s0 KCOEF coefs) {m : Nat} (hm : m < 31) {t : MachineState}
     (ht : KHkSt s0 d coefs (m + 1) t) :
     ∃ v, Steps image t (hornStepK d) (hornStepK d) v ∧ v.pc = (if m = 0 then pcOf 679 else pcOf 647) ∧
       v.getReg .x13 = BitVec.ofNat 64 d ∧ v.getReg .x10 = BitVec.ofNat 64 (KCOEF + 16 * m) ∧
@@ -750,8 +804,8 @@ theorem khorner_step {s0 : MachineState} {d : Nat} {coefs : List Digest} (hd : d
   · exact (fu.trans vf).mono (fun _ _ h => by simp_all)
 
 theorem khorner_loop {s0 : MachineState} {d : Nat} {coefs : List Digest} (hd : d < 2 ^ 10)
-    (hlen : coefs.length = 39) (hcoef : DigsAt s0 KCOEF coefs) {ret : Nat} (h1 : s0.getReg .x1 = pcOf ret) :
-    ∀ m, m < 39 → ∀ t, KHkSt s0 d coefs (m + 1) t →
+    (hlen : coefs.length = 31) (hcoef : DigsAt s0 KCOEF coefs) {ret : Nat} (h1 : s0.getReg .x1 = pcOf ret) :
+    ∀ m, m < 31 → ∀ t, KHkSt s0 d coefs (m + 1) t →
       ∃ u, Steps image t ((m + 1) * hornStepK d + 4) ((m + 1) * hornStepK d + 4) u ∧ u.pc = pcOf ret ∧
         DigAt u (CHAIN + 48) (familyEval coefs d) ∧ RegsExcept s0 u khornRegs ∧
         Frame s0 u (fun A => A = CHAIN + 48 ∨ A = CHAIN + 56) := by
@@ -774,10 +828,10 @@ theorem khorner_loop {s0 : MachineState} {d : Nat} {coefs : List Digest} (hd : d
     exact ⟨w, Steps.of_eq (sv.trans sw) (by ring) (by ring), hw⟩
 
 /-- HORN from its entry 642 (img-v6: `jal 1169`, KHORN sets the point `topPoint leaf i = (leaf % 4) · 64 + i + 1`):
-`topSeed coefs leaf i` (39 coefficients at KCOEF) into `CHAIN + 48`, return to `x1`. -/
+`topSeed coefs leaf i` (31 coefficients at KCOEF) into `CHAIN + 48`, return to `x1`. -/
 theorem khorn_run (s : MachineState) (hpc : s.pc = pcOf 642) {i leaf : Nat} (hi : i < 64)
     (h13 : s.getReg .x13 = BitVec.ofNat 64 (i + 1)) (h18 : s.getReg .x18 = BitVec.ofNat 64 leaf)
-    {coefs : List Digest} (hlen : coefs.length = 39)
+    {coefs : List Digest} (hlen : coefs.length = 31)
     (hcoef : DigsAt s KCOEF coefs) {ret : Nat} (h1 : s.getReg .x1 = pcOf ret) :
     ∃ u, Steps image s (hornK (topPoint leaf i)) (hornK (topPoint leaf i)) u ∧ u.pc = pcOf ret ∧
       DigAt u (CHAIN + 48) (topSeed coefs leaf i) ∧
@@ -787,12 +841,12 @@ theorem khorn_run (s : MachineState) (hpc : s.pc = pcOf 642) {i leaf : Nat} (hi 
     (by rw [t0r.get (by simp)]; exact h18) (by rw [t0r.get (by simp)]; exact h13)
   have hd : topPoint leaf i < 2 ^ 10 := by unfold topPoint; omega
   have hcoef0 : DigsAt s KCOEF coefs := hcoef
-  have ht : KHkSt s (topPoint leaf i) coefs (38 + 1) t := by
+  have ht : KHkSt s (topPoint leaf i) coefs (30 + 1) t := by
     refine ⟨tpc, by rw [t13]; unfold topPoint; congr 1; omega, t10, t11, ?_, (t0r.trans tr).mono
       (by simp [khornRegs]), (t0f.trans tf).mono (fun _ _ h => by simp_all)⟩
     rw [t14, t15, List.drop_eq_nil_of_le (by omega)]
     rfl
-  obtain ⟨u, su, upc, ud, ur, uf⟩ := khorner_loop hd hlen hcoef0 h1 38 (by norm_num) t ht
+  obtain ⟨u, su, upc, ud, ur, uf⟩ := khorner_loop hd hlen hcoef0 h1 30 (by norm_num) t ht
   exact ⟨u, Steps.of_eq (st0.trans (st.trans su)) (by unfold hornK; ring) (by unfold hornK; ring), upc, ud, ur,
     uf⟩
 
@@ -815,7 +869,7 @@ def CgW (X : Nat) : Prop :=
 
 /-- img-v6 pair loop (618..638) at counter `j` (pairs `first + j`), `odd` = whether the carry occupies slot 0. -/
 structure CgInv (s0 : MachineState) (first odd j : Nat) (acc : List Digest) (t : MachineState) : Prop where
-  pc : t.pc = (if j < 20 then pcOf 618 else pcOf 639)
+  pc : t.pc = (if j < 16 then pcOf 618 else pcOf 639)
   x14 : t.getReg .x14 = BitVec.ofNat 64 (1 + 2 ^ 32 * (first + j))
   x24 : t.getReg .x24 = BitVec.ofNat 64 (KCOEF + 16 * acc.length)
   x29 : t.getReg .x29 = BitVec.ofNat 64 j
@@ -825,7 +879,7 @@ structure CgInv (s0 : MachineState) (first odd j : Nat) (acc : List Digest) (t :
   frame : Frame s0 t CgW
 
 theorem kcg_body (sk : BitVec 256) {s0 : MachineState} (hp : KPriv sk s0) {first odd : Nat}
-    (hfirst : first + 20 < 2 ^ 32) {j : Nat} (hj : j < 20) (acc : List Digest) (t : MachineState)
+    (hfirst : first + 16 < 2 ^ 32) {j : Nat} (hj : j < 16) (acc : List Digest) (t : MachineState)
     (ht : CgInv s0 first odd j acc t) :
     TSim image sk t 21 28 1 1 (do let p ← topSeedPair (first + j); pure (acc ++ [p.1, p.2]))
       (CgInv s0 first odd (j + 1)) := by
@@ -904,13 +958,13 @@ theorem DigsAt.take' {t : MachineState} {A : Nat} {ds : List Digest} (h : DigsAt
   simpa [List.getD_eq_getElem?_getD, List.getElem?_take, show i < n by omega] using this
 
 /-- img-v6: the keygen coefficient buffer before top leaf `leaf` (state `cc = (coefficients, carry)`): inside a family
-the family's 39 coefficients at KCOEF; the carry at slot 39 whenever the next family start is odd. -/
+the family's 31 coefficients at KCOEF; the carry at slot 31 whenever the next family start is odd. -/
 def KcPre (s : MachineState) (leaf : Nat) (cc : List Digest × Digest) : Prop :=
-  (leaf % 4 ≠ 0 → cc.1.length = 39 ∧ DigsAt s KCOEF cc.1) ∧
-    ((leaf + 3) / 4 % 2 = 1 → DigAt s (KCOEF + 624) cc.2)
+  (leaf % 4 ≠ 0 → cc.1.length = 31 ∧ DigsAt s KCOEF cc.1) ∧
+    ((leaf + 3) / 4 % 2 = 1 → DigAt s (KCOEF + 496) cc.2)
 /-- img-v6: the coefficient buffer after KTOP for leaf `leaf` (and after the leaf). -/
 def KcPost (s : MachineState) (leaf : Nat) (cc : List Digest × Digest) : Prop :=
-  cc.1.length = 39 ∧ DigsAt s KCOEF cc.1 ∧ ((leaf + 4) / 4 % 2 = 1 → DigAt s (KCOEF + 624) cc.2)
+  cc.1.length = 31 ∧ DigsAt s KCOEF cc.1 ∧ ((leaf + 4) / 4 % 2 = 1 → DigAt s (KCOEF + 496) cc.2)
 
 theorem KcPre.frame {s t : MachineState} {W : Nat → Prop} {leaf : Nat} {cc : List Digest × Digest}
     (h : KcPre s leaf cc) (hf : Frame s t W) (hW : ∀ X, KCOEF ≤ X → X < KCOEF + 640 → ¬ W X) :
@@ -927,9 +981,9 @@ theorem KcPost.frame {s t : MachineState} {W : Nat → Prop} {leaf : Nat} {cc : 
       (hW _ (by omega) (by omega))⟩
 
 /-- Steps of KTOP at a family start (`o = f % 2`): 612, 1149..1160, [1161..1165], 1166, the pair loop, 639..640. -/
-def kfK (o : Nat) : Nat := 16 + 5 * o + 21 * (20 - o)
+def kfK (o : Nat) : Nat := 16 + 5 * o + 21 * (16 - o)
 /-- Cycles of KTOP at a family start. -/
-def kfC (o : Nat) : Nat := 19 + 5 * o + 28 * (20 - o)
+def kfC (o : Nat) : Nat := 19 + 5 * o + 28 * (16 - o)
 
 /-- img-v6 KTOP from 612 (called from 157 with `ra = 158`): `topFamilyCoefs leaf cc` into the coefficient buffer,
 `s3 = 0`. -/
@@ -937,7 +991,7 @@ theorem kfam_tsim (sk : BitVec 256) {s : MachineState} (hpc : s.pc = pcOf 612) {
     (hleaf : leaf < 4096) (h18 : s.getReg .x18 = BitVec.ofNat 64 leaf) (hp : KPriv sk s)
     (h1 : s.getReg .x1 = pcOf 158) {cc : List Digest × Digest} (hk : KcPre s leaf cc) :
     TSim image sk s (if leaf % 4 = 0 then kfK (leaf / 4 % 2) else 5) (if leaf % 4 = 0 then kfC (leaf / 4 % 2) else 5)
-      (if leaf % 4 = 0 then 20 - leaf / 4 % 2 else 0) (if leaf % 4 = 0 then 20 - leaf / 4 % 2 else 0)
+      (if leaf % 4 = 0 then 16 - leaf / 4 % 2 else 0) (if leaf % 4 = 0 then 16 - leaf / 4 % 2 else 0)
       (topFamilyCoefs leaf cc)
       (fun cc' t => t.pc = pcOf 158 ∧ KcPost t leaf cc' ∧ t.getReg .x19 = BitVec.ofNat 64 0 ∧
         RegsExcept s t (cgRegs ++ [.x19]) ∧ Frame s t CgW) := by
@@ -969,7 +1023,7 @@ theorem kfam_tsim (sk : BitVec 256) {s : MachineState} (hpc : s.pc = pcOf 612) {
       · rw [if_neg ho] at tBpc
         obtain ⟨u, su, upc, um0, um8, u24, ur, uf⟩ := kfD_spec tB tBpc tB24
         obtain ⟨v, sv, vpc, vr, vf⟩ := kfE_spec u upc
-        have hcar : DigAt tB (KCOEF + 624) cc.2 := by
+        have hcar : DigAt tB (KCOEF + 496) cc.2 := by
           have := hk.2 (by omega)
           exact this.frame (f0A.trans tBf) (by simp only [KCOEF]; omega) (by simp) (by simp)
         refine ⟨v, 5 + 1, 5 + 1, su.trans sv, by omega, by omega, vpc, ?_, ?_, ?_, (ur.trans vr).mono (by simp),
@@ -986,8 +1040,8 @@ theorem kfam_tsim (sk : BitVec 256) {s : MachineState} (hpc : s.pc = pcOf 612) {
           · rw [show KCOEF + 16 * 0 = KCOEF by rfl, vf.get (by decide) (by simp), um0]; exact hcar.1
           · rw [show KCOEF + 16 * 0 + 8 = KCOEF + 8 by rfl, vf.get (by decide) (by simp), um8]
             exact hcar.2
-    have hfirst : 39 * (leaf / 4) / 2 + 20 < 2 ^ 32 := by omega
-    have hI : CgInv s (39 * (leaf / 4) / 2) (leaf / 4 % 2) (leaf / 4 % 2 + 0)
+    have hfirst : 31 * (leaf / 4) / 2 + 16 < 2 ^ 32 := by omega
+    have hI : CgInv s (31 * (leaf / 4) / 2) (leaf / 4 % 2) (leaf / 4 % 2 + 0)
         (if leaf / 4 % 2 = 0 then [] else [cc.2]) tE := by
       refine ⟨by rw [tEpc, if_pos (by omega)], by rw [tE14, tB14]; rfl, ?_, by rw [tE29, tB29]; rfl, ?_, tEc, ?_, ?_⟩
       · rw [tE24]; split <;> simp_all
@@ -999,10 +1053,10 @@ theorem kfam_tsim (sk : BitVec 256) {s : MachineState} (hpc : s.pc = pcOf 612) {
         · exact h.elim
         · exact h.elim
         · omega
-    have hloop := TSim.foldlM_range' (image := image) (sk := sk) (leaf / 4 % 2) (20 - leaf / 4 % 2)
-      (fun acc j => do let p ← topSeedPair (39 * (leaf / 4) / 2 + j); pure (acc ++ [p.1, p.2]))
+    have hloop := TSim.foldlM_range' (image := image) (sk := sk) (leaf / 4 % 2) (16 - leaf / 4 % 2)
+      (fun acc j => do let p ← topSeedPair (31 * (leaf / 4) / 2 + j); pure (acc ++ [p.1, p.2]))
       (if leaf / 4 % 2 = 0 then [] else [cc.2])
-      (fun j acc t => CgInv s (39 * (leaf / 4) / 2) (leaf / 4 % 2) (leaf / 4 % 2 + j) acc t)
+      (fun j acc t => CgInv s (31 * (leaf / 4) / 2) (leaf / 4 % 2) (leaf / 4 % 2 + j) acc t)
       (fun _ => 21) (fun _ => 28) (fun _ => 1) (fun _ => 1)
       (fun j hj acc t ht => kcg_body sk hp hfirst (by omega) acc t ht) hI
     unfold topCoefsK topPairsFrom
@@ -1014,11 +1068,11 @@ theorem kfam_tsim (sk : BitVec 256) {s : MachineState} (hpc : s.pc = pcOf 612) {
       obtain ⟨u, su, upc, u19, ur, uf⟩ := kgCG3_spec t tpc 158
         (by rw [ht.regs.get (by simp [cgRegs]), h1])
       have hc : DigsAt u KCOEF acc := ht.coefs.frame uf (by simp only [KCOEF]; omega) (fun _ _ _ h => h)
-      refine TSim.pure_steps su ⟨upc, ⟨?_, DigsAt.take' hc 39, fun ho => ?_⟩, u19, ht.regs.trans ur,
+      refine TSim.pure_steps su ⟨upc, ⟨?_, DigsAt.take' hc 31, fun ho => ?_⟩, u19, ht.regs.trans ur,
         (ht.frame.trans uf).mono (fun _ _ h => by simp_all)⟩
       · simp only [List.length_take, topCoefCount]; omega
       · have ho' : leaf / 4 % 2 = 0 := by omega
-        have := hc 39 (by omega)
+        have := hc 31 (by omega)
         simpa [topCoefCount] using this
     all_goals simp only [sumTo_const, kfK, kfC]; omega
   · rw [if_neg h0] at tApc
@@ -1035,8 +1089,69 @@ macro "tl_omega" : tactic =>
 
 /-- Registers the top-leaf routine may change. -/
 def tRegs : List Reg := leafRegs ++ [.x4, .x13, .x14, .x15, .x16, .x24]
-/-- Memory the top-leaf routine may change: the leaf writes plus the coefficient buffer. -/
-def TW (A : LeafArgs) (X : Nat) : Prop := LeafW A X ∨ (KCOEF ≤ X ∧ X < KCOEF + 640)
+/-- Memory the top-leaf routine may change: the leaf writes, `end_0`'s slot (campaign T51: `LEAFPK`, below the
+tweak) and the coefficient buffer. -/
+def TW (A : LeafArgs) (X : Nat) : Prop := LeafW A X ∨ (LEAFPK ≤ X ∧ X < LEAFPK + 16) ∨ (KCOEF ≤ X ∧ X < KCOEF + 640)
+
+/-- Campaign T51 ("endpad"): the slot of chain `c`'s end in the top leaf buffer: `end_0` at `LEAFPK`, the tweak at
+`LEAFPK + 16`, `end_c` at `LEAFPK + 16 (c + 1)` (`c ≥ 1`). -/
+def tslot (c : Nat) : Nat := if c = 0 then LEAFPK else LEAFPK + 16 * (c + 1)
+theorem tslot_eq (c : Nat) : tslot c = LEAFPK + 16 * (c + (if c = 0 then 0 else 1)) := by
+  unfold tslot; split_ifs <;> omega
+theorem tslot_ge (c : Nat) : LEAFPK ≤ tslot c := by unfold tslot; split_ifs <;> omega
+theorem tslot_lt {c n : Nat} (hc : c < n) : tslot c + 16 ≤ LEAFPK + 16 * (n + 1) := by
+  unfold tslot; split_ifs <;> omega
+theorem tslot_disj {c j : Nat} (h : c ≠ j) : tslot c + 16 ≤ tslot j ∨ tslot j + 16 ≤ tslot c := by
+  unfold tslot; split_ifs <;> omega
+theorem tslot_hdr (c : Nat) : tslot c + 16 ≤ LEAFPK + 16 ∨ LEAFPK + 32 ≤ tslot c := by
+  unfold tslot; split_ifs <;> omega
+theorem TW_of_tslot {A : LeafArgs} (h0 : A.lay = 0) {j X : Nat} (hj : j < A.n) (h : tslot j ≤ X ∧ X < tslot j + 16) :
+    TW A X := by
+  unfold TW LeafW tslot at *
+  rw [if_pos h0]
+  by_cases hj0 : j = 0
+  · rw [if_pos hj0] at h; right; left; omega
+  · rw [if_neg hj0] at h; left; right; right; right; right; right; right; left; constructor <;> omega
+
+/-- Campaign T51: the keygen top leaf's precondition (= `LeafPre` without the zero head: `LEAFPK` now holds
+`end_0` of the previous leaf). -/
+structure TopPre (sk : BitVec 256) (s : MachineState) (A : LeafArgs) : Prop where
+  x1 : s.getReg .x1 = pcOf A.ret
+  x5 : s.getReg .x5 = 0
+  x8 : s.getReg .x8 = BitVec.ofNat 64 A.lay.val
+  x9 : s.getReg .x9 = BitVec.ofNat 64 A.tree
+  x18 : s.getReg .x18 = BitVec.ofNat 64 A.leaf
+  x22 : s.getReg .x22 = BitVec.ofNat 64 A.digp
+  x23 : s.getReg .x23 = BitVec.ofNat 64 A.valp
+  x25 : s.getReg .x25 = BitVec.ofNat 64 A.dest
+  x26 : s.getReg .x26 = BitVec.ofNat 64 A.n
+  x27 : s.getReg .x27 = BitVec.ofNat 64 (n4 A.lay)
+  x31 : s.getReg .x31 = BitVec.ofNat 64 (if A.so then 1 else 0)
+  htree : A.tree < 2 ^ 32
+  hleaf : A.leaf < 2 ^ 32
+  hroute : A.tree * 2 ^ T3.height A.lay + A.leaf < 2 ^ 31
+  hleafHeight : A.leaf < 2 ^ T3.height A.lay
+  hsteps : ∀ i < A.n, A.e i ≤ 8
+  p0 : s.getMem (BitVec.ofNat 64 PRIV) = sk.extractLsb' 0 64
+  p8 : s.getMem (BitVec.ofNat 64 (PRIV + 8)) = sk.extractLsb' 64 64
+  p32 : s.getMem (BitVec.ofNat 64 (PRIV + 32)) = sk.extractLsb' 128 64
+  p40 : s.getMem (BitVec.ofNat 64 (PRIV + 40)) = sk.extractLsb' 192 64
+  p48 : s.getMem (BitVec.ofNat 64 (PRIV + 48)) = 0
+  p56 : s.getMem (BitVec.ofNat 64 (PRIV + 56)) = 0
+  z0 : s.getMem (BitVec.ofNat 64 CHAIN) = 0
+  z8 : s.getMem (BitVec.ofNat 64 (CHAIN + 8)) = 0
+  top0 : A.lay = 0 ∧ A.tree = 0
+  hdig : ∀ i < A.n, s.getByte (BitVec.ofNat 64 (A.digp + i)) = BitVec.ofNat 8 (A.d i)
+  hdigb : ∀ i < A.n, A.d i < 256 ∧ (A.so = false → A.d i ≤ maxDigit A.lay i)
+  hdigp : A.digp + A.n ≤ 2 ^ 24
+  hdigW : ∀ i < A.n, ¬ LeafW A ((A.digp + i) / 8 * 8)
+  hv8 : A.valp % 8 = 0
+  hv : A.valp + 16 * A.n ≤ 2 ^ 24
+  hvs : A.valp + 16 * A.n ≤ PRIV ∨ LEAFPK + 960 ≤ A.valp
+  hd8 : A.dest % 8 = 0
+  hd : A.dest + 16 ≤ 2 ^ 24
+  hds : A.dest + 16 ≤ PRIV ∨ LEAFPK + 960 ≤ A.dest ∨ (CHAIN + 112 ≤ A.dest ∧ A.dest + 16 ≤ LOUT)
+  hdv : A.dest + 16 ≤ A.valp ∨ A.valp + 16 * A.n ≤ A.dest
 
 /-- The keygen top-leaf arguments: signature-free, no digits, buffers clear of KCOEF. -/
 structure TopArgs (A : LeafArgs) : Prop where
@@ -1045,6 +1160,8 @@ structure TopArgs (A : LeafArgs) : Prop where
   cv : A.valp + 16 * A.n ≤ KCOEF ∨ KCOEF + 640 ≤ A.valp
   cd : A.dest + 16 ≤ KCOEF ∨ KCOEF + 640 ≤ A.dest
   cdig : A.digp + A.n ≤ KCOEF ∨ KCOEF + 640 ≤ A.digp
+  /-- Campaign T51: the digits are clear of `end_0`'s slot. -/
+  cdigL : A.digp + A.n ≤ LEAFPK ∨ LEAFPK + 16 ≤ A.digp
 
 structure TInv (s0 : MachineState) (A : LeafArgs) (coefs extra : List Digest) (j : Nat) (st : List Digest × List Digest)
     (t : MachineState) : Prop where
@@ -1057,18 +1174,18 @@ structure TInv (s0 : MachineState) (A : LeafArgs) (coefs extra : List Digest) (j
   lh24 : t.getMem (BitVec.ofNat 64 (LEAFPK + 24)) = 0
   elen : st.1.length = j
   vlen : st.2.length = j
-  ends : ∀ c < j, DigAt t (slot A.lay c) (st.1.getD c 0)
+  ends : ∀ c < j, DigAt t (tslot c) (st.1.getD c 0)
   vals : DigsAt t A.valp st.2
   coef : DigsAt t KCOEF coefs
-  ext : DigsAt t (KCOEF + 624) extra
+  ext : DigsAt t (KCOEF + 496) extra
 
 /-- Registers changed between the loop head and the chain routine's return. -/
 def preRegs : List Reg :=
   [.x1, .x4, .x6, .x7, .x10, .x11, .x12, .x13, .x14, .x15, .x16, .x17, .x20, .x21, .x24, .x28, .x29, .x30]
 
 section top
-variable (sk : BitVec 256) {s0 : MachineState} {A : LeafArgs} (hpre : LeafPre sk s0 A) (hta : TopArgs A)
-  {coefs extra : List Digest} (hcl : coefs.length = 39) (hel : extra.length ≤ 1)
+variable (sk : BitVec 256) {s0 : MachineState} {A : LeafArgs} (hpre : TopPre sk s0 A) (hta : TopArgs A)
+  {coefs extra : List Digest} (hcl : coefs.length = 31) (hel : extra.length ≤ 1)
 include hpre hta hcl hel
 
 theorem ktop_post {j : Nat} (hj : j < A.n) {st : List Digest × List Digest} {t u : MachineState}
@@ -1076,7 +1193,7 @@ theorem ktop_post {j : Nat} (hj : j < A.n) {st : List Digest × List Digest} {t 
     (huf : Frame t u (fun X => (X = CHAIN + 48 ∨ X = CHAIN + 56) ∨ ChainW (A.valp + 16 * j) X))
     (v last : Digest) (hv : DigAt u (A.valp + 16 * j) v) (hl : DigAt u (CHAIN + 48) last) :
     ∃ w, Steps image u 16 16 w ∧ w.pc = pcOf 158 ∧ TInv s0 A coefs extra (j + 1) (st.1 ++ [last], st.2 ++ [v]) w := by
-  have hn : A.n = 54 := by show chainCount A.lay = 54; rw [hpre.top0.1]; rfl
+  have hn : A.n = 51 := by show chainCount A.lay = 51; rw [hpre.top0.1]; rfl
   have h0 := hpre.top0.1
   have hvs := hpre.hvs
   have hvb := hpre.hv
@@ -1092,13 +1209,15 @@ theorem ktop_post {j : Nat} (hj : j < A.n) {st : List Digest × List Digest} {t 
     rw [u1r.get (by simp), hur.get (by simp [preRegs])]; exact ht.x19
   obtain ⟨u3, st3, u3pc, u3x28, u3r, u3f⟩ := sub80_spec subAt_keygen u1 u1pc j (by omega) r19
   have hl1 : DigAt u1 (CHAIN + 48) last := hl.frame u1f (by decide) (by simp) (by simp)
-  obtain ⟨u4, st4, u4pc, u4x28, u4r, u4f⟩ := sub82_spec subAt_keygen u3 u3pc (16 * j + 16) u3x28
-  obtain ⟨u5, st5, u5pc, u5a, u5b, u5r, u5f⟩ := sub83_spec subAt_keygen u4 u4pc (16 * j + 16 + 16) (by omega)
+  have hk1 : (if j = 0 then 0 else 1) ≤ 1 := by split_ifs <;> omega
+  have hs := tslot_eq j
+  generalize hkk : (if j = 0 then 0 else 1) = k at u3x28 hk1 hs
+  obtain ⟨u4, st4, u4pc, u4x28, u4r, u4f⟩ := sub82_spec subAt_keygen u3 u3pc (j + k) (by omega) u3x28
+  obtain ⟨u5, st5, u5pc, u5a, u5b, u5r, u5f⟩ := sub83_spec subAt_keygen u4 u4pc (16 * (j + k)) (by omega)
     (by sc_omega) u4x28
-  have hs : slot A.lay j = LEAFPK + (16 * j + 16 + 16) := by simp only [slot, if_pos h0]; ring
   have hl4 := hl1.frame (u3f.trans u4f) (by decide) (by simp) (by simp)
-  have u5s : DigAt u5 (slot A.lay j) last := ⟨by rw [hs, u5a]; exact hl4.1, by rw [hs, u5b]; exact hl4.2⟩
-  have u5f' : Frame u1 u5 (fun X => slot A.lay j ≤ X ∧ X < slot A.lay j + 16) :=
+  have u5s : DigAt u5 (tslot j) last := ⟨by rw [hs, u5a]; exact hl4.1, by rw [hs, u5b]; exact hl4.2⟩
+  have u5f' : Frame u1 u5 (fun X => tslot j ≤ X ∧ X < tslot j + 16) :=
     ((u3f.trans u4f).trans u5f).mono (fun X _ h => by rw [hs]; simp at h ⊢; omega)
   have r19' : u5.getReg .x19 = BitVec.ofNat 64 j := by
     rw [u5r.get (by simp), u4r.get (by simp), u3r.get (by simp)]; exact r19
@@ -1106,16 +1225,16 @@ theorem ktop_post {j : Nat} (hj : j < A.n) {st : List Digest × List Digest} {t 
     rw [u5r.get (by simp), u4r.get (by simp), u3r.get (by simp), u1r.get (by simp), hur.get (by simp [preRegs])]
     exact ht.x23
   obtain ⟨w, st6, wpc, wx19, wx23, wr, wf⟩ := sub92_spec subAt_keygen u5 u5pc j (A.valp + 16 * j) r19' r23'
-  have hsl : LEAFPK ≤ slot A.lay j ∧ slot A.lay j + 16 ≤ LEAFPK + 16 * (A.n + 2) :=
-    ⟨slot_ge A.lay j, slot_lt A.lay hj⟩
-  have fuw : Frame u w (fun X => slot A.lay j ≤ X ∧ X < slot A.lay j + 16) :=
+  have hsl : LEAFPK ≤ tslot j ∧ tslot j + 16 ≤ LEAFPK + 16 * (A.n + 1) :=
+    ⟨tslot_ge j, tslot_lt hj⟩
+  have fuw : Frame u w (fun X => tslot j ≤ X ∧ X < tslot j + 16) :=
     ((u1f.trans u5f').trans wf).mono (fun X _ h => by
       rcases h with (h | h) | h
       · exact h.elim
       · exact h
       · exact h.elim)
   have ftw : Frame t w (fun X => ((X = CHAIN + 48 ∨ X = CHAIN + 56) ∨ ChainW (A.valp + 16 * j) X) ∨
-      (slot A.lay j ≤ X ∧ X < slot A.lay j + 16)) := huf.trans fuw
+      (tslot j ≤ X ∧ X < tslot j + 16)) := huf.trans fuw
   refine ⟨w, Steps.of_eq (st1.trans ((st3.trans (st4.trans st5)).trans st6)) (by omega) (by omega), wpc,
     ⟨?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩⟩
   · rw [wx19]
@@ -1129,32 +1248,32 @@ theorem ktop_post {j : Nat} (hj : j < A.n) {st : List Digest × List Digest} {t 
     · exact h
     · exact Or.inl (LeafW_of_c48 h)
     · exact Or.inl (LeafW_of_chainW hj h)
-    · exact Or.inl (LeafW_of_slot hj h)
-  · have := slot_hdr A.lay j
+    · exact TW_of_tslot h0 hj h
+  · have := tslot_hdr j
     rw [ftw.get (by decide) (by unfold ChainW; tl_omega), ht.lh16]
-  · have := slot_hdr A.lay j
+  · have := tslot_hdr j
     rw [ftw.get (by decide) (by unfold ChainW; tl_omega), ht.lh24]
   · simp [ht.elen]
   · simp [ht.vlen]
   · intro c hc
     by_cases hcj : c = j
     · subst hcj
-      have hl5 : DigAt w (slot A.lay c) last := u5s.frame wf (by tl_omega) (by simp) (by simp)
+      have hl5 : DigAt w (tslot c) last := u5s.frame wf (by tl_omega) (by simp) (by simp)
       simpa [List.getD_eq_getElem?_getD, ht.elen] using hl5
     · have hc' : c < j := by omega
-      have hsc := slot_lt A.lay (show c < A.n by omega)
-      have hsc0 := slot_ge A.lay c
-      have hd := slot_disj A.lay hcj
-      have hnot : ∀ X, slot A.lay c ≤ X → X < slot A.lay c + 16 →
+      have hsc := tslot_lt (show c < A.n by omega)
+      have hsc0 := tslot_ge c
+      have hd := tslot_disj hcj
+      have hnot : ∀ X, tslot c ≤ X → X < tslot c + 16 →
           ¬ (((X = CHAIN + 48 ∨ X = CHAIN + 56) ∨ ChainW (A.valp + 16 * j) X) ∨
-            (slot A.lay j ≤ X ∧ X < slot A.lay j + 16)) := by
+            (tslot j ≤ X ∧ X < tslot j + 16)) := by
         intro X h1 h2 h
         unfold ChainW at h
         tl_omega
-      have h2 : DigAt w (slot A.lay c) (st.1.getD c 0) :=
+      have h2 : DigAt w (tslot c) (st.1.getD c 0) :=
         (ht.ends c hc').frame ftw (by tl_omega) (hnot _ le_rfl (by omega)) (hnot _ (by omega) (by omega))
       simpa [List.getD_eq_getElem?_getD, List.getElem?_append_left (by rw [ht.elen]; omega : c < st.1.length)] using h2
-  · have hsj0 := slot_ge A.lay j
+  · have hsj0 := tslot_ge j
     have hvw : DigAt w (A.valp + 16 * j) v := hv.frame fuw (by omega) (by tl_omega) (by tl_omega)
     have hvals : DigsAt w A.valp st.2 :=
       ht.vals.frame ftw (by rw [ht.vlen]; omega) (fun X h1 h2 h => by
@@ -1164,11 +1283,11 @@ theorem ktop_post {j : Nat} (hj : j < A.n) {st : List Digest × List Digest} {t 
     exact hvals.snoc (by rw [ht.vlen]; exact hvw)
   · exact ht.coef.frame ftw (by rw [hcl]; tl_omega) (fun X h1 h2 h => by
       rw [hcl] at h2
-      have := slot_ge A.lay j
+      have := tslot_ge j
       unfold ChainW at h
       tl_omega)
   · exact ht.ext.frame ftw (by tl_omega) (fun X h1 h2 h => by
-      have := slot_ge A.lay j
+      have := tslot_ge j
       unfold ChainW at h
       tl_omega)
 end top
@@ -1190,20 +1309,20 @@ theorem topBody_eq (leaf : Nat) (coefs : List Digest) (st : List Digest × List 
   simp only [topBody, List.getD_nil, bind_assoc, pure_bind, Bool.false_eq_true, if_false]
 
 /-- Steps of one chain iteration of the top leaf. -/
-def titerK (r j : Nat) : Nat := 11 + (if j < 51 then 3 else 5) + hornK (r * 64 + j + 1) + kChainK j (maxDigit 0 j) + 16
+def titerK (r j : Nat) : Nat := 11 + capK j + hornK (r * 64 + j + 1) + kChainK j (maxDigit 0 j) + 16
 /-- Cycles of one chain iteration of the top leaf. -/
-def titerC (r j : Nat) : Nat := 11 + (if j < 51 then 3 else 5) + hornK (r * 64 + j + 1) + kChainCy j (maxDigit 0 j) + 16
+def titerC (r j : Nat) : Nat := 11 + capK j + hornK (r * 64 + j + 1) + kChainCy j (maxDigit 0 j) + 16
 
 section top
-variable (sk : BitVec 256) {s0 : MachineState} {A : LeafArgs} (hpre : LeafPre sk s0 A) (hta : TopArgs A)
-  {coefs extra : List Digest} (hcl : coefs.length = 39) (hel : extra.length ≤ 1)
+variable (sk : BitVec 256) {s0 : MachineState} {A : LeafArgs} (hpre : TopPre sk s0 A) (hta : TopArgs A)
+  {coefs extra : List Digest} (hcl : coefs.length = 31) (hel : extra.length ≤ 1)
 include hpre hta hcl hel
 
-theorem ktop_iter {j : Nat} (hj : j < 54) {st : List Digest × List Digest} {t : MachineState}
+theorem ktop_iter {j : Nat} (hj : j < 51) {st : List Digest × List Digest} {t : MachineState}
     (ht : TInv s0 A coefs extra j st t) (hpc : t.pc = pcOf 158) :
     TSim image sk t (titerK (A.leaf % 4) j) (titerC (A.leaf % 4) j) (maxDigit 0 j) (maxDigit 0 j) (topBody A.leaf coefs st j)
       (fun st' u => u.pc = pcOf 158 ∧ TInv s0 A coefs extra (j + 1) st' u) := by
-  have hn : A.n = 54 := by show chainCount A.lay = 54; rw [hpre.top0.1]; rfl
+  have hn : A.n = 51 := by show chainCount A.lay = 51; rw [hpre.top0.1]; rfl
   have h0 := hpre.top0
   have hvs := hpre.hvs
   have hvb := hpre.hv
@@ -1213,7 +1332,7 @@ theorem ktop_iter {j : Nat} (hj : j < 54) {st : List Digest × List Digest} {t :
   have hcv := hta.cv
   have hcd := hta.cd
   have g : ∀ r, r ∉ tRegs → t.getReg r = s0.getReg r := fun r hr => ht.regs.get hr
-  obtain ⟨t1, st1, t1pc, t1r, t1f⟩ := sub41_spec subAt_keygen t hpc j 54 (by omega) (by omega) ht.x19
+  obtain ⟨t1, st1, t1pc, t1r, t1f⟩ := sub41_spec subAt_keygen t hpc j 51 (by omega) (by omega) ht.x19
     (by rw [g _ (by simp [tRegs, leafRegs]), hpre.x26, hn])
   rw [if_pos hj] at t1pc
   obtain ⟨t2, st2, t2pc, t2x1, t2x13, t2r, t2f⟩ := kg159_spec t1 t1pc j (by rw [t1r.get (by simp)]; exact ht.x19)
@@ -1234,12 +1353,14 @@ theorem ktop_iter {j : Nat} (hj : j < 54) {st : List Digest × List Digest} {t :
   have hw := hpre.hdigW j (by omega)
   have hdp := hpre.hdigp
   have hcdig := hta.cdig
+  have hcdigL := hta.cdigL
   have hbyte : t5.getByte (BitVec.ofNat 64 (A.digp + j)) = BitVec.ofNat 8 0 := by
     rw [t5f.getByte (by omega) (fun h => h), f14.getByte (by omega) (fun h => hw (by
         simp only [LeafW, CHAIN, PRIV, SEEDS, LEAFPK, LOUT] at h ⊢; omega)),
       ht.frame.getByte (by omega) (fun h => by
-        rcases h with h | h
+        rcases h with h | h | h
         · exact hw h
+        · simp only [LEAFPK] at h hcdigL; omega
         · simp only [KCOEF] at h hcdig; omega), hpre.hdig j (by omega), hdj]
   obtain ⟨t6, st6, t6pc, t6x17, t6r, t6f⟩ := sub72_spec subAt_keygen t5 t5pc (A.digp + j) (by omega) 0
     (by norm_num) t5x28 hbyte
@@ -1270,10 +1391,11 @@ theorem ktop_iter {j : Nat} (hj : j < 54) {st : List Digest × List Digest} {t :
     intro X hX
     have hX' : X < 2 ^ 64 := by rcases hX with h | h <;> (rw [h]; decide)
     rw [f111.get hX' (by simp only [CHAIN] at hX ⊢; omega), ht.frame.get hX' (fun h => by
-      rcases h with h | h
+      rcases h with h | h | h
       · unfold LeafW at h
         rw [if_pos h0.1] at h
         tl_omega
+      · tl_omega
       · tl_omega)]
   have hcp : ChainPre t11 0 0 A.leaf j 0 (maxDigit 0 j) (A.valp + 16 * j) (117 + 79) :=
     { x5 := by rw [g11 _ (by simp [preRegs]) (by simp [tRegs, leafRegs]), hpre.x5]
@@ -1319,32 +1441,32 @@ theorem ktop_iter {j : Nat} (hj : j < 54) {st : List Digest × List Digest} {t :
 end top
 
 section top
-variable (sk : BitVec 256) {s0 : MachineState} {A : LeafArgs} (hpre : LeafPre sk s0 A) (hta : TopArgs A)
-  {coefs extra : List Digest} (hcl : coefs.length = 39) (hel : extra.length ≤ 1)
+variable (sk : BitVec 256) {s0 : MachineState} {A : LeafArgs} (hpre : TopPre sk s0 A) (hta : TopArgs A)
+  {coefs extra : List Digest} (hcl : coefs.length = 31) (hel : extra.length ≤ 1)
 include hpre hta hcl hel
 
-/-- Leaf exit (158 with all 54 chains done): leaf hash of the chain ends into `dest`, return. -/
-theorem ktop_exit {st : List Digest × List Digest} {t : MachineState} (ht : TInv s0 A coefs extra 54 st t)
+/-- Leaf exit (158 with all 51 chains done): leaf hash of the chain ends into `dest`, return. -/
+theorem ktop_exit {st : List Digest × List Digest} {t : MachineState} (ht : TInv s0 A coefs extra 51 st t)
     (hpc : t.pc = pcOf 158) :
     TSim image sk t 19 (18 + 8 * leafBlocks A.lay) 1 (leafBlocks A.lay)
       (leafHash 0 0 A.leaf st.1 >>= fun root => pure (root, st.2))
       (fun r u => u.pc = pcOf A.ret ∧ DigAt u A.dest r.1 ∧ DigsAt u A.valp r.2 ∧ RegsExcept s0 u tRegs ∧
-        Frame s0 u (TW A) ∧ DigsAt u KCOEF coefs ∧ DigsAt u (KCOEF + 624) extra) := by
-  have hn : A.n = 54 := by show chainCount A.lay = 54; rw [hpre.top0.1]; rfl
+        Frame s0 u (TW A) ∧ DigsAt u KCOEF coefs ∧ DigsAt u (KCOEF + 496) extra) := by
+  have hn : A.n = 51 := by show chainCount A.lay = 51; rw [hpre.top0.1]; rfl
   have h0 := hpre.top0
   have g : ∀ r, r ∉ tRegs → t.getReg r = s0.getReg r := fun r hr => ht.regs.get hr
-  have r26 : t.getReg .x26 = BitVec.ofNat 64 54 := by
+  have r26 : t.getReg .x26 = BitVec.ofNat 64 51 := by
     rw [g _ (by simp [tRegs, leafRegs]), hpre.x26, hn]
   have r31 : t.getReg .x31 = BitVec.ofNat 64 (if false then 1 else 0) := by
     rw [g _ (by simp [tRegs, leafRegs]), hpre.x31, hta.so]
-  obtain ⟨t1, st1, t1pc, t1r, t1f⟩ := sub41_spec subAt_keygen t hpc 54 54 (by omega) (by omega) ht.x19 r26
+  obtain ⟨t1, st1, t1pc, t1r, t1f⟩ := sub41_spec subAt_keygen t hpc 51 51 (by omega) (by omega) ht.x19 r26
   rw [if_neg (lt_irrefl _)] at t1pc
   obtain ⟨t2, st2, t2pc, t2r, t2f⟩ := sub95_spec subAt_keygen t1 t1pc false (by rw [t1r.get (by simp)]; exact r31)
   simp only [Bool.false_eq_true, if_false] at t2pc
   have e12 : RegsExcept t t2 [] := (t1r.trans t2r).mono (by simp)
   have f12 : Frame t t2 (fun _ => False) := (t1f.trans t2f).mono (fun X _ h => by simp_all)
   have r18 : t.getReg .x18 = BitVec.ofNat 64 A.leaf := by rw [g _ (by simp [tRegs, leafRegs]), hpre.x18]
-  obtain ⟨t3, st3, t3pc, t3x10, t3x11, t3x12, t3x29, t3r, t3f⟩ := sub96_spec subAt_keygen t2 t2pc 54 (Or.inl rfl)
+  obtain ⟨t3, st3, t3pc, t3x10, t3x11, t3x12, t3x29, t3r, t3f⟩ := sub96_spec subAt_keygen t2 t2pc 51 (Or.inl rfl)
     (by rw [e12.get (by simp)]; exact r26) A.leaf (by rw [e12.get (by simp)]; exact r18)
   have r13 : RegsExcept t t3 [.x10, .x11, .x12, .x29] := (e12.trans t3r).mono (by simp)
   have f13 : Frame t t3 (fun _ => False) := (f12.trans t3f).mono (fun X _ h => by simp_all)
@@ -1357,36 +1479,29 @@ theorem ktop_exit {st : List Digest × List Digest} {t : MachineState} (ht : TIn
   have hw : t3.readWords (BitVec.ofNat 64 LEAFPK) (8 * leafBlocks A.lay) =
       wordsOf (pad64 (T3.leafInput A.lay A.tree A.leaf st.1)) := by
     rw [leafInput_words A h0.1 st.1 hlen]
-    have hall : DigsAt t3 (LEAFPK + 32) st.1 := by
-      intro c hc
-      have hsl := slot_lt A.lay (show c < A.n by omega)
-      simp only [slot, if_pos h0.1, LEAFPK] at hsl
-      have := (ht.ends c (by omega)).frame f13 (by simp only [slot, if_pos h0.1, LEAFPK]; omega) (by simp)
-        (by simp)
-      simp only [slot, if_pos h0.1] at this
-      rw [show LEAFPK + 32 + 16 * c = LEAFPK + 16 * (c + 2) by ring]
+    have h0d : DigAt t3 LEAFPK (st.1.getD 0 0) := by
+      have e0 : tslot 0 = LEAFPK := rfl
+      have := (ht.ends 0 (by omega)).frame f13 (by rw [e0]; decide) (by simp) (by simp)
+      rw [e0] at this
       exact this
+    have hall : DigsAt t3 (LEAFPK + 32) (st.1.drop 1) := by
+      intro c hc
+      simp only [List.length_drop] at hc
+      have e1 : tslot (c + 1) = LEAFPK + 32 + 16 * c := by unfold tslot; rw [if_neg (by omega)]; omega
+      have := (ht.ends (c + 1) (by omega)).frame f13 (by rw [e1]; simp only [LEAFPK]; omega) (by simp)
+        (by simp)
+      rw [e1] at this
+      simpa [List.getD_eq_getElem?_getD, List.getElem?_drop, Nat.add_comm] using this
     have hhd : t3.readWords (BitVec.ofNat 64 (LEAFPK + 16)) 2 =
         [T3.hyperWord A.lay.val (A.tree * 2 ^ T3.height A.lay + A.leaf), 0] := by
       rw [readWords_two, f13.get (by decide) (by simp), f13.get (by decide) (by simp), ht.lh16,
         show LEAFPK + 16 + 8 = LEAFPK + 24 from rfl, ht.lh24]
-    have hnw : ∀ X, (X = LEAFPK ∨ X = LEAFPK + 8) → ¬ TW A X := by
-      intro X hX hw'
-      rcases hw' with hw' | hw'
-      · unfold LeafW at hw'
-        rw [if_pos h0.1] at hw'
-        tl_omega
-      · tl_omega
-    have hz : t3.readWords (BitVec.ofNat 64 LEAFPK) 2 = [0, 0] := by
-      rw [readWords_two, f13.get (by decide) (by simp), f13.get (by decide) (by simp),
-        ht.frame.get (by decide) (hnw _ (Or.inl rfl)),
-        ht.frame.get (by decide) (hnw _ (Or.inr rfl)), hpre.zhead.1, hpre.zhead.2]
-    have hb : 8 * leafBlocks A.lay = 2 + (2 + 2 * st.1.length) := by
-      simp only [hlen, leafBlocks, show chainCount A.lay = A.n from rfl, hn]
-    rw [hb, readWords_add, readWords_add, hz, hhd,
+    have hb : 8 * leafBlocks A.lay = 2 + (2 + 2 * (st.1.drop 1).length) := by
+      simp only [List.length_drop, hlen, leafBlocks, show chainCount A.lay = A.n from rfl, hn]
+    rw [hb, readWords_add, readWords_add, h0d.words, hhd,
       show LEAFPK + 8 * 2 + 8 * 2 = LEAFPK + 32 from rfl, hall.words, List.append_assoc]
   have hl := leafInput_length A h0.1 st.1 hlen
-  have hnb : leafBlocks A.lay = 14 := by unfold leafBlocks; rw [show chainCount A.lay = A.n from rfl, hn]
+  have hnb : leafBlocks A.lay = 13 := by unfold leafBlocks; rw [show chainCount A.lay = A.n from rfl, hn]
   have hq : hashInput t3 = toQ (pad64 (T3.leafInput A.lay A.tree A.leaf st.1)) := by
     refine hashInput_toQ t3 _ (leafBlocks A.lay - 1) LEAFPK (by rw [hl]; omega) t3x10 (by decide)
       (by decide) ?_ (by omega) (by rw [show 8 * (leafBlocks A.lay - 1 + 1) = 8 * leafBlocks A.lay by omega]; exact hw)
@@ -1451,20 +1566,20 @@ theorem ktop_exit {st : List Digest × List Digest} {t : MachineState} (ht : TIn
 end top
 
 theorem buildLeafTopC_eq' (leaf : Nat) (coefs : List Digest) : buildLeafTopC leaf coefs [] = (do
-    let state ← (List.range 54).foldlM (topBody leaf coefs) ([], [])
+    let state ← (List.range 51).foldlM (topBody leaf coefs) ([], [])
     leafHash 0 0 leaf state.1 >>= fun root => pure (root, state.2)) := rfl
 
 /-- Steps of a keygen top leaf (`r = leaf % 4`, `o = leaf / 4 % 2`). -/
-def topLeafK (r o : Nat) : Nat := 14 + ((if r = 0 then kfK o else 5) + (sumTo (titerK r) 54 + 19))
+def topLeafK (r o : Nat) : Nat := 14 + ((if r = 0 then kfK o else 5) + (sumTo (titerK r) 51 + 19))
 /-- Cycles of a keygen top leaf. -/
-def topLeafC (r o : Nat) : Nat := 14 + ((if r = 0 then kfC o else 5) + (sumTo (titerC r) 54 + (18 + 8 * 14)))
+def topLeafC (r o : Nat) : Nat := 14 + ((if r = 0 then kfC o else 5) + (sumTo (titerC r) 51 + (18 + 8 * 13)))
 /-- Hash calls of a keygen top leaf. -/
-def topLeafN (r o : Nat) : Nat := (if r = 0 then 20 - o else 0) + (sumTo (fun j => maxDigit 0 j) 54 + 1)
+def topLeafN (r o : Nat) : Nat := (if r = 0 then 16 - o else 0) + (sumTo (fun j => maxDigit 0 j) 51 + 1)
 /-- Compression blocks of a keygen top leaf. -/
-def topLeafB (r o : Nat) : Nat := (if r = 0 then 20 - o else 0) + (sumTo (fun j => maxDigit 0 j) 54 + 14)
+def topLeafB (r o : Nat) : Nat := (if r = 0 then 16 - o else 0) + (sumTo (fun j => maxDigit 0 j) 51 + 13)
 
 section top
-variable (sk : BitVec 256) {s0 : MachineState} {A : LeafArgs} (hpre : LeafPre sk s0 A) (hta : TopArgs A)
+variable (sk : BitVec 256) {s0 : MachineState} {A : LeafArgs} (hpre : TopPre sk s0 A) (hta : TopArgs A)
 include hpre hta
 
 /-- img-v6: one keygen top leaf (entry 144, return to `A.ret`): KTOP (`topFamilyCoefs`, the family coefficients and
@@ -1475,10 +1590,10 @@ theorem topLeaf_tsim (hpc : s0.pc = pcOf 144) {cc : List Digest × Digest} (hk :
       (topFamilyCoefs A.leaf cc >>= fun cc' => buildLeafTopC A.leaf cc'.1 [] >>= fun r => pure (r, cc'))
       (fun rc t => t.pc = pcOf A.ret ∧ DigAt t A.dest rc.1.1 ∧ DigsAt t A.valp rc.1.2 ∧ KcPost t A.leaf rc.2 ∧
         RegsExcept s0 t tRegs ∧ Frame s0 t (TW A)) := by
-  have hn : A.n = 54 := by show chainCount A.lay = 54; rw [hpre.top0.1]; rfl
+  have hn : A.n = 51 := by show chainCount A.lay = 51; rw [hpre.top0.1]; rfl
   have h0 := hpre.top0
   have hlay : A.lay.val < 256 := by have := A.lay.isLt; omega
-  have hnb : leafBlocks A.lay = 14 := by unfold leafBlocks; rw [show chainCount A.lay = A.n from rfl, hn]
+  have hnb : leafBlocks A.lay = 13 := by unfold leafBlocks; rw [show chainCount A.lay = A.n from rfl, hn]
   obtain ⟨t1, st1, t1pc, t1x1, t1x3, t1l16, t1l24, t1r, t1f⟩ :=
     kg27_spec s0 hpc A.lay.val A.leaf hlay hpre.hleaf hpre.x8 hpre.x18
   have hleaf : A.leaf < 4096 := by have := hpre.hleafHeight; rw [h0.1] at this; exact this
@@ -1494,13 +1609,13 @@ theorem topLeaf_tsim (hpc : s0.pc = pcOf 144) {cc : List Digest × Digest} (hk :
       p56 := by rw [fp _ (by decide), hpre.p56] }
   have hk1 : KcPre t1 A.leaf cc := hk.frame t1f (fun X h1 h2 h => by simp only [LEAFPK, KCOEF] at h h1 h2; omega)
   have hkf := kfam_tsim sk t1pc hleaf (by rw [t1r.get (by simp)]; exact hpre.x18) hp t1x1 hk1
-  refine (TSim.steps st1 (TSim.bind (k₂ := sumTo (titerK (A.leaf % 4)) 54 + 19)
-    (c₂ := sumTo (titerC (A.leaf % 4)) 54 + (18 + 8 * leafBlocks A.lay)) (n₂ := sumTo (fun j => maxDigit 0 j) 54 + 1)
-    (b₂ := sumTo (fun j => maxDigit 0 j) 54 + leafBlocks A.lay) hkf (fun cc' t ht => ?_))).of_eq rfl rfl
+  refine (TSim.steps st1 (TSim.bind (k₂ := sumTo (titerK (A.leaf % 4)) 51 + 19)
+    (c₂ := sumTo (titerC (A.leaf % 4)) 51 + (18 + 8 * leafBlocks A.lay)) (n₂ := sumTo (fun j => maxDigit 0 j) 51 + 1)
+    (b₂ := sumTo (fun j => maxDigit 0 j) 51 + leafBlocks A.lay) hkf (fun cc' t ht => ?_))).of_eq rfl rfl
     (by rw [hnb]; rfl) rfl (by rw [hnb]; rfl)
   obtain ⟨tpc, ⟨hcl, hcoef, hslot⟩, t19, tr, tf⟩ := ht
-  obtain ⟨extra, hel, hext, hpost⟩ : ∃ extra : List Digest, extra.length ≤ 1 ∧ DigsAt t (KCOEF + 624) extra ∧
-      ∀ v, DigsAt v KCOEF cc'.1 → DigsAt v (KCOEF + 624) extra → KcPost v A.leaf cc' := by
+  obtain ⟨extra, hel, hext, hpost⟩ : ∃ extra : List Digest, extra.length ≤ 1 ∧ DigsAt t (KCOEF + 496) extra ∧
+      ∀ v, DigsAt v KCOEF cc'.1 → DigsAt v (KCOEF + 496) extra → KcPost v A.leaf cc' := by
     by_cases hs : (A.leaf + 4) / 4 % 2 = 1
     · refine ⟨[cc'.2], by simp, fun i hi => ?_, fun v h1 h2 => ⟨hcl, h1, fun _ => ?_⟩⟩
       · simp only [List.length_singleton] at hi
@@ -1521,11 +1636,11 @@ theorem topLeaf_tsim (hpc : s0.pc = pcOf 144) {cc : List Digest × Digest} (hk :
         · left; unfold LeafW; left; exact h
         · left; unfold LeafW; right; left; exact h
         · left; unfold LeafW; right; right; left; exact h
-        · right; exact h
+        · right; right; exact h
     · rw [tf.get (by decide) (by unfold CgW; simp only [PRIV, SEEDS, KCOEF, LEAFPK]; omega), t1l16, h0.2]; simp
     · rw [tf.get (by decide) (by unfold CgW; simp only [PRIV, SEEDS, KCOEF, LEAFPK]; omega), t1l24]
   rw [buildLeafTopC_eq', bind_assoc]
-  exact TSim.bind (TSim.foldlM_range 54 (topBody A.leaf cc'.1) ([], [])
+  exact TSim.bind (TSim.foldlM_range 51 (topBody A.leaf cc'.1) ([], [])
     (fun j st t => t.pc = pcOf 158 ∧ TInv s0 A cc'.1 extra j st t) (titerK (A.leaf % 4)) (titerC (A.leaf % 4))
     (fun j => maxDigit 0 j) (fun j => maxDigit 0 j)
     (fun j hj st t ht => ktop_iter sk hpre hta hcl hel hj ht.2 ht.1) ⟨tpc, hinv⟩)
@@ -1534,8 +1649,9 @@ theorem topLeaf_tsim (hpc : s0.pc = pcOf 144) {cc : List Digest × Digest} (hk :
         hv.2.2.2.2.1⟩))
 end top
 
-/-- Cycle bound of one keygen top leaf (COMPUTED by `decide` over the 8 leaf classes: max 268,722 at `leaf % 4 = 3`; witness stack +2716 per leaf). -/
-def topLeafW : Nat := 268722
+/-- Cycle bound of one keygen top leaf (COMPUTED by `decide` over the 8 leaf classes; campaign T51: max 205,853 at
+`leaf % 4 = 3`). -/
+def topLeafW : Nat := 205853
 theorem topLeaf_bound (r o : Nat) (hr : r < 4) (ho : o < 2) :
     topLeafK r o ≤ topLeafC r o ∧ topLeafC r o ≤ topLeafW := by
   interval_cases r <;> interval_cases o <;> decide

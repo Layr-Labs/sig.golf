@@ -1141,7 +1141,7 @@ def ranksAccepted (output : HashOutput) : Bool :=
 
 /-- Joint cap 777 (`P(joint ≤ 777 | gate, ranks) = 0.990672`). -/
 def digestAccepted (output : HashOutput) : Bool :=
-  decide (output.toNat / 2 ^ 242 % 16384 < 804) && ranksAccepted output &&
+  decide (output.toNat / 2 ^ 242 % 16384 < 791) && ranksAccepted output &&
     decide (jointAccountingCost output ≤ 777)
 
 theorem firstCoord_eq_shared (coord : Nat) : firstCoord coord = decide (coord < 8 ∧ coord % 2 = 0) := rfl
@@ -1151,7 +1151,7 @@ theorem ranksAccepted_iff (output : HashOutput) : ranksAccepted output = true �
   simp [ranksAccepted, List.all_eq_true]
 
 theorem accepted_conditions (output : HashOutput) (h : digestAccepted output = true) :
-    output.toNat / 2 ^ 242 % 16384 < 804 ∧
+    output.toNat / 2 ^ 242 % 16384 < 791 ∧
     (∀ coord : Fin 9, rawForestRank output coord.val < 563) ∧
     jointAccountingCost output ≤ 777 := by
   simpa only [digestAccepted, Bool.and_eq_true, decide_eq_true_eq, ranksAccepted_iff,
@@ -1186,17 +1186,17 @@ def mainSignature (sig : Signature) : ClaudeWCT.WCT9.Signature :=
 def fillTopSignature (sig : Signature) (c : Nat) : Signature :=
   { sig with layers := fun lay => fillLayer lay (sig.layers lay) c }
 
-/-- img-v6 normal form of a top path node at height `j`: the 5,239-byte codec does not store the zero-test bits
-(`T3.topZeroOk`): top `j` bits for `j = 1..10`; for the top sibling (`j = 11`) bits 98..127 (98..108 zero-test
-bits, 109..127 brute-forced). -/
+/-- Normal form of a top path node at height `j`: the compact codec does not store the zero-test bits
+(`T3.topZeroOk`): T51 (5,195 bytes): the top `topZeroBits j` bits for `j = 1..10`; for the top sibling (`j = 11`) bits
+104..127 (104..111 zero-test bits, 112..127 brute-forced). (#938 img-v6, 5,239 bytes: top `j` bits, sibling 98..127.) -/
 def normPathD (j : Nat) (d : Digest) : Digest :=
-  if 1 ≤ j ∧ j ≤ 10 then BitVec.ofNat 128 (d.toNat % 2 ^ (128 - j))
-  else if j = 11 then BitVec.ofNat 128 (d.toNat % 2 ^ 98) else d
+  if 1 ≤ j ∧ j ≤ 10 then BitVec.ofNat 128 (d.toNat % 2 ^ (128 - topZeroBits j))
+  else if j = 11 then BitVec.ofNat 128 (d.toNat % 2 ^ 104) else d
 
 def normLayer (lay : Layer) (ls : LayerSignature lay) : LayerSignature lay :=
   ⟨ls.values, fun j => if lay.val = 0 then normPathD j.val (ls.path j) else ls.path j⟩
 
-/-- img-v6: what the 5,239-byte codec keeps (13-bit hint, normalized top path); `expand` applies it first. -/
+/-- What the compact codec keeps (13-bit hint, normalized top path; T51: 5,195 bytes); `expand` applies it first. -/
 def normTop (sig : Signature) : Signature :=
   { sig with policyHints := BitVec.ofNat 16 (sig.policyHints.toNat % 2 ^ 13)
              layers := fun lay => normLayer lay (sig.layers lay) }
@@ -1292,22 +1292,23 @@ theorem normPathD_idem (j : Nat) (d : Digest) : normPathD j (normPathD j d) = no
   unfold normPathD
   by_cases h1 : 1 ≤ j ∧ j ≤ 10
   · simp only [if_pos h1]
-    exact ofNat_mod_pow_idem 128 (128 - j) d.toNat (by omega)
+    exact ofNat_mod_pow_idem 128 (128 - topZeroBits j) d.toNat (by omega)
   · by_cases h11 : j = 11
     · simp only [if_neg h1, if_pos h11]
-      exact ofNat_mod_pow_idem 128 98 d.toNat (by omega)
+      exact ofNat_mod_pow_idem 128 104 d.toNat (by omega)
     · simp only [if_neg h1, if_neg h11]
 
 theorem normPathD_setTop (d : Digest) (c : Nat) : normPathD 11 (setTop d c) = normPathD 11 d := by
   unfold normPathD
   simp only [show ¬(1 ≤ 11 ∧ 11 ≤ 10) by omega, if_false, if_true]
   congr 1
-  rw [setTop_toNat, Nat.add_mod, Nat.mod_mod_of_dvd _ (Nat.pow_dvd_pow 2 (by norm_num : 98 ≤ 109)),
-    show c % 2 ^ 19 * 2 ^ 109 % 2 ^ 98 = 0 from
+  rw [setTop_toNat, Nat.add_mod, Nat.mod_mod_of_dvd _ (Nat.pow_dvd_pow 2 (by norm_num : 104 ≤ 112)),
+    show c % 2 ^ 16 * 2 ^ 112 % 2 ^ 104 = 0 from
       Nat.mod_eq_zero_of_dvd (Dvd.dvd.mul_left (Nat.pow_dvd_pow 2 (by norm_num)) _), add_zero, Nat.mod_mod]
 
-theorem normZeroBits_eq (j : Nat) (hj : j ≤ 11) : topZeroBits j = j := by
-  interval_cases j <;> rfl
+/-- T51: the zero-bit allocation (`b_h = 0,0,1,1,2,3,4,5,6,7,8`; #938 had `b_h = h`). -/
+theorem normZeroBits_eq (j : Nat) (hj : j ≤ 11) : topZeroBits j = topZeroAlloc.getD j 0 := by
+  rfl
 
 /-- A path node that passes its zero test is fixed by the normal form (the top sibling up to its brute-forced
 bits 109..127). -/
@@ -1320,20 +1321,20 @@ theorem normPathD_ok (j : Nat) (hj : j < 12) (d : Digest) (hz : 1 ≤ j → topZ
   by_cases h11 : j = 11
   · subst h11
     simp only [show ¬(1 ≤ 11 ∧ 11 ≤ 10) by omega, if_false, if_true]
-    have h' : d.toNat / 2 ^ 98 % 2 ^ 11 = 0 := by
+    have h' : d.toNat / 2 ^ 104 % 2 ^ 8 = 0 := by
       have := hz (by omega)
       unfold topZeroOk at this
       simpa using this
     apply BitVec.eq_of_toNat_eq
-    rw [BitVec.toNat_ofNat, setTop_toNat, show (2 : Nat) ^ 109 = 2 ^ 98 * 2 ^ 11 by norm_num, Nat.mod_mul, h']
+    rw [BitVec.toNat_ofNat, setTop_toNat, show (2 : Nat) ^ 112 = 2 ^ 104 * 2 ^ 8 by norm_num, Nat.mod_mul, h']
     simp only [mul_zero, add_zero, Nat.zero_mod, zero_mul]
     exact Nat.mod_eq_of_lt (Nat.lt_of_le_of_lt (Nat.mod_le _ _) d.isLt)
   · have h1 : 1 ≤ j ∧ j ≤ 10 := by omega
     simp only [if_pos h1, if_neg h11]
     have hz' := hz (by omega)
     unfold topZeroOk at hz'
-    rw [if_neg h11, normZeroBits_eq j (by omega), beq_iff_eq] at hz'
-    have hdm := Nat.div_add_mod d.toNat (2 ^ (128 - j))
+    rw [if_neg h11, beq_iff_eq] at hz'
+    have hdm := Nat.div_add_mod d.toNat (2 ^ (128 - topZeroBits j))
     rw [hz', mul_zero, zero_add] at hdm
     apply BitVec.eq_of_toNat_eq
     rw [BitVec.toNat_ofNat, hdm]
@@ -1956,19 +1957,19 @@ theorem canonical_search_valid_credit (answers : Answers) (lay : Layer) (floor t
     CanonicalPolicy.producerDecodeAt_credit hd⟩
 
 theorem canonical_four_residual (d0 d1 d2 d3 : List Nat) (l0 l1 l2 l3 : Bool)
-    (h0 : 22 ≤ CanonicalPolicy.credit 0 l0 d0)
-    (h1 : CanonicalPolicy.threshold 1 (CanonicalPolicy.nextResidual 77 0 l0 d0) ≤
+    (h0 : 14 ≤ CanonicalPolicy.credit 0 l0 d0)
+    (h1 : CanonicalPolicy.threshold 1 (CanonicalPolicy.nextResidual 69 0 l0 d0) ≤
       CanonicalPolicy.credit 1 l1 d1)
     (h2 : CanonicalPolicy.threshold 2
-      (CanonicalPolicy.nextResidual (CanonicalPolicy.nextResidual 77 0 l0 d0) 1 l1 d1) ≤
+      (CanonicalPolicy.nextResidual (CanonicalPolicy.nextResidual 69 0 l0 d0) 1 l1 d1) ≤
       CanonicalPolicy.credit 2 l2 d2)
     (h3 : CanonicalPolicy.threshold 3
       (CanonicalPolicy.nextResidual
-        (CanonicalPolicy.nextResidual (CanonicalPolicy.nextResidual 77 0 l0 d0) 1 l1 d1) 2 l2 d2) ≤
+        (CanonicalPolicy.nextResidual (CanonicalPolicy.nextResidual 69 0 l0 d0) 1 l1 d1) 2 l2 d2) ≤
       CanonicalPolicy.credit 3 l3 d3) :
     CanonicalPolicy.nextResidual (CanonicalPolicy.nextResidual
-      (CanonicalPolicy.nextResidual (CanonicalPolicy.nextResidual 77 0 l0 d0) 1 l1 d1) 2 l2 d2) 3 l3 d3 = 0 := by
-  let r1 := CanonicalPolicy.nextResidual 77 0 l0 d0
+      (CanonicalPolicy.nextResidual (CanonicalPolicy.nextResidual 69 0 l0 d0) 1 l1 d1) 2 l2 d2) 3 l3 d3 = 0 := by
+  let r1 := CanonicalPolicy.nextResidual 69 0 l0 d0
   have hr1 : r1 < 56 := by dsimp [r1, CanonicalPolicy.nextResidual]; omega
   have hw1 := firstThreshold_window ⟨r1, hr1⟩
   change CanonicalPolicy.threshold 1 r1 < 16 ∧ r1 - CanonicalPolicy.threshold 1 r1 ≤ 40 at hw1
@@ -1996,7 +1997,7 @@ namespace SigGolfCandidate.Research.SharedForest
 open OracleComp OracleSpec SigGolfCandidate.T3 ClaudeWCT.WCT9
 
 def verifyDigestAccepted (output : HashOutput) : Bool :=
-  decide (output.toNat / 2 ^ 242 % 16384 < 804) && ranksAccepted output
+  decide (output.toNat / 2 ^ 242 % 16384 < 791) && ranksAccepted output
 
 theorem digestAccepted_implies_verify {output : HashOutput} (h : digestAccepted output = true) :
     verifyDigestAccepted output = true := by
@@ -2159,7 +2160,7 @@ theorem topFold_fill_signature (sig : Signature) (index : Nat) (digits : List Na
       topFold (mainSignature sig) index digits := by
   rw [mainSignature_fill]
   have h := topFold_fill (mainSignature sig) index digits c
-    ((topSib (mainSignature sig)).toNat / 2 ^ 109)
+    ((topSib (mainSignature sig)).toNat / 2 ^ 112)
   rw [fillTop_self] at h
   exact h
 
@@ -2168,7 +2169,7 @@ theorem topFoldN_fill_signature (sig : Signature) (index : Nat) (digits : List N
       topFoldN (mainSignature sig) index digits := by
   rw [mainSignature_fill]
   have h := topFoldN_fill (mainSignature sig) index digits c
-    ((topSib (mainSignature sig)).toNat / 2 ^ 109)
+    ((topSib (mainSignature sig)).toNat / 2 ^ 112)
   rw [fillTop_self] at h
   exact h
 
@@ -2864,15 +2865,15 @@ theorem expand_complete_of_recovered (answers : Answers) (message : Message) (pk
     exact ⟨_, rfl⟩
   · have hz : evalWithAnswerFn answers (topNode index result.foldedTop ((sig0.layers 0).path topJ)) ≠ pk := hzero
     have hcompletion : evalWithAnswerFn answers (topNode index result.foldedTop
-        (setTop ((sig0.layers 0).path topJ) (((sig.layers 0).path topJ).toNat / 2 ^ 109))) = pk := by
+        (setTop ((sig0.layers 0).path topJ) (((sig.layers 0).path topJ).toNat / 2 ^ 112))) = pk := by
       rw [topPath_fill_signature, setTop_setTop, setTop_self]
       exact hroot
-    have hn : ((sig.layers 0).path topJ).toNat / 2 ^ 109 ≠ 0 := by
+    have hn : ((sig.layers 0).path topJ).toNat / 2 ^ 112 ≠ 0 := by
       intro he
       rw [he, topPath_fill_signature, setTop_setTop] at hcompletion
       exact hz hcompletion
     obtain ⟨c, hc⟩ := searchTop_complete answers index result.foldedTop ((sig0.layers 0).path topJ)
-      pk searchFuel 1 (((sig.layers 0).path topJ).toNat / 2 ^ 109) (by omega)
+      pk searchFuel 1 (((sig.layers 0).path topJ).toNat / 2 ^ 112) (by omega)
       (by have ht := top_lt ((sig.layers 0).path topJ); unfold searchFuel; omega) hcompletion
     dsimp only [sig0] at hz
     dsimp only [sig0, index] at hc
@@ -3192,7 +3193,7 @@ def coordinateCost (f : Fields) (k : Fin 9) : Nat :=
      else SharedForest.bCorrection (f.1 k).toNat)
 def cost (f : Fields) : Nat := ((List.finRange 9).map (coordinateCost f)).sum
 def accepted (f : Fields) : Bool :=
-  decide (f.2.2.2.toNat < 804) &&
+  decide (f.2.2.2.toNat < 791) &&
     (List.finRange 9).all (fun k => decide ((f.2.1 k).toNat < 563)) && decide (cost f ≤ 777)
 
 theorem decodedRank_fields (a : HashOutput) (k : Fin 9) :
@@ -3312,10 +3313,10 @@ theorem policyHints_credit_sum (hints : BitVec 16) (digits : List (List Nat)) (l
     (hh : policyHintsValid hints digits lows = true)
     (hc : ∀ lay : Layer, hintFloor hints lay ≤
       CanonicalPolicy.credit lay (lows.getD lay.val true) (digits.getD lay.val [])) :
-    77 ≤ ((List.finRange 4).map fun lay =>
+    69 ≤ ((List.finRange 4).map fun lay =>
       CanonicalPolicy.credit lay (lows.getD lay.val true) (digits.getD lay.val [])).sum := by
   simp only [policyHintsValid, decide_eq_true_eq] at hh
-  have h0 : 22 ≤ CanonicalPolicy.credit 0 (lows.getD 0 true) (digits.getD 0 []) := by
+  have h0 : 14 ≤ CanonicalPolicy.credit 0 (lows.getD 0 true) (digits.getD 0 []) := by
     simpa [hintFloor, CanonicalPolicy.topFloor] using hc 0
   have h1 := hc 1
   have h2 := hc 2
@@ -3326,7 +3327,7 @@ theorem policyHints_credit_sum (hints : BitVec 16) (digits : List (List Nat)) (l
   have hz := canonical_four_residual (digits.getD 0 []) (digits.getD 1 []) (digits.getD 2 [])
     (digits.getD 3 []) (lows.getD 0 true) (lows.getD 1 true) (lows.getD 2 true) (lows.getD 3 true) h0 h1 h2 h3
   simp only [CanonicalPolicy.nextResidual] at hz
-  change 77 ≤ CanonicalPolicy.credit 0 (lows.getD 0 true) (digits.getD 0 []) +
+  change 69 ≤ CanonicalPolicy.credit 0 (lows.getD 0 true) (digits.getD 0 []) +
     (CanonicalPolicy.credit 1 (lows.getD 1 true) (digits.getD 1 []) +
       (CanonicalPolicy.credit 2 (lows.getD 2 true) (digits.getD 2 []) +
       (CanonicalPolicy.credit 3 (lows.getD 3 true) (digits.getD 3 []) + 0)))
@@ -3344,9 +3345,7 @@ set_option backward.isDefEq.respectTransparency false
 
 theorem maxDigit_le_seven (lay : Layer) (i : Nat) : maxDigit lay i ≤ 7 := by
   unfold maxDigit
-  split
-  · split <;> omega
-  · omega
+  split_ifs <;> omega
 
 /-- Coarse unconditional main-tree recovery bound; no old local credit floor
 or old layer-two/three target is used. -/
