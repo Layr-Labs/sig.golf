@@ -322,7 +322,7 @@ def ftsStep (w : WBytes) (output : HashOutput) (state : Option (List (Digest × 
   pure (some (pairs ++ [pair]))
 
 def ftsP (w : WBytes) (output : HashOutput) : M (Option (Digest × Digest)) := do
-  if !(decide (output.toNat / 2^242 % 16384 < 734) : Bool) then return none
+  if !(decide (output.toNat / 2^242 % 16384 < 791) : Bool) then return none
   let some pairs ← (List.finRange 9).foldlM (ftsStep w output) (some []) | pure none
   pure (some (pairs.getLastD (SharedV3.initialPair w)))
 
@@ -435,14 +435,14 @@ theorem fts_fold_success (answers : Answers) (w : WBytes) (output : HashOutput) 
 
 theorem ftsP_success (answers : Answers) (w : WBytes) (output : HashOutput) (top : Digest × Digest)
     (h : evalWithAnswerFn answers (ftsP w output) = some top) :
-    output.toNat / 2^242 % 16384 < 734 ∧
+    output.toNat / 2^242 % 16384 < 791 ∧
     (∀ coord : Fin 9, rawForestRank output coord.val < 563) ∧
     evalWithAnswerFn answers (SharedV3.forest w (WCT9.digestIndex output)
       (rawChildFromOutput output) (fun k => WCT9.embed (forestRank output k.val))) = top ∧
     queried answers (SharedV3.forest w (WCT9.digestIndex output)
       (rawChildFromOutput output) (fun k => WCT9.embed (forestRank output k.val))) =
       queried answers (ftsP w output) := by
-  have hg : output.toNat / 2^242 % 16384 < 734 := by
+  have hg : output.toNat / 2^242 % 16384 < 791 := by
     by_contra hn
     simp only [ftsP, hn, decide_false, Bool.not_false, ↓reduceIte, evalWithAnswerFn_pure] at h
     cases h

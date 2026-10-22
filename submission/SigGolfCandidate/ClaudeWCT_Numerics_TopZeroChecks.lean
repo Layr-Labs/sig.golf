@@ -7,7 +7,7 @@ The canonical top producer accepts a word only if at most 9 of its 54 digits are
   `zstat = 65536·zeros + 256·weight + score`) and its free-word variant (LOW not forced);
 * the exact zero-capped free count `|C_L∖B|` (`zeroFreeCard_eq`);
 * the zero-capped moment certificate: top counts (credit ≥ 15, zeros ≤ 9), the d6b split histogram,
-  the initial bound, the fixed power (img-v6: 112324) and the full moment (< 1.99895). -/
+  the initial bound, the fixed power (img-v6: 112324) and the full moment (< 2). -/
 
 namespace SigGolfResearch.NonbinaryTop.ZeroCounting
 open scoped BigOperators
@@ -109,16 +109,16 @@ theorem zfree_truncated_card (cut : Nat) (hc : 0 < cut) :
 
 def zfreeWindow (z : Nat) : Nat :=
   (zfpacked % radix ^ (65536*z+256*146+256)) % (radix - 1) -
-  (zfpacked % radix ^ (65536*z+256*146+29)) % (radix - 1)
+  (zfpacked % radix ^ (65536*z+256*146+32)) % (radix - 1)
 
 theorem zfree_window_card (z : Nat) :
-    (univ.filter fun w : FreeWord => weight (toWord w) = 146 ∧ 29 ≤ score (toWord w) ∧
+    (univ.filter fun w : FreeWord => weight (toWord w) = 146 ∧ 32 ≤ score (toWord w) ∧
       zeros (toWord w) = z).card = zfreeWindow z := by
   classical
-  have heq : (univ.filter fun w : FreeWord => weight (toWord w) = 146 ∧ 29 ≤ score (toWord w) ∧
+  have heq : (univ.filter fun w : FreeWord => weight (toWord w) = 146 ∧ 32 ≤ score (toWord w) ∧
         zeros (toWord w) = z) =
       (univ.filter fun w : FreeWord => zstat (toWord w) < 65536*z+256*146+256) \
-        (univ.filter fun w : FreeWord => zstat (toWord w) < 65536*z+256*146+29) := by
+        (univ.filter fun w : FreeWord => zstat (toWord w) < 65536*z+256*146+32) := by
     ext w
     have hc := score_le (toWord w)
     have hw := weight_le_225 (toWord w)
@@ -152,7 +152,7 @@ theorem free_card_transfer (P : Codec.Word → Prop) [DecidablePred P] :
 theorem zeroFreeCard_windows : zeroFreeCard = ∑ z ∈ range 10, zfreeWindow z := by
   classical
   have h1 : zeroFreeCard = (univ.filter fun w : Codec.Word =>
-      (weight w = 146 ∧ 29 ≤ score w ∧ zeros w ≤ 9) ∧ freeWord w).card := by
+      (weight w = 146 ∧ 32 ≤ score w ∧ zeros w ≤ 9) ∧ freeWord w).card := by
     unfold zeroFreeCard
     apply congrArg Finset.card
     apply Finset.filter_congr
@@ -163,11 +163,11 @@ theorem zeroFreeCard_windows : zeroFreeCard = ∑ z ∈ range 10, zfreeWindow z 
   rw [h1, free_card_transfer]
   rw [card_eq_sum_card_fiberwise (f := fun w : FreeWord => zeros (toWord w))
       (s := univ.filter fun w : FreeWord =>
-        weight (toWord w) = 146 ∧ 29 ≤ score (toWord w) ∧ zeros (toWord w) ≤ 9)
+        weight (toWord w) = 146 ∧ 32 ≤ score (toWord w) ∧ zeros (toWord w) ≤ 9)
       (t := range 10) (by
     intro w hw
     change w ∈ (univ.filter fun w : FreeWord =>
-      weight (toWord w) = 146 ∧ 29 ≤ score (toWord w) ∧ zeros (toWord w) ≤ 9) at hw
+      weight (toWord w) = 146 ∧ 32 ≤ score (toWord w) ∧ zeros (toWord w) ≤ 9) at hw
     change zeros (toWord w) ∈ range 10
     simp only [mem_filter, mem_univ, true_and] at hw
     simp only [mem_range]
@@ -185,8 +185,8 @@ theorem zeroFreeCard_windows : zeroFreeCard = ∑ z ∈ range 10, zfreeWindow z 
   · rintro ⟨h1, h2, h4⟩
     exact ⟨⟨h1, h2, by omega⟩, h4⟩
 
-/-- `|C_L∖B|` with the zero cap: top words of weight 146, score ≥ 29 (floor 19, d6b LOW bonus 2), LOW not forced, ≤ 9 zero digits. -/
-def zeroFreeCount : Nat := 61572646385634194677600334351063624
+/-- `|C_L∖B|` with the zero cap: top words of weight 146, score ≥ 32 (floor 22, d6b LOW bonus 2), LOW not forced, ≤ 9 zero digits. -/
+def zeroFreeCount : Nat := 59170261448886803489697968615038982
 
 theorem zfree_windows_eq : (∑ z ∈ range 10, zfreeWindow z) = zeroFreeCount := by
   decide +kernel
@@ -229,11 +229,11 @@ def topChoiceFree : Nat := SigGolfResearch.NonbinaryTop.ZeroCounting.zeroFreeCou
 def topHighW : Nat := 3 * 2 ^ 126 - topChoiceFree
 
 /-- d6b split with the zero cap: LOW (credit `c + 2`, weight `2^128`) or HIGH (credit `c`, weight `topHighW`).
-Entries below the top floor 19 never matter. -/
+Entries below the top floor 22 never matter. -/
 def topAcceptedHistogram : List (Nat × Nat) :=
   topCounts.flatMap fun e => [(e.1 + 2, e.2 * 2 ^ 128), (e.1, e.2 * topHighW)]
 
-def initialBound : Nat := 365801715909214252278842008745583317961
+def initialBound : Nat := 366685143351398408834324695003550351732
 
 /-- img-v6 fixed sign cost (opus-crumbs PORT v6 C): 112324 compressions. -/
 def fixedSignCost : Nat := 112324
@@ -242,7 +242,7 @@ def fixedSignCost : Nat := 112324
 def fixedBound : Nat := 616328186735326113110974222695394189508
 
 theorem initial_checked :
-    recurrenceCheck topDen topAcceptedHistogram 19 74 rowOne initialBound = true := by
+    recurrenceCheck topDen topAcceptedHistogram 22 77 rowOne initialBound = true := by
   decide +kernel
 
 theorem fixed_power_checked :
@@ -250,11 +250,11 @@ theorem fixed_power_checked :
   decide +kernel
 
 theorem full_moment_checked :
-    mulUp (mulUp fixedBound ftsBound) initialBound * 100000 < 199895 * scale := by
+    mulUp (mulUp fixedBound ftsBound) initialBound * 100000 < 200000 * scale := by
   decide +kernel
 
-/-- Top tail at the 2^20 top counter window (block 256 = 2^20 / 4096), floor 19. -/
-theorem top_tail_checked : tailCheck (acceptedMass topAcceptedHistogram 19) topDen 256 = true := by
+/-- Top tail at the 2^20 top counter window (block 256 = 2^20 / 4096), floor 22. -/
+theorem top_tail_checked : tailCheck (acceptedMass topAcceptedHistogram 22) topDen 256 = true := by
   decide +kernel
 
 theorem initialBound_ge_scale : scale ≤ initialBound := by norm_num [scale, initialBound]
@@ -302,10 +302,10 @@ theorem envelope_ratio_le_two_of (F X : Nat) (hX : X ≤ 200000)
     _ ≤ _ := hmul2
     _ ≤ 2 := hnum.le.trans hX'
 
-/-- Full moment ≤ 2 (1.99895) for the img-v6 fixed sign cost 112324 (cap 777, pool 74, floor 19, d6b). -/
+/-- Full moment ≤ 2 (approximately 1.9999293) for the img-v6 fixed sign cost 112324 (cap 777, pool 77, floor 22, d6b). -/
 theorem envelope_ratio_le_two : ((fixedBound:ℝ)/scale)*
     (((ftsBound:ℝ)/scale)*((initialBound:ℝ)/scale))≤2 :=
-  envelope_ratio_le_two_of fixedBound 199895 (by norm_num) full_moment_checked
+  envelope_ratio_le_two_of fixedBound 200000 (by norm_num) full_moment_checked
 
 #print axioms fixed_ratio_bound
 #print axioms envelope_ratio_le_two

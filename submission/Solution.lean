@@ -15,7 +15,7 @@ theorem layout_offsets : submission.layout =
   { message := 26144, secretKey := 128, publicKey := 160,
     cache := 524288, signature := 28672, witness := 4128 } := rfl
 
-theorem certificate : SigGolf.Certificate submission 6966 := by
+theorem certificate : SigGolf.Certificate submission 6963 := by
   exact SigGolfCandidate.Packaging.certificate_ready
 
 end SigGolf.Challenge
@@ -26,4 +26,4 @@ end SigGolf.Challenge
 #print axioms SigGolf.Challenge.layout_offsets
 #print axioms SigGolf.Challenge.certificate
 
-/- S=5239, W=22012, K=131072, C=6966; score=36494874. -/
+/- S=5239, W=22012, K=131072, C=6963; score=36479157. -/

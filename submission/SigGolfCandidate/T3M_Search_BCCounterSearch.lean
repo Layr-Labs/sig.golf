@@ -1129,12 +1129,12 @@ def lowerBranchCode : List (BitVec 32) := bv_list% 32 [0x1ca6463]
 def lowerBadCode : List (BitVec 32) := bv_list% 32 [0xf5cec06f]
 /-- `21438: jal zero, topcr` (path-aware top credit). -/
 def topBranchCode : List (BitVec 32) := bv_list% 32 [0xbf5ff06f]
-/-- `topcr` (21179): `s4 += 2` on the LOW path (choice flag clear; d6b head), then the floor test `s4 < 31`
-(floor 19 + 12) fails into `choice_r`, else `jal` to the zero-cap routine `zc` (21667; top-bytes layer), which
+/-- `topcr` (21179): `s4 += 2` on the LOW path (choice flag clear; d6b head), then the floor test `s4 < 34`
+(floor 22 + 12) fails into `choice_r`, else `jal` to the zero-cap routine `zc` (21667; top-bytes layer), which
 continues to the top credit hook (22499) or fails into `choice_r`. -/
 def topCr0 : List (BitVec 32) := bv_list% 32 [0x00066e37,0x7f8e3e03,0x000e1463]
 def topCr3 : List (BitVec 32) := bv_list% 32 [0x002a0a13]
-def topCr4 : List (BitVec 32) := bv_list% 32 [0x01f00e13,0xdbca66e3]
+def topCr4 : List (BitVec 32) := bv_list% 32 [0x02200e13,0xdbca66e3]
 def topCr6 : List (BitVec 32) := bv_list% 32 [0x7880006f]
 sym_block lowerAddRun := symRun {noAlias:=true} lowerAddCode (pcOf 21011) 6
 sym_block lowerFloorJumpRun := symRun {noAlias:=true} floorJumpCode (pcOf 21015) 2
@@ -1248,11 +1248,11 @@ theorem topCr3_steps {image : Image} (hc : CodeAt image (pcOf 21182) topCr3)
 
 theorem topCr4_steps {image : Image} (hc : CodeAt image (pcOf 21183) topCr4)
     (s : MachineState) (hp : s.pc=pcOf 21183) (a : Nat) (ha : a<2^64) (h20 : s.getReg .x20=BitVec.ofNat 64 a) :
-    ∃ t, Steps image s 2 2 t ∧ t.pc=(if 31≤a then pcOf 21185 else pcOf (choiceBase 543+3)) ∧
+    ∃ t, Steps image s 2 2 t ∧ t.pc=(if 34≤a then pcOf 21185 else pcOf (choiceBase 543+3)) ∧
       RegsExcept s t [.x28] ∧ Frame s t (fun _=>False) := by
   refine ⟨_,symRun_sound topCr4Run hc s hp (by simp [topCr4Run.res,rv_simp]),?_,?_,?_⟩
-  · change (if (s.getReg .x20).ult 31#64 then _ else _)=_
-    rw [h20,ofNat_ult a 31 ha (by decide)]
+  · change (if (s.getReg .x20).ult 34#64 then _ else _)=_
+    rw [h20,ofNat_ult a 34 ha (by decide)]
     split_ifs <;> simp_all [E.eval,choiceBase] <;> omega
   · intro r hr; cases r <;> simp at hr <;> rfl
   · intro A _ _; rfl
@@ -1331,13 +1331,13 @@ theorem lower_spec {image : Image} (hK : KernAt image 543 (Code image)) (s : Mac
     · exact (ff.trans f5).trans ft |>.mono (by simp [CreditW])
 
 /-- Top reward with the path-aware LOW bonus 2 (`topcr`); the choice flag is clear exactly on the LOW trial.
-A half passing the floor (`31 = 19 + 12`) is then checked by the zero cap `zc` (at most 9 zero digits). -/
+A half passing the floor (`34 = 22 + 12`) is then checked by the zero cap `zc` (at most 9 zero digits). -/
 theorem top_spec {image : Image} (hC : Code image) (s : MachineState) (v : Digest)
     (ht : Reward.RewardTablesOK s) (hz : ZeroCap.ZtOK 543 s) (hv : T3.topRanksValid (T3.topFlip v)=true)
     (hp : s.pc=pcOf (Reward.base 543 true))
     (h6 : s.getReg .x6=v.extractLsb' 0 64) (h7 : s.getReg .x7=v.extractLsb' 64 64)
     (low : Bool) (hfl : s.getMem (BitVec.ofNat 64 FLAG)=0 ↔ low=true) :
-    let good := 31 ≤ Reward.packedTopScore v+(if low then 2 else 0) ∧ ZeroCap.zcount v ≤ 9
+    let good := 34 ≤ Reward.packedTopScore v+(if low then 2 else 0) ∧ ZeroCap.zcount v ≤ 9
     ∃ k t, Steps image s k k t ∧ k≤226 ∧
       t.pc=(if good then pcOf 965 else pcOf (choiceBase 543+3)) ∧
       (good → t.getMem (0x66018#64)=BitVec.ofNat 64 (Reward.packedTopScore v+(if low then 2 else 0)-12)) ∧
@@ -1371,7 +1371,7 @@ theorem top_spec {image : Image} (hC : Code image) (s : MachineState) (v : Diges
   have rr := (((r1.trans r2).trans r3).trans r4).trans r5
   have ff := (((f1.trans f2).trans f3).trans f4).trans f5
   have hs12 : (3 : Nat)+(Reward.PackedTop.start 18-3)=95 := by decide
-  by_cases hg : 31≤Reward.packedTopScore v+(if low then 2 else 0)
+  by_cases hg : 34≤Reward.packedTopScore v+(if low then 2 else 0)
   · rw [if_pos hg] at p6
     obtain ⟨t7,s7,p7,r7,f7⟩ := topCr6_steps hC.cr6 t6 p6
     have rr7 := (rr.trans r6).trans r7
@@ -1461,18 +1461,18 @@ theorem top_spec_credit {image : Image} (hC : Code image) (s : MachineState) (v 
     (hp : s.pc=pcOf (Reward.base 543 true))
     (h6 : s.getReg .x6=v.extractLsb' 0 64) (h7 : s.getReg .x7=v.extractLsb' 64 64)
     (low : Bool) (hfl : s.getMem (BitVec.ofNat 64 FLAG)=0 ↔ low=true) :
-    let good := 19+WCT9.dispatchPenalty 0 (topDigits (T3.topFlip v))≤pathReward 0 low (topDigits (T3.topFlip v)) ∧
+    let good := 22+WCT9.dispatchPenalty 0 (topDigits (T3.topFlip v))≤pathReward 0 low (topDigits (T3.topFlip v)) ∧
       WCT9.canonicalZeroBound 0 (topDigits (T3.topFlip v))
     ∃ k t, Steps image s k k t ∧ k≤226 ∧
       t.pc=(if good then pcOf 965 else pcOf (choiceBase 543+3)) ∧
       (good → t.getMem (0x66018#64)=BitVec.ofNat 64 (credit 0 low (topDigits (T3.topFlip v)))) ∧
       RegsExcept s t [.x10,.x11,.x20,.x28,.x29] ∧ Frame s t CreditW := by
   have he := Reward.packedTopScore_reward v hv
-  have hi : (31≤Reward.packedTopScore v+(if low then 2 else 0) ∧ ZeroCap.zcount v ≤ 9)↔
-      (19+WCT9.dispatchPenalty 0 (topDigits (T3.topFlip v))≤pathReward 0 low (topDigits (T3.topFlip v)) ∧
+  have hi : (34≤Reward.packedTopScore v+(if low then 2 else 0) ∧ ZeroCap.zcount v ≤ 9)↔
+      (22+WCT9.dispatchPenalty 0 (topDigits (T3.topFlip v))≤pathReward 0 low (topDigits (T3.topFlip v)) ∧
         WCT9.canonicalZeroBound 0 (topDigits (T3.topFlip v))) := by
-    have h1 : (31≤Reward.packedTopScore v+(if low then 2 else 0)) ↔
-        19+WCT9.dispatchPenalty 0 (topDigits (T3.topFlip v))≤pathReward 0 low (topDigits (T3.topFlip v)) := by
+    have h1 : (34≤Reward.packedTopScore v+(if low then 2 else 0)) ↔
+        22+WCT9.dispatchPenalty 0 (topDigits (T3.topFlip v))≤pathReward 0 low (topDigits (T3.topFlip v)) := by
       rw [pathReward_top]
       unfold reward
       split <;> omega
@@ -1535,10 +1535,10 @@ theorem producerDecode_lower {lay : Layer} (hlz : lay≠0) (v : Digest) (floor c
     rewardOK,Rank.rankOK,Rank.rankFloor,WCT9.producerRankFloor,hlz,hds,filter_zero_count]
 /-! Producer output on a full 256-bit answer, split by the machine's trial order. -/
 theorem producerDecodeOut_top_low (a : BitVec 256) {ds : List Nat}
-    (h : WCT9.CanonicalPolicy.producerDecodeAt 0 19 true (a.extractLsb' 0 128) = some ds) :
-    WCT9.CanonicalPolicy.producerDecodeOut 0 19 a = some (ds, true) := by
+    (h : WCT9.CanonicalPolicy.producerDecodeAt 0 22 true (a.extractLsb' 0 128) = some ds) :
+    WCT9.CanonicalPolicy.producerDecodeOut 0 22 a = some (ds, true) := by
   have hg : WCT9.topGood (a.extractLsb' 0 128) := by
-    unfold WCT9.topGood; rw [show WCT9.CanonicalPolicy.topFloor = 19 from rfl, h]; rfl
+    unfold WCT9.topGood; rw [show WCT9.CanonicalPolicy.topFloor = 22 from rfl, h]; rfl
   have hl : WCT9.lowSelected 0 a = true := by
     simp [WCT9.lowSelected, WCT9.topChooseLow, hg]
   have he : WCT9.encodingAnswer 0 a = a.extractLsb' 0 128 := by
@@ -1546,9 +1546,9 @@ theorem producerDecodeOut_top_low (a : BitVec 256) {ds : List Nat}
   unfold WCT9.CanonicalPolicy.producerDecodeOut
   rw [he, hl, h]; rfl
 theorem producerDecodeOut_top_blocked (a : BitVec 256)
-    (h : WCT9.CanonicalPolicy.producerDecodeAt 0 19 true (a.extractLsb' 0 128) = none)
+    (h : WCT9.CanonicalPolicy.producerDecodeAt 0 22 true (a.extractLsb' 0 128) = none)
     (hb : T3.TopChoice.blocked (a.extractLsb' 0 128)) :
-    WCT9.CanonicalPolicy.producerDecodeOut 0 19 a = none := by
+    WCT9.CanonicalPolicy.producerDecodeOut 0 22 a = none := by
   have hl : WCT9.lowSelected 0 a = true := by
     simp [WCT9.lowSelected, WCT9.topChooseLow, hb]
   have he : WCT9.encodingAnswer 0 a = a.extractLsb' 0 128 := by
@@ -1556,12 +1556,12 @@ theorem producerDecodeOut_top_blocked (a : BitVec 256)
   unfold WCT9.CanonicalPolicy.producerDecodeOut
   rw [he, hl, h]; rfl
 theorem producerDecodeOut_top_high (a : BitVec 256)
-    (h : WCT9.CanonicalPolicy.producerDecodeAt 0 19 true (a.extractLsb' 0 128) = none)
+    (h : WCT9.CanonicalPolicy.producerDecodeAt 0 22 true (a.extractLsb' 0 128) = none)
     (hb : ¬ T3.TopChoice.blocked (a.extractLsb' 0 128)) :
-    WCT9.CanonicalPolicy.producerDecodeOut 0 19 a =
-      (WCT9.CanonicalPolicy.producerDecodeAt 0 19 false (a.extractLsb' 128 128)).map (·, false) := by
+    WCT9.CanonicalPolicy.producerDecodeOut 0 22 a =
+      (WCT9.CanonicalPolicy.producerDecodeAt 0 22 false (a.extractLsb' 128 128)).map (·, false) := by
   have hg : ¬ WCT9.topGood (a.extractLsb' 0 128) := by
-    unfold WCT9.topGood; rw [show WCT9.CanonicalPolicy.topFloor = 19 from rfl, h]; simp
+    unfold WCT9.topGood; rw [show WCT9.CanonicalPolicy.topFloor = 22 from rfl, h]; simp
   have hl : WCT9.lowSelected 0 a = false := by
     simp [WCT9.lowSelected, WCT9.topChooseLow, hg, hb]
   have he : WCT9.encodingAnswer 0 a = a.extractLsb' 128 128 := by
@@ -1597,8 +1597,8 @@ structure CsPre (b : Nat) (A : CsArgs) (s : MachineState) : Prop where
   cf : CfTableOK (cfFlag b) s
   reward : Reward.RewardTablesOK s
   zt : ZeroCap.ZtOK b s
-  floorLt : A.floor<22
-  floorTop : A.lay=0 → A.floor=19
+  floorLt : A.lay ≠ 0 → A.floor < 22
+  floorTop : A.lay=0 → A.floor=22
   floorMem : A.lay≠0 → s.getMem (0x66010#64)=BitVec.ofNat 64 A.floor
 structure CsInv (b : Nat) (A : CsArgs) (s0 : MachineState) (i : Nat) (t : MachineState) : Prop where
   pc : t.pc = pcOf (capBase b)
@@ -1898,13 +1898,13 @@ theorem top_trial {A : CsArgs} {s0 u : MachineState} {i : Nat}
     (hu : TrialSt 543 A s0 i u) (hpc : u.pc = pcOf (tcBase 543)) (hi22 : i < 2 ^ 22) (v : Digest)
     (h6 : u.getReg .x6 = v.extractLsb' 0 64) (h7 : u.getReg .x7 = v.extractLsb' 64 64)
     (low : Bool) (hfl : u.getMem (BitVec.ofNat 64 FLAG) = 0 ↔ low = true) :
-    (∀ ds, WCT9.CanonicalPolicy.producerDecodeAt 0 19 low v = some ds →
+    (∀ ds, WCT9.CanonicalPolicy.producerDecodeAt 0 22 low v = some ds →
       ∃ k t, Steps image u k k t ∧ k ≤ 640 ∧ RewardReady 543 A s0 i ds low t ∧
         WCT9.CanonicalPolicy.decode A.lay v = some ds ∧ A.floor ≤ WCT9.CanonicalPolicy.credit A.lay low ds) ∧
-    (WCT9.CanonicalPolicy.producerDecodeAt 0 19 low v = none →
+    (WCT9.CanonicalPolicy.producerDecodeAt 0 22 low v = none →
       ∃ k t, Steps image u k k t ∧ k ≤ 335 ∧ t.pc = pcOf (choiceBase 543 + 3) ∧ TrialSt 543 A s0 i t ∧
         Frame u t (fun A => A = 0x66018)) := by
-  have hfloor : A.floor = 19 := hpre.floorTop hlz
+  have hfloor : A.floor = 22 := hpre.floorTop hlz
   obtain ⟨tc,sc,pcc,h6c,h7c,rc,fc⟩ := tc_spec hK u hpc v h6 h7
   have hTc := hu.step rc (by decide) fc
   obtain ⟨w,rfl⟩ : ∃ w, v = T3.topFlip w := ⟨T3.topFlip v,(T3.topFlip_topFlip v).symm⟩
@@ -1921,7 +1921,7 @@ theorem top_trial {A : CsArgs} {s0 u : MachineState} {i : Nat}
   by_cases hs : topLookupSum w=146
   · rw [if_pos hs] at p6
     have hd' : WCT9.CanonicalPolicy.decode 0 (T3.topFlip w)=some (topDigits (T3.topFlip w)) := by rw [hdec,if_pos hs]
-    have hpd := producerDecode_top (T3.topFlip w) 19 low hd'
+    have hpd := producerDecode_top (T3.topFlip w) 22 low hd'
     have hvalid := ((topLookupSum_eq_iff w).mp hs).1
     obtain ⟨t7,s7,p7,r7,f7⟩ := TopUnpack.jump_spec hK t6 p6
     have hT7 := hT6.step r7 (by decide) f7
@@ -1933,10 +1933,10 @@ theorem top_trial {A : CsArgs} {s0 u : MachineState} {i : Nat}
       (by rw [r7.get (by decide),r6.get (by decide),r5.get (by decide),h6c])
       (by rw [r7.get (by decide),r6.get (by decide),r5.get (by decide),h7c]) low hfl7
     have hTf := hT7.stepCredit rf (by decide) (ff.mono (fun A _ h => h))
-    change tf.pc=(if rewardOK 0 19 low (topDigits (T3.topFlip w)) ∧
+    change tf.pc=(if rewardOK 0 22 low (topDigits (T3.topFlip w)) ∧
       WCT9.canonicalZeroBound 0 (topDigits (T3.topFlip w)) then _ else _) at pf
-    change (rewardOK 0 19 low (topDigits (T3.topFlip w)) ∧ WCT9.canonicalZeroBound 0 (topDigits (T3.topFlip w)) → _) at mf
-    by_cases hok : rewardOK 0 19 low (topDigits (T3.topFlip w)) ∧ WCT9.canonicalZeroBound 0 (topDigits (T3.topFlip w))
+    change (rewardOK 0 22 low (topDigits (T3.topFlip w)) ∧ WCT9.canonicalZeroBound 0 (topDigits (T3.topFlip w)) → _) at mf
+    by_cases hok : rewardOK 0 22 low (topDigits (T3.topFlip w)) ∧ WCT9.canonicalZeroBound 0 (topDigits (T3.topFlip w))
     · rw [if_pos hok] at pf
       rw [if_pos hok] at hpd
       refine ⟨fun ds hds => ?_, fun hn => (by rw [hpd] at hn; cases hn)⟩
@@ -1960,7 +1960,7 @@ theorem top_trial {A : CsArgs} {s0 u : MachineState} {i : Nat}
           simp only [false_or] at h; exact h)⟩
   · rw [if_neg hs] at p6
     have hd' : WCT9.CanonicalPolicy.decode 0 (T3.topFlip w)=none := by rw [hdec,if_neg hs]
-    have hpd : WCT9.CanonicalPolicy.producerDecodeAt 0 19 low (T3.topFlip w)=none := by
+    have hpd : WCT9.CanonicalPolicy.producerDecodeAt 0 22 low (T3.topFlip w)=none := by
       simp [WCT9.CanonicalPolicy.producerDecodeAt,hd']
     refine ⟨fun ds hds => (by rw [hpd] at hds; cases hds), fun _ => ?_⟩
     obtain ⟨t7,s7,p7,r7,f7⟩ := retry_spec hK t6 p6
@@ -2020,8 +2020,8 @@ theorem cs_loop {A : CsArgs} {s0 : MachineState} (hK : KernAt image 543 (Canonic
       intro w hw; rw [hw,f4.get (by unfold EOUT;omega) (by simp)]; exact hhi.2
     by_cases hlz : A.lay=0
     · rw [if_pos (hl0.2 hlz)] at p4
-      have hfl : A.floor = 19 := hpre.floorTop hlz
-      have e : WCT9.CanonicalPolicy.producerDecodeOut A.lay A.floor a = WCT9.CanonicalPolicy.producerDecodeOut 0 19 a := by
+      have hfl : A.floor = 22 := hpre.floorTop hlz
+      have e : WCT9.CanonicalPolicy.producerDecodeOut A.lay A.floor a = WCT9.CanonicalPolicy.producerDecodeOut 0 22 a := by
         rw [hlz,hfl]
       rw [e]
       obtain ⟨tg,sg,pg,gflag,rg,fg⟩ := top_select_spec hK t4 p4
@@ -2030,7 +2030,7 @@ theorem cs_loop {A : CsArgs} {s0 : MachineState} (hK : KernAt image 543 (Canonic
         fun X hX hX' => fg.get hX' hX
       obtain ⟨hLs,hLn⟩ := top_trial hK hpre hlz hTg pg hi22 (a.extractLsb' 0 128)
         (by rw [rg.get (by decide),h6]) (by rw [rg.get (by decide),h7]) true (by simp [gflag])
-      cases hL : WCT9.CanonicalPolicy.producerDecodeAt 0 19 true (a.extractLsb' 0 128) with
+      cases hL : WCT9.CanonicalPolicy.producerDecodeAt 0 22 true (a.extractLsb' 0 128) with
       | some ds =>
         rw [producerDecodeOut_top_low a hL]
         obtain ⟨k,t,st,kle,hR,hdec,hfloor⟩ := hLs ds hL
@@ -2059,7 +2059,7 @@ theorem cs_loop {A : CsArgs} {s0 : MachineState} (hK : KernAt image 543 (Canonic
             (by rw [rflag]; decide)
           have frE : ∀ X, X ≠ FLAG → X < 2^64 → tr.getMem (BitVec.ofNat 64 X) = t.getMem (BitVec.ofNat 64 X) :=
             fun X hX hX' => fr.get hX' hX
-          cases hH : WCT9.CanonicalPolicy.producerDecodeAt 0 19 false (a.extractLsb' 128 128) with
+          cases hH : WCT9.CanonicalPolicy.producerDecodeAt 0 22 false (a.extractLsb' 128 128) with
           | some ds =>
             obtain ⟨k',t',st',kle',hR,hdec,hfloor⟩ := hHs ds hH
             have done := cs_success (sk:=sk) hK hpre hR hi _ hdec hfloor
@@ -2139,7 +2139,7 @@ theorem cs_loop {A : CsArgs} {s0 : MachineState} (hK : KernAt image 543 (Canonic
               (a.extractLsb' 0 128) (mL0 t8 (fL8.get (by decide) (by simp))) (mL8 t8 (fL8.get (by decide) (by simp)))
               (T3.target (WCT9.CanonicalPolicy.normalLayer A.lay)) (lowDigits v).sum A.floor
               (by rw [hT8.reg (by decide),hpre.x17])
-              (by rw [r8.get (by decide),r7.get (by decide),h25']) hs.1 hs.2 hpre.floorLt
+              (by rw [r8.get (by decide),r7.get (by decide),h25']) hs.1 hs.2 (hpre.floorLt hlz)
               (by rw [hT8.frame.get (by decide) (by unfold CsW CanonicalHooks.CreditW ENC EOUT DigW DIGITS FLAG;omega),hpre.floorMem hlz])
             have hTR := hT8.stepCredit rR (by decide) fR
             change tR.pc=(if rewardOK A.lay A.floor low (lowDigits v++[T3.target (WCT9.CanonicalPolicy.normalLayer A.lay)-(lowDigits v).sum])

@@ -15,7 +15,7 @@ set_option maxHeartbeats 1000000
 set_option maxRecDepth 10000
 
 theorem ftsP_accepted (w : WBytes) (output : HashOutput)
-    (hg : output.toNat/2^242%16384<734)
+    (hg : output.toNat/2^242%16384<791)
     (hr : ∀ k : Fin 9,rawForestRank output k.val<563) :
     ftsP w output = (do
       let p ← SharedV3.forest w (WCT9.digestIndex output) (rawChildFromOutput output)
@@ -49,7 +49,7 @@ theorem verifyP_source_of (answers : SigGolfCandidate.T3.Correctness.Answers)
     (hrho : wrho wb=w.signature.rho) (hdc : wdc wb=w.digestCounter)
     (hd : evalWithAnswerFn answers (digest w.signature.rho message w.digestCounter)=output)
     (hbound : w.digestCounter.toNat<WCT9.digestVerifyWindow)
-    (hg : output.toNat/2^242%16384<734)
+    (hg : output.toNat/2^242%16384<791)
     (hr : ∀ k : Fin 9,rawForestRank output k.val<563)
     (hf : SharedV3.forest wb (WCT9.digestIndex output) (rawChildFromOutput output)
       (fun k=>WCT9.embed (forestRank output k.val)) =

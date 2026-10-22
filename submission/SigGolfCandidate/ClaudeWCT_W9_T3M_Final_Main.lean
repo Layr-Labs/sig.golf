@@ -31,7 +31,7 @@ theorem claimedC_eq : claimedC=verifyCycleBound+witnessCycles (submission I).siz
   rw [witnessCycles_eq];decide
 
 theorem submission_verificationBound (E : EncodingFacts) (F : SourceQueries) (P : Pending I) :
-    (submission I).VerificationBound 6966 := by
+    (submission I).VerificationBound 6963 := by
   intro hash sk m
   dsimp only
   intro h
@@ -56,7 +56,7 @@ open ClaudeWCT.W9.T3M (Images)
 variable {I : Images}
 
 theorem certificate_of (E : EncodingFacts) (F : SourceQueries) (P : Pending I) (S : SourceFacts) :
-    Certificate (submission I) 6966 where
+    Certificate (submission I) 6963 where
   admissible := P.admissible
   termination := submission_terminates P
   completeness := submission_complete E F P S
