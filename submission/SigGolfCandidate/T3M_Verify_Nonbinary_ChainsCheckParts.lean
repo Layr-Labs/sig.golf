@@ -10,8 +10,8 @@ theorem check_range_add {p : Nat → Bool} {lo left right : Nat}
   rfl
 
 theorem tripleCheck_join {q : Nat}
-    (hent : (List.range' 0 ((mx q + 1) ^ 3)).all (fun k => entCheck q k && s8Check q k) = true)
-    (hblock : (List.range' 0 ((mx q + 1) ^ 2)).all (liveBlock q) = true) :
+    (hent : (List.range' 0 (nRank q)).all (fun k => entCheck q k && s8Check q k) = true)
+    (hblock : (List.range' 0 (nBlock q)).all (liveBlock q) = true) :
     tripleCheck q = true := by
   unfold tripleCheck
   rw [List.range_eq_range', List.range_eq_range', hent, hblock]

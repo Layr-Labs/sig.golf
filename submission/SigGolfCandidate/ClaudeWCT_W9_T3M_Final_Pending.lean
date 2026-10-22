@@ -922,9 +922,9 @@ theorem V_signFromOutput_certified (secret : BitVec 256) (cache : SigGolfCandida
     (hfresh : RowsFreshFrom 0 rcache) :
     V secret SigGolfCandidate.T3.Budgets.signingZ
       (signFromOutput cache rho counter output) rcache ≤
-      SigGolfCandidate.T3.Budgets.signingZ^112320 * ((ClaudeWCT.Numerics.TopZero.initialBound : ENNReal)/scale) := by
+      SigGolfCandidate.T3.Budgets.signingZ^112322 * ((ClaudeWCT.Numerics.TopZero.initialBound : ENNReal)/scale) := by
   have h := V_signFromOutput_fixed secret SigGolfCandidate.T3.Budgets.signingZ
-    (SigGolfCandidate.T3.Budgets.signingZ^178 * ((ClaudeWCT.Numerics.TopZero.initialBound : ENNReal)/scale))
+    (SigGolfCandidate.T3.Budgets.signingZ^180 * ((ClaudeWCT.Numerics.TopZero.initialBound : ENNReal)/scale))
     (SigGolfCandidate.Budget.one_le_zOf _) cache rho counter output rcache ?_
   · simpa only [← mul_assoc, ← pow_add] using h
   · intro forest hforest prepared hprepared
@@ -1291,14 +1291,14 @@ set_option maxRecDepth 10000
 set_option maxHeartbeats 1000000
 set_option backward.isDefEq.respectTransparency false
 
-noncomputable def digestMoment : ENNReal := (ClaudeWCT.Numerics.TopZero.ftsBound804:ENNReal)/scale
-noncomputable def postMoment : ENNReal := signingZ^112320*((ClaudeWCT.Numerics.TopZero.initialBound:ENNReal)/scale)
+noncomputable def digestMoment : ENNReal := (ftsBound:ENNReal)/scale
+noncomputable def postMoment : ENNReal := signingZ^112322*((ClaudeWCT.Numerics.TopZero.initialBound:ENNReal)/scale)
 noncomputable def payloadMoment : ENNReal := signingZ^2*(digestMoment*postMoment)
 noncomputable def signingMoment : ENNReal := signingZ^2*payloadMoment
 
 theorem digestMoment_ge_one : 1 ≤ digestMoment := by
   apply (ENNReal.toReal_le_toReal (by simp) (by unfold digestMoment scale; finiteness)).mp
-  norm_num [digestMoment,ENNReal.toReal_div,ClaudeWCT.Numerics.TopZero.ftsBound804,scale]
+  norm_num [digestMoment,ENNReal.toReal_div,ftsBound,scale]
 
 theorem postMoment_ge_one : 1 ≤ postMoment := by
   apply one_le_mul (one_le_pow₀ (SigGolfCandidate.Budget.one_le_zOf _))
@@ -1313,11 +1313,11 @@ theorem digest_moment_step : signingZ*
     (SphincsSecurity.Completeness.failMass (DigestGeneric.decoder digestAccepted)*digestMoment+
       (1-SphincsSecurity.Completeness.failMass (DigestGeneric.decoder digestAccepted))) ≤ digestMoment := by
   have hfail : SphincsSecurity.Completeness.failMass (DigestGeneric.decoder digestAccepted)=
-      1-(ClaudeWCT.Numerics.TopZero.ftsNum804:ENNReal)/ftsDen := by
+      1-(ftsNum:ENNReal)/ftsDen := by
     rw [SigGolfCandidate.T3.Budgets.failMass_eq_one_sub_accept,
       DigestGeneric.decoder_acceptance,ClaudeWCT.Bank.Paired.digestAccepted_acceptance_exact]
   rw [hfail]
-  exact (mul_le_mul' signing_z_ratio le_rfl).trans ClaudeWCT.Numerics.TopZero.fts_ratio_step_804
+  exact (mul_le_mul' signing_z_ratio le_rfl).trans fts_ratio_step
 
 theorem V_sharedDigestSearch (secret : BitVec 256) (rho : Digest) (message : Message)
     (fuel counter : Nat) (hlimit : counter+fuel≤2^32) (cache : RCache)
@@ -1355,17 +1355,17 @@ theorem V_sign_certified (secret : BitVec 256) (cache : SigGolfCandidate.T3.Cach
     (privateMac_preserves_fresh secret cache.region rcache hfresh checked hc)
 
 theorem signingMoment_eq : signingMoment =
-    signingZ^112324*(((ClaudeWCT.Numerics.TopZero.ftsBound804:ENNReal)/scale)*((ClaudeWCT.Numerics.TopZero.initialBound:ENNReal)/scale)) := by
+    signingZ^112326*(((ftsBound:ENNReal)/scale)*((ClaudeWCT.Numerics.TopZero.initialBound:ENNReal)/scale)) := by
   unfold signingMoment payloadMoment digestMoment postMoment
-  rw [show 112324=2+2+112320 by decide,pow_add,pow_add]
+  rw [show 112326=2+2+112322 by decide,pow_add,pow_add]
   ac_rfl
 
-/-- The fixed sign cost proved for the current Lean scheme (`signingMoment_eq`: 2 + 2 + 112142 + 178; v6 lower
-seed families: `prepared_roots_cost` 80821 = 81146 − 325; top 4-leaf families: `bound_signTop` 178 = 170 + 8). -/
-def schemeFixedSignCost : Nat := 112324
+/-- The fixed sign cost proved for the current Lean scheme (`signingMoment_eq`: 2 + 2 + 112142 + 180; v6 lower
+seed families: `prepared_roots_cost` 80821 = 81146 − 325; T51 top 4-leaf families: `bound_signTop` 180 = 16 + 152 + 12). -/
+def schemeFixedSignCost : Nat := 112326
 
 /-- img-v6 open obligation (opus-crumbs PORT v6 C): the scheme's proved fixed sign cost is at most the certified img-v6
-value 112324 (`TopZero.fixedSignCost`). Discharged by `decide` once the lower 7-leaf / top 4-leaf seed-family scheme
+value 112326 (`TopZero.fixedSignCost`). Discharged by `decide` once the lower 7-leaf / top 4-leaf seed-family scheme
 ports land (they lower `bound_buildForest` / `prepared_roots_cost`); the v6 envelope has slack ≈ +100 compressions. -/
 def SchemeFixedCostV6 : Prop := schemeFixedSignCost ≤ ClaudeWCT.Numerics.TopZero.fixedSignCost
 
@@ -1386,11 +1386,11 @@ theorem signingMoment_le_two (hfix : SchemeFixedCostV6) : signingMoment ≤ 2 :=
     have h1 : (1:ENNReal) ≤ signingZ := SigGolfCandidate.Budget.one_le_zOf _
     have h := ENNReal.toReal_mono (by unfold signingZ SigGolfCandidate.Budget.zOf; finiteness) h1
     simpa only [ENNReal.toReal_one] using h
-  have hfixed : signingZ.toReal^112324≤(ClaudeWCT.Numerics.TopZero.fixedBound:ℝ)/scale :=
+  have hfixed : signingZ.toReal^112326≤(ClaudeWCT.Numerics.TopZero.fixedBound:ℝ)/scale :=
     ((pow_le_pow_right₀ hz1 hfix).trans (pow_le_pow_left₀ ENNReal.toReal_nonneg hz _)).trans
       ClaudeWCT.Numerics.TopZero.fixed_ratio_bound
   calc
-    _ ≤ ((ClaudeWCT.Numerics.TopZero.fixedBound:ℝ)/scale)*(((ClaudeWCT.Numerics.TopZero.ftsBound804:ℝ)/scale)*
+    _ ≤ ((ClaudeWCT.Numerics.TopZero.fixedBound:ℝ)/scale)*(((ftsBound:ℝ)/scale)*
         ((ClaudeWCT.Numerics.TopZero.initialBound:ℝ)/scale)) := by gcongr
     _ ≤ 2 := ClaudeWCT.Numerics.TopZero.envelope_ratio_le_two
 
@@ -1520,8 +1520,8 @@ abbrev witEnc := ClaudeWCT.W9.T3M.Paired.witEnc
 /-- img-v6: the honest expand output carries the top node nonces (`Paired.witEncN`). -/
 abbrev witEncN := ClaudeWCT.W9.T3M.Paired.witEncN
 
- def verifyCycleBound : Nat := 6877
- def claimedC : Nat := 6963
+ def verifyCycleBound : Nat := 6922
+ def claimedC : Nat := 7008
  def DigestCapOk (hash : Hash) (m : Message) (w : Bytes 22012) : Prop :=
   SigGolfCandidate.Research.SharedForest.jointAccountingCost
     (hash (SigGolfCandidate.T3M.toQ (SigGolfCandidate.T3.pad64
@@ -1545,11 +1545,11 @@ def KeygenRunWith : Prop := ∀ (hash : Hash) (sk : SecretKey),
  def SignTerminates : Prop := ∀ (hash : Hash) (sk : SecretKey) (cache : Bytes 131072) (m : Message),
   ((submission I).runWith hash .sign (sk,cache,m)).finished=true ∧
     ((submission I).runWith hash .sign (sk,cache,m)).cycles<CYCLE_LIMIT
- def ExpandRefines : Prop := ∀ (m : Message) (pk : PublicKey) (s : Bytes 5239),
+ def ExpandRefines : Prop := ∀ (m : Message) (pk : PublicKey) (s : Bytes 5195),
   (fun r => (r.value,r.hashCalls,r.hashCompressions)) <$> (submission I).run .expand (m,pk,s)=
     (fun p => (p.1.map (fun x => witEncN x.1 x.2),p.2.1,p.2.2)) <$>
       countBoth (mrealize 0 (expandN m pk (sigDecC s)))
- def ExpandTerminates : Prop := ∀ (hash : Hash) (m : Message) (pk : PublicKey) (s : Bytes 5239),
+ def ExpandTerminates : Prop := ∀ (hash : Hash) (m : Message) (pk : PublicKey) (s : Bytes 5195),
   ((submission I).runWith hash .expand (m,pk,s)).finished=true ∧
     ((submission I).runWith hash .expand (m,pk,s)).cycles<CYCLE_LIMIT
  def VerifyRefines : Prop := ∀ (m : Message) (pk : PublicKey) (w : Bytes 22012),

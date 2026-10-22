@@ -376,8 +376,8 @@ theorem lowerZeros_card_of_caps {zcap : Layer → Nat} (hz : LeafZeroCapRef zcap
         (Fin.ext (hna.trans hnb.symm)) (Fin.ext hv)
   exact le_trans (Nat.add_le_add_right (CanonGraph.famZeros_card_le Z zcap hleaf lay tree f _
     fun a ha => (mem_lowerZeros T ⟨(lay, tree, f), hL⟩ a).mp ha) 3) (hsize lay f.val)
-/-- Canonical producer zero caps per leaf (`WCT9.producerZeroCap`): top 9 of 54, lower 5 of 43 (img-v6 top-bytes). -/
-def leafZeroCap (lay : Layer) : Nat := if lay = 0 then 9 else 5
+/-- Canonical producer zero caps per leaf (`WCT9.producerZeroCap`): top 7 of 51 (T51; img-v6: 9 of 54), lower 5 of 43. -/
+def leafZeroCap (lay : Layer) : Nat := if lay = 0 then 7 else 5
 theorem leafZeroCapRef : LeafZeroCapRef leafZeroCap := by
   intro T K _
   set ds := Wots.CanonicalRef.referenceDigits T (Wots.CanonicalRef.sourceMessages T) K with hds
@@ -420,6 +420,7 @@ theorem leafZeroCap_size (lay : Layer) (f : Nat) :
   · have := min_le_left 4 (2 ^ height lay - 4 * f)
     simp only [SigGolfCandidate.T3.topCoefCount]; omega
   · exact le_rfl
+
 /-- At most `famSize − 3` revealed seeds per family (v6 lower: `5 r + 3` coefficients for `r` real members). -/
 theorem lowerZeros_card (T : Answers) (L : LowerLeaf) : (lowerZeros T L).card + 3 ≤ WCT9.famSize L.1.1 L.1.2.2.val :=
   lowerZeros_card_of_caps leafZeroCapRef leafZeroCap_size T L

@@ -76,10 +76,20 @@ theorem dispatch_value (W : Word) (b q : Nat) (hb : b<64) (hq : q<17) :
   have he := entOff_le q hq
   rw [word_mask12 W b hb,ofNat_add_ofNat,even_andNot1' _ (by omega)]
   apply congrArg (BitVec.ofNat 64); omega
-theorem cell_value (q k : Nat) (hq : q<17) (hk : k ≤ 124) :
+/-- T51: #938's r5 groups 9..15 keep their cell column `1024 (125 - k) + entOff q`. -/
+theorem cell_value (q k : Nat) (hq : q<16) (h9 : 9≤q) (hk : k ≤ 124) :
     BitVec.ofNat 64 (4096*(127-k)+2^64+4*entOff q-4096)=pcOf (cellW q k) := by
-  have he := entOff_le q hq
-  unfold pcOf cellW; rw [if_pos hq]
+  have he := entOff_le q (by omega)
+  unfold pcOf cellW; rw [if_neg (by omega), if_pos hq]
+  apply BitVec.eq_of_toNat_eq
+  simp only [BitVec.toNat_ofNat]
+  omega
+/-- T51: the r7 pair (group 16) is reached by #938's dispatch into group 8 (`entOff 8 = 676`): rank `k < 49` lands
+on its cell `cellW 16 k = 1024 (125 - k) + 676`. -/
+theorem cell_value_pair (k : Nat) (hk : k ≤ 124) :
+    BitVec.ofNat 64 (4096*(127-k)+2^64+4*entOff 8-4096)=pcOf (cellW 16 k) := by
+  unfold pcOf cellW entOff
+  simp only [show ¬ (16:Nat)<9 by omega, show ¬ (16:Nat)<16 by omega, if_false, if_true]
   apply BitVec.eq_of_toNat_eq
   simp only [BitVec.toNat_ofNat]
   omega
@@ -135,4 +145,101 @@ theorem prologue_value (W : Word) :
     Nat.sub_zero, Nat.pow_zero, Nat.div_one] at hm
   change ((W <<< 12 &&& 520192#64) + BitVec.ofNat 64 (1168)) &&& ~~~1#64 = _
   rw [hm, ofNat_add_ofNat, even_andNot1' _ (by omega)]
+/-! ### T51 dispatch arithmetic (ported from R6)
+g0 (prologue): `slli a4,a6,56; srli a4,a4,45; jalr -744(a4)` lands on `cell6 0 raw` (raw = a6 % 256 >= 3), below the
+code start (raw = 1, 2) or far above it (raw = 0).  r6 groups 1..8: `a4 = field & 0xFF00 = 256 raw`, table B
+(g1..g3, g8) `s2 - a4`, table A `a4 + s2`, `jalr` to `cell6 h raw`.  Checksum: `((s8 + 89) << 11) + 1168` with
+`s8 = T - ds` (T = 152, ds <= 231) lands on `ckWord ds`. -/
+/-- The g0 dispatch shift pair `slli a4,a6,56; srli a4,a4,45`: `2048 * (a6 % 256)`. -/
+theorem g0_shift (W : Word) : (W <<< 56) >>> 45 = BitVec.ofNat 64 (2048 * (W.toNat % 256)) := by
+  apply BitVec.eq_of_toNat_eq
+  have hW := W.isLt
+  simp only [BitVec.toNat_ushiftRight, BitVec.toNat_shiftLeft, Nat.shiftLeft_eq, Nat.shiftRight_eq_div_pow,
+    BitVec.toNat_ofNat]
+  rw [Nat.mod_eq_of_lt (show 2048 * (W.toNat % 256) < 2^64 by omega)]
+  rw [show (2:Nat)^64 = 2^56 * 2^8 by norm_num, Nat.mul_comm W.toNat, Nat.mul_mod_mul_left,
+    show (2:Nat)^56 = 2^45 * 2048 by norm_num, Nat.mul_assoc, Nat.mul_div_cancel_left _ (by norm_num)]
+  norm_num
+/-- The g0 dispatch target (jalr -744) for a field value `raw >= 1`. -/
+theorem g0_target (W : Word) (raw : Nat) (hr : W.toNat % 256 = raw) (h1 : 1 ≤ raw) :
+    (((W <<< 56) >>> 45) + BitVec.ofNat 64 (2^64-744)) &&& ~~~1#64 = BitVec.ofNat 64 (2048 * raw - 744) := by
+  have hr' : raw < 256 := by omega
+  have e : BitVec.ofNat 64 (2048 * raw) + BitVec.ofNat 64 (2^64-744) = BitVec.ofNat 64 (2048 * raw - 744) := by
+    rw [ofNat_add_ofNat]
+    apply BitVec.eq_of_toNat_eq
+    simp only [BitVec.toNat_ofNat]
+    omega
+  rw [g0_shift, hr, e, even_andNot1' _ (by omega)]
+theorem g0_cell (raw : Nat) (h3 : 3 ≤ raw) : BitVec.ofNat 64 (2048 * raw - 744) = pcOf (cell6 0 raw) := by
+  unfold pcOf cell6; simp only [if_true]; congr 1; omega
+theorem g0_low (raw : Nat) (h3 : raw < 3) : (BitVec.ofNat 64 (2048 * raw - 744)).toNat < 0x1000 := by
+  simp only [BitVec.toNat_ofNat]; omega
+/-- Field value 0: the target `2^64 - 744` lies far above the code. -/
+theorem g0_target0 (W : Word) (hr : W.toNat % 256 = 0) :
+    0x1000 + 4 * 257280 ≤ ((((W <<< 56) >>> 45) + BitVec.ofNat 64 (2^64-744)) &&& ~~~1#64).toNat := by
+  rw [g0_shift, hr, Nat.mul_zero, ofNat_add_ofNat, even_andNot1' _ (by omega)]
+  simp only [BitVec.toNat_ofNat]; omega
+theorem land_mask8 (n : Nat) : n &&& (256*(2^8-1)) = 256*(n/256%2^8) := by
+  apply Nat.eq_of_testBit_eq; intro j
+  rw [Nat.testBit_and, show (256 : Nat)=2^8 by norm_num, Nat.testBit_two_pow_mul, Nat.testBit_two_pow_mul,
+    Nat.testBit_two_pow_sub_one, Nat.testBit_mod_two_pow, Nat.testBit_div_two_pow]
+  by_cases h : 8 ≤ j
+  · simp only [h, decide_true, Bool.true_and, show j-8+8=j by omega]
+    by_cases hj : j-8<8 <;> simp [hj]
+  · simp [h]
+/-- `X &&& 0xFF00 = 256 * (X / 2^8 % 256)`. -/
+theorem word_ff00 (X : Word) : X &&& 65280#64 = BitVec.ofNat 64 (256 * (X.toNat / 2^8 % 256)) := by
+  apply BitVec.eq_of_toNat_eq
+  have h1 : X.toNat / 2^8 % 256 < 256 := Nat.mod_lt _ (by norm_num)
+  rw [BitVec.toNat_and, show (65280#64).toNat = 256*(2^8-1) by rfl, land_mask8, BitVec.toNat_ofNat,
+    Nat.mod_eq_of_lt (a := 256 * (X.toNat / 2^8 % 256)) (by omega)]
+  norm_num
+/-- `(X >>> s) &&& 0xFF00 = 256 * (X / 2^(s+8) % 256)`. -/
+theorem field_ff00 (X : Word) (s : Nat) :
+    (X >>> s) &&& 65280#64 = BitVec.ofNat 64 (256 * (X.toNat / 2^(s+8) % 256)) := by
+  rw [word_ff00, BitVec.toNat_ushiftRight, Nat.shiftRight_eq_div_pow, Nat.div_div_eq_div_mul, ← pow_add]
+theorem s2_sub (r : Nat) (hr : r < 256) :
+    856064#64 - BitVec.ofNat 64 (256*r) = BitVec.ofNat 64 (856064-256*r) := by
+  rw [BitVec.sub_eq_iff_eq_add, ofNat_add_ofNat]
+  congr 1; omega
+/-- Table B target (r6 groups 1..3): `s2 - 256 raw + (4 off - 256)`. -/
+theorem tabB_target (r o : Nat) (hr : r < 256) (ho : o < 64) :
+    ((856064#64 - BitVec.ofNat 64 (256*r)) + BitVec.ofNat 64 (2^64+4*o-256)) &&& ~~~1#64 =
+      pcOf (64*(3327-r)+o) := by
+  rw [s2_sub r hr, ofNat_add_ofNat]
+  have e : BitVec.ofNat 64 (856064-256*r+(2^64+4*o-256)) = BitVec.ofNat 64 (856064-256*r+4*o-256) := by
+    apply BitVec.eq_of_toNat_eq
+    simp only [BitVec.toNat_ofNat]
+    omega
+  rw [e, even_andNot1' _ (by omega)]
+  unfold pcOf; congr 1; omega
+/-- Table A target (r6 groups 4..7): `256 raw + s2 + 4 off`. -/
+theorem tabA_target (r o : Nat) (hr : r < 256) (ho : o < 64) :
+    ((BitVec.ofNat 64 (256*r) + 856064#64) + BitVec.ofNat 64 (4*o)) &&& ~~~1#64 =
+      pcOf (64*(3328+r)+o) := by
+  rw [ofNat_add_ofNat, ofNat_add_ofNat, even_andNot1' _ (by omega)]
+  unfold pcOf; congr 1; omega
+theorem ck_s8 (ds : Nat) (hd : ds ≤ 231) :
+    (BitVec.ofNat 64 topT - BitVec.ofNat 64 ds) + 89#64 = BitVec.ofNat 64 (241-ds) := by
+  rw [BitVec.ofNat_sub_ofNat, ofNat_add_ofNat]
+  apply BitVec.eq_of_toNat_eq
+  simp only [topT, BitVec.toNat_ofNat]
+  omega
+/-- The checksum dispatch target `(((s8 + 89) << 11) + 1168) & ~1` for s8 = T - ds, ds <= 231. -/
+theorem ck_target (ds : Nat) (hd : ds ≤ 231) :
+    ((((BitVec.ofNat 64 topT - BitVec.ofNat 64 ds) + 89#64) <<< 11) + 1168#64) &&& ~~~1#64 =
+      pcOf (ckWord ds) := by
+  have e2 : BitVec.ofNat 64 (241-ds) <<< 11 = BitVec.ofNat 64 (2048*(241-ds)) := by
+    apply BitVec.eq_of_toNat_eq
+    simp only [BitVec.toNat_shiftLeft, Nat.shiftLeft_eq, BitVec.toNat_ofNat]
+    omega
+  rw [ck_s8 ds hd, e2, ofNat_add_ofNat, even_andNot1' _ (by omega)]
+  unfold pcOf ckWord topT; congr 1; omega
+/-- The r6 field read by the dispatch into group `h` (1..8): bits `8h..8h+7` (h < 7), `112..119` (g7),
+`120..127` (g8) (`= T3.r6Shift h`). -/
+def r6Pos (h : Nat) : Nat := if h=7 then 112 else if h=8 then 120 else 8*h
+theorem cell6_tab (h r : Nat) (h1 : 1 ≤ h) (h8 : h ≤ 8) :
+    cell6 h r = if r6B h then 64*(3327-r)+r6Off h else 64*(3328+r)+r6Off h := by
+  unfold cell6; rw [if_neg (by omega)]
+theorem r6Off_lt (h : Nat) : r6Off h < 64 := by unfold r6Off; omega
 end SigGolfCandidate.T3M.Nonbinary

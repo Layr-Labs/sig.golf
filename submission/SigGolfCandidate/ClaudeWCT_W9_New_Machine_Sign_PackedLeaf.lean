@@ -26,14 +26,8 @@ open SigGolfCandidate.T3 (Layer Digest chainCount maxDigit privatePair header pr
 open ClaudeWCT.Arith
 set_option maxRecDepth 10000
 
-set_option maxHeartbeats 0 in
-theorem signCode_drop_new : Images.signReferenceImage.code.drop 11003 = signNew ++ Images.signReferenceImage.code.drop 20771 := by
-  decide +kernel
-/-- C4: the coordinate-0 arena at sign words 1700..1725. -/
-theorem arena_signImage : arenaCode <+: Images.signReferenceImage.code.drop 1700 :=
-  List.prefix_iff_eq_take.mpr (by decide +kernel)
-theorem newCodeAt_image : NewCodeAt Sign.image :=
-  ⟨⟨_, signCode_drop_new.symm⟩, ⟨Images.signReferenceImage.code.drop 21667, by decide +kernel⟩, arena_signImage⟩
+-- Campaign T51 (as R6): the legacy `newCodeAt_image : NewCodeAt Sign.image` over the reference image (and its
+-- `signCode_drop_new` / `arena_signImage`) was removed: dead, and false once `tailCode` reads the current image.
 
 /-! ### Hybrid base states -/
 
@@ -124,7 +118,7 @@ theorem LeafInv.rebase {s0 s t s' u : MachineState} {A : LeafArgs} {j : Nat} {st
     {W : Nat → Prop} (hf : Frame t u W) (hW : ∀ X, W X → SeedW X)
     (hvs : A.valp + 16 * A.n ≤ PRIV ∨ LEAFPK + 960 ≤ A.valp) (hv : A.valp + 16 * A.n ≤ 0x50000)
     (hj : j ≤ A.n) : LeafInv s' A j st u := by
-  have hn : A.n = 54 ∨ A.n = 43 := chainCount_cases A.lay
+  have hn : A.n = 51 ∨ A.n = 43 := chainCount_cases A.lay
   have hP : PRIV = 131072 := rfl
   have hS : SEEDS = 131136 := rfl
   have hL : LEAFPK = 132608 := rfl
@@ -160,7 +154,7 @@ theorem LeafInv.rebase {s0 s t s' u : MachineState} {A : LeafArgs} {j : Nat} {st
 
 theorem LeafW_not_bscr {A : LeafArgs} (hv : A.valp + 16 * A.n ≤ 0x50000) (hd : A.dest + 16 ≤ 0x50000) {X : Nat}
     (h : LeafW A X) : ¬ BScr X := by
-  have hn : A.n = 54 ∨ A.n = 43 := chainCount_cases A.lay
+  have hn : A.n = 51 ∨ A.n = 43 := chainCount_cases A.lay
   unfold LeafW at h
   intro hb; unfold BScr at hb
   simp only [PRIV, SEEDS, CHAIN, LEAFPK, LOUT] at h
@@ -366,7 +360,7 @@ theorem LeafInv.rebase {s0 s t s' u : MachineState} {A : LeafArgs} {j : Nat} {st
     {W : Nat → Prop} (hf : Frame t u W) (hW : ∀ X, W X → SeedW X)
     (hvs : A.valp + 16 * A.n ≤ PRIV ∨ LEAFPK + 960 ≤ A.valp) (hv : A.valp + 16 * A.n ≤ 0x50000)
     (hj : j ≤ A.n) : LeafInv s' A j st u := by
-  have hn : A.n = 54 ∨ A.n = 43 := chainCount_cases A.lay
+  have hn : A.n = 51 ∨ A.n = 43 := chainCount_cases A.lay
   have hP : PRIV = 131072 := rfl
   have hS : SEEDS = 131136 := rfl
   have hL : LEAFPK = 132608 := rfl
@@ -404,7 +398,7 @@ theorem LeafInv.rebase {s0 s t s' u : MachineState} {A : LeafArgs} {j : Nat} {st
 theorem LeafW_not_bscr {A : LeafArgs} (hv : A.valp + 16 * A.n ≤ 0x50000) (hd : A.dest + 16 ≤ 0x50000)
     (hdc : A.dest + 16 ≤ 0x201C0 ∨ 0x20210 ≤ A.dest) (hvc : A.valp + 16 * A.n ≤ 0x201C0 ∨ 0x20210 ≤ A.valp) {X : Nat}
     (h : LeafW A X) : ¬ BScr X := by
-  have hn : A.n = 54 ∨ A.n = 43 := chainCount_cases A.lay
+  have hn : A.n = 51 ∨ A.n = 43 := chainCount_cases A.lay
   unfold LeafW at h
   intro hb; unfold BScr at hb
   simp only [PRIV, SEEDS, CHAIN, LEAFPK, LOUT] at h
@@ -430,7 +424,7 @@ theorem LeafInv.rebase_chain {s0 s t s' u : MachineState} {A : LeafArgs} {j : Na
     (hvs : A.valp + 16*A.n ≤ PRIV ∨ LEAFPK+960 ≤ A.valp)
     (hv : A.valp + 16*A.n ≤ 0x50000) (hj : j < A.n) :
     LeafInv s' A j st u := by
-  have hn : A.n=54 ∨ A.n=43 := chainCount_cases A.lay
+  have hn : A.n=51 ∨ A.n=43 := chainCount_cases A.lay
   have nW : ∀ X, (X<0x201C0 ∨ (0x20210≤X ∧ X<0x50000)) → ¬ChainW (A.valp+16*j) X → ¬W X := by
     intro X hX hC h
     exact (hW X h).elim (not_bscr (by omega)) hC

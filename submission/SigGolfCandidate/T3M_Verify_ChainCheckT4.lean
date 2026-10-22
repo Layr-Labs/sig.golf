@@ -2,7 +2,6 @@ import SigGolfCandidate.T3M_Verify_ChainCheckT3
 
 namespace SigGolfCandidate.T3M
 set_option maxRecDepth 100000
-set_option Elab.async false
 private theorem triCheck_part_8_0 : triCheck 8 0 16 = true := by decide +kernel
 private theorem triCheck_part_8_16 : triCheck 8 16 16 = true := by decide +kernel
 private theorem triCheck_part_8_32 : triCheck 8 32 16 = true := by decide +kernel

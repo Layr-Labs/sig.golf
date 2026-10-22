@@ -995,7 +995,7 @@ theorem TrialSt.reg {b : Nat} {A : CsArgs} {s0 u : MachineState} {i : Nat} (h : 
     {r : Reg} (hr : r ∉ csRegs) : u.getReg r = s0.getReg r := h.regs.get hr
 section trial
 variable {image : Image} {b : Nat} {sk : BitVec 256}
-theorem chainCount_eq (lay : Layer) : T3.chainCount lay = if lay = 0 then 54 else 43 := by
+theorem chainCount_eq (lay : Layer) : T3.chainCount lay = if lay = 0 then 51 else 43 := by
   fin_cases lay <;> rfl
 theorem target_lt (lay : Layer) : T3.target lay < 2 ^ 63 := by
   fin_cases lay <;> decide

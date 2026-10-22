@@ -45,101 +45,34 @@ theorem histogramWeight_split (h : List (Nat × Nat)) (k a b x : Nat) :
       · simp only [if_neg hk]
         split_ifs <;> ring
 
-local notation "topFiberZ" z:arg score:arg =>
-  (univ.filter fun w : SigGolfResearch.NonbinaryTop.Codec.Word =>
-    SigGolfResearch.NonbinaryTop.EffectiveCounting.zeros w = z ∧
-    SigGolfResearch.NonbinaryTop.Counting.weight w = 146 ∧
-    SigGolfResearch.NonbinaryTop.EffectiveCounting.score w = score).card
+/-- Campaign T51: the model histogram weight is the packet's `histogramWeight`. -/
+theorem histW_eq_histogramWeight (h : List (Nat × Nat)) (c : Nat) :
+    SigGolfResearch.T51Top.histW h c = histogramWeight h c := by
+  rw [histogramWeight_sum]; rfl
 
-/-- Top zero cap: the zero-fibered top polynomial has the fiber counts as its digits. -/
-theorem top_zero_digit (z j : Nat) (hj : j < 205) :
-    SharedDigitBlock.digit (2^136) SigGolfResearch.NonbinaryTop.ZeroCounting.zpacked
-      (65536*z+256*146+27+j) = topFiberZ z (j+27) := by
-  rw [← bits_digit_eq]
-  apply CanonicalCounting.digit_histogram_of_weighted SigGolfResearch.NonbinaryTop.ZeroCounting.zstat _ 136 _ _
-    CanonicalCounting.top_card SigGolfResearch.NonbinaryTop.ZeroCounting.zpacked_weighted
-  intro w
-  have he := SigGolfResearch.NonbinaryTop.ZeroCounting.zstat_eq w
-  have hs := SigGolfResearch.NonbinaryTop.EffectiveCounting.score_le w
-  have hw := SigGolfResearch.NonbinaryTop.EffectiveCounting.weight_le_225 w
-  omega
+theorem topWordCount_eq_hist (r : Nat) (h12 : 12 ≤ r) : topWordCount r = histogramWeight TopZero.topCounts r := by
+  rw [topWordCount_eq r h12, histW_eq_histogramWeight]; rfl
 
-theorem top_zero_fibers (j : Nat) : (∑ z : Fin 10, topFiberZ z.val (j+27)) = topWordCount (j+15) := by
-  rw [CanonicalCounting.count_fibers_fin]
-  unfold topWordCount
-  apply congrArg Finset.card
-  apply Finset.filter_congr
-  intro w _
-  omega
+theorem topHighWeight_eq : topHighWeight = TopZero.topHighW := rfl
 
-theorem topWordCount_lt (r : Nat) : topWordCount r < 2^136 :=
-  (Finset.card_filter_le _ _).trans_lt CanonicalCounting.top_card
-
-theorem top_zero_windows_fold (p : Nat) :
-    (List.range 10).foldl (fun s zeros =>
-      s + ((p >>> (136 * (65536 * zeros + 256 * 146 + 27))) % 2 ^ (136 * 205))) 0 =
-    ∑ z : Fin 10, p / (2^136)^(65536*z.val+256*146+27) % (2^136)^205 := by
-  have hfold (f : Nat → Nat) : (List.range 10).foldl (fun s z => s+f z) 0 =
-      ∑ z : Fin 10, f z.val := by
-    simp [List.range_succ, Fin.sum_univ_succ, Nat.add_assoc, Nat.add_comm, Nat.add_left_comm]
-  rw [hfold]
-  apply Finset.sum_congr rfl
-  intro z _
-  exact shift_window_eq 136 p (65536*z.val+256*146+27) 205
-
-theorem top_counts_of_check (hcheck : TopZero.topHistogramCheck = true) (c : Fin 205) :
-    topWordCount (c.val+15) = histogramWeight TopZero.topCounts (c.val+15) := by
-  have he : packHistogram 136 15 205 TopZero.topCounts =
-      (List.range 10).foldl (fun s zeros => s +
-        ((SigGolfResearch.NonbinaryTop.ZeroCounting.zpacked >>> (136 * (65536 * zeros + 256 * 146 + 27))) %
-          2 ^ (136 * 205))) 0 :=
-    by simpa only [TopZero.topHistogramCheck, decide_eq_true_eq] using hcheck
-  have hsum (j : Nat) (hj : j < 205) :
-      (∑ z : Fin 10, 1*SharedDigitBlock.digit (2^136) SigGolfResearch.NonbinaryTop.ZeroCounting.zpacked
-        (65536*z.val+256*146+27+j)) = topWordCount (j+15) := by
-    simp only [Nat.one_mul]
-    rw [← top_zero_fibers j]
-    exact Finset.sum_congr rfl fun z _ => top_zero_digit z.val j hj
-  have he' : packHistogram 136 15 205 TopZero.topCounts = ∑ z : Fin 10,
-      1*(SigGolfResearch.NonbinaryTop.ZeroCounting.zpacked / (2^136)^(65536*z.val+256*146+27) % (2^136)^205) := by
-    rw [he, top_zero_windows_fold]
-    simp only [Nat.one_mul]
-  have hd : coefficient 136 (packHistogram 136 15 205 TopZero.topCounts) c.val = topWordCount (c.val+15) := by
-    rw [coefficient, bits_digit_eq, he']
-    exact (SharedDigitBlock.digit_window_sum (2^136) 205
-      (fun _ : Fin 10 => SigGolfResearch.NonbinaryTop.ZeroCounting.zpacked)
-      (fun z => 65536*z.val+256*146+27) (fun _ => 1) (by positivity)
-      (fun j hj => by rw [hsum j hj]; exact topWordCount_lt _) c.val c.isLt).trans (hsum c.val c.isLt)
-  exact hd.symm.trans (TopZero.top_histogram_digits c)
-
-theorem topWordCount_eq (hcheck : TopZero.topHistogramCheck = true) (r : Nat) (h15 : 15 ≤ r) (hr : r < 220) :
-    topWordCount r = histogramWeight TopZero.topCounts r := by
-  have h := top_counts_of_check hcheck ⟨r - 15, by omega⟩
-  simpa only [Nat.sub_add_cancel h15] using h
-
-theorem topHighWeight_eq : topHighWeight = TopZero.topHighW := by
-  rw [topHighWeight, SigGolfResearch.NonbinaryTop.ZeroCounting.zeroFreeCard_eq]
-  rfl
-
-/-- The d6b top selection law at the canonical floor 22, with the top producer zero cap 9. -/
-theorem selected_top_histogram_card (hcheck : TopZero.topHistogramCheck = true) (c : Nat) (hc : 22 ≤ c) (hc' : c < 220) :
-    (univ.filter fun answer : HashOutput => ∃ dl, CanonicalPolicy.producerDecodeOut 0 22 answer = some dl ∧
+/-- The d6b top selection law at the canonical floor 14 (T51), with the top producer zero cap 7. -/
+theorem selected_top_histogram_card (c : Nat) (hc : 14 ≤ c) :
+    (univ.filter fun answer : HashOutput => ∃ dl, CanonicalPolicy.producerDecodeOut 0 14 answer = some dl ∧
         CanonicalPolicy.credit 0 dl.2 dl.1 = c).card =
       histogramWeight TopZero.topAcceptedHistogram c := by
-  rw [selected_top_path_card 22 c le_rfl hc, TopZero.topAcceptedHistogram, histogramWeight_split,
-    if_pos (by omega : 2 ≤ c), topWordCount_eq hcheck (c - 2) (by omega) (by omega),
-    topWordCount_eq hcheck c (by omega) hc', topHighWeight_eq]
+  rw [selected_top_path_card 14 c le_rfl hc, TopZero.topAcceptedHistogram, histogramWeight_split,
+    if_pos (by omega : 2 ≤ c), topWordCount_eq_hist (c - 2) (by omega), topWordCount_eq_hist c (by omega),
+    topHighWeight_eq]
   ring
 
-theorem selected_top_histogram_probability (hcheck : TopZero.topHistogramCheck = true) (c : Nat) (hc : 22 ≤ c)
-    (hc' : c < 220) :
-    Pr[fun answer => ∃ dl, CanonicalPolicy.producerDecodeOut 0 22 answer = some dl ∧
+theorem selected_top_histogram_probability (c : Nat) (hc : 14 ≤ c) :
+    Pr[fun answer => ∃ dl, CanonicalPolicy.producerDecodeOut 0 14 answer = some dl ∧
         CanonicalPolicy.credit 0 dl.2 dl.1 = c | ($ᵗ HashOutput : ProbComp HashOutput)] =
       (histogramWeight TopZero.topAcceptedHistogram c : ENNReal) / topDen := by
   classical
   rw [probEvent_uniformSample]
-  rw [show (univ.filter fun answer : HashOutput => ∃ dl, CanonicalPolicy.producerDecodeOut 0 22 answer = some dl ∧
-        CanonicalPolicy.credit 0 dl.2 dl.1 = c) = _ from rfl, selected_top_histogram_card hcheck c hc hc']
+  rw [show (univ.filter fun answer : HashOutput => ∃ dl, CanonicalPolicy.producerDecodeOut 0 14 answer = some dl ∧
+        CanonicalPolicy.credit 0 dl.2 dl.1 = c) = _ from rfl, selected_top_histogram_card c hc]
   simp only [Fintype.card_bitVec, topDen, Nat.cast_pow, Nat.cast_ofNat]
 
 local notation "lowerCountN" credit:arg =>

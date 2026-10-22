@@ -183,7 +183,7 @@ def lowerHalf (lay heap : Nat) (output : HashOutput) : Digest := halfOf (lowerHi
 def lowerHash (lay heap : Nat) (input : HashInput) : M Digest := halfHash (lowerHigh lay heap) input
 /-- Pairing stage 1: the odd chains of the lower layers (1..3) are value-first ("G") chains: their step input is
 `value | header | 0 | 0` (header still at bytes 16..32) and every interior step (step < 6) keeps the HIGH half.
-Witness stack (charge 86): the even top chains `0, 2, .., 52` are G chains too (`T3.topIsG`). -/
+Witness stack (charge 86): the even top chains `0, 2, .., 50` (T51) are G chains too (`T3.topIsG`). -/
 def isG (lay : Layer) (i : Nat) : Bool :=
   decide (lay ≠ 0) && decide (i % 2 = 1) || decide (lay = 0) && SigGolfCandidate.T3.topIsG i
 /-- C3: the last step (step 6) of chain 0 of a lower layer keeps the high half. Pairing stage 1: so does every
@@ -206,10 +206,13 @@ def chainW (lay : Layer) (tree leaf i start count : Nat) (value : Digest) : M Di
 /-- Leaf tweak with the witness high word `hi` (honest 0). -/
 def leafTweakW (lay : Layer) (tree leaf : Nat) (hi : BitVec 64) : BitVec 128 :=
   hi ++ hyperWord lay.val (tree * 2 ^ height lay + leaf)
-/-- Verifier leaf input: the top leaf has the witness pad `pad` in its leading block, a lower leaf starts with chain
-0's end (`pad` unused); the tweak high word is `hi`. `leafInputW_zero`: pads 0 give `T3.leafInput`. -/
+/-- Verifier leaf input: every leaf starts with chain 0's end, then the tweak (high word `hi`), then the other ends.
+Campaign T51 ("endpad"): the top leaf has the lower shape too (`end_0 | tweak | end_1..end_50`), so the witness pad
+`pad` (#938: the top leaf's leading block) is unused on every layer. `leafInputW_zero`: `hi = 0` gives
+`T3.leafInput`. -/
 def leafInputW (lay : Layer) (tree leaf : Nat) (pad : Digest) (hi : BitVec 64) (ends : List Digest) : HashInput :=
-  if lay = 0 then bytesLE 16 pad ++ bytesLE 16 (leafTweakW lay tree leaf hi) ++ ends.flatMap (bytesLE 16)
+  if lay = 0 then bytesLE 16 (ends.getD 0 0) ++ bytesLE 16 (leafTweakW lay tree leaf hi) ++
+    (ends.drop 1).flatMap (bytesLE 16)
   else bytesLE 16 (ends.getD 0 0) ++ bytesLE 16 (leafTweakW lay tree leaf hi) ++ (ends.drop 1).flatMap (bytesLE 16)
 /-- Leaf hash of the current scheme (half by leaf index on every layer; C4: the top included). -/
 def leafHashW (lay : Layer) (tree leaf : Nat) (pad : Digest) (hi : BitVec 64) (ends : List Digest) : M Digest :=
@@ -280,22 +283,22 @@ theorem isG_lower {lay : Layer} (hl : lay ≠ 0) (i : Nat) : isG lay i = decide 
 theorem chainHigh_lower {lay : Layer} (hl : lay ≠ 0) (i step : Nat) :
     chainHigh lay i step = (decide (i = 0) && decide (step = 6) || decide (i % 2 = 1) && decide (step < 6)) := by
   simp [chainHigh, hl]
-theorem topIsG_eq_true {i : Nat} : SigGolfCandidate.T3.topIsG i = true ↔ i % 2 = 0 ∧ i ≤ 52 := by
+theorem topIsG_eq_true {i : Nat} : SigGolfCandidate.T3.topIsG i = true ↔ i % 2 = 0 ∧ i ≤ 50 := by
   simp [SigGolfCandidate.T3.topIsG]
 theorem topChainHigh_eq_true {i step : Nat} :
-    SigGolfCandidate.T3.topChainHigh i step = true ↔ (i % 2 = 0 ∧ i ≤ 52) ∧ step + 1 < maxDigit 0 i := by
+    SigGolfCandidate.T3.topChainHigh i step = true ↔ (i % 2 = 0 ∧ i ≤ 50) ∧ (step + 1 < maxDigit 0 i ∨ i = 0) := by
   simp [SigGolfCandidate.T3.topChainHigh, SigGolfCandidate.T3.topIsG]
 theorem topChainHigh_of_F {i step : Nat} (h : SigGolfCandidate.T3.topIsG i = false) :
     SigGolfCandidate.T3.topChainHigh i step = false := by
   simp [SigGolfCandidate.T3.topChainHigh, h]
 theorem isG_eq_true {lay : Layer} {i : Nat} :
-    isG lay i = true ↔ lay ≠ 0 ∧ i % 2 = 1 ∨ lay = 0 ∧ i % 2 = 0 ∧ i ≤ 52 := by
+    isG lay i = true ↔ lay ≠ 0 ∧ i % 2 = 1 ∨ lay = 0 ∧ i % 2 = 0 ∧ i ≤ 50 := by
   simp [isG, SigGolfCandidate.T3.topIsG]
 /-- Lower-layer form of `isG_eq_true` (the stage-1 statement). -/
 theorem isG_eq_true_lower {lay : Layer} {i : Nat} (hl : lay ≠ 0) : isG lay i = true ↔ i % 2 = 1 := by
   simp [isG, hl]
 theorem isG_eq_false {lay : Layer} {i : Nat}
-    (h : lay ≠ 0 ∧ i % 2 = 0 ∨ lay = 0 ∧ (i % 2 = 1 ∨ 52 < i)) : isG lay i = false := by
+    (h : lay ≠ 0 ∧ i % 2 = 0 ∨ lay = 0 ∧ (i % 2 = 1 ∨ 50 < i)) : isG lay i = false := by
   rcases h with ⟨h1, h2⟩ | ⟨h1, h2⟩
   · simp [isG, h1, h2]
   · subst h1; simp only [isG, SigGolfCandidate.T3.topIsG]; rcases h2 with h2 | h2 <;> simp <;> omega
@@ -324,13 +327,15 @@ theorem chainHigh_six {lay : Layer} {i : Nat} (hi : i ≠ 0) : chainHigh lay i 6
   by_cases hl : lay = 0
   · subst hl
     refine chainHigh_eq_false (Or.inr ⟨rfl, ?_⟩)
-    simp only [SigGolfCandidate.T3.topChainHigh, SigGolfCandidate.T3.maxDigit, Bool.and_eq_false_iff,
+    simp only [SigGolfCandidate.T3.topChainHigh, Bool.and_eq_false_iff, Bool.or_eq_false_iff,
       decide_eq_false_iff_not]
-    right; split <;> simp <;> split <;> omega
+    refine Or.inr ⟨?_, hi⟩
+    unfold SigGolfCandidate.T3.maxDigit
+    rw [if_pos rfl]; split_ifs <;> omega
   · exact chainHigh_eq_false (Or.inl ⟨hl, by omega, by omega⟩)
 theorem chainHigh_eq_true {lay : Layer} {i step : Nat} :
     chainHigh lay i step = true ↔ lay ≠ 0 ∧ (i = 0 ∧ step = 6 ∨ i % 2 = 1 ∧ step < 6) ∨
-      lay = 0 ∧ (i % 2 = 0 ∧ i ≤ 52) ∧ step + 1 < maxDigit 0 i := by
+      lay = 0 ∧ (i % 2 = 0 ∧ i ≤ 50) ∧ (step + 1 < maxDigit 0 i ∨ i = 0) := by
   simp [chainHigh, SigGolfCandidate.T3.topChainHigh, SigGolfCandidate.T3.topIsG]
 /-- On an F chain the high steps are exactly C3's. -/
 theorem chainHigh_eq_true_F {lay : Layer} {i step : Nat} (hG : isG lay i = false) :
@@ -390,7 +395,7 @@ theorem chainW_top_eq (leaf i start count : Nat) (value : Digest) :
   apply foldlM_congr_of_mem
   intro step _ b
   rw [chainHigh_top_eq, chainInputW_top_eq, halfHash_eq_projHash]
-/-- A top F chain (odd, or `> 52`) is `T3.chain`. -/
+/-- A top F chain (odd, or `> 50`) is `T3.chain`. -/
 theorem chainW_top_F {i : Nat} (hG : SigGolfCandidate.T3.topIsG i = false) (tree leaf start count : Nat)
     (value : Digest) :
     chainW 0 tree leaf i start count value = SigGolfCandidate.T3.chain 0 tree leaf i start count value :=
@@ -445,7 +450,7 @@ theorem leafInputW_zero (lay : Layer) (tree leaf : Nat) (ends : List Digest) :
     leafInputW lay tree leaf 0 0 ends = SigGolfCandidate.T3.leafInput lay tree leaf ends := by
   unfold leafInputW leafTweakW SigGolfCandidate.T3.leafInput leafTweak
   split
-  · rw [show bytesLE 16 (0 : Digest) = zero16 by decide]; rfl
+  · rfl
   · rfl
 theorem lowerLeafHash_eq (lay : Layer) (tree leaf : Nat) (ends : List Digest) :
     lowerLeafHash lay tree leaf ends = lowerHash lay.val leaf (SigGolfCandidate.T3.leafInput lay tree leaf ends) := by
@@ -684,11 +689,12 @@ theorem pairEncodingInputH_eq (up : Layer) (tree leaf : Nat) (left right : Diges
 def layerEncodingInput (lay : Layer) (tree leaf : Nat) : LayerMsg → BitVec 32 → HashInput
   | .forest root, counter => encodingInput lay tree leaf root counter
   | .pair left right, counter => pairEncodingInputP lay tree leaf left right counter 0
-/-- A zero-step chain whose leaf slot survives earlier 32-byte HASH writes. -/
+/-- A zero-step chain whose leaf slot survives earlier 32-byte HASH writes. Campaign T51: the top checksum chain 50
+is never safe (the r7 pair's chain 49 is safe iff `d48 = d49 = 6`; chain 48 never, `48 % 3 = 0`). -/
 def safeZeroCopy (lay : Layer) (digits : List Nat) (i : Nat) : Prop :=
   digits.getD i 0 = maxDigit lay i ∧
     (i = 0 ∨ (lay ≠ 0 ∧ i = 1) ∨
-      (0 < i ∧ i % 3 ≠ 0 ∧ digits.getD (i-1) 0 = maxDigit lay (i-1)))
+      (0 < i ∧ i % 3 ≠ 0 ∧ ¬(lay = 0 ∧ i = 50) ∧ digits.getD (i-1) 0 = maxDigit lay (i-1)))
 instance (lay : Layer) (digits : List Nat) (i : Nat) : Decidable (safeZeroCopy lay digits i) := by
   unfold safeZeroCopy
   infer_instance
@@ -696,9 +702,12 @@ instance (lay : Layer) (digits : List Nat) (i : Nat) : Decidable (safeZeroCopy l
 def savedCopies (lay : Layer) (digits : List Nat) : Nat :=
   ((List.range (chainCount lay)).filter fun i => decide (safeZeroCopy lay digits i)).length
 
+/-- Campaign T51: #938's penalised r5 rows that survive (q = 10, 11, 12) cost one cycle when their digit sum is below
+3; the r6 groups, the r7 pair and the checksum carry no penalty. -/
 def topDispatchPenalty (digits : List Nat) : Nat :=
   ((List.range 17).filter fun q => decide
-    (q ≠ 9 ∧ q < 13 ∧ digits.getD (3*q) 0 + digits.getD (3*q+1) 0 + digits.getD (3*q+2) 0 < 3)).length
+    ((q = 10 ∨ q = 11 ∨ q = 12) ∧
+      digits.getD (3*q) 0 + digits.getD (3*q+1) 0 + digits.getD (3*q+2) 0 < 3)).length
 
 def dispatchPenalty (lay : Layer) (digits : List Nat) : Nat :=
   if lay = 0 then topDispatchPenalty digits else 0
@@ -722,9 +731,10 @@ def producerZeroBound (lay : Layer) (digits : List Nat) : Prop :=
   lay = 0 ∨ (digits.filter (· = 0)).length ≤ 5
 instance (lay : Layer) (digits : List Nat) : Decidable (producerZeroBound lay digits) := by
   unfold producerZeroBound; infer_instance
-/-- Top-bytes layer: the canonical producer caps the zero digits on every layer (top 9 of 54, lower 5 of 42).
-The legacy `producerZeroBound` (top unrestricted) is kept for the legacy producer. -/
-def producerZeroCap (lay : Layer) : Nat := if lay = 0 then 9 else 5
+/-- Top-bytes layer: the canonical producer caps the zero digits on every layer (T51: top 7 of 51, the checksum
+included = 31 family coefficients / 4 leaves; lower 5 of 42). The legacy `producerZeroBound` (top unrestricted) is
+kept for the legacy producer. -/
+def producerZeroCap (lay : Layer) : Nat := if lay = 0 then 7 else 5
 def canonicalZeroBound (lay : Layer) (digits : List Nat) : Prop :=
   (digits.filter (· = 0)).length ≤ producerZeroCap lay
 instance (lay : Layer) (digits : List Nat) : Decidable (canonicalZeroBound lay digits) := by
@@ -758,15 +768,16 @@ theorem ctr_not_ge_verifyWindow (c : BitVec 32) : ¬c.toNat ≥ verifyWindow := 
   unfold verifyWindow; exact Nat.not_le.mpr c.isLt
 /-! ### Canonical policy core (configuration (1)+(2), "e7b" top head)
 Defined before the encoding selector because the top producer choice uses the canonical top predicate.
-* `totalCredit` = 74 (credit pool), `topFloor` = 19 (every top search uses it).
+* `totalCredit` = 69 (credit pool), `topFloor` = 14 (every top search uses it; RC938: pool 74 -> 77, floor 19 -> 22;
+  T51 on RC: pool 69, floor 14, pool - floor = 55 as before).
 * Path-aware credit: `credit lay low digits = reward + bonus·[low] - dispatchPenalty` where `low` = the
   LOW half of the 256-bit answer was selected (`lowSelected`); bonus 4 on lower layers, 2 on the top layer
   (the d6b head reads the hint first: honest LOW costs 4 cycles, HIGH 6). -/
 namespace CanonicalPolicy
 /-- The credit pool every canonical path must reach. -/
-def totalCredit : Nat := 77
+def totalCredit : Nat := 69
 /-- The (fixed) top credit floor (on the path-aware credit). -/
-def topFloor : Nat := 22
+def topFloor : Nat := 14
 /-- All three lower layers use digit sum 201. Layer 1's existing broad decoder
 has the same lower digit layout and this exact target. -/
 def normalLayer (lay : Layer) : Layer := if lay = 0 then 0 else 1
@@ -1093,19 +1104,32 @@ def recoverLayerPairGuard (sig : Signature) (index : Nat) (lay : Layer) (answer 
       (digits.getD i 0) (maxDigit lay i - digits.getD i 0) ((sig.layers lay).values ⟨i % chainCount lay,
         Nat.mod_lt _ (by fin_cases lay <;> decide)⟩))
     (recoverLayerPair sig index lay digits) answer
+/-- Campaign T51: range check of the top group whose first chain is `3 g` (r6 groups `g ≤ 8`: `r6Valid`; r5 groups
+`9 ≤ g ≤ 15`: rank below 125; `g = 16` is the r7 pair at chains 48, 49: rank below 49). -/
+def topGroupValid (answer : Digest) (g : Nat) : Bool :=
+  if g < 9 then r6Valid answer g else if g < 16 then decide (r5Rank answer g < 125) else decide (r7Rank answer < 49)
+/-- Campaign T51: the checksum digit `target 0 - sum` lies in `[0, 5]`. -/
+def topChecksumOk (answer : Digest) : Bool :=
+  decide ((dataDigits 0 answer).sum ≤ target 0 ∧ target 0 - (dataDigits 0 answer).sum < 6)
+/-- Campaign T51: digit of top chain `i` as the verifier runs it (data digits 0..49, then the checksum). -/
+def topRunDigit (answer : Digest) (i : Nat) : Nat :=
+  if i < 50 then (dataDigits 0 answer).getD i 0 else target 0 - (dataDigits 0 answer).sum
+/-- Campaign T51 verifier order (dispatch in chain order): a group's range check at its first chain (`i % 3 = 0`,
+`i < 50`; the r7 pair at chain 48), the checksum range check before chain 50. -/
 def topGroupBad (answer : Digest) (i : Nat) : Bool :=
-  decide (i % 3 = 0 ∧ i < 51 ∧ 125 ≤ topCode answer / 2 ^ (7 * (i / 3)) % 128)
+  decide (i % 3 = 0 ∧ i < 50 ∧ topGroupValid answer (i / 3) = false) ||
+    decide (i = 50 ∧ topChecksumOk answer = false)
 def topDecodeStep (run : Fin (chainCount 0) → Nat → M Digest) (answer : Digest)
     (state : Option (List Digest)) (i : Fin (chainCount 0)) : M (Option (List Digest)) := do
   let some ends := state | pure none
   if topGroupBad answer i.val then return none
-  let value ← run i ((dataDigits 0 answer).getD i.val 0)
+  let value ← run i (topRunDigit answer i.val)
   pure (some (ends ++ [value]))
+/-- Campaign T51: every check is in `topDecodeStep` (no spare bit, no final sum check: the checksum digit is derived). -/
 def topDecodeRun (run : Fin (chainCount 0) → Nat → M Digest) (finish : List Digest → M Digest)
     (answer : Digest) : M (Option Digest) := do
   if answer.toNat ≥ 2 ^ encodedBits 0 then return none
   let some ends ← (List.finRange (chainCount 0)).foldlM (topDecodeStep run answer) (some []) | pure none
-  if (dataDigits 0 answer).sum ≠ target 0 then return none
   some <$> finish ends
 def verifyTop (sig : Signature) (index : Nat) (answer : Digest) : M (Option Digest) :=
   let leaf := (route index 0).1
@@ -1249,7 +1273,7 @@ open OracleComp OracleSpec SigGolfCandidate.T3
 completeness over every256-bit message. It does not change the moment model. -/
 def ftsSearchLimit : Nat := 2 ^ 21
 
-/-- Layer-1 floors by residual `r ≤ 55` (= 74 - 19; img-v6 / opus-crumbs PORT v6). -/
+/-- Layer-1 floors by residual `r ≤ 55` (= 69 - 14 on T51; img-v6 / opus-crumbs PORT v6). -/
 def lowerOneThresholds : List Nat :=
   [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
    1,2,3,4,5,6,7,8,8,9,10,11,11,12,13,13,14,15]
@@ -1286,7 +1310,7 @@ def layerCounterSearchAt (lay : Layer) (floor tree leaf : Nat) (msg : LayerMsg)
       | some found => pure (some (BitVec.ofNat 32 counter, found))
 
 theorem normalLayer_target (lay : Layer) :
-    target (normalLayer lay) = if lay = 0 then 146 else 201 := by
+    target (normalLayer lay) = if lay = 0 then 152 else 201 := by
   by_cases h : lay = 0 <;> simp [normalLayer, h, target]
 
 theorem producerDecodeAt_spec {lay : Layer} {floor : Nat} {low : Bool} {answer : Digest} {digits : List Nat}
@@ -1324,7 +1348,7 @@ theorem producerDecodeOut_credit {lay : Layer} {floor : Nat} {answer : HashOutpu
     {low : Bool} (h : producerDecodeOut lay floor answer = some (digits, low)) : floor ≤ credit lay low digits :=
   producerDecodeAt_credit (producerDecodeOut_spec h).2
 
-theorem threshold_top (residual : Nat) : threshold 0 residual = 22 := by
+theorem threshold_top (residual : Nat) : threshold 0 residual = 14 := by
   simp [threshold, topFloor]
 
 theorem nextResidual_le (residual : Nat) (lay : Layer) (low : Bool) (digits : List Nat) :
@@ -1362,7 +1386,7 @@ theorem lower_three_progress (r : Nat) (hr : r < 22) :
     threshold 3 r = r := by simp [threshold, show r ≤ 21 by omega]
 
 theorem accepted_top_residual {answer : Digest} {low : Bool} {digits : List Nat}
-    (h : producerDecodeAt 0 22 low answer = some digits) : nextResidual 77 0 low digits < 56 := by
+    (h : producerDecodeAt 0 14 low answer = some digits) : nextResidual 69 0 low digits < 56 := by
   have hc := producerDecodeAt_credit h
   unfold nextResidual
   omega

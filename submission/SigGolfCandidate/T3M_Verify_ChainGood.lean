@@ -664,7 +664,7 @@ theorem bufferSafe_iff (c : LCtx) (hlay : c.lay ≠ 0) (D : List Nat)
     (hD : ∀ i < 43, c.dig i = D.getD i 0) (i : Nat) (hi : i < 43) :
     c.bufferSafe i ↔ ClaudeWCT.WCT9.safeZeroCopy c.lay D i := by
   simp only [bufferSafe, ClaudeWCT.WCT9.safeZeroCopy, maxDigit, if_neg hlay,
-    hD i hi, hD (i-1) (by omega), ne_eq, hlay, not_false_eq_true, true_and, if_false]
+    hD i hi, hD (i-1) (by omega), ne_eq, hlay, not_false_eq_true, true_and, if_false, false_and]
 theorem bufferSlot_eq (c : LCtx) (hlay : c.lay ≠ 0) (i : Nat) :
     c.bufferSlot i = Verify.WIT + ClaudeWCT.W9.T3M.leafBufferSlot c.lay i := by
   have : 18928 ≤ ClaudeWCT.W9.T3M.leafBufferBase c.lay := by

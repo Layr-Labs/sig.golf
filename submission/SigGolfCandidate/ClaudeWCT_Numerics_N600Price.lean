@@ -4609,31 +4609,31 @@ theorem grouped_weight (f : Fin 9 → Coordinate) :
   norm_num [Fin.succ]
   omega
 
-def encodeFields (w : «Word») (index : BitVec 31) (gate : Fin 804) : Fields :=
+def encodeFields (w : «Word») (index : BitVec 31) (gate : Fin 791) : Fields :=
   (fun k => BitVec.ofNat 5 (ungroup w k).1.val,
    fun k => BitVec.ofNat 10 (ungroup w k).2.val,
    index, BitVec.ofNat 14 gate.val)
 def decodeFields (f : Fields) : «Word» :=
   group (fun k => (⟨(f.1 k).toNat, (f.1 k).isLt⟩, decodedRank f k))
 
-theorem cost_encode_nat (w : «Word») (index : BitVec 31) (gate : Fin 804) (k : Fin 9) :
+theorem cost_encode_nat (w : «Word») (index : BitVec 31) (gate : Fin 791) (k : Fin 9) :
     ((encodeFields w index gate).1 k).toNat = (ungroup w k).1.val := by
   simp only [encodeFields, BitVec.toNat_ofNat]
   exact Nat.mod_eq_of_lt (ungroup w k).1.isLt
 
-theorem rank_encode_nat (w : «Word») (index : BitVec 31) (gate : Fin 804) (k : Fin 9) :
+theorem rank_encode_nat (w : «Word») (index : BitVec 31) (gate : Fin 791) (k : Fin 9) :
     ((encodeFields w index gate).2.1 k).toNat = (ungroup w k).2.val := by
   simp only [encodeFields, BitVec.toNat_ofNat]
   apply Nat.mod_eq_of_lt
   have h := (ungroup w k).2.isLt
   omega
 
-theorem decodedRank_encode (w : «Word») (index : BitVec 31) (gate : Fin 804) (k : Fin 9) :
+theorem decodedRank_encode (w : «Word») (index : BitVec 31) (gate : Fin 791) (k : Fin 9) :
     decodedRank (encodeFields w index gate) k = (ungroup w k).2 := by
   apply Fin.ext
   simp only [decodedRank, rank_encode_nat, Nat.mod_eq_of_lt (ungroup w k).2.isLt]
 
-theorem decode_encode (w : «Word») (index : BitVec 31) (gate : Fin 804) :
+theorem decode_encode (w : «Word») (index : BitVec 31) (gate : Fin 791) :
     decodeFields (encodeFields w index gate) = w := by
   have h : (fun k => (⟨((encodeFields w index gate).1 k).toNat,
       ((encodeFields w index gate).1 k).isLt⟩, decodedRank (encodeFields w index gate) k)) = ungroup w := by
@@ -4645,7 +4645,7 @@ theorem decode_encode (w : «Word») (index : BitVec 31) (gate : Fin 804) :
   rw [h]
   exact groupEquiv.apply_symm_apply w
 
-theorem cost_encode (w : «Word») (index : BitVec 31) (gate : Fin 804) :
+theorem cost_encode (w : «Word») (index : BitVec 31) (gate : Fin 791) :
     cost (encodeFields w index gate) = 675 + weight w := by
   have hc : coordinateCost (encodeFields w index gate) = fun k =>
       75 + coordWeight (SharedForest.firstCoord k.val) (ungroup w k) := by
@@ -4667,7 +4667,7 @@ set_option maxHeartbeats 2000000
 attribute [local irreducible] SharedDigestFields.cost SharedDigestFields.coordinateCost ClaudeWCT.WCT9.routineCost
 
 theorem accepted_iff (f : Fields) : accepted f = true ↔
-    f.2.2.2.toNat < 804 ∧ (∀ k, (f.2.1 k).toNat < 563) ∧ cost f ≤ 777 := by
+    f.2.2.2.toNat < 791 ∧ (∀ k, (f.2.1 k).toNat < 563) ∧ cost f ≤ 777 := by
   simp only [accepted, Bool.and_eq_true, decide_eq_true_eq, List.all_eq_true]
   simp only [List.mem_finRange, forall_const]
   tauto
@@ -4676,7 +4676,7 @@ theorem ungroup_decode (f : Fields) : ungroup (decodeFields f) =
     fun k => (⟨(f.1 k).toNat, (f.1 k).isLt⟩, decodedRank f k) :=
   groupEquiv.symm_apply_apply (fun k => (⟨(f.1 k).toNat, (f.1 k).isLt⟩, decodedRank f k))
 
-theorem encode_decode (f : Fields) (hg : f.2.2.2.toNat < 804)
+theorem encode_decode (f : Fields) (hg : f.2.2.2.toNat < 791)
     (hr : ∀ k, (f.2.1 k).toNat < 563) :
     encodeFields (decodeFields f) f.2.2.1 ⟨f.2.2.2.toNat,hg⟩ = f := by
   apply Prod.ext
@@ -4697,11 +4697,11 @@ theorem encode_decode (f : Fields) (hg : f.2.2.2.toNat < 804)
         change f.2.2.2.toNat % 2^14 = f.2.2.2.toNat
         exact Nat.mod_eq_of_lt f.2.2.2.isLt
 
-theorem accepted_encode (w : «Word») (hw : weight w ≤ 102) (index : BitVec 31) (gate : Fin 804) :
+theorem accepted_encode (w : «Word») (hw : weight w ≤ 102) (index : BitVec 31) (gate : Fin 791) :
     accepted (encodeFields w index gate) = true := by
   apply (accepted_iff _).mpr
   refine ⟨?_, ?_, ?_⟩
-  · change gate.val % 2^14 < 804
+  · change gate.val % 2^14 < 791
     rw [Nat.mod_eq_of_lt (by have h := gate.isLt; omega)]
     exact gate.isLt
   · intro k
@@ -4718,7 +4718,7 @@ theorem weight_decode (f : Fields) (hf : accepted f = true) : weight (decodeFiel
   omega
 
 def acceptedEquiv : {f : Fields // accepted f = true} ≃
-    {w : «Word» // weight w ≤ 102} × BitVec 31 × Fin 804 where
+    {w : «Word» // weight w ≤ 102} × BitVec 31 × Fin 791 where
   toFun f := (⟨decodeFields f.val, weight_decode f.val f.property⟩,
     f.val.2.2.1, ⟨f.val.2.2.2.toNat, ((accepted_iff _).mp f.property).1⟩)
   invFun v := ⟨encodeFields v.1.val v.2.1 v.2.2, accepted_encode _ v.1.property _ _⟩
@@ -4736,7 +4736,7 @@ def acceptedEquiv : {f : Fields // accepted f = true} ≃
         exact Nat.mod_eq_of_lt (by have h := v.2.2.isLt; omega)
 
 theorem accepted_fields_card : Fintype.card {f : Fields // accepted f = true} =
-    (Finset.univ.filter fun w : «Word» => weight w ≤ 102).card * 2^31 * 804 := by
+    (Finset.univ.filter fun w : «Word» => weight w ≤ 102).card * 2^31 * 791 := by
   rw [Fintype.card_congr acceptedEquiv]
   simp only [Fintype.card_prod, Fintype.card_bitVec, Fintype.card_fin,
     Fintype.card_subtype (fun w : «Word» => weight w ≤ 102)]
@@ -5677,64 +5677,6 @@ theorem forest_coverage_le {β : Type} [Fintype β]
 end ClaudeWCT.Numerics.SharedCoverage
 
 
-namespace ClaudeWCT.Numerics.SharedFees
-open ENNReal
-open ClaudeWCT.Numerics.N600 ClaudeWCT.Numerics.SharedMoments
-open ClaudeWCT.Numerics.PoissonReflect
-open SphincsSecurity.Concrete
-set_option maxHeartbeats 2000000
-set_option maxRecDepth 100000
-
-/-- Thinned Poisson certificate (opus-kappa): rate `kappa*2^-31`, prefactor `13283369e-8 ≥ e^(-2 kappa)`,
-parameter `2.018833 ≥ 2 kappa` for the cap-777 paired law. -/
-theorem shared_mgf_bound_of_rows (T : Nat) (rate : ENNReal) (hrate : rate ≤ 1)
-    (hu : (1-rate)^(T-80) ≤ ((13283369:ℕ):ENNReal)/((100000000:ℕ):ENNReal))
-    (κ : ENNReal) (hκ : 1 ≤ κ)
-    (hlam : (T : ENNReal) * rate * κ ≤ ((2018833:ℕ):ENNReal)/((1000000:ℕ):ENNReal))
-    (g : Nat → ENNReal)
-    (hpay : ∀ r ≤ 80, g r ≤ κ^r *
-      ((16^r * (certifiedPayoff r).1 : Nat) : ENNReal) /
-        ((maxFee*alphabetSize*fieldSize^(9*r) : Nat) : ENNReal))
-    (htail : ∀ r, 80<r → g r ≤ 1) :
-    ((maxFee*priceScaleTotal : Nat) : ENNReal)/scale *
-      binomialAverage rate T g ≤ (6945:ENNReal)/1000 := by
-  apply poissonCheckQ_sound_tilt (Qv := fieldSize)
-    (f := fun r => 16^r * (certifiedPayoff r).1)
-    (dbase := maxFee*alphabetSize) (sn := maxFee*priceScaleTotal)
-    (sd := scale) (Mn := 6945) (Md := 1000) (R := 80)
-    (show poissonCheckQ _ _ _ _ _ _ _ _ _ _ _ _ = true from shared_mgf_checked)
-    (by norm_num [fieldSize]) (by norm_num) (by norm_num)
-    (by decide +kernel) (by norm_num [scale]) (by norm_num)
-    hrate κ hκ hlam hu g
-  · intro r hr
-    simpa only [mul_div_assoc] using hpay r hr
-  · exact htail
-
-theorem shared_residual_bound_of_rows (T : Nat) (rate : ENNReal) (hrate : rate ≤ 1)
-    (hu : (1-rate)^(T-80) ≤ ((13283369:ℕ):ENNReal)/((100000000:ℕ):ENNReal))
-    (κ : ENNReal) (hκ : 1 ≤ κ)
-    (hlam : (T : ENNReal) * rate * κ ≤ ((2018833:ℕ):ENNReal)/((1000000:ℕ):ENNReal))
-    (g : Nat → ENNReal)
-    (hpay : ∀ r ≤ 80, g r ≤ κ^r *
-      ((16^r * (certifiedPayoff r).2 : Nat) : ENNReal) /
-        ((scale*alphabetSize*fieldSize^(9*r) : Nat) : ENNReal))
-    (htail : ∀ r, 80<r → g r ≤ 1) :
-    (priceScaleTotal : ENNReal) *
-      binomialAverage rate T g ≤ (7831:ENNReal)/10000000 := by
-  have h := poissonCheckQ_sound_tilt (Qv := fieldSize)
-    (f := fun r => 16^r * (certifiedPayoff r).2)
-    (dbase := scale*alphabetSize) (sn := priceScaleTotal)
-    (sd := 1) (Mn := 7831) (Md := 10000000) (R := 80)
-    (show poissonCheckQ _ _ _ _ _ _ _ _ _ _ _ _ = true from shared_residual_checked)
-    (by norm_num [fieldSize]) (by norm_num) (by norm_num)
-    (by norm_num [scale, alphabetSize]) (by norm_num) (by norm_num)
-    hrate κ hκ hlam hu g
-    (fun r hr => by simpa only [mul_div_assoc] using hpay r hr) htail
-  simpa only [Nat.cast_one, Nat.cast_ofNat, div_one] using h
-
-#print axioms shared_mgf_bound_of_rows
-#print axioms shared_residual_bound_of_rows
-end ClaudeWCT.Numerics.SharedFees
 
 namespace ClaudeWCT.Numerics.CanonicalHistogram
 open Finset
@@ -5881,10 +5823,10 @@ theorem first_bound_of_rows (T : Nat) (rate : ENNReal) (hrate : rate ≤ 1)
       ((16^r*forestMoment r : Nat) : ENNReal) /
         ((alphabetSize*fieldSize^(9*r) : Nat) : ENNReal))
     (htail : ∀ r, 80<r → g r ≤ 1) :
-    (priceScaleTotal : ENNReal)*binomialAverage rate T g ≤ (849:ENNReal)/1000 := by
+    (priceScaleTotal : ENNReal)*binomialAverage rate T g ≤ (915:ENNReal)/1000 := by
   have h := poissonCheckQ_sound_tilt (Qv := fieldSize)
     (f := fun r => 16^r*forestMoment r) (dbase := alphabetSize)
-    (sn := priceScaleTotal) (sd := 1) (Mn := 849) (Md := 1000) (R := 80)
+    (sn := priceScaleTotal) (sd := 1) (Mn := 915) (Md := 1000) (R := 80)
     first_moment_checked (by norm_num [fieldSize]) (by norm_num) (by norm_num)
     (by norm_num [alphabetSize]) (by norm_num) (by norm_num)
     hrate κ hκ hlam hu g
@@ -5900,10 +5842,10 @@ theorem near_bound_of_rows (T : Nat) (rate : ENNReal) (hrate : rate ≤ 1)
       ((16^r*forestNearMoment r : Nat) : ENNReal) /
         ((54*alphabetSize*fieldSize^(9*r) : Nat) : ENNReal))
     (htail : ∀ r, 80<r → g r ≤ 1) :
-    ((54*priceScaleTotal : Nat) : ENNReal)*binomialAverage rate T g ≤ 351 := by
+    ((54*priceScaleTotal : Nat) : ENNReal)*binomialAverage rate T g ≤ 378 := by
   have h := poissonCheckQ_sound_tilt (Qv := fieldSize)
     (f := fun r => 16^r*forestNearMoment r) (dbase := 54*alphabetSize)
-    (sn := 54*priceScaleTotal) (sd := 1) (Mn := 351) (Md := 1) (R := 80)
+    (sn := 54*priceScaleTotal) (sd := 1) (Mn := 378) (Md := 1) (R := 80)
     near_moment_checked (by norm_num [fieldSize]) (by norm_num) (by norm_num)
     (by norm_num [alphabetSize]) (by norm_num) (by norm_num)
     hrate κ hκ hlam hu g

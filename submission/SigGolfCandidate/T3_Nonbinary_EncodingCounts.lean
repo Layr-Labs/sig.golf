@@ -216,7 +216,7 @@ def acceptedDigestEquiv (lay : Layer) (hl : lay≠0) :
     apply Fin.ext
     exact packWord_word lay hl _
 def acceptedCount (lay : Layer) : Nat :=
-  ![67567856205106535693258756678239530,
+  ![58354217001057952582130682281963303,
     58782472808233403853217196834292020,
     46428947739236900406585478288441112,
     46428947739236900406585478288441112] lay
@@ -225,7 +225,7 @@ theorem decoder_acceptance_count (lay : Layer) :
   classical
   by_cases hl : lay=0
   · subst lay
-    simpa [acceptedCount,SigGolfResearch.NonbinaryTop.CreditCounting.count] using
+    simpa [acceptedCount,SigGolfResearch.T51Top.legacyCount] using
       Nonbinary.searchDecode_top_count
   · simp_rw [Nonbinary.searchDecode_lower hl]
     rw [Fintype.card_congr (acceptedDigestEquiv lay hl),accepted_words_count]

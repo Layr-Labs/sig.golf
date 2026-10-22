@@ -198,7 +198,7 @@ theorem leafLoop_fresh (secret : BitVec 256) (r : (List Digest × List Digest ×
 /-- **One node** (height `h ∈ 1..11`): `V ≤ m · B` from a cache where its trials are fresh. -/
 theorem V_node {β : Type} (secret : BitVec 256) (z m B : ℝ≥0∞) (h heap : Nat) (h1 : 1 ≤ h) (h11 : h ≤ 11)
     (hh1 : 1 ≤ heap) (hh2 : heap < 4096) (left right : Digest) (next : Digest → M β) (S : Nat → Prop)
-    (hstep : z * (((2 : ℝ≥0∞) ^ h)⁻¹ + (1 - ((2 : ℝ≥0∞) ^ h)⁻¹) * m) ≤ m) (hzm : z ≤ m)
+    (hstep : z * (((2 : ℝ≥0∞) ^ topZeroBits h)⁻¹ + (1 - ((2 : ℝ≥0∞) ^ topZeroBits h)⁻¹) * m) ≤ m) (hzm : z ≤ m)
     (hS1 : ∀ x, S x → 1 ≤ x ∧ x < 4096)
     (hnext : ∀ v cache, FreshS (fun x => S x ∧ x ≠ heap) cache → V secret z (next v) cache ≤ B)
     (cache : RCache) (hfresh : FreshS S cache) (hheap : S heap) :
@@ -206,9 +206,9 @@ theorem V_node {β : Type} (secret : BitVec 256) (z m B : ℝ≥0∞) (h heap : 
   rw [bind_map_left]
   unfold topNodeAt
   have hcap : topNonceCap h - 1 < 2 ^ 64 := by
-    unfold topNonceCap; rw [topZeroBits_eq h1 h11]
-    have : (2 : Nat) ^ h ≤ 2 ^ 11 := Nat.pow_le_pow_right (by norm_num) h11
-    have : (104 : Nat) * 2 ^ 11 < 2 ^ 64 := by norm_num
+    unfold topNonceCap
+    have : (2 : Nat) ^ topZeroBits h ≤ 2 ^ 8 := Nat.pow_le_pow_right (by norm_num) (topZeroBits_le h h11)
+    have : (104 : Nat) * 2 ^ 8 < 2 ^ 64 := by norm_num
     omega
   refine V_topNonceSearch_bind secret z h heap left right _ (FreshS (fun x => S x ∧ x ≠ heap)) B (m * B)
     ?_ ?_ ?_ ?_ (topNonceCap h - 1) 0 (by omega) cache (hfresh.mono (fun x hx => hx.1))
@@ -224,15 +224,15 @@ theorem V_node {β : Type} (secret : BitVec 256) (z m B : ℝ≥0∞) (h heap : 
     exact (QueryCache.cacheQuery_of_ne (cache := σ) ans
       (topTrial_ne_heap n k l r left right hx'.1 hx'.2 hh1 hh2 hx.2)).trans (hσ x hx n l r)
   · rw [expectedValue_uniform_ite' (fun a => topZeroOk h (topVal heap a) = true), prob_topAccept h1 h11]
-    calc z * (((2 : ℝ≥0∞) ^ h)⁻¹ * B + (1 - ((2 : ℝ≥0∞) ^ h)⁻¹) * (m * B))
-        = z * (((2 : ℝ≥0∞) ^ h)⁻¹ + (1 - ((2 : ℝ≥0∞) ^ h)⁻¹) * m) * B := by ring
+    calc z * (((2 : ℝ≥0∞) ^ topZeroBits h)⁻¹ * B + (1 - ((2 : ℝ≥0∞) ^ topZeroBits h)⁻¹) * (m * B))
+        = z * (((2 : ℝ≥0∞) ^ topZeroBits h)⁻¹ + (1 - ((2 : ℝ≥0∞) ^ topZeroBits h)⁻¹) * m) * B := by ring
       _ ≤ m * B := mul_le_mul' hstep le_rfl
   · exact mul_le_mul' hzm le_rfl
 
 /-- **The nodes of one level** (indices `l`, heaps `base + i`): `V ≤ m^|l| · B`. -/
 theorem V_nodes {β : Type} (secret : BitVec 256) (z m : ℝ≥0∞) (h : Nat) (h1 : 1 ≤ h) (h11 : h ≤ 11)
     (base : Nat) (nodes : List Digest)
-    (hstep : z * (((2 : ℝ≥0∞) ^ h)⁻¹ + (1 - ((2 : ℝ≥0∞) ^ h)⁻¹) * m) ≤ m) (hzm : z ≤ m) :
+    (hstep : z * (((2 : ℝ≥0∞) ^ topZeroBits h)⁻¹ + (1 - ((2 : ℝ≥0∞) ^ topZeroBits h)⁻¹) * m) ≤ m) (hzm : z ≤ m) :
     ∀ (l : List Nat) (S : Nat → Prop) (next : List Digest → M β) (B : ℝ≥0∞),
       (∀ x, S x → 1 ≤ x ∧ x < 4096) → l.Nodup → (∀ i ∈ l, S (base + i)) →
       (∀ as cache, as.length = l.length → FreshS (fun x => S x ∧ ∀ i ∈ l, x ≠ base + i) cache →
@@ -292,7 +292,8 @@ theorem pow_level_facts (a : Nat) (ha : 1 ≤ a) (ha11 : a ≤ 11) :
 
 /-- **Levels `a .. a+n-1`** (all ≤ 11). -/
 theorem V_levels {β : Type} (secret : BitVec 256) (z : ℝ≥0∞) (m : Nat → ℝ≥0∞)
-    (hstep : ∀ h, 1 ≤ h → h ≤ 11 → z * (((2 : ℝ≥0∞) ^ h)⁻¹ + (1 - ((2 : ℝ≥0∞) ^ h)⁻¹) * m h) ≤ m h)
+    (hstep : ∀ h, 1 ≤ h → h ≤ 11 →
+      z * (((2 : ℝ≥0∞) ^ topZeroBits h)⁻¹ + (1 - ((2 : ℝ≥0∞) ^ topZeroBits h)⁻¹) * m h) ≤ m h)
     (hzm : ∀ h, 1 ≤ h → h ≤ 11 → z ≤ m h) :
     ∀ n a, 1 ≤ a → a + n ≤ 12 → ∀ (levels : List (List Digest)) (next : List (List Digest) → M β) (B : ℝ≥0∞),
       LevelShape 12 (a - 1) levels →
@@ -367,7 +368,8 @@ theorem buildTopLevels_split12 (leaves : List Digest) :
 
 /-- **The keygen `V`-bound** (all node searches, fresh): `V keygen ≤ z^998912 · (Π_ℓ mlev ℓ · (z · z^4097))`. -/
 theorem V_keygen (secret : BitVec 256) (z : ℝ≥0∞) (hz : 1 ≤ z) (m : Nat → ℝ≥0∞)
-    (hstep : ∀ h, 1 ≤ h → h ≤ 11 → z * (((2 : ℝ≥0∞) ^ h)⁻¹ + (1 - ((2 : ℝ≥0∞) ^ h)⁻¹) * m h) ≤ m h)
+    (hstep : ∀ h, 1 ≤ h → h ≤ 11 →
+      z * (((2 : ℝ≥0∞) ^ topZeroBits h)⁻¹ + (1 - ((2 : ℝ≥0∞) ^ topZeroBits h)⁻¹) * m h) ≤ m h)
     (hzm : ∀ h, 1 ≤ h → h ≤ 11 → z ≤ m h) :
     V secret z keygen ∅ ≤ z ^ topLeavesCost * (((List.range' 1 11).map (mlev m)).prod * (z * z ^ 4097)) := by
   rw [SigGolfCandidate.Research.SharedExpansionV6.keygen_split]
@@ -392,13 +394,17 @@ theorem V_keygen (secret : BitVec 256) (z : ℝ≥0∞) (hz : 1 ≤ z) (m : Nat 
 
 section Numeric
 open ClaudeWCT.Numerics.V6Budgets
+open ClaudeWCT.Numerics.CanonicalCompression (scale)
 
 /-- `z = 2^(1/2^20)` as a real. -/
 noncomputable def zR : ℝ := (2 : ℝ) ^ (1 / ((2 ^ 20 : ℕ) : ℝ))
-/-- `m_h` (r3k certificate), `h = 1..11`. -/
+/-- `m_b` (r3k certificate, #938's `keygenM (b-1)` for `p = 2^-b`), `b = 1..11`. -/
 noncomputable def mR (i : Fin 11) : ℝ := (keygenM i : ℝ) / 2 ^ 128
-noncomputable def mE (h : Nat) : ℝ≥0∞ :=
-  if hh : 1 ≤ h ∧ h ≤ 11 then ENNReal.ofReal (mR ⟨h - 1, by omega⟩) else 1
+/-- Campaign T51: the per-height certificate value: `z` for a height without zero bits (`b_h = 0`), else
+`m_{b_h}`. -/
+noncomputable def mT (h : Nat) : ℝ :=
+  if topZeroBits h = 0 then zR else mR ⟨(topZeroBits h - 1) % 11, Nat.mod_lt _ (by decide)⟩
+noncomputable def mE (h : Nat) : ℝ≥0∞ := if 1 ≤ h ∧ h ≤ 11 then ENNReal.ofReal (mT h) else 1
 
 theorem zR_nonneg : 0 ≤ zR := by unfold zR; positivity
 theorem zR_le : zR ≤ (keygenZNum : ℝ) / keygenZDen := keygen_z_le
@@ -412,25 +418,85 @@ theorem inv_two_pow_eq (h : Nat) : ((2 : ℝ≥0∞) ^ h)⁻¹ = ENNReal.ofReal 
   rw [ENNReal.ofReal_div_of_pos (by positivity), ENNReal.ofReal_one, ENNReal.ofReal_pow (by norm_num),
     ENNReal.ofReal_ofNat, one_div]
 
+theorem mT_nonneg (h : Nat) : 0 ≤ mT h := by
+  unfold mT mR; split_ifs
+  · exact zR_nonneg
+  · positivity
+
 theorem mE_step (h : Nat) (h1 : 1 ≤ h) (h11 : h ≤ 11) :
-    ENNReal.ofReal zR * (((2 : ℝ≥0∞) ^ h)⁻¹ + (1 - ((2 : ℝ≥0∞) ^ h)⁻¹) * mE h) ≤ mE h ∧ ENNReal.ofReal zR ≤ mE h := by
-  have hk := keygen_step ⟨h - 1, by omega⟩ zR zR_nonneg zR_le
-  simp only [show h - 1 + 1 = h by omega] at hk
-  have hm : mE h = ENNReal.ofReal (mR ⟨h - 1, by omega⟩) := by unfold mE; rw [dif_pos ⟨h1, h11⟩]
-  have hq0 : (0 : ℝ) ≤ 1 / 2 ^ h := by positivity
-  have hq1 : (1 : ℝ) / 2 ^ h ≤ 1 := by rw [div_le_one (by positivity)]; exact one_le_pow₀ (by norm_num)
-  have hm0 : 0 ≤ mR ⟨h - 1, by omega⟩ := by unfold mR; positivity
-  rw [hm, inv_two_pow_eq]
-  refine ⟨?_, ENNReal.ofReal_le_ofReal hk.2⟩
-  rw [← ENNReal.ofReal_one, ← ENNReal.ofReal_sub _ hq0, ← ENNReal.ofReal_mul (by linarith),
-    ← ENNReal.ofReal_add hq0 (by nlinarith), ← ENNReal.ofReal_mul zR_nonneg]
-  exact ENNReal.ofReal_le_ofReal hk.1
+    ENNReal.ofReal zR * (((2 : ℝ≥0∞) ^ topZeroBits h)⁻¹ + (1 - ((2 : ℝ≥0∞) ^ topZeroBits h)⁻¹) * mE h) ≤ mE h ∧
+      ENNReal.ofReal zR ≤ mE h := by
+  have hm : mE h = ENNReal.ofReal (mT h) := by unfold mE; rw [if_pos ⟨h1, h11⟩]
+  rw [hm]
+  have hb8 := topZeroBits_le h h11
+  by_cases hb : topZeroBits h = 0
+  · have ht : mT h = zR := by unfold mT; rw [if_pos hb]
+    rw [ht, hb]
+    simp
+  · have hb1 : 1 ≤ topZeroBits h := by omega
+    have hk := keygen_step ⟨topZeroBits h - 1, by omega⟩ zR zR_nonneg zR_le
+    simp only [show topZeroBits h - 1 + 1 = topZeroBits h by omega] at hk
+    have ht : mT h = mR ⟨topZeroBits h - 1, by omega⟩ := by
+      unfold mT; rw [if_neg hb]; congr 2; exact Nat.mod_eq_of_lt (by omega)
+    have hq0 : (0 : ℝ) ≤ 1 / 2 ^ topZeroBits h := by positivity
+    have hq1 : (1 : ℝ) / 2 ^ topZeroBits h ≤ 1 := by
+      rw [div_le_one (by positivity)]; exact one_le_pow₀ (by norm_num)
+    have hm0 : 0 ≤ mR ⟨topZeroBits h - 1, by omega⟩ := by unfold mR; positivity
+    rw [ht, inv_two_pow_eq]
+    refine ⟨?_, ENNReal.ofReal_le_ofReal hk.2⟩
+    rw [← ENNReal.ofReal_one, ← ENNReal.ofReal_sub _ hq0, ← ENNReal.ofReal_mul (by linarith),
+      ← ENNReal.ofReal_add hq0 (by nlinarith), ← ENNReal.ofReal_mul zR_nonneg]
+    exact ENNReal.ofReal_le_ofReal hk.1
 
 theorem levels_prod (m : Nat → ℝ≥0∞) :
     ((List.range' 1 11).map (mlev m)).prod = ∏ i : Fin 11, m (i.val + 1) ^ (2 ^ (11 - i.val)) := by
   simp [List.range'_succ, mlev, Fin.prod_univ_succ, mul_assoc]
 
-/-- **img-v6 keygen moment**: `E[2^(countBlocks keygen / 2^20)] ≤ 2`. -/
+/-! Campaign T51 keygen certificate (KEYGEN-T51 section 4): heights 1, 2 (`b = 0`) cost `z` per node, heights
+3..11 use #938's `keygenM (b_h - 1)`; fixed work `topLeavesCost + 4098 = 1,039,874`. -/
+/-- The integer certificate entry of height `i + 1`. -/
+def entryT51 (i : Fin 11) : Nat :=
+  if topZeroBits (i.val + 1) = 0 then keygenZFix else keygenM ⟨(topZeroBits (i.val + 1) - 1) % 11, Nat.mod_lt _ (by decide)⟩
+def keygenListT51 : List (Nat × Nat) :=
+  (keygenZFix, 1039874) :: List.ofFn fun i : Fin 11 => (entryT51 i, 2 ^ (11 - i.val))
+
+theorem keygenT51_list_checked : prodUp keygenListT51 * 100000 < 199934 * scale := by decide +kernel
+
+theorem keygenListT51_prod :
+    (keygenListT51.map fun e => ((e.1:ℝ)/scale)^e.2).prod =
+      ((keygenZFix:ℝ)/scale)^1039874 * ∏ i : Fin 11, ((entryT51 i:ℝ)/scale)^(2^(11-i.val)) := by
+  rw [keygenListT51, List.map_cons, List.prod_cons, List.map_ofFn, List.prod_ofFn]
+  rfl
+
+theorem mT_le_entry (i : Fin 11) (hzf : zR ≤ (keygenZFix:ℝ)/scale) :
+    mT (i.val + 1) ≤ (entryT51 i:ℝ)/scale := by
+  unfold mT entryT51 mR
+  have hs : (scale:ℝ) = 2^128 := by norm_num [scale]
+  split_ifs
+  · exact hzf
+  · rw [hs]
+
+theorem keygen_moment_T51 (z : ℝ) (hz0 : 0 ≤ z) (hz : z ≤ (keygenZNum:ℝ)/keygenZDen)
+    (m : Fin 11 → ℝ) (hm0 : ∀ i, 0 ≤ m i) (hm : ∀ i, m i ≤ (entryT51 i:ℝ)/scale) :
+    z^1039874 * ∏ i : Fin 11, (m i)^(2^(11-i.val)) ≤ 2 := by
+  have hzf := hz.trans keygenZ_fix
+  have hprod := prodUp_ratio_ge keygenListT51
+  rw [keygenListT51_prod] at hprod
+  have hnum : (prodUp keygenListT51:ℝ)/scale < 199934/100000 := by
+    have h := keygenT51_list_checked
+    have h' : (prodUp keygenListT51:ℝ)*100000 < 199934*(scale:ℝ) := by exact_mod_cast h
+    have hs0 : (0:ℝ) < scale := by norm_num [scale]
+    generalize (prodUp keygenListT51:ℝ) = P at h' ⊢
+    generalize (scale:ℝ) = S at h' hs0 ⊢
+    rw [div_lt_iff₀ hs0]; linarith
+  have hstep : z^1039874 * ∏ i : Fin 11, (m i)^(2^(11-i.val)) ≤
+      ((keygenZFix:ℝ)/scale)^1039874 * ∏ i : Fin 11, ((entryT51 i:ℝ)/scale)^(2^(11-i.val)) := by
+    apply mul_le_mul (pow_le_pow_left₀ hz0 hzf _) _ (Finset.prod_nonneg fun i _ => pow_nonneg (hm0 i) _)
+      (by positivity)
+    exact Finset.prod_le_prod (fun i _ => pow_nonneg (hm0 i) _) (fun i _ => pow_le_pow_left₀ (hm0 i) (hm i) _)
+  linarith
+
+/-- **Campaign T51 keygen moment**: `E[2^(countBlocks keygen / 2^20)] ≤ 2` (zero bits `b_h = 0,0,1,1,2..8`). -/
 theorem keygen_moment_v6 (secret : BitVec 256) :
     expectedValue (roRun secret (countBlocks keygen) ∅)
       (fun result => (2 : ℝ≥0∞) ^ ((result.1.2 : ℝ) / 1048576)) ≤ 2 := by
@@ -449,22 +515,24 @@ theorem keygen_moment_v6 (secret : BitVec 256) :
     ring
   rw [hlhs]
   refine hV.trans ?_
-  rw [levels_prod, show topLeavesCost = 998912 from rfl]
-  have hfin : ∀ i : Fin 11, mE (i.val + 1) = ENNReal.ofReal (mR i) := by
-    intro i; unfold mE; rw [dif_pos ⟨by omega, by omega⟩]; rfl
+  rw [levels_prod, show topLeavesCost = 1035776 from rfl]
+  have hfin : ∀ i : Fin 11, mE (i.val + 1) = ENNReal.ofReal (mT (i.val + 1)) := by
+    intro i; unfold mE; rw [if_pos ⟨by omega, by omega⟩]
   simp only [hfin]
-  have hnum := keygen_moment zR zR_nonneg zR_le
-  have hm0 : ∀ i : Fin 11, 0 ≤ mR i ^ (2 ^ (11 - i.val)) := fun i => by unfold mR; positivity
-  have heq : ENNReal.ofReal zR ^ 998912 * ((∏ i : Fin 11, ENNReal.ofReal (mR i) ^ (2 ^ (11 - i.val))) *
+  have hzf := zR_le.trans keygenZ_fix
+  have hnum := keygen_moment_T51 zR zR_nonneg zR_le (fun i => mT (i.val + 1)) (fun i => mT_nonneg _)
+    (fun i => mT_le_entry i hzf)
+  have hm0 : ∀ i : Fin 11, 0 ≤ mT (i.val + 1) ^ (2 ^ (11 - i.val)) := fun i => pow_nonneg (mT_nonneg _) _
+  have heq : ENNReal.ofReal zR ^ 1035776 * ((∏ i : Fin 11, ENNReal.ofReal (mT (i.val + 1)) ^ (2 ^ (11 - i.val))) *
       (ENNReal.ofReal zR * ENNReal.ofReal zR ^ 4097)) =
-      ENNReal.ofReal (zR ^ 1003010 * ∏ i : Fin 11, (mR i) ^ (2 ^ (11 - i.val))) := by
+      ENNReal.ofReal (zR ^ 1039874 * ∏ i : Fin 11, (mT (i.val + 1)) ^ (2 ^ (11 - i.val))) := by
     rw [ENNReal.ofReal_mul (pow_nonneg zR_nonneg _), ENNReal.ofReal_prod_of_nonneg (fun i _ => hm0 i),
       ENNReal.ofReal_pow zR_nonneg]
-    simp only [ENNReal.ofReal_pow (show 0 ≤ mR _ from by unfold mR; positivity)]
+    simp only [ENNReal.ofReal_pow (mT_nonneg _)]
     ring
   rw [heq]
-  calc ENNReal.ofReal (zR ^ 1003010 * ∏ i : Fin 11, (mR i) ^ (2 ^ (11 - i.val))) ≤ ENNReal.ofReal 2 :=
-        ENNReal.ofReal_le_ofReal (by simpa [mR] using hnum)
+  calc ENNReal.ofReal (zR ^ 1039874 * ∏ i : Fin 11, (mT (i.val + 1)) ^ (2 ^ (11 - i.val))) ≤ ENNReal.ofReal 2 :=
+        ENNReal.ofReal_le_ofReal hnum
     _ = 2 := ENNReal.ofReal_ofNat 2
 
 #print axioms keygen_moment_v6
