@@ -364,6 +364,4 @@ theorem pad_hook_witEncN (s : MachineState) (hpc : s.pc = pcOf 54174) (output : 
 
 end machine
 
-#print axioms padMem_witEncN
-#print axioms pad_hook_witEncN
 end ClaudeWCT.W9.Machine.Expand.PadWit

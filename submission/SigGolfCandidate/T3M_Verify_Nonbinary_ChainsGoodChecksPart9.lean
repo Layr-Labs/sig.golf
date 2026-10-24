@@ -6,26 +6,6 @@ section
 namespace SigGolfCandidate.T3M.Nonbinary
 set_option maxRecDepth 200000
 set_option maxHeartbeats 2000000
-/-! Group 17 (campaign T8D, TOP2 NF17): the 64 top-field slots + blocks (chains 51/52 + general-field dispatch) and
-the 8 general-field slots + suffixes (chain 53). -/
-private theorem r8Blk_part_0 : (List.range' 0 16).all r8BlkCheck = true := by decide +kernel
-private theorem r8Blk_part_16 : (List.range' 16 16).all r8BlkCheck = true := by decide +kernel
-private theorem r8Blk_part_32 : (List.range' 32 16).all r8BlkCheck = true := by decide +kernel
-private theorem r8Blk_part_48 : (List.range' 48 16).all r8BlkCheck = true := by decide +kernel
-theorem r8BlkCheck_all : (List.range' 0 64).all r8BlkCheck = true :=
-  @check_range_add r8BlkCheck 0 16 48 r8Blk_part_0 (@check_range_add r8BlkCheck 16 16 32 r8Blk_part_16
-    (@check_range_add r8BlkCheck 32 16 16 r8Blk_part_32 r8Blk_part_48))
-theorem r8SufCheck_all (alt : Bool) : (List.range' 0 8).all (fun y => r8SufCheck y alt) = true := by cases alt <;> decide +kernel
-theorem r8BlkCheck_at (k : Nat) (hk : k<64) : r8BlkCheck k=true :=
-  List.all_eq_true.mp r8BlkCheck_all k (List.mem_range'_1.mpr ⟨by omega,by omega⟩)
-theorem r8SufCheck_at (y : Nat) (hy : y<8) (alt : Bool := false) : r8SufCheck y alt=true :=
-  List.all_eq_true.mp (r8SufCheck_all alt) y (List.mem_range'_1.mpr ⟨by omega,by omega⟩)
-end SigGolfCandidate.T3M.Nonbinary
-end
-section
-namespace SigGolfCandidate.T3M.Nonbinary
-set_option maxRecDepth 200000
-set_option maxHeartbeats 2000000
 private theorem inlineBatch_14_0_part_0 : (List.range' 0 5).all (inlineCheck 14) = true := by decide +kernel
 private theorem inlineBatch_14_0_part_5 : (List.range' 5 5).all (inlineCheck 14) = true := by decide +kernel
 private theorem inlineBatch_14_0_part_10 : (List.range' 10 5).all (inlineCheck 14) = true := by decide +kernel

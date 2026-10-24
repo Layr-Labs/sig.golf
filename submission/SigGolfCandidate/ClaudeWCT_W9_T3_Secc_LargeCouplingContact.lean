@@ -576,7 +576,6 @@ theorem residual_bind0 (U : Finset HashInput) (hE : encInputs ⊆ U) (labels : L
         (encCell_injective U hE labels) R out))]
   rw [uniform_join_bind (encCell U hE labels) (encCell_injective U hE labels) next]
 
-#print axioms selections_residualPsi0
 end ClaudeWCT.W9.T3.Security.CanonEncoding.Paired
 
 namespace ClaudeWCT.W9.T3.Security.LargeCoupling.Paired

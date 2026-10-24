@@ -2482,7 +2482,6 @@ theorem forest_uncovered_probe (answers : Answers) (w : SharedV3.WBytes) (output
   · exact Or.inr (make k t ha hu)
   · exact Or.inr (make k t ha hu)
 
-#print axioms forest_uncovered_probe
 end ClaudeWCT.W9.T3.Security.WPair.Paired
 
 namespace ClaudeWCT.W9.T3.Security.WPair.Paired
@@ -2507,7 +2506,6 @@ theorem forest_log_split (answers : Answers) (w : SharedV3.WBytes) (output : Has
     ∃ c, GuessedIn answers log entries c :=
   forest_uncovered_probe answers w output (loggedOutputs answers log) entries reaches hentries
 
-#print axioms forest_log_split
 end ClaudeWCT.W9.T3.Security.WPair.Paired
 
 namespace ClaudeWCT.W9.T3.Security.WPair.Paired

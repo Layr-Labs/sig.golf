@@ -47,7 +47,7 @@ theorem leaf_wots (answers : Answers) (w : WBytes) (index : Nat) (lay : Layer) (
         ContactAt answers (entriesOf answers qs) ⟨routeLeaf index lay, i⟩ ∧
           (digits.getD i 0 + 2 ≤ depth answers ⟨routeLeaf index lay, i⟩ →
             TwoEdgeAt answers (entriesOf answers qs) ⟨routeLeaf index lay, i⟩))) ∧
-      wleafHigh w lay = 0 ∧ (lay.val = 0 → wtopLeafPad w = 0)) := by
+      wleafHigh w lay = 0) := by
   classical
   by_cases hS : StructuralHitSrc answers (entriesOf answers qs)
   · exact Or.inl hS
@@ -73,7 +73,7 @@ theorem leaf_wots (answers : Answers) (w : WBytes) (index : Nat) (lay : Layer) (
   rcases Extract.leafHashW_extract answers lay (route index lay).2 (route index lay).1 (wtopLeafPad w)
       (wleafHigh w lay) (evalWithAnswerFn answers (Extract.layerChains w index lay digits))
       ((List.range (chainCount lay)).map (WCT9.wotsEnd answers lay (route index lay).2 (route index lay).1))
-      (by rw [hends]; simp) (by simp) hv0 with ⟨hE, hhi, htop⟩ | ⟨hhit, hsame, hq⟩
+      (by rw [hends]; simp) (by simp) hv0 with ⟨hE, hhi⟩ | ⟨hhit, hsame, hq⟩
   swap
   · exfalso
     apply hS
@@ -83,7 +83,7 @@ theorem leaf_wots (answers : Answers) (w : WBytes) (index : Nat) (lay : Layer) (
     apply hsubL
     rw [Extract.layerLeafP_eq, queried_bind]
     exact List.mem_append_right _ hq
-  refine ⟨?_, hhi, fun h0 => htop (Fin.ext h0)⟩
+  refine ⟨?_, hhi⟩
   rw [hends] at hE
   have hE' := (List.map_inj_left).mp hE
   intro i hi
@@ -137,7 +137,7 @@ theorem layerP_wots (answers : Answers) (w : WBytes) (index : Nat) (lay : Layer)
             (digits.getD i 0 + 2 ≤ depth answers ⟨routeLeaf index lay, i⟩ →
               TwoEdgeAt answers (entriesOf answers (queried answers (layerP w index lay digits)))
                 ⟨routeLeaf index lay, i⟩))) ∧
-      wleafHigh w lay = 0 ∧ (lay.val = 0 → wtopLeafPad w = 0)) := by
+      wleafHigh w lay = 0) := by
   classical
   by_cases hS : StructuralHitSrc answers (entriesOf answers (queried answers (layerP w index lay digits)))
   · exact Or.inl hS
@@ -193,9 +193,9 @@ theorem layerP_wots (answers : Answers) (w : WBytes) (index : Nat) (lay : Layer)
     · rw [Extract.merkle_honestInputW' answers lay, Extract.pathInputW, hl0]
       exact Extract.merkleInputW_sameHeader_top _ _ _ _ _ _ _ _
   rw [pow_zero, Nat.div_one] at hv0
-  rcases leaf_wots answers w index lay digits hidx hvalid _ hqL hv0 with hS' | ⟨hchains, hhi, htop⟩
+  rcases leaf_wots answers w index lay digits hidx hvalid _ hqL hv0 with hS' | ⟨hchains, hhi⟩
   · exact (hS hS').elim
-  · exact ⟨fun j hj => ⟨(hpath j hj).1, (hpath j hj).2.2, (hpath j hj).2.1⟩, hchains, hhi, htop⟩
+  · exact ⟨fun j hj => ⟨(hpath j hj).1, (hpath j hj).2.2, (hpath j hj).2.1⟩, hchains, hhi⟩
 theorem layerPairP_wots (answers : Answers) (w : WBytes) (index : Nat) (lay : Layer) (digits : List Nat)
     (hidx : index < 2 ^ 31) (hvalid : Cost.ValidDigits lay digits) (hlay : lay.val ≠ 0)
     (reaches : evalWithAnswerFn answers (layerPairP w index lay digits) =
@@ -216,7 +216,7 @@ theorem layerPairP_wots (answers : Answers) (w : WBytes) (index : Nat) (lay : La
             (digits.getD i 0 + 2 ≤ depth answers ⟨routeLeaf index lay, i⟩ →
               TwoEdgeAt answers (entriesOf answers (queried answers (layerPairP w index lay digits)))
                 ⟨routeLeaf index lay, i⟩))) ∧
-      wleafHigh w lay = 0 ∧ (lay.val = 0 → wtopLeafPad w = 0)) := by
+      wleafHigh w lay = 0) := by
   classical
   by_cases hS : StructuralHitSrc answers (entriesOf answers (queried answers (layerPairP w index lay digits)))
   · exact Or.inl hS
@@ -290,9 +290,9 @@ theorem layerPairP_wots (answers : Answers) (w : WBytes) (index : Nat) (lay : La
     · rw [Extract.merkle_honestInputW' answers lay, Extract.pathInputW]
       exact Extract.merkleInputW_sameHeader (Extract.lower_heap_lt128 hlay hleafB) _ _ _ _ _ _ _ _
   rw [pow_zero, Nat.div_one] at hv0
-  rcases leaf_wots answers w index lay digits hidx hvalid _ hqL hv0 with hS' | ⟨hchains, hhi, htopP⟩
+  rcases leaf_wots answers w index lay digits hidx hvalid _ hqL hv0 with hS' | ⟨hchains, hhi⟩
   · exact (hS hS').elim
-  refine ⟨fun j hj => ?_, hchains, hhi, htopP⟩
+  refine ⟨fun j hj => ?_, hchains, hhi⟩
   by_cases hjt : j < height lay - 1
   · have hl' : lay ≠ 0 := fun h => hlay (by rw [h]; rfl)
     exact ⟨(hpath j hjt).1, fun _ => ⟨(hpath j hjt).2.2.trans
@@ -310,7 +310,7 @@ theorem frame_wots (answers : Answers) (w : WBytes) (index : Nat) (lay : Layer) 
         (j + 1 < height lay ∨ lay.val = 0 → wmerklePad w lay (route index lay).1 j =
           WCT9.nonceDigest (WCT9.honestNonce answers lay (route index lay).2 j ((route index lay).1 / 2 ^ (j + 1)))) ∧
         (j + 1 < height lay ∨ lay.val = 0 → wmerkleHigh w lay (route index lay).1 j = 0))
-    (hleaf : wleafHigh w lay = 0 ∧ (lay.val = 0 → wtopLeafPad w = 0))
+    (hleaf : wleafHigh w lay = 0)
     (hchains : ∀ i, i < chainCount lay →
       (depth answers ⟨routeLeaf index lay, i⟩ ≤ digits.getD i 0 →
         wvalueFor w lay digits i = WCT9.wotsValue answers lay (route index lay).2 (route index lay).1 digits i ∧
@@ -479,7 +479,7 @@ theorem leaf_wots (answers : Answers) (w : WBytes) (index : Nat) (lay : Layer) (
         CanonicalRef.ContactAt answers messages (entriesOf answers qs) ⟨routeLeaf index lay, i⟩ ∧
           (digits.getD i 0 + 2 ≤ CanonicalRef.depth answers messages ⟨routeLeaf index lay, i⟩ →
             CanonicalRef.TwoEdgeAt answers messages (entriesOf answers qs) ⟨routeLeaf index lay, i⟩))) ∧
-      wleafHigh w lay = 0 ∧ (lay.val = 0 → wtopLeafPad w = 0)) := by
+      wleafHigh w lay = 0) := by
   classical
   by_cases hS : StructuralHitSrc answers messages (entriesOf answers qs)
   · exact Or.inl hS
@@ -505,7 +505,7 @@ theorem leaf_wots (answers : Answers) (w : WBytes) (index : Nat) (lay : Layer) (
   rcases Extract.leafHashW_extract answers lay (route index lay).2 (route index lay).1 (wtopLeafPad w)
       (wleafHigh w lay) (evalWithAnswerFn answers (Extract.layerChains w index lay digits))
       ((List.range (chainCount lay)).map (WCT9.wotsEnd answers lay (route index lay).2 (route index lay).1))
-      (by rw [hends]; simp) (by simp) hv0 with ⟨hE, hhi, htop⟩ | ⟨hhit, hsame, hq⟩
+      (by rw [hends]; simp) (by simp) hv0 with ⟨hE, hhi⟩ | ⟨hhit, hsame, hq⟩
   swap
   · exfalso
     apply hS
@@ -515,7 +515,7 @@ theorem leaf_wots (answers : Answers) (w : WBytes) (index : Nat) (lay : Layer) (
     apply hsubL
     rw [Extract.layerLeafP_eq, queried_bind]
     exact List.mem_append_right _ hq
-  refine ⟨?_, hhi, fun h0 => htop (Fin.ext h0)⟩
+  refine ⟨?_, hhi⟩
   rw [hends] at hE
   have hE' := (List.map_inj_left).mp hE
   intro i hi
@@ -569,7 +569,7 @@ theorem layerP_wots (answers : Answers) (w : WBytes) (index : Nat) (lay : Layer)
             (digits.getD i 0 + 2 ≤ CanonicalRef.depth answers messages ⟨routeLeaf index lay, i⟩ →
               CanonicalRef.TwoEdgeAt answers messages (entriesOf answers (queried answers (layerP w index lay digits)))
                 ⟨routeLeaf index lay, i⟩))) ∧
-      wleafHigh w lay = 0 ∧ (lay.val = 0 → wtopLeafPad w = 0)) := by
+      wleafHigh w lay = 0) := by
   classical
   by_cases hS : StructuralHitSrc answers messages (entriesOf answers (queried answers (layerP w index lay digits)))
   · exact Or.inl hS
@@ -625,9 +625,9 @@ theorem layerP_wots (answers : Answers) (w : WBytes) (index : Nat) (lay : Layer)
     · rw [Extract.merkle_honestInputW' answers lay, Extract.pathInputW, hl0]
       exact Extract.merkleInputW_sameHeader_top _ _ _ _ _ _ _ _
   rw [pow_zero, Nat.div_one] at hv0
-  rcases leaf_wots answers w index lay digits hidx hvalid _ hqL hv0 with hS' | ⟨hchains, hhi, htop⟩
+  rcases leaf_wots answers w index lay digits hidx hvalid _ hqL hv0 with hS' | ⟨hchains, hhi⟩
   · exact (hS hS').elim
-  · exact ⟨fun j hj => ⟨(hpath j hj).1, (hpath j hj).2.2, (hpath j hj).2.1⟩, hchains, hhi, htop⟩
+  · exact ⟨fun j hj => ⟨(hpath j hj).1, (hpath j hj).2.2, (hpath j hj).2.1⟩, hchains, hhi⟩
 theorem layerPairP_wots (answers : Answers) (w : WBytes) (index : Nat) (lay : Layer) (digits : List Nat)
     (hidx : index < 2 ^ 31) (hvalid : Cost.ValidDigits lay digits) (hlay : lay.val ≠ 0)
     (reaches : evalWithAnswerFn answers (layerPairP w index lay digits) =
@@ -648,7 +648,7 @@ theorem layerPairP_wots (answers : Answers) (w : WBytes) (index : Nat) (lay : La
             (digits.getD i 0 + 2 ≤ CanonicalRef.depth answers messages ⟨routeLeaf index lay, i⟩ →
               CanonicalRef.TwoEdgeAt answers messages (entriesOf answers (queried answers (layerPairP w index lay digits)))
                 ⟨routeLeaf index lay, i⟩))) ∧
-      wleafHigh w lay = 0 ∧ (lay.val = 0 → wtopLeafPad w = 0)) := by
+      wleafHigh w lay = 0) := by
   classical
   by_cases hS : StructuralHitSrc answers messages (entriesOf answers (queried answers (layerPairP w index lay digits)))
   · exact Or.inl hS
@@ -722,9 +722,9 @@ theorem layerPairP_wots (answers : Answers) (w : WBytes) (index : Nat) (lay : La
     · rw [Extract.merkle_honestInputW' answers lay, Extract.pathInputW]
       exact Extract.merkleInputW_sameHeader (Extract.lower_heap_lt128 hlay hleafB) _ _ _ _ _ _ _ _
   rw [pow_zero, Nat.div_one] at hv0
-  rcases leaf_wots answers w index lay digits hidx hvalid _ hqL hv0 with hS' | ⟨hchains, hhi, htopP⟩
+  rcases leaf_wots answers w index lay digits hidx hvalid _ hqL hv0 with hS' | ⟨hchains, hhi⟩
   · exact (hS hS').elim
-  refine ⟨fun j hj => ?_, hchains, hhi, htopP⟩
+  refine ⟨fun j hj => ?_, hchains, hhi⟩
   by_cases hjt : j < height lay - 1
   · have hl' : lay ≠ 0 := fun h => hlay (by rw [h]; rfl)
     exact ⟨(hpath j hjt).1, fun _ => ⟨(hpath j hjt).2.2.trans
@@ -733,9 +733,6 @@ theorem layerPairP_wots (answers : Answers) (w : WBytes) (index : Nat) (lay : La
     subst hj1
     exact ⟨hpair.2, fun h => by omega⟩
 
-#print axioms leaf_wots
-#print axioms layerP_wots
-#print axioms layerPairP_wots
 end ClaudeWCT.W9.T3.Security.CanonicalExtract
 
 namespace ClaudeWCT.W9.T3.Security.CanonicalExtract
@@ -789,7 +786,7 @@ theorem frame_wots (answers : Answers) (w : WBytes) (index : Nat) (lay : Layer) 
         (j + 1 < height lay ∨ lay.val = 0 → wmerklePad w lay (route index lay).1 j =
           WCT9.nonceDigest (WCT9.honestNonce answers lay (route index lay).2 j ((route index lay).1 / 2 ^ (j + 1)))) ∧
         (j + 1 < height lay ∨ lay.val = 0 → wmerkleHigh w lay (route index lay).1 j = 0))
-    (hleaf : wleafHigh w lay = 0 ∧ (lay.val = 0 → wtopLeafPad w = 0))
+    (hleaf : wleafHigh w lay = 0)
     (hchains : ∀ i, i < chainCount lay →
       (CanonicalRef.depth answers messages ⟨routeLeaf index lay, i⟩ ≤ digits.getD i 0 →
         wvalueFor w lay digits i = WCT9.wotsValue answers lay (route index lay).2 (route index lay).1 digits i ∧
@@ -895,7 +892,6 @@ theorem frame_wots (answers : Answers) (w : WBytes) (index : Nat) (lay : Layer) 
       hsrcC7 i hi, hsrcC7 j hj, ?_, hcontact i hi hli, hcontact j hj hlj⟩))))
     intro he
     exact hij (ChainAddr.mk.inj he).2
-#print axioms frame_wots
 end ClaudeWCT.W9.T3.Security.CanonicalExtract
 
 namespace ClaudeWCT.W9.T3.Security.CanonicalExtract
@@ -961,6 +957,4 @@ theorem layerPair_wots (answers : Answers) (w : WBytes) (index : Nat) (lay : Lay
     (fun i hi => ⟨(hchains i hi).1, fun hlt => ⟨contactAt_mono ((hchains i hi).2 hlt).1 hmono,
       fun h2 => twoEdgeAt_mono (((hchains i hi).2 hlt).2 h2) hmono⟩⟩)
 
-#print axioms layer_wots
-#print axioms layerPair_wots
 end ClaudeWCT.W9.T3.Security.CanonicalExtract

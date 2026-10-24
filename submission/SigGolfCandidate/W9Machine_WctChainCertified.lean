@@ -2912,7 +2912,6 @@ Fin.cons ⟨Checks.routine562,Checks.ready562.1,by
   intro p hp
   exact of_decide_eq_true (List.all_eq_true.mp h p hp)⟩ (
 (fun i => Fin.elim0 i))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))
-#print axioms allReady_inSharedBank
 end W9Machine.N600
 
 namespace W9Machine.N600
@@ -2933,5 +2932,4 @@ theorem tbsim_sharedBank (L : Layout) (sk : BitVec 256)
   exact codeAt_of_window_eq (source := Frozen.image) (target := L.image)
     (start := 195584) (count := 59072) (hbounds p hp).1 (hbounds p hp).2
     (by decide) hwindow (slice_at p.pc p.words (hr.linked p hp).1)
-#print axioms tbsim_sharedBank
 end W9Machine.N600

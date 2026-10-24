@@ -67,8 +67,10 @@ def wvalue (w : WBytes) (lay : Layer) (i : Nat) : Digest := wdig w (chainBlock l
 /-- Offsets in expanded witness memory, before its 2048-byte machine base. -/
 def leafBufferBase (lay : Layer) : Nat := (![21088,20368,19648,18928] : Layer → Nat) lay
 
+/-- Leaf-buffer slot of chain `i`: every layer (T51: the top included, "endpad") stores `end_0 | tweak | end_1 ..`, so
+end `i ≥ 1` sits at `base + 16 + 16 i` (top: end_0 at 21088, tweak at 21104, end_i at 21120 + 16 (i - 1)). -/
 def leafBufferSlot (lay : Layer) (i : Nat) : Nat :=
-  leafBufferBase lay + (if lay = 0 then 32+16*i else if i = 0 then 0 else 16+16*i)
+  leafBufferBase lay + (if lay = 0 then (if i = 0 then 0 else 16+16*i) else if i = 0 then 0 else 16+16*i)
 
 /-- The verifier reads a skipped endpoint from its preserved leaf-buffer slot.
 No equality with the redundant old chain value is assumed for arbitrary witnesses. -/
@@ -139,7 +141,7 @@ theorem leafBuffer_safe_separate (lay : Layer) (digits : List Nat) (i j : Nat)
       unfold leafBufferWriteEnd
       split <;> omega
     · have hjmax : digits.getD j 0 = maxDigit lay j := by
-        simpa only [hpred] using hprevious.2.2
+        simpa only [hpred] using hprevious.2.2.2
       have := leafBufferSlot_gap lay j i hji
       unfold leafBufferWriteEnd
       rw [if_neg (by omega : ¬digits.getD j 0 < maxDigit lay j)]

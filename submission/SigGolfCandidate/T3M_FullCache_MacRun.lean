@@ -1128,7 +1128,6 @@ theorem mac_tsim (sg : Bool) (image : Image) (hc : MacCodeAt image sg) (sk : Bit
     rfl
   · exact (F0.trans ft).mono (fun A hA h => h.elim id (fun h => Or.inr (Or.inr h)))
 
-#print axioms mac_tsim
 end SigGolfCandidate.T3M.FullCache.Generic
 
 namespace SigGolfCandidate.T3M.FullCache.Generic

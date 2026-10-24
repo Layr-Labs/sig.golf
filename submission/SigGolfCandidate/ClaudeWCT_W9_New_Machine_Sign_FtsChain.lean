@@ -2271,7 +2271,6 @@ theorem step_lwu {im : Image} (hcode : Fetch im) {c : Nat} (hc : c < 9) (s : Mac
     rw [MachineState.getReg_setPC, MachineState.getReg_setReg_ne _ _ _ _ hne]
   · intro A _ _; simp
 
-#print axioms step_lwu
 end ClaudeWCT.W9.Machine.Sign.SharedReuse
 
 namespace ClaudeWCT.W9.Machine.Sign.SharedField
@@ -2328,7 +2327,6 @@ theorem step_field {im : Image} {c : Nat} (hl:LookOK im (look c)) (hc:c < 9)
     congr 1
     ring
   · exact (pres_regsExcept _ _ _ _ _ _ _ s).mono (by simp)
-#print axioms step_field
 end ClaudeWCT.W9.Machine.Sign.SharedField
 
 namespace ClaudeWCT.W9.Machine.Sign.SharedBoundary
@@ -2375,8 +2373,6 @@ theorem step_For (hcode : LookOK im forLook) (s : MachineState) (hpc : s.pc = pc
     simp only [expFor, pres, List.mem_cons, List.not_mem_nil, or_false] at hq
     rcases hq with rfl | rfl | rfl | rfl <;> refine ⟨rfl, ?_⟩ <;> rw [off_mwc _ _ (by ao)] <;> ao
 
-#print axioms step_SK
-#print axioms step_For
 end ClaudeWCT.W9.Machine.Sign.SharedBoundary
 
 
@@ -2511,7 +2507,6 @@ theorem next_spec (m : Bool) (hl:LookOK im (look m)) (s : MachineState) (hpc:s.p
     rw[h19,ofNat_add_ofNat]
   · exact (pres_regsExcept _ _ _ _ _ _ _ s).mono (by simp)
 
-#print axioms trial_spec
 end ClaudeWCT.W9.Machine.Sign.SharedDigest
 
 namespace ClaudeWCT.W9.Machine.Sign.SharedDigest
@@ -2582,7 +2577,6 @@ theorem corr_lbu (m : Bool) (k : Nat) (hk:k < 9) (hl:LookOK im (look m)) (s : Ma
   · split <;> rfl
   · rfl
 
-#print axioms lbu_spec
 end ClaudeWCT.W9.Machine.Sign.SharedDigest
 
 namespace ClaudeWCT.W9.Machine.Sign.SharedDigest
@@ -2614,14 +2608,14 @@ theorem gate_eval (s : MachineState) (a : BitVec 256) (ha:OutAt s NBUF a) :
 
 theorem gate_spec (m : Bool) (hl:LookOK im (look m)) (s : MachineState) (hpc:s.pc=pcOf (base m+15))
     (a : BitVec 256) (ha:OutAt s NBUF a) :
-    ∃t,Steps im s 6 6 t ∧ t.pc=(if gateN a < 804 then pcOf (base m+21) else pcOf (next m)) ∧
+    ∃t,Steps im s 6 6 t ∧ t.pc=(if gateN a < 791 then pcOf (base m+21) else pcOf (next m)) ∧
       (m=true → t.getReg .x17=BitVec.ofNat 64 NBUF) ∧
       RegsExcept s t [.x6,.x7,.x17,.x28] ∧ Frame s t (fun _=>False) := by
-  have hbr:∀b∈(expectedGate m (decide (¬gateN a < 804))).brs,b.holds s:=by
+  have hbr:∀b∈(expectedGate m (decide (¬gateN a < 791))).brs,b.holds s:=by
     intro b hb
     simp only[expectedGate,pres,pres2,List.mem_singleton]at hb
     subst hb
-    exact geu_holds s gateE (gateN a) 804 (by unfold gateN;omega) (by decide) (gate_eval s a ha)
+    exact geu_holds s gateE (gateN a) 791 (by unfold gateN;omega) (by decide) (gate_eval s a ha)
   obtain ⟨hs,hp,-,hr,hm⟩:=SearchM.piece hl (gate_run m _) s hpc rfl hbr rfl
   refine ⟨_,hs,?_,?_,?_,fun A _ _=>by rw[hm];rfl⟩
   · rw[hp];simp only[expectedGate,pres,pres2,decide_eq_true_eq]
@@ -2690,7 +2684,6 @@ theorem cap_spec (m : Bool) (hl:LookOK im (look m)) (s : MachineState) (hpc:s.pc
   rw[hp];simp only[expectedCap,pres,pres2,decide_eq_true_eq]
   split_ifs <;> first | rfl | omega
 
-#print axioms rank_spec
 end ClaudeWCT.W9.Machine.Sign.SharedDigest
 
 namespace ClaudeWCT.W9.Machine.Sign.SharedDigest
@@ -2788,7 +2781,6 @@ theorem sum_spec (m : Bool) (k : Nat) (hk:k < 9) (hl:LookOK im (look m)) (s : Ma
   · cases m <;> rw[hr] <;> change s.getReg _+s.getReg .x6=_ <;> rw[hs,hv,ofNat_add_ofNat]
   · cases m <;> exact (pres_regsExcept _ _ _ _ _ _ _ s).mono (by simp [rankReg,addrReg,sumReg])
 
-#print axioms corrPrep_spec
 end ClaudeWCT.W9.Machine.Sign.SharedDigest
 
 namespace ClaudeWCT.W9.Machine.Sign.SharedDigest
@@ -2846,7 +2838,6 @@ theorem cost_spec (m : Bool) (k : Nat) (hk:k < 9) (hl:LookOK im (look m)) (s : M
   · exact ((((r1.trans r2).trans r3).trans r4).trans r5).mono (by simp)
   · exact ((((f1.trans f2).trans f3).trans f4).trans f5).mono (fun A _ h=>by simpa using h)
 
-#print axioms cost_spec
 end ClaudeWCT.W9.Machine.Sign.SharedDigest
 
 namespace ClaudeWCT.W9.Machine.Sign.SharedDigest
@@ -2942,10 +2933,10 @@ set_option linter.unusedSimpArgs false
 attribute [local instance] Classical.propDecidable
 variable {im : Image}
 
-def acceptedTest (a : BitVec 256) : Bool := decide (gateN a < 804) &&
+def acceptedTest (a : BitVec 256) : Bool := decide (gateN a < 791) &&
   (List.range 9).all (fun k=>decide (rankN a k < 563)) && decide (psum a 9 ≤ 777)
 theorem acceptedTest_iff (a : BitVec 256) : acceptedTest a=true ↔
-    gateN a < 804 ∧ (∀k,k < 9 → rankN a k < 563) ∧ psum a 9 ≤ 777 := by
+    gateN a < 791 ∧ (∀k,k < 9 → rankN a k < 563) ∧ psum a 9 ≤ 777 := by
   simp only[acceptedTest,Bool.and_eq_true,decide_eq_true_eq,List.all_eq_true,List.mem_range,and_assoc]
 
 theorem checks_spec (m : Bool) (hl:LookOK im (look m)) (s : MachineState)
@@ -2954,7 +2945,7 @@ theorem checks_spec (m : Bool) (hl:LookOK im (look m)) (s : MachineState)
       Frame s t (fun _=>False) ∧ t.pc=(if acceptedTest a then pcOf (accepted m) else pcOf (next m)) ∧
       (acceptedTest a=true → t.getReg .x17=BitVec.ofNat 64 NBUF) := by
   obtain ⟨t1,s1,p1,r17,r1,f1⟩:=gate_spec m hl s hpc a ha
-  by_cases hg:gateN a < 804
+  by_cases hg:gateN a < 791
   · rw[if_pos hg]at p1
     obtain ⟨t2,s2,p2,sm2,tb2,r172,r2,f2⟩:=init_spec m hl t1 p1 r17
     obtain ⟨t3,c3,s3,b3,r3,f3,p3⟩:=fields_from m hl a 9 0 rfl t2 p2
@@ -3248,8 +3239,6 @@ theorem failure_steps {im : Image} (m : Bool) (hc : CodeAt im (failPC m) failure
     | rfl
     | (intro r hr; cases r <;> first | exact (hr (by decide)).elim | rfl)
     | (intro A hA hn;rfl)
-#print axioms sign_steps
-#print axioms failure_steps
 end ClaudeWCT.W9.Machine.Sign.SharedDigestBoundary
 
 namespace ClaudeWCT.W9.Machine.Sign.SharedDigest
@@ -3270,5 +3259,4 @@ theorem tables_of_costAt {s : MachineState} (hc : CostAt s) : TablesAt false s :
   · intro k hk j hj
     have ho:correctionOffset false k≤1056:=by simp only [correctionOffset,Bool.false_eq_true,if_false];split <;> omega
     rw [show tableBase false=COST by rfl,Nat.add_assoc,SearchM.cost_byte hc (by omega),correction_cost k j hk hj]
-#print axioms tables_of_costAt
 end ClaudeWCT.W9.Machine.Sign.SharedDigest

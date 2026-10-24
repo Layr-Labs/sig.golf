@@ -140,5 +140,4 @@ theorem check_accepting (answers : Answers) (pk : Digest) (log : QueryLog Reques
           intro q hq
           simp only [checkForgeryP, queried_bind, he, queried_pure, List.append_nil]
           exact List.mem_append_right _ hq
-#print axioms check_accepting
 end ClaudeWCT.W9.T3M.Final.Paired

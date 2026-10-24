@@ -262,7 +262,4 @@ theorem sum_NL_leF (hgrp : ∀ lay, S.grp lay ≤ 2 ^ 20) (Cmax : Nat) (hC : ∀
       exact stepZero_fam_unique S hgrp hL hL' h1 h1')
     (fun F => (card_famChains_le S F).trans (hC F.lay)) s.trace
 
-#print axioms isTestQF_iff
-#print axioms NL_mkSampleF
-#print axioms sum_NL_leF
 end ClaudeWCT.W9.T3.Security.Wots.CanonicalRef.Normalized.FamSum

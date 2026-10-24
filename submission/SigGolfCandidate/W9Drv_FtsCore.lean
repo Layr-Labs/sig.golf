@@ -739,7 +739,7 @@ theorem coord_next (pk : Digest) (w : ClaudeWCT.W9.T3M.WBytes) (a : HashOutput) 
     · change (t.getMem (BitVec.ofNat 64 CTRW)).toNat / 2 ^ 32 = 0
       rw [hm CTRW (by decide) (Or.inl (by decide))]
       exact hhalf
-    · refine ⟨?_, fun lay hl => ?_, ?_⟩
+    · refine ⟨?_, fun lay hl => ?_, ?_, ?_⟩
       · rw [hm (TOPBASE-8) (by unfold TOPBASE; omega) (Or.inr (by unfold TOPBASE; omega))]
         exact hdata.mask
       · have hb := hdrAddr_bounds lay
@@ -747,6 +747,8 @@ theorem coord_next (pk : Digest) (w : ClaudeWCT.W9.T3M.WBytes) (a : HashOutput) 
         exact hdata.header lay hl
       · rw [hm (TOPB9+56) (by unfold TOPB9; omega) (Or.inr (by unfold TOPB9; omega))]
         exact hdata.buffer3
+      · rw [hm (TOPB9-288) (by unfold TOPB9; omega) (Or.inr (by unfold TOPB9; omega))]
+        exact hdata.mask6
   have hb6 : (ClaudeWCT.WCT9.child a k).val / 64 % 2 = 0 ∨ (ClaudeWCT.WCT9.child a k).val / 64 % 2 = 1 := by omega
   have hra := regionAddr_succ k.val hk
   have hbase : coordinateBase k = regionAddr k.val := by base0; unfold coordinateBase regionAddr; omega
@@ -1833,7 +1835,7 @@ theorem next (pk : Digest) (w : ClaudeWCT.W9.T3M.WBytes) (a : HashOutput) (k : F
     · change (t.getMem (BitVec.ofNat 64 CTRW)).toNat / 2 ^ 32 = 0
       rw [hm CTRW (by decide) (Or.inl (by decide))]
       exact hhalf
-    · refine ⟨?_, fun lay hl => ?_, ?_⟩
+    · refine ⟨?_, fun lay hl => ?_, ?_, ?_⟩
       · rw [hm (TOPBASE-8) (by unfold TOPBASE; omega) (Or.inr (by unfold TOPBASE; omega))]
         exact hdata.mask
       · have hb := hdrAddr_bounds lay
@@ -1841,6 +1843,8 @@ theorem next (pk : Digest) (w : ClaudeWCT.W9.T3M.WBytes) (a : HashOutput) (k : F
         exact hdata.header lay hl
       · rw [hm (TOPB9+56) (by unfold TOPB9; omega) (Or.inr (by unfold TOPB9; omega))]
         exact hdata.buffer3
+      · rw [hm (TOPB9-288) (by unfold TOPB9; omega) (Or.inr (by unfold TOPB9; omega))]
+        exact hdata.mask6
   have hb6 : SharedV3.direction k.val (SharedV3.physical k.val (SharedForest.rawChildFromOutput a k).val) = 0 ∨ SharedV3.direction k.val (SharedV3.physical k.val (SharedForest.rawChildFromOutput a k).val) = 1 := by unfold SharedV3.direction; omega
   have hra := regionAddr_succ k.val hk
   have hbase : coordinateBase k = regionAddr k.val := by base0; unfold coordinateBase regionAddr; omega
@@ -2470,10 +2474,6 @@ theorem coordinate_canonical (w : SharedV3.WBytes) (index : Nat) (coord : Fin 9)
     simpa using length_of_support_mapM _ (List.finRange 6) ends hends
   rw [childN_canonical _ _ _ _ _ _ hlen _ _ hp, hp.topOther]
 
-#print axioms chainProgram_zero
-#print axioms childInput_readout
-#print axioms childN_canonical
-#print axioms coordinate_canonical
 end W9Drv.SharedCanonical
 
 namespace W9Drv.SharedCanonical
@@ -2577,9 +2577,6 @@ theorem recoverSharedInner_true (index coord : Nat) (child : Child) (word : Rank
   rw [canonicalInnerStep_eq _ _ _ _ child.isLt _ _ _ _ (by decide)]
   simp
 
-#print axioms canonicalInnerStep_eq
-#print axioms recoverSharedInner_false
-#print axioms recoverSharedInner_true
 end W9Drv.SharedCanonical
 
 namespace W9Drv.SharedCanonical
@@ -2655,7 +2652,6 @@ theorem canonicalCoordinate_eq_sourceCoordinate (index : Nat) (coord : Fin 9)
       unfold canonicalChildN
       simp only [SharedV3.lastLevel, hf, hp, ↓reduceIte, hn, bind_assoc]
 
-#print axioms canonicalCoordinate_eq_sourceCoordinate
 end W9Drv.SharedCanonical
 
 namespace W9Drv.SharedCanonical
@@ -2729,9 +2725,6 @@ theorem sourceGroupedForest_eq_recoverForest (index : Nat) (selected : ForestSel
   unfold sourceGroupedForest recoverForest
   simp only [sourcePair_eq_recoverPair, sourceSingleton_eq_recoverSingleton]
 
-#print axioms sourcePair_eq_recoverPair
-#print axioms sourceSingleton_eq_recoverSingleton
-#print axioms sourceGroupedForest_eq_recoverForest
 end W9Drv.SharedCanonical
 
 namespace W9Drv.SharedCanonical
@@ -2805,8 +2798,6 @@ theorem forest_canonical (w : SharedV3.WBytes) (index : Nat) (hi : index < 2 ^ 3
   exact (coordinate_canonical w index coord _ _ _ _ prev hi (hc coord) (hp coord)).trans
     (canonicalCoordinate_eq_sourceCoordinate index coord _ _ _ _ prev)
 
-#print axioms sourceNineForest_eq_grouped
-#print axioms forest_canonical
 end W9Drv.SharedCanonical
 
 namespace W9Drv.SharedAcceptedFold
@@ -2939,7 +2930,4 @@ theorem forest_witEnc (output : HashOutput) (witness : SigGolfCandidate.Research
     (PairedReadout.initialPair_witEnc output witness)
     (fun k=>chainReadout_witEnc output witness k _) hp
   simpa only[coordinateRaw_output,coordinateWord_output] using h
-#print axioms chainReadout_witEnc
-#print axioms pathReadout_witEnc
-#print axioms forest_witEnc
 end W9Drv.SharedCanonical

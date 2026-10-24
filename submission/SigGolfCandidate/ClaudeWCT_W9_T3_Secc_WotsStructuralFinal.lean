@@ -188,7 +188,6 @@ theorem prob_proj_eq (position : Extract.Pos) (target : Digest) :
     · simp only [Extract.Paired.proj,if_neg h]
       exact SphincsSecurity.Concrete.HiddenLabelProbe.prob_truncate_eq target
   | _=>exact SphincsSecurity.Concrete.HiddenLabelProbe.prob_truncate_eq target
-#print axioms prob_proj_eq
 end ClaudeWCT.W9.T3.Security.Wots.PairedStructural
 
 namespace ClaudeWCT.W9.T3.Security.Wots.PairedStructural
@@ -282,9 +281,6 @@ theorem keygen_queries_variant {labels : CanonGraph.Labels} {T T' : Answers} (hv
     SourceReplay.queried T keygen = SourceReplay.queried T' keygen :=
   (hv.congr (sat_keygen T)).2
 
-#print axioms Variant.congr
-#print axioms eval_keygen_variant
-#print axioms keygen_queries_variant
 end ClaudeWCT.W9.T3.Security.Wots.PairedStructural
 
 namespace ClaudeWCT.W9.T3.Security.Wots.PairedStructural
@@ -402,8 +398,6 @@ theorem strHit_kernel (Charged : HashInput → Prop) (x : HashInput) (hx : x ∈
     rw [hz]
     exact bot_le
 
-#print axioms strTable_str
-#print axioms strHit_kernel
 end Kernel
 end ClaudeWCT.W9.T3.Security.Wots.PairedStructural
 
@@ -436,7 +430,6 @@ theorem fixed_seen_bound (V : Finset HashInput) (hU : CanonGraph.Paired.canonInp
     (strHit V s labels Charged) Charged (2^128 : ℝ≥0∞)⁻¹
     (fun _ _ h=>h.1) (fun x hx=>strHit_kernel V s labels Charged x hx) program
 
-#print axioms fixed_seen_bound
 end ClaudeWCT.W9.T3.Security.Wots.PairedStructural
 
 namespace ClaudeWCT.W9.T3.Security.Wots.PairedReference
@@ -622,10 +615,6 @@ theorem referenceInput_short {A T : Answers} (hAT : ShortAgree A T) (L : LeafAdd
     referenceInput A (sourceMessages A) L = referenceInput T (sourceMessages T) L := by
   unfold referenceInput
   rw [referenceSearch_short hAT, sourceMessages_short hAT]
-#print axioms forestCommitment_short
-#print axioms referenceSearch_short
-#print axioms referenceInput_short
-#print axioms depth_short
 end ClaudeWCT.W9.T3.Security.Wots.CanonicalRef
 
 namespace ClaudeWCT.W9.T3.Security.Wots.PairedReference
@@ -655,7 +644,6 @@ theorem otherQuery_short : SigGolfCandidate.T3.Security.Wots.ShortCongruent Othe
   · exact Iff.rfl
   · exact otherInput_short hAT input
   · exact Iff.rfl
-#print axioms otherQuery_short
 end ClaudeWCT.W9.T3.Security.Wots.PairedReference
 
 namespace ClaudeWCT.W9.T3.Security.Wots.PairedReference
@@ -741,8 +729,6 @@ theorem honestInput_length (T : Answers) (position : Extract.Pos) :
   | wctNode index coord level node =>
       simp only [Extract.Paired.honestInput]
       exact short_of_le _ (by rw [WCT9.wctTopInput_length];decide)
-#print axioms honestInput_short
-#print axioms honestInput_length
 end ClaudeWCT.W9.T3.Security.Wots.PairedReference
 
 namespace ClaudeWCT.W9.T3.Security.Wots.PairedStructural
@@ -852,10 +838,6 @@ theorem depth_variant (hv : Variant labels T T') (a : ChainAddr)
   unfold CanonicalRef.depth
   rw [referenceDigits_variant hv a.key hL]
 
-#print axioms forestCommitment_variant
-#print axioms referenceContext_variant
-#print axioms referenceSearch_variant
-#print axioms depth_variant
 end ClaudeWCT.W9.T3.Security.Wots.PairedStructural
 
 namespace ClaudeWCT.W9.T3.Security.Wots.PairedReference
@@ -915,7 +897,6 @@ theorem otherInput_congr_of_depth {T T' : Answers}
     exact ⟨p, hpos, hb, hsrc, (structuralClass_congr_of_depth (T := T) (T' := T') hdepth hpos hsrc).mp hc⟩
   · rintro ⟨p, hpos, hb, hsrc, hc⟩
     exact ⟨p, hpos, hb, hsrc, (structuralClass_congr_of_depth (T := T) (T' := T') hdepth hpos hsrc).mpr hc⟩
-#print axioms otherInput_congr_of_depth
 end ClaudeWCT.W9.T3.Security.Wots.PairedReference
 
 namespace ClaudeWCT.W9.T3.Security.Wots.PairedStructural
@@ -934,8 +915,6 @@ theorem sign_queries_variant {labels : CanonGraph.Labels} {T T' : Answers}
       SourceReplay.queried T' (PairedOuter.FullGame.authenticatedSign published request) :=
   (hv.congr (sat_authenticatedSign T published request)).2
 
-#print axioms eval_sign_variant
-#print axioms sign_queries_variant
 end ClaudeWCT.W9.T3.Security.Wots.PairedStructural
 
 namespace ClaudeWCT.W9.T3.Security.Wots.PairedStructural
@@ -1224,6 +1203,4 @@ theorem reference_structural_in_le (adversary : Final.Paired.AdversaryP) (q : Na
   simp only [liftM_pmf_apply]
   exact h
 
-#print axioms reference_structural_in_le
 end ClaudeWCT.W9.T3.Security.Wots.PairedReference
-

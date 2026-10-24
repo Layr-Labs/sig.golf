@@ -19,14 +19,14 @@ set_option maxRecDepth 10000
 /-! ### Bits -/
 
 theorem setTop_toNat (d : Digest) (c : Nat) :
-    (setTop d c).toNat = d.toNat % 2 ^ 109 + c % 2 ^ 19 * 2 ^ 109 := by
+    (setTop d c).toNat = d.toNat % 2 ^ 112 + c % 2 ^ 16 * 2 ^ 112 := by
   unfold setTop
   rw [BitVec.toNat_ofNat]
   apply Nat.mod_eq_of_lt
-  have h1 : d.toNat % 2 ^ 109 < 2 ^ 109 := Nat.mod_lt _ (by positivity)
-  have h2 : c % 2 ^ 19 < 2 ^ 19 := Nat.mod_lt _ (by positivity)
-  have h3 : c % 2 ^ 19 * 2 ^ 109 ≤ (2 ^ 19 - 1) * 2 ^ 109 := Nat.mul_le_mul_right _ (by omega)
-  have h4 : (2 ^ 19 - 1) * 2 ^ 109 + 2 ^ 109 = (2 : Nat) ^ 128 := by norm_num
+  have h1 : d.toNat % 2 ^ 112 < 2 ^ 112 := Nat.mod_lt _ (by positivity)
+  have h2 : c % 2 ^ 16 < 2 ^ 16 := Nat.mod_lt _ (by positivity)
+  have h3 : c % 2 ^ 16 * 2 ^ 112 ≤ (2 ^ 16 - 1) * 2 ^ 112 := Nat.mul_le_mul_right _ (by omega)
+  have h4 : (2 ^ 16 - 1) * 2 ^ 112 + 2 ^ 112 = (2 : Nat) ^ 128 := by norm_num
   omega
 
 theorem setTop_setTop (d : Digest) (a b : Nat) : setTop (setTop d a) b = setTop d b := by
@@ -35,20 +35,20 @@ theorem setTop_setTop (d : Digest) (a b : Nat) : setTop (setTop d a) b = setTop 
   congr 1
   rw [Nat.add_mul_mod_self_right, Nat.mod_mod]
 
-theorem setTop_self (d : Digest) : setTop d (d.toNat / 2 ^ 109) = d := by
+theorem setTop_self (d : Digest) : setTop d (d.toNat / 2 ^ 112) = d := by
   apply BitVec.eq_of_toNat_eq
   rw [setTop_toNat]
   have hd := d.isLt
-  have h : d.toNat / 2 ^ 109 < 2 ^ 19 := by
+  have h : d.toNat / 2 ^ 112 < 2 ^ 16 := by
     rw [Nat.div_lt_iff_lt_mul (by positivity)]
     norm_num at hd ⊢
     omega
   rw [Nat.mod_eq_of_lt h]
-  have := Nat.mod_add_div d.toNat (2 ^ 109)
+  have := Nat.mod_add_div d.toNat (2 ^ 112)
   rw [Nat.mul_comm] at this
   omega
 
-theorem top_lt (d : Digest) : d.toNat / 2 ^ 109 < 2 ^ 19 := by
+theorem top_lt (d : Digest) : d.toNat / 2 ^ 112 < 2 ^ 16 := by
   have hd := d.isLt
   rw [Nat.div_lt_iff_lt_mul (by positivity)]
   norm_num at hd ⊢
@@ -106,7 +106,7 @@ theorem topSib_fillTop (sig : Signature) (c : Nat) : topSib (fillTop sig c) = se
   simp only [fillLayer]
   rw [if_pos ⟨rfl, rfl⟩]
 
-theorem fillTop_self (sig : Signature) : fillTop sig ((topSib sig).toNat / 2 ^ 109) = sig := by
+theorem fillTop_self (sig : Signature) : fillTop sig ((topSib sig).toNat / 2 ^ 112) = sig := by
   cases sig with
   | mk rho openings layers =>
     unfold fillTop
@@ -200,7 +200,7 @@ theorem topFoldN_fill (sig : Signature) (index : Nat) (digits : List Nat) (a b :
 
 theorem topFold_proj (sig : Signature) (index : Nat) (digits : List Nat) :
     topFold (proj sig) index digits = topFold sig index digits := by
-  have h := topFold_fill sig index digits 0 ((topSib sig).toNat / 2 ^ 109)
+  have h := topFold_fill sig index digits 0 ((topSib sig).toNat / 2 ^ 112)
   rw [fillTop_self] at h
   exact h
 
@@ -430,7 +430,7 @@ theorem expandS_complete (answers : Answers) (limit : Nat) (m : Message) (pk : D
     (x : HashOutput × Witness) (h : evalWithAnswerFn answers (expandWithN limit m pk σ) = some x) :
     ∃ y, evalWithAnswerFn answers (expandS limit m pk σ) = some y := by
   have hσ := fillTop_self σ
-  set ch := (topSib σ).toNat / 2 ^ 109 with hch
+  set ch := (topSib σ).toNat / 2 ^ 112 with hch
   rw [← hσ, eval_expandWithN_fill] at h
   unfold expandS
   simp only [evalWithAnswerFn_bind]

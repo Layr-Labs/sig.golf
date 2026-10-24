@@ -41,7 +41,7 @@ def point (lay : Layer) (leaf i : Nat) : Nat :=
   if i < chainCount lay then (leaf % grp lay) * stride lay + i + 1
   else grp lay * stride lay + (leaf % grp lay) * (58 - chainCount lay) + (i - chainCount lay) + 1
 /-- Zero-digit cap per leaf. -/
-def zcap (lay : Layer) : Nat := if lay = 0 then 9 else 5
+def zcap (lay : Layer) : Nat := if lay = 0 then 7 else 5
 
 /-- **Scheme obligation 1**: WOTS seeds are v6 family evaluations. -/
 def V6SeedSpec : Prop :=
@@ -115,7 +115,4 @@ theorem top_revealed_card_le (Rev : Finset (Fin 4 × Fin 54)) (h : ∀ l : Fin 4
   have := ClaudeWCT.Arith.SideChannel.GroupedFamily.revealed_card_leW (g := 4) (w := 54) (r := 9) Rev h
   omega
 
-#print axioms v6Scheme
-#print axioms v6Caps
-#print axioms top_point_bits
 end ClaudeWCT.W9.T3.Security.Wots.FamRestart.V6

@@ -473,5 +473,4 @@ theorem completed_event_le_shared
       simp [hfalse]
   · exact add_le_add (mul_le_mul' le_rfl (expectedBirths_le_shared S pay hrecord adversary q hq)) le_rfl
 end GenericBound
-#print axioms completed_event_le_shared
 end ClaudeWCT.W9.T3.Security.PairedBankLink

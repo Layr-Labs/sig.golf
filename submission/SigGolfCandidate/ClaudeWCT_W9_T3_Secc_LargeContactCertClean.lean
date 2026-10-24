@@ -726,7 +726,6 @@ theorem router_covered_of_clear (U : Finset HashInput) (A : Answers) (q : Nat)
   · obtain ⟨t',ht'⟩ := exists_pos_digit (forestRank N k.val)
     obtain ⟨x,hx,hidx,hch,-⟩ := hposCov k t' ht'
     exact ⟨x,hx,hidx,hch,by omega⟩
-#print axioms router_covered_of_clear
 end ClaudeWCT.W9.T3.Security.LargeCoupling.Paired
 
 namespace ClaudeWCT.W9.T3.Security.LargeCoupling.Paired
@@ -884,5 +883,4 @@ theorem cert_of_clean_of_checker (adversary : Final.Paired.AdversaryP) (q : Nat)
   intro k tt ss hss
   obtain ⟨prior,hev⟩ := hsub _ (hslots k tt ss hss)
   exact hclearV _ prior hev
-#print axioms cert_of_clean_of_checker
 end ClaudeWCT.W9.T3.Security.LargeCoupling.Paired

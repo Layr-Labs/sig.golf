@@ -43,6 +43,4 @@ theorem end_steps {im : Image} (hc : CodeAt im (pcOf 43071) endCode)
 
 theorem installed_end : CodeAt Images.expandImage (pcOf 43071) endCode := by
   apply codeAt_expand_current_chunk <;> decide +kernel
-#print axioms end_steps
-#print axioms installed_end
 end ClaudeWCT.W9.Machine.Expand.SharedScatter

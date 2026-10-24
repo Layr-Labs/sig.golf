@@ -186,9 +186,6 @@ theorem mix_le_refF :
     (FamLift.chainOf_caOf S a ha.2) GD hG q hGq C (hws _) (hb _) F hF hF0
 end Ref
 
-#print axioms errC_eqF
-#print axioms ref_le_mixF
-#print axioms mix_le_refF
 end ClaudeWCT.W9.T3.Security.Wots.CanonicalRef.Normalized.FamRef
 
 namespace ClaudeWCT.W9.T3.Security.Wots.CanonicalRef.Normalized.FamRef
@@ -294,7 +291,4 @@ theorem view_count_leF (S : FamScheme) (hgrp : ∀ lay, S.grp lay ≤ 2 ^ 20) (C
     _ = _ := by
         rw [Finset.sum_add_distrib, Finset.sum_const, Finset.card_range, nsmul_eq_mul]
 
-#print axioms view_prob_leF
-#print axioms view_prob_geF
-#print axioms view_count_leF
 end ClaudeWCT.W9.T3.Security.Wots.CanonicalRef.Normalized.FamRef

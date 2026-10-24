@@ -2352,11 +2352,6 @@ theorem endpoint_low :
   have he := (Real.exp_le_exp.mpr hx).trans (le_of_lt Real.exp_one_lt_d9)
   nlinarith
 
-#print axioms positive_part_exp
-#print axioms split_excess
-#print axioms endpoint_high
-#print axioms endpoint_small
-#print axioms endpoint_low
 end ClaudeWCT.Numerics.SharedPathWinsor
 
 namespace ClaudeWCT.Numerics.SharedPathWinsor
@@ -2419,8 +2414,6 @@ theorem excess_le_of_capped_exp_general {β : Type} [Fintype β]
       rw [← ENNReal.ofReal_mul (by positivity), ← ENNReal.ofReal_add (by positivity) hresBound, he]
     _ ≤ ENNReal.ofReal resultBound := ENNReal.ofReal_le_ofReal hscalar
 
-#print axioms cap_exp_majorant_general
-#print axioms excess_le_of_capped_exp_general
 end ClaudeWCT.Numerics.SharedPathWinsor
 
 namespace ClaudeWCT.Numerics.SharedPathWinsor
@@ -2472,7 +2465,6 @@ theorem law_bucket_excess_general {α β : Type} [Fintype α] [DecidableEq α] [
     exact hres
   · exact hscalar
 
-#print axioms law_bucket_excess_general
 end ClaudeWCT.Numerics.SharedPathWinsor
 
 namespace ClaudeWCT.Numerics.CanonicalCompression
@@ -2515,8 +2507,6 @@ theorem transition_sound (zn zd den weighted value rejected unit : Nat)
   rw [← sub_nonpos, he]
   exact div_nonpos_of_nonpos_of_nonneg (sub_nonpos.mpr hcast) (by positivity)
 
-#print axioms retryMoment_le
-#print axioms transition_sound
 end ClaudeWCT.Numerics.CanonicalCompression
 
 namespace ClaudeWCT.Numerics.SharedPathWinsor.Canonical
@@ -2556,9 +2546,6 @@ theorem endpoint_low :
   have he := (Real.exp_le_exp.mpr hx).trans (le_of_lt Real.exp_one_lt_d9)
   nlinarith
 
-#print axioms endpoint_middle
-#print axioms endpoint_high
-#print axioms endpoint_low
 end ClaudeWCT.Numerics.SharedPathWinsor.Canonical
 
 namespace ClaudeWCT.Numerics.SharedPathWinsor
@@ -2636,8 +2623,6 @@ theorem fullOtherPoly_coeff {β : Type*} [Fintype β]
   simp only [Polynomial.finsetSum_coeff, Polynomial.coeff_X_pow, Finset.card_filter,
     eq_comm]
 
-#print axioms fullOtherPoly_model
-#print axioms fullOtherPoly_coeff
 end ClaudeWCT.Numerics.SharedCoverage
 
 
@@ -2677,8 +2662,6 @@ theorem profileVector_injective (K r : Nat) :
   rw [profileList_get, profileList_get] at hl
   exact Fin.ext (profile_nodup.getElem_inj_iff.mp hl)
 
-#print axioms profile_valid
-#print axioms profileVector_injective
 end ClaudeWCT.Numerics.SharedPathReflection
 
 
@@ -2799,8 +2782,6 @@ theorem coordinatePoly_below (H : Nat → Nat → Nat) (K : Nat) (hK : K ∈ [64
   exact coeffSum_injective s (piAntidiag univ K) v
     (profileVector_injective K r.val) hmem F
 
-#print axioms profile_vector_product
-#print axioms coordinatePoly_below
 end ClaudeWCT.Numerics.SharedCoverage
 
 
@@ -2830,7 +2811,6 @@ theorem rational_exp_upper (S x u bound : Nat)
     nlinarith
   exact (Real.exp_le_exp.mpr hx).trans (he.trans ht)
 
-#print axioms rational_exp_upper
 end ClaudeWCT.Numerics.SharedCoverage
 
 namespace ClaudeWCT.Numerics.SharedCoverage
@@ -2850,7 +2830,6 @@ theorem coordinatePoly_coeff_below {β : Type*} [Fintype β]
   rw [← hβ, fullOtherPoly_coeff val H hH] at h
   exact h
 
-#print axioms coordinatePoly_coeff_below
 end ClaudeWCT.Numerics.SharedCoverage
 
 
@@ -2924,8 +2903,6 @@ theorem geometric_bin_interval (c b : Nat)
   · rw [div_pow]
     exact (le_div_iff₀ hp).mpr hu
 
-#print axioms bin_lookup_bounds
-#print axioms geometric_bin_interval
 end ClaudeWCT.Numerics.SharedPathReflection
 
 
@@ -2995,7 +2972,6 @@ theorem coordinatePacked_eval (bits K r : Nat) :
     ring
   · simp
 
-#print axioms coordinatePacked_eval
 end ClaudeWCT.Numerics.SharedCoverage
 
 
@@ -3061,8 +3037,6 @@ theorem coupled_bucket_snd {α : Type*} (xs : List α) (bin w₀ w₁ : α → N
   | nil => rfl
   | cons x xs ih => simpa only [List.foldl_cons, bucketArray] using ih _
 
-#print axioms bucketArray_zero_model
-#print axioms coupled_bucket_fst
 end ClaudeWCT.Numerics.SharedPathReflection
 
 
@@ -3120,9 +3094,6 @@ theorem coefficientLE_eval_one {P Q : Nat[X]} (h : CoeffLE P Q) :
        _ ≤ ∑ i ∈ P.support, Q.coeff i := Finset.sum_le_sum (fun i _ => h i)
        _ ≤ Q.eval 1 := sum_coeff_le_eval_one Q P.support
 
-#print axioms listPolynomial_coeff
-#print axioms multiply_get
-#print axioms coefficientLE_eval_one
 end ClaudeWCT.Numerics.SharedPathReflection
 
 
@@ -3190,9 +3161,6 @@ theorem sum_intervals (a c : ℝ) (i j k out : Nat)
     exact h.trans (add_le_add hA.1 hC.1)
   · exact (add_le_add hA.2 hC.2).trans hOut.2
 
-#print axioms geometric_add_interval
-#print axioms product_intervals
-#print axioms sum_intervals
 end ClaudeWCT.Numerics.SharedPathReflection
 
 
@@ -3236,7 +3204,6 @@ theorem coordinateBinned_model (K r : Nat)
   · intro b
     simpa only [hPacked, coefficient_eval P 512 hCoeff] using hf.2 b
 
-#print axioms coordinateBinned_model
 end ClaudeWCT.Numerics.SharedPathReflection
 
 
@@ -3299,8 +3266,6 @@ theorem coordinate_near_sum {β : Type} [Fintype β]
   simp [coordinateNearFormula, Fin.sum_univ_succ, List.range_succ,
     List.foldr_append, mul_add, add_assoc]
 
-#print axioms coordinate_first_sum
-#print axioms coordinate_near_sum
 end ClaudeWCT.Numerics.SharedCoverage
 
 
@@ -3324,7 +3289,6 @@ theorem coordinate_coefficient_lt {β : Type*} [Fintype β]
        _ ≤ (128*563)^20 := Nat.pow_le_pow_right (by decide) hr
        _ < 2^512 := by decide +kernel
 
-#print axioms coordinate_coefficient_lt
 end ClaudeWCT.Numerics.SharedCoverage
 
 
@@ -3359,7 +3323,6 @@ theorem sum_selector_occupancy {M : Type*} [AddCommMonoid M]
     rw [Nat.multinomial_univ_two, show t+(r-t)=r by omega,
       ← Nat.choose_eq_factorial_div_factorial ht']
 
-#print axioms sum_selector_occupancy
 end ClaudeWCT.Numerics.SharedCoverage
 
 
@@ -3414,8 +3377,6 @@ theorem sum_pair_selector {α M : Type*} [Fintype α] [AddCommMonoid M]
     ∑ A₀ : Fin t → α, ∑ A₁ : Fin u → α, ∑ B₀ : Fin t → α, ∑ B₁ : Fin u → α,
       F (coverage t A₀ * coverage t B₀) (coverage u A₁ * coverage u B₁))
 
-#print axioms sum_split_selector
-#print axioms sum_pair_selector
 end ClaudeWCT.Numerics.SharedCoverage
 
 
@@ -3477,8 +3438,6 @@ theorem pair_first_moment {α : Type*} [Fintype α]
   simp only [mul_assoc]
   omega
 
-#print axioms independent_pair_sum
-#print axioms pair_first_moment
 end ClaudeWCT.Numerics.SharedCoverage
 
 namespace ClaudeWCT.Numerics.SharedCoverage
@@ -3580,8 +3539,6 @@ theorem pair_near_moment {α : Type*} [Fintype α]
   intro t ht
   ring
 
-#print axioms pair_kernel_moment
-#print axioms pair_near_moment
 end ClaudeWCT.Numerics.SharedCoverage
 
 namespace ClaudeWCT.Numerics.SharedCoverage
@@ -3619,8 +3576,6 @@ theorem independent_forest_near {α β : Type*} [Fintype α] [Fintype β]
   simp only [Finset.sum_const, Finset.card_univ, Fintype.card_fin, nsmul_eq_mul, Nat.cast_id]
   ring
 
-#print axioms independent_forest_first
-#print axioms independent_forest_near
 end ClaudeWCT.Numerics.SharedCoverage
 
 namespace ClaudeWCT.Numerics.SharedPathWinsor
@@ -3672,8 +3627,6 @@ theorem residual_fee_upper (x cap u : ℝ)
     apply (le_div_iff₀ hu).2
     nlinarith
 
-#print axioms capped_fee_global
-#print axioms residual_fee_upper
 end ClaudeWCT.Numerics.SharedPathWinsor
 
 namespace ClaudeWCT.Numerics.SharedFees
@@ -3748,7 +3701,6 @@ theorem paidTree_eq (fuel : Nat) (fs : List (Nat × Nat)) (p : Nat) :
     paidTree fuel fs p = paidDots fs p := by
   rw [paidTree_plain, paidDots_plain]
 
-#print axioms paidTree_eq
 end ClaudeWCT.Numerics.SharedFees
 
 namespace ClaudeWCT.Numerics.SharedCoverage
@@ -3819,8 +3771,6 @@ theorem pair_near_history_sum {β : Type} [Fintype β]
     coordinate_near_history_sum val hβ hN 64 _ (by decide)] at h
   simpa only [pairNear, Fintype.sum_prod_type] using h
 
-#print axioms pair_coverage_history_sum
-#print axioms pair_near_history_sum
 end ClaudeWCT.Numerics.SharedCoverage
 
 namespace ClaudeWCT.Numerics.SharedMoments
@@ -3915,8 +3865,6 @@ theorem forest_near_data {β : Type} [Fintype β]
     coordinate_near_history_sum val hβ hN 128 r (by decide), ← (row_values hrows r hr).2.2.2.1]
   rfl
 
-#print axioms forest_coverage_data
-#print axioms forest_near_data
 end ClaudeWCT.Numerics.SharedCoverage
 
 namespace ClaudeWCT.Numerics.SharedCoverage
@@ -3930,7 +3878,6 @@ theorem forest_alphabet_card {β : Type} [Fintype β]
   simp only [mul_pow, ← pow_mul]
   ring
 
-#print axioms forest_alphabet_card
 end ClaudeWCT.Numerics.SharedCoverage
 
 namespace ClaudeWCT.Numerics.SharedFees
@@ -4003,8 +3950,6 @@ theorem global_fee_sound (x : ℝ) (hx : 0 ≤ x) :
     (by norm_num) hx (by norm_num) (by convert capExp_sound using 1 <;> norm_num)
   exact he.trans (mul_le_mul_of_nonneg_left maxFee_ratio_bound hx)
 
-#print axioms expUpper_sound
-#print axioms global_fee_sound
 end ClaudeWCT.Numerics.SharedFees
 
 namespace ClaudeWCT.Numerics.SharedFees
@@ -4086,8 +4031,6 @@ theorem above_fee_sound (L : Nat) (x : ℝ) (hL : 0 < L)
   rw [Nat.mul_comm (capExp-scale) scale] at hr
   exact h.trans (mul_le_mul_of_nonneg_left hr hx)
 
-#print axioms below_fee_sound
-#print axioms above_fee_sound
 end ClaudeWCT.Numerics.SharedFees
 
 namespace ClaudeWCT.Numerics.SharedFees
@@ -4131,7 +4074,6 @@ theorem residual_fee_sound (u v : Nat) (x : ℝ) (hu : 0 < u) (hv : 0 < v)
   exact (residual_fee_upper x (6/5) ((u : ℝ)/v) hx (by norm_num) hxu
     (div_pos huR hvR)).trans (mul_le_mul_of_nonneg_left (residual_round u v hu hv) hx)
 
-#print axioms residual_fee_sound
 end ClaudeWCT.Numerics.SharedFees
 
 namespace ClaudeWCT.Numerics.SharedFees
@@ -4194,7 +4136,6 @@ theorem expectedRun_sound (lo hi : Nat) (x : ℝ) (hx : 0 ≤ x)
     rw [mul_div_assoc]
     exact residual_fee_sound un ud x hu hd hx hhi
 
-#print axioms expectedRun_sound
 end ClaudeWCT.Numerics.SharedFees
 
 namespace ClaudeWCT.Numerics.SharedFees
@@ -4213,7 +4154,6 @@ theorem run_valid_of_chunks
   have he : 64*(i/64)+i%64 = i := by omega
   simpa only [he, if_pos hi, decide_eq_true_eq] using hj
 
-#print axioms run_valid_of_chunks
 end ClaudeWCT.Numerics.SharedFees
 
 namespace ClaudeWCT.Numerics.SharedFees
@@ -4260,7 +4200,6 @@ theorem fee_lookup_run (hordered : ∀ e ∈ feeRuns.toList, e.1 ≤ e.2.1)
   · omega
   · exact (congrArg Prod.snd hpair).symm
 
-#print axioms fee_lookup_run
 end ClaudeWCT.Numerics.SharedFees
 
 namespace ClaudeWCT.Numerics.CanonicalCounting
@@ -4332,7 +4271,6 @@ theorem run_contains_fee_sound (lo i hi m r : Nat) (x : ℝ)
   rw [← hfee] at h
   exact h
 
-#print axioms run_contains_fee_sound
 end ClaudeWCT.Numerics.SharedFees
 
 namespace ClaudeWCT.Numerics.SharedFees
@@ -4367,7 +4305,6 @@ theorem fee_lookup_sound (hsize : feeRuns.size = 1578)
   exact run_contains_fee_sound e.1 i e.2.1 e.2.2.1 e.2.2.2 x hloi hihi hx hlo hhi
     (hv e he).2.1
 
-#print axioms fee_lookup_sound
 end ClaudeWCT.Numerics.SharedFees
 
 namespace ClaudeWCT.Numerics.CanonicalCounting
@@ -4396,7 +4333,6 @@ theorem eq_of_digits (B : Nat) (hB : 0 < B) (n : Nat) (a b : Nat)
     rw [h0, hq] at ea
     omega
 
-#print axioms eq_of_digits
 end ClaudeWCT.Numerics.CanonicalCounting
 
 namespace ClaudeWCT.Numerics.SharedFees
@@ -4578,7 +4514,6 @@ theorem accepted_card_exact :
     (Finset.univ.filter fun w : «Word» => weight w ≤ 102).card * 4^9 = count := by
   rw [accepted_card, field_retained_eq]
 
-#print axioms accepted_card_exact
 end SigGolfCandidate.Research.SharedFtsModel
 
 
@@ -4609,31 +4544,31 @@ theorem grouped_weight (f : Fin 9 → Coordinate) :
   norm_num [Fin.succ]
   omega
 
-def encodeFields (w : «Word») (index : BitVec 31) (gate : Fin 804) : Fields :=
+def encodeFields (w : «Word») (index : BitVec 31) (gate : Fin 791) : Fields :=
   (fun k => BitVec.ofNat 5 (ungroup w k).1.val,
    fun k => BitVec.ofNat 10 (ungroup w k).2.val,
    index, BitVec.ofNat 14 gate.val)
 def decodeFields (f : Fields) : «Word» :=
   group (fun k => (⟨(f.1 k).toNat, (f.1 k).isLt⟩, decodedRank f k))
 
-theorem cost_encode_nat (w : «Word») (index : BitVec 31) (gate : Fin 804) (k : Fin 9) :
+theorem cost_encode_nat (w : «Word») (index : BitVec 31) (gate : Fin 791) (k : Fin 9) :
     ((encodeFields w index gate).1 k).toNat = (ungroup w k).1.val := by
   simp only [encodeFields, BitVec.toNat_ofNat]
   exact Nat.mod_eq_of_lt (ungroup w k).1.isLt
 
-theorem rank_encode_nat (w : «Word») (index : BitVec 31) (gate : Fin 804) (k : Fin 9) :
+theorem rank_encode_nat (w : «Word») (index : BitVec 31) (gate : Fin 791) (k : Fin 9) :
     ((encodeFields w index gate).2.1 k).toNat = (ungroup w k).2.val := by
   simp only [encodeFields, BitVec.toNat_ofNat]
   apply Nat.mod_eq_of_lt
   have h := (ungroup w k).2.isLt
   omega
 
-theorem decodedRank_encode (w : «Word») (index : BitVec 31) (gate : Fin 804) (k : Fin 9) :
+theorem decodedRank_encode (w : «Word») (index : BitVec 31) (gate : Fin 791) (k : Fin 9) :
     decodedRank (encodeFields w index gate) k = (ungroup w k).2 := by
   apply Fin.ext
   simp only [decodedRank, rank_encode_nat, Nat.mod_eq_of_lt (ungroup w k).2.isLt]
 
-theorem decode_encode (w : «Word») (index : BitVec 31) (gate : Fin 804) :
+theorem decode_encode (w : «Word») (index : BitVec 31) (gate : Fin 791) :
     decodeFields (encodeFields w index gate) = w := by
   have h : (fun k => (⟨((encodeFields w index gate).1 k).toNat,
       ((encodeFields w index gate).1 k).isLt⟩, decodedRank (encodeFields w index gate) k)) = ungroup w := by
@@ -4645,7 +4580,7 @@ theorem decode_encode (w : «Word») (index : BitVec 31) (gate : Fin 804) :
   rw [h]
   exact groupEquiv.apply_symm_apply w
 
-theorem cost_encode (w : «Word») (index : BitVec 31) (gate : Fin 804) :
+theorem cost_encode (w : «Word») (index : BitVec 31) (gate : Fin 791) :
     cost (encodeFields w index gate) = 675 + weight w := by
   have hc : coordinateCost (encodeFields w index gate) = fun k =>
       75 + coordWeight (SharedForest.firstCoord k.val) (ungroup w k) := by
@@ -4667,7 +4602,7 @@ set_option maxHeartbeats 2000000
 attribute [local irreducible] SharedDigestFields.cost SharedDigestFields.coordinateCost ClaudeWCT.WCT9.routineCost
 
 theorem accepted_iff (f : Fields) : accepted f = true ↔
-    f.2.2.2.toNat < 804 ∧ (∀ k, (f.2.1 k).toNat < 563) ∧ cost f ≤ 777 := by
+    f.2.2.2.toNat < 791 ∧ (∀ k, (f.2.1 k).toNat < 563) ∧ cost f ≤ 777 := by
   simp only [accepted, Bool.and_eq_true, decide_eq_true_eq, List.all_eq_true]
   simp only [List.mem_finRange, forall_const]
   tauto
@@ -4676,7 +4611,7 @@ theorem ungroup_decode (f : Fields) : ungroup (decodeFields f) =
     fun k => (⟨(f.1 k).toNat, (f.1 k).isLt⟩, decodedRank f k) :=
   groupEquiv.symm_apply_apply (fun k => (⟨(f.1 k).toNat, (f.1 k).isLt⟩, decodedRank f k))
 
-theorem encode_decode (f : Fields) (hg : f.2.2.2.toNat < 804)
+theorem encode_decode (f : Fields) (hg : f.2.2.2.toNat < 791)
     (hr : ∀ k, (f.2.1 k).toNat < 563) :
     encodeFields (decodeFields f) f.2.2.1 ⟨f.2.2.2.toNat,hg⟩ = f := by
   apply Prod.ext
@@ -4697,11 +4632,11 @@ theorem encode_decode (f : Fields) (hg : f.2.2.2.toNat < 804)
         change f.2.2.2.toNat % 2^14 = f.2.2.2.toNat
         exact Nat.mod_eq_of_lt f.2.2.2.isLt
 
-theorem accepted_encode (w : «Word») (hw : weight w ≤ 102) (index : BitVec 31) (gate : Fin 804) :
+theorem accepted_encode (w : «Word») (hw : weight w ≤ 102) (index : BitVec 31) (gate : Fin 791) :
     accepted (encodeFields w index gate) = true := by
   apply (accepted_iff _).mpr
   refine ⟨?_, ?_, ?_⟩
-  · change gate.val % 2^14 < 804
+  · change gate.val % 2^14 < 791
     rw [Nat.mod_eq_of_lt (by have h := gate.isLt; omega)]
     exact gate.isLt
   · intro k
@@ -4718,7 +4653,7 @@ theorem weight_decode (f : Fields) (hf : accepted f = true) : weight (decodeFiel
   omega
 
 def acceptedEquiv : {f : Fields // accepted f = true} ≃
-    {w : «Word» // weight w ≤ 102} × BitVec 31 × Fin 804 where
+    {w : «Word» // weight w ≤ 102} × BitVec 31 × Fin 791 where
   toFun f := (⟨decodeFields f.val, weight_decode f.val f.property⟩,
     f.val.2.2.1, ⟨f.val.2.2.2.toNat, ((accepted_iff _).mp f.property).1⟩)
   invFun v := ⟨encodeFields v.1.val v.2.1 v.2.2, accepted_encode _ v.1.property _ _⟩
@@ -4736,13 +4671,12 @@ def acceptedEquiv : {f : Fields // accepted f = true} ≃
         exact Nat.mod_eq_of_lt (by have h := v.2.2.isLt; omega)
 
 theorem accepted_fields_card : Fintype.card {f : Fields // accepted f = true} =
-    (Finset.univ.filter fun w : «Word» => weight w ≤ 102).card * 2^31 * 804 := by
+    (Finset.univ.filter fun w : «Word» => weight w ≤ 102).card * 2^31 * 791 := by
   rw [Fintype.card_congr acceptedEquiv]
   simp only [Fintype.card_prod, Fintype.card_bitVec, Fintype.card_fin,
     Fintype.card_subtype (fun w : «Word» => weight w ≤ 102)]
   omega
 
-#print axioms acceptedEquiv
 end SigGolfCandidate.Research.SharedFtsModel
 
 
@@ -4845,8 +4779,6 @@ theorem packFun_digits (B p n : Nat) : packFun B n (digit B p) = p % B^n := by
     simp only [digit]
     ring
 
-#print axioms digit_low
-#print axioms packFun_digits
 end ClaudeWCT.Numerics.SharedDigitBlock
 
 
@@ -4898,7 +4830,6 @@ theorem cross_model (B : Nat) (hB : 0 < B) (h a b : Nat)
       dsimp only
       rw [digit_high, digit_high]
 
-#print axioms cross_model
 end ClaudeWCT.Numerics.SharedDigitBlock
 
 
@@ -4921,7 +4852,6 @@ theorem hadamard_eq_cross (h a b : Nat) :
       simp only [pow_mul, ih, cross]
       rw [Nat.mul_comm (cross _ _ _ _)]
 
-#print axioms hadamard_eq_cross
 end ClaudeWCT.Numerics.SharedPathPacked
 
 
@@ -4967,7 +4897,6 @@ theorem changeBase_model (B C : Nat) (hB : 0 < B) (h a : Nat)
       try dsimp only
       rw [digit_high]
 
-#print axioms changeBase_model
 end ClaudeWCT.Numerics.SharedDigitBlock
 
 namespace ClaudeWCT.Numerics.SharedPathPacked
@@ -4988,7 +4917,6 @@ theorem spread_eq_changeBase (h a : Nat) :
       simp only [pow_mul, ih, changeBase]
       rw [Nat.mul_comm (changeBase _ _ _ _)]
 
-#print axioms spread_eq_changeBase
 end ClaudeWCT.Numerics.SharedPathPacked
 
 
@@ -5018,7 +4946,6 @@ theorem prefixes_coefficient (P : Nat[X]) (i : Nat) (hi : i < 2048)
   rw [prefixes_eq, ← Polynomial.eval_mul, digit_low _ _ _ _ hi]
   exact ClaudeWCT.Numerics.eval_div_pow_mod (pow_pos (by decide) _) i _ hb
 
-#print axioms prefixes_coefficient
 end ClaudeWCT.Numerics.SharedPathPacked
 
 
@@ -5069,8 +4996,6 @@ theorem sub_packed_digits (B n a b : Nat) (ha : a < B^n) (hb : b < B^n)
   rw [packFun_sub _ _ _ _ hle, packFun_digits, packFun_digits,
     Nat.mod_eq_of_lt ha, Nat.mod_eq_of_lt hb]
 
-#print axioms digit_shift
-#print axioms sub_packed_digits
 end ClaudeWCT.Numerics.SharedDigitBlock
 
 
@@ -5109,8 +5034,6 @@ theorem digit_sub (B n a b : Nat) (hB : 0<B) (ha : a<B^n) (hb : b<B^n)
   intro j _
   exact (Nat.sub_le _ _).trans_lt (Nat.mod_lt _ hB)
 
-#print axioms digit_packFun
-#print axioms digit_sub
 end ClaudeWCT.Numerics.SharedDigitBlock
 
 
@@ -5202,7 +5125,6 @@ theorem window_digits (a lo hi i : Nat) (hlo : lo ≤ hi) (hi' : i < 2048)
   rw [digit_sub _ _ _ _ hB (Nat.mod_lt _ hp) (Nat.mod_lt _ hp) hle i hi',
     hd _ _ hi', hd _ _ hi']
 
-#print axioms window_digits
 end ClaudeWCT.Numerics.SharedPathPacked
 
 
@@ -5238,7 +5160,6 @@ theorem prefixes_digits_monotone (P : Nat[X])
   rw [prefixes_coefficient _ _ (by omega) hb, prefixes_coefficient _ _ hk hb]
   exact prefix_poly_monotone _ _ _ _ hj hk
 
-#print axioms prefixes_digits_monotone
 end ClaudeWCT.Numerics.SharedPathPacked
 
 
@@ -5278,7 +5199,6 @@ theorem directedFirst_model (a pref : Cell) (lo hi shift : Nat)
   simp only [Nat.and_two_pow_sub_one_eq_mod]
   simp only [pow_mul]
 
-#print axioms directedFirst_model
 end ClaudeWCT.Numerics.SharedPathPacked
 
 
@@ -5348,7 +5268,6 @@ theorem bucket_eq_series (bs : List Nat) (c p : Nat) : bucket bs c p = bucketSer
       · simp only [hn, Nat.mul_zero, Nat.zero_mul, Nat.zero_add, Prod.mk.eta]
       · simp only [Nat.shiftLeft_eq, pow_mul]
 
-#print axioms bucket_eq_series
 end ClaudeWCT.Numerics.SharedPathList
 
 namespace ClaudeWCT.Numerics.CanonicalHistogram
@@ -5469,8 +5388,6 @@ theorem binnedPoly_coeff (bs : List Nat) (f : Nat → Nat) (k : Nat) :
       Polynomial.coeff_X_pow, List.mapIdx_cons, List.sum_cons, ih]
     simp only [mul_ite, Nat.mul_one, Nat.mul_zero, eq_comm]
 
-#print axioms bucketSeries_poly
-#print axioms binnedPoly_coeff
 end ClaudeWCT.Numerics.SharedPathList
 
 
@@ -5532,7 +5449,6 @@ theorem bucket_polynomial (bs : List Nat) (c : Nat) (P : Nat[X])
   simp_rw [hd] at h
   exact Prod.ext h.1 h.2
 
-#print axioms bucket_polynomial
 end ClaudeWCT.Numerics.SharedPathList
 
 
@@ -5576,8 +5492,6 @@ theorem binnedPoly_eval_one (bs : List Nat) (f : Nat → Nat) :
   simp only [Polynomial.eval_mul, Polynomial.eval_C, Polynomial.eval_pow,
     Polynomial.eval_X, one_pow, Nat.mul_one]
 
-#print axioms binnedPoly_eq_sum
-#print axioms binnedPoly_mono
 end ClaudeWCT.Numerics.SharedPathList
 
 
@@ -5631,8 +5545,6 @@ theorem binnedPoly_fiber_lower {α : Type} [Fintype α]
   rw [← binnedPoly_fiber_coeff]
   exact binnedPoly_mono bs f _ hf k
 
-#print axioms binnedPoly_fiber_coeff
-#print axioms binnedPoly_fiber_lower
 end ClaudeWCT.Numerics.SharedPathList
 
 
@@ -5673,68 +5585,9 @@ theorem forest_coverage_le {β : Type} [Fintype β]
          _ = _ := by rw [Fin.prod_const]
   exact Nat.mul_le_mul hp (coordinate_coverage_le val hβ h.2)
 
-#print axioms forest_coverage_le
 end ClaudeWCT.Numerics.SharedCoverage
 
 
-namespace ClaudeWCT.Numerics.SharedFees
-open ENNReal
-open ClaudeWCT.Numerics.N600 ClaudeWCT.Numerics.SharedMoments
-open ClaudeWCT.Numerics.PoissonReflect
-open SphincsSecurity.Concrete
-set_option maxHeartbeats 2000000
-set_option maxRecDepth 100000
-
-/-- Thinned Poisson certificate (opus-kappa): rate `kappa*2^-31`, prefactor `13283369e-8 ≥ e^(-2 kappa)`,
-parameter `2.018833 ≥ 2 kappa` for the cap-777 paired law. -/
-theorem shared_mgf_bound_of_rows (T : Nat) (rate : ENNReal) (hrate : rate ≤ 1)
-    (hu : (1-rate)^(T-80) ≤ ((13283369:ℕ):ENNReal)/((100000000:ℕ):ENNReal))
-    (κ : ENNReal) (hκ : 1 ≤ κ)
-    (hlam : (T : ENNReal) * rate * κ ≤ ((2018833:ℕ):ENNReal)/((1000000:ℕ):ENNReal))
-    (g : Nat → ENNReal)
-    (hpay : ∀ r ≤ 80, g r ≤ κ^r *
-      ((16^r * (certifiedPayoff r).1 : Nat) : ENNReal) /
-        ((maxFee*alphabetSize*fieldSize^(9*r) : Nat) : ENNReal))
-    (htail : ∀ r, 80<r → g r ≤ 1) :
-    ((maxFee*priceScaleTotal : Nat) : ENNReal)/scale *
-      binomialAverage rate T g ≤ (6945:ENNReal)/1000 := by
-  apply poissonCheckQ_sound_tilt (Qv := fieldSize)
-    (f := fun r => 16^r * (certifiedPayoff r).1)
-    (dbase := maxFee*alphabetSize) (sn := maxFee*priceScaleTotal)
-    (sd := scale) (Mn := 6945) (Md := 1000) (R := 80)
-    (show poissonCheckQ _ _ _ _ _ _ _ _ _ _ _ _ = true from shared_mgf_checked)
-    (by norm_num [fieldSize]) (by norm_num) (by norm_num)
-    (by decide +kernel) (by norm_num [scale]) (by norm_num)
-    hrate κ hκ hlam hu g
-  · intro r hr
-    simpa only [mul_div_assoc] using hpay r hr
-  · exact htail
-
-theorem shared_residual_bound_of_rows (T : Nat) (rate : ENNReal) (hrate : rate ≤ 1)
-    (hu : (1-rate)^(T-80) ≤ ((13283369:ℕ):ENNReal)/((100000000:ℕ):ENNReal))
-    (κ : ENNReal) (hκ : 1 ≤ κ)
-    (hlam : (T : ENNReal) * rate * κ ≤ ((2018833:ℕ):ENNReal)/((1000000:ℕ):ENNReal))
-    (g : Nat → ENNReal)
-    (hpay : ∀ r ≤ 80, g r ≤ κ^r *
-      ((16^r * (certifiedPayoff r).2 : Nat) : ENNReal) /
-        ((scale*alphabetSize*fieldSize^(9*r) : Nat) : ENNReal))
-    (htail : ∀ r, 80<r → g r ≤ 1) :
-    (priceScaleTotal : ENNReal) *
-      binomialAverage rate T g ≤ (7831:ENNReal)/10000000 := by
-  have h := poissonCheckQ_sound_tilt (Qv := fieldSize)
-    (f := fun r => 16^r * (certifiedPayoff r).2)
-    (dbase := scale*alphabetSize) (sn := priceScaleTotal)
-    (sd := 1) (Mn := 7831) (Md := 10000000) (R := 80)
-    (show poissonCheckQ _ _ _ _ _ _ _ _ _ _ _ _ = true from shared_residual_checked)
-    (by norm_num [fieldSize]) (by norm_num) (by norm_num)
-    (by norm_num [scale, alphabetSize]) (by norm_num) (by norm_num)
-    hrate κ hκ hlam hu g
-    (fun r hr => by simpa only [mul_div_assoc] using hpay r hr) htail
-  simpa only [Nat.cast_one, Nat.cast_ofNat, div_one] using h
-
-#print axioms shared_mgf_bound_of_rows
-#print axioms shared_residual_bound_of_rows
-end ClaudeWCT.Numerics.SharedFees
 
 namespace ClaudeWCT.Numerics.CanonicalHistogram
 open Finset
@@ -5789,7 +5642,6 @@ theorem window_prefix_interval (P : Nat[X])
   · have hh : ¬hi+1 ≤ i := by omega
     simp only [if_neg hl, if_neg hh, Nat.sub_self]
 
-#print axioms window_prefix_interval
 end ClaudeWCT.Numerics.SharedPathPacked
 
 namespace ClaudeWCT.Numerics.CanonicalHistogram
@@ -5861,7 +5713,6 @@ theorem forest_near_le {β : Type} [Fintype β]
             (Nat.mul_le_mul hp (coordinate_near_le val hβ h.2))
        _ = 54*alphabetSize := by unfold alphabetSize D; ring
 
-#print axioms forest_near_le
 end ClaudeWCT.Numerics.SharedCoverage
 
 
@@ -5881,10 +5732,10 @@ theorem first_bound_of_rows (T : Nat) (rate : ENNReal) (hrate : rate ≤ 1)
       ((16^r*forestMoment r : Nat) : ENNReal) /
         ((alphabetSize*fieldSize^(9*r) : Nat) : ENNReal))
     (htail : ∀ r, 80<r → g r ≤ 1) :
-    (priceScaleTotal : ENNReal)*binomialAverage rate T g ≤ (849:ENNReal)/1000 := by
+    (priceScaleTotal : ENNReal)*binomialAverage rate T g ≤ (915:ENNReal)/1000 := by
   have h := poissonCheckQ_sound_tilt (Qv := fieldSize)
     (f := fun r => 16^r*forestMoment r) (dbase := alphabetSize)
-    (sn := priceScaleTotal) (sd := 1) (Mn := 849) (Md := 1000) (R := 80)
+    (sn := priceScaleTotal) (sd := 1) (Mn := 915) (Md := 1000) (R := 80)
     first_moment_checked (by norm_num [fieldSize]) (by norm_num) (by norm_num)
     (by norm_num [alphabetSize]) (by norm_num) (by norm_num)
     hrate κ hκ hlam hu g
@@ -5900,18 +5751,16 @@ theorem near_bound_of_rows (T : Nat) (rate : ENNReal) (hrate : rate ≤ 1)
       ((16^r*forestNearMoment r : Nat) : ENNReal) /
         ((54*alphabetSize*fieldSize^(9*r) : Nat) : ENNReal))
     (htail : ∀ r, 80<r → g r ≤ 1) :
-    ((54*priceScaleTotal : Nat) : ENNReal)*binomialAverage rate T g ≤ 351 := by
+    ((54*priceScaleTotal : Nat) : ENNReal)*binomialAverage rate T g ≤ 378 := by
   have h := poissonCheckQ_sound_tilt (Qv := fieldSize)
     (f := fun r => 16^r*forestNearMoment r) (dbase := 54*alphabetSize)
-    (sn := 54*priceScaleTotal) (sd := 1) (Mn := 351) (Md := 1) (R := 80)
+    (sn := 54*priceScaleTotal) (sd := 1) (Mn := 378) (Md := 1) (R := 80)
     near_moment_checked (by norm_num [fieldSize]) (by norm_num) (by norm_num)
     (by norm_num [alphabetSize]) (by norm_num) (by norm_num)
     hrate κ hκ hlam hu g
     (fun r hr => by simpa only [mul_div_assoc] using hpay r hr) htail
   simpa only [Nat.cast_one, Nat.cast_ofNat, div_one] using h
 
-#print axioms first_bound_of_rows
-#print axioms near_bound_of_rows
 end ClaudeWCT.Numerics.SharedMoments
 
 namespace ClaudeWCT.Numerics.CanonicalHistogram
@@ -5986,7 +5835,6 @@ theorem bucket_retained_lower {α : Type} [Fintype α]
     rw [weighted_fiber_count]
     exact Nat.mul_le_mul_left (c+j) (hcount j)
 
-#print axioms bucket_retained_lower
 end ClaudeWCT.Numerics.SharedPathList
 
 
@@ -6044,7 +5892,6 @@ theorem weightedHistogram_product_lower {α β : Type} [Fintype α] [Fintype β]
   rw [← weightedHistogram_mul]
   exact CoeffLE.mul _ _ _ _ hP hQ
 
-#print axioms weightedHistogram_product_lower
 end ClaudeWCT.Numerics.SharedCoverage
 
 
@@ -6095,8 +5942,6 @@ theorem product_fiber_sum {α β : Type} [Fintype α] [Fintype β]
     simp only [ha, hb, true_and, false_and, and_true, and_false, if_true, if_false,
       Nat.zero_mul, Nat.mul_zero]
 
-#print axioms sum_finite_fibers
-#print axioms product_fiber_sum
 end ClaudeWCT.Numerics.SharedCoverage
 
 
@@ -6124,7 +5969,6 @@ theorem directedFirst_digit (a pref : Cell) (lo hi shift : Nat)
     exact digit_packFun _ _ _ (pow_pos (by decide) _) hsmall _ (by omega)
   · rw [if_neg hs, if_neg hs]
 
-#print axioms directedFirst_digit
 end ClaudeWCT.Numerics.SharedPathPacked
 
 namespace ClaudeWCT.Numerics.CanonicalHistogram
@@ -6229,7 +6073,6 @@ theorem directed_fiber_lower {α β : Type} [Fintype α] [Fintype β]
     rw [← sum_finite_fibers s gb bb wb]
     exact Finset.sum_le_sum (fun j _ => hbF j)
 
-#print axioms directed_fiber_lower
 end ClaudeWCT.Numerics.SharedCoverage
 
 
@@ -6286,7 +6129,6 @@ theorem directed_histogram_lower {α β : Type} [Fintype α] [Fintype β]
   · rw [if_neg hs]
     exact Nat.zero_le _
 
-#print axioms directed_histogram_lower
 end ClaudeWCT.Numerics.SharedPathPacked
 
 namespace ClaudeWCT.Numerics.CanonicalHistogram
@@ -6367,7 +6209,6 @@ theorem histogram_lower_coeff_lt {α : Type} [Fintype α]
   (polynomial_coeff_le_mass P i).trans_lt
     ((histogram_lower_mass_le good bin weight P hP M hM).trans_lt hB)
 
-#print axioms histogram_lower_coeff_lt
 end ClaudeWCT.Numerics.SharedCoverage
 
 
@@ -6413,10 +6254,6 @@ theorem forest_mass_small (r : Nat) (hr : r≤20) :
   have hp := Nat.pow_le_pow_right (n:=alphabetSize) (by decide : 0<alphabetSize) hr
   exact (Nat.mul_le_mul_right _ hp).trans_lt (by decide +kernel)
 
-#print axioms forest_history_card
-#print axioms coordinate_mass_small
-#print axioms pair_mass_small
-#print axioms forest_mass_small
 end ClaudeWCT.Numerics.SharedCoverage
 
 
@@ -6460,7 +6297,6 @@ theorem sum_pair_split {α M : Type*} [Fintype α] [AddCommMonoid M]
     ∑ A₀ : Fin t → α, ∑ B₀ : Fin t → α, ∑ A₁ : Fin u → α, ∑ B₁ : Fin u → α,
       F t u A₀ B₀ A₁ B₁)
 
-#print axioms sum_pair_split
 end ClaudeWCT.Numerics.SharedCoverage
 
 
@@ -6488,7 +6324,6 @@ theorem binnedPoly_histogram_lower {α : Type} [Fintype α]
   · rw [dif_neg ha]
     simp only [ha, false_and, if_false]
 
-#print axioms binnedPoly_histogram_lower
 end ClaudeWCT.Numerics.SharedPathList
 
 
@@ -6532,7 +6367,6 @@ theorem polynomial_eval_lt (P : Nat[X]) (B n : Nat) (hB : 0<B)
   rw [polynomial_eval_packFun P B n hz]
   exact packFun_lt B n P.coeff hB hc
 
-#print axioms polynomial_eval_lt
 end ClaudeWCT.Numerics.SharedDigitBlock
 
 namespace ClaudeWCT.Numerics.SharedPathList
@@ -6554,7 +6388,6 @@ theorem binnedPoly_eval_lt (bs : List Nat) (f : Nat → Nat) (B n : Nat)
     (hc : ∀ j, (binnedPoly bs f).coeff j<B) : (binnedPoly bs f).eval B<B^n := by
   exact polynomial_eval_lt _ B n hB (fun j _ => hc j) (binnedPoly_coeff_zero bs f n hb)
 
-#print axioms binnedPoly_eval_lt
 end ClaudeWCT.Numerics.SharedPathList
 
 
@@ -6595,8 +6428,6 @@ theorem coordinate_histograms_mass {α : Type} [Fintype α]
     simpa only [Nat.mul_one] using h
   · exact histogram_lower_mass_le _ _ _ _ hp.2 M (fun a _ => hM a)
 
-#print axioms coordinate_histograms_lower
-#print axioms coordinate_histograms_mass
 end ClaudeWCT.Numerics.SharedPathList
 
 
@@ -6625,7 +6456,6 @@ theorem weightedHistogram_pi {ι : Type} [Fintype ι] [DecidableEq ι] {α : ι 
     obtain ⟨i, hi⟩ := not_forall.mp ha
     exact Finset.prod_eq_zero (Finset.mem_univ i) (if_neg hi)
 
-#print axioms weightedHistogram_pi
 end ClaudeWCT.Numerics.SharedCoverage
 
 
@@ -6655,7 +6485,6 @@ theorem weightedHistogram_pi_lower {ι : Type} [Fintype ι] [DecidableEq ι] {α
   rw [← weightedHistogram_pi]
   exact polynomial_prod_mono P _ hP Finset.univ
 
-#print axioms weightedHistogram_pi_lower
 end ClaudeWCT.Numerics.SharedCoverage
 
 
@@ -6702,8 +6531,6 @@ theorem bucket_histogram_bounds {α : Type} [Fintype α]
   exact ⟨binnedPoly_eval_lt _ _ _ n (pow_pos (by decide) _) hbin h.2.1,
     binnedPoly_eval_lt _ _ _ n (pow_pos (by decide) _) hbin h.2.2⟩
 
-#print axioms bucket_no_carry
-#print axioms bucket_histogram_bounds
 end ClaudeWCT.Numerics.SharedPathList
 
 
@@ -6732,7 +6559,6 @@ theorem forest_histogram_lower {β : Type} [Fintype β]
         (fun _ => pairCoverage val) (fun _ => P) (fun _ => hP)
   exact weightedHistogram_product_lower _ _ _ _ _ _ _ _ hpi hQ
 
-#print axioms forest_histogram_lower
 end ClaudeWCT.Numerics.SharedCoverage
 
 
@@ -6783,7 +6609,6 @@ theorem weightedHistogram_partition {ι α : Type} [Fintype ι] [Fintype α]
     rw [hz]
     exact Nat.zero_le _
 
-#print axioms weightedHistogram_partition
 end ClaudeWCT.Numerics.SharedCoverage
 
 
@@ -6802,7 +6627,6 @@ theorem lower_digit (zeros credit : Nat) (hc : credit < 128) :
       SigGolfResearch.LowerEffectiveCounting.weight w = 201 ∧
       SigGolfResearch.LowerEffectiveCounting.score w = credit).card := by
   exact digit_histogram_of_weighted _ _ _ _ _ lower_card lower_weighted (lower_event zeros credit hc)
-#print axioms lower_digit
 end ClaudeWCT.Numerics.CanonicalCounting
 
 
@@ -6851,8 +6675,6 @@ theorem mergeBin_forward (e : Fin addRuns.length) (i j : Nat) (hj : j ≤ i)
   unfold mergeBin
   rw [Nat.max_eq_left hj, Nat.sub_eq_zero_of_le hj, Nat.add_zero, shiftFor_eq e _ ⟨hlo,hhi⟩]
 
-#print axioms add_run_unique
-#print axioms mergeBin_forward
 end ClaudeWCT.Numerics.SharedPathList
 
 
@@ -6900,7 +6722,6 @@ theorem add_run_ratio (e : Fin addRuns.length) (d : Nat)
   exact ⟨hh.trans (add_le_add le_rfl (pow_ratio_antitone _ _ hhi)),
     (add_le_add le_rfl (pow_ratio_antitone _ _ hlo)).trans hl⟩
 
-#print axioms add_run_ratio
 end ClaudeWCT.Numerics.SharedPathList
 
 
@@ -6935,7 +6756,6 @@ theorem mergeBin_interval (e : Fin addRuns.length) (i j : Nat) (hj : j ≤ i)
   rw [mergeBin_forward e i j hj hlo hhi]
   exact add_ratio_shift i j _ hj (add_run_ratio e _ hlo hhi)
 
-#print axioms mergeBin_interval
 end ClaudeWCT.Numerics.SharedPathList
 
 namespace ClaudeWCT.Numerics.SharedPathWinsor.Rows18
@@ -6975,9 +6795,6 @@ theorem endpoint_low :
   have he := (Real.exp_le_exp.mpr hx).trans (le_of_lt Real.exp_one_lt_d9)
   nlinarith
 
-#print axioms endpoint_middle
-#print axioms endpoint_high
-#print axioms endpoint_low
 end ClaudeWCT.Numerics.SharedPathWinsor.Rows18
 
 
@@ -7071,8 +6888,6 @@ theorem nextMass_finite (hist : List (Nat × Nat)) (n floor residual : Nat) (nex
   rw [nextMass_sum]
   exact h.symm
 
-#print axioms acceptedMass_finite
-#print axioms nextMass_finite
 end ClaudeWCT.Numerics.CanonicalHistogram
 
 namespace ClaudeWCT.Numerics.CanonicalCompression
@@ -7115,8 +6930,6 @@ theorem recurrenceCheck_sound (den : Nat) (hist : List (Nat × Nat))
       (den - acceptedMass hist floor) scale (by norm_num [zDen]) hden (by norm_num [scale])
       hsub.le hrow
 
-#print axioms transition_enn
-#print axioms recurrenceCheck_sound
 end ClaudeWCT.Numerics.CanonicalCompression
 
 
@@ -7197,8 +7010,6 @@ theorem RoundedInterval.fee_bounds {bin : Nat} {x : ℝ}
     simpa only [mul_assoc, mul_left_comm, mul_comm] using h
   · exact mul_le_mul_of_nonneg_left hx.upper (by positivity)
 
-#print axioms RoundedInterval.forest
-#print axioms RoundedInterval.fee_bounds
 end ClaudeWCT.Numerics.SharedPathList
 
 
@@ -7257,7 +7068,6 @@ theorem histogram_fee_bound {α : Type} [Fintype α]
       (sub_nonneg.mpr (hfee j (Finset.mem_range.mp hj)))
   exact (add_le_add (le_refl _) (mul_le_mul_of_nonneg_left hrebate hκ)).trans hs
 
-#print axioms histogram_fee_bound
 end ClaudeWCT.Numerics.SharedFees
 
 
@@ -7303,8 +7113,6 @@ theorem digit_polynomial_eval (P : Nat[X]) (B n : Nat)
   rw [polynomial_eval_packFun P B n hz]
   exact digit_packFun B n _ hB hc j hj
 
-#print axioms digit_sum_of_bound
-#print axioms digit_polynomial_eval
 end ClaudeWCT.Numerics.SharedDigitBlock
 
 
@@ -7344,7 +7152,6 @@ theorem weightedHistogram_selector_split {α : Type} [Fintype α] (r : Nat)
     if good t u A₀ B₀ A₁ B₁ then
       C (weight t u A₀ B₀ A₁ B₁)*X^(bin t u A₀ B₀ A₁ B₁) else 0)
 
-#print axioms weightedHistogram_selector_split
 end ClaudeWCT.Numerics.SharedCoverage
 
 
@@ -7396,7 +7203,6 @@ theorem pair_partition_lower {α β : Type} [Fintype α] [Fintype β]
   · intro e f p he hf
     exact addPiece_unique e f _ _ he.2.2 hf.2.2
 
-#print axioms pair_partition_lower
 end ClaudeWCT.Numerics.SharedPathList
 
 
@@ -7414,7 +7220,6 @@ theorem coordinate_coverage_pos {β C : Type} [Fintype β] [Fintype C] [Decidabl
   intro i
   exact ⟨⟨0,hr⟩,rfl,le_rfl⟩
 
-#print axioms coordinate_coverage_pos
 end ClaudeWCT.Numerics.SharedCoverage
 
 
@@ -7457,8 +7262,6 @@ theorem paidTree_polynomial_mass (fuel : Nat) (fs : List (Nat × Nat)) (P : Nat[
   rw [Fin.sum_univ_eq_sum_range]
   exact ClaudeWCT.Numerics.N600.sum_coeff_le_eval_one P (Finset.range fs.length)
 
-#print axioms paidTree_polynomial
-#print axioms paidTree_polynomial_mass
 end ClaudeWCT.Numerics.SharedFees
 
 
@@ -7495,7 +7298,6 @@ theorem packed_histogram_sum_lower {ι α : Type} [Fintype ι] [Fintype α]
        _ = (∑ e, P e).coeff j := (Polynomial.finset_sum_coeff _ _ _).symm
        _ ≤ _ := hP j
 
-#print axioms packed_histogram_sum_lower
 end ClaudeWCT.Numerics.SharedCoverage
 
 
@@ -7530,7 +7332,6 @@ theorem directed_cross_small {α β : Type} [Fintype α] [Fintype β]
           nsmul_eq_mul, Nat.cast_id]
        _ < B := hB
 
-#print axioms directed_cross_small
 end ClaudeWCT.Numerics.SharedCoverage
 
 
@@ -7585,8 +7386,6 @@ theorem addPieceValue_bound (a b : Cell) (e : Fin addRuns.length × Bool) :
   · exact hb _ _ _ _ _
   · exact hb _ _ _ _ _
 
-#print axioms addFirst_eq_piece_sum
-#print axioms addPieceValue_bound
 end ClaudeWCT.Numerics.SharedPathPacked
 
 
@@ -7627,7 +7426,6 @@ theorem addFirst_histogram_lower {α β : Type} [Fintype α] [Fintype β]
     exact Nat.add_le_add (hwa p.1) (hwb p.2)
   · simpa only [Fintype.card_prod] using hmass
 
-#print axioms addFirst_histogram_lower
 end ClaudeWCT.Numerics.SharedPathPacked
 
 
@@ -7662,7 +7460,6 @@ theorem histogram_paid_bound {α : Type} [Fintype α]
   push_cast [Nat.cast_sub hmass]
   nlinarith [h]
 
-#print axioms histogram_paid_bound
 end ClaudeWCT.Numerics.SharedFees
 
 namespace ClaudeWCT.Numerics.CanonicalCompression
@@ -7714,9 +7511,6 @@ theorem powerUp_sound (base exponent : Nat) :
           exact (mul_le_mul_of_nonneg_left hh hbase).trans
             (mulUp_sound base (powerUp (mulUp base base) (exponent / 2)))
 
-#print axioms ceilDiv_mul_ge_left
-#print axioms mulUp_sound
-#print axioms powerUp_sound
 end ClaudeWCT.Numerics.CanonicalCompression
 
 
@@ -7752,8 +7546,6 @@ theorem changeBase_polynomial (B C h p : Nat) (hB : 0<B) (hp : p<B^(2^h)) :
     changeBase B C h p=(packedPoly B (2^h) p).eval C := by
   rw [changeBase_model B C hB h p hp, packedPoly, polyOf_eval]
 
-#print axioms packedPoly_below
-#print axioms changeBase_polynomial
 end ClaudeWCT.Numerics.SharedDigitBlock
 
 namespace ClaudeWCT.Numerics.SharedPathPacked
@@ -7775,7 +7567,6 @@ theorem forest_packed_polynomial (p q : Nat)
   simp only [Polynomial.eval_mul, Polynomial.eval_pow,
     show (2:Nat)^11=2048 from rfl, show (2:Nat)^10=1024 from rfl]
 
-#print axioms forest_packed_polynomial
 end ClaudeWCT.Numerics.SharedPathPacked
 
 namespace ClaudeWCT.Numerics.SharedFees
@@ -7823,8 +7614,6 @@ theorem paidTree_polynomial_range (fuel : Nat) (fs : List (Nat × Nat)) (P : Nat
     sum_fin_list_getD fs (0,0) (fun j e => P.coeff j*e.1),
     sum_fin_list_getD fs (0,0) (fun j e => P.coeff j*e.2)]
 
-#print axioms histogram_moment_bound
-#print axioms paidTree_polynomial_range
 end ClaudeWCT.Numerics.SharedFees
 
 namespace ClaudeWCT.Numerics.CanonicalCompression
@@ -7847,7 +7636,6 @@ theorem acceptedMass_antitone (hist : List (Nat × Nat)) {floor lower : Nat} (hl
         · simp only [if_neg hf, if_neg hl]
           simpa only [Nat.zero_add] using ih
 
-#print axioms acceptedMass_antitone
 end ClaudeWCT.Numerics.CanonicalCompression
 
 namespace ClaudeWCT.Numerics.SharedPathPacked
@@ -7913,8 +7701,6 @@ theorem directed_polynomial_histogram_lower {α β : Type} [Fintype α] [Fintype
   · simp only [if_neg hl, Nat.mul_zero, Nat.zero_add]
     positivity
 
-#print axioms prefix_coeff_lt_of_mass
-#print axioms directed_polynomial_histogram_lower
 end ClaudeWCT.Numerics.SharedPathPacked
 
 namespace ClaudeWCT.Numerics.SharedPathCoordinate
@@ -8007,10 +7793,6 @@ theorem coordinate_size {β : Type} [Fintype β]
       (hm.2.trans_le (by decide +kernel)) binList_bound
   simpa only [coordinate, coordinatePacked_eval, binList] using h
 
-#print axioms coordinate_polynomial
-#print axioms coordinate_histogram
-#print axioms coordinate_mass
-#print axioms coordinate_size
 end ClaudeWCT.Numerics.SharedPathCoordinate
 
 
@@ -8157,8 +7939,6 @@ theorem addFirst_polynomial_histogram_lower {α β : Type} [Fintype α] [Fintype
         (addPieceValue_reverse (aP.eval (2^1024),aF.eval (2^1024))
           (bP.eval (2^1024),bF.eval (2^1024)) e hz)).le.trans hh
 
-#print axioms addPieceValue_reverse
-#print axioms addFirst_polynomial_histogram_lower
 end ClaudeWCT.Numerics.SharedPathPacked
 
 namespace ClaudeWCT.Numerics.SharedPathCoordinate
@@ -8282,11 +8062,6 @@ theorem split_product_size {β : Type} [Fintype β]
   have h2 := product_size val hβ 64 (by simp) (⟨r-t,by omega⟩ : Fin 21) (hp (r-t) (Nat.sub_le ..))
   exact ⟨h1.1,h1.2,h2.1,h2.2⟩
 
-#print axioms branch_histogram
-#print axioms product_polynomial
-#print axioms product_mass
-#print axioms product_size
-#print axioms split_product_size
 open Finset Polynomial
 open ClaudeWCT.Numerics.N600 ClaudeWCT.Numerics.SharedCoverage
 open scoped BigOperators Polynomial
@@ -8317,7 +8092,6 @@ theorem split_branch_mass {β : Type} [Fintype β]
   have h := square_mass _ hmass
   exact lt_of_le_of_lt (Nat.mul_le_mul_left _ (by decide : 2≤2048)) h
 
-#print axioms split_branch_mass
 end ClaudeWCT.Numerics.SharedPathCoordinate
 
 
@@ -8370,8 +8144,6 @@ theorem RoundedInterval.merge {a i j : Nat} {x y : ℝ}
   have h := mergeBin_interval_of_lt i j hi hj
   exact hx.add hy h.1 h.2
 
-#print axioms add_runs_cover_checked
-#print axioms RoundedInterval.merge
 end ClaudeWCT.Numerics.SharedPathList
 
 
@@ -8411,7 +8183,6 @@ theorem packed_convolution_dot (P : Nat[X]) (B n : Nat) (f : Nat → Nat)
   exact (ClaudeWCT.Numerics.eval_div_pow_mod hB (n-1) (P*reverseFeePoly n f) hc).trans
     (reverseFeePoly_dot P n f)
 
-#print axioms packed_convolution_dot
 end ClaudeWCT.Numerics.SharedFees
 
 
@@ -8552,7 +8323,6 @@ theorem pair_interval {β : Type} [Fintype β] (val : β → Fin 6 → Nat)
     ((splitRanks h.1 h.2.1 0,splitRanks h.1 h.2.2 0),
      (splitRanks h.1 h.2.1 1,splitRanks h.1 h.2.2 1)) hg
 
-#print axioms pair_interval
 end ClaudeWCT.Numerics.SharedPathPair
 
 
@@ -8662,8 +8432,6 @@ theorem split_row_histogram {β : Type} [Fintype β]
         (branch_coverage_le val hβ) (branch_coverage_le val hβ) (split_branch_mass hβ r t hr ht)
       simpa only [splitRow, if_neg h0, if_neg h1, hEt, hEu, splitGood, splitBin, splitWeight, ite_true] using h
 
-#print axioms product_first_digit
-#print axioms split_row_histogram
 end ClaudeWCT.Numerics.SharedPathPair
 
 
@@ -8777,9 +8545,6 @@ theorem pairFirst_histogram {β : Type} [Fintype β]
   rw [digit_polynomial_eval _ _ _ (by positivity) (fun i _ => hc i) hz j hj]
   exact h.2 j
 
-#print axioms pair_histogram_split
-#print axioms pairFirst_sum
-#print axioms pairFirst_histogram
 end ClaudeWCT.Numerics.SharedPathPair
 
 namespace ClaudeWCT.Numerics.SharedFees
@@ -8842,7 +8607,6 @@ theorem histogram_winsor_pair {α : Type} [Fintype α]
     · intro a ha hb
       convert (hlocal a ha hb).2 using 1  <;> ring
 
-#print axioms histogram_winsor_pair
 end ClaudeWCT.Numerics.SharedFees
 
 namespace ClaudeWCT.Numerics.SharedPathForest
@@ -8907,9 +8671,6 @@ theorem forest_interval {β : Type} [Fintype β]
     (fun i => hp _ (hg.1 i)) (hq _ hg.2)
   simpa only [forestCoverage, Nat.cast_mul, Nat.cast_prod] using hf
 
-#print axioms encodedForest_histogram
-#print axioms encodedForest_coeff_small
-#print axioms forest_interval
 end ClaudeWCT.Numerics.SharedPathForest
 
 namespace ClaudeWCT.Numerics.SharedFees
@@ -8972,8 +8733,6 @@ theorem capped_payoff_of_coverage_bound (x κ D : ℝ)
       _ = _ := by ring
   · exact (max_le hx (by linarith)).trans hbound
 
-#print axioms histogram_winsor_pair_ennreal
-#print axioms capped_payoff_of_coverage_bound
 end ClaudeWCT.Numerics.SharedFees
 
 namespace ClaudeWCT.Numerics.SharedPathForest
@@ -9060,10 +8819,6 @@ theorem actual_interval {β : Type} [Fintype β] (val : β → Fin 6 → Nat)
   exact forest_interval val r (pairGood val) (pairBin val) (coordinateGood val) (coordinateBin val)
     (fun h hh => pair_interval val hr h hh) (fun h hh => coordinate_interval val hr h hh) h hg
 
-#print axioms actual_encoding
-#print axioms actual_histogram
-#print axioms actual_coeff_small
-#print axioms actual_interval
 end ClaudeWCT.Numerics.SharedPathForest
 
 
@@ -9106,8 +8861,6 @@ theorem rowDots_winsor_pair_ennreal {α : Type} [Fintype α]
   exact histogram_winsor_pair_ennreal good bin weight P (forestMoment r) κ hκ
     hP htotal hsize hchunks fee_indices hinterval
 
-#print axioms rowDots_polynomial
-#print axioms rowDots_winsor_pair_ennreal
 end ClaudeWCT.Numerics.SharedFees
 
 namespace ClaudeWCT.Numerics.SharedFees
@@ -9146,7 +8899,6 @@ theorem finite_payoff_global {α : Type} [Fintype α]
         rw [← Finset.mul_sum, htotalR, Nat.cast_mul]
         field_simp
 
-#print axioms finite_payoff_global
 end ClaudeWCT.Numerics.SharedFees
 
 
@@ -9189,8 +8941,6 @@ theorem actual_forest_fee_global {β : Type} [Fintype β]
       ENNReal.ofReal ((734:ℝ)/2^66)/(scale:ENNReal)*((scale*forestMoment r:Nat):ENNReal) := by
   exact finite_payoff_global (forestCoverage val) (forestMoment r) ((734:ℝ)/2^66) (by positivity) htotal
 
-#print axioms actual_forest_fee_row
-#print axioms actual_forest_fee_global
 end ClaudeWCT.Numerics.SharedFees
 
 namespace ClaudeWCT.Numerics.SharedPathPacked
@@ -9252,8 +9002,6 @@ theorem pairChunkWith_congr (coord other : Nat → Nat → Cell) (r start size :
   unfold pairChunkWith
   rw [he]
 
-#print axioms pairFirst_eq_two_chunks
-#print axioms pairChunkWith_congr
 end ClaudeWCT.Numerics.SharedPathPacked
 
 namespace ClaudeWCT.Numerics.SharedPathPacked
@@ -9276,8 +9024,6 @@ theorem pairFirst_eq_singletons (coord : Nat → Nat → Cell) (r : Nat)
   rw [pairFirst_eq_chunk, pairChunkWith_congr coordinate coord r 0 (r+1) h,
     pairChunkWith_eq_singletons, ← List.range_eq_range']
 
-#print axioms pairChunkWith_eq_singletons
-#print axioms pairFirst_eq_singletons
 end ClaudeWCT.Numerics.SharedPathPacked
 
 namespace ClaudeWCT.Numerics.SharedFees
@@ -9334,8 +9080,6 @@ theorem packTree_reversed (bits h n : Nat) (f : Nat → Nat) (hn : n≤2^h) :
   congr 2
   omega
 
-#print axioms packTree_sum
-#print axioms packTree_reversed
 end ClaudeWCT.Numerics.SharedFees
 
 namespace ClaudeWCT.Numerics.SharedPathForest
@@ -9355,7 +9099,6 @@ theorem actual_mass_le {β : Type} [Fintype β]
     alphabetSize (fun h _ => forest_coverage_le val hβ h)
   rwa [forest_history_card hβ r] at hm
 
-#print axioms actual_mass_le
 end ClaudeWCT.Numerics.SharedPathForest
 
 namespace ClaudeWCT.Numerics.SharedFees
@@ -9436,8 +9179,6 @@ theorem convolution_mass_small (P : Nat[X])
   have hf := feeValue_sum_small hfee hmax hscale which
   exact (Nat.mul_le_mul hmass hf.le).trans_lt (by decide +kernel)
 
-#print axioms convolutionDots_model
-#print axioms convolution_mass_small
 end ClaudeWCT.Numerics.SharedFees
 
 namespace ClaudeWCT.Numerics.SharedFees
@@ -9466,7 +9207,6 @@ theorem rowDots_convolution (r : Nat) (hr : r ≤ 20) (P : Nat[X])
     (convolutionDots_model P r _ henc (fun w _ =>
       convolution_mass_small P hmass hfee maxFee_small scale_small w)).symm
 
-#print axioms rowDots_convolution
 end ClaudeWCT.Numerics.SharedFees
 
 namespace ClaudeWCT.Numerics.SharedFees
@@ -9512,8 +9252,6 @@ theorem packList_eq_tree (bits h : Nat) (xs : List Nat) :
       intro i hi
       simp only [Nat.zero_add, List.getElem?_drop]
 
-#print axioms packTree_congr
-#print axioms packList_eq_tree
 end ClaudeWCT.Numerics.SharedFees
 
 namespace ClaudeWCT.Numerics.SharedFees
@@ -9553,7 +9291,6 @@ theorem packedFeeVector_eq (which : Nat) (hl : feeEntries.length=7210) :
     rfl
 
 
-#print axioms packedFeeVector_eq
 end ClaudeWCT.Numerics.SharedFees
 
 namespace ClaudeWCT.Numerics.SharedGeneratedFeeVector
@@ -9571,11 +9308,6 @@ elab "certify_fee_vector " which:num cached:ident proof:ident : command => do
   elabCommand (← `(theorem $proof : packedFeeVector $which = $cached := by decide +kernel))
 
 certify_fee_vector 0 MassFee mass_fee_checked
-#print axioms mass_fee_checked
-certify_fee_vector 1 MgfFee mgf_fee_checked
-#print axioms mgf_fee_checked
-certify_fee_vector 2 ResFee res_fee_checked
-#print axioms res_fee_checked
 end ClaudeWCT.Numerics.SharedGeneratedFeeVector
 
 namespace ClaudeWCT.Numerics.SharedGeneratedFeeVector
@@ -9590,14 +9322,7 @@ theorem feeEntries_length : feeEntries.length=7210 := by
 
 theorem packedFee_0_checked : packedFee 0=MassFee :=
   (packedFeeVector_eq 0 feeEntries_length).symm.trans mass_fee_checked
-theorem packedFee_1_checked : packedFee 1=MgfFee :=
-  (packedFeeVector_eq 1 feeEntries_length).symm.trans mgf_fee_checked
-theorem packedFee_2_checked : packedFee 2=ResFee :=
-  (packedFeeVector_eq 2 feeEntries_length).symm.trans res_fee_checked
 
-#print axioms packedFee_0_checked
-#print axioms packedFee_1_checked
-#print axioms packedFee_2_checked
 end ClaudeWCT.Numerics.SharedGeneratedFeeVector
 
 namespace ClaudeWCT.Numerics.SharedPathPacked
@@ -9618,7 +9343,6 @@ theorem pairFirst_eq_cached_sum (coord : Nat → Nat → Cell) (chunks : Nat →
       have := List.mem_range.mp ht
       omega)))
 
-#print axioms pairFirst_eq_cached_sum
 end ClaudeWCT.Numerics.SharedPathPacked
 
 namespace ClaudeWCT.Numerics.SharedGeneratedPair
@@ -9711,17 +9435,11 @@ namespace ClaudeWCT.Numerics.SharedGeneratedPair
 open ClaudeWCT.Numerics.SharedPathPacked
 
 certify_pair_chunk 5 0 1 Pair_5_0 pair_5_0_checked
-#print axioms pair_5_0_checked
 certify_pair_chunk 5 1 1 Pair_5_1 pair_5_1_checked
-#print axioms pair_5_1_checked
 certify_pair_chunk 5 2 1 Pair_5_2 pair_5_2_checked
-#print axioms pair_5_2_checked
 certify_pair_chunk 5 3 1 Pair_5_3 pair_5_3_checked
-#print axioms pair_5_3_checked
 certify_pair_chunk 5 4 1 Pair_5_4 pair_5_4_checked
-#print axioms pair_5_4_checked
 certify_pair_chunk 5 5 1 Pair_5_5 pair_5_5_checked
-#print axioms pair_5_5_checked
 
 noncomputable def Pair_5 : Nat := pair_sum_numeral% 5
 
@@ -9749,22 +9467,14 @@ theorem pair_5_checked : pairFirst 5 = Pair_5 := by
   have h := pairFirst_eq_cached_sum cachedCoordinate chunks_5 5
     (fun t ht => cachedCoordinate_correct t (by omega)) chunks_5_checked
   exact h.trans (by decide +kernel)
-#print axioms pair_5_checked
 
 certify_pair_chunk 6 0 1 Pair_6_0 pair_6_0_checked
-#print axioms pair_6_0_checked
 certify_pair_chunk 6 1 1 Pair_6_1 pair_6_1_checked
-#print axioms pair_6_1_checked
 certify_pair_chunk 6 2 1 Pair_6_2 pair_6_2_checked
-#print axioms pair_6_2_checked
 certify_pair_chunk 6 3 1 Pair_6_3 pair_6_3_checked
-#print axioms pair_6_3_checked
 certify_pair_chunk 6 4 1 Pair_6_4 pair_6_4_checked
-#print axioms pair_6_4_checked
 certify_pair_chunk 6 5 1 Pair_6_5 pair_6_5_checked
-#print axioms pair_6_5_checked
 certify_pair_chunk 6 6 1 Pair_6_6 pair_6_6_checked
-#print axioms pair_6_6_checked
 
 noncomputable def Pair_6 : Nat := pair_sum_numeral% 6
 
@@ -9794,24 +9504,15 @@ theorem pair_6_checked : pairFirst 6 = Pair_6 := by
   have h := pairFirst_eq_cached_sum cachedCoordinate chunks_6 6
     (fun t ht => cachedCoordinate_correct t (by omega)) chunks_6_checked
   exact h.trans (by decide +kernel)
-#print axioms pair_6_checked
 
 certify_pair_chunk 7 0 1 Pair_7_0 pair_7_0_checked
-#print axioms pair_7_0_checked
 certify_pair_chunk 7 1 1 Pair_7_1 pair_7_1_checked
-#print axioms pair_7_1_checked
 certify_pair_chunk 7 2 1 Pair_7_2 pair_7_2_checked
-#print axioms pair_7_2_checked
 certify_pair_chunk 7 3 1 Pair_7_3 pair_7_3_checked
-#print axioms pair_7_3_checked
 certify_pair_chunk 7 4 1 Pair_7_4 pair_7_4_checked
-#print axioms pair_7_4_checked
 certify_pair_chunk 7 5 1 Pair_7_5 pair_7_5_checked
-#print axioms pair_7_5_checked
 certify_pair_chunk 7 6 1 Pair_7_6 pair_7_6_checked
-#print axioms pair_7_6_checked
 certify_pair_chunk 7 7 1 Pair_7_7 pair_7_7_checked
-#print axioms pair_7_7_checked
 
 noncomputable def Pair_7 : Nat := pair_sum_numeral% 7
 
@@ -9843,26 +9544,16 @@ theorem pair_7_checked : pairFirst 7 = Pair_7 := by
   have h := pairFirst_eq_cached_sum cachedCoordinate chunks_7 7
     (fun t ht => cachedCoordinate_correct t (by omega)) chunks_7_checked
   exact h.trans (by decide +kernel)
-#print axioms pair_7_checked
 
 certify_pair_chunk 8 0 1 Pair_8_0 pair_8_0_checked
-#print axioms pair_8_0_checked
 certify_pair_chunk 8 1 1 Pair_8_1 pair_8_1_checked
-#print axioms pair_8_1_checked
 certify_pair_chunk 8 2 1 Pair_8_2 pair_8_2_checked
-#print axioms pair_8_2_checked
 certify_pair_chunk 8 3 1 Pair_8_3 pair_8_3_checked
-#print axioms pair_8_3_checked
 certify_pair_chunk 8 4 1 Pair_8_4 pair_8_4_checked
-#print axioms pair_8_4_checked
 certify_pair_chunk 8 5 1 Pair_8_5 pair_8_5_checked
-#print axioms pair_8_5_checked
 certify_pair_chunk 8 6 1 Pair_8_6 pair_8_6_checked
-#print axioms pair_8_6_checked
 certify_pair_chunk 8 7 1 Pair_8_7 pair_8_7_checked
-#print axioms pair_8_7_checked
 certify_pair_chunk 8 8 1 Pair_8_8 pair_8_8_checked
-#print axioms pair_8_8_checked
 
 noncomputable def Pair_8 : Nat := pair_sum_numeral% 8
 
@@ -9896,28 +9587,17 @@ theorem pair_8_checked : pairFirst 8 = Pair_8 := by
   have h := pairFirst_eq_cached_sum cachedCoordinate chunks_8 8
     (fun t ht => cachedCoordinate_correct t (by omega)) chunks_8_checked
   exact h.trans (by decide +kernel)
-#print axioms pair_8_checked
 
 certify_pair_chunk 9 0 1 Pair_9_0 pair_9_0_checked
-#print axioms pair_9_0_checked
 certify_pair_chunk 9 1 1 Pair_9_1 pair_9_1_checked
-#print axioms pair_9_1_checked
 certify_pair_chunk 9 2 1 Pair_9_2 pair_9_2_checked
-#print axioms pair_9_2_checked
 certify_pair_chunk 9 3 1 Pair_9_3 pair_9_3_checked
-#print axioms pair_9_3_checked
 certify_pair_chunk 9 4 1 Pair_9_4 pair_9_4_checked
-#print axioms pair_9_4_checked
 certify_pair_chunk 9 5 1 Pair_9_5 pair_9_5_checked
-#print axioms pair_9_5_checked
 certify_pair_chunk 9 6 1 Pair_9_6 pair_9_6_checked
-#print axioms pair_9_6_checked
 certify_pair_chunk 9 7 1 Pair_9_7 pair_9_7_checked
-#print axioms pair_9_7_checked
 certify_pair_chunk 9 8 1 Pair_9_8 pair_9_8_checked
-#print axioms pair_9_8_checked
 certify_pair_chunk 9 9 1 Pair_9_9 pair_9_9_checked
-#print axioms pair_9_9_checked
 
 noncomputable def Pair_9 : Nat := pair_sum_numeral% 9
 
@@ -9953,30 +9633,18 @@ theorem pair_9_checked : pairFirst 9 = Pair_9 := by
   have h := pairFirst_eq_cached_sum cachedCoordinate chunks_9 9
     (fun t ht => cachedCoordinate_correct t (by omega)) chunks_9_checked
   exact h.trans (by decide +kernel)
-#print axioms pair_9_checked
 
 certify_pair_chunk 10 0 1 Pair_10_0 pair_10_0_checked
-#print axioms pair_10_0_checked
 certify_pair_chunk 10 1 1 Pair_10_1 pair_10_1_checked
-#print axioms pair_10_1_checked
 certify_pair_chunk 10 2 1 Pair_10_2 pair_10_2_checked
-#print axioms pair_10_2_checked
 certify_pair_chunk 10 3 1 Pair_10_3 pair_10_3_checked
-#print axioms pair_10_3_checked
 certify_pair_chunk 10 4 1 Pair_10_4 pair_10_4_checked
-#print axioms pair_10_4_checked
 certify_pair_chunk 10 5 1 Pair_10_5 pair_10_5_checked
-#print axioms pair_10_5_checked
 certify_pair_chunk 10 6 1 Pair_10_6 pair_10_6_checked
-#print axioms pair_10_6_checked
 certify_pair_chunk 10 7 1 Pair_10_7 pair_10_7_checked
-#print axioms pair_10_7_checked
 certify_pair_chunk 10 8 1 Pair_10_8 pair_10_8_checked
-#print axioms pair_10_8_checked
 certify_pair_chunk 10 9 1 Pair_10_9 pair_10_9_checked
-#print axioms pair_10_9_checked
 certify_pair_chunk 10 10 1 Pair_10_10 pair_10_10_checked
-#print axioms pair_10_10_checked
 
 noncomputable def Pair_10 : Nat := pair_sum_numeral% 10
 
@@ -10014,32 +9682,19 @@ theorem pair_10_checked : pairFirst 10 = Pair_10 := by
   have h := pairFirst_eq_cached_sum cachedCoordinate chunks_10 10
     (fun t ht => cachedCoordinate_correct t (by omega)) chunks_10_checked
   exact h.trans (by decide +kernel)
-#print axioms pair_10_checked
 
 certify_pair_chunk 11 0 1 Pair_11_0 pair_11_0_checked
-#print axioms pair_11_0_checked
 certify_pair_chunk 11 1 1 Pair_11_1 pair_11_1_checked
-#print axioms pair_11_1_checked
 certify_pair_chunk 11 2 1 Pair_11_2 pair_11_2_checked
-#print axioms pair_11_2_checked
 certify_pair_chunk 11 3 1 Pair_11_3 pair_11_3_checked
-#print axioms pair_11_3_checked
 certify_pair_chunk 11 4 1 Pair_11_4 pair_11_4_checked
-#print axioms pair_11_4_checked
 certify_pair_chunk 11 5 1 Pair_11_5 pair_11_5_checked
-#print axioms pair_11_5_checked
 certify_pair_chunk 11 6 1 Pair_11_6 pair_11_6_checked
-#print axioms pair_11_6_checked
 certify_pair_chunk 11 7 1 Pair_11_7 pair_11_7_checked
-#print axioms pair_11_7_checked
 certify_pair_chunk 11 8 1 Pair_11_8 pair_11_8_checked
-#print axioms pair_11_8_checked
 certify_pair_chunk 11 9 1 Pair_11_9 pair_11_9_checked
-#print axioms pair_11_9_checked
 certify_pair_chunk 11 10 1 Pair_11_10 pair_11_10_checked
-#print axioms pair_11_10_checked
 certify_pair_chunk 11 11 1 Pair_11_11 pair_11_11_checked
-#print axioms pair_11_11_checked
 
 noncomputable def Pair_11 : Nat := pair_sum_numeral% 11
 
@@ -10079,38 +9734,24 @@ theorem pair_11_checked : pairFirst 11 = Pair_11 := by
   have h := pairFirst_eq_cached_sum cachedCoordinate chunks_11 11
     (fun t ht => cachedCoordinate_correct t (by omega)) chunks_11_checked
   exact h.trans (by decide +kernel)
-#print axioms pair_11_checked
 
 end ClaudeWCT.Numerics.SharedGeneratedPair
 
 namespace ClaudeWCT.Numerics.SharedGeneratedPair
 open ClaudeWCT.Numerics.SharedPathPacked
 certify_pair_chunk 12 0 1 Pair_12_0 pair_12_0_checked
-#print axioms pair_12_0_checked
 certify_pair_chunk 12 1 1 Pair_12_1 pair_12_1_checked
-#print axioms pair_12_1_checked
 certify_pair_chunk 12 2 1 Pair_12_2 pair_12_2_checked
-#print axioms pair_12_2_checked
 certify_pair_chunk 12 3 1 Pair_12_3 pair_12_3_checked
-#print axioms pair_12_3_checked
 certify_pair_chunk 12 4 1 Pair_12_4 pair_12_4_checked
-#print axioms pair_12_4_checked
 certify_pair_chunk 12 5 1 Pair_12_5 pair_12_5_checked
-#print axioms pair_12_5_checked
 certify_pair_chunk 12 6 1 Pair_12_6 pair_12_6_checked
-#print axioms pair_12_6_checked
 certify_pair_chunk 12 7 1 Pair_12_7 pair_12_7_checked
-#print axioms pair_12_7_checked
 certify_pair_chunk 12 8 1 Pair_12_8 pair_12_8_checked
-#print axioms pair_12_8_checked
 certify_pair_chunk 12 9 1 Pair_12_9 pair_12_9_checked
-#print axioms pair_12_9_checked
 certify_pair_chunk 12 10 1 Pair_12_10 pair_12_10_checked
-#print axioms pair_12_10_checked
 certify_pair_chunk 12 11 1 Pair_12_11 pair_12_11_checked
-#print axioms pair_12_11_checked
 certify_pair_chunk 12 12 1 Pair_12_12 pair_12_12_checked
-#print axioms pair_12_12_checked
 
 noncomputable def Pair_12 : Nat := pair_sum_numeral% 12
 
@@ -10152,7 +9793,6 @@ theorem pair_12_checked : pairFirst 12 = Pair_12 := by
   have h := pairFirst_eq_cached_sum cachedCoordinate chunks_12 12
     (fun t ht => cachedCoordinate_correct t (by omega)) chunks_12_checked
   exact h.trans (by decide +kernel)
-#print axioms pair_12_checked
 
 
 end ClaudeWCT.Numerics.SharedGeneratedPair
@@ -10168,7 +9808,6 @@ theorem forest_eq_of_inputs (r p : Nat) (q : Cell)
     forest r=(spread 11 p)^4*spread 10 q.2 :=
   congrArg₂ (fun (x : Nat) (y : Cell) => (spread 11 x)^4*spread 10 y.2) hp hq
 
-#print axioms forest_eq_of_inputs
 end ClaudeWCT.Numerics.SharedPathPacked
 
 namespace ClaudeWCT.Numerics.SharedFees
@@ -10187,7 +9826,6 @@ theorem convolutionDots_eq_of_fees (r p mass mgf res : Nat)
   subst res
   rfl
 
-#print axioms convolutionDots_eq_of_fees
 end ClaudeWCT.Numerics.SharedFees
 
 namespace ClaudeWCT.Numerics.SharedGeneratedForest
@@ -10213,13 +9851,7 @@ noncomputable def Forest_5 : Nat := forest_numeral% 5
 theorem forest_5_checked : forest 5=Forest_5 := by
   exact (forest_eq_of_inputs 5 Pair_5 Coordinate_128_5
     pair_5_checked coordinate_128_5_checked).trans (by rw [spread_eq_fast]; decide +kernel)
-#print axioms forest_5_checked
 
-theorem convolution_5_checked : convolutionDots 5 (forest 5)=certifiedPayoff 5 := by
-  have hf := congrArg (convolutionDots 5) forest_5_checked
-  exact hf.trans ((convolutionDots_eq_of_fees 5 Forest_5 MassFee MgfFee ResFee
-    packedFee_0_checked packedFee_1_checked packedFee_2_checked).trans (by decide +kernel))
-#print axioms convolution_5_checked
 
 
 end ClaudeWCT.Numerics.SharedGeneratedForest
@@ -10240,52 +9872,28 @@ noncomputable def Forest_6 : Nat := forest_numeral% 6
 theorem forest_6_checked : forest 6=Forest_6 := by
   exact (forest_eq_of_inputs 6 Pair_6 Coordinate_128_6
     pair_6_checked coordinate_128_6_checked).trans (by rw [spread_eq_fast]; decide +kernel)
-#print axioms forest_6_checked
 
-theorem convolution_6_checked : convolutionDots 6 (forest 6)=certifiedPayoff 6 := by
-  have hf := congrArg (convolutionDots 6) forest_6_checked
-  exact hf.trans ((convolutionDots_eq_of_fees 6 Forest_6 MassFee MgfFee ResFee
-    packedFee_0_checked packedFee_1_checked packedFee_2_checked).trans (by decide +kernel))
-#print axioms convolution_6_checked
 
 noncomputable def Forest_7 : Nat := forest_numeral% 7
 
 theorem forest_7_checked : forest 7=Forest_7 := by
   exact (forest_eq_of_inputs 7 Pair_7 Coordinate_128_7
     pair_7_checked coordinate_128_7_checked).trans (by rw [spread_eq_fast]; decide +kernel)
-#print axioms forest_7_checked
 
-theorem convolution_7_checked : convolutionDots 7 (forest 7)=certifiedPayoff 7 := by
-  have hf := congrArg (convolutionDots 7) forest_7_checked
-  exact hf.trans ((convolutionDots_eq_of_fees 7 Forest_7 MassFee MgfFee ResFee
-    packedFee_0_checked packedFee_1_checked packedFee_2_checked).trans (by decide +kernel))
-#print axioms convolution_7_checked
 
 noncomputable def Forest_8 : Nat := forest_numeral% 8
 
 theorem forest_8_checked : forest 8=Forest_8 := by
   exact (forest_eq_of_inputs 8 Pair_8 Coordinate_128_8
     pair_8_checked coordinate_128_8_checked).trans (by rw [spread_eq_fast]; decide +kernel)
-#print axioms forest_8_checked
 
-theorem convolution_8_checked : convolutionDots 8 (forest 8)=certifiedPayoff 8 := by
-  have hf := congrArg (convolutionDots 8) forest_8_checked
-  exact hf.trans ((convolutionDots_eq_of_fees 8 Forest_8 MassFee MgfFee ResFee
-    packedFee_0_checked packedFee_1_checked packedFee_2_checked).trans (by decide +kernel))
-#print axioms convolution_8_checked
 
 noncomputable def Forest_9 : Nat := forest_numeral% 9
 
 theorem forest_9_checked : forest 9=Forest_9 := by
   exact (forest_eq_of_inputs 9 Pair_9 Coordinate_128_9
     pair_9_checked coordinate_128_9_checked).trans (by rw [spread_eq_fast]; decide +kernel)
-#print axioms forest_9_checked
 
-theorem convolution_9_checked : convolutionDots 9 (forest 9)=certifiedPayoff 9 := by
-  have hf := congrArg (convolutionDots 9) forest_9_checked
-  exact hf.trans ((convolutionDots_eq_of_fees 9 Forest_9 MassFee MgfFee ResFee
-    packedFee_0_checked packedFee_1_checked packedFee_2_checked).trans (by decide +kernel))
-#print axioms convolution_9_checked
 
 
 end ClaudeWCT.Numerics.SharedGeneratedForest
@@ -10293,33 +9901,19 @@ end ClaudeWCT.Numerics.SharedGeneratedForest
 namespace ClaudeWCT.Numerics.SharedGeneratedPair
 open ClaudeWCT.Numerics.SharedPathPacked
 certify_pair_chunk 13 0 1 Pair_13_0 pair_13_0_checked
-#print axioms pair_13_0_checked
 certify_pair_chunk 13 1 1 Pair_13_1 pair_13_1_checked
-#print axioms pair_13_1_checked
 certify_pair_chunk 13 2 1 Pair_13_2 pair_13_2_checked
-#print axioms pair_13_2_checked
 certify_pair_chunk 13 3 1 Pair_13_3 pair_13_3_checked
-#print axioms pair_13_3_checked
 certify_pair_chunk 13 4 1 Pair_13_4 pair_13_4_checked
-#print axioms pair_13_4_checked
 certify_pair_chunk 13 5 1 Pair_13_5 pair_13_5_checked
-#print axioms pair_13_5_checked
 certify_pair_chunk 13 6 1 Pair_13_6 pair_13_6_checked
-#print axioms pair_13_6_checked
 certify_pair_chunk 13 7 1 Pair_13_7 pair_13_7_checked
-#print axioms pair_13_7_checked
 certify_pair_chunk 13 8 1 Pair_13_8 pair_13_8_checked
-#print axioms pair_13_8_checked
 certify_pair_chunk 13 9 1 Pair_13_9 pair_13_9_checked
-#print axioms pair_13_9_checked
 certify_pair_chunk 13 10 1 Pair_13_10 pair_13_10_checked
-#print axioms pair_13_10_checked
 certify_pair_chunk 13 11 1 Pair_13_11 pair_13_11_checked
-#print axioms pair_13_11_checked
 certify_pair_chunk 13 12 1 Pair_13_12 pair_13_12_checked
-#print axioms pair_13_12_checked
 certify_pair_chunk 13 13 1 Pair_13_13 pair_13_13_checked
-#print axioms pair_13_13_checked
 
 noncomputable def Pair_13 : Nat := pair_sum_numeral% 13
 
@@ -10363,7 +9957,6 @@ theorem pair_13_checked : pairFirst 13 = Pair_13 := by
   have h := pairFirst_eq_cached_sum cachedCoordinate chunks_13 13
     (fun t ht => cachedCoordinate_correct t (by omega)) chunks_13_checked
   exact h.trans (by decide +kernel)
-#print axioms pair_13_checked
 
 
 end ClaudeWCT.Numerics.SharedGeneratedPair
@@ -10384,13 +9977,7 @@ noncomputable def Forest_10 : Nat := forest_numeral% 10
 theorem forest_10_checked : forest 10=Forest_10 := by
   exact (forest_eq_of_inputs 10 Pair_10 Coordinate_128_10
     pair_10_checked coordinate_128_10_checked).trans (by rw [spread_eq_fast]; decide +kernel)
-#print axioms forest_10_checked
 
-theorem convolution_10_checked : convolutionDots 10 (forest 10)=certifiedPayoff 10 := by
-  have hf := congrArg (convolutionDots 10) forest_10_checked
-  exact hf.trans ((convolutionDots_eq_of_fees 10 Forest_10 MassFee MgfFee ResFee
-    packedFee_0_checked packedFee_1_checked packedFee_2_checked).trans (by decide +kernel))
-#print axioms convolution_10_checked
 
 
 end ClaudeWCT.Numerics.SharedGeneratedForest
@@ -10411,13 +9998,7 @@ noncomputable def Forest_11 : Nat := forest_numeral% 11
 theorem forest_11_checked : forest 11=Forest_11 := by
   exact (forest_eq_of_inputs 11 Pair_11 Coordinate_128_11
     pair_11_checked coordinate_128_11_checked).trans (by rw [spread_eq_fast]; decide +kernel)
-#print axioms forest_11_checked
 
-theorem convolution_11_checked : convolutionDots 11 (forest 11)=certifiedPayoff 11 := by
-  have hf := congrArg (convolutionDots 11) forest_11_checked
-  exact hf.trans ((convolutionDots_eq_of_fees 11 Forest_11 MassFee MgfFee ResFee
-    packedFee_0_checked packedFee_1_checked packedFee_2_checked).trans (by decide +kernel))
-#print axioms convolution_11_checked
 
 
 end ClaudeWCT.Numerics.SharedGeneratedForest
@@ -10438,13 +10019,7 @@ noncomputable def Forest_12 : Nat := forest_numeral% 12
 theorem forest_12_checked : forest 12=Forest_12 := by
   exact (forest_eq_of_inputs 12 Pair_12 Coordinate_128_12
     pair_12_checked coordinate_128_12_checked).trans (by rw [spread_eq_fast]; decide +kernel)
-#print axioms forest_12_checked
 
-theorem convolution_12_checked : convolutionDots 12 (forest 12)=certifiedPayoff 12 := by
-  have hf := congrArg (convolutionDots 12) forest_12_checked
-  exact hf.trans ((convolutionDots_eq_of_fees 12 Forest_12 MassFee MgfFee ResFee
-    packedFee_0_checked packedFee_1_checked packedFee_2_checked).trans (by decide +kernel))
-#print axioms convolution_12_checked
 
 
 end ClaudeWCT.Numerics.SharedGeneratedForest
@@ -10465,13 +10040,7 @@ noncomputable def Forest_13 : Nat := forest_numeral% 13
 theorem forest_13_checked : forest 13=Forest_13 := by
   exact (forest_eq_of_inputs 13 Pair_13 Coordinate_128_13
     pair_13_checked coordinate_128_13_checked).trans (by rw [spread_eq_fast]; decide +kernel)
-#print axioms forest_13_checked
 
-theorem convolution_13_checked : convolutionDots 13 (forest 13)=certifiedPayoff 13 := by
-  have hf := congrArg (convolutionDots 13) forest_13_checked
-  exact hf.trans ((convolutionDots_eq_of_fees 13 Forest_13 MassFee MgfFee ResFee
-    packedFee_0_checked packedFee_1_checked packedFee_2_checked).trans (by decide +kernel))
-#print axioms convolution_13_checked
 
 
 end ClaudeWCT.Numerics.SharedGeneratedForest
@@ -10479,35 +10048,20 @@ end ClaudeWCT.Numerics.SharedGeneratedForest
 namespace ClaudeWCT.Numerics.SharedGeneratedPair
 open ClaudeWCT.Numerics.SharedPathPacked
 certify_pair_chunk 14 0 1 Pair_14_0 pair_14_0_checked
-#print axioms pair_14_0_checked
 certify_pair_chunk 14 1 1 Pair_14_1 pair_14_1_checked
-#print axioms pair_14_1_checked
 certify_pair_chunk 14 2 1 Pair_14_2 pair_14_2_checked
-#print axioms pair_14_2_checked
 certify_pair_chunk 14 3 1 Pair_14_3 pair_14_3_checked
-#print axioms pair_14_3_checked
 certify_pair_chunk 14 4 1 Pair_14_4 pair_14_4_checked
-#print axioms pair_14_4_checked
 certify_pair_chunk 14 5 1 Pair_14_5 pair_14_5_checked
-#print axioms pair_14_5_checked
 certify_pair_chunk 14 6 1 Pair_14_6 pair_14_6_checked
-#print axioms pair_14_6_checked
 certify_pair_chunk 14 7 1 Pair_14_7 pair_14_7_checked
-#print axioms pair_14_7_checked
 certify_pair_chunk 14 8 1 Pair_14_8 pair_14_8_checked
-#print axioms pair_14_8_checked
 certify_pair_chunk 14 9 1 Pair_14_9 pair_14_9_checked
-#print axioms pair_14_9_checked
 certify_pair_chunk 14 10 1 Pair_14_10 pair_14_10_checked
-#print axioms pair_14_10_checked
 certify_pair_chunk 14 11 1 Pair_14_11 pair_14_11_checked
-#print axioms pair_14_11_checked
 certify_pair_chunk 14 12 1 Pair_14_12 pair_14_12_checked
-#print axioms pair_14_12_checked
 certify_pair_chunk 14 13 1 Pair_14_13 pair_14_13_checked
-#print axioms pair_14_13_checked
 certify_pair_chunk 14 14 1 Pair_14_14 pair_14_14_checked
-#print axioms pair_14_14_checked
 
 noncomputable def Pair_14 : Nat := pair_sum_numeral% 14
 
@@ -10553,7 +10107,6 @@ theorem pair_14_checked : pairFirst 14 = Pair_14 := by
   have h := pairFirst_eq_cached_sum cachedCoordinate chunks_14 14
     (fun t ht => cachedCoordinate_correct t (by omega)) chunks_14_checked
   exact h.trans (by decide +kernel)
-#print axioms pair_14_checked
 
 
 end ClaudeWCT.Numerics.SharedGeneratedPair
@@ -10574,13 +10127,7 @@ noncomputable def Forest_14 : Nat := forest_numeral% 14
 theorem forest_14_checked : forest 14=Forest_14 := by
   exact (forest_eq_of_inputs 14 Pair_14 Coordinate_128_14
     pair_14_checked coordinate_128_14_checked).trans (by rw [spread_eq_fast]; decide +kernel)
-#print axioms forest_14_checked
 
-theorem convolution_14_checked : convolutionDots 14 (forest 14)=certifiedPayoff 14 := by
-  have hf := congrArg (convolutionDots 14) forest_14_checked
-  exact hf.trans ((convolutionDots_eq_of_fees 14 Forest_14 MassFee MgfFee ResFee
-    packedFee_0_checked packedFee_1_checked packedFee_2_checked).trans (by decide +kernel))
-#print axioms convolution_14_checked
 
 
 end ClaudeWCT.Numerics.SharedGeneratedForest
@@ -10588,37 +10135,21 @@ end ClaudeWCT.Numerics.SharedGeneratedForest
 namespace ClaudeWCT.Numerics.SharedGeneratedPair
 open ClaudeWCT.Numerics.SharedPathPacked
 certify_pair_chunk 15 0 1 Pair_15_0 pair_15_0_checked
-#print axioms pair_15_0_checked
 certify_pair_chunk 15 1 1 Pair_15_1 pair_15_1_checked
-#print axioms pair_15_1_checked
 certify_pair_chunk 15 2 1 Pair_15_2 pair_15_2_checked
-#print axioms pair_15_2_checked
 certify_pair_chunk 15 3 1 Pair_15_3 pair_15_3_checked
-#print axioms pair_15_3_checked
 certify_pair_chunk 15 4 1 Pair_15_4 pair_15_4_checked
-#print axioms pair_15_4_checked
 certify_pair_chunk 15 5 1 Pair_15_5 pair_15_5_checked
-#print axioms pair_15_5_checked
 certify_pair_chunk 15 6 1 Pair_15_6 pair_15_6_checked
-#print axioms pair_15_6_checked
 certify_pair_chunk 15 7 1 Pair_15_7 pair_15_7_checked
-#print axioms pair_15_7_checked
 certify_pair_chunk 15 8 1 Pair_15_8 pair_15_8_checked
-#print axioms pair_15_8_checked
 certify_pair_chunk 15 9 1 Pair_15_9 pair_15_9_checked
-#print axioms pair_15_9_checked
 certify_pair_chunk 15 10 1 Pair_15_10 pair_15_10_checked
-#print axioms pair_15_10_checked
 certify_pair_chunk 15 11 1 Pair_15_11 pair_15_11_checked
-#print axioms pair_15_11_checked
 certify_pair_chunk 15 12 1 Pair_15_12 pair_15_12_checked
-#print axioms pair_15_12_checked
 certify_pair_chunk 15 13 1 Pair_15_13 pair_15_13_checked
-#print axioms pair_15_13_checked
 certify_pair_chunk 15 14 1 Pair_15_14 pair_15_14_checked
-#print axioms pair_15_14_checked
 certify_pair_chunk 15 15 1 Pair_15_15 pair_15_15_checked
-#print axioms pair_15_15_checked
 
 noncomputable def Pair_15 : Nat := pair_sum_numeral% 15
 
@@ -10666,7 +10197,6 @@ theorem pair_15_checked : pairFirst 15 = Pair_15 := by
   have h := pairFirst_eq_cached_sum cachedCoordinate chunks_15 15
     (fun t ht => cachedCoordinate_correct t (by omega)) chunks_15_checked
   exact h.trans (by decide +kernel)
-#print axioms pair_15_checked
 
 
 end ClaudeWCT.Numerics.SharedGeneratedPair
@@ -10687,13 +10217,7 @@ noncomputable def Forest_15 : Nat := forest_numeral% 15
 theorem forest_15_checked : forest 15=Forest_15 := by
   exact (forest_eq_of_inputs 15 Pair_15 Coordinate_128_15
     pair_15_checked coordinate_128_15_checked).trans (by rw [spread_eq_fast]; decide +kernel)
-#print axioms forest_15_checked
 
-theorem convolution_15_checked : convolutionDots 15 (forest 15)=certifiedPayoff 15 := by
-  have hf := congrArg (convolutionDots 15) forest_15_checked
-  exact hf.trans ((convolutionDots_eq_of_fees 15 Forest_15 MassFee MgfFee ResFee
-    packedFee_0_checked packedFee_1_checked packedFee_2_checked).trans (by decide +kernel))
-#print axioms convolution_15_checked
 
 
 end ClaudeWCT.Numerics.SharedGeneratedForest
@@ -10701,39 +10225,22 @@ end ClaudeWCT.Numerics.SharedGeneratedForest
 namespace ClaudeWCT.Numerics.SharedGeneratedPair
 open ClaudeWCT.Numerics.SharedPathPacked
 certify_pair_chunk 16 0 1 Pair_16_0 pair_16_0_checked
-#print axioms pair_16_0_checked
 certify_pair_chunk 16 1 1 Pair_16_1 pair_16_1_checked
-#print axioms pair_16_1_checked
 certify_pair_chunk 16 2 1 Pair_16_2 pair_16_2_checked
-#print axioms pair_16_2_checked
 certify_pair_chunk 16 3 1 Pair_16_3 pair_16_3_checked
-#print axioms pair_16_3_checked
 certify_pair_chunk 16 4 1 Pair_16_4 pair_16_4_checked
-#print axioms pair_16_4_checked
 certify_pair_chunk 16 5 1 Pair_16_5 pair_16_5_checked
-#print axioms pair_16_5_checked
 certify_pair_chunk 16 6 1 Pair_16_6 pair_16_6_checked
-#print axioms pair_16_6_checked
 certify_pair_chunk 16 7 1 Pair_16_7 pair_16_7_checked
-#print axioms pair_16_7_checked
 certify_pair_chunk 16 8 1 Pair_16_8 pair_16_8_checked
-#print axioms pair_16_8_checked
 certify_pair_chunk 16 9 1 Pair_16_9 pair_16_9_checked
-#print axioms pair_16_9_checked
 certify_pair_chunk 16 10 1 Pair_16_10 pair_16_10_checked
-#print axioms pair_16_10_checked
 certify_pair_chunk 16 11 1 Pair_16_11 pair_16_11_checked
-#print axioms pair_16_11_checked
 certify_pair_chunk 16 12 1 Pair_16_12 pair_16_12_checked
-#print axioms pair_16_12_checked
 certify_pair_chunk 16 13 1 Pair_16_13 pair_16_13_checked
-#print axioms pair_16_13_checked
 certify_pair_chunk 16 14 1 Pair_16_14 pair_16_14_checked
-#print axioms pair_16_14_checked
 certify_pair_chunk 16 15 1 Pair_16_15 pair_16_15_checked
-#print axioms pair_16_15_checked
 certify_pair_chunk 16 16 1 Pair_16_16 pair_16_16_checked
-#print axioms pair_16_16_checked
 
 noncomputable def Pair_16 : Nat := pair_sum_numeral% 16
 
@@ -10783,7 +10290,6 @@ theorem pair_16_checked : pairFirst 16 = Pair_16 := by
   have h := pairFirst_eq_cached_sum cachedCoordinate chunks_16 16
     (fun t ht => cachedCoordinate_correct t (by omega)) chunks_16_checked
   exact h.trans (by decide +kernel)
-#print axioms pair_16_checked
 
 
 end ClaudeWCT.Numerics.SharedGeneratedPair
@@ -10804,13 +10310,7 @@ noncomputable def Forest_16 : Nat := forest_numeral% 16
 theorem forest_16_checked : forest 16=Forest_16 := by
   exact (forest_eq_of_inputs 16 Pair_16 Coordinate_128_16
     pair_16_checked coordinate_128_16_checked).trans (by rw [spread_eq_fast]; decide +kernel)
-#print axioms forest_16_checked
 
-theorem convolution_16_checked : convolutionDots 16 (forest 16)=certifiedPayoff 16 := by
-  have hf := congrArg (convolutionDots 16) forest_16_checked
-  exact hf.trans ((convolutionDots_eq_of_fees 16 Forest_16 MassFee MgfFee ResFee
-    packedFee_0_checked packedFee_1_checked packedFee_2_checked).trans (by decide +kernel))
-#print axioms convolution_16_checked
 
 
 end ClaudeWCT.Numerics.SharedGeneratedForest
@@ -10818,41 +10318,23 @@ end ClaudeWCT.Numerics.SharedGeneratedForest
 namespace ClaudeWCT.Numerics.SharedGeneratedPair
 open ClaudeWCT.Numerics.SharedPathPacked
 certify_pair_chunk 17 0 1 Pair_17_0 pair_17_0_checked
-#print axioms pair_17_0_checked
 certify_pair_chunk 17 1 1 Pair_17_1 pair_17_1_checked
-#print axioms pair_17_1_checked
 certify_pair_chunk 17 2 1 Pair_17_2 pair_17_2_checked
-#print axioms pair_17_2_checked
 certify_pair_chunk 17 3 1 Pair_17_3 pair_17_3_checked
-#print axioms pair_17_3_checked
 certify_pair_chunk 17 4 1 Pair_17_4 pair_17_4_checked
-#print axioms pair_17_4_checked
 certify_pair_chunk 17 5 1 Pair_17_5 pair_17_5_checked
-#print axioms pair_17_5_checked
 certify_pair_chunk 17 6 1 Pair_17_6 pair_17_6_checked
-#print axioms pair_17_6_checked
 certify_pair_chunk 17 7 1 Pair_17_7 pair_17_7_checked
-#print axioms pair_17_7_checked
 certify_pair_chunk 17 8 1 Pair_17_8 pair_17_8_checked
-#print axioms pair_17_8_checked
 certify_pair_chunk 17 9 1 Pair_17_9 pair_17_9_checked
-#print axioms pair_17_9_checked
 certify_pair_chunk 17 10 1 Pair_17_10 pair_17_10_checked
-#print axioms pair_17_10_checked
 certify_pair_chunk 17 11 1 Pair_17_11 pair_17_11_checked
-#print axioms pair_17_11_checked
 certify_pair_chunk 17 12 1 Pair_17_12 pair_17_12_checked
-#print axioms pair_17_12_checked
 certify_pair_chunk 17 13 1 Pair_17_13 pair_17_13_checked
-#print axioms pair_17_13_checked
 certify_pair_chunk 17 14 1 Pair_17_14 pair_17_14_checked
-#print axioms pair_17_14_checked
 certify_pair_chunk 17 15 1 Pair_17_15 pair_17_15_checked
-#print axioms pair_17_15_checked
 certify_pair_chunk 17 16 1 Pair_17_16 pair_17_16_checked
-#print axioms pair_17_16_checked
 certify_pair_chunk 17 17 1 Pair_17_17 pair_17_17_checked
-#print axioms pair_17_17_checked
 
 noncomputable def Pair_17 : Nat := pair_sum_numeral% 17
 
@@ -10904,7 +10386,6 @@ theorem pair_17_checked : pairFirst 17 = Pair_17 := by
   have h := pairFirst_eq_cached_sum cachedCoordinate chunks_17 17
     (fun t ht => cachedCoordinate_correct t (by omega)) chunks_17_checked
   exact h.trans (by decide +kernel)
-#print axioms pair_17_checked
 
 
 end ClaudeWCT.Numerics.SharedGeneratedPair
@@ -10925,13 +10406,7 @@ noncomputable def Forest_17 : Nat := forest_numeral% 17
 theorem forest_17_checked : forest 17=Forest_17 := by
   exact (forest_eq_of_inputs 17 Pair_17 Coordinate_128_17
     pair_17_checked coordinate_128_17_checked).trans (by rw [spread_eq_fast]; decide +kernel)
-#print axioms forest_17_checked
 
-theorem convolution_17_checked : convolutionDots 17 (forest 17)=certifiedPayoff 17 := by
-  have hf := congrArg (convolutionDots 17) forest_17_checked
-  exact hf.trans ((convolutionDots_eq_of_fees 17 Forest_17 MassFee MgfFee ResFee
-    packedFee_0_checked packedFee_1_checked packedFee_2_checked).trans (by decide +kernel))
-#print axioms convolution_17_checked
 
 
 end ClaudeWCT.Numerics.SharedGeneratedForest
@@ -10944,43 +10419,24 @@ set_option maxRecDepth 1000000
 set_option maxHeartbeats 200000000
 set_option Elab.async false
 certify_pair_chunk 18 0 1 Pair_18_0 pair_18_0_checked
-#print axioms pair_18_0_checked
 certify_pair_chunk 18 1 1 Pair_18_1 pair_18_1_checked
-#print axioms pair_18_1_checked
 certify_pair_chunk 18 2 1 Pair_18_2 pair_18_2_checked
-#print axioms pair_18_2_checked
 certify_pair_chunk 18 3 1 Pair_18_3 pair_18_3_checked
-#print axioms pair_18_3_checked
 certify_pair_chunk 18 4 1 Pair_18_4 pair_18_4_checked
-#print axioms pair_18_4_checked
 certify_pair_chunk 18 5 1 Pair_18_5 pair_18_5_checked
-#print axioms pair_18_5_checked
 certify_pair_chunk 18 6 1 Pair_18_6 pair_18_6_checked
-#print axioms pair_18_6_checked
 certify_pair_chunk 18 7 1 Pair_18_7 pair_18_7_checked
-#print axioms pair_18_7_checked
 certify_pair_chunk 18 8 1 Pair_18_8 pair_18_8_checked
-#print axioms pair_18_8_checked
 certify_pair_chunk 18 9 1 Pair_18_9 pair_18_9_checked
-#print axioms pair_18_9_checked
 certify_pair_chunk 18 10 1 Pair_18_10 pair_18_10_checked
-#print axioms pair_18_10_checked
 certify_pair_chunk 18 11 1 Pair_18_11 pair_18_11_checked
-#print axioms pair_18_11_checked
 certify_pair_chunk 18 12 1 Pair_18_12 pair_18_12_checked
-#print axioms pair_18_12_checked
 certify_pair_chunk 18 13 1 Pair_18_13 pair_18_13_checked
-#print axioms pair_18_13_checked
 certify_pair_chunk 18 14 1 Pair_18_14 pair_18_14_checked
-#print axioms pair_18_14_checked
 certify_pair_chunk 18 15 1 Pair_18_15 pair_18_15_checked
-#print axioms pair_18_15_checked
 certify_pair_chunk 18 16 1 Pair_18_16 pair_18_16_checked
-#print axioms pair_18_16_checked
 certify_pair_chunk 18 17 1 Pair_18_17 pair_18_17_checked
-#print axioms pair_18_17_checked
 certify_pair_chunk 18 18 1 Pair_18_18 pair_18_18_checked
-#print axioms pair_18_18_checked
 
 noncomputable def Pair_18 : Nat := pair_sum_numeral% 18
 
@@ -11034,7 +10490,6 @@ theorem pair_18_checked : pairFirst 18 = Pair_18 := by
   have h := pairFirst_eq_cached_sum cachedCoordinate chunks_18 18
     (fun t ht => cachedCoordinate_correct t (by omega)) chunks_18_checked
   exact h.trans (by decide +kernel)
-#print axioms pair_18_checked
 
 
 end ClaudeWCT.Numerics.SharedGeneratedPair
@@ -11055,31 +10510,7 @@ noncomputable def Forest_18 : Nat := forest_numeral% 18
 theorem forest_18_checked : forest 18=Forest_18 := by
   exact (forest_eq_of_inputs 18 Pair_18 Coordinate_128_18
     pair_18_checked coordinate_128_18_checked).trans (by rw [spread_eq_fast]; decide +kernel)
-#print axioms forest_18_checked
 
-theorem convolution_18_checked : convolutionDots 18 (forest 18)=certifiedPayoff 18 := by
-  have hf := congrArg (convolutionDots 18) forest_18_checked
-  exact hf.trans ((convolutionDots_eq_of_fees 18 Forest_18 MassFee MgfFee ResFee
-    packedFee_0_checked packedFee_1_checked packedFee_2_checked).trans (by decide +kernel))
-#print axioms convolution_18_checked
 
-theorem convolution_rows_checked (r : Nat) (hlo : 5 ≤ r) (hhi : r ≤ 18) :
-    convolutionDots r (forest r)=certifiedPayoff r := by
-  interval_cases r
-  · exact convolution_5_checked
-  · exact convolution_6_checked
-  · exact convolution_7_checked
-  · exact convolution_8_checked
-  · exact convolution_9_checked
-  · exact convolution_10_checked
-  · exact convolution_11_checked
-  · exact convolution_12_checked
-  · exact convolution_13_checked
-  · exact convolution_14_checked
-  · exact convolution_15_checked
-  · exact convolution_16_checked
-  · exact convolution_17_checked
-  · exact convolution_18_checked
 
-#print axioms convolution_rows_checked
 end ClaudeWCT.Numerics.SharedGeneratedForest

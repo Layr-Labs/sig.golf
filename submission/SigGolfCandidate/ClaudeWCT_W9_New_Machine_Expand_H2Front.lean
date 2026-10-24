@@ -75,8 +75,6 @@ theorem finish_steps {im : Image} (hc : CodeAt im (pcOf 47005) finishCode) (he :
   · rw [t25,hw,hflag]
   · rw [rt.get (by decide)]; exact u5
   · exact (fu.trans ft).mono (fun A _ h => by rcases h with (h|h)|h <;> simp_all)
-#print axioms after_steps
-#print axioms finish_steps
 end ClaudeWCT.W9.Machine.Expand.SharedScatter
 
 namespace ClaudeWCT.W9.Machine.Expand.SharedScatter
@@ -128,8 +126,6 @@ theorem leafDestination_source (k : Fin 9) (i : Fin 6) (hi : 0 < i.val) :
 
 theorem topInput_source (k : Fin 9) : topInput k.val=96+16*(SharedV3.lastLevel k.val+1) := by
   fin_cases k <;> rfl
-#print axioms pathDestination_source
-#print axioms topDest_source
 end ClaudeWCT.W9.Machine.Expand.SharedScatter
 
 namespace ClaudeWCT.W9.Machine.Expand.SharedScatter
@@ -213,7 +209,6 @@ theorem CoordinateReadout.original {s t : MachineState} {w : W9Machine.WBytes}
     · subst A;simpa using h6 hn 1 (by decide)
   · subst A;simpa using ht 0 (by decide)
   · subst A;simpa using ht 1 (by decide)
-#print axioms CoordinateReadout.original
 end ClaudeWCT.W9.Machine.Expand.SharedScatter
 
 namespace ClaudeWCT.W9.Machine.Expand.SharedZero
@@ -296,9 +291,6 @@ theorem loop {im : Image} (p : Word) (hc : CodeAt im p words) (A : Nat) (ha : A%
       | zero => simpa using (ft.get (by omega) (by omega)).trans mu
       | succ i => simpa [Nat.mul_add,Nat.add_assoc,Nat.add_left_comm,Nat.add_comm] using mt i (by omega)
     · exact (fu.trans ft).mono (by intro x hx h;rcases h with h|h <;> omega)
-#print axioms checked
-#print axioms step
-#print axioms loop
 end ClaudeWCT.W9.Machine.Expand.SharedZero
 
 namespace ClaudeWCT.W9.Machine.Expand.SharedZero
@@ -364,8 +356,6 @@ theorem finalScatter_steps {im : Image} (hc : CodeAt im (pcOf 46980) finalScatte
     t3n []
     rw [Nat.mod_eq_of_lt (show A<18446744073709551616 by simpa using hA)]
     split_ifs <;> first | rfl | omega
-#print axioms accepted_steps
-#print axioms finalScatter_steps
 end ClaudeWCT.W9.Machine.Expand.SharedZero
 
 -- V74: old radix-20 SharedValidate (pre-v6) removed; the v6 validate routine is SharedValidateV6 (CanonV6Validate.lean).
@@ -471,8 +461,6 @@ theorem move_loop {im : Image} (hc : CodeAt im (pcOf 46895) moveCode)
         subst i
         rw [ft.get (by omega) (by omega)];exact mu
     · exact (fu.trans ft).mono (by intro A hA h;rcases h with h|h <;> omega)
-#print axioms move_step
-#print axioms move_loop
 end ClaudeWCT.W9.Machine.Expand.SharedHandoff
 
 namespace ClaudeWCT.W9.Machine.Expand.SharedHandoff
@@ -542,8 +530,6 @@ theorem tail_steps {im : Image} (hc : CodeAt im (pcOf 46901) tailCode)
   · intro r hr
     cases r <;> first | exact (hr (by decide)).elim | rfl
   · intro A hA hn;rfl
-#print axioms setup_steps
-#print axioms tail_steps
 end ClaudeWCT.W9.Machine.Expand.SharedHandoff
 
 namespace ClaudeWCT.W9.Machine.Expand.SharedHandoff
@@ -585,7 +571,6 @@ theorem steps {im : Image} (hc : Code im) (s : MachineState) (hp : s.pc=pcOf 468
     rw [ft.get (by omega) (by simp),mv i (by omega),fu.get (by omega) (by omega)]
   · exact ((ru.trans rv).trans rt).mono (by decide)
   · exact ((fu.trans fv).trans ft).mono (by intro A hA h;rcases h with (h|h)|h <;> first | tauto | omega)
-#print axioms steps
 end ClaudeWCT.W9.Machine.Expand.SharedHandoff
 
 namespace ClaudeWCT.W9.Machine.Expand.SharedZero
@@ -661,9 +646,6 @@ theorem final_clear {im : Image} (hc : ClearCode im)
   · exact (fv.get (by decide) (by decide)).trans mode
   · intro i hi;exact (fv.get (by omega) (by omega)).trans (digest i hi)
   · exact (fu.trans fv).mono (by intro A hA h;tauto)
-#print axioms clear_witness
-#print axioms accepted_clear
-#print axioms final_clear
 end ClaudeWCT.W9.Machine.Expand.SharedZero
 
 namespace ClaudeWCT.W9.Machine.Expand
@@ -783,7 +765,6 @@ theorem rawSlots_written (k : Fin 9) (child : Fin 128)
     · exact Or.inr (Or.inl (by omega))
     · exact Or.inr (Or.inr (by omega))
 
-#print axioms rawSlots_written
 end ClaudeWCT.W9.Machine.Expand.SharedScatter
 
 namespace ClaudeWCT.W9.Machine.Expand.SharedDigestCode
@@ -815,9 +796,9 @@ def DB0 : Nat := 16747280
 theorem zt_length : Images.expandZtData.length = 128 := by rfl
 
 theorem getMem {im : Image} (hlen:im.data.length=29936) (hb:dataBase im=DB0)
-    (m : Message) (pk : PublicKey) (b : Bytes 5248) (A : Nat) (hA:A<2^64) :
+    (m : Message) (pk : PublicKey) (b : ClaudeWCT.W9.T3M.SharedCodec.CBytes) (A : Nat) (hA:A<2^64) :
     (w9init im m pk b).getMem (BitVec.ofNat 64 A)=
-      if 0x7000≤A ∧ A<0x7000+5248 ∧ (A-0x7000)%8=0 then bytesToWordLE ((bytes b).drop (A-0x7000) |>.take 8)
+      if 0x7000≤A ∧ A<0x7000+5200 ∧ (A-0x7000)%8=0 then bytesToWordLE ((bytes b).drop (A-0x7000) |>.take 8)
       else if 0xA0≤A ∧ A<0xB0 ∧ (A-0xA0)%8=0 then bytesToWordLE ((bytes pk).drop (A-0xA0) |>.take 8)
       else if 0x6620≤A ∧ A<0x6640 ∧ (A-0x6620)%8=0 then bytesToWordLE ((bytes m).drop (A-0x6620) |>.take 8)
       else if DB0≤A ∧ A<DB0+29936 ∧ (A-DB0)%8=0 then bytesToWordLE (im.data.drop (A-DB0) |>.take 8)
@@ -831,7 +812,7 @@ theorem getMem {im : Image} (hlen:im.data.length=29936) (hb:dataBase im=DB0)
   rfl
 
 theorem dataByte {im : Image} (hlen:im.data.length=29936) (hb:dataBase im=DB0)
-    (m : Message) (pk : PublicKey) (b : Bytes 5248) (i : Nat) (hi:i<29936) :
+    (m : Message) (pk : PublicKey) (b : ClaudeWCT.W9.T3M.SharedCodec.CBytes) (i : Nat) (hi:i<29936) :
     (w9init im m pk b).getByte (BitVec.ofNat 64 (DB0+i))=im.data.getD i 0 := by
   rw [getByte_eq_word _ _ (by unfold DB0;omega),getMem hlen hb _ _ _ _ (by unfold DB0;omega),
     if_neg (by unfold DB0;omega),if_neg (by unfold DB0;omega),if_neg (by unfold DB0;omega),
@@ -843,15 +824,12 @@ theorem dataByte {im : Image} (hlen:im.data.length=29936) (hb:dataBase im=DB0)
   omega
 
 theorem signatureWord {im : Image} (hlen:im.data.length=29936) (hb:dataBase im=DB0)
-    (m : Message) (pk : PublicKey) (b : Bytes 5248) (i : Nat) (hi:i<656) :
+    (m : Message) (pk : PublicKey) (b : ClaudeWCT.W9.T3M.SharedCodec.CBytes) (i : Nat) (hi:i<649) :
     (w9init im m pk b).getMem (BitVec.ofNat 64 (0x7000+8*i))=b.extractLsb' (64*i) 64 := by
   rw [getMem hlen hb _ _ _ _ (by omega),if_pos (by omega),
     show 0x7000+8*i-0x7000=8*i by omega]
   exact SigGolfCandidate.T3M.Expand.bytesToWordLE_bytes_e b i (by omega)
 
-#print axioms getMem
-#print axioms dataByte
-#print axioms signatureWord
 end ClaudeWCT.W9.Machine.Expand.SharedInit
 
 namespace ClaudeWCT.W9.Machine.Expand.SharedInit
@@ -881,9 +859,6 @@ theorem DataAt.tables {s : MachineState} (h:DataAt s) : TablesAt true s := by
     rw [show tableBase true=DB by rfl,Nat.add_assoc,h _ (by omega)]
     exact correction_data ⟨k,hk⟩ ⟨j,hj⟩
 
-#print axioms ranks_data
-#print axioms correction_data
-#print axioms DataAt.tables
 end ClaudeWCT.W9.Machine.Expand.SharedInit
 
 namespace ClaudeWCT.W9.Machine.Expand.SharedFront
@@ -922,7 +897,6 @@ theorem tail_steps {im : Image} (hc : CodeAt im (pcOf 1) frontTail) (s : Machine
     rw [if_neg (by omega), if_neg (by omega), if_neg (by omega), if_neg (by omega), if_neg (by omega),
       if_neg (by omega), if_neg (by omega), if_neg (by omega)]
 
-#print axioms tail_steps
 end ClaudeWCT.W9.Machine.Expand.SharedFront
 
 namespace ClaudeWCT.W9.Machine.Expand.SharedFront
@@ -968,7 +942,6 @@ theorem setup {im : Image} (hf:CodeAt im (pcOf 1) frontTail) (hz:CodeAt im (pcOf
   · exact (ru.trans rv).mono (by simp)
   · exact (fu.trans fv).mono (by intro A hA h;unfold Writes;rcases h with h|h <;> rcases h with h|h|h|h|h|h|h|h <;> omega)
 
-#print axioms setup
 end ClaudeWCT.W9.Machine.Expand.SharedFront
 
 namespace ClaudeWCT.W9.Machine.Expand.SharedInit
@@ -980,7 +953,7 @@ set_option maxRecDepth 100000
 
 theorem prefixData {im : Image} (hlen:im.data.length=29936) (hb:dataBase im=DB0)
     (zt pref tail : List (BitVec 8)) (hz:zt.length=128) (hp:pref.length=2160) (hd:im.data=zt++(pref++tail))
-    (m : Message) (pk : PublicKey) (b : Bytes 5248) :
+    (m : Message) (pk : PublicKey) (b : ClaudeWCT.W9.T3M.SharedCodec.CBytes) :
     ∀i,i<2160 → (w9init im m pk b).getByte (BitVec.ofNat 64 (DB+i))=pref.getD i 0 := by
   intro i hi
   rw [show DB+i=DB0+(128+i) by unfold DB DB0;omega,dataByte hlen hb m pk b (128+i) (by omega),hd,
@@ -988,23 +961,20 @@ theorem prefixData {im : Image} (hlen:im.data.length=29936) (hb:dataBase im=DB0)
   simp only [List.getD_eq_getElem?_getD,List.getElem?_append,hp,if_pos hi]
 
 theorem msgWord {im : Image} (hlen:im.data.length=29936) (hb:dataBase im=DB0)
-    (m : Message) (pk : PublicKey) (b : Bytes 5248) (i : Nat) (hi:i<4) :
+    (m : Message) (pk : PublicKey) (b : ClaudeWCT.W9.T3M.SharedCodec.CBytes) (i : Nat) (hi:i<4) :
     (w9init im m pk b).getMem (BitVec.ofNat 64 (0x6620+8*i))=m.extractLsb' (64*i) 64 := by
   rw [getMem hlen hb _ _ _ _ (by omega),if_neg (by omega),if_neg (by omega),if_pos (by omega),
     show 0x6620+8*i-0x6620=8*i by omega]
   exact SigGolfCandidate.T3M.Expand.bytesToWordLE_bytes_e m i (by omega)
 
 theorem zero {im : Image} (hlen:im.data.length=29936) (hb:dataBase im=DB0)
-    (m : Message) (pk : PublicKey) (b : Bytes 5248) (A : Nat) (hA:A<DB0)
+    (m : Message) (pk : PublicKey) (b : ClaudeWCT.W9.T3M.SharedCodec.CBytes) (A : Nat) (hA:A<DB0)
     (hs:A<0x7000 ∨ 0x7000+5248≤A) (hp:A<0xA0 ∨ 0xB0≤A)
     (hm:A<0x6620 ∨ 0x6640≤A) :
     (w9init im m pk b).getMem (BitVec.ofNat 64 A)=0 := by
   rw[getMem hlen hb _ _ _ _ (by unfold DB0 at hA;omega),
     if_neg (by omega),if_neg (by omega),if_neg (by omega),if_neg (by omega)]
 
-#print axioms prefixData
-#print axioms msgWord
-#print axioms zero
 end ClaudeWCT.W9.Machine.Expand.SharedInit
 
 namespace ClaudeWCT.W9.Machine.Expand.SharedCompact
@@ -1012,23 +982,7 @@ open SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64 SigGol
 set_option maxHeartbeats 1000000
 set_option maxRecDepth 10000
 
-theorem invalid_front {im : Image}
-    (ht:CodeAt im (pcOf 44096) tailWords) (hg:CodeAt im (pcOf 44106) guardWords)
-    (hj:CodeAt im (pcOf 44192) [0xb08d506f]) (s : MachineState) (hp:s.pc=pcOf 44096)
-    (H : Nat) (hlo:7744≤H) (hhi:H<65536) (hh:s.getMem 0x8478 >>> 48=BitVec.ofNat 64 H) :
-    ∃t,Steps im s 14 14 t ∧ t.pc=pcOf 354 ∧
-      RegsExcept s t [.x6,.x7,.x15,.x28,.x29,.x30] ∧ Frame s t (fun A=>A=policyAddress) := by
-  obtain ⟨u,su,up,u6,u7,u28,um,ru,fu⟩:=tail_full ht s hp
-  obtain ⟨v,uv,vp,rv,fv⟩:=guard_spec hg u up H hhi (u28.trans hh)
-  rw[if_neg (by omega)] at vp
-  have jump:Steps im v 1 1 (v.setPC (pcOf 354)) := by
-    obtain ⟨imm,hd,hoff⟩:=jalTo_sound (show jalTo (0xb08d506f#32) 44192=some 354 by decide)
-    exact jal_x0_step hj hd hoff v vp
-  refine ⟨v.setPC (pcOf 354),su.trans (uv.trans jump),rfl,?_,?_⟩
-  · exact (ru.trans rv).mono (by simp)
-  · exact (fu.trans fv).mono (by intro A hA h;exact h.elim id False.elim)
-
-#print axioms invalid_front
+-- T51: invalid_front (#938's adapter reject path) deleted: DEC rejects a hint >= 7744 itself (PrePass.dec_reject).
 end ClaudeWCT.W9.Machine.Expand.SharedCompact
 
 namespace ClaudeWCT.W9.Machine.Expand.SharedFront
@@ -1042,12 +996,6 @@ theorem installed_zero : CodeAt Images.expandImage (pcOf 42719) zeroBlk := by
   apply codeAt_expand_current_chunk <;> decide +kernel
 theorem installed_jump : CodeAt Images.expandImage (pcOf 30) [0x7892b06f] := by
   apply codeAt_expand_current_chunk <;> decide +kernel
-theorem installed_invalid : CodeAt Images.expandImage (pcOf 44192) [0xb08d506f] := by
-  apply codeAt_expand_current_chunk <;> decide +kernel
-#print axioms installed_tail
-#print axioms installed_zero
-#print axioms installed_jump
-#print axioms installed_invalid
 end ClaudeWCT.W9.Machine.Expand.SharedFront
 
 namespace ClaudeWCT.W9.Machine.Expand.SharedInit
@@ -1063,7 +1011,7 @@ theorem dataBase_of_length {im:Image} (h:im.data.length=29936) : dataBase im=DB0
 theorem installed_dataBase : dataBase Images.expandImage=DB0 :=
   dataBase_of_length Images.expandData_length
 
-theorem initial_data (m : Message) (pk : PublicKey) (b : Bytes 5248) :
+theorem initial_data (m : Message) (pk : PublicKey) (b : ClaudeWCT.W9.T3M.SharedCodec.CBytes) :
     DataAt (w9init Images.expandImage m pk b) := by
   exact prefixData Images.expandData_length installed_dataBase Images.expandZtData Images.expandSharedData
     (Images.expandPrefixData++Images.expandLegacyData) SharedInit.zt_length Images.expandSharedData_length
@@ -1073,7 +1021,7 @@ theorem initial_data (m : Message) (pk : PublicKey) (b : Bytes 5248) :
 theorem zt_data : ∀ r < 128, Images.expandZtData.getD r 0 = SigGolfCandidate.T3M.Search.ZeroCap.ztByte r := by
   decide +kernel
 
-theorem initial_zt (m : Message) (pk : PublicKey) (b : Bytes 5248) :
+theorem initial_zt (m : Message) (pk : PublicKey) (b : ClaudeWCT.W9.T3M.SharedCodec.CBytes) :
     SigGolfCandidate.T3M.Search.ZeroCap.ZtOK 354 (w9init Images.expandImage m pk b) := by
   intro r hr
   rw [show SigGolfCandidate.T3M.Search.ZeroCap.ZT 354 + r = DB0 + r by
@@ -1084,10 +1032,7 @@ theorem initial_zt (m : Message) (pk : PublicKey) (b : Bytes 5248) :
   rw [hd, List.getD_eq_getElem?_getD, List.getElem?_append_left (by rw [SharedInit.zt_length]; exact hr),
     ← List.getD_eq_getElem?_getD]
   exact zt_data r hr
-#print axioms initial_zt
 
-#print axioms installed_dataBase
-#print axioms initial_data
 end ClaudeWCT.W9.Machine.Expand.SharedInit
 
 namespace ClaudeWCT.W9.Machine.Expand.SharedCompact
@@ -1096,28 +1041,35 @@ open SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64 Claude
 set_option maxHeartbeats 1000000
 set_option maxRecDepth 10000
 
-def InflatedAt (s : MachineState) (b : SharedCodec48.CBytes) : Prop :=
+def InflatedAt (s : MachineState) (b : SharedCodec.CBytes) : Prop :=
   ∀k,k<332 → DigAt s (0x7000+16*k)
-    (SharedCodec.inflatedRead (0:Digest) (SharedCodec48.digC b) k)
+    (SharedCodec.inflatedRead (0:Digest) (SharedCodec.digC b) k)
 
-theorem InflatedAt.value {s : MachineState} {b : SharedCodec48.CBytes} (h : InflatedAt s b)
+theorem InflatedAt.value {s : MachineState} {b : SharedCodec.CBytes} (h : InflatedAt s b)
     (k : Fin 9) (i : Fin 6) :
     DigAt s (SharedScatter.coordSource k.val+16*i.val)
-      (Paired.coordinateValues (SharedCodec48.sigDecC b).forest k i) := by
+      (Paired.coordinateValues (SharedCodec.sigDecC b).forest k i) := by
   have hh:=h (1+13*k.val+i.val) (by have:=k.isLt;have:=i.isLt;omega)
   rw [inflated_coordinate_value] at hh
   convert hh using 1 <;> unfold SharedScatter.coordSource <;> omega
 
-theorem InflatedAt.path {s : MachineState} {b : SharedCodec48.CBytes} (h : InflatedAt s b)
+theorem InflatedAt.path {s : MachineState} {b : SharedCodec.CBytes} (h : InflatedAt s b)
     (k : Fin 9) (level : Nat) (hl : level < if k.val<8 ∧ k.val%2=0 then 6 else 7) :
     DigAt s (SharedScatter.coordSource k.val+96+16*level)
-      (Paired.coordinatePath (SharedCodec48.sigDecC b).forest k level) := by
+      (Paired.coordinatePath (SharedCodec.sigDecC b).forest k level) := by
   have hb:level<7:=by split_ifs at hl <;> omega
   have hh:=h (1+13*k.val+6+level) (by have:=k.isLt;omega)
   rw [inflated_coordinate_path b k level hl] at hh
   convert hh using 1 <;> unfold SharedScatter.coordSource <;> omega
-#print axioms InflatedAt.value
-#print axioms InflatedAt.path
+/-- Slot 0 is `rho` (kernel-cheap: through `inflatedRead_internal`, not by unfolding `digC`). -/
+theorem InflatedAt.rho {s : MachineState} {b : SharedCodec.CBytes} (h : InflatedAt s b) :
+    DigAt s 0x7000 (SharedCodec.sigDecC b).rho := by
+  have hr := h 0 (by decide)
+  have e : SharedCodec.inflatedRead (0 : Digest) (SharedCodec.digC b) 0 = SharedCodec.digC b 0 := by
+    have := SharedCodec.inflatedRead_internal (0 : Digest) (SharedCodec.digC b) 0
+    rwa [show SharedCodec.internalFullIndex 0 = 0 from rfl] at this
+  rw [e, show 0x7000 + 16 * 0 = 0x7000 from rfl] at hr
+  exact hr
 end ClaudeWCT.W9.Machine.Expand.SharedCompact
 
 namespace ClaudeWCT.W9.Machine.Expand.SharedScatter
@@ -1148,7 +1100,6 @@ theorem sourceReadout_of_fields (w : W9Machine.WBytes) (s : MachineState) (k : F
     simpa using hp 5 (by omega)
   · rw[ht,topInput_source k]
     simpa only [Nat.add_assoc] using hp (SharedV3.lastLevel k.val+1) (by omega)
-#print axioms sourceReadout_of_fields
 end ClaudeWCT.W9.Machine.Expand.SharedScatter
 
 namespace ClaudeWCT.W9.Machine.Expand.SharedScatter
@@ -1159,8 +1110,8 @@ set_option maxHeartbeats 1000000
 set_option maxRecDepth 10000
 
 theorem canonical_sourceReadout (output : HashOutput) (witness : SharedForest.Witness)
-    (b : SharedCodec48.CBytes) (s : MachineState) (hin : SharedCompact.InflatedAt s b)
-    (hforest : witness.signature.forest=(SharedCodec48.sigDecC b).forest) (k : Fin 9) :
+    (b : SharedCodec.CBytes) (s : MachineState) (hin : SharedCompact.InflatedAt s b)
+    (hforest : witness.signature.forest=(SharedCodec.sigDecC b).forest) (k : Fin 9) :
     SourceReadout (witEnc output witness) s k.val
       (SharedV3.physical k.val (SharedForest.rawChildFromOutput output k).val) := by
   let child : Fin 128 := ⟨coordPhysical k.val (SharedForest.rawChildFromOutput output k).val,
@@ -1182,7 +1133,6 @@ theorem canonical_sourceReadout (output : HashOutput) (witness : SharedForest.Wi
     exact wsibling_witEnc output witness k l hl
   · rw[hc]
     exact wtopOther_witEnc output witness k
-#print axioms canonical_sourceReadout
 end ClaudeWCT.W9.Machine.Expand.SharedScatter
 
 namespace ClaudeWCT.W9.Machine.Expand.SharedInit
@@ -1206,8 +1156,6 @@ theorem DataAt.plans {s : MachineState} (h:DataAt s) : SharedScatter.PlanAt s :=
   rw [show 16748432+5*(child.val%32)+j=DB+(1024+5*(child.val%32)+j) by unfold DB;omega,
     h _ (by omega)]
   exact plans_data child ⟨j,hj⟩
-#print axioms plans_data
-#print axioms DataAt.plans
 end ClaudeWCT.W9.Machine.Expand.SharedInit
 
 namespace ClaudeWCT.W9.Machine.Expand.SharedScatter
@@ -1279,14 +1227,11 @@ theorem prefix_of_slots_c3 (output : HashOutput) (witness : SharedForest.Witness
     · exact Or.inr (Or.inr hc)
   unfold W9Machine.OrigWD
   rw[hframe _ (by omega) hw,hzero off hb ha,show 2904+off+1224-0x1020=off by omega,hz]
-#print axioms witWord24_eq_wbcHigh
-#print axioms witPad24_witEnc
-#print axioms prefix_of_slots_c3
 
 theorem ScatterInv.original_prefix (output : HashOutput) (witness : SharedForest.Witness)
-    (b : SharedCodec48.CBytes) (s t : MachineState)
+    (b : SharedCodec.CBytes) (s t : MachineState)
     (hin : SharedCompact.InflatedAt s b)
-    (hforest : witness.signature.forest=(SharedCodec48.sigDecC b).forest)
+    (hforest : witness.signature.forest=(SharedCodec.sigDecC b).forest)
     (hi : ScatterInv s (SharedForest.rawChildFromOutput output) 9 t)
     (hz : ∀ (off : Nat), off + 8 ≤ 8096 → off % 8 = 0 → s.getMem (BitVec.ofNat 64 (2904+off))=0)
     (off : Nat) (hb : off+8≤7664) (ha : off%8=0) (hc : off≠32∨witness.counters 3=0) (hp : off≠24) :
@@ -1310,7 +1255,6 @@ theorem ScatterInv.original_prefix (output : HashOutput) (witness : SharedForest
     simpa only [child,coordPhysical_source] using canonical_sourceReadout output witness b s hin hforest k
   · intro A hA hn
     exact hi.exactFrame.get hA hn
-#print axioms ScatterInv.original_prefix
 end ClaudeWCT.W9.Machine.Expand.SharedScatter
 
 namespace ClaudeWCT.W9.Machine.Expand.SharedCompact
@@ -1319,48 +1263,8 @@ open SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64 Claude
 set_option maxHeartbeats 1000000
 set_option maxRecDepth 10000
 
-theorem serializedWord_congr (r q : Nat→BitVec 64) (k : Nat) (hk:k<664)
-    (h : ∀ j, j < 656 → r j = q j) : serializedWord r k=serializedWord q k := by
-  unfold serializedWord
-  split_ifs <;> first | rfl | rw[h _ (by omega)]
-
-theorem hints_word (b : SharedCodec48.CBytes) :
-    b.extractLsb' (64*655) 64 >>> 48 = (b.extractLsb' (8*5246) 16).setWidth 64 := by
-  apply BitVec.eq_of_getLsbD_eq
-  intro j hj
-  simp only [BitVec.getLsbD_ushiftRight,BitVec.getLsbD_extractLsb',BitVec.getLsbD_setWidth,
-    hj,decide_true,Bool.true_and]
-  by_cases h:j<16
-  · rw[show decide (48+j<64)=true from decide_eq_true (by omega),
-      show decide (j<16)=true from decide_eq_true h]
-    simp only [Bool.true_and]
-    congr 1
-    omega
-  · rw[show decide (48+j<64)=false from decide_eq_false (by omega),
-      show decide (j<16)=false from decide_eq_false h]
-    simp
-
-theorem serializedWord_eq (read : Nat→BitVec 64) (k : Nat) :
-    serializedWord read k=SharedCodec.serializedWord read k := by rfl
-
-theorem inflatedAt_of_words (s : MachineState) (b : SharedCodec48.CBytes)
-    (hw : ∀ k, k < 664 → s.getMem (BitVec.ofNat 64 (0x7000+8*k))=
-      serializedWord (fun j=>b.extractLsb' (64*j) 64) k) : InflatedAt s b := by
-  intro k hk
-  have hlo:=hw (2*k) (by omega)
-  have hhi:=hw (2*k+1) (by omega)
-  rw [serializedWord_eq] at hlo hhi
-  constructor
-  · rw [show 0x7000+16*k=0x7000+8*(2*k) by omega]
-    exact hlo.trans (by simpa only [Nat.add_zero,Nat.mul_zero] using
-      SharedCodec48.serializedWord_digC b k 0 (by decide))
-  · rw [show 0x7000+16*k+8=0x7000+8*(2*k+1) by omega]
-    exact hhi.trans (by simpa only [Nat.mul_one] using
-      SharedCodec48.serializedWord_digC b k 1 (by decide))
-
-#print axioms serializedWord_congr
-#print axioms hints_word
-#print axioms inflatedAt_of_words
+-- T51: the #938 5,248-byte readout lemmas (serializedWord_congr, hints_word, inflatedAt_of_words) are gone:
+-- DEC (Expand_PrePassInit) writes the inflated slot layout directly.
 end ClaudeWCT.W9.Machine.Expand.SharedCompact
 
 namespace ClaudeWCT.W9.Machine.Expand.SharedScatter
@@ -1431,9 +1335,9 @@ theorem preciseCoordinateW_tail (k : Fin 9) (child : Fin 128) (A : Nat)
   · have hb:=topDest_bound k child; omega
 
 theorem ScatterInv.forest_pre (output : HashOutput) (witness : SharedForest.Witness)
-    (b : SharedCodec48.CBytes) (index : Nat) (s t u : MachineState)
+    (b : SharedCodec.CBytes) (index : Nat) (s t u : MachineState)
     (hin : SharedCompact.InflatedAt s b)
-    (hforest : witness.signature.forest=(SharedCodec48.sigDecC b).forest)
+    (hforest : witness.signature.forest=(SharedCodec.sigDecC b).forest)
     (ht : ScatterInv s (SharedForest.rawChildFromOutput output) 9 t)
     (hfields : SharedForestRun.Fields index (SharedForest.rawChildFromOutput output)
       (fun k=>SharedForest.forestRank output k.val) s)
@@ -1469,8 +1373,6 @@ theorem ScatterInv.forest_pre (output : HashOutput) (witness : SharedForest.Witn
     unfold W9Machine.OrigWD at hw ⊢
     rw[uf.get (by omega) (fun h=>h)]
     exact hw
-#print axioms rawAt_of_fields
-#print axioms ScatterInv.forest_pre
 end ClaudeWCT.W9.Machine.Expand.SharedScatter
 
 namespace ClaudeWCT.W9.Machine.Expand.SharedCompact
@@ -1479,24 +1381,7 @@ open SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64 Claude
 set_option maxHeartbeats 1000000
 set_option maxRecDepth 10000
 
-theorem hints_of_signature (s : MachineState) (b : SharedCodec48.CBytes)
-    (hsig : ∀ j, j < 656 → s.getMem (BitVec.ofNat 64 (0x7000+8*j))=b.extractLsb' (64*j) 64) :
-    s.getMem 0x8478 >>> 48=BitVec.ofNat 64 (SharedCodec48.sigDecC b).policyHints.toNat := by
-  have hh : s.getMem 0x8478=b.extractLsb' (64*655) 64 := hsig 655 (by decide)
-  rw [hh,hints_word]
-  change (b.extractLsb' (8*5246) 16).setWidth 64=BitVec.ofNat 64 (b.extractLsb' (8*5246) 16).toNat
-  apply BitVec.eq_of_toNat_eq
-  simp only [BitVec.toNat_setWidth,BitVec.toNat_ofNat]
-
-theorem inflatedAt_of_readout (s t : MachineState) (b : SharedCodec48.CBytes)
-    (hsig : ∀ j, j < 656 → s.getMem (BitVec.ofNat 64 (0x7000+8*j))=b.extractLsb' (64*j) 64)
-    (hout : ∀ k, k < 664 → t.getMem (BitVec.ofNat 64 (0x7000+8*k))=
-      serializedWord (fun j=>s.getMem (BitVec.ofNat 64 (0x7000+8*j))) k) : InflatedAt t b := by
-  apply inflatedAt_of_words
-  intro k hk
-  exact (hout k hk).trans (serializedWord_congr _ _ k hk hsig)
-
-theorem InflatedAt.frame {s t : MachineState} {b : SharedCodec48.CBytes} (h : InflatedAt s b)
+theorem InflatedAt.frame {s t : MachineState} {b : SharedCodec.CBytes} (h : InflatedAt s b)
     {W : Nat→Prop} (hf : Frame s t W)
     (hn : ∀A,0x7000≤A → A<0x84c0 → ¬W A) : InflatedAt t b := by
   intro k hk
@@ -1506,9 +1391,6 @@ theorem InflatedAt.frame {s t : MachineState} {b : SharedCodec48.CBytes} (h : In
     exact hh.1
   · rw[hf.get (by omega) (hn _ (by omega) (by omega))]
     exact hh.2
-#print axioms hints_of_signature
-#print axioms inflatedAt_of_readout
-#print axioms InflatedAt.frame
 end ClaudeWCT.W9.Machine.Expand.SharedCompact
 
 namespace ClaudeWCT.W9.Machine.Expand.SharedScatter
@@ -1520,10 +1402,10 @@ set_option maxRecDepth 10000
 
 theorem scatter_forest_pre {im : Image} (hc : ∀k:Fin 9,CoordinateCode im k.val)
     (ha : CodeAt im (pcOf 46509) afterCode)
-    (output : HashOutput) (witness : SharedForest.Witness) (b : SharedCodec48.CBytes)
+    (output : HashOutput) (witness : SharedForest.Witness) (b : SharedCodec.CBytes)
     (index : Nat) (s : MachineState) (hp : s.pc=pcOf 45257)
     (hin : SharedCompact.InflatedAt s b)
-    (hforest : witness.signature.forest=(SharedCodec48.sigDecC b).forest)
+    (hforest : witness.signature.forest=(SharedCodec.sigDecC b).forest)
     (hfields : SharedForestRun.Fields index (SharedForest.rawChildFromOutput output)
       (fun k=>SharedForest.forestRank output k.val) s)
     (hplan : PlanAt s) (hmode : s.getMem 417824=0)
@@ -1542,7 +1424,6 @@ theorem scatter_forest_pre {im : Image} (hc : ∀k:Fin 9,CoordinateCode im k.val
     (ht.frame.trans uf).mono (by intro A hA h;rcases h with h|h;exact h;exact h.elim)
   refine ⟨u,st.trans tu,?_,hframe⟩
   exact ScatterInv.forest_pre output witness b index s t u hin hforest ht hfields uf hpc hz hc3 htop
-#print axioms scatter_forest_pre
 end ClaudeWCT.W9.Machine.Expand.SharedScatter
 
 namespace ClaudeWCT.W9.Machine.Expand.SharedCompact
@@ -1551,28 +1432,26 @@ open SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64 Claude
 set_option maxHeartbeats 1000000
 set_option maxRecDepth 10000
 
-def ForestAt (s : MachineState) (b : SharedCodec48.CBytes) : Prop :=
+def ForestAt (s : MachineState) (b : SharedCodec.CBytes) : Prop :=
   ∀k,k<118 → DigAt s (0x7000+16*k)
-    (SharedCodec.inflatedRead (0:Digest) (SharedCodec48.digC b) k)
+    (SharedCodec.inflatedRead (0:Digest) (SharedCodec.digC b) k)
 
-theorem ForestAt.value {s : MachineState} {b : SharedCodec48.CBytes} (h : ForestAt s b)
+theorem ForestAt.value {s : MachineState} {b : SharedCodec.CBytes} (h : ForestAt s b)
     (k : Fin 9) (i : Fin 6) :
     DigAt s (SharedScatter.coordSource k.val+16*i.val)
-      (Paired.coordinateValues (SharedCodec48.sigDecC b).forest k i) := by
+      (Paired.coordinateValues (SharedCodec.sigDecC b).forest k i) := by
   have hh:=h (1+13*k.val+i.val) (by have:=k.isLt;have:=i.isLt;omega)
   rw [inflated_coordinate_value] at hh
   convert hh using 1 <;> unfold SharedScatter.coordSource <;> omega
 
-theorem ForestAt.path {s : MachineState} {b : SharedCodec48.CBytes} (h : ForestAt s b)
+theorem ForestAt.path {s : MachineState} {b : SharedCodec.CBytes} (h : ForestAt s b)
     (k : Fin 9) (level : Nat) (hl : level < if k.val<8 ∧ k.val%2=0 then 6 else 7) :
     DigAt s (SharedScatter.coordSource k.val+96+16*level)
-      (Paired.coordinatePath (SharedCodec48.sigDecC b).forest k level) := by
+      (Paired.coordinatePath (SharedCodec.sigDecC b).forest k level) := by
   have hb:level<7:=by split_ifs at hl <;> omega
   have hh:=h (1+13*k.val+6+level) (by have:=k.isLt;omega)
   rw [inflated_coordinate_path b k level hl] at hh
   convert hh using 1 <;> unfold SharedScatter.coordSource <;> omega
-#print axioms ForestAt.value
-#print axioms ForestAt.path
 end ClaudeWCT.W9.Machine.Expand.SharedCompact
 
 namespace ClaudeWCT.W9.Machine.Expand.SharedScatter
@@ -1583,8 +1462,8 @@ set_option maxHeartbeats 1000000
 set_option maxRecDepth 10000
 
 theorem canonical_sourceReadout_forest (output : HashOutput) (witness : SharedForest.Witness)
-    (b : SharedCodec48.CBytes) (s : MachineState) (hin : SharedCompact.ForestAt s b)
-    (hforest : witness.signature.forest=(SharedCodec48.sigDecC b).forest) (k : Fin 9) :
+    (b : SharedCodec.CBytes) (s : MachineState) (hin : SharedCompact.ForestAt s b)
+    (hforest : witness.signature.forest=(SharedCodec.sigDecC b).forest) (k : Fin 9) :
     SourceReadout (witEnc output witness) s k.val
       (SharedV3.physical k.val (SharedForest.rawChildFromOutput output k).val) := by
   let child : Fin 128 := ⟨coordPhysical k.val (SharedForest.rawChildFromOutput output k).val,
@@ -1606,7 +1485,6 @@ theorem canonical_sourceReadout_forest (output : HashOutput) (witness : SharedFo
     exact wsibling_witEnc output witness k l hl
   · rw[hc]
     exact wtopOther_witEnc output witness k
-#print axioms canonical_sourceReadout_forest
 end ClaudeWCT.W9.Machine.Expand.SharedScatter
 
 namespace ClaudeWCT.W9.Machine.Expand.SharedScatter
@@ -1617,9 +1495,9 @@ set_option maxHeartbeats 1000000
 set_option maxRecDepth 10000
 
 theorem ScatterInv.original_prefix_forest (output : HashOutput) (witness : SharedForest.Witness)
-    (b : SharedCodec48.CBytes) (s t : MachineState)
+    (b : SharedCodec.CBytes) (s t : MachineState)
     (hin : SharedCompact.ForestAt s b)
-    (hforest : witness.signature.forest=(SharedCodec48.sigDecC b).forest)
+    (hforest : witness.signature.forest=(SharedCodec.sigDecC b).forest)
     (hi : ScatterInv s (SharedForest.rawChildFromOutput output) 9 t)
     (hz : ∀ (off : Nat), off + 8 ≤ 8096 → off % 8 = 0 → s.getMem (BitVec.ofNat 64 (2904+off))=0)
     (off : Nat) (hb : off+8≤7664) (ha : off%8=0) (hc : off≠32∨witness.counters 3=0) (hp : off≠24) :
@@ -1643,17 +1521,16 @@ theorem ScatterInv.original_prefix_forest (output : HashOutput) (witness : Share
     simpa only [child,coordPhysical_source] using canonical_sourceReadout_forest output witness b s hin hforest k
   · intro A hA hn
     exact hi.exactFrame.get hA hn
-#print axioms ScatterInv.original_prefix_forest
 end ClaudeWCT.W9.Machine.Expand.SharedScatter
 
 namespace ClaudeWCT.W9.Machine.Expand.SharedCompact
 open SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64 SigGolfCandidate.Rv SigGolfCandidate.T3M
 open ClaudeWCT.W9.T3M
 
-theorem InflatedAt.forest {s:MachineState} {b:SharedCodec48.CBytes} (h:InflatedAt s b) : ForestAt s b :=
+theorem InflatedAt.forest {s:MachineState} {b:SharedCodec.CBytes} (h:InflatedAt s b) : ForestAt s b :=
   fun k hk=>h k (by omega)
 
-theorem ForestAt.frame {s t:MachineState} {b:SharedCodec48.CBytes} (h:ForestAt s b)
+theorem ForestAt.frame {s t:MachineState} {b:SharedCodec.CBytes} (h:ForestAt s b)
     {W:Nat → Prop} (hf:Frame s t W)
     (hn:∀A,0x7000≤A → A<0x7760 → ¬W A) : ForestAt t b := by
   intro k hk
@@ -1663,8 +1540,6 @@ theorem ForestAt.frame {s t:MachineState} {b:SharedCodec48.CBytes} (h:ForestAt s
     exact hh.1
   · rw[hf.get (by omega) (hn _ (by omega) (by omega))]
     exact hh.2
-#print axioms InflatedAt.forest
-#print axioms ForestAt.frame
 end ClaudeWCT.W9.Machine.Expand.SharedCompact
 
 namespace ClaudeWCT.W9.Machine.Expand.SharedFront
@@ -1677,54 +1552,52 @@ set_option maxRecDepth 10000
 def Work (A : Nat) : Prop :=
   A=SharedCompact.policyAddress ∨ (0x70d0≤A ∧ A<0x84c0) ∨ Writes A
 
-structure Prepared (s0:MachineState) (message:SigGolfCandidate.T3.Message) (b:SharedCodec48.CBytes) (s:MachineState) : Prop where
+structure Prepared (s0:MachineState) (message:SigGolfCandidate.T3.Message) (b:SharedCodec.CBytes) (s:MachineState) : Prop where
   pc : s.pc=pcOf 45056
   x5 : s.getReg .x5=0
-  rho : DigAt s DIG (SharedCodec48.sigDecC b).rho
+  rho : DigAt s DIG (SharedCodec.sigDecC b).rho
   msg : ∀k,k < 4 → s.getMem (BitVec.ofNat 64 (DIG+32+8*k))=message.extractLsb' (64*k) 64
   inflated : SharedCompact.InflatedAt s b
-  hints : s.getMem (BitVec.ofNat 64 SharedCompact.policyAddress)=BitVec.ofNat 64 (SharedCodec48.sigDecC b).policyHints.toNat
+  hints : s.getMem (BitVec.ofNat 64 SharedCompact.policyAddress)=BitVec.ofNat 64 (SharedCodec.sigDecC b).policyHints.toNat
   data : SharedInit.DataAt s
   frame : Frame s0 s Work
   setupZero : ∀A,A=0x59B0 ∨ A=0x59B8 ∨ A=0x59C0 ∨ A=0x59C8 → s.getMem (BitVec.ofNat 64 A)=0
 
+/-- T51: the front after DEC (word 0 -> DEC 54569 -> `j 1`): from word 1 with the inflated slot layout and the hint
+already written (`Expand_PrePassInit.dec_init`), the front tail + zero block + `j 45056` (37 steps). `s0` is the real
+initial state; DEC wrote only the hint word and `[0x70d0, 0x84c0)`. -/
 theorem prepare {im:Image}
-    (hc:SharedCompact.AdapterCodeAt im) (hf:CodeAt im (pcOf 1) frontTail)
+    (hf:CodeAt im (pcOf 1) frontTail)
     (hz:CodeAt im (pcOf 42719) zeroBlk) (hj:CodeAt im (pcOf 30) [0x7892b06f])
-    (s:MachineState) (message:SigGolfCandidate.T3.Message) (b:SharedCodec48.CBytes)
-    (hp:s.pc=pcOf 44096) (h5:s.getReg .x5=0)
-    (hb:∀k,k < 656 → s.getMem (BitVec.ofNat 64 (0x7000+8*k))=b.extractLsb' (64*k) 64)
+    (s0 s:MachineState) (message:SigGolfCandidate.T3.Message) (b:SharedCodec.CBytes)
+    (hp:s.pc=pcOf 1) (h5:s.getReg .x5=0)
+    (hin:SharedCompact.InflatedAt s b)
+    (hh:s.getMem (BitVec.ofNat 64 SharedCompact.policyAddress)=
+      BitVec.ofNat 64 (SharedCodec.sigDecC b).policyHints.toNat)
     (hm:∀k,k < 4 → s.getMem (BitVec.ofNat 64 (0x6620+8*k))=message.extractLsb' (64*k) 64)
-    (hd:SharedInit.DataAt s) (hh:(SharedCodec48.sigDecC b).policyHints.toNat<7744) :
-    ∃t,Steps im s 3248 3248 t ∧ Prepared s message b t := by
-  obtain ⟨u,su,up,uz,ur,uh,ub,uf⟩:=SharedCompact.front_readout hc s hp
-    (SharedCodec48.sigDecC b).policyHints.toNat hh (SharedCompact.hints_of_signature s b hb)
-  have ui:SharedCompact.InflatedAt u b:=SharedCompact.inflatedAt_of_readout s u b hb ub
-  obtain ⟨t,ut,tp,t5,t0,t8,tm,tz,tr,tf⟩:=setup hf hz hj u up (ur.get (by decide) |>.trans h5)
-  refine ⟨t,su.trans ut,⟨tp,t5,?_,?_,?_,?_,?_,?_,tz⟩⟩
-  · have hr:=ui 0 (by decide)
-    change DigAt u 0x7000 (SharedCodec48.sigDecC b).rho at hr
+    (hd:SharedInit.DataAt s)
+    (hf0:Frame s0 s (fun A=>A=SharedCompact.policyAddress ∨ (0x70d0≤A ∧ A<0x84c0))) :
+    ∃t,Steps im s 37 37 t ∧ Prepared s0 message b t := by
+  obtain ⟨t,ut,tp,t5,t0,t8,tm,tz,tr,tf⟩:=setup hf hz hj s hp h5
+  refine ⟨t,ut,⟨tp,t5,?_,?_,?_,?_,?_,?_,tz⟩⟩
+  · have hr:=hin.rho
     exact ⟨(t0 DIG (Or.inr rfl)).trans hr.1,(t8 (DIG+8) (Or.inr rfl)).trans hr.2⟩
   · intro k hk
-    exact (tm k hk).trans ((uf.get (by omega) (by unfold SharedCompact.policyAddress;omega)).trans (hm k hk))
-  · exact ui.frame tf (by intro A hA hB hw;unfold Writes at hw;simp only [DIG] at hw;omega)
-  · exact (tf.get (by unfold SharedCompact.policyAddress;omega) (by unfold Writes SharedCompact.policyAddress DIG;omega)).trans uh
+    exact (tm k hk).trans (hm k hk)
+  · exact hin.frame tf (by intro A hA hB hw;unfold Writes at hw;simp only [DIG] at hw;omega)
+  · exact (tf.get (by unfold SharedCompact.policyAddress;omega) (by unfold Writes SharedCompact.policyAddress DIG;omega)).trans hh
   · intro i hi
     have x:=hd i hi
     have hm : t.getByte (BitVec.ofNat 64 (SharedInit.DB+i))=s.getByte (BitVec.ofNat 64 (SharedInit.DB+i)) :=
-      (uf.trans tf).getByte (by unfold SharedInit.DB;omega) (by
-        intro h;rcases h with h|h
-        · unfold SharedCompact.policyAddress SharedInit.DB at h;omega
-        · unfold Writes SharedInit.DB DIG at h;omega)
+      tf.getByte (by unfold SharedInit.DB;omega) (by unfold Writes SharedInit.DB DIG;omega)
     exact hm.trans x
-  · exact (uf.trans tf).mono (by
+  · exact (hf0.trans tf).mono (by
       intro A hA h
       rcases h with (h|h)|h
       · exact Or.inl h
       · exact Or.inr (Or.inl h)
       · exact Or.inr (Or.inr h))
 
-#print axioms prepare
 end ClaudeWCT.W9.Machine.Expand.SharedFront
 
 namespace ClaudeWCT.W9.Machine.Expand.SharedInit
@@ -1747,11 +1620,11 @@ set_option maxHeartbeats 1000000
 set_option maxRecDepth 10000
 
 def SearchWrites (A:Nat) : Prop := Work A ∨ SharedDigest.writes A
-structure Searched (s0:MachineState) (b:SharedCodec48.CBytes)
+structure Searched (s0:MachineState) (b:SharedCodec.CBytes)
     (r:Option (BitVec 32 × BitVec 256)) (s:MachineState) : Prop where
   x5 : s.getReg .x5=0
   inflated : SharedCompact.InflatedAt s b
-  hints : s.getMem (BitVec.ofNat 64 SharedCompact.policyAddress)=BitVec.ofNat 64 (SharedCodec48.sigDecC b).policyHints.toNat
+  hints : s.getMem (BitVec.ofNat 64 SharedCompact.policyAddress)=BitVec.ofNat 64 (SharedCodec.sigDecC b).policyHints.toNat
   data : SharedInit.DataAt s
   frame : Frame s0 s SearchWrites
   setupZero : ∀A,A=0x59B0 ∨ A=0x59B8 ∨ A=0x59C0 ∨ A=0x59C8 → s.getMem (BitVec.ofNat 64 A)=0
@@ -1766,12 +1639,12 @@ structure Searched (s0:MachineState) (b:SharedCodec48.CBytes)
 
 theorem search_prepared {im:Image} {sk:BitVec 256}
     (hl:SigGolfCandidate.T3M.Verify.LookOK im (SharedDigest.look true))
-    {s0 s:MachineState} {message:SigGolfCandidate.T3.Message} {b:SharedCodec48.CBytes}
+    {s0 s:MachineState} {message:SigGolfCandidate.T3.Message} {b:SharedCodec.CBytes}
     (hp:Prepared s0 message b s) :
     TBSim im sk s (2^21*200+12)
-      (SigGolfCandidate.Research.SharedForest.sharedDigestSearch (SharedCodec48.sigDecC b).rho message 0 (2^21))
+      (SigGolfCandidate.Research.SharedForest.sharedDigestSearch (SharedCodec.sigDecC b).rho message 0 (2^21))
       (Searched s0 b) := by
-  have hpre:SharedDigest.Pre true (SharedCodec48.sigDecC b).rho message s:=
+  have hpre:SharedDigest.Pre true (SharedCodec.sigDecC b).rho message s:=
     ⟨hp.x5,hp.rho,hp.msg,hp.data.tables⟩
   exact (SharedDigest.search_good true hl hpre hp.pc).mono (by omega) (by
     intro r t ht
@@ -1788,7 +1661,6 @@ theorem search_prepared {im:Image} {sk:BitVec 256}
       | none => exact ht.result.1
       | some p => exact ht.result
     · cases r <;> exact ht.resultR17)
-#print axioms search_prepared
 end ClaudeWCT.W9.Machine.Expand.SharedFront
 
 namespace ClaudeWCT.W9.Machine.Expand.SharedInit
@@ -1800,7 +1672,7 @@ set_option maxRecDepth 10000
 theorem legacyByte {im : Image} (hlen : im.data.length = 29936)
     (pre : List (BitVec 8)) (hp : pre.length = 25840)
     (hd : im.data = pre ++ Images.expandLegacyData)
-    (m : Message) (pk : PublicKey) (b : Bytes 5248) (i : Nat) (hi : i < 4096) :
+    (m : Message) (pk : PublicKey) (b : ClaudeWCT.W9.T3M.SharedCodec.CBytes) (i : Nat) (hi : i < 4096) :
     (w9init im m pk b).getByte (BitVec.ofNat 64 (TOP_DATA + i)) = Images.expandLegacyData.getD i 0 := by
   rw [show TOP_DATA + i = DB0 + (25840+i) by unfold TOP_DATA DB0; omega,
     dataByte hlen (dataBase_of_length hlen) m pk b _ (by omega), hd]
@@ -1809,7 +1681,7 @@ theorem legacyByte {im : Image} (hlen : im.data.length = 29936)
 theorem initial_tables_of_data {im : Image} (hlen : im.data.length = 29936)
     (pre : List (BitVec 8)) (hp : pre.length = 25840)
     (hd : im.data = pre ++ Images.expandLegacyData)
-    (m : Message) (pk : PublicKey) (b : Bytes 5248) :
+    (m : Message) (pk : PublicKey) (b : ClaudeWCT.W9.T3M.SharedCodec.CBytes) :
     TableOK (w9init im m pk b) ∧ CfTableOK 0 (w9init im m pk b) ∧
       Reward.RewardTablesOK (w9init im m pk b) := by
   refine ⟨?_, ?_, ?_⟩
@@ -1823,7 +1695,7 @@ theorem initial_tables_of_data {im : Image} (hlen : im.data.length = 29936)
     rw [legacyByte hlen pre hp hd m pk b i (by omega)]
     exact expandLegacyData_reward i hi hj
 
-theorem initial_tables (m : Message) (pk : PublicKey) (b : Bytes 5248) :
+theorem initial_tables (m : Message) (pk : PublicKey) (b : ClaudeWCT.W9.T3M.SharedCodec.CBytes) :
     TableOK (w9init Images.expandImage m pk b) ∧ CfTableOK 0 (w9init Images.expandImage m pk b) ∧
       Reward.RewardTablesOK (w9init Images.expandImage m pk b) := by
   exact initial_tables_of_data Images.expandData_length
@@ -1831,7 +1703,6 @@ theorem initial_tables (m : Message) (pk : PublicKey) (b : Bytes 5248) :
     (by simp only [List.length_append, SharedInit.zt_length, Images.expandSharedData_length,
       Images.expandPrefixData_length])
     (by simp only [Images.expandImage, Images.expandData, List.append_assoc]) m pk b
-#print axioms initial_tables
 end ClaudeWCT.W9.Machine.Expand.SharedInit
 
 namespace ClaudeWCT.W9.Machine.Expand.SharedHandoff
@@ -1842,27 +1713,34 @@ open SigGolfCandidate.Research
 set_option maxHeartbeats 1000000
 set_option maxRecDepth 10000
 
-theorem inflated_main (b : SharedCodec48.CBytes) (i : Nat) (hi : 114 ≤ i) :
-    SharedCodec.inflatedRead (0 : Digest) (SharedCodec48.digC b) (i+4)=SharedCodec48.digC b i := by
-  unfold SharedCodec.inflatedRead SharedCodec.internalDummy SharedCodec.externalFullIndex
-  simp only [show ¬(i+4=13 ∨ i+4=39 ∨ i+4=65 ∨ i+4=91) by omega,decide_false,Bool.false_eq_true,if_false,
-    if_pos (show 13 < i+4 by omega),if_pos (show 39 < i+4 by omega),if_pos (show 65 < i+4 by omega),if_pos (show 91 < i+4 by omega)]
-  congr 1
-
+/-- T51: the expander's slots of layer `lay` (#938's lower-layer slots kept; the top path follows the 51 values):
+digest `layIdx lay + i` sits at slot `internalFullIndex (layIdx lay) + i`, and the forest code's move by 19 slots puts
+slot 118 at `lP 0 = 30864`. -/
 theorem lP_shared (lay : Layer) :
-    SigGolfCandidate.T3M.Expand.lP lay=30864+16*(SharedCodec.layIdx lay-114) ∧
-    114 ≤ SharedCodec.layIdx lay ∧ SharedCodec.layIdx lay+chainCount lay+height lay ≤ 328 := by
-  fin_cases lay <;> decide
+    SigGolfCandidate.T3M.Expand.lP lay=30864+16*(SharedCodec.internalFullIndex (SharedCodec.layIdx lay)-118) ∧
+    118 ≤ SharedCodec.internalFullIndex (SharedCodec.layIdx lay) ∧
+    SharedCodec.internalFullIndex (SharedCodec.layIdx lay)+chainCount lay+height lay ≤ 332 ∧
+    ∀ i, i<chainCount lay+height lay →
+      SharedCodec.internalFullIndex (SharedCodec.layIdx lay+i)=SharedCodec.internalFullIndex (SharedCodec.layIdx lay)+i := by
+  fin_cases lay <;> refine ⟨rfl,by decide,by decide,?_⟩ <;> intro i hi <;>
+    simp only [chainCount,height,SharedCodec.layIdx,Fin.zero_eta,Fin.mk_one,Fin.reduceFinMk,
+      Matrix.cons_val_zero,Matrix.cons_val_one,Matrix.head_cons,Matrix.cons_val] at hi ⊢ <;>
+    unfold SharedCodec.internalFullIndex <;> split_ifs <;> omega
 
-theorem main_readout {b : SharedCodec48.CBytes} {s t : MachineState}
+theorem inflated_main (b : SharedCodec.CBytes) (lay : Layer) (i : Nat) (hi : i<chainCount lay+height lay) :
+    SharedCodec.inflatedRead (0 : Digest) (SharedCodec.digC b) (SharedCodec.internalFullIndex (SharedCodec.layIdx lay)+i)=
+      SharedCodec.digC b (SharedCodec.layIdx lay+i) := by
+  rw [← (lP_shared lay).2.2.2 i hi]
+  exact SharedCodec.inflatedRead_internal _ _ _
+
+theorem main_readout {b : SharedCodec.CBytes} {s t : MachineState}
     (hsource : SharedCompact.InflatedAt s b)
     (hmove : ∀i<428,t.getMem (BitVec.ofNat 64 (30864+8*i))=s.getMem (BitVec.ofNat 64 (30560+8*i))) :
-    SigGolfCandidate.T3M.Expand.BC.SigLayersAt t (SharedForest.mainSignature (SharedCodec48.sigDecC b)) := by
-  have hrows : ∀i<214,DigAt t (30864+16*i) (SharedCodec48.digC b (114+i)) := by
+    SigGolfCandidate.T3M.Expand.BC.SigLayersAt t (SharedForest.mainSignature (SharedCodec.sigDecC b)) := by
+  have hrows : ∀i<214,DigAt t (30864+16*i) (SharedCodec.inflatedRead (0 : Digest) (SharedCodec.digC b) (118+i)) := by
     intro i hi
     have h:=hsource (118+i) (by omega)
-    rw [show 118+i=(114+i)+4 by omega,inflated_main b _ (by omega)] at h
-    have ha:0x7000+16*(114+i+4)=30560+16*i:=by omega
+    have ha:0x7000+16*(118+i)=30560+16*i:=by omega
     rw [ha] at h
     refine ⟨?_,?_⟩
     · have hm:=hmove (2*i) (by omega)
@@ -1872,19 +1750,24 @@ theorem main_readout {b : SharedCodec48.CBytes} {s t : MachineState}
       rw [show 30864+8*(2*i+1)=30864+16*i+8 by omega,show 30560+8*(2*i+1)=30560+16*i+8 by omega] at hm
       exact hm.trans h.2
   intro lay
-  obtain ⟨hp,hl,hh⟩:=lP_shared lay
+  obtain ⟨hp,hl,hh,_⟩:=lP_shared lay
   constructor
   · intro i hi
-    have h:=hrows (SharedCodec.layIdx lay-114+i) (by omega)
-    rw [show 114+(SharedCodec.layIdx lay-114+i)=SharedCodec.layIdx lay+i by omega,
-      show 30864+16*(SharedCodec.layIdx lay-114+i)=SigGolfCandidate.T3M.Expand.lP lay+16*i by rw[hp];omega] at h
+    have h:=hrows (SharedCodec.internalFullIndex (SharedCodec.layIdx lay)-118+i) (by omega)
+    rw [show 118+(SharedCodec.internalFullIndex (SharedCodec.layIdx lay)-118+i)=
+        SharedCodec.internalFullIndex (SharedCodec.layIdx lay)+i by omega, inflated_main b lay i (by omega),
+      show 30864+16*(SharedCodec.internalFullIndex (SharedCodec.layIdx lay)-118+i)=
+        SigGolfCandidate.T3M.Expand.lP lay+16*i by rw[hp];omega] at h
     exact h
   · intro j hj
-    have h:=hrows (SharedCodec.layIdx lay-114+chainCount lay+j) (by omega)
-    rw [show 114+(SharedCodec.layIdx lay-114+chainCount lay+j)=SharedCodec.layIdx lay+chainCount lay+j by omega,
-      show 30864+16*(SharedCodec.layIdx lay-114+chainCount lay+j)=SigGolfCandidate.T3M.Expand.lP lay+16*chainCount lay+16*j by rw[hp];omega] at h
+    have h:=hrows (SharedCodec.internalFullIndex (SharedCodec.layIdx lay)-118+chainCount lay+j) (by omega)
+    rw [show 118+(SharedCodec.internalFullIndex (SharedCodec.layIdx lay)-118+chainCount lay+j)=
+        SharedCodec.internalFullIndex (SharedCodec.layIdx lay)+(chainCount lay+j) by omega,
+      inflated_main b lay (chainCount lay+j) (by omega),
+      show 30864+16*(SharedCodec.internalFullIndex (SharedCodec.layIdx lay)-118+chainCount lay+j)=
+        SigGolfCandidate.T3M.Expand.lP lay+16*chainCount lay+16*j by rw[hp];omega,
+      show SharedCodec.layIdx lay+(chainCount lay+j)=SharedCodec.layIdx lay+chainCount lay+j by omega] at h
     exact h
-#print axioms main_readout
 end ClaudeWCT.W9.Machine.Expand.SharedHandoff
 
 namespace ClaudeWCT.W9.Machine.Expand.SharedHandoff
@@ -1898,7 +1781,7 @@ set_option maxRecDepth 10000
 def Writes (A : Nat) : Prop :=
   A=0x20260 ∨ A=0x20268 ∨ A=0x20290 ∨ A=0x20298 ∨ (2048≤A ∧ A<2112) ∨ (30864≤A ∧ A<34288)
 
-theorem layer_inv {b : SharedCodec48.CBytes} {s t : MachineState} {index : Nat} {pair : Digest × Digest}
+theorem layer_inv {b : SharedCodec.CBytes} {s t : MachineState} {index : Nat} {pair : Digest × Digest}
     (hp : t.pc=pcOf 249) (h5 : t.getReg .x5=0) (hi : index<2^31)
     (hidx : s.getMem (BitVec.ofNat 64 SigGolfCandidate.T3M.Expand.IDXV)=BitVec.ofNat 64 index)
     (hin : SharedCompact.InflatedAt s b)
@@ -1909,13 +1792,14 @@ theorem layer_inv {b : SharedCodec48.CBytes} {s t : MachineState} {index : Nat} 
     (hc32 : ∃x<2^32,s.getMem (BitVec.ofNat 64 (ENC+32))=BitVec.ofNat 64 x)
     (hz : SigGolfCandidate.T3M.Expand.BC.LZero s)
     (htab : Search.TableOK s) (hcf : Search.CfTableOK 0 s) (hrew : Search.Reward.RewardTablesOK s)
-    (hhint : (SharedCodec48.sigDecC b).policyHints.toNat<7744)
-    (hhmem : s.getMem 0x66000=BitVec.ofNat 64 (SharedCodec48.sigDecC b).policyHints.toNat)
-    (hzt : SigGolfCandidate.T3M.Search.ZeroCap.ZtOK 354 s) :
-    SigGolfCandidate.T3M.Expand.SharedLayers.LInv (SharedForest.mainSignature (SharedCodec48.sigDecC b))
-      (SharedCodec48.sigDecC b).policyHints index 4 (.pair pair.1 pair.2) t := by
+    (hhint : (SharedCodec.sigDecC b).policyHints.toNat<7744)
+    (hhmem : s.getMem 0x66000=BitVec.ofNat 64 (SharedCodec.sigDecC b).policyHints.toNat)
+    (hzt : SigGolfCandidate.T3M.Search.ZeroCap.ZtOK 354 s)
+    (ht51 : SigGolfCandidate.T3M.Search.T51.T51TableW 0xFF9E00 s) :
+    SigGolfCandidate.T3M.Expand.SharedLayers.LInv (SharedForest.mainSignature (SharedCodec.sigDecC b))
+      (SharedCodec.sigDecC b).policyHints index 4 (.pair pair.1 pair.2) t := by
   have keep (A : Nat) (ha : A<2^64) (hw : ¬Writes A) := hf.get ha hw
-  refine ⟨⟨hp,by decide,h5,hi,?_,?_,?_,?_,?_,main_readout hin hmove,?_,?_,?_,?_⟩,by omega,?_,?_⟩
+  refine ⟨⟨hp,by decide,h5,hi,?_,?_,?_,?_,?_,main_readout hin hmove,?_,?_,?_,?_⟩,by omega,?_,?_,?_⟩
   · exact (keep _ (by decide) (by unfold Writes; decide)).trans hidx
   · exact ⟨(hroots 0 (by simp)).trans hL.1,(hroots 8 (by simp)).trans hL.2⟩
   · intro _
@@ -1937,7 +1821,7 @@ theorem layer_inv {b : SharedCodec48.CBytes} {s t : MachineState} {index : Nat} 
       rw [show SigGolfCandidate.T3M.Search.ZeroCap.ZT 354 = 16747280 from rfl] at hw
       unfold Writes at hw
       omega)
-#print axioms layer_inv
+  · exact ht51.frame hf (by decide) (by decide) (fun k hk => by unfold Writes; omega)
 end ClaudeWCT.W9.Machine.Expand.SharedHandoff
 
 namespace ClaudeWCT.W9.Machine.Expand.SharedInit
@@ -1947,7 +1831,7 @@ set_option maxRecDepth 100000
 
 theorem shifted_data_mem {im ref : Image} (hlen : im.data.length=29936)
     (pre : List (BitVec 8)) (hp : pre.length=2288) (hd : im.data=pre++ref.data)
-    (href : ExpandDataOK ref) (m : Message) (pk : PublicKey) (b : Bytes 5248)
+    (href : ExpandDataOK ref) (m : Message) (pk : PublicKey) (b : ClaudeWCT.W9.T3M.SharedCodec.CBytes)
     (A : Nat) (hlo : Compact2.LPLAN≤A) (hhi : A<Compact2.LPLAN+27648) (hal : A%8=0) :
     (w9init im m pk b).getMem (BitVec.ofNat 64 A)=
       (w9init ref m pk (0 : Bytes 5312)).getMem (BitVec.ofNat 64 A) := by
@@ -1960,7 +1844,7 @@ theorem shifted_data_mem {im ref : Image} (hlen : im.data.length=29936)
 
 theorem initial_plans_of_data {im ref : Image} (hlen : im.data.length=29936)
     (pre : List (BitVec 8)) (hp : pre.length=2288) (hd : im.data=pre++ref.data)
-    (href : ExpandDataOK ref) (m : Message) (pk : PublicKey) (b : Bytes 5248) :
+    (href : ExpandDataOK ref) (m : Message) (pk : PublicKey) (b : ClaudeWCT.W9.T3M.SharedCodec.CBytes) :
     ClaudeWCT.W9.Machine.Expand.PlanAt (w9init im m pk b) ∧ Compact2.LPlanAt (w9init im m pk b) := by
   constructor
   · intro k hk
@@ -1980,7 +1864,7 @@ theorem reference_data_ok : ExpandDataOK (⟨[],Images.expandPrefixData++Images.
     rfl
   rw [hp]
 
-theorem initial_plans (m : Message) (pk : PublicKey) (b : Bytes 5248) :
+theorem initial_plans (m : Message) (pk : PublicKey) (b : ClaudeWCT.W9.T3M.SharedCodec.CBytes) :
     ClaudeWCT.W9.Machine.Expand.PlanAt (w9init Images.expandImage m pk b) ∧
       Compact2.LPlanAt (w9init Images.expandImage m pk b) := by
   exact initial_plans_of_data (ref:=⟨[],Images.expandPrefixData++Images.expandLegacyData⟩)
@@ -1988,7 +1872,7 @@ theorem initial_plans (m : Message) (pk : PublicKey) (b : Bytes 5248) :
     (by simp only [List.length_append, SharedInit.zt_length, Images.expandSharedData_length])
     (by simp only [Images.expandImage, Images.expandData, List.append_assoc])
     reference_data_ok m pk b
-theorem initial_toptab (m : Message) (pk : PublicKey) (b : Bytes 5248) :
+theorem initial_toptab (m : Message) (pk : PublicKey) (b : ClaudeWCT.W9.T3M.SharedCodec.CBytes) :
     Compact2.TopTabAt (w9init Images.expandImage m pk b) := by
   have he (A : Nat) (hl : Compact2.LPLAN ≤ A) (hh : A < Compact2.LPLAN+27648) (hm : A % 8 = 0) :=
     shifted_data_mem (im:=Images.expandImage) (ref:=⟨[],Images.expandPrefixData++Images.expandLegacyData⟩)
@@ -2003,22 +1887,19 @@ theorem initial_toptab (m : Message) (pk : PublicKey) (b : Bytes 5248) :
   · intro k hk
     rw [he _ (by unfold Compact2.TOPB Compact2.LPLAN;omega) (by unfold Compact2.TOPB Compact2.LPLAN;omega) (by unfold Compact2.TOPB;omega)]
     exact (w9init_toptab reference_data_ok m pk (0 : Bytes 5312)).2 k hk
-#print axioms initial_toptab
-#print axioms initial_plans
 end ClaudeWCT.W9.Machine.Expand.SharedInit
 
 namespace ClaudeWCT.W9.Machine.Expand.SharedHandoff
 open ClaudeWCT.W9.T3M SigGolfCandidate.Research
 
 /-- img-v6: the 5,248-byte image is only used on `b48 = sigBC48 (sigDecC b)`, whose top field is < 2^109
-(`SharedCodec48.fill_sigDecC`); the projection is a hypothesis here. -/
-theorem main_projection (b : SharedCodec48.CBytes)
-    (hfill : SharedForest.fillTopSignature (SharedCodec48.sigDecC b) 0 = SharedCodec48.sigDecC b) :
-    ClaudeWCT.WCT9.fillTop (SharedForest.mainSignature (SharedCodec48.sigDecC b)) 0 =
-      SharedForest.mainSignature (SharedCodec48.sigDecC b) := by
+(`fill_sigDecC`); the projection is a hypothesis here. -/
+theorem main_projection (b : SharedCodec.CBytes)
+    (hfill : SharedForest.fillTopSignature (SharedCodec.sigDecC b) 0 = SharedCodec.sigDecC b) :
+    ClaudeWCT.WCT9.fillTop (SharedForest.mainSignature (SharedCodec.sigDecC b)) 0 =
+      SharedForest.mainSignature (SharedCodec.sigDecC b) := by
   exact congrArg SharedForest.mainSignature hfill
 
-#print axioms main_projection
 end ClaudeWCT.W9.Machine.Expand.SharedHandoff
 
 namespace ClaudeWCT.W9.Machine.Expand.SharedInit
@@ -2030,7 +1911,7 @@ set_option maxHeartbeats 1000000
 set_option maxRecDepth 10000
 
 theorem public_key_of_length {im : Image} (hlen : im.data.length=29936)
-    (m : Message) (pk : PublicKey) (b : Bytes 5248) :
+    (m : Message) (pk : PublicKey) (b : ClaudeWCT.W9.T3M.SharedCodec.CBytes) :
     DigAt (w9init im m pk b) 0xA0 pk := by
   have hword (i : Nat) (hi : i<2) :
       (w9init im m pk b).getMem (BitVec.ofNat 64 (0xA0+8*i))=pk.extractLsb' (64*i) 64 := by
@@ -2040,25 +1921,25 @@ theorem public_key_of_length {im : Image} (hlen : im.data.length=29936)
   exact ⟨hword 0 (by decide),hword 1 (by decide)⟩
 
 theorem region_zero_of_length {im : Image} (hlen : im.data.length=29936)
-    (m : Message) (pk : PublicKey) (b : Bytes 5248) :
+    (m : Message) (pk : PublicKey) (b : ClaudeWCT.W9.T3M.SharedCodec.CBytes) :
     ∀A,0x2c48≤A → A<0x61c8 → (w9init im m pk b).getMem (BitVec.ofNat 64 A)=0 := by
   intro A hlo hhi
   exact zero hlen (dataBase_of_length hlen) m pk b A
     (by unfold DB0;omega) (Or.inl (by omega)) (Or.inr (by omega)) (Or.inl (by omega))
 
 theorem layer_zero_of_length {im : Image} (hlen : im.data.length=29936)
-    (m : Message) (pk : PublicKey) (b : Bytes 5248) :
+    (m : Message) (pk : PublicKey) (b : ClaudeWCT.W9.T3M.SharedCodec.CBytes) :
     SigGolfCandidate.T3M.Expand.BC.LZero (w9init im m pk b) := by
   constructor <;> apply zero hlen (dataBase_of_length hlen) m pk b <;>
     simp only [CHAIN,NODE,ENC,DB0] <;> omega
 
 theorem counter_of_length {im : Image} (hlen : im.data.length=29936)
-    (m : Message) (pk : PublicKey) (b : Bytes 5248) :
+    (m : Message) (pk : PublicKey) (b : ClaudeWCT.W9.T3M.SharedCodec.CBytes) :
     ∃x<2^32,(w9init im m pk b).getMem (BitVec.ofNat 64 (ENC+32))=BitVec.ofNat 64 x := by
   refine ⟨0,by decide,?_⟩
   apply zero hlen (dataBase_of_length hlen) m pk b <;> simp only [ENC,DB0] <;> omega
 
-theorem initial_thresholds (m : Message) (pk : PublicKey) (b : Bytes 5248) :
+theorem initial_thresholds (m : Message) (pk : PublicKey) (b : ClaudeWCT.W9.T3M.SharedCodec.CBytes) :
     (∀r,r<56 → (w9init Images.expandImage m pk b).getByte (BitVec.ofNat 64 (16749456+r))=
       BitVec.ofNat 8 (ClaudeWCT.WCT9.CanonicalPolicy.threshold 1 r)) ∧
     (∀r,r<41 → (w9init Images.expandImage m pk b).getByte (BitVec.ofNat 64 (16749520+r))=
@@ -2066,9 +1947,4 @@ theorem initial_thresholds (m : Message) (pk : PublicKey) (b : Bytes 5248) :
   have h : SharedValidate.Tables (w9init Images.expandImage m pk b) := initial_data m pk b
   exact ⟨h.first,h.second⟩
 
-#print axioms public_key_of_length
-#print axioms region_zero_of_length
-#print axioms layer_zero_of_length
-#print axioms counter_of_length
-#print axioms initial_thresholds
 end ClaudeWCT.W9.Machine.Expand.SharedInit

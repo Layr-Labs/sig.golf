@@ -138,5 +138,4 @@ theorem referenceGame_congr (T T' : Answers)
   have hk : keygenCharge T = keygenCharge T' := hkeyCharge
   unfold referenceGame offlineGame offlineInteraction
   rw [hk,hkey,hi]
-#print axioms referenceGame_congr
 end ClaudeWCT.W9.T3.Security.Wots.PairedReference

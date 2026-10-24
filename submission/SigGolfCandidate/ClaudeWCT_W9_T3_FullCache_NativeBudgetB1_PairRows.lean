@@ -418,9 +418,6 @@ theorem V_search_bind {β γ δ : Type} (secret : BitVec 256) (z b : ENNReal)
           rw [uniform_decoder_weight]
         _ ≤ b := hstep
 
-#print axioms search_public
-#print axioms search_failure
-#print axioms V_search_bind
 end ClaudeWCT.W9.T3.CanonicalSearch
 
 namespace ClaudeWCT.W9.T3.CanonicalSearch
@@ -453,8 +450,6 @@ theorem scaled_step {β : Type} (z b factor : ENNReal) (dec : HashOutput → Opt
   rw [he]
   exact mul_le_mul' le_rfl hstep
 
-#print axioms acceptedWeight_mul
-#print axioms scaled_step
 end ClaudeWCT.W9.T3.CanonicalSearch
 
 namespace ClaudeWCT.W9.T3.CanonicalSearch
@@ -533,8 +528,6 @@ theorem failMass_labels {β ι : Type} [Fintype ι] [DecidableEq ι]
   exact ENNReal.eq_sub_of_add_eq (ne_top_of_le_ne_top (by simp) hle)
     ((add_comm _ _).trans hm)
 
-#print axioms acceptedWeight_labels
-#print axioms failMass_labels
 end ClaudeWCT.W9.T3.CanonicalSearch
 
 namespace ClaudeWCT.W9.T3.CanonicalSearch
@@ -579,7 +572,6 @@ theorem acceptedWeight_nat_labels {β : Type} (n : Nat) [NeZero n]
         simp only [label, Fin.val_ofNat, Nat.mod_eq_of_lt (hbound answer value hd), hi, Nat.mod_eq_of_lt i.isLt])⟩
   · rfl
 
-#print axioms acceptedWeight_nat_labels
 end ClaudeWCT.W9.T3.CanonicalSearch
 
 namespace ClaudeWCT.W9.T3.CanonicalSearch
@@ -645,7 +637,6 @@ theorem V_layerSearch_bind {α : Type} (secret : BitVec 256) (z b : ENNReal)
   intro c _ hc
   exact hfresh.layer lay le_rfl tree leaf msg c hc
 
-#print axioms V_layerSearch_bind
 end ClaudeWCT.W9.T3.CanonicalSearch
 
 namespace ClaudeWCT.W9.T3.CanonicalSearch
@@ -689,6 +680,4 @@ theorem search_preserves_rows (secret : BitVec 256) (lay : Layer)
     floor tree leaf msg counter fuel tree' leaf' left right counter') cache result hr]
   exact hfresh other ho tree' leaf' left right counter' hc
 
-#print axioms avoids_search
-#print axioms search_preserves_rows
 end ClaudeWCT.W9.T3.CanonicalSearch

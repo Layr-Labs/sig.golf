@@ -260,7 +260,5 @@ theorem pad_hook (s : MachineState) (hpc : s.pc = pcOf 54174) :
     cases r <;> first | (simp only [rv_simp, eHook.res]; done) | rfl
   · rfl
 
-#print axioms pad_spec
-#print axioms pad_hook
 
 end ClaudeWCT.W9.Machine.Expand.PadWriter

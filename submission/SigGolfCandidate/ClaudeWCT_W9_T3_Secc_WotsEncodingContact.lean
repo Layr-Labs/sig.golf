@@ -407,5 +407,4 @@ theorem reference_contactFirst_le (adversary : ClaudeWCT.W9.T3M.Final.Paired.Adv
         rw [div_eq_mul_inv]
         ring
 
-#print axioms reference_contactFirst_le
 end ClaudeWCT.W9.T3.Security.Wots.CanonicalRef.Contact93

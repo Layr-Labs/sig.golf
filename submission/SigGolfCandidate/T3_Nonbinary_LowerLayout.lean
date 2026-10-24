@@ -482,6 +482,3 @@ theorem card_choose_pred_eq (good : Digest → Prop) [DecidablePred good] (p : D
   rw [Nat.eq_sub_of_add_eq this, Nat.add_sub_assoc hK']
 
 end SigGolfCandidate.T3.TopChoice
-
-#print axioms SigGolfCandidate.T3.TopChoice.card_read_le
-#print axioms SigGolfCandidate.T3.TopChoice.card_choose_pred_eq

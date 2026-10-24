@@ -439,24 +439,6 @@ theorem entry1 {index : Nat} {root : WCT9.LayerMsg} {v : MachineState} (h : LayN
       enc := h.enc.frame tf (by packed_sgo) (fun h => h) (fun h => h)
       right := h.right.frame tf (by packed_sgo) (fun h => h) (fun h => h)
       c32 := by rw [tf.get (by packed_sgo) (fun h => h)]; exact h.c32 }
-theorem layer0_link (hL0 : L0Spec leafFn sk cache) {index : Nat} {root : WCT9.LayerMsg} {v : MachineState}
-    (h : LayNext sk cache 427 index root v) :
-    TBSim image sk v L0Cost (signLayersP leafFn (cacheDec cache) index 1 root) (SLPost v 1) := by
-  refine TBSim.mono (hL0 index root v ⟨h.pc, h.base, h.hidx, h.idx, h.enc, h.right, h.c32⟩) le_rfl (fun r u hu => ?_)
-  rcases r with _ | ps
-  · exact hu
-  obtain ⟨vals, path, rfl, uh, uv, up, uf⟩ := hu
-  refine ⟨uh, rfl, fun lay hlay => ?_, uf.mono (fun A _ hA => hA)⟩
-  have h0 : lay = 0 := Fin.ext (by omega)
-  subst h0
-  refine ⟨fun i hi => ?_, fun j hj => ?_⟩
-  · have := uv i hi
-    rw [show SIG + 2192 + 16 * i = SIG + 16 * (layIdx 0 + i) by simp [layIdx]; ring] at this
-    exact this
-  · have := up j hj
-    rw [show SIG + 3056 + 16 * j = SIG + 16 * (layIdx 0 + chainCount 0 + j) by simp [layIdx, chainCount]; ring]
-      at this
-    exact this
 def layW1 : Nat := L0Cost
 def layW2 : Nat := 14 + (csCost 1 + (1 + (btCost + layW1)))
 def layW3 : Nat := 14 + (csCost 2 + (1 + (btCost + layW2)))
@@ -647,72 +629,14 @@ theorem route_0 {index : Nat} (h : index < 2 ^ 31) : route index 0 = (index / 2 
   rw [Nat.div_eq_of_lt (by omega : index < 2 ^ (19 + 12))]
   rfl
 def tl0 (leaf : Nat) (ds : List Nat) (dest : Nat) : LeafArgs :=
-  ⟨0, 0, leaf, ds, true, DIGITS, SIG + 2192, dest, 447⟩
+  ⟨0, 0, leaf, ds, true, DIGITS, SIG + 2240, dest, 447⟩
 section top
 variable {sk : SecretKey} {cache : Bytes 131072}
-theorem leafPreS_of {s : MachineState} {A : LeafArgs} (hb : Base sk cache s) (hlay : A.lay = 0) (hso : A.so = true)
-    (h1 : s.getReg .x1 = pcOf A.ret) (h8 : s.getReg .x8 = BitVec.ofNat 64 0)
-    (h9 : s.getReg .x9 = BitVec.ofNat 64 A.tree) (h18 : s.getReg .x18 = BitVec.ofNat 64 A.leaf)
-    (h22 : s.getReg .x22 = BitVec.ofNat 64 A.digp) (h23 : s.getReg .x23 = BitVec.ofNat 64 A.valp)
-    (h25 : s.getReg .x25 = BitVec.ofNat 64 A.dest) (h26 : s.getReg .x26 = BitVec.ofNat 64 54)
-    (h27 : s.getReg .x27 = BitVec.ofNat 64 51) (h31 : s.getReg .x31 = BitVec.ofNat 64 (if A.so then 1 else 0))
-    (htree : A.tree < 2 ^ 32) (hleaf : A.leaf < 2 ^ 32)
-    (hdig : ∀ i < 54, s.getByte (BitVec.ofNat 64 (A.digp + i)) = BitVec.ofNat 8 (A.d i))
-    (hdigb : ∀ i < 54, A.d i < 256 ∧ (A.so = false → A.d i ≤ maxDigit 0 i))
-    (hdigp : A.digp + 54 ≤ 2 ^ 24) (hdigW : ∀ i < 54, ¬ LeafW A ((A.digp + i) / 8 * 8))
-    (hdigC : A.digp + 54 ≤ 0x201C0 ∨ 0x20210 ≤ A.digp)
-    (hv8 : A.valp % 8 = 0) (hv : A.valp + 16 * 54 ≤ 2 ^ 24)
-    (hvs : A.valp + 16 * 54 ≤ PRIV ∨ LEAFPK + 960 ≤ A.valp) (hd8 : A.so = false → A.dest % 8 = 0)
-    (hd : A.dest + 16 ≤ 2 ^ 24) (hds : A.dest + 16 ≤ PRIV ∨ LEAFPK + 960 ≤ A.dest ∨ (CHAIN + 80 ≤ A.dest ∧ A.dest + 16 ≤ LOUT))
-    (hdv : A.dest + 16 ≤ A.valp ∨ A.valp + 16 * 54 ≤ A.dest)
-    (hroute : A.tree * 2 ^ height A.lay + A.leaf < 2 ^ 31)
-    (hleafHeight : A.leaf < 2 ^ height A.lay)
-    (hsteps : ∀ i < A.n, A.e i ≤ 8) : LeafPreS sk s A := by
-  have hn : A.n = 54 := by show chainCount A.lay = 54; rw [hlay]; rfl
-  have h4 : n4 A.lay = 51 := by rw [hlay]; rfl
-  exact
-    { x1 := h1
-      x5 := hb.x5
-      x8 := by rw [h8, hlay]; rfl
-      x9 := h9
-      x18 := h18
-      x22 := h22
-      x23 := h23
-      x25 := h25
-      x26 := by rw [h26, hn]
-      x27 := by rw [h27, h4]
-      x31 := h31
-      htree := htree
-      hleaf := hleaf
-      hroute := hroute
-      hleafHeight := hleafHeight
-      hsteps := hsteps
-      p0 := hb.p0
-      p8 := hb.p8
-      p32 := hb.p32
-      p40 := hb.p40
-      p48 := hb.p48
-      p56 := hb.p56
-      z0 := hb.zero _ (by packed_sgo) (by unfold NeverW; simp)
-      z8 := hb.zero _ (by packed_sgo) (by unfold NeverW; simp)
-      hsl := fun h => absurd (h.symm.trans hso) (by decide)
-      hdig := fun i hi => hdig i (by rw [hn] at hi; exact hi)
-      hdigb := fun i hi => by rw [hlay]; exact hdigb i (by rw [hn] at hi; exact hi)
-      hdigp := by rw [hn]; exact hdigp
-      hdigW := fun i hi => hdigW i (by rw [hn] at hi; exact hi)
-      hdigC := by rw [hn]; exact hdigC
-      hv8 := hv8
-      hv := by rw [hn]; exact hv
-      hvs := by rw [hn]; exact hvs
-      hd8 := hd8
-      hd := hd
-      hds := hds
-      hdv := by rw [hn]; exact hdv }
 structure TopRegs (leaf : Nat) (s : MachineState) : Prop where
   x8 : s.getReg .x8 = BitVec.ofNat 64 0
   x9 : s.getReg .x9 = BitVec.ofNat 64 0
   x14 : s.getReg .x14 = BitVec.ofNat 64 leaf
-  x26 : s.getReg .x26 = BitVec.ofNat 64 54
+  x26 : s.getReg .x26 = BitVec.ofNat 64 51
   x27 : s.getReg .x27 = BitVec.ofNat 64 51
 theorem TopRegs.of {leaf : Nat} {s t : MachineState} {l : List Reg} (h : TopRegs leaf s) (hr : RegsExcept s t l)
     (hl : Reg.x8 ∉ l ∧ Reg.x9 ∉ l ∧ Reg.x14 ∉ l ∧ Reg.x26 ∉ l ∧ Reg.x27 ∉ l) : TopRegs leaf t :=
@@ -727,10 +651,10 @@ theorem frame_l0 {s t : MachineState} {W : Nat → Prop} (h : Frame s t W) (hW :
 theorem frame_l0_trans {s t u : MachineState} (h1 : Frame s t L0W) (h2 : Frame t u L0W) : Frame s u L0W :=
   (h1.trans h2).mono (fun A _ h => by rcases h with h | h <;> exact h)
 theorem leafW_l0 {A : LeafArgs} (hlay : A.lay = 0)
-    (hv : A.valp + 16 * 54 ≤ SIG ∨ (SIG + 2192 ≤ A.valp ∧ A.valp + 16 * 54 ≤ SIG + 3248) ∨ SIG + 5616 ≤ A.valp)
+    (hv : A.valp + 16 * 51 ≤ SIG ∨ (SIG + 2192 ≤ A.valp ∧ A.valp + 16 * 51 ≤ SIG + 3248) ∨ SIG + 5616 ≤ A.valp)
     (hd : A.dest + 16 ≤ SIG ∨ (SIG + 2192 ≤ A.dest ∧ A.dest + 16 ≤ SIG + 3248) ∨ SIG + 5616 ≤ A.dest) :
     ∀ X, (LeafW A X ∨ TopScr X) → L0W X := by
-  have hn : A.n = 54 := by show chainCount A.lay = 54; rw [hlay]; rfl
+  have hn : A.n = 51 := by show chainCount A.lay = 51; rw [hlay]; rfl
   intro X hX
   rcases hX with hX | hX
   swap
@@ -902,7 +826,6 @@ theorem tp_masks {w : MachineState} (hw : MInv w0 [] w) :
     (fun pre t hpl ht => tp_mask_one hcode hb hl h14 hpl ht) hw).of_eq rfl ?_ ?_ ?_ ?_ <;> simp [sumTo_const]
 end masks
 
-#print axioms tp_masks
 end SigGolfCandidate.T3M.Sign.SharedTopPath
 
 namespace SigGolfCandidate.T3M.Sign.SharedTopContinuation
@@ -918,21 +841,21 @@ theorem leafPreS_of {s : MachineState} {A : LeafArgs} (hb : SharedTopPath.StateB
     (h1 : s.getReg .x1 = pcOf A.ret) (h8 : s.getReg .x8 = BitVec.ofNat 64 0)
     (h9 : s.getReg .x9 = BitVec.ofNat 64 A.tree) (h18 : s.getReg .x18 = BitVec.ofNat 64 A.leaf)
     (h22 : s.getReg .x22 = BitVec.ofNat 64 A.digp) (h23 : s.getReg .x23 = BitVec.ofNat 64 A.valp)
-    (h25 : s.getReg .x25 = BitVec.ofNat 64 A.dest) (h26 : s.getReg .x26 = BitVec.ofNat 64 54)
+    (h25 : s.getReg .x25 = BitVec.ofNat 64 A.dest) (h26 : s.getReg .x26 = BitVec.ofNat 64 51)
     (h27 : s.getReg .x27 = BitVec.ofNat 64 51) (h31 : s.getReg .x31 = BitVec.ofNat 64 (if A.so then 1 else 0))
     (htree : A.tree < 2 ^ 32) (hleaf : A.leaf < 2 ^ 32)
-    (hdig : ∀ i < 54, s.getByte (BitVec.ofNat 64 (A.digp + i)) = BitVec.ofNat 8 (A.d i))
-    (hdigb : ∀ i < 54, A.d i < 256 ∧ (A.so = false → A.d i ≤ maxDigit 0 i))
-    (hdigp : A.digp + 54 ≤ 2 ^ 24) (hdigW : ∀ i < 54, ¬ LeafW A ((A.digp + i) / 8 * 8))
-    (hdigC : A.digp + 54 ≤ 0x201C0 ∨ 0x20210 ≤ A.digp)
-    (hv8 : A.valp % 8 = 0) (hv : A.valp + 16 * 54 ≤ 2 ^ 24)
-    (hvs : A.valp + 16 * 54 ≤ PRIV ∨ LEAFPK + 960 ≤ A.valp) (hd8 : A.so = false → A.dest % 8 = 0)
+    (hdig : ∀ i < 51, s.getByte (BitVec.ofNat 64 (A.digp + i)) = BitVec.ofNat 8 (A.d i))
+    (hdigb : ∀ i < 51, A.d i < 256 ∧ (A.so = false → A.d i ≤ maxDigit 0 i))
+    (hdigp : A.digp + 51 ≤ 2 ^ 24) (hdigW : ∀ i < 51, ¬ LeafW A ((A.digp + i) / 8 * 8))
+    (hdigC : A.digp + 51 ≤ 0x201C0 ∨ 0x20210 ≤ A.digp)
+    (hv8 : A.valp % 8 = 0) (hv : A.valp + 16 * 51 ≤ 2 ^ 24)
+    (hvs : A.valp + 16 * 51 ≤ PRIV ∨ LEAFPK + 960 ≤ A.valp) (hd8 : A.so = false → A.dest % 8 = 0)
     (hd : A.dest + 16 ≤ 2 ^ 24) (hds : A.dest + 16 ≤ PRIV ∨ LEAFPK + 960 ≤ A.dest ∨ (CHAIN + 80 ≤ A.dest ∧ A.dest + 16 ≤ LOUT))
-    (hdv : A.dest + 16 ≤ A.valp ∨ A.valp + 16 * 54 ≤ A.dest)
+    (hdv : A.dest + 16 ≤ A.valp ∨ A.valp + 16 * 51 ≤ A.dest)
     (hroute : A.tree * 2 ^ height A.lay + A.leaf < 2 ^ 31)
     (hleafHeight : A.leaf < 2 ^ height A.lay)
     (hsteps : ∀ i < A.n, A.e i ≤ 8) : LeafPreS sk s A := by
-  have hn : A.n = 54 := by show chainCount A.lay = 54; rw [hlay]; rfl
+  have hn : A.n = 51 := by show chainCount A.lay = 51; rw [hlay]; rfl
   have h4 : n4 A.lay = 51 := by rw [hlay]; rfl
   exact
     { x1 := h1
@@ -974,11 +897,11 @@ theorem leafPreS_of {s : MachineState} {A : LeafArgs} (hb : SharedTopPath.StateB
       hdv := by rw [hn]; exact hdv }
 theorem base_leaf {s t : MachineState} {A : LeafArgs} (hb : SharedTopPath.StateBase sk cache s) (hlay : A.lay = 0)
     (hf : Frame s t (fun X => LeafW A X ∨ TopScr X)) (hr : RegsExcept s t leafRegs)
-    (hvB : A.valp + 16 * 54 ≤ PRIV ∨ LEAFPK + 960 ≤ A.valp) (hvR : A.valp + 16 * 54 ≤ REGION ∨ REGION + 131040 ≤ A.valp)
+    (hvB : A.valp + 16 * 51 ≤ PRIV ∨ LEAFPK + 960 ≤ A.valp) (hvR : A.valp + 16 * 51 ≤ REGION ∨ REGION + 131040 ≤ A.valp)
     (hdB : A.dest + 16 ≤ PRIV) (hdZ : A.dest + 16 ≤ ZDIG ∨ ZDIG + 64 ≤ A.dest)
-    (hvZ : A.valp + 16 * 54 ≤ ZDIG ∨ ZDIG + 64 ≤ A.valp)
-    (hvT : A.valp + 16 * 54 ≤ 16691072) : SharedTopPath.StateBase sk cache t := by
-  have hn : A.n = 54 := by show chainCount A.lay = 54; rw [hlay]; rfl
+    (hvZ : A.valp + 16 * 51 ≤ ZDIG ∨ ZDIG + 64 ≤ A.valp)
+    (hvT : A.valp + 16 * 51 ≤ 16691072) : SharedTopPath.StateBase sk cache t := by
+  have hn : A.n = 51 := by show chainCount A.lay = 51; rw [hlay]; rfl
   refine hb.frame_pads hf hr (by decide) (fun X _ hB hW => ?_)
   unfold BaseA NeverW Search.TOP_DATA at hB
   rcases hW with hW | hW
@@ -998,7 +921,7 @@ def LeafSpec (im : Image) : Prop :=
         RegsExcept s t leafRegs ∧ Frame s t (fun X => LeafW A X ∨ SigGolfCandidate.T3M.Sign.Packed.TopScr X))
 
 def Post (s : MachineState) (p : Pieces) (t : MachineState) : Prop :=
-  t.pc=pcOf 540 ∧ (∀ i<54,DigAt t (SIG+2192+16*i) (p.1.getD i 0)) ∧
+  t.pc=pcOf 540 ∧ (∀ i<51,DigAt t (SIG+2240+16*i) (p.1.getD i 0)) ∧
     (∀ j<12,DigAt t (SIG+3056+16*j) (p.2.getD j 0)) ∧ Frame s t L0W ∧
     (∀ A, (A=0x66000 ∨ A=0x66008) → t.getMem (BitVec.ofNat 64 A)=s.getMem (BitVec.ofNat 64 A))
 
@@ -1006,10 +929,10 @@ theorem top_only (hcode : SharedTopBlocks.Code im) (hTop : LeafSpec im)
     (leaf : Nat) (hl : leaf<4096) (ds : List Nat) (u : MachineState) (upc : u.pc=pcOf 441)
     (hbu : SharedTopPath.StateBase sk cache u) (hregs : TopRegs leaf u)
     (h18 : u.getReg .x18=BitVec.ofNat 64 leaf) (hx25 : (u.getReg .x25).toNat≤201)
-    (hdm : ∀ i<54,ds.getD i 0≤SigGolfCandidate.T3.maxDigit 0 i)
-    (udig : ∀ i<54,u.getByte (BitVec.ofNat 64 (DIGITS+i))=BitVec.ofNat 8 (ds.getD i 0)) :
+    (hdm : ∀ i<51,ds.getD i 0≤SigGolfCandidate.T3.maxDigit 0 i)
+    (udig : ∀ i<51,u.getByte (BitVec.ofNat 64 (DIGITS+i))=BitVec.ofNat 8 (ds.getD i 0)) :
     TBSim im sk u (topLeafC+30006) (signTop (cacheDec cache) leaf ds) (Post u) := by
-  have hd7 : ∀ i<54,ds.getD i 0≤7 := fun i hi =>
+  have hd7 : ∀ i<51,ds.getD i 0≤7 := fun i hi =>
     (hdm i hi).trans (by unfold SigGolfCandidate.T3.maxDigit; split_ifs <;> omega)
   have hSIG : SIG=28672 := rfl
   set dest0 := (u.getReg .x25).toNat with hdest0
@@ -1029,27 +952,27 @@ theorem top_only (hcode : SharedTopBlocks.Code im) (hTop : LeafSpec im)
         show u1.getByte (BitVec.ofNat 64 (DIGITS + i)) = _
         rw [u1f.getByte (by packed_sgo) (fun h => h)]; exact udig i hi)
       (fun i hi => ⟨by show ds.getD i 0 < 256; have := hd7 i hi; omega, fun h => by simp [tl0] at h⟩)
-      (by show DIGITS + 54 ≤ 2 ^ 24; packed_sgo) (fun i hi => by unfold LeafW; simp only [tl0, LeafArgs.n, chainCount, Matrix.cons_val_zero, ↓reduceIte]; packed_sgo)
+      (by show DIGITS + 51 ≤ 2 ^ 24; packed_sgo) (fun i hi => by unfold LeafW; simp only [tl0, LeafArgs.n, chainCount, Matrix.cons_val_zero, ↓reduceIte]; packed_sgo)
       (Or.inr (by show 0x20210 ≤ DIGITS; packed_sgo))
-      (by show (SIG + 2192) % 8 = 0; packed_sgo) (by show SIG + 2192 + 16 * 54 ≤ 2 ^ 24; packed_sgo)
-      (Or.inl (by show SIG + 2192 + 16 * 54 ≤ PRIV; packed_sgo)) (fun h => by simp [tl0] at h)
+      (by show (SIG + 2240) % 8 = 0; packed_sgo) (by show SIG + 2240 + 16 * 51 ≤ 2 ^ 24; packed_sgo)
+      (Or.inl (by show SIG + 2240 + 16 * 51 ≤ PRIV; packed_sgo)) (fun h => by simp [tl0] at h)
       (by show dest0 + 16 ≤ 2 ^ 24; omega) (Or.inl (by show dest0 + 16 ≤ PRIV; packed_sgo))
-      (Or.inl (by show dest0 + 16 ≤ SIG + 2192; packed_sgo))
+      (Or.inl (by show dest0 + 16 ≤ SIG + 2240; packed_sgo))
       (by change 0 * 2 ^ 12 + leaf < 2 ^ 31; omega)
       (by change leaf < 4096; omega)
       (fun i hi => by have := hd7 i hi; change ds.getD i 0 ≤ 8; omega)
-  have hL0 := hTop sk (tl0 leaf ds dest0) u1 rfl rfl rfl hdm (by show SIG + 2192 + 16 * 54 ≤ 0x60000; packed_sgo)
-    (by show DIGITS + 54 ≤ 0x60000; packed_sgo) (by show dest0 + 16 ≤ 0x60000; omega) hp0 u1pc
+  have hL0 := hTop sk (tl0 leaf ds dest0) u1 rfl rfl rfl hdm (by show SIG + 2240 + 16 * 51 ≤ 0x60000; packed_sgo)
+    (by show DIGITS + 51 ≤ 0x60000; packed_sgo) (by show dest0 + 16 ≤ 0x60000; omega) hp0 u1pc
   try dsimp only
   rw [signTop]
   refine TBSim.mono (TBSim.steps su1 (TBSim.bind (W₂ := 30000) hL0 (fun r0 v0 hv0 => ?_)))
     (Nat.le_of_eq (by ring)) (fun _ _ h => h)
   obtain ⟨root0, values⟩ := r0
   obtain ⟨v0pc, v0vals, v0len, v0r, v0f⟩ := hv0
-  have hbv0 : SharedTopPath.StateBase sk cache v0 := base_leaf hbu1 rfl v0f v0r (Or.inl (by show SIG + 2192 + 16 * 54 ≤ PRIV; packed_sgo))
-    (Or.inl (by show SIG + 2192 + 16 * 54 ≤ REGION; packed_sgo)) (by show dest0 + 16 ≤ PRIV; packed_sgo)
-    (Or.inl (by show dest0 + 16 ≤ ZDIG; packed_sgo)) (Or.inl (by show SIG + 2192 + 16 * 54 ≤ ZDIG; packed_sgo))
-    (by show SIG + 2192 + 16 * 54 ≤ 16691072; packed_sgo)
+  have hbv0 : SharedTopPath.StateBase sk cache v0 := base_leaf hbu1 rfl v0f v0r (Or.inl (by show SIG + 2240 + 16 * 51 ≤ PRIV; packed_sgo))
+    (Or.inl (by show SIG + 2240 + 16 * 51 ≤ REGION; packed_sgo)) (by show dest0 + 16 ≤ PRIV; packed_sgo)
+    (Or.inl (by show dest0 + 16 ≤ ZDIG; packed_sgo)) (Or.inl (by show SIG + 2240 + 16 * 51 ≤ ZDIG; packed_sgo))
+    (by show SIG + 2240 + 16 * 51 ≤ 16691072; packed_sgo)
   have trv0 : TopRegs leaf v0 := tr1.of v0r (by decide)
   have fv0 : Frame u v0 L0W := frame_l0_trans (frame_l0 u1f (fun _ h => h.elim))
     (frame_l0 v0f (leafW_l0 rfl (by simp only [tl0]; packed_sgo) (by simp only [tl0]; packed_sgo)))
@@ -1103,5 +1026,4 @@ theorem top_only (hcode : SharedTopBlocks.Code im) (hTop : LeafSpec im)
       wf.get ha (fun h => h), v1f.get ha (fun h => h),
       v0f.get ha n0, u1f.get ha (fun h => h)]
 
-#print axioms top_only
 end SigGolfCandidate.T3M.Sign.SharedTopContinuation

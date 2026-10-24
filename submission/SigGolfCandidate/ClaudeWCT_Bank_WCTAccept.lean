@@ -310,8 +310,6 @@ theorem uniform_coordinates :
     𝒮[coordinates <$> ($ᵗ HashOutput : ProbComp HashOutput)] =
       𝒮[($ᵗ Coordinates : ProbComp Coordinates)] :=
   evalSPMF_map_bijective_uniform_cross (α := HashOutput) (β := Coordinates) coordinates coordinates_bijective
-#print axioms coordinates_bijective
-#print axioms uniform_coordinates
 end ClaudeWCT.Bank.Paired
 
 namespace ClaudeWCT.Bank.Paired
@@ -328,14 +326,14 @@ def viewProposal (v : Coordinates) : Proposal :=
   (v.1.2.2.1, v.1.1, fun k => ⟨(v.1.2.1 k).val % 563, Nat.mod_lt _ (by decide)⟩)
 def proposal (a : HashOutput) : Proposal := viewProposal (coordinates a)
 def admissibleView (v : Coordinates) : Bool :=
-  decide (v.1.2.2.2.val < 804) && (List.finRange 9).all (fun k => decide ((v.1.2.1 k).val < 563))
+  decide (v.1.2.2.2.val < 791) && (List.finRange 9).all (fun k => decide ((v.1.2.1 k).val < 563))
 def admissible (a : HashOutput) : Bool := admissibleView (coordinates a)
 
 theorem admissibleView_iff (v : Coordinates) :
-    admissibleView v = true ↔ v.1.2.2.2.val < 804 ∧ ∀ k : Fin 9, (v.1.2.1 k).val < 563 := by
+    admissibleView v = true ↔ v.1.2.2.2.val < 791 ∧ ∀ k : Fin 9, (v.1.2.1 k).val < 563 := by
   simp only [admissibleView, Bool.and_eq_true, decide_eq_true_eq, List.all_eq_true,
     List.mem_finRange, forall_true_left]
-abbrev FibreData := Fin 804 × (Fin 62 → Bool)
+abbrev FibreData := Fin 791 × (Fin 62 → Bool)
 def fibreEquiv (p : Proposal) :
     {v : Coordinates // admissibleView v = true ∧ viewProposal v = p} ≃ FibreData where
   toFun v := (⟨v.1.1.2.2.2.val, ((admissibleView_iff v.1).1 v.2.1).1⟩, v.1.2)
@@ -354,7 +352,7 @@ def fibreEquiv (p : Proposal) :
 
 theorem card_fibre (p : Proposal) :
     (Finset.univ.filter (fun a : HashOutput => admissible a = true ∧ proposal a = p)).card =
-      804 * 2^62 := by
+      791 * 2^62 := by
   have e : {a : HashOutput // admissible a = true ∧ proposal a = p} ≃
       {v : Coordinates // admissibleView v = true ∧ viewProposal v = p} :=
     coordinatesEquiv.subtypeEquiv (fun _ => Iff.rfl)
@@ -364,7 +362,7 @@ theorem card_fibre (p : Proposal) :
 
 theorem sum_admissible (g : Proposal → ENNReal) :
     (∑ a : HashOutput, if admissible a = true then g (proposal a) else 0) =
-      ((804 * 2^62 : Nat) : ENNReal) * ∑ p, g p := by
+      ((791 * 2^62 : Nat) : ENNReal) * ∑ p, g p := by
   rw [← Finset.sum_filter, ← Finset.sum_fiberwise _ proposal, Finset.mul_sum]
   apply Finset.sum_congr rfl
   intro p _
@@ -373,7 +371,7 @@ theorem sum_admissible (g : Proposal → ENNReal) :
 
 theorem acceptance_eq :
     Pr[fun a : HashOutput => admissible a = true | ($ᵗ HashOutput : ProbComp HashOutput)] =
-      (804 * 563^9 : ENNReal) / 2^104 := by
+      (791 * 563^9 : ENNReal) / 2^104 := by
   rw [← expectedValue_ite_one, BPORS.expected_uniform_eq_finiteAverage]
   unfold SigGolfResearch.Gate6.Moments.finiteAverage
   rw [sum_admissible (fun _ => 1), Finset.sum_const, Finset.card_univ, nsmul_eq_mul, mul_one]
@@ -382,9 +380,6 @@ theorem acceptance_eq :
   rw [ENNReal.div_eq_div_iff (by positivity) (by finiteness) (by positivity) (by finiteness)]
   norm_num
 
-#print axioms card_fibre
-#print axioms sum_admissible
-#print axioms acceptance_eq
 end ClaudeWCT.Bank.Paired
 
 namespace ClaudeWCT.Bank.Paired
@@ -444,7 +439,7 @@ theorem cost_source (a : HashOutput) : cost (proposal a).2 = SharedForest.jointA
   simp only [cost, SharedForest.jointAccountingCost, h]
 
 theorem admissible_source (a : HashOutput) :
-    admissible a = (decide (a.toNat/2^242%16384 < 804) && SharedForest.ranksAccepted a) := by
+    admissible a = (decide (a.toNat/2^242%16384 < 791) && SharedForest.ranksAccepted a) := by
   simp only [admissible, admissibleView, coordinates, rawFields, BitVec.val_toFin,
     BitVec.extractLsb'_toNat, Nat.shiftRight_eq_div_pow]
   rfl
@@ -453,8 +448,6 @@ theorem producer_source (a : HashOutput) : producer a = SharedForest.digestAccep
   rw [producer, admissible_source, capOk, cost_source]
   rfl
 
-#print axioms proposal_lowField
-#print axioms producer_source
 end ClaudeWCT.Bank.Paired
 
 namespace ClaudeWCT.Bank.Paired
@@ -480,5 +473,4 @@ theorem proposal_child (a : HashOutput) (k : Fin 9) :
   all_goals norm_num
   all_goals omega
 
-#print axioms proposal_child
 end ClaudeWCT.Bank.Paired

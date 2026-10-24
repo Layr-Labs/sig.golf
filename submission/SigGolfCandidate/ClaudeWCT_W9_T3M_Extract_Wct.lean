@@ -1060,8 +1060,6 @@ theorem leaf_extract (answers : Answers) (index coord child : Nat) (pad : Digest
       simp [Extract.wctLeafInputP, Extract.listInput, pad64, bytesLE_length, digest_list_bytes_length, hlen,
         Extract.Pos.len]
 
-#print axioms chain_extract
-#print axioms leaf_extract
 end ClaudeWCT.W9.T3M.Extract.Paired
 
 
@@ -1140,8 +1138,6 @@ theorem nodes_graph (answers : Answers) (index coord : Nat) (hc : coord < 9) :
   rw [nodes_shared answers index coord hc]
   exact SharedForest.sharedNodes_graph ..
 
-#print axioms chain_extract
-#print axioms leaf_extract
 end ClaudeWCT.W9.T3M.Extract.Paired
 
 namespace ClaudeWCT.W9.T3M.Extract.Paired
@@ -1210,8 +1206,6 @@ theorem leaf_reference (answers : Answers) (index coord raw : Nat)
     SharedForest.raw_physical_child (first coord) raw hr] at hl
   exact hl
 
-#print axioms node_eval
-#print axioms node_reference
 end ClaudeWCT.W9.T3M.Extract.Paired
 
 namespace ClaudeWCT.W9.T3M.Extract.Paired
@@ -1312,8 +1306,6 @@ theorem nodeV3_block_extract (answers : Answers) (index : Nat) (coord : Fin 9)
     simp only [Pos.hdr, WCT9.wctNodeHeader, show 7-level-1=6-level by omega]
   · exact reaches.trans (node_reference answers index coord.val level node hb).symm
 
-#print axioms chainV3_extract
-#print axioms leafV3_extract
 end ClaudeWCT.W9.T3M.Extract.Paired
 
 namespace ClaudeWCT.W9.T3M.Extract.Paired
@@ -1448,7 +1440,6 @@ theorem queried_projectedPath_honest (answers : Answers) (positions : Nat→Pos)
   rw [projectedInput, projectedValue_honest answers positions input honest target initial count
     reference hin h0 step hs.le, hin step hs]
 
-#print axioms projectedPath_extract
 end ClaudeWCT.W9.T3M.Extract.Paired
 
 namespace ClaudeWCT.W9.T3M.Extract.Paired
@@ -1684,7 +1675,6 @@ theorem path_extract (answers : Answers) (w : SharedV3.WBytes)
     · simpa only [pathPos, pad64_honest_node] using hhit
     · exact childInput_sameHeader w answers index coord physical level hp (by omega) padR _
 
-#print axioms childN_eq_projectedPath
 end ClaudeWCT.W9.T3M.Extract.Paired
 
 namespace ClaudeWCT.W9.T3M.Extract.Paired
@@ -1739,8 +1729,6 @@ theorem pair_handoff (answers : Answers) (index pair aPhysical bPhysical : Nat)
     pads answers index (2*pair+1) (bPhysical/64) = targetPair answers index (2*pair) aPhysical := by
   rw [pads_odd, targetPair_even answers index pair aPhysical hp, hb]
 
-#print axioms ordered_target_pair
-#print axioms pair_handoff
 end ClaudeWCT.W9.T3M.Extract.Paired
 
 namespace ClaudeWCT.W9.T3M.Extract.Paired
@@ -1852,7 +1840,6 @@ theorem coordinate_extract (answers : Answers) (w : SharedV3.WBytes)
       exact hpath level (by omega)
     · exact (hpath 4 (by omega)).2 rfl
 
-#print axioms coordinate_extract
 end ClaudeWCT.W9.T3M.Extract.Paired
 
 namespace ClaudeWCT.W9.T3M.Extract.Paired
@@ -2052,8 +2039,6 @@ theorem branchCompatible_output (output : HashOutput) :
   rw [SharedForest.physicalFromOutput_first, SharedForest.physicalFromOutput_second]
   exact SharedForest.selected_branch ((SharedForest.forestSelectionFromOutput output).pairs pair)
 
-#print axioms forest_extract
-#print axioms branchCompatible_output
 end ClaudeWCT.W9.T3M.Extract.Paired
 
 namespace ClaudeWCT.W9.T3M.Extract.Paired
@@ -2148,8 +2133,6 @@ theorem forest_extract_active (answers : Answers) (w : SharedV3.WBytes) (index :
   · exact Or.inr ⟨hhon,active_slot_queried answers w index raw ranks hi hhon⟩
   · exact Or.inl hhit
 
-#print axioms active_slot_queried
-#print axioms forest_extract_active
 end ClaudeWCT.W9.T3M.Extract.Paired
 
 
@@ -2186,7 +2169,6 @@ theorem PathStepGood.sibling_eq (answers : Answers) (w : SharedV3.WBytes)
   · have href := congrArg Prod.fst hs
     simp only [if_neg hb, Prod.fst] at href hleft
     exact hleft.trans href.symm
-#print axioms PathStepGood.sibling_eq
 end ClaudeWCT.W9.T3M.Extract.Paired
 
 namespace ClaudeWCT.W9.T3M.Extract.Paired
@@ -2217,7 +2199,6 @@ theorem buildForest_opening (answers : Answers) (index : Nat)
     · funext i
       fin_cases i <;> rfl
     · rfl
-#print axioms buildForest_opening
 end ClaudeWCT.W9.T3M.Extract.Paired
 
 namespace ClaudeWCT.W9.T3M.Extract.Paired
@@ -2340,8 +2321,6 @@ theorem buildForest_coordinatePath (answers : Answers) (output : HashOutput) (co
     have hb : level < 7 := hl
     rw [Nat.mod_eq_of_lt hb]
     rfl
-#print axioms buildForest_coordinateValues
-#print axioms buildForest_coordinatePath
 end ClaudeWCT.W9.T3M.Extract.Paired
 
 namespace ClaudeWCT.W9.T3M.Extract.Paired
@@ -2520,7 +2499,6 @@ theorem forest_hit_fts (answers : Answers) (w : SharedV3.WBytes) (index : Nat)
   subst p'
   exact ⟨p,x,hfts,hb,hq,hh,hs⟩
 
-#print axioms forest_hit_fts
 end ClaudeWCT.W9.T3M.Extract.Paired
 
 namespace ClaudeWCT.W9.T3M.Extract.Paired

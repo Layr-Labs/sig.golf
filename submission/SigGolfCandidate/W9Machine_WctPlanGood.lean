@@ -122,5 +122,4 @@ theorem chainPlan_sim {im : Image} (ps : List ChainPiece) (s : MachineState) (po
       simpa only [chainPlan, if_neg hh, planCycles, ChainPiece.totalCycles,
         Nat.add_zero, Nat.zero_add, Nat.add_assoc, Nat.add_comm, Nat.add_left_comm] using hs
 
-#print axioms chainPlan_sim
 end W9Machine

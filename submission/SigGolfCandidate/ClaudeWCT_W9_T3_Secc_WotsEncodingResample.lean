@@ -1180,7 +1180,6 @@ theorem searchPreparedLayers_reference (answers : Answers) (cache : SigGolfCandi
   · exact ⟨hc2, hs2⟩
   · exact ⟨hc3, hs3⟩
 
-#print axioms searchPreparedLayers_reference
 end ClaudeWCT.W9.T3.Security.Wots.CanonicalRef
 
 namespace ClaudeWCT.W9.T3.Security.Wots.CanonicalRef
@@ -2581,7 +2580,6 @@ theorem sourceLeaf_surjective (L:LeafAddr) (hL:WotsExtract.SourceLeaf7 L) :
    · have hl : leaf<64 := by simpa [height] using hL.2
      simp [sourceLeaf,route,height,Nat.mul_div_assoc,Nat.mod_eq_of_lt hl]
      omega
-#print axioms sourceLeaf_surjective
 end ClaudeWCT.W9.T3.Security.Wots.CanonicalRef
 
 namespace ClaudeWCT.W9.T3.Security.Wots.CanonicalRef
@@ -2604,7 +2602,6 @@ theorem referenceSearch_complete_of_routes (answers : Answers) (cache : SigGolfC
   rw [hindex] at hs
   rw [hs]
   exact Option.some_ne_none _
-#print axioms referenceSearch_complete_of_routes
 end ClaudeWCT.W9.T3.Security.Wots.CanonicalRef
 
 namespace ClaudeWCT.W9.T3.Security.CanonEncoding.Paired
@@ -2712,8 +2709,6 @@ noncomputable def rowsContext (rows : Rows) : Wots.LeafAddr → Option Nat :=
 noncomputable def selectionsOfRows (rows : Rows) : Selections := fun L =>
   (rowsContext rows L.toWots).bind (selectionAt rows L)
 
-#print axioms counterSearch_select
-#print axioms encLeafOf_self
 end ClaudeWCT.W9.T3.Security.CanonEncoding.Paired
 
 namespace ClaudeWCT.W9.T3.Security.CanonEncoding.Paired
@@ -2808,8 +2803,6 @@ theorem referenceSearch_eq_rows (answers : Answers) (messages : Wots.LeafAddr �
   funext remaining
   exact searchOf_eq_selectionAt answers messages rows hrows L remaining
 
-#print axioms rowsContext_eq
-#print axioms referenceSearch_eq_rows
 end ClaudeWCT.W9.T3.Security.CanonEncoding.Paired
 
 namespace ClaudeWCT.W9.T3.Security.CanonEncoding.Paired
@@ -2871,7 +2864,6 @@ theorem referenceSearch_eq_selections (answers : Answers) (messages : Wots.LeafA
           (BitVec.ofNat 32 r.1.val,ds,WCT9.lowSelected L.1.lay (rows L r.1)) :=
   (referenceSearch_eq_rows answers messages rows hrows L).trans (decodedSelection_eq rows L)
 
-#print axioms referenceSearch_eq_selections
 end ClaudeWCT.W9.T3.Security.CanonEncoding.Paired
 
 namespace ClaudeWCT.W9.T3.Security.CanonEncoding.Paired
@@ -2973,8 +2965,6 @@ theorem rowAgreement_programmed (U : Finset HashInput) (hU : CanonGraph.Paired.c
   rw [sourceMessages_eq (CanonGraph.Paired.agrees_of_programmed U hU answers labels residual hpub) L]
   exact answers_encCell U hU hE answers labels residual hpub (L,c)
 
-#print axioms sourceMessages_eq
-#print axioms rowAgreement_programmed
 end ClaudeWCT.W9.T3.Security.CanonEncoding.Paired
 
 namespace ClaudeWCT.W9.T3.Security.CanonEncoding.Paired
@@ -3034,5 +3024,4 @@ theorem referenceSearch_eq_filtered (U : Finset HashInput) (hU : CanonGraph.Pair
           (BitVec.ofNat 32 r.1.val,ds,WCT9.lowSelected L.1.lay (residual (encCell U hE labels (L,r.1)))) :=
   referenceSearch_eq_selections answers _ _ (rowAgreement_filtered U hU hE answers labels residual hpub) L
 
-#print axioms referenceSearch_eq_filtered
 end ClaudeWCT.W9.T3.Security.CanonEncoding.Paired

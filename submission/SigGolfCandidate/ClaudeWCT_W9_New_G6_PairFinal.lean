@@ -1164,8 +1164,6 @@ theorem overflowIn_short {A T : Answers} (h : Wots.Ref.ShortAgree A T) (log : Qu
   rw [← loggedOutputs_short h]
   exact ho
 
-#print axioms guessedIn_short
-#print axioms overflowIn_short
 end ClaudeWCT.W9.T3.Security.WPair.Paired
 
 namespace ClaudeWCT.W9.T3.Security.WPair.Paired
@@ -1262,7 +1260,6 @@ theorem table_pair_bound (q : Nat) :
     omega
   · exact Guess.Fam.fam_pair_le env (experimentW hU omega published program finish) PUnit.unit q
 
-#print axioms table_pair_bound
 end ClaudeWCT.W9.T3.Security.WPair.Paired
 
 namespace ClaudeWCT.W9.T3.Security.WPair.Paired
@@ -1436,7 +1433,6 @@ theorem shared_budget_le_pair (adversary : AdversaryP) (q : Nat) (hq : q ≤ 2 ^
   exact fixed_le_pairRun adversary q (Wots.eagerAnswers (Wots.PairedReference.referenceInputs adversary) privateTable publicTable)
     P hshort hmono
 
-#print axioms shared_budget_le_pair
 end ClaudeWCT.W9.T3.Security.WPair.Paired
 
 namespace ClaudeWCT.W9.T3.Security.WPair.Paired
@@ -1487,7 +1483,6 @@ theorem pair_guess_bound_budget (adversary : AdversaryP) (q : Nat) (hq : q≤2^1
   · rintro A log entries entries' hsub ⟨⟨c,c',hne,hc,hc'⟩,hno⟩
     exact ⟨⟨c,c',hne,guessedIn_mono A log entries entries' hsub c hc,
       guessedIn_mono A log entries entries' hsub c' hc'⟩,hno⟩
-#print axioms pair_guess_bound
 end ClaudeWCT.W9.T3.Security.WPair.Paired
 
 namespace ClaudeWCT.W9.T3.Security.FtsOverflow.Paired

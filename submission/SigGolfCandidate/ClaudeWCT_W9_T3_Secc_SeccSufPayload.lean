@@ -384,7 +384,6 @@ theorem good_shape_readout (answers : Answers) (messages : LeafAddr → WCT9.Lay
     rfl
   rw [hctr, hpad, hhigh, he] at hd
   exact ⟨digits, hd, layer_of_shaped_readout answers index wb sig lay digits hs (hval lay digits) (hpath lay)⟩
-#print axioms good_shape_readout
 end ClaudeWCT.W9.T3.Security.CanonicalExtract
 
 namespace ClaudeWCT.W9.T3.Security.CanonicalExtract
@@ -418,7 +417,6 @@ theorem good_shape_witEnc (answers : Answers) (output : HashOutput)
     (Paired.witEnc output w) w.signature w.counters hg (Paired.wbcCtr_witEnc output w)
     (fun lay => sourceMessages_pair answers (routeLeaf (WCT9.digestIndex output) lay))
     (Paired.wvalueFor_witEnc output w) (Paired.wpath_witEnc output w)
-#print axioms good_shape_witEnc
 end ClaudeWCT.W9.T3.Security.CanonicalExtract
 
 namespace ClaudeWCT.W9.T3M.Extract.Paired
@@ -480,5 +478,4 @@ theorem forest_openings_shape (answers : Answers) (output : HashOutput)
       subst level
       rw [←T3M.Paired.wtopOther_witEnc output w coord]
       exact hc.2.2
-#print axioms forest_openings_shape
 end ClaudeWCT.W9.T3M.Extract.Paired

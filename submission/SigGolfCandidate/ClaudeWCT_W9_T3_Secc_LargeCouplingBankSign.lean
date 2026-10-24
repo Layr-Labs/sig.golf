@@ -1411,7 +1411,6 @@ theorem bank_routeQuerySelected (a : AuxData) (st : RouterState) (ws : LargeResi
     apply (hnd fun h => hX h.1).1
     exact ⟨fun row hr => rfl, rfl, rfl, fun m => rfl⟩
 
-#print axioms bank_routeQuerySelected
 end ClaudeWCT.W9.T3.Security.LargeCoupling.Paired
 
 namespace ClaudeWCT.W9.T3.Security.LargeCoupling.Paired

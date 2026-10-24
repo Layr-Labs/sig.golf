@@ -545,7 +545,6 @@ theorem topLayerP_witEncN (output : HashOutput) (w : SigGolfCandidate.Research.S
     rw [hv i.val, hb i.val i.isLt]
   · rw [show (noncePads w.topNonces).topLeaf = (0 : Pads).topLeaf from rfl, ← hz]
     simp only [padDecP]
-    exact wtopLeafPad_N output w
   · rw [show (noncePads w.topNonces).leafHigh 0 = (0 : Pads).leafHigh 0 from rfl, ← hz]
     simp only [padDecP]
     exact wleafHigh_N output w 0
@@ -565,6 +564,7 @@ theorem topLayerP_witEncN (output : HashOutput) (w : SigGolfCandidate.Research.S
       simp only [Fin.val_zero, or_true, true_and, hj, ↓reduceIte] at h0 ⊢
       rw [hj11, wmerklePad_root_N output w, ← hj11]
       exact h0
+
 end ClaudeWCT.W9.T3M.PairedNonce
 
 /-! ### HonestN 6: the retained layers on `witEncN` are the scheme's `verifyLayers` -/
@@ -611,7 +611,6 @@ theorem layersCanonicalBC_witEncN (output : HashOutput)
       SigGolfCandidate.Research.SharedForest.verifyLayers w (WCT9.digestIndex output) n (.pair left right) := by
   rw [layersCanonicalBC_eq_H, wtopHigh_witEncN]
   exact layersCanonicalBCH_witEncN output w n hn left right
-#print axioms layersCanonicalBC_witEncN
 end ClaudeWCT.W9.T3M.Paired
 
 /-! ### HonestN 7: the FTS forest reads only bytes below 7696 -/
@@ -717,7 +716,6 @@ theorem forest_witEncN (output : HashOutput) (witness : SigGolfCandidate.Researc
     ((initialPair_witEncN output witness).trans (PairedReadout.initialPair_witEnc output witness))
     (fun k => chainReadout_witEncN output witness k _ _ (chainReadout_witEnc output witness k _)) hp
   simpa only [coordinateRaw_output, coordinateWord_output] using h
-#print axioms forest_witEncN
 end W9Drv.SharedCanonical
 
 /-! ### HonestN 8: the expander's re-derived top nonces are the keygen nonces (interface with r3-lean-nonsec)
@@ -833,7 +831,6 @@ theorem topFoldN_nonces_honest (answers : Answers) (sig : Signature) (index : Na
   rw [ht, wotsTree_top]
   have hh : height (0 : Layer) - k - 1 = 12 - (k + 1) := by change 12 - k - 1 = 12 - (k + 1); omega
   rw [hh]
-#print axioms topFoldN_nonces_honest
 end ClaudeWCT.WCT9
 
 namespace SigGolfCandidate.Research.SharedForest
@@ -1042,5 +1039,4 @@ theorem expandN_topNonces (answers : Answers) (message : Message) (pk : Digest)
   refine ⟨result, hr, ?_⟩
   rw [hn, (recoverHintedLayers_nonces answers _ _ _ 4 _ result hr).2, hsig, topFoldN_fill_signature,
     topFoldN_fill_signature]
-#print axioms expandN_topNonces
 end ClaudeWCT.W9.T3M.Paired

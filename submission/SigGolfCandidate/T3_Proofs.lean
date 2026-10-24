@@ -24,7 +24,7 @@ theorem serializeLayer_length {lay : Layer} (sig : LayerSignature lay) :
     (serializeLayer sig).length = 16*(chainCount lay+height lay) := by
   simp only [serializeLayer,List.length_append,digest_list_bytes_length,List.length_ofFn]
   omega
-theorem serialize_length (sig : Signature) : (serialize sig).length = 5616 := by
+theorem serialize_length (sig : Signature) : (serialize sig).length = 5568 := by
   simp only [serialize,List.length_append,bytesLE_length,digest_list_bytes_length,
     List.length_ofFn,List.length_flatten,List.map_ofFn,Function.comp_def]
   simp_rw [serializeLayer_length]
@@ -71,7 +71,10 @@ theorem decode_length_sum {lay : Layer} {value : Digest} {digits : List Nat}
         have he := Option.some.inj h
         subst digits
         subst lay
-        simpa [dataDigits_length,dataCount,chainCount] using And.intro (dataDigits_length 0 value) (of_decide_eq_true (Bool.and_eq_true_iff.mp hs).2)
+        constructor
+        · simp [dataDigits_length,dataCount,chainCount]
+        · simp only [List.sum_append,List.sum_singleton]
+          omega
       · simp at h
     · rename_i hl
       dsimp only at h
@@ -740,7 +743,7 @@ theorem decode_data {lay : Layer} {value : Digest} {digits : List Nat}
     · split at h <;> dsimp only at h <;> split at h
       · have he := Option.some.inj h
         subst digits
-        exact List.take_of_length_le (by rw [dataDigits_length])
+        rw [← dataDigits_length lay value,List.take_left]
       · simp at h
       · have he := Option.some.inj h
         subst digits
@@ -756,9 +759,19 @@ theorem decode_digit_max {lay : Layer} {value : Digest} {digits : List Nat}
     · rename_i hbits hl hs
       have he := Option.some.inj h
       subst digits
-      have hdata : i<dataCount lay := by subst lay; exact hi
-      rw [dataDigits_getD lay value i hdata]
-      exact Nonbinary.coreDigit_le lay value i
+      by_cases hid : i<dataCount lay
+      · rw [List.getD_append _ _ _ _ (by simpa only [dataDigits_length] using hid),dataDigits_getD lay value i hid]
+        exact Nonbinary.coreDigit_le lay value i
+      · subst lay
+        have hieq : i=50 := by simp [dataCount,chainCount] at hid hi; omega
+        subst i
+        rw [show (50 : Nat) = (dataDigits 0 value).length by rw [dataDigits_length]; rfl,
+          List.getD_append_right _ _ _ _ (le_refl _)]
+        simp only [Nat.sub_self,List.getD_cons_zero]
+        rw [show (dataDigits 0 value).length = 50 by rw [dataDigits_length]; rfl]
+        simp only [maxDigit, if_true, show ¬ (50 : Nat) < 27 by decide, show ¬ (50 : Nat) < 48 by decide,
+          show ¬ (50 : Nat) < 50 by decide, if_false]
+        omega
     · simp at h
     · rename_i hbits hl hs
       have he := Option.some.inj h
@@ -785,7 +798,7 @@ theorem decode_top_ranks {value : Digest} {digits : List Nat}
   · simp only [ite_true] at h
     split at h
     · rename_i hs
-      exact (Bool.and_eq_true_iff.mp hs).1
+      exact hs.1
     · contradiction
 def decodedWord {lay : Layer} {value : Digest} {digits : List Nat}
     (h : decode lay value=some digits) : Encoding lay := fun i =>
@@ -1224,8 +1237,8 @@ theorem bound_nodeHash (tag lay tree heap : Nat) (left right : Digest) :
     CBound (fun _ => True) 1 (nodeHash tag lay tree heap left right) := by
   unfold nodeHash
   apply bound_projHash <;> simp [pad64_length,zero16,SphincsSecurity.bytesLE_length]
-theorem bound_top_leafHash (tree leaf : Nat) (ends : List Digest) (hlen : ends.length=54) :
-    CBound (fun _ => True) 14 (leafHash 0 tree leaf ends) := by
+theorem bound_top_leafHash (tree leaf : Nat) (ends : List Digest) (hlen : ends.length=51) :
+    CBound (fun _ => True) 13 (leafHash 0 tree leaf ends) := by
   unfold leafHash
   apply bound_projHash <;> simp only [pad64_length,leafInput_length,hlen] <;> norm_num
 /-- img-v6: the private pairs `first + j`, `j ∈ [start, 20)`, appended (two coefficients each) to `init`. -/
@@ -1256,13 +1269,13 @@ theorem bound_topCoefsK (f : Nat) (carry : Digest) :
   rw [topCarryInit_length] at hacc
   simp only [List.length_take, hacc, topCoefCount, topCoefPairs]
   omega
-/-- Sum of the largest top digits (51·4 + 3·7). -/
-theorem topCapacity_sum : (∑ i ∈ range 54,maxDigit 0 i)=225 := by decide +kernel
-/-- img-v6: a full top leaf with given coefficients costs 225 chain steps + 14 leaf blocks. -/
+/-- Sum of the largest top digits (T51: 27·5 + 21·4 + 2·6 + 5). -/
+theorem topCapacity_sum : (∑ i ∈ range 51,maxDigit 0 i)=236 := by decide +kernel
+/-- T51: a full top leaf with given coefficients costs 236 chain steps + 13 leaf blocks. -/
 theorem bound_buildLeafTopC (leaf : Nat) (coefs : List Digest) :
-    CBound (fun result => result.2.length=54) 239 (buildLeafTopC leaf coefs []) := by
+    CBound (fun result => result.2.length=51) 249 (buildLeafTopC leaf coefs []) := by
   unfold buildLeafTopC
-  refine Bound.bind' (l := 14) (Bound.foldlM_range 54 _
+  refine Bound.bind' (l := 13) (Bound.foldlM_range 51 _
     (fun i (state : List Digest × List Digest) => state.1.length=i ∧ state.2.length=i)
     (fun i => maxDigit 0 i) ([],[]) ⟨rfl,rfl⟩ (fun i hi state hstate => ?_))
     (fun state hstate => ?_) (by rw [topCapacity_sum])
@@ -1273,28 +1286,28 @@ theorem bound_buildLeafTopC (leaf : Nat) (coefs : List Digest) :
   · simp only [Bool.false_eq_true,ite_false]
     refine (bound_top_leafHash 0 leaf state.1 hstate.1).bind' (l := 0) (fun root _ => ?_) (by omega)
     exact .pure (root,state.2) 0 hstate.2
-/-- img-v6: a signer-form full top leaf: 20 coefficient pairs + 225 chain steps + 14 leaf blocks. -/
+/-- T51: a signer-form full top leaf: 16 coefficient pairs + 236 chain steps + 13 leaf blocks. -/
 theorem bound_buildLeafTop (leaf : Nat) :
-    CBound (fun result => result.2.length=54) (topCoefPairs+239) (buildLeafTop leaf []) := by
+    CBound (fun result => result.2.length=51) (topCoefPairs+249) (buildLeafTop leaf []) := by
   unfold buildLeafTop
-  exact (bound_topCoefs leaf).bind' (l := 239) (fun coefs _ => bound_buildLeafTopC leaf coefs) le_rfl
-/-- img-v6: cost of the keygen top leaf `leaf` (`topTreeStep`): the family's `20 - f % 2` pairs at a family start
-(amortized: 19,968 pairs over the 4096 leaves) plus the leaf's 239. -/
-def topLeafCost (leaf : Nat) : Nat := (if leaf%4=0 then topCoefPairs-leaf/4%2 else 0)+239
+  exact (bound_topCoefs leaf).bind' (l := 249) (fun coefs _ => bound_buildLeafTopC leaf coefs) le_rfl
+/-- T51: cost of the keygen top leaf `leaf` (`topTreeStep`): the family's `16 - f % 2` pairs at a family start
+(amortized: 15,872 pairs over the 4096 leaves) plus the leaf's 249 (236 chain steps + 13 leaf blocks). -/
+def topLeafCost (leaf : Nat) : Nat := (if leaf%4=0 then topCoefPairs-leaf/4%2 else 0)+249
 theorem bound_topTreeStep (st : List Digest × List Digest × Digest) (leaf : Nat) (hst : st.1.length=leaf) :
     CBound (fun st' : List Digest × List Digest × Digest => st'.1.length=leaf+1) (topLeafCost leaf)
       (topTreeStep st leaf) := by
   unfold topTreeStep topFamilyCoefs topLeafCost
   by_cases h : leaf%4=0
   · simp only [h, ↓reduceIte]
-    refine (bound_topCoefsK _ _).bind' (l := 239) (fun cc _ => ?_) le_rfl
+    refine (bound_topCoefsK _ _).bind' (l := 249) (fun cc _ => ?_) le_rfl
     refine (bound_buildLeafTopC leaf cc.1).bind' (l := 0) (fun r _ => .pure _ 0 ?_) (by omega)
     simp [hst]
   · simp only [h, ↓reduceIte, pure_bind, Nat.zero_add]
     refine (bound_buildLeafTopC leaf st.2.1).bind' (l := 0) (fun r _ => .pure _ 0 ?_) (by omega)
     simp [hst]
-/-- img-v6: the 4096 keygen top leaves cost 4096·239 + 19,968 (coefficient pairs) = 998,912. -/
-def topLeavesCost : Nat := 998912
+/-- T51: the 4096 keygen top leaves cost 4096·249 + 15,872 (coefficient pairs) = 1,035,776. -/
+def topLeavesCost : Nat := 1035776
 theorem topLeaves_sum : (∑ i ∈ range 4096,topLeafCost i)=topLeavesCost := by decide +kernel
 theorem bound_buildLevel (tag lay tree h level : Nat) (nodes : List Digest) :
     CBound (fun result => result.length=nodes.length/2) (nodes.length/2)
@@ -1368,8 +1381,9 @@ theorem bound_buildTopLevel (level : Nat) (nodes : List Digest) :
       · simp only [hl, if_false]
         exact Bound.map _ ((bound_topNodeAt _ _ _ _).mono_k (by simp [topLevelCost, hl])) (fun _ _ => trivial))
   simpa [List.map_const', List.sum_replicate, Nat.mul_comm] using hc
-/-- Σ over levels 1..12 of (nodes at the level) × (worst trials per node): 11·104·4096 + 1 = 4,685,825 (b_h = h). -/
-def topTreeNodeCost : Nat := 4685825
+/-- Σ over levels 1..12 of (nodes at the level) × (worst trials per node `104·2^b_h`): T51
+(`b_h = 0,0,1,1,2,3,4,5,6,7,8`) 851,969 (#938, `b_h = h`: 4,685,825). -/
+def topTreeNodeCost : Nat := 851969
 theorem bound_buildTopLevels (leaves : List Digest) (hlen : leaves.length=2^12) :
     CBound (LevelShape 12 12) topTreeNodeCost (buildTopLevels leaves) := by
   unfold buildTopLevels
@@ -1554,10 +1568,11 @@ theorem validDigits_decode {lay : Layer} {value : Digest} {digits : List Nat}
     (h : decode lay value=some digits) : ValidDigits lay digits := by
   intro i hi
   exact decode_digit_max h i hi
-def leafHashCost (lay : Layer) : Nat := if lay=0 then 14 else 11
-/-- Legacy per-chain-seed leaf (`buildLeaf`); campaign T8D: at lay 0 it is 27 + 225 + 14 (no longer used for the top,
+/-- Leaf hash blocks: T51 top leaf 832 bytes (13 blocks), lower leaves 704 bytes (11 blocks). -/
+def leafHashCost (lay : Layer) : Nat := if lay=0 then 13 else 11
+/-- Legacy per-chain-seed leaf (`buildLeaf`); campaign T51: at lay 0 it is 26 + 236 + 13 (no longer used for the top,
 which is built by `buildLeafTop`). -/
-def fullLeafCost (lay : Layer) : Nat := if lay=0 then 266 else 334
+def fullLeafCost (lay : Layer) : Nat := if lay=0 then 275 else 334
 theorem bound_leafHash (lay : Layer) (tree leaf : Nat) (ends : List Digest)
     (hlen : ends.length=chainCount lay) :
     CBound (fun _ => True) (leafHashCost lay) (leafHash lay tree leaf ends) := by
@@ -1674,23 +1689,24 @@ theorem sum_pairs (f : Nat → Nat) (n : Nat) :
       Finset.sum_range_succ,Finset.sum_range_succ,Nat.add_assoc]
 def signaturePairCost (digits : List Nat) (pair : Nat) : Nat :=
   1+∑ half ∈ range 2,digits.getD (2*pair+half) 0
-theorem signaturePairCost_sum (digits : List Nat) (hlen : digits.length=54) :
-    ∑ pair ∈ range 27,signaturePairCost digits pair=27+digits.sum := by
+theorem signaturePairCost_sum (digits : List Nat) (hlen : digits.length=51) :
+    ∑ pair ∈ range 26,signaturePairCost digits pair=26+digits.sum := by
   unfold signaturePairCost
   rw [Finset.sum_add_distrib,sum_const_range]
   simp only [Nat.mul_one]
-  apply congrArg (fun n : Nat => 27+n)
+  apply congrArg (fun n : Nat => 26+n)
   have htwo (pair : Nat) : (∑ half ∈ range 2,digits.getD (2*pair+half) 0)=
       digits.getD (2*pair) 0+digits.getD (2*pair+1) 0 := by simp [Finset.sum_range_succ]
   simp_rw [htwo]
-  rw [sum_pairs (fun i => digits.getD i 0) 27,show 2*27=digits.length by omega,sum_getD]
-/-- img-v6: the signed top leaf costs its family's 20 coefficient pairs plus the digit sum. -/
-theorem bound_topSignatureLeaf (leaf : Nat) (digits : List Nat) (hlen : digits.length=54) :
-    CBound (fun result => result.2.length=54) (20+digits.sum) (buildLeafTop leaf digits true) := by
+  rw [sum_pairs (fun i => digits.getD i 0) 26,show 2*26=digits.length+1 by omega,Finset.sum_range_succ,sum_getD]
+  simp [List.getD_eq_getElem?_getD]
+/-- T51: the signed top leaf costs its family's 16 coefficient pairs plus the digit sum. -/
+theorem bound_topSignatureLeaf (leaf : Nat) (digits : List Nat) (hlen : digits.length=51) :
+    CBound (fun result => result.2.length=51) (16+digits.sum) (buildLeafTop leaf digits true) := by
   unfold buildLeafTop
   refine (bound_topCoefs leaf).bind' (l := digits.sum) (fun coefs _ => ?_) (by simp [topCoefPairs])
   unfold buildLeafTopC
-  refine Bound.bind' (l := 0) (Bound.foldlM_range 54 _
+  refine Bound.bind' (l := 0) (Bound.foldlM_range 51 _
     (fun i (state : List Digest × List Digest) => state.2.length=i)
     (fun i => digits.getD i 0) ([],[]) rfl (fun i hi state hstate => ?_))
     (fun state hstate => ?_) (by rw [← hlen,sum_getD]; omega)
@@ -1700,8 +1716,8 @@ theorem bound_topSignatureLeaf (leaf : Nat) (digits : List Nat) (hlen : digits.l
   · simp only [ite_true]
     exact .pure (0,state.2) 0 hstate
 theorem bound_signTop (cache : Cache) (leaf : Nat) (digits : List Nat)
-    (hlen : digits.length=54) (hsum : digits.sum≤146) :
-    CBound (fun result => result.1.length=54 ∧ result.2.length=12) 178 (signTop cache leaf digits) := by
+    (hlen : digits.length=51) (hsum : digits.sum≤152) :
+    CBound (fun result => result.1.length=51 ∧ result.2.length=12) 180 (signTop cache leaf digits) := by
   unfold signTop
   refine (bound_topSignatureLeaf leaf digits hlen).bind' (l := 12) (fun result hr => ?_)
     (by omega)
@@ -1763,8 +1779,8 @@ theorem bound_digestSearch (rho : Digest) (message : Message) :
       · exact ih (counter+1)
 def layerFixedCost : Nat → Nat
   | 0 => 0
-  | n+1 => if n=0 then 178 else treeCost (Fin.ofNat 4 n)+layerFixedCost n
-theorem layerFixedCost_four : layerFixedCost 4=85935 := by decide +kernel
+  | n+1 => if n=0 then 180 else treeCost (Fin.ofNat 4 n)+layerFixedCost n
+theorem layerFixedCost_four : layerFixedCost 4=85937 := by decide +kernel
 theorem bound_signLayers (cache : Cache) (index : Nat) :
     ∀ n message,CBound (fun _ => True) (n*counterLimit+layerFixedCost n)
       (signLayers cache index n message) := by
@@ -1784,14 +1800,14 @@ theorem bound_signLayers (cache : Cache) (index : Nat) :
       by_cases hn : n=0
       · subst n
         simp only [ite_true]
-        have hdig : ((out.map Prod.snd).getD dummyTop).length=54 ∧ ((out.map Prod.snd).getD dummyTop).sum≤146 := by
+        have hdig : ((out.map Prod.snd).getD dummyTop).length=51 ∧ ((out.map Prod.snd).getD dummyTop).sum≤152 := by
           cases out with
           | none => exact ⟨by decide,by decide⟩
           | some pair =>
               obtain ⟨counter,digits⟩ := pair
               have hd := hout counter digits rfl
               exact ⟨hd.1,by
-                change digits.sum ≤ 146
+                change digits.sum ≤ 152
                 have hsum := hd.2.1
                 norm_num [target] at hsum
                 omega⟩
@@ -1815,39 +1831,39 @@ theorem bound_privateNonce (message : Message) :
   unfold privateNonce privateHash
   exact Bound.qry_bind (k := 0) trivial (fun _ => .pure _ 0 trivial) (by simp [weight])
 theorem bound_signPayload (cache : Cache) (message : Message) :
-    CBound (fun _ => True) (121772+attemptLimit+4*counterLimit) (signPayload cache message) := by
+    CBound (fun _ => True) (121774+attemptLimit+4*counterLimit) (signPayload cache message) := by
   unfold signPayload
-  refine (bound_privateNonce message).bind' (l := 121770+attemptLimit+4*counterLimit)
+  refine (bound_privateNonce message).bind' (l := 121772+attemptLimit+4*counterLimit)
     (fun rho _ => ?_) (by omega)
-  refine (bound_digestSearch rho message attemptLimit 0).bind' (l := 121770+4*counterLimit)
+  refine (bound_digestSearch rho message attemptLimit 0).bind' (l := 121772+4*counterLimit)
     (fun found _ => ?_) (by omega)
   cases found with
   | none => exact .pure _ _ trivial
   | some pair =>
       obtain ⟨counter,output⟩ := pair
       dsimp only
-      refine Bound.bind' (l := 85937+4*counterLimit) (Bound.foldlM_range 7 _
+      refine Bound.bind' (l := 85939+4*counterLimit) (Bound.foldlM_range 7 _
         (fun coord (state : List Digest × List Digest × List Digest) => state.2.2.length=coord)
         (fun _ => 5119) ([],[],[]) rfl (fun coord _ state hstate => ?_))
         (fun state hstate => ?_) (by rw [sum_const_range];omega)
       · refine (bound_buildFts _ coord).bind' (l := 0) (fun result _ => ?_) (by decide)
         exact .pure _ 0 (by simp [hstate])
-      · refine (bound_forestPk _ state.2.2 hstate).bind' (l := 85935+4*counterLimit)
+      · refine (bound_forestPk _ state.2.2 hstate).bind' (l := 85937+4*counterLimit)
           (fun root _ => ?_) (by omega)
         refine (bound_signLayers cache _ 4 root).bind' (l := 0) (fun layers _ => ?_)
           (by rw [layerFixedCost_four];omega)
         cases layers <;> exact .pure _ 0 trivial
 theorem bound_sign (cache : Cache) (message : Message) :
-    CBound (fun _ => True) (121774+attemptLimit+4*counterLimit) (sign cache message) := by
+    CBound (fun _ => True) (121776+attemptLimit+4*counterLimit) (sign cache message) := by
   unfold sign
-  refine (bound_privateMac cache.region).bind' (l := 121772+attemptLimit+4*counterLimit)
+  refine (bound_privateMac cache.region).bind' (l := 121774+attemptLimit+4*counterLimit)
     (fun tag _ => ?_) (by omega)
   split
   · exact .pure _ _ trivial
   · exact bound_signPayload cache message
 theorem sign_compression_ceiling (secret : BitVec 256) (cache : Cache) (message : Message) :
     ∀ result ∈ support (World.countBlocks (realize secret (sign cache message))),
-      result.2 ≤ 17947566 := by
+      result.2 ≤ 17947568 := by
   intro result hr
   rw [World.countBlocks,← realize_count] at hr
   have hc := (bound_sign cache message).count_support result
@@ -2706,8 +2722,9 @@ theorem bound_recoverLayer (sig : Signature) (index : Nat) (lay : Layer) (digits
 def recoveryLayersCost : Nat → Nat
   | 0 => 0
   | n+1 => recoverLayerCost (Fin.ofNat 4 n)+recoveryLayersCost n
-/-- Recovery cost: 105 (top, target 146) + 118 + 116 + 116 for lower targets 201/202/202. -/
-theorem recoveryLayersCost_four : recoveryLayersCost 4=455 := by decide +kernel
+/-- Recovery cost: 109 (top, T51: capacity 236 - target 152 + 13 leaf blocks + 12) + 118 + 116 + 116 for lower targets
+201/202/202. -/
+theorem recoveryLayersCost_four : recoveryLayersCost 4=459 := by decide +kernel
 theorem bound_verifyLayers (w : Witness) (index : Nat) :
     ∀ n root,CBound (fun _ => True) (n+recoveryLayersCost n) (verifyLayers w index n root) := by
   intro n
@@ -2867,11 +2884,11 @@ theorem forestRecoveryCost_le (output : HashOutput) (hadm : admissible (selectio
   rw [selections_length]
   omega
 theorem bound_verify (message : Message) (pk : Digest) (w : Witness) :
-    CBound (fun _ => True) 648 (verify message pk w) := by
+    CBound (fun _ => True) 652 (verify message pk w) := by
   unfold verify
   split
   · exact .pure _ _ trivial
-  · refine (bound_digest w.signature.rho message w.digestCounter).bind' (l := 647)
+  · refine (bound_digest w.signature.rho message w.digestCounter).bind' (l := 651)
       (fun output _ => ?_) (by decide)
     dsimp only
     split
@@ -2881,7 +2898,7 @@ theorem bound_verify (message : Message) (pk : Digest) (w : Witness) :
       have hadm : admissible (selections output)=true :=
         (Bool.and_eq_true_iff.mp hgood).1
       refine ((bound_recoverFts w.signature (output.toNat%2^31) (selections output)).mono_k
-        (forestRecoveryCost_le output hadm)).bind' (l := 489) (fun forest _ => ?_) (by decide)
+        (forestRecoveryCost_le output hadm)).bind' (l := 493) (fun forest _ => ?_) (by decide)
       cases forest with
       | none => exact .pure _ _ trivial
       | some forest =>
@@ -2889,14 +2906,14 @@ theorem bound_verify (message : Message) (pk : Digest) (w : Witness) :
             (l := 0) (fun root _ => ?_) (by rw [recoveryLayersCost_four]; decide)
           cases root <;> exact .pure _ 0 trivial
 theorem verify_compression_bound (secret : BitVec 256) (message : Message) (pk : Digest) (w : Witness) :
-    ∀ result ∈ support (World.countBlocks (realize secret (verify message pk w))),result.2 ≤ 648 := by
+    ∀ result ∈ support (World.countBlocks (realize secret (verify message pk w))),result.2 ≤ 652 := by
   intro result hr
   rw [World.countBlocks,← realize_count] at hr
   exact (bound_verify message pk w).count_support result (realize_support_subset secret _ hr) |>.2
 theorem bound_expand (message : Message) (pk : Digest) (sig : Signature) :
-    CBound (fun _ => True) (attemptLimit+4*counterLimit+643) (expand message pk sig) := by
+    CBound (fun _ => True) (attemptLimit+4*counterLimit+647) (expand message pk sig) := by
   unfold expand
-  refine (bound_digestSearch sig.rho message attemptLimit 0).bind' (l := 4*counterLimit+643)
+  refine (bound_digestSearch sig.rho message attemptLimit 0).bind' (l := 4*counterLimit+647)
     (fun found hf => ?_) (by omega)
   cases found with
   | none => exact .pure _ _ trivial
@@ -2905,7 +2922,7 @@ theorem bound_expand (message : Message) (pk : Digest) (sig : Signature) :
       have hadm := hf counter output rfl
       dsimp only
       refine ((bound_recoverFts sig (output.toNat%2^31) (selections output)).mono_k
-        (forestRecoveryCost_le output hadm)).bind' (l := 4*counterLimit+484)
+        (forestRecoveryCost_le output hadm)).bind' (l := 4*counterLimit+488)
         (fun forest _ => ?_) (by omega)
       cases forest with
       | none => exact .pure _ _ trivial
@@ -2920,7 +2937,7 @@ theorem bound_expand (message : Message) (pk : Digest) (sig : Signature) :
               split <;> exact .pure _ 0 trivial
 theorem expand_compression_ceiling (secret : BitVec 256) (message : Message) (pk : Digest) (sig : Signature) :
     ∀ result ∈ support (World.countBlocks (realize secret (expand message pk sig))),
-      result.2 ≤ 17826435 := by
+      result.2 ≤ 17826439 := by
   intro result hr
   rw [World.countBlocks,← realize_count] at hr
   exact (bound_expand message pk sig).count_support result (realize_support_subset secret _ hr) |>.2

@@ -1329,9 +1329,6 @@ theorem interactionL_probes_births (g : CanonTable.HiddenF) (published : SigGolf
         rw [hb1, hp1] at i1
         exact i1
 
-#print axioms interactionL_probes_births
-#print axioms interactionL_counts
-#print axioms interactionL_ghost
 end ClaudeWCT.W9.T3.Security.WPair.Paired
 
 namespace ClaudeWCT.W9.T3.Security.WPair.Paired
@@ -1433,7 +1430,4 @@ theorem experimentL_rows_birth_or_trials (g : CanonTable.HiddenF) {α β : Type}
   have hg := run_good _ _ (Guess.Fam.phi g.1 g.2) _ initL (good_empty _ _) r hr
   exact hg.1.2 x a ((experimentL_ghosts hU omega g published program finish r hr).2 x a hx hd)
 
-#print axioms experimentL_counts
-#print axioms experimentL_probes_births
-#print axioms experimentL_ghosts
 end ClaudeWCT.W9.T3.Security.WPair.Paired

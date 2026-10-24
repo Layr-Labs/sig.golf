@@ -172,8 +172,6 @@ theorem mix_le_frozenF :
     exact bot_le
 end Lift
 
-#print axioms frozen_le_mixF
-#print axioms mix_le_frozenF
 end ClaudeWCT.W9.T3.Security.Wots.CanonicalRef.Normalized.FamLift
 
 namespace ClaudeWCT.W9.T3.Security.Wots.CanonicalRef.Normalized.FamLift
@@ -405,7 +403,6 @@ theorem errAR_sum_leF :
   · exact bot_le
 end Charge
 
-#print axioms errAR_sum_leF
 end ClaudeWCT.W9.T3.Security.Wots.CanonicalRef.Normalized.FamLift
 
 namespace ClaudeWCT.W9.T3.Security.Wots.CanonicalRef.Normalized.FamLift
@@ -584,7 +581,4 @@ theorem errC_sum_leF (S : FamScheme) (hgrp : ∀ lay, S.grp lay ≤ 2 ^ 20) (Cma
               · rw [(PMF.apply_eq_zero_iff _ s).mpr hs, zero_mul, zero_mul]
           _ = (Cmax : ℝ≥0∞) * q := by rw [ENNReal.tsum_mul_right, PMF.tsum_coe, one_mul]
 
-#print axioms frozenCount_eqF
-#print axioms errC_leF
-#print axioms errC_sum_leF
 end ClaudeWCT.W9.T3.Security.Wots.CanonicalRef.Normalized.FamLift

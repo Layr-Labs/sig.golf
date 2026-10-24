@@ -28,15 +28,10 @@ theorem signLegacyData_table (i : Nat) (hi : i < 628) : signLegacyData.getD i 0 
   simpa only [Nat.zero_add] using getD_slice_of_eq signLegacyData 0 628 tableByte sign_table_check i hi
 theorem expandLegacyData_table (i : Nat) (hi : i < 628) : expandLegacyData.getD i 0 = tableByte i := by
   simpa only [Nat.zero_add] using getD_slice_of_eq expandLegacyData 0 628 tableByte expand_table_check i hi
-private theorem sign_cf_check : (signLegacyData.drop 628).take 20 =
-    List.ofFn (fun j : Fin 20 => cfByte 1 (628 + j.val)) := by
-  decide +kernel
+
 private theorem expand_cf_check : (expandLegacyData.drop 628).take 20 =
     List.ofFn (fun j : Fin 20 => cfByte 0 (628 + j.val)) := by
   decide +kernel
-theorem signLegacyData_cf (i : Nat) (hi : 628 ≤ i) (hj : i < 648) : signLegacyData.getD i 0 = cfByte 1 i := by
-  have h := getD_slice_of_eq signLegacyData 628 20 (cfByte 1) sign_cf_check (i-628) (by omega)
-  simpa only [Nat.add_sub_of_le hi] using h
 theorem expandLegacyData_cf (i : Nat) (hi : 628 ≤ i) (hj : i < 648) : expandLegacyData.getD i 0 = cfByte 0 i := by
   have h := getD_slice_of_eq expandLegacyData 628 20 (cfByte 0) expand_cf_check (i-628) (by omega)
   simpa only [Nat.add_sub_of_le hi] using h
@@ -53,10 +48,6 @@ theorem signData_table (i : Nat) (hi : i < 628) :
     signData.getD (82048 + i) 0 = tableByte i := by
   rw [signData, show 82048 + i = 128 + (81920 + i) by omega, getD_prefixed _ _ _ _ signZtData_length,
     getD_prefixed _ _ _ _ signPrefixData_length]; exact signLegacyData_table i hi
-theorem signData_cf (i : Nat) (hi : 628 ≤ i) (hj : i < 648) :
-    signData.getD (82048 + i) 0 = cfByte 1 i := by
-  rw [signData, show 82048 + i = 128 + (81920 + i) by omega, getD_prefixed _ _ _ _ signZtData_length,
-    getD_prefixed _ _ _ _ signPrefixData_length]; exact signLegacyData_cf i hi hj
 private theorem zt_check : ∀ r : Fin 128, signZtData.getD r.val 0 = ZeroCap.ztByte r.val := by decide +kernel
 /-- The zero-count table at the start of the sign data. -/
 theorem signData_zt (r : Nat) (hr : r < 128) : signData.getD r 0 = ZeroCap.ztByte r := by
@@ -76,32 +67,62 @@ theorem expandData_table (i : Nat) (hi : i < 628) :
     getD_prefixed _ _ _ _ expandZtData_length, getD_prefixed _ _ _ _ expandSharedData_length, getD_prefixed _ _ _ _ expandPrefixData_length]
   exact expandLegacyData_table i hi
 
-private theorem sign_reward_check :
-    (signLegacyData.drop 1024).take 1920 =
-      List.ofFn (fun j : Fin 1920 => Reward.rewardTableByte (1024 + j.val)) := by
-  decide +kernel
+
 private theorem expand_reward_check :
     (expandLegacyData.drop 1024).take 1920 =
       List.ofFn (fun j : Fin 1920 => Reward.rewardTableByte (1024 + j.val)) := by
   decide +kernel
-theorem signLegacyData_reward (i : Nat) (hi : 1024 ≤ i) (hj : i < 2944) :
-    signLegacyData.getD i 0 = Reward.rewardTableByte i := by
-  have h := getD_slice_of_eq signLegacyData 1024 1920 Reward.rewardTableByte sign_reward_check
-    (i-1024) (by omega)
-  simpa only [Nat.add_sub_of_le hi] using h
 theorem expandLegacyData_reward (i : Nat) (hi : 1024 ≤ i) (hj : i < 2944) :
     expandLegacyData.getD i 0 = Reward.rewardTableByte i := by
   have h := getD_slice_of_eq expandLegacyData 1024 1920 Reward.rewardTableByte expand_reward_check
     (i-1024) (by omega)
   simpa only [Nat.add_sub_of_le hi] using h
-theorem signData_reward (i : Nat) (hi : 1024 ≤ i) (hj : i < 2944) :
-    signData.getD (82048+i) 0 = Reward.rewardTableByte i := by
-  rw [signData, show 82048 + i = 128 + (81920 + i) by omega, getD_prefixed _ _ _ _ signZtData_length,
-    getD_prefixed _ _ _ _ signPrefixData_length]; exact signLegacyData_reward i hi hj
 theorem expandData_reward (i : Nat) (hi : 1024 ≤ i) (hj : i < 2944) :
     expandData.getD (25840 + i) 0 = Reward.rewardTableByte i := by
   rw [expandData, List.append_assoc, show 25840 + i = 128 + (2160 + (23552 + i)) from by omega,
     getD_prefixed _ _ _ _ expandZtData_length, getD_prefixed _ _ _ _ expandSharedData_length, getD_prefixed _ _ _ _ expandPrefixData_length]
   exact expandLegacyData_reward i hi hj
+
+/-! ### Campaign T51 sign-data facts (the T51 sign image: TOP_DATA + 632..647 = T51 dummy word, TOP_DATA + 2048..3939
+= the 1892-byte T51 packed block; the lower reward tables 1024..2047 and the flag byte 631 unchanged) -/
+private theorem sign_flag_check : signLegacyData.getD 631 0 = BitVec.ofNat 8 1 := by decide +kernel
+theorem signLegacyData_flag : signLegacyData.getD 631 0 = BitVec.ofNat 8 1 := sign_flag_check
+theorem signData_flag : signData.getD (82048 + 631) 0 = BitVec.ofNat 8 1 := by
+  rw [signData, show 82048 + 631 = 128 + (81920 + 631) by omega, getD_prefixed _ _ _ _ signZtData_length,
+    getD_prefixed _ _ _ _ signPrefixData_length]; exact signLegacyData_flag
+private theorem sign_lower_check :
+    (signLegacyData.drop 1024).take 1024 =
+      List.ofFn (fun j : Fin 1024 => Reward.rewardTableByte (1024 + j.val)) := by
+  decide +kernel
+theorem signLegacyData_lowerReward (i : Nat) (hi : 1024 ≤ i) (hj : i < 2048) :
+    signLegacyData.getD i 0 = Reward.rewardTableByte i := by
+  have h := getD_slice_of_eq signLegacyData 1024 1024 Reward.rewardTableByte sign_lower_check (i-1024) (by omega)
+  simpa only [Nat.add_sub_of_le hi] using h
+theorem signData_lowerReward (i : Nat) (hi : 1024 ≤ i) (hj : i < 2048) :
+    signData.getD (82048+i) 0 = Reward.rewardTableByte i := by
+  rw [signData, show 82048 + i = 128 + (81920 + i) by omega, getD_prefixed _ _ _ _ signZtData_length,
+    getD_prefixed _ _ _ _ signPrefixData_length]; exact signLegacyData_lowerReward i hi hj
+private theorem sign_t51_check :
+    (signLegacyData.drop 2048).take 1892 = List.ofFn (fun j : Fin 1892 => T51.tByte (2048 + j.val - 2048)) := by
+  decide +kernel
+/-- The T51 packed table block in the sign image (TOP_DATA + 2048 = 0xFFF800). -/
+theorem signLegacyData_t51 (i : Nat) (hi : i < 1892) : signLegacyData.getD (2048 + i) 0 = T51.tByte i := by
+  have h := getD_slice_of_eq signLegacyData 2048 1892 (fun j => T51.tByte (j - 2048)) sign_t51_check i hi
+  rw [h, Nat.add_sub_cancel_left]
+theorem signData_t51 (i : Nat) (hi : i < 1892) : signData.getD (82048 + 2048 + i) 0 = T51.tByte i := by
+  rw [signData, show 82048 + 2048 + i = 128 + (81920 + (2048 + i)) by omega, getD_prefixed _ _ _ _ signZtData_length,
+    getD_prefixed _ _ _ _ signPrefixData_length]; exact signLegacyData_t51 i hi
+/-! ### Campaign T51 expand-data fact: the 1892-byte T51 packed block at `0xFF9E00 = DB0 + 4848` (expand data offset
+4848 = 128 Zt + 2160 shared + 2560 into the prefix data), the source of the expand's KCOPY (-> RAM `0xA0000`). -/
+private theorem expand_t51_check :
+    ((expandPrefixData ++ expandLegacyData).drop 2560).take 1892 =
+      List.ofFn (fun j : Fin 1892 => T51.tByte (2560 + j.val - 2560)) := by
+  decide +kernel
+theorem expandData_t51 (i : Nat) (hi : i < 1892) : expandData.getD (4848 + i) 0 = T51.tByte i := by
+  rw [expandData, List.append_assoc, show 4848 + i = 128 + (2160 + (2560 + i)) from by omega,
+    getD_prefixed _ _ _ _ expandZtData_length, getD_prefixed _ _ _ _ expandSharedData_length]
+  have h := getD_slice_of_eq (expandPrefixData ++ expandLegacyData) 2560 1892 (fun j => T51.tByte (j - 2560))
+    expand_t51_check i hi
+  rw [h, Nat.add_sub_cancel_left]
 
 end SigGolfCandidate.T3M.Search

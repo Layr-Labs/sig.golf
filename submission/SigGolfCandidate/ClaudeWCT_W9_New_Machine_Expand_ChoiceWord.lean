@@ -55,5 +55,4 @@ theorem choiceWord_witEnc (output : HashOutput) (witness : SharedForest.Witness)
       rw [this, Nat.testBit_two_pow_sub_one]; simpa using h8
     rw [witEnc_getLsbD _ _ _ (by rw [hco]; omega)]
     simp [BitVec.getLsbD_ofNat, h2, BitVec.getLsbD_of_ge _ i (by omega : 8 ≤ i)]
-#print axioms choiceWord_witEnc
 end ClaudeWCT.W9.T3M.PairedReadout

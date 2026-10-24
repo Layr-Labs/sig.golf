@@ -14,8 +14,6 @@ theorem excess_three_quarters :
       11324/100000000 :=
   fullPrice_excess_of_pointwise (63/64) theta_excess_le_square
 end SigGolfCandidate.T3.BPORS.History
-#print axioms SigGolfCandidate.T3.BPORS.History.theta_excess_le_square
-#print axioms SigGolfCandidate.T3.BPORS.History.excess_three_quarters
 end
 section
 namespace SigGolfCandidate.T3.Security.CaseC

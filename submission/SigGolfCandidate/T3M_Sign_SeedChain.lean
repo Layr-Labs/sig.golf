@@ -192,7 +192,6 @@ theorem copy_steps {im : Image} (hc : CodeAt im (pcOf 22032) copyCode)
     t3n [h8, h19, h20, buffer]
     simp only [buffer] at hn
     rw [if_neg (by omega), if_neg (by omega)]
-#print axioms copy_steps
 end ClaudeWCT.W9.Machine.Sign.SharedPrefixes
 
 namespace ClaudeWCT.W9.Machine.Sign.SharedPrefixes
@@ -777,7 +776,6 @@ theorem header {im : Image} (hc : Code im) (s : MachineState)
   · exact sign_header_1 hc s hp h8
   · exact sign_header_2 hc s hp h8
   · exact sign_header_3 hc s hp h8
-#print axioms header
 end ClaudeWCT.W9.Machine.Sign.SharedHeader
 
 namespace ClaudeWCT.W9.Machine.Sign.SharedChain
@@ -884,8 +882,6 @@ theorem shared_header_source {image : Image} (h : Code image)
   exact (post.high.trans (routedAt_high_zero s lay tree leaf hr h9 h18)).trans
     (source_high_actual lay tree leaf i step hr hf hi hs).symm
 
-#print axioms shared_header_source
-#print axioms sub2_spec
 end ClaudeWCT.W9.Machine.Sign.SharedChain
 
 namespace ClaudeWCT.W9.Machine.Sign.SharedChain
@@ -897,6 +893,7 @@ producer. -/
 theorem installed_code : Code Images.signImage := by
   refine ⟨?_, ?_, ?_, ?_, ⟨?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩,
     ⟨?_, ?_, ?_, ?_, ?_, ?_, ?_⟩⟩ <;> (apply codeAt_sign_current_slice <;> decide +kernel)
+
 end ClaudeWCT.W9.Machine.Sign.SharedChain
 
 namespace ClaudeWCT.W9.Machine.Sign.SharedChain
@@ -966,7 +963,6 @@ theorem boundary {im : Image} (hc : Code im) (hpref : PrefixCode im)
     exact ⟨n,u,by split <;> omega,hu,upc,ur,uf.mono (by
       intro A hA h; simp only [boundaryWrites]; tauto),uv,saved⟩
 
-#print axioms boundary
 end ClaudeWCT.W9.Machine.Sign.SharedChain
 
 namespace ClaudeWCT.W9.Machine.Sign.SharedChain
@@ -1002,7 +998,7 @@ theorem hash_rung {im : Image} (hc : Code im) (sk : BitVec 256)
   obtain ⟨u,hu,upc,ur,uf⟩ := sub8_spec hc s hp m e (by omega) (by omega) h20 hpre.x21
   rw [if_neg (by omega)] at upc
   obtain ⟨t,ht,tpc,t28,t16,t24,tr,tf⟩ := shared_header_source hc u upc lay tree leaf i m
-    hpre.hroute hpre.hleaf hpre.hi (by omega)
+    hpre.hroute hpre.hleaf (by have := hpre.hi; omega) (by omega)
     (by rw [ur.get (by simp)]; exact hpre.x8)
     (by rw [ur.get (by simp)]; exact hpre.x9)
     (by rw [ur.get (by simp)]; exact hpre.x18)
@@ -1018,7 +1014,7 @@ theorem hash_rung {im : Image} (hc : Code im) (sk : BitVec 256)
     (by rw [regs.get (by simp)]; exact hpre.x19) (by rw [regs.get (by simp)]; exact h20) t28
     (by rw [fr.get (by decide) (by simp only [CHAIN]; omega)]; exact hpre.z0)
     (by rw [fr.get (by decide) (by simp only [CHAIN]; omega)]; exact hpre.z8)
-    t16 t24 (source_high_actual lay tree leaf i m hpre.hroute hpre.hleaf hpre.hi (by omega)) tv
+    t16 t24 (source_high_actual lay tree leaf i m hpre.hroute hpre.hleaf (by have := hpre.hi; omega) (by omega)) tv
   refine ((TSim.steps (hu.trans ht) run).of_eq rfl ?_ ?_ rfl rfl).mono ?_
   · unfold headerK; split_ifs <;> omega
   · unfold headerK; split_ifs <;> omega
@@ -1034,7 +1030,6 @@ theorem hash_rung {im : Image} (hc : Code im) (sk : BitVec 256)
           · exact Or.inl h
           · exact Or.inr h)⟩⟩
 
-#print axioms hash_rung
 end ClaudeWCT.W9.Machine.Sign.SharedChain
 
 namespace ClaudeWCT.W9.Machine.Sign.SharedChain
@@ -1076,7 +1071,6 @@ theorem pre_preserved {s t : MachineState} {lay : Layer} {tree leaf i cap e valp
   · exact (hf _ (by decide) (by simp only [ChainWS,CHAIN]; omega)).trans hpre.z0
   · exact (hf _ (by decide) (by simp only [ChainWS,CHAIN]; omega)).trans hpre.z8
 
-#print axioms pre_preserved
 end ClaudeWCT.W9.Machine.Sign.SharedChain
 
 namespace ClaudeWCT.W9.Machine.Sign.SharedChain
@@ -1182,7 +1176,6 @@ theorem retained_rung {im : Image} (hc : Code im) (hpref : PrefixCode im) (sk : 
         (by simp only [hashWrites,CHAIN]; omega)
         (by simp only [hashWrites,CHAIN]; omega)
 
-#print axioms retained_rung
 end ClaudeWCT.W9.Machine.Sign.SharedChain
 
 namespace ClaudeWCT.W9.Machine.Sign.SharedChain
@@ -1237,7 +1230,6 @@ theorem retained_exit {α : Type} (a : α) {im : Image} (hc : Code im) (hpref : 
         exact hz.frame (uf.trans fr) (by intro h; simp only [boundaryWrites,CHAIN,or_false] at h; omega)
           (by intro h; simp only [boundaryWrites,CHAIN,or_false] at h; omega)⟩).toTBSim (by omega) |>.mono (by omega) (fun _ _ h => h)
 
-#print axioms retained_exit
 end ClaudeWCT.W9.Machine.Sign.SharedChain
 
 namespace ClaudeWCT.W9.Machine.Sign.SharedChain
@@ -1356,7 +1348,6 @@ theorem retained_loop {im : Image} (hc : Code im) (hpref : PrefixCode im) (sk : 
       | succ j =>
         have saved := ht.2.2.2.2.2.1 usel j (by omega)
         simpa only [List.getD_cons_succ,show m+(j+1)=m+1+j by omega] using saved
-#print axioms retained_loop
 end ClaudeWCT.W9.Machine.Sign.SharedChain
 
 namespace ClaudeWCT.W9.Machine.Sign.SharedChain
@@ -1396,7 +1387,6 @@ theorem retained_chain {im : Image} (hc : Code im) (hpref : PrefixCode im) (sk :
       (hs.trans (ur.get (by decide)).symm)
   simpa only [Nat.zero_add] using ht.2.2.2.2.2.1 us j hj
 
-#print axioms retained_chain
 end ClaudeWCT.W9.Machine.Sign.SharedChain
 
 namespace ClaudeWCT.W9.Machine.Sign.SharedChain
@@ -1743,8 +1733,4 @@ theorem top_chain {v : Digest} (hp : s0.pc = pcOf 1013) (hv : DigAt s0 (CHAIN+48
   all_goals (try simp only [sumTo_const])
   all_goals omega
 end
-#print axioms top_boundary
-#print axioms top_step
-#print axioms top_exit
-#print axioms top_chain
 end ClaudeWCT.W9.Machine.Sign.SharedChain

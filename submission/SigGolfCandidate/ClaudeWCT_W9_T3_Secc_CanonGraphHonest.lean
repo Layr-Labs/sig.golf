@@ -611,8 +611,6 @@ theorem wctEnds_eq (h : Agrees answers labels) (L : WctLeafPos) :
   exact wctEnd_eq h (L.index, L.coord, L.child, t)
 
 end Honest
-#print axioms wctEnds_eq
-#print axioms honestPair_eq
 end ClaudeWCT.W9.T3.Security.CanonGraph.Paired
 
 namespace ClaudeWCT.W9.T3.Security.CanonGraph.Paired
@@ -640,7 +638,6 @@ theorem pads_raw_branch (labels : Labels) (index : Fin (2^31)) (coord : Fin 9)
     rw [he]
   · rfl
 
-#print axioms pads_raw_branch
 
 def topLevel (coord : Fin 9) : Nat := if first coord.val then 5 else 6
 
@@ -693,7 +690,6 @@ theorem nodes_label (answers : Answers) (labels : Labels) (ha : Agrees answers l
     unfold ftsLabel
     rw [if_neg (by omega : level+1≠0),show level+1-1=level by omega,hn]
 
-#print axioms nodes_label
 end ClaudeWCT.W9.T3.Security.CanonGraph.Paired
 
 namespace ClaudeWCT.W9.T3.Security.CanonGraph.Paired
@@ -731,7 +727,6 @@ attribute [local instance] Classical.propDecidable
     · rw [if_neg h4, if_neg h4]
   rw [hpad]
   rfl
-#print axioms sharedNode_eval
 end ClaudeWCT.W9.T3.Security.CanonGraph.Paired
 
 namespace ClaudeWCT.W9.T3.Security.CanonGraph.Paired
@@ -833,7 +828,6 @@ theorem source_nodes_label (answers : Answers) (labels : Labels) (h : Agrees ans
   have hg:=Research.SharedForest.sharedNodes_graph answers (decide (first coord.val)) index.val coord.val ps
   rw [hg.2.1 (128+j) (by omega) (by omega),Nat.add_sub_cancel_left]
   exact source_leaves_label answers labels h index coord ps hps j hj
-#print axioms source_nodes_label
 end ClaudeWCT.W9.T3.Security.CanonGraph.Paired
 
 namespace ClaudeWCT.W9.T3.Security.CanonGraph.Paired
@@ -897,8 +891,6 @@ theorem secondNodes_label (answers : Answers) (labels : Labels) (h : Agrees answ
     (Research.SharedForest.nodesPair (Research.SharedForest.firstNodes answers index.val pair.val prev))
     hpads level c (by simpa only [topLevel,if_neg hf] using hl) hc
   simpa only [coord,Research.SharedForest.secondNodes,decide_eq_false hf] using he
-#print axioms firstNodes_label
-#print axioms secondNodes_label
 end ClaudeWCT.W9.T3.Security.CanonGraph.Paired
 
 namespace ClaudeWCT.W9.T3.Security.CanonGraph.Paired
@@ -957,8 +949,6 @@ theorem source_pads_label (answers : Answers) (labels : Labels) (h : Agrees answ
         (pairPrev_label answers labels h index p.val (by have:=p.isLt;omega)) 5 (2*branch) (by decide) (by norm_num;omega)
     · simpa only [show 2^(7-5)+(2*branch+1)=5+2*branch by norm_num;omega] using firstNodes_label answers labels h index p _
         (pairPrev_label answers labels h index p.val (by have:=p.isLt;omega)) 5 (2*branch+1) (by decide) (by norm_num;omega)
-#print axioms pairPrev_label
-#print axioms source_pads_label
 end ClaudeWCT.W9.T3.Security.CanonGraph.Paired
 
 namespace ClaudeWCT.W9.T3.Security.CanonGraph.Paired
@@ -999,8 +989,6 @@ theorem actual_leaf_pad (answers : Answers) (labels : Labels) (h : Agrees answer
     rw [←rawChild_eq]
     exact Research.SharedForest.raw_physical_child _ _ raw.isLt
   rw [he]
-#print axioms actual_nodes_label
-#print axioms actual_leaf_pad
 end ClaudeWCT.W9.T3.Security.CanonGraph.Paired
 
 namespace ClaudeWCT.W9.T3.Security.CanonGraph.Paired
@@ -1079,7 +1067,6 @@ theorem honest_answer (answers : Answers) (labels : Labels) (h : Agrees answers 
     answers (.inl (.inr (Extract.Paired.honestInput answers node.toPos)))=labels (node.sel labels) := by
   rw [honestInput_eq answers labels h node hb]
   exact h (node.sel labels)
-#print axioms honestInput_eq
 end ClaudeWCT.W9.T3.Security.CanonGraph.Paired
 
 namespace ClaudeWCT.W9.T3.Security.CanonGraph.Paired.Filtered

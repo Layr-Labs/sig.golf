@@ -324,7 +324,6 @@ theorem recordedExperiment_eq (adversary : Final.Paired.AdversaryP) (budget : Na
   (S.bank_experiment_project pay (rest adversary) budget).trans
     (recordedExperiment_eq S pay hrecord adversary budget hbudget).symm
 end Generic
-#print axioms bank_traced
 end ClaudeWCT.W9.T3.Security.PairedBankLink
 
 
@@ -417,7 +416,6 @@ theorem recordedImpl_run {α : Type} (published : SigGolfCandidate.T3.Cache)
         expectedValue_const (mx := ((S.recordedImpl pay published input).run state)) (by simp)] at hp
       simpa only [simulateQ_bind,simulateQ_spec_query,StateT.run_bind,expectedValue_bind] using hp
 end Generic
-#print axioms source_expectedBirths_le_prefix
 end ClaudeWCT.W9.T3.Security.PairedBankLink
 
 namespace ClaudeWCT.W9.T3.Security.PairedBankLink
@@ -489,5 +487,4 @@ theorem expectedBirths_le_shared (adversary : Final.Paired.AdversaryP) (budget :
   rw [←he] at hrecorded
   exact hrecorded.trans_eq (trace_prefix_shared _ adversary budget hbudget)
 end Generic
-#print axioms expectedBirths_le_shared
 end ClaudeWCT.W9.T3.Security.PairedBankLink

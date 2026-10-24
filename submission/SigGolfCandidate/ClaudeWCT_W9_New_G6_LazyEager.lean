@@ -597,5 +597,4 @@ theorem forced_avg_eq_lazy (U : Finset HashInput) (hsub : digestInputs âŠ† U) {Î
   simp only [expectedValue_def, probOutput_evalSPMF] at h
   exact h
 
-#print axioms forced_avg_eq_lazy
 end ClaudeWCT.W9.T3.Security.WPair.Paired

@@ -300,5 +300,4 @@ theorem layersCanonicalBC_succ_split (answers : Answers) (w : WBytes) (index n :
     · apply List.mem_append_right
       rw [queried_bind]; exact List.mem_append_right _ hq
 
-#print axioms layersCanonicalBC_succ_split
 end ClaudeWCT.W9.T3M.Extract
