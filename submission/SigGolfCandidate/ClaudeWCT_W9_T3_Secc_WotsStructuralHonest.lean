@@ -1358,9 +1358,6 @@ theorem sat_signTop (T : Answers) (cache : Cache) (leaf : Nat) (digits : List Na
   generalize evalWithAnswerFn T (buildLeafTop leaf digits true) = x
   obtain ⟨root, values⟩ := x
   exact QueriesSat.bind (sat_topPath T cache leaf hleaf) (QueriesSat.pure' _)
-#print axioms sat_buildTreeP
-#print axioms sat_keygen
-#print axioms sat_signTop
 end ClaudeWCT.W9.T3.Security.Wots.PairedStructural
 
 namespace ClaudeWCT.W9.T3.Security.Wots.PairedStructural
@@ -1427,9 +1424,6 @@ theorem sat_buildLeafPrefixes (T : Answers) {lay : Layer} (hlay : lay ≠ 0)
     rw [WCT9.lowerLeafHash_eq]
     unfold WCT9.lowerHash
     exact sat_halfHash _ _ (honestQuery_honest T (.leaf lay tree leaf) hb)
-#print axioms queried_chainPrefixes
-#print axioms sat_chainPrefixes
-#print axioms sat_buildLeafPrefixes
 end ClaudeWCT.W9.T3.Security.Wots.PairedStructural
 
 namespace ClaudeWCT.W9.T3.Security.Wots.PairedStructural
@@ -1503,9 +1497,6 @@ theorem sat_searchPreparedLayers (T : Answers) (cache : SigGolfCandidate.T3.Cach
                 · exact QueriesSat.pure' _
             · exact QueriesSat.pure' _
         · exact QueriesSat.pure' _
-#print axioms sat_canonical_search
-#print axioms sat_sharedDigestSearch
-#print axioms sat_searchPreparedLayers
 end ClaudeWCT.W9.T3.Security.Wots.PairedStructural
 
 namespace ClaudeWCT.W9.T3.Security.Wots.PairedStructural
@@ -1588,9 +1579,6 @@ theorem sat_prepareRoots (T : Answers) (index : Nat) (hi : index<2^31) :
     (Mask.route_tree_lt index hi 2) (Extract.route_tree_treeBits index hi 2)) ?_
   exact QueriesSat.bind (sat_buildTreePrefixes T (by decide : (3 : Layer)≠0) _ _
     (Mask.route_tree_lt index hi 3) (Extract.route_tree_treeBits index hi 3)) (QueriesSat.pure' _)
-#print axioms sat_prefixTreeRows
-#print axioms sat_buildTreePrefixes
-#print axioms sat_prepareRoots
 end ClaudeWCT.W9.T3.Security.Wots.PairedStructural
 
 namespace ClaudeWCT.W9.T3.Security.Wots.PairedStructural
@@ -1706,7 +1694,6 @@ theorem sat_sharedRows (coord : Coord) (selected : Child) (word : Rank) :
   simp only [Extract.Paired.physical,physical_raw _ j hj] at hc
   exact QueriesSat.bind hc (QueriesSat.pure' _)
 
-#print axioms sat_sharedRows
 end ClaudeWCT.W9.T3.Security.Wots.PairedStructural
 
 namespace ClaudeWCT.W9.T3.Security.Wots.PairedStructural
@@ -1770,7 +1757,6 @@ theorem sat_sharedNode (coord : Coord) (heap : Nat)
     rw [nodeHashH_eq]
     exact ClaudeWCT.WCT9.Wots.Structural.sat_ftsHash T _ _ hq
 
-#print axioms sat_sharedNode
 end ClaudeWCT.W9.T3.Security.Wots.PairedStructural
 
 namespace ClaudeWCT.W9.T3.Security.Wots.PairedStructural
@@ -1889,7 +1875,6 @@ theorem sat_sharedCoordinate (coord : Coord) (selected : Child) (word : Rank) :
   rw [sharedRows_roots]
   exact QueriesSat.bind (sat_sharedHeap T index hidx coord) (QueriesSat.pure' _)
 
-#print axioms sat_sharedCoordinate
 end ClaudeWCT.W9.T3.Security.Wots.PairedStructural
 
 namespace ClaudeWCT.W9.T3.Security.Wots.PairedStructural
@@ -2001,7 +1986,6 @@ theorem sat_buildForest (selected : SharedForest.ForestSelection) (words : Share
   rw [←hstep 3]
   exact QueriesSat.bind (sat_buildSingleton T index hidx selected.singleton words.singleton) (QueriesSat.pure' _)
 
-#print axioms sat_buildForest
 end ClaudeWCT.W9.T3.Security.Wots.PairedStructural
 
 namespace ClaudeWCT.W9.T3.Security.Wots.PairedStructural
@@ -2048,7 +2032,4 @@ theorem sat_authenticatedSign (T : Answers) (published : SigGolfCandidate.T3.Cac
   · exact sat_signPayload T _ _
   · exact QueriesSat.pure' _
 
-#print axioms sat_signFromOutput
-#print axioms sat_signPayload
-#print axioms sat_authenticatedSign
 end ClaudeWCT.W9.T3.Security.Wots.PairedStructural

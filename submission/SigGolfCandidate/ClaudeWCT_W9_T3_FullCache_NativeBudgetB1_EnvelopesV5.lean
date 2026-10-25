@@ -188,9 +188,6 @@ theorem no_top_factor_for_current_signing_envelope (b : ℚ)
   rw [hs] at hm
   exact (not_lt_of_ge h) hm
 
-#print axioms step_requires_minB
-#print axioms floor_ten_exceeds_current_cubic_certificate
-#print axioms no_top_factor_for_current_signing_envelope
 
 /-- Saving only 121 fixed compressions is still insufficient for floor ten
 through the present geometric-envelope route. -/
@@ -250,7 +247,6 @@ theorem no_top_factor_above_fixed_threshold (fixed : ℕ) (hfixed : 112531 ≤ f
   rw [hs] at hm
   exact (not_lt_of_ge hsmall) hm
 
-#print axioms no_top_factor_above_fixed_threshold
 
 def bUpper : ℚ := 1017170123383518814 / 1000000000000000000
 
@@ -283,7 +279,6 @@ theorem floor_ten_envelope_after_122_fixed_savings :
     (show (0 : ℝ) ≤ (2 : ℝ) ^ (112530 / 131072 : ℝ) by positivity)
   rwa [hs] at hm
 
-#print axioms floor_ten_envelope_after_122_fixed_savings
 end ClaudeWCT.W9.T3.BaseAudit.V5.FloorTenResearch
 
 /-! Consequences of the adjacent-pair private-hash savings; conditional
@@ -306,6 +301,4 @@ theorem floor_ten_envelope_after_192_fixed_savings :
     exact Real.rpow_le_rpow_of_exponent_le (by norm_num) (by norm_num)
   exact (mul_le_mul_of_nonneg_right he (by norm_num [b0, bUpper, b2, b3, b4])).trans hb
 
-#print axioms floor_ten_envelope_after_128_fixed_savings
-#print axioms floor_ten_envelope_after_192_fixed_savings
 end ClaudeWCT.W9.T3.BaseAudit.V5.FloorTenResearch

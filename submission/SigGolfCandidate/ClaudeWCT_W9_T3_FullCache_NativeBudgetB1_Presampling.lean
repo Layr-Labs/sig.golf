@@ -238,7 +238,6 @@ theorem search_table_failure (L : Nat) (hL : L≤2^22) (fallback : Correctness.A
   simpa only [SphincsSecurity.Completeness.failMass_eq_probEvent,Fintype.card_fin,
     HashOutput,SphincsSecurity.HashOutput,SphincsSecurity.hashOutputBits] using h
 
-#print axioms search_table_failure
 end ClaudeWCT.W9.T3.Presampling.Canonical
 
 
@@ -279,6 +278,4 @@ theorem search_none_agreement (L : Nat) (hL : L≤2^22) (outputs : SearchKey →
     exact h ⟨c,hc⟩
 
 
-#print axioms search_none_agreement
 end ClaudeWCT.W9.T3.Presampling.Canonical
-

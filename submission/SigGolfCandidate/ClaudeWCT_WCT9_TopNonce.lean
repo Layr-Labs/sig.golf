@@ -222,5 +222,3 @@ theorem eval_topNode_topFoldN_honest (answers : Answers) (sig : Signature) (inde
   simp [topLevelNode]
 
 end ClaudeWCT.WCT9
-
-#print axioms ClaudeWCT.WCT9.eval_verifyTopN_topFoldN

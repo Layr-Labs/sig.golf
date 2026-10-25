@@ -45,9 +45,11 @@ def kJmp : List (BitVec 32) := [0x0a90006f]
 def kSel0 : List (BitVec 32) := [0x06041263]
 def kSel1 : List (BitVec 32) := [0x0019f313, 0x00000393, 0x04731c63]
 def kSel2 : List (BitVec 32) := [0x03400393, 0x0533c863]
+/-- Campaign T51: 706 `addi t1, s5, -1` (terminal step `maxDigit - 1`), 708 `bne s3, zero, 710`. -/
 def kG : List (BitVec 32) := [0x010e3303, 0x046e3023, 0x018e3303, 0x046e3423, 0x040e3823, 0x040e3c23, 0x060e3023,
-  0x060e3423, 0x030e0513, 0x04000593, 0x020e0613, 0x00300313, 0x03300393, 0x0079c463]
-def kG9 : List (BitVec 32) := [0x00600313]
+  0x060e3423, 0x030e0513, 0x04000593, 0x020e0613, 0xfffa8313, 0x03300393, 0x00099463]
+/-- Campaign T51: 709 (chain 0 only) `mv t1, s5`: no terminal step, chain 0 keeps the HIGH half on every step. -/
+def kG9 : List (BitVec 32) := [0x000a8313]
 def kG10 : List (BitVec 32) := [0x006a1463]
 def kG11 : List (BitVec 32) := [0x030e0613]
 def kEcall : List (BitVec 32) := [0x00000073]
@@ -84,7 +86,11 @@ theorem codeAt_kF : CodeAt Images.keygenImage (pcOf 714) kF := by decide +kernel
 theorem codeAt_kFcall : CodeAt Images.keygenImage (pcOf 719) kEcall := by decide +kernel
 theorem codeAt_kFt : CodeAt Images.keygenImage (pcOf 720) kFt := by decide +kernel
 
-theorem kmd (i : Nat) : maxDigit 0 i = if i < 51 then 4 else 7 := by simp [maxDigit]
+theorem kmd (i : Nat) : maxDigit 0 i = if i < 27 then 5 else if i < 48 then 4 else if i < 50 then 6 else 5 := by
+  simp [maxDigit]
+theorem kmd_pos (i : Nat) : 4 ≤ maxDigit 0 i ∧ maxDigit 0 i ≤ 6 := by rw [kmd]; split_ifs <;> omega
+/-- Campaign T51: the LOW terminal step of a G chain (`m + 1 = maxDigit 0 i`), chain 0 excluded. -/
+def kterm (i m : Nat) : Bool := decide (m + 1 = maxDigit 0 i) && decide (i ≠ 0)
 theorem kne_of {x y : Nat} (hx : x < 2 ^ 64) (hy : y < 2 ^ 64) :
     (BitVec.ofNat 64 x != BitVec.ofNat 64 y) = decide (x ≠ y) := by
   by_cases hxy : x = y
@@ -98,9 +104,9 @@ theorem kand1_ofNat (x : Nat) : BitVec.ofNat 64 x &&& 1#64 = BitVec.ofNat 64 (x 
   omega
 
 /-- Steps of the keygen step block after the header (jump, selection, body, HASH and `jal 141`, without the
-`addi; jal` tail at 141): G `23 + [i ≥ 51] + [terminal]`, F (odd chain) `11`. -/
+`addi; jal` tail at 141): G `23 + [i = 0] + [terminal, i ≠ 0]`, F (odd chain) `11`. -/
 def kgX (i m : Nat) : Nat :=
-  if topIsG i then 23 + (if 51 ≤ i then 1 else 0) + (if m + 1 = maxDigit 0 i then 1 else 0) else 11
+  if topIsG i then 23 + (if i = 0 then 1 else 0) + (if kterm i m then 1 else 0) else 11
 
 /-- 135 `jal 689`, 689 `bne s0,zero,714` with `s0 = 0`, 690..692 `andi; addi; bne t1,t2,714`. -/
 theorem ksel_spec (s : MachineState) (hpc : s.pc = pcOf 135) (i : Nat) (hi : i < 2 ^ 63)
@@ -142,29 +148,36 @@ theorem ksel2_spec (s : MachineState) (hpc : s.pc = pcOf 693) (i : Nat) (hi : i 
   · intro r hr; simp at hr; cases r <;> simp_all [bkS2.res, rv_simp] <;> rfl
   · intro A _ _; simp [bkS2.res, rv_simp]
 
-/-- The G body 695..711: header copy, pads, HASH arguments (output `CHAIN+48` on the terminal step). -/
+/-- The G body 695..711: header copy, pads, HASH arguments (output `CHAIN+48` on the terminal step). Campaign T51:
+`t1 = maxDigit 0 i - 1` (706), chain 0 `t1 = maxDigit 0 i` (709), so chain 0 has no terminal step. -/
 theorem kg_spec (s : MachineState) (hpc : s.pc = pcOf 695) (i m : Nat) (hi : i < 2 ^ 63) (hm : m < 2 ^ 63)
+    (hmd : m < maxDigit 0 i)
     (h19 : s.getReg .x19 = BitVec.ofNat 64 i) (h20 : s.getReg .x20 = BitVec.ofNat 64 m)
+    (h21 : s.getReg .x21 = BitVec.ofNat 64 (maxDigit 0 i))
     (h28 : s.getReg .x28 = BitVec.ofNat 64 CHAIN) :
-    ∃ t, Steps Images.keygenImage s (15 + (if 51 ≤ i then 1 else 0) + (if m + 1 = maxDigit 0 i then 1 else 0))
-        (15 + (if 51 ≤ i then 1 else 0) + (if m + 1 = maxDigit 0 i then 1 else 0)) t ∧ t.pc = pcOf 712 ∧
+    ∃ t, Steps Images.keygenImage s (15 + (if i = 0 then 1 else 0) + (if kterm i m then 1 else 0))
+        (15 + (if i = 0 then 1 else 0) + (if kterm i m then 1 else 0)) t ∧ t.pc = pcOf 712 ∧
       t.getReg .x10 = BitVec.ofNat 64 (CHAIN + 48) ∧ t.getReg .x11 = BitVec.ofNat 64 64 ∧
-      t.getReg .x12 = BitVec.ofNat 64 (if m + 1 = maxDigit 0 i then CHAIN + 48 else CHAIN + 32) ∧
+      t.getReg .x12 = BitVec.ofNat 64 (if kterm i m then CHAIN + 48 else CHAIN + 32) ∧
       t.getMem (BitVec.ofNat 64 (CHAIN + 64)) = s.getMem (BitVec.ofNat 64 (CHAIN + 16)) ∧
       t.getMem (BitVec.ofNat 64 (CHAIN + 72)) = s.getMem (BitVec.ofNat 64 (CHAIN + 24)) ∧
       t.getMem (BitVec.ofNat 64 (CHAIN + 80)) = 0 ∧ t.getMem (BitVec.ofNat 64 (CHAIN + 88)) = 0 ∧
       t.getMem (BitVec.ofNat 64 (CHAIN + 96)) = 0 ∧ t.getMem (BitVec.ofNat 64 (CHAIN + 104)) = 0 ∧
       RegsExcept s t [.x6, .x7, .x10, .x11, .x12] ∧ Frame s t (fun A => CHAIN + 64 ≤ A ∧ A < CHAIN + 112) := by
+  have hmdp := kmd_pos i
   have hobl : Oblig.all s bkG.res.st.obl := by
     simp only [bkG.res]
     t3n [h28, CHAIN]
     try norm_num
   have st := symRun_sound bkG codeAt_kG s hpc hobl
   set u := bkG.res.toState s with hu
-  have upc : u.pc = (if i < 51 then pcOf 710 else pcOf 709) := by
+  have upc : u.pc = (if i = 0 then pcOf 709 else pcOf 710) := by
     simp only [hu, Result.toState_pc, bkG.res, E.eval, CmpOp.eval, h19]
-    rw [ofNat_slt i 51 hi (by norm_num)]
-    by_cases h : i < 51 <;> simp [h]
+    by_cases h : i = 0
+    · subst h; simp
+    · have : BitVec.ofNat 64 i ≠ 0#64 := by
+        rw [Ne, show (0#64) = BitVec.ofNat 64 0 from rfl, ofNat_inj (by omega) (by norm_num)]; exact h
+      simp [h, this]
   have ur : RegsExcept s u [.x6, .x7, .x10, .x11, .x12] := by
     intro r hr; simp at hr; cases r <;> simp_all [hu, bkG.res, rv_simp] <;> rfl
   have uf : Frame s u (fun A => CHAIN + 64 ≤ A ∧ A < CHAIN + 112) := by
@@ -173,7 +186,12 @@ theorem kg_spec (s : MachineState) (hpc : s.pc = pcOf 695) (i m : Nat) (hi : i <
     simp only [hu, Result.toState_getMem, bkG.res]
     t3n [h28, CHAIN, Nat.mod_eq_of_lt hA]
     try (split_ifs <;> first | rfl | omega)
-  have u6 : u.getReg .x6 = BitVec.ofNat 64 3 := by simp [hu, bkG.res, rv_simp]
+  have u6 : u.getReg .x6 = BitVec.ofNat 64 (maxDigit 0 i - 1) := by
+    simp only [hu, Result.toState_getReg, bkG.res, rv_simp, h21]
+    apply BitVec.eq_of_toNat_eq
+    rw [BitVec.toNat_sub]
+    simp only [BitVec.toNat_ofNat]
+    omega
   have u10 : u.getReg .x10 = BitVec.ofNat 64 (CHAIN + 48) := by
     simp only [hu, Result.toState_getReg, bkG.res, rv_simp, h28]; rfl
   have u11 : u.getReg .x11 = BitVec.ofNat 64 64 := by
@@ -187,35 +205,42 @@ theorem kg_spec (s : MachineState) (hpc : s.pc = pcOf 695) (i m : Nat) (hi : i <
     refine ⟨?_, ?_, ?_, ?_, ?_, ?_⟩ <;>
     · simp only [hu, Result.toState_getMem, bkG.res]
       t3n [h28, CHAIN]
-  -- 709 (i ≥ 51): t1 := 6
+  -- 709 (chain 0): t1 := s5 = maxDigit 0 0
   obtain ⟨v, kv, sv, hkv, vpc, v6, vr, vm⟩ : ∃ v kv, Steps Images.keygenImage u kv kv v ∧
-      kv = (if 51 ≤ i then 1 else 0) ∧ v.pc = pcOf 710 ∧
-      v.getReg .x6 = BitVec.ofNat 64 (maxDigit 0 i - 1) ∧ RegsExcept u v [.x6] ∧ (∀ A, v.getMem A = u.getMem A) := by
-    by_cases h51 : i < 51
-    · rw [if_pos h51] at upc
-      refine ⟨u, 0, Steps.refl _, by simp; omega, upc, ?_, fun _ _ => rfl, fun _ => rfl⟩
-      rw [u6]; simp [maxDigit, h51]
-    · rw [if_neg h51] at upc
-      refine ⟨_, 1, symRun_sound bkG9 codeAt_kG9 u upc (by simp [bkG9.res, rv_simp]), by simp; omega,
+      kv = (if i = 0 then 1 else 0) ∧ v.pc = pcOf 710 ∧
+      v.getReg .x6 = BitVec.ofNat 64 (if i = 0 then maxDigit 0 i else maxDigit 0 i - 1) ∧ RegsExcept u v [.x6] ∧
+      (∀ A, v.getMem A = u.getMem A) := by
+    by_cases h0 : i = 0
+    · rw [if_pos h0] at upc
+      refine ⟨_, 1, symRun_sound bkG9 codeAt_kG9 u upc (by simp [bkG9.res, rv_simp]), by simp [h0],
         by simp [bkG9.res, E.eval], ?_, ?_, ?_⟩
-      · simp [bkG9.res, rv_simp, maxDigit, h51]
+      · rw [if_pos h0]
+        simp only [Result.toState_getReg, bkG9.res, rv_simp]
+        rw [ur.get (by simp), h21]
       · intro r hr; simp at hr; cases r <;> simp_all [bkG9.res, rv_simp] <;> rfl
       · intro A; simp [bkG9.res, rv_simp]
-  have hmd : maxDigit 0 i - 1 < 2 ^ 64 := by rw [kmd]; split <;> omega
+    · rw [if_neg h0] at upc
+      refine ⟨u, 0, Steps.refl _, by simp [h0], upc, ?_, fun _ _ => rfl, fun _ => rfl⟩
+      rw [u6, if_neg h0]
+  have hmd' : (if i = 0 then maxDigit 0 i else maxDigit 0 i - 1) < 2 ^ 64 := by split <;> omega
   -- 710 `bne s4,t1,712`
   have stw := symRun_sound bkG10 codeAt_kG10 v vpc (by simp [bkG10.res, rv_simp])
   set w := bkG10.res.toState v with hw
   have v20 : v.getReg .x20 = BitVec.ofNat 64 m := by rw [vr.get (by simp), ur.get (by simp)]; exact h20
-  have wpc : w.pc = (if m + 1 = maxDigit 0 i then pcOf 711 else pcOf 712) := by
+  have wpc : w.pc = (if kterm i m then pcOf 711 else pcOf 712) := by
     simp only [hw, Result.toState_pc, bkG10.res, E.eval, CmpOp.eval, v20, v6]
-    rw [kne_of (by omega) hmd]
-    have : (m ≠ maxDigit 0 i - 1) ↔ ¬ (m + 1 = maxDigit 0 i) := by rw [kmd]; split <;> omega
-    by_cases h : m + 1 = maxDigit 0 i <;> simp_all
+    rw [kne_of (by omega) hmd']
+    have : (m ≠ if i = 0 then maxDigit 0 i else maxDigit 0 i - 1) ↔ ¬ (kterm i m = true) := by
+      unfold kterm
+      by_cases h0 : i = 0
+      · subst h0; simp; omega
+      · simp [h0]; omega
+    by_cases h : kterm i m = true <;> simp_all
   have wr : ∀ r, w.getReg r = v.getReg r := by intro r; cases r <;> simp [hw, bkG10.res, rv_simp] <;> rfl
   have wm : ∀ A, w.getMem A = v.getMem A := by intro A; simp [hw, bkG10.res, rv_simp]
   have g : ∀ r, r ∉ [Reg.x6, .x7, .x10, .x11, .x12] → w.getReg r = s.getReg r := by
     intro r hr; rw [wr, vr.get (by simp at hr ⊢; tauto), ur.get hr]
-  by_cases ht : m + 1 = maxDigit 0 i
+  by_cases ht : kterm i m = true
   · rw [if_pos ht] at wpc
     have st11 := symRun_sound bkG11 codeAt_kG11 w wpc (by simp [bkG11.res, rv_simp])
     have xm : ∀ A, (bkG11.res.toState w).getMem A = w.getMem A := by intro A; simp [bkG11.res, rv_simp]
@@ -325,16 +350,17 @@ theorem topChainInput_blocks (leaf i step : Nat) (v : Digest) :
 theorem topChainInput_F {i : Nat} (hG : topIsG i = false) (leaf step : Nat) (v : Digest) :
     topChainInput leaf i step v = chainInput 0 0 leaf i step v := by
   unfold topChainInput; rw [if_neg (by simp [hG])]
-theorem topIsG_iff {i : Nat} (hi : i < 54) : topIsG i = true ↔ i % 2 = 0 := by
+theorem topIsG_iff {i : Nat} (hi : i < 51) : topIsG i = true ↔ i % 2 = 0 := by
   simp [topIsG]; omega
 
 /-- Witness stack: one keygen chain rung (top tree, tree 0) from the end of the header (pc 135, `t3 = CHAIN`, header
 words stored) to the loop head 118: the step block, its HASH, `jal 141` and `addi s4,s4,1; jal 118`. It computes
 `T3.projHash (topChainHigh i m) (topChainInput leaf i m v)` and writes only `CHAIN+32 .. CHAIN+112`. -/
 theorem kpair_rung (sk : BitVec 256) (t : MachineState) (hpc : t.pc = pcOf 135) (leaf i m : Nat) (v : Digest)
-    (hi : i < 54) (hm : m < 8) (hmd : m < maxDigit 0 i)
+    (hi : i < 51) (hm : m < 8) (hmd : m < maxDigit 0 i)
     (h5 : t.getReg .x5 = 0) (h8 : t.getReg .x8 = BitVec.ofNat 64 0)
     (h19 : t.getReg .x19 = BitVec.ofNat 64 i) (h20 : t.getReg .x20 = BitVec.ofNat 64 m)
+    (h21 : t.getReg .x21 = BitVec.ofNat 64 (maxDigit 0 i))
     (h28 : t.getReg .x28 = BitVec.ofNat 64 CHAIN)
     (hz0 : t.getMem (BitVec.ofNat 64 CHAIN) = 0) (hz8 : t.getMem (BitVec.ofNat 64 (CHAIN + 8)) = 0)
     (h16 : t.getMem (BitVec.ofNat 64 (CHAIN + 16)) = (chainHeader 0 0 leaf i m).extractLsb' 0 64)
@@ -360,8 +386,8 @@ theorem kpair_rung (sk : BitVec 256) (t : MachineState) (hpc : t.pc = pcOf 135) 
     have g2 : ∀ r, r ∉ [Reg.x6, .x7] → u1.getReg r = t.getReg r := fun r hr =>
       (u1r.get (by simp at hr ⊢; tauto)).trans (g1 r hr)
     obtain ⟨u2, su2, u2pc, u210, u211, u212, u264, u272, u280, u288, u296, u2104, u2r, u2f⟩ :=
-      kg_spec u1 u1pc i m (by omega) (by omega) (by rw [g2 _ (by simp)]; exact h19)
-        (by rw [g2 _ (by simp)]; exact h20) (by rw [g2 _ (by simp)]; exact h28)
+      kg_spec u1 u1pc i m (by omega) (by omega) hmd (by rw [g2 _ (by simp)]; exact h19)
+        (by rw [g2 _ (by simp)]; exact h20) (by rw [g2 _ (by simp)]; exact h21) (by rw [g2 _ (by simp)]; exact h28)
     have f01 : Frame t u1 (fun _ => False) := (uf.trans u1f).mono (fun A _ h => by simp_all)
     have f02 : Frame t u2 (fun A => CHAIN + 64 ≤ A ∧ A < CHAIN + 112) :=
       (f01.trans u2f).mono (fun A _ h => by rcases h with h | h <;> simp_all)
@@ -379,7 +405,7 @@ theorem kpair_rung (sk : BitVec 256) (t : MachineState) (hpc : t.pc = pcOf 135) 
       rw [v2.1, v2.2, u264, u272, u280, u288, u296, u2104, f01.get (A := CHAIN + 16) (by decide) (by simp),
         f01.get (A := CHAIN + 24) (by decide) (by simp), h16, h24]
     have hvalid : hashArgumentsValid u2 = true := by
-      by_cases ht : m + 1 = maxDigit 0 i
+      by_cases ht : kterm i m = true
       · rw [if_pos ht] at u212
         exact hashArgs_const u2 (CHAIN + 48) 64 (CHAIN + 48) u210 u211 u212 (by decide) (by decide) (by decide)
           (by decide) (by decide)
@@ -400,17 +426,22 @@ theorem kpair_rung (sk : BitVec 256) (t : MachineState) (hpc : t.pc = pcOf 135) 
         (Frame.writeHash u2 a B h12 (by rcases hB with rfl | rfl <;> decide)).mono
           (fun A _ h => by simp only [CHAIN] at hB ⊢; omega)
       have hwf : Frame u2 (writeHash u2 a) (fun A => CHAIN + 32 ≤ A ∧ A < CHAIN + 112) := by
-        by_cases ht : m + 1 = maxDigit 0 i
+        by_cases ht : kterm i m = true
         · rw [if_pos ht] at u212; exact hB _ u212 (Or.inr rfl)
         · rw [if_neg ht] at u212; exact hB _ u212 (Or.inl rfl)
       have hval : DigAt (writeHash u2 a) (CHAIN + 48) (T3.projHalf (topChainHigh i m) a) := by
-        by_cases ht : m + 1 = maxDigit 0 i
-        · have hh : topChainHigh i m = false := by simp [T3.topChainHigh, ht]
+        by_cases ht : kterm i m = true
+        · have hh : topChainHigh i m = false := by
+            unfold kterm at ht; simp at ht; simp [T3.topChainHigh, ht.1, ht.2]
           rw [if_pos ht] at u212
           rw [hh]
           exact DigAt.writeHash_lo u2 a (CHAIN + 48) u212 (by decide)
-        · have hlt : m + 1 < maxDigit 0 i := by omega
-          have hh : topChainHigh i m = true := by simp [T3.topChainHigh, hG, hlt]
+        · have hh : topChainHigh i m = true := by
+            unfold kterm at ht; simp at ht
+            by_cases h0 : i = 0
+            · subst h0; simp [T3.topChainHigh, T3.topIsG]
+            · have hlt : m + 1 < maxDigit 0 i := by have := ht; omega
+              simp [T3.topChainHigh, hG, hlt]
           rw [if_neg ht] at u212
           rw [hh]
           exact DigAt.writeHash_hi u2 a (CHAIN + 32) u212 (by decide)

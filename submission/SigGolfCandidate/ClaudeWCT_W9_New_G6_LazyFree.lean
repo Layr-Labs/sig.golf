@@ -467,5 +467,4 @@ theorem experimentL_sameRest {omega1 omega2 : CanonTable.Omega U} (h : WPair.Sam
   unfold experimentL
   rw [interactionL_sameRest hU h, WPair.programL_sameRest hU h]
 
-#print axioms experimentL_sameRest
 end ClaudeWCT.W9.T3.Security.WPair.Paired

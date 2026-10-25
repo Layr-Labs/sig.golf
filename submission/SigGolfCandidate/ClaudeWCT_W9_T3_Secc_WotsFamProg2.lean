@@ -169,7 +169,4 @@ theorem restDepth_ovF (hF : FamOkS S F) (R : Tables U)
     RawPrefix.restDepth a (ovF (S.grp F.lay) (chainCount F.lay) (S.cnt F.lay) (S.size F.lay F.fam) F R y) = RawPrefix.restDepth a R := by
   rw [RawPrefix.restDepth_eq, RawPrefix.restDepth_eq, depth_ovF S hF]
 
-#print axioms wotsSeed_ovF
-#print axioms famAgree_ovF
-#print axioms restDepth_ovF
 end ClaudeWCT.W9.T3.Security.Wots.CanonicalRef.Normalized.RawFam

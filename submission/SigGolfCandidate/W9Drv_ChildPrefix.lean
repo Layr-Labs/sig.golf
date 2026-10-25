@@ -4265,7 +4265,6 @@ theorem childCodeAt_transfer {source target : Image} (j : Nat) (hj : j<128)
   obtain ⟨hil, hival⟩:=List.getElem?_eq_some_iff.mp hi
   rw [W9Drv.SharedBank.word_of_window (by omega) (by omega) hw]
   exact hc i word hi
-#print axioms childCodeAt_transfer
 end W9Drv.SharedAProof
 
 namespace W9Drv.SharedBProof
@@ -4288,7 +4287,6 @@ theorem childCodeAt_transfer {source target : Image} (j : Nat) (hj : j<128)
   obtain ⟨hil, hival⟩:=List.getElem?_eq_some_iff.mp hi
   rw [W9Drv.SharedBank.word_of_window (by omega) (by omega) hw]
   exact hc i word hi
-#print axioms childCodeAt_transfer
 end W9Drv.SharedBProof
 
 namespace W9Drv.SharedCProof
@@ -4311,7 +4309,6 @@ theorem childCodeAt_transfer {source target : Image} (j : Nat) (hj : j<128)
   obtain ⟨hil, hival⟩:=List.getElem?_eq_some_iff.mp hi
   rw [W9Drv.SharedBank.word_of_window (by omega) (by omega) hw]
   exact hc i word hi
-#print axioms childCodeAt_transfer
 end W9Drv.SharedCProof
 
 namespace SigGolfCandidate.T3M
@@ -4548,7 +4545,6 @@ theorem child_tbsim {im : Image} {j : Nat} (hj : j<128) (hcode : ChildCodeAt im 
     TBSim.bind (hrest v s hs) (fun value state hstate=>tail_tbsim hj hcode hu hlo value state hstate))
   have hc:=cycR_05 j hj
   simpa only [childProgram] using h.mono (show 17+(cycR j 0 4+13)≤79-childSaveC j by omega) (fun _ _ h=>h)
-#print axioms child_tbsim
 end W9Drv.SharedAProof
 
 namespace W9Drv.SharedBProof
@@ -4731,7 +4727,6 @@ theorem child_tbsim {im : Image} {j : Nat} (hj : j<128) (hcode : ChildCodeAt im 
     TBSim.bind (hrest v s hs) (fun value state hstate=>tail_tbsim hj hcode hu hlo value state hstate))
   have hc:=cycR_05 j hj
   simpa only [childProgram] using h.mono (show 17+(cycR j 0 5+13)≤91-childSaveC j by omega) (fun _ _ h=>h)
-#print axioms child_tbsim
 end W9Drv.SharedBProof
 
 namespace W9Drv.SharedCProof
@@ -4916,7 +4911,6 @@ theorem child_tbsim {im : Image} {j : Nat} (hj : j<128) (hcode : ChildCodeAt im 
     TBSim.bind (hrest v s hs) (fun value state hstate=>tail_tbsim hj hcode hu hlo value state hstate))
   have hc:=cycR_05 j hj
   simpa only [childProgram] using h.mono (show 17+(cycR j 0 5+13)≤91-childSaveC j by omega) (fun _ _ h=>h)
-#print axioms child_tbsim
 end W9Drv.SharedCProof
 
 namespace W9Drv.SharedBank
@@ -4970,7 +4964,6 @@ theorem post_to_shared_at {L : W9Machine.Layout} (w : ClaudeWCT.W9.T3M.WBytes) (
       · left; split <;> omega
       · right; exact h
     exact (ht.frame addr ha hn').trans (hm _)
-#print axioms post_to_shared_at
 end W9Drv.SharedAProof
 namespace W9Drv.SharedBProof
 open OracleComp SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64
@@ -5015,7 +5008,6 @@ theorem post_to_shared_at {L : W9Machine.Layout} (w : ClaudeWCT.W9.T3M.WBytes) (
       · left; split <;> omega
       · right; exact h
     exact (ht.frame addr ha hn').trans (hm _)
-#print axioms post_to_shared_at
 end W9Drv.SharedBProof
 namespace W9Drv.SharedCProof
 open OracleComp SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64
@@ -5060,7 +5052,6 @@ theorem post_to_shared_at {L : W9Machine.Layout} (w : ClaudeWCT.W9.T3M.WBytes) (
       · left; split <;> omega
       · right; exact h
     exact (ht.frame addr ha hn').trans (hm _)
-#print axioms post_to_shared_at
 end W9Drv.SharedCProof
 
 namespace W9Drv.SharedBProof
@@ -5099,7 +5090,6 @@ theorem shared_tbsim {L : W9Machine.Layout} {sk : BitVec 256} (k : Fin 9) (raw :
   rw [sharedProgram_eq w index k raw ends hf hc]
   exact H.mono (by rw [hcost]) (fun computed t ht=>
     post_to_shared_at w index k raw ends u u t hf hc hu (fun _=>rfl) (fun _=>rfl) computed ht)
-#print axioms shared_tbsim
 end W9Drv.SharedBProof
 namespace W9Drv.SharedCProof
 open OracleComp SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64
@@ -5138,7 +5128,6 @@ theorem shared_tbsim {L : W9Machine.Layout} {sk : BitVec 256} (k : Fin 9) (raw :
   rw [sharedProgram_eq w index k raw ends hc]
   exact H.mono (by rw [hcost]) (fun computed t ht=>
     post_to_shared_at w index k raw ends u u t hf hc hu (fun _=>rfl) (fun _=>rfl) computed ht)
-#print axioms shared_tbsim
 end W9Drv.SharedCProof
 namespace W9Drv.SharedAProof
 open OracleComp SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64
@@ -5174,7 +5163,6 @@ theorem shared_tbsim {L : W9Machine.Layout} {sk : BitVec 256} (k : Fin 9) (raw :
   rw [sharedProgram_eq w index k raw ends hf,hphys]
   exact H.mono (by rw [hcost]) (fun computed t ht=>
     post_to_shared_at w index k raw ends u u t hf hc hu (fun _=>rfl) (fun _=>rfl) computed (by simpa only [hphys] using ht))
-#print axioms shared_tbsim
 end W9Drv.SharedAProof
 
 namespace W9Drv.SharedBank
@@ -5203,5 +5191,4 @@ theorem child_tbsim (L : W9Machine.Layout) (sk : BitVec 256) (k : Fin 9) (raw : 
         (SharedCProof.childCodeAt_transfer _ hp hwindow (SharedCProof.shared_code _ hp)) w index ends u hu
     · exact SharedBProof.shared_tbsim k raw hf hc hchild
         (SharedBProof.childCodeAt_transfer _ hp hwindow (SharedBProof.shared_code _ hp)) w index ends u hu
-#print axioms child_tbsim
 end W9Drv.SharedBank

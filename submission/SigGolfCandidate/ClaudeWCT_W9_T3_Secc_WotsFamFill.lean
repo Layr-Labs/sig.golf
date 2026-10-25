@@ -181,8 +181,4 @@ theorem fill_frontier_selfF (X : FamData (S.grp F.lay) (chainCount F.lay) (S.siz
   exact PrefixGame.evaluate_const_succ d' e s0
 end Fill
 
-#print axioms fill_pubF
-#print axioms famAgree_fill
-#print axioms wotsSeed_fillF
-#print axioms fill_frontier_selfF
 end ClaudeWCT.W9.T3.Security.Wots.CanonicalRef.Normalized.RawFam

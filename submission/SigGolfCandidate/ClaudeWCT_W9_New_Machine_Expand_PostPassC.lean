@@ -12,7 +12,6 @@ open SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64 SigGol
 set_option maxHeartbeats 4000000
 set_option maxRecDepth 100000
 set_option linter.unusedSimpArgs false
-set_option Elab.async false
 
 def cDA : List (BitVec 32) :=
   [0x20e37,0x160e0e13,0xe3503,0x3455513,0x301eb7,0xe8e93,0x3f37,0xe10f0f13,0x50313,0x3f37313,0x731313,0x323b7,
@@ -286,5 +285,3 @@ theorem pp_spec (s : MachineState) (hpc : s.pc = pcOf 49400) :
     rw [mu7 D hD]
 
 end ClaudeWCT.W9.Machine.Expand.PostPass
-
-#print axioms ClaudeWCT.W9.Machine.Expand.PostPass.pp_spec

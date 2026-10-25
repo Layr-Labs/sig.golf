@@ -139,9 +139,3 @@ theorem quarter_lower : good.card * (7 * D - good.card) ≤ (accepted good block
 end Quarter
 
 end SigGolfCandidate.Choice.Gated
-
-#print axioms SigGolfCandidate.Choice.Gated.quarter_upper
-#print axioms SigGolfCandidate.Choice.Gated.quarter_lower
-#print axioms SigGolfCandidate.Choice.Gated.rejected_row_no_read
-#print axioms SigGolfCandidate.Choice.Gated.read_hit_implies_probe_hit
-#print axioms SigGolfCandidate.Choice.Gated.prefix_hit_eq_reference

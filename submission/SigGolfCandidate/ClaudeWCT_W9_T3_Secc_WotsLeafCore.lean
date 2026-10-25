@@ -211,7 +211,7 @@ theorem card_filter_getD_zero' (n : ℕ) (l : List ℕ) (hl : l.length = n) :
 theorem dummyDigits_zero (lay : Layer) : ((dummyDigits lay).filter (· = 0)).length = 0 := by
   fin_cases lay <;> decide
 
-/-- **Revealed chains per leaf**: at most `famCount − 3` (top: ≤ 20 of the 54 chains with 24
+/-- **Revealed chains per leaf**: at most `famCount − 3` (top, campaign T51: ≤ 21 of the 51 chains with 31
 coefficients; B4 lower producer, including checksum and dummy fallback: ≤ 5 of the 43 chains with
 8 coefficients), so every unrevealed seed keeps 3 degrees of freedom. The broad decoder is not narrowed. -/
 theorem revSet_card_le {L : LeafAddr} (R : RefTables adversary) :
@@ -231,7 +231,6 @@ theorem revSet_card_le {L : LeafAddr} (R : RefTables adversary) :
   · have := WCT9.lower_zero_count_le_producer h0 hp
     have := WCT9.famCount_ge L.lay
     omega
-#print axioms revSet_card_le
 
 /-! ### Probability bookkeeping -/
 
@@ -386,9 +385,9 @@ theorem revSet_card_le (L : LeafAddr) (R : Tables U) :
       have := WCT9.famCount_ge L.lay
       omega
 
-/-- Today's producer zero caps per leaf: top 21 of 54, lower 5 of 43 (the family budgets `FamCaps.size_ge`). -/
+/-- Today's producer zero caps per leaf: top 7 of 51 (T51), lower 5 of 43 (the family budgets `FamCaps.size_ge`). -/
 theorem revSet_card_le_cap (L : LeafAddr) (R : Tables U) :
-    (revSet L R).card ≤ if L.lay = 0 then 9 else 5 := by
+    (revSet L R).card ≤ if L.lay = 0 then 7 else 5 := by
   unfold revSet
   change (Finset.univ.filter fun c : Fin (chainCount L.lay) =>
     (CanonicalRef.referenceDigits (raw R) zeroMessages L).getD c 0=0).card ≤ _
@@ -406,7 +405,7 @@ theorem revSet_card_le_cap (L : LeafAddr) (R : Tables U) :
     simp only [CanonicalRef.referenceDigits,hs,Option.map_some,Option.getD_some]
     obtain ⟨floor,value,hd⟩ := hd
     have hp := WCT9.CanonicalPolicy.producerDecodeAt_spec hd
-    -- img-v6 (r3-lean-nonsec): the producer's zero cap `producerZeroCap` is 9 on the top layer (4-leaf families)
+    -- T51: the producer's zero cap `producerZeroCap` is 7 on the top layer (4-leaf families of 31 coefficients)
     by_cases hz : L.lay=0
     · have hb := hp.2.2.1
       simp only [WCT9.canonicalZeroBound, WCT9.producerZeroCap, hz, if_true] at hb

@@ -14,7 +14,7 @@ set_option maxRecDepth 10000
 namespace Enc
 /-- C2/C3 (FULL): an encoding block is a 64-byte input whose tweak is a hyper word with ANY high word (the verifier
 reads the encoding row tweak's high word from the witness, honest value 1). A leaf block carries the same 16-byte
-header (high word 0) but is 704 or 896 bytes long, so the length keeps them apart. -/
+header (high word 0) but is 704 or 832 bytes long (T51 top leaf: 832), so the length keeps them apart. -/
 def EncHeader (input : HashInput) : Prop :=
   input.length = 64 ∧ ∃ (lay : Layer) (tree leaf : Nat) (hp : BitVec 64),
     Extract.hdrBlock input = bytesLE 16 (hp ++ hyperWord lay.val (tree * 2 ^ height lay + leaf))

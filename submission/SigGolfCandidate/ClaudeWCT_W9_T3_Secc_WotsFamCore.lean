@@ -384,9 +384,6 @@ theorem mix_decompYF :
   exact congrArg (PMF.map _) hp
 end Decomp
 
-#print axioms revSetF_card_le
-#print axioms frozen_decompYF
-#print axioms mix_decompYF
 end ClaudeWCT.W9.T3.Security.Wots.CanonicalRef.Normalized.FamCore
 
 namespace ClaudeWCT.W9.T3.Security.Wots.CanonicalRef.Normalized.FamCore
@@ -640,6 +637,4 @@ theorem mix_le_frozen_RF (E : FamData (S.grp F.lay) (chainCount F.lay) (S.size F
 
 end PerR
 
-#print axioms frozen_le_mix_RF
-#print axioms mix_le_frozen_RF
 end ClaudeWCT.W9.T3.Security.Wots.CanonicalRef.Normalized.FamCore

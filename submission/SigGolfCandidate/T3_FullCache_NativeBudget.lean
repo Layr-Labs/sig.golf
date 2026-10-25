@@ -2122,7 +2122,6 @@ theorem presample_source {α : Type} (secret : BitVec 256) (program : M α) :
   rw [presample_combined, evalSPMF_bind, combined_uniform]
   simp only [evalSPMF_bind, evalSPMF_pure, bind_assoc, pure_bind]
   rfl
-#print axioms presample_source
 end SigGolfCandidate.T3.NonceSampling
 end
 section

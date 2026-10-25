@@ -224,7 +224,7 @@ structure AfterDs (sk : SecretKey) (cache : Bytes 131072) (m : Message) (rho : D
   frame : Frame (sinit sk cache m) t FrontW
 theorem AfterDs.base {sk : SecretKey} {cache : Bytes 131072} {m : Message} {rho : Digest} {N : HashOutput}
     {t : MachineState} (h : AfterDs sk cache m rho N t) : Base sk cache t := by
-  refine ⟨h.x5, h.p0, h.p8, h.p32, h.p40, h.p48, h.p56, fun k hk => ?_, fun A hA hn => ?_, ?_, ?_, ?_, ?_⟩
+  refine ⟨h.x5, h.p0, h.p8, h.p32, h.p40, h.p48, h.p56, fun k hk => ?_, fun A hA hn => ?_, ?_, ?_, ?_, ?_, ?_⟩
   · rw [h.frame.get (by sg_omega) (by unfold FrontW; sg_omega), show REGION + 8 * k = CACHE + 8 * (k + 4) by sg_omega,
       sinit_cache sk cache m (k + 4) (by omega)]
   · unfold NeverW at hn
@@ -238,6 +238,8 @@ theorem AfterDs.base {sk : SecretKey} {cache : Bytes 131072} {m : Message} {rho 
       intro i hi hi'; unfold FrontW Search.TOP_DATA; sg_omega)
   · exact (sinit_zt sk cache m).frame h.frame (by
       intro r hr; simp only [Search.ZeroCap.ZT, if_neg (show (543:Nat) ≠ 354 by decide)]; unfold FrontW; sg_omega)
+  · exact (sinit_t51 sk cache m).frame h.frame (by decide) (by decide) (by
+      intro k hk; unfold FrontW; sg_omega)
 theorem frame_readWords {s t : MachineState} {W : Nat → Prop} (h : Frame s t W) (A : Nat) :
     ∀ m, A + 8 * m ≤ 2 ^ 64 → (∀ i < m, ¬ W (A + 8 * i)) →
       t.readWords (BitVec.ofNat 64 A) m = s.readWords (BitVec.ofNat 64 A) m
@@ -648,7 +650,7 @@ theorem nonce_front {sk : SecretKey} {cache : Bytes 131072} {m : Message}
   · exact f06.mono (fun X _ h => by unfold FrontW; sg_omega)
 theorem NoncePost.base {sk : SecretKey} {cache : Bytes 131072} {m : Message} {rho : Digest}
     {t : MachineState} (h : NoncePost sk cache m rho t) : Base sk cache t := by
-  refine ⟨h.search.x5, h.p0, h.p8, h.p32, h.p40, h.p48, h.p56, fun k hk => ?_, fun A hA hn => ?_, ?_, ?_, ?_, ?_⟩
+  refine ⟨h.search.x5, h.p0, h.p8, h.p32, h.p40, h.p48, h.p56, fun k hk => ?_, fun A hA hn => ?_, ?_, ?_, ?_, ?_, ?_⟩
   · rw [h.frame.get (by sg_omega) (by unfold FrontW; sg_omega), show REGION + 8 * k = CACHE + 8 * (k + 4) by sg_omega,
       sinit_cache sk cache m (k + 4) (by omega)]
   · unfold NeverW at hn
@@ -662,6 +664,8 @@ theorem NoncePost.base {sk : SecretKey} {cache : Bytes 131072} {m : Message} {rh
       intro i hi hi'; unfold FrontW Search.TOP_DATA; sg_omega)
   · exact (sinit_zt sk cache m).frame h.frame (by
       intro r hr; simp only [Search.ZeroCap.ZT, if_neg (show (543:Nat) ≠ 354 by decide)]; unfold FrontW; sg_omega)
+  · exact (sinit_t51 sk cache m).frame h.frame (by decide) (by decide) (by
+      intro k hk; unfold FrontW; sg_omega)
 end SigGolfCandidate.T3M.Sign.Boundary
 end
 section
@@ -1066,7 +1070,6 @@ theorem nonce_front (im : Image) (hc : FrontCodeAt im) (hmcode : FullCache.Gener
   · rw [f6.get (by sg_omega) (by sg_omega), hwf5.get (by sg_omega) (by sg_omega), q56]
   · exact f06.mono (fun X _ h => by unfold FrontW; sg_omega)
 
-#print axioms nonce_front
 end SigGolfCandidate.T3M.Sign.Boundary.Generic
 
 namespace SigGolfCandidate.T3M.Sign.Boundary.Generic
@@ -1095,5 +1098,4 @@ theorem sign_nonce_front {sk : SecretKey} {cache : Bytes 131072} {m : Message}
       let tag ← privateMac (cacheDec cache).region
       if tag ≠ (cacheDec cache).tag then pure none else privateNonce m >>= K) Q :=
   nonce_front Images.signImage sign_frontCodeAt FullCache.Generic.sign_macCodeAt K hfail hrest
-#print axioms sign_nonce_front
 end SigGolfCandidate.T3M.Sign.Boundary.Generic

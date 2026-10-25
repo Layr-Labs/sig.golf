@@ -154,7 +154,6 @@ theorem law_marked_split (hv : ∑ b, v b = 1) (j : α) (hcard : 1 < Fintype.car
     rw [hB, ← mul_assoc, mul_comm p (n' : ENNReal), hk, hA]
     ring
 
-#print axioms law_marked_split
 end Split
 
 /-! ### The Scarf bound (RC_SPEC I6 / L3) -/
@@ -312,7 +311,6 @@ theorem scarf_law {γ : Type} [Fintype γ] (w : γ → ENNReal) (hw : ∑ c, w c
     _ ≤ ENNReal.ofReal (scarf y μ0 V) := ENNReal.ofReal_le_ofReal hE1r
     _ ≤ ENNReal.ofReal (scarf y μ V) := ENNReal.ofReal_le_ofReal (scarf_mono hμ0 le_rfl hV)
 
-#print axioms scarf_law
 end Scarf
 
 /-! ### The pointwise split (RC_SPEC I1 + I2 / L1) -/
@@ -408,7 +406,6 @@ theorem split_finset (x : α → ENNReal) (short : α → Prop) [DecidablePred s
   calc (∑ i, x i) - θ ≤ ((∑ i, vv i) - θ) + ∑ i, tt i := hstep
     _ ≤ ((Y - θ) + K1 + K2) + ∑ i, tt i := add_le_add hcore le_rfl
 
-#print axioms split_finset
 end Pointwise
 
 /-! ### Assembly (RC_SPEC L5 + L6) -/
@@ -693,7 +690,6 @@ theorem excess_route_c [Nonempty α] (hv : ∑ b, v b = 1) (hcard : 1 < Fintype.
         ← ENNReal.ofReal_add (by positivity) (by positivity),
         ← ENNReal.ofReal_add (by positivity) htF0]
 
-#print axioms excess_route_c
 end Assembly
 
 end ClaudeWCT.Numerics.RouteC
@@ -1224,6 +1220,34 @@ theorem costOf_nonneg (k : ℕ) (P : Par) (hP : ParFacts P) (x : ℝ) (hx : 0 �
       have h2 := neg_abs_le ((P.m : ℝ) - (P.θ - x))
       linarith
     · exact le_rfl
+
+theorem scarf_shift (θ m vv z : ℝ) : scarf (θ - z) m vv = scarf θ (m + z) vv := by
+  unfold scarf; ring_nf
+
+/-- Every route-C cost is monotone in the bucket price (needed for the cap-777 thinning). -/
+theorem costOf_mono (k : ℕ) (P : Par) (hP : ParFacts P) {x y : ℝ} (hx : 0 ≤ x) (hxy : x ≤ y) :
+    costOf k P x ≤ costOf k P y := by
+  match k with
+  | 0 => exact min_le_min hxy le_rfl
+  | 1 => exact pow_le_pow_left₀ (le_min hx hP.c0.le) (min_le_min hxy le_rfl) 2
+  | 2 =>
+    show (if (P.c0 : ℝ) < x then (1 : ℝ) else 0) ≤ (if (P.c0 : ℝ) < y then (1 : ℝ) else 0)
+    by_cases h : (P.c0 : ℝ) < x
+    · rw [if_pos h, if_pos (lt_of_lt_of_le h hxy)]
+    · rw [if_neg h]; split_ifs <;> norm_num
+  | 3 => exact max_le_max le_rfl (sub_le_sub_right hxy _)
+  | 4 =>
+    show Real.exp (P.a * min x P.c0) - 1 ≤ Real.exp (P.a * min y P.c0) - 1
+    exact sub_le_sub_right (Real.exp_le_exp.mpr
+      (mul_le_mul_of_nonneg_left (min_le_min hxy le_rfl) hP.a)) 1
+  | k + 5 =>
+    show (if (P.c0 : ℝ) < x then scarf (P.θ - x) P.m P.vv else 0) ≤
+      (if (P.c0 : ℝ) < y then scarf (P.θ - y) P.m P.vv else 0)
+    by_cases h : (P.c0 : ℝ) < x
+    · rw [if_pos h, if_pos (lt_of_lt_of_le h hxy), scarf_shift, scarf_shift]
+      exact RouteC.scarf_mono (by linarith) le_rfl hP.vv
+    · rw [if_neg h]
+      exact costOf_nonneg (k + 5) P hP y (hx.trans hxy)
 
 /-! ### Bins at a general gate -/
 

@@ -117,9 +117,6 @@ theorem probability_fraction : (count : ℚ)/2^128=
     67567856205106535693258756678239530/2^128 := by
   simp only [count,Nat.cast_ofNat]
 end SigGolfResearch.NonbinaryTop.CreditCounting
-#print axioms SigGolfResearch.NonbinaryTop.CreditCounting.exact_packed_count
-#print axioms SigGolfResearch.NonbinaryTop.CreditCounting.credited_card
-#print axioms SigGolfResearch.NonbinaryTop.CreditCounting.credited_decoder_count
 end
 
 section
@@ -178,66 +175,237 @@ theorem range54_map_ofFn (f : Nat → Nat) :
   apply List.ext_getElem
   · simp
   · intro i hi hj;simp only [List.getElem_map,List.getElem_range,List.getElem_ofFn]
-theorem topCredit_parse {v : Digest} {w : Codec.Word}
-    (hp : Decoder.parse 17 (topFlip v).toNat=some w) : topCredit v=CreditCounting.credit w := by
-  unfold topCredit
-  rw [range54_map_ofFn,List.ofFn_add (n:=51) (m:=3),List.sum_append]
-  change (List.ofFn fun i : Fin (17*3) => if coreDigit 0 v i.val=(if i.val<51 then 3 else 6) then 1 else 0).sum+
-      (List.ofFn fun k : Fin 3 =>
-        if coreDigit 0 v (51+k.val)=(if 51+k.val<51 then 3 else 6) then 1 else 0).sum=CreditCounting.credit w
-  rw [List.ofFn_mul]
-  simp only [List.sum_flatten,List.map_ofFn,List.sum_ofFn,Function.comp_def]
-  unfold CreditCounting.credit CreditCounting.credit5 CreditCounting.credit8
-  apply congrArg₂ Nat.add
-  · apply Finset.sum_congr rfl
-    intro j hj
-    apply Finset.sum_congr rfl
-    intro k hk
-    have he := coreDigit_parse5 hp j k
-    rw [Nat.mul_comm 3 j.val] at he
-    have hlt : j.val*3+k.val<51 := by have := j.isLt;have := k.isLt;omega
-    show (if coreDigit 0 v (j.val*3+k.val)=(if j.val*3+k.val<51 then 3 else 6) then 1 else 0)=
-      if (w.1 j k).val=3 then 1 else 0
-    rw [if_pos hlt,he]
-  · apply Finset.sum_congr rfl
-    intro k hk
-    have he := coreDigit_parse8 hp k
-    show (if coreDigit 0 v (51+k.val)=(if 51+k.val<51 then 3 else 6) then 1 else 0)=
-      if (w.2 k).val=6 then 1 else 0
-    have hn : ¬(51+k.val<51) := by omega
-    rw [if_neg hn,he]
 theorem decodeBV_parse {v : Digest} {w : Codec.Word} (hw : Decoder.decodeBV v=some w) :
     Decoder.parse 17 v.toNat=some w := by
   change ((Decoder.parse 17 v.toNat).filter fun w => decide (Counting.weight w=146))=some w at hw
   exact (Option.filter_eq_some_iff.mp hw).1
-theorem searchDecode_top_isSome (v : Digest) :
-    (searchDecode 0 v).isSome=true ↔
-      ∃ w,Decoder.decodeBV (topFlip v)=some w ∧ creditFloor 0≤CreditCounting.credit w := by
-  constructor
-  · intro h
-    obtain ⟨ds,hds⟩ := Option.isSome_iff_exists.mp h
-    have hm := searchDecode_some hds
-    rw [decode_top_eq_map] at hm
-    cases hw : Decoder.decodeBV (topFlip v) with
-    | none => simp [hw] at hm
-    | some w =>
-    refine ⟨w,rfl,?_⟩
-    rw [←topCredit_parse (decodeBV_parse hw)]
-    exact searchDecode_top_credit hds
-  · rintro ⟨w,hw,hc⟩
-    have hd : decode 0 v=some (wordDigits w) := by rw [decode_top_eq_map,hw]; rfl
-    rw [searchDecode_top_of hd (by rw [topCredit_parse (decodeBV_parse hw)]; exact hc)]
-    rfl
-theorem searchDecode_top_count :
-    Fintype.card {v : Digest // (searchDecode 0 v).isSome=true}=CreditCounting.count := by
-  classical
-  let e : Digest ≃ Fin (2^128) := ⟨fun v => (topFlip v).toFin,fun d => topFlip (BitVec.ofFin d),
-    fun v => by simp [topFlip_topFlip],fun d => by simp [topFlip_topFlip]⟩
-  rw [Fintype.card_congr (e.subtypeEquiv (p := fun v => (searchDecode 0 v).isSome=true)
-    (q := fun d => ∃ w,Decoder.decode d=some w ∧ CreditCounting.creditFloor≤CreditCounting.credit w)
-    (fun v => searchDecode_top_isSome v))]
-  convert CreditCounting.credited_decoder_count
 end SigGolfCandidate.T3.Nonbinary
-#print axioms SigGolfCandidate.T3.Nonbinary.topCredit_parse
-#print axioms SigGolfCandidate.T3.Nonbinary.searchDecode_top_count
+end
+
+/-! ### Campaign T51: the legacy search decoder (`topCredit ≥ 7`) through the T51 model word -/
+section
+namespace SigGolfResearch.T51Top
+open Finset SigGolfCandidate.T3 SigGolfCandidate.T3.Nonbinary
+open scoped BigOperators
+set_option maxHeartbeats 1000000
+set_option maxRecDepth 100000
+set_option linter.constructorNameAsVariable false
+set_option linter.unusedSimpArgs false
+
+theorem ind_le (p : Prop) [Decidable p] : ind p ≤ 1 := by unfold ind; split_ifs <;> omega
+theorem ind_cases (p : Prop) [Decidable p] : (p ∧ ind p = 1) ∨ (¬p ∧ ind p = 0) := by
+  by_cases h : p
+  · exact Or.inl ⟨h, if_pos h⟩
+  · exact Or.inr ⟨h, if_neg h⟩
+theorem ind_pos {p : Prop} [Decidable p] (h : p) : ind p = 1 := if_pos h
+theorem ind_neg {p : Prop} [Decidable p] (h : ¬p) : ind p = 0 := if_neg h
+theorem ind_congr {p q : Prop} [Decidable p] [Decidable q] (h : p ↔ q) : ind p = ind q := by
+  unfold ind; by_cases hp : p
+  · rw [if_pos hp, if_pos (h.mp hp)]
+  · rw [if_neg hp, if_neg (fun hq => hp (h.mpr hq))]
+
+theorem fiber_card {ι M : Type} [DecidableEq M] (f : ι → M) (s : Finset ι) (t : Finset M)
+    (H : ∀ a ∈ s, f a ∈ t) : s.card = ∑ b ∈ t, (s.filter fun a => f a = b).card :=
+  Finset.card_eq_sum_card_fiberwise fun a ha => H a ha
+
+theorem fiber_card_filter {ι M : Type} [Fintype ι] [DecidableEq M] (Q : ι → Prop) [DecidablePred Q]
+    (f : ι → M) (t : Finset M) (H : ∀ a, Q a → f a ∈ t) :
+    (univ.filter Q).card = ∑ b ∈ t, ((univ.filter Q).filter fun a => f a = b).card :=
+  fiber_card f _ t (fun a ha => H a (Finset.mem_filter.mp ha).2)
+
+/-! ### Legacy credit count (the legacy T3 `searchDecode`: `topCredit ≥ 7`) -/
+def tcreditAll (w : Word) : Nat :=
+  (∑ g : Fin 9, tcredit 6 (w.1 g).val) + (∑ j : Fin 7, tcredit 5 (w.2.1 j).val) + pcredit w.2.2.val
+def legacyS : GStat := ⟨fun _ r => 64 * tsum 6 r + tcredit 6 r, fun _ r => 64 * tsum 5 r + tcredit 5 r,
+  fun r => 64 * psum r + pcredit r⟩
+theorem legacyS_eval (w : Word) : legacyS.eval w = 64 * weight w + tcreditAll w := by
+  simp only [GStat.eval, legacyS, weight, tcreditAll, Finset.sum_add_distrib, ← Finset.mul_sum]
+  ring
+
+theorem tcredit6_le (r : Fin 216) : tcredit 6 r.val ≤ 3 := by revert r; decide +kernel
+theorem tcredit5_le (r : Fin 125) : tcredit 5 r.val ≤ 3 := by revert r; decide +kernel
+theorem pcredit_le (r : Fin 49) : pcredit r.val ≤ 2 := by revert r; decide +kernel
+theorem tcreditAll_le (w : Word) : tcreditAll w ≤ 50 := by
+  have h6 : (∑ g : Fin 9, tcredit 6 (w.1 g).val) ≤ ∑ _g : Fin 9, 3 :=
+    Finset.sum_le_sum fun g _ => tcredit6_le (w.1 g)
+  have h5 : (∑ j : Fin 7, tcredit 5 (w.2.1 j).val) ≤ ∑ _j : Fin 7, 3 :=
+    Finset.sum_le_sum fun j _ => tcredit5_le (w.2.1 j)
+  have hp := pcredit_le w.2.2
+  simp only [sum_const, card_univ, Fintype.card_fin, smul_eq_mul] at h6 h5
+  unfold tcreditAll; omega
+
+def lcut : Nat := 64 * 153
+def packedL : Nat := packedG lcut legacyS false
+attribute [irreducible] packedL
+
+/-- The legacy accepted words: decodable (`147 ≤ weight ≤ 152`) with at least 7 credited chains, the checksum chain
+included (credited iff its digit `152 - weight` is 4). -/
+def legacyOk (w : Word) : Prop := 147 ≤ weight w ∧ weight w ≤ 152 ∧ 7 ≤ tcreditAll w + ind (weight w = 148)
+instance : DecidablePred legacyOk := fun w => by unfold legacyOk; infer_instance
+
+/-- The admissible `(weight, credits)` keys of a legacy-accepted word. -/
+def legacyKeys : List (Nat × Nat) :=
+  ((List.range 6).flatMap fun i => (List.range 51).map fun c => (147 + i, c)).filter
+    fun pr => decide (7 ≤ pr.2 + ind (pr.1 = 148))
+def legacyCountP (p : Nat) : Nat := (legacyKeys.map fun pr => p / B ^ (64 * pr.1 + pr.2) % B).sum
+
+theorem legacyKeys_nodup : legacyKeys.Nodup := by decide
+theorem mem_legacyKeys (s c : Nat) : (s, c) ∈ legacyKeys ↔ 147 ≤ s ∧ s ≤ 152 ∧ c ≤ 50 ∧ 7 ≤ c + ind (s = 148) := by
+  simp only [legacyKeys, List.mem_filter, List.mem_flatMap, List.mem_map, List.mem_range, Prod.mk.injEq,
+    decide_eq_true_eq]
+  constructor
+  · rintro ⟨⟨a, ha, b, hb, rfl, rfl⟩, h⟩; exact ⟨by omega, by omega, by omega, h⟩
+  · rintro ⟨h1, h2, h3, h4⟩; exact ⟨⟨s - 147, by omega, c, by omega, by omega, rfl⟩, h4⟩
+attribute [irreducible] legacyKeys
+
+theorem legacy_card : (univ.filter legacyOk).card = legacyCountP packedL := by
+  classical
+  unfold legacyCountP
+  rw [← List.sum_toFinset _ legacyKeys_nodup,
+    fiber_card_filter legacyOk (fun w => (weight w, tcreditAll w)) legacyKeys.toFinset (fun w hw => by
+      obtain ⟨h1, h2, h3⟩ := hw
+      exact List.mem_toFinset.mpr ((mem_legacyKeys _ _).mpr ⟨h1, h2, tcreditAll_le w, h3⟩))]
+  apply Finset.sum_congr rfl
+  intro pr hpr
+  obtain ⟨s, c⟩ := pr
+  obtain ⟨h1, h2, h3, h4⟩ := (mem_legacyKeys s c).mp (List.mem_toFinset.mp hpr)
+  rw [packedL, packedG_digit _ _ _ _ (by unfold lcut; omega), Finset.filter_filter]
+  apply congrArg Finset.card
+  apply Finset.filter_congr
+  intro w _
+  rw [legacyS_eval]
+  have hc := tcreditAll_le w
+  unfold legacyOk
+  simp only [Prod.mk.injEq, Bool.false_eq_true, false_implies, true_and]
+  constructor
+  · rintro ⟨-, rfl, rfl⟩; rfl
+  · intro h
+    have e1 : weight w = s := by omega
+    have e2 : tcreditAll w = c := by omega
+    subst e1 e2
+    exact ⟨⟨h1, h2, h4⟩, rfl, rfl⟩
+
+/-- The legacy T3 search-decoder count (credit floor 7 on the 51 chains). -/
+def legacyCount : Nat := 58354217001057952582130682281963303
+theorem legacyCount_digits : legacyCountP packedL = legacyCount := by decide +kernel
+
+theorem getD_digits (v : Digest) (chk i : Nat) :
+    (dataDigits 0 v ++ [chk]).getD i 0 = if i < 50 then coreDigit 0 v i else if i = 50 then chk else 0 := by
+  have hl : (dataDigits 0 v).length = 50 := by simp [dataDigits, dataCount]
+  split_ifs with h1 h2
+  · rw [List.getD_append _ _ _ _ (by omega)]
+    simp [dataDigits, dataCount, List.getD_eq_getElem?_getD, h1]
+  · subst h2; rw [List.getD_append_right _ _ _ _ (by omega)]; simp [hl]
+  · exact List.getD_eq_default _ _ (by simp [hl]; omega)
+
+theorem filter_range_length (n : Nat) (p : Nat → Prop) [DecidablePred p] :
+    ((List.range n).filter fun i => decide (p i)).length = ∑ i ∈ range n, ind (p i) := by
+  induction n with
+  | zero => simp
+  | succ n ih =>
+    rw [List.range_succ, List.filter_append, List.length_append, ih, Finset.sum_range_succ]
+    by_cases h : p n <;> simp [h, ind]
+
+theorem sum_51 (f : Nat → Nat) :
+    ∑ i ∈ range 51, f i = (∑ g : Fin 9, (f (3 * g.val) + f (3 * g.val + 1) + f (3 * g.val + 2))) +
+      (∑ j : Fin 7, (f (3 * (9 + j.val)) + f (3 * (9 + j.val) + 1) + f (3 * (9 + j.val) + 2))) +
+        (f 48 + f 49) + f 50 := by
+  rw [Finset.sum_range_succ, sum_50]
+
+theorem getD6 (w : Word) (chk : Nat) (g : Fin 9) (k : Nat) (hk : k < 3) :
+    (dataDigits 0 (encode w) ++ [chk]).getD (3 * g.val + k) 0 = dg 6 (w.1 g).val k := by
+  rw [getD_digits, if_pos (by omega), core_encode6 w g k hk]
+theorem getD5 (w : Word) (chk : Nat) (j : Fin 7) (k : Nat) (hk : k < 3) :
+    (dataDigits 0 (encode w) ++ [chk]).getD (3 * (9 + j.val) + k) 0 = dg 5 (w.2.1 j).val k := by
+  rw [getD_digits, if_pos (by omega), core_encode5 w j k hk]
+theorem getD48 (w : Word) (chk : Nat) : (dataDigits 0 (encode w) ++ [chk]).getD 48 0 = dg 7 w.2.2.val 0 := by
+  rw [getD_digits, if_pos (by omega)]; exact core_encode7 w 0 (by decide)
+theorem getD49 (w : Word) (chk : Nat) : (dataDigits 0 (encode w) ++ [chk]).getD 49 0 = dg 7 w.2.2.val 1 := by
+  rw [getD_digits, if_pos (by omega)]; exact core_encode7 w 1 (by decide)
+theorem getD50 (w : Word) (chk : Nat) : (dataDigits 0 (encode w) ++ [chk]).getD 50 0 = chk := by
+  rw [getD_digits, if_neg (by omega), if_pos rfl]
+theorem max6 (g : Fin 9) (k : Nat) (hk : k < 3) : maxDigit 0 (3 * g.val + k) = 5 := by
+  have := g.isLt; unfold maxDigit; simp only [if_true]; rw [if_pos (by omega)]
+theorem max5 (j : Fin 7) (k : Nat) (hk : k < 3) : maxDigit 0 (3 * (9 + j.val) + k) = 4 := by
+  have := j.isLt; unfold maxDigit; simp only [if_true]; rw [if_neg (by omega), if_pos (by omega)]
+
+theorem blk6 (w : Word) (chk : Nat) (g : Fin 9) :
+    (dataDigits 0 (encode w) ++ [chk]).getD (3 * g.val) 0 = dg 6 (w.1 g).val 0 ∧
+    (dataDigits 0 (encode w) ++ [chk]).getD (3 * g.val + 1) 0 = dg 6 (w.1 g).val 1 ∧
+    (dataDigits 0 (encode w) ++ [chk]).getD (3 * g.val + 2) 0 = dg 6 (w.1 g).val 2 ∧
+    maxDigit 0 (3 * g.val) = 5 ∧ maxDigit 0 (3 * g.val + 1) = 5 ∧ maxDigit 0 (3 * g.val + 2) = 5 :=
+  ⟨by simpa using getD6 w chk g 0 (by decide), getD6 w chk g 1 (by decide), getD6 w chk g 2 (by decide),
+    by simpa using max6 g 0 (by decide), max6 g 1 (by decide), max6 g 2 (by decide)⟩
+theorem blk5 (w : Word) (chk : Nat) (j : Fin 7) :
+    (dataDigits 0 (encode w) ++ [chk]).getD (3 * (9 + j.val)) 0 = dg 5 (w.2.1 j).val 0 ∧
+    (dataDigits 0 (encode w) ++ [chk]).getD (3 * (9 + j.val) + 1) 0 = dg 5 (w.2.1 j).val 1 ∧
+    (dataDigits 0 (encode w) ++ [chk]).getD (3 * (9 + j.val) + 2) 0 = dg 5 (w.2.1 j).val 2 ∧
+    maxDigit 0 (3 * (9 + j.val)) = 4 ∧ maxDigit 0 (3 * (9 + j.val) + 1) = 4 ∧ maxDigit 0 (3 * (9 + j.val) + 2) = 4 :=
+  ⟨by simpa using getD5 w chk j 0 (by decide), getD5 w chk j 1 (by decide), getD5 w chk j 2 (by decide),
+    by simpa using max5 j 0 (by decide), max5 j 1 (by decide), max5 j 2 (by decide)⟩
+
+def credits (w : Word) : Nat :=
+  (∑ g : Fin 9, tcredit 6 (w.1 g).val) + (∑ j : Fin 7, tcredit 5 (w.2.1 j).val) + pcredit w.2.2.val
+def copies (w : Word) : Nat :=
+  (∑ g : Fin 9, tcopies 6 (decide (g.val = 0)) (w.1 g).val) + (∑ j : Fin 7, tcopies 5 false (w.2.1 j).val) +
+    pcopies w.2.2.val
+def penalty (w : Word) : Nat := ∑ j : Fin 7, ind (pen j = true ∧ tsum 5 (w.2.1 j).val < 3)
+
+
+theorem topCredit_encode (w : Word) :
+    topCredit (encode w) = tcreditAll w + ind (152 - weight w + 1 = 5) := by
+  unfold topCredit
+  rw [sum_encode, show target 0 = 152 from rfl, list_sum_range_map]
+  change (∑ i ∈ range 51, ind ((dataDigits 0 (encode w) ++ [152 - weight w]).getD i 0 + 1 = maxDigit 0 i)) = _
+  rw [sum_51, getD48, getD49, getD50, show maxDigit 0 48 = 6 from rfl, show maxDigit 0 49 = 6 from rfl,
+    show maxDigit 0 50 = 5 from rfl]
+  unfold tcreditAll pcredit
+  congr 2
+  congr 1
+  · apply Finset.sum_congr rfl; intro g _
+    obtain ⟨a0, a1, a2, m0, m1, m2⟩ := blk6 w (152 - weight w) g
+    rw [a0, a1, a2, m0, m1, m2]; rfl
+  · apply Finset.sum_congr rfl; intro j _
+    obtain ⟨a0, a1, a2, m0, m1, m2⟩ := blk5 w (152 - weight w) j
+    rw [a0, a1, a2, m0, m1, m2]; rfl
+
+theorem searchDecode_top_encode (w : Word) :
+    (searchDecode 0 (encode w)).isSome = true ↔ legacyOk w := by
+  unfold searchDecode encCredit
+  rw [if_pos rfl, topCredit_encode, decode_top_encode, show creditFloor 0 = 7 from rfl]
+  unfold legacyOk
+  have e : ind (152 - weight w + 1 = 5) = ind (weight w = 148) := by
+    unfold ind; by_cases h : weight w = 148
+    · rw [if_pos (by omega), if_pos h]
+    · by_cases h' : weight w ≤ 152
+      · rw [if_neg (by omega), if_neg h]
+      · rw [if_neg (by omega), if_neg h]
+  rw [e]
+  by_cases h1 : tcreditAll w + ind (weight w = 148) < 7
+  · rw [if_pos h1]; simp only [Option.isSome_none, Bool.false_eq_true, false_iff]; omega
+  · rw [if_neg h1]
+    split_ifs with h2 <;> simp <;> omega
+
+end SigGolfResearch.T51Top
+end
+
+section
+namespace SigGolfCandidate.T3.Nonbinary
+open SigGolfResearch.NonbinaryTop
+set_option maxHeartbeats 1000000
+set_option maxRecDepth 8192
+/-- Campaign T51: the exact legacy search-decoder count (`topCredit ≥ 7`, the checksum chain included). -/
+theorem searchDecode_top_count :
+    Fintype.card {v : Digest // (searchDecode 0 v).isSome=true}=SigGolfResearch.T51Top.legacyCount := by
+  classical
+  rw [Fintype.card_subtype, SigGolfResearch.T51Top.card_encode _ (fun v h =>
+      SigGolfResearch.T51Top.decode_top_valid (by
+        obtain ⟨ds, hds⟩ := Option.isSome_iff_exists.mp h
+        rw [searchDecode_some hds]; rfl)),
+    ← SigGolfResearch.T51Top.legacyCount_digits, ← SigGolfResearch.T51Top.legacy_card]
+  apply congrArg Finset.card
+  apply Finset.filter_congr
+  intro w _
+  exact SigGolfResearch.T51Top.searchDecode_top_encode w
+end SigGolfCandidate.T3.Nonbinary
 end

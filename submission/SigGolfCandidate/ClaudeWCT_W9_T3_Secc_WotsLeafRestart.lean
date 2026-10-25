@@ -205,8 +205,6 @@ theorem regrouped_seed_error_le {err : ENNReal} (q : ℕ) (hs : q ≤ 2710*2^106
     err ≤ (557/1000 : ENNReal)*((q : ENNReal)/2^128)^2 :=
   hcharge.trans (regrouped_seed_charge_le q hs)
 
-#print axioms regrouped_seed_charge_le
-#print axioms regrouped_seed_error_le
 end ClaudeWCT.W9.T3.Security.Wots.AdjacentLeafResearch
 
 namespace ClaudeWCT.W9.T3.Security.Wots.CanonicalRef.Normalized.Restart

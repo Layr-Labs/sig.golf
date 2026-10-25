@@ -47,8 +47,6 @@ def code (b : Nat) (top : Bool) : List (BitVec 32) :=
   initWords ++ ((List.range (nDigits top)).map (digitWords top)).flatten ++
     (if top then (penaltyGroups.map penaltyWords).flatten else []) ++ floorWords top ++ exitWords b top
 
-def LegacyRewardAt (image : Image) (b : Nat) : Prop :=
-  CodeAt image (pcOf (base b false)) (code b false) ∧ CodeAt image (pcOf (base b true)) (code b true)
 
 private theorem foldl_chunks (cs : List (List (BitVec 32))) (acc : List (BitVec 32)) :
     cs.foldl (· ++ ·) acc = acc ++ cs.flatten := by
@@ -224,14 +222,16 @@ theorem penalty_fold_eval (s : MachineState) (ds : List Nat)
       penaltyExpr_eval s ds q (hq q (by simp)) hd hm]
     simp only [List.map_cons, List.sum_cons, BitVec.sub_sub, ofNat_add_ofNat]
 
-theorem maximum_layer (lay : Layer) (i : Nat) : maximum (decide (lay=0)) i = T3.maxDigit lay i := by
-  by_cases h : lay=0 <;> simp [maximum, T3.maxDigit, h]
-theorem count_layer (lay : Layer) : nDigits (decide (lay=0)) = T3.chainCount lay := by
-  fin_cases lay <;> rfl
+/-- Lower layers only (campaign T51: the top layer is scored by the T51 kernel, `T51.trial`). -/
+theorem maximum_layer (lay : Layer) (hl : lay ≠ 0) (i : Nat) : maximum (decide (lay=0)) i = T3.maxDigit lay i := by
+  simp [maximum, T3.maxDigit, hl]
 
-theorem saved_layer (lay : Layer) (ds : List Nat) (i : Nat) :
+theorem count_layer (lay : Layer) (hl : lay ≠ 0) : nDigits (decide (lay=0)) = T3.chainCount lay := by
+  fin_cases lay <;> first | exact (hl rfl).elim | rfl
+
+theorem saved_layer (lay : Layer) (hl : lay ≠ 0) (ds : List Nat) (i : Nat) :
     saved (decide (lay=0)) ds i ↔ safeZeroCopy lay ds i := by
-  simp only [saved, maximum_layer, safeZeroCopy]
+  simp only [saved, maximum_layer lay hl, safeZeroCopy]
   have hdirect : direct (decide (lay=0)) i = true ↔ i=0 ∨ (lay≠0 ∧ i=1) := by
     simp [direct]
   rw [hdirect]
@@ -239,15 +239,15 @@ theorem saved_layer (lay : Layer) (ds : List Nat) (i : Nat) :
   · rintro ⟨ha, (h0 | h1) | ⟨hm, hp⟩⟩
     · exact ⟨ha, Or.inl h0⟩
     · exact ⟨ha, Or.inr (Or.inl h1)⟩
-    · exact ⟨ha, Or.inr (Or.inr ⟨by omega, hm, hp⟩)⟩
-  · rintro ⟨ha, h0 | h1 | ⟨_, hm, hp⟩⟩
+    · exact ⟨ha, Or.inr (Or.inr ⟨by omega, hm, fun h => hl h.1, hp⟩)⟩
+  · rintro ⟨ha, h0 | h1 | ⟨_, hm, _, hp⟩⟩
     · exact ⟨ha, Or.inl (Or.inl h0)⟩
     · exact ⟨ha, Or.inl (Or.inr h1)⟩
     · exact ⟨ha, Or.inr ⟨hm, hp⟩⟩
 
-theorem credit_layer (lay : Layer) (ds : List Nat) (i : Nat) :
+theorem credit_layer (lay : Layer) (hl : lay ≠ 0) (ds : List Nat) (i : Nat) :
     ds.getD i 0 = maximum (decide (lay=0)) i-1 ↔ ds.getD i 0+1 = T3.maxDigit lay i := by
-  rw [← maximum_layer lay i]
+  rw [← maximum_layer lay hl i]
   have := (maximum_bounds (decide (lay=0)) i).1
   omega
 
@@ -264,13 +264,13 @@ theorem reward_sum_counts (top : Bool) (ds : List Nat) (is : List Nat) :
         hc, hs, decide_true, decide_false, if_true, if_false, Bool.false_eq_true,
         List.length_cons, ih] <;> omega
 
-theorem rewardsExpr_layer (s : MachineState) (lay : Layer) (ds : List Nat)
+theorem rewardsExpr_layer (s : MachineState) (lay : Layer) (hl : lay ≠ 0) (ds : List Nat)
     (hd : ∀ j < T3.chainCount lay, ds.getD j 0 < 8)
     (hm : ∀ j < T3.chainCount lay, s.getByte (BitVec.ofNat 64 (DIGITS+j)) = BitVec.ofNat 8 (ds.getD j 0)) :
     (rewardsExpr (decide (lay=0))).eval s = BitVec.ofNat 64 (wordCredit lay ds + 4 * savedCopies lay ds) := by
-  rw [rewardsExpr_eval s _ ds (by simpa [count_layer] using hd) (by simpa [count_layer] using hm),
-    reward_sum_counts, count_layer]
-  simp only [credit_layer, saved_layer]
+  rw [rewardsExpr_eval s _ ds (by simpa [count_layer lay hl] using hd) (by simpa [count_layer lay hl] using hm),
+    reward_sum_counts, count_layer lay hl]
+  simp only [credit_layer lay hl, saved_layer lay hl]
   rfl
 
 theorem penalty_sum_count (ds : List Nat) (qs : List Nat) :
@@ -284,33 +284,6 @@ theorem penalty_sum_count (ds : List Nat) (qs : List Nat) :
         h, decide_true, decide_false, if_true, if_false, Bool.false_eq_true,
         List.length_cons, ih] <;> omega
 
-theorem penalty_total (ds : List Nat) : (penaltyGroups.map (penalty ds)).sum = topDispatchPenalty ds := by
-  rw [penalty_sum_count]
-  have hr : penaltyGroups = (List.range 17).filter (fun q => decide (q ≠ 9 ∧ q < 13)) := by decide +kernel
-  rw [hr, List.filter_filter]
-  unfold topDispatchPenalty
-  apply congrArg List.length
-  apply List.filter_congr
-  intro q hq
-  apply Bool.eq_iff_iff.mpr
-  simp only [Bool.and_eq_true, decide_eq_true_eq]
-  tauto
-
-theorem scoreExpr_layer (s : MachineState) (lay : Layer) (ds : List Nat)
-    (hd : ∀ j < T3.chainCount lay, ds.getD j 0 < 8)
-    (hm : ∀ j < T3.chainCount lay, s.getByte (BitVec.ofNat 64 (DIGITS+j)) = BitVec.ofNat 8 (ds.getD j 0)) :
-    (scoreExpr (decide (lay=0))).eval s =
-      BitVec.ofNat 64 (wordCredit lay ds + 4 * savedCopies lay ds) - BitVec.ofNat 64 (dispatchPenalty lay ds) := by
-  by_cases hl : lay=0
-  · subst lay
-    rw [scoreExpr]
-    simp only [decide_true, ↓reduceIte]
-    rw [penalty_fold_eval s ds hd hm penaltyGroups (by decide) (rewardsExpr true)]
-    rw [penalty_total]
-    simpa [dispatchPenalty] using congrArg (fun x : Word => x - BitVec.ofNat 64 (topDispatchPenalty ds))
-      (rewardsExpr_layer s 0 ds hd hm)
-  · simp only [scoreExpr, hl, decide_false, Bool.false_eq_true, ↓reduceIte]
-    simpa [hl, dispatchPenalty] using rewardsExpr_layer s lay ds hd hm
 
 
 /-- The signed 64-bit score subtraction agrees with the bounded natural reward test. -/
@@ -331,11 +304,6 @@ theorem signed_reward_lt (r p f : Nat) (hr : r ≤ 270) (hp : p ≤ 12)
   apply decide_eq_decide.mpr
   omega
 
-theorem at_code {image : Image} {b : Nat} (h : LegacyRewardAt image b) (top : Bool) :
-    CodeAt image (pcOf (base b top)) (code b top) := by
-  cases top
-  · exact h.1
-  · exact h.2
 
 theorem pre_obligs (b : Nat) (top : Bool) (s : MachineState) : (preResult b top).obligs s := by
   cases top <;> trivial
@@ -372,58 +340,12 @@ theorem total_reward_bound (lay : Layer) (ds : List Nat) :
     (List.filter (fun i => decide (safeZeroCopy lay ds i)) (List.range (T3.chainCount lay))).length ≤ 270
   omega
 
-theorem total_penalty_bound (lay : Layer) (ds : List Nat) : dispatchPenalty lay ds ≤ 12 := by
-  unfold dispatchPenalty
-  split
-  · rw [← penalty_total, penalty_sum_count]
-    exact (List.length_filter_le _ _).trans (by decide : penaltyGroups.length ≤ 12)
-  · omega
 
 theorem floor_values (lay : Layer) : producerFloor lay = 9 ∨ producerFloor lay = 10 ∨ producerFloor lay = 21 := by
   fin_cases lay <;> decide
 
-theorem pre_spec {image : Image} {b : Nat} (hb : b=354 ∨ b=543) (hR : LegacyRewardAt image b)
-    (s : MachineState) (lay : Layer) (ds : List Nat)
-    (hd : ∀ j < T3.chainCount lay, ds.getD j 0 < 8)
-    (hm : ∀ j < T3.chainCount lay, s.getByte (BitVec.ofNat 64 (DIGITS+j)) = BitVec.ofNat 8 (ds.getD j 0))
-    (hpc : s.pc = pcOf (base b (decide (lay=0))))
-    (h8 : s.getReg .x8 = BitVec.ofNat 64 lay.val) :
-    ∃ t, Steps image s ((code b (decide (lay=0))).length-2) ((code b (decide (lay=0))).length-2) t ∧
-      t.pc = (if producerFloor lay + dispatchPenalty lay ds ≤ wordCredit lay ds + 4*savedCopies lay ds
-        then pcOf (base b (decide (lay=0)) + (code b (decide (lay=0))).length-2)
-        else pcOf (base b (decide (lay=0)) + (code b (decide (lay=0))).length-1)) ∧
-      RegsExcept s t [.x6,.x10,.x28,.x29,.x30] ∧ Frame s t (fun _=>False) := by
-  refine ⟨_, symRun_sound (pre_run b hb (decide (lay=0))) (at_code hR _) s hpc (pre_obligs b _ s),
-    ?_, pre_preserves b _ s, pre_frame b _ s⟩
-  rw [Result.toState_pc]
-  change (if (scoreExpr (decide (lay=0))).eval s |>.slt ((floorExpr (decide (lay=0))).eval s)
-    then pcOf (base b (decide (lay=0)) + (code b (decide (lay=0))).length-1)
-    else pcOf (base b (decide (lay=0)) + (code b (decide (lay=0))).length-2)) = _
-  rw [scoreExpr_layer s lay ds hd hm, floorExpr_eval s lay h8,
-    signed_reward_lt _ _ _ (total_reward_bound lay ds) (total_penalty_bound lay ds) (floor_values lay)]
-  by_cases ha : producerFloor lay + dispatchPenalty lay ds ≤ wordCredit lay ds + 4*savedCopies lay ds
-  · have hn : ¬wordCredit lay ds + 4*savedCopies lay ds < dispatchPenalty lay ds + producerFloor lay := by omega
-    simp only [ha, hn, decide_false, Bool.false_eq_true, ↓reduceIte]
-  · have hn : wordCredit lay ds + 4*savedCopies lay ds < dispatchPenalty lay ds + producerFloor lay := by omega
-    simp only [ha, hn, decide_true, ↓reduceIte]
 
-theorem codeAt_return {image : Image} {b : Nat} (hb : b=354 ∨ b=543) (hR : LegacyRewardAt image b) (top : Bool) :
-    CodeAt image (pcOf (base b top+(code b top).length-2)) [0x8067] := by
-  have hc : CodeAt image (pcOf (base b top)) (code b top) := by cases top <;> exact (by first | exact hR.1 | exact hR.2)
-  have he : code b top = (code b top).take ((code b top).length-2) ++ [0x8067] ++ (exitWords b top).drop 2 := by
-    rcases hb with rfl | rfl <;> cases top <;> kernel_rfl
-  rw [he] at hc
-  have hx := CodeAt.drop_prefix hc
-  convert hx using 1 <;> rcases hb with rfl | rfl <;> cases top <;> kernel_rfl
 
-theorem codeAt_fail {image : Image} {b : Nat} (hb : b=354 ∨ b=543) (hR : LegacyRewardAt image b) (top : Bool) :
-    CodeAt image (pcOf (base b top+(code b top).length-1)) ((exitWords b top).drop 2) := by
-  have hc : CodeAt image (pcOf (base b top)) (code b top) := by cases top <;> exact (by first | exact hR.1 | exact hR.2)
-  have he : code b top = (code b top).take ((code b top).length-1) ++ (exitWords b top).drop 2 ++ [] := by
-    rcases hb with rfl | rfl <;> cases top <;> kernel_rfl
-  rw [he] at hc
-  have hx := CodeAt.drop_prefix hc
-  convert hx using 1 <;> rcases hb with rfl | rfl <;> cases top <;> kernel_rfl
 
 sym_block returnExit := symRun {noAlias:=true} [0x8067] (pcOf (base 354 false+(code 354 false).length-2)) 2
 sym_block failExit := symRun {noAlias:=true} ((exitWords 354 false).drop 2) (pcOf (base 354 false+(code 354 false).length-1)) 2
@@ -437,58 +359,8 @@ theorem run_fail {b : Nat} (hb : b=354 ∨ b=543) (top : Bool) :
       some ⟨failExit.res.st,.c (pcOf (b+468)),failExit.res.stop,1,1⟩ := by
   rcases hb with rfl | rfl <;> cases top <;> kernel_rfl
 
-theorem return_spec {image : Image} {b : Nat} (hb : b=354 ∨ b=543) (hR : LegacyRewardAt image b)
-    (top : Bool) (s : MachineState) (ret : Nat)
-    (hpc : s.pc=pcOf (base b top+(code b top).length-2)) (h1 : s.getReg .x1=pcOf ret) :
-    ∃ t, Steps image s 1 1 t ∧ t.pc=pcOf ret ∧ RegsExcept s t [] ∧ Frame s t (fun _=>False) := by
-  refine ⟨_,symRun_sound (run_return hb top) (codeAt_return hb hR top) s hpc
-    (by simp [returnExit.res,rv_simp]),?_,?_,?_⟩
-  · simp [returnExit.res,rv_simp,h1,pcOf_and_not1]
-  · intro r hr; cases r <;> simp_all [returnExit.res,rv_simp] <;> rfl
-  · intro A hA hn; simp [returnExit.res,rv_simp]
 
-theorem fail_spec {image : Image} {b : Nat} (hb : b=354 ∨ b=543) (hR : LegacyRewardAt image b)
-    (top : Bool) (s : MachineState)
-    (hpc : s.pc=pcOf (base b top+(code b top).length-1)) :
-    ∃ t, Steps image s 1 1 t ∧ t.pc=pcOf (b+468) ∧ RegsExcept s t [] ∧ Frame s t (fun _=>False) := by
-  refine ⟨_,symRun_sound (run_fail hb top) (codeAt_fail hb hR top) s hpc
-    (by simp [failExit.res,rv_simp]),?_,?_,?_⟩
-  · rfl
-  · intro r hr; cases r <;> simp_all [failExit.res,rv_simp] <;> rfl
-  · intro A hA hn; simp [failExit.res,rv_simp]
 
-theorem reward_spec {image : Image} {b : Nat} (hb : b=354 ∨ b=543) (hR : LegacyRewardAt image b)
-    (s : MachineState) (lay : Layer) (answer : Digest) (ds : List Nat) (ret : Nat)
-    (hdec : T3.decode lay answer = some ds)
-    (hpc : s.pc = pcOf (base b (decide (lay=0))))
-    (h8 : s.getReg .x8 = BitVec.ofNat 64 lay.val) (h1 : s.getReg .x1 = pcOf ret)
-    (hm : ∀ j < T3.chainCount lay, s.getByte (BitVec.ofNat 64 (DIGITS+j)) = BitVec.ofNat 8 (ds.getD j 0)) :
-    ∃ t, Steps image s (if lay=0 then 598 else 404) (if lay=0 then 598 else 404) t ∧
-      t.pc = (if producerFloor lay + dispatchPenalty lay ds ≤ wordCredit lay ds + 4*savedCopies lay ds
-        then pcOf ret else pcOf (b+468)) ∧
-      RegsExcept s t [.x6,.x10,.x28,.x29,.x30] ∧ Frame s t (fun _=>False) := by
-  have hd : ∀ j < T3.chainCount lay, ds.getD j 0 < 8 := by
-    intro j hj
-    simpa only [T3.width, Nat.reducePow] using T3.decode_digit_bound hdec j hj
-  obtain ⟨u, hu, hpcu, hru, hmu⟩ := pre_spec hb hR s lay ds hd hm hpc h8
-  have hlen : (code b (decide (lay=0))).length-2+1 = (if lay=0 then 598 else 404) := by
-    by_cases hl : lay=0 <;> simp [code_length, hl]
-  by_cases ha : producerFloor lay + dispatchPenalty lay ds ≤ wordCredit lay ds + 4*savedCopies lay ds
-  · have hpc' : u.pc = pcOf (base b (decide (lay=0)) + (code b (decide (lay=0))).length-2) := by
-      simpa only [ha, ↓reduceIte] using hpcu
-    have h1' : u.getReg .x1 = pcOf ret := (hru.get (by simp)).trans h1
-    obtain ⟨t, ht, hpct, hrt, hmt⟩ := return_spec hb hR (decide (lay=0)) u ret hpc' h1'
-    refine ⟨t, (hu.trans ht).of_eq hlen hlen, ?_, ?_, ?_⟩
-    · simpa only [ha, ↓reduceIte] using hpct
-    · intro r hr; exact (hrt r (by simp)).trans (hru r hr)
-    · intro A hA hn; exact (hmt A hA (by simp)).trans (hmu A hA (by simp))
-  · have hpc' : u.pc = pcOf (base b (decide (lay=0)) + (code b (decide (lay=0))).length-1) := by
-      simpa only [ha, ↓reduceIte] using hpcu
-    obtain ⟨t, ht, hpct, hrt, hmt⟩ := fail_spec hb hR (decide (lay=0)) u hpc'
-    refine ⟨t, (hu.trans ht).of_eq hlen hlen, ?_, ?_, ?_⟩
-    · simpa only [ha, ↓reduceIte] using hpct
-    · intro r hr; exact (hrt r (by simp)).trans (hru r hr)
-    · intro A hA hn; exact (hmt A hA (by simp)).trans (hmu A hA (by simp))
 
 
 /-- Packed reward lookup data, before digit unpacking. -/
@@ -517,6 +389,17 @@ theorem RewardTablesOK.frame {s t : MachineState} {W : Nat → Prop} (h : Reward
     (hf : Frame s t W) (hd : ∀ i, 1024 ≤ i → i < 2944 → ¬ W ((TOP_DATA+i)/8*8)) : RewardTablesOK t := by
   intro i hi hj
   exact (hf.getByte (by unfold TOP_DATA; omega) (hd i hi hj)).trans (h i hi hj)
+/-- Campaign T51: the lower reward tables only (TOP_DATA + 1024..2047); the old top tables at 2048.. are overwritten by
+the T51 packed block in the sign image. -/
+def LowerTablesOK (s : MachineState) : Prop :=
+  ∀ i, 1024 ≤ i → i < 2048 → s.getByte (BitVec.ofNat 64 (TOP_DATA+i)) = rewardTableByte i
+theorem LowerTablesOK.frame {s t : MachineState} {W : Nat → Prop} (h : LowerTablesOK s)
+    (hf : Frame s t W) (hd : ∀ i, 1024 ≤ i → i < 2048 → ¬ W ((TOP_DATA+i)/8*8)) : LowerTablesOK t := by
+  intro i hi hj
+  exact (hf.getByte (by unfold TOP_DATA; omega) (hd i hi hj)).trans (h i hi hj)
+theorem RewardTablesOK.lower {s : MachineState} (h : RewardTablesOK s) : LowerTablesOK s :=
+  fun i hi hj => h i hi (by omega)
+instance {s : MachineState} : Coe (RewardTablesOK s) (LowerTablesOK s) := ⟨RewardTablesOK.lower⟩
 def topKind (q : Nat) : Nat := if q=0 then 0 else if q∈penaltyGroups then 1 else 2
 def packedTopScore (v : T3.Digest) : Nat :=
   ((List.range 17).map (fun q => topLookup (topKind q) (topRank v q))).sum +
@@ -720,16 +603,7 @@ set_option maxHeartbeats 1200000
 set_option Elab.async false
 set_option linter.unusedSimpArgs false
 
-theorem topDigits_getD' (v : T3.Digest) (i : Nat) (hi : i < 54) :
-    (topDigits (T3.topFlip v)).getD i 0 = T3.coreDigit 0 (T3.topFlip v) i := by
-  simp [topDigits, hi]
 
-theorem topDigits_group_getD (v : T3.Digest) (q : Nat) (hq : q < 17) (i : Nat) (hi : i < 3) :
-    (topDigits (T3.topFlip v)).getD (3*q+i) 0 = topRank v q / 5^i % 5 := by
-  rw [topDigits_getD' _ _ (by omega)]
-  simp only [T3.coreDigit, if_pos rfl, if_pos (by omega : 3*q+i<51), T3.topCode_topFlip]
-  rw [show (3*q+i)/3=q by omega, show (3*q+i)%3=i by omega]
-  rfl
 
 theorem reward_top_group (ds : List Nat) (q : Fin 17) :
     ([3*q.val,3*q.val+1,3*q.val+2].map (reward true ds)).sum =
@@ -746,13 +620,6 @@ theorem reward_top_tail (ds : List Nat) :
 
   split_ifs <;> omega
 
-theorem tailLookup_digits (v : T3.Digest) :
-    tailLookup (v.toNat / 2^119 % 512) =
-      tripleScore 7 ((topDigits (T3.topFlip v)).getD 51 0)
-        ((topDigits (T3.topFlip v)).getD 52 0) ((topDigits (T3.topFlip v)).getD 53 0) := by
-  rw [topDigits_getD' _ _ (by decide), topDigits_getD' _ _ (by decide), topDigits_getD' _ _ (by decide)]
-  norm_num [T3.coreDigit, T3.topCode_topFlip, T3.topRawShift, tailLookup]
-  congr 1 <;> omega
 
 theorem topLookup_add_penalty (q : Fin 17) (r : Nat) (hr : r < 125) :
     topLookup (topKind q.val) r +
@@ -762,28 +629,8 @@ theorem topLookup_add_penalty (q : Fin 17) (r : Nat) (hr : r < 125) :
   fin_cases q <;> simp [topKind, penaltyGroups, topLookup, hr]
   all_goals split_ifs <;> omega
 
-theorem packed_group_reward (v : T3.Digest) (q : Fin 17) (hr : topRank v q.val < 125) :
-    topLookup (topKind q.val) (topRank v q.val) +
-      (if q.val ∈ penaltyGroups then penalty (topDigits (T3.topFlip v)) q.val else 0) =
-      ([3*q.val,3*q.val+1,3*q.val+2].map (reward true (topDigits (T3.topFlip v)))).sum +
-      (if q.val ∈ penaltyGroups then 1 else 0) := by
-  rw [reward_top_group]
-  have h0 := topDigits_group_getD v q.val q.isLt 0 (by decide)
-  simp only [Nat.add_zero, pow_zero, Nat.div_one] at h0
-  simpa only [penalty, h0, topDigits_group_getD v q.val q.isLt 0 (by decide),
-    topDigits_group_getD v q.val q.isLt 1 (by decide), topDigits_group_getD v q.val q.isLt 2 (by decide),
-    Nat.add_zero, pow_zero, pow_one, Nat.div_one, show (5:Nat)^2=25 from rfl] using
-    topLookup_add_penalty q (topRank v q.val) hr
 
 
-theorem reward_top_total (ds : List Nat) :
-    ((List.range 54).map (reward true ds)).sum = wordCredit 0 ds + 4 * savedCopies 0 ds := by
-  have hc (i : Nat) : ds.getD i 0 = maximum true i - 1 ↔ ds.getD i 0 + 1 = T3.maxDigit 0 i :=
-    credit_layer 0 ds i
-  have hs (i : Nat) : saved true ds i ↔ safeZeroCopy 0 ds i := saved_layer 0 ds i
-  rw [reward_sum_counts]
-  simp only [hc, hs]
-  rfl
 
 theorem reward_top_grouped (ds : List Nat) :
     ((List.range 54).map (reward true ds)).sum =
@@ -794,29 +641,7 @@ theorem reward_top_grouped (ds : List Nat) :
   rw [hi, List.map_append, List.sum_append, reward_top_tail]
   simp only [List.map_flatten, List.sum_flatten, List.map_map, List.map_ofFn, Function.comp_def, List.sum_ofFn]
 
-theorem penalty_top_grouped (ds : List Nat) :
-    (∑ q : Fin 17, if q.val ∈ penaltyGroups then penalty ds q.val else 0) = dispatchPenalty 0 ds := by
-  rw [show dispatchPenalty 0 ds = topDispatchPenalty ds from rfl, ← penalty_total]
-  simp [Fin.sum_univ_succ, penaltyGroups, Nat.add_assoc]
 
-theorem packedTopScore_reward (v : T3.Digest) (hv : T3.topRanksValid (T3.topFlip v) = true) :
-    packedTopScore v + dispatchPenalty 0 (topDigits (T3.topFlip v)) =
-      wordCredit 0 (topDigits (T3.topFlip v)) + 4 * savedCopies 0 (topDigits (T3.topFlip v)) + 12 := by
-  have hg (q : Fin 17) : topRank v q.val < 125 :=
-    (topRanksValid_iff v).mp hv _ (List.mem_map.mpr ⟨q.val, List.mem_range.mpr q.isLt, rfl⟩)
-  have hs := Finset.sum_congr rfl (fun q (_ : q ∈ (Finset.univ : Finset (Fin 17))) =>
-    packed_group_reward v q (hg q))
-  simp only [Finset.sum_add_distrib] at hs
-  have ho : (∑ q : Fin 17, if q.val ∈ penaltyGroups then (1:Nat) else 0) = 12 := by decide +kernel
-  rw [ho, penalty_top_grouped] at hs
-  have hr := reward_top_grouped (topDigits (T3.topFlip v))
-  rw [reward_top_total, ← tailLookup_digits] at hr
-  have hp : packedTopScore v = (∑ q : Fin 17, topLookup (topKind q.val) (topRank v q.val)) +
-      tailLookup (v.toNat / 2^119 % 512) := by
-    unfold packedTopScore
-    rw [show List.range 17 = List.ofFn (fun q : Fin 17 => q.val) from rfl]
-    simp only [List.map_ofFn, List.sum_ofFn, Function.comp_def]
-  omega
 
 
 
@@ -944,37 +769,6 @@ theorem exit_spec {image : Image} {b : Nat} (hb : b=354 ∨ b=543) (hR : RewardA
   refine ⟨_,symRun_sound (exit_run b hb good) hc s hpc (by simp [exitResult,SymState.init,rv_simp]),rfl,?_,?_⟩
   · intro r hr; cases r <;> rfl
   · intro A _ _; rfl
-theorem top_spec {image : Image} {b : Nat} (hb : b=354 ∨ b=543) (hR : RewardAt image b)
-    (s : MachineState) (v : Digest) (ht : RewardTablesOK s)
-    (hvalid : T3.topRanksValid (T3.topFlip v)=true) (hpc : s.pc=pcOf (base b true))
-    (h6 : s.getReg .x6=v.extractLsb' 0 64) (h7 : s.getReg .x7=v.extractLsb' 64 64) :
-    ∃ t, Steps image s 98 98 t ∧
-      t.pc=(if producerFloor 0+dispatchPenalty 0 (topDigits (T3.topFlip v)) ≤
-          wordCredit 0 (topDigits (T3.topFlip v))+4*savedCopies 0 (topDigits (T3.topFlip v))
-        then pcOf (b+422) else pcOf (b+468)) ∧
-      RegsExcept s t [.x10,.x11,.x20,.x28,.x29] ∧ Frame s t (fun _=>False) := by
-  obtain ⟨t1,s1,p1,g11,g20,r1,f1⟩ := init_spec hb hR s hpc
-  obtain ⟨t2,s2,p2,g2,r2,f2⟩ := iter hb hR t1 v 18 (by decide) (ht.frame f1 (by simp)) p1
-    (by rw [r1.get (by decide),h6]) (by rw [r1.get (by decide),h7]) g11 g20
-  rw [runningSum_eq] at g2
-  have he := packedTopScore_reward v hvalid
-  have hbound := total_reward_bound 0 (topDigits (T3.topFlip v))
-  obtain ⟨t3,s3,p3,r3,f3⟩ := branch_spec hb hR t2 (packedTopScore v) (by omega) p2 g2
-  have hiff : 33 ≤ packedTopScore v ↔ producerFloor 0+dispatchPenalty 0 (topDigits (T3.topFlip v)) ≤
-      wordCredit 0 (topDigits (T3.topFlip v))+4*savedCopies 0 (topDigits (T3.topFlip v)) := by
-    change 33 ≤ packedTopScore v ↔ 21+_ ≤ _
-    omega
-  by_cases ha : 33 ≤ packedTopScore v
-  · rw [if_neg (by omega)] at p3
-    obtain ⟨t4,s4,p4,r4,f4⟩ := exit_spec hb hR t3 true p3
-    refine ⟨t4,((s1.trans s2).trans s3).trans s4,?_,
-      (((r1.trans r2).trans r3).trans r4).mono (by decide),(((f1.trans f2).trans f3).trans f4).mono (by simp)⟩
-    simpa [if_pos (hiff.mp ha)] using p4
-  · rw [if_pos (by omega)] at p3
-    obtain ⟨t4,s4,p4,r4,f4⟩ := exit_spec hb hR t3 false p3
-    refine ⟨t4,((s1.trans s2).trans s3).trans s4,?_,
-      (((r1.trans r2).trans r3).trans r4).mono (by decide),(((f1.trans f2).trans f3).trans f4).mono (by simp)⟩
-    simpa [if_neg (fun h => ha (hiff.mpr h))] using p4
 end PackedTop
 
 end SigGolfCandidate.T3M.Search.Reward

@@ -240,9 +240,4 @@ theorem reference_contacts_cost_leF (adversary : ClaudeWCT.W9.T3M.Final.Paired.A
         exact_mod_cast Normalized.Contacts.prefixCount_sum_le s
 end PerChain
 
-#print axioms errTot7F_eq
-#print axioms twoEdgeAt_cost_leF
-#print axioms contactAt_cost_leF
-#print axioms reference_twoEdge_leF
-#print axioms reference_contacts_cost_leF
 end ClaudeWCT.W9.T3.Security.Wots.CanonicalRef.Normalized.FamContacts

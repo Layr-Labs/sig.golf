@@ -48,8 +48,6 @@ theorem codeAt_of_compact_window {im : Image} (hc : CompactCodeAt im) {n : Nat} 
   unfold compactWindowOK at h
   have:=List.all_eq_true.mp h i (List.mem_range.mpr hi)
   simpa using this
-#print axioms CompactCodeAt.ofNew
-#print axioms codeAt_of_compact_window
 end ClaudeWCT.W9.Machine.Expand
 
 namespace ClaudeWCT.W9.Machine.Expand.Compact
@@ -179,5 +177,4 @@ theorem compactCode_of_chunks {im : Image}
     rw [show (0x1000+4*(256*(n/256)+compactChunkLo (n/256))-0x1000)/4+(n%256-compactChunkLo (n/256))=n by omega] at hh
     exact hh.symm
   · cases hw
-#print axioms compactCode_of_chunks
 end ClaudeWCT.W9.Machine.Expand

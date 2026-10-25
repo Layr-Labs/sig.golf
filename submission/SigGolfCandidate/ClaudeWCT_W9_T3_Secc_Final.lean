@@ -618,7 +618,6 @@ theorem layers_source_walk (answers : Answers) (w : WBytes) (index : Nat) (hidx 
     refine ⟨fun lay => hg lay lay.isLt, ?_⟩
     change msg = CanonicalRef.sourceMessages answers (routeLeaf index 3) at hm
     exact hm.trans (sourceMessages_bottom answers index hidx)
-#print axioms layers_source_walk
 end ClaudeWCT.W9.T3.Security.CanonicalExtract
 
 namespace ClaudeWCT.W9.T3.Security.CanonicalExtract
@@ -641,7 +640,7 @@ theorem verifyP_source_walk (answers : Answers) (message : Message) (pk : Digest
       evalWithAnswerFn answers (digest (wrho w) message (wdc w)) = output ∧
       (.inl (.inr (pad64 (digestInput (wrho w) message (wdc w)))) : Spec.Domain) ∈
         queried answers (Paired.verifyP message pk w) ∧
-      output.toNat / 2^242 % 16384 < 804 ∧
+      output.toNat / 2^242 % 16384 < 791 ∧
       (∀ coord : Fin 9, rawForestRank output coord.val < 563) ∧
       (WotsPrimitiveSrc answers (CanonicalRef.sourceMessages answers)
           (entriesOf answers (queried answers (Paired.verifyP message pk w))) ∨
@@ -666,7 +665,6 @@ theorem verifyP_source_walk (answers : Answers) (message : Message) (pk : Digest
       · exact Prod.ext (WCT9.LayerMsg.pair.inj hmsg).1 (WCT9.LayerMsg.pair.inj hmsg).2
       · intro q hq
         exact hqF q (hforestQ ▸ hq)
-#print axioms verifyP_source_walk
 end ClaudeWCT.W9.T3.Security.CanonicalExtract
 /-! r3h HonestN: the honest expand output is `witEncN` (img-v6 nonce pads). -/
 namespace ClaudeWCT.W9.T3M.Extract.Paired
@@ -943,7 +941,6 @@ theorem expanded_canonical_selections (answers : Answers) (message : Message) (p
   · intro lay
     rw [hcs lay]
     exact (hall lay).1
-#print axioms expanded_canonical_selections
 end ClaudeWCT.W9.T3.Security.CanonicalExtract
 
 namespace ClaudeWCT.W9.T3.Security.CanonicalExtract
@@ -965,7 +962,7 @@ theorem verifyP_canonical_or_collision (answers : Answers) (message : Message) (
       evalWithAnswerFn answers (digest (wrho wb) message (wdc wb)) = output ∧
       (.inl (.inr (pad64 (digestInput (wrho wb) message (wdc wb)))) : Spec.Domain) ∈
         queried answers (Paired.verifyP message pk wb) ∧
-      output.toNat / 2^242 % 16384 < 804 ∧
+      output.toNat / 2^242 % 16384 < 791 ∧
       (∀ coord : Fin 9, rawForestRank output coord.val < 563) ∧
       (WotsPrimitiveSrc answers (CanonicalRef.sourceMessages answers)
           (entriesOf answers (queried answers (Paired.verifyP message pk wb))) ∨
@@ -984,7 +981,6 @@ theorem verifyP_canonical_or_collision (answers : Answers) (message : Message) (
     · exact Or.inr (Or.inl ((Extract.Paired.forest_hit_fts answers wb (WCT9.digestIndex output)
         (rawChildFromOutput output) (fun k => WCT9.embed (forestRank output k.val))
         (WCT9.digestIndex_lt output) hh).mono hsub))
-#print axioms verifyP_canonical_or_collision
 end ClaudeWCT.W9.T3.Security.CanonicalExtract
 
 namespace ClaudeWCT.W9.T3.Security.CanonicalExtract
@@ -1042,7 +1038,6 @@ theorem signFromOutput_canonical_selections (answers : Answers) (cache : SigGolf
     exact hx
   · intro lay
     rw [hpieces lay,facts.honest_pieces hcache hi lay]
-#print axioms signFromOutput_canonical_selections
 end ClaudeWCT.W9.T3.Security.CanonicalExtract
 
 namespace ClaudeWCT.W9.T3.Security.CanonicalExtract
@@ -1110,8 +1105,6 @@ theorem expanded_eq_signer_signature (answers : Answers) (cache : SigGolfCandida
     SharedCodec.sigBC sig = SharedCodec.sigBC (fillTopSignature sig c) := (SharedCodec.sigBC_fillTopSignature sig c).symm
     _ = SharedCodec.sigBC w.signature := by rw [hw]
     _ = SharedCodec.sigBC signedSig := by rw [heq,hsig]
-#print axioms expanded_eq_signer_signature
-#print axioms same_nonce_signed_wire
 end ClaudeWCT.W9.T3.Security.CanonicalExtract
 
 namespace ClaudeWCT.W9.T3.Security.WPair.Paired
@@ -1158,8 +1151,6 @@ theorem fresh_signature_not_signed_digest (answers : Answers) (published : SigGo
   apply hfresh
   refine ⟨entry,hin,hm,?_⟩
   rw [hsigned,Option.map_some,hwire]
-#print axioms fresh_witness_not_signed_digest
-#print axioms fresh_signature_not_signed_digest
 end ClaudeWCT.W9.T3.Security.WPair.Paired
 
 namespace ClaudeWCT.W9.T3.Security.CanonicalExtract
@@ -1189,7 +1180,7 @@ theorem checkForgery_canonical_or_collision (answers : Answers) (published : Sig
         evalWithAnswerFn answers (digest (wrho wb) message (wdc wb)) = output ∧
         (.inl (.inr (pad64 (digestInput (wrho wb) message (wdc wb)))) : Spec.Domain) ∈
           queried answers (Final.Paired.checkForgeryP pk log forgery) ∧
-        output.toNat / 2^242 % 16384 < 804 ∧
+        output.toNat / 2^242 % 16384 < 791 ∧
         (∀ coord : Fin 9, rawForestRank output coord.val < 563) ∧
         (∀ lay : Layer, Good answers (CanonicalRef.sourceMessages answers) wb (WCT9.digestIndex output) lay) ∧
         Extract.Paired.ForestOpenings answers wb (WCT9.digestIndex output)
@@ -1216,7 +1207,6 @@ theorem checkForgery_canonical_or_collision (answers : Answers) (published : Sig
         rw [Paired.expandN_nonce answers message pk sig output w hn]
         exact WPair.Paired.fresh_signature_not_signed_digest answers published hcache log hlog
           message pk sig output w hfresh hn hg ho
-#print axioms checkForgery_canonical_or_collision
 end ClaudeWCT.W9.T3.Security.CanonicalExtract
 
 namespace ClaudeWCT.W9.T3.Security.Wots.PairedSmallT
@@ -1238,7 +1228,7 @@ def FreshForestAt (answers : Answers) (pk : Digest) (log : QueryLog Final.Paired
         evalWithAnswerFn answers (digest (wrho wb) message (wdc wb)) = output ∧
         (.inl (.inr (pad64 (digestInput (wrho wb) message (wdc wb)))) : Spec.Domain) ∈
           queried answers (Final.Paired.checkForgeryP pk log forgery) ∧
-        output.toNat / 2^242 % 16384 < 804 ∧
+        output.toNat / 2^242 % 16384 < 791 ∧
         (∀ coord : Fin 9, rawForestRank output coord.val < 563) ∧
         (∀ lay : Layer, Good answers (CanonicalRef.sourceMessages answers) wb (WCT9.digestIndex output) lay) ∧
         Extract.Paired.ForestOpenings answers wb (WCT9.digestIndex output)
@@ -1278,7 +1268,6 @@ theorem completed_split_canonical (adversary : Final.Paired.AdversaryP) (q : Nat
   · exact (hnot ⟨hcheck,Or.inl hp⟩).elim
   · exact (hnot ⟨hcheck,Or.inr (PairedReference.ftsHitIn_structuralHitTrace hh)⟩).elim
   · exact ⟨generated,interaction,checked,hsplit,hpk,hcache,hlog,forgery,hf,hcheck,hgood⟩
-#print axioms completed_split_canonical
 end ClaudeWCT.W9.T3.Security.Wots.PairedSmallT
 
 
@@ -1303,7 +1292,6 @@ theorem cleanWin_le_cases (adversary : Final.Paired.AdversaryP) (q : Nat) (hq : 
   rcases completed_split_canonical adversary q hq z hz hclean with hab | hf
   · exact Or.inl ⟨hclean,hab⟩
   · exact Or.inr ⟨hclean,hf⟩
-#print axioms cleanWin_le_cases
 end ClaudeWCT.W9.T3.Security.Wots.PairedSmallT
 
 
@@ -1357,8 +1345,6 @@ theorem checker_slot_queries (answers : Answers) (pk : Digest)
   have hplt := p.isLt
   omega
 
-#print axioms checker_forest_queries
-#print axioms checker_slot_queries
 end ClaudeWCT.W9.T3.Security.Wots.PairedSmallT
 
 
@@ -1418,7 +1404,6 @@ theorem checker_coverage_cases (answers : Answers) (pk : Digest)
   · exact Or.inr (Or.inl ⟨k,t,slot k t ha,rfl,rfl,make k t ha hu,hrest⟩)
   · exact Or.inr (Or.inr ⟨slot k t ha,slot k' t' ha',WPair.Paired.chainOf_ne hne,
       make k t ha hu,make k' t' ha' hu'⟩)
-#print axioms checker_coverage_cases
 end ClaudeWCT.W9.T3.Security.Wots.PairedSmallT
 
 
@@ -1451,7 +1436,7 @@ def FullForestEvent (adversary : Final.Paired.AdversaryP) (q : Nat)
       evalWithAnswerFn A (digest (wrho w) message (wdc w))=output ∧
       (.inl (.inr (pad64 (digestInput (wrho w) message (wdc w)))) : SigGolfCandidate.T3.Spec.Domain) ∈
         queried A (Final.Paired.checkForgeryP generated.value.1 interaction.value.2 forgery) ∧
-      output.toNat/2^242%16384<804 ∧
+      output.toNat/2^242%16384<791 ∧
       (∀ k : Fin 9,rawForestRank output k.val<563) ∧
       ¬WPair.Paired.SignedDigest interaction.value.2 message (wrho w) ∧
       FullCovered A interaction.value.2 output
@@ -1518,8 +1503,6 @@ theorem completed_full_bound (adversary : Final.Paired.AdversaryP) (q : Nat) (hq
   intro b hb tables hfull
   exact full_event_potential adversary q hq b hb _
     (fun input answer hk => SigGolfCandidate.T3.Security.SeccLaw.completeWith_agrees _ tables input answer hk) hfull
-#print axioms full_event_potential
-#print axioms completed_full_bound
 end ClaudeWCT.W9.T3.Security.Wots.PairedSmallT
 
 namespace ClaudeWCT.W9.T3.Security.Wots.PairedSmallT
@@ -1620,7 +1603,6 @@ theorem completed_flexible_full_bound (theta rate : ENNReal)
   · exact add_le_add (mul_le_mul' le_rfl
       (PairedBankLink.expectedBirths_le_shared ClaudeWCT.Bank.Paired.bankSpec
         ClaudeWCT.Bank.Paired.payAfterDigest paired_recordMatches adversary q hq)) le_rfl
-#print axioms completed_flexible_full_bound
 end ClaudeWCT.W9.T3.Security.Wots.PairedSmallT
 
 namespace ClaudeWCT.W9.T3.Security.Wots.PairedSmallT
@@ -1655,7 +1637,7 @@ def PartialForestEvent
       evalWithAnswerFn A (digest (wrho w) message (wdc w))=output ∧
       (.inl (.inr (pad64 (digestInput (wrho w) message (wdc w)))) : SigGolfCandidate.T3.Spec.Domain) ∈
         queried A (Final.Paired.checkForgeryP generated.value.1 interaction.value.2 forgery) ∧
-      output.toNat/2^242%16384<804 ∧
+      output.toNat/2^242%16384<791 ∧
       (∀ k : Fin 9,rawForestRank output k.val<563) ∧
       ¬WPair.Paired.SignedDigest interaction.value.2 message (wrho w) ∧
       Q A interaction.value.2 output
@@ -1700,7 +1682,6 @@ theorem completed_forest_cases (adversary : Final.Paired.AdversaryP) (q : Nat) (
         forgery,message,w,N,hforgery,hN,hquery,hgate,hranks,hfresh,hc⟩))
   · exact Or.inr (Or.inr (Or.inr ⟨generated,interaction,checked,hsplit,hcomp⟩))
 
-#print axioms completed_forest_cases
 end ClaudeWCT.W9.T3.Security.Wots.PairedSmallT
 
 namespace ClaudeWCT.W9.T3.Security.Wots.PairedSmallT
@@ -1732,7 +1713,6 @@ theorem completed_forest_le_cases (adversary : Final.Paired.AdversaryP) (q : Nat
     _ ≤ _ := add_le_add le_rfl (probEvent_or_le _ _ _)
     _ ≤ _ := add_le_add le_rfl (add_le_add le_rfl (probEvent_or_le _ _ _))
     _ = _ := by ac_rfl
-#print axioms completed_forest_le_cases
 end ClaudeWCT.W9.T3.Security.Wots.PairedSmallT
 
 namespace ClaudeWCT.W9.T3.Security.Wots.PairedReference
@@ -1776,8 +1756,6 @@ theorem GameSplit.checker_entries {adversary : Final.Paired.AdversaryP}
   obtain ⟨prior,hprior⟩ := h.checker_event A hA forgery hf _ hq
   have hm := SigGolfCandidate.T3.Security.CaseC.mem_publicEntries hprior
   rwa [ha] at hm
-#print axioms GameSplit.unique_log_events
-#print axioms GameSplit.checker_entries
 end ClaudeWCT.W9.T3.Security.Wots.PairedReference
 
 namespace ClaudeWCT.W9.T3.Security.Wots.PairedSmallT
@@ -1814,8 +1792,6 @@ theorem completed_pair_bound (adversary : Final.Paired.AdversaryP) (q : Nat) (hq
   refine (Ref.pmf_probEvent_mono _ ?_).trans (WPair.Paired.pair_guess_bound_budget adversary q hq)
   intro z hz h
   exact ⟨h.1.2.1,completed_pair_implies adversary q hq z hz h.1,h.2⟩
-#print axioms completed_pair_implies
-#print axioms completed_pair_bound
 end ClaudeWCT.W9.T3.Security.Wots.PairedSmallT
 
 namespace ClaudeWCT.W9.T3.Security.Wots.PairedSmallT
@@ -1873,8 +1849,6 @@ theorem completed_near_bound (S : ClaudeWCT.Bank.FtsBankSpec P)
     ⟨completed_near_implies adversary q hq z hz h.1 generated interaction checked hs,
       h.2 generated interaction checked hs⟩⟩
 
-#print axioms completed_near_implies
-#print axioms completed_near_bound
 end ClaudeWCT.W9.T3.Security.Wots.PairedSmallT
 
 namespace ClaudeWCT.W9.T3.Security.Wots.CanonicalRef.Normalized.Restart
@@ -2072,7 +2046,6 @@ theorem weighted_union_le {α : Type} (law : PMF α)
       simp only [div_eq_mul_inv,
         ENNReal.mul_inv (Or.inl (by norm_num : (4:ENNReal)≠0)) (Or.inl (by norm_num : (4:ENNReal)≠⊤))]
       ring
-#print axioms weighted_union_le
 end ClaudeWCT.W9.T3.Security.Wots.CanonicalWeighted
 
 namespace ClaudeWCT.W9.T3.Security.Wots.CanonicalRef.Normalized.Restart
@@ -2252,8 +2225,6 @@ theorem structural_reference_le (adversary : Final.Paired.AdversaryP) (q : Nat)
  have hin := PairedReference.reference_trace_mem adversary q s hs
  exact h.elim (fun h => CanonicalExtract.structuralHitSrc_paired h hin)
    (fun h => PairedReference.StructuralHitTrace.toHitIn h hin)
-#print axioms combined_cases
-#print axioms structural_reference_le
 end ClaudeWCT.W9.T3.Security.Wots.CanonicalWeighted
 
 namespace ClaudeWCT.W9.T3.Security.Wots.CanonicalWeighted
@@ -2290,7 +2261,6 @@ theorem nonstructural_reference_le (adversary : Final.Paired.AdversaryP) (q : Na
    have hp : 0 < Contacts.contactCount s := Finset.card_pos.mpr ⟨a,Finset.mem_filter.mpr ⟨ha,hc⟩⟩
    exact_mod_cast hp
  · exact zero_le
-#print axioms nonstructural_reference_le
 end ClaudeWCT.W9.T3.Security.Wots.CanonicalWeighted
 
 namespace ClaudeWCT.W9.T3.Security.Wots.CanonicalWeighted
@@ -2331,7 +2301,6 @@ theorem GameSplit.keygen_value {adversary : ClaudeWCT.W9.T3M.Final.Paired.Advers
   exact (SourceReplay.resolves_of_run keygen SourceReplay.keygen_hashOnly (∅,∅)
     (generated.value,generated.state) (FirstHit.recorded_support _ _ _ hg)).eval A
     (fun input answer hk=>ha input answer (SourceReplay.known_mono _ _ hgext hk))
-#print axioms GameSplit.keygen_value
 end ClaudeWCT.W9.T3.Security.Wots.PairedReference
 
 namespace ClaudeWCT.W9.T3.Security.Wots.PairedSmallT
@@ -2365,7 +2334,6 @@ theorem completed_incomplete_bound (adversary : Final.Paired.AdversaryP) (q : Na
   · simp only[evalWithAnswerFn_pure,reduceCtorEq] at hsig
   · exact hsig
 
-#print axioms completed_incomplete_bound
 end ClaudeWCT.W9.T3.Security.Wots.PairedSmallT
 
 namespace ClaudeWCT.W9.T3.Security.Wots.PairedSmallT
@@ -2404,8 +2372,6 @@ theorem completed_near_normalized (adversary : Final.Paired.AdversaryP) (q : Nat
   simpa only [Nat.cast_pow,Nat.cast_ofNat] using WPair.Paired.Counted.hazard_normalized
     (n:=2^128) (q:=q) (by omega) (WPair.Paired.Counted.referenceOther_ne_top adversary q)
     (completed_near_le_other adversary q hq)
-#print axioms completed_near_le_other
-#print axioms completed_near_normalized
 end ClaudeWCT.W9.T3.Security.Wots.PairedSmallT
 
 namespace ClaudeWCT.W9.T3.Security.Wots.CanonicalRef
@@ -2422,7 +2388,6 @@ theorem referenceSearch_complete (answers : Answers) (hgood : ContextGood answer
   let cache : SigGolfCandidate.T3.Cache := ⟨0,fun _=>0⟩
   exact referenceSearch_complete_of_routes answers cache
     (fun index hi => searchPreparedLayers_complete answers hgood cache index hi _ _) L hL
-#print axioms referenceSearch_complete
 end ClaudeWCT.W9.T3.Security.Wots.CanonicalRef
 namespace ClaudeWCT.W9.T3.Security.Wots.CanonicalWeighted
 open OracleComp OracleSpec ENNReal
@@ -2436,7 +2401,6 @@ theorem reference_failed_le (adversary : Final.Paired.AdversaryP) (q : Nat) :
     (PairedSearchTable.context_failure adversary q)
   rintro s _ ⟨L,hL,hs⟩ hgood
   exact CanonicalRef.referenceSearch_complete s.answers hgood L hL hs
-#print axioms reference_failed_le
 end ClaudeWCT.W9.T3.Security.Wots.CanonicalWeighted
 
 namespace ClaudeWCT.W9.T3.Security.Wots.PairedSmallT
@@ -2502,9 +2466,6 @@ theorem completed_partial_bound (S : ClaudeWCT.Bank.FtsBankSpec P)
     (completed_pair_bound adversary q hq)))
   intro z hz h
   exact h.1.elim (fun hn=>Or.inl ⟨hn,h.2⟩) (fun hp=>Or.inr ⟨hp,h.2⟩)
-#print axioms completed_partial_le_other
-#print axioms completed_partial_normalized
-#print axioms completed_partial_bound
 end ClaudeWCT.W9.T3.Security.Wots.PairedSmallT
 
 namespace ClaudeWCT.W9.T3.Security.Wots.CanonicalWeighted
@@ -2566,7 +2527,6 @@ theorem cleanWin_le_union_cases_of_split (adversary : Final.Paired.AdversaryP) (
     _ ≤ _ := add_le_add le_rfl (add_le_add le_rfl (probEvent_or_le _ _ _))
     _ ≤ _ := add_le_add le_rfl (add_le_add le_rfl (add_le_add le_rfl (probEvent_or_le _ _ _)))
     _ = _ := by ac_rfl
-#print axioms cleanWin_le_union_cases_of_split
 end ClaudeWCT.W9.T3.Security.Wots.PairedSmallT
 
 namespace ClaudeWCT.W9.T3.Security.Wots.CanonicalWeighted
@@ -2646,9 +2606,6 @@ theorem errCoeff_toReal (q : Nat) (hq : q<2^128) (w v : ENNReal)
     ENNReal.toReal_pow,ENNReal.toReal_natCast,ENNReal.toReal_ofNat,ENNReal.toReal_one,denominator_toReal q hq,hvw]
   ring
 
-#print axioms prefixCoeff_toReal
-#print axioms encodingCoeff_toReal
-#print axioms errCoeff_toReal
 end ClaudeWCT.W9.T3.Security.Wots.CanonicalWeighted
 
 namespace ClaudeWCT.W9.T3.Security.Wots.CanonicalWeighted
@@ -2775,9 +2732,9 @@ theorem full_probability_real (theta rate : ENNReal) (htheta:theta≠⊤) (hrate
 
 theorem partial_probability_real (adversary : Final.Paired.AdversaryP) (q : Nat) (hq:q≤2^127)
     (h : Pr[PartialForestNoOverflow adversary q | PairedSeccLaw.completedExperiment adversary q hq] ≤
-      ((2^128-q:Nat):ENNReal)⁻¹*((q*(q-1):Nat):ENNReal)*(385+1/1024)/(2*2^128)+BPair.pairTerm q) :
+      ((2^128-q:Nat):ENNReal)⁻¹*((q*(q-1):Nat):ENNReal)*(378+1/1024)/(2*2^128)+BPair.pairTerm q) :
     (Pr[PartialForestNoOverflow adversary q | PairedSeccLaw.completedExperiment adversary q hq]).toReal ≤
-      ((385+1/1024)/(2*(1-(q:ℝ)/2^128))+1/(2*(1-(q:ℝ)/2^128)^2))*((q:ℝ)/2^128)^2 := by
+      ((378+1/1024)/(2*(1-(q:ℝ)/2^128))+1/(2*(1-(q:ℝ)/2^128)^2))*((q:ℝ)/2^128)^2 := by
   have hqN : q<2^128 := by omega
   have hN : (0:ℝ)<2^128 := by positivity
   have hqr : (q:ℝ)<2^128 := by exact_mod_cast hqN
@@ -2800,7 +2757,7 @@ theorem partial_probability_real (adversary : Final.Paired.AdversaryP) (q : Nat)
   rw [hsub] at hr
   refine hr.trans ?_
   calc
-    _ ≤ ((2:ℝ)^128-q)⁻¹*(q:ℝ)^2*(385+1/1024)/(2*2^128)+
+    _ ≤ ((2:ℝ)^128-q)⁻¹*(q:ℝ)^2*(378+1/1024)/(2*2^128)+
       ((q:ℝ)^2/2)*(((2:ℝ)^128-q)⁻¹)^2 := by
       apply add_le_add
       · apply div_le_div_of_nonneg_right _ (by positivity)
@@ -2811,9 +2768,6 @@ theorem partial_probability_real (adversary : Final.Paired.AdversaryP) (q : Nat)
       field_simp [ne_of_gt hd,hdy]
       <;> ring
 
-#print axioms masses_normalized
-#print axioms full_probability_real
-#print axioms partial_probability_real
 end ClaudeWCT.W9.T3.Security.Wots.PairedSmallT
 
 namespace ClaudeWCT.W9.T3.Security.Wots.PairedSmallT
@@ -2862,7 +2816,6 @@ theorem clean_probability_real_of (adversary : Final.Paired.AdversaryP) (q : Nat
   have habs : (1:ℝ)/2^139+1/2^138+1/2^137≤1/2^136 := by norm_num
   nlinarith
 
-#print axioms clean_probability_real_of
 end ClaudeWCT.W9.T3.Security.Wots.PairedSmallT
 
 namespace ClaudeWCT.W9.T3.Security.Wots.PairedSmallT
@@ -2875,55 +2828,6 @@ set_option maxRecDepth 10000
 set_option exponentiation.threshold 1024
 set_option backward.isDefEq.respectTransparency false
 attribute [local instance] Classical.propDecidable
-
-theorem middle_clean_closing (adversary : Final.Paired.AdversaryP) (q : Nat) (hq:q≤2^127)
-    (hlow : 1/(2:ℝ)^28≤(q:ℝ)/2^128) (hhigh : (q:ℝ)/2^128≤3/2500)
-    (rate : ℝ) (hrate : rate≤1158/1000000)
-    (hclean : (Pr[QueryRecorded.CleanWin q | PairedOuter.PaddedGame.tracedExperiment adversary q hq]).toReal ≤
-      (99847/50000)*((prefixMass adversary q).toReal/2^128+(encodingMass adversary q).toReal/2^128+
-        (digestMass adversary q hq).toReal/2^128)+(otherMass adversary q).toReal/2^128+
-      (Pr[PartialForestNoOverflow adversary q | PairedSeccLaw.completedExperiment adversary q hq]).toReal+
-      (q:ℝ)/2^128*rate+(710/1000)*((q:ℝ)/2^128)^2+1/2^136)
-    (hpartial : Pr[PartialForestNoOverflow adversary q | PairedSeccLaw.completedExperiment adversary q hq] ≤
-      ((2^128-q:Nat):ENNReal)⁻¹*((q*(q-1):Nat):ENNReal)*(385+1/1024)/(2*2^128)+BPair.pairTerm q) :
-    (Pr[QueryRecorded.CleanWin q | PairedOuter.PaddedGame.tracedExperiment adversary q hq]).toReal+
-      ((q:ℝ)/2^128/2^18+1/2^700+1/2^152+((q:ℝ)/2^128)/2^128)≤2*((q:ℝ)/2^128) := by
-  have hquad := SigGolfCandidate.Research.V7Composed198Closing.CanonicalWindowRC.paired_partial_denominator
-    _ _ 385 (by positivity) hhigh le_rfl (partial_probability_real adversary q hq hpartial)
-  have hcost := completed_partial_normalized adversary q hq
-  change (1-(q:ℝ)/2^128)*_≤(otherMass adversary q).toReal/2^128 at hcost
-  rw [mul_comm] at hcost
-  have hbudget := SigGolfCandidate.Research.V7Composed198Closing.CanonicalWindowRC.class_budget
-    _ _ _ _ _ _ (by positivity) (by positivity) (by positivity) (by positivity)
-    (masses_normalized adversary q hq) hhigh ENNReal.toReal_nonneg hcost hquad
-  have hbound := SigGolfCandidate.Research.V7Composed198Closing.CanonicalWindowRC.middle_closing
-    ((q:ℝ)/2^128) rate hlow hhigh hrate
-  linarith
-
-theorem tiny_clean_closing (adversary : Final.Paired.AdversaryP) (q : Nat) (hq:q≤2^127)
-    (hpositive : 1≤q) (hhigh : (q:ℝ)/2^128≤1/2^28)
-    (rate : ℝ) (hrate : rate≤18/5000)
-    (hclean : (Pr[QueryRecorded.CleanWin q | PairedOuter.PaddedGame.tracedExperiment adversary q hq]).toReal ≤
-      (249/125)*((prefixMass adversary q).toReal/2^128+(encodingMass adversary q).toReal/2^128+
-        (digestMass adversary q hq).toReal/2^128)+(otherMass adversary q).toReal/2^128+
-      (Pr[PartialForestNoOverflow adversary q | PairedSeccLaw.completedExperiment adversary q hq]).toReal+
-      (q:ℝ)/2^128*rate+(710/1000)*((q:ℝ)/2^128)^2+1/2^136)
-    (hpartial : Pr[PartialForestNoOverflow adversary q | PairedSeccLaw.completedExperiment adversary q hq] ≤
-      ((2^128-q:Nat):ENNReal)⁻¹*((q*(q-1):Nat):ENNReal)*(385+1/1024)/(2*2^128)+BPair.pairTerm q) :
-    (Pr[QueryRecorded.CleanWin q | PairedOuter.PaddedGame.tracedExperiment adversary q hq]).toReal+
-      ((q:ℝ)/2^128/2^18+1/2^700+1/2^152+((q:ℝ)/2^128)/2^128)≤2*((q:ℝ)/2^128) := by
-  have hsmall : (q:ℝ)/2^128≤3/2500 := hhigh.trans (by norm_num)
-  have hlow : 1/(2:ℝ)^128≤(q:ℝ)/2^128 := div_le_div_of_nonneg_right (by exact_mod_cast hpositive) (by positivity)
-  have hquad := SigGolfCandidate.Research.V7Composed198Closing.CanonicalWindowRC.paired_partial_denominator
-    _ _ 385 (by positivity) hsmall le_rfl (partial_probability_real adversary q hq hpartial)
-  have hcost := completed_partial_normalized adversary q hq
-  change (1-(q:ℝ)/2^128)*_≤(otherMass adversary q).toReal/2^128 at hcost
-  rw [mul_comm] at hcost
-  have hbudget := SigGolfCandidate.Research.V7Composed198Closing.CanonicalWindowRC.tiny_class_budget
-    _ _ _ _ _ _ (by positivity) (by positivity) (by positivity) (by positivity)
-    (masses_normalized adversary q hq) hhigh ENNReal.toReal_nonneg hcost hquad
-  have hbound := tiny_closing_rows18 ((q:ℝ)/2^128) rate hlow hhigh hrate
-  nlinarith [sq_nonneg ((q:ℝ)/2^128)]
 
 theorem clean_outer_ennreal (adversary : Final.Paired.AdversaryP) (q : Nat) (hq:q≤2^127)
     (h : (Pr[QueryRecorded.CleanWin q | PairedOuter.PaddedGame.tracedExperiment adversary q hq]).toReal+
@@ -2938,9 +2842,6 @@ theorem clean_outer_ennreal (adversary : Final.Paired.AdversaryP) (q : Nat) (hq:
     ENNReal.toReal_pow,ENNReal.toReal_ofNat,ENNReal.toReal_natCast,Nat.cast_pow,Nat.cast_ofNat]
   convert h using 1 <;> norm_num <;> ring
 
-#print axioms middle_clean_closing
-#print axioms tiny_clean_closing
-#print axioms clean_outer_ennreal
 end ClaudeWCT.W9.T3.Security.Wots.PairedSmallT
 
 namespace ClaudeWCT.W9.T3.Security.Wots.CanonicalWeighted
@@ -2990,29 +2891,6 @@ set_option exponentiation.threshold 1024
 set_option backward.isDefEq.respectTransparency false
 attribute [local instance] Classical.propDecidable
 
-theorem completed_partial_certified (adversary : Final.Paired.AdversaryP) (q : Nat) (hq:q≤2^127) :
-    Pr[PartialForestNoOverflow adversary q | PairedSeccLaw.completedExperiment adversary q hq] ≤
-      ((2^128-q:Nat):ENNReal)⁻¹*((q*(q-1):Nat):ENNReal)*(385+1/1024)/(2*2^128)+BPair.pairTerm q := by
-  apply completed_partial_bound ClaudeWCT.Bank.Paired.nearLawSpec
-    ClaudeWCT.Bank.Paired.nearLawSpec_producer rfl ClaudeWCT.Bank.Paired.nearCovered_mono
-    (fun X N h => by
-      obtain ⟨k,t,h⟩:=h
-      exact WPair.Paired.nearCovered_bank X N k t h)
-    385 ClaudeWCT.Bank.Paired.nearLawSpec_mean adversary q hq
-
-theorem excess_middle_actual :
-    ClaudeWCT.Numerics.Law.lawAvg ClaudeWCT.Bank.Paired.honestLaw (2^32)
-      (fun W=>ClaudeWCT.Bank.Paired.price W-((99847:ENNReal)/50000-1/1024))≤1158/1000000 := by
-  have h:=ClaudeWCT.Bank.Paired.excess_middle_certified ClaudeWCT.Bank.Paired.finiteFees_checked
-  simpa (disch:=positivity) only [ENNReal.ofReal_sub,ENNReal.ofReal_div_of_pos,ENNReal.ofReal_ofNat,ENNReal.ofReal_one] using h
-
-theorem excess_tiny_actual :
-    ClaudeWCT.Numerics.Law.lawAvg ClaudeWCT.Bank.Paired.honestLaw (2^32)
-      (fun W=>ClaudeWCT.Bank.Paired.price W-((249:ENNReal)/125-1/1024))≤18/5000 := by
-  have h:=ClaudeWCT.Bank.Paired.excess_tiny_certified ClaudeWCT.Bank.Paired.finiteFees_checked
-  simpa (disch:=positivity) only [ENNReal.ofReal_sub,ENNReal.ofReal_div_of_pos,ENNReal.ofReal_ofNat,ENNReal.ofReal_one] using h
-
-#print axioms completed_partial_certified
 end ClaudeWCT.W9.T3.Security.Wots.PairedSmallT
 
 namespace ClaudeWCT.W9.T3.Security.Wots.PairedSmallT
@@ -3041,7 +2919,6 @@ theorem checker_active_queries (answers : Answers) (pk : Digest)
   have h := checker_slot_queries answers pk log forgery message w output hw hd hcheck ho k t p hp
   rw [WPair.Paired.honestProbe_slot] at h
   exact h
-#print axioms checker_active_queries
 end ClaudeWCT.W9.T3.Security.Wots.PairedSmallT
 
 namespace ClaudeWCT.W9.T3.Security.LargeCoupling.Paired
@@ -3099,8 +2976,6 @@ theorem checker_bankFresh (A : Answers) (published : SigGolfCandidate.T3.Cache) 
   · intro k t s hs
     exact Wots.PairedSmallT.checker_active_queries A pk log forgery m w N hw hd hcheck hopen k t s hs
   · exact WPair.Paired.fresh_digest_not_signer_eval A published log hlog m (wrho w) (wdc w) hcomplete hfresh
-#print axioms ftsHitIn_false
-#print axioms checker_bankFresh
 end ClaudeWCT.W9.T3.Security.LargeCoupling.Paired
 
 namespace ClaudeWCT.W9.T3.Security.LargeCoupling.Paired
@@ -3133,7 +3008,6 @@ theorem cert_of_clean (adversary : Final.Paired.AdversaryP) (q : Nat) (hq:q≤2^
     · simp only [evalWithAnswerFn_pure,reduceCtorEq] at hsig
     · exact hsig
   · exact Wots.CanonicalRef.referenceSearch_complete z.2 hcontext
-#print axioms cert_of_clean
 end ClaudeWCT.W9.T3.Security.LargeCoupling.Paired
 
 namespace ClaudeWCT.W9.T3.Security.LargeCoupling.Paired
@@ -3190,8 +3064,6 @@ theorem clean_le_contact_cert (adversary : Final.Paired.AdversaryP) (q : Nat) (h
         (add_le_add (Wots.PairedSearchTable.completed_signer_failure adversary q hq)
           (clean_noOvR_failure adversary q hq))))
     _ = _ := by ac_rfl
-#print axioms clean_noOvR_failure
-#print axioms clean_le_contact_cert
 end ClaudeWCT.W9.T3.Security.LargeCoupling.Paired
 
 namespace ClaudeWCT.W9.T3.Security.LargeCoupling.Paired
@@ -3244,7 +3116,6 @@ theorem large_clean_closing (adversary : Final.Paired.AdversaryP) (q : Nat) (hq:
   change _+ (y/2^18+1/2^700+1/2^152+y/2^128)≤2*y
   linarith
 
-#print axioms large_clean_closing
 end ClaudeWCT.W9.T3.Security.LargeCoupling.Paired
 
 namespace ClaudeWCT.W9.T3.Security.LargeCoupling.Paired
@@ -3268,8 +3139,7 @@ theorem large_bound (adversary : Final.Paired.AdversaryP) (q : Nat) (hq:q≤2^12
     calc
       (q:ℝ) ≤ 2^127 := hqr
       _ = (1/2:ℝ)*2^128 := by norm_num
-  have hexc := ClaudeWCT.Bank.Paired.excess_large_certified
-    ClaudeWCT.Bank.Paired.finiteFees_checked ((q:ℝ)/2^128) hlow hhalf
+  have hexc := ClaudeWCT.Bank.Paired.excess_large_certified ((q:ℝ)/2^128) hlow hhalf
   have hexc' : ClaudeWCT.Numerics.Law.lawAvg ClaudeWCT.Bank.Paired.honestLaw (2^32)
       (fun W=>ClaudeWCT.Bank.Paired.price W-ENNReal.ofReal (Flexible.budgetRate q-1/1024))≤
       ENNReal.ofReal ((993/1000)*((q:ℝ)/2^128)) := by
@@ -3278,7 +3148,6 @@ theorem large_bound (adversary : Final.Paired.AdversaryP) (q : Nat) (hq:q≤2^12
   exact (clean_le_contact_cert adversary q hq).trans
     (add_le_add (add_le_add (add_le_add
       (contact_cert_bound_of_excess adversary q hq _ hexc') le_rfl) le_rfl) le_rfl)
-#print axioms large_bound
 end ClaudeWCT.W9.T3.Security.LargeCoupling.Paired
 
 namespace ClaudeWCT.W9.T3.Secc.Paired

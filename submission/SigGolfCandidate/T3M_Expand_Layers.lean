@@ -402,10 +402,10 @@ theorem recoverLayerPair_tbsim {sk : BitVec 256} {s0 : MachineState} {wsig : WCT
       (Or.inl rfl) (by omega)), l16]
   have hhd24 : v2.getMem (BitVec.ofNat 64 (LEAFPK + 24)) = 0 := by
     rw [fu2.get (by decide) (by simp), hC.frame.get (by decide) (not_ChW_hdr (by simp only [LEAFPK]; omega)
-      (Or.inr (Or.inl rfl)) (by omega)), l24]
+      (Or.inr rfl) (by omega)), l24]
   have hw : v2.readWords (BitVec.ofNat 64 LEAFPK) (8 * leafBlocks' lay) =
       wordsOf (pad64 (T3.leafInput lay tree leaf ends)) := by
-    rw [leafInput_words' lay tree leaf ends hlen, if_neg hlow, if_neg hlow]
+    rw [leafInput_words' lay tree leaf ends hlen]
     have h0 : DigAt v2 LEAFPK (ends.getD 0 0) := by
       have := (hC.slots 0 (by omega)).frame fu2 (by simp only [slotOff, if_neg hlow]; decide) (by simp) (by simp)
       simpa [slotOff, hlow] using this

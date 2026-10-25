@@ -102,14 +102,9 @@ theorem leafInput_lists {lay : Layer} {tree leaf : Nat} {xs ys : List Digest} (h
     (hpos : 0 < ys.length)
     (h : pad64 (leafInput lay tree leaf xs) = pad64 (leafInput lay tree leaf ys)) : xs = ys := by
   unfold leafInput SigGolfCandidate.T3.leafInput at h
-  split at h
-  · have hl : (zero16 ++ bytesLE 16 (leafTweak lay tree leaf) ++ xs.flatMap (bytesLE 16)).length =
-        (zero16 ++ bytesLE 16 (leafTweak lay tree leaf) ++ ys.flatMap (bytesLE 16)).length := by
-      simp only [List.length_append, digest_list_bytes_length, hlen]
-    have h' := Sampling.pad64_inj_of_length hl h
-    obtain ⟨-, hr⟩ := List.append_inj h' (by simp only [List.length_append, bytesLE_length])
-    exact flatMap_bytes_injective hlen hr
-  · exact (listInput_lists (hdr := leafTweak lay tree leaf) (hdr' := leafTweak lay tree leaf) hlen hpos h).1
+  rw [ite_self, ite_self] at h
+  exact (listInput_lists (hdr := leafTweak lay tree leaf) (hdr' := leafTweak lay tree leaf) hlen hpos h).1
+
 theorem forestPk_extract (answers : Answers) (index : Nat) (pairs honest : List (Digest × Digest))
     (hlen : pairs.length = honest.length)
     (reaches : evalWithAnswerFn answers (WCT9.forestPk index pairs) =
@@ -405,9 +400,10 @@ theorem merkleInputW_tree_reference (answers : Answers) (lay tree height leaf : 
 /-! #### Leaves (C3: witness pads in the leaf header block) -/
 theorem leafInput_padded_length (lay : Layer) (tree leaf : Nat) (ends : List Digest)
     (hc : ends.length = chainCount lay) :
-    (pad64 (leafInput lay tree leaf ends)).length = if lay = 0 then 896 else 704 := by
+    (pad64 (leafInput lay tree leaf ends)).length = if lay = 0 then 832 else 704 := by
   unfold leafInput
   rw [pad64_length_of_mod] <;> rw [SigGolfCandidate.T3.leafInput_length, hc] <;> fin_cases lay <;> decide
+
 theorem hdrBlock_leafInputW (lay : Layer) (tree leaf : Nat) (pad : Digest) (hi : BitVec 64) (ends : List Digest) :
     hdrBlock (pad64 (WCT9.leafInputW lay tree leaf pad hi ends)) = bytesLE 16 (WCT9.leafTweakW lay tree leaf hi) := by
   unfold WCT9.leafInputW
@@ -419,27 +415,20 @@ theorem hdrBlock_leafInputW (lay : Layer) (tree leaf : Nat) (pad : Digest) (hi :
 theorem leafInputW_parse {lay : Layer} {tree leaf : Nat} {pad : Digest} {hi : BitVec 64} {ends honest : List Digest}
     (hlen : ends.length = honest.length) (hpos : 0 < honest.length)
     (h : pad64 (WCT9.leafInputW lay tree leaf pad hi ends) = pad64 (leafInput lay tree leaf honest)) :
-    ends = honest ∧ hi = 0 ∧ (lay = 0 → pad = 0) := by
+    ends = honest ∧ hi = 0 := by
+  -- T51 ("endpad"): every leaf, the top included, is `end_0 | tweak | end_1 ..`; `pad` is never read.
   rw [leafInput, ← WCT9.leafInputW_zero] at h
   unfold WCT9.leafInputW at h
-  split at h
-  · have hl : (bytesLE 16 pad ++ bytesLE 16 (WCT9.leafTweakW lay tree leaf hi) ++ ends.flatMap (bytesLE 16)).length =
-        (bytesLE 16 (0 : Digest) ++ bytesLE 16 (WCT9.leafTweakW lay tree leaf 0) ++
-          honest.flatMap (bytesLE 16)).length := by
-      simp only [List.length_append, bytesLE_length, digest_list_bytes_length, hlen]
-    have h' := Sampling.pad64_inj_of_length hl h
-    obtain ⟨h1, hr⟩ := List.append_inj h' (by simp only [List.length_append, bytesLE_length])
-    obtain ⟨hp, ht⟩ := List.append_inj h1 (by simp only [bytesLE_length])
-    exact ⟨flatMap_bytes_injective hlen hr, (append64_inj (bytesLE_injective ht)).1, fun _ => bytesLE_injective hp⟩
-  · rename_i h0
-    obtain ⟨he, hh⟩ := listInput_lists (hdr := WCT9.leafTweakW lay tree leaf hi)
-      (hdr' := WCT9.leafTweakW lay tree leaf 0) hlen hpos h
-    exact ⟨he, (append64_inj hh).1, fun e => absurd e h0⟩
+  rw [ite_self, ite_self] at h
+  obtain ⟨he, hh⟩ := listInput_lists (hdr := WCT9.leafTweakW lay tree leaf hi)
+    (hdr' := WCT9.leafTweakW lay tree leaf 0) hlen hpos h
+  exact ⟨he, (append64_inj hh).1⟩
+
 theorem leafHashW_extract (answers : Answers) (lay : Layer) (tree leaf : Nat) (pad : Digest) (hi : BitVec 64)
     (ends honest : List Digest) (hlen : ends.length = honest.length) (hc : honest.length = chainCount lay)
     (reaches : evalWithAnswerFn answers (WCT9.leafHashW lay tree leaf pad hi ends) =
       evalWithAnswerFn answers (WCT9.lowerLeafHash lay tree leaf honest)) :
-    (ends = honest ∧ hi = 0 ∧ (lay = 0 → pad = 0)) ∨
+    (ends = honest ∧ hi = 0) ∨
       (HashHitH answers (WCT9.lowerHigh lay.val leaf) (pad64 (leafInput lay tree leaf honest))
           (pad64 (WCT9.leafInputW lay tree leaf pad hi ends)) ∧
         SameHeader (pad64 (WCT9.leafInputW lay tree leaf pad hi ends)) (pad64 (leafInput lay tree leaf honest)) ∧
@@ -460,7 +449,7 @@ theorem leafHashW_extract (answers : Answers) (lay : Layer) (tree leaf : Nat) (p
           rw [leafInputW_length]; unfold leafInput
           rw [SigGolfCandidate.T3.leafInput_length, SigGolfCandidate.T3.leafInput_length, hlen])
       have hll : (pad64 (leafInput lay tree leaf honest)).length = 704 ∨
-          (pad64 (leafInput lay tree leaf honest)).length = 896 := by
+          (pad64 (leafInput lay tree leaf honest)).length = 832 := by
         rw [leafInput_padded_length lay tree leaf honest hc]; split <;> simp
       refine ⟨hl, ?_⟩
       unfold hdrKey

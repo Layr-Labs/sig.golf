@@ -3,9 +3,10 @@ import SigGolfCandidate.ClaudeWCT_W9_T3_Secc_CanonGraph
 /-! # Top-nonce layer: the cap-failure event is negligible (r3-lean-nonsec, subagent C)
 
 `CapFail labels`: some top position (layer 0, children level `< 11`, nonce-0 representative) has every one of its
-`trialCap = 104 · 2^h` nonce trials failing the zero test of height `h = level + 1`. Under uniformly random labels the
-trials of one position are distinct nodes, so each fails independently with probability at most `1 - 2^-h`; a union
-bound over the `2^(12-h)` positions of each height gives `Pr[CapFail] ≤ 2^-142`. -/
+`trialCap = 104 · 2^b_h` nonce trials failing the zero test of height `h = level + 1` (`b_h = topZeroBits h`; campaign
+T51: `b_1..b_11 = 0,0,1,1,2,3,4,5,6,7,8`, #938 had `b_h = h`). Under uniformly random labels the trials of one position
+are distinct nodes, so each fails independently with probability at most `1 - 2^-b_h` (heights with `b_h = 0` never
+fail); a union bound over the `2^(12-h)` positions of each height gives `Pr[CapFail] ≤ 2^-145.8 ≤ 2^-142`. -/
 namespace ClaudeWCT.W9.T3.Security.CanonGraph
 open OracleComp OracleSpec OracleComp.EvalDist ENNReal
 open SigGolfCandidate SigGolfCandidate.T3 SigGolfCandidate.T3.Security
@@ -70,18 +71,27 @@ theorem prob_forall_mem {α β : Type} [Fintype α] [DecidableEq α] [Fintype β
 
 /-! ### The zero test passes with probability at least `2^-h` -/
 
-theorem topZeroBits_eq {h : Nat} (hh : h ≤ 11) : topZeroBits h = h := by
-  interval_cases h <;> rfl
+/-- Campaign T51: the top zero bits are `b_h = 0,0,1,1,2,3,4,5,6,7,8` (#938: `b_h = h`; restated). -/
+theorem topZeroBits_eq {h : Nat} (hh : h ≤ 11) : topZeroBits h = topZeroAlloc.getD h 0 := rfl
+
+theorem topZeroBits_le_eight (h : Nat) : topZeroBits h ≤ 8 := by
+  unfold topZeroBits
+  by_cases hh : h < 12
+  · interval_cases h <;> decide
+  · rw [List.getD_eq_default _ _ (by simp only [topZeroAlloc, List.length_cons, List.length_nil]; omega)]
+    omega
 
 theorem card_pass_digest {h : Nat} (h11 : h ≤ 11) :
-    2 ^ (128 - h) ≤
+    2 ^ (128 - topZeroBits h) ≤
       (Finset.univ.filter (fun d : BitVec 128 => topZeroOk h d = true)).card := by
   by_cases he : h = 11
   · subst he
-    have hc : ((Finset.range (2 ^ 19)) ×ˢ (Finset.range (2 ^ 98))).card = 2 ^ (128 - 11) := by
+    have hb : topZeroBits 11 = 8 := rfl
+    rw [hb]
+    have hc : ((Finset.range (2 ^ 16)) ×ˢ (Finset.range (2 ^ 104))).card = 2 ^ (128 - 8) := by
       rw [Finset.card_product, Finset.card_range, Finset.card_range]; norm_num
     rw [← hc]
-    apply Finset.card_le_card_of_injOn (fun p : Nat × Nat => (BitVec.ofNat 128 (p.1 * 2 ^ 109 + p.2) :
+    apply Finset.card_le_card_of_injOn (fun p : Nat × Nat => (BitVec.ofNat 128 (p.1 * 2 ^ 112 + p.2) :
       BitVec 128))
     · intro p hp
       simp only [Finset.coe_product, Finset.coe_range, Set.mem_prod, Set.mem_Iio] at hp
@@ -100,15 +110,16 @@ theorem card_pass_digest {h : Nat} (h11 : h ≤ 11) :
       obtain ⟨h1', h2'⟩ := hp'
       norm_num at h1 h2 h1' h2' this
       apply Prod.ext <;> omega
-  · have hlt : 2 ^ (128 - h) ≤ 2 ^ 128 := Nat.pow_le_pow_right (by decide) (by omega)
-    have hc : (Finset.range (2 ^ (128 - h))).card = 2 ^ (128 - h) := Finset.card_range _
+  · have hb8 := topZeroBits_le_eight h
+    have hlt : 2 ^ (128 - topZeroBits h) ≤ 2 ^ 128 := Nat.pow_le_pow_right (by decide) (by omega)
+    have hc : (Finset.range (2 ^ (128 - topZeroBits h))).card = 2 ^ (128 - topZeroBits h) := Finset.card_range _
     rw [← hc]
     apply Finset.card_le_card_of_injOn (fun x : Nat => (BitVec.ofNat 128 x : BitVec 128))
     · intro x hx
       simp only [Finset.coe_range, Set.mem_Iio] at hx
       refine Finset.mem_coe.mpr (Finset.mem_filter.mpr ⟨Finset.mem_univ _, ?_⟩)
       unfold topZeroOk
-      rw [if_neg he, topZeroBits_eq h11]
+      rw [if_neg he]
       simp only [BitVec.toNat_ofNat, beq_iff_eq]
       rw [Nat.mod_eq_of_lt (by omega)]
       exact Nat.div_eq_of_lt hx
@@ -129,14 +140,16 @@ theorem joinHalves_high (a b : BitVec 128) : (joinHalves a b).extractLsb' 128 12
   congrArg Prod.snd (Equiv.apply_symm_apply (SphincsSecurity.splitHashOutputEquiv 128 (by decide)) (a, b))
 
 theorem card_pass_hash (p : Extract.Pos) {h : Nat} (h11 : h ≤ 11) :
-    2 ^ (256 - h) ≤
+    2 ^ (256 - topZeroBits h) ≤
       (Finset.univ.filter (fun v : BitVec 256 => ¬ (topZeroOk h (p.proj v) = false))).card := by
   set P := Finset.univ.filter (fun d : BitVec 128 => topZeroOk h d = true)
   have hP := card_pass_digest h11
   have hcard : (P ×ˢ (Finset.univ : Finset (BitVec 128))).card = P.card * 2 ^ 128 := by
     rw [Finset.card_product, Finset.card_univ, Fintype.card_bitVec]
-  have h256 : 2 ^ (256 - h) ≤ P.card * 2 ^ 128 := by
-    calc 2 ^ (256 - h) = 2 ^ (128 - h) * 2 ^ 128 := by rw [← pow_add, show 128 - h + 128 = 256 - h by omega]
+  have hb8 := topZeroBits_le_eight h
+  have h256 : 2 ^ (256 - topZeroBits h) ≤ P.card * 2 ^ 128 := by
+    calc 2 ^ (256 - topZeroBits h) = 2 ^ (128 - topZeroBits h) * 2 ^ 128 := by
+          rw [← pow_add, show 128 - topZeroBits h + 128 = 256 - topZeroBits h by omega]
       _ ≤ P.card * 2 ^ 128 := Nat.mul_le_mul_right _ hP
   refine h256.trans ?_
   rw [← hcard]
@@ -167,7 +180,7 @@ theorem card_pass_hash (p : Extract.Pos) {h : Nat} (h11 : h ≤ 11) :
 
 theorem card_fail_hash (p : Extract.Pos) {h : Nat} (h11 : h ≤ 11) :
     (Finset.univ.filter (fun v : BitVec 256 => topZeroOk h (p.proj v) = false)).card +
-      2 ^ (256 - h) ≤ 2 ^ 256 := by
+      2 ^ (256 - topZeroBits h) ≤ 2 ^ 256 := by
   have hsum := Finset.card_filter_add_card_filter_not
     (s := (Finset.univ : Finset (BitVec 256))) (fun v => topZeroOk h (p.proj v) = false)
   rw [Finset.card_univ, Fintype.card_bitVec] at hsum
@@ -215,13 +228,15 @@ theorem allFail_iff (labels : Labels) (n : TreeNode) :
   · intro h j hj
     exact h _ (Finset.mem_image.mpr ⟨j, Finset.mem_range.mpr hj, rfl⟩)
 
+/-- Campaign T51: the cap of height `h = level + 1` is `104 · 2^b_h` (#938: `104 · 2^h`; restated). -/
 theorem trialCap_top {lay : Layer} {level : Nat} (hl : lay = 0) (hlev : level < 11) :
-    trialCap lay level = 104 * 2 ^ (level + 1) := by
+    trialCap lay level = 104 * 2 ^ topZeroBits (level + 1) := by
   unfold trialCap topNonceCap
-  rw [if_pos ⟨hl, hlev⟩, topZeroBits_eq (by omega)]
+  rw [if_pos ⟨hl, hlev⟩]
 
-/-- The real cap-failure bound of one position at children level `l`. -/
-noncomputable def failR (l : Nat) : ℝ := (1 - (1 / 2) ^ (l + 1)) ^ (104 * 2 ^ (l + 1))
+/-- The real cap-failure bound of one position at children level `l` (zero bits `b = topZeroBits (l + 1)`). -/
+noncomputable def failR (l : Nat) : ℝ :=
+  (1 - (1 / 2) ^ topZeroBits (l + 1)) ^ (104 * 2 ^ topZeroBits (l + 1))
 
 theorem prob_allFail_le (n : TreeNode) (hl : n.1.lay = 0) (hlev : n.1.level.val < 11) :
     Pr[fun labels : Labels => ∀ j < trialCap n.1.lay n.1.level.val, trialFails labels n j |
@@ -237,11 +252,11 @@ theorem prob_allFail_le (n : TreeNode) (hl : n.1.lay = 0) (hlev : n.1.level.val 
   rw [trialSet_card, trialCap_top hl hlev, Fintype.card_bitVec]
   unfold failR
   rw [ENNReal.ofReal_pow (by
-    have : (1 / 2 : ℝ) ^ (n.1.level.val + 1) ≤ 1 := pow_le_one₀ (by norm_num) (by norm_num)
+    have : (1 / 2 : ℝ) ^ topZeroBits (n.1.level.val + 1) ≤ 1 := pow_le_one₀ (by norm_num) (by norm_num)
     linarith)]
   gcongr
   have hf := card_fail_hash (Node.node n).toPos (h := n.1.level.val + 1) (by omega)
-  have := ratio_le hf (by omega)
+  have := ratio_le hf (by have := topZeroBits_le_eight (n.1.level.val + 1); omega)
   convert this using 2
 
 /-! ### Union bound over the positions -/
@@ -291,10 +306,11 @@ theorem capFail_eq :
 
 /-! ### Arithmetic -/
 
-/-- Rational bounds on `(1 - 2^-h)^(2^h)`, `h = l + 1`. -/
+/-- Rational bounds on `(1 - 2^-b)^(2^b)`, `b = topZeroBits (l + 1)` (T51: `b = 0,0,1,1,2,3,4,5,6,7,8` for
+`l = 0..10`; `b = 0` gives `0`). -/
 noncomputable def capR (l : Nat) : ℝ :=
-  if l = 0 then 1 / 4 else if l = 1 then 3165 / 10000 else if l = 2 then 3437 / 10000 else
-    if l = 3 then 3561 / 10000 else if l = 4 then 3622 / 10000 else 36788 / 100000
+  if l ≤ 1 then 0 else if l ≤ 3 then 1 / 4 else if l = 4 then 3165 / 10000 else if l = 5 then 3437 / 10000 else
+    if l = 6 then 3561 / 10000 else if l = 7 then 3622 / 10000 else 36788 / 100000
 
 theorem base_le_exp (h : Nat) : (1 - (1 / 2 : ℝ) ^ h) ^ (2 ^ h) ≤ 36788 / 100000 := by
   have hx0 : 0 ≤ 1 - (1 / 2 : ℝ) ^ h := by
@@ -313,11 +329,12 @@ theorem base_le_exp (h : Nat) : (1 - (1 / 2 : ℝ) ^ h) ^ (2 ^ h) ≤ 36788 / 10
         rw [inv_le_comm₀ (Real.exp_pos 1) (by norm_num)]
         linarith
 
-theorem failR_le (l : Nat) (r : ℝ) (hr : (1 - (1 / 2 : ℝ) ^ (l + 1)) ^ (2 ^ (l + 1)) ≤ r) :
+theorem failR_le (l : Nat) (r : ℝ)
+    (hr : (1 - (1 / 2 : ℝ) ^ topZeroBits (l + 1)) ^ (2 ^ topZeroBits (l + 1)) ≤ r) :
     failR l ≤ r ^ 104 := by
   unfold failR
-  have hx0 : 0 ≤ 1 - (1 / 2 : ℝ) ^ (l + 1) := by
-    have : (1 / 2 : ℝ) ^ (l + 1) ≤ 1 := pow_le_one₀ (by norm_num) (by norm_num)
+  have hx0 : 0 ≤ 1 - (1 / 2 : ℝ) ^ topZeroBits (l + 1) := by
+    have : (1 / 2 : ℝ) ^ topZeroBits (l + 1) ≤ 1 := pow_le_one₀ (by norm_num) (by norm_num)
     linarith
   rw [mul_comm, pow_mul]
   exact pow_le_pow_left₀ (pow_nonneg hx0 _) hr _
@@ -325,7 +342,7 @@ theorem failR_le (l : Nat) (r : ℝ) (hr : (1 - (1 / 2 : ℝ) ^ (l + 1)) ^ (2 ^ 
 theorem failR_nonneg (l : Nat) : 0 ≤ failR l := by
   unfold failR
   apply pow_nonneg
-  have : (1 / 2 : ℝ) ^ (l + 1) ≤ 1 := pow_le_one₀ (by norm_num) (by norm_num)
+  have : (1 / 2 : ℝ) ^ topZeroBits (l + 1) ≤ 1 := pow_le_one₀ (by norm_num) (by norm_num)
   linarith
 
 theorem sum_capR :
@@ -339,12 +356,12 @@ theorem sum_failR :
   simp only [Finset.mem_range] at hl
   apply mul_le_mul_of_nonneg_left _ (by positivity)
   apply failR_le
-  by_cases h5 : 5 ≤ l
+  by_cases h8 : 8 ≤ l
   · have : capR l = 36788 / 100000 := by
       unfold capR; rw [if_neg (by omega), if_neg (by omega), if_neg (by omega), if_neg (by omega),
-        if_neg (by omega)]
+        if_neg (by omega), if_neg (by omega)]
     rw [this]; exact base_le_exp _
-  · interval_cases l <;> norm_num [capR]
+  · interval_cases l <;> norm_num [capR, topZeroBits, topZeroAlloc]
 
 end CapFailBound
 
@@ -388,6 +405,5 @@ theorem prob_capFail_le :
         rw [one_div, ENNReal.ofReal_inv_of_pos (by positivity), ENNReal.ofReal_pow (by norm_num),
           ENNReal.ofReal_ofNat]
 
-#print axioms prob_capFail_le
 
 end ClaudeWCT.W9.T3.Security.CanonGraph

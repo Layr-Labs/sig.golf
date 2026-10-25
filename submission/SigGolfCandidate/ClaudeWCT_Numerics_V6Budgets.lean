@@ -104,8 +104,6 @@ theorem keygen_moment (z : ℝ) (hz0 : 0 ≤ z) (hz : z ≤ (keygenZNum:ℝ)/key
     gcongr
   linarith
 
-#print axioms keygen_step
-#print axioms keygen_moment
 
 /-! ## N2: expand excess (max of two uniform 19-bit candidates) -/
 
@@ -239,7 +237,6 @@ theorem expand_excess_moment (w : ℝ) (hw1 : 1 ≤ w) (hw : w ≤ (expandWNum:�
     nlinarith
   linarith
 
-#print axioms expand_excess_moment
 
 /-! ## N2b in the top-bytes porter's exact form (drop-in for `SharedExpansionV6.ExpandExcessNumeric`)
 `avgF φ = Σ_{c<2^19} (2^19)⁻¹·φ c` and `excessWeight c = 2^((8/7)·(427665 + c)/2^20)` in `ℝ≥0∞`
@@ -293,5 +290,4 @@ theorem expand_excess_numeric :
   calc ENNReal.ofReal _ ≤ ENNReal.ofReal 2 := ENNReal.ofReal_le_ofReal h
     _ = 2 := by norm_num
 
-#print axioms expand_excess_numeric
 end ClaudeWCT.Numerics.V6Budgets

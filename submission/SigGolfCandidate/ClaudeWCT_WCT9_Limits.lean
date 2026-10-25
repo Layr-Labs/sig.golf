@@ -56,10 +56,10 @@ theorem signPayloadWith_attemptLimit :
 theorem signWith_attemptLimit : signWith SigGolfCandidate.T3.attemptLimit = sign := rfl
 theorem expandWith_attemptLimit : expandWith SigGolfCandidate.T3.attemptLimit = expand := rfl
 theorem verifyWith_attemptLimit : verifyWith SigGolfCandidate.T3.attemptLimit = verify := rfl
-/-! ### H2: the compact signature omits the top 19 bits (109..127, img-v6) of the top layer's level-11 sibling.
-Expand recovers everything up to the level-11 node `v` with those bits zero, then searches the 2^19 completions
-against the public key. The witness carries the completed signature, so verify is unchanged. -/
-def setTop (d : Digest) (c : Nat) : Digest := BitVec.ofNat 128 (d.toNat % 2 ^ 109 + c % 2 ^ 19 * 2 ^ 109)
+/-! ### H2: the compact signature omits the top 16 bits (112..127, T51; #938 img-v6: 19 bits 109..127) of the top
+layer's level-11 sibling. Expand recovers everything up to the level-11 node `v` with those bits zero, then searches
+the 2^16 completions against the public key. The witness carries the completed signature, so verify is unchanged. -/
+def setTop (d : Digest) (c : Nat) : Digest := BitVec.ofNat 128 (d.toNat % 2 ^ 112 + c % 2 ^ 16 * 2 ^ 112)
 def fillLayer (lay : Layer) (ls : LayerSignature lay) (c : Nat) : LayerSignature lay :=
   ⟨ls.values, fun j => if lay.val = 0 ∧ j.val = 11 then setTop (ls.path j) c else ls.path j⟩
 def fillTop (sig : Signature) (c : Nat) : Signature :=
@@ -114,7 +114,7 @@ def expandLayersT (sig : Signature) (index : Nat) (other : Digest) :
         let pair ← recoverLayerPair sig index lay digits
         let some (v, root, counters) ← expandLayersT sig index other n (.pair pair.1 pair.2) | pure none
         pure (some (v, root, counters ++ [counter]))
-def searchFuel : Nat := 524287
+def searchFuel : Nat := 65535
 /-- Candidates `c, c + 1, ...` for the omitted bits; the first whose root is `pk`. -/
 def searchTop (index : Nat) (v sib pk : Digest) : Nat → Nat → M (Option Nat)
   | 0, _ => pure none

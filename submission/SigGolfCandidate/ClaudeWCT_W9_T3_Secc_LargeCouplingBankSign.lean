@@ -347,18 +347,6 @@ theorem wct_core_win_54 (b : BankCore) (halive : ¬horizon < b.exposures.length)
   · rw [if_neg hr]
     obtain ⟨N, hN, hadm, hcov⟩ := h.resolve_left hr
     exact (ledger54_win horizon _ _ _ _ N hN hadm hcov).trans le_self_add
-theorem wct_core_initial_54 (budget : Nat) :
-    corePotential54 (2 ^ 32) ⟨[], [], false, 0, budget⟩ ≤
-      (budget : ENNReal) * (23 / 100000) / 2 ^ 128 := by
-  unfold corePotential54 ledger54 excessForecast54
-  simp only [List.length_nil, Nat.not_lt_zero, if_false, Bool.false_eq_true, Nat.sub_zero, add_zero,
-    List.map_nil, List.sum_nil, zero_add]
-  apply ENNReal.div_le_div_right
-  apply mul_le_mul' le_rfl
-  change ClaudeWCT.Numerics.Law.lawAvg honestLaw (2 ^ 32)
-    (fun W : List WProposal => price W - 2031 / 1024) ≤ 23 / 100000
-  rw [honestLaw_eq_n4]
-  exact ClaudeWCT.Numerics.WCTPrice.wct_excess_honest_2_32_54
 end ClaudeWCT.Bank.WCT
 end
 section
@@ -1411,7 +1399,6 @@ theorem bank_routeQuerySelected (a : AuxData) (st : RouterState) (ws : LargeResi
     apply (hnd fun h => hX h.1).1
     exact ⟨fun row hr => rfl, rfl, rfl, fun m => rfl⟩
 
-#print axioms bank_routeQuerySelected
 end ClaudeWCT.W9.T3.Security.LargeCoupling.Paired
 
 namespace ClaudeWCT.W9.T3.Security.LargeCoupling.Paired

@@ -96,7 +96,7 @@ theorem decode_isSome_iff (d : Fin (2^128)) : (decode d).isSome ↔ d∈accepted
   · rintro ⟨w,hweight,he⟩
     exact ⟨w,(decode_some_iff d w).mpr ⟨he,hweight⟩⟩
 theorem decoder_count :
-    Fintype.card {d : Fin (2^128) // (decode d).isSome}=count := by
+    Fintype.card {d : Fin (2^128) // (decode d).isSome}=nf17Count := by
   classical
   rw [Fintype.card_subtype]
   have he : (Finset.univ.filter fun d : Fin (2^128) => (decode d).isSome)=acceptedDigests := by
@@ -106,7 +106,7 @@ theorem decoder_count :
 open OracleComp OracleSpec ENNReal
 theorem decoder_uniform_probability :
     Pr[fun d => (decode d).isSome | ($ᵗ Fin (2^128) : ProbComp (Fin (2^128)))]=
-      (count : ENNReal)/(2 : ENNReal)^128 := by
+      (nf17Count : ENNReal)/(2 : ENNReal)^128 := by
   classical
   rw [probEvent_uniformSample,←Fintype.card_subtype,decoder_count]
   simp only [Fintype.card_fin,Nat.cast_pow,Nat.cast_ofNat]
@@ -118,12 +118,12 @@ def acceptedBVEquiv : {d : BitVec 128 // (decodeBV d).isSome} ≃
   left_inv d := by apply Subtype.ext; rfl
   right_inv d := by apply Subtype.ext; rfl
 theorem decoder_bv_count :
-    Fintype.card {d : BitVec 128 // (decodeBV d).isSome}=count := by
+    Fintype.card {d : BitVec 128 // (decodeBV d).isSome}=nf17Count := by
   classical
   rw [Fintype.card_congr acceptedBVEquiv,decoder_count]
 theorem decoder_bv_probability :
     Pr[fun d => (decodeBV d).isSome | ($ᵗ BitVec 128 : ProbComp (BitVec 128))]=
-      (count : ENNReal)/(2 : ENNReal)^128 := by
+      (nf17Count : ENNReal)/(2 : ENNReal)^128 := by
   classical
   rw [probEvent_uniformSample,←Fintype.card_subtype,decoder_bv_count]
   simp only [Fintype.card_bitVec,Nat.cast_pow,Nat.cast_ofNat]
@@ -132,7 +132,7 @@ theorem decoder_bv_probability :
 theorem encoding_uniform_probability :
     Pr[fun answer => (encodingDecode answer).isSome |
       ($ᵗ BitVec 256 : ProbComp (BitVec 256))]=
-      (count : ENNReal)/(2 : ENNReal)^128 := by
+      (nf17Count : ENNReal)/(2 : ENNReal)^128 := by
   classical
   rw [probEvent_uniformSample]
   have hc := SphincsSecurity.Completeness.card_filter_low (n := 256) (w := 128)
@@ -146,13 +146,6 @@ theorem encoding_uniform_probability :
   rw [show (2 : ENNReal)^256=2^128*2^128 by rw [←pow_add]]
   exact ENNReal.mul_div_mul_right _ _ (by simp) (by simp)
 end SigGolfResearch.NonbinaryTop.Decoder
-#print axioms SigGolfResearch.NonbinaryTop.Decoder.parse_encodeN
-#print axioms SigGolfResearch.NonbinaryTop.Decoder.encodeN_parse
-#print axioms SigGolfResearch.NonbinaryTop.Decoder.decode_some_iff
-#print axioms SigGolfResearch.NonbinaryTop.Decoder.decoder_count
-#print axioms SigGolfResearch.NonbinaryTop.Decoder.decoder_uniform_probability
-#print axioms SigGolfResearch.NonbinaryTop.Decoder.decoder_bv_count
-#print axioms SigGolfResearch.NonbinaryTop.Decoder.encoding_uniform_probability
 end
 section
 namespace SigGolfResearch.NonbinaryTop.Decoder
@@ -231,94 +224,325 @@ def wordDigits (w : Codec.Word) : List Nat :=
 theorem wordDigits_sum (w : Codec.Word) : (wordDigits w).sum=Counting.weight w := by
   simp only [wordDigits,List.sum_append,List.sum_flatten,List.map_ofFn,List.sum_ofFn,Function.comp_def]
   rfl
-theorem coreDigit_parse5 {v : Digest} {w : Codec.Word}
-    (h : Decoder.parse 17 (topFlip v).toNat=some w) (j : Fin 17) (k : Fin 3) :
-    coreDigit 0 v (3*j.val+k.val)=(w.1 j k).val := by
-  rw [top_core_triple v j.val k.val j.isLt k.isLt]
-  have hp := (Decoder.parse_fields h).1 j
-  have he : (Codec.rank5 (w.1 j)).val=topCode v/2^(7*j.val)%128 := by
-    simpa only [show (128:Nat)=2^7 by decide,←pow_mul,topCode] using hp
-  rw [←he]
-  have hd := congrFun (Codec.digits5_rank5 (w.1 j)) k
-  have hh := (Codec.rank5 (w.1 j)).isLt
-  apply Fin.val_inj.mpr at hd
-  fin_cases k <;> simp [Codec.digits5] at hd ⊢ <;> omega
-theorem coreDigit_parse8 {v : Digest} {w : Codec.Word}
-    (h : Decoder.parse 17 (topFlip v).toNat=some w) (k : Fin 3) :
-    coreDigit 0 v (51+k.val)=(w.2 k).val := by
-  have hp := (Decoder.parse_fields h).2
-  have he : (Codec.rank8 w.2).val=topCode v/2^119 := by simpa [topCode] using hp
-  have hd := congrFun (Codec.digits8_rank8 w.2) k
-  apply Fin.val_inj.mpr at hd
-  have hh := (Codec.rank8 w.2).isLt
-  have hediv : ∀ t : Nat,topCode v/2^(119+t)=topCode v/2^119/2^t := by
-    intro t; rw [Nat.div_div_eq_div_mul,pow_add]
-  have hsh : topRawShift (51+k.val)=119+(if k.val=2 then 0 else 3+3*k.val) := by
-    fin_cases k <;> rfl
-  simp only [coreDigit,if_pos rfl,show ¬51+k.val<51 by omega,if_false,hsh,hediv,←he]
-  fin_cases k <;> simp [Codec.digits8] at hd ⊢ <;> omega
-theorem dataDigits_parse {v : Digest} {w : Codec.Word}
-    (h : Decoder.parse 17 (topFlip v).toNat=some w) : dataDigits 0 v=wordDigits w := by
-  have hof : dataDigits 0 v=List.ofFn (fun i : Fin 54 => coreDigit 0 v i.val) := by
-    apply List.ext_getElem
-    · simp only [dataDigits,List.length_map,List.length_range,List.length_ofFn,dataCount,ite_true]
-    · intro i hi hj
-      simp only [dataDigits,List.getElem_map,List.getElem_range,List.getElem_ofFn]
-  rw [hof,List.ofFn_add (n := 51) (m := 3)]
-  change (List.ofFn fun i : Fin (17*3) => coreDigit 0 v i.val) ++
-      (List.ofFn fun i : Fin 3 => coreDigit 0 v (51+i.val))=wordDigits w
-  rw [List.ofFn_mul]
-  apply congrArg₂ List.append
-  · apply congrArg List.flatten
-    apply congrArg List.ofFn
-    funext j
-    apply congrArg List.ofFn
-    funext k
-    simpa [Nat.mul_comm] using coreDigit_parse5 h j k
-  · apply congrArg List.ofFn
-    funext k
-    exact coreDigit_parse8 h k
-/-- Campaign T8D (NF17): the 17 triples and the 9-bit radix-8 tail fill all 128 bits, so only the triple ranks are
-checked. -/
-theorem parse_top_isSome_iff (v : Digest) :
-    (Decoder.parse 17 (topFlip v).toNat).isSome ↔ topRanksValid v=true := by
-  rw [Decoder.parse_isSome_iff]
-  have hbound : 512*128^17=(2:Nat)^128 := by decide +kernel
-  rw [hbound]
-  simp only [topRanksValid,topCode,List.all_eq_true,List.mem_range,decide_eq_true_eq]
-  simp only [show (128:Nat)=2^7 by decide,←pow_mul]
-  exact and_iff_right (topFlip v).isLt
-theorem decode_top_eq_map (v : Digest) :
-    T3.decode 0 v=(Decoder.decodeBV (topFlip v)).map wordDigits := by
-  change T3.decode 0 v=((Decoder.parse 17 (topFlip v).toNat).filter fun w => decide (Counting.weight w=146)).map wordDigits
-  have hb : ¬ v.toNat ≥ 2^encodedBits 0 := Nat.not_le.mpr v.isLt
-  cases hp : Decoder.parse 17 (topFlip v).toNat with
-  | none =>
-    have hg : topRanksValid v=false := Bool.eq_false_iff.mpr (fun ht => by
-      have hx := (parse_top_isSome_iff v).mpr ht
-      simp [hp] at hx)
-    simp only [T3.decode,if_neg hb,ite_true,hg,Bool.false_and,
-      Bool.false_eq_true,if_false,Option.filter_none,Option.map_none]
-  | some w =>
-    have hh := (parse_top_isSome_iff v).mp (by simp [hp])
-    have hdata := dataDigits_parse hp
-    by_cases hsum : Counting.weight w=146
-    · simp only [T3.decode,if_neg hb,ite_true,hh,Bool.true_and,
-        hdata,wordDigits_sum,show target 0=146 by rfl,hsum,decide_true,
-        if_true,decide_false,Bool.false_eq_true,if_false,Option.filter_some,Option.map_some,Option.map_none]
-    · simp only [T3.decode,if_neg hb,ite_true,hh,Bool.true_and,
-        hdata,wordDigits_sum,show target 0=146 by rfl,hsum,decide_true,
-        if_true,decide_false,Bool.false_eq_true,if_false,Option.filter_some,Option.map_some,Option.map_none]
-theorem decode_top_isSome (v : Digest) :
-    (T3.decode 0 v).isSome=(Decoder.decodeBV (topFlip v)).isSome := by
-  rw [decode_top_eq_map]
-  simp only [Option.isSome_map]
+end SigGolfCandidate.T3.Nonbinary
+end
+
+section
+/-! Campaign T51 (COUNT): the T51 top digests and the counting model `T51Top.Word`.
+`encode` packs the 17 ranks into the T51 word (r6 fields `g0..g6` at `8g`, `g0` offset by 40, the r7 rank at 56
+flipped, the r5 ranks `q9..q15` at `7q` flipped, `g7` at 112, `g8` at 120); it is a bijection onto the words with
+`topRanksValid`. -/
+namespace SigGolfResearch.T51Top
+open Finset SigGolfCandidate.T3 SigGolfCandidate.T3.Nonbinary
+open scoped BigOperators
+set_option maxHeartbeats 1000000
+set_option maxRecDepth 100000
+set_option linter.constructorNameAsVariable false
+set_option linter.unusedSimpArgs false
+
+/-! ### Bit-field packing -/
+def packF : List (Nat × Nat) → Nat
+  | [] => 0
+  | p :: t => p.2 + 2 ^ p.1 * packF t
+def offF : List (Nat × Nat) → Nat → Nat
+  | [], _ => 0
+  | _ :: _, 0 => 0
+  | p :: t, k + 1 => p.1 + offF t k
+def widthF : List (Nat × Nat) → Nat
+  | [] => 0
+  | p :: t => p.1 + widthF t
+
+theorem packF_lt : ∀ (L : List (Nat × Nat)), (∀ p ∈ L, p.2 < 2 ^ p.1) → packF L < 2 ^ widthF L
+  | [], _ => by simp [packF, widthF]
+  | p :: t, h => by
+    have hp := h p (by simp)
+    have ht := packF_lt t (fun q hq => h q (by simp [hq]))
+    simp only [packF, widthF, pow_add]
+    have : packF t + 1 ≤ 2 ^ widthF t := ht
+    nlinarith [Nat.one_le_two_pow (n := p.1)]
+
+theorem packF_field : ∀ (L : List (Nat × Nat)) (k : Nat), (∀ p ∈ L, p.2 < 2 ^ p.1) → (hk : k < L.length) →
+    packF L / 2 ^ offF L k % 2 ^ (L[k]'hk).1 = (L[k]'hk).2
+  | [], k, _, hk => by simp at hk
+  | p :: t, 0, h, _ => by
+    have hp := h p (by simp)
+    simp only [packF, offF, pow_zero, Nat.div_one, List.getElem_cons_zero]
+    rw [Nat.add_mul_mod_self_left, Nat.mod_eq_of_lt hp]
+  | p :: t, k + 1, h, hk => by
+    have hp := h p (by simp)
+    have ih := packF_field t k (fun q hq => h q (by simp [hq])) (by simpa using hk)
+    simp only [packF, offF, List.getElem_cons_succ, pow_add, ← Nat.div_div_eq_div_mul]
+    rw [Nat.add_mul_div_left _ _ (by positivity), Nat.div_eq_of_lt hp, Nat.zero_add]
+    exact ih
+
+/-- The T51 fields of a model word (before the flip of the 7-bit fields). -/
+def fields (w : Word) : List (Nat × Nat) :=
+  [(8, (w.1 0).val + 40), (8, (w.1 1).val), (8, (w.1 2).val), (8, (w.1 3).val), (8, (w.1 4).val),
+    (8, (w.1 5).val), (8, (w.1 6).val), (7, w.2.2.val),
+    (7, (w.2.1 0).val), (7, (w.2.1 1).val), (7, (w.2.1 2).val), (7, (w.2.1 3).val), (7, (w.2.1 4).val),
+    (7, (w.2.1 5).val), (7, (w.2.1 6).val),
+    (8, (w.1 7).val), (8, (w.1 8).val)]
+
+theorem fields_bound (w : Word) : ∀ p ∈ fields w, p.2 < 2 ^ p.1 := by
+  simp only [fields, List.forall_mem_cons, List.forall_mem_nil, and_true]
+  exact ⟨by have := (w.1 0).isLt; norm_num; omega,
+    by have := (w.1 1).isLt; norm_num; omega,
+    by have := (w.1 2).isLt; norm_num; omega,
+    by have := (w.1 3).isLt; norm_num; omega,
+    by have := (w.1 4).isLt; norm_num; omega,
+    by have := (w.1 5).isLt; norm_num; omega,
+    by have := (w.1 6).isLt; norm_num; omega,
+    by have := w.2.2.isLt; norm_num; omega,
+    by have := (w.2.1 0).isLt; norm_num; omega,
+    by have := (w.2.1 1).isLt; norm_num; omega,
+    by have := (w.2.1 2).isLt; norm_num; omega,
+    by have := (w.2.1 3).isLt; norm_num; omega,
+    by have := (w.2.1 4).isLt; norm_num; omega,
+    by have := (w.2.1 5).isLt; norm_num; omega,
+    by have := (w.2.1 6).isLt; norm_num; omega,
+    by have := (w.1 7).isLt; norm_num; omega,
+    by have := (w.1 8).isLt; norm_num; omega⟩
+
+def code (w : Word) : Nat := packF (fields w)
+theorem code_lt (w : Word) : code w < 2 ^ 128 := by
+  have h := packF_lt _ (fields_bound w)
+  have hw : widthF (fields w) = 128 := rfl
+  rw [hw] at h
+  exact h
+
+/-- The digest of a model word. -/
+def encode (w : Word) : Digest := topFlip (BitVec.ofNat 128 (code w))
+
+theorem topCode_encode (w : Word) : topCode (encode w) = code w := by
+  rw [encode, topCode_topFlip, BitVec.toNat_ofNat, Nat.mod_eq_of_lt (code_lt w)]
+
+theorem code_field (w : Word) (k : Nat) (hk : k < 17) :
+    code w / 2 ^ offF (fields w) k % 2 ^ ((fields w)[k]'(by simpa [fields] using hk)).1 =
+      ((fields w)[k]'(by simpa [fields] using hk)).2 :=
+  packF_field _ k (fields_bound w) _
+
+theorem r6Raw_encode (w : Word) (g : Fin 9) :
+    r6Raw (encode w) g.val = if g.val = 0 then (w.1 g).val + 40 else (w.1 g).val := by
+  unfold r6Raw r6Shift
+  rw [topCode_encode]
+  fin_cases g
+  · exact code_field w 0 (by decide)
+  · exact code_field w 1 (by decide)
+  · exact code_field w 2 (by decide)
+  · exact code_field w 3 (by decide)
+  · exact code_field w 4 (by decide)
+  · exact code_field w 5 (by decide)
+  · exact code_field w 6 (by decide)
+  · exact code_field w 15 (by decide)
+  · exact code_field w 16 (by decide)
+
+theorem r6Rank_encode (w : Word) (g : Fin 9) : r6Rank (encode w) g.val = (w.1 g).val := by
+  by_cases h : g = 0
+  · subst h
+    have := r6Raw_encode w 0
+    rw [Fin.val_zero, if_pos rfl] at this
+    unfold r6Rank
+    rw [Fin.val_zero, if_pos rfl, this, Nat.add_sub_cancel]
+  · have hg : g.val ≠ 0 := fun e => h (Fin.ext e)
+    have := r6Raw_encode w g
+    rw [if_neg hg] at this
+    unfold r6Rank
+    rw [if_neg hg, this]
+
+theorem r6Valid_encode (w : Word) (g : Fin 9) : r6Valid (encode w) g.val = true := by
+  by_cases h : g = 0
+  · subst h
+    have := r6Raw_encode w 0
+    rw [Fin.val_zero, if_pos rfl] at this
+    unfold r6Valid
+    rw [Fin.val_zero, if_pos rfl, this]
+    simp
+  · have hg : g.val ≠ 0 := fun e => h (Fin.ext e)
+    have := r6Raw_encode w g
+    rw [if_neg hg] at this
+    unfold r6Valid
+    rw [if_neg hg, this]
+    simpa using (w.1 g).isLt
+
+theorem r5Rank_encode (w : Word) (j : Fin 7) : r5Rank (encode w) (9 + j.val) = (w.2.1 j).val := by
+  unfold r5Rank
+  rw [topCode_encode]
+  fin_cases j
+  · exact code_field w 8 (by decide)
+  · exact code_field w 9 (by decide)
+  · exact code_field w 10 (by decide)
+  · exact code_field w 11 (by decide)
+  · exact code_field w 12 (by decide)
+  · exact code_field w 13 (by decide)
+  · exact code_field w 14 (by decide)
+
+theorem r7Rank_encode (w : Word) : r7Rank (encode w) = w.2.2.val := by
+  unfold r7Rank
+  rw [topCode_encode]
+  exact code_field w 7 (by decide)
+
+theorem topRanksValid_encode (w : Word) : topRanksValid (encode w) = true := by
+  unfold topRanksValid
+  simp only [Bool.and_eq_true, decide_eq_true_eq, List.all_eq_true, List.mem_range, List.mem_range'_1]
+  refine ⟨⟨fun g hg => r6Valid_encode w ⟨g, hg⟩, fun q hq => ?_⟩, ?_⟩
+  · have h := r5Rank_encode w ⟨q - 9, by omega⟩
+    simp only [show 9 + (q - 9) = q by omega] at h
+    rw [h]; exact (w.2.1 _).isLt
+  · rw [r7Rank_encode]; exact w.2.2.isLt
+
+/-- The model word of a digest: its 17 ranks (reduced, so that `wordOf` is total). -/
+def wordOf (v : Digest) : Word :=
+  (fun g => ⟨r6Rank v g.val % 216, Nat.mod_lt _ (by decide)⟩,
+    fun j => ⟨r5Rank v (9 + j.val) % 125, Nat.mod_lt _ (by decide)⟩, ⟨r7Rank v % 49, Nat.mod_lt _ (by decide)⟩)
+
+theorem wordOf_encode (w : Word) : wordOf (encode w) = w := by
+  refine Prod.ext (funext fun g => Fin.ext ?_) (Prod.ext (funext fun j => Fin.ext ?_) (Fin.ext ?_))
+  · simp only [wordOf, r6Rank_encode]; exact Nat.mod_eq_of_lt (w.1 g).isLt
+  · simp only [wordOf, r5Rank_encode]; exact Nat.mod_eq_of_lt (w.2.1 j).isLt
+  · simp only [wordOf, r7Rank_encode]; exact Nat.mod_eq_of_lt w.2.2.isLt
+
+theorem dataDigits_encode_wordOf (v : Digest) (hv : topRanksValid v = true) :
+    dataDigits 0 (encode (wordOf v)) = dataDigits 0 v := by
+  obtain ⟨h6, h5, h7⟩ := topRanksValid_parts hv
+  unfold dataDigits
+  apply List.map_congr_left
+  intro i hi
+  have hi : i < 50 := by simpa [dataCount] using hi
+  unfold coreDigit
+  simp only [if_true]
+  split_ifs with h27 h48
+  · have hg : i / 3 < 9 := by omega
+    have := r6Rank_encode (wordOf v) ⟨i / 3, hg⟩
+    simp only at this
+    rw [this]
+    show r6Rank v (i / 3) % 216 / 6 ^ (i % 3) % 6 = _
+    rw [Nat.mod_eq_of_lt (r6Rank_lt (h6 _ hg))]
+  · have hq : i / 3 - 9 < 7 := by omega
+    have := r5Rank_encode (wordOf v) ⟨i / 3 - 9, hq⟩
+    simp only [show 9 + (i / 3 - 9) = i / 3 by omega] at this
+    rw [this]
+    show r5Rank v (9 + (i / 3 - 9)) % 125 / 5 ^ (i % 3) % 5 = _
+    rw [show 9 + (i / 3 - 9) = i / 3 by omega, Nat.mod_eq_of_lt (h5 _ (by omega) (by omega))]
+  · rw [r7Rank_encode]
+    show r7Rank v % 49 / 7 ^ (i - 48) % 7 = _
+    rw [Nat.mod_eq_of_lt h7]
+
+theorem encode_wordOf (v : Digest) (hv : topRanksValid v = true) : encode (wordOf v) = v :=
+  top_digest_injective (dataDigits_encode_wordOf v hv) (topRanksValid_encode _) hv
+
+theorem card_bij_generic {α β : Type} [Fintype α] [Fintype β] (P : α → Prop) [DecidablePred P]
+    (Q : β → Prop) [DecidablePred Q] (e : β → α) (d : α → β) (h1 : ∀ b, Q b → P (e b))
+    (h2 : ∀ a, P a → Q (d a)) (h3 : ∀ b, Q b → d (e b) = b) (h4 : ∀ a, P a → e (d a) = a) :
+    (univ.filter P).card = (univ.filter Q).card := by
+  symm
+  apply Finset.card_bij' (fun b _ => e b) (fun a _ => d a)
+  · intro b hb; exact Finset.mem_filter.mpr ⟨Finset.mem_univ _, h1 b (Finset.mem_filter.mp hb).2⟩
+  · intro a ha; exact Finset.mem_filter.mpr ⟨Finset.mem_univ _, h2 a (Finset.mem_filter.mp ha).2⟩
+  · intro b hb; exact h3 b (Finset.mem_filter.mp hb).2
+  · intro a ha; exact h4 a (Finset.mem_filter.mp ha).2
+
+/-- Counting valid digests is counting model words. -/
+theorem card_encode (P : Digest → Prop) [DecidablePred P] (hP : ∀ v, P v → topRanksValid v = true) :
+    (univ.filter P).card = (univ.filter fun w : Word => P (encode w)).card :=
+  card_bij_generic P (fun w => P (encode w)) encode wordOf (fun _ h => h)
+    (fun v h => by show P (encode (wordOf v)); rw [encode_wordOf v (hP v h)]; exact h)
+    (fun w _ => wordOf_encode w) (fun v h => encode_wordOf v (hP v h))
+
+/-! ### Digit statistics of `encode w` -/
+theorem core_encode6 (w : Word) (g : Fin 9) (k : Nat) (hk : k < 3) :
+    coreDigit 0 (encode w) (3 * g.val + k) = dg 6 (w.1 g).val k := by
+  rw [top_core_r6 _ _ _ g.isLt hk, r6Rank_encode]; rfl
+
+theorem core_encode5 (w : Word) (j : Fin 7) (k : Nat) (hk : k < 3) :
+    coreDigit 0 (encode w) (3 * (9 + j.val) + k) = dg 5 (w.2.1 j).val k := by
+  rw [top_core_r5 _ _ _ (by omega) (by omega) hk, r5Rank_encode]; rfl
+
+theorem core_encode7 (w : Word) (k : Nat) (hk : k < 2) :
+    coreDigit 0 (encode w) (48 + k) = dg 7 w.2.2.val k := by
+  rw [top_core_r7 _ _ hk, r7Rank_encode]; rfl
+
+theorem list_sum_range_map (n : Nat) (f : Nat → Nat) :
+    ((List.range n).map f).sum = ∑ i ∈ range n, f i := by
+  induction n with
+  | zero => simp
+  | succ n ih => rw [List.range_succ, List.map_append, List.sum_append, ih, Finset.sum_range_succ]; simp
+
+theorem sum_blocks (f : Nat → Nat) (n : Nat) :
+    ∑ i ∈ range (3 * n), f i = ∑ g ∈ range n, (f (3 * g) + f (3 * g + 1) + f (3 * g + 2)) := by
+  induction n with
+  | zero => simp
+  | succ n ih =>
+    rw [show 3 * (n + 1) = 3 * n + 1 + 1 + 1 by ring, Finset.sum_range_succ, Finset.sum_range_succ,
+      Finset.sum_range_succ, ih, Finset.sum_range_succ]
+    ring_nf
+
+/-- A chain sum over the 50 data chains splits into the 9 r6 triples, the 7 r5 triples and the r7 pair. -/
+theorem sum_50 (f : Nat → Nat) :
+    ∑ i ∈ range 50, f i = (∑ g : Fin 9, (f (3 * g.val) + f (3 * g.val + 1) + f (3 * g.val + 2))) +
+      (∑ j : Fin 7, (f (3 * (9 + j.val)) + f (3 * (9 + j.val) + 1) + f (3 * (9 + j.val) + 2))) +
+        (f 48 + f 49) := by
+  rw [Finset.sum_range_succ, Finset.sum_range_succ, show 48 = 3 * 16 by rfl, sum_blocks,
+    show 16 = 9 + 7 by rfl, Finset.sum_range_add, Finset.sum_range, Finset.sum_range]
+  ring
+
+theorem sum_encode (w : Word) : (dataDigits 0 (encode w)).sum = weight w := by
+  unfold dataDigits
+  rw [show dataCount 0 = 50 from rfl, list_sum_range_map, sum_50]
+  unfold weight psum
+  congr 1
+  · congr 1
+    · apply Finset.sum_congr rfl; intro g _
+      rw [show 3 * g.val = 3 * g.val + 0 by rfl, core_encode6 w g 0 (by decide), core_encode6 w g 1 (by decide),
+        core_encode6 w g 2 (by decide)]; rfl
+    · apply Finset.sum_congr rfl; intro j _
+      rw [show 3 * (9 + j.val) = 3 * (9 + j.val) + 0 by rfl, core_encode5 w j 0 (by decide),
+        core_encode5 w j 1 (by decide), core_encode5 w j 2 (by decide)]; rfl
+  · have e0 := core_encode7 w 0 (by decide)
+    have e1 := core_encode7 w 1 (by decide)
+    simp only [Nat.add_zero, Nat.reduceAdd] at e0 e1
+    rw [e0, e1]
+
+/-- Campaign T51: the top decoder through the model word. -/
+theorem decode_top_encode (w : Word) :
+    decode 0 (encode w) = if 147 ≤ weight w ∧ weight w ≤ 152 then
+      some (dataDigits 0 (encode w) ++ [152 - weight w]) else none := by
+  have hv := topRanksValid_encode w
+  have hb : ¬ (BitVec.toNat (encode w) ≥ 2 ^ encodedBits 0) := not_le.mpr (encode w).isLt
+  unfold decode
+  rw [if_neg hb]
+  simp only [if_true, sum_encode, hv, true_and, show target 0 = 152 from rfl]
+  by_cases h : 147 ≤ weight w ∧ weight w ≤ 152
+  · rw [if_pos ⟨h.2, by omega⟩, if_pos h]
+  · rw [if_neg (by omega), if_neg h]
+
+theorem decode_top_valid {v : Digest} (h : (decode 0 v).isSome = true) : topRanksValid v = true := by
+  unfold decode at h
+  split_ifs at h with h1 h2 <;> simp_all
+
+/-- The exact T51 top decoder count (PINNED P3). -/
+theorem decoder_card :
+    (univ.filter fun v : Digest => (decode 0 v).isSome = true).card = decoderCount := by
+  rw [card_encode _ (fun v h => decode_top_valid h), ← decoderCount_digits, ← window_card_digits]
+  apply congrArg Finset.card
+  apply Finset.filter_congr
+  intro w _
+  rw [decode_top_encode]
+  split_ifs with h <;> simp [h]
+
+end SigGolfResearch.T51Top
+end
+
+section
+namespace SigGolfCandidate.T3.Nonbinary
+open SigGolfResearch.NonbinaryTop
+set_option maxHeartbeats 1000000
+set_option maxRecDepth 10000
+set_option backward.isDefEq.respectTransparency false
+/-- Campaign T51: the exact top decoder count (the #938 NF17 bridge restated for the T51 word, PINNED P3). -/
 theorem actual_decoder_count :
     Fintype.card {v : Digest // (T3.decode 0 v).isSome}=Counting.count := by
-  simp_rw [decode_top_isSome]
-  exact (Fintype.card_congr (Equiv.subtypeEquiv (p := fun v => (Decoder.decodeBV (topFlip v)).isSome = true)
-    (q := fun d => (Decoder.decodeBV d).isSome = true) topFlipEquiv (fun _ => Iff.rfl))).trans
-    Decoder.decoder_bv_count
+  rw [Fintype.card_subtype]
+  exact SigGolfResearch.T51Top.decoder_card
 open OracleComp OracleSpec ENNReal
 theorem actual_decoder_probability :
     Pr[fun v => (T3.decode 0 v).isSome | ($ᵗ Digest : ProbComp Digest)]=
@@ -327,23 +551,20 @@ theorem actual_decoder_probability :
   rw [Fintype.card_subtype] at hc
   rw [probEvent_uniformSample,hc]
   simp only [Fintype.card_bitVec,Nat.cast_pow,Nat.cast_ofNat]
-theorem topMask_low : (BitVec.ofNat 256 topMask).extractLsb' 0 128 = BitVec.ofNat 128 topMask := by
-  apply BitVec.eq_of_toNat_eq
-  simp [BitVec.extractLsb'_toNat, topMask]
+/-- The encoding answers whose low half decodes (term-mode composition: no defeq search through the decoder). -/
+theorem actual_encoding_card :
+    (Finset.univ.filter fun x : BitVec 256 => (T3.decode 0 (x.extractLsb' 0 128)).isSome = true).card =
+      Counting.count * 2 ^ (256 - 128) :=
+  (SphincsSecurity.Completeness.card_filter_low (n := 256) (w := 128) (by decide)
+    (fun d : Digest => (T3.decode 0 d).isSome = true)).trans
+    (congrArg (fun n => n * 2 ^ (256 - 128)) SigGolfResearch.T51Top.decoder_card)
 theorem actual_encoding_probability :
     Pr[fun answer : BitVec 256 => (T3.decode 0 (answer.extractLsb' 0 128)).isSome |
       ($ᵗ BitVec 256 : ProbComp (BitVec 256))]=
       (Counting.count : ENNReal)/(2 : ENNReal)^128 := by
-  have hg : Function.Bijective (fun a : BitVec 256 => a ^^^ BitVec.ofNat 256 topMask) :=
-    Function.Involutive.bijective (fun a => by simp [BitVec.xor_assoc])
-  have hpred : (fun answer : BitVec 256 => (T3.decode 0 (answer.extractLsb' 0 128)).isSome = true) =
-      (fun d => (Decoder.encodingDecode d).isSome = true) ∘ (fun a => a ^^^ BitVec.ofNat 256 topMask) := by
-    funext a
-    simp only [Function.comp, Decoder.encodingDecode, decode_top_isSome, topFlip, BitVec.extractLsb'_xor, topMask_low]
-  rw [hpred, ← probEvent_map, ← Decoder.encoding_uniform_probability]
-  simp only [probEvent_eq_tsum_indicator, probOutput_map_bijective_uniformSample (hf := hg)]
+  rw [probEvent_uniformSample, actual_encoding_card]
+  simp only [Fintype.card_bitVec,Nat.cast_mul,Nat.cast_pow,Nat.cast_ofNat]
+  rw [show (2 : ENNReal)^256=2^128*2^128 by rw [←pow_add]]
+  exact ENNReal.mul_div_mul_right _ _ (by simp) (by simp)
 end SigGolfCandidate.T3.Nonbinary
-#print axioms SigGolfCandidate.T3.Nonbinary.decode_top_eq_map
-#print axioms SigGolfCandidate.T3.Nonbinary.actual_decoder_count
-#print axioms SigGolfCandidate.T3.Nonbinary.actual_encoding_probability
 end

@@ -76,15 +76,26 @@ theorem ne_zero_test_bits98 (v : BitVec 128) :
       v.toNat / 2 ^ 98 % 2 ^ 11 = 0 := by
   rw [← BitVec.toNat_inj, BitVec.toNat_and, BitVec.toNat_ofNat, Nat.mod_eq_of_lt (by norm_num), ne_hiword_toNat,
     BitVec.toNat_zero, ne_land_mask_eq_zero, Nat.div_div_eq_div_mul, ← Nat.pow_add]
-theorem ne_topZeroBits_eq (h : Nat) (h1 : 1 ≤ h) (h11 : h ≤ 11) : topZeroBits h = h := by
-  interval_cases h <;> rfl
+/-- Campaign T51: the top zero bits are `b_h = 0,0,1,1,2,3,4,5,6,7,8` (#938: `b_h = h`; restated). -/
+theorem ne_topZeroBits_eq (h : Nat) (h1 : 1 ≤ h) (h11 : h ≤ 11) :
+    topZeroBits h = SigGolfCandidate.T3.topZeroAlloc.getD h 0 := rfl
+
 /-- The machine's zero test (43225..43227) is `topZeroOk`. -/
+theorem ne_zero_test_bits104 (v : BitVec 128) :
+    (v.extractLsb' 64 64 &&& BitVec.ofNat 64 ((2 ^ 8 - 1) * 2 ^ 40) = 0#64) ↔
+      v.toNat / 2 ^ 104 % 2 ^ 8 = 0 := by
+  rw [← BitVec.toNat_inj, BitVec.toNat_and, BitVec.toNat_ofNat, Nat.mod_eq_of_lt (by norm_num), ne_hiword_toNat,
+    BitVec.toNat_zero, ne_land_mask_eq_zero, Nat.div_div_eq_div_mul, ← Nat.pow_add]
+/-- The machine's zero test (43225..43227, mask from ZB 54553) is `topZeroOk`. -/
 theorem ne_zero_test (v : Digest) (h : Nat) (h1 : 1 ≤ h) (h11 : h ≤ 11) :
     (v.extractLsb' 64 64 &&& BitVec.ofNat 64 (maskE h) = 0#64) ↔ topZeroOk h v = true := by
   unfold maskE topZeroOk
   by_cases hc : h = 11
-  · rw [if_pos hc, if_pos hc, ne_zero_test_bits98, beq_iff_eq]
-  · rw [if_neg hc, if_neg hc, ne_topZeroBits_eq h h1 h11, ne_zero_test_hi v _ (by omega), beq_iff_eq]
+  · rw [if_pos hc, if_pos hc, show (255 : Nat) * 2 ^ 40 = (2 ^ 8 - 1) * 2 ^ 40 by norm_num, ne_zero_test_bits104,
+      beq_iff_eq]
+  · have hb : topZeroBits h ≤ 64 := by interval_cases h <;> decide
+    rw [if_neg hc, if_neg hc, ne_zero_test_hi v _ hb, beq_iff_eq]
+
 theorem ne_nonce_words (n : Nat) (hn : n < 2 ^ 64) : wordsOf (nonceBytes n) = [BitVec.ofNat 64 n, 0] := by
   unfold nonceBytes
   rw [wordsOf_bytesLE16]
@@ -155,8 +166,9 @@ theorem ne_topNodeHashN_bind {β : Type} (heap n : Nat) (l r : Digest) (g : Dige
 theorem ne_topNonceCap_le (h : Nat) (h1 : 1 ≤ h) (h11 : h ≤ 11) :
     1 ≤ topNonceCap h ∧ topNonceCap h ≤ 104 * 2048 := by
   interval_cases h <;> decide
-theorem ne_topNonceCap_eq (h : Nat) (h1 : 1 ≤ h) (h11 : h ≤ 11) : topNonceCap h = 104 * 2 ^ h := by
-  unfold topNonceCap; rw [ne_topZeroBits_eq h h1 h11]
+/-- Campaign T51: the cap is `104 << b_h` (#938: `104 << h`; restated). -/
+theorem ne_topNonceCap_eq (h : Nat) (h1 : 1 ≤ h) (h11 : h ≤ 11) : topNonceCap h = 104 * 2 ^ topZeroBits h := rfl
+
 theorem ne_nonceBytes_zero : nonceBytes 0 = zero16 := by decide
 
 section sim
@@ -207,8 +219,9 @@ theorem skip_spec (s : MachineState) (hpc : s.pc = pcOf 1139) (hh j P M : Nat) (
   · exact ((((f1.trans f2).trans f3).trans f4).trans f5).mono (fun _ _ h => by simp_all)
 
 /-! ## The nonce path -/
-/-- Cycles of the setup 1139 .. 43224 at height `h` (`h = 11` takes the mask branch 43213..43214). -/
-def nsetupK (h : Nat) : Nat := 27 + (if h = 11 then 2 else 0)
+/-- Cycles of the setup 1139 .. 43224 at height `h` (T51: 43199/43200 `j 54553`, ZB 54553..54568, `j 43215`). -/
+def nsetupK (h : Nat) : Nat := 17 + zbK h
+theorem nsetupK_le (h : Nat) : nsetupK h ≤ 32 := by unfold nsetupK zbK; split_ifs <;> omega
 theorem nsetup_spec (s : MachineState) (hpc : s.pc = pcOf 1139) (j leaf : Nat) (hj : j < 11) (hl : leaf < 2 ^ 64)
     (h15 : s.getReg .x15 = BitVec.ofNat 64 12) (h20 : s.getReg .x20 = BitVec.ofNat 64 j)
     (h18 : s.getReg .x18 = BitVec.ofNat 64 leaf) :
@@ -223,31 +236,18 @@ theorem nsetup_spec (s : MachineState) (hpc : s.pc = pcOf 1139) (j leaf : Nat) (
   obtain ⟨t3, s3, p3, r3, f3⟩ := nB_spec (im := im) t2 p2 j (by omega) (by rw [r12.get (by simp)]; exact h20)
   rw [if_neg (by omega)] at p3
   have r13 : RegsExcept s t3 [.x28] := (r12.trans r3).mono (by decide)
-  obtain ⟨t4, s4, p4, x13, x14, r4, f4⟩ := nC_spec (im := im) t3 p3 j (by rw [r13.get (by simp)]; exact h20)
-  obtain ⟨t5, s5, p5, r5, f5⟩ := nD_spec (im := im) t4 p4
-  obtain ⟨t6, s6, p6, x31, r6, f6⟩ := nE_spec (im := im) t5 p5 (j + 1) (j + 1) (by omega) (by omega) (by omega)
-    (by rw [r5.get (by simp)]; exact x14) (by rw [r5.get (by simp)]; exact x13)
-  have r46 : RegsExcept t4 t6 [.x28, .x28, .x31] := r5.trans r6
-  obtain ⟨t7, k7, s7, hk7, p7, x31', r7, f7⟩ : ∃ t7 k7, Steps im t6 k7 k7 t7 ∧ k7 = (if j + 1 = 11 then 2 else 0) ∧
-      t7.pc = pcOf 43215 ∧ t7.getReg .x31 = BitVec.ofNat 64 (maskE (j + 1)) ∧ RegsExcept t6 t7 [.x31] ∧
-      Frame t6 t7 (fun _ => False) := by
-    by_cases hc : j + 1 = 11
-    · rw [if_pos hc] at p6
-      obtain ⟨u, su, pu, xu, ru, fu⟩ := nF_spec (im := im) t6 p6
-      exact ⟨u, 2, su, by rw [if_pos hc], pu, by rw [xu]; unfold maskE; rw [if_pos hc], ru, fu⟩
-    · rw [if_neg hc] at p6
-      exact ⟨t6, 0, Steps.refl _, by rw [if_neg hc], p6, by rw [x31]; unfold maskE; rw [if_neg hc],
-        RegsExcept.refl _ _, Frame.refl _ _⟩
-  have r47 : RegsExcept t4 t7 [.x28, .x28, .x31, .x31] := r46.trans r7
-  obtain ⟨t8, s8, p8, x17, x29, r8, f8⟩ := nG_spec (im := im) t7 p7 (j + 1) leaf (by omega) hl
-    (by rw [r47.get (by simp)]; exact x13) (by rw [r47.get (by simp)]; exact x14)
-    (by rw [r47.get (by simp), r4.get (by simp), r13.get (by simp)]; exact h18)
-  refine ⟨t8, ((((((s1.trans s2).trans s3).trans s4).trans s5).trans s6).trans s7).trans s8 |>.of_eq
-      (by unfold nsetupK; rw [hk7]; split_ifs <;> omega) (by unfold nsetupK; rw [hk7]; split_ifs <;> omega),
-    p8, by rw [r8.get (by simp)]; exact x31', ?_, x29, ?_, ?_⟩
+  obtain ⟨t4, s4, p4, x13, r4, f4⟩ := nC_spec (im := im) t3 p3 j (by rw [r13.get (by simp)]; exact h20)
+  obtain ⟨t5, s5, p5, x14, x31, r5, f5⟩ := nZ_spec (im := im) t4 p4 (j + 1) (by omega) (by omega) x13
+  have hb : topZeroBits (j + 1) ≤ 11 := by interval_cases j <;> decide
+  obtain ⟨t8, s8, p8, x17, x29, r8, f8⟩ := nG_spec (im := im) t5 p5 (j + 1) (topZeroBits (j + 1)) leaf (by omega) hb hl
+    (by rw [r5.get (by simp)]; exact x13) x14
+    (by rw [r5.get (by simp), r4.get (by simp), r13.get (by simp)]; exact h18)
+  refine ⟨t8, ((((((s1.trans s2).trans s3).trans s4).trans s5).trans s8)).of_eq
+      (by unfold nsetupK; omega) (by unfold nsetupK; omega),
+    p8, by rw [r8.get (by simp)]; exact x31, ?_, x29, ?_, ?_⟩
   · rw [x17, ne_topNonceCap_eq _ (by omega) (by omega)]
-  · exact (((r13.trans r4).trans r47).trans r8).mono (by decide)
-  · exact (((((((f1.trans f2).trans f3).trans f4).trans f5).trans f6).trans f7).trans f8).mono
+  · exact (((r13.trans r4).trans r5).trans r8).mono (by decide)
+  · exact (((((f1.trans f2).trans f3).trans f4).trans f5).trans f8).mono
       (fun _ _ h => by simp_all)
 
 /-- The state right before the first node hash (at 1138): arguments, node words, climb registers. -/
@@ -464,7 +464,7 @@ theorem n_trial_loop : ∀ fuel n (a : BitVec 256) u, NTrialSt t2 (j + 1) heap n
 
 /-- The nonce routine after the trial-0 node hash (answer `a`), up to 1076. -/
 theorem nonce_run (hpc : t2.pc = pcOf 1138) (a : BitVec 256) :
-    TBSim im sk (writeHash t2 a) (29 + (22 * (topNonceCap (j + 1) - 1) + 20))
+    TBSim im sk (writeHash t2 a) (32 + (22 * (topNonceCap (j + 1) - 1) + 20))
       (neTrialTail (j + 1) heap l r (topNonceCap (j + 1) - 1) 0 (T3.projHalf (T3.nodeHalfHigh 3 0 heap) a))
       (fun res w => NPost t2 heap leaf j P M res w) := by
   have hj := F.hj
@@ -484,7 +484,7 @@ theorem nonce_run (hpc : t2.pc = pcOf 1138) (a : BitVec 256) :
         · exact h.elim)
     · exact (ne_out_after_hash t2 a heap F.x12).frame fu (by simp only [NOUT]; omega) (fun h => h) (fun h => h)
   refine (TBSim.steps su (n_trial_loop sk F (topNonceCap (j + 1) - 1) 0 a u hst (by omega))).mono
-    (by unfold nsetupK; split_ifs <;> omega) (fun _ _ h => h)
+    (by have := nsetupK_le (j + 1); omega) (fun _ _ h => h)
 
 end loop
 end run

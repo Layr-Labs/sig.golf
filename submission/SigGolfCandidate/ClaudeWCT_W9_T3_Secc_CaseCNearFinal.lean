@@ -3571,7 +3571,6 @@ theorem hazard_normalized {n q : Nat} (hq : q<n) {event charge : ENNReal}
   calc
     ((1-(q:ℝ)/(n:ℝ))*event.toReal)*(n:ℝ) = event.toReal*((n:ℝ)-q) := by field_simp
     _ ≤ charge.toReal := hp
-#print axioms hazard_normalized
 end ClaudeWCT.W9.T3.Security.WPair.Paired.Counted
 
 namespace ClaudeWCT.Bank.NearWorld
@@ -3743,9 +3742,6 @@ theorem hashL_ΦI (S : FtsBankSpec P) {U : Finset HashInput} (hU : ClaudeWCT.W9.
       split_ifs
       · exact (birth_ΦI S) slot q x
       · exact superProg_pure _ _ _
-#print axioms ΦI_initial
-#print axioms birth_ΦI
-#print axioms hashL_ΦI
 end ClaudeWCT.Bank.NearWorld
 
 namespace ClaudeWCT.Bank.NearWorld
@@ -3934,7 +3930,6 @@ theorem searchWithNonce_ΦI (S : FtsBankSpec P) {β : Type} (slot q : Nat) (m : 
       rw [hgr]
       simp only [ghostStep, if_true, LazyMem.expose]
       rw [hbir1, hnon1]
-#print axioms searchWithNonce_ΦI
 end ClaudeWCT.Bank.NearWorld
 
 namespace ClaudeWCT.Bank.NearWorld
@@ -3980,7 +3975,6 @@ theorem forced_payoff_le {β : Type}
   exact (expectedValue_mono _ fun (r : β × GState) => payoff_le_ΦI S hmono q r.2).trans
     ((hW initG).trans (ΦI_initial S rate hrate q))
 
-#print axioms forced_payoff_le
 end ClaudeWCT.Bank.NearWorld
 
 namespace ClaudeWCT.Bank.NearWorld.Paired
@@ -4085,7 +4079,6 @@ theorem forced_experiment_near_le (S : FtsBankSpec P)
   NearWorld.forced_payoff_le S hmono rate hrate slot q _
     (experimentL_ΦI S hproducer hU omega slot q published program finish)
 end World
-#print axioms forced_experiment_near_le
 end ClaudeWCT.Bank.NearWorld.Paired
 
 namespace ClaudeWCT.Bank.Paired
@@ -4110,7 +4103,7 @@ theorem nearLawSpec_producer : nearLawSpec.producer=SigGolfCandidate.Research.Sh
   change producer = _
   exact funext producer_source
 
-theorem nearLawSpec_mean : ClaudeWCT.Numerics.Law.lawAvg nearLawSpec.law (2^32) nearLawSpec.price≤385 :=
+theorem nearLawSpec_mean : ClaudeWCT.Numerics.Law.lawAvg nearLawSpec.law (2^32) nearLawSpec.price≤378 :=
   law_nearPrice_mean_bound
 
 theorem forced_near_payoff_le {β : Type} (slot q : Nat)
@@ -4118,10 +4111,9 @@ theorem forced_near_payoff_le {β : Type} (slot q : Nat)
     (hW : CaseC.SuperProg (NearWorld.implG nearLawSpec slot) (NearWorld.ΦI nearLawSpec q) W) :
     expectedValue (SecretGuessObservation.forcedWithRun WPair.envL WPair.samplerL slot W WPair.initL)
       (fun r => NearWorld.nearPayoff nearLawSpec q r.2)≤
-      (q:ENNReal)*(385+1/1024)/2^128 :=
-  NearWorld.forced_payoff_le nearLawSpec nearCovered_mono 385 nearLawSpec_mean slot q W hW
+      (q:ENNReal)*(378+1/1024)/2^128 :=
+  NearWorld.forced_payoff_le nearLawSpec nearCovered_mono 378 nearLawSpec_mean slot q W hW
 
-#print axioms forced_near_payoff_le
 end ClaudeWCT.Bank.Paired
 
 namespace ClaudeWCT.W9.T3.Security.WPair.Paired
@@ -4143,9 +4135,6 @@ theorem nearCovered_bank (X : List HashOutput) (N : HashOutput) (k : Fin 9) (t :
     (h : ∀ k' t',(k',t')≠(k,t)→SlotCovered X N k' t') : ClaudeWCT.Bank.Paired.NearCovered X N := by
   refine ⟨(k,t),fun k' t' hne=>(slotCovered_bank X N k' t').mp (h k' t' hne)⟩
 
-#print axioms slotCovered_bank
-#print axioms covered_bank
-#print axioms nearCovered_bank
 end ClaudeWCT.W9.T3.Security.WPair.Paired
 
 namespace ClaudeWCT.Bank.NearWorld
@@ -4217,7 +4206,6 @@ theorem near_event_lazy_bound {β : Type}
       mul_le_mul' le_rfl (Finset.sum_le_sum fun slot _=>hslot slot)
     _=_:=by rw [triangular_sum_ennreal];simp only [div_eq_mul_inv];ring
 
-#print axioms near_event_lazy_bound
 end ClaudeWCT.Bank.NearWorld
 
 namespace ClaudeWCT.Bank.NearWorld.Paired
@@ -4244,7 +4232,6 @@ theorem experiment_near_bound (S : FtsBankSpec P)
   NearWorld.near_event_lazy_bound S hmono rate hrate q _
     (fun slot budget=>experimentL_ΦI S hproducer hU omega slot budget published program finish)
 
-#print axioms experiment_near_bound
 end ClaudeWCT.Bank.NearWorld.Paired
 
 namespace ClaudeWCT.W9.T3.Security.WPair.Paired
@@ -4293,7 +4280,6 @@ theorem experimentL_near_facts (admissible : HashOutput → Bool)
   obtain ⟨entry, he, signature, hs, hout⟩ := mem_loggedOutputs.mp hv
   exact hghost.1 entry he signature value hs hout
 
-#print axioms experimentL_near_facts
 end ClaudeWCT.W9.T3.Security.WPair.Paired
 
 namespace ClaudeWCT.W9.T3.Security.WPair.Paired
@@ -4360,8 +4346,6 @@ theorem signer_digest_query (answers : Correctness.Answers) (published : SigGolf
           (evalWithAnswerFn answers (privateNonce request.message)) output) _ hq
       exact hnot (SigGolfCandidate.T3.Security.BPB.hdrMarker_digestInput rho m ctr)
 
-#print axioms sharedDigestSearch_queried
-#print axioms signer_digest_query
 end ClaudeWCT.W9.T3.Security.WPair.Paired
 
 namespace ClaudeWCT.W9.T3.Security.WPair.Paired
@@ -4397,9 +4381,6 @@ theorem fresh_digest_not_signer_eval (answers : Correctness.Answers) (published 
   rw [hsig entry he, eval_authenticatedSign, if_pos hc, hc, hm]
   exact hsignature
 
-#print axioms payload_rho
-#print axioms eval_authenticatedSign
-#print axioms fresh_digest_not_signer_eval
 end ClaudeWCT.W9.T3.Security.WPair.Paired
 
 namespace ClaudeWCT.W9.T3.Security.WPair.Counted
@@ -4438,7 +4419,6 @@ theorem probeCount_le_other_new (T : Answers) (pk : Digest) (trace : List Wots.E
           have ho : Wots.PairedReference.OtherQuery T (.inl (.inr x)) := decodeProbe_other_new T hd
           simpa [probeCount, Wots.PairedReference.otherCount, hd, ho] using Nat.add_le_add_left ih 1
 
-#print axioms probeCount_le_other_new
 end ClaudeWCT.W9.T3.Security.WPair.Counted
 
 namespace ClaudeWCT.W9.T3.Security.WPair.Paired.Counted
@@ -4496,7 +4476,6 @@ variable {α β : Type} (published : SigGolfCandidate.T3.Cache) (program : Oracl
   (event_le_external hU ω published program finish hfinish budget hbudget event hevent).trans
     (mul_le_mul' le_rfl (public_payment_le_reference_new hU ω published program finish budget))
 
-#print axioms event_le_other_new
 end ClaudeWCT.W9.T3.Security.WPair.Paired.Counted
 
 
@@ -4596,8 +4575,6 @@ theorem fts_event_le_worldL (adversary : AdversaryP)
   intro result hr he
   exact himp g result (by simpa only [mem_support_iff,SPMF.probOutput_eq_apply] using hr) he
 
-#print axioms fixed_worldGameL
-#print axioms fts_event_le_worldL
 end ClaudeWCT.W9.T3.Security.WPair.Paired
 
 namespace ClaudeWCT.W9.T3.Security.WPair.Paired
@@ -4706,7 +4683,6 @@ theorem near_chain_slot_budget (adversary : AdversaryP) (q : Nat) (hq : q ≤ 2 
           (fun omega => worldGameL (canon_subset adversary) omega adversary)
           (fun _ _ h => worldGameL_sameRest (canon_subset adversary) h adversary) slot (payoff slot))
 
-#print axioms near_chain_slot_budget
 end ClaudeWCT.W9.T3.Security.WPair.Paired
 
 namespace ClaudeWCT.W9.T3.Security.WPair.Paired
@@ -4884,8 +4860,6 @@ theorem nearIn_mono (A : Answers) (log : QueryLog Requests) (entries entries' : 
   exact ⟨hlen,hclosed,message,rho,counter,N,cell,hsub _ he,ha,hfresh,
     guessedIn_mono A log entries entries' hsub cell hguess,hcover⟩
 
-#print axioms fresh_digest_not_signer_eval_of_log
-#print axioms nearIn_short
 end ClaudeWCT.W9.T3.Security.WPair.Paired
 
 namespace ClaudeWCT.W9.T3.Security.WPair.Paired
@@ -4975,8 +4949,6 @@ theorem near_bound_budget (S : ClaudeWCT.Bank.FtsBankSpec P)
       mul_le_mul' le_rfl (Finset.sum_le_sum fun slot _=>hslot slot)
     _=_:=by rw [ClaudeWCT.Bank.NearWorld.triangular_sum_ennreal];simp only [div_eq_mul_inv];ring
 
-#print axioms near_event_facts
-#print axioms near_bound_budget
 end ClaudeWCT.W9.T3.Security.WPair.Paired
 
 namespace ClaudeWCT.W9.T3.Security.WPair.Counted.Generic
@@ -5038,7 +5010,6 @@ theorem cap_recorded_completed_le {ι β : Type} {spec : OracleSpec ι}
           (fun value tail => event value (input::tail)))
         intro tail _
         simp only [Function.comp_apply,SphincsSecurity.QueryCap.calls_cons,if_neg hs,Nat.zero_add]
-#print axioms cap_recorded_completed_le
 end ClaudeWCT.W9.T3.Security.WPair.Counted.Generic
 
 namespace ClaudeWCT.W9.T3.Security.WPair.Paired.Counted
@@ -5232,8 +5203,6 @@ theorem world_event_le_external (adversary : AdversaryP) (budget : Nat) (hbudget
   apply WPair.Counted.Generic.capped_probes_le_budget (worldC hU omega adversary) budget
     (funded_worldC hU omega adversary 0) (fixedSampler (Guess.Fam.phi hidden.1 hidden.2)) _
   rwa [withRun_fixedSampler]
-#print axioms worldC_log_transport
-#print axioms world_event_le_external
 end ClaudeWCT.W9.T3.Security.WPair.Paired.Counted
 
 namespace ClaudeWCT.W9.T3.Security.WPair.Paired.Counted
@@ -5368,8 +5337,6 @@ theorem observed_cap_completed (g : CanonTable.HiddenF) {α : Type}
         · apply ih answer budget remaining tail.2
           simpa only [hs,Prod.mk.eta] using ht
         · exact Prod.ext rfl hs'
-#print axioms worldC_entries
-#print axioms observed_cap_completed
 end ClaudeWCT.W9.T3.Security.WPair.Paired.Counted
 
 namespace ClaudeWCT.W9.T3.Security.WPair.Paired.Counted
@@ -5439,7 +5406,6 @@ theorem worldRLog_event_eq (g : CanonTable.HiddenF) (adversary : AdversaryP) (bu
     have he := cappedWorld_entries hU omega g adversary budget remaining value queries hr
     simp only [Option.map_some,Option.some.injEq,Prod.mk.injEq,exists_and_left,
       exists_eq_left,exists_eq_left',he, and_assoc]
-#print axioms worldRLog_event_eq
 end ClaudeWCT.W9.T3.Security.WPair.Paired.Counted
 
 namespace ClaudeWCT.W9.T3.Security.WPair.Paired.Counted
@@ -5537,7 +5503,6 @@ theorem fixed_le_worldRLog :
   refine le_trans (le_of_eq ?_) (offline_log_event_le adversary q T P hmono)
   rw [← hcount,probEvent_map]
   rfl
-#print axioms fixed_le_worldRLog
 end ClaudeWCT.W9.T3.Security.WPair.Paired.Counted
 
 namespace ClaudeWCT.W9.T3.Security.WPair.Paired.Counted
@@ -5610,7 +5575,6 @@ variable (adversary : AdversaryP) (budget : Nat)
     (mul_le_mul' le_rfl (world_public_payment_le_reference hU omega adversary budget))
 
 
-#print axioms world_event_le_other
 end ClaudeWCT.W9.T3.Security.WPair.Paired.Counted
 
 namespace ClaudeWCT.W9.T3.Security.WPair.Paired.Counted
@@ -5716,7 +5680,6 @@ theorem referenceOther_eq (adversary : AdversaryP) (q : Nat) :
       (liftM (Wots.PairedReference.referenceComp adversary q) : PMF RefSample) := rfl
   exact (congrArg (fun mu : PMF RefSample => ∑' s,mu s*(Wots.PairedReference.otherCount s : ENNReal)) hd).trans
     (lift_expect (Wots.PairedReference.referenceComp adversary q) (fun s=>(Wots.PairedReference.otherCount s : ENNReal)))
-#print axioms referenceOther_eq
 
 theorem worldOther_eq (adversary : AdversaryP) (q : Nat)
     (omega : CanonTable.Omega (Wots.PairedReference.referenceInputs adversary)) :
@@ -5728,7 +5691,6 @@ theorem worldOther_eq (adversary : AdversaryP) (q : Nat)
   intro g
   unfold sampleRun
   rw [tsum_probOutput_map_mul]
-#print axioms worldOther_eq
 
 theorem referenceOther_avg (adversary : AdversaryP) (q : Nat) :
     referenceOther adversary q = ∑' omega,
@@ -5739,9 +5701,6 @@ theorem referenceOther_avg (adversary : AdversaryP) (q : Nat) :
   apply tsum_congr
   intro omega
   rw [worldOther_eq]
-#print axioms referenceComp_tableAverage
-#print axioms tableAverage_expect
-#print axioms referenceOther_avg
 end ClaudeWCT.W9.T3.Security.WPair.Paired.Counted
 
 namespace ClaudeWCT.W9.T3.Security.WPair.Paired.Counted
@@ -5856,7 +5815,6 @@ theorem completed_event_le_other
       obtain ⟨value,remaining,hr,hP⟩ := he
       exact ⟨value,remaining,hr,hno _ _ _ hP,hguess _ _ _ hP⟩)
   simpa only [worldOther,probOutput_uniformSample] using hw
-#print axioms completed_event_le_other
 end ClaudeWCT.W9.T3.Security.WPair.Paired.Counted
 
 namespace ClaudeWCT.W9.T3.Security.WPair.Paired.Counted
@@ -5886,7 +5844,6 @@ theorem referenceOther_le (adversary : AdversaryP) (q : Nat) : referenceOther ad
 
 theorem referenceOther_ne_top (adversary : AdversaryP) (q : Nat) : referenceOther adversary q≠⊤ :=
   ne_top_of_le_ne_top (by simp) (referenceOther_le adversary q)
-#print axioms referenceOther_le
 end ClaudeWCT.W9.T3.Security.WPair.Paired.Counted
 
 namespace ClaudeWCT.W9.T3.Security.PairedBankLink
@@ -6002,7 +5959,6 @@ theorem full_potential
           SigGolfCandidate.Research.SharedForest.Signature.rho hinv halive entry hentry signature hsig A hA counter out' hs',h1,h2,h3⟩
   exact S.potential_win q b.2 halive hcount (Or.inr ⟨N,htarget,hadm,hcov⟩)
 end GenericPotential
-#print axioms full_potential
 end ClaudeWCT.W9.T3.Security.PairedBankLink
 
 namespace ClaudeWCT.W9.T3.Security.PairedBankLink
@@ -6118,5 +6074,4 @@ theorem full_target_covered
           SigGolfCandidate.Research.SharedForest.Signature.rho hinv halive entry hentry signature hsig A hA counter out' hs',h1,h2,h3⟩
   exact ⟨halive,htarget,hcov⟩
 end GenericPotential
-#print axioms full_target_covered
 end ClaudeWCT.W9.T3.Security.PairedBankLink

@@ -2,7 +2,7 @@ import SigGolfCandidate.T3M_Keygen_PackedBlocks
 
 namespace SigGolfCandidate.T3M.Keygen
 open RiscvZkvm.Rv64 SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv SigGolfCandidate.Rv
-def seg_0 : List (BitVec 32) := [659,0x8000e93,134967,963331,9352067,7286819,8336419,0x9000e93,134967,34541331,963331,9352067,7286819,8336419,134967,34551843,34552867,1043,1171,56626451,53480851,3987,133943,0x460b0b13,327991,2323]
+def seg_0 : List (BitVec 32) := [659,0x8000e93,134967,963331,9352067,7286819,8336419,0x9000e93,134967,34541331,963331,9352067,7286819,8336419,134967,34551843,34552867,1043,1171,0x3300d13,53480851,3987,133943,0x460b0b13,327991,2323]
 def seg_26 : List (BitVec 32) := [4919,40456803]
 def seg_28 : List (BitVec 32) := [138167,0xa00b8b93,6882227,4428691,2329779,465567983]
 def seg_34 : List (BitVec 32) := [1640723,0xfddff06f]
@@ -87,6 +87,10 @@ def sub27K : List (BitVec 32) := [33171,17371923,538141459,50601747,31679283,202
 def sub42K : List (BitVec 32) := [1672851,2021654767]
 def sub44K : List (BitVec 32) := [113246319,17044243,34479891,31679283,1270547,295827,34152211,31712179,134711,7223331,8272931,132407,67110291,132663,67503635]
 def sub75K : List (BitVec 32) := [2063597679]
+/-- Campaign T51 (endpad top leaf): offsets 80..82 (words 197..199) compute the leaf slot `16 (i + [i ≠ 0])`:
+`sltu t5, zero, s3; add t3, s3, t5; slli t3, t3, 4` (the sign keeps `sub_80`, `sub_82`). -/
+def sub80K : List (BitVec 32) := [0x1303f33,0x1e98e33]
+def sub82K : List (BitVec 32) := [0x4e1e13]
 /-- Witness stack: offset 9 (the header block) ends its 10th word in `jal 689` (the G/F step block). -/
 def sub9K : List (BitVec 32) := [0x7340006f,21201843,33788691,17047315,31679283,269706003,134711,437128723,7223331,
   0x0a90006f,436536595,67110291,132663,486934035]
@@ -105,33 +109,35 @@ def sub157K : List (BitVec 32) := [0x7080006f,0xf59ff06f]
 def sub147K : List (BitVec 32) := [0x73c0006f,3018291,0x41d60eb3,17740547,26129283,7221283,8270883,19,1838099,0xf69ff06f]
 /-- Offsets where the keygen's leaf subroutine differs from `subL` (T8D: 27, 42, 44, 75; C4: 96, 106, 120, 140, 147). -/
 def kOwn (off : Nat) : Bool := off = 27 || off = 42 || off = 44 || off = 75 || off = 96 || off = 106 || off = 120 ||
-  off = 140 || off = 147 || off = 113 || off = 157 || off = 9
+  off = 140 || off = 147 || off = 113 || off = 157 || off = 9 || off = 80 || off = 82
 /-- The keygen copy of the leaf subroutine (offsets relative to 117). -/
 def kSubL : Rv.Layout := subL.map fun p =>
   if p.1 = 27 then (27, sub27K) else if p.1 = 42 then (42, sub42K) else if p.1 = 44 then (44, sub44K)
   else if p.1 = 75 then (75, sub75K) else if p.1 = 96 then (96, sub96K) else if p.1 = 106 then (106, sub106K)
   else if p.1 = 120 then (120, sub120K) else if p.1 = 140 then (140, sub140K) else if p.1 = 147 then (147, sub147K)
   else if p.1 = 113 then (113, sub113K) else if p.1 = 157 then (157, sub157K)
-  else if p.1 = 9 then (9, sub9K) else p
+  else if p.1 = 9 then (9, sub9K) else if p.1 = 80 then (80, sub80K) else if p.1 = 82 then (82, sub82K) else p
 theorem kSubL_ok : layoutOk 0 kSubL = true := by decide +kernel
 /-- COEFGEN (612..640): the 12 private pairs `privatePair 0 0 0 (12 leaf + j) 0` into the 24 coefficients at COEF. -/
-def coefgenCode : List (BitVec 32) := [0x650006f,0x600f13,65603379,34019091,1533715,3731,132407,15022115,343075,67110291,67438099,115,67449347,4993059,75837955,4994083,84226563,4995107,92615171,4996131,34343955,1052435,34545427,31917875,2002579,0x1400f13,4226717923,2451,32871]
+def coefgenCode : List (BitVec 32) := [0x650006f,0x600f13,65603379,34019091,1533715,3731,132407,15022115,343075,67110291,67438099,115,67449347,4993059,75837955,4994083,84226563,4995107,92615171,4996131,34343955,1052435,34545427,31917875,2002579,0x1000f13,4226717923,2451,32871]
 /-- HORN (642..682): `familyEval coefs a3` into CHAIN + 48. -/
 def hornCode : List (BitVec 32) := [0x3d0006f,1939,136503,0xc050513,136631,4278519059,2067,3091,531,1555,429715,2031379,985187,15222835,16534579,12730931,66576147,1447443,31876659,66543379,1546131,31975347,1513235,2023059,4228814563,1187603,32000051,2236179,32000051,7479059,32000051,4737075,343811,31999795,8732419,32262067,4172616419,134967,485439523,486489123,32871]
 /-- CAP (684..688): `s5 = maxDigit 0 s3` (4 below chain 51, else 7). -/
-def capCode : List (BitVec 32) := [4197011,53481235,2246690531,7342739,2220879983]
+def capCode : List (BitVec 32) := [0x500a93,0x1b00f13,2246690531,0x400a93,0x1480006f]
 /-- Top-bytes layer (opus-topbytes A): KINIT 721..723, KNEXT 724..726, KCHK 727..759 (node nonce loop), KOK
 760..769 (pad reset + the original node store, then `jal 272`). Words 689..720 are the opus-wstack G/F step block (`kgStepCode`). -/
-def kchkCode : List (BitVec 32) := [0x100a13,0x100693,0x851ff06f,0x1a5a13,0x168693,0x84dff06f,0xc00e13,0x9c68063,0x68713,0x200e13,0x80006f,0x200713,0x800e13,0x80006f,0x800713,0x4000e13,0x40ee0e33,0xfff00813,0x1c81833,0xb00e13,0x1c69663,0x7ff00813,0x2281813,0x6800893,0xe898b3,0x41d60f33,0x18f3f03,0x10f7f33,0x20f0663,0x20e37,0x220e3f03,0x1f0f13,0x11f7e63,0x23ee3023,0x20537,0x20050513,0x4000593,0x73,0xfcdff06f,0x20e37,0x220e3023,0x4c1e13,0x2e0e33,0x41d60eb3,0x10eb303,0x18eb383,0x6e3023,0x7e3423,0x83dff06f]
+def kchkCode : List (BitVec 32) := [0x100a13,0x100693,0x851ff06f,0x1a5a13,0x168693,0x84dff06f,0xc00e13,0x9c68063,0xffd68713,0x300e13,0x7c6ca63,0x71863,0x100713,0x80006f,0x800713,0x4000e13,0x40ee0e33,0xfff00813,0x1c81833,0xb00e13,0x1c69663,0xff00813,0x2881813,0x6800893,0xe898b3,0x41d60f33,0x18f3f03,0x10f7f33,0x20f0663,0x20e37,0x220e3f03,0x1f0f13,0x11f7e63,0x23ee3023,0x20537,0x20050513,0x4000593,0x73,0xfcdff06f,0x20e37,0x220e3023,0x4c1e13,0x2e0e33,0x41d60eb3,0x10eb303,0x18eb383,0x6e3023,0x7e3423,0x83dff06f]
 /-- img-v6: KTOP (1149..1168, top family coefficients: `s2 & 3 ≠ 0` returns; else first pair `(39 f + (f & 1)) / 2`,
 odd `f` copies the carry slot 39 to slot 0; `jal 618`) and KHORN (1169..1176: point `a3 += (s2 & 3) << 6`, 39
 coefficients, `jal 647`). -/
-def ktopCode : List (BitVec 32) := [0x397f13,0x40f1263,0x21c37,0x295f13,0x1f7e93,0x2700713,0x2ef0733,0x1d70733,0x175713,0x2071713,0x176713,0xe8c63,0x270c3203,0x4c3023,0x278c3203,0x4c3423,0x10c0c13,0xf70ff06f,0x993,0x8067,0x397f13,0x6f1f13,0x1e686b3,0x713,0x793,0x215b7,0x27058513,0xfbcff06f]
+def ktopCode : List (BitVec 32) := [0x397f13,0x40f1263,0x21c37,0x295f13,0x1f7e93,0x1f00713,0x2ef0733,0x1d70733,0x175713,0x2071713,0x176713,0xe8c63,0x1f0c3203,0x4c3023,0x1f8c3203,0x4c3423,0x10c0c13,0xf70ff06f,0x993,0x8067,0x397f13,0x6f1f13,0x1e686b3,0x713,0x793,0x215b7,0x1f058513,0xfbcff06f]
 /-- Witness stack (charge 86): the top G/F chain step block (689..720, entered by `jal 689` at 135). -/
-def kgStepCode : List (BitVec 32) := [0x6041263,0x19f313,0x393,0x4731c63,0x3400393,0x533c863,0x10e3303,0x46e3023,0x18e3303,0x46e3423,0x40e3823,0x40e3c23,0x60e3023,0x60e3423,0x30e0513,0x4000593,0x20e0613,0x300313,0x3300393,0x79c463,0x600313,0x6a1463,0x30e0613,0x73,0xf10ff06f,0x20e3023,0x20e3423,0xe0513,0x4000593,0x30e0613,0x73,0xef4ff06f]
+def kgStepCode : List (BitVec 32) := [0x6041263,0x19f313,0x393,0x4731c63,0x3400393,0x533c863,0x10e3303,0x46e3023,0x18e3303,0x46e3423,0x40e3823,0x40e3c23,0x60e3023,0x60e3423,0x30e0513,0x4000593,0x20e0613,0xfffa8313,0x3300393,0x99463,0xa8313,0x6a1463,0x30e0613,0x73,0xf10ff06f,0x20e3023,0x20e3423,0xe0513,0x4000593,0x30e0613,0x73,0xef4ff06f]
+/-- Campaign T51: CAP continuation (770..776, former NOPs): `i < 48 → 4`, `i < 50 → 6`, else `5`, then `j 193`. -/
+def capCont : List (BitVec 32) := [0x3000f13,0xefe9cc63,0x600a93,0x3200f13,0xefe9c663,0x500a93,0xee4ff06f]
 def seg_542 : List (BitVec 32) :=
   List.replicate 45 0x00000013 ++ packedHelper ++ coefgenCode ++ [0x00000013] ++ hornCode ++ [0x00000013] ++
-    capCode ++ kgStepCode ++ kchkCode ++ List.replicate 347 0x00000013
+    capCode ++ kgStepCode ++ kchkCode ++ capCont ++ List.replicate 340 0x00000013
 def mainL : Rv.Layout := [(0, seg_0), (26, seg_26), (28, seg_28), (34, seg_34), (36, seg_36), (39, seg_39), (48, seg_48), (50, seg_50), (51, seg_51), (52, seg_52), (64, seg_64), (65, seg_65), (81, seg_81), (84, seg_84), (113, seg_113), (114, seg_114), (116, seg_116), (117, layoutCode kSubL), (277, seg_277), (289, seg_289), (295, seg_295), (309, seg_309), (310, seg_310), (330, seg_330), (334, seg_334), (542, seg_542), (1117, maxDigitCode), (1121, revCode), (1149, ktopCode)]
 theorem mainL_ok : layoutOk 0 mainL = true := by decide +kernel
 abbrev image : Image := Images.keygenImage
@@ -203,9 +209,9 @@ theorem subAt_keygen : SubAt image 117 := by
   refine ⟨?_, Or.inl rfl, codeAt_max, codeAt_1121, rfl, rfl⟩
   intro off code hm hk
   simp only [kOwn, Bool.or_eq_false_iff, decide_eq_false_iff_not] at hk
-  obtain ⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨h27, h42⟩, h44⟩, h75⟩, h96⟩, h106⟩, h120⟩, h140⟩, h147⟩, h113⟩, h157⟩, h9⟩ := hk
+  obtain ⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨⟨h27, h42⟩, h44⟩, h75⟩, h96⟩, h106⟩, h120⟩, h140⟩, h147⟩, h113⟩, h157⟩, h9⟩, h80⟩, h82⟩ := hk
   have hp : (off, code) ∈ kSubL := List.mem_map.mpr ⟨(off, code), hm, by
-    simp [h27, h42, h44, h75, h96, h106, h120, h140, h147, h113, h157, h9]⟩
+    simp [h27, h42, h44, h75, h96, h106, h120, h140, h147, h113, h157, h9, h80, h82]⟩
   obtain ⟨i, hi⟩ := List.mem_iff_getElem?.mp hp
   exact codeAt_sublayout codeAt_kSubCode kSubL_ok hi
 /-- C4: a keygen-only segment of `kSubL` at `117 + off`. -/
@@ -277,12 +283,13 @@ theorem codeAt_sub_78 {image : Image} {b : Nat} (h : SubAt image b) :
 theorem codeAt_sub_79 {image : Image} {b : Nat} (h : SubAt image b) :
     CodeAt image (pcOf (b + 79)) sub_79 :=
   h.1 79 sub_79 (by decide +kernel) (by decide)
-theorem codeAt_sub_80 {image : Image} {b : Nat} (h : SubAt image b) :
-    CodeAt image (pcOf (b + 80)) sub_80 :=
-  h.1 80 sub_80 (by decide +kernel) (by decide)
-theorem codeAt_sub_82 {image : Image} {b : Nat} (h : SubAt image b) :
-    CodeAt image (pcOf (b + 82)) sub_82 :=
-  h.1 82 sub_82 (by decide +kernel) (by decide)
+/-- Campaign T51: the keygen's leaf-slot words (offsets 80..82). -/
+theorem codeAt_sub80K {image : Image} {b : Nat} (h : SubAt image b) :
+    CodeAt image (pcOf (b + 80)) sub80K :=
+  codeAt_kSub h (by decide +kernel)
+theorem codeAt_sub82K {image : Image} {b : Nat} (h : SubAt image b) :
+    CodeAt image (pcOf (b + 82)) sub82K :=
+  codeAt_kSub h (by decide +kernel)
 theorem codeAt_sub_83 {image : Image} {b : Nat} (h : SubAt image b) :
     CodeAt image (pcOf (b + 83)) sub_83 :=
   h.1 83 sub_83 (by decide +kernel) (by decide)
@@ -415,6 +422,8 @@ sym_block blk117_rev := symRun { noAlias := true } revCode (pcOf (117 + 1004)) 1
 sym_block blk1013_rev := symRun { noAlias := true } revCode (pcOf (1013 + 1004)) 100
 sym_block blk117_147 := symRun { noAlias := true } sub_147 (pcOf (117 + 147)) 100
 sym_block kblk_96 := symRun { noAlias := true } sub96K (pcOf (117 + 96)) 100
+sym_block kblk_80 := symRun { noAlias := true } sub80K (pcOf (117 + 80)) 100
+sym_block kblk_82 := symRun { noAlias := true } sub82K (pcOf (117 + 82)) 100
 sym_block kblk_106 := symRun { noAlias := true } sub106K (pcOf (117 + 106)) 100
 sym_block kblk_120 := symRun { noAlias := true } sub120K (pcOf (117 + 120)) 100
 sym_block kblk_140 := symRun { noAlias := true } sub140K (pcOf (117 + 140)) 100
@@ -732,6 +741,14 @@ theorem run_maxHigh {b : Nat} (hb : b = 117 ∨ b = 1013) :
   · exact max117High.trans (congrArg some (by kernel_rfl))
   · exact max1013High.trans (congrArg some (by kernel_rfl))
 /-! C4: the keygen-only runs (`b = 117` is forced by `SubAt`). -/
+def st_80K : SymState := kblk_80.res.st
+theorem run_80K : symRun { noAlias := true } sub80K (pcOf (117 + 80)) 100 =
+    some ⟨st_80K, .c (pcOf (117 + 82)), kblk_80.res.stop, kblk_80.res.steps, kblk_80.res.cycles⟩ :=
+  kblk_80.trans (congrArg some (by kernel_rfl))
+def st_82K : SymState := kblk_82.res.st
+theorem run_82K : symRun { noAlias := true } sub82K (pcOf (117 + 82)) 100 =
+    some ⟨st_82K, .c (pcOf (117 + 83)), kblk_82.res.stop, kblk_82.res.steps, kblk_82.res.cycles⟩ :=
+  kblk_82.trans (congrArg some (by kernel_rfl))
 def st_96K : SymState := kblk_96.res.st
 theorem run_96K : symRun { noAlias := true } sub96K (pcOf (117 + 96)) 100 =
     some ⟨st_96K, .c (pcOf (117 + 105)), kblk_96.res.stop, kblk_96.res.steps, kblk_96.res.cycles⟩ :=

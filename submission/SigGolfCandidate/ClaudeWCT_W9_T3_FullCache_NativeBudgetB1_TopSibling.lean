@@ -2,10 +2,11 @@ import SigGolfCandidate.ClaudeWCT_W9_T3_FullCache_NativeBudgetB1_TopFresh
 
 /-! # The brute-forced top-sibling field is uniform (r3-lean-topbytes, img-v6 expand excess moment)
 
-`topFieldV v = v.toNat / 2^109` (bits 109..127 of a level-11 node, the 19 bits the signature omits). For a fresh trial
-answer `a` of a height-11 node, the zero test (bits 98..108) and the field (bits 109..127) are disjoint windows of `a`,
-so (`expected_ok_field`) `E_a[ok ? φ(field) : b] = 2^-11·avgF φ + (1 − 2^-11)·b` and (`expected_field`)
-`E_a[φ(field)] = avgF φ`, with `avgF φ = Σ_{c<2^19} 2^-19 φ c`. -/
+Campaign T51: `topFieldV v = v.toNat / 2^112` (bits 112..127 of a level-11 node, the 16 bits expand brute-forces; the
+signature omits bits 104..127 and bits 104..111 are the zero bits). For a fresh trial answer `a` of a height-11 node,
+the zero test (bits 104..111) and the field (bits 112..127) are disjoint windows of `a`, so (`expected_ok_field`)
+`E_a[ok ? φ(field) : b] = 2^-8·avgF φ + (1 − 2^-8)·b` and (`expected_field`) `E_a[φ(field)] = avgF φ`, with
+`avgF φ = Σ_{c<2^16} 2^-16 φ c`. -/
 
 namespace ClaudeWCT.W9.T3.TopMoment
 open OracleComp OracleSpec OracleComp.EvalDist ENNReal Finset
@@ -14,41 +15,41 @@ set_option maxHeartbeats 1000000
 set_option maxRecDepth 10000
 attribute [local instance] Classical.propDecidable
 
-/-- The 19-bit omitted field of a level-11 node value. -/
-def topFieldV (v : Digest) : Nat := v.toNat / 2 ^ 109
+/-- The 16-bit brute-forced field of a level-11 node value (T51: bits 112..127). -/
+def topFieldV (v : Digest) : Nat := v.toNat / 2 ^ 112
 
-theorem topFieldV_lt (v : Digest) : topFieldV v < 2 ^ 19 := by
+theorem topFieldV_lt (v : Digest) : topFieldV v < 2 ^ 16 := by
   have hv := v.isLt
   unfold topFieldV
   rw [Nat.div_lt_iff_lt_mul (by positivity)]
   norm_num at hv ⊢
   omega
 
-/-- Uniform average of `φ` over the 2^19 field values. -/
-noncomputable def avgF (φ : Nat → ℝ≥0∞) : ℝ≥0∞ := ∑ c ∈ range (2 ^ 19), ((2 : ℝ≥0∞) ^ 19)⁻¹ * φ c
+/-- Uniform average of `φ` over the 2^16 field values. -/
+noncomputable def avgF (φ : Nat → ℝ≥0∞) : ℝ≥0∞ := ∑ c ∈ range (2 ^ 16), ((2 : ℝ≥0∞) ^ 16)⁻¹ * φ c
 
 theorem topFieldV_topVal (heap : Nat) (a : HashOutput) :
-    topFieldV (topVal heap a) = a.toNat / 2 ^ (topOff heap + 109) % 2 ^ 19 := by
+    topFieldV (topVal heap a) = a.toNat / 2 ^ (topOff heap + 112) % 2 ^ 16 := by
   unfold topFieldV
-  rw [topVal_toNat, show (2 : Nat) ^ 128 = 2 ^ 109 * 2 ^ 19 by norm_num, Nat.mod_mul_right_div_self,
+  rw [topVal_toNat, show (2 : Nat) ^ 128 = 2 ^ 112 * 2 ^ 16 by norm_num, Nat.mod_mul_right_div_self,
     Nat.div_div_eq_div_mul, ← pow_add]
 
 theorem window_split (y s c : Nat) :
-    (y / 2 ^ s % 2 ^ 11 = 0 ∧ y / 2 ^ (s + 11) % 2 ^ 19 = c) ↔ y / 2 ^ s % 2 ^ 30 = c * 2 ^ 11 := by
+    (y / 2 ^ s % 2 ^ 8 = 0 ∧ y / 2 ^ (s + 8) % 2 ^ 16 = c) ↔ y / 2 ^ s % 2 ^ 24 = c * 2 ^ 8 := by
   rw [pow_add, ← Nat.div_div_eq_div_mul]
   generalize y / 2 ^ s = x
-  have hm : x % 2 ^ 30 = x % 2 ^ 11 + 2 ^ 11 * (x / 2 ^ 11 % 2 ^ 19) := by
-    rw [show (2 : Nat) ^ 30 = 2 ^ 11 * 2 ^ 19 by norm_num, Nat.mod_mul]
-  have h1 := Nat.mod_lt x (show 0 < 2 ^ 11 by norm_num)
-  have h2 := Nat.mod_lt (x / 2 ^ 11) (show 0 < 2 ^ 19 by norm_num)
+  have hm : x % 2 ^ 24 = x % 2 ^ 8 + 2 ^ 8 * (x / 2 ^ 8 % 2 ^ 16) := by
+    rw [show (2 : Nat) ^ 24 = 2 ^ 8 * 2 ^ 16 by norm_num, Nat.mod_mul]
+  have h1 := Nat.mod_lt x (show 0 < 2 ^ 8 by norm_num)
+  have h2 := Nat.mod_lt (x / 2 ^ 8) (show 0 < 2 ^ 16 by norm_num)
   omega
 
 theorem ok_field_iff (heap : Nat) (a : HashOutput) (c : Nat) :
     (topZeroOk 11 (topVal heap a) = true ∧ topFieldV (topVal heap a) = c) ↔
-      a.toNat / 2 ^ (topOff heap + 98) % 2 ^ 30 = c * 2 ^ 11 := by
-  rw [topZeroOk_topVal_iff (by norm_num) (by norm_num), topFieldV_topVal,
-    show topOff heap + 109 = topOff heap + 98 + 11 by omega]
-  exact window_split a.toNat (topOff heap + 98) c
+      a.toNat / 2 ^ (topOff heap + 104) % 2 ^ 24 = c * 2 ^ 8 := by
+  rw [topZeroOk_topVal_iff (by norm_num) (by norm_num), topFieldV_topVal, show zeroStart 11 = 104 from rfl,
+    show topZeroBits 11 = 8 from rfl, show topOff heap + 112 = topOff heap + 104 + 8 by omega]
+  exact window_split a.toNat (topOff heap + 104) c
 
 theorem expected_finite_sum {α ι : Type} [DecidableEq ι] (law : ProbComp α) (s : Finset ι) (f : ι → α → ℝ≥0∞) :
     expectedValue law (fun a => ∑ i ∈ s, f i a) = ∑ i ∈ s, expectedValue law (f i) := by
@@ -71,9 +72,9 @@ theorem prob_not (P : HashOutput → Prop) :
 theorem expected_ok_field (heap : Nat) (φ : Nat → ℝ≥0∞) (b : ℝ≥0∞) :
     expectedValue ($ᵗ HashOutput : ProbComp HashOutput)
       (fun a => if topZeroOk 11 (topVal heap a) = true then φ (topFieldV (topVal heap a)) else b) =
-      ((2 : ℝ≥0∞) ^ 11)⁻¹ * avgF φ + (1 - ((2 : ℝ≥0∞) ^ 11)⁻¹) * b := by
+      ((2 : ℝ≥0∞) ^ 8)⁻¹ * avgF φ + (1 - ((2 : ℝ≥0∞) ^ 8)⁻¹) * b := by
   have hpt : (fun a : HashOutput => if topZeroOk 11 (topVal heap a) = true then φ (topFieldV (topVal heap a)) else b) =
-      fun a => (∑ c ∈ range (2 ^ 19), (if topZeroOk 11 (topVal heap a) = true ∧ topFieldV (topVal heap a) = c
+      fun a => (∑ c ∈ range (2 ^ 16), (if topZeroOk 11 (topVal heap a) = true ∧ topFieldV (topVal heap a) = c
           then 1 else 0) * φ c) + (if ¬ topZeroOk 11 (topVal heap a) = true then 1 else 0) * b := by
     funext a
     by_cases hok : topZeroOk 11 (topVal heap a) = true
@@ -85,30 +86,31 @@ theorem expected_ok_field (heap : Nat) (φ : Nat → ℝ≥0∞) (b : ℝ≥0∞
       · intro hn; exact absurd (mem_range.mpr (topFieldV_lt _)) hn
     · rw [if_neg hok, if_pos hok, one_mul]
       rw [Finset.sum_eq_zero (fun c _ => by rw [if_neg (fun h => hok h.1), zero_mul]), zero_add]
-  have hsum : ∑ c ∈ range (2 ^ 19), expectedValue ($ᵗ HashOutput : ProbComp HashOutput)
+  have hsum : ∑ c ∈ range (2 ^ 16), expectedValue ($ᵗ HashOutput : ProbComp HashOutput)
       (fun a => (if topZeroOk 11 (topVal heap a) = true ∧ topFieldV (topVal heap a) = c then 1 else 0) * φ c) =
-      ((2 : ℝ≥0∞) ^ 11)⁻¹ * avgF φ := by
+      ((2 : ℝ≥0∞) ^ 8)⁻¹ * avgF φ := by
     unfold avgF
     rw [Finset.mul_sum]
     refine Finset.sum_congr rfl (fun c hc => ?_)
     rw [expectedValue_mul_const, expectedValue_ite_one]
-    have hcl : c < 2 ^ 19 := mem_range.mp hc
+    have hcl : c < 2 ^ 16 := mem_range.mp hc
     have hp : Pr[fun a : HashOutput => topZeroOk 11 (topVal heap a) = true ∧ topFieldV (topVal heap a) = c |
-        ($ᵗ HashOutput : ProbComp HashOutput)] = ((2 : ℝ≥0∞) ^ 30)⁻¹ := by
+        ($ᵗ HashOutput : ProbComp HashOutput)] = ((2 : ℝ≥0∞) ^ 24)⁻¹ := by
       simp only [ok_field_iff heap _ c]
       exact prob_window _ _ _ (by have := topOff_add_le heap; omega) (by omega)
     rw [hp, ← mul_assoc, ← ENNReal.mul_inv (Or.inl (by simp)) (Or.inl (by simp)), ← pow_add]
   have hnot : expectedValue ($ᵗ HashOutput : ProbComp HashOutput)
       (fun a => (if ¬ topZeroOk 11 (topVal heap a) = true then 1 else 0) * b) =
-      (1 - ((2 : ℝ≥0∞) ^ 11)⁻¹) * b := by
+      (1 - ((2 : ℝ≥0∞) ^ 8)⁻¹) * b := by
     rw [expectedValue_mul_const, expectedValue_ite_one, prob_not, prob_topAccept (by norm_num) (by norm_num)]
+    rfl
   rw [hpt, expectedValue_add, expected_finite_sum, hsum, hnot]
 
 /-- **Kept trial** (fuel exhausted): the field is uniform. -/
 theorem expected_field (heap : Nat) (φ : Nat → ℝ≥0∞) :
     expectedValue ($ᵗ HashOutput : ProbComp HashOutput) (fun a => φ (topFieldV (topVal heap a))) = avgF φ := by
   have hpt : (fun a : HashOutput => φ (topFieldV (topVal heap a))) =
-      fun a => ∑ c ∈ range (2 ^ 19), (if topFieldV (topVal heap a) = c then 1 else 0) * φ c := by
+      fun a => ∑ c ∈ range (2 ^ 16), (if topFieldV (topVal heap a) = c then 1 else 0) * φ c := by
     funext a
     rw [Finset.sum_eq_single (topFieldV (topVal heap a))]
     · rw [if_pos rfl, one_mul]
@@ -119,7 +121,7 @@ theorem expected_field (heap : Nat) (φ : Nat → ℝ≥0∞) :
   refine Finset.sum_congr rfl (fun c hc => ?_)
   rw [expectedValue_mul_const, expectedValue_ite_one]
   have hp : Pr[fun a : HashOutput => topFieldV (topVal heap a) = c | ($ᵗ HashOutput : ProbComp HashOutput)] =
-      ((2 : ℝ≥0∞) ^ 19)⁻¹ := by
+      ((2 : ℝ≥0∞) ^ 16)⁻¹ := by
     simp only [topFieldV_topVal]
     exact prob_window _ _ _ (by have := topOff_add_le heap; omega) (mem_range.mp hc)
   rw [hp, mul_comm]
@@ -253,8 +255,7 @@ theorem topTrial_ne_23 (n m : Nat) (l r l' r' : Digest) : topTrial 2 n l r ≠ t
   exact top_tweak_ne (a := 2) (b := 3) (by omega) (by omega) (by omega) (by omega) (by omega)
     (SphincsSecurity.bytesLE_injective (h2.symm.trans h3))
 
-theorem topNonceCap_11 : topNonceCap 11 = 104 * 2 ^ 11 := by
-  unfold topNonceCap; rw [topZeroBits_eq (by norm_num) (by norm_num)]
+theorem topNonceCap_11 : topNonceCap 11 = 104 * 2 ^ 8 := rfl
 
 /-- The level-11 step on a shape-10 level list: the two root children (heaps 2, 3), as explicit binds. -/
 theorem topStepL_11 (levels : List (List Digest)) (hlen10 : (levels.getD 10 []).length = 4) :

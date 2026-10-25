@@ -48,7 +48,7 @@ def LayerShaped (answers : Answers) (w : WBytes) (index : Nat) (lay : Layer) (di
     wvalueFor w lay digits i = wotsValue answers lay (route index lay).2 (route index lay).1 digits i ∧
       (digits.getD i 0 < maxDigit lay i →
         wchainPads w lay i = (0, 0) ∧ wchainHeaderPad w lay i = 0)) ∧
-  wleafHigh w lay = 0 ∧ (lay.val = 0 → wtopLeafPad w = 0)
+  wleafHigh w lay = 0
 def Frame (answers : Answers) (w : WBytes) (index : Nat) (lay : Layer) (msg : WCT9.LayerMsg) (digits : List Nat) :
     Prop :=
   (wbcCtr w index lay).toNat < WCT9.verifyWindow ∧

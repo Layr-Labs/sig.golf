@@ -86,17 +86,6 @@ theorem large_closing_real (y : ℝ) (hlow : 329 / 2097152 ≤ y) :
   norm_num at hsq habs h700 h152 hy128 ⊢
   nlinarith
 end SigGolfResearch.Gate3Closing115
-#print axioms SigGolfResearch.Gate3Closing115.mean_bound
-#print axioms SigGolfResearch.Gate3Closing115.variance_excess
-#print axioms SigGolfResearch.Gate3Closing115.reuse_bound
-#print axioms SigGolfResearch.Gate3Closing115.prefix_rate
-#print axioms SigGolfResearch.Gate3Closing115.encoding_rate
-#print axioms SigGolfResearch.Gate3Closing115.small_excess_rate
-#print axioms SigGolfResearch.Gate3Closing115.near_rate
-#print axioms SigGolfResearch.Gate3Closing115.small_first_rate
-#print axioms SigGolfResearch.Gate3Closing115.pointwise_excess
-#print axioms SigGolfResearch.Gate3Closing115.small_closing_real
-#print axioms SigGolfResearch.Gate3Closing115.large_closing_real
 end
 section
 namespace SigGolfCandidate.T3.Security.SeccClosing

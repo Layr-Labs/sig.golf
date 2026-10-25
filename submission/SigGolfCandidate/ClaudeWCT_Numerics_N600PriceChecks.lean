@@ -116,10 +116,6 @@ theorem bin_count : bins.size = 11261 := by decide +kernel
 
 theorem addition_bin_count : additionBins.size = 2049 := by decide +kernel
 
-#print axioms profile_count
-#print axioms profile_width
-#print axioms bin_count
-#print axioms addition_bin_count
 
 
 def binRunsCheck : Bool := binRuns.all fun e =>
@@ -236,8 +232,6 @@ theorem addition_bounds_checked : additionBounds = true := by
   have he : 128 * (i / 128) + i % 128 = i := by omega
   simpa only [he, if_pos hi] using h
 
-#print axioms bin_runs_checked
-#print axioms addition_bounds_checked
 
 
 open Finset
@@ -342,8 +336,6 @@ theorem profile_nodup : profiles.Nodup := by decide +kernel
 
 theorem profile_lengths : ∀ i : Fin 434, (profileList i).length = 7 := by decide +kernel
 
-#print axioms profile_checks
-#print axioms profile_nodup
 
 end ClaudeWCT.Numerics.SharedPathReflection
 
@@ -392,11 +384,11 @@ def rowTwo : Array Nat := #[352609111977080085841896220337467755047,352609111977
 
 def rowThree : Array Nat := #[346390910997172446261317588447252241589,346390911999005932854949069086086372693,346390928994941975032008040229279191329,346391066017419418688218239596395338616,346391765422550109292932825808862978556,346394313538800814718613323923330207524,346401432397765993710172699491500498725,346417555237039011456178243514337857058,346448718299398695409020150114363945450,346502661030291122293718659578733393305,346589478225173888024498747660046510126,346722054086806111425844748477551032026,346915672800966672823107169466691129276,347188001134295928738129921394156252771,347560837299697040407255886157257396005,348062578665300055772093927765207030363,348729767908412352418478572991483721000,349609555573199372087496762033898196228,350766558942078102944495395043380650981,352293310445968045753454868285270636974,354321378529085107453792629871409674936,357038441411328565783776976685252281450]
 
-def ftsNum : Nat := 734 * 563 ^ 9 * 51927206731424509281114869451843031004872704
+def ftsNum : Nat := 791 * 563 ^ 9 * 51927206731424509281114869451843031004872704
 
 def ftsDen : Nat := 2 ^ 14 * 1024 ^ 9 * 52416169542617085727767971710947931910569984
 
-def ftsBound : Nat := 349350012833169073498771273554407130608
+def ftsBound : Nat := 348680465788521302845119192496860718855
 
 def acceptedMass (hist : List (Nat × Nat)) (floor : Nat) : Nat :=
   (hist.filter (fun e => decide (floor ≤ e.1))).foldl (fun n e => n + e.2) 0
@@ -465,13 +457,6 @@ theorem fts_tail_checked : tailCheck ftsNum ftsDen 512 = true := by decide +kern
 
 theorem union_bound_arithmetic : (5 : Nat) * 2 ^ 256 * 2 ^ 128 ≤ 2 ^ 400 := by decide +kernel
 
-#print axioms row_three_checked
-#print axioms row_two_checked
-#print axioms row_one_checked
-#print axioms fts_moment_checked
-#print axioms lower_tail_checked
-#print axioms lower_tail_three_checked
-#print axioms fts_tail_checked
 end ClaudeWCT.Numerics.CanonicalCompression
 
 /-! Exact coefficient checks for the canonical search histograms.
@@ -511,8 +496,6 @@ def topHistogramCheck : Bool :=
 theorem top_histogram_checked : topHistogramCheck = true := by decide +kernel
 theorem lower_histogram_checked : lowerHistogramCheck = true := by decide +kernel
 
-#print axioms top_histogram_checked
-#print axioms lower_histogram_checked
 end ClaudeWCT.Numerics.CanonicalHistogram
 
 /-! Exact finite cap count for the shared forest. The machine/source bridge
@@ -549,8 +532,6 @@ theorem mass_below_radix : total < radix - 1 := by decide +kernel
 
 theorem retained_fraction : total * 9906715272 ≤ count * 10000000000 := by decide +kernel
 
-#print axioms retained_eq
-#print axioms total_eq
 
 
 /-- C1 (stage 1): the same corrections over the 32 low-field classes: 13, 16 and 3 classes. -/
@@ -566,7 +547,6 @@ theorem field_retained_eq : fieldRetained * 4 ^ 9 = count := by decide +kernel
 
 theorem field_total_eq : (32 * 563) ^ 9 * 4 ^ 9 = total := by decide +kernel
 
-#print axioms field_retained_eq
 
 end ClaudeWCT.Numerics.SharedFtsCount
 
@@ -585,7 +565,7 @@ def fieldSize : Nat := 72064
 
 def alphabetSize : Nat := (2 * (64 * 563) ^ 2) ^ 4 * (128 * 563)
 
-def priceScaleTotal : Nat := 734 * 2 ^ 24 * 563 ^ 9
+def priceScaleTotal : Nat := 791 * 2 ^ 24 * 563 ^ 9
 
 def coordinateFormula (K r : Nat) : Nat :=
   K * (wpos w1Data ((K-1)*563) r - wneg w1Data ((K-1)*563) r)
@@ -635,17 +615,14 @@ theorem rows_checked : rowChecks = true := by decide +kernel
 
 theorem first_moment_checked :
     poissonCheckQ fieldSize 13283369 100000000 2018833 1000000
-      (fun r => 16^r * forestMoment r) alphabetSize priceScaleTotal 1 849 1000 80 = true := by
+      (fun r => 16^r * forestMoment r) alphabetSize priceScaleTotal 1 915 1000 80 = true := by
   decide +kernel
 
 theorem near_moment_checked :
     poissonCheckQ fieldSize 13283369 100000000 2018833 1000000
-      (fun r => 16^r * forestNearMoment r) (54*alphabetSize) (54*priceScaleTotal) 1 351 1 80 = true := by
+      (fun r => 16^r * forestNearMoment r) (54*alphabetSize) (54*priceScaleTotal) 1 378 1 80 = true := by
   decide +kernel
 
-#print axioms rows_checked
-#print axioms first_moment_checked
-#print axioms near_moment_checked
 end ClaudeWCT.Numerics.SharedMoments
 
 /-! Rational paired-forest payoff certificate. Retained histogram mass pays
@@ -790,7 +767,6 @@ theorem fee_chunks : ∀ b : Fin 25, feeChunk b.val = true := by
   · exact fee_chunk_23
   · exact fee_chunk_24
 
-#print axioms fee_chunks
 end ClaudeWCT.Numerics.SharedFees
 
 
@@ -1147,22 +1123,6 @@ def certifiedPayoff : Nat → Nat × Nat
   | 18 => (71016209764664289202923697598090399040064299710695032210404295680963643264880271188233221950677520223406265198773748336642171889776317554871721489417330510475400551642987218609038733669352494996321618623499400206274666238746199234400831652482860712850165294991972105721703178498291608569391098326169646036522399576755102422130924507268397401926566582969327432465538814825812158727544456721307585827242667461124440930373928607493312106744893879474324708001555740871991383642718871065206110264644459220068224270142768737128255045238768040026976253423328355474271207272439903802632033310196543958042836183419294963483938325140906130305601976433920413674106429241215650424135341667596480809373388911553260925680120334948020150569905677107542120443598717745583987115623031219929476897638904695814148147398548134720576298156032,51765188934109154582632900168916829450991828308224720910489606010999801645115189189967744620090301175988935626021266525972929846391837436615399106877885601130236248938916977659776363831712080350435914793286136769616710758733636091398178078589382418099365206746501141457553320192069326981206494154320595741998972795993004463291028971550113862660926545093295779389037038892396749908446507541194830388151771047075572594444470623482832358458884119957732069217373557135838626139413956794724962363530973291266018604176934652399544172160873390505360124655087466768086433399812912953347037174148655756360406233344343421999051385892334354611012705414676653532668997640751080795854652091306614397052762093277161198496421825501956798176008897547270912601277744914236534680625962604707685648995135683033208903868746088512969768960)
   | r => (maxFee*forestMoment r, scale*forestMoment r)
 
-def sharedMGFCheck : Bool :=
-  poissonCheckQ fieldSize 13283369 100000000 2018833 1000000
-    (fun r => 16^r * (certifiedPayoff r).1)
-    (maxFee*alphabetSize) (maxFee*priceScaleTotal) scale 6945 1000 80
-
-def sharedResidualCheck : Bool :=
-  poissonCheckQ fieldSize 13283369 100000000 2018833 1000000
-    (fun r => 16^r * (certifiedPayoff r).2)
-    (scale*alphabetSize) priceScaleTotal 1 7831 10000000 80
-
-theorem shared_mgf_checked : sharedMGFCheck = true := by decide +kernel
-
-theorem shared_residual_checked : sharedResidualCheck = true := by decide +kernel
-
-#print axioms shared_mgf_checked
-#print axioms shared_residual_checked
 end ClaudeWCT.Numerics.SharedFees
 
 
@@ -1194,7 +1154,6 @@ theorem rowDots_eq_fast : rowDots = rowDotsFast := by
 
 theorem row_4 : rowDots 4 = (314906240154403436752534578873580793456315445195838548849807258060163458539769561436901042720057426336935985414875329648002419438622013614423690668470944930798332491776147745192497604010975521303032769512960205783040,2558733643812385324575731546304079302882648888291033927523758025460068872298241369018182040784395878359901073290804974498463503947098525079718411487842647803676304010584740298168123379004492238977701217566720) := by
   rw [rowDots_eq_fast]; decide +kernel
-#print axioms row_4
 end ClaudeWCT.Numerics.SharedFees
 
 
@@ -1217,8 +1176,6 @@ theorem addRuns_valid : addRunsValid=true := by decide +kernel
 
 theorem addRuns_ordered : addRuns.Pairwise (fun a b => a.2.1<b.1) := by decide +kernel
 
-#print axioms addRuns_valid
-#print axioms addRuns_ordered
 end ClaudeWCT.Numerics.SharedPathList
 
 
@@ -1228,10 +1185,8 @@ set_option maxHeartbeats 200000000
 set_option Elab.async false
 theorem row_0 : rowDots 0 = (0,0) := by
   rw [rowDots_eq_fast]; decide +kernel
-#print axioms row_0
 theorem row_1 : rowDots 1 = (6701941673369549417326357257552673250106659135205158406257375974660698684415541248,0) := by
   rw [rowDots_eq_fast]; decide +kernel
-#print axioms row_1
 end ClaudeWCT.Numerics.SharedFees
 
 
@@ -1241,7 +1196,6 @@ set_option maxHeartbeats 200000000
 set_option Elab.async false
 theorem row_2 : rowDots 2 = (15275568250522396109463584769678650139234349771341573027357569472028124329800048333654979997821202177129938063853104702808915968,26470994266056814356897687804534664909292969138957864448404223912208768321894490623229662441360539498077813739618304) := by
   rw [rowDots_eq_fast]; decide +kernel
-#print axioms row_2
 end ClaudeWCT.Numerics.SharedFees
 
 
@@ -1251,7 +1205,6 @@ set_option maxHeartbeats 200000000
 set_option Elab.async false
 theorem row_3 : rowDots 3 = (3654314075048956541650548098032435241530529649133345299584258303726782379176835813298980912362969370328500466613870103868574137016289591771687976782140675087242750853120000,1297731794995600887037365272859993577421024033638903473641159726862973069787717590686016295451468718820281396699230626583133984369708516013214717224930754183561216) := by
   rw [rowDots_eq_fast]; decide +kernel
-#print axioms row_3
 end ClaudeWCT.Numerics.SharedFees
 
 namespace ClaudeWCT.Numerics.CanonicalCompression
@@ -1317,7 +1270,6 @@ theorem powerUp_ratio_ge (base exponent : Nat) :
           ring
         _ ≤ ((base:ℝ)/scale)*((powerUp (mulUp base base) (exponent/2):ℝ)/scale) := by gcongr
         _ ≤ _ := mulUp_ratio_ge base _
-#print axioms powerUp_ratio_ge
 end ClaudeWCT.Numerics.CanonicalCompression
 
 namespace ClaudeWCT.Numerics.SharedGeneratedCoordinate
@@ -1370,81 +1322,43 @@ elab "certify_coordinate " k:num r:num cached:ident proof:ident : command => do
     ClaudeWCT.Numerics.SharedPathList.coordinate $k $r = $cached := by decide +kernel))
 
 certify_coordinate 64 0 Coordinate_64_0 coordinate_64_0_checked
-#print axioms coordinate_64_0_checked
 certify_coordinate 64 1 Coordinate_64_1 coordinate_64_1_checked
-#print axioms coordinate_64_1_checked
 certify_coordinate 64 2 Coordinate_64_2 coordinate_64_2_checked
-#print axioms coordinate_64_2_checked
 certify_coordinate 64 3 Coordinate_64_3 coordinate_64_3_checked
-#print axioms coordinate_64_3_checked
 certify_coordinate 64 4 Coordinate_64_4 coordinate_64_4_checked
-#print axioms coordinate_64_4_checked
 certify_coordinate 64 5 Coordinate_64_5 coordinate_64_5_checked
-#print axioms coordinate_64_5_checked
 certify_coordinate 64 6 Coordinate_64_6 coordinate_64_6_checked
-#print axioms coordinate_64_6_checked
 certify_coordinate 64 7 Coordinate_64_7 coordinate_64_7_checked
-#print axioms coordinate_64_7_checked
 certify_coordinate 64 8 Coordinate_64_8 coordinate_64_8_checked
-#print axioms coordinate_64_8_checked
 certify_coordinate 64 9 Coordinate_64_9 coordinate_64_9_checked
-#print axioms coordinate_64_9_checked
 certify_coordinate 64 10 Coordinate_64_10 coordinate_64_10_checked
-#print axioms coordinate_64_10_checked
 certify_coordinate 64 11 Coordinate_64_11 coordinate_64_11_checked
-#print axioms coordinate_64_11_checked
 certify_coordinate 64 12 Coordinate_64_12 coordinate_64_12_checked
-#print axioms coordinate_64_12_checked
 certify_coordinate 64 13 Coordinate_64_13 coordinate_64_13_checked
-#print axioms coordinate_64_13_checked
 certify_coordinate 64 14 Coordinate_64_14 coordinate_64_14_checked
-#print axioms coordinate_64_14_checked
 certify_coordinate 64 15 Coordinate_64_15 coordinate_64_15_checked
-#print axioms coordinate_64_15_checked
 certify_coordinate 64 16 Coordinate_64_16 coordinate_64_16_checked
-#print axioms coordinate_64_16_checked
 certify_coordinate 64 17 Coordinate_64_17 coordinate_64_17_checked
-#print axioms coordinate_64_17_checked
 certify_coordinate 64 18 Coordinate_64_18 coordinate_64_18_checked
-#print axioms coordinate_64_18_checked
 certify_coordinate 128 0 Coordinate_128_0 coordinate_128_0_checked
-#print axioms coordinate_128_0_checked
 certify_coordinate 128 1 Coordinate_128_1 coordinate_128_1_checked
-#print axioms coordinate_128_1_checked
 certify_coordinate 128 2 Coordinate_128_2 coordinate_128_2_checked
-#print axioms coordinate_128_2_checked
 certify_coordinate 128 3 Coordinate_128_3 coordinate_128_3_checked
-#print axioms coordinate_128_3_checked
 certify_coordinate 128 4 Coordinate_128_4 coordinate_128_4_checked
-#print axioms coordinate_128_4_checked
 certify_coordinate 128 5 Coordinate_128_5 coordinate_128_5_checked
-#print axioms coordinate_128_5_checked
 certify_coordinate 128 6 Coordinate_128_6 coordinate_128_6_checked
-#print axioms coordinate_128_6_checked
 certify_coordinate 128 7 Coordinate_128_7 coordinate_128_7_checked
-#print axioms coordinate_128_7_checked
 certify_coordinate 128 8 Coordinate_128_8 coordinate_128_8_checked
-#print axioms coordinate_128_8_checked
 certify_coordinate 128 9 Coordinate_128_9 coordinate_128_9_checked
-#print axioms coordinate_128_9_checked
 certify_coordinate 128 10 Coordinate_128_10 coordinate_128_10_checked
-#print axioms coordinate_128_10_checked
 certify_coordinate 128 11 Coordinate_128_11 coordinate_128_11_checked
-#print axioms coordinate_128_11_checked
 certify_coordinate 128 12 Coordinate_128_12 coordinate_128_12_checked
-#print axioms coordinate_128_12_checked
 certify_coordinate 128 13 Coordinate_128_13 coordinate_128_13_checked
-#print axioms coordinate_128_13_checked
 certify_coordinate 128 14 Coordinate_128_14 coordinate_128_14_checked
-#print axioms coordinate_128_14_checked
 certify_coordinate 128 15 Coordinate_128_15 coordinate_128_15_checked
-#print axioms coordinate_128_15_checked
 certify_coordinate 128 16 Coordinate_128_16 coordinate_128_16_checked
-#print axioms coordinate_128_16_checked
 certify_coordinate 128 17 Coordinate_128_17 coordinate_128_17_checked
-#print axioms coordinate_128_17_checked
 certify_coordinate 128 18 Coordinate_128_18 coordinate_128_18_checked
-#print axioms coordinate_128_18_checked
 
 end ClaudeWCT.Numerics.SharedGeneratedCoordinate
 

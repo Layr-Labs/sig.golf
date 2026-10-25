@@ -1786,7 +1786,6 @@ theorem real_to_ideal_lazy (checker : Checker Forgery) (adversary : AdversaryFor
   exact real_to_authenticated checker adversary q hq
 end ClaudeWCT.W9.T3.Security.PairedOuter.GameWith
 end
-#print axioms ClaudeWCT.W9.T3.Security.PairedOuter.GameWith.real_to_ideal_lazy
 
 namespace ClaudeWCT.W9.T3.Security.PairedOuter.GameWith
 open OracleComp OracleSpec OracleComp.EvalDist ENNReal
@@ -1960,7 +1959,6 @@ theorem known_public_hit_bound (checker : Checker Forgery) (reference : FirstHit
       exact hr (by simpa only [PMF.mem_support_iff] using hn)
     simp only [PMF.probOutput_eq_apply,hz,ite_self,le_refl]
 
-#print axioms real_to_clean_trace
 end Recorded
 end ClaudeWCT.W9.T3.Security.PairedOuter.GameWith
 
@@ -2073,5 +2071,4 @@ theorem securityP_of_clean_bound
         Pr[QueryRecorded.CleanWin q|tracedExperiment adversary q hs]+q/(2:ENNReal)^146+(2:ENNReal)⁻¹^700 :=
       le_add_of_nonneg_right (by positivity)
     exact add_le_add (add_le_add ha le_rfl) le_rfl
-#print axioms securityP_of_clean_bound
 end ClaudeWCT.W9.T3.Security.PairedOuter.PaddedGame

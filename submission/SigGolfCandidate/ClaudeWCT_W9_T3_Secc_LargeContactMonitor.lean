@@ -557,9 +557,6 @@ theorem monitorRun_calls_le (U : Finset HashInput) (A : Answers) (q : Nat) (publ
   simp only [chargeOf, List.map_append, List.sum_append] at h1 h2 ⊢
   omega
 
-#print axioms monitorRun_clear
-#print axioms monitorRun_known
-#print axioms monitorRun_calls_le
 end ClaudeWCT.W9.T3.Security.LargeCoupling.Paired
 
 namespace ClaudeWCT.W9.T3.Security.LargeCoupling.Paired

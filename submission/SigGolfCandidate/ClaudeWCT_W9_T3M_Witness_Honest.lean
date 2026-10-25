@@ -202,6 +202,8 @@ theorem topLayerP_dec (N : HashOutput) (w : WBytes) (answer : Digest) :
   unfold topLayerP verifyTopP topChainP topFinishP
   simp only [valueP_dec]
   simp only [padDecP, witDecP, Fin.val_zero, or_true, ↓reduceIte]
+  rfl
+
 theorem padDecP_bcHigh (N : HashOutput) (w : WBytes) (lay : Layer) :
     (padDecP N w).bcHigh lay ^^^ 1 = wbcHigh w (WCT9.digestIndex N) lay := by
   simp only [padDecP, BitVec.xor_assoc, BitVec.xor_self, BitVec.xor_zero]
@@ -713,7 +715,7 @@ theorem topPairBytes_F {lay : Layer} (ls : LayerSignature lay) (p : Nat) : topPa
   simp only [List.append_assoc]
 /-- Witness stack (charge 86): the paired top chain area (G chain `2p` at `+16`, F chain `2p+1` at `+40` of pair
 `p`, at `104 (26 - p)`). -/
-theorem topChain_window (ls : LayerSignature 0) (i : Nat) (hi : i < 54) (o : Nat) (ho : o + 16 ≤ 64) :
+theorem topChain_window (ls : LayerSignature 0) (i : Nat) (hi : i < 51) (o : Nat) (ho : o + 16 ≤ 64) :
     window (topChainBytes ls) (chainSlot 0 i + o) 16 = window (chainCell 0 ls i) o 16 := by
   unfold topChainBytes
   by_cases he : i % 2 = 0
@@ -737,6 +739,7 @@ theorem topChain_window (ls : LayerSignature 0) (i : Nat) (hi : i < 54) (o : Nat
         simp [zeros, bytesLE_length],
       show 2 * (i / 2) + 1 = i by omega]
     simp [chainCell, WCT9.isG_eq_false (Or.inr ⟨rfl, Or.inl (show i % 2 = 1 by omega)⟩)]
+
 theorem win_chain (N : HashOutput) (w : WCT9.Witness) (lay : Layer) (i : Fin (chainCount lay)) (o : Nat)
     (ho : o + 16 ≤ 64) :
     window (witList N w) (chainBlock lay i.val + o) 16 =
@@ -761,6 +764,7 @@ theorem win_chain (N : HashOutput) (w : WCT9.Witness) (lay : Layer) (i : Fin (ch
     rw [window_append_right _ _ _ _ (by rw [lowerPathBytes_length]; omega), lowerPathBytes_length,
       Nat.add_sub_cancel_left]
     exact lowerChain_window hl _ i.val hi43 o ho
+
 section t3
 variable (N : HashOutput) (w : WCT9.Witness)
 theorem wvalue_witEnc (lay : Layer) (i : Fin (chainCount lay)) :
@@ -1754,20 +1758,18 @@ theorem win_endpointBytes (sig : WCT9.Signature) (lay : Layer) (i : Fin (chainCo
     i.val (by simpa using i.isLt) 0 16 (by omega)
   simpa [endpointBytes, window_full _ _ (bytesLE_length _ _)] using h
 
+/-- Campaign T51 ("endpad"): every leaf buffer, the top one included, is `end0 | 0^16 | end1.. | 0^k`. -/
 theorem win_leafBufferBytes (sig : WCT9.Signature) (lay : Layer) (i : Fin (chainCount lay)) :
     window (leafBufferBytes sig lay)
-      (if lay = 0 then 32 + 16 * i.val else if i.val = 0 then 0 else 16 + 16 * i.val) 16 =
+      (if lay = 0 then (if i.val = 0 then 0 else 16 + 16 * i.val) else if i.val = 0 then 0 else 16 + 16 * i.val) 16 =
       bytesLE 16 ((sig.layers lay).values i) := by
   have hi := i.isLt
   have hc : 0 < chainCount lay := by fin_cases lay <;> decide
-  unfold leafBufferBytes
-  by_cases ht : lay = 0
-  · rw [if_pos ht, if_pos ht]
-    rw [window_append_right _ _ _ _ (by simp [zeros])]
-    simpa [zeros] using win_endpointBytes sig lay i
-  · rw [if_neg ht, if_neg ht]
-    have htlen : ((endpointBytes sig lay).take 16).length = 16 := by
-      rw [List.length_take, endpointBytes_length, Nat.min_eq_left (by omega)]
+  have htlen : ((endpointBytes sig lay).take 16).length = 16 := by
+    rw [List.length_take, endpointBytes_length, Nat.min_eq_left (by omega)]
+  have key : ∀ k : Nat, window ((endpointBytes sig lay).take 16 ++ zeros 16 ++ (endpointBytes sig lay).drop 16 ++
+      zeros k) (if i.val = 0 then 0 else 16 + 16 * i.val) 16 = bytesLE 16 ((sig.layers lay).values i) := by
+    intro k
     by_cases hz : i.val = 0
     · rw [if_pos hz]
       rw [window_append_left _ _ _ _ (by simp [htlen, zeros]),
@@ -1784,6 +1786,12 @@ theorem win_leafBufferBytes (sig : WCT9.Signature) (lay : Layer) (i : Fin (chain
       unfold window
       rw [List.drop_drop, show 16 + (16 + 16 * i.val - (16 + 16)) = 16 * i.val by omega]
       exact win_endpointBytes sig lay i
+  unfold leafBufferBytes
+  by_cases ht : lay = 0
+  · rw [if_pos ht, if_pos ht]
+    exact key 64
+  · rw [if_neg ht, if_neg ht]
+    exact key 16
 
 theorem win_leafBuffersBytes (sig : WCT9.Signature) (lay : Layer) (i : Fin (chainCount lay)) :
     window (leafBuffersBytes sig) (leafBufferSlot lay i.val - 18928) 16 =
@@ -1795,7 +1803,7 @@ theorem win_leafBuffersBytes (sig : WCT9.Signature) (lay : Layer) (i : Fin (chai
       (fun l => (leafBufferBytes sig l).length)).sum = leafBufferBase lay - 18928 := by
     simp only [leafBufferBytes_length]
     fin_cases lay <;> decide
-  let off := if lay = 0 then 32 + 16 * i.val else if i.val = 0 then 0 else 16 + 16 * i.val
+  let off := if lay = 0 then (if i.val = 0 then 0 else 16 + 16 * i.val) else if i.val = 0 then 0 else 16 + 16 * i.val
   have hb : off + 16 ≤ (leafBufferBytes sig lay).length := by
     rw [leafBufferBytes_length]
     fin_cases lay <;> norm_num [off, leafBufferLen, chainCount] at *
@@ -1810,6 +1818,7 @@ theorem win_leafBuffersBytes (sig : WCT9.Signature) (lay : Layer) (i : Fin (chai
     omega
   rw [hoff]
   exact h.trans (win_leafBufferBytes sig lay i)
+
 theorem win_leafBuffer (N : HashOutput) (w : WCT9.Witness) (lay : Layer) (o n : Nat) (h : o + n ≤ leafBufferLen lay) :
     window (witList N w) (leafBufferBase lay + o) n = window (leafBufferBytes w.signature lay) o n := by
   have hidx : 3 - lay.val < (List.finRange 4).reverse.length := by simp; omega
@@ -1831,24 +1840,17 @@ theorem win_leafBuffer (N : HashOutput) (w : WCT9.Witness) (lay : Layer) (o n : 
   rw [window_append_left _ _ _ _ (by rw [leafBuffersBytes_length]; omega),
     show leafBufferBase lay + o - (80 + 7584 + 11264) = leafBufferBase lay - 18928 + o by omega]
   exact key
-/-- C3 (FULL): the honest top leaf pad is zero. -/
-theorem wtopLeafPad_witEnc (N : HashOutput) (w : WCT9.Witness) : wtopLeafPad (witEnc N w) = 0 := by
-  unfold wtopLeafPad
-  rw [wdig_witEnc, show leafBufferBase 0 = leafBufferBase 0 + 0 from rfl,
-    win_leafBuffer N w 0 0 16 (by decide)]
-  unfold leafBufferBytes
-  rw [if_pos rfl, window_append_left _ _ _ _ (by simp [zeros]), window_zeros _ _ _ (by omega), readDigest_zeros]
 /-- C3 (FULL): the honest leaf tweak high words are zero. -/
 theorem wleafHigh_witEnc (N : HashOutput) (w : WCT9.Witness) (lay : Layer) : wleafHigh (witEnc N w) lay = 0 := by
   unfold wleafHigh
   rw [wdig_witEnc, win_leafBuffer N w lay 16 16 (by fin_cases lay <;> decide)]
   have hz : window (leafBufferBytes w.signature lay) 16 16 = zeros 16 := by
+    have hc : 1 ≤ chainCount lay := by fin_cases lay <;> decide
+    have htlen : ((endpointBytes w.signature lay).take 16).length = 16 := by
+      rw [List.length_take, endpointBytes_length]; omega
     unfold leafBufferBytes
     split
-    · rw [window_append_left _ _ _ _ (by simp [zeros]), window_zeros _ _ _ (by omega)]
-    · have hc : 1 ≤ chainCount lay := by fin_cases lay <;> decide
-      have htlen : ((endpointBytes w.signature lay).take 16).length = 16 := by
-        rw [List.length_take, endpointBytes_length]; omega
+    all_goals
       rw [window_append_left _ _ _ _ (by
           simp only [List.length_append, htlen, zeros, List.length_replicate, List.length_drop, endpointBytes_length]
           omega),
@@ -1856,6 +1858,7 @@ theorem wleafHigh_witEnc (N : HashOutput) (w : WCT9.Witness) (lay : Layer) : wle
         window_append_right _ _ _ _ (by rw [htlen]), htlen, window_zeros _ _ _ (by omega)]
   rw [hz, readDigest_zeros]
   decide
+
 theorem wbuffer_witEnc (N : HashOutput) (w : WCT9.Witness) (lay : Layer)
     (i : Fin (chainCount lay)) :
     wdig (witEnc N w) (leafBufferSlot lay i.val) = (w.signature.layers lay).values i := by
@@ -1867,6 +1870,12 @@ theorem wbuffer_witEnc (N : HashOutput) (w : WCT9.Witness) (lay : Layer)
   rw [window_append_left _ _ _ _ (by rw [leafBuffersBytes_length]; omega)]
   rw [show 80 + 7584 + 11264 = 18928 by decide,
     win_leafBuffersBytes, Correctness.readDigest_bytesLE]
+/-- Campaign T51 ("endpad"): the honest top leaf buffer starts with chain 0's signature value (#938: a zero pad). -/
+theorem wtopLeafPad_witEnc (N : HashOutput) (w : WCT9.Witness) :
+    wtopLeafPad (witEnc N w) = (w.signature.layers 0).values ⟨0, by decide⟩ := by
+  have h := wbuffer_witEnc N w 0 ⟨0, by decide⟩
+  unfold wtopLeafPad
+  simpa [leafBufferSlot] using h
 theorem padDecP_witEnc (N : HashOutput) (w : WCT9.Witness) : padDecP N (witEnc N w) = 0 := by
   unfold padDecP
   show Pads.mk _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ = Pads.mk _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
@@ -1896,9 +1905,9 @@ theorem padDecP_witEnc (N : HashOutput) (w : WCT9.Witness) : padDecP N (witEnc N
   · funext lay j; split
     · rename_i h; exact wmerkleHigh_witEnc N w lay j h
     · rfl
-  · exact wtopLeafPad_witEnc N w
   · funext lay; exact wleafHigh_witEnc N w lay
   · funext lay; rw [wbcHigh_witEnc N w lay]; decide
+
 end ClaudeWCT.W9.T3M
 end
 section
@@ -2262,8 +2271,6 @@ theorem wdig_hi_extract (x : WBytes) (off : Nat) :
   simp only [wdig, BitVec.getLsbD_extractLsb']
   simp [hi, show 64 + i < 128 by omega, show 8 * off + (64 + i) = 8 * (off + 8) + i by omega,
     show i < 8 * 8 by omega]
-#print axioms wdig_prefixEnc
-#print axioms wle32_prefixEnc
 end ClaudeWCT.W9.T3M.PairedReadout
 
 namespace ClaudeWCT.W9.T3M.PairedReadout
@@ -2310,11 +2317,6 @@ theorem wbcCtr_prefixEnc (p : List UInt8) (hp : p.length=7664) (N : HashOutput) 
     unfold merkleBlock
     omega)]
   exact wbcCtr_witEnc N w lay
-#print axioms wrho_prefixEnc
-#print axioms wdc_prefixEnc
-#print axioms wvalue_prefixEnc
-#print axioms wpath_prefixEnc
-#print axioms wbcCtr_prefixEnc
 end ClaudeWCT.W9.T3M.PairedReadout
 
 namespace ClaudeWCT.W9.T3M.PairedReadout
@@ -2434,10 +2436,6 @@ theorem wbcHigh3_countedPrefix (counter : BitVec 32) (byte : Nat→UInt8) (N : H
   rw [prefix_window_left _ (countedPrefix_length _ _) _ _ _ _ (by decide),countedPrefix_pad24]
   decide
 
-#print axioms wbuffer_prefixEnc
-#print axioms wbcPad_prefixEnc
-#print axioms wctr3_countedPrefix
-#print axioms wbcHigh3_countedPrefix
 end ClaudeWCT.W9.T3M.PairedReadout
 
 namespace ClaudeWCT.W9.T3M.Paired
@@ -2504,9 +2502,6 @@ theorem wpath_witEnc (output : HashOutput) (w : SigGolfCandidate.Research.Shared
       (slotByte (forestSlots output w.signature)) output (mainWitness w)
   · exact PairedReadout.wbcCtr_prefixEnc _ (forestBytes_length output w) output (mainWitness w) lay hl
 
-#print axioms wrho_witEnc
-#print axioms wvalueFor_witEnc
-#print axioms wbcCtr_witEnc
 end ClaudeWCT.W9.T3M.Paired
 
 namespace ClaudeWCT.W9.T3M.PairedReadout
@@ -2579,8 +2574,6 @@ theorem coreSlots_range5 (child : Fin 128) (count : Nat) (hc : count≤5)
   rcases hp with h | ⟨i,hi,rfl⟩
   · exact Or.inl h
   · exact Or.inr ⟨i,by omega,rfl⟩
-#print axioms coreSlots_range
-#print axioms coreSlots_functional
 end ClaudeWCT.W9.T3M.PairedReadout
 
 namespace ClaudeWCT.W9.T3M.PairedReadout
@@ -2719,7 +2712,6 @@ theorem SlotAt.functional {children : Fin 9→Fin 128} {counts : Fin 9→Nat} {s
     (hc : ∀k,counts k≤6) {a : Nat} {p q : Fin 9×Nat}
     (hp : SlotAt children counts sides a p) (hq : SlotAt children counts sides a q) : p=q :=
   SlotAt.functional_of_addr hc hp hq rfl
-#print axioms SlotAt.functional
 end ClaudeWCT.W9.T3M.PairedReadout
 
 namespace ClaudeWCT.W9.T3M.PairedReadout
@@ -2821,9 +2813,6 @@ theorem wpad3_countedPrefix (counter : BitVec 32) (slots : List (Nat×Digest))
   change BitVec.ofNat 96 (readLE (window _ 36 12))=0
   rw [prefix_window_left _ (countedPrefix_length _ _) _ _ _ _ (by decide),countedPrefix_pad3 counter slots hf]
   rfl
-#print axioms readSlot_at
-#print axioms countedPrefix_digest
-#print axioms wpad3_countedPrefix
 end ClaudeWCT.W9.T3M.PairedReadout
 
 namespace ClaudeWCT.W9.T3M.PairedReadout
@@ -2937,9 +2926,6 @@ theorem wpad3_paired (output : HashOutput) (witness : SharedForest.Witness) :
   rw [wbcPad_witEnc_base]
   exact wpad3_countedPrefix (witness.counters 3) (Paired.forestSlots output witness.signature)
     (fun p hp=>by have hh:=forestSlot_layout output witness.signature p hp;omega) output (Paired.mainWitness witness)
-#print axioms forestSlot_entry
-#print axioms wdig_paired_slot
-#print axioms wpad3_paired
 end ClaudeWCT.W9.T3M.PairedReadout
 
 namespace ClaudeWCT.W9.T3M.Paired
@@ -3019,12 +3005,6 @@ theorem wbcHigh_witEnc (output : HashOutput) (witness : SharedForest.Witness) (l
     -- (as `wbcPad_witEnc` does) instead of rewriting.
     exact (PairedReadout.wbcHigh_prefixEnc (forestBytes output witness) (forestBytes_length _ _) output
       (mainWitness witness) lay h).trans (ClaudeWCT.W9.T3M.wbcHigh_witEnc output (mainWitness witness) lay)
-#print axioms wchainValue_witEnc
-#print axioms wleafValue_witEnc
-#print axioms wsibling_witEnc
-#print axioms wtopOther_witEnc
-#print axioms wbcPad_witEnc
-#print axioms wbcHigh_witEnc
 end ClaudeWCT.W9.T3M.Paired
 
 /-! ### Top-bytes layer: read-back of the top node nonces (`Paired.witEncN`)
@@ -3305,9 +3285,6 @@ theorem expandN_nonce (answers : Answers) (message : Message) (pk : Digest)
     wrho (witEncN output w) = sig.rho := by
   obtain ⟨_,_,_,c,_,_,_,hw,_,_⟩ := expandN_selections answers message pk sig output w he
   rw [wrho_witEncN,hw,nonce_retained]
-#print axioms expandN_digest
-#print axioms expandB_some
-#print axioms expandN_nonce
 end ClaudeWCT.W9.T3M.Paired
 
 namespace ClaudeWCT.W9.T3M.PairedReadout
@@ -3343,7 +3320,6 @@ theorem word_prefixEnc_free (counter : BitVec 32) (slots : List (Nat×Digest))
   rw [prefix_window_left _ (countedPrefix_length _ _) _ _ _ _ hb,
     countedPrefix_freeWord counter slots off hb hn hf]
   rfl
-#print axioms word_prefixEnc_free
 end ClaudeWCT.W9.T3M.PairedReadout
 
 namespace ClaudeWCT.W9.T3M.PairedReadout
@@ -3386,8 +3362,6 @@ theorem extract_prefixEnc_free (counter : BitVec 32) (slots : List (Nat×Digest)
     countedPrefix_free counter slots off n hb hn hq hf]
   simp only[zeros,readLE_replicate_zero]
   rfl
-#print axioms countedPrefix_free
-#print axioms extract_prefixEnc_free
 end ClaudeWCT.W9.T3M.PairedReadout
 
 namespace ClaudeWCT.W9.T3M.PairedReadout
@@ -3420,7 +3394,6 @@ theorem SlotAt.free_local {children : Fin 9→Fin 128} {counts : Fin 9→Nat} {s
       · unfold handSlot
         rw[if_neg he]
         cases sides l <;> simp only[↓reduceIte,Bool.false_eq_true] <;> unfold slotRegion <;> omega
-#print axioms SlotAt.free_local
 end ClaudeWCT.W9.T3M.PairedReadout
 
 namespace ClaudeWCT.W9.T3M.PairedReadout
@@ -3459,8 +3432,6 @@ theorem SlotAt.zero_fields {children : Fin 9→Fin 128} {counts : Fin 9→Nat} {
   have hh:=zeroFields_free (children k) q hq
   exact h.free_local hc k q.1 q.2 hh.1
     (fun p hp=>hh.2.2.2 p (coreSlots_subset _ _ (hc k) hp)) hh.2.1 hh.2.2.1
-#print axioms zeroLayoutOK_all
-#print axioms SlotAt.zero_fields
 end ClaudeWCT.W9.T3M.PairedReadout
 
 namespace ClaudeWCT.W9.T3M.PairedReadout
@@ -3521,10 +3492,6 @@ theorem chainPadC_witEnc (output : HashOutput) (witness : SharedForest.Witness)
   simpa only[V3.chainPadC,V3.chainOffset,W9Machine.wdig,ClaudeWCT.W9.T3M.wdig,Nat.add_assoc] using
     extract_witEnc_zero_field output witness k _ (chain_zero_fields _ i).2.2 (Or.inr (by simp only; omega))
 
-#print axioms extract_witEnc_zero_field
-#print axioms chainPadA_witEnc
-#print axioms chainPadB_witEnc
-#print axioms chainPadC_witEnc
 end ClaudeWCT.W9.T3M.PairedReadout
 
 namespace ClaudeWCT.W9.T3M.PairedReadout
@@ -3612,9 +3579,6 @@ theorem initialPair_witEnc (output : HashOutput) (witness : SharedForest.Witness
     SharedV3.initialPair (Paired.witEnc output witness)=(0,0) := by
   exact Prod.ext (initial_word_zero output witness 672 (by simp))
     (initial_word_zero output witness 160 (by simp))
-#print axioms nodePad_witEnc
-#print axioms nodeHPad_witEnc
-#print axioms initialPair_witEnc
 end ClaudeWCT.W9.T3M.PairedReadout
 
 namespace ClaudeWCT.W9.T3M.PairedReadout
@@ -3651,7 +3615,6 @@ theorem original_prefix_of_slots (output : HashOutput) (witness : SharedForest.W
     · exact Or.inr (Or.inr hc)
   unfold W9Machine.OrigW
   rw[hframe _ (by omega) hw,hzero off hb ha,show 4128+off-0x1020=off by omega,hz]
-#print axioms original_prefix_of_slots
 end ClaudeWCT.W9.T3M.PairedReadout
 
 namespace ClaudeWCT.W9.T3M.Paired
@@ -3678,7 +3641,6 @@ theorem counterWord_witEnc (output : HashOutput) (witness : SharedForest.Witness
     have hh0 : (0:BitVec 96).getLsbD (j-32)=false:=by simp
     rw[hh0] at hh
     simpa only [show 288+(j-32)=8*32+j by omega] using hh
-#print axioms counterWord_witEnc
 end ClaudeWCT.W9.T3M.Paired
 
 namespace ClaudeWCT.W9.T3M.PairedReadout
@@ -3694,7 +3656,6 @@ theorem word_prefixEnc (p : List UInt8) (hp : p.length=7664) (N : HashOutput) (w
     (W9Machine.wdig (ClaudeWCT.W9.T3M.witEnc N w) off).extractLsb' 0 64 at h
   rw[W9Machine.wdig_lo,W9Machine.wdig_lo] at h
   exact h
-#print axioms word_prefixEnc
 end ClaudeWCT.W9.T3M.PairedReadout
 
 namespace ClaudeWCT.W9.T3M.Paired
@@ -3707,7 +3668,6 @@ theorem word_witEnc_tail (output : HashOutput) (witness : SharedForest.Witness)
       (ClaudeWCT.W9.T3M.witEnc output (mainWitness witness)).extractLsb' (8*off) 64 := by
   rw [show (64:Nat)=8*8 from rfl, PairedReadout.witEnc_extract output witness off 8 hc]
   exact PairedReadout.word_prefixEnc _ (PairedReadout.countedPrefix_length _ _) _ _ off ho
-#print axioms word_witEnc_tail
 end ClaudeWCT.W9.T3M.Paired
 
 namespace ClaudeWCT.W9.T3M.PairedReadout
@@ -3730,7 +3690,6 @@ theorem original_prefix_restore (output : HashOutput) (witness : SharedForest.Wi
   · rw[hf.get (by omega) (by omega)]
     have h:=hs off hb ha he
     simpa only [W9Machine.OrigW,show 4128+off-0x1020=off by omega] using h
-#print axioms original_prefix_restore
 end ClaudeWCT.W9.T3M.PairedReadout
 
 namespace ClaudeWCT.W9.T3M.Paired

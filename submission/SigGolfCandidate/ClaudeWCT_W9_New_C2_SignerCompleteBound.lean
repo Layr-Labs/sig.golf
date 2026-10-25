@@ -185,8 +185,6 @@ theorem reference_event_le (adversary : ClaudeWCT.W9.T3M.Final.Paired.AdversaryP
       rfl
     rw[hp,probEvent_congr' (fun _ _ => Iff.rfl) hlaw]
 
-#print axioms outputs_eager
-#print axioms reference_event_le
 end ClaudeWCT.W9.T3.Security.Wots.PairedSearchTable
 
 namespace ClaudeWCT.W9.T3.Security.Wots.PairedSearchTable
@@ -220,7 +218,6 @@ theorem context_failure (adversary : ClaudeWCT.W9.T3M.Final.Paired.AdversaryP) (
       rw[ENNReal.ofReal_mul (by positivity)] at h
       simpa only [ENNReal.ofReal_pow (show 0≤(2:ℝ) by norm_num),ENNReal.ofReal_ofNat,ofReal_inv_two_pow] using h
 
-#print axioms context_failure
 end ClaudeWCT.W9.T3.Security.Wots.PairedSearchTable
 
 namespace ClaudeWCT.W9.T3.Security.Wots.PairedSearchTable
@@ -275,8 +272,6 @@ theorem completed_event_le (adversary : ClaudeWCT.W9.T3M.Final.Paired.AdversaryP
   rw[PairedReference.completed_eager_cut adversary q hq (fun _ A=>event A)]
   exact eager_event_le adversary event bad bound hbad hbound
 
-#print axioms eager_event_le
-#print axioms completed_event_le
 end ClaudeWCT.W9.T3.Security.Wots.PairedSearchTable
 
 namespace ClaudeWCT.W9.T3.Security.Wots.PairedSearchTable
@@ -316,7 +311,6 @@ theorem completed_signer_failure (adversary : ClaudeWCT.W9.T3M.Final.Paired.Adve
   · intro privateTable
     exact tableGoodForNonces_failure _
 
-#print axioms completed_signer_failure
 end ClaudeWCT.W9.T3.Security.Wots.PairedSearchTable
 
 namespace ClaudeWCT.W9.T3.Security.Wots.PairedSearchTable

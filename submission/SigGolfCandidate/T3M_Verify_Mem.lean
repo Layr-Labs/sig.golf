@@ -154,23 +154,29 @@ structure DataOK (s : MachineState) : Prop where
   header : ∀ lay, lay < 4 →
     s.getMem (BitVec.ofNat 64 (hdrAddr lay)) = BitVec.ofNat 64 (hyperBase lay)
   buffer3 : s.getMem (BitVec.ofNat 64 (TOPB9 + 56)) = 22288#64
+  /-- Campaign T51: the r6 field mask 0xFF00 (verify data word 16), read by the g0 bodies' `ld t4,-288(s1)`. -/
+  mask6 : s.getMem (BitVec.ofNat 64 (TOPB9 - 288)) = 65280#64
 theorem DataOK.prefix {s : MachineState} (h : DataOK s) (lay : Nat) (hl : lay < 4) :
     s.getMem (BitVec.ofNat 64 (hdrAddr lay)) = BitVec.ofNat 64 (hyperBase lay) :=
   h.header lay hl
 theorem hdrAddr_bounds (lay : Nat) : TOPBASE - 120 ≤ hdrAddr lay ∧ hdrAddr lay + 8 ≤ TOPBASE - 88 := by
   unfold hdrAddr TOPBASE; constructor <;> omega
 theorem DataOK.congr_top {s t : MachineState} (h : DataOK s)
-    (hm : ∀ A, TOPBASE - 240 ≤ A → A < TOPBASE →
+    (hm : ∀ A, TOPB9 - 288 ≤ A → A < TOPBASE →
       t.getMem (BitVec.ofNat 64 A) = s.getMem (BitVec.ofNat 64 A)) : DataOK t := by
+  have e1 : TOPB9 = 0xffbf10 := rfl
+  have e2 : TOPBASE = 0xffc000 := rfl
   constructor
-  · rw [hm _ (by unfold TOPBASE; omega) (by unfold TOPBASE; omega)]
+  · rw [hm _ (by omega) (by omega)]
     exact h.mask
   · intro lay hl
     have hb := hdrAddr_bounds lay
-    rw [hm _ (by unfold TOPBASE at *; omega) (by unfold TOPBASE at *; omega)]
+    rw [hm _ (by omega) (by omega)]
     exact h.header lay hl
-  · rw [hm _ (by unfold TOPBASE TOPB9; omega) (by unfold TOPBASE TOPB9; omega)]
+  · rw [hm _ (by omega) (by omega)]
     exact h.buffer3
+  · rw [hm _ (by omega) (by omega)]
+    exact h.mask6
 theorem DataOK.congr {s t : MachineState} (h : DataOK s)
     (hm : ∀ A, TAB ≤ A → A + 8 ≤ 2 ^ 24 →
       t.getMem (BitVec.ofNat 64 A) = s.getMem (BitVec.ofNat 64 A)) : DataOK t := by
@@ -183,6 +189,8 @@ theorem DataOK.congr {s t : MachineState} (h : DataOK s)
     exact h.header lay hl
   · rw [hm _ (by unfold TOPB9 TAB; omega) (by unfold TOPB9; omega)]
     exact h.buffer3
+  · rw [hm _ (by unfold TOPB9 TAB; omega) (by unfold TOPB9; omega)]
+    exact h.mask6
 def Glob (gk : List (Reg × Word)) (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (s : MachineState) : Prop :=
   (∀ p ∈ gk, s.getReg p.1 = p.2) ∧ WitHdr w s ∧ PkOK pk s ∧ PZero s ∧ PHalf s ∧ DataOK s
 def WitAll (w : ClaudeWCT.W9.T3M.WBytes) (s : MachineState) : Prop :=

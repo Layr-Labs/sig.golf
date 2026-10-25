@@ -24,8 +24,9 @@ open SphincsSecurity (bytesLE bytesLE_length)
 open SigGolfCandidate.T3M.Search (DIGITS NODE NOUT ENC csN4)
 set_option autoImplicit false
 theorem chainCount_ne0 : ∀ l : Layer, l ≠ 0 → chainCount l = 43 := by decide
-theorem chainCount_cases' (lay : Layer) : chainCount lay = 54 ∨ chainCount lay = 43 := by
+theorem chainCount_cases' (lay : Layer) : chainCount lay = 51 ∨ chainCount lay = 43 := by
   fin_cases lay <;> simp [chainCount]
+
 theorem height_le (lay : Layer) : height lay ≤ 12 := by
   fin_cases lay <;> simp [height]
 theorem csN4_le (lay : Layer) : csN4 lay ≤ chainCount lay := by
@@ -33,54 +34,48 @@ theorem csN4_le (lay : Layer) : csN4 lay ≤ chainCount lay := by
   · subst h; simp [chainCount]
   · omega
 theorem endpoint_eq (lay : Layer) (i : Nat) : maxDigit lay i = endpoint lay i (csN4 lay) := by
-  unfold maxDigit endpoint csN4
+  unfold maxDigit endpoint
   split_ifs <;> rfl
+
+/-- T51: the top leaf is `end_0 | tweak | end_1 .. end_50` (endpad), the same shape as a lower leaf. -/
 theorem leafInput_words' (lay : Layer) (tree leaf : Nat) (ends : List Digest) (hlen : ends.length = chainCount lay) :
     wordsOf (pad64 (T3.leafInput lay tree leaf ends)) =
-      (if lay = 0 then [0, 0] else wordsOf (bytesLE 16 (ends.getD 0 0))) ++
-        [T3.hyperWord lay.val (tree * 2 ^ height lay + leaf), 0] ++
-        wordsOf ((if lay = 0 then ends else ends.drop 1).flatMap (bytesLE 16)) := by
+      wordsOf (bytesLE 16 (ends.getD 0 0)) ++ [T3.hyperWord lay.val (tree * 2 ^ height lay + leaf), 0] ++
+        wordsOf ((ends.drop 1).flatMap (bytesLE 16)) := by
   unfold T3.leafInput T3.leafTweak
-  by_cases h0 : lay = 0
-  · have hn : chainCount lay = 54 := by rw [h0]; rfl
-    have hfl : (ends.flatMap (bytesLE 16)).length = 16 * 54 := by
-      rw [List.length_flatMap]; simp [bytesLE_length, hlen, hn]
-    rw [if_pos h0, if_pos h0, if_pos h0, pad64_of_aligned _ (by simp only [List.length_append, bytesLE_length, T3.zero16,
-      List.length_replicate, hfl]), wordsOf_append _ _ (by simp only [List.length_append, bytesLE_length, T3.zero16,
-      List.length_replicate] <;> omega), wordsOf_append _ _ (by simp only [T3.zero16, List.length_replicate] <;> omega),
-      wordsOf_zero16, wordsOf_bytesLE16, T3.append64_low, BitVec.extractLsb'_append_eq_left]
-    rfl
-  · have hn : chainCount lay = 43 := chainCount_ne0 lay h0
-    have hfl : ((ends.drop 1).flatMap (bytesLE 16)).length = 16 * 42 := by
-      rw [List.length_flatMap]; simp [bytesLE_length, hlen, hn]
-    rw [if_neg h0, if_neg h0, if_neg h0, pad64_of_aligned _ (by simp only [List.length_append, bytesLE_length, hfl]),
-      wordsOf_append _ _ (by simp only [List.length_append, bytesLE_length] <;> omega),
-      wordsOf_append _ _ (by simp only [bytesLE_length] <;> omega), wordsOf_bytesLE16 (_ ++ _),
-      T3.append64_low, BitVec.extractLsb'_append_eq_left]
-    rfl
+  rw [ite_self]
+  have hfl : ((ends.drop 1).flatMap (bytesLE 16)).length = 16 * (chainCount lay - 1) := by
+    rw [List.length_flatMap]; simp [bytesLE_length, hlen, Nat.mul_comm]
+  have hal : (bytesLE 16 (ends.getD 0 0) ++ bytesLE 16 (0#64 ++ T3.hyperWord lay.val (tree * 2 ^ height lay + leaf)) ++
+      (ends.drop 1).flatMap (bytesLE 16)).length % 64 = 0 := by
+    simp only [List.length_append, bytesLE_length, hfl]
+    rcases chainCount_cases' lay with h | h <;> rw [h]
+  rw [pad64_of_aligned _ hal,
+    wordsOf_append _ _ (by simp only [List.length_append, bytesLE_length] <;> omega),
+    wordsOf_append _ _ (by simp only [bytesLE_length] <;> omega), wordsOf_bytesLE16 (_ ++ _),
+    T3.append64_low, BitVec.extractLsb'_append_eq_left]
+  rfl
+
 def leafBlocks' (lay : Layer) : Nat := (16 * (chainCount lay + 1) + 63) / 64
 theorem leafInput_length' (lay : Layer) (tree leaf : Nat) (ends : List Digest) (hlen : ends.length = chainCount lay) :
     (pad64 (T3.leafInput lay tree leaf ends)).length = 64 * leafBlocks' lay := by
   unfold T3.leafInput leafBlocks'
-  by_cases h0 : lay = 0
-  · have hn : chainCount lay = 54 := by rw [h0]; rfl
-    have hfl : (ends.flatMap (bytesLE 16)).length = 16 * 54 := by
-      rw [List.length_flatMap]; simp [bytesLE_length, hlen, hn]
-    rw [if_pos h0, pad64_length]
-    simp only [List.length_append, bytesLE_length, T3.zero16, List.length_replicate, hfl, hn]
-  · have hn : chainCount lay = 43 := chainCount_ne0 lay h0
-    have hfl : ((ends.drop 1).flatMap (bytesLE 16)).length = 16 * 42 := by
-      rw [List.length_flatMap]; simp [bytesLE_length, hlen, hn]
-    rw [if_neg h0, pad64_length]
-    simp only [List.length_append, bytesLE_length, hfl, hn]
-theorem leafBlocks'_cases (lay : Layer) : leafBlocks' lay = 14 ∧ chainCount lay = 54 ∨
+  rw [ite_self]
+  have hfl : ((ends.drop 1).flatMap (bytesLE 16)).length = 16 * (chainCount lay - 1) := by
+    rw [List.length_flatMap]; simp [bytesLE_length, hlen, Nat.mul_comm]
+  rw [pad64_length]
+  simp only [List.length_append, bytesLE_length, hfl]
+  rcases chainCount_cases' lay with h | h <;> rw [h]
+
+theorem leafBlocks'_cases (lay : Layer) : leafBlocks' lay = 13 ∧ chainCount lay = 51 ∨
     leafBlocks' lay = 11 ∧ chainCount lay = 43 := by
   unfold leafBlocks'; rcases chainCount_cases' lay with h | h <;> rw [h] <;> simp
 def sideOff (leaf j : Nat) : Nat := if leaf / 2 ^ j % 2 = 1 then 0 else 48
 def RlScratch (A : Nat) : Prop :=
   A = CHAIN + 16 ∨ A = CHAIN + 24 ∨ (CHAIN + 32 ≤ A ∧ A < CHAIN + 112) ∨ (LEAFPK ≤ A ∧ A < LEAFPK + 896) ∨
   A = NODE ∨ A = NODE + 8 ∨ A = NODE + 16 ∨ A = NODE + 24 ∨ A = NODE + 48 ∨ A = NODE + 56 ∨
-  (NOUT ≤ A ∧ A < NOUT + 32) ∨ A = ENC ∨ A = ENC + 8 ∨ (0x66700 ≤ A ∧ A < 0x66760)
+  (NOUT ≤ A ∧ A < NOUT + 32) ∨ A = ENC ∨ A = ENC + 8 ∨ (0x66700 ≤ A ∧ A < 0x66760) ∨
+  (0xA0000 ≤ A ∧ A < 0xA0768)
 def RlWit (lay : Layer) (leaf WC WM : Nat) (A : Nat) : Prop :=
   (∃ i < chainCount lay, A = WC - 64 * i + 48 ∨ A = WC - 64 * i + 56) ∨
   (∃ j < height lay, A = WM - 64 * j + sideOff leaf j ∨ A = WM - 64 * j + sideOff leaf j + 8)
@@ -222,7 +217,7 @@ theorem frame_readWordsL {s t : MachineState} {W : Nat → Prop} (h : Frame s t 
       readWords_one, readWords_one, h.get (by omega) (hW m (by omega))]
 /-- img-v6 (topfold-v6): cycles of one top node below the root at level `j` (height `j + 1`): the node step with
 the nonce search, at most `topNonceCap (j + 1) - 1` failed trials of 22 cycles each. -/
-def topNodeW (j : Nat) : Nat := 120 + 22 * (T3.topNonceCap (j + 1) - 1)
+def topNodeW (j : Nat) : Nat := 123 + 22 * (T3.topNonceCap (j + 1) - 1)
 /-- Cycles of the node climb (img-v6: the hook 1139 adds 4 (lower) / 6 (top root) cycles per plain node, 81 total;
 the 11 top nodes below the root take `topNodeW`). -/
 def climbW (lay : Layer) : Nat :=
@@ -375,7 +370,7 @@ theorem rl_chains {s0 t1 : MachineState} {sig : Signature} {index : Nat} {lay : 
       have hidx := hpre.hidx
       dsimp [tree, leaf]
       fin_cases lay <;> norm_num [route, height] at * <;> omega)
-    (route_lt index lay) hi (by omega) (csN4_le lay) hpre.hP (by omega) hpre.hP8
+    (route_lt index lay) hi (by omega) (fun hl => by subst hl; simp [chainCount] at hi; omega) (csN4_le lay) hpre.hP (by omega) hpre.hP8
     (by have := hpre.hWC8; omega) (by omega) (by omega) hd (le_of_eq (endpoint_eq lay i.val).symm)
     ((sig.layers lay).values i) t hI.pc hc h26 h27 h16 h23 hv
     hdig
@@ -845,7 +840,7 @@ theorem rl_mk_stepN {tc : MachineState} {sig : Signature} {lay : Layer} {tree le
     · (simp only [hL, hR, hb, ↓reduceIte, hheap]) <;> rfl
   rw [hprog]
   refine (TBSim.steps (s1.trans (s2.trans (s3.trans s4))) (ne_tb_publicHash_bind (fetch_1138 (im := im) t4 p4) h5 hv hq'
-    (W := 29 + (22 * (topNonceCap (j + 1) - 1) + 20))
+    (W := 32 + (22 * (topNonceCap (j + 1) - 1) + 20))
     (fun a => (nonce_run (im := im) sk F p4 a).mono le_rfl (fun res w hw => ?_)))).mono
     (by rw [ne_topNodeInput_blocks] <;> unfold topNodeW <;> omega) (fun _ _ h => h)
   have fw : Frame t3 w (fun A => (A = NODE + 16 ∨ A = NODE + 24) ∨ NExitW j A) := f4.trans hw.frame
@@ -912,7 +907,7 @@ theorem recoverTop_tbsim {s0 : MachineState} {sig : Signature} {index : Nat} {la
   have hWMC := hpre.hWMC
   have hWM := hpre.hWM
   have hP0 := hpre.hP
-  obtain ⟨t1, st1, p1, x19, l16, l24, lz, r1, f1⟩ := rl997_spec (im := im) s0 hpre.pc lay tree leaf
+  obtain ⟨t1, st1, p1, x19, l16, l24, -, r1, f1⟩ := rl997_spec (im := im) s0 hpre.pc lay tree leaf
     (by have hidx := hpre.hidx; dsimp [tree, leaf]; fin_cases lay <;> norm_num [route, height] at * <;> omega)
     hpre.x8 hpre.x9 hpre.x18 hpre.x15
   have f1g : ∀ A, A < 2 ^ 64 → A ≠ LEAFPK → A ≠ LEAFPK + 8 → A ≠ LEAFPK + 16 → A ≠ LEAFPK + 24 →
@@ -952,37 +947,35 @@ theorem recoverTop_tbsim {s0 : MachineState} {sig : Signature} {index : Nat} {la
   have ru2 : RegsExcept u v2 [.x6, .x10, .x11, .x12] := (rv1.trans rv2).mono (by decide)
   have fs2 : Frame s0 v2 (fun A => ((A = LEAFPK ∨ A = LEAFPK + 8 ∨ A = LEAFPK + 16 ∨ A = LEAFPK + 24) ∨
       ChW lay WC ends.length A) ∨ False) := (f1.trans hC.frame).trans fu2
-  have hkeep : ∀ A, A < 2 ^ 64 → (A = LEAFPK ∨ A = LEAFPK + 8 ∨ A = LEAFPK + 16 ∨ A = LEAFPK + 24) →
-      v2.getMem (BitVec.ofNat 64 A) = t1.getMem (BitVec.ofNat 64 A) := by
-    intro A hA hA'
-    rw [fu2.get hA (by simp), hC.frame.get hA (not_ChW_hdr (by simp only [LEAFPK]; omega) (by
-      rcases hA' with h | h | h | h
-      · exact Or.inr (Or.inr ⟨htop, Or.inl h⟩)
-      · exact Or.inr (Or.inr ⟨htop, Or.inr h⟩)
-      · exact Or.inl h
-      · exact Or.inr (Or.inl h)) (by omega))]
+  have hhd16 : v2.getMem (BitVec.ofNat 64 (LEAFPK + 16)) = T3.hyperWord lay.val (tree * 2 ^ height lay + leaf) := by
+    rw [fu2.get (by decide) (by simp), hC.frame.get (by decide) (not_ChW_hdr (by simp only [LEAFPK]; omega)
+      (Or.inl rfl) (by omega)), l16]
+  have hhd24 : v2.getMem (BitVec.ofNat 64 (LEAFPK + 24)) = 0 := by
+    rw [fu2.get (by decide) (by simp), hC.frame.get (by decide) (not_ChW_hdr (by simp only [LEAFPK]; omega)
+      (Or.inr rfl) (by omega)), l24]
+  -- T51 endpad: `end_0 | tweak | end_1 .. end_50` (the top slots are the lower ones).
   have hw : v2.readWords (BitVec.ofNat 64 LEAFPK) (8 * leafBlocks' lay) =
       wordsOf (pad64 (T3.leafInput lay tree leaf ends)) := by
-    rw [leafInput_words' lay tree leaf ends hlen, if_pos htop, if_pos htop]
-    have hall : DigsAt v2 (LEAFPK + 32) ends := by
+    rw [leafInput_words' lay tree leaf ends hlen]
+    have h0 : DigAt v2 LEAFPK (ends.getD 0 0) := by
+      have := (hC.slots 0 (by omega)).frame fu2 (by simp only [slotOff]; decide) (by simp) (by simp)
+      simpa [slotOff] using this
+    have hrest : DigsAt v2 (LEAFPK + 32) (ends.drop 1) := by
       intro c hc
-      have := (hC.slots c (by omega)).frame fu2 (by unfold slotOff; simp only [LEAFPK]; split_ifs <;> omega)
+      simp only [List.length_drop] at hc
+      have := (hC.slots (c + 1) (by omega)).frame fu2 (by unfold slotOff; simp only [LEAFPK]; split_ifs <;> omega)
         (by simp) (by simp)
-      simp only [slotOff, if_pos htop] at this
-      rw [show LEAFPK + 32 + 16 * c = LEAFPK + (16 * c + 32) by ring]
-      exact this
+      simp only [slotOff, if_neg (show c + 1 ≠ 0 by omega)] at this
+      rw [show LEAFPK + 32 + 16 * c = LEAFPK + (16 * (c + 1) + 16) by ring]
+      simpa [List.getD_eq_getElem?_getD, List.getElem?_drop] using this
     have hhd : v2.readWords (BitVec.ofNat 64 (LEAFPK + 16)) 2 =
         [T3.hyperWord lay.val (tree * 2 ^ height lay + leaf), 0] := by
-      rw [readWords_two, hkeep _ (by decide) (Or.inr (Or.inr (Or.inl rfl))), show LEAFPK + 16 + 8 = LEAFPK + 24 from rfl,
-        hkeep _ (by decide) (Or.inr (Or.inr (Or.inr rfl))), l16, l24]
-    have hz : v2.readWords (BitVec.ofNat 64 LEAFPK) 2 = [0, 0] := by
-      rw [readWords_two, hkeep _ (by decide) (Or.inl rfl), hkeep _ (by decide) (Or.inr (Or.inl rfl)),
-        (lz htop).1, (lz htop).2]
-    have hb : 8 * leafBlocks' lay = 2 + (2 + 2 * ends.length) := by
-      rcases leafBlocks'_cases lay with ⟨hb, hn'⟩ | ⟨hb, hn'⟩ <;> simp only [hlen, hb, hn']
-      rw [htop] at hn'; exact absurd hn' (by decide)
-    rw [hb, readWords_add, readWords_add, hz, hhd, show LEAFPK + 8 * 2 + 8 * 2 = LEAFPK + 32 from rfl, hall.words,
-      List.append_assoc]
+      rw [readWords_two, hhd16, show LEAFPK + 16 + 8 = LEAFPK + 24 from rfl, hhd24]
+    have hb : 8 * leafBlocks' lay = 2 + (2 + 2 * (ends.drop 1).length) := by
+      have hn51 : chainCount lay = 51 := by rw [htop]; rfl
+      simp only [List.length_drop, hlen, leafBlocks', hn51]
+    rw [hb, readWords_add, readWords_add, h0.words, hhd, hrest.words]
+    simp only [List.append_assoc]
   have hl := leafInput_length' lay tree leaf ends hlen
   have hB : 1 ≤ leafBlocks' lay := by rcases leafBlocks'_cases lay with h | h <;> omega
   have h11' : v2.getReg .x11 = BitVec.ofNat 64 (64 * leafBlocks' lay) := by
@@ -1141,7 +1134,7 @@ theorem recoverTop_tbsim {s0 : MachineState} {sig : Signature} {index : Nat} {la
           (Or.inl h)))))))))))
       · exact Or.inr (Or.inr ⟨j', hj', h⟩)
       · exact Or.inl (Or.inr (Or.inr (Or.inr (Or.inr (Or.inr (Or.inr (Or.inr (Or.inr (Or.inr (Or.inr
-          (Or.inr (Or.inr (Or.inr h)))))))))))))
+          (Or.inr (Or.inr (Or.inr (Or.inl h))))))))))))))
     · exact hF2.elim
     · rcases hE with h | h
       · exact Or.inl (Or.inr (Or.inr (Or.inr (Or.inr (Or.inr (Or.inr (Or.inr (Or.inr (Or.inr (Or.inr

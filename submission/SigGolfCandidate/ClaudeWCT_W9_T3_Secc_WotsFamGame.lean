@@ -265,9 +265,6 @@ theorem depth_layF {a : ChainAddr} (ha : a.key.lay = F.lay) : depth T' a = depth
   rw [referenceSearch_layF hC hF ha]
 end Agree
 
-#print axioms famAlias_of_leafAlias
-#print axioms wotsTree_layF
-#print axioms depth_layF
 end ClaudeWCT.W9.T3.Security.Wots.FamRestart
 
 namespace ClaudeWCT.W9.T3.Security.Wots.CanonicalRef.FamGame
@@ -698,8 +695,4 @@ theorem referenceGame_fam (hC : FamCongr S (sourceMessages T) F T T') (htree : F
     (fun cache request => (authenticatedSign_famEq hC htree hF cache request).2) adversary q
 end Game
 
-#print axioms wotsTree_congrF
-#print axioms sourceMessages_congrF
-#print axioms searchPreparedLayers_famEq
-#print axioms referenceGame_fam
 end ClaudeWCT.W9.T3.Security.Wots.CanonicalRef.FamGame

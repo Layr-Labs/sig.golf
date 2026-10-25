@@ -430,9 +430,4 @@ theorem source_markerFirst_at_leF (S : FamScheme) (hgrp : ∀ lay, S.grp lay ≤
     (markerAt_stopLF S hgrp ha) hq
   simpa only [Restart.markerAt_take_exists] using h
 
-#print axioms fill_congrF
-#print axioms GDr_famF
-#print axioms source_contactAfterStop_leF
-#print axioms source_contactAfterStop_chargeF
-#print axioms source_markerFirst_at_leF
 end ClaudeWCT.W9.T3.Security.Wots.CanonicalRef.Normalized.FamRestart2

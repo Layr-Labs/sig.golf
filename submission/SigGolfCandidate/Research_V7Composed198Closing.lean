@@ -59,9 +59,6 @@ theorem large_closing_real_high (y : ℝ) (hlow : 1 / 128 ≤ y) :
   nlinarith
 end SigGolfCandidate.Research.V7Composed198Closing
 
-#print axioms SigGolfCandidate.Research.V7Composed198Closing.small_closing_real
-#print axioms SigGolfCandidate.Research.V7Composed198Closing.large_closing_real
-#print axioms SigGolfCandidate.Research.V7Composed198Closing.large_closing_real_high
 
 /-!
 # Paired lower-family scalar repair
@@ -119,9 +116,6 @@ theorem paired_large_closing_real (y : ℝ) (hlow : 2710/4194304 ≤ y) :
 all old monotone coefficient estimates remain available there. -/
 theorem paired_split_le_old : 2710*2^106 ≤ 2718*2^106 := by norm_num
 
-#print axioms paired_small_closing_real
-#print axioms paired_large_closing_real
-#print axioms old_split_fails_regrouped_closing
 end SigGolfCandidate.Research.V7Composed198Closing.AdjacentLeafResearch
 
 /-! Reverse-checksum research: a static chain-53 suffix knows its own digit,
@@ -141,7 +135,6 @@ theorem final_comparison (a d : BitVec 64) :
          _ = d := by rw [← BitVec.add_assoc, BitVec.add_left_neg, BitVec.zero_add]
   · intro h
     rw [← h, BitVec.add_right_neg]
-#print axioms final_comparison
 end SigGolfCandidate.Research.V7Composed198Closing.ReverseChecksum
 
 namespace SigGolfCandidate.Research.V7Composed198Closing.WinsorDualHalf
@@ -265,10 +258,6 @@ theorem large_closing_real_cap777 (y excess : ℝ) (hlow : 3 / 2500 ≤ y)
     linarith
   nlinarith
 
-#print axioms positive_part_convex
-#print axioms affine_endpoint_bound
-#print axioms large_closing_real
-#print axioms large_closing_real_cap777
 end SigGolfCandidate.Research.V7Composed198Closing.ContinuousPricing
 
 /-! A separate conditional closing packet that retains the query-class
@@ -313,8 +302,6 @@ theorem small_closing_real (y excess : ℝ) (hlow : 1 / 2 ^ 128 ≤ y)
     linarith
   nlinarith
 
-#print axioms class_budget
-#print axioms small_closing_real
 end SigGolfCandidate.Research.V7Composed198Closing.ClassifiedQueries
 
 namespace SigGolfCandidate.Research.V7Composed198Closing.TwoNearBounds
@@ -369,9 +356,6 @@ theorem small_closing_real (y excess : ℝ) (hlow : 1 / 2 ^ 128 ≤ y)
     linarith
   nlinarith
 
-#print axioms charge
-#print axioms class_budget
-#print axioms small_closing_real
 end SigGolfCandidate.Research.V7Composed198Closing.TwoNearBounds
 
 /-! The canonical ancestor-only producer needs a larger small-query window.
@@ -446,10 +430,6 @@ theorem middle_closing (y excess : ℝ) (hlow : 1 / 2 ^ 28 ≤ y)
     linarith
   nlinarith
 
-#print axioms charge
-#print axioms class_budget
-#print axioms tiny_closing
-#print axioms middle_closing
 end SigGolfCandidate.Research.V7Composed198Closing.CanonicalWindow
 
 namespace SigGolfCandidate.Research.V7Composed198Closing.CanonicalWindow
@@ -478,7 +458,6 @@ theorem middle_closing_rows18 (y excess : ℝ) (hlow : 1 / 2 ^ 28 ≤ y)
     linarith
   nlinarith
 
-#print axioms middle_closing_rows18
 end SigGolfCandidate.Research.V7Composed198Closing.CanonicalWindow
 
 namespace SigGolfCandidate.Research.V7Composed198Closing.CanonicalWindow
@@ -511,9 +490,6 @@ theorem tiny_class_budget (p e o m y near : ℝ)
   have hc := tiny_charge y o near hy0 hy hn hcost hquad
   nlinarith
 
-#print axioms paired_near_quadratic
-#print axioms tiny_charge
-#print axioms tiny_class_budget
 end SigGolfCandidate.Research.V7Composed198Closing.CanonicalWindow
 
 namespace SigGolfCandidate.Research.V7Composed198Closing.CanonicalWindow
@@ -527,7 +503,6 @@ theorem paired_near_denominator (y near : ℝ) (hy : y ≤ 3 / 2500)
     apply (div_le_iff₀ hd).2
     linarith
   exact h.trans (mul_le_mul_of_nonneg_right hc (sq_nonneg y))
-#print axioms paired_near_denominator
 end SigGolfCandidate.Research.V7Composed198Closing.CanonicalWindow
 
 namespace SigGolfCandidate.Research.V7Composed198Closing.CanonicalWindow
@@ -550,7 +525,6 @@ theorem paired_partial_denominator (y pwin : ℝ) (hy : y≤3/2500)
     nlinarith [sq_nonneg (1-y-(997:ℝ)/1000)]
   exact h.trans (mul_le_mul_of_nonneg_right (by linarith) (sq_nonneg y))
 
-#print axioms paired_partial_denominator
 end SigGolfCandidate.Research.V7Composed198Closing.CanonicalWindow
 
 namespace SigGolfCandidate.Research.V7Composed198Closing.CanonicalWindow
@@ -621,10 +595,6 @@ theorem canonical_weighted_error (y err coefficient : ℝ)
   calc coefficient*err≤coefficient*((649/1000)*y^2) := mul_le_mul_of_nonneg_left he hc0
     _ ≤ (109/100)*((649/1000)*y^2) := mul_le_mul_of_nonneg_right hc (by positivity)
     _ ≤ _ := by nlinarith [sq_nonneg y]
-#print axioms middle_coefficients
-#print axioms tiny_coefficients
-#print axioms canonical_seed_error
-#print axioms canonical_weighted_error
 end SigGolfCandidate.Research.V7Composed198Closing.CanonicalWindow
 
 namespace SigGolfCandidate.Research.V7Composed198Closing.CanonicalWindow
@@ -653,92 +623,4 @@ theorem tiny_closing_rows18 (y excess : ℝ) (hlow : 1 / 2 ^ 128 ≤ y)
     linarith
   nlinarith
 
-#print axioms tiny_closing_rows18
 end SigGolfCandidate.Research.V7Composed198Closing.CanonicalWindow
-
-/-! Route C at gate 804 (R6 campaign, stream RC): the near bank grows from 350 to at most 385
-(near moment 382.4 at gate 804), so the quadratic near allowance becomes `194 y^2` and the middle
-coefficient `1537/1000`. The excess budget `147/125000` is unchanged. -/
-namespace SigGolfCandidate.Research.V7Composed198Closing.CanonicalWindowRC
-set_option maxHeartbeats 1000000
-set_option maxRecDepth 10000
-set_option exponentiation.threshold 1024
-
-theorem paired_partial_denominator (y pwin nb : ℝ) (hy0 : 0 ≤ y) (hy : y ≤ 3 / 2500) (hnb : nb ≤ 385)
-    (h : pwin ≤ ((nb + 1 / 1024) / (2 * (1 - y)) + 1 / (2 * (1 - y) ^ 2)) * y ^ 2) :
-    pwin ≤ (19325 / 100) * y ^ 2 := by
-  have hd : 0 < 2 * (1 - y) := by linarith
-  have hn : (nb + (1 : ℝ) / 1024) / (2 * (1 - y)) ≤ 19274 / 100 := by
-    apply (div_le_iff₀ hd).2
-    nlinarith
-  have hbase : 0 < 1 - y := by linarith
-  have hs : 0 < 2 * (1 - y) ^ 2 := by positivity
-  have hp : (1 : ℝ) / (2 * (1 - y) ^ 2) ≤ 51 / 100 := by
-    apply (div_le_iff₀ hs).2
-    have hz : (997 : ℝ) / 1000 ≤ 1 - y := by linarith
-    nlinarith [sq_nonneg (1 - y - (997 : ℝ) / 1000)]
-  exact h.trans (mul_le_mul_of_nonneg_right (by linarith) (sq_nonneg y))
-
-theorem charge (y z near : ℝ) (hy0 : 0 ≤ y) (hy1 : y ≤ 3 / 2500)
-    (hn : 0 ≤ near) (hcost : near * (1 - y) ≤ z) (hquad : near ≤ (19325 / 100) * y ^ 2) :
-    z + near - (99847 / 50000) * z ≤ (823 / 1000) * y ^ 2 := by
-  have hny := mul_le_mul_of_nonneg_left hy1 hn
-  have hz : z + near - (99847 / 50000) * z ≤ (4257 / 1000000) * near := by
-    nlinarith
-  nlinarith [sq_nonneg y]
-
-theorem class_budget (p e o m y near : ℝ)
-    (hp : 0 ≤ p) (he : 0 ≤ e) (ho : 0 ≤ o) (hm : 0 ≤ m)
-    (hbudget : p + e + o + m ≤ y) (hy : y ≤ 3 / 2500)
-    (hn : 0 ≤ near) (hcost : near * (1 - y) ≤ o) (hquad : near ≤ (19325 / 100) * y ^ 2) :
-    (99847 / 50000) * (p + e + m) + o + near ≤ (99847 / 50000) * y + (823 / 1000) * y ^ 2 := by
-  have hy0 : 0 ≤ y := by linarith
-  have hc := charge y o near hy0 hy hn hcost hquad
-  nlinarith
-
-theorem middle_closing (y excess : ℝ) (hlow : 1 / 2 ^ 28 ≤ y)
-    (hhigh : y ≤ 3 / 2500) (hexcess : excess ≤ 1158 / 1000000) :
-    (99847 / 50000) * y + y * excess + (1533 / 1000) * y ^ 2 + 1 / 2 ^ 136 +
-      (y / 2 ^ 18 + 1 / 2 ^ 700 + 1 / 2 ^ 152 + y / 2 ^ 128) ≤ 2 * y := by
-  have hn : 0 ≤ y := le_trans (by positivity) hlow
-  have he := mul_le_mul_of_nonneg_left hexcess hn
-  have hsq : y ^ 2 ≤ (3 / 2500) * y := by
-    nlinarith [mul_le_mul_of_nonneg_left hhigh hn]
-  have habs : (1 : ℝ) / 2 ^ 136 ≤ y / 2 ^ 108 := by
-    have h := div_le_div_of_nonneg_right hlow (show (0 : ℝ) ≤ 2 ^ 108 by positivity)
-    norm_num at h ⊢
-    linarith
-  have h700 : (1 : ℝ) / 2 ^ 700 ≤ y / 2 ^ 672 := by
-    have h := div_le_div_of_nonneg_right hlow (show (0 : ℝ) ≤ 2 ^ 672 by positivity)
-    norm_num at h ⊢
-    linarith
-  have h152 : (1 : ℝ) / 2 ^ 152 ≤ y / 2 ^ 124 := by
-    have h := div_le_div_of_nonneg_right hlow (show (0 : ℝ) ≤ 2 ^ 124 by positivity)
-    norm_num at h ⊢
-    linarith
-  nlinarith
-
-theorem tiny_charge (y z near : ℝ) (hy0 : 0 ≤ y) (hy1 : y ≤ 1 / 2 ^ 28)
-    (hn : 0 ≤ near) (hcost : near * (1 - y) ≤ z) (hquad : near ≤ (19325 / 100) * y ^ 2) :
-    z + near - (249 / 125) * z ≤ (17 / 10) * y ^ 2 := by
-  have hny := mul_le_mul_of_nonneg_left hy1 hn
-  have hz : z + near - (249 / 125) * z ≤ (1 / 120) * near := by
-    nlinarith
-  nlinarith [sq_nonneg y]
-
-theorem tiny_class_budget (p e o m y near : ℝ)
-    (hp : 0 ≤ p) (he : 0 ≤ e) (ho : 0 ≤ o) (hm : 0 ≤ m)
-    (hbudget : p + e + o + m ≤ y) (hy : y ≤ 1 / 2 ^ 28)
-    (hn : 0 ≤ near) (hcost : near * (1 - y) ≤ o) (hquad : near ≤ (19325 / 100) * y ^ 2) :
-    (249 / 125) * (p + e + m) + o + near ≤ (249 / 125) * y + (17 / 10) * y ^ 2 := by
-  have hy0 : 0 ≤ y := by linarith
-  have hc := tiny_charge y o near hy0 hy hn hcost hquad
-  nlinarith
-
-#print axioms paired_partial_denominator
-#print axioms charge
-#print axioms class_budget
-#print axioms middle_closing
-#print axioms tiny_charge
-#print axioms tiny_class_budget
-end SigGolfCandidate.Research.V7Composed198Closing.CanonicalWindowRC

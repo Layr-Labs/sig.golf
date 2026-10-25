@@ -783,7 +783,4 @@ theorem signFromOutput_allowed
   cases layers <;> exact SourceQueries.pure_allowed Q _
 end
 
-#print axioms prepareRoots_allowed
-#print axioms searchPreparedLayers_allowed
-#print axioms signFromOutput_allowed
 end ClaudeWCT.W9.T3.Security.SharedQueries

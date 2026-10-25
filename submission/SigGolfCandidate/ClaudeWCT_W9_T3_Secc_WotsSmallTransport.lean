@@ -529,8 +529,6 @@ theorem caseABEv_le_reference (Ev : TraceEvent) (adversary : ClaudeWCT.W9.T3M.Fi
   unfold PairedReference.referenceExperiment
   rw [MonitoredPrivate.event_lift]
 
-#print axioms psiEv_of_checkerEv
-#print axioms caseABEv_le_reference
 end ClaudeWCT.W9.T3.Security.Wots.PairedSmallT
 
 namespace ClaudeWCT.W9.T3.Security.Wots.PairedSmallT
@@ -584,8 +582,6 @@ def srcEvent : TraceEvent where
   mono := fun h hsub => CanonicalExtract.WotsPrimitiveSrc.mono h hsub
   transfer := fun hAT htrace h => wotsPrimitiveSrc_transfer hAT htrace h
 
-#print axioms wotsPrimitiveSrc_transfer
-#print axioms srcEvent
 end ClaudeWCT.W9.T3.Security.Wots.PairedSmallT
 
 namespace ClaudeWCT.W9.T3.Security.CanonicalExtract
@@ -610,7 +606,6 @@ theorem structuralHitSrc_paired {T : Answers} {trace : List Entry} {inputs : Fin
     exact ⟨_,x,a,hmem,hin _ hmem,hpos,hb,hsrc,hcls,
       by unfold Extract.Paired.HashHitAt; rw [Extract.Paired.proj_node]; exact hhit⟩
   | forest | wctChain | wctLeaf | wctNode => exact hmain.elim
-#print axioms structuralHitSrc_paired
 end ClaudeWCT.W9.T3.Security.CanonicalExtract
 
 namespace ClaudeWCT.W9.T3.Security.Wots.PairedReference
@@ -665,8 +660,6 @@ theorem ftsHitIn_structuralHitTrace {T : Answers} {qs : List Spec.Domain}
     | wctNode => exact hb.legacy
   · cases p <;> first | exact hfts.elim | trivial
 
-#print axioms structuralHitTrace_transfer
-#print axioms ftsHitIn_structuralHitTrace
 end ClaudeWCT.W9.T3.Security.Wots.PairedReference
 
 namespace ClaudeWCT.W9.T3.Security.Wots.PairedSmallT
@@ -678,5 +671,4 @@ def combinedEvent : TraceEvent where
   transfer := fun hAT htrace h => h.elim
     (fun hp => Or.inl (wotsPrimitiveSrc_transfer hAT htrace hp))
     (fun hs => Or.inr (PairedReference.structuralHitTrace_transfer hAT htrace hs))
-#print axioms combinedEvent
 end ClaudeWCT.W9.T3.Security.Wots.PairedSmallT
