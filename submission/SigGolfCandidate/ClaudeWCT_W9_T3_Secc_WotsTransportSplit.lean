@@ -118,8 +118,6 @@ theorem GameSplit.facts {adversary : ClaudeWCT.W9.T3M.Final.Paired.AdversaryP}
   · rw [(SourceReplay.resolves_of_run _ (Ref.verdict_hashOnly _ _) interaction.state
       (checked.value,checked.state) (FirstHit.recorded_support _ _ _ hc)).eval T hac]
     rw [← hvalue]; exact hwin
-#print axioms logged_resolves
-#print axioms GameSplit.facts
 end ClaudeWCT.W9.T3.Security.Wots.PairedReference
 
 namespace ClaudeWCT.W9.T3.Security.Wots.PairedReference
@@ -170,5 +168,4 @@ theorem GameSplit.checked_mem {adversary : Final.Paired.AdversaryP}
     {event : FirstHit.QueryEvent} (he : event ∈ checked.events) : event ∈ result.events := by
   rw [h.2.2.2]
   exact List.mem_append_right _ (List.mem_append_right _ he)
-#print axioms GameSplit.checker_event
 end ClaudeWCT.W9.T3.Security.Wots.PairedReference

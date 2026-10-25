@@ -546,6 +546,7 @@ theorem cell_length (secrets : Secrets) (node : Node) (labels : Labels) (hp : ¬
   | forest index =>
       simp only [cell, Extract.forestInput, Node.toPos, Extract.Pos.len]
       rw [Cost.pad64_length, WCT9.forestInput_length _ _ (by simp)]
+
 theorem hdrBlock_cell (secrets : Secrets) (node : Node) (labels : Labels) (hp : ¬ PhantomAt node labels) :
     Extract.hdrBlock (cell secrets node labels) = bytesLE 16 node.toPos.hdr := by
   cases node with
@@ -1778,9 +1779,6 @@ theorem uniform_bind_programmed {Result : Type} (secrets : Secrets) (next : (U �
         next (programmed U hU secrets labels residual)] :=
   graph_bind_eq_uniform_programmed U hU secrets (fun _ table => next table)
 end Laws
-#print axioms cell_congr
-#print axioms graph_eq_uniform_programmed
-#print axioms uniform_bind_programmed
 end ClaudeWCT.W9.T3.Security.CanonGraph.Paired
 
 namespace ClaudeWCT.W9.T3.Security.CanonGraph.Paired.Filtered

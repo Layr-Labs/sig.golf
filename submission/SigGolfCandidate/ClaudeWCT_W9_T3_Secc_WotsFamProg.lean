@@ -288,7 +288,4 @@ theorem raw_ovF_cell (hF : FamOk g w b n F) (R : Tables U) (y : FamData g w n) (
     halfOf (ordF b F j % 2) ((ovF g w b n F R y).1 (.inl (cellHdrF b F j))) = y.1 j :=
   ovPrivF_cell hF R.1 y.1 j
 
-#print axioms rdF_ovF
-#print axioms ovF_ovF_rdF
-#print axioms restLaw_resampleF
 end ClaudeWCT.W9.T3.Security.Wots.CanonicalRef.Normalized.RawFam

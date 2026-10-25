@@ -190,5 +190,4 @@ theorem source_completeness (secret : BitVec 256) :
   rw [probOutput_true_eq_sub]
   simp only [probFailure_eq_zero,tsub_zero]
   exact tsub_le_tsub_left hf 1
-#print axioms source_completeness
 end ClaudeWCT.W9.T3.Completeness.Paired

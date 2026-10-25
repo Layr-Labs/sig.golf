@@ -1432,8 +1432,6 @@ theorem bank_event_le_rate (hNotDigest : PayNotDigest pay) (hAvoids : PayAvoids 
   · rw [h0]; exact bot_le
   · exact (hle _).trans (hwin b hb h0)
 
-#print axioms bank_event_le_rate
-#print axioms potential_win
 end ClaudeWCT.Bank.FlexibleGame
 
 namespace ClaudeWCT.Bank.Paired
@@ -1477,9 +1475,6 @@ theorem bankInv_experiment
   bankSpec.bankInv_experiment payAfterDigest SharedForest.Signature.rho payHashOnly payRho payAvoids
     rest budget b hb
 
-#print axioms flexible_event_le
-#print axioms flexible_potential_win
-#print axioms bankInv_experiment
 end ClaudeWCT.Bank.Paired
 
 namespace ClaudeWCT.Bank.NearMemory
@@ -1788,10 +1783,6 @@ theorem mem_win (q : Nat) (births exposures : List HashOutput) (reused : Bool) (
   rw [if_neg (by omega)]
   exact ((near_win S) ⟨births, exposures, reused, (reuseC S) rows nonces, q - births.length⟩ (by simp only; omega) h).trans
     le_self_add
-#print axioms mem_birth
-#print axioms mem_sign_fresh
-#print axioms mem_initial
-#print axioms mem_win
 end ClaudeWCT.Bank.NearMemory
 
 namespace ClaudeWCT.Bank.Paired
@@ -1875,9 +1866,6 @@ theorem flexible_potential_source_covered (θ : ENNReal)
   flexible_potential_win θ budget state (bank_alive hinv hlen) hcount
     (Or.inr ⟨N,hN,hadm,bank_covered_exposed hinv (bank_alive hinv hlen) A hA N hcovered⟩)
 
-#print axioms loggedOutputs_exposed
-#print axioms bank_target_of_fresh
-#print axioms flexible_potential_source_covered
 end ClaudeWCT.Bank.Paired
 
 section
@@ -2722,5 +2710,4 @@ theorem contact_cert_bound_of_excess (adversary : Final.Paired.AdversaryP) (q : 
   rw [hsum] at h
   exact h.trans (add_le_add (add_le_add hp le_rfl) le_rfl)
 
-#print axioms contact_cert_bound_of_excess
 end ClaudeWCT.W9.T3.Security.LargeCoupling.Paired

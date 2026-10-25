@@ -243,6 +243,5 @@ theorem run_spec_framed (N : HashOutput) (s : MachineState) (hpc : s.pc = pcOf 4
     rw [if_neg (show ¬ (0x800 + 8128 ≤ 0x800 + 8 * i ∧ 0x800 + 8 * i < 0x800 + 8128 + 8 * 1713 ∧
         (0x800 + 8 * i - (0x800 + 8128)) % 8 = 0) by omega), h4 _ (by omega), if_pos h8,
       allMem_out _ _ hcs 9 le_rfl _ (Or.inl (by omega)) (by unfold InHold; omega), hlo _ (by omega)]
-#print axioms run_spec_framed
 end
 end ClaudeWCT.W9.Machine.Expand.Compact

@@ -2,7 +2,7 @@ import SigGolfCandidate.ClaudeWCT_W9_New_Machine_Expand_Routine
 
 /-! # img-v6 expand final policy check (canon-v6 porter)
 
-Machine proof of the expand policy check at 46929..46979 for the img-v6 image: credit pool 74, policy hints in
+Machine proof of the expand policy check at 46929..46979 for the img-v6 image: credit pool 69, policy hints in
 the mixed radix `484·f1 + 22·f2 + f3`, L1 floors by residual `< 56`, L2 `< 41`, L3 floor = residual `< 22`.
 Adapted from `SharedValidate` in `Expand/H2Front.lean` (e7b: pool 72, radix 20); new namespace
 `SharedValidateV6`, result `validate_source_steps` against `SharedForest.policyHintsValid` (bound 7744). -/
@@ -19,7 +19,7 @@ sym_block zero0Run := symRun {noAlias:=true} zero0Code (pcOf 46937) 20
 def sub0Code : List (BitVec 32) := [0x406a8ab3]
 sym_block sub0Run := symRun {noAlias:=true} sub0Code (pcOf 46939) 20
 theorem first0_steps {im : Image} (hc : CodeAt im (pcOf 46933) first0Code)
-    (s : MachineState) (hp : s.pc=pcOf 46933) (R C : Nat) (hR : R≤77) (hC : C<2^64)
+    (s : MachineState) (hp : s.pc=pcOf 46933) (R C : Nat) (hR : R≤69) (hC : C<2^64)
     (h21 : s.getReg .x21=BitVec.ofNat 64 R) (hm : s.getMem 417856=BitVec.ofNat 64 C) :
     ∃t,Steps im s 4 4 t ∧ t.pc=(if C<R then pcOf 46939 else pcOf 46937) ∧
       t.getReg .x6=BitVec.ofNat 64 C ∧ RegsExcept s t [.x6,.x28] ∧ Frame s t (fun _=>False) := by
@@ -45,7 +45,7 @@ theorem zero0_steps {im : Image} (hc : CodeAt im (pcOf 46937) zero0Code)
   · intro A hA hn;rfl
 
 theorem sub0_steps {im : Image} (hc : CodeAt im (pcOf 46939) sub0Code)
-    (s : MachineState) (hp : s.pc=pcOf 46939) (R C : Nat) (hR : R≤77) (hC : C<R)
+    (s : MachineState) (hp : s.pc=pcOf 46939) (R C : Nat) (hR : R≤69) (hC : C<R)
     (h21 : s.getReg .x21=BitVec.ofNat 64 R) (h6 : s.getReg .x6=BitVec.ofNat 64 C) :
     ∃t,Steps im s 1 1 t ∧ t.pc=pcOf 46940 ∧ t.getReg .x21=BitVec.ofNat 64 (R-C) ∧
       RegsExcept s t [.x21] ∧ Frame s t (fun _=>False) := by
@@ -63,7 +63,7 @@ class Residual0Code (im : Image) : Prop where
   sub : CodeAt im (pcOf 46939) sub0Code
 
 theorem residual0_steps {im : Image} [hc : Residual0Code im]
-    (s : MachineState) (hp : s.pc=pcOf 46933) (R C : Nat) (hR : R≤77) (hC : C<2^64)
+    (s : MachineState) (hp : s.pc=pcOf 46933) (R C : Nat) (hR : R≤69) (hC : C<2^64)
     (h21 : s.getReg .x21=BitVec.ofNat 64 R) (hm : s.getMem 417856=BitVec.ofNat 64 C) :
     ∃t n,n≤6 ∧ Steps im s n n t ∧ t.pc=pcOf 46940 ∧ t.getReg .x21=BitVec.ofNat 64 (R-C) ∧
       RegsExcept s t [.x6,.x21,.x28] ∧ Frame s t (fun _=>False) := by
@@ -76,7 +76,6 @@ theorem residual0_steps {im : Image} [hc : Residual0Code im]
     obtain ⟨t,st,pt,ht,rr,ff⟩:=zero0_steps hc.zero u pu
     exact ⟨t,6,by omega,su.trans st,pt,by simpa [show R-C=0 by omega] using ht,
       (ru.trans rr).mono (by decide),(fu.trans ff).mono (by simp)⟩
-#print axioms residual0_steps
 def first1Code : List (BitVec 32) := [0x66e37,0xe0e13,0x48e3303,0x1536663]
 sym_block first1Run := symRun {noAlias:=true} first1Code (pcOf 46949) 20
 def zero1Code : List (BitVec 32) := [0xa93,0x80006f]
@@ -84,7 +83,7 @@ sym_block zero1Run := symRun {noAlias:=true} zero1Code (pcOf 46953) 20
 def sub1Code : List (BitVec 32) := [0x406a8ab3]
 sym_block sub1Run := symRun {noAlias:=true} sub1Code (pcOf 46955) 20
 theorem first1_steps {im : Image} (hc : CodeAt im (pcOf 46949) first1Code)
-    (s : MachineState) (hp : s.pc=pcOf 46949) (R C : Nat) (hR : R≤77) (hC : C<2^64)
+    (s : MachineState) (hp : s.pc=pcOf 46949) (R C : Nat) (hR : R≤69) (hC : C<2^64)
     (h21 : s.getReg .x21=BitVec.ofNat 64 R) (hm : s.getMem 417864=BitVec.ofNat 64 C) :
     ∃t,Steps im s 4 4 t ∧ t.pc=(if C<R then pcOf 46955 else pcOf 46953) ∧
       t.getReg .x6=BitVec.ofNat 64 C ∧ RegsExcept s t [.x6,.x28] ∧ Frame s t (fun _=>False) := by
@@ -110,7 +109,7 @@ theorem zero1_steps {im : Image} (hc : CodeAt im (pcOf 46953) zero1Code)
   · intro A hA hn;rfl
 
 theorem sub1_steps {im : Image} (hc : CodeAt im (pcOf 46955) sub1Code)
-    (s : MachineState) (hp : s.pc=pcOf 46955) (R C : Nat) (hR : R≤77) (hC : C<R)
+    (s : MachineState) (hp : s.pc=pcOf 46955) (R C : Nat) (hR : R≤69) (hC : C<R)
     (h21 : s.getReg .x21=BitVec.ofNat 64 R) (h6 : s.getReg .x6=BitVec.ofNat 64 C) :
     ∃t,Steps im s 1 1 t ∧ t.pc=pcOf 46956 ∧ t.getReg .x21=BitVec.ofNat 64 (R-C) ∧
       RegsExcept s t [.x21] ∧ Frame s t (fun _=>False) := by
@@ -128,7 +127,7 @@ class Residual1Code (im : Image) : Prop where
   sub : CodeAt im (pcOf 46955) sub1Code
 
 theorem residual1_steps {im : Image} [hc : Residual1Code im]
-    (s : MachineState) (hp : s.pc=pcOf 46949) (R C : Nat) (hR : R≤77) (hC : C<2^64)
+    (s : MachineState) (hp : s.pc=pcOf 46949) (R C : Nat) (hR : R≤69) (hC : C<2^64)
     (h21 : s.getReg .x21=BitVec.ofNat 64 R) (hm : s.getMem 417864=BitVec.ofNat 64 C) :
     ∃t n,n≤6 ∧ Steps im s n n t ∧ t.pc=pcOf 46956 ∧ t.getReg .x21=BitVec.ofNat 64 (R-C) ∧
       RegsExcept s t [.x6,.x21,.x28] ∧ Frame s t (fun _=>False) := by
@@ -141,7 +140,6 @@ theorem residual1_steps {im : Image} [hc : Residual1Code im]
     obtain ⟨t,st,pt,ht,rr,ff⟩:=zero1_steps hc.zero u pu
     exact ⟨t,6,by omega,su.trans st,pt,by simpa [show R-C=0 by omega] using ht,
       (ru.trans rr).mono (by decide),(fu.trans ff).mono (by simp)⟩
-#print axioms residual1_steps
 def first2Code : List (BitVec 32) := [0x66e37,0xe0e13,0x50e3303,0x1536663]
 sym_block first2Run := symRun {noAlias:=true} first2Code (pcOf 46966) 20
 def zero2Code : List (BitVec 32) := [0xa93,0x80006f]
@@ -149,7 +147,7 @@ sym_block zero2Run := symRun {noAlias:=true} zero2Code (pcOf 46970) 20
 def sub2Code : List (BitVec 32) := [0x406a8ab3]
 sym_block sub2Run := symRun {noAlias:=true} sub2Code (pcOf 46972) 20
 theorem first2_steps {im : Image} (hc : CodeAt im (pcOf 46966) first2Code)
-    (s : MachineState) (hp : s.pc=pcOf 46966) (R C : Nat) (hR : R≤77) (hC : C<2^64)
+    (s : MachineState) (hp : s.pc=pcOf 46966) (R C : Nat) (hR : R≤69) (hC : C<2^64)
     (h21 : s.getReg .x21=BitVec.ofNat 64 R) (hm : s.getMem 417872=BitVec.ofNat 64 C) :
     ∃t,Steps im s 4 4 t ∧ t.pc=(if C<R then pcOf 46972 else pcOf 46970) ∧
       t.getReg .x6=BitVec.ofNat 64 C ∧ RegsExcept s t [.x6,.x28] ∧ Frame s t (fun _=>False) := by
@@ -175,7 +173,7 @@ theorem zero2_steps {im : Image} (hc : CodeAt im (pcOf 46970) zero2Code)
   · intro A hA hn;rfl
 
 theorem sub2_steps {im : Image} (hc : CodeAt im (pcOf 46972) sub2Code)
-    (s : MachineState) (hp : s.pc=pcOf 46972) (R C : Nat) (hR : R≤77) (hC : C<R)
+    (s : MachineState) (hp : s.pc=pcOf 46972) (R C : Nat) (hR : R≤69) (hC : C<R)
     (h21 : s.getReg .x21=BitVec.ofNat 64 R) (h6 : s.getReg .x6=BitVec.ofNat 64 C) :
     ∃t,Steps im s 1 1 t ∧ t.pc=pcOf 46973 ∧ t.getReg .x21=BitVec.ofNat 64 (R-C) ∧
       RegsExcept s t [.x21] ∧ Frame s t (fun _=>False) := by
@@ -193,7 +191,7 @@ class Residual2Code (im : Image) : Prop where
   sub : CodeAt im (pcOf 46972) sub2Code
 
 theorem residual2_steps {im : Image} [hc : Residual2Code im]
-    (s : MachineState) (hp : s.pc=pcOf 46966) (R C : Nat) (hR : R≤77) (hC : C<2^64)
+    (s : MachineState) (hp : s.pc=pcOf 46966) (R C : Nat) (hR : R≤69) (hC : C<2^64)
     (h21 : s.getReg .x21=BitVec.ofNat 64 R) (hm : s.getMem 417872=BitVec.ofNat 64 C) :
     ∃t n,n≤6 ∧ Steps im s n n t ∧ t.pc=pcOf 46973 ∧ t.getReg .x21=BitVec.ofNat 64 (R-C) ∧
       RegsExcept s t [.x6,.x21,.x28] ∧ Frame s t (fun _=>False) := by
@@ -206,7 +204,6 @@ theorem residual2_steps {im : Image} [hc : Residual2Code im]
     obtain ⟨t,st,pt,ht,rr,ff⟩:=zero2_steps hc.zero u pu
     exact ⟨t,6,by omega,su.trans st,pt,by simpa [show R-C=0 by omega] using ht,
       (ru.trans rr).mono (by decide),(fu.trans ff).mono (by simp)⟩
-#print axioms residual2_steps
 end ClaudeWCT.W9.Machine.Expand.SharedValidateV6
 
 namespace ClaudeWCT.W9.Machine.Expand.SharedValidateV6
@@ -214,7 +211,7 @@ open SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64 SigGol
 set_option autoImplicit false
 set_option maxHeartbeats 1500000
 set_option maxRecDepth 10000
-def initCode : List (BitVec 32) := [0x66e37,0xe0e13,0xe3a03,0x4d00a93]
+def initCode : List (BitVec 32) := [0x66e37,0xe0e13,0xe3a03,0x4500a93]
 sym_block initRun := symRun {noAlias:=true} initCode (pcOf 46929) 100
 def range1Code : List (BitVec 32) := [0x3800393,0x87afc63]
 sym_block range1Run := symRun {noAlias:=true} range1Code (pcOf 46940) 100
@@ -229,7 +226,7 @@ sym_block goodRun := symRun {noAlias:=true} goodCode (pcOf 46978) 100
 def badCode : List (BitVec 32) := [0xf7cd206f]
 sym_block badRun := symRun {noAlias:=true} badCode (pcOf 46979) 100
 theorem range1_steps {im : Image} (hc : CodeAt im (pcOf 46940) range1Code)
-    (s : MachineState) (hp : s.pc=pcOf 46940) (R : Nat) (hR : R≤77)
+    (s : MachineState) (hp : s.pc=pcOf 46940) (R : Nat) (hR : R≤69)
     (h21 : s.getReg .x21=BitVec.ofNat 64 R) :
     ∃t,Steps im s 2 2 t ∧ t.pc=(if R<56 then pcOf 46942 else pcOf 46979) ∧
       RegsExcept s t [.x7] ∧ Frame s t (fun _=>False) := by
@@ -240,9 +237,8 @@ theorem range1_steps {im : Image} (hc : CodeAt im (pcOf 46940) range1Code)
     by_cases h : R<56 <;> simp [h]
   · intro r hr;cases r <;> first | exact (hr (by decide)).elim | rfl
   · intro A hA hn;rfl
-#print axioms range1_steps
 theorem range2_steps {im : Image} (hc : CodeAt im (pcOf 46956) range2Code)
-    (s : MachineState) (hp : s.pc=pcOf 46956) (R : Nat) (hR : R≤77)
+    (s : MachineState) (hp : s.pc=pcOf 46956) (R : Nat) (hR : R≤69)
     (h21 : s.getReg .x21=BitVec.ofNat 64 R) :
     ∃t,Steps im s 2 2 t ∧ t.pc=(if R<41 then pcOf 46958 else pcOf 46979) ∧
       RegsExcept s t [.x7] ∧ Frame s t (fun _=>False) := by
@@ -253,9 +249,8 @@ theorem range2_steps {im : Image} (hc : CodeAt im (pcOf 46956) range2Code)
     by_cases h : R<41 <;> simp [h]
   · intro r hr;cases r <;> first | exact (hr (by decide)).elim | rfl
   · intro A hA hn;rfl
-#print axioms range2_steps
 theorem range3_steps {im : Image} (hc : CodeAt im (pcOf 46973) range3Code)
-    (s : MachineState) (hp : s.pc=pcOf 46973) (R : Nat) (hR : R≤77)
+    (s : MachineState) (hp : s.pc=pcOf 46973) (R : Nat) (hR : R≤69)
     (h21 : s.getReg .x21=BitVec.ofNat 64 R) :
     ∃t,Steps im s 2 2 t ∧ t.pc=(if R<22 then pcOf 46975 else pcOf 46979) ∧
       RegsExcept s t [.x7] ∧ Frame s t (fun _=>False) := by
@@ -266,17 +261,15 @@ theorem range3_steps {im : Image} (hc : CodeAt im (pcOf 46973) range3Code)
     by_cases h : R<22 <;> simp [h]
   · intro r hr;cases r <;> first | exact (hr (by decide)).elim | rfl
   · intro A hA hn;rfl
-#print axioms range3_steps
 theorem init_steps {im : Image} (hc : CodeAt im (pcOf 46929) initCode)
     (s : MachineState) (hp : s.pc=pcOf 46929) (hints : Nat)
     (hm : s.getMem (0x66000#64)=BitVec.ofNat 64 hints) :
     ∃t,Steps im s 4 4 t ∧ t.pc=pcOf 46933 ∧ t.getReg .x20=BitVec.ofNat 64 hints ∧
-      t.getReg .x21=77 ∧ RegsExcept s t [.x20,.x21,.x28] ∧ Frame s t (fun _=>False) := by
+      t.getReg .x21=69 ∧ RegsExcept s t [.x20,.x21,.x28] ∧ Frame s t (fun _=>False) := by
   refine ⟨_,symRun_sound initRun hc s hp (by simp [initRun.res,rv_simp]),rfl,?_,rfl,?_,?_⟩
   · simp [initRun.res,rv_simp,hm]
   · intro r hr;cases r <;> first | exact (hr (by decide)).elim | rfl
   · intro A hA hn;rfl
-#print axioms init_steps
 end ClaudeWCT.W9.Machine.Expand.SharedValidateV6
 
 namespace ClaudeWCT.W9.Machine.Expand.SharedValidateV6
@@ -354,9 +347,6 @@ theorem lookup1_post {im : Image} (hc : CodeAt im (pcOf 46946) lookup1PostCode)
     by_cases h : F=H/484 <;> simp [h]
   · intro r hr;cases r <;> first | exact (hr (by decide)).elim | rfl
   · intro A hA hn;rfl
-#print axioms lookup1_pre
-#print axioms lookup1_load
-#print axioms lookup1_post
 def lookup2PreCode : List (BitVec 32) := [0xff9e37,0x3d0e0e13,0x15e0e33]
 sym_block lookup2PreRun := symRun {noAlias:=true} lookup2PreCode (pcOf 46958) 100
 def lookup2LoadCode : List (BitVec 32) := [0xe4303]
@@ -408,9 +398,6 @@ theorem lookup2_post {im : Image} (hc : CodeAt im (pcOf 46962) lookup2PostCode)
     by_cases h : F=H/22%22 <;> simp [h]
   · intro r hr;cases r <;> first | exact (hr (by decide)).elim | rfl
   · intro A hA hn;rfl
-#print axioms lookup2_pre
-#print axioms lookup2_load
-#print axioms lookup2_post
 end ClaudeWCT.W9.Machine.Expand.SharedValidateV6
 
 namespace ClaudeWCT.W9.Machine.Expand.SharedValidateV6
@@ -434,7 +421,6 @@ theorem lookup1_steps {im : Image}
     (by rw [rv.get (by decide),ru.get (by decide)];exact h20)
   exact ⟨t,(su.trans sv).trans st,pt,((ru.trans rv).trans rt).mono (by decide),
     ((fu.trans fv).trans ft).mono (by simp)⟩
-#print axioms lookup1_steps
 theorem lookup2_steps {im : Image}
     (hpre : CodeAt im (pcOf 46958) lookup2PreCode)
     (hload : CodeAt im (pcOf 46961) lookup2LoadCode)
@@ -451,9 +437,8 @@ theorem lookup2_steps {im : Image}
     (by rw [rv.get (by decide),ru.get (by decide)];exact h20)
   exact ⟨t,(su.trans sv).trans st,pt,((ru.trans rv).trans rt).mono (by decide),
     ((fu.trans fv).trans ft).mono (by simp)⟩
-#print axioms lookup2_steps
 theorem last_steps {im : Image} (hc : CodeAt im (pcOf 46975) lastCode)
-    (s : MachineState) (hp : s.pc=pcOf 46975) (R H : Nat) (hR : R≤77) (hH : H<8000)
+    (s : MachineState) (hp : s.pc=pcOf 46975) (R H : Nat) (hR : R≤69) (hH : H<8000)
     (h21 : s.getReg .x21=BitVec.ofNat 64 R) (h20 : s.getReg .x20=BitVec.ofNat 64 H) :
     ∃t,Steps im s 3 6 t ∧ t.pc=(if H%22=R then pcOf 46978 else pcOf 46979) ∧
       RegsExcept s t [.x7,.x29] ∧ Frame s t (fun _=>False) := by
@@ -476,9 +461,6 @@ theorem good_steps {im : Image} (hc : CodeAt im (pcOf 46978) goodCode) (s : Mach
 theorem bad_steps {im : Image} (hc : CodeAt im (pcOf 46979) badCode) (s : MachineState) (hp : s.pc=pcOf 46979) :
     ∃t,Steps im s 1 1 t ∧ t.pc=pcOf 354 ∧ RegsExcept s t [] ∧ Frame s t (fun _=>False) := by
   exact ⟨_,symRun_sound badRun hc s hp (by simp [badRun.res,rv_simp]),rfl,fun r _=>by cases r <;> rfl,fun A _ _=>rfl⟩
-#print axioms last_steps
-#print axioms good_steps
-#print axioms bad_steps
 end ClaudeWCT.W9.Machine.Expand.SharedValidateV6
 
 namespace ClaudeWCT.W9.Machine.Expand.SharedValidateV6
@@ -506,7 +488,7 @@ structure Code (im : Image) : Prop where
 
 def regs : List Reg := [.x6,.x7,.x21,.x28,.x29]
 theorem phase1_steps {im : Image} (hc : Code im)
-    (s : MachineState) (hp : s.pc=pcOf 46933) (R C H : Nat) (hR : R≤77) (hC : C<2^64) (hH : H<8000)
+    (s : MachineState) (hp : s.pc=pcOf 46933) (R C H : Nat) (hR : R≤69) (hC : C<2^64) (hH : H<8000)
     (h21 : s.getReg .x21=BitVec.ofNat 64 R) (h20 : s.getReg .x20=BitVec.ofNat 64 H)
     (hm : s.getMem (417856#64)=BitVec.ofNat 64 C)
     (T : Nat→Nat) (hT : ∀ r,r<56 → T r<22)
@@ -535,9 +517,8 @@ theorem phase1_steps {im : Image} (hc : Code im)
     · rw [rv.get (by decide)];exact u21
     · exact (ru.trans rv).mono (by decide)
     · exact (fu.trans fv).mono (by simp)
-#print axioms phase1_steps
 theorem phase2_steps {im : Image} (hc : Code im)
-    (s : MachineState) (hp : s.pc=pcOf 46949) (R C H : Nat) (hR : R≤77) (hC : C<2^64) (hH : H<8000)
+    (s : MachineState) (hp : s.pc=pcOf 46949) (R C H : Nat) (hR : R≤69) (hC : C<2^64) (hH : H<8000)
     (h21 : s.getReg .x21=BitVec.ofNat 64 R) (h20 : s.getReg .x20=BitVec.ofNat 64 H)
     (hm : s.getMem (417864#64)=BitVec.ofNat 64 C)
     (T : Nat→Nat) (hT : ∀ r,r<41 → T r<22)
@@ -566,9 +547,8 @@ theorem phase2_steps {im : Image} (hc : Code im)
     · rw [rv.get (by decide)];exact u21
     · exact (ru.trans rv).mono (by decide)
     · exact (fu.trans fv).mono (by simp)
-#print axioms phase2_steps
 theorem phase3_steps {im : Image} (hc : Code im)
-    (s : MachineState) (hp : s.pc=pcOf 46966) (R C H : Nat) (hR : R≤77) (hC : C<2^64) (hH : H<8000)
+    (s : MachineState) (hp : s.pc=pcOf 46966) (R C H : Nat) (hR : R≤69) (hC : C<2^64) (hH : H<8000)
     (h21 : s.getReg .x21=BitVec.ofNat 64 R) (h20 : s.getReg .x20=BitVec.ofNat 64 H)
     (hm : s.getMem (417872#64)=BitVec.ofNat 64 C) :
     ∃t n c,n≤11 ∧ c≤14 ∧ Steps im s n c t ∧
@@ -593,7 +573,6 @@ theorem phase3_steps {im : Image} (hc : Code im)
     · rw [rv.get (by decide)];exact u21
     · exact (ru.trans rv).mono (by decide)
     · exact (fu.trans fv).mono (by simp)
-#print axioms phase3_steps
 end ClaudeWCT.W9.Machine.Expand.SharedValidateV6
 
 namespace ClaudeWCT.W9.Machine.Expand.SharedValidateV6
@@ -603,7 +582,7 @@ set_option maxHeartbeats 2500000
 set_option maxRecDepth 20000
 
 abbrev Condition (H C0 C1 C2 : Nat) (T1 T2 : Nat→Nat) : Prop :=
-  let R1:=77-C0
+  let R1:=69-C0
   let R2:=R1-C1
   let R3:=R2-C2
   R1<56 ∧ R2<41 ∧ R3<22 ∧ H/484=T1 R1 ∧ H/22%22=T2 R2 ∧ H%22=R3
@@ -622,21 +601,21 @@ theorem validate_steps {im : Image} (hc : Code im)
       t.pc=(if Condition H C0 C1 C2 T1 T2 then pcOf 42795 else pcOf 354) ∧
       RegsExcept s t [.x6,.x7,.x20,.x21,.x28,.x29] ∧ Frame s t (fun _=>False) := by
   obtain ⟨u,su,pu,u20,u21,ru,fu⟩:=init_steps hc.init s hp H hm
-  obtain ⟨v,n1,c1,hn1,hc1,sv,pv,v21,rv,fv⟩:=phase1_steps hc u pu 77 C0 H (by omega) hC0 hH u21 u20
+  obtain ⟨v,n1,c1,hn1,hc1,sv,pv,v21,rv,fv⟩:=phase1_steps hc u pu 69 C0 H (by omega) hC0 hH u21 u20
     (by rw [fu.get (by decide) (by simp)];exact hm0) T1 ht1
     (fun r hr=>by rw [fu.getByte (by omega) (by simp)];exact hb1 r hr)
-  by_cases h1 : 77-C0<56 ∧ H/484=T1 (77-C0)
+  by_cases h1 : 69-C0<56 ∧ H/484=T1 (69-C0)
   · rw [if_pos h1] at pv
-    obtain ⟨w,n2,c2,hn2,hc2,sw,pw,w21,rw_,fw⟩:=phase2_steps hc v pv (77-C0) C1 H (by omega) hC1 hH v21
+    obtain ⟨w,n2,c2,hn2,hc2,sw,pw,w21,rw_,fw⟩:=phase2_steps hc v pv (69-C0) C1 H (by omega) hC1 hH v21
       (by rw [rv.get (by decide)];exact u20)
       (by rw [fv.get (by decide) (by simp),fu.get (by decide) (by simp)];exact hm1) T2 ht2
       (fun r hr=>by rw [fv.getByte (by omega) (by simp),fu.getByte (by omega) (by simp)];exact hb2 r hr)
-    by_cases h2 : 77-C0-C1<41 ∧ H/22%22=T2 (77-C0-C1)
+    by_cases h2 : 69-C0-C1<41 ∧ H/22%22=T2 (69-C0-C1)
     · rw [if_pos h2] at pw
-      obtain ⟨x,n3,c3,hn3,hc3,sx,px,x21,rx,fx⟩:=phase3_steps hc w pw (77-C0-C1) C2 H (by omega) hC2 hH w21
+      obtain ⟨x,n3,c3,hn3,hc3,sx,px,x21,rx,fx⟩:=phase3_steps hc w pw (69-C0-C1) C2 H (by omega) hC2 hH w21
         (by rw [rw_.get (by decide),rv.get (by decide)];exact u20)
         (by rw [fw.get (by decide) (by simp),fv.get (by decide) (by simp),fu.get (by decide) (by simp)];exact hm2)
-      by_cases h3 : 77-C0-C1-C2<22 ∧ H%22=77-C0-C1-C2
+      by_cases h3 : 69-C0-C1-C2<22 ∧ H%22=69-C0-C1-C2
       · rw [if_pos h3] at px
         obtain ⟨t,st,pt,rt,ft⟩:=good_steps hc.good x px
         refine ⟨t,4+n1+n2+n3+1,4+c1+c2+c3+1,by omega,by omega,(((su.trans sv).trans sw).trans sx).trans st,?_,?_,?_⟩
@@ -665,7 +644,6 @@ theorem validate_steps {im : Image} (hc : Code im)
       simpa [hcond] using pt
     · exact ((ru.trans rv).trans rt).mono (by decide)
     · exact ((fu.trans fv).trans ft).mono (by simp)
-#print axioms validate_steps
 end ClaudeWCT.W9.Machine.Expand.SharedValidateV6
 
 namespace ClaudeWCT.W9.Machine.Expand.SharedValidateV6
@@ -702,7 +680,6 @@ theorem code_of_driver {im : Image}
   · exact SharedCounterHooks.code_slice (off:=1922) hc (by decide +kernel) (by decide +kernel)
   · exact SharedCounterHooks.code_slice (off:=1923) hc (by decide +kernel) (by decide +kernel)
 theorem installed_code : Code Images.expandImage := code_of_driver codeAt_expand_shared_driver
-#print axioms installed_code
 end ClaudeWCT.W9.Machine.Expand.SharedValidateV6
 
 namespace ClaudeWCT.W9.Machine.Expand.SharedValidateV6
@@ -754,6 +731,4 @@ theorem validate_source_steps {im : Image} (hc : Code im)
     (CanonicalPolicy.credit 2 (lows.getD 2 true) (digits.getD 2 []))
     (CanonicalPolicy.threshold 1) (CanonicalPolicy.threshold 2) ↔ SharedForest.policyHintsValid hints digits lows=true) at hh
   simpa only [hh] using pt
-#print axioms credit_lt
-#print axioms validate_source_steps
 end ClaudeWCT.W9.Machine.Expand.SharedValidateV6

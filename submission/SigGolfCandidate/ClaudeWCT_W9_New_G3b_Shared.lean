@@ -71,9 +71,6 @@ theorem producerDecode_of_reference (answers : Answers) (L : LeafAddr) {v : Dige
     WCT9.producerDecode L.lay v = some (referenceDigits answers L) := by
   obtain ⟨value, hp⟩ := referenceDigits_producerDecode answers L
   exact producerDecode_canonical hp h
-#print axioms dummyDigest_producerDecode
-#print axioms referenceDigits_producerDecode
-#print axioms producerDecode_of_reference
 theorem depth_le (answers : Answers) (a : ChainAddr) (ha : a.chain < chainCount a.key.lay) :
     depth answers a ≤ maxDigit a.key.lay a.chain := by
   obtain ⟨value, hv⟩ := referenceDigits_decode answers a.key
@@ -252,9 +249,6 @@ theorem depth_le (answers : Answers) (messages : LeafAddr → WCT9.LayerMsg)
   rw [normalLayer_maxDigit] at hd
   exact hd
 
-#print axioms referenceSearch_decode
-#print axioms referenceDigits_decode
-#print axioms depth_le
 end ClaudeWCT.W9.T3.Security.Wots.CanonicalRef
 
 namespace ClaudeWCT.W9.T3.Security.Wots.CanonicalRef
@@ -409,6 +403,4 @@ theorem markerAt_mono {a : ChainAddr} (h : MarkerAt answers messages trace a)
   obtain ⟨message, counter, pad, answer, digits, hfit, hm, hne, hd, hl, hu⟩ := h
   exact ⟨message, counter, pad, answer, digits, hfit, hsub _ hm, hne, hd, hl, hu⟩
 end mono
-#print axioms referenceInput_ne
-#print axioms canonical_word_cases
 end ClaudeWCT.W9.T3.Security.Wots.CanonicalRef

@@ -46,6 +46,4 @@ theorem chainPiece_ecall_at {im : SigGolfCandidate.Legacy.Riscv.Image} (p : Chai
     SigGolfCandidate.Legacy.Riscv.fetch im (p.result.toState s) = some (.base .ECALL) := by
   exact symRun_ecall (rOK_eq hcheck) hc s ((Oblig.all_iff s _).mpr hob) hstop
 
-#print axioms chainPiece_steps_at
-#print axioms chainPiece_ecall_at
 end W9Machine

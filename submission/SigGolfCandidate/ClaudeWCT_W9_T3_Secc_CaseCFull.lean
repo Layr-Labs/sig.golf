@@ -475,7 +475,6 @@ theorem public_ghost_log {β : Type} (published : SigGolfCandidate.T3.Cache) (bu
         exact ih _ st hv
 
 end GenericLog
-#print axioms public_ghost_log
 end ClaudeWCT.W9.T3.Security.PairedBankLink
 
 namespace ClaudeWCT.W9.T3.Security.PairedBankLink
@@ -568,7 +567,6 @@ theorem bank_actual (hhash : ClaudeWCT.Bank.PayHashOnly pay) (hrho : ClaudeWCT.B
     simp [Ghost.empty]
 
 end GenericActual
-#print axioms bank_actual
 end ClaudeWCT.W9.T3.Security.PairedBankLink
 
 namespace ClaudeWCT.W9.T3.Security.PairedBankLink
@@ -595,6 +593,4 @@ theorem traced_record_support (adversary : Final.Paired.AdversaryP) (budget : Na
   exact hm
 
 
-#print axioms traced_record_support
 end ClaudeWCT.W9.T3.Security.PairedBankLink
-

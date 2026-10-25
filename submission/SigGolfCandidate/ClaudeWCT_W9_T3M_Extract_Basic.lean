@@ -134,7 +134,7 @@ theorem Pos.proj_of_high {p : Pos} (h : p.high = true) : p.proj = fun a => a.ext
   unfold Pos.proj; rw [h]; rfl
 /-- The (padded) length of a position's honest input (S2-2). -/
 def Pos.len : Pos → Nat
-  | .leaf lay _ _ => if lay = 0 then 896 else 704
+  | .leaf lay _ _ => if lay = 0 then 832 else 704
   | .wctLeaf .. => 128
   | .forest .. => 320
   | _ => 64
@@ -152,11 +152,11 @@ only the top folds have such a label (`T3.topNodeWord`, in `[1, 4096)`): the dig
 def TopLow (b : HashInput) : Prop := 1 ≤ readLE (b.take 8) ∧ readLE (b.take 8) < 2 ^ 16
 instance (b : HashInput) : Decidable (TopLow b) :=
   inferInstanceAs (Decidable (1 ≤ readLE (b.take 8) ∧ readLE (b.take 8) < 2 ^ 16))
-/-- C3 (FULL, S2-2) + C4: the decoding key of an input's header block. Leaf-length inputs (704 or 896 bytes) and
+/-- C3 (FULL, S2-2) + C4: the decoding key of an input's header block. Leaf-length inputs (704 or 832 bytes) and
 64-byte inputs with a top label (`TopLow`) are keyed by the low tweak word only (their high word is a witness pad);
 every other input by its canonical header. -/
 def hdrKey (x : HashInput) : HashInput :=
-  if x.length = 704 ∨ x.length = 896 then (hdrBlock x).take 8 ++ List.replicate 8 0
+  if x.length = 704 ∨ x.length = 832 then (hdrBlock x).take 8 ++ List.replicate 8 0
   else if x.length = 64 ∧ TopLow (hdrBlock x) then (hdrBlock x).take 8 ++ List.replicate 8 0
   else canonicalHeader (hdrBlock x)
 /-- Same length and same decoding key (C3 FULL; S2-2). -/
@@ -183,7 +183,7 @@ theorem hdrKey_congr {a b : HashInput} (hl : a.length = b.length) (hb : hdrBlock
 theorem SameHeader.of_hdrBlock {a b : HashInput} (hl : a.length = b.length) (hb : hdrBlock a = hdrBlock b) :
     SameHeader a b := ⟨hl, hdrKey_congr hl hb⟩
 theorem SameHeader.of_canonical {a b : HashInput} (hl : a.length = b.length)
-    (hn : ¬ (b.length = 704 ∨ b.length = 896))
+    (hn : ¬ (b.length = 704 ∨ b.length = 832))
     (hc : canonicalHeader (hdrBlock a) = canonicalHeader (hdrBlock b)) : SameHeader a b := by
   refine ⟨hl, ?_⟩
   unfold hdrKey
@@ -556,5 +556,4 @@ theorem singleton_top (answers : Answers) (index : Nat) :
       SharedForest.forestCommitment answers index := by
   rfl
 
-#print axioms input_eq_of_no_hit
 end ClaudeWCT.W9.T3M.Extract.Paired

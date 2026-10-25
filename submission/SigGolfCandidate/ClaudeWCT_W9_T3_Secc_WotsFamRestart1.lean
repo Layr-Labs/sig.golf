@@ -74,7 +74,4 @@ theorem markerAt_famCongr (trace : List Entry) (b : ChainAddr) :
 
 end Congr
 
-#print axioms frontierValue_famCongr
-#print axioms contactAt_famCongr
-#print axioms markerAt_famCongr
 end ClaudeWCT.W9.T3.Security.Wots.CanonicalRef.Normalized.FamRestartN

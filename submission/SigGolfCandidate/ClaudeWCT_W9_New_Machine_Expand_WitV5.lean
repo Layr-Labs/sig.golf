@@ -13,8 +13,20 @@ def bcTopBlockV6 (lay : Layer) (leaf : Nat) (ls : LayerSignature lay) (ctr : Bit
   else zeros 32 ++ bytesLE 4 ctr ++ zeros 12 ++ bytesLE 16 (ls.path (WCT9.topLevel lay))
 def layerBytesBCV6 (lay : Layer) (leaf : Nat) (ls : LayerSignature lay) (ctr : BitVec 32) : List UInt8 :=
   bcTopBlockV6 lay leaf ls ctr ++ (layerBytes lay leaf ls).drop 64
+/-- T51: chain blocks of a staging region. The top keeps #938's 54 blocks (chain `i` at block `53 - i` below the
+path blocks; the blocks of chains 51..53 are never written and stay zero). -/
+def chainSlotsV6 (lay : Layer) : Nat := if lay.val = 0 then 54 else chainCount lay
+theorem chainSlotsV6_lower (lay : Layer) (hl : lay.val ≠ 0) : chainSlotsV6 lay = chainCount lay := by
+  simp [chainSlotsV6, hl]
+theorem chainSlotsV6_ge (lay : Layer) : chainCount lay ≤ chainSlotsV6 lay := by
+  fin_cases lay <;> decide
+/-- T51: a staging region without its counter block. The top inserts the 3 zero blocks of #938's chains 51..53
+between its 12 path blocks and its 51 chain blocks. -/
+def layerBytesV6 (lay : Layer) (leaf : Nat) (ls : LayerSignature lay) : List UInt8 :=
+  if lay.val = 0 then (layerBytes lay leaf ls).take 768 ++ zeros 192 ++ (layerBytes lay leaf ls).drop 768
+  else layerBytes lay leaf ls
 def layerRegionV6 (N : HashOutput) (w : WCT9.Witness) (lay : Layer) : List UInt8 :=
-  if lay.val = 0 then layerBytes lay (route (WCT9.digestIndex N) lay).1 (w.signature.layers lay)
+  if lay.val = 0 then layerBytesV6 lay (route (WCT9.digestIndex N) lay).1 (w.signature.layers lay)
   else layerBytesBCV6 lay (route (WCT9.digestIndex N) lay).1 (w.signature.layers lay)
     (w.counters (Fin.ofNat 4 (lay.val - 1)))
 /-- Staging region of the compaction pass (896 bytes). r3w (witness stack): the FTS content of the staging is dead
@@ -68,15 +80,32 @@ theorem layerBytesBCV6_length (lay : Layer) (leaf : Nat) (ls : LayerSignature la
   have := height_pos lay
   have : 64 ≤ 64 * (height lay + chainCount lay) := by nlinarith
   omega
+theorem layerBytesV6_length (lay : Layer) (leaf : Nat) (ls : LayerSignature lay) :
+    (layerBytesV6 lay leaf ls).length = 64 * (height lay + chainSlotsV6 lay) := by
+  unfold layerBytesV6 chainSlotsV6
+  split
+  · rename_i h
+    have hl : lay = 0 := Fin.ext h
+    subst hl
+    have e1 : (zeros 192 : List UInt8).length = 192 := List.length_replicate ..
+    have h1 : height (0 : Layer) = 12 := rfl
+    have h2 : chainCount (0 : Layer) = 51 := rfl
+    rw [List.length_append, List.length_append, List.length_take, List.length_drop,
+      SigGolfCandidate.T3M.layerBytes_length, e1, h1, h2]
+    simp
+  · rw [SigGolfCandidate.T3M.layerBytes_length]
 theorem layerRegionV6_length (N : HashOutput) (w : WCT9.Witness) (lay : Layer) :
-    (layerRegionV6 N w lay).length = 64 * (height lay + chainCount lay) := by
+    (layerRegionV6 N w lay).length = 64 * (height lay + chainSlotsV6 lay) := by
   unfold layerRegionV6; split
-  · exact SigGolfCandidate.T3M.layerBytes_length _ _ _
-  · exact layerBytesBCV6_length _ _ _ _
+  · exact layerBytesV6_length _ _ _
+  · rename_i h
+    rw [layerBytesBCV6_length]
+    simp [chainSlotsV6, h]
 theorem layersV6_length (N : HashOutput) (w : WCT9.Witness) :
     ((List.finRange 4).flatMap (layerRegionV6 N w)).length = 13696 := by
   simp only [List.length_flatMap, layerRegionV6_length]
-  simp [List.finRange, height, chainCount]
+  decide
+
 theorem witListV5_length (N : HashOutput) (w : WCT9.Witness) : (witListV5 N w).length = 22984 := by
   unfold witListV5
   simp only [List.length_append, headerBytesV5_length, wctBytesV5_length, zeros,

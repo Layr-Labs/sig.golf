@@ -102,7 +102,6 @@ theorem evaluate_tYF {G W d : Nat} (hd : 1 ≤ d) (P : TParamsF G W d) (σ : Dig
     simp only [tYF, Fin.val_zero, if_true, Function.update_self]
   rw [h1, h2]
 
-#print axioms evaluate_tYF
 end ClaudeWCT.W9.T3.Security.Wots.FamRestart
 
 namespace ClaudeWCT.W9.T3.Security.Wots.CanonicalRef.Normalized.FamTest
@@ -299,9 +298,6 @@ theorem enT_testImplF (y : Free Rev → Digest) (q : RefWorld.Domain) (s : TObs 
     rfl
 end Counts
 
-#print axioms evalT_testRunF
-#print axioms tdepth_testImplF
-#print axioms enT_testImplF
 end ClaudeWCT.W9.T3.Security.Wots.CanonicalRef.Normalized.FamTest
 
 namespace ClaudeWCT.W9.T3.Security.Wots.CanonicalRef.Normalized.RawFam
@@ -385,7 +381,6 @@ theorem otherHalf_ovF (hF : FamOk G W b n F) (R : Tables U) (X : FamData G W n) 
   | some cv => rw [chainHigh_of_zeroOfF hs hac hF.width hz, otherZ_ovF hU hF R X _ hz]
 end Pairing
 
-#print axioms otherHalf_ovF
 end ClaudeWCT.W9.T3.Security.Wots.CanonicalRef.Normalized.RawFam
 
 namespace ClaudeWCT.W9.T3.Security.Wots.CanonicalRef.Normalized.RawFam
@@ -521,7 +516,6 @@ theorem famCongr_progF (g : GChainW (S.grp F.lay) (chainCount F.lay) → Digest 
           (fun c' _ v' => hnz _ c step value (by omega) (by omega) c' v')).symm
 end Program
 
-#print axioms famCongr_progF
 end ClaudeWCT.W9.T3.Security.Wots.CanonicalRef.Normalized.RawFam
 
 namespace ClaudeWCT.W9.T3.Security.Wots.CanonicalRef.Normalized.RawFam
@@ -695,6 +689,4 @@ theorem route_programmedF (hF : FamOkS S F) {a : ChainAddr} (ca : GChainW (S.grp
   · simp only [Route.routeImpl]
 end Route
 
-#print axioms famCongr_normalizeF
-#print axioms route_programmedF
 end ClaudeWCT.W9.T3.Security.Wots.CanonicalRef.Normalized.RawFam

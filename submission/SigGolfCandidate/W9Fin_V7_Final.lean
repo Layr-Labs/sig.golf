@@ -490,7 +490,6 @@ theorem prefixGood : PrefixGood W9Drv.SharedGate.Pre := by
       GoodQP.mono' (hcont a u hdc (gatePre_of_dgOut m pk w a u hu)) (by omega) le_rfl le_rfl)
   exact GoodQP.mono' h (by omega) (by omega) (by omega)
 end W9Fin.V7
-#print axioms W9Fin.V7.prefixGood
 end
 
 section
@@ -666,8 +665,6 @@ theorem verify_inputs {GatePre : Digest → WB → HashOutput → MachineState �
       ClaudeWCT.W9.T3M.Final.VerifyAcceptCycles I0 :=
   verify_inputs_of I0 I0_verify H
 end W9Fin.V7
-#print axioms W9Fin.V7.verify_inputs_of
-#print axioms W9Fin.V7.verify_inputs
 end
 
 section
@@ -685,7 +682,6 @@ theorem verify_inputs_x {FtsOut : SigGolfCandidate.T3.Digest → ClaudeWCT.W9.T3
       ClaudeWCT.W9.T3M.Final.VerifyAcceptCycles I0 :=
   verify_inputs ⟨prefixGood, fts, after, hnum⟩
 end W9Fin.V7
-#print axioms W9Fin.V7.verify_inputs_x
 end
 
 namespace W9Fin.V7.Canonical
@@ -784,15 +780,14 @@ theorem verify_good
 theorem verify_good_6997
     (hprefix : W9Fin.V7.PrefixGood GatePre)
     (fts : ∀ w : WB, FtsGoodByCost GatePre FtsOut ftsProgram (fun a => 870 + cost a) (P w))
-    (after : AfterGoodBudget FtsOut afterProgram 5219 P)
+    (after : AfterGoodBudget FtsOut afterProgram 5264 P)
     (hnone : ∀ pk w i, afterProgram pk w i none = pure false)
     (m : SigGolfCandidate.Legacy.Message) (pk : PublicKey) (w : WB) (s : MachineState)
     (hs : initialState submission .verify (m,pk,w) = some s) :
-    GoodQP (Pre (P w) cost 777 m w) s 10083 10084 True 6877
+    GoodQP (Pre (P w) cost 777 m w) s 10083 10084 True 6922
       (ccM (verifyP ftsProgram afterProgram m pk w) Kb) :=
   verify_good hprefix fts after hnone m pk w s hs
 end
-#print axioms verify_good_6997
 end W9Fin.V7.Canonical
 
 
@@ -834,7 +829,7 @@ theorem fts_installed {P : Hash → Prop} :
   exact goodQP_frozen.mp h
 
 theorem after_installed (floors : SigGolfCandidate.T3.Layer → Nat) (hcredit : CreditFloors floors) :
-    AfterGoodBudget installedOut SigGolfCandidate.T3M.Verify.afterFts 5219
+    AfterGoodBudget installedOut SigGolfCandidate.T3M.Verify.afterFts 5264
       (fun w => HashOkBy floors (ClaudeWCT.W9.T3M.wtopHigh w)) :=
   fun pk w Q hQ answer top state hstate =>
     SigGolfCandidate.T3M.after_good_budget floors hcredit pk w Q hQ answer top state hstate
@@ -844,7 +839,7 @@ theorem installed_verify_good (floors : SigGolfCandidate.T3.Layer → Nat) (hcre
     (hstate : initialState submission .verify (message, pk, witness) = some state) :
     GoodQP (Pre (HashOkBy floors (ClaudeWCT.W9.T3M.wtopHigh witness))
       SigGolfCandidate.Research.SharedForest.jointAccountingCost 777 message witness)
-      state 10083 10084 True 6877
+      state 10083 10084 True 6922
       (ccM (verifyP installedFts SigGolfCandidate.T3M.Verify.afterFts message pk witness) Kb) :=
   verify_good_6997 (P := fun w => HashOkBy floors (ClaudeWCT.W9.T3M.wtopHigh w)) W9Fin.V7.prefixGood
     (fun _ => fts_installed) (after_installed floors hcredit)
@@ -870,7 +865,7 @@ theorem paired_ftsP_eq (w : ClaudeWCT.W9.T3M.WBytes) (output : HashOutput) :
     funext (fun state => funext (fun coord => paired_ftsStep_eq w output state coord))
   rw [hs]
   unfold W9Drv.SharedCoord.ftsN
-  cases h : decide (output.toNat / 2^242 % 16384 < 804) <;>
+  cases h : decide (output.toNat / 2^242 % 16384 < 791) <;>
     try simp only [Bool.not_false,Bool.not_true,Bool.false_eq_true,↓reduceIte]
   rfl
 
@@ -906,7 +901,7 @@ abbrev pairedSubmission := ClaudeWCT.W9.T3M.Paired.submission
 def Inputs : Prop := ∀ (floors : SigGolfCandidate.T3.Layer→Nat), CreditFloors floors →
   ∀ (m : SigGolfCandidate.Legacy.Message) (pk : PublicKey) (w : Bytes 22012) (s : MachineState),
   initialState SigGolfCandidate.T3M.submission .verify (m,pk,w)=some s →
-  GoodQP (fun hash => HashOkBy floors (ClaudeWCT.W9.T3M.wtopHigh w) hash ∧ DigestCapOk hash m w) s 10083 10084 True 6877
+  GoodQP (fun hash => HashOkBy floors (ClaudeWCT.W9.T3M.wtopHigh w) hash ∧ DigestCapOk hash m w) s 10083 10084 True 6922
     (ccM (ClaudeWCT.W9.T3M.Paired.verifyP m pk w) Kb)
 
 theorem init_paired (I : ClaudeWCT.W9.T3M.Images) (hI : I.verify=Images.verifyImage)

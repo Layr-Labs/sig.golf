@@ -911,7 +911,6 @@ theorem digestSearch_public (rho : Digest) (message : Message) :
       intro answer
       split <;> simp only [simulateQ_pure, map_pure, ih, FtsBankSpec.search, Sampling.publicProgram]
 
-#print axioms digestSearch_public
 end ClaudeWCT.Bank.Paired
 
 namespace ClaudeWCT.Bank.Paired
@@ -963,8 +962,6 @@ theorem signPayload_factor (cache : SigGolfCandidate.T3.Cache) (message : Messag
       intro witness
       cases witness <;> rfl
 
-#print axioms signature_counter
-#print axioms signPayload_factor
 end ClaudeWCT.Bank.Paired
 
 namespace ClaudeWCT.Bank.Paired
@@ -1124,10 +1121,6 @@ theorem payRho : PayRho payAfterDigest SigGolfCandidate.Research.SharedForest.Si
   all_goals (rw [evalWithAnswerFn_pure] at h; cases h)
   all_goals rfl
 
-#print axioms payHashOnly
-#print axioms payAvoids
-#print axioms payNotDigest
-#print axioms payRho
 end ClaudeWCT.Bank.Paired
 
 namespace ClaudeWCT.Bank.FtsBankSpecL
@@ -1156,7 +1149,6 @@ theorem payloadRecord_factor {P Sig : Type} [Fintype P] [SampleableType P]
   · simp only [map_bind,map_pure]
     exact bind_pure _
 
-#print axioms payloadRecord_factor
 end ClaudeWCT.Bank.FtsBankSpecL
 
 namespace ClaudeWCT.Bank.Paired
@@ -1174,7 +1166,6 @@ theorem payloadRecord_erasure (cache : SigGolfCandidate.T3.Cache) (message : Mes
   rw [digestSearch_public]
   rfl
 
-#print axioms payloadRecord_erasure
 end ClaudeWCT.Bank.Paired
 
 namespace ClaudeWCT.Bank.Paired
@@ -1222,8 +1213,6 @@ theorem recordedExperiment_erasure
   unfold FtsBankSpecL.recordedExperiment
   simp_rw [source_erasure]
 
-#print axioms record_erasure
-#print axioms recordedExperiment_erasure
 end ClaudeWCT.Bank.Paired
 
 namespace ClaudeWCT.Bank.Paired
@@ -1275,6 +1264,4 @@ theorem buildForest_notDN (index : Nat) (selected : ForestSelection) (words : Fo
     AllQueriesSatisfy (buildForest index selected words) BPair.NotDN :=
   forest_allowed BPair.NotDN forest_notDN index selected words
 
-#print axioms forest_notDN
-#print axioms buildForest_notDN
 end ClaudeWCT.Bank.Paired

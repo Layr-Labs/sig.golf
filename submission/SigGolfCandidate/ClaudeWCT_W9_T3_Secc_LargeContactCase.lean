@@ -43,7 +43,7 @@ theorem frame_wots_route (answers : Answers) (w : WBytes) (index : Nat) (lay : L
         (j + 1 < height lay ∨ lay.val = 0 → wmerklePad w lay (route index lay).1 j =
           WCT9.nonceDigest (WCT9.honestNonce answers lay (route index lay).2 j ((route index lay).1 / 2 ^ (j + 1)))) ∧
         (j + 1 < height lay ∨ lay.val = 0 → wmerkleHigh w lay (route index lay).1 j = 0))
-    (hleaf : wleafHigh w lay = 0 ∧ (lay.val = 0 → wtopLeafPad w = 0))
+    (hleaf : wleafHigh w lay = 0)
     (hchains : ∀ i, i < chainCount lay →
       (depth answers ⟨routeLeaf index lay, i⟩ ≤ digits.getD i 0 →
         wvalueFor w lay digits i = WCT9.wotsValue answers lay (route index lay).2 (route index lay).1 digits i ∧
@@ -1457,7 +1457,6 @@ theorem trace_inputs (adversary : Final.Paired.AdversaryP) (q : Nat) (hq : q ≤
       x ∈ Wots.PairedReference.referenceInputs adversary :=
   record_inputs _ _ (∅,∅) (Wots.PairedReference.Ref.referenceInputs_inputsIn adversary) _
     (PairedBankLink.traced_record_support adversary q hq result hr)
-#print axioms trace_inputs
 end ClaudeWCT.W9.T3.Security.LargeCoupling.Paired
 
 namespace ClaudeWCT.W9.T3.Security.LargeCoupling.Paired

@@ -155,28 +155,43 @@ theorem sub79_spec {image : Image} {b : Nat} (h : SubAt image b) (s : MachineSta
     cases so <;> simp
   · intro r hr; cases r <;> simp_all [st_79, blk117_79.res, rv_simp] <;> rfl
   · intro A _ _; simp [st_79, blk117_79.res, rv_simp]
+/-- Campaign T51 (endpad top leaf): 197..198 `sltu t5, zero, s3; add t3, s3, t5`. -/
 theorem sub80_spec {image : Image} {b : Nat} (h : SubAt image b) (s : MachineState)
     (hpc : s.pc = pcOf (b + 80)) (i : Nat) (hi : i < 2 ^ 32) (h19 : s.getReg .x19 = BitVec.ofNat 64 i) :
     ∃ t, Steps image s 2 2 t ∧ t.pc = pcOf (b + 82) ∧
-      t.getReg .x28 = BitVec.ofNat 64 (16 * i + 16) ∧ RegsExcept s t [.x28] ∧ Frame s t (fun _ => False) := by
-  have hrun := run_80 h.2.1
-  refine ⟨_, symRun_sound hrun (codeAt_sub_80 h) s hpc (by simp [st_80, blk117_80.res, rv_simp]),
+      t.getReg .x28 = BitVec.ofNat 64 (i + (if i = 0 then 0 else 1)) ∧ RegsExcept s t [.x28, .x30] ∧
+      Frame s t (fun _ => False) := by
+  have hc := codeAt_sub80K h
+  obtain ⟨rfl, rfl⟩ := h.2.2.2.2
+  have e : (if (0#64).ult (BitVec.ofNat 64 i) = true then (1#64) else 0#64) =
+      BitVec.ofNat 64 (if i = 0 then 0 else 1) := by
+    by_cases h0 : i = 0
+    · subst h0; rfl
+    · have : (0#64).ult (BitVec.ofNat 64 i) = true := by
+        simp only [BitVec.ult, BitVec.toNat_ofNat, Nat.mod_eq_of_lt (show i < 2 ^ 64 by omega)]
+        simp; omega
+      rw [if_pos this, if_neg h0]
+  refine ⟨_, symRun_sound run_80K hc s hpc (by simp [st_80K, kblk_80.res, rv_simp]),
     ?_, ?_, ?_, ?_⟩
-  · simp [pcE_80, Result.toState_pc, E.eval]
-  · t3n [st_80, blk117_80.res, h19]; congr 1; omega
-  · intro r hr; simp at hr; cases r <;> simp_all [st_80, blk117_80.res, rv_simp] <;> rfl
-  · intro A _ _; simp [st_80, blk117_80.res, rv_simp]
+  · simp [Result.toState_pc, E.eval]
+  · simp only [Result.toState_getReg, st_80K, kblk_80.res, rv_simp, h19]
+    first | done | t3n [h19, e]
+  · intro r hr; simp at hr; cases r <;> simp_all [st_80K, kblk_80.res, rv_simp] <;> rfl
+  · intro A _ _; simp [st_80K, kblk_80.res, rv_simp]
+/-- Campaign T51: 199 `slli t3, t3, 4`. -/
 theorem sub82_spec {image : Image} {b : Nat} (h : SubAt image b) (s : MachineState)
-    (hpc : s.pc = pcOf (b + 82)) (o : Nat) (h28 : s.getReg .x28 = BitVec.ofNat 64 o) :
-    ∃ t, Steps image s 1 1 t ∧ t.pc = pcOf (b + 83) ∧ t.getReg .x28 = BitVec.ofNat 64 (o + 16) ∧
+    (hpc : s.pc = pcOf (b + 82)) (o : Nat) (ho : o < 2 ^ 32) (h28 : s.getReg .x28 = BitVec.ofNat 64 o) :
+    ∃ t, Steps image s 1 1 t ∧ t.pc = pcOf (b + 83) ∧ t.getReg .x28 = BitVec.ofNat 64 (16 * o) ∧
       RegsExcept s t [.x28] ∧ Frame s t (fun _ => False) := by
-  have hrun := run_82 h.2.1
-  refine ⟨_, symRun_sound hrun (codeAt_sub_82 h) s hpc (by simp [st_82, blk117_82.res, rv_simp]),
+  have hc := codeAt_sub82K h
+  obtain ⟨rfl, rfl⟩ := h.2.2.2.2
+  refine ⟨_, symRun_sound run_82K hc s hpc (by simp [st_82K, kblk_82.res, rv_simp]),
     ?_, ?_, ?_, ?_⟩
-  · simp [pcE_82, Result.toState_pc, E.eval]
-  · t3n [st_82, blk117_82.res, h28]
-  · intro r hr; simp at hr; cases r <;> simp_all [st_82, blk117_82.res, rv_simp] <;> rfl
-  · intro A _ _; simp [st_82, blk117_82.res, rv_simp]
+  · simp [Result.toState_pc, E.eval]
+  · simp only [Result.toState_getReg, st_82K, kblk_82.res, rv_simp, h28]
+    t3n [h28]; omega
+  · intro r hr; simp at hr; cases r <;> simp_all [st_82K, kblk_82.res, rv_simp] <;> rfl
+  · intro A _ _; simp [st_82K, kblk_82.res, rv_simp]
 theorem sub83_spec {image : Image} {b : Nat} (h : SubAt image b) (s : MachineState)
     (hpc : s.pc = pcOf (b + 83)) (o : Nat) (ho : o % 8 = 0) (ho' : LEAFPK + o + 16 ≤ 2 ^ 24)
     (h28 : s.getReg .x28 = BitVec.ofNat 64 o) :
@@ -234,7 +249,7 @@ theorem sub95_spec {image : Image} {b : Nat} (h : SubAt image b) (s : MachineSta
   · intro A _ _; simp [st_95, blk117_95.res, rv_simp]
 /-- C4 (b3cc11b's keygen word): the top leaf exit also loads `x29 = leaf % 2` (the answer-half selector). -/
 theorem sub96_spec {image : Image} {b : Nat} (h : SubAt image b) (s : MachineState)
-    (hpc : s.pc = pcOf (b + 96)) (n : Nat) (hn : n = 54 ∨ n = 43)
+    (hpc : s.pc = pcOf (b + 96)) (n : Nat) (hn : n = 51 ∨ n = 43)
     (h26 : s.getReg .x26 = BitVec.ofNat 64 n) (leaf : Nat) (h18 : s.getReg .x18 = BitVec.ofNat 64 leaf) :
     ∃ t, Steps image s 9 9 t ∧ t.pc = pcOf (b + 105) ∧ t.getReg .x10 = BitVec.ofNat 64 LEAFPK ∧
       t.getReg .x11 = BitVec.ofNat 64 ((16 * (n + 1) + 63) / 64 * 64) ∧

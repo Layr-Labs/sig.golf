@@ -64,13 +64,11 @@ theorem errTotF_toReal {S : FamScheme} {Cmax : Nat} (H : FamHyps S Cmax) (advers
         mul_le_mul_of_nonneg_right (div_le_div_of_nonneg_right (mul_le_mul_of_nonneg_left hk hc) hd.le) hm
     _ = _ := by ring
 
-/-- The family seed-error hypothesis of the small route (`errTotF ≤ (7233/10000) y²` on `y ≤ 3/2500`) for `Cmax ≤ 301`. -/
-theorem seedErrorBoundF {S : FamScheme} {Cmax : Nat} (H : FamHyps S Cmax) (hC : Cmax ≤ 301)
+/-- The family seed-error hypothesis of the small route (`errTotF ≤ (733/1000) y²` on `y ≤ 3/2500`) for `Cmax ≤ 305`. -/
+theorem seedErrorBoundF {S : FamScheme} {Cmax : Nat} (H : FamHyps S Cmax) (hC : Cmax ≤ 305)
     (adversary : Final.Paired.AdversaryP) (q : Nat) (hq : q < 2 ^ 128) (hy : (q : ℝ) / 2 ^ 128 ≤ 3 / 2500) :
-    (errTotF S adversary q).toReal ≤ (7233 / 10000) * ((q : ℝ) / 2 ^ 128) ^ 2 :=
+    (errTotF S adversary q).toReal ≤ (733 / 1000) * ((q : ℝ) / 2 ^ 128) ^ 2 :=
   (errTotF_toReal H adversary q hq).trans
     (grouped_seed_error Cmax _ (Nat.cast_nonneg _) (by exact_mod_cast hC) (by positivity) hy)
 
-#print axioms errTotF_toReal
-#print axioms seedErrorBoundF
 end ClaudeWCT.W9.T3.Security.Wots.CanonicalRef.Normalized.FamTot

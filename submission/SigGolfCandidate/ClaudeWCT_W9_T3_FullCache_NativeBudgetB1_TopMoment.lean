@@ -239,24 +239,28 @@ theorem topVal_toNat (heap : Nat) (a : HashOutput) :
   cases nodeHalfHigh 3 0 heap <;> simp [BitVec.extractLsb'_toNat, Nat.shiftRight_eq_div_pow]
 
 /-- Start of the zero window of a height-`h` node value (img-v6, `b_h = h`). -/
-def zeroStart (h : Nat) : Nat := if h = 11 then 98 else 128 - h
+def zeroStart (h : Nat) : Nat := if h = 11 then 104 else 128 - topZeroBits h
 
-theorem topZeroBits_eq {h : Nat} (h1 : 1 ≤ h) (h11 : h ≤ 11) : topZeroBits h = h := by
-  interval_cases h <;> rfl
+/-- Campaign T51: the top zero bits are `b_h = 0,0,1,1,2,3,4,5,6,7,8` (#938: `b_h = h`; restated, its users are sorried). -/
+theorem topZeroBits_eq {h : Nat} (h1 : 1 ≤ h) (h11 : h ≤ 11) : topZeroBits h = topZeroAlloc.getD h 0 := rfl
 
 theorem window_of_half (x s k : Nat) (hsk : s + k ≤ 128) :
     x % 2 ^ 128 / 2 ^ s % 2 ^ k = x / 2 ^ s % 2 ^ k := by
   have h128 : (2 : Nat) ^ 128 = 2 ^ s * 2 ^ (128 - s) := by rw [← pow_add]; congr 1; omega
   rw [h128, Nat.mod_mul_right_div_self, Nat.mod_mod_of_dvd _ (Nat.pow_dvd_pow 2 (by omega))]
 
+theorem topZeroBits_le (h : Nat) (h11 : h ≤ 11) : topZeroBits h ≤ 8 := by interval_cases h <;> decide
+
+/-- Campaign T51: the zero test of a height-`h` node is the `b_h`-bit window at `zeroStart h` (bits 104..111 at h = 11). -/
 theorem topZeroOk_iff {h : Nat} (h1 : 1 ≤ h) (h11 : h ≤ 11) (v : Digest) :
-    topZeroOk h v = true ↔ v.toNat / 2 ^ zeroStart h % 2 ^ h = 0 := by
+    topZeroOk h v = true ↔ v.toNat / 2 ^ zeroStart h % 2 ^ topZeroBits h = 0 := by
   unfold topZeroOk zeroStart
   by_cases he : h = 11
-  · subst he; simp
-  · rw [if_neg he, if_neg he, topZeroBits_eq h1 h11]
+  · subst he; simp [show topZeroBits 11 = 8 from rfl]
+  · rw [if_neg he, if_neg he]
+    have hb := topZeroBits_le h h11
     have hv := v.isLt
-    have hlt : v.toNat / 2 ^ (128 - h) < 2 ^ h := by
+    have hlt : v.toNat / 2 ^ (128 - topZeroBits h) < 2 ^ topZeroBits h := by
       rw [Nat.div_lt_iff_lt_mul (by positivity), ← pow_add]
       exact lt_of_lt_of_le hv (Nat.pow_le_pow_right (by norm_num) (by omega))
     rw [Nat.mod_eq_of_lt hlt]
@@ -264,17 +268,19 @@ theorem topZeroOk_iff {h : Nat} (h1 : 1 ≤ h) (h11 : h ≤ 11) (v : Digest) :
 
 /-- The accepted trials of a height-`h` node are a bit window of the answer. -/
 theorem topZeroOk_topVal_iff {h : Nat} (h1 : 1 ≤ h) (h11 : h ≤ 11) (heap : Nat) (a : HashOutput) :
-    topZeroOk h (topVal heap a) = true ↔ a.toNat / 2 ^ (topOff heap + zeroStart h) % 2 ^ h = 0 := by
+    topZeroOk h (topVal heap a) = true ↔ a.toNat / 2 ^ (topOff heap + zeroStart h) % 2 ^ topZeroBits h = 0 := by
+  have hb := topZeroBits_le h h11
   rw [topZeroOk_iff h1 h11, topVal_toNat, window_of_half _ _ _ (by unfold zeroStart; split <;> omega),
     Nat.div_div_eq_div_mul, ← pow_add]
 
 theorem topOff_add_le (heap : Nat) : topOff heap + 128 ≤ 256 := by
   unfold topOff; split <;> omega
 
-/-- **Acceptance probability** of a top-node trial at height `h`: exactly `2^-h`. -/
+/-- **Acceptance probability** of a top-node trial at height `h`: exactly `2^-b_h` (T51 `b_h = topZeroBits h`). -/
 theorem prob_topAccept {h : Nat} (h1 : 1 ≤ h) (h11 : h ≤ 11) (heap : Nat) :
     Pr[fun a : HashOutput => topZeroOk h (topVal heap a) = true | ($ᵗ HashOutput : ProbComp HashOutput)] =
-      ((2 : ℝ≥0∞) ^ h)⁻¹ := by
+      ((2 : ℝ≥0∞) ^ topZeroBits h)⁻¹ := by
+  have hb := topZeroBits_le h h11
   simp only [topZeroOk_topVal_iff h1 h11]
   exact prob_window _ _ _ (by have := topOff_add_le heap; unfold zeroStart; split <;> omega)
     (by positivity)

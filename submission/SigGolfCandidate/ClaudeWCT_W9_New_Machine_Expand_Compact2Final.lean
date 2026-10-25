@@ -1160,13 +1160,13 @@ sym_block RInitJ := symRun cfgC cInitJ (pcOf 43951) 40
 sym_block RETail := symRun cfgC cETail (pcOf 43472) 40
 sym_block RInitB := symRun cfgC cInitB (pcOf 43953) 40
 def MemEq (M N : Nat → Word) : Prop := ∀ A < 2^64, M A=N A
-theorem lbS_low : ∀ k < 183, 1256 ≤ Layout.sK k := by decide
+theorem lbS_low : ∀ k < 180, 1256 ≤ Layout.sK k := by decide
 theorem lbMem_congr (M N : Nat → Word) (h : ∀ B, B ≠ 1240 → M B = N B) (A : Nat) (hA : A ≠ 1240) :
     Layout.lbMem M A = Layout.lbMem N A := by
   unfold Layout.lbMem Layout.itMem Layout.hitVal
   split_ifs with h1 h2
   · exact h _ (by omega)
-  · cases hf : (List.range 183).find? (fun k => decide (Layout.slotK k ≤ A ∧ A < Layout.slotK k + 16)) with
+  · cases hf : (List.range 180).find? (fun k => decide (Layout.slotK k ≤ A ∧ A < Layout.slotK k + 16)) with
     | none => rfl
     | some k =>
       have hk := List.mem_range.mp (List.mem_of_find?_eq_some hf)
@@ -1213,10 +1213,10 @@ theorem buffer_spec (s : MachineState) (hpc : s.pc=pcOf 42716) :
     have hB : ∀ B, B ≠ 1240 → B < 2 ^ 64 → u3.getMem (BitVec.ofNat 64 B) = s.getMem (BitVec.ofNat 64 B) :=
       fun B hb hB' => by rw [m3 B hB', if_neg hb]
     unfold Layout.lbMem Layout.itMem Layout.hitVal
-    have hlt : ∀ k < 183, Layout.sK k + 16 ≤ 23008 := fun k hk => (Layout.tab_facts.2.2.2.2.2.2.2.2 k hk).2.1
+    have hlt : ∀ k < 180, Layout.sK k + 16 ≤ 23008 := fun k hk => (Layout.tab_facts.2.2.2.2.2.2.2.2 k hk).2.1
     split_ifs with h1 h2
     · exact hB _ (by omega) (by omega)
-    · cases hf : (List.range 183).find? (fun k => decide (Layout.slotK k ≤ A ∧ A < Layout.slotK k + 16)) with
+    · cases hf : (List.range 180).find? (fun k => decide (Layout.slotK k ≤ A ∧ A < Layout.slotK k + 16)) with
       | none => rfl
       | some k =>
         have hk := List.mem_range.mp (List.mem_of_find?_eq_some hf)

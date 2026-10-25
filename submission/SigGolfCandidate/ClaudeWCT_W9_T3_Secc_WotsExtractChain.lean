@@ -604,5 +604,4 @@ theorem chain_cases (answers : Answers) (a : ChainAddr) (start count : Nat)
       obtain ⟨⟨x, hx⟩, htwo⟩ := chainW_seen answers a start count value _ qs ht hl hi hc8 hsub (CanonicalRef.depth answers messages a)
         hlt hdepth hval
       exact ⟨⟨by omega, x, hx⟩, fun h2 => ⟨by omega, htwo h2⟩⟩
-#print axioms chain_cases
 end ClaudeWCT.W9.T3.Security.CanonicalExtract

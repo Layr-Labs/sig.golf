@@ -365,7 +365,6 @@ theorem buildForest_cost_ge (answers : Answers) (index : Nat) (selected : Forest
   · simp only [cost_bind, cost_pure, Nat.add_zero]
     exact buildPair_cost_ge answers index pair.val (selected.pairs pair) (words.first pair) (words.second pair) state.2
 
-#print axioms buildForest_cost_ge
 end SigGolfCandidate.Research.SharedForest
 
 namespace SigGolfCandidate.Research.SharedForest
@@ -436,8 +435,6 @@ theorem expand_cost_le_recovery (answers : Answers) (message : Message) (pk : Di
             exact cost_bound answers (ClaudeWCT.WCT9.Cost.bound_searchTop ..)
     · simp only [cost_pure]; exact Nat.zero_le _
 
-#print axioms cost_recoverHintedLayers_other
-#print axioms expand_cost_le_recovery
 end SigGolfCandidate.Research.SharedForest
 
 namespace SigGolfCandidate.Research.SharedForest
@@ -631,8 +628,6 @@ theorem expand_cost_le_payload_add (answers : Answers) (cache : SigGolfCandidate
       dsimp only [rho] at hx hr
       omega
 
-#print axioms signFromOutput_recovery_cost_le
-#print axioms expand_cost_le_payload_add
 end SigGolfCandidate.Research.SharedForest
 
 namespace SigGolfCandidate.Research.SharedForest
@@ -687,5 +682,4 @@ theorem expand_cost_le_sign_add (answers : Answers) (message : Message) (sig : S
   rw [sign_cost_honest]
   omega
 
-#print axioms expand_cost_le_sign_add
 end SigGolfCandidate.Research.SharedForest

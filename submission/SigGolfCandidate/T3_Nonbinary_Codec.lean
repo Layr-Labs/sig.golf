@@ -132,10 +132,3 @@ theorem constant_sum_backward_witness {ι : Type} [Fintype ι] (a b : ι → Nat
   push_neg at hn
   exact hne (constant_sum_antichain a b hn hs)
 end SigGolfResearch.NonbinaryTop.Codec
-#print axioms SigGolfResearch.NonbinaryTop.Codec.digits5_rank5
-#print axioms SigGolfResearch.NonbinaryTop.Codec.rank5_digits5
-#print axioms SigGolfResearch.NonbinaryTop.Codec.decode_encode
-#print axioms SigGolfResearch.NonbinaryTop.Codec.encode_bound
-#print axioms SigGolfResearch.NonbinaryTop.Codec.encode_injective
-#print axioms SigGolfResearch.NonbinaryTop.Codec.constant_sum_antichain
-#print axioms SigGolfResearch.NonbinaryTop.Codec.constant_sum_backward_witness

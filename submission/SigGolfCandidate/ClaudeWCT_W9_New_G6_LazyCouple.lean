@@ -791,7 +791,6 @@ theorem signW_core (omega : CanonTable.Omega U) (published : SigGolfCandidate.T3
   · simp only [if_neg hc, Guess.discloseAll, List.mapM_nil, pure_bind]
     simp only [authenticatedSign, eval_privateMac_bind, if_neg hc, evalWithAnswerFn_pure]
 
-#print axioms signW_core
 end ClaudeWCT.W9.T3.Security.WPair.Paired
 
 namespace ClaudeWCT.W9.T3.Security.WPair.Paired
@@ -836,9 +835,6 @@ theorem inline_signL (omega : CanonTable.Omega U) (published : SigGolfCandidate.
           WPair.inline_discloseAll _ _ _]
   · simp only [if_neg hc, simulateQ_pure]
 
-#print axioms inline_searchL
-#print axioms signW_core
-#print axioms inline_signL
 end ClaudeWCT.W9.T3.Security.WPair.Paired
 
 namespace ClaudeWCT.W9.T3.Security.WPair.Paired
@@ -901,7 +897,6 @@ theorem inline_experimentL (omega : CanonTable.Omega U) {α β : Type}
   rw [simulateQ_bind, WPair.inline_programL]
   exact bind_congr fun result => by rw [simulateQ_pure]
 
-#print axioms inline_experimentL
 end ClaudeWCT.W9.T3.Security.WPair.Paired
 
 namespace ClaudeWCT.W9.T3.Security.WPair.Paired
@@ -950,7 +945,4 @@ theorem experimentL_guesses_nonempty (g : CanonTable.HiddenF) {α β : Type}
   exact tracked_guessed hU omega g (forget r.2) r.1.2.1 r.1.2.2
     (experimentL_tracking hU omega g published program finish hfinish r hr) cell hc
 
-#print axioms experimentL_tracking
-#print axioms experimentL_noBad
-#print axioms experimentL_guesses_nonempty
 end ClaudeWCT.W9.T3.Security.WPair.Paired

@@ -998,7 +998,6 @@ theorem runPlan_tbsim_at {α : Type} {im : Image} {sk : BitVec 256}
         simpa only [planCycles, planQueries, if_neg hh, ChainPiece.totalCycles,
           Nat.add_zero, Nat.zero_add, Nat.add_assoc, Nat.add_left_comm, Nat.add_comm] using hrun
 
-#print axioms runPlan_tbsim_at
 end W9Machine.Chain
 
 namespace W9Machine.N600
@@ -1036,5 +1035,4 @@ theorem tbsim_of_ready_layout (L : Layout) (sk : BitVec 256)
   rw [hr.queries]
   exact congrArg (mrealize sk) (source L w index k j (embed rank) u hu)
 
-#print axioms tbsim_of_ready_layout
 end W9Machine.N600

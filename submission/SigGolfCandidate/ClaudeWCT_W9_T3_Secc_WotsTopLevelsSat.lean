@@ -160,6 +160,3 @@ theorem sat_buildTopLevels (T : Answers) (P : SigGolfCandidate.T3.Spec.Domain â†
   Â· rw [topLevelsFold_succ, evalWithAnswerFn_bind]
 
 end SigGolfCandidate.T3.Security.Wots.Structural
-
-#print axioms SigGolfCandidate.T3.Security.Wots.Structural.sat_topNonceSearch
-#print axioms SigGolfCandidate.T3.Security.Wots.Structural.sat_buildTopLevels

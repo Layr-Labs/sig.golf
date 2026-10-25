@@ -25,10 +25,10 @@ theorem leaf_bounded_of_treeBits {lay : Layer} {tree leaf : Nat} (ht : tree < 2 
     (hl : leaf < 2 ^ height lay) : (Pos.leaf lay tree leaf).Bounded :=
   ⟨hl, lt_trans (routed_lt_of_treeBits ht hl) (by norm_num)⟩
 /-- C4 key class of a position from its input length and header (adapted from b3cc11b's `keyClass`): leaves by
-length (704/896), FTS leaf (128), forest (320); 64-byte inputs by the low word `W`: top folds `1 ≤ W < 2 ^ 16`,
+length (704/832), FTS leaf (128), forest (320); 64-byte inputs by the low word `W`: top folds `1 ≤ W < 2 ^ 16`,
 marked words (WOTS and FTS chains, packed lower and FTS folds) byte0 `≥ 128`, FTS two-word folds otherwise. -/
 def keyClass (len : Nat) (h : BitVec 128) : Nat :=
-  if len = 896 ∨ len = 704 then 2
+  if len = 832 ∨ len = 704 then 2
   else if len = 128 then 4
   else if len = 320 then 6
   else if 1 ≤ tweakLow h ∧ tweakLow h < 2 ^ 16 then 1
@@ -451,8 +451,8 @@ The leaf tweak's high word and the encoding row tweak's high word are witness pa
 the 16-byte header of a leaf tweak, so a position is decoded from the input length (`Pos.len`) and the decoding key
 `hdrKey` (leaf-length inputs: the low tweak word only; every other input: its canonical header). -/
 @[simp] theorem Pos.len_leaf (lay : Layer) (tree leaf : Nat) :
-    (Pos.leaf lay tree leaf).len = if lay = 0 then 896 else 704 := rfl
-theorem Pos.len_leafLen {p : Pos} : (p.len = 704 ∨ p.len = 896) ↔ ∃ lay tree leaf, p = .leaf lay tree leaf := by
+    (Pos.leaf lay tree leaf).len = if lay = 0 then 832 else 704 := rfl
+theorem Pos.len_leafLen {p : Pos} : (p.len = 704 ∨ p.len = 832) ↔ ∃ lay tree leaf, p = .leaf lay tree leaf := by
   constructor
   · intro h
     cases p with
@@ -460,12 +460,12 @@ theorem Pos.len_leafLen {p : Pos} : (p.len = 704 ∨ p.len = 896) ↔ ∃ lay tr
     | _ => simp [Pos.len] at h
   · rintro ⟨lay, tree, leaf, rfl⟩
     simp only [Pos.len_leaf]; split <;> simp
-theorem Pos.len_of_ne_leaf {p : Pos} (h : ∀ lay tree leaf, p ≠ .leaf lay tree leaf) : ¬ (p.len = 704 ∨ p.len = 896) :=
+theorem Pos.len_of_ne_leaf {p : Pos} (h : ∀ lay tree leaf, p ≠ .leaf lay tree leaf) : ¬ (p.len = 704 ∨ p.len = 832) :=
   fun hl => by obtain ⟨lay, tree, leaf, e⟩ := Pos.len_leafLen.mp hl; exact h lay tree leaf e
-theorem hdrKey_of_leafLen {x : HashInput} (h : x.length = 704 ∨ x.length = 896) :
+theorem hdrKey_of_leafLen {x : HashInput} (h : x.length = 704 ∨ x.length = 832) :
     hdrKey x = (hdrBlock x).take 8 ++ List.replicate 8 0 := by
   unfold hdrKey; rw [if_pos h]
-theorem hdrKey_of_not_leafLen {x : HashInput} (h : ¬ (x.length = 704 ∨ x.length = 896))
+theorem hdrKey_of_not_leafLen {x : HashInput} (h : ¬ (x.length = 704 ∨ x.length = 832))
     (ht : ¬ (x.length = 64 ∧ TopLow (hdrBlock x))) :
     hdrKey x = canonicalHeader (hdrBlock x) := by
   unfold hdrKey; rw [if_neg h, if_neg ht]
@@ -488,7 +488,7 @@ theorem leafKey_hdr (lay : Layer) (tree leaf : Nat) :
 /-- For a bounded position, the key of an input whose header block is the position's header is that header. -/
 theorem hdrKey_of_hdrBlock {x : HashInput} {p : Pos} (hb : p.Bounded) (hlen : x.length = p.len)
     (h : hdrBlock x = bytesLE 16 p.hdr) : hdrKey x = bytesLE 16 p.hdr := by
-  by_cases hl : x.length = 704 ∨ x.length = 896
+  by_cases hl : x.length = 704 ∨ x.length = 832
   · rw [hdrKey_of_leafLen hl, h]
     rw [hlen] at hl
     obtain ⟨lay, tree, leaf, rfl⟩ := Pos.len_leafLen.mp hl

@@ -1691,7 +1691,6 @@ theorem rows_finish (hf:SharedReuse.Fetch im) {c index sel w : Nat} {word : WCT9
     · exact (hu.regs.trans regs).mono (by simp[bodyRegs])
     · exact (hu.frame.trans frame).mono (fun A _ h=>h)
   simpa only[bind_pure]using h
-#print axioms rows_finish
 end ClaudeWCT.W9.Machine.Sign.SharedCoordinate
 
 namespace ClaudeWCT.W9.Machine.Sign.SharedCoordinate
@@ -1756,7 +1755,6 @@ theorem coefs_rows_finish (hf:SharedReuse.Fetch im) {c old index sel w : Nat} {w
   refine ⟨⟨ht.pc,ht.x5,ht.x22,ht.size,ht.roots,ht.values,ht.paths,ht.dummy,RegsExcept.refl _ _,Frame.refl _ _⟩,?_,?_⟩
   · exact (ur.trans ht.regs).mono (by simp[coefRegs,bodyRegs])
   · exact (uf.trans ht.frame).mono (fun A _ h=>h)
-#print axioms coefs_rows_finish
 end ClaudeWCT.W9.Machine.Sign.SharedCoordinate
 
 namespace ClaudeWCT.W9.Machine.Sign.SharedCoordinate
@@ -1809,7 +1807,6 @@ theorem Ready.body {sk N : BitVec 256} {s : MachineState} (h:Ready sk N s) (sel 
     BodySt sk (s.getReg .x18).toNat (WCT9.digestIndex N) sel w s := by
   refine ⟨h.x5,by simp,h.x22,h24,h25,h.p0,h.p8,h.p32,h.p40,?_,?_,?_,?_,?_,?_⟩
   all_goals exact h.zero _ (by simp[ZeroCell,ScrZero] <;> ao)
-#print axioms Ready.frame
 end ClaudeWCT.W9.Machine.Sign.SharedCoordinate
 
 namespace ClaudeWCT.W9.Machine.Sign.SharedCoordinate
@@ -1873,7 +1870,6 @@ theorem coordinate (hf:SharedReuse.Fetch im) {c : Nat} (hc:c < 9) (hcode:Code im
         (huv.trans ht.frame).mono (fun _ _ h=>h.elim False.elim id)⟩
     exact ⟨hfull,hs.frame hc hfull.regs (by simp[bodyRegs]) (by simp[bodyRegs]) hfull.frame⟩
   · unfold cost;omega
-#print axioms coordinate
 end ClaudeWCT.W9.Machine.Sign.SharedCoordinate
 
 namespace ClaudeWCT.W9.Machine.Sign.SharedCoordinate
@@ -1971,7 +1967,6 @@ theorem heapProgram_source (c index : Nat) (hc:c < 9) (pads : Nat → SharedFore
   apply bind_congr
   intro rows
   rw[heapProgram_source c index hc]
-#print axioms program_source
 end ClaudeWCT.W9.Machine.Sign.SharedCoordinate
 
 namespace ClaudeWCT.W9.Machine.Sign.SharedCoordinate
@@ -2045,8 +2040,6 @@ theorem node_pads {c : Nat} (hc:c < 9) {nodes : Array Digest} {s : MachineState}
         simpa only[priorPads,h0,if_false,ho,SharedNode.padBase,Nat.mul_one,show 2+1=3 from rfl]using hd
   · rw[if_neg hmid,if_neg (fun h=>hmid (hm.mp h.1))]
 
-#print axioms leaf_pads
-#print axioms node_pads
 end ClaudeWCT.W9.Machine.Sign.SharedCoordinate
 
 namespace ClaudeWCT.W9.Machine.Sign.SharedCoordinate
@@ -2161,7 +2154,6 @@ theorem forest_loop (hf:SharedReuse.Fetch im) (hcode:∀c,c < 9 → Code im c)
   exact TBSim.foldlM_range' 0 9 _ _ (ForestInv sk a s) forestStepBound
     (fun c hc acc t ht=>by simpa only[Nat.zero_add]using forest_step hf hcode a ranks hranks c hc acc t ht)
     ⟨by simpa using hpc,hs,rfl,by simp,by simp,RegsExcept.refl _ _,Frame.refl _ _⟩
-#print axioms forest_loop
 end ClaudeWCT.W9.Machine.Sign.SharedCoordinate
 
 namespace ClaudeWCT.W9.Machine.Sign.SharedCoordinate
@@ -2241,7 +2233,6 @@ theorem buildNine_grouped (index : Nat) (selected : SharedForest.ForestSelection
     funext p
     fin_cases p <;> rfl
   · rfl
-#print axioms buildNine_grouped
 end ClaudeWCT.W9.Machine.Sign.SharedCoordinate
 
 namespace ClaudeWCT.W9.Machine.Sign.SharedCoordinate
@@ -2292,7 +2283,6 @@ theorem forestProgram_output (a : BitVec 256) :
 theorem forestRank_val (a : BitVec 256) (c : Nat) (hc:rank c a < 563) :
     (SharedForest.forestRank a c).val = rank c a := Nat.mod_eq_of_lt hc
 
-#print axioms forestProgram_output
 end ClaudeWCT.W9.Machine.Sign.SharedCoordinate
 
 namespace ClaudeWCT.W9.Machine.Sign.SharedCoordinate
@@ -2326,8 +2316,6 @@ theorem ForestPost.roots {a : BitVec 256} {s0 t : MachineState}
   have hp:=h.prior (by decide)
   exact ⟨h.pc,h.ready,hp 0 (by decide),hp 1 (by decide)⟩
 
-#print axioms forest_good
-#print axioms ForestPost.roots
 end ClaudeWCT.W9.Machine.Sign.SharedCoordinate
 
 namespace ClaudeWCT.W9.Machine.Sign.SharedCoordinate
@@ -2383,7 +2371,6 @@ theorem ForestPost.dummy {sk a : BitVec 256} {s0 t : MachineState}
   obtain ⟨rows,rfl,h⟩:=h
   exact (h.signatures c.val c.isLt).dummy hc
 
-#print axioms ForestPost.path
 end ClaudeWCT.W9.Machine.Sign.SharedCoordinate
 
 namespace ClaudeWCT.W9.Machine.Sign.SharedCoordinate
@@ -2460,5 +2447,4 @@ theorem forest_boundary_good {im : Image} {sk a : BitVec 256}
       (hslot _ (by unfold SharedEnd.target slotP SIG;omega) (by unfold SharedEnd.target slotP SIG;omega))
   · obtain ⟨rows,he,hv⟩:=hv
     exact ((fu.trans hv.frame).trans ft).mono (by intro A hA h;rcases h with ((h|h)|h)|h <;> tauto)
-#print axioms forest_boundary_good
 end ClaudeWCT.W9.Machine.Sign.SharedCoordinate

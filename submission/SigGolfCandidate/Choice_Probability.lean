@@ -160,8 +160,3 @@ theorem encodingCanDecode_iff_target (lay : Layer) (answer : HashOutput)
     exact ⟨high, hh ▸ href⟩
 
 end ClaudeWCT.WCT9
-
-#print axioms ClaudeWCT.WCT9.verificationAnswer_top_card
-#print axioms ClaudeWCT.WCT9.card_top_encoding_le
-#print axioms ClaudeWCT.WCT9.probability_encodingCanDecode_le
-#print axioms ClaudeWCT.WCT9.encodingCanDecode_iff_target

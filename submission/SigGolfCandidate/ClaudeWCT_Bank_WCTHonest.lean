@@ -1,6 +1,5 @@
 import SigGolfCandidate.ClaudeWCT_Bank_WCTAccept
 import SigGolfCandidate.ClaudeWCT_Numerics_N600Cap
-import SigGolfCandidate.ClaudeWCT_Numerics_TopZeroChecks
 
 namespace ClaudeWCT.Bank.WCT
 open OracleComp OracleSpec OracleComp.EvalDist ENNReal
@@ -171,7 +170,7 @@ noncomputable def honestLaw : Proposal → ENNReal :=
 
 theorem sum_producer (g : Proposal → ENNReal) :
     (∑ a : HashOutput, if producer a = true then g (proposal a) else 0) =
-      ((804*2^62 : Nat) : ENNReal) * ∑ p : Proposal, if capOk p.2 = true then g p else 0 := by
+      ((791*2^62 : Nat) : ENNReal) * ∑ p : Proposal, if capOk p.2 = true then g p else 0 := by
   rw [← sum_admissible (fun p => if capOk p.2 = true then g p else 0)]
   apply Finset.sum_congr rfl
   intro a _
@@ -235,7 +234,7 @@ theorem sum_capOk_prod_one :
 
 theorem producer_acceptance_eq :
     Pr[fun a : HashOutput => producer a = true | ($ᵗ HashOutput : ProbComp HashOutput)] =
-      ((804*2^62 : Nat) : ENNReal) * (((2^31 : Nat) : ENNReal) * (capSet.card : ENNReal)) /
+      ((791*2^62 : Nat) : ENNReal) * (((2^31 : Nat) : ENNReal) * (capSet.card : ENNReal)) /
         (Fintype.card HashOutput : ENNReal) := by
   rw [← expectedValue_ite_one, BPORS.expected_uniform_eq_finiteAverage]
   unfold SigGolfResearch.Gate6.Moments.finiteAverage
@@ -256,8 +255,8 @@ theorem acceptedProposalHonest (g : Proposal → ENNReal) :
   set K := ((2^31 : Nat) : ENNReal)*(capSet.card : ENNReal)
   set S := ∑ p : Proposal, if capOk p.2 = true then g p else 0
   simp only [div_eq_mul_inv]
-  calc ((804*2^62 : Nat) : ENNReal)*S*(Fintype.card HashOutput : ENNReal)⁻¹
-      = ((804*2^62 : Nat) : ENNReal)*S*(Fintype.card HashOutput : ENNReal)⁻¹*(K⁻¹*K) := by
+  calc ((791*2^62 : Nat) : ENNReal)*S*(Fintype.card HashOutput : ENNReal)⁻¹
+      = ((791*2^62 : Nat) : ENNReal)*S*(Fintype.card HashOutput : ENNReal)⁻¹*(K⁻¹*K) := by
         rw [ENNReal.inv_mul_cancel hK hK', mul_one]
     _ = _ := by ring
 
@@ -312,8 +311,6 @@ theorem lawAvg_le_uniform (r : Nat) (f : List Alphabet → ENNReal) :
       SphincsSecurity.Concrete.uniformWordAverage r f :=
   ClaudeWCT.Numerics.Law.lawAvg_le_uniform honestCoordLaw kappa honestCoordLaw_density r f
 
-#print axioms accepted_source
-#print axioms lawAvg_le_uniform
 end ClaudeWCT.Bank.Paired
 
 namespace ClaudeWCT.Bank.Paired
@@ -394,8 +391,6 @@ theorem law_history_le (r : Nat) (f : List Alphabet → ENNReal)
   have hc : Fintype.card Alphabet = SharedMoments.alphabetSize := alphabet_card rfl
   simpa only [hc] using h
 
-#print axioms historyEquiv
-#print axioms alphabet_card
 end ClaudeWCT.Bank.Paired
 
 namespace ClaudeWCT.Bank.Paired
@@ -477,7 +472,6 @@ theorem selected_proposal (g : Proposal → ENNReal) :
     expectedValue lawSpec.accepted (fun a => g (proposal a)) = ∑ p, honestLaw p*g p :=
   lawSpec.expected_accepted_proposal g
 
-#print axioms selected_proposal
 end ClaudeWCT.Bank.Paired
 
 namespace ClaudeWCT.Bank.Paired
@@ -510,7 +504,6 @@ theorem covered_source (X : List HashOutput) (N : HashOutput) :
         wordDigit (SharedForest.forestRank N k.val) t ≤ wordDigit (SharedForest.forestRank output k.val) t := by
   exact forall_congr' fun k => forall_congr' fun t => slotCoveredP_source X N k t
 
-#print axioms covered_source
 end ClaudeWCT.Bank.Paired
 
 
@@ -523,28 +516,25 @@ attribute [local irreducible] Finset.univ
 
 theorem producer_fields_eq : producer = (fun a => SharedDigestFields.accepted (SharedDigestFields.fields a)) :=
     funext (fun a => (producer_source a).trans (SharedDigestFields.accepted_fields a).symm)
-#print axioms producer_fields_eq
 
 theorem predicate_card_nat (p : SharedDigestFields.Fields → Prop) [DecidablePred p] :
     Nat.card {a : HashOutput // p (SharedDigestFields.fields a)} =
       Nat.card {f : SharedDigestFields.Fields // p f} * 2^76 := by
   simpa only [Nat.card_eq_fintype_card] using SharedDigestFields.predicate_card p
-#print axioms predicate_card_nat
 
 theorem producer_card_fields : Nat.card {a : HashOutput // producer a = true} =
-    fieldRetained*2^31*804*2^76 := by
+    fieldRetained*2^31*791*2^76 := by
   have he := congrArg (fun p : HashOutput → Bool => Nat.card {a : HashOutput // p a = true}) producer_fields_eq
   calc _ = Nat.card {a : HashOutput // SharedDigestFields.accepted (SharedDigestFields.fields a) = true} := he
        _ = Nat.card {f : SharedDigestFields.Fields // SharedDigestFields.accepted f = true} * 2^76 := predicate_card_nat (fun f => SharedDigestFields.accepted f = true)
        _ = _ := by rw [Nat.card_eq_fintype_card, SharedFtsModel.accepted_fields_card, SharedFtsModel.accepted_card]
-#print axioms producer_card_fields
 theorem uniform_card_bool {α : Type} [Fintype α] [SampleableType α] (p : α → Bool) :
     Pr[fun x => p x = true | ($ᵗ α : ProbComp α)] =
       (Nat.card {x : α // p x = true} : ENNReal)/Fintype.card α := by
   rw [probEvent_uniformSample, ← Fintype.card_subtype, Nat.card_eq_fintype_card]
 
 theorem producer_card : Nat.card {a : HashOutput // producer a = true} =
-    804*2^62*(2^31*capSet.card) := by
+    791*2^62*(2^31*capSet.card) := by
   have he := producer_acceptance_eq
   rw [uniform_card_bool producer] at he
   have hn : (Fintype.card HashOutput : ENNReal) ≠ 0 := by
@@ -558,12 +548,12 @@ theorem producer_card : Nat.card {a : HashOutput // producer a = true} =
 theorem capSet_card_fields : capSet.card = fieldRetained*2^14 := by
   have h := producer_card_fields
   rw [producer_card] at h
-  have he : (804*2^93)*capSet.card = (804*2^93)*(fieldRetained*2^14) := by
+  have he : (791*2^93)*capSet.card = (791*2^93)*(fieldRetained*2^14) := by
     calc
-      _ = 804*2^62*(2^31*capSet.card) := by ring
-      _ = fieldRetained*2^31*804*2^76 := h
+      _ = 791*2^62*(2^31*capSet.card) := by ring
+      _ = fieldRetained*2^31*791*2^76 := h
       _ = _ := by ring
-  exact Nat.eq_of_mul_eq_mul_left (by norm_num : 0<804*2^93) he
+  exact Nat.eq_of_mul_eq_mul_left (by norm_num : 0<791*2^93) he
 
 theorem capSet_card_scaled : capSet.card*16 = count := by
   rw [capSet_card_fields]
@@ -593,9 +583,6 @@ theorem kappa_rate : (2:ENNReal)*kappa ≤ (2018833:ENNReal)/1000000 := by
   apply (ENNReal.toReal_le_toReal (by finiteness) (by finiteness)).mp
   norm_num [ENNReal.toReal_div, ENNReal.toReal_mul]
 
-#print axioms capSet_card_scaled
-#print axioms kappa_exact
-#print axioms kappa_rate
 end ClaudeWCT.Bank.Paired
 
 
@@ -612,23 +599,21 @@ theorem capSet_card_value : capSet.card = 32454504207140318300696793407401894378
 
 theorem producer_acceptance_exact :
     Pr[fun a => producer a = true | ($ᵗ HashOutput : ProbComp HashOutput)] =
-      (ClaudeWCT.Numerics.TopZero.ftsNum804 : ENNReal)/ftsDen := by
+      (ftsNum : ENNReal)/ftsDen := by
   rw [producer_acceptance_eq, capSet_card_value]
   apply (ENNReal.toReal_eq_toReal_iff' (by finiteness) (by unfold ftsDen; finiteness)).mp
-  norm_num [ClaudeWCT.Numerics.TopZero.ftsNum804,ftsDen,ENNReal.toReal_div,ENNReal.toReal_mul,HashOutput]
+  norm_num [ftsNum,ftsDen,ENNReal.toReal_div,ENNReal.toReal_mul,HashOutput]
 
 theorem producer_acceptance_lower :
     (1:ENNReal)/5000 ≤ Pr[fun a => producer a = true | ($ᵗ HashOutput : ProbComp HashOutput)] := by
   rw [producer_acceptance_exact]
   apply (ENNReal.toReal_le_toReal (by finiteness) (by unfold ftsDen; finiteness)).mp
-  norm_num [ClaudeWCT.Numerics.TopZero.ftsNum804,ftsDen,ENNReal.toReal_div]
+  norm_num [ftsNum,ftsDen,ENNReal.toReal_div]
 
-#print axioms producer_acceptance_exact
-#print axioms producer_acceptance_lower
 
 theorem digestAccepted_acceptance_exact :
     Pr[fun a => SigGolfCandidate.Research.SharedForest.digestAccepted a = true |
-      ($ᵗ HashOutput : ProbComp HashOutput)] = (ClaudeWCT.Numerics.TopZero.ftsNum804 : ENNReal)/ftsDen := by
+      ($ᵗ HashOutput : ProbComp HashOutput)] = (ftsNum : ENNReal)/ftsDen := by
   have he : producer = SigGolfCandidate.Research.SharedForest.digestAccepted := funext producer_source
   rw [← he]
   exact producer_acceptance_exact
@@ -639,5 +624,4 @@ theorem digestAccepted_acceptance_lower :
   have he : producer = SigGolfCandidate.Research.SharedForest.digestAccepted := funext producer_source
   rw [← he]
   exact producer_acceptance_lower
-#print axioms digestAccepted_acceptance_lower
 end ClaudeWCT.Bank.Paired

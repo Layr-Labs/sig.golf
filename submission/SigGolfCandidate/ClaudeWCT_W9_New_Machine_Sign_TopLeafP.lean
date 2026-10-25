@@ -9,12 +9,12 @@ import SigGolfCandidate.T3M_Sign_PackedBoundaryEntry
 # Campaign T8D / img-v6 Phase T: the top-leaf seed routines of the sign image
 
 * PRE (1554): `bne s0,zero,1053; jal ra,COEFGEN; j 1053` (reached from the leaf prologue's `j 1554`).
-* COEFGEN (1559..1563 -> cgFam 24785..24793 -> loop 1569..1589 -> exit 1590..1595): the 20
-  `privatePair 0 0 0 (39 f / 2 + j) 0` queries (`f = leaf / 4`, `j < 20`) of `SigGolfCandidate.T3.topCoefs leaf`,
-  both halves copied to `TCOEF + 32 j` (buffer slot `k` at `TCOEF + 16 k`, `k < 40`); `tp/s8/a4` saved at `TSAVE`;
-  `s3 := 0`; returns via `ra`. The family's 39 coefficients are the slots `f % 2 .. f % 2 + 38`.
+* COEFGEN (1559..1563 -> cgFam 24785..24793 -> loop 1569..1589 -> exit 1590..1595): the 16
+  `privatePair 0 0 0 (31 f / 2 + j) 0` queries (`f = leaf / 4`, `j < 16`) of `SigGolfCandidate.T3.topCoefs leaf`,
+  both halves copied to `TCOEF + 32 j` (buffer slot `k` at `TCOEF + 16 k`, `k < 32`); `tp/s8/a4` saved at `TSAVE`;
+  `s3 := 0`; returns via `ra`. The family's 31 coefficients are the slots `f % 2 .. f % 2 + 30`.
 * TOPSEED (1557): `jal ra,HORN; j 1084` (reached through `20746 beq s0 → 20769 j 1557` once per top chain).
-* HORN (1597..1604 -> hnFam 24794..24806 -> 1610..1652): `familyEval coefs (topPoint leaf s3)` over the 39
+* HORN (1597..1604 -> hnFam 24794..24806 -> 1610..1652): `familyEval coefs (topPoint leaf s3)` over the 31
   coefficients at `TCOEF + 16 (f % 2)` into `CHAIN + 48`, `a3..a6/s8/tp` saved at `TSAVE + 32`. Horner loop `HK`
   (1610): `a0` walks down the coefficients, `(a4, a5)` hold the accumulator; bit loop `HB` (1616..1629):
   `(a4, a5, a2)` hold `acc * 2^k`, `(a6, s8, tp)` hold `clmulSmall acc d k`, `t4 = d >> k` (`d < 2^8`);
@@ -30,7 +30,7 @@ open ClaudeWCT.W9.Machine.Sign.Gf ClaudeWCT.Arith
 set_option maxRecDepth 100000
 set_option linter.unusedSimpArgs false
 
-/-- Top coefficient buffer (40 x 16 bytes: the 20 pairs of a family). -/
+/-- Top coefficient buffer (32 x 16 bytes: the 16 pairs of a family; T51). -/
 abbrev TCOEF : Nat := 0x61000
 /-- Register save area of COEFGEN (`+0..+24`) and HORN (`+32..+80`). -/
 abbrev TSAVE : Nat := 0x60000
@@ -40,12 +40,12 @@ def TScr (A : Nat) : Prop := TSAVE ≤ A ∧ A < TCOEF + 640
 /-! ### Code -/
 
 def cgHead : List (BitVec 32) := [0x60f37,0x4f3023,0x18f3423,0xef3823,0x2d91606f]
-def cgFam : List (BitVec 32) := [0x61c37,0x295f13,0x2700e93,0x3df0733,0x175713,0x2071713,0x176713,0xe93,0xd20e906f]
+def cgFam : List (BitVec 32) := [0x61c37,0x295f13,0x1f00e93,0x3df0733,0x175713,0x2071713,0x176713,0xe93,0xd20e906f]
 def cgCall : List (BitVec 32) := [0x20537,0xe53823,0x53c23,0x4000593,0x4050613,0x73]
-def cgCopy : List (BitVec 32) := [0x4053203,0x4c3023,0x4853203,0x4c3423,0x5053203,0x4c3823,0x5853203,0x4c3c23,0x20c0c13,0x100f13,0x20f1f13,0x1e70733,0x1e8e93,0x1400f13,0xfbee98e3]
+def cgCopy : List (BitVec 32) := [0x4053203,0x4c3023,0x4853203,0x4c3423,0x5053203,0x4c3823,0x5853203,0x4c3c23,0x20c0c13,0x100f13,0x20f1f13,0x1e70733,0x1e8e93,0x1000f13,0xfbee98e3]
 def cgExit : List (BitVec 32) := [0x60f37,0xf3203,0x8f3c03,0x10f3703,0x993,0x8067]
 def hnEntry : List (BitVec 32) := [0x60f37,0x2df3023,0x2ef3423,0x2ff3823,0x30f3c23,0x58f3023,0x44f3423,0x2591606f]
-def hnFam : List (BitVec 32) := [0x198693,0x397f13,0x6f1f13,0x1e686b3,0x713,0x793,0x295f13,0x1f7f13,0x4f1f13,0x615b7,0x1e585b3,0x27058513,0xd90e906f]
+def hnFam : List (BitVec 32) := [0x198693,0x397f13,0x6f1f13,0x1e686b3,0x713,0x793,0x295f13,0x1f7f13,0x4f1f13,0x615b7,0x1e585b3,0x1f058513,0xd90e906f]
 def hnHK : List (BitVec 32) := [0xff050513,0x813,0xc13,0x213,0x613,0x68e93]
 def hnHB : List (BitVec 32) := [0x1eff13,0xf0863]
 def hnX : List (BitVec 32) := [0xe84833,0xfc4c33,0xc24233]
@@ -104,12 +104,12 @@ theorem famAnd1 (x : Nat) (hx : x < 2 ^ 64) : BitVec.ofNat 64 x &&& 1#64 = BitVe
   rw [BitVec.toNat_and, toNat_ofNat_lt hx, show (1#64).toNat = 1 from rfl, toNat_ofNat_lt (by omega),
     Nat.and_one_is_mod]
 
-/-- The COEFGEN header of family `leaf / 4`: pair `39 f / 2`, slot 1. -/
+/-- The COEFGEN header of family `leaf / 4`: pair `31 f / 2`, slot 1. -/
 theorem hdrFam_word (leaf : Nat) (hl : leaf < 4096) :
-    ((BitVec.ofNat 64 leaf >>> 2 * 39#64) >>> 1 <<< 32 ||| 1#64) =
-      BitVec.ofNat 64 (1 + 2 ^ 32 * (39 * (leaf / 4) / 2 + 0)) := by
+    ((BitVec.ofNat 64 leaf >>> 2 * 31#64) >>> 1 <<< 32 ||| 1#64) =
+      BitVec.ofNat 64 (1 + 2 ^ 32 * (31 * (leaf / 4) / 2 + 0)) := by
   rw [ofNat_shr leaf 2 (by omega)]
-  have e1 : BitVec.ofNat 64 (leaf / 2 ^ 2) * 39#64 = BitVec.ofNat 64 (39 * (leaf / 4)) := by
+  have e1 : BitVec.ofNat 64 (leaf / 2 ^ 2) * 31#64 = BitVec.ofNat 64 (31 * (leaf / 4)) := by
     apply BitVec.eq_of_toNat_eq
     simp only [BitVec.toNat_mul, BitVec.toNat_ofNat]
     omega
@@ -151,7 +151,7 @@ theorem cgHead5_spec (hcode : Code im) (s : MachineState) (hpc : s.pc = pcOf 155
 theorem cgFam_spec (hcode : Code im) (s : MachineState) (hpc : s.pc = pcOf 24785) (leaf : Nat) (hl : leaf < 4096)
     (h18 : s.getReg .x18 = BitVec.ofNat 64 leaf) :
     ∃ t, Steps im s 9 12 t ∧ t.pc = pcOf 1569 ∧ t.getReg .x24 = BitVec.ofNat 64 TCOEF ∧
-      t.getReg .x14 = BitVec.ofNat 64 (1 + 2 ^ 32 * (39 * (leaf / 4) / 2 + 0)) ∧ t.getReg .x29 = BitVec.ofNat 64 0 ∧
+      t.getReg .x14 = BitVec.ofNat 64 (1 + 2 ^ 32 * (31 * (leaf / 4) / 2 + 0)) ∧ t.getReg .x29 = BitVec.ofNat 64 0 ∧
       RegsExcept s t [.x14, .x24, .x29, .x30] ∧ Frame s t (fun _ => False) := by
   refine ⟨_, symRun_sound bCgFam (hcode.codeAt_cgFam) s hpc (by simp [bCgFam.res, rv_simp]), ?_, ?_, ?_, ?_, ?_, ?_⟩
   · simp [bCgFam.res, E.eval]
@@ -193,7 +193,7 @@ theorem hnFam_spec (hcode : Code im) (s : MachineState) (hpc : s.pc = pcOf 24794
     ∃ t, Steps im s 13 13 t ∧ t.pc = pcOf 1610 ∧
       t.getReg .x13 = BitVec.ofNat 64 (SigGolfCandidate.T3.topPoint leaf i) ∧
       t.getReg .x14 = 0 ∧ t.getReg .x15 = 0 ∧
-      t.getReg .x10 = BitVec.ofNat 64 (TCOEF + 16 * (leaf / 4 % 2 + 39)) ∧
+      t.getReg .x10 = BitVec.ofNat 64 (TCOEF + 16 * (leaf / 4 % 2 + 31)) ∧
       t.getReg .x11 = BitVec.ofNat 64 (TCOEF + 16 * (leaf / 4 % 2)) ∧
       RegsExcept s t [.x10, .x11, .x13, .x14, .x15, .x30] ∧ Frame s t (fun _ => False) := by
   refine ⟨_, symRun_sound bFam (hcode.codeAt_hnFam) s hpc (by simp [bFam.res, rv_simp]), ?_, ?_, ?_, ?_, ?_, ?_,
@@ -205,7 +205,7 @@ theorem hnFam_spec (hcode : Code im) (s : MachineState) (hpc : s.pc = pcOf 24794
   · simp [bFam.res, rv_simp]
   · simp only [Result.toState_getReg, bFam.res]; simp only [rv_simp, h18]
     rw [show ((2#64 : BitVec 64).toNat % 64) = 2 from rfl, show ((4#64 : BitVec 64).toNat % 64) = 4 from rfl,
-      famOff_word leaf hl, show (397936#64 : BitVec 64) = BitVec.ofNat 64 397936 from rfl, ofNat_add_ofNat]
+      famOff_word leaf hl, show (397808#64 : BitVec 64) = BitVec.ofNat 64 397808 from rfl, ofNat_add_ofNat]
     unfold TCOEF; congr 1; omega
   · simp only [Result.toState_getReg, bFam.res]; simp only [rv_simp, h18]
     rw [show ((2#64 : BitVec 64).toNat % 64) = 2 from rfl, show ((4#64 : BitVec 64).toNat % 64) = 4 from rfl,
@@ -224,7 +224,7 @@ theorem entry_spec (hcode : Code im) (s : MachineState) (hpc : s.pc = pcOf 1597)
     (hi : i < 64) (h18 : s.getReg .x18 = BitVec.ofNat 64 leaf) (h19 : s.getReg .x19 = BitVec.ofNat 64 i) :
     ∃ t, Steps im s 21 21 t ∧ t.pc = pcOf 1610 ∧
       t.getReg .x13 = BitVec.ofNat 64 (SigGolfCandidate.T3.topPoint leaf i) ∧
-      t.getReg .x14 = 0 ∧ t.getReg .x15 = 0 ∧ t.getReg .x10 = BitVec.ofNat 64 (TCOEF + 16 * (leaf / 4 % 2 + 39)) ∧
+      t.getReg .x14 = 0 ∧ t.getReg .x15 = 0 ∧ t.getReg .x10 = BitVec.ofNat 64 (TCOEF + 16 * (leaf / 4 % 2 + 31)) ∧
       t.getReg .x11 = BitVec.ofNat 64 (TCOEF + 16 * (leaf / 4 % 2)) ∧
       t.getMem (BitVec.ofNat 64 (TSAVE + 32)) = s.getReg .x13 ∧
       t.getMem (BitVec.ofNat 64 (TSAVE + 40)) = s.getReg .x14 ∧
@@ -468,9 +468,9 @@ theorem hb_loop (hcode : Code im) {t0 : MachineState} {d a : Nat} (ha : a < 2 ^ 
         ⟨by rw [upc, if_neg hz], ush, upr, udd, ur, uf⟩
       exact ⟨v, _, su.trans sv, by omega, hv⟩
 
-/-- The 39 family coefficients of the buffer, from slot `b` (`b = f % 2`). -/
+/-- The 31 family coefficients of the buffer, from slot `b` (`b = f % 2`). -/
 def CoefAtT (t : MachineState) (b : Nat) (coefs : List Digest) : Prop :=
-  ∀ k < 39, DigAt t (TCOEF + 16 * (b + k)) (coefs.getD k 0)
+  ∀ k < 31, DigAt t (TCOEF + 16 * (b + k)) (coefs.getD k 0)
 
 theorem CoefAtT.frame {s t : MachineState} {b : Nat} {coefs : List Digest} {W : Nat → Prop} (h : CoefAtT s b coefs)
     (hb : b ≤ 1) (hf : Frame s t W) (hW : ∀ A, TCOEF ≤ A → A < TCOEF + 640 → ¬ W A) : CoefAtT t b coefs :=
@@ -496,15 +496,15 @@ theorem familyEval_drop' (coefs : List Digest) (m : Nat) (hm : m < coefs.length)
   rw [List.drop_eq_getElem_cons hm, familyEval_cons, List.getD_eq_getElem _ _ hm]
 
 theorem coef_limbsT {s0 u : MachineState} {b : Nat} {coefs : List Digest} (hcoef : CoefAtT s0 b coefs) (hb : b ≤ 1)
-    (hf : Frame s0 u (fun _ => False)) {m : Nat} (hm : m < 39) :
+    (hf : Frame s0 u (fun _ => False)) {m : Nat} (hm : m < 31) :
     lim2 (u.getMem (BitVec.ofNat 64 (TCOEF + 16 * (b + m))))
       (u.getMem (BitVec.ofNat 64 (TCOEF + 16 * (b + m) + 8))) = (coefs.getD m 0).toNat := by
   have h := hcoef m hm
   rw [hf.get (by unfold TCOEF; omega) id, hf.get (by unfold TCOEF; omega) id, h.1, h.2, lim2_toNat]
 
 theorem horner_step (hcode : Code im) {s0 : MachineState} {d b : Nat} {coefs : List Digest} (hd : d < 2 ^ 8)
-    (hb : b ≤ 1) (hcoef : CoefAtT s0 b coefs) (hlen : coefs.length = 39)
-    {m : Nat} (hm : m < 39) {t : MachineState} (ht : HkSt s0 d b coefs (m + 1) t) :
+    (hb : b ≤ 1) (hcoef : CoefAtT s0 b coefs) (hlen : coefs.length = 31)
+    {m : Nat} (hm : m < 31) {t : MachineState} (ht : HkSt s0 d b coefs (m + 1) t) :
     ∃ u n, Steps im t n n u ∧ n ≤ hstepC ∧
       u.pc = (if m = 0 then pcOf 1642 else pcOf 1610) ∧
       u.getReg .x13 = BitVec.ofNat 64 d ∧ u.getReg .x10 = BitVec.ofNat 64 (TCOEF + 16 * (b + m)) ∧
@@ -545,8 +545,8 @@ theorem horner_step (hcode : Code im) {s0 : MachineState} {d b : Nat} {coefs : L
   · exact (hf0.trans vf).mono (fun _ _ h => by simp_all)
 
 theorem horner_loop (hcode : Code im) {s0 : MachineState} {d b : Nat} {coefs : List Digest} (hd : d < 2 ^ 8)
-    (hb : b ≤ 1) (hcoef : CoefAtT s0 b coefs) (hlen : coefs.length = 39) :
-    ∀ m, m < 39 → ∀ t, HkSt s0 d b coefs (m + 1) t →
+    (hb : b ≤ 1) (hcoef : CoefAtT s0 b coefs) (hlen : coefs.length = 31) :
+    ∀ m, m < 31 → ∀ t, HkSt s0 d b coefs (m + 1) t →
       ∃ u n, Steps im t n n u ∧ n ≤ hstepC * (m + 1) ∧ u.pc = pcOf 1642 ∧
         lim2 (u.getReg .x14) (u.getReg .x15) = (familyEval coefs d).toNat ∧
         RegsExcept s0 u loopRegs ∧ Frame s0 u (fun _ => False) := by
@@ -563,13 +563,13 @@ theorem horner_loop (hcode : Code im) {s0 : MachineState} {d b : Nat} {coefs : L
     obtain ⟨v, n', sv, hn', vpc, vacc, vr, vf⟩ := ih (by omega) u ⟨upc, u13, u10, u11, uacc, ur, uf⟩
     exact ⟨v, _, su.trans sv, by unfold hstepC at *; omega, vpc, vacc, vr, vf⟩
 
-/-- Cycle bound of HORN (entry 8 + family setup 13, 39 Horner steps, exit 11). -/
-def hornCT : Nat := 21 + hstepC * 39 + 11
+/-- Cycle bound of HORN (entry 8 + family setup 13, 31 Horner steps, exit 11). -/
+def hornCT : Nat := 21 + hstepC * 31 + 11
 
 /-- HORN: `familyEval coefs (topPoint leaf i)` into `CHAIN + 48`; `a3..a6, s8, tp` restored. -/
 theorem horn_run (hcode : Code im) (s : MachineState) (hpc : s.pc = pcOf 1597) {leaf i : Nat} (hl : leaf < 4096)
-    (hi : i < 54) (h18 : s.getReg .x18 = BitVec.ofNat 64 leaf) (h19 : s.getReg .x19 = BitVec.ofNat 64 i)
-    {coefs : List Digest} (hlen : coefs.length = 39) (hcoef : CoefAtT s (leaf / 4 % 2) coefs) :
+    (hi : i < 51) (h18 : s.getReg .x18 = BitVec.ofNat 64 leaf) (h19 : s.getReg .x19 = BitVec.ofNat 64 i)
+    {coefs : List Digest} (hlen : coefs.length = 31) (hcoef : CoefAtT s (leaf / 4 % 2) coefs) :
     ∃ u n, Steps im s n n u ∧ n ≤ hornCT ∧ u.pc = s.getReg .x1 &&& ~~~1#64 ∧
       DigAt u (CHAIN + 48) (familyEval coefs (SigGolfCandidate.T3.topPoint leaf i)) ∧
       RegsExcept s u [.x10, .x11, .x12, .x29, .x30] ∧
@@ -580,11 +580,11 @@ theorem horn_run (hcode : Code im) (s : MachineState) (hpc : s.pc = pcOf 1597) {
   have hd : SigGolfCandidate.T3.topPoint leaf i < 2 ^ 8 := by unfold SigGolfCandidate.T3.topPoint; omega
   have hc : CoefAtT t (leaf / 4 % 2) coefs :=
     hcoef.frame hb tf (fun A h1 h2 h => by unfold SaveW TSAVE at h; unfold TCOEF at h1; omega)
-  have ht : HkSt t (SigGolfCandidate.T3.topPoint leaf i) (leaf / 4 % 2) coefs (38 + 1) t := by
+  have ht : HkSt t (SigGolfCandidate.T3.topPoint leaf i) (leaf / 4 % 2) coefs (30 + 1) t := by
     refine ⟨tpc, t13, t10, t11, ?_, RegsExcept.refl _ _, Frame.refl _ _⟩
     rw [t14, t15, List.drop_eq_nil_of_le (by omega)]
     rfl
-  obtain ⟨u, n, su, hn, upc, uacc, ur, uf⟩ := horner_loop hcode hd hb hc hlen 38 (by norm_num) t ht
+  obtain ⟨u, n, su, hn, upc, uacc, ur, uf⟩ := horner_loop hcode hd hb hc hlen 30 (by norm_num) t ht
   obtain ⟨v, sv, vpc, v48, v56, v13, v14, v15, v16, v24, v4, vr, vf⟩ := exit_spec hcode u upc
   obtain ⟨l0, l1⟩ := limbs_of_lim2 uacc
   have keep : ∀ A, SaveW A → u.getMem (BitVec.ofNat 64 A) = t.getMem (BitVec.ofNat 64 A) :=
@@ -619,7 +619,7 @@ def CgSaveW (A : Nat) : Prop := TSAVE ≤ A ∧ A < TSAVE + 24
 theorem cgHead_spec (hcode : Code im) (s : MachineState) (hpc : s.pc = pcOf 1559) (leaf : Nat) (hl : leaf < 4096)
     (h18 : s.getReg .x18 = BitVec.ofNat 64 leaf) :
     ∃ t, Steps im s 14 17 t ∧ t.pc = pcOf 1569 ∧ t.getReg .x24 = BitVec.ofNat 64 TCOEF ∧
-      t.getReg .x14 = BitVec.ofNat 64 (1 + 2 ^ 32 * (39 * (leaf / 4) / 2 + 0)) ∧ t.getReg .x29 = BitVec.ofNat 64 0 ∧
+      t.getReg .x14 = BitVec.ofNat 64 (1 + 2 ^ 32 * (31 * (leaf / 4) / 2 + 0)) ∧ t.getReg .x29 = BitVec.ofNat 64 0 ∧
       t.getMem (BitVec.ofNat 64 TSAVE) = s.getReg .x4 ∧
       t.getMem (BitVec.ofNat 64 (TSAVE + 8)) = s.getReg .x24 ∧
       t.getMem (BitVec.ofNat 64 (TSAVE + 16)) = s.getReg .x14 ∧
@@ -657,9 +657,9 @@ theorem cgCall_spec (hcode : Code im) (s : MachineState) (hpc : s.pc = pcOf 1569
 theorem cgCopy_spec (hcode : Code im) (s : MachineState) (hpc : s.pc = pcOf 1575) {P H j : Nat}
     (h10 : s.getReg .x10 = BitVec.ofNat 64 PRIV) (h24 : s.getReg .x24 = BitVec.ofNat 64 P)
     (hP : P % 8 = 0) (hP' : TCOEF ≤ P ∧ P + 32 ≤ TCOEF + 640)
-    (h29 : s.getReg .x29 = BitVec.ofNat 64 j) (hj : j < 20)
+    (h29 : s.getReg .x29 = BitVec.ofNat 64 j) (hj : j < 16)
     (h14 : s.getReg .x14 = BitVec.ofNat 64 H) (hH : H + 2 ^ 32 < 2 ^ 64) :
-    ∃ t, Steps im s 15 15 t ∧ t.pc = (if j + 1 = 20 then pcOf 1590 else pcOf 1569) ∧
+    ∃ t, Steps im s 15 15 t ∧ t.pc = (if j + 1 = 16 then pcOf 1590 else pcOf 1569) ∧
       t.getMem (BitVec.ofNat 64 P) = s.getMem (BitVec.ofNat 64 SEEDS) ∧
       t.getMem (BitVec.ofNat 64 (P + 8)) = s.getMem (BitVec.ofNat 64 (SEEDS + 8)) ∧
       t.getMem (BitVec.ofNat 64 (P + 16)) = s.getMem (BitVec.ofNat 64 (SEEDS + 16)) ∧
@@ -734,10 +734,10 @@ theorem SkAt.frame {sk : BitVec 256} {s t : MachineState} {W : Nat → Prop} (h 
     (hf.get (by decide) (hW _ (by simp))).trans h.p48, (hf.get (by decide) (hW _ (by simp))).trans h.p56⟩
 
 structure CgSt (s0 : MachineState) (leaf j : Nat) (acc : List Digest) (u : MachineState) : Prop where
-  pc : u.pc = pcOf (if j < 20 then 1569 else 1590)
+  pc : u.pc = pcOf (if j < 16 then 1569 else 1590)
   x29 : u.getReg .x29 = BitVec.ofNat 64 j
   x24 : u.getReg .x24 = BitVec.ofNat 64 (TCOEF + 32 * j)
-  x14 : u.getReg .x14 = BitVec.ofNat 64 (1 + 2 ^ 32 * (39 * (leaf / 4) / 2 + j))
+  x14 : u.getReg .x14 = BitVec.ofNat 64 (1 + 2 ^ 32 * (31 * (leaf / 4) / 2 + j))
   len : acc.length = 2 * j
   coefs : ∀ k < 2 * j, DigAt u (TCOEF + 16 * k) (acc.getD k 0)
   m0 : u.getMem (BitVec.ofNat 64 TSAVE) = s0.getReg .x4
@@ -758,10 +758,10 @@ theorem getD_append2_1 {l : List Digest} {a b : Digest} : (l ++ [a, b]).getD (l.
 def cgStepC : Nat := 5 + 8 + 15
 
 theorem cg_step (hcode : Code im) (sk : BitVec 256) {s0 : MachineState} (hsk : SkAt sk s0) (h5 : s0.getReg .x5 = 0)
-    {leaf : Nat} (hl : leaf < 4096) {j : Nat} (hj : j < 20) {acc : List Digest} {u : MachineState}
+    {leaf : Nat} (hl : leaf < 4096) {j : Nat} (hj : j < 16) {acc : List Digest} {u : MachineState}
     (hu : CgSt s0 leaf j acc u) :
     TBSim im sk u cgStepC
-      (SigGolfCandidate.T3.topSeedPair (39 * (leaf / 4) / 2 + j) >>= fun p => pure (acc ++ [p.1, p.2]))
+      (SigGolfCandidate.T3.topSeedPair (31 * (leaf / 4) / 2 + j) >>= fun p => pure (acc ++ [p.1, p.2]))
       (CgSt s0 leaf (j + 1)) := by
   have hP : PRIV = 131072 := rfl
   have hS : SEEDS = 131136 := rfl
@@ -773,11 +773,11 @@ theorem cg_step (hcode : Code im) (sk : BitVec 256) {s0 : MachineState} (hsk : S
   have hsk1 : SkAt sk u1 := (hsk.frame hu.frame hcgw).frame u1f (fun A hA hw => by
     simp only [PRIV] at hA hw; omega)
   have hqin : hashInput u1 = toQ (SigGolfCandidate.T3.privateInput sk
-      (.inl (SigGolfCandidate.T3.header 0 0 0 (39 * (leaf / 4) / 2 + j) 0))) := by
+      (.inl (SigGolfCandidate.T3.header 0 0 0 (31 * (leaf / 4) / 2 + j) 0))) := by
     refine hashInput_toQ u1 _ 0 PRIV (privateInput_tweak_length _ _) u1x10 (by decide) (by decide) u1x11
       (by decide) ?_
     have m16' : u1.getMem (BitVec.ofNat 64 (PRIV + 16)) =
-        BitVec.ofNat 64 (hdr0 0 0 0 (39 * (leaf / 4) / 2 + j)) := by
+        BitVec.ofNat 64 (hdr0 0 0 0 (31 * (leaf / 4) / 2 + j)) := by
       rw [m16, hdr0_eq 0 0 0 _ (by norm_num) (by norm_num) (by norm_num) (by omega)]
     have m24' : u1.getMem (BitVec.ofNat 64 (PRIV + 24)) = BitVec.ofNat 64 (hdr1 0 0) := by
       rw [m24, hdr1_eq 0 0 (by norm_num) (by norm_num)]; rfl
@@ -803,12 +803,12 @@ theorem cg_step (hcode : Code im) (sk : BitVec 256) {s0 : MachineState} (hsk : S
       (TCOEF + 32 * j ≤ A ∧ A < TCOEF + 32 * j + 32)) := (u1f.trans hwf).trans u3f
   refine TBSim.pure_steps' su3 ⟨?_, ?_, ?_, ?_, ?_, fun k hk => ?_, ?_, ?_, ?_, ?_, ?_⟩
   · rw [u3pc]
-    by_cases h : j + 1 = 20
+    by_cases h : j + 1 = 16
     · rw [if_pos h, if_neg (by omega)]
     · rw [if_neg h, if_pos (by omega)]
   · exact u3x29
   · rw [u3x24, show TCOEF + 32 * j + 32 = TCOEF + 32 * (j + 1) by ring]
-  · rw [u3x14, show 1 + 2 ^ 32 * (39 * (leaf / 4) / 2 + j) + 2 ^ 32 = 1 + 2 ^ 32 * (39 * (leaf / 4) / 2 + (j + 1)) by ring]
+  · rw [u3x14, show 1 + 2 ^ 32 * (31 * (leaf / 4) / 2 + j) + 2 ^ 32 = 1 + 2 ^ 32 * (31 * (leaf / 4) / 2 + (j + 1)) by ring]
   · simp [hu.len]; ring
   · by_cases hkj : k < 2 * j
     · rw [getD_append2_lt (by rw [hu.len]; exact hkj)]
@@ -842,18 +842,18 @@ theorem cg_step (hcode : Code im) (sk : BitVec 256) {s0 : MachineState} (hsk : S
       · right; right; right; right; unfold TCOEF at *; omega)
 
 /-- Cycle bound of COEFGEN (entry to return). -/
-def cgC : Nat := 17 + (20 * cgStepC + 6)
+def cgC : Nat := 17 + (16 * cgStepC + 6)
 
-theorem getD_take_drop (r : List Digest) (b k : Nat) (hk : k < 39) :
-    ((r.drop b).take 39).getD k 0 = r.getD (b + k) 0 := by
+theorem getD_take_drop (r : List Digest) (b k : Nat) (hk : k < 31) :
+    ((r.drop b).take 31).getD k 0 = r.getD (b + k) 0 := by
   simp [List.getD_eq_getElem?_getD, List.getElem?_take, hk, List.getElem?_drop]
 
-/-- The signer form `T3.topCoefs leaf` as the 20-pair loop COEFGEN runs. -/
+/-- The signer form `T3.topCoefs leaf` as the 16-pair loop COEFGEN runs. -/
 theorem topCoefs_eq (leaf : Nat) :
     SigGolfCandidate.T3.topCoefs leaf =
-      (List.range' 0 20).foldlM (fun (acc : List Digest) j =>
-        SigGolfCandidate.T3.topSeedPair (39 * (leaf / 4) / 2 + j) >>= fun p => pure (acc ++ [p.1, p.2])) [] >>=
-        fun acc => pure ((acc.drop (leaf / 4 % 2)).take 39) := by
+      (List.range' 0 16).foldlM (fun (acc : List Digest) j =>
+        SigGolfCandidate.T3.topSeedPair (31 * (leaf / 4) / 2 + j) >>= fun p => pure (acc ++ [p.1, p.2])) [] >>=
+        fun acc => pure ((acc.drop (leaf / 4 % 2)).take 31) := by
   unfold SigGolfCandidate.T3.topCoefs SigGolfCandidate.T3.topPairsFrom SigGolfCandidate.T3.topCoefCount
     SigGolfCandidate.T3.topCoefPairs
   rfl
@@ -862,14 +862,14 @@ theorem coefgen_tbsim (hcode : Code im) (sk : BitVec 256) (s : MachineState) (hp
     (h1 : s.getReg .x1 = pcOf 1556) {leaf : Nat} (hl : leaf < 4096) (h18 : s.getReg .x18 = BitVec.ofNat 64 leaf)
     (h5 : s.getReg .x5 = 0) (hsk : SkAt sk s) :
     TBSim im sk s cgC (SigGolfCandidate.T3.topCoefs leaf)
-      (fun r u => u.pc = pcOf 1556 ∧ r.length = 39 ∧ CoefAtT u (leaf / 4 % 2) r ∧ u.getReg .x19 = 0 ∧
+      (fun r u => u.pc = pcOf 1556 ∧ r.length = 31 ∧ CoefAtT u (leaf / 4 % 2) r ∧ u.getReg .x19 = 0 ∧
         RegsExcept s u [.x10, .x11, .x12, .x19, .x29, .x30] ∧ Frame s u CgW) := by
   obtain ⟨t0, s0, p0, x24, x14, x29, m0, m8, m16, r0, f0⟩ := cgHead_spec hcode s hpc leaf hl h18
   have h0 : CgSt s leaf 0 [] t0 :=
     ⟨by rw [p0]; rfl, x29, by rw [x24], x14, rfl, fun k hk => absurd hk (by omega), m0, m8, m16,
       r0.mono (by simp [cgRegs]), f0.mono (fun A _ h => by unfold CgW; right; right; right; left; exact h)⟩
-  have hloop := TBSim.foldlM_range' (image := im) (sk := sk) 0 20
-    (fun (acc : List Digest) j => SigGolfCandidate.T3.topSeedPair (39 * (leaf / 4) / 2 + j) >>=
+  have hloop := TBSim.foldlM_range' (image := im) (sk := sk) 0 16
+    (fun (acc : List Digest) j => SigGolfCandidate.T3.topSeedPair (31 * (leaf / 4) / 2 + j) >>=
       fun p => pure (acc ++ [p.1, p.2])) [] (fun j acc u => CgSt s leaf j acc u) cgStepC
     (fun j hj acc u hu => by simpa using cg_step hcode sk hsk h5 hl hj hu) h0
   rw [topCoefs_eq]
@@ -891,8 +891,6 @@ theorem coefgen_tbsim (hcode : Code im) (sk : BitVec 256) (s : MachineState) (hp
   · exact (hu.frame.trans vf).mono (fun A _ h => by rcases h with h | h; exact h; exact h.elim)
 
 
-#print axioms horn_run
-#print axioms coefgen_tbsim
 end ClaudeWCT.W9.Machine.Sign.SharedTopSeed
 
 namespace ClaudeWCT.W9.Machine.Sign.SharedTopSeed
@@ -901,7 +899,6 @@ set_option maxHeartbeats 0
 set_option maxRecDepth 100000
 theorem installed_code : Code Images.signImage := by
   constructor <;> exact codeAt_sign_current_slice (by decide +kernel) (by decide +kernel)
-#print axioms installed_code
 end ClaudeWCT.W9.Machine.Sign.SharedTopSeed
 
 namespace ClaudeWCT.W9.Machine.Sign.SharedTopLeafP
@@ -997,7 +994,7 @@ theorem LeafInv.rebaseT {s0 s t s' u : MachineState} {A : LeafArgs} {j : Nat} {s
     {W : Nat → Prop} (hf : Frame t u W) (hW : ∀ X, W X → SeedWT X)
     (hvs : A.valp + 16 * A.n ≤ PRIV ∨ LEAFPK + 960 ≤ A.valp) (hv : A.valp + 16 * A.n ≤ 0x60000)
     (hj : j ≤ A.n) : LeafInv s' A j st u := by
-  have hn : A.n = 54 ∨ A.n = 43 := chainCount_cases A.lay
+  have hn : A.n = 51 ∨ A.n = 43 := chainCount_cases A.lay
   have hP : PRIV = 131072 := rfl
   have hS : SEEDS = 131136 := rfl
   have hL : LEAFPK = 132608 := rfl
@@ -1044,7 +1041,7 @@ theorem LeafInv.rebaseT {s0 s t s' u : MachineState} {A : LeafArgs} {j : Nat} {s
 
 theorem LeafW_not_tscr {A : LeafArgs} (hv : A.valp + 16 * A.n ≤ 0x60000) (hd : A.dest + 16 ≤ 0x60000) {X : Nat}
     (h : LeafW A X) : ¬ TScr X := by
-  have hn : A.n = 54 ∨ A.n = 43 := chainCount_cases A.lay
+  have hn : A.n = 51 ∨ A.n = 43 := chainCount_cases A.lay
   unfold LeafW at h
   intro hb; unfold TScr TSAVE TCOEF at hb
   simp only [PRIV, SEEDS, CHAIN, LEAFPK, LOUT] at h
@@ -1160,7 +1157,7 @@ def topChainC : Nat := 5 + hornCT + 1 + 469
 
 omit hpre in
 /-- Witness stack: the cycle bound of one top chain from `b + 71` (`e ≤ maxDigit 0 j`, at most 7 rungs). -/
-theorem topChain_cost : ∀ j, j < 54 → ∀ e, e ≤ maxDigit 0 j →
+theorem topChain_cost : ∀ j, j < 51 → ∀ e, e ≤ maxDigit 0 j →
     24 + selectorExtra 0 j + sumTo (SharedChain.topRungC j) e ≤ 469 := by
   decide +kernel
 
@@ -1189,10 +1186,10 @@ theorem topStep_eq (hlay : A.lay = 0) (hso : A.so = true) (htree : A.tree = 0) (
 
 theorem top_chain_step (hcode : SharedTopSeed.Code im) (hsub : Sign.SharedLeafCode.Code im 1013) (hchain : SharedChain.Code im) (hpref : SharedChain.PrefixCode im) (hseedcode : SharedSeed.Code im) (hhook : CodeAt im (pcOf 1055) Sign.seedHookCode) (hlay : A.lay = 0) (hso : A.so = true) (htree : A.tree = 0)
     (hd7 : ∀ i < A.n, A.d i ≤ maxDigit 0 i) (hvS : A.valp + 16 * A.n ≤ 0x60000) (hdS : A.digp + A.n ≤ 0x60000)
-    (hdestS : A.dest + 16 ≤ 0x60000) {coefs : List Digest} (hlen : coefs.length = 39) {j : Nat} (hj : j < 54)
+    (hdestS : A.dest + 16 ≤ 0x60000) {coefs : List Digest} (hlen : coefs.length = 31) {j : Nat} (hj : j < 51)
     {st : List Digest × List Digest} {u : MachineState} (hu : FStT s0 A coefs j st u) :
     TBSim im sk u topChainC (topStepT A.leaf A.digits coefs st j) (FStT s0 A coefs (j + 1)) := by
-  have hn : A.n = 54 := by show chainCount A.lay = 54; rw [hlay]; rfl
+  have hn : A.n = 51 := by show chainCount A.lay = 51; rw [hlay]; rfl
   have hleaf : A.leaf < 4096 := by have := hpre.hleafHeight; rw [hlay] at this; exact this
   have hb : A.leaf / 4 % 2 ≤ 1 := by omega
   obtain ⟨s, hs, hinv⟩ := hu.inv
@@ -1256,7 +1253,7 @@ end chain
 
 theorem buildLeafTop_so (leaf : Nat) (digits : List Nat) :
     SigGolfCandidate.T3.buildLeafTop leaf digits true = (SigGolfCandidate.T3.topCoefs leaf >>= fun coefs =>
-      (List.range' 0 54).foldlM (topStepT leaf digits coefs) ([], []) >>= fun st => pure (0, st.2)) := by
+      (List.range' 0 51).foldlM (topStepT leaf digits coefs) ([], []) >>= fun st => pure (0, st.2)) := by
   rw [← List.range_eq_range']
   rfl
 
@@ -1272,7 +1269,7 @@ def Spec (im : Image) : Prop :=
 
 theorem topLeafSpec (hcode : SharedTopSeed.Code im) (hsub : Sign.SharedLeafCode.Code im 1013) (hchain : SharedChain.Code im) (hpref : SharedChain.PrefixCode im) (hseedcode : SharedSeed.Code im) (hhook : CodeAt im (pcOf 1055) Sign.seedHookCode) : Spec im := by
   intro sk A s0 hlay hso htree hd7 hvS hdS hdestS hpre hpc
-  have hn : A.n = 54 := by show chainCount A.lay = 54; rw [hlay]; rfl
+  have hn : A.n = 51 := by show chainCount A.lay = 51; rw [hlay]; rfl
   have hP : PRIV = 131072 := rfl
   have hS : SEEDS = 131136 := rfl
   have hL : LEAFPK = 132608 := rfl
@@ -1296,7 +1293,7 @@ theorem topLeafSpec (hcode : SharedTopSeed.Code im) (hsub : Sign.SharedLeafCode.
     (by rw [e13.get (by decide), hpre.x5]) hsk
   rw [hso, buildLeafTop_so]
   refine TBSim.mono (TBSim.steps ((st1.trans st2).trans st3) (TBSim.bind
-    (W₂ := 2 + (54 * topChainC + 3)) hcg (fun coefs u hu => ?_))) (by
+    (W₂ := 2 + (51 * topChainC + 3)) hcg (fun coefs u hu => ?_))) (by
       unfold topLeafC cgC cgStepC topChainC hornCT hstepC; omega) (fun _ _ h => h)
   obtain ⟨upc, ulen, ucoef, u19, ur, uf⟩ := hu
   obtain ⟨v1, sv1, v1pc, v1r, v1f⟩ := j1053_spec hcode u upc
@@ -1341,13 +1338,13 @@ theorem topLeafSpec (hcode : SharedTopSeed.Code im) (hsub : Sign.SharedLeafCode.
         t3f.get (by decide) (by simp), t2f.get (by decide) (by simp), t1l24]
   have hF0 : FStT s0 A coefs 0 ([], []) v := ⟨vpc, (ucoef.frame (by omega) v1f (fun _ _ _ h => h)).frame (by omega) vf (fun _ _ _ h => h),
     ⟨_, hs1, h0⟩⟩
-  have hfold := TBSim.foldlM_range' (image := im) (sk := sk) 0 54
+  have hfold := TBSim.foldlM_range' (image := im) (sk := sk) 0 51
     (topStepT A.leaf A.digits coefs) ([], []) (FStT s0 A coefs) topChainC
     (fun j hj st x hx => by simpa using top_chain_step sk hpre hcode hsub hchain hpref hseedcode hhook hlay hso htree hd7 hvS hdS hdestS ulen hj hx) hF0
-  refine TBSim.steps (sv1.trans sv) (TBSim.bind (W₁ := 54 * topChainC) (W₂ := 3) hfold (fun rows x hx => ?_))
+  refine TBSim.steps (sv1.trans sv) (TBSim.bind (W₁ := 51 * topChainC) (W₂ := 3) hfold (fun rows x hx => ?_))
   obtain ⟨xpc, -, ⟨s3, hs3, hinv3⟩⟩ := hx
   have hpre3 := LeafPreS.transferT hpre hs3.regs hs3.base hdS
-  rw [show (54 : Nat) = A.n from hn.symm] at hinv3
+  rw [show (51 : Nat) = A.n from hn.symm] at hinv3
   have hex := Sign.SharedLeaf.leaf_exitS hsub sk hpre3 hinv3 xpc
   simp only [hso, if_true] at hex
   refine TBSim.mono ((hex.toTBSim (by norm_num)).mono le_rfl (fun r y hy => ?_)) le_rfl (fun _ _ h => h)
@@ -1357,9 +1354,6 @@ theorem topLeafSpec (hcode : SharedTopSeed.Code im) (hsub : Sign.SharedLeafCode.
   have ht : ¬ TScr X := fun h => hn' (Or.inr ((tscr_iff X).mp h))
   rw [yframe.get hX hl, hs3.base.get hX ht]
 
-#print axioms leaf_iter71
-#print axioms top_chain_step
-#print axioms topLeafSpec
 end ClaudeWCT.W9.Machine.Sign.SharedTopLeafP
 
 namespace ClaudeWCT.W9.Machine.Sign.SharedTopLeafP

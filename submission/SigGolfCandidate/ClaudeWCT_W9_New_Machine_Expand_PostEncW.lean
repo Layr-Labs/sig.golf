@@ -148,6 +148,4 @@ theorem pp_scratch (s t : MachineState)
     t.getMem (BitVec.ofNat 64 A) = s.getMem (BitVec.ofNat 64 A) := by
   rw [tm A (by omega), ppMem_scratch _ _ _ h1 h2]
 
-#print axioms ppMem_witEnc
-#print axioms pp_witEnc
 end ClaudeWCT.W9.Machine.Expand.PostEnc

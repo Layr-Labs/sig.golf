@@ -613,8 +613,6 @@ theorem publicOnly_verifyP (message : Message) (pk : Digest) (w : WBytes) : Only
       · exact allQ_pure _
       · refine allQ_bind (publicOnly_layersCanonicalBC ..) fun root=>?_
         cases root <;> exact allQ_pure _
-#print axioms publicOnly_verifyP
-#print axioms publicOnly_expandB
 end ClaudeWCT.W9.T3M.Paired
 
 namespace SigGolfCandidate.Research.SharedForest
@@ -840,8 +838,6 @@ theorem goodQ_verifyP (message : Message) (pk : Digest) (w : WBytes) : Good (ver
       · exact allQ_pure _
       · refine allQ_bind (goodQ_layersCanonicalBC ..) fun root=>?_
         cases root <;> exact allQ_pure _
-#print axioms goodQ_verifyP
-#print axioms goodQ_expandB
 end ClaudeWCT.W9.T3M.Paired
 
 namespace SigGolfCandidate.Research.SharedForest
@@ -957,4 +953,3 @@ theorem good_expand (message : Message) (pk : Digest) (sig : SigGolfCandidate.Re
   rw [←ClaudeWCT.W9.T3M.Paired.expandN_snd]
   exact good_map _ (ClaudeWCT.W9.T3M.Paired.goodQ_expandN ..)
 end SigGolfCandidate.Research.SharedForest
-

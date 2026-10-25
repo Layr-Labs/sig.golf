@@ -195,6 +195,4 @@ theorem wotsSeed_outF (hF : F.fam * S.grp F.lay < 2 ^ 24) {lay : Layer} {tree le
     rw [hq]
 end Agree
 
-#print axioms respects_famOut
-#print axioms wotsSeed_outF
 end ClaudeWCT.W9.T3.Security.Wots.FamRestart

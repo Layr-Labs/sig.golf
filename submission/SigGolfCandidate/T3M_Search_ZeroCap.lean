@@ -84,53 +84,9 @@ theorem filter_zero_length (l : List Nat) :
   | nil => rfl
   | cons a l ih => by_cases h : a = 0 <;> simp [List.filter_cons, h, ih] <;> omega
 
-theorem digit_group (v : Digest) (q j : Nat) (hq : q < 17) (hj : j < 3) :
-    T3.coreDigit 0 (T3.topFlip v) (3 * q + j) = topRank v q / 5 ^ j % 5 := by
-  unfold T3.coreDigit
-  rw [if_pos rfl, if_pos (by omega), T3.topCode_topFlip, show (3 * q + j) / 3 = q by omega,
-    show (3 * q + j) % 3 = j by omega]
-  rfl
-theorem digit_tail (v : Digest) :
-    T3.coreDigit 0 (T3.topFlip v) 51 = tailField v / 8 % 8 ∧
-    T3.coreDigit 0 (T3.topFlip v) 52 = tailField v / 64 ∧
-    T3.coreDigit 0 (T3.topFlip v) 53 = tailField v % 8 := by
-  unfold T3.coreDigit T3.topRawShift tailField
-  simp only [if_pos rfl, show ¬ (51 < 51) by omega, show ¬ (52 < 51) by omega, show ¬ (53 < 51) by omega,
-    if_false, T3.topCode_topFlip, show ¬ ((51:Nat) = 53) by omega, show ¬ ((52:Nat) = 53) by omega, if_true]
-  have h := v.isLt
-  refine ⟨?_, ?_, ?_⟩ <;> norm_num <;> omega
-theorem group_zeros (v : Digest) (q : Nat) (hq : q < 17) (hr : topRank v q < 125) :
-    ([3*q, 3*q+1, 3*q+2].map (fun i => if T3.coreDigit 0 (T3.topFlip v) i = 0 then 1 else 0)).sum =
-      ztNat (topRank v q) := by
-  have h0 := digit_group v q 0 hq (by omega)
-  have h1 := digit_group v q 1 hq (by omega)
-  have h2 := digit_group v q 2 hq (by omega)
-  simp only [Nat.add_zero] at h0
-  simp only [List.map_cons, List.map_nil, List.sum_cons, List.sum_nil, h0, h1, h2, ztNat, if_pos hr]
-  simp only [pow_zero, pow_one, Nat.div_one, Nat.add_zero, Nat.add_assoc, show (5:Nat) ^ 2 = 25 by norm_num]
-theorem zcount_eq (v : Digest) (hv : T3.topRanksValid (T3.topFlip v) = true) :
-    zcount v = ((topDigits (T3.topFlip v)).filter (· = 0)).length := by
-  have hg : ∀ q, q < 17 → topRank v q < 125 := fun q hq =>
-    (topRanksValid_iff v).mp hv _ (List.mem_map.mpr ⟨q, List.mem_range.mpr hq, rfl⟩)
-  rw [filter_zero_length]
-  have hi : List.range 54 =
-      (List.ofFn fun q : Fin 17 => [3*q.val,3*q.val+1,3*q.val+2]).flatten ++ [51,52,53] := by decide +kernel
-  unfold topDigits
-  rw [List.map_map, hi, List.map_append, List.sum_append, List.map_flatten, List.sum_flatten, List.map_ofFn,
-    List.map_ofFn, List.sum_ofFn]
-  unfold zcount runningZ
-  rw [show List.range 17 = List.ofFn (fun q : Fin 17 => q.val) from rfl, List.map_ofFn, List.sum_ofFn]
-  refine congrArg₂ (· + ·) ?_ ?_
-  · apply Finset.sum_congr rfl
-    intro q _
-    have h := group_zeros v q.val q.isLt (hg q.val q.isLt)
-    simp only [Function.comp_def, List.map_map] at h ⊢
-    exact h.symm
-  · obtain ⟨d51, d52, d53⟩ := digit_tail v
-    simp only [List.map_cons, List.map_nil, List.sum_cons, List.sum_nil, Function.comp_apply, d51, d52, d53,
-      tailZeros]
-    omega
-/-! ### Machine blocks -/
+
+
+
 section blocks
 variable {image : Image}
 

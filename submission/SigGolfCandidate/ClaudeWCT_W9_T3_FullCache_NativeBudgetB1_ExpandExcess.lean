@@ -33,8 +33,8 @@ theorem cost_searchTop_le_hit (answers : Answers) (index : Nat) (v sib pk : Dige
       have := ih (c0 + 1) c (by omega) (by omega) h3
       omega
 
-/-- The brute-forced field of a top sibling: bits 109..127 (19 bits). -/
-def topField (d : Digest) : Nat := d.toNat / 2 ^ 109
+/-- The brute-forced field of a top sibling (T51): bits 112..127 (16 bits; `setTop_self`, `top_lt`). -/
+def topField (d : Digest) : Nat := d.toNat / 2 ^ 112
 
 /-- **img-v6 refined expand cost**: on a signature whose full (unfilled) top path recovers to the key, the brute
 force costs at most the omitted field of the true top sibling (`topField`), instead of `searchFuel`. -/
@@ -113,7 +113,6 @@ theorem expand_cost_le_recovery_field (answers : Answers) (message : Message) (p
             (by omega) (by unfold searchFuel topField at *; omega) hcompletion
           omega
 
-#print axioms expand_cost_le_recovery_field
 
 
 theorem route_top_tree (index : Nat) (h : index < 2 ^ 31) : (route index 0).2 = 0 := by
@@ -243,7 +242,6 @@ theorem expand_cost_le_sign_field (answers : Answers) (message : Message) (sig :
   rw [sign_cost_honest]
   omega
 
-#print axioms expand_cost_le_sign_field
 end SigGolfCandidate.Research.SharedForest
 
 namespace SigGolfCandidate.Research.SharedExpansionV6

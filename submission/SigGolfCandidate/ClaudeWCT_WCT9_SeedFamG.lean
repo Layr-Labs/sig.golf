@@ -164,8 +164,4 @@ theorem lowerFam_revealed_card_le {g : Nat} (S : Finset (Fin g × Fin 43))
 `⌈(5g+3)·nf / 2⌉`. For `g = 4`: L1 (32 families) 368 (was 512), L2/L3 (16) 184 (was 256). -/
 theorem lowerFam_pairs_g4 : (23 * 32 + 1) / 2 = 368 ∧ (23 * 16 + 1) / 2 = 184 := by decide
 
-#print axioms groupedPoint_le
-#print axioms groupedPoint_inj
-#print axioms lowerFamCoefOrdinal_inj
-#print axioms lowerFam_revealed_card_le
 end ClaudeWCT.WCT9

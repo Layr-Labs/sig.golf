@@ -296,7 +296,6 @@ theorem blk1214_pair_spec (s : MachineState) (hpc : s.pc = pcOf 1214) (ar ret : 
   · rw [m56, uf.get (by omega) (by simp)]
   · exact (ur.trans tr).mono (by decide)
   · exact (uf.trans tf).mono (by intro A hA h; simpa using h)
-#print axioms blk1214_pair_spec
 end SigGolfCandidate.T3M.Sign.Packed.BCBlocks
 end
 section

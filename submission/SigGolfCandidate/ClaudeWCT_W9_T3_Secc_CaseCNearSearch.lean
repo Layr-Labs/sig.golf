@@ -1256,6 +1256,4 @@ theorem search_frame (S : FtsBankSpec P) (slot : Nat) (rho : Digest) (m : Messag
       · rw [(runWith_pure_nonzero S) slot _ _ r hr]
         exact hf
       · exact hf.trans (ih (c + 1) _ r hr)
-#print axioms search_law
-#print axioms search_frame
 end ClaudeWCT.Bank.NearWorld

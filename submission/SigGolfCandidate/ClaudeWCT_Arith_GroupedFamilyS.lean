@@ -69,6 +69,4 @@ theorem family_amLen_le_groupedS {s g w n : ℕ} (hws : w ≤ s) (hb : (g - 1) *
 /-- v6 shapes: lower `7 × 43`, stride 43 (`6·43 + 43 = 301`); top `4 × 54`, stride 64 (`3·64 + 54 = 246`). -/
 theorem v6_points : (7 - 1) * 43 + 43 < 1024 ∧ (4 - 1) * 64 + 54 < 1024 := by decide
 
-#print axioms family_test_le_groupedS
-#print axioms family_test_ge_groupedS
 end ClaudeWCT.Arith.SideChannel.GroupedFamily

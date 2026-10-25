@@ -188,22 +188,8 @@ theorem cs124_spec {rewardCondition : Prop} (hK : KernAt image b rewardCondition
   · simp [st_124, blk354_124.res, rv_simp]
   · intro r hr; simp at hr; cases r <;> simp_all [st_124, blk354_124.res, rv_simp] <;> rfl
   · intro A _ _; simp [st_124, blk354_124.res, rv_simp]
-theorem topFlip_lo (v : T3.Digest) : (T3.topFlip v).extractLsb' 0 64 = v.extractLsb' 0 64 ^^^ BitVec.ofNat 64 (2 ^ 64 - 1) := by
-  rw [T3.topFlip, BitVec.extractLsb'_xor]; congr 1
-theorem topFlip_hi (v : T3.Digest) : (T3.topFlip v).extractLsb' 64 64 = v.extractLsb' 64 64 ^^^ BitVec.ofNat 64 (2 ^ 55 - 1) := by
-  rw [T3.topFlip, BitVec.extractLsb'_xor]; congr 1
-theorem tc_spec {rewardCondition : Prop} (hK : KernAt image b rewardCondition) (s : MachineState) (hpc : s.pc = pcOf (tcBase b)) (v : T3.Digest)
-    (h6 : s.getReg .x6 = v.extractLsb' 0 64) (h7 : s.getReg .x7 = v.extractLsb' 64 64) :
-    ∃ t, Steps image s 5 5 t ∧ t.pc = pcOf (b + 263) ∧
-      t.getReg .x6 = (T3.topFlip v).extractLsb' 0 64 ∧ t.getReg .x7 = (T3.topFlip v).extractLsb' 64 64 ∧
-      RegsExcept s t [.x6, .x7, .x28] ∧ Frame s t (fun _ => False) := by
-  refine ⟨_, symRun_sound (runc_0 hK.2.1) (codeAt_c_0 hK) s hpc (by simp [stc_0, blkC354_0.res, rv_simp]),
-    ?_, ?_, ?_, ?_, ?_⟩
-  · simp [pcEc_0, blkC354_0.res, E.eval]
-  · rw [topFlip_lo]; simp [stc_0, blkC354_0.res, rv_simp, h6]
-  · rw [topFlip_hi]; simp [stc_0, blkC354_0.res, rv_simp, h7]
-  · intro r hr; simp at hr; cases r <;> simp_all [stc_0, blkC354_0.res, rv_simp] <;> rfl
-  · intro A _ _; simp [stc_0, blkC354_0.res, rv_simp]
+
+
 theorem ext64_shr_eq_zero (v : BitVec 128) (k : Nat) (hk : k < 64) :
     (v.extractLsb' 64 64 >>> k = 0#64) ↔ v.toNat < 2 ^ (64 + k) := by
   rw [ext_shr_ofNat v 64 k hk, show (0#64) = BitVec.ofNat 64 0 from rfl, ofNat_eq_iff]

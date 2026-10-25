@@ -418,7 +418,6 @@ theorem signPayload_nonMac (cache : SigGolfCandidate.T3.Cache) (message : Messag
   · apply SourceQueries.bind_allowed _ (signFromOutput_nonMac ..)
     intro signed
     cases signed <;> exact SourceQueries.pure_allowed _ _
-#print axioms signPayload_nonMac
 end ClaudeWCT.W9.T3.Security.PairedOuter
 
 namespace ClaudeWCT.W9.T3.Security.PairedOuter
@@ -783,6 +782,3 @@ theorem authenticatedSign_interpretation (other : OtherTable) (mac : MacTable)
   · rfl
 end ClaudeWCT.W9.T3.Security.PairedOuter.FullGame
 end
-
-#print axioms ClaudeWCT.W9.T3.Security.PairedOuter.MacGame.authentication_hop
-#print axioms ClaudeWCT.W9.T3.Security.PairedOuter.FullGame.authenticatedSign_interpretation

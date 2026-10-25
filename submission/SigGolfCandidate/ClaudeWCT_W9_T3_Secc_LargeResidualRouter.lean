@@ -545,9 +545,6 @@ theorem paired_view_seed (x : FamResidual.Hid PairedCoord) (a : ChainGraph.Addre
     FamResidual.view x ⟨.inl (.inr (.inl a))⟩ =
       ClaudeWCT.Arith.familyEval (List.ofFn (x.2 (.inl (groupedLeaf a)))) (groupedPoint a) := rfl
 
-#print axioms grouped_address_injective
-#print axioms instPairedSeeds
-#print axioms paired_view_seed
 end ClaudeWCT.W9.T3.Security.LargeResidual.AdjacentLeafResearch
 
 namespace ClaudeWCT.W9.T3.Security.LargeResidual.Paired
