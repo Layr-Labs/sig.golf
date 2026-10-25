@@ -15,7 +15,7 @@ theorem layout_offsets : submission.layout =
   { message := 26144, secretKey := 128, publicKey := 160,
     cache := 524288, signature := 28672, witness := 4128 } := rfl
 
-theorem certificate : SigGolf.Certificate submission 7008 := by
+theorem certificate : SigGolf.Certificate submission 7007 := by
   exact SigGolfCandidate.Packaging.certificate_ready
 
 end SigGolf.Challenge
@@ -26,4 +26,7 @@ end SigGolf.Challenge
 #print axioms SigGolf.Challenge.layout_offsets
 #print axioms SigGolf.Challenge.certificate
 
-/- S=5195, W=22012, K=131072, C=7008; score=36406560. -/
+/- S=5195, W=22012, K=131072, C=7007; score=36401365. -/
+
+/- Retry of the same certificate after the 2026-10-25T21:59Z run reached the
+   verifier's 4 h wall (build completed, no score produced). Proof unchanged. -/

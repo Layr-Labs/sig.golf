@@ -341,7 +341,7 @@ theorem top_leaf_tail (floors : T3.Layer → Nat) (w : ClaudeWCT.W9.T3M.WBytes) 
     have h18 : r ≠ .x18 := by intro hh; subst hh; exact hrn (by decide +kernel)
     exact hr r (fun hh => hrn ((by decide +kernel : chainRegs ⊆ topChainRegs) hh)) h24 h29 h18
   have hframe : Frame s0 z topChainWrites := top_chain_frame _ rfl hfz
-  have h15 : z.getReg .x2 = 0x7fc00#64 := by
+  have h15 : z.getReg .x9 = 0x7fc00#64 := by
     rw [hregs.get (by decide +kernel)]; exact he.table
   have hready := topLeafReady_of w pk index c hc t s0 z a ends hpre he hpc hregs hframe h15 hlen
     (fun j hj => by have h := hend j (by omega); exact h)
