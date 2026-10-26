@@ -280,7 +280,7 @@ theorem r6_dispatch_step {p h : Nat} (h1 : 1 ≤ h) (h8 : h ≤ 8) (hp : p < 257
 then jumps to group 1's cell of the field `a6 bits 8..15`. -/
 theorem g0_dispatch_step {p : Nat} (hp : p < 257181) (hrun : vrun p 5 = some g0DispR) (s : MachineState)
     (V : Digest) (hpc : s.pc = pcOf p) (h16 : s.getReg .x16 = V.extractLsb' 0 64)
-    (h9 : s.getReg .x9 = 0xffbf10#64) (hmask : s.getMem 0xffbdf0#64 = 65280#64) :
+    (h9 : s.getReg .x2 = 0xffbde0#64) (hmask : s.getMem 0xffbdf0#64 = 65280#64) :
     ∃ t, Steps Images.verifyImage s 5 5 t ∧ t.pc = pcOf (cell6 1 (V.toNat / 2^8 % 256)) ∧
       t.getReg .x29 = 65280#64 ∧ t.getReg .x18 = 856064#64 ∧ RegsExcept s t [.x29, .x18, .x14] ∧
       Frame s t (fun _ => False) := by
@@ -290,8 +290,8 @@ theorem g0_dispatch_step {p : Nat} (hp : p < 257181) (hrun : vrun p 5 = some g0D
     subst ho
     simp [Oblig.holds, rv_simp, accessValid_iff, MEMORY_BYTES, h9]
   have hm : maskE.eval s = 65280#64 := by
-    change s.getMem (s.getReg .x9 + BitVec.ofNat 64 (2^64-288)) = _
-    rw [h9, show (0xffbf10#64 : Word) + BitVec.ofNat 64 (2^64-288) = 0xffbdf0#64 from rfl]; exact hmask
+    change s.getMem (s.getReg .x2 + BitVec.ofNat 64 16) = _
+    rw [h9, show (0xffbde0#64 : Word) + BitVec.ofNat 64 16 = 0xffbdf0#64 from rfl]; exact hmask
   refine ⟨g0DispR.toState s, piece_steps45 hrun hp s hpc hobl, ?_, ?_, ?_, ?_, ?_⟩
   · rw [Result.toState_pc]
     show ((g0A.eval s) + BitVec.ofNat 64 (2^64-72)) &&& ~~~1#64 = _
@@ -841,8 +841,8 @@ theorem end_dispatch0 (c : NCtx) (hc : c.ok) (hds : c.DigitsOk) {s0 : MachineSta
     simpa [nextDispR] using this
   have hbound := gX_lt 0 (c.kOf 0) (by omega) (c.kOf_nRank hds 0 (by omega))
   have h16 : s.getReg .x16 = V.extractLsb' 0 64 := (hR _ (by decide +kernel)).trans he.lo
-  have h9 : s.getReg .x9 = 0xffbf10#64 :=
-    (hR _ (by decide +kernel)).trans (hk (.x9, BitVec.ofNat 64 0xffbf10) (by simp [known]))
+  have h9 : s.getReg .x2 = 0xffbde0#64 :=
+    (hR _ (by decide +kernel)).trans (hk (.x2, BitVec.ofNat 64 0xffbde0) (by simp [known]))
   have hnw : ¬ c.Wr 3 0xffbdf0 := by
     have hb := c.bufferEnd_bounds 3
     rw [slot_pos 3 (by omega)] at hb

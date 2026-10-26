@@ -221,12 +221,12 @@ def xJ (w : Reg) (b : Nat) (mreg : Reg) (imm : Word) : Result :=
     .bin .and (.bin .add a (.c imm)) (.c (~~~1#64)),
     .jump, (if b = 9 then 2 else 3), (if b = 9 then 2 else 3)⟩
 def xbfJ (w : Reg) (imm : Word) : Result :=
-  let a := .bin .and (.bin .srl (.reg w) (.c 44)) (.reg .x2)
+  let a := .bin .and (.bin .srl (.reg w) (.c 44)) (.reg .x9)
   ⟨⟨RegFile.init.set .x14 a, [], []⟩,
     .bin .and (.bin .add a (.c imm)) (.c (~~~1#64)), .jump, 3, 3⟩
 def ctabX : Result :=
-  ⟨⟨RegFile.init.set .x14 (.bin .sub (.reg .x2) (.bin .sll (.reg .x29) (.c 12))), [], []⟩,
-    .bin .and (.bin .add (.bin .sub (.reg .x2) (.bin .sll (.reg .x29) (.c 12))) (.c 1844)) (.c (~~~1#64)),
+  ⟨⟨RegFile.init.set .x14 (.bin .sub (.reg .x9) (.bin .sll (.reg .x29) (.c 12))), [], []⟩,
+    .bin .and (.bin .add (.bin .sub (.reg .x9) (.bin .sll (.reg .x29) (.c 12))) (.c 1844)) (.c (~~~1#64)),
     .jump, 3, 3⟩
 def retR : Result := ⟨⟨RegFile.init, [], []⟩, .bin .and (.reg .x1) (.c (~~~1#64)), .jump, 1, 1⟩
 def rungRB (d : Nat) (slot : Option Nat) (p : Nat) : Result :=
@@ -325,7 +325,7 @@ def xOK (t dB dC : Nat) : Bool :=
   else if t = 5 ∨ t = 12 then rOK (vrun (pcX t dB dC) 4)
     (xbfJ (if t + 1 < 7 then .x16 else .x17) (BitVec.ofNat 64 (lowerImm (t+1))))
   else rOK (vrun (pcX t dB dC) 5)
-    (xJ (if t + 1 < 7 then .x16 else .x17) (9 * ((t + 1) % 7)) (if t = 0 ∨ t = 7 then .x27 else .x2)
+    (xJ (if t + 1 < 7 then .x16 else .x17) (9 * ((t + 1) % 7)) (if t = 0 ∨ t = 7 then .x27 else .x9)
       (BitVec.ofNat 64 (lowerImm (t+1))))
 def blkCheck (t dB dC : Nat) : Bool :=
   rungsOK 0 (outL (3 * t)) (triBase t dB dC) &&
