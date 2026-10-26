@@ -44,18 +44,18 @@ def bufferBias (lay : Nat) : Nat := [24704,23728,23008,22288].getD lay 0
 def bufferBase (lay : Nat) : Nat := [25216,24496,23776,23056].getD lay 0
 def preK (lay : Nat) : List (Reg × Word) :=
   if lay = 3 then [(.x5, 0)] ++ [(.x8, BitVec.ofNat 64 4208), (.x11, 64), (.x26, 6), (.x7, 1), (.x13, 2), (.x30, 7),
-    (.x9, BitVec.ofNat 64 TOPB9), (.x19, 3), (.x20, 4), (.x21, 5), (.x6, 0x10000)]
-  else baseK ++ [(.x6, 0x10000), (.x2, 0x7fc00),
+    (.x2, BitVec.ofNat 64 0xffbde0), (.x19, 3), (.x20, 4), (.x21, 5), (.x6, 0x10000)]
+  else baseK ++ [(.x6, 0x10000), (.x9, 0x7fc00),
     (.x1, BitVec.ofNat 64 M1c), (.x24, BitVec.ofNat 64 M2c), (.x11, 64),
     (.x7, 1), (.x13, 2), (.x19, 3), (.x20, 4), (.x21, 5), (.x26, 6), (.x30, 7),
-    (.x5, 0), (.x9, BitVec.ofNat 64 TOPB9), (.x27, 0x3fe00), (.x4, BitVec.ofNat 64 (bufferBias (lay+1)))]
+    (.x5, 0), (.x2, BitVec.ofNat 64 0xffbde0), (.x27, 0x3fe00), (.x4, BitVec.ofNat 64 (bufferBias (lay+1)))]
 def layK (lay : Nat) : List (Reg × Word) :=
   baseK ++ [(.x6, 0x10000), (.x11, 64),
     (.x7, 1), (.x13, 2), (.x19, 3), (.x20, 4), (.x21, 5), (.x26, 6), (.x30, 7),
-    (.x9, BitVec.ofNat 64 TOPB9)] ++
-    (if lay = 3 then [] else [(.x2, 0x7fc00), (.x1, BitVec.ofNat 64 M1c), (.x24, BitVec.ofNat 64 M2c), (.x5, 0), (.x27, 0x3fe00), (.x4, BitVec.ofNat 64 (bufferBias lay))])
+    (.x2, BitVec.ofNat 64 0xffbde0)] ++
+    (if lay = 3 then [] else [(.x9, 0x7fc00), (.x1, BitVec.ofNat 64 M1c), (.x24, BitVec.ofNat 64 M2c), (.x5, 0), (.x27, 0x3fe00), (.x4, BitVec.ofNat 64 (bufferBias lay))])
 def chainK (lay : Nat) : List (Reg × Word) :=
-  baseK ++ [(.x6, 0x10000), (.x2, 0x7fc00),
+  baseK ++ [(.x6, 0x10000), (.x9, 0x7fc00),
     (.x1, BitVec.ofNat 64 M1c), (.x24, BitVec.ofNat 64 M2c), (.x11, 64),
     (.x7, 1), (.x13, 2), (.x19, 3), (.x20, 4), (.x21, 5), (.x26, 6), (.x30, 7),
     (.x5, 0), (.x27, 0x3fe00), (.x4, BitVec.ofNat 64 (bufferBias lay))]
@@ -128,19 +128,19 @@ def s23E (lay : Nat) : E := if lay = 3 then .bin .sll (s7E 3) (kw 9) else .bin .
 def specBl (lay _p : Nat) : Spec :=
   ⟨[(.x16, a6E), (.x17, a7E), (.x23, s23E lay), (.x25, sumE lay), (.x29, t4E lay),
     (.x14, x14l lay)] ++ (if lay = 3 then [(.x22, .ld (kw (TOPLOAD - 8))),
-      (.x24, .ld (kw TOPLOAD)), (.x1, .ld (kw (TOPLOAD + 8))), (.x2, .ld (kw (TOPLOAD + 24))),
+      (.x24, .ld (kw TOPLOAD)), (.x1, .ld (kw (TOPLOAD + 8))), (.x9, .ld (kw (TOPLOAD + 24))),
       (.x31, treeE 3), (.x27, .bin .srl (maskE 3) (kw 1)), (.x4, .ld (kw (TOPB9+56)))] else []),
    [], 0, false, bSt lay, [ckBr lay false, spareBr lay false], some (tgtl lay), bCy lay⟩
 def specBlHi (lay _p : Nat) : Spec :=
   ⟨[(.x16, a6HiE), (.x17, a7HiE), (.x23, s23E lay), (.x25, sumHiE lay), (.x29, t4HiE lay),
     (.x14, x14Hi lay)] ++ (if lay = 3 then [(.x22, .ld (kw (TOPLOAD - 8))),
-      (.x24, .ld (kw TOPLOAD)), (.x1, .ld (kw (TOPLOAD + 8))), (.x2, .ld (kw (TOPLOAD + 24))),
+      (.x24, .ld (kw TOPLOAD)), (.x1, .ld (kw (TOPLOAD + 8))), (.x9, .ld (kw (TOPLOAD + 24))),
       (.x31, treeE 3), (.x27, .bin .srl (maskE 3) (kw 1)), (.x4, .ld (kw (TOPB9+56)))] else []),
    [], 0, false, bSt lay + 4, [ckHiBr lay false, spareHiBr lay false, spareBr lay true], some (tgtHi lay), bCy lay + 4⟩
 def postBl (lay _p : Nat) : List (Reg × Word) :=
-  chainK lay ++ [(.x22, BitVec.ofNat 64 (s6v lay)), (.x7, 1), (.x9, BitVec.ofNat 64 TOPB9)]
+  chainK lay ++ [(.x22, BitVec.ofNat 64 (s6v lay)), (.x7, 1), (.x2, BitVec.ofNat 64 0xffbde0)]
 def postBlC (lay p : Nat) : List (Reg × Word) :=
-  if lay = 3 then ((chainK lay).filter (fun q => q.1 != .x24 && q.1 != .x1 && q.1 != .x2 && q.1 != .x27 && q.1 != .x4)) ++ [(.x7, 1), (.x9, BitVec.ofNat 64 TOPB9)] else postBl lay p
+  if lay = 3 then ((chainK lay).filter (fun q => q.1 != .x24 && q.1 != .x1 && q.1 != .x9 && q.1 != .x27 && q.1 != .x4)) ++ [(.x7, 1), (.x2, BitVec.ofNat 64 0xffbde0)] else postBl lay p
 def rejSpare (lay : Nat) : Spec := ⟨[(.x5, kw 1), (.x10, kw 1)], [], rejEcall, true, 7, [spareBr lay true], none, 7⟩
 def rejCk (lay : Nat) : Spec :=
   ⟨[(.x5, kw 1), (.x10, kw 1)], [], rejEcall, true, if lay = 3 then 23 else 20, [ckBr lay true, spareBr lay false], none, if lay = 3 then 26 else 23⟩

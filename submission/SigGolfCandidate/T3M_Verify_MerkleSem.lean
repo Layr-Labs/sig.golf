@@ -393,7 +393,7 @@ theorem mkKeep_sub (l : List Reg) : ∀ r ∈ mkKeep, r ∈ mkKeep ++ l := fun r
 theorem mkKc_mkK (lay : Nat) : ∀ p ∈ mkKc lay, p ∈ mkK lay := by
   intro p hp; unfold mkK; unfold mkKc at hp; exact List.mem_append_left _ hp
 theorem mkK_cases (lay : Nat) (p : Reg × Word) (hp : p ∈ mkK lay) :
-    p ∈ mkKc lay ∨ p = (.x9, BitVec.ofNat 64 TOPB9) := by
+    p ∈ mkKc lay ∨ p = (.x2, BitVec.ofNat 64 0xffbde0) := by
   unfold mkK at hp; unfold mkKc
   rcases List.mem_append.mp hp with h | h
   · exact Or.inl h

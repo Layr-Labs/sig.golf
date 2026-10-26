@@ -123,7 +123,7 @@ theorem leafL_step (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index : Nat) (la
     (hG : Glob (chainK lay.val) w pk s0) (hO : Verify.Orig w (fun o => 7664 ≤ o ∧ o < layerEnd lay.val) s0)
     (h23 : s0.getReg .x23 = BitVec.ofNat 64 (lfS7 lay.val (route index lay).1))
     (h30 : s0.getReg .x31 = BitVec.ofNat 64 (route index lay).2)
-    (h1 : s0.getReg .x9 = BitVec.ofNat 64 TOPB9)
+    (h1 : s0.getReg .x2 = BitVec.ofNat 64 0xffbde0)
     (hBuffer : Verify.Orig w (fun o => BC.bufferStart lay.val ≤ o ∧ o < 21984) s0)
     (ends : List Digest) (t : MachineState)
     (ht : (lctxOf w index lay a).ChainOut s0 43 ends t) :
@@ -1022,7 +1022,7 @@ theorem layerIn_of_fts (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (idx : Nat) (
     (hs10 : u.getReg .x26 = 6) (hOne : u.getReg .x7 = 1) (hTwo : u.getReg .x13 = 2) (hSeven : u.getReg .x30 = 7)
     (hThree : u.getReg .x19 = 3) (hFour : u.getReg .x20 = 4) (hFive : u.getReg .x21 = 5)
     (hCoord : u.getReg .x6 = 0x10000)
-    (hbase : u.getReg .x9 = BitVec.ofNat 64 TOPB9)
+    (hbase : u.getReg .x2 = BitVec.ofNat 64 0xffbde0)
     (htop : ∀ k, k < 5 → u.getMem (BitVec.ofNat 64 (TOPLOAD + 8 * k)) =
       BitVec.ofNat 64 (topWords.getD k 0))
     (htop8 : u.getMem (BitVec.ofNat 64 (TOPLOAD - 8)) = BitVec.ofNat 64 21328)
@@ -1030,7 +1030,7 @@ theorem layerIn_of_fts (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (idx : Nat) (
     (hd0 : u.getMem (BitVec.ofNat 64 (TOPB9 - 304)) = 0xFFF) :
     ∃ t, Steps image u 0 0 t ∧ LayerIn w pk idx 3 (.pair left right) t := by
   have hpk : preK 3 = [(.x5, 0)] ++ [(.x8, BitVec.ofNat 64 4208), (.x11, 64), (.x26, 6), (.x7, 1), (.x13, 2), (.x30, 7),
-      (.x9, BitVec.ofNat 64 TOPB9), (.x19, 3), (.x20, 4), (.x21, 5), (.x6, 0x10000)] := rfl
+      (.x2, BitVec.ofNat 64 0xffbde0), (.x19, 3), (.x20, 4), (.x21, 5), (.x6, 0x10000)] := rfl
   have hk : ∀ p ∈ preK 3, u.getReg p.1 = p.2 := by
     intro p hp
     rw [hpk] at hp
