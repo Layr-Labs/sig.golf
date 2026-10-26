@@ -108,7 +108,7 @@ theorem prefix_head_spec (s : MachineState) (a : BitVec 256) (high : Bool) (ra d
     (hpc : s.pc = pcOf p) (hc : CodeAt Verify.image (pcOf p) (prefixWordsOf ra))
     (h12 : s.getReg .x12 = BitVec.ofNat 64 d) (hd : d % 8 = 0 ∧ 0x1000 ≤ d ∧ d + 32 ≤ 0x7000)
     (h11 : s.getReg .x11 = 64#64) (h4 : s.getReg .x4 = 24704#64)
-    (h9 : s.getReg .x9 = BitVec.ofNat 64 TOPB9) (hmask : s.getMem 0xffbff8#64 = 520192#64)
+    (h9 : s.getReg .x2 = BitVec.ofNat 64 0xffbde0) (hmask : s.getMem 0xffbff8#64 = 520192#64)
     (h10 : s.getReg .x10 = BitVec.ofNat 64 ra)
     (hhint : (extractByte (s.getMem 25232#64) 0).getLsbD selHintBit = high)
     (hlo : DigAt s d (a.extractLsb' 0 128))
@@ -142,9 +142,9 @@ theorem prefix_head_spec (s : MachineState) (a : BitVec 256) (high : Bool) (ra d
   have hal : 15336 ≤ ra ∧ ra ≤ 15528 := by
     simp only [aVals, List.mem_cons, List.not_mem_nil, or_false] at hra; omega
   -- `ld t1,232(s1); addi s0,a0,K`
-  have hm : s.getMem (s.getReg .x9 + 232#64) = 520192#64 := by rw [h9]; exact hmask
+  have hm : s.getMem (s.getReg .x2 + 536#64) = 520192#64 := by rw [h9]; exact hmask
   have e0 := symRun_sound (dPro_run ra hra (pcOf p)) hc0 s hpc (by
-    simp [dProRes, dProRegs, dProBase.res, rv_simp, h9, accessValid_iff, MEMORY_BYTES, TOPB9])
+    simp [dProRes, dProRegs, dProBase.res, rv_simp, h9, accessValid_iff, MEMORY_BYTES])
   let u := (dProRes ra (pcOf p)).toState s
   have ru : RegsExcept s u [.x6,.x8] := by
     intro r hr; cases r <;> simp at hr <;> simp [u, dProRes, dProRegs, dProBase.res, rv_simp] <;> rfl
@@ -296,12 +296,12 @@ def topEntryRegs : List Reg := [.x16,.x17,.x29,.x6,.x8,.x14,.x3,.x12]
 structure TopEntry (u : MachineState) (v : Digest) (p : Nat) (s : MachineState) : Prop where
   /-- Campaign T51: the head's dispatch target (the g0 cell of the low byte of `v`). -/
   pc : s.pc = Nonbinary.g0Target v
-  ra : s.getReg .x9 = BitVec.ofNat 64 TOPB9
+  ra : s.getReg .x2 = BitVec.ofNat 64 0xffbde0
   lo : s.getReg .x16 = v.extractLsb' 0 64
   hi : s.getReg .x17 = v.extractLsb' 64 64
   s3 : s.getReg .x8 = 14128#64
   mask : s.getReg .x6 = 520192#64
-  table : s.getReg .x2 = 0x7fc00#64
+  table : s.getReg .x9 = 0x7fc00#64
   regs : RegsExcept u s topEntryRegs
   frame : Frame u s (fun A => A = 25160)
 def topRowA (c : Nat) : Nat := rowA 0 c
@@ -369,10 +369,10 @@ theorem topTransition (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index c : Nat
   have hD := hglob.2.2.2.2.2
   have h10 : (writeHash t a).getReg .x10 = BitVec.ofNat 64 (topRowA c) :=
     hk (.x10, BitVec.ofNat 64 (rowA 0 c)) (by simp [BC.bK])
-  have hra : (writeHash t a).getReg .x9 = BitVec.ofNat 64 TOPB9 :=
-    hk (.x9, BitVec.ofNat 64 TOPB9) (by simp [BC.bK, T3M.bK, layK])
-  have h15 : (writeHash t a).getReg .x2 = 0x7fc00#64 :=
-    hk (.x2, 0x7fc00#64) (by simp [BC.bK, T3M.bK, layK])
+  have hra : (writeHash t a).getReg .x2 = BitVec.ofNat 64 0xffbde0 :=
+    hk (.x2, BitVec.ofNat 64 0xffbde0) (by simp [BC.bK, T3M.bK, layK])
+  have h15 : (writeHash t a).getReg .x9 = 0x7fc00#64 :=
+    hk (.x9, 0x7fc00#64) (by simp [BC.bK, T3M.bK, layK])
   have h4 : (writeHash t a).getReg .x4 = 24704#64 :=
     hk (.x4, 24704#64) (by simp [BC.bK, T3M.bK, layK, bufferBias])
   have h11 : (writeHash t a).getReg .x11 = 64#64 :=
@@ -635,7 +635,7 @@ loads `s2 = 856064`). -/
 theorem topLeafK_of (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index c : Nat) (t s0 s : MachineState)
     (a : BitVec 256) (ht : BC.EncPre w pk index 0 c t)
     (he : TopEntry (writeHash t a) (T3.TopChoice.read (ClaudeWCT.W9.T3M.wtopHigh w) a) (trPc 0 c) s0)
-    (hr : RegsExcept s0 s topChainRegs) (_h15 : s.getReg .x2 = 0x7fc00#64) : KnownOK (leafK 0) s := by
+    (hr : RegsExcept s0 s topChainRegs) (_h15 : s.getReg .x9 = 0x7fc00#64) : KnownOK (leafK 0) s := by
   intro p hp
   simp only [leafK, gkL, ↓reduceIte, List.cons_append, List.nil_append, List.mem_cons, List.not_mem_nil,
     or_false] at hp
@@ -665,7 +665,7 @@ theorem topLeafReady_of (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index c : N
     (he : TopEntry (writeHash t a) (T3.TopChoice.read (ClaudeWCT.W9.T3M.wtopHigh w) a) (trPc 0 c) s0)
     (hp : s.pc = pcOf (Nonbinary.ckTail
       ((nctxOf w index (T3.TopChoice.read (ClaudeWCT.W9.T3M.wtopHigh w) a) (trPc 0 c)).dig 50)))
-    (hr : RegsExcept s0 s topChainRegs) (hf : Frame s0 s topChainWrites) (h15 : s.getReg .x2 = 0x7fc00#64)
+    (hr : RegsExcept s0 s topChainRegs) (hf : Frame s0 s topChainWrites) (h15 : s.getReg .x9 = 0x7fc00#64)
     (hlen : ends.length = 51) (hend : ∀j<51, DigAt s (slotT j) (ends.getD j 0)) :
     TopLeafReady w pk index c ends s := by
   have hk := topLeafK_of w pk index c t s0 s a ht he hr h15
