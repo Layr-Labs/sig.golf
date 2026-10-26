@@ -46,12 +46,12 @@ structure CoordPre (pk : Digest) (w : ClaudeWCT.W9.T3M.WBytes) (a : HashOutput) 
   d0 : u.getMem (BitVec.ofNat 64 dataBase7) = 0xFFF
   cached3 : u.getReg .x17 = if n < 8 then a.extractLsb' 192 64 else a.extractLsb' 192 64 ||| rankPad
   cached : u.getReg .x16 = a.extractLsb' (64 * cachedWord n) 64 ||| rankPad
-  mask : u.getReg .x2 = BitVec.ofNat 64 0xfff00
+  mask : u.getReg .x9 = BitVec.ofNat 64 0xfff00
   childMask : n ≥ 3 → u.getReg .x27 = BitVec.ofNat 64 0x7f00000
   jt : u.getReg .x24 = rankPad
   childBlock : u.getReg .x29 = BitVec.ofNat 64 0xf1b00
   baseReg : u.getReg .x8 = BitVec.ofNat 64 (10992 - 848 * (n-1))
-  pairPtr : u.getReg .x9 = BitVec.ofNat 64 TOPB9
+  pairPtr : u.getReg .x2 = BitVec.ofNat 64 dataBase7
   prevL : DigAt u (regionAddr n + legL n) (prevOf w pairs).1
   prevR : DigAt u (regionAddr n + legR n) (prevOf w pairs).2
   a2 : 0 < n → u.getReg .x12 = BitVec.ofNat 64 (regionAddr n + (legL n - 16)) ∨
@@ -99,14 +99,14 @@ structure Pre (pk : Digest) (w : ClaudeWCT.W9.T3M.WBytes) (a : HashOutput) (n : 
   d0 : u.getMem (BitVec.ofNat 64 dataBase7) = 0xFFF
   cached3 : u.getReg .x17 = if n < 8 then a.extractLsb' 192 64 else a.extractLsb' 192 64 ||| rankPad
   cached : u.getReg .x16 = a.extractLsb' (64 * cachedWord n) 64 ||| rankPad
-  mask : u.getReg .x2 = BitVec.ofNat 64 0xfff00
+  mask : u.getReg .x9 = BitVec.ofNat 64 0xfff00
   childMask : u.getReg .x27 = BitVec.ofNat 64 0x7f00000
   aTable : u.getReg .x28 = BitVec.ofNat 64 0xe3300
   jt : u.getReg .x24 = rankPad
   childBlock : u.getReg .x29 = BitVec.ofNat 64 0xf1b00
-  singletonTable : u.getMem (BitVec.ofNat 64 (TOPB9 - 240)) = BitVec.ofNat 64 0xe7400
+  singletonTable : u.getMem (BitVec.ofNat 64 (dataBase7 + 64)) = BitVec.ofNat 64 0xe7400
   baseReg : u.getReg .x8 = BitVec.ofNat 64 (10992 - 848 * (n-1))
-  pairPtr : u.getReg .x9 = BitVec.ofNat 64 TOPB9
+  pairPtr : u.getReg .x2 = BitVec.ofNat 64 dataBase7
   prevL : DigAt u (regionAddr n + SharedV3.handL n) (prevOf w pairs).1
   prevR : DigAt u (regionAddr n + SharedV3.handR n) (prevOf w pairs).2
   /-- `a2` after the previous coordinate's last heap hash: a high-half hand-off at `+ 656` (direction 0; for `n = 9`
