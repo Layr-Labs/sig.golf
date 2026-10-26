@@ -788,7 +788,7 @@ theorem lctxOf_known (w : ClaudeWCT.W9.T3M.WBytes) (index : Nat) (lay : Layer) (
   · exact knownOK_at _ s 11 (.x21, 5) hk rfl
   · exact knownOK_at _ s 12 (.x26, 6) hk rfl
   · exact h28
-  · exact knownOK_at _ s 3 (.x2, 0x7fc00) hk rfl
+  · exact knownOK_at _ s 3 (.x9, 0x7fc00) hk rfl
   · exact knownOK_at _ s 15 (.x27, 0x3fe00) hk rfl
   · exact knownOK_at _ s 14 (.x5, 0) hk rfl
   · exact knownOK_at _ s 17 (.x22, BitVec.ofNat 64 (s6v lay.val)) hk rfl
@@ -834,7 +834,7 @@ theorem encB_step_low (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index : Nat) 
         Verify.Orig w (fun o => 7664 ≤ o ∧ o < layerEnd lay.val) s0 ∧
         s0.getReg .x23 = BitVec.ofNat 64 (lfS7 lay.val (route index lay).1) ∧
         s0.getReg .x31 = BitVec.ofNat 64 (route index lay).2 ∧
-        s0.getReg .x9 = BitVec.ofNat 64 TOPB9 ∧
+        s0.getReg .x2 = BitVec.ofNat 64 0xffbde0 ∧
         Verify.Orig w (fun o => BC.bufferStart lay.val ≤ o ∧ o < 21984) s0) := by
   set u := writeHash t a with hu
   have h0 : lay.val ≠ 0 := fun h => hlay (Fin.ext h)
@@ -956,8 +956,8 @@ theorem encB_step_low (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index : Nat) 
         have e1 : s0.getReg .x1 = BitVec.ofNat 64 M1c := by
           rw [hs0.regs (.x1, .ld (kw (TOPLOAD + 8))) (by simp [specBl, h3])]
           simpa only [M1E, if_pos h3] using hm1
-        have e2 : s0.getReg .x2 = BitVec.ofNat 64 0x7fc00 := by
-          rw [hs0.regs (.x2, .ld (kw (TOPLOAD + 24))) (by simp [specBl, h3])]
+        have e2 : s0.getReg .x9 = BitVec.ofNat 64 0x7fc00 := by
+          rw [hs0.regs (.x9, .ld (kw (TOPLOAD + 24))) (by simp [specBl, h3])]
           simpa only [maskE, if_pos h3] using hmask
         have e27 : s0.getReg .x27 = BitVec.ofNat 64 0x3fe00 := by
           rw [hs0.regs (.x27, .bin .srl (maskE 3) (kw 1)) (by simp [specBl, h3])]
@@ -978,7 +978,7 @@ theorem encB_step_low (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index : Nat) 
           · subst hq24; exact e24
           by_cases hq1 : q = (.x1, BitVec.ofNat 64 M1c)
           · subst hq1; exact e1
-          by_cases hq2 : q = (.x2, 0x7fc00)
+          by_cases hq2 : q = (.x9, 0x7fc00)
           · subst hq2; exact e2
           by_cases hq27 : q = (.x27, 0x3fe00)
           · subst hq27; exact e27
@@ -1144,7 +1144,7 @@ theorem encB_step_low (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index : Nat) 
           exact ht.index3 rfl
         exact (route_evals index 3 hidx u h22u).2.1
       · rw [hkeep .x31 (by simp [keepB, h3]), hu, writeHash_getReg, (ht.t5 lay rfl).1 h0 (by have := lay.isLt; omega)]
-    · exact hko (.x9, BitVec.ofNat 64 TOPB9) (by simp [postBl])
+    · exact hko (.x2, BitVec.ofNat 64 0xffbde0) (by simp [postBl])
 theorem encB_step_hi (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index : Nat) (lay : Layer) (hlay : lay ≠ 0) (c : Nat)
     (hc : c < nCopy lay.val) (hidx : index < 2 ^ 31) (t : MachineState) (ht : EncPre w pk index lay.val c t)
     (a : BitVec 256) (hlo : ¬ lowerSpare (ansD a)) (hsp : lowerSpare (ansD (highView a))) :
@@ -1158,7 +1158,7 @@ theorem encB_step_hi (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index : Nat) (
         Verify.Orig w (fun o => 7664 ≤ o ∧ o < layerEnd lay.val) s0 ∧
         s0.getReg .x23 = BitVec.ofNat 64 (lfS7 lay.val (route index lay).1) ∧
         s0.getReg .x31 = BitVec.ofNat 64 (route index lay).2 ∧
-        s0.getReg .x9 = BitVec.ofNat 64 TOPB9 ∧
+        s0.getReg .x2 = BitVec.ofNat 64 0xffbde0 ∧
         Verify.Orig w (fun o => BC.bufferStart lay.val ≤ o ∧ o < 21984) s0) := by
   let b := highView a
   set u := writeHash t a with hu
@@ -1295,8 +1295,8 @@ theorem encB_step_hi (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index : Nat) (
         have e1 : s0.getReg .x1 = BitVec.ofNat 64 M1c := by
           rw [hs0.regs (.x1, .ld (kw (TOPLOAD + 8))) (by simp [specBlHi, h3])]
           simpa only [M1E, if_pos h3] using hm1
-        have e2 : s0.getReg .x2 = BitVec.ofNat 64 0x7fc00 := by
-          rw [hs0.regs (.x2, .ld (kw (TOPLOAD + 24))) (by simp [specBlHi, h3])]
+        have e2 : s0.getReg .x9 = BitVec.ofNat 64 0x7fc00 := by
+          rw [hs0.regs (.x9, .ld (kw (TOPLOAD + 24))) (by simp [specBlHi, h3])]
           simpa only [maskE, if_pos h3] using hmask
         have e27 : s0.getReg .x27 = BitVec.ofNat 64 0x3fe00 := by
           rw [hs0.regs (.x27, .bin .srl (maskE 3) (kw 1)) (by simp [specBlHi, h3])]
@@ -1317,7 +1317,7 @@ theorem encB_step_hi (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index : Nat) (
           · subst hq24; exact e24
           by_cases hq1 : q = (.x1, BitVec.ofNat 64 M1c)
           · subst hq1; exact e1
-          by_cases hq2 : q = (.x2, 0x7fc00)
+          by_cases hq2 : q = (.x9, 0x7fc00)
           · subst hq2; exact e2
           by_cases hq27 : q = (.x27, 0x3fe00)
           · subst hq27; exact e27
@@ -1483,7 +1483,7 @@ theorem encB_step_hi (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index : Nat) (
           exact ht.index3 rfl
         exact (route_evals index 3 hidx u h22u).2.1
       · rw [hkeep .x31 (by simp [keepB, h3]), hu, writeHash_getReg, (ht.t5 lay rfl).1 h0 (by have := lay.isLt; omega)]
-    · exact hko (.x9, BitVec.ofNat 64 TOPB9) (by simp [postBl])
+    · exact hko (.x2, BitVec.ofNat 64 0xffbde0) (by simp [postBl])
 theorem encB_step_trap (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index : Nat)
     (lay : Layer) (hlay : lay ≠ 0) (c : Nat) (hc : c < nCopy lay.val)
     (t : MachineState) (ht : EncPre w pk index lay.val c t) (a : BitVec 256)
@@ -1602,7 +1602,7 @@ theorem encB_step (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index : Nat) (lay
         Verify.Orig w (fun o => 7664 ≤ o ∧ o < layerEnd lay.val) s0 ∧
         s0.getReg .x23 = BitVec.ofNat 64 (lfS7 lay.val (route index lay).1) ∧
         s0.getReg .x31 = BitVec.ofNat 64 (route index lay).2 ∧
-        s0.getReg .x9 = BitVec.ofNat 64 TOPB9 ∧
+        s0.getReg .x2 = BitVec.ofNat 64 0xffbde0 ∧
         Verify.Orig w (fun o => BC.bufferStart lay.val ≤ o ∧ o < 21984) s0) := by
   by_cases hlo : lowerSpare (ansD a)
   · simp only [selectedView, if_pos hlo]
