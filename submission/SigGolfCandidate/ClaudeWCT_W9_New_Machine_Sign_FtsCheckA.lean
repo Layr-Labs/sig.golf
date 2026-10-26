@@ -1,8 +1,0 @@
-import SigGolfCandidate.ClaudeWCT_W9_New_Machine_Sign_FtsCheckAPart0
-import SigGolfCandidate.ClaudeWCT_W9_New_Machine_Sign_FtsCheckAPart1
-import SigGolfCandidate.ClaudeWCT_W9_New_Machine_Sign_FtsCheckAPart2
-import SigGolfCandidate.ClaudeWCT_W9_New_Machine_Sign_FtsCheckAPart3
-
-namespace ClaudeWCT.W9.Machine.Sign
-set_option maxRecDepth 100000
-end ClaudeWCT.W9.Machine.Sign
