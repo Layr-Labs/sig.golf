@@ -1510,8 +1510,8 @@ abbrev witEnc := ClaudeWCT.W9.T3M.Paired.witEnc
 /-- img-v6: the honest expand output carries the top node nonces (`Paired.witEncN`). -/
 abbrev witEncN := ClaudeWCT.W9.T3M.Paired.witEncN
 
- def verifyCycleBound : Nat := 6922
- def claimedC : Nat := 7008
+ def verifyCycleBound : Nat := 6921
+ def claimedC : Nat := 7007
  def DigestCapOk (hash : Hash) (m : Message) (w : Bytes 22012) : Prop :=
   SigGolfCandidate.Research.SharedForest.jointAccountingCost
     (hash (SigGolfCandidate.T3M.toQ (SigGolfCandidate.T3.pad64

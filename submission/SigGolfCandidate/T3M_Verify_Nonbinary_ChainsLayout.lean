@@ -158,12 +158,12 @@ def r6DispR (h : Nat) : Result :=
   ⟨⟨RegFile.init.set .x14 (r6A h),[],[]⟩,.bin .and (.bin .add (r6A h) (.c (r6Imm h))) (.c (~~~1#64)),.jump,
     (if h=1 then 3 else 4),(if h=1 then 3 else 4)⟩
 /-- T51: the r6 mask word `0xFF00` is loaded by group 0's bodies (`ld t4,-288(s1)`: verify data word 16). -/
-def maskE : E := .ld (.bin .add (.reg .x9) (.c (BitVec.ofNat 64 (2^64-288))))
+def maskE : E := .ld (.bin .add (.reg .x2) (.c (BitVec.ofNat 64 16)))
 def g0A : E := .bin .sub (.c 856064#64) (.bin .and (.reg .x16) maskE)
 /-- Group 0's next dispatch `ld t4,-288(s1); lui s2,209; and a4,a6,t4; sub a4,s2,a4; jalr -72(a4)` (into g1). -/
 def g0DispR : Result :=
   ⟨⟨((RegFile.init.set .x29 maskE).set .x18 (.c 856064#64)).set .x14 g0A,[],
-    [.valid ⟨some (.reg .x9),BitVec.ofNat 64 (2^64-288)⟩ 8]⟩,
+    [.valid ⟨some (.reg .x2),BitVec.ofNat 64 16⟩ 8]⟩,
     .bin .and (.bin .add g0A (.c (BitVec.ofNat 64 (2^64-72)))) (.c (~~~1#64)),.jump,5,5⟩
 /-! ### T51 checksum chain 50
 The r7 pair's bodies end with `addi a4,s8,89; slli a4,a4,11; jalr 1168(a4)`: with s8 = T - sum(d0..d49) it lands on

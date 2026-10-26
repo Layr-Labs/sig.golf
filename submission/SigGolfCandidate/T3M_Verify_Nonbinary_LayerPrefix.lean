@@ -9,7 +9,7 @@ def rowWordOf (a : Nat) : BitVec 32 :=
   BitVec.ofNat 32 ((4096 - (a - 14128)) % 4096 * 2 ^ 20 + 10 * 2 ^ 15 + 8 * 2 ^ 7 + 0x13)
 /-! ### d6b top head, campaign T51 (verify image T51_T152_g791_c0hi): 18 words at `h+6..h+23` of every top copy
 ```
-h+6   ld t1,232(s1); addi s0,a0,K          (dPro)
+h+6   ld t1,536(s0); addi s0,a0,K          (dPro)
 h+8   lb gp,528(tp); bge gp,zero,h+12      (dHint: hint byte at abs 25232, bit 7 clear = LOW)
 h+10  lbu gp,15(a2); bgeu gp,a1,h+18       (dHead: LOW forced iff its top byte < 64, i.e. LOW < 2^126)
 h+12  LOW:  ld a7,8(a2);  ld a6,0(a2);  slli a4,a6,56; srli a4,a4,45; jalr zero,-744(a4); nop
@@ -18,7 +18,7 @@ h+18  HIGH: ld a7,24(a2); ld a6,16(a2); slli a4,a6,56; srli a4,a4,45; jalr zero,
 Selector costs (before the 5-instruction dispatch block): hint clear 4, hint set 6 (HIGH, or LOW forced). The
 dispatch jumps to `g0Target V` = the g0 cell `512 (raw0 - 3) + 326` of the first r6 field `raw0 = V % 256` (for
 `raw0 >= 3`; `raw0 < 3` lands below the code start). The `nop`s are never executed. -/
-def dProWordsOf (a : Nat) : List (BitVec 32) := [0xe84b303, rowWordOf a]
+def dProWordsOf (a : Nat) : List (BitVec 32) := [0x21813303, rowWordOf a]
 def dHint : List (BitVec 32) := [0x21020183,0x1d663]
 def dHead : List (BitVec 32) := [0xf64183,0xb1fe63]
 def dLow : List (BitVec 32) := [0x863883,0x63803,0x3881713,0x2d75713,0xd1870067,0x13]
