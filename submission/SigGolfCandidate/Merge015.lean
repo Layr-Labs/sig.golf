@@ -1,0 +1,9746 @@
+import VCVio.OracleComp.QueryTracking.WriterCost
+import VCVio.EvalDist.Monad.Disagreement
+import SigGolfCandidate.Merge005
+import SigGolfCandidate.Merge009
+import SigGolfCandidate.Merge011
+import SigGolfCandidate.Merge012
+import SigGolfCandidate.Merge013
+import SigGolfCandidate.Merge014
+
+-- ==== merged from T3_Nonbinary_TopFlip ====
+section
+
+namespace SigGolfCandidate.T3
+theorem topMask_lt : topMask < 2 ^ 119 := by decide
+theorem topFlip_topFlip (v : Digest) : topFlip (topFlip v) = v := by
+  simp [topFlip]
+theorem topFlip_injective : Function.Injective topFlip := fun a b h => by
+  simpa [topFlip_topFlip] using congrArg topFlip h
+def topFlipEquiv : Digest ≃ Digest := ⟨topFlip, topFlip, topFlip_topFlip, topFlip_topFlip⟩
+theorem topCode_eq_xor (v : Digest) : topCode v = v.toNat ^^^ topMask := by
+  simp [topCode, topFlip, BitVec.toNat_xor, topMask]
+theorem topCode_topFlip (v : Digest) : topCode (topFlip v) = v.toNat := by
+  rw [topCode, topFlip_topFlip]
+theorem topCode_div_high (v : Digest) (n : Nat) (hn : 119 ≤ n) : topCode v / 2 ^ n = v.toNat / 2 ^ n := by
+  rw [topCode_eq_xor, Nat.xor_div_two_pow,
+    Nat.div_eq_of_lt (lt_of_lt_of_le topMask_lt (Nat.pow_le_pow_right (by decide) hn)), Nat.xor_zero]
+theorem topCode_lt_iff (v : Digest) (n : Nat) (hn : 119 ≤ n) : topCode v < 2 ^ n ↔ v.toNat < 2 ^ n := by
+  have h := topCode_div_high v n hn
+  constructor <;> intro hh
+  · have : topCode v / 2 ^ n = 0 := Nat.div_eq_of_lt hh
+    rw [h] at this; exact (Nat.div_eq_zero_iff_lt (by positivity)).mp this
+  · have : v.toNat / 2 ^ n = 0 := Nat.div_eq_of_lt hh
+    rw [← h] at this; exact (Nat.div_eq_zero_iff_lt (by positivity)).mp this
+theorem topFlip_toNat_lt (v : Digest) : (topFlip v).toNat < 2 ^ 125 ↔ v.toNat < 2 ^ 125 :=
+  topCode_lt_iff v 125 (by decide)
+end SigGolfCandidate.T3
+end
+-- ==== merged from T3_Nonbinary_SourceDigits ====
+section
+
+namespace SigGolfCandidate.T3.Nonbinary
+set_option maxHeartbeats 1000000
+set_option maxRecDepth 10000
+set_option backward.isDefEq.respectTransparency false
+theorem coreDigit_le (lay : Layer) (value : Digest) (i : Nat) :
+    coreDigit lay value i ≤  maxDigit lay i := by
+  unfold coreDigit maxDigit
+  split_ifs
+  all_goals have h := Nat.mod_lt (value.toNat / 2 ^ (3*i)) (by decide : 0<8)
+  all_goals first | exact Nat.le_pred_of_lt (Nat.mod_lt _ (by decide)) | omega
+theorem maxDigit_lt_pow_width (lay : Layer) (i : Nat) : maxDigit lay i<2^width lay i := by
+  unfold maxDigit width
+  split_ifs <;> decide
+theorem dataDigits_getD (lay : Layer) (value : Digest) (i : Nat) (hi : i<dataCount lay) :
+    (dataDigits lay value).getD i 0=coreDigit lay value i := by
+  simp [dataDigits,List.getD_eq_getElem,hi]
+/-! ### Campaign T51: the top word (r6 g0..g8, r5 q9..q15, r7 pair; no spare bit) -/
+theorem topRanksValid_parts {v : Digest} (h : topRanksValid v = true) :
+    (∀ g, g < 9 → r6Valid v g = true) ∧ (∀ q, 9 ≤ q → q < 16 → r5Rank v q < 125) ∧ r7Rank v < 49 := by
+  unfold topRanksValid at h
+  simp only [Bool.and_eq_true, decide_eq_true_eq, List.all_eq_true, List.mem_range, List.mem_range'_1] at h
+  obtain ⟨⟨h6, h5⟩, h7⟩ := h
+  exact ⟨h6, fun q h1 h2 => h5 q ⟨h1, by omega⟩, h7⟩
+theorem r6Rank_lt {v : Digest} {g : Nat} (h : r6Valid v g = true) : r6Rank v g < 216 := by
+  have hr := Nat.mod_lt (topCode v / 2 ^ r6Shift g) (show 0 < 256 by decide)
+  unfold r6Valid at h
+  unfold r6Rank
+  split_ifs at h ⊢ with hg
+  · subst hg; simp only [decide_eq_true_eq] at h; unfold r6Raw at h ⊢; omega
+  · simpa only [decide_eq_true_eq] using h
+theorem rank6_eq {r s : Nat} (hr : r < 216) (hs : s < 216)
+    (h0 : r % 6 = s % 6) (h1 : r / 6 % 6 = s / 6 % 6) (h2 : r / 36 % 6 = s / 36 % 6) : r = s := by omega
+theorem rank5_eq {r s : Nat} (hr : r < 125) (hs : s < 125)
+    (h0 : r % 5 = s % 5) (h1 : r / 5 % 5 = s / 5 % 5) (h2 : r / 25 % 5 = s / 25 % 5) : r = s := by omega
+theorem rank7_eq {r s : Nat} (hr : r < 49) (hs : s < 49)
+    (h0 : r % 7 = s % 7) (h1 : r / 7 % 7 = s / 7 % 7) : r = s := by omega
+theorem top_core_r6 (v : Digest) (g k : Nat) (hg : g < 9) (hk : k < 3) :
+    coreDigit 0 v (3*g+k) = r6Rank v g / 6^k % 6 := by
+  have hi : 3*g+k < 27 := by omega
+  have hd : (3*g+k)/3 = g := by omega
+  have hm : (3*g+k)%3 = k := by omega
+  simp [coreDigit, hi, hd, hm]
+theorem top_core_r5 (v : Digest) (q k : Nat) (hq1 : 9 ≤ q) (hq : q < 16) (hk : k < 3) :
+    coreDigit 0 v (3*q+k) = r5Rank v q / 5^k % 5 := by
+  have hi : ¬ 3*q+k < 27 := by omega
+  have hi' : 3*q+k < 48 := by omega
+  have hd : (3*q+k)/3 = q := by omega
+  have hm : (3*q+k)%3 = k := by omega
+  simp [coreDigit, hi, hi', hd, hm]
+theorem top_core_r7 (v : Digest) (k : Nat) (hk : k < 2) :
+    coreDigit 0 v (48+k) = r7Rank v / 7^k % 7 := by
+  have hi : ¬ 48+k < 27 := by omega
+  have hi' : ¬ 48+k < 48 := by omega
+  have hi'' : 48+k < 50 := by omega
+  simp [coreDigit, hi, hi', hi'']
+theorem top_r6Rank_eq {a b : Digest} {g : Nat} (h : dataDigits 0 a = dataDigits 0 b)
+    (ha : r6Valid a g = true) (hb : r6Valid b g = true) (hg : g < 9) : r6Rank a g = r6Rank b g := by
+  have hpos (k : Nat) (hk : k < 3) : r6Rank a g / 6^k % 6 = r6Rank b g / 6^k % 6 := by
+    have hi : 3*g+k < dataCount 0 := by change 3*g+k < 50; omega
+    have hh := congrArg (fun xs : List Nat => xs.getD (3*g+k) 0) h
+    simpa only [dataDigits_getD 0 a _ hi, dataDigits_getD 0 b _ hi, top_core_r6 _ _ _ hg hk] using hh
+  have h0 := hpos 0 (by decide)
+  have h1 := hpos 1 (by decide)
+  have h2 := hpos 2 (by decide)
+  norm_num only [Nat.reducePow, Nat.div_one] at h0 h1 h2
+  exact rank6_eq (r6Rank_lt ha) (r6Rank_lt hb) h0 h1 h2
+theorem top_r5Rank_eq {a b : Digest} {q : Nat} (h : dataDigits 0 a = dataDigits 0 b)
+    (ha : r5Rank a q < 125) (hb : r5Rank b q < 125) (hq1 : 9 ≤ q) (hq : q < 16) : r5Rank a q = r5Rank b q := by
+  have hpos (k : Nat) (hk : k < 3) : r5Rank a q / 5^k % 5 = r5Rank b q / 5^k % 5 := by
+    have hi : 3*q+k < dataCount 0 := by change 3*q+k < 50; omega
+    have hh := congrArg (fun xs : List Nat => xs.getD (3*q+k) 0) h
+    simpa only [dataDigits_getD 0 a _ hi, dataDigits_getD 0 b _ hi, top_core_r5 _ _ _ hq1 hq hk] using hh
+  have h0 := hpos 0 (by decide)
+  have h1 := hpos 1 (by decide)
+  have h2 := hpos 2 (by decide)
+  norm_num only [Nat.reducePow, Nat.div_one] at h0 h1 h2
+  exact rank5_eq ha hb h0 h1 h2
+theorem top_r7Rank_eq {a b : Digest} (h : dataDigits 0 a = dataDigits 0 b)
+    (ha : r7Rank a < 49) (hb : r7Rank b < 49) : r7Rank a = r7Rank b := by
+  have hpos (k : Nat) (hk : k < 2) : r7Rank a / 7^k % 7 = r7Rank b / 7^k % 7 := by
+    have hi : 48+k < dataCount 0 := by change 48+k < 50; omega
+    have hh := congrArg (fun xs : List Nat => xs.getD (48+k) 0) h
+    simpa only [dataDigits_getD 0 a _ hi, dataDigits_getD 0 b _ hi, top_core_r7 _ _ hk] using hh
+  have h0 := hpos 0 (by decide)
+  have h1 := hpos 1 (by decide)
+  norm_num only [Nat.reducePow, Nat.div_one] at h0 h1
+  exact rank7_eq ha hb h0 h1
+theorem r6Raw_eq_of_rank {a b : Digest} {g : Nat} (ha : r6Valid a g = true) (hb : r6Valid b g = true)
+    (h : r6Rank a g = r6Rank b g) : r6Raw a g = r6Raw b g := by
+  unfold r6Valid at ha hb
+  unfold r6Rank at h
+  split_ifs at ha hb h with hg
+  · subst hg; simp only [decide_eq_true_eq] at ha hb; omega
+  · exact h
+/-- Campaign T51: the top data digits determine the whole 128-bit value of a valid word (9 r6 fields, 7 flipped r5
+fields, the flipped r7 field; the fields partition bits 0..127, no spare bit). Decoding is injective (PINNED P3a). -/
+theorem top_digest_injective {a b : Digest} (h : dataDigits 0 a=dataDigits 0 b)
+    (ha : topRanksValid a=true) (hb : topRanksValid b=true) : a=b := by
+  obtain ⟨h6a, h5a, h7a⟩ := topRanksValid_parts ha
+  obtain ⟨h6b, h5b, h7b⟩ := topRanksValid_parts hb
+  apply topFlip_injective
+  apply BitVec.eq_of_getLsbD_eq
+  intro bit hbit
+  have window : ∀ s w, s ≤ bit → bit < s + w → topCode a / 2^s % 2^w = topCode b / 2^s % 2^w →
+      (topFlip a).getLsbD bit = (topFlip b).getLsbD bit := by
+    intro s w h1 h2 he
+    have hx : (topFlip a).extractLsb' s w = (topFlip b).extractLsb' s w := by
+      apply BitVec.eq_of_toNat_eq
+      simpa only [BitVec.extractLsb'_toNat, Nat.shiftRight_eq_div_pow, topCode] using he
+    have hh := congrArg (fun d : BitVec w => d.getLsbD (bit - s)) hx
+    simpa only [BitVec.getLsbD_extractLsb', show bit - s < w by omega, decide_true,
+      Bool.true_and, show s + (bit - s) = bit by omega] using hh
+  have r6win : ∀ g, g < 9 → r6Shift g ≤ bit → bit < r6Shift g + 8 →
+      (topFlip a).getLsbD bit = (topFlip b).getLsbD bit := by
+    intro g hg h1 h2
+    have hr := top_r6Rank_eq h (h6a _ hg) (h6b _ hg) hg
+    have hw := r6Raw_eq_of_rank (h6a _ hg) (h6b _ hg) hr
+    unfold r6Raw at hw
+    exact window (r6Shift g) 8 h1 h2 (by simpa using hw)
+  by_cases h1 : bit < 56
+  · exact r6win (bit / 8) (by omega) (by unfold r6Shift; rw [if_pos (by omega)]; omega)
+      (by unfold r6Shift; rw [if_pos (by omega)]; omega)
+  by_cases h2 : bit < 63
+  · have hr := top_r7Rank_eq h h7a h7b
+    unfold r7Rank at hr
+    exact window 56 7 (by omega) (by omega) (by simpa using hr)
+  by_cases h3 : bit < 112
+  · have hq1 : 9 ≤ bit / 7 := by omega
+    have hq2 : bit / 7 < 16 := by omega
+    have hr := top_r5Rank_eq h (h5a _ hq1 hq2) (h5b _ hq1 hq2) hq1 hq2
+    unfold r5Rank at hr
+    exact window (7 * (bit / 7)) 7 (by omega) (by omega) (by simpa using hr)
+  by_cases h4 : bit < 120
+  · exact r6win 7 (by decide) (by unfold r6Shift; rw [if_neg (by omega)]; omega)
+      (by unfold r6Shift; rw [if_neg (by omega)]; omega)
+  · exact r6win 8 (by decide) (by unfold r6Shift; rw [if_neg (by omega)]; omega)
+      (by unfold r6Shift; rw [if_neg (by omega)]; omega)
+end SigGolfCandidate.T3.Nonbinary
+end
+-- ==== merged from T3_Nonbinary_SourceEncoding ====
+section
+
+section
+namespace SigGolfResearch.NonbinaryTop.Decoder
+open scoped BigOperators
+open Codec Counting
+set_option maxHeartbeats 1000000
+set_option maxRecDepth 10000
+set_option linter.constructorNameAsVariable false
+set_option backward.isDefEq.respectTransparency false
+def parse : (n : Nat) → Nat → Option ((Fin n → Triple5) × Triple8)
+  | 0,x => if h : x<512 then some ((fun i => Fin.elim0 i),digits8 ⟨x,h⟩) else none
+  | n+1,x => if h : x%128<125 then
+      match parse n (x/128) with
+      | none => none
+      | some (ds,q) => some (Fin.cons (digits5 ⟨x%128,h⟩) ds,q)
+    else none
+def encodeN {n : Nat} (d : (Fin n → Triple5) × Triple8) : Nat :=
+  pack (List.ofFn fun i => (rank5 (d.1 i)).val) (rank8 d.2).val
+theorem encodeN_zero (d : (Fin 0 → Triple5) × Triple8) : encodeN d=(rank8 d.2).val := rfl
+theorem encodeN_succ {n : Nat} (d : (Fin (n+1) → Triple5) × Triple8) :
+    encodeN d=(rank5 (d.1 0)).val+128*encodeN (Fin.tail d.1,d.2) := by
+  simp [encodeN,List.ofFn_succ,pack,Fin.tail]
+theorem parse_encodeN {n : Nat} (d : (Fin n → Triple5) × Triple8) :
+    parse n (encodeN d)=some d := by
+  induction n with
+  | zero =>
+    rw [encodeN_zero]
+    simp only [parse,dif_pos (rank8 d.2).isLt]
+    change some ((fun i => Fin.elim0 i),digits8 (rank8 d.2))=some d
+    rw [digits8_rank8]
+    congr 2
+    funext i
+    exact Fin.elim0 i
+  | succ n ih =>
+    have hd := (rank5 (d.1 0)).isLt
+    have hd128 : (rank5 (d.1 0)).val<128 := lt_trans hd (by decide)
+    rw [encodeN_succ]
+    simp only [parse,Nat.add_mul_mod_self_left,Nat.mod_eq_of_lt hd128,
+      dif_pos hd,Nat.add_mul_div_left _ _ (by decide : 0<128),
+      Nat.div_eq_of_lt hd128,Nat.zero_add,ih]
+    change some (Fin.cons (digits5 (rank5 (d.1 0))) (Fin.tail d.1),d.2)=some d
+    rw [digits5_rank5,Fin.cons_self_tail]
+theorem encodeN_parse {n x : Nat} {d : (Fin n → Triple5) × Triple8}
+    (h : parse n x=some d) : encodeN d=x := by
+  induction n generalizing x with
+  | zero =>
+    simp only [parse] at h
+    split at h
+    · cases h
+      simp [encodeN,pack,rank8_digits8]
+    · contradiction
+  | succ n ih =>
+    simp only [parse] at h
+    split at h
+    · split at h
+      · contradiction
+      · rename_i ds q he
+        cases h
+        rw [encodeN_succ]
+        simp only [Fin.cons_zero,Fin.tail_cons,rank5_digits5]
+        rw [ih he]
+        exact Nat.mod_add_div x 128
+    · contradiction
+def decode (d : Fin (2^128)) : Option Word :=
+  (parse 17 d.val).filter fun w => decide (weight w=146)
+theorem encodeN_word (w : Word) : encodeN w=encode w := rfl
+attribute [local irreducible] encodeN Codec.encode Codec.pack Codec.ranks
+theorem decode_some_iff (d : Fin (2^128)) (w : Word) :
+    decode d=some w ↔ digest w=d ∧ weight w=146 := by
+  constructor
+  · intro h
+    obtain ⟨hparse,hw⟩ := Option.filter_eq_some_iff.mp h
+    have hp := encodeN_parse hparse
+    refine ⟨?_,of_decide_eq_true hw⟩
+    apply Fin.ext
+    exact (encodeN_word w).symm.trans hp
+  · rintro ⟨hd,hw⟩
+    subst d
+    apply Option.filter_eq_some_iff.mpr
+    constructor
+    · change parse 17 (encode w)=some w
+      rw [←encodeN_word]
+      exact parse_encodeN w
+    · exact decide_eq_true hw
+theorem decode_isSome_iff (d : Fin (2^128)) : (decode d).isSome ↔ d∈acceptedDigests := by
+  classical
+  simp only [Option.isSome_iff_exists,acceptedDigests,Finset.mem_image,Finset.mem_filter,
+    Finset.mem_univ,true_and]
+  constructor
+  · rintro ⟨w,hw⟩
+    obtain ⟨he,hweight⟩ := (decode_some_iff d w).mp hw
+    exact ⟨w,hweight,he⟩
+  · rintro ⟨w,hweight,he⟩
+    exact ⟨w,(decode_some_iff d w).mpr ⟨he,hweight⟩⟩
+theorem decoder_count :
+    Fintype.card {d : Fin (2^128) // (decode d).isSome}=nf17Count := by
+  classical
+  rw [Fintype.card_subtype]
+  have he : (Finset.univ.filter fun d : Fin (2^128) => (decode d).isSome)=acceptedDigests := by
+    ext d
+    simp only [Finset.mem_filter,Finset.mem_univ,true_and,decode_isSome_iff]
+  rw [he,accepted_digest_card]
+open OracleComp OracleSpec ENNReal
+theorem decoder_uniform_probability :
+    Pr[fun d => (decode d).isSome | ($ᵗ Fin (2^128) : ProbComp (Fin (2^128)))]=
+      (nf17Count : ENNReal)/(2 : ENNReal)^128 := by
+  classical
+  rw [probEvent_uniformSample,←Fintype.card_subtype,decoder_count]
+  simp only [Fintype.card_fin,Nat.cast_pow,Nat.cast_ofNat]
+def decodeBV (d : BitVec 128) : Option Word := decode d.toFin
+def acceptedBVEquiv : {d : BitVec 128 // (decodeBV d).isSome} ≃
+    {d : Fin (2^128) // (decode d).isSome} where
+  toFun d := ⟨d.val.toFin,d.property⟩
+  invFun d := ⟨BitVec.ofFin d.val,d.property⟩
+  left_inv d := by apply Subtype.ext; rfl
+  right_inv d := by apply Subtype.ext; rfl
+theorem decoder_bv_count :
+    Fintype.card {d : BitVec 128 // (decodeBV d).isSome}=nf17Count := by
+  classical
+  rw [Fintype.card_congr acceptedBVEquiv,decoder_count]
+theorem decoder_bv_probability :
+    Pr[fun d => (decodeBV d).isSome | ($ᵗ BitVec 128 : ProbComp (BitVec 128))]=
+      (nf17Count : ENNReal)/(2 : ENNReal)^128 := by
+  classical
+  rw [probEvent_uniformSample,←Fintype.card_subtype,decoder_bv_count]
+  simp only [Fintype.card_bitVec,Nat.cast_pow,Nat.cast_ofNat]
+@[reducible] def encodingDecode (answer : BitVec 256) : Option Word :=
+  decodeBV (answer.extractLsb' 0 128)
+theorem encoding_uniform_probability :
+    Pr[fun answer => (encodingDecode answer).isSome |
+      ($ᵗ BitVec 256 : ProbComp (BitVec 256))]=
+      (nf17Count : ENNReal)/(2 : ENNReal)^128 := by
+  classical
+  rw [probEvent_uniformSample]
+  have hc := SphincsSecurity.Completeness.card_filter_low (n := 256) (w := 128)
+    (by decide) (fun d => (decodeBV d).isSome)
+  change (Finset.univ.filter fun answer : BitVec 256 =>
+    (decodeBV (answer.extractLsb' 0 128)).isSome).card = _ at hc
+  simp only [encodingDecode]
+  rw [hc]
+  rw [←Fintype.card_subtype,decoder_bv_count]
+  simp only [Fintype.card_bitVec,Nat.cast_mul,Nat.cast_pow,Nat.cast_ofNat]
+  rw [show (2 : ENNReal)^256=2^128*2^128 by rw [←pow_add]]
+  exact ENNReal.mul_div_mul_right _ _ (by simp) (by simp)
+end SigGolfResearch.NonbinaryTop.Decoder
+end
+section
+namespace SigGolfResearch.NonbinaryTop.Decoder
+open Codec Counting
+set_option maxHeartbeats 1000000
+set_option maxRecDepth 10000
+set_option backward.isDefEq.respectTransparency false
+theorem parse_succ_isSome (n x : Nat) :
+    (parse (n+1) x).isSome ↔ x%128<125 ∧ (parse n (x/128)).isSome := by
+  by_cases h : x%128<125
+  · cases hp : parse n (x/128) <;> simp [parse,h,hp]
+  · simp [parse,h]
+theorem parse_isSome_iff (n x : Nat) :
+    (parse n x).isSome ↔ x<512*128^n ∧ ∀ j<n,x/128^j%128<125 := by
+  induction n generalizing x with
+  | zero =>
+    by_cases h : x<512 <;> simp [parse,h]
+  | succ n ih =>
+    rw [parse_succ_isSome,ih]
+    have hb : x/128<512*128^n ↔ x<512*128^(n+1) := by
+      rw [Nat.div_lt_iff_lt_mul (by decide : 0<128),pow_succ,Nat.mul_assoc]
+    constructor
+    · rintro ⟨hzero,hbound,hrest⟩
+      refine ⟨hb.mp hbound,?_⟩
+      intro j hj
+      cases j with
+      | zero => simpa using hzero
+      | succ j =>
+        have hh := hrest j (by omega)
+        simpa [Nat.div_div_eq_div_mul,pow_succ,Nat.mul_comm] using hh
+    · rintro ⟨hbound,hrest⟩
+      refine ⟨by simpa using hrest 0 (by omega),hb.mpr hbound,?_⟩
+      intro j hj
+      have hh := hrest (j+1) (by omega)
+      simpa [Nat.div_div_eq_div_mul,pow_succ,Nat.mul_comm] using hh
+theorem parse_fields {n x : Nat} {d : (Fin n → Triple5) × Triple8}
+    (h : parse n x=some d) :
+    (∀ j : Fin n,(rank5 (d.1 j)).val=x/128^j.val%128) ∧
+      (rank8 d.2).val=x/128^n := by
+  induction n generalizing x with
+  | zero =>
+    simp only [parse] at h
+    split at h
+    · cases h
+      constructor
+      · intro j; exact Fin.elim0 j
+      · simp [rank8_digits8]
+    · contradiction
+  | succ n ih =>
+    simp only [parse] at h
+    split at h
+    · split at h
+      · contradiction
+      · rename_i ds q hp
+        cases h
+        obtain ⟨hr,hq⟩ := ih hp
+        constructor
+        · intro j
+          refine Fin.cases ?_ (fun j => ?_) j
+          · simp [rank5_digits5]
+          · simpa [Nat.div_div_eq_div_mul,pow_succ,Nat.mul_comm] using hr j
+        · simpa [Nat.div_div_eq_div_mul,pow_succ,Nat.mul_comm] using hq
+    · contradiction
+end SigGolfResearch.NonbinaryTop.Decoder
+end
+section
+namespace SigGolfCandidate.T3.Nonbinary
+open SigGolfResearch.NonbinaryTop
+open scoped BigOperators
+set_option maxHeartbeats 1000000
+set_option maxRecDepth 10000
+set_option backward.isDefEq.respectTransparency false
+def wordDigits (w : Codec.Word) : List Nat :=
+  (List.ofFn fun j => List.ofFn fun k => (w.1 j k).val).flatten ++
+    List.ofFn fun k => (w.2 k).val
+theorem wordDigits_sum (w : Codec.Word) : (wordDigits w).sum=Counting.weight w := by
+  simp only [wordDigits,List.sum_append,List.sum_flatten,List.map_ofFn,List.sum_ofFn,Function.comp_def]
+  rfl
+end SigGolfCandidate.T3.Nonbinary
+end
+
+section
+/-! Campaign T51 (COUNT): the T51 top digests and the counting model `T51Top.Word`.
+`encode` packs the 17 ranks into the T51 word (r6 fields `g0..g6` at `8g`, `g0` offset by 40, the r7 rank at 56
+flipped, the r5 ranks `q9..q15` at `7q` flipped, `g7` at 112, `g8` at 120); it is a bijection onto the words with
+`topRanksValid`. -/
+namespace SigGolfResearch.T51Top
+open Finset SigGolfCandidate.T3 SigGolfCandidate.T3.Nonbinary
+open scoped BigOperators
+set_option maxHeartbeats 1000000
+set_option maxRecDepth 100000
+set_option linter.constructorNameAsVariable false
+set_option linter.unusedSimpArgs false
+
+/-! ### Bit-field packing -/
+def packF : List (Nat × Nat) → Nat
+  | [] => 0
+  | p :: t => p.2 + 2 ^ p.1 * packF t
+def offF : List (Nat × Nat) → Nat → Nat
+  | [], _ => 0
+  | _ :: _, 0 => 0
+  | p :: t, k + 1 => p.1 + offF t k
+def widthF : List (Nat × Nat) → Nat
+  | [] => 0
+  | p :: t => p.1 + widthF t
+
+theorem packF_lt : ∀ (L : List (Nat × Nat)), (∀ p ∈ L, p.2 < 2 ^ p.1) → packF L < 2 ^ widthF L
+  | [], _ => by simp [packF, widthF]
+  | p :: t, h => by
+    have hp := h p (by simp)
+    have ht := packF_lt t (fun q hq => h q (by simp [hq]))
+    simp only [packF, widthF, pow_add]
+    have : packF t + 1 ≤ 2 ^ widthF t := ht
+    nlinarith [Nat.one_le_two_pow (n := p.1)]
+
+theorem packF_field : ∀ (L : List (Nat × Nat)) (k : Nat), (∀ p ∈ L, p.2 < 2 ^ p.1) → (hk : k < L.length) →
+    packF L / 2 ^ offF L k % 2 ^ (L[k]'hk).1 = (L[k]'hk).2
+  | [], k, _, hk => by simp at hk
+  | p :: t, 0, h, _ => by
+    have hp := h p (by simp)
+    simp only [packF, offF, pow_zero, Nat.div_one, List.getElem_cons_zero]
+    rw [Nat.add_mul_mod_self_left, Nat.mod_eq_of_lt hp]
+  | p :: t, k + 1, h, hk => by
+    have hp := h p (by simp)
+    have ih := packF_field t k (fun q hq => h q (by simp [hq])) (by simpa using hk)
+    simp only [packF, offF, List.getElem_cons_succ, pow_add, ← Nat.div_div_eq_div_mul]
+    rw [Nat.add_mul_div_left _ _ (by positivity), Nat.div_eq_of_lt hp, Nat.zero_add]
+    exact ih
+
+/-- The T51 fields of a model word (before the flip of the 7-bit fields). -/
+def fields (w : Word) : List (Nat × Nat) :=
+  [(8, (w.1 0).val + 40), (8, (w.1 1).val), (8, (w.1 2).val), (8, (w.1 3).val), (8, (w.1 4).val),
+    (8, (w.1 5).val), (8, (w.1 6).val), (7, w.2.2.val),
+    (7, (w.2.1 0).val), (7, (w.2.1 1).val), (7, (w.2.1 2).val), (7, (w.2.1 3).val), (7, (w.2.1 4).val),
+    (7, (w.2.1 5).val), (7, (w.2.1 6).val),
+    (8, (w.1 7).val), (8, (w.1 8).val)]
+
+theorem fields_bound (w : Word) : ∀ p ∈ fields w, p.2 < 2 ^ p.1 := by
+  simp only [fields, List.forall_mem_cons, List.forall_mem_nil, and_true]
+  exact ⟨by have := (w.1 0).isLt; norm_num; omega,
+    by have := (w.1 1).isLt; norm_num; omega,
+    by have := (w.1 2).isLt; norm_num; omega,
+    by have := (w.1 3).isLt; norm_num; omega,
+    by have := (w.1 4).isLt; norm_num; omega,
+    by have := (w.1 5).isLt; norm_num; omega,
+    by have := (w.1 6).isLt; norm_num; omega,
+    by have := w.2.2.isLt; norm_num; omega,
+    by have := (w.2.1 0).isLt; norm_num; omega,
+    by have := (w.2.1 1).isLt; norm_num; omega,
+    by have := (w.2.1 2).isLt; norm_num; omega,
+    by have := (w.2.1 3).isLt; norm_num; omega,
+    by have := (w.2.1 4).isLt; norm_num; omega,
+    by have := (w.2.1 5).isLt; norm_num; omega,
+    by have := (w.2.1 6).isLt; norm_num; omega,
+    by have := (w.1 7).isLt; norm_num; omega,
+    by have := (w.1 8).isLt; norm_num; omega⟩
+
+def code (w : Word) : Nat := packF (fields w)
+theorem code_lt (w : Word) : code w < 2 ^ 128 := by
+  have h := packF_lt _ (fields_bound w)
+  have hw : widthF (fields w) = 128 := rfl
+  rw [hw] at h
+  exact h
+
+/-- The digest of a model word. -/
+def encode (w : Word) : Digest := topFlip (BitVec.ofNat 128 (code w))
+
+theorem topCode_encode (w : Word) : topCode (encode w) = code w := by
+  rw [encode, topCode_topFlip, BitVec.toNat_ofNat, Nat.mod_eq_of_lt (code_lt w)]
+
+theorem code_field (w : Word) (k : Nat) (hk : k < 17) :
+    code w / 2 ^ offF (fields w) k % 2 ^ ((fields w)[k]'(by simpa [fields] using hk)).1 =
+      ((fields w)[k]'(by simpa [fields] using hk)).2 :=
+  packF_field _ k (fields_bound w) _
+
+theorem r6Raw_encode (w : Word) (g : Fin 9) :
+    r6Raw (encode w) g.val = if g.val = 0 then (w.1 g).val + 40 else (w.1 g).val := by
+  unfold r6Raw r6Shift
+  rw [topCode_encode]
+  fin_cases g
+  · exact code_field w 0 (by decide)
+  · exact code_field w 1 (by decide)
+  · exact code_field w 2 (by decide)
+  · exact code_field w 3 (by decide)
+  · exact code_field w 4 (by decide)
+  · exact code_field w 5 (by decide)
+  · exact code_field w 6 (by decide)
+  · exact code_field w 15 (by decide)
+  · exact code_field w 16 (by decide)
+
+theorem r6Rank_encode (w : Word) (g : Fin 9) : r6Rank (encode w) g.val = (w.1 g).val := by
+  by_cases h : g = 0
+  · subst h
+    have := r6Raw_encode w 0
+    rw [Fin.val_zero, if_pos rfl] at this
+    unfold r6Rank
+    rw [Fin.val_zero, if_pos rfl, this, Nat.add_sub_cancel]
+  · have hg : g.val ≠ 0 := fun e => h (Fin.ext e)
+    have := r6Raw_encode w g
+    rw [if_neg hg] at this
+    unfold r6Rank
+    rw [if_neg hg, this]
+
+theorem r6Valid_encode (w : Word) (g : Fin 9) : r6Valid (encode w) g.val = true := by
+  by_cases h : g = 0
+  · subst h
+    have := r6Raw_encode w 0
+    rw [Fin.val_zero, if_pos rfl] at this
+    unfold r6Valid
+    rw [Fin.val_zero, if_pos rfl, this]
+    simp
+  · have hg : g.val ≠ 0 := fun e => h (Fin.ext e)
+    have := r6Raw_encode w g
+    rw [if_neg hg] at this
+    unfold r6Valid
+    rw [if_neg hg, this]
+    simpa using (w.1 g).isLt
+
+theorem r5Rank_encode (w : Word) (j : Fin 7) : r5Rank (encode w) (9 + j.val) = (w.2.1 j).val := by
+  unfold r5Rank
+  rw [topCode_encode]
+  fin_cases j
+  · exact code_field w 8 (by decide)
+  · exact code_field w 9 (by decide)
+  · exact code_field w 10 (by decide)
+  · exact code_field w 11 (by decide)
+  · exact code_field w 12 (by decide)
+  · exact code_field w 13 (by decide)
+  · exact code_field w 14 (by decide)
+
+theorem r7Rank_encode (w : Word) : r7Rank (encode w) = w.2.2.val := by
+  unfold r7Rank
+  rw [topCode_encode]
+  exact code_field w 7 (by decide)
+
+theorem topRanksValid_encode (w : Word) : topRanksValid (encode w) = true := by
+  unfold topRanksValid
+  simp only [Bool.and_eq_true, decide_eq_true_eq, List.all_eq_true, List.mem_range, List.mem_range'_1]
+  refine ⟨⟨fun g hg => r6Valid_encode w ⟨g, hg⟩, fun q hq => ?_⟩, ?_⟩
+  · have h := r5Rank_encode w ⟨q - 9, by omega⟩
+    simp only [show 9 + (q - 9) = q by omega] at h
+    rw [h]; exact (w.2.1 _).isLt
+  · rw [r7Rank_encode]; exact w.2.2.isLt
+
+/-- The model word of a digest: its 17 ranks (reduced, so that `wordOf` is total). -/
+def wordOf (v : Digest) : Word :=
+  (fun g => ⟨r6Rank v g.val % 216, Nat.mod_lt _ (by decide)⟩,
+    fun j => ⟨r5Rank v (9 + j.val) % 125, Nat.mod_lt _ (by decide)⟩, ⟨r7Rank v % 49, Nat.mod_lt _ (by decide)⟩)
+
+theorem wordOf_encode (w : Word) : wordOf (encode w) = w := by
+  refine Prod.ext (funext fun g => Fin.ext ?_) (Prod.ext (funext fun j => Fin.ext ?_) (Fin.ext ?_))
+  · simp only [wordOf, r6Rank_encode]; exact Nat.mod_eq_of_lt (w.1 g).isLt
+  · simp only [wordOf, r5Rank_encode]; exact Nat.mod_eq_of_lt (w.2.1 j).isLt
+  · simp only [wordOf, r7Rank_encode]; exact Nat.mod_eq_of_lt w.2.2.isLt
+
+theorem dataDigits_encode_wordOf (v : Digest) (hv : topRanksValid v = true) :
+    dataDigits 0 (encode (wordOf v)) = dataDigits 0 v := by
+  obtain ⟨h6, h5, h7⟩ := topRanksValid_parts hv
+  unfold dataDigits
+  apply List.map_congr_left
+  intro i hi
+  have hi : i < 50 := by simpa [dataCount] using hi
+  unfold coreDigit
+  simp only [if_true]
+  split_ifs with h27 h48
+  · have hg : i / 3 < 9 := by omega
+    have := r6Rank_encode (wordOf v) ⟨i / 3, hg⟩
+    simp only at this
+    rw [this]
+    show r6Rank v (i / 3) % 216 / 6 ^ (i % 3) % 6 = _
+    rw [Nat.mod_eq_of_lt (r6Rank_lt (h6 _ hg))]
+  · have hq : i / 3 - 9 < 7 := by omega
+    have := r5Rank_encode (wordOf v) ⟨i / 3 - 9, hq⟩
+    simp only [show 9 + (i / 3 - 9) = i / 3 by omega] at this
+    rw [this]
+    show r5Rank v (9 + (i / 3 - 9)) % 125 / 5 ^ (i % 3) % 5 = _
+    rw [show 9 + (i / 3 - 9) = i / 3 by omega, Nat.mod_eq_of_lt (h5 _ (by omega) (by omega))]
+  · rw [r7Rank_encode]
+    show r7Rank v % 49 / 7 ^ (i - 48) % 7 = _
+    rw [Nat.mod_eq_of_lt h7]
+
+theorem encode_wordOf (v : Digest) (hv : topRanksValid v = true) : encode (wordOf v) = v :=
+  top_digest_injective (dataDigits_encode_wordOf v hv) (topRanksValid_encode _) hv
+
+theorem card_bij_generic {α β : Type} [Fintype α] [Fintype β] (P : α → Prop) [DecidablePred P]
+    (Q : β → Prop) [DecidablePred Q] (e : β → α) (d : α → β) (h1 : ∀ b, Q b → P (e b))
+    (h2 : ∀ a, P a → Q (d a)) (h3 : ∀ b, Q b → d (e b) = b) (h4 : ∀ a, P a → e (d a) = a) :
+    (univ.filter P).card = (univ.filter Q).card := by
+  symm
+  apply Finset.card_bij' (fun b _ => e b) (fun a _ => d a)
+  · intro b hb; exact Finset.mem_filter.mpr ⟨Finset.mem_univ _, h1 b (Finset.mem_filter.mp hb).2⟩
+  · intro a ha; exact Finset.mem_filter.mpr ⟨Finset.mem_univ _, h2 a (Finset.mem_filter.mp ha).2⟩
+  · intro b hb; exact h3 b (Finset.mem_filter.mp hb).2
+  · intro a ha; exact h4 a (Finset.mem_filter.mp ha).2
+
+/-- Counting valid digests is counting model words. -/
+theorem card_encode (P : Digest → Prop) [DecidablePred P] (hP : ∀ v, P v → topRanksValid v = true) :
+    (univ.filter P).card = (univ.filter fun w : Word => P (encode w)).card :=
+  card_bij_generic P (fun w => P (encode w)) encode wordOf (fun _ h => h)
+    (fun v h => by show P (encode (wordOf v)); rw [encode_wordOf v (hP v h)]; exact h)
+    (fun w _ => wordOf_encode w) (fun v h => encode_wordOf v (hP v h))
+
+/-! ### Digit statistics of `encode w` -/
+theorem core_encode6 (w : Word) (g : Fin 9) (k : Nat) (hk : k < 3) :
+    coreDigit 0 (encode w) (3 * g.val + k) = dg 6 (w.1 g).val k := by
+  rw [top_core_r6 _ _ _ g.isLt hk, r6Rank_encode]; rfl
+
+theorem core_encode5 (w : Word) (j : Fin 7) (k : Nat) (hk : k < 3) :
+    coreDigit 0 (encode w) (3 * (9 + j.val) + k) = dg 5 (w.2.1 j).val k := by
+  rw [top_core_r5 _ _ _ (by omega) (by omega) hk, r5Rank_encode]; rfl
+
+theorem core_encode7 (w : Word) (k : Nat) (hk : k < 2) :
+    coreDigit 0 (encode w) (48 + k) = dg 7 w.2.2.val k := by
+  rw [top_core_r7 _ _ hk, r7Rank_encode]; rfl
+
+theorem list_sum_range_map (n : Nat) (f : Nat → Nat) :
+    ((List.range n).map f).sum = ∑ i ∈ range n, f i := by
+  induction n with
+  | zero => simp
+  | succ n ih => rw [List.range_succ, List.map_append, List.sum_append, ih, Finset.sum_range_succ]; simp
+
+theorem sum_blocks (f : Nat → Nat) (n : Nat) :
+    ∑ i ∈ range (3 * n), f i = ∑ g ∈ range n, (f (3 * g) + f (3 * g + 1) + f (3 * g + 2)) := by
+  induction n with
+  | zero => simp
+  | succ n ih =>
+    rw [show 3 * (n + 1) = 3 * n + 1 + 1 + 1 by ring, Finset.sum_range_succ, Finset.sum_range_succ,
+      Finset.sum_range_succ, ih, Finset.sum_range_succ]
+    ring_nf
+
+/-- A chain sum over the 50 data chains splits into the 9 r6 triples, the 7 r5 triples and the r7 pair. -/
+theorem sum_50 (f : Nat → Nat) :
+    ∑ i ∈ range 50, f i = (∑ g : Fin 9, (f (3 * g.val) + f (3 * g.val + 1) + f (3 * g.val + 2))) +
+      (∑ j : Fin 7, (f (3 * (9 + j.val)) + f (3 * (9 + j.val) + 1) + f (3 * (9 + j.val) + 2))) +
+        (f 48 + f 49) := by
+  rw [Finset.sum_range_succ, Finset.sum_range_succ, show 48 = 3 * 16 by rfl, sum_blocks,
+    show 16 = 9 + 7 by rfl, Finset.sum_range_add, Finset.sum_range, Finset.sum_range]
+  ring
+
+theorem sum_encode (w : Word) : (dataDigits 0 (encode w)).sum = weight w := by
+  unfold dataDigits
+  rw [show dataCount 0 = 50 from rfl, list_sum_range_map, sum_50]
+  unfold weight psum
+  congr 1
+  · congr 1
+    · apply Finset.sum_congr rfl; intro g _
+      rw [show 3 * g.val = 3 * g.val + 0 by rfl, core_encode6 w g 0 (by decide), core_encode6 w g 1 (by decide),
+        core_encode6 w g 2 (by decide)]; rfl
+    · apply Finset.sum_congr rfl; intro j _
+      rw [show 3 * (9 + j.val) = 3 * (9 + j.val) + 0 by rfl, core_encode5 w j 0 (by decide),
+        core_encode5 w j 1 (by decide), core_encode5 w j 2 (by decide)]; rfl
+  · have e0 := core_encode7 w 0 (by decide)
+    have e1 := core_encode7 w 1 (by decide)
+    simp only [Nat.add_zero, Nat.reduceAdd] at e0 e1
+    rw [e0, e1]
+
+/-- Campaign T51: the top decoder through the model word. -/
+theorem decode_top_encode (w : Word) :
+    decode 0 (encode w) = if 147 ≤ weight w ∧ weight w ≤ 152 then
+      some (dataDigits 0 (encode w) ++ [152 - weight w]) else none := by
+  have hv := topRanksValid_encode w
+  have hb : ¬ (BitVec.toNat (encode w) ≥ 2 ^ encodedBits 0) := not_le.mpr (encode w).isLt
+  unfold decode
+  rw [if_neg hb]
+  simp only [if_true, sum_encode, hv, true_and, show target 0 = 152 from rfl]
+  by_cases h : 147 ≤ weight w ∧ weight w ≤ 152
+  · rw [if_pos ⟨h.2, by omega⟩, if_pos h]
+  · rw [if_neg (by omega), if_neg h]
+
+theorem decode_top_valid {v : Digest} (h : (decode 0 v).isSome = true) : topRanksValid v = true := by
+  unfold decode at h
+  split_ifs at h with h1 h2 <;> simp_all
+
+/-- The exact T51 top decoder count (PINNED P3). -/
+theorem decoder_card :
+    (univ.filter fun v : Digest => (decode 0 v).isSome = true).card = decoderCount := by
+  rw [card_encode _ (fun v h => decode_top_valid h), ← decoderCount_digits, ← window_card_digits]
+  apply congrArg Finset.card
+  apply Finset.filter_congr
+  intro w _
+  rw [decode_top_encode]
+  split_ifs with h <;> simp [h]
+
+end SigGolfResearch.T51Top
+end
+
+section
+namespace SigGolfCandidate.T3.Nonbinary
+open SigGolfResearch.NonbinaryTop
+set_option maxHeartbeats 1000000
+set_option maxRecDepth 10000
+set_option backward.isDefEq.respectTransparency false
+/-- Campaign T51: the exact top decoder count (the #938 NF17 bridge restated for the T51 word, PINNED P3). -/
+theorem actual_decoder_count :
+    Fintype.card {v : Digest // (T3.decode 0 v).isSome}=Counting.count := by
+  rw [Fintype.card_subtype]
+  exact SigGolfResearch.T51Top.decoder_card
+open OracleComp OracleSpec ENNReal
+theorem actual_decoder_probability :
+    Pr[fun v => (T3.decode 0 v).isSome | ($ᵗ Digest : ProbComp Digest)]=
+      (Counting.count : ENNReal)/(2 : ENNReal)^128 := by
+  have hc := actual_decoder_count
+  rw [Fintype.card_subtype] at hc
+  rw [probEvent_uniformSample,hc]
+  simp only [Fintype.card_bitVec,Nat.cast_pow,Nat.cast_ofNat]
+/-- The encoding answers whose low half decodes (term-mode composition: no defeq search through the decoder). -/
+theorem actual_encoding_card :
+    (Finset.univ.filter fun x : BitVec 256 => (T3.decode 0 (x.extractLsb' 0 128)).isSome = true).card =
+      Counting.count * 2 ^ (256 - 128) :=
+  (SphincsSecurity.Completeness.card_filter_low (n := 256) (w := 128) (by decide)
+    (fun d : Digest => (T3.decode 0 d).isSome = true)).trans
+    (congrArg (fun n => n * 2 ^ (256 - 128)) SigGolfResearch.T51Top.decoder_card)
+theorem actual_encoding_probability :
+    Pr[fun answer : BitVec 256 => (T3.decode 0 (answer.extractLsb' 0 128)).isSome |
+      ($ᵗ BitVec 256 : ProbComp (BitVec 256))]=
+      (Counting.count : ENNReal)/(2 : ENNReal)^128 := by
+  rw [probEvent_uniformSample, actual_encoding_card]
+  simp only [Fintype.card_bitVec,Nat.cast_mul,Nat.cast_pow,Nat.cast_ofNat]
+  rw [show (2 : ENNReal)^256=2^128*2^128 by rw [←pow_add]]
+  exact ENNReal.mul_div_mul_right _ _ (by simp) (by simp)
+end SigGolfCandidate.T3.Nonbinary
+end
+end
+-- ==== merged from T3_Nonbinary_CreditFilter ====
+section
+
+section
+
+
+namespace SigGolfResearch.NonbinaryTop.CreditCounting
+open scoped BigOperators
+open Codec Finset Counting
+set_option maxHeartbeats 1000000
+set_option maxRecDepth 100000
+set_option exponentiation.threshold 20000
+set_option linter.constructorNameAsVariable false
+def creditFloor : Nat := 7
+def credit5 (d : Triple5) : Nat := ∑ i,if (d i).val=3 then 1 else 0
+def credit8 (d : Triple8) : Nat := ∑ i,if (d i).val=6 then 1 else 0
+def credit (w : Word) : Nat := (∑ i,credit5 (w.1 i))+credit8 w.2
+def g5 (n : Nat) : Nat := (if n=3 then 1 else 0)+64*n
+def g8 (n : Nat) : Nat := (if n=6 then 1 else 0)+64*n
+def s5 (d : Triple5) : Nat := ∑ i,g5 (d i).val
+def s8 (d : Triple8) : Nat := ∑ i,g8 (d i).val
+def stat (w : Word) : Nat := (∑ i,s5 (w.1 i))+s8 w.2
+theorem s5_eq (d : Triple5) : s5 d=credit5 d+64*tripleSum5 d := by
+  simp only [s5,g5,credit5,tripleSum5,Finset.sum_add_distrib,←Finset.mul_sum]
+theorem s8_eq (d : Triple8) : s8 d=credit8 d+64*tripleSum8 d := by
+  simp only [s8,g8,credit8,tripleSum8,Finset.sum_add_distrib,←Finset.mul_sum]
+theorem stat_eq (w : Word) : stat w=credit w+64*weight w := by
+  simp only [stat,s5_eq,s8_eq,credit,weight,Finset.sum_add_distrib,←Finset.mul_sum]
+  ring
+theorem credit5_le (d : Triple5) : credit5 d≤3 := by
+  unfold credit5
+  calc (∑ i : Fin 3,if (d i).val=3 then 1 else 0)≤∑ _i : Fin 3,1 :=
+        Finset.sum_le_sum fun i _ => by split_ifs <;> omega
+    _ = 3 := by simp
+theorem credit8_le (d : Triple8) : credit8 d≤3 := by
+  unfold credit8
+  calc (∑ i : Fin 3,if (d i).val=6 then 1 else 0)≤∑ _i : Fin 3,1 :=
+        Finset.sum_le_sum fun i _ => by split_ifs <;> omega
+    _ = 3 := by simp
+theorem credit_le (w : Word) : credit w≤54 := by
+  have h1 : (∑ i,credit5 (w.1 i))≤∑ _i : Fin 17,3 := Finset.sum_le_sum fun i _ => credit5_le _
+  have h2 := credit8_le w.2
+  have h3 : (∑ _i : Fin 17,3)=51 := by simp
+  unfold credit
+  omega
+def r5 (y : Nat) : Nat := 1+y^64+y^128+y^193+y^256
+def r8 (y : Nat) : Nat := 1+y^64+y^128+y^192+y^256+y^320+y^385+y^448
+theorem weighted5 (y : Nat) : (∑ d : Triple5,y^s5 d)=r5 y^3 := by
+  calc (∑ d : Triple5,y^s5 d)=(∑ a : Fin 5,y^g5 a.val)^3 :=
+        weighted_tuples (fun a : Fin 5 => g5 a.val) y 3
+    _ = r5 y^3 := by
+        rw [Fin.sum_univ_eq_sum_range (fun n => y^g5 n) 5]
+        norm_num [Finset.sum_range_succ,g5,r5]
+theorem weighted8 (y : Nat) : (∑ d : Triple8,y^s8 d)=r8 y^3 := by
+  calc (∑ d : Triple8,y^s8 d)=(∑ a : Fin 8,y^g8 a.val)^3 :=
+        weighted_tuples (fun a : Fin 8 => g8 a.val) y 3
+    _ = r8 y^3 := by
+        rw [Fin.sum_univ_eq_sum_range (fun n => y^g8 n) 8]
+        norm_num [Finset.sum_range_succ,g8,r8]
+theorem weighted_words (y : Nat) : (∑ w : Word,y^stat w)=r5 y^51*r8 y^3 := by
+  rw [Fintype.sum_prod_type]
+  simp only [stat,pow_add]
+  rw [←Finset.sum_mul_sum,weighted_tuples,weighted5,weighted8,←pow_mul]
+def packed : Nat := r5 radix^51*r8 radix^3
+theorem truncated_card (cut : Nat) (hc : 0<cut) :
+    (Finset.univ.filter fun w : Word => stat w<cut).card=
+      (packed%radix^cut)%(radix-1) := by
+  classical
+  unfold packed
+  rw [←weighted_words radix]
+  symm
+  rw [SigGolfResearch.Gate6.mod_pow_sum_generic hc _ stat
+      (by simpa only [Finset.card_univ] using Nat.lt_of_lt_of_le word_card_small (Nat.sub_le _ _)),
+    SigGolfResearch.Gate6.sum_pow_mod_pred_generic (by norm_num [radix]),
+    Nat.mod_eq_of_lt ((Finset.card_filter_le _ _).trans_lt (by simpa using word_card_small))]
+/-- Accepted top words at target 146 with the legacy T3 credit floor7. The W9 producer
+uses a separate effective-credit count. -/
+def count : Nat := 67567856205106535693258756678239530
+theorem exact_packed_count :
+    (packed%radix^9408)%(radix-1)-(packed%radix^(9344+creditFloor))%(radix-1)=count := by decide +kernel
+theorem credited_card :
+    (Finset.univ.filter fun w : Word => weight w=146 ∧ creditFloor≤credit w).card=count := by
+  classical
+  have hs : (Finset.univ.filter fun w : Word => weight w=146 ∧ creditFloor≤credit w)=
+      (Finset.univ.filter fun w : Word => stat w<9408)\
+        (Finset.univ.filter fun w : Word => stat w<9344+creditFloor) := by
+    ext w
+    have hc := credit_le w
+    have he := stat_eq w
+    simp only [Finset.mem_filter,Finset.mem_univ,true_and,Finset.mem_sdiff]
+    omega
+  rw [hs,Finset.card_sdiff_of_subset]
+  · rw [truncated_card 9408 (by decide),truncated_card (9344+creditFloor) (by decide),exact_packed_count]
+  · intro w hw
+    have hf : creditFloor≤64 := by decide
+    simp only [Finset.mem_filter,Finset.mem_univ,true_and] at hw ⊢
+    omega
+theorem credited_digest_card :
+    ((Finset.univ.filter fun w : Word => weight w=146 ∧ creditFloor≤credit w).image digest).card=count := by
+  classical
+  rw [Finset.card_image_of_injective _ digest_injective,credited_card]
+theorem credited_decoder_count :
+    Fintype.card {d : Fin (2^128) // ∃ w,Decoder.decode d=some w ∧ creditFloor≤credit w}=count := by
+  classical
+  rw [Fintype.card_subtype]
+  have he : (Finset.univ.filter fun d : Fin (2^128) => ∃ w,Decoder.decode d=some w ∧ creditFloor≤credit w)=
+      (Finset.univ.filter fun w : Word => weight w=146 ∧ creditFloor≤credit w).image digest := by
+    ext d
+    simp only [Finset.mem_filter,Finset.mem_univ,true_and,Finset.mem_image]
+    constructor
+    · rintro ⟨w,hw,hc⟩
+      obtain ⟨hd,hweight⟩ := (Decoder.decode_some_iff d w).mp hw
+      exact ⟨w,⟨hweight,hc⟩,hd⟩
+    · rintro ⟨w,⟨hweight,hc⟩,hd⟩
+      exact ⟨w,(Decoder.decode_some_iff d w).mpr ⟨hd,hweight⟩,hc⟩
+  rw [he,credited_digest_card]
+theorem probability_fraction : (count : ℚ)/2^128=
+    67567856205106535693258756678239530/2^128 := by
+  simp only [count,Nat.cast_ofNat]
+end SigGolfResearch.NonbinaryTop.CreditCounting
+end
+
+section
+
+namespace SigGolfCandidate.T3.Nonbinary
+open SigGolfResearch.NonbinaryTop
+open scoped BigOperators
+set_option maxHeartbeats 1000000
+set_option maxRecDepth 8192
+theorem creditFloor_top : creditFloor 0=CreditCounting.creditFloor := rfl
+theorem searchDecode_some {lay : Layer} {value : Digest} {digits : List Nat}
+    (h : searchDecode lay value=some digits) : decode lay value=some digits := by
+  unfold searchDecode at h
+  by_cases hc : encCredit lay value<creditFloor lay
+  · rw [if_pos hc] at h; cases h
+  · rwa [if_neg hc] at h
+theorem searchDecode_eq_none_or (lay : Layer) (value : Digest) :
+    searchDecode lay value=none ∨ searchDecode lay value=decode lay value := by
+  unfold searchDecode
+  by_cases hc : encCredit lay value<creditFloor lay
+  · left; rw [if_pos hc]
+  · right; rw [if_neg hc]
+theorem creditFloor_lower {lay : Layer} (hl : lay≠0) : creditFloor lay=0 := by
+  fin_cases lay
+  · exact absurd rfl hl
+  all_goals rfl
+theorem searchDecode_lower {lay : Layer} (hl : lay≠0) (value : Digest) :
+    searchDecode lay value=decode lay value := by
+  unfold searchDecode
+  rw [creditFloor_lower hl,if_neg (Nat.not_lt_zero _)]
+theorem searchDecode_credit {lay : Layer} {value : Digest} {digits : List Nat}
+    (h : searchDecode lay value=some digits) : creditFloor lay≤encCredit lay value := by
+  unfold searchDecode at h
+  by_contra hc
+  rw [if_pos (Nat.lt_of_not_le hc)] at h
+  cases h
+theorem encCredit_top (value : Digest) : encCredit 0 value=topCredit value := by
+  unfold encCredit
+  rw [if_pos rfl]
+theorem searchDecode_top_credit {value : Digest} {digits : List Nat}
+    (h : searchDecode 0 value=some digits) : creditFloor 0≤topCredit value := by
+  rw [←encCredit_top]
+  exact searchDecode_credit h
+theorem searchDecode_of {lay : Layer} {value : Digest} {digits : List Nat}
+    (hd : decode lay value=some digits) (hc : creditFloor lay≤encCredit lay value) :
+    searchDecode lay value=some digits := by
+  unfold searchDecode
+  rw [if_neg (Nat.not_lt.mpr hc)]
+  exact hd
+theorem searchDecode_top_of {value : Digest} {digits : List Nat}
+    (hd : decode 0 value=some digits) (hc : creditFloor 0≤topCredit value) :
+    searchDecode 0 value=some digits :=
+  searchDecode_of hd (by rw [encCredit_top]; exact hc)
+theorem range54_map_ofFn (f : Nat → Nat) :
+    (List.range 54).map f=List.ofFn (fun i : Fin 54 => f i.val) := by
+  apply List.ext_getElem
+  · simp
+  · intro i hi hj;simp only [List.getElem_map,List.getElem_range,List.getElem_ofFn]
+theorem decodeBV_parse {v : Digest} {w : Codec.Word} (hw : Decoder.decodeBV v=some w) :
+    Decoder.parse 17 v.toNat=some w := by
+  change ((Decoder.parse 17 v.toNat).filter fun w => decide (Counting.weight w=146))=some w at hw
+  exact (Option.filter_eq_some_iff.mp hw).1
+end SigGolfCandidate.T3.Nonbinary
+end
+
+/-! ### Campaign T51: the legacy search decoder (`topCredit ≥ 7`) through the T51 model word -/
+section
+namespace SigGolfResearch.T51Top
+open Finset SigGolfCandidate.T3 SigGolfCandidate.T3.Nonbinary
+open scoped BigOperators
+set_option maxHeartbeats 1000000
+set_option maxRecDepth 100000
+set_option linter.constructorNameAsVariable false
+set_option linter.unusedSimpArgs false
+
+theorem ind_le (p : Prop) [Decidable p] : ind p ≤ 1 := by unfold ind; split_ifs <;> omega
+theorem ind_cases (p : Prop) [Decidable p] : (p ∧ ind p = 1) ∨ (¬p ∧ ind p = 0) := by
+  by_cases h : p
+  · exact Or.inl ⟨h, if_pos h⟩
+  · exact Or.inr ⟨h, if_neg h⟩
+theorem ind_pos {p : Prop} [Decidable p] (h : p) : ind p = 1 := if_pos h
+theorem ind_neg {p : Prop} [Decidable p] (h : ¬p) : ind p = 0 := if_neg h
+theorem ind_congr {p q : Prop} [Decidable p] [Decidable q] (h : p ↔ q) : ind p = ind q := by
+  unfold ind; by_cases hp : p
+  · rw [if_pos hp, if_pos (h.mp hp)]
+  · rw [if_neg hp, if_neg (fun hq => hp (h.mpr hq))]
+
+theorem fiber_card {ι M : Type} [DecidableEq M] (f : ι → M) (s : Finset ι) (t : Finset M)
+    (H : ∀ a ∈ s, f a ∈ t) : s.card = ∑ b ∈ t, (s.filter fun a => f a = b).card :=
+  Finset.card_eq_sum_card_fiberwise fun a ha => H a ha
+
+theorem fiber_card_filter {ι M : Type} [Fintype ι] [DecidableEq M] (Q : ι → Prop) [DecidablePred Q]
+    (f : ι → M) (t : Finset M) (H : ∀ a, Q a → f a ∈ t) :
+    (univ.filter Q).card = ∑ b ∈ t, ((univ.filter Q).filter fun a => f a = b).card :=
+  fiber_card f _ t (fun a ha => H a (Finset.mem_filter.mp ha).2)
+
+/-! ### Legacy credit count (the legacy T3 `searchDecode`: `topCredit ≥ 7`) -/
+def tcreditAll (w : Word) : Nat :=
+  (∑ g : Fin 9, tcredit 6 (w.1 g).val) + (∑ j : Fin 7, tcredit 5 (w.2.1 j).val) + pcredit w.2.2.val
+def legacyS : GStat := ⟨fun _ r => 64 * tsum 6 r + tcredit 6 r, fun _ r => 64 * tsum 5 r + tcredit 5 r,
+  fun r => 64 * psum r + pcredit r⟩
+theorem legacyS_eval (w : Word) : legacyS.eval w = 64 * weight w + tcreditAll w := by
+  simp only [GStat.eval, legacyS, weight, tcreditAll, Finset.sum_add_distrib, ← Finset.mul_sum]
+  ring
+
+theorem tcredit6_le (r : Fin 216) : tcredit 6 r.val ≤ 3 := by revert r; decide +kernel
+theorem tcredit5_le (r : Fin 125) : tcredit 5 r.val ≤ 3 := by revert r; decide +kernel
+theorem pcredit_le (r : Fin 49) : pcredit r.val ≤ 2 := by revert r; decide +kernel
+theorem tcreditAll_le (w : Word) : tcreditAll w ≤ 50 := by
+  have h6 : (∑ g : Fin 9, tcredit 6 (w.1 g).val) ≤ ∑ _g : Fin 9, 3 :=
+    Finset.sum_le_sum fun g _ => tcredit6_le (w.1 g)
+  have h5 : (∑ j : Fin 7, tcredit 5 (w.2.1 j).val) ≤ ∑ _j : Fin 7, 3 :=
+    Finset.sum_le_sum fun j _ => tcredit5_le (w.2.1 j)
+  have hp := pcredit_le w.2.2
+  simp only [sum_const, card_univ, Fintype.card_fin, smul_eq_mul] at h6 h5
+  unfold tcreditAll; omega
+
+def lcut : Nat := 64 * 153
+def packedL : Nat := packedG lcut legacyS false
+attribute [irreducible] packedL
+
+/-- The legacy accepted words: decodable (`147 ≤ weight ≤ 152`) with at least 7 credited chains, the checksum chain
+included (credited iff its digit `152 - weight` is 4). -/
+def legacyOk (w : Word) : Prop := 147 ≤ weight w ∧ weight w ≤ 152 ∧ 7 ≤ tcreditAll w + ind (weight w = 148)
+instance : DecidablePred legacyOk := fun w => by unfold legacyOk; infer_instance
+
+/-- The admissible `(weight, credits)` keys of a legacy-accepted word. -/
+def legacyKeys : List (Nat × Nat) :=
+  ((List.range 6).flatMap fun i => (List.range 51).map fun c => (147 + i, c)).filter
+    fun pr => decide (7 ≤ pr.2 + ind (pr.1 = 148))
+def legacyCountP (p : Nat) : Nat := (legacyKeys.map fun pr => p / B ^ (64 * pr.1 + pr.2) % B).sum
+
+theorem legacyKeys_nodup : legacyKeys.Nodup := by decide
+theorem mem_legacyKeys (s c : Nat) : (s, c) ∈ legacyKeys ↔ 147 ≤ s ∧ s ≤ 152 ∧ c ≤ 50 ∧ 7 ≤ c + ind (s = 148) := by
+  simp only [legacyKeys, List.mem_filter, List.mem_flatMap, List.mem_map, List.mem_range, Prod.mk.injEq,
+    decide_eq_true_eq]
+  constructor
+  · rintro ⟨⟨a, ha, b, hb, rfl, rfl⟩, h⟩; exact ⟨by omega, by omega, by omega, h⟩
+  · rintro ⟨h1, h2, h3, h4⟩; exact ⟨⟨s - 147, by omega, c, by omega, by omega, rfl⟩, h4⟩
+attribute [irreducible] legacyKeys
+
+theorem legacy_card : (univ.filter legacyOk).card = legacyCountP packedL := by
+  classical
+  unfold legacyCountP
+  rw [← List.sum_toFinset _ legacyKeys_nodup,
+    fiber_card_filter legacyOk (fun w => (weight w, tcreditAll w)) legacyKeys.toFinset (fun w hw => by
+      obtain ⟨h1, h2, h3⟩ := hw
+      exact List.mem_toFinset.mpr ((mem_legacyKeys _ _).mpr ⟨h1, h2, tcreditAll_le w, h3⟩))]
+  apply Finset.sum_congr rfl
+  intro pr hpr
+  obtain ⟨s, c⟩ := pr
+  obtain ⟨h1, h2, h3, h4⟩ := (mem_legacyKeys s c).mp (List.mem_toFinset.mp hpr)
+  rw [packedL, packedG_digit _ _ _ _ (by unfold lcut; omega), Finset.filter_filter]
+  apply congrArg Finset.card
+  apply Finset.filter_congr
+  intro w _
+  rw [legacyS_eval]
+  have hc := tcreditAll_le w
+  unfold legacyOk
+  simp only [Prod.mk.injEq, Bool.false_eq_true, false_implies, true_and]
+  constructor
+  · rintro ⟨-, rfl, rfl⟩; rfl
+  · intro h
+    have e1 : weight w = s := by omega
+    have e2 : tcreditAll w = c := by omega
+    subst e1 e2
+    exact ⟨⟨h1, h2, h4⟩, rfl, rfl⟩
+
+/-- The legacy T3 search-decoder count (credit floor 7 on the 51 chains). -/
+def legacyCount : Nat := 58354217001057952582130682281963303
+theorem legacyCount_digits : legacyCountP packedL = legacyCount := by decide +kernel
+
+theorem getD_digits (v : Digest) (chk i : Nat) :
+    (dataDigits 0 v ++ [chk]).getD i 0 = if i < 50 then coreDigit 0 v i else if i = 50 then chk else 0 := by
+  have hl : (dataDigits 0 v).length = 50 := by simp [dataDigits, dataCount]
+  split_ifs with h1 h2
+  · rw [List.getD_append _ _ _ _ (by omega)]
+    simp [dataDigits, dataCount, List.getD_eq_getElem?_getD, h1]
+  · subst h2; rw [List.getD_append_right _ _ _ _ (by omega)]; simp [hl]
+  · exact List.getD_eq_default _ _ (by simp [hl]; omega)
+
+theorem filter_range_length (n : Nat) (p : Nat → Prop) [DecidablePred p] :
+    ((List.range n).filter fun i => decide (p i)).length = ∑ i ∈ range n, ind (p i) := by
+  induction n with
+  | zero => simp
+  | succ n ih =>
+    rw [List.range_succ, List.filter_append, List.length_append, ih, Finset.sum_range_succ]
+    by_cases h : p n <;> simp [h, ind]
+
+theorem sum_51 (f : Nat → Nat) :
+    ∑ i ∈ range 51, f i = (∑ g : Fin 9, (f (3 * g.val) + f (3 * g.val + 1) + f (3 * g.val + 2))) +
+      (∑ j : Fin 7, (f (3 * (9 + j.val)) + f (3 * (9 + j.val) + 1) + f (3 * (9 + j.val) + 2))) +
+        (f 48 + f 49) + f 50 := by
+  rw [Finset.sum_range_succ, sum_50]
+
+theorem getD6 (w : Word) (chk : Nat) (g : Fin 9) (k : Nat) (hk : k < 3) :
+    (dataDigits 0 (encode w) ++ [chk]).getD (3 * g.val + k) 0 = dg 6 (w.1 g).val k := by
+  rw [getD_digits, if_pos (by omega), core_encode6 w g k hk]
+theorem getD5 (w : Word) (chk : Nat) (j : Fin 7) (k : Nat) (hk : k < 3) :
+    (dataDigits 0 (encode w) ++ [chk]).getD (3 * (9 + j.val) + k) 0 = dg 5 (w.2.1 j).val k := by
+  rw [getD_digits, if_pos (by omega), core_encode5 w j k hk]
+theorem getD48 (w : Word) (chk : Nat) : (dataDigits 0 (encode w) ++ [chk]).getD 48 0 = dg 7 w.2.2.val 0 := by
+  rw [getD_digits, if_pos (by omega)]; exact core_encode7 w 0 (by decide)
+theorem getD49 (w : Word) (chk : Nat) : (dataDigits 0 (encode w) ++ [chk]).getD 49 0 = dg 7 w.2.2.val 1 := by
+  rw [getD_digits, if_pos (by omega)]; exact core_encode7 w 1 (by decide)
+theorem getD50 (w : Word) (chk : Nat) : (dataDigits 0 (encode w) ++ [chk]).getD 50 0 = chk := by
+  rw [getD_digits, if_neg (by omega), if_pos rfl]
+theorem max6 (g : Fin 9) (k : Nat) (hk : k < 3) : maxDigit 0 (3 * g.val + k) = 5 := by
+  have := g.isLt; unfold maxDigit; simp only [if_true]; rw [if_pos (by omega)]
+theorem max5 (j : Fin 7) (k : Nat) (hk : k < 3) : maxDigit 0 (3 * (9 + j.val) + k) = 4 := by
+  have := j.isLt; unfold maxDigit; simp only [if_true]; rw [if_neg (by omega), if_pos (by omega)]
+
+theorem blk6 (w : Word) (chk : Nat) (g : Fin 9) :
+    (dataDigits 0 (encode w) ++ [chk]).getD (3 * g.val) 0 = dg 6 (w.1 g).val 0 ∧
+    (dataDigits 0 (encode w) ++ [chk]).getD (3 * g.val + 1) 0 = dg 6 (w.1 g).val 1 ∧
+    (dataDigits 0 (encode w) ++ [chk]).getD (3 * g.val + 2) 0 = dg 6 (w.1 g).val 2 ∧
+    maxDigit 0 (3 * g.val) = 5 ∧ maxDigit 0 (3 * g.val + 1) = 5 ∧ maxDigit 0 (3 * g.val + 2) = 5 :=
+  ⟨by simpa using getD6 w chk g 0 (by decide), getD6 w chk g 1 (by decide), getD6 w chk g 2 (by decide),
+    by simpa using max6 g 0 (by decide), max6 g 1 (by decide), max6 g 2 (by decide)⟩
+theorem blk5 (w : Word) (chk : Nat) (j : Fin 7) :
+    (dataDigits 0 (encode w) ++ [chk]).getD (3 * (9 + j.val)) 0 = dg 5 (w.2.1 j).val 0 ∧
+    (dataDigits 0 (encode w) ++ [chk]).getD (3 * (9 + j.val) + 1) 0 = dg 5 (w.2.1 j).val 1 ∧
+    (dataDigits 0 (encode w) ++ [chk]).getD (3 * (9 + j.val) + 2) 0 = dg 5 (w.2.1 j).val 2 ∧
+    maxDigit 0 (3 * (9 + j.val)) = 4 ∧ maxDigit 0 (3 * (9 + j.val) + 1) = 4 ∧ maxDigit 0 (3 * (9 + j.val) + 2) = 4 :=
+  ⟨by simpa using getD5 w chk j 0 (by decide), getD5 w chk j 1 (by decide), getD5 w chk j 2 (by decide),
+    by simpa using max5 j 0 (by decide), max5 j 1 (by decide), max5 j 2 (by decide)⟩
+
+def credits (w : Word) : Nat :=
+  (∑ g : Fin 9, tcredit 6 (w.1 g).val) + (∑ j : Fin 7, tcredit 5 (w.2.1 j).val) + pcredit w.2.2.val
+def copies (w : Word) : Nat :=
+  (∑ g : Fin 9, tcopies 6 (decide (g.val = 0)) (w.1 g).val) + (∑ j : Fin 7, tcopies 5 false (w.2.1 j).val) +
+    pcopies w.2.2.val
+def penalty (w : Word) : Nat := ∑ j : Fin 7, ind (pen j = true ∧ tsum 5 (w.2.1 j).val < 3)
+
+
+theorem topCredit_encode (w : Word) :
+    topCredit (encode w) = tcreditAll w + ind (152 - weight w + 1 = 5) := by
+  unfold topCredit
+  rw [sum_encode, show target 0 = 152 from rfl, list_sum_range_map]
+  change (∑ i ∈ range 51, ind ((dataDigits 0 (encode w) ++ [152 - weight w]).getD i 0 + 1 = maxDigit 0 i)) = _
+  rw [sum_51, getD48, getD49, getD50, show maxDigit 0 48 = 6 from rfl, show maxDigit 0 49 = 6 from rfl,
+    show maxDigit 0 50 = 5 from rfl]
+  unfold tcreditAll pcredit
+  congr 2
+  congr 1
+  · apply Finset.sum_congr rfl; intro g _
+    obtain ⟨a0, a1, a2, m0, m1, m2⟩ := blk6 w (152 - weight w) g
+    rw [a0, a1, a2, m0, m1, m2]; rfl
+  · apply Finset.sum_congr rfl; intro j _
+    obtain ⟨a0, a1, a2, m0, m1, m2⟩ := blk5 w (152 - weight w) j
+    rw [a0, a1, a2, m0, m1, m2]; rfl
+
+theorem searchDecode_top_encode (w : Word) :
+    (searchDecode 0 (encode w)).isSome = true ↔ legacyOk w := by
+  unfold searchDecode encCredit
+  rw [if_pos rfl, topCredit_encode, decode_top_encode, show creditFloor 0 = 7 from rfl]
+  unfold legacyOk
+  have e : ind (152 - weight w + 1 = 5) = ind (weight w = 148) := by
+    unfold ind; by_cases h : weight w = 148
+    · rw [if_pos (by omega), if_pos h]
+    · by_cases h' : weight w ≤ 152
+      · rw [if_neg (by omega), if_neg h]
+      · rw [if_neg (by omega), if_neg h]
+  rw [e]
+  by_cases h1 : tcreditAll w + ind (weight w = 148) < 7
+  · rw [if_pos h1]; simp only [Option.isSome_none, Bool.false_eq_true, false_iff]; omega
+  · rw [if_neg h1]
+    split_ifs with h2 <;> simp <;> omega
+
+end SigGolfResearch.T51Top
+end
+
+section
+namespace SigGolfCandidate.T3.Nonbinary
+open SigGolfResearch.NonbinaryTop
+set_option maxHeartbeats 1000000
+set_option maxRecDepth 8192
+/-- Campaign T51: the exact legacy search-decoder count (`topCredit ≥ 7`, the checksum chain included). -/
+theorem searchDecode_top_count :
+    Fintype.card {v : Digest // (searchDecode 0 v).isSome=true}=SigGolfResearch.T51Top.legacyCount := by
+  classical
+  rw [Fintype.card_subtype, SigGolfResearch.T51Top.card_encode _ (fun v h =>
+      SigGolfResearch.T51Top.decode_top_valid (by
+        obtain ⟨ds, hds⟩ := Option.isSome_iff_exists.mp h
+        rw [searchDecode_some hds]; rfl)),
+    ← SigGolfResearch.T51Top.legacyCount_digits, ← SigGolfResearch.T51Top.legacy_card]
+  apply congrArg Finset.card
+  apply Finset.filter_congr
+  intro w _
+  exact SigGolfResearch.T51Top.searchDecode_top_encode w
+end SigGolfCandidate.T3.Nonbinary
+end
+end
+-- ==== merged from SphincsSecurity_Proof_Deterministic_Memoize ====
+section
+
+section
+open OracleComp OracleSpec
+namespace DeterministicSigning
+set_option backward.isDefEq.respectTransparency false
+variable {ι : Type} {base : OracleSpec ι} {Request Answer : Type}
+inductive FreshRequests {α : Type} :
+    Set Request → OracleComp (base + (Request →ₒ Answer)) α → Prop
+  | pure {used : Set Request} (value : α) : FreshRequests used (pure value)
+  | base {used : Set Request} (input : base.Domain) (next : base.Range input → OracleComp (base + (Request →ₒ Answer)) α)
+      (tail : ∀ answer, FreshRequests used (next answer)) :
+      FreshRequests used (liftM ((base + (Request →ₒ Answer)).query (.inl input)) >>= next)
+  | request {used : Set Request} (input : Request) (hnew : input ∉ used)
+      (next : Answer → OracleComp (base + (Request →ₒ Answer)) α)
+      (tail : ∀ answer, FreshRequests (insert input used) (next answer)) :
+      FreshRequests used (liftM ((base + (Request →ₒ Answer)).query (.inr input)) >>= next)
+theorem FreshRequests.map {α β : Type} {used : Set Request}
+    {computation : OracleComp (base + (Request →ₒ Answer)) α}
+    (h : FreshRequests used computation) (f : α → β) : FreshRequests used (f <$> computation) := by
+  induction h with
+  | pure value => simpa only [map_pure] using FreshRequests.pure (f value)
+  | base input next _ ih =>
+      rw [map_bind]
+      apply FreshRequests.base
+      exact ih
+  | request input hnew next _ ih =>
+      rw [map_bind]
+      apply FreshRequests.request _ hnew
+      exact ih
+theorem FreshRequests.bind {α β : Type} {used : Set Request}
+    {computation : OracleComp (base + (Request →ₒ Answer)) α}
+    (h : FreshRequests used computation) (next : α → OracleComp (base + (Request →ₒ Answer)) β)
+    (htail : ∀ value used', FreshRequests used' (next value)) :
+    FreshRequests used (computation >>= next) := by
+  induction h with
+  | pure value => simpa only [pure_bind] using htail value _
+  | base input tail _ ih =>
+      rw [bind_assoc]
+      exact .base input _ ih
+  | request input hnew tail _ ih =>
+      rw [bind_assoc]
+      exact .request input hnew _ ih
+def baseLift {α : Type} (computation : OracleComp base α) :
+    OracleComp (base + (Request →ₒ Answer)) α :=
+  simulateQ (fun input => (liftM ((base + (Request →ₒ Answer)).query (.inl input)) :
+    OracleComp (base + (Request →ₒ Answer)) (base.Range input))) computation
+theorem baseLift_eq_liftM {α : Type} (computation : OracleComp base α) :
+    baseLift (Request := Request) (Answer := Answer) computation =
+      (liftM computation : OracleComp (base + (Request →ₒ Answer)) α) := by
+  induction computation using OracleComp.inductionOn with
+  | pure value => rfl
+  | query_bind input next ih =>
+      simp only [baseLift, simulateQ_bind, simulateQ_spec_query, liftM_bind]
+      change (liftM ((base + (Request →ₒ Answer)).query (.inl input)) >>= _) =
+        (liftM ((base + (Request →ₒ Answer)).query (.inl input)) >>= _)
+      exact bind_congr ih
+theorem simulateQ_baseLift {m : Type → Type} [Monad m] [LawfulMonad m] {α : Type}
+    (handler : QueryImpl base m) (other : QueryImpl (Request →ₒ Answer) m) (computation : OracleComp base α) :
+    simulateQ (handler + other) (baseLift computation) = simulateQ handler computation := by
+  rw [baseLift_eq_liftM, QueryImpl.simulateQ_add_liftM_left]
+theorem freshRequests_base_bind {α β : Type} (used : Set Request) (first : OracleComp base α)
+    (next : α → OracleComp (base + (Request →ₒ Answer)) β)
+    (hnext : ∀ value, FreshRequests used (next value)) :
+    FreshRequests used (baseLift first >>= next) := by
+  rw [baseLift_eq_liftM]
+  induction first using OracleComp.inductionOn with
+  | pure value => simpa only [liftM_pure, pure_bind] using hnext value
+  | query_bind input tail ih =>
+      simp only [liftM_bind, bind_assoc]
+      change FreshRequests used (liftM ((base + (Request →ₒ Answer)).query (.inl input)) >>= _)
+      exact .base input _ ih
+variable {Tape State : Type} [DecidableEq Request]
+noncomputable def tableRun {α : Type}
+    (handler : QueryImpl base (StateT State ProbComp))
+    (sign : Request → Tape → StateT State ProbComp Answer) (table : Request → Tape)
+    (computation : OracleComp (base + (Request →ₒ Answer)) α) : StateT State ProbComp α :=
+  simulateQ (handler + fun request => sign request (table request)) computation
+theorem FreshRequests.tableRun_update {α : Type} {used : Set Request}
+    {computation : OracleComp (base + (Request →ₒ Answer)) α}
+    (h : FreshRequests used computation)
+    (handler : QueryImpl base (StateT State ProbComp))
+    (sign : Request → Tape → StateT State ProbComp Answer) (table : Request → Tape)
+    (request : Request) (tape : Tape) (hused : request ∈ used) :
+    tableRun handler sign (Function.update table request tape) computation =
+      tableRun handler sign table computation := by
+  induction h with
+  | pure value => rfl
+  | base input next _ ih =>
+      change (handler input >>= fun answer => tableRun handler sign (Function.update table request tape) (next answer)) =
+        (handler input >>= fun answer => tableRun handler sign table (next answer))
+      exact congrArg (fun k : base.Range input → StateT State ProbComp α => handler input >>= k)
+        (funext fun answer => ih answer hused)
+  | request input hnew next _ ih =>
+      have hne : input ≠ request := fun heq => hnew (heq ▸ hused)
+      change (sign input (Function.update table request tape input) >>= fun answer =>
+          tableRun handler sign (Function.update table request tape) (next answer)) =
+        (sign input (table input) >>= fun answer => tableRun handler sign table (next answer))
+      rw [Function.update_of_ne hne]
+      exact congrArg (fun k : Answer → StateT State ProbComp α => sign input (table input) >>= k)
+        (funext fun answer => ih answer (Set.mem_insert_of_mem _ hused))
+variable [Finite Request] [Finite Tape] [Nonempty Tape]
+    [SampleableType Tape] [SampleableType (Request → Tape)]
+noncomputable def freshRun {α : Type}
+    (handler : QueryImpl base (StateT State ProbComp))
+    (sign : Request → Tape → StateT State ProbComp Answer)
+    (computation : OracleComp (base + (Request →ₒ Answer)) α) : StateT State ProbComp α :=
+  simulateQ (handler + fun request => do
+    let tape ← liftM ($ᵗ Tape : ProbComp Tape)
+    sign request tape) computation
+omit [DecidableEq Request] [Finite Request] [Finite Tape] [Nonempty Tape]
+    [SampleableType (Request → Tape)] in
+theorem freshRun_request_bind {α : Type}
+    (handler : QueryImpl base (StateT State ProbComp))
+    (sign : Request → Tape → StateT State ProbComp Answer) (input : Request)
+    (next : Answer → OracleComp (base + (Request →ₒ Answer)) α) :
+    freshRun handler sign (liftM ((base + (Request →ₒ Answer)).query (.inr input)) >>= next) =
+      (do
+        let tape ← liftM ($ᵗ Tape : ProbComp Tape)
+        let answer ← sign input tape
+        freshRun handler sign (next answer)) := by
+  simp only [freshRun, simulateQ_bind, simulateQ_spec_query]
+  change ((do
+    let tape ← liftM ($ᵗ Tape : ProbComp Tape)
+    sign input tape) >>= _) = _
+  simp only [bind_assoc]
+  rfl
+omit [DecidableEq Request] [Finite Request] [Finite Tape] [Nonempty Tape]
+    [SampleableType (Request → Tape)] in
+theorem freshRun_baseLift_bind {α β : Type}
+    (handler : QueryImpl base (StateT State ProbComp))
+    (sign : Request → Tape → StateT State ProbComp Answer) (first : OracleComp base α)
+    (next : α → OracleComp (base + (Request →ₒ Answer)) β) :
+    freshRun handler sign (baseLift first >>= next) =
+      (simulateQ handler first >>= fun value => freshRun handler sign (next value)) := by
+  simp only [freshRun, simulateQ_bind, simulateQ_baseLift]
+theorem evalDist_table_refresh {α : Type} (request : Request)
+    (next : (Request → Tape) → ProbComp α) :
+    𝒮[do let table ← $ᵗ (Request → Tape); next table] =
+      𝒮[do
+        let tape ← $ᵗ Tape
+        let table ← $ᵗ (Request → Tape)
+        next (Function.update table request tape)] := by
+  rw [evalSPMF_bind, ← evalSPMF_uniformSample_bind_update request, ← evalSPMF_bind]
+  simp only [bind_assoc, pure_bind]
+theorem FreshRequests.evalDist_tableRun {α : Type} {used : Set Request}
+    {computation : OracleComp (base + (Request →ₒ Answer)) α}
+    (h : FreshRequests used computation)
+    (handler : QueryImpl base (StateT State ProbComp))
+    (sign : Request → Tape → StateT State ProbComp Answer) (state : State) :
+    𝒮[do
+      let table ← $ᵗ (Request → Tape)
+      (tableRun handler sign table computation).run state] =
+      𝒮[(freshRun handler sign computation).run state] := by
+  induction h generalizing state with
+  | pure value =>
+      apply evalSPMF_ext
+      intro result
+      simp [tableRun, freshRun]
+  | base input next _ ih =>
+      simp only [tableRun, freshRun, simulateQ_bind, simulateQ_spec_query, StateT.run_bind]
+      change 𝒮[do
+        let table ← $ᵗ (Request → Tape)
+        let result ← (handler input).run state
+        (tableRun handler sign table (next result.1)).run result.2] =
+          𝒮[do
+            let result ← (handler input).run state
+            (freshRun handler sign (next result.1)).run result.2]
+      rw [evalSPMF_bind_bind_swap]
+      apply evalSPMF_bind_congr'
+      intro result
+      exact ih result.1 result.2
+  | request input hnew next htail ih =>
+      rw [evalDist_table_refresh input]
+      simp only [tableRun, freshRun, simulateQ_bind, simulateQ_spec_query, StateT.run_bind]
+      change 𝒮[do
+        let tape ← $ᵗ Tape
+        let table ← $ᵗ (Request → Tape)
+        let result ← (sign input (Function.update table input tape input)).run state
+        (tableRun handler sign (Function.update table input tape) (next result.1)).run result.2] =
+          𝒮[do
+            let result ← ((do
+              let tape ← liftM ($ᵗ Tape : ProbComp Tape)
+              sign input tape) : StateT State ProbComp Answer).run state
+            (freshRun handler sign (next result.1)).run result.2]
+      simp only [Function.update_self, StateT.run_bind, StateT.run_liftM, bind_assoc, pure_bind]
+      apply evalSPMF_bind_congr'
+      intro tape
+      rw [evalSPMF_bind_bind_swap]
+      apply evalSPMF_bind_congr'
+      intro result
+      have hsame : ∀ table : Request → Tape,
+          tableRun handler sign (Function.update table input tape) (next result.1) =
+            tableRun handler sign table (next result.1) := fun table =>
+        (htail result.1).tableRun_update handler sign table input tape (Set.mem_insert _ _)
+      simp_rw [hsame]
+      exact ih result.1 result.2
+end DeterministicSigning
+end
+section
+open OracleComp OracleSpec
+namespace DeterministicSigning
+set_option backward.isDefEq.respectTransparency false
+variable {ι : Type} {base : OracleSpec ι} {Request Answer : Type} [DecidableEq Request]
+def memoize {α : Type} (computation : OracleComp (base + (Request →ₒ Answer)) α)
+    (cache : QueryCache (Request →ₒ Answer)) : OracleComp (base + (Request →ₒ Answer)) α :=
+  OracleComp.recOn computation (fun value _ => pure value)
+    (fun input _ ih cached => match input with
+      | .inl input => liftM ((base + (Request →ₒ Answer)).query (.inl input)) >>= fun answer => ih answer cached
+      | .inr request => match cached request with
+        | some answer => ih answer cached
+        | none => liftM ((base + (Request →ₒ Answer)).query (.inr request)) >>= fun answer =>
+            ih answer (cached.cacheQuery request answer)) cache
+theorem memoize_pure {α : Type} (value : α) (cache : QueryCache (Request →ₒ Answer)) :
+    memoize (pure value : OracleComp (base + (Request →ₒ Answer)) α) cache = pure value := rfl
+theorem memoize_base {α : Type} (input : base.Domain)
+    (next : base.Range input → OracleComp (base + (Request →ₒ Answer)) α)
+    (cache : QueryCache (Request →ₒ Answer)) :
+    memoize (liftM ((base + (Request →ₒ Answer)).query (.inl input)) >>= next) cache =
+      (liftM ((base + (Request →ₒ Answer)).query (.inl input)) >>= fun answer => memoize (next answer) cache) := rfl
+theorem memoize_request {α : Type} (input : Request)
+    (next : Answer → OracleComp (base + (Request →ₒ Answer)) α)
+    (cache : QueryCache (Request →ₒ Answer)) :
+    memoize (liftM ((base + (Request →ₒ Answer)).query (.inr input)) >>= next) cache =
+      match cache input with
+      | some answer => memoize (next answer) cache
+      | none => liftM ((base + (Request →ₒ Answer)).query (.inr input)) >>= fun answer =>
+          memoize (next answer) (cache.cacheQuery input answer) := rfl
+theorem memoize_map {α β : Type} (f : α → β)
+    (computation : OracleComp (base + (Request →ₒ Answer)) α)
+    (cache : QueryCache (Request →ₒ Answer)) :
+    memoize (f <$> computation) cache = f <$> memoize computation cache := by
+  induction computation using OracleComp.inductionOn generalizing cache with
+  | pure value => simp only [map_pure, memoize_pure]
+  | query_bind input next ih =>
+      cases input with
+      | inl input =>
+          simp only [map_bind, memoize_base]
+          exact bind_congr fun answer => ih answer cache
+      | inr input =>
+          simp only [map_bind, memoize_request]
+          cases h : cache input with
+          | some answer => exact ih answer cache
+          | none =>
+              simp only [map_bind]
+              exact bind_congr fun answer => ih answer _
+theorem freshRequests_memoize {α : Type} (computation : OracleComp (base + (Request →ₒ Answer)) α)
+    (cache : QueryCache (Request →ₒ Answer)) :
+    FreshRequests {request | cache request ≠ none} (memoize computation cache) := by
+  induction computation using OracleComp.inductionOn generalizing cache with
+  | pure value => exact .pure value
+  | query_bind input next ih =>
+      cases input with
+      | inl input =>
+          rw [memoize_base]
+          exact .base input _ (fun answer => ih answer cache)
+      | inr input =>
+          rw [memoize_request]
+          cases hc : cache input with
+          | some answer => exact ih answer cache
+          | none =>
+              apply FreshRequests.request (used := {request | cache request ≠ none}) input (fun h => h hc)
+              intro answer
+              have hset : {request | (cache.cacheQuery input answer) request ≠ none} =
+                  insert input {request | cache request ≠ none} := by
+                ext request
+                by_cases h : request = input
+                · subst request
+                  simp only [QueryCache.cacheQuery_self, ne_eq, reduceCtorEq, not_false_eq_true,
+                    Set.mem_setOf_eq, Set.mem_insert_iff, true_or]
+                · simp [h]
+              rw [← hset]
+              exact ih answer _
+theorem memoize_baseLift_bind {α β : Type}
+    (computation : OracleComp (base + (Request →ₒ Answer)) α)
+    (next : α → OracleComp base β) (cache : QueryCache (Request →ₒ Answer)) :
+    memoize (computation >>= fun value => baseLift (next value)) cache =
+      (memoize computation cache >>= fun value => baseLift (next value)) := by
+  induction computation using OracleComp.inductionOn generalizing cache with
+  | pure value =>
+      simp only [pure_bind, memoize_pure]
+      induction next value using OracleComp.inductionOn with
+      | pure value => rfl
+      | query_bind input tail ih =>
+          simp only [baseLift, simulateQ_bind, simulateQ_spec_query]
+          exact bind_congr ih
+  | query_bind input tail ih =>
+      simp only [bind_assoc]
+      cases input with
+      | inl input =>
+          simp only [memoize_base, bind_assoc]
+          exact bind_congr (fun answer => ih answer cache)
+      | inr input =>
+          simp only [memoize_request]
+          cases hc : cache input with
+          | some answer => exact ih answer cache
+          | none =>
+              simp only [bind_assoc]
+              exact bind_congr (fun answer => ih answer (cache.cacheQuery input answer))
+end DeterministicSigning
+end
+end
+-- ==== merged from SphincsSecurity_Proof_Seeded_StoppedRun ====
+section
+
+open OracleComp OracleSpec
+namespace SphincsSecurity.Seeded
+set_option backward.isDefEq.respectTransparency false
+noncomputable def stopBefore {α : Type} (bad : OracleWorld.Domain → Prop)
+    [DecidablePred bad] (computation : OracleComp OracleWorld α) :
+    OracleComp OracleWorld (Option α) :=
+  OracleComp.construct (fun value => pure (some value))
+    (fun input _ next => if bad input then pure none else do
+      let answer ← liftM (OracleWorld.query input)
+      next answer) computation
+theorem stopBefore_pure {α : Type} (bad : OracleWorld.Domain → Prop)
+    [DecidablePred bad] (value : α) :
+    stopBefore bad (pure value) = pure (some value) := rfl
+theorem stopBefore_query_bind {α : Type} (bad : OracleWorld.Domain → Prop)
+    [DecidablePred bad] (input : OracleWorld.Domain)
+    (next : OracleWorld.Range input → OracleComp OracleWorld α) :
+    stopBefore bad (liftM (OracleWorld.query input) >>= next) =
+      (if bad input then pure none else do
+        let answer ← liftM (OracleWorld.query input)
+        stopBefore bad (next answer)) := rfl
+theorem run'_query_bind {α : Type} (input : OracleWorld.Domain)
+    (next : OracleWorld.Range input → OracleComp OracleWorld α)
+    (cache : QueryCache HashSpec) :
+    (simulateQ romImpl (liftM (OracleWorld.query input) >>= next)).run' cache =
+      ((romImpl input).run cache >>= fun result =>
+        (simulateQ romImpl (next result.1)).run' result.2) := by
+  simp only [simulateQ_bind, simulateQ_spec_query, StateT.run'_eq, StateT.run_bind, map_bind]
+theorem probEvent_stopBefore_le {α : Type} (bad : OracleWorld.Domain → Prop)
+    [DecidablePred bad] (computation : OracleComp OracleWorld α)
+    (cache : QueryCache HashSpec) (event : α → Prop) :
+    Pr[fun value => ∃ a, value = some a ∧ event a |
+      (simulateQ romImpl (stopBefore bad computation)).run' cache] ≤
+        Pr[event | (simulateQ romImpl computation).run' cache] := by
+  classical
+  induction computation using OracleComp.inductionOn generalizing cache with
+  | pure value => simp [stopBefore_pure]
+  | query_bind input next ih =>
+      rw [stopBefore_query_bind]
+      split
+      · simp
+      · simp only [run'_query_bind, probEvent_bind_eq_tsum]
+        exact ENNReal.tsum_le_tsum fun result => mul_le_mul' le_rfl (ih result.1 result.2)
+theorem probEvent_le_stopBefore_add_failure {α : Type} (bad : OracleWorld.Domain → Prop)
+    [DecidablePred bad] (computation : OracleComp OracleWorld α)
+    (cache : QueryCache HashSpec) (event : α → Prop) :
+    Pr[event | (simulateQ romImpl computation).run' cache] ≤
+      Pr[fun value => ∃ a, value = some a ∧ event a |
+        (simulateQ romImpl (stopBefore bad computation)).run' cache] +
+      Pr[= none | (simulateQ romImpl (stopBefore bad computation)).run' cache] := by
+  classical
+  induction computation using OracleComp.inductionOn generalizing cache with
+  | pure value => simp [stopBefore_pure]
+  | query_bind input next ih =>
+      rw [stopBefore_query_bind]
+      split
+      · simp
+      · simp only [run'_query_bind, probEvent_bind_eq_tsum, probOutput_bind_eq_tsum,
+          ← ENNReal.tsum_add]
+        exact ENNReal.tsum_le_tsum fun result =>
+          (mul_le_mul' le_rfl (ih result.1 result.2)).trans_eq (mul_add ..)
+end SphincsSecurity.Seeded
+end
+-- ==== merged from SphincsSecurity_Proof_Base_QueryCap ====
+section
+
+namespace SphincsSecurity.QueryCap
+open _root_.OracleComp OracleSpec
+set_option backward.isDefEq.respectTransparency false
+set_option autoImplicit true
+variable {Index : Type} {spec : OracleSpec Index} {Result Next : Type}
+  (selected : Index → Prop) [DecidablePred selected]
+noncomputable def counted (computation : OracleComp spec Result) : OracleComp spec (Result × Nat) :=
+  OracleComp.construct (fun result => pure (result, 0))
+    (fun input _ next => do
+      let answer ← liftM (spec.query input)
+      let result ← next answer
+      pure (result.1, (if selected input then 1 else 0) + result.2)) computation
+theorem counted_pure (result : Result) : counted selected (pure result : OracleComp spec Result) = pure (result, 0) := rfl
+theorem counted_query_bind (input : spec.Domain) (next : spec.Range input → OracleComp spec Result) :
+    counted selected (liftM (spec.query input) >>= next) = (do
+      let answer ← liftM (spec.query input)
+      let result ← counted selected (next answer)
+      pure (result.1, (if selected input then 1 else 0) + result.2)) := rfl
+theorem simulate_withCost {m : Type → Type} [Monad m] [LawfulMonad m]
+    (impl : QueryImpl spec m) (computation : OracleComp spec α) :
+    simulateQ impl (counted selected computation) =
+      (simulateQ (impl.withAddCost (fun input => if selected input then 1 else (0 : Nat))) computation).run := by
+  induction computation using OracleComp.inductionOn with
+  | pure value => rfl
+  | query_bind input next ih =>
+      simp only [counted_query_bind, simulateQ_bind, simulateQ_spec_query, simulateQ_pure, ih,
+        WriterT.run_bind]
+      simp [QueryImpl.withAddCost, QueryImpl.withCost, QueryImpl.withTraceBefore_apply,
+        WriterT.run_bind, WriterT.run_liftM, WriterT.run_tell, map_eq_bind_pure_comp, bind_assoc]
+      rfl
+theorem counted_forget (computation : OracleComp spec Result) :
+    Prod.fst <$> counted selected computation = computation := by
+  induction computation using OracleComp.inductionOn with
+  | pure result => simp only [counted_pure, map_pure]
+  | query_bind input next ih =>
+      simp only [counted_query_bind, map_bind, bind_pure_comp, Functor.map_map, ih]
+theorem counted_bind (computation : OracleComp spec Result) (next : Result → OracleComp spec Next) :
+    counted selected (computation >>= next) = (do
+      let first ← counted selected computation
+      let second ← counted selected (next first.1)
+      pure (second.1, first.2 + second.2)) := by
+  induction computation using OracleComp.inductionOn with
+  | pure result => simp only [pure_bind, counted_pure, zero_add, Prod.mk.eta, bind_pure]
+  | query_bind input continuation ih =>
+      simp only [bind_assoc, counted_query_bind, ih, pure_bind, Nat.add_assoc]
+theorem counted_map (computation : OracleComp spec Result) (f : Result → Next) :
+    counted selected (f <$> computation) = (fun result => (f result.1, result.2)) <$> counted selected computation := by
+  rw [show f <$> computation = computation >>= fun result => pure (f result) from (bind_pure_comp f computation).symm,
+    counted_bind]
+  simp only [counted_pure, Nat.add_zero, bind_pure_comp, map_pure]
+noncomputable def run (computation : OracleComp spec Result) : Nat → OracleComp spec (Option (Result × Nat)) :=
+  OracleComp.construct (fun result budget => pure (some (result, budget)))
+    (fun input _ next budget =>
+      if selected input then
+        match budget with
+        | 0 => pure none
+        | remaining + 1 => liftM (spec.query input) >>= fun answer => next answer remaining
+      else liftM (spec.query input) >>= fun answer => next answer budget) computation
+theorem run_pure (result : Result) (budget : Nat) :
+    run selected (pure result : OracleComp spec Result) budget = pure (some (result, budget)) := rfl
+theorem run_query_bind (input : spec.Domain) (next : spec.Range input → OracleComp spec Result) (budget : Nat) :
+    run selected (liftM (spec.query input) >>= next) budget =
+      if selected input then
+        match budget with
+        | 0 => pure none
+        | remaining + 1 => liftM (spec.query input) >>= fun answer => run selected (next answer) remaining
+      else liftM (spec.query input) >>= fun answer => run selected (next answer) budget := rfl
+theorem run_queryBound (computation : OracleComp spec Result) (budget : Nat) :
+    (run selected computation budget).IsQueryBoundP selected budget := by
+  induction computation using OracleComp.inductionOn generalizing budget with
+  | pure result => simp only [run_pure, isQueryBoundP_pure]
+  | query_bind input next ih =>
+      rw [run_query_bind]
+      by_cases hselected : selected input
+      · rw [if_pos hselected]
+        cases budget with
+        | zero => exact isQueryBoundP_pure selected none 0
+        | succ budget =>
+            simp only [isQueryBoundP_query_bind_iff, hselected, not_true_eq_false, false_or, Nat.zero_lt_succ,
+              ↓reduceIte, Nat.add_sub_cancel, true_and]
+            exact fun answer => ih answer budget
+      · simp only [isQueryBoundP_query_bind_iff, hselected, not_false_eq_true, true_or,
+          ↓reduceIte, true_and]
+        exact fun answer => ih answer budget
+theorem run_bind (computation : OracleComp spec Result) (next : Result → OracleComp spec Next) (budget : Nat) :
+    run selected (computation >>= next) budget = (do
+      match ← run selected computation budget with
+      | none => pure none
+      | some result => run selected (next result.1) result.2) := by
+  induction computation using OracleComp.inductionOn generalizing budget with
+  | pure result => simp only [pure_bind, run_pure]
+  | query_bind input continuation ih =>
+      rw [bind_assoc, run_query_bind, run_query_bind]
+      by_cases hselected : selected input
+      · rw [if_pos hselected, if_pos hselected]
+        cases budget with
+        | zero => simp only [pure_bind]
+        | succ budget => simp only [bind_assoc, ih]
+      · simp only [if_neg hselected, bind_assoc, ih]
+def finish (budget : Nat) (result : Result × Nat) : Option (Result × Nat) :=
+  if result.2 ≤ budget then some (result.1, budget - result.2) else none
+theorem run_eq_counted (impl : QueryImpl spec PMF) (computation : OracleComp spec Result) (budget : Nat) :
+    simulateQ impl (run selected computation budget) =
+      (simulateQ impl (counted selected computation)).map (finish budget) := by
+  induction computation using OracleComp.inductionOn generalizing budget with
+  | pure result =>
+      simp only [run_pure, counted_pure, simulateQ_pure, ← PMF.monad_map_eq_map, map_pure,
+        finish, Nat.zero_le, if_true, Nat.sub_zero]
+  | query_bind input next ih =>
+      rw [run_query_bind, counted_query_bind]
+      by_cases hselected : selected input
+      · rw [if_pos hselected]
+        cases budget with
+        | zero =>
+            simp only [simulateQ_pure, simulateQ_bind, simulateQ_spec_query, PMF.monad_bind_eq_bind,
+              PMF.monad_pure_eq_pure, PMF.map, PMF.bind_bind, PMF.pure_bind, Function.comp_def,
+              finish, if_pos hselected, Nat.add_comm 1, Nat.add_one_le_iff, Nat.not_lt_zero, if_false, PMF.bind_const]
+        | succ budget =>
+            simp only [simulateQ_bind, simulateQ_spec_query, ih, simulateQ_pure, PMF.monad_bind_eq_bind,
+              PMF.monad_pure_eq_pure, PMF.map, PMF.bind_bind, PMF.pure_bind, Function.comp_def, finish, if_pos hselected,
+              Nat.add_comm 1, Nat.add_le_add_iff_right, Nat.add_sub_add_right]
+      · simp only [if_neg hselected, simulateQ_bind, simulateQ_spec_query, ih, simulateQ_pure,
+          PMF.monad_bind_eq_bind, PMF.monad_pure_eq_pure, PMF.map, PMF.bind_bind, PMF.pure_bind, Function.comp_def,
+          Nat.zero_add, Prod.mk.eta]
+end SphincsSecurity.QueryCap
+end
+-- ==== merged from SphincsSecurity_Proof_Reference_QueryBound ====
+section
+
+namespace SphincsSecurity
+open OracleComp OracleSpec
+set_option backward.isDefEq.respectTransparency false
+noncomputable def countHashQueries {α : Type} (computation : OracleComp OracleWorld α) :
+    OracleComp OracleWorld (α × Nat) :=
+  QueryCap.counted (fun input : OracleWorld.Domain => input matches .inr _) computation
+def HashQueryBound {α : Type} (computation : OracleComp OracleWorld α)
+    (cache : QueryCache HashSpec) (q : Nat) : Prop :=
+  ∀ result ∈ support ((simulateQ romImpl (countHashQueries computation)).run' cache), result.2 ≤ q
+theorem countHashQueries_pure {α : Type} (value : α) :
+    countHashQueries (pure value) = pure (value, 0) := rfl
+theorem countHashQueries_query_bind {α : Type} (input : OracleWorld.Domain)
+    (next : OracleWorld.Range input → OracleComp OracleWorld α) :
+    countHashQueries (liftM (OracleWorld.query input) >>= next) = (do
+      let answer ← liftM (OracleWorld.query input)
+      let result ← countHashQueries (next answer)
+      pure (result.1, (if (fun input : OracleWorld.Domain => input matches .inr _) input then 1 else 0) + result.2)) := rfl
+theorem countHashQueries_bind {α β : Type} (first : OracleComp OracleWorld α)
+    (next : α → OracleComp OracleWorld β) :
+    countHashQueries (first >>= next) = (do
+      let a ← countHashQueries first
+      let b ← countHashQueries (next a.1)
+      pure (b.1, a.2 + b.2)) :=
+  QueryCap.counted_bind (fun input : OracleWorld.Domain => input matches .inr _) first next
+theorem countHashQueries_map {α β : Type} (first : OracleComp OracleWorld α) (f : α → β) :
+    countHashQueries (f <$> first) = (fun result => (f result.1, result.2)) <$> countHashQueries first :=
+  QueryCap.counted_map (fun input : OracleWorld.Domain => input matches .inr _) first f
+theorem probComp_support_nonempty {α : Type} (computation : ProbComp α) :
+    (support computation).Nonempty := by
+  induction computation using OracleComp.inductionOn with
+  | pure value => exact ⟨value, by simp⟩
+  | query_bind input next ih =>
+      obtain ⟨value, hv⟩ := ih default
+      exact ⟨value, (mem_support_bind_iff _ _ _).mpr ⟨default, mem_support_query input default, hv⟩⟩
+theorem hashQueryBound_iff_run {α : Type} (computation : OracleComp OracleWorld α)
+    (cache : QueryCache HashSpec) (q : Nat) :
+    HashQueryBound computation cache q ↔
+      ∀ result ∈ support ((simulateQ romImpl (countHashQueries computation)).run cache), result.1.2 ≤ q := by
+  simp only [HashQueryBound, StateT.run'_eq, support_map, Set.forall_mem_image]
+theorem hashQueryBound_map_iff {α β : Type} (computation : OracleComp OracleWorld α)
+    (f : α → β) (cache : QueryCache HashSpec) (q : Nat) :
+    HashQueryBound (f <$> computation) cache q ↔ HashQueryBound computation cache q := by
+  simp only [HashQueryBound, countHashQueries_map, simulateQ_map, StateT.run'_eq,
+    StateT.run_map, Functor.map_map, support_map, Set.forall_mem_image]
+theorem hashQueryBound_iff_of_map_eq {α β : Type} {first : OracleComp OracleWorld α}
+    {second : OracleComp OracleWorld β} {f : α → β} (heq : f <$> first = second)
+    (cache : QueryCache HashSpec) (q : Nat) :
+    HashQueryBound first cache q ↔ HashQueryBound second cache q := by
+  rw [← heq, hashQueryBound_map_iff]
+theorem hashQueryBound_bind {α β : Type} (first : OracleComp OracleWorld α)
+    (next : α → OracleComp OracleWorld β) (cache : QueryCache HashSpec) (q : Nat)
+    (hbound : HashQueryBound (first >>= next) cache q)
+    (result : (α × Nat) × QueryCache HashSpec)
+    (hresult : result ∈ support ((simulateQ romImpl (countHashQueries first)).run cache)) :
+    result.1.2 ≤ q ∧ HashQueryBound (next result.1.1) result.2 (q - result.1.2) := by
+  rw [hashQueryBound_iff_run] at hbound ⊢
+  simp only [countHashQueries_bind, simulateQ_bind, StateT.run_bind,
+    bind_pure_comp, simulateQ_map, StateT.run_map] at hbound
+  have hsum : ∀ tail ∈ support ((simulateQ romImpl (countHashQueries (next result.1.1))).run result.2),
+      result.1.2 + tail.1.2 ≤ q := by
+    intro tail htail
+    apply hbound ((tail.1.1, result.1.2 + tail.1.2), tail.2)
+    rw [mem_support_bind_iff]
+    refine ⟨result, hresult, ?_⟩
+    rw [support_map]
+    exact ⟨tail, htail, rfl⟩
+  obtain ⟨tail, htail⟩ := probComp_support_nonempty
+    ((simulateQ romImpl (countHashQueries (next result.1.1))).run result.2)
+  exact ⟨(Nat.le_add_right _ _).trans (hsum tail htail), fun tail ht => by have := hsum tail ht; omega⟩
+theorem countHashQueries_lift_prob {α : Type} (computation : ProbComp α) :
+    countHashQueries (liftM computation : OracleComp OracleWorld α) =
+      (fun value => (value, 0)) <$> (liftM computation : OracleComp OracleWorld α) := by
+  induction computation using OracleComp.inductionOn with
+  | pure value => simp only [liftM_pure, countHashQueries_pure, map_pure]
+  | query_bind input next ih =>
+      rw [liftM_bind]
+      change countHashQueries (liftM (OracleWorld.query (.inl input)) >>= _) = _
+      simp only [countHashQueries_query_bind, ih, map_bind, bind_pure_comp, Functor.map_map]
+      rfl
+theorem hashQueryBound_of_sampling_bind {α β : Type} (first : ProbComp α)
+    (next : α → OracleComp OracleWorld β) (cache : QueryCache HashSpec) (q : Nat)
+    (hbound : HashQueryBound ((liftM first : OracleComp OracleWorld α) >>= next) cache q)
+    (value : α) (hvalue : value ∈ support first) : HashQueryBound (next value) cache q := by
+  have hrun : ((value, 0), cache) ∈
+      support ((simulateQ romImpl (countHashQueries (liftM first : OracleComp OracleWorld α))).run cache) := by
+    rw [countHashQueries_lift_prob, simulateQ_map, StateT.run_map, romImpl,
+      QueryImpl.simulateQ_add_liftM_left, unifFwdImpl.simulateQ_run]
+    simp only [Functor.map_map, support_map]
+    exact ⟨value, hvalue, rfl⟩
+  exact (hashQueryBound_bind _ next cache q hbound _ hrun).2
+theorem simulateQ_countHashQueries {α : Type} (computation : OracleComp OracleWorld α) :
+    simulateQ romImpl (countHashQueries computation) = (simulateQ countedRomImpl computation).run := by
+  rw [countHashQueries, QueryCap.simulate_withCost]
+  congr 2
+  funext input
+  cases input <;> rfl
+theorem hasHashQueryBound_iff {Key : Type} (scheme : Scheme Key) (adversary : Adversary) (q : Nat) :
+    HasHashQueryBound scheme adversary q ↔ HashQueryBound (gameCore scheme adversary) ∅ q := by
+  simp only [HasHashQueryBound, HashQueryBound, simulateQ_countHashQueries]
+  rfl
+end SphincsSecurity
+end
+-- ==== merged from SphincsSecurity_Proof_Seeded_QueryBoundExtras ====
+section
+
+namespace SphincsSecurity
+open OracleComp OracleSpec
+set_option backward.isDefEq.respectTransparency false
+theorem countHashQueries_forget {α : Type} (computation : OracleComp OracleWorld α) :
+    Prod.fst <$> countHashQueries computation = computation :=
+  QueryCap.counted_forget _ computation
+theorem countHashQueries_run_forget {α : Type} (computation : OracleComp OracleWorld α)
+    (cache : QueryCache HashSpec) :
+    (fun result => (result.1.1, result.2)) <$>
+      (simulateQ romImpl (countHashQueries computation)).run cache =
+        (simulateQ romImpl computation).run cache := by
+  have h := congrArg (fun c : OracleComp OracleWorld α => (simulateQ romImpl c).run cache)
+    (countHashQueries_forget computation)
+  simpa only [simulateQ_map, StateT.run_map] using h
+theorem HashQueryBound.mono {α : Type} {computation : OracleComp OracleWorld α}
+    {cache : QueryCache HashSpec} {q r : Nat} (hbound : HashQueryBound computation cache q)
+    (hle : q ≤ r) : HashQueryBound computation cache r :=
+  fun result hr => (hbound result hr).trans hle
+theorem hashQueryBound_bind_run {α β : Type} (first : OracleComp OracleWorld α)
+    (next : α → OracleComp OracleWorld β) (cache : QueryCache HashSpec) (q : Nat)
+    (hbound : HashQueryBound (first >>= next) cache q) (result : α × QueryCache HashSpec)
+    (hr : result ∈ support ((simulateQ romImpl first).run cache)) :
+    ∃ cost, cost ≤ q ∧ HashQueryBound (next result.1) result.2 (q - cost) := by
+  rw [← countHashQueries_run_forget first cache, support_map] at hr
+  obtain ⟨record, hrecord, rfl⟩ := hr
+  exact ⟨record.1.2, hashQueryBound_bind first next cache q hbound record hrecord⟩
+theorem hashQueryBound_bind_right {α β : Type} (first : OracleComp OracleWorld α)
+    (next : α → OracleComp OracleWorld β) (cache : QueryCache HashSpec) (q : Nat)
+    (hbound : HashQueryBound (first >>= next) cache q) (result : α × QueryCache HashSpec)
+    (hr : result ∈ support ((simulateQ romImpl first).run cache)) :
+    HashQueryBound (next result.1) result.2 q := by
+  obtain ⟨cost, _, hnext⟩ := hashQueryBound_bind_run first next cache q hbound result hr
+  exact hnext.mono (Nat.sub_le _ _)
+theorem hashQueryBound_query_bind {α : Type} (input : OracleWorld.Domain)
+    (next : OracleWorld.Range input → OracleComp OracleWorld α) (cache : QueryCache HashSpec) (q : Nat)
+    (hbound : HashQueryBound (liftM (OracleWorld.query input) >>= next) cache q)
+    (result : OracleWorld.Range input × QueryCache HashSpec)
+    (hr : result ∈ support ((romImpl input).run cache)) :
+    (if (fun input : OracleWorld.Domain => input matches .inr _) input then 1 else 0) ≤ q ∧
+      HashQueryBound (next result.1) result.2 (q - (if (fun input : OracleWorld.Domain => input matches .inr _) input then 1 else 0)) := by
+  apply hashQueryBound_bind _ next cache q hbound
+    ((result.1, if (fun input : OracleWorld.Domain => input matches .inr _) input then 1 else 0), result.2)
+  rw [← bind_pure (liftM (OracleWorld.query input)), countHashQueries_query_bind]
+  simp only [countHashQueries_pure, map_pure, Nat.add_zero, bind_pure_comp,
+    simulateQ_map, simulateQ_spec_query, StateT.run_map, support_map]
+  exact ⟨result, hr, by cases input <;> rfl⟩
+end SphincsSecurity
+end
+-- ==== merged from SphincsSecurity_Proof_Seeded_Presampling ====
+section
+
+open OracleComp OracleSpec
+namespace SphincsSecurity.Seeded
+set_option backward.isDefEq.respectTransparency false
+theorem cacheQuery_comm (cache : QueryCache HashSpec) (left right : HashInput)
+    (h : left ≠ right) (a b : HashOutput) :
+    (cache.cacheQuery left a).cacheQuery right b = (cache.cacheQuery right b).cacheQuery left a := by
+  funext input
+  by_cases hl : input = left
+  · subst input
+    simp [QueryCache.cacheQuery_of_ne, h]
+  · by_cases hr : input = right
+    · subst input
+      simp [QueryCache.cacheQuery_of_ne, hl]
+    · simp [QueryCache.cacheQuery_of_ne, hl, hr]
+theorem evalDist_presample_fresh {α : Type} (computation : OracleComp OracleWorld α)
+    (cache : QueryCache HashSpec) (target : HashInput) (hfresh : cache target = none) :
+    𝒮[(simulateQ romImpl computation).run' cache] = 𝒮[do
+      let output ← $ᵗ HashOutput
+      (simulateQ romImpl computation).run' (cache.cacheQuery target output)] := by
+  induction computation using OracleComp.inductionOn generalizing cache with
+  | pure value =>
+      apply evalSPMF_ext
+      intro result
+      simp
+  | query_bind input next ih =>
+      cases input with
+      | inl input =>
+          dsimp only [OracleWorld] at next ih ⊢
+          have hrun (cache : QueryCache HashSpec) :
+              (simulateQ romImpl (liftM (OracleWorld.query (.inl input)) >>= next)).run' cache =
+                ((liftM (unifSpec.query input) : ProbComp _) >>= fun answer =>
+                  (simulateQ romImpl (next answer)).run' cache) := by
+            rw [run'_query_bind]
+            change (((fun answer => (answer, cache)) <$> (liftM (unifSpec.query input) : ProbComp _)) >>= _) = _
+            exact bind_map_left (m := ProbComp) (fun answer => (answer, cache))
+              (liftM (unifSpec.query input) : ProbComp _)
+              (fun result => (simulateQ romImpl (next result.1)).run' result.2)
+          rw [hrun]
+          trans 𝒮[do
+            let answer ← (liftM (unifSpec.query input) : ProbComp _)
+            let output ← $ᵗ HashOutput
+            (simulateQ romImpl (next answer)).run' (cache.cacheQuery target output)]
+          · exact evalSPMF_bind_congr' _ (fun answer => ih answer cache hfresh)
+          · rw [evalSPMF_bind_bind_swap]
+            apply evalSPMF_bind_congr'
+            intro output
+            rw [hrun]
+      | inr input =>
+          dsimp only [OracleWorld] at next ih ⊢
+          have hrun (cache : QueryCache HashSpec) :
+              (simulateQ romImpl (liftM (OracleWorld.query (.inr input)) >>= next)).run' cache =
+                ((randomOracle (spec := HashSpec) input).run cache >>= fun result =>
+                  (simulateQ romImpl (next result.1)).run' result.2) := run'_query_bind _ _ _
+          by_cases heq : input = target
+          · subst target
+            rw [hrun, QueryImpl.withCaching_run_none _ hfresh, bind_map_left]
+            apply evalSPMF_bind_congr'
+            intro output
+            rw [hrun, QueryImpl.withCaching_run_some _ (QueryCache.cacheQuery_self _ _ _), pure_bind]
+          · have hfresh' (output : HashOutput) : (cache.cacheQuery input output) target = none := by
+              rw [QueryCache.cacheQuery_of_ne _ _ (Ne.symm heq), hfresh]
+            cases hinput : cache input with
+            | some answer =>
+                rw [hrun, QueryImpl.withCaching_run_some _ hinput, pure_bind, ih answer cache hfresh]
+                apply evalSPMF_bind_congr'
+                intro output
+                rw [hrun, QueryImpl.withCaching_run_some _ (by
+                  rw [QueryCache.cacheQuery_of_ne _ _ heq, hinput]), pure_bind]
+            | none =>
+                rw [hrun, QueryImpl.withCaching_run_none _ hinput, bind_map_left]
+                trans 𝒮[do
+                  let answer ← $ᵗ HashOutput
+                  let output ← $ᵗ HashOutput
+                  (simulateQ romImpl (next answer)).run' ((cache.cacheQuery input answer).cacheQuery target output)]
+                · exact evalSPMF_bind_congr' _ (fun answer => ih answer _ (hfresh' answer))
+                · rw [evalSPMF_bind_bind_swap]
+                  apply evalSPMF_bind_congr'
+                  intro output
+                  rw [hrun, QueryImpl.withCaching_run_none _ (by
+                    rw [QueryCache.cacheQuery_of_ne _ _ heq, hinput]), bind_map_left]
+                  apply evalSPMF_bind_congr'
+                  intro answer
+                  rw [cacheQuery_comm cache input target heq]
+theorem evalDist_presample_query {α : Type} (computation : OracleComp OracleWorld α)
+    (cache : QueryCache HashSpec) (target : HashInput) :
+    𝒮[(simulateQ romImpl computation).run' cache] =
+      𝒮[(randomOracle (spec := HashSpec) target).run cache >>= fun result =>
+        (simulateQ romImpl computation).run' result.2] := by
+  cases hc : cache target with
+  | none =>
+      rw [QueryImpl.withCaching_run_none _ hc, bind_map_left]
+      exact evalDist_presample_fresh computation cache target hc
+  | some output =>
+      rw [QueryImpl.withCaching_run_some _ hc, pure_bind]
+theorem evalDist_presample_computation {α β : Type} (computation : OracleComp OracleWorld α)
+    (preparation : OracleComp OracleWorld β) (cache : QueryCache HashSpec) :
+    𝒮[(simulateQ romImpl computation).run' cache] =
+      𝒮[(simulateQ romImpl preparation).run cache >>= fun result =>
+        (simulateQ romImpl computation).run' result.2] := by
+  induction preparation using OracleComp.inductionOn generalizing cache with
+  | pure value => simp
+  | query_bind input next ih =>
+      simp only [simulateQ_bind, simulateQ_spec_query, StateT.run_bind, bind_assoc]
+      trans 𝒮[(romImpl input).run cache >>= fun result =>
+        (simulateQ romImpl computation).run' result.2]
+      · cases input with
+        | inl input =>
+            apply evalSPMF_ext
+            intro value
+            simp [romImpl, unifFwdImpl]
+        | inr input => exact evalDist_presample_query computation cache input
+      · exact evalSPMF_bind_congr' _ (fun result => ih result.1 result.2)
+theorem hashQueryBound_after_preparation {α β : Type} (computation : OracleComp OracleWorld α)
+    (preparation : OracleComp OracleWorld β) (cache : QueryCache HashSpec) (q : Nat)
+    (hbound : HashQueryBound computation cache q) (prepared : β × QueryCache HashSpec)
+    (hprepared : prepared ∈ support ((simulateQ romImpl preparation).run cache)) :
+    HashQueryBound computation prepared.2 q := by
+  intro result hresult
+  apply hbound result
+  rw [mem_support_iff_of_evalSPMF_eq
+    (evalDist_presample_computation (countHashQueries computation) preparation cache), mem_support_bind_iff]
+  exact ⟨prepared, hprepared, hresult⟩
+end SphincsSecurity.Seeded
+end
+-- ==== merged from SphincsSecurity_Proof_Seeded_CacheCoupling ====
+section
+
+open OracleComp OracleSpec
+namespace SphincsSecurity.Seeded
+set_option backward.isDefEq.respectTransparency false
+def hashBad (bad : HashInput → Prop) : OracleWorld.Domain → Prop
+  | .inl _ => False
+  | .inr input => bad input
+instance (bad : HashInput → Prop) [DecidablePred bad] : DecidablePred (hashBad bad) :=
+  fun input => match input with
+    | .inl _ => isFalse id
+    | .inr input => inferInstanceAs (Decidable (bad input))
+def AgreeOutside (bad : HashInput → Prop) (left right : QueryCache HashSpec) : Prop :=
+  ∀ input, ¬bad input → left input = right input
+theorem AgreeOutside.cacheQuery {bad : HashInput → Prop} {left right : QueryCache HashSpec}
+    (h : AgreeOutside bad left right) (input : HashInput) (answer : HashOutput) :
+    AgreeOutside bad (left.cacheQuery input answer) (right.cacheQuery input answer) := by
+  intro other hother
+  by_cases heq : other = input
+  · subst other; simp
+  · simpa only [QueryCache.cacheQuery_of_ne _ _ heq] using h other hother
+theorem run'_stopBefore_eq {α : Type} (bad : HashInput → Prop) [DecidablePred bad]
+    (computation : OracleComp OracleWorld α) (left right : QueryCache HashSpec)
+    (h : AgreeOutside bad left right) :
+    (simulateQ romImpl (stopBefore (hashBad bad) computation)).run' left =
+      (simulateQ romImpl (stopBefore (hashBad bad) computation)).run' right := by
+  induction computation using OracleComp.inductionOn generalizing left right with
+  | pure value => simp [stopBefore_pure]
+  | query_bind input next ih =>
+      rw [stopBefore_query_bind]
+      by_cases hbad : hashBad bad input
+      · simp [hbad]
+      · simp only [if_neg hbad, run'_query_bind]
+        cases input with
+        | inl input =>
+            dsimp [OracleWorld] at next ih ⊢
+            change ((fun answer => (answer, left)) <$> (liftM (unifSpec.query input) : ProbComp _) >>= _) =
+              ((fun answer => (answer, right)) <$> (liftM (unifSpec.query input) : ProbComp _) >>= _)
+            simp only [bind_map_left]
+            congr 1
+            funext answer
+            exact ih answer left right h
+        | inr input =>
+            dsimp [OracleWorld] at next ih ⊢
+            change ((randomOracle input).run left >>= _) = ((randomOracle input).run right >>= _)
+            have heq := h input hbad
+            cases hleft : left input with
+            | none =>
+                have hright : right input = none := heq.symm.trans hleft
+                rw [QueryImpl.withCaching_run_none _ hleft, QueryImpl.withCaching_run_none _ hright]
+                simp only [bind_map_left]
+                congr 1
+                funext answer
+                exact ih answer _ _ (h.cacheQuery input answer)
+            | some answer =>
+                have hright : right input = some answer := heq.symm.trans hleft
+                rw [QueryImpl.withCaching_run_some _ hleft, QueryImpl.withCaching_run_some _ hright]
+                simp only [pure_bind]
+                exact ih answer left right h
+theorem probEvent_cache_change_le {α : Type} (bad : HashInput → Prop) [DecidablePred bad]
+    (computation : OracleComp OracleWorld α) (left right : QueryCache HashSpec)
+    (h : AgreeOutside bad left right) (event : α → Prop) :
+    Pr[event | (simulateQ romImpl computation).run' left] ≤
+      Pr[event | (simulateQ romImpl computation).run' right] +
+      Pr[= none | (simulateQ romImpl (stopBefore (hashBad bad) computation)).run' right] := by
+  have hbound := probEvent_le_stopBefore_add_failure (hashBad bad) computation left event
+  rw [run'_stopBefore_eq bad computation left right h] at hbound
+  exact hbound.trans (add_le_add
+    (probEvent_stopBefore_le (hashBad bad) computation right event) le_rfl)
+end SphincsSecurity.Seeded
+end
+-- ==== merged from SphincsSecurity_Proof_Seeded_KeyDerivation ====
+section
+
+namespace SphincsSecurity
+theorem keygenDomainFields_injective : Function.Injective keygenDomainFields := by
+  intro left right h
+  cases left <;> cases right <;>
+    simp_all only [keygenDomainFields, tweakFields, TweakFields.mk.injEq, BitVec.reduceEq, false_and,
+      true_and, KeygenDomain.ots.injEq, KeygenDomain.fts.injEq, KeygenDomain.mask.injEq]
+  · obtain ⟨hlay, htree, hchain, hleaf⟩ := h
+    exact ⟨fin_of_ofNat_eq (by decide) hlay, fin_of_ofNat_eq (by decide) htree,
+      fin_of_ofNat_eq (by decide) hleaf, fin_of_ofNat_eq (by decide) hchain⟩
+  · obtain ⟨htree, hindex, hleaf⟩ := h
+    exact ⟨fin_of_ofNat_eq (by decide) hindex, fin_of_ofNat_eq (by decide) htree,
+      fin_of_ofNat_eq (by decide) hleaf⟩
+  · obtain ⟨hlevel, hnode⟩ := h
+    exact ⟨fin_of_ofNat_eq (by decide) hlevel, fin_of_ofNat_eq (by decide) hnode⟩
+theorem keygenHashInput_injective {p₁ p₂ : PublicParameter} {d₁ d₂ : KeygenDomain}
+    {s₁ s₂ : MasterSeed} (h : keygenHashInput p₁ d₁ s₁ = keygenHashInput p₂ d₂ s₂) :
+    p₁ = p₂ ∧ d₁ = d₂ ∧ s₁ = s₂ := by
+  unfold keygenHashInput at h
+  obtain ⟨hprefix, hseed⟩ := List.append_inj' h (by simp [bytesLE_length])
+  obtain ⟨htweak, hparameter⟩ := List.append_inj' hprefix ((bytesLE_length 16 _).trans (bytesLE_length 16 _).symm)
+  exact ⟨bytesLE_injective hparameter,
+    keygenDomainFields_injective (fieldBytes_injective htweak), bytesLE_injective hseed⟩
+theorem keygenHashInput_ne_tweakableHashInput (p₁ p₂ : PublicParameter)
+    (d₁ : KeygenDomain) (d₂ : HashDomain) (seed : MasterSeed) (payload : HashInput) :
+    keygenHashInput p₁ d₁ seed ≠ tweakableHashInput p₂ d₂ payload := by
+  intro h
+  unfold keygenHashInput tweakableHashInput tweakBytes at h
+  obtain ⟨hprefix, _⟩ := List.append_inj h (by simp [fieldBytes, bytesLE_length]; exact (bytesLE_length 16 _).trans (bytesLE_length 16 _).symm)
+  obtain ⟨htweak, _⟩ := List.append_inj' hprefix ((bytesLE_length 16 _).trans (bytesLE_length 16 _).symm)
+  have htag := congrArg TweakFields.tag (fieldBytes_injective htweak)
+  cases d₁ <;> cases d₂ <;> simp [keygenDomainFields, hashDomainFields, tweakFields] at htag
+theorem keygenHashInput_seed_unique (input : HashInput) {s₁ s₂ : MasterSeed}
+    (h₁ : ∃ p d, keygenHashInput p d s₁ = input)
+    (h₂ : ∃ p d, keygenHashInput p d s₂ = input) : s₁ = s₂ := by
+  obtain ⟨p₁, d₁, h₁⟩ := h₁
+  obtain ⟨p₂, d₂, h₂⟩ := h₂
+  exact (keygenHashInput_injective (h₁.trans h₂.symm)).2.2
+end SphincsSecurity
+end
+-- ==== merged from SphincsSecurity_Proof_Deterministic_SeedHitProbability ====
+section
+
+open OracleComp OracleSpec ENNReal
+namespace SphincsSecurity
+set_option maxRecDepth 4096
+set_option maxHeartbeats 500000
+theorem prefix_bound (input : HashInput) :
+    Pr[fun seed : MasterSeed => input.take 28 = [1, 7] ++ bytesLE 26 (seed.extractLsb' 0 208) |
+      sampleMasterSeed] ≤ 1 / ((2 ^ 208 : Nat) : ℝ≥0∞) := by
+  classical
+  by_cases hexists : ∃ low : BitVec 208, input.take 28 = [1, 7] ++ bytesLE 26 low
+  · obtain ⟨low, hlow⟩ := hexists
+    have hevent : (fun seed : MasterSeed =>
+        input.take 28 = [1, 7] ++ bytesLE 26 (seed.extractLsb' 0 208)) =
+        (fun seed => seed.extractLsb' 0 208 = low) := by
+      funext seed
+      apply propext
+      constructor
+      · intro h
+        have hp : [1, 7] ++ bytesLE 26 (seed.extractLsb' 0 208) = [1, 7] ++ bytesLE 26 low :=
+          h.symm.trans hlow
+        exact bytesLE_injective (by simpa using hp)
+      · intro h
+        rw [h]
+        exact hlow
+    rw [hevent]
+    have hsample : sampleMasterSeed = ($ᵗ HashOutput : ProbComp HashOutput) := rfl
+    have hdistr : 𝒮[(fun seed : MasterSeed => seed.extractLsb' 0 208) <$> sampleMasterSeed] =
+        𝒮[($ᵗ BitVec 208 : ProbComp (BitVec 208))] := by
+      rw [hsample]
+      exact evalDist_hashOutput_extract_uniform (by decide : 208 ≤ hashOutputBits)
+    change Pr[(fun output => output = low) ∘ (fun seed : MasterSeed => seed.extractLsb' 0 208) |
+      sampleMasterSeed] ≤ _
+    rw [← probEvent_map]
+    rw [probEvent_congr' (fun _ _ => Iff.rfl) hdistr]
+    rw [probEvent_eq_eq_probOutput, probOutput_uniformSample]
+    simp [Fintype.card_bitVec]
+  · have hempty : (fun seed : MasterSeed =>
+        input.take 28 = [1, 7] ++ bytesLE 26 (seed.extractLsb' 0 208)) =
+        (fun _ => False) := by
+      funext seed
+      exact propext ⟨fun h => hexists ⟨seed.extractLsb' 0 208, h⟩, False.elim⟩
+    rw [hempty]
+    simp
+theorem full_bound (input : HashInput) :
+    Pr[fun seed : MasterSeed => (input.drop 32).take 32 = bytesLE 32 seed |
+      sampleMasterSeed] ≤ 1 / ((2 ^ 256 : Nat) : ℝ≥0∞) := by
+  classical
+  by_cases hexists : ∃ seed, (input.drop 32).take 32 = bytesLE 32 seed
+  · obtain ⟨seed, hseed⟩ := hexists
+    have hevent : (fun other : MasterSeed => (input.drop 32).take 32 = bytesLE 32 other) =
+        (fun other => other = seed) := by
+      funext other
+      exact propext ⟨fun h => bytesLE_injective (h.symm.trans hseed), fun h => h ▸ hseed⟩
+    rw [hevent]
+    simp [sampleMasterSeed, MasterSeed]
+  · have hempty : (fun seed : MasterSeed => (input.drop 32).take 32 = bytesLE 32 seed) =
+        (fun _ => False) := by
+      funext seed
+      exact propext ⟨fun h => hexists ⟨seed, h⟩, False.elim⟩
+    rw [hempty]
+    simp
+theorem numeric_bound :
+    1 / ((2 ^ 256 : Nat) : ℝ≥0∞) + 1 / ((2 ^ 208 : Nat) : ℝ≥0∞) ≤
+      1 / ((2 ^ 207 : Nat) : ℝ≥0∞) := by
+  apply (ENNReal.toReal_le_toReal (by finiteness) (by finiteness)).mp
+  norm_num [ENNReal.toReal_add, ENNReal.toReal_div]
+end SphincsSecurity
+end
+-- ==== merged from SphincsSecurity_Proof_Deterministic_Inputs ====
+section
+
+open OracleComp OracleSpec ENNReal
+namespace SphincsSecurity
+set_option backward.isDefEq.respectTransparency false
+set_option maxRecDepth 8192
+set_option maxHeartbeats 1000000
+theorem randomizerHashInput_injective {p₁ p₂ : PublicParameter} {s : MasterSeed}
+    {m₁ m₂ : Message} {a₁ a₂ : BitVec 32}
+    (h : randomizerHashInput p₁ s m₁ a₁ = randomizerHashInput p₂ s m₂ a₂) :
+    m₁ = m₂ ∧ a₁ = a₂ := by
+  unfold randomizerHashInput at h
+  obtain ⟨hprefix, ha⟩ := List.append_inj' h (by simp [bytesLE_length])
+  obtain ⟨_, hm⟩ := List.append_inj' hprefix (by simp [bytesLE_length])
+  exact ⟨bytesLE_injective hm, bytesLE_injective ha⟩
+private theorem tag_append (left right : HashInput) (h : 2 ≤ left.length) :
+    (left ++ right).getD 1 0 = left.getD 1 0 := by
+  simp only [List.getD_eq_getElem?_getD]
+  rw [List.getElem?_append_left (by omega : 1 < left.length)]
+private theorem tag_fieldBytes (fields : TweakFields) :
+    (fieldBytes fields).getD 1 0 = UInt8.ofBitVec fields.tag := by
+  simp only [fieldBytes, bytesLE, List.append_assoc]
+  simp [List.getD_eq_getElem?_getD]
+private theorem tag_randomizer (parameter : PublicParameter) (seed : MasterSeed)
+    (message : Message) (trial : BitVec 32) :
+    (randomizerHashInput parameter seed message trial).getD 1 0 = 7 := by
+  simp [randomizerHashInput, List.getD_eq_getElem?_getD]
+private theorem tag_keygen (parameter : PublicParameter) (domain : KeygenDomain)
+    (seed : MasterSeed) :
+    (keygenHashInput parameter domain seed).getD 1 0 =
+      UInt8.ofBitVec (keygenDomainFields domain).tag := by
+  simp only [keygenHashInput]
+  rw [tag_append _ _ (by simp [fieldBytes, bytesLE_length])]
+  rw [tag_append _ _ (by simp [fieldBytes, bytesLE_length])]
+  exact tag_fieldBytes _
+theorem tag_tweakable (parameter : PublicParameter) (domain : HashDomain)
+    (payload : HashInput) :
+    (tweakableHashInput parameter domain payload).getD 1 0 =
+      UInt8.ofBitVec (hashDomainFields domain).tag := by
+  simp only [tweakableHashInput, tweakBytes]
+  rw [tag_append _ _ (by simp [fieldBytes, bytesLE_length])]
+  rw [tag_append _ _ (by simp [fieldBytes, bytesLE_length])]
+  exact tag_fieldBytes _
+theorem tag_mac (parameter : PublicParameter) (seed : MasterSeed)
+    (region : TopRegion) :
+    (macHashInput parameter seed region).getD 1 0 = 14 := by
+  simp only [macHashInput]
+  rw [tag_append _ _ (by simp [fieldBytes, bytesLE_length])]
+  rw [tag_append _ _ (by simp [fieldBytes, bytesLE_length])]
+  rw [tag_append _ _ (by simp [fieldBytes, bytesLE_length])]
+  exact tag_fieldBytes _
+theorem randomizerHashInput_ne_keygenHashInput (p₁ p₂ : PublicParameter)
+    (s₁ s₂ : MasterSeed) (message : Message) (trial : BitVec 32) (domain : KeygenDomain) :
+    randomizerHashInput p₁ s₁ message trial ≠ keygenHashInput p₂ domain s₂ := by
+  intro h
+  have htag := congrArg (fun x : HashInput => x.getD 1 0) h
+  rw [tag_randomizer, tag_keygen] at htag
+  have hne : UInt8.ofBitVec (keygenDomainFields domain).tag ≠ 7 := by
+    cases domain <;> dsimp [keygenDomainFields, tweakFields] <;> decide
+  exact hne htag.symm
+theorem randomizerHashInput_ne_tweakableHashInput (p₁ p₂ : PublicParameter)
+    (seed : MasterSeed) (message : Message) (trial : BitVec 32)
+    (domain : HashDomain) (payload : HashInput) :
+    randomizerHashInput p₁ seed message trial ≠ tweakableHashInput p₂ domain payload := by
+  intro h
+  have htag := congrArg (fun x : HashInput => x.getD 1 0) h
+  rw [tag_randomizer, tag_tweakable] at htag
+  have hne : UInt8.ofBitVec (hashDomainFields domain).tag ≠ 7 := by
+    cases domain <;> dsimp [hashDomainFields, tweakFields] <;> decide
+  exact hne htag.symm
+def DerivationSeedHit (input : HashInput) (seed : MasterSeed) : Prop :=
+  (input.drop 32).take 32 = bytesLE 32 seed ∨
+    input.take 28 = [1, 7] ++ bytesLE 26 (seed.extractLsb' 0 208)
+theorem derivationSeedHit_keygen (parameter : PublicParameter) (domain : KeygenDomain) (seed : MasterSeed) :
+    DerivationSeedHit (keygenHashInput parameter domain seed) seed := by
+  apply Or.inl
+  simp [keygenHashInput, fieldBytes, bytesLE]
+theorem derivationSeedHit_randomizer (parameter : PublicParameter) (seed : MasterSeed)
+    (message : Message) (trial : BitVec 32) :
+    DerivationSeedHit (randomizerHashInput parameter seed message trial) seed := by
+  apply Or.inr
+  simp [randomizerHashInput, bytesLE_length]
+theorem probEvent_derivationSeedHit_le (input : HashInput) :
+    Pr[DerivationSeedHit input | sampleMasterSeed] ≤ 1 / ((2 ^ 207 : Nat) : ℝ≥0∞) := by
+  change Pr[(fun seed => (input.drop 32).take 32 = bytesLE 32 seed ∨
+    input.take 28 = [1, 7] ++ bytesLE 26 (seed.extractLsb' 0 208)) | sampleMasterSeed] ≤ _
+  exact (probEvent_or_le _ _ _).trans
+    ((add_le_add (full_bound input) (prefix_bound input)).trans numeric_bound)
+end SphincsSecurity
+end
+-- ==== merged from SphincsSecurity_Proof_Seeded_SeedGuessing ====
+section
+
+open OracleComp OracleSpec ENNReal
+namespace SphincsSecurity
+abbrev SeedHit := DerivationSeedHit
+theorem probEvent_seedHit_le (input : HashInput) :
+    Pr[SeedHit input | sampleMasterSeed] ≤ 1 / ((2 ^ 207 : Nat) : ℝ≥0∞) :=
+  probEvent_derivationSeedHit_le input
+def SeedHitLog (inputs : List HashInput) (seed : MasterSeed) : Prop :=
+  ∃ input ∈ inputs, SeedHit input seed
+theorem probEvent_seedHitLog_le (inputs : List HashInput) :
+    Pr[SeedHitLog inputs | sampleMasterSeed] ≤ inputs.length / ((2 ^ 207 : Nat) : ℝ≥0∞) := by
+  induction inputs with
+  | nil => simp [SeedHitLog]
+  | cons input inputs ih =>
+      have hevent : SeedHitLog (input :: inputs) = fun seed =>
+          SeedHit input seed ∨ SeedHitLog inputs seed := by
+        funext seed
+        simp [SeedHitLog]
+      rw [hevent]
+      calc
+        _ ≤ Pr[SeedHit input | sampleMasterSeed] + Pr[SeedHitLog inputs | sampleMasterSeed] :=
+          probEvent_or_le _ _ _
+        _ ≤ 1 / ((2 ^ 207 : Nat) : ℝ≥0∞) + inputs.length / ((2 ^ 207 : Nat) : ℝ≥0∞) :=
+          add_le_add (probEvent_seedHit_le input) ih
+        _ = _ := by simp [List.length_cons, Nat.cast_add, ENNReal.add_div, add_comm]
+end SphincsSecurity
+end
+-- ==== merged from SphincsSecurity_Proof_Seeded_AdaptiveSeedGuessing ====
+section
+
+section
+open OracleComp OracleSpec
+namespace SphincsSecurity.Seeded
+set_option backward.isDefEq.respectTransparency false
+def prependHash (input : OracleWorld.Domain) (inputs : List HashInput) : List HashInput :=
+  match input with
+  | .inl _ => inputs
+  | .inr input => input :: inputs
+noncomputable def traceHashes {α : Type} (computation : OracleComp OracleWorld α) :
+    OracleComp OracleWorld (α × List HashInput) :=
+  OracleComp.construct (fun value => pure (value, []))
+    (fun input _ next => do
+      let answer ← liftM (OracleWorld.query input)
+      let result ← next answer
+      return (result.1, prependHash input result.2)) computation
+theorem traceHashes_pure {α : Type} (value : α) :
+    traceHashes (pure value) = pure (value, []) := rfl
+theorem traceHashes_query_bind {α : Type} (input : OracleWorld.Domain)
+    (next : OracleWorld.Range input → OracleComp OracleWorld α) :
+    traceHashes (liftM (OracleWorld.query input) >>= next) = (do
+      let answer ← liftM (OracleWorld.query input)
+      let result ← traceHashes (next answer)
+      return (result.1, prependHash input result.2)) := rfl
+theorem traceHashes_length {α : Type} (computation : OracleComp OracleWorld α) :
+    (fun result => (result.1, result.2.length)) <$> traceHashes computation =
+      countHashQueries computation := by
+  induction computation using OracleComp.inductionOn with
+  | pure value => rfl
+  | query_bind input next ih =>
+      simp only [traceHashes_query_bind, countHashQueries_query_bind, map_bind, map_pure]
+      congr 1
+      funext answer
+      rw [← ih answer]
+      simp only [bind_pure_comp, Functor.map_map]
+      congr 1
+      funext result
+      cases input <;> simp [prependHash, Nat.add_comm]
+theorem traceHashes_length_le {α : Type} (computation : OracleComp OracleWorld α)
+    (cache : QueryCache HashSpec) (q : Nat) (hbound : HashQueryBound computation cache q)
+    (result : α × List HashInput)
+    (hresult : result ∈ support ((simulateQ romImpl (traceHashes computation)).run' cache)) :
+    result.2.length ≤ q := by
+  apply hbound (result.1, result.2.length)
+  rw [← traceHashes_length, simulateQ_map, StateT.run'_eq, StateT.run_map,
+    Functor.map_map, support_map]
+  rw [StateT.run'_eq, support_map] at hresult
+  obtain ⟨record, hrecord, rfl⟩ := hresult
+  exact ⟨record, hrecord, rfl⟩
+def TraceHits (bad : HashInput → Prop) (inputs : List HashInput) : Prop :=
+  ∃ input ∈ inputs, bad input
+theorem traceHits_prepend (bad : HashInput → Prop) (input : OracleWorld.Domain)
+    (inputs : List HashInput) :
+    TraceHits bad (prependHash input inputs) ↔ hashBad bad input ∨ TraceHits bad inputs := by
+  cases input <;> simp [TraceHits, prependHash, hashBad]
+theorem probOutput_stopBefore_none {α : Type} (bad : HashInput → Prop) [DecidablePred bad]
+    (computation : OracleComp OracleWorld α) (cache : QueryCache HashSpec) :
+    Pr[= none | (simulateQ romImpl (stopBefore (hashBad bad) computation)).run' cache] =
+      Pr[fun result => TraceHits bad result.2 |
+        (simulateQ romImpl (traceHashes computation)).run' cache] := by
+  classical
+  induction computation using OracleComp.inductionOn generalizing cache with
+  | pure value => simp [stopBefore_pure, traceHashes_pure, TraceHits]
+  | query_bind input next ih =>
+      rw [stopBefore_query_bind, traceHashes_query_bind]
+      by_cases hbad : hashBad bad input
+      · rw [if_pos hbad, run'_query_bind]
+        haveI : DecidableEq (QueryCache HashSpec) := Classical.decEq _
+        simp [bind_pure_comp, simulateQ_map, StateT.run'_eq, StateT.run_map]
+        intro a b answer cache' _ a' inputs cache'' _ _ hb
+        rw [← hb, traceHits_prepend]
+        exact Or.inl hbad
+      · rw [if_neg hbad, run'_query_bind, run'_query_bind]
+        simp only [probOutput_bind_eq_tsum, probEvent_bind_eq_tsum]
+        apply tsum_congr
+        intro result
+        rw [ih result.1 result.2]
+        simp only [bind_pure_comp, simulateQ_map, StateT.run'_eq, StateT.run_map,
+          Functor.map_map, probEvent_map, Function.comp_def, traceHits_prepend, hbad, false_or]
+end SphincsSecurity.Seeded
+end
+section
+open OracleComp OracleSpec ENNReal
+namespace SphincsSecurity.Seeded
+set_option backward.isDefEq.respectTransparency false
+open scoped Classical in
+theorem probOutput_stopBefore_seed_le {α : Type} (computation : OracleComp OracleWorld α)
+    (cache : QueryCache HashSpec) (q : Nat) (hbound : HashQueryBound computation cache q) :
+    Pr[= none | sampleMasterSeed >>= fun seed =>
+      (simulateQ romImpl (stopBefore (hashBad (fun input => SeedHit input seed)) computation)).run' cache] ≤
+        q / ((2 ^ 207 : Nat) : ℝ≥0∞) := by
+  classical
+  let trace := (simulateQ romImpl (traceHashes computation)).run' cache
+  calc
+    _ = Pr[= true | sampleMasterSeed >>= fun seed =>
+        (fun result => decide (SeedHitLog result.2 seed)) <$> trace] := by
+      simp only [probOutput_bind_eq_tsum, probOutput_stopBefore_none, probOutput_map,
+        decide_eq_true_eq]
+      rfl
+    _ = Pr[= true | trace >>= fun result =>
+        (fun seed => decide (SeedHitLog result.2 seed)) <$> sampleMasterSeed] := by
+      simp only [← bind_pure_comp]
+      exact probOutput_bind_bind_swap _ _ _ _
+    _ ≤ _ := by
+      rw [← probEvent_eq_eq_probOutput]
+      apply probEvent_bind_le_of_forall_le
+      intro result hresult
+      simp only [probEvent_map, Function.comp_def, decide_eq_true_eq]
+      exact (probEvent_seedHitLog_le result.2).trans
+        (ENNReal.div_le_div
+          (by exact_mod_cast traceHashes_length_le computation cache q hbound result hresult) le_rfl)
+open scoped Classical in
+theorem probEvent_random_cache_change_le {α : Type} (computation : OracleComp OracleWorld α)
+    (initial : MasterSeed → QueryCache HashSpec) (cache : QueryCache HashSpec)
+    (hagree : ∀ seed, AgreeOutside (fun input => SeedHit input seed) (initial seed) cache)
+    (q : Nat) (hbound : HashQueryBound computation cache q) (event : α → Prop) :
+    Pr[event | sampleMasterSeed >>= fun seed => (simulateQ romImpl computation).run' (initial seed)] ≤
+      Pr[event | (simulateQ romImpl computation).run' cache] + q / ((2 ^ 207 : Nat) : ℝ≥0∞) := by
+  classical
+  let stopped := fun seed =>
+    (simulateQ romImpl (stopBefore (hashBad (fun input => SeedHit input seed)) computation)).run' cache
+  calc
+    _ ≤ Pr[event | sampleMasterSeed >>= fun _ => (simulateQ romImpl computation).run' cache] +
+        Pr[= none | sampleMasterSeed >>= stopped] := by
+      simp only [probEvent_bind_eq_tsum, probOutput_bind_eq_tsum, ← ENNReal.tsum_add]
+      exact ENNReal.tsum_le_tsum fun seed =>
+        (mul_le_mul' le_rfl (probEvent_cache_change_le (fun input => SeedHit input seed)
+          computation (initial seed) cache (hagree seed) event)).trans_eq (mul_add ..)
+    _ ≤ _ := by
+      simpa [stopped] using add_le_add (le_refl (Pr[event | (simulateQ romImpl computation).run' cache]))
+        (probOutput_stopBefore_seed_le computation cache q hbound)
+end SphincsSecurity.Seeded
+end
+end
+-- ==== merged from SphincsSecurity_Proof_Scheme_Execution ====
+section
+
+namespace SphincsSecurity
+open OracleComp OracleSpec
+theorem simulateQ_romImpl_cache_le {alpha : Type} (oa : OracleComp OracleWorld alpha)
+    (cache : QueryCache HashSpec) (z : alpha × QueryCache HashSpec)
+    (hmem : z ∈ support ((simulateQ romImpl oa).run cache)) : cache ≤ z.2 := by
+  apply OracleComp.simulateQ_run_preservesInv romImpl (cache ≤ ·) _ oa cache le_rfl z hmem
+  intro input current hle result hresult
+  cases input with
+  | inl sample =>
+      change result ∈ support (((unifFwdImpl HashSpec) sample).run current) at hresult
+      have hrun := unifFwdImpl.simulateQ_run
+        (hashSpec := HashSpec) (liftM (unifSpec.query sample) : ProbComp _) current
+      simp only [simulateQ_spec_query] at hrun
+      rw [hrun, support_map] at hresult
+      obtain ⟨value, _, heq⟩ := hresult
+      rw [← (Prod.mk.inj heq).2]
+      exact hle
+  | inr hashInput =>
+      change result ∈ support
+        (((randomOracle : QueryImpl HashSpec _) hashInput).run current) at hresult
+      exact hle.trans (QueryImpl.withCaching_cache_le uniformSampleImpl hashInput current
+        result hresult)
+end SphincsSecurity
+end
+-- ==== merged from SphincsSecurity_Proof_Seeded_Erasure ====
+section
+
+section
+open OracleComp OracleSpec ENNReal
+namespace SphincsSecurity.Seeded
+set_option backward.isDefEq.respectTransparency false
+theorem exists_seed_not_hit (inputs : List HashInput) (hsize : inputs.length < 2 ^ 207) :
+    ∃ seed, ¬SeedHitLog inputs seed := by
+  classical
+  by_contra h
+  have hall : ∀ seed, SeedHitLog inputs seed := by simpa using h
+  have hone : Pr[SeedHitLog inputs | sampleMasterSeed] = 1 := by
+    simp [hall]
+  have hlt : (inputs.length : ℝ≥0∞) / ((2 ^ 207 : Nat) : ℝ≥0∞) < 1 :=
+    ENNReal.div_lt_of_lt_mul (by rw [one_mul]; exact_mod_cast hsize)
+  exact (not_lt_of_ge (hone ▸ probEvent_seedHitLog_le inputs)) hlt
+theorem hashQueryBound_query_bind_of {α : Type} (input : OracleWorld.Domain)
+    (next : OracleWorld.Range input → OracleComp OracleWorld α)
+    (cache : QueryCache HashSpec) (q : Nat)
+    (hcost : (if (fun input : OracleWorld.Domain => input matches .inr _) input then 1 else 0) ≤ q)
+    (hnext : ∀ result ∈ support ((romImpl input).run cache),
+      HashQueryBound (next result.1) result.2
+        (q - (if (fun input : OracleWorld.Domain => input matches .inr _) input then 1 else 0))) :
+    HashQueryBound (liftM (OracleWorld.query input) >>= next) cache q := by
+  intro result hresult
+  rw [countHashQueries_query_bind, run'_query_bind, mem_support_bind_iff] at hresult
+  obtain ⟨step, hstep, htail⟩ := hresult
+  simp only [bind_pure_comp, simulateQ_map, StateT.run'_eq, StateT.run_map,
+    Functor.map_map, support_map] at htail
+  obtain ⟨tail, htail, rfl⟩ := htail
+  have h := hnext step hstep (tail.1.1,
+    tail.1.2)
+  have htail' : tail.1 ∈ support ((simulateQ romImpl
+      (countHashQueries (next step.1))).run' step.2) := by
+    rw [StateT.run'_eq, support_map]
+    exact ⟨tail, htail, rfl⟩
+  have := h htail'
+  cases input <;> simp_all
+  omega
+noncomputable def cacheAfter (cache : QueryCache HashSpec) (input : OracleWorld.Domain)
+    (answer : OracleWorld.Range input) : QueryCache HashSpec :=
+  match input with
+  | .inl _ => cache
+  | .inr input => match cache input with
+    | none => cache.cacheQuery input answer
+    | some _ => cache
+theorem romImpl_support_cacheAfter (input : OracleWorld.Domain) (cache : QueryCache HashSpec)
+    (result : OracleWorld.Range input × QueryCache HashSpec)
+    (hresult : result ∈ support ((romImpl input).run cache)) :
+    result.2 = cacheAfter cache input result.1 := by
+  cases input with
+  | inl input =>
+      change result ∈ support ((fun answer => (answer, cache)) <$>
+        (liftM (unifSpec.query input) : ProbComp _)) at hresult
+      rw [support_map] at hresult
+      obtain ⟨answer, _, rfl⟩ := hresult
+      rfl
+  | inr input =>
+      change result ∈ support ((randomOracle input).run cache) at hresult
+      cases hc : cache input with
+      | none =>
+          rw [QueryImpl.withCaching_run_none _ hc, support_map] at hresult
+          obtain ⟨answer, _, rfl⟩ := hresult
+          simp [cacheAfter, hc]
+      | some answer =>
+          rw [QueryImpl.withCaching_run_some _ hc, support_pure, Set.mem_singleton_iff] at hresult
+          subst result
+          simp [cacheAfter, hc]
+theorem romImpl_support_transfer (bad : HashInput → Prop) (left right : QueryCache HashSpec)
+    (h : AgreeOutside bad left right) (input : OracleWorld.Domain) (hinput : ¬hashBad bad input)
+    (answer : OracleWorld.Range input)
+    (hanswer : (answer, cacheAfter right input answer) ∈ support ((romImpl input).run right)) :
+    (answer, cacheAfter left input answer) ∈ support ((romImpl input).run left) ∧
+      AgreeOutside bad (cacheAfter left input answer) (cacheAfter right input answer) := by
+  cases input with
+  | inl input =>
+      dsimp [OracleWorld] at answer hanswer ⊢
+      constructor
+      · change (answer, left) ∈ support ((fun answer => (answer, left)) <$>
+          (liftM (unifSpec.query input) : ProbComp _))
+        rw [support_map]
+        exact ⟨answer, mem_support_query input answer, rfl⟩
+      · exact h
+  | inr input =>
+      have heq := h input hinput
+      dsimp [cacheAfter] at hanswer ⊢
+      change (answer, _) ∈ support ((randomOracle input).run right) at hanswer
+      change (answer, _) ∈ support ((randomOracle input).run left) ∧ _
+      cases hl : left input with
+      | none =>
+          have hr : right input = none := heq.symm.trans hl
+          simp only [hr] at hanswer ⊢
+          constructor
+          · rw [QueryImpl.withCaching_run_none _ hl, support_map]
+            exact ⟨answer, mem_support_uniformSample _, rfl⟩
+          · exact h.cacheQuery input answer
+      | some value =>
+          have hr : right input = some value := heq.symm.trans hl
+          simp only [hr] at hanswer ⊢
+          rw [QueryImpl.withCaching_run_some _ hr, support_pure, Set.mem_singleton_iff] at hanswer
+          have ha : answer = value := congrArg Prod.fst hanswer
+          subst answer
+          exact ⟨by rw [QueryImpl.withCaching_run_some _ hl]; simp, h⟩
+theorem hashQueryBound_of_seed_caches {α : Type} (computation : OracleComp OracleWorld α)
+    (q : Nat) (inputs : List HashInput) (caches : MasterSeed → QueryCache HashSpec)
+    (cache : QueryCache HashSpec) (hsize : inputs.length + q < 2 ^ 207)
+    (hagree : ∀ seed, ¬SeedHitLog inputs seed →
+      AgreeOutside (fun input => SeedHit input seed) (caches seed) cache)
+    (hbound : ∀ seed, ¬SeedHitLog inputs seed → HashQueryBound computation (caches seed) q) :
+    HashQueryBound computation cache q := by
+  induction computation using OracleComp.inductionOn generalizing q inputs caches cache with
+  | pure value =>
+      intro result hresult
+      simp only [countHashQueries_pure, simulateQ_pure, StateT.run'_eq, StateT.run_pure,
+        map_pure, support_pure, Set.mem_singleton_iff] at hresult
+      subst result
+      exact Nat.zero_le q
+  | query_bind input next ih =>
+      obtain ⟨seed, hseed⟩ := exists_seed_not_hit inputs (by omega)
+      obtain ⟨step, hstep⟩ := probComp_support_nonempty ((romImpl input).run (caches seed))
+      have hcost := (hashQueryBound_query_bind input next (caches seed) q
+        (hbound seed hseed) step hstep).1
+      apply hashQueryBound_query_bind_of input next cache q hcost
+      intro result hresult
+      have hcache := romImpl_support_cacheAfter input cache result hresult
+      rcases result with ⟨answer, nextCache⟩
+      dsimp at hcache
+      subst nextCache
+      have havoid (seed : MasterSeed) (hseed : ¬SeedHitLog (prependHash input inputs) seed) :
+          ¬hashBad (fun input => SeedHit input seed) input ∧ ¬SeedHitLog inputs seed := by
+        change ¬TraceHits (fun input => SeedHit input seed) (prependHash input inputs) at hseed
+        rw [traceHits_prepend] at hseed
+        exact not_or.mp hseed
+      have htransfer (seed : MasterSeed) (hseed : ¬SeedHitLog (prependHash input inputs) seed) :=
+        romImpl_support_transfer (fun input => SeedHit input seed) (caches seed) cache
+          (hagree seed (havoid seed hseed).2) input (havoid seed hseed).1 answer hresult
+      apply ih answer
+        (q - (if (fun input : OracleWorld.Domain => input matches .inr _) input then 1 else 0))
+        (prependHash input inputs) (fun seed => cacheAfter (caches seed) input answer)
+        (cacheAfter cache input answer)
+      · cases input <;> simp_all [prependHash]
+      · intro seed hseed
+        exact (htransfer seed hseed).2
+      · intro seed hseed
+        exact (hashQueryBound_query_bind input next (caches seed) q
+          (hbound seed (havoid seed hseed).2) _ (htransfer seed hseed).1).2
+end SphincsSecurity.Seeded
+end
+section
+open OracleComp OracleSpec
+namespace SphincsSecurity.Seeded
+set_option backward.isDefEq.respectTransparency false
+variable {ι : Type} {spec : OracleSpec ι}
+inductive Erases (known : QueryCache spec) {α : Type} :
+    OracleComp spec α → OracleComp spec α → Prop
+  | pure (value : α) : Erases known (pure value) (pure value)
+  | query (input : spec.Domain) (left right : spec.Range input → OracleComp spec α)
+      (next : ∀ answer, Erases known (left answer) (right answer)) :
+      Erases known (liftM (spec.query input) >>= left) (liftM (spec.query input) >>= right)
+  | skip (input : spec.Domain) (answer : spec.Range input)
+      (hknown : known input = some answer) (next : spec.Range input → OracleComp spec α)
+      (right : OracleComp spec α) (tail : Erases known (next answer) right) :
+      Erases known (liftM (spec.query input) >>= next) right
+  | cached (input : spec.Domain) (answer : spec.Range input)
+      (hknown : known input = some answer) (left right : spec.Range input → OracleComp spec α)
+      (tail : Erases known (left answer) (right answer)) :
+      Erases known (liftM (spec.query input) >>= left) (liftM (spec.query input) >>= right)
+  | trans {left middle right : OracleComp spec α}
+      (first : Erases known left middle) (second : Erases known middle right) : Erases known left right
+theorem Erases.refl {α : Type} (known : QueryCache spec) (computation : OracleComp spec α) :
+    Erases known computation computation := by
+  induction computation using OracleComp.inductionOn with
+  | pure value => exact .pure value
+  | query_bind input next ih => exact .query input next next ih
+theorem Erases.bind {α β : Type} {known : QueryCache spec} {left right : OracleComp spec α}
+    (h : Erases known left right) (nextLeft nextRight : α → OracleComp spec β)
+    (hnext : ∀ value, Erases known (nextLeft value) (nextRight value)) :
+    Erases known (left >>= nextLeft) (right >>= nextRight) := by
+  induction h generalizing β with
+  | pure value => simpa only [pure_bind] using hnext value
+  | query input left right _ ih =>
+      simpa only [bind_assoc] using Erases.query input _ _ (fun answer => ih answer nextLeft nextRight hnext)
+  | skip input answer hknown next right _ ih =>
+      simpa only [bind_assoc] using Erases.skip input answer hknown _ _ (ih nextLeft nextRight hnext)
+  | cached input answer hknown left right _ ih =>
+      simpa only [bind_assoc] using Erases.cached input answer hknown _ _ (ih nextLeft nextRight hnext)
+  | trans _ _ first second =>
+      exact .trans (first nextLeft nextLeft (fun _ => Erases.refl known _))
+        (second nextLeft nextRight hnext)
+theorem Erases.map {α β : Type} {known : QueryCache spec} {left right : OracleComp spec α}
+    (h : Erases known left right) (f : α → β) : Erases known (f <$> left) (f <$> right) := by
+  simpa only [bind_pure_comp] using h.bind (fun a => Pure.pure (f a)) (fun a => Pure.pure (f a))
+    (fun a => Erases.pure (f a))
+theorem Erases.bind_known {α β : Type} {known : QueryCache spec} {left : OracleComp spec α}
+    {value : α} (h : Erases known left (Pure.pure value)) (next : α → OracleComp spec β)
+    (right : OracleComp spec β) (tail : Erases known (next value) right) :
+    Erases known (left >>= next) right :=
+  .trans (by simpa only [pure_bind] using h.bind next next (fun _ => Erases.refl known _)) tail
+def worldKnown (known : QueryCache HashSpec) : QueryCache OracleWorld
+  | .inl _ => none
+  | .inr input => known input
+theorem Erases.lift_hash {α : Type} {known : QueryCache HashSpec}
+    {left right : OracleComp HashSpec α} (h : Erases known left right) :
+    Erases (worldKnown known) (liftM left : OracleComp OracleWorld α) (liftM right) := by
+  induction h with
+  | pure value => simpa only [liftM_pure] using Erases.pure value
+  | query input left right _ ih =>
+      simp only [liftM_bind]
+      change Erases _ (liftM (OracleWorld.query (.inr input)) >>= _)
+        (liftM (OracleWorld.query (.inr input)) >>= _)
+      exact Erases.query (known := worldKnown known) (Sum.inr input) _ _ ih
+  | skip input answer hknown next right _ ih =>
+      simp only [liftM_bind]
+      change Erases _ (liftM (OracleWorld.query (.inr input)) >>= _) _
+      exact Erases.skip (known := worldKnown known) (Sum.inr input) answer hknown _ _ ih
+  | cached input answer hknown left right _ ih =>
+      simp only [liftM_bind]
+      change Erases _ (liftM (OracleWorld.query (.inr input)) >>= _)
+        (liftM (OracleWorld.query (.inr input)) >>= _)
+      exact Erases.cached (known := worldKnown known) (Sum.inr input) answer hknown _ _ ih
+  | trans _ _ first second => exact .trans first second
+theorem romImpl_preserves_known (known cache : QueryCache HashSpec) (h : known ≤ cache)
+    (input : OracleWorld.Domain) (result : OracleWorld.Range input × QueryCache HashSpec)
+    (hresult : result ∈ support ((romImpl input).run cache)) : known ≤ result.2 := by
+  apply h.trans
+  apply simulateQ_romImpl_cache_le (liftM (OracleWorld.query input) : OracleComp OracleWorld _) cache result
+  simpa only [simulateQ_spec_query] using hresult
+theorem Erases.evalDist_run {α : Type} {known : QueryCache HashSpec}
+    {left right : OracleComp OracleWorld α} (h : Erases (worldKnown known) left right)
+    (cache : QueryCache HashSpec) (hcache : known ≤ cache) :
+    𝒮[(simulateQ romImpl left).run cache] = 𝒮[(simulateQ romImpl right).run cache] := by
+  induction h generalizing cache with
+  | pure value => rfl
+  | query input left right _ ih =>
+      simp only [simulateQ_bind, simulateQ_spec_query, StateT.run_bind]
+      exact evalSPMF_bind_congr fun result hresult =>
+        ih result.1 result.2 (romImpl_preserves_known known cache hcache input result hresult)
+  | skip input answer hknown next right _ ih =>
+      cases input with
+      | inl input => simp [worldKnown] at hknown
+      | inr input =>
+          have hc : cache input = some answer := hcache hknown
+          simp only [simulateQ_bind, simulateQ_spec_query, StateT.run_bind]
+          change 𝒮[(randomOracle (spec := HashSpec) input).run cache >>= _] = _
+          rw [QueryImpl.withCaching_run_some _ hc, pure_bind]
+          exact ih cache hcache
+  | cached input answer hknown left right _ ih =>
+      cases input with
+      | inl input => simp [worldKnown] at hknown
+      | inr input =>
+          have hc : cache input = some answer := hcache hknown
+          simp only [simulateQ_bind, simulateQ_spec_query, StateT.run_bind]
+          change 𝒮[(randomOracle (spec := HashSpec) input).run cache >>= _] =
+            𝒮[(randomOracle (spec := HashSpec) input).run cache >>= _]
+          rw [QueryImpl.withCaching_run_some _ hc, pure_bind, pure_bind]
+          exact ih cache hcache
+  | trans _ _ first second => exact (first cache hcache).trans (second cache hcache)
+theorem Erases.hashQueryBound {α : Type} {known : QueryCache HashSpec}
+    {left right : OracleComp OracleWorld α} (h : Erases (worldKnown known) left right)
+    (cache : QueryCache HashSpec) (hcache : known ≤ cache) (q : Nat)
+    (hbound : HashQueryBound left cache q) : HashQueryBound right cache q := by
+  induction h generalizing cache q with
+  | pure value => exact hbound
+  | query input left right _ ih =>
+      obtain ⟨step, hstep⟩ := probComp_support_nonempty ((romImpl input).run cache)
+      have hcost := (hashQueryBound_query_bind input left cache q hbound step hstep).1
+      apply hashQueryBound_query_bind_of input right cache q hcost
+      intro result hresult
+      exact ih result.1 result.2 (romImpl_preserves_known known cache hcache input result hresult) _
+        (hashQueryBound_query_bind input left cache q hbound result hresult).2
+  | skip input answer hknown next right _ ih =>
+      cases input with
+      | inl input => simp [worldKnown] at hknown
+      | inr input =>
+          have hc : cache input = some answer := hcache hknown
+          have hstep : (answer, cache) ∈ support ((romImpl (.inr input)).run cache) := by
+            change (answer, cache) ∈ support ((randomOracle (spec := HashSpec) input).run cache)
+            rw [QueryImpl.withCaching_run_some _ hc]
+            simp
+          exact (ih cache hcache _ (hashQueryBound_query_bind _ _ _ _ hbound _ hstep).2).mono (Nat.sub_le _ _)
+  | cached input answer hknown left right _ ih =>
+      cases input with
+      | inl input => simp [worldKnown] at hknown
+      | inr input =>
+          have hc : cache input = some answer := hcache hknown
+          have hrun : (romImpl (.inr input)).run cache = Pure.pure (answer, cache) :=
+            QueryImpl.withCaching_run_some _ hc
+          have hstep : (answer, cache) ∈ support ((romImpl (.inr input)).run cache) := by
+            rw [hrun]
+            simp
+          have hb := hashQueryBound_query_bind (.inr input) left cache q hbound _ hstep
+          apply hashQueryBound_query_bind_of (.inr input) right cache q hb.1
+          intro result hresult
+          rw [hrun, mem_support_pure_iff] at hresult
+          subst result
+          exact ih cache hcache _ hb.2
+  | trans _ _ first second => exact second cache hcache q (first cache hcache q hbound)
+end SphincsSecurity.Seeded
+end
+end
+-- ==== merged from SphincsSecurity_Proof_Scheme_StatementLemmas ====
+section
+
+namespace SphincsSecurity.Concrete
+attribute [local semireducible] treeNode ftsNode verify sign sampleRandomness
+noncomputable local instance instSampleableTypeRandomness_1 : SampleableType Randomness :=
+  randomnessSampleableType
+variable {m : Type → Type} [Monad m] [HasQuery HashSpec m]
+@[simp]
+theorem treeNode_zero_eq (parameter : PublicParameter) (lay : Layer) (tree : TreeIndex)
+    (secret : LeafIndex → ChainIndex → Digest) (nodeIdx : Nat) :
+    treeNode (m := m) parameter lay tree secret 0 nodeIdx
+      = (do
+          let endpoints ← oneTimePublicKey parameter lay tree (leafOfNat nodeIdx)
+            (secret (leafOfNat nodeIdx))
+          leafHash parameter lay tree (leafOfNat nodeIdx) endpoints) := rfl
+theorem treeNode_succ_eq (parameter : PublicParameter) (lay : Layer) (tree : TreeIndex)
+    (secret : LeafIndex → ChainIndex → Digest) (level nodeIdx : Nat) :
+    treeNode (m := m) parameter lay tree secret (level + 1) nodeIdx
+      = (do
+          let left ← treeNode parameter lay tree secret level (2 * nodeIdx)
+          let right ← treeNode parameter lay tree secret level (2 * nodeIdx + 1)
+          tweakableHash parameter (.node lay tree (level + 1) nodeIdx) (nodePayload left right)) := rfl
+@[simp]
+theorem ftsNode_zero_eq (parameter : PublicParameter) (index : Index) (tree : FtsTree)
+    (secret : FtsLeaf → Digest) (nodeIdx : Nat) :
+    ftsNode (m := m) parameter index tree secret 0 nodeIdx
+      = ftsLeafHash parameter index tree (ftsLeafOfNat nodeIdx).val (secret (ftsLeafOfNat nodeIdx)) := rfl
+theorem ftsNode_succ_eq (parameter : PublicParameter) (index : Index) (tree : FtsTree)
+    (secret : FtsLeaf → Digest) (level nodeIdx : Nat) :
+    ftsNode (m := m) parameter index tree secret (level + 1) nodeIdx
+      = (do
+          let left ← ftsNode parameter index tree secret level (2 * nodeIdx)
+          let right ← ftsNode parameter index tree secret level (2 * nodeIdx + 1)
+          tweakableHash parameter (.ftsNode index tree (ftsHeapIndex (level + 1) nodeIdx))
+            (nodePayload left right)) := rfl
+@[simp]
+theorem treeFold_zero_eq (parameter : PublicParameter) (lay : Layer) (tree : TreeIndex)
+    (leaf : LeafIndex) (path : Nat → Digest) (value : Digest) :
+    treeFold (m := m) parameter lay tree leaf path 0 value = pure value := rfl
+theorem treeFold_succ_eq (parameter : PublicParameter) (lay : Layer) (tree : TreeIndex)
+    (leaf : LeafIndex) (path : Nat → Digest) (levels : Nat) (value : Digest) :
+    treeFold (m := m) parameter lay tree leaf path (levels + 1) value
+      = (do
+          let current ← treeFold parameter lay tree leaf path levels value
+          if leaf.val.testBit levels then
+            tweakableHash parameter (.node lay tree (levels + 1) (leaf.val / 2 ^ (levels + 1)))
+              (nodePayload (path levels) current)
+          else
+            tweakableHash parameter (.node lay tree (levels + 1) (leaf.val / 2 ^ (levels + 1)))
+              (nodePayload current (path levels))) := rfl
+@[simp]
+theorem verifyLayers_zero_eq (parameter : PublicParameter) (index : Index) (signature : Signature)
+    (message : Digest) :
+    verifyLayers (m := m) parameter index signature 0 message = pure (some message) := rfl
+theorem verifyLayers_succ_eq (parameter : PublicParameter) (index : Index) (signature : Signature)
+    (remaining : Nat) (message : Digest) :
+    verifyLayers (m := m) parameter index signature (remaining + 1) message
+      = (if hlayer : remaining < numLayers then
+          (do
+            match ← otsLeafAttempt parameter ⟨remaining, hlayer⟩ (treeIndexAt index ⟨remaining, hlayer⟩)
+                (leafIndexAt index ⟨remaining, hlayer⟩) message
+                (signature.counter ⟨remaining, hlayer⟩)
+                (signature.chainValue ⟨remaining, hlayer⟩) with
+            | none => pure none
+            | some value => do
+                let root ← treeFold parameter ⟨remaining, hlayer⟩
+                  (treeIndexAt index ⟨remaining, hlayer⟩) (leafIndexAt index ⟨remaining, hlayer⟩)
+                  (signaturePath signature ⟨remaining, hlayer⟩) (layerHeight ⟨remaining, hlayer⟩)
+                  value
+                verifyLayers parameter index signature remaining root)
+        else pure none) := by
+  rw [verifyLayers]
+  split
+  · simp only [otsLeaf_eq]
+    apply bind_congr
+    intro result
+    cases result <;> rfl
+  · rfl
+attribute [local irreducible] verifyLayers
+theorem verifyCore_eq (publicKey : PublicKey) (message : Message) (signature : Signature) :
+    verifyCore (m := m) publicKey message signature
+      = (do
+          let digest ← messageDigest publicKey.parameter publicKey.root message signature.randomness
+          match ← ftsRecover publicKey.parameter (digestIndex digest)
+              (slotValue (digestLeaves digest)) signature.fts with
+          | none => return false
+          | some ftsPublicKey =>
+              match ← verifyLayers publicKey.parameter (digestIndex digest) signature numLayers
+                  ftsPublicKey with
+              | none => return false
+              | some root => return decide (root = publicKey.root)) := by
+  unfold verifyCore
+  apply bind_congr
+  intro digest
+  apply bind_congr
+  intro key
+  cases key with
+  | none => rfl
+  | some key =>
+      apply bind_congr
+      intro result
+      cases result <;> rfl
+theorem verify_eq_ite (publicKey : PublicKey) (message : Message) (signature : Signature) :
+    verify (m := m) publicKey message signature
+      = if CountersInRange signature then verifyCore publicKey message signature else pure false := rfl
+theorem verify_eq (publicKey : PublicKey) (message : Message) (signature : Signature)
+    (hcounters : CountersInRange signature) :
+    verify (m := m) publicKey message signature
+      = (do
+          let digest ← messageDigest publicKey.parameter publicKey.root message signature.randomness
+          match ← ftsRecover publicKey.parameter (digestIndex digest)
+              (slotValue (digestLeaves digest)) signature.fts with
+          | none => return false
+          | some ftsPublicKey =>
+              match ← verifyLayers publicKey.parameter (digestIndex digest) signature numLayers
+                  ftsPublicKey with
+              | none => return false
+              | some root => return decide (root = publicKey.root)) := by
+  rw [verify_eq_ite, if_pos hcounters, verifyCore_eq]
+theorem verify_eq_of_not_counters (publicKey : PublicKey) (message : Message) (signature : Signature)
+    (hcounters : ¬ CountersInRange signature) :
+    verify (m := m) publicKey message signature = pure false := by
+  rw [verify_eq_ite, if_neg hcounters]
+theorem sign_eq (secretKey : SecretKey) (message : Message) :
+    sign secretKey message
+      = (do
+          match ← signDigestLoop digestAttemptLimit secretKey message with
+          | none => return none
+          | some (randomness, index, leaves) =>
+              liftM (signAfterDigest secretKey randomness index leaves :
+                OracleComp HashSpec (Option Signature))) := rfl
+theorem sampleRandomness_eq :
+    sampleRandomness = ($ᵗ Randomness : ProbComp Randomness) := rfl
+example : ∑ lay : Layer, layerHeight lay = totalHeight := by decide
+example : (List.ofFn fun lay : Layer => layerHeight lay) = [11, 6, 6, 6, 5] := by decide
+example : (List.ofFn fun lay : Layer => heightAbove lay) = [0, 11, 17, 23, 29] := by decide
+example : (List.ofFn fun lay : Layer => heightBelow lay) = [23, 17, 11, 5, 0] := by decide
+example : messageDigestBits = 256 ∧ totalHeight + ftsOpenings * ftsTreeHeight ≤ messageDigestBits := by
+  decide
+theorem treeIndexAt_val (index : Index) (lay : Layer) :
+    (treeIndexAt index lay).val = index.val / 2 ^ (totalHeight - heightAbove lay) := rfl
+theorem leafIndexAt_val (index : Index) (lay : Layer) :
+    (leafIndexAt index lay).val = index.val / 2 ^ heightBelow lay % 2 ^ layerHeight lay := rfl
+theorem leafIndexAt_lt (index : Index) (lay : Layer) :
+    (leafIndexAt index lay).val < 2 ^ layerHeight lay := by
+  rw [leafIndexAt_val]
+  exact Nat.mod_lt _ (Nat.two_pow_pos _)
+theorem heightAbove_top : heightAbove topLayer = 0 := by decide
+theorem heightAbove_succ (lay : Layer) (hbelow : lay.val + 1 < numLayers) :
+    heightAbove ⟨lay.val + 1, hbelow⟩ = heightAbove lay + layerHeight lay := by
+  revert lay; decide
+theorem heightAbove_add_le (lay : Layer) : heightAbove lay + layerHeight lay ≤ totalHeight := by
+  revert lay; decide
+theorem heightBelow_eq (lay : Layer) :
+    heightBelow lay + layerHeight lay + heightAbove lay = totalHeight := by
+  revert lay; decide
+theorem treeIndexAt_topLayer (index : Index) : (treeIndexAt index topLayer).val = 0 := by
+  have hlt : index.val < 2 ^ totalHeight := index.isLt
+  rw [treeIndexAt_val, heightAbove_top, Nat.sub_zero]
+  exact Nat.div_eq_of_lt hlt
+theorem layers_link (index : Index) (lay : Layer) (hbelow : lay.val + 1 < numLayers) :
+    (treeIndexAt index ⟨lay.val + 1, hbelow⟩).val
+      = (treeIndexAt index lay).val * 2 ^ layerHeight lay + (leafIndexAt index lay).val := by
+  have hsum := heightBelow_eq lay
+  have habove := heightAbove_succ lay hbelow
+  rw [treeIndexAt_val, treeIndexAt_val, leafIndexAt_val, habove]
+  have hb : totalHeight - (heightAbove lay + layerHeight lay) = heightBelow lay := by omega
+  have ht : totalHeight - heightAbove lay = heightBelow lay + layerHeight lay := by omega
+  rw [hb, ht, pow_add, ← Nat.div_div_eq_div_mul]
+  exact (Nat.div_add_mod' _ _).symm
+theorem leafIndexAt_bottomLayer (index : Index) :
+    (leafIndexAt index bottomLayer).val = index.val % 2 ^ layerHeight bottomLayer := by
+  have hb : heightBelow bottomLayer = 0 := by decide
+  simp [leafIndexAt_val, hb]
+end SphincsSecurity.Concrete
+end
+-- ==== merged from SphincsSecurity_Proof_Seeded_FiniteTable ====
+section
+
+section
+open OracleComp OracleSpec
+namespace SphincsSecurity.Seeded
+def finHeadTailEquiv (α : Type) (count : Nat) :
+    (α × (Fin count → α)) ≃ (Fin (count + 1) → α) where
+  toFun pair := Fin.cases pair.1 pair.2
+  invFun values := (values 0, fun index => values index.succ)
+  left_inv pair := by
+    apply Prod.ext
+    · simp
+    · funext index
+      simp
+  right_inv values := by
+    funext index
+    cases index using Fin.cases <;> simp
+theorem evalDist_independent_uniform_pair
+    {α β : Type} [Fintype α] [Fintype β]
+    [SampleableType α] [SampleableType β] [SampleableType (α × β)] :
+    evalSPMF (do
+      let left ← $ᵗ α
+      let right ← $ᵗ β
+      pure (left, right)) =
+    evalSPMF ($ᵗ (α × β)) := by
+  apply SPMF.ext
+  intro target
+  rw [show (do
+      let left ← $ᵗ α
+      let right ← $ᵗ β
+      pure (left, right)) = Prod.mk <$> ($ᵗ α) <*> ($ᵗ β) by
+    simp [monad_norm]]
+  change Pr[= target | Prod.mk <$> ($ᵗ α) <*> ($ᵗ β)] =
+    Pr[= target | $ᵗ (α × β)]
+  rw [probOutput_seq_map_prod_mk_eq_mul, probOutput_uniformSample,
+    probOutput_uniformSample, probOutput_uniformSample, Fintype.card_prod,
+    Nat.cast_mul,
+    ENNReal.mul_inv (Or.inr (ENNReal.natCast_ne_top _))
+      (Or.inl (ENNReal.natCast_ne_top _))]
+variable {D R : Type} [DecidableEq D]
+def cacheFin : {n : Nat} → QueryCache (D →ₒ R) → (Fin n → D) → (Fin n → R) →
+    QueryCache (D →ₒ R)
+  | 0, cache, _, _ => cache
+  | _ + 1, cache, inputs, outputs =>
+      cacheFin (cache.cacheQuery (inputs 0) (outputs 0))
+        (fun i => inputs i.succ) (fun i => outputs i.succ)
+theorem cacheFin_apply_of_not_mem {n : Nat} (cache : QueryCache (D →ₒ R))
+    (inputs : Fin n → D) (outputs : Fin n → R) (input : D)
+    (hinput : ∀ i, input ≠ inputs i) : cacheFin cache inputs outputs input = cache input := by
+  induction n generalizing cache with
+  | zero => rfl
+  | succ n ih =>
+      rw [cacheFin, ih _ _ _ (fun i => hinput i.succ)]
+      exact QueryCache.cacheQuery_of_ne cache (outputs 0) (hinput 0)
+theorem cacheFin_apply {n : Nat} (cache : QueryCache (D →ₒ R))
+    (inputs : Fin n → D) (hinj : Function.Injective inputs) (outputs : Fin n → R) (i : Fin n) :
+    cacheFin cache inputs outputs (inputs i) = some (outputs i) := by
+  induction n generalizing cache with
+  | zero => exact i.elim0
+  | succ n ih =>
+      cases i using Fin.cases with
+      | zero =>
+          rw [cacheFin, cacheFin_apply_of_not_mem]
+          · exact QueryCache.cacheQuery_self _ _ _
+          · intro j h
+            have := hinj h
+            exact Fin.succ_ne_zero j this.symm
+      | succ i =>
+          exact ih _ _ (fun _ _ h => Fin.succ_injective _ (hinj h)) _ i
+variable [SampleableType R]
+theorem run_sequenceFin_fresh {n : Nat} (inputs : Fin n → D)
+    (hinj : Function.Injective inputs) (cache : QueryCache (D →ₒ R))
+    (hfresh : ∀ i, cache (inputs i) = none) :
+    (simulateQ randomOracle (Concrete.sequenceFin fun i =>
+      (liftM ((D →ₒ R).query (inputs i)) : OracleComp (D →ₒ R) R))).run cache =
+      (do
+        let outputs ← Concrete.sequenceFin fun _ : Fin n => ($ᵗ R : ProbComp R)
+        pure (outputs, cacheFin cache inputs outputs)) := by
+  induction n generalizing cache with
+  | zero => simp only [Concrete.sequenceFin, simulateQ_pure, StateT.run_pure, pure_bind, cacheFin]
+  | succ n ih =>
+      simp only [Concrete.sequenceFin, simulateQ_bind, simulateQ_spec_query, StateT.run_bind]
+      rw [QueryImpl.withCaching_run_none _ (hfresh 0)]
+      simp only [bind_map_left, simulateQ_pure, StateT.run_pure, bind_pure_comp, map_bind]
+      change (($ᵗ R) >>= _) = (($ᵗ R) >>= _)
+      apply bind_congr
+      intro head
+      have htail : ∀ i : Fin n, (cache.cacheQuery (inputs 0) head) (inputs i.succ) = none := by
+        intro i
+        rw [QueryCache.cacheQuery_of_ne]
+        · exact hfresh i.succ
+        · intro h
+          exact Fin.succ_ne_zero i (hinj h)
+      rw [ih (fun i => inputs i.succ) (fun _ _ h => Fin.succ_injective _ (hinj h)) _ htail]
+      simp only [bind_pure_comp, Functor.map_map, cacheFin]
+      rfl
+theorem sequenceFin_map {m : Type → Type} [Monad m] [LawfulMonad m] {A B : Type} {n : Nat}
+    (f : A → B) (computation : Fin n → m A) :
+    Concrete.sequenceFin (fun i => f <$> computation i) =
+      (fun values i => f (values i)) <$> Concrete.sequenceFin computation := by
+  induction n with
+  | zero =>
+      simp only [Concrete.sequenceFin, map_pure]
+      congr 1
+      funext i
+      exact i.elim0
+  | succ n ih =>
+      simp only [Concrete.sequenceFin, bind_map_left, ih, map_bind, bind_pure_comp, Functor.map_map]
+      apply bind_congr
+      intro head
+      congr 1
+      funext tail i
+      cases i using Fin.cases <;> rfl
+theorem evalDist_sequenceFin_congr {A : Type} {n : Nat}
+    (left right : Fin n → ProbComp A) (h : ∀ i, 𝒮[left i] = 𝒮[right i]) :
+    𝒮[Concrete.sequenceFin left] = 𝒮[Concrete.sequenceFin right] := by
+  induction n with
+  | zero => rfl
+  | succ n ih =>
+      simp only [Concrete.sequenceFin, bind_pure_comp, evalSPMF_bind]
+      rw [h 0]
+      congr 1
+      funext head
+      rw [evalSPMF_map, evalSPMF_map, ih _ _ (fun i => h i.succ)]
+theorem evalDist_sequenceFin_uniform [Fintype R] (n : Nat) :
+    𝒮[Concrete.sequenceFin fun _ : Fin n => ($ᵗ R : ProbComp R)] =
+      𝒮[$ᵗ (Fin n → R)] := by
+  classical
+  induction n with
+  | zero =>
+      apply SPMF.ext
+      intro values
+      have heq : values = Fin.elim0 := funext fun i => i.elim0
+      simp [Concrete.sequenceFin, heq]
+  | succ n ih =>
+      calc
+        _ = 𝒮[finHeadTailEquiv R n <$> (do
+            let head ← $ᵗ R
+            let tail ← $ᵗ (Fin n → R)
+            pure (head, tail))] := by
+          simp only [Concrete.sequenceFin, map_bind, finHeadTailEquiv,
+            Equiv.coe_fn_mk, bind_pure_comp]
+          rw [evalSPMF_bind, evalSPMF_bind]
+          congr 1
+          funext head
+          rw [evalSPMF_map, ih, evalSPMF_map, evalSPMF_map, Functor.map_map]
+        _ = 𝒮[finHeadTailEquiv R n <$> ($ᵗ (R × (Fin n → R)))] := by
+          rw [evalSPMF_map, evalSPMF_map, evalDist_independent_uniform_pair]
+        _ = _ := evalSPMF_map_bijective_uniform_cross
+          (α := R × (Fin n → R)) (β := Fin (n + 1) → R)
+          (finHeadTailEquiv R n) (finHeadTailEquiv R n).bijective
+end SphincsSecurity.Seeded
+end
+section
+open OracleComp OracleSpec
+namespace SphincsSecurity.Seeded
+set_option backward.isDefEq.respectTransparency false
+variable (J R : Type) [Fintype J]
+noncomputable def finTableEquiv : (Fin (Fintype.card J) → R) ≃ (J → R) where
+  toFun values j := values (Fintype.equivFin J j)
+  invFun values i := values ((Fintype.equivFin J).symm i)
+  left_inv values := by funext i; simp
+  right_inv values := by funext j; simp
+variable {J R} {D : Type} [DecidableEq D]
+noncomputable def cacheTable (cache : QueryCache (D →ₒ R)) (inputs : J → D) (outputs : J → R) :
+    QueryCache (D →ₒ R) :=
+  cacheFin cache (fun i => inputs ((Fintype.equivFin J).symm i))
+    ((finTableEquiv J R).symm outputs)
+theorem cacheTable_apply (cache : QueryCache (D →ₒ R)) (inputs : J → D)
+    (hinj : Function.Injective inputs) (outputs : J → R) (j : J) :
+    cacheTable cache inputs outputs (inputs j) = some (outputs j) := by
+  have h := cacheFin_apply cache (fun i => inputs ((Fintype.equivFin J).symm i))
+    (hinj.comp (Fintype.equivFin J).symm.injective) ((finTableEquiv J R).symm outputs)
+    (Fintype.equivFin J j)
+  rw [(Fintype.equivFin J).symm_apply_apply] at h
+  simpa only [cacheTable, finTableEquiv, Equiv.coe_fn_symm_mk, Equiv.symm_apply_apply] using h
+theorem cacheTable_apply_of_not_mem (cache : QueryCache (D →ₒ R)) (inputs : J → D)
+    (outputs : J → R) (input : D) (hinput : ∀ j, input ≠ inputs j) :
+    cacheTable cache inputs outputs input = cache input :=
+  cacheFin_apply_of_not_mem _ _ _ _ (fun _ => hinput _)
+noncomputable def queryTable (inputs : J → D) : OracleComp (D →ₒ R) (J → R) :=
+  finTableEquiv J R <$> Concrete.sequenceFin fun i =>
+    (liftM ((D →ₒ R).query (inputs ((Fintype.equivFin J).symm i))) : OracleComp (D →ₒ R) R)
+variable [SampleableType R] [Fintype R] [SampleableType (J → R)]
+theorem evalDist_queryTable_fresh (inputs : J → D) (hinj : Function.Injective inputs)
+    (cache : QueryCache (D →ₒ R)) (hfresh : ∀ j, cache (inputs j) = none) :
+    𝒮[(simulateQ randomOracle (queryTable inputs)).run cache] =
+      𝒮[(fun outputs => (outputs, cacheTable cache inputs outputs)) <$> ($ᵗ (J → R))] := by
+  classical
+  rw [queryTable, simulateQ_map, StateT.run_map,
+    run_sequenceFin_fresh (fun i => inputs ((Fintype.equivFin J).symm i))
+      (fun _ _ h => (Fintype.equivFin J).symm.injective (hinj h)) cache (fun _ => hfresh _)]
+  simp only [bind_pure_comp, Functor.map_map]
+  rw [evalSPMF_map, evalDist_sequenceFin_uniform]
+  have htable := evalSPMF_map_bijective_uniform_cross
+    (α := Fin (Fintype.card J) → R) (β := J → R) (finTableEquiv J R) (finTableEquiv J R).bijective
+  rw [evalSPMF_map, ← htable]
+  simp only [evalSPMF_map, Functor.map_map]
+  congr 1
+  funext outputs
+  simp only [cacheTable, Equiv.symm_apply_apply]
+end SphincsSecurity.Seeded
+end
+end
+-- ==== merged from SphincsSecurity_Proof_Seeded_DerivationTable ====
+section
+
+open OracleComp OracleSpec
+namespace SphincsSecurity.Seeded
+set_option backward.isDefEq.respectTransparency false
+set_option maxRecDepth 4096
+abbrev OtsPosition := Layer × TreeIndex × LeafIndex × ChainPair
+abbrev FtsPosition := Index × FtsTree × FtsPair
+abbrev SecretPosition := OtsPosition ⊕ FtsPosition
+abbrev SecretOutputs := SecretPosition → HashOutput
+abbrev SecretValues := SecretPosition → Digest
+noncomputable opaque secretOutputsSampleableType : SampleableType SecretOutputs :=
+  SampleableType.ofFintype SecretOutputs
+noncomputable local instance : SampleableType SecretOutputs := secretOutputsSampleableType
+noncomputable def sampleSecretOutputs : ProbComp SecretOutputs := $ᵗ SecretOutputs
+def secretDomain : SecretPosition → KeygenDomain
+  | .inl (lay, tree, leaf, chain) => .ots lay tree leaf chain
+  | .inr (index, tree, leaf) => .fts index tree leaf
+theorem secretDomain_injective : Function.Injective secretDomain := by
+  intro left right h
+  cases left with
+  | inl left =>
+      rcases left with ⟨lay, tree, leaf, chain⟩
+      cases right <;> simp_all [secretDomain]
+  | inr left =>
+      rcases left with ⟨index, tree, leaf⟩
+      cases right <;> simp_all [secretDomain]
+def secretInputs (parameter : PublicParameter) (seed : MasterSeed) (position : SecretPosition) : HashInput :=
+  keygenHashInput parameter (secretDomain position) seed
+theorem secretInputs_injective (parameter : PublicParameter) (seed : MasterSeed) :
+    Function.Injective (secretInputs parameter seed) := by
+  intro left right h
+  exact secretDomain_injective (keygenHashInput_injective h).2.1
+noncomputable def derivationCache (seed : MasterSeed) (outputs : SecretOutputs) : QueryCache HashSpec :=
+  cacheTable ∅ (secretInputs 0 seed) outputs
+theorem derivationCache_secret (seed : MasterSeed) (outputs : SecretOutputs) (position : SecretPosition) :
+    derivationCache seed outputs (secretInputs 0 seed position) = some (outputs position) :=
+  cacheTable_apply _ _ (secretInputs_injective _ seed) outputs position
+theorem derivationCache_agreeOutside (seed : MasterSeed) (outputs : SecretOutputs) :
+    AgreeOutside (fun input => SeedHit input seed) (derivationCache seed outputs) ∅ := by
+  intro input hinput
+  unfold derivationCache
+  rw [cacheTable_apply_of_not_mem]
+  intro position heq
+  exact hinput (heq.symm ▸ derivationSeedHit_keygen 0 (secretDomain position) seed)
+noncomputable def prepareSecrets (seed : MasterSeed) : OracleComp HashSpec SecretOutputs :=
+  queryTable (secretInputs 0 seed)
+theorem evalDist_prepareSecrets (seed : MasterSeed) :
+    𝒮[(simulateQ randomOracle (prepareSecrets seed)).run ∅] =
+        𝒮[(fun outputs => (outputs, derivationCache seed outputs)) <$> sampleSecretOutputs] :=
+  evalDist_queryTable_fresh _ (secretInputs_injective _ seed) _ (fun _ => QueryCache.empty_apply _)
+end SphincsSecurity.Seeded
+end
+-- ==== merged from SphincsSecurity_Proof_Deterministic_CacheDerivation ====
+section
+
+section
+open OracleComp OracleSpec
+namespace SphincsSecurity.Seeded
+set_option backward.isDefEq.respectTransparency false
+set_option maxRecDepth 4096
+abbrev RandomizerPosition := Message × BitVec 32
+abbrev RandomizerOutputs := RandomizerPosition → HashOutput
+noncomputable opaque randomizerOutputsSampleableType : SampleableType RandomizerOutputs :=
+  SampleableType.ofFintype RandomizerOutputs
+noncomputable local instance : SampleableType RandomizerOutputs := randomizerOutputsSampleableType
+noncomputable def sampleRandomizerOutputs : ProbComp RandomizerOutputs := $ᵗ RandomizerOutputs
+def randomizerInputs (parameter : PublicParameter) (seed : MasterSeed) (position : RandomizerPosition) : HashInput :=
+  randomizerHashInput parameter seed position.1 position.2
+theorem randomizerInputs_injective (parameter : PublicParameter) (seed : MasterSeed) :
+    Function.Injective (randomizerInputs parameter seed) := by
+  intro left right h
+  have heq := randomizerHashInput_injective h
+  exact Prod.ext heq.1 heq.2
+theorem derivationCache_randomizer_fresh (seed : MasterSeed) (outputs : SecretOutputs)
+    (position : RandomizerPosition) :
+    derivationCache seed outputs (randomizerInputs 0 seed position) = none := by
+  unfold derivationCache
+  rw [cacheTable_apply_of_not_mem]
+  · rfl
+  · intro secret
+    exact randomizerHashInput_ne_keygenHashInput _ _ _ _ _ _ (secretDomain secret)
+noncomputable def signingDerivationCache (seed : MasterSeed) (outputs : SecretOutputs)
+    (randomizers : RandomizerOutputs) : QueryCache HashSpec :=
+  cacheTable (derivationCache seed outputs) (randomizerInputs 0 seed) randomizers
+theorem signingDerivationCache_randomizer (seed : MasterSeed) (outputs : SecretOutputs)
+    (randomizers : RandomizerOutputs) (position : RandomizerPosition) :
+    signingDerivationCache seed outputs randomizers (randomizerInputs 0 seed position) =
+      some (randomizers position) :=
+  cacheTable_apply _ _ (randomizerInputs_injective _ _) _ _
+theorem signingDerivationCache_secret (seed : MasterSeed) (outputs : SecretOutputs)
+    (randomizers : RandomizerOutputs) (position : SecretPosition) :
+    signingDerivationCache seed outputs randomizers (secretInputs 0 seed position) =
+      some (outputs position) := by
+  unfold signingDerivationCache
+  rw [cacheTable_apply_of_not_mem]
+  · exact derivationCache_secret _ _ _
+  · intro randomizer
+    exact (randomizerHashInput_ne_keygenHashInput _ _ _ _ _ _ (secretDomain position)).symm
+theorem signingDerivationCache_agreeOutside (seed : MasterSeed) (outputs : SecretOutputs)
+    (randomizers : RandomizerOutputs) :
+    AgreeOutside (fun input => SeedHit input seed) (signingDerivationCache seed outputs randomizers) ∅ := by
+  intro input hinput
+  unfold signingDerivationCache
+  rw [cacheTable_apply_of_not_mem]
+  · exact derivationCache_agreeOutside seed outputs input hinput
+  · intro position heq
+    exact hinput (heq.symm ▸ derivationSeedHit_randomizer 0 seed position.1 position.2)
+noncomputable def prepareRandomizers (seed : MasterSeed) : OracleComp HashSpec RandomizerOutputs :=
+  queryTable (randomizerInputs 0 seed)
+theorem evalDist_prepareRandomizers (seed : MasterSeed) (outputs : SecretOutputs) :
+    𝒮[(simulateQ randomOracle (prepareRandomizers seed)).run (derivationCache seed outputs)] =
+        𝒮[(fun randomizers => (randomizers, signingDerivationCache seed outputs randomizers)) <$>
+          sampleRandomizerOutputs] :=
+  evalDist_queryTable_fresh _ (randomizerInputs_injective _ seed) _
+    (derivationCache_randomizer_fresh seed outputs)
+end SphincsSecurity.Seeded
+end
+section
+open OracleComp OracleSpec
+namespace SphincsSecurity
+set_option backward.isDefEq.respectTransparency false
+theorem length_flatten_ofFn_eq {α : Type} {n : Nat} (f g : Fin n → List α)
+    (hlen : ∀ i, (f i).length = (g i).length) (h : (List.ofFn f).flatten = (List.ofFn g).flatten) : f = g := by
+  induction n with
+  | zero => funext i; exact i.elim0
+  | succ n ih =>
+      rw [List.ofFn_succ, List.ofFn_succ, List.flatten_cons, List.flatten_cons] at h
+      obtain ⟨hhead, htail⟩ := List.append_inj h (hlen 0)
+      have htail' := ih (fun i => f i.succ) (fun i => g i.succ) (fun i => hlen i.succ) htail
+      funext i
+      cases i using Fin.cases with
+      | zero => exact hhead
+      | succ i => exact congrFun htail' i
+theorem flatMap_bytesLE_ofFn_injective {n k : Nat} {f g : Fin n → BitVec (8 * k)}
+    (h : (List.ofFn f).flatMap (bytesLE k) = (List.ofFn g).flatMap (bytesLE k)) : f = g := by
+  rw [List.flatMap_def, List.flatMap_def, List.map_ofFn, List.map_ofFn] at h
+  have hfun := length_flatten_ofFn_eq (fun i => bytesLE k (f i)) (fun i => bytesLE k (g i))
+    (fun i => by simp [bytesLE_length]) h
+  funext i
+  exact bytesLE_injective (congrFun hfun i)
+theorem regionBytes_injective : Function.Injective regionBytes := by
+  intro left right h
+  unfold regionBytes at h
+  have hlevels := length_flatten_ofFn_eq _ _ (fun level => by
+    simp [List.length_flatMap, bytesLE_length, Function.comp_def]) h
+  funext level
+  exact flatMap_bytesLE_ofFn_injective (congrFun hlevels level)
+theorem macHashInput_injective {p₁ p₂ : PublicParameter} {s₁ s₂ : MasterSeed} {r₁ r₂ : TopRegion}
+    (h : macHashInput p₁ s₁ r₁ = macHashInput p₂ s₂ r₂) : p₁ = p₂ ∧ s₁ = s₂ ∧ r₁ = r₂ := by
+  unfold macHashInput at h
+  obtain ⟨hprefix, hregion⟩ := List.append_inj h (by simp [fieldBytes, bytesLE_length])
+  obtain ⟨hprefix, hs⟩ := List.append_inj' hprefix (by simp [bytesLE_length])
+  obtain ⟨_, hp⟩ := List.append_inj' hprefix (by simp [bytesLE_length])
+  exact ⟨bytesLE_injective hp, bytesLE_injective hs, regionBytes_injective hregion⟩
+theorem macHashInput_tag (parameter : PublicParameter) (seed : MasterSeed) (region : TopRegion) :
+    (macHashInput parameter seed region).take 2 = [protocolDomainSep, 14] := by
+  simp [macHashInput, fieldBytes, bytesLE]
+theorem macHashInput_ne_keygenHashInput (p₁ p₂ : PublicParameter) (s₁ s₂ : MasterSeed) (region : TopRegion)
+    (domain : KeygenDomain) : macHashInput p₁ s₁ region ≠ keygenHashInput p₂ domain s₂ := by
+  intro h
+  have h2 := congrArg (List.take 2) h
+  rw [macHashInput_tag] at h2
+  cases domain <;> simp [keygenHashInput, keygenDomainFields, tweakFields, fieldBytes, bytesLE] at h2 <;>
+    exact absurd h2 (by decide)
+theorem macHashInput_ne_randomizerHashInput (p₁ p₂ : PublicParameter) (s₁ s₂ : MasterSeed)
+    (region : TopRegion) (message : Message) (trial : BitVec 32) :
+    macHashInput p₁ s₁ region ≠ randomizerHashInput p₂ s₂ message trial := by
+  intro h
+  have h2 := congrArg (List.take 2) h
+  rw [macHashInput_tag] at h2
+  have hr : (randomizerHashInput p₂ s₂ message trial).take 2 = [1, 7] := by
+    simp [randomizerHashInput]
+  rw [hr] at h2
+  exact absurd h2 (by decide)
+theorem macHashInput_ne_tweakableHashInput (p₁ p₂ : PublicParameter) (seed : MasterSeed)
+    (region : TopRegion) (domain : HashDomain) (payload : HashInput) :
+    macHashInput p₁ seed region ≠ tweakableHashInput p₂ domain payload := by
+  intro h
+  have htag := congrArg (fun x : HashInput => x.getD 1 0) h
+  rw [tag_mac, tag_tweakable] at htag
+  have hne : UInt8.ofBitVec (hashDomainFields domain).tag ≠ 14 := by
+    cases domain <;> dsimp [hashDomainFields, tweakFields] <;> decide
+  exact hne htag.symm
+theorem derivationSeedHit_mac (parameter : PublicParameter) (seed : MasterSeed) (region : TopRegion) :
+    DerivationSeedHit (macHashInput parameter seed region) seed := by
+  apply Or.inl
+  simp [DerivationSeedHit, macHashInput, fieldBytes, bytesLE]
+namespace Seeded
+abbrev MaskPosition := Fin maxLayerHeight × Fin (2 ^ maxLayerHeight)
+abbrev MaskOutputs := MaskPosition → HashOutput
+noncomputable opaque maskOutputsSampleableType : SampleableType MaskOutputs :=
+  SampleableType.ofFintype MaskOutputs
+noncomputable instance : SampleableType MaskOutputs := maskOutputsSampleableType
+noncomputable def sampleMaskOutputs : ProbComp MaskOutputs := $ᵗ MaskOutputs
+def maskPosition (level nodeIdx : Nat) : MaskPosition :=
+  (⟨level % maxLayerHeight, Nat.mod_lt _ (by decide)⟩, ⟨nodeIdx % 2 ^ maxLayerHeight, Nat.mod_lt _ (by decide)⟩)
+def maskInputs (parameter : PublicParameter) (seed : MasterSeed) (position : MaskPosition) : HashInput :=
+  keygenHashInput parameter (.mask position.1 position.2) seed
+theorem maskInputs_injective (parameter : PublicParameter) (seed : MasterSeed) :
+    Function.Injective (maskInputs parameter seed) := by
+  intro left right h
+  have hdomain := (keygenHashInput_injective h).2.1
+  simp only [KeygenDomain.mask.injEq] at hdomain
+  exact Prod.ext hdomain.1 hdomain.2
+theorem maskSecret_input (parameter : PublicParameter) (seed : MasterSeed) (level nodeIdx : Nat) :
+    keygenHashInput parameter (maskDomain level nodeIdx) seed = maskInputs parameter seed (maskPosition level nodeIdx) :=
+  rfl
+def maskValue (masks : MaskOutputs) (level nodeIdx : Nat) : Digest :=
+  truncateHash (masks (maskPosition level nodeIdx))
+abbrev MacOutputs := TopRegion → HashOutput
+noncomputable opaque macOutputsSampleableType : SampleableType MacOutputs :=
+  SampleableType.ofFintype MacOutputs
+noncomputable instance : SampleableType MacOutputs := macOutputsSampleableType
+noncomputable def sampleMacOutputs : ProbComp MacOutputs := $ᵗ MacOutputs
+def macInputs (parameter : PublicParameter) (seed : MasterSeed) (region : TopRegion) : HashInput :=
+  macHashInput parameter seed region
+theorem macInputs_injective (parameter : PublicParameter) (seed : MasterSeed) :
+    Function.Injective (macInputs parameter seed) :=
+  fun _ _ h => (macHashInput_injective h).2.2
+noncomputable def maskedDerivationCache (seed : MasterSeed) (outputs : SecretOutputs)
+    (randomizers : RandomizerOutputs) (masks : MaskOutputs) : QueryCache HashSpec :=
+  cacheTable (signingDerivationCache seed outputs randomizers) (maskInputs 0 seed) masks
+noncomputable def cachedDerivationCache (seed : MasterSeed) (outputs : SecretOutputs)
+    (randomizers : RandomizerOutputs) (masks : MaskOutputs) (macs : MacOutputs) : QueryCache HashSpec :=
+  cacheTable (maskedDerivationCache seed outputs randomizers masks) (macInputs 0 seed) macs
+theorem signingDerivationCache_mask_fresh (seed : MasterSeed) (outputs : SecretOutputs)
+    (randomizers : RandomizerOutputs) (position : MaskPosition) :
+    signingDerivationCache seed outputs randomizers (maskInputs 0 seed position) = none := by
+  unfold signingDerivationCache derivationCache
+  rw [cacheTable_apply_of_not_mem, cacheTable_apply_of_not_mem]
+  · rfl
+  · intro secret h
+    have := (keygenHashInput_injective h).2.1
+    cases secret <;> simp [secretDomain] at this
+  · intro randomizer h
+    exact randomizerHashInput_ne_keygenHashInput _ _ _ _ _ _ _ h.symm
+theorem maskedDerivationCache_mac_fresh (seed : MasterSeed) (outputs : SecretOutputs)
+    (randomizers : RandomizerOutputs) (masks : MaskOutputs) (region : TopRegion) :
+    maskedDerivationCache seed outputs randomizers masks (macInputs 0 seed region) = none := by
+  unfold maskedDerivationCache signingDerivationCache derivationCache
+  rw [cacheTable_apply_of_not_mem, cacheTable_apply_of_not_mem, cacheTable_apply_of_not_mem]
+  · rfl
+  · intro secret
+    exact macHashInput_ne_keygenHashInput _ _ _ _ _ _
+  · intro randomizer
+    exact macHashInput_ne_randomizerHashInput _ _ _ _ _ _ _
+  · intro position
+    exact macHashInput_ne_keygenHashInput _ _ _ _ _ _
+theorem cachedDerivationCache_mac (seed : MasterSeed) (outputs : SecretOutputs)
+    (randomizers : RandomizerOutputs) (masks : MaskOutputs) (macs : MacOutputs) (region : TopRegion) :
+    cachedDerivationCache seed outputs randomizers masks macs (macInputs 0 seed region) = some (macs region) :=
+  cacheTable_apply _ _ (macInputs_injective _ _) _ _
+theorem cachedDerivationCache_mask (seed : MasterSeed) (outputs : SecretOutputs)
+    (randomizers : RandomizerOutputs) (masks : MaskOutputs) (macs : MacOutputs) (position : MaskPosition) :
+    cachedDerivationCache seed outputs randomizers masks macs (maskInputs 0 seed position) =
+      some (masks position) := by
+  unfold cachedDerivationCache
+  rw [cacheTable_apply_of_not_mem]
+  · exact cacheTable_apply _ _ (maskInputs_injective _ _) _ _
+  · intro region h
+    exact macHashInput_ne_keygenHashInput _ _ _ _ _ _ h.symm
+theorem cachedDerivationCache_randomizer (seed : MasterSeed) (outputs : SecretOutputs)
+    (randomizers : RandomizerOutputs) (masks : MaskOutputs) (macs : MacOutputs) (position : RandomizerPosition) :
+    cachedDerivationCache seed outputs randomizers masks macs (randomizerInputs 0 seed position) =
+      some (randomizers position) := by
+  unfold cachedDerivationCache maskedDerivationCache
+  rw [cacheTable_apply_of_not_mem, cacheTable_apply_of_not_mem]
+  · exact signingDerivationCache_randomizer _ _ _ _
+  · intro mask h
+    exact randomizerHashInput_ne_keygenHashInput _ _ _ _ _ _ _ h
+  · intro region h
+    exact macHashInput_ne_randomizerHashInput _ _ _ _ _ _ _ h.symm
+theorem cachedDerivationCache_secret (seed : MasterSeed) (outputs : SecretOutputs)
+    (randomizers : RandomizerOutputs) (masks : MaskOutputs) (macs : MacOutputs) (position : SecretPosition) :
+    cachedDerivationCache seed outputs randomizers masks macs (secretInputs 0 seed position) =
+      some (outputs position) := by
+  unfold cachedDerivationCache maskedDerivationCache
+  rw [cacheTable_apply_of_not_mem, cacheTable_apply_of_not_mem]
+  · exact signingDerivationCache_secret _ _ _ _
+  · intro mask h
+    have := (keygenHashInput_injective h).2.1
+    cases position <;> simp [secretDomain] at this
+  · intro region h
+    exact macHashInput_ne_keygenHashInput _ _ _ _ _ _ h.symm
+theorem cachedDerivationCache_agreeOutside (seed : MasterSeed) (outputs : SecretOutputs)
+    (randomizers : RandomizerOutputs) (masks : MaskOutputs) (macs : MacOutputs) :
+    AgreeOutside (fun input => SeedHit input seed) (cachedDerivationCache seed outputs randomizers masks macs) ∅ := by
+  intro input hinput
+  unfold cachedDerivationCache maskedDerivationCache
+  rw [cacheTable_apply_of_not_mem, cacheTable_apply_of_not_mem]
+  · exact signingDerivationCache_agreeOutside seed outputs randomizers input hinput
+  · intro position heq
+    exact hinput (heq.symm ▸ derivationSeedHit_keygen 0 _ seed)
+  · intro region heq
+    exact hinput (heq.symm ▸ derivationSeedHit_mac 0 seed region)
+noncomputable def prepareMasks (seed : MasterSeed) : OracleComp HashSpec MaskOutputs :=
+  queryTable (maskInputs 0 seed)
+theorem evalDist_prepareMasks (seed : MasterSeed) (outputs : SecretOutputs) (randomizers : RandomizerOutputs) :
+    𝒮[(simulateQ randomOracle (prepareMasks seed)).run (signingDerivationCache seed outputs randomizers)] =
+        𝒮[(fun masks => (masks, maskedDerivationCache seed outputs randomizers masks)) <$> sampleMaskOutputs] :=
+  evalDist_queryTable_fresh _ (maskInputs_injective _ seed) _
+    (signingDerivationCache_mask_fresh seed outputs randomizers)
+noncomputable def prepareMacs (seed : MasterSeed) : OracleComp HashSpec MacOutputs :=
+  queryTable (macInputs 0 seed)
+theorem evalDist_prepareMacs (seed : MasterSeed) (outputs : SecretOutputs) (randomizers : RandomizerOutputs)
+    (masks : MaskOutputs) :
+    𝒮[(simulateQ randomOracle (prepareMacs seed)).run (maskedDerivationCache seed outputs randomizers masks)] =
+        𝒮[(fun macs => (macs, cachedDerivationCache seed outputs randomizers masks macs)) <$> sampleMacOutputs] :=
+  evalDist_queryTable_fresh _ (macInputs_injective _ seed) _
+    (maskedDerivationCache_mac_fresh seed outputs randomizers masks)
+end Seeded
+end SphincsSecurity
+end
+end
+-- ==== merged from SphincsSecurity_Proof_Scheme_Secrets ====
+section
+
+namespace SphincsSecurity
+open OracleComp OracleSpec ENNReal
+noncomputable def gameRest (scheme : Scheme SecretKey) (adversary : Adversary) (pk : PublicKey)
+    (sk : SecretKey) : OracleComp OracleWorld Bool := do
+  let ((forgery, log) : Forgery × QueryLog SigningSpec) ←
+    (simulateQ (forwardOracles + signingOracle scheme sk) (adversary.main pk)).run
+  let verified ← scheme.verify pk forgery.message forgery.signature
+  return decide (SigningTranscript.Valid log ∧ ¬SigningTranscript.Contains log forgery) && verified
+theorem gameCore_eq (scheme : Scheme SecretKey) (adversary : Adversary) :
+    gameCore scheme adversary
+      = scheme.keygen >>= fun keys => gameRest scheme adversary keys.1 keys.2 := rfl
+namespace Concrete
+noncomputable def gameAfterSecrets (adversary : Adversary) (parameter : PublicParameter)
+    (otsSecret : Layer → TreeIndex → LeafIndex → ChainIndex → Digest)
+    (ftsSecret : Index → FtsTree → FtsLeaf → Digest) : OracleComp OracleWorld Bool := do
+  let top ← liftM
+    (keygenTable parameter (otsSecret topLayer rootTree) : OracleComp HashSpec (Nat → Nat → Digest))
+  gameRest scheme adversary ⟨top (layerHeight topLayer) 0, parameter⟩
+    ⟨parameter, top (layerHeight topLayer) 0, otsSecret, ftsSecret, top⟩
+attribute [local semireducible] keygen
+theorem gameCore_eq_secrets (adversary : Adversary) :
+    gameCore scheme adversary = (do
+      let parameter ← liftM sampleParameter
+      let otsSecret ← liftM sampleOtsSecrets
+      let ftsSecret ← liftM sampleFtsSecrets
+      gameAfterSecrets adversary parameter otsSecret ftsSecret) := by
+  rw [gameCore_eq]
+  simp only [scheme, keygen, gameAfterSecrets, bind_assoc, pure_bind]
+theorem mem_support_liftM_of_mem_support {α : Type} {oa : ProbComp α} {x : α}
+    (hmem : x ∈ support oa) : x ∈ support (liftM oa : OracleComp OracleWorld α) := by
+  rwa [← liftComp_eq_liftM, support_liftComp]
+theorem simulateQ_romImpl_liftM_bind_run' {α β : Type} (oa : ProbComp α)
+    (k : α → OracleComp OracleWorld β) (cache : QueryCache HashSpec) :
+    (simulateQ romImpl ((liftM oa : OracleComp OracleWorld α) >>= k)).run' cache
+      = oa >>= fun x => (simulateQ romImpl (k x)).run' cache := by
+  rw [simulateQ_bind, StateT.run'_eq, StateT.run_bind,
+    show simulateQ romImpl (liftM oa : OracleComp OracleWorld α)
+      = simulateQ (unifFwdImpl HashSpec) oa from QueryImpl.simulateQ_add_liftM_left _ _ oa,
+    unifFwdImpl.simulateQ_run]
+  simp [map_eq_bind_pure_comp, bind_assoc, StateT.run'_eq]
+theorem hashQueryBound_gameAfterSecrets (adversary : Adversary) (q : Nat)
+    (hq : HasHashQueryBound scheme adversary q) {parameter : PublicParameter}
+    (hparameter : parameter ∈ support sampleParameter)
+    {otsSecret : Layer → TreeIndex → LeafIndex → ChainIndex → Digest}
+    (hots : otsSecret ∈ support sampleOtsSecrets)
+    {ftsSecret : Index → FtsTree → FtsLeaf → Digest}
+    (hfts : ftsSecret ∈ support sampleFtsSecrets) :
+    HashQueryBound (gameAfterSecrets adversary parameter otsSecret ftsSecret) ∅ q := by
+  rw [hasHashQueryBound_iff, gameCore_eq_secrets] at hq
+  exact hashQueryBound_of_sampling_bind _ _ ∅ q
+    (hashQueryBound_of_sampling_bind _ _ ∅ q
+      (hashQueryBound_of_sampling_bind _ _ ∅ q hq parameter hparameter) otsSecret hots)
+    ftsSecret hfts
+end Concrete
+end SphincsSecurity
+end
+-- ==== merged from SphincsSecurity_Proof_Base_QueryCapAccounting ====
+section
+
+namespace SphincsSecurity.QueryCap
+open _root_.OracleComp OracleSpec
+set_option backward.isDefEq.respectTransparency false
+variable {Index : Type} {spec : OracleSpec Index} {Result : Type}
+theorem simulate_mem_support (impl : QueryImpl spec PMF) (computation : OracleComp spec Result)
+    (result : Result) (hresult : result ∈ (simulateQ impl computation).support) : result ∈ support computation := by
+  induction computation using OracleComp.inductionOn with
+  | pure value =>
+      simp only [simulateQ_pure, PMF.monad_pure_eq_pure, PMF.mem_support_pure_iff] at hresult
+      exact (mem_support_pure_iff _ _).mpr hresult
+  | query_bind input next ih =>
+      simp only [simulateQ_bind, simulateQ_spec_query, PMF.monad_bind_eq_bind, PMF.mem_support_bind_iff] at hresult
+      obtain ⟨answer, _, hresult⟩ := hresult
+      refine (mem_support_bind_iff _ _ _).mpr ⟨answer, ?_, ih answer hresult⟩
+      simp only [support_query, Set.mem_univ]
+variable (selected : Index → Prop) [DecidablePred selected]
+theorem counted_le_of_queryBound (computation : OracleComp spec Result) (budget : Nat)
+    (hbound : computation.IsQueryBoundP selected budget) (result : Result × Nat)
+    (hresult : result ∈ support (counted selected computation)) : result.2 ≤ budget := by
+  induction computation using OracleComp.inductionOn generalizing budget result with
+  | pure value =>
+      rw [counted_pure, mem_support_pure_iff] at hresult
+      subst result
+      exact Nat.zero_le _
+  | query_bind input next ih =>
+      rw [counted_query_bind, mem_support_bind_iff] at hresult
+      obtain ⟨answer, _, hresult⟩ := hresult
+      rw [mem_support_bind_iff] at hresult
+      obtain ⟨tail, htail, hresult⟩ := hresult
+      rw [mem_support_pure_iff] at hresult
+      subst result
+      rw [isQueryBoundP_query_bind_iff] at hbound
+      have htail := ih answer _ (hbound.2 answer) tail htail
+      by_cases hselected : selected input
+      · have hpos : 0 < budget := by simpa only [hselected, not_true_eq_false, false_or] using hbound.1
+        simp only [if_pos hselected] at htail ⊢
+        omega
+      · simpa only [if_neg hselected, Nat.zero_add] using htail
+theorem counted_writer_bind_le {Trace Next : Type} [Monoid Trace] (cost : Trace → Nat)
+    (hcost : ∀ first second, cost (first * second) = cost first + cost second)
+    (first : WriterT Trace (OracleComp spec) Result) (next : Result → WriterT Trace (OracleComp spec) Next)
+    (hfirst : ∀ result ∈ support (counted selected first.run), result.2 ≤ cost result.1.2)
+    (hnext : ∀ value result, result ∈ support (counted selected (next value).run) → result.2 ≤ cost result.1.2)
+    (result : (Next × Trace) × Nat) (hresult : result ∈ support (counted selected (first >>= next).run)) :
+    result.2 ≤ cost result.1.2 := by
+  rw [WriterT.run_bind, counted_bind, mem_support_bind_iff] at hresult
+  obtain ⟨middle, hmiddle, hresult⟩ := hresult
+  rw [counted_map, mem_support_bind_iff] at hresult
+  obtain ⟨last, hlast, hresult⟩ := hresult
+  rw [support_map] at hlast
+  obtain ⟨tail, htail, rfl⟩ := hlast
+  rw [mem_support_pure_iff] at hresult
+  subst result
+  rw [hcost]
+  exact Nat.add_le_add (hfirst middle hmiddle) (hnext middle.1.1 tail htail)
+theorem counted_writer_simulate_le {SourceIndex Trace : Type} {source : OracleSpec SourceIndex} [Monoid Trace]
+    (cost : Trace → Nat) (hcost : ∀ first second, cost (first * second) = cost first + cost second)
+    (impl : QueryImpl source (WriterT Trace (OracleComp spec)))
+    (hstep : ∀ input result, result ∈ support (counted selected (impl input).run) → result.2 ≤ cost result.1.2)
+    (computation : OracleComp source Result) (result : (Result × Trace) × Nat)
+    (hresult : result ∈ support (counted selected (simulateQ impl computation).run)) : result.2 ≤ cost result.1.2 := by
+  induction computation using OracleComp.inductionOn generalizing result with
+  | pure value =>
+      simp only [simulateQ_pure, WriterT.run_pure, counted_pure, mem_support_pure_iff] at hresult
+      subst result
+      exact Nat.zero_le _
+  | query_bind input next ih =>
+      rw [simulateQ_bind, simulateQ_spec_query] at hresult
+      exact counted_writer_bind_le selected cost hcost (impl input) (fun answer => simulateQ impl (next answer))
+        (hstep input) ih result hresult
+end SphincsSecurity.QueryCap
+end
+-- ==== merged from SphincsSecurity_Proof_Event_Erasure ====
+section
+
+section
+namespace SphincsSecurity.Concrete
+open OracleComp
+variable {m : Type → Type} [Monad m] [LawfulMonad m]
+def unpairFin {α : Type} {n N : Nat} (hN : N = 2 * n) (p : Fin n → α × α) (i : Fin N) : α :=
+  if i.val % 2 = 0 then (p ⟨i.val / 2, by have := i.isLt; omega⟩).1 else (p ⟨i.val / 2, by have := i.isLt; omega⟩).2
+def pairStep {α : Type} {n N : Nat} (hN : N = 2 * n) (f : Fin N → m α) (k : Fin n) : m (α × α) := do
+  let a ← f ⟨2 * k.val, by have := k.isLt; omega⟩
+  let b ← f ⟨2 * k.val + 1, by have := k.isLt; omega⟩
+  pure (a, b)
+theorem sequenceFin_pairs {α : Type} (n : Nat) :
+    ∀ (N : Nat) (hN : N = 2 * n) (f : Fin N → m α),
+      sequenceFin f = unpairFin hN <$> sequenceFin (pairStep hN f) := by
+  induction n with
+  | zero =>
+      intro N hN f
+      subst hN
+      simp only [Nat.mul_zero, sequenceFin, map_pure]
+      congr 1
+      funext i
+      exact i.elim0
+  | succ n ih =>
+      intro N hN f
+      obtain rfl : N = (2 * n + 1) + 1 := by omega
+      have htail := ih (2 * n) rfl (fun i => f i.succ.succ)
+      conv_lhs => simp only [sequenceFin]
+      rw [htail]
+      conv_rhs => simp only [sequenceFin]
+      simp only [pairStep, map_bind, bind_assoc, map_pure, pure_bind, bind_map_left]
+      have e0 : (⟨2 * (0 : Fin (n + 1)).val, by omega⟩ : Fin (2 * n + 1 + 1)) = 0 := rfl
+      have e1 : (⟨2 * (0 : Fin (n + 1)).val + 1, by omega⟩ : Fin (2 * n + 1 + 1)) = (0 : Fin (2 * n + 1)).succ := rfl
+      rw [e0, e1]
+      apply bind_congr
+      intro a
+      apply bind_congr
+      intro b
+      have hpairs : (pairStep (n := n) (N := 2 * n) rfl fun i => f i.succ.succ) =
+          (fun k : Fin n => do
+            let a ← f ⟨2 * (k.succ).val, by have := k.isLt; omega⟩
+            let b ← f ⟨2 * (k.succ).val + 1, by have := k.isLt; omega⟩
+            pure (a, b)) := by
+        funext k
+        simp only [pairStep]
+        congr 2
+      rw [hpairs]
+      apply bind_congr
+      intro rest
+      congr 1
+      funext i
+      obtain ⟨i, hi⟩ := i
+      match i, hi with
+      | 0, _ =>
+          rw [show (⟨0, by omega⟩ : Fin (2 * n + 1 + 1)) = 0 from rfl, Fin.cases_zero]
+          simp [unpairFin]
+      | 1, _ =>
+          rw [show (⟨1, by omega⟩ : Fin (2 * n + 1 + 1)) = (0 : Fin (2 * n + 1)).succ from rfl, Fin.cases_succ,
+            Fin.cases_zero]
+          simp [unpairFin]
+      | j + 2, hj =>
+          rw [show (⟨j + 2, hj⟩ : Fin (2 * n + 1 + 1)) = (⟨j, by omega⟩ : Fin (2 * n)).succ.succ from rfl,
+            Fin.cases_succ, Fin.cases_succ]
+          have hidx : (⟨(j + 2) / 2, by omega⟩ : Fin (n + 1)) = (⟨j / 2, by omega⟩ : Fin n).succ :=
+            Fin.ext (by simp only [Fin.val_succ]; omega)
+          unfold unpairFin
+          simp only [Fin.val_succ, show j + 1 + 1 = j + 2 from rfl, show (j + 2) % 2 = j % 2 by omega, hidx,
+            Fin.cases_succ]
+theorem numChains_eq_two_mul : numChains = 2 * (numChains / 2) := rfl
+theorem ftsLeaves_eq_two_mul : 2 ^ ftsTreeHeight = 2 * (2 ^ (ftsTreeHeight - 1)) := rfl
+theorem unpairChains_eq {α : Type} (pairs : ChainPair → α × α) :
+    unpairChains pairs = unpairFin numChains_eq_two_mul pairs := by
+  funext i
+  rfl
+theorem unpairFtsLeaves_eq {α : Type} (pairs : FtsPair → α × α) :
+    unpairFtsLeaves pairs = unpairFin ftsLeaves_eq_two_mul pairs := by
+  funext i
+  rfl
+variable [HasQuery HashSpec m]
+def pairOf (secret : ChainIndex → Digest) (pair : ChainPair) : Digest × Digest :=
+  (secret (evenChain pair), secret (oddChain pair))
+def ftsPairOf (secret : FtsLeaf → Digest) (pair : FtsPair) : Digest × Digest :=
+  (secret (evenFtsLeaf pair), secret (oddFtsLeaf pair))
+theorem buildLeafPaired_pure (parameter : PublicParameter) (lay : Layer) (tree : TreeIndex) (leaf : LeafIndex)
+    (secret : ChainIndex → Digest) (digits : Encoding) :
+    (buildLeafPaired parameter lay tree leaf (fun pair => pure (pairOf secret pair)) digits : m _) =
+      buildLeaf parameter lay tree leaf (fun chainIdx => pure (secret chainIdx)) digits := by
+  unfold buildLeafPaired buildLeaf
+  rw [sequenceFin_pairs (numChains / 2) numChains numChains_eq_two_mul, bind_map_left]
+  simp only [pure_bind, unpairChains_eq]
+  rfl
+theorem buildLayerTablePaired_pure (parameter : PublicParameter) (lay : Layer) (tree : TreeIndex)
+    (secret : LeafIndex → ChainIndex → Digest) (leaf : LeafIndex) (digits : Encoding) :
+    (buildLayerTablePaired parameter lay tree (fun leaf pair => pure (pairOf (secret leaf) pair)) leaf digits : m _) =
+      buildLayerTable parameter lay tree (fun leaf chainIdx => pure (secret leaf chainIdx)) leaf digits := by
+  unfold buildLayerTablePaired buildLayerTable
+  simp only [buildLeafPaired_pure]
+theorem buildLayerTreePaired_pure (parameter : PublicParameter) (lay : Layer) (tree : TreeIndex)
+    (secret : LeafIndex → ChainIndex → Digest) (leaf : LeafIndex) (digits : Encoding) :
+    (buildLayerTreePaired parameter lay tree (fun leaf pair => pure (pairOf (secret leaf) pair)) leaf digits : m _) =
+      buildLayerTree parameter lay tree (fun leaf chainIdx => pure (secret leaf chainIdx)) leaf digits := by
+  unfold buildLayerTreePaired
+  rw [buildLayerTablePaired_pure]
+  unfold buildLayerTree buildLayerTable
+  simp only [bind_assoc, pure_bind]
+theorem buildFtsTreePaired_pure (parameter : PublicParameter) (index : Index)
+    (secret : FtsLeaf → Digest) :
+    (buildFtsTreePaired parameter index (fun pair => pure (ftsPairOf secret pair)) : m _) =
+      buildFtsTree parameter index (fun leaf => pure (secret leaf)) := by
+  unfold buildFtsTreePaired buildFtsTree
+  rw [sequenceFin_pairs (2 ^ (ftsTreeHeight - 1)) (2 ^ ftsTreeHeight) ftsLeaves_eq_two_mul, bind_map_left]
+  simp only [pure_bind]
+  have hstep : (fun pair : FtsPair => (do
+      let first ← ftsLeafHash parameter index porsTree (evenFtsLeaf pair).val (ftsPairOf secret pair).1
+      let second ← ftsLeafHash parameter index porsTree (oddFtsLeaf pair).val (ftsPairOf secret pair).2
+      return (((ftsPairOf secret pair).1, first), ((ftsPairOf secret pair).2, second)) : m _)) =
+      pairStep ftsLeaves_eq_two_mul (fun leafIdx : FtsLeaf => (do
+        let hashed ← ftsLeafHash parameter index porsTree leafIdx.val (secret leafIdx)
+        return (secret leafIdx, hashed) : m _)) := by
+    funext pair
+    simp only [pairStep, pure_bind, bind_assoc]
+    rfl
+  rw [hstep]
+  simp only [unpairFtsLeaves_eq]
+theorem signTopLayerPaired_pure (parameter : PublicParameter) (index : Index)
+    (secret : LeafIndex → ChainIndex → Digest) (topNode : Nat → Nat → m Digest) (message : Digest) :
+    signTopLayerPaired parameter index (fun leaf pair => pure (pairOf (secret leaf) pair)) topNode message =
+      signTopLayer parameter index (fun leaf chainIdx => pure (secret leaf chainIdx)) topNode message := by
+  unfold signTopLayerPaired signTopLayer
+  apply bind_congr
+  intro search
+  rcases search with _ | ⟨counter, encoding⟩
+  · rfl
+  · dsimp only
+    simp only [pure_bind]
+    rw [sequenceFin_pairs (numChains / 2) numChains numChains_eq_two_mul, bind_map_left]
+    simp only [unpairChains_eq]
+    rfl
+theorem signLayersPaired_pure (parameter : PublicParameter) (index : Index)
+    (secret : Layer → TreeIndex → LeafIndex → ChainIndex → Digest) (topNode : Nat → Nat → m Digest)
+    (remaining : Nat) (message : Digest) :
+    signLayersPaired parameter index (fun lay tree leaf pair => pure (pairOf (secret lay tree leaf) pair)) topNode
+        remaining message =
+      signLayers parameter index (fun lay tree leaf chainIdx => pure (secret lay tree leaf chainIdx)) topNode
+        remaining message := by
+  induction remaining generalizing message with
+  | zero => rfl
+  | succ remaining ih =>
+      simp only [signLayersPaired, signLayers]
+      split
+      · split
+        · rw [signTopLayerPaired_pure]
+        · apply bind_congr
+          intro search
+          rcases search with _ | ⟨counter, encoding⟩
+          · rfl
+          · dsimp only
+            rw [buildLayerTreePaired_pure (secret := secret _ _)]
+            apply bind_congr
+            intro built
+            rw [ih]
+      · rfl
+theorem signFromPaired_pure (parameter : PublicParameter) (index : Index)
+    (ftsSecret : FtsTree → FtsLeaf → Digest) (otsSecret : Layer → TreeIndex → LeafIndex → ChainIndex → Digest)
+    (topNode : Nat → Nat → m Digest) (randomness : Randomness) (leaves : IndexGroup → FtsLeaf) :
+    signFromPaired parameter index (fun tree pair => pure (ftsPairOf (ftsSecret tree) pair))
+        (fun lay tree leaf pair => pure (pairOf (otsSecret lay tree leaf) pair)) topNode randomness leaves =
+      signFrom parameter index (fun tree leaf => pure (ftsSecret tree leaf))
+        (fun lay tree leaf chainIdx => pure (otsSecret lay tree leaf chainIdx)) topNode randomness leaves := by
+  unfold signFromPaired signFrom
+  rw [buildFtsTreePaired_pure]
+  apply bind_congr
+  rintro ⟨secrets, table⟩
+  dsimp only
+  rw [signLayersPaired_pure]
+end SphincsSecurity.Concrete
+end
+section
+open OracleComp OracleSpec
+namespace SphincsSecurity.Seeded
+set_option backward.isDefEq.respectTransparency false
+theorem sequenceFin_pure {m : Type → Type} [Monad m] [LawfulMonad m] {α : Type}
+    {n : Nat} (values : Fin n → α) : Concrete.sequenceFin (fun i => (pure (values i) : m α)) = pure values := by
+  induction n with
+  | zero =>
+      simp only [Concrete.sequenceFin]
+      congr 1
+      funext i
+      exact i.elim0
+  | succ n ih =>
+      simp only [Concrete.sequenceFin, pure_bind, ih]
+      congr 1
+      funext i
+      cases i using Fin.cases <;> rfl
+theorem Erases.sequenceFin {ι : Type} {spec : OracleSpec ι} {α : Type} {n : Nat}
+    (known : QueryCache spec) (left right : Fin n → OracleComp spec α)
+    (h : ∀ i, Erases known (left i) (right i)) :
+    Erases known (Concrete.sequenceFin left) (Concrete.sequenceFin right) := by
+  induction n with
+  | zero => exact .pure _
+  | succ n ih =>
+      simp only [Concrete.sequenceFin]
+      apply (h 0).bind
+      intro head
+      apply (ih _ _ (fun i => h i.succ)).bind
+      intro tail
+      exact .pure _
+theorem Erases.bind_map_right {ι : Type} {spec : OracleSpec ι} {α β γ : Type}
+    {known : QueryCache spec} {left : OracleComp spec α} {right : OracleComp spec β}
+    {f : β → α} (h : Erases known left (f <$> right))
+    (nextLeft : α → OracleComp spec γ) (nextRight : β → OracleComp spec γ)
+    (hnext : ∀ value, Erases known (nextLeft (f value)) (nextRight value)) :
+    Erases known (left >>= nextLeft) (right >>= nextRight) := by
+  apply Erases.trans (h.bind nextLeft nextLeft (fun _ => Erases.refl known _))
+  simpa only [bind_map_left] using (Erases.refl known right).bind _ _ hnext
+def tableOts (outputs : SecretOutputs) (lay : Layer) (tree : TreeIndex) (leaf : LeafIndex)
+    (chain : ChainIndex) : Digest :=
+  unpairChains (fun pair => splitSecrets (outputs (.inl (lay, tree, leaf, pair)))) chain
+def tableFts (outputs : SecretOutputs) (index : Index) (tree : FtsTree) (leaf : FtsLeaf) : Digest :=
+  unpairFtsLeaves (fun pair => splitSecrets (outputs (.inr (index, tree, pair)))) leaf
+theorem pairOf_tableOts (outputs : SecretOutputs) (lay : Layer) (tree : TreeIndex) (leaf : LeafIndex)
+    (pair : ChainPair) :
+    Concrete.pairOf (tableOts outputs lay tree leaf) pair = splitSecrets (outputs (.inl (lay, tree, leaf, pair))) := by
+  unfold Concrete.pairOf tableOts unpairChains
+  have he : (evenChain pair).val % 2 = 0 := by simp [evenChain]
+  have ho : ¬ (oddChain pair).val % 2 = 0 := by simp [oddChain]
+  have hpe : chainPairOf (evenChain pair) = pair := Fin.ext (by simp [chainPairOf, evenChain])
+  have hpo : chainPairOf (oddChain pair) = pair := Fin.ext (by simp [chainPairOf, oddChain]; omega)
+  simp only [he, ho, if_true, if_false, hpe, hpo]
+theorem ftsPairOf_tableFts (outputs : SecretOutputs) (index : Index) (tree : FtsTree) (pair : FtsPair) :
+    Concrete.ftsPairOf (tableFts outputs index tree) pair = splitSecrets (outputs (.inr (index, tree, pair))) := by
+  unfold Concrete.ftsPairOf tableFts unpairFtsLeaves
+  have he : (evenFtsLeaf pair).val % 2 = 0 := by simp [evenFtsLeaf]
+  have ho : ¬ (oddFtsLeaf pair).val % 2 = 0 := by simp [oddFtsLeaf]
+  have hpe : ftsPairOf (evenFtsLeaf pair) = pair := Fin.ext (by simp [ftsPairOf, evenFtsLeaf])
+  have hpo : ftsPairOf (oddFtsLeaf pair) = pair := Fin.ext (by simp [ftsPairOf, oddFtsLeaf]; omega)
+  simp only [he, ho, if_true, if_false, hpe, hpo]
+def tableKey (parameter : PublicParameter) (top : Nat → Nat → Digest) (outputs : SecretOutputs) :
+    SphincsSecurity.SecretKey where
+  parameter := parameter
+  root := top (layerHeight topLayer) 0
+  otsSecret := tableOts outputs
+  ftsSecret := tableFts outputs
+  top := top
+section Builders
+open Concrete
+variable {known : QueryCache HashSpec} (parameter : PublicParameter)
+theorem erases_buildChain (lay : Layer) (tree : TreeIndex) (leaf : LeafIndex) (chainIdx : ChainIndex)
+    {left right : OracleComp HashSpec Digest} (h : Erases known left right) (digit : Nat) :
+    Erases known (buildChain parameter lay tree leaf chainIdx left digit)
+      (buildChain parameter lay tree leaf chainIdx right digit) := by
+  unfold buildChain
+  exact h.bind _ _ fun _ => .refl _ _
+theorem erases_buildLeaf (lay : Layer) (tree : TreeIndex) (leaf : LeafIndex)
+    {left right : ChainIndex → OracleComp HashSpec Digest}
+    (h : ∀ chainIdx, Erases known (left chainIdx) (right chainIdx)) (digits : Encoding) :
+    Erases known (buildLeaf parameter lay tree leaf left digits)
+      (buildLeaf parameter lay tree leaf right digits) := by
+  unfold buildLeaf
+  exact (Erases.sequenceFin known _ _ fun chainIdx =>
+    erases_buildChain parameter lay tree leaf chainIdx (h chainIdx) _).bind _ _ fun _ => .refl _ _
+theorem erases_buildLayerTable (lay : Layer) (tree : TreeIndex)
+    {left right : LeafIndex → ChainIndex → OracleComp HashSpec Digest}
+    (h : ∀ leaf chainIdx, Erases known (left leaf chainIdx) (right leaf chainIdx))
+    (leaf : LeafIndex) (digits : Encoding) :
+    Erases known (buildLayerTable parameter lay tree left leaf digits)
+      (buildLayerTable parameter lay tree right leaf digits) := by
+  unfold buildLayerTable
+  exact (Erases.sequenceFin known _ _ fun _ =>
+    erases_buildLeaf parameter lay tree _ (h _) _).bind _ _ fun _ => .refl _ _
+theorem erases_buildLayerTree (lay : Layer) (tree : TreeIndex)
+    {left right : LeafIndex → ChainIndex → OracleComp HashSpec Digest}
+    (h : ∀ leaf chainIdx, Erases known (left leaf chainIdx) (right leaf chainIdx))
+    (leaf : LeafIndex) (digits : Encoding) :
+    Erases known (buildLayerTree parameter lay tree left leaf digits)
+      (buildLayerTree parameter lay tree right leaf digits) := by
+  unfold buildLayerTree
+  exact (Erases.sequenceFin known _ _ fun _ =>
+    erases_buildLeaf parameter lay tree _ (h _) _).bind _ _ fun _ => .refl _ _
+theorem erases_buildFtsTree (index : Index)
+    {left right : FtsLeaf → OracleComp HashSpec Digest}
+    (h : ∀ leaf, Erases known (left leaf) (right leaf)) :
+    Erases known (buildFtsTree parameter index left)
+      (buildFtsTree parameter index right) := by
+  unfold buildFtsTree
+  exact (Erases.sequenceFin known _ _ fun leaf =>
+    (h leaf).bind _ _ fun _ => .refl _ _).bind _ _ fun _ => .refl _ _
+theorem erases_signTopLayer (index : Index)
+    {left right : LeafIndex → ChainIndex → OracleComp HashSpec Digest}
+    (h : ∀ leaf chainIdx, Erases known (left leaf chainIdx) (right leaf chainIdx))
+    {topLeft topRight : Nat → Nat → OracleComp HashSpec Digest}
+    (htop : ∀ level nodeIdx, Erases known (topLeft level nodeIdx) (topRight level nodeIdx))
+    (message : Digest) :
+    Erases known (signTopLayer parameter index left topLeft message)
+      (signTopLayer parameter index right topRight message) := by
+  unfold signTopLayer
+  apply (Erases.refl known _).bind
+  intro search
+  rcases search with _ | ⟨counter, encoding⟩
+  · exact .pure _
+  · apply (Erases.sequenceFin known _ _ fun chainIdx =>
+      (h _ chainIdx).bind _ _ fun _ => .refl _ _).bind
+    intro values
+    apply (Erases.sequenceFin known _ _ fun level => htop _ _).bind
+    intro path
+    exact .pure _
+theorem erases_signLayers (index : Index)
+    {left right : Layer → TreeIndex → LeafIndex → ChainIndex → OracleComp HashSpec Digest}
+    (h : ∀ lay tree leaf chainIdx, Erases known (left lay tree leaf chainIdx) (right lay tree leaf chainIdx))
+    {topLeft topRight : Nat → Nat → OracleComp HashSpec Digest}
+    (htop : ∀ level nodeIdx, Erases known (topLeft level nodeIdx) (topRight level nodeIdx))
+    (remaining : Nat) (message : Digest) :
+    Erases known (signLayers parameter index left topLeft remaining message)
+      (signLayers parameter index right topRight remaining message) := by
+  induction remaining generalizing message with
+  | zero => exact .pure _
+  | succ remaining ih =>
+      simp only [signLayers]
+      split
+      · split
+        · apply (erases_signTopLayer parameter index (h _ _) htop message).bind
+          intro output
+          cases output <;> exact .pure _
+        · apply (Erases.refl known _).bind
+          intro search
+          rcases search with _ | ⟨counter, encoding⟩
+          · exact .pure _
+          · apply (erases_buildLayerTree parameter _ _ (h _ _) _ _).bind
+            rintro ⟨values, path, root⟩
+            apply (ih root).bind
+            intro rest
+            cases rest <;> exact .pure _
+      · exact .pure _
+theorem erases_signFrom (index : Index)
+    {ftsLeft ftsRight : FtsTree → FtsLeaf → OracleComp HashSpec Digest}
+    (hfts : ∀ tree leaf, Erases known (ftsLeft tree leaf) (ftsRight tree leaf))
+    {otsLeft otsRight : Layer → TreeIndex → LeafIndex → ChainIndex → OracleComp HashSpec Digest}
+    (hots : ∀ lay tree leaf chainIdx,
+      Erases known (otsLeft lay tree leaf chainIdx) (otsRight lay tree leaf chainIdx))
+    {topLeft topRight : Nat → Nat → OracleComp HashSpec Digest}
+    (htop : ∀ level nodeIdx, Erases known (topLeft level nodeIdx) (topRight level nodeIdx))
+    (randomness : Randomness) (leaves : IndexGroup → FtsLeaf) :
+    Erases known (signFrom parameter index ftsLeft otsLeft topLeft randomness leaves)
+      (signFrom parameter index ftsRight otsRight topRight randomness leaves) := by
+  unfold signFrom
+  apply (erases_buildFtsTree parameter index (hfts porsTree)).bind
+  rintro ⟨secrets, table⟩
+  apply (erases_signLayers parameter index hots htop _ _).bind
+  intro parts
+  cases parts <;> exact .pure _
+theorem erases_buildLeafPaired (lay : Layer) (tree : TreeIndex) (leaf : LeafIndex)
+    {left right : ChainPair → OracleComp HashSpec (Digest × Digest)}
+    (h : ∀ pair, Erases known (left pair) (right pair)) (digits : Encoding) :
+    Erases known (buildLeafPaired parameter lay tree leaf left digits)
+      (buildLeafPaired parameter lay tree leaf right digits) := by
+  unfold buildLeafPaired
+  exact (Erases.sequenceFin known _ _ fun pair =>
+    (h pair).bind _ _ fun _ => .refl _ _).bind _ _ fun _ => .refl _ _
+theorem erases_buildLayerTablePaired (lay : Layer) (tree : TreeIndex)
+    {left right : LeafIndex → ChainPair → OracleComp HashSpec (Digest × Digest)}
+    (h : ∀ leaf pair, Erases known (left leaf pair) (right leaf pair))
+    (leaf : LeafIndex) (digits : Encoding) :
+    Erases known (buildLayerTablePaired parameter lay tree left leaf digits)
+      (buildLayerTablePaired parameter lay tree right leaf digits) := by
+  unfold buildLayerTablePaired
+  exact (Erases.sequenceFin known _ _ fun _ =>
+    erases_buildLeafPaired parameter lay tree _ (h _) _).bind _ _ fun _ => .refl _ _
+theorem erases_buildLayerTreePaired (lay : Layer) (tree : TreeIndex)
+    {left right : LeafIndex → ChainPair → OracleComp HashSpec (Digest × Digest)}
+    (h : ∀ leaf pair, Erases known (left leaf pair) (right leaf pair))
+    (leaf : LeafIndex) (digits : Encoding) :
+    Erases known (buildLayerTreePaired parameter lay tree left leaf digits)
+      (buildLayerTreePaired parameter lay tree right leaf digits) := by
+  unfold buildLayerTreePaired
+  exact (erases_buildLayerTablePaired parameter lay tree h leaf digits).bind _ _ fun _ => .refl _ _
+theorem erases_buildFtsTreePaired (index : Index)
+    {left right : FtsPair → OracleComp HashSpec (Digest × Digest)}
+    (h : ∀ pair, Erases known (left pair) (right pair)) :
+    Erases known (buildFtsTreePaired parameter index left)
+      (buildFtsTreePaired parameter index right) := by
+  unfold buildFtsTreePaired
+  exact (Erases.sequenceFin known _ _ fun pair =>
+    (h pair).bind _ _ fun _ => .refl _ _).bind _ _ fun _ => .refl _ _
+theorem erases_signTopLayerPaired (index : Index)
+    {left right : LeafIndex → ChainPair → OracleComp HashSpec (Digest × Digest)}
+    (h : ∀ leaf pair, Erases known (left leaf pair) (right leaf pair))
+    {topLeft topRight : Nat → Nat → OracleComp HashSpec Digest}
+    (htop : ∀ level nodeIdx, Erases known (topLeft level nodeIdx) (topRight level nodeIdx))
+    (message : Digest) :
+    Erases known (signTopLayerPaired parameter index left topLeft message)
+      (signTopLayerPaired parameter index right topRight message) := by
+  unfold signTopLayerPaired
+  apply (Erases.refl known _).bind
+  intro search
+  rcases search with _ | ⟨counter, encoding⟩
+  · exact .pure _
+  · apply (Erases.sequenceFin known _ _ fun pair =>
+      (h _ pair).bind _ _ fun _ => .refl _ _).bind
+    intro values
+    apply (Erases.sequenceFin known _ _ fun level => htop _ _).bind
+    intro path
+    exact .pure _
+theorem erases_signLayersPaired (index : Index)
+    {left right : Layer → TreeIndex → LeafIndex → ChainPair → OracleComp HashSpec (Digest × Digest)}
+    (h : ∀ lay tree leaf pair, Erases known (left lay tree leaf pair) (right lay tree leaf pair))
+    {topLeft topRight : Nat → Nat → OracleComp HashSpec Digest}
+    (htop : ∀ level nodeIdx, Erases known (topLeft level nodeIdx) (topRight level nodeIdx))
+    (remaining : Nat) (message : Digest) :
+    Erases known (signLayersPaired parameter index left topLeft remaining message)
+      (signLayersPaired parameter index right topRight remaining message) := by
+  induction remaining generalizing message with
+  | zero => exact .pure _
+  | succ remaining ih =>
+      simp only [signLayersPaired]
+      split
+      · split
+        · apply (erases_signTopLayerPaired parameter index (h _ _) htop message).bind
+          intro output
+          cases output <;> exact .pure _
+        · apply (Erases.refl known _).bind
+          intro search
+          rcases search with _ | ⟨counter, encoding⟩
+          · exact .pure _
+          · apply (erases_buildLayerTreePaired parameter _ _ (h _ _) _ _).bind
+            rintro ⟨values, path, root⟩
+            apply (ih root).bind
+            intro rest
+            cases rest <;> exact .pure _
+      · exact .pure _
+theorem erases_signFromPaired (index : Index)
+    {ftsLeft ftsRight : FtsTree → FtsPair → OracleComp HashSpec (Digest × Digest)}
+    (hfts : ∀ tree pair, Erases known (ftsLeft tree pair) (ftsRight tree pair))
+    {otsLeft otsRight : Layer → TreeIndex → LeafIndex → ChainPair → OracleComp HashSpec (Digest × Digest)}
+    (hots : ∀ lay tree leaf pair,
+      Erases known (otsLeft lay tree leaf pair) (otsRight lay tree leaf pair))
+    {topLeft topRight : Nat → Nat → OracleComp HashSpec Digest}
+    (htop : ∀ level nodeIdx, Erases known (topLeft level nodeIdx) (topRight level nodeIdx))
+    (randomness : Randomness) (leaves : IndexGroup → FtsLeaf) :
+    Erases known (signFromPaired parameter index ftsLeft otsLeft topLeft randomness leaves)
+      (signFromPaired parameter index ftsRight otsRight topRight randomness leaves) := by
+  unfold signFromPaired
+  apply (erases_buildFtsTreePaired parameter index (hfts porsTree)).bind
+  rintro ⟨secrets, table⟩
+  apply (erases_signLayersPaired parameter index hots htop _ _).bind
+  intro parts
+  cases parts <;> exact .pure _
+end Builders
+section FirstSecret
+open Concrete
+variable {m : Type → Type} [Monad m] [LawfulMonad m]
+theorem sequenceFin_split_first {α β : Type} {n : Nat} (hn : 0 < n) (computation : Fin n → m α)
+    (first : m β) (rest : β → Fin n → m α)
+    (hfirst : computation ⟨0, hn⟩ = first >>= fun value => rest value ⟨0, hn⟩)
+    (hrest : ∀ value i, i.val ≠ 0 → rest value i = computation i) :
+    sequenceFin computation = first >>= fun value => sequenceFin (rest value) := by
+  cases n with
+  | zero => omega
+  | succ n =>
+      simp only [sequenceFin]
+      rw [show (0 : Fin (n + 1)) = ⟨0, hn⟩ from rfl, hfirst, bind_assoc]
+      apply bind_congr
+      intro value
+      have htail : (fun i : Fin n => rest value i.succ) = fun i => computation i.succ :=
+        funext fun i => hrest value i.succ (by simp)
+      rw [htail]
+def withFirst {m : Type → Type} [Monad m] (secret : LeafIndex → ChainIndex → m Digest) (first : Digest) :
+    LeafIndex → ChainIndex → m Digest :=
+  fun leaf chainIdx => if leaf.val = 0 ∧ chainIdx.val = 0 then pure first else secret leaf chainIdx
+theorem leafOfNat_val_ne_zero (lay : Layer) (i : Fin (2 ^ layerHeight lay)) (hi : i.val ≠ 0) :
+    (leafOfNat i.val).val ≠ 0 := by
+  have hheight : layerHeight lay ≤ maxLayerHeight := by
+    unfold layerHeight maxLayerHeight
+    split <;> (try split) <;> omega
+  have hlt : i.val < 2 ^ maxLayerHeight :=
+    lt_of_lt_of_le i.isLt (Nat.pow_le_pow_right (by decide) hheight)
+  simp only [leafOfNat, Nat.mod_eq_of_lt hlt]
+  exact hi
+variable [HasQuery HashSpec m]
+theorem buildChain_split_first (parameter : PublicParameter) (lay : Layer) (tree : TreeIndex)
+    (leaf : LeafIndex) (chainIdx : ChainIndex) (secret : m Digest) (digit : Nat) :
+    buildChain parameter lay tree leaf chainIdx secret digit =
+      secret >>= fun value => buildChain parameter lay tree leaf chainIdx (pure value) digit := by
+  simp only [buildChain, pure_bind]
+theorem buildLayerTree_split_first (parameter : PublicParameter) (lay : Layer) (tree : TreeIndex)
+    (secret : LeafIndex → ChainIndex → m Digest) (leaf : LeafIndex) (digits : Encoding) :
+    buildLayerTree parameter lay tree secret leaf digits =
+      secret (leafOfNat 0) ⟨0, by decide⟩ >>= fun first =>
+        buildLayerTree parameter lay tree (withFirst secret first) leaf digits := by
+  unfold buildLayerTree
+  rw [sequenceFin_split_first (Nat.two_pow_pos _) _ (secret (leafOfNat 0) ⟨0, by decide⟩)
+    (fun first leafNat => buildLeaf parameter lay tree (leafOfNat leafNat.val)
+      (withFirst secret first (leafOfNat leafNat.val))
+      (if leafNat.val = leaf.val then digits else zeroEncoding)), bind_assoc]
+  · unfold buildLeaf
+    rw [sequenceFin_split_first (by decide) _ (secret (leafOfNat 0) ⟨0, by decide⟩)
+      (fun first chainIdx => buildChain parameter lay tree (leafOfNat 0) chainIdx
+        (withFirst secret first (leafOfNat 0) chainIdx)
+        ((if (0 : Nat) = leaf.val then digits else zeroEncoding) chainIdx).val), bind_assoc]
+    · rw [buildChain_split_first]
+      apply bind_congr
+      intro first
+      simp [withFirst, leafOfNat]
+    · intro first chainIdx hchain
+      simp [withFirst, hchain]
+  · intro first leafNat hleaf
+    have hne := leafOfNat_val_ne_zero lay leafNat hleaf
+    congr 1
+    funext chainIdx
+    simp [withFirst, hne]
+theorem buildLayerTable_split_first (parameter : PublicParameter) (lay : Layer) (tree : TreeIndex)
+    (secret : LeafIndex → ChainIndex → m Digest) (leaf : LeafIndex) (digits : Encoding) :
+    buildLayerTable parameter lay tree secret leaf digits =
+      secret (leafOfNat 0) ⟨0, by decide⟩ >>= fun first =>
+        buildLayerTable parameter lay tree (withFirst secret first) leaf digits := by
+  unfold buildLayerTable
+  rw [sequenceFin_split_first (Nat.two_pow_pos _) _ (secret (leafOfNat 0) ⟨0, by decide⟩)
+    (fun first leafNat => buildLeaf parameter lay tree (leafOfNat leafNat.val)
+      (withFirst secret first (leafOfNat leafNat.val))
+      (if leafNat.val = leaf.val then digits else zeroEncoding)), bind_assoc]
+  · unfold buildLeaf
+    rw [sequenceFin_split_first (by decide) _ (secret (leafOfNat 0) ⟨0, by decide⟩)
+      (fun first chainIdx => buildChain parameter lay tree (leafOfNat 0) chainIdx
+        (withFirst secret first (leafOfNat 0) chainIdx)
+        ((if (0 : Nat) = leaf.val then digits else zeroEncoding) chainIdx).val), bind_assoc]
+    · rw [buildChain_split_first]
+      apply bind_congr
+      intro first
+      simp [withFirst, leafOfNat]
+    · intro first chainIdx hchain
+      simp [withFirst, hchain]
+  · intro first leafNat hleaf
+    have hne := leafOfNat_val_ne_zero lay leafNat hleaf
+    congr 1
+    funext chainIdx
+    simp [withFirst, hne]
+def withFirstPair {m : Type → Type} [Monad m] (secret : LeafIndex → ChainPair → m (Digest × Digest))
+    (first : Digest × Digest) : LeafIndex → ChainPair → m (Digest × Digest) :=
+  fun leaf pair => if leaf.val = 0 ∧ pair.val = 0 then pure first else secret leaf pair
+theorem buildLayerTablePaired_split_first (parameter : PublicParameter) (lay : Layer) (tree : TreeIndex)
+    (secret : LeafIndex → ChainPair → m (Digest × Digest)) (leaf : LeafIndex) (digits : Encoding) :
+    buildLayerTablePaired parameter lay tree secret leaf digits =
+      secret (leafOfNat 0) ⟨0, by decide⟩ >>= fun first =>
+        buildLayerTablePaired parameter lay tree (withFirstPair secret first) leaf digits := by
+  unfold buildLayerTablePaired
+  rw [sequenceFin_split_first (Nat.two_pow_pos _) _ (secret (leafOfNat 0) ⟨0, by decide⟩)
+    (fun first leafNat => buildLeafPaired parameter lay tree (leafOfNat leafNat.val)
+      (withFirstPair secret first (leafOfNat leafNat.val))
+      (if leafNat.val = leaf.val then digits else zeroEncoding)), bind_assoc]
+  · unfold buildLeafPaired
+    rw [sequenceFin_split_first (by decide) _ (secret (leafOfNat 0) ⟨0, by decide⟩)
+      (fun first pair => do
+        let secrets ← withFirstPair secret first (leafOfNat 0) pair
+        let a ← buildChain parameter lay tree (leafOfNat 0) (evenChain pair) (pure secrets.1)
+          ((if (0 : Nat) = leaf.val then digits else zeroEncoding) (evenChain pair)).val
+        let b ← buildChain parameter lay tree (leafOfNat 0) (oddChain pair) (pure secrets.2)
+          ((if (0 : Nat) = leaf.val then digits else zeroEncoding) (oddChain pair)).val
+        return (a, b)), bind_assoc]
+    · apply bind_congr
+      intro first
+      simp [withFirstPair, leafOfNat]
+    · intro first pair hpair
+      simp [withFirstPair, hpair]
+  · intro first leafNat hleaf
+    have hne := leafOfNat_val_ne_zero lay leafNat hleaf
+    congr 1
+    funext pair
+    simp [withFirstPair, hne]
+end FirstSecret
+section Algorithms
+variable (known : QueryCache HashSpec) (parameter : PublicParameter) (seed : MasterSeed)
+  (outputs : SecretOutputs)
+  (hknown : ∀ position, known (secretInputs parameter seed position) = some (outputs position))
+include hknown
+theorem erases_derivePair (position : SecretPosition) :
+    Erases known ((do return splitSecrets (← Concrete.oracleHash
+        (keygenHashInput parameter (secretDomain position) seed))) : OracleComp HashSpec (Digest × Digest))
+      (pure (splitSecrets (outputs position))) := by
+  unfold Concrete.oracleHash
+  exact Erases.skip _ _ (hknown position) _ _ (.pure _)
+theorem erases_otsSecret (lay : Layer) (tree : TreeIndex) (leaf : LeafIndex) (pair : ChainPair) :
+    Erases known (otsSecret parameter seed lay tree leaf pair : OracleComp HashSpec (Digest × Digest))
+      (pure (Concrete.pairOf (tableOts outputs lay tree leaf) pair)) := by
+  rw [pairOf_tableOts]
+  exact erases_derivePair known parameter seed outputs hknown (.inl (lay, tree, leaf, pair))
+theorem erases_ftsSecret (index : Index) (tree : FtsTree) (pair : FtsPair) :
+    Erases known (ftsSecret parameter seed index tree pair : OracleComp HashSpec (Digest × Digest))
+      (pure (Concrete.ftsPairOf (tableFts outputs index tree) pair)) := by
+  rw [ftsPairOf_tableFts]
+  exact erases_derivePair known parameter seed outputs hknown (.inr (index, tree, pair))
+theorem erases_signFrom_table (top : Nat → Nat → Digest) (index : Index) (randomness : Randomness)
+    (leaves : IndexGroup → FtsLeaf) {topNode : Nat → Nat → OracleComp HashSpec Digest}
+    (htop : ∀ level nodeIdx, Erases known (topNode level nodeIdx) (pure (top level nodeIdx))) :
+    Erases known
+      (Concrete.signFromPaired parameter index (ftsSecret parameter seed index) (otsSecret parameter seed)
+        topNode randomness leaves : OracleComp HashSpec (Option Signature))
+      (Concrete.signAfterDigest (tableKey parameter top outputs) randomness index leaves) := by
+  rw [Concrete.signAfterDigest, ← Concrete.signFromPaired_pure]
+  exact erases_signFromPaired parameter index
+    (fun tree pair => erases_ftsSecret known parameter seed outputs hknown index tree pair)
+    (fun lay tree leaf pair => erases_otsSecret known parameter seed outputs hknown lay tree leaf pair)
+    htop randomness leaves
+end Algorithms
+end SphincsSecurity.Seeded
+end
+section
+open OracleComp OracleSpec
+namespace SphincsSecurity.Seeded
+set_option backward.isDefEq.respectTransparency false
+open Concrete
+variable {m : Type → Type} [Monad m] [HasQuery HashSpec m]
+def tableDigestLoop (randomizers : RandomizerOutputs) (secretKey : SphincsSecurity.SecretKey)
+    (message : Message) : Nat → Nat → m (Option (Randomness × Index × (IndexGroup → FtsLeaf)))
+  | 0, _ => pure none
+  | attempts + 1, trial => do
+      let randomness := truncateHash (randomizers (message, BitVec.ofNat 32 trial))
+      match ← Concrete.signAttempt secretKey message randomness with
+      | some (index, leaves) => return some (randomness, index, leaves)
+      | none => tableDigestLoop randomizers secretKey message attempts (trial + 1)
+def tableSign (randomizers : RandomizerOutputs) (secretKey : SphincsSecurity.SecretKey)
+    (message : Message) : OracleComp HashSpec (Option Signature) := do
+  match ← tableDigestLoop randomizers secretKey message digestAttemptLimit 0 with
+  | none => return none
+  | some (randomness, index, leaves) => Concrete.signAfterDigest secretKey randomness index leaves
+noncomputable def tableScheme (randomizers : RandomizerOutputs) : Scheme SphincsSecurity.SecretKey where
+  keygen := Concrete.scheme.keygen
+  sign := fun sk message => liftM (tableSign randomizers sk message : OracleComp HashSpec _)
+  verify := Concrete.scheme.verify
+theorem erases_deterministicDigestLoop (known : QueryCache HashSpec) (parameter : PublicParameter)
+    (seed : MasterSeed) (top : Nat → Nat → Digest) (outputs : SecretOutputs) (randomizers : RandomizerOutputs)
+    (hknown : ∀ position, known (randomizerInputs parameter seed position) = some (randomizers position))
+    (message : Message) (attempts trial : Nat) :
+    Erases known (signDigestLoop ⟨seed, parameter, top (layerHeight topLayer) 0⟩ message attempts trial :
+        OracleComp HashSpec _)
+      (tableDigestLoop randomizers (tableKey parameter top outputs) message attempts trial) := by
+  induction attempts generalizing trial with
+  | zero => exact .pure _
+  | succ attempts ih =>
+      unfold signDigestLoop tableDigestLoop deriveRandomizer Concrete.oracleHash
+      simp only [bind_assoc, pure_bind]
+      apply Erases.skip _ _ (hknown (message, BitVec.ofNat 32 trial))
+      change Erases known (Concrete.signAttempt (tableKey parameter top outputs) message
+        (truncateHash (randomizers (message, BitVec.ofNat 32 trial))) >>= _)
+          (Concrete.signAttempt (tableKey parameter top outputs) message
+            (truncateHash (randomizers (message, BitVec.ofNat 32 trial))) >>= _)
+      apply (Erases.refl known _).bind
+      intro attempt
+      cases attempt with
+      | none => exact ih _
+      | some result => exact .pure _
+def maskRegionWith {m : Type → Type} [Monad m] (getMask : Nat → Nat → m Digest) (table : Nat → Nat → Digest) :
+    m TopRegion := do
+  let rows ← Concrete.sequenceFin fun level : Fin maxLayerHeight => do
+    let row ← Concrete.sequenceFin fun nodeIdx : Fin (2 ^ (maxLayerHeight - level.val)) => do
+      let mask ← getMask level.val nodeIdx.val
+      return table level.val nodeIdx.val ^^^ mask
+    return fun nodeIdx : Nat => if h : nodeIdx < 2 ^ (maxLayerHeight - level.val) then row ⟨nodeIdx, h⟩ else 0
+  return fun level nodeIdx => rows level nodeIdx.val
+theorem maskRegion_eq_with {m : Type → Type} [Monad m] [HasQuery HashSpec m] (parameter : PublicParameter)
+    (seed : MasterSeed) (table : Nat → Nat → Digest) :
+    (maskRegion parameter seed table : m TopRegion) = maskRegionWith (maskSecret parameter seed) table := rfl
+def tableRegion (table : Nat → Nat → Digest) (masks : MaskOutputs) : TopRegion :=
+  fun level nodeIdx => table level.val nodeIdx.val ^^^ maskValue masks level.val nodeIdx.val
+theorem maskRegionWith_pure {m : Type → Type} [Monad m] [LawfulMonad m] (table : Nat → Nat → Digest)
+    (masks : MaskOutputs) :
+    maskRegionWith (m := m) (fun level nodeIdx => pure (maskValue masks level nodeIdx)) table =
+      pure (tableRegion table masks) := by
+  unfold maskRegionWith
+  simp only [pure_bind, sequenceFin_pure]
+  congr 1
+  funext level nodeIdx
+  simp [tableRegion, nodeIdx.isLt]
+def cachedTableSignChecked (randomizers : RandomizerOutputs) (masks : MaskOutputs)
+    (secretKey : SphincsSecurity.SecretKey) (cache : TopCache) (message : Message) :
+    OracleComp HashSpec (Option Signature) := do
+  match ← tableDigestLoop randomizers secretKey message digestAttemptLimit 0 with
+  | none => return none
+  | some (randomness, index, leaves) =>
+      Concrete.signFrom secretKey.parameter index (fun tree leaf => pure (secretKey.ftsSecret index tree leaf))
+        (fun lay tree leaf chainIdx => pure (secretKey.otsSecret lay tree leaf chainIdx))
+        (fun level nodeIdx => pure (cache.node level nodeIdx ^^^ maskValue masks level nodeIdx)) randomness leaves
+def cachedTableSign (randomizers : RandomizerOutputs) (masks : MaskOutputs) (macs : MacOutputs)
+    (secretKey : SphincsSecurity.SecretKey) (cache : TopCache) (message : Message) :
+    OracleComp HashSpec (Option Signature) :=
+  if macs cache.region = cache.tag then cachedTableSignChecked randomizers masks secretKey cache message
+  else pure none
+section Cached
+variable (known : QueryCache HashSpec) (parameter : PublicParameter) (seed : MasterSeed)
+  (top : Nat → Nat → Digest) (outputs : SecretOutputs) (randomizers : RandomizerOutputs)
+  (masks : MaskOutputs) (macs : MacOutputs)
+theorem erases_maskSecret
+    (hmasks : ∀ position, known (maskInputs parameter seed position) = some (masks position))
+    (level nodeIdx : Nat) :
+    Erases known (maskSecret parameter seed level nodeIdx : OracleComp HashSpec Digest)
+      (pure (maskValue masks level nodeIdx)) := by
+  unfold maskSecret deriveKey Concrete.oracleHash
+  exact Erases.skip _ _ (hmasks (maskPosition level nodeIdx)) _ _ (.pure _)
+theorem erases_cachedTopNode
+    (hmasks : ∀ position, known (maskInputs parameter seed position) = some (masks position))
+    (cache : TopCache) (level nodeIdx : Nat) :
+    Erases known (cachedTopNode parameter seed cache level nodeIdx : OracleComp HashSpec Digest)
+      (pure (cache.node level nodeIdx ^^^ maskValue masks level nodeIdx)) := by
+  unfold cachedTopNode maskSecret deriveKey Concrete.oracleHash
+  simp only [bind_assoc, pure_bind]
+  exact Erases.skip _ _ (hmasks (maskPosition level nodeIdx)) _ _ (.pure _)
+theorem erases_maskRegion
+    (hmasks : ∀ position, known (maskInputs parameter seed position) = some (masks position))
+    (table : Nat → Nat → Digest) :
+    Erases known (maskRegion parameter seed table : OracleComp HashSpec TopRegion)
+      (pure (tableRegion table masks)) := by
+  rw [maskRegion_eq_with, ← maskRegionWith_pure]
+  unfold maskRegionWith
+  apply (Erases.sequenceFin known _ _ fun level =>
+    (Erases.sequenceFin known _ _ fun nodeIdx =>
+      (erases_maskSecret known parameter seed masks hmasks _ _).bind _ _ fun _ => .pure _).bind _ _
+        fun _ => .pure _).bind
+  intro _
+  exact .pure _
+theorem erases_signChecked
+    (hsecrets : ∀ position, known (secretInputs parameter seed position) = some (outputs position))
+    (hrandomizers : ∀ position, known (randomizerInputs parameter seed position) = some (randomizers position))
+    (hmasks : ∀ position, known (maskInputs parameter seed position) = some (masks position))
+    (cache : TopCache) (message : Message) :
+    Erases known (signChecked ⟨seed, parameter, top (layerHeight topLayer) 0⟩ cache message :
+        OracleComp HashSpec _)
+      (cachedTableSignChecked randomizers masks (tableKey parameter top outputs) cache message) := by
+  unfold signChecked cachedTableSignChecked
+  apply (erases_deterministicDigestLoop known parameter seed top outputs randomizers hrandomizers message _ _).bind
+  intro attempt
+  rcases attempt with _ | ⟨randomness, index, leaves⟩
+  · exact .pure _
+  · dsimp only
+    rw [← Concrete.signFromPaired_pure]
+    exact erases_signFromPaired parameter index
+      (fun tree pair => erases_ftsSecret known parameter seed outputs hsecrets index tree pair)
+      (fun lay tree leaf pair => erases_otsSecret known parameter seed outputs hsecrets lay tree leaf pair)
+      (fun level nodeIdx => erases_cachedTopNode known parameter seed masks hmasks cache level nodeIdx)
+      randomness leaves
+theorem erases_cachedSign
+    (hsecrets : ∀ position, known (secretInputs parameter seed position) = some (outputs position))
+    (hrandomizers : ∀ position, known (randomizerInputs parameter seed position) = some (randomizers position))
+    (hmasks : ∀ position, known (maskInputs parameter seed position) = some (masks position))
+    (hmacs : ∀ region, known (macInputs parameter seed region) = some (macs region))
+    (cache : TopCache) (message : Message) :
+    Erases known (sign ⟨seed, parameter, top (layerHeight topLayer) 0⟩ cache message : OracleComp HashSpec _)
+      (cachedTableSign randomizers masks macs (tableKey parameter top outputs) cache message) := by
+  unfold sign cachedTableSign Concrete.oracleHash
+  apply Erases.skip _ _ (hmacs cache.region)
+  change Erases known (if macs cache.region = cache.tag then _ else _) _
+  split
+  · exact erases_signChecked known parameter seed top outputs randomizers masks hsecrets hrandomizers hmasks
+      cache message
+  · exact .pure _
+end Cached
+end SphincsSecurity.Seeded
+end
+section
+open OracleComp OracleSpec
+namespace SphincsSecurity.Seeded
+set_option backward.isDefEq.respectTransparency false
+theorem Erases.simulateQ_writer {ι κ τ : Type} {source : OracleSpec ι} {target : OracleSpec κ}
+    {logSpec : OracleSpec τ} {α : Type} (known : QueryCache target)
+    (left right : QueryImpl source (WriterT (QueryLog logSpec) (OracleComp target)))
+    (h : ∀ input, Erases known (left input).run (right input).run)
+    (computation : OracleComp source α) :
+    Erases known (simulateQ left computation).run (simulateQ right computation).run := by
+  induction computation using OracleComp.inductionOn with
+  | pure value => exact .pure _
+  | query_bind input next ih =>
+      simp only [simulateQ_query_bind, WriterT.run_bind]
+      apply (h input).bind
+      intro result
+      exact (ih result.1).map _
+open Concrete
+def keygenCachedWith (secret : LeafIndex → ChainPair → OracleComp HashSpec (Digest × Digest))
+    (getMask : Nat → Nat → OracleComp HashSpec Digest) (getMac : TopRegion → OracleComp HashSpec HashOutput) :
+    OracleComp HashSpec ((Nat → Nat → Digest) × TopCache) := do
+  let (_, table) ← buildLayerTablePaired 0 topLayer rootTree secret ⟨0, Nat.two_pow_pos _⟩ zeroEncoding
+  let region ← maskRegionWith getMask table
+  let tag ← getMac region
+  return (table, ⟨tag, region⟩)
+def keysOf (seed : MasterSeed) (result : (Nat → Nat → Digest) × TopCache) : PublicKey × TopCache × SecretKey :=
+  (⟨result.1 (layerHeight topLayer) 0, 0⟩, result.2, ⟨seed, 0, result.1 (layerHeight topLayer) 0⟩)
+theorem keygenFromSeed_eq (seed : MasterSeed) :
+    keygenFromSeed seed = keysOf seed <$> keygenCachedWith (otsSecret 0 seed topLayer rootTree)
+      (maskSecret 0 seed) (fun region => oracleHash (macHashInput 0 seed region)) := by
+  simp only [keygenFromSeed, keygenCachedWith, maskRegion_eq_with, keysOf, map_bind, bind_assoc, map_pure]
+theorem keygenCachedWith_pure (outputs : SecretOutputs) (masks : MaskOutputs) (macs : MacOutputs) :
+    keygenCachedWith (fun leaf pair => pure (pairOf (tableOts outputs topLayer rootTree leaf) pair))
+        (fun level nodeIdx => pure (maskValue masks level nodeIdx)) (fun region => pure (macs region)) =
+      (fun top => (top, (⟨macs (tableRegion top masks), tableRegion top masks⟩ : TopCache))) <$>
+        (keygenTable 0 (tableOts outputs topLayer rootTree) : OracleComp HashSpec _) := by
+  unfold keygenCachedWith keygenTable
+  rw [buildLayerTablePaired_pure]
+  simp only [maskRegionWith_pure, pure_bind, map_bind, map_pure]
+def firstSecretPosition : SecretPosition :=
+  .inl (topLayer, rootTree, leafOfNat 0, ⟨0, by decide⟩)
+theorem keygenCachedWith_first (secret : LeafIndex → ChainPair → OracleComp HashSpec (Digest × Digest))
+    (getMask : Nat → Nat → OracleComp HashSpec Digest) (getMac : TopRegion → OracleComp HashSpec HashOutput) :
+    keygenCachedWith secret getMask getMac =
+      secret (leafOfNat 0) ⟨0, by decide⟩ >>= fun first =>
+        keygenCachedWith (withFirstPair secret first) getMask getMac := by
+  unfold keygenCachedWith
+  rw [buildLayerTablePaired_split_first, bind_assoc]
+theorem otsSecret_first (seed : MasterSeed) :
+    (otsSecret 0 seed topLayer rootTree (leafOfNat 0) ⟨0, by decide⟩ : OracleComp HashSpec (Digest × Digest)) =
+      (splitSecrets <$> (HashSpec.query (secretInputs 0 seed firstSecretPosition) : OracleComp HashSpec _)) := by
+  simp only [otsSecret, oracleHash, bind_pure_comp]
+  rfl
+section Keygen
+variable {known : QueryCache HashSpec} {seed : MasterSeed} {outputs : SecretOutputs}
+  {masks : MaskOutputs} {macs : MacOutputs}
+  (hsecrets : ∀ position, known (secretInputs 0 seed position) = some (outputs position))
+  (hmasks : ∀ position, known (maskInputs 0 seed position) = some (masks position))
+  (hmacs : ∀ region, known (macInputs 0 seed region) = some (macs region))
+include hsecrets hmasks hmacs
+theorem erases_keygenCachedWith {secret : LeafIndex → ChainPair → OracleComp HashSpec (Digest × Digest)}
+    (hsecret : ∀ leaf pair, Erases known (secret leaf pair)
+      (pure (pairOf (tableOts outputs topLayer rootTree leaf) pair))) :
+    Erases known (keygenCachedWith secret (maskSecret 0 seed)
+        (fun region => oracleHash (macHashInput 0 seed region)))
+      (keygenCachedWith (fun leaf pair => pure (pairOf (tableOts outputs topLayer rootTree leaf) pair))
+        (fun level nodeIdx => pure (maskValue masks level nodeIdx)) (fun region => pure (macs region))) := by
+  unfold keygenCachedWith
+  apply (erases_buildLayerTablePaired 0 _ _ hsecret _ _).bind
+  rintro ⟨_, table⟩
+  dsimp only
+  rw [maskRegionWith_pure, pure_bind, ← maskRegion_eq_with]
+  apply Erases.bind_known (erases_maskRegion known 0 seed masks hmasks table)
+  unfold oracleHash
+  exact Erases.skip _ _ (hmacs (tableRegion table masks)) _ _ (.pure _)
+theorem erases_keygen :
+    Erases known (keygenCachedWith (otsSecret 0 seed topLayer rootTree) (maskSecret 0 seed)
+        (fun region => oracleHash (macHashInput 0 seed region)))
+      (keygenCachedWith (fun leaf pair => pure (pairOf (tableOts outputs topLayer rootTree leaf) pair))
+        (fun level nodeIdx => pure (maskValue masks level nodeIdx)) (fun region => pure (macs region))) :=
+  erases_keygenCachedWith hsecrets hmasks hmacs fun leaf pair =>
+    erases_otsSecret known 0 seed outputs hsecrets _ _ leaf pair
+theorem erases_keygen_first :
+    Erases known (keygenCachedWith (withFirstPair (otsSecret 0 seed topLayer rootTree)
+          (splitSecrets (outputs firstSecretPosition))) (maskSecret 0 seed)
+        (fun region => oracleHash (macHashInput 0 seed region)))
+      (keygenCachedWith (fun leaf pair => pure (pairOf (tableOts outputs topLayer rootTree leaf) pair))
+        (fun level nodeIdx => pure (maskValue masks level nodeIdx)) (fun region => pure (macs region))) := by
+  refine erases_keygenCachedWith hsecrets hmasks hmacs fun leaf pair => ?_
+  unfold withFirstPair
+  split
+  · next hfirst =>
+      have hleaf : leaf = leafOfNat 0 := Fin.ext (by simp [hfirst.1, leafOfNat])
+      have hpair : pair = ⟨0, by decide⟩ := Fin.ext hfirst.2
+      subst hleaf hpair
+      rw [pairOf_tableOts]
+      exact .pure _
+  · exact erases_otsSecret known 0 seed outputs hsecrets _ _ leaf pair
+end Keygen
+end SphincsSecurity.Seeded
+end
+section
+open OracleComp OracleSpec ENNReal
+namespace SphincsSecurity.Seeded
+set_option backward.isDefEq.respectTransparency false
+theorem countHashQueries_run'_query_bind {α : Type} (input : OracleWorld.Domain)
+    (next : OracleWorld.Range input → OracleComp OracleWorld α) (cache : QueryCache HashSpec) :
+    (simulateQ romImpl (countHashQueries (liftM (OracleWorld.query input) >>= next))).run' cache =
+      ((romImpl input).run cache >>= fun step =>
+        (fun result => (result.1, (if (fun input : OracleWorld.Domain => input matches .inr _) input then 1 else 0) + result.2)) <$>
+          (simulateQ romImpl (countHashQueries (next step.1))).run' step.2) := by
+  rw [countHashQueries_query_bind, run'_query_bind]
+  apply bind_congr
+  intro step
+  simp only [bind_pure_comp, simulateQ_map, StateT.run'_eq, StateT.run_map, Functor.map_map]
+  try rfl
+theorem Erases.probEvent_counted_le {α : Type} {known : QueryCache HashSpec}
+    {left right : OracleComp OracleWorld α} (h : Erases (worldKnown known) left right)
+    (cache : QueryCache HashSpec) (hcache : known ≤ cache) (event : α → Nat → Prop)
+    (hmono : ∀ value count count', count' ≤ count → event value count → event value count') :
+    Pr[fun result => event result.1 result.2 | (simulateQ romImpl (countHashQueries left)).run' cache] ≤
+      Pr[fun result => event result.1 result.2 | (simulateQ romImpl (countHashQueries right)).run' cache] := by
+  induction h generalizing cache event with
+  | pure value => exact le_rfl
+  | query input left right _ ih =>
+      rw [countHashQueries_run'_query_bind, countHashQueries_run'_query_bind, probEvent_bind_eq_tsum, probEvent_bind_eq_tsum]
+      apply ENNReal.tsum_le_tsum
+      intro step
+      by_cases hstep : step ∈ support ((romImpl input).run cache)
+      · apply mul_le_mul' le_rfl
+        rw [probEvent_map, probEvent_map]
+        exact ih step.1 step.2 (romImpl_preserves_known known cache hcache input step hstep) _
+          (fun value count count' hle h => hmono value _ _ (Nat.add_le_add_left hle _) h)
+      · rw [probOutput_eq_zero_of_not_mem_support hstep, zero_mul, zero_mul]
+  | skip input answer hknown next right _ ih =>
+      cases input with
+      | inl input => simp [worldKnown] at hknown
+      | inr input =>
+          have hc : cache input = some answer := hcache hknown
+          rw [countHashQueries_run'_query_bind]
+          change Pr[_ | (randomOracle (spec := HashSpec) input).run cache >>= _] ≤ _
+          rw [QueryImpl.withCaching_run_some _ hc, pure_bind, probEvent_map]
+          refine le_trans ?_ (ih cache hcache event hmono)
+          apply probEvent_mono
+          intro result _ hresult
+          exact hmono _ _ _ (Nat.le_add_left _ _) hresult
+  | cached input answer hknown left right _ ih =>
+      cases input with
+      | inl input => simp [worldKnown] at hknown
+      | inr input =>
+          have hc : cache input = some answer := hcache hknown
+          rw [countHashQueries_run'_query_bind, countHashQueries_run'_query_bind]
+          change Pr[_ | (randomOracle (spec := HashSpec) input).run cache >>= _] ≤
+            Pr[_ | (randomOracle (spec := HashSpec) input).run cache >>= _]
+          rw [QueryImpl.withCaching_run_some _ hc, pure_bind, pure_bind, probEvent_map, probEvent_map]
+          exact ih cache hcache _ (fun value count count' hle h => hmono value _ _ (Nat.add_le_add_left hle _) h)
+  | trans _ _ first second => exact (first cache hcache event hmono).trans (second cache hcache event hmono)
+open scoped Classical in
+theorem romRun_cap_event {α : Type} (computation : OracleComp OracleWorld α) (cache : QueryCache HashSpec)
+    (budget : Nat) (event : α → Prop) :
+    Pr[fun result => event result.1 ∧ result.2 ≤ budget | (simulateQ romImpl (countHashQueries computation)).run' cache] =
+      Pr[fun outcome => ∃ result, outcome = some result ∧ event result.1 |
+        (simulateQ romImpl (QueryCap.run (fun input : OracleWorld.Domain => input matches .inr _) computation budget)).run' cache] := by
+  induction computation using OracleComp.inductionOn generalizing cache budget with
+  | pure value =>
+      simp only [countHashQueries_pure, QueryCap.run_pure, simulateQ_pure, StateT.run'_eq, StateT.run_pure, map_pure]
+      rw [probEvent_pure, probEvent_pure]
+      simp
+  | query_bind input next ih =>
+      rw [countHashQueries_run'_query_bind, QueryCap.run_query_bind]
+      cases input with
+      | inl sample =>
+          simp only [Bool.false_eq_true, if_false, zero_add, Prod.mk.eta, id_map']
+          rw [run'_query_bind, probEvent_bind_eq_tsum, probEvent_bind_eq_tsum]
+          exact tsum_congr fun step => congrArg _ (ih step.1 step.2 budget)
+      | inr hash =>
+          simp only [if_true]
+          cases budget with
+          | zero =>
+              rw [simulateQ_pure, StateT.run'_eq, StateT.run_pure, map_pure, probEvent_pure]
+              simp only [reduceCtorEq, false_and, exists_false, if_false]
+              apply probEvent_eq_zero
+              intro result hresult hev
+              rw [mem_support_bind_iff] at hresult
+              obtain ⟨step, _, hr⟩ := hresult
+              rw [support_map] at hr
+              obtain ⟨inner, _, rfl⟩ := hr
+              have := hev.2
+              simp at this
+          | succ remaining =>
+              rw [run'_query_bind, probEvent_bind_eq_tsum, probEvent_bind_eq_tsum]
+              refine tsum_congr fun step => congrArg _ ?_
+              rw [probEvent_map, ← ih step.1 step.2 remaining]
+              apply probEvent_ext
+              intro result _
+              simp only [Function.comp_apply]
+              constructor <;> rintro ⟨h1, h2⟩ <;> exact ⟨h1, by omega⟩
+theorem hashQueryBound_cap {α : Type} (computation : OracleComp OracleWorld α) (cache : QueryCache HashSpec) (budget : Nat) :
+    HashQueryBound (QueryCap.run (fun input : OracleWorld.Domain => input matches .inr _) computation budget) cache budget := by
+  intro result hresult
+  apply QueryCap.counted_le_of_queryBound (fun input : OracleWorld.Domain => input matches .inr _) _ budget
+    (QueryCap.run_queryBound _ computation budget) result
+  exact support_simulateQ_run'_subset _ _ _ hresult
+open scoped Classical in
+theorem probEvent_random_cache_change_event {α : Type} (computation : OracleComp OracleWorld α)
+    (initial : MasterSeed → QueryCache HashSpec) (cache : QueryCache HashSpec)
+    (hagree : ∀ seed, AgreeOutside (fun input => SeedHit input seed) (initial seed) cache)
+    (budget : Nat) (event : α → Prop) :
+    Pr[fun result => event result.1 ∧ result.2 ≤ budget | sampleMasterSeed >>= fun seed =>
+      (simulateQ romImpl (countHashQueries computation)).run' (initial seed)] ≤
+      Pr[fun result => event result.1 ∧ result.2 ≤ budget | (simulateQ romImpl (countHashQueries computation)).run' cache] +
+        budget / ((2 ^ 207 : Nat) : ℝ≥0∞) := by
+  have hleft : Pr[fun result => event result.1 ∧ result.2 ≤ budget | sampleMasterSeed >>= fun seed =>
+      (simulateQ romImpl (countHashQueries computation)).run' (initial seed)] =
+      Pr[fun outcome => ∃ result, outcome = some result ∧ event result.1 | sampleMasterSeed >>= fun seed =>
+        (simulateQ romImpl (QueryCap.run (fun input : OracleWorld.Domain => input matches .inr _) computation budget)).run'
+          (initial seed)] := by
+    rw [probEvent_bind_eq_tsum, probEvent_bind_eq_tsum]
+    exact tsum_congr fun seed => congrArg _ (romRun_cap_event computation _ budget event)
+  rw [hleft, romRun_cap_event computation cache budget event]
+  exact probEvent_random_cache_change_le _ initial cache hagree budget (hashQueryBound_cap computation cache budget) _
+end SphincsSecurity.Seeded
+end
+end
+-- ==== merged from T3_Proofs ====
+section
+
+set_option linter.unusedSimpArgs false
+namespace SigGolfCandidate.T3
+open OracleComp OracleSpec ENNReal
+open SphincsSecurity (bytesLE bytesLE_length bytesLE_injective)
+set_option maxRecDepth 10000
+set_option maxHeartbeats 1000000
+set_option backward.isDefEq.respectTransparency false
+theorem digest_list_bytes_length (values : List Digest) :
+    (values.flatMap (bytesLE 16)).length = 16 * values.length := by
+  induction values with
+  | nil => rfl
+  | cons value values ih =>
+      simp only [List.flatMap_cons,List.length_append,bytesLE_length,List.length_cons,ih]
+      omega
+theorem serializeLayer_length {lay : Layer} (sig : LayerSignature lay) :
+    (serializeLayer sig).length = 16*(chainCount lay+height lay) := by
+  simp only [serializeLayer,List.length_append,digest_list_bytes_length,List.length_ofFn]
+  omega
+theorem serialize_length (sig : Signature) : (serialize sig).length = 5568 := by
+  simp only [serialize,List.length_append,bytesLE_length,digest_list_bytes_length,
+    List.length_ofFn,List.length_flatten,List.map_ofFn,Function.comp_def]
+  simp_rw [serializeLayer_length]
+  decide
+theorem cacheBytes_length (cache : Cache) : (cacheBytes cache).length = 131072 := by
+  simp only [cacheBytes,List.length_append,bytesLE_length,List.length_ofFn]
+theorem serializeLayer_injective (lay : Layer) : Function.Injective (@serializeLayer lay) := by
+  rintro ⟨lv,lp⟩ ⟨rv,rp⟩ h
+  simp only [serializeLayer] at h
+  obtain ⟨hv,hp⟩ := List.append_inj h (by simp only [digest_list_bytes_length,List.length_ofFn])
+  have hv := SphincsSecurity.flatMap_bytesLE_ofFn_injective hv
+  have hp := SphincsSecurity.flatMap_bytesLE_ofFn_injective hp
+  subst rv rp
+  rfl
+theorem serialize_injective : Function.Injective serialize := by
+  rintro ⟨lr,ls,lp,ll⟩ ⟨rr,rs,rp,rl⟩ h
+  simp only [serialize] at h
+  obtain ⟨hhead,hlayers⟩ := List.append_inj h (by
+    simp only [List.length_append,bytesLE_length,digest_list_bytes_length,List.length_ofFn])
+  obtain ⟨hhead,hproof⟩ := List.append_inj hhead (by
+    simp only [List.length_append,bytesLE_length,digest_list_bytes_length,List.length_ofFn])
+  obtain ⟨hrho,hsecrets⟩ := List.append_inj hhead (by simp only [bytesLE_length])
+  have hrho := bytesLE_injective hrho
+  have hs := SphincsSecurity.flatMap_bytesLE_ofFn_injective hsecrets
+  have hp := SphincsSecurity.flatMap_bytesLE_ofFn_injective hproof
+  have hl := SphincsSecurity.length_flatten_ofFn_eq _ _
+    (fun lay => by rw [serializeLayer_length,serializeLayer_length]) hlayers
+  have hl' : ll=rl := funext fun lay => serializeLayer_injective lay (congrFun hl lay)
+  subst rr rs rp rl
+  rfl
+theorem dataDigits_length (lay : Layer) (value : Digest) :
+    (dataDigits lay value).length = dataCount lay := by simp [dataDigits]
+theorem decode_length_sum {lay : Layer} {value : Digest} {digits : List Nat}
+    (h : decode lay value = some digits) :
+    digits.length=chainCount lay ∧ digits.sum=target lay := by
+  unfold decode at h
+  split at h
+  · simp at h
+  · split at h
+    · rename_i hl
+      dsimp only at h
+      split at h
+      · rename_i hs
+        have he := Option.some.inj h
+        subst digits
+        subst lay
+        constructor
+        · simp [dataDigits_length,dataCount,chainCount]
+        · simp only [List.sum_append,List.sum_singleton]
+          omega
+      · simp at h
+    · rename_i hl
+      dsimp only at h
+      split at h
+      · rename_i hs
+        have he := Option.some.inj h
+        subst digits
+        constructor
+        · simp only [List.length_append,List.length_singleton,dataDigits_length]
+          fin_cases lay <;> simp_all [dataCount,chainCount]
+        · simp only [List.sum_append,List.sum_singleton]
+          omega
+      · simp at h
+theorem route_leaf_bound (index : Nat) (lay : Layer) : (route index lay).1 < 2^height lay :=
+  Nat.mod_lt _ (by positivity)
+theorem route_top_tree (index : Nat) (hindex : index < 2^31) : (route index 0).2=0 := by
+  exact Nat.div_eq_of_lt hindex
+theorem topPath_offset_bound (leaf level byte : Nat) (hleaf : leaf<4096)
+    (hlo : 0≤level) (hhi : level<12) (hb : byte<16) :
+    16*(8192-2^(13-level)+(leaf/2^level ^^^ 1))+byte<131040 := by
+  have hdiv : leaf/2^level < 2^(12-level) := by
+    rw [Nat.div_lt_iff_lt_mul (by positivity),← Nat.pow_add,Nat.sub_add_cancel (by omega)]
+    exact hleaf
+  have hsib := Nat.xor_lt_two_pow hdiv (Nat.one_lt_two_pow (by omega))
+  interval_cases level <;> norm_num at hsib ⊢ <;> omega
+theorem topPath_offset_mod (leaf level byte : Nat) (hleaf : leaf<4096)
+    (hlo : 0≤level) (hhi : level<12) (hb : byte<16) :
+    (16*(8192-2^(13-level)+(leaf/2^level ^^^ 1))+byte)%131040 =
+      16*(8192-2^(13-level)+(leaf/2^level ^^^ 1))+byte :=
+  Nat.mod_eq_of_lt (topPath_offset_bound leaf level byte hleaf hlo hhi hb)
+@[simp] theorem privateInput_short (secret : BitVec 256) (h : BitVec 128) :
+    privateInput secret (.inl h) =
+      bytesLE 16 (secret.extractLsb' 0 128) ++ bytesLE 16 h ++
+        bytesLE 16 (secret.extractLsb' 128 128) ++ zero16 := by
+  simp [privateInput,pad64,bytesLE_length,zero16]
+@[simp] theorem privateInput_nonce (secret : BitVec 256) (m : Message) :
+    privateInput secret (.inr (.inl m)) =
+      bytesLE 16 (secret.extractLsb' 0 128) ++ bytesLE 16 (header 7 0 0 0 0) ++
+        bytesLE 16 (secret.extractLsb' 128 128) ++ zero16 ++ bytesLE 32 m ++ List.replicate 32 0 := by
+  simp only [privateInput,pad64,List.length_append,bytesLE_length,zero16,List.length_replicate,List.length_ofFn]
+@[simp] theorem privateInput_mac (secret : BitVec 256) (region : Region) :
+    privateInput secret (.inr (.inr region)) =
+      bytesLE 16 (secret.extractLsb' 0 128) ++ bytesLE 16 (header 14 0 0 0 0) ++
+        bytesLE 16 (secret.extractLsb' 128 128) ++ zero16 ++ List.ofFn region ++ List.replicate 32 0 := by
+  simp only [privateInput,pad64,List.length_append,bytesLE_length,zero16,List.length_replicate,List.length_ofFn]
+theorem privateInput_injective (secret : BitVec 256) : Function.Injective (privateInput secret) := by
+  rintro (left|left) (right|right) h
+  · apply congrArg Sum.inl
+    apply bytesLE_injective (n := 16)
+    simpa only [privateInput_short,List.append_assoc,List.append_cancel_left_eq,
+      List.append_cancel_right_eq] using h
+  · have hl := congrArg List.length h
+    cases right <;> simp only [privateInput_short,privateInput_nonce,privateInput_mac,List.length_append,bytesLE_length,zero16,List.length_replicate,List.length_ofFn] at hl
+    all_goals omega
+  · have hl := congrArg List.length h
+    cases left <;> simp only [privateInput_short,privateInput_nonce,privateInput_mac,List.length_append,bytesLE_length,zero16,List.length_replicate,List.length_ofFn] at hl
+    all_goals omega
+  · apply congrArg Sum.inr
+    rcases left with message|region <;> rcases right with message'|region'
+    · apply congrArg Sum.inl
+      apply bytesLE_injective (n := 32)
+      simpa only [privateInput_nonce,List.append_assoc,List.append_cancel_left_eq,
+        List.append_cancel_right_eq] using h
+    · have hl := congrArg List.length h
+      simp only [privateInput_short,privateInput_nonce,privateInput_mac,List.length_append,bytesLE_length,zero16,List.length_replicate,List.length_ofFn] at hl
+      omega
+    · have hl := congrArg List.length h
+      simp only [privateInput_short,privateInput_nonce,privateInput_mac,List.length_append,bytesLE_length,zero16,List.length_replicate,List.length_ofFn] at hl
+      omega
+    · apply congrArg Sum.inr
+      apply List.ofFn_injective
+      simpa only [privateInput_mac,List.append_assoc,List.append_cancel_left_eq,
+        List.append_cancel_right_eq] using h
+end SigGolfCandidate.T3
+namespace SigGolfCandidate.T3.FullSecret
+open OracleComp OracleSpec ENNReal
+open SphincsSecurity (MasterSeed OracleWorld sampleMasterSeed romImpl HashQueryBound)
+open SphincsSecurity.Seeded
+set_option backward.isDefEq.respectTransparency false
+def Hit (input : HashInput) (secret : MasterSeed) : Prop :=
+  input.take 16 = SphincsSecurity.bytesLE 16 (secret.extractLsb' 0 128) ∧
+  (input.drop 32).take 16 = SphincsSecurity.bytesLE 16 (secret.extractLsb' 128 128)
+def HitLog (inputs : List HashInput) (secret : MasterSeed) : Prop :=
+  ∃ input ∈ inputs, Hit input secret
+theorem hit_probability (input : HashInput) :
+    Pr[Hit input | sampleMasterSeed] ≤ 1 / ((2 ^ 256 : Nat) : ENNReal) :=
+by
+  classical
+  have hunique : ∀ a b, Hit input a → Hit input b → a=b := by
+    intro a b ha hb
+    apply SphincsSecurity.hashOutput_eq_of_extract (width := 128) (by decide)
+    · exact SphincsSecurity.bytesLE_injective (ha.1.symm.trans hb.1)
+    · exact SphincsSecurity.bytesLE_injective (ha.2.symm.trans hb.2)
+  by_cases hexists : ∃ secret, Hit input secret
+  · obtain ⟨secret,hsecret⟩ := hexists
+    have hevent : Hit input = fun other => other=secret := by
+      funext other
+      exact propext ⟨fun h => hunique other secret h hsecret,fun h => h ▸ hsecret⟩
+    rw [hevent]
+    simp [sampleMasterSeed,MasterSeed]
+  · have hevent : Hit input = fun _ => False := by
+      funext secret
+      exact propext ⟨fun h => hexists ⟨secret,h⟩,False.elim⟩
+    rw [hevent]
+    simp
+theorem hitLog_probability (inputs : List HashInput) :
+    Pr[HitLog inputs | sampleMasterSeed] ≤ inputs.length / ((2 ^ 256 : Nat) : ENNReal) := by
+  induction inputs with
+  | nil => simp [HitLog]
+  | cons input inputs ih =>
+    have hevent : HitLog (input :: inputs) = fun secret => Hit input secret ∨ HitLog inputs secret := by
+      funext secret; simp [HitLog]
+    rw [hevent]
+    exact (probEvent_or_le _ _ _).trans ((add_le_add (hit_probability input) ih).trans_eq (by
+      simp [List.length_cons, Nat.cast_add, ENNReal.add_div, add_comm]))
+open scoped Classical in
+theorem adaptive_hit_probability {α : Type} (computation : OracleComp OracleWorld α)
+    (cache : QueryCache HashSpec) (q : Nat) (hbound : HashQueryBound computation cache q) :
+    Pr[= none | sampleMasterSeed >>= fun secret =>
+      (simulateQ romImpl (stopBefore (hashBad (fun input => Hit input secret)) computation)).run' cache] ≤
+        q / ((2 ^ 256 : Nat) : ENNReal) := by
+  classical
+  let trace := (simulateQ romImpl (traceHashes computation)).run' cache
+  calc
+    _ = Pr[= true | sampleMasterSeed >>= fun secret =>
+        (fun result => decide (HitLog result.2 secret)) <$> trace] := by
+      simp only [probOutput_bind_eq_tsum, probOutput_stopBefore_none, probOutput_map,
+        decide_eq_true_eq]
+      rfl
+    _ = Pr[= true | trace >>= fun result =>
+        (fun secret => decide (HitLog result.2 secret)) <$> sampleMasterSeed] := by
+      simp only [← bind_pure_comp]
+      exact probOutput_bind_bind_swap _ _ _ _
+    _ ≤ _ := by
+      rw [← probEvent_eq_eq_probOutput]
+      apply probEvent_bind_le_of_forall_le
+      intro result hresult
+      simp only [probEvent_map, Function.comp_def, decide_eq_true_eq]
+      exact (hitLog_probability result.2).trans
+        (ENNReal.div_le_div
+          (by exact_mod_cast traceHashes_length_le computation cache q hbound result hresult) le_rfl)
+open scoped Classical in
+theorem cache_change_bound {α : Type} (computation : OracleComp OracleWorld α)
+    (initial : MasterSeed → QueryCache HashSpec) (cache : QueryCache HashSpec)
+    (hagree : ∀ secret, AgreeOutside (fun input => Hit input secret) (initial secret) cache)
+    (q : Nat) (hbound : HashQueryBound computation cache q) (event : α → Prop) :
+    Pr[event | sampleMasterSeed >>= fun secret => (simulateQ romImpl computation).run' (initial secret)] ≤
+      Pr[event | (simulateQ romImpl computation).run' cache] + q / ((2 ^ 256 : Nat) : ENNReal) := by
+  classical
+  let stopped := fun secret =>
+    (simulateQ romImpl (stopBefore (hashBad (fun input => Hit input secret)) computation)).run' cache
+  calc
+    _ ≤ Pr[event | sampleMasterSeed >>= fun _ => (simulateQ romImpl computation).run' cache] +
+        Pr[= none | sampleMasterSeed >>= stopped] := by
+      simp only [probEvent_bind_eq_tsum, probOutput_bind_eq_tsum, ← ENNReal.tsum_add]
+      exact ENNReal.tsum_le_tsum fun secret =>
+        (mul_le_mul' le_rfl (probEvent_cache_change_le (fun input => Hit input secret)
+          computation (initial secret) cache (hagree secret) event)).trans_eq (mul_add ..)
+    _ ≤ _ := by
+      simpa [stopped] using add_le_add
+        (le_refl (Pr[event | (simulateQ romImpl computation).run' cache]))
+        (adaptive_hit_probability computation cache q hbound)
+theorem exists_secret_not_hit (inputs : List HashInput) (hsize : inputs.length < 2 ^ 256) :
+    ∃ secret, ¬HitLog inputs secret := by
+  classical
+  by_contra h
+  have hall : ∀ secret, HitLog inputs secret := by simpa using h
+  have hone : Pr[HitLog inputs | sampleMasterSeed] = 1 := by simp [hall]
+  have hlt : (inputs.length : ENNReal) / ((2 ^ 256 : Nat) : ENNReal) < 1 :=
+    ENNReal.div_lt_of_lt_mul (by rw [one_mul]; exact_mod_cast hsize)
+  exact (not_lt_of_ge (hone ▸ hitLog_probability inputs)) hlt
+theorem queryBound_of_secret_caches {α : Type} (computation : OracleComp OracleWorld α)
+    (q : Nat) (inputs : List HashInput) (caches : MasterSeed → QueryCache HashSpec)
+    (cache : QueryCache HashSpec) (hsize : inputs.length + q < 2 ^ 256)
+    (hagree : ∀ secret, ¬HitLog inputs secret →
+      AgreeOutside (fun input => Hit input secret) (caches secret) cache)
+    (hbound : ∀ secret, ¬HitLog inputs secret → HashQueryBound computation (caches secret) q) :
+    HashQueryBound computation cache q := by
+  induction computation using OracleComp.inductionOn generalizing q inputs caches cache with
+  | pure value =>
+    intro result hresult
+    simp only [SphincsSecurity.countHashQueries_pure, simulateQ_pure, StateT.run'_eq,
+      StateT.run_pure, map_pure, support_pure, Set.mem_singleton_iff] at hresult
+    subst result
+    exact Nat.zero_le q
+  | query_bind input next ih =>
+    obtain ⟨secret, hsecret⟩ := exists_secret_not_hit inputs (by omega)
+    obtain ⟨step, hstep⟩ := SphincsSecurity.probComp_support_nonempty ((romImpl input).run (caches secret))
+    have hcost := (SphincsSecurity.hashQueryBound_query_bind input next (caches secret) q
+      (hbound secret hsecret) step hstep).1
+    apply hashQueryBound_query_bind_of input next cache q hcost
+    intro result hresult
+    have hcache := romImpl_support_cacheAfter input cache result hresult
+    rcases result with ⟨answer, nextCache⟩
+    dsimp at hcache
+    subst nextCache
+    have havoid (secret : MasterSeed) (hsecret : ¬HitLog (prependHash input inputs) secret) :
+        ¬hashBad (fun input => Hit input secret) input ∧ ¬HitLog inputs secret := by
+      change ¬TraceHits (fun input => Hit input secret) (prependHash input inputs) at hsecret
+      rw [traceHits_prepend] at hsecret
+      exact not_or.mp hsecret
+    have htransfer (secret : MasterSeed) (hsecret : ¬HitLog (prependHash input inputs) secret) :=
+      romImpl_support_transfer (fun input => Hit input secret) (caches secret) cache
+        (hagree secret (havoid secret hsecret).2) input (havoid secret hsecret).1 answer hresult
+    apply ih answer
+      (q - (if (fun input : OracleWorld.Domain => input matches .inr _) input then 1 else 0))
+      (prependHash input inputs) (fun secret => cacheAfter (caches secret) input answer)
+      (cacheAfter cache input answer)
+    · cases input <;> simp_all [prependHash]
+    · intro secret hsecret; exact (htransfer secret hsecret).2
+    · intro secret hsecret
+      exact (SphincsSecurity.hashQueryBound_query_bind input next (caches secret) q
+        (hbound secret (havoid secret hsecret).2) _ (htransfer secret hsecret).1).2
+end SigGolfCandidate.T3.FullSecret
+namespace SigGolfCandidate.T3.Derivation
+open OracleComp OracleSpec ENNReal
+open SphincsSecurity (MasterSeed OracleWorld sampleMasterSeed romImpl HashQueryBound)
+open SphincsSecurity.Seeded
+set_option backward.isDefEq.respectTransparency false
+abbrev HashOutput := SphincsSecurity.HashOutput
+abbrev HashSpec := SphincsSecurity.HashSpec
+abbrev Spec (J : Type) := OracleWorld + (J →ₒ HashOutput)
+def realHandler {J : Type} (inputs : J → HashInput) : QueryImpl (Spec J) (OracleComp OracleWorld)
+  | .inl input => liftM (OracleWorld.query input)
+  | .inr index => liftM (OracleWorld.query (.inr (inputs index)))
+def tableHandler {J : Type} (outputs : J → HashOutput) : QueryImpl (Spec J) (OracleComp OracleWorld)
+  | .inl input => liftM (OracleWorld.query input)
+  | .inr index => pure (outputs index)
+def realize {J α : Type} (inputs : J → HashInput) (program : OracleComp (Spec J) α) :
+    OracleComp OracleWorld α := simulateQ (realHandler inputs) program
+def tableRun {J α : Type} (outputs : J → HashOutput) (program : OracleComp (Spec J) α) :
+    OracleComp OracleWorld α := simulateQ (tableHandler outputs) program
+theorem erases {J α : Type} (inputs : J → HashInput) (outputs : J → HashOutput)
+    (known : QueryCache HashSpec) (hknown : ∀ j, known (inputs j) = some (outputs j))
+    (program : OracleComp (Spec J) α) :
+    Erases (worldKnown known) (realize inputs program) (tableRun outputs program) := by
+  induction program using OracleComp.inductionOn with
+  | pure value => exact .pure value
+  | query_bind input next ih =>
+    simp only [realize, tableRun, simulateQ_bind, simulateQ_spec_query]
+    cases input with
+    | inl input => exact .query input _ _ ih
+    | inr j =>
+      change Erases _ (liftM (OracleWorld.query (.inr (inputs j))) >>= _)
+        (pure (outputs j) >>= _)
+      rw [pure_bind]
+      exact Erases.skip (known := worldKnown known) (Sum.inr (inputs j))
+        (outputs j) (hknown j) _ _ (ih (outputs j))
+@[irreducible] noncomputable def outputSampler (J : Type) [Fintype J] : SampleableType (J → HashOutput) := by
+  classical
+  exact SampleableType.ofFintype _
+variable {J : Type} [Fintype J]
+noncomputable local instance : SampleableType (J → HashOutput) := outputSampler J
+noncomputable def preparedCache (inputs : J → HashInput) (outputs : J → HashOutput) :
+    QueryCache HashSpec := cacheTable ∅ inputs outputs
+theorem preparedCache_agree (inputs : MasterSeed → J → HashInput)
+    (hhit : ∀ secret j, FullSecret.Hit (inputs secret j) secret) (outputs : J → HashOutput)
+    (secret : MasterSeed) :
+    AgreeOutside (fun input => FullSecret.Hit input secret) (preparedCache (inputs secret) outputs) ∅ := by
+  intro input hinput
+  apply cacheTable_apply_of_not_mem
+  intro j heq
+  exact hinput (heq ▸ hhit secret j)
+theorem evalDist_realize {α : Type} (inputs : J → HashInput) (hinj : Function.Injective inputs)
+    (program : OracleComp (Spec J) α) :
+    𝒮[(simulateQ romImpl (realize inputs program)).run' ∅] =
+      𝒮[do
+        let outputs ← ($ᵗ (J → HashOutput) : ProbComp (J → HashOutput))
+        (simulateQ romImpl (tableRun outputs program)).run' (preparedCache inputs outputs)] := by
+  let preparation : OracleComp OracleWorld (J → HashOutput) := liftM (queryTable (R := HashOutput) inputs)
+  have hprep : (simulateQ romImpl preparation).run ∅ =
+      (simulateQ randomOracle (queryTable (R := HashOutput) inputs)).run ∅ := by
+    exact congrArg (fun run => run.run (∅ : QueryCache HashSpec))
+      (QueryImpl.simulateQ_add_liftM_right (unifFwdImpl HashSpec)
+        (randomOracle (spec := HashSpec)) (queryTable (R := HashOutput) inputs))
+  rw [evalDist_presample_computation (realize inputs program) preparation ∅, hprep,
+    evalSPMF_bind, evalDist_queryTable_fresh (R := HashOutput) inputs hinj ∅ (fun _ => rfl)]
+  simp only [evalSPMF_map, bind_map_left]
+  rw [evalSPMF_bind]
+  congr 1
+  funext outputs
+  have he := (erases inputs outputs (preparedCache inputs outputs)
+    (cacheTable_apply ∅ inputs hinj outputs) program).evalDist_run
+      (preparedCache inputs outputs) le_rfl
+  simpa only [preparedCache, StateT.run'_eq, evalSPMF_map] using congrArg (Functor.map Prod.fst) he
+theorem prepared_queryBound {α : Type} (inputs : J → HashInput) (hinj : Function.Injective inputs)
+    (program : OracleComp (Spec J) α) (q : Nat)
+    (hbound : HashQueryBound (realize inputs program) ∅ q) (outputs : J → HashOutput) :
+    HashQueryBound (tableRun outputs program) (preparedCache inputs outputs) q := by
+  let preparation : OracleComp OracleWorld (J → HashOutput) := liftM (queryTable (R := HashOutput) inputs)
+  have hprep : (simulateQ romImpl preparation).run ∅ =
+      (simulateQ randomOracle (queryTable (R := HashOutput) inputs)).run ∅ := by
+    exact congrArg (fun run => run.run (∅ : QueryCache HashSpec))
+      (QueryImpl.simulateQ_add_liftM_right (unifFwdImpl HashSpec)
+        (randomOracle (spec := HashSpec)) (queryTable (R := HashOutput) inputs))
+  have hsupport : (outputs, preparedCache inputs outputs) ∈
+      support ((simulateQ romImpl preparation).run ∅) := by
+    rw [hprep, mem_support_iff_of_evalSPMF_eq
+      (evalDist_queryTable_fresh (R := HashOutput) inputs hinj ∅ (fun _ => rfl)), support_map]
+    exact ⟨outputs, mem_support_uniformSample (J → HashOutput), rfl⟩
+  exact (erases inputs outputs (preparedCache inputs outputs)
+    (cacheTable_apply ∅ inputs hinj outputs) program).hashQueryBound
+      (preparedCache inputs outputs) le_rfl q
+      (hashQueryBound_after_preparation _ preparation ∅ q hbound _ hsupport)
+theorem game_hop {α : Type} (inputs : MasterSeed → J → HashInput)
+    (hinj : ∀ secret, Function.Injective (inputs secret))
+    (hhit : ∀ secret j, FullSecret.Hit (inputs secret j) secret)
+    (program : OracleComp (Spec J) α) (q : Nat) (hq : q < 2 ^ 256)
+    (hbound : ∀ secret, HashQueryBound (realize (inputs secret) program) ∅ q)
+    (event : α → Prop) :
+    Pr[event | sampleMasterSeed >>= fun secret =>
+        (simulateQ romImpl (realize (inputs secret) program)).run' ∅] ≤
+      Pr[event | ($ᵗ (J → HashOutput) : ProbComp (J → HashOutput)) >>= fun outputs =>
+        (simulateQ romImpl (tableRun outputs program)).run' ∅] +
+          q / ((2 ^ 256 : Nat) : ENNReal) := by
+  have htable (outputs : J → HashOutput) : HashQueryBound (tableRun outputs program) ∅ q := by
+    apply FullSecret.queryBound_of_secret_caches (tableRun outputs program) q []
+      (fun secret => preparedCache (inputs secret) outputs) ∅ (by simpa using hq)
+    · intro secret _; exact preparedCache_agree inputs hhit outputs secret
+    · intro secret _; exact prepared_queryBound _ (hinj secret) program q (hbound secret) outputs
+  calc
+    _ = Pr[event | sampleMasterSeed >>= fun secret => do
+        let outputs ← ($ᵗ (J → HashOutput) : ProbComp (J → HashOutput))
+        (simulateQ romImpl (tableRun outputs program)).run' (preparedCache (inputs secret) outputs)] := by
+      apply probEvent_congr' (fun _ _ => Iff.rfl)
+      exact evalSPMF_bind_congr' _ (fun secret => evalDist_realize _ (hinj secret) program)
+    _ = Pr[event | ($ᵗ (J → HashOutput) : ProbComp (J → HashOutput)) >>= fun outputs =>
+        sampleMasterSeed >>= fun secret =>
+        (simulateQ romImpl (tableRun outputs program)).run' (preparedCache (inputs secret) outputs)] :=
+      probEvent_bind_bind_swap _ _ _ _
+    _ ≤ _ := by
+      rw [probEvent_bind_eq_tsum, probEvent_bind_eq_tsum]
+      calc
+        _ ≤ ∑' outputs, Pr[= outputs | ($ᵗ (J → HashOutput) : ProbComp (J → HashOutput))] *
+            (Pr[event | (simulateQ romImpl (tableRun outputs program)).run' ∅] +
+              q / ((2 ^ 256 : Nat) : ENNReal)) := by
+          exact ENNReal.tsum_le_tsum fun outputs => mul_le_mul' le_rfl
+            (FullSecret.cache_change_bound (tableRun outputs program)
+              (fun secret => preparedCache (inputs secret) outputs) ∅
+              (preparedCache_agree inputs hhit outputs) q (htable outputs) event)
+        _ = _ := by
+          simp only [mul_add, ENNReal.tsum_add, ENNReal.tsum_mul_right]
+          rw [tsum_probOutput_eq_sub]
+          simp
+end SigGolfCandidate.T3.Derivation
+namespace SigGolfCandidate.T3.Derivation
+open OracleComp OracleSpec ENNReal
+open SphincsSecurity (MasterSeed OracleWorld sampleMasterSeed romImpl HashQueryBound)
+open SphincsSecurity.Seeded
+set_option backward.isDefEq.respectTransparency false
+def charged {J : Type} : (Spec J).Domain → Prop
+  | .inl (.inl _) => False
+  | .inl (.inr _) => True
+  | .inr _ => True
+instance {J : Type} : DecidablePred (charged (J := J)) := fun input => by
+  rcases input with (sample | hash) | privateInput <;> dsimp [charged] <;> infer_instance
+noncomputable def cap {J α : Type} (program : OracleComp (Spec J) α) (q : Nat) :=
+  SphincsSecurity.QueryCap.run charged program q
+theorem realize_cap {J α : Type} (inputs : J → HashInput) (program : OracleComp (Spec J) α) (q : Nat) :
+    realize inputs (cap program q) =
+      SphincsSecurity.QueryCap.run (fun input : OracleWorld.Domain => input matches .inr _)
+        (realize inputs program) q := by
+  induction program using OracleComp.inductionOn generalizing q with
+  | pure value => rfl
+  | query_bind input next ih =>
+    simp only [cap, SphincsSecurity.QueryCap.run_query_bind, realize,
+      simulateQ_bind, simulateQ_spec_query]
+    rcases input with (sample | hash) | privateInput
+    · simp only [charged, if_false, realHandler, SphincsSecurity.QueryCap.run_query_bind]
+      exact congrArg (fun k => liftM (OracleWorld.query (.inl sample)) >>= k) (funext fun answer => ih answer q)
+    · cases q <;>
+        simp only [charged, if_true, realHandler, SphincsSecurity.QueryCap.run_query_bind,
+          simulateQ_pure, simulateQ_bind, simulateQ_spec_query]
+      rename_i q
+      exact congrArg (fun k => liftM (OracleWorld.query (.inr hash)) >>= k) (funext fun answer => ih answer q)
+    · cases q <;>
+        simp only [charged, if_true, realHandler, SphincsSecurity.QueryCap.run_query_bind,
+          simulateQ_pure, simulateQ_bind, simulateQ_spec_query]
+      rename_i q
+      exact congrArg (fun k => liftM (OracleWorld.query (.inr (inputs privateInput))) >>= k)
+        (funext fun answer => ih answer q)
+variable {J : Type} [Fintype J]
+noncomputable local instance : SampleableType (J → HashOutput) := outputSampler J
+theorem event_game_hop {α : Type} (inputs : MasterSeed → J → HashInput)
+    (hinj : ∀ secret, Function.Injective (inputs secret))
+    (hhit : ∀ secret j, FullSecret.Hit (inputs secret j) secret)
+    (program : OracleComp (Spec J) α) (q : Nat) (hq : q < 2 ^ 256) (event : α → Prop) :
+    Pr[fun result => event result.1 ∧ result.2 ≤ q | sampleMasterSeed >>= fun secret =>
+        (simulateQ romImpl (SphincsSecurity.countHashQueries (realize (inputs secret) program))).run' ∅] ≤
+      Pr[fun outcome => ∃ result, outcome = some result ∧ event result.1 |
+        ($ᵗ (J → HashOutput) : ProbComp (J → HashOutput)) >>= fun outputs =>
+          (simulateQ romImpl (tableRun outputs (cap program q))).run' ∅] +
+        q / ((2 ^ 256 : Nat) : ENNReal) := by
+  have heq : Pr[fun result => event result.1 ∧ result.2 ≤ q | sampleMasterSeed >>= fun secret =>
+        (simulateQ romImpl (SphincsSecurity.countHashQueries (realize (inputs secret) program))).run' ∅] =
+      Pr[fun outcome => ∃ result, outcome = some result ∧ event result.1 |
+        sampleMasterSeed >>= fun secret =>
+          (simulateQ romImpl (realize (inputs secret) (cap program q))).run' ∅] := by
+    simp only [probEvent_bind_eq_tsum, realize_cap]
+    exact tsum_congr fun secret => congrArg _ (romRun_cap_event _ ∅ q event)
+  rw [heq]
+  apply game_hop inputs hinj hhit (cap program q) q hq
+  intro secret
+  rw [realize_cap]
+  exact hashQueryBound_cap _ ∅ q
+end SigGolfCandidate.T3.Derivation
+namespace SigGolfCandidate.T3
+open SphincsSecurity (bytesLE bytesLE_length)
+set_option maxHeartbeats 1000000
+set_option maxRecDepth 10000
+@[irreducible] noncomputable def coordinateFintype : Fintype Coordinate := by
+  classical
+  exact inferInstance
+theorem private_hit_serialization (secret : BitVec 256) (headBlock suffix : HashInput)
+    (hlen : headBlock.length=16) :
+    FullSecret.Hit (bytesLE 16 (secret.extractLsb' 0 128) ++ headBlock ++
+      bytesLE 16 (secret.extractLsb' 128 128) ++ suffix) secret := by
+  constructor
+  · simp only [List.append_assoc,List.take_append,bytesLE_length,Nat.sub_self,
+      List.take_zero,List.append_nil,Nat.zero_sub,List.nil_append]
+    exact List.take_of_length_le (by rw [bytesLE_length])
+  · rw [show (bytesLE 16 (secret.extractLsb' 0 128) ++ headBlock ++
+        bytesLE 16 (secret.extractLsb' 128 128) ++ suffix).drop 32 =
+          bytesLE 16 (secret.extractLsb' 128 128) ++ suffix from by
+        rw [List.append_assoc (bytesLE 16 (secret.extractLsb' 0 128) ++ headBlock)]
+        have hp : (bytesLE 16 (secret.extractLsb' 0 128) ++ headBlock).length=32 := by
+          simp only [List.length_append,bytesLE_length,hlen]
+        rw [← hp,List.drop_left]]
+    simp only [List.take_append,bytesLE_length,Nat.sub_self,List.take_zero,List.append_nil]
+    exact List.take_of_length_le (by rw [bytesLE_length])
+theorem privateInput_hit (secret : BitVec 256) (coordinate : Coordinate) :
+    FullSecret.Hit (privateInput secret coordinate) secret := by
+  rcases coordinate with tweak|message|region
+  · rw [privateInput_short]
+    exact private_hit_serialization secret (bytesLE 16 tweak) zero16 (bytesLE_length _ _)
+  · rw [privateInput_nonce]
+    rw [List.append_assoc _ zero16 (bytesLE 32 message),
+      List.append_assoc _ (zero16 ++ bytesLE 32 message) (List.replicate 32 0)]
+    exact private_hit_serialization secret (bytesLE 16 (header 7 0 0 0 0))
+      (zero16 ++ bytesLE 32 message ++ List.replicate 32 0) (bytesLE_length _ _)
+  · rw [privateInput_mac]
+    rw [List.append_assoc _ zero16 (List.ofFn region),
+      List.append_assoc _ (zero16 ++ List.ofFn region) (List.replicate 32 0)]
+    exact private_hit_serialization secret (bytesLE 16 (header 14 0 0 0 0))
+      (zero16 ++ List.ofFn region ++ List.replicate 32 0) (bytesLE_length _ _)
+namespace Security
+open OracleComp OracleSpec ENNReal
+open SphincsSecurity (OracleWorld romImpl sampleMasterSeed)
+structure Request where
+  message : Message
+  cache : Cache
+inductive Forgery where
+  | witness (message : Message) (witness : Witness)
+  | signature (message : Message) (signature : Signature)
+abbrev Requests := Request →ₒ Option Signature
+abbrev Adversary := Digest → Cache → OracleComp (OracleWorld + Requests) (Option Forgery)
+def forwardWorld : QueryImpl OracleWorld M := fun input => Spec.query (.inl input)
+def signingOracle : QueryImpl Requests (WriterT (QueryLog Requests) M) :=
+  QueryImpl.withLogging fun request => liftM (sign request.cache request.message)
+noncomputable def checkForgery (publicKey : Digest) (log : QueryLog Requests) : Forgery → M Bool := by
+  classical
+  exact fun forgery => do
+    match forgery with
+    | .witness message witness =>
+        let verified ← verify message publicKey witness
+        pure (decide (¬∃ entry ∈ log, entry.1.message=message ∧ entry.2.isSome=true) && verified)
+    | .signature message signature =>
+        let witness ← expand message publicKey signature
+        let some witness := witness | return false
+        let verified ← verify message publicKey witness
+        pure (decide (¬∃ entry ∈ log, entry.1.message=message ∧ entry.2=some signature) && verified)
+noncomputable def game (adversary : Adversary) : M Bool := do
+    let (publicKey, cache) ← keygen
+    let (forgery, log) ← (simulateQ
+      ((fun input => liftM (forwardWorld input) : QueryImpl OracleWorld (WriterT (QueryLog Requests) M)) +
+        signingOracle) (adversary publicKey cache)).run
+    let some forgery := forgery | return false
+    let verified ← checkForgery publicKey log forgery
+    pure (decide (log.length ≤ 2^32) && verified)
+noncomputable def realExperiment (adversary : Adversary) : ProbComp (Bool × Nat) :=
+  sampleMasterSeed >>= fun secret =>
+    (simulateQ romImpl (SphincsSecurity.countHashQueries
+      (Derivation.realize (privateInput secret) (game adversary)))).run' ∅
+noncomputable local instance : Fintype Coordinate := coordinateFintype
+noncomputable local instance : SampleableType (Coordinate → Derivation.HashOutput) :=
+  Derivation.outputSampler Coordinate
+noncomputable def tableExperiment (adversary : Adversary) (q : Nat) :
+    ProbComp (Option (Bool × Nat)) :=
+  ($ᵗ (Coordinate → Derivation.HashOutput) : ProbComp _) >>= fun outputs =>
+    (simulateQ romImpl (Derivation.tableRun outputs (Derivation.cap (game adversary) q))).run' ∅
+theorem private_derivation_event_bound (adversary : Adversary) (q : Nat) (hq : q < 2^256) :
+    Pr[fun result => result.1=true ∧ result.2≤q | realExperiment adversary] ≤
+      Pr[fun outcome => ∃ result, outcome=some result ∧ result.1=true |
+        tableExperiment adversary q] + q / ((2^256 : Nat) : ENNReal) := by
+  classical
+  exact Derivation.event_game_hop privateInput privateInput_injective
+    privateInput_hit (game adversary) q hq (· = true)
+end Security
+end SigGolfCandidate.T3
+namespace SigGolfCandidate.T3.MixedCode
+open scoped BigOperators
+attribute [local instance] Classical.propDecidable
+structure Code where
+  n : Nat
+  width : Fin n → Nat
+  target : Nat
+abbrev Encoding (code : Code) := (i : Fin code.n) → Fin (2 ^ code.width i)
+variable {code : Code}
+def digitSum (word : Encoding code) : Nat := ∑ i, (word i).val
+def Valid (word : Encoding code) : Prop := digitSum word = code.target
+instance validDecidable (word : Encoding code) : Decidable (Valid word) :=
+  inferInstanceAs (Decidable (digitSum word = code.target))
+theorem eq_of_le_of_valid {x y : (Encoding code)} (hx : Valid x) (hy : Valid y)
+    (hle : ∀ i, (x i).val ≤ (y i).val) : x = y := by
+  simp only [Valid] at hx hy
+  have hsum : digitSum x = digitSum y := hx.trans hy.symm
+  funext i
+  refine Fin.ext (le_antisymm (hle i) ?_)
+  by_contra hlt
+  have hstrict : (x i).val < (y i).val := by omega
+  have : digitSum x < digitSum y :=
+    Finset.sum_lt_sum (fun j _ => hle j) ⟨i, Finset.mem_univ i, hstrict⟩
+  omega
+def UnitNeighborAt (reference candidate : (Encoding code)) (lowered : (Fin code.n)) : Prop :=
+  Valid reference ∧ Valid candidate ∧ (candidate lowered).val + 1 = (reference lowered).val ∧
+    ∀ index, index ≠ lowered → (reference index).val ≤ (candidate index).val
+theorem UnitNeighborAt.ne {reference candidate : (Encoding code)} {lowered : (Fin code.n)}
+    (h : UnitNeighborAt reference candidate lowered) : candidate ≠ reference := by
+  intro he
+  have hd := h.2.2.1
+  rw [he] at hd
+  omega
+theorem UnitNeighborAt.lowered_unique {reference candidate : (Encoding code)} {left right : (Fin code.n)}
+    (hleft : UnitNeighborAt reference candidate left) (hright : UnitNeighborAt reference candidate right) : left = right := by
+  by_contra hne
+  have hle := hleft.2.2.2 right (Ne.symm hne)
+  have hd := hright.2.2.1
+  omega
+noncomputable def unitNeighbors (reference : (Encoding code)) (lowered : (Fin code.n)) : Finset (Encoding code) :=
+  Finset.univ.filter (fun candidate => UnitNeighborAt reference candidate lowered)
+theorem mem_unitNeighbors {reference candidate : (Encoding code)} {lowered : (Fin code.n)} :
+    candidate ∈ unitNeighbors reference lowered ↔ UnitNeighborAt reference candidate lowered := by
+  simp only [unitNeighbors, Finset.mem_filter, Finset.mem_univ, true_and]
+noncomputable def allUnitNeighbors (reference : (Encoding code)) : Finset (Encoding code) :=
+  Finset.univ.biUnion (unitNeighbors reference)
+theorem mem_allUnitNeighbors {reference candidate : (Encoding code)} :
+    candidate ∈ allUnitNeighbors reference ↔ ∃ lowered, UnitNeighborAt reference candidate lowered := by
+  simp only [allUnitNeighbors, Finset.mem_biUnion, Finset.mem_univ, true_and, mem_unitNeighbors]
+private theorem two_terms_le_sum (f : (Fin code.n) → Nat) {left right : (Fin code.n)} (hne : left ≠ right) :
+    f left + f right ≤ ∑ index, f index := by
+  have h := Finset.sum_le_sum_of_subset_of_nonneg (f := f) (Finset.subset_univ ({left, right} : Finset (Fin code.n)))
+    (fun _ _ _ => Nat.zero_le _)
+  simpa only [Finset.sum_pair hne] using h
+private theorem single_of_sum_one (f : (Fin code.n) → Nat) (hsum : (∑ index, f index) = 1) :
+    ∃ index, f index = 1 ∧ ∀ other, other ≠ index → f other = 0 := by
+  have hnonzero : ∃ index, f index ≠ 0 := by
+    by_contra hnone
+    push Not at hnone
+    have hz : (∑ index, f index) = 0 := Finset.sum_eq_zero fun index _ => hnone index
+    omega
+  obtain ⟨index, hi⟩ := hnonzero
+  have hle : f index ≤ ∑ other, f other := Finset.single_le_sum (fun _ _ => Nat.zero_le _) (Finset.mem_univ index)
+  have hone : f index = 1 := by omega
+  refine ⟨index, hone, fun other hne => ?_⟩
+  have hpair := two_terms_le_sum f hne
+  omega
+private theorem UnitNeighborAt.raised {reference candidate : (Encoding code)} {lowered : (Fin code.n)}
+    (h : UnitNeighborAt reference candidate lowered) :
+    ∃ raised, raised ≠ lowered ∧ (reference raised).val + 1 = (candidate raised).val ∧
+      ∀ index, index ≠ lowered → index ≠ raised → candidate index = reference index := by
+  obtain ⟨hreference, hcandidate, hlow, hup⟩ := h
+  simp only [Valid] at hreference hcandidate
+  have hpoint : ∀ index : (Fin code.n),
+      ((reference index).val - (candidate index).val) + (candidate index).val =
+        ((candidate index).val - (reference index).val) + (reference index).val := fun index => by omega
+  have hsum := congrArg (fun f : (Fin code.n) → Nat => ∑ index, f index) (funext hpoint)
+  simp only [Finset.sum_add_distrib] at hsum
+  have hback : ∑ index, ((reference index).val - (candidate index).val) = 1 := by
+    rw [Finset.sum_eq_single lowered]
+    · omega
+    · intro index _ hne
+      have := hup index hne
+      omega
+    · simp only [Finset.mem_univ, not_true_eq_false, false_implies]
+  change _ + digitSum candidate = _ + digitSum reference at hsum
+  have hsums : digitSum candidate = digitSum reference := hcandidate.trans hreference.symm
+  have hforward : ∑ index, ((candidate index).val - (reference index).val) = 1 := by omega
+  obtain ⟨raised, hraise, hothers⟩ := single_of_sum_one _ hforward
+  refine ⟨raised, fun he => ?_, by omega, fun index hl hr => ?_⟩
+  · subst raised
+    omega
+  · have hdown := hothers index hr
+    have hle := hup index hl
+    apply Fin.ext
+    omega
+theorem unitNeighbors_card_le (reference : (Encoding code)) (lowered : (Fin code.n)) :
+    (unitNeighbors reference lowered).card ≤ (code.n - 1) := by
+  let chooseRaised : {candidate // UnitNeighborAt reference candidate lowered} → {raised : (Fin code.n) // raised ≠ lowered} :=
+    fun candidate => ⟨candidate.property.raised.choose, candidate.property.raised.choose_spec.1⟩
+  have hinj : Function.Injective chooseRaised := by
+    intro left right he
+    apply Subtype.ext
+    have he' : left.property.raised.choose = right.property.raised.choose := congrArg Subtype.val he
+    obtain ⟨_, hup, hrest⟩ := left.property.raised.choose_spec
+    obtain ⟨_, hup', hrest'⟩ := right.property.raised.choose_spec
+    rw [he'] at hup hrest
+    funext index
+    by_cases hl : index = lowered
+    · subst index
+      apply Fin.ext
+      have := left.property.2.2.1
+      have := right.property.2.2.1
+      omega
+    · by_cases hr : index = right.property.raised.choose
+      · subst index
+        apply Fin.ext
+        omega
+      · exact (hrest index hl hr).trans (hrest' index hl hr).symm
+  have hcard := Fintype.card_le_of_injective chooseRaised hinj
+  rw [Fintype.card_subtype, Fintype.card_subtype] at hcard
+  have hr : (Finset.univ.filter fun raised : (Fin code.n) => raised ≠ lowered) = Finset.univ.erase lowered := by
+    ext raised
+    simp only [Finset.mem_filter, Finset.mem_univ, true_and, Finset.mem_erase, and_true]
+  rw [hr, Finset.card_erase_of_mem (Finset.mem_univ lowered), Finset.card_univ, Fintype.card_fin] at hcard
+  simpa only [unitNeighbors] using hcard
+theorem allUnitNeighbors_card_le (reference : (Encoding code)) : (allUnitNeighbors reference).card ≤ (code.n * (code.n - 1)) := by
+  calc
+    _ ≤ ∑ lowered : (Fin code.n), (unitNeighbors reference lowered).card := Finset.card_biUnion_le
+    _ ≤ ∑ _lowered : (Fin code.n), (code.n - 1) :=
+      Finset.sum_le_sum fun lowered _ => unitNeighbors_card_le reference lowered
+    _ = (code.n * (code.n - 1)) := by
+      simp only [Finset.sum_const, Finset.card_univ, Fintype.card_fin, smul_eq_mul]
+end SigGolfCandidate.T3.MixedCode
+namespace SigGolfCandidate.T3
+open OracleComp OracleSpec ENNReal
+open scoped BigOperators
+set_option maxRecDepth 10000
+set_option maxHeartbeats 1000000
+def code (lay : Layer) : MixedCode.Code where
+  n := chainCount lay
+  width i := width lay i.val
+  target := target lay
+abbrev Encoding (lay : Layer) := MixedCode.Encoding (code lay)
+abbrev ChainIndex (lay : Layer) := Fin (chainCount lay)
+theorem chainCount_bound (lay : Layer) : chainCount lay ≤ 58 := by fin_cases lay <;> decide
+theorem chainCount_le_54 (lay : Layer) : chainCount lay ≤ 54 := by fin_cases lay <;> decide
+theorem unit_neighbors_bound (lay : Layer) (word : Encoding lay) (i : ChainIndex lay) :
+    (MixedCode.unitNeighbors word i).card ≤ 57 :=
+  (MixedCode.unitNeighbors_card_le word i).trans (Nat.sub_le_sub_right (chainCount_bound lay) 1)
+theorem all_neighbors_bound (lay : Layer) (word : Encoding lay) :
+    (MixedCode.allUnitNeighbors word).card ≤ 3306 := by
+  refine (MixedCode.allUnitNeighbors_card_le word).trans ?_
+  exact Nat.mul_le_mul (chainCount_bound lay) (Nat.sub_le_sub_right (chainCount_bound lay) 1)
+theorem dataDigits_getD (lay : Layer) (value : Digest) (i : Nat) (hi : i<dataCount lay) :
+    (dataDigits lay value).getD i 0=coreDigit lay value i :=
+  Nonbinary.dataDigits_getD lay value i hi
+theorem decode_data {lay : Layer} {value : Digest} {digits : List Nat}
+    (h : decode lay value=some digits) :
+    value.toNat<2^encodedBits lay ∧ digits.take (dataCount lay)=dataDigits lay value := by
+  unfold decode at h
+  split at h
+  · simp at h
+  · rename_i hbits
+    constructor
+    · omega
+    · split at h <;> dsimp only at h <;> split at h
+      · have he := Option.some.inj h
+        subst digits
+        rw [← dataDigits_length lay value,List.take_left]
+      · simp at h
+      · have he := Option.some.inj h
+        subst digits
+        rw [← dataDigits_length lay value,List.take_left]
+      · simp at h
+theorem decode_digit_max {lay : Layer} {value : Digest} {digits : List Nat}
+    (h : decode lay value=some digits) (i : Nat) (hi : i<chainCount lay) :
+    digits.getD i 0 ≤ maxDigit lay i := by
+  unfold decode at h
+  split at h
+  · simp at h
+  · split at h <;> dsimp only at h <;> split at h
+    · rename_i hbits hl hs
+      have he := Option.some.inj h
+      subst digits
+      by_cases hid : i<dataCount lay
+      · rw [List.getD_append _ _ _ _ (by simpa only [dataDigits_length] using hid),dataDigits_getD lay value i hid]
+        exact Nonbinary.coreDigit_le lay value i
+      · subst lay
+        have hieq : i=50 := by simp [dataCount,chainCount] at hid hi; omega
+        subst i
+        rw [show (50 : Nat) = (dataDigits 0 value).length by rw [dataDigits_length]; rfl,
+          List.getD_append_right _ _ _ _ (le_refl _)]
+        simp only [Nat.sub_self,List.getD_cons_zero]
+        rw [show (dataDigits 0 value).length = 50 by rw [dataDigits_length]; rfl]
+        simp only [maxDigit, if_true, show ¬ (50 : Nat) < 27 by decide, show ¬ (50 : Nat) < 48 by decide,
+          show ¬ (50 : Nat) < 50 by decide, if_false]
+        omega
+    · simp at h
+    · rename_i hbits hl hs
+      have he := Option.some.inj h
+      subst digits
+      by_cases hid : i<dataCount lay
+      · rw [List.getD_append _ _ _ _ (by simpa only [dataDigits_length] using hid),dataDigits_getD lay value i hid]
+        exact Nonbinary.coreDigit_le lay value i
+      · have hieq : i=dataCount lay := by
+          fin_cases lay <;> simp_all [dataCount,chainCount] <;> omega
+        subst i
+        rw [← dataDigits_length lay value,List.getD_append_right _ _ _ _ (by omega)]
+        simp only [Nat.sub_self,List.getD_cons_zero,maxDigit,hl,ite_false]
+        omega
+    · simp at h
+theorem decode_digit_bound {lay : Layer} {value : Digest} {digits : List Nat}
+    (h : decode lay value=some digits) (i : Nat) (hi : i<chainCount lay) :
+    digits.getD i 0 < 2^width lay i :=
+  lt_of_le_of_lt (decode_digit_max h i hi) (Nonbinary.maxDigit_lt_pow_width lay i)
+theorem decode_top_ranks {value : Digest} {digits : List Nat}
+    (h : decode 0 value=some digits) : topRanksValid value=true := by
+  unfold decode at h
+  split at h
+  · simp at h
+  · simp only [ite_true] at h
+    split at h
+    · rename_i hs
+      exact hs.1
+    · contradiction
+def decodedWord {lay : Layer} {value : Digest} {digits : List Nat}
+    (h : decode lay value=some digits) : Encoding lay := fun i =>
+  ⟨digits.getD i.val 0,decode_digit_bound h i.val i.isLt⟩
+theorem decodedWord_list {lay : Layer} {value : Digest} {digits : List Nat}
+    (h : decode lay value=some digits) :
+    (List.ofFn fun i => (decodedWord h i).val)=digits := by
+  apply List.ext_getElem
+  · simpa only [List.length_ofFn,code] using (decode_length_sum h).1.symm
+  · intro i hleft hright
+    simp only [List.getElem_ofFn,decodedWord,List.getD_eq_getElem _ _ hright]
+theorem decodedWord_valid {lay : Layer} {value : Digest} {digits : List Nat}
+    (h : decode lay value=some digits) : MixedCode.Valid (decodedWord h) := by
+  change (∑ i, (decodedWord h i).val)=target lay
+  rw [← List.sum_ofFn,decodedWord_list h]
+  exact (decode_length_sum h).2
+theorem decode_antichain {lay : Layer} {left right : Digest} {xs ys : List Nat}
+    (hx : decode lay left=some xs) (hy : decode lay right=some ys)
+    (hle : ∀ i, i<chainCount lay → xs.getD i 0 ≤ ys.getD i 0) : xs=ys := by
+  have he := MixedCode.eq_of_le_of_valid (decodedWord_valid hx) (decodedWord_valid hy)
+    (fun i => hle i.val i.isLt)
+  rw [← decodedWord_list hx,← decodedWord_list hy,he]
+theorem encodedBits_le (lay : Layer) : encodedBits lay≤128 := by fin_cases lay <;> decide
+theorem decode_lowerSpare {lay : Layer} {value : Digest} {digits : List Nat} (hl : lay≠0)
+    (h : decode lay value=some digits) : lowerSpare value := by
+  unfold decode at h
+  split at h
+  · simp at h
+  · simp only [hl,if_false] at h
+    split at h
+    · rename_i hs
+      exact hs.1
+    · simp at h
+theorem digest_eq_of_dataDigits_eq {lay : Layer} {left right : Digest}
+    (h : dataDigits lay left=dataDigits lay right)
+    (hl : left.toNat<2^encodedBits lay) (hr : right.toNat<2^encodedBits lay)
+    (hgl : lay=0 → topRanksValid left=true) (hgr : lay=0 → topRanksValid right=true)
+    (hsl : lay≠0 → lowerSpare left) (hsr : lay≠0 → lowerSpare right) : left=right := by
+  by_cases ht : lay=0
+  · subst lay
+    exact Nonbinary.top_digest_injective h (hgl rfl) (hgr rfl)
+  · have hdig (i : Nat) (hi : i<42) : lowerWord left/2^(3*i)%8=lowerWord right/2^(3*i)%8 := by
+      have he := congrArg (fun xs : List Nat => xs.getD i 0) h
+      have hi' : i<dataCount lay := by simp only [dataCount,ht,if_false]; exact hi
+      rwa [dataDigits_getD lay left i hi',dataDigits_getD lay right i hi',coreDigit_lower ht left hi,
+        coreDigit_lower ht right hi] at he
+    have hw : lowerWord left=lowerWord right := by
+      apply Nat.eq_of_testBit_eq
+      intro bit
+      by_cases hb : bit<126
+      · have hd := congrArg (fun n : Nat => n.testBit (bit%3)) (hdig (bit/3) (by omega))
+        simp only [show (8 : Nat)=2^3 from rfl,Nat.testBit_mod_two_pow,Nat.testBit_div_two_pow,
+          show bit%3<3 by omega,decide_true,Bool.true_and,show bit%3+3*(bit/3)=bit by omega] at hd
+        exact hd
+      · have hp : 2^126≤2^bit := Nat.pow_le_pow_right (by decide) (by omega)
+        rw [Nat.testBit_lt_two_pow ((lowerWord_lt left).trans_le hp),
+          Nat.testBit_lt_two_pow ((lowerWord_lt right).trans_le hp)]
+    rw [← lowerPack_lowerWord (hsl ht),← lowerPack_lowerWord (hsr ht),hw]
+theorem decode_some_injective {lay : Layer} {left right : Digest} {word : List Nat}
+    (hl : decode lay left=some word) (hr : decode lay right=some word) : left=right := by
+  have hdleft := decode_data hl
+  have hdright := decode_data hr
+  refine digest_eq_of_dataDigits_eq (hdleft.2.symm.trans hdright.2) hdleft.1 hdright.1 ?_ ?_ ?_ ?_
+  · intro he; subst lay; exact decode_top_ranks hl
+  · intro he; subst lay; exact decode_top_ranks hr
+  · intro he; exact decode_lowerSpare he hl
+  · intro he; exact decode_lowerSpare he hr
+theorem decode_probability_le (lay : Layer) (word : List Nat) :
+    Pr[fun digest => decode lay digest=some word | ($ᵗ Digest : ProbComp Digest)] ≤
+      1/(2 : ENNReal)^128 := by
+  classical
+  rw [probEvent_uniformSample]
+  simp only [Fintype.card_bitVec,Nat.cast_pow,Nat.cast_ofNat]
+  apply ENNReal.div_le_div_right
+  have hcard : (Finset.univ.filter fun digest => decode lay digest=some word).card≤1 := by
+    apply Finset.card_le_one.mpr
+    intro a ha b hb
+    exact decode_some_injective (Finset.mem_filter.mp ha).2 (Finset.mem_filter.mp hb).2
+  exact_mod_cast hcard
+theorem header_toNat (tag lay tree position index : Nat) :
+    (header tag lay tree position index).toNat =
+      1+tag%256*2^8+lay%256*2^16+(tree/2^32%256)*2^24+
+        (if packedNodeTag tag then tree%2^32*2^32+nodeWord tag position index*2^64
+         else position%2^32*2^32+tree%2^32*2^64+index%2^32*2^96) := by
+  unfold header
+  rw [BitVec.toNat_ofNat]
+  apply Nat.mod_eq_of_lt
+  have ht := Nat.mod_lt tag (by decide : 0<256)
+  have hl := Nat.mod_lt lay (by decide : 0<256)
+  have hth := Nat.mod_lt (tree/2^32) (by decide : 0<256)
+  have hp := Nat.mod_lt position (by decide : 0<2^32)
+  have htl := Nat.mod_lt tree (by decide : 0<2^32)
+  have hi := Nat.mod_lt index (by decide : 0<2^32)
+  have hw := nodeWord_lt tag position index
+  split <;> norm_num only [Nat.reducePow] at * <;> omega
+theorem pack_nat_injective {a a' b b' base : Nat} (ha : a<base) (ha' : a'<base)
+    (he : a+base*b=a'+base*b') : a=a' ∧ b=b' := by
+  have haeq := congrArg (fun n => n%base) he
+  simp only [Nat.add_mul_mod_self_left,Nat.mod_eq_of_lt ha,Nat.mod_eq_of_lt ha'] at haeq
+  subst a'
+  exact ⟨rfl,Nat.eq_of_mul_eq_mul_left (Nat.zero_lt_of_lt ha) (Nat.add_left_cancel he)⟩
+theorem header_injective {tag lay tree position index tag' lay' tree' position' index' : Nat}
+    (ht : tag<256) (hl : lay<256) (htr : tree<2^40) (hp : position<2^32) (hi : index<2^32)
+    (ht' : tag'<256) (hl' : lay'<256) (htr' : tree'<2^40) (hp' : position'<2^32) (hi' : index'<2^32)
+    (h : header tag lay tree position index=header tag' lay' tree' position' index') :
+    tag=tag' ∧ lay=lay' ∧ tree=tree' ∧ position=position' ∧ index=index' := by
+  have hh : tree/2^32<256 := (Nat.div_lt_iff_lt_mul (by positivity)).mpr (by norm_num at htr ⊢;exact htr)
+  have hh' : tree'/2^32<256 := (Nat.div_lt_iff_lt_mul (by positivity)).mpr (by norm_num at htr' ⊢;exact htr')
+  have he := (header_toNat tag lay tree position index).symm.trans
+    ((congrArg (fun x : BitVec 128 => x.toNat) h).trans (header_toNat tag' lay' tree' position' index'))
+  simp only [Nat.mod_eq_of_lt ht,Nat.mod_eq_of_lt hl,Nat.mod_eq_of_lt hp,Nat.mod_eq_of_lt hi,
+    Nat.mod_eq_of_lt ht',Nat.mod_eq_of_lt hl',Nat.mod_eq_of_lt hp',Nat.mod_eq_of_lt hi',
+    Nat.mod_eq_of_lt hh,Nat.mod_eq_of_lt hh'] at he
+  have htag : tag = tag' := by
+    split_ifs at he <;> norm_num only [Nat.reducePow] at * <;> omega
+  subst tag'
+  by_cases hpack : packedNodeTag tag
+  · simp only [if_pos hpack] at he
+    have hw := nodeWord_lt tag position index
+    have hw' := nodeWord_lt tag position' index'
+    have hpacked : lay+256*(tree/2^32+256*(tree%2^32+2^32*nodeWord tag position index)) =
+        lay'+256*(tree'/2^32+256*(tree'%2^32+2^32*nodeWord tag position' index')) := by
+      norm_num only [Nat.reducePow] at he hw hw' ⊢
+      omega
+    obtain ⟨hlay,hpacked⟩ := pack_nat_injective hl hl' hpacked
+    obtain ⟨hhigh,hpacked⟩ := pack_nat_injective hh hh' hpacked
+    obtain ⟨hlow,hpacked⟩ := pack_nat_injective (Nat.mod_lt tree (by positivity))
+      (Nat.mod_lt tree' (by positivity)) hpacked
+    obtain ⟨hposition,hindex⟩ := nodeWord_inj hp hi hp' hi' hpacked
+    exact ⟨rfl,hlay,by omega,hposition,hindex⟩
+  · simp only [if_neg hpack] at he
+    have hpacked : lay+256*(tree/2^32+256*(position+2^32*(tree%2^32+2^32*index))) =
+        lay'+256*(tree'/2^32+256*(position'+2^32*(tree'%2^32+2^32*index'))) := by
+      norm_num only [Nat.reducePow] at he ⊢
+      omega
+    obtain ⟨hlay,hpacked⟩ := pack_nat_injective hl hl' hpacked
+    obtain ⟨hhigh,hpacked⟩ := pack_nat_injective hh hh' hpacked
+    obtain ⟨hposition,hpacked⟩ := pack_nat_injective hp hp' hpacked
+    obtain ⟨hlow,hindex⟩ := pack_nat_injective (Nat.mod_lt tree (by positivity))
+      (Nat.mod_lt tree' (by positivity)) hpacked
+    exact ⟨rfl,hlay,by omega,hposition,hindex⟩
+open SphincsSecurity (bytesLE bytesLE_length bytesLE_injective)
+theorem digestInput_injective {rho rho' : Digest} {message message' : Message}
+    {counter counter' : BitVec 32}
+    (h : digestInput rho message counter=digestInput rho' message' counter') :
+    rho=rho' ∧ message=message' ∧ counter=counter' := by
+  unfold digestInput at h
+  obtain ⟨hhead,hm⟩ := List.append_inj h (by simp only [List.length_append,bytesLE_length])
+  obtain ⟨hr,hh⟩ := List.append_inj hhead (by simp only [bytesLE_length])
+  exact ⟨bytesLE_injective hr,bytesLE_injective hm,digestHeader_injective (bytesLE_injective hh)⟩
+theorem admissible_bucket_map (chosen : List Selection) (f : Selection → Nat) :
+    admissible (chosen.map fun s => {s with bucket := f s})=admissible chosen := by
+  simp only [admissible,List.all_map,List.map_map,Function.comp_def]
+theorem selections_length (output : HashOutput) : (selections output).length=7 := by
+  simp only [selections,List.length_map,List.length_range]
+theorem selection_leaves_length (output : HashOutput) (selected : Selection)
+    (h : selected ∈ selections output) : selected.leaves.length=3 := by
+  simp only [selections,List.mem_map] at h
+  obtain ⟨i,_,rfl⟩ := h
+  simp only [List.length_mergeSort,List.length_map,List.length_range]
+theorem selection_bucket_bound (output : HashOutput) (selected : Selection)
+    (h : selected ∈ selections output) : selected.bucket<16 := by
+  simp only [selections,List.mem_map] at h
+  obtain ⟨i,_,rfl⟩ := h
+  exact Nat.mod_lt _ (by decide)
+theorem selection_leaf_bound (output : HashOutput) (selected : Selection) (leaf : Nat)
+    (h : selected ∈ selections output) (hl : leaf ∈ selected.leaves) : leaf<128 := by
+  simp only [selections,List.mem_map] at h
+  obtain ⟨i,_,rfl⟩ := h
+  simp only [List.mem_mergeSort,List.mem_map] at hl
+  obtain ⟨j,_,rfl⟩ := hl
+  exact Nat.mod_lt _ (by decide)
+end SigGolfCandidate.T3
+namespace SigGolfCandidate.T3.Cost
+open OracleComp OracleSpec Finset
+open scoped BigOperators
+set_option maxRecDepth 10000
+set_option maxHeartbeats 1000000
+set_option backward.isDefEq.respectTransparency false
+set_option linter.unusedSimpArgs false
+abbrev Query := T3.Spec.Domain
+def weight : Query → Nat
+  | .inl (.inl _) => 0
+  | .inl (.inr input) => input.length/64
+  | .inr (.inl _) => 1
+  | .inr (.inr (.inl _)) => 2
+  | .inr (.inr (.inr _)) => 2049
+abbrev qry (q : Query) : M (T3.Spec.Range q) := T3.Spec.query q
+inductive Bound (P : Query → Prop) {α : Type} (Post : α → Prop) :
+    Nat → M α → Prop
+  | pure (a : α) (k : Nat) : Post a → Bound P Post k (pure a)
+  | query (q : Query) (f : T3.Spec.Range q → M α) (k : Nat) :
+      P q → (∀ u, Bound P Post k (f u)) → Bound P Post (weight q + k) (qry q >>= f)
+namespace Bound
+variable {P : Query → Prop} {α β : Type}
+theorem mono_k {Post : α → Prop} {k k' : Nat} {oa : M α}
+    (h : Bound P Post k oa) (hk : k  ≤  k') : Bound P Post k' oa := by
+  induction h generalizing k' with
+  | pure a k hp => exact .pure a k' hp
+  | query q f k hq _ ih =>
+    have : k' = weight q + (k' - weight q) := by omega
+    rw [this]
+    exact .query q f _ hq fun u => ih u (by omega)
+theorem mono {P' : Query → Prop} {Post Post' : α → Prop} {k : Nat} {oa : M α}
+    (h : Bound P Post k oa) (hP : ∀ q, P q → P' q) (hQ : ∀ a, Post a → Post' a) :
+    Bound P' Post' k oa := by
+  induction h with
+  | pure a k hp => exact .pure a k (hQ a hp)
+  | query q f k hq _ ih => exact .query q f k (hP q hq) ih
+theorem bind {Q : α → Prop} {R : β → Prop} {k l : Nat} {oa : M α}
+    {f : α → M β} (h : Bound P Q k oa) (hf : ∀ a, Q a → Bound P R l (f a)) :
+    Bound P R (k + l) (oa >>= f) := by
+  induction h with
+  | pure a k hp => rw [pure_bind]; exact (hf a hp).mono_k (by omega)
+  | query q g k hq _ ih =>
+    rw [bind_assoc, Nat.add_assoc]
+    exact .query q _ _ hq ih
+theorem bind' {Q : α → Prop} {R : β → Prop} {k l n : Nat} {oa : M α}
+    {f : α → M β} (h : Bound P Q k oa) (hf : ∀ a, Q a → Bound P R l (f a))
+    (hn : k + l  ≤  n) : Bound P R n (oa >>= f) :=
+  (h.bind hf).mono_k hn
+theorem map {Q : α → Prop} {R : β → Prop} {k : Nat} {oa : M α} (g : α → β)
+    (h : Bound P Q k oa) (hg : ∀ a, Q a → R (g a)) : Bound P R k (g <$> oa) := by
+  rw [map_eq_bind_pure_comp]
+  exact (h.bind (l := 0) fun a ha => .pure _ 0 (hg a ha))
+theorem qry_bind {R : β → Prop} {q : Query} {f : T3.Spec.Range q → M β} {k n : Nat}
+    (hq : P q) (hf : ∀ u, Bound P R k (f u)) (hn : weight q + k  ≤  n) :
+    Bound P R n (qry q >>= f) :=
+  (Bound.query q f k hq hf).mono_k hn
+end Bound
+theorem Bound.foldlM_list {P : Query → Prop} {γ β : Type} (l : List β)
+    (f : γ → β → M γ) (Inv : Nat → γ → Prop) (cost : Nat → Nat) (init : γ)
+    (h0 : Inv 0 init)
+    (hs : ∀ i (hi : i < l.length) acc, Inv i acc → Bound P (Inv (i + 1)) (cost i) (f acc l[i])) :
+    Bound P (Inv l.length) (∑ i ∈ range l.length, cost i) (l.foldlM f init) := by
+  induction l generalizing Inv cost init with
+  | nil => exact Bound.pure _ _ h0
+  | cons x l ih =>
+    rw [List.foldlM_cons, List.length_cons]
+    have h0' := hs 0 (by simp) init h0
+    simp only [List.getElem_cons_zero] at h0'
+    refine Bound.bind' h0' (fun a ha => ih (fun i => Inv (i + 1)) (fun i => cost (i + 1)) a ha
+      (fun i hi acc hacc => hs (i + 1) (by simp; omega) acc hacc)) ?_
+    rw [Finset.sum_range_succ' _ l.length]; omega
+theorem Bound.foldlM_range {P : Query → Prop} {γ : Type} (n : Nat)
+    (f : γ → Nat → M γ) (Inv : Nat → γ → Prop) (cost : Nat → Nat) (init : γ)
+    (h0 : Inv 0 init)
+    (hs : ∀ i, i < n → ∀ acc, Inv i acc → Bound P (Inv (i + 1)) (cost i) (f acc i)) :
+    Bound P (Inv n) (∑ i ∈ range n, cost i) ((List.range n).foldlM f init) := by
+  have h := Bound.foldlM_list (P := P) (List.range n) f Inv cost init h0
+    (fun i hi acc hacc => by
+      simp only [List.getElem_range]; exact hs i (by simpa using hi) acc hacc)
+  simpa using h
+theorem Bound.foldlM_range' {P : Query → Prop} {γ : Type} (a n : Nat)
+    (f : γ → Nat → M γ) (Inv : Nat → γ → Prop) (cost : Nat → Nat) (init : γ)
+    (h0 : Inv 0 init)
+    (hs : ∀ i, i < n → ∀ acc, Inv i acc → Bound P (Inv (i + 1)) (cost i) (f acc (a + i))) :
+    Bound P (Inv n) (∑ i ∈ range n, cost i) ((List.range' a n).foldlM f init) := by
+  have h := Bound.foldlM_list (P := P) (List.range' a n) f Inv cost init h0
+    (fun i hi acc hacc => by
+      simp only [List.getElem_range', Nat.one_mul]; exact hs i (by simpa using hi) acc hacc)
+  simpa using h
+theorem Bound.foldlM_range_le {P : Query → Prop} {γ : Type} (n : Nat)
+    (f : γ → Nat → M γ) (Inv : Nat → γ → Prop) (cost : Nat → Nat) (init : γ)
+    {Post : γ → Prop} {k : Nat} (h0 : Inv 0 init)
+    (hs : ∀ i, i < n → ∀ acc, Inv i acc → Bound P (Inv (i + 1)) (cost i) (f acc i))
+    (hpost : ∀ acc, Inv n acc → Post acc) (hk : ∑ i ∈ range n, cost i  ≤  k) :
+    Bound P Post k ((List.range n).foldlM f init) :=
+  ((Bound.foldlM_range n f Inv cost init h0 hs).mono (fun _ h => h) hpost).mono_k hk
+theorem Bound.foldlM_range'_le {P : Query → Prop} {γ : Type} (a n : Nat)
+    (f : γ → Nat → M γ) (Inv : Nat → γ → Prop) (cost : Nat → Nat) (init : γ)
+    {Post : γ → Prop} {k : Nat} (h0 : Inv 0 init)
+    (hs : ∀ i, i < n → ∀ acc, Inv i acc → Bound P (Inv (i + 1)) (cost i) (f acc (a + i)))
+    (hpost : ∀ acc, Inv n acc → Post acc) (hk : ∑ i ∈ range n, cost i  ≤  k) :
+    Bound P Post k ((List.range' a n).foldlM f init) :=
+  ((Bound.foldlM_range' a n f Inv cost init h0 hs).mono (fun _ h => h) hpost).mono_k hk
+theorem sum_const_range (n c : Nat) : ∑ _i ∈ range n, c = n * c := by simp
+theorem sum_levels (h : Nat) : ∑ i ∈ range h, 2 ^ (h - i) / 2 = 2 ^ h - 1 := by
+  induction h with
+  | zero => simp
+  | succ h ih =>
+    rw [Finset.sum_range_succ']
+    have : ∀ i ∈ range h, 2 ^ (h + 1 - (i + 1)) / 2 = 2 ^ (h - i) / 2 := by
+      intro i _; rw [Nat.add_sub_add_right]
+    rw [Finset.sum_congr rfl this, ih]
+    simp only [Nat.sub_zero, Nat.pow_succ, Nat.mul_div_cancel _ (by norm_num : 0 < 2)]
+    have : 1  ≤  2 ^ h := Nat.one_le_two_pow
+    omega
+def countImpl (wt : Query → Nat) : QueryImpl T3.Spec (StateT Nat (OracleComp T3.Spec)) :=
+  fun q => do
+    modify (· + wt q)
+    liftM (T3.Spec.query q)
+def countWith (wt : Query → Nat) {α : Type} (oa : OracleComp T3.Spec α) :
+    OracleComp T3.Spec (α × Nat) :=
+  (simulateQ (countImpl wt) oa).run 0
+def countCalls {α : Type} (oa : OracleComp T3.Spec α) : OracleComp T3.Spec (α × Nat) :=
+  countWith (fun _ => 1) oa
+def countBlocks {α : Type} (oa : OracleComp T3.Spec α) : OracleComp T3.Spec (α × Nat) :=
+  countWith weight oa
+section
+variable (wt : Query → Nat) {α β : Type}
+theorem countImpl_run (oa : OracleComp T3.Spec α) (n : Nat) :
+    (simulateQ (countImpl wt) oa).run n = (fun p => (p.1, n + p.2)) <$> countWith wt oa := by
+  unfold countWith
+  induction oa using OracleComp.inductionOn generalizing n with
+  | pure a => simp
+  | query_bind q oa ih =>
+    simp only [simulateQ_bind, simulateQ_spec_query, StateT.run_bind, countImpl]
+    simp only [StateT.run_modify, pure_bind, map_bind]
+    have hl : ∀ s, (liftM (OracleSpec.query q) : StateT Nat (OracleComp T3.Spec) _).run s =
+        (fun a => (a, s)) <$> (liftM (OracleSpec.query q) : OracleComp T3.Spec _) := fun s => rfl
+    simp only [hl, bind_map_left, ih _ (n + wt q), ih _ (0 + wt q), Functor.map_map]
+    congr 1; funext a; congr 1; funext p; simp only [Prod.mk.injEq, true_and]; omega
+@[simp] theorem countWith_pure (a : α) : countWith wt (pure a : OracleComp T3.Spec α) = pure (a, 0) :=
+  rfl
+theorem countWith_bind (oa : OracleComp T3.Spec α) (f : α → OracleComp T3.Spec β) :
+    countWith wt (oa >>= f) =
+      countWith wt oa >>= fun p => (fun r => (r.1, p.2 + r.2)) <$> countWith wt (f p.1) := by
+  conv_lhs => unfold countWith
+  rw [simulateQ_bind, StateT.run_bind]
+  exact congrArg _ (funext fun p => countImpl_run wt (f p.1) p.2)
+@[simp] theorem countWith_query (q : Query) :
+    countWith wt (liftM (T3.Spec.query q) : OracleComp T3.Spec _) =
+      (fun a => (a, wt q)) <$> (liftM (T3.Spec.query q) : OracleComp T3.Spec _) := by
+  unfold countWith
+  rw [simulateQ_spec_query]
+  simp only [countImpl, StateT.run_bind, StateT.run_modify, pure_bind, Nat.zero_add]
+  rfl
+@[simp] theorem fst_countWith (oa : OracleComp T3.Spec α) : Prod.fst <$> countWith wt oa = oa := by
+  induction oa using OracleComp.inductionOn with
+  | pure a => rfl
+  | query_bind q oa ih =>
+    rw [countWith_bind, countWith_query]
+    simp only [map_bind, bind_map_left, Functor.map_map]
+    congr 1; funext a
+    exact ih a
+end
+theorem Bound.count_support {P : Query → Prop} {α : Type} {Post : α → Prop}
+    {k : Nat} {oa : M α} (h : Bound P Post k oa) :
+    ∀ result ∈ support (countWith weight oa), Post result.1 ∧ result.2 ≤ k := by
+  induction h with
+  | pure a k hp =>
+      intro result hr
+      simp only [countWith_pure,support_pure,Set.mem_singleton_iff] at hr
+      subst result
+      exact ⟨hp,Nat.zero_le _⟩
+  | query q f k hq h ih =>
+      intro result hr
+      rw [countWith_bind,mem_support_bind_iff] at hr
+      obtain ⟨answer,ha,hr⟩ := hr
+      rw [countWith_query,support_map] at ha
+      obtain ⟨value,_,rfl⟩ := ha
+      rw [support_map] at hr
+      obtain ⟨rest,hrest,rfl⟩ := hr
+      have ht := ih value rest hrest
+      exact ⟨ht.1,Nat.add_le_add_left ht.2 _⟩
+theorem Bound.mapM_list {P : Query → Prop} {α β : Type} (l : List α)
+    (f : α → M β) (cost : α → Nat)
+    (h : ∀ x ∈ l, Bound P (fun _ => True) (cost x) (f x)) :
+    Bound P (fun out => out.length=l.length) (l.map cost).sum (l.mapM f) := by
+  induction l with
+  | nil => exact .pure [] 0 rfl
+  | cons a l ih =>
+      rw [List.mapM_cons]
+      simp only [List.map_cons,List.sum_cons]
+      refine (h a (by simp)).bind fun value _ => ?_
+      refine (ih (fun x hx => h x (by simp [hx]))).bind' (l := 0) (fun tail ht => ?_) (by omega)
+      exact .pure (value::tail) 0 (by simp [ht])
+def GoodQuery : Query → Prop
+  | .inl (.inr input) => 0 < input.length ∧ input.length%64=0
+  | _ => True
+abbrev CBound {α : Type} (Post : α → Prop) (k : Nat) (program : M α) :=
+  Bound GoodQuery Post k program
+theorem pad64_length (input : HashInput) :
+    (pad64 input).length=input.length+(64-input.length%64)%64 := by
+  simp only [pad64,List.length_append,List.length_replicate]
+theorem private_realization_weight (secret : BitVec 256) (coordinate : Coordinate) :
+    (privateInput secret coordinate).length/64=weight (.inr coordinate) := by
+  rcases coordinate with tweak | message | region
+  · simp only [privateInput_short,zero16,weight,SphincsSecurity.bytesLE_length,List.length_append,List.length_replicate,List.length_ofFn]
+  · simp only [privateInput_nonce,zero16,weight,SphincsSecurity.bytesLE_length,List.length_append,List.length_replicate,List.length_ofFn]
+  · simp only [privateInput_mac,zero16,weight,SphincsSecurity.bytesLE_length,List.length_append,List.length_replicate,List.length_ofFn]
+theorem pad64_aligned (input : HashInput) : (pad64 input).length%64=0 := by
+  rw [pad64_length]
+  omega
+theorem pad64_positive (input : HashInput) (hpos : 0 < input.length) : 0 < (pad64 input).length := by
+  rw [pad64_length]
+  omega
+theorem bound_shortHash (input : HashInput) (k : Nat) (hpos : 0 < input.length)
+    (hlen : (pad64 input).length/64 ≤ k) : CBound (fun _ => True) k (shortHash input) := by
+  unfold shortHash publicHash
+  apply Bound.qry_bind (k := 0) ⟨pad64_positive input hpos,pad64_aligned input⟩ (fun _ => .pure _ 0 trivial)
+  simpa only [weight,Nat.add_zero] using hlen
+/-- C4 (adapted from b3cc11b): one public query for either half. -/
+theorem bound_projHash (high : Bool) (input : HashInput) (k : Nat) (hpos : 0 < input.length)
+    (hlen : (pad64 input).length/64 ≤ k) : CBound (fun _ => True) k (projHash high input) := by
+  unfold projHash publicHash
+  apply Bound.qry_bind (k := 0) ⟨pad64_positive input hpos,pad64_aligned input⟩ (fun _ => .pure _ 0 trivial)
+  simpa only [weight,Nat.add_zero] using hlen
+theorem bound_privatePair (tag lay tree position index : Nat) :
+    CBound (fun _ => True) 1 (privatePair tag lay tree position index) := by
+  unfold privatePair privateHash
+  exact Bound.qry_bind (k := 0) trivial (fun _ => .pure _ 0 trivial) (by simp only [weight];omega)
+theorem bound_privateMacKey : CBound (fun _ => True) 2 privateMacKey := by
+  unfold privateMacKey privateHash
+  refine Bound.qry_bind (k := 1) trivial (fun _ => ?_) (by decide)
+  exact Bound.qry_bind (k := 0) trivial (fun _ => .pure _ 0 trivial) (by decide)
+theorem bound_privateMac (region : Region) : CBound (fun _ => True) 2 (privateMac region) := by
+  unfold privateMac
+  exact bound_privateMacKey.bind' (l := 0) (fun _ _ => .pure _ 0 trivial) (by decide)
+theorem bound_pairedMask (level pair : Nat) : CBound (fun _ => True) 1 (pairedMask level pair) :=
+  bound_privatePair 13 0 0 level pair
+theorem bound_mask (level index : Nat) : CBound (fun _ => True) 1 (mask level index) := by
+  unfold mask
+  exact (bound_pairedMask level (index/2)).bind' (l := 0) (fun _ _ => .pure _ 0 trivial) (by decide)
+theorem bound_chain (lay : Layer) (tree leaf i start count : Nat) (value : Digest) :
+    CBound (fun _ => True) count (chain lay tree leaf i start count value) := by
+  unfold chain
+  refine Bound.foldlM_range'_le start count _ (fun _ _ => True) (fun _ => 1) value trivial
+    (fun n _ value _ => ?_) (fun _ _ => trivial) (by simp)
+  apply bound_shortHash <;> simp [chainInput,pad64_length,zero16,SphincsSecurity.bytesLE_length]
+/-- Witness stack: the paired top chain (G inputs, either half). -/
+theorem bound_topChain (leaf i start count : Nat) (value : Digest) :
+    CBound (fun _ => True) count (topChain leaf i start count value) := by
+  unfold topChain
+  refine Bound.foldlM_range'_le start count _ (fun _ _ => True) (fun _ => 1) value trivial
+    (fun n _ value _ => ?_) (fun _ _ => trivial) (by simp)
+  apply bound_projHash <;> unfold topChainInput <;> split <;>
+    simp [chainInput,pad64_length,zero16,SphincsSecurity.bytesLE_length]
+theorem bound_layChain (lay : Layer) (tree leaf i start count : Nat) (value : Digest) :
+    CBound (fun _ => True) count (layChain lay tree leaf i start count value) := by
+  unfold layChain; split
+  · exact bound_topChain leaf i start count value
+  · exact bound_chain lay tree leaf i start count value
+theorem bound_nodeHash (tag lay tree heap : Nat) (left right : Digest) :
+    CBound (fun _ => True) 1 (nodeHash tag lay tree heap left right) := by
+  unfold nodeHash
+  apply bound_projHash <;> simp [pad64_length,zero16,SphincsSecurity.bytesLE_length]
+theorem bound_top_leafHash (tree leaf : Nat) (ends : List Digest) (hlen : ends.length=51) :
+    CBound (fun _ => True) 13 (leafHash 0 tree leaf ends) := by
+  unfold leafHash
+  apply bound_projHash <;> simp only [pad64_length,leafInput_length,hlen] <;> norm_num
+/-- img-v6: the private pairs `first + j`, `j ∈ [start, 20)`, appended (two coefficients each) to `init`. -/
+theorem bound_topPairsFrom (first start : Nat) (init : List Digest) :
+    CBound (fun acc => acc.length=init.length+2*(topCoefPairs-start)) (topCoefPairs-start)
+      (topPairsFrom first start init) := by
+  unfold topPairsFrom
+  refine Bound.foldlM_range'_le start (topCoefPairs-start) _
+    (fun j (acc : List Digest) => acc.length=init.length+2*j) (fun _ => 1) init (by simp)
+    (fun j _ acc hacc => ?_) (fun acc h => h) (by simp)
+  refine (bound_privatePair 0 0 0 _ 0).bind' (l := 0) (fun pair _ => .pure _ 0 ?_) (by omega)
+  simp [hacc]; omega
+/-- img-v6 (signer form): the 20 private pairs of a top family's 39 coefficients. -/
+theorem bound_topCoefs (leaf : Nat) :
+    CBound (fun coefs => coefs.length=topCoefCount) topCoefPairs (topCoefs leaf) := by
+  unfold topCoefs
+  refine (bound_topPairsFrom _ 0 []).bind' (l := 0) (fun acc hacc => .pure _ 0 ?_) (by simp)
+  simp only [List.length_take, List.length_drop, hacc, topCoefCount, topCoefPairs, List.length_nil]
+  omega
+theorem topCarryInit_length (f : Nat) (carry : Digest) :
+    (if f%2=0 then ([] : List Digest) else [carry]).length=f%2 := by
+  split <;> simp_all
+/-- img-v6 (keygen form): `20 - f % 2` private pairs (an odd family reuses the carry). -/
+theorem bound_topCoefsK (f : Nat) (carry : Digest) :
+    CBound (fun r => r.1.length=topCoefCount) (topCoefPairs-f%2) (topCoefsK f carry) := by
+  unfold topCoefsK
+  refine (bound_topPairsFrom _ (f%2) _).bind' (l := 0) (fun acc hacc => .pure _ 0 ?_) (by simp)
+  rw [topCarryInit_length] at hacc
+  simp only [List.length_take, hacc, topCoefCount, topCoefPairs]
+  omega
+/-- Sum of the largest top digits (T51: 27·5 + 21·4 + 2·6 + 5). -/
+theorem topCapacity_sum : (∑ i ∈ range 51,maxDigit 0 i)=236 := by decide +kernel
+/-- T51: a full top leaf with given coefficients costs 236 chain steps + 13 leaf blocks. -/
+theorem bound_buildLeafTopC (leaf : Nat) (coefs : List Digest) :
+    CBound (fun result => result.2.length=51) 249 (buildLeafTopC leaf coefs []) := by
+  unfold buildLeafTopC
+  refine Bound.bind' (l := 13) (Bound.foldlM_range 51 _
+    (fun i (state : List Digest × List Digest) => state.1.length=i ∧ state.2.length=i)
+    (fun i => maxDigit 0 i) ([],[]) ⟨rfl,rfl⟩ (fun i hi state hstate => ?_))
+    (fun state hstate => ?_) (by rw [topCapacity_sum])
+  · simp only [List.getD_nil,Bool.false_eq_true,ite_false,Nat.sub_zero]
+    refine (bound_topChain leaf i 0 0 _).bind' (l := maxDigit 0 i) (fun value _ => ?_) (by omega)
+    refine (bound_topChain leaf i 0 (maxDigit 0 i) value).bind' (l := 0) (fun last _ => ?_) (by omega)
+    exact .pure _ 0 ⟨by simp [hstate.1],by simp [hstate.2]⟩
+  · simp only [Bool.false_eq_true,ite_false]
+    refine (bound_top_leafHash 0 leaf state.1 hstate.1).bind' (l := 0) (fun root _ => ?_) (by omega)
+    exact .pure (root,state.2) 0 hstate.2
+/-- T51: a signer-form full top leaf: 16 coefficient pairs + 236 chain steps + 13 leaf blocks. -/
+theorem bound_buildLeafTop (leaf : Nat) :
+    CBound (fun result => result.2.length=51) (topCoefPairs+249) (buildLeafTop leaf []) := by
+  unfold buildLeafTop
+  exact (bound_topCoefs leaf).bind' (l := 249) (fun coefs _ => bound_buildLeafTopC leaf coefs) le_rfl
+/-- T51: cost of the keygen top leaf `leaf` (`topTreeStep`): the family's `16 - f % 2` pairs at a family start
+(amortized: 15,872 pairs over the 4096 leaves) plus the leaf's 249 (236 chain steps + 13 leaf blocks). -/
+def topLeafCost (leaf : Nat) : Nat := (if leaf%4=0 then topCoefPairs-leaf/4%2 else 0)+249
+theorem bound_topTreeStep (st : List Digest × List Digest × Digest) (leaf : Nat) (hst : st.1.length=leaf) :
+    CBound (fun st' : List Digest × List Digest × Digest => st'.1.length=leaf+1) (topLeafCost leaf)
+      (topTreeStep st leaf) := by
+  unfold topTreeStep topFamilyCoefs topLeafCost
+  by_cases h : leaf%4=0
+  · simp only [h, ↓reduceIte]
+    refine (bound_topCoefsK _ _).bind' (l := 249) (fun cc _ => ?_) le_rfl
+    refine (bound_buildLeafTopC leaf cc.1).bind' (l := 0) (fun r _ => .pure _ 0 ?_) (by omega)
+    simp [hst]
+  · simp only [h, ↓reduceIte, pure_bind, Nat.zero_add]
+    refine (bound_buildLeafTopC leaf st.2.1).bind' (l := 0) (fun r _ => .pure _ 0 ?_) (by omega)
+    simp [hst]
+/-- T51: the 4096 keygen top leaves cost 4096·249 + 15,872 (coefficient pairs) = 1,035,776. -/
+def topLeavesCost : Nat := 1035776
+theorem topLeaves_sum : (∑ i ∈ range 4096,topLeafCost i)=topLeavesCost := by decide +kernel
+theorem bound_buildLevel (tag lay tree h level : Nat) (nodes : List Digest) :
+    CBound (fun result => result.length=nodes.length/2) (nodes.length/2)
+      (buildLevel tag lay tree h level nodes) := by
+  unfold buildLevel
+  have hc := Bound.mapM_list (P := GoodQuery) (List.range (nodes.length/2))
+    (fun i => nodeHash tag lay tree (2^(h-level)+i) (nodes.getD (2*i) 0) (nodes.getD (2*i+1) 0))
+    (fun _ => 1) (fun _ _ => bound_nodeHash _ _ _ _ _ _)
+  simpa using hc
+def LevelShape (height completed : Nat) (levels : List (List Digest)) : Prop :=
+  levels.length=completed+1 ∧ ∀ j, j ≤ completed → (levels.getD j []).length=2^(height-j)
+theorem bound_buildLevels (tag lay tree h : Nat) (leaves : List Digest) (hlen : leaves.length=2^h) :
+    CBound (LevelShape h h) (2^h-1) (buildLevels tag lay tree h leaves) := by
+  unfold buildLevels
+  refine Bound.foldlM_range'_le 1 h _ (LevelShape h) (fun i => 2^(h-i)/2) [leaves]
+    ⟨rfl,fun j hj => by
+      have he : j=0 := by omega
+      subst j
+      simpa using hlen⟩
+    (fun i hi levels hlevels => ?_) (fun _ h => h) (by rw [sum_levels])
+  have hprevious : (levels.getD (1+i-1) []).length=2^(h-i) := by
+    simpa using hlevels.2 i le_rfl
+  refine (bound_buildLevel tag lay tree h (1+i) (levels.getD (1+i-1) [])).bind' (l := 0)
+    (fun nodes hnodes => ?_) (by rw [hprevious];omega)
+  have hnext : nodes.length=2^(h-(i+1)) := by
+    rw [hprevious,show h-i=h-(i+1)+1 by omega,pow_succ,Nat.mul_div_cancel _ (by decide : 0 < 2)] at hnodes
+    exact hnodes
+  refine .pure (levels++[nodes]) 0 ⟨by simp [hlevels.1],?_⟩
+  intro j hj
+  by_cases hold : j ≤ i
+  · rw [List.getD_append levels [nodes] [] j (by have := hlevels.1;omega)]
+    exact hlevels.2 j hold
+  · have he : j=i+1 := by omega
+    subst j
+    rw [List.getD_append_right levels [nodes] [] (i+1) (by have := hlevels.1;omega)]
+    simp only [hlevels.1,Nat.sub_self,List.getD_cons_zero]
+    exact hnext
+/-! Top-bytes layer: worst-case cost of the nonce searches of the top tree. -/
+def topLevelCost (level : Nat) : Nat := if level = 12 then 1 else topNonceCap level
+theorem bound_topNodeHashN (heap n : Nat) (left right : Digest) :
+    CBound (fun _ => True) 1 (topNodeHashN heap n left right) := by
+  unfold topNodeHashN topNodeInput nonceBytes
+  apply bound_projHash <;> simp [pad64_length,SphincsSecurity.bytesLE_length]
+theorem bound_topNonceSearch (h heap : Nat) (left right : Digest) :
+    ∀ fuel n, CBound (fun _ => True) (fuel+1) (topNonceSearch h heap left right fuel n)
+  | 0, n => by
+      unfold topNonceSearch
+      exact (bound_topNodeHashN heap n left right).bind' (l := 0) (fun _ _ => .pure _ 0 trivial) (by omega)
+  | fuel+1, n => by
+      unfold topNonceSearch
+      refine (bound_topNodeHashN heap n left right).bind' (l := fuel+1) (fun v _ => ?_) (by omega)
+      split
+      · exact .pure _ _ trivial
+      · exact bound_topNonceSearch h heap left right fuel (n+1)
+theorem topNonceCap_pos (h : Nat) : 0 < topNonceCap h := by unfold topNonceCap; positivity
+theorem bound_topNodeAt (h heap : Nat) (left right : Digest) :
+    CBound (fun _ => True) (topNonceCap h) (topNodeAt h heap left right) := by
+  unfold topNodeAt
+  exact (bound_topNonceSearch h heap left right _ 0).mono_k (by have := topNonceCap_pos h; omega)
+theorem bound_buildTopLevel (level : Nat) (nodes : List Digest) :
+    CBound (fun result => result.length=nodes.length/2) (nodes.length/2*topLevelCost level)
+      (buildTopLevel level nodes) := by
+  unfold buildTopLevel
+  have hc := Bound.mapM_list (P := GoodQuery) (List.range (nodes.length/2))
+    (fun i => if level = 12 then nodeHash 3 0 0 (2^(12-level)+i) (nodes.getD (2*i) 0) (nodes.getD (2*i+1) 0)
+      else Prod.snd <$> topNodeAt level (2^(12-level)+i) (nodes.getD (2*i) 0) (nodes.getD (2*i+1) 0))
+    (fun _ => topLevelCost level) (fun i _ => by
+      by_cases hl : level = 12
+      · simp only [hl, if_true]
+        exact (bound_nodeHash _ _ _ _ _ _).mono_k (by simp [topLevelCost])
+      · simp only [hl, if_false]
+        exact Bound.map _ ((bound_topNodeAt _ _ _ _).mono_k (by simp [topLevelCost, hl])) (fun _ _ => trivial))
+  simpa [List.map_const', List.sum_replicate, Nat.mul_comm] using hc
+/-- Σ over levels 1..12 of (nodes at the level) × (worst trials per node `104·2^b_h`): T51
+(`b_h = 0,0,1,1,2,3,4,5,6,7,8`) 851,969 (#938, `b_h = h`: 4,685,825). -/
+def topTreeNodeCost : Nat := 851969
+theorem bound_buildTopLevels (leaves : List Digest) (hlen : leaves.length=2^12) :
+    CBound (LevelShape 12 12) topTreeNodeCost (buildTopLevels leaves) := by
+  unfold buildTopLevels
+  refine Bound.foldlM_range'_le 1 12 _ (LevelShape 12) (fun i => 2^(12-i)/2*topLevelCost (1+i)) [leaves]
+    ⟨rfl,fun j hj => by
+      have he : j=0 := by omega
+      subst j
+      simpa using hlen⟩
+    (fun i hi levels hlevels => ?_) (fun _ h => h) (by decide +kernel)
+  have hprevious : (levels.getD (1+i-1) []).length=2^(12-i) := by
+    simpa using hlevels.2 i (by omega)
+  refine (bound_buildTopLevel (1+i) (levels.getD (1+i-1) [])).bind' (l := 0)
+    (fun nodes hnodes => ?_) (by rw [hprevious,Nat.add_zero])
+  have hnext : nodes.length=2^(12-(i+1)) := by
+    rw [hprevious,show 12-i=12-(i+1)+1 by omega,pow_succ,Nat.mul_div_cancel _ (by decide : 0 < 2)] at hnodes
+    exact hnodes
+  refine .pure (levels++[nodes]) 0 ⟨by simp [hlevels.1],?_⟩
+  intro j hj
+  by_cases hold : j ≤ i
+  · rw [List.getD_append levels [nodes] [] j (by have := hlevels.1;omega)]
+    exact hlevels.2 j hold
+  · have he : j=i+1 := by omega
+    subst j
+    rw [List.getD_append_right levels [nodes] [] (i+1) (by have := hlevels.1;omega)]
+    simp only [hlevels.1,Nat.sub_self,List.getD_cons_zero]
+    exact hnext
+/-- img-v6: the keygen top tree, the 4096 family-seeded leaves (`topLeavesCost`) and the 4095 nonce-searched nodes
+(worst case). -/
+theorem bound_buildTopTree :
+    CBound (fun result => LevelShape 12 12 result) (topLeavesCost+topTreeNodeCost) buildTopTree := by
+  unfold buildTopTree
+  refine Bound.bind' (l := topTreeNodeCost) (Bound.foldlM_range 4096 _
+    (fun i (st : List Digest × List Digest × Digest) => st.1.length=i) topLeafCost ([],[],0) rfl
+    (fun leaf _ st hst => bound_topTreeStep st leaf hst)) (fun st hst => ?_) (by rw [topLeaves_sum])
+  exact bound_buildTopLevels st.1 hst
+theorem bound_maskedLevel (nodes : List Digest) (level : Nat) :
+    CBound (fun _ => True) (2^(11-level)) (maskedLevel nodes level) := by
+  unfold maskedLevel
+  refine (Bound.mapM_list (P := GoodQuery) (List.range (2^(11-level))) _ (fun _ => 1)
+    (fun pair _ => (bound_pairedMask level pair).bind' (l := 0)
+      (fun _ _ => .pure _ 0 trivial) (by decide))).bind' (l := 0)
+      (fun _ _ => .pure _ 0 trivial) (by simp)
+/-- img-v6: worst case 998,912 (leaves) + 4,685,825 (nonce searches) + 4095 (masks). -/
+theorem bound_keygenPayload : CBound (fun _ => True) (topLeavesCost+topTreeNodeCost+4095) keygenPayload := by
+  unfold keygenPayload
+  refine bound_buildTopTree.bind' (l := 4095) (fun result _ => ?_) (by omega)
+  refine (Bound.mapM_list (P := GoodQuery) (List.range' 0 12) _ (fun level => 2^(11-level))
+    (fun level _ => bound_maskedLevel (result.getD level []) level)).bind' (l := 0)
+    (fun _ _ => .pure _ 0 trivial) ?_
+  decide +kernel
+/-- img-v6: keygen costs at most 998,912 + 4,685,825 + 4095 + 2 compressions (the deterministic part is 1,007,104;
+the nonce trials are random, see the keygen moment). -/
+def keygenWorst : Nat := topLeavesCost+topTreeNodeCost+4095+2
+theorem bound_keygen : CBound (fun _ => True) keygenWorst keygen := by
+  unfold keygen keygenWorst
+  refine bound_keygenPayload.bind' (l := 2) (fun result _ => ?_) (by omega)
+  exact (bound_privateMac result.2).bind' (l := 0) (fun _ _ => .pure _ 0 trivial) (by decide)
+end SigGolfCandidate.T3.Cost
+namespace SigGolfCandidate.T3.Cost
+open OracleComp OracleSpec
+set_option maxHeartbeats 1000000
+set_option maxRecDepth 10000
+set_option backward.isDefEq.respectTransparency false
+set_option linter.unusedSimpArgs false
+namespace World
+abbrev Query := SphincsSecurity.OracleWorld.Domain
+def weight : Query → Nat
+  | .inl _ => 0
+  | .inr input => input.length/64
+def countImpl (wt : Query → Nat) : QueryImpl SphincsSecurity.OracleWorld (StateT Nat (OracleComp SphincsSecurity.OracleWorld)) :=
+  fun q => do
+    modify (· + wt q)
+    liftM (SphincsSecurity.OracleWorld.query q)
+def countWith (wt : Query → Nat) {α : Type} (oa : OracleComp SphincsSecurity.OracleWorld α) :
+    OracleComp SphincsSecurity.OracleWorld (α × Nat) :=
+  (simulateQ (countImpl wt) oa).run 0
+def countCalls {α : Type} (oa : OracleComp SphincsSecurity.OracleWorld α) : OracleComp SphincsSecurity.OracleWorld (α × Nat) :=
+  countWith (fun _ => 1) oa
+def countBlocks {α : Type} (oa : OracleComp SphincsSecurity.OracleWorld α) : OracleComp SphincsSecurity.OracleWorld (α × Nat) :=
+  countWith weight oa
+section
+variable (wt : Query → Nat) {α β : Type}
+theorem countImpl_run (oa : OracleComp SphincsSecurity.OracleWorld α) (n : Nat) :
+    (simulateQ (countImpl wt) oa).run n = (fun p => (p.1, n + p.2)) <$> countWith wt oa := by
+  unfold countWith
+  induction oa using OracleComp.inductionOn generalizing n with
+  | pure a => simp
+  | query_bind q oa ih =>
+    simp only [simulateQ_bind, simulateQ_spec_query, StateT.run_bind, countImpl]
+    simp only [StateT.run_modify, pure_bind, map_bind]
+    have hl : ∀ s, (liftM (OracleSpec.query q) : StateT Nat (OracleComp SphincsSecurity.OracleWorld) _).run s =
+        (fun a => (a, s)) <$> (liftM (OracleSpec.query q) : OracleComp SphincsSecurity.OracleWorld _) := fun s => rfl
+    simp only [hl, bind_map_left, ih _ (n + wt q), ih _ (0 + wt q), Functor.map_map]
+    congr 1; funext a; congr 1; funext p; simp only [Prod.mk.injEq, true_and]; omega
+@[simp] theorem countWith_pure (a : α) : countWith wt (pure a : OracleComp SphincsSecurity.OracleWorld α) = pure (a, 0) :=
+  rfl
+theorem countWith_bind (oa : OracleComp SphincsSecurity.OracleWorld α) (f : α → OracleComp SphincsSecurity.OracleWorld β) :
+    countWith wt (oa >>= f) =
+      countWith wt oa >>= fun p => (fun r => (r.1, p.2 + r.2)) <$> countWith wt (f p.1) := by
+  conv_lhs => unfold countWith
+  rw [simulateQ_bind, StateT.run_bind]
+  exact congrArg _ (funext fun p => countImpl_run wt (f p.1) p.2)
+@[simp] theorem countWith_query (q : Query) :
+    countWith wt (liftM (SphincsSecurity.OracleWorld.query q) : OracleComp SphincsSecurity.OracleWorld _) =
+      (fun a => (a, wt q)) <$> (liftM (SphincsSecurity.OracleWorld.query q) : OracleComp SphincsSecurity.OracleWorld _) := by
+  unfold countWith
+  rw [simulateQ_spec_query]
+  simp only [countImpl, StateT.run_bind, StateT.run_modify, pure_bind, Nat.zero_add]
+  rfl
+@[simp] theorem fst_countWith (oa : OracleComp SphincsSecurity.OracleWorld α) : Prod.fst <$> countWith wt oa = oa := by
+  induction oa using OracleComp.inductionOn with
+  | pure a => rfl
+  | query_bind q oa ih =>
+    rw [countWith_bind, countWith_query]
+    simp only [map_bind, bind_map_left, Functor.map_map]
+    congr 1; funext a
+    exact ih a
+end
+end World
+theorem realize_bind {α β : Type} (secret : BitVec 256) (oa : M α) (f : α → M β) :
+    realize secret (oa >>= f)=realize secret oa >>= fun result => realize secret (f result) := by
+  simp only [realize,simulateQ_bind]
+theorem realize_map {α β : Type} (secret : BitVec 256) (f : α → β) (oa : M α) :
+    realize secret (f <$> oa)=f <$> realize secret oa := by
+  simp only [realize,simulateQ_map]
+theorem realized_query_count (secret : BitVec 256) (q : Query) :
+    World.countWith World.weight (realize secret (qry q))=
+      (fun answer => (answer,weight q)) <$> realize secret (qry q) := by
+  rcases q with (coin | input) | (tweak | (message | region))
+  · exact World.countWith_query World.weight (.inl coin)
+  · exact World.countWith_query World.weight (.inr input)
+  · change World.countWith World.weight (liftM (SphincsSecurity.OracleWorld.query
+      (.inr (privateInput secret (.inl tweak))))) = _
+    rw [World.countWith_query,World.weight,private_realization_weight]
+    rfl
+  · change World.countWith World.weight (liftM (SphincsSecurity.OracleWorld.query
+      (.inr (privateInput secret (.inr (.inl message)))))) = _
+    rw [World.countWith_query,World.weight,private_realization_weight]
+    rfl
+  · change World.countWith World.weight (liftM (SphincsSecurity.OracleWorld.query
+      (.inr (privateInput secret (.inr (.inr region)))))) = _
+    rw [World.countWith_query,World.weight,private_realization_weight]
+    rfl
+theorem realize_count {α : Type} (secret : BitVec 256) (program : M α) :
+    realize secret (countWith weight program)=World.countWith World.weight (realize secret program) := by
+  induction program using OracleComp.inductionOn with
+  | pure value => simp [realize]
+  | query_bind q next ih =>
+      rw [countWith_bind,realize_bind,realize_bind,World.countWith_bind]
+      rw [countWith_query,realize_map,realized_query_count]
+      simp_rw [realize_map,ih]
+theorem realize_support_subset {α : Type} (secret : BitVec 256) (program : M α) :
+    support (realize secret program) ⊆ support program := by
+  induction program using OracleComp.inductionOn with
+  | pure value => simp [realize]
+  | query_bind q next ih =>
+      intro result hr
+      rw [realize_bind,mem_support_bind_iff] at hr
+      obtain ⟨value,_,hv⟩ := hr
+      rw [mem_support_bind_iff]
+      exact ⟨value,mem_support_query q value,ih value hv⟩
+end SigGolfCandidate.T3.Cost
+namespace SigGolfCandidate.T3.Cost
+open OracleComp OracleSpec OracleComp.EvalDist ENNReal
+set_option maxHeartbeats 1000000
+set_option maxRecDepth 10000
+set_option backward.isDefEq.respectTransparency false
+end SigGolfCandidate.T3.Cost
+namespace SigGolfCandidate.T3.Cost
+open OracleComp OracleSpec Finset
+open scoped BigOperators
+set_option maxRecDepth 10000
+set_option maxHeartbeats 1000000
+set_option backward.isDefEq.respectTransparency false
+set_option linter.unusedSimpArgs false
+def ValidDigits (lay : Layer) (digits : List Nat) : Prop :=
+  ∀ i, i < chainCount lay → digits.getD i 0 ≤ maxDigit lay i
+theorem validDigits_nil (lay : Layer) : ValidDigits lay [] := by
+  intro i _
+  simp
+theorem validDigits_decode {lay : Layer} {value : Digest} {digits : List Nat}
+    (h : decode lay value=some digits) : ValidDigits lay digits := by
+  intro i hi
+  exact decode_digit_max h i hi
+/-- Leaf hash blocks: T51 top leaf 832 bytes (13 blocks), lower leaves 704 bytes (11 blocks). -/
+def leafHashCost (lay : Layer) : Nat := if lay=0 then 13 else 11
+/-- Legacy per-chain-seed leaf (`buildLeaf`); campaign T51: at lay 0 it is 26 + 236 + 13 (no longer used for the top,
+which is built by `buildLeafTop`). -/
+def fullLeafCost (lay : Layer) : Nat := if lay=0 then 275 else 334
+theorem bound_leafHash (lay : Layer) (tree leaf : Nat) (ends : List Digest)
+    (hlen : ends.length=chainCount lay) :
+    CBound (fun _ => True) (leafHashCost lay) (leafHash lay tree leaf ends) := by
+  unfold leafHash
+  apply bound_projHash <;> simp only [pad64_length,leafInput_length,hlen]
+  · fin_cases lay <;> decide
+  · fin_cases lay <;> decide
+def fullPairCost (lay : Layer) (pair : Nat) : Nat :=
+  1+∑ half ∈ range 2, if chainCount lay ≤ 2*pair+half then 0 else maxDigit lay (2*pair+half)
+theorem fullPairCost_sum (lay : Layer) :
+    (∑ pair ∈ range ((chainCount lay+1)/2),fullPairCost lay pair)+leafHashCost lay=fullLeafCost lay := by
+  fin_cases lay <;> decide +kernel
+theorem bound_buildLeaf (lay : Layer) (tree leaf : Nat) (digits : List Nat)
+    (hd : ValidDigits lay digits) :
+    CBound (fun result => result.2.length=chainCount lay) (fullLeafCost lay)
+      (buildLeaf lay tree leaf digits) := by
+  unfold buildLeaf
+  refine Bound.bind' (l := leafHashCost lay) (Bound.foldlM_range ((chainCount lay+1)/2) _
+    (fun pair (state : List Digest × List Digest) =>
+      state.1.length=min (2*pair) (chainCount lay) ∧ state.2.length=min (2*pair) (chainCount lay))
+    (fullPairCost lay) ([],[]) ⟨by simp,by simp⟩ (fun pair hpair state hstate => ?_))
+    (fun state hstate => ?_) (le_of_eq (fullPairCost_sum lay))
+  · unfold fullPairCost
+    refine (bound_privatePair 0 lay.val tree pair leaf).bind (fun seeds _ => ?_)
+    refine (Bound.foldlM_range 2 _
+      (fun half (acc : List Digest × List Digest) =>
+        acc.1.length=min (2*pair+half) (chainCount lay) ∧
+        acc.2.length=min (2*pair+half) (chainCount lay))
+      (fun half => if chainCount lay ≤ 2*pair+half then 0 else maxDigit lay (2*pair+half))
+      state ⟨by simpa using hstate.1,by simpa using hstate.2⟩
+      (fun half hhalf acc hacc => ?_)).mono (fun _ h => h) (fun acc h => ⟨by omega,by omega⟩)
+    by_cases hi : chainCount lay ≤ 2*pair+half
+    · simp only [hi,ite_true]
+      exact .pure acc 0 ⟨by omega,by omega⟩
+    · simp only [hi,ite_false,Bool.false_eq_true]
+      have hc := hd (2*pair+half) (by omega)
+      refine (bound_chain lay tree leaf (2*pair+half) 0 (digits.getD (2*pair+half) 0) _).bind'
+        (l := maxDigit lay (2*pair+half)-digits.getD (2*pair+half) 0)
+        (fun value _ => ?_) (by omega)
+      refine (bound_chain lay tree leaf (2*pair+half) (digits.getD (2*pair+half) 0)
+        (maxDigit lay (2*pair+half)-digits.getD (2*pair+half) 0) value).bind'
+        (l := 0) (fun last _ => ?_) (by omega)
+      exact .pure _ 0 ⟨by simp only [List.length_append,List.length_singleton];omega,
+        by simp only [List.length_append,List.length_singleton];omega⟩
+  · simp only [Bool.false_eq_true,ite_false]
+    have hlen : state.1.length=chainCount lay := by have := hstate.1;omega
+    refine (bound_leafHash lay tree leaf state.1 hlen).bind' (l := 0) (fun root _ => ?_) (by omega)
+    exact .pure (root,state.2) 0 (by
+      change state.2.length=chainCount lay
+      have := hstate.2
+      omega)
+def treeCost (lay : Layer) : Nat := (fullLeafCost lay+1)*2^height lay-1
+theorem bound_buildTree (lay : Layer) (tree selected : Nat) (digits : List Nat)
+    (hd : ValidDigits lay digits) :
+    CBound (fun result => LevelShape (height lay) (height lay) result.1) (treeCost lay)
+      (buildTree lay tree selected digits) := by
+  unfold buildTree
+  refine Bound.bind' (l := 2^height lay-1) (Bound.foldlM_range (2^height lay) _
+    (fun i (state : List Digest × List Digest) => state.1.length=i)
+    (fun _ => fullLeafCost lay) ([],[]) rfl (fun leaf _ state hstate => ?_))
+    (fun state hstate => ?_) ?_
+  · have hd' : ValidDigits lay (if leaf=selected then digits else []) := by
+      split <;> first | exact hd | exact validDigits_nil lay
+    refine (bound_buildLeaf lay tree leaf _ hd').bind' (l := 0) (fun result _ => ?_) (by omega)
+    exact .pure _ 0 (by simp [hstate])
+  · refine (bound_buildLevels 3 lay.val tree (height lay) state.1 hstate).bind' (l := 0)
+      (fun levels hlevels => .pure (levels,state.2) 0 hlevels) (by omega)
+  · rw [sum_const_range]
+    simp only [treeCost,Nat.add_mul,Nat.one_mul,Nat.mul_comm (fullLeafCost lay)]
+    have := Nat.one_le_two_pow (n := height lay)
+    omega
+theorem lowerTreeCost : treeCost 1+treeCost 2+treeCost 3=85757 := by decide +kernel
+theorem bound_ftsLeaf (index coord leaf : Nat) (secret : Digest) :
+    CBound (fun _ => True) 1 (ftsLeaf index coord leaf secret) := by
+  apply bound_shortHash <;> simp [ftsLeaf,pad64_length,zero16,SphincsSecurity.bytesLE_length]
+theorem bound_buildFts (index coord : Nat) :
+    CBound (fun result => LevelShape 11 11 result.1 ∧ result.2.length=2048) 5119 (buildFts index coord) := by
+  unfold buildFts
+  refine Bound.bind' (l := 2047) (Bound.foldlM_range 1024 _
+    (fun pair (state : List Digest × List Digest) => state.1.length=2*pair ∧ state.2.length=2*pair)
+    (fun _ => 3) ([],[]) ⟨rfl,rfl⟩ (fun pair _ state hstate => ?_))
+    (fun state hstate => ?_) (by rw [sum_const_range])
+  · refine (bound_privatePair 8 coord index 0 pair).bind' (l := 2) (fun seeds _ => ?_) (by decide)
+    refine (bound_ftsLeaf index coord (2*pair) seeds.1).bind' (l := 1) (fun left _ => ?_) (by decide)
+    refine (bound_ftsLeaf index coord (2*pair+1) seeds.2).bind' (l := 0) (fun right _ => ?_) (by decide)
+    exact .pure _ 0 ⟨by simp [hstate.1];omega,by simp [hstate.2];omega⟩
+  · refine (bound_buildLevels 10 coord index 11 state.1 (by simpa using hstate.1)).bind'
+      (l := 0) (fun levels hl => ?_) (by decide)
+    exact .pure (levels,state.2) 0 ⟨hl,hstate.2⟩
+theorem bound_forestPk (index : Nat) (roots : List Digest) (hlen : roots.length=7) :
+    CBound (fun _ => True) 2 (forestPk index roots) := by
+  apply bound_shortHash <;> simp [forestPk,pad64_length,List.length_append,
+    SphincsSecurity.bytesLE_length,digest_list_bytes_length,List.length_drop,hlen]
+theorem bound_topPath (cache : Cache) (leaf : Nat) :
+    CBound (fun result => result.length=12) 12 (topPath cache leaf) := by
+  unfold topPath
+  apply (Bound.mapM_list (P := GoodQuery) (List.range 12) _ (fun _ => 1)
+    (fun level _ => (bound_mask level _).bind' (l := 0)
+      (fun _ _ => .pure _ 0 trivial) (by decide))).mono_k
+  simp
+theorem sum_getD (x : List Nat) : ∑ i ∈ range x.length,x.getD i 0=x.sum := by
+  induction x with
+  | nil => simp
+  | cons a x ih =>
+    rw [List.length_cons,Finset.sum_range_succ',List.sum_cons]
+    simp only [List.getD_cons_succ,List.getD_cons_zero,ih]
+    omega
+theorem sum_pairs (f : Nat → Nat) (n : Nat) :
+    ∑ k ∈ range n,(f (2*k)+f (2*k+1))=∑ i ∈ range (2*n),f i := by
+  induction n with
+  | zero => simp
+  | succ n ih =>
+    rw [Finset.sum_range_succ,ih,show 2*(n+1)=2*n+1+1 by ring,
+      Finset.sum_range_succ,Finset.sum_range_succ,Nat.add_assoc]
+def signaturePairCost (digits : List Nat) (pair : Nat) : Nat :=
+  1+∑ half ∈ range 2,digits.getD (2*pair+half) 0
+theorem signaturePairCost_sum (digits : List Nat) (hlen : digits.length=51) :
+    ∑ pair ∈ range 26,signaturePairCost digits pair=26+digits.sum := by
+  unfold signaturePairCost
+  rw [Finset.sum_add_distrib,sum_const_range]
+  simp only [Nat.mul_one]
+  apply congrArg (fun n : Nat => 26+n)
+  have htwo (pair : Nat) : (∑ half ∈ range 2,digits.getD (2*pair+half) 0)=
+      digits.getD (2*pair) 0+digits.getD (2*pair+1) 0 := by simp [Finset.sum_range_succ]
+  simp_rw [htwo]
+  rw [sum_pairs (fun i => digits.getD i 0) 26,show 2*26=digits.length+1 by omega,Finset.sum_range_succ,sum_getD]
+  simp [List.getD_eq_getElem?_getD]
+/-- T51: the signed top leaf costs its family's 16 coefficient pairs plus the digit sum. -/
+theorem bound_topSignatureLeaf (leaf : Nat) (digits : List Nat) (hlen : digits.length=51) :
+    CBound (fun result => result.2.length=51) (16+digits.sum) (buildLeafTop leaf digits true) := by
+  unfold buildLeafTop
+  refine (bound_topCoefs leaf).bind' (l := digits.sum) (fun coefs _ => ?_) (by simp [topCoefPairs])
+  unfold buildLeafTopC
+  refine Bound.bind' (l := 0) (Bound.foldlM_range 51 _
+    (fun i (state : List Digest × List Digest) => state.2.length=i)
+    (fun i => digits.getD i 0) ([],[]) rfl (fun i hi state hstate => ?_))
+    (fun state hstate => ?_) (by rw [← hlen,sum_getD]; omega)
+  · simp only [ite_true]
+    refine (bound_topChain leaf i 0 (digits.getD i 0) _).bind' (l := 0) (fun value _ => ?_) (by omega)
+    exact .pure _ 0 (by simp [hstate])
+  · simp only [ite_true]
+    exact .pure (0,state.2) 0 hstate
+theorem bound_signTop (cache : Cache) (leaf : Nat) (digits : List Nat)
+    (hlen : digits.length=51) (hsum : digits.sum≤152) :
+    CBound (fun result => result.1.length=51 ∧ result.2.length=12) 180 (signTop cache leaf digits) := by
+  unfold signTop
+  refine (bound_topSignatureLeaf leaf digits hlen).bind' (l := 12) (fun result hr => ?_)
+    (by omega)
+  refine (bound_topPath cache leaf).bind' (l := 0) (fun path hp => ?_) (by decide)
+  exact .pure (result.2,path) 0 ⟨hr,hp⟩
+def CounterResult (lay : Layer) (out : Option (BitVec 32 × List Nat)) : Prop :=
+  ∀ counter digits,out=some (counter,digits) →
+    digits.length=chainCount lay ∧ digits.sum=target lay ∧ ValidDigits lay digits
+theorem bound_counterSearch (lay : Layer) (tree leaf : Nat) (message : Digest) :
+    ∀ fuel counter,CBound (CounterResult lay) fuel (counterSearch lay tree leaf message counter fuel) := by
+  intro fuel
+  induction fuel with
+  | zero =>
+      intro counter
+      exact .pure none 0 (by simp [CounterResult])
+  | succ fuel ih =>
+      intro counter
+      unfold counterSearch
+      refine (bound_shortHash (encodingInput lay tree leaf message (BitVec.ofNat 32 counter)) 1
+        (by simp [encodingInput,SphincsSecurity.bytesLE_length])
+        (by simp [encodingInput,pad64_length,SphincsSecurity.bytesLE_length])).bind'
+        (l := fuel) (fun answer _ => ?_) (by omega)
+      cases hs : searchDecode lay answer with
+      | none => exact ih (counter+1)
+      | some digits =>
+          have hd := Nonbinary.searchDecode_some hs
+          refine .pure (some (BitVec.ofNat 32 counter,digits)) fuel ?_
+          intro other values hv
+          obtain ⟨rfl,rfl⟩ := Prod.mk.inj (Option.some.inj hv)
+          exact ⟨(decode_length_sum hd).1,(decode_length_sum hd).2,validDigits_decode hd⟩
+theorem bound_digest (rho : Digest) (message : Message) (counter : BitVec 32) :
+    CBound (fun _ => True) 1 (digest rho message counter) := by
+  change CBound _ _ (qry (.inl (.inr (pad64 (digestInput rho message counter)))))
+  rw [← bind_pure (qry _)]
+  refine Bound.qry_bind (k := 0)
+    ⟨pad64_positive _ (by simp [digestInput,SphincsSecurity.bytesLE_length]),pad64_aligned _⟩
+    (fun _ => .pure _ 0 trivial) ?_
+  simp [weight,pad64_length,digestInput,SphincsSecurity.bytesLE_length]
+def DigestResult (out : Option (BitVec 32 × HashOutput)) : Prop :=
+  ∀ counter output,out=some (counter,output) → admissible (selections output)=true
+theorem bound_digestSearch (rho : Digest) (message : Message) :
+    ∀ fuel counter,CBound DigestResult fuel (digestSearch rho message counter fuel) := by
+  intro fuel
+  induction fuel with
+  | zero =>
+      intro counter
+      exact .pure none 0 (by simp [DigestResult])
+  | succ fuel ih =>
+      intro counter
+      unfold digestSearch
+      refine (bound_digest rho message (BitVec.ofNat 32 counter)).bind' (l := fuel)
+        (fun output _ => ?_) (by omega)
+      split
+      · rename_i hgood
+        refine .pure (some (BitVec.ofNat 32 counter,output)) fuel ?_
+        intro other value hv
+        obtain ⟨rfl,rfl⟩ := Prod.mk.inj (Option.some.inj hv)
+        exact (show admissible (selections _) = true ∧ digestGate _ = true by simpa only [digestAdmissible, Bool.and_eq_true] using hgood).1
+      · exact ih (counter+1)
+def layerFixedCost : Nat → Nat
+  | 0 => 0
+  | n+1 => if n=0 then 180 else treeCost (Fin.ofNat 4 n)+layerFixedCost n
+theorem layerFixedCost_four : layerFixedCost 4=85937 := by decide +kernel
+theorem bound_signLayers (cache : Cache) (index : Nat) :
+    ∀ n message,CBound (fun _ => True) (n*counterLimit+layerFixedCost n)
+      (signLayers cache index n message) := by
+  intro n
+  induction n with
+  | zero =>
+      intro message
+      exact .pure _ _ trivial
+  | succ n ih =>
+      intro message
+      unfold signLayers
+      dsimp only
+      refine (bound_counterSearch (Fin.ofNat 4 n) (route index (Fin.ofNat 4 n)).2
+        (route index (Fin.ofNat 4 n)).1 message counterLimit 0).bind'
+        (l := n*counterLimit+layerFixedCost (n+1)) (fun out hout => ?_)
+        (by simp only [Nat.add_mul,Nat.one_mul];omega)
+      by_cases hn : n=0
+      · subst n
+        simp only [ite_true]
+        have hdig : ((out.map Prod.snd).getD dummyTop).length=51 ∧ ((out.map Prod.snd).getD dummyTop).sum≤152 := by
+          cases out with
+          | none => exact ⟨by decide,by decide⟩
+          | some pair =>
+              obtain ⟨counter,digits⟩ := pair
+              have hd := hout counter digits rfl
+              exact ⟨hd.1,by
+                change digits.sum ≤ 152
+                have hsum := hd.2.1
+                norm_num [target] at hsum
+                omega⟩
+        refine (bound_signTop cache _ _ hdig.1 hdig.2).bind'
+          (l := 0) (fun _ _ => .pure _ 0 trivial) (by simp [layerFixedCost])
+      · simp only [hn,ite_false]
+        cases out with
+        | none => exact .pure _ _ trivial
+        | some pair =>
+            obtain ⟨counter,digits⟩ := pair
+            have hd := hout counter digits rfl
+            dsimp only
+            refine (bound_buildTree (Fin.ofNat 4 n) _ _ digits hd.2.2).bind'
+              (l := n*counterLimit+layerFixedCost n) (fun result _ => ?_)
+              (by simp only [layerFixedCost,hn,ite_false];omega)
+            refine (ih ((result.1.getD (height (Fin.ofNat 4 n)) []).getD 0 0)).bind'
+              (l := 0) (fun previous _ => ?_) (by omega)
+            cases previous <;> exact .pure _ 0 trivial
+theorem bound_privateNonce (message : Message) :
+    CBound (fun _ => True) 2 (privateNonce message) := by
+  unfold privateNonce privateHash
+  exact Bound.qry_bind (k := 0) trivial (fun _ => .pure _ 0 trivial) (by simp [weight])
+theorem bound_signPayload (cache : Cache) (message : Message) :
+    CBound (fun _ => True) (121774+attemptLimit+4*counterLimit) (signPayload cache message) := by
+  unfold signPayload
+  refine (bound_privateNonce message).bind' (l := 121772+attemptLimit+4*counterLimit)
+    (fun rho _ => ?_) (by omega)
+  refine (bound_digestSearch rho message attemptLimit 0).bind' (l := 121772+4*counterLimit)
+    (fun found _ => ?_) (by omega)
+  cases found with
+  | none => exact .pure _ _ trivial
+  | some pair =>
+      obtain ⟨counter,output⟩ := pair
+      dsimp only
+      refine Bound.bind' (l := 85939+4*counterLimit) (Bound.foldlM_range 7 _
+        (fun coord (state : List Digest × List Digest × List Digest) => state.2.2.length=coord)
+        (fun _ => 5119) ([],[],[]) rfl (fun coord _ state hstate => ?_))
+        (fun state hstate => ?_) (by rw [sum_const_range];omega)
+      · refine (bound_buildFts _ coord).bind' (l := 0) (fun result _ => ?_) (by decide)
+        exact .pure _ 0 (by simp [hstate])
+      · refine (bound_forestPk _ state.2.2 hstate).bind' (l := 85937+4*counterLimit)
+          (fun root _ => ?_) (by omega)
+        refine (bound_signLayers cache _ 4 root).bind' (l := 0) (fun layers _ => ?_)
+          (by rw [layerFixedCost_four];omega)
+        cases layers <;> exact .pure _ 0 trivial
+theorem bound_sign (cache : Cache) (message : Message) :
+    CBound (fun _ => True) (121776+attemptLimit+4*counterLimit) (sign cache message) := by
+  unfold sign
+  refine (bound_privateMac cache.region).bind' (l := 121774+attemptLimit+4*counterLimit)
+    (fun tag _ => ?_) (by omega)
+  split
+  · exact .pure _ _ trivial
+  · exact bound_signPayload cache message
+theorem sign_compression_ceiling (secret : BitVec 256) (cache : Cache) (message : Message) :
+    ∀ result ∈ support (World.countBlocks (realize secret (sign cache message))),
+      result.2 ≤ 17947568 := by
+  intro result hr
+  rw [World.countBlocks,← realize_count] at hr
+  have hc := (bound_sign cache message).count_support result
+    (realize_support_subset secret _ hr) |>.2
+  exact hc.trans (by norm_num [attemptLimit,counterLimit])
+end SigGolfCandidate.T3.Cost
+namespace SigGolfCandidate.T3.Correctness
+open OracleComp OracleSpec
+set_option maxHeartbeats 1000000
+set_option maxRecDepth 10000
+set_option backward.isDefEq.respectTransparency false
+set_option linter.unusedSimpArgs false
+abbrev Answers := QueryImpl T3.Spec Id
+theorem counterSearch_some_search (answers : Answers) (lay : Layer) (tree leaf : Nat) (message : Digest) :
+    ∀ fuel counter found digits,counter+fuel ≤ 2^32 →
+      evalWithAnswerFn answers (counterSearch lay tree leaf message counter fuel)=some (found,digits) →
+      counter ≤ found.toNat ∧ found.toNat < counter+fuel ∧
+        searchDecode lay (evalWithAnswerFn answers (shortHash (encodingInput lay tree leaf message found)))=some digits := by
+  intro fuel
+  induction fuel with
+  | zero =>
+      intro counter found digits _ he
+      simp [counterSearch] at he
+  | succ fuel ih =>
+      intro counter found digits hlimit he
+      simp only [counterSearch,evalWithAnswerFn_bind] at he
+      cases hd : searchDecode lay (evalWithAnswerFn answers
+        (shortHash (encodingInput lay tree leaf message (BitVec.ofNat 32 counter)))) with
+      | none =>
+          simp only [hd] at he
+          obtain ⟨hlo,hhi,hgood⟩ := ih (counter+1) found digits (by omega) he
+          exact ⟨by omega,by omega,hgood⟩
+      | some values =>
+          simp only [hd,evalWithAnswerFn_pure,Option.some.injEq,Prod.mk.injEq] at he
+          obtain ⟨rfl,rfl⟩ := he
+          have hcount : (BitVec.ofNat 32 counter).toNat=counter := by
+            rw [BitVec.toNat_ofNat,Nat.mod_eq_of_lt (by omega)]
+          exact ⟨by rw [hcount],by rw [hcount];omega,hd⟩
+theorem counterSearch_some (answers : Answers) (lay : Layer) (tree leaf : Nat) (message : Digest) :
+    ∀ fuel counter found digits,counter+fuel ≤ 2^32 →
+      evalWithAnswerFn answers (counterSearch lay tree leaf message counter fuel)=some (found,digits) →
+      counter ≤ found.toNat ∧ found.toNat < counter+fuel ∧
+        decode lay (evalWithAnswerFn answers (shortHash (encodingInput lay tree leaf message found)))=some digits := by
+  intro fuel counter found digits hlimit he
+  obtain ⟨h1,h2,h3⟩ := counterSearch_some_search answers lay tree leaf message fuel counter found digits hlimit he
+  exact ⟨h1,h2,Nonbinary.searchDecode_some h3⟩
+theorem digestSearch_some_good (answers : Answers) (rho : Digest) (message : Message) :
+    ∀ fuel counter found output,counter+fuel ≤ 2^32 →
+      evalWithAnswerFn answers (digestSearch rho message counter fuel)=some (found,output) →
+      counter ≤ found.toNat ∧ found.toNat < counter+fuel ∧
+        evalWithAnswerFn answers (digest rho message found)=output ∧ digestAdmissible output=true := by
+  intro fuel
+  induction fuel with
+  | zero =>
+      intro counter found output _ he
+      simp [digestSearch] at he
+  | succ fuel ih =>
+      intro counter found output hlimit he
+      simp only [digestSearch,evalWithAnswerFn_bind] at he
+      split at he
+      · rename_i hgood
+        simp only [evalWithAnswerFn_pure,Option.some.injEq,Prod.mk.injEq] at he
+        obtain ⟨rfl,rfl⟩ := he
+        have hcount : (BitVec.ofNat 32 counter).toNat=counter := by
+          rw [BitVec.toNat_ofNat,Nat.mod_eq_of_lt (by omega)]
+        exact ⟨by rw [hcount],by rw [hcount];omega,rfl,hgood⟩
+      · obtain ⟨hlo,hhi,hrest⟩ := ih (counter+1) found output (by omega) he
+        exact ⟨by omega,by omega,hrest⟩
+theorem digestSearch_some (answers : Answers) (rho : Digest) (message : Message)
+    (fuel counter : Nat) (found : BitVec 32) (output : HashOutput)
+    (hlimit : counter+fuel ≤ 2^32)
+    (he : evalWithAnswerFn answers (digestSearch rho message counter fuel)=some (found,output)) :
+    counter ≤ found.toNat ∧ found.toNat < counter+fuel ∧
+      evalWithAnswerFn answers (digest rho message found)=output ∧ admissible (selections output)=true := by
+  obtain ⟨hlo,hhi,houtput,hgood⟩ := digestSearch_some_good answers rho message fuel counter found output hlimit he
+  exact ⟨hlo,hhi,houtput,(show admissible (selections _) = true ∧ digestGate _ = true by simpa only [digestAdmissible, Bool.and_eq_true] using hgood).1⟩
+theorem expandLayers_verified (answers : Answers) (sig : Signature) (index : Nat) :
+    ∀ n,n ≤ 4 → ∀ value root counters,
+      evalWithAnswerFn answers (expandLayers sig index n value)=some (root,counters) →
+      counters.length=n ∧ ∀ w : Witness,w.signature=sig →
+        (∀ lay : Layer,lay.val < n → w.counters lay=counters.getD lay.val 0) →
+        evalWithAnswerFn answers (verifyLayers w index n value)=some root := by
+  intro n
+  induction n with
+  | zero =>
+      intro _ value root counters he
+      simp only [expandLayers,evalWithAnswerFn_pure,Option.some.injEq,Prod.mk.injEq] at he
+      obtain ⟨rfl,rfl⟩ := he
+      exact ⟨rfl,fun _ _ _ => rfl⟩
+  | succ n ih =>
+      intro hn value root counters he
+      simp only [expandLayers,evalWithAnswerFn_bind] at he
+      cases hs : evalWithAnswerFn answers (counterSearch (Fin.ofNat 4 n)
+        (route index (Fin.ofNat 4 n)).2 (route index (Fin.ofNat 4 n)).1 value 0 counterLimit) with
+      | none => simp only [hs,evalWithAnswerFn_pure,reduceCtorEq] at he
+      | some found =>
+          obtain ⟨counter,digits⟩ := found
+          simp only [hs,evalWithAnswerFn_bind] at he
+          cases hr : evalWithAnswerFn answers (expandLayers sig index n
+            (evalWithAnswerFn answers (recoverLayer sig index (Fin.ofNat 4 n) digits))) with
+          | none => simp only [hr,evalWithAnswerFn_pure,reduceCtorEq] at he
+          | some previous =>
+              obtain ⟨previousRoot,previousCounters⟩ := previous
+              simp only [hr,evalWithAnswerFn_pure,Option.some.injEq,Prod.mk.injEq] at he
+              obtain ⟨rfl,rfl⟩ := he
+              obtain ⟨hlen,hverify⟩ := ih (by omega) _ _ _ hr
+              refine ⟨by simp [hlen],?_⟩
+              intro w hw hc
+              have hlay : (Fin.ofNat 4 n : Layer).val=n := by
+                change n%4=n
+                exact Nat.mod_eq_of_lt (by omega)
+              have hcounter : w.counters (Fin.ofNat 4 n)=counter := by
+                rw [hc _ (by rw [hlay];omega),hlay,
+                  List.getD_append_right previousCounters [counter] 0 n (by omega),hlen]
+                simp
+              obtain ⟨_,hbound,hdecode⟩ := counterSearch_some answers (Fin.ofNat 4 n)
+                (route index (Fin.ofNat 4 n)).2 (route index (Fin.ofNat 4 n)).1 value
+                counterLimit 0 counter digits (by decide) hs
+              have hnot : ¬counter.toNat ≥ counterLimit := by omega
+              simp only [verifyLayers,hcounter,hnot,ite_false,evalWithAnswerFn_bind,hdecode,hw]
+              apply hverify w hw
+              intro lay hsmall
+              rw [hc lay (by omega),List.getD_append previousCounters [counter] 0 lay.val (by omega)]
+theorem expand_implies_verify (answers : Answers) (message : Message) (pk : Digest)
+    (sig : Signature) (w : Witness)
+    (he : evalWithAnswerFn answers (expand message pk sig)=some w) :
+    evalWithAnswerFn answers (verify message pk w)=true := by
+  simp only [expand,evalWithAnswerFn_bind] at he
+  cases hd : evalWithAnswerFn answers (digestSearch sig.rho message 0 attemptLimit) with
+  | none => simp only [hd,evalWithAnswerFn_pure,reduceCtorEq] at he
+  | some found =>
+      obtain ⟨counter,output⟩ := found
+      simp only [hd,evalWithAnswerFn_bind] at he
+      cases hf : evalWithAnswerFn answers (recoverFts sig (output.toNat%2^31) (selections output)) with
+      | none => simp only [hf,evalWithAnswerFn_pure,reduceCtorEq] at he
+      | some forest =>
+          simp only [hf,evalWithAnswerFn_bind] at he
+          cases hl : evalWithAnswerFn answers (expandLayers sig (output.toNat%2^31) 4 forest) with
+          | none => simp only [hl,evalWithAnswerFn_pure,reduceCtorEq] at he
+          | some layers =>
+              obtain ⟨root,counters⟩ := layers
+              simp only [hl] at he
+              split at he
+              · simp only [evalWithAnswerFn_pure,reduceCtorEq] at he
+              · rename_i hroot
+                have hroot : root=pk := by simpa using hroot
+                simp only [evalWithAnswerFn_pure,Option.some.injEq] at he
+                subst w
+                obtain ⟨_,hcounter,houtput,hadm⟩ := digestSearch_some_good answers sig.rho message
+                  attemptLimit 0 counter output (by decide) hd
+                have hnot : ¬counter.toNat ≥ attemptLimit := by omega
+                have hverified := (expandLayers_verified answers sig (output.toNat%2^31) 4
+                  (by decide) forest root counters hl).2
+                  ⟨sig,counter,fun lay => counters.getD lay.val 0⟩ rfl (fun _ _ => rfl)
+                simp only [verify,hnot,ite_false,evalWithAnswerFn_bind,houtput,hadm,
+                  Bool.not_true,Bool.false_eq_true,hf,hverified,evalWithAnswerFn_pure,hroot,beq_self_eq_true]
+theorem realize_eval {α : Type} (answers : QueryImpl SphincsSecurity.OracleWorld Id)
+    (secret : BitVec 256) (program : M α) :
+    evalWithAnswerFn answers (realize secret program)=
+      evalWithAnswerFn (answers.compose (realHandler secret)) program := by
+  exact (QueryImpl.simulateQ_compose answers (realHandler secret) program).symm
+theorem realized_expand_implies_verify (answers : QueryImpl SphincsSecurity.OracleWorld Id)
+    (secret : BitVec 256) (message : Message) (pk : Digest) (sig : Signature) (w : Witness)
+    (he : evalWithAnswerFn answers (realize secret (expand message pk sig))=some w) :
+    evalWithAnswerFn answers (realize secret (verify message pk w))=true := by
+  rw [realize_eval] at he ⊢
+  exact expand_implies_verify _ message pk sig w he
+theorem counterSearch_none_iff (answers : Answers) (lay : Layer) (tree leaf : Nat) (message : Digest) :
+    ∀ fuel counter,
+      evalWithAnswerFn answers (counterSearch lay tree leaf message counter fuel)=none ↔
+      ∀ offset,offset < fuel → searchDecode lay (evalWithAnswerFn answers
+        (shortHash (encodingInput lay tree leaf message (BitVec.ofNat 32 (counter+offset)))))=none := by
+  intro fuel
+  induction fuel with
+  | zero => intro counter;simp [counterSearch]
+  | succ fuel ih =>
+      intro counter
+      simp only [counterSearch,evalWithAnswerFn_bind]
+      cases hd : searchDecode lay (evalWithAnswerFn answers
+        (shortHash (encodingInput lay tree leaf message (BitVec.ofNat 32 counter)))) with
+      | none =>
+          simp only [hd,ih]
+          constructor
+          · intro hall offset hoff
+            cases offset with
+            | zero => simpa using hd
+            | succ offset =>
+                simpa [Nat.add_assoc,Nat.add_left_comm,Nat.add_comm] using hall offset (by omega)
+          · intro hall offset hoff
+            simpa [Nat.add_assoc,Nat.add_left_comm,Nat.add_comm] using hall (offset+1) (by omega)
+      | some digits =>
+          simp only [hd,evalWithAnswerFn_pure,reduceCtorEq,false_iff]
+          intro hall
+          have := hall 0 (by omega)
+          simp only [Nat.add_zero,hd,reduceCtorEq] at this
+theorem digestSearch_none_iff (answers : Answers) (rho : Digest) (message : Message) :
+    ∀ fuel counter,
+      evalWithAnswerFn answers (digestSearch rho message counter fuel)=none ↔
+      ∀ offset,offset < fuel → digestAdmissible (evalWithAnswerFn answers
+        (digest rho message (BitVec.ofNat 32 (counter+offset))))=false := by
+  intro fuel
+  induction fuel with
+  | zero => intro counter;simp [digestSearch]
+  | succ fuel ih =>
+      intro counter
+      simp only [digestSearch,evalWithAnswerFn_bind]
+      split
+      · rename_i hgood
+        simp only [evalWithAnswerFn_pure,reduceCtorEq,false_iff]
+        intro hall
+        have := hall 0 (by omega)
+        simp only [Nat.add_zero,hgood,Bool.true_eq_false] at this
+      · rename_i hbad
+        have hbad : digestAdmissible (evalWithAnswerFn answers
+          (digest rho message (BitVec.ofNat 32 counter)))=false := by simpa using hbad
+        rw [ih]
+        constructor
+        · intro hall offset hoff
+          cases offset with
+          | zero => simpa using hbad
+          | succ offset =>
+              simpa [Nat.add_assoc,Nat.add_left_comm,Nat.add_comm] using hall offset (by omega)
+        · intro hall offset hoff
+          simpa [Nat.add_assoc,Nat.add_left_comm,Nat.add_comm] using hall (offset+1) (by omega)
+end SigGolfCandidate.T3.Correctness
+namespace SigGolfCandidate.T3.Correctness
+open OracleComp OracleSpec
+set_option maxHeartbeats 1000000
+set_option maxRecDepth 10000
+set_option backward.isDefEq.respectTransparency false
+set_option linter.unusedSimpArgs false
+def Matches (proof : Fin 115 → Digest) (values : List Digest) (used : Nat) : Prop :=
+  ∀ i,i < values.length → ∀ h : used+i < 115,proof ⟨used+i,h⟩=values.getD i 0
+theorem Matches.left {proof : Fin 115 → Digest} {left right : List Digest} {used : Nat}
+    (h : Matches proof (left++right) used) : Matches proof left used := by
+  intro i hi hb
+  rw [h i (by simp only [List.length_append];omega) hb,List.getD_append _ _ _ _ hi]
+theorem Matches.right {proof : Fin 115 → Digest} {left right : List Digest} {used : Nat}
+    (h : Matches proof (left++right) used) : Matches proof right (used+left.length) := by
+  intro i hi hb
+  have hbound : used+(left.length+i) < 115 := by omega
+  have he := h (left.length+i) (by simp only [List.length_append];omega) hbound
+  rw [List.getD_append_right _ _ _ _ (by omega),Nat.add_sub_cancel_left] at he
+  simpa [Nat.add_assoc] using he
+theorem hasLeaf_zero (leaves : List Nat) (node : Nat) :
+    hasLeaf leaves 0 node=true ↔ node ∈ leaves := by
+  simp only [hasLeaf,List.any_eq_true,decide_eq_true_eq,pow_zero,Nat.mul_one]
+  constructor
+  · rintro ⟨leaf,hleaf,hlo,hhi⟩
+    have he : leaf=node := by omega
+    simpa [he] using hleaf
+  · intro h
+    exact ⟨node,h,le_rfl,by omega⟩
+theorem mapped_values_at_leaf (leaves : List Nat) (secrets : Nat → Digest)
+    (node : Nat) (hnode : node ∈ leaves) :
+    (leaves.map secrets).getD (leaves.idxOf node) 0=secrets node := by
+  simp only [List.getD_eq_getElem?_getD,List.getElem?_map,List.getElem?_idxOf hnode,
+    Option.map_some,Option.getD_some]
+theorem recoverChild_correct (answers : Answers) (index coord : Nat)
+    (nodes : Nat → Nat → Digest) (secrets : Nat → Digest)
+    (hleaf : ∀ leaf,leaf < 2048 → nodes 0 leaf=evalWithAnswerFn answers (ftsLeaf index coord leaf (secrets leaf)))
+    (hnode : ∀ level,level < 11 → ∀ node,node < 2^(11-(level+1)) →
+      nodes (level+1) node=evalWithAnswerFn answers
+        (nodeHash 10 coord index (2^(11-(level+1))+node) (nodes level (2*node)) (nodes level (2*node+1))))
+    (leaves : List Nat) (values : List Digest)
+    (hvalues : ∀ leaf,leaf ∈ leaves → values.getD (leaves.idxOf leaf) 0=secrets leaf)
+    (proof : Fin 115 → Digest) :
+    ∀ level,level ≤ 11 → ∀ node,node < 2^(11-level) → ∀ used,
+      used+(frontier leaves level node).length ≤ 115 →
+      Matches proof ((frontier leaves level node).map fun p => nodes p.1 p.2) used →
+      evalWithAnswerFn answers (recoverChild index coord leaves values proof level node used)=
+        some (nodes level node,used+(frontier leaves level node).length) := by
+  intro level
+  induction level with
+  | zero =>
+      intro _ node hn used hfit hmatch
+      by_cases hh : hasLeaf leaves 0 node=true
+      · have hm := (hasLeaf_zero leaves node).mp hh
+        have hv := hvalues node hm
+        simp only [recoverChild,hh,Bool.not_true,Bool.false_eq_true,ite_false,
+          evalWithAnswerFn_bind,hv,evalWithAnswerFn_pure,← hleaf node hn,
+          frontier,ite_true,List.length_nil,Nat.add_zero]
+      · have hh : hasLeaf leaves 0 node=false := by simpa using hh
+        simp only [frontier,hh,Bool.false_eq_true,ite_false,List.length_singleton] at hfit
+        have hp := hmatch 0 (by simp [frontier,hh]) (by omega)
+        simp only [frontier,hh,Bool.false_eq_true,ite_false,List.map_cons,List.map_nil,
+          List.getD_cons_zero,Nat.add_zero] at hp
+        simp only [recoverChild,hh,Bool.not_false,ite_true,dif_pos (show used < 115 by omega),
+          evalWithAnswerFn_pure,hp,frontier,Bool.false_eq_true,ite_false,List.length_singleton]
+  | succ level ih =>
+      intro hl node hn used hfit hmatch
+      by_cases hh : hasLeaf leaves (level+1) node=true
+      · have hsplit : frontier leaves (level+1) node=
+            frontier leaves level (2*node)++frontier leaves level (2*node+1) := by
+          simp only [frontier,hh,ite_true]
+        rw [hsplit,List.length_append] at hfit
+        rw [hsplit,List.map_append] at hmatch
+        have hpow : 2^(11-level)=2^(11-(level+1))*2 := by
+          rw [show 11-level=(11-(level+1))+1 by omega,pow_succ]
+        have hleft := ih (by omega) (2*node) (by rw [hpow];omega) used (by omega) hmatch.left
+        have hright := ih (by omega) (2*node+1) (by rw [hpow];omega)
+          (used+(frontier leaves level (2*node)).length) (by omega)
+          (by simpa only [List.length_map] using hmatch.right)
+        simp only [recoverChild,hh,Bool.not_true,Bool.false_eq_true,ite_false,
+          evalWithAnswerFn_bind,hleft,hright,evalWithAnswerFn_pure,← hnode level (by omega) node hn,
+          hsplit,List.length_append,Nat.add_assoc]
+      · have hh : hasLeaf leaves (level+1) node=false := by simpa using hh
+        simp only [frontier,hh,Bool.false_eq_true,ite_false,List.length_singleton] at hfit
+        have hp := hmatch 0 (by simp [frontier,hh]) (by omega)
+        simp only [frontier,hh,Bool.false_eq_true,ite_false,List.map_cons,List.map_nil,
+          List.getD_cons_zero,Nat.add_zero] at hp
+        simp only [recoverChild,hh,Bool.not_false,ite_true,dif_pos (show used < 115 by omega),
+          evalWithAnswerFn_pure,hp,frontier,Bool.false_eq_true,ite_false,List.length_singleton]
+end SigGolfCandidate.T3.Correctness
+namespace SigGolfCandidate.T3.Correctness
+open OracleComp OracleSpec
+set_option maxHeartbeats 1000000
+set_option maxRecDepth 10000
+set_option backward.isDefEq.respectTransparency false
+set_option linter.unusedSimpArgs false
+theorem eval_mapM {α β : Type} (answers : Answers) (items : List α) (f : α → M β) :
+    evalWithAnswerFn answers (items.mapM f)=items.map (fun x => evalWithAnswerFn answers (f x)) := by
+  induction items with
+  | nil => rfl
+  | cons x xs ih => simp only [List.mapM_cons,evalWithAnswerFn_bind,evalWithAnswerFn_pure,ih,List.map_cons]
+theorem eval_foldlM_list_inv {α β : Type} (answers : Answers) (items : List β)
+    (f : α → β → M α) (Inv : Nat → α → Prop) (initial : α) (h0 : Inv 0 initial)
+    (hs : ∀ i (hi : i < items.length) state,Inv i state →
+      Inv (i+1) (evalWithAnswerFn answers (f state items[i]))) :
+    Inv items.length (evalWithAnswerFn answers (items.foldlM f initial)) := by
+  induction items generalizing Inv initial with
+  | nil => exact h0
+  | cons x xs ih =>
+      rw [List.foldlM_cons,evalWithAnswerFn_bind,List.length_cons]
+      exact ih (fun i => Inv (i+1)) _ (hs 0 (by simp) initial h0)
+        (fun i hi state hstate => hs (i+1) (by simp;omega) state hstate)
+theorem eval_foldlM_range'_inv {α : Type} (answers : Answers) (start n : Nat)
+    (f : α → Nat → M α) (Inv : Nat → α → Prop) (initial : α) (h0 : Inv 0 initial)
+    (hs : ∀ i,i < n → ∀ state,Inv i state →
+      Inv (i+1) (evalWithAnswerFn answers (f state (start+i)))) :
+    Inv n (evalWithAnswerFn answers ((List.range' start n).foldlM f initial)) := by
+  have hi := eval_foldlM_list_inv answers (List.range' start n) f Inv initial h0
+    (fun i hi state hstate => by
+      simp only [List.getElem_range',Nat.one_mul]
+      exact hs i (by simpa using hi) state hstate)
+  simpa only [List.length_range'] using hi
+theorem eval_buildLevel (answers : Answers) (tag lay tree h level : Nat) (nodes : List Digest) :
+    evalWithAnswerFn answers (buildLevel tag lay tree h level nodes)=
+      (List.range (nodes.length/2)).map fun i => evalWithAnswerFn answers
+        (nodeHash tag lay tree (2^(h-level)+i) (nodes.getD (2*i) 0) (nodes.getD (2*i+1) 0)) := by
+  exact eval_mapM answers _ _
+theorem eval_buildLevel_length (answers : Answers) (tag lay tree h level : Nat) (nodes : List Digest) :
+    (evalWithAnswerFn answers (buildLevel tag lay tree h level nodes)).length=nodes.length/2 := by
+  rw [eval_buildLevel,List.length_map,List.length_range]
+theorem eval_buildLevel_getD (answers : Answers) (tag lay tree h level : Nat) (nodes : List Digest)
+    (i : Nat) (hi : i < nodes.length/2) :
+    (evalWithAnswerFn answers (buildLevel tag lay tree h level nodes)).getD i 0=
+      evalWithAnswerFn answers (nodeHash tag lay tree (2^(h-level)+i)
+        (nodes.getD (2*i) 0) (nodes.getD (2*i+1) 0)) := by
+  rw [eval_buildLevel]
+  simp [List.getD_eq_getElem,hi]
+def TreeLevels (answers : Answers) (tag lay tree h : Nat) (leaves : List Digest)
+    (completed : Nat) (levels : List (List Digest)) : Prop :=
+  Cost.LevelShape h completed levels ∧ levels.getD 0 []=leaves ∧
+    ∀ level,level < completed → ∀ node,node < 2^(h-(level+1)) →
+      (levels.getD (level+1) []).getD node 0=evalWithAnswerFn answers
+        (nodeHash tag lay tree (2^(h-(level+1))+node)
+          ((levels.getD level []).getD (2*node) 0) ((levels.getD level []).getD (2*node+1) 0))
+theorem eval_buildLevels_correct (answers : Answers) (tag lay tree h : Nat)
+    (leaves : List Digest) (hlen : leaves.length=2^h) :
+    TreeLevels answers tag lay tree h leaves h (evalWithAnswerFn answers (buildLevels tag lay tree h leaves)) := by
+  unfold buildLevels
+  refine eval_foldlM_range'_inv answers 1 h _ (TreeLevels answers tag lay tree h leaves) [leaves]
+    ⟨⟨rfl,?_⟩,rfl,?_⟩ (fun i hi levels hlevels => ?_)
+  · intro j hj
+    have he : j=0 := by omega
+    subst j
+    simpa using hlen
+  · intro j hj
+    omega
+  · simp only [evalWithAnswerFn_bind,evalWithAnswerFn_pure]
+    let next := evalWithAnswerFn answers (buildLevel tag lay tree h (1+i) (levels.getD (1+i-1) []))
+    have hlength : levels.length=i+1 := hlevels.1.1
+    have hprevious : (levels.getD (1+i-1) []).length=2^(h-i) := by
+      simpa using hlevels.1.2 i le_rfl
+    have hnext : next.length=2^(h-(i+1)) := by
+      rw [eval_buildLevel_length,hprevious,show h-i=h-(i+1)+1 by omega,pow_succ,
+        Nat.mul_div_cancel _ (by decide : 0 < 2)]
+    change TreeLevels answers tag lay tree h leaves (i+1) (levels++[next])
+    refine ⟨⟨by simp [hlength],?_⟩,?_,?_⟩
+    · intro j hj
+      by_cases hold : j ≤ i
+      · rw [List.getD_append _ _ _ _ (by omega)]
+        exact hlevels.1.2 j hold
+      · have he : j=i+1 := by omega
+        subst j
+        rw [List.getD_append_right _ _ _ _ (by omega),hlength]
+        simp only [Nat.sub_self,List.getD_cons_zero]
+        exact hnext
+    · rw [List.getD_append _ _ _ _ (by omega)]
+      exact hlevels.2.1
+    · intro level hlevel node hnode
+      by_cases hold : level < i
+      · rw [List.getD_append _ _ _ _ (by omega),List.getD_append _ _ _ level (by omega)]
+        exact hlevels.2.2 level hold node hnode
+      · have he : level=i := by omega
+        subst level
+        rw [List.getD_append_right _ _ _ _ (by omega),hlength]
+        simp only [Nat.sub_self,List.getD_cons_zero]
+        rw [List.getD_append _ _ _ i (by omega)]
+        have hwidth : (levels.getD (1+i-1) []).length/2=2^(h-(i+1)) := by
+          rw [hprevious,show h-i=h-(i+1)+1 by omega,pow_succ,
+            Nat.mul_div_cancel _ (by decide : 0 < 2)]
+        have hc := eval_buildLevel_getD answers tag lay tree h (1+i) (levels.getD (1+i-1) []) node
+          (by rw [hwidth];exact hnode)
+        simpa only [next,show 1+i=i+1 by omega,Nat.add_sub_cancel] using hc
+/-! Top-bytes layer: the evaluated top tree with node nonces. -/
+/-- The evaluated top node at `level` (1..11 nonce-searched value; 12 = root). -/
+def topLevelNode (answers : Answers) (level heap : Nat) (left right : Digest) : Digest :=
+  if level = 12 then evalWithAnswerFn answers (nodeHash 3 0 0 heap left right)
+  else (evalWithAnswerFn answers (topNodeAt level heap left right)).2
+theorem eval_buildTopLevel (answers : Answers) (level : Nat) (nodes : List Digest) :
+    evalWithAnswerFn answers (buildTopLevel level nodes)=
+      (List.range (nodes.length/2)).map fun i => topLevelNode answers level (2^(12-level)+i)
+        (nodes.getD (2*i) 0) (nodes.getD (2*i+1) 0) := by
+  unfold buildTopLevel
+  rw [eval_mapM]
+  apply List.map_congr_left
+  intro i _
+  unfold topLevelNode
+  split
+  · rfl
+  · rw [evalWithAnswerFn_map]
+theorem eval_buildTopLevel_length (answers : Answers) (level : Nat) (nodes : List Digest) :
+    (evalWithAnswerFn answers (buildTopLevel level nodes)).length=nodes.length/2 := by
+  rw [eval_buildTopLevel,List.length_map,List.length_range]
+theorem eval_buildTopLevel_getD (answers : Answers) (level : Nat) (nodes : List Digest)
+    (i : Nat) (hi : i < nodes.length/2) :
+    (evalWithAnswerFn answers (buildTopLevel level nodes)).getD i 0=
+      topLevelNode answers level (2^(12-level)+i) (nodes.getD (2*i) 0) (nodes.getD (2*i+1) 0) := by
+  rw [eval_buildTopLevel]
+  simp [List.getD_eq_getElem,hi]
+def TopTreeLevels (answers : Answers) (leaves : List Digest)
+    (completed : Nat) (levels : List (List Digest)) : Prop :=
+  Cost.LevelShape 12 completed levels ∧ levels.getD 0 []=leaves ∧
+    ∀ level,level < completed → ∀ node,node < 2^(12-(level+1)) →
+      (levels.getD (level+1) []).getD node 0=topLevelNode answers (level+1) (2^(12-(level+1))+node)
+          ((levels.getD level []).getD (2*node) 0) ((levels.getD level []).getD (2*node+1) 0)
+theorem eval_buildTopLevels_correct (answers : Answers)
+    (leaves : List Digest) (hlen : leaves.length=2^12) :
+    TopTreeLevels answers leaves 12 (evalWithAnswerFn answers (buildTopLevels leaves)) := by
+  unfold buildTopLevels
+  refine eval_foldlM_range'_inv answers 1 12 _ (TopTreeLevels answers leaves) [leaves]
+    ⟨⟨rfl,?_⟩,rfl,?_⟩ (fun i hi levels hlevels => ?_)
+  · intro j hj
+    have he : j=0 := by omega
+    subst j
+    simpa using hlen
+  · intro j hj
+    omega
+  · simp only [evalWithAnswerFn_bind,evalWithAnswerFn_pure]
+    let next := evalWithAnswerFn answers (buildTopLevel (1+i) (levels.getD (1+i-1) []))
+    have hlength : levels.length=i+1 := hlevels.1.1
+    have hprevious : (levels.getD (1+i-1) []).length=2^(12-i) := by
+      simpa using hlevels.1.2 i le_rfl
+    have hnext : next.length=2^(12-(i+1)) := by
+      rw [eval_buildTopLevel_length,hprevious,show 12-i=12-(i+1)+1 by omega,pow_succ,
+        Nat.mul_div_cancel _ (by decide : 0 < 2)]
+    change TopTreeLevels answers leaves (i+1) (levels++[next])
+    refine ⟨⟨by simp [hlength],?_⟩,?_,?_⟩
+    · intro j hj
+      by_cases hold : j ≤ i
+      · rw [List.getD_append _ _ _ _ (by omega)]
+        exact hlevels.1.2 j hold
+      · have he : j=i+1 := by omega
+        subst j
+        rw [List.getD_append_right _ _ _ _ (by omega),hlength]
+        simp only [Nat.sub_self,List.getD_cons_zero]
+        exact hnext
+    · rw [List.getD_append _ _ _ _ (by omega)]
+      exact hlevels.2.1
+    · intro level hlevel node hnode
+      by_cases hold : level < i
+      · rw [List.getD_append _ _ _ _ (by omega),List.getD_append _ _ _ level (by omega)]
+        exact hlevels.2.2 level hold node hnode
+      · have he : level=i := by omega
+        subst level
+        rw [List.getD_append_right _ _ _ _ (by omega),hlength]
+        simp only [Nat.sub_self,List.getD_cons_zero]
+        rw [List.getD_append _ _ _ i (by omega)]
+        have hwidth : (levels.getD (1+i-1) []).length/2=2^(12-(i+1)) := by
+          rw [hprevious,show 12-i=12-(i+1)+1 by omega,pow_succ,
+            Nat.mul_div_cancel _ (by decide : 0 < 2)]
+        have hc := eval_buildTopLevel_getD answers (1+i) (levels.getD (1+i-1) []) node
+          (by rw [hwidth];exact hnode)
+        simpa only [next,show 1+i=i+1 by omega,Nat.add_sub_cancel] using hc
+theorem eval_foldlM_range_inv {α : Type} (answers : Answers) (n : Nat)
+    (f : α → Nat → M α) (Inv : Nat → α → Prop) (initial : α) (h0 : Inv 0 initial)
+    (hs : ∀ i,i < n → ∀ state,Inv i state →
+      Inv (i+1) (evalWithAnswerFn answers (f state i))) :
+    Inv n (evalWithAnswerFn answers ((List.range n).foldlM f initial)) := by
+  have hi := eval_foldlM_list_inv answers (List.range n) f Inv initial h0
+    (fun i hi state hstate => by
+      simp only [List.getElem_range]
+      exact hs i (by simpa using hi) state hstate)
+  simpa only [List.length_range] using hi
+def FtsRows (answers : Answers) (index coord pairs : Nat) (rows : List Digest × List Digest) : Prop :=
+  rows.1.length=2*pairs ∧ rows.2.length=2*pairs ∧
+    ∀ leaf,leaf < 2*pairs → rows.1.getD leaf 0=
+      evalWithAnswerFn answers (ftsLeaf index coord leaf (rows.2.getD leaf 0))
+theorem FtsRows.step (answers : Answers) (index coord pair : Nat) (rows : List Digest × List Digest)
+    (hrows : FtsRows answers index coord pair rows) (left right : Digest) :
+    FtsRows answers index coord (pair+1)
+      (rows.1++[evalWithAnswerFn answers (ftsLeaf index coord (2*pair) left),
+                 evalWithAnswerFn answers (ftsLeaf index coord (2*pair+1) right)],rows.2++[left,right]) := by
+  refine ⟨by simp [hrows.1];omega,by simp [hrows.2.1];omega,?_⟩
+  intro leaf hleaf
+  change (rows.1++[_ , _]).getD leaf 0=evalWithAnswerFn answers
+    (ftsLeaf index coord leaf ((rows.2++[left,right]).getD leaf 0))
+  by_cases hold : leaf < 2*pair
+  · rw [List.getD_append _ _ _ _ (by rw [hrows.1];exact hold),
+      List.getD_append _ _ _ _ (by rw [hrows.2.1];exact hold)]
+    exact hrows.2.2 leaf hold
+  · rw [List.getD_append_right _ _ _ _ (by rw [hrows.1];omega),
+      List.getD_append_right _ _ _ _ (by rw [hrows.2.1];omega),hrows.1,hrows.2.1]
+    have he : leaf=2*pair ∨ leaf=2*pair+1 := by omega
+    rcases he with rfl | rfl
+    · simp
+    · simp
+def ftsRows (index coord : Nat) : M (List Digest × List Digest) :=
+  (List.range 1024).foldlM
+    (fun (state : List Digest × List Digest) pair => do
+      let (left,right) ← privatePair 8 coord index 0 pair
+      let leftLeaf ← ftsLeaf index coord (2*pair) left
+      let rightLeaf ← ftsLeaf index coord (2*pair+1) right
+      pure (state.1++[leftLeaf,rightLeaf],state.2++[left,right])) ([],[])
+theorem buildFts_eq (index coord : Nat) : buildFts index coord=(do
+    let rows ← ftsRows index coord
+    let levels ← buildLevels 10 coord index 11 rows.1
+    pure (levels,rows.2)) := rfl
+theorem eval_ftsRows_correct (answers : Answers) (index coord : Nat) :
+    FtsRows answers index coord 1024 (evalWithAnswerFn answers (ftsRows index coord)) := by
+  unfold ftsRows
+  refine eval_foldlM_range_inv answers 1024 _ (FtsRows answers index coord) ([],[])
+    ⟨rfl,rfl,by simp⟩ (fun pair _ rows hrows => ?_)
+  simp only [evalWithAnswerFn_bind,evalWithAnswerFn_pure]
+  exact FtsRows.step answers index coord pair rows hrows _ _
+def treeValue (levels : List (List Digest)) (level node : Nat) : Digest :=
+  (levels.getD level []).getD node 0
+theorem eval_buildFts_correct (answers : Answers) (index coord : Nat) :
+    let result := evalWithAnswerFn answers (buildFts index coord)
+    Cost.LevelShape 11 11 result.1 ∧ result.2.length=2048 ∧
+      (∀ leaf,leaf < 2048 → treeValue result.1 0 leaf=
+        evalWithAnswerFn answers (ftsLeaf index coord leaf (result.2.getD leaf 0))) ∧
+      (∀ level,level < 11 → ∀ node,node < 2^(11-(level+1)) →
+        treeValue result.1 (level+1) node=evalWithAnswerFn answers
+          (nodeHash 10 coord index (2^(11-(level+1))+node)
+            (treeValue result.1 level (2*node)) (treeValue result.1 level (2*node+1)))) := by
+  rw [buildFts_eq]
+  simp only [evalWithAnswerFn_bind,evalWithAnswerFn_pure]
+  let rows := evalWithAnswerFn answers (ftsRows index coord)
+  have hr := eval_ftsRows_correct answers index coord
+  have hl := eval_buildLevels_correct answers 10 coord index 11 rows.1 hr.1
+  refine ⟨hl.1,hr.2.1,?_,hl.2.2⟩
+  intro leaf hleaf
+  change ((evalWithAnswerFn answers (buildLevels 10 coord index 11 rows.1)).getD 0 []).getD leaf 0=_
+  rw [hl.2.1]
+  exact hr.2.2 leaf hleaf
+end SigGolfCandidate.T3.Correctness
+namespace SigGolfCandidate.T3.Correctness
+open OracleComp OracleSpec Finset
+open SphincsSecurity.Completeness.Octopus
+set_option maxHeartbeats 1000000
+set_option maxRecDepth 10000
+set_option backward.isDefEq.respectTransparency false
+set_option linter.unusedSimpArgs false
+def Located (leaves : List Nat) (level node : Nat) (selected : Finset Nat) : Prop :=
+  ∀ offset,offset < 2^level → (node*2^level+offset ∈ leaves ↔ offset ∈ selected)
+theorem hasLeaf_iff_nonempty {leaves : List Nat} {level node : Nat} {selected : Finset Nat}
+    (hbelow : Below level selected) (hlocated : Located leaves level node selected) :
+    hasLeaf leaves level node=true ↔ selected.Nonempty := by
+  simp only [hasLeaf,List.any_eq_true,decide_eq_true_eq]
+  constructor
+  · rintro ⟨leaf,hleaf,hlo,hhi⟩
+    have hoff : leaf-node*2^level < 2^level := by
+      rw [Nat.add_mul,Nat.one_mul] at hhi
+      omega
+    refine ⟨leaf-node*2^level,(hlocated _ hoff).mp ?_⟩
+    simpa only [Nat.add_sub_of_le hlo] using hleaf
+  · rintro ⟨offset,hoff⟩
+    have hb := hbelow offset hoff
+    refine ⟨node*2^level+offset,(hlocated offset hb).mpr hoff,by omega,?_⟩
+    rw [Nat.add_mul,Nat.one_mul]
+    omega
+theorem Located.left {leaves : List Nat} {level node : Nat} {selected : Finset Nat}
+    (h : Located leaves (level+1) node selected) :
+    Located leaves level (2*node) (lo level selected) := by
+  intro offset hoff
+  have he : (2*node)*2^level+offset=node*2^(level+1)+offset := by rw [pow_succ];ring
+  rw [he,h offset (by rw [pow_succ];omega)]
+  simp only [lo,Finset.mem_filter]
+  exact ⟨fun hm => ⟨hm,hoff⟩,And.left⟩
+theorem Located.right {leaves : List Nat} {level node : Nat} {selected : Finset Nat}
+    (h : Located leaves (level+1) node selected) :
+    Located leaves level (2*node+1) (hi level selected) := by
+  intro offset hoff
+  have he : (2*node+1)*2^level+offset=node*2^(level+1)+(offset+2^level) := by rw [pow_succ];ring
+  rw [he,h (offset+2^level) (by rw [pow_succ];omega)]
+  simp only [hi,Finset.mem_image,Finset.mem_filter]
+  constructor
+  · intro hm
+    exact ⟨offset+2^level,⟨hm,by omega⟩,by omega⟩
+  · rintro ⟨value,⟨hm,hv⟩,he⟩
+    have he' : value=offset+2^level := by omega
+    simpa only [he'] using hm
+theorem frontier_length_formula (leaves : List Nat) :
+    ∀ level node selected,Below level selected → Located leaves level node selected →
+      (frontier leaves level node).length=if selected=∅ then 1 else oc level selected := by
+  intro level
+  induction level with
+  | zero =>
+      intro node selected hb hl
+      by_cases hempty : selected=∅
+      · have hh : hasLeaf leaves 0 node=false := by
+          have := hasLeaf_iff_nonempty hb hl
+          simp [hempty] at this
+          exact this
+        simp [frontier,hh,hempty]
+      · have hh : hasLeaf leaves 0 node=true := (hasLeaf_iff_nonempty hb hl).mpr
+          (Finset.nonempty_iff_ne_empty.mpr hempty)
+        have hs := below_zero hb hempty
+        simp [frontier,hh,hempty,hs,oc,octH,xorSum]
+  | succ level ih =>
+      intro node selected hb hl
+      by_cases hempty : selected=∅
+      · have hh : hasLeaf leaves (level+1) node=false := by
+          have := hasLeaf_iff_nonempty hb hl
+          simp [hempty] at this
+          exact this
+        simp [frontier,hh,hempty]
+      · have hh : hasLeaf leaves (level+1) node=true := (hasLeaf_iff_nonempty hb hl).mpr
+          (Finset.nonempty_iff_ne_empty.mpr hempty)
+        have hL := lo_below level selected
+        have hR := hi_below hb
+        rw [frontier,hh,if_pos rfl,List.length_append,ih _ _ hL hl.left,ih _ _ hR hl.right,if_neg hempty]
+        have hsplit : glue level (lo level selected) (hi level selected)=selected := glue_lo_hi
+        by_cases hleft : lo level selected=∅
+        · have hright : hi level selected ≠ ∅ := by
+            intro hr
+            apply hempty
+            rw [← hsplit,hleft,hr,glue_empty_empty]
+          rw [if_pos hleft,if_neg hright]
+          conv_rhs => rw [← hsplit,hleft,oc_glue_right hR hright]
+          omega
+        · by_cases hright : hi level selected=∅
+          · rw [if_neg hleft,if_pos hright]
+            conv_rhs => rw [← hsplit,hright,oc_glue_left hL hleft]
+          · rw [if_neg hleft,if_neg hright]
+            conv_rhs => rw [← hsplit,oc_glue_both hL hR hleft hright]
+theorem authCount_eq_octH (leaves : List Nat) (hlen : leaves.length=3) (hn : leaves.Nodup) :
+    authCount leaves=octH 7 leaves := by
+  obtain ⟨a,b,c,rfl⟩ := List.length_eq_three.mp hlen
+  have hab : a ≠ b := by intro he;subst b;simp at hn
+  have hbc : b ≠ c := by intro he;subst c;simp at hn
+  have hx1 : a ^^^ b ≠ 0 := Nat.xor_ne_zero_iff.mpr hab
+  have hx2 : b ^^^ c ≠ 0 := Nat.xor_ne_zero_iff.mpr hbc
+  simp only [authCount,octH,xorSum,List.drop_succ_cons,List.drop_zero,List.tail_cons,
+    List.zip_cons_cons,List.zip_nil_right,List.map_cons,List.map_nil,
+    List.zipWith_cons_cons,List.zipWith_nil_right,List.sum_cons,List.sum_nil,
+    List.length_cons,List.length_nil,SphincsSecurity.Concrete.bitLength,hx1,hx2,ite_false]
+  omega
+theorem located_bucket (leaves : List Nat) (bucket : Nat) :
+    Located (leaves.map fun leaf => bucket*128+leaf) 7 bucket leaves.toFinset := by
+  intro offset _
+  simp only [show (2:Nat)^7=128 by decide,List.mem_map,List.mem_toFinset]
+  constructor
+  · rintro ⟨leaf,hleaf,he⟩
+    have he' : leaf=offset := Nat.add_left_cancel he
+    simpa only [he'] using hleaf
+  · intro h
+    exact ⟨offset,h,rfl⟩
+theorem bucket_frontier_length (leaves : List Nat) (bucket : Nat)
+    (hlen : leaves.length=3) (hn : leaves.Nodup) (hs : leaves.SortedLE)
+    (hb : ∀ leaf,leaf ∈ leaves → leaf < 128) :
+    (frontier (leaves.map fun leaf => bucket*128+leaf) 7 bucket).length=authCount leaves := by
+  have hbelow : Below 7 leaves.toFinset := fun leaf hleaf => hb leaf (List.mem_toFinset.mp hleaf)
+  have hne : leaves.toFinset ≠ ∅ := by
+    intro he
+    have hn : leaves=[] := by simpa using he
+    rw [hn] at hlen
+    contradiction
+  rw [frontier_length_formula _ 7 bucket leaves.toFinset hbelow (located_bucket leaves bucket),
+    if_neg hne,oc,(List.toFinset_sort (· ≤ ·) hn).mpr hs.pairwise]
+  exact (authCount_eq_octH leaves hlen hn).symm
+theorem selection_leaves_sorted (output : HashOutput) (selected : Selection)
+    (h : selected ∈ selections output) : selected.leaves.SortedLE := by
+  simp only [selections,List.mem_map] at h
+  obtain ⟨i,_,rfl⟩ := h
+  exact List.sortedLE_mergeSort
+theorem admissible_frontier_capacity (output : HashOutput)
+    (h : admissible (selections output)=true) :
+    28+((selections output).map fun selected =>
+      (frontier (selected.leaves.map fun leaf => selected.bucket*128+leaf) 7 selected.bucket).length).sum ≤ 115 := by
+  have hs : (∀ selected ∈ selections output,selected.leaves.Nodup) ∧
+      28+((selections output).map fun selected => authCount selected.leaves).sum ≤ 115 := by
+    simpa only [admissible,Bool.and_eq_true,List.all_eq_true,decide_eq_true_eq] using h
+  have hmap : ((selections output).map fun selected =>
+      (frontier (selected.leaves.map fun leaf => selected.bucket*128+leaf) 7 selected.bucket).length)=
+        (selections output).map (fun selected => authCount selected.leaves) := by
+    apply List.map_congr_left
+    intro selected hselected
+    exact bucket_frontier_length selected.leaves selected.bucket
+      (selection_leaves_length output selected hselected) (hs.1 selected hselected)
+      (selection_leaves_sorted output selected hselected)
+      (fun leaf hleaf => selection_leaf_bound output selected leaf hselected hleaf)
+  rw [hmap]
+  exact hs.2
+theorem built_bucket_recovery (answers : Answers) (index coord bucket used : Nat)
+    (leaves : List Nat) (proof : Fin 115 → Digest)
+    (hbucket : bucket < 16) (hlen : leaves.length=3) (hn : leaves.Nodup)
+    (hs : leaves.SortedLE) (hb : ∀ leaf,leaf ∈ leaves → leaf < 128)
+    (hfit : used+authCount leaves ≤ 115)
+    (hproof : Matches proof ((frontier (leaves.map fun leaf => bucket*128+leaf) 7 bucket).map
+      fun p => treeValue (evalWithAnswerFn answers (buildFts index coord)).1 p.1 p.2) used) :
+    let built := evalWithAnswerFn answers (buildFts index coord)
+    let selected := leaves.map fun leaf => bucket*128+leaf
+    evalWithAnswerFn answers (recoverChild index coord selected
+      (selected.map fun leaf => built.2.getD leaf 0) proof 7 bucket used)=
+      some (treeValue built.1 7 bucket,used+authCount leaves) := by
+  have htree := eval_buildFts_correct answers index coord
+  have hcount := bucket_frontier_length leaves bucket hlen hn hs hb
+  dsimp only
+  rw [← hcount] at hfit ⊢
+  exact recoverChild_correct answers index coord
+    (treeValue (evalWithAnswerFn answers (buildFts index coord)).1)
+    (fun leaf => (evalWithAnswerFn answers (buildFts index coord)).2.getD leaf 0)
+    htree.2.2.1 htree.2.2.2 _ _
+    (fun leaf hm => mapped_values_at_leaf _ _ leaf hm) proof 7 (by decide) bucket hbucket used hfit hproof
+end SigGolfCandidate.T3.Correctness
+namespace SigGolfCandidate.T3.Cost
+open OracleComp OracleSpec Finset
+open Correctness SphincsSecurity.Completeness.Octopus
+open scoped BigOperators
+set_option maxRecDepth 10000
+set_option maxHeartbeats 1000000
+set_option backward.isDefEq.respectTransparency false
+set_option linter.unusedSimpArgs false
+def childCost (leaves : List Nat) : Nat → Nat → Nat
+  | 0,node => if hasLeaf leaves 0 node then 1 else 0
+  | level+1,node => if hasLeaf leaves (level+1) node then
+      childCost leaves level (2*node)+childCost leaves level (2*node+1)+1 else 0
+theorem bound_recoverChild (index coord : Nat) (leaves : List Nat) (values : List Digest)
+    (proof : Fin 115 → Digest) : ∀ level node used,
+    CBound (fun _ => True) (childCost leaves level node)
+      (recoverChild index coord leaves values proof level node used) := by
+  intro level
+  induction level with
+  | zero =>
+      intro node used
+      by_cases hh : hasLeaf leaves 0 node=true
+      · simp only [childCost,recoverChild,hh,Bool.not_true,Bool.false_eq_true,ite_false,ite_true]
+        exact (bound_ftsLeaf index coord node _).bind' (l := 0) (fun _ _ => .pure _ 0 trivial) (by decide)
+      · have hh : hasLeaf leaves 0 node=false := by simpa using hh
+        simp only [childCost,recoverChild,hh,Bool.not_false,Bool.false_eq_true,ite_false,ite_true]
+        split <;> exact .pure _ 0 trivial
+  | succ level ih =>
+      intro node used
+      by_cases hh : hasLeaf leaves (level+1) node=true
+      · simp only [childCost,recoverChild,hh,Bool.not_true,Bool.false_eq_true,ite_false,ite_true]
+        refine (ih (2*node) used).bind' (l := childCost leaves level (2*node+1)+1)
+          (fun left _ => ?_) (by omega)
+        cases left with
+        | none => exact .pure _ _ trivial
+        | some pair =>
+            obtain ⟨left,next⟩ := pair
+            refine (ih (2*node+1) next).bind' (l := 1) (fun right _ => ?_) (by omega)
+            cases right with
+            | none => exact .pure _ _ trivial
+            | some pair =>
+                obtain ⟨right,next⟩ := pair
+                exact (bound_nodeHash 10 coord index _ left right).bind' (l := 0)
+                  (fun _ _ => .pure _ 0 trivial) (by decide)
+      · have hh : hasLeaf leaves (level+1) node=false := by simpa using hh
+        simp only [childCost,recoverChild,hh,Bool.not_false,Bool.false_eq_true,ite_false,ite_true]
+        split <;> exact .pure _ 0 trivial
+theorem childCost_formula (leaves : List Nat) :
+    ∀ level node selected,Below level selected → Located leaves level node selected →
+      childCost leaves level node+1=2*selected.card+(frontier leaves level node).length := by
+  intro level
+  induction level with
+  | zero =>
+      intro node selected hb hl
+      by_cases hempty : selected=∅
+      · have hh : hasLeaf leaves 0 node=false := by
+          have := hasLeaf_iff_nonempty hb hl
+          simpa [hempty] using this
+        simp [childCost,frontier,hh,hempty]
+      · have hh : hasLeaf leaves 0 node=true := (hasLeaf_iff_nonempty hb hl).mpr
+          (Finset.nonempty_iff_ne_empty.mpr hempty)
+        have hs := below_zero hb hempty
+        simp [childCost,frontier,hh,hs]
+  | succ level ih =>
+      intro node selected hb hl
+      by_cases hempty : selected=∅
+      · have hh : hasLeaf leaves (level+1) node=false := by
+          have := hasLeaf_iff_nonempty hb hl
+          simpa [hempty] using this
+        simp [childCost,frontier,hh,hempty]
+      · have hh : hasLeaf leaves (level+1) node=true := (hasLeaf_iff_nonempty hb hl).mpr
+          (Finset.nonempty_iff_ne_empty.mpr hempty)
+        have hL := lo_below level selected
+        have hR := hi_below hb
+        have hlc := ih _ _ hL hl.left
+        have hrc := ih _ _ hR hl.right
+        have hcard : (lo level selected).card+(hi level selected).card=selected.card := by
+          rw [← card_glue hL,glue_lo_hi]
+        simp only [childCost,frontier,hh,ite_true,List.length_append]
+        omega
+theorem bucket_childCost (leaves : List Nat) (bucket : Nat)
+    (hlen : leaves.length=3) (hn : leaves.Nodup) (hs : leaves.SortedLE)
+    (hb : ∀ leaf,leaf ∈ leaves → leaf < 128) :
+    childCost (leaves.map fun leaf => bucket*128+leaf) 7 bucket=authCount leaves+5 := by
+  have hc := childCost_formula (leaves.map fun leaf => bucket*128+leaf) 7 bucket leaves.toFinset
+    (fun leaf hleaf => hb leaf (List.mem_toFinset.mp hleaf)) (located_bucket leaves bucket)
+  rw [List.toFinset_card_of_nodup hn,hlen,bucket_frontier_length leaves bucket hlen hn hs hb] at hc
+  omega
+theorem capacity_sum (lay : Layer) :
+    (∑ i ∈ range (chainCount lay),(maxDigit lay i))=capacity lay := by
+  fin_cases lay <;> decide +kernel
+theorem sum_finRange (n : Nat) (f : Nat → Nat) :
+    ((List.finRange n).map fun i => f i.val).sum=∑ i ∈ range n,f i := by
+  simp only [List.finRange,List.map_ofFn,Function.comp_def,List.sum_ofFn,
+    Fin.sum_univ_eq_sum_range]
+theorem remaining_steps (lay : Layer) (digits : List Nat)
+    (hd : ValidDigits lay digits) (hlen : digits.length=chainCount lay) (hsum : digits.sum=target lay) :
+    (∑ i ∈ range (chainCount lay),(maxDigit lay i-digits.getD i 0))=capacity lay-target lay := by
+  rw [Finset.sum_tsub_distrib _ (fun i hi => hd i (Finset.mem_range.mp hi)),capacity_sum]
+  rw [← hlen,sum_getD,hsum]
+def recoverLayerCost (lay : Layer) : Nat := capacity lay-target lay+leafHashCost lay+height lay
+theorem bound_recoverLayer (sig : Signature) (index : Nat) (lay : Layer) (digits : List Nat)
+    (hd : ValidDigits lay digits) (hlen : digits.length=chainCount lay) (hsum : digits.sum=target lay) :
+    CBound (fun _ => True) (recoverLayerCost lay) (recoverLayer sig index lay digits) := by
+  unfold recoverLayer
+  dsimp only
+  refine (Bound.mapM_list (P := GoodQuery) (List.finRange (chainCount lay)) _
+    (fun i => maxDigit lay i.val-digits.getD i.val 0) (fun i _ => bound_layChain _ _ _ _ _ _ _)).bind'
+    (l := leafHashCost lay+height lay) (fun ends hends => ?_) ?_
+  · refine (bound_leafHash lay _ _ ends (by simpa using hends)).bind (fun root _ => ?_)
+    refine (Bound.foldlM_list (P := GoodQuery) (List.finRange (height lay)) _
+      (fun _ _ => True) (fun _ => 1) root trivial (fun i hi value _ => ?_)).mono_k (by simp)
+    exact bound_nodeHash _ _ _ _ _ _
+  · rw [sum_finRange (chainCount lay) (fun i => maxDigit lay i-digits.getD i 0),
+      remaining_steps lay digits hd hlen hsum]
+    simp only [recoverLayerCost]
+    omega
+def recoveryLayersCost : Nat → Nat
+  | 0 => 0
+  | n+1 => recoverLayerCost (Fin.ofNat 4 n)+recoveryLayersCost n
+/-- Recovery cost: 109 (top, T51: capacity 236 - target 152 + 13 leaf blocks + 12) + 118 + 116 + 116 for lower targets
+201/202/202. -/
+theorem recoveryLayersCost_four : recoveryLayersCost 4=459 := by decide +kernel
+theorem bound_verifyLayers (w : Witness) (index : Nat) :
+    ∀ n root,CBound (fun _ => True) (n+recoveryLayersCost n) (verifyLayers w index n root) := by
+  intro n
+  induction n with
+  | zero => intro root;exact .pure _ _ trivial
+  | succ n ih =>
+      intro root
+      unfold verifyLayers
+      dsimp only
+      split
+      · exact .pure _ _ trivial
+      · refine (bound_shortHash _ 1
+          (by simp [encodingInput,SphincsSecurity.bytesLE_length])
+          (by simp [encodingInput,pad64_length,SphincsSecurity.bytesLE_length])).bind'
+          (l := recoverLayerCost (Fin.ofNat 4 n)+n+recoveryLayersCost n)
+          (fun answer _ => ?_) (by simp only [recoveryLayersCost];omega)
+        cases hd : decode (Fin.ofNat 4 n) answer with
+        | none => exact .pure _ _ trivial
+        | some digits =>
+            exact (bound_recoverLayer w.signature index (Fin.ofNat 4 n) digits
+              (validDigits_decode hd) (decode_length_sum hd).1 (decode_length_sum hd).2).bind'
+              (l := n+recoveryLayersCost n) (fun value _ => ih value) (by omega)
+theorem bound_expandLayers (sig : Signature) (index : Nat) :
+    ∀ n root,CBound (fun _ => True) (n*counterLimit+recoveryLayersCost n) (expandLayers sig index n root) := by
+  intro n
+  induction n with
+  | zero => intro root;exact .pure _ _ trivial
+  | succ n ih =>
+      intro root
+      unfold expandLayers
+      dsimp only
+      refine (bound_counterSearch (Fin.ofNat 4 n) _ _ root counterLimit 0).bind'
+        (l := recoverLayerCost (Fin.ofNat 4 n)+n*counterLimit+recoveryLayersCost n)
+        (fun found hf => ?_) (by simp only [recoveryLayersCost,Nat.add_mul,Nat.one_mul];omega)
+      cases found with
+      | none => exact .pure _ _ trivial
+      | some pair =>
+          obtain ⟨counter,digits⟩ := pair
+          have hd := hf counter digits rfl
+          refine (bound_recoverLayer sig index (Fin.ofNat 4 n) digits hd.2.2 hd.1 hd.2.1).bind'
+            (l := n*counterLimit+recoveryLayersCost n) (fun value _ => ?_) (by omega)
+          refine (ih value).bind' (l := 0) (fun result _ => ?_) (by omega)
+          cases result <;> exact .pure _ 0 trivial
+def recoverOuter (sig : Signature) (index coord bucket : Nat) (initial : Option (Digest × Nat)) :
+    M (Option (Digest × Nat)) :=
+  (List.range 4).foldlM (fun (state : Option (Digest × Nat)) j => do
+    let some (value,used) := state | pure none
+    if h : used < 115 then
+      let other := sig.proof ⟨used,h⟩
+      let pair := if bucket/2^j%2=0 then (value,other) else (other,value)
+      let parent ← nodeHash 10 coord index (2^(4-j-1)+bucket/2^(j+1)) pair.1 pair.2
+      pure (some (parent,used+1))
+    else pure none) initial
+theorem bound_recoverOuter (sig : Signature) (index coord bucket : Nat) (initial : Option (Digest × Nat)) :
+    CBound (fun _ => True) 4 (recoverOuter sig index coord bucket initial) := by
+  unfold recoverOuter
+  refine Bound.foldlM_range_le 4 _ (fun _ _ => True) (fun _ => 1) initial trivial
+    (fun j _ state _ => ?_) (fun _ _ => trivial) (by simp)
+  cases state with
+  | none => exact .pure _ 1 trivial
+  | some pair =>
+      obtain ⟨value,used⟩ := pair
+      dsimp only
+      split
+      · exact (bound_nodeHash _ _ _ _ _ _).bind' (l := 0) (fun _ _ => .pure _ 0 trivial) (by decide)
+      · exact .pure _ 1 trivial
+def forestStep (sig : Signature) (index : Nat) (chosen : List Selection) (coord : Nat)
+    (state : Option (List Digest × Nat)) : M (Option (List Digest × Nat)) := do
+  let some (roots,used) := state | pure none
+  let sel := chosen.getD coord ⟨0,[]⟩
+  let selected := sel.leaves.map (fun s => sel.bucket*128+s)
+  let values := (List.range 3).map (fun j => sig.secrets ⟨(coord*3+j)%21,Nat.mod_lt _ (by decide)⟩)
+  let some (value,next) ← recoverChild index coord selected values sig.proof 7 sel.bucket used | pure none
+  let result ← recoverOuter sig index coord sel.bucket (some (value,next))
+  let some (root,next) := result | pure none
+  pure (some (roots++[root],next))
+def forestStepCost (chosen : List Selection) (coord : Nat) : Nat :=
+  let sel := chosen.getD coord ⟨0,[]⟩
+  childCost (sel.leaves.map fun leaf => sel.bucket*128+leaf) 7 sel.bucket+4
+def RootsLength (n : Nat) (state : Option (List Digest × Nat)) : Prop :=
+  ∀ roots used,state=some (roots,used) → roots.length=n
+theorem bound_forestStep (sig : Signature) (index : Nat) (chosen : List Selection) (coord : Nat)
+    (state : Option (List Digest × Nat)) (hstate : RootsLength coord state) :
+    CBound (RootsLength (coord+1)) (forestStepCost chosen coord) (forestStep sig index chosen coord state) := by
+  unfold forestStep
+  cases state with
+  | none => exact .pure _ _ (by simp [RootsLength])
+  | some pair =>
+      obtain ⟨roots,used⟩ := pair
+      have hroots := hstate roots used rfl
+      dsimp only
+      refine (bound_recoverChild index coord _ _ sig.proof 7 _ used).bind'
+        (l := 4) (fun found _ => ?_) le_rfl
+      cases found with
+      | none => exact .pure _ _ (by simp [RootsLength])
+      | some pair =>
+          obtain ⟨value,next⟩ := pair
+          refine (bound_recoverOuter sig index coord _ (some (value,next))).bind'
+            (l := 0) (fun result _ => ?_) (by decide)
+          cases result with
+          | none => exact .pure _ 0 (by simp [RootsLength])
+          | some pair =>
+              obtain ⟨root,next⟩ := pair
+              refine .pure _ 0 ?_
+              intro otherRoots otherUsed he
+              obtain ⟨rfl,rfl⟩ := Prod.mk.inj (Option.some.inj he)
+              simp [hroots]
+def forestRecoveryCost (chosen : List Selection) : Nat :=
+  (∑ coord ∈ range 7,forestStepCost chosen coord)+2
+theorem bound_recoverFts (sig : Signature) (index : Nat) (chosen : List Selection) :
+    CBound (fun _ => True) (forestRecoveryCost chosen) (recoverFts sig index chosen) := by
+  change CBound _ _ (do
+    let state ← (List.range 7).foldlM (fun state coord => forestStep sig index chosen coord state) (some ([],0))
+    let some (roots,used) := state | pure none
+    if !(List.range (115-used)).all (fun j =>
+      decide (sig.proof ⟨(used+j)%115,Nat.mod_lt _ (by decide)⟩=0)) then return none
+    pure (some (← forestPk index roots)))
+  refine (Bound.foldlM_range 7 _ RootsLength (forestStepCost chosen) (some ([],0))
+    (by simp [RootsLength]) (fun coord _ state hs => bound_forestStep sig index chosen coord state hs)).bind
+    (fun result hr => ?_)
+  cases result with
+  | none => exact .pure _ 2 trivial
+  | some pair =>
+      obtain ⟨roots,used⟩ := pair
+      have hroots := hr roots used rfl
+      dsimp only
+      split
+      · exact .pure _ 2 trivial
+      · exact (bound_forestPk index roots hroots).bind' (l := 0) (fun _ _ => .pure _ 0 trivial) (by decide)
+theorem sum_getD_apply {α : Type} (items : List α) (fallback : α) (f : α → Nat) :
+    (∑ i ∈ range items.length,f (items.getD i fallback))=(items.map f).sum := by
+  induction items with
+  | nil => simp
+  | cons x xs ih =>
+      rw [List.length_cons,Finset.sum_range_succ',List.map_cons,List.sum_cons]
+      simp only [List.getD_cons_succ,List.getD_cons_zero,ih]
+      omega
+theorem forestRecoveryCost_le (output : HashOutput) (hadm : admissible (selections output)=true) :
+    forestRecoveryCost (selections output) ≤ 156 := by
+  have hs : (∀ selected ∈ selections output,selected.leaves.Nodup) ∧
+      28+((selections output).map fun selected => authCount selected.leaves).sum ≤ 115 := by
+    simpa only [admissible,Bool.and_eq_true,List.all_eq_true,decide_eq_true_eq] using hadm
+  have hstep : ∀ coord ∈ range 7,forestStepCost (selections output) coord=
+      authCount ((selections output).getD coord ⟨0,[]⟩).leaves+9 := by
+    intro coord hcoord
+    have hc : coord < (selections output).length := by rw [selections_length];exact Finset.mem_range.mp hcoord
+    have hm : (selections output).getD coord ⟨0,[]⟩ ∈ selections output := by
+      rw [List.getD_eq_getElem _ _ hc]
+      exact List.getElem_mem hc
+    dsimp only [forestStepCost]
+    rw [bucket_childCost _ _ (selection_leaves_length output _ hm) (hs.1 _ hm)
+      (selection_leaves_sorted output _ hm) (fun leaf hl => selection_leaf_bound output _ leaf hm hl)]
+  unfold forestRecoveryCost
+  rw [Finset.sum_congr rfl hstep,Finset.sum_add_distrib,sum_const_range,
+    ← selections_length output,sum_getD_apply (selections output) ⟨0,[]⟩ (fun selected => authCount selected.leaves)]
+  have hc := hs.2
+  rw [selections_length]
+  omega
+theorem bound_verify (message : Message) (pk : Digest) (w : Witness) :
+    CBound (fun _ => True) 652 (verify message pk w) := by
+  unfold verify
+  split
+  · exact .pure _ _ trivial
+  · refine (bound_digest w.signature.rho message w.digestCounter).bind' (l := 651)
+      (fun output _ => ?_) (by decide)
+    dsimp only
+    split
+    · exact .pure _ _ trivial
+    · rename_i hadm
+      have hgood : digestAdmissible output=true := by simpa using hadm
+      have hadm : admissible (selections output)=true :=
+        (Bool.and_eq_true_iff.mp hgood).1
+      refine ((bound_recoverFts w.signature (output.toNat%2^31) (selections output)).mono_k
+        (forestRecoveryCost_le output hadm)).bind' (l := 493) (fun forest _ => ?_) (by decide)
+      cases forest with
+      | none => exact .pure _ _ trivial
+      | some forest =>
+          refine (bound_verifyLayers w (output.toNat%2^31) 4 forest).bind'
+            (l := 0) (fun root _ => ?_) (by rw [recoveryLayersCost_four]; decide)
+          cases root <;> exact .pure _ 0 trivial
+theorem verify_compression_bound (secret : BitVec 256) (message : Message) (pk : Digest) (w : Witness) :
+    ∀ result ∈ support (World.countBlocks (realize secret (verify message pk w))),result.2 ≤ 652 := by
+  intro result hr
+  rw [World.countBlocks,← realize_count] at hr
+  exact (bound_verify message pk w).count_support result (realize_support_subset secret _ hr) |>.2
+theorem bound_expand (message : Message) (pk : Digest) (sig : Signature) :
+    CBound (fun _ => True) (attemptLimit+4*counterLimit+647) (expand message pk sig) := by
+  unfold expand
+  refine (bound_digestSearch sig.rho message attemptLimit 0).bind' (l := 4*counterLimit+647)
+    (fun found hf => ?_) (by omega)
+  cases found with
+  | none => exact .pure _ _ trivial
+  | some pair =>
+      obtain ⟨counter,output⟩ := pair
+      have hadm := hf counter output rfl
+      dsimp only
+      refine ((bound_recoverFts sig (output.toNat%2^31) (selections output)).mono_k
+        (forestRecoveryCost_le output hadm)).bind' (l := 4*counterLimit+488)
+        (fun forest _ => ?_) (by omega)
+      cases forest with
+      | none => exact .pure _ _ trivial
+      | some forest =>
+          refine (bound_expandLayers sig (output.toNat%2^31) 4 forest).bind' (l := 0)
+            (fun layers _ => ?_) (by rw [recoveryLayersCost_four]; omega)
+          cases layers with
+          | none => exact .pure _ 0 trivial
+          | some pair =>
+              obtain ⟨root,counters⟩ := pair
+              dsimp only
+              split <;> exact .pure _ 0 trivial
+theorem expand_compression_ceiling (secret : BitVec 256) (message : Message) (pk : Digest) (sig : Signature) :
+    ∀ result ∈ support (World.countBlocks (realize secret (expand message pk sig))),
+      result.2 ≤ 17826439 := by
+  intro result hr
+  rw [World.countBlocks,← realize_count] at hr
+  exact (bound_expand message pk sig).count_support result (realize_support_subset secret _ hr) |>.2
+end SigGolfCandidate.T3.Cost
+namespace SigGolfCandidate.T3.Sampling
+open OracleComp OracleSpec ENNReal
+set_option maxHeartbeats 1000000
+set_option maxRecDepth 10000
+set_option backward.isDefEq.respectTransparency false
+set_option linter.unusedSimpArgs false
+abbrev RawM := OracleComp SphincsSecurity.HashSpec
+def publicHandler : QueryImpl SphincsSecurity.HashSpec M :=
+  fun input => T3.Spec.query (.inl (.inr input))
+def publicProgram {α : Type} (program : RawM α) : M α := simulateQ publicHandler program
+theorem public_randomOracle {α : Type} (secret : BitVec 256) (program : RawM α) :
+    simulateQ SphincsSecurity.romImpl (realize secret (publicProgram program))=
+      simulateQ (randomOracle (spec := SphincsSecurity.HashSpec)) program := by
+  unfold realize publicProgram
+  rw [← QueryImpl.simulateQ_compose,← QueryImpl.simulateQ_compose]
+  congr 1
+  funext input
+  simp only [QueryImpl.compose,publicHandler,simulateQ_spec_query,realHandler,SphincsSecurity.romImpl]
+  rfl
+def encodingTrial (lay : Layer) (tree leaf : Nat) (message : Digest) (counter : Nat) : HashInput :=
+  pad64 (encodingInput lay tree leaf message (BitVec.ofNat 32 counter))
+def digestTrial (rho : Digest) (message : Message) (counter : Nat) : HashInput :=
+  pad64 (digestInput rho message (BitVec.ofNat 32 counter))
+def encodingDecode (lay : Layer) (answer : HashOutput) : Option (List Nat) :=
+  searchDecode lay (answer.extractLsb' 0 128)
+def digestDecode (answer : HashOutput) : Option HashOutput :=
+  if digestAdmissible answer then some answer else none
+theorem counterSearch_public (lay : Layer) (tree leaf : Nat) (message : Digest) :
+    ∀ fuel counter,counterSearch lay tree leaf message counter fuel=
+      publicProgram (SphincsSecurity.Completeness.searchLoop
+        (encodingTrial lay tree leaf message) (encodingDecode lay)
+        (fun c digits => pure (BitVec.ofNat 32 c,digits)) fuel counter) := by
+  intro fuel
+  induction fuel with
+  | zero => intro counter;rfl
+  | succ fuel ih =>
+      intro counter
+      rw [counterSearch,SphincsSecurity.Completeness.searchLoop]
+      simp only [publicProgram,simulateQ_bind,simulateQ_spec_query,
+        SphincsSecurity.Concrete.oracleHash,HasQuery.query,publicHandler,
+        shortHash,publicHash,bind_assoc,pure_bind,encodingTrial,encodingDecode]
+      apply bind_congr
+      intro answer
+      cases hd : searchDecode lay (answer.extractLsb' 0 128) <;>
+        simp only [simulateQ_map,simulateQ_pure,map_pure,ih,publicProgram]
+theorem digestSearch_public (rho : Digest) (message : Message) :
+    ∀ fuel counter,digestSearch rho message counter fuel=
+      publicProgram (SphincsSecurity.Completeness.searchLoop
+        (digestTrial rho message) digestDecode
+        (fun c output => pure (BitVec.ofNat 32 c,output)) fuel counter) := by
+  intro fuel
+  induction fuel with
+  | zero => intro counter;rfl
+  | succ fuel ih =>
+      intro counter
+      rw [digestSearch,SphincsSecurity.Completeness.searchLoop]
+      simp only [publicProgram,simulateQ_bind,simulateQ_spec_query,
+        SphincsSecurity.Concrete.oracleHash,HasQuery.query,publicHandler,
+        digest,publicHash,bind_assoc,pure_bind,digestTrial,digestDecode]
+      apply bind_congr
+      intro answer
+      split <;> simp only [simulateQ_map,simulateQ_pure,map_pure,ih,publicProgram]
+theorem pad64_inj_of_length {left right : HashInput} (hlen : left.length=right.length)
+    (he : pad64 left=pad64 right) : left=right :=
+  (List.append_inj he hlen).1
+theorem encodingTrial_injective (lay : Layer) (tree leaf : Nat) (message : Digest)
+    {left right : Nat} (hl : left < 2^32) (hr : right < 2^32)
+    (he : encodingTrial lay tree leaf message left=encodingTrial lay tree leaf message right) : left=right := by
+  have he := pad64_inj_of_length (by simp [encodingInput,SphincsSecurity.bytesLE_length]) he
+  simp only [encodingInput,List.append_cancel_left_eq] at he
+  have hc := congrArg BitVec.toNat (SphincsSecurity.bytesLE_injective he)
+  simpa only [BitVec.toNat_ofNat,Nat.mod_eq_of_lt hl,Nat.mod_eq_of_lt hr] using hc
+theorem digestTrial_injective (rho : Digest) (message : Message)
+    {left right : Nat} (hl : left < 2^32) (hr : right < 2^32)
+    (he : digestTrial rho message left=digestTrial rho message right) : left=right := by
+  have he := pad64_inj_of_length (by simp [digestInput,SphincsSecurity.bytesLE_length]) he
+  have hc := congrArg BitVec.toNat (digestInput_injective he).2.2
+  simpa only [BitVec.toNat_ofNat,Nat.mod_eq_of_lt hl,Nat.mod_eq_of_lt hr] using hc
+theorem counterSearch_failure (secret : BitVec 256) (lay : Layer) (tree leaf : Nat) (message : Digest)
+    (fuel counter : Nat) (hlimit : counter+fuel ≤ 2^32)
+    (cache : QueryCache SphincsSecurity.HashSpec)
+    (hfresh : ∀ c,counter ≤ c → c < 2^32 → cache (encodingTrial lay tree leaf message c)=none) :
+    Pr[fun result => result.1=none |
+      (simulateQ SphincsSecurity.romImpl
+        (realize secret (counterSearch lay tree leaf message counter fuel))).run cache] ≤
+      SphincsSecurity.Completeness.failMass (encodingDecode lay)^fuel := by
+  rw [counterSearch_public,public_randomOracle]
+  exact SphincsSecurity.Completeness.probEvent_searchLoop _ _ _ (2^32)
+    (fun _ _ hl hr he => encodingTrial_injective lay tree leaf message hl hr he)
+    fuel counter hlimit cache hfresh
+theorem digestSearch_failure (secret : BitVec 256) (rho : Digest) (message : Message)
+    (fuel counter : Nat) (hlimit : counter+fuel ≤ 2^32)
+    (cache : QueryCache SphincsSecurity.HashSpec)
+    (hfresh : ∀ c,counter ≤ c → c < 2^32 → cache (digestTrial rho message c)=none) :
+    Pr[fun result => result.1=none |
+      (simulateQ SphincsSecurity.romImpl (realize secret (digestSearch rho message counter fuel))).run cache] ≤
+      SphincsSecurity.Completeness.failMass digestDecode^fuel := by
+  rw [digestSearch_public,public_randomOracle]
+  exact SphincsSecurity.Completeness.probEvent_searchLoop _ _ _ (2^32)
+    (fun _ _ hl hr he => digestTrial_injective rho message hl hr he)
+    fuel counter hlimit cache hfresh
+end SigGolfCandidate.T3.Sampling
+namespace SigGolfCandidate.T3.Sampling
+open OracleComp OracleSpec OracleComp.EvalDist ENNReal Cost
+set_option maxHeartbeats 1000000
+set_option maxRecDepth 10000
+set_option backward.isDefEq.respectTransparency false
+set_option linter.unusedSimpArgs false
+abbrev RCache := QueryCache SphincsSecurity.HashSpec
+noncomputable def roRun {α : Type} (secret : BitVec 256) (program : M α) (cache : RCache) :
+    ProbComp (α × RCache) := (simulateQ SphincsSecurity.romImpl (realize secret program)).run cache
+theorem roRun_bind {α β : Type} (secret : BitVec 256) (program : M α) (next : α → M β) (cache : RCache) :
+    roRun secret (program >>= next) cache=roRun secret program cache >>= fun result => roRun secret (next result.1) result.2 := by
+  simp only [roRun,realize_bind,simulateQ_bind,StateT.run_bind]
+theorem roRun_map {α β : Type} (secret : BitVec 256) (f : α → β) (program : M α) (cache : RCache) :
+    roRun secret (f <$> program) cache=(fun result => (f result.1,result.2)) <$> roRun secret program cache := by
+  simp only [roRun,realize_map,simulateQ_map,StateT.run_map]
+@[simp] theorem roRun_pure {α : Type} (secret : BitVec 256) (value : α) (cache : RCache) :
+    roRun secret (pure value : M α) cache=pure (value,cache) := by
+  simp [roRun,realize]
+noncomputable def V {α : Type} (secret : BitVec 256) (z : ENNReal) (program : M α) (cache : RCache) : ENNReal :=
+  expectedValue (roRun secret (countBlocks program) cache) (fun result => z^result.1.2)
+theorem V_realized {α : Type} (secret : BitVec 256) (z : ENNReal) (program : M α) (cache : RCache) :
+    V secret z program cache=expectedValue
+      ((simulateQ SphincsSecurity.romImpl (World.countBlocks (realize secret program))).run cache)
+      (fun result => z^result.1.2) := by
+  unfold V roRun countBlocks World.countBlocks
+  rw [realize_count]
+@[simp] theorem V_pure {α : Type} (secret : BitVec 256) (z : ENNReal) (value : α) (cache : RCache) :
+    V secret z (pure value : M α) cache=1 := by simp [V,countBlocks]
+theorem ev_const_mul {α : Type} (program : ProbComp α) (f : α → ENNReal) (a : ENNReal) :
+    expectedValue program (fun value => a*f value)=a*expectedValue program f := by
+  simp only [mul_comm a]
+  exact expectedValue_mul_const program f a
+theorem V_bind_eq {α β : Type} (secret : BitVec 256) (z : ENNReal) (program : M α) (next : α → M β)
+    (cache : RCache) : V secret z (program >>= next) cache=
+      expectedValue (roRun secret (countBlocks program) cache)
+        (fun result => z^result.1.2*V secret z (next result.1.1) result.2) := by
+  unfold V countBlocks
+  rw [countWith_bind,roRun_bind,expectedValue_bind]
+  congr 1
+  funext result
+  rw [roRun_map,expectedValue_map]
+  simp only [pow_add]
+  exact ev_const_mul _ _ _
+theorem count_reaches {α : Type} (secret : BitVec 256) (program : M α) (cache : RCache)
+    (result : (α × Nat) × RCache) (hr : result ∈ support (roRun secret (countBlocks program) cache)) :
+    (result.1.1,result.2) ∈ support (roRun secret program cache) := by
+  have he : roRun secret program cache=(fun value => (value.1.1,value.2)) <$>
+      roRun secret (countBlocks program) cache := by
+    conv_lhs => rw [← fst_countWith weight program]
+    rw [roRun_map]
+    rfl
+  rw [he,support_map]
+  exact ⟨result,hr,rfl⟩
+theorem V_bind_le {α β : Type} (secret : BitVec 256) (z : ENNReal) (program : M α) (next : α → M β)
+    (cache : RCache) (bound : ENNReal)
+    (h : ∀ result ∈ support (roRun secret program cache),V secret z (next result.1) result.2 ≤ bound) :
+    V secret z (program >>= next) cache ≤ V secret z program cache*bound := by
+  rw [V_bind_eq]
+  change expectedValue (roRun secret (countBlocks program) cache) _ ≤
+    expectedValue (roRun secret (countBlocks program) cache) _*bound
+  rw [← expectedValue_mul_const]
+  apply expectedValue_mono_of_support
+  intro result hr
+  have hc := count_reaches secret program cache result hr
+  have hn : V secret z (next result.1.1) result.2 ≤ bound := h (result.1.1,result.2) hc
+  exact mul_le_mul' (le_refl (z^result.1.2)) hn
+theorem V_map {α β : Type} (secret : BitVec 256) (z : ENNReal) (f : α → β) (program : M α) (cache : RCache) :
+    V secret z (f <$> program) cache=V secret z program cache := by
+  rw [map_eq_bind_pure_comp,V_bind_eq,V]
+  simp
+theorem V_of_bound {α : Type} {P : Cost.Query → Prop} {Post : α → Prop} {k : Nat} {program : M α}
+    (h : Bound P Post k program) (secret : BitVec 256) (z : ENNReal) (hz : 1 ≤ z) (cache : RCache) :
+    V secret z program cache ≤ z^k := by
+  apply expectedValue_le_of_support
+  intro result hr
+  have hs : result.1 ∈ support (realize secret (countBlocks program)) := by
+    apply support_simulateQ_run'_subset SphincsSecurity.romImpl _ cache
+    rw [StateT.run'_eq,support_map]
+    exact ⟨result,hr,rfl⟩
+  have hc := (h.count_support result.1 (realize_support_subset secret _ hs)).2
+  exact pow_le_pow_right₀ hz hc
+abbrev publicQuery (input : HashInput) : M HashOutput := T3.Spec.query (.inl (.inr input))
+theorem roRun_publicQuery (secret : BitVec 256) (input : HashInput) (cache : RCache) :
+    roRun secret (publicQuery input) cache=(randomOracle (spec := SphincsSecurity.HashSpec) input).run cache := by
+  change (simulateQ SphincsSecurity.romImpl
+    (realize secret (publicProgram (SphincsSecurity.HashSpec.query input)))).run cache=_
+  rw [public_randomOracle,simulateQ_spec_query]
+theorem V_publicQuery {α : Type} (secret : BitVec 256) (z : ENNReal) (input : HashInput)
+    (next : HashOutput → M α) (cache : RCache) :
+    V secret z (publicQuery input >>= next) cache=z^(input.length/64)*
+      expectedValue ((randomOracle (spec := SphincsSecurity.HashSpec) input).run cache)
+        (fun result => V secret z (next result.1) result.2) := by
+  rw [V_bind_eq]
+  unfold countBlocks
+  change expectedValue (roRun secret (countWith weight (qry (.inl (.inr input)))) cache) _=_
+  rw [countWith_query,roRun_map,expectedValue_map]
+  change expectedValue (roRun secret (publicQuery input) cache)
+    (fun result => z^(input.length/64)*V secret z (next result.1) result.2)=_
+  rw [roRun_publicQuery]
+  exact ev_const_mul _ _ _
+theorem expectedValue_fresh (input : HashInput) (cache : RCache) (hfresh : cache input=none)
+    (f : HashOutput × RCache → ENNReal) :
+    expectedValue ((randomOracle (spec := SphincsSecurity.HashSpec) input).run cache) f=
+      expectedValue ($ᵗ HashOutput : ProbComp HashOutput) (fun answer => f (answer,cache.cacheQuery input answer)) := by
+  rw [randomOracle.run_eq,hfresh]
+  simp only
+  rw [expectedValue_bind]
+  simp
+  rfl
+end SigGolfCandidate.T3.Sampling
+namespace SigGolfCandidate.T3.Sampling
+open OracleComp OracleSpec OracleComp.EvalDist ENNReal Cost
+open SphincsSecurity.Completeness (searchLoop failMass failMass_eq_probEvent)
+set_option maxHeartbeats 1000000
+set_option maxRecDepth 10000
+set_option backward.isDefEq.respectTransparency false
+set_option linter.unusedSimpArgs false
+theorem ev_ite_le (P : HashOutput → Prop) [DecidablePred P] (a b : ENNReal)
+    (g : HashOutput → ENNReal) (hg : ∀ answer,g answer ≤ if P answer then a else b) :
+    expectedValue ($ᵗ HashOutput : ProbComp HashOutput) g ≤
+      Pr[P | ($ᵗ HashOutput : ProbComp HashOutput)]*a+
+        Pr[fun answer => ¬P answer | ($ᵗ HashOutput : ProbComp HashOutput)]*b := by
+  calc expectedValue ($ᵗ HashOutput : ProbComp HashOutput) g
+      ≤ expectedValue ($ᵗ HashOutput : ProbComp HashOutput)
+          (fun answer => (if P answer then 1 else 0)*a+(if ¬P answer then 1 else 0)*b) :=
+        expectedValue_mono _ fun answer => (hg answer).trans (by by_cases h : P answer <;> simp [h])
+    _ = _ := by
+      rw [expectedValue_add,expectedValue_mul_const,expectedValue_mul_const,
+        expectedValue_ite_one,expectedValue_ite_one]
+theorem probEvent_not (P : HashOutput → Prop) [DecidablePred P] :
+    Pr[fun answer => ¬P answer | ($ᵗ HashOutput : ProbComp HashOutput)]=
+      1-Pr[P | ($ᵗ HashOutput : ProbComp HashOutput)] := by
+  have hc := probEvent_compl ($ᵗ HashOutput : ProbComp HashOutput) P
+  have hf : Pr[⊥ | ($ᵗ HashOutput : ProbComp HashOutput)]=0 := by simp
+  rw [hf,tsub_zero] at hc
+  exact ENNReal.eq_sub_of_add_eq probEvent_ne_top ((add_comm _ _).trans hc)
+theorem publicSearch_succ {β γ : Type} (inputs : Nat → HashInput) (decoder : HashOutput → Option β)
+    (result : Nat → β → γ) (fuel counter : Nat) :
+    publicProgram (searchLoop inputs decoder (fun c v => pure (result c v)) (fuel+1) counter)=
+      publicQuery (inputs counter) >>= fun answer => match decoder answer with
+        | none => publicProgram (searchLoop inputs decoder (fun c v => pure (result c v)) fuel (counter+1))
+        | some value => pure (some (result counter value)) := by
+  rw [searchLoop]
+  simp only [publicProgram,simulateQ_bind,SphincsSecurity.Concrete.oracleHash,HasQuery.query,
+    simulateQ_spec_query,publicHandler]
+  apply bind_congr
+  intro answer
+  cases decoder answer <;> simp only [simulateQ_map,simulateQ_pure,map_pure]
+theorem V_publicSearch {β γ : Type} (secret : BitVec 256) (z b : ENNReal) (hb : 1 ≤ b)
+    (inputs : Nat → HashInput) (decoder : HashOutput → Option β) (result : Nat → β → γ)
+    (bound : Nat)
+    (hinput : ∀ counter,counter < bound → (inputs counter).length=64)
+    (hinj : ∀ left right,left < bound → right < bound → inputs left=inputs right → left=right)
+    (hstep : z*(failMass decoder*b+(1-failMass decoder)) ≤ b) :
+    ∀ fuel counter,counter+fuel ≤ bound → ∀ cache : RCache,
+      (∀ c,counter ≤ c → c < bound → cache (inputs c)=none) →
+      V secret z (publicProgram (searchLoop inputs decoder (fun c v => pure (result c v)) fuel counter)) cache ≤ b := by
+  intro fuel
+  induction fuel with
+  | zero =>
+      intro counter _ cache _
+      simpa [searchLoop,publicProgram] using hb
+  | succ fuel ih =>
+      intro counter hlimit cache hfresh
+      rw [publicSearch_succ,V_publicQuery,hinput counter (by omega)]
+      simp only [show (64 : Nat)/64=1 by decide,pow_one]
+      rw [expectedValue_fresh _ _ (hfresh counter le_rfl (by omega))]
+      refine (mul_le_mul' le_rfl (ev_ite_le (fun answer => decoder answer=none) b 1 _ (fun answer => ?_))).trans ?_
+      · cases hd : decoder answer with
+        | some value => simp
+        | none =>
+            simp only [if_true]
+            apply ih (counter+1) (by omega) _
+            intro c hstart hc
+            rw [QueryCache.cacheQuery_of_ne]
+            · exact hfresh c (by omega) hc
+            · intro he
+              have he' := hinj c counter hc (by omega) he
+              omega
+      · rw [probEvent_not,mul_one]
+        have hrho : failMass decoder=Pr[fun answer : HashOutput => decoder answer=none |
+          ($ᵗ HashOutput : ProbComp HashOutput)] := by
+          rw [failMass_eq_probEvent]
+          rfl
+        rw [← hrho]
+        exact hstep
+theorem encodingTrial_length (lay : Layer) (tree leaf : Nat) (message : Digest) (counter : Nat) :
+    (encodingTrial lay tree leaf message counter).length=64 := by
+  simp [encodingTrial,encodingInput,Cost.pad64_length,SphincsSecurity.bytesLE_length]
+theorem digestTrial_length (rho : Digest) (message : Message) (counter : Nat) :
+    (digestTrial rho message counter).length=64 := by
+  simp [digestTrial,digestInput,Cost.pad64_length,SphincsSecurity.bytesLE_length]
+theorem V_counterSearch (secret : BitVec 256) (z b : ENNReal) (hb : 1 ≤ b)
+    (lay : Layer) (tree leaf : Nat) (message : Digest)
+    (hstep : z*(failMass (encodingDecode lay)*b+(1-failMass (encodingDecode lay))) ≤ b)
+    (fuel counter : Nat) (hlimit : counter+fuel ≤ 2^32) (cache : RCache)
+    (hfresh : ∀ c,counter ≤ c → c < 2^32 → cache (encodingTrial lay tree leaf message c)=none) :
+    V secret z (counterSearch lay tree leaf message counter fuel) cache ≤ b := by
+  rw [counterSearch_public]
+  exact V_publicSearch secret z b hb _ _ _ (2^32)
+    (fun c _ => encodingTrial_length lay tree leaf message c)
+    (fun _ _ hl hr he => encodingTrial_injective lay tree leaf message hl hr he)
+    hstep fuel counter hlimit cache hfresh
+theorem V_digestSearch (secret : BitVec 256) (z b : ENNReal) (hb : 1 ≤ b)
+    (rho : Digest) (message : Message)
+    (hstep : z*(failMass digestDecode*b+(1-failMass digestDecode)) ≤ b)
+    (fuel counter : Nat) (hlimit : counter+fuel ≤ 2^32) (cache : RCache)
+    (hfresh : ∀ c,counter ≤ c → c < 2^32 → cache (digestTrial rho message c)=none) :
+    V secret z (digestSearch rho message counter fuel) cache ≤ b := by
+  rw [digestSearch_public]
+  exact V_publicSearch secret z b hb _ _ _ (2^32)
+    (fun c _ => digestTrial_length rho message c)
+    (fun _ _ hl hr he => digestTrial_injective rho message hl hr he)
+    hstep fuel counter hlimit cache hfresh
+end SigGolfCandidate.T3.Sampling
+namespace SigGolfCandidate.T3.Correctness
+open OracleComp OracleSpec Cost
+set_option maxHeartbeats 1000000
+set_option maxRecDepth 10000
+set_option backward.isDefEq.respectTransparency false
+set_option linter.unusedSimpArgs false
+def CacheTagCorrect (answers : Answers) (result : Digest × Cache) : Prop :=
+  result.2.tag=evalWithAnswerFn answers (privateMac result.2.region)
+theorem cache_payload_tag (answers : Answers) (payload : M (Digest × Region)) :
+    CacheTagCorrect answers (evalWithAnswerFn answers (do
+      let (publicKey,region) ← payload
+      let tag ← privateMac region
+      pure (publicKey,Cache.mk tag region))) := by
+  unfold CacheTagCorrect
+  simp only [evalWithAnswerFn_bind,evalWithAnswerFn_pure]
+theorem keygen_cache_tag (answers : Answers) :
+    CacheTagCorrect answers (evalWithAnswerFn answers keygen) := by
+  exact cache_payload_tag answers keygenPayload
+theorem sign_valid_cache (answers : Answers) (result : Digest × Cache) (message : Message)
+    (hvalid : CacheTagCorrect answers result) :
+    evalWithAnswerFn answers (sign result.2 message)=
+      evalWithAnswerFn answers (signPayload result.2 message) := by
+  simp only [CacheTagCorrect] at hvalid
+  simp only [sign,evalWithAnswerFn_bind,← hvalid,ne_eq,not_true_eq_false,ite_false]
+theorem sign_honest_cache (answers : Answers) (message : Message) :
+    evalWithAnswerFn answers (sign (evalWithAnswerFn answers keygen).2 message)=
+      evalWithAnswerFn answers (signPayload (evalWithAnswerFn answers keygen).2 message) := by
+  exact sign_valid_cache answers _ message (keygen_cache_tag answers)
+theorem privateMac_count (region : Region) :
+    countBlocks (privateMac region)=(fun tag => (tag,2)) <$> privateMac region := by
+  have hc (h : BitVec 128) : countWith weight (privateHash (.inl h)) =
+      (fun a => (a,1)) <$> privateHash (.inl h) :=
+    Cost.countWith_query weight (.inr (.inl h))
+  unfold privateMac privateMacKey countBlocks
+  simp only [Cost.countWith_bind,hc,Cost.countWith_pure,bind_assoc,map_bind,
+    bind_map_left,Functor.map_map,pure_bind,map_pure,Function.comp_def,
+    Nat.add_zero,Nat.reduceAdd]
+theorem sign_bad_cache_count (answers : Answers) (cache : Cache) (message : Message)
+    (hbad : evalWithAnswerFn answers (privateMac cache.region) ≠ cache.tag) :
+    evalWithAnswerFn answers (countBlocks (sign cache message))=(none,2) := by
+  unfold sign countBlocks
+  rw [countWith_bind]
+  change evalWithAnswerFn answers (countBlocks (privateMac cache.region) >>= _) = _
+  rw [privateMac_count,evalWithAnswerFn_bind,evalWithAnswerFn_map]
+  simp only [hbad,ite_true,countWith_pure,evalWithAnswerFn_map,evalWithAnswerFn_pure,Nat.add_zero]
+  rw [if_pos hbad,countWith_pure,evalWithAnswerFn_pure]
+  rfl
+end SigGolfCandidate.T3.Correctness
+namespace SigGolfCandidate.T3.Correctness
+open OracleComp OracleSpec Cost
+set_option maxHeartbeats 1000000
+set_option maxRecDepth 10000
+set_option backward.isDefEq.respectTransparency false
+set_option linter.unusedSimpArgs false
+theorem chain_add (lay : Layer) (tree leaf i start a b : Nat) (value : Digest) :
+    chain lay tree leaf i start (a+b) value=
+      (chain lay tree leaf i start a value >>= chain lay tree leaf i (start+a) b) := by
+  unfold chain
+  rw [← List.range'_append_1,List.foldlM_append]
+theorem eval_chain_add (answers : Answers) (lay : Layer) (tree leaf i start a b : Nat) (value : Digest) :
+    evalWithAnswerFn answers (chain lay tree leaf i start (a+b) value)=
+      evalWithAnswerFn answers (chain lay tree leaf i (start+a) b
+        (evalWithAnswerFn answers (chain lay tree leaf i start a value))) := by
+  rw [chain_add,evalWithAnswerFn_bind]
+/-- img-v6: ordinal `o` of the top coefficient stream, half `o % 2` (low half first) of `topSeedPair (o / 2)`. -/
+def topOrdHalf (answers : Answers) (o : Nat) : Digest :=
+  let seeds := evalWithAnswerFn answers (topSeedPair (o/2))
+  if o%2=0 then seeds.1 else seeds.2
+/-- img-v6: coefficient `j` of the seed family of top leaf `leaf`, the half `topCoefOrdinal leaf j % 2` of
+`topSeedPair (topCoefOrdinal leaf j / 2)`, `topCoefOrdinal leaf j = 39 (leaf / 4) + j`. -/
+def topCoefN (answers : Answers) (leaf j : Nat) : Digest :=
+  let seeds := evalWithAnswerFn answers (topSeedPair (topCoefOrdinal leaf j / 2))
+  if topCoefOrdinal leaf j%2=0 then seeds.1 else seeds.2
+def topCoef (answers : Answers) (leaf : Nat) (j : Fin topCoefCount) : Digest := topCoefN answers leaf j.val
+def topCoefList (answers : Answers) (leaf : Nat) : List Digest := List.ofFn (topCoef answers leaf)
+/-- img-v6: the top WOTS seed of chain `i` of leaf `leaf` is the family evaluated at
+`topPoint leaf i = (leaf % 4) · 64 + i + 1`. -/
+def topLeafSeed (answers : Answers) (leaf i : Nat) : Digest := topSeed (topCoefList answers leaf) leaf i
+theorem topCoefN_eq (answers : Answers) (leaf j : Nat) :
+    topCoefN answers leaf j=topOrdHalf answers (topCoefOrdinal leaf j) := rfl
+theorem topOrdHalf_even (answers : Answers) (p : Nat) :
+    topOrdHalf answers (2*p)=(evalWithAnswerFn answers (topSeedPair p)).1 := by
+  unfold topOrdHalf
+  rw [show 2*p/2=p by omega,if_pos (by omega)]
+theorem topOrdHalf_odd (answers : Answers) (p : Nat) :
+    topOrdHalf answers (2*p+1)=(evalWithAnswerFn answers (topSeedPair p)).2 := by
+  unfold topOrdHalf
+  rw [show (2*p+1)/2=p by omega,if_neg (by omega)]
+theorem topCoefList_eq (answers : Answers) (leaf : Nat) :
+    topCoefList answers leaf=(List.range' (topCoefCount*(leaf/4)) topCoefCount).map (topOrdHalf answers) := by
+  apply List.ext_getElem (by simp [topCoefList,topCoefCount])
+  intro n h1 h2
+  simp only [topCoefList,topCoef,List.getElem_ofFn,List.getElem_map,List.getElem_range',topCoefN_eq,
+    topCoefOrdinal,Nat.one_mul]
+theorem topCoefList_congr (answers : Answers) {a b : Nat} (h : a/4=b/4) :
+    topCoefList answers a=topCoefList answers b := by
+  rw [topCoefList_eq,topCoefList_eq,h]
+theorem topCoefList_length (answers : Answers) (leaf : Nat) : (topCoefList answers leaf).length=topCoefCount := by
+  simp [topCoefList,topCoefCount]
+theorem eval_topPairsFrom (answers : Answers) (first start : Nat) (init : List Digest) :
+    evalWithAnswerFn answers (topPairsFrom first start init)=
+      init++(List.range' (2*(first+start)) (2*(topCoefPairs-start))).map (topOrdHalf answers) := by
+  unfold topPairsFrom
+  refine eval_foldlM_range'_inv answers start (topCoefPairs-start) _
+    (fun i (acc : List Digest) => acc=init++(List.range' (2*(first+start)) (2*i)).map (topOrdHalf answers))
+    init (by simp) (fun i _ acc hacc => ?_)
+  simp only [evalWithAnswerFn_bind,evalWithAnswerFn_pure,hacc]
+  rw [show 2*(i+1)=2*i+1+1 by omega,List.range'_concat,List.range'_concat,List.map_append,List.map_append,
+    List.map_singleton,List.map_singleton,List.append_assoc,List.append_assoc,
+    show 2*(first+start)+1*(2*i)=2*(first+(start+i)) by omega,
+    show 2*(first+start)+1*(2*i+1)=2*(first+(start+i))+1 by omega,topOrdHalf_even,topOrdHalf_odd]
+  simp
+/-- img-v6 (signer form): the 20 recomputed pairs give the leaf's 39 family coefficients. -/
+theorem eval_topCoefs (answers : Answers) (leaf : Nat) :
+    evalWithAnswerFn answers (topCoefs leaf)=topCoefList answers leaf := by
+  unfold topCoefs
+  rw [evalWithAnswerFn_bind,eval_topPairsFrom,evalWithAnswerFn_pure,topCoefList_eq]
+  apply List.ext_getElem (by simp [topCoefCount,topCoefPairs]; omega)
+  intro n h1 h2
+  simp only [List.nil_append,List.getElem_take,List.getElem_drop,List.getElem_map,List.getElem_range']
+  congr 1
+  simp only [topCoefCount]; omega
+/-- img-v6 (keygen form): with the honest carry (ordinal `39 f`, needed for odd `f`), `topCoefsK f` gives the
+family's 39 coefficients and, for even `f`, the next carry (ordinal `39 (f + 1)`). -/
+theorem eval_topCoefsK (answers : Answers) (f : Nat) (carry : Digest)
+    (hcarry : f%2=1 → carry=topOrdHalf answers (topCoefCount*f)) :
+    evalWithAnswerFn answers (topCoefsK f carry)=
+      ((List.range' (topCoefCount*f) topCoefCount).map (topOrdHalf answers),
+        if f%2=0 then topOrdHalf answers (topCoefCount*f+topCoefCount) else 0) := by
+  unfold topCoefsK
+  rw [evalWithAnswerFn_bind,eval_topPairsFrom,evalWithAnswerFn_pure]
+  have hacc : (if f%2=0 then ([] : List Digest) else [carry])++
+      (List.range' (2*(topCoefCount*f/2+f%2)) (2*(topCoefPairs-f%2))).map (topOrdHalf answers)=
+      (List.range' (topCoefCount*f) (topCoefCount+1-f%2)).map (topOrdHalf answers) := by
+    apply List.ext_getElem (by
+      rw [List.length_append,Cost.topCarryInit_length]; simp [topCoefCount,topCoefPairs]; omega)
+    intro n h1 h2
+    by_cases h : f%2=0
+    · simp only [h,↓reduceIte,List.nil_append,List.getElem_map,List.getElem_range']
+      congr 1; simp only [topCoefCount]; omega
+    · simp only [h,↓reduceIte]
+      rcases Nat.eq_zero_or_pos n with hn | hn
+      · subst hn; simp [hcarry (by omega)]
+      · rw [List.getElem_append_right (by simp; omega)]
+        simp only [List.getElem_map,List.getElem_range',List.length_singleton]
+        congr 1; simp only [topCoefCount]; omega
+  rw [hacc]
+  refine Prod.ext ?_ ?_
+  · apply List.ext_getElem (by simp [topCoefCount]; omega)
+    intro n h1 h2
+    simp
+  · by_cases h : f%2=0
+    · rw [if_pos h,List.getD_eq_getElem _ _ (by simp [topCoefCount]; omega)]
+      simp
+    · rw [if_neg h,List.getD_eq_default _ _ (by simp [topCoefCount]; omega)]
+/-- WOTS seeds: top leaves (campaign T8D) use the leaf's 24-coefficient family; other layers the per-chain halves of
+`privatePair 0 lay tree (i / 2) leaf` (legacy `buildLeaf`). -/
+def leafSeed (answers : Answers) (lay : Layer) (tree leaf i : Nat) : Digest :=
+  if lay=0 then topLeafSeed answers leaf i else
+  let seeds := evalWithAnswerFn answers (privatePair 0 lay.val tree (i/2) leaf)
+  if i%2=0 then seeds.1 else seeds.2
+theorem leafSeed_top (answers : Answers) (tree leaf i : Nat) :
+    leafSeed answers 0 tree leaf i=topLeafSeed answers leaf i := by
+  unfold leafSeed; rw [if_pos rfl]
+/-- Witness stack: the chain of layer `lay` is `layChain` (`topChain` on the top, `chain` below). -/
+def leafValue (answers : Answers) (lay : Layer) (tree leaf : Nat) (digits : List Nat) (i : Nat) : Digest :=
+  evalWithAnswerFn answers (layChain lay tree leaf i 0 (digits.getD i 0) (leafSeed answers lay tree leaf i))
+def leafEnd (answers : Answers) (lay : Layer) (tree leaf i : Nat) : Digest :=
+  evalWithAnswerFn answers (layChain lay tree leaf i 0 (maxDigit lay i) (leafSeed answers lay tree leaf i))
+theorem leafSeed_pair (answers : Answers) {lay : Layer} (hlay : lay≠0) (tree leaf pair half : Nat) (hh : half < 2) :
+    leafSeed answers lay tree leaf (2*pair+half)=
+      if half=0 then (evalWithAnswerFn answers (privatePair 0 lay.val tree pair leaf)).1
+      else (evalWithAnswerFn answers (privatePair 0 lay.val tree pair leaf)).2 := by
+  unfold leafSeed
+  rw [if_neg hlay]
+  have hd : (2*pair+half)/2=pair := by omega
+  have hm : (2*pair+half)%2=half := by omega
+  rw [hd,hm]
+theorem leafValue_completes (answers : Answers) (lay : Layer) (tree leaf : Nat)
+    (digits : List Nat) (hvalid : ValidDigits lay digits) (i : Nat) (hi : i < chainCount lay) :
+    evalWithAnswerFn answers (layChain lay tree leaf i (digits.getD i 0)
+      (maxDigit lay i-digits.getD i 0) (leafValue answers lay tree leaf digits i))=
+      leafEnd answers lay tree leaf i := by
+  unfold leafValue leafEnd
+  have hd := hvalid i hi
+  have hc : evalWithAnswerFn answers (layChain lay tree leaf i 0 (digits.getD i 0+(maxDigit lay i-digits.getD i 0))
+      (leafSeed answers lay tree leaf i))=evalWithAnswerFn answers (layChain lay tree leaf i (0+digits.getD i 0)
+        (maxDigit lay i-digits.getD i 0) (evalWithAnswerFn answers (layChain lay tree leaf i 0 (digits.getD i 0)
+          (leafSeed answers lay tree leaf i)))) := by
+    rw [layChain_add,evalWithAnswerFn_bind]
+  rw [Nat.zero_add,Nat.add_sub_of_le hd] at hc
+  exact hc.symm
+/-- Lower-layer form of `leafValue_completes` (`layChain = chain` below the top). -/
+theorem leafValue_completes_lower (answers : Answers) {lay : Layer} (hlay : lay≠0) (tree leaf : Nat)
+    (digits : List Nat) (hvalid : ValidDigits lay digits) (i : Nat) (hi : i < chainCount lay) :
+    evalWithAnswerFn answers (chain lay tree leaf i (digits.getD i 0)
+      (maxDigit lay i-digits.getD i 0) (leafValue answers lay tree leaf digits i))=
+      leafEnd answers lay tree leaf i := by
+  rw [← layChain_lower hlay]; exact leafValue_completes answers lay tree leaf digits hvalid i hi
+def LeafRows (answers : Answers) (lay : Layer) (tree leaf : Nat) (digits : List Nat)
+    (signatureOnly : Bool) (done : Nat) (rows : List Digest × List Digest) : Prop :=
+  rows.1.length=(if signatureOnly then 0 else min done (chainCount lay)) ∧
+  rows.2.length=min done (chainCount lay) ∧
+  (∀ i,i < rows.1.length → rows.1.getD i 0=leafEnd answers lay tree leaf i) ∧
+  (∀ i,i < rows.2.length → rows.2.getD i 0=leafValue answers lay tree leaf digits i)
+theorem getD_append_singleton (xs : List Digest) (value : Digest) (i : Nat) :
+    (xs++[value]).getD i 0=if i < xs.length then xs.getD i 0 else if i=xs.length then value else 0 := by
+  by_cases hi : i < xs.length
+  · rw [List.getD_append _ _ _ _ hi,if_pos hi]
+  · rw [List.getD_append_right _ _ _ _ (by omega),if_neg hi]
+    by_cases he : i=xs.length
+    · subst i;simp
+    · rw [if_neg he]
+      exact List.getD_eq_default [value] 0 (by simp;omega)
+theorem LeafRows.append (answers : Answers) (lay : Layer) (tree leaf : Nat) (digits : List Nat)
+    (signatureOnly : Bool) (i : Nat) (rows : List Digest × List Digest)
+    (hrows : LeafRows answers lay tree leaf digits signatureOnly i rows) (hi : i < chainCount lay) :
+    LeafRows answers lay tree leaf digits signatureOnly (i+1)
+      ((if signatureOnly then rows.1 else rows.1++[leafEnd answers lay tree leaf i]),
+       rows.2++[leafValue answers lay tree leaf digits i]) := by
+  have hmin : min i (chainCount lay)=i := min_eq_left (by omega)
+  have hnext : min (i+1) (chainCount lay)=i+1 := min_eq_left (by omega)
+  unfold LeafRows at hrows ⊢
+  rcases hrows with ⟨hends,hvals,he,hv⟩
+  rw [hmin] at hends hvals
+  cases signatureOnly <;> simp only [Bool.false_eq_true,↓reduceIte] at hends ⊢
+  · refine ⟨by simp [hends,hnext],by simp [hvals,hnext],?_,?_⟩
+    · intro j hj
+      rw [getD_append_singleton,hends]
+      split
+      · exact he j (by omega)
+      · have hj' : j=i := by simp only [List.length_append,List.length_singleton,hends] at hj;omega
+        subst j;simp
+    · intro j hj
+      rw [getD_append_singleton,hvals]
+      split
+      · exact hv j (by omega)
+      · have hj' : j=i := by simp only [List.length_append,List.length_singleton,hvals] at hj;omega
+        subst j;simp
+  · refine ⟨hends,by simp [hvals,hnext],he,?_⟩
+    intro j hj
+    rw [getD_append_singleton,hvals]
+    split
+    · exact hv j (by omega)
+    · have hj' : j=i := by simp only [List.length_append,List.length_singleton,hvals] at hj;omega
+      subst j;simp
+def leafHalf (lay : Layer) (tree leaf : Nat) (digits : List Nat) (signatureOnly : Bool)
+    (pair : Nat) (seeds : Digest × Digest) (rows : List Digest × List Digest) (half : Nat) :
+    M (List Digest × List Digest) := do
+  let i := 2*pair+half
+  if chainCount lay ≤ i then return rows
+  let seed := if half=0 then seeds.1 else seeds.2
+  let digit := digits.getD i 0
+  let value ← chain lay tree leaf i 0 digit seed
+  if signatureOnly then return (rows.1,rows.2++[value])
+  let last ← chain lay tree leaf i digit (maxDigit lay i-digit) value
+  pure (rows.1++[last],rows.2++[value])
+theorem LeafRows.half (answers : Answers) {lay : Layer} (hlay : lay≠0) (tree leaf : Nat) (digits : List Nat)
+    (hvalid : ValidDigits lay digits) (signatureOnly : Bool) (pair half : Nat) (hh : half < 2)
+    (rows : List Digest × List Digest)
+    (hrows : LeafRows answers lay tree leaf digits signatureOnly (2*pair+half) rows) :
+    LeafRows answers lay tree leaf digits signatureOnly (2*pair+(half+1))
+      (evalWithAnswerFn answers (leafHalf lay tree leaf digits signatureOnly pair
+        (evalWithAnswerFn answers (privatePair 0 lay.val tree pair leaf)) rows half)) := by
+  unfold leafHalf
+  by_cases hi : chainCount lay ≤ 2*pair+half
+  · simp only [hi,ite_true,evalWithAnswerFn_pure]
+    simpa only [LeafRows,min_eq_right hi,min_eq_right (show chainCount lay ≤ 2*pair+(half+1) by omega)] using hrows
+  · simp only [hi,ite_false,evalWithAnswerFn_bind,evalWithAnswerFn_pure]
+    rw [← leafSeed_pair answers hlay tree leaf pair half hh]
+    simp only [← layChain_lower hlay]
+    change LeafRows answers lay tree leaf digits signatureOnly (2*pair+(half+1))
+      (evalWithAnswerFn answers (if signatureOnly then pure (rows.1,rows.2++[leafValue answers lay tree leaf digits (2*pair+half)])
+      else do
+        let last ← layChain lay tree leaf (2*pair+half) (digits.getD (2*pair+half) 0)
+          (maxDigit lay (2*pair+half)-digits.getD (2*pair+half) 0)
+          (leafValue answers lay tree leaf digits (2*pair+half))
+        pure (rows.1++[last],rows.2++[leafValue answers lay tree leaf digits (2*pair+half)])))
+    have ha := LeafRows.append answers lay tree leaf digits signatureOnly (2*pair+half) rows hrows (by omega)
+    cases signatureOnly <;> simpa only [Bool.false_eq_true,↓reduceIte,evalWithAnswerFn_bind,
+      evalWithAnswerFn_pure,leafValue_completes answers lay tree leaf digits hvalid (2*pair+half) (by omega),Nat.add_assoc] using ha
+def leafRows (lay : Layer) (tree leaf : Nat) (digits : List Nat) (signatureOnly : Bool) :
+    M (List Digest × List Digest) :=
+  (List.range ((chainCount lay+1)/2)).foldlM (fun rows pair => do
+    let seeds ← privatePair 0 lay.val tree pair leaf
+    (List.range 2).foldlM (leafHalf lay tree leaf digits signatureOnly pair seeds) rows) ([],[])
+theorem buildLeaf_eq (lay : Layer) (tree leaf : Nat) (digits : List Nat) (signatureOnly : Bool) :
+    buildLeaf lay tree leaf digits signatureOnly=(do
+      let rows ← leafRows lay tree leaf digits signatureOnly
+      if signatureOnly then return (0,rows.2)
+      let root ← leafHash lay tree leaf rows.1
+      pure (root,rows.2)) := rfl
+theorem eval_leafRows_correct (answers : Answers) {lay : Layer} (hlay : lay≠0) (tree leaf : Nat) (digits : List Nat)
+    (hvalid : ValidDigits lay digits) (signatureOnly : Bool) :
+    LeafRows answers lay tree leaf digits signatureOnly (2*((chainCount lay+1)/2))
+      (evalWithAnswerFn answers (leafRows lay tree leaf digits signatureOnly)) := by
+  unfold leafRows
+  refine eval_foldlM_range_inv answers _ _
+    (fun pair => LeafRows answers lay tree leaf digits signatureOnly (2*pair)) ([],[]) ?_ ?_
+  · simp [LeafRows]
+  · intro pair hp rows hrows
+    rw [evalWithAnswerFn_bind]
+    have hh := eval_foldlM_range_inv answers 2
+      (leafHalf lay tree leaf digits signatureOnly pair (evalWithAnswerFn answers (privatePair 0 lay.val tree pair leaf)))
+      (fun half => LeafRows answers lay tree leaf digits signatureOnly (2*pair+half)) rows
+      (by simpa using hrows) (fun half hhalf rows hrows =>
+        LeafRows.half answers hlay tree leaf digits hvalid signatureOnly pair half hhalf rows hrows)
+    simpa only [Nat.mul_add,Nat.mul_one] using hh
+theorem list_eq_range_map (values : List Digest) (f : Nat → Digest) (n : Nat)
+    (hlen : values.length=n) (hval : ∀ i,i < n → values.getD i 0=f i) :
+    values=(List.range n).map f := by
+  apply List.ext_getElem (by simp [hlen])
+  intro i hi hj
+  simpa only [List.getElem_map,List.getElem_range] using
+    (List.getD_eq_getElem values 0 hi).symm.trans (hval i (by omega))
+def leafRoot (answers : Answers) (lay : Layer) (tree leaf : Nat) : Digest :=
+  evalWithAnswerFn answers (leafHash lay tree leaf ((List.range (chainCount lay)).map (leafEnd answers lay tree leaf)))
+theorem eval_buildLeaf_root (answers : Answers) {lay : Layer} (hlay : lay≠0) (tree leaf : Nat)
+    (digits : List Nat) (hvalid : ValidDigits lay digits) :
+    (evalWithAnswerFn answers (buildLeaf lay tree leaf digits)).1=leafRoot answers lay tree leaf := by
+  have hr := eval_leafRows_correct answers hlay tree leaf digits hvalid false
+  have hn : chainCount lay ≤ 2*((chainCount lay+1)/2) := by omega
+  simp only [LeafRows,Bool.false_eq_true,ite_false,min_eq_right hn] at hr
+  have he := list_eq_range_map _ (leafEnd answers lay tree leaf) _ hr.1
+    (fun i hi => hr.2.2.1 i (by rw [hr.1];exact hi))
+  rw [buildLeaf_eq]
+  simp only [evalWithAnswerFn_bind,Bool.false_eq_true,ite_false,evalWithAnswerFn_pure,he]
+  rfl
+theorem eval_buildLeaf_values (answers : Answers) {lay : Layer} (hlay : lay≠0) (tree leaf : Nat)
+    (digits : List Nat) (hvalid : ValidDigits lay digits) (signatureOnly : Bool) :
+    (evalWithAnswerFn answers (buildLeaf lay tree leaf digits signatureOnly)).2=
+      (List.range (chainCount lay)).map (leafValue answers lay tree leaf digits) := by
+  have hr := eval_leafRows_correct answers hlay tree leaf digits hvalid signatureOnly
+  have hn : chainCount lay ≤ 2*((chainCount lay+1)/2) := by omega
+  simp only [LeafRows,min_eq_right hn] at hr
+  have he := list_eq_range_map _ (leafValue answers lay tree leaf digits) _ hr.2.1
+    (fun i hi => hr.2.2.2 i (by rw [hr.2.1];exact hi))
+  rw [buildLeaf_eq]
+  cases signatureOnly <;> simp only [evalWithAnswerFn_bind,Bool.false_eq_true,↓reduceIte,evalWithAnswerFn_pure,he]
+theorem recover_buildLeaf_values (answers : Answers) {lay : Layer} (hlay : lay≠0) (tree leaf : Nat)
+    (digits : List Nat) (hvalid : ValidDigits lay digits) (signatureOnly : Bool) :
+    evalWithAnswerFn answers ((List.finRange (chainCount lay)).mapM fun i =>
+      chain lay tree leaf i.val (digits.getD i.val 0) (maxDigit lay i.val-digits.getD i.val 0)
+        ((evalWithAnswerFn answers (buildLeaf lay tree leaf digits signatureOnly)).2.getD i.val 0))=
+      (List.range (chainCount lay)).map (leafEnd answers lay tree leaf) := by
+  rw [eval_mapM,eval_buildLeaf_values answers hlay tree leaf digits hvalid signatureOnly]
+  apply List.ext_getElem (by simp)
+  intro i hi hj
+  simp only [List.length_map,List.length_finRange] at hi
+  simp only [List.getElem_map,List.getElem_finRange,List.getElem_range,Fin.val_cast,Fin.val_mk]
+  have hv : ((List.range (chainCount lay)).map (leafValue answers lay tree leaf digits)).getD i 0=
+      leafValue answers lay tree leaf digits i := by simp [List.getD_eq_getElem,hi]
+  rw [hv]
+  exact leafValue_completes_lower answers hlay tree leaf digits hvalid i hi
+/-- One chain step of `buildLeafTopC` (img-v6) with the leaf's coefficients `coefs`. -/
+def topLeafStep (leaf : Nat) (digits : List Nat) (signatureOnly : Bool) (coefs : List Digest)
+    (state : List Digest × List Digest) (i : Nat) : M (List Digest × List Digest) := do
+  let digit := digits.getD i 0
+  let value ← topChain leaf i 0 digit (topSeed coefs leaf i)
+  if signatureOnly then return (state.1,state.2++[value])
+  let last ← topChain leaf i digit (maxDigit 0 i-digit) value
+  pure (state.1++[last],state.2++[value])
+theorem buildLeafTopC_eq (leaf : Nat) (coefs : List Digest) (digits : List Nat) (signatureOnly : Bool) :
+    buildLeafTopC leaf coefs digits signatureOnly=(do
+      let rows ← (List.range (chainCount 0)).foldlM (topLeafStep leaf digits signatureOnly coefs) ([],[])
+      if signatureOnly then return (0,rows.2)
+      let root ← leafHash 0 0 leaf rows.1
+      pure (root,rows.2)) := rfl
+theorem buildLeafTop_eq (leaf : Nat) (digits : List Nat) (signatureOnly : Bool) :
+    buildLeafTop leaf digits signatureOnly=(do
+      let coefs ← topCoefs leaf
+      let rows ← (List.range (chainCount 0)).foldlM (topLeafStep leaf digits signatureOnly coefs) ([],[])
+      if signatureOnly then return (0,rows.2)
+      let root ← leafHash 0 0 leaf rows.1
+      pure (root,rows.2)) := rfl
+theorem eval_topLeafRows (answers : Answers) (leaf : Nat) (digits : List Nat) (hvalid : ValidDigits 0 digits)
+    (signatureOnly : Bool) :
+    LeafRows answers 0 0 leaf digits signatureOnly (chainCount 0)
+      (evalWithAnswerFn answers ((List.range (chainCount 0)).foldlM
+        (topLeafStep leaf digits signatureOnly (topCoefList answers leaf)) ([],[]))) := by
+  refine eval_foldlM_range_inv answers _ _ (fun i => LeafRows answers 0 0 leaf digits signatureOnly i) ([],[])
+    (by simp [LeafRows]) ?_
+  intro i hi rows hrows
+  have ha := LeafRows.append answers 0 0 leaf digits signatureOnly i rows hrows hi
+  unfold topLeafStep
+  rw [show topSeed (topCoefList answers leaf) leaf i=leafSeed answers 0 0 leaf i from
+    (leafSeed_top answers 0 leaf i).symm]
+  simp only [← layChain_top 0]
+  simp only [evalWithAnswerFn_bind]
+  change LeafRows answers 0 0 leaf digits signatureOnly (i+1)
+    (evalWithAnswerFn answers (if signatureOnly then pure (rows.1,rows.2++[leafValue answers 0 0 leaf digits i])
+    else do
+      let last ← layChain 0 0 leaf i (digits.getD i 0) (maxDigit 0 i-digits.getD i 0) (leafValue answers 0 0 leaf digits i)
+      pure (rows.1++[last],rows.2++[leafValue answers 0 0 leaf digits i])))
+  cases signatureOnly <;> simpa only [Bool.false_eq_true,↓reduceIte,evalWithAnswerFn_bind,
+    evalWithAnswerFn_pure,leafValue_completes answers 0 0 leaf digits hvalid i hi] using ha
+/-- img-v6: a top leaf built with the honest family coefficients has the honest root. -/
+theorem eval_buildLeafTopC_root (answers : Answers) (leaf : Nat) (digits : List Nat) (hvalid : ValidDigits 0 digits) :
+    (evalWithAnswerFn answers (buildLeafTopC leaf (topCoefList answers leaf) digits)).1=leafRoot answers 0 0 leaf := by
+  have hr := eval_topLeafRows answers leaf digits hvalid false
+  simp only [LeafRows,Bool.false_eq_true,ite_false,min_self] at hr
+  have he := list_eq_range_map _ (leafEnd answers 0 0 leaf) _ hr.1
+    (fun i hi => hr.2.2.1 i (by rw [hr.1];exact hi))
+  rw [buildLeafTopC_eq]
+  simp only [evalWithAnswerFn_bind,Bool.false_eq_true,ite_false,evalWithAnswerFn_pure,he]
+  rfl
+theorem eval_buildLeafTopC_values (answers : Answers) (leaf : Nat) (digits : List Nat) (hvalid : ValidDigits 0 digits)
+    (signatureOnly : Bool) :
+    (evalWithAnswerFn answers (buildLeafTopC leaf (topCoefList answers leaf) digits signatureOnly)).2=
+      (List.range (chainCount 0)).map (leafValue answers 0 0 leaf digits) := by
+  have hr := eval_topLeafRows answers leaf digits hvalid signatureOnly
+  simp only [LeafRows,min_self] at hr
+  have he := list_eq_range_map _ (leafValue answers 0 0 leaf digits) _ hr.2.1
+    (fun i hi => hr.2.2.2 i (by rw [hr.2.1];exact hi))
+  rw [buildLeafTopC_eq]
+  cases signatureOnly <;> simp only [evalWithAnswerFn_bind,Bool.false_eq_true,↓reduceIte,
+    evalWithAnswerFn_pure,he]
+theorem eval_buildLeafTop_root (answers : Answers) (leaf : Nat) (digits : List Nat) (hvalid : ValidDigits 0 digits) :
+    (evalWithAnswerFn answers (buildLeafTop leaf digits)).1=leafRoot answers 0 0 leaf := by
+  unfold buildLeafTop
+  rw [evalWithAnswerFn_bind,eval_topCoefs]
+  exact eval_buildLeafTopC_root answers leaf digits hvalid
+theorem eval_buildLeafTop_values (answers : Answers) (leaf : Nat) (digits : List Nat) (hvalid : ValidDigits 0 digits)
+    (signatureOnly : Bool) :
+    (evalWithAnswerFn answers (buildLeafTop leaf digits signatureOnly)).2=
+      (List.range (chainCount 0)).map (leafValue answers 0 0 leaf digits) := by
+  unfold buildLeafTop
+  rw [evalWithAnswerFn_bind,eval_topCoefs]
+  exact eval_buildLeafTopC_values answers leaf digits hvalid signatureOnly
+end SigGolfCandidate.T3.Correctness
+namespace SigGolfCandidate.T3.Correctness
+open OracleComp OracleSpec
+set_option maxHeartbeats 1000000
+set_option maxRecDepth 10000
+set_option backward.isDefEq.respectTransparency false
+set_option linter.unusedSimpArgs false
+theorem sibling_pair (f : Nat → Digest) (node : Nat) :
+    (if node%2=0 then (f node,f (node ^^^ 1)) else (f (node ^^^ 1),f node))=
+      (f (2*(node/2)),f (2*(node/2)+1)) := by
+  by_cases he : node%2=0
+  · rw [if_pos he,Nat.xor_one_of_even (Nat.even_iff.mpr he)]
+    have hn : node=2*(node/2) := by omega
+    conv_lhs => rw [hn]
+  · rw [if_neg he,Nat.xor_one_of_odd (Nat.odd_iff.mpr (by omega))]
+    have hn : node=2*(node/2)+1 := by omega
+    have hs : node-1=2*(node/2) := by omega
+    rw [hs]
+    exact Prod.ext rfl (congrArg f hn)
+theorem div_pow_succ (node level : Nat) : node/2^level/2=node/2^(level+1) := by
+  rw [Nat.div_div_eq_div_mul,pow_succ]
+theorem div_pow_bound {node height start level : Nat} (hl : start+level ≤ height)
+    (hn : node < 2^(height-start)) : node/2^level < 2^(height-(start+level)) := by
+  apply (Nat.div_lt_iff_lt_mul (by positivity)).mpr
+  have he : height-start=height-(start+level)+level := by omega
+  calc node < 2^(height-start) := hn
+       _ = 2^(height-(start+level))*2^level := by rw [he,pow_add]
+theorem eval_merklePath (answers : Answers) (tag lay tree h start n node : Nat)
+    (levels : List (List Digest)) (leaves : List Digest)
+    (htree : TreeLevels answers tag lay tree h leaves h levels)
+    (hsteps : start+n ≤ h) (hnode : node < 2^(h-start)) (path : Fin n → Digest)
+    (hpath : ∀ j,path j=treeValue levels (start+j.val) (node/2^j.val ^^^ 1)) :
+    evalWithAnswerFn answers ((List.finRange n).foldlM (fun value j => do
+      let other := path j
+      let pair := if node/2^j.val%2=0 then (value,other) else (other,value)
+      nodeHash tag lay tree (2^(h-(start+j.val+1))+node/2^(j.val+1)) pair.1 pair.2)
+      (treeValue levels start node))=treeValue levels (start+n) (node/2^n) := by
+  have hi := eval_foldlM_list_inv answers (List.finRange n)
+    (fun value j => do
+      let other := path j
+      let pair := if node/2^j.val%2=0 then (value,other) else (other,value)
+      nodeHash tag lay tree (2^(h-(start+j.val+1))+node/2^(j.val+1)) pair.1 pair.2)
+    (fun i value => value=treeValue levels (start+i) (node/2^i))
+    (treeValue levels start node) (by simp) (fun i hi value hv => ?_)
+  · simpa only [List.length_finRange] using hi
+  · simp only [List.length_finRange] at hi
+    simp only [List.getElem_finRange,Fin.val_cast,Fin.val_mk,hpath,hv]
+    rw [sibling_pair,div_pow_succ]
+    have hp := htree.2.2 (start+i) (by omega) (node/2^(i+1))
+      (div_pow_bound (start := start) (level := i+1) (by omega) hnode)
+    simpa only [treeValue,Nat.add_assoc] using hp.symm
+end SigGolfCandidate.T3.Correctness
+namespace SigGolfCandidate.T3.Correctness
+open OracleComp OracleSpec Cost
+set_option maxHeartbeats 1000000
+set_option maxRecDepth 10000
+set_option backward.isDefEq.respectTransparency false
+set_option linter.unusedSimpArgs false
+def treeRows (lay : Layer) (tree selected : Nat) (digits : List Nat) : M (List Digest × List Digest) :=
+  (List.range (2^height lay)).foldlM (fun rows leaf => do
+    let (root,values) ← buildLeaf lay tree leaf (if leaf=selected then digits else [])
+    pure (rows.1++[root],if leaf=selected then values else rows.2)) ([],[])
+theorem buildTree_eq (lay : Layer) (tree selected : Nat) (digits : List Nat) :
+    buildTree lay tree selected digits=(do
+      let rows ← treeRows lay tree selected digits
+      let levels ← buildLevels 3 lay.val tree (height lay) rows.1
+      pure (levels,rows.2)) := rfl
+theorem eval_treeRows (answers : Answers) {lay : Layer} (hlay : lay≠0) (tree selected : Nat) (digits : List Nat)
+    (hvalid : ValidDigits lay digits) :
+    evalWithAnswerFn answers (treeRows lay tree selected digits)=
+      ((List.range (2^height lay)).map (leafRoot answers lay tree),
+       if selected < 2^height lay then (List.range (chainCount lay)).map (leafValue answers lay tree selected digits) else []) := by
+  unfold treeRows
+  apply Prod.ext
+  all_goals
+    have hr := eval_foldlM_range_inv answers (2^height lay)
+      (fun rows leaf => do
+        let (root,values) ← buildLeaf lay tree leaf (if leaf=selected then digits else [])
+        pure (rows.1++[root],if leaf=selected then values else rows.2))
+      (fun done rows => rows.1=(List.range done).map (leafRoot answers lay tree) ∧
+        rows.2=if selected < done then (List.range (chainCount lay)).map (leafValue answers lay tree selected digits) else [])
+      ([],[]) (by simp) (fun leaf hleaf rows hrows => ?_)
+    try exact hr.1
+    try exact hr.2
+    simp only [evalWithAnswerFn_bind,evalWithAnswerFn_pure]
+    have hd : ValidDigits lay (if leaf=selected then digits else []) := by
+      split <;> first | exact hvalid | exact validDigits_nil lay
+    constructor
+    · rw [eval_buildLeaf_root answers hlay tree leaf _ hd,hrows.1,List.range_succ,List.map_append,List.map_singleton]
+    · by_cases he : leaf=selected
+      · subst leaf
+        simp only [ite_true,eval_buildLeaf_values answers hlay tree selected digits hvalid false,
+          Nat.lt_succ_self,if_true]
+      · rw [if_neg he,hrows.2]
+        have hc : (selected < leaf+1) ↔ selected < leaf := by omega
+        simp only [hc]
+/-- Top-bytes layer: the top tree (`lay = 0`) is built with node nonces (`buildTopLevels`). -/
+def builtTree (answers : Answers) (lay : Layer) (tree : Nat) : List (List Digest) :=
+  if lay = 0 then evalWithAnswerFn answers (buildTopLevels ((List.range (2^height lay)).map (leafRoot answers lay tree)))
+  else evalWithAnswerFn answers (buildLevels 3 lay.val tree (height lay)
+    ((List.range (2^height lay)).map (leafRoot answers lay tree)))
+theorem eval_buildTree_levels (answers : Answers) {lay : Layer} (hlay : lay≠0) (tree selected : Nat)
+    (digits : List Nat) (hvalid : ValidDigits lay digits) :
+    (evalWithAnswerFn answers (buildTree lay tree selected digits)).1=builtTree answers lay tree := by
+  rw [buildTree_eq,builtTree,if_neg hlay]
+  simp only [evalWithAnswerFn_bind,evalWithAnswerFn_pure,eval_treeRows answers hlay tree selected digits hvalid]
+theorem eval_buildTree_values (answers : Answers) {lay : Layer} (hlay : lay≠0) (tree selected : Nat)
+    (digits : List Nat) (hvalid : ValidDigits lay digits) (hsel : selected < 2^height lay) :
+    (evalWithAnswerFn answers (buildTree lay tree selected digits)).2=
+      (List.range (chainCount lay)).map (leafValue answers lay tree selected digits) := by
+  rw [buildTree_eq]
+  simp only [evalWithAnswerFn_bind,evalWithAnswerFn_pure,eval_treeRows answers hlay tree selected digits hvalid,hsel,ite_true]
+theorem builtTree_correct (answers : Answers) {lay : Layer} (hl : lay ≠ 0) (tree : Nat) :
+    TreeLevels answers 3 lay.val tree (height lay)
+      ((List.range (2^height lay)).map (leafRoot answers lay tree)) (height lay) (builtTree answers lay tree) := by
+  unfold builtTree
+  rw [if_neg hl]
+  exact eval_buildLevels_correct answers 3 lay.val tree (height lay) _ (by simp)
+/-- Top-bytes layer: the top tree's levels with nonce-searched nodes. -/
+theorem builtTopTree_correct (answers : Answers) (tree : Nat) :
+    TopTreeLevels answers ((List.range (2^height 0)).map (leafRoot answers 0 tree)) 12 (builtTree answers 0 tree) := by
+  unfold builtTree
+  rw [if_pos rfl]
+  exact eval_buildTopLevels_correct answers _ (by simp [height])
+theorem builtTree_leaves (answers : Answers) (lay : Layer) (tree : Nat) :
+    (builtTree answers lay tree).getD 0 []=(List.range (2^height lay)).map (leafRoot answers lay tree) := by
+  by_cases hl : lay = 0
+  · subst hl
+    exact (builtTopTree_correct answers tree).2.1
+  · exact (builtTree_correct answers hl tree).2.1
+theorem builtTree_leaf (answers : Answers) (lay : Layer) (tree leaf : Nat) (hleaf : leaf < 2^height lay) :
+    treeValue (builtTree answers lay tree) 0 leaf=leafRoot answers lay tree leaf := by
+  unfold treeValue
+  rw [builtTree_leaves]
+  simp [List.getD_eq_getElem,hleaf]
+/-- img-v6: the honest state of the keygen family loop (`buildTopTree`) after the top leaves `0..n-1`: the leaf
+roots, the coefficients of the current family (inside a family) and the carry (ordinal `39 ⌈n / 4⌉`, whenever the
+next family start is odd). -/
+def TopTreeState (answers : Answers) (n : Nat) (st : List Digest × List Digest × Digest) : Prop :=
+  st.1=(List.range n).map (leafRoot answers 0 0) ∧ (n%4≠0 → st.2.1=topCoefList answers n) ∧
+    ((n+3)/4%2=1 → st.2.2=topOrdHalf answers (topCoefCount*((n+3)/4)))
+/-- img-v6 (keygen/signer agreement): in the honest family loop the coefficients used for leaf `n` (fresh at a
+family start, carried over otherwise) are `topCoefList answers n`, those the signer recomputes; and the loop state
+stays honest. -/
+theorem topTreeStep_coefs (answers : Answers) (n : Nat) (st : List Digest × List Digest × Digest)
+    (h : TopTreeState answers n st) :
+    (evalWithAnswerFn answers (topFamilyCoefs n st.2)).1=topCoefList answers n ∧
+    ((n+1)%4≠0 → (evalWithAnswerFn answers (topFamilyCoefs n st.2)).1=
+      topCoefList answers (n+1)) ∧
+    ((n+4)/4%2=1 → (evalWithAnswerFn answers (topFamilyCoefs n st.2)).2=
+      topOrdHalf answers (topCoefCount*((n+4)/4))) := by
+  unfold topFamilyCoefs
+  by_cases hn : n%4=0
+  · rw [if_pos hn,eval_topCoefsK answers (n/4) st.2.2 (fun ho => by
+      rw [h.2.2 (by rw [show (n+3)/4=n/4 by omega]; exact ho),show (n+3)/4=n/4 by omega])]
+    refine ⟨(topCoefList_eq answers n).symm,fun _ => ?_,fun ho => ?_⟩
+    · rw [topCoefList_eq,show (n+1)/4=n/4 by omega]
+    · dsimp only
+      rw [if_pos (by omega),show (n+4)/4=n/4+1 by omega,Nat.mul_add,Nat.mul_one]
+  · rw [if_neg hn,evalWithAnswerFn_pure]
+    refine ⟨h.2.1 hn,fun h1 => (h.2.1 hn).trans (topCoefList_congr answers (by omega)),fun ho => ?_⟩
+    rw [h.2.2 (by rw [show (n+3)/4=(n+4)/4 by omega]; exact ho),show (n+3)/4=(n+4)/4 by omega]
+theorem topTreeState_zero (answers : Answers) : TopTreeState answers 0 ([],[],0) :=
+  ⟨rfl,fun h => absurd rfl h,fun h => absurd h (by decide)⟩
+theorem eval_topTreeStep (answers : Answers) (n : Nat) (st : List Digest × List Digest × Digest)
+    (h : TopTreeState answers n st) :
+    TopTreeState answers (n+1) (evalWithAnswerFn answers (topTreeStep st n)) := by
+  obtain ⟨hc1,hc1',hc2⟩ := topTreeStep_coefs answers n st h
+  unfold topTreeStep
+  simp only [evalWithAnswerFn_bind,evalWithAnswerFn_pure]
+  refine ⟨?_,hc1',?_⟩
+  · rw [hc1,eval_buildLeafTopC_root answers n [] (validDigits_nil 0),h.1,List.range_succ,List.map_append,
+      List.map_singleton]
+  · simpa only [show n+1+3=n+4 by omega] using hc2
+/-- img-v6: the keygen family loop over the first `n` top leaves stays honest. -/
+theorem eval_topTreeLoop (answers : Answers) (n : Nat) :
+    TopTreeState answers n (evalWithAnswerFn answers ((List.range n).foldlM topTreeStep ([],[],0))) :=
+  eval_foldlM_range_inv answers n topTreeStep (TopTreeState answers) ([],[],0) (topTreeState_zero answers)
+    (fun i _ st hst => eval_topTreeStep answers i st hst)
+/-- img-v6: the keygen top tree (4-leaf seed families with carry) evaluates to `builtTree answers 0 0`. -/
+theorem eval_buildTopTree (answers : Answers) : evalWithAnswerFn answers buildTopTree=builtTree answers 0 0 := by
+  unfold buildTopTree builtTree
+  rw [evalWithAnswerFn_bind,(eval_topTreeLoop answers (2^height 0)).1]
+  rfl
+theorem eval_chains_honest (answers : Answers) (lay : Layer) (tree leaf : Nat) (digits : List Nat)
+    (hvalid : ValidDigits lay digits) (values : Fin (chainCount lay) → Digest)
+    (hvalues : ∀ i,values i=leafValue answers lay tree leaf digits i.val) :
+    evalWithAnswerFn answers ((List.finRange (chainCount lay)).mapM fun i =>
+      layChain lay tree leaf i.val (digits.getD i.val 0) (maxDigit lay i.val-digits.getD i.val 0) (values i))=
+      (List.range (chainCount lay)).map (leafEnd answers lay tree leaf) := by
+  rw [eval_mapM]
+  apply List.ext_getElem (by simp)
+  intro i hi hj
+  simp only [List.length_map,List.length_finRange] at hi
+  simp only [List.getElem_map,List.getElem_finRange,List.getElem_range,hvalues,Fin.val_cast,Fin.val_mk]
+  exact leafValue_completes answers lay tree leaf digits hvalid i hi
+theorem eval_recoverLayer_honest (answers : Answers) (sig : Signature) (index : Nat)
+    (lay : Layer) (hl : lay ≠ 0) (digits : List Nat) (hvalid : ValidDigits lay digits)
+    (hvalues : ∀ i,(sig.layers lay).values i=
+      leafValue answers lay (route index lay).2 (route index lay).1 digits i.val)
+    (hpath : ∀ j,(sig.layers lay).path j=treeValue (builtTree answers lay (route index lay).2)
+      j.val ((route index lay).1/2^j.val ^^^ 1)) :
+    evalWithAnswerFn answers (recoverLayer sig index lay digits)=
+      treeValue (builtTree answers lay (route index lay).2) (height lay) 0 := by
+  unfold recoverLayer
+  simp only [evalWithAnswerFn_bind]
+  rw [eval_chains_honest answers lay _ _ digits hvalid _ hvalues]
+  have hp := eval_merklePath answers 3 lay.val (route index lay).2 (height lay) 0 (height lay)
+    (route index lay).1 (builtTree answers lay (route index lay).2)
+    ((List.range (2^height lay)).map (leafRoot answers lay (route index lay).2))
+    (builtTree_correct answers hl (route index lay).2) (by omega)
+    (by simpa using route_leaf_bound index lay) (sig.layers lay).path (by simpa using hpath)
+  rw [builtTree_leaf answers lay _ _ (route_leaf_bound index lay)] at hp
+  simpa only [Nat.zero_add,Nat.sub_sub,Nat.div_eq_of_lt (route_leaf_bound index lay),leafRoot] using hp
+end SigGolfCandidate.T3.Correctness
+namespace SigGolfCandidate.T3.Correctness
+open OracleComp OracleSpec
+open SphincsSecurity (bytesLE bytesLE_length)
+set_option maxHeartbeats 1000000
+set_option maxRecDepth 10000
+set_option backward.isDefEq.respectTransparency false
+set_option linter.unusedSimpArgs false
+theorem readLE_nat_bytes (value start n : Nat) :
+    readLE ((List.range' start n).map (fun i => UInt8.ofNat (value/256^i%256)))=
+      value/256^start%256^n := by
+  induction n generalizing start with
+  | zero => simp [readLE,Nat.mod_one]
+  | succ n ih =>
+      simp only [List.range'_succ,List.map_cons,readLE,List.foldr_cons]
+      change (UInt8.ofNat (value/256^start%256)).toNat+256*readLE
+        ((List.range' (start+1) n).map (fun i => UInt8.ofNat (value/256^i%256)))=_
+      rw [ih]
+      simp only [UInt8.toNat_ofNat',show 2^8=256 by decide,Nat.mod_mod]
+      rw [pow_succ 256 n,Nat.mul_comm (256^n) 256,Nat.mod_mul,pow_succ 256 start,
+        Nat.div_div_eq_div_mul]
+theorem readLE_bytesLE (n : Nat) (value : BitVec (8*n)) :
+    readLE (bytesLE n value)=value.toNat := by
+  have hb : bytesLE n value=(List.range' 0 n).map (fun i => UInt8.ofNat (value.toNat/256^i%256)) := by
+    apply List.ext_getElem (by simp [bytesLE_length])
+    intro i hi hj
+    simp only [bytesLE,List.getElem_ofFn,List.getElem_map,List.getElem_range',Nat.one_mul,Nat.zero_add]
+    apply UInt8.toNat_inj.mp
+    simp only [UInt8.toNat_ofBitVec,BitVec.extractLsb'_toNat,Nat.shiftRight_eq_div_pow,
+      UInt8.toNat_ofNat',show 2^8=256 by decide,Nat.mod_mod]
+    rw [Nat.pow_mul]
+  rw [hb,readLE_nat_bytes,pow_zero,Nat.div_one]
+  apply Nat.mod_eq_of_lt
+  have hv := value.isLt
+  simpa only [Nat.pow_mul] using hv
+theorem readDigest_bytesLE (value : Digest) : readDigest (bytesLE 16 value)=value := by
+  unfold readDigest
+  rw [readLE_bytesLE]
+  exact BitVec.ofNat_toNat 128 value
+theorem bytesLE_flatMap_getD (values : List Digest) (index byte : Nat)
+    (hi : index < values.length) (hb : byte < 16) :
+    (values.flatMap (bytesLE 16)).getD (16*index+byte) 0=(bytesLE 16 (values.getD index 0)).getD byte 0 := by
+  induction values generalizing index with
+  | nil => simp at hi
+  | cons value values ih =>
+      cases index with
+      | zero =>
+          simp only [List.flatMap_cons,List.getD_cons_zero,Nat.mul_zero,Nat.zero_add]
+          exact List.getD_append _ _ _ _ (by simpa only [bytesLE_length] using hb)
+      | succ index =>
+          rw [List.flatMap_cons,List.getD_append_right _ _ _ _ (by rw [bytesLE_length];omega)]
+          have hs : 16*(index+1)+byte-16=16*index+byte := by omega
+          rw [bytesLE_length,hs,List.getD_cons_succ]
+          exact ih index (by simpa using hi)
+theorem readDigest_flatMap (values : List Digest) (index : Nat) (hi : index < values.length) :
+    readDigest (List.ofFn fun i : Fin 16 => (values.flatMap (bytesLE 16)).getD (16*index+i.val) 0)=
+      values.getD index 0 := by
+  have he : (List.ofFn fun i : Fin 16 => (values.flatMap (bytesLE 16)).getD (16*index+i.val) 0)=
+      bytesLE 16 (values.getD index 0) := by
+    apply List.ext_getElem (by simp [bytesLE_length])
+    intro i hi' hj
+    simp only [List.length_ofFn] at hi'
+    simp only [List.getElem_ofFn,bytesLE_flatMap_getD values index i hi hi']
+    exact List.getD_eq_getElem _ 0 hj
+  rw [he,readDigest_bytesLE]
+end SigGolfCandidate.T3.Correctness
+namespace SigGolfCandidate.T3.Correctness
+open OracleComp OracleSpec
+open SphincsSecurity (bytesLE bytesLE_length)
+set_option maxHeartbeats 1000000
+set_option maxRecDepth 10000
+set_option backward.isDefEq.respectTransparency false
+set_option linter.unusedSimpArgs false
+def cacheWordList (f : Nat → Nat → Digest) : List Digest :=
+  (List.range' 0 12).flatMap fun level => (List.range (2^(12-level))).map (f level)
+theorem cacheWordList_prefix_length (f : Nat → Nat → Digest) (level : Nat)
+    (hlo : 0 ≤ level) (hhi : level ≤ 12) :
+    ((List.range' 0 level).flatMap fun j => (List.range (2^(12-j))).map (f j)).length=
+      8192-2^(13-level) := by
+  simp only [List.length_flatMap,List.length_map,List.length_range]
+  interval_cases level <;> decide +kernel
+theorem cacheWordList_length (f : Nat → Nat → Digest) : (cacheWordList f).length=8190 := by
+  exact cacheWordList_prefix_length f 12 (by decide) (by decide)
+theorem cacheWordList_getD (f : Nat → Nat → Digest) (level node : Nat)
+    (hlo : 0 ≤ level) (hhi : level < 12) (hnode : node < 2^(12-level)) :
+    (cacheWordList f).getD (8192-2^(13-level)+node) 0=f level node := by
+  unfold cacheWordList
+  have hrange : List.range' 0 12=List.range' 0 level++List.range' level (12-level) := by
+    have he := List.range'_append_1 (s := 0) (m := level) (n := 12-level)
+    rw [Nat.zero_add,show level+(12-level)=12 by omega] at he
+    exact he.symm
+  rw [hrange,List.flatMap_append]
+  rw [List.getD_append_right _ _ _ _ (by rw [cacheWordList_prefix_length f level hlo (by omega)];omega)]
+  rw [cacheWordList_prefix_length f level hlo (by omega),Nat.add_sub_cancel_left]
+  rw [show 12-level=(11-level)+1 by omega,List.range'_succ,List.flatMap_cons]
+  rw [List.getD_append _ _ _ _ (by simpa only [List.length_map,List.length_range] using hnode)]
+  simp [List.getD_eq_getElem,hnode]
+theorem cacheWordList_serialized_length (f : Nat → Nat → Digest) :
+    ((cacheWordList f).flatMap (bytesLE 16)).length=131040 := by
+  rw [digest_list_bytes_length,cacheWordList_length]
+def cacheRegion (f : Nat → Nat → Digest) : Region :=
+  let raw := ((cacheWordList f).flatMap (bytesLE 16)).toArray
+  fun i => raw.getD i.val 0
+theorem cacheRegion_get (f : Nat → Nat → Digest) (i : Fin 131040) :
+    cacheRegion f i=((cacheWordList f).flatMap (bytesLE 16)).getD i.val 0 := by
+  simp only [cacheRegion,Array.getD_eq_getD_getElem?,List.getElem?_toArray,List.getD_eq_getElem?_getD]
+end SigGolfCandidate.T3.Correctness
+namespace SigGolfCandidate.T3.Correctness
+open OracleComp OracleSpec Cost
+open SphincsSecurity (bytesLE bytesLE_length)
+set_option maxHeartbeats 1000000
+set_option maxRecDepth 10000
+set_option backward.isDefEq.respectTransparency false
+set_option linter.unusedSimpArgs false
+theorem cacheWord_offset_bound (level node : Nat) (hlo : 0 ≤ level) (hhi : level < 12)
+    (hnode : node < 2^(12-level)) : 8192-2^(13-level)+node < 8190 := by
+  interval_cases level <;> norm_num at hnode ⊢ <;> omega
+theorem cacheRegion_read (f : Nat → Nat → Digest) (level node : Nat)
+    (hlo : 0 ≤ level) (hhi : level < 12) (hnode : node < 2^(12-level)) :
+    readDigest (List.ofFn fun i : Fin 16 =>
+      cacheRegion f ⟨(16*(8192-2^(13-level)+node)+i.val)%131040,Nat.mod_lt _ (by decide)⟩)=f level node := by
+  have hword := cacheWord_offset_bound level node hlo hhi hnode
+  have he : (List.ofFn fun i : Fin 16 =>
+      cacheRegion f ⟨(16*(8192-2^(13-level)+node)+i.val)%131040,Nat.mod_lt _ (by decide)⟩)=
+      (List.ofFn fun i : Fin 16 => ((cacheWordList f).flatMap (bytesLE 16)).getD
+        (16*(8192-2^(13-level)+node)+i.val) 0) := by
+    congr 1
+    funext i
+    rw [cacheRegion_get]
+    simp only [Fin.val_mk,Nat.mod_eq_of_lt (show 16*(8192-2^(13-level)+node)+i.val < 131040 by omega)]
+  rw [he,readDigest_flatMap _ _ (by rw [cacheWordList_length];exact hword),
+    cacheWordList_getD f level node hlo hhi hnode]
+def maskedTop (answers : Answers) (level node : Nat) : Digest :=
+  treeValue (builtTree answers 0 0) level node ^^^ evalWithAnswerFn answers (mask level node)
+theorem eval_mask_even (A : Answers) (level pair : Nat) :
+    evalWithAnswerFn A (mask level (2*pair))=(evalWithAnswerFn A (pairedMask level pair)).1 := by
+  simp [mask,evalWithAnswerFn_bind,evalWithAnswerFn_pure,Nat.mul_div_cancel_left]
+theorem eval_mask_odd (A : Answers) (level pair : Nat) :
+    evalWithAnswerFn A (mask level (2*pair+1))=(evalWithAnswerFn A (pairedMask level pair)).2 := by
+  have hd : (2*pair+1)/2=pair := by omega
+  have hm : (2*pair+1)%2=1 := by omega
+  simp [mask,evalWithAnswerFn_bind,evalWithAnswerFn_pure,hd,hm]
+theorem paired_list (f : Nat → Digest) (n : Nat) :
+    (List.range n).flatMap (fun p => [f (2*p),f (2*p+1)])=(List.range (2*n)).map f := by
+  induction n with
+  | zero => rfl
+  | succ n ih =>
+      rw [List.range_succ,List.flatMap_append,ih]
+      have hr : List.range (2*(n+1))=List.range (2*n)++[2*n,2*n+1] := by
+        rw [show 2*(n+1)=((2*n)+1)+1 by omega,List.range_succ,List.range_succ]
+        simp only [List.append_assoc,List.singleton_append]
+      rw [hr,List.map_append]
+      rfl
+theorem eval_maskedLevel (A : Answers) (nodes : List Digest) (level : Nat) (hl : level < 12) :
+    evalWithAnswerFn A (maskedLevel nodes level)=
+      (List.range (2^(12-level))).map fun node => nodes.getD node 0 ^^^ evalWithAnswerFn A (mask level node) := by
+  simp only [maskedLevel,evalWithAnswerFn_bind,eval_mapM,evalWithAnswerFn_pure]
+  have h : (List.range (2^(11-level))).map (fun pair =>
+      [nodes.getD (2*pair) 0 ^^^ (evalWithAnswerFn A (pairedMask level pair)).1,
+       nodes.getD (2*pair+1) 0 ^^^ (evalWithAnswerFn A (pairedMask level pair)).2]) =
+      (List.range (2^(11-level))).map (fun pair =>
+      [nodes.getD (2*pair) 0 ^^^ evalWithAnswerFn A (mask level (2*pair)),
+       nodes.getD (2*pair+1) 0 ^^^ evalWithAnswerFn A (mask level (2*pair+1))]) := by
+    simp only [eval_mask_even,eval_mask_odd]
+  rw [h,← List.flatMap_def,paired_list (fun node => nodes.getD node 0 ^^^ evalWithAnswerFn A (mask level node))]
+  rw [show 2*(2^(11-level))=2^(12-level) by
+    rw [show 12-level=(11-level)+1 by omega,pow_succ];omega]
+def cachePayloadProgram (builder : M (List (List Digest))) : M (Digest × Region) := do
+  let levels ← builder
+  let masked ← (List.range' 0 12).mapM fun level => maskedLevel (levels.getD level []) level
+  let raw := (masked.flatten.flatMap (bytesLE 16)).toArray
+  pure ((levels.getD 12 []).getD 0 0,fun i => raw.getD i.val 0)
+theorem keygenPayload_eq : keygenPayload=cachePayloadProgram buildTopTree := rfl
+theorem eval_cachePayloadProgram (answers : Answers) (builder : M (List (List Digest))) :
+    evalWithAnswerFn answers (cachePayloadProgram builder)=
+      (treeValue (evalWithAnswerFn answers builder) 12 0,
+       cacheRegion fun level node => treeValue (evalWithAnswerFn answers builder) level node ^^^
+         evalWithAnswerFn answers (mask level node)) := by
+  simp only [cachePayloadProgram,evalWithAnswerFn_bind,eval_mapM,evalWithAnswerFn_pure]
+  have h : (List.range' 0 12).map (fun level => evalWithAnswerFn answers
+      (maskedLevel ((evalWithAnswerFn answers builder).getD level []) level)) =
+      (List.range' 0 12).map (fun level => (List.range (2^(12-level))).map fun node =>
+        treeValue (evalWithAnswerFn answers builder) level node ^^^ evalWithAnswerFn answers (mask level node)) := by
+    apply List.map_congr_left
+    intro level hlevel
+    have hl : level < 12 := by have := (List.mem_range'_1.mp hlevel); omega
+    rw [eval_maskedLevel answers _ level hl]
+    rfl
+  rw [h]
+  rfl
+def PayloadCorrect (answers : Answers) (result : Digest × Region) : Prop :=
+  result.1=treeValue (builtTree answers 0 0) 12 0 ∧ result.2=cacheRegion (maskedTop answers)
+theorem cachePayloadProgram_correct (answers : Answers) (builder : M (List (List Digest)))
+    (hlevels : evalWithAnswerFn answers builder=builtTree answers 0 0) :
+    PayloadCorrect answers (evalWithAnswerFn answers (cachePayloadProgram builder)) := by
+  rw [eval_cachePayloadProgram,hlevels]
+  exact ⟨rfl,rfl⟩
+theorem keygenPayload_correct (answers : Answers) : PayloadCorrect answers (evalWithAnswerFn answers keygenPayload) := by
+  rw [keygenPayload_eq]
+  exact cachePayloadProgram_correct answers _ (eval_buildTopTree answers)
+def KeygenCorrect (answers : Answers) (result : Digest × Cache) : Prop :=
+  result.1=treeValue (builtTree answers 0 0) 12 0 ∧
+  result.2.region=cacheRegion (maskedTop answers) ∧ CacheTagCorrect answers result
+theorem cache_payload_correct (answers : Answers) (payload : M (Digest × Region))
+    (hp : PayloadCorrect answers (evalWithAnswerFn answers payload)) :
+    KeygenCorrect answers (evalWithAnswerFn answers (do
+      let (publicKey,region) ← payload
+      let tag ← privateMac region
+      pure (publicKey,Cache.mk tag region))) := by
+  simp only [KeygenCorrect,evalWithAnswerFn_bind,evalWithAnswerFn_pure]
+  exact ⟨hp.1,hp.2,rfl⟩
+theorem keygen_correct (answers : Answers) : KeygenCorrect answers (evalWithAnswerFn answers keygen) := by
+  exact cache_payload_correct answers keygenPayload (keygenPayload_correct answers)
+theorem honest_cache_read (answers : Answers) (cache : Cache)
+    (hcache : cache.region=cacheRegion (maskedTop answers)) (leaf level : Nat)
+    (hleaf : leaf < 4096) (hlo : 0 ≤ level) (hhi : level < 12) :
+    let sibling := leaf/2^level ^^^ 1
+    let offset := 16*(8192-2^(13-level)+sibling)
+    readDigest (List.ofFn fun i : Fin 16 => cache.region ⟨(offset+i.val)%131040,Nat.mod_lt _ (by decide)⟩) ^^^
+      evalWithAnswerFn answers (mask level sibling)=treeValue (builtTree answers 0 0) level sibling := by
+  dsimp only
+  rw [hcache,cacheRegion_read]
+  · simp only [maskedTop,BitVec.xor_assoc,BitVec.xor_self,BitVec.xor_zero]
+  · exact hlo
+  · exact hhi
+  · have hd : leaf/2^level < 2^(12-level) := by
+      simpa only [Nat.zero_add] using
+        div_pow_bound (node := leaf) (height := 12) (start := 0) (level := level) (by omega) hleaf
+    exact Nat.xor_lt_two_pow hd (Nat.one_lt_two_pow (by omega))
+/-- Top-bytes layer: a level-1 top node is the nonce-searched hash of its two leaf roots. -/
+theorem top_parent (answers : Answers) (node : Nat) (hn : node < 2048) :
+    topLevelNode answers 1 (2048+node) (leafRoot answers 0 0 (2*node)) (leafRoot answers 0 0 (2*node+1))=
+      treeValue (builtTree answers 0 0) 1 node := by
+  have ht := (builtTopTree_correct answers 0).2.2 0 (by decide) node hn
+  change treeValue (builtTree answers 0 0) 1 node=topLevelNode answers 1 (2048+node)
+      (treeValue (builtTree answers 0 0) 0 (2*node)) (treeValue (builtTree answers 0 0) 0 (2*node+1)) at ht
+  rw [builtTree_leaf answers 0 0 (2*node) (by change 2*node < 4096;omega),
+    builtTree_leaf answers 0 0 (2*node+1) (by change 2*node+1 < 4096;omega)] at ht
+  exact ht.symm
+theorem eval_topPath_honest (answers : Answers) (cache : Cache) (leaf : Nat)
+    (hcache : cache.region=cacheRegion (maskedTop answers)) (hleaf : leaf < 4096) :
+    evalWithAnswerFn answers (topPath cache leaf)=
+      (List.range 12).map (fun j => treeValue (builtTree answers 0 0) j (leaf/2^j ^^^ 1)) := by
+  simp only [topPath,evalWithAnswerFn_bind,eval_mapM,evalWithAnswerFn_pure]
+  apply List.map_congr_left
+  intro level hlevel
+  exact honest_cache_read answers cache hcache leaf level hleaf (by omega) (List.mem_range.mp hlevel)
+def honestPieces (answers : Answers) (lay : Layer) (tree leaf : Nat) (digits : List Nat) : Pieces :=
+  ((List.range (chainCount lay)).map (leafValue answers lay tree leaf digits),
+   (List.range (height lay)).map fun j => treeValue (builtTree answers lay tree) j (leaf/2^j ^^^ 1))
+theorem eval_signTop_honest (answers : Answers) (cache : Cache) (leaf : Nat) (digits : List Nat)
+    (hcache : cache.region=cacheRegion (maskedTop answers)) (hleaf : leaf < 4096)
+    (hvalid : ValidDigits 0 digits) :
+    evalWithAnswerFn answers (signTop cache leaf digits)=honestPieces answers 0 0 leaf digits := by
+  simp only [signTop,evalWithAnswerFn_bind,evalWithAnswerFn_pure,
+    eval_buildLeafTop_values answers leaf digits hvalid true,eval_topPath_honest answers cache leaf hcache hleaf]
+  rfl
+theorem recoverLayer_honestPieces (answers : Answers) (sig : Signature) (index : Nat) (lay : Layer) (hl : lay ≠ 0)
+    (digits : List Nat) (hvalid : ValidDigits lay digits)
+    (hlayer : sig.layers lay=piecesSignature lay
+      (honestPieces answers lay (route index lay).2 (route index lay).1 digits)) :
+    evalWithAnswerFn answers (recoverLayer sig index lay digits)=
+      treeValue (builtTree answers lay (route index lay).2) (height lay) 0 := by
+  apply eval_recoverLayer_honest answers sig index lay hl digits hvalid
+  · intro i
+    rw [hlayer]
+    simp [piecesSignature,honestPieces,List.getD_eq_getElem,i.isLt]
+  · intro j
+    rw [hlayer]
+    simp [piecesSignature,honestPieces,List.getD_eq_getElem,j.isLt]
+end SigGolfCandidate.T3.Correctness
+namespace SigGolfCandidate.T3.Correctness
+open OracleComp OracleSpec Cost
+set_option maxHeartbeats 1000000
+set_option maxRecDepth 10000
+set_option backward.isDefEq.respectTransparency false
+set_option linter.unusedSimpArgs false
+theorem eval_buildTree_result (answers : Answers) {lay : Layer} (hlay : lay≠0) (tree selected : Nat)
+    (digits : List Nat) (hvalid : ValidDigits lay digits) (hsel : selected < 2^height lay) :
+    evalWithAnswerFn answers (buildTree lay tree selected digits)=
+      (builtTree answers lay tree,(List.range (chainCount lay)).map (leafValue answers lay tree selected digits)) := by
+  exact Prod.ext (eval_buildTree_levels answers hlay tree selected digits hvalid)
+    (eval_buildTree_values answers hlay tree selected digits hvalid hsel)
+def PiecesAgree (sig : Signature) (pieces : List Pieces) (n : Nat) : Prop :=
+  ∀ lay : Layer,lay.val < n → sig.layers lay=piecesSignature lay (pieces.getD lay.val ([],[]))
+theorem PiecesAgree.prefix {sig : Signature} {previous : List Pieces} {part : Pieces} {n : Nat}
+    (hlen : previous.length=n) (h : PiecesAgree sig (previous++[part]) (n+1)) : PiecesAgree sig previous n := by
+  intro lay hlay
+  rw [h lay (by omega),List.getD_append previous [part] ([],[]) lay.val (by omega)]
+theorem PiecesAgree.last {sig : Signature} {previous : List Pieces} {part : Pieces} {n : Nat}
+    (hlen : previous.length=n) (hn : n < 4) (h : PiecesAgree sig (previous++[part]) (n+1)) :
+    sig.layers (Fin.ofNat 4 n)=piecesSignature (Fin.ofNat 4 n) part := by
+  have hv : (Fin.ofNat 4 n : Layer).val=n := Nat.mod_eq_of_lt hn
+  rw [h _ (by rw [hv];omega),hv,List.getD_append_right previous [part] ([],[]) n (by omega),hlen]
+  simp
+def layerResultRoot (answers : Answers) (n : Nat) (value : Digest) : Digest :=
+  if n=0 then value else treeValue (builtTree answers 0 0) 12 0
+def TopSearchesSucceed (answers : Answers) : Prop :=
+  ∀ index,index < 2^31 → ∀ m : Digest,∃ found,
+    evalWithAnswerFn answers (counterSearch (Fin.ofNat 4 0) (route index (Fin.ofNat 4 0)).2
+      (route index (Fin.ofNat 4 0)).1 m 0 counterLimit)=some found
+end SigGolfCandidate.T3.Correctness
+namespace SigGolfCandidate.T3.Correctness
+open OracleComp OracleSpec Cost
+set_option maxHeartbeats 1000000
+set_option maxRecDepth 10000
+set_option backward.isDefEq.respectTransparency false
+set_option linter.unusedSimpArgs false
+theorem recoverOuter_correct (answers : Answers) (sig : Signature) (index coord bucket used : Nat)
+    (levels : List (List Digest)) (leaves : List Digest)
+    (htree : TreeLevels answers 10 coord index 11 leaves 11 levels)
+    (hb : bucket < 16) (hfit : used+4 ≤ 115)
+    (hproof : Matches sig.proof ((List.range 4).map fun j => treeValue levels (7+j) (bucket/2^j ^^^ 1)) used) :
+    evalWithAnswerFn answers (recoverOuter sig index coord bucket (some (treeValue levels 7 bucket,used)))=
+      some (treeValue levels 11 0,used+4) := by
+  unfold recoverOuter
+  refine (eval_foldlM_range_inv answers 4 _
+    (fun j state => state=some (treeValue levels (7+j) (bucket/2^j),used+j))
+    (some (treeValue levels 7 bucket,used)) (by simp) ?_).trans ?_
+  · intro j hj state hs
+    rw [hs]
+    have hu : used+j < 115 := by omega
+    simp only [hu,dif_pos,evalWithAnswerFn_bind,evalWithAnswerFn_pure]
+    have hp := hproof j (by simp;exact hj) hu
+    have hg : ((List.range 4).map fun k => treeValue levels (7+k) (bucket/2^k ^^^ 1)).getD j 0=
+        treeValue levels (7+j) (bucket/2^j ^^^ 1) := by simp [List.getD_eq_getElem,hj]
+    rw [hg] at hp
+    rw [hp,sibling_pair,div_pow_succ]
+    have hnode : bucket/2^(j+1) < 2^(11-(7+j+1)) := by
+      simpa only [Nat.add_assoc] using
+        div_pow_bound (node := bucket) (height := 11) (start := 7) (level := j+1) (by omega) hb
+    have ht := htree.2.2 (7+j) (by omega) (bucket/2^(j+1)) hnode
+    have he : 4-j-1=11-(7+j+1) := by omega
+    rw [he]
+    change some (evalWithAnswerFn answers (nodeHash 10 coord index
+      (2^(11-(7+j+1))+bucket/2^(j+1))
+      (treeValue levels (7+j) (2*(bucket/2^(j+1))))
+      (treeValue levels (7+j) (2*(bucket/2^(j+1))+1))),used+j+1)=_
+    simp only [treeValue]
+    rw [← ht]
+    simp only [Nat.add_assoc]
+  · simp only [show (7 : Nat)+4=11 by decide,show (2 : Nat)^4=16 by decide,
+      Nat.div_eq_of_lt hb]
+theorem builtFts_treeLevels (answers : Answers) (index coord : Nat) :
+    let built := evalWithAnswerFn answers (buildFts index coord)
+    TreeLevels answers 10 coord index 11 (built.1.getD 0 []) 11 built.1 := by
+  have ht := eval_buildFts_correct answers index coord
+  exact ⟨ht.1,rfl,ht.2.2.2⟩
+def forestInner (answers : Answers) (index coord : Nat) (sel : Selection) : List Digest :=
+  (frontier (sel.leaves.map fun leaf => sel.bucket*128+leaf) 7 sel.bucket).map
+    fun p => treeValue (evalWithAnswerFn answers (buildFts index coord)).1 p.1 p.2
+def forestOuter (answers : Answers) (index coord : Nat) (sel : Selection) : List Digest :=
+  (List.range 4).map fun j => treeValue (evalWithAnswerFn answers (buildFts index coord)).1
+    (7+j) (sel.bucket/2^j ^^^ 1)
+theorem forestStep_correct (answers : Answers) (sig : Signature) (index coord used : Nat)
+    (chosen : List Selection) (sel : Selection) (roots : List Digest)
+    (hsel : chosen.getD coord ⟨0,[]⟩=sel)
+    (hbucket : sel.bucket < 16) (hlen : sel.leaves.length=3) (hn : sel.leaves.Nodup)
+    (hs : sel.leaves.SortedLE) (hb : ∀ leaf,leaf ∈ sel.leaves → leaf < 128)
+    (hfit : used+authCount sel.leaves+4 ≤ 115)
+    (hvalues : (List.range 3).map (fun j => sig.secrets ⟨(coord*3+j)%21,Nat.mod_lt _ (by decide)⟩)=
+      (sel.leaves.map fun leaf => sel.bucket*128+leaf).map
+        fun leaf => (evalWithAnswerFn answers (buildFts index coord)).2.getD leaf 0)
+    (hproof : Matches sig.proof (forestInner answers index coord sel++forestOuter answers index coord sel) used) :
+    evalWithAnswerFn answers (forestStep sig index chosen coord (some (roots,used)))=
+      some (roots++[treeValue (evalWithAnswerFn answers (buildFts index coord)).1 11 0],
+        used+authCount sel.leaves+4) := by
+  have hinner := built_bucket_recovery answers index coord sel.bucket used sel.leaves sig.proof
+    hbucket hlen hn hs hb (by omega) hproof.left
+  have hcount : (forestInner answers index coord sel).length=authCount sel.leaves := by
+    simp only [forestInner,List.length_map]
+    exact bucket_frontier_length sel.leaves sel.bucket hlen hn hs hb
+  have houterproof := hproof.right
+  rw [hcount] at houterproof
+  have houter := recoverOuter_correct answers sig index coord sel.bucket (used+authCount sel.leaves)
+    (evalWithAnswerFn answers (buildFts index coord)).1
+    ((evalWithAnswerFn answers (buildFts index coord)).1.getD 0 [])
+    (builtFts_treeLevels answers index coord) hbucket hfit houterproof
+  simp only [forestStep,evalWithAnswerFn_bind,hsel,hvalues,hinner,houter,evalWithAnswerFn_pure]
+def forestUsed (chosen : List Selection) (n : Nat) : Nat :=
+  ((List.range n).map fun coord => authCount (chosen.getD coord ⟨0,[]⟩).leaves+4).sum
+def forestRoots (answers : Answers) (index n : Nat) : List Digest :=
+  (List.range n).map fun coord => treeValue (evalWithAnswerFn answers (buildFts index coord)).1 11 0
+theorem forestUsed_succ (chosen : List Selection) (n : Nat) :
+    forestUsed chosen (n+1)=forestUsed chosen n+authCount (chosen.getD n ⟨0,[]⟩).leaves+4 := by
+  simp [forestUsed,List.range_succ,Nat.add_assoc]
+theorem forestRoots_succ (answers : Answers) (index n : Nat) :
+    forestRoots answers index (n+1)=forestRoots answers index n++
+      [treeValue (evalWithAnswerFn answers (buildFts index n)).1 11 0] := by
+  simp [forestRoots,List.range_succ]
+theorem recoverFts_honest (answers : Answers) (sig : Signature) (index : Nat) (chosen : List Selection)
+    (hcoords : ∀ coord,coord < 7 →
+      let sel := chosen.getD coord ⟨0,[]⟩
+      sel.bucket < 16 ∧ sel.leaves.length=3 ∧ sel.leaves.Nodup ∧ sel.leaves.SortedLE ∧
+      (∀ leaf,leaf ∈ sel.leaves → leaf < 128) ∧
+      forestUsed chosen coord+authCount sel.leaves+4 ≤ 115 ∧
+      ((List.range 3).map (fun j => sig.secrets ⟨(coord*3+j)%21,Nat.mod_lt _ (by decide)⟩)=
+        (sel.leaves.map fun leaf => sel.bucket*128+leaf).map
+          fun leaf => (evalWithAnswerFn answers (buildFts index coord)).2.getD leaf 0) ∧
+      Matches sig.proof (forestInner answers index coord sel++forestOuter answers index coord sel)
+        (forestUsed chosen coord))
+    (hpad : ∀ j,j < 115-forestUsed chosen 7 →
+      sig.proof ⟨(forestUsed chosen 7+j)%115,Nat.mod_lt _ (by decide)⟩=0) :
+    evalWithAnswerFn answers (recoverFts sig index chosen)=
+      some (evalWithAnswerFn answers (forestPk index (forestRoots answers index 7))) := by
+  have hfold : evalWithAnswerFn answers ((List.range 7).foldlM
+      (fun state coord => forestStep sig index chosen coord state) (some ([],0)))=
+      some (forestRoots answers index 7,forestUsed chosen 7) := by
+    apply eval_foldlM_range_inv answers 7 _
+      (fun n state => state=some (forestRoots answers index n,forestUsed chosen n)) _ (by rfl)
+    intro coord hc state hs
+    rw [hs]
+    obtain ⟨hb,hlen,hn,hord,hleaf,hfit,hvalues,hproof⟩ := hcoords coord hc
+    rw [forestStep_correct answers sig index coord (forestUsed chosen coord) chosen _ _ rfl
+      hb hlen hn hord hleaf hfit hvalues hproof,forestRoots_succ,forestUsed_succ]
+  have hzero : (List.range (115-forestUsed chosen 7)).all (fun j =>
+      decide (sig.proof ⟨(forestUsed chosen 7+j)%115,Nat.mod_lt _ (by decide)⟩=0))=true := by
+    simp only [List.all_eq_true,decide_eq_true_eq,List.mem_range]
+    exact hpad
+  unfold recoverFts
+  change evalWithAnswerFn answers (do
+    let state ← (List.range 7).foldlM (fun state coord => forestStep sig index chosen coord state) (some ([],0))
+    let some (roots,used) := state | pure none
+    if !(List.range (115-used)).all (fun j =>
+      decide (sig.proof ⟨(used+j)%115,Nat.mod_lt _ (by decide)⟩=0)) then return none
+    pure (some (← forestPk index roots)))=_
+  simp only [evalWithAnswerFn_bind,hfold,hzero,Bool.not_true,Bool.false_eq_true,ite_false,evalWithAnswerFn_pure]
+end SigGolfCandidate.T3.Correctness
+namespace SigGolfCandidate.T3.Correctness
+open OracleComp OracleSpec Cost
+set_option maxHeartbeats 1000000
+set_option maxRecDepth 10000
+set_option backward.isDefEq.respectTransparency false
+set_option linter.unusedSimpArgs false
+def forestOpened (answers : Answers) (index coord : Nat) (sel : Selection) : List Digest :=
+  (sel.leaves.map fun leaf => sel.bucket*128+leaf).map
+    fun leaf => (evalWithAnswerFn answers (buildFts index coord)).2.getD leaf 0
+def forestRows (index : Nat) (chosen : List Selection) : M (List Digest × List Digest × List Digest) :=
+  (List.range 7).foldlM (fun (state : List Digest × List Digest × List Digest) coord => do
+    let sel := chosen.getD coord ⟨0,[]⟩
+    let (levels,secrets) ← buildFts index coord
+    let selected := sel.leaves.map fun s => sel.bucket*128+s
+    let opened := selected.map fun s => secrets.getD s 0
+    let inner := (frontier selected 7 sel.bucket).map fun p => (levels.getD p.1 []).getD p.2 0
+    let outer := (List.range 4).map fun j => (levels.getD (7+j) []).getD (sel.bucket/2^j ^^^ 1) 0
+    pure (state.1++opened,state.2.1++inner++outer,state.2.2++[(levels.getD 11 []).getD 0 0])) ([],[],[])
+def forestOpenPrefix (answers : Answers) (index : Nat) (chosen : List Selection) (n : Nat) : List Digest :=
+  (List.range n).flatMap fun coord => forestOpened answers index coord (chosen.getD coord ⟨0,[]⟩)
+def forestProofPrefix (answers : Answers) (index : Nat) (chosen : List Selection) (n : Nat) : List Digest :=
+  (List.range n).flatMap fun coord =>
+    forestInner answers index coord (chosen.getD coord ⟨0,[]⟩)++forestOuter answers index coord (chosen.getD coord ⟨0,[]⟩)
+theorem eval_forestRows (answers : Answers) (index : Nat) (chosen : List Selection) :
+    evalWithAnswerFn answers (forestRows index chosen)=
+      (forestOpenPrefix answers index chosen 7,forestProofPrefix answers index chosen 7,forestRoots answers index 7) := by
+  unfold forestRows
+  refine eval_foldlM_range_inv answers 7 _
+    (fun n state => state=(forestOpenPrefix answers index chosen n,
+      forestProofPrefix answers index chosen n,forestRoots answers index n)) ([],[],[]) rfl ?_
+  intro coord hc state hs
+  simp only [evalWithAnswerFn_bind,evalWithAnswerFn_pure]
+  change (state.1++forestOpened answers index coord (chosen.getD coord ⟨0,[]⟩),
+    state.2.1++forestInner answers index coord (chosen.getD coord ⟨0,[]⟩)++
+      forestOuter answers index coord (chosen.getD coord ⟨0,[]⟩),
+    state.2.2++[treeValue (evalWithAnswerFn answers (buildFts index coord)).1 11 0])=_
+  rw [hs,forestRoots_succ]
+  simp only [forestOpenPrefix,forestProofPrefix,List.range_succ,List.flatMap_append,
+    List.flatMap_singleton,List.append_assoc]
+theorem signPayload_forestRows (cache : Cache) (message : Message) : signPayload cache message=(do
+    let rho ← privateNonce message
+    let some (_,output) ← digestSearch rho message 0 attemptLimit | pure none
+    let index := output.toNat%2^31
+    let state ← forestRows index (selections output)
+    let root ← forestPk index state.2.2
+    let some layers ← signLayers cache index 4 root | pure none
+    pure (some ⟨rho,fun i => state.1.getD i.val 0,fun i => state.2.1.getD i.val 0,
+      fun lay => piecesSignature lay (layers.getD lay.val ([],[]))⟩)) := rfl
+theorem flatMap_range_split {α : Type} (blocks : Nat → List α) (n coord : Nat) (hc : coord < n) :
+    (List.range n).flatMap blocks=(List.range coord).flatMap blocks++blocks coord++
+      (List.range' (coord+1) (n-coord-1)).flatMap blocks := by
+  have hr : List.range n=List.range coord++[coord]++List.range' (coord+1) (n-coord-1) := by
+    rw [List.range_eq_range',List.range_eq_range']
+    have he := List.range'_append_1 (s := 0) (m := coord) (n := n-coord)
+    simp only [Nat.zero_add] at he
+    rw [Nat.add_sub_of_le (by omega)] at he
+    rw [← he,show n-coord=(n-coord-1)+1 by omega,List.range'_succ]
+    simp only [List.append_assoc,List.singleton_append,Nat.add_sub_cancel]
+  rw [hr,List.flatMap_append,List.flatMap_append,List.flatMap_singleton]
+theorem flatMap_range_getD (blocks : Nat → List Digest) (n coord j : Nat)
+    (hc : coord < n) (hj : j < (blocks coord).length) :
+    ((List.range n).flatMap blocks).getD (((List.range coord).flatMap blocks).length+j) 0=
+      (blocks coord).getD j 0 := by
+  rw [flatMap_range_split blocks n coord hc,List.append_assoc]
+  rw [List.getD_append_right _ _ _ _ (by omega),Nat.add_sub_cancel_left,
+    List.getD_append _ _ _ _ hj]
+theorem flatMap_range_prefix_bound {α : Type} (blocks : Nat → List α) (n coord : Nat) (hc : coord < n) :
+    ((List.range coord).flatMap blocks).length+(blocks coord).length ≤ ((List.range n).flatMap blocks).length := by
+  rw [flatMap_range_split blocks n coord hc,List.length_append,List.length_append]
+  omega
+theorem selection_getD_mem (output : HashOutput) (coord : Nat) (hc : coord < 7) :
+    (selections output).getD coord ⟨0,[]⟩ ∈ selections output := by
+  have hi : coord < (selections output).length := by rw [selections_length];exact hc
+  rw [List.getD_eq_getElem _ _ hi]
+  exact List.getElem_mem hi
+theorem map_getD_range {α β : Type} (items : List α) (fallback : α) (f : α → β) :
+    (List.range items.length).map (fun i => f (items.getD i fallback))=items.map f := by
+  apply List.ext_getElem (by simp)
+  intro i hi hj
+  simp only [List.length_map,List.length_range] at hi
+  simp only [List.getElem_map,List.getElem_range,List.getD_eq_getElem items fallback hi]
+theorem forestOpenPrefix_length (answers : Answers) (index : Nat) (output : HashOutput) :
+    ∀ n,n ≤ 7 → (forestOpenPrefix answers index (selections output) n).length=3*n := by
+  intro n
+  induction n with
+  | zero => intro _;rfl
+  | succ n ih =>
+      intro hn
+      have hl := selection_leaves_length output _ (selection_getD_mem output n (by omega))
+      have hh := ih (by omega)
+      simpa only [forestOpenPrefix,List.range_succ,List.flatMap_append,List.flatMap_singleton,
+        List.length_append,forestOpened,List.length_map,hl,Nat.mul_add,Nat.mul_one] using congrArg (fun k => k+3) hh
+theorem forestProofPrefix_length (answers : Answers) (index : Nat) (output : HashOutput)
+    (hadm : admissible (selections output)=true) (n : Nat) (hn : n ≤ 7) :
+    (forestProofPrefix answers index (selections output) n).length=forestUsed (selections output) n := by
+  have hnodup : ∀ sel ∈ selections output,sel.leaves.Nodup := by
+    have hh : (∀ sel ∈ selections output,sel.leaves.Nodup) ∧
+        28+((selections output).map fun sel => authCount sel.leaves).sum ≤ 115 := by
+      simpa only [admissible,Bool.and_eq_true,List.all_eq_true,decide_eq_true_eq] using hadm
+    exact hh.1
+  unfold forestProofPrefix forestUsed
+  rw [List.length_flatMap]
+  apply congrArg List.sum
+  apply List.map_congr_left
+  intro coord hc
+  have hc : coord < 7 := by have hh := List.mem_range.mp hc;omega
+  have hm := selection_getD_mem output coord hc
+  simp only [List.length_append,forestInner,forestOuter,List.length_map,List.length_range]
+  rw [bucket_frontier_length _ _ (selection_leaves_length output _ hm) (hnodup _ hm)
+    (selection_leaves_sorted output _ hm) (fun leaf hh => selection_leaf_bound output _ leaf hm hh)]
+theorem forestUsed_capacity (output : HashOutput) (hadm : admissible (selections output)=true) :
+    forestUsed (selections output) 7 ≤ 115 := by
+  have hcap : 28+((selections output).map fun sel => authCount sel.leaves).sum ≤ 115 := by
+    have hh : (∀ sel ∈ selections output,sel.leaves.Nodup) ∧
+        28+((selections output).map fun sel => authCount sel.leaves).sum ≤ 115 := by
+      simpa only [admissible,Bool.and_eq_true,List.all_eq_true,decide_eq_true_eq] using hadm
+    exact hh.2
+  have he : forestUsed (selections output) 7=
+      ((List.range 7).map fun coord => authCount ((selections output).getD coord ⟨0,[]⟩).leaves).sum+28 := by
+    unfold forestUsed
+    rw [List.sum_map_add]
+    simp
+  rw [he,← selections_length output,map_getD_range (selections output) ⟨0,[]⟩ (fun sel => authCount sel.leaves)]
+  omega
+theorem recoverFts_from_signer_lists (answers : Answers) (sig : Signature) (index : Nat) (output : HashOutput)
+    (hadm : admissible (selections output)=true)
+    (hsecrets : ∀ i,sig.secrets i=(forestOpenPrefix answers index (selections output) 7).getD i.val 0)
+    (hproof : ∀ i,sig.proof i=(forestProofPrefix answers index (selections output) 7).getD i.val 0) :
+    evalWithAnswerFn answers (recoverFts sig index (selections output))=
+      some (evalWithAnswerFn answers (forestPk index (forestRoots answers index 7))) := by
+  have hcap := forestUsed_capacity output hadm
+  apply recoverFts_honest answers sig index (selections output)
+  · intro coord hc
+    have hm := selection_getD_mem output coord hc
+    have hlen := selection_leaves_length output _ hm
+    have hb := selection_bucket_bound output _ hm
+    have hsorted := selection_leaves_sorted output _ hm
+    have hleaves := fun leaf hleaf => selection_leaf_bound output _ leaf hm hleaf
+    have hn : ((selections output).getD coord ⟨0,[]⟩).leaves.Nodup := by
+      have hh : (∀ sel ∈ selections output,sel.leaves.Nodup) ∧
+          28+((selections output).map fun sel => authCount sel.leaves).sum ≤ 115 := by
+        simpa only [admissible,Bool.and_eq_true,List.all_eq_true,decide_eq_true_eq] using hadm
+      exact hh.1 _ hm
+    have hblock : (forestInner answers index coord ((selections output).getD coord ⟨0,[]⟩)++
+        forestOuter answers index coord ((selections output).getD coord ⟨0,[]⟩)).length=
+        authCount ((selections output).getD coord ⟨0,[]⟩).leaves+4 := by
+      simp only [List.length_append,forestInner,forestOuter,List.length_map,List.length_range]
+      rw [bucket_frontier_length _ _ hlen hn hsorted hleaves]
+    refine ⟨hb,hlen,hn,hsorted,hleaves,?_,?_,?_⟩
+    · have hp := flatMap_range_prefix_bound (fun coord =>
+          forestInner answers index coord ((selections output).getD coord ⟨0,[]⟩)++
+          forestOuter answers index coord ((selections output).getD coord ⟨0,[]⟩)) 7 coord hc
+      change (forestProofPrefix answers index (selections output) coord).length+_
+        ≤ (forestProofPrefix answers index (selections output) 7).length at hp
+      rw [forestProofPrefix_length answers index output hadm coord (by omega),hblock,
+        forestProofPrefix_length answers index output hadm 7 le_rfl] at hp
+      omega
+    · apply List.ext_getElem (by simp only [List.length_map,List.length_range,hlen])
+      intro j hj hk
+      have hj3 : j < 3 := by simpa only [List.length_map,List.length_range] using hj
+      conv_lhs => rw [List.getElem_map,List.getElem_range]
+      change sig.secrets ⟨(coord*3+j)%21,Nat.mod_lt _ (by decide)⟩=
+        (forestOpened answers index coord ((selections output).getD coord ⟨0,[]⟩))[j]
+      rw [hsecrets]
+      simp only [Fin.val_mk,Nat.mod_eq_of_lt (show coord*3+j < 21 by omega)]
+      have hx := flatMap_range_getD
+        (fun k => forestOpened answers index k ((selections output).getD k ⟨0,[]⟩)) 7 coord j hc
+        (by simpa only [forestOpened,List.length_map,hlen] using hj3)
+      change (forestOpenPrefix answers index (selections output) 7).getD
+        ((forestOpenPrefix answers index (selections output) coord).length+j) 0=_ at hx
+      rw [forestOpenPrefix_length answers index output coord (by omega)] at hx
+      rw [show coord*3+j=3*coord+j by omega,hx]
+      exact List.getD_eq_getElem _ 0 _
+    · intro j hj hu
+      rw [hproof]
+      have hx := flatMap_range_getD (fun k =>
+        forestInner answers index k ((selections output).getD k ⟨0,[]⟩)++
+        forestOuter answers index k ((selections output).getD k ⟨0,[]⟩)) 7 coord j hc hj
+      change (forestProofPrefix answers index (selections output) 7).getD
+        ((forestProofPrefix answers index (selections output) coord).length+j) 0=_ at hx
+      rw [forestProofPrefix_length answers index output hadm coord (by omega)] at hx
+      exact hx
+  · intro j hj
+    rw [hproof]
+    simp only [Fin.val_mk,Nat.mod_eq_of_lt (show forestUsed (selections output) 7+j < 115 by omega)]
+    apply List.getD_eq_default
+    rw [forestProofPrefix_length answers index output hadm 7 le_rfl]
+    omega
+end SigGolfCandidate.T3.Correctness
+namespace SigGolfCandidate.T3.Correctness
+open OracleComp OracleSpec Cost
+set_option maxHeartbeats 1000000
+set_option maxRecDepth 10000
+set_option backward.isDefEq.respectTransparency false
+set_option linter.unusedSimpArgs false
+end SigGolfCandidate.T3.Correctness
+end
+-- ==== merged from ClaudeWCT_WCT9_Basic ====
+section
+
+namespace ClaudeWCT.WCT9
+open OracleComp OracleSpec SigGolfCandidate.T3
+open SphincsSecurity (bytesLE bytesLE_length bytesLE_injective)
+set_option maxHeartbeats 1000000
+set_option maxRecDepth 10000
+theorem wctHeader_eq_header (tag lay tree position index : Nat) (h : ¬ packedNodeTag tag) :
+    wctHeader tag lay tree position index = header tag lay tree position index := by
+  unfold wctHeader header
+  rw [if_neg h]
+  simp only [Nat.add_assoc]
+theorem forest_header_plain (index : Nat) :
+    header 15 0 index 0 0 = wctHeader 15 0 index 0 0 :=
+  (wctHeader_eq_header 15 0 index 0 0 (by decide)).symm
+theorem wct_tags_plain : ¬ packedNodeTag 6 ∧ ¬ packedNodeTag 15 ∧ packedNodeTag 3 := by decide
+theorem ftsChainLow_lt (index coord selected chain step : Nat) :
+    ftsChainLow index coord selected chain step < 2 ^ 58 := by
+  unfold ftsChainLow
+  have := Nat.mod_lt chain (show 0 < 8 by decide)
+  have := Nat.mod_lt step (show 0 < 4 by decide)
+  have := Nat.mod_lt (coord + 1) (show 0 < 16 by decide)
+  have := Nat.mod_lt selected (show 0 < 128 by decide)
+  have := Nat.mod_lt index (show 0 < 2 ^ 31 by decide)
+  norm_num only at *
+  omega
+theorem ftsChainLow_byte0 (index coord selected chain step : Nat) :
+    ftsChainLow index coord selected chain step % 256 = 128 + 4 * (chain % 8) := by
+  unfold ftsChainLow
+  have := Nat.mod_lt chain (show 0 < 8 by decide)
+  omega
+theorem ftsChainLow_injective {i k j t s i' k' j' t' s' : Nat}
+    (hi : i < 2 ^ 31) (hk : k < 16) (hj : j < 128) (ht : t < 8) (hs : s < 4)
+    (hi' : i' < 2 ^ 31) (hk' : k' < 16) (hj' : j' < 128) (ht' : t' < 8) (hs' : s' < 4)
+    (h : ftsChainLow i k j t s = ftsChainLow i' k' j' t' s') :
+    i = i' ∧ k = k' ∧ j = j' ∧ t = t' ∧ s = s' := by
+  unfold ftsChainLow at h
+  rw [Nat.mod_eq_of_lt hi, Nat.mod_eq_of_lt hj, Nat.mod_eq_of_lt ht,
+    Nat.mod_eq_of_lt hs, Nat.mod_eq_of_lt hi', Nat.mod_eq_of_lt hj',
+    Nat.mod_eq_of_lt ht', Nat.mod_eq_of_lt hs'] at h
+  norm_num only at h hi hi'
+  omega
+theorem ftsChainHeaderP_toNat (index coord selected chain step : Nat) (high : BitVec 64) :
+    (ftsChainHeaderP index coord selected chain step high).toNat =
+      high.toNat * 2 ^ 64 + ftsChainLow index coord selected chain step := by
+  have hq := ftsChainLow_lt index coord selected chain step
+  unfold ftsChainHeaderP
+  rw [BitVec.toNat_append, BitVec.toNat_ofNat, Nat.mod_eq_of_lt (by omega)]
+  have hlt : ftsChainLow index coord selected chain step < 2 ^ 64 := by omega
+  rw [← Nat.shiftLeft_add_eq_or_of_lt hlt, Nat.shiftLeft_eq]
+theorem ftsChainHeader_toNat (index coord selected chain step : Nat) :
+    (ftsChainHeader index coord selected chain step).toNat = ftsChainLow index coord selected chain step := by
+  unfold ftsChainHeader
+  rw [ftsChainHeaderP_toNat]
+  simp
+theorem ftsChainHeaderP_low (index coord selected chain step : Nat) (high : BitVec 64) :
+    (ftsChainHeaderP index coord selected chain step high).extractLsb' 0 64 =
+      BitVec.ofNat 64 (ftsChainLow index coord selected chain step) :=
+  BitVec.extractLsb'_append_eq_right
+theorem ftsChainHeaderP_high (index coord selected chain step : Nat) (high : BitVec 64) :
+    (ftsChainHeaderP index coord selected chain step high).extractLsb' 64 64 = high :=
+  BitVec.extractLsb'_append_eq_left
+theorem ftsChainHeaderP_injective {i k j t s i' k' j' t' s' : Nat} {high high' : BitVec 64}
+    (hi : i < 2 ^ 31) (hk : k < 16) (hj : j < 128) (ht : t < 8) (hs : s < 4)
+    (hi' : i' < 2 ^ 31) (hk' : k' < 16) (hj' : j' < 128) (ht' : t' < 8) (hs' : s' < 4)
+    (h : ftsChainHeaderP i k j t s high = ftsChainHeaderP i' k' j' t' s' high') :
+    i = i' ∧ k = k' ∧ j = j' ∧ t = t' ∧ s = s' ∧ high = high' := by
+  have hlo := congrArg (fun x : BitVec 128 => x.extractLsb' 0 64) h
+  have hhi := congrArg (fun x : BitVec 128 => x.extractLsb' 64 64) h
+  simp only [ftsChainHeaderP_low, ftsChainHeaderP_high] at hlo hhi
+  have hq := congrArg BitVec.toNat hlo
+  rw [BitVec.toNat_ofNat, BitVec.toNat_ofNat, Nat.mod_eq_of_lt (lt_trans (ftsChainLow_lt ..) (by decide)),
+    Nat.mod_eq_of_lt (lt_trans (ftsChainLow_lt ..) (by decide))] at hq
+  obtain ⟨e1, e2, e3, e4, e5⟩ := ftsChainLow_injective hi hk hj ht hs hi' hk' hj' ht' hs' hq
+  exact ⟨e1, e2, e3, e4, e5, hhi⟩
+theorem chainInput_eq (index coord selected chain step : Nat) (value : Digest) :
+    chainInput index coord selected chain step value =
+      zero16 ++ bytesLE 16 (ftsChainHeader index coord selected chain step) ++
+        zero16 ++ bytesLE 16 value := rfl
+theorem ftsLeafLow_lt (index coord selected : Nat) : ftsLeafLow index coord selected < 2 ^ 58 := by
+  unfold ftsLeafLow
+  have := Nat.mod_lt (coord + 1) (show 0 < 16 by decide)
+  have := Nat.mod_lt selected (show 0 < 128 by decide)
+  have := Nat.mod_lt index (show 0 < 2 ^ 31 by decide)
+  norm_num only at *
+  omega
+theorem ftsLeafLow_byte0 (index coord selected : Nat) : ftsLeafLow index coord selected % 256 = 1 := by
+  unfold ftsLeafLow
+  omega
+theorem ftsLeafLow_byte1 (index coord selected : Nat) : ftsLeafLow index coord selected / 2 ^ 8 % 256 = 6 := by
+  unfold ftsLeafLow
+  omega
+theorem ftsLeafLow_injective {i k j i' k' j' : Nat}
+    (hi : i < 2 ^ 31) (hk : k < 16) (hj : j < 128) (hi' : i' < 2 ^ 31) (hk' : k' < 16) (hj' : j' < 128)
+    (h : ftsLeafLow i k j = ftsLeafLow i' k' j') : i = i' ∧ k = k' ∧ j = j' := by
+  unfold ftsLeafLow at h
+  rw [Nat.mod_eq_of_lt hi, Nat.mod_eq_of_lt hj, Nat.mod_eq_of_lt hi',
+    Nat.mod_eq_of_lt hj'] at h
+  norm_num only at h hi hi'
+  omega
+theorem ftsLeafHeader_toNat (index coord selected : Nat) :
+    (ftsLeafHeader index coord selected).toNat = ftsLeafLow index coord selected := by
+  have hq := ftsLeafLow_lt index coord selected
+  unfold ftsLeafHeader
+  rw [BitVec.toNat_append, BitVec.toNat_ofNat, BitVec.toNat_ofNat, Nat.mod_eq_of_lt (lt_trans hq (by decide))]
+  simp
+theorem ftsLeafHeader_low (index coord selected : Nat) :
+    (ftsLeafHeader index coord selected).extractLsb' 0 64 = BitVec.ofNat 64 (ftsLeafLow index coord selected) :=
+  BitVec.extractLsb'_append_eq_right
+theorem ftsLeafHeader_high (index coord selected : Nat) :
+    (ftsLeafHeader index coord selected).extractLsb' 64 64 = 0 :=
+  BitVec.extractLsb'_append_eq_left
+theorem ftsLeafHeader_firstByte (index coord selected : Nat) :
+    (ftsLeafHeader index coord selected).toNat % 256 = 1 := by
+  rw [ftsLeafHeader_toNat, ftsLeafLow_byte0]
+theorem ftsLeafHeader_byte1 (index coord selected : Nat) :
+    (ftsLeafHeader index coord selected).toNat / 2 ^ 8 % 256 = 6 := by
+  rw [ftsLeafHeader_toNat, ftsLeafLow_byte1]
+theorem ftsLeafHeader_injective {i k j i' k' j' : Nat}
+    (hi : i < 2 ^ 31) (hk : k < 16) (hj : j < 128) (hi' : i' < 2 ^ 31) (hk' : k' < 16) (hj' : j' < 128)
+    (h : ftsLeafHeader i k j = ftsLeafHeader i' k' j') : i = i' ∧ k = k' ∧ j = j' := by
+  have hq := congrArg BitVec.toNat h
+  rw [ftsLeafHeader_toNat, ftsLeafHeader_toNat] at hq
+  exact ftsLeafLow_injective hi hk hj hi' hk' hj' hq
+theorem wctNodeHeader_eq {coord : Nat} (hk : coord < 9) (index : Nat) {heap : Nat} (hn : ¬ FtsNew heap) :
+    wctNodeHeader coord index heap = BitVec.ofNat 64 heap ++ BitVec.ofNat 64 (ftsLeafLow index coord 0) := by
+  unfold wctNodeHeader nodeLayer
+  rw [nodeTweak_fts (by omega) (by omega) _ hn, show 4 + coord - 4 = coord by omega]
+  rfl
+/-- Packed FTS node low word (heaps `8..127`): `ftsLeafLow index coord 0 - heap`. -/
+def ftsNodeLowN (index coord heap : Nat) : Nat := 1537 - heap + (coord + 1) % 16 * 2 ^ 16 + index % 2 ^ 31 * 2 ^ 27
+theorem ftsNodeLowN_eq (index coord heap : Nat) :
+    ftsNodeLowN index coord heap = 1537 - heap + (coord + 1) % 16 * 2 ^ 16 + index % 2 ^ 31 * 2 ^ 27 := rfl
+theorem ftsNodeLowN_lt (index coord heap : Nat) : ftsNodeLowN index coord heap < 2 ^ 58 := by
+  rw [ftsNodeLowN_eq]
+  have := Nat.mod_lt (coord + 1) (show 0 < 16 by decide)
+  have := Nat.mod_lt index (show 0 < 2 ^ 31 by decide)
+  omega
+theorem wctNodeHeader_eqN {coord : Nat} (hk : coord < 9) (index : Nat) {heap : Nat} (hn : FtsNew heap) :
+    wctNodeHeader coord index heap = 0#64 ++ BitVec.ofNat 64 (ftsNodeLowN index coord heap) := by
+  unfold wctNodeHeader nodeLayer
+  rw [nodeTweak_ftsN (by omega) (by omega) _ hn, show 4 + coord - 4 = coord by omega]
+  rfl
+theorem wctNodeHeader_toNat {coord : Nat} (hk : coord < 9) (index heap : Nat) :
+    (wctNodeHeader coord index heap).toNat =
+      if FtsNew heap then ftsNodeLowN index coord heap else heap % 2 ^ 64 * 2 ^ 64 + ftsLeafLow index coord 0 := by
+  by_cases hn : FtsNew heap
+  · rw [if_pos hn, wctNodeHeader_eqN hk index hn, append64_toNat]
+    have := ftsNodeLowN_lt index coord heap
+    simp only [BitVec.toNat_ofNat]; omega
+  · rw [if_neg hn, wctNodeHeader_eq hk index hn, append64_toNat, BitVec.toNat_ofNat, BitVec.toNat_ofNat,
+      Nat.mod_eq_of_lt (lt_trans (ftsLeafLow_lt _ _ _) (by decide))]
+theorem wctNodeHeader_low {coord : Nat} (hk : coord < 9) (index heap : Nat) :
+    (wctNodeHeader coord index heap).extractLsb' 0 64 =
+      BitVec.ofNat 64 (if FtsNew heap then ftsNodeLowN index coord heap else ftsLeafLow index coord 0) := by
+  by_cases hn : FtsNew heap
+  · rw [if_pos hn, wctNodeHeader_eqN hk index hn]; exact BitVec.extractLsb'_append_eq_right
+  · rw [if_neg hn, wctNodeHeader_eq hk index hn]; exact BitVec.extractLsb'_append_eq_right
+theorem wctNodeHeader_high {coord : Nat} (hk : coord < 9) (index heap : Nat) :
+    (wctNodeHeader coord index heap).extractLsb' 64 64 = BitVec.ofNat 64 (if FtsNew heap then 0 else heap) := by
+  by_cases hn : FtsNew heap
+  · rw [if_pos hn, wctNodeHeader_eqN hk index hn]; exact BitVec.extractLsb'_append_eq_left
+  · rw [if_neg hn, wctNodeHeader_eq hk index hn]; exact BitVec.extractLsb'_append_eq_left
+theorem wctNodeHeader_firstByte (coord index heap : Nat) :
+    (wctNodeHeader coord index heap).toNat % 256 = if coord < 9 ∧ FtsNew heap then 257 - heap else 1 := by
+  have h := nodeTweak_marker 3 (nodeLayer coord) index heap
+  unfold tweakMarker at h
+  unfold wctNodeHeader
+  rw [h, if_neg (by unfold nodeLayer; omega)]
+  unfold nodeLayer
+  by_cases hn : coord < 9 ∧ FtsNew heap
+  · rw [if_pos ⟨rfl, by omega, by omega, hn.2⟩, if_pos hn]
+  · rw [if_neg (fun h' => hn ⟨by omega, h'.2.2.2⟩), if_neg hn]
+theorem wctNodeHeader_firstByte_ne_zero (coord index heap : Nat) : (wctNodeHeader coord index heap).toNat % 256 ≠ 0 := by
+  rw [wctNodeHeader_firstByte]; unfold FtsNew; split <;> omega
+theorem wctNodeHeader_firstByte_lt (coord index heap : Nat) (hn : ¬ FtsNew heap) :
+    (wctNodeHeader coord index heap).toNat % 256 = 1 := by
+  rw [wctNodeHeader_firstByte, if_neg (fun h => hn h.2)]
+theorem wctNodeHeader_firstByteN {coord : Nat} (hk : coord < 9) (index : Nat) {heap : Nat} (hn : FtsNew heap) :
+    (wctNodeHeader coord index heap).toNat % 256 = 257 - heap := by
+  rw [wctNodeHeader_firstByte, if_pos ⟨hk, hn⟩]
+theorem wctNodeHeader_byte1 {coord : Nat} (hk : coord < 9) (index heap : Nat) :
+    (wctNodeHeader coord index heap).toNat / 2 ^ 8 % 256 = if FtsNew heap then 5 else 6 := by
+  rw [wctNodeHeader_toNat hk]
+  by_cases hn : FtsNew heap
+  · rw [if_pos hn, if_pos hn, ftsNodeLowN_eq]; obtain ⟨h8, h128⟩ := hn; omega
+  · rw [if_neg hn, if_neg hn]
+    have := ftsLeafLow_byte1 index coord 0
+    omega
+theorem wctNodeHeader_injective {k i h k' i' h' : Nat}
+    (hk : k < 9) (hi : i < 2 ^ 31) (hh : h < 2 ^ 64) (hk' : k' < 9) (hi' : i' < 2 ^ 31) (hh' : h' < 2 ^ 64)
+    (he : wctNodeHeader k i h = wctNodeHeader k' i' h') : k = k' ∧ i = i' ∧ h = h' := by
+  unfold wctNodeHeader nodeLayer at he
+  obtain ⟨e1, e2, e3⟩ := nodeTweak_fts_injective (by omega) (by omega) (by omega) (by omega) hi hi' hh hh' he
+  exact ⟨by omega, e2, e3⟩
+theorem ftsLeafHeader_ne_wctNodeHeader (index coord selected : Nat) {coord' : Nat} (hk : coord' < 9)
+    (index' heap : Nat) (hh : heap % 2 ^ 64 ≠ 0) :
+    ftsLeafHeader index coord selected ≠ wctNodeHeader coord' index' heap := by
+  intro h
+  by_cases hn : FtsNew heap
+  · have hb := congrArg (fun x : BitVec 128 => x.toNat % 256) h
+    simp only [ftsLeafHeader_firstByte, wctNodeHeader_firstByteN hk _ hn] at hb
+    obtain ⟨h8, h128⟩ := hn; omega
+  · have hhi := congrArg BitVec.toNat (congrArg (fun x : BitVec 128 => x.extractLsb' 64 64) h)
+    simp only [ftsLeafHeader_high, wctNodeHeader_high hk, if_neg hn, BitVec.toNat_ofNat] at hhi
+    exact hh hhi.symm
+theorem radix_inj {B a a' m m' : Nat} (h : a + B * m = a' + B * m') (ha : a < B) (ha' : a' < B) :
+    a = a' ∧ m = m' := by
+  have hB : 0 < B := by omega
+  have h1 := congrArg (· % B) h
+  have h2 := congrArg (· / B) h
+  simp only [Nat.add_mul_mod_self_left, Nat.mod_eq_of_lt ha, Nat.mod_eq_of_lt ha'] at h1
+  simp only [Nat.add_mul_div_left _ _ hB, Nat.div_eq_of_lt ha, Nat.div_eq_of_lt ha',
+    Nat.zero_add] at h2
+  exact ⟨h1, h2⟩
+def headerValue (tag lay tree position index : Nat) : Nat :=
+  1 + tag % 256 * 2 ^ 8 + lay % 256 * 2 ^ 16 + (tree / 2 ^ 32 % 256) * 2 ^ 24 +
+    position % 2 ^ 32 * 2 ^ 32 + tree % 2 ^ 32 * 2 ^ 64 + index % 2 ^ 32 * 2 ^ 96
+theorem headerValue_nested (tag lay tree position index : Nat) :
+    headerValue tag lay tree position index =
+      1 + 256 * (tag % 256 + 256 * (lay % 256 + 256 * (tree / 2 ^ 32 % 256 +
+        256 * (position % 2 ^ 32 + 2 ^ 32 * (tree % 2 ^ 32 + 2 ^ 32 * (index % 2 ^ 32)))))) := by
+  unfold headerValue
+  ring
+theorem headerValue_lt (tag lay tree position index : Nat) :
+    headerValue tag lay tree position index < 2 ^ 128 := by
+  rw [headerValue_nested]
+  have h1 := Nat.mod_lt tag (show 0 < 256 by decide)
+  have h2 := Nat.mod_lt lay (show 0 < 256 by decide)
+  have h3 := Nat.mod_lt (tree / 2 ^ 32) (show 0 < 256 by decide)
+  have h4 := Nat.mod_lt position (show 0 < 2 ^ 32 by decide)
+  have h5 := Nat.mod_lt tree (show 0 < 2 ^ 32 by decide)
+  have h6 := Nat.mod_lt index (show 0 < 2 ^ 32 by decide)
+  generalize tag % 256 = a1 at *
+  generalize lay % 256 = a2 at *
+  generalize tree / 2 ^ 32 % 256 = a3 at *
+  generalize position % 2 ^ 32 = a4 at *
+  generalize tree % 2 ^ 32 = a5 at *
+  generalize index % 2 ^ 32 = a6 at *
+  norm_num only at h1 h2 h3 h4 h5 h6 ⊢
+  omega
+theorem wctHeader_toNat (tag lay tree position index : Nat) :
+    (wctHeader tag lay tree position index).toNat = headerValue tag lay tree position index := by
+  unfold wctHeader
+  rw [BitVec.toNat_ofNat]
+  exact Nat.mod_eq_of_lt (headerValue_lt _ _ _ _ _)
+theorem headerValue_inj {tag lay tree position index tag' lay' tree' position' index' : Nat}
+    (h : headerValue tag lay tree position index = headerValue tag' lay' tree' position' index') :
+    tag % 256 = tag' % 256 ∧ lay % 256 = lay' % 256 ∧ tree / 2 ^ 32 % 256 = tree' / 2 ^ 32 % 256 ∧
+      position % 2 ^ 32 = position' % 2 ^ 32 ∧ tree % 2 ^ 32 = tree' % 2 ^ 32 ∧
+      index % 2 ^ 32 = index' % 2 ^ 32 := by
+  rw [headerValue_nested, headerValue_nested] at h
+  have h0 := Nat.add_left_cancel h
+  obtain ⟨e1, h1⟩ := radix_inj (Nat.eq_of_mul_eq_mul_left (by decide) h0)
+    (Nat.mod_lt _ (by decide)) (Nat.mod_lt _ (by decide))
+  obtain ⟨e2, h2⟩ := radix_inj h1 (Nat.mod_lt _ (by decide)) (Nat.mod_lt _ (by decide))
+  obtain ⟨e3, h3⟩ := radix_inj h2 (Nat.mod_lt _ (by decide)) (Nat.mod_lt _ (by decide))
+  obtain ⟨e4, h4⟩ := radix_inj h3 (Nat.mod_lt _ (by decide)) (Nat.mod_lt _ (by decide))
+  obtain ⟨e5, h5⟩ := radix_inj h4 (Nat.mod_lt _ (by decide)) (Nat.mod_lt _ (by decide))
+  exact ⟨e1, e2, e3, e4, e5, h5⟩
+theorem tree_of_split {tree tree' : Nat} (ht : tree < 2 ^ 40) (ht' : tree' < 2 ^ 40)
+    (hhi : tree / 2 ^ 32 % 256 = tree' / 2 ^ 32 % 256) (hlo : tree % 2 ^ 32 = tree' % 2 ^ 32) :
+    tree = tree' := by
+  have hq : tree / 2 ^ 32 < 256 := Nat.div_lt_of_lt_mul (by norm_num at ht ⊢; omega)
+  have hq' : tree' / 2 ^ 32 < 256 := Nat.div_lt_of_lt_mul (by norm_num at ht' ⊢; omega)
+  rw [Nat.mod_eq_of_lt hq, Nat.mod_eq_of_lt hq'] at hhi
+  rw [← Nat.div_add_mod tree (2 ^ 32), ← Nat.div_add_mod tree' (2 ^ 32), hhi, hlo]
+theorem wctHeader_inj {tag lay tree position index tag' lay' tree' position' index' : Nat}
+    (ht : tag < 256) (hl : lay < 256) (htr : tree < 2 ^ 40) (hp : position < 2 ^ 32)
+    (hi : index < 2 ^ 32) (ht' : tag' < 256) (hl' : lay' < 256) (htr' : tree' < 2 ^ 40)
+    (hp' : position' < 2 ^ 32) (hi' : index' < 2 ^ 32)
+    (h : wctHeader tag lay tree position index = wctHeader tag' lay' tree' position' index') :
+    tag = tag' ∧ lay = lay' ∧ tree = tree' ∧ position = position' ∧ index = index' := by
+  have hn := congrArg BitVec.toNat h
+  rw [wctHeader_toNat, wctHeader_toNat] at hn
+  obtain ⟨e1, e2, e3, e4, e5, e6⟩ := headerValue_inj hn
+  rw [Nat.mod_eq_of_lt ht, Nat.mod_eq_of_lt ht'] at e1
+  rw [Nat.mod_eq_of_lt hl, Nat.mod_eq_of_lt hl'] at e2
+  rw [Nat.mod_eq_of_lt hp, Nat.mod_eq_of_lt hp'] at e4
+  rw [Nat.mod_eq_of_lt hi, Nat.mod_eq_of_lt hi'] at e6
+  exact ⟨e1, e2, tree_of_split htr htr' e3 e5, e4, e6⟩
+theorem serializeOpening_length (opened : Opening) : (serializeOpening opened).length = 208 := by
+  simp only [serializeOpening, List.length_append, digest_list_bytes_length, List.length_ofFn]
+/-- Campaign T51: 51 top values (5312 - 3·16). -/
+theorem serialize_length (sig : Signature) : (serialize sig).length = 5264 := by
+  simp only [serialize, List.length_append, bytesLE_length, List.length_flatMap,
+    List.map_ofFn, Function.comp_def, List.length_flatten]
+  simp_rw [serializeOpening_length, serializeLayer_length]
+  decide
+theorem serializeOpening_injective : Function.Injective serializeOpening := by
+  rintro ⟨lv, lp⟩ ⟨rv, rp⟩ h
+  simp only [serializeOpening] at h
+  obtain ⟨hv, hp⟩ := List.append_inj h (by simp only [digest_list_bytes_length, List.length_ofFn])
+  have hv := SphincsSecurity.flatMap_bytesLE_ofFn_injective hv
+  have hp := SphincsSecurity.flatMap_bytesLE_ofFn_injective hp
+  subst rv rp
+  rfl
+theorem serialize_injective : Function.Injective serialize := by
+  rintro ⟨lr, lo, ll⟩ ⟨rr, ro, rl⟩ h
+  simp only [serialize] at h
+  have hopen (o : Coord → Opening) :
+      ((List.ofFn o).flatMap serializeOpening).length = 1872 := by
+    simp only [List.length_flatMap, List.map_ofFn, Function.comp_def, serializeOpening_length]
+    decide
+  obtain ⟨hhead, hlayers⟩ := List.append_inj h (by
+    simp only [List.length_append, bytesLE_length, hopen])
+  obtain ⟨hrho, hopenings⟩ := List.append_inj hhead (by simp only [bytesLE_length])
+  have hrho := bytesLE_injective hrho
+  rw [List.flatMap_def, List.flatMap_def, List.map_ofFn, List.map_ofFn] at hopenings
+  have ho := SphincsSecurity.length_flatten_ofFn_eq _ _
+    (fun coord => by
+      simp only [Function.comp_apply, serializeOpening_length]) hopenings
+  have ho' : lo = ro := funext fun coord => serializeOpening_injective (congrFun ho coord)
+  have hl := SphincsSecurity.length_flatten_ofFn_eq _ _
+    (fun lay => by rw [serializeLayer_length, serializeLayer_length]) hlayers
+  have hl' : ll = rl := funext fun lay => serializeLayer_injective lay (congrFun hl lay)
+  subst rr ro rl
+  rfl
+theorem child_val (output : HashOutput) (coord : Coord) :
+    (child output coord).val = output.toNat / 2 ^ childBase coord.val % 128 := rfl
+theorem field_val (output : HashOutput) (coord : Coord) :
+    field output coord = output.toNat / 2 ^ fieldBase coord.val % 2 ^ 10 := rfl
+theorem digestIndex_val (output : HashOutput) : digestIndex output = output.toNat / 2 ^ 33 % 2 ^ 31 := rfl
+theorem field_lt (output : HashOutput) (coord : Coord) : field output coord < 2 ^ 10 :=
+  Nat.mod_lt _ (by decide)
+theorem rank_val (output : HashOutput) (coord : Coord) :
+    (rank output coord).val = field output coord % 563 := rfl
+theorem admissible_iff (output : HashOutput) :
+    admissible output = true ↔
+      output.toNat / 2 ^ 242 % 2 ^ 14 < 1353 ∧ ∀ coord : Coord, field output coord < 563 := by
+  unfold admissible field
+  simp only [Bool.and_eq_true, decide_eq_true_eq, List.all_eq_true, List.mem_range]
+  constructor
+  · rintro ⟨hg, hf⟩
+    exact ⟨hg, fun coord => hf coord.val coord.isLt⟩
+  · rintro ⟨hg, hf⟩
+    exact ⟨hg, fun coord hc => hf ⟨coord, hc⟩⟩
+theorem admissible_field_split (output : HashOutput) (h : admissible output = true)
+    (coord : Coord) :
+    field output coord = (rank output coord).val + 563 * (field output coord / 563) ∧
+      field output coord / 563 < 1 := by
+  have hf := ((admissible_iff output).1 h).2 coord
+  rw [rank_val]
+  omega
+theorem rank_fiber_card (r : Rank) :
+    ((Finset.range 563).filter (fun f => f % 563 = r.val)).card = 1 := by
+  have he : (Finset.range 563).filter (fun f => f % 563 = r.val) =
+      (Finset.range 1).image (fun q => r.val + 563 * q) := by
+    ext f
+    simp only [Finset.mem_filter, Finset.mem_range, Finset.mem_image]
+    have hr := r.isLt
+    constructor
+    · rintro ⟨hf, hm⟩
+      exact ⟨f / 563, by omega, by omega⟩
+    · rintro ⟨q, hq, rfl⟩
+      constructor <;> omega
+  rw [he, Finset.card_image_of_injective _
+    (fun a b hab => Nat.eq_of_mul_eq_mul_left (by decide) (Nat.add_left_cancel hab))]
+  simp
+def acceptedFieldEquiv : Fin 563 ≃ Rank × Fin 1 where
+  toFun f := (⟨f.val % 563, Nat.mod_lt _ (by decide)⟩, ⟨f.val / 563, by omega⟩)
+  invFun p := ⟨p.1.val + 563 * p.2.val, by omega⟩
+  left_inv f := by apply Fin.ext; simp only; omega
+  right_inv p := by
+    apply Prod.ext <;> apply Fin.ext <;> simp only <;> omega
+theorem acceptedFieldEquiv_rank (f : Fin 563) :
+    (acceptedFieldEquiv f).1.val = f.val % 563 := rfl
+def digestLayout : List (Nat × Nat) :=
+  [(0, 7), (7, 10), (17, 16), (33, 31),
+   (64, 7), (71, 10), (81, 4), (85, 7), (92, 10), (102, 5), (107, 10), (117, 4), (121, 7),
+   (128, 7), (135, 10), (145, 4), (149, 7), (156, 10), (166, 5), (171, 10), (181, 4), (185, 7),
+   (192, 7), (199, 10), (209, 4), (213, 7), (220, 10), (230, 12), (242, 14)]
+theorem childBase_values :
+    List.ofFn (fun k : Coord => childBase k.val) = [0, 64, 85, 121, 128, 149, 185, 192, 213] := by
+  decide
+theorem fieldBase_values :
+    List.ofFn (fun k : Coord => fieldBase k.val) = [7, 71, 92, 107, 135, 156, 171, 199, 220] := by
+  decide
+theorem digestLayout_tiles :
+    digestLayout.map Prod.fst = ((digestLayout.map Prod.snd).scanl (· + ·) 0).dropLast ∧
+      (digestLayout.map Prod.snd).sum = 256 ∧ ∀ p ∈ digestLayout, 0 < p.2 := by
+  decide
+theorem digestLayout_index : (indexShift, 31) ∈ digestLayout := by decide
+theorem digestLayout_child (k : Coord) : (childBase k.val, 7) ∈ digestLayout := by
+  revert k; decide
+theorem digestLayout_field (k : Coord) : (fieldBase k.val, 10) ∈ digestLayout := by
+  revert k; decide
+theorem digestLayout_disjoint :
+    digestLayout.Pairwise (fun p q => p.1 + p.2 ≤ q.1) ∧
+      ∀ p ∈ digestLayout, p.1 + p.2 ≤ 256 := by
+  decide
+theorem childBase_word_aligned (k : Coord) :
+    childBase k.val / 64 = (childBase k.val + 6) / 64 ∧ childBase k.val + 7 ≤ 234 := by
+  revert k; decide
+theorem fieldBase_word_aligned (k : Coord) :
+    fieldBase k.val / 64 = (fieldBase k.val + 9) / 64 ∧ fieldBase k.val + 10 ≤ 234 := by
+  revert k; decide
+theorem childBase_disjoint (k l : Coord) (h : k ≠ l) :
+    childBase k.val + 7 ≤ childBase l.val ∨ childBase l.val + 7 ≤ childBase k.val := by
+  revert k l; decide
+theorem fieldBase_disjoint (k l : Coord) (h : k ≠ l) :
+    fieldBase k.val + 10 ≤ fieldBase l.val ∨ fieldBase l.val + 10 ≤ fieldBase k.val := by
+  revert k l; decide
+theorem childBase_fieldBase_disjoint (k l : Coord) :
+    childBase k.val + 7 ≤ fieldBase l.val ∨ fieldBase l.val + 10 ≤ childBase k.val := by
+  revert k l; decide
+theorem index_disjoint (k : Coord) :
+    (childBase k.val + 7 ≤ 33 ∨ 64 ≤ childBase k.val) ∧ (fieldBase k.val + 10 ≤ 33 ∨ 64 ≤ fieldBase k.val) := by
+  revert k; decide
+theorem coordinate_verify_steps (output : HashOutput) (coord : Coord) :
+    (∑ t : Fin 6, (List.range' (4 - wordDigit (rank output coord) t)
+      (wordDigit (rank output coord) t)).length) = 7 := by
+  simp only [List.length_range']
+  exact wordStep_count _
+theorem verify_walk_positions (word : Rank) (t : Fin 6) :
+    (∀ s ∈ List.range' (4 - wordDigit word t) (wordDigit word t), s < 4) ∧
+      4 - wordDigit word t + wordDigit word t = 4 := by
+  have hd := wordDigit_le_four word t
+  refine ⟨fun s hs => ?_, by omega⟩
+  rw [List.mem_range'] at hs
+  omega
+theorem verify_steps_total (output : HashOutput) :
+    (∑ coord : Coord, ∑ t : Fin 6, wordDigit (rank output coord) t) = 63 := by
+  simp only [wordStep_count, Finset.sum_const, Finset.card_univ, Fintype.card_fin, smul_eq_mul]
+theorem gate_value (output : HashOutput) : output.toNat / 2 ^ 242 % 2 ^ 14 = output.toNat / 2 ^ 242 := by
+  have h := output.isLt
+  apply Nat.mod_eq_of_lt
+  rw [Nat.div_lt_iff_lt_mul (by positivity)]
+  norm_num at h ⊢
+  omega
+theorem admissible_iff' (output : HashOutput) :
+    admissible output = true ↔
+      output.toNat / 2 ^ 242 < gateLimit ∧ ∀ coord : Coord, field output coord < fieldLimit := by
+  rw [admissible_iff, gate_value]; rfl
+theorem jointCost_eq_sum (output : HashOutput) :
+    jointCost output = ∑ coord : Coord, (routineCost (rank output coord) + childExtra (child output coord)) := by
+  unfold jointCost
+  rw [← List.sum_ofFn]
+  congr 1
+theorem childExtra_le (c : Child) : childExtra c ≤ 5 := by
+  unfold childExtra maxChildSave; omega
+theorem jointCost_bounds (output : HashOutput) : 675 ≤ jointCost output ∧ jointCost output ≤ 846 := by
+  rw [jointCost_eq_sum]
+  have hb := fun coord => routineCost_bounds (rank output coord)
+  have he := fun coord => childExtra_le (child output coord)
+  constructor
+  · calc 675 = ∑ _coord : Coord, 75 := by simp
+      _ ≤ _ := Finset.sum_le_sum fun coord _ => le_trans (hb coord).1 (Nat.le_add_right _ _)
+  · calc _ ≤ ∑ _coord : Coord, 94 := Finset.sum_le_sum fun coord _ => by
+          have := (hb coord).2; have := he coord; omega
+      _ = 846 := by simp
+theorem capOk_iff (output : HashOutput) : capOk output = true ↔ jointCost output ≤ jointCap := by
+  simp [capOk]
+theorem producerAdmissible_iff (output : HashOutput) :
+    producerAdmissible output = true ↔ admissible output = true ∧ jointCost output ≤ jointCap := by
+  simp [producerAdmissible, capOk_iff]
+theorem admissible_of_producer {output : HashOutput} (h : producerAdmissible output = true) :
+    admissible output = true := ((producerAdmissible_iff output).1 h).1
+/-- Coefficient `j < 54` of the FTS seed family of `(index, coord)` (campaign X1, stage A): half `j % 2` of the
+private pair `ftsSeedPair index coord (j / 2)`. -/
+def ftsCoef (answers : SigGolfCandidate.T3.Correctness.Answers) (index coord : Nat) (j : Fin 54) : Digest :=
+  seedHalf (evalWithAnswerFn answers (ftsSeedPair index coord (j.val / 2))) j.val
+theorem eval_encodingHash (answers : SigGolfCandidate.T3.Correctness.Answers) (lay : Layer) (input : HashInput) :
+    evalWithAnswerFn answers (encodingHash lay input) =
+      encodingAnswer lay (answers (.inl (.inr (pad64 input)))) := rfl
+
+theorem eval_verificationHash (answers : SigGolfCandidate.T3.Correctness.Answers) (lay : Layer) (high : Bool)
+    (input : HashInput) :
+    evalWithAnswerFn answers (verificationHash lay high input) =
+      verificationAnswer lay high (answers (.inl (.inr (pad64 input)))) := rfl
+
+/-- With the honest hint of the actual answer, the verifier reads the producer's word. -/
+theorem eval_verificationHash_honest (answers : SigGolfCandidate.T3.Correctness.Answers) (lay : Layer)
+    (input : HashInput) {high : Bool} (hh : high = encodingHigh lay (answers (.inl (.inr (pad64 input))))) :
+    evalWithAnswerFn answers (verificationHash lay high input) = evalWithAnswerFn answers (encodingHash lay input) := by
+  rw [eval_verificationHash, eval_encodingHash, hh]
+  exact verificationAnswer_honest lay _
+
+theorem allQueries_verificationHash_iff (lay : Layer) (high : Bool) (input : HashInput) (P : Spec.Domain → Prop) :
+    AllQueriesSatisfy (verificationHash lay high input) P ↔ AllQueriesSatisfy (shortHash input) P := by
+  change AllQueriesSatisfy ((verificationAnswer lay high) <$> publicHash input) P ↔
+    AllQueriesSatisfy ((fun a : HashOutput => a.extractLsb' 0 128) <$> publicHash input) P
+  simp only [AllQueriesSatisfy, isQueryBound_map_iff]
+
+theorem allQueries_encodingHash_iff (lay : Layer) (input : HashInput) (P : Spec.Domain → Prop) :
+    AllQueriesSatisfy (encodingHash lay input) P ↔ AllQueriesSatisfy (shortHash input) P := by
+  change AllQueriesSatisfy ((encodingAnswer lay) <$> publicHash input) P ↔
+    AllQueriesSatisfy ((fun a : HashOutput => a.extractLsb' 0 128) <$> publicHash input) P
+  simp only [AllQueriesSatisfy, isQueryBound_map_iff]
+
+namespace Cost
+open SigGolfCandidate.T3.Cost
+set_option backward.isDefEq.respectTransparency false in
+theorem bound_encodingHash (lay : Layer) (input : HashInput) (k : Nat)
+    (hpos : 0 < input.length) (hlen : (pad64 input).length / 64 ≤ k) :
+    CBound (fun _ => True) k (encodingHash lay input) := by
+  change CBound (fun _ => True) k (publicHash input >>= fun a => pure (encodingAnswer lay a))
+  unfold publicHash
+  apply Bound.qry_bind (k := 0) ⟨pad64_positive input hpos, pad64_aligned input⟩
+    (fun _ => .pure _ 0 trivial)
+  simpa only [weight, Nat.add_zero] using hlen
+end Cost
+open ENNReal in
+theorem probability_lower_encoding (p : Digest → Prop) [DecidablePred p]
+    (hp : ∀ d, p d → lowerSpare d) :
+    Pr[p ∘ DualHalf.select | ($ᵗ HashOutput : ProbComp HashOutput)] =
+      ((Finset.univ.filter p).card : ENNReal) * (7 / ((4 : ENNReal) * 2^128)) := by
+  rw [probEvent_uniformSample]
+  change ((Finset.univ.filter fun a : HashOutput => p (DualHalf.select a)).card : ENNReal) /
+    (Fintype.card HashOutput : ENNReal) = _
+  rw [DualHalf.card_select_pred p hp, Fintype.card_bitVec, Nat.cast_mul, mul_div_assoc]
+  congr 1
+  apply (ENNReal.div_eq_div_iff (by norm_num) (by finiteness) (by norm_num) (by finiteness)).2
+  norm_num
+
+open ENNReal in
+theorem probability_top_encoding_le (p : Digest → Prop) [DecidablePred p] :
+    Pr[p ∘ TopDualHalf.select | ($ᵗ HashOutput : ProbComp HashOutput)] ≤
+      ((Finset.univ.filter p).card : ENNReal) * (7 / ((4 : ENNReal) * 2^128)) := by
+  rw [probEvent_uniformSample]
+  change ((Finset.univ.filter fun a : HashOutput => p (TopDualHalf.select a)).card : ENNReal) /
+    (Fintype.card HashOutput : ENNReal) ≤ _
+  have hc : ((Finset.univ.filter fun a : HashOutput => p (TopDualHalf.select a)).card : ENNReal) ≤
+      ((Finset.univ.filter p).card * (7 * 2^126) : Nat) := by
+    exact_mod_cast TopDualHalf.card_select_pred_le p
+  calc _ ≤ ((Finset.univ.filter p).card * (7 * 2^126) : Nat) / (Fintype.card HashOutput : ENNReal) :=
+      ENNReal.div_le_div_right hc _
+    _ = _ := by
+      rw [Fintype.card_bitVec, Nat.cast_mul, mul_div_assoc]
+      congr 1
+      apply (ENNReal.div_eq_div_iff (by norm_num) (by finiteness) (by norm_num) (by finiteness)).2
+      norm_num
+
+end ClaudeWCT.WCT9
+end
+-- ==== merged from Choice_Probability ====
+section
+
+/-! Restricted top choice (configuration (1)+(2)): per-query bounds for the verifier's attacker-chosen hint.
+Adapted from `Choice/{Encoding,Probability,Target}.lean` of 311823ad to the Bool hint of
+`ClaudeWCT.WCT9.verificationAnswer` (the witness byte's bit 4) and the `TopChoice` gate (LOW forced when
+`LOW < 2^126`). These are local per-answer bounds; the adaptive security route threads them through. -/
+namespace ClaudeWCT.WCT9
+open OracleComp OracleSpec SigGolfCandidate.T3 ENNReal
+set_option maxHeartbeats 1000000
+set_option maxRecDepth 10000
+
+/-- The 7/4 point-mass bound: the hint may depend on the complete hash output. -/
+theorem verificationAnswer_top_card (targets : Finset Digest) (hint : HashOutput → Bool) :
+    (Finset.univ.filter fun answer => verificationAnswer 0 (hint answer) answer ∈ targets).card ≤
+      targets.card * (7 * 2 ^ 126) := by
+  simpa only [verificationAnswer, if_true] using TopChoice.card_read_le targets hint
+
+/-- Cardinality of the union over both hints. -/
+theorem verificationAnswer_top_exists_card (targets : Finset Digest) :
+    (Finset.univ.filter fun answer : HashOutput =>
+      ∃ high : Bool, verificationAnswer 0 high answer ∈ targets).card ≤
+      targets.card * (7 * 2 ^ 126) := by
+  simpa only [verificationAnswer, if_true] using TopChoice.card_read_exists_le targets
+
+/-- The producer's own top word obeys the same 7/4 bound. -/
+theorem card_top_encoding_le (p : Digest → Prop) [DecidablePred p] :
+    (Finset.univ.filter fun answer : HashOutput => p (encodingAnswer 0 answer)).card ≤
+      (Finset.univ.filter p).card * (7 * 2 ^ 126) := by
+  have h := verificationAnswer_top_card (Finset.univ.filter p) (encodingHigh 0)
+  simpa only [verificationAnswer_honest, Finset.mem_filter, Finset.mem_univ, true_and] using h
+
+theorem probability_top_verification_exists_le (targets : Finset Digest) :
+    Pr[fun answer => ∃ high : Bool, verificationAnswer 0 high answer ∈ targets |
+        ($ᵗ HashOutput : ProbComp HashOutput)] ≤
+      (targets.card : ENNReal) * (7 / ((4 : ENNReal) * 2 ^ 128)) := by
+  classical
+  rw [probEvent_uniformSample]
+  change ((Finset.univ.filter fun answer : HashOutput =>
+      ∃ high : Bool, verificationAnswer 0 high answer ∈ targets).card : ENNReal) /
+      (Fintype.card HashOutput : ENNReal) ≤ _
+  have hc : ((Finset.univ.filter fun answer : HashOutput =>
+      ∃ high : Bool, verificationAnswer 0 high answer ∈ targets).card : ENNReal) ≤
+      (targets.card * (7 * 2 ^ 126) : Nat) := by
+    exact_mod_cast verificationAnswer_top_exists_card targets
+  calc _ ≤ (targets.card * (7 * 2 ^ 126) : Nat) / (Fintype.card HashOutput : ENNReal) :=
+        ENNReal.div_le_div_right hc _
+    _ = _ := by
+      rw [Fintype.card_bitVec, Nat.cast_mul, mul_div_assoc]
+      congr 1
+      apply (ENNReal.div_eq_div_iff (by norm_num) (by finiteness) (by norm_num) (by finiteness)).2
+      norm_num
+
+/-- A security event must include every hint the adversary could supply. -/
+def encodingCanDecode (lay : Layer) (answer : HashOutput) (digits : List Nat) : Prop :=
+  ∃ high : Bool, CanonicalPolicy.decode lay (verificationAnswer lay high answer) = some digits
+
+theorem encodingCanDecode_honest (lay : Layer) (answer : HashOutput) (digits : List Nat)
+    (h : CanonicalPolicy.decode lay (encodingAnswer lay answer) = some digits) :
+    encodingCanDecode lay answer digits :=
+  ⟨encodingHigh lay answer, by rwa [verificationAnswer_honest]⟩
+
+theorem encodingCanDecode_lower (lay : Layer) (hl : lay ≠ 0)
+    (answer : HashOutput) (digits : List Nat) :
+    encodingCanDecode lay answer digits ↔
+      CanonicalPolicy.decode lay (encodingAnswer lay answer) = some digits := by
+  simp only [encodingCanDecode, verificationAnswer_lower lay hl, exists_const]
+
+theorem probability_verification_exists_le (lay : Layer) (targets : Finset Digest)
+    (hp : lay ≠ 0 → ∀ word, word ∈ targets → lowerSpare word) :
+    Pr[fun answer => ∃ high : Bool, verificationAnswer lay high answer ∈ targets |
+        ($ᵗ HashOutput : ProbComp HashOutput)] ≤
+      (targets.card : ENNReal) * (7 / ((4 : ENNReal) * 2 ^ 128)) := by
+  classical
+  by_cases hl : lay = 0
+  · subst lay
+    exact probability_top_verification_exists_le targets
+  · have he : (fun answer => ∃ high : Bool, verificationAnswer lay high answer ∈ targets) =
+        (fun word => word ∈ targets) ∘ DualHalf.select := by
+      funext answer
+      simp only [verificationAnswer, if_neg hl, exists_const, Function.comp_apply]
+    rw [he, probability_lower_encoding _ (hp hl)]
+    simp only [Finset.filter_mem_eq_inter, Finset.univ_inter, le_refl]
+
+theorem canonical_decode_injective {lay : Layer} {a b : Digest} {digits : List Nat}
+    (ha : CanonicalPolicy.decode lay a = some digits) (hb : CanonicalPolicy.decode lay b = some digits) :
+    a = b :=
+  SigGolfCandidate.T3.decode_some_injective ha hb
+
+/-- The widened match event retains the 7/4 point coefficient at every layer. -/
+theorem probability_encodingCanDecode_le (lay : Layer) (digits : List Nat) :
+    Pr[fun answer => encodingCanDecode lay answer digits |
+      ($ᵗ HashOutput : ProbComp HashOutput)] ≤ 7 / ((4 : ENNReal) * 2 ^ 128) := by
+  classical
+  let targets : Finset Digest := Finset.univ.filter fun word => CanonicalPolicy.decode lay word = some digits
+  have hcard : targets.card ≤ 1 := by
+    apply Finset.card_le_one.mpr
+    intro a ha b hb
+    exact canonical_decode_injective (Finset.mem_filter.mp ha).2 (Finset.mem_filter.mp hb).2
+  have hc : (targets.card : ENNReal) ≤ 1 := by exact_mod_cast hcard
+  have hp : lay ≠ 0 → ∀ word, word ∈ targets → lowerSpare word := by
+    intro hl word hw
+    have hd := (Finset.mem_filter.mp hw).2
+    simp only [CanonicalPolicy.decode, CanonicalPolicy.normalLayer, if_neg hl] at hd
+    exact SigGolfCandidate.T3.decode_lowerSpare (by decide : (1 : Layer) ≠ 0) hd
+  have he : (fun answer => encodingCanDecode lay answer digits) =
+      (fun answer => ∃ high : Bool, verificationAnswer lay high answer ∈ targets) := by
+    funext answer
+    simp only [encodingCanDecode, targets, Finset.mem_filter, Finset.mem_univ, true_and]
+  rw [he]
+  exact (probability_verification_exists_le lay targets hp).trans
+    (by simpa only [one_mul] using mul_le_mul' hc (le_refl (7 / ((4 : ENNReal) * 2 ^ 128))))
+
+/-- The residual probe must test every permitted witness opening: the target word is reachable iff it is LOW or
+(LOW is not forced and it is HIGH). -/
+def encodingTarget (lay : Layer) (target : Digest) (answer : HashOutput) : Digest :=
+  if lay = 0 then
+    if answer.extractLsb' 0 128 = target ∨ TopChoice.blocked (answer.extractLsb' 0 128)
+      then answer.extractLsb' 0 128 else answer.extractLsb' 128 128
+  else encodingAnswer lay answer
+
+theorem verificationAnswer_top_exists_iff (answer : HashOutput) (target : Digest) :
+    (∃ high : Bool, verificationAnswer 0 high answer = target) ↔
+      answer.extractLsb' 0 128 = target ∨
+        (¬ TopChoice.blocked (answer.extractLsb' 0 128) ∧ answer.extractLsb' 128 128 = target) := by
+  show (∃ high : Bool, TopChoice.read high answer = target) ↔
+    TopChoice.lowHalf answer = target ∨
+      (¬ TopChoice.blocked (TopChoice.lowHalf answer) ∧ TopChoice.highHalf answer = target)
+  by_cases hb : TopChoice.blocked (TopChoice.lowHalf answer)
+  · simp only [TopChoice.read_blocked _ hb, exists_const, hb, not_true_eq_false, false_and, or_false]
+  · have ht : TopChoice.read true answer = TopChoice.highHalf answer := by simp [TopChoice.read, hb]
+    constructor
+    · rintro ⟨high, hh⟩
+      cases high
+      · rw [TopChoice.read_false] at hh; exact Or.inl hh
+      · rw [ht] at hh; exact Or.inr ⟨hb, hh⟩
+    · rintro (hl | ⟨_, hh⟩)
+      · exact ⟨false, by rw [TopChoice.read_false]; exact hl⟩
+      · exact ⟨true, by rw [ht]; exact hh⟩
+
+theorem verificationAnswer_exists_iff_target (lay : Layer) (answer : HashOutput) (target : Digest) :
+    (∃ high : Bool, verificationAnswer lay high answer = target) ↔
+      encodingTarget lay target answer = target := by
+  by_cases hl : lay = 0
+  · subst lay
+    rw [verificationAnswer_top_exists_iff]
+    simp only [encodingTarget, if_true]
+    by_cases ht : answer.extractLsb' 0 128 = target <;>
+      by_cases hg : TopChoice.blocked (answer.extractLsb' 0 128) <;>
+      simp_all
+  · simp only [verificationAnswer_lower lay hl, exists_const, encodingTarget, if_neg hl]
+
+theorem encodingCanDecode_iff_target (lay : Layer) (answer : HashOutput)
+    (target : Digest) (digits : List Nat) (href : CanonicalPolicy.decode lay target = some digits) :
+    encodingCanDecode lay answer digits ↔ encodingTarget lay target answer = target := by
+  rw [← verificationAnswer_exists_iff_target]
+  constructor
+  · rintro ⟨high, hh⟩
+    exact ⟨high, canonical_decode_injective hh href⟩
+  · rintro ⟨high, hh⟩
+    exact ⟨high, hh ▸ href⟩
+
+end ClaudeWCT.WCT9
+end
