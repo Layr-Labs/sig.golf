@@ -758,12 +758,11 @@ def producerDecode (lay : Layer) (answer : Digest) : Option (List Nat) :=
   | none => none
 /-- The smallest lower-layer window (L1, L2). -/
 def lowerSearchLimit : Nat := 2 ^ 21
-/-- Top counter window 2^20 (top-bytes layer). The legacy `T3.counterLimit` (2^22, the legacy T3 scheme and the
+/-- Top counter window 2^20 + 3·2^14 (top-bytes layer). The legacy `T3.counterLimit` (2^22, the legacy T3 scheme and the
 presampling key space) is unchanged; the canonical searches use `searchLimit`. -/
-def topSearchLimit : Nat := 2 ^ 20
-/-- Per-layer counter windows of the shipped images (opus-crumbs img-v4 check `t1 = ((s0 + 3) >> 1) << 20`, which also
-enforces the top limit): top 2^20, L1/L2 2^21, L3 3·2^20. -/
-def searchLimit (lay : Layer) : Nat := (lay.val + 3) / 2 * 2 ^ 20
+def topSearchLimit : Nat := 2 ^ 20 + 3 * 2 ^ 14
+/-- Per-layer counter windows of the shipped images: top `topSearchLimit`, L1/L2 2^21, L3 3·2^20. -/
+def searchLimit (lay : Layer) : Nat := if lay = 0 then topSearchLimit else (lay.val + 3) / 2 * 2 ^ 20
 /-- The verifier accepts every 32-bit counter: its window is the whole `BitVec 32` range, so the layer check
 never rejects. The signer still searches `searchLimit`. -/
 def verifyWindow : Nat := 2 ^ 32

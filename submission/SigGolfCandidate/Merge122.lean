@@ -3067,6 +3067,31 @@ theorem after_good (floors : T3.Layer → Nat) (hcredit : CreditFloors floors) (
   rw [lFuel_4, lCyc_4, lCycA_4 floors hcredit.1] at hg
   have htotal := hcredit.2
   exact GoodQP.stepsQ hst hg (by omega) (by omega) (fun q => ⟨q, by omega⟩)
+
+/-- The same machine trace records a tighter bound when the honest canonical
+path supplies extra credit.  The generic `after_good` theorem above remains
+available for arbitrary accepted witnesses. -/
+theorem after_good_tier (extra : Nat) (hextra : extra ≤ 4)
+    (floors : T3.Layer → Nat) (hbound : ∀ lay, floors lay ≤ 301)
+    (hsum : 69 + extra ≤ ((List.finRange 4).map floors).sum)
+    (pk : Digest) (w : ClaudeWCT.W9.T3M.WBytes) (Q : Prop) (hQ : Q) (a : HashOutput)
+    (top : Digest × Digest) (u : MachineState)
+    (h : FtsOut ⟨pk, w, a⟩ top u) :
+    GoodQP (HashOkBy floors (ClaudeWCT.W9.T3M.wtopHigh w)) u 8050 8050 Q (5264 - extra)
+      (ccM (afterFts pk w (ClaudeWCT.WCT9.digestIndex a) (some top)) Kb) := by
+  have hidx : ClaudeWCT.WCT9.digestIndex a < 2 ^ 31 := ClaudeWCT.WCT9.digestIndex_lt a
+  obtain ⟨t, hst, hL3⟩ := layerIn_of_fts w pk _ top.1 top.2 u hidx h.glob h.idx h.pc h.left h.right h.wit h.base h.a1
+    h.s10 h.heapOne h.heapTwo h.heapSeven h.heapThree h.heapFour h.heapFive h.coordStep h.topBase h.top h.top8 h.a2 h.d0
+  have hg := layers_good floors hbound w pk _ hidx Q hQ 4 le_rfl (.pair top.1 top.2) t
+    (by simpa [RestIn] using hL3)
+  have e : ccM (afterFts pk w (ClaudeWCT.WCT9.digestIndex a) (some top)) Kb =
+      ccM (BC.layerLoop w (ClaudeWCT.WCT9.digestIndex a) 4 (.pair top.1 top.2)) (kFin pk) := by
+    unfold afterFts
+    rw [ccM_bind]
+    rfl
+  rw [e]
+  rw [lFuel_4, lCyc_4, lCycA_4 floors hbound] at hg
+  exact GoodQP.stepsQ hst hg (by omega) (by omega) (fun q => ⟨q, by omega⟩)
 theorem after_good_budget : AfterGoodBudget 5264 :=
   fun floors hcredit pk w Q hQ a top u h => after_good floors hcredit pk w Q hQ a top u h
 end SigGolfCandidate.T3M

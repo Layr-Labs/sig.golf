@@ -1275,7 +1275,8 @@ set_option backward.isDefEq.respectTransparency false
 attribute [local instance] Classical.propDecidable
 noncomputable local instance instFintypeCoordinate_wotsReference : Fintype Coordinate := coordinateFintype
 noncomputable local instance instSampleableTypeFullTable_wotsReference : SampleableType FullGame.FullTable := Derivation.outputSampler Coordinate
-attribute [local instance] FiniteRowSplit.instSampleableTypeForallSubtypeHashInputMemFinsetHashOutput
+noncomputable local instance instSampleableTypeForallSubtypeHashInputMemFinsetHashOutput_wotsReference
+    (inputs : Finset HashInput) : SampleableType (inputs → HashOutput) := SampleableType.ofFintype _
 abbrev TickSpec : OracleSpec Unit := Unit →ₒ Unit
 abbrev RefWorld := OracleWorld + TickSpec
 def RefCharged : RefWorld.Domain → Prop
@@ -5793,7 +5794,8 @@ theorem searchLimit_lower {lay : Layer} (h : lay ≠ 0) : lowerSearchLimit ≤ s
 theorem searchLimit_le (lay : Layer) : searchLimit lay ≤ counterLimit := by
   unfold searchLimit counterLimit
   fin_cases lay <;> simp
-theorem searchLimit_values : searchLimit 0 = 2 ^ 20 ∧ searchLimit 1 = 2 ^ 21 ∧ searchLimit 2 = 2 ^ 21 ∧
+  norm_num [topSearchLimit]
+theorem searchLimit_values : searchLimit 0 = 2 ^ 20 + 3 * 2 ^ 14 ∧ searchLimit 1 = 2 ^ 21 ∧ searchLimit 2 = 2 ^ 21 ∧
     searchLimit 3 = 3 * 2 ^ 20 := by decide
 theorem lowerSearchLimit_eq : lowerSearchLimit = 2 ^ 21 := rfl
 theorem chainCount_top : chainCount 0 = 51 := rfl
@@ -11382,6 +11384,37 @@ def prepareRoots (index : Nat) : M PreparedRoots := do
   let three ← buildTreePrefixes 3 (route index 3).2 (route index 3).1
   pure ⟨one, two, three⟩
 
+def firstCoord (coord : Nat) : Bool := decide (coord < 8 ∧ coord % 2 = 0)
+def rawChildBase (coord : Nat) : Nat := [0, 6, 64, 70, 128, 134, 192, 198, 229].getD coord 0
+
+def rawChildFromOutput (output : HashOutput) (coord : Fin 9) : Child :=
+  ⟨output.toNat / 2 ^ rawChildBase coord.val % 128, Nat.mod_lt _ (by decide)⟩
+
+def physicalChildFromOutput (output : HashOutput) (coord : Fin 9) : Child :=
+  ⟨physicalChild (firstCoord coord.val) (rawChildFromOutput output coord).val,
+    physicalChild_lt _ _ (rawChildFromOutput output coord).isLt⟩
+
+/-- The per-child cycle correction of the physical child's class. -/
+def accountingCorrection (coord : Nat) (raw : Child) : Nat :=
+  2 - SharedPathPacking.saves (physicalChild (firstCoord coord) raw.val)
+
+def coordinateAccountingCost (output : HashOutput) (coord : Fin 9) : Nat :=
+  routineCost (forestRank output coord.val) + accountingCorrection coord.val (rawChildFromOutput output coord)
+
+def jointAccountingCost (output : HashOutput) : Nat :=
+  ((List.finRange 9).map (coordinateAccountingCost output)).sum
+
+/-- The four costly accepted digest slices each buy one more path credit. -/
+def conditionalExtra (output : HashOutput) : Nat :=
+  jointAccountingCost output - 773
+
+def conditionalCredit (output : HashOutput) : Nat :=
+  CanonicalPolicy.totalCredit + conditionalExtra output
+
+/-- The top selector remains fixed at 14; this floor only filters its selected word. -/
+def conditionalTopFloor (output : HashOutput) : Nat :=
+  CanonicalPolicy.topFloor + conditionalExtra output
+
 structure CanonicalLayers where
   pieces : List Pieces
   counters : List (BitVec 32)
@@ -11394,15 +11427,16 @@ structure CanonicalLayers where
 /-- All thresholds are determined by the canonical ancestors. The lower
 tree roots are already fixed, and lower reveals are pure prefix lookups. -/
 def searchPreparedLayers (cache : SigGolfCandidate.T3.Cache) (index : Nat) (prepared : PreparedRoots)
-    (forest : PairRoot) : M (Option CanonicalLayers) := do
+    (forest : PairRoot) (credit : Nat := CanonicalPolicy.totalCredit)
+    (topFloor : Nat := CanonicalPolicy.topFloor) : M (Option CanonicalLayers) := do
   let pair0 := topPair 1 prepared.one.levels
   let pair1 := topPair 2 prepared.two.levels
   let pair2 := topPair 3 prepared.three.levels
   let some (counter0, digits0, low0) ← CanonicalPolicy.layerCounterSearchAt 0
-    (CanonicalPolicy.threshold 0 CanonicalPolicy.totalCredit)
+    topFloor
     (route index 0).2 (route index 0).1 (.pair pair0.1 pair0.2) 0 (searchLimit 0)
     | pure none
-  let residual1 := CanonicalPolicy.nextResidual CanonicalPolicy.totalCredit 0 low0 digits0
+  let residual1 := CanonicalPolicy.nextResidual credit 0 low0 digits0
   let floor1 := CanonicalPolicy.threshold 1 residual1
   if floor1 ≥ 16 then return none
   let some (counter1, digits1, low1) ← CanonicalPolicy.layerCounterSearchAt 1
@@ -11440,7 +11474,8 @@ def signFromOutput (cache : SigGolfCandidate.T3.Cache) (rho : Digest) (digestCou
   let index := digestIndex output
   let forest ← buildForest index (forestSelectionFromOutput output) (forestWordsFromOutput output)
   let prepared ← prepareRoots index
-  let some layers ← searchPreparedLayers cache index prepared forest.2 | pure none
+  let some layers ← searchPreparedLayers cache index prepared forest.2
+    (conditionalCredit output) (conditionalTopFloor output) | pure none
   let signature : Signature := ⟨rho, layers.policyHints, forest.1,
     fun lay => piecesSignature lay (layers.pieces.getD lay.val ([], []))⟩
   pure (some ⟨signature, digestCounter, fun lay => layers.counters.getD lay.val 0, !(layers.lows.getD 0 true), []⟩)
@@ -11505,27 +11540,6 @@ bit shared by each pair does not enter either child's variable cycle count. -/
 namespace SigGolfCandidate.Research.SharedForest
 open SigGolfCandidate.T3 ClaudeWCT.WCT9
 
-def firstCoord (coord : Nat) : Bool := decide (coord < 8 ∧ coord % 2 = 0)
-def rawChildBase (coord : Nat) : Nat := [0, 6, 64, 70, 128, 134, 192, 198, 229].getD coord 0
-
-def rawChildFromOutput (output : HashOutput) (coord : Fin 9) : Child :=
-  ⟨output.toNat / 2 ^ rawChildBase coord.val % 128, Nat.mod_lt _ (by decide)⟩
-
-def physicalChildFromOutput (output : HashOutput) (coord : Fin 9) : Child :=
-  ⟨physicalChild (firstCoord coord.val) (rawChildFromOutput output coord).val,
-    physicalChild_lt _ _ (rawChildFromOutput output coord).isLt⟩
-
-/-- C1 (stage 1): the per-child cycle correction `2 - skips′` of the physical child's class (A routines fit
-their 32-word slots, so there is no spill term). -/
-def accountingCorrection (coord : Nat) (raw : Child) : Nat :=
-  2 - SharedPathPacking.saves (physicalChild (firstCoord coord) raw.val)
-
-def coordinateAccountingCost (output : HashOutput) (coord : Fin 9) : Nat :=
-  routineCost (forestRank output coord.val) + accountingCorrection coord.val (rawChildFromOutput output coord)
-
-def jointAccountingCost (output : HashOutput) : Nat :=
-  ((List.finRange 9).map (coordinateAccountingCost output)).sum
-
 def ranksAccepted (output : HashOutput) : Bool :=
   (List.finRange 9).all (fun coord => decide (rawForestRank output coord.val < 563))
 
@@ -11546,6 +11560,20 @@ theorem accepted_conditions (output : HashOutput) (h : digestAccepted output = t
     jointAccountingCost output ≤ 777 := by
   simpa only [digestAccepted, Bool.and_eq_true, decide_eq_true_eq, ranksAccepted_iff,
     and_assoc] using h
+
+theorem conditional_credit_floor (output : HashOutput) :
+    conditionalCredit output = conditionalTopFloor output + 55 := by
+  unfold conditionalCredit conditionalTopFloor CanonicalPolicy.totalCredit CanonicalPolicy.topFloor
+  omega
+
+theorem conditional_bounds_of_accepted (output : HashOutput) (h : digestAccepted output = true) :
+    conditionalExtra output ≤ 4 ∧ conditionalCredit output ≤ 73 ∧
+      conditionalTopFloor output ≤ 18 := by
+  have hc := (accepted_conditions output h).2.2
+  change jointAccountingCost output - 773 ≤ 4 ∧
+    69 + (jointAccountingCost output - 773) ≤ 73 ∧
+    14 + (jointAccountingCost output - 773) ≤ 18
+  omega
 end SigGolfCandidate.Research.SharedForest
 
 /-! The compact signature carries explicit canonical policy hints. All128 nonce
@@ -11559,8 +11587,9 @@ def policyHintBound : Nat := 7744
 def hintFloor (hints : BitVec 16) (lay : Layer) : Nat :=
   if lay = 0 then CanonicalPolicy.topFloor else hints.toNat / 22 ^ (3 - lay.val) % 22
 
-def policyHintsValid (hints : BitVec 16) (digits : List (List Nat)) (lows : List Bool) : Bool :=
-  let residual1 := CanonicalPolicy.nextResidual CanonicalPolicy.totalCredit 0 (lows.getD 0 true) (digits.getD 0 [])
+def policyHintsValid (hints : BitVec 16) (digits : List (List Nat)) (lows : List Bool)
+    (credit : Nat := CanonicalPolicy.totalCredit) : Bool :=
+  let residual1 := CanonicalPolicy.nextResidual credit 0 (lows.getD 0 true) (digits.getD 0 [])
   let residual2 := CanonicalPolicy.nextResidual residual1 1 (lows.getD 1 true) (digits.getD 1 [])
   let residual3 := CanonicalPolicy.nextResidual residual2 2 (lows.getD 2 true) (digits.getD 2 [])
   decide (hints.toNat < 7744 ∧ digits.length = 4 ∧
@@ -11607,21 +11636,24 @@ structure RecoveredLayers where
 
 /-- Hints allow one bottom-up pass. The final check compares these hints with
 the unique ancestor policy, so alternate hint encodings are rejected. -/
-def recoverHintedLayers (sig : Signature) (index : Nat) (other : Digest) :
-    Nat → LayerMsg → M (Option RecoveredLayers)
-  | 0, _ => pure none
-  | n + 1, msg => do
+def recoverHintedLayers (sig : Signature) (index : Nat) (other : Digest)
+    (depth : Nat) (msg : LayerMsg) (topFloor : Nat := CanonicalPolicy.topFloor) :
+    M (Option RecoveredLayers) :=
+  match depth with
+  | 0 => pure none
+  | n + 1 => do
       let lay : Layer := Fin.ofNat 4 n
       let (leaf, tree) := route index lay
       let some (counter, digits, low) ← CanonicalPolicy.layerCounterSearchAt lay
-        (hintFloor sig.policyHints lay) tree leaf msg 0 (searchLimit lay) | pure none
+        (if lay = 0 then topFloor else hintFloor sig.policyHints lay)
+        tree leaf msg 0 (searchLimit lay) | pure none
       if n = 0 then
         let (folded, nonces) ← topFoldN (mainSignature sig) index digits
         let root ← topNode index folded other
         pure (some ⟨folded, root, [counter], [digits], [low], nonces⟩)
       else
         let pair ← recoverLayerPair (mainSignature sig) index lay digits
-        let some previous ← recoverHintedLayers sig index other n (.pair pair.1 pair.2) | pure none
+        let some previous ← recoverHintedLayers sig index other n (.pair pair.1 pair.2) topFloor | pure none
         pure (some { previous with
           counters := previous.counters ++ [counter]
           digits := previous.digits ++ [digits]
@@ -11655,8 +11687,9 @@ def expandFill (message : Message) (pk : Digest) (sig : Signature) : M (Option W
   let forest ← recoverForest index (forestSelectionFromOutput output)
     (forestWordsFromOutput output) sig0.forest
   let some layers ← recoverHintedLayers sig0 index ((sig0.layers 0).path topJ)
-    4 (.pair forest.1 forest.2) | pure none
-  if !policyHintsValid sig0.policyHints layers.digits layers.lows then return none
+    4 (.pair forest.1 forest.2) (conditionalTopFloor output) | pure none
+  if !policyHintsValid sig0.policyHints layers.digits layers.lows
+      (conditionalCredit output) then return none
   if layers.root = pk then
     return some ⟨sig0, counter, fun lay => layers.counters.getD lay.val 0, !(layers.lows.getD 0 true),
       layers.nonces⟩
@@ -12050,11 +12083,16 @@ theorem hintFloor_unique {a b : BitVec 16} (ha : a.toNat < 7744) (hb : b.toNat <
   norm_num at h1 h2 h3
   exact base22_unique ha hb h1 h2 h3
 
-theorem policyHintsValid_unique {a b : BitVec 16} {digits : List (List Nat)} {lows : List Bool}
-    (ha : policyHintsValid a digits lows = true) (hb : policyHintsValid b digits lows = true) : a = b := by
+theorem policyHintsValid_unique_at {a b : BitVec 16} {digits : List (List Nat)} {lows : List Bool}
+    (credit : Nat) (ha : policyHintsValid a digits lows credit = true)
+    (hb : policyHintsValid b digits lows credit = true) : a = b := by
   simp only [policyHintsValid, decide_eq_true_eq] at ha hb
   exact hintFloor_unique ha.1 hb.1 (ha.2.2.1.trans hb.2.2.1.symm)
     (ha.2.2.2.1.trans hb.2.2.2.1.symm) (ha.2.2.2.2.trans hb.2.2.2.2.symm)
+
+theorem policyHintsValid_unique {a b : BitVec 16} {digits : List (List Nat)} {lows : List Bool}
+    (ha : policyHintsValid a digits lows = true) (hb : policyHintsValid b digits lows = true) : a = b :=
+  policyHintsValid_unique_at CanonicalPolicy.totalCredit ha hb
 
 theorem encodedHints_spec (a b c : Nat) (ha : a < 16) (hb : b < 22) (hc : c < 22) :
     let code := BitVec.ofNat 16 (484 * a + 22 * b + c)
@@ -12414,9 +12452,11 @@ set_option maxHeartbeats 1000000
 set_option maxRecDepth 10000
 set_option backward.isDefEq.respectTransparency false
 
-theorem recoverHintedLayers_verified (answers : Answers) (sig : Signature) (index : Nat) :
+theorem recoverHintedLayers_verified_at (answers : Answers) (sig : Signature) (index : Nat)
+    (topFloor : Nat) :
     ∀ n, n ≤ 4 → ∀ msg result,
-      evalWithAnswerFn answers (recoverHintedLayers sig index ((sig.layers 0).path topJ) n msg) = some result →
+      evalWithAnswerFn answers (recoverHintedLayers sig index ((sig.layers 0).path topJ)
+        n msg topFloor) = some result →
       result.counters.length = n ∧ result.digits.length = n ∧ result.lows.length = n ∧
         ∀ w : Witness, w.signature = sig →
           (∀ lay : Layer, lay.val < n → w.counters lay = result.counters.getD lay.val 0) →
@@ -12490,6 +12530,16 @@ theorem recoverHintedLayers_verified (answers : Answers) (sig : Signature) (inde
                 · rw [hh, List.getD_append previous.lows [low] true 0 (by omega)]
       · simp only [evalWithAnswerFn_pure, reduceCtorEq] at he
 
+theorem recoverHintedLayers_verified (answers : Answers) (sig : Signature) (index : Nat) :
+    ∀ n, n ≤ 4 → ∀ msg result,
+      evalWithAnswerFn answers (recoverHintedLayers sig index ((sig.layers 0).path topJ) n msg) = some result →
+      result.counters.length = n ∧ result.digits.length = n ∧ result.lows.length = n ∧
+        ∀ w : Witness, w.signature = sig →
+          (∀ lay : Layer, lay.val < n → w.counters lay = result.counters.getD lay.val 0) →
+          w.topHigh = !(result.lows.getD 0 true) → w.topNonces = result.nonces →
+          evalWithAnswerFn answers (verifyLayers w index n msg) = some result.root :=
+  recoverHintedLayers_verified_at answers sig index CanonicalPolicy.topFloor
+
 end SigGolfCandidate.Research.SharedForest
 
 namespace SigGolfCandidate.Research.SharedForest
@@ -12547,10 +12597,11 @@ theorem topFoldN_fill_signature (sig : Signature) (index : Nat) (digits : List N
   rw [fillTop_self] at h
   exact h
 
-theorem recoverHintedLayers_fill (sig : Signature) (index : Nat) (other : Digest) (c : Nat) :
+theorem recoverHintedLayers_fill_at (sig : Signature) (index : Nat) (other : Digest)
+    (c topFloor : Nat) :
     ∀ n, n ≤ 4 → ∀ msg,
-      recoverHintedLayers (fillTopSignature sig c) index other n msg =
-        recoverHintedLayers sig index other n msg := by
+      recoverHintedLayers (fillTopSignature sig c) index other n msg topFloor =
+        recoverHintedLayers sig index other n msg topFloor := by
   intro n
   induction n with
   | zero => intro _ msg; rfl
@@ -12574,10 +12625,16 @@ theorem recoverHintedLayers_fill (sig : Signature) (index : Nat) (other : Digest
               intro pair
               rw [ih (by omega)]
 
-theorem eval_recoverHintedLayers_other (answers : Answers) (sig : Signature)
-    (index : Nat) (other other' : Digest) :
-    ∀ n msg, evalWithAnswerFn answers (recoverHintedLayers sig index other' n msg) =
-      (evalWithAnswerFn answers (recoverHintedLayers sig index other n msg)).map
+theorem recoverHintedLayers_fill (sig : Signature) (index : Nat) (other : Digest) (c : Nat) :
+    ∀ n, n ≤ 4 → ∀ msg,
+      recoverHintedLayers (fillTopSignature sig c) index other n msg =
+        recoverHintedLayers sig index other n msg :=
+  recoverHintedLayers_fill_at sig index other c CanonicalPolicy.topFloor
+
+theorem eval_recoverHintedLayers_other_at (answers : Answers) (sig : Signature)
+    (index : Nat) (other other' : Digest) (topFloor : Nat) :
+    ∀ n msg, evalWithAnswerFn answers (recoverHintedLayers sig index other' n msg topFloor) =
+      (evalWithAnswerFn answers (recoverHintedLayers sig index other n msg topFloor)).map
         (fun result => {result with root := evalWithAnswerFn answers (topNode index result.foldedTop other')}) := by
   intro n
   induction n with
@@ -12591,10 +12648,17 @@ theorem eval_recoverHintedLayers_other (answers : Answers) (sig : Signature)
           by_cases hn : n = 0
           · simp [hn]
           · simp only [hn, if_false, evalWithAnswerFn_bind, ih]
-            cases evalWithAnswerFn answers (recoverHintedLayers sig index other n _) with
+            cases evalWithAnswerFn answers (recoverHintedLayers sig index other n _ topFloor) with
             | none => simp
             | some previous => simp
       · simp
+
+theorem eval_recoverHintedLayers_other (answers : Answers) (sig : Signature)
+    (index : Nat) (other other' : Digest) :
+    ∀ n msg, evalWithAnswerFn answers (recoverHintedLayers sig index other' n msg) =
+      (evalWithAnswerFn answers (recoverHintedLayers sig index other n msg)).map
+        (fun result => {result with root := evalWithAnswerFn answers (topNode index result.foldedTop other')}) :=
+  eval_recoverHintedLayers_other_at answers sig index other other' CanonicalPolicy.topFloor
 
 theorem sharedDigestSearch_some (answers : Answers) (rho : Digest) (message : Message) :
     ∀ fuel counter found output, counter + fuel ≤ 2 ^ 32 →
@@ -12616,6 +12680,28 @@ theorem sharedDigestSearch_some (answers : Answers) (rho : Digest) (message : Me
       · obtain ⟨hlo, hhi, hg, ho⟩ := ih (counter + 1) found output (by omega) he
         exact ⟨by omega, by omega, hg, ho⟩
 
+theorem verify_from_recovered_at (answers : Answers) (message : Message) (pk : Digest)
+    (sig : Signature) (counter : BitVec 32) (output : HashOutput) (result : RecoveredLayers)
+    (topFloor : Nat)
+    (ho : evalWithAnswerFn answers (digest sig.rho message counter) = output)
+    (ha : verifyDigestAccepted output = true)
+    (hr : evalWithAnswerFn answers (recoverHintedLayers sig (digestIndex output)
+      ((sig.layers 0).path topJ) 4
+      (.pair (evalWithAnswerFn answers (recoverForest (digestIndex output)
+        (forestSelectionFromOutput output) (forestWordsFromOutput output) sig.forest)).1
+        (evalWithAnswerFn answers (recoverForest (digestIndex output)
+          (forestSelectionFromOutput output) (forestWordsFromOutput output) sig.forest)).2)
+      topFloor) = some result)
+    (hpk : result.root = pk) :
+    evalWithAnswerFn answers (verify message pk
+      ⟨sig, counter, fun lay => result.counters.getD lay.val 0, !(result.lows.getD 0 true), result.nonces⟩) = true := by
+  have hc : ¬counter.toNat ≥ digestVerifyWindow := Nat.not_le.mpr counter.isLt
+  have hv := (recoverHintedLayers_verified_at answers sig (digestIndex output) topFloor
+    4 le_rfl _ _ hr).2.2.2
+    ⟨sig, counter, fun lay => result.counters.getD lay.val 0, !(result.lows.getD 0 true), result.nonces⟩ rfl (by intros; rfl) rfl
+  simp only [verify, hc, if_false, evalWithAnswerFn_bind, ho, ha, Bool.not_true,
+    Bool.false_eq_true, hv, evalWithAnswerFn_pure, hpk, beq_self_eq_true]
+
 theorem verify_from_recovered (answers : Answers) (message : Message) (pk : Digest)
     (sig : Signature) (counter : BitVec 32) (output : HashOutput) (result : RecoveredLayers)
     (ho : evalWithAnswerFn answers (digest sig.rho message counter) = output)
@@ -12628,12 +12714,9 @@ theorem verify_from_recovered (answers : Answers) (message : Message) (pk : Dige
           (forestSelectionFromOutput output) (forestWordsFromOutput output) sig.forest)).2)) = some result)
     (hpk : result.root = pk) :
     evalWithAnswerFn answers (verify message pk
-      ⟨sig, counter, fun lay => result.counters.getD lay.val 0, !(result.lows.getD 0 true), result.nonces⟩) = true := by
-  have hc : ¬counter.toNat ≥ digestVerifyWindow := Nat.not_le.mpr counter.isLt
-  have hv := (recoverHintedLayers_verified answers sig (digestIndex output) 4 le_rfl _ _ hr).2.2.2
-    ⟨sig, counter, fun lay => result.counters.getD lay.val 0, !(result.lows.getD 0 true), result.nonces⟩ rfl (by intros; rfl) rfl
-  simp only [verify, hc, if_false, evalWithAnswerFn_bind, ho, ha, Bool.not_true,
-    Bool.false_eq_true, hv, evalWithAnswerFn_pure, hpk, beq_self_eq_true]
+      ⟨sig, counter, fun lay => result.counters.getD lay.val 0, !(result.lows.getD 0 true), result.nonces⟩) = true :=
+  verify_from_recovered_at answers message pk sig counter output result CanonicalPolicy.topFloor
+    ho ha hr hpk
 
 end SigGolfCandidate.Research.SharedForest
 
@@ -12726,14 +12809,15 @@ theorem expandFill_verified (answers : Answers) (message : Message) (pk : Digest
       let forest := evalWithAnswerFn answers (recoverForest index (forestSelectionFromOutput output)
         (forestWordsFromOutput output) sig0.forest)
       cases hr : evalWithAnswerFn answers (recoverHintedLayers sig0 index ((sig0.layers 0).path topJ)
-        4 (.pair forest.1 forest.2)) with
+        4 (.pair forest.1 forest.2) (conditionalTopFloor output)) with
       | none =>
           dsimp only [index, forest, sig0] at hr
           simp only [hr, evalWithAnswerFn_pure, reduceCtorEq] at he
       | some result =>
           dsimp only [index, forest, sig0] at hr
           simp only [hr] at he
-          cases hp : policyHintsValid sig0.policyHints result.digits result.lows with
+          cases hp : policyHintsValid sig0.policyHints result.digits result.lows
+              (conditionalCredit output) with
           | false =>
               dsimp only [sig0] at hp
               simp only [hp, Bool.not_false, if_true, evalWithAnswerFn_pure, reduceCtorEq] at he
@@ -12743,7 +12827,8 @@ theorem expandFill_verified (answers : Answers) (message : Message) (pk : Digest
               by_cases hpk : result.root = pk
               · simp only [hpk, if_true, evalWithAnswerFn_pure, Option.some.injEq] at he
                 subst w
-                exact verify_from_recovered answers message pk sig0 counter output result houtput ha hr hpk
+                exact verify_from_recovered_at answers message pk sig0 counter output result
+                  (conditionalTopFloor output) houtput ha hr hpk
               · simp only [hpk, if_false, evalWithAnswerFn_bind] at he
                 cases hs : evalWithAnswerFn answers
                   (searchTop index result.foldedTop ((sig0.layers 0).path topJ) pk searchFuel 1) with
@@ -12764,14 +12849,16 @@ theorem expandFill_verified (answers : Answers) (message : Message) (pk : Digest
                       rw [topPath_fill_signature]
                       exact hc
                     have hr' : evalWithAnswerFn answers (recoverHintedLayers (fillTopSignature sig0 c) index
-                        (((fillTopSignature sig0 c).layers 0).path topJ) 4 (.pair forest.1 forest.2)) =
+                        (((fillTopSignature sig0 c).layers 0).path topJ) 4 (.pair forest.1 forest.2)
+                        (conditionalTopFloor output)) =
                         some completed := by
-                      rw [recoverHintedLayers_fill _ _ _ _ _ le_rfl]
-                      rw [eval_recoverHintedLayers_other answers sig0 index ((sig0.layers 0).path topJ)]
+                      rw [recoverHintedLayers_fill_at _ _ _ _ (conditionalTopFloor output) _ le_rfl]
+                      rw [eval_recoverHintedLayers_other_at answers sig0 index
+                        ((sig0.layers 0).path topJ) _ (conditionalTopFloor output)]
                       rw [hr]
                       rfl
-                    exact verify_from_recovered answers message pk (fillTopSignature sig0 c)
-                      counter output completed houtput ha hr' hcompleted
+                    exact verify_from_recovered_at answers message pk (fillTopSignature sig0 c)
+                      counter output completed (conditionalTopFloor output) houtput ha hr' hcompleted
 
 theorem expand_verified (answers : Answers) (message : Message) (pk : Digest)
     (sig : Signature) (w : Witness)
@@ -12788,68 +12875,77 @@ set_option maxHeartbeats 1000000
 set_option maxRecDepth 10000
 set_option backward.isDefEq.respectTransparency false
 
-def preparedResidual1 (result : CanonicalLayers) : Nat :=
-  CanonicalPolicy.nextResidual (CanonicalPolicy.totalCredit) 0 (result.lows.getD 0 true) (result.digits.getD 0 [])
+def preparedResidual1 (result : CanonicalLayers)
+    (credit : Nat := CanonicalPolicy.totalCredit) : Nat :=
+  CanonicalPolicy.nextResidual credit 0 (result.lows.getD 0 true) (result.digits.getD 0 [])
 
-def preparedResidual2 (result : CanonicalLayers) : Nat :=
-  CanonicalPolicy.nextResidual (preparedResidual1 result) 1 (result.lows.getD 1 true) (result.digits.getD 1 [])
+def preparedResidual2 (result : CanonicalLayers)
+    (credit : Nat := CanonicalPolicy.totalCredit) : Nat :=
+  CanonicalPolicy.nextResidual (preparedResidual1 result credit) 1
+    (result.lows.getD 1 true) (result.digits.getD 1 [])
 
-def preparedResidual3 (result : CanonicalLayers) : Nat :=
-  CanonicalPolicy.nextResidual (preparedResidual2 result) 2 (result.lows.getD 2 true) (result.digits.getD 2 [])
+def preparedResidual3 (result : CanonicalLayers)
+    (credit : Nat := CanonicalPolicy.totalCredit) : Nat :=
+  CanonicalPolicy.nextResidual (preparedResidual2 result credit) 2
+    (result.lows.getD 2 true) (result.digits.getD 2 [])
 
 /-- The successful source program exposes exactly the four canonical searches,
 with every lower threshold determined by its already selected ancestors. -/
 structure PreparedSearchFacts (answers : Answers) (cache : SigGolfCandidate.T3.Cache) (index : Nat)
-    (prepared : PreparedRoots) (forest : PairRoot) (result : CanonicalLayers) : Prop where
+    (prepared : PreparedRoots) (forest : PairRoot) (result : CanonicalLayers)
+    (credit : Nat := CanonicalPolicy.totalCredit)
+    (topFloor : Nat := CanonicalPolicy.topFloor) : Prop where
   pieces_length : result.pieces.length = 4
   counters_length : result.counters.length = 4
   digits_length : result.digits.length = 4
   lows_length : result.lows.length = 4
   search0 : evalWithAnswerFn answers (CanonicalPolicy.layerCounterSearchAt 0
-    (CanonicalPolicy.threshold 0 CanonicalPolicy.totalCredit) (route index 0).2 (route index 0).1
+    topFloor (route index 0).2 (route index 0).1
     (.pair (topPair 1 prepared.one.levels).1 (topPair 1 prepared.one.levels).2) 0 (searchLimit 0)) =
       some (result.counters.getD 0 0, result.digits.getD 0 [], result.lows.getD 0 true)
   search1 : evalWithAnswerFn answers (CanonicalPolicy.layerCounterSearchAt 1
-    (CanonicalPolicy.threshold 1 (preparedResidual1 result)) (route index 1).2 (route index 1).1
+    (CanonicalPolicy.threshold 1 (preparedResidual1 result credit)) (route index 1).2 (route index 1).1
     (.pair (topPair 2 prepared.two.levels).1 (topPair 2 prepared.two.levels).2) 0 (searchLimit 1)) =
       some (result.counters.getD 1 0, result.digits.getD 1 [], result.lows.getD 1 true)
   search2 : evalWithAnswerFn answers (CanonicalPolicy.layerCounterSearchAt 2
-    (CanonicalPolicy.threshold 2 (preparedResidual2 result)) (route index 2).2 (route index 2).1
+    (CanonicalPolicy.threshold 2 (preparedResidual2 result credit)) (route index 2).2 (route index 2).1
     (.pair (topPair 3 prepared.three.levels).1 (topPair 3 prepared.three.levels).2) 0 (searchLimit 2)) =
       some (result.counters.getD 2 0, result.digits.getD 2 [], result.lows.getD 2 true)
   search3 : evalWithAnswerFn answers (CanonicalPolicy.layerCounterSearchAt 3
-    (CanonicalPolicy.threshold 3 (preparedResidual3 result)) (route index 3).2 (route index 3).1
+    (CanonicalPolicy.threshold 3 (preparedResidual3 result credit)) (route index 3).2 (route index 3).1
     (.pair (forest).1 (forest).2) 0 (searchLimit 3)) =
       some (result.counters.getD 3 0, result.digits.getD 3 [], result.lows.getD 3 true)
-  floor1_lt : CanonicalPolicy.threshold 1 (preparedResidual1 result) < 16
-  floor2_lt : CanonicalPolicy.threshold 2 (preparedResidual2 result) < 22
-  floor3_lt : CanonicalPolicy.threshold 3 (preparedResidual3 result) < 22
-  residual_eq : result.residual = CanonicalPolicy.nextResidual (preparedResidual3 result) 3
+  floor1_lt : CanonicalPolicy.threshold 1 (preparedResidual1 result credit) < 16
+  floor2_lt : CanonicalPolicy.threshold 2 (preparedResidual2 result credit) < 22
+  floor3_lt : CanonicalPolicy.threshold 3 (preparedResidual3 result credit) < 22
+  residual_eq : result.residual = CanonicalPolicy.nextResidual (preparedResidual3 result credit) 3
     (result.lows.getD 3 true) (result.digits.getD 3 [])
   hints_eq : result.policyHints = BitVec.ofNat 16
-    (484 * CanonicalPolicy.threshold 1 (preparedResidual1 result) +
-     22 * CanonicalPolicy.threshold 2 (preparedResidual2 result) +
-     CanonicalPolicy.threshold 3 (preparedResidual3 result))
+    (484 * CanonicalPolicy.threshold 1 (preparedResidual1 result credit) +
+     22 * CanonicalPolicy.threshold 2 (preparedResidual2 result credit) +
+     CanonicalPolicy.threshold 3 (preparedResidual3 result credit))
   pieces_eq : result.pieces = [
     evalWithAnswerFn answers (signTop cache (route index 0).1 (result.digits.getD 0 [])),
     preparedPieces 1 (route index 1).1 prepared.one (result.digits.getD 1 []),
     preparedPieces 2 (route index 2).1 prepared.two (result.digits.getD 2 []),
     preparedPieces 3 (route index 3).1 prepared.three (result.digits.getD 3 [])]
 
-theorem searchPreparedLayers_some (answers : Answers) (cache : SigGolfCandidate.T3.Cache) (index : Nat)
-    (prepared : PreparedRoots) (forest : PairRoot) (result : CanonicalLayers)
-    (he : evalWithAnswerFn answers (searchPreparedLayers cache index prepared forest) = some result) :
-    PreparedSearchFacts answers cache index prepared forest result := by
+theorem searchPreparedLayers_some_at (answers : Answers) (cache : SigGolfCandidate.T3.Cache)
+    (index : Nat) (prepared : PreparedRoots) (forest : PairRoot) (result : CanonicalLayers)
+    (credit topFloor : Nat)
+    (he : evalWithAnswerFn answers
+      (searchPreparedLayers cache index prepared forest credit topFloor) = some result) :
+    PreparedSearchFacts answers cache index prepared forest result credit topFloor := by
   unfold searchPreparedLayers at he
   simp only [evalWithAnswerFn_bind] at he
   cases hs0 : evalWithAnswerFn answers (CanonicalPolicy.layerCounterSearchAt 0
-    (CanonicalPolicy.threshold 0 CanonicalPolicy.totalCredit) (route index 0).2 (route index 0).1
+    topFloor (route index 0).2 (route index 0).1
     (.pair (topPair 1 prepared.one.levels).1 (topPair 1 prepared.one.levels).2) 0 (searchLimit 0)) with
   | none => simp only [hs0, evalWithAnswerFn_pure, reduceCtorEq] at he
   | some found0 =>
       obtain ⟨c0, d0, l0⟩ := found0
       simp only [hs0, evalWithAnswerFn_bind] at he
-      let r1 := CanonicalPolicy.nextResidual CanonicalPolicy.totalCredit 0 l0 d0
+      let r1 := CanonicalPolicy.nextResidual credit 0 l0 d0
       let f1 := CanonicalPolicy.threshold 1 r1
       by_cases hf1 : f1 ≥ 16
       · dsimp only [r1, f1] at hf1
@@ -12924,6 +13020,13 @@ theorem searchPreparedLayers_some (answers : Answers) (cache : SigGolfCandidate.
                   · rfl
                   · rfl
 
+theorem searchPreparedLayers_some (answers : Answers) (cache : SigGolfCandidate.T3.Cache) (index : Nat)
+    (prepared : PreparedRoots) (forest : PairRoot) (result : CanonicalLayers)
+    (he : evalWithAnswerFn answers (searchPreparedLayers cache index prepared forest) = some result) :
+    PreparedSearchFacts answers cache index prepared forest result :=
+  searchPreparedLayers_some_at answers cache index prepared forest result
+    CanonicalPolicy.totalCredit CanonicalPolicy.topFloor he
+
 end SigGolfCandidate.Research.SharedForest
 
 namespace SigGolfCandidate.Research.SharedForest
@@ -12969,11 +13072,12 @@ theorem topNode_wotsPieces (answers : Answers) (sig : Signature) (index : Nat)
       rw [hp]
       simp [piecesSignature, honestPieces, List.getD_eq_getElem, j.isLt])
 
-theorem recoverHintedLayers_replay (answers : Answers) (sig : Signature) (index : Nat)
-    (other : Digest) (forest : PairRoot)
+theorem recoverHintedLayers_replay_at (answers : Answers) (sig : Signature) (index : Nat)
+    (other : Digest) (forest : PairRoot) (topFloor : Nat)
     (counter : Layer → BitVec 32) (digits : Layer → List Nat) (lows : Layer → Bool)
     (hs : ∀ lay, evalWithAnswerFn answers (CanonicalPolicy.layerCounterSearchAt lay
-      (hintFloor sig.policyHints lay) (route index lay).2 (route index lay).1
+      (if lay = 0 then topFloor else hintFloor sig.policyHints lay)
+      (route index lay).2 (route index lay).1
       (if lay = 3 then .pair forest.1 forest.2 else
         let lower : Layer := Fin.ofNat 4 (lay.val + 1)
         .pair (builtPair answers lower (route index lower).2).1
@@ -12982,7 +13086,8 @@ theorem recoverHintedLayers_replay (answers : Answers) (sig : Signature) (index 
     (hp : ∀ lay, lay ≠ 0 → evalWithAnswerFn answers
       (recoverLayerPair (mainSignature sig) index lay (digits lay)) =
       builtPair answers lay (route index lay).2) :
-    evalWithAnswerFn answers (recoverHintedLayers sig index other 4 (.pair forest.1 forest.2)) =
+    evalWithAnswerFn answers (recoverHintedLayers sig index other 4 (.pair forest.1 forest.2)
+      topFloor) =
       some ⟨(evalWithAnswerFn answers (topFoldN (mainSignature sig) index (digits 0))).1,
         evalWithAnswerFn answers (topNode index
           (evalWithAnswerFn answers (topFoldN (mainSignature sig) index (digits 0))).1 other),
@@ -13011,6 +13116,34 @@ theorem recoverHintedLayers_replay (answers : Answers) (sig : Signature) (index 
     Nat.reduceEqDiff, if_false, if_true, evalWithAnswerFn_pure]
   rfl
 
+theorem recoverHintedLayers_replay (answers : Answers) (sig : Signature) (index : Nat)
+    (other : Digest) (forest : PairRoot)
+    (counter : Layer → BitVec 32) (digits : Layer → List Nat) (lows : Layer → Bool)
+    (hs : ∀ lay, evalWithAnswerFn answers (CanonicalPolicy.layerCounterSearchAt lay
+      (hintFloor sig.policyHints lay) (route index lay).2 (route index lay).1
+      (if lay = 3 then .pair forest.1 forest.2 else
+        let lower : Layer := Fin.ofNat 4 (lay.val + 1)
+        .pair (builtPair answers lower (route index lower).2).1
+          (builtPair answers lower (route index lower).2).2)
+      0 (searchLimit lay)) = some (counter lay, digits lay, lows lay))
+    (hp : ∀ lay, lay ≠ 0 → evalWithAnswerFn answers
+      (recoverLayerPair (mainSignature sig) index lay (digits lay)) =
+      builtPair answers lay (route index lay).2) :
+    evalWithAnswerFn answers (recoverHintedLayers sig index other 4 (.pair forest.1 forest.2)) =
+      some ⟨(evalWithAnswerFn answers (topFoldN (mainSignature sig) index (digits 0))).1,
+        evalWithAnswerFn answers (topNode index
+          (evalWithAnswerFn answers (topFoldN (mainSignature sig) index (digits 0))).1 other),
+        [counter 0, counter 1, counter 2, counter 3],
+        [digits 0, digits 1, digits 2, digits 3],
+        [lows 0, lows 1, lows 2, lows 3],
+        (evalWithAnswerFn answers (topFoldN (mainSignature sig) index (digits 0))).2⟩ := by
+  apply recoverHintedLayers_replay_at answers sig index other forest CanonicalPolicy.topFloor
+    counter digits lows
+  · intro lay
+    have hx := hs lay
+    fin_cases lay <;> simpa [hintFloor, CanonicalPolicy.topFloor] using hx
+  · exact hp
+
 end SigGolfCandidate.Research.SharedForest
 
 namespace SigGolfCandidate.Research.SharedForest
@@ -13030,7 +13163,8 @@ theorem layer_four_cases (lay : Layer) : lay = 0 ∨ lay = 1 ∨ lay = 2 ∨ lay
 
 theorem PreparedSearchFacts.validDigits {answers : Answers} {cache : SigGolfCandidate.T3.Cache} {index : Nat}
     {prepared : PreparedRoots} {forest : PairRoot} {result : CanonicalLayers}
-    (h : PreparedSearchFacts answers cache index prepared forest result) (lay : Layer) :
+    {credit topFloor : Nat}
+    (h : PreparedSearchFacts answers cache index prepared forest result credit topFloor) (lay : Layer) :
     Cost.ValidDigits lay (result.digits.getD lay.val []) := by
   rcases layer_four_cases lay with rfl | rfl | rfl | rfl
   · exact (canonical_search_valid_credit answers 0 _ _ _ _ _ _ _ _ _
@@ -13044,18 +13178,20 @@ theorem PreparedSearchFacts.validDigits {answers : Answers} {cache : SigGolfCand
 
 theorem PreparedSearchFacts.hints_spec {answers : Answers} {cache : SigGolfCandidate.T3.Cache} {index : Nat}
     {prepared : PreparedRoots} {forest : PairRoot} {result : CanonicalLayers}
-    (h : PreparedSearchFacts answers cache index prepared forest result) :
+    {credit topFloor : Nat}
+    (h : PreparedSearchFacts answers cache index prepared forest result credit topFloor) :
     result.policyHints.toNat < 7744 ∧
-      hintFloor result.policyHints 1 = CanonicalPolicy.threshold 1 (preparedResidual1 result) ∧
-      hintFloor result.policyHints 2 = CanonicalPolicy.threshold 2 (preparedResidual2 result) ∧
-      hintFloor result.policyHints 3 = CanonicalPolicy.threshold 3 (preparedResidual3 result) := by
+      hintFloor result.policyHints 1 = CanonicalPolicy.threshold 1 (preparedResidual1 result credit) ∧
+      hintFloor result.policyHints 2 = CanonicalPolicy.threshold 2 (preparedResidual2 result credit) ∧
+      hintFloor result.policyHints 3 = CanonicalPolicy.threshold 3 (preparedResidual3 result credit) := by
   rw [h.hints_eq]
   exact encodedHints_spec _ _ _ h.floor1_lt h.floor2_lt h.floor3_lt
 
 theorem PreparedSearchFacts.hints_valid {answers : Answers} {cache : SigGolfCandidate.T3.Cache} {index : Nat}
     {prepared : PreparedRoots} {forest : PairRoot} {result : CanonicalLayers}
-    (h : PreparedSearchFacts answers cache index prepared forest result) :
-    policyHintsValid result.policyHints result.digits result.lows = true := by
+    {credit topFloor : Nat}
+    (h : PreparedSearchFacts answers cache index prepared forest result credit topFloor) :
+    policyHintsValid result.policyHints result.digits result.lows credit = true := by
   simp only [policyHintsValid, decide_eq_true_eq]
   exact ⟨h.hints_spec.1, h.digits_length, h.hints_spec.2⟩
 
@@ -13069,8 +13205,9 @@ theorem preparedPieces_fixed (answers : Answers) (index : Nat) {lay : Layer}
   exact h
 
 theorem PreparedSearchFacts.honest_pieces {answers : Answers} {cache : SigGolfCandidate.T3.Cache} {index : Nat}
-    {forest : PairRoot} {result : CanonicalLayers}
-    (h : PreparedSearchFacts answers cache index (evalWithAnswerFn answers (prepareRoots index)) forest result)
+    {forest : PairRoot} {result : CanonicalLayers} {credit topFloor : Nat}
+    (h : PreparedSearchFacts answers cache index (evalWithAnswerFn answers (prepareRoots index))
+      forest result credit topFloor)
     (hcache : cache.region = cacheRegion (maskedTop answers)) (hindex : index < 2 ^ 31)
     (lay : Layer) :
     result.pieces.getD lay.val ([], []) =
@@ -13106,13 +13243,14 @@ set_option maxRecDepth 10000
 set_option backward.isDefEq.respectTransparency false
 
 theorem PreparedSearchFacts.recover_honest {answers : Answers} {cache : SigGolfCandidate.T3.Cache} {index : Nat}
-    {forest : PairRoot} {result : CanonicalLayers}
-    (h : PreparedSearchFacts answers cache index (evalWithAnswerFn answers (prepareRoots index)) forest result)
+    {forest : PairRoot} {result : CanonicalLayers} {credit topFloor : Nat}
+    (h : PreparedSearchFacts answers cache index (evalWithAnswerFn answers (prepareRoots index))
+      forest result credit topFloor)
     (hcache : cache.region = cacheRegion (maskedTop answers)) (hindex : index < 2 ^ 31)
     (sig : Signature) (hhints : sig.policyHints = result.policyHints)
     (hpieces : ∀ lay, sig.layers lay = piecesSignature lay (result.pieces.getD lay.val ([], []))) :
     ∃ folded nonces, evalWithAnswerFn answers (recoverHintedLayers sig index ((sig.layers 0).path topJ)
-      4 (.pair forest.1 forest.2)) = some ⟨folded,
+      4 (.pair forest.1 forest.2) topFloor) = some ⟨folded,
         treeValue (builtTree answers 0 0) 12 0, result.counters, result.digits, result.lows, nonces⟩ := by
   have hpiece : ∀ lay, sig.layers lay = piecesSignature lay
       (wotsPieces answers lay (route index lay).2 (route index lay).1 (result.digits.getD lay.val [])) := by
@@ -13124,7 +13262,8 @@ theorem PreparedSearchFacts.recover_honest {answers : Answers} {cache : SigGolfC
   have hs3 := h.search3
   simp only [prepareRoots_result, fixedPrepared_pair] at hs0 hs1 hs2
   have hs : ∀ lay, evalWithAnswerFn answers (CanonicalPolicy.layerCounterSearchAt lay
-      (hintFloor sig.policyHints lay) (route index lay).2 (route index lay).1
+      (if lay = 0 then topFloor else hintFloor sig.policyHints lay)
+      (route index lay).2 (route index lay).1
       (if lay = 3 then .pair forest.1 forest.2 else
         let lower : Layer := Fin.ofNat 4 (lay.val + 1)
         .pair (builtPair answers lower (route index lower).2).1
@@ -13138,7 +13277,9 @@ theorem PreparedSearchFacts.recover_honest {answers : Answers} {cache : SigGolfC
         show (Fin.ofNat 4 1 : Layer) = 1 from rfl,
         show (Fin.ofNat 4 2 : Layer) = 2 from rfl,
         show (Fin.ofNat 4 3 : Layer) = 3 from rfl, Nat.reduceAdd, show (0 : Layer) ≠ 3 by decide,
-        show (1 : Layer) ≠ 3 by decide, show (2 : Layer) ≠ 3 by decide, if_false, if_true]
+        show (1 : Layer) ≠ 3 by decide, show (2 : Layer) ≠ 3 by decide,
+        show (1 : Layer) ≠ 0 by decide, show (2 : Layer) ≠ 0 by decide,
+        show (3 : Layer) ≠ 0 by decide, if_false, if_true]
     · exact hs0
     · simpa only [h.hints_spec.2.1] using hs1
     · simpa only [h.hints_spec.2.2.1] using hs2
@@ -13148,7 +13289,8 @@ theorem PreparedSearchFacts.recover_honest {answers : Answers} {cache : SigGolfC
       builtPair answers lay (route index lay).2 := by
     intro lay hl
     exact recoverLayerPair_wotsPieces answers sig index lay hl _ (h.validDigits lay) (hpiece lay)
-  have hr := recoverHintedLayers_replay answers sig index ((sig.layers 0).path topJ) forest
+  have hr := recoverHintedLayers_replay_at answers sig index ((sig.layers 0).path topJ) forest
+    topFloor
     (fun lay => result.counters.getD lay.val 0) (fun lay => result.digits.getD lay.val [])
     (fun lay => result.lows.getD lay.val true) hs hp
   simp only [layer_val_0, layer_val_1, layer_val_2, layer_val_3] at hr
@@ -13178,8 +13320,10 @@ theorem expand_complete_of_recovered (answers : Answers) (message : Message) (pk
       (.pair (evalWithAnswerFn answers (recoverForest (digestIndex output)
         (forestSelectionFromOutput output) (forestWordsFromOutput output) sig.forest)).1
         (evalWithAnswerFn answers (recoverForest (digestIndex output)
-          (forestSelectionFromOutput output) (forestWordsFromOutput output) sig.forest)).2)) = some result)
-    (hh : policyHintsValid sig.policyHints result.digits result.lows = true) (hpk : result.root = pk)
+          (forestSelectionFromOutput output) (forestWordsFromOutput output) sig.forest)).2)
+      (conditionalTopFloor output)) = some result)
+    (hh : policyHintsValid sig.policyHints result.digits result.lows
+      (conditionalCredit output) = true) (hpk : result.root = pk)
     (htop : TopPathOK sig) :
     ∃ w, evalWithAnswerFn answers (expand message pk sig) = some w := by
   have hhbound' : sig.policyHints.toNat < 2 ^ 13 := by
@@ -13197,15 +13341,17 @@ theorem expand_complete_of_recovered (answers : Answers) (message : Message) (pk
   let result0 : RecoveredLayers := {result with
     root := evalWithAnswerFn answers (topNode index result.foldedTop ((sig0.layers 0).path topJ))}
   have hr0 : evalWithAnswerFn answers (recoverHintedLayers sig0 index
-      ((sig0.layers 0).path topJ) 4 (.pair forest.1 forest.2)) = some result0 := by
+      ((sig0.layers 0).path topJ) 4 (.pair forest.1 forest.2)
+      (conditionalTopFloor output)) = some result0 := by
     dsimp only [sig0]
-    rw [recoverHintedLayers_fill _ _ _ _ _ le_rfl,
-      eval_recoverHintedLayers_other answers sig index ((sig.layers 0).path topJ)]
+    rw [recoverHintedLayers_fill_at _ _ _ _ (conditionalTopFloor output) _ le_rfl,
+      eval_recoverHintedLayers_other_at answers sig index ((sig.layers 0).path topJ)
+        _ (conditionalTopFloor output)]
     rw [hr]
     rfl
   have hroot : evalWithAnswerFn answers (topNode index result.foldedTop ((sig.layers 0).path topJ)) = pk := by
-    have he := eval_recoverHintedLayers_other answers sig index ((sig.layers 0).path topJ)
-      ((sig.layers 0).path topJ) 4 (.pair forest.1 forest.2)
+    have he := eval_recoverHintedLayers_other_at answers sig index ((sig.layers 0).path topJ)
+      ((sig.layers 0).path topJ) (conditionalTopFloor output) 4 (.pair forest.1 forest.2)
     rw [hr] at he
     simp only [Option.map_some, Option.some.injEq] at he
     have he' := congrArg RecoveredLayers.root he
@@ -13257,9 +13403,11 @@ theorem signFromOutput_recovery (answers : Answers) (cache : SigGolfCandidate.T3
         (.pair (evalWithAnswerFn answers (recoverForest (digestIndex output)
           (forestSelectionFromOutput output) (forestWordsFromOutput output) w.signature.forest)).1
           (evalWithAnswerFn answers (recoverForest (digestIndex output)
-            (forestSelectionFromOutput output) (forestWordsFromOutput output) w.signature.forest)).2)) = some result ∧
+            (forestSelectionFromOutput output) (forestWordsFromOutput output) w.signature.forest)).2)
+        (conditionalTopFloor output)) = some result ∧
       result.root = treeValue (builtTree answers 0 0) 12 0 ∧
-      policyHintsValid w.signature.policyHints result.digits result.lows = true ∧
+      policyHintsValid w.signature.policyHints result.digits result.lows
+        (conditionalCredit output) = true ∧
       w.topHigh = !(result.lows.getD 0 true) := by
   let index := digestIndex output
   let built := evalWithAnswerFn answers (buildForest index
@@ -13267,12 +13415,14 @@ theorem signFromOutput_recovery (answers : Answers) (cache : SigGolfCandidate.T3
   let prepared := evalWithAnswerFn answers (prepareRoots index)
   unfold signFromOutput at he
   simp only [evalWithAnswerFn_bind] at he
-  cases hs : evalWithAnswerFn answers (searchPreparedLayers cache index prepared built.2) with
+  cases hs : evalWithAnswerFn answers (searchPreparedLayers cache index prepared built.2
+      (conditionalCredit output) (conditionalTopFloor output)) with
   | none =>
       dsimp only [index, prepared, built] at hs
       simp only [hs, evalWithAnswerFn_pure, reduceCtorEq] at he
   | some layers =>
-      have hf := searchPreparedLayers_some answers cache index prepared built.2 layers hs
+      have hf := searchPreparedLayers_some_at answers cache index prepared built.2 layers
+        (conditionalCredit output) (conditionalTopFloor output) hs
       dsimp only [index, prepared, built] at hs
       simp only [hs, evalWithAnswerFn_pure, Option.some.injEq] at he
       subst w
@@ -13284,7 +13434,7 @@ theorem signFromOutput_recovery (answers : Answers) (cache : SigGolfCandidate.T3
         (.pair (evalWithAnswerFn answers (recoverForest index (forestSelectionFromOutput output)
           (forestWordsFromOutput output) built.1)).1
           (evalWithAnswerFn answers (recoverForest index (forestSelectionFromOutput output)
-            (forestWordsFromOutput output) built.1)).2)) = _
+            (forestWordsFromOutput output) built.1)).2) (conditionalTopFloor output)) = _
       have hforest : evalWithAnswerFn answers (recoverForest index (forestSelectionFromOutput output)
           (forestWordsFromOutput output) built.1) = built.2 :=
         recoverForest_honest answers index _ _
@@ -13325,12 +13475,14 @@ theorem signFromOutput_path (answers : Answers) (cache : SigGolfCandidate.T3.Cac
   let prepared := evalWithAnswerFn answers (prepareRoots index)
   unfold signFromOutput at he
   simp only [evalWithAnswerFn_bind] at he
-  cases hs : evalWithAnswerFn answers (searchPreparedLayers cache index prepared built.2) with
+  cases hs : evalWithAnswerFn answers (searchPreparedLayers cache index prepared built.2
+      (conditionalCredit output) (conditionalTopFloor output)) with
   | none =>
     dsimp only [index, prepared, built] at hs
     simp only [hs, evalWithAnswerFn_pure, reduceCtorEq] at he
   | some layers =>
-    have hf := searchPreparedLayers_some answers cache index prepared built.2 layers hs
+    have hf := searchPreparedLayers_some_at answers cache index prepared built.2 layers
+      (conditionalCredit output) (conditionalTopFloor output) hs
     dsimp only [index, prepared, built] at hs
     simp only [hs, evalWithAnswerFn_pure, Option.some.injEq] at he
     subst w
@@ -13640,7 +13792,7 @@ theorem recoverHintedLayers_credit (answers : Answers) (sig : Signature) (index 
             refine ⟨rfl, rfl, fun lay hsmall => ?_⟩
             have heq : lay = 0 := Fin.ext (by omega)
             subst lay
-            exact hd
+            simpa [hintFloor, CanonicalPolicy.topFloor] using hd
           · simp only [hn0, if_false, evalWithAnswerFn_bind] at he
             split at he
             rotate_left
@@ -13657,7 +13809,12 @@ theorem recoverHintedLayers_credit (answers : Answers) (sig : Signature) (index 
                   simp only [hlay, List.getD_append_right previous.digits [digits] [] n (by omega), hlen,
                     List.getD_append_right previous.lows [low] true n (by omega), hllen,
                     Nat.sub_self, List.getD_cons_zero]
-                  exact hd
+                  have hne : (Fin.ofNat 4 n : Layer) ≠ 0 := by
+                    intro heq
+                    have hv := congrArg Fin.val heq
+                    rw [hlay] at hv
+                    exact hn0 (by simpa using hv)
+                  simpa only [hne, if_false] using hd
                 · rw [List.getD_append previous.digits [digits] [] lay.val (by omega),
                     List.getD_append previous.lows [low] true lay.val (by omega)]
                   exact hprevious lay (by omega)
@@ -13805,31 +13962,34 @@ set_option maxHeartbeats 1000000
 set_option maxRecDepth 10000
 set_option backward.isDefEq.respectTransparency false
 
-def recoverySearch (answers : Answers) (sig : Signature) (index : Nat) (forest : PairRoot) (lay : Layer) :
+def recoverySearch (answers : Answers) (sig : Signature) (index : Nat) (forest : PairRoot) (lay : Layer)
+    (topFloor : Nat := CanonicalPolicy.topFloor) :
     M (Option (BitVec 32 × List Nat × Bool)) :=
-  CanonicalPolicy.layerCounterSearchAt lay (hintFloor sig.policyHints lay)
+  CanonicalPolicy.layerCounterSearchAt lay
+    (if lay = 0 then topFloor else hintFloor sig.policyHints lay)
     (route index lay).2 (route index lay).1
     (if lay = 3 then .pair forest.1 forest.2 else
       let lower : Layer := Fin.ofNat 4 (lay.val + 1)
       .pair (builtPair answers lower (route index lower).2).1
         (builtPair answers lower (route index lower).2).2) 0 (searchLimit lay)
 
-def recoverySearchCost (answers : Answers) (sig : Signature) (index : Nat) (forest : PairRoot) : Nat :=
-  cost answers (recoverySearch answers sig index forest 0) +
-  cost answers (recoverySearch answers sig index forest 1) +
-  cost answers (recoverySearch answers sig index forest 2) +
-  cost answers (recoverySearch answers sig index forest 3)
+def recoverySearchCost (answers : Answers) (sig : Signature) (index : Nat) (forest : PairRoot)
+    (topFloor : Nat := CanonicalPolicy.topFloor) : Nat :=
+  cost answers (recoverySearch answers sig index forest 0 topFloor) +
+  cost answers (recoverySearch answers sig index forest 1 topFloor) +
+  cost answers (recoverySearch answers sig index forest 2 topFloor) +
+  cost answers (recoverySearch answers sig index forest 3 topFloor)
 
-theorem recoverHintedLayers_cost_replay (answers : Answers) (sig : Signature) (index : Nat)
+theorem recoverHintedLayers_cost_replay_at (answers : Answers) (sig : Signature) (index : Nat)
     (other : Digest) (forest : PairRoot) (counter : Layer → BitVec 32) (digits : Layer → List Nat)
-    (lows : Layer → Bool)
-    (hs : ∀ lay, evalWithAnswerFn answers (recoverySearch answers sig index forest lay) =
+    (lows : Layer → Bool) (topFloor : Nat)
+    (hs : ∀ lay, evalWithAnswerFn answers (recoverySearch answers sig index forest lay topFloor) =
       some (counter lay, digits lay, lows lay))
     (hp : ∀ lay, lay ≠ 0 → evalWithAnswerFn answers
       (recoverLayerPair (mainSignature sig) index lay (digits lay)) =
       builtPair answers lay (route index lay).2) :
-    cost answers (recoverHintedLayers sig index other 4 (.pair forest.1 forest.2)) ≤
-      recoverySearchCost answers sig index forest + (1616 + 425765) := by
+    cost answers (recoverHintedLayers sig index other 4 (.pair forest.1 forest.2) topFloor) ≤
+      recoverySearchCost answers sig index forest topFloor + (1616 + 425765) := by
   have hs0 := hs 0
   have hs1 := hs 1
   have hs2 := hs 2
@@ -13864,6 +14024,19 @@ theorem recoverHintedLayers_cost_replay (answers : Answers) (sig : Signature) (i
   simp only [topFoldNCost] at hct
   omega
 
+theorem recoverHintedLayers_cost_replay (answers : Answers) (sig : Signature) (index : Nat)
+    (other : Digest) (forest : PairRoot) (counter : Layer → BitVec 32) (digits : Layer → List Nat)
+    (lows : Layer → Bool)
+    (hs : ∀ lay, evalWithAnswerFn answers (recoverySearch answers sig index forest lay) =
+      some (counter lay, digits lay, lows lay))
+    (hp : ∀ lay, lay ≠ 0 → evalWithAnswerFn answers
+      (recoverLayerPair (mainSignature sig) index lay (digits lay)) =
+      builtPair answers lay (route index lay).2) :
+    cost answers (recoverHintedLayers sig index other 4 (.pair forest.1 forest.2)) ≤
+      recoverySearchCost answers sig index forest + (1616 + 425765) :=
+  recoverHintedLayers_cost_replay_at answers sig index other forest counter digits lows
+    CanonicalPolicy.topFloor hs hp
+
 end SigGolfCandidate.Research.SharedForest
 
 namespace SigGolfCandidate.Research.SharedForest
@@ -13874,15 +14047,16 @@ set_option maxHeartbeats 1000000
 set_option maxRecDepth 10000
 set_option backward.isDefEq.respectTransparency false
 
-theorem PreparedSearchFacts.cost_eq {answers : Answers} {cache : SigGolfCandidate.T3.Cache} {index : Nat}
+theorem PreparedSearchFacts.cost_eq_at {answers : Answers} {cache : SigGolfCandidate.T3.Cache} {index : Nat}
     {prepared : PreparedRoots} {forest : PairRoot} {result : CanonicalLayers}
-    (h : PreparedSearchFacts answers cache index prepared forest result)
+    {credit topFloor : Nat}
+    (h : PreparedSearchFacts answers cache index prepared forest result credit topFloor)
     (sig : Signature) (hh : sig.policyHints = result.policyHints)
     (hm0 : topPair 1 prepared.one.levels = builtPair answers 1 (route index 1).2)
     (hm1 : topPair 2 prepared.two.levels = builtPair answers 2 (route index 2).2)
     (hm2 : topPair 3 prepared.three.levels = builtPair answers 3 (route index 3).2) :
-    cost answers (searchPreparedLayers cache index prepared forest) =
-      recoverySearchCost answers sig index forest +
+    cost answers (searchPreparedLayers cache index prepared forest credit topFloor) =
+      recoverySearchCost answers sig index forest topFloor +
         cost answers (signTop cache (route index 0).1 (result.digits.getD 0 [])) := by
   have hs0 := h.search0
   have hs1 := h.search1
@@ -13896,14 +14070,27 @@ theorem PreparedSearchFacts.cost_eq {answers : Answers} {cache : SigGolfCandidat
     hf1, hf2, hf3, if_false, cost_pure, Nat.add_zero]
   simp only [recoverySearchCost, recoverySearch, hh, h.hints_spec.2.1,
     h.hints_spec.2.2.1, h.hints_spec.2.2.2, hm0, hm1, hm2,
-    show hintFloor result.policyHints 0 = CanonicalPolicy.threshold 0 CanonicalPolicy.totalCredit from rfl,
     show (0 : Layer) ≠ 3 by decide, show (1 : Layer) ≠ 3 by decide,
-    show (2 : Layer) ≠ 3 by decide, if_false, if_true,
+    show (2 : Layer) ≠ 3 by decide,
+    show (1 : Layer) ≠ 0 by decide, show (2 : Layer) ≠ 0 by decide,
+    show (3 : Layer) ≠ 0 by decide, if_false, if_true,
     show (Fin.ofNat 4 ((0 : Layer).val + 1) : Layer) = 1 from rfl,
     show (Fin.ofNat 4 ((1 : Layer).val + 1) : Layer) = 2 from rfl,
     show (Fin.ofNat 4 ((2 : Layer).val + 1) : Layer) = 3 from rfl,
     preparedResidual1, preparedResidual2, preparedResidual3]
   omega
+
+theorem PreparedSearchFacts.cost_eq {answers : Answers} {cache : SigGolfCandidate.T3.Cache} {index : Nat}
+    {prepared : PreparedRoots} {forest : PairRoot} {result : CanonicalLayers}
+    (h : PreparedSearchFacts answers cache index prepared forest result)
+    (sig : Signature) (hh : sig.policyHints = result.policyHints)
+    (hm0 : topPair 1 prepared.one.levels = builtPair answers 1 (route index 1).2)
+    (hm1 : topPair 2 prepared.two.levels = builtPair answers 2 (route index 2).2)
+    (hm2 : topPair 3 prepared.three.levels = builtPair answers 3 (route index 3).2) :
+    cost answers (searchPreparedLayers cache index prepared forest) =
+      recoverySearchCost answers sig index forest +
+        cost answers (signTop cache (route index 0).1 (result.digits.getD 0 [])) :=
+  h.cost_eq_at sig hh hm0 hm1 hm2
 
 end SigGolfCandidate.Research.SharedForest
 
@@ -13924,6 +14111,48 @@ set_option maxHeartbeats 1000000
 set_option maxRecDepth 10000
 set_option backward.isDefEq.respectTransparency false
 
+theorem PreparedSearchFacts.recovery_cost_le_at {answers : Answers} {cache : SigGolfCandidate.T3.Cache} {index : Nat}
+    {prepared : PreparedRoots} {forest : PairRoot} {result : CanonicalLayers}
+    {credit topFloor : Nat}
+    (h : PreparedSearchFacts answers cache index prepared forest result credit topFloor)
+    (sig : Signature) (other : Digest) (hh : sig.policyHints = result.policyHints)
+    (hm0 : topPair 1 prepared.one.levels = builtPair answers 1 (route index 1).2)
+    (hm1 : topPair 2 prepared.two.levels = builtPair answers 2 (route index 2).2)
+    (hm2 : topPair 3 prepared.three.levels = builtPair answers 3 (route index 3).2)
+    (hp : ∀ lay, lay ≠ 0 → evalWithAnswerFn answers
+      (recoverLayerPair (mainSignature sig) index lay (result.digits.getD lay.val [])) =
+      builtPair answers lay (route index lay).2) :
+    cost answers (recoverHintedLayers sig index other 4 (.pair forest.1 forest.2) topFloor) ≤
+      cost answers (searchPreparedLayers cache index prepared forest credit topFloor) + (1616 + 425765) := by
+  have hs0 := h.search0
+  have hs1 := h.search1
+  have hs2 := h.search2
+  have hs3 := h.search3
+  rw [hm0] at hs0
+  rw [hm1] at hs1
+  rw [hm2] at hs2
+  have hs : ∀ lay, evalWithAnswerFn answers (recoverySearch answers sig index forest lay topFloor) =
+      some (result.counters.getD lay.val 0, result.digits.getD lay.val [], result.lows.getD lay.val true) := by
+    intro lay
+    rcases layer_four_cases lay with rfl | rfl | rfl | rfl <;>
+      simp only [recoverySearch, hh, h.hints_spec.2.1, h.hints_spec.2.2.1, h.hints_spec.2.2.2,
+        show (0 : Layer) ≠ 3 by decide, show (1 : Layer) ≠ 3 by decide,
+        show (2 : Layer) ≠ 3 by decide,
+        show (1 : Layer) ≠ 0 by decide, show (2 : Layer) ≠ 0 by decide,
+        show (3 : Layer) ≠ 0 by decide, if_false, if_true,
+        show (Fin.ofNat 4 ((0 : Layer).val + 1) : Layer) = 1 from rfl,
+        show (Fin.ofNat 4 ((1 : Layer).val + 1) : Layer) = 2 from rfl,
+        show (Fin.ofNat 4 ((2 : Layer).val + 1) : Layer) = 3 from rfl]
+    · exact hs0
+    · exact hs1
+    · exact hs2
+    · exact hs3
+  have hc := recoverHintedLayers_cost_replay_at answers sig index other forest
+    (fun lay => result.counters.getD lay.val 0) (fun lay => result.digits.getD lay.val [])
+    (fun lay => result.lows.getD lay.val true) topFloor hs hp
+  have he := h.cost_eq_at sig hh hm0 hm1 hm2
+  omega
+
 theorem PreparedSearchFacts.recovery_cost_le {answers : Answers} {cache : SigGolfCandidate.T3.Cache} {index : Nat}
     {prepared : PreparedRoots} {forest : PairRoot} {result : CanonicalLayers}
     (h : PreparedSearchFacts answers cache index prepared forest result)
@@ -13935,34 +14164,8 @@ theorem PreparedSearchFacts.recovery_cost_le {answers : Answers} {cache : SigGol
       (recoverLayerPair (mainSignature sig) index lay (result.digits.getD lay.val [])) =
       builtPair answers lay (route index lay).2) :
     cost answers (recoverHintedLayers sig index other 4 (.pair forest.1 forest.2)) ≤
-      cost answers (searchPreparedLayers cache index prepared forest) + (1616 + 425765) := by
-  have hs0 := h.search0
-  have hs1 := h.search1
-  have hs2 := h.search2
-  have hs3 := h.search3
-  rw [hm0] at hs0
-  rw [hm1] at hs1
-  rw [hm2] at hs2
-  have hs : ∀ lay, evalWithAnswerFn answers (recoverySearch answers sig index forest lay) =
-      some (result.counters.getD lay.val 0, result.digits.getD lay.val [], result.lows.getD lay.val true) := by
-    intro lay
-    rcases layer_four_cases lay with rfl | rfl | rfl | rfl <;>
-      simp only [recoverySearch, hh, h.hints_spec.2.1, h.hints_spec.2.2.1, h.hints_spec.2.2.2,
-        show hintFloor result.policyHints 0 = CanonicalPolicy.threshold 0 CanonicalPolicy.totalCredit from rfl,
-        show (0 : Layer) ≠ 3 by decide, show (1 : Layer) ≠ 3 by decide,
-        show (2 : Layer) ≠ 3 by decide, if_false, if_true,
-        show (Fin.ofNat 4 ((0 : Layer).val + 1) : Layer) = 1 from rfl,
-        show (Fin.ofNat 4 ((1 : Layer).val + 1) : Layer) = 2 from rfl,
-        show (Fin.ofNat 4 ((2 : Layer).val + 1) : Layer) = 3 from rfl]
-    · exact hs0
-    · exact hs1
-    · exact hs2
-    · exact hs3
-  have hc := recoverHintedLayers_cost_replay answers sig index other forest
-    (fun lay => result.counters.getD lay.val 0) (fun lay => result.digits.getD lay.val [])
-    (fun lay => result.lows.getD lay.val true) hs hp
-  have he := h.cost_eq sig hh hm0 hm1 hm2
-  omega
+      cost answers (searchPreparedLayers cache index prepared forest) + (1616 + 425765) :=
+  h.recovery_cost_le_at sig other hh hm0 hm1 hm2 hp
 
 end SigGolfCandidate.Research.SharedForest
 
@@ -13973,23 +14176,33 @@ set_option maxHeartbeats 1000000
 set_option maxRecDepth 10000
 set_option backward.isDefEq.respectTransparency false
 
+theorem policyHintsValid_congr_lows_at (hints : BitVec 16) (digits : List (List Nat))
+    {lowsA lowsB : List Bool} (credit : Nat)
+    (h0 : lowsA.getD 0 true = lowsB.getD 0 true) (h1 : lowsA.getD 1 true = lowsB.getD 1 true)
+    (h2 : lowsA.getD 2 true = lowsB.getD 2 true) :
+    policyHintsValid hints digits lowsA credit = policyHintsValid hints digits lowsB credit := by
+  simp only [policyHintsValid, h0, h1, h2]
+
 theorem policyHintsValid_congr_lows (hints : BitVec 16) (digits : List (List Nat)) {lowsA lowsB : List Bool}
     (h0 : lowsA.getD 0 true = lowsB.getD 0 true) (h1 : lowsA.getD 1 true = lowsB.getD 1 true)
     (h2 : lowsA.getD 2 true = lowsB.getD 2 true) :
-    policyHintsValid hints digits lowsA = policyHintsValid hints digits lowsB := by
-  simp only [policyHintsValid, h0, h1, h2]
+    policyHintsValid hints digits lowsA = policyHintsValid hints digits lowsB :=
+  policyHintsValid_congr_lows_at hints digits CanonicalPolicy.totalCredit h0 h1 h2
 
-theorem hintedSelections_unique (answers : Answers) (index : Nat) (messages : Layer → LayerMsg)
+theorem hintedSelections_unique_at (answers : Answers) (index : Nat) (messages : Layer → LayerMsg)
     (hintsA hintsB : BitVec 16) (countersA countersB : Layer → BitVec 32)
     (digitsA digitsB : List (List Nat)) (lowsA lowsB : List Bool)
-    (hvalidA : policyHintsValid hintsA digitsA lowsA = true)
-    (hvalidB : policyHintsValid hintsB digitsB lowsB = true)
+    (credit topFloor : Nat)
+    (hvalidA : policyHintsValid hintsA digitsA lowsA credit = true)
+    (hvalidB : policyHintsValid hintsB digitsB lowsB credit = true)
     (hsearchA : ∀ lay, evalWithAnswerFn answers
-      (CanonicalPolicy.layerCounterSearchAt lay (hintFloor hintsA lay) (route index lay).2
+      (CanonicalPolicy.layerCounterSearchAt lay
+        (if lay = 0 then topFloor else hintFloor hintsA lay) (route index lay).2
         (route index lay).1 (messages lay) 0 (searchLimit lay)) =
           some (countersA lay, digitsA.getD lay.val [], lowsA.getD lay.val true))
     (hsearchB : ∀ lay, evalWithAnswerFn answers
-      (CanonicalPolicy.layerCounterSearchAt lay (hintFloor hintsB lay) (route index lay).2
+      (CanonicalPolicy.layerCounterSearchAt lay
+        (if lay = 0 then topFloor else hintFloor hintsB lay) (route index lay).2
         (route index lay).1 (messages lay) 0 (searchLimit lay)) =
           some (countersB lay, digitsB.getD lay.val [], lowsB.getD lay.val true)) :
     hintsA = hintsB ∧ countersA = countersB ∧ digitsA = digitsB ∧
@@ -13997,7 +14210,9 @@ theorem hintedSelections_unique (answers : Answers) (index : Nat) (messages : La
   have hA := hvalidA
   have hB := hvalidB
   simp only [policyHintsValid, decide_eq_true_eq] at hA hB
-  have same (lay : Layer) (hf : hintFloor hintsA lay = hintFloor hintsB lay) :
+  have same (lay : Layer)
+      (hf : (if lay = 0 then topFloor else hintFloor hintsA lay) =
+        (if lay = 0 then topFloor else hintFloor hintsB lay)) :
       (countersA lay, digitsA.getD lay.val [], lowsA.getD lay.val true) =
         (countersB lay, digitsB.getD lay.val [], lowsB.getD lay.val true) := by
     have ha := hsearchA lay
@@ -14022,9 +14237,10 @@ theorem hintedSelections_unique (answers : Answers) (index : Nat) (messages : La
     have he : digitsA.getD i [] = digitsB.getD i [] := by
       interval_cases i <;> assumption
     simpa only [List.getD_eq_getElem _ _ hi, List.getD_eq_getElem _ _ hj] using he
-  have hvB : policyHintsValid hintsB digitsA lowsA = true := by
-    rw [policyHintsValid_congr_lows hintsB digitsA hl0 hl1 hl2, hd]; exact hvalidB
-  refine ⟨policyHintsValid_unique hvalidA hvB, ?_, hd, ?_⟩
+  have hvB : policyHintsValid hintsB digitsA lowsA credit = true := by
+    rw [policyHintsValid_congr_lows_at hintsB digitsA credit hl0 hl1 hl2, hd]
+    exact hvalidB
+  refine ⟨policyHintsValid_unique_at credit hvalidA hvB, ?_, hd, ?_⟩
   · funext lay
     fin_cases lay
     · exact congrArg Prod.fst h0
@@ -14037,6 +14253,41 @@ theorem hintedSelections_unique (answers : Answers) (index : Nat) (messages : La
     · exact hl1
     · exact hl2
     · exact hl3
+
+theorem hintedSelections_unique (answers : Answers) (index : Nat) (messages : Layer → LayerMsg)
+    (hintsA hintsB : BitVec 16) (countersA countersB : Layer → BitVec 32)
+    (digitsA digitsB : List (List Nat)) (lowsA lowsB : List Bool)
+    (hvalidA : policyHintsValid hintsA digitsA lowsA = true)
+    (hvalidB : policyHintsValid hintsB digitsB lowsB = true)
+    (hsearchA : ∀ lay, evalWithAnswerFn answers
+      (CanonicalPolicy.layerCounterSearchAt lay (hintFloor hintsA lay) (route index lay).2
+        (route index lay).1 (messages lay) 0 (searchLimit lay)) =
+          some (countersA lay, digitsA.getD lay.val [], lowsA.getD lay.val true))
+    (hsearchB : ∀ lay, evalWithAnswerFn answers
+      (CanonicalPolicy.layerCounterSearchAt lay (hintFloor hintsB lay) (route index lay).2
+        (route index lay).1 (messages lay) 0 (searchLimit lay)) =
+          some (countersB lay, digitsB.getD lay.val [], lowsB.getD lay.val true)) :
+    hintsA = hintsB ∧ countersA = countersB ∧ digitsA = digitsB ∧
+      ∀ lay : Layer, lowsA.getD lay.val true = lowsB.getD lay.val true := by
+  have hsA : ∀ lay, evalWithAnswerFn answers
+      (CanonicalPolicy.layerCounterSearchAt lay
+        (if lay = 0 then CanonicalPolicy.topFloor else hintFloor hintsA lay)
+        (route index lay).2 (route index lay).1 (messages lay) 0 (searchLimit lay)) =
+          some (countersA lay, digitsA.getD lay.val [], lowsA.getD lay.val true) := by
+    intro lay
+    have hx := hsearchA lay
+    fin_cases lay <;> simpa [hintFloor, CanonicalPolicy.topFloor] using hx
+  have hsB : ∀ lay, evalWithAnswerFn answers
+      (CanonicalPolicy.layerCounterSearchAt lay
+        (if lay = 0 then CanonicalPolicy.topFloor else hintFloor hintsB lay)
+        (route index lay).2 (route index lay).1 (messages lay) 0 (searchLimit lay)) =
+          some (countersB lay, digitsB.getD lay.val [], lowsB.getD lay.val true) := by
+    intro lay
+    have hx := hsearchB lay
+    fin_cases lay <;> simpa [hintFloor, CanonicalPolicy.topFloor] using hx
+  exact hintedSelections_unique_at answers index messages hintsA hintsB countersA countersB
+    digitsA digitsB lowsA lowsB CanonicalPolicy.totalCredit CanonicalPolicy.topFloor
+    hvalidA hvalidB hsA hsB
 end SigGolfCandidate.Research.SharedForest
 
 namespace SigGolfCandidate.Research.SharedForest
@@ -14054,12 +14305,13 @@ def recoveredMessage (answers : Answers) (sig : Signature) (index n : Nat)
       (digits.getD (lay.val + 1) []))
     .pair pair.1 pair.2
 
-theorem recoverHintedLayers_selections (answers : Answers) (sig : Signature) (index : Nat)
-    (other : Digest) : ∀ n, n ≤ 4 → ∀ message result,
-    evalWithAnswerFn answers (recoverHintedLayers sig index other n message) = some result →
+theorem recoverHintedLayers_selections_at (answers : Answers) (sig : Signature) (index : Nat)
+    (other : Digest) (topFloor : Nat) : ∀ n, n ≤ 4 → ∀ message result,
+    evalWithAnswerFn answers (recoverHintedLayers sig index other n message topFloor) = some result →
     result.counters.length = n ∧ result.digits.length = n ∧ result.lows.length = n ∧
       ∀ lay : Layer, lay.val < n → evalWithAnswerFn answers
-        (CanonicalPolicy.layerCounterSearchAt lay (hintFloor sig.policyHints lay)
+        (CanonicalPolicy.layerCounterSearchAt lay
+          (if lay = 0 then topFloor else hintFloor sig.policyHints lay)
           (route index lay).2 (route index lay).1
           (recoveredMessage answers sig index n message result.digits lay) 0 (searchLimit lay)) =
             some (result.counters.getD lay.val 0, result.digits.getD lay.val [], result.lows.getD lay.val true) := by
@@ -14124,6 +14376,107 @@ theorem recoverHintedLayers_selections (answers : Answers) (sig : Signature) (in
                     List.getD_append_right _ _ _ _ (by omega), hll]
                   simpa only [Nat.sub_self, List.getD_cons_zero] using hs
       · simp only [evalWithAnswerFn_pure, reduceCtorEq] at he
+
+theorem recoverHintedLayers_selections (answers : Answers) (sig : Signature) (index : Nat)
+    (other : Digest) : ∀ n, n ≤ 4 → ∀ message result,
+    evalWithAnswerFn answers (recoverHintedLayers sig index other n message) = some result →
+    result.counters.length = n ∧ result.digits.length = n ∧ result.lows.length = n ∧
+      ∀ lay : Layer, lay.val < n → evalWithAnswerFn answers
+        (CanonicalPolicy.layerCounterSearchAt lay (hintFloor sig.policyHints lay)
+          (route index lay).2 (route index lay).1
+          (recoveredMessage answers sig index n message result.digits lay) 0 (searchLimit lay)) =
+            some (result.counters.getD lay.val 0, result.digits.getD lay.val [],
+              result.lows.getD lay.val true) := by
+  intro n hn message result he
+  obtain ⟨hc, hd, hl, hs⟩ := recoverHintedLayers_selections_at answers sig index other
+    CanonicalPolicy.topFloor n hn message result he
+  refine ⟨hc, hd, hl, ?_⟩
+  intro lay hlt
+  have hx := hs lay hlt
+  fin_cases lay <;> simpa [hintFloor, CanonicalPolicy.topFloor] using hx
+
+theorem recoverHintedLayers_credit_at (answers : Answers) (sig : Signature) (index : Nat)
+    (other : Digest) (topFloor : Nat) : ∀ n, n ≤ 4 → ∀ msg result,
+      evalWithAnswerFn answers (recoverHintedLayers sig index other n msg topFloor) = some result →
+      result.digits.length = n ∧ result.lows.length = n ∧ ∀ lay : Layer, lay.val < n →
+        (if lay = 0 then topFloor else hintFloor sig.policyHints lay) ≤
+          CanonicalPolicy.credit lay (result.lows.getD lay.val true)
+            (result.digits.getD lay.val []) := by
+  intro n hn msg result he
+  have hs := recoverHintedLayers_selections_at answers sig index other topFloor n hn msg result he
+  refine ⟨hs.2.1, hs.2.2.1, ?_⟩
+  intro lay hlt
+  have hlim := searchLimit_le lay
+  exact (canonical_search_valid_credit answers lay _ _ _ _ _ 0 _ _ _
+    (by unfold counterLimit at hlim; omega) (hs.2.2.2 lay hlt)).2
+
+theorem canonical_four_residual_at (d0 d1 d2 d3 : List Nat) (l0 l1 l2 l3 : Bool)
+    (budget topFloor : Nat) (hbudget : budget = topFloor + 55)
+    (h0 : topFloor ≤ CanonicalPolicy.credit 0 l0 d0)
+    (h1 : CanonicalPolicy.threshold 1 (CanonicalPolicy.nextResidual budget 0 l0 d0) ≤
+      CanonicalPolicy.credit 1 l1 d1)
+    (h2 : CanonicalPolicy.threshold 2
+      (CanonicalPolicy.nextResidual (CanonicalPolicy.nextResidual budget 0 l0 d0) 1 l1 d1) ≤
+      CanonicalPolicy.credit 2 l2 d2)
+    (h3 : CanonicalPolicy.threshold 3
+      (CanonicalPolicy.nextResidual
+        (CanonicalPolicy.nextResidual (CanonicalPolicy.nextResidual budget 0 l0 d0) 1 l1 d1)
+          2 l2 d2) ≤ CanonicalPolicy.credit 3 l3 d3) :
+    CanonicalPolicy.nextResidual (CanonicalPolicy.nextResidual
+      (CanonicalPolicy.nextResidual (CanonicalPolicy.nextResidual budget 0 l0 d0) 1 l1 d1)
+        2 l2 d2) 3 l3 d3 = 0 := by
+  let r1 := CanonicalPolicy.nextResidual budget 0 l0 d0
+  have hr1 : r1 < 56 := by
+    dsimp [r1, CanonicalPolicy.nextResidual]
+    omega
+  have hw1 := firstThreshold_window ⟨r1, hr1⟩
+  change CanonicalPolicy.threshold 1 r1 < 16 ∧ r1 - CanonicalPolicy.threshold 1 r1 ≤ 40 at hw1
+  let r2 := CanonicalPolicy.nextResidual r1 1 l1 d1
+  have hr2 : r2 < 41 := by
+    change CanonicalPolicy.threshold 1 r1 ≤ CanonicalPolicy.credit 1 l1 d1 at h1
+    dsimp [r2, CanonicalPolicy.nextResidual]
+    omega
+  have hw2 := secondThreshold_window ⟨r2, hr2⟩
+  change CanonicalPolicy.threshold 2 r2 < 22 ∧ r2 - CanonicalPolicy.threshold 2 r2 ≤ 21 at hw2
+  let r3 := CanonicalPolicy.nextResidual r2 2 l2 d2
+  have hr3 : r3 ≤ 21 := by
+    change CanonicalPolicy.threshold 2 r2 ≤ CanonicalPolicy.credit 2 l2 d2 at h2
+    dsimp [r3, CanonicalPolicy.nextResidual]
+    omega
+  change CanonicalPolicy.threshold 3 r3 ≤ CanonicalPolicy.credit 3 l3 d3 at h3
+  rw [thirdThreshold_window r3 hr3] at h3
+  change r3 - CanonicalPolicy.credit 3 l3 d3 = 0
+  omega
+
+theorem policyHints_credit_sum_at (hints : BitVec 16) (digits : List (List Nat))
+    (lows : List Bool) (budget topFloor : Nat) (hbudget : budget = topFloor + 55)
+    (hh : policyHintsValid hints digits lows budget = true)
+    (hc : ∀ lay : Layer,
+      (if lay = 0 then topFloor else hintFloor hints lay) ≤
+        CanonicalPolicy.credit lay (lows.getD lay.val true) (digits.getD lay.val [])) :
+    budget ≤ ((List.finRange 4).map fun lay =>
+      CanonicalPolicy.credit lay (lows.getD lay.val true) (digits.getD lay.val [])).sum := by
+  simp only [policyHintsValid, decide_eq_true_eq] at hh
+  have h0 := hc 0
+  have h1 := hc 1
+  have h2 := hc 2
+  have h3 := hc 3
+  simp only [if_true] at h0
+  simp only [show (1 : Layer) ≠ 0 by decide, if_false] at h1
+  simp only [show (2 : Layer) ≠ 0 by decide, if_false] at h2
+  simp only [show (3 : Layer) ≠ 0 by decide, if_false] at h3
+  rw [hh.2.2.1] at h1
+  rw [hh.2.2.2.1] at h2
+  rw [hh.2.2.2.2] at h3
+  have hz := canonical_four_residual_at (digits.getD 0 []) (digits.getD 1 [])
+    (digits.getD 2 []) (digits.getD 3 []) (lows.getD 0 true) (lows.getD 1 true)
+    (lows.getD 2 true) (lows.getD 3 true) budget topFloor hbudget h0 h1 h2 h3
+  simp only [CanonicalPolicy.nextResidual] at hz
+  change budget ≤ CanonicalPolicy.credit 0 (lows.getD 0 true) (digits.getD 0 []) +
+    (CanonicalPolicy.credit 1 (lows.getD 1 true) (digits.getD 1 []) +
+      (CanonicalPolicy.credit 2 (lows.getD 2 true) (digits.getD 2 []) +
+        (CanonicalPolicy.credit 3 (lows.getD 3 true) (digits.getD 3 []) + 0)))
+  omega
 end SigGolfCandidate.Research.SharedForest
 
 namespace SigGolfCandidate.Research.SharedForest
@@ -14175,14 +14528,16 @@ theorem recoveredPair_of_pieces (answers : Answers) (sig : Signature) (index : N
     rw [hlayer]
     simp [piecesSignature, wotsPieces, List.getD_eq_getElem, j.isLt]
 
-theorem recoveredSelections_canonical (answers : Answers) (sig : Signature) (index : Nat)
+theorem recoveredSelections_canonical_at (answers : Answers) (sig : Signature) (index : Nat)
     (input : LayerMsg) (result : RecoveredLayers) (messages : Layer → LayerMsg)
+    (topFloor : Nat)
     (hinput : input = messages 3)
     (hlower : ∀ n, n < 3 → messages (Fin.ofNat 4 n) =
       .pair (builtPair answers (Fin.ofNat 4 (n+1)) (route index (Fin.ofNat 4 (n+1))).2).1
         (builtPair answers (Fin.ofNat 4 (n+1)) (route index (Fin.ofNat 4 (n+1))).2).2)
     (hselections : ∀ lay : Layer, evalWithAnswerFn answers
-      (CanonicalPolicy.layerCounterSearchAt lay (hintFloor sig.policyHints lay)
+      (CanonicalPolicy.layerCounterSearchAt lay
+        (if lay = 0 then topFloor else hintFloor sig.policyHints lay)
         (route index lay).2 (route index lay).1
         (recoveredMessage answers sig index 4 input result.digits lay) 0 (searchLimit lay)) =
           some (result.counters.getD lay.val 0, result.digits.getD lay.val [], result.lows.getD lay.val true))
@@ -14193,14 +14548,16 @@ theorem recoveredSelections_canonical (answers : Answers) (sig : Signature) (ind
       sig.layers lay = piecesSignature lay
         (wotsPieces answers lay (route index lay).2 (route index lay).1 digits)) :
     ∀ lay : Layer,
-      evalWithAnswerFn answers (CanonicalPolicy.layerCounterSearchAt lay (hintFloor sig.policyHints lay)
+      evalWithAnswerFn answers (CanonicalPolicy.layerCounterSearchAt lay
+        (if lay = 0 then topFloor else hintFloor sig.policyHints lay)
         (route index lay).2 (route index lay).1 (messages lay) 0 (searchLimit lay)) =
           some (result.counters.getD lay.val 0, result.digits.getD lay.val [], result.lows.getD lay.val true) ∧
       sig.layers lay = piecesSignature lay
         (wotsPieces answers lay (route index lay).2 (route index lay).1 (result.digits.getD lay.val [])) := by
   have step (lay : Layer)
       (hm : recoveredMessage answers sig index 4 input result.digits lay = messages lay) :
-      evalWithAnswerFn answers (CanonicalPolicy.layerCounterSearchAt lay (hintFloor sig.policyHints lay)
+      evalWithAnswerFn answers (CanonicalPolicy.layerCounterSearchAt lay
+        (if lay = 0 then topFloor else hintFloor sig.policyHints lay)
         (route index lay).2 (route index lay).1 (messages lay) 0 (searchLimit lay)) =
           some (result.counters.getD lay.val 0, result.digits.getD lay.val [], result.lows.getD lay.val true) ∧
       sig.layers lay = piecesSignature lay
@@ -14209,7 +14566,8 @@ theorem recoveredSelections_canonical (answers : Answers) (sig : Signature) (ind
     have hs := hselections lay
     rw [hm] at hs
     have hlim := searchLimit_le lay
-    have hp := (canonical_search_some' answers lay (hintFloor sig.policyHints lay)
+    have hp := (canonical_search_some' answers lay
+      (if lay = 0 then topFloor else hintFloor sig.policyHints lay)
       (route index lay).2 (route index lay).1 (messages lay) (searchLimit lay) 0
       (result.counters.getD lay.val 0) (result.digits.getD lay.val []) (result.lows.getD lay.val true)
       (by unfold counterLimit at hlim; omega) hs).2.2.2
@@ -14252,6 +14610,45 @@ theorem recoveredSelections_canonical (answers : Answers) (sig : Signature) (ind
   · exact ⟨h1.1,h1.2.1⟩
   · exact ⟨h2.1,h2.2.1⟩
   · exact ⟨h3.1,h3.2.1⟩
+
+theorem recoveredSelections_canonical (answers : Answers) (sig : Signature) (index : Nat)
+    (input : LayerMsg) (result : RecoveredLayers) (messages : Layer → LayerMsg)
+    (hinput : input = messages 3)
+    (hlower : ∀ n, n < 3 → messages (Fin.ofNat 4 n) =
+      .pair (builtPair answers (Fin.ofNat 4 (n+1)) (route index (Fin.ofNat 4 (n+1))).2).1
+        (builtPair answers (Fin.ofNat 4 (n+1)) (route index (Fin.ofNat 4 (n+1))).2).2)
+    (hselections : ∀ lay : Layer, evalWithAnswerFn answers
+      (CanonicalPolicy.layerCounterSearchAt lay (hintFloor sig.policyHints lay)
+        (route index lay).2 (route index lay).1
+        (recoveredMessage answers sig index 4 input result.digits lay) 0 (searchLimit lay)) =
+          some (result.counters.getD lay.val 0, result.digits.getD lay.val [], result.lows.getD lay.val true))
+    (hshape : ∀ lay : Layer, ∃ digits,
+      CanonicalPolicy.decode lay (evalWithAnswerFn answers (encodingHash lay
+        (layerEncodingInput lay (route index lay).2 (route index lay).1 (messages lay)
+          (result.counters.getD lay.val 0)))) = some digits ∧
+      sig.layers lay = piecesSignature lay
+        (wotsPieces answers lay (route index lay).2 (route index lay).1 digits)) :
+    ∀ lay : Layer,
+      evalWithAnswerFn answers (CanonicalPolicy.layerCounterSearchAt lay (hintFloor sig.policyHints lay)
+        (route index lay).2 (route index lay).1 (messages lay) 0 (searchLimit lay)) =
+          some (result.counters.getD lay.val 0, result.digits.getD lay.val [], result.lows.getD lay.val true) ∧
+      sig.layers lay = piecesSignature lay
+        (wotsPieces answers lay (route index lay).2 (route index lay).1 (result.digits.getD lay.val [])) := by
+  have hs : ∀ lay : Layer, evalWithAnswerFn answers
+      (CanonicalPolicy.layerCounterSearchAt lay
+        (if lay = 0 then CanonicalPolicy.topFloor else hintFloor sig.policyHints lay)
+        (route index lay).2 (route index lay).1
+        (recoveredMessage answers sig index 4 input result.digits lay) 0 (searchLimit lay)) =
+          some (result.counters.getD lay.val 0, result.digits.getD lay.val [],
+            result.lows.getD lay.val true) := by
+    intro lay
+    have hx := hselections lay
+    fin_cases lay <;> simpa [hintFloor, CanonicalPolicy.topFloor] using hx
+  have hr := recoveredSelections_canonical_at answers sig index input result messages
+    CanonicalPolicy.topFloor hinput hlower hs hshape
+  intro lay
+  have hx := hr lay
+  fin_cases lay <;> simpa [hintFloor, CanonicalPolicy.topFloor] using hx
 end SigGolfCandidate.Research.SharedForest
 
 namespace SigGolfCandidate.Research.SharedForest
@@ -14260,6 +14657,37 @@ open SigGolfCandidate.T3.Correctness (Answers)
 set_option maxHeartbeats 1000000
 set_option maxRecDepth 10000
 set_option backward.isDefEq.respectTransparency false
+
+theorem signature_unique_of_selections_at (answers : Answers) (index : Nat)
+    (messages : Layer → LayerMsg) (a b : Signature)
+    (ca cb : Layer → BitVec 32) (da db : List (List Nat)) (la lb : List Bool)
+    (credit topFloor : Nat)
+    (hrho : a.rho = b.rho) (hforest : a.forest = b.forest)
+    (ha : policyHintsValid a.policyHints da la credit = true)
+    (hb : policyHintsValid b.policyHints db lb credit = true)
+    (hsa : ∀ lay, evalWithAnswerFn answers
+      (CanonicalPolicy.layerCounterSearchAt lay
+        (if lay = 0 then topFloor else hintFloor a.policyHints lay)
+        (route index lay).2 (route index lay).1 (messages lay) 0 (searchLimit lay)) =
+          some (ca lay, da.getD lay.val [], la.getD lay.val true))
+    (hsb : ∀ lay, evalWithAnswerFn answers
+      (CanonicalPolicy.layerCounterSearchAt lay
+        (if lay = 0 then topFloor else hintFloor b.policyHints lay)
+        (route index lay).2 (route index lay).1 (messages lay) 0 (searchLimit lay)) =
+          some (cb lay, db.getD lay.val [], lb.getD lay.val true))
+    (hla : ∀ lay, a.layers lay = piecesSignature lay
+      (wotsPieces answers lay (route index lay).2 (route index lay).1 (da.getD lay.val [])))
+    (hlb : ∀ lay, b.layers lay = piecesSignature lay
+      (wotsPieces answers lay (route index lay).2 (route index lay).1 (db.getD lay.val []))) : a = b := by
+  obtain ⟨hh, -, hd, -⟩ := hintedSelections_unique_at answers index messages a.policyHints b.policyHints
+    ca cb da db la lb credit topFloor ha hb hsa hsb
+  have hl : a.layers = b.layers := by
+    funext lay
+    rw [hla, hlb, hd]
+  cases a
+  cases b
+  simp only [Signature.mk.injEq]
+  exact ⟨hrho, hh, hforest, hl⟩
 
 theorem signature_unique_of_selections (answers : Answers) (index : Nat)
     (messages : Layer → LayerMsg) (a b : Signature)
@@ -14304,7 +14732,8 @@ theorem signFromOutput_components (answers : Answers) (cache : SigGolfCandidate.
       evalWithAnswerFn answers (searchPreparedLayers cache (digestIndex output)
         (evalWithAnswerFn answers (prepareRoots (digestIndex output)))
         (evalWithAnswerFn answers (buildForest (digestIndex output)
-          (forestSelectionFromOutput output) (forestWordsFromOutput output))).2) = some result ∧
+          (forestSelectionFromOutput output) (forestWordsFromOutput output))).2
+        (conditionalCredit output) (conditionalTopFloor output)) = some result ∧
       w.signature.rho = rho ∧ w.signature.policyHints = result.policyHints ∧
       w.signature.forest = (evalWithAnswerFn answers (buildForest (digestIndex output)
         (forestSelectionFromOutput output) (forestWordsFromOutput output))).1 ∧
@@ -14315,7 +14744,8 @@ theorem signFromOutput_components (answers : Answers) (cache : SigGolfCandidate.
   cases hs : evalWithAnswerFn answers (searchPreparedLayers cache (digestIndex output)
     (evalWithAnswerFn answers (prepareRoots (digestIndex output)))
     (evalWithAnswerFn answers (buildForest (digestIndex output)
-      (forestSelectionFromOutput output) (forestWordsFromOutput output))).2) with
+      (forestSelectionFromOutput output) (forestWordsFromOutput output))).2
+    (conditionalCredit output) (conditionalTopFloor output)) with
   | none => simp only [hs, evalWithAnswerFn_pure, reduceCtorEq] at he
   | some result =>
       simp only [hs, evalWithAnswerFn_pure, Option.some.injEq] at he
@@ -14352,6 +14782,40 @@ open SigGolfCandidate.T3.Correctness (Answers)
 set_option maxHeartbeats 1000000
 set_option maxRecDepth 10000
 set_option backward.isDefEq.respectTransparency false
+
+theorem PreparedSearchFacts.hinted_searches_at {answers : Answers} {cache : SigGolfCandidate.T3.Cache}
+    {index : Nat} {forest : PairRoot} {result : CanonicalLayers} {credit topFloor : Nat}
+    (h : PreparedSearchFacts answers cache index (evalWithAnswerFn answers (prepareRoots index))
+      forest result credit topFloor) :
+    ∀ lay, evalWithAnswerFn answers (CanonicalPolicy.layerCounterSearchAt lay
+      (if lay = 0 then topFloor else hintFloor result.policyHints lay)
+      (route index lay).2 (route index lay).1
+      (if lay=3 then .pair forest.1 forest.2 else
+        let lower : Layer := Fin.ofNat 4 (lay.val+1)
+        .pair (builtPair answers lower (route index lower).2).1
+          (builtPair answers lower (route index lower).2).2)
+      0 (searchLimit lay)) =
+        some (result.counters.getD lay.val 0,result.digits.getD lay.val [],
+          result.lows.getD lay.val true) := by
+  have hs0 := h.search0
+  have hs1 := h.search1
+  have hs2 := h.search2
+  have hs3 := h.search3
+  simp only [prepareRoots_result,fixedPrepared_pair] at hs0 hs1 hs2
+  intro lay
+  rcases layer_four_cases lay with rfl | rfl | rfl | rfl <;>
+    simp only [layer_val_0,layer_val_1,layer_val_2,layer_val_3,
+      show (Fin.ofNat 4 1 : Layer)=1 from rfl,
+      show (Fin.ofNat 4 2 : Layer)=2 from rfl,
+      show (Fin.ofNat 4 3 : Layer)=3 from rfl, Nat.reduceAdd,
+      show (0 : Layer)≠3 by decide,show (1 : Layer)≠3 by decide,
+      show (2 : Layer)≠3 by decide,
+      show (1 : Layer)≠0 by decide,show (2 : Layer)≠0 by decide,
+      show (3 : Layer)≠0 by decide,if_false,if_true]
+  · exact hs0
+  · simpa only [h.hints_spec.2.1] using hs1
+  · simpa only [h.hints_spec.2.2.1] using hs2
+  · simpa only [h.hints_spec.2.2.2] using hs3
 
 theorem PreparedSearchFacts.hinted_searches {answers : Answers} {cache : SigGolfCandidate.T3.Cache}
     {index : Nat} {forest : PairRoot} {result : CanonicalLayers}

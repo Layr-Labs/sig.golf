@@ -2023,22 +2023,40 @@ theorem buildForest_preserves_rows (secret : BitVec 256) (index stage : Nat)
     (rowQ_pairTrial ..).searchQ index selected words) cache result hr]
   exact hfresh lay hl tree leaf left right counter hc
 
-/-- Fixed forest/root preparation and the certified canonical searches compose. -/
-theorem V_signFromOutput_certified (secret : BitVec 256) (cache : SigGolfCandidate.T3.Cache)
+/-- Fixed forest/root preparation and the cost-tiered canonical searches compose. -/
+theorem V_signFromOutput_certified_tier (secret : BitVec 256) (cache : SigGolfCandidate.T3.Cache)
     (rho : Digest) (counter : BitVec 32) (output : HashOutput) (rcache : RCache)
-    (hfresh : RowsFreshFrom 0 rcache) :
+    (hfresh : RowsFreshFrom 0 rcache) (haccepted : digestAccepted output = true) :
     V secret SigGolfCandidate.T3.Budgets.signingZ
       (signFromOutput cache rho counter output) rcache ≤
-      SigGolfCandidate.T3.Budgets.signingZ^112322 * ((ClaudeWCT.Numerics.TopZero.initialBound : ENNReal)/scale) := by
+      SigGolfCandidate.T3.Budgets.signingZ^112322 *
+        ((ClaudeWCT.Numerics.TopZero.tierInitialBound (conditionalExtra output) : ENNReal)/scale) := by
+  have he := (conditional_bounds_of_accepted output haccepted).1
   have h := V_signFromOutput_fixed secret SigGolfCandidate.T3.Budgets.signingZ
-    (SigGolfCandidate.T3.Budgets.signingZ^180 * ((ClaudeWCT.Numerics.TopZero.initialBound : ENNReal)/scale))
+    (SigGolfCandidate.T3.Budgets.signingZ^180 *
+      ((ClaudeWCT.Numerics.TopZero.tierInitialBound (conditionalExtra output) : ENNReal)/scale))
     (SigGolfCandidate.Budget.one_le_zOf _) cache rho counter output rcache ?_
   · simpa only [← mul_assoc, ← pow_add] using h
   · intro forest hforest prepared hprepared
-    exact V_searchPreparedLayers_certified secret cache (digestIndex output) prepared.1 forest.1.2 prepared.2
-      (prepareRoots_preserves_rows secret (digestIndex output) 0 forest.2
-        (buildForest_preserves_rows secret (digestIndex output) 0 _ _ rcache hfresh forest hforest)
-        prepared hprepared)
+    have hr := prepareRoots_preserves_rows secret (digestIndex output) 0 forest.2
+      (buildForest_preserves_rows secret (digestIndex output) 0 _ _ rcache hfresh forest hforest)
+      prepared hprepared
+    simpa only [conditionalCredit, conditionalTopFloor,
+      CanonicalPolicy.totalCredit, CanonicalPolicy.topFloor] using
+      (V_searchPreparedLayers_certified_tier secret cache (digestIndex output)
+        (conditionalExtra output) he prepared.1 forest.1.2 prepared.2 hr)
+
+/-- The original floor-14 bound is recovered on the lowest digest-cost tier. -/
+theorem V_signFromOutput_certified (secret : BitVec 256) (cache : SigGolfCandidate.T3.Cache)
+    (rho : Digest) (counter : BitVec 32) (output : HashOutput) (rcache : RCache)
+    (hfresh : RowsFreshFrom 0 rcache) (haccepted : digestAccepted output = true)
+    (hzero : conditionalExtra output = 0) :
+    V secret SigGolfCandidate.T3.Budgets.signingZ
+      (signFromOutput cache rho counter output) rcache ≤
+      SigGolfCandidate.T3.Budgets.signingZ^112322 *
+        ((ClaudeWCT.Numerics.TopZero.initialBound : ENNReal)/scale) := by
+  simpa only [hzero, ClaudeWCT.Numerics.TopZero.tierInitialBound] using
+    V_signFromOutput_certified_tier secret cache rho counter output rcache hfresh haccepted
 end SigGolfCandidate.Research.SharedSigningBudget
 
 
@@ -2216,7 +2234,8 @@ set_option backward.isDefEq.respectTransparency false
     · exact ih _
     · exact hashOnly_pure _
 @[aesop safe apply] theorem hashOnly_recoverHintedLayers (sig : Signature) (index : Nat) (other : Digest)
-    (n : Nat) (msg : LayerMsg) : HashOnly (recoverHintedLayers sig index other n msg) := by
+    (n : Nat) (msg : LayerMsg) (topFloor : Nat := CanonicalPolicy.topFloor) :
+    HashOnly (recoverHintedLayers sig index other n msg topFloor) := by
   induction n generalizing msg with
   | zero => unfold recoverHintedLayers; exact hashOnly_pure _
   | succ n ih =>
@@ -2266,7 +2285,7 @@ set_option backward.isDefEq.respectTransparency false
     rcases found with _ | ⟨counter,output⟩
     · exact hashOnly_pure _
     · refine hashOnly_bind (hashOnly_recoverForest _ _ _ _) fun forest => ?_
-      refine hashOnly_bind (hashOnly_recoverHintedLayers _ _ _ _ _) fun layers => ?_
+      refine hashOnly_bind (hashOnly_recoverHintedLayers _ _ _ _ _ (conditionalTopFloor output)) fun layers => ?_
       cases layers
       · exact hashOnly_pure _
       · dsimp only
@@ -2394,7 +2413,7 @@ set_option backward.isDefEq.respectTransparency false
 
 noncomputable def digestMoment : ENNReal := (ftsBound:ENNReal)/scale
 noncomputable def postMoment : ENNReal := signingZ^112322*((ClaudeWCT.Numerics.TopZero.initialBound:ENNReal)/scale)
-noncomputable def payloadMoment : ENNReal := signingZ^2*(digestMoment*postMoment)
+noncomputable def payloadMoment : ENNReal := signingZ^112324*tierDigestMoment
 noncomputable def signingMoment : ENNReal := signingZ^2*payloadMoment
 
 theorem digestMoment_ge_one : 1 ≤ digestMoment := by
@@ -2408,7 +2427,7 @@ theorem postMoment_ge_one : 1 ≤ postMoment := by
 
 theorem payloadMoment_ge_one : 1 ≤ payloadMoment :=
   one_le_mul (one_le_pow₀ (SigGolfCandidate.Budget.one_le_zOf _))
-    (one_le_mul digestMoment_ge_one postMoment_ge_one)
+    tierDigestMoment_ge_one
 
 theorem digest_moment_step : signingZ*
     (SphincsSecurity.Completeness.failMass (DigestGeneric.decoder digestAccepted)*digestMoment+
@@ -2428,23 +2447,68 @@ theorem V_sharedDigestSearch (secret : BitVec 256) (rho : Digest) (message : Mes
   exact DigestGeneric.V_run digestAccepted secret signingZ digestMoment digestMoment_ge_one rho message
     digest_moment_step fuel counter hlimit cache hfresh
 
+theorem signPayload_eq_weighted (cache : SigGolfCandidate.T3.Cache) (message : Message) :
+    SharedForest.signPayload cache message =
+      privateNonce message >>= fun rho =>
+      sharedDigestSearch rho message 0 digestAttemptLimit >>= fun found =>
+      match found with
+      | none => pure none
+      | some (counter, output) =>
+          (fun w : Option Witness => w.map Witness.signature) <$>
+            signFromOutput cache rho counter output := by
+  unfold SharedForest.signPayload
+  apply bind_congr
+  intro rho
+  apply bind_congr
+  intro found
+  cases found with
+  | none => rfl
+  | some pair =>
+      obtain ⟨counter, output⟩ := pair
+      simp only [map_eq_bind_pure_comp, Function.comp_def]
+      apply bind_congr
+      intro witness
+      cases witness <;> rfl
+
 theorem V_signPayload_certified (secret : BitVec 256) (cache : SigGolfCandidate.T3.Cache)
     (message : Message) (rcache : RCache) (hfresh : AllSearchesFreshBC rcache) :
     V secret signingZ (SharedForest.signPayload cache message) rcache ≤ payloadMoment := by
-  apply V_signPayload_fixed secret signingZ digestMoment postMoment
-    (SigGolfCandidate.Budget.one_le_zOf _) postMoment_ge_one cache message rcache
-  · intro nonce hn
-    have hnonce := privateNonce_preserves_fresh secret message rcache hfresh nonce hn
-    exact V_sharedDigestSearch secret nonce.1 message _ _
-      (by have := ClaudeWCT.WCT9.digestAttemptLimit_le; omega) nonce.2
-      (fun c _ hc => hnonce.1 _ _ _ hc)
-  · intro nonce hn found hd counter output he
-    have hnonce := privateNonce_preserves_fresh secret message rcache hfresh nonce hn
-    have hrows : RowsFreshFrom 0 nonce.2 := fun lay _ => hnonce.2 lay lay.isLt
-    rw [sharedDigestSearch_eq_run] at hd
-    exact V_signFromOutput_certified secret cache nonce.1 counter output found.2
-      (DigestGeneric.run_preserves_rows digestAccepted secret 0 nonce.1 message 0
-        ClaudeWCT.WCT9.digestAttemptLimit nonce.2 hrows found hd)
+  calc
+    _ ≤ signingZ^2 * (signingZ^112322 * tierDigestMoment) := by
+      rw [signPayload_eq_weighted]
+      apply SigGolfCandidate.T3.Budgets.V_bind_bounded secret signingZ
+        (privateNonce message) _ rcache (signingZ^2)
+        (signingZ^112322 * tierDigestMoment)
+      · exact V_of_bound (bound_privateNonce message) secret signingZ
+          (SigGolfCandidate.Budget.one_le_zOf _) rcache
+      · intro nonce hn
+        have hnonce := privateNonce_preserves_fresh secret message rcache hfresh nonce hn
+        have hrows : RowsFreshFrom 0 nonce.2 := fun lay _ => hnonce.2 lay lay.isLt
+        rw [sharedDigestSearch_eq_run]
+        apply DigestGeneric.V_run_bind digestAccepted secret signingZ
+          (signingZ^112322 * tierDigestMoment) nonce.1 message _
+          (fun answer => signingZ^112322 *
+            ((ClaudeWCT.Numerics.TopZero.tierInitialBound (conditionalExtra answer) : ENNReal)/scale))
+        · intro rc _
+          simpa only [V_pure] using
+            (one_le_mul (one_le_pow₀ (SigGolfCandidate.Budget.one_le_zOf _))
+              tierDigestMoment_ge_one)
+        · intro rc hr c hc answer ha
+          rw [V_map]
+          exact V_signFromOutput_certified_tier secret cache nonce.1 (BitVec.ofNat 32 c)
+            answer (rc.cacheQuery (digestTrial nonce.1 message c) answer)
+            (hr.cacheDigest nonce.1 message c answer) ha
+        · exact scaled_step signingZ tierDigestMoment (signingZ^112322)
+            (DigestGeneric.decoder digestAccepted)
+            (fun answer => (ClaudeWCT.Numerics.TopZero.tierInitialBound
+              (conditionalExtra answer) : ENNReal)/scale)
+            tier_digest_moment_step
+        · exact (by have := ClaudeWCT.WCT9.digestAttemptLimit_le; omega)
+        · exact hrows
+        · exact fun c _ hc => hnonce.1 _ _ _ hc
+    _ = payloadMoment := by
+      rw [payloadMoment, ← mul_assoc, ← pow_add]
+      rfl
 
 theorem V_sign_certified (secret : BitVec 256) (cache : SigGolfCandidate.T3.Cache)
     (message : Message) (rcache : RCache) (hfresh : AllSearchesFreshBC rcache) :
@@ -2456,9 +2520,9 @@ theorem V_sign_certified (secret : BitVec 256) (cache : SigGolfCandidate.T3.Cach
     (privateMac_preserves_fresh secret cache.region rcache hfresh checked hc)
 
 theorem signingMoment_eq : signingMoment =
-    signingZ^112326*(((ftsBound:ENNReal)/scale)*((ClaudeWCT.Numerics.TopZero.initialBound:ENNReal)/scale)) := by
-  unfold signingMoment payloadMoment digestMoment postMoment
-  rw [show 112326=2+2+112322 by decide,pow_add,pow_add]
+    signingZ^112326*tierDigestMoment := by
+  unfold signingMoment payloadMoment
+  rw [show 112326=2+112324 by decide,pow_add]
   ac_rfl
 
 /-- The fixed sign cost proved for the current Lean scheme (`signingMoment_eq`: 2 + 2 + 112142 + 180; v6 lower
@@ -2481,7 +2545,7 @@ theorem signingMoment_le_two (hfix : SchemeFixedCostV6) : signingMoment ≤ 2 :=
   rw [ENNReal.toReal_div,ENNReal.toReal_natCast,ENNReal.toReal_natCast] at hz
   apply (ENNReal.toReal_le_toReal (by unfold signingZ SigGolfCandidate.Budget.zOf scale; finiteness)
     (by simp)).mp
-  simp only [ENNReal.toReal_mul,ENNReal.toReal_pow,ENNReal.toReal_div,ENNReal.toReal_natCast,
+  simp only [tierDigestMoment, ENNReal.toReal_mul,ENNReal.toReal_pow,ENNReal.toReal_div,ENNReal.toReal_natCast,
     ENNReal.toReal_ofNat]
   have hz1 : 1 ≤ signingZ.toReal := by
     have h1 : (1:ENNReal) ≤ signingZ := SigGolfCandidate.Budget.one_le_zOf _
@@ -2492,8 +2556,10 @@ theorem signingMoment_le_two (hfix : SchemeFixedCostV6) : signingMoment ≤ 2 :=
       ClaudeWCT.Numerics.TopZero.fixed_ratio_bound
   calc
     _ ≤ ((ClaudeWCT.Numerics.TopZero.fixedBound:ℝ)/scale)*(((ftsBound:ℝ)/scale)*
-        ((ClaudeWCT.Numerics.TopZero.initialBound:ℝ)/scale)) := by gcongr
-    _ ≤ 2 := ClaudeWCT.Numerics.TopZero.envelope_ratio_le_two
+        ((ClaudeWCT.Numerics.TopZero.mixedInitialBound:ℝ)/scale)) := by gcongr
+    _ ≤ 2 := by
+      norm_num [ClaudeWCT.Numerics.TopZero.fixedBound, ftsBound,
+        ClaudeWCT.Numerics.TopZero.mixedInitialBound, scale]
 
 theorem V_sign_le_two (hfix : SchemeFixedCostV6) (secret : BitVec 256) (cache : SigGolfCandidate.T3.Cache)
     (message : Message) (rcache : RCache) (hfresh : AllSearchesFreshBC rcache) :

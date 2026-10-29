@@ -1461,8 +1461,9 @@ def expandN (message : Message) (pk : Digest) (sig : SigGolfCandidate.Research.S
   let index := WCT9.digestIndex output
   let forest ← recoverForest index (forestSelectionFromOutput output) (forestWordsFromOutput output) sig0.forest
   let some layers ← recoverHintedLayers sig0 index ((sig0.layers 0).path WCT9.topJ)
-    4 (.pair forest.1 forest.2) | pure none
-  if !policyHintsValid sig0.policyHints layers.digits layers.lows then return none
+    4 (.pair forest.1 forest.2) (conditionalTopFloor output) | pure none
+  if !policyHintsValid sig0.policyHints layers.digits layers.lows
+      (conditionalCredit output) then return none
   if layers.root = pk then
     return some (output, ⟨sig0, counter, fun lay => layers.counters.getD lay.val 0, !(layers.lows.getD 0 true), layers.nonces⟩)
   let some c ← WCT9.searchTop index layers.foldedTop ((sig0.layers 0).path WCT9.topJ) pk WCT9.searchFuel 1 | pure none
@@ -1704,8 +1705,10 @@ theorem expandN_selections (answers : Answers) (message : Message) (pk : Digest)
         (.pair (evalWithAnswerFn answers (recoverForest (WCT9.digestIndex output)
           (forestSelectionFromOutput output) (forestWordsFromOutput output) sig.forest)).1
           (evalWithAnswerFn answers (recoverForest (WCT9.digestIndex output)
-          (forestSelectionFromOutput output) (forestWordsFromOutput output) sig.forest)).2)) = some result ∧
-      policyHintsValid sig.policyHints result.digits result.lows = true ∧
+          (forestSelectionFromOutput output) (forestWordsFromOutput output) sig.forest)).2)
+        (conditionalTopFloor output)) = some result ∧
+      policyHintsValid sig.policyHints result.digits result.lows
+        (conditionalCredit output) = true ∧
       w.signature = fillTopSignature sig c ∧ w.digestCounter = counter ∧
       (∀ lay, w.counters lay = result.counters.getD lay.val 0) ∧ w.topHigh = !(result.lows.getD 0 true) := by
   unfold expandN at he
@@ -1724,14 +1727,15 @@ theorem expandN_selections (answers : Answers) (message : Message) (pk : Digest)
           (forestSelectionFromOutput N) (forestWordsFromOutput N) sig.forest)
         cases hr : evalWithAnswerFn answers (recoverHintedLayers (fillTopSignature sig 0)
           (WCT9.digestIndex N) (((fillTopSignature sig 0).layers 0).path WCT9.topJ) 4
-          (.pair forest.1 forest.2)) with
+          (.pair forest.1 forest.2) (conditionalTopFloor N)) with
         | none =>
             dsimp only [forest] at hr
             simp only [hr, evalWithAnswerFn_pure, reduceCtorEq] at he
         | some result =>
             dsimp only [forest] at hr
             simp only [hr] at he
-            by_cases hp : policyHintsValid sig.policyHints result.digits result.lows = true
+            by_cases hp : policyHintsValid sig.policyHints result.digits result.lows
+                (conditionalCredit N) = true
             · simp only [hp, Bool.not_true, Bool.false_eq_true, if_false] at he
               by_cases hk : result.root = pk
               · simp only [hk, if_true, evalWithAnswerFn_pure, Option.some.injEq, Prod.mk.injEq] at he
