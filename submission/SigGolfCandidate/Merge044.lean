@@ -708,6 +708,71 @@ theorem initial_checked :
     recurrenceCheck topDen topAcceptedHistogram 14 69 rowOne initialBound = true := by
   decide +kernel
 
+/-- Extra path credit for joint digest costs 774 through 777.  The top floor
+increases with the credit, so every accepted top word leaves at most 55 units
+for the unchanged lower-layer continuation rows. -/
+def tierInitialBound (extra : Nat) : Nat :=
+  match extra with
+  | 0 => initialBound
+  | 1 => 366906211637491324351566668854727639355
+  | 2 => 367205999028385047328253982780835455678
+  | 3 => 367554069852272477816998815961607865858
+  | 4 => 367958442609363420241757759948768431548
+  | _ => 0
+
+theorem tier_initial_checked (extra : Nat) (he : extra ≤ 4) :
+    recurrenceCheck topDen topAcceptedHistogram (14 + extra) (69 + extra)
+      rowOne (tierInitialBound extra) = true := by
+  interval_cases extra <;> decide +kernel
+
+/-- Accepted field counts for costs at most 773, then exactly 774, 775, 776,
+and 777.  The counts use the 32-class child correction model. -/
+def tierFieldCount (extra : Nat) : Nat :=
+  match extra with
+  | 0 => 192326132211134586577837022992532009868
+  | 1 => 2088288850249071991962228555054974454
+  | 2 => 1599663131403617790413764887335659425
+  | 3 => 1197315381563303721115015630825218198
+  | 4 => 875173955558589234448294883726591046
+  | _ => 0
+
+def tierFieldPrefix (extra : Nat) : Nat :=
+  match extra with
+  | 0 => 192326132211134586577837022992532009868
+  | 1 => 194414421061383658569799251547586984322
+  | 2 => 196014084192787276360213016434922643747
+  | 3 => 197211399574350580081328032065747861945
+  | 4 => 198086573529909169315776326949474452991
+  | _ => 0
+
+/-- Finite capped-word counts at costs 773 through 777, checked directly
+against the already certified nine-coordinate generating polynomial. -/
+theorem tier_field_prefix_checked (extra : Nat) (he : extra ≤ 4) :
+    ClaudeWCT.Numerics.SharedFtsCount.fieldForestPacked %
+      ClaudeWCT.Numerics.SharedFtsCount.radix ^ (99 + extra) %
+      (ClaudeWCT.Numerics.SharedFtsCount.radix - 1) =
+      tierFieldPrefix extra := by
+  interval_cases extra <;> decide +kernel
+
+theorem tier_field_total_checked :
+    (List.range 5 |>.map tierFieldCount).sum = tierFieldPrefix 4 := by
+  decide
+
+theorem tier_field_count_zero : tierFieldCount 0 = tierFieldPrefix 0 := by decide
+
+theorem tier_field_successive_checked (extra : Nat) (hpos : 1 ≤ extra)
+    (he : extra ≤ 4) :
+    tierFieldPrefix (extra - 1) + tierFieldCount extra = tierFieldPrefix extra := by
+  interval_cases extra <;> decide
+
+/-- One weighted top-envelope bound for the five digest-cost classes. -/
+def mixedInitialBound : Nat := 366666961777361594620530397903627186780
+
+theorem mixed_initial_checked :
+    ((List.range 5).map (fun extra => tierFieldCount extra * tierInitialBound extra)).sum ≤
+      tierFieldPrefix 4 * mixedInitialBound := by
+  decide
+
 theorem fixed_power_checked :
     powerUp (ceilDiv (zNum * scale) zDen) fixedSignCost ≤ fixedBound := by
   decide +kernel
@@ -717,8 +782,17 @@ theorem full_moment_checked :
     mulUp (mulUp fixedBound ftsBound) initialBound * 100000 < 199976 * scale := by
   decide +kernel
 
-/-- Top tail at the 2^20 top counter window (block 256 = 2^20 / 4096), floor 14. -/
+/-- Conservative top-tail check at the first 2^20 trials (block 256 = 2^20 / 4096), floor 14. -/
 theorem top_tail_checked : tailCheck (acceptedMass topAcceptedHistogram 14) topDen 256 = true := by
+  decide +kernel
+
+theorem tier_top_tail_checked (extra : Nat) (he : extra ≤ 4) :
+    tailCheck (acceptedMass topAcceptedHistogram (14 + extra)) topDen 256 = true := by
+  interval_cases extra <;> decide +kernel
+
+/-- The tier-weighted signing moment remains below two at the T51 fixed cost. -/
+theorem mixed_full_moment_checked :
+    mulUp (mulUp fixedBound ftsBound) mixedInitialBound * 100000 < 199986 * scale := by
   decide +kernel
 
 theorem initialBound_ge_scale : scale ≤ initialBound := by norm_num [scale, initialBound]

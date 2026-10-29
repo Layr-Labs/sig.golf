@@ -9149,6 +9149,15 @@ theorem RowsFreshFrom.cacheQuery {stage : Nat} {cache : RCache}
     exact pairTrial_ne_of_layer (by intro he; subst other; omega)
       tree' leaf' left right counter' tree leaf _ _ counter
 
+theorem RowsFreshFrom.cacheDigest {stage : Nat} {cache : RCache}
+    (h : RowsFreshFrom stage cache) (rho : Digest) (message : Message)
+    (c : Nat) (answer : HashOutput) :
+    RowsFreshFrom stage (cache.cacheQuery (digestTrial rho message c) answer) := by
+  intro lay hl tree leaf left right counter hc
+  rw [QueryCache.cacheQuery_of_ne]
+  · exact h lay hl tree leaf left right counter hc
+  · exact pairTrial_ne_digestTrial lay tree leaf left right counter rho message c
+
 /-- A canonical stage can spend credit on its continuation while preserving all
 later layers' fresh rows. No independence of the chosen floor is assumed here. -/
 theorem V_layerSearch_bind {α : Type} (secret : BitVec 256) (z b : ENNReal)
@@ -10386,7 +10395,9 @@ theorem V_signFromOutput_fixed (secret : BitVec 256) (z L : ENNReal) (hz : 1 ≤
         (SigGolfCandidate.Research.SharedForest.buildForest (digestIndex output) (SigGolfCandidate.Research.SharedForest.forestSelectionFromOutput output)
           (SigGolfCandidate.Research.SharedForest.forestWordsFromOutput output)) rcache),
       ∀ prepared ∈ support (roRun secret (SigGolfCandidate.Research.SharedForest.prepareRoots (digestIndex output)) forest.2),
-      V secret z (SigGolfCandidate.Research.SharedForest.searchPreparedLayers cache (digestIndex output) prepared.1 forest.1.2)
+      V secret z (SigGolfCandidate.Research.SharedForest.searchPreparedLayers cache (digestIndex output) prepared.1 forest.1.2
+        (SigGolfCandidate.Research.SharedForest.conditionalCredit output)
+        (SigGolfCandidate.Research.SharedForest.conditionalTopFloor output))
         prepared.2 ≤ L) :
     V secret z (SigGolfCandidate.Research.SharedForest.signFromOutput cache rho counter output) rcache ≤ z ^ 112142 * L := by
   unfold SigGolfCandidate.Research.SharedForest.signFromOutput
@@ -10636,16 +10647,33 @@ theorem lower_decoder_credit_lt (lay : Layer) (hl : lay ≠ 0) {floor : Nat} {an
   obtain ⟨ds, l⟩ := dl
   exact producerDecodeAt_lower_credit_lt lay hl (CanonicalPolicy.producerDecodeOut_spec h).2
 
-/-- The exact selected-credit law of the canonical top search (T51: floor 14, restricted choice, d6b, top zero cap 7). -/
+/-- The selected-credit law is unchanged when the top floor rises: the floor
+only filters which of the same histogram entries are accepted. -/
+theorem selected_top_probability_at (floor : Nat) (hf : 14 ≤ floor) (c : Fin 220) :
+    Pr[fun answer => ∃ dl, decoder 0 floor answer = some dl ∧ dcredit 0 dl = c.val |
+      ($ᵗ HashOutput : ProbComp HashOutput)] =
+      if floor ≤ c.val then (histogramWeight ClaudeWCT.Numerics.TopZero.topAcceptedHistogram c.val : ENNReal) / topDen else 0 := by
+  by_cases hc : floor ≤ c.val
+  · rw [if_pos hc]
+    classical
+    rw [probEvent_uniformSample]
+    have hcard := selected_top_path_card floor c.val hf hc
+    rw [hcard, ClaudeWCT.Numerics.TopZero.topAcceptedHistogram,
+      histogramWeight_split, if_pos (by omega : 2 ≤ c.val),
+      topWordCount_eq_hist (c.val - 2) (by omega),
+      topWordCount_eq_hist c.val (by omega), topHighWeight_eq]
+    simp only [Fintype.card_bitVec, topDen, Nat.cast_pow, Nat.cast_ofNat]
+    push_cast
+    ring
+  · rw [if_neg hc]
+    exact selected_probability_below 0 floor c.val (by omega)
+
+/-- The exact selected-credit law at the original top floor. -/
 theorem selected_top_probability (c : Fin 220) :
     Pr[fun answer => ∃ dl, decoder 0 14 answer = some dl ∧ dcredit 0 dl = c.val |
       ($ᵗ HashOutput : ProbComp HashOutput)] =
-      if 14 ≤ c.val then (histogramWeight ClaudeWCT.Numerics.TopZero.topAcceptedHistogram c.val : ENNReal) / topDen else 0 := by
-  by_cases hc : 14 ≤ c.val
-  · rw [if_pos hc]
-    exact selected_top_histogram_probability c.val hc
-  · rw [if_neg hc]
-    exact selected_probability_below 0 14 c.val (by omega)
+      if 14 ≤ c.val then (histogramWeight ClaudeWCT.Numerics.TopZero.topAcceptedHistogram c.val : ENNReal) / topDen else 0 :=
+  selected_top_probability_at 14 (by omega) c
 
 /-- The exact selected-credit law of a canonical lower search (path-aware). -/
 theorem selected_lower_probability (lay : Layer) (hl : lay ≠ 0) (floor : Nat) (c : Fin 128) :
@@ -10795,7 +10823,7 @@ set_option maxHeartbeats 2000000
 set_option maxRecDepth 10000
 set_option backward.isDefEq.respectTransparency false
 
-structure SearchEnvelope (z : ENNReal) where
+structure SearchEnvelopeAt (z : ENNReal) (topFloor credit : Nat) where
   initial : ENNReal
   one : Nat → ENNReal
   two : Nat → ENNReal
@@ -10804,8 +10832,8 @@ structure SearchEnvelope (z : ENNReal) where
   one_ge : ∀ r, r < 56 → 1 ≤ one r
   two_ge : ∀ r, r < 41 → 1 ≤ two r
   three_ge : ∀ r, r < 22 → 1 ≤ three r
-  initial_step : z * (acceptedWeight (decoder 0 14) (fun dl => one (nextResidual 69 0 dl.2 dl.1)) +
-    SphincsSecurity.Completeness.failMass (decoder 0 14) * initial) ≤ initial
+  initial_step : z * (acceptedWeight (decoder 0 topFloor) (fun dl => one (nextResidual credit 0 dl.2 dl.1)) +
+    SphincsSecurity.Completeness.failMass (decoder 0 topFloor) * initial) ≤ initial
   one_step : ∀ r, r < 56 → z *
     (acceptedWeight (decoder 1 (threshold 1 r)) (fun dl => two (nextResidual r 1 dl.2 dl.1)) +
      SphincsSecurity.Completeness.failMass (decoder 1 (threshold 1 r)) * one r) ≤ one r
@@ -10816,6 +10844,8 @@ structure SearchEnvelope (z : ENNReal) where
     (acceptedWeight (decoder 3 (threshold 3 r)) (fun _ => 1) +
      SphincsSecurity.Completeness.failMass (decoder 3 (threshold 3 r)) * three r) ≤ three r
 
+abbrev SearchEnvelope (z : ENNReal) := SearchEnvelopeAt z 14 69
+
 theorem decoder_spec {lay : Layer} {floor : Nat} {answer : HashOutput} {ds : List Nat} {low : Bool}
     (h : decoder lay floor answer = some (ds, low)) :
     producerDecodeAt lay floor low (encodingAnswer lay answer) = some ds :=
@@ -10823,51 +10853,55 @@ theorem decoder_spec {lay : Layer} {floor : Nat} {answer : HashOutput} {ds : Lis
 
 /-- The actual four searches follow canonical ancestors. Their continuation
 weights depend on the remaining path-aware credit, and the retained lower reveals cost no HASH calls. -/
-theorem V_searchPreparedLayers (secret : BitVec 256) (z : ENNReal) (hz : 1 ≤ z)
-    (E : SearchEnvelope z) (cache : SigGolfCandidate.T3.Cache) (index : Nat)
+theorem V_searchPreparedLayers_at (secret : BitVec 256) (z : ENNReal) (hz : 1 ≤ z)
+    (topFloor credit : Nat) (hgap : credit = topFloor + 55)
+    (E : SearchEnvelopeAt z topFloor credit) (cache : SigGolfCandidate.T3.Cache) (index : Nat)
     (prepared : PreparedRoots) (forest : PairRoot) (rcache : RCache)
     (hfresh : RowsFreshFrom 0 rcache) :
-    V secret z (searchPreparedLayers cache index prepared forest) rcache ≤ z^180 * E.initial := by
+    V secret z (searchPreparedLayers cache index prepared forest credit topFloor) rcache ≤ z^180 * E.initial := by
   have hfactor : 1 ≤ z^180 := one_le_pow₀ hz
   unfold searchPreparedLayers
-  simp only [CanonicalPolicy.totalCredit, threshold_top]
+  simp only [threshold_top]
   apply V_layerSearch_bind (secret := secret) (z := z) (lay := 0)
-    (weight := fun dl => z^180 * E.one (nextResidual 69 0 dl.2 dl.1))
+    (weight := fun dl => z^180 * E.one (nextResidual credit 0 dl.2 dl.1))
   · intro rc _
     simpa only [V_pure] using one_le_mul hfactor E.initial_ge
   · intro rc hr counter hc answer dl0 hd0
     obtain ⟨ds0, l0⟩ := dl0
     have hd0' := decoder_spec hd0
-    have hres1 := accepted_top_residual hd0'
-    have hp1 : threshold 1 (nextResidual 69 0 l0 ds0) < 16 :=
-      lower_one_floor_lt ⟨nextResidual 69 0 l0 ds0, hres1⟩
-    simp only [show ¬ (threshold 1 (nextResidual 69 0 l0 ds0) ≥ 16) by omega, ↓reduceIte]
+    have hres1 : nextResidual credit 0 l0 ds0 < 56 := by
+      have hc := CanonicalPolicy.producerDecodeAt_credit hd0'
+      unfold nextResidual
+      omega
+    have hp1 : threshold 1 (nextResidual credit 0 l0 ds0) < 16 :=
+      lower_one_floor_lt ⟨nextResidual credit 0 l0 ds0, hres1⟩
+    simp only [show ¬ (threshold 1 (nextResidual credit 0 l0 ds0) ≥ 16) by omega, ↓reduceIte]
     apply V_layerSearch_bind (secret := secret) (z := z) (lay := 1)
-      (weight := fun dl => z^180 * E.two (nextResidual (nextResidual 69 0 l0 ds0) 1 dl.2 dl.1))
+      (weight := fun dl => z^180 * E.two (nextResidual (nextResidual credit 0 l0 ds0) 1 dl.2 dl.1))
     · intro rc _
       simpa only [V_pure] using one_le_mul hfactor (E.one_ge _ hres1)
     · intro rc hr counter1 hc1 answer1 dl1 hd1
       obtain ⟨ds1, l1⟩ := dl1
       have hd1' := decoder_spec hd1
-      have hres2 : nextResidual (nextResidual 69 0 l0 ds0) 1 l1 ds1 < 41 :=
-        accepted_one_residual ⟨nextResidual 69 0 l0 ds0, hres1⟩ hd1'
-      have hp2 : threshold 2 (nextResidual (nextResidual 69 0 l0 ds0) 1 l1 ds1) ≤ 19 :=
-        (lower_two_progress ⟨nextResidual (nextResidual 69 0 l0 ds0) 1 l1 ds1, hres2⟩).1
-      simp only [show ¬ (threshold 2 (nextResidual (nextResidual 69 0 l0 ds0) 1 l1 ds1) ≥ 22) by omega,
+      have hres2 : nextResidual (nextResidual credit 0 l0 ds0) 1 l1 ds1 < 41 :=
+        accepted_one_residual ⟨nextResidual credit 0 l0 ds0, hres1⟩ hd1'
+      have hp2 : threshold 2 (nextResidual (nextResidual credit 0 l0 ds0) 1 l1 ds1) ≤ 19 :=
+        (lower_two_progress ⟨nextResidual (nextResidual credit 0 l0 ds0) 1 l1 ds1, hres2⟩).1
+      simp only [show ¬ (threshold 2 (nextResidual (nextResidual credit 0 l0 ds0) 1 l1 ds1) ≥ 22) by omega,
         ↓reduceIte]
       apply V_layerSearch_bind (secret := secret) (z := z) (lay := 2)
         (weight := fun dl => z^180 * E.three
-          (nextResidual (nextResidual (nextResidual 69 0 l0 ds0) 1 l1 ds1) 2 dl.2 dl.1))
+          (nextResidual (nextResidual (nextResidual credit 0 l0 ds0) 1 l1 ds1) 2 dl.2 dl.1))
       · intro rc _
         simpa only [V_pure] using one_le_mul hfactor (E.two_ge _ hres2)
       · intro rc hr counter2 hc2 answer2 dl2 hd2
         obtain ⟨ds2, l2⟩ := dl2
         have hd2' := decoder_spec hd2
-        have hres3 : nextResidual (nextResidual (nextResidual 69 0 l0 ds0) 1 l1 ds1) 2 l2 ds2 < 22 :=
-          accepted_two_residual ⟨nextResidual (nextResidual 69 0 l0 ds0) 1 l1 ds1, hres2⟩ hd2'
+        have hres3 : nextResidual (nextResidual (nextResidual credit 0 l0 ds0) 1 l1 ds1) 2 l2 ds2 < 22 :=
+          accepted_two_residual ⟨nextResidual (nextResidual credit 0 l0 ds0) 1 l1 ds1, hres2⟩ hd2'
         have hp3 := lower_three_progress _ hres3
         simp only [show ¬ (threshold 3
-            (nextResidual (nextResidual (nextResidual 69 0 l0 ds0) 1 l1 ds1) 2 l2 ds2) ≥ 22) by omega,
+            (nextResidual (nextResidual (nextResidual credit 0 l0 ds0) 1 l1 ds1) 2 l2 ds2) ≥ 22) by omega,
           ↓reduceIte]
         apply V_layerSearch_bind (secret := secret) (z := z) (lay := 3) (weight := fun _ => z^180)
         · intro rc _
@@ -10886,7 +10920,7 @@ theorem V_searchPreparedLayers (secret : BitVec 256) (z : ENNReal) (hz : 1 ≤ z
           simp only [V_pure]
           exact le_rfl
         · simpa only [mul_one] using scaled_step z
-            (E.three (nextResidual (nextResidual (nextResidual 69 0 l0 ds0) 1 l1 ds1) 2 l2 ds2))
+            (E.three (nextResidual (nextResidual (nextResidual credit 0 l0 ds0) 1 l1 ds1) 2 l2 ds2))
             (z^180) _ (fun _ => 1) (E.three_step _ hres3)
         · decide
         · exact hr
@@ -10899,6 +10933,14 @@ theorem V_searchPreparedLayers (secret : BitVec 256) (z : ENNReal) (hz : 1 ≤ z
   · exact scaled_step z _ (z^180) _ _ E.initial_step
   · decide
   · exact hfresh
+
+theorem V_searchPreparedLayers (secret : BitVec 256) (z : ENNReal) (hz : 1 ≤ z)
+    (E : SearchEnvelope z) (cache : SigGolfCandidate.T3.Cache) (index : Nat)
+    (prepared : PreparedRoots) (forest : PairRoot) (rcache : RCache)
+    (hfresh : RowsFreshFrom 0 rcache) :
+    V secret z (searchPreparedLayers cache index prepared forest) rcache ≤ z^180 * E.initial := by
+  simpa using V_searchPreparedLayers_at secret z hz 14 69 (by decide)
+    E cache index prepared forest rcache hfresh
 
 end ClaudeWCT.W9.T3.CanonicalSearch
 
@@ -10923,31 +10965,31 @@ theorem acceptedWeight_congr_on {α : Type} (dec : HashOutput → Option α)
 
 /-- Integer continuation rows give the envelope for the actual canonical
 source decoder, through its exact selected-credit law (path-aware credits). -/
-noncomputable def envelope_of_rows
-    (topHist lowerHist : List (Nat × Nat)) (topDen lowerDen : Nat)
+noncomputable def envelope_of_rows_at
+    (topFloor credit : Nat) (topHist lowerHist : List (Nat × Nat)) (topDen lowerDen : Nat)
     (one two three : Array Nat) (initial : Nat)
     (htopDen : 0 < topDen) (hlowerDen : 0 < lowerDen)
     (htopHist : ∀ e ∈ topHist, e.1 < 220)
     (hlowerHist : ∀ e ∈ lowerHist, e.1 < 128)
-    (htopBound : ∀ answer dl, decoder 0 14 answer = some dl → dcredit 0 dl < 220)
+    (htopBound : ∀ answer dl, decoder 0 topFloor answer = some dl → dcredit 0 dl < 220)
     (hlowerBound : ∀ (lay : Layer), lay ≠ 0 → ∀ floor answer dl,
       decoder lay floor answer = some dl → dcredit lay dl < 128)
     (htopLaw : ∀ i : Fin 220,
-      Pr[fun answer => ∃ dl, decoder 0 14 answer = some dl ∧ dcredit 0 dl = i.val |
+      Pr[fun answer => ∃ dl, decoder 0 topFloor answer = some dl ∧ dcredit 0 dl = i.val |
         ($ᵗ HashOutput : ProbComp HashOutput)] =
-        if 14 ≤ i.val then (histogramWeight topHist i.val : ENNReal)/topDen else 0)
+        if topFloor ≤ i.val then (histogramWeight topHist i.val : ENNReal)/topDen else 0)
     (hlowerLaw : ∀ (lay : Layer), lay ≠ 0 → ∀ floor (i : Fin 128),
       Pr[fun answer => ∃ dl, decoder lay floor answer = some dl ∧ dcredit lay dl = i.val |
         ($ᵗ HashOutput : ProbComp HashOutput)] =
         if floor ≤ i.val then (histogramWeight lowerHist i.val : ENNReal)/lowerDen else 0)
-    (hinitial : recurrenceCheck topDen topHist 14 69 one initial = true)
+    (hinitial : recurrenceCheck topDen topHist topFloor credit one initial = true)
     (hone : ∀ r, r < 56 → recurrenceCheck lowerDen lowerHist (threshold 1 r) r two
       (one[r]?.getD 0) = true)
     (htwo : ∀ r, r < 41 → recurrenceCheck lowerDen lowerHist (threshold 2 r) r three
       (two[r]?.getD 0) = true)
     (hthree : ∀ r, r < 22 → recurrenceCheck lowerDen lowerHist (threshold 3 r) r #[scale]
-      (three[r]?.getD 0) = true) : SearchEnvelope ((zNum : ENNReal)/zDen) := by
-  have h0 := decoder_recurrence 220 (decoder 0 14) (dcredit 0) topHist 14 69 topDen one initial
+      (three[r]?.getD 0) = true) : SearchEnvelopeAt ((zNum : ENNReal)/zDen) topFloor credit := by
+  have h0 := decoder_recurrence 220 (decoder 0 topFloor) (dcredit 0) topHist topFloor credit topDen one initial
     htopDen htopBound htopHist htopLaw hinitial
   have h1 (r : Nat) (hr : r < 56) := decoder_recurrence 128 (decoder 1 (threshold 1 r))
     (dcredit 1) lowerHist (threshold 1 r) r lowerDen two (one[r]?.getD 0) hlowerDen
@@ -10980,6 +11022,34 @@ noncomputable def envelope_of_rows
   rw [hweight] at h
   exact h
 
+noncomputable def envelope_of_rows
+    (topHist lowerHist : List (Nat × Nat)) (topDen lowerDen : Nat)
+    (one two three : Array Nat) (initial : Nat)
+    (htopDen : 0 < topDen) (hlowerDen : 0 < lowerDen)
+    (htopHist : ∀ e ∈ topHist, e.1 < 220)
+    (hlowerHist : ∀ e ∈ lowerHist, e.1 < 128)
+    (htopBound : ∀ answer dl, decoder 0 14 answer = some dl → dcredit 0 dl < 220)
+    (hlowerBound : ∀ (lay : Layer), lay ≠ 0 → ∀ floor answer dl,
+      decoder lay floor answer = some dl → dcredit lay dl < 128)
+    (htopLaw : ∀ i : Fin 220,
+      Pr[fun answer => ∃ dl, decoder 0 14 answer = some dl ∧ dcredit 0 dl = i.val |
+        ($ᵗ HashOutput : ProbComp HashOutput)] =
+        if 14 ≤ i.val then (histogramWeight topHist i.val : ENNReal)/topDen else 0)
+    (hlowerLaw : ∀ (lay : Layer), lay ≠ 0 → ∀ floor (i : Fin 128),
+      Pr[fun answer => ∃ dl, decoder lay floor answer = some dl ∧ dcredit lay dl = i.val |
+        ($ᵗ HashOutput : ProbComp HashOutput)] =
+        if floor ≤ i.val then (histogramWeight lowerHist i.val : ENNReal)/lowerDen else 0)
+    (hinitial : recurrenceCheck topDen topHist 14 69 one initial = true)
+    (hone : ∀ r, r < 56 → recurrenceCheck lowerDen lowerHist (threshold 1 r) r two
+      (one[r]?.getD 0) = true)
+    (htwo : ∀ r, r < 41 → recurrenceCheck lowerDen lowerHist (threshold 2 r) r three
+      (two[r]?.getD 0) = true)
+    (hthree : ∀ r, r < 22 → recurrenceCheck lowerDen lowerHist (threshold 3 r) r #[scale]
+      (three[r]?.getD 0) = true) : SearchEnvelope ((zNum : ENNReal)/zDen) :=
+  envelope_of_rows_at 14 69 topHist lowerHist topDen lowerDen one two three initial
+    htopDen hlowerDen htopHist hlowerHist htopBound hlowerBound htopLaw hlowerLaw
+    hinitial hone htwo hthree
+
 end ClaudeWCT.W9.T3.CanonicalSearch
 
 namespace ClaudeWCT.W9.T3.CanonicalSearch
@@ -10989,8 +11059,9 @@ open ClaudeWCT.Numerics.CanonicalCompression
 set_option maxHeartbeats 1000000
 set_option maxRecDepth 10000
 
-noncomputable def SearchEnvelope.mono_z {z z' : ENNReal} (E : SearchEnvelope z) (hz : z' ≤ z) :
-    SearchEnvelope z' where
+noncomputable def SearchEnvelopeAt.mono_z {z z' : ENNReal} {topFloor credit : Nat}
+    (E : SearchEnvelopeAt z topFloor credit) (hz : z' ≤ z) :
+    SearchEnvelopeAt z' topFloor credit where
   initial := E.initial
   one := E.one
   two := E.two
@@ -11003,6 +11074,10 @@ noncomputable def SearchEnvelope.mono_z {z z' : ENNReal} (E : SearchEnvelope z) 
   one_step r hr := (mul_le_mul' hz le_rfl).trans (E.one_step r hr)
   two_step r hr := (mul_le_mul' hz le_rfl).trans (E.two_step r hr)
   three_step r hr := (mul_le_mul' hz le_rfl).trans (E.three_step r hr)
+
+noncomputable def SearchEnvelope.mono_z {z z' : ENNReal}
+    (E : SearchEnvelope z) (hz : z' ≤ z) : SearchEnvelope z' :=
+  SearchEnvelopeAt.mono_z E hz
 
 theorem signing_z_ratio : SigGolfCandidate.T3.Budgets.signingZ ≤ (zNum : ENNReal)/zDen := by
   refine SigGolfCandidate.T3.Budgets.signing_z_le.trans ?_
@@ -11053,9 +11128,311 @@ theorem V_searchPreparedLayers_certified (secret : BitVec 256) (cache : SigGolfC
       (SigGolfCandidate.Research.SharedForest.searchPreparedLayers cache index prepared forest) rcache ≤
       SigGolfCandidate.T3.Budgets.signingZ^180 * ((ClaudeWCT.Numerics.TopZero.initialBound : ENNReal)/scale) := by
   have h := V_searchPreparedLayers secret SigGolfCandidate.T3.Budgets.signingZ
-    (SigGolfCandidate.Budget.one_le_zOf _) (certifiedEnvelope.mono_z signing_z_ratio)
+    (SigGolfCandidate.Budget.one_le_zOf _)
+    (certifiedEnvelope.mono_z signing_z_ratio)
     cache index prepared forest rcache hfresh
   exact h
+
+/-- A certified envelope for each of the five digest-cost tiers. -/
+noncomputable def certifiedTierEnvelope (extra : Nat) (he : extra ≤ 4) :
+    SearchEnvelopeAt ((zNum : ENNReal)/zDen) (14 + extra) (69 + extra) :=
+  envelope_of_rows_at (14 + extra) (69 + extra)
+    ClaudeWCT.Numerics.TopZero.topAcceptedHistogram lowerHistogram topDen lowerDen
+    rowOne rowTwo rowThree (ClaudeWCT.Numerics.TopZero.tierInitialBound extra)
+    (by decide) (by decide) (by decide +kernel) (by decide +kernel)
+    (fun a dl hd => top_decoder_credit_lt (by omega) hd)
+    (fun lay hl floor a dl hd => lower_decoder_credit_lt lay hl hd)
+    (selected_top_probability_at (14 + extra) (by omega)) selected_lower_probability
+    (ClaudeWCT.Numerics.TopZero.tier_initial_checked extra he)
+    (fun r hr => checkRows_at 1 rowOne rowTwo row_one_checked r (by exact hr))
+    (fun r hr => checkRows_at 2 rowTwo rowThree row_two_checked r (by exact hr))
+    (fun r hr => checkRows_at 3 rowThree #[scale] row_three_checked r (by exact hr))
+
+theorem certifiedTierEnvelope_initial (extra : Nat) (he : extra ≤ 4) :
+    (certifiedTierEnvelope extra he).initial =
+      (ClaudeWCT.Numerics.TopZero.tierInitialBound extra : ENNReal)/scale := rfl
+
+theorem V_searchPreparedLayers_certified_tier (secret : BitVec 256)
+    (cache : SigGolfCandidate.T3.Cache) (index extra : Nat) (he : extra ≤ 4)
+    (prepared : SigGolfCandidate.Research.SharedForest.PreparedRoots)
+    (forest : SigGolfCandidate.Research.SharedForest.PairRoot) (rcache : RCache)
+    (hfresh : RowsFreshFrom 0 rcache) :
+    V secret SigGolfCandidate.T3.Budgets.signingZ
+      (SigGolfCandidate.Research.SharedForest.searchPreparedLayers cache index prepared forest
+        (69 + extra) (14 + extra)) rcache ≤
+      SigGolfCandidate.T3.Budgets.signingZ^180 *
+        ((ClaudeWCT.Numerics.TopZero.tierInitialBound extra : ENNReal)/scale) := by
+  have h := V_searchPreparedLayers_at secret SigGolfCandidate.T3.Budgets.signingZ
+    (SigGolfCandidate.Budget.one_le_zOf _) (14 + extra) (69 + extra) (by omega)
+    ((certifiedTierEnvelope extra he).mono_z signing_z_ratio)
+    cache index prepared forest rcache hfresh
+  simpa only [certifiedTierEnvelope_initial] using h
+
+/-- Uniform digest outputs are partitioned by their field-word cost prefix.
+The field-count theorem supplies the polynomial cardinality, while the
+numeric packet checks its five values. -/
+def digestPrefixSet (extra : Nat) : Finset HashOutput :=
+  Finset.univ.filter (fun a =>
+    SigGolfCandidate.Research.SharedFtsModel.validUpTo (98 + extra)
+      (SigGolfCandidate.Research.SharedDigestFields.fields a))
+
+theorem mem_digestPrefixSet (extra : Nat) (a : HashOutput) :
+    a ∈ digestPrefixSet extra ↔
+      (SigGolfCandidate.Research.SharedDigestFields.fields a).2.2.2.toNat < 791 ∧
+      (∀ k, ((SigGolfCandidate.Research.SharedDigestFields.fields a).2.1 k).toNat < 563) ∧
+      SigGolfCandidate.Research.SharedForest.jointAccountingCost a ≤ 773 + extra := by
+  simp only [digestPrefixSet, Finset.mem_filter, Finset.mem_univ, true_and,
+    SigGolfCandidate.Research.SharedFtsModel.validUpTo,
+    SigGolfCandidate.Research.SharedDigestFields.cost_fields]
+  have he : 675 + (98 + extra) = 773 + extra := by omega
+  rw [he]
+
+theorem digestAccepted_iff_cost (a : HashOutput) :
+    SigGolfCandidate.Research.SharedForest.digestAccepted a = true ↔
+      (SigGolfCandidate.Research.SharedDigestFields.fields a).2.2.2.toNat < 791 ∧
+      (∀ k, ((SigGolfCandidate.Research.SharedDigestFields.fields a).2.1 k).toNat < 563) ∧
+      SigGolfCandidate.Research.SharedForest.jointAccountingCost a ≤ 777 := by
+  rw [← SigGolfCandidate.Research.SharedDigestFields.accepted_fields a]
+  simpa only [SigGolfCandidate.Research.SharedDigestFields.cost_fields] using
+    SigGolfCandidate.Research.SharedFtsModel.accepted_iff
+      (SigGolfCandidate.Research.SharedDigestFields.fields a)
+
+theorem digestPrefixSet_mono {i j : Nat} (hij : i ≤ j) :
+    digestPrefixSet i ⊆ digestPrefixSet j := by
+  intro a ha
+  simp only [digestPrefixSet, Finset.mem_filter, Finset.mem_univ, true_and,
+    SigGolfCandidate.Research.SharedFtsModel.validUpTo] at ha ⊢
+  rcases ha with ⟨hg, hr, hc⟩
+  exact ⟨hg, hr, by omega⟩
+
+theorem digestPrefixSet_card (extra : Nat) (he : extra ≤ 4) :
+    (digestPrefixSet extra).card =
+      ClaudeWCT.Numerics.TopZero.tierFieldPrefix extra * 2^31 * 791 * 2^76 := by
+  classical
+  have hcap : SigGolfCandidate.Research.SharedFtsModel.fieldCappedCount (98 + extra) =
+      ClaudeWCT.Numerics.TopZero.tierFieldPrefix extra := by
+    unfold SigGolfCandidate.Research.SharedFtsModel.fieldCappedCount
+    have hindex : 98 + extra + 1 = 99 + extra := by omega
+    rw [hindex]
+    exact ClaudeWCT.Numerics.TopZero.tier_field_prefix_checked extra he
+  unfold digestPrefixSet
+  rw [← Fintype.card_subtype]
+  rw [SigGolfCandidate.Research.SharedDigestFields.predicate_card]
+  rw [SigGolfCandidate.Research.SharedFtsModel.tier_fields_card]
+  rw [hcap]
+
+def digestTierSet (extra : Nat) : Finset HashOutput :=
+  if extra = 0 then digestPrefixSet 0
+  else digestPrefixSet extra \ digestPrefixSet (extra - 1)
+
+theorem digestTierSet_card (extra : Nat) (he : extra ≤ 4) :
+    (digestTierSet extra).card =
+      ClaudeWCT.Numerics.TopZero.tierFieldCount extra * 2^31 * 791 * 2^76 := by
+  classical
+  by_cases hzero : extra = 0
+  · subst extra
+    simp only [digestTierSet, ↓reduceIte, digestPrefixSet_card 0 (by decide)]
+    rfl
+  · have hsub : digestPrefixSet (extra - 1) ⊆ digestPrefixSet extra :=
+      digestPrefixSet_mono (by omega)
+    have hpos : 1 ≤ extra := by omega
+    rw [digestTierSet, if_neg hzero, Finset.card_sdiff_of_subset hsub,
+      digestPrefixSet_card extra he,
+      digestPrefixSet_card (extra - 1) (by omega)]
+    interval_cases extra <;> decide
+
+theorem mem_digestTierSet (extra : Nat) (he : extra ≤ 4) (a : HashOutput) :
+    a ∈ digestTierSet extra ↔
+      SigGolfCandidate.Research.SharedForest.digestAccepted a = true ∧
+      SigGolfCandidate.Research.SharedForest.conditionalExtra a = extra := by
+  have hacc := digestAccepted_iff_cost a
+  have hp (k : Nat) := mem_digestPrefixSet k a
+  by_cases hzero : extra = 0
+  · subst extra
+    rw [digestTierSet, if_pos rfl, hp 0, hacc]
+    simp only [SigGolfCandidate.Research.SharedForest.conditionalExtra]
+    constructor
+    · rintro ⟨hg, hr, hc⟩
+      exact ⟨⟨hg, hr, by omega⟩, by omega⟩
+    · rintro ⟨⟨hg, hr, _⟩, hc⟩
+      exact ⟨hg, hr, by omega⟩
+  · rw [digestTierSet, if_neg hzero, Finset.mem_sdiff, hp extra, hp (extra - 1), hacc]
+    simp only [SigGolfCandidate.Research.SharedForest.conditionalExtra]
+    constructor
+    · rintro ⟨⟨hg, hr, hc⟩, hn⟩
+      have hlow : 773 + (extra - 1) <
+          SigGolfCandidate.Research.SharedForest.jointAccountingCost a := by
+        by_contra hnot
+        exact hn ⟨hg, hr, by omega⟩
+      exact ⟨⟨hg, hr, by omega⟩, by omega⟩
+    · rintro ⟨⟨hg, hr, _⟩, hc⟩
+      refine ⟨⟨hg, hr, by omega⟩, ?_⟩
+      rintro ⟨_, _, hprev⟩
+      omega
+
+theorem digestTierSet_probability (extra : Nat) (he : extra ≤ 4) :
+    Pr[fun a : HashOutput => a ∈ digestTierSet extra |
+      ($ᵗ HashOutput : ProbComp HashOutput)] =
+      ((ClaudeWCT.Numerics.TopZero.tierFieldCount extra * 2^31 * 791 * 2^76 : Nat) : ENNReal) /
+        (2^256 : Nat) := by
+  classical
+  rw [probEvent_uniformSample]
+  have hs : (Finset.univ.filter fun a : HashOutput => a ∈ digestTierSet extra) =
+      digestTierSet extra := by ext a; simp
+  rw [hs, digestTierSet_card extra he]
+  simp only [Fintype.card_bitVec]
+
+def digestTierLabel (a : HashOutput) : Fin 5 :=
+  ⟨min (SigGolfCandidate.Research.SharedForest.conditionalExtra a) 4, by omega⟩
+
+theorem digest_label_event (i : Fin 5) (a : HashOutput) :
+    (∃ value, DigestGeneric.decoder SigGolfCandidate.Research.SharedForest.digestAccepted a = some value ∧
+      digestTierLabel value = i) ↔ a ∈ digestTierSet i.val := by
+  rw [mem_digestTierSet i.val (by omega) a]
+  constructor
+  · rintro ⟨value, hd, hl⟩
+    by_cases ha : SigGolfCandidate.Research.SharedForest.digestAccepted a = true
+    · simp [DigestGeneric.decoder, ha] at hd
+      subst value
+      have he := (SigGolfCandidate.Research.SharedForest.conditional_bounds_of_accepted a ha).1
+      exact ⟨ha, by have hi := Fin.ext_iff.mp hl; dsimp [digestTierLabel] at hi; omega⟩
+    · simp [DigestGeneric.decoder, ha] at hd
+  · rintro ⟨ha, he⟩
+    refine ⟨a, by simp [DigestGeneric.decoder, ha], ?_⟩
+    apply Fin.ext
+    dsimp [digestTierLabel]
+    omega
+
+/-- The accepted digest trial has exactly five cost-dependent continuation
+weights. -/
+theorem digest_acceptedWeight_tiers :
+    acceptedWeight
+      (DigestGeneric.decoder SigGolfCandidate.Research.SharedForest.digestAccepted)
+      (fun a => (ClaudeWCT.Numerics.TopZero.tierInitialBound
+        (SigGolfCandidate.Research.SharedForest.conditionalExtra a) : ENNReal) / scale) =
+      ∑ i : Fin 5,
+        (((ClaudeWCT.Numerics.TopZero.tierFieldCount i.val * 2^31 * 791 * 2^76 : Nat) : ENNReal) /
+          (2^256 : Nat)) *
+        ((ClaudeWCT.Numerics.TopZero.tierInitialBound i.val : ENNReal) / scale) := by
+  let dec := DigestGeneric.decoder SigGolfCandidate.Research.SharedForest.digestAccepted
+  let wt : Fin 5 → ENNReal := fun i =>
+    (ClaudeWCT.Numerics.TopZero.tierInitialBound i.val : ENNReal) / scale
+  have hcongr : acceptedWeight dec (fun a =>
+      (ClaudeWCT.Numerics.TopZero.tierInitialBound
+        (SigGolfCandidate.Research.SharedForest.conditionalExtra a) : ENNReal) / scale) =
+      acceptedWeight dec (fun a => wt (digestTierLabel a)) := by
+    apply acceptedWeight_congr_on
+    intro answer value hd
+    have ha : SigGolfCandidate.Research.SharedForest.digestAccepted answer = true := by
+      by_cases h : SigGolfCandidate.Research.SharedForest.digestAccepted answer = true
+      · exact h
+      · simp [dec, DigestGeneric.decoder, h] at hd
+    simp [dec, DigestGeneric.decoder, ha] at hd
+    subst value
+    have he := (SigGolfCandidate.Research.SharedForest.conditional_bounds_of_accepted answer ha).1
+    congr 1
+    dsimp [wt, digestTierLabel]
+    congr 1
+    omega
+  rw [hcongr, acceptedWeight_labels dec digestTierLabel wt]
+  apply Finset.sum_congr rfl
+  intro i _
+  have he : (fun a : HashOutput => ∃ value, dec a = some value ∧ digestTierLabel value = i) =
+      (fun a : HashOutput => a ∈ digestTierSet i.val) := by
+    funext a
+    apply propext
+    exact digest_label_event i a
+  rw [he, digestTierSet_probability i.val (by omega)]
+  rfl
+
+theorem digest_acceptedWeight_le_mixed :
+    acceptedWeight
+      (DigestGeneric.decoder SigGolfCandidate.Research.SharedForest.digestAccepted)
+      (fun a => (ClaudeWCT.Numerics.TopZero.tierInitialBound
+        (SigGolfCandidate.Research.SharedForest.conditionalExtra a) : ENNReal) / scale) ≤
+      ((ftsNum : ENNReal) / ftsDen) *
+        ((ClaudeWCT.Numerics.TopZero.mixedInitialBound : ENNReal) / scale) := by
+  rw [digest_acceptedWeight_tiers]
+  apply (ENNReal.toReal_le_toReal (by finiteness) (by finiteness)).mp
+  norm_num [Fin.sum_univ_succ, ClaudeWCT.Numerics.TopZero.tierFieldCount,
+    ClaudeWCT.Numerics.TopZero.tierInitialBound,
+    ClaudeWCT.Numerics.TopZero.mixedInitialBound, ftsNum, ftsDen, scale,
+    ENNReal.toReal_add, ENNReal.toReal_mul, ENNReal.toReal_div]
+
+noncomputable def tierDigestMoment : ENNReal :=
+  ((ftsBound : ENNReal) / scale) *
+    ((ClaudeWCT.Numerics.TopZero.mixedInitialBound : ENNReal) / scale)
+
+theorem tierDigestMoment_ge_one : 1 ≤ tierDigestMoment := by
+  apply one_le_mul
+  · apply (ENNReal.toReal_le_toReal (by simp) (by finiteness)).mp
+    norm_num [ftsBound, scale, ENNReal.toReal_div]
+  · apply (ENNReal.toReal_le_toReal (by simp) (by finiteness)).mp
+    norm_num [ClaudeWCT.Numerics.TopZero.mixedInitialBound, scale, ENNReal.toReal_div]
+
+/-- The weighted digest continuation satisfies the same geometric-search
+recurrence as the old uniform bound. -/
+theorem tier_digest_moment_step :
+    SigGolfCandidate.T3.Budgets.signingZ *
+      (acceptedWeight
+        (DigestGeneric.decoder SigGolfCandidate.Research.SharedForest.digestAccepted)
+        (fun a => (ClaudeWCT.Numerics.TopZero.tierInitialBound
+          (SigGolfCandidate.Research.SharedForest.conditionalExtra a) : ENNReal) / scale) +
+        SphincsSecurity.Completeness.failMass
+          (DigestGeneric.decoder SigGolfCandidate.Research.SharedForest.digestAccepted) *
+          tierDigestMoment) ≤ tierDigestMoment := by
+  let p : ENNReal := (ftsNum : ENNReal) / ftsDen
+  let d : ENNReal := (ftsBound : ENNReal) / scale
+  let m : ENNReal := (ClaudeWCT.Numerics.TopZero.mixedInitialBound : ENNReal) / scale
+  have hp : p ≤ 1 := by
+    apply (ENNReal.div_le_iff (by norm_num [ftsDen]) (by finiteness)).mpr
+    norm_num [p, ftsNum, ftsDen]
+  have hdouble : 1 - (1 - p) = p := ENNReal.sub_sub_cancel (by simp) hp
+  have hfail : SphincsSecurity.Completeness.failMass
+      (DigestGeneric.decoder SigGolfCandidate.Research.SharedForest.digestAccepted) = 1 - p := by
+    rw [SigGolfCandidate.T3.Budgets.failMass_eq_one_sub_accept,
+      DigestGeneric.decoder_acceptance,
+      ClaudeWCT.Bank.Paired.digestAccepted_acceptance_exact]
+    rfl
+  rw [hfail]
+  change SigGolfCandidate.T3.Budgets.signingZ *
+    (acceptedWeight
+      (DigestGeneric.decoder SigGolfCandidate.Research.SharedForest.digestAccepted)
+      (fun a => (ClaudeWCT.Numerics.TopZero.tierInitialBound
+        (SigGolfCandidate.Research.SharedForest.conditionalExtra a) : ENNReal) / scale) +
+      (1 - p) * (d * m)) ≤ d * m
+  calc
+    _ ≤ ((zNum : ENNReal) / zDen) * (p * m + (1 - p) * (d * m)) :=
+      mul_le_mul' signing_z_ratio (add_le_add digest_acceptedWeight_le_mixed le_rfl)
+    _ = m * (((zNum : ENNReal) / zDen) * ((1 - p) * d + (1 - (1 - p)))) := by
+      rw [hdouble]
+      ring
+    _ ≤ m * d := mul_le_mul' le_rfl fts_ratio_step
+    _ = d * m := mul_comm _ _
+
+theorem V_digestRun_bind_tier {δ : Type} (secret : BitVec 256)
+    (rho : Digest) (message : Message)
+    (next : Option (BitVec 32 × HashOutput) → M δ)
+    (hnone : ∀ rc, RowsFreshFrom 0 rc →
+      V secret SigGolfCandidate.T3.Budgets.signingZ (next none) rc ≤ tierDigestMoment)
+    (hsome : ∀ rc, RowsFreshFrom 0 rc → ∀ c, c < 2^32 → ∀ answer,
+      SigGolfCandidate.Research.SharedForest.digestAccepted answer = true →
+      V secret SigGolfCandidate.T3.Budgets.signingZ
+        (next (some (BitVec.ofNat 32 c, answer)))
+        (rc.cacheQuery (digestTrial rho message c) answer) ≤
+        ((ClaudeWCT.Numerics.TopZero.tierInitialBound
+          (SigGolfCandidate.Research.SharedForest.conditionalExtra answer) : ENNReal) / scale))
+    (fuel counter : Nat) (hlimit : counter + fuel ≤ 2^32) (cache : RCache)
+    (hrows : RowsFreshFrom 0 cache)
+    (hfresh : ∀ c, counter ≤ c → c < 2^32 → cache (digestTrial rho message c) = none) :
+    V secret SigGolfCandidate.T3.Budgets.signingZ
+      (DigestGeneric.run SigGolfCandidate.Research.SharedForest.digestAccepted
+        rho message counter fuel >>= next) cache ≤ tierDigestMoment := by
+  exact DigestGeneric.V_run_bind SigGolfCandidate.Research.SharedForest.digestAccepted
+    secret SigGolfCandidate.T3.Budgets.signingZ tierDigestMoment rho message next
+    (fun answer => (ClaudeWCT.Numerics.TopZero.tierInitialBound
+      (SigGolfCandidate.Research.SharedForest.conditionalExtra answer) : ENNReal) / scale)
+    hnone hsome tier_digest_moment_step fuel counter hlimit cache hrows hfresh
 
 end ClaudeWCT.W9.T3.CanonicalSearch
 
@@ -11070,14 +11447,19 @@ set_option maxHeartbeats 2000000
 set_option maxRecDepth 100000
 set_option backward.isDefEq.respectTransparency false
 
+theorem top_acceptance_at (floor : Nat) (hf : 14 ≤ floor) :
+    Pr[fun a => (decoder 0 floor a).isSome | ($ᵗ HashOutput : ProbComp HashOutput)] =
+      (acceptedMass ClaudeWCT.Numerics.TopZero.topAcceptedHistogram floor : ENNReal)/topDen := by
+  rw [← acceptedWeight_one_probability]
+  exact acceptedWeight_acceptedMass 220 (decoder 0 floor) (dcredit 0)
+    ClaudeWCT.Numerics.TopZero.topAcceptedHistogram floor topDen
+    (fun a dl hd => top_decoder_credit_lt (by norm_num) hd) (by decide +kernel)
+    (selected_top_probability_at floor hf)
+
 theorem top_acceptance :
     Pr[fun a => (decoder 0 14 a).isSome | ($ᵗ HashOutput : ProbComp HashOutput)] =
-      (acceptedMass ClaudeWCT.Numerics.TopZero.topAcceptedHistogram 14 : ENNReal)/topDen := by
-  rw [← acceptedWeight_one_probability]
-  exact acceptedWeight_acceptedMass 220 (decoder 0 14) (dcredit 0)
-    ClaudeWCT.Numerics.TopZero.topAcceptedHistogram 14 topDen
-    (fun a dl hd => top_decoder_credit_lt (by norm_num) hd) (by decide +kernel)
-    selected_top_probability
+      (acceptedMass ClaudeWCT.Numerics.TopZero.topAcceptedHistogram 14 : ENNReal)/topDen :=
+  top_acceptance_at 14 (by norm_num)
 
 theorem lower_acceptance (lay : Layer) (hl : lay≠0) (floor : Nat) :
     Pr[fun a => (decoder lay floor a).isSome | ($ᵗ HashOutput : ProbComp HashOutput)] =
@@ -11094,15 +11476,22 @@ theorem ofReal_nat_ratio (n d : Nat) (hd : 0<d) :
   rw [ENNReal.ofReal_div_of_pos (by exact_mod_cast hd), ENNReal.ofReal_natCast, ENNReal.ofReal_natCast]
 
 def topFailureRate : ℚ := (acceptedMass ClaudeWCT.Numerics.TopZero.topAcceptedHistogram 14 : ℚ)/topDen
+def topFailureRate18 : ℚ := (acceptedMass ClaudeWCT.Numerics.TopZero.topAcceptedHistogram 18 : ℚ)/topDen
 def lowerFailureRate : ℚ := (acceptedMass lowerHistogram 19 : ℚ)/lowerDen
 /-- L3 (img-v6 floors up to 21, window `3·2^20`). -/
 def lowerThreeFailureRate : ℚ := (acceptedMass lowerHistogram 21 : ℚ)/lowerDen
 
-/-- The top counter window is the single parameter `topSearchLimit` (2^20, top-bytes layer / img-v4). -/
+/-- The top counter window is the single parameter `topSearchLimit` (0x10c000). -/
 theorem top_failure_rate_440_checked : 0≤topFailureRate ∧ topFailureRate≤1 ∧
     (440 : ℚ)*0.6931471808≤(topSearchLimit : ℚ)*topFailureRate := by
   refine ⟨by decide +kernel, by decide +kernel, ?_⟩
   simp only [topSearchLimit, Nat.cast_pow, Nat.cast_ofNat]
+  decide +kernel
+
+theorem top_failure_rate_435_checked : 0≤topFailureRate18 ∧ topFailureRate18≤1 ∧
+    (435 : ℚ)*0.6931471808≤(topSearchLimit : ℚ)*topFailureRate18 := by
+  refine ⟨by decide +kernel, by decide +kernel, ?_⟩
+  simp only [topSearchLimit, Nat.cast_add, Nat.cast_mul, Nat.cast_pow, Nat.cast_ofNat]
   decide +kernel
 
 theorem lower_failure_rate_440_checked : 0≤lowerFailureRate ∧ lowerFailureRate≤1 ∧
@@ -11111,11 +11500,20 @@ theorem lower_failure_rate_440_checked : 0≤lowerFailureRate ∧ lowerFailureRa
 theorem lower_three_failure_rate_440_checked : 0≤lowerThreeFailureRate ∧ lowerThreeFailureRate≤1 ∧
     (440 : ℚ)*0.6931471808≤(3*2^20)*lowerThreeFailureRate := by decide +kernel
 
-/-- Top search window `topSearchLimit` (= 2^20). -/
+/-- The floor-14 tail under the current top search window. -/
 theorem top_failure_power_440 : failMass (decoder 0 14)^topSearchLimit≤1/(2:ENNReal)^440 := by
   apply ClaudeWCT.W9.T3.Budgets.V5.failure_power_of_rate _ topFailureRate
     topSearchLimit 440 top_failure_rate_440_checked.1 top_failure_rate_440_checked.2.1 _ top_failure_rate_440_checked.2.2
   rw [top_acceptance, topFailureRate, ofReal_nat_ratio _ _ (by decide)]
+
+theorem top_failure_power_435_at (floor : Nat) (hlo : 14 ≤ floor) (hhi : floor ≤ 18) :
+    failMass (decoder 0 floor)^topSearchLimit≤1/(2:ENNReal)^435 := by
+  apply ClaudeWCT.W9.T3.Budgets.V5.failure_power_of_rate _ topFailureRate18
+    topSearchLimit 435 top_failure_rate_435_checked.1 top_failure_rate_435_checked.2.1 _
+    top_failure_rate_435_checked.2.2
+  rw [top_acceptance_at floor hlo, topFailureRate18, ofReal_nat_ratio _ _ (by decide)]
+  gcongr
+  exact_mod_cast acceptedMass_antitone ClaudeWCT.Numerics.TopZero.topAcceptedHistogram hhi
 
 theorem lower_failure_power_440 (lay : Layer) (hl : lay≠0) (floor : Nat) (hf : floor≤19) :
     failMass (decoder lay floor)^(2^21)≤1/(2:ENNReal)^440 := by
@@ -11148,12 +11546,13 @@ set_option maxHeartbeats 1000000
 set_option backward.isDefEq.respectTransparency false
 noncomputable local instance : SampleableType (SearchKey → HashOutput) := Presampling.tableSampler
 
-/-- A canonical encoding context: the routed family and the floor (img-v6: the top floor is fixed at 14; L1/L2
+/-- A canonical encoding context: the routed family and the floor (top floors 14 through 18; L1/L2
 floors are below 20 (clipped at 19), L3 floors below 22). -/
 abbrev EncodingContext := EncodingFamilyBC × Fin 22
 
 def contextFloor (context : EncodingContext) : Nat :=
-  if context.1.1=0 then 14 else if context.1.1=3 then context.2.val else min context.2.val 19
+  if context.1.1=0 then 14 + min context.2.val 4
+  else if context.1.1=3 then context.2.val else min context.2.val 19
 
 def ContextFailed (context : EncodingContext) (answers : Correctness.Answers) : Prop :=
   evalWithAnswerFn answers (CanonicalPolicy.layerCounterSearchAt context.1.1 (contextFloor context)
@@ -11165,24 +11564,30 @@ theorem encodingContext_card_le : Fintype.card EncodingContext ≤ 2^301 := by
   rw [Fintype.card_prod,encodingFamilyBC_card,Fintype.card_fin]
   exact (Nat.mul_le_mul_left _ (show 22≤2^11 by norm_num)).trans_eq (by rw [←pow_add])
 
+theorem encodingContext_card_le_295 : Fintype.card EncodingContext ≤ 2^295 := by
+  change Fintype.card (EncodingFamilyBC × Fin 22) ≤ 2^295
+  rw [Fintype.card_prod,encodingFamilyBC_card,Fintype.card_fin]
+  exact (Nat.mul_le_mul_left _ (show 22≤2^5 by norm_num)).trans_eq (by rw [←pow_add])
+
 theorem context_table_failure (context : EncodingContext) :
     Pr[fun outputs => ContextFailed context (Presampling.tableAnswers outputs zeroAnswers) |
-      ($ᵗ (SearchKey → HashOutput) : ProbComp _)] ≤ 1/(2:ENNReal)^440 := by
+      ($ᵗ (SearchKey → HashOutput) : ProbComp _)] ≤ 1/(2:ENNReal)^435 := by
   unfold ContextFailed
   rw [Presampling.Canonical.search_table_failure _ (Presampling.searchLimit_le_rows _) ]
   by_cases hl : context.1.1=0
-  · simpa only [contextFloor,hl,if_pos,searchLimit_top] using top_failure_power_440
+  · simpa only [contextFloor,hl,if_pos,searchLimit_top] using
+      (top_failure_power_435_at (14 + min context.2.val 4) (by omega) (by omega))
   · by_cases h3 : context.1.1=3
     · have hf : context.2.val≤21 := by omega
       have hlow := lower_three_failure_power_440 context.2.val hf
       simp only [contextFloor,hl,h3,if_false,if_true]
       have hs : searchLimit (3 : Layer) = 3*2^20 := searchLimit_values.2.2.2
       rw [hs]
-      exact hlow
+      exact hlow.trans (by norm_num)
     · have hf : min context.2.val 19≤19 := Nat.min_le_right _ _
       have hlow := lower_failure_power_440 context.1.1 hl (min context.2.val 19) hf
       simp only [contextFloor,hl,h3,if_false]
-      refine le_trans ?_ hlow
+      refine le_trans ?_ (hlow.trans (by norm_num))
       have hone : failMass (decoder context.1.1 (min context.2.val 19))≤1 := by
         rw [failMass_eq_probEvent]
         exact probEvent_le_one
@@ -11190,16 +11595,16 @@ theorem context_table_failure (context : EncodingContext) :
         (by simpa only [lowerSearchLimit] using searchLimit_lower hl)
 theorem context_family_failure :
     Pr[fun outputs => ∃ context, ContextFailed context (Presampling.tableAnswers outputs zeroAnswers) |
-      ($ᵗ (SearchKey → HashOutput) : ProbComp _)] ≤ (2:ENNReal)^301*(1/(2:ENNReal)^440) := by
+      ($ᵗ (SearchKey → HashOutput) : ProbComp _)] ≤ (2:ENNReal)^295*(1/(2:ENNReal)^435) := by
   have h := finite_family_failure_le ($ᵗ (SearchKey → HashOutput) : ProbComp _)
     (fun context outputs => ContextFailed context (Presampling.tableAnswers outputs zeroAnswers))
-    (1/(2:ENNReal)^440) context_table_failure
-  exact h.trans (mul_le_mul' (by exact_mod_cast encodingContext_card_le) le_rfl)
+    (1/(2:ENNReal)^435) context_table_failure
+  exact h.trans (mul_le_mul' (by exact_mod_cast encodingContext_card_le_295) le_rfl)
 
 theorem completeness_union_arithmetic :
-    (2:ENNReal)^256*(1/(2:ENNReal)^400)+(2:ENNReal)^301*(1/(2:ENNReal)^440)
+    (2:ENNReal)^256*(1/(2:ENNReal)^400)+(2:ENNReal)^295*(1/(2:ENNReal)^435)
       ≤ 1/(2:ENNReal)^138 := by
-  have hr : (2:ℝ)^256*(1/(2:ℝ)^400)+(2:ℝ)^301*(1/(2:ℝ)^440)≤1/(2:ℝ)^138 := by
+  have hr : (2:ℝ)^256*(1/(2:ℝ)^400)+(2:ℝ)^295*(1/(2:ℝ)^435)≤1/(2:ℝ)^138 := by
     set_option exponentiation.threshold 1024 in norm_num
   have h := ENNReal.ofReal_le_ofReal hr
   rw [ENNReal.ofReal_add (by positivity) (by positivity),
@@ -11211,13 +11616,13 @@ theorem all_search_failure_small {α ι : Type} [Fintype ι] (law : ProbComp α)
     (digestFailed : ι → α → Prop) (encodingFailed : EncodingContext → α → Prop)
     (hι : Fintype.card ι≤2^256)
     (hd : ∀ i, Pr[digestFailed i | law]≤1/(2:ENNReal)^400)
-    (he : ∀ context, Pr[encodingFailed context | law]≤1/(2:ENNReal)^440) :
+    (he : ∀ context, Pr[encodingFailed context | law]≤1/(2:ENNReal)^435) :
     Pr[fun value => (∃ i, digestFailed i value) ∨ (∃ context, encodingFailed context value) | law]
       ≤1/(2:ENNReal)^138 := by
   have hd' := finite_family_failure_le law digestFailed _ hd
   have he' := finite_family_failure_le law encodingFailed _ he
   have hι' : (Fintype.card ι:ENNReal)≤2^256 := by exact_mod_cast hι
-  have hc' : (Fintype.card EncodingContext:ENNReal)≤2^301 := by exact_mod_cast encodingContext_card_le
+  have hc' : (Fintype.card EncodingContext:ENNReal)≤2^295 := by exact_mod_cast encodingContext_card_le_295
   exact ((probEvent_or_le law _ _).trans (add_le_add hd' he')).trans
     ((add_le_add (mul_le_mul' hι' le_rfl) (mul_le_mul' hc' le_rfl)).trans completeness_union_arithmetic)
 
@@ -11236,22 +11641,28 @@ def ContextGood (answers : Answers) : Prop := ∀ context, ¬ContextFailed conte
 
 theorem context_good_at_route (answers : Answers) (hgood : ContextGood answers)
     (index : Nat) (hi : index<2^31) (lay : Layer) (floor : Nat)
-    (hf : if lay=0 then floor=14 else if lay=3 then floor<22 else floor<20) (left right : Digest) :
+    (hf : if lay=0 then 14 ≤ floor ∧ floor ≤ 18 else if lay=3 then floor<22 else floor<20)
+    (left right : Digest) :
     ∃ found, evalWithAnswerFn answers (CanonicalPolicy.layerCounterSearchAt lay floor
       (route index lay).2 (route index lay).1 (.pair left right) 0 (searchLimit lay))=some found := by
   let routed : Fin (2^32) := ⟨(route index lay).2*2^height lay+(route index lay).1,
     ClaudeWCT.W9.T3.Correctness.route_routed_lt index hi lay⟩
-  let context : EncodingContext := ((lay,routed,left,right),⟨if lay=0 then 0 else floor,by
+  let context : EncodingContext := ((lay,routed,left,right),⟨if lay=0 then floor-14 else floor,by
     by_cases hl : lay=0
-    · simp [hl]
+    · have hf' : 14 ≤ floor ∧ floor ≤ 18 := by simpa only [hl, if_true] using hf
+      simp only [hl, if_true]
+      omega
     · by_cases h3 : lay=3
       · rw [if_neg hl]; rw [if_neg hl, if_pos h3] at hf; exact hf
       · rw [if_neg hl]; rw [if_neg hl, if_neg h3] at hf; omega⟩)
   have hh := hgood context
   have hfloor : contextFloor context=floor := by
     by_cases hl : lay=0
-    · have hf' : floor=14 := by simpa only [hl,if_true] using hf
-      simpa only [contextFloor,context,hl,if_true] using hf'.symm
+    · have hf' : 14 ≤ floor ∧ floor ≤ 18 := by simpa only [hl,if_true] using hf
+      have hmin : min (floor - 14) 4 = floor - 14 := Nat.min_eq_left (by omega)
+      dsimp only [contextFloor,context]
+      simp only [hl,if_true,hmin]
+      omega
     · by_cases h3 : lay=3
       · dsimp only [contextFloor,context]; rw [if_neg hl, if_pos h3, if_neg hl]
       · have : floor<20 := by rw [if_neg hl, if_neg h3] at hf; exact hf
@@ -11272,17 +11683,23 @@ set_option maxHeartbeats 1000000
 set_option maxRecDepth 10000
 set_option backward.isDefEq.respectTransparency false
 
-theorem searchPreparedLayers_complete (answers : Answers) (hgood : ContextGood answers)
+theorem searchPreparedLayers_complete_at (answers : Answers) (hgood : ContextGood answers)
     (cache : SigGolfCandidate.T3.Cache) (index : Nat) (hi : index<2^31)
-    (prepared : PreparedRoots) (forest : PairRoot) :
-    ∃ result, evalWithAnswerFn answers (searchPreparedLayers cache index prepared forest)=some result := by
-  obtain ⟨⟨c0,d0,l0⟩,hs0⟩ := context_good_at_route answers hgood index hi 0 14 (by rfl)
+    (prepared : PreparedRoots) (forest : PairRoot) (credit topFloor : Nat)
+    (hfloor : 14 ≤ topFloor ∧ topFloor ≤ 18) (hcredit : credit = topFloor + 55) :
+    ∃ result, evalWithAnswerFn answers
+      (searchPreparedLayers cache index prepared forest credit topFloor)=some result := by
+  obtain ⟨⟨c0,d0,l0⟩,hs0⟩ := context_good_at_route answers hgood index hi 0 topFloor
+    (by simpa only [show (0:Layer)=0 by rfl, if_true] using hfloor)
     (topPair 1 prepared.one.levels).1 (topPair 1 prepared.one.levels).2
-  have hd0 := (canonical_search_some' answers 0 14 (route index 0).2 (route index 0).1
+  have hd0 := (canonical_search_some' answers 0 topFloor (route index 0).2 (route index 0).1
     (.pair (topPair 1 prepared.one.levels).1 (topPair 1 prepared.one.levels).2)
     (searchLimit 0) 0 c0 d0 l0 (by decide) hs0).2.2.2
-  let r1 := CanonicalPolicy.nextResidual 69 0 l0 d0
-  have hr1 : r1<56 := CanonicalPolicy.accepted_top_residual hd0
+  let r1 := CanonicalPolicy.nextResidual credit 0 l0 d0
+  have hr1 : r1<56 := by
+    have hc := CanonicalPolicy.producerDecodeAt_credit hd0
+    dsimp only [r1, CanonicalPolicy.nextResidual]
+    omega
   have hf1' : CanonicalPolicy.threshold 1 r1<16 := CanonicalPolicy.lower_one_floor_lt ⟨r1,hr1⟩
   have hf1 : CanonicalPolicy.threshold 1 r1<20 := by omega
   obtain ⟨⟨c1,d1,l1⟩,hs1⟩ := context_good_at_route answers hgood index hi 1
@@ -11318,6 +11735,14 @@ theorem searchPreparedLayers_complete (answers : Answers) (hgood : ContextGood a
   simp only [searchPreparedLayers,CanonicalPolicy.threshold_top,CanonicalPolicy.totalCredit,
     evalWithAnswerFn_bind,hs0,hn1,if_false,hs1,hn2,hs2,hn3,hs3,evalWithAnswerFn_pure]
   exact ⟨_,rfl⟩
+
+theorem searchPreparedLayers_complete (answers : Answers) (hgood : ContextGood answers)
+    (cache : SigGolfCandidate.T3.Cache) (index : Nat) (hi : index<2^31)
+    (prepared : PreparedRoots) (forest : PairRoot) :
+    ∃ result, evalWithAnswerFn answers (searchPreparedLayers cache index prepared forest)=some result := by
+  simpa only [CanonicalPolicy.totalCredit, CanonicalPolicy.topFloor] using
+    searchPreparedLayers_complete_at answers hgood cache index hi prepared forest 69 14
+      (by norm_num) (by norm_num)
 
 end SigGolfCandidate.Research.SharedForest
 
@@ -11420,13 +11845,22 @@ set_option maxRecDepth 10000
 set_option backward.isDefEq.respectTransparency false
 
 theorem signFromOutput_complete (answers : Answers) (hgood : ContextGood answers)
-    (cache : SigGolfCandidate.T3.Cache) (rho : Digest) (counter : BitVec 32) (output : HashOutput) :
+    (cache : SigGolfCandidate.T3.Cache) (rho : Digest) (counter : BitVec 32) (output : HashOutput)
+    (haccepted : digestAccepted output = true) :
     ∃ witness, evalWithAnswerFn answers (signFromOutput cache rho counter output)=some witness := by
   let forest := evalWithAnswerFn answers
     (buildForest (digestIndex output) (forestSelectionFromOutput output) (forestWordsFromOutput output))
   let prepared := evalWithAnswerFn answers (prepareRoots (digestIndex output))
-  obtain ⟨layers,hl⟩ := searchPreparedLayers_complete answers hgood cache (digestIndex output)
-    (digestIndex_lt output) prepared forest.2
+  have hfloor : 14 ≤ conditionalTopFloor output ∧ conditionalTopFloor output ≤ 18 := by
+    have h := conditional_bounds_of_accepted output haccepted
+    constructor
+    · unfold conditionalTopFloor CanonicalPolicy.topFloor
+      omega
+    · exact h.2.2
+  obtain ⟨layers,hl⟩ := searchPreparedLayers_complete_at answers hgood cache
+    (digestIndex output) (digestIndex_lt output) prepared forest.2
+    (conditionalCredit output) (conditionalTopFloor output) hfloor
+    (conditional_credit_floor output)
   dsimp only [forest,prepared] at hl
   simp only [signFromOutput,evalWithAnswerFn_bind,hl,evalWithAnswerFn_pure]
   exact ⟨_,rfl⟩
@@ -11437,8 +11871,11 @@ theorem signPayload_complete (answers : Answers) (hgood : ContextGood answers)
       message 0 digestAttemptLimit)≠none) :
     ∃ signature, evalWithAnswerFn answers (signPayload cache message)=some signature := by
   obtain ⟨⟨counter,output⟩,hs⟩ := Option.ne_none_iff_exists'.mp hd
+  have haccepted : digestAccepted output = true :=
+    (sharedDigestSearch_some answers (evalWithAnswerFn answers (privateNonce message)) message
+      digestAttemptLimit 0 counter output (by decide) hs).2.2.1
   obtain ⟨witness,hw⟩ := signFromOutput_complete answers hgood cache
-    (evalWithAnswerFn answers (privateNonce message)) counter output
+    (evalWithAnswerFn answers (privateNonce message)) counter output haccepted
   simp only [signPayload,evalWithAnswerFn_bind,hs,hw,evalWithAnswerFn_pure]
   exact ⟨_,rfl⟩
 
@@ -11518,7 +11955,7 @@ theorem signing_failed_keygen (answers : Answers)
 
 theorem signing_failure_probability (law : ProbComp Answers)
     (hd : ∀ message, Pr[fun answers => DigestFailed answers message | law]≤1/(2:ENNReal)^400)
-    (he : ∀ context, Pr[ContextFailed context | law]≤1/(2:ENNReal)^440) :
+    (he : ∀ context, Pr[ContextFailed context | law]≤1/(2:ENNReal)^435) :
     Pr[fun answers => ¬SigningComplete answers (evalWithAnswerFn answers SigGolfCandidate.T3.keygen).2 | law]
       ≤1/(2:ENNReal)^138 := by
   have hm := probEvent_mono (mx:=law) (fun answers _ => signing_failed_keygen answers)
@@ -11633,6 +12070,38 @@ theorem V_run (accept : HashOutput → Bool) (secret : BitVec 256) (z b : ENNRea
     (fun c _ => digestTrial_length rho message c)
     (fun _ _ hl hr he => digestTrial_injective rho message hl hr he)
     hstep fuel counter hlimit cache hfresh
+
+/-- A digest search with an answer-dependent signing continuation.  The row
+freshness invariant survives every digest query. -/
+theorem V_run_bind {δ : Type} (accept : HashOutput → Bool) (secret : BitVec 256)
+    (z b : ENNReal) (rho : Digest) (message : Message)
+    (next : Option (BitVec 32 × HashOutput) → M δ)
+    (weight : HashOutput → ENNReal)
+    (hnone : ∀ rc, RowsFreshFrom 0 rc → V secret z (next none) rc ≤ b)
+    (hsome : ∀ rc, RowsFreshFrom 0 rc → ∀ c, c < 2^32 → ∀ answer,
+      accept answer = true →
+      V secret z (next (some (BitVec.ofNat 32 c, answer)))
+        (rc.cacheQuery (digestTrial rho message c) answer) ≤ weight answer)
+    (hstep : z * (acceptedWeight (decoder accept) weight + failMass (decoder accept) * b) ≤ b)
+    (fuel counter : Nat) (hlimit : counter + fuel ≤ 2^32) (cache : RCache)
+    (hrows : RowsFreshFrom 0 cache)
+    (hfresh : ∀ c, counter ≤ c → c < 2^32 → cache (digestTrial rho message c) = none) :
+    V secret z (run accept rho message counter fuel >>= next) cache ≤ b := by
+  rw [run_public]
+  apply V_search_bind secret z b (digestTrial rho message) (decoder accept)
+    (fun c output => (BitVec.ofNat 32 c, output)) next weight (RowsFreshFrom 0) (2^32)
+    (fun c _ => digestTrial_length rho message c)
+    (fun _ _ hl hr he => digestTrial_injective rho message hl hr he)
+    (fun rc hr c _ answer => hr.cacheDigest rho message c answer)
+    hnone
+    (fun rc hr c hc answer value hd => by
+      cases hacc : accept answer with
+      | false => simp [decoder, hacc] at hd
+      | true =>
+          simp [decoder, hacc] at hd
+          subst value
+          exact hsome rc hr c hc answer hacc)
+    hstep fuel counter hlimit cache hrows hfresh
 end ClaudeWCT.W9.T3.CanonicalSearch.DigestGeneric
 
 

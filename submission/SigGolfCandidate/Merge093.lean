@@ -686,10 +686,117 @@ end ClaudeWCT.W9.Machine.Expand
 
 namespace ClaudeWCT.W9.Machine.Sign.SharedDigestBoundary
 open SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64 SigGolfCandidate.Rv SigGolfCandidate.T3M SigGolfCandidate.T3M.Verify
-theorem expand_steps {im : Image} (hc : CodeAt im (pcOf 45226) expandCode)
+def expandTierCode : List (BitVec 32) :=
+  [0xcfba8b13,0x000b5463,0x00000b13,0x00cb0b13,0x00020e37,0x2d6e3023,
+   0x002b0b13,0x2d6e3423,0x037b0b13,0x00066e37,0x036e3423,0xc00fe06f]
+def expandTierHeadCode : List (BitVec 32) := expandTierCode.take 2
+def expandTierZeroCode : List (BitVec 32) := (expandTierCode.drop 2).take 1
+def expandTierBodyCode : List (BitVec 32) := expandTierCode.drop 3
+sym_block expandTierHead := symRun {noAlias:=true} expandTierHeadCode (pcOf 47013) 20
+sym_block expandTierZero := symRun {noAlias:=true} expandTierZeroCode (pcOf 47015) 20
+sym_block expandTierBody := symRun {noAlias:=true} expandTierBodyCode (pcOf 47016) 40
+theorem expandTier_headAt {im : Image} (h : CodeAt im (pcOf 47013) expandTierCode) :
+    CodeAt im (pcOf 47013) expandTierHeadCode := by
+  exact ClaudeWCT.W9.Machine.Expand.SharedCounterHooks.code_slice (off := 0) h (by decide) (by decide)
+theorem expandTier_zeroAt {im : Image} (h : CodeAt im (pcOf 47013) expandTierCode) :
+    CodeAt im (pcOf 47015) expandTierZeroCode := by
+  simpa using ClaudeWCT.W9.Machine.Expand.SharedCounterHooks.code_slice (off := 2) h (by decide) (by decide)
+theorem expandTier_bodyAt {im : Image} (h : CodeAt im (pcOf 47013) expandTierCode) :
+    CodeAt im (pcOf 47016) expandTierBodyCode := by
+  simpa using ClaudeWCT.W9.Machine.Expand.SharedCounterHooks.code_slice (off := 3) h (by decide) (by decide)
+
+theorem expandTier_head_steps {im : Image} (hcode : CodeAt im (pcOf 47013) expandTierHeadCode)
+    (s : MachineState) (hp : s.pc = pcOf 47013) (j : Nat) (hj : j ≤ 777)
+    (h21 : s.getReg .x21 = BitVec.ofNat 64 j) :
+    ∃ t, Steps im s 2 2 t ∧ t.pc = pcOf (if j < 773 then 47015 else 47016) ∧
+      t.getReg .x22 = BitVec.ofNat 64 j + BitVec.ofNat 64 (2^64-773) ∧
+      RegsExcept s t [.x22] ∧ Frame s t (fun _ => False) := by
+  refine ⟨_,symRun_sound expandTierHead hcode s hp (by simp [expandTierHead.res,rv_simp]),?_,?_,?_,?_⟩
+  · simp only [Result.toState_pc,expandTierHead.res,E.eval,CmpOp.eval,rv_simp,h21]
+    rw [tier_slt_all ⟨j,by omega⟩]
+    by_cases h : j < 773 <;> simp [h]
+  · simp [expandTierHead.res,rv_simp,h21]
+  · intro r hr;cases r <;> first | exact (hr (by decide)).elim | rfl
+  · intro A _ _;rfl
+
+theorem expandTier_zero_steps {im : Image} (hcode : CodeAt im (pcOf 47015) expandTierZeroCode)
+    (s : MachineState) (hp : s.pc = pcOf 47015) :
+    ∃ t, Steps im s 1 1 t ∧ t.pc = pcOf 47016 ∧ t.getReg .x22 = 0 ∧
+      RegsExcept s t [.x22] ∧ Frame s t (fun _ => False) := by
+  refine ⟨_,symRun_sound expandTierZero hcode s hp (by simp [expandTierZero.res,rv_simp]),
+    rfl,by simp [expandTierZero.res,rv_simp],?_,fun _ _ _ => rfl⟩
+  intro r hr;cases r <;> first | exact (hr (by decide)).elim | rfl
+
+theorem expandTier_body_steps {im : Image} (hcode : CodeAt im (pcOf 47016) expandTierBodyCode)
+    (s : MachineState) (hp : s.pc = pcOf 47016) (extra : Nat) (he : extra ≤ 4)
+    (h22 : s.getReg .x22 = BitVec.ofNat 64 extra) :
+    ∃ t, Steps im s 9 9 t ∧ t.pc = pcOf 45232 ∧
+      t.getMem (0x202c0#64) = BitVec.ofNat 64 (12+extra) ∧
+      t.getMem (0x202c8#64) = BitVec.ofNat 64 (14+extra) ∧
+      t.getMem (0x66028#64) = BitVec.ofNat 64 (69+extra) ∧
+      RegsExcept s t [.x22,.x28] ∧
+      Frame s t (fun A => A=0x202c0 ∨ A=0x202c8 ∨ A=0x66028) := by
+  refine ⟨_,symRun_sound expandTierBody hcode s hp
+    (by simp [expandTierBody.res,rv_simp,h22,accessValid_iff,MEMORY_BYTES];omega),
+    rfl,?_,?_,?_,?_,?_⟩
+  · simp only [Result.toState_getMem,expandTierBody.res]
+    t3n [h22]
+    simp [BitVec.ofNat_add_ofNat]
+  · simp only [Result.toState_getMem,expandTierBody.res]
+    t3n [h22]
+    simp [BitVec.ofNat_add_ofNat]
+  · simp only [Result.toState_getMem,expandTierBody.res]
+    t3n [h22]
+    simp [BitVec.ofNat_add_ofNat]
+  · intro r hr;cases r <;> first | exact (hr (by decide)).elim | rfl
+  · intro A hA hn
+    simp only [Result.toState_getMem,expandTierBody.res]
+    t3n [h22]
+    rw [Nat.mod_eq_of_lt (show A<18446744073709551616 by simpa using hA)]
+    simp only [if_neg (by omega)]
+theorem expand_jump {im : Image} (hc : CodeAt im (pcOf 45226) expandCode)
     (s : MachineState) (hp : s.pc=pcOf 45226) :
-    Steps im s 1 1 (s.setPC (pcOf 45232)) := by
-  exact ClaudeWCT.W9.Machine.Expand.jal_x0_step (imm:=24) hc (by rfl) (by decide) s hp
+    Steps im s 1 1 (s.setPC (pcOf 47013)) := by
+  exact ClaudeWCT.W9.Machine.Expand.jal_x0_step (imm:=7148) hc (by rfl) (by decide) s hp
+
+theorem expand_steps {im : Image} (hc : CodeAt im (pcOf 45226) expandCode)
+    (htier : CodeAt im (pcOf 47013) expandTierCode)
+    (s : MachineState) (hp : s.pc=pcOf 45226) (j : Nat) (hj : j ≤ 777)
+    (h21 : s.getReg .x21 = BitVec.ofNat 64 j) :
+    ∃ t k, Steps im s k k t ∧ k ≤ 13 ∧ t.pc = pcOf 45232 ∧
+      t.getMem (0x202c0#64) = BitVec.ofNat 64 (12+(j-773)) ∧
+      t.getMem (0x202c8#64) = BitVec.ofNat 64 (14+(j-773)) ∧
+      t.getMem (0x66028#64) = BitVec.ofNat 64 (69+(j-773)) ∧
+      RegsExcept s t [.x22,.x28] ∧
+      Frame s t (fun A => A=0x202c0 ∨ A=0x202c8 ∨ A=0x66028) := by
+  let a := s.setPC (pcOf 47013)
+  have sa := expand_jump hc s hp
+  have ra : RegsExcept s a [] := fun _ _ => rfl
+  have fa : Frame s a (fun _ => False) := fun _ _ _ => rfl
+  obtain ⟨b,ab,bp,b22,br,bf⟩ := expandTier_head_steps (expandTier_headAt htier) a rfl j hj
+    (by simpa [a] using h21)
+  by_cases hlow : j < 773
+  · have bp' : b.pc = pcOf 47015 := by simpa [hlow] using bp
+    obtain ⟨c,bc,cp,c22,cr,cf⟩ := expandTier_zero_steps (expandTier_zeroAt htier) b bp'
+    have he : j-773=0 := by omega
+    obtain ⟨t,ct,tp,tl,th,tpool,tr,tf⟩ := expandTier_body_steps (expandTier_bodyAt htier) c cp
+      (j-773) (by omega) (by simpa [he] using c22)
+    refine ⟨t,13,((sa.trans ab).trans bc).trans ct,by decide,tp,tl,th,tpool,?_,?_⟩
+    · exact (((ra.trans br).trans cr).trans tr).mono (by simp)
+    · exact (((fa.trans bf).trans cf).trans tf).mono (by tauto)
+  · have bp' : b.pc = pcOf 47016 := by simpa [hlow] using bp
+    have bx22 : b.getReg .x22 = BitVec.ofNat 64 (j-773) := by
+      have hslt : BitVec.slt (BitVec.ofNat 64 j + BitVec.ofNat 64 (2^64-773)) (0#64) = false := by
+        simpa [hlow] using tier_slt_all ⟨j,by omega⟩
+      have he := tier_extra_word j hj
+      rw [hslt] at he
+      simp only [if_false] at he
+      exact b22.trans he
+    obtain ⟨t,bt,tp,tl,th,tpool,tr,tf⟩ := expandTier_body_steps (expandTier_bodyAt htier) b bp'
+      (j-773) (by omega) bx22
+    refine ⟨t,12,(sa.trans ab).trans bt,by decide,tp,tl,th,tpool,?_,?_⟩
+    · exact ((ra.trans br).trans tr).mono (by simp)
+    · exact ((fa.trans bf).trans tf).mono (by tauto)
 
 end ClaudeWCT.W9.Machine.Sign.SharedDigestBoundary
 
@@ -782,6 +889,8 @@ theorem failure_of_driver {im : Image} (hc : CodeAt im (pcOf 45056) Images.expan
 theorem failure_ecall_of_driver {im : Image} (hc : CodeAt im (pcOf 45056) Images.expandSharedDriver) : CodeAt im (pcOf 45231) [0x73] := by
   exact SharedCounterHooks.code_slice (off:=175) hc (by decide +kernel) (by decide +kernel)
 theorem installed_success : CodeAt Images.expandImage (pcOf 45226) expandCode := success_of_driver codeAt_expand_shared_driver
+theorem installed_tier : CodeAt Images.expandImage (pcOf 47013) expandTierCode := by
+  apply SigGolfCandidate.T3M.codeAt_expand_last <;> decide +kernel
 theorem installed_failure : CodeAt Images.expandImage (failPC true) failureCode := failure_of_driver codeAt_expand_shared_driver
 theorem installed_failure_ecall : CodeAt Images.expandImage (pcOf 45231) [0x73] := failure_ecall_of_driver codeAt_expand_shared_driver
 end ClaudeWCT.W9.Machine.Expand.SharedDigestCode
@@ -1634,7 +1743,8 @@ structure Searched (s0:MachineState) (b:SharedCodec.CBytes)
   result : match r with
     | none => s.pc=pcOf (SharedDigest.fail true)
     | some (c,a) => s.pc=pcOf (SharedDigest.accepted true) ∧ s.getReg .x19=BitVec.ofNat 64 c.toNat ∧
-      c.toNat < 2^21 ∧ SigGolfCandidate.Research.SharedForest.digestAccepted a=true ∧ OutAt s SigGolfCandidate.T3M.Search.NBUF a
+      c.toNat < 2^21 ∧ SigGolfCandidate.Research.SharedForest.digestAccepted a=true ∧ OutAt s SigGolfCandidate.T3M.Search.NBUF a ∧
+      s.getReg .x21=BitVec.ofNat 64 (SigGolfCandidate.Research.SharedForest.jointAccountingCost a)
 
   resultR17 : match r with
     | none => True
@@ -1662,7 +1772,9 @@ theorem search_prepared {im:Image} {sk:BitVec 256}
       exact hp.setupZero A ha
     · cases r with
       | none => exact ht.result.1
-      | some p => exact ht.result
+      | some p =>
+        refine ⟨ht.result.1,ht.result.2.1,ht.result.2.2.1,ht.result.2.2.2.1,ht.result.2.2.2.2,?_⟩
+        simpa only [SharedDigest.sumReg,ite_true] using ht.resultCost
     · cases r <;> exact ht.resultR17)
 end ClaudeWCT.W9.Machine.Expand.SharedFront
 

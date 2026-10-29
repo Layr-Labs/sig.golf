@@ -5942,12 +5942,14 @@ set_option backward.isDefEq.respectTransparency false
 
 theorem recoveredMessage_top_source (answers : Answers) (sig : SigGolfCandidate.Research.SharedForest.Signature)
     (index : Nat) (input : WCT9.LayerMsg) (result : RecoveredLayers) (messages : Layer → WCT9.LayerMsg)
+    (topFloor : Nat)
     (hinput : input = messages 3)
     (hlower : ∀ n, n < 3 → messages (Fin.ofNat 4 n) =
       .pair (WCT9.builtPair answers (Fin.ofNat 4 (n+1)) (route index (Fin.ofNat 4 (n+1))).2).1
         (WCT9.builtPair answers (Fin.ofNat 4 (n+1)) (route index (Fin.ofNat 4 (n+1))).2).2)
     (hselections : ∀ lay : Layer, evalWithAnswerFn answers
-      (WCT9.CanonicalPolicy.layerCounterSearchAt lay (hintFloor sig.policyHints lay)
+      (WCT9.CanonicalPolicy.layerCounterSearchAt lay
+        (if lay = 0 then topFloor else hintFloor sig.policyHints lay)
         (route index lay).2 (route index lay).1
         (recoveredMessage answers sig index 4 input result.digits lay) 0 (WCT9.searchLimit lay)) =
           some (result.counters.getD lay.val 0, result.digits.getD lay.val [], result.lows.getD lay.val true))
@@ -5966,7 +5968,8 @@ theorem recoveredMessage_top_source (answers : Answers) (sig : SigGolfCandidate.
     have hs := hselections lay
     rw [hm] at hs
     have hlim := WCT9.searchLimit_le lay
-    have hp := (canonical_search_some' answers lay (hintFloor sig.policyHints lay)
+    have hp := (canonical_search_some' answers lay
+      (if lay = 0 then topFloor else hintFloor sig.policyHints lay)
       (route index lay).2 (route index lay).1 (messages lay) (WCT9.searchLimit lay) 0
       (result.counters.getD lay.val 0) (result.digits.getD lay.val []) (result.lows.getD lay.val true)
       (by unfold counterLimit at hlim; omega) hs).2.2.2
@@ -6013,9 +6016,11 @@ theorem expanded_canonical_selections (answers : Answers) (message : Message) (p
       (forestSelectionFromOutput output) (forestWordsFromOutput output) sig.forest) =
         forestCommitment answers (WCT9.digestIndex output)) :
     ∃ (digits : List (List Nat)) (lows : List Bool),
-      policyHintsValid w.signature.policyHints digits lows = true ∧
+      policyHintsValid w.signature.policyHints digits lows
+        (conditionalCredit output) = true ∧
       (∀ lay, evalWithAnswerFn answers (WCT9.CanonicalPolicy.layerCounterSearchAt lay
-        (hintFloor w.signature.policyHints lay) (route (WCT9.digestIndex output) lay).2
+        (if lay = 0 then conditionalTopFloor output else hintFloor w.signature.policyHints lay)
+        (route (WCT9.digestIndex output) lay).2
         (route (WCT9.digestIndex output) lay).1
         (CanonicalRef.sourceMessages answers (routeLeaf (WCT9.digestIndex output) lay))
         0 (WCT9.searchLimit lay)) = some (w.counters lay, digits.getD lay.val [], lows.getD lay.val true)) ∧
@@ -6023,15 +6028,17 @@ theorem expanded_canonical_selections (answers : Answers) (message : Message) (p
         (route (WCT9.digestIndex output) lay).2 (route (WCT9.digestIndex output) lay).1
         (digits.getD lay.val [])) := by
   obtain ⟨_, counter, result, c, _, hr, hvalid, hsig, _, hcs, hhigh⟩ := Paired.expandN_selections answers message pk sig output w he
-  have hs := recoverHintedLayers_selections answers (fillTopSignature sig 0) (WCT9.digestIndex output)
-    (((fillTopSignature sig 0).layers 0).path WCT9.topJ) 4 le_rfl _ result hr
+  have hs := recoverHintedLayers_selections_at answers (fillTopSignature sig 0)
+    (WCT9.digestIndex output) (((fillTopSignature sig 0).layers 0).path WCT9.topJ)
+    (conditionalTopFloor output) 4 le_rfl _ result hr
   let input : WCT9.LayerMsg := .pair
     (evalWithAnswerFn answers (recoverForest (WCT9.digestIndex output)
       (forestSelectionFromOutput output) (forestWordsFromOutput output) sig.forest)).1
     (evalWithAnswerFn answers (recoverForest (WCT9.digestIndex output)
       (forestSelectionFromOutput output) (forestWordsFromOutput output) sig.forest)).2
   have hsel : ∀ lay, evalWithAnswerFn answers
-      (WCT9.CanonicalPolicy.layerCounterSearchAt lay (hintFloor w.signature.policyHints lay)
+      (WCT9.CanonicalPolicy.layerCounterSearchAt lay
+        (if lay = 0 then conditionalTopFloor output else hintFloor w.signature.policyHints lay)
         (route (WCT9.digestIndex output) lay).2 (route (WCT9.digestIndex output) lay).1
         (recoveredMessage answers w.signature (WCT9.digestIndex output) 4 input result.digits lay)
         0 (WCT9.searchLimit lay)) = some (result.counters.getD lay.val 0, result.digits.getD lay.val [],
@@ -6039,7 +6046,8 @@ theorem expanded_canonical_selections (answers : Answers) (message : Message) (p
     intro lay
     have hx := hs.2.2.2 lay lay.isLt
     change evalWithAnswerFn answers
-      (WCT9.CanonicalPolicy.layerCounterSearchAt lay (hintFloor sig.policyHints lay)
+      (WCT9.CanonicalPolicy.layerCounterSearchAt lay
+        (if lay = 0 then conditionalTopFloor output else hintFloor sig.policyHints lay)
         (route (WCT9.digestIndex output) lay).2 (route (WCT9.digestIndex output) lay).1
         (recoveredMessage answers (fillTopSignature sig 0) (WCT9.digestIndex output) 4 input result.digits lay)
         0 (WCT9.searchLimit lay)) = _ at hx
@@ -6068,14 +6076,15 @@ theorem expanded_canonical_selections (answers : Answers) (message : Message) (p
     intro lay hl
     simpa only [hcs lay] using hshape0 lay (honestHint_lower answers _ _ _ hl)
   have htop := recoveredMessage_top_source answers w.signature (WCT9.digestIndex output) input result
-    (fun lay => CanonicalRef.sourceMessages answers (routeLeaf (WCT9.digestIndex output) lay)) hin lower hsel hshapeL
+    (fun lay => CanonicalRef.sourceMessages answers (routeLeaf (WCT9.digestIndex output) lay))
+    (conditionalTopFloor output) hin lower hsel hshapeL
   -- The expander's hint is the producer's choice at the (source) top row.
   have hhint0 : HonestHint answers (CanonicalRef.sourceMessages answers) (Paired.witEncN output w)
       (WCT9.digestIndex output) 0 := by
     have hs0 := hsel 0
     rw [htop] at hs0
     have hlim := WCT9.searchLimit_le 0
-    have hlow := (canonical_search_some' answers 0 (hintFloor w.signature.policyHints 0)
+    have hlow := (canonical_search_some' answers 0 (conditionalTopFloor output)
       (route (WCT9.digestIndex output) 0).2 (route (WCT9.digestIndex output) 0).1
       (CanonicalRef.sourceMessages answers (routeLeaf (WCT9.digestIndex output) 0)) (WCT9.searchLimit 0) 0
       (result.counters.getD 0 0) (result.digits.getD 0 []) (result.lows.getD 0 true)
@@ -6104,9 +6113,9 @@ theorem expanded_canonical_selections (answers : Answers) (message : Message) (p
     · subst hl
       simpa only [hcs 0] using hshape0 0 hhint0
     · exact hshapeL lay hl
-  have hall := recoveredSelections_canonical answers w.signature (WCT9.digestIndex output)
+  have hall := recoveredSelections_canonical_at answers w.signature (WCT9.digestIndex output)
     input result (fun lay => CanonicalRef.sourceMessages answers (routeLeaf (WCT9.digestIndex output) lay))
-    hin lower hsel hshape'
+    (conditionalTopFloor output) hin lower hsel hshape'
   refine ⟨result.digits, result.lows, ?_, ?_, fun lay => (hall lay).2⟩
   · rw [hsig, hints_retained]
     exact hvalid
@@ -6170,9 +6179,11 @@ theorem signFromOutput_canonical_selections (answers : Answers) (cache : SigGolf
     (counter : BitVec 32) (output : HashOutput) (w : SigGolfCandidate.Research.SharedForest.Witness)
     (he : evalWithAnswerFn answers (signFromOutput cache rho counter output) = some w) :
     ∃ (digits : List (List Nat)) (lows : List Bool),
-      policyHintsValid w.signature.policyHints digits lows = true ∧
+      policyHintsValid w.signature.policyHints digits lows
+        (conditionalCredit output) = true ∧
       (∀ lay, evalWithAnswerFn answers (WCT9.CanonicalPolicy.layerCounterSearchAt lay
-        (hintFloor w.signature.policyHints lay) (route (WCT9.digestIndex output) lay).2
+        (if lay = 0 then conditionalTopFloor output else hintFloor w.signature.policyHints lay)
+        (route (WCT9.digestIndex output) lay).2
         (route (WCT9.digestIndex output) lay).1
         (CanonicalRef.sourceMessages answers (routeLeaf (WCT9.digestIndex output) lay))
         0 (WCT9.searchLimit lay)) = some (w.counters lay,digits.getD lay.val [],lows.getD lay.val true)) ∧
@@ -6181,14 +6192,15 @@ theorem signFromOutput_canonical_selections (answers : Answers) (cache : SigGolf
         (digits.getD lay.val [])) := by
   obtain ⟨result,hs,hrho,hhints,hforest,hpieces,hdigest,hcounters⟩ :=
     signFromOutput_components answers cache rho counter output w he
-  have facts := searchPreparedLayers_some answers cache (WCT9.digestIndex output) _ _ result hs
+  have facts := searchPreparedLayers_some_at answers cache (WCT9.digestIndex output) _ _ result
+    (conditionalCredit output) (conditionalTopFloor output) hs
   have hi : WCT9.digestIndex output<2^31 := WCT9.digestIndex_lt output
   refine ⟨result.digits, result.lows, ?_, ?_, ?_⟩
   · rw [hhints]
     exact facts.hints_valid
   · intro lay
     rw [hhints,hcounters lay]
-    have hx := facts.hinted_searches lay
+    have hx := facts.hinted_searches_at lay
     rw [buildForest_commitment] at hx
     have hm : CanonicalRef.sourceMessages answers (routeLeaf (WCT9.digestIndex output) lay) =
         (if lay=3 then .pair (forestCommitment answers (WCT9.digestIndex output)).1
@@ -6244,9 +6256,10 @@ theorem expanded_eq_signer_signature (answers : Answers) (cache : SigGolfCandida
   obtain ⟨da,la,hva,hsa,hpa⟩ := expanded_canonical_selections answers message pk sig output w he hg hf
   obtain ⟨db,lb,hvb,hsb,hpb⟩ := signFromOutput_canonical_selections answers cache hcache sig.rho counter output signed hs
   obtain ⟨_,_,hrho,_,hfs,_,_,_⟩ := signFromOutput_components answers cache sig.rho counter output signed hs
-  apply signature_unique_of_selections answers (WCT9.digestIndex output)
+  apply signature_unique_of_selections_at answers (WCT9.digestIndex output)
     (fun lay => CanonicalRef.sourceMessages answers (routeLeaf (WCT9.digestIndex output) lay))
-    w.signature signed.signature w.counters signed.counters da db la lb _ (hforest.trans hfs.symm)
+    w.signature signed.signature w.counters signed.counters da db la lb
+    (conditionalCredit output) (conditionalTopFloor output) _ (hforest.trans hfs.symm)
     hva hvb hsa hsb hpa hpb
   rw [hsig,nonce_retained,hrho]
 

@@ -787,6 +787,22 @@ theorem verify_good_6997
     GoodQP (Pre (P w) cost 777 m w) s 10083 10084 True 6921
       (ccM (verifyP ftsProgram afterProgram m pk w) Kb) :=
   verify_good hprefix fts after hnone m pk w s hs
+
+/-- A fixed tier of extra canonical path credit offsets the same amount of
+accepted digest work.  The machine program is unchanged; only the honest
+precondition on its digest cost and layer floors is stronger. -/
+theorem verify_good_tier (extra : Nat) (hextra : extra ≤ 4)
+    (hprefix : W9Fin.V7.PrefixGood GatePre)
+    (fts : ∀ w : WB, FtsGoodByCost GatePre FtsOut ftsProgram (fun a => 869 + cost a) (P w))
+    (after : AfterGoodBudget FtsOut afterProgram (5264 - extra) P)
+    (hnone : ∀ pk w i, afterProgram pk w i none = pure false)
+    (m : SigGolfCandidate.Legacy.Message) (pk : PublicKey) (w : WB) (s : MachineState)
+    (hs : initialState submission .verify (m,pk,w) = some s) :
+    GoodQP (Pre (P w) cost (773 + extra) m w) s 10083 10084 True 6917
+      (ccM (verifyP ftsProgram afterProgram m pk w) Kb) := by
+  have h := verify_good (cap := 773 + extra) (ovh := 869) (aG := 5264 - extra)
+    hprefix fts after hnone m pk w s hs
+  exact h.mono le_rfl le_rfl (fun q => ⟨q, by omega⟩)
 end
 end W9Fin.V7.Canonical
 
@@ -834,6 +850,16 @@ theorem after_installed (floors : SigGolfCandidate.T3.Layer → Nat) (hcredit : 
   fun pk w Q hQ answer top state hstate =>
     SigGolfCandidate.T3M.after_good_budget floors hcredit pk w Q hQ answer top state hstate
 
+theorem after_installed_tier (extra : Nat) (hextra : extra ≤ 4)
+    (floors : SigGolfCandidate.T3.Layer → Nat)
+    (hbound : ∀ lay, floors lay ≤ 301)
+    (hsum : 69 + extra ≤ ((List.finRange 4).map floors).sum) :
+    AfterGoodBudget installedOut SigGolfCandidate.T3M.Verify.afterFts (5264 - extra)
+      (fun w => HashOkBy floors (ClaudeWCT.W9.T3M.wtopHigh w)) :=
+  fun pk w Q hQ answer top state hstate =>
+    SigGolfCandidate.T3M.after_good_tier extra hextra floors hbound hsum
+      pk w Q hQ answer top state hstate
+
 theorem installed_verify_good (floors : SigGolfCandidate.T3.Layer → Nat) (hcredit : CreditFloors floors)
     (message : SigGolfCandidate.Legacy.Message) (pk : PublicKey) (witness : WB) (state : MachineState)
     (hstate : initialState submission .verify (message, pk, witness) = some state) :
@@ -843,6 +869,21 @@ theorem installed_verify_good (floors : SigGolfCandidate.T3.Layer → Nat) (hcre
       (ccM (verifyP installedFts SigGolfCandidate.T3M.Verify.afterFts message pk witness) Kb) :=
   verify_good_6997 (P := fun w => HashOkBy floors (ClaudeWCT.W9.T3M.wtopHigh w)) W9Fin.V7.prefixGood
     (fun _ => fts_installed) (after_installed floors hcredit)
+    (fun _ _ _ => rfl) message pk witness state hstate
+
+theorem installed_verify_good_tier (extra : Nat) (hextra : extra ≤ 4)
+    (floors : SigGolfCandidate.T3.Layer → Nat)
+    (hbound : ∀ lay, floors lay ≤ 301)
+    (hsum : 69 + extra ≤ ((List.finRange 4).map floors).sum)
+    (message : SigGolfCandidate.Legacy.Message) (pk : PublicKey) (witness : WB) (state : MachineState)
+    (hstate : initialState submission .verify (message, pk, witness) = some state) :
+    GoodQP (Pre (HashOkBy floors (ClaudeWCT.W9.T3M.wtopHigh witness))
+      SigGolfCandidate.Research.SharedForest.jointAccountingCost (773 + extra) message witness)
+      state 10083 10084 True 6917
+      (ccM (verifyP installedFts SigGolfCandidate.T3M.Verify.afterFts message pk witness) Kb) :=
+  verify_good_tier (P := fun w => HashOkBy floors (ClaudeWCT.W9.T3M.wtopHigh w))
+    extra hextra W9Fin.V7.prefixGood (fun _ => fts_installed)
+    (after_installed_tier extra hextra floors hbound hsum)
     (fun _ _ _ => rfl) message pk witness state hstate
 end W9Fin.V7.Canonical
 
@@ -904,6 +945,17 @@ def Inputs : Prop := ∀ (floors : SigGolfCandidate.T3.Layer→Nat), CreditFloor
   GoodQP (fun hash => HashOkBy floors (ClaudeWCT.W9.T3M.wtopHigh w) hash ∧ DigestCapOk hash m w) s 10083 10084 True 6921
     (ccM (ClaudeWCT.W9.T3M.Paired.verifyP m pk w) Kb)
 
+def InputsTier : Prop := ∀ (extra : Nat), extra ≤ 4 →
+  ∀ (floors : SigGolfCandidate.T3.Layer → Nat),
+    (∀ lay, floors lay ≤ 301) →
+    69 + extra ≤ ((List.finRange 4).map floors).sum →
+  ∀ (m : SigGolfCandidate.Legacy.Message) (pk : PublicKey) (w : Bytes 22012) (s : MachineState),
+    initialState SigGolfCandidate.T3M.submission .verify (m, pk, w) = some s →
+    GoodQP (fun hash => HashOkBy floors (ClaudeWCT.W9.T3M.wtopHigh w) hash ∧
+      SigGolfCandidate.Research.SharedForest.jointAccountingCost (hash (digestQ m w)) ≤ 773 + extra)
+      s 10083 10084 True 6917
+      (ccM (ClaudeWCT.W9.T3M.Paired.verifyP m pk w) Kb)
+
 theorem init_paired (I : ClaudeWCT.W9.T3M.Images) (hI : I.verify=Images.verifyImage)
     (had : (pairedSubmission I).Admissible) (m : SigGolfCandidate.Legacy.Message)
     (pk : PublicKey) (w : Bytes 22012) :
@@ -964,6 +1016,30 @@ theorem verify_accept_cycles_of (I : ClaudeWCT.W9.T3M.Images) (hI : I.verify=Ima
     cases h
   exact (hg.2.2 hsucc ⟨hok,hcap⟩).2
 
+theorem verify_accept_cycles_tier_of (I : ClaudeWCT.W9.T3M.Images)
+    (hI : I.verify = Images.verifyImage)
+    (had : (pairedSubmission I).Admissible) (H : InputsTier)
+    (extra : Nat) (hextra : extra ≤ 4) (floors : SigGolfCandidate.T3.Layer → Nat)
+    (hbound : ∀ lay, floors lay ≤ 301)
+    (hsum : 69 + extra ≤ ((List.finRange 4).map floors).sum)
+    (hash : Hash) (m : SigGolfCandidate.Legacy.Message) (pk : PublicKey) (w : Bytes 22012)
+    (hok : HashOkBy floors (ClaudeWCT.W9.T3M.wtopHigh w) hash)
+    (hcost : SigGolfCandidate.Research.SharedForest.jointAccountingCost (hash (digestQ m w)) ≤
+      773 + extra)
+    (h : ((pairedSubmission I).runWith hash .verify (m,pk,w)).value.isSome = true) :
+    ((pairedSubmission I).runWith hash .verify (m,pk,w)).cycles ≤ 6917 := by
+  obtain ⟨s,hs⟩ := W9Fin.V7.init_exists m pk w
+  have hs' := (init_paired I hI had m pk w).trans hs
+  have hg := (H extra hextra floors hbound hsum m pk w s hs
+    CYCLE_LIMIT (by unfold CYCLE_LIMIT; norm_num)).2 hash
+  rw [runWith_eq _ hash .verify _ s hs', ClaudeWCT.W9.T3M.Paired.submission_verify, hI] at h ⊢
+  simp only [toRunResult] at h ⊢
+  have hsucc : (evalWithAnswerFn hash (Riscv.execute CYCLE_LIMIT Images.verifyImage s)).exit = .success := by
+    by_contra hne
+    rw [if_neg hne] at h
+    cases h
+  exact (hg.2.2 hsucc ⟨hok, hcost⟩).2
+
 theorem verify_inputs_of (I : ClaudeWCT.W9.T3M.Images) (hI : I.verify=Images.verifyImage)
     (had : (pairedSubmission I).Admissible) (H : Inputs) :
     VerifyRefines I ∧ VerifyTerminates I ∧ VerifyAcceptCycles I :=
@@ -976,6 +1052,13 @@ open SigGolfCandidate.Legacy SigGolfCandidate.T3M.Verify
 theorem installed_inputs : Inputs := by
   intro floors hcredit message pk witness state hstate
   have h := W9Fin.V7.Canonical.installed_verify_good floors hcredit message pk witness state hstate
+  rw [←W9Fin.V7.Canonical.paired_verifyP_eq] at h
+  exact h
+
+theorem installed_inputs_tier : InputsTier := by
+  intro extra hextra floors hbound hsum message pk witness state hstate
+  have h := W9Fin.V7.Canonical.installed_verify_good_tier
+    extra hextra floors hbound hsum message pk witness state hstate
   rw [←W9Fin.V7.Canonical.paired_verifyP_eq] at h
   exact h
 

@@ -4492,10 +4492,18 @@ theorem weighted_words : (∑ w : «Word», radix ^ weight w) = fieldForestPacke
 theorem word_card_small : Fintype.card «Word» < radix - 1 := by
   norm_num [«Word», Coordinate, Fintype.card_prod, Fintype.card_fun, radix]
 
-theorem accepted_card : (Finset.univ.filter fun w : «Word» => weight w ≤ 102).card = fieldRetained := by
-  rw [SigGolfResearch.Gate6.generic_capped_card weight radix 102
+def fieldCappedCount (cutoff : Nat) : Nat :=
+  fieldForestPacked % radix ^ (cutoff + 1) % (radix - 1)
+
+theorem capped_card (cutoff : Nat) :
+    (Finset.univ.filter fun w : «Word» => weight w ≤ cutoff).card =
+      fieldCappedCount cutoff := by
+  rw [SigGolfResearch.Gate6.generic_capped_card weight radix cutoff
     (by norm_num [radix]) word_card_small, weighted_words]
   rfl
+
+theorem accepted_card : (Finset.univ.filter fun w : «Word» => weight w ≤ 102).card = fieldRetained := by
+  exact capped_card 102
 
 theorem accepted_card_exact :
     (Finset.univ.filter fun w : «Word» => weight w ≤ 102).card * 4^9 = count := by
@@ -4618,6 +4626,76 @@ theorem encode_decode (f : Fields) (hg : f.2.2.2.toNat < 791)
       · apply BitVec.eq_of_toNat_eq
         change f.2.2.2.toNat % 2^14 = f.2.2.2.toNat
         exact Nat.mod_eq_of_lt f.2.2.2.isLt
+
+/-- The same field/word bijection works for every joint-cost cutoff.  The
+minimum nine-coordinate accounting cost is 675. -/
+def validUpTo (cutoff : Nat) (f : Fields) : Prop :=
+  f.2.2.2.toNat < 791 ∧
+  (∀ k, (f.2.1 k).toNat < 563) ∧
+  cost f ≤ 675 + cutoff
+
+noncomputable instance validUpToDecidable (cutoff : Nat) :
+    DecidablePred (validUpTo cutoff) := Classical.decPred _
+
+theorem validUpTo_102_iff (f : Fields) :
+    validUpTo 102 f ↔ accepted f = true := by
+  simpa [validUpTo] using (accepted_iff f).symm
+
+theorem valid_encode (cutoff : Nat) (w : «Word») (hw : weight w ≤ cutoff)
+    (index : BitVec 31) (gate : Fin 791) :
+    validUpTo cutoff (encodeFields w index gate) := by
+  refine ⟨?_, ?_, ?_⟩
+  · change gate.val % 2^14 < 791
+    rw [Nat.mod_eq_of_lt (by have h := gate.isLt; omega)]
+    exact gate.isLt
+  · intro k
+    rw [rank_encode_nat]
+    exact (ungroup w k).2.isLt
+  · rw [cost_encode]
+    omega
+
+theorem weight_decode_valid (cutoff : Nat) (f : Fields)
+    (hf : validUpTo cutoff f) : weight (decodeFields f) ≤ cutoff := by
+  obtain ⟨hg, hr, hc⟩ := hf
+  have he := encode_decode f hg hr
+  have hw := cost_encode (decodeFields f) f.2.2.1 ⟨f.2.2.2.toNat, hg⟩
+  rw [he] at hw
+  omega
+
+def validEquiv (cutoff : Nat) : {f : Fields // validUpTo cutoff f} ≃
+    {w : «Word» // weight w ≤ cutoff} × BitVec 31 × Fin 791 where
+  toFun f := (⟨decodeFields f.val, weight_decode_valid cutoff f.val f.property⟩,
+    f.val.2.2.1, ⟨f.val.2.2.2.toNat, f.property.1⟩)
+  invFun v := ⟨encodeFields v.1.val v.2.1 v.2.2,
+    valid_encode cutoff _ v.1.property _ _⟩
+  left_inv f := by
+    apply Subtype.ext
+    exact encode_decode f.val f.property.1 f.property.2.1
+  right_inv v := by
+    apply Prod.ext
+    · apply Subtype.ext
+      exact decode_encode _ _ _
+    · apply Prod.ext
+      · rfl
+      · apply Fin.ext
+        change v.2.2.val % 2^14 = v.2.2.val
+        exact Nat.mod_eq_of_lt (by have h := v.2.2.isLt; omega)
+
+theorem valid_fields_card (cutoff : Nat) :
+    Fintype.card {f : Fields // validUpTo cutoff f} =
+      fieldCappedCount cutoff * 2^31 * 791 := by
+  rw [Fintype.card_congr (validEquiv cutoff)]
+  simp only [Fintype.card_prod, Fintype.card_bitVec, Fintype.card_fin,
+    Fintype.card_subtype (fun w : «Word» => weight w ≤ cutoff)]
+  rw [capped_card]
+  omega
+
+/-- Field prefixes at joint costs 773 through 777, kept in abstract capped-count
+form so this large module does not reduce the generating polynomial. -/
+theorem tier_fields_card (extra : Nat) :
+    Fintype.card {f : Fields // validUpTo (98 + extra) f} =
+      fieldCappedCount (98 + extra) * 2^31 * 791 :=
+  valid_fields_card (98 + extra)
 
 theorem accepted_encode (w : «Word») (hw : weight w ≤ 102) (index : BitVec 31) (gate : Fin 791) :
     accepted (encodeFields w index gate) = true := by

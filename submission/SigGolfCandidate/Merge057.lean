@@ -5302,9 +5302,9 @@ theorem context_failure (adversary : ClaudeWCT.W9.T3M.Final.Paired.AdversaryP) (
         PairedReference.referenceExperiment adversary q] := by simp_rw[hpoint]
     _ ≤ Pr[fun output => ∃c,ContextFailed c (Presampling.tableAnswers output zeroAnswers) |
         ($ᵗ (SearchKey → HashOutput) : ProbComp _)] := reference_event_le adversary q _
-    _ ≤ (2:ENNReal)^301*(1/(2:ENNReal)^440) := context_family_failure
+    _ ≤ (2:ENNReal)^295*(1/(2:ENNReal)^435) := context_family_failure
     _ ≤ 1/(2:ENNReal)^139 := by
-      have hr:(2:ℝ)^301*(1/(2:ℝ)^440)≤1/(2:ℝ)^139 := by
+      have hr:(2:ℝ)^295*(1/(2:ℝ)^435)≤1/(2:ℝ)^139 := by
         set_option exponentiation.threshold 1024 in norm_num
       have h:=ENNReal.ofReal_le_ofReal hr
       rw[ENNReal.ofReal_mul (by positivity)] at h
@@ -5440,7 +5440,7 @@ theorem completed_context_failure (adversary : ClaudeWCT.W9.T3M.Final.Paired.Adv
     simpa only [ContextGood,not_forall,not_not] using hbad
   · intro _
     refine context_family_failure.trans ?_
-    have hr : (2:ℝ)^301*(1/(2:ℝ)^440) ≤ 1/(2:ℝ)^139 := by
+    have hr : (2:ℝ)^295*(1/(2:ℝ)^435) ≤ 1/(2:ℝ)^139 := by
       set_option exponentiation.threshold 1024 in norm_num
     have h := ENNReal.ofReal_le_ofReal hr
     rw [ENNReal.ofReal_mul (by positivity)] at h

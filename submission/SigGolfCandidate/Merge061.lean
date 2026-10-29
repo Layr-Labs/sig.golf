@@ -252,9 +252,10 @@ structure Code (image : Image) : Prop where
   /-- Campaign T51: the top-trial kernel `K` at 54176 (`1272: j 54176`) and the contiguous unpacker
   (54356..54467 | 54468..54521). -/
   t51K : CodeAt image (pcOf 54176) (T51.kCode T51.expandInst)
+  t51Bonus : CodeAt image (pcOf 54305) (T51.bonusCode T51.expandInst)
   t51UA : CodeAt image (pcOf 54356) T51.uCodeA
   t51UB : CodeAt image (pcOf 54468) T51.uCodeB
-theorem Code.kAt {image : Image} (h : Code image) : T51.T51KAt image T51.expandInst := T51.expandKAt h.t51K
+theorem Code.kAt {image : Image} (h : Code image) : T51.T51KAt image T51.expandInst := T51.expandKAt h.t51K h.t51Bonus
 theorem Code.uAt {image : Image} (h : Code image) : T51.T51UAt image T51.expandInst := T51.expandUAt h.t51UA h.t51UB
 
 theorem lowerAdd_steps {image : Image} (hc : CodeAt image (pcOf 43020) lowerAddCode)
@@ -453,7 +454,7 @@ set_option maxHeartbeats 2000000
 set_option maxRecDepth 100000
 set_option Elab.async false
 theorem installed_kernel (P : Prop) (hP : P) : KernAt Images.expandImage 354 P := by
-  refine ⟨⟨?_,?_⟩,Or.inl rfl,?_,⟨?_,?_,?_⟩,?_,?_,?_,hP⟩
+  refine ⟨⟨?_,?_,?_⟩,Or.inl rfl,?_,⟨?_,?_,?_⟩,?_,?_,?_,hP⟩
   all_goals apply codeAt_expand_current_chunk <;> decide +kernel
 
 theorem reward_code_of_hooks (hH : SharedCounterHooks.Code Images.expandImage) :
@@ -486,7 +487,11 @@ structure CsArgs where
   hints : BitVec 16
 def csT (lay : Layer) : Nat := if lay = 0 then 755 else 404
 def csOk (lay : Layer) : Nat := if lay = 0 then 4096 else 4096
-theorem capLimit_le (n : Nat) : capLimit n ≤ 2 ^ 22 := by unfold capLimit; omega
+theorem capLimit_le (n : Nat) : capLimit n ≤ 2 ^ 22 := by
+  unfold capLimit
+  by_cases h : n = 0
+  · simp [h, WCT9.topSearchLimit]
+  · simp only [h, if_false]; unfold baseCapLimit; omega
 theorem capLimit_eq (lay : Layer) : capLimit lay.val = WCT9.searchLimit lay := by
   fin_cases lay <;> rfl
 theorem length_filter_range (n : Nat) (p : Nat → Prop) [DecidablePred p] :
@@ -582,9 +587,11 @@ structure CsPre (b : Nat) (A : CsArgs) (s : MachineState) : Prop where
   reward : Reward.RewardTablesOK s
   zt : ZeroCap.ZtOK b s
   floorLt : A.floor<22
-  floorTop : A.lay=0 → A.floor=14
+  floorTop : A.lay=0 → ∃ extra : Nat, extra ≤ 4 ∧ A.floor=14+extra ∧
+    s.getMem (BitVec.ofNat 64 (EOUT+32))=BitVec.ofNat 64 (12+extra) ∧
+    s.getMem (BitVec.ofNat 64 (EOUT+40))=BitVec.ofNat 64 (14+extra)
   hintsLt : A.hints.toNat<8000
-  floorEq : A.floor=CanonicalExpandHooks.hintFloor A.hints A.lay
+  floorEq : A.lay≠0 → A.floor=CanonicalExpandHooks.hintFloor A.hints A.lay
   floorMem : s.getMem (0x66000#64)=BitVec.ofNat 64 A.hints.toNat
   /-- Campaign T51: the packed top tables in RAM at 0xA0000 (`T51.expandInst.blk`, copied by KCOPY 54522 from the
   data block 0xFF9E00) for the top search. -/
@@ -785,7 +792,7 @@ theorem TrialSt.zt {A : CsArgs} {s0 u : MachineState} {i : Nat}
     simp only [ZeroCap.ZT, CsW, CanonicalExpandHooks.CreditW, DigW, ENC, EOUT, DIGITS, FLAG] <;> norm_num <;> omega)
 theorem cs_answer {A : CsArgs} {s0 t : MachineState} {i : Nat} {rewardCondition : Prop} (hK : KernAt image b rewardCondition) (hpre : CsPre b A s0)
     (hI : CsInv b A s0 i t) (hi : i < capLimit A.lay.val) :
-    ∃ k t2, Steps image t k k t2 ∧ k ≤ 14 ∧ t2.pc = pcOf (b + 123) ∧
+    ∃ k t2, Steps image t k k t2 ∧ k ≤ 17 ∧ t2.pc = pcOf (b + 123) ∧
       fetch image t2 = some (.base .ECALL) ∧
       t2.getReg .x5 = 0 ∧ hashArgumentsValid t2 = true ∧
       hashInput t2 = toQ (T3.pad64 (WCT9.layerEncodingInput A.lay A.tree A.leaf A.msg (BitVec.ofNat 32 i))) ∧
@@ -810,7 +817,7 @@ theorem cs_answer {A : CsArgs} {s0 t : MachineState} {i : Nat} {rewardCondition 
         hI.h16]
     · rw [f2.get (by simp only [ENC]; omega) (by simp only [ENC]; omega), f1.get (by simp only [ENC]; omega) (by simp),
         hI.h24]
-  have hk : k1 + 8 ≤ 14 := by omega
+  have hk : k1 + 8 ≤ 17 := by omega
   refine ⟨_, t2, s1.trans s2, hk, p2, (codeAt_k_123 hK).fetch _ p2, by rw [hT.reg (by decide), hpre.x5],
     hashArgs_const t2 ENC 64 EOUT h10 h11 h12 (by decide) (by decide) (by decide) (by decide) (by decide),
     ?_, h12, hT⟩
@@ -845,7 +852,7 @@ theorem cs_exhaust {A : CsArgs} {s0 t : MachineState} {i : Nat}
   obtain ⟨k1,t1,s1,k1le,p1,r1,f1⟩ := cap_spec hK t hI.pc A.lay.val i A.lay.isLt hI.hi
     (by rw [hI.regs.get (by decide),hpre.x8]) hI.x19
   rw [if_pos hi] at p1
-  have hk1 : k1≤6 := k1le
+  have hk1 : k1≤9 := k1le
   have h8 : t1.getReg .x8=BitVec.ofNat 64 A.lay.val := by
     rw [r1.get (by decide),hI.regs.get (by decide),hpre.x8]
   have fr1 : Frame s0 t1 (CsW A.lay) := (hI.frame.trans f1).mono (fun A _ h=>by simpa using h)
@@ -923,8 +930,9 @@ theorem cs_loop {A : CsArgs} {s0 : MachineState} (hK : KernAt image 354 (Canonic
       intro w hw; rw [hw,f4.get (by unfold EOUT;omega) (by simp)]; exact hhi.2
     by_cases hlz : A.lay=0
     · rw [if_pos (hl0.2 hlz)] at p4
-      have hfl : A.floor = 14 := hpre.floorTop hlz
-      have e : WCT9.CanonicalPolicy.producerDecodeOut A.lay A.floor a = WCT9.CanonicalPolicy.producerDecodeOut 0 14 a := by
+      obtain ⟨extra, hextra, hfl, hLowFloor, hHighFloor⟩ := hpre.floorTop hlz
+      have e : WCT9.CanonicalPolicy.producerDecodeOut A.lay A.floor a =
+          WCT9.CanonicalPolicy.producerDecodeOut 0 (14+extra) a := by
         rw [hlz,hfl]
       rw [e]
       -- T51: `tcEntry 354` (1272) jumps to the T51 kernel `K_ENTRY` (54176)
@@ -938,13 +946,22 @@ theorem cs_loop {A : CsArgs} {s0 : MachineState} (hK : KernAt image 354 (Canonic
       have h7g : tg.getReg .x7 = (a.extractLsb' 0 128).extractLsb' 64 64 := by rw [rg.get (by decide),h7]
       have h12g : tg.getReg .x12 = BitVec.ofNat 64 EOUT := by
         rw [rg.get (by decide),r4.get (by decide),getReg_writeHash,h12]
+      have hLowFloorG : tg.getMem (BitVec.ofNat 64 (EOUT+32)) = BitVec.ofNat 64 (12+extra) := by
+        rw [hTg.frame.get (by unfold EOUT; omega)
+          (by unfold CsW CanonicalExpandHooks.CreditW CanonicalExpandHooks.creditAddr DigW ENC EOUT DIGITS FLAG; omega),
+          hLowFloor]
+      have hHighFloorG : tg.getMem (BitVec.ofNat 64 (EOUT+40)) = BitVec.ofNat 64 (14+extra) := by
+        rw [hTg.frame.get (by unfold EOUT; omega)
+          (by unfold CsW CanonicalExpandHooks.CreditW CanonicalExpandHooks.creditAddr DigW ENC EOUT DIGITS FLAG; omega),
+          hHighFloor]
       have h17g : tg.getReg .x17 = BitVec.ofNat 64 (T3.target 0) := by
         rw [hTg.reg (by decide),hpre.x17,hlz]; rfl
       have htg : T51.T51TableW T51.expandInst.blk tg := (hpre.t51table hlz).frame hTg.frame (by decide) (by decide)
         (by intro k hk; unfold CsW CanonicalExpandHooks.CreditW CanonicalExpandHooks.creditAddr DigW ENC EOUT DIGITS FLAG; omega)
-      obtain ⟨hAcc,hRej⟩ := T51.trial hKT tg (by rw [pg]; rfl) a h6g h7g h12g
-        (mH0 tg (fgE _ (by unfold EOUT;omega))) (mH8 tg (fgE _ (by unfold EOUT;omega))) h17g htg
-      cases hD : WCT9.CanonicalPolicy.producerDecodeOut 0 14 a with
+      obtain ⟨hAcc,hRej⟩ := T51.trial hKT tg (by rw [pg]; rfl) extra hextra a h6g h7g h12g
+        (mH0 tg (fgE _ (by unfold EOUT;omega))) (mH8 tg (fgE _ (by unfold EOUT;omega)))
+        hLowFloorG hHighFloorG h17g htg
+      cases hD : WCT9.CanonicalPolicy.producerDecodeOut 0 (14+extra) a with
       | some found =>
         obtain ⟨ds,low⟩ := found
         obtain ⟨k,t,st,kle,pt,t6,t7,hdec,t28,tcr,tfl,rt,ft⟩ := hAcc ds low hD
@@ -1036,7 +1053,7 @@ theorem cs_loop {A : CsArgs} {s0 : MachineState} (hK : KernAt image 354 (Canonic
               (by rw [r8.get (by decide),r7.get (by decide),h25']) hs.1 hs.2 A.hints hpre.hintsLt
               (by rw [hT8.reg (by decide),hpre.x8])
               (by rw [hT8.frame.get (by decide) (by unfold CsW CanonicalExpandHooks.CreditW ENC EOUT DigW DIGITS FLAG;omega),hpre.floorMem])
-              hpre.floorEq
+              (hpre.floorEq hlz)
             have hTR := hT8.stepCredit rR (by decide) fR
             change tR.pc=(if rewardOK A.lay A.floor low (lowDigits v++[T3.target (WCT9.CanonicalPolicy.normalLayer A.lay)-(lowDigits v).sum])
               then pcOf (354+433) else pcOf (354+468)) at pR

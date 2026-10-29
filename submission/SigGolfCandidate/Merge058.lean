@@ -20196,15 +20196,22 @@ def kernCode (b : Nat) : List (BitVec 32) := layoutCode (kernL b)
 theorem kernL_ok {b : Nat} (hb : b = 354 ∨ b = 543) : layoutOk 0 (kernL b) = true := by
   rcases hb with rfl | rfl <;> decide +kernel
 def capBase (b : Nat) : Nat := if b = 354 then 41066 else 20771
-/-- img-v4/v6 per-layer counter-limit check: `t1 := ((s0 + 3) >> 1) << 20; bltu s3,t1,+5` (continue), then `jal +6` (fail). -/
-def a_0 : List (BitVec 32) := [0x00340313,0x00135313,0x01431313,0x0069e463]
-def a_4 : List (BitVec 32) := [0x0080006f]
-def a_5s : List (BitVec 32) := [0xda8ec06f]
-def a_5e : List (BitVec 32) := [0xd98d806f]
+/-- The first check uses the old base window. The top-only extension branches to a four-word helper. -/
+def a_0 : List (BitVec 32) := [0x00340313,0x00135313,0x01431313,0x0069e663]
+def a_4s : List (BitVec 32) := [0xf0040ae3]
+def a_4e : List (BitVec 32) := [0x24040a63]
+def a_4 (b : Nat) : List (BitVec 32) := if b = 354 then a_4e else a_4s
+def a_5s : List (BitVec 32) := [0xa7dec06f]
+def a_5e : List (BitVec 32) := [0xa6dd806f]
 def a_5 (b : Nat) : List (BitVec 32) := if b = 354 then a_5e else a_5s
-def a_6s : List (BitVec 32) := [0xa79ec06f]
-def a_6e : List (BitVec 32) := [0xa69d806f]
+def a_6s : List (BitVec 32) := [0xda4ec06f]
+def a_6e : List (BitVec 32) := [0xd94d806f]
 def a_6 (b : Nat) : List (BitVec 32) := if b = 354 then a_6e else a_6s
+def capHelperBase (b : Nat) : Nat := if b = 354 then 41219 else 20716
+def capHelperHead : List (BitVec 32) := [0x0010c337,0x0069e463]
+def capHelperJump (b : Nat) : BitVec 32 := if b = 354 then 0xda9ff06f else 0x0e80006f
+def capHelperCode (b : Nat) : List (BitVec 32) :=
+  capHelperHead ++ [capHelperJump b, capHelperJump b]
 def a_7 : List (BitVec 32) := [0xffae0e13,1981971,66985491,0xfff00a13,1726995,7342739,56252979,1269395,2318099,32439987,0xfff34f13,32439987,21954227,31354419,1302163,2350867,32439987,0xfff3cf13,32439987,21954227,2006675,31354419,0xfffe0e93,31358515,0xffd40f13,1635]
 def a_33 : List (BitVec 32) := [0xfffe0e93,31358515]
 def a_35 : List (BitVec 32) := [0xfffe0e93,31358515,0xfffe0e93,31358515,918627]
@@ -20214,7 +20221,7 @@ def a_40 (b : Nat) : List (BitVec 32) := if b = 354 then a_40e else a_40s
 def a_41s : List (BitVec 32) := [0xa9dec06f]
 def a_41e : List (BitVec 32) := [0xa8dd806f]
 def a_41 (b : Nat) : List (BitVec 32) := if b = 354 then a_41e else a_41s
-def appL (b : Nat) : Rv.Layout := [(0, a_0), (4, a_4), (5, a_5 b), (6, a_6 b), (7, a_7), (33, a_33), (35, a_35), (40, a_40 b), (41, a_41 b)]
+def appL (b : Nat) : Rv.Layout := [(0, a_0), (4, a_4 b), (5, a_5 b), (6, a_6 b), (7, a_7), (33, a_33), (35, a_35), (40, a_40 b), (41, a_41 b)]
 def appCode (b : Nat) : List (BitVec 32) := layoutCode (appL b)
 theorem appL_ok {b : Nat} (hb : b = 354 ∨ b = 543) : layoutOk 0 (appL b) = true := by
   rcases hb with rfl | rfl <;> decide +kernel
@@ -20286,7 +20293,8 @@ def choiceCode (b : Nat) : List (BitVec 32) := layoutCode (choiceL b)
 theorem choiceL_ok {b : Nat} (hb : b=354 ∨ b=543) : layoutOk 0 (choiceL b)=true := by
   rcases hb with rfl | rfl <;> decide +kernel
 def KernAt (image : Image) (b : Nat) (rewardCondition : Prop := Reward.RewardAt image b) : Prop :=
-  (CodeAt image (pcOf b) (kernCode b) ∧ CodeAt image (pcOf (capBase b)) (appCode b)) ∧ (b = 354 ∨ b = 543) ∧
+  (CodeAt image (pcOf b) (kernCode b) ∧ CodeAt image (pcOf (capBase b)) (appCode b) ∧
+    CodeAt image (pcOf (capHelperBase b)) (capHelperCode b)) ∧ (b = 354 ∨ b = 543) ∧
     CodeAt image (pcOf (prxBase b)) (p_0 b) ∧
     (CodeAt image (pcOf (tcBase b)) (c_0 b) ∧ CodeAt image (pcOf (tcEntry b)) (topEntryCode b) ∧
       CodeAt image (pcOf (topSelectBase b)) topSelectCode) ∧
@@ -20424,31 +20432,57 @@ theorem codeAt_k_468 {image : Image} {b : Nat} {rewardCondition : Prop} (h : Ker
   codeAt_sublayout h.1.1 (kernL_ok h.2.1) (i := 42) rfl
 theorem codeAt_a_0 {image : Image} {b : Nat} {rewardCondition : Prop} (h : KernAt image b rewardCondition) :
     CodeAt image (pcOf (capBase b + 0)) (a_0) :=
-  codeAt_sublayout h.1.2 (appL_ok h.2.1) (i := 0) rfl
+  codeAt_sublayout h.1.2.1 (appL_ok h.2.1) (i := 0) rfl
 theorem codeAt_a_4 {image : Image} {b : Nat} {rewardCondition : Prop} (h : KernAt image b rewardCondition) :
-    CodeAt image (pcOf (capBase b + 4)) (a_4) :=
-  codeAt_sublayout h.1.2 (appL_ok h.2.1) (i := 1) rfl
+    CodeAt image (pcOf (capBase b + 4)) (a_4 b) :=
+  codeAt_sublayout h.1.2.1 (appL_ok h.2.1) (i := 1) rfl
 theorem codeAt_a_5 {image : Image} {b : Nat} {rewardCondition : Prop} (h : KernAt image b rewardCondition) :
     CodeAt image (pcOf (capBase b + 5)) (a_5 b) :=
-  codeAt_sublayout h.1.2 (appL_ok h.2.1) (i := 2) rfl
+  codeAt_sublayout h.1.2.1 (appL_ok h.2.1) (i := 2) rfl
 theorem codeAt_a_6 {image : Image} {b : Nat} {rewardCondition : Prop} (h : KernAt image b rewardCondition) :
     CodeAt image (pcOf (capBase b + 6)) (a_6 b) :=
-  codeAt_sublayout h.1.2 (appL_ok h.2.1) (i := 3) rfl
+  codeAt_sublayout h.1.2.1 (appL_ok h.2.1) (i := 3) rfl
+theorem codeAt_capHelper {image : Image} {b : Nat} {rewardCondition : Prop}
+    (h : KernAt image b rewardCondition) :
+    CodeAt image (pcOf (capHelperBase b)) (capHelperCode b) := h.1.2.2
+theorem codeAt_capHelperHead {image : Image} {b : Nat} {rewardCondition : Prop}
+    (h : KernAt image b rewardCondition) :
+    CodeAt image (pcOf (capHelperBase b)) capHelperHead := by
+  have hc := codeAt_capHelper h
+  change CodeAt image (pcOf (capHelperBase b))
+    ([] ++ capHelperHead ++ [capHelperJump b, capHelperJump b]) at hc
+  simpa using (CodeAt.drop_prefix (pre := []) (seg := capHelperHead)
+    (post := [capHelperJump b, capHelperJump b]) hc)
+theorem codeAt_capHelperJump {image : Image} {b : Nat} {rewardCondition : Prop}
+    (h : KernAt image b rewardCondition) (k : Nat) (hk : k = 2 ∨ k = 3) :
+    CodeAt image (pcOf (capHelperBase b + k)) [capHelperJump b] := by
+  have hc := codeAt_capHelper h
+  rcases hk with rfl | rfl
+  · change CodeAt image (pcOf (capHelperBase b))
+      (capHelperHead ++ [capHelperJump b] ++ [capHelperJump b]) at hc
+    simpa [capHelperHead, pcOf, ofNat_add_ofNat] using
+      (CodeAt.drop_prefix (pre := capHelperHead) (seg := [capHelperJump b])
+        (post := [capHelperJump b]) hc)
+  · change CodeAt image (pcOf (capHelperBase b))
+      ((capHelperHead ++ [capHelperJump b]) ++ [capHelperJump b] ++ []) at hc
+    simpa [capHelperHead, pcOf, ofNat_add_ofNat] using
+      (CodeAt.drop_prefix (pre := capHelperHead ++ [capHelperJump b]) (seg := [capHelperJump b])
+        (post := []) hc)
 theorem codeAt_a_7 {image : Image} {b : Nat} {rewardCondition : Prop} (h : KernAt image b rewardCondition) :
     CodeAt image (pcOf (capBase b + 7)) (a_7) :=
-  codeAt_sublayout h.1.2 (appL_ok h.2.1) (i := 4) rfl
+  codeAt_sublayout h.1.2.1 (appL_ok h.2.1) (i := 4) rfl
 theorem codeAt_a_33 {image : Image} {b : Nat} {rewardCondition : Prop} (h : KernAt image b rewardCondition) :
     CodeAt image (pcOf (capBase b + 33)) (a_33) :=
-  codeAt_sublayout h.1.2 (appL_ok h.2.1) (i := 5) rfl
+  codeAt_sublayout h.1.2.1 (appL_ok h.2.1) (i := 5) rfl
 theorem codeAt_a_35 {image : Image} {b : Nat} {rewardCondition : Prop} (h : KernAt image b rewardCondition) :
     CodeAt image (pcOf (capBase b + 35)) (a_35) :=
-  codeAt_sublayout h.1.2 (appL_ok h.2.1) (i := 6) rfl
+  codeAt_sublayout h.1.2.1 (appL_ok h.2.1) (i := 6) rfl
 theorem codeAt_a_40 {image : Image} {b : Nat} {rewardCondition : Prop} (h : KernAt image b rewardCondition) :
     CodeAt image (pcOf (capBase b + 40)) (a_40 b) :=
-  codeAt_sublayout h.1.2 (appL_ok h.2.1) (i := 7) rfl
+  codeAt_sublayout h.1.2.1 (appL_ok h.2.1) (i := 7) rfl
 theorem codeAt_a_41 {image : Image} {b : Nat} {rewardCondition : Prop} (h : KernAt image b rewardCondition) :
     CodeAt image (pcOf (capBase b + 41)) (a_41 b) :=
-  codeAt_sublayout h.1.2 (appL_ok h.2.1) (i := 8) rfl
+  codeAt_sublayout h.1.2.1 (appL_ok h.2.1) (i := 8) rfl
 theorem codeAt_p_0 {image : Image} {b : Nat} {rewardCondition : Prop} (h : KernAt image b rewardCondition) : CodeAt image (pcOf (prxBase b)) (p_0 b) :=
   h.2.2.1
 theorem codeAt_c_0 {image : Image} {b : Nat} {rewardCondition : Prop} (h : KernAt image b rewardCondition) : CodeAt image (pcOf (tcBase b)) (c_0 b) :=
@@ -20902,19 +20936,20 @@ theorem run_gateJump {b : Nat} (hb : b = 354 ∨ b = 543) :
 sym_block blkA354_0 := symRun { noAlias := true } a_0 (pcOf (41066 + 0)) 200
 sym_block blkA543_0 := symRun { noAlias := true } a_0 (pcOf (20771 + 0)) 200
 def sta_0 : SymState := blkA354_0.res.st
-def pcEa_0 (b : Nat) : E := rebase blkA354_0.res.pc (pcOf (capBase b + 5)) (pcOf (capBase b + 4))
+def pcEa_0 (b : Nat) : E := rebase blkA354_0.res.pc (pcOf (capBase b + 6)) (pcOf (capBase b + 4))
 theorem runa_0 {b : Nat} (hb : b = 354 ∨ b = 543) :
     symRun { noAlias := true } a_0 (pcOf (capBase b + 0)) 200 =
       some ⟨sta_0, pcEa_0 b, blkA354_0.res.stop, blkA354_0.res.steps, blkA354_0.res.cycles⟩ := by
   rcases hb with rfl | rfl
   · exact blkA354_0.trans (congrArg some (by kernel_rfl))
   · exact blkA543_0.trans (congrArg some (by kernel_rfl))
-sym_block blkA354_4 := symRun { noAlias := true } a_4 (pcOf (41066 + 4)) 200
-sym_block blkA543_4 := symRun { noAlias := true } a_4 (pcOf (20771 + 4)) 200
+sym_block blkA354_4 := symRun { noAlias := true } a_4e (pcOf (41066 + 4)) 200
+sym_block blkA543_4 := symRun { noAlias := true } a_4s (pcOf (20771 + 4)) 200
 def sta_4 : SymState := blkA354_4.res.st
-def pcEa_4 (b : Nat) : E := .c (pcOf (capBase b + 6))
+def pcEa_4 (b : Nat) : E :=
+  .ite .eq (.reg .x8) (.c 0) (.c (pcOf (capHelperBase b))) (.c (pcOf (capBase b + 5)))
 theorem runa_4 {b : Nat} (hb : b = 354 ∨ b = 543) :
-    symRun { noAlias := true } a_4 (pcOf (capBase b + 4)) 200 =
+    symRun { noAlias := true } (a_4 b) (pcOf (capBase b + 4)) 200 =
       some ⟨sta_4, pcEa_4 b, blkA354_4.res.stop, blkA354_4.res.steps, blkA354_4.res.cycles⟩ := by
   rcases hb with rfl | rfl
   · exact blkA354_4.trans (congrArg some (by kernel_rfl))
@@ -20922,7 +20957,7 @@ theorem runa_4 {b : Nat} (hb : b = 354 ∨ b = 543) :
 sym_block blkA354_5 := symRun { noAlias := true } a_5e (pcOf (41066 + 5)) 200
 sym_block blkA543_5 := symRun { noAlias := true } a_5s (pcOf (20771 + 5)) 200
 def sta_5 : SymState := blkA354_5.res.st
-def pcEa_5 (b : Nat) : E := .c (pcOf (b + 115))
+def pcEa_5 (b : Nat) : E := .c (pcOf (b + 424))
 theorem runa_5 {b : Nat} (hb : b = 354 ∨ b = 543) :
     symRun { noAlias := true } (a_5 b) (pcOf (capBase b + 5)) 200 =
       some ⟨sta_5, pcEa_5 b, blkA354_5.res.stop, blkA354_5.res.steps, blkA354_5.res.cycles⟩ := by
@@ -20932,13 +20967,29 @@ theorem runa_5 {b : Nat} (hb : b = 354 ∨ b = 543) :
 sym_block blkA354_6 := symRun { noAlias := true } a_6e (pcOf (41066 + 6)) 200
 sym_block blkA543_6 := symRun { noAlias := true } a_6s (pcOf (20771 + 6)) 200
 def sta_6 : SymState := blkA354_6.res.st
-def pcEa_6 (b : Nat) : E := .c (pcOf (b + 424))
+def pcEa_6 (b : Nat) : E := .c (pcOf (b + 115))
 theorem runa_6 {b : Nat} (hb : b = 354 ∨ b = 543) :
     symRun { noAlias := true } (a_6 b) (pcOf (capBase b + 6)) 200 =
       some ⟨sta_6, pcEa_6 b, blkA354_6.res.stop, blkA354_6.res.steps, blkA354_6.res.cycles⟩ := by
   rcases hb with rfl | rfl
   · exact blkA354_6.trans (congrArg some (by kernel_rfl))
   · exact blkA543_6.trans (congrArg some (by kernel_rfl))
+sym_block blkCapH354 := symRun { noAlias := true } (capHelperCode 354) (pcOf 41219) 200
+sym_block blkCapH543 := symRun { noAlias := true } (capHelperCode 543) (pcOf 20716) 200
+def staCapH : SymState := blkCapH354.res.st
+def pcCapH (b : Nat) : E :=
+  rebase (rebase blkCapH354.res.pc (pcOf 41222) (pcOf (capHelperBase b + 3)))
+    (pcOf 41221) (pcOf (capHelperBase b + 2))
+theorem runCapH {b : Nat} (hb : b = 354 ∨ b = 543) :
+    symRun { noAlias := true } (capHelperCode b) (pcOf (capHelperBase b)) 200 =
+      some ⟨staCapH, pcCapH b, blkCapH354.res.stop, blkCapH354.res.steps, blkCapH354.res.cycles⟩ := by
+  rcases hb with rfl | rfl
+  · exact blkCapH354.trans (congrArg some (by kernel_rfl))
+  · exact blkCapH543.trans (congrArg some (by kernel_rfl))
+sym_block blkCapJ3542 := symRun { noAlias := true } [capHelperJump 354] (pcOf 41221) 20
+sym_block blkCapJ3543 := symRun { noAlias := true } [capHelperJump 354] (pcOf 41222) 20
+sym_block blkCapJ5432 := symRun { noAlias := true } [capHelperJump 543] (pcOf 20718) 20
+sym_block blkCapJ5433 := symRun { noAlias := true } [capHelperJump 543] (pcOf 20719) 20
 sym_block blkA354_7 := symRun { noAlias := true } a_7 (pcOf (41066 + 7)) 200
 sym_block blkA543_7 := symRun { noAlias := true } a_7 (pcOf (20771 + 7)) 200
 def sta_7 : SymState := blkA354_7.res.st
@@ -23408,6 +23459,10 @@ structure KInst where
   wCr : BitVec 32
   wU : BitVec 32
   wN : BitVec 32
+  bonusPC : Nat
+  wBonus : BitVec 32
+  wBonusBack : BitVec 32
+  wBonusReject : BitVec 32
 def kE2 : List (BitVec 32) := [0xa13,0xc00a93]
 def kG0a : List (BitVec 32) := [0x231e13,0x3fce7e13,0xae0e33,0xf60e6c83]
 def kG0b : List (BitVec 32) := [0xccde93,0x4efe93,0x1dc8cb3]
@@ -23443,13 +23498,17 @@ def kSdF : List (BitVec 32) := [0x7f4f3c23]
 def kBrF0 : List (BitVec 32) := [0x20a1063]
 def kF1a : List (BitVec 32) := [0x3e3de93]
 def kBr122 : List (BitVec 32) := [0xe8c63]
-def kF2a : List (BitVec 32) := [0x8000a13,0xe00a93,0x1063303,0x1863383]
+def kF2a : List (BitVec 32) := [0x8000a13,0x2863a83,0x1063303,0x1863383]
+def bonusLF (P : KInst) : Rv.Layout :=
+  [(0,[0x2063f03]),(1,[0x1eee663]),(2,[0x2e8e93]),(3,[P.wBonusBack]),(4,[P.wBonusReject])]
+def bonusCode (P : KInst) : List (BitVec 32) := layoutCode (bonusLF P)
+theorem bonusLF_ok (P : KInst) : layoutOk 0 (bonusLF P) = true := rfl
 def kJ127 : List (BitVec 32) := [0xe15ff06f]
 /-- Fine layout of the 129-word kernel (every lookup, every branch and every parameter word its own segment). -/
 def kLF (P : KInst) : Rv.Layout := [(0, [P.w0, P.w1]), (2, kE2), (4, kG0a), (8, kG0b), (11, kLk1), (16, kLk2),
   (21, kLk3), (26, kLk4), (31, kLk5), (36, kLk6), (41, kR7a), (44, kR7b), (45, kR7l), (48, kT5), (51, kQ9),
   (56, kQ10), (60, kQ11), (65, kQ12), (70, kQ13), (75, kQ14), (80, kQ15), (85, kG7), (90, kG8), (95, kTot),
-  (101, kBr101), (102, kH2a), (107, kBr107), (108, kH3a), (113, kBr113), (114, kBrA0), (115, kA1), (116, kLuiT5),
+  (101, kBr101), (102, kH2a), (107, kBr107), (108, kH3a), (113, kBr113), (114, kBrA0), (115, [P.wBonus]), (116, kLuiT5),
   (117, [P.wCr]), (118, kSdF), (119, [P.wU]), (120, kBrF0), (121, kF1a), (122, kBr122), (123, kF2a), (127, kJ127),
   (128, [P.wN])]
 /-- The kernel code of instance `P`. -/
@@ -23458,6 +23517,7 @@ theorem kLF_ok (P : KInst) : layoutOk 0 (kLF P) = true := rfl
 /-- The kernel is installed for instance `P`, with the behaviour of its parameter words. -/
 structure T51KAt (image : Image) (P : KInst) : Prop where
   code : CodeAt image (pcOf P.kb) (kCode P)
+  bonus : CodeAt image (pcOf P.bonusPC) (bonusCode P)
   kbLt : P.kb + 129 < 2 ^ 40
   blk8 : P.blk % 8 = 0
   blkLt : P.blk + 1896 < 2 ^ 24
@@ -23473,9 +23533,19 @@ structure T51KAt (image : Image) (P : KInst) : Prop where
     RegsExcept s t [] ∧ Frame s t (fun _ => False)
   hN : ∀ s : MachineState, s.pc = pcOf (P.kb + 128) → ∃ t, Steps image s 1 1 t ∧ t.pc = pcOf P.rej ∧
     RegsExcept s t [] ∧ Frame s t (fun _ => False)
+  hBonusJ : ∀ s : MachineState, s.pc = pcOf (P.kb + 115) → ∃ t, Steps image s 1 1 t ∧ t.pc = pcOf P.bonusPC ∧
+    RegsExcept s t [] ∧ Frame s t (fun _ => False)
+  hBonusBack : ∀ s : MachineState, s.pc = pcOf (P.bonusPC + 3) → ∃ t, Steps image s 1 1 t ∧
+    t.pc = pcOf (P.kb + 116) ∧ RegsExcept s t [] ∧ Frame s t (fun _ => False)
+  hBonusReject : ∀ s : MachineState, s.pc = pcOf (P.bonusPC + 4) → ∃ t, Steps image s 1 1 t ∧
+    t.pc = pcOf P.rej ∧ RegsExcept s t [] ∧ Frame s t (fun _ => False)
 theorem codeAt_kf {image : Image} {P : KInst} (h : T51KAt image P) (i : Nat) {o : Nat} {seg : List (BitVec 32)}
     (hi : (kLF P)[i]? = some (o, seg)) : CodeAt image (pcOf (P.kb + o)) seg :=
   codeAt_sublayout h.code (kLF_ok P) hi
+theorem codeAt_bonus {image : Image} {P : KInst} (h : T51KAt image P) (i : Nat) {o : Nat}
+    {seg : List (BitVec 32)} (hi : (bonusLF P)[i]? = some (o, seg)) :
+    CodeAt image (pcOf (P.bonusPC + o)) seg :=
+  codeAt_sublayout h.bonus (bonusLF_ok P) hi
 /-! ### Three-instruction lookup tail (`add t3, t3, a0 ; lwu t4, off(t3) ; add acc, acc, t4`) -/
 theorem look3 {image : Image} {s : MachineState} {pc : Word} {w2 w3 w4 : BitVec 32}
     {i2 i3 i4 : Instruction} {acc : Reg} {off : Word}
@@ -23758,6 +23828,64 @@ theorem a1_spec {image : Image} {pc : Word} (hc : CodeAt image pc kA1) (s : Mach
   · simp only [rv_simp] <;> rfl
   · intro r hr; simp at hr; cases r <;> simp_all [rv_simp, RegFile.init] <;> rfl
   · intro A _ _; simp [rv_simp]
+sym_block bonusLoadRun := symRun { noAlias := true } [0x2063f03] 0 10
+theorem bonus_load_spec {image : Image} {pc : Word} (hc : CodeAt image pc [0x2063f03])
+    (s : MachineState) (hpc : s.pc = pc) (h12 : s.getReg .x12 = BitVec.ofNat 64 EOUT) :
+    ∃ t, Steps image s 1 1 t ∧ t.pc = pc + 4 ∧
+      t.getReg .x30 = s.getMem (BitVec.ofNat 64 (EOUT + 32)) ∧
+      RegsExcept s t [.x30] ∧ Frame s t (fun _ => False) := by
+  refine ⟨_, symRun_sound (show symRun { noAlias := true } [0x2063f03] pc 10 =
+    some ⟨bonusLoadRun.res.st, .c (pc + 4), .endOfCode, 1, 1⟩ by rfl) hc s hpc
+    (by simp [bonusLoadRun.res,rv_simp,h12,EOUT,accessValid_iff,MEMORY_BYTES]; decide), ?_, ?_, ?_, ?_⟩
+  · simp [rv_simp]
+  · simp [bonusLoadRun.res,rv_simp,h12]
+  · intro r hr; cases r <;> simp_all [bonusLoadRun.res,rv_simp] <;> rfl
+  · intro A _ _; simp [bonusLoadRun.res,rv_simp]
+theorem run_bonus_branch (pc : Word) : symRun { noAlias := true } [0x1eee663] pc 10 =
+    some ⟨SymState.init, .ite .ltu (.reg .x29) (.reg .x30) (.c (pc + 12)) (.c (pc + 4)),
+      .branch, 1, 1⟩ := by rfl
+/-- The LOW half is selected using the fixed floor-14 test. This second test applies the
+digest-dependent producer floor before the LOW bonus is stored. -/
+theorem bonus_steps {image : Image} {P : KInst} (hK : T51KAt image P) (s : MachineState)
+    (hpc : s.pc = pcOf (P.kb + 115)) (h12 : s.getReg .x12 = BitVec.ofNat 64 EOUT) :
+    ((s.getReg .x29).ult (s.getMem (BitVec.ofNat 64 (EOUT + 32))) = false →
+      ∃ t, Steps image s 5 5 t ∧ t.pc = pcOf (P.kb + 116) ∧
+        t.getReg .x29 = s.getReg .x29 + 2 ∧ RegsExcept s t [.x29,.x30] ∧
+        Frame s t (fun _ => False)) ∧
+    ((s.getReg .x29).ult (s.getMem (BitVec.ofNat 64 (EOUT + 32))) = true →
+      ∃ t, Steps image s 4 4 t ∧ t.pc = pcOf P.rej ∧
+        RegsExcept s t [.x30] ∧ Frame s t (fun _ => False)) := by
+  obtain ⟨u1,s1,p1,r1,f1⟩ := hK.hBonusJ s hpc
+  have h12' : u1.getReg .x12 = BitVec.ofNat 64 EOUT := (r1 .x12 (by decide)).trans h12
+  obtain ⟨u2,s2,p2,g30,r2,f2⟩ := bonus_load_spec (codeAt_bonus hK 0 rfl) u1 p1 h12'
+  have p2' : u2.pc = pcOf (P.bonusPC+1) := by rw [p2,pcOf_4]
+  obtain ⟨u3,s3,p3,r3,f3⟩ := br_spec (run_bonus_branch _) (codeAt_bonus hK 1 rfl) u2 p2'
+  have h29 : u2.getReg .x29 = s.getReg .x29 :=
+    (r2 .x29 (by decide)).trans (r1 .x29 (by decide))
+  have hm : u1.getMem (BitVec.ofNat 64 (EOUT+32)) = s.getMem (BitVec.ofNat 64 (EOUT+32)) :=
+    f1.get (by unfold EOUT; omega) (by simp)
+  have hcmp : CmpOp.ltu.eval ((E.reg .x29).eval u2) ((E.reg .x30).eval u2) =
+      (s.getReg .x29).ult (s.getMem (BitVec.ofNat 64 (EOUT+32))) := by
+    simp only [E.eval,CmpOp.eval,h29,g30,hm]
+  constructor
+  · intro hgood
+    have p3' : u3.pc = pcOf (P.bonusPC+2) := by
+      rw [p3,hcmp,hgood,if_false,p2']; simp only [pcOf_4]
+    obtain ⟨u4,s4,p4,g29,r4,f4⟩ := a1_spec (codeAt_bonus hK 2 rfl) u3 p3'
+    have p4' : u4.pc = pcOf (P.bonusPC+3) := by rw [p4,pcOf_4]
+    obtain ⟨u5,s5,p5,r5,f5⟩ := hK.hBonusBack u4 p4'
+    refine ⟨u5, ((((s1.trans s2).trans s3).trans s4).trans s5).of_eq rfl rfl,
+      p5, ?_, ?_⟩
+    · rw [r5 .x29 (by decide),g29,r3 .x29 (by decide),h29]
+    · exact ((((r1.trans r2).trans r3).trans r4).trans r5).mono (by decide)
+    · exact ((((f1.trans f2).trans f3).trans f4).trans f5).mono (fun _ _ h => by simp at h)
+  · intro hpoor
+    have p3' : u3.pc = pcOf (P.bonusPC+4) := by
+      rw [p3,hcmp,hpoor,if_true,p2']; simp only [pcOf_4]
+    obtain ⟨u4,s4,p4,r4,f4⟩ := hK.hBonusReject u3 p3'
+    refine ⟨u4, (((s1.trans s2).trans s3).trans s4).of_eq rfl rfl, p4, ?_, ?_⟩
+    · exact (((r1.trans r2).trans r3).trans r4).mono (by decide)
+    · exact (((f1.trans f2).trans f3).trans f4).mono (fun _ _ h => by simp at h)
 theorem run_luiT5 (pc : Word) : symRun { noAlias := true } kLuiT5 pc 10 =
     some ⟨⟨{ RegFile.init with r30 := .c 0x66000 }, [], []⟩, .c (pc + 4), .endOfCode, 1, 1⟩ := by
   rfl
@@ -23787,7 +23915,8 @@ theorem f2a_spec {image : Image} {pc : Word} (hc : CodeAt image pc kF2a) (s : Ma
     (h12 : s.getReg .x12 = BitVec.ofNat 64 EOUT) :
     ∃ t, Steps image s 4 4 t ∧ t.pc = pc + 4 + 4 + 4 + 4 ∧
       t.getReg .x6 = s.getMem (BitVec.ofNat 64 (EOUT + 16)) ∧ t.getReg .x7 = s.getMem (BitVec.ofNat 64 (EOUT + 24)) ∧
-      t.getReg .x20 = BitVec.ofNat 64 128 ∧ t.getReg .x21 = BitVec.ofNat 64 14 ∧
+      t.getReg .x20 = BitVec.ofNat 64 128 ∧
+      t.getReg .x21 = s.getMem (BitVec.ofNat 64 (EOUT + 40)) ∧
       RegsExcept s t [.x6, .x7, .x20, .x21] ∧ Frame s t (fun _ => False) := by
   refine ⟨_, symRun_sound (run_f2a pc) hc s hpc
     (by simp only [rv_simp, f2aRun.res, h12, EOUT, accessValid_iff, MEMORY_BYTES]; decide), ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
@@ -24306,8 +24435,10 @@ theorem sdF_spec {image : Image} {pc : Word} (hc : CodeAt image pc kSdF) (s : Ma
   exact ⟨t, st, pt, mt, rt, ft⟩
 /-- Accept with the flag `x20` (0 = LOW: `+2` path bonus; 128 = HIGH). -/
 theorem accept_tail {image : Image} {P : KInst} (hK : T51KAt image P) (w : MachineState)
-    (hpc : w.pc = pcOf (P.kb + 114)) (low : Bool) (h20 : w.getReg .x20 = BitVec.ofNat 64 (if low then 0 else 128)) :
-    ∃ k t, Steps image w k k t ∧ k ≤ 6 ∧ t.pc = pcOf P.ub ∧
+    (hpc : w.pc = pcOf (P.kb + 114)) (low : Bool) (h20 : w.getReg .x20 = BitVec.ofNat 64 (if low then 0 else 128))
+    (h12 : w.getReg .x12 = BitVec.ofNat 64 EOUT)
+    (hgood : low = true → (w.getReg .x29).ult (w.getMem (BitVec.ofNat 64 (EOUT+32))) = false) :
+    ∃ k t, Steps image w k k t ∧ k ≤ 10 ∧ t.pc = pcOf P.ub ∧
       t.getMem (BitVec.ofNat 64 P.credit) = w.getReg .x29 + BitVec.ofNat 64 (if low then 2 else 0) ∧
       t.getMem (BitVec.ofNat 64 FLAGA) = w.getReg .x20 ∧
       RegsExcept w t [.x29, .x30] ∧ Frame w t (fun A => A = P.credit ∨ A = FLAGA) := by
@@ -24343,13 +24474,33 @@ theorem accept_tail {image : Image} {P : KInst} (hK : T51KAt image P) (w : Machi
     · exact (f1.trans f2).mono (fun _ _ h => by simp at h; exact h)
   · have p1' : u1.pc = pcOf (P.kb + 115) := by
       rw [p1, if_neg (by decide), pcOf_4]
-    obtain ⟨u2, s2, p2, x29, r2, f2⟩ := a1_spec (codeAt_kf hK 30 rfl) u1 p1'
+    have x12 : u1.getReg .x12 = BitVec.ofNat 64 EOUT := (r1 .x12 (by decide)).trans h12
+    have good : (u1.getReg .x29).ult (u1.getMem (BitVec.ofNat 64 (EOUT+32))) = false := by
+      rw [r1 .x29 (by decide), f1.get (by unfold EOUT; omega) (by simp)]
+      exact hgood rfl
+    obtain ⟨u2, s2, p2, x29, r2, f2⟩ := (bonus_steps hK u1 p1' x12).1 good
     obtain ⟨u3, s3, p3, m1, m2, r3, f3⟩ := tail u2 (by rw [p2, pcOf_4])
-    refine ⟨6, u3, ((s1.trans s2).trans s3).of_eq rfl rfl, le_refl _, p3, ?_, ?_, ?_, ?_⟩
+    refine ⟨10, u3, ((s1.trans s2).trans s3).of_eq rfl rfl, le_refl _, p3, ?_, ?_, ?_, ?_⟩
     · rw [m1, x29, r1 .x29 (by decide)]; rfl
     · rw [m2, r2 .x20 (by decide), r1 .x20 (by decide)]
     · exact ((r1.trans r2).trans r3).mono (by decide)
     · exact ((f1.trans f2).trans f3).mono (fun _ _ h => by simp at h; tauto)
+theorem reject_bonus {image : Image} {P : KInst} (hK : T51KAt image P) (w : MachineState)
+    (hpc : w.pc = pcOf (P.kb + 114)) (h20 : w.getReg .x20 = 0)
+    (h12 : w.getReg .x12 = BitVec.ofNat 64 EOUT)
+    (hpoor : (w.getReg .x29).ult (w.getMem (BitVec.ofNat 64 (EOUT+32))) = true) :
+    ∃ t, Steps image w 5 5 t ∧ t.pc = pcOf P.rej ∧
+      RegsExcept w t [.x30] ∧ Frame w t (fun _ => False) := by
+  obtain ⟨u1,s1,p1,r1,f1⟩ := br_spec (run_brA0 _) (codeAt_kf hK 29 rfl) w hpc
+  simp only [E.eval,CmpOp.eval,h20] at p1
+  have p1' : u1.pc = pcOf (P.kb+115) := by rw [p1,if_neg (by decide),pcOf_4]
+  have x12 : u1.getReg .x12 = BitVec.ofNat 64 EOUT := (r1 .x12 (by decide)).trans h12
+  have poor : (u1.getReg .x29).ult (u1.getMem (BitVec.ofNat 64 (EOUT+32))) = true := by
+    rw [r1 .x29 (by decide),f1.get (by unfold EOUT; omega) (by simp)]
+    exact hpoor
+  obtain ⟨u2,s2,p2,r2,f2⟩ := (bonus_steps hK u1 p1' x12).2 poor
+  exact ⟨u2,(s1.trans s2).of_eq rfl rfl,p2,(r1.trans r2).mono (by decide),
+    (f1.trans f2).mono (fun _ _ h => by simp at h)⟩
 theorem reject_high {image : Image} {P : KInst} (hK : T51KAt image P) (w : MachineState)
     (hpc : w.pc = pcOf (P.kb + 120)) (h20 : w.getReg .x20 = BitVec.ofNat 64 128) :
     ∃ t, Steps image w 2 2 t ∧ t.pc = pcOf P.rej ∧ RegsExcept w t [] ∧ Frame w t (fun _ => False) := by
@@ -24382,7 +24533,8 @@ theorem reject_low {image : Image} {P : KInst} (hK : T51KAt image P) (w : Machin
       Frame w t (fun _ => False)) ∧
     (¬ v.toNat < 2 ^ 126 → ∃ t, Steps image w 8 8 t ∧ t.pc = pcOf (P.kb + 4) ∧
       t.getReg .x6 = w.getMem (BitVec.ofNat 64 (EOUT + 16)) ∧ t.getReg .x7 = w.getMem (BitVec.ofNat 64 (EOUT + 24)) ∧
-      t.getReg .x20 = BitVec.ofNat 64 128 ∧ t.getReg .x21 = BitVec.ofNat 64 14 ∧
+      t.getReg .x20 = BitVec.ofNat 64 128 ∧
+      t.getReg .x21 = w.getMem (BitVec.ofNat 64 (EOUT + 40)) ∧
       RegsExcept w t [.x6, .x7, .x20, .x21, .x29] ∧ Frame w t (fun _ => False)) := by
   have hkb := hK.kbLt
   obtain ⟨u1, s1, p1, r1, f1⟩ := br_spec (run_brF0 _) (codeAt_kf hK 35 rfl) w hpc
@@ -24415,7 +24567,7 @@ theorem reject_low {image : Image} {P : KInst} (hK : T51KAt image P) (w : Machin
     · rw [r5 .x6 (by decide), y6, hF.get (by norm_num) (fun h => h)]
     · rw [r5 .x7 (by decide), y7, hF.get (by norm_num) (fun h => h)]
     · rw [r5 .x20 (by decide), y20]
-    · rw [r5 .x21 (by decide), y21]
+    · rw [r5 .x21 (by decide), y21, hF.get (by unfold EOUT; omega) (by simp)]
     · exact ((((r1.trans r2).trans r3).trans r4).trans r5).mono (by decide)
     · exact ((hF.trans f4).trans f5).mono (fun _ _ h => by simp at h)
 end SigGolfCandidate.T3M.Search.T51
@@ -24452,20 +24604,45 @@ theorem producerDecodeAt_none {v : Digest} {low : Bool} (h : ¬ kAcc v (if low t
   cases hp : WCT9.CanonicalPolicy.producerDecodeAt 0 14 low v with
   | none => rfl
   | some ds => exact absurd ((producerDecodeAt_kAcc v low).1 (by rw [hp]; rfl)) h
+theorem producerDecodeAt_some_floor {v : Digest} {low : Bool} {floor : Nat}
+    (hf : 2 ≤ floor) (h : kAcc v (floor - if low then 2 else 0)) :
+    WCT9.CanonicalPolicy.producerDecodeAt 0 floor low v =
+      some (T3.dataDigits 0 v ++ [152 - LW v]) :=
+  (producer_some v floor low hf _).2 ⟨h, kAcc_decode h⟩
+theorem producerDecodeAt_none_floor {v : Digest} {low : Bool} {floor : Nat}
+    (hf : 2 ≤ floor) (h : ¬ kAcc v (floor - if low then 2 else 0)) :
+    WCT9.CanonicalPolicy.producerDecodeAt 0 floor low v = none := by
+  cases hp : WCT9.CanonicalPolicy.producerDecodeAt 0 floor low v with
+  | none => rfl
+  | some ds => exact absurd ((producer_some v floor low hf ds).1 hp).1 h
 theorem topGood_iff (w : Digest) : WCT9.topGood w ↔ kAcc w 12 := by
   unfold WCT9.topGood
   exact producerDecodeAt_kAcc w true
+theorem bonus_test_iff (v : Digest) (extra : Nat) (hextra : extra ≤ 4) (hacc : kAcc v 12) :
+    ((BitVec.ofNat 64 (LS v + 4 * eD (gIdx v 0) + (if 152 - LW v = 4 then 1 else 0) - LPen v)).ult
+      (BitVec.ofNat 64 (12+extra)) = true) ↔ ¬ kAcc v (12+extra) := by
+  have hlanes := kLanes v hacc.1
+  have hs : LS v + 4 * eD (gIdx v 0) + (if 152 - LW v = 4 then 1 else 0) < 2^64 := by
+    omega
+  have hp : LPen v ≤ LS v + 4 * eD (gIdx v 0) + (if 152 - LW v = 4 then 1 else 0) := by
+    omega
+  rw [bv_ult _ _ (by omega) (by omega), decide_eq_true_eq]
+  unfold kAcc at hacc ⊢
+  omega
 /-- One T51 top trial from `K_ENTRY` on the 256-bit answer `a` (LOW half in `x6`, `x7`; `x12` = EOUT holds `a`):
 accept exactly the canonical producer answer (`producerDecodeOut 0 14`, floor = `topFloor` = 14), storing the credit
 and the choice flag and entering `U_ENTRY` with the selected word and its checksum digit, or reject into `NEXT`
 without a store. Generic in the instance `P` (sign and expand). -/
 theorem trial {image : Image} {P : KInst} (hK : T51KAt image P) (u : MachineState) (hpc : u.pc = pcOf P.kb)
+    (extra : Nat) (hextra : extra ≤ 4)
     (a : BitVec 256) (h6 : u.getReg .x6 = (a.extractLsb' 0 128).extractLsb' 0 64)
     (h7 : u.getReg .x7 = (a.extractLsb' 0 128).extractLsb' 64 64) (h12 : u.getReg .x12 = BitVec.ofNat 64 EOUT)
     (hH0 : u.getMem (BitVec.ofNat 64 (EOUT + 16)) = (a.extractLsb' 128 128).extractLsb' 0 64)
     (hH8 : u.getMem (BitVec.ofNat 64 (EOUT + 24)) = (a.extractLsb' 128 128).extractLsb' 64 64)
+    (hLowFloor : u.getMem (BitVec.ofNat 64 (EOUT + 32)) = BitVec.ofNat 64 (12+extra))
+    (hHighFloor : u.getMem (BitVec.ofNat 64 (EOUT + 40)) = BitVec.ofNat 64 (14+extra))
     (h17 : u.getReg .x17 = BitVec.ofNat 64 (T3.target 0)) (ht : T51TableW P.blk u) :
-    (∀ ds low, WCT9.CanonicalPolicy.producerDecodeOut 0 14 a = some (ds, low) →
+    (∀ ds low, WCT9.CanonicalPolicy.producerDecodeOut 0 (14+extra) a = some (ds, low) →
       ∃ k t, Steps image u k k t ∧ k ≤ 240 ∧ t.pc = pcOf P.ub ∧
         t.getReg .x6 = (WCT9.encodingAnswer 0 a).extractLsb' 0 64 ∧
         t.getReg .x7 = (WCT9.encodingAnswer 0 a).extractLsb' 64 64 ∧
@@ -24474,7 +24651,7 @@ theorem trial {image : Image} {P : KInst} (hK : T51KAt image P) (u : MachineStat
         t.getMem (BitVec.ofNat 64 P.credit) = BitVec.ofNat 64 (WCT9.CanonicalPolicy.credit 0 low ds) ∧
         t.getMem (BitVec.ofNat 64 FLAGA) = BitVec.ofNat 64 (if low then 0 else 128) ∧
         RegsExcept u t kRegs ∧ Frame u t (fun A => A = P.credit ∨ A = FLAGA)) ∧
-    (WCT9.CanonicalPolicy.producerDecodeOut 0 14 a = none →
+    (WCT9.CanonicalPolicy.producerDecodeOut 0 (14+extra) a = none →
       ∃ k t, Steps image u k k t ∧ k ≤ 240 ∧ t.pc = pcOf P.rej ∧ RegsExcept u t kRegs ∧
         Frame u t (fun _ => False)) := by
   have hkb := hK.kbLt
@@ -24484,8 +24661,8 @@ theorem trial {image : Image} {P : KInst} (hK : T51KAt image P) (u : MachineStat
       Frame x z (fun _ => False) := fun h1 h2 => (h1.trans h2).mono (fun _ _ h => by simpa using h)
   have hEA : WCT9.encodingAnswer 0 a =
       if WCT9.topChooseLow a then a.extractLsb' 0 128 else a.extractLsb' 128 128 := WCT9.encodingAnswer_top_eq a
-  have hPDO : WCT9.CanonicalPolicy.producerDecodeOut 0 14 a =
-      (WCT9.CanonicalPolicy.producerDecodeAt 0 14 (WCT9.topChooseLow a) (WCT9.encodingAnswer 0 a)).map
+  have hPDO : WCT9.CanonicalPolicy.producerDecodeOut 0 (14+extra) a =
+      (WCT9.CanonicalPolicy.producerDecodeAt 0 (14+extra) (WCT9.topChooseLow a) (WCT9.encodingAnswer 0 a)).map
         (fun d => (d, WCT9.topChooseLow a)) := rfl
   obtain ⟨w0, s0, p0, e10, r0, f0⟩ := hK.hE u hpc
   obtain ⟨w1, s1', p1, e20, e21, r1', f1'⟩ := e2_spec (codeAt_kf hK 1 rfl) w0 p0
@@ -24505,30 +24682,65 @@ theorem trial {image : Image} {P : KInst} (hK : T51KAt image P) (u : MachineStat
     have hTC : WCT9.topChooseLow a = true :=
       decide_eq_true (Or.inl ((topGood_iff _).2 hacc))
     have hdec := kAcc_decode hacc
-    have hpdo : WCT9.CanonicalPolicy.producerDecodeOut 0 14 a =
-        some (T3.dataDigits 0 (a.extractLsb' 0 128) ++ [152 - LW (a.extractLsb' 0 128)], true) := by
-      rw [hPDO, hTC, hEA, hTC, if_pos rfl, producerDecodeAt_some (low := true) hacc]; rfl
-    have hea : WCT9.encodingAnswer 0 a = a.extractLsb' 0 128 := by rw [hEA, hTC, if_pos rfl]
-    have w20 : w2.getReg .x20 = BitVec.ofNat 64 (if true then 0 else 128) := by rw [r2 .x20 (by decide), e20]; rfl
-    obtain ⟨k3, w3, s3, hk3, p3, m1, m2, r3, f3⟩ := accept_tail hK w2 p2 true w20
-    refine ⟨fun ds low h => ?_, fun h => (by rw [hpdo] at h; cases h)⟩
-    rw [hpdo] at h
-    simp only [Option.some.injEq, Prod.mk.injEq] at h
-    obtain ⟨rfl, rfl⟩ := h
-    refine ⟨4 + k2 + k3, w3, (s1.trans s2).trans s3, by omega, p3, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
-    · rw [r3 .x6 (by decide), r2 .x6 (by decide), w6, hea]
-    · rw [r3 .x7 (by decide), r2 .x7 (by decide), w7, hea]
-    · rw [hea]; exact hdec
-    · rw [r3 .x28 (by decide), x28, ds_getD_50' hdec]
-    · rw [m1, x29, credit_lanes hdec true, ofNat_add_ofNat]
-      have := hacc.2.2.2.2
-      apply congrArg (BitVec.ofNat 64)
-      simp only [if_true]
-      omega
-    · rw [m2, r2 .x20 (by decide), e20]; rfl
-    · exact ((r1.trans r2).trans r3).mono (by decide)
-    · exact ((hFm f1 f2).trans f3).mono (fun _ _ h => by simpa using h)
+    have w12 : w2.getReg .x12 = BitVec.ofNat 64 EOUT := by
+      rw [r2 .x12 (by decide), r1 .x12 (by decide), h12]
+    have wlow : w2.getMem (BitVec.ofNat 64 (EOUT+32)) = BitVec.ofNat 64 (12+extra) := by
+      rw [f2.get (by unfold EOUT; omega) (by simp),
+        f1.get (by unfold EOUT; omega) (by simp),hLowFloor]
+    have w20 : w2.getReg .x20 = 0 := by rw [r2 .x20 (by decide), e20]
+    by_cases hplus : kAcc (a.extractLsb' 0 128) (12+extra)
+    · have hpdo : WCT9.CanonicalPolicy.producerDecodeOut 0 (14+extra) a =
+          some (T3.dataDigits 0 (a.extractLsb' 0 128) ++ [152 - LW (a.extractLsb' 0 128)], true) := by
+        have heq : 14+extra-2 = 12+extra := by omega
+        rw [hPDO, hTC, hEA, hTC, if_pos rfl,
+          producerDecodeAt_some_floor (low := true) (floor := 14+extra) (by omega) (by simpa [heq] using hplus)]
+        rfl
+      have hea : WCT9.encodingAnswer 0 a = a.extractLsb' 0 128 := by rw [hEA, hTC, if_pos rfl]
+      have hgood : (w2.getReg .x29).ult (w2.getMem (BitVec.ofNat 64 (EOUT+32))) = false := by
+        rw [x29,wlow]
+        have hi := bonus_test_iff (a.extractLsb' 0 128) extra hextra hacc
+        cases hb : (BitVec.ofNat 64 (LS (a.extractLsb' 0 128) + 4 * eD (gIdx (a.extractLsb' 0 128) 0) +
+          (if 152 - LW (a.extractLsb' 0 128) = 4 then 1 else 0) - LPen (a.extractLsb' 0 128))).ult
+          (BitVec.ofNat 64 (12+extra)) with
+        | false => rfl
+        | true => exact False.elim (hplus (hi.1 hb))
+      obtain ⟨k3, w3, s3, hk3, p3, m1, m2, r3, f3⟩ :=
+        accept_tail hK w2 p2 true (by simpa using w20) w12 (by intro _; exact hgood)
+      refine ⟨fun ds low h => ?_, fun h => (by rw [hpdo] at h; cases h)⟩
+      rw [hpdo] at h
+      simp only [Option.some.injEq, Prod.mk.injEq] at h
+      obtain ⟨rfl, rfl⟩ := h
+      refine ⟨4 + k2 + k3, w3, (s1.trans s2).trans s3, by omega, p3, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
+      · rw [r3 .x6 (by decide), r2 .x6 (by decide), w6, hea]
+      · rw [r3 .x7 (by decide), r2 .x7 (by decide), w7, hea]
+      · rw [hea]; exact hdec
+      · rw [r3 .x28 (by decide), x28, ds_getD_50' hdec]
+      · rw [m1, x29, credit_lanes hdec true, ofNat_add_ofNat]
+        have := hacc.2.2.2.2
+        apply congrArg (BitVec.ofNat 64)
+        simp only [if_true]
+        omega
+      · rw [m2, r2 .x20 (by decide), e20]; rfl
+      · exact ((r1.trans r2).trans r3).mono (by decide)
+      · exact ((hFm f1 f2).trans f3).mono (fun _ _ h => by simpa using h)
+    · have hpdo : WCT9.CanonicalPolicy.producerDecodeOut 0 (14+extra) a = none := by
+        have heq : 14+extra-2 = 12+extra := by omega
+        rw [hPDO,hTC,hEA,hTC,if_pos rfl,
+          producerDecodeAt_none_floor (low := true) (floor := 14+extra) (by omega) (by simpa [heq] using hplus)]
+        rfl
+      have hpoor : (w2.getReg .x29).ult (w2.getMem (BitVec.ofNat 64 (EOUT+32))) = true := by
+        rw [x29,wlow]
+        exact (bonus_test_iff (a.extractLsb' 0 128) extra hextra hacc).2 hplus
+      obtain ⟨w3,s3,p3,r3,f3⟩ := reject_bonus hK w2 p2 w20 w12 hpoor
+      refine ⟨fun ds low h => (by rw [hpdo] at h; cases h), fun _ =>
+        ⟨4+k2+5,w3,(s1.trans s2).trans s3,by omega,p3,
+          ((r1.trans r2).trans r3).mono (by decide),hFm (hFm f1 f2) f3⟩⟩
   · -- LOW rejected
+    have hrejExtra : ¬ kAcc (a.extractLsb' 0 128) (12+extra) := by
+      intro h
+      apply hrej
+      unfold kAcc at h ⊢
+      omega
     have w20 : w2.getReg .x20 = 0 := by rw [r2 .x20 (by decide), e20]
     have w7' : w2.getReg .x7 = (a.extractLsb' 0 128).extractLsb' 64 64 := (r2 .x7 (by decide)).trans w7
     have w12 : w2.getReg .x12 = BitVec.ofNat 64 EOUT := by
@@ -24537,8 +24749,12 @@ theorem trial {image : Image} {P : KInst} (hK : T51KAt image P) (u : MachineStat
     by_cases hbl : (a.extractLsb' 0 128).toNat < 2 ^ 126
     · obtain ⟨w3, s3, p3, r3, f3⟩ := hblk' hbl
       have hTC : WCT9.topChooseLow a = true := decide_eq_true (Or.inr hbl)
-      have hpdo : WCT9.CanonicalPolicy.producerDecodeOut 0 14 a = none := by
-        rw [hPDO, hTC, hEA, hTC, if_pos rfl, producerDecodeAt_none (low := true) hrej]; rfl
+      have hpdo : WCT9.CanonicalPolicy.producerDecodeOut 0 (14+extra) a = none := by
+        have heq : 14+extra-2 = 12+extra := by omega
+        rw [hPDO, hTC, hEA, hTC, if_pos rfl,
+          producerDecodeAt_none_floor (low := true) (floor := 14+extra) (by omega)
+            (by simpa [heq] using hrejExtra)]
+        rfl
       refine ⟨fun ds low h => (by rw [hpdo] at h; cases h), fun _ => ⟨4 + k2 + 4, w3, (s1.trans s2).trans s3,
         by omega, p3, ((r1.trans r2).trans r3).mono (by decide), hFm (hFm f1 f2) f3⟩⟩
     · obtain ⟨w3, s3, p3, y6, y7, y20, y21, r3, f3⟩ := hnblk hbl
@@ -24556,15 +24772,22 @@ theorem trial {image : Image} {P : KInst} (hK : T51KAt image P) (u : MachineStat
         rw [r3 .x10 (by decide), r2 .x10 (by decide), e10']
       have v17 : w3.getReg .x17 = BitVec.ofNat 64 152 := by rw [r3 .x17 (by decide), r2 .x17 (by decide), w17]
       have ht3 : T51TableW P.blk w3 := ht.frame hF3 hblk (by omega) (fun _ _ h => h)
+      have v21 : w3.getReg .x21 = BitVec.ofNat 64 (14+extra) := by
+        rw [y21, hF2.get (by unfold EOUT; omega) (by simp),hHighFloor]
       obtain ⟨k4, w4, s4, hk4, r4, f4, hres2⟩ :=
-        half_run hK w3 p3 (a.extractLsb' 128 128) v6 v7 v10 v17 (thr := 14) (by norm_num) y21 ht3
+        half_run hK w3 p3 (a.extractLsb' 128 128) v6 v7 v10 v17 (thr := 14+extra) (by omega) v21 ht3
       have w20' : w4.getReg .x20 = BitVec.ofNat 64 128 := by rw [r4 .x20 (by decide), y20]
       rcases hres2 with ⟨hacc2, _, p4, x29, x28⟩ | ⟨hrej2, p4⟩
       · have hdec := kAcc_decode hacc2
-        have hpdo : WCT9.CanonicalPolicy.producerDecodeOut 0 14 a =
+        have hpdo : WCT9.CanonicalPolicy.producerDecodeOut 0 (14+extra) a =
             some (T3.dataDigits 0 (a.extractLsb' 128 128) ++ [152 - LW (a.extractLsb' 128 128)], false) := by
-          rw [hPDO, hTC, hea, producerDecodeAt_some (low := false) hacc2]; rfl
-        obtain ⟨k5, w5, s5, hk5, p5, m1, m2, r5, f5⟩ := accept_tail hK w4 p4 false (by rw [w20']; rfl)
+          rw [hPDO, hTC, hea,
+            producerDecodeAt_some_floor (low := false) (floor := 14+extra) (by omega) (by simpa using hacc2)]
+          rfl
+        have w12' : w4.getReg .x12 = BitVec.ofNat 64 EOUT := by
+          rw [r4 .x12 (by decide),r3 .x12 (by decide),r2 .x12 (by decide),r1 .x12 (by decide),h12]
+        obtain ⟨k5, w5, s5, hk5, p5, m1, m2, r5, f5⟩ :=
+          accept_tail hK w4 p4 false (by rw [w20']; rfl) w12' (by intro h; cases h)
         refine ⟨fun ds low h => ?_, fun h => (by rw [hpdo] at h; cases h)⟩
         rw [hpdo] at h
         simp only [Option.some.injEq, Prod.mk.injEq] at h
@@ -24583,8 +24806,10 @@ theorem trial {image : Image} {P : KInst} (hK : T51KAt image P) (u : MachineStat
         · rw [m2, w20']; rfl
         · exact ((((r1.trans r2).trans r3).trans r4).trans r5).mono (by decide)
         · exact ((hFm hF3 f4).trans f5).mono (fun _ _ h => by simpa using h)
-      · have hpdo : WCT9.CanonicalPolicy.producerDecodeOut 0 14 a = none := by
-          rw [hPDO, hTC, hea, producerDecodeAt_none (low := false) hrej2]; rfl
+      · have hpdo : WCT9.CanonicalPolicy.producerDecodeOut 0 (14+extra) a = none := by
+          rw [hPDO, hTC, hea,
+            producerDecodeAt_none_floor (low := false) (floor := 14+extra) (by omega) (by simpa using hrej2)]
+          rfl
         obtain ⟨w5, s5, p5, r5, f5⟩ := reject_high hK w4 p4 w20'
         refine ⟨fun ds low h => (by rw [hpdo] at h; cases h), fun _ => ⟨4 + k2 + 8 + k4 + 2, w5,
           (((s1.trans s2).trans s3).trans s4).trans s5, by omega, p5,
@@ -28518,11 +28743,13 @@ set_option linter.unusedSimpArgs false
 /-- Sign instance: `K_ENTRY` 1798, `U_ENTRY` 21230 (split jump at 21342 to 21852), block 0xFFF800 (TOP_DATA + 2048),
 credit 0x66018, reject continuation 1011 (`b + 468`, b = 543). -/
 def signInst : KInst :=
-  ⟨1798, 21230, 21852, 1, 0xFFF800, 0x66018, 1011, 0x1000537, 0x8a050513, 0x1df3c23, 0x5c51206f, 0x9b4ff06f⟩
+  ⟨1798, 21230, 21852, 1, 0xFFF800, 0x66018, 1011, 0x1000537, 0x8a050513, 0x1df3c23, 0x5c51206f, 0x9b4ff06f,
+    1948, 0x8c0006f, 0xf6dff06f, 0x94cff06f⟩
 /-- Expand instance: `K_ENTRY` 54176, `U_ENTRY` 54356 (contiguous unpacker), RAM block 0xA0000, credit 0x66040,
 reject continuation 822 (`b + 468`, b = 354). -/
 def expandInst : KInst :=
-  ⟨54176, 54356, 54468, 0, 0xA0000, 0x66040, 822, 0xa0537, 0xa050513, 0x5df3023, 0xf40006f, 0xc59cb06f⟩
+  ⟨54176, 54356, 54468, 0, 0xA0000, 0x66040, 822, 0xa0537, 0xa050513, 0x5df3023, 0xf40006f, 0xc59cb06f,
+    54305, 0x380006f, 0xfc1ff06f, 0xc45cb06f⟩
 def jal1 (n : Nat) : List (BitVec 32) := [BitVec.ofNat 32 n]
 theorem jump_hook {image : Image} {w : BitVec 32} {k t : Nat} {off : Nat}
     (hrun : ∀ pc : Word, symRun { noAlias := true } [w] pc 10 = some ⟨SymState.init, .c (pc + BitVec.ofNat 64 off), .jump, 1, 1⟩)
@@ -28570,8 +28797,10 @@ theorem cr_hook {image : Image} {w : BitVec 32} {off : BitVec 12} {k c : Nat}
   intro s hs h30
   obtain ⟨t, st, pt, mt, rt, ft⟩ := sd_spec hc hs hdec hoff h30 hal hlt
   exact ⟨t, st, by rw [pt, pcOf_4], mt, rt, ft⟩
-theorem signKAt {image : Image} (hc : CodeAt image (pcOf 1798) (kCode signInst)) : T51KAt image signInst where
+theorem signKAt {image : Image} (hc : CodeAt image (pcOf 1798) (kCode signInst))
+    (hb : CodeAt image (pcOf 1948) (bonusCode signInst)) : T51KAt image signInst where
   code := hc
+  bonus := hb
   kbLt := by norm_num [signInst]
   blk8 := by norm_num [signInst]
   blkLt := by norm_num [signInst]
@@ -28585,8 +28814,18 @@ theorem signKAt {image : Image} (hc : CodeAt image (pcOf 1798) (kCode signInst))
     (by norm_num [signInst]) (by norm_num [signInst])
   hN := jump_hook (off := 18446744073709547956) (fun _ => rfl) (codeAt_sublayout hc (kLF_ok _) (i := 40) rfl)
     (by norm_num [signInst]) (by norm_num [signInst]) (by norm_num [signInst])
-theorem expandKAt {image : Image} (hc : CodeAt image (pcOf 54176) (kCode expandInst)) : T51KAt image expandInst where
+  hBonusJ := jump_hook (off := 140) (fun _ => rfl) (codeAt_sublayout hc (kLF_ok _) (i := 30) rfl)
+    (by norm_num [signInst]) (by norm_num [signInst]) (by norm_num [signInst])
+  hBonusBack := jump_hook (off := 18446744073709551468) (fun _ => rfl)
+    (codeAt_sublayout hb (bonusLF_ok _) (i := 3) rfl)
+    (by norm_num [signInst]) (by norm_num [signInst]) (by norm_num [signInst])
+  hBonusReject := jump_hook (off := 18446744073709547852) (fun _ => rfl)
+    (codeAt_sublayout hb (bonusLF_ok _) (i := 4) rfl)
+    (by norm_num [signInst]) (by norm_num [signInst]) (by norm_num [signInst])
+theorem expandKAt {image : Image} (hc : CodeAt image (pcOf 54176) (kCode expandInst))
+    (hb : CodeAt image (pcOf 54305) (bonusCode expandInst)) : T51KAt image expandInst where
   code := hc
+  bonus := hb
   kbLt := by norm_num [expandInst]
   blk8 := by norm_num [expandInst]
   blkLt := by norm_num [expandInst]
@@ -28599,6 +28838,14 @@ theorem expandKAt {image : Image} (hc : CodeAt image (pcOf 54176) (kCode expandI
   hU := jump_hook (off := 244) (fun _ => rfl) (codeAt_sublayout hc (kLF_ok _) (i := 34) rfl) (by norm_num [expandInst])
     (by norm_num [expandInst]) (by norm_num [expandInst])
   hN := jump_hook (off := 18446744073709337688) (fun _ => rfl) (codeAt_sublayout hc (kLF_ok _) (i := 40) rfl)
+    (by norm_num [expandInst]) (by norm_num [expandInst]) (by norm_num [expandInst])
+  hBonusJ := jump_hook (off := 56) (fun _ => rfl) (codeAt_sublayout hc (kLF_ok _) (i := 30) rfl)
+    (by norm_num [expandInst]) (by norm_num [expandInst]) (by norm_num [expandInst])
+  hBonusBack := jump_hook (off := 18446744073709551552) (fun _ => rfl)
+    (codeAt_sublayout hb (bonusLF_ok _) (i := 3) rfl)
+    (by norm_num [expandInst]) (by norm_num [expandInst]) (by norm_num [expandInst])
+  hBonusReject := jump_hook (off := 18446744073709337668) (fun _ => rfl)
+    (codeAt_sublayout hb (bonusLF_ok _) (i := 4) rfl)
     (by norm_num [expandInst]) (by norm_num [expandInst]) (by norm_num [expandInst])
 /-- The sign unpacker's split jump `j 21852` at 21342. -/
 def uJumpS : List (BitVec 32) := [0x7f80006f]
@@ -29436,8 +29683,9 @@ set_option linter.unusedSimpArgs false
 set_option linter.unnecessarySeqFocus false
 set_option Elab.async false
 set_option maxRecDepth 8192
-/-- Per-layer counter window of the img-v4/v6 check `((s0 + 3) >> 1) << 20`. -/
-def capLimit (lay : Nat) : Nat := (min lay 3 + 3) / 2 * 2 ^ 20
+/-- The common first cap check; the top-only extension is handled by a helper. -/
+def baseCapLimit (lay : Nat) : Nat := (min lay 3 + 3) / 2 * 2 ^ 20
+def capLimit (lay : Nat) : Nat := if lay = 0 then WCT9.topSearchLimit else baseCapLimit lay
 def scanM : BitVec 64 := 1317624576693539401#64
 def lanes6 (x : BitVec 64) : BitVec 64 := x >>> 1 &&& x >>> 2 &&& (x ^^^ 18446744073709551615#64) &&& scanM
 def scanX (c lo hi : BitVec 64) : BitVec 64 :=
@@ -29953,14 +30201,14 @@ theorem zero_count_spec {rewardCondition : Prop} (hK : KernAt image b rewardCond
       (fun _ _ h => by simp at h)
 
 theorem capA0_thr (x : Word) (lay : Nat) (hl : lay < 4) (h8 : x = BitVec.ofNat 64 lay) :
-    BinOp.eval .sll (BinOp.eval .srl (BinOp.eval .add x 3#64) 1#64) 20#64 = BitVec.ofNat 64 (capLimit lay) := by
+    BinOp.eval .sll (BinOp.eval .srl (BinOp.eval .add x 3#64) 1#64) 20#64 = BitVec.ofNat 64 (baseCapLimit lay) := by
   subst h8
   rcases (by omega : lay = 0 ∨ lay = 1 ∨ lay = 2 ∨ lay = 3) with h | h | h | h <;> subst h <;> rfl
 def capThrE : E := .bin .sll (.bin .srl (.bin .add (.reg .x8) (.c 3#64)) (.c 1#64)) (.c 20#64)
 theorem pcEa_0_eq (b : Nat) :
-    pcEa_0 b = .ite .ltu (.reg .x19) capThrE (.c (pcOf (capBase b + 5))) (.c (pcOf (capBase b + 4))) := by
+    pcEa_0 b = .ite .ltu (.reg .x19) capThrE (.c (pcOf (capBase b + 6))) (.c (pcOf (capBase b + 4))) := by
   unfold pcEa_0
-  rw [show blkA354_0.res.pc = .ite .ltu (.reg .x19) capThrE (.c (pcOf (41066 + 5))) (.c (pcOf (41066 + 4))) by
+  rw [show blkA354_0.res.pc = .ite .ltu (.reg .x19) capThrE (.c (pcOf (41066 + 6))) (.c (pcOf (41066 + 4))) by
     kernel_rfl]
   rfl
 theorem capA0_frame (s : MachineState) (b : Nat) :
@@ -29969,16 +30217,16 @@ theorem capA0_frame (s : MachineState) (b : Nat) :
   intro A _ _; simp [sta_0, blkA354_0.res, rv_simp]
 theorem capA0_pc (s : MachineState) (b lay i : Nat) (hl : lay < 4) (hi : i < 2 ^ 64)
     (h8 : s.getReg .x8 = BitVec.ofNat 64 lay) (h19 : s.getReg .x19 = BitVec.ofNat 64 i) :
-    (pcEa_0 b).eval s = (if i < capLimit lay then pcOf (capBase b + 5) else pcOf (capBase b + 4)) := by
-  have hcl : capLimit lay < 2 ^ 64 := by unfold capLimit; omega
+    (pcEa_0 b).eval s = (if i < baseCapLimit lay then pcOf (capBase b + 6) else pcOf (capBase b + 4)) := by
+  have hcl : baseCapLimit lay < 2 ^ 64 := by unfold baseCapLimit; omega
   rw [pcEa_0_eq]
   simp only [E.eval, capThrE]
   rw [capA0_thr (s.getReg .x8) lay hl h8, h19]
-  by_cases h : i < capLimit lay
-  · have : (BitVec.ofNat 64 i).ult (BitVec.ofNat 64 (capLimit lay)) = true := by
+  by_cases h : i < baseCapLimit lay
+  · have : (BitVec.ofNat 64 i).ult (BitVec.ofNat 64 (baseCapLimit lay)) = true := by
       simp only [BitVec.ult, BitVec.toNat_ofNat, Nat.mod_eq_of_lt hi, Nat.mod_eq_of_lt hcl]; simpa using h
     simp [CmpOp.eval, this, h]
-  · have : (BitVec.ofNat 64 i).ult (BitVec.ofNat 64 (capLimit lay)) = false := by
+  · have : (BitVec.ofNat 64 i).ult (BitVec.ofNat 64 (baseCapLimit lay)) = false := by
       simp only [BitVec.ult, BitVec.toNat_ofNat, Nat.mod_eq_of_lt hi, Nat.mod_eq_of_lt hcl]; simp; omega
     simp [CmpOp.eval, this, h]
 theorem capA0_regs (s : MachineState) (b : Nat) :
@@ -29991,57 +30239,141 @@ set_option maxHeartbeats 1000000 in
 theorem capA0_spec {rewardCondition : Prop} (hK : KernAt image b rewardCondition) (s : MachineState) (hpc : s.pc = pcOf (capBase b + 0)) (lay i : Nat)
     (hl : lay < 4) (hi : i < 2 ^ 64) (h8 : s.getReg .x8 = BitVec.ofNat 64 lay) (h19 : s.getReg .x19 = BitVec.ofNat 64 i) :
     ∃ t, Steps image s 4 4 t ∧
-      t.pc = (if i < capLimit lay then pcOf (capBase b + 5) else pcOf (capBase b + 4)) ∧
+      t.pc = (if i < baseCapLimit lay then pcOf (capBase b + 6) else pcOf (capBase b + 4)) ∧
       RegsExcept s t [.x6] ∧ Frame s t (fun _ => False) := by
   have hS := symRun_sound (runa_0 hK.2.1) (codeAt_a_0 hK) s hpc (by simp [sta_0, blkA354_0.res, rv_simp])
   rw [capA0_steps.1, capA0_steps.2] at hS
   refine ⟨_, hS, ?_, capA0_regs s b, capA0_frame s b⟩
   rw [Result.toState_pc]
   exact capA0_pc s b lay i hl hi h8 h19
-theorem capA4_spec {rewardCondition : Prop} (hK : KernAt image b rewardCondition) (s : MachineState) (hpc : s.pc = pcOf (capBase b + 4)) :
-    ∃ t, Steps image s 1 1 t ∧ t.pc = pcOf (capBase b + 6) ∧ RegsExcept s t [] ∧ Frame s t (fun _ => False) := by
+theorem capA4_spec {rewardCondition : Prop} (hK : KernAt image b rewardCondition) (s : MachineState)
+    (hpc : s.pc = pcOf (capBase b + 4)) (lay : Nat) (hl : lay < 4)
+    (h8 : s.getReg .x8 = BitVec.ofNat 64 lay) :
+    ∃ t, Steps image s 1 1 t ∧
+      t.pc = (if lay = 0 then pcOf (capHelperBase b) else pcOf (capBase b + 5)) ∧
+      RegsExcept s t [] ∧ Frame s t (fun _ => False) := by
   refine ⟨_, symRun_sound (runa_4 hK.2.1) (codeAt_a_4 hK) s hpc (by simp [sta_4, blkA354_4.res, rv_simp]),
     ?_, ?_, ?_⟩
-  · simp [pcEa_4, blkA354_4.res, E.eval]
+  · simp only [Result.toState_pc, pcEa_4, E.eval, CmpOp.eval, h8]
+    by_cases he : lay = 0
+    · subst lay; simp
+    · have hn : (BitVec.ofNat 64 lay == 0#64) = false := by
+        rw [beq_eq_false_iff_ne, ne_eq, show (0#64) = BitVec.ofNat 64 0 from rfl, ofNat_eq_iff]
+        omega
+      simp [he, hn]
   · intro r hr; simp at hr; cases r <;> simp_all [sta_4, blkA354_4.res, rv_simp] <;> rfl
   · intro A _ _; simp [sta_4, blkA354_4.res, rv_simp]
 theorem capA5_spec {rewardCondition : Prop} (hK : KernAt image b rewardCondition) (s : MachineState) (hpc : s.pc = pcOf (capBase b + 5)) :
-    ∃ t, Steps image s 1 1 t ∧ t.pc = pcOf (b + 115) ∧ RegsExcept s t [] ∧ Frame s t (fun _ => False) := by
+    ∃ t, Steps image s 1 1 t ∧ t.pc = pcOf (b + 424) ∧ RegsExcept s t [] ∧ Frame s t (fun _ => False) := by
   refine ⟨_, symRun_sound (runa_5 hK.2.1) (codeAt_a_5 hK) s hpc (by simp [sta_5, blkA354_5.res, rv_simp]),
     ?_, ?_, ?_⟩
   · simp [pcEa_5, blkA354_5.res, E.eval]
   · intro r hr; simp at hr; cases r <;> simp_all [sta_5, blkA354_5.res, rv_simp] <;> rfl
   · intro A _ _; simp [sta_5, blkA354_5.res, rv_simp]
 theorem capA6_spec {rewardCondition : Prop} (hK : KernAt image b rewardCondition) (s : MachineState) (hpc : s.pc = pcOf (capBase b + 6)) :
-    ∃ t, Steps image s 1 1 t ∧ t.pc = pcOf (b + 424) ∧ RegsExcept s t [] ∧ Frame s t (fun _ => False) := by
+    ∃ t, Steps image s 1 1 t ∧ t.pc = pcOf (b + 115) ∧ RegsExcept s t [] ∧ Frame s t (fun _ => False) := by
   refine ⟨_, symRun_sound (runa_6 hK.2.1) (codeAt_a_6 hK) s hpc (by simp [sta_6, blkA354_6.res, rv_simp]),
     ?_, ?_, ?_⟩
   · simp [pcEa_6, blkA354_6.res, E.eval]
   · intro r hr; simp at hr; cases r <;> simp_all [sta_6, blkA354_6.res, rv_simp] <;> rfl
   · intro A _ _; simp [sta_6, blkA354_6.res, rv_simp]
+theorem pcCapH_eq (b : Nat) (hb : b = 354 ∨ b = 543) :
+    pcCapH b = .ite .ltu (.reg .x19) (.c (BitVec.ofNat 64 WCT9.topSearchLimit))
+      (.c (pcOf (capHelperBase b + 3))) (.c (pcOf (capHelperBase b + 2))) := by
+  rcases hb with rfl | rfl <;> kernel_rfl
+theorem capH_steps : blkCapH354.res.steps = 2 ∧ blkCapH354.res.cycles = 2 := by
+  constructor <;> kernel_rfl
+theorem capH_pc (b i : Nat) (hb : b = 354 ∨ b = 543) (hi : i < 2 ^ 64)
+    (h19 : s.getReg .x19 = BitVec.ofNat 64 i) :
+    (pcCapH b).eval s =
+      (if i < WCT9.topSearchLimit then pcOf (capHelperBase b + 3) else pcOf (capHelperBase b + 2)) := by
+  rw [pcCapH_eq b hb]
+  simp only [E.eval, h19]
+  have ht : WCT9.topSearchLimit < 2 ^ 64 := by decide
+  by_cases h : i < WCT9.topSearchLimit
+  · have hu : (BitVec.ofNat 64 i).ult (BitVec.ofNat 64 WCT9.topSearchLimit) = true := by
+      simp only [BitVec.ult, BitVec.toNat_ofNat, Nat.mod_eq_of_lt hi, Nat.mod_eq_of_lt ht]
+      simpa using h
+    simp [CmpOp.eval, hu, h]
+  · have hu : (BitVec.ofNat 64 i).ult (BitVec.ofNat 64 WCT9.topSearchLimit) = false := by
+      simp only [BitVec.ult, BitVec.toNat_ofNat, Nat.mod_eq_of_lt hi, Nat.mod_eq_of_lt ht]
+      simp; omega
+    simp [CmpOp.eval, hu, h]
+theorem capH_spec {rewardCondition : Prop} (hK : KernAt image b rewardCondition)
+    (s : MachineState) (hpc : s.pc = pcOf (capHelperBase b)) (i : Nat) (hi : i < 2 ^ 64)
+    (h19 : s.getReg .x19 = BitVec.ofNat 64 i) :
+    ∃ t, Steps image s 2 2 t ∧
+      t.pc = (if i < WCT9.topSearchLimit then pcOf (capHelperBase b + 3) else pcOf (capHelperBase b + 2)) ∧
+      RegsExcept s t [.x6] ∧ Frame s t (fun _ => False) := by
+  have hs := symRun_sound (runCapH hK.2.1) (codeAt_capHelper hK) s hpc
+    (by simp [staCapH, blkCapH354.res, rv_simp])
+  rw [capH_steps.1, capH_steps.2] at hs
+  refine ⟨_, hs, ?_, ?_, ?_⟩
+  · rw [Result.toState_pc]; exact capH_pc b i hK.2.1 hi h19
+  · intro r hr; simp at hr; cases r <;> simp_all [staCapH, blkCapH354.res, rv_simp] <;> rfl
+  · intro A _ _; simp [staCapH, blkCapH354.res, rv_simp]
+theorem runCapJ (b k : Nat) (hb : b = 354 ∨ b = 543) (hk : k = 2 ∨ k = 3) :
+    symRun { noAlias := true } [capHelperJump b] (pcOf (capHelperBase b + k)) 20 =
+      some ⟨SymState.init, .c (pcOf (capBase b + k + 3)), .jump, 1, 1⟩ := by
+  rcases hb with rfl | rfl <;> rcases hk with rfl | rfl <;> kernel_rfl
+theorem capJ_spec {rewardCondition : Prop} (hK : KernAt image b rewardCondition)
+    (s : MachineState) (k : Nat) (hk : k = 2 ∨ k = 3)
+    (hpc : s.pc = pcOf (capHelperBase b + k)) :
+    ∃ t, Steps image s 1 1 t ∧ t.pc = pcOf (capBase b + k + 3) ∧
+      RegsExcept s t [] ∧ Frame s t (fun _ => False) := by
+  have hs := symRun_sound (runCapJ b k hK.2.1 hk) (codeAt_capHelperJump hK k hk) s hpc
+    (by simp [rv_simp])
+  refine ⟨_, hs, ?_, ?_, ?_⟩
+  · simp [Result.toState_pc, E.eval]
+  · intro r hr; simp [rv_simp]
+  · intro A _ _; simp [rv_simp]
 theorem capLimit_lt (lay : Nat) (hl : lay < 4) : capLimit lay ≤ 3 * 2 ^ 20 := by
   unfold capLimit; interval_cases lay <;> decide
 theorem cap_spec {rewardCondition : Prop} (hK : KernAt image b rewardCondition) (s : MachineState) (hpc : s.pc = pcOf (capBase b)) (lay i : Nat)
     (hl : lay < 4) (hi : i ≤ capLimit lay) (h8 : s.getReg .x8 = BitVec.ofNat 64 lay)
     (h19 : s.getReg .x19 = BitVec.ofNat 64 i) :
-    ∃ k t, Steps image s k k t ∧ k ≤ 6 ∧
+    ∃ k t, Steps image s k k t ∧ k ≤ 9 ∧
       t.pc = (if i = capLimit lay then pcOf (b + 424) else pcOf (b + 115)) ∧
       RegsExcept s t [.x6] ∧ Frame s t (fun _ => False) := by
   have hcl := capLimit_lt lay hl
   have hi64 : i < 2 ^ 64 := by omega
   obtain ⟨t0, s0, p0, r0, f0⟩ := capA0_spec hK s (by simpa using hpc) lay i hl hi64 h8 h19
-  by_cases hlow : i < capLimit lay
+  by_cases hlow : i < baseCapLimit lay
   · rw [if_pos hlow] at p0
-    obtain ⟨t1, s1, p1, r1, f1⟩ := capA5_spec hK t0 p0
+    obtain ⟨t1, s1, p1, r1, f1⟩ := capA6_spec hK t0 p0
+    have hbase : baseCapLimit lay ≤ capLimit lay := by
+      unfold capLimit baseCapLimit WCT9.topSearchLimit
+      by_cases hz : lay = 0 <;> simp [hz] <;> omega
     have hne : i ≠ capLimit lay := by omega
     refine ⟨_, _, s0.trans s1, by omega, by rw [p1, if_neg hne], (r0.trans r1).mono (by decide),
       (f0.trans f1).mono (fun _ _ h => by simp at h)⟩
   · rw [if_neg hlow] at p0
-    have heq : i = capLimit lay := by omega
-    obtain ⟨t1, s1, p1, r1, f1⟩ := capA4_spec hK t0 p0
-    obtain ⟨t2, s2, p2, r2, f2⟩ := capA6_spec hK t1 p1
-    refine ⟨_, _, s0.trans (s1.trans s2), by omega, by rw [p2, if_pos heq],
-      (r0.trans (r1.trans r2)).mono (by decide), (f0.trans (f1.trans f2)).mono (fun _ _ h => by simp at h)⟩
+    obtain ⟨t1, s1, p1, r1, f1⟩ := capA4_spec hK t0 p0 lay hl (by rw [r0.get (by decide)]; exact h8)
+    by_cases hz : lay = 0
+    · rw [if_pos hz] at p1
+      obtain ⟨t2, s2, p2, r2, f2⟩ := capH_spec hK t1 p1 i hi64
+        (by rw [r1.get (by decide), r0.get (by decide), h19])
+      by_cases htop : i < WCT9.topSearchLimit
+      · rw [if_pos htop] at p2
+        obtain ⟨t3, s3, p3, r3, f3⟩ := capJ_spec hK t2 3 (Or.inr rfl) p2
+        obtain ⟨t4, s4, p4, r4, f4⟩ := capA6_spec hK t3 (by simpa [Nat.add_assoc] using p3)
+        have hne : i ≠ capLimit lay := by simpa [capLimit, hz] using (Nat.ne_of_lt htop)
+        refine ⟨_, t4, (((s0.trans s1).trans s2).trans s3).trans s4, by omega,
+          by rw [p4, if_neg hne], ((((r0.trans r1).trans r2).trans r3).trans r4).mono (by decide),
+          ((((f0.trans f1).trans f2).trans f3).trans f4).mono (fun _ _ h => by simp at h)⟩
+      · rw [if_neg htop] at p2
+        obtain ⟨t3, s3, p3, r3, f3⟩ := capJ_spec hK t2 2 (Or.inl rfl) p2
+        obtain ⟨t4, s4, p4, r4, f4⟩ := capA5_spec hK t3 (by simpa [Nat.add_assoc] using p3)
+        have heq : i = capLimit lay := by simpa [capLimit, hz] using (show i = WCT9.topSearchLimit by omega)
+        refine ⟨_, t4, (((s0.trans s1).trans s2).trans s3).trans s4, by omega,
+          by rw [p4, if_pos heq], ((((r0.trans r1).trans r2).trans r3).trans r4).mono (by decide),
+          ((((f0.trans f1).trans f2).trans f3).trans f4).mono (fun _ _ h => by simp at h)⟩
+    · rw [if_neg hz] at p1
+      obtain ⟨t2, s2, p2, r2, f2⟩ := capA5_spec hK t1 p1
+      have heq : i = capLimit lay := by simp only [capLimit, hz, if_false] at hi ⊢; omega
+      refine ⟨_, t2, (s0.trans s1).trans s2, by omega, by rw [p2, if_pos heq],
+        ((r0.trans r1).trans r2).mono (by decide),
+        ((f0.trans f1).trans f2).mono (fun _ _ h => by simp at h)⟩
 theorem scanA7_spec {rewardCondition : Prop} (hK : KernAt image b rewardCondition) (s : MachineState) (hpc : s.pc = pcOf (capBase b + 7)) (lay : Nat)
     (hl : lay < 4) (h8 : s.getReg .x8 = BitVec.ofNat 64 lay) (c lo hi : BitVec 64)
     (h28 : s.getReg .x28 = c) (h6 : s.getReg .x6 = lo) (h7 : s.getReg .x7 = hi) :
@@ -30333,7 +30665,11 @@ structure CsArgs where
   ret : Nat
 def csT (lay : Layer) : Nat := if lay = 0 then 270 else 380
 def csOk (lay : Layer) : Nat := if lay = 0 then 4096 else 4096
-theorem capLimit_le (n : Nat) : capLimit n ≤ 2 ^ 22 := by unfold capLimit; omega
+theorem capLimit_le (n : Nat) : capLimit n ≤ 2 ^ 22 := by
+  unfold capLimit
+  by_cases h : n = 0
+  · simp [h, WCT9.topSearchLimit]
+  · simp only [h, if_false]; unfold baseCapLimit; omega
 theorem capLimit_eq (lay : Layer) : capLimit lay.val = WCT9.searchLimit lay := by
   fin_cases lay <;> rfl
 theorem length_filter_range (n : Nat) (p : Nat → Prop) [DecidablePred p] :
@@ -30581,10 +30917,11 @@ structure Code (image : Image) : Prop where
   topHook : CodeAt image (pcOf 22499) topCreditCode
   /-- Campaign T51: the top-trial kernel `K` at 1798 and the split unpacker (21230 | jump at 21342 | 21852). -/
   t51K : CodeAt image (pcOf 1798) (T51.kCode T51.signInst)
+  t51Bonus : CodeAt image (pcOf 1948) (T51.bonusCode T51.signInst)
   t51UA : CodeAt image (pcOf 21230) T51.uCodeA
   t51UJ : CodeAt image (pcOf 21342) T51.uJumpS
   t51UB : CodeAt image (pcOf 21852) T51.uCodeB
-theorem Code.kAt {image : Image} (h : Code image) : T51.T51KAt image T51.signInst := T51.signKAt h.t51K
+theorem Code.kAt {image : Image} (h : Code image) : T51.T51KAt image T51.signInst := T51.signKAt h.t51K h.t51Bonus
 theorem Code.uAt {image : Image} (h : Code image) : T51.T51UAt image T51.signInst :=
   T51.signUAt h.t51UA h.t51UJ h.t51UB
 
@@ -30816,7 +31153,11 @@ structure CsArgs where
   floor : Nat
 def csT (lay : Layer) : Nat := if lay = 0 then 755 else 391
 def csOk (lay : Layer) : Nat := if lay = 0 then 4096 else 4096
-theorem capLimit_le (n : Nat) : capLimit n ≤ 2 ^ 22 := by unfold capLimit; omega
+theorem capLimit_le (n : Nat) : capLimit n ≤ 2 ^ 22 := by
+  unfold capLimit
+  by_cases h : n = 0
+  · simp [h, WCT9.topSearchLimit]
+  · simp only [h, if_false]; unfold baseCapLimit; omega
 theorem capLimit_eq (lay : Layer) : capLimit lay.val = WCT9.searchLimit lay := by
   fin_cases lay <;> rfl
 theorem length_filter_range (n : Nat) (p : Nat → Prop) [DecidablePred p] :
@@ -30914,7 +31255,9 @@ structure CsPre (b : Nat) (A : CsArgs) (s : MachineState) : Prop where
   reward : Reward.LowerTablesOK s
   zt : ZeroCap.ZtOK b s
   floorLt : A.floor<22
-  floorTop : A.lay=0 → A.floor=14
+  floorTop : A.lay=0 → ∃ extra : Nat, extra ≤ 4 ∧ A.floor=14+extra ∧
+    s.getMem (BitVec.ofNat 64 (EOUT+32))=BitVec.ofNat 64 (12+extra) ∧
+    s.getMem (BitVec.ofNat 64 (EOUT+40))=BitVec.ofNat 64 (14+extra)
   floorMem : A.lay≠0 → s.getMem (0x66010#64)=BitVec.ofNat 64 A.floor
   /-- T51: the packed top tables (sign block 0xFFF800 = TOP_DATA + 2048) for the top search. -/
   t51table : A.lay=0 → T51.T51TableW 0xFFF800 s
@@ -31111,7 +31454,7 @@ theorem TrialSt.zt {A : CsArgs} {s0 u : MachineState} {i : Nat} {b' : Nat} (hb' 
       simp only [ZeroCap.ZT, CsW, CanonicalHooks.CreditW, DigW, ENC, EOUT, DIGITS, FLAG] <;> norm_num <;> omega)
 theorem cs_answer {A : CsArgs} {s0 t : MachineState} {i : Nat} {rewardCondition : Prop} (hK : KernAt image b rewardCondition) (hpre : CsPre b A s0)
     (hI : CsInv b A s0 i t) (hi : i < capLimit A.lay.val) :
-    ∃ k t2, Steps image t k k t2 ∧ k ≤ 14 ∧ t2.pc = pcOf (b + 123) ∧
+    ∃ k t2, Steps image t k k t2 ∧ k ≤ 17 ∧ t2.pc = pcOf (b + 123) ∧
       fetch image t2 = some (.base .ECALL) ∧
       t2.getReg .x5 = 0 ∧ hashArgumentsValid t2 = true ∧
       hashInput t2 = toQ (T3.pad64 (WCT9.layerEncodingInput A.lay A.tree A.leaf A.msg (BitVec.ofNat 32 i))) ∧
@@ -31136,7 +31479,7 @@ theorem cs_answer {A : CsArgs} {s0 t : MachineState} {i : Nat} {rewardCondition 
         hI.h16]
     · rw [f2.get (by simp only [ENC]; omega) (by simp only [ENC]; omega), f1.get (by simp only [ENC]; omega) (by simp),
         hI.h24]
-  have hk : k1 + 8 ≤ 14 := by omega
+  have hk : k1 + 8 ≤ 17 := by omega
   refine ⟨_, t2, s1.trans s2, hk, p2, (codeAt_k_123 hK).fetch _ p2, by rw [hT.reg (by decide), hpre.x5],
     hashArgs_const t2 ENC 64 EOUT h10 h11 h12 (by decide) (by decide) (by decide) (by decide) (by decide),
     ?_, h12, hT⟩
@@ -31171,7 +31514,7 @@ theorem cs_exhaust {A : CsArgs} {s0 t : MachineState} {i : Nat}
   obtain ⟨k1,t1,s1,k1le,p1,r1,f1⟩ := cap_spec hK t hI.pc A.lay.val i A.lay.isLt hI.hi
     (by rw [hI.regs.get (by decide),hpre.x8]) hI.x19
   rw [if_pos hi] at p1
-  have hk1 : k1≤6 := k1le
+  have hk1 : k1≤9 := k1le
   have h8 : t1.getReg .x8=BitVec.ofNat 64 A.lay.val := by
     rw [r1.get (by decide),hI.regs.get (by decide),hpre.x8]
   have fr1 : Frame s0 t1 CsW := (hI.frame.trans f1).mono (fun A _ h=>by simpa using h)
@@ -31249,9 +31592,9 @@ theorem cs_loop {A : CsArgs} {s0 : MachineState} (hK : KernAt image 543 (Canonic
       intro w hw; rw [hw,f4.get (by unfold EOUT;omega) (by simp)]; exact hhi.2
     by_cases hlz : A.lay=0
     · rw [if_pos (hl0.2 hlz)] at p4
-      have hfl : A.floor = 14 := hpre.floorTop hlz
+      obtain ⟨extra, hextra, hfl, hLowFloor, hHighFloor⟩ := hpre.floorTop hlz
       have e : WCT9.CanonicalPolicy.producerDecodeOut A.lay A.floor a =
-          WCT9.CanonicalPolicy.producerDecodeOut 0 14 a := by rw [hlz,hfl]
+          WCT9.CanonicalPolicy.producerDecodeOut 0 (14+extra) a := by rw [hlz,hfl]
       rw [e]
       -- T51: `tcEntry 543` jumps to the T51 kernel `K_ENTRY` (1798)
       obtain ⟨tg,sg,pg,rg,fg⟩ := top_entry_spec hK t4 p4
@@ -31264,13 +31607,20 @@ theorem cs_loop {A : CsArgs} {s0 : MachineState} (hK : KernAt image 543 (Canonic
       have h7g : tg.getReg .x7 = (a.extractLsb' 0 128).extractLsb' 64 64 := by rw [rg.get (by decide),h7]
       have h12g : tg.getReg .x12 = BitVec.ofNat 64 EOUT := by
         rw [rg.get (by decide),r4.get (by decide),getReg_writeHash,h12]
+      have hLowFloorG : tg.getMem (BitVec.ofNat 64 (EOUT+32)) = BitVec.ofNat 64 (12+extra) := by
+        rw [hTg.frame.get (by unfold EOUT; omega)
+          (by unfold CsW CanonicalHooks.CreditW DigW ENC EOUT DIGITS FLAG; omega),hLowFloor]
+      have hHighFloorG : tg.getMem (BitVec.ofNat 64 (EOUT+40)) = BitVec.ofNat 64 (14+extra) := by
+        rw [hTg.frame.get (by unfold EOUT; omega)
+          (by unfold CsW CanonicalHooks.CreditW DigW ENC EOUT DIGITS FLAG; omega),hHighFloor]
       have h17g : tg.getReg .x17 = BitVec.ofNat 64 (T3.target 0) := by
         rw [hTg.reg (by decide),hpre.x17,hlz]; rfl
       have htg : T51.T51TableW T51.signInst.blk tg := (hpre.t51table hlz).frame hTg.frame (by decide) (by decide)
         (by intro k hk; unfold CsW CanonicalHooks.CreditW DigW ENC EOUT DIGITS FLAG; omega)
-      obtain ⟨hAcc,hRej⟩ := T51.trial hKT tg (by rw [pg]; rfl) a h6g h7g h12g
-        (mH0 tg (fgE _ (by unfold EOUT;omega))) (mH8 tg (fgE _ (by unfold EOUT;omega))) h17g htg
-      cases hD : WCT9.CanonicalPolicy.producerDecodeOut 0 14 a with
+      obtain ⟨hAcc,hRej⟩ := T51.trial hKT tg (by rw [pg]; rfl) extra hextra a h6g h7g h12g
+        (mH0 tg (fgE _ (by unfold EOUT;omega))) (mH8 tg (fgE _ (by unfold EOUT;omega)))
+        hLowFloorG hHighFloorG h17g htg
+      cases hD : WCT9.CanonicalPolicy.producerDecodeOut 0 (14+extra) a with
       | some found =>
         obtain ⟨ds,low⟩ := found
         obtain ⟨k,t,st,kle,pt,t6,t7,hdec,t28,tcr,tfl,rt,ft⟩ := hAcc ds low hD

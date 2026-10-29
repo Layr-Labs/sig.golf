@@ -64,8 +64,9 @@ theorem submission_verificationBound (E : EncodingFacts) (F : SourceQueries) (P 
     rw [ClaudeWCT.W9.T3M.Paired.wtopHigh_witEncN]; exact hashOkBy_okHashBy floors wt.topHigh hash
   have hc:=P.verify_accept_cycles floors hfloors (okHashBy floors wt.topHigh hash) m pk _
     hok (Credit.Paired.digestCap_okHashBy floors wt.topHigh hash m pk sig output wt hx) hacc
-  unfold verifyCycleBound at hc
-  omega
+  calc
+    _ ≤ verifyCycleBound + 86 := Nat.add_le_add_right hc 86
+    _ = 7007 := by decide
 end ClaudeWCT.W9.T3M.Final.Paired
 
 namespace ClaudeWCT.W9.T3M.Final.Paired

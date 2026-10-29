@@ -3079,7 +3079,8 @@ theorem checks_spec (m : Bool) (hl:LookOK im (look m)) (s : MachineState)
     (hpc:s.pc=pcOf (base m+15)) (a : BitVec 256) (ha:OutAt s NBUF a) (hc:TablesAt m s) :
     ∃t c,Steps im s c c t ∧ c ≤ 157 ∧ RegsExcept s t [.x6,.x7,.x17,.x20,.x21,.x24,.x25,.x28] ∧
       Frame s t (fun _=>False) ∧ t.pc=(if acceptedTest a then pcOf (accepted m) else pcOf (next m)) ∧
-      (acceptedTest a=true → t.getReg .x17=BitVec.ofNat 64 NBUF) := by
+      (acceptedTest a=true → t.getReg .x17=BitVec.ofNat 64 NBUF) ∧
+      (acceptedTest a=true → t.getReg (sumReg m)=BitVec.ofNat 64 (psum a 9)) := by
   obtain ⟨t1,s1,p1,r17,r1,f1⟩:=gate_spec m hl s hpc a ha
   by_cases hg:gateN a < 791
   · rw[if_pos hg]at p1
@@ -3090,7 +3091,7 @@ theorem checks_spec (m : Bool) (hl:LookOK im (look m)) (s : MachineState)
     by_cases hf:∀k,k < 9 → rankN a k < 563
     · rw[if_pos (hall.mpr hf)]at p3
       obtain ⟨t4,s4,p4,r4,f4⟩:=cap_spec m hl t3 p3.1 (psum a 9) (by have:=psum_le a 9 (by omega);omega) p3.2
-      refine ⟨t4,6+(if m then 3 else 5)+c3+2,((s1.trans s2).trans s3).trans s4,?_,?_,?_,?_,?_⟩
+      refine ⟨t4,6+(if m then 3 else 5)+c3+2,((s1.trans s2).trans s3).trans s4,?_,?_,?_,?_,?_,?_⟩
       · cases m <;> simp at * <;> omega
       · exact (((r1.trans r2).trans r3).trans r4).mono (by cases m <;> simp [sumReg])
       · exact (((f1.trans f2).trans f3).trans f4).mono (fun A _ h=>by simpa using h)
@@ -3103,8 +3104,11 @@ theorem checks_spec (m : Bool) (hl:LookOK im (look m)) (s : MachineState)
       · intro _
         rw [r4.get (by cases m <;> simp [sumReg]),r3.get (by cases m <;> simp [sumReg])]
         exact r172
+      · intro _
+        rw [r4.get (by cases m <;> simp [sumReg])]
+        exact p3.2
     · rw[if_neg (fun h=>hf (hall.mp h))]at p3
-      refine ⟨t3,6+(if m then 3 else 5)+c3,(s1.trans s2).trans s3,?_,?_,?_,?_,?_⟩
+      refine ⟨t3,6+(if m then 3 else 5)+c3,(s1.trans s2).trans s3,?_,?_,?_,?_,?_,?_⟩
       · cases m <;> simp at * <;> omega
       · exact ((r1.trans r2).trans r3).mono (by cases m <;> simp [sumReg])
       · exact ((f1.trans f2).trans f3).mono (fun A _ h=>by simpa using h)
@@ -3112,10 +3116,14 @@ theorem checks_spec (m : Bool) (hl:LookOK im (look m)) (s : MachineState)
         exact p3
       · intro ha
         exact False.elim (hf ((acceptedTest_iff a).mp ha).2.1)
+      · intro ha
+        exact False.elim (hf ((acceptedTest_iff a).mp ha).2.1)
   · rw[if_neg hg]at p1
-    refine ⟨t1,6,s1,by omega,r1.mono (by simp),f1,?_,?_⟩
+    refine ⟨t1,6,s1,by omega,r1.mono (by simp),f1,?_,?_,?_⟩
     · rw[if_neg (fun h=>hg ((acceptedTest_iff a).mp h).1)]
       exact p1
+    · intro ha
+      exact False.elim (hg ((acceptedTest_iff a).mp ha).1)
     · intro ha
       exact False.elim (hg ((acceptedTest_iff a).mp ha).1)
 
@@ -3202,6 +3210,9 @@ structure Post (m : Bool) (s0 : MachineState) (r : Option (BitVec 32 × BitVec 2
   resultR17 : match r with
     | none => True
     | some _ => t.getReg .x17=BitVec.ofNat 64 NBUF
+  resultCost : match r with
+    | none => True
+    | some (_,a) => t.getReg (sumReg m)=BitVec.ofNat 64 (SharedForest.jointAccountingCost a)
 
 variable {im : Image} {sk : BitVec 256}
 theorem loop (m : Bool) (hl : LookOK im (look m)) {s0 : MachineState} {rho : BitVec 128} {msg : SigGolfCandidate.T3.Message}
@@ -3218,7 +3229,7 @@ theorem loop (m : Bool) (hl : LookOK im (look m)) {s0 : MachineState} {rho : Bit
     have ff : Frame s0 t1 writes := (hI.frame.trans f1).mono (fun A _ hh=>hh.elim id False.elim)
     have hp : Post m s0 none t1 := ⟨by rw[rr.get (by decide),hpre.x5],rr,ff,⟨p1,by
       have hiEq:i=2^21:=by omega
-      rw[r1.get (by decide),hI.x19,hiEq]⟩,trivial⟩
+      rw[r1.get (by decide),hI.x19,hiEq]⟩,trivial,trivial⟩
     exact (TBSim.pure_steps' (sk:=sk) s1 hp).mono (by omega) (fun _ _ hh=>hh)
   | succ F ih =>
     intro i t h hI
@@ -3271,8 +3282,8 @@ theorem loop (m : Bool) (hl : LookOK im (look m)) {s0 : MachineState} {rho : Bit
       rcases hA with hA|hA
       · exact hA
       · exact Or.inr (Or.inr hA))
-    obtain ⟨v,c,sv,hcv,rv,fv,pv,vr17⟩:=checks_spec m hl (writeHash u a) pw a hN (hpre.tables.frame fuw)
-    rw[acceptedTest_source]at pv vr17
+    obtain ⟨v,c,sv,hcv,rv,fv,pv,vr17,vcost⟩:=checks_spec m hl (writeHash u a) pw a hN (hpre.tables.frame fuw)
+    rw[acceptedTest_source]at pv vr17 vcost
     have rv':RegsExcept s0 v regs:=
       ((ru.trans (fun r _=>getReg_writeHash u a r : RegsExcept u (writeHash u a) [])).trans rv).mono (by decide)
     have fv':Frame s0 v writes:=(fuw.trans fv).mono (fun A _ hA=>hA.elim id False.elim)
@@ -3282,8 +3293,13 @@ theorem loop (m : Bool) (hl : LookOK im (look m)) {s0 : MachineState} {rho : Bit
     by_cases hadm:SharedForest.digestAccepted a=true
     · rw[if_pos hadm]at pv
       simp only[hadm,↓reduceIte]
+      have hcost : v.getReg (sumReg m)=BitVec.ofNat 64 (SharedForest.jointAccountingCost a) := by
+        have hrank : ∀ k, k<9 → rankN a k<563 :=
+          ((acceptedTest_iff a).mp (by rw [acceptedTest_source]; exact hadm)).2.1
+        rw [←psum_source a hrank]
+        exact vcost hadm
       have hp:Post m s0 (some (BitVec.ofNat 32 i,a)) v:=⟨by rw[rv'.get (by decide),hpre.x5],rv',fv',
-        ⟨pv,by rw[hc];exact x19v,by rw[hc];exact hi,hadm,hNv⟩,vr17 hadm⟩
+        ⟨pv,by rw[hc];exact x19v,by rw[hc];exact hi,hadm,hNv⟩,vr17 hadm,hcost⟩
       exact (TBSim.pure_steps' sv hp).mono (by omega) (fun _ _ hh=>hh)
     · rw[if_neg hadm]at pv
       simp only[hadm,↓reduceIte]
@@ -3330,11 +3346,35 @@ end ClaudeWCT.W9.Machine.Sign.SharedDigest
 
 namespace ClaudeWCT.W9.Machine.Sign.SharedDigestBoundary
 open SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64 SigGolfCandidate.Rv SigGolfCandidate.T3M SigGolfCandidate.T3M.Verify
-set_option maxHeartbeats 1500000
-set_option maxRecDepth 10000
-def signCode : List (BitVec 32) := [0x20e37,0x160e0e13,0xe3b03,0x21b5b13,0x20e37,0x550e0e13,0x16e3023,0xaf9f406f]
-sym_block signRun := symRun {noAlias:=true} signCode (pcOf 22754) 30
-def expandCode : List (BitVec 32) := [0x180006f]
+set_option maxHeartbeats 2000000
+set_option maxRecDepth 100000
+/-- The signed branch in both digest-tier helpers detects the wrapped subtraction
+    exactly for the accepted joint-cost range. -/
+theorem tier_slt_all : ∀ j : Fin 778,
+    BitVec.slt (BitVec.ofNat 64 j.val + BitVec.ofNat 64 (2^64-773)) (0#64) =
+      decide (j.val < 773) := by
+  decide +kernel
+
+/-- After the branch and optional zeroing, x22 is the source-model tier. -/
+theorem tier_extra_all : ∀ j : Fin 778,
+    (if BitVec.slt (BitVec.ofNat 64 j.val + BitVec.ofNat 64 (2^64-773)) (0#64)
+      then (0#64) else BitVec.ofNat 64 j.val + BitVec.ofNat 64 (2^64-773)) =
+      BitVec.ofNat 64 (j.val-773) := by
+  decide +kernel
+
+theorem tier_extra_word (j : Nat) (hj : j ≤ 777) :
+    (if BitVec.slt (BitVec.ofNat 64 j + BitVec.ofNat 64 (2^64-773)) (0#64)
+      then (0#64) else BitVec.ofNat 64 j + BitVec.ofNat 64 (2^64-773)) =
+      BitVec.ofNat 64 (j-773) :=
+  tier_extra_all ⟨j,by omega⟩
+
+def signCode : List (BitVec 32) := [0x6c50106f,0x160e0e13,0xe3b03,0x21b5b13,0x20e37,0x550e0e13,0x16e3023,0xaf9f406f]
+def signSuffixCode : List (BitVec 32) := signCode.drop 1
+sym_block signRun := symRun {noAlias:=true} signSuffixCode (pcOf 22755) 30
+def signTierCode : List (BitVec 32) :=
+  [0xcfba0b13,0x000b5463,0x00000b13,0x00cb0b13,0x00020e37,0x2d6e3023,
+   0x002b0b13,0x2d6e3423,0x037b0b13,0x00066e37,0x036e3423,0x00020e37,0x910fe06f]
+def expandCode : List (BitVec 32) := [0x3ed0106f]
 def failureCode : List (BitVec 32) := [0x100293,0x100513]
 sym_block failRun := symRun {noAlias:=true} failureCode (pcOf 543) 10
 sym_block failExpandRun := symRun {noAlias:=true} failureCode (pcOf 45229) 10
@@ -3345,22 +3385,23 @@ theorem failure_run (m : Bool) : symRun {noAlias:=true} failureCode (failPC m) 1
   · exact failRun
   · exact failExpandRun
 
-theorem sign_steps {im : Image} (hc : CodeAt im (pcOf 22754) signCode)
-    (s : MachineState) (hp : s.pc=pcOf 22754) (h17 : s.getReg .x17=0x20160) :
-    ∃t,Steps im s 8 8 t ∧ t.pc=pcOf 11175 ∧
+theorem sign_steps {im : Image} (hc : CodeAt im (pcOf 22755) signSuffixCode)
+    (s : MachineState) (hp : s.pc=pcOf 22755) (h17 : s.getReg .x17=0x20160)
+    (h28 : s.getReg .x28=0x20000) :
+    ∃t,Steps im s 7 7 t ∧ t.pc=pcOf 11175 ∧
       t.getReg .x22=s.getMem 0x20160 >>> 33 ∧
       t.getMem 0x20550=s.getMem 0x20160 >>> 33 ∧
       RegsExcept s t [.x22,.x28] ∧ Frame s t (fun A=>A=0x20550) := by
   refine ⟨_,symRun_sound signRun hc s hp ?_,?_,?_,?_,?_,?_⟩
-  · simp [signRun.res,rv_simp,h17,accessValid_iff,MEMORY_BYTES]
+  · simp [signRun.res,rv_simp,h17,h28,accessValid_iff,MEMORY_BYTES]
   · rfl
-  · simp [signRun.res,rv_simp,h17]
-  · simp [signRun.res,rv_simp,h17]
+  · simp [signRun.res,rv_simp,h17,h28]
+  · simp [signRun.res,rv_simp,h17,h28]
   · intro r hr
     cases r <;> first | exact (hr (by decide)).elim | rfl
   · intro A hA hn
     simp only [Result.toState_getMem,signRun.res]
-    t3n [h17]
+    t3n [h17,h28]
     rw [Nat.mod_eq_of_lt (show A<18446744073709551616 by simpa using hA),if_neg hn]
 
 

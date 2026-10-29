@@ -1797,9 +1797,10 @@ set_option maxHeartbeats 1000000
 set_option maxRecDepth 10000
 
 /-- The recovered top nonces are the nonce fold of the recovered top digits. -/
-theorem recoverHintedLayers_nonces (answers : Answers) (sig : Signature) (index : Nat) (other : Digest) :
+theorem recoverHintedLayers_nonces_at (answers : Answers) (sig : Signature) (index : Nat)
+    (other : Digest) (topFloor : Nat) :
     ∀ n, ∀ msg result,
-      evalWithAnswerFn answers (recoverHintedLayers sig index other n msg) = some result →
+      evalWithAnswerFn answers (recoverHintedLayers sig index other n msg topFloor) = some result →
       result.digits ≠ [] ∧
       result.nonces = (evalWithAnswerFn answers (topFoldN (mainSignature sig) index (result.digits.getD 0 []))).2 := by
   intro n
@@ -1828,6 +1829,13 @@ theorem recoverHintedLayers_nonces (answers : Answers) (sig : Signature) (index 
             exact hn
           · simp only [evalWithAnswerFn_pure, reduceCtorEq] at he
       · simp only [evalWithAnswerFn_pure, reduceCtorEq] at he
+
+theorem recoverHintedLayers_nonces (answers : Answers) (sig : Signature) (index : Nat) (other : Digest) :
+    ∀ n, ∀ msg result,
+      evalWithAnswerFn answers (recoverHintedLayers sig index other n msg) = some result →
+      result.digits ≠ [] ∧
+      result.nonces = (evalWithAnswerFn answers (topFoldN (mainSignature sig) index (result.digits.getD 0 []))).2 :=
+  recoverHintedLayers_nonces_at answers sig index other CanonicalPolicy.topFloor
 end SigGolfCandidate.Research.SharedForest
 
 /-! ### HonestN 9: the `Paired.witEnc` read lemmas used by the security side, for `witEncN` -/
@@ -1935,7 +1943,8 @@ theorem expandN_nonces_raw (answers : Answers) (message : Message) (pk : Digest)
         (.pair (evalWithAnswerFn answers (recoverForest (WCT9.digestIndex output)
           (forestSelectionFromOutput output) (forestWordsFromOutput output) sig.forest)).1
           (evalWithAnswerFn answers (recoverForest (WCT9.digestIndex output)
-          (forestSelectionFromOutput output) (forestWordsFromOutput output) sig.forest)).2)) = some result ∧
+          (forestSelectionFromOutput output) (forestWordsFromOutput output) sig.forest)).2)
+        (conditionalTopFloor output)) = some result ∧
       w.signature = fillTopSignature sig c ∧ w.topNonces = result.nonces := by
   unfold expandN at he
   simp only [show (fillTopSignature sig 0).rho = sig.rho from rfl,
@@ -1953,14 +1962,15 @@ theorem expandN_nonces_raw (answers : Answers) (message : Message) (pk : Digest)
           (forestSelectionFromOutput N) (forestWordsFromOutput N) sig.forest)
         cases hr : evalWithAnswerFn answers (recoverHintedLayers (fillTopSignature sig 0)
           (WCT9.digestIndex N) (((fillTopSignature sig 0).layers 0).path WCT9.topJ) 4
-          (.pair forest.1 forest.2)) with
+          (.pair forest.1 forest.2) (conditionalTopFloor N)) with
         | none =>
             dsimp only [forest] at hr
             simp only [hr, evalWithAnswerFn_pure, reduceCtorEq] at he
         | some result =>
             dsimp only [forest] at hr
             simp only [hr] at he
-            by_cases hp : policyHintsValid sig.policyHints result.digits result.lows = true
+            by_cases hp : policyHintsValid sig.policyHints result.digits result.lows
+                (conditionalCredit N) = true
             · simp only [hp, Bool.not_true, Bool.false_eq_true, if_false] at he
               by_cases hk : result.root = pk
               · simp only [hk, if_true, evalWithAnswerFn_pure, Option.some.injEq, Prod.mk.injEq] at he
@@ -1989,12 +1999,14 @@ theorem expandN_topNonces (answers : Answers) (message : Message) (pk : Digest)
         (.pair (evalWithAnswerFn answers (recoverForest (WCT9.digestIndex output)
           (forestSelectionFromOutput output) (forestWordsFromOutput output) sig.forest)).1
           (evalWithAnswerFn answers (recoverForest (WCT9.digestIndex output)
-          (forestSelectionFromOutput output) (forestWordsFromOutput output) sig.forest)).2)) = some result ∧
+          (forestSelectionFromOutput output) (forestWordsFromOutput output) sig.forest)).2)
+        (conditionalTopFloor output)) = some result ∧
       w.topNonces = (evalWithAnswerFn answers
         (ClaudeWCT.WCT9.topFoldN (mainSignature w.signature) (WCT9.digestIndex output) (result.digits.getD 0 []))).2 := by
   obtain ⟨result, c, hr, hsig, hn⟩ := expandN_nonces_raw answers message pk sig output w he
   refine ⟨result, hr, ?_⟩
-  rw [hn, (recoverHintedLayers_nonces answers _ _ _ 4 _ result hr).2, hsig, topFoldN_fill_signature,
+  rw [hn, (recoverHintedLayers_nonces_at answers _ _ _ (conditionalTopFloor output)
+    4 _ result hr).2, hsig, topFoldN_fill_signature,
     topFoldN_fill_signature]
 end ClaudeWCT.W9.T3M.Paired
 end
@@ -2567,14 +2579,15 @@ def recoveredWitness (w : SigGolfCandidate.Research.SharedForest.Witness) (outpu
   let forest ← recoverForest (WCT9.digestIndex output) (forestSelectionFromOutput output)
     (forestWordsFromOutput output) w.signature.forest
   recoverHintedLayers w.signature (WCT9.digestIndex output) ((w.signature.layers 0).path WCT9.topJ)
-    4 (.pair forest.1 forest.2)
+    4 (.pair forest.1 forest.2) (conditionalTopFloor output)
 
 theorem expandN_recovered (answers : Correctness.Answers) (message : Message) (pk : Digest)
     (sig : SigGolfCandidate.Research.SharedForest.Signature) (output : HashOutput)
     (w : SigGolfCandidate.Research.SharedForest.Witness)
     (he : evalWithAnswerFn answers (expandN message pk sig)=some (output,w)) :
     ∃ result,evalWithAnswerFn answers (recoveredWitness w output)=some result ∧
-      policyHintsValid w.signature.policyHints result.digits result.lows=true ∧
+      policyHintsValid w.signature.policyHints result.digits result.lows
+        (conditionalCredit output)=true ∧
       (∀lay,w.counters lay=result.counters.getD lay.val 0) ∧
       evalWithAnswerFn answers (digest w.signature.rho message w.digestCounter)=output ∧
       digestAccepted output=true ∧ w.topHigh = !(result.lows.getD 0 true) := by
@@ -2585,14 +2598,16 @@ theorem expandN_recovered (answers : Correctness.Answers) (message : Message) (p
   let other := ((fillTopSignature sig 0).layers 0).path WCT9.topJ
   let other' := ((fillTopSignature sig c).layers 0).path WCT9.topJ
   let result' : RecoveredLayers := {result with root:=evalWithAnswerFn answers (WCT9.topNode index result.foldedTop other')}
-  have hr0 : evalWithAnswerFn answers (recoverHintedLayers sig index other 4 (.pair forest.1 forest.2))=some result := by
-    rw [recoverHintedLayers_fill _ _ _ _ _ (by decide)] at hr
+  have hr0 : evalWithAnswerFn answers (recoverHintedLayers sig index other 4 (.pair forest.1 forest.2)
+      (conditionalTopFloor output))=some result := by
+    rw [recoverHintedLayers_fill_at _ _ _ _ (conditionalTopFloor output) _ (by decide)] at hr
     exact hr
-  have hr1 := eval_recoverHintedLayers_other answers sig index other other' 4 (.pair forest.1 forest.2)
+  have hr1 := eval_recoverHintedLayers_other_at answers sig index other other'
+    (conditionalTopFloor output) 4 (.pair forest.1 forest.2)
   rw [hr0] at hr1
   have hr2 : evalWithAnswerFn answers (recoverHintedLayers (fillTopSignature sig c) index other'
-      4 (.pair forest.1 forest.2))=some result' := by
-    rw [recoverHintedLayers_fill _ _ _ _ _ (by decide)]
+      4 (.pair forest.1 forest.2) (conditionalTopFloor output))=some result' := by
+    rw [recoverHintedLayers_fill_at _ _ _ _ (conditionalTopFloor output) _ (by decide)]
     exact hr1
   have hs' := sharedDigestSearch_some answers sig.rho message WCT9.digestAttemptLimit 0
     counter output (by decide) hs
@@ -3614,10 +3629,11 @@ set_option maxHeartbeats 1000000
 set_option maxRecDepth 10000
 set_option backward.isDefEq.respectTransparency false
 
-theorem agree_layers (floors : Layer → Nat) (hash : Hash) (sig : SigGolfCandidate.Research.SharedForest.Signature) (index : Nat) :
+theorem agree_layers_at (floors : Layer → Nat) (hash : Hash)
+    (sig : SigGolfCandidate.Research.SharedForest.Signature) (index topFloor : Nat) :
     ∀ n, n ≤ 4 → ∀ msg result,
       evalWithAnswerFn (machineAnswers hash 0)
-        (recoverHintedLayers sig index ((sig.layers 0).path topJ) n msg) = some result →
+        (recoverHintedLayers sig index ((sig.layers 0).path topJ) n msg topFloor) = some result →
       (∀ lay : Layer, lay.val < n →
         floors lay ≤ CanonicalPolicy.credit lay (result.lows.getD lay.val true) (result.digits.getD lay.val [])) →
       ∀ w : SigGolfCandidate.Research.SharedForest.Witness, w.signature = sig →
@@ -3691,7 +3707,8 @@ theorem agree_layers (floors : Layer → Nat) (hash : Hash) (sig : SigGolfCandid
                 simp only [evalWithAnswerFn_pure, Option.some.injEq] at he
                 subst result
                 obtain ⟨hlen, hdlen, hllen, _⟩ :=
-                  recoverHintedLayers_verified (machineAnswers hash 0) sig index n (by omega) _ _ hr
+                  recoverHintedLayers_verified_at (machineAnswers hash 0) sig index topFloor
+                    n (by omega) _ _ hr
                 have hfloor : floors (Fin.ofNat 4 n) ≤ CanonicalPolicy.credit (Fin.ofNat 4 n) low digits := by
                   have h := hf (Fin.ofNat 4 n) (by rw [hlay]; omega)
                   simpa only [hlay, List.getD_append_right previous.digits [digits] [] n (by omega),
@@ -3732,6 +3749,19 @@ theorem agree_layers (floors : Layer → Nat) (hash : Hash) (sig : SigGolfCandid
                   · rw [hh, List.getD_append previous.lows [low] true 0 (by omega)]
             next => simp only [evalWithAnswerFn_pure, reduceCtorEq] at he
       next => simp only [evalWithAnswerFn_pure, reduceCtorEq] at he
+
+theorem agree_layers (floors : Layer → Nat) (hash : Hash)
+    (sig : SigGolfCandidate.Research.SharedForest.Signature) (index : Nat) :
+    ∀ n, n ≤ 4 → ∀ msg result,
+      evalWithAnswerFn (machineAnswers hash 0)
+        (recoverHintedLayers sig index ((sig.layers 0).path topJ) n msg) = some result →
+      (∀ lay : Layer, lay.val < n →
+        floors lay ≤ CanonicalPolicy.credit lay (result.lows.getD lay.val true) (result.digits.getD lay.val [])) →
+      ∀ w : SigGolfCandidate.Research.SharedForest.Witness, w.signature = sig →
+        (∀ lay : Layer, lay.val < n → w.counters lay = result.counters.getD lay.val 0) →
+        w.topHigh = !(result.lows.getD 0 true) →
+        Agree hash (okHashBy floors w.topHigh hash) (mrealize 0 (verifyLayers w index n msg)) :=
+  agree_layers_at floors hash sig index CanonicalPolicy.topFloor
 end ClaudeWCT.W9.T3M.Final.Credit.Paired
 
 namespace ClaudeWCT.W9.T3M.Final.Credit.Paired
@@ -3840,18 +3870,64 @@ theorem notEnc_forest (index : Nat) (selected : ForestSelection) (words : Forest
   exact allQ_bind (allQ_foldlM _ _ (fun _ _ => notEnc_pair _ _ _ _ _ _ _) _) fun _ =>
     notEnc_singleton _ _ _ _ _
 
+theorem canonical_credit_le_301 (lay : Layer) (low : Bool) (digits : List Nat) :
+    CanonicalPolicy.credit lay low digits ≤ 301 := by
+  have hw : wordCredit lay digits ≤ SigGolfCandidate.T3.chainCount lay := by
+    simpa only [wordCredit, List.length_range] using
+      List.length_filter_le (fun i => decide (digits.getD i 0 + 1 = SigGolfCandidate.T3.maxDigit lay i))
+        (List.range (SigGolfCandidate.T3.chainCount lay))
+  have hs : savedCopies lay digits ≤ SigGolfCandidate.T3.chainCount lay := by
+    simpa only [savedCopies, List.length_range] using
+      List.length_filter_le (fun i => decide (safeZeroCopy lay digits i))
+        (List.range (SigGolfCandidate.T3.chainCount lay))
+  have hc : SigGolfCandidate.T3.chainCount lay ≤ 54 := by fin_cases lay <;> decide
+  have hb := CanonicalPolicy.pathBonus_le lay low
+  unfold CanonicalPolicy.credit CanonicalPolicy.pathReward CanonicalPolicy.reward
+  omega
+
+theorem recovered_tier_floors (answers : SigGolfCandidate.T3.Correctness.Answers)
+    (sig : SigGolfCandidate.Research.SharedForest.Signature) (index : Nat)
+    (output : HashOutput) (other : Digest) (msg : LayerMsg) (result : RecoveredLayers)
+    (he : evalWithAnswerFn answers (recoverHintedLayers sig index other 4 msg
+      (conditionalTopFloor output)) = some result)
+    (hh : policyHintsValid sig.policyHints result.digits result.lows
+      (conditionalCredit output) = true) :
+    (∀ lay, CanonicalPolicy.credit lay (result.lows.getD lay.val true)
+      (result.digits.getD lay.val []) ≤ 301) ∧
+    69 + conditionalExtra output ≤ ((List.finRange 4).map fun lay =>
+      CanonicalPolicy.credit lay (result.lows.getD lay.val true)
+        (result.digits.getD lay.val [])).sum := by
+  constructor
+  · intro lay
+    exact canonical_credit_le_301 lay _ _
+  · have hsum := policyHints_credit_sum_at sig.policyHints result.digits result.lows
+      (conditionalCredit output) (conditionalTopFloor output) (conditional_credit_floor output)
+      hh (fun lay =>
+        (recoverHintedLayers_credit_at answers sig index other (conditionalTopFloor output)
+          4 le_rfl msg result he).2.2 lay lay.isLt)
+    simpa only [conditionalCredit, CanonicalPolicy.totalCredit] using hsum
+
 theorem recovered_credit_floors (answers : SigGolfCandidate.T3.Correctness.Answers)
-    (sig : SigGolfCandidate.Research.SharedForest.Signature) (index : Nat) (other : Digest)
+    (sig : SigGolfCandidate.Research.SharedForest.Signature) (index : Nat)
+    (output : HashOutput) (other : Digest)
     (msg : LayerMsg) (result : RecoveredLayers)
-    (he : evalWithAnswerFn answers (recoverHintedLayers sig index other 4 msg) = some result)
-    (hh : policyHintsValid sig.policyHints result.digits result.lows = true) :
+    (he : evalWithAnswerFn answers (recoverHintedLayers sig index other 4 msg
+      (conditionalTopFloor output)) = some result)
+    (hh : policyHintsValid sig.policyHints result.digits result.lows
+      (conditionalCredit output) = true) :
     CreditFloors (fun lay => min 69
       (CanonicalPolicy.credit lay (result.lows.getD lay.val true) (result.digits.getD lay.val []))) := by
   apply creditFloors_clip
-  exact policyHints_credit_sum _ _ _ hh (fun lay =>
-    (recoverHintedLayers_credit answers sig index other 4 le_rfl msg result he).2.2 lay lay.isLt)
+  have hsum := policyHints_credit_sum_at sig.policyHints result.digits result.lows
+    (conditionalCredit output) (conditionalTopFloor output) (conditional_credit_floor output)
+    hh (fun lay =>
+      (recoverHintedLayers_credit_at answers sig index other (conditionalTopFloor output)
+        4 le_rfl msg result he).2.2 lay lay.isLt)
+  unfold conditionalCredit CanonicalPolicy.totalCredit at hsum
+  omega
 
-theorem agree_verify (hash : Hash) (message : SigGolfCandidate.T3.Message) (pk : Digest)
+theorem agree_verify_of_floors (floors : Layer → Nat) (hash : Hash)
+    (message : SigGolfCandidate.T3.Message) (pk : Digest)
     (w : SigGolfCandidate.Research.SharedForest.Witness) (output : HashOutput) (result : RecoveredLayers)
     (hd : evalWithAnswerFn (machineAnswers hash 0) (SigGolfCandidate.T3.digest w.signature.rho message w.digestCounter) = output)
     (hr : evalWithAnswerFn (machineAnswers hash 0)
@@ -3859,16 +3935,16 @@ theorem agree_verify (hash : Hash) (message : SigGolfCandidate.T3.Message) (pk :
         (.pair (evalWithAnswerFn (machineAnswers hash 0) (recoverForest (digestIndex output)
           (forestSelectionFromOutput output) (forestWordsFromOutput output) w.signature.forest)).1
           (evalWithAnswerFn (machineAnswers hash 0) (recoverForest (digestIndex output)
-          (forestSelectionFromOutput output) (forestWordsFromOutput output) w.signature.forest)).2)) = some result)
-    (hh : policyHintsValid w.signature.policyHints result.digits result.lows = true)
+          (forestSelectionFromOutput output) (forestWordsFromOutput output) w.signature.forest)).2)
+        (conditionalTopFloor output)) = some result)
+    (hh : policyHintsValid w.signature.policyHints result.digits result.lows
+      (conditionalCredit output) = true)
     (hc : ∀ lay, w.counters lay = result.counters.getD lay.val 0)
-    (htop : w.topHigh = !(result.lows.getD 0 true)) :
-    ∃ floors : Layer → Nat, CreditFloors floors ∧
-      Agree hash (okHashBy floors w.topHigh hash)
-        (mrealize 0 (SigGolfCandidate.Research.SharedForest.verify message pk w)) := by
-  let floors : Layer → Nat := fun lay =>
-    min 69 (CanonicalPolicy.credit lay (result.lows.getD lay.val true) (result.digits.getD lay.val []))
-  refine ⟨floors, recovered_credit_floors _ _ _ _ _ result hr hh, ?_⟩
+    (htop : w.topHigh = !(result.lows.getD 0 true))
+    (hfloor : ∀ lay, floors lay ≤ CanonicalPolicy.credit lay
+      (result.lows.getD lay.val true) (result.digits.getD lay.val [])) :
+    Agree hash (okHashBy floors w.topHigh hash)
+      (mrealize 0 (SigGolfCandidate.Research.SharedForest.verify message pk w)) := by
   unfold SigGolfCandidate.Research.SharedForest.verify
   split
   · trivial
@@ -3879,9 +3955,62 @@ theorem agree_verify (hash : Hash) (message : SigGolfCandidate.T3.Message) (pk :
     · refine (agree_mrealize_bind _ _).mpr
         ⟨agree_mrealize (notEnc_forest _ _ _ _) (hfg_okBy floors w.topHigh hash), ?_⟩
       refine (agree_mrealize_bind _ _).mpr ⟨?_, ?_⟩
-      · exact agree_layers floors hash w.signature (digestIndex output) 4 le_rfl _ result hr
-          (fun lay _ => Nat.min_le_right _ _) w rfl (fun lay _ => hc lay) htop
+      · exact agree_layers_at floors hash w.signature (digestIndex output)
+          (conditionalTopFloor output) 4 le_rfl _ result hr
+          (fun lay _ => hfloor lay) w rfl (fun lay _ => hc lay) htop
       · split <;> trivial
+
+theorem agree_verify_tier (hash : Hash) (message : SigGolfCandidate.T3.Message) (pk : Digest)
+    (w : SigGolfCandidate.Research.SharedForest.Witness) (output : HashOutput)
+    (result : RecoveredLayers)
+    (hd : evalWithAnswerFn (machineAnswers hash 0)
+      (SigGolfCandidate.T3.digest w.signature.rho message w.digestCounter) = output)
+    (hr : evalWithAnswerFn (machineAnswers hash 0)
+      (recoverHintedLayers w.signature (digestIndex output) ((w.signature.layers 0).path topJ) 4
+        (.pair (evalWithAnswerFn (machineAnswers hash 0) (recoverForest (digestIndex output)
+          (forestSelectionFromOutput output) (forestWordsFromOutput output) w.signature.forest)).1
+          (evalWithAnswerFn (machineAnswers hash 0) (recoverForest (digestIndex output)
+          (forestSelectionFromOutput output) (forestWordsFromOutput output) w.signature.forest)).2)
+        (conditionalTopFloor output)) = some result)
+    (hh : policyHintsValid w.signature.policyHints result.digits result.lows
+      (conditionalCredit output) = true)
+    (hc : ∀ lay, w.counters lay = result.counters.getD lay.val 0)
+    (htop : w.topHigh = !(result.lows.getD 0 true)) :
+    ∃ floors : Layer → Nat,
+      (∀ lay, floors lay ≤ 301) ∧
+      69 + conditionalExtra output ≤ ((List.finRange 4).map floors).sum ∧
+      Agree hash (okHashBy floors w.topHigh hash)
+        (mrealize 0 (SigGolfCandidate.Research.SharedForest.verify message pk w)) := by
+  let floors : Layer → Nat := fun lay =>
+    CanonicalPolicy.credit lay (result.lows.getD lay.val true) (result.digits.getD lay.val [])
+  obtain ⟨hbound, hsum⟩ := recovered_tier_floors (machineAnswers hash 0) w.signature
+    (digestIndex output) output ((w.signature.layers 0).path topJ) _ result hr hh
+  refine ⟨floors, hbound, hsum, ?_⟩
+  exact agree_verify_of_floors floors hash message pk w output result hd hr hh hc htop
+    (fun _ => le_rfl)
+
+theorem agree_verify (hash : Hash) (message : SigGolfCandidate.T3.Message) (pk : Digest)
+    (w : SigGolfCandidate.Research.SharedForest.Witness) (output : HashOutput) (result : RecoveredLayers)
+    (hd : evalWithAnswerFn (machineAnswers hash 0) (SigGolfCandidate.T3.digest w.signature.rho message w.digestCounter) = output)
+    (hr : evalWithAnswerFn (machineAnswers hash 0)
+      (recoverHintedLayers w.signature (digestIndex output) ((w.signature.layers 0).path topJ) 4
+        (.pair (evalWithAnswerFn (machineAnswers hash 0) (recoverForest (digestIndex output)
+          (forestSelectionFromOutput output) (forestWordsFromOutput output) w.signature.forest)).1
+          (evalWithAnswerFn (machineAnswers hash 0) (recoverForest (digestIndex output)
+          (forestSelectionFromOutput output) (forestWordsFromOutput output) w.signature.forest)).2)
+        (conditionalTopFloor output)) = some result)
+    (hh : policyHintsValid w.signature.policyHints result.digits result.lows
+      (conditionalCredit output) = true)
+    (hc : ∀ lay, w.counters lay = result.counters.getD lay.val 0)
+    (htop : w.topHigh = !(result.lows.getD 0 true)) :
+    ∃ floors : Layer → Nat, CreditFloors floors ∧
+      Agree hash (okHashBy floors w.topHigh hash)
+        (mrealize 0 (SigGolfCandidate.Research.SharedForest.verify message pk w)) := by
+  let floors : Layer → Nat := fun lay =>
+    min 69 (CanonicalPolicy.credit lay (result.lows.getD lay.val true) (result.digits.getD lay.val []))
+  refine ⟨floors, recovered_credit_floors _ _ _ output _ _ result hr hh, ?_⟩
+  exact agree_verify_of_floors floors hash message pk w output result hd hr hh hc htop
+    (fun lay => Nat.min_le_right _ _)
 end ClaudeWCT.W9.T3M.Final.Credit.Paired
 
 namespace ClaudeWCT.W9.T3M.Final.Credit.Paired
@@ -3986,6 +4115,31 @@ set_option maxRecDepth 100000
 set_option maxHeartbeats 1000000
 set_option backward.isDefEq.respectTransparency false
 
+theorem agree_verifyP_tier (hash : Hash) (message : SigGolfCandidate.T3.Message) (pk : Digest)
+    (sig : SigGolfCandidate.Research.SharedForest.Signature) (output : HashOutput)
+    (w : SigGolfCandidate.Research.SharedForest.Witness)
+    (he : evalWithAnswerFn (machineAnswers hash 0)
+      (ClaudeWCT.W9.T3M.Paired.expandN message pk sig)=some (output,w)) :
+    ∃ floors : Layer → Nat,
+      (∀ lay, floors lay ≤ 301) ∧
+      69 + conditionalExtra output ≤ ((List.finRange 4).map floors).sum ∧
+      Agree hash (okHashBy floors w.topHigh hash)
+        (mrealize 0 (ClaudeWCT.W9.T3M.Paired.verifyP message pk
+          (ClaudeWCT.W9.T3M.Paired.witEncN output w))) := by
+  obtain ⟨result,hr,hh,hc,hd,ha,htop⟩ :=
+    ClaudeWCT.W9.T3M.Paired.expandN_recovered _ message pk sig output w he
+  simp only [ClaudeWCT.W9.T3M.Paired.recoveredWitness,evalWithAnswerFn_bind] at hr
+  obtain ⟨floors,hbound,hsum,hagree⟩ := agree_verify_tier hash message pk w output result
+    hd hr hh hc htop
+  obtain ⟨hg,hrank,_⟩ := accepted_conditions output ha
+  refine ⟨floors,hbound,hsum,agree_verifyP_source_of hash
+    (okHashBy floors w.topHigh hash) message pk _ output w
+    (ClaudeWCT.W9.T3M.Paired.wrho_witEncN output w)
+    (ClaudeWCT.W9.T3M.Paired.wdc_witEncN output w) hd hg hrank
+    (W9Drv.SharedCanonical.forest_witEncN output w _ (WCT9.digestIndex_lt output))
+    (fun left right=>ClaudeWCT.W9.T3M.Paired.layersCanonicalBC_witEncN output w
+      4 left right (by decide)) hagree⟩
+
 theorem agree_verifyP (hash : Hash) (message : SigGolfCandidate.T3.Message) (pk : Digest)
     (sig : SigGolfCandidate.Research.SharedForest.Signature) (output : HashOutput)
     (w : SigGolfCandidate.Research.SharedForest.Witness)
@@ -4020,5 +4174,36 @@ theorem digestCap_okHashBy (floors : Layer → Nat) (high : Bool) (hash : Hash)
   unfold Final.Paired.DigestCapOk
   rw [ClaudeWCT.W9.T3M.Paired.wrho_witEncN,ClaudeWCT.W9.T3M.Paired.wdc_witEncN,hd']
   exact (accepted_conditions output ha).2.2.trans (by norm_num)
+
+theorem digestTier_okHashBy (floors : Layer → Nat) (high : Bool) (hash : Hash)
+    (message : SigGolfCandidate.T3.Message) (pk : Digest)
+    (sig : SigGolfCandidate.Research.SharedForest.Signature) (output : HashOutput)
+    (w : SigGolfCandidate.Research.SharedForest.Witness)
+    (he : evalWithAnswerFn (machineAnswers hash 0)
+      (ClaudeWCT.W9.T3M.Paired.expandN message pk sig) = some (output,w)) :
+    conditionalExtra output ≤ 4 ∧
+      jointAccountingCost ((okHashBy floors high hash)
+        (SigGolfCandidate.T3M.toQ (SigGolfCandidate.T3.pad64
+          (SigGolfCandidate.T3.digestInput
+            (ClaudeWCT.W9.T3M.wrho (ClaudeWCT.W9.T3M.Paired.witEncN output w))
+            message
+            (ClaudeWCT.W9.T3M.wdc (ClaudeWCT.W9.T3M.Paired.witEncN output w)))))) ≤
+        773 + conditionalExtra output := by
+  obtain ⟨_,_,_,_,hd,ha,_⟩ :=
+    ClaudeWCT.W9.T3M.Paired.expandN_recovered _ message pk sig output w he
+  have hextra := (conditional_bounds_of_accepted output ha).1
+  have hagree := agree_mrealize (notEnc_digest w.signature.rho message w.digestCounter)
+    (hfg_okBy floors high hash)
+  have hd' : evalWithAnswerFn (machineAnswers (okHashBy floors high hash) 0)
+      (SigGolfCandidate.T3.digest w.signature.rho message w.digestCounter) = output := by
+    rw [←eval_mrealize,←agree_eval hagree,eval_mrealize,hd]
+  rw [←eval_mrealize] at hd'
+  unfold SigGolfCandidate.T3.digest at hd'
+  rw [mrealize_publicHash,eval_liftQ] at hd'
+  refine ⟨hextra, ?_⟩
+  rw [ClaudeWCT.W9.T3M.Paired.wrho_witEncN,
+    ClaudeWCT.W9.T3M.Paired.wdc_witEncN,hd']
+  unfold conditionalExtra
+  omega
 end ClaudeWCT.W9.T3M.Final.Credit.Paired
 end
