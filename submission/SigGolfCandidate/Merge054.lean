@@ -2619,8 +2619,8 @@ abbrev witEnc := ClaudeWCT.W9.T3M.Paired.witEnc
 /-- img-v6: the honest expand output carries the top node nonces (`Paired.witEncN`). -/
 abbrev witEncN := ClaudeWCT.W9.T3M.Paired.witEncN
 
- def verifyCycleBound : Nat := 6920
- def claimedC : Nat := 7006
+ def verifyCycleBound : Nat := 6912
+ def claimedC : Nat := 6998
  def DigestCapOk (hash : Hash) (m : Message) (w : Bytes 22012) : Prop :=
   SigGolfCandidate.Research.SharedForest.jointAccountingCost
     (hash (SigGolfCandidate.T3M.toQ (SigGolfCandidate.T3.pad64
@@ -3751,9 +3751,9 @@ def writes (L : Layout) (k : Fin 9) (raw : Fin 128) (A : Nat) : Prop :=
 
 structure Post (L : Layout) (k : Fin 9) (raw : Fin 128) (u : MachineState)
     (computed : Digest) (t : MachineState) : Prop where
-  /-- A/B return with `jalr zero,296(ra)`; the singleton (Cm, stage 2) with `jalr zero,320(ra)`, i.e. to word 854 for
-  `returnWord 8 = 774`, the L3 entry. -/
-  pc : t.pc = pcOf (L.returnWord k + (if k.val = 8 then 80 else 74))
+  /-- A/B return with `jalr zero,300(ra)`; the singleton (Cm, stage 2) with `jalr zero,316(ra)`, i.e. to word 854 for
+  `returnWord 8 = 775`, the L3 entry. -/
+  pc : t.pc = pcOf (L.returnWord k + (if k.val = 8 then 79 else 75))
   hashLen : t.getReg .x11 = 64
   top : DigAt t (handAddr L k raw) computed
   a2 : t.getReg .x12 = BitVec.ofNat 64 (outputAddr L k raw)
@@ -6889,7 +6889,7 @@ def childWord (coordinate child : Nat) : Nat :=
   else 246464 + 64 * child
 /-- `start k + length k` of the shared dispatcher (`W9Drv.SharedDispatch`); coordinate 8's dispatcher is 9 words
 (765..773) after the dispatch hoist, so its children receive `ra = pcOf 774` and return with `320(ra)`. -/
-def returnWord (k : Fin 9) : Nat := [97,183,267,351,437,521,605,691,774].getD k.val 0
+def returnWord (k : Fin 9) : Nat := [96,183,266,351,436,521,605,690,775].getD k.val 0
 def layout (coordinate : Fin 9) : W9Machine.Layout :=
   ⟨Frozen.image, Frozen.layout.chainWord, fun j => childWord coordinate.val j.val, returnWord, 0⟩
 theorem image_eq (k : Fin 9) : (layout k).image = Frozen.image := rfl
@@ -9184,7 +9184,7 @@ open OracleComp SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.
 open SigGolfCandidate.Rv SigGolfCandidate.T3M SigGolfCandidate.T3M.Verify
 open SigGolfCandidate.T3 (Digest HashOutput)
 structure SetupMask (u : MachineState) : Prop where
-  rankPadAt : u.getMem (BitVec.ofNat 64 (stackBase7 + 48)) = BitVec.ofNat 64 0x1801801800000
+  rankPadAt : u.getMem (BitVec.ofNat 64 (stackBase7 + 48)) = BitVec.ofNat 64 0x1801800000c0000
   child : u.getMem (BitVec.ofNat 64 (dataBase7 + 368)) = BitVec.ofNat 64 0xf1b00
   jt : u.getMem (BitVec.ofNat 64 (dataBase7 + 376)) = BitVec.ofNat 64 0xfff00
   coord : u.getMem (BitVec.ofNat 64 (dataBase7 + 464)) = BitVec.ofNat 64 10992
