@@ -2064,7 +2064,8 @@ theorem verifyP_source_of (answers : SigGolfCandidate.T3.Correctness.Answers)
     simp only [verifyDigestAccepted,hg,decide_true,Bool.true_and]
     exact (ranksAccepted_iff output).mpr hr
   rw [verifyP,evalWithAnswerFn_bind,hd']
-  simp only [ftsP_accepted wb output hg hr,hf,evalWithAnswerFn_bind,evalWithAnswerFn_pure,hl]
+  simp only [ftsP_accepted wb output hg hr,hf,evalWithAnswerFn_bind,evalWithAnswerFn_pure,
+    eval_layersCanonicalBCW answers wb _ 4 le_rfl,hl]
   simp only [SigGolfCandidate.Research.SharedForest.verify,
     show ¬w.digestCounter.toNat≥WCT9.digestVerifyWindow by omega,↓reduceIte,
     evalWithAnswerFn_bind,hd,ha,Bool.not_true,Bool.false_eq_true,hl]
@@ -3927,6 +3928,127 @@ theorem verify_run_agree (E : EncodingFacts) (F : SourceQueries) (P : Final.Pair
   exact agree_eval ha
 end ClaudeWCT.W9.T3M.Final.Credit.Paired
 
+-- ==== m0 (A0, P2c): agreement of the M0 lower spec with the record spec ====
+namespace ClaudeWCT.W9.T3M.Final.Credit
+open OracleComp OracleSpec
+open SigGolfCandidate.Legacy
+open SigGolfCandidate.T3 (M Spec Layer Digest HashOutput HashInput pad64)
+open SigGolfCandidate.T3M (mrealize allQ_pure allQ_bind allQ_foldlM allQ_mapM)
+open SigGolfCandidate.T3M.Verify (EncQ Agree agree_bind_iff)
+open SigGolfCandidate.T3.Security.Wots.Enc (NonEnc nonEnc_of_hdr notHyper_of_marker)
+set_option maxHeartbeats 1000000
+set_option maxRecDepth 10000
+variable {f g : Hash}
+/-- A padded chain step row is never an encoding row (its header word carries the chain marker byte). -/
+theorem nonEnc_chainInputPW (lay : Layer) (tree leaf i s : Nat) (p0 p1 : Digest) (hp : BitVec 64) (v : Digest) :
+    NonEnc (.inl (.inr (pad64 (ClaudeWCT.W9.T3M.chainInputPW lay tree leaf i s p0 p1 hp v)))) := by
+  have hpad : pad64 (ClaudeWCT.W9.T3M.chainInputPW lay tree leaf i s p0 p1 hp v) =
+      ClaudeWCT.W9.T3M.chainInputPW lay tree leaf i s p0 p1 hp v := by
+    simp [pad64, ClaudeWCT.W9.T3M.chainInputPW_length]
+  rw [hpad]
+  apply nonEnc_of_hdr _ (SigGolfCandidate.T3M.chainHeaderP lay tree leaf i s hp)
+    (ClaudeWCT.W9.T3M.chainInputPW_header _ _ _ _ _ _ _ _ _)
+  apply notHyper_of_marker
+  unfold SigGolfCandidate.T3M.chainHeaderP
+  rw [SigGolfCandidate.T3.append64_marker, BitVec.extractLsb'_toNat, Nat.shiftRight_zero,
+    Nat.mod_mod_of_dvd _ (by norm_num : 256 ∣ 2 ^ 64)]
+  have := SigGolfCandidate.T3.chainHeader_firstByte lay tree leaf i s
+  omega
+theorem notEnc_chainPW (lay : Layer) (tree leaf i start count : Nat) (p0 p1 : Digest) (hp : BitVec 64)
+    (v : Digest) : AllQueriesSatisfy (ClaudeWCT.W9.T3M.chainPW lay tree leaf i start count p0 p1 hp v) NotEncS :=
+  allQ_foldlM _ _ (fun _ _ => notEnc_halfHash _ _
+    (by rw [ClaudeWCT.W9.T3M.chainInputPW_length]; omega)
+    (nonEnc_chainInputPW _ _ _ _ _ _ _ _ _)) _
+theorem notEnc_layerChainP (wb : ClaudeWCT.W9.T3M.WBytes) (index : Nat) (lay : Layer) (digits : List Nat)
+    (i : Nat) : AllQueriesSatisfy (ClaudeWCT.W9.T3M.layerChainP wb index lay digits i) NotEncS := by
+  unfold ClaudeWCT.W9.T3M.layerChainP
+  exact notEnc_chainPW _ _ _ _ _ _ _ _ _ _
+theorem agree_bind_mono {α β : Type} {p : M α} {k k' : α → M β}
+    (h : ∀ x, Agree f g (mrealize 0 (k x)) → Agree f g (mrealize 0 (k' x)))
+    (hp : Agree f g (mrealize 0 (p >>= k))) : Agree f g (mrealize 0 (p >>= k')) := by
+  rw [agree_mrealize_bind] at hp ⊢
+  exact ⟨hp.1, h _ hp.2⟩
+/-- M0: a rejected lower word's extra chain queries are no encoding queries, so agreement transfers from the
+record spec to the M0 spec. -/
+theorem agree_layersCanonicalBCW (hfg : ∀ q, (∀ lay : Layer, ¬ EncQ lay.val q) → f q = g q)
+    (wb : ClaudeWCT.W9.T3M.WBytes) (index : Nat) :
+    ∀ n, n ≤ 4 → ∀ msg, Agree f g (mrealize 0 (ClaudeWCT.W9.T3M.layersCanonicalBC wb index n msg)) →
+      Agree f g (mrealize 0 (ClaudeWCT.W9.T3M.layersCanonicalBCW wb index n msg)) := by
+  intro n
+  induction n with
+  | zero => intro _ msg h; exact h
+  | succ n ih =>
+    intro hn msg h
+    by_cases h0 : n = 0
+    · subst h0
+      have e : ClaudeWCT.W9.T3M.layersCanonicalBCW wb index 1 msg =
+          ClaudeWCT.W9.T3M.layersCanonicalBC wb index 1 msg := by
+        simp only [ClaudeWCT.W9.T3M.layersCanonicalBCW, ClaudeWCT.W9.T3M.layersCanonicalBC, ↓reduceIte]
+      rw [e]; exact h
+    · have hl : (Fin.ofNat 4 n : Layer) ≠ 0 := ClaudeWCT.W9.T3M.layer_ne_zero_of n h0 (by omega)
+      simp only [ClaudeWCT.W9.T3M.layersCanonicalBCW, ClaudeWCT.W9.T3M.layersCanonicalBC, if_neg h0] at h ⊢
+      by_cases hc : (ClaudeWCT.W9.T3M.wbcCtr wb index (Fin.ofNat 4 n)).toNat ≥ ClaudeWCT.WCT9.verifyWindow
+      · simp only [hc, if_true] at h ⊢; exact h
+      · simp only [hc, if_false] at h ⊢
+        refine agree_bind_mono (fun answer h2 => ?_) h
+        rw [ClaudeWCT.W9.T3M.canonicalDecode_window hl] at h2
+        by_cases hw : ClaudeWCT.W9.T3M.lowerWindowOk answer = true
+        · rw [if_pos hw] at h2
+          revert h2
+          cases ClaudeWCT.W9.T3M.lowerDataDecode answer with
+          | none => intro h2; exact h2
+          | some digits =>
+            intro h2
+            simp only [ClaudeWCT.W9.T3M.layerGuardedPairW, if_pos hw]
+            refine agree_bind_mono (fun x hx => ?_) h2
+            cases x with
+            | none => exact hx
+            | some pair => exact ih (by omega) _ hx
+        · cases ClaudeWCT.W9.T3M.lowerDataDecode answer with
+          | none => exact agree_mrealize (allQ_pure _) hfg
+          | some digits =>
+            simp only [ClaudeWCT.W9.T3M.layerGuardedPairW, if_neg hw, bind_assoc, pure_bind]
+            exact agree_mrealize (allQ_bind (allQ_mapM _ _ (notEnc_layerChainP wb index (Fin.ofNat 4 n) digits))
+              fun _ => allQ_pure _) hfg
+end ClaudeWCT.W9.T3M.Final.Credit
+
+namespace ClaudeWCT.W9.T3M.Paired
+open OracleComp SigGolfCandidate.T3
+/-- The record's verify spec (lower window checked in the head), kept for the agreement transfer. -/
+def verifyPOld (message : Message) (pk : Digest) (w : WBytes) : M Bool := do
+  let some output ← digestP message w | pure false
+  let some top ← ftsP w output | pure false
+  let some root ← layersCanonicalBC w (WCT9.digestIndex output) 4 (.pair top.1 top.2) | pure false
+  pure (root == pk)
+end ClaudeWCT.W9.T3M.Paired
+
+namespace ClaudeWCT.W9.T3M.Final.Credit
+open OracleComp OracleSpec SigGolfCandidate.Legacy
+open SigGolfCandidate.T3 (M Layer Digest)
+open SigGolfCandidate.T3M (mrealize)
+open SigGolfCandidate.T3M.Verify (EncQ Agree)
+set_option maxHeartbeats 1000000
+variable {f g : Hash}
+theorem agree_verifyP_of_old (hfg : ∀ q, (∀ lay : Layer, ¬ EncQ lay.val q) → f q = g q)
+    (message : SigGolfCandidate.T3.Message) (pk : Digest) (wb : ClaudeWCT.W9.T3M.WBytes)
+    (h : Agree f g (mrealize 0 (ClaudeWCT.W9.T3M.Paired.verifyPOld message pk wb))) :
+    Agree f g (mrealize 0 (ClaudeWCT.W9.T3M.Paired.verifyP message pk wb)) := by
+  unfold ClaudeWCT.W9.T3M.Paired.verifyPOld at h
+  unfold ClaudeWCT.W9.T3M.Paired.verifyP
+  refine agree_bind_mono (fun o ho => ?_) h
+  cases o with
+  | none => exact ho
+  | some output =>
+    refine agree_bind_mono (fun t ht => ?_) ho
+    cases t with
+    | none => exact ht
+    | some top =>
+      rw [agree_mrealize_bind] at ht ⊢
+      refine ⟨agree_layersCanonicalBCW hfg wb _ 4 le_rfl _ ht.1, ?_⟩
+      rw [ClaudeWCT.W9.T3M.eval_layersCanonicalBCW _ wb _ 4 le_rfl]
+      exact ht.2
+end ClaudeWCT.W9.T3M.Final.Credit
+
 namespace ClaudeWCT.W9.T3M.Final.Credit.Paired
 open OracleComp OracleSpec SigGolfCandidate.Legacy
 open SigGolfCandidate.T3 (Digest HashOutput)
@@ -3953,7 +4075,7 @@ theorem agree_verifyP_source_of (f g : Hash) (message : SigGolfCandidate.T3.Mess
     (hl : ∀left right,layersCanonicalBC wb (WCT9.digestIndex output) 4 (.pair left right)=
       SigGolfCandidate.Research.SharedForest.verifyLayers w (WCT9.digestIndex output) 4 (.pair left right))
     (hagree : Agree f g (mrealize 0 (SigGolfCandidate.Research.SharedForest.verify message pk w))) :
-    Agree f g (mrealize 0 (ClaudeWCT.W9.T3M.Paired.verifyP message pk wb)) := by
+    Agree f g (mrealize 0 (ClaudeWCT.W9.T3M.Paired.verifyPOld message pk wb)) := by
   have hb : ¬w.digestCounter.toNat≥WCT9.digestVerifyWindow := by
     exact Nat.not_le.mpr w.digestCounter.isLt
   have ha : verifyDigestAccepted output=true := by
@@ -3964,7 +4086,7 @@ theorem agree_verifyP_source_of (f g : Hash) (message : SigGolfCandidate.T3.Mess
   obtain ⟨hDigest,hNext⟩ := hagree
   rw [hd] at hNext
   simp only [ha,Bool.not_true,Bool.false_eq_true,↓reduceIte] at hNext
-  unfold ClaudeWCT.W9.T3M.Paired.verifyP digestP
+  unfold ClaudeWCT.W9.T3M.Paired.verifyPOld digestP
   rw [hdc,hrho,if_neg hb,bind_map_left,agree_mrealize_bind]
   refine ⟨hDigest,?_⟩
   rw [hd]
@@ -3997,11 +4119,12 @@ theorem agree_verifyP (hash : Hash) (message : SigGolfCandidate.T3.Message) (pk 
   simp only [ClaudeWCT.W9.T3M.Paired.recoveredWitness,evalWithAnswerFn_bind] at hr
   obtain ⟨floors,hfloors,hagree⟩ := agree_verify hash message pk w output result hd hr hh hc htop
   obtain ⟨hg,hrank,_⟩ := accepted_conditions output ha
-  refine ⟨floors,hfloors,agree_verifyP_source_of hash (okHashBy floors w.topHigh hash) message pk _ output w
+  refine ⟨floors,hfloors,agree_verifyP_of_old (fun _ hq => (okHashBy_eq_of_not_enc floors w.topHigh hash hq).symm)
+    message pk _ (agree_verifyP_source_of hash (okHashBy floors w.topHigh hash) message pk _ output w
     (ClaudeWCT.W9.T3M.Paired.wrho_witEncN output w)
     (ClaudeWCT.W9.T3M.Paired.wdc_witEncN output w) hd hg hrank
     (W9Drv.SharedCanonical.forest_witEncN output w _ (WCT9.digestIndex_lt output))
-    (fun left right=>ClaudeWCT.W9.T3M.Paired.layersCanonicalBC_witEncN output w 4 left right (by decide)) hagree⟩
+    (fun left right=>ClaudeWCT.W9.T3M.Paired.layersCanonicalBC_witEncN output w 4 left right (by decide)) hagree)⟩
 
 theorem digestCap_okHashBy (floors : Layer → Nat) (high : Bool) (hash : Hash)
     (message : SigGolfCandidate.T3.Message) (pk : Digest)

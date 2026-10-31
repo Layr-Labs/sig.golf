@@ -113,27 +113,28 @@ def length (k : Nat) : Nat := endWord k-start k
 `ra = pcOf (endWord 8 - 78)` (`addi ra,ra,-284`, was `-280`), since the merged singleton returns with
 `jalr zero,312(ra)` (was 308) to the same word 46862. -/
 def words (k : Nat) : List (BitVec 32) := [
-[0x208b7,0x16088893,0x8b203,0x1425213,0x7f27213,0x8b703,0x875713,0x3ff77713,0x2437,0x62840413,0x66e37,0x10337,0x10e3783,0x1b79793,0x60130313,0x6787b3,0x1421f93,0xff8fb3,0x721b93,0xe3337,0x30030313,0x6b8bb3,0x293,0x100393,0x200693,0x300993,0x400a13,0x500a93,0x600d13,0x700f13,0x4000593,0x97,0xef008093,0x871713,0xc0337,0x30313,0x670733,0x70067],
-[0x208b7,0x16088893,0x8b203,0x1a25213,0x7f27213,0x88b703,0x2175713,0x3ff77713,0x2437,0x2d840413,0x66e37,0xe0e13,0x10e3783,0x1b79793,0x20337,0x60130313,0x6787b3,0x1421f93,0xff8fb3,0x821b93,0xf2337,0xb0030313,0x6b8bb3,0x293,0x100393,0x200693,0x300993,0x400a13,0x500a93,0x600d13,0x700f13,0x4000593,0x97,0xef008093,0x871713,0xc0337,0x30313,0x670733,0x70067],
-[0x208b7,0x16088893,0x88b203,0x1425213,0x7f27213,0x88b703,0x875713,0x3ff77713,0x2437,0xf8840413,0x66e37,0xe0e13,0x10e3783,0x1b79793,0x30337,0x60130313,0x6787b3,0x1421f93,0xff8fb3,0x721b93,0xe3337,0x30030313,0x6b8bb3,0x293,0x100393,0x200693,0x300993,0x400a13,0x500a93,0x600d13,0x700f13,0x4000593,0x97,0xef008093,0x871713,0xc0337,0x30313,0x670733,0x70067],
-[0x208b7,0x16088893,0x88b203,0x1a25213,0x7f27213,0x88b703,0x2d75713,0x3ff77713,0x2437,0xc3840413,0x66e37,0xe0e13,0x10e3783,0x1b79793,0x40337,0x60130313,0x6787b3,0x1421f93,0xff8fb3,0x821b93,0xf2337,0xb0030313,0x6b8bb3,0x293,0x100393,0x200693,0x300993,0x400a13,0x500a93,0x600d13,0x700f13,0x4000593,0x97,0xef008093,0x871713,0xc0337,0x30313,0x670733,0x70067],
-[0x208b7,0x16088893,0x108b203,0x1425213,0x7f27213,0x108b703,0x875713,0x3ff77713,0x2437,0x8e840413,0x66e37,0xe0e13,0x10e3783,0x1b79793,0x50337,0x60130313,0x6787b3,0x1421f93,0xff8fb3,0x721b93,0xe3337,0x30030313,0x6b8bb3,0x293,0x100393,0x200693,0x300993,0x400a13,0x500a93,0x600d13,0x700f13,0x4000593,0x97,0xef008093,0x871713,0xc0337,0x30313,0x670733,0x70067],
-[0x208b7,0x16088893,0x108b203,0x1a25213,0x7f27213,0x108b703,0x2175713,0x3ff77713,0x1437,0x59840413,0x66e37,0xe0e13,0x10e3783,0x1b79793,0x60337,0x60130313,0x6787b3,0x1421f93,0xff8fb3,0x821b93,0xf2337,0xb0030313,0x6b8bb3,0x293,0x100393,0x200693,0x300993,0x400a13,0x500a93,0x600d13,0x700f13,0x4000593,0x97,0xef008093,0x871713,0xc0337,0x30313,0x670733,0x70067],
-[0x208b7,0x16088893,0x188b203,0x1425213,0x7f27213,0x188b703,0x875713,0x3ff77713,0x1437,0x24840413,0x66e37,0xe0e13,0x10e3783,0x1b79793,0x70337,0x60130313,0x6787b3,0x1421f93,0xff8fb3,0x721b93,0xe3337,0x30030313,0x6b8bb3,0x293,0x100393,0x200693,0x300993,0x400a13,0x500a93,0x600d13,0x700f13,0x4000593,0x97,0xef008093,0x871713,0xc0337,0x30313,0x670733,0x70067],
-[0x208b7,0x16088893,0x188b203,0x1a25213,0x7f27213,0x188b703,0x2175713,0x3ff77713,0x1437,0xef840413,0x66e37,0xe0e13,0x10e3783,0x1b79793,0x80337,0x60130313,0x6787b3,0x1421f93,0xff8fb3,0x821b93,0xf2337,0xb0030313,0x6b8bb3,0x293,0x100393,0x200693,0x300993,0x400a13,0x500a93,0x600d13,0x700f13,0x4000593,0x97,0xef008093,0x871713,0xc0337,0x30313,0x670733,0x70067],
-[0x208b7,0x16088893,0x108b203,0x3925213,0x7f27213,0x108b703,0x2d75713,0x3ff77713,0xcb040413,0x66e37,0xe0e13,0x10e3783,0x1b79793,0x90337,0x60130313,0x6787b3,0x1421f93,0xff8fb3,0x821b93,0xe7337,0x40030313,0x6b8bb3,0x293,0x100393,0x200693,0x300993,0x400a13,0x500a93,0x600d13,0x700f13,0x4000593,0x97,0xee008093,0x871713,0xc0337,0x30313,0x670733,0x70067]].getD k []
-def rawPosition (k : Nat) : Nat := [20,26,20,26,20,26,20,26,57].getD k 0
-def rawWord (k : Nat) : Nat := [0,0,1,1,2,2,3,3,2].getD k 0
-def rankPosition (k : Nat) : Nat := [8,33,8,45,8,33,8,33,45].getD k 0
-def rankWord (k : Nat) : Nat := [0,1,1,1,2,2,3,3,2].getD k 0
+[0x208b7,0x16088893,0x8b203,0x10337,0x7f27213,0x8b703,0xd75713,0x3ff77713,0x2437,0x62840413,0x66e37,0xe0e13,0x10e3783,0x1b79793,0x60130313,0x6787b3,0x1421f93,0xff8fb3,0x721b93,0xe3337,0x30030313,0x6b8bb3,0x293,0x100393,0x200693,0x300993,0x400a13,0x500a93,0x600d13,0x700f13,0x4000593,0x97,0xef408093,0x871713,0xc0337,0x30313,0x670733,0x70067],
+[0x208b7,0x16088893,0x8b203,0x625213,0x7f27213,0x88b703,0xd75713,0x3ff77713,0x2437,0x2d840413,0x66e37,0xe0e13,0x10e3783,0x1b79793,0x20337,0x60130313,0x6787b3,0x1421f93,0xff8fb3,0x821b93,0xf2337,0xb0030313,0x6b8bb3,0x293,0x100393,0x200693,0x300993,0x400a13,0x500a93,0x600d13,0x700f13,0x4000593,0x97,0xef408093,0x871713,0xc0337,0x30313,0x670733,0x70067],
+[0x208b7,0x16088893,0x88b203,0x25213,0x7f27213,0x88b703,0x1975713,0x3ff77713,0x2437,0xf8840413,0x66e37,0xe0e13,0x10e3783,0x1b79793,0x30337,0x60130313,0x6787b3,0x1421f93,0xff8fb3,0x721b93,0xe3337,0x30030313,0x6b8bb3,0x293,0x100393,0x200693,0x300993,0x400a13,0x500a93,0x600d13,0x700f13,0x4000593,0x97,0xef408093,0x871713,0xc0337,0x30313,0x670733,0x70067],
+[0x208b7,0x16088893,0x88b203,0x625213,0x7f27213,0x88b703,0x2575713,0x3ff77713,0x2437,0xc3840413,0x66e37,0xe0e13,0x10e3783,0x1b79793,0x40337,0x60130313,0x6787b3,0x1421f93,0xff8fb3,0x821b93,0xf2337,0xb0030313,0x6b8bb3,0x293,0x100393,0x200693,0x300993,0x400a13,0x500a93,0x600d13,0x700f13,0x4000593,0x97,0xef408093,0x871713,0xc0337,0x30313,0x670733,0x70067],
+[0x208b7,0x16088893,0x108b203,0x25213,0x7f27213,0x108b703,0xd75713,0x3ff77713,0x2437,0x8e840413,0x66e37,0xe0e13,0x10e3783,0x1b79793,0x50337,0x60130313,0x6787b3,0x1421f93,0xff8fb3,0x721b93,0xe3337,0x30030313,0x6b8bb3,0x293,0x100393,0x200693,0x300993,0x400a13,0x500a93,0x600d13,0x700f13,0x4000593,0x97,0xef408093,0x871713,0xc0337,0x30313,0x670733,0x70067],
+[0x208b7,0x16088893,0x108b203,0x625213,0x7f27213,0x108b703,0x1975713,0x3ff77713,0x1437,0x59840413,0x66e37,0xe0e13,0x10e3783,0x1b79793,0x60337,0x60130313,0x6787b3,0x1421f93,0xff8fb3,0x821b93,0xf2337,0xb0030313,0x6b8bb3,0x293,0x100393,0x200693,0x300993,0x400a13,0x500a93,0x600d13,0x700f13,0x4000593,0x97,0xef408093,0x871713,0xc0337,0x30313,0x670733,0x70067],
+[0x208b7,0x16088893,0x188b203,0x25213,0x7f27213,0x108b703,0x2575713,0x3ff77713,0x1437,0x24840413,0x66e37,0xe0e13,0x10e3783,0x1b79793,0x70337,0x60130313,0x6787b3,0x1421f93,0xff8fb3,0x721b93,0xe3337,0x30030313,0x6b8bb3,0x293,0x100393,0x200693,0x300993,0x400a13,0x500a93,0x600d13,0x700f13,0x4000593,0x97,0xef408093,0x871713,0xc0337,0x30313,0x670733,0x70067],
+[0x208b7,0x16088893,0x188b203,0x625213,0x7f27213,0x188b703,0xd75713,0x3ff77713,0x1437,0xef840413,0x66e37,0xe0e13,0x10e3783,0x1b79793,0x80337,0x60130313,0x6787b3,0x1421f93,0xff8fb3,0x821b93,0xf2337,0xb0030313,0x6b8bb3,0x293,0x100393,0x200693,0x300993,0x400a13,0x500a93,0x600d13,0x700f13,0x4000593,0x97,0xef408093,0x871713,0xc0337,0x30313,0x670733,0x70067],
+[0x208b7,0x16088893,0x188b203,0x2525213,0x7f27213,0x188b703,0x1975713,0x3ff77713,0xcb040413,0x66e37,0xe0e13,0x10e3783,0x1b79793,0x90337,0x60130313,0x6787b3,0x1421f93,0xff8fb3,0x821b93,0xe7337,0x40030313,0x6b8bb3,0x293,0x100393,0x200693,0x300993,0x400a13,0x500a93,0x600d13,0x700f13,0x4000593,0x97,0xedc08093,0x871713,0xc0337,0x30313,0x670733,0x70067]].getD k []
+def rawPosition (k : Nat) : Nat := [0,6,0,6,0,6,0,6,37].getD k 0
+def rawWord (k : Nat) : Nat := [0,0,1,1,2,2,3,3,3].getD k 0
+def rankPosition (k : Nat) : Nat := [13,13,25,37,13,25,37,13,25].getD k 0
+def rankWord (k : Nat) : Nat := [0,1,1,1,2,2,2,3,3].getD k 0
 def rawRead (k : Nat) (u : MachineState) : Word :=
   (u.getMem (BitVec.ofNat 64 (0x20160+8*rawWord k)) >>> rawPosition k) &&& 127#64
 def rankRead (k : Nat) (u : MachineState) : Word :=
   (u.getMem (BitVec.ofNat 64 (0x20160+8*rankWord k)) >>> rankPosition k) &&& 1023#64
 
 def result (k : Nat) : Result :=
-  -- Repack: every raw read shifts (coordinate 0 now `srli tp,tp,20`; `lui t1,0x10` reuses the redundant `addi t3,t3,0` slot).
-  let raw := mkBin .and (mkBin .srl (.ld (.c (BitVec.ofNat 64 (0x20160+8*rawWord k)))) (.c (BitVec.ofNat 64 (rawPosition k)))) (.c 127)
+  -- C4: coordinate 0 replaces its `srli tp,tp,0` no-op by the label `lui`, so its raw read has no shift.
+  let raw := if k = 0 then mkBin .and (.ld (.c (BitVec.ofNat 64 (0x20160+8*rawWord k)))) (.c 127)
+    else mkBin .and (mkBin .srl (.ld (.c (BitVec.ofNat 64 (0x20160+8*rawWord k)))) (.c (BitVec.ofNat 64 (rawPosition k)))) (.c 127)
   let rank := mkBin .and (mkBin .srl (.ld (.c (BitVec.ofNat 64 (0x20160+8*rankWord k)))) (.c (BitVec.ofNat 64 (rankPosition k)))) (.c 1023)
   let node := mkAdd (mkBin .sll (.ld (.c 0x66010)) (.c 27)) (.c (BitVec.ofNat 64 (1537+65536*(k+1))))
   let chainPC := mkAdd (mkBin .sll rank (.c 8)) (.c 0xc0000)
@@ -151,7 +152,7 @@ def result (k : Nat) : Result :=
   let regs := (regs.set .x13 (.c 2)).set .x19 (.c 3)
   let regs := (regs.set .x20 (.c 4)).set .x21 (.c 5)
   let regs := (regs.set .x26 (.c 6)).set .x30 (.c 7)
-  let regs := (regs.set .x11 (.c 64)).set .x1 (.c (pcOf (endWord k-(if k=8 then 79 else 75))))
+  let regs := (regs.set .x11 (.c 64)).set .x1 (.c (pcOf (endWord k-(if k=8 then 80 else 74))))
   ⟨⟨regs,[],[]⟩,mkBin .and chainPC (.c (~~~1#64)),.jump,length k,length k⟩
 theorem checked0 : rOK (symRun {} (words 0) (pcOf (start 0)) (length 0)) (result 0)=true := by decide +kernel
 theorem checked1 : rOK (symRun {} (words 1) (pcOf (start 1)) (length 1)) (result 1)=true := by decide +kernel
@@ -201,7 +202,7 @@ theorem result_base (k : Fin 9) (u : MachineState)
   · fin_cases k <;> first | exact absurd rfl hk | rfl
 
 theorem result_return (k : Fin 9) (u : MachineState) :
-    ((result k.val).toState u).getReg .x1=pcOf (endWord k.val-(if k.val=8 then 79 else 75)) := by fin_cases k <;> rfl
+    ((result k.val).toState u).getReg .x1=pcOf (endWord k.val-(if k.val=8 then 80 else 74)) := by fin_cases k <;> rfl
 
 theorem result_pc (k : Fin 9) (u : MachineState) :
     ((result k.val).toState u).pc=((rankRead k.val u <<< 8)+0xc0000#64) &&& ~~~1#64 := by fin_cases k <;> rfl
@@ -218,7 +219,7 @@ set_option maxHeartbeats 1000000
 /-- r3w: the expander runs the shared banks 1224 bytes below verify (`delta8 = 153`). -/
 noncomputable def layout (image : Image) (k : Fin 9) : W9Machine.Layout :=
   ⟨image,Frozen.layout.chainWord,(SharedLayout.layout k).childWord,
-    fun _=>endWord k.val-(if k.val=8 then 79 else 75),153⟩
+    fun _=>endWord k.val-(if k.val=8 then 80 else 74),153⟩
 theorem layout_shift (image : Image) (k : Fin 9) : (layout image k).shift = 1224 := rfl
 theorem layout_base (image : Image) (k k' : Fin 9) : Chain.base (layout image k) k' = coordinateBase k' - 1224 := by
   unfold Chain.base; rw [layout_shift]
@@ -3277,11 +3278,11 @@ theorem rotate_raw (raw : Nat) (hr : raw<128) :
   congr 1
   simp only [pow_one]
   omega
-def entry0Code : List (BitVec 32) := bv_list% 32 [0x208b7,0x16088893,0x8b803,0x1485813,0x7f87813,0x2437,0x62840413,0x78b7,0x1088893]
+def entry0Code : List (BitVec 32) := bv_list% 32 [0x208b7,0x16088893,0x8b803,0x85813,0x7f87813,0x2437,0x62840413,0x78b7,0x1088893]
 sym_block entry0 := symRun { noAlias := true } entry0Code (pcOf 45257) 32
 theorem entry0_steps {im : Image} (hc : CodeAt im (pcOf 45257) entry0Code)
     (s : MachineState) (hp : s.pc=pcOf 45257) (raw : Nat) (hr : raw<128)
-    (hraw : s.getMem (BitVec.ofNat 64 131424) >>> 20 &&& 127#64=BitVec.ofNat 64 raw) :
+    (hraw : s.getMem (BitVec.ofNat 64 131424) >>> 0 &&& 127#64=BitVec.ofNat 64 raw) :
     ∃ t, Steps im s 9 9 t ∧ t.pc=pcOf 45266 ∧
       t.getReg .x16=BitVec.ofNat 64 raw ∧
       t.getReg .x8=BitVec.ofNat 64 9768 ∧
@@ -3296,11 +3297,11 @@ theorem entry0_steps {im : Image} (hc : CodeAt im (pcOf 45257) entry0Code)
   · simp [entry0.res,rv_simp]
   · intro r hr; cases r <;> first | exact (hr (by decide)).elim | rfl
   · intro A hA hn; simp [entry0.res,rv_simp]
-def entry1Code : List (BitVec 32) := bv_list% 32 [0x208b7,0x16088893,0x8b803,0x1a85813,0x7f87813,0x187313,0x631313,0x185813,0x680833,0x2437,0x2d840413,0x78b7,0xe088893]
+def entry1Code : List (BitVec 32) := bv_list% 32 [0x208b7,0x16088893,0x8b803,0x685813,0x7f87813,0x187313,0x631313,0x185813,0x680833,0x2437,0x2d840413,0x78b7,0xe088893]
 sym_block entry1 := symRun { noAlias := true } entry1Code (pcOf 45387) 32
 theorem entry1_steps {im : Image} (hc : CodeAt im (pcOf 45387) entry1Code)
     (s : MachineState) (hp : s.pc=pcOf 45387) (raw : Nat) (hr : raw<128)
-    (hraw : s.getMem (BitVec.ofNat 64 131424) >>> 26 &&& 127#64=BitVec.ofNat 64 raw) :
+    (hraw : s.getMem (BitVec.ofNat 64 131424) >>> 6 &&& 127#64=BitVec.ofNat 64 raw) :
     ∃ t, Steps im s 13 13 t ∧ t.pc=pcOf 45400 ∧
       t.getReg .x16=BitVec.ofNat 64 (raw/2+64*(raw%2)) ∧
       t.getReg .x8=BitVec.ofNat 64 8920 ∧
@@ -3310,18 +3311,18 @@ theorem entry1_steps {im : Image} (hc : CodeAt im (pcOf 45387) entry1Code)
   · simp [entry1.res,E.eval]
   · simp only [Result.toState_getReg,entry1.res]
     t3n []
-    have hraw' : s.getMem 131424#64 >>> 26 &&& 127#64=BitVec.ofNat 64 raw := hraw
+    have hraw' : s.getMem 131424#64 >>> 6 &&& 127#64=BitVec.ofNat 64 raw := hraw
     rw [hraw']
     exact rotate_raw raw hr
   · simp [entry1.res,rv_simp]
   · simp [entry1.res,rv_simp]
   · intro r hr; cases r <;> first | exact (hr (by decide)).elim | rfl
   · intro A hA hn; simp [entry1.res,rv_simp]
-def entry2Code : List (BitVec 32) := bv_list% 32 [0x208b7,0x16088893,0x88b803,0x1485813,0x7f87813,0x2437,0xf8840413,0x78b7,0x1b088893]
+def entry2Code : List (BitVec 32) := bv_list% 32 [0x208b7,0x16088893,0x88b803,0x85813,0x7f87813,0x2437,0xf8840413,0x78b7,0x1b088893]
 sym_block entry2 := symRun { noAlias := true } entry2Code (pcOf 45534) 32
 theorem entry2_steps {im : Image} (hc : CodeAt im (pcOf 45534) entry2Code)
     (s : MachineState) (hp : s.pc=pcOf 45534) (raw : Nat) (hr : raw<128)
-    (hraw : s.getMem (BitVec.ofNat 64 131432) >>> 20 &&& 127#64=BitVec.ofNat 64 raw) :
+    (hraw : s.getMem (BitVec.ofNat 64 131432) >>> 0 &&& 127#64=BitVec.ofNat 64 raw) :
     ∃ t, Steps im s 9 9 t ∧ t.pc=pcOf 45543 ∧
       t.getReg .x16=BitVec.ofNat 64 raw ∧
       t.getReg .x8=BitVec.ofNat 64 8072 ∧
@@ -3336,11 +3337,11 @@ theorem entry2_steps {im : Image} (hc : CodeAt im (pcOf 45534) entry2Code)
   · simp [entry2.res,rv_simp]
   · intro r hr; cases r <;> first | exact (hr (by decide)).elim | rfl
   · intro A hA hn; simp [entry2.res,rv_simp]
-def entry3Code : List (BitVec 32) := bv_list% 32 [0x208b7,0x16088893,0x88b803,0x1a85813,0x7f87813,0x187313,0x631313,0x185813,0x680833,0x2437,0xc3840413,0x78b7,0x28088893]
+def entry3Code : List (BitVec 32) := bv_list% 32 [0x208b7,0x16088893,0x88b803,0x685813,0x7f87813,0x187313,0x631313,0x185813,0x680833,0x2437,0xc3840413,0x78b7,0x28088893]
 sym_block entry3 := symRun { noAlias := true } entry3Code (pcOf 45664) 32
 theorem entry3_steps {im : Image} (hc : CodeAt im (pcOf 45664) entry3Code)
     (s : MachineState) (hp : s.pc=pcOf 45664) (raw : Nat) (hr : raw<128)
-    (hraw : s.getMem (BitVec.ofNat 64 131432) >>> 26 &&& 127#64=BitVec.ofNat 64 raw) :
+    (hraw : s.getMem (BitVec.ofNat 64 131432) >>> 6 &&& 127#64=BitVec.ofNat 64 raw) :
     ∃ t, Steps im s 13 13 t ∧ t.pc=pcOf 45677 ∧
       t.getReg .x16=BitVec.ofNat 64 (raw/2+64*(raw%2)) ∧
       t.getReg .x8=BitVec.ofNat 64 7224 ∧
@@ -3350,18 +3351,18 @@ theorem entry3_steps {im : Image} (hc : CodeAt im (pcOf 45664) entry3Code)
   · simp [entry3.res,E.eval]
   · simp only [Result.toState_getReg,entry3.res]
     t3n []
-    have hraw' : s.getMem 131432#64 >>> 26 &&& 127#64=BitVec.ofNat 64 raw := hraw
+    have hraw' : s.getMem 131432#64 >>> 6 &&& 127#64=BitVec.ofNat 64 raw := hraw
     rw [hraw']
     exact rotate_raw raw hr
   · simp [entry3.res,rv_simp]
   · simp [entry3.res,rv_simp]
   · intro r hr; cases r <;> first | exact (hr (by decide)).elim | rfl
   · intro A hA hn; simp [entry3.res,rv_simp]
-def entry4Code : List (BitVec 32) := bv_list% 32 [0x208b7,0x16088893,0x108b803,0x1485813,0x7f87813,0x2437,0x8e840413,0x78b7,0x35088893]
+def entry4Code : List (BitVec 32) := bv_list% 32 [0x208b7,0x16088893,0x108b803,0x85813,0x7f87813,0x2437,0x8e840413,0x78b7,0x35088893]
 sym_block entry4 := symRun { noAlias := true } entry4Code (pcOf 45811) 32
 theorem entry4_steps {im : Image} (hc : CodeAt im (pcOf 45811) entry4Code)
     (s : MachineState) (hp : s.pc=pcOf 45811) (raw : Nat) (hr : raw<128)
-    (hraw : s.getMem (BitVec.ofNat 64 131440) >>> 20 &&& 127#64=BitVec.ofNat 64 raw) :
+    (hraw : s.getMem (BitVec.ofNat 64 131440) >>> 0 &&& 127#64=BitVec.ofNat 64 raw) :
     ∃ t, Steps im s 9 9 t ∧ t.pc=pcOf 45820 ∧
       t.getReg .x16=BitVec.ofNat 64 raw ∧
       t.getReg .x8=BitVec.ofNat 64 6376 ∧
@@ -3376,11 +3377,11 @@ theorem entry4_steps {im : Image} (hc : CodeAt im (pcOf 45811) entry4Code)
   · simp [entry4.res,rv_simp]
   · intro r hr; cases r <;> first | exact (hr (by decide)).elim | rfl
   · intro A hA hn; simp [entry4.res,rv_simp]
-def entry5Code : List (BitVec 32) := bv_list% 32 [0x208b7,0x16088893,0x108b803,0x1a85813,0x7f87813,0x187313,0x631313,0x185813,0x680833,0x1437,0x59840413,0x78b7,0x42088893]
+def entry5Code : List (BitVec 32) := bv_list% 32 [0x208b7,0x16088893,0x108b803,0x685813,0x7f87813,0x187313,0x631313,0x185813,0x680833,0x1437,0x59840413,0x78b7,0x42088893]
 sym_block entry5 := symRun { noAlias := true } entry5Code (pcOf 45941) 32
 theorem entry5_steps {im : Image} (hc : CodeAt im (pcOf 45941) entry5Code)
     (s : MachineState) (hp : s.pc=pcOf 45941) (raw : Nat) (hr : raw<128)
-    (hraw : s.getMem (BitVec.ofNat 64 131440) >>> 26 &&& 127#64=BitVec.ofNat 64 raw) :
+    (hraw : s.getMem (BitVec.ofNat 64 131440) >>> 6 &&& 127#64=BitVec.ofNat 64 raw) :
     ∃ t, Steps im s 13 13 t ∧ t.pc=pcOf 45954 ∧
       t.getReg .x16=BitVec.ofNat 64 (raw/2+64*(raw%2)) ∧
       t.getReg .x8=BitVec.ofNat 64 5528 ∧
@@ -3390,18 +3391,18 @@ theorem entry5_steps {im : Image} (hc : CodeAt im (pcOf 45941) entry5Code)
   · simp [entry5.res,E.eval]
   · simp only [Result.toState_getReg,entry5.res]
     t3n []
-    have hraw' : s.getMem 131440#64 >>> 26 &&& 127#64=BitVec.ofNat 64 raw := hraw
+    have hraw' : s.getMem 131440#64 >>> 6 &&& 127#64=BitVec.ofNat 64 raw := hraw
     rw [hraw']
     exact rotate_raw raw hr
   · simp [entry5.res,rv_simp]
   · simp [entry5.res,rv_simp]
   · intro r hr; cases r <;> first | exact (hr (by decide)).elim | rfl
   · intro A hA hn; simp [entry5.res,rv_simp]
-def entry6Code : List (BitVec 32) := bv_list% 32 [0x208b7,0x16088893,0x188b803,0x1485813,0x7f87813,0x1437,0x24840413,0x78b7,0x4f088893]
+def entry6Code : List (BitVec 32) := bv_list% 32 [0x208b7,0x16088893,0x188b803,0x85813,0x7f87813,0x1437,0x24840413,0x78b7,0x4f088893]
 sym_block entry6 := symRun { noAlias := true } entry6Code (pcOf 46088) 32
 theorem entry6_steps {im : Image} (hc : CodeAt im (pcOf 46088) entry6Code)
     (s : MachineState) (hp : s.pc=pcOf 46088) (raw : Nat) (hr : raw<128)
-    (hraw : s.getMem (BitVec.ofNat 64 131448) >>> 20 &&& 127#64=BitVec.ofNat 64 raw) :
+    (hraw : s.getMem (BitVec.ofNat 64 131448) >>> 0 &&& 127#64=BitVec.ofNat 64 raw) :
     ∃ t, Steps im s 9 9 t ∧ t.pc=pcOf 46097 ∧
       t.getReg .x16=BitVec.ofNat 64 raw ∧
       t.getReg .x8=BitVec.ofNat 64 4680 ∧
@@ -3416,11 +3417,11 @@ theorem entry6_steps {im : Image} (hc : CodeAt im (pcOf 46088) entry6Code)
   · simp [entry6.res,rv_simp]
   · intro r hr; cases r <;> first | exact (hr (by decide)).elim | rfl
   · intro A hA hn; simp [entry6.res,rv_simp]
-def entry7Code : List (BitVec 32) := bv_list% 32 [0x208b7,0x16088893,0x188b803,0x1a85813,0x7f87813,0x187313,0x631313,0x185813,0x680833,0x1437,0xef840413,0x78b7,0x5c088893]
+def entry7Code : List (BitVec 32) := bv_list% 32 [0x208b7,0x16088893,0x188b803,0x685813,0x7f87813,0x187313,0x631313,0x185813,0x680833,0x1437,0xef840413,0x78b7,0x5c088893]
 sym_block entry7 := symRun { noAlias := true } entry7Code (pcOf 46218) 32
 theorem entry7_steps {im : Image} (hc : CodeAt im (pcOf 46218) entry7Code)
     (s : MachineState) (hp : s.pc=pcOf 46218) (raw : Nat) (hr : raw<128)
-    (hraw : s.getMem (BitVec.ofNat 64 131448) >>> 26 &&& 127#64=BitVec.ofNat 64 raw) :
+    (hraw : s.getMem (BitVec.ofNat 64 131448) >>> 6 &&& 127#64=BitVec.ofNat 64 raw) :
     ∃ t, Steps im s 13 13 t ∧ t.pc=pcOf 46231 ∧
       t.getReg .x16=BitVec.ofNat 64 (raw/2+64*(raw%2)) ∧
       t.getReg .x8=BitVec.ofNat 64 3832 ∧
@@ -3430,18 +3431,18 @@ theorem entry7_steps {im : Image} (hc : CodeAt im (pcOf 46218) entry7Code)
   · simp [entry7.res,E.eval]
   · simp only [Result.toState_getReg,entry7.res]
     t3n []
-    have hraw' : s.getMem 131448#64 >>> 26 &&& 127#64=BitVec.ofNat 64 raw := hraw
+    have hraw' : s.getMem 131448#64 >>> 6 &&& 127#64=BitVec.ofNat 64 raw := hraw
     rw [hraw']
     exact rotate_raw raw hr
   · simp [entry7.res,rv_simp]
   · simp [entry7.res,rv_simp]
   · intro r hr; cases r <;> first | exact (hr (by decide)).elim | rfl
   · intro A hA hn; simp [entry7.res,rv_simp]
-def entry8Code : List (BitVec 32) := bv_list% 32 [0x208b7,0x16088893,0x108b803,0x3985813,0x7f87813,0x187313,0x631313,0x185813,0x680833,0xcb040413,0x78b7,0x69088893]
+def entry8Code : List (BitVec 32) := bv_list% 32 [0x208b7,0x16088893,0x188b803,0x2585813,0x7f87813,0x187313,0x631313,0x185813,0x680833,0xcb040413,0x78b7,0x69088893]
 sym_block entry8 := symRun { noAlias := true } entry8Code (pcOf 46364) 32
 theorem entry8_steps {im : Image} (hc : CodeAt im (pcOf 46364) entry8Code)
     (s : MachineState) (hp : s.pc=pcOf 46364) (raw : Nat) (hr : raw<128)
-    (hraw : s.getMem (BitVec.ofNat 64 131440) >>> 57 &&& 127#64=BitVec.ofNat 64 raw)
+    (hraw : s.getMem (BitVec.ofNat 64 131448) >>> 37 &&& 127#64=BitVec.ofNat 64 raw)
     (h8 : s.getReg .x8 = BitVec.ofNat 64 3832) :
     ∃ t, Steps im s 12 12 t ∧ t.pc=pcOf 46376 ∧
       t.getReg .x16=BitVec.ofNat 64 (raw/2+64*(raw%2)) ∧
@@ -3452,7 +3453,7 @@ theorem entry8_steps {im : Image} (hc : CodeAt im (pcOf 46364) entry8Code)
   · simp [entry8.res,E.eval]
   · simp only [Result.toState_getReg,entry8.res]
     t3n []
-    have hraw' : s.getMem 131440#64 >>> 57 &&& 127#64=BitVec.ofNat 64 raw := hraw
+    have hraw' : s.getMem 131448#64 >>> 37 &&& 127#64=BitVec.ofNat 64 raw := hraw
     rw [hraw']
     exact rotate_raw raw hr
   · simp only [Result.toState_getReg,entry8.res]
@@ -4285,8 +4286,8 @@ set_option maxRecDepth 10000
 def coordRegion (k : Nat) : Nat := 9768-848*k
 def coordSource (k : Nat) : Nat := 28688+208*k
 def coordPhysical (k raw : Nat) : Nat := if k<8 ∧ k%2=0 then raw else raw/2+64*(raw%2)
-def rawAddress (k : Nat) : Nat := [131424,131424,131432,131432,131440,131440,131448,131448,131440].getD k 0
-def rawShift (k : Nat) : Nat := [20,26,20,26,20,26,20,26,57].getD k 0
+def rawAddress (k : Nat) : Nat := [131424,131424,131432,131432,131440,131440,131448,131448,131448].getD k 0
+def rawShift (k : Nat) : Nat := [0,6,0,6,0,6,0,6,37].getD k 0
 def entryCycles (k : Nat) : Nat := [9,13,9,13,9,13,9,13,12].getD k 0
 theorem coordPhysical_lt (k : Nat) (raw : Fin 128) : coordPhysical k raw.val<128 := by
   unfold coordPhysical

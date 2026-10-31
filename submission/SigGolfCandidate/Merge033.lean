@@ -10891,16 +10891,16 @@ def recoverForest (index : Nat) (selected : ForestSelection) (words : ForestWord
 /-- Physical B children rotate the raw seven-bit field right by one: the
 shared low bit becomes the branch bit, and the next six bits select within it. -/
 def selectionFromOutput (output : HashOutput) (pair : Fin 4) : Selection where
-  branch := ⟨output.toNat / 2 ^ (64 * pair.val + 26) % 2, Nat.mod_lt _ (by decide)⟩
-  first := ⟨output.toNat / 2 ^ (64 * pair.val + 20) % 64, Nat.mod_lt _ (by decide)⟩
-  second := ⟨output.toNat / 2 ^ (64 * pair.val + 27) % 64, Nat.mod_lt _ (by decide)⟩
+  branch := ⟨output.toNat / 2 ^ (64 * pair.val + 6) % 2, Nat.mod_lt _ (by decide)⟩
+  first := ⟨output.toNat / 2 ^ (64 * pair.val) % 64, Nat.mod_lt _ (by decide)⟩
+  second := ⟨output.toNat / 2 ^ (64 * pair.val + 7) % 64, Nat.mod_lt _ (by decide)⟩
 
 def forestSelectionFromOutput (output : HashOutput) : ForestSelection where
   pairs := selectionFromOutput output
-  singleton := ⟨physicalChild false (output.toNat / 2 ^ 185 % 128),
+  singleton := ⟨physicalChild false (output.toNat / 2 ^ 229 % 128),
     physicalChild_lt false _ (Nat.mod_lt _ (by decide))⟩
 
-def rankBase (coord : Nat) : Nat := [8, 97, 72, 109, 136, 161, 200, 225, 173].getD coord 0
+def rankBase (coord : Nat) : Nat := [13, 77, 89, 101, 141, 153, 165, 205, 217].getD coord 0
 
 def rawForestRank (output : HashOutput) (coord : Nat) : Nat :=
   output.toNat / 2 ^ rankBase coord % 1024
@@ -11506,7 +11506,7 @@ namespace SigGolfCandidate.Research.SharedForest
 open SigGolfCandidate.T3 ClaudeWCT.WCT9
 
 def firstCoord (coord : Nat) : Bool := decide (coord < 8 ∧ coord % 2 = 0)
-def rawChildBase (coord : Nat) : Nat := [20, 26, 84, 90, 148, 154, 212, 218, 185].getD coord 0
+def rawChildBase (coord : Nat) : Nat := [0, 6, 64, 70, 128, 134, 192, 198, 229].getD coord 0
 
 def rawChildFromOutput (output : HashOutput) (coord : Fin 9) : Child :=
   ⟨output.toNat / 2 ^ rawChildBase coord.val % 128, Nat.mod_lt _ (by decide)⟩
@@ -11867,7 +11867,7 @@ theorem accountingCorrection_field (output : HashOutput) (coord : Fin 9) :
     omega
 
 theorem costFieldBases : (List.range 9).map costFieldBase =
-    [20, 27, 84, 91, 148, 155, 212, 219, 186] := by decide +kernel
+    [0, 7, 64, 71, 128, 135, 192, 199, 230] := by decide +kernel
 
 /-- All nine5-bit cost fields, nine10-bit rank fields, the31-bit index,
 and14-bit gate occupy disjoint ranges of the256-bit digest. -/
@@ -13425,16 +13425,16 @@ def bitsEquiv (n : Nat) : BitVec n ≃ (Fin n → Bool) where
 
 set_option maxRecDepth 10000
 set_option maxHeartbeats 0
-def costBase (k : Nat) : Nat := [20, 27, 84, 91, 148, 155, 212, 219, 186].getD k 0
-def rankBase (k : Nat) : Nat := [8, 97, 72, 109, 136, 161, 200, 225, 173].getD k 0
-def spareBase (k : Nat) : Nat := [0, 1, 2, 3, 4, 5, 6, 7, 18, 19, 25, 26, 32, 64, 65, 66, 67, 68, 69, 70, 71, 82, 83, 89, 90, 96, 107, 108, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 146, 147, 153, 154, 160, 171, 172, 183, 184, 185, 191, 192, 193, 194, 195, 196, 197, 198, 199, 210, 211, 217, 218, 224, 235, 236, 237, 238, 239, 240, 241].getD k 0
+def costBase (k : Nat) : Nat := [0, 7, 64, 71, 128, 135, 192, 199, 230].getD k 0
+def rankBase (k : Nat) : Nat := [13, 77, 89, 101, 141, 153, 165, 205, 217].getD k 0
+def spareBase (k : Nat) : Nat := [5, 6, 12, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 69, 70, 76, 87, 88, 99, 100, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 133, 134, 140, 151, 152, 163, 164, 175, 176, 177, 178, 179, 180, 181, 182, 183, 184, 185, 186, 187, 188, 189, 190, 191, 197, 198, 204, 215, 216, 227, 228, 229, 235, 236, 237, 238, 239, 240, 241].getD k 0
 def position (i : Nat) : Nat :=
   if i < 45 then costBase (i / 5) + i % 5
   else if i < 135 then rankBase ((i-45)/10) + (i-45)%10
   else if i < 166 then 33 + (i-135)
   else if i < 180 then 242 + (i-166)
   else spareBase (i-180)
-def inversePosition (i : Nat) : Nat := [180, 181, 182, 183, 184, 185, 186, 187, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 188, 189, 0, 1, 2, 3, 4, 190, 191, 5, 6, 7, 8, 9, 192, 135, 136, 137, 138, 139, 140, 141, 142, 143, 144, 145, 146, 147, 148, 149, 150, 151, 152, 153, 154, 155, 156, 157, 158, 159, 160, 161, 162, 163, 164, 165, 193, 194, 195, 196, 197, 198, 199, 200, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 201, 202, 10, 11, 12, 13, 14, 203, 204, 15, 16, 17, 18, 19, 205, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 206, 207, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 208, 209, 210, 211, 212, 213, 214, 215, 216, 217, 218, 219, 220, 221, 222, 223, 224, 85, 86, 87, 88, 89, 90, 91, 92, 93, 94, 225, 226, 20, 21, 22, 23, 24, 227, 228, 25, 26, 27, 28, 29, 229, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 230, 231, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 232, 233, 234, 40, 41, 42, 43, 44, 235, 236, 237, 238, 239, 240, 241, 242, 243, 105, 106, 107, 108, 109, 110, 111, 112, 113, 114, 244, 245, 30, 31, 32, 33, 34, 246, 247, 35, 36, 37, 38, 39, 248, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 249, 250, 251, 252, 253, 254, 255, 166, 167, 168, 169, 170, 171, 172, 173, 174, 175, 176, 177, 178, 179].getD i 0
+def inversePosition (i : Nat) : Nat := [0, 1, 2, 3, 4, 180, 181, 5, 6, 7, 8, 9, 182, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 183, 184, 185, 186, 187, 188, 189, 190, 191, 192, 135, 136, 137, 138, 139, 140, 141, 142, 143, 144, 145, 146, 147, 148, 149, 150, 151, 152, 153, 154, 155, 156, 157, 158, 159, 160, 161, 162, 163, 164, 165, 10, 11, 12, 13, 14, 193, 194, 15, 16, 17, 18, 19, 195, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 196, 197, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 198, 199, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 200, 201, 202, 203, 204, 205, 206, 207, 208, 209, 210, 211, 212, 213, 214, 215, 216, 20, 21, 22, 23, 24, 217, 218, 25, 26, 27, 28, 29, 219, 85, 86, 87, 88, 89, 90, 91, 92, 93, 94, 220, 221, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 222, 223, 105, 106, 107, 108, 109, 110, 111, 112, 113, 114, 224, 225, 226, 227, 228, 229, 230, 231, 232, 233, 234, 235, 236, 237, 238, 239, 240, 30, 31, 32, 33, 34, 241, 242, 35, 36, 37, 38, 39, 243, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 244, 245, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 246, 247, 248, 40, 41, 42, 43, 44, 249, 250, 251, 252, 253, 254, 255, 166, 167, 168, 169, 170, 171, 172, 173, 174, 175, 176, 177, 178, 179].getD i 0
 theorem inversePosition_bound : ∀ i : Fin 256, inversePosition i.val < 256 := by decide +kernel
 theorem inversePosition_correct : ∀ i : Fin 256, position (inversePosition i.val) = i.val := by decide +kernel
 abbrev Fields := (Fin 9 → BitVec 5) × (Fin 9 → BitVec 10) × BitVec 31 × BitVec 14
@@ -14737,23 +14737,23 @@ abbrev PairSelector := Fin 2 × Fin 64 × Fin 64
 abbrev Selectors := (Fin 4 → PairSelector) × Fin 128
 abbrev RawFields := Selectors × (Fin 9 → Fin 1024) × Fin (2^31) × Fin (2^14)
 abbrev Coordinates := RawFields × (Fin 62 → Bool)
-def rankBase (k : Nat) : Nat := [8,97,72,109,136,161,200,225,173].getD k 0
-def spareBase (k : Nat) : Nat := [0, 1, 2, 3, 4, 5, 6, 7, 18, 19, 64, 65, 66, 67, 68, 69, 70, 71, 82, 83, 107, 108, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 146, 147, 171, 172, 183, 184, 192, 193, 194, 195, 196, 197, 198, 199, 210, 211, 235, 236, 237, 238, 239, 240, 241].getD k 0
+def rankBase (k : Nat) : Nat := [13,77,89,101,141,153,165,205,217].getD k 0
+def spareBase (k : Nat) : Nat := [23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 87, 88, 99, 100, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 151, 152, 163, 164, 175, 176, 177, 178, 179, 180, 181, 182, 183, 184, 185, 186, 187, 188, 189, 190, 191, 215, 216, 227, 228, 236, 237, 238, 239, 240, 241].getD k 0
 def position (i : Nat) : Nat :=
-  if i < 52 then 64*(i/13)+20+i%13
-  else if i < 59 then 185+(i-52)
+  if i < 52 then 64*(i/13)+i%13
+  else if i < 59 then 229+(i-52)
   else if i < 149 then rankBase ((i-59)/10)+(i-59)%10
   else if i < 180 then 33+(i-149)
   else if i < 194 then 242+(i-180)
   else spareBase (i-194)
-def inversePosition (k : Nat) : Nat := [194, 195, 196, 197, 198, 199, 200, 201, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 202, 203, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 149, 150, 151, 152, 153, 154, 155, 156, 157, 158, 159, 160, 161, 162, 163, 164, 165, 166, 167, 168, 169, 170, 171, 172, 173, 174, 175, 176, 177, 178, 179, 204, 205, 206, 207, 208, 209, 210, 211, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 212, 213, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 214, 215, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 216, 217, 218, 219, 220, 221, 222, 223, 224, 225, 226, 227, 228, 229, 230, 231, 232, 99, 100, 101, 102, 103, 104, 105, 106, 107, 108, 233, 234, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 235, 236, 139, 140, 141, 142, 143, 144, 145, 146, 147, 148, 237, 238, 52, 53, 54, 55, 56, 57, 58, 239, 240, 241, 242, 243, 244, 245, 246, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 247, 248, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 249, 250, 251, 252, 253, 254, 255, 180, 181, 182, 183, 184, 185, 186, 187, 188, 189, 190, 191, 192, 193].getD k 0
+def inversePosition (k : Nat) : Nat := [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 194, 195, 196, 197, 198, 199, 200, 201, 202, 203, 149, 150, 151, 152, 153, 154, 155, 156, 157, 158, 159, 160, 161, 162, 163, 164, 165, 166, 167, 168, 169, 170, 171, 172, 173, 174, 175, 176, 177, 178, 179, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 204, 205, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 206, 207, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 208, 209, 210, 211, 212, 213, 214, 215, 216, 217, 218, 219, 220, 221, 222, 223, 224, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 99, 100, 101, 102, 103, 104, 105, 106, 107, 108, 225, 226, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 227, 228, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 229, 230, 231, 232, 233, 234, 235, 236, 237, 238, 239, 240, 241, 242, 243, 244, 245, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 246, 247, 139, 140, 141, 142, 143, 144, 145, 146, 147, 148, 248, 249, 52, 53, 54, 55, 56, 57, 58, 250, 251, 252, 253, 254, 255, 180, 181, 182, 183, 184, 185, 186, 187, 188, 189, 190, 191, 192, 193].getD k 0
 theorem inverse_bound : ∀ k : Fin 256, inversePosition k.val < 256 := by decide +kernel
 theorem inverse_correct : ∀ k : Fin 256, position (inversePosition k.val) = k.val := by decide +kernel
 
 def rawFields (a : HashOutput) : RawFields :=
-  ((fun k => ((a.extractLsb' (64*k.val+26) 1).toFin,
-      (a.extractLsb' (64*k.val+20) 6).toFin, (a.extractLsb' (64*k.val+27) 6).toFin),
-    (a.extractLsb' 185 7).toFin),
+  ((fun k => ((a.extractLsb' (64*k.val+6) 1).toFin,
+      (a.extractLsb' (64*k.val) 6).toFin, (a.extractLsb' (64*k.val+7) 6).toFin),
+    (a.extractLsb' 229 7).toFin),
     fun k => (a.extractLsb' (rankBase k.val) 10).toFin,
     (a.extractLsb' 33 31).toFin, (a.extractLsb' 242 14).toFin)
 def coordinates (a : HashOutput) : Coordinates :=
@@ -14772,14 +14772,13 @@ theorem coordinates_injective : Function.Injective coordinates := by
         simpa only [coordinates, rawFields, BitVec.ofFin_toFin,
           BitVec.getLsbD_extractLsb', hsmall, decide_true, Bool.true_and] using e
       · by_cases hmid : i.val%13=6
-        · have hpos : 64*(i.val/13)+20+i.val%13 = 64*(i.val/13)+26+0 := by omega
-          rw [hpos]
-          have e := congrArg (fun v : Coordinates =>
+        · have e := congrArg (fun v : Coordinates =>
             (BitVec.ofFin (v.1.1.1 ⟨i.val/13,hk⟩).1 : BitVec 1).getLsbD 0) he
           simpa only [coordinates, rawFields, BitVec.ofFin_toFin,
-            BitVec.getLsbD_extractLsb', Nat.zero_lt_succ, decide_true, Bool.true_and] using e
+            BitVec.getLsbD_extractLsb', Nat.zero_lt_succ, decide_true, Bool.true_and,
+            Nat.add_zero, hmid] using e
         · have hwithin : i.val%13-7<6 := by omega
-          have hoff : 64*(i.val/13)+27+(i.val%13-7)=64*(i.val/13)+20+i.val%13 := by omega
+          have hoff : 64*(i.val/13)+7+(i.val%13-7)=64*(i.val/13)+i.val%13 := by omega
           have e := congrArg (fun v : Coordinates =>
             (BitVec.ofFin (v.1.1.1 ⟨i.val/13,hk⟩).2.2 : BitVec 6).getLsbD (i.val%13-7)) he
           simpa only [coordinates, rawFields, BitVec.ofFin_toFin,

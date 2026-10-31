@@ -112,8 +112,9 @@ theorem groupFactsK (q k : Nat) (hq : q<17) (hk : k<nRank q) : GroupFactsK q k :
     · have h := List.all_eq_true.mp htails (kdig q k 0) (List.mem_range.mpr hd)
       rw [eb]; simpa only [Nat.add_assoc] using rOK_eq h
     · rw [eb]
-      have h0 : rungsOK q 0 (termSlot (3*q)) (base q (kdig q k 1) (kdig q k 2)+2*0)=true := by simpa using hrungs
-      exact rungsOK_mono q 0 _ _ _ (by omega) h0
+      -- M0 (landing fix): rung 0's first word is never executed (the head enters each rung past it).
+      have h1 : rungsOK q 1 (termSlot (3*q)) (base q (kdig q k 1) (kdig q k 2)+2*1)=true := by simpa using hrungs
+      exact rungsOK_mono q 1 _ _ _ (by omega) h1
     · rw [eB]
       cases hsk : skipB q k
       · simpa using hpB
@@ -1909,12 +1910,12 @@ theorem g0_dispatch_step {p : Nat} (hp : p < 257181) (hrun : vrun p 5 = some g0D
 /-- The checksum dispatch (end of the r7 pair): pc at `ckWord ds` for `s8 = T - ds`, `ds <= 231`. -/
 theorem ck_dispatch_step {p : Nat} (hp : p < 257181) (hrun : vrun p 5 = some ckDispR) (s : MachineState)
     (ds : Nat) (hd : ds ≤ 231) (hpc : s.pc = pcOf p)
-    (h24 : s.getReg .x24 = BitVec.ofNat 64 topT - BitVec.ofNat 64 ds) :
-    ∃ t, Steps Images.verifyImage s 3 3 t ∧ t.pc = pcOf (ckWord ds) ∧ RegsExcept s t [.x14] ∧
+    (h24 : s.getReg .x24 = BitVec.ofNat 64 s8T - BitVec.ofNat 64 ds) :
+    ∃ t, Steps Images.verifyImage s 2 2 t ∧ t.pc = pcOf (ckWord ds) ∧ RegsExcept s t [.x14] ∧
       Frame s t (fun _ => False) := by
   refine ⟨ckDispR.toState s, piece_steps45 hrun hp s hpc (by simp [ckDispR]), ?_, ?_, ?_⟩
   · rw [Result.toState_pc]
-    show ((((s.getReg .x24 + 89#64) <<< ((11#64).toNat % 64))) + 1168#64) &&& ~~~1#64 = _
+    show (((s.getReg .x24 <<< ((11#64).toNat % 64))) + 1168#64) &&& ~~~1#64 = _
     rw [h24]; exact ck_target ds hd
   · intro r hr
     rw [Result.toState_getReg]
@@ -2164,7 +2165,7 @@ theorem topRank9 (v : Digest) : Search.topRank v 9=v.toNat/2^63%2+2*(v.toNat/2^6
   rw [h]; omega
 /-- Reverse checksum `topT - (digits of the chains of groups 0..q)` (q = 16: chains 0..49). -/
 def s8v (c : NCtx) (q : Nat) : Word :=
-  BitVec.ofNat 64 topT-BitVec.ofNat 64 (((List.range (3*q+nCh q)).map c.dig).sum)
+  BitVec.ofNat 64 s8T-BitVec.ofNat 64 (((List.range (3*q+nCh q)).map c.dig).sum)
 def set24 (b : MachineState) (x : Word) : MachineState := b.setReg .x24 x
 theorem set24_regs (b : MachineState) (x : Word) (r : Reg) (hr : r≠.x24) : (set24 b x).getReg r=b.getReg r := by
   unfold set24
@@ -2243,7 +2244,7 @@ theorem s8v_succ (c : NCtx) (hds : c.DigitsOk) (q : Nat) (hq : q<16) :
   simp only [BitVec.sub_eq_add_neg,BitVec.neg_add]
   ac_rfl
 theorem s8v0 (c : NCtx) (hds : c.DigitsOk) :
-    c.s8v 0 = BitVec.ofNat 64 topT-BitVec.ofNat 64 (kss 0 (c.kOf 0)) := by
+    c.s8v 0 = BitVec.ofNat 64 s8T-BitVec.ofNat 64 (kss 0 (c.kOf 0)) := by
   have h : ((List.range (3*0+nCh 0)).map c.dig).sum = kss 0 (c.kOf 0) := by
     rw [c.kss_kOf hds 0 (by omega)]
     show ((List.range 3).map c.dig).sum = c.dig 0 + c.dig 1 + c.dig 2
@@ -2295,7 +2296,7 @@ theorem entry_step (c : NCtx) (hc : c.ok) (hds : c.DigitsOk) {b : MachineState} 
     simp only [hr,s8R,E.eval]
     unfold startPc leadPc leadOff
     simp only [show 3*(q+1)<50 by omega,show 3*(q+1)%3=0 by omega,if_true,show 3*(q+1)/3=q+1 by omega]
-def s8w (c : NCtx) (n : Nat) : Word := BitVec.ofNat 64 topT-BitVec.ofNat 64 (((List.range n).map c.dig).sum)
+def s8w (c : NCtx) (n : Nat) : Word := BitVec.ofNat 64 s8T-BitVec.ofNat 64 (((List.range n).map c.dig).sum)
 theorem s8v_eq (c : NCtx) (q : Nat) : c.s8v q=c.s8w (3*q+nCh q) := rfl
 theorem sum_range_add (f : Nat → Nat) (n k : Nat) :
     ((List.range (n+k)).map f).sum = ((List.range n).map f).sum + ((List.range' n k).map f).sum := by
@@ -2626,10 +2627,10 @@ theorem data_sum_le (c : NCtx) (hds : c.DigitsOk) : ((List.range 50).map c.dig).
 `T - ds` when that lies in 0..5, otherwise it faults. -/
 theorem end_ck (c : NCtx) (hds : c.DigitsOk) {s0 : MachineState} (acc : List Digest) (s : MachineState)
     (hs : c.EndInv s0 49 acc s) (ds : Nat) (hdsum : ((List.range 50).map c.dig).sum = ds)
-    (h24 : s.getReg .x24 = BitVec.ofNat 64 topT - BitVec.ofNat 64 ds) :
-    (topT - 5 ≤ ds ∧ ds ≤ topT → ∃ t, Steps vimage s 3 3 t ∧ c.Base s0 (c.Wr (49+1)) acc t ∧ acc.length = 49+1 ∧
+    (h24 : s.getReg .x24 = BitVec.ofNat 64 s8T - BitVec.ofNat 64 ds) :
+    (topT - 5 ≤ ds ∧ ds ≤ topT → ∃ t, Steps vimage s 2 2 t ∧ c.Base s0 (c.Wr (49+1)) acc t ∧ acc.length = 49+1 ∧
         t.pc = pcOf (ckArm (topT - ds))) ∧
-      (¬ (topT - 5 ≤ ds ∧ ds ≤ topT) → ∃ t, Steps vimage s 3 3 t ∧ fetch vimage t = none) := by
+      (¬ (topT - 5 ≤ ds ∧ ds ≤ topT) → ∃ t, Steps vimage s 2 2 t ∧ fetch vimage t = none) := by
   have he49 : c.endPc 49 = gX 16 (c.kOf 16) := by
     have := c.endPc_group 16 (by omega); simpa [nCh] using this
   have hpc' : s.pc = pcOf (gX 16 (c.kOf 16)) := by rw [hs.2.2, he49]
@@ -2966,9 +2967,9 @@ def TopOut (c : NCtx) (s0 : MachineState) (acc : List Digest) (s : MachineState)
 /-- The checksum digit of a context: chain 50's digit is `topT - (data digit sum)` whenever that lies in `0..5`. -/
 def CkOk (c : NCtx) : Prop :=
   ∀ ds, ((List.range 50).map c.dig).sum = ds → topT-5 ≤ ds → ds ≤ topT → c.dig 50 = topT-ds
-theorem s8v16_eq (c : NCtx) : c.s8v 16 = BitVec.ofNat 64 topT - BitVec.ofNat 64 (((List.range 50).map c.dig).sum) := rfl
+theorem s8v16_eq (c : NCtx) : c.s8v 16 = BitVec.ofNat 64 s8T - BitVec.ofNat 64 (((List.range 50).map c.dig).sum) := rfl
 /-- The r7 pair (entered from the end of group 15) and the checksum chain 50: q15's dispatch (3), the pair's cell
-word (1), chains 48/49, the checksum dispatch (3), chain 50. -/
+word (1), chains 48/49, the checksum dispatch (2; M0 P5), chain 50. -/
 theorem pair_ck_good (c : NCtx) (hc : c.ok) (hds : c.DigitsOk) (hck : c.CkOk) {s0 : MachineState}
     (hk : ∀p∈c.known,s0.getReg p.1=p.2) (h0 : c.Orig0 s0) {V : Digest} (he : Encoded0 V s0) (hf : c.Fit6 V)
     (hv16 : gValid V 16)
@@ -2976,7 +2977,7 @@ theorem pair_ck_good (c : NCtx) (hc : c.ok) (hds : c.DigitsOk) (hck : c.CkOk) {s
     (K : List Digest → OracleComp Legacy.HashSpec Verify.Obs) (N C A : Nat) (Q : Prop)
     (hK : ∀ acc t,c.TopOut s0 acc t → Verify.GoodQP P t N C Q A (K acc))
     (acc : List Digest) (s : MachineState) (hs : c.EndInv (c.bq s0 15) 47 acc s) :
-    Verify.GoodQP P s (N+130) (C+c.chainsCost 48 3+7) Q (A+c.chainsCost 48 3+7)
+    Verify.GoodQP P s (N+130) (C+c.chainsCost 48 3+6) Q (A+c.chainsCost 48 3+6)
       (Verify.ccM ((List.range' 48 3).foldlM c.chainF acc) K) := by
   have hkS := setTab_known c hk
   have h0S := setTab_orig c h0
@@ -3003,10 +3004,10 @@ theorem pair_ck_good (c : NCtx) (hc : c.ok) (hds : c.DigitsOk) (hck : c.CkOk) {s
   rw [show (48+2:Nat) = 50 from rfl] at ec
   have H := c.group_good hc hds hkB h0B 16 (by omega)
     (fun ends => Verify.ccM ((List.range' 50 1).foldlM c.chainF ends) K)
-    (N+46) (C+c.chainsCost 50 1+3) (A+c.chainsCost 50 1+3) Q
+    (N+46) (C+c.chainsCost 50 1+2) (A+c.chainsCost 50 1+2) Q
     (fun ends u2 hu2 => by
       rw [hn16] at hu2
-      have h24 : u2.getReg .x24 = BitVec.ofNat 64 topT - BitVec.ofNat 64 (((List.range 50).map c.dig).sum) := by
+      have h24 : u2.getReg .x24 = BitVec.ofNat 64 s8T - BitVec.ofNat 64 (((List.range 50).map c.dig).sum) := by
         rw [hu2.1.1 .x24 (by decide +kernel), hB, set24_24]; rfl
       obtain ⟨t3,st3,hB3,hlen3,pt3⟩ := (c.end_ck hds ends u2 (by simpa using hu2) _ rfl h24).1 hin
       have hd50 := hck _ rfl hin.1 hin.2
@@ -3044,14 +3045,14 @@ theorem top_full (c : NCtx) (hc : c.ok) (hds : c.DigitsOk) (hck : c.CkOk) {s0 : 
     (K : List Digest → OracleComp Legacy.HashSpec Verify.Obs) (N C A : Nat) (Q : Prop)
     (hK : ∀ acc t,c.TopOut s0 acc t → Verify.GoodQP P t N C Q A (K acc))
     (s : MachineState) (hs : c.GroupIn s0 0 [] s) :
-    Verify.GoodQP P s (N+2146) (C+c.chainsCost 0 51+78) Q (A+c.chainsCost 0 51+78)
+    Verify.GoodQP P s (N+2146) (C+c.chainsCost 0 51+77) Q (A+c.chainsCost 0 51+77)
       (Verify.ccM c.topP K) := by
   unfold topP
   rw [show (51:Nat)=3*16+3 from rfl,← List.range'_append_1,List.foldlM_append,Verify.ccM_bind]
   have ec := c.chainsCost_add' 0 (3*16) 3
   have H := c.groups_zero hc hds hk h0 he hf hmask 16 (le_refl _) (by decide +kernel) (fun q hq => hval q (by omega))
     (fun ends => Verify.ccM ((List.range' (0+3*16) 3).foldlM c.chainF ends) K)
-    (N+130) (C+c.chainsCost 48 3+7) (A+c.chainsCost 48 3+7) Q
+    (N+130) (C+c.chainsCost 48 3+6) (A+c.chainsCost 48 3+6) Q
     (fun acc t ht => c.pair_ck_good hc hds hck hk h0 he hf (hval 16 (by omega)) hin K N C A Q hK acc t
       (by simpa using ht))
     s hs
@@ -3138,7 +3139,7 @@ theorem top_bad_ck (c : NCtx) (hc : c.ok) (hds : c.DigitsOk) {s0 : MachineState}
         (fun ends u2 hu2 => by
           rw [hn16] at hu2
           rw [hK ends]
-          have h24 : u2.getReg .x24 = BitVec.ofNat 64 topT - BitVec.ofNat 64 (((List.range 50).map c.dig).sum) := by
+          have h24 : u2.getReg .x24 = BitVec.ofNat 64 s8T - BitVec.ofNat 64 (((List.range 50).map c.dig).sum) := by
             rw [hu2.1.1 .x24 (by decide +kernel), hB, set24_24]; rfl
           obtain ⟨z,stz,fz⟩ := (c.end_ck hds ends u2 (by simpa using hu2) _ rfl h24).2 hout
           have R := goodQ_fault (P := P) (Q := False) (A := 0) fz
@@ -3348,7 +3349,10 @@ def sw1RefE : E :=
 def swLowE (lay : Nat) : E := .bin .add (.bin .and a6E (M1E lay)) (.bin .and a7E (M1E lay))
 def sw1E (lay : Nat) : E := .bin .add (swLowE lay) (.bin .srl (.bin .sub (.bin .add a6E a7E) (swLowE lay)) (kw 3))
 def sumE (lay : Nat) : E := .bin .remu (.bin .and (.bin .add (sw1E lay) (.bin .srl (sw1E lay) (kw 6))) (M2E lay)) (kw 4095)
-def t4E (lay : Nat) : E := .bin .add (sumE lay) (kw (2 ^ 64 - (tgtL lay - 7)))
+/-- M0 (A0, P2c): `remu t4,s9,s2` leaves the raw data-digit sum in `t4` (no window bias, no window branch). -/
+def t4E (lay : Nat) : E := sumE lay
+/-- M0: `s9` keeps the masked SWAR word the `remu` reads. -/
+def s9mE (lay : Nat) : E := .bin .and (.bin .add (sw1E lay) (.bin .srl (sw1E lay) (kw 6))) (M2E lay)
 def rngBr (k : Nat) (d : Bool) : Br := ⟨.ne, .bin .srl a7E (kw k), kw 0, d⟩
 def ckBr (lay : Nat) (d : Bool) : Br := ⟨.ltu, kw 7, t4E lay, d⟩
 def spareBr (lay : Nat) (d : Bool) : Br := ⟨if lay = 3 then .lt else .ge, .bin .and a6E a7E, kw 0, if lay = 3 then !d else d⟩
@@ -3361,30 +3365,32 @@ def b1HiE : E := .bin .sll a7HiE (kw 1)
 def swLowHiE (lay : Nat) : E := .bin .add (.bin .and a6HiE (M1E lay)) (.bin .and a7HiE (M1E lay))
 def sw1HiE (lay : Nat) : E := .bin .add (swLowHiE lay) (.bin .srl (.bin .sub (.bin .add a6HiE a7HiE) (swLowHiE lay)) (kw 3))
 def sumHiE (lay : Nat) : E := .bin .remu (.bin .and (.bin .add (sw1HiE lay) (.bin .srl (sw1HiE lay) (kw 6))) (M2E lay)) (kw 4095)
-def t4HiE (lay : Nat) : E := .bin .add (sumHiE lay) (kw (2 ^ 64 - (tgtL lay - 7)))
+def t4HiE (lay : Nat) : E := sumHiE lay
+def s9mHiE (lay : Nat) : E := .bin .and (.bin .add (sw1HiE lay) (.bin .srl (sw1HiE lay) (kw 6))) (M2E lay)
 def rngHiBr (k : Nat) (d : Bool) : Br := ⟨.ne, .bin .srl a7HiE (kw k), kw 0, d⟩
 def ckHiBr (lay : Nat) (d : Bool) : Br := ⟨.ltu, kw 7, t4HiE lay, d⟩
 def spareHiBr (_lay : Nat) (d : Bool) : Br := ⟨.lt, .bin .and a6HiE a7HiE, kw 0, !d⟩
 def a7HiL : E := .bin .or b1HiE (.bin .srl a6HiE (kw 63))
 def x14Hi (lay : Nat) : E := .bin .and (.bin .sll a6HiE (kw 10)) (maskE lay)
 def tgtHi (lay : Nat) : E := .bin .and (.bin .add (x14Hi lay) (kw 1992)) (.c (~~~1#64))
-def bSt (lay : Nat) : Nat := if lay = 3 then 30 else if lay = 1 ∨ lay = 2 then 21 else 33
-def bCy (lay : Nat) : Nat := if lay = 3 then 33 else if lay = 1 ∨ lay = 2 then 24 else 36
+/-- M0 (A0, P2c): the lower heads lose `addi t4,s9,-194` and `bltu t5,t4,reject` (two steps, two cycles). -/
+def bSt (lay : Nat) : Nat := if lay = 3 then 28 else if lay = 1 ∨ lay = 2 then 19 else 33
+def bCy (lay : Nat) : Nat := if lay = 3 then 31 else if lay = 1 ∨ lay = 2 then 22 else 36
 def prefixReturn (lay p : Nat) : Nat := p + (if lay = 3 then 37 else 38)
 def s7Sh (lay : Nat) : Nat := if lay = 1 then 12 else 9
 def s23E (lay : Nat) : E := if lay = 3 then .bin .sll (s7E 3) (kw 9) else .bin .sll (.reg .x23) (kw (s7Sh lay))
 def specBl (lay _p : Nat) : Spec :=
-  ⟨[(.x16, a6E), (.x17, a7E), (.x23, s23E lay), (.x25, sumE lay), (.x29, t4E lay),
+  ⟨[(.x16, a6E), (.x17, a7E), (.x23, s23E lay), (.x25, s9mE lay), (.x29, t4E lay),
     (.x14, x14l lay)] ++ (if lay = 3 then [(.x22, .ld (kw (TOPLOAD - 8))),
       (.x24, .ld (kw TOPLOAD)), (.x1, .ld (kw (TOPLOAD + 8))), (.x9, .ld (kw (TOPLOAD + 24))),
       (.x31, treeE 3), (.x27, .bin .srl (maskE 3) (kw 1)), (.x4, .ld (kw (TOPB9+56)))] else []),
-   [], 0, false, bSt lay, [ckBr lay false, spareBr lay false], some (tgtl lay), bCy lay⟩
+   [], 0, false, bSt lay, [spareBr lay false], some (tgtl lay), bCy lay⟩
 def specBlHi (lay _p : Nat) : Spec :=
-  ⟨[(.x16, a6HiE), (.x17, a7HiE), (.x23, s23E lay), (.x25, sumHiE lay), (.x29, t4HiE lay),
+  ⟨[(.x16, a6HiE), (.x17, a7HiE), (.x23, s23E lay), (.x25, s9mHiE lay), (.x29, t4HiE lay),
     (.x14, x14Hi lay)] ++ (if lay = 3 then [(.x22, .ld (kw (TOPLOAD - 8))),
       (.x24, .ld (kw TOPLOAD)), (.x1, .ld (kw (TOPLOAD + 8))), (.x9, .ld (kw (TOPLOAD + 24))),
       (.x31, treeE 3), (.x27, .bin .srl (maskE 3) (kw 1)), (.x4, .ld (kw (TOPB9+56)))] else []),
-   [], 0, false, bSt lay + 4, [ckHiBr lay false, spareHiBr lay false, spareBr lay true], some (tgtHi lay), bCy lay + 4⟩
+   [], 0, false, bSt lay + 4, [spareHiBr lay false, spareBr lay true], some (tgtHi lay), bCy lay + 4⟩
 def postBl (lay _p : Nat) : List (Reg × Word) :=
   chainK lay ++ [(.x22, BitVec.ofNat 64 (s6v lay)), (.x7, 1), (.x2, BitVec.ofNat 64 0xffbde0)]
 def postBlC (lay p : Nat) : List (Reg × Word) :=
@@ -3477,13 +3483,9 @@ def copyCheck (lay c : Nat) : Bool :=
   setupCheck lay c &&
   (if lay = 0 then true else
     specB [] [] baseK (runAt (bKB lay c) [] (trPc lay c + stepsA lay + 1)
-      [.br (decide (lay = 3)), .br false, .jmp]) (specBl lay (trPc lay c)) oblB (postBlC lay (trPc lay c)) (keepB lay) &&
-    specB [] [] [] (runAt (bKB lay c) [] (trPc lay c + stepsA lay + 1)
-      [.br (decide (lay = 3)), .br true]) (rejCk lay) oblB [] [] &&
+      [.br (decide (lay = 3)), .jmp]) (specBl lay (trPc lay c)) oblB (postBlC lay (trPc lay c)) (keepB lay) &&
     specB [] [] baseK (runAt (bKB lay c) [] (trPc lay c + stepsA lay + 1)
-      [.br (decide (lay ≠ 3)), .br true, .br false, .jmp]) (specBlHi lay (trPc lay c)) oblBHi (postBlC lay (trPc lay c)) (keepB lay) &&
-    specB [] [] [] (runAt (bKB lay c) [] (trPc lay c + stepsA lay + 1)
-      [.br (decide (lay ≠ 3)), .br true, .br true]) (rejCkHi lay) oblBHi [] [] &&
+      [.br (decide (lay ≠ 3)), .br true, .jmp]) (specBlHi lay (trPc lay c)) oblBHi (postBlC lay (trPc lay c)) (keepB lay) &&
     specB [] [] [] (runAt (bKB lay c) [spareTrap lay c] (trPc lay c + stepsA lay + 1)
       [.br (decide (lay ≠ 3)), .br false]) (rejBothSpare lay c) oblBHi [] [] &&
     (vlook (spareTrap lay c) == some 0))

@@ -2619,8 +2619,8 @@ abbrev witEnc := ClaudeWCT.W9.T3M.Paired.witEnc
 /-- img-v6: the honest expand output carries the top node nonces (`Paired.witEncN`). -/
 abbrev witEncN := ClaudeWCT.W9.T3M.Paired.witEncN
 
- def verifyCycleBound : Nat := 6912
- def claimedC : Nat := 6998
+ def verifyCycleBound : Nat := 6910
+ def claimedC : Nat := 6996
  def DigestCapOk (hash : Hash) (m : Message) (w : Bytes 22012) : Prop :=
   SigGolfCandidate.Research.SharedForest.jointAccountingCost
     (hash (SigGolfCandidate.T3M.toQ (SigGolfCandidate.T3.pad64
@@ -3751,9 +3751,9 @@ def writes (L : Layout) (k : Fin 9) (raw : Fin 128) (A : Nat) : Prop :=
 
 structure Post (L : Layout) (k : Fin 9) (raw : Fin 128) (u : MachineState)
     (computed : Digest) (t : MachineState) : Prop where
-  /-- A/B return with `jalr zero,300(ra)`; the singleton (Cm, stage 2) with `jalr zero,316(ra)`, i.e. to word 854 for
-  `returnWord 8 = 775`, the L3 entry. -/
-  pc : t.pc = pcOf (L.returnWord k + (if k.val = 8 then 79 else 75))
+  /-- A/B return with `jalr zero,296(ra)`; the singleton (Cm, stage 2) with `jalr zero,320(ra)`, i.e. to word 854 for
+  `returnWord 8 = 774`, the L3 entry. -/
+  pc : t.pc = pcOf (L.returnWord k + (if k.val = 8 then 80 else 74))
   hashLen : t.getReg .x11 = 64
   top : DigAt t (handAddr L k raw) computed
   a2 : t.getReg .x12 = BitVec.ofNat 64 (outputAddr L k raw)
@@ -4020,7 +4020,11 @@ theorem rOK_eq {o : Option Result} {r : Result} (h : rOK o r = true) : o = some 
   | some r' => simp only [rOK] at h; rw [resBeq_eq h]
 def vrun (p f : Nat) : Option Result := symRun {} (lcode p) (pcOf p) f
 def ttabIdx : Nat := 64072
-def ckSlot (c : Nat) : Nat := 123085 + 1024 * c
+/-- M0 (A0, P2c): the head leaves `t4` = the 42-digit data sum, i.e. `201 - c` (mod 2^64) for checksum digit `c`. -/
+def ckSum (c : Nat) : Nat := (201 + 2 ^ 64 - c % 2 ^ 64) % 2 ^ 64
+/-- M0 (A0, P2c): the checksum dispatch `slli a4,t4,11; jalr -720(a4)` lands on word `512 t4 - 1204` (mod 2^62, so sums
+0..2 land below the code); for `c < 8` this is the relocated chain-42 cell `101708 - 512 c`. -/
+def ckSlot (c : Nat) : Nat := (2 ^ 62 + 512 * ckSum c - 1204) % 2 ^ 62
 def triBaseTab : List Nat :=
   [1189,2228,8374,4280,5306,6332,41151,16576,68798,28854,12472,17594,14524,15550,1277,21698,32950,53432,35002,22716,19646,20672,47299,26820,66754,39098,36028,37054,24768,25794,52421,126668,58553,44220,49342,57536,77388,118348,293,1445,55484,56510,103626,77516,118476,126796,129875,257181,45247,1533,51395,119244,455,185929,77354,777,118984,77644,118604,126924,1479,186056,102314,78936,131010,79034,3253,183,9401,10427,60605,61631,80059,7349,33975,13497,18619,11453,122054,42177,27829,65728,29881,30907,23741,64701,77772,78284,69823,38073,43195,31933,72902,46273,118732,122444,54457,113861,40125,76998,50369,97868,127308,549,129572,48317,78024,62657,97996,122572,129484,186025,63676,129956,78156,119116,127436,129617,187177,150144,150176,150220,150262,150302,150340,150376,150410,150442,150471,150530,150587,150642,150695,150746,150795,150842,150886,150943,150998,151051,151102,151151,151198,151243,151285,151340,151393,151444,151493,151540,151585,151628,151668,151721,151772,151821,151868,151913,151956,151997,152035,152086,152135,152182,152227,152270,152311,152350,152386,152435,152482,152527,152570,152611,152650,152687,152721,152768,152813,152856,152897,152936,152973,153008,153040,153084,153126,153166,153204,153240,153274,153306,153335,153394,153451,153506,153559,153610,153659,153706,153750,153807,153862,153915,153966,154015,154062,154107,154149,154204,154257,154308,154357,154404,154449,154492,154532,154585,154636,154685,154732,154777,154820,154861,154899,154950,154999,155046,155091,155134,155175,155214,155250,155299,155346,155391,155434,155475,155514,155551,155585,155632,155677,155720,155761,155800,155837,155872,155904,155948,155990,156030,156068,156104,156138,156170,156199,156258,156315,156370,156423,156474,156523,156570,156614,156671,156726,156779,156830,156879,156926,156971,157013,157068,157121,157172,157221,157268,157313,157356,157396,157449,157500,157549,157596,157641,157684,157725,157763,157814,157863,157910,157955,157998,158039,158078,158114,158163,158210,158255,158298,158339,158378,158415,158449,158496,158541,158584,158625,158664,158701,158736,158768,158812,158854,158894,158932,158968,159002,159034,159063,159122,159179,159234,159287,159338,159387,159434,159478,159535,159590,159643,159694,159743,159790,159835,159877,159932,159985,160036,160085,160132,160177,160220,160260,160313,160364,160413,160460,160505,160548,160589,160627,160678,160727,160774,160819,160862,160903,160942,160978,161027,161074,161119,161162,161203,161242,161279,161313,161360,161405,161448,161489,161528,161565,161600,161632,161676,161718,161758,161796,161832,161866,161898,161927,161986,162043,162098,162151,162202,162251,162298,162342,162399,162454,162507,162558,162607,162654,162699,162741,162796,162849,162900,162949,162996,163041,163084,163124,163177,163228,163277,163324,163369,163412,163453,163491,163542,163591,163638,163683,163726,163767,163806,163842,163891,163938,163983,164026,164067,164106,164143,164177,164224,164269,164312,164353,164392,164429,164464,164496,164540,164582,164622,164660,164696,164730,164762,164791,164850,164907,164962,165015,165066,165115,165162,165206,165263,165318,165371,165422,165471,165518,165563,165605,165660,165713,165764,165813,165860,165905,165948,165988,166041,166092,166141,166188,166233,166276,166317,166355,166406,166455,166502,166547,166590,166631,166670,166706,166755,166802,166847,166890,166931,166970,167007,167041,167088,167133,167176,167217,167256,167293,167328,167360,167404,167446,167486,167524,167560,167594,167626,167655,167714,167771,167826,167879,167930,167979,168026,168070,168127,168182,168235,168286,168335,168382,168427,168469,168524,168577,168628,168677,168724,168769,168812,168852,168905,168956,169005,169052,169097,169140,169181,169219,169270,169319,169366,169411,169454,169495,169534,169570,169619,169666,169711,169754,169795,169834,169871,169905,169952,169997,170040,170081,170120,170157,170192,170224,170268,170310,170350,170388,170424,170458,170490,170519,170578,170635,170690,170743,170794,170843,170890,170934,170991,171046,171099,171150,171199,171246,171291,171333,171388,171441,171492,171541,171588,171633,171676,171716,171769,171820,171869,171916,171961,172004,172045,172083,172134,172183,172230,172275,172318,172359,172398,172434,172483,172530,172575,172618,172659,172698,172735,172769,172816,172861,172904,172945,172984,173021,173056,173088,173132,173174,173214,173252,173288,173322,173354,173383,173442,173499,173554,173607,173658,173707,173754,173798,173855,173910,173963,174014,174063,174110,174155,174197,174252,174305,174356,174405,174452,174497,174540,174580,174633,174684,174733,174780,174825,174868,174909,174947,174998,175047,175094,175139,175182,175223,175262,175298,175347,175394,175439,175482,175523,175562,175599,175633,175680,175725,175768,175809,175848,175885,175920,175952,175996,176038,176078,176116,176152,176186,176218,176247,176306,176363,176418,176471,176522,176571,176618,176662,176719,176774,176827,176878,176927,176974,177019,177061,177116,177169,177220,177269,177316,177361,177404,177444,177497,177548,177597,177644,177689,177732,177773,177811,177862,177911,177958,178003,178046,178087,178126,178162,178211,178258,178303,178346,178387,178426,178463,178497,178544,178589,178632,178673,178712,178749,178784,178816,178860,178902,178942,178980,179016,179050,179082,179111,179170,179227,179282,179335,179386,179435,179482,179526,179583,179638,179691,179742,179791,179838,179883,179925,179980,180033,180084,180133,180180,180225,180268,180308,180361,180412,180461,180508,180553,180596,180637,180675,180726,180775,180822,180867,180910,180951,180990,181026,181075,181122,181167,181210,181251,181290,181327,181361,181408,181453,181496,181537,181576,181613,181648,181680,181724,181766,181806,181844,181880,181914,181946,181975,182033,182089,182143,182195,182245,182293,182339,182382,182438,182492,182544,182594,182642,182688,182732,182773,182827,182879,182929,182977,183023,183067,183109,183148,183200,183250,183298,183344,183388,183430,183470,183507,183557,183605,183651,183695,183737,183777,183815,183850,183898,183944,183988,184030,184070,184108,184144,184177,184223,184267,184309,184349,184387,184423,184457,184488,184531,184572,184611,184648,184683,184716,184747]
 def posReg (d : Nat) : Reg :=
@@ -4109,10 +4113,11 @@ def xbfJ (w : Reg) (imm : Word) : Result :=
   let a := .bin .and (.bin .srl (.reg w) (.c 44)) (.reg .x9)
   ⟨⟨RegFile.init.set .x14 a, [], []⟩,
     .bin .and (.bin .add a (.c imm)) (.c (~~~1#64)), .jump, 3, 3⟩
+/-- M0 (A0, P2c): chain 41's exit is the checksum dispatch `slli a4,t4,11; jalr zero,-720(a4)`. -/
 def ctabX : Result :=
-  ⟨⟨RegFile.init.set .x14 (.bin .sub (.reg .x9) (.bin .sll (.reg .x29) (.c 12))), [], []⟩,
-    .bin .and (.bin .add (.bin .sub (.reg .x9) (.bin .sll (.reg .x29) (.c 12))) (.c 1844)) (.c (~~~1#64)),
-    .jump, 3, 3⟩
+  ⟨⟨RegFile.init.set .x14 (.bin .sll (.reg .x29) (.c 11)), [], []⟩,
+    .bin .and (.bin .add (.bin .sll (.reg .x29) (.c 11)) (.c (-720 : Word))) (.c (~~~1#64)),
+    .jump, 2, 2⟩
 def retR : Result := ⟨⟨RegFile.init, [], []⟩, .bin .and (.reg .x1) (.c (~~~1#64)), .jump, 1, 1⟩
 def rungRB (d : Nat) (slot : Option Nat) (p : Nat) : Result :=
   let n := if slot.isSome then 2 else 1
@@ -4212,8 +4217,10 @@ def xOK (t dB dC : Nat) : Bool :=
   else rOK (vrun (pcX t dB dC) 5)
     (xJ (if t + 1 < 7 then .x16 else .x17) (9 * ((t + 1) % 7)) (if t = 0 ∨ t = 7 then .x27 else .x9)
       (BitVec.ofNat 64 (lowerImm (t+1))))
+/-- M0 (A0, landing fix): the head jumps into rung `d` past its first word (`landOff`), so rung 0's first word is
+never executed; the image zeroes it where it is a P2c landing word. Only rungs 1..6 are checked from their start. -/
 def blkCheck (t dB dC : Nat) : Bool :=
-  rungsOK 0 (outL (3 * t)) (triBase t dB dC) &&
+  rungsOK 1 (outL (3 * t)) (triBase t dB dC + 2) &&
     partOK (3 * t + 1) dB (pcB t dB dC) (decide (t=0 ∧ dB=7)) &&
     partOK (3 * t + 2) dC (pcC t dB dC) (decide (dB=7 ∧ dC=7)) && xOK t dB dC
 def triCheck (t lo n : Nat) : Bool :=
@@ -5397,7 +5404,7 @@ def bufferVal (c : LCtx) (i : Nat) : Digest :=
 
 def ok (c : LCtx) : Prop :=
   c.tree < 2 ^ 32 ∧ c.leaf < 2 ^ 32 ∧ c.koff ≤ 16 ∧ c.S6 % 8 = 0 ∧ Verify.WIT + 7664 + 520 ≤ c.S6 ∧
-    c.S6 + 1744 ≤ 0x7000 ∧ c.ck ≤ 8 ∧ c.ret = ckSlot c.ck + partLen c.ck ∧ c.i0 ≤ 42 ∧
+    c.S6 + 1744 ≤ 0x7000 ∧ c.ck < 2 ^ 64 ∧ c.ret = ckSlot c.ck + partLen c.ck ∧ c.i0 ≤ 42 ∧
     c.tree < 2 ^ (31 - height c.lay) ∧ c.leaf < 2 ^ height c.lay ∧
     2 ^ 63 ≤ c.d0.toNat ∧ 2 ^ 63 ≤ c.d1.toNat
 def x28v (c : LCtx) : Nat := packedPrefix c.lay c.tree c.leaf + c.koff + 385
@@ -5408,7 +5415,7 @@ def known (c : LCtx) : List (Reg × Word) :=
   [(.x5, 0), (.x11, 64), (.x7, 1), (.x13, 2), (.x19, 3), (.x20, 4), (.x21, 5), (.x26, 6),
    (.x28, BitVec.ofNat 64 c.x28v), (.x9, 0x7fc00), (.x27, 0x3fe00), (.x5, 0),
    (.x22, BitVec.ofNat 64 c.S6),
-   (.x16, c.d0), (.x17, c.d1), (.x29, 7#64 - BitVec.ofNat 64 c.ck),
+   (.x16, c.d0), (.x17, c.d1), (.x29, 201#64 - BitVec.ofNat 64 c.ck),
    (.x4, BitVec.ofNat 64 c.bufferOffset)]
 def kOf (c : LCtx) (t : Nat) : Nat := c.dig (3 * t) + 8 * c.dig (3 * t + 1) + 64 * c.dig (3 * t + 2)
 def tb (c : LCtx) (i : Nat) : Nat := triBase (i / 3) (c.dig (3 * (i / 3) + 1)) (c.dig (3 * (i / 3) + 2))
@@ -6700,18 +6707,30 @@ theorem next_inline (c : LCtx) (s0 : MachineState) (i : Nat) (hi : i < 42) (h2 :
   · rw [if_neg h0, if_pos (show i % 3 = 1 by omega), if_neg (show (i + 1) % 3 ≠ 0 by omega),
       if_neg (show (i + 1) % 3 ≠ 1 by omega)]
     unfold tC; rw [show (i + 1) / 3 = i / 3 by omega]
+/-- M0 (A0, P2c): the checksum dispatch target for `t4 = 201 - c`. -/
+theorem ckDispatch_eq (c : Nat) :
+    (201#64 - BitVec.ofNat 64 c) <<< ((11 : Word).toNat % 64) + (-720 : Word) =
+      BitVec.ofNat 64 (0x1000 + 4 * ckSlot c) := by
+  -- `rw`, not `simp`: the literal simprocs make the kernel recurse too deeply here.
+  rw [show (11 : Word).toNat % 64 = 11 from rfl]
+  apply BitVec.eq_of_toNat_eq
+  rw [BitVec.toNat_add, BitVec.toNat_shiftLeft, BitVec.toNat_sub, BitVec.toNat_ofNat, BitVec.toNat_ofNat,
+    BitVec.toNat_ofNat, Nat.shiftLeft_eq, show (-720 : Word).toNat = 2 ^ 64 - 720 from rfl]
+  unfold ckSlot ckSum
+  omega
+theorem ckSlot_lt8 (c : Nat) (hc : c < 8) : ckSlot c = 101708 - 512 * c := by
+  unfold ckSlot ckSum
+  interval_cases c <;> rfl
 theorem x13_step (c : LCtx) (hc : c.ok) {s0 : MachineState} (hk : ∀ p ∈ c.known, s0.getReg p.1 = p.2)
     (_hi : c.i0 ≤ 41) (hp : c.tX 41 < 257214) (hrun : vrun (c.tX 41) 4 = some ctabX)
     (acc : List Digest) (s : MachineState) (hs : c.EndInv s0 41 acc s) :
-    ∃ u, Steps vimage s 3 3 u ∧ c.ChainIn s0 42 acc u := by
+    ∃ u, Steps vimage s 2 2 u ∧ c.ChainIn s0 42 acc u := by
   obtain ⟨⟨hR, hF, hS⟩, hlen, h25, hpc⟩ := hs
   have kr : ∀ r v, (r, v) ∈ c.known → r ∉ chainRegs → s.getReg r = v := fun r v hm hn =>
     (hR r hn).trans (hk _ hm)
   have hpc' : s.pc = pcOf (c.tX 41) := by rw [hpc]; unfold endPc; simp
   have hst := piece_steps hrun hp s hpc' (by simp [ctabX])
-  have h15 : s.getReg .x9 = BitVec.ofNat 64 0x7fc00 := kr .x9 0x7fc00 (by simp [known]) (by decide +kernel)
-  have h29 : s.getReg .x29 = 7#64 - BitVec.ofNat 64 c.ck := kr .x29 _ (by simp [known]) (by decide +kernel)
-  have hck := hc.2.2.2.2.2.2.1
+  have h29 : s.getReg .x29 = 201#64 - BitVec.ofNat 64 c.ck := kr .x29 _ (by simp [known]) (by decide +kernel)
   refine ⟨ctabX.toState s, hst, ⟨⟨fun x hx => (ctabX_keeps.reg s (not_mem_sub hx (by decide +kernel))).trans (hR x hx),
     hF.mono (fun A _ h => by
       have hlo := hc.2.2.2.2.1
@@ -6720,18 +6739,12 @@ theorem x13_step (c : LCtx) (hc : c.ok) {s0 : MachineState} (hk : ∀ p ∈ c.kn
       · right; left; obtain ⟨j, h1, h2, h3⟩ := h; exact ⟨j, h1, by omega, h3⟩
       · right; right; exact ⟨h.1, by omega, h.2.2⟩), hS⟩, by omega, h25, ?_⟩⟩
   · rw [Result.toState_pc]
-    simp only [ctabX, E.eval, BinOp.eval, h15, h29]
-    have e2 : BitVec.ofNat 64 0x7fc00 - (7#64 - BitVec.ofNat 64 c.ck) <<< ((12 : Word).toNat % 64) + (1844 : Word) =
-        BitVec.ofNat 64 (0x1000 + 4 * ckSlot c.ck) := by
-      have hk : c.ck ≤ 8 := hck
-      generalize c.ck = k at hk ⊢
-      unfold ckSlot
-      interval_cases k <;> decide +kernel
-    rw [e2, even_andNot1' _ (by omega)]
+    simp only [ctabX, E.eval, BinOp.eval, h29]
+    rw [ckDispatch_eq c.ck, even_andNot1' _ (by omega)]
     unfold startPc; simp
-theorem endPc_42_lt (c : LCtx) (hc : c.ok) : c.endPc 42 < 257214 := by
-  have := hc.2.2.2.2.2.2.1
-  unfold endPc ckSlot partLen; simp only [if_true]; split_ifs <;> omega
+theorem endPc_42_lt (c : LCtx) (hck : c.ck < 8) : c.endPc 42 < 257214 := by
+  have hs : ckSlot c.ck = 101708 - 512 * c.ck := ckSlot_lt8 c.ck hck
+  unfold endPc partLen; simp only [if_true]; rw [hs]; split_ifs <;> omega
 theorem ckend_out (c : LCtx) (hc : c.ok) {s0 : MachineState} (acc : List Digest) (s : MachineState)
     (hs : c.EndInv s0 42 acc s) : c.ChainOut s0 43 acc s := by
   obtain ⟨hB, hlen, -, hpc⟩ := hs
@@ -6889,7 +6902,7 @@ def childWord (coordinate child : Nat) : Nat :=
   else 246464 + 64 * child
 /-- `start k + length k` of the shared dispatcher (`W9Drv.SharedDispatch`); coordinate 8's dispatcher is 9 words
 (765..773) after the dispatch hoist, so its children receive `ra = pcOf 774` and return with `320(ra)`. -/
-def returnWord (k : Fin 9) : Nat := [96,183,266,351,436,521,605,690,775].getD k.val 0
+def returnWord (k : Fin 9) : Nat := [97,183,267,351,437,521,605,691,774].getD k.val 0
 def layout (coordinate : Fin 9) : W9Machine.Layout :=
   ⟨Frozen.image, Frozen.layout.chainWord, fun j => childWord coordinate.val j.val, returnWord, 0⟩
 theorem image_eq (k : Fin 9) : (layout k).image = Frozen.image := rfl
@@ -9184,7 +9197,7 @@ open OracleComp SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.
 open SigGolfCandidate.Rv SigGolfCandidate.T3M SigGolfCandidate.T3M.Verify
 open SigGolfCandidate.T3 (Digest HashOutput)
 structure SetupMask (u : MachineState) : Prop where
-  rankPadAt : u.getMem (BitVec.ofNat 64 (stackBase7 + 48)) = BitVec.ofNat 64 0x1801800000c0000
+  rankPadAt : u.getMem (BitVec.ofNat 64 (stackBase7 + 48)) = BitVec.ofNat 64 0x1801801800000
   child : u.getMem (BitVec.ofNat 64 (dataBase7 + 368)) = BitVec.ofNat 64 0xf1b00
   jt : u.getMem (BitVec.ofNat 64 (dataBase7 + 376)) = BitVec.ofNat 64 0xfff00
   coord : u.getMem (BitVec.ofNat 64 (dataBase7 + 464)) = BitVec.ofNat 64 10992

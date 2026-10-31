@@ -82,6 +82,18 @@ theorem pubGood_layerGuardedPairP (w : WBytes) (index : Nat) (lay : Layer)
   unfold layerGuardedPairP
   exact allQ_lowerGuardedRun _ _ _ (fun _ => pubGood_chainPW _ _ _ _ _ _ _ _ _ _)
     (pubGood_layerPairP _ _ _ _)
+theorem pubGood_layerChainP (w : WBytes) (index : Nat) (lay : Layer) (digits : List Nat) (i : Nat) :
+    AllQueriesSatisfy (layerChainP w index lay digits i) PubGood := by
+  unfold layerChainP
+  exact pubGood_chainPW _ _ _ _ _ _ _ _ _ _
+theorem pubGood_layerGuardedPairW (w : WBytes) (index : Nat) (lay : Layer)
+    (answer : Digest) (digits : List Nat) :
+    AllQueriesSatisfy (layerGuardedPairW w index lay answer digits) PubGood := by
+  unfold layerGuardedPairW
+  by_cases hw : lowerWindowOk answer = true
+  · rw [if_pos hw]; exact pubGood_layerGuardedPairP w index lay answer digits
+  · rw [if_neg hw]
+    exact allQ_bind (allQ_mapM _ _ (fun i => pubGood_layerChainP w index lay digits i)) fun _ => allQ_pure _
 theorem allQ_topDecodeRun {P : Spec.Domain → Prop} (run : Fin (chainCount 0) → Nat → M Digest)
     (finish : List Digest → M Digest) (answer : Digest) (hrun : ∀ i digit, AllQueriesSatisfy (run i digit) P)
     (hfinish : ∀ ends, AllQueriesSatisfy (finish ends) P) :
@@ -613,6 +625,23 @@ theorem publicOnly_layersCanonicalBC (w : WBytes) (index : Nat) : ∀n msg,Only 
       · exact allQ_pure _
       · exact ih _
 
+theorem publicOnly_layersCanonicalBCW (w : WBytes) (index : Nat) : ∀n msg,Only (layersCanonicalBCW w index n msg) := by
+  intro n
+  induction n with
+  | zero=>intro msg;exact allQ_pure _
+  | succ n ih=>
+    intro msg
+    unfold layersCanonicalBCW
+    refine allQ_ite _ (allQ_pure _) (allQ_bind (allQ_mono (pubGood_layerEncodingInputP ..) (fun _ h=>h.1)) fun answer=>?_)
+    refine allQ_ite _ (allQ_mono (pubGood_topLayerP ..) (fun _ h=>h.1)) ?_
+    rcases lowerDataDecode answer with _|digits
+    · exact allQ_pure _
+    · dsimp only
+      refine allQ_bind (allQ_mono (pubGood_layerGuardedPairW w index (Fin.ofNat 4 n) answer digits) (fun _ h=>h.1)) fun pair=>?_
+      cases pair
+      · exact allQ_pure _
+      · exact ih _
+
 theorem publicOnly_verifyP (message : Message) (pk : Digest) (w : WBytes) : Only (verifyP message pk w) := by
   unfold verifyP
   refine allQ_bind ?_ fun output=>?_
@@ -623,7 +652,7 @@ theorem publicOnly_verifyP (message : Message) (pk : Digest) (w : WBytes) : Only
     · refine allQ_bind (publicOnly_ftsP ..) fun top=>?_
       cases top
       · exact allQ_pure _
-      · refine allQ_bind (publicOnly_layersCanonicalBC ..) fun root=>?_
+      · refine allQ_bind (publicOnly_layersCanonicalBCW ..) fun root=>?_
         cases root <;> exact allQ_pure _
 end ClaudeWCT.W9.T3M.Paired
 
@@ -838,6 +867,23 @@ theorem goodQ_layersCanonicalBC (w : WBytes) (index : Nat) : ∀n msg,Good (laye
       · exact allQ_pure _
       · exact ih _
 
+theorem goodQ_layersCanonicalBCW (w : WBytes) (index : Nat) : ∀n msg,Good (layersCanonicalBCW w index n msg) := by
+  intro n
+  induction n with
+  | zero=>intro msg;exact allQ_pure _
+  | succ n ih=>
+    intro msg
+    unfold layersCanonicalBCW
+    refine allQ_ite _ (allQ_pure _) (allQ_bind (allQ_mono (pubGood_layerEncodingInputP ..) (fun _ h=>h.2)) fun answer=>?_)
+    refine allQ_ite _ (allQ_mono (pubGood_topLayerP ..) (fun _ h=>h.2)) ?_
+    rcases lowerDataDecode answer with _|digits
+    · exact allQ_pure _
+    · dsimp only
+      refine allQ_bind (allQ_mono (pubGood_layerGuardedPairW w index (Fin.ofNat 4 n) answer digits) (fun _ h=>h.2)) fun pair=>?_
+      cases pair
+      · exact allQ_pure _
+      · exact ih _
+
 theorem goodQ_verifyP (message : Message) (pk : Digest) (w : WBytes) : Good (verifyP message pk w) := by
   unfold verifyP
   refine allQ_bind ?_ fun output=>?_
@@ -848,7 +894,7 @@ theorem goodQ_verifyP (message : Message) (pk : Digest) (w : WBytes) : Good (ver
     · refine allQ_bind (goodQ_ftsP ..) fun top=>?_
       cases top
       · exact allQ_pure _
-      · refine allQ_bind (goodQ_layersCanonicalBC ..) fun root=>?_
+      · refine allQ_bind (goodQ_layersCanonicalBCW ..) fun root=>?_
         cases root <;> exact allQ_pure _
 end ClaudeWCT.W9.T3M.Paired
 

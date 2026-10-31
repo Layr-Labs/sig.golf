@@ -936,6 +936,196 @@ def layersCanonicalBC (w : WBytes) (index : Nat) : Nat → WCT9.LayerMsg → M (
         layersCanonicalBC w index n (.pair pair.1 pair.2)
 end ClaudeWCT.W9.T3M
 end
+-- ==== m0 (A0, P2c): the lower window check runs after chain 41 ====
+section
+namespace ClaudeWCT.W9.T3M
+open OracleComp OracleSpec SigGolfCandidate.T3
+open SigGolfCandidate.T3M.SecurityExtraction (queried queried_bind queried_pure)
+set_option maxHeartbeats 1000000
+set_option maxRecDepth 10000
+
+/-- M0 (A0, P2c): the lower verifier head no longer checks the data-digit sum. A lower word whose 42 data digits
+sum outside the canonical window (target 201: checksum digit `201 - sum` in `[0, 7]`) runs its rank-checked
+chains 0..41 and then faults at the checksum dispatch (a zero word or an address below the code). -/
+@[irreducible] def lowerWindowOk (answer : Digest) : Bool :=
+  decide ((dataDigits 1 answer).sum ≤ target 1 ∧ target 1 - (dataDigits 1 answer).sum < 8)
+/-- Lower digits as the M0 head reads them (spare bits only); the checksum digit is meaningful only inside the
+window. -/
+def lowerDataDecode (answer : Digest) : Option (List Nat) :=
+  if lowerSpare answer then some (dataDigits 1 answer ++ [target 1 - (dataDigits 1 answer).sum]) else none
+/-- Chains a spare-valid lower word runs before the machine faults on it. -/
+def lowerFailChains (answer : Digest) : Nat :=
+  if WCT9.lowerRankGood answer then 42 else 3 * WCT9.lowerFirstBad answer
+def layerGuardedPairW (w : WBytes) (index : Nat) (lay : Layer) (answer : Digest) (digits : List Nat) :
+    M (Option (Digest × Digest)) :=
+  if lowerWindowOk answer then layerGuardedPairP w index lay answer digits
+  else do
+    let _ ← (List.range (lowerFailChains answer)).mapM (layerChainP w index lay digits)
+    pure none
+/-- `layersCanonicalBC` in the M0 lower order: spare check, rank-checked chains 0..41, then the window check. -/
+def layersCanonicalBCW (w : WBytes) (index : Nat) : Nat → WCT9.LayerMsg → M (Option Digest)
+  | 0, _ => pure none
+  | n + 1, msg => do
+      let lay : Layer := Fin.ofNat 4 n
+      let counter := wbcCtr w index lay
+      if counter.toNat ≥ WCT9.verifyWindow then return none
+      let (leaf, tree) := route index lay
+      let answer ← ClaudeWCT.WCT9.verificationHash lay (wtopHigh w)
+        (layerEncodingInputP lay tree leaf msg counter (wbcPad w index lay) (wbcRight w) (wbcHigh w index lay))
+      if n = 0 then topLayerP w index answer
+      else do
+        let some digits := lowerDataDecode answer | pure none
+        let some pair ← layerGuardedPairW w index lay answer digits | pure none
+        layersCanonicalBCW w index n (.pair pair.1 pair.2)
+
+theorem canonicalDecode_window {lay : Layer} (hl : lay ≠ 0) (answer : Digest) :
+    WCT9.CanonicalPolicy.decode lay answer =
+      if lowerWindowOk answer then lowerDataDecode answer else none := by
+  have hn : WCT9.CanonicalPolicy.normalLayer lay = 1 := by
+    unfold WCT9.CanonicalPolicy.normalLayer; rw [if_neg hl]
+  have hlt : ¬ answer.toNat ≥ 2 ^ encodedBits (1 : Layer) := by
+    unfold encodedBits; exact Nat.not_le.mpr answer.isLt
+  have h10 : ¬ ((1 : Layer) = 0) := by decide
+  unfold WCT9.CanonicalPolicy.decode lowerDataDecode lowerWindowOk
+  rw [hn]
+  unfold SigGolfCandidate.T3.decode
+  rw [if_neg hlt]
+  simp only [if_neg h10]
+  by_cases hs : lowerSpare answer <;>
+    by_cases hw : ((dataDigits 1 answer).sum ≤ target 1 ∧ target 1 - (dataDigits 1 answer).sum < 8) <;>
+    simp [hs, hw, decide_eq_true_eq]
+
+theorem eval_layerGuardedPairW (answers : QueryImpl Spec Id) (w : WBytes) (index : Nat) (lay : Layer)
+    (answer : Digest) (digits : List Nat) :
+    evalWithAnswerFn answers (layerGuardedPairW w index lay answer digits) =
+      if lowerWindowOk answer then evalWithAnswerFn answers (layerGuardedPairP w index lay answer digits)
+      else none := by
+  unfold layerGuardedPairW
+  split_ifs
+  · rfl
+  · simp [evalWithAnswerFn_bind]
+
+theorem layer_ne_zero_of (n : Nat) (h0 : ¬ n = 0) (hn : n < 4) : (Fin.ofNat 4 n : Layer) ≠ 0 := by
+  rcases (show n = 1 ∨ n = 2 ∨ n = 3 by omega) with rfl | rfl | rfl <;> decide
+
+theorem eval_bind_congr' {α β : Type} (answers : QueryImpl Spec Id) (p : M α) (f g : α → M β)
+    (h : ∀ a, evalWithAnswerFn answers (f a) = evalWithAnswerFn answers (g a)) :
+    evalWithAnswerFn answers (p >>= f) = evalWithAnswerFn answers (p >>= g) := by
+  rw [evalWithAnswerFn_bind, evalWithAnswerFn_bind]; exact h _
+
+theorem queried_bind_congr' {α β : Type} (answers : QueryImpl Spec Id) (p : M α) (f g : α → M β) (r : β)
+    (h : ∀ a, evalWithAnswerFn answers (f a) = r → queried answers (f a) = queried answers (g a))
+    (hr : evalWithAnswerFn answers (p >>= f) = r) :
+    queried answers (p >>= f) = queried answers (p >>= g) := by
+  rw [queried_bind, queried_bind]
+  rw [evalWithAnswerFn_bind] at hr
+  rw [h _ hr]
+
+theorem eval_layersCanonicalBCW_one (answers : QueryImpl Spec Id) (w : WBytes) (index : Nat)
+    (msg : WCT9.LayerMsg) :
+    evalWithAnswerFn answers (layersCanonicalBCW w index 1 msg) =
+      evalWithAnswerFn answers (layersCanonicalBC w index 1 msg) := by
+  simp only [layersCanonicalBCW, layersCanonicalBC, ↓reduceIte]
+
+theorem eval_layersCanonicalBCW_succ (answers : QueryImpl Spec Id) (w : WBytes) (index n : Nat) (hn : n < 4)
+    (msg : WCT9.LayerMsg) (h0 : ¬ n = 0)
+    (ih : ∀ msg, evalWithAnswerFn answers (layersCanonicalBCW w index n msg) =
+      evalWithAnswerFn answers (layersCanonicalBC w index n msg)) :
+    evalWithAnswerFn answers (layersCanonicalBCW w index (n+1) msg) =
+      evalWithAnswerFn answers (layersCanonicalBC w index (n+1) msg) := by
+  have hl : (Fin.ofNat 4 n : Layer) ≠ 0 := layer_ne_zero_of n h0 hn
+  simp only [layersCanonicalBCW, layersCanonicalBC, if_neg h0]
+  by_cases hc : (wbcCtr w index (Fin.ofNat 4 n)).toNat ≥ WCT9.verifyWindow
+  · simp only [hc, if_true]
+  · simp only [hc, if_false]
+    apply eval_bind_congr'
+    intro answer
+    rw [canonicalDecode_window hl]
+    by_cases hw : lowerWindowOk answer
+    · rw [if_pos hw]
+      cases lowerDataDecode answer with
+      | none => rfl
+      | some digits =>
+        simp only [layerGuardedPairW, if_pos hw]
+        apply eval_bind_congr'
+        intro x
+        cases x with
+        | none => rfl
+        | some pair => exact ih _
+    · rw [if_neg hw]
+      cases lowerDataDecode answer with
+      | none => rfl
+      | some digits =>
+        simp [layerGuardedPairW, if_neg hw]
+
+/-- The M0 spec computes the same value as the record's spec under every answer function. -/
+theorem eval_layersCanonicalBCW (answers : QueryImpl Spec Id) (w : WBytes) (index : Nat) :
+    ∀ n, n ≤ 4 → ∀ msg, evalWithAnswerFn answers (layersCanonicalBCW w index n msg) =
+      evalWithAnswerFn answers (layersCanonicalBC w index n msg) := by
+  intro n
+  induction n with
+  | zero => intro _ msg; rfl
+  | succ n ih =>
+    intro hn msg
+    by_cases h0 : n = 0
+    · subst h0; exact eval_layersCanonicalBCW_one answers w index msg
+    · exact eval_layersCanonicalBCW_succ answers w index n (by omega) msg h0 (ih (by omega))
+
+theorem queried_layersCanonicalBCW_one (answers : QueryImpl Spec Id) (w : WBytes) (index : Nat)
+    (msg : WCT9.LayerMsg) :
+    queried answers (layersCanonicalBCW w index 1 msg) = queried answers (layersCanonicalBC w index 1 msg) := by
+  simp only [layersCanonicalBCW, layersCanonicalBC, ↓reduceIte]
+
+theorem queried_layersCanonicalBCW_succ (answers : QueryImpl Spec Id) (w : WBytes) (index n : Nat) (hn : n < 4)
+    (msg : WCT9.LayerMsg) (h0 : ¬ n = 0)
+    (ih : ∀ msg r, evalWithAnswerFn answers (layersCanonicalBCW w index n msg) = some r →
+      queried answers (layersCanonicalBCW w index n msg) = queried answers (layersCanonicalBC w index n msg))
+    (r : Digest) (hr : evalWithAnswerFn answers (layersCanonicalBCW w index (n+1) msg) = some r) :
+    queried answers (layersCanonicalBCW w index (n+1) msg) =
+      queried answers (layersCanonicalBC w index (n+1) msg) := by
+  have hl : (Fin.ofNat 4 n : Layer) ≠ 0 := layer_ne_zero_of n h0 hn
+  simp only [layersCanonicalBCW, layersCanonicalBC, if_neg h0] at hr ⊢
+  by_cases hc : (wbcCtr w index (Fin.ofNat 4 n)).toNat ≥ WCT9.verifyWindow
+  · simp only [hc, if_true]
+  · simp only [hc, if_false] at hr ⊢
+    apply queried_bind_congr' answers _ _ _ _ _ hr
+    intro answer ha
+    rw [canonicalDecode_window hl]
+    by_cases hw : lowerWindowOk answer
+    · rw [if_pos hw]
+      revert ha
+      cases lowerDataDecode answer with
+      | none => intro _; rfl
+      | some digits =>
+        intro ha
+        simp only [layerGuardedPairW, if_pos hw] at ha ⊢
+        apply queried_bind_congr' answers _ _ _ _ _ ha
+        intro x hx
+        cases x with
+        | none => rfl
+        | some pair => exact ih _ _ hx
+    · exfalso
+      revert ha
+      cases lowerDataDecode answer with
+      | none => intro ha; simp at ha
+      | some digits =>
+        intro ha
+        simp [layerGuardedPairW, if_neg hw] at ha
+
+/-- On every accepting run the M0 spec makes exactly the record spec's queries. -/
+theorem queried_layersCanonicalBCW (answers : QueryImpl Spec Id) (w : WBytes) (index : Nat) :
+    ∀ n, n ≤ 4 → ∀ msg r, evalWithAnswerFn answers (layersCanonicalBCW w index n msg) = some r →
+      queried answers (layersCanonicalBCW w index n msg) = queried answers (layersCanonicalBC w index n msg) := by
+  intro n
+  induction n with
+  | zero => intro _ msg r _; rfl
+  | succ n ih =>
+    intro hn msg r hr
+    by_cases h0 : n = 0
+    · subst h0; exact queried_layersCanonicalBCW_one answers w index msg
+    · exact queried_layersCanonicalBCW_succ answers w index n (by omega) msg h0 (ih (by omega)) r hr
+end ClaudeWCT.W9.T3M
+end
 -- ==== merged from W9Machine_WctV3Source ====
 section
 
@@ -1490,7 +1680,7 @@ def ftsP (w : WBytes) (output : HashOutput) : M (Option (Digest × Digest)) := d
 def verifyP (message : Message) (pk : Digest) (w : WBytes) : M Bool := do
   let some output ← digestP message w | pure false
   let some top ← ftsP w output | pure false
-  let some root ← layersCanonicalBC w (WCT9.digestIndex output) 4 (.pair top.1 top.2) | pure false
+  let some root ← layersCanonicalBCW w (WCT9.digestIndex output) 4 (.pair top.1 top.2) | pure false
   pure (root == pk)
 
 theorem expandN_snd (message : Message) (pk : Digest)
@@ -1648,17 +1838,22 @@ theorem verifyP_split (answers : Answers) (message : Message) (pk : Digest) (w :
       | some top =>
           rw [hf, evalWithAnswerFn_bind] at h
           cases hl : evalWithAnswerFn answers
-            (layersCanonicalBC w (WCT9.digestIndex output) 4 (.pair top.1 top.2)) with
+            (layersCanonicalBCW w (WCT9.digestIndex output) 4 (.pair top.1 top.2)) with
           | none => rw [hl] at h; simp at h
           | some root =>
               rw [hl, evalWithAnswerFn_pure, beq_iff_eq] at h
               subst root
+              have hl' : evalWithAnswerFn answers
+                  (layersCanonicalBC w (WCT9.digestIndex output) 4 (.pair top.1 top.2)) = some pk :=
+                (eval_layersCanonicalBCW answers w _ 4 le_rfl _).symm.trans hl
+              have hqe := queried_layersCanonicalBCW answers w _ 4 le_rfl _ pk hl
               have hq : queried answers (verifyP message pk w) =
                   queried answers (digestP message w) ++
                     (queried answers (ftsP w output) ++
                       queried answers (layersCanonicalBC w (WCT9.digestIndex output) 4 (.pair top.1 top.2))) := by
                 simp only [verifyP, queried_bind, hd, hf, hl, queried_pure, List.append_nil]
-              refine ⟨output, top, (by first | exact hd | rfl), (by first | exact hf | rfl), (by first | exact hl | rfl), ?_, ?_, ?_⟩
+                rw [hqe]
+              refine ⟨output, top, (by first | exact hd | rfl), (by first | exact hf | rfl), (by first | exact hl' | rfl), ?_, ?_, ?_⟩
               · intro q hqD
                 rw [hq]
                 exact List.mem_append_left _ hqD
