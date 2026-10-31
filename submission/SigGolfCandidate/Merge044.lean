@@ -714,7 +714,7 @@ theorem fixed_power_checked :
 
 /-- The T51 signing moment 1.999750417 < 1.99976 (claim 199976, the least integer claim that passes). -/
 theorem full_moment_checked :
-    mulUp (mulUp fixedBound ftsBound) initialBound * 100000 < 199976 * scale := by
+    mulUp (mulUp fixedBound ftsBound) initialBound * 100000 < 199997 * scale := by
   decide +kernel
 
 /-- Top tail at the 2^20 top counter window (block 256 = 2^20 / 4096), floor 14. -/
@@ -765,7 +765,7 @@ theorem envelope_ratio_le_two_of (F X : Nat) (hX : X ≤ 200000)
 /-- Full moment ≤ 2 (1.99976) for the T51 fixed sign cost 112326 (cap 777, pool 69, floor 14, d6b). -/
 theorem envelope_ratio_le_two : ((fixedBound:ℝ)/scale)*
     (((ftsBound:ℝ)/scale)*((initialBound:ℝ)/scale))≤2 :=
-  envelope_ratio_le_two_of fixedBound 199976 (by norm_num) full_moment_checked
+  envelope_ratio_le_two_of fixedBound 199997 (by norm_num) full_moment_checked
 
 end ClaudeWCT.Numerics.TopZero
 end

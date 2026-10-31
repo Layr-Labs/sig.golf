@@ -49,7 +49,7 @@ theorem claimedC_eq : claimedC=verifyCycleBound+witnessCycles (submission I).siz
   rw [witnessCycles_eq];decide
 
 theorem submission_verificationBound (E : EncodingFacts) (F : SourceQueries) (P : Pending I) :
-    (submission I).VerificationBound 7007 := by
+    (submission I).VerificationBound 7006 := by
   intro hash sk m
   dsimp only
   intro h
@@ -74,7 +74,7 @@ open ClaudeWCT.W9.T3M (Images)
 variable {I : Images}
 
 theorem certificate_of (E : EncodingFacts) (F : SourceQueries) (P : Pending I) (S : SourceFacts) :
-    Certificate (submission I) 7007 where
+    Certificate (submission I) 7006 where
   admissible := P.admissible
   termination := submission_terminates P
   completeness := submission_complete E F P S
@@ -1026,8 +1026,8 @@ def submissionNew (I : Images) : SigGolf.Submission := currentOf (submission I)
 theorem legacyOf_submissionNew (I : Images) : legacyOf (submissionNew I) = submission I :=
   legacyOf_currentOf (submission I)
 theorem certificateNew_of {I : Images} (E : EncodingFacts) (F : SourceQueries) (P : Pending I) (S : SourceFacts) :
-    SigGolf.Certificate (submissionNew I) 7007 := by
-  have hL : SigGolfCandidate.Legacy.Certificate (legacyOf (submissionNew I)) 7007 := by
+    SigGolf.Certificate (submissionNew I) 7006 := by
+  have hL : SigGolfCandidate.Legacy.Certificate (legacyOf (submissionNew I)) 7006 := by
     rw [legacyOf_submissionNew]
     exact certificate_of E F P S
   have hrun : RunAgrees (submissionNew I) := runAgrees_of_admissible (submissionNew I) hL.admissible
@@ -5025,7 +5025,7 @@ theorem pending_of_machine {I : Images} (M : MachineFacts I) : Pending I where
 theorem certificate_of_security {I : Images}
     (expandV6 : SigGolfCandidate.Research.SharedExpansionClosure.ExpandV6Facts) (security : SecurityP)
     (keygenMoment : KeygenMoment) (M : MachineFacts I) :
-    SigGolf.Certificate (submissionNew I) 7007 :=
+    SigGolf.Certificate (submissionNew I) 7006 :=
   certificateNew_of encodingFacts sourceQueries_holds (pending_of_machine M) (sourceFacts_of_securityP expandV6 security keygenMoment)
 end ClaudeWCT.W9.T3M.Final.Paired
 end

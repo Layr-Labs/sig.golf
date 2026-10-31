@@ -12757,7 +12757,7 @@ theorem nearLawSpec_producer : nearLawSpec.producer=SigGolfCandidate.Research.Sh
   change producer = _
   exact funext producer_source
 
-theorem nearLawSpec_mean : ClaudeWCT.Numerics.Law.lawAvg nearLawSpec.law (2^32) nearLawSpec.price≤378 :=
+theorem nearLawSpec_mean : ClaudeWCT.Numerics.Law.lawAvg nearLawSpec.law (2^32) nearLawSpec.price≤(19493/50) :=
   law_nearPrice_mean_bound
 
 theorem forced_near_payoff_le {β : Type} (slot q : Nat)
@@ -12765,8 +12765,8 @@ theorem forced_near_payoff_le {β : Type} (slot q : Nat)
     (hW : CaseC.SuperProg (NearWorld.implG nearLawSpec slot) (NearWorld.ΦI nearLawSpec q) W) :
     expectedValue (SecretGuessObservation.forcedWithRun WPair.envL WPair.samplerL slot W WPair.initL)
       (fun r => NearWorld.nearPayoff nearLawSpec q r.2)≤
-      (q:ENNReal)*(378+1/1024)/2^128 :=
-  NearWorld.forced_payoff_le nearLawSpec nearCovered_mono 378 nearLawSpec_mean slot q W hW
+      (q:ENNReal)*((19493/50)+1/1024)/2^128 :=
+  NearWorld.forced_payoff_le nearLawSpec nearCovered_mono (19493/50) nearLawSpec_mean slot q W hW
 
 end ClaudeWCT.Bank.Paired
 

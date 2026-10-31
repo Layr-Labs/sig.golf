@@ -599,7 +599,7 @@ theorem kappa_exact : kappa = (total : ENNReal)/count := by
        _ = (total : ENNReal)*capSet.card := by rw [ha]
 
 /-- Cap 777: `2 kappa = 2.0188326… ≤ 2.018833` (the thinned Poisson parameter). -/
-theorem kappa_rate : (2:ENNReal)*kappa ≤ (2018833:ENNReal)/1000000 := by
+theorem kappa_rate : (2:ENNReal)*kappa ≤ (2027792:ENNReal)/1000000 := by
   rw [kappa_exact]
   unfold total count
   apply (ENNReal.toReal_le_toReal (by finiteness) (by finiteness)).mp
@@ -614,7 +614,7 @@ open SigGolfCandidate.T3 ClaudeWCT.Numerics.SharedFtsCount ClaudeWCT.Numerics.Ca
 set_option maxHeartbeats 1000000
 set_option maxRecDepth 100000
 
-theorem capSet_card_value : capSet.card = 3245450420714031830069679340740189437804544 := by
+theorem capSet_card_value : capSet.card = 3231111570626159904052478477365212970106880 := by
   have h := capSet_card_scaled
   norm_num [count] at h
   omega

@@ -238,14 +238,14 @@ theorem large_closing_real (y excess : ℝ) (hlow : 1000 / 4194304 ≤ y)
   nlinarith
 
 /-- Cap-777 large-query closing: the thinned excess envelope `(993/1000)·y` on `y ≥ 3/2500`. -/
-theorem large_closing_real_cap777 (y excess : ℝ) (hlow : 3 / 2500 ≤ y)
-    (hexcess : excess ≤ (993 / 1000) * y) :
+theorem large_closing_real_cap777 (y excess : ℝ) (hlow : 149 / 125000 ≤ y)
+    (hexcess : excess ≤ (24771 / 25000) * y) :
     (2 * y - y ^ 2) + y * excess + y * (1 / 2 ^ 25) +
       y * (1 / 2 ^ 50) + 1 / 2 ^ 131 +
       (y / 2 ^ 18 + 1 / 2 ^ 700 + 1 / 2 ^ 152 + y / 2 ^ 128) ≤ 2 * y := by
   have hn : 0 ≤ y := le_trans (by norm_num) hlow
   have he := mul_le_mul_of_nonneg_left hexcess hn
-  have hsq : y * (3 / 2500) ≤ y ^ 2 := by
+  have hsq : y * (149 / 125000) ≤ y ^ 2 := by
     nlinarith [mul_le_mul_of_nonneg_left hlow hn]
   have habs : (1 : ℝ) / 2 ^ 131 ≤ y / 2 ^ 121 := by
     have h := div_le_div_of_nonneg_right hlow (show (0 : ℝ) ≤ 2 ^ 121 by positivity)
@@ -568,10 +568,10 @@ theorem canonicalError_mono {x y w : ℝ} (hx : 0≤x) (hxy : x≤y) (hy : y<1)
   have hv : 0≤1-w := by linarith
   gcongr <;> first | positivity | linarith
 
-theorem middle_coefficients (y : ℝ) (hy0 : 0≤y) (hy : y≤3/2500) :
-    canonicalPrefix y (1023/50000)≤99847/50000 ∧
-    canonicalEncoding y (1023/50000)≤99847/50000 ∧
-    canonicalError y (1023/50000)≤109/100 := by
+theorem middle_coefficients (y : ℝ) (hy0 : 0≤y) (hy : y≤149/125000) :
+    canonicalPrefix y (10297/500000)≤99843/50000 ∧
+    canonicalEncoding y (10297/500000)≤99843/50000 ∧
+    canonicalError y (10297/500000)≤109/100 := by
   refine ⟨(canonicalPrefix_mono hy0 hy (by norm_num) (by norm_num) (by norm_num)).trans ?_,
     (canonicalEncoding_mono hy0 hy (by norm_num) (by norm_num)).trans ?_,
     (canonicalError_mono hy0 hy (by norm_num) (by norm_num) (by norm_num)).trans ?_⟩ <;>

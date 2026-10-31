@@ -2808,13 +2808,13 @@ theorem rank_spec (m : Bool) (k : Nat) (hk:k < 9) (hl:LookOK im (look m)) (s : M
 
 theorem cap_spec (m : Bool) (hl:LookOK im (look m)) (s : MachineState) (hpc:s.pc=pcOf (cap m))
     (total : Nat) (ht:total < 2^64) (hs:s.getReg (sumReg m)=BitVec.ofNat 64 total) :
-    ∃t,Steps im s 2 2 t ∧ t.pc=(if total ≤ 777 then pcOf (accepted m) else pcOf (next m)) ∧
+    ∃t,Steps im s 2 2 t ∧ t.pc=(if total ≤ 776 then pcOf (accepted m) else pcOf (next m)) ∧
       RegsExcept s t [.x6] ∧ Frame s t (fun _=>False) := by
-  have hbr:∀b∈(expectedCap m (decide (¬total < 778))).brs,b.holds s:=by
+  have hbr:∀b∈(expectedCap m (decide (¬total < 777))).brs,b.holds s:=by
     intro b hb
     simp only[expectedCap,pres,pres2,List.mem_singleton]at hb
     subst hb
-    exact geu_holds s (.reg (sumReg m)) total 778 ht (by decide) hs
+    exact geu_holds s (.reg (sumReg m)) total 777 ht (by decide) hs
   obtain ⟨st,hp,-,hr,hm⟩:=SearchM.piece hl (cap_run m _) s hpc rfl hbr rfl
   refine ⟨_,st,?_,(pres_regsExcept _ _ _ _ _ _ _ s).mono (by simp [rankReg,addrReg,sumReg]),fun A _ _=>by rw[hm];rfl⟩
   rw[hp];simp only[expectedCap,pres,pres2,decide_eq_true_eq]
@@ -3070,9 +3070,9 @@ attribute [local instance] Classical.propDecidable
 variable {im : Image}
 
 def acceptedTest (a : BitVec 256) : Bool := decide (gateN a < 791) &&
-  (List.range 9).all (fun k=>decide (rankN a k < 563)) && decide (psum a 9 ≤ 777)
+  (List.range 9).all (fun k=>decide (rankN a k < 563)) && decide (psum a 9 ≤ 776)
 theorem acceptedTest_iff (a : BitVec 256) : acceptedTest a=true ↔
-    gateN a < 791 ∧ (∀k,k < 9 → rankN a k < 563) ∧ psum a 9 ≤ 777 := by
+    gateN a < 791 ∧ (∀k,k < 9 → rankN a k < 563) ∧ psum a 9 ≤ 776 := by
   simp only[acceptedTest,Bool.and_eq_true,decide_eq_true_eq,List.all_eq_true,List.mem_range,and_assoc]
 
 theorem checks_spec (m : Bool) (hl:LookOK im (look m)) (s : MachineState)
@@ -3095,7 +3095,7 @@ theorem checks_spec (m : Bool) (hl:LookOK im (look m)) (s : MachineState)
       · exact (((r1.trans r2).trans r3).trans r4).mono (by cases m <;> simp [sumReg])
       · exact (((f1.trans f2).trans f3).trans f4).mono (fun A _ h=>by simpa using h)
       · rw[p4]
-        have he:(acceptedTest a=true) ↔ psum a 9 ≤ 777:=by
+        have he:(acceptedTest a=true) ↔ psum a 9 ≤ 776:=by
           constructor
           · intro h;exact ((acceptedTest_iff a).mp h).2.2
           · intro h;exact (acceptedTest_iff a).mpr ⟨hg,hf,h⟩

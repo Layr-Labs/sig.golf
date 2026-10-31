@@ -3168,14 +3168,14 @@ theorem primitive_real_of_failureFam (S : FamScheme) {Cmax : Nat} (H : FamTot.Fa
 
 theorem primitive_middle_real_of_failureFam (S : FamScheme) {Cmax : Nat} (H : FamTot.FamHyps S Cmax)
     (hC : Cmax ≤ 305) (adversary : Final.Paired.AdversaryP) (q : Nat) (hq:q≤2^127)
-    (hy : (q:ℝ)/2^128≤3/2500)
+    (hy : (q:ℝ)/2^128≤149/125000)
     (hfailed : Pr[ReferenceFailed | PairedReference.referenceExperiment adversary q] ≤ 1/(2:ENNReal)^139) :
     (Pr[Combined | PairedReference.referenceExperiment adversary q]).toReal ≤
-      (99847/50000)*((PairedSmallT.prefixMass adversary q).toReal/2^128+
+      (99843/50000)*((PairedSmallT.prefixMass adversary q).toReal/2^128+
         (PairedSmallT.encodingMass adversary q).toReal/2^128)+
       (PairedSmallT.otherMass adversary q).toReal/2^128+(778/1000)*((q:ℝ)/2^128)^2+(1/2^139+1/2^142) := by
   have hc := middle_coefficients_t ((q:ℝ)/2^128) (by positivity) hy
-  apply primitive_real_of_failureFam S H hC adversary q hq hy (1023/50000) (48977/50000)
+  apply primitive_real_of_failureFam S H hC adversary q hq (hy.trans (by norm_num)) (10297/500000) (489703/500000)
     (by finiteness) (by finiteness) (by norm_num [ENNReal.div_add_div_same]; exact ENNReal.div_self (by norm_num) (by finiteness)) hfailed
   · simpa only [ENNReal.toReal_div,ENNReal.toReal_ofNat] using hc.1
   · simpa only [ENNReal.toReal_div,ENNReal.toReal_ofNat] using hc.2.1
@@ -3210,9 +3210,9 @@ set_option backward.isDefEq.respectTransparency false
 
 theorem primitive_middle_realFam (S : FamScheme) {Cmax : Nat} (H : CanonicalRef.Normalized.FamTot.FamHyps S Cmax)
     (hC : Cmax ≤ 305) (adversary : Final.Paired.AdversaryP) (q : Nat) (hq:q≤2^127)
-    (hy : (q:ℝ)/2^128≤3/2500) :
+    (hy : (q:ℝ)/2^128≤149/125000) :
     (Pr[Combined | PairedReference.referenceExperiment adversary q]).toReal ≤
-      (99847/50000)*((PairedSmallT.prefixMass adversary q).toReal/2^128+
+      (99843/50000)*((PairedSmallT.prefixMass adversary q).toReal/2^128+
         (PairedSmallT.encodingMass adversary q).toReal/2^128)+
       (PairedSmallT.otherMass adversary q).toReal/2^128+(778/1000)*((q:ℝ)/2^128)^2+(1/2^139+1/2^142) :=
   primitive_middle_real_of_failureFam S H hC adversary q hq hy (reference_failed_le adversary q)
@@ -3240,18 +3240,18 @@ attribute [local instance] Classical.propDecidable
 
 theorem middle_boundFam (S : FamScheme) {Cmax : Nat} (H : CanonicalRef.Normalized.FamTot.FamHyps S Cmax)
     (hC : Cmax ≤ 305) (adversary : Final.Paired.AdversaryP) (q : Nat) (hq:q≤2^127)
-    (hlow:1/(2:ℝ)^28≤(q:ℝ)/2^128) (hhigh:(q:ℝ)/2^128≤3/2500) :
+    (hlow:1/(2:ℝ)^28≤(q:ℝ)/2^128) (hhigh:(q:ℝ)/2^128≤149/125000) :
     Pr[QueryRecorded.CleanWin q | PairedOuter.PaddedGame.tracedExperiment adversary q hq]+
       q/(2:ENNReal)^146+(2:ENNReal)⁻¹^700+((2:ENNReal)^152)⁻¹+
       q/((2^256:Nat):ENNReal)≤(q:ENNReal)/2^127 := by
   apply clean_outer_ennrealG adversary q hq
-  apply middle_clean_closingG adversary q hq hlow hhigh (1153/1000000) le_rfl ?_
+  apply middle_clean_closingG adversary q hq hlow hhigh (1174/1000000) le_rfl ?_
     (completed_partial_certifiedG adversary q hq)
   have hp:=CanonicalWeighted.primitive_middle_realFam S H hC adversary q hq hhigh
   have h:=clean_probability_real_ofG adversary q hq (completed_split_canonical adversary q hq)
-    (99847/50000) (1153/1000000) (by finiteness) (by finiteness) (by
+    (99843/50000) (1174/1000000) (by finiteness) (by finiteness) (by
       simpa (disch:=positivity) only [ENNReal.ofReal_div_of_pos,ENNReal.ofReal_ofNat,ENNReal.ofReal_one] using
-        ENNReal.ofReal_le_ofReal (by norm_num : (1:ℝ)/1024≤99847/50000))
+        ENNReal.ofReal_le_ofReal (by norm_num : (1:ℝ)/1024≤99843/50000))
     excess_middle_actualG (by simpa only [ENNReal.toReal_div,ENNReal.toReal_ofNat] using! hp)
     (completed_incomplete_bound adversary q hq)
     (by simpa only [one_div] using FtsOverflow.Paired.cleanWin_noOverflow_le adversary q hq)
@@ -3278,7 +3278,7 @@ theorem tiny_boundFam (S : FamScheme) {Cmax : Nat} (H : CanonicalRef.Normalized.
 
 theorem small_boundFam (S : FamScheme) {Cmax : Nat} (H : CanonicalRef.Normalized.FamTot.FamHyps S Cmax)
     (hC : Cmax ≤ 305) (adversary : Final.Paired.AdversaryP) (q : Nat) (hq:q≤2^127)
-    (hpositive:1≤q) (hhigh:(q:ℝ)/2^128≤3/2500) :
+    (hpositive:1≤q) (hhigh:(q:ℝ)/2^128≤149/125000) :
     Pr[QueryRecorded.CleanWin q | PairedOuter.PaddedGame.tracedExperiment adversary q hq]+
       q/(2:ENNReal)^146+(2:ENNReal)⁻¹^700+((2:ENNReal)^152)⁻¹+
       q/((2^256:Nat):ENNReal)≤(q:ENNReal)/2^127 := by
@@ -3305,7 +3305,7 @@ theorem t3_securityP_fam (S : FamScheme) (Cmax : Nat)
     ClaudeWCT.W9.T3M.Final.Paired.SecurityP := by
   apply PairedOuter.PaddedGame.securityP_of_clean_bound
   intro adversary q hpositive hq
-  by_cases hsmall : (q:ℝ)/2^128 ≤ 3/2500
+  by_cases hsmall : (q:ℝ)/2^128 ≤ 149/125000
   · exact Wots.PairedSmallT.small_boundFam S H hC adversary q hq hpositive hsmall
   · exact LargeCoupling.Paired.large_bound adversary q hq (le_of_not_ge hsmall)
 

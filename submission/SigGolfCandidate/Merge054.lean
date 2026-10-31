@@ -2619,12 +2619,12 @@ abbrev witEnc := ClaudeWCT.W9.T3M.Paired.witEnc
 /-- img-v6: the honest expand output carries the top node nonces (`Paired.witEncN`). -/
 abbrev witEncN := ClaudeWCT.W9.T3M.Paired.witEncN
 
- def verifyCycleBound : Nat := 6921
- def claimedC : Nat := 7007
+ def verifyCycleBound : Nat := 6920
+ def claimedC : Nat := 7006
  def DigestCapOk (hash : Hash) (m : Message) (w : Bytes 22012) : Prop :=
   SigGolfCandidate.Research.SharedForest.jointAccountingCost
     (hash (SigGolfCandidate.T3M.toQ (SigGolfCandidate.T3.pad64
-      (SigGolfCandidate.T3.digestInput (wrho w) m (wdc w)))))≤777
+      (SigGolfCandidate.T3.digestInput (wrho w) m (wdc w)))))≤776
  variable (I : Images)
  def KeygenRunCounts : Prop := ∀ sk : SecretKey,
   (fun r => (r.value,r.hashCalls,r.hashCompressions)) <$> (submission I).run .keygen sk=

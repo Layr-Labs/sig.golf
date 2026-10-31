@@ -387,11 +387,11 @@ def rowTwo : Array Nat := #[352609111977080085841896220337467755047,352609111977
 
 def rowThree : Array Nat := #[346390910997172446261317588447252241589,346390911999005932854949069086086372693,346390928994941975032008040229279191329,346391066017419418688218239596395338616,346391765422550109292932825808862978556,346394313538800814718613323923330207524,346401432397765993710172699491500498725,346417555237039011456178243514337857058,346448718299398695409020150114363945450,346502661030291122293718659578733393305,346589478225173888024498747660046510126,346722054086806111425844748477551032026,346915672800966672823107169466691129276,347188001134295928738129921394156252771,347560837299697040407255886157257396005,348062578665300055772093927765207030363,348729767908412352418478572991483721000,349609555573199372087496762033898196228,350766558942078102944495395043380650981,352293310445968045753454868285270636974,354321378529085107453792629871409674936,357038441411328565783776976685252281450]
 
-def ftsNum : Nat := 791 * 563 ^ 9 * 51927206731424509281114869451843031004872704
+def ftsNum : Nat := 791 * 563 ^ 9 * 51697785130018558464839655637843407521710080
 
 def ftsDen : Nat := 2 ^ 14 * 1024 ^ 9 * 52416169542617085727767971710947931910569984
 
-def ftsBound : Nat := 348680465788521302845119192496860718855
+def ftsBound : Nat := 348718658376964770277098705568510723787
 
 def acceptedMass (hist : List (Nat × Nat)) (floor : Nat) : Nat :=
   (hist.filter (fun e => decide (floor ≤ e.1))).foldl (fun n e => n + e.2) 0
@@ -521,9 +521,9 @@ def childBC : Nat := 52 + 64 * radix + 12 * radix ^ 2
 def forestPacked : Nat := (rankPacked * childA) ^ 4 * (rankPacked * childBC) ^ 5
 
 /-- Joint cap 777, i.e. retained weights `≤ 777 - 675 = 102`. -/
-def retained : Nat := forestPacked % radix ^ 103 % (radix - 1)
+def retained : Nat := forestPacked % radix ^ 102 % (radix - 1)
 
-def count : Nat := 51927206731424509281114869451843031004872704
+def count : Nat := 51697785130018558464839655637843407521710080
 
 def total : Nat := 52416169542617085727767971710947931910569984
 
@@ -533,7 +533,7 @@ theorem total_eq : (128 * 563) ^ 9 = total := by decide +kernel
 
 theorem mass_below_radix : total < radix - 1 := by decide +kernel
 
-theorem retained_fraction : total * 9906715272 ≤ count * 10000000000 := by decide +kernel
+theorem retained_fraction : total * 9862946030 ≤ count * 10000000000 := by decide +kernel
 
 
 
@@ -544,7 +544,7 @@ def fieldBC : Nat := 13 + 16 * radix + 3 * radix ^ 2
 
 def fieldForestPacked : Nat := (rankPacked * fieldA) ^ 4 * (rankPacked * fieldBC) ^ 5
 
-def fieldRetained : Nat := fieldForestPacked % radix ^ 103 % (radix - 1)
+def fieldRetained : Nat := fieldForestPacked % radix ^ 102 % (radix - 1)
 
 theorem field_retained_eq : fieldRetained * 4 ^ 9 = count := by decide +kernel
 
@@ -617,13 +617,13 @@ def rowChecks : Bool := (List.range 81).all rowCheck
 theorem rows_checked : rowChecks = true := by decide +kernel
 
 theorem first_moment_checked :
-    poissonCheckQ fieldSize 13283369 100000000 2018833 1000000
-      (fun r => 16^r * forestMoment r) alphabetSize priceScaleTotal 1 915 1000 80 = true := by
+    poissonCheckQ fieldSize 13167581 100000000 2027792 1000000
+      (fun r => 16^r * forestMoment r) alphabetSize priceScaleTotal 1 944 1000 80 = true := by
   decide +kernel
 
 theorem near_moment_checked :
-    poissonCheckQ fieldSize 13283369 100000000 2018833 1000000
-      (fun r => 16^r * forestNearMoment r) (54*alphabetSize) (54*priceScaleTotal) 1 378 1 80 = true := by
+    poissonCheckQ fieldSize 13167581 100000000 2027792 1000000
+      (fun r => 16^r * forestNearMoment r) (54*alphabetSize) (54*priceScaleTotal) 1 19493 50 80 = true := by
   decide +kernel
 
 end ClaudeWCT.Numerics.SharedMoments
