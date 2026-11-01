@@ -50,7 +50,7 @@ def encLoad (rd rs imm : Nat) : BitVec 32 :=
   BitVec.ofNat 32 (imm * 2 ^ 20 + rs * 2 ^ 15 + 3 * 2 ^ 12 + rd * 2 ^ 7 + 3)
 def childTmpl (j : Nat) : List (BitVec 32) :=
   [0, encI 12 8 (curO 0 j), 0x00000073, encI 11 0 64] ++ (List.range 6).flatMap (lvlTmpl j) ++
-    [0x12808067] ++ List.replicate (25 + childSaveC j) 0x00000013
+    [0x12c08067] ++ List.replicate (25 + childSaveC j) 0x00000013
 def childWords (j : Nat) : List (BitVec 32) := childTmpl j
 def childLook (j n : Nat) : Option (BitVec 32) :=
   if childBase j ≤ n then (childWords j)[n - childBase j]? else none
@@ -80,7 +80,7 @@ def lvlRes (j l : Nat) : PRes :=
   ⟨⟨lvlRegs j l, lvlMem j l, lvlObl j l⟩, pcOf (childBase j + ecIdx j (l + 1)), true, lvlSt j l, lvlSt j l, [], none⟩
 def otherDest (j : Nat) : Nat := 16 * (1 - bitAt j 6)
 def aX9 (off : Nat) : Addr := ⟨some (.reg .x9), BitVec.ofNat 64 off⟩
-def retE : E := .bin .and (addC (.reg .x1) 296) (.c (~~~1#64))
+def retE : E := .bin .and (addC (.reg .x1) 300) (.c (~~~1#64))
 def p7Res (_j : Nat) : PRes :=
   ⟨⟨RegFile.init, [], []⟩, 0, false, 1, 1, [], some retE⟩
 def childPiecesOK (j : Nat) : Bool :=
@@ -751,7 +751,7 @@ def childLevelHi (k index j : Nat) (pads : Nat → Digest) (hps : Nat → BitVec
     (value : Digest) : M Digest :=
   V3.hashHi (nodeIn k index j pads hps sibs value 5)
 structure HandPost (B j : Nat) (u : MachineState) (computed : Digest) (t : MachineState) : Prop where
-  pc : t.pc = (u.getReg .x1 + 296) &&& ~~~1#64
+  pc : t.pc = (u.getReg .x1 + 300) &&& ~~~1#64
   a1 : t.getReg .x11 = 64
   top : DigAt t (B - handO j + 16) computed
   a2 : t.getReg .x12 = BitVec.ofNat 64 (B - handO j)
@@ -789,7 +789,7 @@ theorem tail_good {im : Image} {j : Nat} (hj : j < 128) (hcode : ChildCodeAt im 
       simp only [p7Res, memEval_nil]
     have hp : HandPost B j u (ans.extractLsb' 128 128) z := by
       refine ⟨?_, ?_, ?_, ?_, ?_, ?_⟩
-      · have e : z.pc = ((writeHash t ans).getReg .x1 + 296) &&& ~~~1#64 := rfl
+      · have e : z.pc = ((writeHash t ans).getReg .x1 + 300) &&& ~~~1#64 := rfl
         rw [e, writeHash_getReg, hkeep .x1 (by decide) (by decide) (by decide) (by decide)]
       · rw [hzreg, writeHash_getReg, h11]
       · have hd := DigAt.writeHash_hi t ans _ h12 hdest
@@ -952,7 +952,7 @@ def encLoad (rd rs imm : Nat) : BitVec 32 :=
   BitVec.ofNat 32 (imm * 2 ^ 20 + rs * 2 ^ 15 + 3 * 2 ^ 12 + rd * 2 ^ 7 + 3)
 def childTmpl (j : Nat) : List (BitVec 32) :=
   [0, encI 12 8 (outO 0 j), 0x00000073, encI 11 0 64] ++ (List.range 5).flatMap (lvlTmpl j) ++
-    [0x12808067]
+    [0x12c08067]
 def childWords (j : Nat) : List (BitVec 32) := childTmpl j
 def childLook (j n : Nat) : Option (BitVec 32) :=
   if childBase j ≤ n then (childWords j)[n - childBase j]? else none
@@ -982,7 +982,7 @@ def lvlRes (j l : Nat) : PRes :=
   ⟨⟨lvlRegs j l, lvlMem j l, lvlObl j l⟩, pcOf (childBase j + ecIdx j (l + 1)), true, lvlSt j l, lvlSt j l, [], none⟩
 def otherDest (j : Nat) : Nat := 16 * (1 - bitAt j 6)
 def aX9 (off : Nat) : Addr := ⟨some (.reg .x9), BitVec.ofNat 64 off⟩
-def retE : E := .bin .and (addC (.reg .x1) 296) (.c (~~~1#64))
+def retE : E := .bin .and (addC (.reg .x1) 300) (.c (~~~1#64))
 def p7Res (_j : Nat) : PRes :=
   ⟨⟨RegFile.init, [], []⟩, 0, false, 1, 1, [], some retE⟩
 def childPiecesOK (j : Nat) : Bool :=
@@ -1699,7 +1699,7 @@ def childLevelHi (k index j : Nat) (pads : Nat → Digest) (hps : Nat → BitVec
     (value : Digest) : M Digest :=
   V3.hashHi (nodeIn k index j pads hps sibs value 4)
 structure HandPost (B j : Nat) (u : MachineState) (computed : Digest) (t : MachineState) : Prop where
-  pc : t.pc = (u.getReg .x1 + 296) &&& ~~~1#64
+  pc : t.pc = (u.getReg .x1 + 300) &&& ~~~1#64
   a1 : t.getReg .x11 = 64
   top : DigAt t (B - handO j + 16) computed
   a2 : t.getReg .x12 = BitVec.ofNat 64 (B - handO j)
@@ -1737,7 +1737,7 @@ theorem tail_good {im : Image} {j : Nat} (hj : j < 128) (hcode : ChildCodeAt im 
       simp only [p7Res, memEval_nil]
     have hp : HandPost B j u (ans.extractLsb' 128 128) z := by
       refine ⟨?_, ?_, ?_, ?_, ?_, ?_⟩
-      · have e : z.pc = ((writeHash t ans).getReg .x1 + 296) &&& ~~~1#64 := rfl
+      · have e : z.pc = ((writeHash t ans).getReg .x1 + 300) &&& ~~~1#64 := rfl
         rw [e, writeHash_getReg, hkeep .x1 (by decide) (by decide) (by decide) (by decide)]
       · rw [hzreg, writeHash_getReg, h11]
       · have hd := DigAt.writeHash_hi t ans _ h12 hdest
@@ -1846,7 +1846,7 @@ def encLoad (rd rs imm : Nat) : BitVec 32 :=
   BitVec.ofNat 32 (imm * 2 ^ 20 + rs * 2 ^ 15 + 3 * 2 ^ 12 + rd * 2 ^ 7 + 3)
 def childTmpl (j : Nat) : List (BitVec 32) :=
   [0, encI 12 8 (outO 0 j), 0x00000073, encI 11 0 64] ++ (List.range 6).flatMap (lvlTmpl j) ++
-    [0x12808067] ++ List.replicate (29 + childSaveC j) 0x00000013
+    [0x12c08067] ++ List.replicate (29 + childSaveC j) 0x00000013
 def childWords (j : Nat) : List (BitVec 32) := childTmpl j
 def childLook (j n : Nat) : Option (BitVec 32) :=
   if childBase j ≤ n then (childWords j)[n - childBase j]? else none
@@ -1876,7 +1876,7 @@ def lvlRes (j l : Nat) : PRes :=
   ⟨⟨lvlRegs j l, lvlMem j l, lvlObl j l⟩, pcOf (childBase j + ecIdx j (l + 1)), true, lvlSt j l, lvlSt j l, [], none⟩
 def otherDest (j : Nat) : Nat := 16 * (1 - bitAt j 6)
 def aX9 (off : Nat) : Addr := ⟨some (.reg .x9), BitVec.ofNat 64 off⟩
-def retE : E := .bin .and (addC (.reg .x1) 296) (.c (~~~1#64))
+def retE : E := .bin .and (addC (.reg .x1) 300) (.c (~~~1#64))
 def p7Res (_j : Nat) : PRes :=
   ⟨⟨RegFile.init, [], []⟩, 0, false, 1, 1, [], some retE⟩
 def childPiecesOK (j : Nat) : Bool :=
@@ -2583,7 +2583,7 @@ def childLevelHi (k index j : Nat) (pads : Nat → Digest) (hps : Nat → BitVec
     (value : Digest) : M Digest :=
   V3.hashHi (nodeIn k index j pads hps sibs value 5)
 structure HandPost (B j : Nat) (u : MachineState) (computed : Digest) (t : MachineState) : Prop where
-  pc : t.pc = (u.getReg .x1 + 296) &&& ~~~1#64
+  pc : t.pc = (u.getReg .x1 + 300) &&& ~~~1#64
   a1 : t.getReg .x11 = 64
   top : DigAt t (B - handO j + 16) computed
   a2 : t.getReg .x12 = BitVec.ofNat 64 (B - handO j)
@@ -2621,7 +2621,7 @@ theorem tail_good {im : Image} {j : Nat} (hj : j < 128) (hcode : ChildCodeAt im 
       simp only [p7Res, memEval_nil]
     have hp : HandPost B j u (ans.extractLsb' 128 128) z := by
       refine ⟨?_, ?_, ?_, ?_, ?_, ?_⟩
-      · have e : z.pc = ((writeHash t ans).getReg .x1 + 296) &&& ~~~1#64 := rfl
+      · have e : z.pc = ((writeHash t ans).getReg .x1 + 300) &&& ~~~1#64 := rfl
         rw [e, writeHash_getReg, hkeep .x1 (by decide) (by decide) (by decide) (by decide)]
       · rw [hzreg, writeHash_getReg, h11]
       · have hd := DigAt.writeHash_hi t ans _ h12 hdest
@@ -2739,7 +2739,7 @@ def encLoad (rd rs imm : Nat) : BitVec 32 :=
   BitVec.ofNat 32 (imm * 2 ^ 20 + rs * 2 ^ 15 + 3 * 2 ^ 12 + rd * 2 ^ 7 + 3)
 def childTmpl (j : Nat) : List (BitVec 32) :=
   [0, encI 12 8 (outO 0 j), 0x00000073, encI 11 0 64] ++ (List.range 6).flatMap (lvlTmpl j) ++
-    [0x14008067] ++ List.replicate (29 + childSaveC j) 0x00000013
+    [0x13c08067] ++ List.replicate (29 + childSaveC j) 0x00000013
 def childWords (j : Nat) : List (BitVec 32) := childTmpl j
 def childLook (j n : Nat) : Option (BitVec 32) :=
   if childBase j ≤ n then (childWords j)[n - childBase j]? else none
@@ -2769,8 +2769,8 @@ def lvlRes (j l : Nat) : PRes :=
   ⟨⟨lvlRegs j l, lvlMem j l, lvlObl j l⟩, pcOf (childBase j + ecIdx j (l + 1)), true, lvlSt j l, lvlSt j l, [], none⟩
 def otherDest (j : Nat) : Nat := 16 * (1 - bitAt j 6)
 def aX9 (off : Nat) : Addr := ⟨some (.reg .x9), BitVec.ofNat 64 off⟩
-/-- Cm (stage 2): `jalr zero,320(ra)` (`0x14008067`), the L3 entry at word 854. -/
-def retE : E := .bin .and (addC (.reg .x1) 320) (.c (~~~1#64))
+/-- Cm (stage 2): `jalr zero,316(ra)` (`0x13c08067`), the L3 entry at word 854. -/
+def retE : E := .bin .and (addC (.reg .x1) 316) (.c (~~~1#64))
 def p7Res (_j : Nat) : PRes :=
   ⟨⟨RegFile.init, [], []⟩, 0, false, 1, 1, [], some retE⟩
 def childPiecesOK (j : Nat) : Bool :=
@@ -3499,7 +3499,7 @@ def childLevelTop (k index j : Nat) (pads : Nat → Digest) (hps : Nat → BitVe
     (value : Digest) : M Digest :=
   SharedV3.hashSel (topHi j) (nodeIn k index j pads hps sibs value 5)
 structure HandPost (B j : Nat) (u : MachineState) (computed : Digest) (t : MachineState) : Prop where
-  pc : t.pc = (u.getReg .x1 + 320) &&& ~~~1#64
+  pc : t.pc = (u.getReg .x1 + 316) &&& ~~~1#64
   a1 : t.getReg .x11 = 64
   top : DigAt t (B - valO j) computed
   a2 : t.getReg .x12 = BitVec.ofNat 64 (B - handO j)
@@ -3537,7 +3537,7 @@ theorem tail_good {im : Image} {j : Nat} (hj : j < 128) (hcode : ChildCodeAt im 
       simp only [p7Res, memEval_nil]
     have hp : HandPost B j u (if topHi j then ans.extractLsb' 128 128 else ans.extractLsb' 0 128) z := by
       refine ⟨?_, ?_, ?_, ?_, ?_, ?_⟩
-      · have e : z.pc = ((writeHash t ans).getReg .x1 + 320) &&& ~~~1#64 := rfl
+      · have e : z.pc = ((writeHash t ans).getReg .x1 + 316) &&& ~~~1#64 := rfl
         rw [e, writeHash_getReg, hkeep .x1 (by decide) (by decide) (by decide) (by decide)]
       · rw [hzreg, writeHash_getReg, h11]
       · have hd := DigAt_top t ans h12 hdest (by omega)
@@ -4505,7 +4505,7 @@ theorem tail_tbsim {im : Image} {j : Nat} (hj : j<128) (hcode : ChildCodeAt im j
       simp only [p7Res, memEval_nil]
     have hp : HandPost B j u (ans.extractLsb' 128 128) z := by
       refine ⟨?_, ?_, ?_, ?_, ?_, ?_⟩
-      · have e : z.pc = ((writeHash t ans).getReg .x1 + 296) &&& ~~~1#64 := rfl
+      · have e : z.pc = ((writeHash t ans).getReg .x1 + 300) &&& ~~~1#64 := rfl
         rw [e, writeHash_getReg, hkeep .x1 (by decide) (by decide) (by decide) (by decide)]
       · rw [hzreg, writeHash_getReg, h11]
       · have hd := DigAt.writeHash_hi t ans _ h12 hdest
@@ -4687,7 +4687,7 @@ theorem tail_tbsim {im : Image} {j : Nat} (hj : j<128) (hcode : ChildCodeAt im j
       simp only [p7Res, memEval_nil]
     have hp : HandPost B j u (ans.extractLsb' 128 128) z := by
       refine ⟨?_, ?_, ?_, ?_, ?_, ?_⟩
-      · have e : z.pc = ((writeHash t ans).getReg .x1 + 296) &&& ~~~1#64 := rfl
+      · have e : z.pc = ((writeHash t ans).getReg .x1 + 300) &&& ~~~1#64 := rfl
         rw [e, writeHash_getReg, hkeep .x1 (by decide) (by decide) (by decide) (by decide)]
       · rw [hzreg, writeHash_getReg, h11]
       · have hd := DigAt.writeHash_hi t ans _ h12 hdest
@@ -4869,7 +4869,7 @@ theorem tail_tbsim {im : Image} {j : Nat} (hj : j<128) (hcode : ChildCodeAt im j
       simp only [p7Res, memEval_nil]
     have hp : HandPost B j u (if topHi j then ans.extractLsb' 128 128 else ans.extractLsb' 0 128) z := by
       refine ⟨?_, ?_, ?_, ?_, ?_, ?_⟩
-      · have e : z.pc = ((writeHash t ans).getReg .x1 + 320) &&& ~~~1#64 := rfl
+      · have e : z.pc = ((writeHash t ans).getReg .x1 + 316) &&& ~~~1#64 := rfl
         rw [e, writeHash_getReg, hkeep .x1 (by decide) (by decide) (by decide) (by decide)]
       · rw [hzreg, writeHash_getReg, h11]
       · have hd := DigAt_top t ans h12 hdest (by omega)
@@ -4949,7 +4949,7 @@ theorem post_to_shared_at {L : W9Machine.Layout} (w : ClaudeWCT.W9.T3M.WBytes) (
   refine ⟨?_, ht.a1, ?_, ?_, ?_, ?_⟩
   · rw [ht.pc, hr, hu.returnPC]
     simp only [hc, ↓reduceIte]
-    change (pcOf (L.returnWord k)+BitVec.ofNat 64 (4*74)) &&& ~~~1#64 = _
+    change (pcOf (L.returnWord k)+BitVec.ofNat 64 (4*75)) &&& ~~~1#64 = _
     rw [W9Drv.SharedBank.pcOf_add_words,pcOf_and_not1]
   · rw [← hh]; exact ht.top
   · rw [ht.a2, ho]
@@ -4992,7 +4992,7 @@ theorem post_to_shared_at {L : W9Machine.Layout} (w : ClaudeWCT.W9.T3M.WBytes) (
   refine ⟨?_, ht.a1, ?_, ?_, ?_, ?_⟩
   · rw [ht.pc, hr, hu.returnPC]
     simp only [hc, ↓reduceIte]
-    change (pcOf (L.returnWord k)+BitVec.ofNat 64 (4*74)) &&& ~~~1#64 = _
+    change (pcOf (L.returnWord k)+BitVec.ofNat 64 (4*75)) &&& ~~~1#64 = _
     rw [W9Drv.SharedBank.pcOf_add_words,pcOf_and_not1]
   · rw [← hh]; exact ht.top
   · rw [ht.a2, ho]
@@ -5037,7 +5037,7 @@ theorem post_to_shared_at {L : W9Machine.Layout} (w : ClaudeWCT.W9.T3M.WBytes) (
   refine ⟨?_, ht.a1, ?_, ?_, ?_, ?_⟩
   · rw [ht.pc, hr, hu.returnPC]
     simp only [if_pos hc, ↓reduceIte]
-    change (pcOf (L.returnWord k)+BitVec.ofNat 64 (4*80)) &&& ~~~1#64 = _
+    change (pcOf (L.returnWord k)+BitVec.ofNat 64 (4*79)) &&& ~~~1#64 = _
     rw [W9Drv.SharedBank.pcOf_add_words,pcOf_and_not1]
   · rw [← hh]; exact ht.top
   · rw [ht.a2, ho]
