@@ -1943,9 +1943,9 @@ theorem counter_of_length {im : Image} (hlen : im.data.length=29936)
   apply zero hlen (dataBase_of_length hlen) m pk b <;> simp only [ENC,DB0] <;> omega
 
 theorem initial_thresholds (m : Message) (pk : PublicKey) (b : ClaudeWCT.W9.T3M.SharedCodec.CBytes) :
-    (∀r,r<56 → (w9init Images.expandImage m pk b).getByte (BitVec.ofNat 64 (16749456+r))=
+    (∀r,r<53 → (w9init Images.expandImage m pk b).getByte (BitVec.ofNat 64 (16749456+r))=
       BitVec.ofNat 8 (ClaudeWCT.WCT9.CanonicalPolicy.threshold 1 r)) ∧
-    (∀r,r<41 → (w9init Images.expandImage m pk b).getByte (BitVec.ofNat 64 (16749520+r))=
+    (∀r,r<40 → (w9init Images.expandImage m pk b).getByte (BitVec.ofNat 64 (16749520+r))=
       BitVec.ofNat 8 (ClaudeWCT.WCT9.CanonicalPolicy.threshold 2 r)) := by
   have h : SharedValidate.Tables (w9init Images.expandImage m pk b) := initial_data m pk b
   exact ⟨h.first,h.second⟩

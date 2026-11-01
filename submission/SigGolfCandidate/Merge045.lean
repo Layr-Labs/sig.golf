@@ -136,7 +136,15 @@ theorem lower_counts_of_check
     by simpa only [lowerHistogramCheck, decide_eq_true_eq] using hcheck
   exact (lower_counts_from_digits _ _ hd he c.val c.isLt).symm.trans (lower_histogram_digits c)
 
-/-- The path-aware lower selection law. -/
+theorem stageHistogram_lower (lay : Layer) (hl : lay ≠ 0) :
+    stageHistogram lay.val = pathSplit (CanonicalPolicy.lowerBonus lay) lowerCounts := by
+  fin_cases lay
+  · exact absurd rfl hl
+  · rfl
+  · rfl
+  · rfl
+
+/-- The path-aware lower selection law (P0: the histogram of stage `lay`, LOW bonus `lowerBonus lay`). -/
 theorem selected_lower_histogram_card
     (hd : ∀ (z : Fin 6) (i : Nat), i<128 →
       SharedDigitBlock.digit (2^132) SigGolfResearch.LowerEffectiveCounting.packed
@@ -144,11 +152,11 @@ theorem selected_lower_histogram_card
     (hcheck : lowerHistogramCheck = true)
     (lay : Layer) (hl : lay ≠ 0) (floor c : Nat) (hf : floor ≤ c) (hc : c < 128) :
     (univ.filter fun answer : HashOutput => ∃ dl, CanonicalPolicy.producerDecodeOut lay floor answer = some dl ∧
-        CanonicalPolicy.credit lay dl.2 dl.1 = c).card = histogramWeight lowerHistogram c * 2^126 := by
-  rw [selected_lower_path_card lay hl floor c hf, lowerHistogram, pathSplit, histogramWeight_split,
+        CanonicalPolicy.credit lay dl.2 dl.1 = c).card = histogramWeight (stageHistogram lay.val) c * 2^126 := by
+  rw [selected_lower_path_card lay hl floor c hf, stageHistogram_lower lay hl, pathSplit, histogramWeight_split,
     lower_counts_of_check hd hcheck ⟨c, hc⟩]
-  by_cases h4 : 4 ≤ c
-  · rw [if_pos h4, if_pos h4, lower_counts_of_check hd hcheck ⟨c - 4, by omega⟩]
+  by_cases h4 : CanonicalPolicy.lowerBonus lay ≤ c
+  · rw [if_pos h4, if_pos h4, lower_counts_of_check hd hcheck ⟨c - CanonicalPolicy.lowerBonus lay, by omega⟩]
     ring
   · rw [if_neg h4, if_neg h4]
     ring
@@ -161,7 +169,7 @@ theorem selected_lower_histogram_probability
     (lay : Layer) (hl : lay ≠ 0) (floor c : Nat) (hf : floor ≤ c) (hc : c < 128) :
     Pr[fun answer => ∃ dl, CanonicalPolicy.producerDecodeOut lay floor answer = some dl ∧
         CanonicalPolicy.credit lay dl.2 dl.1 = c | ($ᵗ HashOutput : ProbComp HashOutput)] =
-      (histogramWeight lowerHistogram c : ENNReal) / lowerDen := by
+      (histogramWeight (stageHistogram lay.val) c : ENNReal) / lowerDen := by
   classical
   rw [probEvent_uniformSample]
   rw [show (univ.filter fun answer : HashOutput => ∃ dl, CanonicalPolicy.producerDecodeOut lay floor answer = some dl ∧

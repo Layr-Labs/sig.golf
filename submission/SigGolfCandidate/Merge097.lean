@@ -3846,7 +3846,7 @@ theorem recovered_credit_floors (answers : SigGolfCandidate.T3.Correctness.Answe
     (msg : LayerMsg) (result : RecoveredLayers)
     (he : evalWithAnswerFn answers (recoverHintedLayers sig index other 4 msg) = some result)
     (hh : policyHintsValid sig.policyHints result.digits result.lows = true) :
-    CreditFloors (fun lay => min 69
+    CreditFloors (fun lay => min 66
       (CanonicalPolicy.credit lay (result.lows.getD lay.val true) (result.digits.getD lay.val []))) := by
   apply creditFloors_clip
   exact policyHints_credit_sum _ _ _ hh (fun lay =>
@@ -3868,7 +3868,7 @@ theorem agree_verify (hash : Hash) (message : SigGolfCandidate.T3.Message) (pk :
       Agree hash (okHashBy floors w.topHigh hash)
         (mrealize 0 (SigGolfCandidate.Research.SharedForest.verify message pk w)) := by
   let floors : Layer → Nat := fun lay =>
-    min 69 (CanonicalPolicy.credit lay (result.lows.getD lay.val true) (result.digits.getD lay.val []))
+    min 66 (CanonicalPolicy.credit lay (result.lows.getD lay.val true) (result.digits.getD lay.val []))
   refine ⟨floors, recovered_credit_floors _ _ _ _ _ result hr hh, ?_⟩
   unfold SigGolfCandidate.Research.SharedForest.verify
   split
@@ -3996,7 +3996,12 @@ theorem agree_layersCanonicalBCW (hfg : ∀ q, (∀ lay : Layer, ¬ EncQ lay.val
         · rw [if_pos hw] at h2
           revert h2
           cases ClaudeWCT.W9.T3M.lowerDataDecode answer with
-          | none => intro h2; exact h2
+          | none =>
+            intro _
+            dsimp only
+            unfold ClaudeWCT.W9.T3M.lowerSpareFail
+            exact agree_mrealize (allQ_bind (allQ_mapM _ _ (notEnc_layerChainP wb index (Fin.ofNat 4 n) _))
+              fun _ => allQ_pure _) hfg
           | some digits =>
             intro h2
             simp only [ClaudeWCT.W9.T3M.layerGuardedPairW, if_pos hw]
@@ -4005,7 +4010,11 @@ theorem agree_layersCanonicalBCW (hfg : ∀ q, (∀ lay : Layer, ¬ EncQ lay.val
             | none => exact hx
             | some pair => exact ih (by omega) _ hx
         · cases ClaudeWCT.W9.T3M.lowerDataDecode answer with
-          | none => exact agree_mrealize (allQ_pure _) hfg
+          | none =>
+            dsimp only
+            unfold ClaudeWCT.W9.T3M.lowerSpareFail
+            exact agree_mrealize (allQ_bind (allQ_mapM _ _ (notEnc_layerChainP wb index (Fin.ofNat 4 n) _))
+              fun _ => allQ_pure _) hfg
           | some digits =>
             simp only [ClaudeWCT.W9.T3M.layerGuardedPairW, if_neg hw, bind_assoc, pure_bind]
             exact agree_mrealize (allQ_bind (allQ_mapM _ _ (notEnc_layerChainP wb index (Fin.ofNat 4 n) digits))

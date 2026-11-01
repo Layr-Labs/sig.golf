@@ -1339,7 +1339,7 @@ set_option backward.isDefEq.respectTransparency false
 /-- T51: the top word of `dummyTop` (`0x81ce89122448912181818181818181a9`, sg-topdigit map: g0..g7 bytes 0..7,
 q9 merged digit f = 33 at 64, q10..q15 raw 34 at 7q+1, the pair raw 103 at 113, g8 at 120). -/
 def dummyDigest0 : Digest := BitVec.ofNat 128 172542804736564136005469679078955123113
-def dummyDigestLow : Digest := BitVec.ofNat 128 267364716866451649887797291077026409910
+def dummyDigestLow : Digest := BitVec.ofNat 128 97223533405982418146886615324287528374
 def dummyDigest (lay : Layer) : Digest := if lay.val = 0 then dummyDigest0 else dummyDigestLow
 theorem dummyDigest_decode (lay : Layer) : decode lay (dummyDigest lay) = some (dummyDigits lay) := by
   fin_cases lay

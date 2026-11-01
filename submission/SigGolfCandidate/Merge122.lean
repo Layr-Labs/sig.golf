@@ -22,7 +22,8 @@ namespace LCtx
 variable {P : SigGolfCandidate.Legacy.Hash → Prop}
 def lowP (c : LCtx) : M (List Digest) := (List.range' 0 42).foldlM c.chainF [] >>= fun e => c.chainF e 42
 def lowCost (c : LCtx) : Nat := c.chainsCost 0 42 + chainCost 42 c.ck
-theorem lower_good (c : LCtx) (hc : c.ok) (hi0 : c.i0 = 0) (hko : c.koff = 0) (hck : c.ck < 8) (hRanks : ∀ j, j < 42 → c.headOK j) {s0 : MachineState}
+theorem lower_good (c : LCtx) (hc : c.ok) (hi0 : c.i0 = 0) (hko : c.koff = 0) (hck : c.ck < 8) (hRanks : ∀ j, j < 42 → c.headOK j)
+    (hM : ∀ j, c.msbOK j) {s0 : MachineState}
     (hk : ∀ p ∈ c.known, s0.getReg p.1 = p.2) (h0 : c.Orig0 s0)
     (K : List Digest → OracleComp Legacy.HashSpec Verify.Obs) (N C A : Nat) (Q : Prop)
     (hK : ∀ ends t, c.ChainOut s0 43 ends t → Verify.GoodQP P t N C Q A (K ends))
@@ -30,7 +31,8 @@ theorem lower_good (c : LCtx) (hc : c.ok) (hi0 : c.i0 = 0) (hko : c.koff = 0) (h
     Verify.GoodQP P s (N + 1720) (C + c.lowCost) Q (A + c.lowCost) (Verify.ccM c.lowP K) := by
   unfold lowP
   rw [Verify.ccM_bind]
-  have H := c.chains_good hc hk h0 (fun _ => hko) 42 (by omega) (fun j _ hj => hRanks j hj) (fun e => Verify.ccM (c.chainF e 42) K)
+  have H := c.chains_good hc hk h0 (fun _ => hko) 42 (by omega) (fun j _ hj => hRanks j hj) (fun j _ _ => hM j)
+    (fun e => Verify.ccM (c.chainF e 42) K)
     (N + 40) (C + chainCost 42 c.ck) (A + chainCost 42 c.ck) Q
     (fun ends t ht => c.ck_good hc hk h0 (fun _ => hko) hck K N C A Q hK ends t ht) 42 0 (by omega) (by omega) [] s hs
   refine H.mono (by omega) ?_ (fun hq => ⟨hq, ?_⟩)
@@ -64,7 +66,7 @@ theorem ckSlot_fault (ck : Nat) (hs : ckSum ck ≤ 294) (hout : ¬ (194 ≤ ckSu
 /-- M0 (A0, P2c): a lower word whose data sum is outside the window runs its 42 rank-checked chains and faults at the
 checksum dispatch. -/
 theorem lower_window_fault (c : LCtx) (hc : c.ok) (hi0 : c.i0 = 0) (hko : c.koff = 0)
-    (hRanks : ∀ j, j < 42 → c.headOK j) (hs294 : ckSum c.ck ≤ 294)
+    (hRanks : ∀ j, j < 42 → c.headOK j) (hM : ∀ j, c.msbOK j) (hs294 : ckSum c.ck ≤ 294)
     (hout : ¬ (194 ≤ ckSum c.ck ∧ ckSum c.ck ≤ 201)) {s0 : MachineState}
     (hk : ∀ p ∈ c.known, s0.getReg p.1 = p.2) (h0 : c.Orig0 s0)
     (s : MachineState) (hs : c.ChainIn s0 0 [] s) :
@@ -82,7 +84,7 @@ theorem lower_window_fault (c : LCtx) (hc : c.ok) (hi0 : c.i0 = 0) (hko : c.koff
         rw [execute_fetch_none (F-1) hf]; rfl
       rw [he, hx]
       exact ⟨by simp, Nat.zero_le _, fun h _ => by simp at h⟩
-  have H := c.chains_good hc hk h0 (fun _ => hko) 42 (le_refl _) (fun i _ hi => hRanks i hi)
+  have H := c.chains_good hc hk h0 (fun _ => hko) 42 (le_refl _) (fun i _ hi => hRanks i hi) (fun j _ _ => hM j)
     (fun _ => pure (false, 0)) 1 0 0 False hK 42 0 (by omega) (by omega) [] s hs
   simpa using H
 theorem bufferCost_le72 (c : LCtx) (i : Nat) : c.bufferCost i ≤ 72 := by
@@ -770,6 +772,28 @@ def chainsP (w : ClaudeWCT.W9.T3M.WBytes) (lay : Layer) (tree leaf : Nat) (digit
     ClaudeWCT.W9.T3M.chainPW lay tree leaf i.val (digits.getD i.val 0) (maxDigit lay i.val - digits.getD i.val 0)
       (ClaudeWCT.W9.T3M.wchainPads w lay i.val).1 (ClaudeWCT.W9.T3M.wchainPads w lay i.val).2
       (ClaudeWCT.W9.T3M.wchainHeaderPad w lay i.val) (ClaudeWCT.W9.T3M.wvalueFor w lay digits i.val)
+theorem lctxCk_rank_eq (w : ClaudeWCT.W9.T3M.WBytes) (index : Nat) (lay : Layer) (a : BitVec 256) (ck : Nat)
+    (t : Nat) (ht : t < 14) :
+    (lctxOfCk w index lay a ck).kOf t = SigGolfCandidate.T3.lowerWord (ansD a) / 2 ^ (9 * t) % 512 := by
+  rw [LCtx.kOf_eq _ t ht]
+  simp only [lctxOfCk]
+  by_cases h7 : t < 7
+  · rw [if_pos h7, Nat.mod_eq_of_lt h7, ← ansD_lo]
+    rw [lowerWord_eq]
+    have h1 := mod_pow_div_mod (ansD a).toNat 64 (9 * t) 9 (by omega)
+    have h2 := mod_pow_div_mod (ansD a).toNat 63 (9 * t) 9 (by omega)
+    have h3 := div_mod_add_pow ((ansD a).toNat % 2 ^ 63) ((ansD a).toNat / 2 ^ 64 % 2 ^ 63)
+      (9 * t) 63 9 (by omega)
+    rw [show (2 : Nat) ^ 9 = 512 from rfl] at h1 h2 h3
+    rw [h1, h3, h2]
+  · rw [if_neg h7, show t % 7 = t - 7 by omega, ← ansD_hi]
+    rw [lowerWord_eq]
+    rw [show 9 * t = 63 + 9 * (t - 7) by omega, Nat.pow_add, ← Nat.div_div_eq_div_mul,
+      div_add_pow _ _ _ _ (le_refl _), Nat.div_eq_of_lt (Nat.mod_lt _ (by norm_num)), Nat.sub_self,
+      Nat.pow_zero, Nat.one_mul, Nat.zero_add]
+    have h2 := mod_pow_div_mod ((ansD a).toNat / 2 ^ 64) 63 (9 * (t - 7)) 9 (by omega)
+    rw [show (2 : Nat) ^ 9 = 512 from rfl] at h2
+    exact h2.symm
 theorem lctx_rank_eq (w : ClaudeWCT.W9.T3M.WBytes) (index : Nat) (lay : Layer) (a : BitVec 256)
     (t : Nat) (ht : t < 14) :
     (lctxOf w index lay a).kOf t = SigGolfCandidate.T3.lowerWord (ansD a) / 2 ^ (9 * t) % 512 := by
@@ -837,10 +861,10 @@ def layerHead {β : Type} (w : ClaudeWCT.W9.T3M.WBytes) (index : Nat) (lay : Lay
     (ClaudeWCT.W9.T3M.wbcCtr w index lay) (ClaudeWCT.W9.T3M.wbcPad w index lay) (ClaudeWCT.W9.T3M.wbcRight w)
     (ClaudeWCT.W9.T3M.wbcHigh w index lay)) >>= fun answer =>
     match ClaudeWCT.W9.T3M.lowerDataDecode answer with
-    | none => pure none
+    | none => ClaudeWCT.W9.T3M.lowerSpareFail w index lay answer
     | some digits => guardedChainsPW w index lay answer digits R
-def stB (lay : Nat) : Nat := if lay = 0 then 122 else bSt lay+4
-def cyB (lay : Nat) : Nat := if lay = 0 then 68 else bCy lay+4
+def stB (lay : Nat) : Nat := if lay = 0 then 122 else bSt lay+hiX lay
+def cyB (lay : Nat) : Nat := if lay = 0 then 68 else bCy lay+hiX lay
 def lfStepsL : Nat := 4
 def chainCost0 (lay : Nat) : Nat := if lay = 0 then 1066 else 2934 - 9 * tgtL lay
 def chainFuel (lay : Nat) : Nat := if lay = 0 then 2320 else 1720
@@ -853,8 +877,8 @@ theorem layerCostA_low (floors : Layer → Nat) (lay : Layer) (h : lay ≠ 0) :
   fin_cases lay <;> rfl
 /-- Stage 2 (C2 + C3): one head step (L3: the row high-word store; L1/L2: the row high-word store) and one leaf
 setup step (the leaf tweak high-word clear) fewer than stage 1 (1182/1175/1175). -/
-theorem layerCost_vals : layerCost 3 0 = 1178 ∧ layerCost 2 0 = 1170 ∧ layerCost 1 0 = 1170 := by decide +kernel
-theorem layerFuel_vals : layerFuel 3 = 1763 ∧ layerFuel 2 = 1755 ∧ layerFuel 1 = 1755 := by decide +kernel
+theorem layerCost_vals : layerCost 3 0 = 1177 ∧ layerCost 2 0 = 1168 ∧ layerCost 1 0 = 1168 := by decide +kernel
+theorem layerFuel_vals : layerFuel 3 = 1762 ∧ layerFuel 2 = 1753 ∧ layerFuel 1 = 1753 := by decide +kernel
 theorem ckOf_lt (lay : Layer) (hlay : lay ≠ 0) (a : BitVec 256) (ds : List Nat)
     (hds : canonicalDecode lay (ansD a) = some ds) : ckOf lay a < 8 := by
   rw [canonical_decode_lower_v6 lay hlay] at hds
@@ -887,7 +911,7 @@ theorem lctx_prefix_eq (w : ClaudeWCT.W9.T3M.WBytes) (index : Nat) (lay : Layer)
 theorem chainCount_top : chainCount (0 : Layer) = 51 := by decide +kernel
 theorem layerCost_low (w : ClaudeWCT.W9.T3M.WBytes) (index : Nat) (lay : Layer) (hlay : lay ≠ 0) (a : BitVec 256)
     (ds : List Nat) (hds : canonicalDecode lay (ansD a) = some ds) :
-    stepsA lay.val + 8 + (bCy lay.val+4) + (lctxOf w index lay a).lowCost + lfStepsL =
+    stepsA lay.val + 8 + (bCy lay.val+hiX lay.val) + (lctxOf w index lay a).lowCost + lfStepsL =
       layerCost lay.val ((lctxOf w index lay a).zSum 0 43 + 4*(lctxOf w index lay a).savedCopies 0 43) := by
   have h0 : lay.val ≠ 0 := fun h => hlay (Fin.ext h)
   have hD := lctx_digits w index lay a hlay ds hds
@@ -993,11 +1017,11 @@ theorem ckSum_ckOf (lay : Layer) (hlay : lay ≠ 0) (a : BitVec 256) : ckSum (ck
   unfold ckSum ckOf
   rw [hT]
   omega
-theorem lctx_digits_word (w : ClaudeWCT.W9.T3M.WBytes) (index : Nat) (lay : Layer) (a : BitVec 256) :
-    ∀ i < 43, (lctxOf w index lay a).dig i =
-      (((List.range 42).map fun i => lowerWord (ansD a) / 2 ^ (3 * i) % 8) ++ [ckOf lay a]).getD i 0 := by
+theorem lctxCk_digits_word (w : ClaudeWCT.W9.T3M.WBytes) (index : Nat) (lay : Layer) (a : BitVec 256) (ck : Nat) :
+    ∀ i < 43, (lctxOfCk w index lay a ck).dig i =
+      (((List.range 42).map fun i => lowerWord (ansD a) / 2 ^ (3 * i) % 8) ++ [ck]).getD i 0 := by
   intro i hi
-  unfold LCtx.dig lctxOf
+  unfold LCtx.dig lctxOfCk
   simp only []
   have hlw := lowerWord_eq (ansD a)
   by_cases h21 : i < 21
@@ -1023,13 +1047,13 @@ theorem lctx_digits_word (w : ClaudeWCT.W9.T3M.WBytes) (index : Nat) (lay : Laye
       subst hi42
       rw [if_neg h21, if_neg h42, List.getD_append_right _ _ _ _ (by simp)]
       rw [List.length_map, List.length_range, Nat.sub_self, List.getD_cons_zero]
-theorem lctx_prefix_eq_word (w : ClaudeWCT.W9.T3M.WBytes) (index : Nat) (lay : Layer) (a : BitVec 256)
+theorem lctxCk_prefix_eq_word (w : ClaudeWCT.W9.T3M.WBytes) (index : Nat) (lay : Layer) (a : BitVec 256) (ck : Nat)
     (hlay : lay ≠ 0) (n : Nat) (hn : n ≤ 42) :
-    (List.range' 0 n).foldlM (lctxOf w index lay a).chainF [] =
+    (List.range' 0 n).foldlM (lctxOfCk w index lay a ck).chainF [] =
       (List.range n).mapM (ClaudeWCT.W9.T3M.layerChainP w index lay
-        (((List.range 42).map fun i => lowerWord (ansD a) / 2 ^ (3 * i) % 8) ++ [ckOf lay a])) := by
-  set L := lctxOf w index lay a
-  have hD := lctx_digits_word w index lay a
+        (((List.range 42).map fun i => lowerWord (ansD a) / 2 ^ (3 * i) % 8) ++ [ck])) := by
+  set L := lctxOfCk w index lay a ck
+  have hD := lctxCk_digits_word w index lay a ck
   have hF : (List.range' 0 n).foldlM L.chainF [] = (fun xs => [] ++ xs) <$>
       (List.range' 0 n).mapM (fun i => L.rest i (L.dig i) (L.bufferVal i)) := foldlM_app_mapM _ n 0 []
   rw [hF]
@@ -1043,12 +1067,44 @@ theorem lctx_prefix_eq_word (w : ClaudeWCT.W9.T3M.WBytes) (index : Nat) (lay : L
   unfold LCtx.coreChain ClaudeWCT.W9.T3M.layerChainP
   rw [Nat.mod_eq_of_lt hc]
   rfl
+theorem lctx_digits_word (w : ClaudeWCT.W9.T3M.WBytes) (index : Nat) (lay : Layer) (a : BitVec 256) :
+    ∀ i < 43, (lctxOf w index lay a).dig i =
+      (((List.range 42).map fun i => lowerWord (ansD a) / 2 ^ (3 * i) % 8) ++ [ckOf lay a]).getD i 0 :=
+  lctxCk_digits_word w index lay a (ckOf lay a)
+theorem lctx_prefix_eq_word (w : ClaudeWCT.W9.T3M.WBytes) (index : Nat) (lay : Layer) (a : BitVec 256)
+    (hlay : lay ≠ 0) (n : Nat) (hn : n ≤ 42) :
+    (List.range' 0 n).foldlM (lctxOf w index lay a).chainF [] =
+      (List.range n).mapM (ClaudeWCT.W9.T3M.layerChainP w index lay
+        (((List.range 42).map fun i => lowerWord (ansD a) / 2 ^ (3 * i) % 8) ++ [ckOf lay a])) :=
+  lctxCk_prefix_eq_word w index lay a (ckOf lay a) hlay n hn
 theorem layerChainP_congr (w : ClaudeWCT.W9.T3M.WBytes) (index : Nat) (lay : Layer) (D D' : List Nat)
     (hD : ∀ j < 42, D.getD j 0 = D'.getD j 0) (i : Nat) (hi : i < 42) (hc : chainCount lay = 43) :
     ClaudeWCT.W9.T3M.layerChainP w index lay D i = ClaudeWCT.W9.T3M.layerChainP w index lay D' i := by
   unfold ClaudeWCT.W9.T3M.layerChainP ClaudeWCT.W9.T3M.wvalueFor ClaudeWCT.WCT9.safeZeroCopy
   rw [hc, Nat.mod_eq_of_lt (by omega)]
   simp only [hD i hi, hD (i - 1) (by omega)]
+theorem spareBadAt_false {v : Digest} {i : Nat} (h : ClaudeWCT.W9.T3M.spareBadAt v i = false) :
+    ClaudeWCT.WCT9.producerRankFloor i ≤ lowerWord v / 2 ^ (9 * i) % 512 ∧
+      (i = 6 → v.toNat / 2 ^ 63 % 2 = 0) ∧ (i = 13 → v.toNat / 2 ^ 127 % 2 = 0) := by
+  unfold ClaudeWCT.W9.T3M.spareBadAt at h
+  simp only [Bool.or_eq_false_iff, Bool.and_eq_false_iff, decide_eq_false_iff_not] at h
+  obtain ⟨⟨h1, h2⟩, h3⟩ := h
+  refine ⟨by omega, fun h6 => ?_, fun h13 => ?_⟩
+  · rcases h2 with h2 | h2
+    · exact absurd h6 h2
+    · omega
+  · rcases h3 with h3 | h3
+    · exact absurd h13 h3
+    · omega
+theorem spareBadAt_true {v : Digest} {i : Nat} (h : ClaudeWCT.W9.T3M.spareBadAt v i = true) :
+    lowerWord v / 2 ^ (9 * i) % 512 < ClaudeWCT.WCT9.producerRankFloor i ∨
+      (i = 6 ∧ v.toNat / 2 ^ 63 % 2 = 1) ∨ (i = 13 ∧ v.toNat / 2 ^ 127 % 2 = 1) := by
+  unfold ClaudeWCT.W9.T3M.spareBadAt at h
+  simp only [Bool.or_eq_true, Bool.and_eq_true, decide_eq_true_eq] at h
+  rcases h with (h | h) | h
+  · exact Or.inl h
+  · exact Or.inr (Or.inl h)
+  · exact Or.inr (Or.inr h)
 /-- The hash hypothesis `HashOkBy floors high` is path-aware; a LOW selection costs `bCy`
 (4 less than HIGH) and earns the `pathBonus` 4, so the accepted cost stays `layerCost - floors`. -/
 theorem layer_good_low (floors : Layer → Nat) (hbound : ∀ lay, floors lay ≤ 301) (high : Bool) (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index : Nat) (lay : Layer) (hlay : lay ≠ 0) (M : ClaudeWCT.WCT9.LayerMsg)
@@ -1067,16 +1123,16 @@ theorem layer_good_low (floors : Layer → Nat) (hbound : ∀ lay, floors lay �
     have hb := hbound lay
     have ht : tgtL lay.val ≤ 201 := by fin_cases lay <;> decide +kernel
     omega
-  have hfuel : layerFuel lay.val = stepsA lay.val + 1 + (bSt lay.val+4) + 1720 + lfStepsL := by
+  have hfuel : layerFuel lay.val = stepsA lay.val + 1 + (bSt lay.val+hiX lay.val) + 1720 + lfStepsL := by
     simp [layerFuel, stB, chainFuel, h0]
-  have hcost : layerCycAll lay.val = stepsA lay.val + 8 + (bCy lay.val+4) + lfStepsL + chainCostAll := by
+  have hcost : layerCycAll lay.val = stepsA lay.val + 8 + (bCy lay.val+hiX lay.val) + lfStepsL + chainCostAll := by
     simp only [layerCycAll, cyB, if_neg h0]
-  have hcostA : layerCostA floors lay.val = stepsA lay.val + 8 + (bCy lay.val+4) + lfStepsL +
+  have hcostA : layerCostA floors lay.val = stepsA lay.val + 8 + (bCy lay.val+hiX lay.val) + lfStepsL +
       (2934 - 9 * tgtL lay.val - floors lay) := by
     rw [layerCostA_low floors lay hlay]
     simp only [layerCost, cyB, chainCost0, if_neg h0]; omega
-  have hbS : 23 ≤ (bSt lay.val+4) := by unfold bSt; split_ifs <;> omega
-  have hbC : 26 ≤ (bCy lay.val+4) := by unfold bCy; split_ifs <;> omega
+  have hbS : 21 ≤ (bSt lay.val+hiX lay.val) := by unfold bSt hiX; split_ifs <;> omega
+  have hbC : 24 ≤ (bCy lay.val+hiX lay.val) := by unfold bCy hiX; split_ifs <;> omega
   have hrej : BC.rejectSteps lay.val ≤ stepsA lay.val + 21 := by
     unfold BC.rejectSteps; split_ifs <;> omega
   have hall : 2934 - 9 * tgtL lay.val ≤ chainCostAll := by rw [hT201]; unfold chainCostAll; omega
@@ -1095,29 +1151,92 @@ theorem layer_good_low (floors : Layer → Nat) (hbound : ∀ lay, floors lay �
     have H : ∀ a : BitVec 256, GoodQP (fun hash => hash (toQ (pad64 (ClaudeWCT.W9.T3M.layerEncodingInputP lay
         (route index lay).2 (route index lay).1 M (ClaudeWCT.W9.T3M.wbcCtr w index lay) (ClaudeWCT.W9.T3M.wbcPad w index lay)
         (ClaudeWCT.W9.T3M.wbcRight w) (ClaudeWCT.W9.T3M.wbcHigh w index lay)))) = a ∧
-          HashOkBy floors high hash) (writeHash t a) (N + lfStepsL + 1720 + (bSt lay.val+4))
-        (C + lfStepsL + chainCostAll + (bCy lay.val+4))
-        Q (A + lfStepsL + (2934 - 9 * tgtL lay.val - floors lay) + (bCy lay.val+4))
+          HashOkBy floors high hash) (writeHash t a) (N + lfStepsL + 1720 + (bSt lay.val+hiX lay.val))
+        (C + lfStepsL + chainCostAll + (bCy lay.val+hiX lay.val))
+        Q (A + lfStepsL + (2934 - 9 * tgtL lay.val - floors lay) + (bCy lay.val+hiX lay.val))
         (ccM (match ClaudeWCT.W9.T3M.lowerDataDecode (ansD (selectedView a)) with
-          | none => pure none
+          | none => ClaudeWCT.W9.T3M.lowerSpareFail w index lay (ansD (selectedView a))
           | some digits => guardedChainsPW w index lay (ansD (selectedView a)) digits R) K) := by
       intro a
       have hB := encB_step w pk index lay hlay _ (cpIdx_lt index lay.val lay.isLt) hidx t hpre a
       cases hdd : ClaudeWCT.W9.T3M.lowerDataDecode (ansD (selectedView a)) with
       | none =>
         dsimp only
-        rw [ccM_pure, hK0]
-        obtain ⟨v, k, cy, hst', hrejected, hk, hcy⟩ := hB.1 hdd
-        have hrej : GoodQP (HashOkBy floors high) v 1 1 Q 0 (pure (false,0)) := by
-          rcases hrejected with hf' | ⟨hf',h5',h10'⟩
-          · exact (GoodQP.fetch_none (Q := Q) (A := 0) hf').mono (by omega) (by omega) (fun h => ⟨h,by omega⟩)
-          · exact GoodQP.reject hf' h5' h10'
-        exact (GoodQP.stepsQ hst' hrej (by omega) (by omega)
-          (fun hq => ⟨hq, by omega⟩)).pre_mono (fun _ h => h.2)
+        obtain ⟨s0, ck, hst0, hLok, hkn, hO0, hIn⟩ := hB.1 hdd
+        set L := lctxOfCk w index lay (selectedView a) ck with hLd
+        have hns : ¬ T3.lowerSpare (ansD (selectedView a)) := by
+          intro hs; rw [lowerDataDecode_word, if_pos hs] at hdd; cases hdd
+        have hj := ClaudeWCT.W9.T3M.spareFirstBad_lt _ hns
+        have hjb := spareBadAt_true (ClaudeWCT.W9.T3M.spareFirstBad_bad _ hns)
+        have hjp : ∀ i, i < ClaudeWCT.W9.T3M.spareFirstBad (ansD (selectedView a)) →
+            ClaudeWCT.WCT9.producerRankFloor i ≤ lowerWord (ansD (selectedView a)) / 2 ^ (9 * i) % 512 ∧
+            (i = 6 → (ansD (selectedView a)).toNat / 2 ^ 63 % 2 = 0) ∧
+            (i = 13 → (ansD (selectedView a)).toNat / 2 ^ 127 % 2 = 0) :=
+          fun i hi => spareBadAt_false (ClaudeWCT.W9.T3M.spareFirstBad_before _ hns i hi)
+        generalize hJ : ClaudeWCT.W9.T3M.spareFirstBad (ansD (selectedView a)) = j at hj hjb hjp
+        have hd0 : L.d0.toNat = (ansD (selectedView a)).toNat % 2 ^ 64 := (ansD_lo (selectedView a)).symm
+        have hd1 : L.d1.toNat = (ansD (selectedView a)).toNat / 2 ^ 64 := (ansD_hi (selectedView a)).symm
+        have hlt := (ansD (selectedView a)).isLt
+        have hranks : ∀ i, i < 3 * j → L.headOK i := by
+          intro i hi _ _
+          rw [lctxCk_rank_eq w index lay (selectedView a) ck _ (by omega)]
+          exact (hjp (i / 3) (by omega)).1
+        have hm17 : (6 < j ∨ (j = 6 ∧ ¬ (ansD (selectedView a)).toNat / 2 ^ 63 % 2 = 1)) → L.d0.toNat < 2 ^ 63 := by
+          intro h
+          rcases h with h | ⟨_, h⟩
+          · have := (hjp 6 h).2.1 rfl; omega
+          · omega
+        have hm38 : (j = 13 ∧ ¬ (ansD (selectedView a)).toNat / 2 ^ 127 % 2 = 1) → L.d1.toNat < 2 ^ 63 := by
+          rintro ⟨_, h⟩; omega
+        have hpref : GoodQP (HashOkBy floors high) s0 (1+40*(3*j)) (L.chainsCost 0 (3*j)) False (L.chainsCost 0 (3*j))
+            (ccM ((List.range' 0 (3*j)).foldlM L.chainF []) (fun _ => pure (false, 0))) := by
+          by_cases hm : (j = 6 ∧ (ansD (selectedView a)).toNat / 2 ^ 63 % 2 = 1) ∨
+              (j = 13 ∧ (ansD (selectedView a)).toNat / 2 ^ 127 % 2 = 1)
+          · refine L.chains_prefix_fault_msb hLok rfl rfl hkn hO0 j (by omega) ?_ hranks ?_ s0 hIn
+            · unfold LCtx.msbOK
+              rcases hm with ⟨rfl, hb⟩ | ⟨rfl, hb⟩
+              · intro h; have := h.1 rfl; omega
+              · intro h; have := h.2 rfl; omega
+            · intro i hi
+              exact ⟨fun h17 => hm17 (Or.inl (by omega)), fun h38 => absurd hi (by omega)⟩
+          · have hrk : L.kOf j < rankFloor j := by
+              rw [lctxCk_rank_eq w index lay (selectedView a) ck _ hj]
+              rcases hjb with h | h | h
+              · exact h
+              · exact absurd (Or.inl h) hm
+              · exact absurd (Or.inr h) hm
+            refine L.chains_prefix_fault hLok rfl rfl hkn hO0 j hj hrk hranks ?_ s0 hIn
+            intro i hi
+            refine ⟨fun h17 => hm17 ?_, fun h38 => hm38 ?_⟩
+            · by_cases h6 : j = 6
+              · exact Or.inr ⟨h6, fun hb => hm (Or.inl ⟨h6, hb⟩)⟩
+              · exact Or.inl (by omega)
+            · exact ⟨by omega, fun hb => hm (Or.inr ⟨by omega, hb⟩)⟩
+        have hle : L.chainsCost 0 42 ≤ chainCostAll := L.chainsCost_le_all
+        have hpcost := L.chainsCost_prefix_le (3 * j) (by omega)
+        have hcg : (List.range (3 * j)).mapM (ClaudeWCT.W9.T3M.layerChainP w index lay
+            (ClaudeWCT.W9.T3M.rawLowerDigits (ansD (selectedView a)))) = (List.range' 0 (3 * j)).foldlM L.chainF [] := by
+          rw [lctxCk_prefix_eq_word w index lay (selectedView a) ck hlay (3 * j) (by omega)]
+          apply mapM_congr'
+          intro i hi
+          have hi' : i < 42 := by have := List.mem_range.mp hi; omega
+          apply layerChainP_congr w index lay _ _ _ i hi' (LCtx.chainCount_lower lay hlay)
+          intro k hk
+          unfold ClaudeWCT.W9.T3M.rawLowerDigits
+          rw [SigGolfCandidate.T3.dataDigits_lowerWord (show (1 : Layer) ≠ 0 by decide),
+            List.getD_append _ _ _ _ (by simp; omega), List.getD_append _ _ _ _ (by simp; omega)]
+        simp only [ClaudeWCT.W9.T3M.lowerSpareFail, ClaudeWCT.W9.T3M.spareFailChains, hJ, bind_assoc, pure_bind,
+          ccM_bind, ccM_pure, hK0]
+        rw [hcg]
+        exact (GoodQP.stepsQ hst0 hpref (by omega) (by omega) (fun hf => hf.elim)).pre_mono (fun _ h => h.2)
       | some dd =>
         dsimp only
         obtain ⟨s0, k0, cy0, hst0, hk0, hcy0, hLok, hkn, hO0, hIn, hG0, hOr0, h23, h30, h1, hBuf0⟩ := hB.2 (by rw [hdd]; simp)
         set L := lctxOf w index lay (selectedView a) with hLd
+        have hspS : T3.lowerSpare (ansD (selectedView a)) := by
+          by_contra hn; rw [lowerDataDecode_word, if_neg hn] at hdd; cases hdd
+        obtain ⟨hsd0, hsd1⟩ := (spare_iff (selectedView a)).mp hspS
+        have hMs : ∀ i, L.msbOK i := fun _ => ⟨fun _ => hsd0, fun _ => hsd1⟩
         unfold guardedChainsPW
         by_cases hw : ClaudeWCT.W9.T3M.lowerWindowOk (ansD (selectedView a))
         · rw [if_pos hw]
@@ -1134,7 +1253,7 @@ theorem layer_good_low (floors : Layer → Nat) (hbound : ∀ lay, floors lay �
           have hP := L.lowP_eq hlay rfl dd hD (s6v_chainBlock lay hlay)
           by_cases hgood : ClaudeWCT.WCT9.lowerRankGood (ansD (selectedView a))
           · simp only [guardedChainsP, ClaudeWCT.WCT9.lowerGuardedRun_of_good _ _ _ hgood, bind_map_left]
-            have hG := L.lower_good hLok rfl rfl hck (lctx_headOK w index lay (selectedView a) hgood) hkn hO0 (fun ends => ccM (R ends) K) (N + lfStepsL) (C + lfStepsL) (A + lfStepsL) Q
+            have hG := L.lower_good hLok rfl rfl hck (lctx_headOK w index lay (selectedView a) hgood) hMs hkn hO0 (fun ends => ccM (R ends) K) (N + lfStepsL) (C + lfStepsL) (A + lfStepsL) Q
               (fun ends t ht => by
                 obtain ⟨u, hstu, hu⟩ := leafL_step w pk index lay hlay hidx (selectedView a) s0 hkn hck hG0 hOr0 h23 h30 h1 hBuf0 ends t ht
                 exact GoodQP.stepsQ hstu (hR ends u hu) (by unfold lfStepsL; omega) (by unfold lfStepsL; omega)
@@ -1143,28 +1262,30 @@ theorem layer_good_low (floors : Layer → Nat) (hbound : ∀ lay, floors lay �
             have e : chainsP w lay (route index lay).2 (route index lay).1 dd = L.lowP := by
               rw [hP]; unfold chainsP; rw [LCtx.chainCount_lower lay hlay]; rfl
             rw [ccM_bind, e]
-            have body : ∀ k, k ≤ L.zSum 0 43 + 4*L.savedCopies 0 43 + (if T3.lowerSpare (ansD a) then 4 else 0) →
-                GoodQP (HashOkBy floors high) (writeHash t a) (N + lfStepsL + 1720 + (bSt lay.val+4))
-                  (C + lfStepsL + chainCostAll + (bCy lay.val+4))
-                  Q (A + lfStepsL + (2934 - 9 * tgtL lay.val - k) + (bCy lay.val+4))
+            have body : ∀ k, k ≤ L.zSum 0 43 + 4*L.savedCopies 0 43 + (if T3.lowerSpare (ansD a) then hiX lay.val else 0) →
+                GoodQP (HashOkBy floors high) (writeHash t a) (N + lfStepsL + 1720 + (bSt lay.val+hiX lay.val))
+                  (C + lfStepsL + chainCostAll + (bCy lay.val+hiX lay.val))
+                  Q (A + lfStepsL + (2934 - 9 * tgtL lay.val - k) + (bCy lay.val+hiX lay.val))
                   (ccM L.lowP (fun ends => ccM (R ends) K)) := fun k hk =>
               GoodQP.stepsQ hst0 hG (by omega) (by omega) (fun hq => ⟨hq, by omega⟩)
             by_cases hcf : floors lay ≤ ClaudeWCT.WCT9.wordCredit lay dd + 4*ClaudeWCT.WCT9.savedCopies lay dd +
-                (if T3.lowerSpare (ansD a) then 4 else 0)
+                (if T3.lowerSpare (ansD a) then hiX lay.val else 0)
             · exact (body _ (by omega)).pre_mono (fun _ h => h.2)
             · refine GoodQP.of_false_pre (body 0 (Nat.zero_le _)) ?_
               rintro hash ⟨hea, hok⟩
               have hh := hok lay _ hq dd (by
                 rw [hea, ClaudeWCT.WCT9.verificationAnswer_lower lay hlay, ← selectedView_answer lay hlay]; exact hds)
               rw [hea, ClaudeWCT.WCT9.verificationLow_lower lay hlay] at hh
+              have hbon : ClaudeWCT.WCT9.CanonicalPolicy.lowerBonus lay = hiX lay.val := by
+                fin_cases lay <;> rfl
               apply hcf
               by_cases hsp : T3.lowerSpare (ansD a)
               · simpa [ClaudeWCT.WCT9.dispatchPenalty, ClaudeWCT.WCT9.CanonicalPolicy.pathReward,
                   ClaudeWCT.WCT9.CanonicalPolicy.pathBonus, ClaudeWCT.WCT9.CanonicalPolicy.reward, ClaudeWCT.WCT9.lowSelected,
-                  hlay, hsp] using hh
+                  hlay, hsp, hbon] using hh
               · simpa [ClaudeWCT.WCT9.dispatchPenalty, ClaudeWCT.WCT9.CanonicalPolicy.pathReward,
                   ClaudeWCT.WCT9.CanonicalPolicy.pathBonus, ClaudeWCT.WCT9.CanonicalPolicy.reward, ClaudeWCT.WCT9.lowSelected,
-                  hlay, hsp] using hh
+                  hlay, hsp, hbon] using hh
           · have hj := ClaudeWCT.WCT9.lowerFirstBad_lt (ansD (selectedView a)) hgood
             have hbad : L.kOf (ClaudeWCT.WCT9.lowerFirstBad (ansD (selectedView a))) <
                 rankFloor (ClaudeWCT.WCT9.lowerFirstBad (ansD (selectedView a))) := by
@@ -1174,7 +1295,8 @@ theorem layer_good_low (floors : Layer → Nat) (hbound : ∀ lay, floors lay �
               intro i hi _ _
               rw [lctx_rank_eq w index lay (selectedView a) _ (by omega)]
               exact ClaudeWCT.WCT9.lowerFirstBad_before (ansD (selectedView a)) hgood (i / 3) (by omega)
-            have hpref := L.chains_prefix_fault (P := HashOkBy floors high) hLok rfl rfl hkn hO0 _ hj hbad hranks s0 hIn
+            have hpref := L.chains_prefix_fault (P := HashOkBy floors high) hLok rfl rfl hkn hO0 _ hj hbad hranks
+              (fun i _ => hMs i) s0 hIn
             have hpcost := L.chainsCost_prefix_le (3 * ClaudeWCT.WCT9.lowerFirstBad (ansD (selectedView a))) (by omega)
             have hle : L.chainsCost 0 42 ≤ chainCostAll := L.chainsCost_le_all
             simp only [guardedChainsP, ClaudeWCT.WCT9.lowerGuardedRun, if_neg hgood, bind_assoc, pure_bind,
@@ -1208,7 +1330,7 @@ theorem layer_good_low (floors : Layer → Nat) (hbound : ∀ lay, floors lay �
             have hout : ¬ (194 ≤ ckSum L.ck ∧ ckSum L.ck ≤ 201) := by
               rw [hck]; intro h; apply hw; rw [lowerWindowOk_iff]; omega
             have hf := L.lower_window_fault (P := HashOkBy floors high) hLok rfl rfl
-              (lctx_headOK w index lay (selectedView a) hgood) (by rw [hck]; exact hS) hout hkn hO0 s0 hIn
+              (lctx_headOK w index lay (selectedView a) hgood) hMs (by rw [hck]; exact hS) hout hkn hO0 s0 hIn
             simp only [bind_assoc, pure_bind, ccM_bind, ccM_pure, hK0, hn42]
             rw [hcg 42 (le_refl _)]
             exact (GoodQP.stepsQ hst0 hf (by omega) (by omega) (fun hf => hf.elim)).pre_mono
@@ -1225,14 +1347,15 @@ theorem layer_good_low (floors : Layer → Nat) (hbound : ∀ lay, floors lay �
               intro i hi _ _
               rw [lctx_rank_eq w index lay (selectedView a) _ (by omega)]
               exact ClaudeWCT.WCT9.lowerFirstBad_before (ansD (selectedView a)) hgood (i / 3) (by omega)
-            have hpref := L.chains_prefix_fault (P := HashOkBy floors high) hLok rfl rfl hkn hO0 _ hj hbad hranks s0 hIn
+            have hpref := L.chains_prefix_fault (P := HashOkBy floors high) hLok rfl rfl hkn hO0 _ hj hbad hranks
+              (fun i _ => hMs i) s0 hIn
             have hpcost := L.chainsCost_prefix_le (3 * ClaudeWCT.WCT9.lowerFirstBad (ansD (selectedView a))) (by omega)
             simp only [bind_assoc, pure_bind, ccM_bind, ccM_pure, hK0, hn3]
             rw [hcg _ (by omega)]
             exact (GoodQP.stepsQ hst0 hpref (by omega) (by omega) (fun hf => hf.elim)).pre_mono
               (fun _ h => h.2)
     have := GoodQP.encodingHash_bind_pre (f := fun answer => match ClaudeWCT.W9.T3M.lowerDataDecode answer with
-      | none => pure none
+      | none => ClaudeWCT.W9.T3M.lowerSpareFail w index lay answer
       | some digits => guardedChainsPW w index lay answer digits R) hf h5 hv hin (fun a => by simpa only [selectedView_answer lay hlay] using H a)
     rw [hblk] at this
     exact (GoodQP.steps' hst this (by omega) (by omega) (by omega))
@@ -3213,19 +3336,19 @@ def lFuel : Nat → Nat
   | 0 => 9
   | 1 => topFuel
   | n + 2 => layerFuel (n + 1) + mkFuel (n + 1) + lFuel (n + 1)
-theorem lCyc_4 : lCyc 4 = 12392 := by decide +kernel
+theorem lCyc_4 : lCyc 4 = 12387 := by decide +kernel
 /-- Stage 2: floor-free constant 5303 (stage 1: 5334; C2 −13, C3 −7). Configuration (1)+(2): 5297 (top −9 + 3); d6b 5296. -/
 theorem lCycA_4 (floors : T3.Layer → Nat) (hbound : ∀ lay, floors lay ≤ 301) :
-    lCycA floors 4 = 5322 - ((List.finRange 4).map floors).sum := by
+    lCycA floors 4 = 5317 - ((List.finRange 4).map floors).sum := by
   have h0 := hbound 0
   have h1 := hbound 1
   have h2 := hbound 2
   have h3 := hbound 3
-  change (1178 - floors 3) + 153 + ((1170 - floors 2) + 153 +
-    ((1170 - floors 1) + 165 + (5 + 8 + (1320 - floors 0)))) =
-      5322 - (floors 0 + (floors 1 + (floors 2 + (floors 3 + 0))))
+  change (1177 - floors 3) + 153 + ((1168 - floors 2) + 153 +
+    ((1168 - floors 1) + 165 + (5 + 8 + (1320 - floors 0)))) =
+      5317 - (floors 0 + (floors 1 + (floors 2 + (floors 3 + 0))))
   omega
-theorem lFuel_4 : lFuel 4 = 7749 := by decide +kernel
+theorem lFuel_4 : lFuel 4 = 7744 := by decide +kernel
 theorem layers_good (floors : T3.Layer → Nat) (hbound : ∀ lay, floors lay ≤ 301) (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index : Nat) (hidx : index < 2 ^ 31) (Q : Prop) (hQ : Q) :
     ∀ n, n ≤ 4 → ∀ msg s, RestIn w pk index n msg s →
       GoodQP (HashOkBy floors (ClaudeWCT.W9.T3M.wtopHigh w)) s (lFuel n) (lCyc n) Q (lCycA floors n)
@@ -3271,7 +3394,7 @@ theorem layers_good (floors : T3.Layer → Nat) (hbound : ∀ lay, floors lay �
 theorem after_good (floors : T3.Layer → Nat) (hcredit : CreditFloors floors) (pk : Digest) (w : ClaudeWCT.W9.T3M.WBytes) (Q : Prop) (hQ : Q) (a : HashOutput)
     (top : Digest × Digest) (u : MachineState)
     (h : FtsOut ⟨pk, w, a⟩ top u) :
-    GoodQP (HashOkBy floors (ClaudeWCT.W9.T3M.wtopHigh w)) u 8050 13750 Q 5253
+    GoodQP (HashOkBy floors (ClaudeWCT.W9.T3M.wtopHigh w)) u 8050 13750 Q 5251
       (ccM (afterFts pk w (ClaudeWCT.WCT9.digestIndex a) (some top)) Kb) := by
   have hidx : ClaudeWCT.WCT9.digestIndex a < 2 ^ 31 := ClaudeWCT.WCT9.digestIndex_lt a
   obtain ⟨t, hst, hL3⟩ := layerIn_of_fts w pk _ top.1 top.2 u hidx h.glob h.idx h.pc h.left h.right h.wit h.base h.a1
@@ -3286,7 +3409,7 @@ theorem after_good (floors : T3.Layer → Nat) (hcredit : CreditFloors floors) (
   rw [lFuel_4, lCyc_4, lCycA_4 floors hcredit.1] at hg
   have htotal := hcredit.2
   exact GoodQP.stepsQ hst hg (by omega) (by omega) (fun q => ⟨q, by omega⟩)
-theorem after_good_budget : AfterGoodBudget 5253 :=
+theorem after_good_budget : AfterGoodBudget 5251 :=
   fun floors hcredit pk w Q hQ a top u h => after_good floors hcredit pk w Q hQ a top u h
 end SigGolfCandidate.T3M
 end

@@ -456,12 +456,13 @@ def topRanksValid (value : Digest) : Bool :=
     decide (r7Rank value < 49)
 def dataDigits (lay : Layer) (value : Digest) : List Nat :=
   (List.range (dataCount lay)).map (coreDigit lay value)
-def lowerSpare (value : Digest) : Prop := value.toNat / 2 ^ 63 % 2 = 1 ∧ value.toNat / 2 ^ 127 % 2 = 1
+/-- P0: a lower half is spare (canonical) when both fixed bits 63 and 127 are 0. -/
+def lowerSpare (value : Digest) : Prop := value.toNat / 2 ^ 63 % 2 = 0 ∧ value.toNat / 2 ^ 127 % 2 = 0
 instance (value : Digest) : Decidable (lowerSpare value) :=
-  inferInstanceAs (Decidable (value.toNat / 2 ^ 63 % 2 = 1 ∧ value.toNat / 2 ^ 127 % 2 = 1))
+  inferInstanceAs (Decidable (value.toNat / 2 ^ 63 % 2 = 0 ∧ value.toNat / 2 ^ 127 % 2 = 0))
 def lowerWord (value : Digest) : Nat := value.toNat % 2 ^ 63 + value.toNat / 2 ^ 64 % 2 ^ 63 * 2 ^ 63
 def lowerPack (n : Nat) : Digest :=
-  BitVec.ofNat 128 (n % 2 ^ 63 + 2 ^ 63 + n / 2 ^ 63 % 2 ^ 63 * 2 ^ 64 + 2 ^ 127)
+  BitVec.ofNat 128 (n % 2 ^ 63 + n / 2 ^ 63 % 2 ^ 63 * 2 ^ 64)
 def decode (lay : Layer) (value : Digest) : Option (List Nat) :=
   if value.toNat ≥ 2 ^ encodedBits lay then none else
   let digits := dataDigits lay value
@@ -717,7 +718,7 @@ theorem lowerWord_lt (v : Digest) : lowerWord v < 2 ^ 126 := by
   norm_num at *
   omega
 theorem lowerPack_toNat (n : Nat) :
-    (lowerPack n).toNat = n % 2 ^ 63 + 2 ^ 63 + n / 2 ^ 63 % 2 ^ 63 * 2 ^ 64 + 2 ^ 127 := by
+    (lowerPack n).toNat = n % 2 ^ 63 + n / 2 ^ 63 % 2 ^ 63 * 2 ^ 64 := by
   unfold lowerPack
   rw [BitVec.toNat_ofNat, Nat.mod_eq_of_lt]
   norm_num

@@ -6071,7 +6071,7 @@ theorem eval_verifyTop_none (answers : QueryImpl Spec Id) (sig : WCT9.Signature)
   exact eval_topDecodeRun_none answers h
 def dummyLowData : List Nat := List.replicate 10 6 ++ List.replicate 3 7 ++ List.replicate 29 4
 def dummyLowDigits (lay : Layer) : List Nat := dummyLowData ++ [target lay - 197]
-def dummyLowDigest : Digest := 267364716866451649868032922661926170038
+def dummyLowDigest : Digest := 97223533405982418127122246909187288502
 theorem producerDecode_dummyLow (lay : Layer) (h : lay ≠ 0) :
     producerDecode lay dummyLowDigest = some (dummyLowDigits lay) := by
   fin_cases lay
@@ -12073,12 +12073,12 @@ end SigGolfCandidate.Research.SharedForest
 namespace SigGolfCandidate.Research.SharedForest
 open SigGolfCandidate.T3 ClaudeWCT.WCT9
 
-theorem firstThreshold_window : ∀ r : Fin 56,
+theorem firstThreshold_window : ∀ r : Fin 53,
     CanonicalPolicy.threshold 1 r.val < 16 ∧
-      r.val - CanonicalPolicy.threshold 1 r.val ≤ 40 := by
+      r.val - CanonicalPolicy.threshold 1 r.val ≤ 39 := by
   decide +kernel
 
-theorem secondThreshold_window : ∀ r : Fin 41,
+theorem secondThreshold_window : ∀ r : Fin 40,
     CanonicalPolicy.threshold 2 r.val < 22 ∧
       r.val - CanonicalPolicy.threshold 2 r.val ≤ 21 := by
   decide +kernel
@@ -12336,23 +12336,23 @@ theorem canonical_search_valid_credit (answers : Answers) (lay : Layer) (floor t
 
 theorem canonical_four_residual (d0 d1 d2 d3 : List Nat) (l0 l1 l2 l3 : Bool)
     (h0 : 14 ≤ CanonicalPolicy.credit 0 l0 d0)
-    (h1 : CanonicalPolicy.threshold 1 (CanonicalPolicy.nextResidual 69 0 l0 d0) ≤
+    (h1 : CanonicalPolicy.threshold 1 (CanonicalPolicy.nextResidual 66 0 l0 d0) ≤
       CanonicalPolicy.credit 1 l1 d1)
     (h2 : CanonicalPolicy.threshold 2
-      (CanonicalPolicy.nextResidual (CanonicalPolicy.nextResidual 69 0 l0 d0) 1 l1 d1) ≤
+      (CanonicalPolicy.nextResidual (CanonicalPolicy.nextResidual 66 0 l0 d0) 1 l1 d1) ≤
       CanonicalPolicy.credit 2 l2 d2)
     (h3 : CanonicalPolicy.threshold 3
       (CanonicalPolicy.nextResidual
-        (CanonicalPolicy.nextResidual (CanonicalPolicy.nextResidual 69 0 l0 d0) 1 l1 d1) 2 l2 d2) ≤
+        (CanonicalPolicy.nextResidual (CanonicalPolicy.nextResidual 66 0 l0 d0) 1 l1 d1) 2 l2 d2) ≤
       CanonicalPolicy.credit 3 l3 d3) :
     CanonicalPolicy.nextResidual (CanonicalPolicy.nextResidual
-      (CanonicalPolicy.nextResidual (CanonicalPolicy.nextResidual 69 0 l0 d0) 1 l1 d1) 2 l2 d2) 3 l3 d3 = 0 := by
-  let r1 := CanonicalPolicy.nextResidual 69 0 l0 d0
-  have hr1 : r1 < 56 := by dsimp [r1, CanonicalPolicy.nextResidual]; omega
+      (CanonicalPolicy.nextResidual (CanonicalPolicy.nextResidual 66 0 l0 d0) 1 l1 d1) 2 l2 d2) 3 l3 d3 = 0 := by
+  let r1 := CanonicalPolicy.nextResidual 66 0 l0 d0
+  have hr1 : r1 < 53 := by dsimp [r1, CanonicalPolicy.nextResidual]; omega
   have hw1 := firstThreshold_window ⟨r1, hr1⟩
-  change CanonicalPolicy.threshold 1 r1 < 16 ∧ r1 - CanonicalPolicy.threshold 1 r1 ≤ 40 at hw1
+  change CanonicalPolicy.threshold 1 r1 < 16 ∧ r1 - CanonicalPolicy.threshold 1 r1 ≤ 39 at hw1
   let r2 := CanonicalPolicy.nextResidual r1 1 l1 d1
-  have hr2 : r2 < 41 := by
+  have hr2 : r2 < 40 := by
     change CanonicalPolicy.threshold 1 r1 ≤ CanonicalPolicy.credit 1 l1 d1 at h1
     dsimp [r2, CanonicalPolicy.nextResidual]; omega
   have hw2 := secondThreshold_window ⟨r2, hr2⟩
@@ -13667,7 +13667,7 @@ theorem policyHints_credit_sum (hints : BitVec 16) (digits : List (List Nat)) (l
     (hh : policyHintsValid hints digits lows = true)
     (hc : ∀ lay : Layer, hintFloor hints lay ≤
       CanonicalPolicy.credit lay (lows.getD lay.val true) (digits.getD lay.val [])) :
-    69 ≤ ((List.finRange 4).map fun lay =>
+    66 ≤ ((List.finRange 4).map fun lay =>
       CanonicalPolicy.credit lay (lows.getD lay.val true) (digits.getD lay.val [])).sum := by
   simp only [policyHintsValid, decide_eq_true_eq] at hh
   have h0 : 14 ≤ CanonicalPolicy.credit 0 (lows.getD 0 true) (digits.getD 0 []) := by
@@ -13681,7 +13681,7 @@ theorem policyHints_credit_sum (hints : BitVec 16) (digits : List (List Nat)) (l
   have hz := canonical_four_residual (digits.getD 0 []) (digits.getD 1 []) (digits.getD 2 [])
     (digits.getD 3 []) (lows.getD 0 true) (lows.getD 1 true) (lows.getD 2 true) (lows.getD 3 true) h0 h1 h2 h3
   simp only [CanonicalPolicy.nextResidual] at hz
-  change 69 ≤ CanonicalPolicy.credit 0 (lows.getD 0 true) (digits.getD 0 []) +
+  change 66 ≤ CanonicalPolicy.credit 0 (lows.getD 0 true) (digits.getD 0 []) +
     (CanonicalPolicy.credit 1 (lows.getD 1 true) (digits.getD 1 []) +
       (CanonicalPolicy.credit 2 (lows.getD 2 true) (digits.getD 2 []) +
       (CanonicalPolicy.credit 3 (lows.getD 3 true) (digits.getD 3 []) + 0)))

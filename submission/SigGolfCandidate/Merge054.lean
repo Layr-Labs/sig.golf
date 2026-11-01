@@ -2619,8 +2619,8 @@ abbrev witEnc := ClaudeWCT.W9.T3M.Paired.witEnc
 /-- img-v6: the honest expand output carries the top node nonces (`Paired.witEncN`). -/
 abbrev witEncN := ClaudeWCT.W9.T3M.Paired.witEncN
 
- def verifyCycleBound : Nat := 6901
- def claimedC : Nat := 6987
+ def verifyCycleBound : Nat := 6899
+ def claimedC : Nat := 6985
  def DigestCapOk (hash : Hash) (m : Message) (w : Bytes 22012) : Prop :=
   SigGolfCandidate.Research.SharedForest.jointAccountingCost
     (hash (SigGolfCandidate.T3M.toQ (SigGolfCandidate.T3.pad64
@@ -4109,8 +4109,9 @@ def xJ (w : Reg) (b : Nat) (mreg : Reg) (imm : Word) : Result :=
   ⟨⟨RegFile.init.set .x14 a, [], []⟩,
     .bin .and (.bin .add a (.c imm)) (.c (~~~1#64)),
     .jump, (if b = 9 then 2 else 3), (if b = 9 then 2 else 3)⟩
+/-- P0: `srai a4,w,44; andi a4,a4,-1024; jalr`: a set fixed bit 63 makes the target leave the code. -/
 def xbfJ (w : Reg) (imm : Word) : Result :=
-  let a := .bin .and (.bin .srl (.reg w) (.c 44)) (.reg .x9)
+  let a := .bin .and (.bin .sra (.reg w) (.c 44)) (.c 18446744073709550592)
   ⟨⟨RegFile.init.set .x14 a, [], []⟩,
     .bin .and (.bin .add a (.c imm)) (.c (~~~1#64)), .jump, 3, 3⟩
 /-- M0 (A0, P2c): chain 41's exit is the checksum dispatch `slli a4,t4,11; jalr zero,-720(a4)`. -/
@@ -5406,7 +5407,12 @@ def ok (c : LCtx) : Prop :=
   c.tree < 2 ^ 32 ∧ c.leaf < 2 ^ 32 ∧ c.koff ≤ 16 ∧ c.S6 % 8 = 0 ∧ Verify.WIT + 7664 + 520 ≤ c.S6 ∧
     c.S6 + 1744 ≤ 0x7000 ∧ c.ck < 2 ^ 64 ∧ c.ret = ckSlot c.ck + partLen c.ck ∧ c.i0 ≤ 42 ∧
     c.tree < 2 ^ (31 - height c.lay) ∧ c.leaf < 2 ^ height c.lay ∧
-    2 ^ 63 ≤ c.d0.toNat ∧ 2 ^ 63 ≤ c.d1.toNat
+    True ∧ True
+/-- P0: the top-field dispatches at the exits of chains 17 (`d0`) and 38 (`d1`) need the fixed bit clear. -/
+def msbOK (c : LCtx) (i : Nat) : Prop := (i = 17 → c.d0.toNat < 2 ^ 63) ∧ (i = 38 → c.d1.toNat < 2 ^ 63)
+instance (c : LCtx) (i : Nat) : Decidable (c.msbOK i) := by unfold msbOK; infer_instance
+theorem msbOK_of_ne (c : LCtx) {i : Nat} (h17 : i ≠ 17) (h38 : i ≠ 38) : c.msbOK i :=
+  ⟨fun h => absurd h h17, fun h => absurd h h38⟩
 def x28v (c : LCtx) : Nat := packedPrefix c.lay c.tree c.leaf + c.koff + 385
 theorem x28v_eq (c : LCtx) (h0 : c.koff = 0) : c.x28v = packedPrefix c.lay c.tree c.leaf + 385 := by
   generalize hp : packedPrefix c.lay c.tree c.leaf = q
@@ -6636,13 +6642,68 @@ theorem xbfJ_keeps (w : Reg) (imm : Word) : Keeps (xbfJ w imm) [.x14] := by
   intro x hx
   simp only [xbfJ]
   rw [RegFile.get_set_ne _ _ (ne_of_not_mem hx (by simp))]
-theorem srl54_spare (W : Word) (hW : 2 ^ 63 ≤ W.toNat) : W.toNat / 2 ^ 54 = 512 + W.toNat / 2 ^ 54 % 512 := by
-  have := W.isLt
+theorem land_hiMask (X : Nat) (hX : X < 2 ^ 64) : X &&& 18446744073709550592 = X / 2 ^ 10 * 2 ^ 10 := by
+  have hM : (18446744073709550592 : Nat) = (2 ^ 54 - 1) * 2 ^ 10 := by norm_num
+  rw [hM]
+  apply Nat.eq_of_testBit_eq
+  intro i
+  rw [Nat.testBit_land, Nat.testBit_mul_two_pow, Nat.testBit_mul_two_pow, Nat.testBit_two_pow_sub_one,
+    Nat.testBit_div_two_pow]
+  by_cases hi : 10 ≤ i
+  · rw [show i - 10 + 10 = i by omega]
+    by_cases h64 : i < 64
+    · simp [hi, show i - 10 < 54 by omega]
+    · have : X.testBit i = false := Nat.testBit_lt_two_pow (lt_of_lt_of_le hX (Nat.pow_le_pow_right (by norm_num) (by omega)))
+      simp [this]
+  · simp [hi]
+theorem sra_hi_ok (W : BitVec 64) (h : W.toNat < 2 ^ 63) :
+    ((W.sshiftRight 44) &&& 18446744073709550592#64).toNat = 1024 * (W.toNat / 2 ^ 54) := by
+  have hm : W.msb = false := by rw [BitVec.msb_eq_decide]; simp; omega
+  rw [BitVec.sshiftRight_eq_of_msb_false hm, BitVec.toNat_and, BitVec.toNat_ushiftRight,
+    show (18446744073709550592#64).toNat = 18446744073709550592 from rfl,
+    land_hiMask _ (by have := W.isLt; rw [Nat.shiftRight_eq_div_pow]; omega), Nat.shiftRight_eq_div_pow,
+    Nat.div_div_eq_div_mul]
+  norm_num
+  ring
+theorem sra_hi_bad (W : BitVec 64) (h : 2 ^ 63 ≤ W.toNat) (imm : Nat) (himm : imm < 2048) :
+    (((W.sshiftRight 44) &&& 18446744073709550592#64) + BitVec.ofNat 64 imm &&& ~~~1#64).toNat < 0x1000 ∨
+      2 ^ 63 ≤ (((W.sshiftRight 44) &&& 18446744073709550592#64) + BitVec.ofNat 64 imm &&& ~~~1#64).toNat := by
+  have hm : W.msb = true := by rw [BitVec.msb_eq_decide]; simp; omega
+  rw [BitVec.sshiftRight_eq_of_msb_true hm]
+  have hA : 2 ^ 64 - 2 ^ 20 ≤ (~~~(~~~W >>> 44) &&& 18446744073709550592#64).toNat := by
+    rw [BitVec.toNat_and, show (18446744073709550592#64).toNat = 18446744073709550592 from rfl,
+      land_hiMask _ (BitVec.isLt _), BitVec.toNat_not, BitVec.toNat_ushiftRight, BitVec.toNat_not]
+    have := W.isLt
+    rw [Nat.shiftRight_eq_div_pow]
+    omega
+  have hA2 := (~~~(~~~W >>> 44) &&& 18446744073709550592#64).isLt
+  generalize (~~~(~~~W >>> 44) &&& 18446744073709550592#64) = A at hA hA2
+  rw [BitVec.toNat_and, BitVec.toNat_add, BitVec.toNat_ofNat, BitVec.toNat_not, show (1#64).toNat = 1 from rfl]
+  have hcl : ∀ Y : Nat, Y < 2 ^ 64 → Y &&& (2 ^ 64 - 1 - 1) ≤ Y ∧ Y - 1 ≤ Y &&& (2 ^ 64 - 1 - 1) := by
+    intro Y hY
+    refine ⟨Nat.and_le_left, ?_⟩
+    have e : (2 ^ 64 - 1 - 1 : Nat) = (2 ^ 63 - 1) * 2 ^ 1 := by norm_num
+    rw [e]
+    have : Y &&& ((2 ^ 63 - 1) * 2 ^ 1) = Y / 2 ^ 1 * 2 ^ 1 := by
+      apply Nat.eq_of_testBit_eq; intro i
+      rw [Nat.testBit_land, Nat.testBit_mul_two_pow, Nat.testBit_mul_two_pow, Nat.testBit_two_pow_sub_one,
+        Nat.testBit_div_two_pow]
+      by_cases hi : 1 ≤ i
+      · rw [show i - 1 + 1 = i by omega]
+        by_cases h64 : i < 64
+        · simp [hi, show i - 1 < 63 by omega]
+        · have : Y.testBit i = false := Nat.testBit_lt_two_pow (lt_of_lt_of_le hY (Nat.pow_le_pow_right (by norm_num) (by omega)))
+          simp [this]
+      · simp [hi]
+    rw [this]; omega
+  have := hcl ((A.toNat + imm % 2 ^ 64) % 2 ^ 64) (Nat.mod_lt _ (by norm_num))
+  rw [Nat.mod_eq_of_lt (show imm < 2 ^ 64 by omega)] at this ⊢
   omega
 theorem xbf_step (c : LCtx) (hc : c.ok) {s0 : MachineState} (hk : ∀ p ∈ c.known, s0.getReg p.1 = p.2)
     (t : Nat) (ht : t = 5 ∨ t = 12) (hi : c.i0 ≤ 3 * t + 2) (hp : c.tX (3 * t + 2) < 257214)
     (hrun : vrun (c.tX (3 * t + 2)) 4 = some (xbfJ (if t + 1 < 7 then .x16 else .x17)
       (BitVec.ofNat 64 (lowerImm (t+1)))))
+    (hmsb : (if t + 1 < 7 then c.d0 else c.d1).toNat < 2 ^ 63)
     (acc : List Digest) (s : MachineState) (hs : c.EndInv s0 (3 * t + 2) acc s) :
     ∃ u, Steps vimage s 3 3 u ∧ c.ChainIn s0 (3 * t + 3) acc u := by
   obtain ⟨⟨hR, hF, hS⟩, hlen, h25, hpc⟩ := hs
@@ -6657,18 +6718,15 @@ theorem xbf_step (c : LCtx) (hc : c.ok) {s0 : MachineState} (hk : ∀ p ∈ c.kn
     split
     · exact kr .x16 c.d0 (by simp [known]) (by decide +kernel)
     · exact kr .x17 c.d1 (by simp [known]) (by decide +kernel)
-  have h2 := kr .x9 0x7fc00 (by simp [known]) (by decide +kernel)
   have himm := lowerImm_even (t+1)
   have hk1 := c.kOf_lt (t + 1) (by omega)
   have hrow : (if t + 1 < 7 then c.d0 else c.d1).toNat / 2^54 %512 = c.kOf (t+1) := by
     rw [c.kOf_eq (t+1) (by omega)]; rcases ht with rfl|rfl <;> rfl
-  have hm := shE_mask_new s _ _ hW 54 9 (by omega) (le_refl _)
-  have e : ((if t+1<7 then c.d0 else c.d1) >>> (44 : Nat)) &&& (0x7fc00 : Word) = BitVec.ofNat 64 (1024*c.kOf (t+1)) := by
+  have e : ((if t+1<7 then c.d0 else c.d1).sshiftRight 44) &&& (18446744073709550592 : Word) =
+      BitVec.ofNat 64 (1024*c.kOf (t+1)) := by
     apply BitVec.eq_of_toNat_eq
-    have hm' : (((if t+1<7 then c.d0 else c.d1) >>> (44 : Nat)) &&& (0x7fc00 : Word)).toNat =
-        1024*((if t+1<7 then c.d0 else c.d1).toNat/2^54%512) := by
-      simpa [shE, E.eval, BinOp.eval, hW] using hm
-    rw [hm',hrow,BitVec.toNat_ofNat,Nat.mod_eq_of_lt (show 1024*c.kOf (t+1)<2^64 by omega)]
+    rw [show (18446744073709550592 : Word) = 18446744073709550592#64 from rfl, sra_hi_ok _ hmsb, ← hrow, Nat.mod_eq_of_lt (show (if t+1<7 then c.d0 else c.d1).toNat / 2^54 < 512 by omega),
+      BitVec.toNat_ofNat, Nat.mod_eq_of_lt (by omega)]
   refine ⟨r.toState s, hst, ⟨⟨fun x hx => (hkeep.reg s (not_mem_sub hx (by decide +kernel))).trans (hR x hx),
     hF.mono (fun A _ h => by
       have hlo := hc.2.2.2.2.1
@@ -6677,7 +6735,7 @@ theorem xbf_step (c : LCtx) (hc : c.ok) {s0 : MachineState} (hk : ∀ p ∈ c.kn
       · right; left; obtain ⟨j, h1, h2, h3⟩ := h; exact ⟨j, h1, by omega, h3⟩
       · right; right; exact ⟨h.1, by omega, h.2.2⟩), hS⟩, by omega, h25, ?_⟩⟩
   rw [Result.toState_pc]
-  simp only [hr,xbfJ,E.eval,BinOp.eval,hW,h2]
+  simp only [hr,xbfJ,E.eval,BinOp.eval,hW]
   rw [show ((44:Word).toNat%64)=44 from rfl,e,ofNat_add_ofNat,even_andNot1' _ (by omega)]
   have e2 : BitVec.ofNat 64 (1024*c.kOf (t+1)+(lowerImm (t+1))) = pcOf (entW (t+1) (c.kOf (t+1))) := by
     rw [entW_address _ _ (by omega) hk1]

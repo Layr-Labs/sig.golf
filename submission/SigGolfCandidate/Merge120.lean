@@ -3310,7 +3310,8 @@ def t4E (lay : Nat) : E := sumE lay
 def s9mE (lay : Nat) : E := .bin .and (.bin .add (sw1E lay) (.bin .srl (sw1E lay) (kw 6))) (M2E lay)
 def rngBr (k : Nat) (d : Bool) : Br := ⟨.ne, .bin .srl a7E (kw k), kw 0, d⟩
 def ckBr (lay : Nat) (d : Bool) : Br := ⟨.ltu, kw 7, t4E lay, d⟩
-def spareBr (lay : Nat) (d : Bool) : Br := ⟨if lay = 3 then .lt else .ge, .bin .and a6E a7E, kw 0, if lay = 3 then !d else d⟩
+/-- P0: the first guard `or gp,a6,a7; bge gp,zero` (canonical iff both fixed bits are 0); `d` = not canonical. -/
+def spareBr (_lay : Nat) (d : Bool) : Br := ⟨.ge, .bin .or a6E a7E, kw 0, !d⟩
 def a7lE : E := .bin .or b1E (.bin .srl a6E (kw 63))
 def x14l (lay : Nat) : E := .bin .and (.bin .sll a6E (kw 10)) (maskE lay)
 def tgtl (lay : Nat) : E := .bin .and (.bin .add (x14l lay) (kw 1992)) (.c (~~~1#64))
@@ -3330,6 +3331,8 @@ def x14Hi (lay : Nat) : E := .bin .and (.bin .sll a6HiE (kw 10)) (maskE lay)
 def tgtHi (lay : Nat) : E := .bin .and (.bin .add (x14Hi lay) (kw 1992)) (.c (~~~1#64))
 /-- M0 (A0, P2c): the lower heads lose `addi t4,s9,-194` and `bltu t5,t4,reject` (two steps, two cycles). -/
 def bSt (lay : Nat) : Nat := if lay = 3 then 28 else if lay = 1 ∨ lay = 2 then 19 else 33
+/-- P0: the HIGH path's extra steps (and cycles): the two high loads, plus the `jal` back into the body on layer 3. -/
+def hiX (lay : Nat) : Nat := if lay = 3 then 3 else 2
 def bCy (lay : Nat) : Nat := if lay = 3 then 31 else if lay = 1 ∨ lay = 2 then 22 else 36
 def prefixReturn (lay p : Nat) : Nat := p + (if lay = 3 then 37 else 38)
 def s7Sh (lay : Nat) : Nat := if lay = 1 then 12 else 9
@@ -3345,7 +3348,7 @@ def specBlHi (lay _p : Nat) : Spec :=
     (.x14, x14Hi lay)] ++ (if lay = 3 then [(.x22, .ld (kw (TOPLOAD - 8))),
       (.x24, .ld (kw TOPLOAD)), (.x1, .ld (kw (TOPLOAD + 8))), (.x9, .ld (kw (TOPLOAD + 24))),
       (.x31, treeE 3), (.x27, .bin .srl (maskE 3) (kw 1)), (.x4, .ld (kw (TOPB9+56)))] else []),
-   [], 0, false, bSt lay + 4, [spareHiBr lay false, spareBr lay true], some (tgtHi lay), bCy lay + 4⟩
+   [], 0, false, bSt lay + hiX lay, [spareBr lay true], some (tgtHi lay), bCy lay + hiX lay⟩
 def postBl (lay _p : Nat) : List (Reg × Word) :=
   chainK lay ++ [(.x22, BitVec.ofNat 64 (s6v lay)), (.x7, 1), (.x2, BitVec.ofNat 64 0xffbde0)]
 def postBlC (lay p : Nat) : List (Reg × Word) :=
@@ -3438,12 +3441,9 @@ def copyCheck (lay c : Nat) : Bool :=
   setupCheck lay c &&
   (if lay = 0 then true else
     specB [] [] baseK (runAt (bKB lay c) [] (trPc lay c + stepsA lay + 1)
-      [.br (decide (lay = 3)), .jmp]) (specBl lay (trPc lay c)) oblB (postBlC lay (trPc lay c)) (keepB lay) &&
+      [.br true, .jmp]) (specBl lay (trPc lay c)) oblB (postBlC lay (trPc lay c)) (keepB lay) &&
     specB [] [] baseK (runAt (bKB lay c) [] (trPc lay c + stepsA lay + 1)
-      [.br (decide (lay ≠ 3)), .br true, .jmp]) (specBlHi lay (trPc lay c)) oblBHi (postBlC lay (trPc lay c)) (keepB lay) &&
-    specB [] [] [] (runAt (bKB lay c) [spareTrap lay c] (trPc lay c + stepsA lay + 1)
-      [.br (decide (lay ≠ 3)), .br false]) (rejBothSpare lay c) oblBHi [] [] &&
-    (vlook (spareTrap lay c) == some 0))
+      [.br false, .jmp]) (specBlHi lay (trPc lay c)) oblBHi (postBlC lay (trPc lay c)) (keepB lay))
 def layerCheck (lay lo n : Nat) : Bool :=
   (List.range' lo n).all fun c => copyCheck lay c
 end SigGolfCandidate.T3M.BC

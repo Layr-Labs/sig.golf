@@ -177,14 +177,14 @@ theorem card_lowerAccept_199_4 :
     (univ.filter fun v : BitVec 128 => LowerAccept 199 4 v.toNat).card = 91101791054941032223577582479356176 :=
   card_lowerAccept_of_check _ _ _ (by norm_num) check_199_4
 def shiftS1 (i : ℕ) : ℕ := if i < 21 then 3 * i else 64 + 3 * (i - 21)
-def SpareS1 (n : ℕ) : Prop := n / 2 ^ 63 % 2 = 1 ∧ n / 2 ^ 127 % 2 = 1
+def SpareS1 (n : ℕ) : Prop := n / 2 ^ 63 % 2 = 0 ∧ n / 2 ^ 127 % 2 = 0
 instance (n : ℕ) : Decidable (SpareS1 n) := by unfold SpareS1; infer_instance
 def lowerDigitsS1 (n : ℕ) : List ℕ := (List.range 42).map fun i => n / 2 ^ shiftS1 i % 8
 def LowerAcceptS1 (T f n : ℕ) : Prop :=
   n < 2 ^ 128 ∧ SpareS1 n ∧ (lowerDigitsS1 n).sum ≤ T ∧ T - (lowerDigitsS1 n).sum < 8 ∧
     f ≤ (lowerDigitsS1 n ++ [T - (lowerDigitsS1 n).sum]).count 6
 instance (T f n : ℕ) : Decidable (LowerAcceptS1 T f n) := by unfold LowerAcceptS1; infer_instance
-def toS1 (n : ℕ) : ℕ := n % 2 ^ 63 + 2 ^ 63 + 2 ^ 64 * (n / 2 ^ 63) + 2 ^ 127
+def toS1 (n : ℕ) : ℕ := n % 2 ^ 63 + 2 ^ 64 * (n / 2 ^ 63)
 def ofS1 (m : ℕ) : ℕ := m % 2 ^ 63 + 2 ^ 63 * (m / 2 ^ 64 % 2 ^ 63)
 theorem digit_add_mul (a c k p : ℕ) (h : p + 3 ≤ k) : (a + 2 ^ k * c) / 2 ^ p % 8 = a / 2 ^ p % 8 := by
   have hk : 2 ^ k = 2 ^ p * (8 * 2 ^ (k - p - 3)) := by
@@ -195,17 +195,16 @@ theorem digit_add_mul (a c k p : ℕ) (h : p + 3 ≤ k) : (a + 2 ^ k * c) / 2 ^ 
 theorem digit_mod (a k p : ℕ) (h : p + 3 ≤ k) : a % 2 ^ k / 2 ^ p % 8 = a / 2 ^ p % 8 := by
   conv_rhs => rw [← Nat.mod_add_div a (2 ^ k)]
   rw [digit_add_mul _ _ _ _ h]
-theorem toS1_div_64 (n : ℕ) : toS1 n / 2 ^ 64 = n / 2 ^ 63 + 2 ^ 63 := by
+theorem toS1_div_64 (n : ℕ) : toS1 n / 2 ^ 64 = n / 2 ^ 63 := by
   unfold toS1; norm_num; omega
 theorem toS1_digit (n i : ℕ) (hi : i < 42) : toS1 n / 2 ^ shiftS1 i % 8 = n / 2 ^ (3 * i) % 8 := by
   unfold shiftS1
   split_ifs with h
-  · have e : toS1 n = n % 2 ^ 63 + 2 ^ 63 * (1 + 2 * (n / 2 ^ 63) + 2 ^ 64) := by unfold toS1; ring
+  · have e : toS1 n = n % 2 ^ 63 + 2 ^ 63 * (2 * (n / 2 ^ 63)) := by unfold toS1; ring
     rw [e, digit_add_mul _ _ 63 _ (by omega), digit_mod _ 63 _ (by omega)]
   · obtain ⟨j, rfl⟩ : ∃ j, i = 21 + j := ⟨i - 21, by omega⟩
     rw [show 21 + j - 21 = j by omega, show 3 * (21 + j) = 63 + 3 * j by ring, pow_add, pow_add,
-      ← Nat.div_div_eq_div_mul, ← Nat.div_div_eq_div_mul, toS1_div_64,
-      show n / 2 ^ 63 + 2 ^ 63 = n / 2 ^ 63 + 2 ^ 63 * 1 by ring, digit_add_mul _ _ _ _ (by omega)]
+      ← Nat.div_div_eq_div_mul, ← Nat.div_div_eq_div_mul, toS1_div_64]
 theorem lowerDigitsS1_toS1 (n : ℕ) : lowerDigitsS1 (toS1 n) = lowerDigits n := by
   unfold lowerDigitsS1 lowerDigits
   exact List.map_congr_left fun i hi => toS1_digit n i (List.mem_range.mp hi)

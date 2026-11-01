@@ -923,7 +923,7 @@ attribute [local instance] Classical.propDecidable
       (ClaudeWCT.WCT9.builtPair T 1 (route index 1).2).2)
     (WCT9.searchLimit 0) 0 c0 d0 l0 (ClaudeWCT.W9.T3.Security.Wots.searchLimit_fits _) hs0).2.2.2
   let r1 := WCT9.CanonicalPolicy.nextResidual WCT9.CanonicalPolicy.totalCredit 0 l0 d0
-  have hr1 : r1<56 := WCT9.CanonicalPolicy.accepted_top_residual
+  have hr1 : r1<53 := WCT9.CanonicalPolicy.accepted_top_residual
     (by rwa [WCT9.CanonicalPolicy.threshold_top] at hd0)
   have hf1 : WCT9.CanonicalPolicy.threshold 1 r1<16 := WCT9.CanonicalPolicy.lower_one_floor_lt ⟨r1,hr1⟩
   have hc1 : referenceContext T (sourceMessages T) (sourceLeaf index 1)=some r1 := by
@@ -938,7 +938,7 @@ attribute [local instance] Classical.propDecidable
       (ClaudeWCT.WCT9.builtPair T 2 (route index 2).2).2)
     (WCT9.searchLimit 1) 0 c1 d1 l1 (ClaudeWCT.W9.T3.Security.Wots.searchLimit_fits _) hs1).2.2.2
   let r2 := WCT9.CanonicalPolicy.nextResidual r1 1 l1 d1
-  have hr2 : r2<41 := WCT9.CanonicalPolicy.accepted_one_residual ⟨r1,hr1⟩ hd1
+  have hr2 : r2<40 := WCT9.CanonicalPolicy.accepted_one_residual ⟨r1,hr1⟩ hd1
   have hf2 : WCT9.CanonicalPolicy.threshold 2 r2<22 := by
     have h := (WCT9.CanonicalPolicy.lower_two_progress ⟨r2,hr2⟩).1
     change WCT9.CanonicalPolicy.threshold 2 r2≤19 at h

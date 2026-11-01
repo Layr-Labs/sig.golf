@@ -771,14 +771,15 @@ theorem ctr_not_ge_verifyWindow (c : BitVec 32) : ¬c.toNat ≥ verifyWindow := 
   unfold verifyWindow; exact Nat.not_le.mpr c.isLt
 /-! ### Canonical policy core (configuration (1)+(2), "e7b" top head)
 Defined before the encoding selector because the top producer choice uses the canonical top predicate.
-* `totalCredit` = 69 (credit pool), `topFloor` = 14 (every top search uses it; RC938: pool 74 -> 77, floor 19 -> 22;
+* `totalCredit` = 66 (credit pool; P0: 69 -> 66), `topFloor` = 14 (every top search uses it; RC938: pool 74 -> 77, floor 19 -> 22;
   T51 on RC: pool 69, floor 14, pool - floor = 55 as before).
 * Path-aware credit: `credit lay low digits = reward + bonus·[low] - dispatchPenalty` where `low` = the
-  LOW half of the 256-bit answer was selected (`lowSelected`); bonus 4 on lower layers, 2 on the top layer
-  (the d6b head reads the hint first: honest LOW costs 4 cycles, HIGH 6). -/
+  LOW half of the 256-bit answer was selected (`lowSelected`); bonus 2 on lower layers 1 and 2, 3 on layer 3
+  (P0: the HIGH path skips the second-half guard), 2 on the top layer (the d6b head reads the hint first: honest
+  LOW costs 4 cycles, HIGH 6). -/
 namespace CanonicalPolicy
 /-- The credit pool every canonical path must reach. -/
-def totalCredit : Nat := 69
+def totalCredit : Nat := 66
 /-- The (fixed) top credit floor (on the path-aware credit). -/
 def topFloor : Nat := 14
 /-- All three lower layers use digit sum 201. Layer 1's existing broad decoder
@@ -789,8 +790,11 @@ def decode (lay : Layer) (answer : Digest) : Option (List Nat) :=
 /-- Word reward (credited instructions) of a decoded word, independent of the selected half. -/
 def reward (lay : Layer) (digits : List Nat) : Nat :=
   wordCredit lay digits + 4 * savedCopies lay digits
-/-- Path bonus: a lower layer whose LOW half was selected saves 4 verify cycles, the top layer 2 (d6b head). -/
-def pathBonus (lay : Layer) (low : Bool) : Nat := if low = true then (if lay = 0 then 2 else 4) else 0
+/-- P0: the LOW-path bonus of a lower layer (layers 1, 2: 2 cycles; layer 3: 3 cycles). -/
+def lowerBonus (lay : Layer) : Nat := if lay = 3 then 3 else 2
+/-- Path bonus: a lower layer whose LOW half was selected saves `lowerBonus` verify cycles, the top layer 2 (d6b
+head). -/
+def pathBonus (lay : Layer) (low : Bool) : Nat := if low = true then (if lay = 0 then 2 else lowerBonus lay) else 0
 /-- Path-aware reward. -/
 def pathReward (lay : Layer) (low : Bool) (digits : List Nat) : Nat :=
   reward lay digits + pathBonus lay low
@@ -810,11 +814,13 @@ def producerDecodeAt (lay : Layer) (floor : Nat) (low : Bool) (answer : Digest) 
 theorem pathBonus_top (low : Bool) : pathBonus 0 low = if low then 2 else 0 := by
   cases low <;> simp [pathBonus]
 theorem pathBonus_lower {lay : Layer} (hl : lay ≠ 0) (low : Bool) :
-    pathBonus lay low = if low then 4 else 0 := by
+    pathBonus lay low = if low then lowerBonus lay else 0 := by
   cases low <;> simp [pathBonus, hl]
 @[simp] theorem pathBonus_false (lay : Layer) : pathBonus lay false = 0 := by simp [pathBonus]
+theorem lowerBonus_le (lay : Layer) : lowerBonus lay ≤ 3 := by
+  unfold lowerBonus; split_ifs <;> omega
 theorem pathBonus_le (lay : Layer) (low : Bool) : pathBonus lay low ≤ 4 := by
-  unfold pathBonus; split_ifs <;> omega
+  unfold pathBonus lowerBonus; split_ifs <;> omega
 theorem pathReward_top (low : Bool) (digits : List Nat) :
     pathReward 0 low digits = reward 0 digits + (if low then 2 else 0) := by
   simp [pathReward, pathBonus_top]
@@ -823,7 +829,7 @@ theorem credit_top (low : Bool) (digits : List Nat) :
   simp [credit, pathReward_top]
 /-- Lower layers carry no dispatch penalty. -/
 theorem credit_lower {lay : Layer} (hl : lay ≠ 0) (low : Bool) (digits : List Nat) :
-    credit lay low digits = reward lay digits + (if low then 4 else 0) := by
+    credit lay low digits = reward lay digits + (if low then lowerBonus lay else 0) := by
   simp [credit, pathReward, pathBonus_lower hl, dispatchPenalty, hl]
 end CanonicalPolicy
 
@@ -1276,14 +1282,14 @@ open OracleComp OracleSpec SigGolfCandidate.T3
 completeness over every256-bit message. It does not change the moment model. -/
 def ftsSearchLimit : Nat := 2 ^ 21
 
-/-- Layer-1 floors by residual `r ≤ 55` (= 69 - 14 on T51; img-v6 / opus-crumbs PORT v6). -/
+/-- Layer-1 floors by residual `r ≤ 52` (= 66 - 14; P0 credit law, LOW bonus 2/2/3). -/
 def lowerOneThresholds : List Nat :=
-  [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
-   1,2,3,4,5,6,7,8,8,9,10,11,11,12,13,13,14,15]
+  [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+   1,2,3,4,5,6,6,7,8,9,10,10,11,12,12,13,13]
 
-/-- Layer-2 floors by residual `r ≤ 40` (img-v6). -/
+/-- Layer-2 floors by residual `r ≤ 39` (P0 credit law). -/
 def lowerTwoThresholds : List Nat :=
-  [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,2,3,4,5,6,7,8,9,10,11,12,12,13,14,15,15,16,17,18,19]
+  [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,2,3,4,5,6,7,8,9,9,10,11,12,13,13,14,15,15,16,17,18]
 
 /-- Largest lower floor (L3 floors reach 21; policy hints use the mixed radix 484 / 22 / 1, bound 7744). -/
 def lowerFloorMax : Nat := 21
@@ -1373,33 +1379,36 @@ open SigGolfCandidate.T3
 set_option maxRecDepth 10000
 set_option maxHeartbeats 1000000
 
-theorem lower_one_progress : ∀ r : Fin 56,
-    threshold 1 r.val ≤ 19 ∧ r.val - threshold 1 r.val < 41 := by decide +kernel
+theorem lower_one_progress : ∀ r : Fin 53,
+    threshold 1 r.val ≤ 19 ∧ r.val - threshold 1 r.val < 40 := by decide +kernel
 
 /-- img-v6: every L1 floor is below 16 (the hint's leading digit `f1 ≤ 15`). -/
-theorem lower_one_floor_lt : ∀ r : Fin 56, threshold 1 r.val < 16 := by decide +kernel
+theorem lower_one_floor_lt : ∀ r : Fin 53, threshold 1 r.val < 16 := by decide +kernel
 
-theorem lower_two_progress : ∀ r : Fin 41,
+theorem lower_two_progress : ∀ r : Fin 40,
     threshold 2 r.val ≤ 19 ∧ r.val - threshold 2 r.val < 22 := by decide +kernel
+
+/-- P0: every L2 floor is at most 18 (the L1/L2 tail window `2^21` covers floors up to 18). -/
+theorem lower_two_floor_le : ∀ r : Fin 40, threshold 2 r.val ≤ 18 := by decide +kernel
 
 theorem lower_three_progress (r : Nat) (hr : r < 22) :
     threshold 3 r = r := by simp [threshold, show r ≤ 21 by omega]
 
 theorem accepted_top_residual {answer : Digest} {low : Bool} {digits : List Nat}
-    (h : producerDecodeAt 0 14 low answer = some digits) : nextResidual 69 0 low digits < 56 := by
+    (h : producerDecodeAt 0 14 low answer = some digits) : nextResidual 66 0 low digits < 53 := by
   have hc := producerDecodeAt_credit h
   unfold nextResidual
   omega
 
-theorem accepted_one_residual (r : Fin 56) {answer : Digest} {low : Bool} {digits : List Nat}
+theorem accepted_one_residual (r : Fin 53) {answer : Digest} {low : Bool} {digits : List Nat}
     (h : producerDecodeAt 1 (threshold 1 r.val) low answer = some digits) :
-    nextResidual r.val 1 low digits < 41 := by
+    nextResidual r.val 1 low digits < 40 := by
   have hc := producerDecodeAt_credit h
   have hp := (lower_one_progress r).2
   unfold nextResidual
   omega
 
-theorem accepted_two_residual (r : Fin 41) {answer : Digest} {low : Bool} {digits : List Nat}
+theorem accepted_two_residual (r : Fin 40) {answer : Digest} {low : Bool} {digits : List Nat}
     (h : producerDecodeAt 2 (threshold 2 r.val) low answer = some digits) :
     nextResidual r.val 2 low digits < 22 := by
   have hc := producerDecodeAt_credit h

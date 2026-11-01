@@ -1458,6 +1458,7 @@ theorem producerDecodeAt_lower_credit_lt (lay : Layer) (hl : lay ≠ 0)
       CanonicalPolicy.credit lay false ds) value :=
     (accepted_iff lay 0 _ value).mpr ⟨ds, producerDecodeAt_floor_zero (fun h0 => absurd h0 hl) h, rfl⟩
   have hb := accepted_lower_credit_le lay hl ha
+  have hbon := CanonicalPolicy.lowerBonus_le lay
   rw [CanonicalPolicy.credit_lower hl] at hb ⊢
   cases low <;> simp at hb ⊢ <;> omega
 
@@ -1466,7 +1467,8 @@ end ClaudeWCT.W9.T3.ProducerV5.Canonical
 /-! ### Path-aware decoder events (configuration (1)+(2))
 The canonical decoder of a complete answer (`producerDecodeOut`) returns the digits and the selected half; its
 credit is `credit lay low digits`. On the top layer the half carries no bonus and the word is the restricted
-choice; on a lower layer the LOW path is the producer at floor `floor - 4` and adds 4 to the credit. -/
+choice; on a lower layer the LOW path is the producer at floor `floor - lowerBonus lay` and adds `lowerBonus lay`
+to the credit (P0: 2 on layers 1, 2 and 3 on layer 3). -/
 namespace ClaudeWCT.W9.T3.ProducerV5.Canonical
 open OracleComp OracleSpec ENNReal Finset
 open SigGolfCandidate.T3 ClaudeWCT.WCT9
@@ -1486,13 +1488,13 @@ theorem producerDecodeAt_eq_some_iff (lay : Layer) (floor : Nat) (low : Bool) (v
 
 theorem producerDecodeAt_lower_true (lay : Layer) (hl : lay ≠ 0) (floor : Nat) (v : Digest) :
     CanonicalPolicy.producerDecodeAt lay floor true v =
-      CanonicalPolicy.producerDecodeAt lay (floor - 4) false v := by
-  have e1 (ds : List Nat) : CanonicalPolicy.pathReward lay true ds = CanonicalPolicy.reward lay ds + 4 := by
+      CanonicalPolicy.producerDecodeAt lay (floor - CanonicalPolicy.lowerBonus lay) false v := by
+  have e1 (ds : List Nat) : CanonicalPolicy.pathReward lay true ds = CanonicalPolicy.reward lay ds + CanonicalPolicy.lowerBonus lay := by
     simp [CanonicalPolicy.pathReward, CanonicalPolicy.pathBonus, hl]
   have e2 (ds : List Nat) : CanonicalPolicy.pathReward lay false ds = CanonicalPolicy.reward lay ds := by
     simp [CanonicalPolicy.pathReward, CanonicalPolicy.pathBonus]
   have e3 (ds : List Nat) : dispatchPenalty lay ds = 0 := by simp [dispatchPenalty, hl]
-  cases h : CanonicalPolicy.producerDecodeAt lay (floor - 4) false v with
+  cases h : CanonicalPolicy.producerDecodeAt lay (floor - CanonicalPolicy.lowerBonus lay) false v with
   | some ds =>
       have hs := (producerDecodeAt_eq_some_iff _ _ _ _ _).mp h
       apply (producerDecodeAt_eq_some_iff _ _ _ _ _).mpr
@@ -1505,7 +1507,7 @@ theorem producerDecodeAt_lower_true (lay : Layer) (hl : lay ≠ 0) (floor : Nat)
       | none => rfl
       | some ds =>
           have hs := (producerDecodeAt_eq_some_iff _ _ _ _ _).mp h'
-          have hc : CanonicalPolicy.producerDecodeAt lay (floor - 4) false v = some ds := by
+          have hc : CanonicalPolicy.producerDecodeAt lay (floor - CanonicalPolicy.lowerBonus lay) false v = some ds := by
             apply (producerDecodeAt_eq_some_iff _ _ _ _ _).mpr
             refine ⟨hs.1, ?_, hs.2.2⟩
             have h1 := hs.2.1
@@ -1515,7 +1517,7 @@ theorem producerDecodeAt_lower_true (lay : Layer) (hl : lay ≠ 0) (floor : Nat)
           cases h
 
 theorem credit_lower_true (lay : Layer) (hl : lay ≠ 0) (ds : List Nat) :
-    CanonicalPolicy.credit lay true ds = CanonicalPolicy.credit lay false ds + 4 := by
+    CanonicalPolicy.credit lay true ds = CanonicalPolicy.credit lay false ds + CanonicalPolicy.lowerBonus lay := by
   rw [CanonicalPolicy.credit_lower hl, CanonicalPolicy.credit_lower hl]
   simp
 
@@ -1619,7 +1621,8 @@ theorem lower_decoder_event (lay : Layer) (hl : lay ≠ 0) (floor c : Nat) (answ
     (∃ dl, CanonicalPolicy.producerDecodeOut lay floor answer = some dl ∧
         CanonicalPolicy.credit lay dl.2 dl.1 = c) ↔
       (if lowerSpare (answer.extractLsb' 0 128) then
-        accepted lay (floor - 4) (fun ds => CanonicalPolicy.credit lay false ds + 4 = c) (answer.extractLsb' 0 128)
+        accepted lay (floor - CanonicalPolicy.lowerBonus lay) (fun ds => CanonicalPolicy.credit lay false ds + CanonicalPolicy.lowerBonus lay = c)
+          (answer.extractLsb' 0 128)
       else accepted lay floor (fun ds => CanonicalPolicy.credit lay false ds = c) (answer.extractLsb' 128 128)) := by
   have hsel : lowSelected lay answer = decide (lowerSpare (answer.extractLsb' 0 128)) := by
     simp [lowSelected, hl]
@@ -1660,18 +1663,18 @@ theorem accepted_floor_le {lay : Layer} {floor : Nat} {P : List Nat → Prop} {v
   exact ⟨ds, CanonicalPolicy.producerDecodeAt_credit hd, hp⟩
 
 theorem lower_low_count (lay : Layer) (hl : lay ≠ 0) (floor c : Nat) (hf : floor ≤ c) :
-    (univ.filter (accepted lay (floor - 4) (fun ds => CanonicalPolicy.credit lay false ds + 4 = c))).card =
-      if 4 ≤ c then lowerWordCount (c - 4) else 0 := by
+    (univ.filter (accepted lay (floor - CanonicalPolicy.lowerBonus lay) (fun ds => CanonicalPolicy.credit lay false ds + CanonicalPolicy.lowerBonus lay = c))).card =
+      if CanonicalPolicy.lowerBonus lay ≤ c then lowerWordCount (c - CanonicalPolicy.lowerBonus lay) else 0 := by
   split_ifs with hc
-  · have he : (univ.filter (accepted lay (floor - 4) (fun ds => CanonicalPolicy.credit lay false ds + 4 = c))) =
-        univ.filter (accepted lay (floor - 4) (fun ds => CanonicalPolicy.credit lay false ds = c - 4)) := by
+  · have he : (univ.filter (accepted lay (floor - CanonicalPolicy.lowerBonus lay) (fun ds => CanonicalPolicy.credit lay false ds + CanonicalPolicy.lowerBonus lay = c))) =
+        univ.filter (accepted lay (floor - CanonicalPolicy.lowerBonus lay) (fun ds => CanonicalPolicy.credit lay false ds = c - CanonicalPolicy.lowerBonus lay)) := by
       apply Finset.filter_congr
       intro v _
       unfold accepted
-      cases CanonicalPolicy.producerDecodeAt lay (floor - 4) false v with
+      cases CanonicalPolicy.producerDecodeAt lay (floor - CanonicalPolicy.lowerBonus lay) false v with
       | none => rfl
       | some ds => simp only; omega
-    rw [he, accepted_lower_credit_card_all lay hl (floor - 4) (c - 4) (by omega)]
+    rw [he, accepted_lower_credit_card_all lay hl (floor - CanonicalPolicy.lowerBonus lay) (c - CanonicalPolicy.lowerBonus lay) (by omega)]
     rfl
   · apply Finset.card_eq_zero.mpr
     apply Finset.filter_eq_empty_iff.mpr
@@ -1684,15 +1687,16 @@ theorem lower_high_count (lay : Layer) (hl : lay ≠ 0) (floor c : Nat) (hf : fl
       lowerWordCount c :=
   accepted_lower_credit_card_all lay hl floor c hf
 
-/-- Path-aware lower selection count: weight `2^128` through LOW (credit + 4), `3 * 2^126` through HIGH. -/
+/-- Path-aware lower selection count: weight `2^128` through LOW (credit + `lowerBonus lay`), `3 * 2^126` through
+HIGH. -/
 theorem selected_lower_path_card (lay : Layer) (hl : lay ≠ 0) (floor c : Nat) (hf : floor ≤ c) :
     (univ.filter fun answer : HashOutput => ∃ dl, CanonicalPolicy.producerDecodeOut lay floor answer = some dl ∧
         CanonicalPolicy.credit lay dl.2 dl.1 = c).card =
-      (if 4 ≤ c then lowerWordCount (c - 4) else 0) * 2^128 + 3 * 2^126 * lowerWordCount c := by
+      (if CanonicalPolicy.lowerBonus lay ≤ c then lowerWordCount (c - CanonicalPolicy.lowerBonus lay) else 0) * 2^128 + 3 * 2^126 * lowerWordCount c := by
   have he : (univ.filter fun answer : HashOutput => ∃ dl, CanonicalPolicy.producerDecodeOut lay floor answer = some dl ∧
         CanonicalPolicy.credit lay dl.2 dl.1 = c).card =
       (univ.filter fun x : Digest × Digest => if lowerSpare x.1 then
-        accepted lay (floor - 4) (fun ds => CanonicalPolicy.credit lay false ds + 4 = c) x.1
+        accepted lay (floor - CanonicalPolicy.lowerBonus lay) (fun ds => CanonicalPolicy.credit lay false ds + CanonicalPolicy.lowerBonus lay = c) x.1
       else accepted lay floor (fun ds => CanonicalPolicy.credit lay false ds = c) x.2).card := by
     refine Finset.card_equiv TopChoice.splitEquiv fun a => ?_
     simp only [mem_filter, mem_univ, true_and, TopChoice.splitEquiv_apply, TopChoice.lowHalf,

@@ -1128,8 +1128,8 @@ structure Stable (output : HashOutput) (b : SharedCodec.CBytes) (pk : Digest) (s
   scatterPlan : SharedScatter.PlanAt s
   pk : DigAt s 0xA0 pk
   index : s.getMem (0x20550#64)=BitVec.ofNat 64 (WCT9.digestIndex output)
-  threshold1 : ∀r,r<56 → s.getByte (BitVec.ofNat 64 (16749456+r))=BitVec.ofNat 8 (WCT9.CanonicalPolicy.threshold 1 r)
-  threshold2 : ∀r,r<41 → s.getByte (BitVec.ofNat 64 (16749520+r))=BitVec.ofNat 8 (WCT9.CanonicalPolicy.threshold 2 r)
+  threshold1 : ∀r,r<53 → s.getByte (BitVec.ofNat 64 (16749456+r))=BitVec.ofNat 8 (WCT9.CanonicalPolicy.threshold 1 r)
+  threshold2 : ∀r,r<40 → s.getByte (BitVec.ofNat 64 (16749520+r))=BitVec.ofNat 8 (WCT9.CanonicalPolicy.threshold 2 r)
   zt : SigGolfCandidate.T3M.Search.ZeroCap.ZtOK 354 s
   t51src : SigGolfCandidate.T3M.Search.T51.T51TableW 0xFF9E00 s
 
@@ -1302,7 +1302,7 @@ open SigGolfCandidate.T3 (HashOutput)
 
 def I0 : ClaudeWCT.W9.T3M.Images := ⟨Images.signImage,Images.expandImage,Images.verifyImage⟩
 
-def pairedExpandCost : Nat := 4210000000 + ClaudeWCT.W9.Machine.Expand.SharedCompactMain.suffixW
+def pairedExpandCost : Nat := 4230000000 + ClaudeWCT.W9.Machine.Expand.SharedCompactMain.suffixW
 
 def PairedExpPost : Option (HashOutput × SigGolfCandidate.Research.SharedForest.Witness) → MachineState → Prop
   | none,t => (t.pc=pcOf 356 ∨ t.pc=pcOf 45231) ∧ t.getReg .x5=1 ∧ t.getReg .x10=1 ∧
@@ -1510,7 +1510,7 @@ def SuffixDone (im : Image) (r : Option (HashOutput × SharedForest.Witness)) (s
 theorem layers_good {sk : BitVec 256} {output : HashOutput} {sig : SharedForest.Signature}
     {b : SharedCodec.CBytes} {counter : BitVec 32} {forest : Digest × Digest} {pk : Digest} {s : MachineState}
     (h : LayersReady output sig b counter forest pk s) :
-    TBSim Images.expandImage sk s 3782800060 (recoverProgram output sig counter forest pk) (SuffixDone Images.expandImage) := by
+    TBSim Images.expandImage sk s 3805800060 (recoverProgram output sig counter forest pk) (SuffixDone Images.expandImage) := by
   have call:=SigGolfCandidate.T3M.Expand.SharedLayers.installed_recover_good (sk:=sk) (vin:=0) h.inv
   unfold recoverProgram
   refine TBSim.bind (W₂:=15800060) call (fun result t ht=>?_)
@@ -1651,11 +1651,11 @@ theorem forest_suffix_good {sk : BitVec 256} {output : HashOutput} {b : SharedCo
       (WCT9.digestIndex output) (SharedForest.rawChildFromOutput output)
       (fun k=>SharedForest.forestRank output k.val) s 0
       (W9Machine.SharedV3.initialPair (Paired.witEnc output ⟨SharedCompactMain.forestSig (SharedCodec.sigDecC b),counter,fun _=>0,false,[]⟩)) s) :
-    TBSim Images.expandImage sk s 3782804681 (forestProgram output b counter pk) (SuffixDone Images.expandImage) := by
+    TBSim Images.expandImage sk s 3805804681 (forestProgram output b counter pk) (SuffixDone Images.expandImage) := by
   have call:=SharedForestRun.installed_forest_good sk output ⟨SharedCompactMain.forestSig (SharedCodec.sigDecC b),counter,fun _=>0,false,[]⟩
     (WCT9.digestIndex output) hi s hI
   unfold forestProgram
-  refine TBSim.bind (W₂:=3782802665) call (fun pair t ht=>?_)
+  refine TBSim.bind (W₂:=3805802665) call (fun pair t ht=>?_)
   obtain ⟨tp,left,right,frame,fields,x8⟩:=ht
   have memory:=hm.frame frame
   obtain ⟨u,tu,up,u2,u5,roots,rho,dc,zeros,moved,regs,fr⟩:=SharedHandoff.steps SharedHandoff.installed_code t tp x8
@@ -1727,9 +1727,9 @@ structure InitialMemory (b : SharedCodec.CBytes) (pk : Digest) (s : MachineState
   toptab : Compact2.TopTabAt s
   scatterPlan : SharedScatter.PlanAt s
   pk : DigAt s 0xA0 pk
-  threshold1 : ∀r,r<56 → s.getByte (BitVec.ofNat 64 (16749456+r))=
+  threshold1 : ∀r,r<53 → s.getByte (BitVec.ofNat 64 (16749456+r))=
     BitVec.ofNat 8 (ClaudeWCT.WCT9.CanonicalPolicy.threshold 1 r)
-  threshold2 : ∀r,r<41 → s.getByte (BitVec.ofNat 64 (16749520+r))=
+  threshold2 : ∀r,r<40 → s.getByte (BitVec.ofNat 64 (16749520+r))=
     BitVec.ofNat 8 (ClaudeWCT.WCT9.CanonicalPolicy.threshold 2 r)
   zt : SigGolfCandidate.T3M.Search.ZeroCap.ZtOK 354 s
   c32 : ∃x<2^32,s.getMem (BitVec.ofNat 64 (ENC+32))=BitVec.ofNat 64 x
@@ -1822,7 +1822,7 @@ theorem forest_suffix_halted {sk : BitVec 256} {output : HashOutput} {b : Shared
       (WCT9.digestIndex output) (SharedForest.rawChildFromOutput output)
       (fun k=>SharedForest.forestRank output k.val) s 0
       (W9Machine.SharedV3.initialPair (Paired.witEnc output ⟨SharedCompactMain.forestSig (SharedCodec.sigDecC b),counter,fun _=>0,false,[]⟩)) s) :
-    TBSim Images.expandImage sk s (3782804681+suffixW) (forestProgram output b counter pk)
+    TBSim Images.expandImage sk s (3805804681+suffixW) (forestProgram output b counter pk)
       ClaudeWCT.W9.Machine.ExpandLink.PairedExpPost := by
   simpa only [bind_pure] using
     (TBSim.bind (W₂:=suffixW) (forest_suffix_good hi hm hI) (fun _ _ h=>suffix_done h))
@@ -2012,7 +2012,7 @@ theorem initial_x5 (message : Message) (pk : PublicKey) (b : SharedCodec.CBytes)
   rfl
 
 /-- Cycle budget after the digest search (layers + top + compaction/scatter + img-v6 witness tail). -/
-def searchedW : Nat := 3782809854 + suffixW
+def searchedW : Nat := 3805809854 + suffixW
 
 theorem searched_continue {sk : BitVec 256} {s0 s : MachineState} {pk : Digest} {b : SharedCodec.CBytes}
     (initial : InitialMemory b pk s0) (hh:(SharedCodec.sigDecC b).policyHints.toNat<7744)

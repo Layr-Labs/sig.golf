@@ -956,6 +956,46 @@ def lowerDataDecode (answer : Digest) : Option (List Nat) :=
 /-- Chains a spare-valid lower word runs before the machine faults on it. -/
 def lowerFailChains (answer : Digest) : Nat :=
   if WCT9.lowerRankGood answer then 42 else 3 * WCT9.lowerFirstBad answer
+/-- P0: entering group `i` of a lower word faults on a rank below its floor, or (groups 6, 13) on a set fixed bit
+63 / 127 (the `srai` top-field dispatch leaves the code). -/
+def spareBadAt (answer : Digest) (i : Nat) : Bool :=
+  decide (lowerWord answer / 2 ^ (9 * i) % 512 < WCT9.producerRankFloor i) ||
+    (decide (i = 6) && decide (answer.toNat / 2 ^ 63 % 2 = 1)) ||
+    (decide (i = 13) && decide (answer.toNat / 2 ^ 127 % 2 = 1))
+def spareFirstBad (answer : Digest) : Nat := ((List.range 14).find? (spareBadAt answer)).getD 14
+/-- Chains a non-canonical selected lower word runs before the machine faults on it. -/
+def spareFailChains (answer : Digest) : Nat := 3 * spareFirstBad answer
+/-- The data digits (and the checksum digit) the machine reads from any lower word. -/
+def rawLowerDigits (answer : Digest) : List Nat := dataDigits 1 answer ++ [target 1 - (dataDigits 1 answer).sum]
+def lowerSpareFail {β : Type} (w : WBytes) (index : Nat) (lay : Layer) (answer : Digest) : M (Option β) := do
+  let _ ← (List.range (spareFailChains answer)).mapM (layerChainP w index lay (rawLowerDigits answer))
+  pure none
+theorem spareFirstBad_find (answer : Digest) (h : ¬ lowerSpare answer) :
+    (List.range 14).find? (spareBadAt answer) = some (spareFirstBad answer) := by
+  unfold spareFirstBad
+  cases he : (List.range 14).find? (spareBadAt answer) with
+  | some i => rfl
+  | none =>
+      exfalso
+      apply h
+      have h6 := List.find?_eq_none.mp he 6 (List.mem_range.mpr (by decide))
+      have h13 := List.find?_eq_none.mp he 13 (List.mem_range.mpr (by decide))
+      simp only [spareBadAt, Bool.or_eq_true, decide_eq_true_eq, Bool.and_eq_true, not_or, not_and,
+        true_implies] at h6 h13
+      unfold lowerSpare
+      omega
+theorem spareFirstBad_lt (answer : Digest) (h : ¬ lowerSpare answer) : spareFirstBad answer < 14 :=
+  List.mem_range.mp (List.mem_of_find?_eq_some (spareFirstBad_find answer h))
+theorem spareFirstBad_bad (answer : Digest) (h : ¬ lowerSpare answer) :
+    spareBadAt answer (spareFirstBad answer) = true :=
+  List.find?_some (spareFirstBad_find answer h)
+theorem spareFirstBad_before (answer : Digest) (h : ¬ lowerSpare answer) (i : Nat)
+    (hi : i < spareFirstBad answer) : spareBadAt answer i = false := by
+  obtain ⟨_, j, hj, hjeq, hbefore⟩ := List.find?_eq_some_iff_getElem.mp (spareFirstBad_find answer h)
+  simp only [List.getElem_range] at hjeq
+  subst j
+  have hb := hbefore i hi
+  simpa only [List.getElem_range, Bool.not_eq_true'] using hb
 def layerGuardedPairW (w : WBytes) (index : Nat) (lay : Layer) (answer : Digest) (digits : List Nat) :
     M (Option (Digest × Digest)) :=
   if lowerWindowOk answer then layerGuardedPairP w index lay answer digits
@@ -974,7 +1014,7 @@ def layersCanonicalBCW (w : WBytes) (index : Nat) : Nat → WCT9.LayerMsg → M 
         (layerEncodingInputP lay tree leaf msg counter (wbcPad w index lay) (wbcRight w) (wbcHigh w index lay))
       if n = 0 then topLayerP w index answer
       else do
-        let some digits := lowerDataDecode answer | pure none
+        let some digits := lowerDataDecode answer | lowerSpareFail w index lay answer
         let some pair ← layerGuardedPairW w index lay answer digits | pure none
         layersCanonicalBCW w index n (.pair pair.1 pair.2)
 
@@ -1044,7 +1084,7 @@ theorem eval_layersCanonicalBCW_succ (answers : QueryImpl Spec Id) (w : WBytes) 
     by_cases hw : lowerWindowOk answer
     · rw [if_pos hw]
       cases lowerDataDecode answer with
-      | none => rfl
+      | none => simp [lowerSpareFail]
       | some digits =>
         simp only [layerGuardedPairW, if_pos hw]
         apply eval_bind_congr'
@@ -1054,7 +1094,7 @@ theorem eval_layersCanonicalBCW_succ (answers : QueryImpl Spec Id) (w : WBytes) 
         | some pair => exact ih _
     · rw [if_neg hw]
       cases lowerDataDecode answer with
-      | none => rfl
+      | none => simp [lowerSpareFail]
       | some digits =>
         simp [layerGuardedPairW, if_neg hw]
 
@@ -1095,7 +1135,7 @@ theorem queried_layersCanonicalBCW_succ (answers : QueryImpl Spec Id) (w : WByte
     · rw [if_pos hw]
       revert ha
       cases lowerDataDecode answer with
-      | none => intro _; rfl
+      | none => intro ha; simp [lowerSpareFail] at ha
       | some digits =>
         intro ha
         simp only [layerGuardedPairW, if_pos hw] at ha ⊢
@@ -1107,7 +1147,7 @@ theorem queried_layersCanonicalBCW_succ (answers : QueryImpl Spec Id) (w : WByte
     · exfalso
       revert ha
       cases lowerDataDecode answer with
-      | none => intro ha; simp at ha
+      | none => intro ha; simp [lowerSpareFail] at ha
       | some digits =>
         intro ha
         simp [layerGuardedPairW, if_neg hw] at ha

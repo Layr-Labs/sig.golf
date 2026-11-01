@@ -347,15 +347,16 @@ theorem lower_spec {image : Image} (hK : KernAt image 354 (Code image)) (s : Mac
     (h25 : s.getReg .x25=BitVec.ofNat 64 S) (hST : S≤T) (hc : T-S<8)
     (hints : BitVec 16) (hh : hints.toNat<8000) (h8 : s.getReg .x8=BitVec.ofNat 64 lay.val)
     (hm : s.getMem (0x66000#64)=BitVec.ofNat 64 hints.toNat) (hf : floor=hintFloor hints lay) :
-    let a := partialScore v 14+(if T-S=6 then 1 else 0)+(if T3.lowerSpare L then 4 else 0)
-    ∃ t n c, c≤(if floor≤a then 110 else 104) ∧ Steps image s n c t ∧
+    let a := partialScore v 14+(if T-S=6 then 1 else 0)+(if T3.lowerSpare L then WCT9.CanonicalPolicy.lowerBonus lay else 0)
+    ∃ t n c, c≤(if floor≤a then 113 else 107) ∧ Steps image s n c t ∧
       t.pc=(if floor≤a then pcOf 787 else pcOf 822) ∧
       (floor≤a → t.getMem (BitVec.ofNat 64 (creditAddr lay))=BitVec.ofNat 64 a) ∧
       RegsExcept s t [.x10,.x11,.x20,.x28,.x29,.x30] ∧ Frame s t (CreditW lay) := by
   dsimp only
   have hC := hK.reward
   have ha0 : partialScore v 14+(if T-S=6 then 1 else 0)<2^60 := by have h := partial_bound v 14; split_ifs <;> omega
-  have ha : partialScore v 14+(if T-S=6 then 1 else 0)+(if T3.lowerSpare L then 4 else 0)<2^64 := by
+  have hbon := WCT9.CanonicalPolicy.lowerBonus_le lay
+  have ha : partialScore v 14+(if T-S=6 then 1 else 0)+(if T3.lowerSpare L then WCT9.CanonicalPolicy.lowerBonus lay else 0)<2^64 := by
     split_ifs <;> omega
   have hfloor : floor<2^64 := by have := hintFloor_lt hints lay;omega
   have hlow : 1≤lay.val ∧ lay.val≤3 := by have := lay.isLt; have hn : lay.val≠0 := fun h=>hl (Fin.ext h);omega
@@ -370,17 +371,19 @@ theorem lower_spec {image : Image} (hK : KernAt image 354 (Code image)) (s : Mac
   obtain ⟨v3,s3,p3,r3,f3⟩ := lowerFloorJump_steps hC.floorJump v2 p2
   have f03 := ((fu.trans fv).trans f2).trans f3
   obtain ⟨kp,vp,sp,kple,pp,xp,rp,fp⟩ := pa_spec hK v3 p3 L (partialScore v 14+(if T-S=6 then 1 else 0)) (by omega)
+    lay hl (by rw [r3.get (by decide),r2.get (by decide),rv.get (by decide),ru.get (by decide),h8])
     (by rw [f03.get (by decide) (by simp)]; exact hm0) (by rw [f03.get (by decide) (by simp)]; exact hm8)
     (by rw [r3.get (by decide),x2])
+  replace kple : kp ≤ 10 := by simpa [paCost] using kple
   obtain ⟨v4,n4,c4,hc4,s4,p4,x4,r4,f4⟩ := floor_steps hC.hooks vp (by simpa [paTarget] using pp) lay hl hints hh
     (by rw [rp.get (by decide),r3.get (by decide),r2.get (by decide),rv.get (by decide),ru.get (by decide),h8])
     (by rw [fp.get (by decide) (by simp),f03.get (by decide) (by simp),hm])
-  have x20 : v4.getReg .x20=BitVec.ofNat 64 (partialScore v 14+(if T-S=6 then 1 else 0)+(if T3.lowerSpare L then 4 else 0)) := by
+  have x20 : v4.getReg .x20=BitVec.ofNat 64 (partialScore v 14+(if T-S=6 then 1 else 0)+(if T3.lowerSpare L then WCT9.CanonicalPolicy.lowerBonus lay else 0)) := by
     rw [r4.get (by decide),xp]
   obtain ⟨v5,s5,p5,r5,f5⟩ := lowerBranch_steps hC.lowerBranch v4 p4 _ floor ha hfloor x20 (by simpa [hf] using x4)
   have rr := ((((ru.trans rv).trans r2).trans r3).trans rp).trans r4
   have ff := (f03.trans fp).trans f4
-  by_cases hg : floor≤partialScore v 14+(if T-S=6 then 1 else 0)+(if T3.lowerSpare L then 4 else 0)
+  by_cases hg : floor≤partialScore v 14+(if T-S=6 then 1 else 0)+(if T3.lowerSpare L then WCT9.CanonicalPolicy.lowerBonus lay else 0)
   · rw [if_pos hg] at p5
     obtain ⟨v6,s6,p6,r6,f6⟩ := lowerCreditJump_steps hC.lowerJump v5 p5
     obtain ⟨t,st,pt,mt,rt,ft⟩ := SharedCounterHooks.lowerCredit_steps hC.hooks.lowerCredit v6 p6 lay.val hlow
@@ -411,7 +414,7 @@ set_option maxHeartbeats 1200000
 set_option maxRecDepth 32768
 
 theorem lower_reward (lay : Layer) (hl : lay≠0) (v : Digest) (T S : Nat) (low : Bool) :
-    LowerLUT.partialScore v 14+(if T-S=6 then 1 else 0)+(if low then 4 else 0)=
+    LowerLUT.partialScore v 14+(if T-S=6 then 1 else 0)+(if low then lowerBonus lay else 0)=
       credit lay low (lowDigits v++[T-S]) := by
   have h := LowerLUT.packed_reward lay hl v (T-S)
   rw [credit_lower hl]
@@ -429,14 +432,14 @@ theorem lower_spec_credit {image : Image} (hK : KernAt image 354 (Code image)) (
     (hm : s.getMem (0x66000#64)=BitVec.ofNat 64 hints.toNat) (hf : floor=hintFloor hints lay) :
     let low := decide (T3.lowerSpare L)
     let good := floor+WCT9.dispatchPenalty lay (lowDigits v++[T-S])≤pathReward lay low (lowDigits v++[T-S])
-    ∃ t n c, c≤(if good then 110 else 104) ∧ Steps image s n c t ∧
+    ∃ t n c, c≤(if good then 113 else 107) ∧ Steps image s n c t ∧
       t.pc=(if good then pcOf 787 else pcOf 822) ∧
       (good → t.getMem (BitVec.ofNat 64 (creditAddr lay))=BitVec.ofNat 64 (credit lay low (lowDigits v++[T-S]))) ∧
       RegsExcept s t [.x10,.x11,.x20,.x28,.x29,.x30] ∧ Frame s t (CreditW lay) := by
   dsimp only
   have h := lower_spec hK s lay hl v ht hp h6 h7 L hm0 hm8 T S floor h17 h25 hST hc hints hh h8 hm hf
   have e := lower_reward lay hl v T S (decide (T3.lowerSpare L))
-  have e' : (if T3.lowerSpare L then 4 else 0)=(if decide (T3.lowerSpare L) then 4 else 0) := by
+  have e' : (if T3.lowerSpare L then lowerBonus lay else 0)=(if decide (T3.lowerSpare L) then lowerBonus lay else 0) := by
     by_cases hs : T3.lowerSpare L <;> simp [hs]
   have hg : (floor+WCT9.dispatchPenalty lay (lowDigits v++[T-S])≤
       pathReward lay (decide (T3.lowerSpare L)) (lowDigits v++[T-S]))↔
@@ -484,7 +487,7 @@ structure CsArgs where
   ret : Nat
   floor : Nat
   hints : BitVec 16
-def csT (lay : Layer) : Nat := if lay = 0 then 755 else 404
+def csT (lay : Layer) : Nat := if lay = 0 then 755 else 407
 def csOk (lay : Layer) : Nat := if lay = 0 then 4096 else 4096
 theorem capLimit_le (n : Nat) : capLimit n ≤ 2 ^ 22 := by unfold capLimit; omega
 theorem capLimit_eq (lay : Layer) : capLimit lay.val = WCT9.searchLimit lay := by
@@ -1040,7 +1043,7 @@ theorem cs_loop {A : CsArgs} {s0 : MachineState} (hK : KernAt image 354 (Canonic
             have hTR := hT8.stepCredit rR (by decide) fR
             change tR.pc=(if rewardOK A.lay A.floor low (lowDigits v++[T3.target (WCT9.CanonicalPolicy.normalLayer A.lay)-(lowDigits v).sum])
               then pcOf (354+433) else pcOf (354+468)) at pR
-            change cR≤(if rewardOK A.lay A.floor low (lowDigits v++[T3.target (WCT9.CanonicalPolicy.normalLayer A.lay)-(lowDigits v).sum]) then 110 else 104) at hcR
+            change cR≤(if rewardOK A.lay A.floor low (lowDigits v++[T3.target (WCT9.CanonicalPolicy.normalLayer A.lay)-(lowDigits v).sum]) then 113 else 107) at hcR
             change (rewardOK A.lay A.floor low (lowDigits v++[T3.target (WCT9.CanonicalPolicy.normalLayer A.lay)-(lowDigits v).sum]) → _) at mR
             by_cases hreward : rewardOK A.lay A.floor low (lowDigits v++[T3.target (WCT9.CanonicalPolicy.normalLayer A.lay)-(lowDigits v).sum])
             · rw [if_pos hreward] at pR hcR

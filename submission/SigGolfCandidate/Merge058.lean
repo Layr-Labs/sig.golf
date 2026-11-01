@@ -20170,8 +20170,8 @@ def k_263 : List (BitVec 32) := [0x13,0x13]
 b + 425 = 'j 354' (top exhaustion rejects), sign (b = 543) words b + 430, 431 = 'li t3, 2 ; j 21230' (the dead
 dummy fallback enters the T51 unpacker). -/
 def k_265 (b : Nat) : List (BitVec 32) :=
-  if b = 354 then [0xffff37,0x30e13,0x7fe7e93,0x1ee8eb3,0xecc83,0x7e5e13,0x7fe7e93,0x1ee8eb3,0xece83,0x1dc8cb3,0x7e5e13,0x7fe7e93,0x1ee8eb3,0xece83,0x1dc8cb3,0x7e5e13,0x7fe7e93,0x1ee8eb3,0xece83,0x1dc8cb3,0x7e5e13,0x7fe7e93,0x1ee8eb3,0xece83,0x1dc8cb3,0x7e5e13,0x7fe7e93,0x1ee8eb3,0xece83,0x1dc8cb3,0x7e5e13,0x7fe7e93,0x1ee8eb3,0xece83,0x1dc8cb3,0x7e5e13,0x7fe7e93,0x1ee8eb3,0xece83,0x1dc8cb3,0x7e5e13,0x7fe7e93,0x1ee8eb3,0xece83,0x1dc8cb3,0x7e5e13,0x139e93,0x1ceee33,0x7fe7e93,0x1ee8eb3,0xece83,0x1dc8cb3,0x7e5e13,0x7fe7e93,0x1ee8eb3,0xece83,0x1dc8cb3,0x7e5e13,0x7fe7e93,0x1ee8eb3,0xece83,0x1dc8cb3,0x7e5e13,0x7fe7e93,0x1ee8eb3,0xece83,0x1dc8cb3,0x7e5e13,0x7fe7e93,0x1ee8eb3,0xece83,0x1dc8cb3,0x7e5e13,0x7fe7e93,0x1ee8eb3,0xece83,0x1dc8cb3,0x7e5e13,0x7fe7e93,0x1ee8eb3,0xece83,0x1dc8cb3,0x7e5e13,0x7fe7e93,0x1ee8eb3,0xece83,0x1dc8cb3,0x7e5e13,0x7e7e93,0x1dc8cb3,0x3e5e93,0x7efe93,0x1dc8cb3,0x3d3de93,0x1dc8cb3,0x411c8eb3,0xbe0e9ee3,0x2312906f,0x20ab7,0x420a8a93,0x80f0f13,0x7f37e13,0x2e1e13,0x1ee0e33,0xe6e83,0x1da8023,0x8ede93,0x1da80a3,0x8ede93,0x1da8123,0x735313,0x3939e13,0x1c36333,0x73d393,0x3a8a93,0x1a0a13,0x11a3e13,0xfc0e10e3,0x737e13,0x1ca8123,0x335313,0x737e13,0x1ca8023,0x335313,0x737e13,0x1ca80a3,0x8067,0x30513,0x38593,0x613,0x1100a13,0x7f57e13,0x2e1e13,0x1ee0e33,0x83e4e03,0x1c60633,0x755513,0x3959e13,0x1c56533,0x75d593,0xfffa0a13,0xfc0a1ce3,0x757e13,0xffae0e13,0x1e3e13,0x1c60633,0x355513,0x757e13,0xffae0e13,0x1e3e13,0x1c60633,0x355513,0xffa50e13,0x1e3e13,0x1c60633,0x963e13,0xa0e1e63,0xa13,0xf11ff06f,0x960410e3,0x95dff06f,0x277f4e03,0x940e0ae3,0x278f3303,0x280f3383,0x8100c93,0xa13,0xeedff06f,0x138e13,0x3fe1e13,0x1c34333,0x139393,0x23d393]
-  else [0xffff37,0x30e13,0x7fe7e93,0x1ee8eb3,0xecc83,0x7e5e13,0x7fe7e93,0x1ee8eb3,0xece83,0x1dc8cb3,0x7e5e13,0x7fe7e93,0x1ee8eb3,0xece83,0x1dc8cb3,0x7e5e13,0x7fe7e93,0x1ee8eb3,0xece83,0x1dc8cb3,0x7e5e13,0x7fe7e93,0x1ee8eb3,0xece83,0x1dc8cb3,0x7e5e13,0x7fe7e93,0x1ee8eb3,0xece83,0x1dc8cb3,0x7e5e13,0x7fe7e93,0x1ee8eb3,0xece83,0x1dc8cb3,0x7e5e13,0x7fe7e93,0x1ee8eb3,0xece83,0x1dc8cb3,0x7e5e13,0x7fe7e93,0x1ee8eb3,0xece83,0x1dc8cb3,0x7e5e13,0x139e93,0x1ceee33,0x7fe7e93,0x1ee8eb3,0xece83,0x1dc8cb3,0x7e5e13,0x7fe7e93,0x1ee8eb3,0xece83,0x1dc8cb3,0x7e5e13,0x7fe7e93,0x1ee8eb3,0xece83,0x1dc8cb3,0x7e5e13,0x7fe7e93,0x1ee8eb3,0xece83,0x1dc8cb3,0x7e5e13,0x7fe7e93,0x1ee8eb3,0xece83,0x1dc8cb3,0x7e5e13,0x7fe7e93,0x1ee8eb3,0xece83,0x1dc8cb3,0x7e5e13,0x7fe7e93,0x1ee8eb3,0xece83,0x1dc8cb3,0x7e5e13,0x7fe7e93,0x1ee8eb3,0xece83,0x1dc8cb3,0x7e5e13,0x7e7e93,0x1dc8cb3,0x3e5e93,0x7efe93,0x1dc8cb3,0x3d3de93,0x1dc8cb3,0x411c8eb3,0xbe0e9ee3,0x7591306f,0x20ab7,0x420a8a93,0x80f0f13,0x7f37e13,0x2e1e13,0x1ee0e33,0xe6e83,0x1da8023,0x8ede93,0x1da80a3,0x8ede93,0x1da8123,0x735313,0x3939e13,0x1c36333,0x73d393,0x3a8a93,0x1a0a13,0x11a3e13,0xfc0e10e3,0x737e13,0x1ca8123,0x335313,0x737e13,0x1ca8023,0x335313,0x737e13,0x1ca80a3,0x8067,0x30513,0x38593,0x613,0x1100a13,0x7f57e13,0x2e1e13,0x1ee0e33,0x83e4e03,0x1c60633,0x755513,0x3959e13,0x1c56533,0x75d593,0xfffa0a13,0xfc0a1ce3,0x757e13,0xffae0e13,0x1e3e13,0x1c60633,0x355513,0x757e13,0xffae0e13,0x1e3e13,0x1c60633,0x355513,0xffa50e13,0x1e3e13,0x1c60633,0x963e13,0xa0e1e63,0xa13,0xf11ff06f,0x960410e3,0xffff37,0x277f4e03,0x940e0ae3,0x278f3303,0x280f3383,0x200e13,0x4811306f,0xeedff06f,0x138e13,0x3fe1e13,0x1c34333,0x139393,0x23d393]
+  if b = 354 then [0xffff37,0x30e13,0x7fe7e93,0x1ee8eb3,0xecc83,0x7e5e13,0x7fe7e93,0x1ee8eb3,0xece83,0x1dc8cb3,0x7e5e13,0x7fe7e93,0x1ee8eb3,0xece83,0x1dc8cb3,0x7e5e13,0x7fe7e93,0x1ee8eb3,0xece83,0x1dc8cb3,0x7e5e13,0x7fe7e93,0x1ee8eb3,0xece83,0x1dc8cb3,0x7e5e13,0x7fe7e93,0x1ee8eb3,0xece83,0x1dc8cb3,0x7e5e13,0x7fe7e93,0x1ee8eb3,0xece83,0x1dc8cb3,0x7e5e13,0x7fe7e93,0x1ee8eb3,0xece83,0x1dc8cb3,0x7e5e13,0x7fe7e93,0x1ee8eb3,0xece83,0x1dc8cb3,0x7e5e13,0x139e93,0x1ceee33,0x7fe7e93,0x1ee8eb3,0xece83,0x1dc8cb3,0x7e5e13,0x7fe7e93,0x1ee8eb3,0xece83,0x1dc8cb3,0x7e5e13,0x7fe7e93,0x1ee8eb3,0xece83,0x1dc8cb3,0x7e5e13,0x7fe7e93,0x1ee8eb3,0xece83,0x1dc8cb3,0x7e5e13,0x7fe7e93,0x1ee8eb3,0xece83,0x1dc8cb3,0x7e5e13,0x7fe7e93,0x1ee8eb3,0xece83,0x1dc8cb3,0x7e5e13,0x7fe7e93,0x1ee8eb3,0xece83,0x1dc8cb3,0x7e5e13,0x7fe7e93,0x1ee8eb3,0xece83,0x1dc8cb3,0x7e5e13,0x7e7e93,0x1dc8cb3,0x3e5e93,0x7efe93,0x1dc8cb3,0x3d3de93,0x1dc8cb3,0x411c8eb3,0xbe0e9ee3,0x2312906f,0x20ab7,0x420a8a93,0x80f0f13,0x7f37e13,0x2e1e13,0x1ee0e33,0xe6e83,0x1da8023,0x8ede93,0x1da80a3,0x8ede93,0x1da8123,0x735313,0x3939e13,0x1c36333,0x73d393,0x3a8a93,0x1a0a13,0x11a3e13,0xfc0e10e3,0x737e13,0x1ca8123,0x335313,0x737e13,0x1ca8023,0x335313,0x737e13,0x1ca80a3,0x8067,0x30513,0x38593,0x613,0x1100a13,0x7f57e13,0x2e1e13,0x1ee0e33,0x83e4e03,0x1c60633,0x755513,0x3959e13,0x1c56533,0x75d593,0xfffa0a13,0xfc0a1ce3,0x757e13,0xffae0e13,0x1e3e13,0x1c60633,0x355513,0x757e13,0xffae0e13,0x1e3e13,0x1c60633,0x355513,0xffa50e13,0x1e3e13,0x1c60633,0x963e13,0xa0e1e63,0xa13,0xf11ff06f,0x960410e3,0x95dff06f,0x277f4e03,0x940e0ae3,0x278f3303,0x280f3383,0x8100c93,0xa13,0xeedff06f,0x38e13,0x3fe1e13,0x1c34333,0x139393,0x23d393]
+  else [0xffff37,0x30e13,0x7fe7e93,0x1ee8eb3,0xecc83,0x7e5e13,0x7fe7e93,0x1ee8eb3,0xece83,0x1dc8cb3,0x7e5e13,0x7fe7e93,0x1ee8eb3,0xece83,0x1dc8cb3,0x7e5e13,0x7fe7e93,0x1ee8eb3,0xece83,0x1dc8cb3,0x7e5e13,0x7fe7e93,0x1ee8eb3,0xece83,0x1dc8cb3,0x7e5e13,0x7fe7e93,0x1ee8eb3,0xece83,0x1dc8cb3,0x7e5e13,0x7fe7e93,0x1ee8eb3,0xece83,0x1dc8cb3,0x7e5e13,0x7fe7e93,0x1ee8eb3,0xece83,0x1dc8cb3,0x7e5e13,0x7fe7e93,0x1ee8eb3,0xece83,0x1dc8cb3,0x7e5e13,0x139e93,0x1ceee33,0x7fe7e93,0x1ee8eb3,0xece83,0x1dc8cb3,0x7e5e13,0x7fe7e93,0x1ee8eb3,0xece83,0x1dc8cb3,0x7e5e13,0x7fe7e93,0x1ee8eb3,0xece83,0x1dc8cb3,0x7e5e13,0x7fe7e93,0x1ee8eb3,0xece83,0x1dc8cb3,0x7e5e13,0x7fe7e93,0x1ee8eb3,0xece83,0x1dc8cb3,0x7e5e13,0x7fe7e93,0x1ee8eb3,0xece83,0x1dc8cb3,0x7e5e13,0x7fe7e93,0x1ee8eb3,0xece83,0x1dc8cb3,0x7e5e13,0x7fe7e93,0x1ee8eb3,0xece83,0x1dc8cb3,0x7e5e13,0x7e7e93,0x1dc8cb3,0x3e5e93,0x7efe93,0x1dc8cb3,0x3d3de93,0x1dc8cb3,0x411c8eb3,0xbe0e9ee3,0x7591306f,0x20ab7,0x420a8a93,0x80f0f13,0x7f37e13,0x2e1e13,0x1ee0e33,0xe6e83,0x1da8023,0x8ede93,0x1da80a3,0x8ede93,0x1da8123,0x735313,0x3939e13,0x1c36333,0x73d393,0x3a8a93,0x1a0a13,0x11a3e13,0xfc0e10e3,0x737e13,0x1ca8123,0x335313,0x737e13,0x1ca8023,0x335313,0x737e13,0x1ca80a3,0x8067,0x30513,0x38593,0x613,0x1100a13,0x7f57e13,0x2e1e13,0x1ee0e33,0x83e4e03,0x1c60633,0x755513,0x3959e13,0x1c56533,0x75d593,0xfffa0a13,0xfc0a1ce3,0x757e13,0xffae0e13,0x1e3e13,0x1c60633,0x355513,0x757e13,0xffae0e13,0x1e3e13,0x1c60633,0x355513,0xffa50e13,0x1e3e13,0x1c60633,0x963e13,0xa0e1e63,0xa13,0xf11ff06f,0x960410e3,0xffff37,0x277f4e03,0x940e0ae3,0x278f3303,0x280f3383,0x200e13,0x4811306f,0xeedff06f,0x38e13,0x3fe1e13,0x1c34333,0x139393,0x23d393]
 def k_438 : List (BitVec 32) := [854675,263267]
 def k_440 : List (BitVec 32) := [0xfffd0a93]
 def k_441 : List (BitVec 32) := [2579]
@@ -20234,6 +20234,18 @@ def topSelect1 : List (BitVec 32) := [0x1063303,0x1863383]
 def topSelectL : Rv.Layout := [(0,topSelect0),(1,topSelect1)]
 def topSelectCode : List (BitVec 32) := layoutCode topSelectL
 theorem topSelectL_ok : layoutOk 0 topSelectL = true := by decide +kernel
+/-! P0: the LOW-path credit stub that replaced the dead top-select words (sign 21021..21026:
+`s4 += 2; s0 -= 3; bne s0,0,+8; s4 += 1; s0 += 3; jal 22491`; expand 43030..43033:
+`t5 := s0 <u 3; s4 -= t5; s4 += 3; jal 46905`): the LOW bonus is 2 on layers 1, 2 and 3 on layer 3. -/
+def stubBase (b : Nat) : Nat := if b = 354 then 43030 else 21021
+def stubS0 : List (BitVec 32) := [0x2a0a13,0xffd40413,0x41463]
+def stubS3 : List (BitVec 32) := [0x1a0a13]
+def stubS4 : List (BitVec 32) := [0x340413,0x6e40106f]
+def stubE : List (BitVec 32) := [0x343f13,0x41ea0a33,0x3a0a13,0x4810306f]
+def stubL (b : Nat) : Rv.Layout := if b = 354 then [(0,stubE)] else [(0,stubS0),(3,stubS3),(4,stubS4)]
+def stubCode (b : Nat) : List (BitVec 32) := layoutCode (stubL b)
+theorem stubL_ok {b : Nat} (hb : b=354 ∨ b=543) : layoutOk 0 (stubL b)=true := by
+  rcases hb with rfl | rfl <;> decide +kernel
 def zBase (b : Nat) : Nat := if b = 354 then 42841 else 20832
 def z_0 : List (BitVec 32) := [4292087571,985187]
 def z_2 : List (BitVec 32) := [4294839955,31358515,135135843]
@@ -20254,8 +20266,8 @@ def zeroCode (b : Nat) : List (BitVec 32) := layoutCode (zeroL b)
 theorem zeroL_ok {b : Nat} (hb : b = 354 ∨ b = 543) : layoutOk 0 (zeroL b) = true := by
   rcases hb with rfl | rfl <;> decide +kernel
 def selectorBase (b : Nat) : Nat := if b=354 then 42939 else 20930
-def selector0 : List (BitVec 32) := [0x737e33,0xe4c63]
-def selector2 : List (BitVec 32) := [0x1063303,0x1863383,0x737e33,0xe4463]
+def selector0 : List (BitVec 32) := [0x736e33,0xe5c63]
+def selector2 : List (BitVec 32) := [0x1063303,0x1863383,0x736e33,0xe5463]
 def selector6 (b : Nat) : List (BitVec 32) := if b=354 then [0xdd5d606f] else [0x8adec06f]
 def selector7 (b : Nat) : List (BitVec 32) := if b=354 then [0x891d606f] else [0xb68ec06f]
 def selectorL (b : Nat) : Rv.Layout := [(0,selector0),(2,selector2),(6,selector6 b),(7,selector7 b)]
@@ -20272,13 +20284,14 @@ def choiceR0 : List (BitVec 32) := [0x00066e37,0x7f8e3e83,0x020e9663]
 def choiceR3 : List (BitVec 32) := [0x00020e37,0x2a8e3383,0x03e3de93,0x000e8e63]
 def choiceR7 : List (BitVec 32) := [0x08000e93,0x00066f37,0x7fdf3c23,0x2b0e3303,0x2b8e3383,0xfb1ff06f]
 def choiceRej (b : Nat) : List (BitVec 32) := if b = 354 then [0xc19d606f] else [0xeecec06f]
-def pa0 : List (BitVec 32) := [0x00020eb7,0x2a0ebf03,0x2a8ebe83,0x01eefeb3,0x000ed463]
-def pa5 : List (BitVec 32) := [0x004a0a13]
+def pa0 : List (BitVec 32) := [0x00020eb7,0x2a0ebf03,0x2a8ebe83,0x01eeeeb3,0x000ec463]
+/-- P0: `jal` to the LOW-bonus stub (`stubBase b`). -/
+def pa5 (b : Nat) : List (BitVec 32) := if b = 354 then [0xf81ff06f] else [0xf7dff06f]
 def paJ (b : Nat) : List (BitVec 32) := if b = 354 then [0x4090306f] else [0x6700106f]
 /-- Target of `pa`: the lower floor hook. -/
 def paTarget (b : Nat) : Nat := if b = 354 then 46905 else 22491
 def choiceL (b : Nat) : Rv.Layout := [(0,choiceA),(3,choiceR0),(6,choiceR3),(10,choiceR7),(16,choiceRej b),
-  (17,pa0),(22,pa5),(23,paJ b)]
+  (17,pa0),(22,pa5 b),(23,paJ b)]
 def choiceCode (b : Nat) : List (BitVec 32) := layoutCode (choiceL b)
 theorem choiceL_ok {b : Nat} (hb : b=354 ∨ b=543) : layoutOk 0 (choiceL b)=true := by
   rcases hb with rfl | rfl <;> decide +kernel
@@ -20286,7 +20299,7 @@ def KernAt (image : Image) (b : Nat) (rewardCondition : Prop := Reward.RewardAt 
   (CodeAt image (pcOf b) (kernCode b) ∧ CodeAt image (pcOf (capBase b)) (appCode b)) ∧ (b = 354 ∨ b = 543) ∧
     CodeAt image (pcOf (prxBase b)) (p_0 b) ∧
     (CodeAt image (pcOf (tcBase b)) (c_0 b) ∧ CodeAt image (pcOf (tcEntry b)) (topEntryCode b) ∧
-      CodeAt image (pcOf (topSelectBase b)) topSelectCode) ∧
+      CodeAt image (pcOf (stubBase b)) (stubCode b)) ∧
     CodeAt image (pcOf (zBase b)) (zeroCode b) ∧
     CodeAt image (pcOf (selectorBase b)) (selectorCode b) ∧
     CodeAt image (pcOf (choiceBase b)) (choiceCode b) ∧ rewardCondition
@@ -20452,9 +20465,9 @@ theorem codeAt_c_0 {image : Image} {b : Nat} {rewardCondition : Prop} (h : KernA
   h.2.2.2.1.1
 theorem codeAt_topEntry {image : Image} {b : Nat} {rewardCondition : Prop} (h : KernAt image b rewardCondition) :
     CodeAt image (pcOf (tcEntry b)) (topEntryCode b) := h.2.2.2.1.2.1
-theorem codeAt_topSelect {image : Image} {b : Nat} {rewardCondition : Prop} (h : KernAt image b rewardCondition) (i o : Nat) (seg : List (BitVec 32))
-    (hs : topSelectL[i]? = some (o,seg)) : CodeAt image (pcOf (topSelectBase b+o)) seg :=
-  codeAt_sublayout h.2.2.2.1.2.2 topSelectL_ok hs
+theorem codeAt_stub {image : Image} {b : Nat} {rewardCondition : Prop} (h : KernAt image b rewardCondition) (i o : Nat) (seg : List (BitVec 32))
+    (hs : (stubL b)[i]? = some (o,seg)) : CodeAt image (pcOf (stubBase b+o)) seg :=
+  codeAt_sublayout h.2.2.2.1.2.2 (stubL_ok h.2.1) hs
 theorem codeAt_zero {image : Image} {b : Nat} {rewardCondition : Prop} (h : KernAt image b rewardCondition) (i o : Nat) (seg : List (BitVec 32))
     (hs : (zeroL b)[i]? = some (o, seg)) : CodeAt image (pcOf (zBase b + o)) seg :=
   codeAt_sublayout h.2.2.2.2.1 (zeroL_ok h.2.1) hs
@@ -21211,8 +21224,8 @@ theorem ext64_shr_eq_zero (v : BitVec 128) (k : Nat) (hk : k < 64) :
   rw [Nat.mod_eq_of_lt (show v.toNat / 2 ^ (64 + k) < 18446744073709551616 from h2),
     Nat.div_eq_zero_iff_lt (by positivity)]
 theorem spare_msb (v : BitVec 128) :
-    (v.extractLsb' 0 64 &&& v.extractLsb' 64 64).msb = decide (T3.lowerSpare v) := by
-  rw [BitVec.msb_and, BitVec.msb_eq_getLsbD_last, BitVec.msb_eq_getLsbD_last]
+    (v.extractLsb' 0 64 ||| v.extractLsb' 64 64).msb = !decide (T3.lowerSpare v) := by
+  rw [BitVec.msb_or, BitVec.msb_eq_getLsbD_last, BitVec.msb_eq_getLsbD_last]
   simp only [BitVec.getLsbD_extractLsb', show 64 - 1 < 64 from by decide, decide_true, Bool.true_and]
   unfold T3.lowerSpare
   simp only [BitVec.getLsbD, Nat.testBit, Nat.shiftRight_eq_div_pow, Nat.one_and_eq_mod_two]
@@ -21534,7 +21547,7 @@ def topSeg388 : List (BitVec 32) := [0x335313,0x737e13]
 def topSeg390 : List (BitVec 32) := [0x1ca80a3]
 def topSeg391 (_b : Nat) : List (BitVec 32) := [0x8067]
 /-- Campaign T51: b-dependent (expand word b + 425 = `j b`, sign words b + 430, 431 = `li t3, 2 ; j 21230`). -/
-def topSeg392 (b : Nat) : List (BitVec 32) := if b = 354 then [197907,230803,1555,17828371,0x7f57e13,3022355,32378419,0x83e4e03,29754931,7689491,60136979,29713715,7722387,0xfffa0a13,0xfc0a1ce3,0x757e13,0xffae0e13,1981971,29754931,0x355513,0x757e13,0xffae0e13,1981971,29754931,0x355513,0xffa50e13,1981971,29754931,9846291,0xa0e1e63,2579,0xf11ff06f,0x960410e3,0x95dff06f,662654467,0x940e0ae3,663696131,672084867,0x8100c93,2579,0xeedff06f,1281555,66985491,29573939,1282963,2347923] else [197907,230803,1555,17828371,0x7f57e13,3022355,32378419,0x83e4e03,29754931,7689491,60136979,29713715,7722387,0xfffa0a13,0xfc0a1ce3,0x757e13,0xffae0e13,1981971,29754931,0x355513,0x757e13,0xffae0e13,1981971,29754931,0x355513,0xffa50e13,1981971,29754931,9846291,0xa0e1e63,2579,0xf11ff06f,0x960410e3,0xffff37,662654467,0x940e0ae3,663696131,672084867,0x200e13,0x4811306f,0xeedff06f,1281555,66985491,29573939,1282963,2347923]
+def topSeg392 (b : Nat) : List (BitVec 32) := if b = 354 then [197907,230803,1555,17828371,0x7f57e13,3022355,32378419,0x83e4e03,29754931,7689491,60136979,29713715,7722387,0xfffa0a13,0xfc0a1ce3,0x757e13,0xffae0e13,1981971,29754931,0x355513,0x757e13,0xffae0e13,1981971,29754931,0x355513,0xffa50e13,1981971,29754931,9846291,0xa0e1e63,2579,0xf11ff06f,0x960410e3,0x95dff06f,662654467,0x940e0ae3,663696131,672084867,0x8100c93,2579,0xeedff06f,232979,66985491,29573939,1282963,2347923] else [197907,230803,1555,17828371,0x7f57e13,3022355,32378419,0x83e4e03,29754931,7689491,60136979,29713715,7722387,0xfffa0a13,0xfc0a1ce3,0x757e13,0xffae0e13,1981971,29754931,0x355513,0x757e13,0xffae0e13,1981971,29754931,0x355513,0xffa50e13,1981971,29754931,9846291,0xa0e1e63,2579,0xf11ff06f,0x960410e3,0xffff37,662654467,0x940e0ae3,663696131,672084867,0x200e13,0x4811306f,0xeedff06f,232979,66985491,29573939,1282963,2347923]
 def topSegLayout (b : Nat) : Rv.Layout := [(0, topSeg265), (2, topSeg267), (4, topSeg269), (5, topSeg270), (6, topSeg271), (8, topSeg273), (9, topSeg274), (11, topSeg276), (13, topSeg278), (14, topSeg279), (16, topSeg281), (18, topSeg283), (19, topSeg284), (21, topSeg286), (23, topSeg288), (24, topSeg289), (26, topSeg291), (28, topSeg293), (29, topSeg294), (31, topSeg296), (33, topSeg298), (34, topSeg299), (36, topSeg301), (38, topSeg303), (39, topSeg304), (41, topSeg306), (43, topSeg308), (44, topSeg309), (46, topSeg311), (48, topSeg313), (50, topSeg315), (51, topSeg316), (53, topSeg318), (55, topSeg320), (56, topSeg321), (58, topSeg323), (60, topSeg325), (61, topSeg326), (63, topSeg328), (65, topSeg330), (66, topSeg331), (68, topSeg333), (70, topSeg335), (71, topSeg336), (73, topSeg338), (75, topSeg340), (76, topSeg341), (78, topSeg343), (80, topSeg345), (81, topSeg346), (83, topSeg348), (85, topSeg350), (86, topSeg351), (88, topSeg353), (97, topSeg362 b), (104, topSeg369), (105, topSeg370), (106, topSeg371), (107, topSeg372), (108, topSeg373), (109, topSeg374), (110, topSeg375), (118, topSeg383), (119, topSeg384), (120, topSeg385), (122, topSeg387), (123, topSeg388), (125, topSeg390), (126, topSeg391 b), (127, topSeg392 b)]
 theorem topSegLayout_ok {b : Nat} (hb : b=354 ∨ b=543) : layoutOk 0 (topSegLayout b) = true := by
   rcases hb with rfl | rfl <;> decide +kernel
@@ -25817,26 +25830,106 @@ theorem topRun_entry {b : Nat} (hb : b=354 ∨ b=543) :
   rcases hb with rfl | rfl
   · exact top354_entry.trans (congrArg some (by kernel_rfl))
   · exact top543_entry.trans (congrArg some (by kernel_rfl))
-sym_block top354_gate := symRun {noAlias:=true} (topSelect0) (pcOf (topSelectBase 354+0)) 200
-sym_block top543_gate := symRun {noAlias:=true} (topSelect0) (pcOf (topSelectBase 543+0)) 200
-def topState_gate : SymState := top354_gate.res.st
-def topPc_gate (b : Nat) : E := .c (pcOf (choiceBase b))
-theorem topRun_gate {b : Nat} (hb : b=354 ∨ b=543) :
-    symRun {noAlias:=true} (topSelect0) (pcOf (topSelectBase b+0)) 200 =
-    some ⟨topState_gate,topPc_gate b,top354_gate.res.stop,top354_gate.res.steps,top354_gate.res.cycles⟩ := by
+sym_block stS0 := symRun {noAlias:=true} stubS0 (pcOf 21021) 200
+sym_block stS3 := symRun {noAlias:=true} stubS3 (pcOf 21024) 200
+sym_block stS4 := symRun {noAlias:=true} stubS4 (pcOf 21025) 200
+sym_block stE := symRun {noAlias:=true} stubE (pcOf 43030) 200
+theorem stubE_spec {image : Image} (hc : CodeAt image (pcOf 43030) stubE)
+    (s : MachineState) (hpc : s.pc = pcOf 43030) (lay : T3.Layer) (hl : lay ≠ 0)
+    (h8 : s.getReg .x8 = BitVec.ofNat 64 lay.val) (acc : Nat)
+    (h20 : s.getReg .x20 = BitVec.ofNat 64 acc) :
+    ∃ t, Steps image s 4 4 t ∧ t.pc = pcOf 46905 ∧
+      t.getReg .x20 = BitVec.ofNat 64 (acc + ClaudeWCT.WCT9.CanonicalPolicy.lowerBonus lay) ∧
+      RegsExcept s t [.x20, .x30] ∧ Frame s t (fun _ => False) := by
+  refine ⟨_, symRun_sound stE hc s hpc (by simp [stE.res, rv_simp]), rfl, ?_, ?_, ?_⟩
+  · simp only [Result.toState_getReg, stE.res]
+    simp only [rv_simp, h8, h20]
+    fin_cases lay
+    · exact absurd rfl hl
+    all_goals simp [ClaudeWCT.WCT9.CanonicalPolicy.lowerBonus, BitVec.ofNat_add]; try bv_omega
+  · intro r hr; simp at hr; cases r <;> simp_all [stE.res, rv_simp] <;> rfl
+  · intro A _ _; simp [stE.res, rv_simp]
+theorem stubS0_spec {image : Image} (hc : CodeAt image (pcOf 21021) stubS0)
+    (s : MachineState) (hpc : s.pc = pcOf 21021) (lay : Nat) (hl : lay = 1 ∨ lay = 2 ∨ lay = 3)
+    (h8 : s.getReg .x8 = BitVec.ofNat 64 lay) :
+    ∃ t, Steps image s 3 3 t ∧ t.pc = (if lay = 3 then pcOf 21024 else pcOf 21025) ∧
+      t.getReg .x20 = s.getReg .x20 + 2#64 ∧ t.getReg .x8 = s.getReg .x8 + 18446744073709551613#64 ∧
+      RegsExcept s t [.x8, .x20] ∧ Frame s t (fun _ => False) := by
+  refine ⟨_, symRun_sound stS0 hc s hpc (by simp [stS0.res, rv_simp]), ?_, ?_, ?_, ?_, ?_⟩
+  · simp only [Result.toState_pc, stS0.res, E.eval, CmpOp.eval, BinOp.eval, h8]
+    rcases hl with rfl | rfl | rfl <;> simp [pcOf]
+  · simp [stS0.res, rv_simp]
+  · simp [stS0.res, rv_simp]
+  · intro r hr; simp at hr; cases r <;> simp_all [stS0.res, rv_simp] <;> rfl
+  · intro A _ _; simp [stS0.res, rv_simp]
+theorem stubS3_spec {image : Image} (hc : CodeAt image (pcOf 21024) stubS3)
+    (s : MachineState) (hpc : s.pc = pcOf 21024) :
+    ∃ t, Steps image s 1 1 t ∧ t.pc = pcOf 21025 ∧ t.getReg .x20 = s.getReg .x20 + 1#64 ∧
+      RegsExcept s t [.x20] ∧ Frame s t (fun _ => False) := by
+  refine ⟨_, symRun_sound stS3 hc s hpc (by simp [stS3.res, rv_simp]), rfl, ?_, ?_, ?_⟩
+  · simp [stS3.res, rv_simp]
+  · intro r hr; simp at hr; cases r <;> simp_all [stS3.res, rv_simp] <;> rfl
+  · intro A _ _; simp [stS3.res, rv_simp]
+theorem stubS4_spec {image : Image} (hc : CodeAt image (pcOf 21025) stubS4)
+    (s : MachineState) (hpc : s.pc = pcOf 21025) :
+    ∃ t, Steps image s 2 2 t ∧ t.pc = pcOf 22491 ∧ t.getReg .x8 = s.getReg .x8 + 3#64 ∧
+      RegsExcept s t [.x8] ∧ Frame s t (fun _ => False) := by
+  refine ⟨_, symRun_sound stS4 hc s hpc (by simp [stS4.res, rv_simp]), rfl, ?_, ?_, ?_⟩
+  · simp [stS4.res, rv_simp]
+  · intro r hr; simp at hr; cases r <;> simp_all [stS4.res, rv_simp] <;> rfl
+  · intro A _ _; simp [stS4.res, rv_simp]
+theorem stubS_spec {image : Image} (hc0 : CodeAt image (pcOf 21021) stubS0) (hc3 : CodeAt image (pcOf 21024) stubS3)
+    (hc4 : CodeAt image (pcOf 21025) stubS4)
+    (s : MachineState) (hpc : s.pc = pcOf 21021) (lay : T3.Layer) (hl : lay ≠ 0)
+    (h8 : s.getReg .x8 = BitVec.ofNat 64 lay.val) (acc : Nat)
+    (h20 : s.getReg .x20 = BitVec.ofNat 64 acc) :
+    ∃ k t, Steps image s k k t ∧ k ≤ 6 ∧ t.pc = pcOf 22491 ∧
+      t.getReg .x20 = BitVec.ofNat 64 (acc + ClaudeWCT.WCT9.CanonicalPolicy.lowerBonus lay) ∧
+      RegsExcept s t [.x20] ∧ Frame s t (fun _ => False) := by
+  have hl3 : lay.val = 1 ∨ lay.val = 2 ∨ lay.val = 3 := by
+    have := lay.isLt; have : lay.val ≠ 0 := fun h => hl (Fin.ext h); omega
+  obtain ⟨u, su, pu, u20, u8, ru, fu⟩ := stubS0_spec hc0 s hpc lay.val hl3 h8
+  have x8back : s.getReg .x8 + 18446744073709551613#64 + 3#64 = s.getReg .x8 := by bv_omega
+  by_cases h3 : lay.val = 3
+  · rw [if_pos h3] at pu
+    obtain ⟨w, sw, pw, w20, rw', fw⟩ := stubS3_spec hc3 u pu
+    obtain ⟨t, st, pt, t8, rt, ft⟩ := stubS4_spec hc4 w pw
+    have hb : ClaudeWCT.WCT9.CanonicalPolicy.lowerBonus lay = 3 := by
+      unfold ClaudeWCT.WCT9.CanonicalPolicy.lowerBonus; rw [if_pos (Fin.ext h3)]
+    refine ⟨6, t, (su.trans sw).trans st, le_refl _, pt, ?_, ?_, (fu.trans fw).trans ft |>.mono (by simp)⟩
+    · rw [rt.get (by decide), w20, u20, h20, hb]; bv_omega
+    · intro r hr
+      by_cases h8' : r = .x8
+      · subst h8'; rw [t8, rw'.get (by decide), u8, x8back]
+      · rw [rt.get (by simpa using h8'), rw'.get (by simpa using hr), ru.get (by simp at hr ⊢; exact ⟨h8', hr⟩)]
+  · rw [if_neg h3] at pu
+    obtain ⟨t, st, pt, t8, rt, ft⟩ := stubS4_spec hc4 u pu
+    have hb : ClaudeWCT.WCT9.CanonicalPolicy.lowerBonus lay = 2 := by
+      unfold ClaudeWCT.WCT9.CanonicalPolicy.lowerBonus; rw [if_neg (fun h => h3 (congrArg Fin.val h))]
+    refine ⟨5, t, su.trans st, by omega, pt, ?_, ?_, fu.trans ft |>.mono (by simp)⟩
+    · rw [rt.get (by decide), u20, h20, hb]; bv_omega
+    · intro r hr
+      by_cases h8' : r = .x8
+      · subst h8'; rw [t8, u8, x8back]
+      · rw [rt.get (by simpa using h8'), ru.get (by simp at hr ⊢; exact ⟨h8', hr⟩)]
+/-- P0: step bound of the stub (expand 4, sign 6) and of `pa` through it (expand 10, sign 12). -/
+def stubCost (b : Nat) : Nat := if b = 354 then 4 else 6
+def paCost (b : Nat) : Nat := if b = 354 then 10 else 12
+/-- P0: the LOW-bonus stub of kernel instance `b` adds `lowerBonus lay` to `s4` and jumps to `paTarget b`. -/
+theorem stub_spec {image : Image} {b : Nat} {rewardCondition : Prop} (hK : KernAt image b rewardCondition)
+    (s : MachineState) (hpc : s.pc = pcOf (stubBase b)) (lay : T3.Layer) (hl : lay ≠ 0)
+    (h8 : s.getReg .x8 = BitVec.ofNat 64 lay.val) (acc : Nat)
+    (h20 : s.getReg .x20 = BitVec.ofNat 64 acc) :
+    ∃ k t, Steps image s k k t ∧ k ≤ stubCost b ∧ t.pc = pcOf (paTarget b) ∧
+      t.getReg .x20 = BitVec.ofNat 64 (acc + ClaudeWCT.WCT9.CanonicalPolicy.lowerBonus lay) ∧
+      RegsExcept s t [.x20, .x30] ∧ Frame s t (fun _ => False) := by
+  have hb := hK.2.1
   rcases hb with rfl | rfl
-  · exact top354_gate.trans (congrArg some (by kernel_rfl))
-  · exact top543_gate.trans (congrArg some (by kernel_rfl))
-sym_block top354_load := symRun {noAlias:=true} (topSelect1) (pcOf (topSelectBase 354+1)) 200
-sym_block top543_load := symRun {noAlias:=true} (topSelect1) (pcOf (topSelectBase 543+1)) 200
-def topState_load : SymState := top354_load.res.st
-def topPc_load (b : Nat) : E := .c (pcOf (tcBase b))
-theorem topRun_load {b : Nat} (hb : b=354 ∨ b=543) :
-    symRun {noAlias:=true} (topSelect1) (pcOf (topSelectBase b+1)) 200 =
-    some ⟨topState_load,topPc_load b,top354_load.res.stop,top354_load.res.steps,top354_load.res.cycles⟩ := by
-  rcases hb with rfl | rfl
-  · exact top354_load.trans (congrArg some (by kernel_rfl))
-  · exact top543_load.trans (congrArg some (by kernel_rfl))
+  · obtain ⟨t, st, pt, t20, rt, ft⟩ := stubE_spec (codeAt_stub hK 0 0 stubE rfl) s hpc lay hl h8 acc h20
+    exact ⟨4, t, st, by simp [stubCost], pt, t20, rt, ft⟩
+  · obtain ⟨k, t, st, hk, pt, t20, rt, ft⟩ := stubS_spec (codeAt_stub hK 0 0 stubS0 rfl)
+      (codeAt_stub hK 1 3 stubS3 rfl) (codeAt_stub hK 2 4 stubS4 rfl) s hpc lay hl h8 acc h20
+    exact ⟨k, t, st, by simpa [stubCost] using hk, pt, t20, rt.mono (by decide), ft⟩
 theorem top_gate_msb (v : T3.Digest) :
     (v.extractLsb' 64 64).msb = decide (T3.TopDualHalf.gate v) := by
   rw [BitVec.msb_eq_getLsbD_last]
@@ -25858,16 +25951,6 @@ theorem top_entry_spec {image : Image} {b : Nat} {rewardCondition : Prop} (hK : 
   · rfl
   · intro r hr; cases r <;> simp_all [topState_entry,top354_entry.res,rv_simp] <;> rfl
   · intro A _ _; simp [topState_entry,top354_entry.res,rv_simp]
-/-- The top select gate is now `jal zero, choice_a`. -/
-theorem top_gate_spec {image : Image} {b : Nat} {rewardCondition : Prop} (hK : KernAt image b rewardCondition)
-    (s : MachineState) (hpc : s.pc=pcOf (topSelectBase b)) :
-    ∃ t, Steps image s 1 1 t ∧ t.pc=pcOf (choiceBase b) ∧
-      RegsExcept s t [] ∧ Frame s t (fun _ => False) := by
-  refine ⟨_,symRun_sound (topRun_gate hK.2.1) (codeAt_topSelect hK 0 0 topSelect0 rfl) s hpc
-    (by simp [topState_gate,top354_gate.res,rv_simp]),?_,?_,?_⟩
-  · rfl
-  · intro r hr; cases r <;> simp_all [topState_gate,top354_gate.res,rv_simp] <;> rfl
-  · intro A _ _; simp [topState_gate,top354_gate.res,rv_simp]
 /-! ### Restricted top choice: `choice_a`, `choice_r` and the path-aware lower credit `pa`. -/
 /-- The choice flag scratch word. -/
 abbrev FLAG : Nat := 0x667F8
@@ -25931,12 +26014,12 @@ theorem pa0Run {b : Nat} (hb : b=354 ∨ b=543) :
   rcases hb with rfl | rfl
   · exact pa0354.trans (congrArg some (by kernel_rfl))
   · exact pa0543.trans (congrArg some (by kernel_rfl))
-sym_block pa5354 := symRun {noAlias:=true} pa5 (pcOf (choiceBase 354+22)) 200
-sym_block pa5543 := symRun {noAlias:=true} pa5 (pcOf (choiceBase 543+22)) 200
+sym_block pa5354 := symRun {noAlias:=true} (pa5 354) (pcOf (choiceBase 354+22)) 200
+sym_block pa5543 := symRun {noAlias:=true} (pa5 543) (pcOf (choiceBase 543+22)) 200
 def pa5State : SymState := pa5354.res.st
 theorem pa5Run {b : Nat} (hb : b=354 ∨ b=543) :
-    symRun {noAlias:=true} pa5 (pcOf (choiceBase b+22)) 200 =
-    some ⟨pa5State,.c (pcOf (choiceBase b+23)),pa5354.res.stop,pa5354.res.steps,pa5354.res.cycles⟩ := by
+    symRun {noAlias:=true} (pa5 b) (pcOf (choiceBase b+22)) 200 =
+    some ⟨pa5State,.c (pcOf (stubBase b)),pa5354.res.stop,pa5354.res.steps,pa5354.res.cycles⟩ := by
   rcases hb with rfl | rfl
   · exact pa5354.trans (congrArg some (by kernel_rfl))
   · exact pa5543.trans (congrArg some (by kernel_rfl))
@@ -26064,15 +26147,16 @@ theorem choiceR_spec {image : Image} {b : Nat} {rewardCondition : Prop} (hK : Ke
     refine ⟨_,t,su.trans st,by omega,?_,(ru.trans rt).mono (by decide),
       (fu.trans ft).mono (fun _ _ h => by simp at h)⟩
     rw [if_neg (fun h => hf h.1)]; exact pt
-/-- `pa`: add the path bonus 4 to the lower reward accumulator `s4` (`x20`) when LOW is spare. -/
+/-- `pa`: add the path bonus `lowerBonus lay` (P0: 2 on layers 1, 2, 3 on layer 3, through the stub) to the
+lower reward accumulator `s4` (`x20`) when LOW is spare. -/
 theorem pa_spec {image : Image} {b : Nat} {rewardCondition : Prop} (hK : KernAt image b rewardCondition)
     (s : MachineState) (hpc : s.pc=pcOf (choiceBase b+17)) (low : BitVec 128) (acc : Nat)
-    (hacc : acc + 4 < 2 ^ 64)
+    (hacc : acc + 4 < 2 ^ 64) (lay : T3.Layer) (hl : lay ≠ 0) (h8 : s.getReg .x8=BitVec.ofNat 64 lay.val)
     (hm0 : s.getMem (BitVec.ofNat 64 EOUT)=low.extractLsb' 0 64)
     (hm8 : s.getMem (BitVec.ofNat 64 (EOUT+8))=low.extractLsb' 64 64)
     (h20 : s.getReg .x20=BitVec.ofNat 64 acc) :
-    ∃ k t, Steps image s k k t ∧ k ≤ 7 ∧ t.pc=pcOf (paTarget b) ∧
-      t.getReg .x20=BitVec.ofNat 64 (acc+if T3.lowerSpare low then 4 else 0) ∧
+    ∃ k t, Steps image s k k t ∧ k ≤ paCost b ∧ t.pc=pcOf (paTarget b) ∧
+      t.getReg .x20=BitVec.ofNat 64 (acc+if T3.lowerSpare low then ClaudeWCT.WCT9.CanonicalPolicy.lowerBonus lay else 0) ∧
       RegsExcept s t [.x20,.x29,.x30] ∧ Frame s t (fun _ => False) := by
   obtain ⟨u,su,pu,ru,fu⟩ : ∃ u, Steps image s 5 5 u ∧
       u.pc=(if T3.lowerSpare low then pcOf (choiceBase b+22) else pcOf (choiceBase b+23)) ∧
@@ -26082,7 +26166,7 @@ theorem pa_spec {image : Image} {b : Nat} {rewardCondition : Prop} (hK : KernAt 
     · have h0 : s.getMem 131744#64 = low.extractLsb' 0 64 := by simpa [EOUT] using hm0
       have h8 : s.getMem 131752#64 = low.extractLsb' 64 64 := by simpa [EOUT] using hm8
       have hm := spare_msb low
-      rw [BitVec.and_comm] at hm
+      rw [BitVec.or_comm] at hm
       simp only [Result.toState_pc,pa0Pc,rebase,pa0354.res,E.eval,CmpOp.eval,BinOp.eval,h0,h8,
         BitVec.slt_zero_eq_msb,hm]
       by_cases h : T3.lowerSpare low <;> simp [h]
@@ -26097,20 +26181,21 @@ theorem pa_spec {image : Image} {b : Nat} {rewardCondition : Prop} (hK : KernAt 
     · intro A _ _; simp [paJState,paJ354.res,rv_simp]
   by_cases h : T3.lowerSpare low
   · rw [if_pos h] at pu
-    obtain ⟨v,sv,pv,v20,rv,fv⟩ : ∃ v, Steps image u 1 1 v ∧ v.pc=pcOf (choiceBase b+23) ∧
-        v.getReg .x20=u.getReg .x20+BitVec.ofNat 64 4 ∧ RegsExcept u v [.x20] ∧ Frame u v (fun _ => False) := by
-      refine ⟨_,symRun_sound (pa5Run hK.2.1) (choice_code hK 6 22 pa5 rfl) u pu
-        (by simp [pa5State,pa5354.res,rv_simp]),rfl,?_,?_,?_⟩
-      · simp [pa5State,pa5354.res,rv_simp]
-      · intro r hr; simp at hr; cases r <;> simp_all [pa5State,pa5354.res,rv_simp] <;> rfl
+    obtain ⟨v,sv,pv,rv,fv⟩ : ∃ v, Steps image u 1 1 v ∧ v.pc=pcOf (stubBase b) ∧
+        RegsExcept u v [] ∧ Frame u v (fun _ => False) := by
+      refine ⟨_,symRun_sound (pa5Run hK.2.1) (choice_code hK 6 22 (pa5 b) rfl) u pu
+        (by simp [pa5State,pa5354.res,rv_simp]),rfl,?_,?_⟩
+      · intro r hr; cases r <;> simp_all [pa5State,pa5354.res,rv_simp] <;> rfl
       · intro A _ _; simp [pa5State,pa5354.res,rv_simp]
-    obtain ⟨t,st,pt,rt,ft⟩ := jump v pv
-    refine ⟨7,t,(su.trans sv).trans st,le_refl _,pt,?_,((ru.trans rv).trans rt).mono (by decide),
+    obtain ⟨k,t,st,hk,pt,t20,rt,ft⟩ := stub_spec hK v pv lay hl
+      (by rw [rv.get (by decide),ru.get (by decide),h8]) acc
+      (by rw [rv.get (by decide),ru.get (by decide),h20])
+    refine ⟨5+1+k,t,(su.trans sv).trans st,by unfold stubCost at hk; unfold paCost; split_ifs at hk ⊢ <;> omega,pt,?_,((ru.trans rv).trans rt).mono (by decide),
       ((fu.trans fv).trans ft).mono (fun _ _ h => by simp at h)⟩
-    rw [rt.get (by decide),v20,ru.get (by decide),h20,if_pos h,BitVec.ofNat_add]
+    rw [t20,if_pos h]
   · rw [if_neg h] at pu
     obtain ⟨t,st,pt,rt,ft⟩ := jump u pu
-    refine ⟨6,t,su.trans st,by omega,pt,?_,(ru.trans rt).mono (by decide),
+    refine ⟨6,t,su.trans st,by unfold paCost; split_ifs <;> omega,pt,?_,(ru.trans rt).mono (by decide),
       (fu.trans ft).mono (fun _ _ h => by simp at h)⟩
     rw [rt.get (by decide),ru.get (by decide),h20,if_neg h,Nat.add_zero]
 sym_block rt354 := symRun {noAlias:=true} (k_104 354) (pcOf (354+104)) 200
@@ -26884,7 +26969,7 @@ def ld2Code : List (BitVec 32) := [672084867]
 /-- Campaign T51: sign (b = 543) words b + 430, 431 are `li t3, 2 ; j 21230` (dead dummy path into the T51 unpacker). -/
 def dumCode (b : Nat) : List (BitVec 32) :=
   if b = 354 then [0x8100c93,2579,0xeedff06f] else [0x200e13,0x4811306f,0xeedff06f]
-def alignCode : List (BitVec 32) := [1281555,66985491,29573939,1282963,2347923]
+def alignCode : List (BitVec 32) := [232979,66985491,29573939,1282963,2347923]
 def cfLayout (b : Nat) : Rv.Layout := [(0,setupCode),(4,preCode),(7,loadCode),(8,postCode),(15,tailCode),(30,okCode),
   (32,h0Code),(33,luiCode b),(34,flagCode),(35,beqCode),(36,ld1Code),(37,ld2Code),(38,dumCode b),(41,alignCode)]
 theorem cfLayout_ok (b : Nat) : layoutOk 0 (cfLayout b) = true := by
@@ -27466,24 +27551,22 @@ theorem getLsbD_add_one_zero (x : BitVec 64) : (x + 1#64).getLsbD 0 = !x.getLsbD
     rw [show 1 % 2 ^ 64 = 1 from rfl, Nat.mod_mod_of_dvd _ (by norm_num)]
   rw [h]
   rcases Nat.mod_two_eq_zero_or_one x.toNat with h0 | h0 <;> simp [Nat.add_mod, h0]
+/-- P0 stream merge `addi t3,t2,0; slli t3,t3,63; xor t1,t1,t3`: the spare bit 63 is 0, so bit 63 of the merged
+word is bit 64 of the answer. -/
 theorem align_lo (v : Digest) (hv : T3.lowerSpare v) :
-    v.extractLsb' 0 64 ^^^ (v.extractLsb' 64 64 + 1#64) <<< 63 =
+    v.extractLsb' 0 64 ^^^ v.extractLsb' 64 64 <<< 63 =
       (BitVec.ofNat 128 (T3.lowerWord v)).extractLsb' 0 64 := by
+  have h63 : v.toNat.testBit 63 = false := by
+    unfold T3.lowerSpare at hv
+    simp only [Nat.testBit, Nat.shiftRight_eq_div_pow, Nat.one_and_eq_mod_two, hv.1]
+    rfl
   apply BitVec.eq_of_getLsbD_eq
   intro j hj
-  rw [BitVec.getLsbD_xor, BitVec.getLsbD_shiftLeft, BitVec.getLsbD_extractLsb', BitVec.getLsbD_extractLsb',
-    BitVec.getLsbD_ofNat, T3.testBit_lowerWord]
-  simp only [hj, decide_true, Bool.true_and, show j < 128 from by omega]
-  by_cases h63 : j = 63
-  · subst h63
-    have hb := getLsbD_add_one_zero (v.extractLsb' 64 64)
-    simp only [Nat.sub_self] at hb ⊢
-    rw [hb, BitVec.getLsbD_extractLsb']
-    have h63 : v.toNat.testBit 63 = true := by
-      unfold T3.lowerSpare at hv
-      simp only [Nat.testBit, Nat.shiftRight_eq_div_pow, Nat.one_and_eq_mod_two, hv.1]
-      rfl
-    simp [BitVec.getElem_eq_testBit_toNat, h63]
+  simp only [BitVec.getLsbD_xor, BitVec.getLsbD_shiftLeft, BitVec.getLsbD_extractLsb', BitVec.getLsbD_ofNat,
+    T3.testBit_lowerWord, hj, decide_true, Bool.true_and]
+  by_cases hj63 : j = 63
+  · subst hj63
+    simp [BitVec.getLsbD, h63]
   · have hlt : j < 63 := by omega
     simp [hlt, BitVec.getLsbD]
     intro _; omega
@@ -30716,16 +30799,18 @@ theorem lower_spec {image : Image} (hK : KernAt image 543 (Code image)) (s : Mac
     (hm8 : s.getMem (BitVec.ofNat 64 (EOUT+8))=L.extractLsb' 64 64)
     (T S floor : Nat) (h17 : s.getReg .x17=BitVec.ofNat 64 T)
     (h25 : s.getReg .x25=BitVec.ofNat 64 S) (hST : S≤T) (hc : T-S<8)
-    (hf : floor<22) (hm : s.getMem (0x66010#64)=BitVec.ofNat 64 floor) :
-    ∃ k t, Steps image s k k t ∧ k≤95 ∧
-      t.pc=(if floor≤partialScore v 14+(if T-S=6 then 1 else 0)+(if T3.lowerSpare L then 4 else 0)
+    (hf : floor<22) (hm : s.getMem (0x66010#64)=BitVec.ofNat 64 floor)
+    (lay : Layer) (hl : lay≠0) (h8 : s.getReg .x8=BitVec.ofNat 64 lay.val) :
+    ∃ k t, Steps image s k k t ∧ k≤100 ∧
+      t.pc=(if floor≤partialScore v 14+(if T-S=6 then 1 else 0)+(if T3.lowerSpare L then ClaudeWCT.WCT9.CanonicalPolicy.lowerBonus lay else 0)
         then pcOf 976 else pcOf 1011) ∧
-      (floor≤partialScore v 14+(if T-S=6 then 1 else 0)+(if T3.lowerSpare L then 4 else 0) →
-        t.getMem (0x66018#64)=BitVec.ofNat 64 (partialScore v 14+(if T-S=6 then 1 else 0)+(if T3.lowerSpare L then 4 else 0))) ∧
+      (floor≤partialScore v 14+(if T-S=6 then 1 else 0)+(if T3.lowerSpare L then ClaudeWCT.WCT9.CanonicalPolicy.lowerBonus lay else 0) →
+        t.getMem (0x66018#64)=BitVec.ofNat 64 (partialScore v 14+(if T-S=6 then 1 else 0)+(if T3.lowerSpare L then ClaudeWCT.WCT9.CanonicalPolicy.lowerBonus lay else 0))) ∧
       RegsExcept s t [.x10,.x11,.x20,.x28,.x29,.x30] ∧ Frame s t CreditW := by
   have hC := hK.reward
   have ha0 : partialScore v 14+(if T-S=6 then 1 else 0)<2^60 := by have h := partial_bound v 14; split_ifs <;> omega
-  have ha : partialScore v 14+(if T-S=6 then 1 else 0)+(if T3.lowerSpare L then 4 else 0)<2^64 := by
+  have hbon := ClaudeWCT.WCT9.CanonicalPolicy.lowerBonus_le lay
+  have ha : partialScore v 14+(if T-S=6 then 1 else 0)+(if T3.lowerSpare L then ClaudeWCT.WCT9.CanonicalPolicy.lowerBonus lay else 0)<2^64 := by
     split_ifs <;> omega
   obtain ⟨u,su,pu,ux11,ux20,ru,fu⟩ := CanonicalReward.Lower.init_spec (Or.inr rfl) hC.scoring s hp
   obtain ⟨v1,sv,pv,vx,rv,fv⟩ := CanonicalReward.Lower.loop_spec (Or.inr rfl) hC.scoring u v
@@ -30738,16 +30823,18 @@ theorem lower_spec {image : Image} (hK : KernAt image 543 (Code image)) (s : Mac
   obtain ⟨v3,s3,p3,r3,f3⟩ := lowerFloorJump_steps hC.floorJump v2 p2
   have f03 := ((fu.trans fv).trans f2).trans f3
   obtain ⟨kp,vp,sp,kple,pp,xp,rp,fp⟩ := pa_spec hK v3 p3 L (partialScore v 14+(if T-S=6 then 1 else 0)) (by omega)
+    lay hl (by rw [r3.get (by decide),r2.get (by decide),rv.get (by decide),ru.get (by decide),h8])
     (by rw [f03.get (by decide) (by simp)]; exact hm0) (by rw [f03.get (by decide) (by simp)]; exact hm8)
     (by rw [r3.get (by decide),x2])
+  replace kple : kp ≤ 12 := by simpa [paCost] using kple
   obtain ⟨v4,s4,p4,x4,r4,f4⟩ := lowerFloor_steps hC.floorHook vp (by simpa [paTarget] using pp)
     (BitVec.ofNat 64 floor) (by rw [fp.get (by decide) (by simp),f03.get (by decide) (by simp),hm])
-  have x20 : v4.getReg .x20=BitVec.ofNat 64 (partialScore v 14+(if T-S=6 then 1 else 0)+(if T3.lowerSpare L then 4 else 0)) := by
+  have x20 : v4.getReg .x20=BitVec.ofNat 64 (partialScore v 14+(if T-S=6 then 1 else 0)+(if T3.lowerSpare L then ClaudeWCT.WCT9.CanonicalPolicy.lowerBonus lay else 0)) := by
     rw [r4.get (by decide),xp]
   obtain ⟨v5,s5,p5,r5,f5⟩ := lowerBranch_steps hC.lowerBranch v4 p4 _ floor ha (by omega) x20 x4
   have rr := ((((ru.trans rv).trans r2).trans r3).trans rp).trans r4
   have ff := (f03.trans fp).trans f4
-  by_cases hg : floor≤partialScore v 14+(if T-S=6 then 1 else 0)+(if T3.lowerSpare L then 4 else 0)
+  by_cases hg : floor≤partialScore v 14+(if T-S=6 then 1 else 0)+(if T3.lowerSpare L then ClaudeWCT.WCT9.CanonicalPolicy.lowerBonus lay else 0)
   · rw [if_pos hg] at p5
     obtain ⟨v6,s6,p6,r6,f6⟩ := lowerCreditJump_steps hC.lowerJump v5 p5
     obtain ⟨t,st,pt,mt,rt,ft⟩ := lowerCredit_steps hC.lowerHook v6 p6 _
@@ -30774,7 +30861,7 @@ set_option maxHeartbeats 1200000
 set_option maxRecDepth 32768
 
 theorem lower_reward (lay : Layer) (hl : lay≠0) (v : Digest) (T S : Nat) (low : Bool) :
-    LowerLUT.partialScore v 14+(if T-S=6 then 1 else 0)+(if low then 4 else 0)=
+    LowerLUT.partialScore v 14+(if T-S=6 then 1 else 0)+(if low then lowerBonus lay else 0)=
       credit lay low (lowDigits v++[T-S]) := by
   have h := LowerLUT.packed_reward lay hl v (T-S)
   rw [credit_lower hl]
@@ -30788,17 +30875,18 @@ theorem lower_spec_credit {image : Image} (hK : KernAt image 543 (Code image)) (
     (hm8 : s.getMem (BitVec.ofNat 64 (EOUT+8))=L.extractLsb' 64 64)
     (T S floor : Nat) (h17 : s.getReg .x17=BitVec.ofNat 64 T)
     (h25 : s.getReg .x25=BitVec.ofNat 64 S) (hST : S≤T) (hc : T-S<8)
-    (hf : floor<22) (hm : s.getMem (0x66010#64)=BitVec.ofNat 64 floor) :
+    (hf : floor<22) (hm : s.getMem (0x66010#64)=BitVec.ofNat 64 floor)
+    (h8 : s.getReg .x8=BitVec.ofNat 64 lay.val) :
     let low := decide (T3.lowerSpare L)
     let good := floor+WCT9.dispatchPenalty lay (lowDigits v++[T-S])≤pathReward lay low (lowDigits v++[T-S])
-    ∃ k t, Steps image s k k t ∧ k≤95 ∧
+    ∃ k t, Steps image s k k t ∧ k≤100 ∧
       t.pc=(if good then pcOf 976 else pcOf 1011) ∧
       (good → t.getMem (0x66018#64)=BitVec.ofNat 64 (credit lay low (lowDigits v++[T-S]))) ∧
       RegsExcept s t [.x10,.x11,.x20,.x28,.x29,.x30] ∧ Frame s t CreditW := by
   dsimp only
-  have h := lower_spec hK s v ht hp h6 h7 L hm0 hm8 T S floor h17 h25 hST hc hf hm
+  have h := lower_spec hK s v ht hp h6 h7 L hm0 hm8 T S floor h17 h25 hST hc hf hm lay hl h8
   have e := lower_reward lay hl v T S (decide (T3.lowerSpare L))
-  have e' : (if T3.lowerSpare L then 4 else 0)=(if decide (T3.lowerSpare L) then 4 else 0) := by
+  have e' : (if T3.lowerSpare L then lowerBonus lay else 0)=(if decide (T3.lowerSpare L) then lowerBonus lay else 0) := by
     by_cases hs : T3.lowerSpare L <;> simp [hs]
   have hg : (floor+WCT9.dispatchPenalty lay (lowDigits v++[T-S])≤
       pathReward lay (decide (T3.lowerSpare L)) (lowDigits v++[T-S]))↔
@@ -31367,6 +31455,7 @@ theorem cs_loop {A : CsArgs} {s0 : MachineState} (hK : KernAt image 543 (Canonic
               (by rw [hT8.reg (by decide),hpre.x17])
               (by rw [r8.get (by decide),r7.get (by decide),h25']) hs.1 hs.2 hpre.floorLt
               (by rw [hT8.frame.get (by decide) (by unfold CsW CanonicalHooks.CreditW ENC EOUT DigW DIGITS FLAG;omega),hpre.floorMem hlz])
+              (by rw [hT8.reg (by decide),hpre.x8])
             have hTR := hT8.stepCredit rR (by decide) fR
             change tR.pc=(if rewardOK A.lay A.floor low (lowDigits v++[T3.target (WCT9.CanonicalPolicy.normalLayer A.lay)-(lowDigits v).sum])
               then pcOf (543+433) else pcOf (543+468)) at pR
