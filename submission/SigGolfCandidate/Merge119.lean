@@ -373,15 +373,7 @@ theorem pairBlockCheck_at (dB : Nat) (hB : dB ≤ 6) : blockCheck 16 dB 0=true :
   exact hb
 theorem s8Run_at (q k : Nat) (hq : q<17) (hk : k<nRank q) :
     (if q=0 then rOK (vrun (entW 0 k) 1) (guardR k) else rOK (vrun (entW q k) 1) (s8R (kss q k) (entW q k)))=true := by
-  have h := s8Check_at q k hq hk
-  simp only [s8Check,Bool.and_eq_true] at h
-  exact h.1
-theorem bge9_at (k : Nat) (hk : k<125) (he : k%2=0) : vrun (cellW 9 k) 1=some (bge9R (cellW 9 k)) := by
-  have h := s8Check_at 9 k (by decide +kernel) (by unfold nRank mx; norm_num; omega)
-  simp only [s8Check,Bool.and_eq_true] at h
-  have h2 := h.2
-  rw [if_pos (by simp [he])] at h2
-  exact rOK_eq h2
+  exact s8Check_at q k hq hk
 /-! ### T51: guards, checksum landings and arms (Part5) -/
 theorem guard6Check_at (g raw : Nat) (hg : g<9) (hr : raw<256) : guard6Check g raw=true := by
   have h : guard6All g=true := by

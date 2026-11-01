@@ -3397,7 +3397,7 @@ def entOff (q : Nat) : Nat :=
 def cellW (q k : Nat) : Nat :=
   if q<9 then cell6 q (rawOf6 q k) else if q<16 then 1024*(125-k)+entOff q
   else if q=16 then 1024*(125-k)+entOff 8 else 0
-def entW (q k : Nat) : Nat := cellW q k + (if q=9 ∧ k%2=0 then 1 else 0)
+def entW (q k : Nat) : Nat := cellW q k
 def inl (q : Nat) : Bool := decide (q=9 ∨ (13 ≤ q ∧ q ≤ 15))
 def leadOff (q : Nat) : Nat := 1
 def leadPc (q k : Nat) : Nat := entW q k+leadOff q
@@ -3454,19 +3454,19 @@ def shift12 (w : Reg) (b : Nat) : E :=
   if b<12 then .bin .sll (.reg w) (.c (BitVec.ofNat 64 (12-b)))
   else .bin .srl (.reg w) (.c (BitVec.ofNat 64 (b-12)))
 def dispatchR (q : Nat) : Result :=
-  let sh := shift12 (if q<9 then .x16 else .x17) (if q<9 then 7*q else 7*q-64)
+  let sh := shift12 .x17 (if q=8 then 49 else 7*q-63)
   let a := .bin .and sh (.reg .x6)
   ⟨⟨RegFile.init.set .x14 a,[],[]⟩,
     .bin .and (.bin .add a (.c (BitVec.ofNat 64 (2^64+4*entOff q-4096)))) (.c (~~~1#64)),.jump,3,3⟩
 def dispatch9R : Result :=
-  let a := .bin .and (.bin .sll (.reg .x17) (.c (BitVec.ofNat 64 13))) (.reg .x6)
+  let a := .bin .and (.bin .sll (.reg .x17) (.c (BitVec.ofNat 64 12))) (.reg .x6)
   ⟨⟨RegFile.init.set .x14 a,[],[]⟩,
     .bin .and (.bin .add a (.c 256)) (.c (~~~1#64)),.jump,3,3⟩
 /-- Field source of the dispatch into r6 group `h` (1..8): g1 = a6 bits 8..15 (no shift), g2..g6 = a6 >> 8(h-1),
 g7 = a7 >> 40 (bits 112..119), g8 = a7 >> 48 (bits 120..127); masked with t4 = 0xFF00. -/
 def r6Src (h : Nat) : E :=
   if h=1 then .reg .x16 else if h<7 then .bin .srl (.reg .x16) (.c (BitVec.ofNat 64 (8*h-8)))
-  else if h=7 then .bin .srl (.reg .x17) (.c 40#64) else .bin .srl (.reg .x17) (.c 48#64)
+  else if h=7 then .bin .srl (.reg .x16) (.c 48#64) else .bin .srl (.reg .x17) (.c 48#64)
 /-- `a4 = s2 - 256 raw` (table B) or `256 raw + s2` (table A). -/
 def r6A (h : Nat) : E :=
   if r6B h then .bin .sub (.reg .x18) (.bin .and (r6Src h) (.reg .x29))
@@ -3517,8 +3517,7 @@ def partOK (q i d p : Nat) (skip : Bool := false) : Bool :=
        else headRH .x8 (off i) d none p i (topG i)) &&
     rungsOK q (d+1) (slot i) (p+5)
 def s8Check (q k : Nat) : Bool :=
-  (if q=0 then rOK (vrun (entW 0 k) 1) (guardR k) else rOK (vrun (entW q k) 1) (s8R (kss q k) (entW q k))) &&
-  (if q=9 ∧ k%2=0 then rOK (vrun (cellW 9 k) 1) (bge9R (cellW 9 k)) else true)
+  (if q=0 then rOK (vrun (entW 0 k) 1) (guardR k) else rOK (vrun (entW q k) 1) (s8R (kss q k) (entW q k)))
 def dispatchOK (q dB dC : Nat) : Bool :=
   if q<17 then rOK (vrun (pcX q dB dC) 5) (nextDispR q) else true
 /-- A shared body: chain A's rung ladder (tails and rungs; its terminal step targets `termSlot`), chain B, chain C
@@ -4523,6 +4522,14 @@ theorem fault126_low (q : Nat) (he : entOff q<1024) :
   simp only [BitVec.toNat_ofNat]
   omega
 theorem g9_value (W : Word) :
+    (((W <<< (BitVec.ofNat 64 12).toNat) &&& 520192#64)+256#64) &&& ~~~1#64 =
+      BitVec.ofNat 64 (4096*(W.toNat%128)+256) := by
+  have hm := word_mask12 W 0 (by decide +kernel)
+  simp only [shiftWord12, show (0 : Nat) < 12 from by omega, if_true,
+    Nat.sub_zero, Nat.pow_zero, Nat.div_one] at hm
+  change ((W <<< 12 &&& 520192#64) + 256#64) &&& ~~~1#64 = _
+  rw [hm, ofNat_add_ofNat, even_andNot1' _ (by omega)]
+theorem g9_value_old (W : Word) :
     (((W <<< (BitVec.ofNat 64 13).toNat) &&& 520192#64)+256#64) &&& ~~~1#64 =
       BitVec.ofNat 64 (8192*(W.toNat%64)+256) := by
   have hm : ((W <<< (BitVec.ofNat 64 13).toNat) &&& 520192#64) = BitVec.ofNat 64 (8192*(W.toNat%64)) := by
@@ -4538,9 +4545,13 @@ theorem g9_value (W : Word) :
       omega
     rw [this]; ring
   rw [hm, ofNat_add_ofNat, even_andNot1' _ (by omega)]
-theorem g9_cell (u : Nat) (hu : u ≤ 62) : BitVec.ofNat 64 (8192*(63-u)+256)=pcOf (cellW 9 (2*u)) := by
+theorem g9_cell (f : Nat) (h2 : 2 ≤ f) (hf : f ≤ 126) : BitVec.ofNat 64 (4096*f+256)=pcOf (cellW 9 (126-f)) := by
   unfold pcOf cellW entOff; norm_num; congr 1; omega
-theorem g9_fault : (BitVec.ofNat 64 (8192*(63-63)+256)).toNat<0x1000 := by decide +kernel
+theorem g9_fault : (BitVec.ofNat 64 (4096*0+256)).toNat<0x1000 := by decide +kernel
+/-- f = 1 lands on `cellW 9 125 = entOff 9` (zero word, as rank 125 of every r5 group); f = 127 lands on the zeroed
+f=127 slot (word 129088, the old Merkle tail, relocated to 33294). -/
+theorem g9_one : BitVec.ofNat 64 (4096*1+256)=pcOf (entOff 9) := by unfold pcOf entOff; decide +kernel
+theorem g9_top : BitVec.ofNat 64 (4096*127+256)=pcOf 129088 := by unfold pcOf; decide +kernel
 theorem prologue_value (W : Word) :
     (((W <<< (BitVec.ofNat 64 12).toNat) &&& 520192#64)+BitVec.ofNat 64 (1168)) &&& ~~~1#64 =
       BitVec.ofNat 64 (4096*(W.toNat%128)+1168) := by
@@ -4641,7 +4652,7 @@ theorem ck_target (ds : Nat) (hd : ds ≤ 231) :
   unfold pcOf ckWord topT; congr 1; omega
 /-- The r6 field read by the dispatch into group `h` (1..8): bits `8h..8h+7` (h < 7), `112..119` (g7),
 `120..127` (g8) (`= T3.r6Shift h`). -/
-def r6Pos (h : Nat) : Nat := if h=7 then 112 else if h=8 then 120 else 8*h
+def r6Pos (h : Nat) : Nat := if h=8 then 120 else 8*h
 theorem cell6_tab (h r : Nat) (h1 : 1 ≤ h) (h8 : h ≤ 8) :
     cell6 h r = if r6B h then 64*(3327-r)+r6Off h else 64*(3328+r)+r6Off h := by
   unfold cell6; rw [if_neg (by omega)]

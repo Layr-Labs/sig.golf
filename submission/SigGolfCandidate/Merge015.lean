@@ -11,28 +11,107 @@ import SigGolfCandidate.Merge014
 section
 
 namespace SigGolfCandidate.T3
-theorem topMask_lt : topMask < 2 ^ 119 := by decide
+theorem topMask_lt : topMask < 2 ^ 120 := by decide
 theorem topFlip_topFlip (v : Digest) : topFlip (topFlip v) = v := by
   simp [topFlip]
 theorem topFlip_injective : Function.Injective topFlip := fun a b h => by
   simpa [topFlip_topFlip] using congrArg topFlip h
 def topFlipEquiv : Digest ≃ Digest := ⟨topFlip, topFlip, topFlip_topFlip, topFlip_topFlip⟩
-theorem topCode_eq_xor (v : Digest) : topCode v = v.toNat ^^^ topMask := by
+theorem topAdj_toNat (v : Digest) : (topAdj v).toNat =
+    v.toNat % 2 ^ 64 + 2 ^ 64 * ((v.toNat / 2 ^ 64 % 128 + 1) % 128) + 2 ^ 71 * (v.toNat / 2 ^ 71) := by
+  unfold topAdj; rw [BitVec.toNat_ofNat]; apply Nat.mod_eq_of_lt; have := v.isLt; omega
+theorem topUnadj_toNat (v : Digest) : (topUnadj v).toNat =
+    v.toNat % 2 ^ 64 + 2 ^ 64 * ((v.toNat / 2 ^ 64 % 128 + 127) % 128) + 2 ^ 71 * (v.toNat / 2 ^ 71) := by
+  unfold topUnadj; rw [BitVec.toNat_ofNat]; apply Nat.mod_eq_of_lt; have := v.isLt; omega
+theorem topAdj_topUnadj (v : Digest) : topAdj (topUnadj v) = v := by
+  apply BitVec.eq_of_toNat_eq; rw [topAdj_toNat, topUnadj_toNat]; omega
+theorem topUnadj_topAdj (v : Digest) : topUnadj (topAdj v) = v := by
+  apply BitVec.eq_of_toNat_eq; rw [topUnadj_toNat, topAdj_toNat]; omega
+theorem topAdj_injective : Function.Injective topAdj := fun a b h => by
+  simpa [topUnadj_topAdj] using congrArg topUnadj h
+/-- `topAdj` only touches bits 64..70. -/
+theorem topAdj_high (v : Digest) : (topAdj v).toNat / 2 ^ 71 = v.toNat / 2 ^ 71 := by
+  rw [topAdj_toNat]; omega
+theorem topAdj_low (v : Digest) : (topAdj v).toNat % 2 ^ 64 = v.toNat % 2 ^ 64 := by
+  rw [topAdj_toNat]; omega
+theorem topAdj_mid (v : Digest) : (topAdj v).toNat / 2 ^ 64 % 128 = (v.toNat / 2 ^ 64 % 128 + 1) % 128 := by
+  rw [topAdj_toNat]; omega
+theorem topAdj_testBit (v : Digest) (j : Nat) (hj : j < 64 ∨ 71 ≤ j) :
+    (topAdj v).toNat.testBit j = v.toNat.testBit j := by
+  rcases hj with hj | hj
+  · have h := congrArg (fun n => n.testBit j) (topAdj_low v)
+    rw [Nat.testBit_mod_two_pow, Nat.testBit_mod_two_pow] at h
+    simpa [hj] using h
+  · have h := congrArg (fun n => n.testBit (j - 71)) (topAdj_high v)
+    rw [Nat.testBit_div_two_pow, Nat.testBit_div_two_pow, show j - 71 + 71 = j by omega] at h
+    exact h
+theorem topCode_eq_xor (v : Digest) : topCode v = (topAdj v).toNat ^^^ topMask := by
   simp [topCode, topFlip, BitVec.toNat_xor, topMask]
-theorem topCode_topFlip (v : Digest) : topCode (topFlip v) = v.toNat := by
-  rw [topCode, topFlip_topFlip]
-theorem topCode_div_high (v : Digest) (n : Nat) (hn : 119 ≤ n) : topCode v / 2 ^ n = v.toNat / 2 ^ n := by
+theorem topCode_topFlip (v : Digest) : topCode (topUnadj (topFlip v)) = v.toNat := by
+  rw [topCode, topAdj_topUnadj, topFlip_topFlip]
+theorem topCode_div_high (v : Digest) (n : Nat) (hn : 120 ≤ n) : topCode v / 2 ^ n = v.toNat / 2 ^ n := by
   rw [topCode_eq_xor, Nat.xor_div_two_pow,
     Nat.div_eq_of_lt (lt_of_lt_of_le topMask_lt (Nat.pow_le_pow_right (by decide) hn)), Nat.xor_zero]
-theorem topCode_lt_iff (v : Digest) (n : Nat) (hn : 119 ≤ n) : topCode v < 2 ^ n ↔ v.toNat < 2 ^ n := by
+  have h := topAdj_high v
+  rw [show n = 71 + (n - 71) by omega, pow_add, ← Nat.div_div_eq_div_mul, ← Nat.div_div_eq_div_mul, h]
+theorem topCode_lt_iff (v : Digest) (n : Nat) (hn : 120 ≤ n) : topCode v < 2 ^ n ↔ v.toNat < 2 ^ n := by
   have h := topCode_div_high v n hn
   constructor <;> intro hh
   · have : topCode v / 2 ^ n = 0 := Nat.div_eq_of_lt hh
     rw [h] at this; exact (Nat.div_eq_zero_iff_lt (by positivity)).mp this
   · have : v.toNat / 2 ^ n = 0 := Nat.div_eq_of_lt hh
     rw [← h] at this; exact (Nat.div_eq_zero_iff_lt (by positivity)).mp this
-theorem topFlip_toNat_lt (v : Digest) : (topFlip v).toNat < 2 ^ 125 ↔ v.toNat < 2 ^ 125 :=
-  topCode_lt_iff v 125 (by decide)
+/-- Bits of `topCode`: the adjusted word with bits 64..119 flipped. -/
+theorem topCode_testBit_adj (v : Digest) (j : Nat) :
+    (topCode v).testBit j = ((topAdj v).toNat.testBit j ^^ decide (64 ≤ j ∧ j < 120)) := by
+  unfold topCode topFlip topMask
+  rw [BitVec.toNat_xor, Nat.testBit_xor, BitVec.toNat_ofNat]
+  congr 1
+  by_cases hj : j < 128
+  · rw [Nat.mod_eq_of_lt (by norm_num), show (2 : Nat) ^ 120 - 2 ^ 64 = (2 ^ 56 - 1) * 2 ^ 64 by norm_num,
+      ← Nat.shiftLeft_eq, Nat.testBit_shiftLeft, Nat.testBit_two_pow_sub_one]
+    by_cases h1 : 64 ≤ j
+    · simp only [h1, decide_true, Bool.true_and]
+      by_cases h2 : j < 120
+      · simp [h2, show j - 64 < 56 by omega]
+      · simp [h2, show ¬ j - 64 < 56 by omega]
+    · simp [h1]
+  · rw [Nat.mod_eq_of_lt (by norm_num)]
+    simp only [show ¬ (64 ≤ j ∧ j < 120) by omega, decide_false]
+    apply Nat.testBit_eq_false_of_lt
+    calc 2 ^ 120 - 2 ^ 64 < 2 ^ 120 := by norm_num
+      _ ≤ 2 ^ j := Nat.pow_le_pow_right (by norm_num) (by omega)
+/-- A flipped 7-bit window of `topCode` (inside bits 64..119) reads the adjusted word complemented. -/
+theorem topCode_flip7_adj (v : Digest) (S : Nat) (hS : 64 ≤ S ∧ S + 7 ≤ 120) :
+    topCode v / 2 ^ S % 128 = 127 - (topAdj v).toNat / 2 ^ S % 128 := by
+  have key : topCode v / 2 ^ S % 2 ^ 7 = ((topAdj v).toNat / 2 ^ S % 2 ^ 7) ^^^ (2 ^ 7 - 1) := by
+    apply Nat.eq_of_testBit_eq
+    intro i
+    simp only [Nat.testBit_mod_two_pow, Nat.testBit_div_two_pow, topCode_testBit_adj, Nat.testBit_xor,
+      Nat.testBit_two_pow_sub_one]
+    by_cases hi : i < 7
+    · simp [hi, show 64 ≤ i + S ∧ i + S < 120 by omega]
+    · simp [hi]
+  change topCode v / 2 ^ S % 2 ^ 7 = 127 - (topAdj v).toNat / 2 ^ S % 2 ^ 7
+  rw [key]
+  have hlt : (topAdj v).toNat / 2 ^ S % 2 ^ 7 < 128 := Nat.mod_lt _ (by norm_num)
+  generalize (topAdj v).toNat / 2 ^ S % 2 ^ 7 = n at hlt ⊢
+  have : ∀ n < 128, n ^^^ (2 ^ 7 - 1) = 127 - n := by decide
+  exact this n hlt
+/-- sg-topdigit: the q9 rank from the stored merged digit `f` (bits 64..70): `raw = (f + 1) % 128`, rank `127 - raw`. -/
+theorem r5Rank9_raw (v : Digest) : r5Rank v 9 = 127 - (v.toNat / 2 ^ 64 % 128 + 1) % 128 := by
+  unfold r5Rank
+  rw [show 7 * 9 + 1 = 64 from rfl, topCode_flip7_adj v 64 (by omega), topAdj_mid]
+theorem topFlip_toNat_lt (v : Digest) : (topFlip v).toNat < 2 ^ 125 ↔ v.toNat < 2 ^ 125 := by
+  have h : (topFlip v).toNat / 2 ^ 125 = v.toNat / 2 ^ 125 := by
+    rw [show (topFlip v).toNat = v.toNat ^^^ topMask by simp [topFlip, BitVec.toNat_xor, topMask],
+      Nat.xor_div_two_pow, Nat.div_eq_of_lt (lt_of_lt_of_le topMask_lt (Nat.pow_le_pow_right (by decide) (by decide))),
+      Nat.xor_zero]
+  constructor <;> intro hh
+  · have : (topFlip v).toNat / 2 ^ 125 = 0 := Nat.div_eq_of_lt hh
+    rw [h] at this; exact (Nat.div_eq_zero_iff_lt (by positivity)).mp this
+  · have : v.toNat / 2 ^ 125 = 0 := Nat.div_eq_of_lt hh
+    rw [← h] at this; exact (Nat.div_eq_zero_iff_lt (by positivity)).mp this
 end SigGolfCandidate.T3
 end
 -- ==== merged from T3_Nonbinary_SourceDigits ====
@@ -138,41 +217,39 @@ theorem top_digest_injective {a b : Digest} (h : dataDigits 0 a=dataDigits 0 b)
     (ha : topRanksValid a=true) (hb : topRanksValid b=true) : a=b := by
   obtain ⟨h6a, h5a, h7a⟩ := topRanksValid_parts ha
   obtain ⟨h6b, h5b, h7b⟩ := topRanksValid_parts hb
+  apply topAdj_injective
   apply topFlip_injective
   apply BitVec.eq_of_getLsbD_eq
   intro bit hbit
   have window : ∀ s w, s ≤ bit → bit < s + w → topCode a / 2^s % 2^w = topCode b / 2^s % 2^w →
-      (topFlip a).getLsbD bit = (topFlip b).getLsbD bit := by
+      (topFlip (topAdj a)).getLsbD bit = (topFlip (topAdj b)).getLsbD bit := by
     intro s w h1 h2 he
-    have hx : (topFlip a).extractLsb' s w = (topFlip b).extractLsb' s w := by
+    have hx : (topFlip (topAdj a)).extractLsb' s w = (topFlip (topAdj b)).extractLsb' s w := by
       apply BitVec.eq_of_toNat_eq
       simpa only [BitVec.extractLsb'_toNat, Nat.shiftRight_eq_div_pow, topCode] using he
     have hh := congrArg (fun d : BitVec w => d.getLsbD (bit - s)) hx
     simpa only [BitVec.getLsbD_extractLsb', show bit - s < w by omega, decide_true,
       Bool.true_and, show s + (bit - s) = bit by omega] using hh
   have r6win : ∀ g, g < 9 → r6Shift g ≤ bit → bit < r6Shift g + 8 →
-      (topFlip a).getLsbD bit = (topFlip b).getLsbD bit := by
+      (topFlip (topAdj a)).getLsbD bit = (topFlip (topAdj b)).getLsbD bit := by
     intro g hg h1 h2
     have hr := top_r6Rank_eq h (h6a _ hg) (h6b _ hg) hg
     have hw := r6Raw_eq_of_rank (h6a _ hg) (h6b _ hg) hr
     unfold r6Raw at hw
     exact window (r6Shift g) 8 h1 h2 (by simpa using hw)
-  by_cases h1 : bit < 56
+  by_cases h1 : bit < 64
   · exact r6win (bit / 8) (by omega) (by unfold r6Shift; rw [if_pos (by omega)]; omega)
       (by unfold r6Shift; rw [if_pos (by omega)]; omega)
-  by_cases h2 : bit < 63
-  · have hr := top_r7Rank_eq h h7a h7b
-    unfold r7Rank at hr
-    exact window 56 7 (by omega) (by omega) (by simpa using hr)
-  by_cases h3 : bit < 112
-  · have hq1 : 9 ≤ bit / 7 := by omega
-    have hq2 : bit / 7 < 16 := by omega
+  by_cases h3 : bit < 113
+  · have hq1 : 9 ≤ (bit - 1) / 7 := by omega
+    have hq2 : (bit - 1) / 7 < 16 := by omega
     have hr := top_r5Rank_eq h (h5a _ hq1 hq2) (h5b _ hq1 hq2) hq1 hq2
     unfold r5Rank at hr
-    exact window (7 * (bit / 7)) 7 (by omega) (by omega) (by simpa using hr)
+    exact window (7 * ((bit - 1) / 7) + 1) 7 (by omega) (by omega) (by simpa using hr)
   by_cases h4 : bit < 120
-  · exact r6win 7 (by decide) (by unfold r6Shift; rw [if_neg (by omega)]; omega)
-      (by unfold r6Shift; rw [if_neg (by omega)]; omega)
+  · have hr := top_r7Rank_eq h h7a h7b
+    unfold r7Rank at hr
+    exact window 113 7 (by omega) (by omega) (by simpa using hr)
   · exact r6win 8 (by decide) (by unfold r6Shift; rw [if_neg (by omega)]; omega)
       (by unfold r6Shift; rw [if_neg (by omega)]; omega)
 end SigGolfCandidate.T3.Nonbinary
@@ -407,9 +484,9 @@ end
 
 section
 /-! Campaign T51 (COUNT): the T51 top digests and the counting model `T51Top.Word`.
-`encode` packs the 17 ranks into the T51 word (r6 fields `g0..g6` at `8g`, `g0` offset by 40, the r7 rank at 56
-flipped, the r5 ranks `q9..q15` at `7q` flipped, `g7` at 112, `g8` at 120); it is a bijection onto the words with
-`topRanksValid`. -/
+`encode` packs the 17 ranks into the T51 word (sg-topdigit map: r6 fields `g0..g7` at `8g`, `g0` offset by 40, the
+r5 ranks `q9..q15` at `7q+1` flipped, the r7 rank at 113 flipped, `g8` at 120; then `topUnadj` stores q9 as raw-1); it
+is a bijection onto the words with `topRanksValid`. -/
 namespace SigGolfResearch.T51Top
 open Finset SigGolfCandidate.T3 SigGolfCandidate.T3.Nonbinary
 open scoped BigOperators
@@ -456,10 +533,10 @@ theorem packF_field : ∀ (L : List (Nat × Nat)) (k : Nat), (∀ p ∈ L, p.2 <
 /-- The T51 fields of a model word (before the flip of the 7-bit fields). -/
 def fields (w : Word) : List (Nat × Nat) :=
   [(8, (w.1 0).val + 40), (8, (w.1 1).val), (8, (w.1 2).val), (8, (w.1 3).val), (8, (w.1 4).val),
-    (8, (w.1 5).val), (8, (w.1 6).val), (7, w.2.2.val),
+    (8, (w.1 5).val), (8, (w.1 6).val), (8, (w.1 7).val),
     (7, (w.2.1 0).val), (7, (w.2.1 1).val), (7, (w.2.1 2).val), (7, (w.2.1 3).val), (7, (w.2.1 4).val),
-    (7, (w.2.1 5).val), (7, (w.2.1 6).val),
-    (8, (w.1 7).val), (8, (w.1 8).val)]
+    (7, (w.2.1 5).val), (7, (w.2.1 6).val), (7, w.2.2.val),
+    (8, (w.1 8).val)]
 
 theorem fields_bound (w : Word) : ∀ p ∈ fields w, p.2 < 2 ^ p.1 := by
   simp only [fields, List.forall_mem_cons, List.forall_mem_nil, and_true]
@@ -470,7 +547,7 @@ theorem fields_bound (w : Word) : ∀ p ∈ fields w, p.2 < 2 ^ p.1 := by
     by have := (w.1 4).isLt; norm_num; omega,
     by have := (w.1 5).isLt; norm_num; omega,
     by have := (w.1 6).isLt; norm_num; omega,
-    by have := w.2.2.isLt; norm_num; omega,
+    by have := (w.1 7).isLt; norm_num; omega,
     by have := (w.2.1 0).isLt; norm_num; omega,
     by have := (w.2.1 1).isLt; norm_num; omega,
     by have := (w.2.1 2).isLt; norm_num; omega,
@@ -478,7 +555,7 @@ theorem fields_bound (w : Word) : ∀ p ∈ fields w, p.2 < 2 ^ p.1 := by
     by have := (w.2.1 4).isLt; norm_num; omega,
     by have := (w.2.1 5).isLt; norm_num; omega,
     by have := (w.2.1 6).isLt; norm_num; omega,
-    by have := (w.1 7).isLt; norm_num; omega,
+    by have := w.2.2.isLt; norm_num; omega,
     by have := (w.1 8).isLt; norm_num; omega⟩
 
 def code (w : Word) : Nat := packF (fields w)
@@ -489,7 +566,7 @@ theorem code_lt (w : Word) : code w < 2 ^ 128 := by
   exact h
 
 /-- The digest of a model word. -/
-def encode (w : Word) : Digest := topFlip (BitVec.ofNat 128 (code w))
+def encode (w : Word) : Digest := topUnadj (topFlip (BitVec.ofNat 128 (code w)))
 
 theorem topCode_encode (w : Word) : topCode (encode w) = code w := by
   rw [encode, topCode_topFlip, BitVec.toNat_ofNat, Nat.mod_eq_of_lt (code_lt w)]
@@ -511,7 +588,7 @@ theorem r6Raw_encode (w : Word) (g : Fin 9) :
   · exact code_field w 4 (by decide)
   · exact code_field w 5 (by decide)
   · exact code_field w 6 (by decide)
-  · exact code_field w 15 (by decide)
+  · exact code_field w 7 (by decide)
   · exact code_field w 16 (by decide)
 
 theorem r6Rank_encode (w : Word) (g : Fin 9) : r6Rank (encode w) g.val = (w.1 g).val := by
@@ -557,7 +634,7 @@ theorem r5Rank_encode (w : Word) (j : Fin 7) : r5Rank (encode w) (9 + j.val) = (
 theorem r7Rank_encode (w : Word) : r7Rank (encode w) = w.2.2.val := by
   unfold r7Rank
   rw [topCode_encode]
-  exact code_field w 7 (by decide)
+  exact code_field w 15 (by decide)
 
 theorem topRanksValid_encode (w : Word) : topRanksValid (encode w) = true := by
   unfold topRanksValid

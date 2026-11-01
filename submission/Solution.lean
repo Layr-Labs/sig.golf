@@ -15,7 +15,7 @@ theorem layout_offsets : submission.layout =
   { message := 26144, secretKey := 128, publicKey := 160,
     cache := 524288, signature := 28672, witness := 4128 } := rfl
 
-theorem certificate : SigGolf.Certificate submission 6988 := by
+theorem certificate : SigGolf.Certificate submission 6987 := by
   exact SigGolfCandidate.Packaging.certificate_ready
 
 end SigGolf.Challenge
@@ -28,7 +28,7 @@ end SigGolf.Challenge
 
 /- M0 with the promoted cap-776 signer and its Route C certificate.
    Verify image: P2c + P5 + landing fix. Accepting runs save 10 cycles.
-   Plus FTS digest-field repacking (dispatch 93 -> 85 words, FTS overhead 869 -> 861).
-   S = 5195, W = 22012, K = 131072, C = 6988; score = 36,302,660.
+   Plus FTS digest-field repacking (dispatch 93 -> 85 words) and the topdigit lever (top body 345 -> 344).
+   S = 5195, W = 22012, K = 131072, C = 6987; score = 36,297,465.
    Out-of-window lower words execute rank-checked chains before rejection,
    so the all-path cycle budget is 15,784. -/

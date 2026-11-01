@@ -1175,7 +1175,7 @@ theorem leadPc_top_bounds (q k : Nat) (h9 : 9 ≤ q) (hq : q<16) (hk : k<125) :
   have hl := entOff_ge q
   unfold leadPc leadOff entW cellW
   rw [if_neg (by omega), if_pos hq]
-  split_ifs <;> omega
+  omega
 /-- T51: every group cell (r6 rank < 216, r5 rank < 125, r7 rank < 49) sits below word 226812 (the checksum chain 50
 starts at its arm `ckArm`, not at a group cell). -/
 theorem leadPc_le (q k : Nat) (hq : q<17) (hk : k<nRank q) : leadPc q k ≤ 226811 := by
@@ -1600,8 +1600,11 @@ open SigGolfCandidate.T3 (Digest)
 set_option maxRecDepth 8192
 set_option maxHeartbeats 800000
 set_option linter.unusedSimpArgs false
-def sourceWord (v : Digest) (q : Nat) : Word := if q<9 then v.extractLsb' 0 64 else v.extractLsb' 64 64
-def sourceBit (q : Nat) : Nat := if q<9 then 7*q else 7*q-64
+/-- sg-topdigit: the verify dispatch's 7-bit field `j` (the r7 pair at `j = 8`: bits 113..119; r5 groups at `7j+1`). -/
+def _root_.SigGolfCandidate.T3M.Search.topRankV (v : Digest) (j : Nat) : Nat :=
+  v.toNat / 2 ^ (if j = 8 then 113 else 7 * j + 1) % 128
+def sourceWord (v : Digest) (_q : Nat) : Word := v.extractLsb' 64 64
+def sourceBit (q : Nat) : Nat := if q=8 then 49 else 7*q-63
 theorem extract_field (v : Digest) (a b : Nat) (h : b+7≤64) :
     (v.extractLsb' a 64).toNat/2^b%128=v.toNat/2^(a+b)%128 := by
   have hr := Search.ext_shr_mask v a b 7 h
@@ -1613,16 +1616,18 @@ theorem extract_field (v : Digest) (a b : Nat) (h : b+7≤64) :
     rw [ofNat_shr _ _ (v.extractLsb' a 64).isLt,Search.ofNat_and127]
   have hh := hl.symm.trans hr
   exact (ofNat_inj (by omega) (by omega)).mp hh
-theorem source_field (v : Digest) (q : Nat) (hq : q<17) (h9 : q≠9) :
-    (sourceWord v q).toNat/2^(sourceBit q)%128=Search.topRank v q := by
-  unfold sourceWord sourceBit Search.topRank
-  split_ifs with h
-  · simpa using extract_field v 0 (7*q) (by omega)
-  · rw [extract_field v 64 (7*q-64) (by omega),show 64+(7*q-64)=7*q by omega]
-theorem sourceBit_lt (q : Nat) (hq : q<17) (h9 : q≠9) : sourceBit q+7 ≤ 64 := by
+theorem source_field (v : Digest) (q : Nat) (hq : q<16) (h8 : q=8 ∨ 10≤q) :
+    (sourceWord v q).toNat/2^(sourceBit q)%128=Search.topRankV v q := by
+  unfold sourceWord sourceBit Search.topRankV
+  rcases h8 with rfl | h10
+  · simp only [if_true, show (8:Nat) ≠ 9 from by decide, if_false]
+    rw [extract_field v 64 49 (by omega)]
+  · rw [if_neg (by omega), if_neg (by omega), extract_field v 64 (7*q-63) (by omega),
+      show 64+(7*q-63)=7*q+1 by omega]
+theorem sourceBit_lt (q : Nat) (hq : q<16) (h8 : q=8 ∨ 10≤q) : sourceBit q+7 ≤ 56 := by
   unfold sourceBit; split_ifs <;> omega
-def hiMask : Word := BitVec.ofNat 64 (2 ^ 64 - 2 ^ 55)
-theorem field_xor_hiMask (X : Word) (b : Nat) (hb : b + 7 ≤ 55) :
+def hiMask : Word := BitVec.ofNat 64 (2 ^ 64 - 2 ^ 56)
+theorem field_xor_hiMask (X : Word) (b : Nat) (hb : b + 7 ≤ 56) :
     (X ^^^ hiMask).toNat / 2 ^ b % 128 = X.toNat / 2 ^ b % 128 := by
   apply Nat.eq_of_testBit_eq; intro j
   rw [show (128 : Nat) = 2 ^ 7 by norm_num, Nat.testBit_mod_two_pow, Nat.testBit_mod_two_pow,
@@ -1631,7 +1636,7 @@ theorem field_xor_hiMask (X : Word) (b : Nat) (hb : b + 7 ≤ 55) :
   · have hm : hiMask.toNat.testBit (j + b) = false := by
       unfold hiMask
       rw [BitVec.toNat_ofNat, Nat.mod_eq_of_lt (by norm_num),
-        show (2 : Nat) ^ 64 - 2 ^ 55 = 2 ^ 55 * (2 ^ 9 - 1) by norm_num, Nat.testBit_two_pow_mul]
+        show (2 : Nat) ^ 64 - 2 ^ 56 = 2 ^ 56 * (2 ^ 8 - 1) by norm_num, Nat.testBit_two_pow_mul]
       simp; omega
     simp [hj, hm]
   · simp [hj]
@@ -1640,30 +1645,22 @@ theorem mod64_xor_hiMask (X : Word) : (X ^^^ hiMask).toNat % 64 = X.toNat % 64 :
   simp only [pow_zero, Nat.div_one] at h
   rw [← Nat.mod_mod_of_dvd (X ^^^ hiMask).toNat (show 64 ∣ 128 by decide +kernel), h,
     Nat.mod_mod_of_dvd _ (show 64 ∣ 128 by decide +kernel)]
-theorem dispatch_step {p q : Nat} (hq : q<17) (h9 : q≠9) (hp : p<257181)
+theorem dispatch_step {p q : Nat} (hq : q<16) (h8 : q=8 ∨ 10≤q) (hp : p<257181)
     (hrun : vrun p 5=some (dispatchR q)) (s : MachineState) (v : Digest)
-    (hpc : s.pc=pcOf p) (h16 : s.getReg .x16= ~~~(v.extractLsb' 0 64))
+    (hpc : s.pc=pcOf p)
     (h17 : s.getReg .x17= ~~~(v.extractLsb' 64 64) ^^^ hiMask) (h6 : s.getReg .x6=520192#64) :
     ∃t, Steps Images.verifyImage s 3 3 t ∧
-      t.pc=BitVec.ofNat 64 (4096*(127-Search.topRank v q)+2^64+4*entOff q-4096) ∧
+      t.pc=BitVec.ofNat 64 (4096*(127-Search.topRankV v q)+2^64+4*entOff q-4096) ∧
       RegsExcept s t [.x14] ∧ Frame s t (fun _ => False) := by
-  have hW : s.getReg (if q<9 then .x16 else .x17)= ~~~(sourceWord v q) ^^^ (if q<9 then 0 else hiMask) := by
-    unfold sourceWord
-    split_ifs
-    · rw [h16]; exact BitVec.xor_zero.symm
-    · exact h17
-  have hb := sourceBit_lt q hq h9
-  have hf : (~~~(sourceWord v q) ^^^ (if q<9 then 0 else hiMask)).toNat/2^(sourceBit q)%128 =
-      (~~~(sourceWord v q)).toNat/2^(sourceBit q)%128 := by
-    split_ifs with h
-    · rw [show (~~~(sourceWord v q) ^^^ (0 : Word)) = ~~~(sourceWord v q) from BitVec.xor_zero]
-    · apply field_xor_hiMask
-      unfold sourceBit; rw [if_neg h]; omega
+  have hW : s.getReg .x17 = ~~~(sourceWord v q) ^^^ hiMask := by unfold sourceWord; exact h17
+  have hb := sourceBit_lt q hq h8
+  have hf : (~~~(sourceWord v q) ^^^ hiMask).toNat/2^(sourceBit q)%128 =
+      (~~~(sourceWord v q)).toNat/2^(sourceBit q)%128 := field_xor_hiMask _ _ hb
   refine ⟨(dispatchR q).toState s,piece_steps45 hrun hp s hpc (by simp [dispatchR]),?_,?_,?_⟩
-  · change (((shift12 (if q<9 then .x16 else .x17) (sourceBit q)).eval s &&& s.getReg .x6)+
+  · change (((shift12 .x17 (sourceBit q)).eval s &&& s.getReg .x6)+
       BitVec.ofNat 64 (2^64+4*entOff q-4096)) &&& ~~~1#64=_
-    rw [h6,shift12_eval s _ _ hW _ (by omega),dispatch_value _ _ q (by omega) hq,hf,not_field _ _ hb,
-      source_field v q hq h9]
+    rw [h6,shift12_eval s _ _ hW _ (by omega),dispatch_value _ _ q (by omega) (by omega),hf,
+      not_field _ _ (by omega), source_field v q hq h8]
   · intro r hr
     rw [Result.toState_getReg]
     simp only [dispatchR]
@@ -1671,52 +1668,24 @@ theorem dispatch_step {p q : Nat} (hq : q<17) (h9 : q≠9) (hp : p<257181)
   · intro A _ _
     simp [dispatchR,rv_simp]
 theorem dispatch9_step {p : Nat} (hp : p<257181)
-    (hrun : vrun p 5=some dispatch9R) (s : MachineState) (v : Digest)
-    (hpc : s.pc=pcOf p) (h17 : s.getReg .x17= ~~~(v.extractLsb' 64 64) ^^^ hiMask) (h6 : s.getReg .x6=520192#64) :
+    (hrun : vrun p 5=some dispatch9R) (s : MachineState) (V : Digest)
+    (hpc : s.pc=pcOf p) (h17 : s.getReg .x17=V.extractLsb' 64 64) (h6 : s.getReg .x6=520192#64) :
     ∃t, Steps Images.verifyImage s 3 3 t ∧
-      t.pc=BitVec.ofNat 64 (8192*(63-v.toNat/2^64%64)+256) ∧
+      t.pc=BitVec.ofNat 64 (4096*(V.toNat/2^64%128)+256) ∧
       RegsExcept s t [.x14] ∧ Frame s t (fun _ => False) := by
   refine ⟨dispatch9R.toState s,piece_steps45 hrun hp s hpc (by simp [dispatch9R]),?_,?_,?_⟩
-  · change (((s.getReg .x17 <<< (BitVec.ofNat 64 13).toNat) &&& s.getReg .x6)+256#64) &&& ~~~1#64=_
-    rw [h6,h17,g9_value,mod64_xor_hiMask]
+  · change (((s.getReg .x17 <<< (BitVec.ofNat 64 12).toNat) &&& s.getReg .x6)+256#64) &&& ~~~1#64=_
+    rw [h6,h17,g9_value]
     congr 2
-    have := not_field (v.extractLsb' 64 64) 0 (by decide +kernel)
-    have e1 : (~~~(v.extractLsb' 64 64)).toNat%64=((~~~(v.extractLsb' 64 64)).toNat/2^0%128)%64 := by
-      simp [Nat.mod_mod_of_dvd _ (show 64 ∣ 128 by decide +kernel)]
-    have e2 : v.toNat/2^64%64=((v.extractLsb' 64 64).toNat/2^0%128)%64 := by
-      rw [extract_field v 64 0 (by decide +kernel)]
-      simp [Nat.mod_mod_of_dvd _ (show 64 ∣ 128 by decide +kernel)]
-    rw [e1,e2,this]
-    have hlt : (v.extractLsb' 64 64).toNat/2^0%128 < 128 := Nat.mod_lt _ (by decide +kernel)
-    omega
+    have e2 := extract_field V 64 0 (by decide +kernel)
+    simp only [pow_zero, Nat.div_one, Nat.add_zero] at e2
+    rw [e2]
   · intro r hr
     rw [Result.toState_getReg]
     simp only [dispatch9R]
     rw [RegFile.get_set_ne _ _ (show r≠.x14 by simpa using hr),RegFile.init_get_eval]
   · intro A _ _
     simp [dispatch9R,rv_simp]
-theorem bge9_step (k : Nat) (hk : k<125) (he : k%2=0) (s : MachineState) (v : Digest)
-    (hpc : s.pc=pcOf (cellW 9 k)) (h16 : s.getReg .x16= ~~~(v.extractLsb' 0 64)) :
-    ∃t, Steps Images.verifyImage s 1 1 t ∧
-      t.pc=(if v.toNat/2^63%2=1 then BitVec.ofNat 64 (0x1000+4*cellW 9 k-4096) else pcOf (cellW 9 k+1)) ∧
-      RegsExcept s t [] ∧ Frame s t (fun _ => False) := by
-  have hrun := bge9_at k hk he
-  have hp : cellW 9 k<257181 := by unfold cellW entOff; simp; omega
-  refine ⟨(bge9R (cellW 9 k)).toState s,piece_steps45 hrun hp s hpc (by simp [bge9R,SymState.init]),?_,?_,?_⟩
-  · rw [Result.toState_pc]
-    simp only [bge9R,E.eval,h16]
-    have hb : v.getLsbD 63=decide (v.toNat/2^63%2=1) := by
-      rw [← BitVec.testBit_toNat, Nat.testBit_eq_decide_div_mod_eq]
-    have hsign : CmpOp.eval .ge (~~~(v.extractLsb' 0 64)) 0=decide (v.toNat/2^63%2=1) := by
-      have hz : (0 : BitVec 64)=0#64 := rfl
-      simp only [CmpOp.eval]
-      rw [hz, BitVec.slt_zero_eq_msb, BitVec.msb_eq_getLsbD_last, BitVec.getLsbD_not, BitVec.getLsbD_extractLsb', hb]
-      simp
-    rw [hsign]
-    by_cases hb' : v.toNat/2^63%2=1 <;> simp [hb']
-  · intro r _; rw [Result.toState_getReg]; simp [bge9R,SymState.init,RegFile.init_get_eval]
-  · intro A _ _
-    simp [bge9R,rv_simp,SymState.init]
 /-- T51: r5 groups 9..15 (#938's column) fault on rank 125 (word `entOff q` is zero). -/
 theorem fault_top_fetch (q : Nat) (hq : q<16) (h9 : 9≤q) (s : MachineState)
     (hpc : s.pc=pcOf (entOff q)) : fetch vimage s=none := by
@@ -1756,6 +1725,9 @@ theorem fetch_zero_word {p : Nat} (hp : p < 257214) (hz : zeroAt p = true) (s : 
     subst w
     rw [he] at hc
     exact hc.fetch s hpc
+/-- sg-topdigit: the f = 127 landing slot (word 129088, the relocated Merkle tail's old place) is zero. -/
+theorem fault_slot127_fetch (s : MachineState) (hpc : s.pc = pcOf 129088) : fetch vimage s = none :=
+  fetch_zero_word (by norm_num) (by decide +kernel) s hpc
 theorem fetch_below (s : MachineState) (h : s.pc.toNat < 0x1000) : fetch vimage s = none := by
   unfold fetch; simp [h]
 theorem fetch_above (s : MachineState) (h : 0x1000+4*257280 ≤ s.pc.toNat) : fetch vimage s = none := by
@@ -1806,16 +1778,16 @@ theorem r6Src_eval (h : Nat) (h1 : 1 ≤ h) (h8 : h ≤ 8) (V : Digest) (s : Mac
     simp only [r6Src, if_true, E.eval, h16]; rw [word_ff00, lo_field V 8 (by omega)]; rfl
   by_cases e7 : h = 7
   · subst e7
-    have hs : (r6Src 7).eval s = s.getReg .x17 >>> 40 := by
+    have hs : (r6Src 7).eval s = s.getReg .x16 >>> 48 := by
       unfold r6Src; rw [if_neg (by omega), if_neg (by omega), if_pos rfl]; rfl
-    rw [hs, h17, field_ff00, hi_field V 48 (by omega)]; rfl
+    rw [hs, h16, field_ff00, lo_field V 56 (by omega)]; rfl
   by_cases e8 : h = 8
   · subst e8
     have hs : (r6Src 8).eval s = s.getReg .x17 >>> 48 := by
       unfold r6Src; rw [if_neg (by omega), if_neg (by omega), if_neg (by omega)]; rfl
     rw [hs, h17, field_ff00, hi_field V 56 (by omega)]; rfl
   · rw [r6Src_mid h (by omega) (by omega) s, h16, field_ff00, lo_field V _ (by omega)]
-    unfold r6Pos; rw [if_neg e7, if_neg e8, show 8*h-8+8 = 8*h by omega]
+    unfold r6Pos; rw [if_neg e8, show 8*h-8+8 = 8*h by omega]
 theorem guard6_fault (g raw : Nat) (hg : g < 9) (hr : raw < 256) (hv : raw6Valid g raw = false)
     (h3 : g = 0 → 3 ≤ raw) (s : MachineState) (hpc : s.pc = pcOf (cell6 g raw)) : fetch vimage s = none := by
   have hc := guard6Check_at g raw hg hr
@@ -1996,9 +1968,10 @@ end SigGolfCandidate.T3M.Nonbinary
 end
 /-! ### T51 top word at the machine
 The selected half `V` sits in a6/a7 unflipped (`Encoded0` / `Encoded6`). The r6 groups read `T3.r6Raw V g` directly
-(the T51 `topMask` flip only touches bits 56..111); the r5 groups 9..15 and the r7 pair run #938's dispatch code,
-which sees the word `r5V V = V ^^^ (2^119 - 1)` in #938's convention (x16 = ~lo, x17 = ~hi ^ hiMask), whose
-`Search.topRank` is `T3.r5Rank V` (q = 9..15) and `T3.r7Rank V` (q = 8, bits 56..62). -/
+(the T51 `topMask` flip only touches bits 64..119); the r5 groups 10..15 and the r7 pair run #938's dispatch code,
+which sees the word `r5V V = V ^^^ (2^120 - 1)` in #938's convention (x17 = ~hi ^ hiMask = V's high word), whose
+`Search.topRankV` is `T3.r5Rank V` (q = 10..15, bits 7q+1) and `T3.r7Rank V` (q = 8, bits 113..119). q9 is the
+merged digit f (bits 64..70, `r5Rank9_eq`). -/
 section
 namespace SigGolfCandidate.T3M.Nonbinary
 open SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64 SigGolfCandidate.Rv
@@ -2006,19 +1979,19 @@ open SigGolfCandidate.T3 (Digest)
 set_option maxHeartbeats 800000
 set_option linter.unusedSimpArgs false
 /-- The r5 groups' view of the selected half (#938's `Encoded` word). -/
-def r5V (V : Digest) : Digest := V ^^^ BitVec.ofNat 128 (2^119-1)
+def r5V (V : Digest) : Digest := V ^^^ BitVec.ofNat 128 (2^120-1)
 theorem r5V_lo (V : Digest) : ~~~((r5V V).extractLsb' 0 64) = V.extractLsb' 0 64 := by
   apply BitVec.eq_of_getLsbD_eq; intro j hj
   simp only [r5V, BitVec.getLsbD_not, BitVec.getLsbD_extractLsb', BitVec.getLsbD_xor, BitVec.getLsbD_ofNat,
     Nat.testBit_two_pow_sub_one, hj, Nat.zero_add]
   have h1 : j < 128 := by omega
-  have h2 : j < 119 := by omega
+  have h2 : j < 120 := by omega
   simp [h1, h2]
-theorem hiMask_bit (j : Nat) (hj : j < 64) : hiMask.getLsbD j = decide (55 ≤ j) := by
+theorem hiMask_bit (j : Nat) (hj : j < 64) : hiMask.getLsbD j = decide (56 ≤ j) := by
   unfold hiMask
-  rw [BitVec.getLsbD_ofNat, show (2:Nat)^64-2^55=2^55*(2^9-1) by norm_num, Nat.testBit_two_pow_mul,
+  rw [BitVec.getLsbD_ofNat, show (2:Nat)^64-2^56=2^56*(2^8-1) by norm_num, Nat.testBit_two_pow_mul,
     Nat.testBit_two_pow_sub_one]
-  by_cases h : 55 ≤ j
+  by_cases h : 56 ≤ j
   · simp [h, hj]; omega
   · simp [h]
 theorem r5V_hi (V : Digest) : ~~~((r5V V).extractLsb' 64 64) ^^^ hiMask = V.extractLsb' 64 64 := by
@@ -2026,10 +1999,10 @@ theorem r5V_hi (V : Digest) : ~~~((r5V V).extractLsb' 64 64) ^^^ hiMask = V.extr
   simp only [BitVec.getLsbD_xor, hiMask_bit j hj, r5V, BitVec.getLsbD_not, BitVec.getLsbD_extractLsb',
     BitVec.getLsbD_ofNat, Nat.testBit_two_pow_sub_one, hj]
   have h1 : 64 + j < 128 := by omega
-  by_cases h : 55 ≤ j
-  · have h2 : ¬ 64 + j < 119 := by omega
+  by_cases h : 56 ≤ j
+  · have h2 : ¬ 64 + j < 120 := by omega
     simp [h, h1, h2]
-  · have h2 : 64 + j < 119 := by omega
+  · have h2 : 64 + j < 120 := by omega
     simp [h, h1, h2]
 theorem nat_field_eq (X Y b : Nat) (n : Nat) (h : ∀ j, j < n → X.testBit (j+b) = Y.testBit (j+b)) :
     X / 2^b % 2^n = Y / 2^b % 2^n := by
@@ -2038,40 +2011,42 @@ theorem nat_field_eq (X Y b : Nat) (n : Nat) (h : ∀ j, j < n → X.testBit (j+
   by_cases hj : j < n
   · simp [hj, h j hj]
   · simp [hj]
-theorem topMask_eq : T3.topMask = 2^56*(2^56-1) := by unfold T3.topMask; norm_num
-/-- The 7-bit field `q` (8 <= q < 16: bits 7q..7q+6 inside 56..111) under #938's word is the spec's flipped field. -/
-theorem topRank_r5V (V : Digest) (q : Nat) (h8 : 8 ≤ q) (hq : q < 16) :
-    Search.topRank (r5V V) q = T3.r5Rank V q := by
-  unfold Search.topRank T3.r5Rank T3.topCode T3.topFlip r5V
-  have e := nat_field_eq (V ^^^ BitVec.ofNat 128 (2^119-1)).toNat (V ^^^ BitVec.ofNat 128 T3.topMask).toNat (7*q) 7
-    (by
-      intro j hj
-      rw [BitVec.toNat_xor, BitVec.toNat_xor, Nat.testBit_xor, Nat.testBit_xor]
-      have e1 : (BitVec.ofNat 128 (2^119-1)).toNat.testBit (j + 7*q) = true := by
-        rw [BitVec.toNat_ofNat, Nat.mod_eq_of_lt (by norm_num), Nat.testBit_two_pow_sub_one]; simp; omega
-      have e2 : (BitVec.ofNat 128 T3.topMask).toNat.testBit (j + 7*q) = true := by
-        rw [topMask_eq, BitVec.toNat_ofNat, Nat.mod_eq_of_lt (by norm_num), Nat.testBit_two_pow_mul,
-          Nat.testBit_two_pow_sub_one]
-        simp; omega
-      rw [e1, e2])
+theorem topMask_eq : T3.topMask = 2^64*(2^56-1) := by unfold T3.topMask; norm_num
+/-- A 7-bit window inside bits 71..119 of #938's word is the same window of the spec word `topCode V`. -/
+theorem r5V_field (V : Digest) (S : Nat) (hS : 71 ≤ S ∧ S + 7 ≤ 120) :
+    (r5V V).toNat / 2^S % 2^7 = T3.topCode V / 2^S % 2^7 := by
+  apply nat_field_eq
+  intro j hj
+  rw [T3.topCode_testBit_adj, T3.topAdj_testBit V _ (Or.inr (by omega))]
+  unfold r5V
+  rw [BitVec.toNat_xor, Nat.testBit_xor, BitVec.toNat_ofNat, Nat.mod_eq_of_lt (by norm_num),
+    Nat.testBit_two_pow_sub_one]
+  have h1 : j + S < 120 := by omega
+  have h2 : 64 ≤ j + S ∧ j + S < 120 := by omega
+  simp [h1, h2]
+/-- The 7-bit field `q` (10 <= q < 16: bits 7q+1..7q+7 inside 71..112) under #938's word is the spec's flipped field
+(q9 is the merged digit, see `r5Rank9_eq`). -/
+theorem topRank_r5V (V : Digest) (q : Nat) (h10 : 10 ≤ q) (hq : q < 16) :
+    Search.topRankV (r5V V) q = T3.r5Rank V q := by
+  unfold Search.topRankV T3.r5Rank
+  rw [if_neg (by omega)]
+  have e := r5V_field V (7*q+1) (by omega)
   simpa using e
 theorem cellW9 (k : Nat) : cellW 9 k = 1024*(125-k)+64 := by
   unfold cellW; simp only [show ¬ (9:Nat)<9 by omega, show (9:Nat)<16 by omega, if_false, if_true]; rfl
-theorem r7Rank_eq (V : Digest) : T3.r7Rank V = T3.r5Rank V 8 := rfl
-theorem topRank_r5V_pair (V : Digest) : Search.topRank (r5V V) 8 = T3.r7Rank V := by
-  rw [topRank_r5V V 8 (by omega) (by omega)]; rfl
-/-- Bits outside 56..111 of the spec word `topCode V` are the bits of `V`. -/
-theorem topCode_field (V : Digest) (b n : Nat) (h : b + n ≤ 56 ∨ 112 ≤ b) :
+theorem topRank_r5V_pair (V : Digest) : Search.topRankV (r5V V) 8 = T3.r7Rank V := by
+  unfold Search.topRankV T3.r7Rank
+  rw [if_pos rfl]
+  have e := r5V_field V 113 (by omega)
+  simpa using e
+/-- Bits outside 64..119 of the spec word `topCode V` are the bits of `V`. -/
+theorem topCode_field (V : Digest) (b n : Nat) (h : b + n ≤ 64 ∨ 120 ≤ b) :
     T3.topCode V / 2^b % 2^n = V.toNat / 2^b % 2^n := by
-  unfold T3.topCode T3.topFlip
   apply nat_field_eq
   intro j hj
-  rw [BitVec.toNat_xor, Nat.testBit_xor]
-  have e : (BitVec.ofNat 128 T3.topMask).toNat.testBit (j + b) = false := by
-    rw [topMask_eq, BitVec.toNat_ofNat, Nat.mod_eq_of_lt (by norm_num), Nat.testBit_two_pow_mul,
-      Nat.testBit_two_pow_sub_one]
-    simp; omega
-  rw [e]; simp
+  rw [T3.topCode_testBit_adj, T3.topAdj_testBit V _ (by omega)]
+  have e : ¬ (64 ≤ j + b ∧ j + b < 120) := by omega
+  simp [e]
 theorem r6Shift_eq (g : Nat) (hg : g < 9) : T3.r6Shift g = r6Pos g := by
   unfold T3.r6Shift r6Pos; split_ifs <;> omega
 /-- The 8-bit field of r6 group `g` is read from `V` itself (no flip). -/
@@ -2156,13 +2131,14 @@ theorem fetch_fault (s : MachineState) (h : s.pc.toNat<0x1000) : fetch vimage s=
 theorem fetch_high (s : MachineState) (h : 0x1000+4*257280 ≤ s.pc.toNat) : fetch vimage s=none := fetch_above s h
 theorem fetch_outside (s : MachineState)
     (h : s.pc.toNat<0x1000 ∨ 0x1000+4*257280 ≤ s.pc.toNat) : fetch vimage s=none := fetch_outside' s h
-theorem topRank_lt (v : Digest) (q : Nat) : Search.topRank v q<128 := by
-  unfold Search.topRank; omega
-theorem topRank9 (v : Digest) : Search.topRank v 9=v.toNat/2^63%2+2*(v.toNat/2^64%64) := by
-  unfold Search.topRank
-  rw [show 7*9=63 from rfl]
-  have h : v.toNat/2^64=v.toNat/2^63/2 := by rw [Nat.div_div_eq_div_mul, ← pow_succ]
-  rw [h]; omega
+theorem topRank_lt (v : Digest) (q : Nat) : Search.topRankV v q<128 := by
+  unfold Search.topRankV; omega
+/-- sg-topdigit: rank of q9 from the merged digit f = bits 64..70 of the selected half: raw = (f + 1) % 128,
+rank = 127 - raw. -/
+theorem r5Rank9_eq (V : Digest) : T3.r5Rank V 9 = (254 - V.toNat/2^64%128) % 128 := by
+  rw [T3.r5Rank9_raw]
+  have : V.toNat/2^64%128 < 128 := Nat.mod_lt _ (by norm_num)
+  omega
 /-- Reverse checksum `topT - (digits of the chains of groups 0..q)` (q = 16: chains 0..49). -/
 def s8v (c : NCtx) (q : Nat) : Word :=
   BitVec.ofNat 64 s8T-BitVec.ofNat 64 (((List.range (3*q+nCh q)).map c.dig).sum)
@@ -2371,8 +2347,8 @@ instance (V : Digest) (q : Nat) : Decidable (gValid V q) := by unfold gValid; in
 def gRank (V : Digest) (q : Nat) : Nat :=
   if q < 9 then T3.r6Rank V q else if q < 16 then T3.r5Rank V q else T3.r7Rank V
 /-- Steps from the end of group `j - 1` (its dispatch word) to the entry word of group `j`: group 0's 5-word
-dispatch, the r6 dispatches (4), dispatch9 + bge9 (4), #938's r5 dispatches and the pair's (3). -/
-def dspR6 (j : Nat) : Nat := if j = 1 then 5 else if j < 9 then 4 else if j = 9 then 4 else 3
+dispatch, the r6 dispatches (4), the merged q9 dispatch (3, sg-topdigit), #938's r5 dispatches and the pair's (3). -/
+def dspR6 (j : Nat) : Nat := if j = 1 then 5 else if j < 9 then 4 else 3
 theorem dspR6_le (j : Nat) : dspR6 j ≤ 5 := by unfold dspR6; split_ifs <;> omega
 theorem r6DispR_steps (h : Nat) (h2 : 2 ≤ h) (h8 : h < 9) : (r6DispR h).steps = dspR6 h ∧ (r6DispR h).cycles = dspR6 h := by
   unfold r6DispR dspR6
@@ -2501,8 +2477,6 @@ theorem end_dispatch5 (c : NCtx) (hds : c.DigitsOk) {s0 : MachineState} {V : Dig
   have hR := hB.1
   have hr : vrun (gX q (c.kOf q)) 5 = some (nextDispR q) := (c.groupFacts hds q (by omega)).disp
   have hbound := gX_lt q (c.kOf q) (by omega) (c.kOf_nRank hds q (by omega))
-  have h16 : s.getReg .x16 = ~~~((r5V V).extractLsb' 0 64) := by
-    rw [r5V_lo]; exact (hR _ (by decide +kernel)).trans he.lo
   have h17 : s.getReg .x17 = ~~~((r5V V).extractLsb' 64 64) ^^^ hiMask := by
     rw [r5V_hi]; exact (hR _ (by decide +kernel)).trans he.hi
   have h6 : s.getReg .x6 = 520192#64 := (hR _ (by decide +kernel)).trans he.mask5
@@ -2515,58 +2489,39 @@ theorem end_dispatch5 (c : NCtx) (hds : c.DigitsOk) {s0 : MachineState} {V : Dig
   set v := r5V V with hvdef
   by_cases hq8 : q = 8
   · subst q
-    rw [gValid_r5 V 9 (by omega) (by omega), gRank_r5 V 9 (by omega) (by omega), ← topRank_r5V V 9 (by omega) (by omega),
-      ← hvdef]
+    -- sg-topdigit: `slli a4,a7,12; and a4,a4,t1; jalr 256(a4)` on the merged digit f = bits 64..70 of V lands on
+    -- `cellW 9 (126 - f)` (valid f = 2..126); f = 0 is below the image, f = 1 and f = 127 are zero words.
+    rw [gValid_r5 V 9 (by omega) (by omega), gRank_r5 V 9 (by omega) (by omega), r5Rank9_eq V]
     have hr9 : nextDispR 8 = dispatch9R := by simp [nextDispR]
     rw [hr9] at hr
-    obtain ⟨t,st,pt,rt,ft⟩ := dispatch9_step hbound hr s v hpc' h17 h6
-    have hr9 : Search.topRank (r5V V) (8+1)=v.toNat/2^63%2+2*(v.toNat/2^64%64) := topRank9 v
-    have hd9 : dspR6 (8+1)=4 := rfl
-    rw [hr9,hd9]
-    have hb2 : v.toNat/2^63%2<2 := Nat.mod_lt _ (by decide +kernel)
-    have hu : v.toNat/2^64%64<64 := Nat.mod_lt _ (by decide +kernel)
-    by_cases hu63 : v.toNat/2^64%64=63
-    · refine ⟨fun hv => by omega,fun _ => ⟨3,t,st,by omega,fetch_fault t ?_⟩⟩
-      rw [pt,hu63]; exact g9_fault
-    · set u := v.toNat/2^64%64 with hudef
-      have hpc9 : t.pc=pcOf (cellW 9 (2*u)) := by rw [pt]; exact g9_cell u (by omega)
-      have h16t : t.getReg .x16= ~~~(v.extractLsb' 0 64) := (rt.get (by decide +kernel)).trans h16
-      obtain ⟨z,sz,pz,rz,fz⟩ := bge9_step (2*u) (by omega) (by omega) t v hpc9 h16t
-      have rtz : RegsExcept s z [.x14] := fun x hx => (rz.get (by simp)).trans (rt x hx)
-      have ftz : Frame s z (fun _ => False) := (ft.trans fz).mono (by intro A _ h; simpa using h)
-      have st5 : Steps vimage s 4 4 z := st.trans sz
-      by_cases hb : v.toNat/2^63%2=1
-      · rw [if_pos hb] at pz
-        rw [hb]
-        by_cases hu62 : u=62
-        · refine ⟨fun hv => by omega,fun _ => ⟨4,z,st5,by omega,fault_top_fetch 9 (by omega) (by omega) z ?_⟩⟩
-          rw [pz,hu62]; decide +kernel
-        · refine ⟨fun _ => ⟨z,st5,base_of z rtz ftz,by omega,?_⟩,fun hv => by omega⟩
-          rw [pz]
-          have he9 : entW (8+1) (1+2*u)=cellW 9 (1+2*u) := by
-            unfold entW; rw [if_neg (by omega)]; rfl
-          rw [he9, cellW9, cellW9]
-          unfold pcOf
-          exact congrArg (BitVec.ofNat 64) (by omega)
-      · have hb0 : v.toNat/2^63%2=0 := by omega
-        rw [if_neg hb] at pz
-        rw [hb0]
-        refine ⟨fun _ => ⟨z,st5,base_of z rtz ftz,by omega,?_⟩,fun hv => by omega⟩
-        rw [pz]
-        have he9 : entW (8+1) (0+2*u)=cellW 9 (2*u)+1 := by
-          unfold entW; rw [if_pos (by omega)]; simp
-        rw [he9]
+    have h17' : s.getReg .x17 = V.extractLsb' 64 64 := (hR _ (by decide +kernel)).trans he.hi
+    obtain ⟨t,st,pt,rt,ft⟩ := dispatch9_step hbound hr s V hpc' h17' h6
+    have hd9 : dspR6 (8+1)=3 := rfl
+    rw [hd9]
+    set f := V.toNat/2^64%128 with hfdef
+    have hf : f < 128 := Nat.mod_lt _ (by decide +kernel)
+    by_cases hok : 2 ≤ f ∧ f ≤ 126
+    · refine ⟨fun _ => ⟨t,st,base_of t rt ft,by omega,?_⟩,fun hv => by omega⟩
+      rw [pt, show (254 - f) % 128 = 126 - f by omega]
+      exact g9_cell f hok.1 hok.2
+    · refine ⟨fun hv => by omega, fun _ => ⟨3,t,st,by omega,?_⟩⟩
+      by_cases h0 : f = 0
+      · exact fetch_fault t (by rw [pt, h0]; exact g9_fault)
+      by_cases h1 : f = 1
+      · exact fault_top_fetch 9 (by omega) (by omega) t (by rw [pt, h1]; exact g9_one)
+      · have h127 : f = 127 := by omega
+        exact fault_slot127_fetch t (by rw [pt, h127] <;> exact g9_top)
   · by_cases hq15 : q = 15
-    · -- q15 -> the r7 pair (#938's dispatch into group 8, bits 56..62)
+    · -- q15 -> the r7 pair (#938's dispatch into group 8, bits 113..119)
       subst q
       rw [gValid_pair, gRank_pair, ← topRank_r5V_pair V, ← hvdef]
       have hr' : nextDispR 15 = dispatchR 8 := by simp [nextDispR]
       rw [hr'] at hr
-      obtain ⟨t,st,pt,rt,ft⟩ := dispatch_step (q := 8) (by omega) (by omega) hbound hr s v hpc' h16 h17 h6
+      obtain ⟨t,st,pt,rt,ft⟩ := dispatch_step (q := 8) (by omega) (by omega) hbound hr s v hpc' h17 h6
       have hd : dspR6 (15+1)=3 := rfl
       rw [hd]
       have hk := topRank_lt v 8
-      by_cases h49 : Search.topRank v 8 < 49
+      by_cases h49 : Search.topRankV v 8 < 49
       · refine ⟨fun _ => ⟨t,st,base_of t rt ft,by omega,?_⟩,fun hv => absurd h49 hv⟩
         rw [pt, cell_value_pair _ (by omega)]; unfold entW; simp
       · refine ⟨fun hv => absurd hv h49, fun _ => ⟨3,t,st,by omega,?_⟩⟩
@@ -2578,21 +2533,21 @@ theorem end_dispatch5 (c : NCtx) (hds : c.DigitsOk) {s0 : MachineState} {V : Dig
       rw [hr'] at hr
       rw [gValid_r5 V (q+1) (by omega) (by omega), gRank_r5 V (q+1) (by omega) (by omega),
         ← topRank_r5V V (q+1) (by omega) (by omega), ← hvdef]
-      obtain ⟨t,st,pt,rt,ft⟩ := dispatch_step (q := q+1) (by omega) (by omega) hbound hr s v hpc' h16 h17 h6
+      obtain ⟨t,st,pt,rt,ft⟩ := dispatch_step (q := q+1) (by omega) (by omega) hbound hr s v hpc' h17 h6
       have hd : dspR6 (q+1)=3 := by
         unfold dspR6; simp only [show q+1 ≠ 1 by omega, show ¬ q+1 < 9 by omega, show q+1 ≠ 9 by omega, if_false]
       rw [hd]
       have hk := topRank_lt v (q+1)
       refine ⟨fun hv => ⟨t,st,base_of t rt ft,by omega,?_⟩,fun hv => ⟨3,t,st,by omega,?_⟩⟩
       · rw [pt,cell_value _ _ (by omega) (by omega) (by omega)]
-        have e : entW (q+1) (Search.topRank v (q+1)) = cellW (q+1) (Search.topRank v (q+1)) := by
-          unfold entW; rw [if_neg (fun h => hq8 (by omega))]; rfl
+        have e : entW (q+1) (Search.topRankV v (q+1)) = cellW (q+1) (Search.topRankV v (q+1)) := by
+          rfl
         rw [e]
-      · by_cases h125 : Search.topRank v (q+1)=125
+      · by_cases h125 : Search.topRankV v (q+1)=125
         · apply fault_top_fetch (q+1) (by omega) (by omega) t
           rw [pt,h125]
           exact fault125_value _ (by omega)
-        · by_cases h126 : Search.topRank v (q+1)=126
+        · by_cases h126 : Search.topRankV v (q+1)=126
           · by_cases hE : 1024≤entOff (q+1)
             · apply fault_top126_fetch (q+1) (by omega) (by omega) hE t
               rw [pt,h126]
@@ -3035,7 +2990,7 @@ theorem pair_ck_good (c : NCtx) (hc : c.ok) (hds : c.DigitsOk) (hck : c.CkOk) {s
   have H' := Verify.GoodQP.steps (st1.trans st2) H
   rw [ec]
   refine H'.mono ?_ ?_ (fun h => ⟨h,?_⟩) <;> omega
-theorem ov_16 : ov 0 16 = 71 := by decide +kernel
+theorem ov_16 : ov 0 16 = 70 := by decide +kernel
 /-- The whole T51 top region for a valid word: 16 groups, the r7 pair, the checksum chain. -/
 theorem top_full (c : NCtx) (hc : c.ok) (hds : c.DigitsOk) (hck : c.CkOk) {s0 : MachineState}
     (hk : ∀p∈c.known,s0.getReg p.1=p.2) (h0 : c.Orig0 s0) {V : Digest} (he : Encoded0 V s0) (hf : c.Fit6 V)
@@ -3045,7 +3000,7 @@ theorem top_full (c : NCtx) (hc : c.ok) (hds : c.DigitsOk) (hck : c.CkOk) {s0 : 
     (K : List Digest → OracleComp Legacy.HashSpec Verify.Obs) (N C A : Nat) (Q : Prop)
     (hK : ∀ acc t,c.TopOut s0 acc t → Verify.GoodQP P t N C Q A (K acc))
     (s : MachineState) (hs : c.GroupIn s0 0 [] s) :
-    Verify.GoodQP P s (N+2146) (C+c.chainsCost 0 51+77) Q (A+c.chainsCost 0 51+77)
+    Verify.GoodQP P s (N+2146) (C+c.chainsCost 0 51+76) Q (A+c.chainsCost 0 51+76)
       (Verify.ccM c.topP K) := by
   unfold topP
   rw [show (51:Nat)=3*16+3 from rfl,← List.range'_append_1,List.foldlM_append,Verify.ccM_bind]

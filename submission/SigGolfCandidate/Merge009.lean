@@ -404,24 +404,34 @@ def keygen : M (Digest × Cache) := do
   let tag ← privateMac region
   pure (publicKey, ⟨tag, region⟩)
 def lowerShift (i : Nat) : Nat := if i < 21 then 3 * i else 64 + 3 * (i - 21)
-/-! ### T51 top word
+/-! ### T51 top word (sg-topdigit map)
 Fields of the 128-bit top word `v` (they partition bits 0..127; no spare bit):
-* r6 groups `g0..g6` in bits `8 g .. 8 g + 7`, `g7` in 112..119, `g8` in 120..127 (chains `3 g .. 3 g + 2`,
+* r6 groups `g0..g7` in bits `8 g .. 8 g + 7` (`g7` = a6 bits 56..63), `g8` in 120..127 (chains `3 g .. 3 g + 2`,
   `rank = d0 + 6 d1 + 36 d2 < 216`); `g0` stores `raw = rank + 40` (valid iff `raw ≥ 40`), `g1..g8` store
   `raw = rank` (valid iff `raw < 216`);
-* the r7 pair (chains 48, 49) in bits 56..62, stored flipped (`rank = 127 - raw7 = d48 + 7 d49 < 49`);
-* #938's r5 groups `q9..q15` in bits `7 q .. 7 q + 6` (63..111), stored flipped (`rank = 127 - raw7 < 125`,
-  chains `3 q .. 3 q + 2`, `rank = d0 + 5 d1 + 25 d2`).
+* #938's r5 groups `q9..q15` in bits `7 q + 1 .. 7 q + 7` (64..112), stored flipped (`rank = 127 - raw7 < 125`,
+  chains `3 q .. 3 q + 2`, `rank = d0 + 5 d1 + 25 d2`); q9 (a7 bits 0..6) holds `f = raw7 - 1 (mod 128)` (the
+  verifier's merged dispatch digit, `topAdj`);
+* the r7 pair (chains 48, 49) in bits 113..119, stored flipped (`rank = 127 - raw7 = d48 + 7 d49 < 49`).
 The checksum chain 50 is not stored: its digit is `target 0 - sum` and must lie in `[0, 5]` (`decode`). -/
-/-- T51: the flipped 7-bit fields (r7 pair and r5 groups, bits 56..111). -/
-def topMask : Nat := 2 ^ 112 - 2 ^ 56
+/-- T51: the flipped 7-bit fields (r5 groups and the r7 pair, bits 64..119). -/
+def topMask : Nat := 2 ^ 120 - 2 ^ 64
 def topFlip (value : Digest) : Digest := value ^^^ BitVec.ofNat 128 topMask
+/-- sg-topdigit: the merged q9 field (bits 64..70) holds `f = raw - 1 (mod 128)`; `topAdj` restores `raw = f + 1 (mod 128)`
+(only bits 64..70 change), `topUnadj` is its inverse. Stated on `toNat` (the bitwise draft needed `bv_decide`, whose
+proofs add a native axiom). -/
+def topAdj (value : Digest) : Digest :=
+  BitVec.ofNat 128 (value.toNat % 2 ^ 64 + 2 ^ 64 * ((value.toNat / 2 ^ 64 % 128 + 1) % 128) +
+    2 ^ 71 * (value.toNat / 2 ^ 71))
+def topUnadj (value : Digest) : Digest :=
+  BitVec.ofNat 128 (value.toNat % 2 ^ 64 + 2 ^ 64 * ((value.toNat / 2 ^ 64 % 128 + 127) % 128) +
+    2 ^ 71 * (value.toNat / 2 ^ 71))
 /-- The top word with its 7-bit fields unflipped (the r6 fields unchanged). -/
-def topCode (value : Digest) : Nat := (topFlip value).toNat
+def topCode (value : Digest) : Nat := (topFlip (topAdj value)).toNat
 /-- Legacy (NF17) bit position of a raw radix-8 top digit; unused by the T51 top word. -/
 def topRawShift (i : Nat) : Nat := if i = 53 then 119 else 122 + 3 * (i - 51)
 /-- T51: bit position of r6 group `g` (`g0..g6` at `8 g`, `g7` at 112, `g8` at 120). -/
-def r6Shift (g : Nat) : Nat := if g < 7 then 8 * g else 112 + 8 * (g - 7)
+def r6Shift (g : Nat) : Nat := if g < 8 then 8 * g else 120
 /-- T51: raw 8-bit field of r6 group `g` (read through `topCode`, which leaves the r6 fields unchanged). -/
 def r6Raw (value : Digest) (g : Nat) : Nat := topCode value / 2 ^ r6Shift g % 256
 /-- T51: rank of r6 group `g` (group 0 is offset by 40). -/
@@ -430,9 +440,9 @@ def r6Rank (value : Digest) (g : Nat) : Nat := if g = 0 then r6Raw value 0 - 40 
 def r6Valid (value : Digest) (g : Nat) : Bool :=
   if g = 0 then decide (40 ≤ r6Raw value 0) else decide (r6Raw value g < 216)
 /-- T51: rank of r5 group `q` (9..15): `127 - raw` of bits `7 q .. 7 q + 6`. -/
-def r5Rank (value : Digest) (q : Nat) : Nat := topCode value / 2 ^ (7 * q) % 128
+def r5Rank (value : Digest) (q : Nat) : Nat := topCode value / 2 ^ (7 * q + 1) % 128
 /-- T51: rank of the r7 pair: `127 - raw` of bits 56..62 (`d48 + 7 d49`). -/
-def r7Rank (value : Digest) : Nat := topCode value / 2 ^ 56 % 128
+def r7Rank (value : Digest) : Nat := topCode value / 2 ^ 113 % 128
 def coreDigit (lay : Layer) (value : Digest) (i : Nat) : Nat :=
   if lay = 0 then
     if i < 27 then r6Rank value (i / 3) / 6 ^ (i % 3) % 6
