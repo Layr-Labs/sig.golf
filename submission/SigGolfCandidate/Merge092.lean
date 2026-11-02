@@ -1367,12 +1367,12 @@ open SigGolfCandidate.Research
 set_option maxHeartbeats 1000000
 set_option maxRecDepth 10000
 
-/-- img-v6 machine policy check: pool 66, hints `484·f1 + 22·f2 + f3`; L1 residual < 53, L2 < 40, L3 < 22. -/
+/-- img-v6 machine policy check: pool 67, hints `484·f1 + 22·f2 + f3`; L1 residual < 54, L2 < 40, L3 < 22. -/
 def policyCondition (hints : BitVec 16) (digits : List (List Nat)) (lows : List Bool) : Prop :=
-  let r1:=66-CanonicalPolicy.credit 0 (lows.getD 0 true) (digits.getD 0 [])
+  let r1:=67-CanonicalPolicy.credit 0 (lows.getD 0 true) (digits.getD 0 [])
   let r2:=r1-CanonicalPolicy.credit 1 (lows.getD 1 true) (digits.getD 1 [])
   let r3:=r2-CanonicalPolicy.credit 2 (lows.getD 2 true) (digits.getD 2 [])
-  r1<53 ∧ r2<40 ∧ r3<22 ∧
+  r1<54 ∧ r2<40 ∧ r3<22 ∧
     hints.toNat/484=CanonicalPolicy.threshold 1 r1 ∧
     hints.toNat/22%22=CanonicalPolicy.threshold 2 r2 ∧ hints.toNat%22=r3
 
@@ -1403,16 +1403,16 @@ theorem policyCondition_iff (hints : BitVec 16) (digits : List (List Nat)) (lows
     rw [CanonicalPolicy.lower_three_progress _ hR3]
     exact he3
   · rintro ⟨hH,he1,he2,he3⟩
-    have hr1 : 66-CanonicalPolicy.credit 0 (lows.getD 0 true) (digits.getD 0 [])<53 := by omega
+    have hr1 : 67-CanonicalPolicy.credit 0 (lows.getD 0 true) (digits.getD 0 [])<54 := by omega
     have ht1 := (CanonicalPolicy.lower_one_progress ⟨_,hr1⟩).2
     simp only [Fin.val_mk] at ht1
-    have hr2 : 66-CanonicalPolicy.credit 0 (lows.getD 0 true) (digits.getD 0 [])-
+    have hr2 : 67-CanonicalPolicy.credit 0 (lows.getD 0 true) (digits.getD 0 [])-
         CanonicalPolicy.credit 1 (lows.getD 1 true) (digits.getD 1 [])<40 := by
       rw [←he1] at ht1
       omega
     have ht2 := (CanonicalPolicy.lower_two_progress ⟨_,hr2⟩).2
     simp only [Fin.val_mk] at ht2
-    have hr3 : 66-CanonicalPolicy.credit 0 (lows.getD 0 true) (digits.getD 0 [])-
+    have hr3 : 67-CanonicalPolicy.credit 0 (lows.getD 0 true) (digits.getD 0 [])-
         CanonicalPolicy.credit 1 (lows.getD 1 true) (digits.getD 1 [])-
         CanonicalPolicy.credit 2 (lows.getD 2 true) (digits.getD 2 [])<22 := by
       rw [←he2] at ht2
@@ -1455,19 +1455,19 @@ set_option Elab.async false
 def Tables (s : MachineState) : Prop :=
   ∀i,i<2160 → s.getByte (BitVec.ofNat 64 (16747408+i))=Images.expandSharedData.getD i 0
 
-theorem data1 (r : Fin 53) : Images.expandSharedData.getD (2048+r.val) 0=
+theorem data1 (r : Fin 54) : Images.expandSharedData.getD (2048+r.val) 0=
     BitVec.ofNat 8 (CanonicalPolicy.threshold 1 r.val) := by
   fin_cases r <;> decide +kernel
 theorem data2 (r : Fin 40) : Images.expandSharedData.getD (2112+r.val) 0=
     BitVec.ofNat 8 (CanonicalPolicy.threshold 2 r.val) := by
   fin_cases r <;> decide +kernel
-theorem threshold1_lt (r : Nat) (hr : r<53) : CanonicalPolicy.threshold 1 r<22 := by
-  have h : ∀r:Fin 53,CanonicalPolicy.threshold 1 r.val<22 := by decide +kernel
+theorem threshold1_lt (r : Nat) (hr : r<54) : CanonicalPolicy.threshold 1 r<22 := by
+  have h : ∀r:Fin 54,CanonicalPolicy.threshold 1 r.val<22 := by decide +kernel
   exact h ⟨r,hr⟩
 theorem threshold2_lt (r : Nat) (hr : r<40) : CanonicalPolicy.threshold 2 r<22 := by
   have h : ∀r:Fin 40,CanonicalPolicy.threshold 2 r.val<22 := by decide +kernel
   exact h ⟨r,hr⟩
-theorem Tables.first {s : MachineState} (h : Tables s) (r : Nat) (hr : r<53) :
+theorem Tables.first {s : MachineState} (h : Tables s) (r : Nat) (hr : r<54) :
     s.getByte (BitVec.ofNat 64 (16749456+r))=BitVec.ofNat 8 (CanonicalPolicy.threshold 1 r) := by
   have he:=h (2048+r) (by omega)
   rw [data1 ⟨r,hr⟩] at he
@@ -5172,8 +5172,8 @@ section
 
 /-! # img-v6 expand final policy check (canon-v6 porter)
 
-Machine proof of the expand policy check at 46929..46979 for the img-v6 image: credit pool 66, policy hints in
-the mixed radix `484·f1 + 22·f2 + f3`, L1 floors by residual `< 53`, L2 `< 40`, L3 floor = residual `< 22`.
+Machine proof of the expand policy check at 46929..46979 for the img-v6 image: credit pool 67, policy hints in
+the mixed radix `484·f1 + 22·f2 + f3`, L1 floors by residual `< 54`, L2 `< 40`, L3 floor = residual `< 22`.
 Adapted from `SharedValidate` in `Expand/H2Front.lean` (e7b: pool 72, radix 20); new namespace
 `SharedValidateV6`, result `validate_source_steps` against `SharedForest.policyHintsValid` (bound 7744). -/
 
@@ -5381,9 +5381,9 @@ open SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64 SigGol
 set_option autoImplicit false
 set_option maxHeartbeats 1500000
 set_option maxRecDepth 10000
-def initCode : List (BitVec 32) := [0x66e37,0xe0e13,0xe3a03,0x4200a93]
+def initCode : List (BitVec 32) := [0x66e37,0xe0e13,0xe3a03,0x4300a93]
 sym_block initRun := symRun {noAlias:=true} initCode (pcOf 46929) 100
-def range1Code : List (BitVec 32) := [0x3500393,0x87afc63]
+def range1Code : List (BitVec 32) := [0x3600393,0x87afc63]
 sym_block range1Run := symRun {noAlias:=true} range1Code (pcOf 46940) 100
 def range2Code : List (BitVec 32) := [0x2800393,0x47afc63]
 sym_block range2Run := symRun {noAlias:=true} range2Code (pcOf 46956) 100
@@ -5398,13 +5398,13 @@ sym_block badRun := symRun {noAlias:=true} badCode (pcOf 46979) 100
 theorem range1_steps {im : Image} (hc : CodeAt im (pcOf 46940) range1Code)
     (s : MachineState) (hp : s.pc=pcOf 46940) (R : Nat) (hR : R≤69)
     (h21 : s.getReg .x21=BitVec.ofNat 64 R) :
-    ∃t,Steps im s 2 2 t ∧ t.pc=(if R<53 then pcOf 46942 else pcOf 46979) ∧
+    ∃t,Steps im s 2 2 t ∧ t.pc=(if R<54 then pcOf 46942 else pcOf 46979) ∧
       RegsExcept s t [.x7] ∧ Frame s t (fun _=>False) := by
   refine ⟨_,symRun_sound range1Run hc s hp (by simp [range1Run.res,rv_simp]),?_,?_,?_⟩
   · simp only [Result.toState_pc,range1Run.res]
     t3n [h21]
     simp only [BitVec.ult,BitVec.toNat_ofNat,Nat.mod_eq_of_lt (show R<2^64 by omega),decide_eq_true_eq]
-    by_cases h : R<53 <;> simp [h]
+    by_cases h : R<54 <;> simp [h]
   · intro r hr;cases r <;> first | exact (hr (by decide)).elim | rfl
   · intro A hA hn;rfl
 theorem range2_steps {im : Image} (hc : CodeAt im (pcOf 46956) range2Code)
@@ -5435,7 +5435,7 @@ theorem init_steps {im : Image} (hc : CodeAt im (pcOf 46929) initCode)
     (s : MachineState) (hp : s.pc=pcOf 46929) (hints : Nat)
     (hm : s.getMem (0x66000#64)=BitVec.ofNat 64 hints) :
     ∃t,Steps im s 4 4 t ∧ t.pc=pcOf 46933 ∧ t.getReg .x20=BitVec.ofNat 64 hints ∧
-      t.getReg .x21=66 ∧ RegsExcept s t [.x20,.x21,.x28] ∧ Frame s t (fun _=>False) := by
+      t.getReg .x21=67 ∧ RegsExcept s t [.x20,.x21,.x28] ∧ Frame s t (fun _=>False) := by
   refine ⟨_,symRun_sound initRun hc s hp (by simp [initRun.res,rv_simp]),rfl,?_,rfl,?_,?_⟩
   · simp [initRun.res,rv_simp,hm]
   · intro r hr;cases r <;> first | exact (hr (by decide)).elim | rfl
@@ -5579,7 +5579,7 @@ theorem lookup1_steps {im : Image}
     (hpre : CodeAt im (pcOf 46942) lookup1PreCode)
     (hload : CodeAt im (pcOf 46945) lookup1LoadCode)
     (hpost : CodeAt im (pcOf 46946) lookup1PostCode)
-    (s : MachineState) (hp : s.pc=pcOf 46942) (R H F : Nat) (hR : R<53) (hH : H<8000) (hF : F<22)
+    (s : MachineState) (hp : s.pc=pcOf 46942) (R H F : Nat) (hR : R<54) (hH : H<8000) (hF : F<22)
     (h21 : s.getReg .x21=BitVec.ofNat 64 R) (h20 : s.getReg .x20=BitVec.ofNat 64 H)
     (hm : s.getByte (BitVec.ofNat 64 (16749456+R))=BitVec.ofNat 8 F) :
     ∃t,Steps im s 7 10 t ∧ t.pc=(if F=H/484 then pcOf 46949 else pcOf 46979) ∧
@@ -5661,15 +5661,15 @@ theorem phase1_steps {im : Image} (hc : Code im)
     (s : MachineState) (hp : s.pc=pcOf 46933) (R C H : Nat) (hR : R≤69) (hC : C<2^64) (hH : H<8000)
     (h21 : s.getReg .x21=BitVec.ofNat 64 R) (h20 : s.getReg .x20=BitVec.ofNat 64 H)
     (hm : s.getMem (417856#64)=BitVec.ofNat 64 C)
-    (T : Nat→Nat) (hT : ∀ r,r<53 → T r<22)
-    (hbytes : ∀ r,r<53 → s.getByte (BitVec.ofNat 64 (16749456+r))=BitVec.ofNat 8 (T r)) :
+    (T : Nat→Nat) (hT : ∀ r,r<54 → T r<22)
+    (hbytes : ∀ r,r<54 → s.getByte (BitVec.ofNat 64 (16749456+r))=BitVec.ofNat 8 (T r)) :
     ∃t n c,n≤15 ∧ c≤18 ∧ Steps im s n c t ∧
-      t.pc=(if R-C<53 ∧ H/484=T (R-C) then pcOf 46949 else pcOf 46979) ∧
+      t.pc=(if R-C<54 ∧ H/484=T (R-C) then pcOf 46949 else pcOf 46979) ∧
       t.getReg .x21=BitVec.ofNat 64 (R-C) ∧ RegsExcept s t regs ∧ Frame s t (fun _=>False) := by
   letI:=hc.r0
   obtain ⟨u,n,hn,su,pu,u21,ru,fu⟩:=residual0_steps (im:=im) s hp R C hR hC h21 hm
   obtain ⟨v,sv,pv,rv,fv⟩:=range1_steps hc.range1 u pu (R-C) (by omega) u21
-  by_cases hlt : R-C<53
+  by_cases hlt : R-C<54
   · rw [if_pos hlt] at pv
     obtain ⟨t,st,pt,rt,ft⟩:=lookup1_steps hc.lookup1Pre hc.lookup1Load hc.lookup1Post v pv
       (R-C) H (T (R-C)) hlt hH (hT _ hlt)
@@ -5752,10 +5752,10 @@ set_option maxHeartbeats 2500000
 set_option maxRecDepth 20000
 
 abbrev Condition (H C0 C1 C2 : Nat) (T1 T2 : Nat→Nat) : Prop :=
-  let R1:=66-C0
+  let R1:=67-C0
   let R2:=R1-C1
   let R3:=R2-C2
-  R1<53 ∧ R2<40 ∧ R3<22 ∧ H/484=T1 R1 ∧ H/22%22=T2 R2 ∧ H%22=R3
+  R1<54 ∧ R2<40 ∧ R3<22 ∧ H/484=T1 R1 ∧ H/22%22=T2 R2 ∧ H%22=R3
 
 theorem validate_steps {im : Image} (hc : Code im)
     (s : MachineState) (hp : s.pc=pcOf 46929) (H C0 C1 C2 : Nat)
@@ -5764,28 +5764,28 @@ theorem validate_steps {im : Image} (hc : Code im)
     (hm0 : s.getMem (417856#64)=BitVec.ofNat 64 C0)
     (hm1 : s.getMem (417864#64)=BitVec.ofNat 64 C1)
     (hm2 : s.getMem (417872#64)=BitVec.ofNat 64 C2)
-    (T1 T2 : Nat→Nat) (ht1 : ∀r,r<53→T1 r<22) (ht2 : ∀r,r<40→T2 r<22)
-    (hb1 : ∀r,r<53→s.getByte (BitVec.ofNat 64 (16749456+r))=BitVec.ofNat 8 (T1 r))
+    (T1 T2 : Nat→Nat) (ht1 : ∀r,r<54→T1 r<22) (ht2 : ∀r,r<40→T2 r<22)
+    (hb1 : ∀r,r<54→s.getByte (BitVec.ofNat 64 (16749456+r))=BitVec.ofNat 8 (T1 r))
     (hb2 : ∀r,r<40→s.getByte (BitVec.ofNat 64 (16749520+r))=BitVec.ofNat 8 (T2 r)) :
     ∃t n c,n≤47 ∧ c≤59 ∧ Steps im s n c t ∧
       t.pc=(if Condition H C0 C1 C2 T1 T2 then pcOf 42795 else pcOf 354) ∧
       RegsExcept s t [.x6,.x7,.x20,.x21,.x28,.x29] ∧ Frame s t (fun _=>False) := by
   obtain ⟨u,su,pu,u20,u21,ru,fu⟩:=init_steps hc.init s hp H hm
-  obtain ⟨v,n1,c1,hn1,hc1,sv,pv,v21,rv,fv⟩:=phase1_steps hc u pu 66 C0 H (by omega) hC0 hH u21 u20
+  obtain ⟨v,n1,c1,hn1,hc1,sv,pv,v21,rv,fv⟩:=phase1_steps hc u pu 67 C0 H (by omega) hC0 hH u21 u20
     (by rw [fu.get (by decide) (by simp)];exact hm0) T1 ht1
     (fun r hr=>by rw [fu.getByte (by omega) (by simp)];exact hb1 r hr)
-  by_cases h1 : 66-C0<53 ∧ H/484=T1 (66-C0)
+  by_cases h1 : 67-C0<54 ∧ H/484=T1 (67-C0)
   · rw [if_pos h1] at pv
-    obtain ⟨w,n2,c2,hn2,hc2,sw,pw,w21,rw_,fw⟩:=phase2_steps hc v pv (66-C0) C1 H (by omega) hC1 hH v21
+    obtain ⟨w,n2,c2,hn2,hc2,sw,pw,w21,rw_,fw⟩:=phase2_steps hc v pv (67-C0) C1 H (by omega) hC1 hH v21
       (by rw [rv.get (by decide)];exact u20)
       (by rw [fv.get (by decide) (by simp),fu.get (by decide) (by simp)];exact hm1) T2 ht2
       (fun r hr=>by rw [fv.getByte (by omega) (by simp),fu.getByte (by omega) (by simp)];exact hb2 r hr)
-    by_cases h2 : 66-C0-C1<40 ∧ H/22%22=T2 (66-C0-C1)
+    by_cases h2 : 67-C0-C1<40 ∧ H/22%22=T2 (67-C0-C1)
     · rw [if_pos h2] at pw
-      obtain ⟨x,n3,c3,hn3,hc3,sx,px,x21,rx,fx⟩:=phase3_steps hc w pw (66-C0-C1) C2 H (by omega) hC2 hH w21
+      obtain ⟨x,n3,c3,hn3,hc3,sx,px,x21,rx,fx⟩:=phase3_steps hc w pw (67-C0-C1) C2 H (by omega) hC2 hH w21
         (by rw [rw_.get (by decide),rv.get (by decide)];exact u20)
         (by rw [fw.get (by decide) (by simp),fv.get (by decide) (by simp),fu.get (by decide) (by simp)];exact hm2)
-      by_cases h3 : 66-C0-C1-C2<22 ∧ H%22=66-C0-C1-C2
+      by_cases h3 : 67-C0-C1-C2<22 ∧ H%22=67-C0-C1-C2
       · rw [if_pos h3] at px
         obtain ⟨t,st,pt,rt,ft⟩:=good_steps hc.good x px
         refine ⟨t,4+n1+n2+n3+1,4+c1+c2+c3+1,by omega,by omega,(((su.trans sv).trans sw).trans sx).trans st,?_,?_,?_⟩
@@ -5879,9 +5879,9 @@ theorem validate_source_steps {im : Image} (hc : Code im)
     (hm : s.getMem (0x66000#64)=BitVec.ofNat 64 hints.toNat)
     (hcredits : ∀lay:SigGolfCandidate.T3.Layer,s.getMem (BitVec.ofNat 64 (417856+8*lay.val))=
       BitVec.ofNat 64 (CanonicalPolicy.credit lay (lows.getD lay.val true) (digits.getD lay.val [])))
-    (ht1 : ∀r,r<53→CanonicalPolicy.threshold 1 r<22)
+    (ht1 : ∀r,r<54→CanonicalPolicy.threshold 1 r<22)
     (ht2 : ∀r,r<40→CanonicalPolicy.threshold 2 r<22)
-    (hb1 : ∀r,r<53→s.getByte (BitVec.ofNat 64 (16749456+r))=BitVec.ofNat 8 (CanonicalPolicy.threshold 1 r))
+    (hb1 : ∀r,r<54→s.getByte (BitVec.ofNat 64 (16749456+r))=BitVec.ofNat 8 (CanonicalPolicy.threshold 1 r))
     (hb2 : ∀r,r<40→s.getByte (BitVec.ofNat 64 (16749520+r))=BitVec.ofNat 8 (CanonicalPolicy.threshold 2 r)) :
     ∃t n c,n≤47 ∧ c≤59 ∧ Steps im s n c t ∧
       t.pc=(if SharedForest.policyHintsValid hints digits lows then pcOf 42795 else pcOf 354) ∧

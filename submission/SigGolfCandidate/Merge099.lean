@@ -923,7 +923,7 @@ attribute [local instance] Classical.propDecidable
       (ClaudeWCT.WCT9.builtPair T 1 (route index 1).2).2)
     (WCT9.searchLimit 0) 0 c0 d0 l0 (ClaudeWCT.W9.T3.Security.Wots.searchLimit_fits _) hs0).2.2.2
   let r1 := WCT9.CanonicalPolicy.nextResidual WCT9.CanonicalPolicy.totalCredit 0 l0 d0
-  have hr1 : r1<53 := WCT9.CanonicalPolicy.accepted_top_residual
+  have hr1 : r1<54 := WCT9.CanonicalPolicy.accepted_top_residual
     (by rwa [WCT9.CanonicalPolicy.threshold_top] at hd0)
   have hf1 : WCT9.CanonicalPolicy.threshold 1 r1<16 := WCT9.CanonicalPolicy.lower_one_floor_lt ⟨r1,hr1⟩
   have hc1 : referenceContext T (sourceMessages T) (sourceLeaf index 1)=some r1 := by

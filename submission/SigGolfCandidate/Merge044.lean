@@ -696,7 +696,7 @@ Entries below the top floor 14 never matter. -/
 def topAcceptedHistogram : List (Nat × Nat) :=
   topCounts.flatMap fun e => [(e.1 + 2, e.2 * 2 ^ 128), (e.1, e.2 * topHighW)]
 
-def initialBound : Nat := 366517234869228970737166968250808683987
+def initialBound : Nat := 366456120528192306738282144921825420507
 
 /-- T51 fixed sign cost (PINNED P12, measured): 4 + 112142 + 16 top family pairs + 152 + 12 = 112326 compressions. -/
 def fixedSignCost : Nat := 112326
@@ -705,17 +705,17 @@ def fixedSignCost : Nat := 112326
 def fixedBound : Nat := 616334705435489293055497825014826663607
 
 theorem initial_checked :
-    recurrenceCheck topDen topAcceptedHistogram 14 66 rowOne initialBound = true := by
+    recurrenceCheck topDen topAcceptedHistogram 14 67 rowOne initialBound = true := by
   decide +kernel
 
 theorem fixed_power_checked :
     powerUp (ceilDiv (zNum * scale) zDen) fixedSignCost ≤ fixedBound := by
   decide +kernel
 
-/-- P0 (pool 66, LOW bonus 2/2/3): the signing moment 1.999254 < 1.99926 (claim 199926, the least integer claim that
+/-- SGV1 (pool 67, bonus 2 on LOW or HIGH-a): the signing moment 1.998920 < 1.99893 (claim 199893, the least integer claim that
 passes). -/
 theorem full_moment_checked :
-    mulUp (mulUp fixedBound ftsBound) initialBound * 100000 < 199926 * scale := by
+    mulUp (mulUp fixedBound ftsBound) initialBound * 100000 < 199893 * scale := by
   decide +kernel
 
 /-- Top tail at the 2^20 top counter window (block 256 = 2^20 / 4096), floor 14. -/
@@ -766,7 +766,7 @@ theorem envelope_ratio_le_two_of (F X : Nat) (hX : X ≤ 200000)
 /-- Full moment ≤ 2 (1.99976) for the T51 fixed sign cost 112326 (cap 777, pool 69, floor 14, d6b). -/
 theorem envelope_ratio_le_two : ((fixedBound:ℝ)/scale)*
     (((ftsBound:ℝ)/scale)*((initialBound:ℝ)/scale))≤2 :=
-  envelope_ratio_le_two_of fixedBound 199926 (by norm_num) full_moment_checked
+  envelope_ratio_le_two_of fixedBound 199893 (by norm_num) full_moment_checked
 
 end ClaudeWCT.Numerics.TopZero
 end

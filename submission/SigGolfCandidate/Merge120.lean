@@ -3312,6 +3312,9 @@ def rngBr (k : Nat) (d : Bool) : Br := ⟨.ne, .bin .srl a7E (kw k), kw 0, d⟩
 def ckBr (lay : Nat) (d : Bool) : Br := ⟨.ltu, kw 7, t4E lay, d⟩
 /-- P0: the first guard `or gp,a6,a7; bge gp,zero` (canonical iff both fixed bits are 0); `d` = not canonical. -/
 def spareBr (_lay : Nat) (d : Bool) : Br := ⟨.ge, .bin .or a6E a7E, kw 0, !d⟩
+/-- SGV1 split guard: `blt a7,zero` (HIGH-a when taken) and `bge a6,zero` (LOW when taken). -/
+def a7Br (d : Bool) : Br := ⟨.lt, a7E, kw 0, d⟩
+def a6Br (d : Bool) : Br := ⟨.ge, a6E, kw 0, d⟩
 def a7lE : E := .bin .or b1E (.bin .srl a6E (kw 63))
 def x14l (lay : Nat) : E := .bin .and (.bin .sll a6E (kw 10)) (maskE lay)
 def tgtl (lay : Nat) : E := .bin .and (.bin .add (x14l lay) (kw 1992)) (.c (~~~1#64))
@@ -3331,8 +3334,12 @@ def x14Hi (lay : Nat) : E := .bin .and (.bin .sll a6HiE (kw 10)) (maskE lay)
 def tgtHi (lay : Nat) : E := .bin .and (.bin .add (x14Hi lay) (kw 1992)) (.c (~~~1#64))
 /-- M0 (A0, P2c): the lower heads lose `addi t4,s9,-194` and `bltu t5,t4,reject` (two steps, two cycles). -/
 def bSt (lay : Nat) : Nat := if lay = 3 then 28 else if lay = 1 ∨ lay = 2 then 19 else 33
-/-- P0: the HIGH path's extra steps (and cycles): the two high loads, plus the `jal` back into the body on layer 3. -/
+/-- The HIGH-b path's extra steps (and cycles): the failed `bge` and the two high loads on layers 1, 2 (SGV1 split
+guard: `ld a7; blt; ld a6; bge; ld a6hi; ld a7hi`), the two high loads and the `jal` back on layer 3. -/
 def hiX (lay : Nat) : Nat := if lay = 3 then 3 else 2
+/-- SGV1: the HIGH-a path's extra steps (and cycles) over LOW: none on layers 1, 2 (`ld a7; blt; ld a6hi; ld a7hi`),
+the `jal` back on layer 3. -/
+def hiA (lay : Nat) : Nat := if lay = 3 then 1 else 0
 def bCy (lay : Nat) : Nat := if lay = 3 then 31 else if lay = 1 ∨ lay = 2 then 22 else 36
 def prefixReturn (lay p : Nat) : Nat := p + (if lay = 3 then 37 else 38)
 def s7Sh (lay : Nat) : Nat := if lay = 1 then 12 else 9
@@ -3342,13 +3349,18 @@ def specBl (lay _p : Nat) : Spec :=
     (.x14, x14l lay)] ++ (if lay = 3 then [(.x22, .ld (kw (TOPLOAD - 8))),
       (.x24, .ld (kw TOPLOAD)), (.x1, .ld (kw (TOPLOAD + 8))), (.x9, .ld (kw (TOPLOAD + 24))),
       (.x31, treeE 3), (.x27, .bin .srl (maskE 3) (kw 1)), (.x4, .ld (kw (TOPB9+56)))] else []),
-   [], 0, false, bSt lay, [spareBr lay false], some (tgtl lay), bCy lay⟩
-def specBlHi (lay _p : Nat) : Spec :=
+   [], 0, false, bSt lay, [a6Br true, a7Br false], some (tgtl lay), bCy lay⟩
+/-- SGV1: a HIGH path (`brs` its guard conditions, `x` its extra steps and cycles over LOW). -/
+def specBlHiG (lay _p : Nat) (brs : List Br) (x : Nat) : Spec :=
   ⟨[(.x16, a6HiE), (.x17, a7HiE), (.x23, s23E lay), (.x25, s9mHiE lay), (.x29, t4HiE lay),
     (.x14, x14Hi lay)] ++ (if lay = 3 then [(.x22, .ld (kw (TOPLOAD - 8))),
       (.x24, .ld (kw TOPLOAD)), (.x1, .ld (kw (TOPLOAD + 8))), (.x9, .ld (kw (TOPLOAD + 24))),
       (.x31, treeE 3), (.x27, .bin .srl (maskE 3) (kw 1)), (.x4, .ld (kw (TOPB9+56)))] else []),
-   [], 0, false, bSt lay + hiX lay, [spareBr lay true], some (tgtHi lay), bCy lay + hiX lay⟩
+   [], 0, false, bSt lay + x, brs, some (tgtHi lay), bCy lay + x⟩
+/-- SGV1 HIGH-b (`w1 ≥ 0`, `w0 < 0`). -/
+def specBlHi (lay p : Nat) : Spec := specBlHiG lay p [a6Br false, a7Br false] (hiX lay)
+/-- SGV1 HIGH-a (`w1 < 0`). -/
+def specBlHiA (lay p : Nat) : Spec := specBlHiG lay p [a7Br true] (hiA lay)
 def postBl (lay _p : Nat) : List (Reg × Word) :=
   chainK lay ++ [(.x22, BitVec.ofNat 64 (s6v lay)), (.x7, 1), (.x2, BitVec.ofNat 64 0xffbde0)]
 def postBlC (lay p : Nat) : List (Reg × Word) :=
@@ -3426,8 +3438,11 @@ def rejA (lay c : Nat) : Spec :=
    rejEcall, true, stepsA lay + 3, [ctrBr lay c true], none, stepsA lay + 3⟩
 def keepA (lay : Nat) : List Reg := if lay = 3 then [.x22] else if lay = 0 then [.x28, .x31] else [.x28]
 def bKB (lay c : Nat) : List (Reg × Word) := (bK lay c).filter (fun p => p.1 != .x12)
-def oblB : List Oblig := [.valid ⟨some (.reg .x12), 8⟩ 8, .valid ⟨some (.reg .x12), 0⟩ 8]
+/-- SGV1: the LOW path loads `w1` then `w0` (obligations newest first). -/
+def oblB : List Oblig := [.valid ⟨some (.reg .x12), 0⟩ 8, .valid ⟨some (.reg .x12), 8⟩ 8]
 def oblBHi : List Oblig := [.valid ⟨some (.reg .x12), 24⟩ 8, .valid ⟨some (.reg .x12), 16⟩ 8] ++ oblB
+def oblBHiA : List Oblig := [.valid ⟨some (.reg .x12), 24⟩ 8, .valid ⟨some (.reg .x12), 16⟩ 8,
+  .valid ⟨some (.reg .x12), 8⟩ 8]
 def allowed (lay c : Nat) : List Nat :=
   if lay = 3 then [4144, 4176, 4184] else [rowA lay c + 16]
 /-- C4 (D7, adapted from b3cc11b): the L3 encoding block loads `s2` (`x18`) itself, so its run starts without the
@@ -3441,9 +3456,11 @@ def copyCheck (lay c : Nat) : Bool :=
   setupCheck lay c &&
   (if lay = 0 then true else
     specB [] [] baseK (runAt (bKB lay c) [] (trPc lay c + stepsA lay + 1)
-      [.br true, .jmp]) (specBl lay (trPc lay c)) oblB (postBlC lay (trPc lay c)) (keepB lay) &&
+      [.br false, .br true, .jmp]) (specBl lay (trPc lay c)) oblB (postBlC lay (trPc lay c)) (keepB lay) &&
     specB [] [] baseK (runAt (bKB lay c) [] (trPc lay c + stepsA lay + 1)
-      [.br false, .jmp]) (specBlHi lay (trPc lay c)) oblBHi (postBlC lay (trPc lay c)) (keepB lay))
+      [.br false, .br false, .jmp]) (specBlHi lay (trPc lay c)) oblBHi (postBlC lay (trPc lay c)) (keepB lay) &&
+    specB [] [] baseK (runAt (bKB lay c) [] (trPc lay c + stepsA lay + 1)
+      [.br true, .jmp]) (specBlHiA lay (trPc lay c)) oblBHiA (postBlC lay (trPc lay c)) (keepB lay))
 def layerCheck (lay lo n : Nat) : Bool :=
   (List.range' lo n).all fun c => copyCheck lay c
 end SigGolfCandidate.T3M.BC

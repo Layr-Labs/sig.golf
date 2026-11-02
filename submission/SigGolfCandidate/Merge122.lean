@@ -1105,8 +1105,8 @@ theorem spareBadAt_true {v : Digest} {i : Nat} (h : ClaudeWCT.W9.T3M.spareBadAt 
   · exact Or.inl h
   · exact Or.inr (Or.inl h)
   · exact Or.inr (Or.inr h)
-/-- The hash hypothesis `HashOkBy floors high` is path-aware; a LOW selection costs `bCy`
-(4 less than HIGH) and earns the `pathBonus` 4, so the accepted cost stays `layerCost - floors`. -/
+/-- The hash hypothesis `HashOkBy floors high` is path-aware (SGV1): an earning path (LOW or HIGH-a) saves at least
+the `pathBonus` 2 over HIGH-b, so the accepted cost stays at most `layerCost - floors`. -/
 theorem layer_good_low (floors : Layer → Nat) (hbound : ∀ lay, floors lay ≤ 301) (high : Bool) (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index : Nat) (lay : Layer) (hlay : lay ≠ 0) (M : ClaudeWCT.WCT9.LayerMsg)
     (s : MachineState) (hs : LayerIn w pk index lay.val M s) {β : Type} (R : List Digest → T3.M (Option β))
     (K : Option β → OracleComp HashSpec Obs) (hK0 : K none = pure (false, 0)) (N C A : Nat) (Q : Prop)
@@ -1163,6 +1163,7 @@ theorem layer_good_low (floors : Layer → Nat) (hbound : ∀ lay, floors lay �
       | none =>
         dsimp only
         obtain ⟨s0, ck, hst0, hLok, hkn, hO0, hIn⟩ := hB.1 hdd
+        have hpl := hiPath_le lay a
         set L := lctxOfCk w index lay (selectedView a) ck with hLd
         have hns : ¬ T3.lowerSpare (ansD (selectedView a)) := by
           intro hs; rw [lowerDataDecode_word, if_pos hs] at hdd; cases hdd
@@ -1262,24 +1263,23 @@ theorem layer_good_low (floors : Layer → Nat) (hbound : ∀ lay, floors lay �
             have e : chainsP w lay (route index lay).2 (route index lay).1 dd = L.lowP := by
               rw [hP]; unfold chainsP; rw [LCtx.chainCount_lower lay hlay]; rfl
             rw [ccM_bind, e]
-            have body : ∀ k, k ≤ L.zSum 0 43 + 4*L.savedCopies 0 43 + (if T3.lowerSpare (ansD a) then hiX lay.val else 0) →
+            have body : ∀ k, k ≤ L.zSum 0 43 + 4*L.savedCopies 0 43 + (if T3.lowerEarn (ansD a) then 2 else 0) →
                 GoodQP (HashOkBy floors high) (writeHash t a) (N + lfStepsL + 1720 + (bSt lay.val+hiX lay.val))
                   (C + lfStepsL + chainCostAll + (bCy lay.val+hiX lay.val))
                   Q (A + lfStepsL + (2934 - 9 * tgtL lay.val - k) + (bCy lay.val+hiX lay.val))
                   (ccM L.lowP (fun ends => ccM (R ends) K)) := fun k hk =>
               GoodQP.stepsQ hst0 hG (by omega) (by omega) (fun hq => ⟨hq, by omega⟩)
             by_cases hcf : floors lay ≤ ClaudeWCT.WCT9.wordCredit lay dd + 4*ClaudeWCT.WCT9.savedCopies lay dd +
-                (if T3.lowerSpare (ansD a) then hiX lay.val else 0)
+                (if T3.lowerEarn (ansD a) then 2 else 0)
             · exact (body _ (by omega)).pre_mono (fun _ h => h.2)
             · refine GoodQP.of_false_pre (body 0 (Nat.zero_le _)) ?_
               rintro hash ⟨hea, hok⟩
               have hh := hok lay _ hq dd (by
                 rw [hea, ClaudeWCT.WCT9.verificationAnswer_lower lay hlay, ← selectedView_answer lay hlay]; exact hds)
               rw [hea, ClaudeWCT.WCT9.verificationLow_lower lay hlay] at hh
-              have hbon : ClaudeWCT.WCT9.CanonicalPolicy.lowerBonus lay = hiX lay.val := by
-                fin_cases lay <;> rfl
+              have hbon : ClaudeWCT.WCT9.CanonicalPolicy.lowerBonus lay = 2 := rfl
               apply hcf
-              by_cases hsp : T3.lowerSpare (ansD a)
+              by_cases hsp : T3.lowerEarn (ansD a)
               · simpa [ClaudeWCT.WCT9.dispatchPenalty, ClaudeWCT.WCT9.CanonicalPolicy.pathReward,
                   ClaudeWCT.WCT9.CanonicalPolicy.pathBonus, ClaudeWCT.WCT9.CanonicalPolicy.reward, ClaudeWCT.WCT9.lowSelected,
                   hlay, hsp, hbon] using hh
@@ -3394,7 +3394,7 @@ theorem layers_good (floors : T3.Layer → Nat) (hbound : ∀ lay, floors lay �
 theorem after_good (floors : T3.Layer → Nat) (hcredit : CreditFloors floors) (pk : Digest) (w : ClaudeWCT.W9.T3M.WBytes) (Q : Prop) (hQ : Q) (a : HashOutput)
     (top : Digest × Digest) (u : MachineState)
     (h : FtsOut ⟨pk, w, a⟩ top u) :
-    GoodQP (HashOkBy floors (ClaudeWCT.W9.T3M.wtopHigh w)) u 8050 13750 Q 5251
+    GoodQP (HashOkBy floors (ClaudeWCT.W9.T3M.wtopHigh w)) u 8050 13750 Q 5250
       (ccM (afterFts pk w (ClaudeWCT.WCT9.digestIndex a) (some top)) Kb) := by
   have hidx : ClaudeWCT.WCT9.digestIndex a < 2 ^ 31 := ClaudeWCT.WCT9.digestIndex_lt a
   obtain ⟨t, hst, hL3⟩ := layerIn_of_fts w pk _ top.1 top.2 u hidx h.glob h.idx h.pc h.left h.right h.wit h.base h.a1
@@ -3409,7 +3409,7 @@ theorem after_good (floors : T3.Layer → Nat) (hcredit : CreditFloors floors) (
   rw [lFuel_4, lCyc_4, lCycA_4 floors hcredit.1] at hg
   have htotal := hcredit.2
   exact GoodQP.stepsQ hst hg (by omega) (by omega) (fun q => ⟨q, by omega⟩)
-theorem after_good_budget : AfterGoodBudget 5251 :=
+theorem after_good_budget : AfterGoodBudget 5250 :=
   fun floors hcredit pk w Q hQ a top u h => after_good floors hcredit pk w Q hQ a top u h
 end SigGolfCandidate.T3M
 end

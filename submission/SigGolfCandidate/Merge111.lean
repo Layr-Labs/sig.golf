@@ -3178,7 +3178,7 @@ theorem encoding_broad (lay : Layer) :
       (Finset.univ.filter fun a : HashOutput => (decode lay (a.extractLsb' 128 128)).isSome) := by
     intro a ha
     simp only [Finset.mem_filter, Finset.mem_union, Finset.mem_univ, true_and] at ha ⊢
-    rw [encodingAnswer_eq] at ha
+    rw [encodingAnswer_eq_half] at ha
     split_ifs at ha
     · exact Or.inl ha
     · exact Or.inr ha
@@ -3380,7 +3380,7 @@ theorem rejected_canDecode {lay : Layer} {floor : Nat} (hfloor : lay = 0 → flo
     · exact href
   have hlowne : a.extractLsb' 0 128 = word → False := by
     intro hlw
-    have hsel : lowSelected lay a = true := by
+    have hsel : lowSelected lay a = true ∧ halfLow lay a = true := by
       by_cases hl : lay = 0
       · subst hl
         have hf := hfloor rfl
@@ -3389,15 +3389,17 @@ theorem rejected_canDecode {lay : Layer} {floor : Nat} (hfloor : lay = 0 → flo
           unfold topGood
           rw [hlw, htrue]
           rfl
-        simp only [lowSelected, if_true, topChooseLow, decide_eq_true_eq]
-        exact Or.inl hg
+        have h1 : lowSelected 0 a = true := by
+          simp only [lowSelected, if_true, topChooseLow, decide_eq_true_eq]
+          exact Or.inl hg
+        exact ⟨h1, by simpa [halfLow, lowSelected] using h1⟩
       · have hdw := (CanonicalPolicy.producerDecodeAt_spec href).1
         simp only [CanonicalPolicy.decode, CanonicalPolicy.normalLayer, if_neg hl] at hdw
         have hspare : lowerSpare (a.extractLsb' 0 128) := by
           rw [hlw]
           exact SigGolfCandidate.T3.decode_lowerSpare (by decide : (1 : Layer) ≠ 0) hdw
-        simp [lowSelected, hl, hspare]
-    rw [encodingAnswer_eq, hsel, if_pos rfl, hlw, htrue] at hrej'
+        exact ⟨by simp [lowSelected, hl, SigGolfCandidate.T3.lowerEarn_of_spare hspare], by simp [halfLow, hl, hspare]⟩
+    rw [encodingAnswer_eq_half, hsel.2, if_pos rfl, hsel.1, hlw, htrue] at hrej'
     cases hrej'
   by_cases hl : lay = 0
   · subst hl
@@ -3407,7 +3409,7 @@ theorem rejected_canDecode {lay : Layer} {floor : Nat} (hfloor : lay = 0 → flo
     split_ifs at hword
     · exact hword
     · exact (hlowne hword).elim
-  · rw [verificationAnswer_eq_lower lay hl, verificationLow_lower lay hl] at hword
+  · rw [verificationAnswer_eq_lower lay hl] at hword
     split_ifs at hword
     · exact (hlowne hword).elim
     · exact hword

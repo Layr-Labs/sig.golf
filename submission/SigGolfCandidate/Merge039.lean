@@ -1616,23 +1616,30 @@ theorem card_choose_path_generic (good : Digest → Prop) [DecidablePred good] (
   unfold TopChoice.freeCount
   norm_num
 
-/-- The lower decoder event splits by the selected half. -/
+/-- The lower decoder event splits by the path class (SGV1): LOW (spare LOW half, word = LOW half) and HIGH-a
+(bit 127 of the LOW half set, word = HIGH half) are the producer at floor `floor - lowerBonus lay` and add
+`lowerBonus lay`; HIGH-b (word = HIGH half) is the producer at `floor`. -/
 theorem lower_decoder_event (lay : Layer) (hl : lay ≠ 0) (floor c : Nat) (answer : HashOutput) :
     (∃ dl, CanonicalPolicy.producerDecodeOut lay floor answer = some dl ∧
         CanonicalPolicy.credit lay dl.2 dl.1 = c) ↔
       (if lowerSpare (answer.extractLsb' 0 128) then
         accepted lay (floor - CanonicalPolicy.lowerBonus lay) (fun ds => CanonicalPolicy.credit lay false ds + CanonicalPolicy.lowerBonus lay = c)
           (answer.extractLsb' 0 128)
+      else if lowerEarn (answer.extractLsb' 0 128) then
+        accepted lay (floor - CanonicalPolicy.lowerBonus lay) (fun ds => CanonicalPolicy.credit lay false ds + CanonicalPolicy.lowerBonus lay = c)
+          (answer.extractLsb' 128 128)
       else accepted lay floor (fun ds => CanonicalPolicy.credit lay false ds = c) (answer.extractLsb' 128 128)) := by
-  have hsel : lowSelected lay answer = decide (lowerSpare (answer.extractLsb' 0 128)) := by
+  have hsel : lowSelected lay answer = decide (lowerEarn (answer.extractLsb' 0 128)) := by
     simp [lowSelected, hl]
   have hword : encodingAnswer lay answer =
       if lowerSpare (answer.extractLsb' 0 128) then answer.extractLsb' 0 128 else answer.extractLsb' 128 128 := by
     simp only [encodingAnswer, if_neg hl, DualHalf.select, DualHalf.selectPair]
-  unfold CanonicalPolicy.producerDecodeOut
-  rw [hsel, hword]
-  by_cases hs : lowerSpare (answer.extractLsb' 0 128)
-  · simp only [hs, if_true, decide_true, accepted_iff, producerDecodeAt_lower_true lay hl, credit_lower_true lay hl]
+  -- the earning branches: the producer through `true` on word `v`
+  have hearn : ∀ v : Digest, (∃ dl, ((CanonicalPolicy.producerDecodeAt lay floor true v).map fun digits => (digits, true)) = some dl ∧
+        CanonicalPolicy.credit lay dl.2 dl.1 = c) ↔
+      accepted lay (floor - CanonicalPolicy.lowerBonus lay) (fun ds => CanonicalPolicy.credit lay false ds + CanonicalPolicy.lowerBonus lay = c) v := by
+    intro v
+    simp only [accepted_iff, producerDecodeAt_lower_true lay hl, credit_lower_true lay hl]
     constructor
     · rintro ⟨⟨ds, l⟩, hd, hc⟩
       obtain ⟨ds', hd', he⟩ := Option.map_eq_some_iff.mp hd
@@ -1641,15 +1648,23 @@ theorem lower_decoder_event (lay : Layer) (hl : lay ≠ 0) (floor c : Nat) (answ
       exact ⟨ds', hd', by simpa [credit_lower_true lay hl] using hc⟩
     · rintro ⟨ds, hd, hc⟩
       exact ⟨(ds, true), by rw [hd]; rfl, by simpa [credit_lower_true lay hl] using hc⟩
-  · simp only [hs, if_false, decide_false, accepted_iff]
-    constructor
-    · rintro ⟨⟨ds, l⟩, hd, hc⟩
-      obtain ⟨ds', hd', he⟩ := Option.map_eq_some_iff.mp hd
-      simp only [Prod.mk.injEq] at he
-      obtain ⟨rfl, rfl⟩ := he
-      exact ⟨ds', hd', hc⟩
-    · rintro ⟨ds, hd, hc⟩
-      exact ⟨(ds, false), by rw [hd]; rfl, hc⟩
+  unfold CanonicalPolicy.producerDecodeOut
+  rw [hsel, hword]
+  by_cases hs : lowerSpare (answer.extractLsb' 0 128)
+  · simp only [hs, if_true, decide_eq_true (lowerEarn_of_spare hs)]
+    exact hearn _
+  · by_cases he : lowerEarn (answer.extractLsb' 0 128)
+    · simp only [hs, he, if_false, if_true, decide_true]
+      exact hearn _
+    · simp only [hs, he, if_false, decide_false, accepted_iff]
+      constructor
+      · rintro ⟨⟨ds, l⟩, hd, hc⟩
+        obtain ⟨ds', hd', he⟩ := Option.map_eq_some_iff.mp hd
+        simp only [Prod.mk.injEq] at he
+        obtain ⟨rfl, rfl⟩ := he
+        exact ⟨ds', hd', hc⟩
+      · rintro ⟨ds, hd, hc⟩
+        exact ⟨(ds, false), by rw [hd]; rfl, hc⟩
 
 /-- Raw lower word count at reward `r` (all floors below `r`). -/
 noncomputable def lowerWordCount (r : Nat) : Nat :=
@@ -1687,22 +1702,26 @@ theorem lower_high_count (lay : Layer) (hl : lay ≠ 0) (floor c : Nat) (hf : fl
       lowerWordCount c :=
   accepted_lower_credit_card_all lay hl floor c hf
 
-/-- Path-aware lower selection count: weight `2^128` through LOW (credit + `lowerBonus lay`), `3 * 2^126` through
-HIGH. -/
+/-- Path-aware lower selection count (SGV1): weight `2^128` through LOW and `2^127` through HIGH-a (credit +
+`lowerBonus lay`), `2^126` through HIGH-b. -/
 theorem selected_lower_path_card (lay : Layer) (hl : lay ≠ 0) (floor c : Nat) (hf : floor ≤ c) :
     (univ.filter fun answer : HashOutput => ∃ dl, CanonicalPolicy.producerDecodeOut lay floor answer = some dl ∧
         CanonicalPolicy.credit lay dl.2 dl.1 = c).card =
-      (if CanonicalPolicy.lowerBonus lay ≤ c then lowerWordCount (c - CanonicalPolicy.lowerBonus lay) else 0) * 2^128 + 3 * 2^126 * lowerWordCount c := by
+      (if CanonicalPolicy.lowerBonus lay ≤ c then lowerWordCount (c - CanonicalPolicy.lowerBonus lay) else 0) * 2^128 +
+        ((if CanonicalPolicy.lowerBonus lay ≤ c then lowerWordCount (c - CanonicalPolicy.lowerBonus lay) else 0) * 2^127 +
+          2^126 * lowerWordCount c) := by
   have he : (univ.filter fun answer : HashOutput => ∃ dl, CanonicalPolicy.producerDecodeOut lay floor answer = some dl ∧
         CanonicalPolicy.credit lay dl.2 dl.1 = c).card =
       (univ.filter fun x : Digest × Digest => if lowerSpare x.1 then
         accepted lay (floor - CanonicalPolicy.lowerBonus lay) (fun ds => CanonicalPolicy.credit lay false ds + CanonicalPolicy.lowerBonus lay = c) x.1
+      else if lowerEarn x.1 then
+        accepted lay (floor - CanonicalPolicy.lowerBonus lay) (fun ds => CanonicalPolicy.credit lay false ds + CanonicalPolicy.lowerBonus lay = c) x.2
       else accepted lay floor (fun ds => CanonicalPolicy.credit lay false ds = c) x.2).card := by
     refine Finset.card_equiv TopChoice.splitEquiv fun a => ?_
     simp only [mem_filter, mem_univ, true_and, TopChoice.splitEquiv_apply, TopChoice.lowHalf,
       TopChoice.highHalf]
     exact lower_decoder_event lay hl floor c a
-  rw [he, DualHalf.card_mode_lower _ _ (fun d h => accepted_lowerSpare lay hl _ _ d h),
+  rw [he, DualHalf.card_mode3_lower _ _ _ (fun d h => accepted_lowerSpare lay hl _ _ d h),
     lower_low_count lay hl floor c hf, lower_high_count lay hl floor c hf]
 
 theorem selected_path_card_zero_of_lt (lay : Layer) (floor c : Nat) (hc : c < floor) :

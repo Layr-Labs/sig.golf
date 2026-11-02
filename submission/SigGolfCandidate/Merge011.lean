@@ -771,15 +771,16 @@ theorem ctr_not_ge_verifyWindow (c : BitVec 32) : ¬c.toNat ≥ verifyWindow := 
   unfold verifyWindow; exact Nat.not_le.mpr c.isLt
 /-! ### Canonical policy core (configuration (1)+(2), "e7b" top head)
 Defined before the encoding selector because the top producer choice uses the canonical top predicate.
-* `totalCredit` = 66 (credit pool; P0: 69 -> 66), `topFloor` = 14 (every top search uses it; RC938: pool 74 -> 77, floor 19 -> 22;
+* `totalCredit` = 67 (credit pool; P0: 69 -> 66; SGV1: 66 -> 67), `topFloor` = 14 (every top search uses it; RC938: pool 74 -> 77, floor 19 -> 22;
   T51 on RC: pool 69, floor 14, pool - floor = 55 as before).
 * Path-aware credit: `credit lay low digits = reward + bonus·[low] - dispatchPenalty` where `low` = the
-  LOW half of the 256-bit answer was selected (`lowSelected`); bonus 2 on lower layers 1 and 2, 3 on layer 3
-  (P0: the HIGH path skips the second-half guard), 2 on the top layer (the d6b head reads the hint first: honest
+  path earns the bonus (`lowSelected`; SGV1 lower layers: the LOW half is spare or bit 127 of the LOW half is set,
+  `lowerEarn`); bonus 2 on every lower layer (SGV1 split guard; the L3 LOW path saves 3 and is under-credited),
+  2 on the top layer (the d6b head reads the hint first: honest
   LOW costs 4 cycles, HIGH 6). -/
 namespace CanonicalPolicy
 /-- The credit pool every canonical path must reach. -/
-def totalCredit : Nat := 66
+def totalCredit : Nat := 67
 /-- The (fixed) top credit floor (on the path-aware credit). -/
 def topFloor : Nat := 14
 /-- All three lower layers use digit sum 201. Layer 1's existing broad decoder
@@ -790,8 +791,8 @@ def decode (lay : Layer) (answer : Digest) : Option (List Nat) :=
 /-- Word reward (credited instructions) of a decoded word, independent of the selected half. -/
 def reward (lay : Layer) (digits : List Nat) : Nat :=
   wordCredit lay digits + 4 * savedCopies lay digits
-/-- P0: the LOW-path bonus of a lower layer (layers 1, 2: 2 cycles; layer 3: 3 cycles). -/
-def lowerBonus (lay : Layer) : Nat := if lay = 3 then 3 else 2
+/-- SGV1: the earning-path bonus of a lower layer (2 cycles on every lower layer). -/
+def lowerBonus (_lay : Layer) : Nat := 2
 /-- Path bonus: a lower layer whose LOW half was selected saves `lowerBonus` verify cycles, the top layer 2 (d6b
 head). -/
 def pathBonus (lay : Layer) (low : Bool) : Nat := if low = true then (if lay = 0 then 2 else lowerBonus lay) else 0
@@ -818,7 +819,7 @@ theorem pathBonus_lower {lay : Layer} (hl : lay ≠ 0) (low : Bool) :
   cases low <;> simp [pathBonus, hl]
 @[simp] theorem pathBonus_false (lay : Layer) : pathBonus lay false = 0 := by simp [pathBonus]
 theorem lowerBonus_le (lay : Layer) : lowerBonus lay ≤ 3 := by
-  unfold lowerBonus; split_ifs <;> omega
+  unfold lowerBonus; omega
 theorem pathBonus_le (lay : Layer) (low : Bool) : pathBonus lay low ≤ 4 := by
   unfold pathBonus lowerBonus; split_ifs <;> omega
 theorem pathReward_top (low : Bool) (digits : List Nat) :
@@ -851,6 +852,11 @@ def encodingAnswer (lay : Layer) (answer : HashOutput) : Digest :=
 
 /-- Whether the producer's canonical word is the LOW half of the answer. -/
 def lowSelected (lay : Layer) (answer : HashOutput) : Bool :=
+  if lay = 0 then topChooseLow answer else decide (lowerEarn (answer.extractLsb' 0 128))
+
+/-- SGV1: whether the selected word is the LOW half (top: the producer's choice; lower: the LOW half is spare). On
+lower layers this differs from the bonus flag `lowSelected` (HIGH-a selects HIGH and earns the bonus). -/
+def halfLow (lay : Layer) (answer : HashOutput) : Bool :=
   if lay = 0 then topChooseLow answer else decide (lowerSpare (answer.extractLsb' 0 128))
 
 /-- The honest witness hint (top layer only): request HIGH exactly when the producer chose it. Stored in the
@@ -864,9 +870,9 @@ def verificationAnswer (lay : Layer) (high : Bool) (answer : HashOutput) : Diges
   if lay = 0 then TopChoice.read high answer else DualHalf.select answer
 
 /-- The verifier's cheap path (`true` = LOW path). Top (e7b head, hint read first): the hint bit clear (cost 4);
-a set hint costs 7 whichever half is then read. Lower layers: LOW is selected iff it is spare. -/
+a set hint costs 7 whichever half is then read. Lower layers (SGV1): the bonus path is LOW or HIGH-a (`lowerEarn`). -/
 def verificationLow (lay : Layer) (high : Bool) (answer : HashOutput) : Bool :=
-  if lay = 0 then !high else decide (lowerSpare (answer.extractLsb' 0 128))
+  if lay = 0 then !high else decide (lowerEarn (answer.extractLsb' 0 128))
 
 def verificationHash (lay : Layer) (high : Bool) (input : HashInput) : M Digest :=
   verificationAnswer lay high <$> publicHash input
@@ -902,17 +908,22 @@ theorem verificationLow_lower (lay : Layer) (hl : lay ≠ 0) (high : Bool) (answ
   simp [verificationLow, lowSelected, hl]
 theorem verificationAnswer_eq_lower (lay : Layer) (hl : lay ≠ 0) (high : Bool) (answer : HashOutput) :
     verificationAnswer lay high answer =
-      if verificationLow lay high answer then answer.extractLsb' 0 128 else answer.extractLsb' 128 128 := by
-  simp only [verificationAnswer, verificationLow, hl, if_false, DualHalf.select, DualHalf.selectPair]
-  by_cases hs : lowerSpare (answer.extractLsb' 0 128) <;> simp [hs]
-theorem encodingAnswer_eq (lay : Layer) (answer : HashOutput) :
+      if lowerSpare (answer.extractLsb' 0 128) then answer.extractLsb' 0 128 else answer.extractLsb' 128 128 := by
+  simp only [verificationAnswer, hl, if_false, DualHalf.select, DualHalf.selectPair]
+/-- SGV1: the producer's word is the half named by `halfLow`. -/
+theorem encodingAnswer_eq_half (lay : Layer) (answer : HashOutput) :
     encodingAnswer lay answer =
-      if lowSelected lay answer then answer.extractLsb' 0 128 else answer.extractLsb' 128 128 := by
+      if halfLow lay answer then answer.extractLsb' 0 128 else answer.extractLsb' 128 128 := by
   by_cases hl : lay = 0
   · subst hl
-    simpa [lowSelected] using encodingAnswer_top_eq answer
-  · rw [← verificationAnswer_lower lay hl false, ← verificationLow_lower lay hl false]
-    exact verificationAnswer_eq_lower lay hl false answer
+    simpa [halfLow] using encodingAnswer_top_eq answer
+  · rw [← verificationAnswer_lower lay hl false, verificationAnswer_eq_lower lay hl false answer]
+    by_cases hs : lowerSpare (answer.extractLsb' 0 128) <;> simp [halfLow, hl, hs]
+/-- The top producer's word is the half named by `lowSelected 0`. -/
+theorem encodingAnswer_eq (answer : HashOutput) :
+    encodingAnswer 0 answer =
+      if lowSelected 0 answer then answer.extractLsb' 0 128 else answer.extractLsb' 128 128 := by
+  simpa [lowSelected] using encodingAnswer_top_eq answer
 
 def encodingHash (lay : Layer) (input : HashInput) : M Digest :=
   encodingAnswer lay <$> publicHash input
@@ -1282,14 +1293,14 @@ open OracleComp OracleSpec SigGolfCandidate.T3
 completeness over every256-bit message. It does not change the moment model. -/
 def ftsSearchLimit : Nat := 2 ^ 21
 
-/-- Layer-1 floors by residual `r ≤ 52` (= 66 - 14; P0 credit law, LOW bonus 2/2/3). -/
+/-- Layer-1 floors by residual `r ≤ 53` (= 67 - 14; SGV1 credit law, bonus 2 on LOW or HIGH-a). -/
 def lowerOneThresholds : List Nat :=
-  [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
-   1,2,3,4,5,6,6,7,8,9,10,10,11,12,12,13,13]
+  [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+   1,2,3,4,5,6,7,8,9,9,10,11,11,12,13,13,14]
 
-/-- Layer-2 floors by residual `r ≤ 39` (P0 credit law). -/
+/-- Layer-2 floors by residual `r ≤ 39` (SGV1 credit law). -/
 def lowerTwoThresholds : List Nat :=
-  [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,2,3,4,5,6,7,8,9,9,10,11,12,13,13,14,15,15,16,17,18]
+  [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,2,3,4,5,6,7,8,9,10,10,11,12,13,14,14,15,16,16,17,18]
 
 /-- Largest lower floor (L3 floors reach 21; policy hints use the mixed radix 484 / 22 / 1, bound 7744). -/
 def lowerFloorMax : Nat := 21
@@ -1379,11 +1390,11 @@ open SigGolfCandidate.T3
 set_option maxRecDepth 10000
 set_option maxHeartbeats 1000000
 
-theorem lower_one_progress : ∀ r : Fin 53,
+theorem lower_one_progress : ∀ r : Fin 54,
     threshold 1 r.val ≤ 19 ∧ r.val - threshold 1 r.val < 40 := by decide +kernel
 
 /-- img-v6: every L1 floor is below 16 (the hint's leading digit `f1 ≤ 15`). -/
-theorem lower_one_floor_lt : ∀ r : Fin 53, threshold 1 r.val < 16 := by decide +kernel
+theorem lower_one_floor_lt : ∀ r : Fin 54, threshold 1 r.val < 16 := by decide +kernel
 
 theorem lower_two_progress : ∀ r : Fin 40,
     threshold 2 r.val ≤ 19 ∧ r.val - threshold 2 r.val < 22 := by decide +kernel
@@ -1395,12 +1406,12 @@ theorem lower_three_progress (r : Nat) (hr : r < 22) :
     threshold 3 r = r := by simp [threshold, show r ≤ 21 by omega]
 
 theorem accepted_top_residual {answer : Digest} {low : Bool} {digits : List Nat}
-    (h : producerDecodeAt 0 14 low answer = some digits) : nextResidual 66 0 low digits < 53 := by
+    (h : producerDecodeAt 0 14 low answer = some digits) : nextResidual 67 0 low digits < 54 := by
   have hc := producerDecodeAt_credit h
   unfold nextResidual
   omega
 
-theorem accepted_one_residual (r : Fin 53) {answer : Digest} {low : Bool} {digits : List Nat}
+theorem accepted_one_residual (r : Fin 54) {answer : Digest} {low : Bool} {digits : List Nat}
     (h : producerDecodeAt 1 (threshold 1 r.val) low answer = some digits) :
     nextResidual r.val 1 low digits < 40 := by
   have hc := producerDecodeAt_credit h

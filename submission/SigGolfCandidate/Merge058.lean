@@ -20234,15 +20234,12 @@ def topSelect1 : List (BitVec 32) := [0x1063303,0x1863383]
 def topSelectL : Rv.Layout := [(0,topSelect0),(1,topSelect1)]
 def topSelectCode : List (BitVec 32) := layoutCode topSelectL
 theorem topSelectL_ok : layoutOk 0 topSelectL = true := by decide +kernel
-/-! P0: the LOW-path credit stub that replaced the dead top-select words (sign 21021..21026:
-`s4 += 2; s0 -= 3; bne s0,0,+8; s4 += 1; s0 += 3; jal 22491`; expand 43030..43033:
-`t5 := s0 <u 3; s4 -= t5; s4 += 3; jal 46905`): the LOW bonus is 2 on layers 1, 2 and 3 on layer 3. -/
-def stubBase (b : Nat) : Nat := if b = 354 then 43030 else 21021
-def stubS0 : List (BitVec 32) := [0x2a0a13,0xffd40413,0x41463]
-def stubS3 : List (BitVec 32) := [0x1a0a13]
-def stubS4 : List (BitVec 32) := [0x340413,0x6e40106f]
-def stubE : List (BitVec 32) := [0x343f13,0x41ea0a33,0x3a0a13,0x4810306f]
-def stubL (b : Nat) : Rv.Layout := if b = 354 then [(0,stubE)] else [(0,stubS0),(3,stubS3),(4,stubS4)]
+/-! SGV1: the earning-path credit stub (sign 21021..21022: `s4 += 2; jal 22491`; expand 43032..43033:
+`s4 += 2; jal 46905`): the bonus is 2 on every lower layer. -/
+def stubBase (b : Nat) : Nat := if b = 354 then 43032 else 21021
+def stubS : List (BitVec 32) := [0x2a0a13,0x6f40106f]
+def stubE : List (BitVec 32) := [0x2a0a13,0x4810306f]
+def stubL (b : Nat) : Rv.Layout := if b = 354 then [(0,stubE)] else [(0,stubS)]
 def stubCode (b : Nat) : List (BitVec 32) := layoutCode (stubL b)
 theorem stubL_ok {b : Nat} (hb : b=354 ∨ b=543) : layoutOk 0 (stubL b)=true := by
   rcases hb with rfl | rfl <;> decide +kernel
@@ -20284,14 +20281,17 @@ def choiceR0 : List (BitVec 32) := [0x00066e37,0x7f8e3e83,0x020e9663]
 def choiceR3 : List (BitVec 32) := [0x00020e37,0x2a8e3383,0x03e3de93,0x000e8e63]
 def choiceR7 : List (BitVec 32) := [0x08000e93,0x00066f37,0x7fdf3c23,0x2b0e3303,0x2b8e3383,0xfb1ff06f]
 def choiceRej (b : Nat) : List (BitVec 32) := if b = 354 then [0xc19d606f] else [0xeecec06f]
-def pa0 : List (BitVec 32) := [0x00020eb7,0x2a0ebf03,0x2a8ebe83,0x01eeeeb3,0x000ec463]
-/-- P0: `jal` to the LOW-bonus stub (`stubBase b`). -/
-def pa5 (b : Nat) : List (BitVec 32) := if b = 354 then [0xf81ff06f] else [0xf7dff06f]
+/-- SGV1 split guard: `t5 := w0`, `t4 := w1`; `blt t4,0` (HIGH-a) to the stub jump, then `blt t5,0` (HIGH-b) past
+it. -/
+def pa0 : List (BitVec 32) := [0x00020eb7,0x2a0ebf03,0x2a8ebe83,0xec463]
+def pa0b : List (BitVec 32) := [0xf4463]
+/-- `jal` to the earning-path stub (`stubBase b`). -/
+def pa5 (b : Nat) : List (BitVec 32) := if b = 354 then [0xf89ff06f] else [0xf7dff06f]
 def paJ (b : Nat) : List (BitVec 32) := if b = 354 then [0x4090306f] else [0x6700106f]
 /-- Target of `pa`: the lower floor hook. -/
 def paTarget (b : Nat) : Nat := if b = 354 then 46905 else 22491
 def choiceL (b : Nat) : Rv.Layout := [(0,choiceA),(3,choiceR0),(6,choiceR3),(10,choiceR7),(16,choiceRej b),
-  (17,pa0),(22,pa5 b),(23,paJ b)]
+  (17,pa0),(21,pa0b),(22,pa5 b),(23,paJ b)]
 def choiceCode (b : Nat) : List (BitVec 32) := layoutCode (choiceL b)
 theorem choiceL_ok {b : Nat} (hb : b=354 ∨ b=543) : layoutOk 0 (choiceL b)=true := by
   rcases hb with rfl | rfl <;> decide +kernel
@@ -25830,90 +25830,34 @@ theorem topRun_entry {b : Nat} (hb : b=354 ∨ b=543) :
   rcases hb with rfl | rfl
   · exact top354_entry.trans (congrArg some (by kernel_rfl))
   · exact top543_entry.trans (congrArg some (by kernel_rfl))
-sym_block stS0 := symRun {noAlias:=true} stubS0 (pcOf 21021) 200
-sym_block stS3 := symRun {noAlias:=true} stubS3 (pcOf 21024) 200
-sym_block stS4 := symRun {noAlias:=true} stubS4 (pcOf 21025) 200
-sym_block stE := symRun {noAlias:=true} stubE (pcOf 43030) 200
-theorem stubE_spec {image : Image} (hc : CodeAt image (pcOf 43030) stubE)
-    (s : MachineState) (hpc : s.pc = pcOf 43030) (lay : T3.Layer) (hl : lay ≠ 0)
-    (h8 : s.getReg .x8 = BitVec.ofNat 64 lay.val) (acc : Nat)
+sym_block stS := symRun {noAlias:=true} stubS (pcOf 21021) 200
+sym_block stE := symRun {noAlias:=true} stubE (pcOf 43032) 200
+theorem stubE_spec {image : Image} (hc : CodeAt image (pcOf 43032) stubE)
+    (s : MachineState) (hpc : s.pc = pcOf 43032) (lay : T3.Layer) (acc : Nat)
     (h20 : s.getReg .x20 = BitVec.ofNat 64 acc) :
-    ∃ t, Steps image s 4 4 t ∧ t.pc = pcOf 46905 ∧
+    ∃ t, Steps image s 2 2 t ∧ t.pc = pcOf 46905 ∧
       t.getReg .x20 = BitVec.ofNat 64 (acc + ClaudeWCT.WCT9.CanonicalPolicy.lowerBonus lay) ∧
       RegsExcept s t [.x20, .x30] ∧ Frame s t (fun _ => False) := by
   refine ⟨_, symRun_sound stE hc s hpc (by simp [stE.res, rv_simp]), rfl, ?_, ?_, ?_⟩
   · simp only [Result.toState_getReg, stE.res]
-    simp only [rv_simp, h8, h20]
-    fin_cases lay
-    · exact absurd rfl hl
-    all_goals simp [ClaudeWCT.WCT9.CanonicalPolicy.lowerBonus, BitVec.ofNat_add]; try bv_omega
+    simp only [rv_simp, h20]
+    simp [ClaudeWCT.WCT9.CanonicalPolicy.lowerBonus, BitVec.ofNat_add]
   · intro r hr; simp at hr; cases r <;> simp_all [stE.res, rv_simp] <;> rfl
   · intro A _ _; simp [stE.res, rv_simp]
-theorem stubS0_spec {image : Image} (hc : CodeAt image (pcOf 21021) stubS0)
-    (s : MachineState) (hpc : s.pc = pcOf 21021) (lay : Nat) (hl : lay = 1 ∨ lay = 2 ∨ lay = 3)
-    (h8 : s.getReg .x8 = BitVec.ofNat 64 lay) :
-    ∃ t, Steps image s 3 3 t ∧ t.pc = (if lay = 3 then pcOf 21024 else pcOf 21025) ∧
-      t.getReg .x20 = s.getReg .x20 + 2#64 ∧ t.getReg .x8 = s.getReg .x8 + 18446744073709551613#64 ∧
-      RegsExcept s t [.x8, .x20] ∧ Frame s t (fun _ => False) := by
-  refine ⟨_, symRun_sound stS0 hc s hpc (by simp [stS0.res, rv_simp]), ?_, ?_, ?_, ?_, ?_⟩
-  · simp only [Result.toState_pc, stS0.res, E.eval, CmpOp.eval, BinOp.eval, h8]
-    rcases hl with rfl | rfl | rfl <;> simp [pcOf]
-  · simp [stS0.res, rv_simp]
-  · simp [stS0.res, rv_simp]
-  · intro r hr; simp at hr; cases r <;> simp_all [stS0.res, rv_simp] <;> rfl
-  · intro A _ _; simp [stS0.res, rv_simp]
-theorem stubS3_spec {image : Image} (hc : CodeAt image (pcOf 21024) stubS3)
-    (s : MachineState) (hpc : s.pc = pcOf 21024) :
-    ∃ t, Steps image s 1 1 t ∧ t.pc = pcOf 21025 ∧ t.getReg .x20 = s.getReg .x20 + 1#64 ∧
-      RegsExcept s t [.x20] ∧ Frame s t (fun _ => False) := by
-  refine ⟨_, symRun_sound stS3 hc s hpc (by simp [stS3.res, rv_simp]), rfl, ?_, ?_, ?_⟩
-  · simp [stS3.res, rv_simp]
-  · intro r hr; simp at hr; cases r <;> simp_all [stS3.res, rv_simp] <;> rfl
-  · intro A _ _; simp [stS3.res, rv_simp]
-theorem stubS4_spec {image : Image} (hc : CodeAt image (pcOf 21025) stubS4)
-    (s : MachineState) (hpc : s.pc = pcOf 21025) :
-    ∃ t, Steps image s 2 2 t ∧ t.pc = pcOf 22491 ∧ t.getReg .x8 = s.getReg .x8 + 3#64 ∧
-      RegsExcept s t [.x8] ∧ Frame s t (fun _ => False) := by
-  refine ⟨_, symRun_sound stS4 hc s hpc (by simp [stS4.res, rv_simp]), rfl, ?_, ?_, ?_⟩
-  · simp [stS4.res, rv_simp]
-  · intro r hr; simp at hr; cases r <;> simp_all [stS4.res, rv_simp] <;> rfl
-  · intro A _ _; simp [stS4.res, rv_simp]
-theorem stubS_spec {image : Image} (hc0 : CodeAt image (pcOf 21021) stubS0) (hc3 : CodeAt image (pcOf 21024) stubS3)
-    (hc4 : CodeAt image (pcOf 21025) stubS4)
-    (s : MachineState) (hpc : s.pc = pcOf 21021) (lay : T3.Layer) (hl : lay ≠ 0)
-    (h8 : s.getReg .x8 = BitVec.ofNat 64 lay.val) (acc : Nat)
+theorem stubS_spec {image : Image} (hc : CodeAt image (pcOf 21021) stubS)
+    (s : MachineState) (hpc : s.pc = pcOf 21021) (lay : T3.Layer) (acc : Nat)
     (h20 : s.getReg .x20 = BitVec.ofNat 64 acc) :
-    ∃ k t, Steps image s k k t ∧ k ≤ 6 ∧ t.pc = pcOf 22491 ∧
+    ∃ t, Steps image s 2 2 t ∧ t.pc = pcOf 22491 ∧
       t.getReg .x20 = BitVec.ofNat 64 (acc + ClaudeWCT.WCT9.CanonicalPolicy.lowerBonus lay) ∧
       RegsExcept s t [.x20] ∧ Frame s t (fun _ => False) := by
-  have hl3 : lay.val = 1 ∨ lay.val = 2 ∨ lay.val = 3 := by
-    have := lay.isLt; have : lay.val ≠ 0 := fun h => hl (Fin.ext h); omega
-  obtain ⟨u, su, pu, u20, u8, ru, fu⟩ := stubS0_spec hc0 s hpc lay.val hl3 h8
-  have x8back : s.getReg .x8 + 18446744073709551613#64 + 3#64 = s.getReg .x8 := by bv_omega
-  by_cases h3 : lay.val = 3
-  · rw [if_pos h3] at pu
-    obtain ⟨w, sw, pw, w20, rw', fw⟩ := stubS3_spec hc3 u pu
-    obtain ⟨t, st, pt, t8, rt, ft⟩ := stubS4_spec hc4 w pw
-    have hb : ClaudeWCT.WCT9.CanonicalPolicy.lowerBonus lay = 3 := by
-      unfold ClaudeWCT.WCT9.CanonicalPolicy.lowerBonus; rw [if_pos (Fin.ext h3)]
-    refine ⟨6, t, (su.trans sw).trans st, le_refl _, pt, ?_, ?_, (fu.trans fw).trans ft |>.mono (by simp)⟩
-    · rw [rt.get (by decide), w20, u20, h20, hb]; bv_omega
-    · intro r hr
-      by_cases h8' : r = .x8
-      · subst h8'; rw [t8, rw'.get (by decide), u8, x8back]
-      · rw [rt.get (by simpa using h8'), rw'.get (by simpa using hr), ru.get (by simp at hr ⊢; exact ⟨h8', hr⟩)]
-  · rw [if_neg h3] at pu
-    obtain ⟨t, st, pt, t8, rt, ft⟩ := stubS4_spec hc4 u pu
-    have hb : ClaudeWCT.WCT9.CanonicalPolicy.lowerBonus lay = 2 := by
-      unfold ClaudeWCT.WCT9.CanonicalPolicy.lowerBonus; rw [if_neg (fun h => h3 (congrArg Fin.val h))]
-    refine ⟨5, t, su.trans st, by omega, pt, ?_, ?_, fu.trans ft |>.mono (by simp)⟩
-    · rw [rt.get (by decide), u20, h20, hb]; bv_omega
-    · intro r hr
-      by_cases h8' : r = .x8
-      · subst h8'; rw [t8, u8, x8back]
-      · rw [rt.get (by simpa using h8'), ru.get (by simp at hr ⊢; exact ⟨h8', hr⟩)]
-/-- P0: step bound of the stub (expand 4, sign 6) and of `pa` through it (expand 10, sign 12). -/
-def stubCost (b : Nat) : Nat := if b = 354 then 4 else 6
+  refine ⟨_, symRun_sound stS hc s hpc (by simp [stS.res, rv_simp]), rfl, ?_, ?_, ?_⟩
+  · simp only [Result.toState_getReg, stS.res]
+    simp only [rv_simp, h20]
+    simp [ClaudeWCT.WCT9.CanonicalPolicy.lowerBonus, BitVec.ofNat_add]
+  · intro r hr; simp at hr; cases r <;> simp_all [stS.res, rv_simp] <;> rfl
+  · intro A _ _; simp [stS.res, rv_simp]
+/-- SGV1: step bound of the stub (2 steps; the P0 bounds expand 4, sign 6 are kept) and of `pa` through it. -/
+def stubCost (_b : Nat) : Nat := 2
 def paCost (b : Nat) : Nat := if b = 354 then 10 else 12
 /-- P0: the LOW-bonus stub of kernel instance `b` adds `lowerBonus lay` to `s4` and jumps to `paTarget b`. -/
 theorem stub_spec {image : Image} {b : Nat} {rewardCondition : Prop} (hK : KernAt image b rewardCondition)
@@ -25925,11 +25869,10 @@ theorem stub_spec {image : Image} {b : Nat} {rewardCondition : Prop} (hK : KernA
       RegsExcept s t [.x20, .x30] ∧ Frame s t (fun _ => False) := by
   have hb := hK.2.1
   rcases hb with rfl | rfl
-  · obtain ⟨t, st, pt, t20, rt, ft⟩ := stubE_spec (codeAt_stub hK 0 0 stubE rfl) s hpc lay hl h8 acc h20
-    exact ⟨4, t, st, by simp [stubCost], pt, t20, rt, ft⟩
-  · obtain ⟨k, t, st, hk, pt, t20, rt, ft⟩ := stubS_spec (codeAt_stub hK 0 0 stubS0 rfl)
-      (codeAt_stub hK 1 3 stubS3 rfl) (codeAt_stub hK 2 4 stubS4 rfl) s hpc lay hl h8 acc h20
-    exact ⟨k, t, st, by simpa [stubCost] using hk, pt, t20, rt.mono (by decide), ft⟩
+  · obtain ⟨t, st, pt, t20, rt, ft⟩ := stubE_spec (codeAt_stub hK 0 0 stubE rfl) s hpc lay acc h20
+    exact ⟨2, t, st, by simp [stubCost], pt, t20, rt, ft⟩
+  · obtain ⟨t, st, pt, t20, rt, ft⟩ := stubS_spec (codeAt_stub hK 0 0 stubS rfl) s hpc lay acc h20
+    exact ⟨2, t, st, by simp [stubCost], pt, t20, rt.mono (by decide), ft⟩
 theorem top_gate_msb (v : T3.Digest) :
     (v.extractLsb' 64 64).msb = decide (T3.TopDualHalf.gate v) := by
   rw [BitVec.msb_eq_getLsbD_last]
@@ -26007,13 +25950,23 @@ theorem chJRun {b : Nat} (hb : b=354 ∨ b=543) :
 sym_block pa0354 := symRun {noAlias:=true} pa0 (pcOf (choiceBase 354+17)) 200
 sym_block pa0543 := symRun {noAlias:=true} pa0 (pcOf (choiceBase 543+17)) 200
 def pa0State : SymState := pa0354.res.st
-def pa0Pc (b : Nat) : E := rebase pa0354.res.pc (pcOf (choiceBase b+23)) (pcOf (choiceBase b+22))
+def pa0Pc (b : Nat) : E := rebase pa0354.res.pc (pcOf (choiceBase b+22)) (pcOf (choiceBase b+21))
 theorem pa0Run {b : Nat} (hb : b=354 ∨ b=543) :
     symRun {noAlias:=true} pa0 (pcOf (choiceBase b+17)) 200 =
     some ⟨pa0State,pa0Pc b,pa0354.res.stop,pa0354.res.steps,pa0354.res.cycles⟩ := by
   rcases hb with rfl | rfl
   · exact pa0354.trans (congrArg some (by kernel_rfl))
   · exact pa0543.trans (congrArg some (by kernel_rfl))
+sym_block pa0b354 := symRun {noAlias:=true} pa0b (pcOf (choiceBase 354+21)) 200
+sym_block pa0b543 := symRun {noAlias:=true} pa0b (pcOf (choiceBase 543+21)) 200
+def pa0bState : SymState := pa0b354.res.st
+def pa0bPc (b : Nat) : E := rebase pa0b354.res.pc (pcOf (choiceBase b+23)) (pcOf (choiceBase b+22))
+theorem pa0bRun {b : Nat} (hb : b=354 ∨ b=543) :
+    symRun {noAlias:=true} pa0b (pcOf (choiceBase b+21)) 200 =
+    some ⟨pa0bState,pa0bPc b,pa0b354.res.stop,pa0b354.res.steps,pa0b354.res.cycles⟩ := by
+  rcases hb with rfl | rfl
+  · exact pa0b354.trans (congrArg some (by kernel_rfl))
+  · exact pa0b543.trans (congrArg some (by kernel_rfl))
 sym_block pa5354 := symRun {noAlias:=true} (pa5 354) (pcOf (choiceBase 354+22)) 200
 sym_block pa5543 := symRun {noAlias:=true} (pa5 543) (pcOf (choiceBase 543+22)) 200
 def pa5State : SymState := pa5354.res.st
@@ -26147,8 +26100,26 @@ theorem choiceR_spec {image : Image} {b : Nat} {rewardCondition : Prop} (hK : Ke
     refine ⟨_,t,su.trans st,by omega,?_,(ru.trans rt).mono (by decide),
       (fu.trans ft).mono (fun _ _ h => by simp at h)⟩
     rw [if_neg (fun h => hf h.1)]; exact pt
-/-- `pa`: add the path bonus `lowerBonus lay` (P0: 2 on layers 1, 2, 3 on layer 3, through the stub) to the
-lower reward accumulator `s4` (`x20`) when LOW is spare. -/
+theorem w0_msb (v : BitVec 128) : (v.extractLsb' 0 64).msb = decide (v.toNat / 2 ^ 63 % 2 = 1) := by
+  rw [BitVec.msb_eq_getLsbD_last]
+  simp only [BitVec.getLsbD_extractLsb', show 64 - 1 < 64 from by decide, decide_true, Bool.true_and]
+  simp only [BitVec.getLsbD, Nat.testBit, Nat.shiftRight_eq_div_pow, Nat.one_and_eq_mod_two]
+  by_cases h1 : v.toNat / 2 ^ 63 % 2 = 1 <;> simp_all
+theorem w1_msb (v : BitVec 128) : (v.extractLsb' 64 64).msb = decide (v.toNat / 2 ^ 127 % 2 = 1) := by
+  rw [BitVec.msb_eq_getLsbD_last]
+  simp only [BitVec.getLsbD_extractLsb', show 64 - 1 < 64 from by decide, decide_true, Bool.true_and]
+  simp only [BitVec.getLsbD, Nat.testBit, Nat.shiftRight_eq_div_pow, Nat.one_and_eq_mod_two]
+  by_cases h1 : v.toNat / 2 ^ 127 % 2 = 1 <;> simp_all
+/-- SGV1: the earning path is HIGH-a (`w1 < 0`) or, failing that, `w0 ≥ 0` (LOW). -/
+theorem earn_msb (v : BitVec 128) :
+    T3.lowerEarn v ↔ (v.extractLsb' 64 64).msb = true ∨ (v.extractLsb' 0 64).msb = false := by
+  rw [w0_msb, w1_msb]
+  unfold T3.lowerEarn
+  have h0 : v.toNat / 2 ^ 63 % 2 < 2 := Nat.mod_lt _ (by decide)
+  simp only [decide_eq_true_eq, decide_eq_false_iff_not]
+  omega
+/-- `pa` (SGV1 split guard): add the path bonus `lowerBonus lay` (2, through the stub) to the lower reward
+accumulator `s4` (`x20`) on an earning path (`lowerEarn`: LOW spare or HIGH-a). -/
 theorem pa_spec {image : Image} {b : Nat} {rewardCondition : Prop} (hK : KernAt image b rewardCondition)
     (s : MachineState) (hpc : s.pc=pcOf (choiceBase b+17)) (low : BitVec 128) (acc : Nat)
     (hacc : acc + 4 < 2 ^ 64) (lay : T3.Layer) (hl : lay ≠ 0) (h8 : s.getReg .x8=BitVec.ofNat 64 lay.val)
@@ -26156,48 +26127,78 @@ theorem pa_spec {image : Image} {b : Nat} {rewardCondition : Prop} (hK : KernAt 
     (hm8 : s.getMem (BitVec.ofNat 64 (EOUT+8))=low.extractLsb' 64 64)
     (h20 : s.getReg .x20=BitVec.ofNat 64 acc) :
     ∃ k t, Steps image s k k t ∧ k ≤ paCost b ∧ t.pc=pcOf (paTarget b) ∧
-      t.getReg .x20=BitVec.ofNat 64 (acc+if T3.lowerSpare low then ClaudeWCT.WCT9.CanonicalPolicy.lowerBonus lay else 0) ∧
+      t.getReg .x20=BitVec.ofNat 64 (acc+if T3.lowerEarn low then ClaudeWCT.WCT9.CanonicalPolicy.lowerBonus lay else 0) ∧
       RegsExcept s t [.x20,.x29,.x30] ∧ Frame s t (fun _ => False) := by
-  obtain ⟨u,su,pu,ru,fu⟩ : ∃ u, Steps image s 5 5 u ∧
-      u.pc=(if T3.lowerSpare low then pcOf (choiceBase b+22) else pcOf (choiceBase b+23)) ∧
+  obtain ⟨u,su,pu,u30,ru,fu⟩ : ∃ u, Steps image s 4 4 u ∧
+      u.pc=(if (low.extractLsb' 64 64).msb then pcOf (choiceBase b+22) else pcOf (choiceBase b+21)) ∧
+      u.getReg .x30=low.extractLsb' 0 64 ∧
       RegsExcept s u [.x29,.x30] ∧ Frame s u (fun _ => False) := by
     refine ⟨_,symRun_sound (pa0Run hK.2.1) (choice_code hK 5 17 pa0 rfl) s hpc
-      (by simp [pa0State,pa0354.res,rv_simp,accessValid_iff,MEMORY_BYTES]),?_,?_,?_⟩
-    · have h0 : s.getMem 131744#64 = low.extractLsb' 0 64 := by simpa [EOUT] using hm0
-      have h8 : s.getMem 131752#64 = low.extractLsb' 64 64 := by simpa [EOUT] using hm8
-      have hm := spare_msb low
-      rw [BitVec.or_comm] at hm
-      simp only [Result.toState_pc,pa0Pc,rebase,pa0354.res,E.eval,CmpOp.eval,BinOp.eval,h0,h8,
-        BitVec.slt_zero_eq_msb,hm]
-      by_cases h : T3.lowerSpare low <;> simp [h]
+      (by simp [pa0State,pa0354.res,rv_simp,accessValid_iff,MEMORY_BYTES]),?_,?_,?_,?_⟩
+    · have h8 : s.getMem 131752#64 = low.extractLsb' 64 64 := by simpa [EOUT] using hm8
+      simp only [Result.toState_pc,pa0Pc,rebase,pa0354.res,E.eval,CmpOp.eval,BinOp.eval,h8,
+        BitVec.slt_zero_eq_msb]
+    · simpa [pa0State,pa0354.res,rv_simp,EOUT] using hm0
     · intro r hr; simp at hr; cases r <;> simp_all [pa0State,pa0354.res,rv_simp] <;> rfl
     · intro A _ _; simp [pa0State,pa0354.res,rv_simp]
+  have mid : ∀ w : MachineState, w.pc=pcOf (choiceBase b+21) → w.getReg .x30=low.extractLsb' 0 64 →
+      ∃ t, Steps image w 1 1 t ∧
+        t.pc=(if (low.extractLsb' 0 64).msb then pcOf (choiceBase b+23) else pcOf (choiceBase b+22)) ∧
+        RegsExcept w t [] ∧ Frame w t (fun _ => False) := by
+    intro w hw h30
+    refine ⟨_,symRun_sound (pa0bRun hK.2.1) (choice_code hK 6 21 pa0b rfl) w hw
+      (by simp [pa0bState,pa0b354.res,rv_simp]),?_,?_,?_⟩
+    · simp only [Result.toState_pc,pa0bPc,rebase,pa0b354.res,E.eval,CmpOp.eval,BinOp.eval,h30,
+        BitVec.slt_zero_eq_msb]
+    · intro r hr; cases r <;> simp_all [pa0bState,pa0b354.res,rv_simp] <;> rfl
+    · intro A _ _; simp [pa0bState,pa0b354.res,rv_simp]
   have jump : ∀ w : MachineState, w.pc=pcOf (choiceBase b+23) →
       ∃ t, Steps image w 1 1 t ∧ t.pc=pcOf (paTarget b) ∧ RegsExcept w t [] ∧ Frame w t (fun _ => False) := by
     intro w hw
-    refine ⟨_,symRun_sound (paJRun hK.2.1) (choice_code hK 7 23 (paJ b) rfl) w hw
+    refine ⟨_,symRun_sound (paJRun hK.2.1) (choice_code hK 8 23 (paJ b) rfl) w hw
       (by simp [paJState,paJ354.res,rv_simp]),rfl,?_,?_⟩
     · intro r hr; cases r <;> simp_all [paJState,paJ354.res,rv_simp] <;> rfl
     · intro A _ _; simp [paJState,paJ354.res,rv_simp]
-  by_cases h : T3.lowerSpare low
-  · rw [if_pos h] at pu
-    obtain ⟨v,sv,pv,rv,fv⟩ : ∃ v, Steps image u 1 1 v ∧ v.pc=pcOf (stubBase b) ∧
-        RegsExcept u v [] ∧ Frame u v (fun _ => False) := by
-      refine ⟨_,symRun_sound (pa5Run hK.2.1) (choice_code hK 6 22 (pa5 b) rfl) u pu
+  have earn : ∀ w : MachineState, w.pc=pcOf (choiceBase b+22) → RegsExcept s w [.x29,.x30] →
+      ∃ k t, Steps image w k k t ∧ k ≤ 3 ∧ t.pc=pcOf (paTarget b) ∧
+        t.getReg .x20=BitVec.ofNat 64 (acc+ClaudeWCT.WCT9.CanonicalPolicy.lowerBonus lay) ∧
+        RegsExcept w t [.x20,.x30] ∧ Frame w t (fun _ => False) := by
+    intro w hw rw0
+    obtain ⟨v,sv,pv,rv,fv⟩ : ∃ v, Steps image w 1 1 v ∧ v.pc=pcOf (stubBase b) ∧
+        RegsExcept w v [] ∧ Frame w v (fun _ => False) := by
+      refine ⟨_,symRun_sound (pa5Run hK.2.1) (choice_code hK 7 22 (pa5 b) rfl) w hw
         (by simp [pa5State,pa5354.res,rv_simp]),rfl,?_,?_⟩
       · intro r hr; cases r <;> simp_all [pa5State,pa5354.res,rv_simp] <;> rfl
       · intro A _ _; simp [pa5State,pa5354.res,rv_simp]
     obtain ⟨k,t,st,hk,pt,t20,rt,ft⟩ := stub_spec hK v pv lay hl
-      (by rw [rv.get (by decide),ru.get (by decide),h8]) acc
-      (by rw [rv.get (by decide),ru.get (by decide),h20])
-    refine ⟨5+1+k,t,(su.trans sv).trans st,by unfold stubCost at hk; unfold paCost; split_ifs at hk ⊢ <;> omega,pt,?_,((ru.trans rv).trans rt).mono (by decide),
-      ((fu.trans fv).trans ft).mono (fun _ _ h => by simp at h)⟩
-    rw [t20,if_pos h]
-  · rw [if_neg h] at pu
-    obtain ⟨t,st,pt,rt,ft⟩ := jump u pu
-    refine ⟨6,t,su.trans st,by unfold paCost; split_ifs <;> omega,pt,?_,(ru.trans rt).mono (by decide),
+      (by rw [rv.get (by decide),rw0.get (by decide),h8]) acc
+      (by rw [rv.get (by decide),rw0.get (by decide),h20])
+    refine ⟨1+k,t,sv.trans st,by unfold stubCost at hk; omega,pt,t20,
+      (rv.trans rt).mono (by decide),(fv.trans ft).mono (fun _ _ h => by simp at h)⟩
+  have hE := earn_msb low
+  by_cases h1 : (low.extractLsb' 64 64).msb = true
+  · rw [if_pos h1] at pu
+    obtain ⟨k,t,st,hk,pt,t20,rt,ft⟩ := earn u pu ru
+    refine ⟨4+k,t,su.trans st,by unfold paCost; split_ifs <;> omega,pt,?_,(ru.trans rt).mono (by decide),
       (fu.trans ft).mono (fun _ _ h => by simp at h)⟩
-    rw [rt.get (by decide),ru.get (by decide),h20,if_neg h,Nat.add_zero]
+    rw [t20, if_pos (hE.mpr (Or.inl h1))]
+  · rw [if_neg h1] at pu
+    obtain ⟨v,sv,pv,rv,fv⟩ := mid u pu u30
+    by_cases h0 : (low.extractLsb' 0 64).msb = true
+    · rw [if_pos h0] at pv
+      obtain ⟨t,st,pt,rt,ft⟩ := jump v pv
+      have hn : ¬ T3.lowerEarn low := fun h => by
+        rcases hE.mp h with h | h
+        · exact h1 h
+        · rw [h0] at h; cases h
+      refine ⟨6,t,(su.trans sv).trans st,by unfold paCost; split_ifs <;> omega,pt,?_,
+        ((ru.trans rv).trans rt).mono (by decide),((fu.trans fv).trans ft).mono (fun _ _ h => by simp at h)⟩
+      rw [rt.get (by decide),rv.get (by decide),ru.get (by decide),h20,if_neg hn,Nat.add_zero]
+    · rw [if_neg h0] at pv
+      obtain ⟨k,t,st,hk,pt,t20,rt,ft⟩ := earn v pv ((ru.trans rv).mono (by decide))
+      refine ⟨5+k,t,(su.trans sv).trans st,by unfold paCost; split_ifs <;> omega,pt,?_,
+        ((ru.trans rv).trans rt).mono (by decide),((fu.trans fv).trans ft).mono (fun _ _ h => by simp at h)⟩
+      rw [t20, if_pos (hE.mpr (Or.inr (by simpa using h0)))]
 sym_block rt354 := symRun {noAlias:=true} (k_104 354) (pcOf (354+104)) 200
 sym_block rt543 := symRun {noAlias:=true} (k_104 543) (pcOf (543+104)) 200
 def rtState : SymState := rt354.res.st
@@ -30791,7 +30792,8 @@ set_option maxRecDepth 32768
 
 def CreditW (A : Nat) : Prop := A=0x66018
 
-/-- Lower reward with the path-aware bonus (`pa`): `low` = the LOW half at `EOUT` is spare. -/
+/-- Lower reward with the path-aware bonus (`pa`): `low` = the path earns the bonus (`lowerEarn` of the LOW half at
+`EOUT`). -/
 theorem lower_spec {image : Image} (hK : KernAt image 543 (Code image)) (s : MachineState) (v : Digest)
     (ht : Reward.LowerTablesOK s) (hp : s.pc=pcOf (Reward.base 543 false))
     (h6 : s.getReg .x6=v.extractLsb' 0 64) (h7 : s.getReg .x7=v.extractLsb' 64 64)
@@ -30802,15 +30804,15 @@ theorem lower_spec {image : Image} (hK : KernAt image 543 (Code image)) (s : Mac
     (hf : floor<22) (hm : s.getMem (0x66010#64)=BitVec.ofNat 64 floor)
     (lay : Layer) (hl : lay≠0) (h8 : s.getReg .x8=BitVec.ofNat 64 lay.val) :
     ∃ k t, Steps image s k k t ∧ k≤100 ∧
-      t.pc=(if floor≤partialScore v 14+(if T-S=6 then 1 else 0)+(if T3.lowerSpare L then ClaudeWCT.WCT9.CanonicalPolicy.lowerBonus lay else 0)
+      t.pc=(if floor≤partialScore v 14+(if T-S=6 then 1 else 0)+(if T3.lowerEarn L then ClaudeWCT.WCT9.CanonicalPolicy.lowerBonus lay else 0)
         then pcOf 976 else pcOf 1011) ∧
-      (floor≤partialScore v 14+(if T-S=6 then 1 else 0)+(if T3.lowerSpare L then ClaudeWCT.WCT9.CanonicalPolicy.lowerBonus lay else 0) →
-        t.getMem (0x66018#64)=BitVec.ofNat 64 (partialScore v 14+(if T-S=6 then 1 else 0)+(if T3.lowerSpare L then ClaudeWCT.WCT9.CanonicalPolicy.lowerBonus lay else 0))) ∧
+      (floor≤partialScore v 14+(if T-S=6 then 1 else 0)+(if T3.lowerEarn L then ClaudeWCT.WCT9.CanonicalPolicy.lowerBonus lay else 0) →
+        t.getMem (0x66018#64)=BitVec.ofNat 64 (partialScore v 14+(if T-S=6 then 1 else 0)+(if T3.lowerEarn L then ClaudeWCT.WCT9.CanonicalPolicy.lowerBonus lay else 0))) ∧
       RegsExcept s t [.x10,.x11,.x20,.x28,.x29,.x30] ∧ Frame s t CreditW := by
   have hC := hK.reward
   have ha0 : partialScore v 14+(if T-S=6 then 1 else 0)<2^60 := by have h := partial_bound v 14; split_ifs <;> omega
   have hbon := ClaudeWCT.WCT9.CanonicalPolicy.lowerBonus_le lay
-  have ha : partialScore v 14+(if T-S=6 then 1 else 0)+(if T3.lowerSpare L then ClaudeWCT.WCT9.CanonicalPolicy.lowerBonus lay else 0)<2^64 := by
+  have ha : partialScore v 14+(if T-S=6 then 1 else 0)+(if T3.lowerEarn L then ClaudeWCT.WCT9.CanonicalPolicy.lowerBonus lay else 0)<2^64 := by
     split_ifs <;> omega
   obtain ⟨u,su,pu,ux11,ux20,ru,fu⟩ := CanonicalReward.Lower.init_spec (Or.inr rfl) hC.scoring s hp
   obtain ⟨v1,sv,pv,vx,rv,fv⟩ := CanonicalReward.Lower.loop_spec (Or.inr rfl) hC.scoring u v
@@ -30829,12 +30831,12 @@ theorem lower_spec {image : Image} (hK : KernAt image 543 (Code image)) (s : Mac
   replace kple : kp ≤ 12 := by simpa [paCost] using kple
   obtain ⟨v4,s4,p4,x4,r4,f4⟩ := lowerFloor_steps hC.floorHook vp (by simpa [paTarget] using pp)
     (BitVec.ofNat 64 floor) (by rw [fp.get (by decide) (by simp),f03.get (by decide) (by simp),hm])
-  have x20 : v4.getReg .x20=BitVec.ofNat 64 (partialScore v 14+(if T-S=6 then 1 else 0)+(if T3.lowerSpare L then ClaudeWCT.WCT9.CanonicalPolicy.lowerBonus lay else 0)) := by
+  have x20 : v4.getReg .x20=BitVec.ofNat 64 (partialScore v 14+(if T-S=6 then 1 else 0)+(if T3.lowerEarn L then ClaudeWCT.WCT9.CanonicalPolicy.lowerBonus lay else 0)) := by
     rw [r4.get (by decide),xp]
   obtain ⟨v5,s5,p5,r5,f5⟩ := lowerBranch_steps hC.lowerBranch v4 p4 _ floor ha (by omega) x20 x4
   have rr := ((((ru.trans rv).trans r2).trans r3).trans rp).trans r4
   have ff := (f03.trans fp).trans f4
-  by_cases hg : floor≤partialScore v 14+(if T-S=6 then 1 else 0)+(if T3.lowerSpare L then ClaudeWCT.WCT9.CanonicalPolicy.lowerBonus lay else 0)
+  by_cases hg : floor≤partialScore v 14+(if T-S=6 then 1 else 0)+(if T3.lowerEarn L then ClaudeWCT.WCT9.CanonicalPolicy.lowerBonus lay else 0)
   · rw [if_pos hg] at p5
     obtain ⟨v6,s6,p6,r6,f6⟩ := lowerCreditJump_steps hC.lowerJump v5 p5
     obtain ⟨t,st,pt,mt,rt,ft⟩ := lowerCredit_steps hC.lowerHook v6 p6 _
@@ -30877,7 +30879,7 @@ theorem lower_spec_credit {image : Image} (hK : KernAt image 543 (Code image)) (
     (h25 : s.getReg .x25=BitVec.ofNat 64 S) (hST : S≤T) (hc : T-S<8)
     (hf : floor<22) (hm : s.getMem (0x66010#64)=BitVec.ofNat 64 floor)
     (h8 : s.getReg .x8=BitVec.ofNat 64 lay.val) :
-    let low := decide (T3.lowerSpare L)
+    let low := decide (T3.lowerEarn L)
     let good := floor+WCT9.dispatchPenalty lay (lowDigits v++[T-S])≤pathReward lay low (lowDigits v++[T-S])
     ∃ k t, Steps image s k k t ∧ k≤100 ∧
       t.pc=(if good then pcOf 976 else pcOf 1011) ∧
@@ -30885,12 +30887,12 @@ theorem lower_spec_credit {image : Image} (hK : KernAt image 543 (Code image)) (
       RegsExcept s t [.x10,.x11,.x20,.x28,.x29,.x30] ∧ Frame s t CreditW := by
   dsimp only
   have h := lower_spec hK s v ht hp h6 h7 L hm0 hm8 T S floor h17 h25 hST hc hf hm lay hl h8
-  have e := lower_reward lay hl v T S (decide (T3.lowerSpare L))
-  have e' : (if T3.lowerSpare L then lowerBonus lay else 0)=(if decide (T3.lowerSpare L) then lowerBonus lay else 0) := by
-    by_cases hs : T3.lowerSpare L <;> simp [hs]
+  have e := lower_reward lay hl v T S (decide (T3.lowerEarn L))
+  have e' : (if T3.lowerEarn L then lowerBonus lay else 0)=(if decide (T3.lowerEarn L) then lowerBonus lay else 0) := by
+    by_cases hs : T3.lowerEarn L <;> simp [hs]
   have hg : (floor+WCT9.dispatchPenalty lay (lowDigits v++[T-S])≤
-      pathReward lay (decide (T3.lowerSpare L)) (lowDigits v++[T-S]))↔
-      floor≤credit lay (decide (T3.lowerSpare L)) (lowDigits v++[T-S]) := by
+      pathReward lay (decide (T3.lowerEarn L)) (lowDigits v++[T-S]))↔
+      floor≤credit lay (decide (T3.lowerEarn L)) (lowDigits v++[T-S]) := by
     simp [credit,WCT9.dispatchPenalty,hl]
   rw [e',e] at h
   simpa only [hg] using h
@@ -31399,7 +31401,7 @@ theorem cs_loop {A : CsArgs} {s0 : MachineState} (hK : KernAt image 543 (Canonic
         simp only [csT,csOk,if_pos hlz];omega
     · rw [if_neg (fun h => hlz (hl0.1 h))] at p4
       set v := WCT9.encodingAnswer A.lay a with hvdef
-      set low := decide (T3.lowerSpare (a.extractLsb' 0 128)) with hlowdef
+      set low := decide (T3.lowerEarn (a.extractLsb' 0 128)) with hlowdef
       have hlow : WCT9.lowSelected A.lay a = low := by simp [WCT9.lowSelected,hlz,hlowdef]
       unfold WCT9.CanonicalPolicy.producerDecodeOut
       rw [hlow]

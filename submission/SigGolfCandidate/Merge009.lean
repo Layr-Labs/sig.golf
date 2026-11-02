@@ -460,6 +460,12 @@ def dataDigits (lay : Layer) (value : Digest) : List Nat :=
 def lowerSpare (value : Digest) : Prop := value.toNat / 2 ^ 63 % 2 = 0 ∧ value.toNat / 2 ^ 127 % 2 = 0
 instance (value : Digest) : Decidable (lowerSpare value) :=
   inferInstanceAs (Decidable (value.toNat / 2 ^ 63 % 2 = 0 ∧ value.toNat / 2 ^ 127 % 2 = 0))
+/-- SGV1: a lower answer earns the path bonus when its LOW half is spare or its second word's sign bit (bit 127 of
+the LOW half) is set (the split guard tests `w1 < 0` first: HIGH-a is as cheap as LOW). -/
+def lowerEarn (value : Digest) : Prop := value.toNat / 2 ^ 63 % 2 = 0 ∨ value.toNat / 2 ^ 127 % 2 = 1
+instance (value : Digest) : Decidable (lowerEarn value) :=
+  inferInstanceAs (Decidable (value.toNat / 2 ^ 63 % 2 = 0 ∨ value.toNat / 2 ^ 127 % 2 = 1))
+theorem lowerEarn_of_spare {value : Digest} (h : lowerSpare value) : lowerEarn value := Or.inl h.1
 def lowerWord (value : Digest) : Nat := value.toNat % 2 ^ 63 + value.toNat / 2 ^ 64 % 2 ^ 63 * 2 ^ 63
 def lowerPack (n : Nat) : Digest :=
   BitVec.ofNat 128 (n % 2 ^ 63 + n / 2 ^ 63 % 2 ^ 63 * 2 ^ 64)
@@ -922,6 +928,98 @@ theorem card_select_pred (p : Digest → Prop) [DecidablePred p]
     split_ifs <;> rfl
   rw [he, card_mode_lower p p hp]
   ring
+
+/-! SGV1: three path classes of a lower answer by its LOW half: spare (LOW), `lowerEarn ∧ ¬lowerSpare` (HIGH-a,
+bit 127 set) and `¬lowerEarn` (HIGH-b: bit 63 set, bit 127 clear). -/
+def flip63 (v : Digest) : Digest := v ^^^ BitVec.ofNat 128 (2 ^ 63)
+
+theorem flip63_involutive : Function.Involutive flip63 := by
+  intro v; simp [flip63, BitVec.xor_assoc]
+
+theorem bit_toNat (x k : Nat) : x / 2 ^ k % 2 = (x.testBit k).toNat := (Nat.toNat_testBit x k).symm
+
+theorem flip63_bit63 (v : Digest) : (flip63 v).toNat / 2 ^ 63 % 2 = 1 - v.toNat / 2 ^ 63 % 2 := by
+  have h2 : (BitVec.ofNat 128 (2 ^ 63)).toNat = 2 ^ 63 := by rw [BitVec.toNat_ofNat]; norm_num
+  rw [flip63, BitVec.toNat_xor, h2, bit_toNat, bit_toNat, Nat.testBit_xor, Nat.testBit_two_pow_self]
+  cases v.toNat.testBit 63 <;> rfl
+
+theorem flip63_bit127 (v : Digest) : (flip63 v).toNat / 2 ^ 127 % 2 = v.toNat / 2 ^ 127 % 2 := by
+  have h2 : (BitVec.ofNat 128 (2 ^ 63)).toNat = 2 ^ 63 := by rw [BitVec.toNat_ofNat]; norm_num
+  rw [flip63, BitVec.toNat_xor, h2, bit_toNat, bit_toNat, Nat.testBit_xor,
+    Nat.testBit_two_pow_of_ne (by decide : 63 ≠ 127)]
+  cases v.toNat.testBit 127 <;> rfl
+
+theorem not_earn_iff_flip (v : Digest) : ¬ lowerEarn v ↔ lowerSpare (flip63 v) := by
+  unfold lowerEarn lowerSpare
+  rw [flip63_bit63, flip63_bit127]
+  have h0 : v.toNat / 2 ^ 63 % 2 < 2 := Nat.mod_lt _ (by decide)
+  have h1 : v.toNat / 2 ^ 127 % 2 < 2 := Nat.mod_lt _ (by decide)
+  omega
+
+theorem card_not_earn : (univ.filter fun v : Digest => ¬lowerEarn v).card = 2 ^ 126 := by
+  rw [← card_spare]
+  exact Finset.card_equiv (Function.Involutive.toPerm flip63 flip63_involutive) fun v => by
+    simp only [mem_filter, mem_univ, true_and, Function.Involutive.coe_toPerm]
+    exact not_earn_iff_flip v
+
+theorem card_earn_not_spare :
+    (univ.filter fun v : Digest => ¬lowerSpare v ∧ lowerEarn v).card = 2 ^ 127 := by
+  have h := Finset.card_filter_add_card_filter_not (s := univ.filter fun v : Digest => ¬lowerSpare v) lowerEarn
+  rw [Finset.filter_filter, Finset.filter_filter, card_not_spare] at h
+  have e : (univ.filter fun v : Digest => ¬lowerSpare v ∧ ¬lowerEarn v) = univ.filter fun v => ¬lowerEarn v := by
+    apply Finset.filter_congr
+    intro v _
+    exact ⟨fun h => h.2, fun h => ⟨fun hs => h (lowerEarn_of_spare hs), h⟩⟩
+  rw [e, card_not_earn, show (3 : Nat) * 2 ^ 126 = 2 ^ 127 + 2 ^ 126 by norm_num] at h
+  exact Nat.add_right_cancel h
+
+theorem mode3_set_eq {α : Type} [Fintype α] [DecidableEq α] (S E lo hiA hi : α → Prop) [DecidablePred S]
+    [DecidablePred E] [DecidablePred lo] [DecidablePred hiA] [DecidablePred hi]
+    (hSE : ∀ x, S x → E x) (hlo : ∀ x, lo x → S x) :
+    (univ.filter fun p : α × α => if S p.1 then lo p.1 else if E p.1 then hiA p.2 else hi p.2) =
+      ((univ.filter lo) ×ˢ (univ : Finset α)) ∪
+        (((univ.filter fun x => ¬S x ∧ E x) ×ˢ (univ.filter hiA)) ∪
+          ((univ.filter fun x => ¬E x) ×ˢ (univ.filter hi))) := by
+  ext p
+  simp only [mem_filter, mem_univ, true_and, mem_union, mem_product, and_true]
+  by_cases hs : S p.1
+  · have hn : E p.1 := hSE _ hs
+    simp [hs, hn]
+  · have hl : ¬ lo p.1 := fun h => hs (hlo _ h)
+    by_cases he : E p.1
+    · simp [hs, he, hl]
+    · simp [hs, he, hl]
+
+theorem mode3_disj1 {α : Type} [Fintype α] [DecidableEq α] (S E hiA hi : α → Prop) [DecidablePred S]
+    [DecidablePred E] [DecidablePred hiA] [DecidablePred hi] :
+    Disjoint ((univ.filter fun x => ¬S x ∧ E x) ×ˢ (univ.filter hiA))
+      ((univ.filter fun x => ¬E x) ×ˢ (univ.filter hi)) := by
+  refine disjoint_left.mpr fun p hp hq => ?_
+  simp only [mem_product, mem_filter, mem_univ, true_and] at hp hq
+  exact hq.1 hp.1.2
+
+theorem mode3_disj2 {α : Type} [Fintype α] [DecidableEq α] (S E lo hiA hi : α → Prop) [DecidablePred S]
+    [DecidablePred E] [DecidablePred lo] [DecidablePred hiA] [DecidablePred hi]
+    (hSE : ∀ x, S x → E x) (hlo : ∀ x, lo x → S x) :
+    Disjoint ((univ.filter lo) ×ˢ (univ : Finset α))
+      (((univ.filter fun x => ¬S x ∧ E x) ×ˢ (univ.filter hiA)) ∪
+        ((univ.filter fun x => ¬E x) ×ˢ (univ.filter hi))) := by
+  refine disjoint_left.mpr fun p hp hq => ?_
+  simp only [mem_product, mem_filter, mem_univ, true_and, mem_union, and_true] at hp hq
+  rcases hq with hq | hq
+  · exact hq.1.1 (hlo _ hp)
+  · exact hq.1 (hSE _ (hlo _ hp))
+
+/-- SGV1 three-class count: LOW (spare, word = LOW half), HIGH-a (`2^127` LOW halves) and HIGH-b (`2^126`). -/
+theorem card_mode3_lower (lo hiA hi : Digest → Prop) [DecidablePred lo] [DecidablePred hiA] [DecidablePred hi]
+    (hlo : ∀ d, lo d → lowerSpare d) :
+    (univ.filter fun p : Digest × Digest =>
+        if lowerSpare p.1 then lo p.1 else if lowerEarn p.1 then hiA p.2 else hi p.2).card =
+      (univ.filter lo).card * 2 ^ 128 + ((univ.filter hiA).card * 2 ^ 127 + 2 ^ 126 * (univ.filter hi).card) := by
+  rw [mode3_set_eq lowerSpare lowerEarn lo hiA hi (fun _ h => lowerEarn_of_spare h) hlo,
+    card_union_of_disjoint (mode3_disj2 lowerSpare lowerEarn lo hiA hi (fun _ h => lowerEarn_of_spare h) hlo),
+    card_union_of_disjoint (mode3_disj1 lowerSpare lowerEarn hiA hi), card_product, card_product, card_product, card_univ,
+    Fintype.card_bitVec, card_earn_not_spare, card_not_earn, Nat.mul_comm (2 ^ 127)]
 
 end SigGolfCandidate.T3.DualHalf
 
