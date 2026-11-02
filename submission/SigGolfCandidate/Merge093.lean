@@ -1220,7 +1220,7 @@ theorem prefix_of_slots_c3 (output : HashOutput) (witness : SharedForest.Witness
     · exact hw (by simpa[he,Nat.add_assoc] using hslots p hp 1 (by decide))
   have hz:(Paired.witEnc output witness).extractLsb' (8*off) 64=0:=by
     change (Paired.witEnc output witness).extractLsb' (8*off) (8*8)=0
-    rw [PairedReadout.witEnc_extract output witness _ _ (Or.inl (by unfold choiceOff; omega))]
+    rw [PairedReadout.witEnc_extract output witness _ _ (by unfold choiceOff at *; omega)]
     change (PairedReadout.prefixEnc (PairedReadout.countedPrefix (witness.counters 3)
       (PairedReadout.readSlot (Paired.forestSlots output witness.signature))) output
       (Paired.mainWitness witness)).extractLsb' _ (8*8)=0

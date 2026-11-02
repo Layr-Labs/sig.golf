@@ -1418,9 +1418,11 @@ theorem ppCycles_le : ClaudeWCT.W9.Machine.Expand.PostPass.ppCycles ≤ 1000000 
   first
   | decide
   | (simp only [ClaudeWCT.W9.Machine.Expand.PostPass.RDA.res, ClaudeWCT.W9.Machine.Expand.PostPass.RDB.res,
-      ClaudeWCT.W9.Machine.Expand.PostPass.RJ.res]; omega)
+      ClaudeWCT.W9.Machine.Expand.PostPass.RJ.res, ClaudeWCT.W9.Machine.Expand.PostPass.RJA.res,
+      ClaudeWCT.W9.Machine.Expand.PostPass.RJB.res]; omega)
   | (norm_num [ClaudeWCT.W9.Machine.Expand.PostPass.RDA.res, ClaudeWCT.W9.Machine.Expand.PostPass.RDB.res,
-      ClaudeWCT.W9.Machine.Expand.PostPass.RJ.res])
+      ClaudeWCT.W9.Machine.Expand.PostPass.RJ.res, ClaudeWCT.W9.Machine.Expand.PostPass.RJA.res,
+      ClaudeWCT.W9.Machine.Expand.PostPass.RJB.res])
 theorem pairedExpandCost_lt : pairedExpandCost+1<CYCLE_LIMIT := by
   have := ppCycles_le
   unfold pairedExpandCost ClaudeWCT.W9.Machine.Expand.SharedCompactMain.suffixW CYCLE_LIMIT

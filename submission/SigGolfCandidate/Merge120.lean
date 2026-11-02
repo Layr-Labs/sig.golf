@@ -404,21 +404,21 @@ theorem tailR_keeps (slot : Option Nat) (p : Nat) : Keeps (tailR slot p) [.x12] 
   · rfl
 namespace NCtx
 variable {P : SigGolfCandidate.Legacy.Hash → Prop}
-theorem bufferAdd_eval {s : MachineState} (h4 : s.getReg .x4=24704) (i : Nat) :
+theorem bufferAdd_eval {s : MachineState} (h4 : s.getReg .x4=14776) (i : Nat) :
     (addC (.reg .x4) (BitVec.ofNat 64 (slotOffset (slot i)))).eval s = BitVec.ofNat 64 (slot i) := by
   rw [addC_eval]; simp only [E.eval,h4]
-  rw [show (24704 : Word)=BitVec.ofNat 64 24704 from rfl,ofNat_add_ofNat]
-  rw [show 24704+slotOffset (slot i)=slot i by unfold slotOffset slot; split <;> omega]
+  rw [show (14776 : Word)=BitVec.ofNat 64 14776 from rfl,ofNat_add_ofNat]
+  rw [show 14776+slotOffset (slot i)=slot i by unfold slotOffset slot; split <;> omega]
 /-- T51: the terminal step's destination `termSlot i` (chain 0: `slot 0 - 16`). -/
-theorem termAdd_eval {s : MachineState} (h4 : s.getReg .x4=24704) (i : Nat) :
+theorem termAdd_eval {s : MachineState} (h4 : s.getReg .x4=14776) (i : Nat) :
     (addC (.reg .x4) (BitVec.ofNat 64 (slotOffset (termSlot i)))).eval s = BitVec.ofNat 64 (termSlot i) := by
   rw [addC_eval]; simp only [E.eval,h4]
-  rw [show (24704 : Word)=BitVec.ofNat 64 24704 from rfl,ofNat_add_ofNat]
-  rw [show 24704+slotOffset (termSlot i)=termSlot i by unfold slotOffset termSlot slot; split_ifs <;> omega]
-theorem bufferAddr_eval {s : MachineState} (h4 : s.getReg .x4=24704) (i k : Nat) :
+  rw [show (14776 : Word)=BitVec.ofNat 64 14776 from rfl,ofNat_add_ofNat]
+  rw [show 14776+slotOffset (termSlot i)=termSlot i by unfold slotOffset termSlot slot; split_ifs <;> omega]
+theorem bufferAddr_eval {s : MachineState} (h4 : s.getReg .x4=14776) (i k : Nat) :
     (⟨some (.reg .x4),BitVec.ofNat 64 (slotOffset (slot i)+k)⟩ : Addr).eval s = BitVec.ofNat 64 (slot i+k) := by
   simp only [Addr.eval,E.eval,h4]
-  rw [show (24704 : Word)=BitVec.ofNat 64 24704 from rfl,ofNat_add_ofNat]
+  rw [show (14776 : Word)=BitVec.ofNat 64 14776 from rfl,ofNat_add_ofNat]
   congr 1; unfold slotOffset slot; split <;> omega
 theorem prehash_step (c : NCtx) (hc : c.ok) (hds : c.DigitsOk) (s0 : MachineState) (hk : ∀ p ∈ c.known, s0.getReg p.1 = p.2)
     (h0 : c.Orig0 s0) (i m : Nat) (hi : i < 51) (hm : m ≤ last i) (hd : c.dig i ≤ m)
@@ -532,7 +532,7 @@ theorem rung_piece (c : NCtx) (hc : c.ok) {s0 : MachineState} (hk : ∀ p ∈ c.
   have hlast := last_bounds i
   have hmax := topMax_bounds i
   have hlastEq : last i + 1 = topMax i := by unfold last; omega
-  have h4 : s.getReg .x4 = 24704 := (hR _ (by decide +kernel)).trans (hk (.x4,24704) (by simp [known]))
+  have h4 : s.getReg .x4 = 14776 := (hR _ (by decide +kernel)).trans (hk (.x4,14776) (by simp [known]))
   set r := rungR m (if m = last i then some (termSlot i) else none) p with hr
   have hobl : ∀ o ∈ r.st.obl, o.holds s := by
     simp only [hr, rungR, map_slot_ite, Option.map_some, Option.map_none, T3M.rungRB, List.mem_cons, List.not_mem_nil, or_false]
@@ -587,7 +587,7 @@ theorem rung_piece (c : NCtx) (hc : c.ok) {s0 : MachineState} (hk : ∀ p ∈ c.
     by_cases h2 : m = last i <;> simp [h2, E.eval]
 theorem tail_piece (i m p : Nat) (hp : p < 257181)
     (hrun : vrun p 2 = some (tailR (if m = last i then some (termSlot i) else none) p)) (s : MachineState)
-    (hpc : s.pc = pcOf p) (h4 : s.getReg .x4=24704) :
+    (hpc : s.pc = pcOf p) (h4 : s.getReg .x4=14776) :
     ∃ t, Steps vimage s (if m = last i then 1 else 0) (if m = last i then 1 else 0) t ∧
       fetch vimage t = some (.base .ECALL) ∧ (∀ x, x ≠ .x12 → t.getReg x = s.getReg x) ∧
       (m = last i → t.getReg .x12 = BitVec.ofNat 64 (termSlot i)) ∧ (m ≠ last i → t.getReg .x12 = s.getReg .x12) ∧
@@ -679,7 +679,7 @@ theorem padHeader_at {c : NCtx} {s0 s : MachineState} (hc : c.ok) (h0 : c.Orig0 
   rw [show c.blk i + 24 - Verify.WIT = c.blk i - Verify.WIT + 16 + 8 by omega]
 theorem vAt_gVal (c : NCtx) (i : Nat) (hi : i < 51) : c.vAt i = c.blk i + gVal (topG i) := by
   rw [topG_lt i hi]; unfold vAt gVal; by_cases h : i % 2 = 0 <;> simp [h] <;> omega
-theorem copy_mem (c : NCtx) (hc : c.ok) {s : MachineState} (h19 : s.getReg .x8 = BitVec.ofNat 64 c.S3) (h4 : s.getReg .x4=24704) (i : Nat)
+theorem copy_mem (c : NCtx) (hc : c.ok) {s : MachineState} (h19 : s.getReg .x8 = BitVec.ofNat 64 c.S3) (h4 : s.getReg .x4=14776) (i : Nat)
     (hi : i < 51) (A : Nat) (hA : A < 2 ^ 64) :
     memEval s (copyMem .x8 (off i) (slot i) (topG i)) (BitVec.ofNat 64 A) =
       if A = slot i + 8 then s.getMem (BitVec.ofNat 64 (c.vAt i + 8))
@@ -692,7 +692,7 @@ theorem copy_mem (c : NCtx) (hc : c.ok) {s : MachineState} (h19 : s.getReg .x8 =
     c.vAt_gVal i hi,
     show c.blk i + gVal (topG i) + 8 = c.blk i + (gVal (topG i) + 8) by ring]
 theorem copy_obl (c : NCtx) (hc : c.ok) {s : MachineState} (h19 : s.getReg .x8 = BitVec.ofNat 64 c.S3)
-    (h4 : s.getReg .x4=24704) (i : Nat) (hi : i < 51) :
+    (h4 : s.getReg .x4=14776) (i : Nat) (hi : i < 51) :
     ∀ o ∈ T3M.copyOblB .x8 (off i) (slotOffset (slot i)) (topG i), o.holds s := by
   have hb := c.blk_props hc i hi
   have hs := slot_props i hi
@@ -714,7 +714,7 @@ theorem copy_obl (c : NCtx) (hc : c.ok) {s : MachineState} (h19 : s.getReg .x8 =
 theorem copy_post (c : NCtx) (hc : c.ok) {s0 s t : MachineState} (h0 : c.Orig0 s0) (i : Nat)
     (hi : i < 51) (acc : List Digest) (hlen : acc.length = i) (hF : Frame s0 s (c.Wr i))
     (hS : ∀ j < acc.length, DigAt s (slot j) (acc.getD j 0))
-    (h19 : s.getReg .x8 = BitVec.ofNat 64 c.S3) (h4 : s.getReg .x4=24704)
+    (h19 : s.getReg .x8 = BitVec.ofNat 64 c.S3) (h4 : s.getReg .x4=14776)
     (htm : ∀ A, A < 2 ^ 64 → t.getMem (BitVec.ofNat 64 A) =
       memEval s (copyMem .x8 (off i) (slot i) (topG i)) (BitVec.ofNat 64 A)) :
     Frame s0 t (c.Wr (i + 1)) ∧ ∀ j < (acc ++ [c.val i]).length,
@@ -756,7 +756,7 @@ theorem copyN_step (c : NCtx) (hc : c.ok) {s0 : MachineState} (hk : ∀ p ∈ c.
   have kr : ∀ r v, (r, v) ∈ c.known → r ∉ chainRegs → s.getReg r = v := fun r v hm hn =>
     (hR r hn).trans (hk _ hm)
   have h19 : s.getReg .x8 = BitVec.ofNat 64 c.S3 := kr _ _ (by simp [known]) (by decide +kernel)
-  have h4 : s.getReg .x4 = 24704 := kr _ _ (by simp [known]) (by decide +kernel)
+  have h4 : s.getReg .x4 = 14776 := kr _ _ (by simp [known]) (by decide +kernel)
   set r := copyN .x8 (off i) (slot i) (c.endPc i) (topG i) with hr
   have hst := piece_steps45 hrun hp0 s hpc (by simpa [hr, copyN, T3M.copyNB] using c.copy_obl hc h19 h4 i hi)
   have hkeep := copyN_keeps .x8 (off i) (slot i) (c.endPc i) (topG i)
@@ -775,7 +775,7 @@ theorem copyFH_step (c : NCtx) (hc : c.ok) {s0 : MachineState} (hk : ∀ p ∈ c
   have kr : ∀ r v, (r, v) ∈ c.known → r ∉ chainRegs → s.getReg r = v := fun r v hm hn =>
     (hR r hn).trans (hk _ hm)
   have h19 : s.getReg .x8 = BitVec.ofNat 64 c.S3 := kr _ _ (by simp [known]) (by decide +kernel)
-  have h4 : s.getReg .x4 = 24704 := kr _ _ (by simp [known]) (by decide +kernel)
+  have h4 : s.getReg .x4 = 14776 := kr _ _ (by simp [known]) (by decide +kernel)
   set r := copyFH .x8 (off i) (slot i) (c.startPc i) (topG i) with hr
   have hst := piece_steps45 hrun hp0 s hpc (by simpa [hr, copyFH, T3M.copyFHB] using c.copy_obl hc h19 h4 i hi)
   have hkeep := copyFH_keeps .x8 (off i) (slot i) (c.startPc i) (topG i)
@@ -824,7 +824,7 @@ theorem headJ_step (c : NCtx) (hc : c.ok) {s0 : MachineState} (hk : ∀ p ∈ c.
   have kr : ∀ r v, (r, v) ∈ c.known → r ∉ chainRegs → s.getReg r = v := fun r v hm hn =>
     (hR r hn).trans (hk _ hm)
   have h19 : s.getReg .x8 = BitVec.ofNat 64 c.S3 := kr _ _ (by simp [known]) (by decide +kernel)
-  have h4 : s.getReg .x4 = 24704 := kr _ _ (by simp [known]) (by decide +kernel)
+  have h4 : s.getReg .x4 = 14776 := kr _ _ (by simp [known]) (by decide +kernel)
   have keyE := c.kAt_eval hc h19 i hi
   have htable := c.header_load i (c.dig i) (kr _ _ (by simp [known]) (by decide +kernel))
   set r := {headJD .x8 (off i) (c.rungPc i (c.dig i) + 1) i (c.dig i) (topG i) with stop := st, steps := n, cycles := n}
@@ -864,7 +864,7 @@ theorem headJ_step (c : NCtx) (hc : c.ok) {s0 : MachineState} (hk : ∀ p ∈ c.
     (hkeep.reg s (LCtx.not_mem_sub hx (by decide +kernel))).trans (hR x hx)
   have hpc1 : t1.pc = pcOf (c.rungPc i (c.dig i) + 1) := by rw [ht1, Result.toState_pc]; rfl
   obtain ⟨t, hst2, hec, hreg, -, h12b, hfr2, hpc2⟩ :=
-    tail_piece i (c.dig i) (c.rungPc i (c.dig i) + 1) hp1 hrun2 t1 hpc1 ((hR1 _ (by decide +kernel)).trans (hk (.x4,24704) (by simp [known])))
+    tail_piece i (c.dig i) (c.rungPc i (c.dig i) + 1) hp1 hrun2 t1 hpc1 ((hR1 _ (by decide +kernel)).trans (hk (.x4,14776) (by simp [known])))
   have hsteps : r.steps = n ∧ r.cycles = n := ⟨rfl, rfl⟩
   rw [hsteps.1, hsteps.2] at hst1
   have hn : c.dig i ≠ last i := by omega
@@ -907,7 +907,7 @@ theorem headJTerm_step (c : NCtx) (hc : c.ok) {s0 : MachineState} (hk : ∀ p �
   have kr : ∀ r v, (r, v) ∈ c.known → r ∉ chainRegs → s.getReg r = v := fun r v hm hn =>
     (hR r hn).trans (hk _ hm)
   have h19 : s.getReg .x8 = BitVec.ofNat 64 c.S3 := kr _ _ (by simp [known]) (by decide +kernel)
-  have h4 : s.getReg .x4 = 24704 := kr _ _ (by simp [known]) (by decide +kernel)
+  have h4 : s.getReg .x4 = 14776 := kr _ _ (by simp [known]) (by decide +kernel)
   have keyE := c.kAt_eval hc h19 i hi
   have htable := c.header_load i (c.dig i) (kr _ _ (by simp [known]) (by decide +kernel))
   set r := {headJDTerm .x8 (off i) (c.rungPc i (c.dig i) + 1) i (c.dig i) with stop := st, steps := n, cycles := n}
@@ -942,7 +942,7 @@ theorem headJTerm_step (c : NCtx) (hc : c.ok) {s0 : MachineState} (hk : ∀ p �
     (hkeep.reg s (LCtx.not_mem_sub hx (by decide +kernel))).trans (hR x hx)
   have hpc1 : t1.pc = pcOf (c.rungPc i (c.dig i) + 1) := by rw [ht1, Result.toState_pc]; rfl
   obtain ⟨t, hst2, hec, hreg, h12a, -, hfr2, hpc2⟩ :=
-    tail_piece i (c.dig i) (c.rungPc i (c.dig i) + 1) hp1 hrun2 t1 hpc1 ((hR1 _ (by decide +kernel)).trans (hk (.x4,24704) (by simp [known])))
+    tail_piece i (c.dig i) (c.rungPc i (c.dig i) + 1) hp1 hrun2 t1 hpc1 ((hR1 _ (by decide +kernel)).trans (hk (.x4,14776) (by simp [known])))
   have hsteps : r.steps = n ∧ r.cycles = n := ⟨rfl, rfl⟩
   rw [hsteps.1, hsteps.2] at hst1
   rw [if_pos hd] at hst2
@@ -995,7 +995,7 @@ theorem headR_step (c : NCtx) (hc : c.ok) {s0 : MachineState} (hk : ∀ p ∈ c.
   have kr : ∀ r v, (r, v) ∈ c.known → r ∉ chainRegs → s.getReg r = v := fun r v hm hn =>
     (hR r hn).trans (hk _ hm)
   have h19 : s.getReg .x8 = BitVec.ofNat 64 c.S3 := kr _ _ (by simp [known]) (by decide +kernel)
-  have h4 : s.getReg .x4 = 24704 := kr _ _ (by simp [known]) (by decide +kernel)
+  have h4 : s.getReg .x4 = 14776 := kr _ _ (by simp [known]) (by decide +kernel)
   have keyE := c.kAt_eval hc h19 i hi
   have htable := c.header_load i (c.dig i) (kr _ _ (by simp [known]) (by decide +kernel))
   set r := headRH .x8 (off i) (c.dig i) none (c.startPc i) i (topG i) with hr
@@ -1073,7 +1073,7 @@ theorem headRTerm_step (c : NCtx) (hc : c.ok) {s0 : MachineState} (hk : ∀ p �
   have kr : ∀ r v, (r, v) ∈ c.known → r ∉ chainRegs → s.getReg r = v := fun r v hm hn =>
     (hR r hn).trans (hk _ hm)
   have h19 : s.getReg .x8 = BitVec.ofNat 64 c.S3 := kr _ _ (by simp [known]) (by decide +kernel)
-  have h4 : s.getReg .x4 = 24704 := kr _ _ (by simp [known]) (by decide +kernel)
+  have h4 : s.getReg .x4 = 14776 := kr _ _ (by simp [known]) (by decide +kernel)
   have keyE := c.kAt_eval hc h19 i hi
   have htable := c.header_load i (c.dig i) (kr _ _ (by simp [known]) (by decide +kernel))
   set r := headRHT .x8 (off i) (c.dig i) (slot i) (c.startPc i) i with hr
@@ -1347,7 +1347,7 @@ theorem buffer_skip_base (c : NCtx) (hc : c.ok) (s0 s : MachineState) (h0 : c.Or
   · have hj' : j=acc.length := by omega
     subst hj'
     rw [List.getD_eq_getElem?_getD,List.getElem?_append_right (le_refl _),Nat.sub_self,hlen]
-    exact bufferVal_at h0.1.2 hi hz (by rw [slot0]; unfold blk at hb; omega) hF
+    exact bufferVal_at h0.1.2 hi hz (by rw [slot0]; have := hc.2.2.2.2.1; omega) hF
 theorem buffer_skip (c : NCtx) (hc : c.ok) (hds : c.DigitsOk) (s0 s : MachineState) (h0 : c.Orig0 s0)
     (i : Nat) (hi : i<51) (hz : c.bufferSafe i) (hiz : i≠0) (acc : List T3.Digest) (hB : c.ChainIn s0 i acc s) :
     Steps vimage s 0 0 s ∧ c.EndInv s0 i (acc++[c.bufferVal i]) s := by
@@ -3120,13 +3120,13 @@ namespace SigGolfCandidate.T3M.Verify.Nonbinary
 open SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64 SigGolfCandidate.Rv
 set_option maxRecDepth 8192
 set_option maxHeartbeats 600000
-/-- The `addi s0,a0,K` row-offset word of a top copy whose row address is `a` (`s0 = a0 - (a - 14128) = 14128`). -/
-def rowWordOf (a : Nat) : BitVec 32 :=
-  BitVec.ofNat 32 ((4096 - (a - 14128)) % 4096 * 2 ^ 20 + 10 * 2 ^ 15 + 8 * 2 ^ 7 + 0x13)
+/-- T1 (tp-merge): the top copies set `s0` from the new top buffer base, `addi s0,tp,-648` (`s0 = 14776 - 648 =
+14128`), independent of the row address `a`. -/
+def rowWordOf (_a : Nat) : BitVec 32 := 0xd7820413
 /-! ### d6b top head, campaign T51 (verify image T51_T152_g791_c0hi): 18 words at `h+6..h+23` of every top copy
 ```
 h+6   ld t1,536(s0); addi s0,a0,K          (dPro)
-h+8   lb gp,528(tp); bge gp,zero,h+12      (dHint: hint byte at abs 25232, bit 7 clear = LOW)
+h+8   lb gp,528(tp); bge gp,zero,h+12      (dHint: hint byte at abs 15304, bit 7 clear = LOW)
 h+10  lbu gp,15(a2); bgeu gp,a1,h+18       (dHead: LOW forced iff its top byte < 64, i.e. LOW < 2^126)
 h+12  LOW:  ld a7,8(a2);  ld a6,0(a2);  slli a4,a6,56; srli a4,a4,45; jalr zero,-744(a4); nop
 h+18  HIGH: ld a7,24(a2); ld a6,16(a2); slli a4,a6,56; srli a4,a4,45; jalr zero,-744(a4); nop
@@ -3139,14 +3139,14 @@ def dHint : List (BitVec 32) := [0x21020183,0x1d663]
 def dHead : List (BitVec 32) := [0xf64183,0xb1fe63]
 def dLow : List (BitVec 32) := [0x863883,0x63803,0x3881713,0x2d75713,0xd1870067,0x13]
 def dHigh : List (BitVec 32) := [0x1863883,0x1063803,0x3881713,0x2d75713,0xd1870067,0x13]
-/-- The bit of the witness choice byte (abs 25232) that requests HIGH. -/
+/-- The bit of the witness choice byte (abs 15304) that requests HIGH. -/
 def selHintBit : Nat := 7
 def prefixWordsOf (a : Nat) : List (BitVec 32) :=
   dProWordsOf a ++ dHint ++ dHead ++ dLow ++ dHigh
-def aVals : List Nat := [15336,15352,15384,15400,15432,15448,15480,15496,15528]
-sym_block dProBase := symRun { noAlias := true } (dProWordsOf 15432) (BitVec.ofNat 64 (0x1000 + 4 * 1070)) 200
+def aVals : List Nat := [16168,16184,16216,16232,16264,16280,16312,16328,16360]
+sym_block dProBase := symRun { noAlias := true } (dProWordsOf 16264) (BitVec.ofNat 64 (0x1000 + 4 * 1070)) 200
 def dProRegs (a : Nat) : RegFile :=
-  dProBase.res.st.regs.set .x8 (.bin .add (.reg .x10) (.c (BitVec.ofNat 64 (2 ^ 64 - (a - 14128)))))
+  dProBase.res.st.regs.set .x8 (.bin .add (.reg .x4) (.c (BitVec.ofNat 64 (2 ^ 64 - 648))))
 def dProRes (a : Nat) (p : Word) : Result :=
   { dProBase.res with st := { dProBase.res.st with regs := dProRegs a }, pc := .c (p+4+4) }
 sym_block dHintBase := symRun { noAlias := true } dHint (BitVec.ofNat 64 (0x1000 + 4*1072)) 200
@@ -3213,10 +3213,13 @@ def trPc (lay c : Nat) : Nat := (xtrTab.getD lay []).getD c 0
 def kw (k : Nat) : E := .c (BitVec.ofNat 64 k)
 def hL (lay : Nat) : Nat := [12,7,6,6].getD lay 0
 /-- Layer head steps before the encoding ecall (stage 2): L3 5 (C3: no row high-word store; the merged singleton
-leaves the right top value at `WIT + 48`, so no copy), top 5, L1/L2 7 (C2/C3, as #866). -/
-def stepsA (lay : Nat) : Nat := if lay = 3 then 6 else if lay = 0 then 5 else 7
+leaves the right top value at `WIT + 48`, so no copy), top 5, L1/L2 6 (C2/C3, as #866; T1: the L1/L2 transition
+heads lose `addi tp,tp,720`, 7 -> 6). -/
+def stepsA (lay : Nat) : Nat := if lay = 3 then 6 else if lay = 0 then 5 else 6
 def retOff (lay : Nat) : Nat := if lay = 0 then 10 else if lay = 3 then 38 else 41
-def s6v (lay : Nat) : Nat := [14128,16192,18760,21328].getD lay 0
+/-- T1 (tp-merge): lower frame bases `F` (tp = F + 960); index 0 is a placeholder satisfying the `LCtx` frame
+facts (the top layer has no lower frame). -/
+def s6v (lay : Nat) : Nat := [13560,17024,20280,23536].getD lay 0
 def s3v : Nat := 14128
 def tgtL (lay : Nat) : Nat := [152,201,201,201].getD lay 0
 def hw (t lay : Nat) : Nat := 1 + 256 * t + 65536 * lay
@@ -3230,7 +3233,7 @@ def M1c : Nat := 8198552921648689607
 def M2c : Nat := 17311559823019733055
 def M4c : Nat := 3689348814741910323
 def M8c : Nat := 1085102592571150095
-def mkBase (lay : Nat) : Nat := [7664,11144,13792,16360].getD lay 0
+def mkBase (lay : Nat) : Nat := [7664,11976,15312,18568].getD lay 0
 def planL1 : List (List Nat) :=[[1,4,7,10,13,21,16],[0,4,7,10,13,21,16],[1,8,12,15,18,21,4],[0,8,12,15,18,21,4],[1,4,11,15,18,21,7],[0,4,11,15,18,21,7],[1,11,8,15,18,21,4],[0,11,8,15,18,21,4],[1,4,7,14,18,21,10],[0,4,7,14,18,21,10],[1,11,15,8,18,21,4],[0,11,15,8,18,21,4],[1,4,14,11,18,21,7],[0,4,14,11,18,21,7],[1,14,11,8,18,21,4],[0,14,11,8,18,21,4],[1,4,7,10,17,21,13],[0,4,7,10,17,21,13],[1,11,15,18,8,21,4],[0,11,15,18,8,21,4],[1,4,14,18,11,21,7],[0,4,14,18,11,21,7],[1,14,11,18,8,21,4],[0,14,11,18,8,21,4],[1,4,7,17,14,21,10],[0,4,7,17,14,21,10],[1,14,18,11,8,21,4],[0,14,18,11,8,21,4],[1,4,17,14,11,21,7],[0,4,17,14,11,21,7],[1,17,14,11,8,21,4],[0,17,14,11,8,21,4],[1,4,7,10,13,20,16],[0,4,7,10,13,20,16],[1,11,15,18,21,8,4],[0,11,15,18,21,8,4],[1,4,14,18,21,11,7],[0,4,14,18,21,11,7],[1,14,11,18,21,8,4],[0,14,11,18,21,8,4],[1,4,7,17,21,14,10],[0,4,7,17,21,14,10],[1,14,18,11,21,8,4],[0,14,18,11,21,8,4],[1,4,17,14,21,11,7],[0,4,17,14,21,11,7],[1,17,14,11,21,8,4],[0,17,14,11,21,8,4],[1,4,7,10,20,17,13],[0,4,7,10,20,17,13],[1,14,18,21,11,8,4],[0,14,18,21,11,8,4],[1,4,17,21,14,11,7],[0,4,17,21,14,11,7],[1,17,14,21,11,8,4],[0,17,14,21,11,8,4],[1,4,7,20,17,14,10],[0,4,7,20,17,14,10],[1,17,21,14,11,8,4],[0,17,21,14,11,8,4],[1,4,20,17,14,11,7],[0,4,20,17,14,11,7],[1,20,17,14,11,8,4],[0,20,17,14,11,8,4],[1,4,7,10,18,21,14],[0,4,7,10,18,21,14],[1,8,12,15,18,21,5],[0,8,12,15,18,21,5],[1,4,11,15,18,21,8],[0,4,11,15,18,21,8],[1,11,8,15,18,21,5],[0,11,8,15,18,21,5],[1,4,7,14,18,21,11],[0,4,7,14,18,21,11],[1,11,15,8,18,21,5],[0,11,15,8,18,21,5],[1,4,14,11,18,21,8],[0,4,14,11,18,21,8],[1,14,11,8,18,21,5],[0,14,11,8,18,21,5],[1,4,7,10,17,21,14],[0,4,7,10,17,21,14],[1,11,15,18,8,21,5],[0,11,15,18,8,21,5],[1,4,14,18,11,21,8],[0,4,14,18,11,21,8],[1,14,11,18,8,21,5],[0,14,11,18,8,21,5],[1,4,7,17,14,21,11],[0,4,7,17,14,21,11],[1,14,18,11,8,21,5],[0,14,18,11,8,21,5],[1,4,17,14,11,21,8],[0,4,17,14,11,21,8],[1,17,14,11,8,21,5],[0,17,14,11,8,21,5],[1,4,7,10,21,17,14],[0,4,7,10,21,17,14],[1,11,15,18,21,8,5],[0,11,15,18,21,8,5],[1,4,14,18,21,11,8],[0,4,14,18,21,11,8],[1,14,11,18,21,8,5],[0,14,11,18,21,8,5],[1,4,7,17,21,14,11],[0,4,7,17,21,14,11],[1,14,18,11,21,8,5],[0,14,18,11,21,8,5],[1,4,17,14,21,11,8],[0,4,17,14,21,11,8],[1,17,14,11,21,8,5],[0,17,14,11,21,8,5],[1,4,7,10,20,17,14],[0,4,7,10,20,17,14],[1,14,18,21,11,8,5],[0,14,18,21,11,8,5],[1,4,17,21,14,11,8],[0,4,17,21,14,11,8],[1,17,14,21,11,8,5],[0,17,14,21,11,8,5],[1,4,7,20,17,14,11],[0,4,7,20,17,14,11],[1,17,21,14,11,8,5],[0,17,21,14,11,8,5],[1,4,20,17,14,11,8],[0,4,20,17,14,11,8],[1,20,17,14,11,8,5],[0,20,17,14,11,8,5]]
 def planL32 : List (List Nat) :=[[1,4,7,10,13,16],[0,4,7,10,13,16],[4,0,7,10,13,16],[3,0,7,10,13,16],[4,7,0,10,13,16],[3,7,0,10,13,16],[7,3,0,10,13,16],[6,3,0,10,13,16],[4,7,10,0,13,16],[3,7,10,0,13,16],[7,3,10,0,13,16],[6,3,10,0,13,16],[7,10,3,0,13,16],[6,10,3,0,13,16],[10,6,3,0,13,16],[9,6,3,0,13,16],[4,7,10,13,0,16],[3,7,10,13,0,16],[7,3,10,13,0,16],[6,3,10,13,0,16],[7,10,3,13,0,16],[6,10,3,13,0,16],[10,6,3,13,0,16],[9,6,3,13,0,16],[7,10,13,3,0,16],[6,10,13,3,0,16],[10,6,13,3,0,16],[9,6,13,3,0,16],[10,13,6,3,0,16],[9,13,6,3,0,16],[13,9,6,3,0,16],[12,9,6,3,0,16],[4,7,10,13,16,0],[3,7,10,13,16,0],[7,3,10,13,16,0],[6,3,10,13,16,0],[7,10,3,13,16,0],[6,10,3,13,16,0],[10,6,3,13,16,0],[9,6,3,13,16,0],[7,10,13,3,16,0],[6,10,13,3,16,0],[10,6,13,3,16,0],[9,6,13,3,16,0],[10,13,6,3,16,0],[9,13,6,3,16,0],[13,9,6,3,16,0],[12,9,6,3,16,0],[7,10,13,16,3,0],[6,10,13,16,3,0],[10,6,13,16,3,0],[9,6,13,16,3,0],[10,13,6,16,3,0],[9,13,6,16,3,0],[13,9,6,16,3,0],[12,9,6,16,3,0],[10,13,16,6,3,0],[9,13,16,6,3,0],[13,9,16,6,3,0],[12,9,16,6,3,0],[13,16,9,6,3,0],[12,16,9,6,3,0],[16,12,9,6,3,0],[15,12,9,6,3,0]]
 /-- C4 top window plan (machine copy of `ClaudeWCT.W9.T3M.topPlanA/B`, `topRootSlot`): line A (windows 0..5) by
@@ -3244,8 +3247,8 @@ def topPlan (leaf j : Nat) : Nat :=
 def plan (lay r j : Nat) : Nat :=
   if lay = 0 then topPlan r j else ((if lay = 1 then planL1 else planL32).getD r []).getD j 0
 def rowA (lay c : Nat) : Nat := 0x1020 + mkBase (lay + 1) + 16 * plan (lay + 1) c (hL (lay + 1) - 1)
-def bufferBias (lay : Nat) : Nat := [24704,23728,23008,22288].getD lay 0
-def bufferBase (lay : Nat) : Nat := [25216,24496,23776,23056].getD lay 0
+def bufferBias (lay : Nat) : Nat := [14776,17984,21240,24496].getD lay 0
+def bufferBase (lay : Nat) : Nat := [15288,18752,22008,25264].getD lay 0
 def preK (lay : Nat) : List (Reg × Word) :=
   if lay = 3 then [(.x5, 0)] ++ [(.x8, BitVec.ofNat 64 4208), (.x11, 64), (.x26, 6), (.x7, 1), (.x13, 2), (.x30, 7),
     (.x2, BitVec.ofNat 64 0xffbde0), (.x19, 3), (.x20, 4), (.x21, 5), (.x6, 0x10000)]
@@ -3263,8 +3266,7 @@ def chainK (lay : Nat) : List (Reg × Word) :=
     (.x1, BitVec.ofNat 64 M1c), (.x24, BitVec.ofNat 64 M2c), (.x11, 64),
     (.x7, 1), (.x13, 2), (.x19, 3), (.x20, 4), (.x21, 5), (.x26, 6), (.x30, 7),
     (.x5, 0), (.x27, 0x3fe00), (.x4, BitVec.ofNat 64 (bufferBias lay))]
-def bK (lay : Nat) : List (Reg × Word) := layK lay ++ [(.x10, 4128)] ++
-  (if lay = 1 ∨ lay = 2 then [(.x22, BitVec.ofNat 64 (s6v lay))] else [])
+def bK (lay : Nat) : List (Reg × Word) := layK lay ++ [(.x10, 4128)]
 def rReg (lay : Nat) : Reg := if lay = 3 then .x22 else .x31
 def leafE (lay : Nat) : E := if lay = 0 then .reg .x31 else .bin .and (.reg (rReg lay)) (kw (2 ^ hL lay - 1))
 def treeE (lay : Nat) : E := .bin .srl (.reg (rReg lay)) (kw (hL lay))
@@ -3333,36 +3335,36 @@ def a7HiL : E := .bin .or b1HiE (.bin .srl a6HiE (kw 63))
 def x14Hi (lay : Nat) : E := .bin .and (.bin .sll a6HiE (kw 10)) (maskE lay)
 def tgtHi (lay : Nat) : E := .bin .and (.bin .add (x14Hi lay) (kw 1992)) (.c (~~~1#64))
 /-- M0 (A0, P2c): the lower heads lose `addi t4,s9,-194` and `bltu t5,t4,reject` (two steps, two cycles). -/
-def bSt (lay : Nat) : Nat := if lay = 3 then 28 else if lay = 1 ∨ lay = 2 then 19 else 33
+def bSt (lay : Nat) : Nat := if lay = 3 then 27 else if lay = 1 ∨ lay = 2 then 19 else 33
 /-- The HIGH-b path's extra steps (and cycles): the failed `bge` and the two high loads on layers 1, 2 (SGV1 split
 guard: `ld a7; blt; ld a6; bge; ld a6hi; ld a7hi`), the two high loads and the `jal` back on layer 3. -/
 def hiX (lay : Nat) : Nat := if lay = 3 then 3 else 2
 /-- SGV1: the HIGH-a path's extra steps (and cycles) over LOW: none on layers 1, 2 (`ld a7; blt; ld a6hi; ld a7hi`),
 the `jal` back on layer 3. -/
 def hiA (lay : Nat) : Nat := if lay = 3 then 1 else 0
-def bCy (lay : Nat) : Nat := if lay = 3 then 31 else if lay = 1 ∨ lay = 2 then 22 else 36
+def bCy (lay : Nat) : Nat := if lay = 3 then 30 else if lay = 1 ∨ lay = 2 then 22 else 36
 def prefixReturn (lay p : Nat) : Nat := p + (if lay = 3 then 37 else 38)
 def s7Sh (lay : Nat) : Nat := if lay = 1 then 12 else 9
 def s23E (lay : Nat) : E := if lay = 3 then .bin .sll (s7E 3) (kw 9) else .bin .sll (.reg .x23) (kw (s7Sh lay))
 def specBl (lay _p : Nat) : Spec :=
   ⟨[(.x16, a6E), (.x17, a7E), (.x23, s23E lay), (.x25, s9mE lay), (.x29, t4E lay),
-    (.x14, x14l lay)] ++ (if lay = 3 then [(.x22, .ld (kw (TOPLOAD - 8))),
+    (.x14, x14l lay)] ++ (if lay = 3 then [
       (.x24, .ld (kw TOPLOAD)), (.x1, .ld (kw (TOPLOAD + 8))), (.x9, .ld (kw (TOPLOAD + 24))),
-      (.x31, treeE 3), (.x27, .bin .srl (maskE 3) (kw 1)), (.x4, .ld (kw (TOPB9+56)))] else []),
+      (.x31, treeE 3), (.x27, .bin .srl (maskE 3) (kw 1)), (.x4, .ld (kw (TOPLOAD - 8)))] else []),
    [], 0, false, bSt lay, [a6Br true, a7Br false], some (tgtl lay), bCy lay⟩
 /-- SGV1: a HIGH path (`brs` its guard conditions, `x` its extra steps and cycles over LOW). -/
 def specBlHiG (lay _p : Nat) (brs : List Br) (x : Nat) : Spec :=
   ⟨[(.x16, a6HiE), (.x17, a7HiE), (.x23, s23E lay), (.x25, s9mHiE lay), (.x29, t4HiE lay),
-    (.x14, x14Hi lay)] ++ (if lay = 3 then [(.x22, .ld (kw (TOPLOAD - 8))),
+    (.x14, x14Hi lay)] ++ (if lay = 3 then [
       (.x24, .ld (kw TOPLOAD)), (.x1, .ld (kw (TOPLOAD + 8))), (.x9, .ld (kw (TOPLOAD + 24))),
-      (.x31, treeE 3), (.x27, .bin .srl (maskE 3) (kw 1)), (.x4, .ld (kw (TOPB9+56)))] else []),
+      (.x31, treeE 3), (.x27, .bin .srl (maskE 3) (kw 1)), (.x4, .ld (kw (TOPLOAD - 8)))] else []),
    [], 0, false, bSt lay + x, brs, some (tgtHi lay), bCy lay + x⟩
 /-- SGV1 HIGH-b (`w1 ≥ 0`, `w0 < 0`). -/
 def specBlHi (lay p : Nat) : Spec := specBlHiG lay p [a6Br false, a7Br false] (hiX lay)
 /-- SGV1 HIGH-a (`w1 < 0`). -/
 def specBlHiA (lay p : Nat) : Spec := specBlHiG lay p [a7Br true] (hiA lay)
 def postBl (lay _p : Nat) : List (Reg × Word) :=
-  chainK lay ++ [(.x22, BitVec.ofNat 64 (s6v lay)), (.x7, 1), (.x2, BitVec.ofNat 64 0xffbde0)]
+  chainK lay ++ [(.x7, 1), (.x2, BitVec.ofNat 64 0xffbde0)]
 def postBlC (lay p : Nat) : List (Reg × Word) :=
   if lay = 3 then ((chainK lay).filter (fun q => q.1 != .x24 && q.1 != .x1 && q.1 != .x9 && q.1 != .x27 && q.1 != .x4)) ++ [(.x7, 1), (.x2, BitVec.ofNat 64 0xffbde0)] else postBl lay p
 def rejSpare (lay : Nat) : Spec := ⟨[(.x5, kw 1), (.x10, kw 1)], [], rejEcall, true, 7, [spareBr lay true], none, 7⟩
@@ -3415,8 +3417,7 @@ open SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64 SigGol
 open SigGolfCandidate.T3M.Verify
 def preK (lay : Nat) : List (Reg × Word) :=
   if lay = 3 then T3M.preK lay else
-  (T3M.preK lay).filter (fun p => p.1 != .x10 && p.1 != .x12) ++
-    [(.x22, BitVec.ofNat 64 (s6v (lay + 1)))]
+  (T3M.preK lay).filter (fun p => p.1 != .x10 && p.1 != .x12)
 def bK (lay c : Nat) : List (Reg × Word) :=
   if lay = 3 then T3M.bK lay else
   (T3M.bK lay).filter (fun p => p.1 != .x10) ++

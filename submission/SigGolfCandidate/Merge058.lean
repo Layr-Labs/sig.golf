@@ -4380,7 +4380,8 @@ theorem layer_of_shaped (answers : Answers) (N : HashOutput) (wit : WCT9.Witness
         (wit.signature.layers lay).values i := by
       unfold ClaudeWCT.W9.T3M.wvalueFor
       split
-      · exact ClaudeWCT.W9.T3M.wbuffer_witEnc N wit lay i
+      · rename_i hsafe
+        exact ClaudeWCT.W9.T3M.wbuffer_witEnc N wit lay i (ClaudeWCT.W9.T3M.safeZeroCopy_lt_last hsafe i.isLt)
       · exact ClaudeWCT.W9.T3M.wvalue_witEnc N wit lay i
     rw [← hv, (hs.2.1 i.val i.isLt).1]
     simp [piecesSignature, WCT9.wotsPieces]

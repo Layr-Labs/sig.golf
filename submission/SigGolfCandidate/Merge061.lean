@@ -1217,13 +1217,22 @@ def cPro1 : List (BitVec 32) := [0x3e37,0xdf8e0e13,0x300eb7,0xe8e93,0x4f37,0xb78
 def cPro2 : List (BitVec 32) := [0x3e37,0xaf8e0e13,0x301eb7,0xe8e93,0x3f37,0xdf8f0f13]
 /-- Forward copy body (both save loops). -/
 def fBody : List (BitVec 32) := [0xe3303,0x6eb023,0x8e0e13,0x8e8e93,0xffee68e3]
-def cMv1 : List (BitVec 32) := [0x6e37,0x5e8e0e13,0x6f37,0xf98f0f13,0x1000393]
-def cMv2 : List (BitVec 32) := [0x6e37,0xf88e0e13,0x6f37,0xcb8f0f13,0x2000393]
-def cMv3 : List (BitVec 32) := [0x6e37,0xca8e0e13,0x4f37,0xb70f0f13,0x3000393]
+/-- T1 (direct relayout): the save of the three lower leaf buffers to `0x302000`, the moves of region3|buf3 (+2256),
+region2 (+1568) and region1 (+880), the copies of buf0/buf1/buf2 back from `0x302000`, the zero tail band. -/
+def cSv : List (BitVec 32) := [0x6e37,0xcc0e0e13,0x302eb7,0xe8e93,0x6f37,0x5a0f0f13]
+def cMvFG : List (BitVec 32) := [0x6e37,0xc88e0e13,0x13b7,0x8d038393,0x5f37,0xfd0f0f13]
+def cMvD : List (BitVec 32) := [0x5e37,0xfd0e0e13,0x62000393,0x4f37,0x5c8f0f13]
+def cMvB : List (BitVec 32) := [0x4e37,0x5c8e0e13,0x37000393,0x4f37,0xb70f0f13]
+def cCpA : List (BitVec 32) := [0x302e37,0x5b0e0e13,0x4eb7,0xbb8e8e93,0x303f37,0x8e0f0f13]
+def cCpC : List (BitVec 32) := [0x302e37,0x2e0e0e13,0x5eb7,0x940e8e93,0x302f37,0x590f0f13]
+def cCpE : List (BitVec 32) := [0x302e37,0xe0e13,0x5eb7,0x5f8e8e93,0x302f37,0x2b0f0f13]
+def cZg : List (BitVec 32) := [0x6e37,0x560e0e13,0x6f37,0x600f0f13]
+def cJA : List (BitVec 32) := [0xc99ff06f]
+def cJB : List (BitVec 32) := [0x2980006f]
 def cMv4 : List (BitVec 32) := [0x3e37,0x940e0e13,0x1f37,0xb50f0f13,0x4c800393]
 /-- Backward move body (all four moves). -/
 def mBody : List (BitVec 32) := [0xe3303,0x7e0eb3,0x6eb023,0xff8e0e13,0xffcf48e3]
-def cZPro : List (BitVec 32) := [0x3e37,0xe10e0e13,0x4f37,0xba8f0f13]
+def cZPro : List (BitVec 32) := [0x3e37,0xe10e0e13,0x4f37,0xbb8f0f13]
 def zBody : List (BitVec 32) := [0xe3023,0x8e0e13,0xffee6ce3]
 
 theorem code_last {b : Nat} {code : List (BitVec 32)} (hlo : 44032 ≤ b)
@@ -1235,13 +1244,25 @@ theorem code_pro1 : CodeAt Images.expandImage (pcOf 49400) cPro1 := code_last (b
 theorem code_pro2 : CodeAt Images.expandImage (pcOf 49411) cPro2 := code_last (by decide) (by decide) (by decide +kernel)
 theorem code_f1 : CodeAt Images.expandImage (pcOf 49406) fBody := code_last (by decide) (by decide) (by decide +kernel)
 theorem code_f2 : CodeAt Images.expandImage (pcOf 49417) fBody := code_last (by decide) (by decide) (by decide +kernel)
-theorem code_mv1 : CodeAt Images.expandImage (pcOf 49422) cMv1 := code_last (by decide) (by decide) (by decide +kernel)
-theorem code_mv2 : CodeAt Images.expandImage (pcOf 49432) cMv2 := code_last (by decide) (by decide) (by decide +kernel)
-theorem code_mv3 : CodeAt Images.expandImage (pcOf 49442) cMv3 := code_last (by decide) (by decide) (by decide +kernel)
+theorem code_sv : CodeAt Images.expandImage (pcOf 49422) cSv := code_last (by decide) (by decide) (by decide +kernel)
+theorem code_fsv : CodeAt Images.expandImage (pcOf 49428) fBody := code_last (by decide) (by decide) (by decide +kernel)
+theorem code_mvFG : CodeAt Images.expandImage (pcOf 49433) cMvFG := code_last (by decide) (by decide) (by decide +kernel)
+theorem code_mFG : CodeAt Images.expandImage (pcOf 49439) mBody := code_last (by decide) (by decide) (by decide +kernel)
+theorem code_jA : CodeAt Images.expandImage (pcOf 49444) cJA := code_last (by decide) (by decide) (by decide +kernel)
+theorem code_mvD : CodeAt Images.expandImage (pcOf 49226) cMvD := code_last (by decide) (by decide) (by decide +kernel)
+theorem code_mD : CodeAt Images.expandImage (pcOf 49231) mBody := code_last (by decide) (by decide) (by decide +kernel)
+theorem code_mvB : CodeAt Images.expandImage (pcOf 49236) cMvB := code_last (by decide) (by decide) (by decide +kernel)
+theorem code_mB : CodeAt Images.expandImage (pcOf 49241) mBody := code_last (by decide) (by decide) (by decide +kernel)
+theorem code_cpA : CodeAt Images.expandImage (pcOf 49246) cCpA := code_last (by decide) (by decide) (by decide +kernel)
+theorem code_fA : CodeAt Images.expandImage (pcOf 49252) fBody := code_last (by decide) (by decide) (by decide +kernel)
+theorem code_cpC : CodeAt Images.expandImage (pcOf 49257) cCpC := code_last (by decide) (by decide) (by decide +kernel)
+theorem code_fC : CodeAt Images.expandImage (pcOf 49263) fBody := code_last (by decide) (by decide) (by decide +kernel)
+theorem code_cpE : CodeAt Images.expandImage (pcOf 49268) cCpE := code_last (by decide) (by decide) (by decide +kernel)
+theorem code_fE : CodeAt Images.expandImage (pcOf 49274) fBody := code_last (by decide) (by decide) (by decide +kernel)
+theorem code_zg : CodeAt Images.expandImage (pcOf 49279) cZg := code_last (by decide) (by decide) (by decide +kernel)
+theorem code_zgb : CodeAt Images.expandImage (pcOf 49283) zBody := code_last (by decide) (by decide) (by decide +kernel)
+theorem code_jB : CodeAt Images.expandImage (pcOf 49286) cJB := code_last (by decide) (by decide) (by decide +kernel)
 theorem code_mv4 : CodeAt Images.expandImage (pcOf 49452) cMv4 := code_last (by decide) (by decide) (by decide +kernel)
-theorem code_m1 : CodeAt Images.expandImage (pcOf 49427) mBody := code_last (by decide) (by decide) (by decide +kernel)
-theorem code_m2 : CodeAt Images.expandImage (pcOf 49437) mBody := code_last (by decide) (by decide) (by decide +kernel)
-theorem code_m3 : CodeAt Images.expandImage (pcOf 49447) mBody := code_last (by decide) (by decide) (by decide +kernel)
 theorem code_m4 : CodeAt Images.expandImage (pcOf 49457) mBody := code_last (by decide) (by decide) (by decide +kernel)
 theorem code_zpro : CodeAt Images.expandImage (pcOf 49462) cZPro := code_last (by decide) (by decide) (by decide +kernel)
 theorem code_z : CodeAt Images.expandImage (pcOf 49466) zBody := code_last (by decide) (by decide) (by decide +kernel)
@@ -1255,14 +1276,23 @@ theorem run_pro1 : symRun cfgP cPro1 (pcOf 49400) 40 = some (proRes .x29 11768 0
   kernel_rfl
 theorem run_pro2 : symRun cfgP cPro2 (pcOf 49411) 40 = some (proRes .x29 11000 0x301000 11768 49417 6) := by
   kernel_rfl
-theorem run_mv1 : symRun cfgP cMv1 (pcOf 49422) 40 = some (proRes .x7 26088 16 24472 49427 5) := by kernel_rfl
-theorem run_mv2 : symRun cfgP cMv2 (pcOf 49432) 40 = some (proRes .x7 24456 32 23736 49437 5) := by kernel_rfl
-theorem run_mv3 : symRun cfgP cMv3 (pcOf 49442) 40 = some (proRes .x7 23720 48 15216 49447 5) := by kernel_rfl
+theorem run_sv : symRun cfgP cSv (pcOf 49422) 40 = some (proRes .x29 23744 0x302000 26016 49428 6) := by kernel_rfl
+theorem run_mvFG : symRun cfgP cMvFG (pcOf 49433) 40 = some (proRes .x7 23688 2256 20432 49439 6) := by kernel_rfl
+theorem run_mvD : symRun cfgP cMvD (pcOf 49226) 40 = some (proRes .x7 20432 1568 17864 49231 5) := by kernel_rfl
+theorem run_mvB : symRun cfgP cMvB (pcOf 49236) 40 = some (proRes .x7 17864 880 15216 49241 5) := by kernel_rfl
+theorem run_cpA : symRun cfgP cCpA (pcOf 49246) 40 = some (proRes .x29 (0x302000 + 1456) 15288 (0x302000 + 2272) 49252 6) := by
+  kernel_rfl
+theorem run_cpC : symRun cfgP cCpC (pcOf 49257) 40 = some (proRes .x29 (0x302000 + 736) 18752 (0x302000 + 1424) 49263 6) := by
+  kernel_rfl
+theorem run_cpE : symRun cfgP cCpE (pcOf 49268) 40 = some (proRes .x29 0x302000 22008 (0x302000 + 688) 49274 6) := by
+  kernel_rfl
 theorem run_mv4 : symRun cfgP cMv4 (pcOf 49452) 40 = some (proRes .x7 10560 1224 2896 49457 5) := by kernel_rfl
-def zProRes : Result :=
-  ⟨⟨(RegFile.init.set .x28 (.c (BitVec.ofNat 64 11792))).set .x30 (.c (BitVec.ofNat 64 15272)), [], []⟩,
-    .c (pcOf 49466), .endOfCode, 4, 4⟩
+def zProResAt (a e next : Nat) : Result :=
+  ⟨⟨(RegFile.init.set .x28 (.c (BitVec.ofNat 64 a))).set .x30 (.c (BitVec.ofNat 64 e)), [], []⟩,
+    .c (pcOf next), .endOfCode, 4, 4⟩
+def zProRes : Result := zProResAt 11792 15288 49466
 theorem run_zpro : symRun cfgP cZPro (pcOf 49462) 40 = some zProRes := by kernel_rfl
+theorem run_zg : symRun cfgP cZg (pcOf 49279) 40 = some (zProResAt 25952 26112 49283) := by kernel_rfl
 
 def fRes (p : Nat) : Result :=
   ⟨⟨((RegFile.init.set .x6 (.ld (.reg .x28))).set .x28 (.bin .add (.reg .x28) (.c 8#64))).set .x29
@@ -1270,8 +1300,11 @@ def fRes (p : Nat) : Result :=
     [(⟨some (.reg .x29), 0#64⟩, .ld (.reg .x28))],
     [.valid ⟨some (.reg .x29), 0#64⟩ 8, .valid ⟨some (.reg .x28), 0#64⟩ 8]⟩,
    .ite .ltu (.bin .add (.reg .x28) (.c 8#64)) (.reg .x30) (.c (pcOf p)) (.c (pcOf (p + 5))), .branch, 5, 5⟩
-theorem run_f (p : Nat) (hp : p = 49406 ∨ p = 49417) : symRun cfgP fBody (pcOf p) 40 = some (fRes p) := by
-  rcases hp with rfl | rfl <;> kernel_rfl
+/-- The forward-copy body sites (two top saves, the buffer save, the three buffer copies). -/
+def FSite (p : Nat) : Prop := p = 49406 ∨ p = 49417 ∨ p = 49428 ∨ p = 49252 ∨ p = 49263 ∨ p = 49274
+instance (p : Nat) : Decidable (FSite p) := by unfold FSite; infer_instance
+theorem run_f (p : Nat) (hp : FSite p) : symRun cfgP fBody (pcOf p) 40 = some (fRes p) := by
+  rcases hp with rfl | rfl | rfl | rfl | rfl | rfl <;> kernel_rfl
 
 def mRes (p : Nat) : Result :=
   ⟨⟨((RegFile.init.set .x6 (.ld (.reg .x28))).set .x28 (.bin .add (.reg .x28) (.c 18446744073709551608#64))).set
@@ -1280,16 +1313,20 @@ def mRes (p : Nat) : Result :=
     [.valid ⟨some (.bin .add (.reg .x28) (.reg .x7)), 0#64⟩ 8, .valid ⟨some (.reg .x28), 0#64⟩ 8]⟩,
    .ite .lt (.reg .x30) (.bin .add (.reg .x28) (.c 18446744073709551608#64)) (.c (pcOf p)) (.c (pcOf (p + 5))),
    .branch, 5, 5⟩
-theorem run_m (p : Nat) (hp : p = 49427 ∨ p = 49437 ∨ p = 49447 ∨ p = 49457) :
+/-- The backward-move body sites (region3|buf3, region2, region1, the FTS block). -/
+def MSite (p : Nat) : Prop := p = 49439 ∨ p = 49231 ∨ p = 49241 ∨ p = 49457
+instance (p : Nat) : Decidable (MSite p) := by unfold MSite; infer_instance
+theorem run_m (p : Nat) (hp : MSite p) :
     symRun cfgP mBody (pcOf p) 40 = some (mRes p) := by
   rcases hp with rfl | rfl | rfl | rfl <;> kernel_rfl
 
-def zRes : Result :=
+def zRes (p : Nat) : Result :=
   ⟨⟨RegFile.init.set .x28 (.bin .add (.reg .x28) (.c 8#64)),
     [(⟨some (.reg .x28), 0#64⟩, .c 0#64)],
     [.valid ⟨some (.reg .x28), 0#64⟩ 8]⟩,
-   .ite .ltu (.bin .add (.reg .x28) (.c 8#64)) (.reg .x30) (.c (pcOf 49466)) (.c (pcOf 49469)), .branch, 3, 3⟩
-theorem run_z : symRun cfgP zBody (pcOf 49466) 40 = some zRes := by kernel_rfl
+   .ite .ltu (.bin .add (.reg .x28) (.c 8#64)) (.reg .x30) (.c (pcOf p)) (.c (pcOf (p + 3))), .branch, 3, 3⟩
+theorem run_z (p : Nat) (hp : p = 49466 ∨ p = 49283) : symRun cfgP zBody (pcOf p) 40 = some (zRes p) := by
+  rcases hp with rfl | rfl <;> kernel_rfl
 
 /-! ### Prologues -/
 theorem pro_spec {im : Image} {code : List (BitVec 32)} {p : Nat} {r : Reg} {a b c next n : Nat}
@@ -1315,7 +1352,7 @@ theorem pro_spec {im : Image} {code : List (BitVec 32)} {p : Nat} {r : Reg} {a b
 def fcp (M : Nat → Word) (a b i : Nat) (A : Nat) : Word :=
   if b ≤ A ∧ A < b + 8 * i ∧ (A - b) % 8 = 0 then M (a + (A - b)) else M A
 
-theorem f_iter {im : Image} {p : Nat} (hp : p = 49406 ∨ p = 49417) (hc : CodeAt im (pcOf p) fBody)
+theorem f_iter {im : Image} {p : Nat} (hp : FSite p) (hc : CodeAt im (pcOf p) fBody)
     (t : MachineState) (hpc : t.pc = pcOf p) (a b e : Nat)
     (h28 : t.getReg .x28 = BitVec.ofNat 64 a) (h29 : t.getReg .x29 = BitVec.ofNat 64 b)
     (h30 : t.getReg .x30 = BitVec.ofNat 64 e)
@@ -1352,13 +1389,13 @@ structure FInv (M : Nat → Word) (p a b e i : Nat) (t : MachineState) : Prop wh
   x30 : t.getReg .x30 = BitVec.ofNat 64 e
   mem : ∀ A < 2 ^ 64, t.getMem (BitVec.ofNat 64 A) = fcp M a b i A
 
-theorem f_loop {im : Image} {p : Nat} (hp : p = 49406 ∨ p = 49417) (hc : CodeAt im (pcOf p) fBody)
+theorem f_loop {im : Image} {p : Nat} (hp : FSite p) (hc : CodeAt im (pcOf p) fBody)
     (s : MachineState) (M : Nat → Word) (a b n : Nat) (hn : 0 < n)
     (hpc : s.pc = pcOf p) (h28 : s.getReg .x28 = BitVec.ofNat 64 a) (h29 : s.getReg .x29 = BitVec.ofNat 64 b)
     (h30 : s.getReg .x30 = BitVec.ofNat 64 (a + 8 * n))
     (hM : ∀ A < 2 ^ 64, s.getMem (BitVec.ofNat 64 A) = M A)
     (ha : a % 8 = 0) (hb : b % 8 = 0) (ha' : a + 8 * n ≤ 16777216) (hb' : b + 8 * n ≤ 16777216)
-    (hov : a + 8 * n ≤ b) :
+    (hov : a + 8 * n ≤ b ∨ b + 8 * n ≤ a) :
     ∀ i, i ≤ n → ∃ t, Steps im s (5 * i) (5 * i) t ∧ RegsExcept s t [.x6, .x28, .x29] ∧
       FInv M p a b (a + 8 * n) i t := by
   intro i
@@ -1398,7 +1435,7 @@ theorem f_loop {im : Image} {p : Nat} (hp : p = 49406 ∨ p = 49417) (hc : CodeA
 def bmv (M : Nat → Word) (T d i : Nat) (A : Nat) : Word :=
   if T + d + 8 ≤ A + 8 * i ∧ A ≤ T + d ∧ (T + d - A) % 8 = 0 then M (A - d) else M A
 
-theorem m_iter {im : Image} {p : Nat} (hp : p = 49427 ∨ p = 49437 ∨ p = 49447 ∨ p = 49457)
+theorem m_iter {im : Image} {p : Nat} (hp : MSite p)
     (hc : CodeAt im (pcOf p) mBody)
     (t : MachineState) (hpc : t.pc = pcOf p) (c d lo : Nat)
     (h28 : t.getReg .x28 = BitVec.ofNat 64 c) (h7 : t.getReg .x7 = BitVec.ofNat 64 d)
@@ -1438,7 +1475,7 @@ structure MInv (M : Nat → Word) (p T d lo i : Nat) (t : MachineState) : Prop w
   mem : ∀ A < 2 ^ 64, t.getMem (BitVec.ofNat 64 A) = bmv M T d i A
 
 /-- The move loop over the `n` words `T, T - 8, .., T - 8 (n - 1) = lo + 8` (`lo` is the exclusive bound in `t5`). -/
-theorem m_loop {im : Image} {p : Nat} (hp : p = 49427 ∨ p = 49437 ∨ p = 49447 ∨ p = 49457)
+theorem m_loop {im : Image} {p : Nat} (hp : MSite p)
     (hc : CodeAt im (pcOf p) mBody)
     (s : MachineState) (M : Nat → Word) (T d lo n : Nat) (hn : 0 < n) (hT : T = lo + 8 * n)
     (hpc : s.pc = pcOf p) (h28 : s.getReg .x28 = BitVec.ofNat 64 T) (h7 : s.getReg .x7 = BitVec.ofNat 64 d)
@@ -1482,14 +1519,14 @@ theorem m_loop {im : Image} {p : Nat} (hp : p = 49427 ∨ p = 49437 ∨ p = 4944
 def zfill (M : Nat → Word) (a i : Nat) (A : Nat) : Word :=
   if a ≤ A ∧ A < a + 8 * i ∧ (A - a) % 8 = 0 then 0 else M A
 
-theorem z_iter {im : Image} (hc : CodeAt im (pcOf 49466) zBody)
-    (t : MachineState) (hpc : t.pc = pcOf 49466) (a e : Nat)
+theorem z_iter {im : Image} {p : Nat} (hp : p = 49466 ∨ p = 49283) (hc : CodeAt im (pcOf p) zBody)
+    (t : MachineState) (hpc : t.pc = pcOf p) (a e : Nat)
     (h28 : t.getReg .x28 = BitVec.ofNat 64 a) (h30 : t.getReg .x30 = BitVec.ofNat 64 e)
     (ha : a % 8 = 0) (ha' : a + 8 ≤ 16777216) (he : e < 2 ^ 64) :
-    ∃ u, Steps im t 3 3 u ∧ u.pc = (if a + 8 < e then pcOf 49466 else pcOf 49469) ∧
+    ∃ u, Steps im t 3 3 u ∧ u.pc = (if a + 8 < e then pcOf p else pcOf (p + 3)) ∧
       u.getReg .x28 = BitVec.ofNat 64 (a + 8) ∧ RegsExcept t u [.x28] ∧
       ∀ A < 2 ^ 64, u.getMem (BitVec.ofNat 64 A) = if A = a then 0 else t.getMem (BitVec.ofNat 64 A) := by
-  refine ⟨_, symRun_sound run_z hc t hpc ?_, ?_, ?_, ?_, ?_⟩
+  refine ⟨_, symRun_sound (run_z p hp) hc t hpc ?_, ?_, ?_, ?_, ?_⟩
   · show Oblig.all t _
     simp only [zRes, Oblig.all, Oblig.holds, Addr.eval, E.eval, h28, BitVec.add_zero]
     exact valid8P _ ha' ha
@@ -1507,14 +1544,14 @@ theorem z_iter {im : Image} (hc : CodeAt im (pcOf 49466) zBody)
     · subst hAb; simp
     · rw [if_neg (fun h => hAb ((ofNat_inj hA (by omega)).mp h)), if_neg hAb]
 
-theorem z_loop {im : Image} (hc : CodeAt im (pcOf 49466) zBody)
+theorem z_loop {im : Image} {p : Nat} (hp : p = 49466 ∨ p = 49283) (hc : CodeAt im (pcOf p) zBody)
     (s : MachineState) (M : Nat → Word) (a n : Nat) (hn : 0 < n)
-    (hpc : s.pc = pcOf 49466) (h28 : s.getReg .x28 = BitVec.ofNat 64 a)
+    (hpc : s.pc = pcOf p) (h28 : s.getReg .x28 = BitVec.ofNat 64 a)
     (h30 : s.getReg .x30 = BitVec.ofNat 64 (a + 8 * n))
     (hM : ∀ A < 2 ^ 64, s.getMem (BitVec.ofNat 64 A) = M A)
     (ha : a % 8 = 0) (ha' : a + 8 * n ≤ 16777216) :
     ∀ i, i ≤ n → ∃ t, Steps im s (3 * i) (3 * i) t ∧ RegsExcept s t [.x28] ∧
-      t.pc = (if a + 8 * i < a + 8 * n then pcOf 49466 else pcOf 49469) ∧
+      t.pc = (if a + 8 * i < a + 8 * n then pcOf p else pcOf (p + 3)) ∧
       t.getReg .x28 = BitVec.ofNat 64 (a + 8 * i) ∧
       ∀ A < 2 ^ 64, t.getMem (BitVec.ofNat 64 A) = zfill M a i A := by
   intro i
@@ -1527,8 +1564,8 @@ theorem z_loop {im : Image} (hc : CodeAt im (pcOf 49466) zBody)
   | succ i ih =>
     intro hi
     obtain ⟨t, st, rt, pt, t28, mt⟩ := ih (by omega)
-    have hpc' : t.pc = pcOf 49466 := by rw [pt, if_pos (by omega)]
-    obtain ⟨u, su, pu, u28, ru, mu⟩ := z_iter hc t hpc' (a + 8 * i) (a + 8 * n) t28
+    have hpc' : t.pc = pcOf p := by rw [pt, if_pos (by omega)]
+    obtain ⟨u, su, pu, u28, ru, mu⟩ := z_iter hp hc t hpc' (a + 8 * i) (a + 8 * n) t28
       (by rw [rt.get (by decide), h30]) (by omega) (by omega) (by omega)
     refine ⟨u, Steps.of_eq (st.trans su) (by ring) (by ring), (rt.trans ru).mono (by decide), ?_, ?_, ?_⟩
     · rw [pu]; by_cases h : a + 8 * i + 8 < a + 8 * n

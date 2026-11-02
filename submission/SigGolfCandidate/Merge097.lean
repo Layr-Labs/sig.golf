@@ -1164,7 +1164,7 @@ theorem top_slot_legacy (output : HashOutput) (w : SigGolfCandidate.Research.Sha
       wdig (ClaudeWCT.W9.T3M.witEnc output (mainWitness w)) (merkleBlock 0 (route (WCT9.digestIndex output) 0).1 j + 16 * s) := by
   have hb := topPlanSlot_le (route (WCT9.digestIndex output) 0).1 j hj
   have hm := merkleBlock_top (route (WCT9.digestIndex output) 0).1 j
-  apply wdig_N_legacy_free output w _ (by omega) (Or.inl (by unfold choiceOff; omega))
+  apply wdig_N_legacy_free output w _ (by omega) (by unfold choiceOff at *; omega)
   have := top_window_free output j s hj hs hne
   intro j' hj'
   have := this j' hj'
@@ -1234,7 +1234,7 @@ theorem chain_fields_N (output : HashOutput) (w : SigGolfCandidate.Research.Shar
     intro i x hx
     have := chainBlock_le lay i
     have := chainBlock_ge lay i
-    exact wdig_N_legacy_hi output w _ (by omega) (Or.inl (by unfold choiceOff; omega))
+    exact wdig_N_legacy_hi output w _ (by omega) (by unfold choiceOff at *; omega)
   have hb : ∀ i, i < chainCount lay →
       wdig (witEncN output w) (leafBufferSlot lay i) = wdig (ClaudeWCT.W9.T3M.witEnc output (mainWitness w)) (leafBufferSlot lay i) := by
     intro i hi
@@ -1277,7 +1277,7 @@ theorem merkle_fields_N (output : HashOutput) (w : SigGolfCandidate.Research.Sha
     intro leaf j x hx
     have := PairedReadout.merkleBlock_le lay leaf j
     have := merkleBlock_lower_ge lay hl leaf j
-    exact wdig_N_legacy_hi output w _ (by omega) (Or.inl (by unfold choiceOff; omega))
+    exact wdig_N_legacy_hi output w _ (by omega) (by unfold choiceOff at *; omega)
   refine ⟨?_, ?_, ?_⟩
   · intro leaf j
     unfold wpath

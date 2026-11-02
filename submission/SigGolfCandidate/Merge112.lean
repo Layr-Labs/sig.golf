@@ -3343,12 +3343,12 @@ def topSlot (i : Nat) : Nat := 104*(26-i/2)+16+24*(i%2)
 /-- Top chain format (T51): chain `i` is G (value first) iff it is even and `i ≤ 50` (`= T3.topIsG`). -/
 def topG (i : Nat) : Bool := decide (i%2=0 ∧ i ≤ 50)
 def off (i : Nat) : Word := BitVec.ofNat 64 (topSlot i)-BitVec.ofNat 64 1664
-/-- T51 endpad top leaf: `end_0` at 25216 (tp + 512), the tweak at 25232, `end_i` at `25232 + 16 i` (i ≥ 1). -/
-def slot (i : Nat) : Nat := if i=0 then 25216 else 25232+16*i
-/-- Target of chain `i`'s terminal hash: chain 0 (c0hi) writes its last 32-byte answer at `slot 0 - 16 = 25200`
+/-- T51 endpad top leaf: `end_0` at 15288 (tp + 512), the tweak at 15304, `end_i` at `15304 + 16 i` (i ≥ 1). -/
+def slot (i : Nat) : Nat := if i=0 then 15288 else 15304+16*i
+/-- Target of chain `i`'s terminal hash: chain 0 (c0hi) writes its last 32-byte answer at `slot 0 - 16 = 15272`
 (the HIGH half lands on `end_0`); every other chain at its slot. -/
-def termSlot (i : Nat) : Nat := if i=0 then 25200 else slot i
-def slotOffset (a : Nat) : Nat := a-24704
+def termSlot (i : Nat) : Nat := if i=0 then 15272 else slot i
+def slotOffset (a : Nat) : Nat := a-14776
 def rungR (d : Nat) (sl : Option Nat) (p : Nat) : Result :=
   T3M.rungRB d (sl.map slotOffset) p
 def copyN (rb : Reg) (o : Word) (sl tgt : Nat) (g : Bool := false) : Result :=
@@ -3632,11 +3632,11 @@ def pad1 (c : NCtx) (i : Nat) : Digest := ClaudeWCT.W9.T3M.wdig c.w (c.pad1At i 
 def padHeader (c : NCtx) (i : Nat) : Word := (ClaudeWCT.W9.T3M.wdig c.w (c.blk i - Verify.WIT + 16)).extractLsb' 64 64
 def val (c : NCtx) (i : Nat) : Digest := ClaudeWCT.W9.T3M.wdig c.w (c.vAt i - Verify.WIT)
 def ok (c : NCtx) : Prop :=
-  c.tree = 0 ∧ c.leaf < 4096 ∧ c.S3 % 8 = 0 ∧ Verify.WIT + 8336 + 1664 ≤ c.S3 ∧ c.S3 + 2064 ≤ 0x5000 ∧
+  c.tree = 0 ∧ c.leaf < 4096 ∧ c.S3 % 8 = 0 ∧ Verify.WIT + 8336 + 1664 ≤ c.S3 ∧ c.S3 + 1144 ≤ 15272 ∧
     c.ret < 209920
 def known (c : NCtx) : List (Reg × Word) :=
   [(.x5, 0), (.x11, 64), (.x7, 1), (.x13, 2), (.x19, 3), (.x20, 4), (.x21, 5), (.x26, 6),
-   (.x30, 7), (.x28, BitVec.ofNat 64 (c.prefix + 385)), (.x8, BitVec.ofNat 64 c.S3), (.x2, BitVec.ofNat 64 0xffbde0), (.x4, 24704)]
+   (.x30, 7), (.x28, BitVec.ofNat 64 (c.prefix + 385)), (.x8, BitVec.ofNat 64 c.S3), (.x2, BitVec.ofNat 64 0xffbde0), (.x4, 14776)]
 /-- Rank of top group `q`: the digit triple in radix `mx q + 1`; group 16 (the r7 pair, chains 48 and 49) has only two
 digits, `d48 + 7 d49`. -/
 def kOf (c : NCtx) (q : Nat) : Nat :=
@@ -3658,8 +3658,9 @@ instance (c : NCtx) (i : Nat) : Decidable (c.bufferSafe i) := by
 16)` (copy) or `[slot j, slot j + 32)` (terminal hash, junk high half on `slot (j+1)`)). -/
 def bufferEnd (c : NCtx) (i : Nat) : Nat :=
   slot i + (if 1 < i ∧ c.dig (i-1) ≠ topMax (i-1) then 16 else 0)
+/-- T1: only the encoded slots (chains `0 .. 49`; the checksum chain's slot is never read as data) are witness. -/
 def bufferOrig (c : NCtx) (s0 : MachineState) : Prop :=
-  ∀ i, i < 51 → ∀ k < 2, OrigW c.w s0 (slot i + 8*k)
+  ∀ i, i < 50 → ∀ k < 2, OrigW c.w s0 (slot i + 8*k)
 def bufferVal (c : NCtx) (i : Nat) : Digest :=
   if c.bufferSafe i then ClaudeWCT.W9.T3M.wdig c.w (slot i - Verify.WIT) else c.val i
 /-- Start of chain `i`. Campaign T51: chains `i < 50` sit in group `i / 3` (lead chain in the cell, B/C in the body;
@@ -3722,7 +3723,7 @@ theorem topG_lt (i : Nat) (hi : i < 51) : topG i = decide (i % 2 = 0) := by
 theorem topSlot_eq (i : Nat) : topSlot i = ClaudeWCT.W9.T3M.chainSlot 0 i := by
   unfold topSlot ClaudeWCT.W9.T3M.chainSlot; simp only [Fin.val_zero, if_true]; split <;> omega
 theorem blk_props (c : NCtx) (hc : c.ok) (i : Nat) (hi : i < 51) :
-    c.blk i % 8 = 0 ∧ Verify.WIT + 8352 ≤ c.blk i ∧ c.blk i + 80 ≤ 0x5000 := by
+    c.blk i % 8 = 0 ∧ Verify.WIT + 8352 ≤ c.blk i ∧ c.blk i + 80 ≤ 15288 := by
   obtain ⟨-, -, h64, hlo, hhi, -⟩ := hc
   have := topSlot_props i hi
   unfold blk Verify.WIT at *; refine ⟨?_, ?_, ?_⟩ <;> omega
@@ -3735,7 +3736,7 @@ theorem vAt_props (c : NCtx) (hc : c.ok) (i : Nat) (hi : i < 51) :
   have hb := c.blk_props hc i hi
   unfold vAt; omega
 theorem oAt_props (c : NCtx) (hc : c.ok) (i : Nat) (hi : i < 51) :
-    c.oAt i % 8 = 0 ∧ Verify.WIT + 8336 ≤ c.oAt i ∧ c.oAt i + 32 ≤ 0x5000 ∧
+    c.oAt i % 8 = 0 ∧ Verify.WIT + 8336 ≤ c.oAt i ∧ c.oAt i + 32 ≤ 15288 ∧
       c.oAt i + 16 = c.blk i + 64 * (i % 2) := by
   have hb := c.blk_props hc i hi
   unfold oAt; omega
@@ -3756,13 +3757,13 @@ theorem topHigh_eq (i m : Nat) : topHigh i m = ClaudeWCT.WCT9.chainHigh 0 i m :=
   rw [ClaudeWCT.WCT9.chainHigh_top_eq]
   unfold topHigh T3.topChainHigh
   rw [topG_eq, topMax_eq]
-/-- Campaign T51 (endpad leaf): `slot 0 = 25216` (end_0), the tweak at 25232, `slot i = 25232 + 16 i` for `i >= 1`
-(the checksum chain's 32-byte terminal HASH output ends at 26064). -/
-theorem slot_props (i : Nat) (hi : i < 51) : slot i % 16 = 0 ∧ 25216 ≤ slot i ∧ slot i + 32 ≤ 26064 := by
+/-- Campaign T51 (endpad leaf): `slot 0 = 15288` (end_0), the tweak at 15304, `slot i = 15304 + 16 i` for `i >= 1`
+(the checksum chain's 32-byte terminal HASH output ends at 16136). -/
+theorem slot_props (i : Nat) (hi : i < 51) : slot i % 8 = 0 ∧ 15288 ≤ slot i ∧ slot i + 32 ≤ 16136 := by
   unfold slot; split <;> omega
-theorem slot0 : slot 0 = 25216 := rfl
-theorem slot1 : slot 1 = 25248 := rfl
-theorem slot_pos (i : Nat) (hi : 0 < i) : slot i = 25232 + 16 * i := by
+theorem slot0 : slot 0 = 15288 := rfl
+theorem slot1 : slot 1 = 15320 := rfl
+theorem slot_pos (i : Nat) (hi : 0 < i) : slot i = 15304 + 16 * i := by
   unfold slot; rw [if_neg (by omega)]
 theorem slot_succ (i : Nat) (hi : 0 < i) : slot (i + 1) = slot i + 16 := by
   rw [slot_pos i hi, slot_pos (i + 1) (by omega)]; ring
@@ -3770,7 +3771,7 @@ theorem slot_succ (i : Nat) (hi : 0 < i) : slot (i + 1) = slot i + 16 := by
 writes at `slot 0 - 16`, so its junk low half lands on the dead L1 leaf-buffer tail and the leaf tweak
 `[slot 0 + 16, slot 1)` is untouched. -/
 theorem termSlot_props (i : Nat) (hi : i < 51) :
-    termSlot i % 16 = 0 ∧ 25200 ≤ termSlot i ∧ termSlot i + 32 ≤ 26064 ∧ (i = 0 → termSlot i + 16 = slot 0) ∧
+    termSlot i % 8 = 0 ∧ 15272 ≤ termSlot i ∧ termSlot i + 32 ≤ 16136 ∧ (i = 0 → termSlot i + 16 = slot 0) ∧
       (0 < i → termSlot i = slot i) := by
   unfold termSlot slot; split_ifs <;> omega
 theorem base_off (c : NCtx) (hc : c.ok) (i : Nat) (hi : i < 51) (k : Nat) (hk : k ≤ 80) :
@@ -3873,6 +3874,7 @@ theorem notWr_block (c : NCtx) (hc : c.ok) {i A : Nat} (hi : i < 51) (h1 : c.blk
   have hb := c.blk_props hc i hi
   have he := c.blk_eq i hi
   have hlo := hc.2.2.2.1
+  have hhi := hc.2.2.2.2.1
   unfold Wr
   rw [slot0, slot1]
   omega
@@ -4059,8 +4061,9 @@ theorem bufferVal_at {c : NCtx} {s0 t : MachineState} (h0 : c.bufferOrig s0)
     (hb : c.S3 + 1160 ≤ slot 0) (hF : Frame s0 t (c.Wr i)) :
     DigAt t (slot i) (c.bufferVal i) := by
   have hp := slot_props i hi
-  have o0 := h0 i hi 0 (by omega)
-  have o1 := h0 i hi 1 (by omega)
+  have hi50 : i < 50 := by rcases hs.2 with h | h <;> omega
+  have o0 := h0 i hi50 0 (by omega)
+  have o1 := h0 i hi50 1 (by omega)
   simp only [Nat.mul_zero, Nat.add_zero, Nat.mul_one] at o0 o1
   have f0 := hF (slot i) (by omega) (c.bufferSafe_protected i _ hs hb (by omega))
   have f1 := hF (slot i+8) (by omega) (c.bufferSafe_protected i _ hs hb (by omega))
