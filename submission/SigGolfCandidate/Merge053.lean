@@ -246,18 +246,69 @@ theorem pubGood_layerCounterSearch (lay : Layer) (tree leaf : Nat) (msg : WCT9.L
       rcases WCT9.producerDecode lay ans with _ | digits
       · exact ih _
       · exact allQ_pure _
+theorem pubGood_lowerNodeHashN (lay tree heap n : Nat) (l r : Digest) :
+    AllQueriesSatisfy (WCT9.lowerNodeHashN lay tree heap n l r) PubGood :=
+  pubGood_lowerHash _ _ _ (by simp [WCT9.lowerNodeInputN, SphincsSecurity.bytesLE_length])
+theorem pubGood_lowerNonceSearch (lay tree heap : Nat) (l r : Digest) : ∀ fuel n,
+    AllQueriesSatisfy (WCT9.lowerNonceSearch lay tree heap l r fuel n) PubGood := by
+  intro fuel
+  induction fuel with
+  | zero => intro n; unfold WCT9.lowerNonceSearch; exact allQ_bind (pubGood_lowerNodeHashN _ _ _ _ _ _) fun _ => allQ_pure _
+  | succ fuel ih =>
+      intro n; unfold WCT9.lowerNonceSearch
+      refine allQ_bind (pubGood_lowerNodeHashN _ _ _ _ _ _) fun _ => ?_
+      split
+      · exact allQ_pure _
+      · exact ih _
+theorem pubGood_lowerNodeAt (lay tree heap : Nat) (l r : Digest) :
+    AllQueriesSatisfy (WCT9.lowerNodeAt lay tree heap l r) PubGood := by
+  unfold WCT9.lowerNodeAt
+  split
+  · exact allQ_map _ (pubGood_lowerNodeHash _ _ _ _ _)
+  · exact pubGood_lowerNonceSearch _ _ _ _ _ _ _
+theorem pubGood_lowerNodeG (lay tree heap : Nat) (l r : Digest) :
+    AllQueriesSatisfy (WCT9.lowerNodeG lay tree heap l r) PubGood := by
+  unfold WCT9.lowerNodeG
+  exact allQ_map _ (pubGood_lowerNodeAt _ _ _ _ _)
 theorem pubGood_recoverLayerPair (sig : WCT9.Signature) (index : Nat) (lay : Layer) (digits : List Nat) :
     AllQueriesSatisfy (WCT9.recoverLayerPair sig index lay digits) PubGood := by
   unfold WCT9.recoverLayerPair
   exact allQ_bind (allQ_mapM _ _ fun _ => pubGood_chainW _ _ _ _ _ _ _) fun _ =>
     allQ_bind (pubGood_lowerLeafHash _ _ _ _) fun _ =>
+      allQ_bind (allQ_foldlM _ _ (fun _ _ => pubGood_lowerNodeG _ _ _ _ _) _) fun _ => allQ_pure _
+theorem pubGood_recoverLayerPair0 (sig : WCT9.Signature) (index : Nat) (lay : Layer) (digits : List Nat) :
+    AllQueriesSatisfy (WCT9.recoverLayerPair0 sig index lay digits) PubGood := by
+  unfold WCT9.recoverLayerPair0
+  exact allQ_bind (allQ_mapM _ _ fun _ => pubGood_chainW _ _ _ _ _ _ _) fun _ =>
+    allQ_bind (pubGood_lowerLeafHash _ _ _ _) fun _ =>
       allQ_bind (allQ_foldlM _ _ (fun _ _ => pubGood_lowerNodeHash _ _ _ _ _) _) fun _ => allQ_pure _
+theorem pubGood_recoverLayerPairW (sig : WCT9.Signature) (index : Nat) (lay : Layer) (digits : List Nat) :
+    AllQueriesSatisfy (WCT9.recoverLayerPairW sig index lay digits) PubGood := by
+  unfold WCT9.recoverLayerPairW
+  exact allQ_bind (allQ_mapM _ _ fun _ => pubGood_chainW _ _ _ _ _ _ _) fun _ =>
+    allQ_bind (pubGood_lowerLeafHash _ _ _ _) fun _ =>
+      allQ_bind (allQ_foldlM _ _ (fun _ _ => allQ_bind (pubGood_lowerNodeAt _ _ _ _ _) fun _ => allQ_pure _) _)
+        fun _ => allQ_pure _
+theorem pubGood_recoverLayerPairV (sig : WCT9.Signature) (nonces : List Nat) (index : Nat) (lay : Layer)
+    (digits : List Nat) :
+    AllQueriesSatisfy (ClaudeWCT.WCT9.recoverLayerPairV sig nonces index lay digits) PubGood := by
+  unfold ClaudeWCT.WCT9.recoverLayerPairV
+  exact allQ_bind (allQ_mapM _ _ fun _ => pubGood_chainW _ _ _ _ _ _ _) fun _ =>
+    allQ_bind (pubGood_lowerLeafHash _ _ _ _) fun _ =>
+      allQ_bind (allQ_foldlM _ _ (fun _ _ => pubGood_lowerNodeHashN _ _ _ _ _ _) _) fun _ => allQ_pure _
+theorem pubGood_recoverLayerPairGuardV (sig : WCT9.Signature) (nonces : List Nat) (index : Nat) (lay : Layer)
+    (answer : Digest) (digits : List Nat) :
+    AllQueriesSatisfy (ClaudeWCT.WCT9.recoverLayerPairGuardV sig nonces index lay answer digits)
+      PubGood := by
+  unfold ClaudeWCT.WCT9.recoverLayerPairGuardV
+  exact allQ_lowerGuardedRun _ _ _ (fun _ => pubGood_chainW _ _ _ _ _ _ _)
+    (pubGood_recoverLayerPairV _ _ _ _ _)
 theorem pubGood_recoverLayerPairGuard (sig : WCT9.Signature) (index : Nat) (lay : Layer)
     (answer : Digest) (digits : List Nat) :
     AllQueriesSatisfy (WCT9.recoverLayerPairGuard sig index lay answer digits) PubGood := by
   unfold WCT9.recoverLayerPairGuard
   exact allQ_lowerGuardedRun _ _ _ (fun _ => pubGood_chainW _ _ _ _ _ _ _)
-    (pubGood_recoverLayerPair _ _ _ _)
+    (pubGood_recoverLayerPair0 _ _ _ _)
 theorem pubGood_verifyLayersBC (w : WCT9.Witness) (index : Nat) : ∀ n msg,
     AllQueriesSatisfy (WCT9.verifyLayersBC w index n msg) PubGood := by
   intro n
@@ -462,6 +513,8 @@ theorem public_topNode (index : Nat) (value other : Digest) : Only (topNode inde
   allQ_mono (ClaudeWCT.W9.T3M.pubGood_topNode ..) fun _ h=>h.1
 theorem public_recoverLayerPair (sig : ClaudeWCT.WCT9.Signature) (index : Nat) (lay : Layer) (digits : List Nat) : Only (recoverLayerPair sig index lay digits) :=
   allQ_mono (ClaudeWCT.W9.T3M.pubGood_recoverLayerPair ..) fun _ h=>h.1
+theorem public_recoverLayerPairW (sig : ClaudeWCT.WCT9.Signature) (index : Nat) (lay : Layer) (digits : List Nat) : Only (recoverLayerPairW sig index lay digits) :=
+  allQ_mono (ClaudeWCT.W9.T3M.pubGood_recoverLayerPairW ..) fun _ h=>h.1
 theorem public_digest (rho : Digest) (message : Message) (counter : BitVec 32) : Only (digest rho message counter) := public_publicHash _
 theorem public_searchTop (index : Nat) (value sibling pk : Digest) (fuel counter : Nat) : Only (searchTop index value sibling pk fuel counter) :=
   allQ_mono (ClaudeWCT.W9.T3M.pubGood_searchTop ..) fun _ h=>h.1
@@ -532,7 +585,8 @@ theorem public_recoverHintedLayers (sig : Signature) (index : Nat) (other : Dige
       · exact public_bind (public_topFoldN _ _ _) fun p => by
           rcases p with ⟨_, _⟩
           exact public_bind (public_topNode _ _ _) fun _ => public_pure _
-      · refine public_bind (public_recoverLayerPair _ _ _ _) fun pair => ?_
+      · refine public_bind (public_recoverLayerPairW _ _ _ _) fun r => ?_
+        rcases r with ⟨pair, ns⟩
         refine public_bind (ih _) fun previous => ?_
         cases previous <;> exact public_pure _
 theorem public_sharedDigestSearch (rho : Digest) (message : Message) (counter fuel : Nat) :
@@ -702,6 +756,8 @@ theorem good_topNode (index : Nat) (value other : Digest) : Good (topNode index 
   allQ_mono (ClaudeWCT.W9.T3M.pubGood_topNode ..) fun _ h=>h.2
 theorem good_recoverLayerPair (sig : ClaudeWCT.WCT9.Signature) (index : Nat) (lay : Layer) (digits : List Nat) : Good (recoverLayerPair sig index lay digits) :=
   allQ_mono (ClaudeWCT.W9.T3M.pubGood_recoverLayerPair ..) fun _ h=>h.2
+theorem good_recoverLayerPairW (sig : ClaudeWCT.WCT9.Signature) (index : Nat) (lay : Layer) (digits : List Nat) : Good (recoverLayerPairW sig index lay digits) :=
+  allQ_mono (ClaudeWCT.W9.T3M.pubGood_recoverLayerPairW ..) fun _ h=>h.2
 theorem good_digest (rho : Digest) (message : Message) (counter : BitVec 32) : Good (digest rho message counter) := allQ_mono (SigGolfCandidate.T3M.pubGood_digest ..) fun _ h=>h.2
 theorem good_searchTop (index : Nat) (value sibling pk : Digest) (fuel counter : Nat) : Good (searchTop index value sibling pk fuel counter) :=
   allQ_mono (ClaudeWCT.W9.T3M.pubGood_searchTop ..) fun _ h=>h.2
@@ -772,7 +828,8 @@ theorem good_recoverHintedLayers (sig : Signature) (index : Nat) (other : Digest
       · exact good_bind (good_topFoldN _ _ _) fun p => by
           rcases p with ⟨_, _⟩
           exact good_bind (good_topNode _ _ _) fun _ => good_pure _
-      · refine good_bind (good_recoverLayerPair _ _ _ _) fun pair => ?_
+      · refine good_bind (good_recoverLayerPairW _ _ _ _) fun r => ?_
+        rcases r with ⟨pair, ns⟩
         refine good_bind (ih _) fun previous => ?_
         cases previous <;> exact good_pure _
 theorem good_sharedDigestSearch (rho : Digest) (message : Message) (counter fuel : Nat) :
@@ -992,7 +1049,7 @@ theorem good_verifyLayers (w : SigGolfCandidate.Research.SharedForest.Witness) (
     refine allQ_ite _ (allQ_mono (ClaudeWCT.W9.T3M.pubGood_verifyTopN ..) fun _ h=>h.2) ?_
     rcases CanonicalPolicy.decode (Fin.ofNat 4 n) answer with _|digits
     · exact good_pure _
-    · refine good_bind (allQ_mono (ClaudeWCT.W9.T3M.pubGood_recoverLayerPairGuard ..) fun _ h=>h.2) fun pair=>?_
+    · refine good_bind (allQ_mono (ClaudeWCT.W9.T3M.pubGood_recoverLayerPairGuardV ..) fun _ h=>h.2) fun pair=>?_
       cases pair
       · exact good_pure _
       · exact ih _
@@ -3594,7 +3651,7 @@ section
 
 The honest input of a tree node `(lay, tree, level, c)` (children at `level`, heap `2^(height lay - level - 1) + c`)
 is `left | merkleTweak | nonce | right`. The nonce slot is the keygen nonce search's result on the top tree (levels
-0..10, `honestNonce`) and 0 elsewhere (the root and every lower tree). `wotsTree_node_nonce` states the honest node
+0..10, `honestNonce`), the U16b ground search `lowerNodeAt` on the lower trees (0 off the ground) and 0 on the roots. `wotsTree_node_nonce` states the honest node
 equation for the top tree with this nonce. -/
 namespace ClaudeWCT.WCT9
 open OracleComp OracleSpec SigGolfCandidate.T3 SigGolfCandidate.T3.Correctness
@@ -3647,28 +3704,125 @@ theorem merkleNodeInputN_top (tree heap n : Nat) (left right : Digest) :
   unfold merkleNodeInputN topNodeInput
   rw [merkleTweak_top0, bytesLE_nonceDigest]
 
+theorem eval_lowerNodeAt_fst_of_zero (answers : Answers) {lay heap : Nat} (hb : lowerZeroBits lay heap = 0)
+    (tree : Nat) (left right : Digest) :
+    (evalWithAnswerFn answers (lowerNodeAt lay tree heap left right)).1 = 0 := by
+  rw [lowerNodeAt_of_zero hb]
+  simp only [evalWithAnswerFn_map]
+
+theorem lowerNonceSearch_fst_le (answers : Answers) (lay tree heap : Nat) (left right : Digest) :
+    ∀ fuel n, (evalWithAnswerFn answers (lowerNonceSearch lay tree heap left right fuel n)).1 ≤ n + fuel
+  | 0, n => by
+      simp only [lowerNonceSearch, evalWithAnswerFn_bind, evalWithAnswerFn_pure]; omega
+  | fuel+1, n => by
+      simp only [lowerNonceSearch, evalWithAnswerFn_bind]
+      split
+      · simp only [evalWithAnswerFn_pure]; omega
+      · have := lowerNonceSearch_fst_le answers lay tree heap left right fuel (n+1)
+        omega
+
+/-- The nonce of a canonical lower node is below its cap. -/
+theorem eval_lowerNodeAt_fst_lt (answers : Answers) (lay tree heap : Nat) (left right : Digest) :
+    (evalWithAnswerFn answers (lowerNodeAt lay tree heap left right)).1 < lowerNonceCap lay heap := by
+  have hc : 0 < lowerNonceCap lay heap := by unfold lowerNonceCap; positivity
+  by_cases hb : lowerZeroBits lay heap = 0
+  · rw [eval_lowerNodeAt_fst_of_zero answers hb]; exact hc
+  · unfold lowerNodeAt
+    rw [if_neg hb]
+    have := lowerNonceSearch_fst_le answers lay tree heap left right (lowerNonceCap lay heap - 1) 0
+    omega
+
+theorem lowerNonceCap_le (lay heap : Nat) : lowerNonceCap lay heap ≤ 1024 := by
+  unfold lowerNonceCap lowerZeroBits
+  split_ifs <;> norm_num
+
+theorem lowerZeroBits_of_ge16 (lay : Nat) {heap : Nat} (h : 16 ≤ heap) : lowerZeroBits lay heap = 0 := by
+  unfold lowerZeroBits; rw [if_pos (Or.inr (Or.inr h))]
+
+theorem lowerZeroBits_one (lay : Nat) : lowerZeroBits lay 1 = 0 := by
+  unfold lowerZeroBits; rw [if_pos (Or.inr (Or.inl (by omega)))]
+
+/-- The parent of path step `j` of `leaf` is off the ground (heap 1 or ≥ 16) unless `j + 4 ≥ height` and
+`j + 1 < height`. -/
+theorem lowerZeroBits_path_off (lay : Nat) {H leaf j : Nat} (hleaf : leaf < 2 ^ H)
+    (hj : j + 4 < H ∨ H ≤ j + 1) : lowerZeroBits lay (2 ^ (H - j - 1) + leaf / 2 ^ (j + 1)) = 0 := by
+  rcases hj with hj | hj
+  · apply lowerZeroBits_of_ge16
+    have : (16 : Nat) ≤ 2 ^ (H - j - 1) := by
+      calc (16 : Nat) = 2 ^ 4 := by norm_num
+        _ ≤ 2 ^ (H - j - 1) := Nat.pow_le_pow_right (by norm_num) (by omega)
+    exact le_trans this (Nat.le_add_right _ _)
+  · have h0 : H - j - 1 = 0 := by omega
+    have hd : leaf / 2 ^ (j + 1) = 0 := by
+      apply Nat.div_eq_of_lt
+      exact lt_of_lt_of_le hleaf (Nat.pow_le_pow_right (by norm_num) hj)
+    rw [h0, hd]
+    exact lowerZeroBits_one lay
+
+theorem lowerNodeInputN_eq (lay tree heap n : Nat) (left right : Digest) :
+    lowerNodeInputN lay tree heap n left right = merkleNodeInputN lay tree heap n left right := rfl
+
 /-- The honest nonce of node `(lay, tree, level, c)` (children at `level`): the keygen nonce search on the top tree
-(`level < 11`), 0 on the root and on every lower tree. -/
+(`level < 11`), the U16b first-nonce search `lowerNodeAt` on the non-root nodes of every lower tree (0 off the ground,
+`lowerZeroBits = 0`), 0 on the roots. -/
 noncomputable def honestNonce (answers : Answers) (lay : Layer) (tree level c : Nat) : Nat :=
   if lay = 0 ∧ level < 11 then
     (evalWithAnswerFn answers (topNodeAt (level + 1) (2 ^ (height lay - level - 1) + c)
       (treeValue (wotsTree answers lay tree) level (2 * c))
       (treeValue (wotsTree answers lay tree) level (2 * c + 1)))).1
+  else if lay ≠ 0 ∧ level + 1 < height lay then
+    (evalWithAnswerFn answers (lowerNodeAt lay.val tree (2 ^ (height lay - level - 1) + c)
+      (treeValue (wotsTree answers lay tree) level (2 * c))
+      (treeValue (wotsTree answers lay tree) level (2 * c + 1)))).1
   else 0
-
-theorem honestNonce_lower (answers : Answers) {lay : Layer} (h : lay ≠ 0) (tree level c : Nat) :
-    honestNonce answers lay tree level c = 0 := by
-  unfold honestNonce; rw [if_neg (fun h' => h h'.1)]
 
 theorem honestNonce_root (answers : Answers) (lay : Layer) (tree c : Nat) :
     honestNonce answers lay tree 11 c = 0 := by
-  unfold honestNonce; rw [if_neg (fun h' => by omega)]
+  unfold honestNonce
+  rw [if_neg (fun h' => by omega), if_neg (fun h' => by fin_cases lay <;> simp [height] at h')]
 
-theorem honestInputN_lower (answers : Answers) {lay : Layer} (h : lay ≠ 0) (tree heap level c : Nat)
-    (left right : Digest) :
+/-- Every lower node (root included) carries the nonce of its canonical node `lowerNodeAt`. -/
+theorem honestNonce_lowerAt (answers : Answers) {lay : Layer} (h : lay ≠ 0) (tree level c : Nat)
+    (hl : level < height lay) (hc : c < 2 ^ (height lay - level - 1)) :
+    honestNonce answers lay tree level c =
+      (evalWithAnswerFn answers (lowerNodeAt lay.val tree (2 ^ (height lay - level - 1) + c)
+        (treeValue (wotsTree answers lay tree) level (2 * c))
+        (treeValue (wotsTree answers lay tree) level (2 * c + 1)))).1 := by
+  unfold honestNonce
+  rw [if_neg (fun h' => h h'.1)]
+  by_cases hr : level + 1 < height lay
+  · rw [if_pos ⟨h, hr⟩]
+  · rw [if_neg (fun h' => hr h'.2)]
+    have hh : height lay - level - 1 = 0 := by omega
+    rw [hh] at hc ⊢
+    have hc0 : c = 0 := by simpa using hc
+    subst hc0
+    exact (eval_lowerNodeAt_fst_of_zero answers (lowerZeroBits_one _) _ _ _).symm
+
+/-- Off the ground (`lowerZeroBits = 0`: heaps 1 and ≥ 16) a lower node's honest nonce is 0. -/
+theorem honestNonce_lower_off (answers : Answers) {lay : Layer} (h : lay ≠ 0) (tree level c : Nat)
+    (hb : lowerZeroBits lay.val (2 ^ (height lay - level - 1) + c) = 0) :
+    honestNonce answers lay tree level c = 0 := by
+  unfold honestNonce
+  rw [if_neg (fun h' => h h'.1)]
+  split_ifs
+  · exact eval_lowerNodeAt_fst_of_zero answers hb _ _ _
+  · rfl
+
+/-- A lower node's honest nonce is below its cap (`≤ 1024`). -/
+theorem honestNonce_lower_lt (answers : Answers) {lay : Layer} (h : lay ≠ 0) (tree level c : Nat) :
+    honestNonce answers lay tree level c < lowerNonceCap lay.val (2 ^ (height lay - level - 1) + c) := by
+  unfold honestNonce
+  rw [if_neg (fun h' => h h'.1)]
+  split_ifs
+  · exact eval_lowerNodeAt_fst_lt answers _ _ _ _ _
+  · unfold lowerNonceCap; positivity
+
+theorem honestInputN_lower_off (answers : Answers) {lay : Layer} (h : lay ≠ 0) (tree level c : Nat)
+    (hb : lowerZeroBits lay.val (2 ^ (height lay - level - 1) + c) = 0) (heap : Nat) (left right : Digest) :
     merkleNodeInputN lay.val tree heap (honestNonce answers lay tree level c) left right =
       merkleNodeInput lay.val tree heap left right := by
-  rw [honestNonce_lower answers h, merkleNodeInputN_zero]
+  rw [honestNonce_lower_off answers h tree level c hb, merkleNodeInputN_zero]
 
 /-- The honest top-tree node equation with nonces: node `c` of level `level + 1` is the used half of the hash of its
 honest nonce input. -/
@@ -3731,8 +3885,9 @@ theorem wotsTree_node_any (answers : Answers) (lay : Layer) (tree level c : Nat)
     have hsub : height lay - (level + 1) = height lay - level - 1 := by omega
     have hrec := hnodes level hl c (by rw [hsub]; exact hc)
     rw [hsub] at hrec
+    rw [honestNonce_lowerAt answers h0 tree level c hl hc]
     unfold treeValue
-    rw [hrec, honestInputN_lower answers h0]
+    rw [hrec, eval_lowerNodeG, ← eval_lowerNodeAt_hash]
     rfl
 
 end ClaudeWCT.WCT9
@@ -4807,15 +4962,34 @@ theorem merklePathW_extract (answers : Answers) (lay tree height leaf count : Na
   hashPathW_extract answers _ _ _ target _ value count reference
     (fun step _ current => merkleInputW_parse lay tree height leaf step path honestPath hpads pads honestPads current
       (target step)) reaches
-/-- Top-nonce layer: the honest node pads of the path of `leaf` (the keygen nonce digests on the top tree, 0 on
-every lower tree and on the root). -/
+/-- Top-nonce layer: the honest node pads of the path of `leaf` (the keygen nonce digests on the top tree, the U16b
+ground nonce digests on the lower trees (0 off the ground), 0 on the roots). -/
 noncomputable def honestPads (answers : Answers) (lay : Layer) (tree leaf : Nat) : Nat → Digest :=
   fun j => WCT9.nonceDigest (WCT9.honestNonce answers lay tree j (leaf / 2 ^ (j + 1)))
-theorem honestPads_lower (answers : Answers) {lay : Layer} (h : lay ≠ 0) (tree leaf : Nat) :
-    honestPads answers lay tree leaf = fun _ => 0 := by
-  funext j
+/-- U16b: a lower path pad off the ground (the parent of step `j` has `lowerZeroBits = 0`) is 0. -/
+theorem honestPads_lower_off (answers : Answers) {lay : Layer} (h : lay ≠ 0) (tree leaf j : Nat)
+    (hb : WCT9.lowerZeroBits lay.val (2 ^ (height lay - j - 1) + leaf / 2 ^ (j + 1)) = 0) :
+    honestPads answers lay tree leaf j = 0 := by
   unfold honestPads
-  rw [WCT9.honestNonce_lower answers h, WCT9.nonceDigest_zero]
+  rw [WCT9.honestNonce_lower_off answers h tree j _ hb, WCT9.nonceDigest_zero]
+/-- U16b: a lower path pad off the ground (`j + 4 < height lay`, or the root step) is 0. -/
+theorem honestPads_lower_path_off (answers : Answers) {lay : Layer} (h : lay ≠ 0) (tree leaf j : Nat)
+    (hleaf : leaf < 2 ^ height lay) (hj : j + 4 < height lay ∨ height lay ≤ j + 1) :
+    honestPads answers lay tree leaf j = 0 :=
+  honestPads_lower_off answers h tree leaf j (WCT9.lowerZeroBits_path_off lay.val hleaf hj)
+/-- U16b: every lower path pad is the nonce digest of the parent's canonical node `lowerNodeAt`. -/
+theorem honestPads_lowerAt (answers : Answers) {lay : Layer} (h : lay ≠ 0) (tree leaf j : Nat)
+    (hleaf : leaf < 2 ^ height lay) (hj : j < height lay) :
+    honestPads answers lay tree leaf j = WCT9.nonceDigest (evalWithAnswerFn answers
+      (WCT9.lowerNodeAt lay.val tree (2 ^ (height lay - j - 1) + leaf / 2 ^ (j + 1))
+        (treeValue (wotsTree answers lay tree) j (2 * (leaf / 2 ^ (j + 1))))
+        (treeValue (wotsTree answers lay tree) j (2 * (leaf / 2 ^ (j + 1)) + 1)))).1 := by
+  have hparent : leaf / 2 ^ (j + 1) < 2 ^ (height lay - j - 1) := by
+    have := Correctness.div_pow_bound (start := 0) (level := j + 1)
+      (node := leaf) (height := height lay) (by omega) (by simpa using hleaf)
+    simpa [Nat.sub_sub] using this
+  unfold honestPads
+  rw [WCT9.honestNonce_lowerAt answers h tree j _ hj hparent]
 /-- The honest fold reference of every layer with the honest pads (top tree: nonce digests). -/
 theorem merkleInputW_wotsTree_reference (answers : Answers) (lay : Layer) (tree leaf : Nat)
     (hleaf : leaf < 2 ^ height lay) (step : Nat) (hstep : step < height lay) :
@@ -4836,7 +5010,8 @@ theorem merkleInputW_wotsTree_reference (answers : Answers) (lay : Layer) (tree 
 theorem merkleInputW_tree_reference' (answers : Answers) (lay tree height leaf : Nat)
     (levels : List (List Digest)) (leaves : List Digest)
     (htree : WCT9.TreeLevelsL answers lay tree height leaves height levels)
-    (hleaf : leaf < 2 ^ height) (step : Nat) (hstep : step < height) :
+    (hleaf : leaf < 2 ^ height) (step : Nat) (hstep : step < height)
+    (hb : WCT9.lowerZeroBits lay (2 ^ (height - (step + 1)) + leaf / 2 ^ (step + 1)) = 0) :
     evalWithAnswerFn answers (halfHash (merkleHighW lay height leaf step)
       (merkleInputW lay tree height leaf (fun j => treeValue levels j (leaf / 2 ^ j ^^^ 1)) (fun _ => 0) (fun _ => 0)
         step (treeValue levels step (leaf / 2 ^ step)))) =
@@ -4848,16 +5023,18 @@ theorem merkleInputW_tree_reference' (answers : Answers) (lay tree height leaf :
     simpa using Correctness.div_pow_bound (start := 0) (level := step + 1)
       (node := leaf) (height := height) (by omega) (by simpa using hleaf)
   have hp := htree.2.2 step hstep (leaf / 2 ^ (step + 1)) hparent
+  rw [WCT9.lowerNodeG_of_zero hb] at hp
   simpa only [treeValue, Nat.sub_sub, WCT9.lowerNodeHash, WCT9.lowerHash] using hp.symm
 theorem merkleInputW_tree_reference (answers : Answers) (lay tree height leaf : Nat) (_hlay : lay ≠ 0)
     (levels : List (List Digest)) (leaves : List Digest)
     (htree : WCT9.TreeLevelsL answers lay tree height leaves height levels)
-    (hleaf : leaf < 2 ^ height) (step : Nat) (hstep : step < height) :
+    (hleaf : leaf < 2 ^ height) (step : Nat) (hstep : step < height)
+    (hb : WCT9.lowerZeroBits lay (2 ^ (height - (step + 1)) + leaf / 2 ^ (step + 1)) = 0) :
     evalWithAnswerFn answers (halfHash (merkleHighW lay height leaf step)
       (merkleInputW lay tree height leaf (fun j => treeValue levels j (leaf / 2 ^ j ^^^ 1)) (fun _ => 0) (fun _ => 0)
         step (treeValue levels step (leaf / 2 ^ step)))) =
       treeValue levels (step + 1) (leaf / 2 ^ (step + 1)) :=
-  merkleInputW_tree_reference' answers lay tree height leaf levels leaves htree hleaf step hstep
+  merkleInputW_tree_reference' answers lay tree height leaf levels leaves htree hleaf step hstep hb
 /-! #### Leaves (C3: witness pads in the leaf header block) -/
 theorem leafInput_padded_length (lay : Layer) (tree leaf : Nat) (ends : List Digest)
     (hc : ends.length = chainCount lay) :
@@ -8363,12 +8540,41 @@ theorem respects_lowerNodeHash' {S : Spec.Domain → Prop} (lay tree heap : Nat)
   refine respects_halfHash' _ _ ?_
   rw [merkleNodeInput_eq_block4, pad64_block4]
   exact h
+theorem respects_lowerNodeHashN' {S : Spec.Domain → Prop} (lay tree heap n : Nat) (left right : Digest)
+    (h : S (.inl (.inr (block4 left (WCT9.merkleTweak lay tree heap) (ClaudeWCT.WCT9.nonceDigest n) right)))) :
+    Respects S (WCT9.lowerNodeHashN lay tree heap n left right) := by
+  unfold WCT9.lowerNodeHashN WCT9.lowerHash
+  refine respects_halfHash' _ _ ?_
+  have he : WCT9.lowerNodeInputN lay tree heap n left right =
+      block4 left (WCT9.merkleTweak lay tree heap) (ClaudeWCT.WCT9.nonceDigest n) right := rfl
+  rw [he, pad64_block4]
+  exact h
+/-- U16b: the canonical lower node queries the node tweak with any nonce pad. -/
+theorem respects_lowerNodeG' {S : Spec.Domain → Prop} (lay tree heap : Nat) (left right : Digest)
+    (h : ∀ pad, S (.inl (.inr (block4 left (WCT9.merkleTweak lay tree heap) pad right)))) :
+    Respects S (WCT9.lowerNodeG lay tree heap left right) := by
+  have hS : ∀ fuel n, Respects S (WCT9.lowerNonceSearch lay tree heap left right fuel n) := by
+    intro fuel
+    induction fuel with
+    | zero => intro n; unfold WCT9.lowerNonceSearch
+              exact Respects.bind (respects_lowerNodeHashN' _ _ _ _ _ _ (h _)) fun _ => Respects.pure' _
+    | succ fuel ih =>
+        intro n; unfold WCT9.lowerNonceSearch
+        refine Respects.bind (respects_lowerNodeHashN' _ _ _ _ _ _ (h _)) fun v => ?_
+        split
+        · exact Respects.pure' _
+        · exact ih _
+  unfold WCT9.lowerNodeG WCT9.lowerNodeAt
+  refine Respects.map _ ?_
+  split
+  · exact Respects.map _ (respects_lowerNodeHash' _ _ _ _ _ (h 0))
+  · exact hS _ _
 theorem respects_lowerLevel' {S : Spec.Domain → Prop} (lay tree h level : Nat) (nodes : List Digest)
-    (hS : ∀ i left right, i < nodes.length / 2 →
-      S (.inl (.inr (block4 left (WCT9.merkleTweak lay tree (2 ^ (h - level) + i)) 0 right)))) :
+    (hS : ∀ i left pad right, i < nodes.length / 2 →
+      S (.inl (.inr (block4 left (WCT9.merkleTweak lay tree (2 ^ (h - level) + i)) pad right)))) :
     Respects S (WCT9.lowerLevel lay tree h level nodes) := by
   unfold WCT9.lowerLevel
-  exact Respects.mapM _ _ fun i hi => respects_lowerNodeHash' _ _ _ _ _ (hS i _ _ (List.mem_range.mp hi))
+  exact Respects.mapM _ _ fun i hi => respects_lowerNodeG' _ _ _ _ _ (fun pad => hS i _ pad _ (List.mem_range.mp hi))
 theorem respects_lowerLeafHash' {S : Spec.Domain → Prop} (lay : Layer) (tree leaf : Nat) (ends : List Digest)
     (h : S (.inl (.inr (pad64 (leafInput lay tree leaf ends))))) :
     Respects S (WCT9.lowerLeafHash lay tree leaf ends) := by
@@ -8412,8 +8618,8 @@ theorem lowerLevel_length' (answers : Answers) (lay tree h level : Nat) (nodes :
 /-- The fold queries of a lower tree (`lowerLevels`, `buildLevelsBelow`): heaps `2 ^ (h - level) + i` with
 `level ≥ 1` and `i < 2 ^ h / 2`. -/
 def FoldOK (S : Spec.Domain → Prop) (lay tree h : Nat) : Prop :=
-  ∀ level i left right, 1 ≤ level → i < 2 ^ h / 2 →
-    S (.inl (.inr (block4 left (WCT9.merkleTweak lay tree (2 ^ (h - level) + i)) 0 right)))
+  ∀ level i left pad right, 1 ≤ level → i < 2 ^ h / 2 →
+    S (.inl (.inr (block4 left (WCT9.merkleTweak lay tree (2 ^ (h - level) + i)) pad right)))
 theorem respects_lowerFold' {S : Spec.Domain → Prop} {lay tree h : Nat} (hS : FoldOK S lay tree h) (l : List Nat)
     (hl : ∀ x ∈ l, 1 ≤ x) (leaves : List Digest) (hlen : leaves.length ≤ 2 ^ h) :
     Respects S (l.foldlM (fun levels level => do
@@ -8427,7 +8633,7 @@ theorem respects_lowerFold' {S : Spec.Domain → Prop} {lay tree h : Nat} (hS : 
     rw [lowerLevel_length']
     exact le_trans (Nat.div_le_self _ _) (hI _)
   · intro level hlv levels hI
-    refine Respects.bind (respects_lowerLevel' _ _ _ _ _ fun i left right hi => hS level i left right (hl level hlv)
+    refine Respects.bind (respects_lowerLevel' _ _ _ _ _ fun i left pad right hi => hS level i left pad right (hl level hlv)
       ?_) fun _ => Respects.pure' _
     have := hI (level - 1)
     exact lt_of_lt_of_le hi (Nat.div_le_div_right this)
@@ -8497,8 +8703,8 @@ theorem respectsP_lowerNodeHash (lay tree heap : Nat) (left right : Digest) (hh 
   respects_lowerNodeHash' _ _ _ _ _ (untouchedP_of_hdr a _ _ (SigGolfCandidate.T3M.Extract.hdrBlock_block4 left _ 0 right)
     fun l tr leaf i step hs => merkleTweak_ne_chainHeader hh l tr leaf i step hs)
 theorem foldOK_untouchedP (lay tree h : Nat) (h7 : lay ≠ 0 → h ≤ 7) : FoldOK (UntouchedP a) lay tree h := by
-  intro level i left right hlev hi
-  refine untouchedP_of_hdr a _ _ (SigGolfCandidate.T3M.Extract.hdrBlock_block4 left _ 0 right)
+  intro level i left pad right hlev hi
+  refine untouchedP_of_hdr a _ _ (SigGolfCandidate.T3M.Extract.hdrBlock_block4 left _ pad right)
     fun l tr leaf c step hs => merkleTweak_ne_chainHeader ?_ l tr leaf c step hs
   by_cases h0 : lay = 0
   · exact Or.inl h0
@@ -10339,6 +10545,46 @@ theorem avoids_lowerNodeHash (lay tree heap : Nat) (left right : Digest) (hh : l
     exact nodeTweak_not_search 3 0 tree heap (by decide) (fun _ h _ => by omega)
   · rw [ClaudeWCT.WCT9.merkleTweak_lower h0]
     exact lowerTweak_not_search lay tree heap (hh h0)
+omit ht in
+theorem merkleTweak_not_search (lay tree heap : Nat) (hh : lay ≠ 0 → heap < 128) :
+    ¬ SearchHdr (ClaudeWCT.WCT9.merkleTweak lay tree heap) := by
+  by_cases h0 : lay = 0
+  · subst h0
+    rw [ClaudeWCT.WCT9.merkleTweak_top]
+    exact nodeTweak_not_search 3 0 tree heap (by decide) (fun _ h _ => by omega)
+  · rw [ClaudeWCT.WCT9.merkleTweak_lower h0]
+    exact lowerTweak_not_search lay tree heap (hh h0)
+theorem avoids_lowerNodeHashN (lay tree heap n : Nat) (left right : Digest) (hh : lay ≠ 0 → heap < 128) :
+    Avoids secret target (ClaudeWCT.WCT9.lowerNodeHashN lay tree heap n left right) := by
+  unfold ClaudeWCT.WCT9.lowerNodeHashN ClaudeWCT.WCT9.lowerHash
+  apply avoids_halfHash_of_ne secret target ht
+  have hq : SigGolfCandidate.T3.QuerySpace.queryHeader
+      (pad64 (ClaudeWCT.WCT9.lowerNodeInputN lay tree heap n left right)) =
+      SphincsSecurity.bytesLE 16 (ClaudeWCT.WCT9.merkleTweak lay tree heap) := by
+    simpa only [ClaudeWCT.WCT9.lowerNodeInputN, List.append_assoc] using
+      (SigGolfCandidate.T3.QuerySpace.queryHeader_padded (SphincsSecurity.bytesLE 16 left)
+        (nonceBytes n ++ SphincsSecurity.bytesLE 16 right) (SphincsSecurity.bytesLE_length ..)
+        (ClaudeWCT.WCT9.merkleTweak lay tree heap))
+  exact searchQ_ne hq (merkleTweak_not_search lay tree heap hh) ht
+/-- U16b: the canonical lower node (all its trials carry the node tweak). -/
+theorem avoids_lowerNodeG (lay tree heap : Nat) (left right : Digest) (hh : lay ≠ 0 → heap < 128) :
+    Avoids secret target (ClaudeWCT.WCT9.lowerNodeG lay tree heap left right) := by
+  have hS : ∀ fuel n, Avoids secret target (ClaudeWCT.WCT9.lowerNonceSearch lay tree heap left right fuel n) := by
+    intro fuel
+    induction fuel with
+    | zero => intro n; unfold ClaudeWCT.WCT9.lowerNonceSearch
+              exact avoids_bind (avoids_lowerNodeHashN secret target ht _ _ _ _ _ _ hh) fun _ => avoids_pure _ _ _
+    | succ fuel ih =>
+        intro n; unfold ClaudeWCT.WCT9.lowerNonceSearch
+        refine avoids_bind (avoids_lowerNodeHashN secret target ht _ _ _ _ _ _ hh) fun _ => ?_
+        split
+        · exact avoids_pure _ _ _
+        · exact ih _
+  unfold ClaudeWCT.WCT9.lowerNodeG ClaudeWCT.WCT9.lowerNodeAt
+  refine avoids_map _ ?_
+  split
+  · exact avoids_map _ (avoids_lowerNodeHash secret target ht _ _ _ _ _ hh)
+  · exact hS _ _
 theorem avoids_lowerCoefs (lay : Layer) (tree leaf : Nat) (carry : List Digest) :
     Avoids secret target (ClaudeWCT.WCT9.lowerCoefs lay tree leaf carry) := by
   unfold ClaudeWCT.WCT9.lowerCoefs ClaudeWCT.WCT9.lowerFamCoefs ClaudeWCT.WCT9.lowerSeedPair
@@ -10362,7 +10608,7 @@ theorem avoids_buildLevel_below (lay tree h level : Nat) (nodes : List Digest) (
     (h7 : lay ≠ 0 → h ≤ 7) (hlen : nodes.length / 2 ≤ 2 ^ (h - level)) :
     Avoids secret target (ClaudeWCT.WCT9.lowerLevel lay tree h level nodes) := by
   unfold ClaudeWCT.WCT9.lowerLevel
-  refine avoids_mapM_mem _ _ fun i hi => avoids_lowerNodeHash secret target ht _ _ _ _ _ fun hl => ?_
+  refine avoids_mapM_mem _ _ fun i hi => avoids_lowerNodeG secret target ht _ _ _ _ _ fun hl => ?_
   have hi : i < nodes.length / 2 := List.mem_range.mp hi
   have hp : 2 ^ (h - level) ≤ 2 ^ 6 := Nat.pow_le_pow_right (by decide) (by have := h7 hl; omega)
   have : (2 : Nat) ^ 6 = 64 := by norm_num
@@ -10427,32 +10673,33 @@ set_option maxHeartbeats 1000000
 set_option maxRecDepth 10000
 set_option backward.isDefEq.respectTransparency false
 
-/-- The forest and retained lower roots consume a fixed budget before the
-canonical search. The bound on that search is required only at reached states. -/
-theorem V_signFromOutput_fixed (secret : BitVec 256) (z L : ENNReal) (hz : 1 ≤ z)
+/-- The forest consumes a fixed budget before the prepared lower roots and the canonical search. U16b: the prepared
+roots (with the ground nonce searches) are bounded by a moment `P` at every reached state. -/
+theorem V_signFromOutput_fixed (secret : BitVec 256) (z L P : ENNReal) (hz : 1 ≤ z)
     (cache : SigGolfCandidate.T3.Cache) (rho : Digest) (counter : BitVec 32)
     (output : HashOutput) (rcache : RCache)
+    (hprep : ∀ forest ∈ support (roRun secret
+        (SigGolfCandidate.Research.SharedForest.buildForest (digestIndex output) (SigGolfCandidate.Research.SharedForest.forestSelectionFromOutput output)
+          (SigGolfCandidate.Research.SharedForest.forestWordsFromOutput output)) rcache),
+      V secret z (SigGolfCandidate.Research.SharedForest.prepareRoots (digestIndex output)) forest.2 ≤ P)
     (hsearch : ∀ forest ∈ support (roRun secret
         (SigGolfCandidate.Research.SharedForest.buildForest (digestIndex output) (SigGolfCandidate.Research.SharedForest.forestSelectionFromOutput output)
           (SigGolfCandidate.Research.SharedForest.forestWordsFromOutput output)) rcache),
       ∀ prepared ∈ support (roRun secret (SigGolfCandidate.Research.SharedForest.prepareRoots (digestIndex output)) forest.2),
       V secret z (SigGolfCandidate.Research.SharedForest.searchPreparedLayers cache (digestIndex output) prepared.1 forest.1.2)
         prepared.2 ≤ L) :
-    V secret z (SigGolfCandidate.Research.SharedForest.signFromOutput cache rho counter output) rcache ≤ z ^ 112142 * L := by
+    V secret z (SigGolfCandidate.Research.SharedForest.signFromOutput cache rho counter output) rcache ≤
+      z ^ 31321 * (P * L) := by
   unfold SigGolfCandidate.Research.SharedForest.signFromOutput
-  refine (V_bind_bounded secret z _ _ rcache (z ^ 31321) (z ^ 80821 * L)
-    (V_of_bound (SigGolfCandidate.Research.SharedForest.bound_buildForest ..) secret z hz rcache) ?_).trans_eq ?_
-  · intro forest hforest
-    have hp := SigGolfCandidate.Research.SharedForest.bound_prepareRoots (digestIndex output)
-    rw [SigGolfCandidate.Research.SharedForest.prepared_roots_cost] at hp
-    refine V_bind_bounded secret z _ _ forest.2 (z ^ 80821) L
-      (V_of_bound hp secret z hz forest.2) ?_
-    intro prepared hprepared
-    refine (V_bind_bounded secret z _ _ prepared.2 L 1
-      (hsearch forest hforest prepared hprepared) ?_).trans_eq (mul_one L)
-    intro layers _
-    cases layers.1 <;> simp only [V_pure, le_refl]
-  · rw [← mul_assoc, ← pow_add]
+  refine V_bind_bounded secret z _ _ rcache (z ^ 31321) (P * L)
+    (V_of_bound (SigGolfCandidate.Research.SharedForest.bound_buildForest ..) secret z hz rcache) ?_
+  intro forest hforest
+  refine V_bind_bounded secret z _ _ forest.2 P L (hprep forest hforest) ?_
+  intro prepared hprepared
+  refine (V_bind_bounded secret z _ _ prepared.2 L 1
+    (hsearch forest hforest prepared hprepared) ?_).trans_eq (mul_one L)
+  intro layers _
+  cases layers.1 <;> simp only [V_pure, le_refl]
 
 /-- The payload adds the private nonce's two compressions. -/
 theorem V_signPayload_fixed (secret : BitVec 256) (z D P : ENNReal) (hz : 1 ≤ z)
@@ -10496,11 +10743,12 @@ theorem V_sign_fixed (secret : BitVec 256) (z P : ENNReal) (hz : 1 ≤ z) (hP : 
     exact hpayload checked hchecked (by simpa only [ne_eq, not_not] using h)
 
 /-- The top-signing cost remains inside the search continuation; this identity
-matches the numerical certificate's complete fixed-cost exponent. -/
-theorem fixed_budget_factor (z D L : ENNReal) :
-    z ^ 2 * (z ^ 2 * (D * (z ^ 112142 * (z ^ 180 * L)))) =
-      z ^ 112326 * (D * L) := by
-  rw [show 112326 = 2 + 2 + 112142 + 180 by decide, pow_add, pow_add, pow_add]
+matches the numerical certificate's complete fixed-cost exponent (U16b: 2 + 2 + 31321 + 80779 + 180 = 112284, the
+42 ground node factors `G` apart). -/
+theorem fixed_budget_factor (z D G L : ENNReal) :
+    z ^ 2 * (z ^ 2 * (D * (z ^ 31321 * ((z ^ 80779 * G) * (z ^ 180 * L))))) =
+      z ^ 112284 * (D * (G * L)) := by
+  rw [show 112284 = 2 + 2 + 31321 + 80779 + 180 by decide, pow_add, pow_add, pow_add, pow_add]
   ac_rfl
 
 end SigGolfCandidate.Research.SharedSigningBudget
@@ -11878,23 +12126,12 @@ open SigGolfCandidate.T3.Cost (CBound GoodQuery Bound ValidDigits recoverLayerCo
 set_option maxHeartbeats 1000000
 set_option maxRecDepth 10000
 set_option backward.isDefEq.respectTransparency false
+/-- U16b: the path folds are `lowerNodeG` (`ClaudeWCT.WCT9.Cost.recoverLayerPairCost`, the ground worst case). -/
 theorem bound_recoverLayerPair (sig : Signature) (index : Nat) (lay : Layer) (digits : List Nat)
     (hd : ValidDigits lay digits) (hlen : digits.length = chainCount lay) (hsum : digits.sum = target lay) :
-    CBound (fun _ => True) (recoverLayerCost lay) (ClaudeWCT.WCT9.recoverLayerPair sig index lay digits) := by
-  unfold ClaudeWCT.WCT9.recoverLayerPair
-  dsimp only
-  refine (Bound.mapM_list (P := GoodQuery) (List.finRange (chainCount lay)) _
-    (fun i => maxDigit lay i.val - digits.getD i.val 0) (fun i _ => ClaudeWCT.WCT9.Cost.bound_chainW _ _ _ _ _ _ _)).bind'
-    (l := leafHashCost lay + height lay) (fun ends hends => ?_) ?_
-  · refine (ClaudeWCT.WCT9.Cost.bound_lowerLeafHash lay _ _ ends (by simpa using hends)).bind (fun root _ => ?_)
-    refine ((Bound.foldlM_list (P := GoodQuery) (List.finRange (height lay - 1)) _
-      (fun _ _ => True) (fun _ => 1) root trivial (fun i hi value _ => ?_)).bind
-        (fun top _ => .pure _ 0 trivial)).mono_k (by simp)
-    exact ClaudeWCT.WCT9.Cost.bound_lowerNodeHash _ _ _ _ _
-  · rw [sum_finRange (chainCount lay) (fun i => maxDigit lay i - digits.getD i 0),
-      remaining_steps lay digits hd hlen hsum]
-    simp only [recoverLayerCost]
-    omega
+    CBound (fun _ => True) (ClaudeWCT.WCT9.Cost.recoverLayerPairCost lay)
+      (ClaudeWCT.WCT9.recoverLayerPair sig index lay digits) :=
+  ClaudeWCT.WCT9.Cost.bound_recoverLayerPair sig index lay digits hd hlen hsum
 theorem expand_cost_step (answers : Answers) (message : Message) (pk : Digest) (sig : Signature)
     (counter : BitVec 32) (output : HashOutput)
     (hd : evalWithAnswerFn answers
@@ -12201,7 +12438,7 @@ theorem signFromOutput_recovery_cost_le (answers : Answers) (cache : SigGolfCand
         (forestSelectionFromOutput output) (forestWordsFromOutput output) w.signature.forest)).1
         (evalWithAnswerFn answers (recoverForest (digestIndex output)
           (forestSelectionFromOutput output) (forestWordsFromOutput output) w.signature.forest)).2)) ≤
-      cost answers (signFromOutput cache rho counter output) + (1616 + 425765) := by
+      cost answers (signFromOutput cache rho counter output) + (5959 + 425765) := by
   let index := digestIndex output
   let built := evalWithAnswerFn answers (buildForest index (forestSelectionFromOutput output) (forestWordsFromOutput output))
   let prepared := evalWithAnswerFn answers (prepareRoots index)
@@ -12246,7 +12483,7 @@ theorem signFromOutput_recovery_cost_le (answers : Answers) (cache : SigGolfCand
 /-- The recovery replay bound also holds for the img-v6 normal form of the signer's output (the top path enters
 only through `topFoldN`, whose cost is bounded coarsely; the 13-bit hint and the lower layers are unchanged). -/
 theorem signFromOutput_recovery_cost_le_norm (answers : Answers) (cache : SigGolfCandidate.T3.Cache)
-    (hcache : cache.region = cacheRegion (maskedTop answers)) (rho : Digest)
+    (hcache : cache.region = cacheRegion (maskedTop answers)) (hlower : LowerTreesOK answers) (rho : Digest)
     (counter : BitVec 32) (output : HashOutput) (w : Witness)
     (he : evalWithAnswerFn answers (signFromOutput cache rho counter output) = some w) :
     cost answers (recoverHintedLayers (normTop w.signature) (digestIndex output)
@@ -12255,7 +12492,8 @@ theorem signFromOutput_recovery_cost_le_norm (answers : Answers) (cache : SigGol
         (forestSelectionFromOutput output) (forestWordsFromOutput output) w.signature.forest)).1
         (evalWithAnswerFn answers (recoverForest (digestIndex output)
           (forestSelectionFromOutput output) (forestWordsFromOutput output) w.signature.forest)).2)) ≤
-      cost answers (signFromOutput cache rho counter output) + (1616 + 425765) := by
+      cost answers (signFromOutput cache rho counter output) + (5959 + 425765) := by
+  have hlow := signFromOutput_lowerPathOK answers cache hcache hlower rho counter output w he
   let index := digestIndex output
   let built := evalWithAnswerFn answers (buildForest index (forestSelectionFromOutput output) (forestWordsFromOutput output))
   let prepared := evalWithAnswerFn answers (prepareRoots index)
@@ -12283,7 +12521,7 @@ theorem signFromOutput_recovery_cost_le_norm (answers : Answers) (cache : SigGol
         builtPair answers lay (route index lay).2 := by
       intro lay hl
       apply recoverLayerPair_wotsPieces answers sig' index lay hl _ (hf.validDigits lay)
-      rw [normTop_layers_ne sig lay hl]
+      rw [normTop_layers_ne sig lay hl hlow]
       change piecesSignature lay (layers.pieces.getD lay.val ([], [])) = _
       rw [hf.honest_pieces hcache (digestIndex_lt output)]
     have hm0 : topPair 1 prepared.one.levels = builtPair answers 1 (route index 1).2 := by
@@ -12314,12 +12552,186 @@ theorem signPayload_cost_step (answers : Answers) (cache : SigGolfCandidate.T3.C
   simp only [signPayload, cost_bind, hd]
   split <;> simp only [cost_pure, Nat.add_zero, Nat.add_assoc]
 
+open SigGolfCandidate.T3.Cost (CBound Bound GoodQuery)
+
+theorem bound_sharedDigestSearch (rho : Digest) (message : Message) :
+    ∀ fuel counter, CBound (fun _ => True) fuel (sharedDigestSearch rho message counter fuel) := by
+  intro fuel
+  induction fuel with
+  | zero => intro counter; exact .pure _ 0 trivial
+  | succ fuel ih =>
+      intro counter
+      unfold sharedDigestSearch
+      refine (SigGolfCandidate.T3.Cost.bound_digest rho message (BitVec.ofNat 32 counter)).bind' (l := fuel)
+        (fun output _ => ?_) (by omega)
+      split
+      · exact .pure _ _ trivial
+      · exact ih _
+
+theorem bound_layerCounterSearchAt (lay : Layer) (floor tree leaf : Nat) (msg : LayerMsg) :
+    ∀ fuel counter, CBound (fun _ => True) fuel (CanonicalPolicy.layerCounterSearchAt lay floor tree leaf msg counter fuel) := by
+  intro fuel
+  induction fuel with
+  | zero => intro counter; exact .pure _ 0 trivial
+  | succ fuel ih =>
+      intro counter
+      unfold CanonicalPolicy.layerCounterSearchAt
+      have hb : CBound (fun _ => True) 1 (publicHash (layerEncodingInput lay tree leaf msg (BitVec.ofNat 32 counter))) := by
+        have hL := ClaudeWCT.W9.T3.PairRows.layerTrial_length lay tree leaf msg counter
+        change CBound _ _ (SigGolfCandidate.T3.Cost.qry (.inl (.inr (pad64 (layerEncodingInput lay tree leaf msg
+          (BitVec.ofNat 32 counter))))))
+        rw [← bind_pure (SigGolfCandidate.T3.Cost.qry _)]
+        refine Bound.qry_bind (k := 0) ⟨?_, ?_⟩ (fun _ => .pure _ 0 trivial) ?_
+        · rw [show pad64 (layerEncodingInput lay tree leaf msg (BitVec.ofNat 32 counter)) =
+            ClaudeWCT.W9.T3.PairRows.layerTrial lay tree leaf msg counter from rfl, hL]; omega
+        · rw [show pad64 (layerEncodingInput lay tree leaf msg (BitVec.ofNat 32 counter)) =
+            ClaudeWCT.W9.T3.PairRows.layerTrial lay tree leaf msg counter from rfl, hL]
+        · simp [SigGolfCandidate.T3.Cost.weight, show pad64 (layerEncodingInput lay tree leaf msg (BitVec.ofNat 32 counter)) =
+            ClaudeWCT.W9.T3.PairRows.layerTrial lay tree leaf msg counter from rfl, hL]
+      refine hb.bind' (l := fuel) (fun answer _ => ?_) (by omega)
+      split
+      · exact ih _
+      · exact .pure _ _ trivial
+
+theorem nodeCost_le_1024 (lay heap : Nat) : ClaudeWCT.WCT9.Cost.nodeCost lay heap ≤ 1024 := by
+  unfold ClaudeWCT.WCT9.Cost.nodeCost
+  split
+  · omega
+  · exact ClaudeWCT.WCT9.lowerNonceCap_le lay heap
+
+/-- Coarse worst case of a layer's recovery with fold nonces (any digits): chains, the leaf, the path folds. -/
+theorem bound_recoverLayerPairW_coarse (sig : ClaudeWCT.WCT9.Signature) (index : Nat) (lay : Layer)
+    (digits : List Nat) :
+    CBound (fun _ => True) (chainCount lay * 7 + 13 + 11 * 1024) (recoverLayerPairW sig index lay digits) := by
+  have hh : height lay - 1 ≤ 11 := by fin_cases lay <;> decide
+  unfold recoverLayerPairW
+  dsimp only
+  refine (Bound.mapM_list (P := GoodQuery) (List.finRange (chainCount lay)) _
+    (fun i => maxDigit lay i.val - digits.getD i.val 0)
+    (fun i _ => ClaudeWCT.WCT9.Cost.bound_chainW _ _ _ _ _ _ _)).bind'
+    (l := 13 + 11 * 1024) (fun ends hends => ?_) ?_
+  · refine ((ClaudeWCT.WCT9.Cost.bound_lowerLeafHash lay _ _ ends (by simpa using hends)).mono_k (k' := 13)
+      (show SigGolfCandidate.T3.Cost.leafHashCost lay ≤ 13 by
+        unfold SigGolfCandidate.T3.Cost.leafHashCost; split <;> omega)).bind' (l := 11 * 1024)
+      (fun root _ => ?_) (by omega)
+    refine ((Bound.foldlM_list (P := GoodQuery) (List.finRange (height lay - 1)) _
+      (fun _ _ => True) (fun _ => 1024) (root, []) trivial
+      (fun i hi st _ => ?_)).bind' (l := 0) (fun _ _ => .pure _ 0 trivial) ?_)
+    · exact ((ClaudeWCT.WCT9.Cost.bound_lowerNodeAt _ _ _ _ _).mono_k (nodeCost_le_1024 _ _)).bind' (l := 0)
+        (fun _ _ => .pure _ 0 trivial) (by omega)
+    · simp only [Finset.sum_const, Finset.card_range, List.length_finRange, smul_eq_mul]
+      omega
+  · rw [SigGolfCandidate.T3.Cost.sum_finRange (chainCount lay) (fun i => maxDigit lay i - digits.getD i 0)]
+    have : ∑ i ∈ Finset.range (chainCount lay), (maxDigit lay i - digits.getD i 0) ≤ chainCount lay * 7 := by
+      calc ∑ i ∈ Finset.range (chainCount lay), (maxDigit lay i - digits.getD i 0)
+          ≤ ∑ _i ∈ Finset.range (chainCount lay), 7 :=
+            Finset.sum_le_sum fun i _ => le_trans (Nat.sub_le _ _) (by unfold maxDigit; split_ifs <;> omega)
+        _ = chainCount lay * 7 := by simp
+    omega
+
+/-- Worst-case recovery budget of layers `0 .. n-1`. -/
+def recoverWorst (n : Nat) : Nat := ∑ k ∈ Finset.range n, (searchLimit (Fin.ofNat 4 k) + 2 ^ 19)
+
+theorem bound_recoverHintedLayers (sig : Signature) (index : Nat) (other : Digest) :
+    ∀ n msg, CBound (fun _ => True) (recoverWorst n) (recoverHintedLayers sig index other n msg) := by
+  intro n
+  induction n with
+  | zero => intro msg; unfold recoverHintedLayers; exact .pure _ 0 trivial
+  | succ n ih =>
+      intro msg
+      unfold recoverHintedLayers recoverWorst
+      rw [Finset.sum_range_succ]
+      refine (bound_layerCounterSearchAt _ _ _ _ _ _ _).bind' (l := recoverWorst n + 2 ^ 19)
+        (fun result _ => ?_) (by unfold recoverWorst; omega)
+      rcases result with _ | ⟨counter, digits, low⟩
+      · exact .pure _ _ trivial
+      · dsimp only
+        split
+        · refine ((bound_topFoldN_coarse _ _ _).bind' (l := 1) (fun p _ => ?_)
+            (by unfold topFoldNCost; omega))
+          rcases p with ⟨folded, nonces⟩
+          exact (ClaudeWCT.WCT9.Cost.bound_topNode _ _ _).bind' (l := 0) (fun _ _ => .pure _ 0 trivial) (by omega)
+        · have hc : chainCount (Fin.ofNat 4 n) * 7 + 13 + 11 * 1024 ≤ 2 ^ 19 := by
+            have : chainCount (Fin.ofNat 4 n) ≤ 51 := by
+              generalize (Fin.ofNat 4 n : Layer) = l; fin_cases l <;> decide
+            omega
+          refine ((bound_recoverLayerPairW_coarse _ _ _ _).mono_k hc).bind' (l := recoverWorst n)
+            (fun r _ => ?_) (by omega)
+          rcases r with ⟨pair, ns⟩
+          refine (ih _).bind' (l := 0) (fun previous _ => ?_) (by omega)
+          cases previous <;> exact .pure _ 0 trivial
+
+theorem recoverWorst_four : recoverWorst 4 = 10485760 := by decide
+
+/-- U16b: an absolute compression bound on every expansion (all searches capped). -/
+def expandWorstCost : Nat := 2 ^ 24
+
+theorem bound_expandFill (message : Message) (pk : Digest) (sig : Signature) :
+    CBound (fun _ => True) expandWorstCost (expandFill message pk sig) := by
+  unfold expandFill
+  split
+  · exact .pure _ _ trivial
+  · refine (bound_sharedDigestSearch _ _ _ _).bind' (l := 284 + recoverWorst 4 + searchFuel)
+      (fun found _ => ?_) (by rw [recoverWorst_four]; unfold expandWorstCost searchFuel digestAttemptLimit; omega)
+    rcases found with _ | ⟨counter, output⟩
+    · exact .pure _ _ trivial
+    · dsimp only
+      refine (bound_recoverForest _ _ _ _).bind' (l := recoverWorst 4 + searchFuel) (fun forest _ => ?_) (by omega)
+      refine (bound_recoverHintedLayers _ _ _ 4 _).bind' (l := searchFuel) (fun layers _ => ?_) (by omega)
+      rcases layers with _ | layers
+      · exact .pure _ _ trivial
+      · dsimp only
+        split
+        · exact .pure _ _ trivial
+        · split
+          · exact .pure _ _ trivial
+          · refine (ClaudeWCT.WCT9.Cost.bound_searchTop _ _ _ _ _ _).bind' (l := 0) (fun c _ => ?_) (by omega)
+            cases c <;> exact .pure _ 0 trivial
+
+theorem bound_expand_shared (message : Message) (pk : Digest) (sig : Signature) :
+    CBound (fun _ => True) expandWorstCost (expand message pk sig) :=
+  bound_expandFill message pk (normTop sig)
+
+theorem bound_expandN (message : Message) (pk : Digest) (sig : Signature) :
+    CBound (fun _ => True) expandWorstCost (ClaudeWCT.W9.T3M.Paired.expandN message pk sig) := by
+  unfold ClaudeWCT.W9.T3M.Paired.expandN
+  split
+  · exact .pure _ _ trivial
+  · refine (bound_sharedDigestSearch _ _ _ _).bind' (l := 284 + recoverWorst 4 + searchFuel)
+      (fun found _ => ?_) (by rw [recoverWorst_four]; unfold expandWorstCost searchFuel digestAttemptLimit; omega)
+    rcases found with _ | ⟨counter, output⟩
+    · exact .pure _ _ trivial
+    · dsimp only
+      refine (bound_recoverForest _ _ _ _).bind' (l := recoverWorst 4 + searchFuel) (fun forest _ => ?_) (by omega)
+      refine (bound_recoverHintedLayers _ _ _ 4 _).bind' (l := searchFuel) (fun layers _ => ?_) (by omega)
+      rcases layers with _ | layers
+      · exact .pure _ _ trivial
+      · dsimp only
+        split
+        · exact .pure _ _ trivial
+        · split
+          · exact .pure _ _ trivial
+          · refine (ClaudeWCT.WCT9.Cost.bound_searchTop _ _ _ _ _ _).bind' (l := 0) (fun c _ => ?_) (by omega)
+            cases c <;> exact .pure _ 0 trivial
+
+theorem expandN_count_le (answers : Answers) (message : Message) (pk : Digest) (sig : Signature) :
+    (evalWithAnswerFn answers (SigGolfCandidate.T3.Cost.countBlocks
+      (ClaudeWCT.W9.T3M.Paired.expandN message pk sig))).2 ≤ expandWorstCost :=
+  cost_bound answers (bound_expandN message pk sig)
+
+theorem expand_cost_le_worst (answers : Answers) (message : Message) (pk : Digest) (sig : Signature) :
+    cost answers (expand message pk sig) ≤ expandWorstCost :=
+  cost_bound answers (bound_expand_shared message pk sig)
+
+
 /-- Expand's pointwise excess over the signer (img-v6): replay 1,616 + 284 = 1,900 plus the worst-case re-derivation of the
-11 ancestor top-node nonces `Σ_h (104·2^h − 1) = 425,765`. -/
-def expandReplayExtra : Nat := 1900 + 425765
+11 ancestor top-node nonces `Σ_h (104·2^h − 1) = 425,765`; U16b: plus the worst case of the 9 ground path folds
+`Σ (cap − 1) = 1789 + 2·1277 = 4343` (replay 5,959 + 284 = 6,243). -/
+def expandReplayExtra : Nat := 6243 + 425765
 
 theorem expand_cost_le_payload_add (answers : Answers) (cache : SigGolfCandidate.T3.Cache)
-    (hcache : cache.region = cacheRegion (maskedTop answers)) (message : Message) (sig : Signature)
+    (hcache : cache.region = cacheRegion (maskedTop answers)) (hlower : LowerTreesOK answers) (message : Message)
+    (sig : Signature)
     (he : evalWithAnswerFn answers (signPayload cache message) = some sig) (pk : Digest) :
     cost answers (expand message pk sig) ≤ cost answers (signPayload cache message) + expandReplayExtra + searchFuel := by
   unfold expandReplayExtra
@@ -12339,7 +12751,7 @@ theorem expand_cost_le_payload_add (answers : Answers) (cache : SigGolfCandidate
       dsimp only [rho] at hs
       simp only [hs, evalWithAnswerFn_pure, reduceCtorEq] at he
     | some original =>
-      have hr := signFromOutput_recovery_cost_le_norm answers cache hcache rho counter output original hs
+      have hr := signFromOutput_recovery_cost_le_norm answers cache hcache hlower rho counter output original hs
       have hh := signFromOutput_recovery answers cache hcache rho counter output original hs
       dsimp only [rho] at hs
       simp only [hs, evalWithAnswerFn_pure, Option.some.injEq] at he
@@ -12394,7 +12806,7 @@ theorem sign_cost_honest (answers : Answers) (message : Message) :
 /-- img-v6: the pointwise route `expand ≤ 8·sign` is FALSE (PORT v6 §E). What holds pointwise is
 `expand ≤ sign + expandReplayExtra + searchFuel` (replay 1,900 + worst ancestor nonce re-derivation 425,765, brute force);
 the expand moment is closed by Hölder (`ClaudeWCT.Arith.ExpectHolder.expand_moment_of_holder`). -/
-theorem expand_cost_le_sign_add (answers : Answers) (message : Message) (sig : Signature)
+theorem expand_cost_le_sign_add (answers : Answers) (hlower : LowerTreesOK answers) (message : Message) (sig : Signature)
     (hs : evalWithAnswerFn answers (sign (evalWithAnswerFn answers SigGolfCandidate.T3.keygen).2 message) = some sig) :
     cost answers (expand message (evalWithAnswerFn answers SigGolfCandidate.T3.keygen).1 sig) ≤
       cost answers (sign (evalWithAnswerFn answers SigGolfCandidate.T3.keygen).2 message) +
@@ -12405,7 +12817,7 @@ theorem expand_cost_le_sign_add (answers : Answers) (message : Message) (sig : S
     simpa only [sign, evalWithAnswerFn_bind, ← hvalid, ne_eq, not_true_eq_false, ite_false] using hs
   have hk := SigGolfCandidate.T3.Correctness.keygen_correct answers
   have h := expand_cost_le_payload_add answers (evalWithAnswerFn answers SigGolfCandidate.T3.keygen).2 hk.2.1
-    message sig hs' (evalWithAnswerFn answers SigGolfCandidate.T3.keygen).1
+    hlower message sig hs' (evalWithAnswerFn answers SigGolfCandidate.T3.keygen).1
   have hmin := signPayload_cost_ge answers (evalWithAnswerFn answers SigGolfCandidate.T3.keygen).2 message sig hs'
   rw [sign_cost_honest]
   omega
@@ -13408,7 +13820,7 @@ theorem topField_sib_le (answers : Answers) (index : Nat) :
 theorem expand_cost_le_payload_field (answers : Answers) (cache : SigGolfCandidate.T3.Cache)
     (hreg : cache.region = cacheRegion (maskedTop answers)) (message : Message) (sig : Signature)
     (hs' : evalWithAnswerFn answers (signPayload cache message) = some sig) (pk : Digest)
-    (hpk : pk = treeValue (builtTree answers 0 0) 12 0) (htree : TopTreeOK answers) :
+    (hpk : pk = treeValue (builtTree answers 0 0) 12 0) (htree : TopTreeOK answers) (hlower : LowerTreesOK answers) :
     cost answers (expand message pk sig) ≤ cost answers (signPayload cache message) + expandReplayExtra +
         max (topField (treeValue (builtTree answers 0 0) 11 0)) (topField (treeValue (builtTree answers 0 0) 11 1)) := by
   unfold signPayload at hs'
@@ -13431,6 +13843,7 @@ theorem expand_cost_le_payload_field (answers : Answers) (cache : SigGolfCandida
       have hh := signFromOutput_recovery answers cache hreg rho counter output original hso
       have hsib := signFromOutput_topSib answers cache hreg rho counter output original hso
       have htop := signFromOutput_topPathOK answers cache hreg htree rho counter output original hso
+      have hlow := signFromOutput_lowerPathOK answers cache hreg hlower rho counter output original hso
       dsimp only [rho] at hso
       simp only [hso, evalWithAnswerFn_pure, Option.some.injEq] at hs'
       subst sig
@@ -13440,7 +13853,7 @@ theorem expand_cost_le_payload_field (answers : Answers) (cache : SigGolfCandida
         simp only [policyHintsValid, decide_eq_true_eq] at hv
         have := hv.1
         omega
-      rw [expand_eq_expandFill message pk original.signature hhb htop]
+      rw [expand_eq_expandFill message pk original.signature hhb htop hlow]
       have hd' : evalWithAnswerFn answers (sharedDigestSearch original.signature.rho message 0 digestAttemptLimit) =
           some (counter, output) := by rw [hrho]; exact hd
       have hx := expand_cost_le_recovery_field answers message pk original.signature counter output result hd'
@@ -13459,9 +13872,11 @@ theorem expand_cost_le_payload_field (answers : Answers) (cache : SigGolfCandida
 the whole search otherwise (cap exhaustion, probability ≤ 2^-143). -/
 noncomputable def excessField (answers : Answers) : Nat :=
   open Classical in
-  if TopTreeOK answers then
-    max (topField (treeValue (builtTree answers 0 0) 11 0)) (topField (treeValue (builtTree answers 0 0) 11 1))
-  else searchFuel
+  if LowerTreesOK answers then
+    (if TopTreeOK answers then
+      max (topField (treeValue (builtTree answers 0 0) 11 0)) (topField (treeValue (builtTree answers 0 0) 11 1))
+    else searchFuel)
+  else expandWorstCost
 
 /-- **img-v6 pointwise expand excess** (replaces `expand ≤ 8·sign`). -/
 theorem expand_cost_le_sign_field (answers : Answers) (message : Message) (sig : Signature)
@@ -13470,10 +13885,16 @@ theorem expand_cost_le_sign_field (answers : Answers) (message : Message) (sig :
       cost answers (sign (evalWithAnswerFn answers SigGolfCandidate.T3.keygen).2 message) + expandReplayExtra +
         excessField answers := by
   unfold excessField
+  by_cases hlower : LowerTreesOK answers
+  swap
+  · simp only [hlower, if_false]
+    have := expand_cost_le_worst answers message (evalWithAnswerFn answers SigGolfCandidate.T3.keygen).1 sig
+    omega
+  simp only [hlower, if_true]
   by_cases htree : TopTreeOK answers
   swap
   · simp only [htree, if_false]
-    exact expand_cost_le_sign_add answers message sig hs
+    exact expand_cost_le_sign_add answers hlower message sig hs
   simp only [htree, if_true]
   have hvalid := keygen_cache_tag answers
   have hk := SigGolfCandidate.T3.Correctness.keygen_correct answers
@@ -13481,7 +13902,7 @@ theorem expand_cost_le_sign_field (answers : Answers) (message : Message) (sig :
       some sig := by
     simp only [CacheTagCorrect] at hvalid
     simpa only [sign, evalWithAnswerFn_bind, ← hvalid, ne_eq, not_true_eq_false, ite_false] using hs
-  have h := expand_cost_le_payload_field answers _ hk.2.1 message sig hs' _ hk.1 htree
+  have h := expand_cost_le_payload_field answers _ hk.2.1 message sig hs' _ hk.1 htree hlower
   rw [sign_cost_honest]
   omega
 
@@ -13768,7 +14189,7 @@ open Finset
 
 /-! Campaign T51: the brute-forced sibling field has 16 bits (`TopMoment.avgF` over `2^16`), so the expand excess
 numeric is a monotone bound: every field value is at most `2^16 - 1`, and
-`2^((8/7)(427665 + 65535)/2^20) ≤ 1.9` (kernel power check). -/
+`2^((8/7)(432008 + 65535)/2^20) ≤ 1.9` (kernel power check). -/
 theorem avgF_le_of (φ : Nat → ENNReal) (B : ENNReal) (h : ∀ c, c < 2 ^ 16 → φ c ≤ B) : avgF φ ≤ B := by
   unfold avgF
   calc ∑ c ∈ range (2 ^ 16), ((2 : ENNReal) ^ 16)⁻¹ * φ c ≤ ∑ _c ∈ range (2 ^ 16), ((2 : ENNReal) ^ 16)⁻¹ * B :=
@@ -13778,30 +14199,35 @@ theorem avgF_le_of (φ : Nat → ENNReal) (B : ENNReal) (h : ∀ c, c < 2 ^ 16 �
           ENNReal.mul_inv_cancel (by simp) (by simp), one_mul]
 
 theorem expand_field_power_checked :
-    ClaudeWCT.Numerics.CanonicalCompression.powerUp ClaudeWCT.Numerics.V6Budgets.expandWFix (427665 + 65535) * 10 ≤
+    ClaudeWCT.Numerics.CanonicalCompression.powerUp ClaudeWCT.Numerics.V6Budgets.expandWFix (432008 + 65535) * 10 ≤
       19 * ClaudeWCT.Numerics.CanonicalCompression.scale := by
   decide +kernel
 
 theorem excessWeight_field_max : excessWeight 65535 ≤ ENNReal.ofReal (19 / 10) := by
-  have he : excessWeight 65535 = ClaudeWCT.Numerics.V6Budgets.excessWeightV6 65535 := by
-    unfold excessWeight ClaudeWCT.Numerics.V6Budgets.excessWeightV6 SigGolfCandidate.Research.SharedForest.expandReplayExtra
-    norm_num
-  rw [he, ClaudeWCT.Numerics.V6Budgets.excessWeightV6_eq]
+  have he : excessWeight 65535 = ENNReal.ofReal (((2:ℝ)^(1/((917504:ℕ):ℝ)))^(432008 + 65535)) := by
+    unfold excessWeight SigGolfCandidate.Research.SharedForest.expandReplayExtra
+    rw [show (2:ENNReal) = ENNReal.ofReal 2 by norm_num, ENNReal.ofReal_rpow_of_pos (by norm_num)]
+    congr 1
+    rw [← Real.rpow_natCast, ← Real.rpow_mul (by norm_num)]
+    congr 1
+    push_cast
+    ring
+  rw [he]
   apply ENNReal.ofReal_le_ofReal
   have hw := ClaudeWCT.Numerics.V6Budgets.expand_w_le.trans ClaudeWCT.Numerics.V6Budgets.expandW_fix
   have hw0 : (0 : ℝ) ≤ (2:ℝ)^(1/((917504:ℕ):ℝ)) := by positivity
   have hp := ClaudeWCT.Numerics.CanonicalCompression.powerUp_ratio_ge ClaudeWCT.Numerics.V6Budgets.expandWFix
-    (427665 + 65535)
+    (432008 + 65535)
   have hc := expand_field_power_checked
   have hs0 : (0 : ℝ) < ClaudeWCT.Numerics.CanonicalCompression.scale := by
     norm_num [ClaudeWCT.Numerics.CanonicalCompression.scale]
   have hc' : (ClaudeWCT.Numerics.CanonicalCompression.powerUp ClaudeWCT.Numerics.V6Budgets.expandWFix
-      (427665 + 65535) : ℝ) * 10 ≤ 19 * (ClaudeWCT.Numerics.CanonicalCompression.scale : ℝ) := by exact_mod_cast hc
-  calc ((2:ℝ)^(1/((917504:ℕ):ℝ)))^(427665 + 65535)
+      (432008 + 65535) : ℝ) * 10 ≤ 19 * (ClaudeWCT.Numerics.CanonicalCompression.scale : ℝ) := by exact_mod_cast hc
+  calc ((2:ℝ)^(1/((917504:ℕ):ℝ)))^(432008 + 65535)
       ≤ ((ClaudeWCT.Numerics.V6Budgets.expandWFix : ℝ) / ClaudeWCT.Numerics.CanonicalCompression.scale) ^
-          (427665 + 65535) := pow_le_pow_left₀ hw0 hw _
+          (432008 + 65535) := pow_le_pow_left₀ hw0 hw _
     _ ≤ (ClaudeWCT.Numerics.CanonicalCompression.powerUp ClaudeWCT.Numerics.V6Budgets.expandWFix
-          (427665 + 65535) : ℝ) / ClaudeWCT.Numerics.CanonicalCompression.scale := hp
+          (432008 + 65535) : ℝ) / ClaudeWCT.Numerics.CanonicalCompression.scale := hp
     _ ≤ 19 / 10 := by
         rw [div_le_iff₀ hs0]; linarith
 

@@ -1693,6 +1693,28 @@ def witListN (output : HashOutput) (witness : SigGolfCandidate.Research.SharedFo
 def witEncN (output : HashOutput) (witness : SigGolfCandidate.Research.SharedForest.Witness) : WBytes :=
   BitVec.ofNat _ (readLE (witListN output witness))
 
+/-! ### U16b ground layer: the lower fold nonces
+The nonce of lower fold `j` of layer `lay ≠ 0` (the fold whose parent has heap `2^(height lay - j - 1) + leaf / 2^(j+1)`)
+is stored like a top nonce in its window's Z pad: witness bytes `[merkleBlock lay leaf j + 32, +8)` (read by the
+verifier as `wmerklePad w lay leaf j`). Only the ground folds `j = height lay - 4 .. height lay - 2` (parent heaps
+`8..15`, `4..7`, `2..3`) carry one; the expander's positional post-pass writes exactly these 9 words (pad table
+`padTab_layout`). `witListG` / `witEncG` = `witListN` / `witEncN` with these words written. -/
+/-- The 9 ground folds `(lay, j)`. -/
+def groundFolds : List (Layer × Nat) :=
+  [(1, 3), (1, 4), (1, 5), (2, 2), (2, 3), (2, 4), (3, 2), (3, 3), (3, 4)]
+/-- Witness offset of the nonce of lower fold `j` of layer `lay`. -/
+def lowerNoncePos (output : HashOutput) (lay : Layer) (j : Nat) : Nat :=
+  merkleBlock lay (route (WCT9.digestIndex output) lay).1 j + 32
+/-- Byte `i` with the ground fold nonces written (`b` = the byte before). -/
+def lowerNonceByte (output : HashOutput) (nonces : Layer → List Nat) (i : Nat) (b : UInt8) : UInt8 :=
+  match groundFolds.find? (fun e => decide (lowerNoncePos output e.1 e.2 ≤ i ∧ i < lowerNoncePos output e.1 e.2 + 8)) with
+  | some e => (nonceWord (nonces e.1) e.2).getD (i - lowerNoncePos output e.1 e.2) 0
+  | none => b
+def witListG (output : HashOutput) (witness : SigGolfCandidate.Research.SharedForest.Witness) : List UInt8 :=
+  (witListN output witness).mapIdx fun i b => lowerNonceByte output witness.lowerNonces i b
+def witEncG (output : HashOutput) (witness : SigGolfCandidate.Research.SharedForest.Witness) : WBytes :=
+  BitVec.ofNat _ (readLE (witListG output witness))
+
 @[simp] theorem forestBytes_length (output : HashOutput)
     (witness : SigGolfCandidate.Research.SharedForest.Witness) : (forestBytes output witness).length = 7664 := by
   simp [forestBytes]
@@ -1710,14 +1732,16 @@ def expandN (message : Message) (pk : Digest) (sig : SigGolfCandidate.Research.S
     4 (.pair forest.1 forest.2) | pure none
   if !policyHintsValid sig0.policyHints layers.digits layers.lows then return none
   if layers.root = pk then
-    return some (output, ⟨sig0, counter, fun lay => layers.counters.getD lay.val 0, !(layers.lows.getD 0 true), layers.nonces⟩)
+    return some (output, ⟨sig0, counter, fun lay => layers.counters.getD lay.val 0, !(layers.lows.getD 0 true), layers.nonces,
+      fun lay => layers.lowerNonces.getD lay.val []⟩)
   let some c ← WCT9.searchTop index layers.foldedTop ((sig0.layers 0).path WCT9.topJ) pk WCT9.searchFuel 1 | pure none
   pure (some (output, ⟨fillTopSignature sig0 c, counter, fun lay => layers.counters.getD lay.val 0,
-    !(layers.lows.getD 0 true), layers.nonces⟩))
+    !(layers.lows.getD 0 true), layers.nonces, fun lay => layers.lowerNonces.getD lay.val []⟩))
 
-/-- img-v6: the expand output carries the top node nonces (`witEncN`; r3h HonestN). -/
+/-- img-v6: the expand output carries the top node nonces (`witEncN`; r3h HonestN); U16b: and the 9 ground fold nonces
+(`witEncG`). -/
 def expandB (message : Message) (pk : Digest) (sig : SigGolfCandidate.Research.SharedForest.Signature) :
-    M (Option WBytes) := (Option.map fun p => witEncN p.1 p.2) <$> expandN message pk sig
+    M (Option WBytes) := (Option.map fun p => witEncG p.1 p.2) <$> expandN message pk sig
 
 /-- Invalid ranks stop at their coordinate after the preceding coordinates' queries. -/
 def ftsStep (w : WBytes) (output : HashOutput) (state : Option (List (Digest × Digest)))
@@ -2211,9 +2235,9 @@ theorem encodingHash_layerEncodingInputP_zero (lay : Layer) (tree leaf : Nat) (m
   | pair left right => rfl
 theorem recoverLayerPairP_zero (sig : WCT9.Signature) (index : Nat) (lay : Layer) (digits : List Nat)
     (hindex : index < 2 ^ 31) (hlay : lay ≠ 0) :
-    recoverLayerPairP sig 0 index lay digits = WCT9.recoverLayerPair sig index lay digits := by
+    recoverLayerPairP sig 0 index lay digits = WCT9.recoverLayerPair0 sig index lay digits := by
   have hv : lay.val ≠ 0 := fun e => hlay (Fin.ext e)
-  simp only [recoverLayerPairP, WCT9.recoverLayerPair, Pads.zero_chain', Pads.zero_chainHeader, valueP_zero,
+  simp only [recoverLayerPairP, WCT9.recoverLayerPair0, Pads.zero_chain', Pads.zero_chainHeader, valueP_zero,
     chainPW_zero_route _ _ _ _ _ hindex, Pads.zero_merkle', Pads.zero_merkleHigh, Pads.zero_topLeaf,
     Pads.zero_leafHigh, leafHashW_zero, ← WCT9.lowerNodeHash_eqP hv]
 private theorem mapM_congr_guard {α β : Type} {f g : α → M β} :
@@ -2228,6 +2252,72 @@ theorem recoverLayerPairGuardP_zero (sig : WCT9.Signature) (index : Nat) (lay : 
       WCT9.recoverLayerPairGuard sig index lay answer digits := by
   simp only [recoverLayerPairGuardP, WCT9.recoverLayerPairGuard, Pads.zero_chain', Pads.zero_chainHeader, valueP_zero,
     recoverLayerPairP_zero _ _ _ _ hindex hlay]
+  unfold WCT9.lowerGuardedRun
+  split_ifs
+  · rfl
+  · apply congrArg (fun p : M (List Digest) => p >>= fun _ => pure none)
+    apply mapM_congr_guard
+    intro i hi
+    have hi' : i < chainCount lay := by
+      have hb := WCT9.lowerFirstBad_le answer
+      have := List.mem_range.mp hi
+      have hc : 43 ≤ chainCount lay := by fin_cases lay <;> decide
+      omega
+    exact chainPW_zero_route index lay ⟨i, hi'⟩ _ _ hindex
+/-- U16b: a fold with the nonce `n` in its Z pad (high pad 0) is the ground node hash `lowerNodeHashN`. -/
+theorem lowerNodeHashP_ofNat (lay tree heap n : Nat) (left right : Digest) :
+    WCT9.lowerNodeHashP lay tree heap left 0 (BitVec.ofNat 128 (n % 2 ^ 64)) right =
+      WCT9.lowerNodeHashN lay tree heap n left right := by
+  unfold WCT9.lowerNodeHashP WCT9.lowerNodeHashN WCT9.lowerNodeInputP WCT9.lowerNodeInputN
+  rw [WCT9.merkleTweak_eq_word]
+  rfl
+/-- U16b: the padded lower recovery whose pads are zero on layer `lay` except the fold Z pads, which carry the
+nonces `lowerFoldNonce lay nonces j`, is the nonce-reading `recoverLayerPairV`. -/
+theorem recoverLayerPairP_nonce (sig : WCT9.Signature) (pads : Pads) (nonces : List Nat) (index : Nat) (lay : Layer)
+    (digits : List Nat) (hindex : index < 2 ^ 31)
+    (hc : ∀ i, pads.chain lay i = (0, 0)) (hch : ∀ i, pads.chainHeader lay i = 0)
+    (hem : ∀ i, pads.endpointMask lay i = 0) (ht : pads.topLeaf = 0) (hlh : pads.leafHigh lay = 0)
+    (hmh : ∀ j, pads.merkleHigh lay j = 0)
+    (hm : ∀ j : Fin (height lay), j.val + 1 < height lay →
+      pads.merkle lay j = BitVec.ofNat 128 (WCT9.lowerFoldNonce lay nonces j.val % 2 ^ 64)) :
+    recoverLayerPairP sig pads index lay digits = WCT9.recoverLayerPairV sig nonces index lay digits := by
+  have hv : ∀ i, valueP sig pads lay digits i = (sig.layers lay).values i := by
+    intro i
+    unfold valueP
+    split
+    · rw [hem i]; exact BitVec.xor_zero
+    · rfl
+  have hm' : ∀ j : Fin (height lay - 1), pads.merkle lay (Fin.castLE (Nat.sub_le _ _) j) =
+      BitVec.ofNat 128 (WCT9.lowerFoldNonce lay nonces j.val % 2 ^ 64) := by
+    intro j
+    exact hm _ (by simp only [Fin.val_castLE]; omega)
+  simp only [recoverLayerPairP, WCT9.recoverLayerPairV, hc, hch, hv, chainPW_zero_route _ _ _ _ _ hindex, ht, hlh,
+    leafHashW_zero, hmh, hm', lowerNodeHashP_ofNat]
+/-- U16b (lane spec request): the guarded padded lower layer with zero pads except the fold Z pads of layer `lay`,
+which carry the witness fold nonces, is the verifier spec's `recoverLayerPairGuardV` (the fold reads `merkle` only at
+`j < height lay - 1`). -/
+theorem recoverLayerPairGuardP_nonce (sig : WCT9.Signature) (pads : Pads) (nonces : List Nat) (index : Nat)
+    (lay : Layer) (answer : Digest) (digits : List Nat) (hindex : index < 2 ^ 31) (hlay : lay ≠ 0)
+    (hrest : { pads with merkle := (0 : Pads).merkle } = 0)
+    (hm : ∀ j : Fin (height lay), j.val + 1 < height lay →
+      pads.merkle lay j = BitVec.ofNat 128 (WCT9.lowerFoldNonce lay nonces j.val % 2 ^ 64)) :
+    recoverLayerPairGuardP sig pads index lay answer digits =
+      WCT9.recoverLayerPairGuardV sig nonces index lay answer digits := by
+  have _ := hlay
+  have hc : ∀ i, pads.chain lay i = (0, 0) := fun i => congrArg (fun p : Pads => p.chain lay i) hrest
+  have hch : ∀ i, pads.chainHeader lay i = 0 := fun i => congrArg (fun p : Pads => p.chainHeader lay i) hrest
+  have hem : ∀ i, pads.endpointMask lay i = 0 := fun i => congrArg (fun p : Pads => p.endpointMask lay i) hrest
+  have ht : pads.topLeaf = 0 := congrArg (fun p : Pads => p.topLeaf) hrest
+  have hlh : pads.leafHigh lay = 0 := congrArg (fun p : Pads => p.leafHigh lay) hrest
+  have hmh : ∀ j, pads.merkleHigh lay j = 0 := fun j => congrArg (fun p : Pads => p.merkleHigh lay j) hrest
+  have hv : ∀ i, valueP sig pads lay digits i = (sig.layers lay).values i := by
+    intro i
+    unfold valueP
+    split
+    · rw [hem i]; exact BitVec.xor_zero
+    · rfl
+  simp only [recoverLayerPairGuardP, WCT9.recoverLayerPairGuardV, hc, hch, hv,
+    recoverLayerPairP_nonce sig pads nonces index lay digits hindex hc hch hem ht hlh hmh hm]
   unfold WCT9.lowerGuardedRun
   split_ifs
   · rfl
@@ -5360,6 +5450,414 @@ theorem witEncN_nil (output : HashOutput) (w : SigGolfCandidate.Research.SharedF
         by_contra hc
         exact hw ⟨j, hj, by omega, by omega⟩)]
     · rw [BitVec.getLsbD_of_ge _ _ (by omega), BitVec.getLsbD_of_ge _ _ (by omega)]
+
+/-! ### U16b ground layer: read-back of the lower fold nonces (`Paired.witEncG`)
+The nonce of ground fold `(lay, j)` (`groundFolds`: `lay ≠ 0`, `height lay ≤ j + 4`, `j + 1 < height lay`) sits in the
+low 8 bytes of the Z pad of its window (`lowerNoncePos`); the high 8 bytes stay 0. The ground windows lie in the path
+slot areas `[layerBase lay + 32, layerBase lay + 16 * pathSlots lay)` of the lower layers, and in one leaf's plan the
+Z pad slot of a ground fold is no other slot of any window (`lowerPlanL1_free`, `lowerPlanL32_free`), so `witEncG`
+agrees with `witEncN` on every other read. -/
+
+/-- Ground folds: lower layer, one of the three levels below the root (parent heaps `2..15`). -/
+def IsGround (lay : Layer) (j : Nat) : Prop := lay.val ≠ 0 ∧ height lay ≤ j + 4 ∧ j + 1 < height lay
+
+instance (lay : Layer) (j : Nat) : Decidable (IsGround lay j) := by unfold IsGround; infer_instance
+
+theorem mem_groundFolds (e : Layer × Nat) : e ∈ groundFolds ↔ IsGround e.1 e.2 := by
+  rcases e with ⟨lay, j⟩
+  unfold IsGround groundFolds
+  fin_cases lay <;> simp [height] <;> omega
+
+theorem lowerPlanL1_free0 : ∀ r, r < 128 → ∀ j, j < 7 → ∀ k, k < 3 →
+    (lowerPlanL1.getD r []).getD j 0 ≠ (lowerPlanL1.getD r []).getD (k + 3) 0 + 2 := by decide +kernel
+theorem lowerPlanL1_free1 : ∀ r, r < 128 → ∀ j, j < 7 → ∀ k, k < 3 →
+    (lowerPlanL1.getD r []).getD j 0 + 1 ≠ (lowerPlanL1.getD r []).getD (k + 3) 0 + 2 := by decide +kernel
+theorem lowerPlanL1_free3 : ∀ r, r < 128 → ∀ j, j < 7 → ∀ k, k < 3 →
+    (lowerPlanL1.getD r []).getD j 0 + 3 ≠ (lowerPlanL1.getD r []).getD (k + 3) 0 + 2 := by decide +kernel
+theorem lowerPlanL1_inj : ∀ r, r < 128 → ∀ j, j < 7 → ∀ k, k < 3 →
+    (lowerPlanL1.getD r []).getD j 0 = (lowerPlanL1.getD r []).getD (k + 3) 0 → j = k + 3 := by decide +kernel
+theorem lowerPlanL32_free0 : ∀ r, r < 64 → ∀ j, j < 6 → ∀ k, k < 3 →
+    (lowerPlanL32.getD r []).getD j 0 ≠ (lowerPlanL32.getD r []).getD (k + 2) 0 + 2 := by decide +kernel
+theorem lowerPlanL32_free1 : ∀ r, r < 64 → ∀ j, j < 6 → ∀ k, k < 3 →
+    (lowerPlanL32.getD r []).getD j 0 + 1 ≠ (lowerPlanL32.getD r []).getD (k + 2) 0 + 2 := by decide +kernel
+theorem lowerPlanL32_free3 : ∀ r, r < 64 → ∀ j, j < 6 → ∀ k, k < 3 →
+    (lowerPlanL32.getD r []).getD j 0 + 3 ≠ (lowerPlanL32.getD r []).getD (k + 2) 0 + 2 := by decide +kernel
+theorem lowerPlanL32_inj : ∀ r, r < 64 → ∀ j, j < 6 → ∀ k, k < 3 →
+    (lowerPlanL32.getD r []).getD j 0 = (lowerPlanL32.getD r []).getD (k + 2) 0 → j = k + 2 := by decide +kernel
+theorem lowerPlanL32_le16 : ∀ r ∈ lowerPlanL32, ∀ x ∈ r, x ≤ 16 := by decide +kernel
+
+/-- Slot `s` (`< 4`) of the level-`j` window of a lower leaf meets the Z pad of ground fold `j'` only if it is it. -/
+theorem lower_slot_free (lay : Layer) (hl : lay ≠ 0) (leaf j j' s : Nat) (hj : j < height lay) (hg : IsGround lay j')
+    (hs : s < 4) (h : (lowerPlan lay leaf).getD j 0 + s = (lowerPlan lay leaf).getD j' 0 + 2) : j = j' ∧ s = 2 := by
+  obtain ⟨-, hg1, hg2⟩ := hg
+  have hv : lay.val = 1 ∨ lay.val = 2 ∨ lay.val = 3 := by
+    have := lay.isLt
+    have : lay.val ≠ 0 := fun h => hl (Fin.ext h)
+    omega
+  unfold lowerPlan at h
+  rcases hv with h1 | h1 | h1
+  · have hH : height lay = 7 := by rw [show lay = 1 from Fin.ext h1]; rfl
+    rw [if_pos h1] at h
+    rw [hH] at hj hg1 hg2
+    have hr : leaf % 128 < 128 := Nat.mod_lt _ (by decide)
+    obtain ⟨k, rfl⟩ : ∃ k, j' = k + 3 := ⟨j' - 3, by omega⟩
+    have h0 := lowerPlanL1_free0 _ hr j hj k (by omega)
+    have h1' := lowerPlanL1_free1 _ hr j hj k (by omega)
+    have h3 := lowerPlanL1_free3 _ hr j hj k (by omega)
+    have hs2 : s = 2 := by omega
+    subst hs2
+    exact ⟨lowerPlanL1_inj _ hr j hj k (by omega) (by omega), rfl⟩
+  all_goals
+    have hH : height lay = 6 := by
+      first
+      | rw [show lay = 2 from Fin.ext h1]; rfl
+      | rw [show lay = 3 from Fin.ext h1]; rfl
+    rw [if_neg (show lay.val ≠ 1 by omega)] at h
+    rw [hH] at hj hg1 hg2
+    have hr : leaf % 64 < 64 := Nat.mod_lt _ (by decide)
+    obtain ⟨k, rfl⟩ : ∃ k, j' = k + 2 := ⟨j' - 2, by omega⟩
+    have h0 := lowerPlanL32_free0 _ hr j hj k (by omega)
+    have h1' := lowerPlanL32_free1 _ hr j hj k (by omega)
+    have h3 := lowerPlanL32_free3 _ hr j hj k (by omega)
+    have hs2 : s = 2 := by omega
+    subst hs2
+    exact ⟨lowerPlanL32_inj _ hr j hj k (by omega) (by omega), rfl⟩
+
+theorem lowerPlan_le_lay (lay : Layer) (leaf j : Nat) :
+    16 * (lowerPlan lay leaf).getD j 0 + 64 ≤ 16 * pathSlots lay := by
+  unfold lowerPlan
+  split
+  · rename_i h1
+    have := getD_getD_le _ _ lowerPlanL1_le (leaf % 128) j
+    have hp : pathSlots lay = 25 := by
+      have : lay = 1 := Fin.ext h1
+      subst this; rfl
+    omega
+  · rename_i h1
+    have := getD_getD_le _ _ lowerPlanL32_le16 (leaf % 64) j
+    have hp : 20 ≤ pathSlots lay := by fin_cases lay <;> simp [pathSlots] at h1 ⊢
+    omega
+
+theorem merkleBlock_lower (lay : Layer) (hl : lay ≠ 0) (leaf j : Nat) :
+    merkleBlock lay leaf j = layerBase lay + 16 * (lowerPlan lay leaf).getD j 0 := by
+  unfold merkleBlock
+  rw [if_neg (show lay.val ≠ 0 from fun h => hl (Fin.ext h))]
+
+theorem lowerNoncePos_eq (output : HashOutput) (lay : Layer) (hl : lay ≠ 0) (j : Nat) :
+    lowerNoncePos output lay j =
+      layerBase lay + 16 * (lowerPlan lay (route (WCT9.digestIndex output) lay).1).getD j 0 + 32 := by
+  unfold lowerNoncePos
+  rw [merkleBlock_lower lay hl]
+
+/-- Every lower-layer window lies in its layer's path slot area. -/
+theorem merkleBlock_lower_area (lay : Layer) (hl : lay ≠ 0) (leaf j : Nat) :
+    layerBase lay ≤ merkleBlock lay leaf j ∧ merkleBlock lay leaf j + 64 ≤ layerBase lay + 16 * pathSlots lay := by
+  rw [merkleBlock_lower lay hl]
+  have := lowerPlan_le_lay lay leaf j
+  omega
+
+theorem lowerNoncePos_area (output : HashOutput) (e : Layer × Nat) (he : e ∈ groundFolds) :
+    e.1 ≠ 0 ∧ layerBase e.1 + 32 ≤ lowerNoncePos output e.1 e.2 ∧
+      lowerNoncePos output e.1 e.2 + 16 ≤ layerBase e.1 + 16 * pathSlots e.1 := by
+  have hg := (mem_groundFolds e).mp he
+  have hl : e.1 ≠ 0 := fun h => hg.1 (by rw [h]; rfl)
+  have := merkleBlock_lower_area e.1 hl (route (WCT9.digestIndex output) e.1).1 e.2
+  unfold lowerNoncePos
+  exact ⟨hl, by omega, by omega⟩
+
+/-- The path slot areas of distinct lower layers are disjoint (and lie above the top nonce area and `choiceOff`). -/
+theorem lower_area_disjoint (lay lay' : Layer) (hl : lay ≠ 0) (hl' : lay' ≠ 0) (hne : lay ≠ lay') :
+    layerBase lay + 16 * pathSlots lay ≤ layerBase lay' ∨ layerBase lay' + 16 * pathSlots lay' ≤ layerBase lay := by
+  fin_cases lay <;> fin_cases lay' <;> simp_all [layerBase, pathSlots]
+
+theorem lower_area_ge (lay : Layer) (hl : lay ≠ 0) : 11976 ≤ layerBase lay ∧ layerBase lay + 16 * pathSlots lay ≤ 21136 := by
+  fin_cases lay <;> simp_all [layerBase, pathSlots]
+
+theorem lowerNoncePos_disjoint (output : HashOutput) (e e' : Layer × Nat) (he : e ∈ groundFolds)
+    (he' : e' ∈ groundFolds) (hne : e ≠ e') :
+    lowerNoncePos output e.1 e.2 + 16 ≤ lowerNoncePos output e'.1 e'.2 ∨
+      lowerNoncePos output e'.1 e'.2 + 16 ≤ lowerNoncePos output e.1 e.2 := by
+  obtain ⟨hl, h1, h2⟩ := lowerNoncePos_area output e he
+  obtain ⟨hl', h1', h2'⟩ := lowerNoncePos_area output e' he'
+  by_cases hlay : e.1 = e'.1
+  · rcases e with ⟨lay, j⟩
+    rcases e' with ⟨lay', j'⟩
+    dsimp only at hlay hl h1 h2 hl' h1' h2' ⊢
+    subst hlay
+    have hjne : j ≠ j' := fun h => hne (by rw [h])
+    have hg := (mem_groundFolds _).mp he
+    have hg' := (mem_groundFolds _).mp he'
+    dsimp only at hg hg'
+    rw [lowerNoncePos_eq output lay hl j, lowerNoncePos_eq output lay hl j']
+    by_cases hs : (lowerPlan lay (route (WCT9.digestIndex output) lay).1).getD j 0 =
+        (lowerPlan lay (route (WCT9.digestIndex output) lay).1).getD j' 0
+    · exact absurd (lower_slot_free lay hl (route (WCT9.digestIndex output) lay).1 j j' 2 (by have := hg.2.2; omega)
+        hg' (by decide) (by omega)).1 hjne
+    · omega
+  · have := lower_area_disjoint e.1 e'.1 hl hl' hlay
+    omega
+
+theorem lowerNonceByte_free (output : HashOutput) (nonces : Layer → List Nat) (i : Nat) (b : UInt8)
+    (h : ∀ e ∈ groundFolds, i < lowerNoncePos output e.1 e.2 ∨ lowerNoncePos output e.1 e.2 + 8 ≤ i) :
+    lowerNonceByte output nonces i b = b := by
+  unfold lowerNonceByte
+  rw [List.find?_eq_none.mpr]
+  intro e he
+  have := h e he
+  simp only [decide_eq_true_eq, not_and, not_lt]
+  omega
+
+theorem lowerNonceByte_in (output : HashOutput) (nonces : Layer → List Nat) (e : Layer × Nat) (he : e ∈ groundFolds)
+    (i : Nat) (b : UInt8) (hi : lowerNoncePos output e.1 e.2 ≤ i ∧ i < lowerNoncePos output e.1 e.2 + 8) :
+    lowerNonceByte output nonces i b = (nonceWord (nonces e.1) e.2).getD (i - lowerNoncePos output e.1 e.2) 0 := by
+  unfold lowerNonceByte
+  cases hf : groundFolds.find? (fun e => decide (lowerNoncePos output e.1 e.2 ≤ i ∧ i < lowerNoncePos output e.1 e.2 + 8)) with
+  | none =>
+      have := List.find?_eq_none.mp hf e he
+      simp only [decide_eq_true_eq] at this
+      exact absurd hi this
+  | some e' =>
+      have hp := List.find?_some hf
+      have hm := List.mem_of_find?_eq_some hf
+      simp only [decide_eq_true_eq] at hp
+      have : e' = e := by
+        by_contra hne
+        have := lowerNoncePos_disjoint output e' e hm he hne
+        omega
+      subst this
+      rfl
+
+theorem witListG_length (output : HashOutput) (w : SigGolfCandidate.Research.SharedForest.Witness) :
+    (witListG output w).length = 22016 := by
+  rw [witListG, List.length_mapIdx, witListN_length]
+
+theorem witListG_getElem? (output : HashOutput) (w : SigGolfCandidate.Research.SharedForest.Witness) (n : Nat) :
+    (witListG output w)[n]? = (witListN output w)[n]?.map (lowerNonceByte output w.lowerNonces n) := by
+  rw [witListG, List.getElem?_mapIdx]
+
+theorem witListG_window_free (output : HashOutput) (w : SigGolfCandidate.Research.SharedForest.Witness)
+    (off k : Nat) (h : ∀ e ∈ groundFolds, off + k ≤ lowerNoncePos output e.1 e.2 ∨
+      lowerNoncePos output e.1 e.2 + 8 ≤ off) :
+    ((witListG output w).drop off).take k = ((witListN output w).drop off).take k := by
+  apply List.ext_getElem?
+  intro n
+  rw [List.getElem?_take, List.getElem?_take, List.getElem?_drop, List.getElem?_drop, witListG_getElem?]
+  split_ifs with hn
+  · cases (witListN output w)[off + n]? with
+    | none => rfl
+    | some b =>
+        simp only [Option.map_some]
+        rw [lowerNonceByte_free _ _ _ _ (fun e he => by have := h e he; omega)]
+  · rfl
+
+/-- Any window avoiding the 9 ground nonce words reads the same in `witEncG` and `witEncN`. -/
+theorem witEncG_extract_free (output : HashOutput) (w : SigGolfCandidate.Research.SharedForest.Witness)
+    (off k : Nat) (hk : off + k ≤ 22012)
+    (h : ∀ e ∈ groundFolds, off + k ≤ lowerNoncePos output e.1 e.2 ∨ lowerNoncePos output e.1 e.2 + 8 ≤ off) :
+    (witEncG output w).extractLsb' (8 * off) (8 * k) = (witEncN output w).extractLsb' (8 * off) (8 * k) := by
+  unfold witEncG witEncN
+  rw [extract_readLE _ 22012 _ _ hk, extract_readLE _ 22012 _ _ hk, witListG_window_free output w off k h]
+
+theorem witEncG_getLsbD_free (output : HashOutput) (w : SigGolfCandidate.Research.SharedForest.Witness) (i : Nat)
+    (h : ∀ e ∈ groundFolds, i / 8 < lowerNoncePos output e.1 e.2 ∨ lowerNoncePos output e.1 e.2 + 8 ≤ i / 8) :
+    (witEncG output w).getLsbD i = (witEncN output w).getLsbD i := by
+  by_cases hlt : i < 8 * 22012
+  · have e : ∀ x : WBytes, x.getLsbD i = (x.extractLsb' (8 * (i / 8)) (8 * 1)).getLsbD (i % 8) := by
+      intro x
+      rw [BitVec.getLsbD_extractLsb']
+      simp [show i % 8 < 8 * 1 by omega, show 8 * (i / 8) + i % 8 = i by omega]
+    rw [e (witEncG output w), e (witEncN output w), witEncG_extract_free output w (i / 8) 1 (by omega) (by
+      intro e he
+      have := h e he
+      omega)]
+  · rw [BitVec.getLsbD_of_ge _ _ (by omega), BitVec.getLsbD_of_ge _ _ (by omega)]
+
+/-- Any bit window `[8 off, 8 off + m)` inside `[off, off + k)` avoiding the ground nonce words reads the same. -/
+theorem extract_witEncG_free (output : HashOutput) (w : SigGolfCandidate.Research.SharedForest.Witness)
+    (off k m : Nat) (hm : m ≤ 8 * k)
+    (h : ∀ e ∈ groundFolds, off + k ≤ lowerNoncePos output e.1 e.2 ∨ lowerNoncePos output e.1 e.2 + 8 ≤ off) :
+    (witEncG output w).extractLsb' (8 * off) m = (witEncN output w).extractLsb' (8 * off) m := by
+  apply BitVec.eq_of_getLsbD_eq
+  intro i hi
+  rw [BitVec.getLsbD_extractLsb', BitVec.getLsbD_extractLsb']
+  simp only [hi, decide_true, Bool.true_and]
+  apply witEncG_getLsbD_free
+  intro e he
+  have := h e he
+  omega
+
+/-- Windows outside the lower path slot areas read the same in `witEncG` and `witEncN`. -/
+theorem extract_witEncG_out (output : HashOutput) (w : SigGolfCandidate.Research.SharedForest.Witness)
+    (off k m : Nat) (hm : m ≤ 8 * k)
+    (h : ∀ lay : Layer, lay ≠ 0 → off + k ≤ layerBase lay + 32 ∨ layerBase lay + 16 * pathSlots lay ≤ off) :
+    (witEncG output w).extractLsb' (8 * off) m = (witEncN output w).extractLsb' (8 * off) m := by
+  apply extract_witEncG_free output w off k m hm
+  intro e he
+  obtain ⟨hl, h1, h2⟩ := lowerNoncePos_area output e he
+  have := h e.1 hl
+  omega
+
+theorem wdig_witEncG_out (output : HashOutput) (w : SigGolfCandidate.Research.SharedForest.Witness) (off : Nat)
+    (h : ∀ lay : Layer, lay ≠ 0 → off + 16 ≤ layerBase lay + 32 ∨ layerBase lay + 16 * pathSlots lay ≤ off) :
+    wdig (witEncG output w) off = wdig (witEncN output w) off :=
+  extract_witEncG_out output w off 16 128 (by omega) h
+
+theorem wdig_witEncG_free (output : HashOutput) (w : SigGolfCandidate.Research.SharedForest.Witness) (off : Nat)
+    (h : ∀ e ∈ groundFolds, off + 16 ≤ lowerNoncePos output e.1 e.2 ∨ lowerNoncePos output e.1 e.2 + 8 ≤ off) :
+    wdig (witEncG output w) off = wdig (witEncN output w) off :=
+  extract_witEncG_free output w off 16 128 (by omega) h
+
+/-- Below the first lower path area (the forest, the top layer, the top leaf buffer) `witEncG` is `witEncN`. -/
+theorem extract_witEncG_low (output : HashOutput) (w : SigGolfCandidate.Research.SharedForest.Witness)
+    (off k m : Nat) (hm : m ≤ 8 * k) (h : off + k ≤ 12008) :
+    (witEncG output w).extractLsb' (8 * off) m = (witEncN output w).extractLsb' (8 * off) m := by
+  apply extract_witEncG_out output w off k m hm
+  intro lay hl
+  have := lower_area_ge lay hl
+  omega
+
+/-- Slot `s` of the level-`j` window of a lower layer (on the routed leaf) is free of the ground nonce words unless it
+is a ground Z pad. -/
+theorem lower_window_free (output : HashOutput) (lay : Layer) (hl : lay ≠ 0) (j s : Nat) (hj : j < height lay)
+    (hs : s < 4) (hne : ¬ (IsGround lay j ∧ s = 2)) :
+    ∀ e ∈ groundFolds, merkleBlock lay (route (WCT9.digestIndex output) lay).1 j + 16 * s + 16 ≤
+        lowerNoncePos output e.1 e.2 ∨
+      lowerNoncePos output e.1 e.2 + 8 ≤ merkleBlock lay (route (WCT9.digestIndex output) lay).1 j + 16 * s := by
+  intro e he
+  obtain ⟨hl', h1, h2⟩ := lowerNoncePos_area output e he
+  have ha := merkleBlock_lower_area lay hl (route (WCT9.digestIndex output) lay).1 j
+  by_cases hlay : lay = e.1
+  · rcases e with ⟨lay', j'⟩
+    dsimp only at hlay hl' h1 h2 ⊢
+    subst hlay
+    have hg := (mem_groundFolds _).mp he
+    dsimp only at hg
+    rw [lowerNoncePos_eq output lay hl j', merkleBlock_lower lay hl]
+    by_cases hsl : (lowerPlan lay (route (WCT9.digestIndex output) lay).1).getD j 0 + s =
+        (lowerPlan lay (route (WCT9.digestIndex output) lay).1).getD j' 0 + 2
+    · obtain ⟨rfl, rfl⟩ := lower_slot_free lay hl _ j j' s hj hg hs hsl
+      exact absurd ⟨hg, rfl⟩ hne
+    · omega
+  · have := lower_area_disjoint lay e.1 hl hl' hlay
+    omega
+
+theorem wdig_lower_window_G (output : HashOutput) (w : SigGolfCandidate.Research.SharedForest.Witness)
+    (lay : Layer) (hl : lay ≠ 0) (j s : Nat) (hj : j < height lay) (hs : s < 4) (hne : ¬ (IsGround lay j ∧ s = 2)) :
+    wdig (witEncG output w) (merkleBlock lay (route (WCT9.digestIndex output) lay).1 j + 16 * s) =
+      wdig (witEncN output w) (merkleBlock lay (route (WCT9.digestIndex output) lay).1 j + 16 * s) :=
+  wdig_witEncG_free output w _ (lower_window_free output lay hl j s hj hs hne)
+
+theorem witListG_nonce_window (output : HashOutput) (w : SigGolfCandidate.Research.SharedForest.Witness)
+    (e : Layer × Nat) (he : e ∈ groundFolds) :
+    ((witListG output w).drop (lowerNoncePos output e.1 e.2)).take 8 = nonceWord (w.lowerNonces e.1) e.2 := by
+  obtain ⟨hl, h1, h2⟩ := lowerNoncePos_area output e he
+  have hb := (lower_area_ge e.1 hl).2
+  have hl8 : (nonceWord (w.lowerNonces e.1) e.2).length = 8 := by simp [nonceWord, SphincsSecurity.bytesLE_length]
+  apply List.ext_getElem?
+  intro n
+  rw [List.getElem?_take, List.getElem?_drop, witListG_getElem?]
+  split_ifs with hn
+  · have hlt : lowerNoncePos output e.1 e.2 + n < (witListN output w).length := by
+      rw [witListN_length]; omega
+    rw [List.getElem?_eq_getElem hlt, Option.map_some,
+      lowerNonceByte_in output w.lowerNonces e he _ _ ⟨by omega, by omega⟩, Nat.add_sub_cancel_left,
+      List.getElem?_eq_getElem (by omega), List.getD_eq_getElem _ _ (by omega)]
+  · rw [List.getElem?_eq_none (by omega)]
+
+/-- The low word of a ground Z pad is the fold nonce. -/
+theorem witEncG_nonce_lo (output : HashOutput) (w : SigGolfCandidate.Research.SharedForest.Witness)
+    (e : Layer × Nat) (he : e ∈ groundFolds) :
+    (witEncG output w).extractLsb' (8 * lowerNoncePos output e.1 e.2) (8 * 8) =
+      BitVec.ofNat 64 ((w.lowerNonces e.1).getD e.2 0) := by
+  obtain ⟨hl, h1, h2⟩ := lowerNoncePos_area output e he
+  have hb := (lower_area_ge e.1 hl).2
+  unfold witEncG
+  rw [extract_readLE _ 22012 _ _ (by omega), witListG_nonce_window output w e he, nonceWord,
+    SigGolfCandidate.T3M.readLE_bytesLE]
+  apply BitVec.eq_of_toNat_eq
+  simp [BitVec.toNat_ofNat]
+
+/-- The nonce-free encodings have a zero Z pad at every lower fold below the root window. -/
+theorem witEncN_lowerPad_zero (output : HashOutput) (w : SigGolfCandidate.Research.SharedForest.Witness)
+    (lay : Layer) (hl : lay ≠ 0) (j : Nat) (hj : j + 1 < height lay) :
+    wdig (witEncN output w) (merkleBlock lay (route (WCT9.digestIndex output) lay).1 j + 32) = 0 := by
+  have ha := merkleBlock_lower_area lay hl (route (WCT9.digestIndex output) lay).1 j
+  have hg := lower_area_ge lay hl
+  rw [show wdig (witEncN output w) (merkleBlock lay (route (WCT9.digestIndex output) lay).1 j + 32) =
+      wdig (Paired.witEnc output w) (merkleBlock lay (route (WCT9.digestIndex output) lay).1 j + 32) from
+    witEncN_extract_outside output w _ 16 (by omega) (Or.inr (by omega))]
+  rw [wdig_witEnc_base output w _ (by unfold choiceOff at *; omega)]
+  unfold baseEnc
+  rw [wdig_prefixEnc _ (forestBytes_length output w) output (mainWitness w) _ (by omega)]
+  have := wmerklePad_witEnc output (mainWitness w) lay ⟨j, by omega⟩ (Or.inl hj)
+  unfold wmerklePad at this
+  exact this
+
+/-- The high word of a ground Z pad is 0. -/
+theorem witEncG_nonce_hi (output : HashOutput) (w : SigGolfCandidate.Research.SharedForest.Witness)
+    (e : Layer × Nat) (he : e ∈ groundFolds) :
+    (witEncG output w).extractLsb' (8 * (lowerNoncePos output e.1 e.2 + 8)) (8 * 8) = 0 := by
+  obtain ⟨hl, h1, h2⟩ := lowerNoncePos_area output e he
+  have hb := (lower_area_ge e.1 hl).2
+  have hg := (mem_groundFolds e).mp he
+  rw [witEncG_extract_free output w _ 8 (by omega) (by
+    intro e' he'
+    by_cases hne : e' = e
+    · subst hne; omega
+    · have := lowerNoncePos_disjoint output e e' he he' (Ne.symm hne)
+      omega)]
+  rw [← wdig_hi_extract]
+  unfold lowerNoncePos
+  rw [witEncN_lowerPad_zero output w e.1 hl e.2 hg.2.2]
+  rfl
+
+/-- Read-back: the verifier's Z pad of a ground fold on `witEncG` is the fold nonce. -/
+theorem wmerklePad_witEncG_ground (output : HashOutput) (w : SigGolfCandidate.Research.SharedForest.Witness)
+    (lay : Layer) (j : Nat) (hg : IsGround lay j) :
+    wmerklePad (witEncG output w) lay (route (WCT9.digestIndex output) lay).1 j =
+      BitVec.ofNat 128 ((w.lowerNonces lay).getD j 0 % 2 ^ 64) := by
+  have he : (lay, j) ∈ groundFolds := (mem_groundFolds (lay, j)).mpr hg
+  have hlo := witEncG_nonce_lo output w (lay, j) he
+  have hhi := witEncG_nonce_hi output w (lay, j) he
+  have elo : (wmerklePad (witEncG output w) lay (route (WCT9.digestIndex output) lay).1 j).extractLsb' 0 64 =
+      BitVec.ofNat 64 ((w.lowerNonces lay).getD j 0) := by
+    unfold wmerklePad
+    rw [W9Machine.wdig_lo]
+    exact hlo
+  have ehi : (wmerklePad (witEncG output w) lay (route (WCT9.digestIndex output) lay).1 j).extractLsb' 64 64 = 0 := by
+    unfold wmerklePad
+    rw [wdig_hi_extract]
+    exact hhi
+  generalize wmerklePad (witEncG output w) lay (route (WCT9.digestIndex output) lay).1 j = d at elo ehi ⊢
+  apply BitVec.eq_of_toNat_eq
+  have h1 := congrArg BitVec.toNat elo
+  have h2 := congrArg BitVec.toNat ehi
+  simp only [BitVec.extractLsb'_toNat, BitVec.toNat_ofNat, Nat.shiftRight_eq_div_pow, Nat.pow_zero,
+    Nat.div_one, BitVec.toNat_zero] at h1 h2
+  have hd := d.isLt
+  have hz : (0 : BitVec 64).toNat = 0 := rfl
+  rw [BitVec.toNat_ofNat]
+  simp only [Nat.reducePow] at h1 h2 hd hz ⊢
+  omega
+
+/-- Read-back (all lower folds below the root window): the verifier's fold Z pad on `witEncG` is
+`lowerFoldNonce lay (w.lowerNonces lay) j` (the ground nonce on the ground folds, 0 elsewhere). -/
+theorem wmerklePad_witEncG_lower (output : HashOutput) (w : SigGolfCandidate.Research.SharedForest.Witness)
+    (lay : Layer) (hl : lay ≠ 0) (j : Nat) (hj : j + 1 < height lay) :
+    wmerklePad (witEncG output w) lay (route (WCT9.digestIndex output) lay).1 j =
+      BitVec.ofNat 128 (WCT9.lowerFoldNonce lay (w.lowerNonces lay) j % 2 ^ 64) := by
+  by_cases h4 : height lay ≤ j + 4
+  · have hg : IsGround lay j := ⟨fun h => hl (Fin.ext h), h4, hj⟩
+    rw [wmerklePad_witEncG_ground output w lay j hg]
+    unfold WCT9.lowerFoldNonce
+    rw [if_pos h4]
+  · unfold WCT9.lowerFoldNonce
+    rw [if_neg h4]
+    unfold wmerklePad
+    have := wdig_lower_window_G output w lay hl j 2 (by omega) (by decide) (fun h => h4 h.1.2.1)
+    simp only [show 16 * 2 = 32 from rfl] at this
+    rw [this, witEncN_lowerPad_zero output w lay hl j hj]
+    rfl
 end ClaudeWCT.W9.T3M.PairedNonce
 
 namespace ClaudeWCT.W9.T3M.Paired
@@ -5374,6 +5872,17 @@ open ClaudeWCT.W9.T3M.PairedNonce
     wdc (witEncN output w) = w.digestCounter := by
   rw [← wdc_witEnc output w]
   exact witEncN_extract_outside output w dcOff 4 (by decide) (Or.inr (by decide))
+/-- U16b: the ground nonce words lie in the lower path slot areas, so `rho` reads the same in `witEncG`. -/
+@[simp] theorem wrho_witEncG (output : HashOutput) (w : SigGolfCandidate.Research.SharedForest.Witness) :
+    wrho (witEncG output w) = w.signature.rho := by
+  rw [← wrho_witEncN output w]
+  exact extract_witEncG_out output w rhoOff 16 128 (by omega) (fun lay hl => Or.inr (by
+    have := lower_area_ge lay hl; unfold rhoOff; omega))
+@[simp] theorem wdc_witEncG (output : HashOutput) (w : SigGolfCandidate.Research.SharedForest.Witness) :
+    wdc (witEncG output w) = w.digestCounter := by
+  rw [← wdc_witEncN output w]
+  exact extract_witEncG_out output w dcOff 4 32 (by omega) (fun lay hl => Or.inr (by
+    have := lower_area_ge lay hl; unfold dcOff; omega))
 end ClaudeWCT.W9.T3M.Paired
 
 namespace ClaudeWCT.W9.T3M.Paired
@@ -5388,19 +5897,19 @@ theorem expandN_digest (answers : Answers) (message : Message) (pk : Digest)
     (sig : SigGolfCandidate.Research.SharedForest.Signature) (output : HashOutput)
     (w : SigGolfCandidate.Research.SharedForest.Witness)
     (he : evalWithAnswerFn answers (expandN message pk sig) = some (output,w)) :
-    evalWithAnswerFn answers (digest (wrho (witEncN output w)) message
-      (wdc (witEncN output w))) = output := by
+    evalWithAnswerFn answers (digest (wrho (witEncG output w)) message
+      (wdc (witEncG output w))) = output := by
   obtain ⟨_,counter,_,c,hs,_,_,hw,hc,_⟩ := expandN_selections answers message pk sig output w he
   have hd := (sharedDigestSearch_some answers sig.rho message WCT9.digestAttemptLimit 0
     counter output (by decide) hs).2.2.2
-  rw [wrho_witEncN,wdc_witEncN,hw,hc,nonce_retained]
+  rw [wrho_witEncG,wdc_witEncG,hw,hc,nonce_retained]
   exact hd
 
 theorem expandB_some (answers : Answers) (message : Message) (pk : Digest)
     (sig : SigGolfCandidate.Research.SharedForest.Signature) (wb : WBytes)
     (he : evalWithAnswerFn answers (expandB message pk sig) = some wb) :
     ∃ output w, evalWithAnswerFn answers (expandN message pk sig) = some (output,w) ∧
-      wb = witEncN output w := by
+      wb = witEncG output w := by
   unfold expandB at he
   rw [evalWithAnswerFn_map] at he
   cases hn : evalWithAnswerFn answers (expandN message pk sig) with
@@ -5414,9 +5923,9 @@ theorem expandN_nonce (answers : Answers) (message : Message) (pk : Digest)
     (sig : SigGolfCandidate.Research.SharedForest.Signature) (output : HashOutput)
     (w : SigGolfCandidate.Research.SharedForest.Witness)
     (he : evalWithAnswerFn answers (expandN message pk sig) = some (output,w)) :
-    wrho (witEncN output w) = sig.rho := by
+    wrho (witEncG output w) = sig.rho := by
   obtain ⟨_,_,_,c,_,_,_,hw,_,_⟩ := expandN_selections answers message pk sig output w he
-  rw [wrho_witEncN,hw,nonce_retained]
+  rw [wrho_witEncG,hw,nonce_retained]
 end ClaudeWCT.W9.T3M.Paired
 
 namespace ClaudeWCT.W9.T3M.PairedReadout

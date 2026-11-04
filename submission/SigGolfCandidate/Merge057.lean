@@ -4529,11 +4529,39 @@ theorem lowerNodeHash_respects (lay tree heap : Nat) (left right : Digest) :
   apply halfHash_respects
   apply short_of_le
   simp [WCT9.merkleNodeInput, zero16, bytesLE_length]
+/-! U16b: the lower ground search (`lowerNodeAt`, trials `lowerNodeHashN`) respects short agreement. -/
+theorem lowerNodeHashN_respects (lay tree heap n : Nat) (left right : Digest) :
+    ShortRespects (WCT9.lowerNodeHashN lay tree heap n left right) := by
+  unfold WCT9.lowerNodeHashN WCT9.lowerHash
+  apply halfHash_respects
+  apply short_of_le
+  simp [WCT9.lowerNodeInputN, nonceBytes, bytesLE_length]
+theorem lowerNonceSearch_respects (lay tree heap : Nat) (left right : Digest) :
+    ∀ fuel n, ShortRespects (WCT9.lowerNonceSearch lay tree heap left right fuel n)
+  | 0, n => by
+      unfold WCT9.lowerNonceSearch
+      exact ShortRespects.bind (lowerNodeHashN_respects _ _ _ _ _ _) fun _ => ShortRespects.pure' _
+  | fuel + 1, n => by
+      unfold WCT9.lowerNonceSearch
+      refine ShortRespects.bind (lowerNodeHashN_respects _ _ _ _ _ _) fun _ => ?_
+      split
+      · exact ShortRespects.pure' _
+      · exact lowerNonceSearch_respects lay tree heap left right fuel (n + 1)
+theorem lowerNodeAt_respects (lay tree heap : Nat) (left right : Digest) :
+    ShortRespects (WCT9.lowerNodeAt lay tree heap left right) := by
+  unfold WCT9.lowerNodeAt
+  split
+  · exact ShortRespects.map _ (lowerNodeHash_respects _ _ _ _ _)
+  · exact lowerNonceSearch_respects _ _ _ _ _ _ _
+theorem lowerNodeG_respects (lay tree heap : Nat) (left right : Digest) :
+    ShortRespects (WCT9.lowerNodeG lay tree heap left right) := by
+  unfold WCT9.lowerNodeG
+  exact ShortRespects.map _ (lowerNodeAt_respects _ _ _ _ _)
 theorem lowerLevels_respects (lay tree h : Nat) (leaves : List Digest) :
     ShortRespects (WCT9.lowerLevels lay tree h leaves) := by
-  unfold WCT9.lowerLevels
+  unfold WCT9.lowerLevels WCT9.lowerLevel
   exact ShortRespects.foldlM _ _ (fun level _ levels =>
-    ShortRespects.bind (ShortRespects.mapM _ _ fun i _ => lowerNodeHash_respects _ _ _ _ _) fun _ =>
+    ShortRespects.bind (ShortRespects.mapM _ _ fun i _ => lowerNodeG_respects _ _ _ _ _) fun _ =>
       ShortRespects.pure' _) _
 /-! Top-nonce layer (r3-lean-nonsec): the img-v6 top tree (nonce-searched node levels) respects short agreement. -/
 theorem topNodeHashN_respects (heap n : Nat) (left right : Digest) : ShortRespects (topNodeHashN heap n left right) := by
@@ -4604,6 +4632,8 @@ theorem honestNonce_short (lay : Layer) (tree level c : Nat) :
   · rw [wotsTree_short hAT]
     unfold topNodeAt
     exact congrArg Prod.fst (topNonceSearch_respects _ _ _ _ _ _ A T hAT)
+  · rw [wotsTree_short hAT]
+    exact congrArg Prod.fst (lowerNodeAt_respects _ _ _ _ _ A T hAT)
   · rfl
 theorem ftsLevels_short (index coord : Nat) (hc : coord < 9) :
     Extract.ftsLevels A index coord = Extract.ftsLevels T index coord := by
@@ -5756,16 +5786,43 @@ The nodes `(position, nonce)` of a top node at children level `level < 11` are i
 and every earlier trial failed. The selected trial `sel` is the first passing one (the last one when none passes),
 and the tree value of the position is the used half of the selected trial's label. Every other position has only the
 active trial `nonce = 0`. -/
-/-- Trials of position `(lay, level)`: `cap_(level+1) = 104 · 2^(level+1)` on the top tree below the root, else 1. -/
-def trialCap (lay : Layer) (level : Nat) : Nat := if lay = 0 ∧ level < 11 then topNonceCap (level + 1) else 1
+/-- U16b: the ground zero bits of a lower heap depend only on its level (`2^k ≤ heap < 2^(k+1)`). -/
+theorem lowerZeroBits_level (lay k c : Nat) (hc : c < 2 ^ k) :
+    WCT9.lowerZeroBits lay (2 ^ k + c) = WCT9.lowerZeroBits lay (2 ^ k) := by
+  unfold WCT9.lowerZeroBits
+  rcases Nat.lt_or_ge k 4 with hk | hk
+  · interval_cases k <;> simp at hc ⊢ <;> split_ifs <;> omega
+  · have : 16 ≤ 2 ^ k := le_trans (by norm_num) (Nat.pow_le_pow_right (by norm_num) hk)
+    rw [if_pos (Or.inr (Or.inr (by omega))), if_pos (Or.inr (Or.inr this))]
+/-- Trials of position `(lay, level)`: `cap_(level+1) = 104 · 2^(level+1)` on the top tree below the root; U16b: the
+ground search cap `lowerNonceCap = 128 · 2^b` on the lower ground positions (heaps 2..15, `b = lowerZeroBits ≠ 0`);
+else 1. -/
+def trialCap (lay : Layer) (level : Nat) : Nat :=
+  if lay = 0 ∧ level < 11 then topNonceCap (level + 1)
+  else if lay ≠ 0 ∧ WCT9.lowerZeroBits lay.val (2 ^ (height lay - level - 1)) ≠ 0 then
+    WCT9.lowerNonceCap lay.val (2 ^ (height lay - level - 1))
+  else 1
 theorem trialCap_pos (lay : Layer) (level : Nat) : 0 < trialCap lay level := by
-  unfold trialCap topNonceCap; split_ifs <;> positivity
+  unfold trialCap topNonceCap WCT9.lowerNonceCap; split_ifs <;> positivity
 theorem trialCap_le (lay : Layer) (level : Nat) : trialCap lay level ≤ 212992 := by
-  unfold trialCap topNonceCap topZeroBits topZeroAlloc
-  split_ifs with h
-  · obtain ⟨-, hl⟩ := h
+  unfold trialCap
+  split_ifs with h h'
+  · unfold topNonceCap topZeroBits topZeroAlloc
+    obtain ⟨-, hl⟩ := h
     interval_cases level <;> simp
+  · unfold WCT9.lowerNonceCap WCT9.lowerZeroBits
+    split_ifs <;> norm_num
   · omega
+/-- The zero test of the trials of position `(lay, level)`: `topZeroOk (level + 1)` on the top tree, the U16b ground
+test `lowerZeroOk` of the level's heaps on the lower trees. -/
+def trialZeroOk (lay : Layer) (level : Nat) (v : Digest) : Bool :=
+  if lay = 0 then topZeroOk (level + 1) v else WCT9.lowerZeroOk lay.val (2 ^ (height lay - level - 1)) v
+theorem trialZeroOk_top (level : Nat) (v : Digest) : trialZeroOk 0 level v = topZeroOk (level + 1) v := by
+  unfold trialZeroOk; rw [if_pos rfl]
+theorem trialZeroOk_lower {lay : Layer} (h : lay ≠ 0) (level c : Nat) (hc : c < 2 ^ (height lay - level - 1))
+    (v : Digest) : trialZeroOk lay level v = WCT9.lowerZeroOk lay.val (2 ^ (height lay - level - 1) + c) v := by
+  unfold trialZeroOk WCT9.lowerZeroOk
+  rw [if_neg h, lowerZeroBits_level _ _ _ hc]
 /-- The trial `j` of the position of `n` (nonce `j % 212992`). -/
 def withNonce (n : TreeNode) (j : Nat) : TreeNode :=
   ⟨{ n.1 with nonce := ⟨j % 212992, Nat.mod_lt _ (by decide)⟩ }, n.2⟩
@@ -5779,9 +5836,9 @@ theorem withNonce_withNonce (n : TreeNode) (i j : Nat) : withNonce (withNonce n 
 theorem withNonce_self (n : TreeNode) : withNonce n n.1.nonce.val = n := by
   obtain ⟨⟨lay, tree, level, idx, nonce⟩, hv⟩ := n
   simp [withNonce, Nat.mod_eq_of_lt nonce.isLt]
-/-- Trial `j` of the position of `n` fails the zero test of height `level + 1`. -/
+/-- Trial `j` of the position of `n` fails the zero test of its position (`trialZeroOk`). -/
 def trialFails (labels : Labels) (n : TreeNode) (j : Nat) : Prop :=
-  topZeroOk (n.1.level.val + 1) ((Node.node n).toPos.proj (labels (.node (withNonce n j)))) = false
+  trialZeroOk n.1.lay n.1.level.val ((Node.node n).toPos.proj (labels (.node (withNonce n j)))) = false
 instance (labels : Labels) (n : TreeNode) (j : Nat) : Decidable (trialFails labels n j) := by
   unfold trialFails; infer_instance
 /-- Node `n` is an active trial: inside the cap, and every earlier trial of its position failed. -/
@@ -6237,10 +6294,30 @@ theorem selNode_of_cap_one {labels : Labels} {n : TreeNode} (h : trialCap n.1.la
     (h0 : n.1.nonce.val = 0) : selNode labels n = n := by
   unfold selNode
   rw [selNonce_of_cap_one h, ← h0, withNonce_self]
-theorem trialCap_lower {lay : Layer} (h : lay ≠ 0) (level : Nat) : trialCap lay level = 1 := by
-  unfold trialCap; rw [if_neg (fun h' => h h'.1)]
+/-- U16b: a lower position off the ground (`lowerZeroBits = 0`) is a single-trial position. -/
+theorem trialCap_lower_off {lay : Layer} (h : lay ≠ 0) {level : Nat}
+    (hb : WCT9.lowerZeroBits lay.val (2 ^ (height lay - level - 1)) = 0) : trialCap lay level = 1 := by
+  unfold trialCap; rw [if_neg (fun h' => h h'.1), if_neg (fun h' => h'.2 hb)]
+/-- U16b: a lower ground position has the ground search cap. -/
+theorem trialCap_lowerG {lay : Layer} (h : lay ≠ 0) {level : Nat}
+    (hb : WCT9.lowerZeroBits lay.val (2 ^ (height lay - level - 1)) ≠ 0) :
+    trialCap lay level = WCT9.lowerNonceCap lay.val (2 ^ (height lay - level - 1)) := by
+  unfold trialCap; rw [if_neg (fun h' => h h'.1), if_pos ⟨h, hb⟩]
+/-- A multi-trial position is a top position below the root or a lower ground position. -/
+theorem trialCap_ne_one {lay : Layer} {level : Nat} (h : trialCap lay level ≠ 1) :
+    (lay = 0 ∧ level < 11) ∨ (lay ≠ 0 ∧ WCT9.lowerZeroBits lay.val (2 ^ (height lay - level - 1)) ≠ 0) := by
+  unfold trialCap at h
+  split_ifs at h with h1 h2
+  · exact Or.inl h1
+  · exact Or.inr h2
+  · exact absurd rfl h
 theorem trialCap_root (lay : Layer) : trialCap lay 11 = 1 := by
-  unfold trialCap; rw [if_neg (fun h' => by omega)]
+  unfold trialCap
+  rw [if_neg (fun h' => by omega)]
+  by_cases h : lay = 0
+  · rw [if_neg (fun h' => h'.1 h)]
+  · have hh : height lay - 11 - 1 = 0 := by fin_cases lay <;> simp [height] at h ⊢
+    rw [hh, if_neg (fun h' => h'.2 (by simp [WCT9.lowerZeroBits]))]
 theorem treeNodeAt_nonce {lay : Layer} {tree : Fin (2^31)} {level c : Nat} {n : TreeNode}
     (h : treeNodeAt lay tree level c = some n) : n.1.nonce.val = 0 := by
   unfold treeNodeAt at h
@@ -7792,6 +7869,91 @@ theorem eval_topNonceSearch_eq (answers : Answers) (h heap : Nat) (left right : 
               · exact Or.inl h'
               · right; omega)
 
+/-- U16b: the lower ground search returns the first passing trial `s` (or the last one) once its values are known up
+to `s`. -/
+theorem eval_lowerNonceSearch_eq (answers : Answers) (lay tree heap : Nat) (left right : Digest) (v : Nat → Digest)
+    (hv : ∀ k, evalWithAnswerFn answers (WCT9.lowerNodeHashN lay tree heap k left right) = v k) :
+    ∀ fuel n s, n ≤ s → s ≤ n + fuel → (∀ k, n ≤ k → k < s → WCT9.lowerZeroOk lay heap (v k) = false) →
+      (WCT9.lowerZeroOk lay heap (v s) = true ∨ s = n + fuel) →
+      evalWithAnswerFn answers (WCT9.lowerNonceSearch lay tree heap left right fuel n) = (s, v s) := by
+  intro fuel
+  induction fuel with
+  | zero =>
+      intro n s h1 h2 _ _
+      have : s = n := by omega
+      subst this
+      simp only [WCT9.lowerNonceSearch, evalWithAnswerFn_bind, evalWithAnswerFn_pure, hv]
+  | succ fuel ih =>
+      intro n s h1 h2 hfail hend
+      simp only [WCT9.lowerNonceSearch, evalWithAnswerFn_bind, hv]
+      by_cases hs : s = n
+      · subst hs
+        have hok : WCT9.lowerZeroOk lay heap (v s) = true := by
+          rcases hend with h' | h'
+          · exact h'
+          · omega
+        rw [if_pos hok, evalWithAnswerFn_pure]
+      · have hf : WCT9.lowerZeroOk lay heap (v n) = false := hfail n le_rfl (by omega)
+        rw [if_neg (by rw [hf]; decide)]
+        exact ih (n + 1) s (by omega) (by omega) (fun k hk1 hk2 => hfail k (by omega) hk2)
+          (by rcases hend with h' | h'
+              · exact Or.inl h'
+              · right; omega)
+
+/-- U16b, lower branch of `tree_step`: once the trial values up to the selected one are the trial labels, the honest
+lower nonce (`lowerNodeAt`) is the selected trial. -/
+theorem honestNonce_lower_sel {answers : Answers} {labels : Labels} {lay : Layer} (hlay0 : lay ≠ 0)
+    (tree : Fin (2^31)) (level c : Nat) (n : TreeNode) (hlay : n.1.lay = lay) (hlev : n.1.level.val = level)
+    (hc : c < 2 ^ (height lay - level - 1)) (hroot : level + 1 < height lay) (L R : Digest)
+    (hl : treeValue (WCT9.wotsTree answers lay tree.val) level (2 * c) = L)
+    (hr : treeValue (WCT9.wotsTree answers lay tree.val) level (2 * c + 1) = R)
+    (htrial : ∀ k ≤ selNonce labels n,
+      evalWithAnswerFn answers (WCT9.halfHash (WCT9.lowerHigh lay.val (2 ^ (height lay - level - 1) + c))
+        (WCT9.merkleNodeInputN lay.val tree.val (2 ^ (height lay - level - 1) + c) k L R)) =
+        (Node.node n).toPos.proj (labels (.node (withNonce n k)))) :
+    WCT9.honestNonce answers lay tree.val level c = selNonce labels n := by
+  unfold WCT9.honestNonce
+  rw [if_neg (fun h' => hlay0 h'.1), if_pos ⟨hlay0, hroot⟩, hl, hr]
+  by_cases hb : WCT9.lowerZeroBits lay.val (2 ^ (height lay - level - 1)) = 0
+  · have hcap1 : trialCap n.1.lay n.1.level.val = 1 := by rw [hlay, hlev]; exact trialCap_lower_off hlay0 hb
+    have := selNonce_lt labels n
+    rw [WCT9.lowerNodeAt_of_zero (by rw [lowerZeroBits_level _ _ _ hc]; exact hb)]
+    simp only [evalWithAnswerFn_map]
+    omega
+  · have hcapeq : trialCap n.1.lay n.1.level.val = WCT9.lowerNonceCap lay.val (2 ^ (height lay - level - 1) + c) := by
+      rw [hlay, hlev, trialCap_lowerG hlay0 hb]
+      unfold WCT9.lowerNonceCap; rw [lowerZeroBits_level _ _ _ hc]
+    have hb' : WCT9.lowerZeroBits lay.val (2 ^ (height lay - level - 1) + c) ≠ 0 := by
+      rw [lowerZeroBits_level _ _ _ hc]; exact hb
+    unfold WCT9.lowerNodeAt
+    rw [if_neg hb']
+    have hspec := selNonce_spec labels n
+    have hslt := selNonce_lt labels n
+    rw [hcapeq] at hspec hslt
+    have hpos : 0 < WCT9.lowerNonceCap lay.val (2 ^ (height lay - level - 1) + c) := by
+      unfold WCT9.lowerNonceCap; positivity
+    have hvals : ∀ k ≤ selNonce labels n, evalWithAnswerFn answers
+        (WCT9.lowerNodeHashN lay.val tree.val (2 ^ (height lay - level - 1) + c) k L R) =
+          (Node.node n).toPos.proj (labels (.node (withNonce n k))) := fun k hk => htrial k hk
+    have hz : ∀ k, trialFails labels n k ↔ WCT9.lowerZeroOk lay.val (2 ^ (height lay - level - 1) + c)
+        ((Node.node n).toPos.proj (labels (.node (withNonce n k)))) = false := by
+      intro k
+      unfold trialFails
+      rw [hlay, hlev, trialZeroOk_lower hlay0 level c hc]
+    have hres := eval_lowerNonceSearch_eq answers lay.val tree.val (2 ^ (height lay - level - 1) + c) L R
+      (fun k => evalWithAnswerFn answers (WCT9.lowerNodeHashN lay.val tree.val (2 ^ (height lay - level - 1) + c) k L R))
+      (fun _ => rfl) (WCT9.lowerNonceCap lay.val (2 ^ (height lay - level - 1) + c) - 1) 0 (selNonce labels n)
+      (Nat.zero_le _) (by omega)
+      (fun k _ hk => by rw [hvals k (by omega)]; exact (hz k).1 (hspec.1 k hk))
+      (by
+        rcases hspec.2 with h' | h'
+        · left
+          rw [hvals _ le_rfl]
+          have := mt (hz _).2 h'
+          simpa using this
+        · right; omega)
+    exact congrArg Prod.fst hres
+
 /-- Agreement on tree nodes (implied by `Agrees`, `Paired.Agrees` and `Filtered.Agrees`). -/
 def NodeAgrees (answers : Answers) (labels : Labels) : Prop :=
   ∀ m : TreeNode, answers (.inl (.inr (cell (secretsOf answers) (.node m) labels))) = labels (.node m)
@@ -7875,22 +8037,37 @@ theorem tree_step {answers : Answers} {labels : Labels} (hag : NodeAgrees answer
           rw [hvals k (by omega)]
           have := hspec.1 k hk
           unfold trialFails at this
-          rw [hlev] at this
+          rw [hlay, hlev, h0, trialZeroOk_top] at this
           exact this)
         (by
           rcases hspec.2 with h' | h'
           · left
             rw [hvals _ le_rfl]
             unfold trialFails at h'
-            rw [hlev] at h'
+            rw [hlay, hlev, h0, trialZeroOk_top] at h'
             simpa using h'
           · right; omega)
       exact congrArg Prod.fst hres
-    · have hcap1 : trialCap n.1.lay n.1.level.val = 1 := by
-        unfold trialCap; rw [hlay, hlev, if_neg htop]
-      rw [selNonce_of_cap_one hcap1]
-      unfold WCT9.honestNonce
-      rw [if_neg htop]
+    · by_cases hlow : lay ≠ 0 ∧ level + 1 < height lay
+      · exact honestNonce_lower_sel hlow.1 tree level c n hlay hlev hv.2 hlow.2 L R hl hr
+          (fun k hk => htrial k hk)
+      · have hcap1 : trialCap n.1.lay n.1.level.val = 1 := by
+          unfold trialCap
+          rw [hlay, hlev, if_neg htop]
+          split_ifs with h2
+          · exfalso
+            have hh : height lay - level - 1 = 0 := by
+              by_cases hl0 : lay = 0
+              · exact absurd hl0 h2.1
+              · have : ¬ (level + 1 < height lay) := fun h' => hlow ⟨hl0, h'⟩
+                have := hv.1
+                omega
+            rw [hh] at h2
+            exact h2.2 (by simp [WCT9.lowerZeroBits])
+          · rfl
+        rw [selNonce_of_cap_one hcap1]
+        unfold WCT9.honestNonce
+        rw [if_neg htop, if_neg hlow]
   refine ⟨hsel, ?_⟩
   rw [WCT9.wotsTree_node_any answers lay tree.val level c hv.1 hv.2, hsel, hl, hr]
   exact htrial _ le_rfl
@@ -11853,7 +12030,9 @@ theorem layerPairP_wots (answers : Answers) (w : WBytes) (index : Nat) (lay : La
     ((∀ j, j < height lay →
         wpath w lay (route index lay).1 j =
           treeValue (WCT9.wotsTree answers lay (route index lay).2) j ((route index lay).1 / 2 ^ j ^^^ 1) ∧
-        (j + 1 < height lay → wmerklePad w lay (route index lay).1 j = 0 ∧ wmerkleHigh w lay (route index lay).1 j = 0)) ∧
+        (j + 1 < height lay → wmerklePad w lay (route index lay).1 j =
+            WCT9.nonceDigest (WCT9.honestNonce answers lay (route index lay).2 j ((route index lay).1 / 2 ^ (j + 1))) ∧
+          wmerkleHigh w lay (route index lay).1 j = 0)) ∧
       (∀ i, i < chainCount lay →
         (depth answers ⟨routeLeaf index lay, i⟩ ≤ digits.getD i 0 →
           wvalueFor w lay digits i = WCT9.wotsValue answers lay (route index lay).2 (route index lay).1 digits i ∧
@@ -11943,9 +12122,7 @@ theorem layerPairP_wots (answers : Answers) (w : WBytes) (index : Nat) (lay : La
   · exact (hS hS').elim
   refine ⟨fun j hj => ?_, hchains, hhi⟩
   by_cases hjt : j < height lay - 1
-  · have hl' : lay ≠ 0 := fun h => hlay (by rw [h]; rfl)
-    exact ⟨(hpath j hjt).1, fun _ => ⟨(hpath j hjt).2.2.trans
-      (congrFun (Extract.honestPads_lower answers hl' _ _) j), (hpath j hjt).2.1⟩⟩
+  · exact ⟨(hpath j hjt).1, fun _ => ⟨(hpath j hjt).2.2, (hpath j hjt).2.1⟩⟩
   · have hj1 : j = height lay - 1 := by omega
     subst hj1
     exact ⟨hpair.2, fun h => by omega⟩
@@ -12072,9 +12249,7 @@ theorem layerPair_wots (answers : Answers) (w : WBytes) (index : Nat) (lay : Lay
   rcases layerPairP_wots answers w index lay digits hidx hvalid hlay reaches with hS | ⟨hmerkle, hchains, hleaf⟩
   · exact Or.inl (Or.inr (Or.inl (structuralHitSrc_mono hS hmono)))
   exact frame_wots answers w index lay msg digits hidx hfit hframe qs henc
-    (fun j hj => ⟨(hmerkle j hj).1, fun h => by
-        rw [WCT9.honestNonce_lower answers (fun h0 => hlay (by rw [h0]; rfl)), WCT9.nonceDigest_zero]
-        exact ((hmerkle j hj).2 (h.resolve_right hlay)).1,
+    (fun j hj => ⟨(hmerkle j hj).1, fun h => ((hmerkle j hj).2 (h.resolve_right hlay)).1,
       fun h => ((hmerkle j hj).2 (h.resolve_right hlay)).2⟩) hleaf
     (fun i hi => ⟨(hchains i hi).1, fun hlt => ⟨contactAt_mono ((hchains i hi).2 hlt).1 hmono,
       fun h2 => twoEdgeAt_mono (((hchains i hi).2 hlt).2 h2) hmono⟩⟩)
@@ -12285,7 +12460,9 @@ theorem layerPairP_wots (answers : Answers) (w : WBytes) (index : Nat) (lay : La
     ((∀ j, j < height lay →
         wpath w lay (route index lay).1 j =
           treeValue (WCT9.wotsTree answers lay (route index lay).2) j ((route index lay).1 / 2 ^ j ^^^ 1) ∧
-        (j + 1 < height lay → wmerklePad w lay (route index lay).1 j = 0 ∧ wmerkleHigh w lay (route index lay).1 j = 0)) ∧
+        (j + 1 < height lay → wmerklePad w lay (route index lay).1 j =
+            WCT9.nonceDigest (WCT9.honestNonce answers lay (route index lay).2 j ((route index lay).1 / 2 ^ (j + 1))) ∧
+          wmerkleHigh w lay (route index lay).1 j = 0)) ∧
       (∀ i, i < chainCount lay →
         (CanonicalRef.depth answers messages ⟨routeLeaf index lay, i⟩ ≤ digits.getD i 0 →
           wvalueFor w lay digits i = WCT9.wotsValue answers lay (route index lay).2 (route index lay).1 digits i ∧
@@ -12375,9 +12552,7 @@ theorem layerPairP_wots (answers : Answers) (w : WBytes) (index : Nat) (lay : La
   · exact (hS hS').elim
   refine ⟨fun j hj => ?_, hchains, hhi⟩
   by_cases hjt : j < height lay - 1
-  · have hl' : lay ≠ 0 := fun h => hlay (by rw [h]; rfl)
-    exact ⟨(hpath j hjt).1, fun _ => ⟨(hpath j hjt).2.2.trans
-      (congrFun (Extract.honestPads_lower answers hl' _ _) j), (hpath j hjt).2.1⟩⟩
+  · exact ⟨(hpath j hjt).1, fun _ => ⟨(hpath j hjt).2.2, (hpath j hjt).2.1⟩⟩
   · have hj1 : j = height lay - 1 := by omega
     subst hj1
     exact ⟨hpair.2, fun h => by omega⟩
@@ -12599,9 +12774,7 @@ theorem layerPair_wots (answers : Answers) (w : WBytes) (index : Nat) (lay : Lay
   rcases layerPairP_wots (messages := messages) answers w index lay digits hidx hvalid hlay reaches with hS | ⟨hmerkle, hchains, hleaf⟩
   · exact Or.inl (Or.inr (Or.inl (structuralHitSrc_mono hS hmono)))
   exact frame_wots (messages := messages) answers w index lay msg digits hidx hfit hfitRef hframe qs henc
-    (fun j hj => ⟨(hmerkle j hj).1, fun h => by
-        rw [WCT9.honestNonce_lower answers (fun h0 => hlay (by rw [h0]; rfl)), WCT9.nonceDigest_zero]
-        exact ((hmerkle j hj).2 (h.resolve_right hlay)).1,
+    (fun j hj => ⟨(hmerkle j hj).1, fun h => ((hmerkle j hj).2 (h.resolve_right hlay)).1,
       fun h => ((hmerkle j hj).2 (h.resolve_right hlay)).2⟩) hleaf
     (fun i hi => ⟨(hchains i hi).1, fun hlt => ⟨contactAt_mono ((hchains i hi).2 hlt).1 hmono,
       fun h2 => twoEdgeAt_mono (((hchains i hi).2 hlt).2 h2) hmono⟩⟩)
@@ -13144,6 +13317,27 @@ theorem lowerNodeHash_notDigest (lay : Layer) (tree heap : Nat) (left right : Di
       rw [SigGolfCandidate.T3.append64_marker, BitVec.toNat_add, BitVec.toNat_ofNat,
         SigGolfCandidate.T3.hyperWord_toNat]
       omega
+/-- U16b: every ground trial query of a lower node (nonce slot `n`) is no digest query (same node word marker). -/
+theorem lowerNodeHashN_notDigest (lay : Layer) (tree heap n : Nat) (left right : Digest) (h0 : lay.val ≠ 0)
+    (hh : heap < 2 ^ height lay) :
+    AllQueriesSatisfy (ClaudeWCT.WCT9.lowerNodeHashN lay.val tree heap n left right)
+      SigGolfCandidate.T3.Security.BPB.NotDigestQ := by
+  have h7 : heap < 128 := lt_of_lt_of_le hh
+    ((Nat.pow_le_pow_right (by decide) (ClaudeWCT.W9.T3.Security.Signer.height_le_seven h0)).trans (by norm_num))
+  unfold ClaudeWCT.WCT9.lowerNodeHashN ClaudeWCT.WCT9.lowerHash
+  refine ClaudeWCT.W9.T3.Security.Signer.halfHash_allowed_of_short _ _
+    (SigGolfCandidate.T3.Security.BPB.shortHash_ok_marker
+      (hdr := ClaudeWCT.WCT9.merkleTweak lay.val tree heap) ?_ ?_)
+  · unfold ClaudeWCT.WCT9.lowerNodeInputN
+    rw [List.append_assoc (SphincsSecurity.bytesLE 16 left ++
+        SphincsSecurity.bytesLE 16 (ClaudeWCT.WCT9.merkleTweak lay.val tree heap)),
+      SigGolfCandidate.T3M.Extract.hdrBlock_pad64 _ (by simp [SphincsSecurity.bytesLE_length, nonceBytes]),
+      SigGolfCandidate.T3M.Extract.hdrBlock_prefix]
+  · rw [ClaudeWCT.WCT9.merkleTweak_lower h0]
+    unfold ClaudeWCT.WCT9.lowerTweak ClaudeWCT.WCT9.lowerNodeWord ClaudeWCT.WCT9.lowerK
+    rw [SigGolfCandidate.T3.append64_marker, BitVec.toNat_add, BitVec.toNat_ofNat,
+      SigGolfCandidate.T3.hyperWord_toNat]
+    omega
 theorem layerEncoding_ok (lay : Layer) (tree leaf : Nat) (msg : WCT9.LayerMsg) (counter : BitVec 32) :
     AllQueriesSatisfy (ClaudeWCT.WCT9.encodingHash lay (WCT9.layerEncodingInput lay tree leaf msg counter))
       SigGolfCandidate.T3.Security.BPB.NotDigestQ := by
@@ -13179,7 +13373,11 @@ theorem afterDigest_ok (cache : SigGolfCandidate.T3.Cache) (rho : Digest) (outpu
   apply SourceQueries.bind_allowed _ (ClaudeWCT.W9.T3.Security.Signer.signLayersBC_allowed' _ _ layerEncoding_ok
     (ClaudeWCT.W9.T3.Security.Signer.buildTreeP_allowed' _ chainStepW_ok
       SigGolfCandidate.T3.Security.BPB.leafHash_ok
-      (fun lay _ _ _ _ hh => lowerNodeHash_notDigest lay _ _ _ _ hh)
+      (fun lay tree heap n left right hh hn => by
+        rcases hn with rfl | h0
+        · rw [ClaudeWCT.WCT9.lowerNodeHashN_zero]
+          exact lowerNodeHash_notDigest lay tree heap left right hh
+        · exact lowerNodeHashN_notDigest lay tree heap n left right h0 hh)
       (fun _ _ _ => SigGolfCandidate.T3.Security.BPB.privatePair_ok _ _ _ _ _))
     (SigGolfCandidate.T3.Security.BPB.signTop_ok _) _ _ _)
   intro layers

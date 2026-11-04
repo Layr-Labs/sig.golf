@@ -894,164 +894,6 @@ theorem Ev_buildTopTree_bad (secret : BitVec 256) :
 
 end ClaudeWCT.W9.T3.TopMoment
 end
--- ==== merged from ClaudeWCT_W9_T3_FullCache_NativeBudgetB1_ExpandMomentV6 ====
-section
-
-/-! # img-v6 expand excess moment with the 5,239-byte codec (r3-lean-topbytes)
-
-`expand` normalizes the top path (`SharedForest.normTop`), so the brute force is bounded by the true sibling field
-only when every top node passed its zero test (`TopTreeOK`); otherwise by `searchFuel`
-(`SharedForest.expand_cost_le_sign_field`, `excessField`). Hence
-
-`E[2^((8/7)(N_e ∸ N_s)/2^20)] ≤ E[excessWeight (max field₂ field₃)] + Pr[¬TopLevelsOK] · excessWeight searchFuel
-  ≤ 1.9 + 2^-135 · 4 ≤ 2`. -/
-
-namespace SigGolfCandidate.Research.SharedExpansionV6
-open OracleComp OracleSpec OracleComp.EvalDist ENNReal
-open SigGolfCandidate.T3 hiding Signature Witness sign expand verify signPayload digestSearch admissible
-open SigGolfCandidate.T3.Sampling SigGolfCandidate.T3.Cost
-open SigGolfCandidate.T3.Correctness (Answers builtTree treeValue)
-open SigGolfCandidate.T3.SourceReplay (fixedAnswers)
-open SigGolfCandidate.T3.SearchCost (cost counted_fst)
-open SigGolfCandidate.T3.ExpansionClosure (jointCounts)
-open SigGolfCandidate.T3.SourceReplay (HashOnly hashOnly_pure hashOnly_bind hashOnly_map hashOnly_buildTopTree)
-open SigGolfCandidate.T3.CountedReplay (hashOnly_countBlocks support_replay)
-open SigGolfCandidate.Research.SharedForest (Signature Witness sign expand expandReplayExtra topField
-  expand_cost_le_sign_field excessField TopTreeOK)
-open ClaudeWCT.W9.T3.TopMoment
-set_option maxHeartbeats 1000000
-set_option maxRecDepth 10000
-
-/-- The joint run, also returning the keygen's whole top tree. -/
-def jointL (message : Message) : M ((Nat × Nat) × List (List Digest)) :=
-  buildTopTree >>= fun levels => (fun c => (c, levels)) <$> (keygenRest levels >>= afterKeys message)
-
-theorem jointCounts_eqL (message : Message) :
-    jointCounts keygen (fun keys => sign keys.2 message) (fun keys sig => expand message keys.1 sig) =
-      Prod.fst <$> jointL message := by
-  rw [jointCounts_bind, keygen_split]
-  unfold jointL afterKeys
-  simp only [bind_assoc, map_bind, Functor.map_map, id_map']
-
-/-- The excess weight as a function of the top tree. -/
-noncomputable def excessG (levels : List (List Digest)) : ℝ≥0∞ :=
-  open Classical in
-  if TopLevelsOK levels then
-    excessWeight (max (topFieldV ((levels.getD 11 []).getD 0 0)) (topFieldV ((levels.getD 11 []).getD 1 0)))
-  else excessWeight ClaudeWCT.WCT9.searchFuel
-
-theorem excessWeight_searchFuel_le : excessWeight ClaudeWCT.WCT9.searchFuel ≤ ENNReal.ofReal 4 := by
-  unfold excessWeight expandReplayExtra ClaudeWCT.WCT9.searchFuel
-  calc (2 : ℝ≥0∞) ^ ((8 / 7 : ℝ) * ((1900 + 425765 + 65535 : ℕ) : ℝ) / 1048576)
-      ≤ (2 : ℝ≥0∞) ^ ((2 : ℕ) : ℝ) :=
-        ENNReal.rpow_le_rpow_of_exponent_le (by norm_num) (by push_cast; norm_num)
-    _ = ENNReal.ofReal 4 := by rw [ENNReal.rpow_natCast]; norm_num
-
-/-- **img-v6 expand excess moment** (5,239-byte codec): `E[2^((8/7)(N_e ∸ N_s)/2^20)] ≤ 2` on the honest joint run. -/
-theorem expand_excess_moment (secret : BitVec 256) (message : Message)
-    (hsign : ∀ cache, HashOnly (sign cache message)) (hexp : ∀ pk sig, HashOnly (expand message pk sig))
-    (hrest : ∀ levels, HashOnly (keygenRest levels))
-    (hpre : TopPrefixOK secret) (hnum : ExpandExcessNumeric19) :
-    expectedValue (roRun secret (jointCounts keygen (fun keys => sign keys.2 message)
-      (fun keys sig => expand message keys.1 sig)) ∅)
-      (fun r => (2 : ℝ≥0∞) ^ ((8 / 7 : ℝ) * ((r.1.2 - r.1.1 : ℕ) : ℝ) / 1048576)) ≤ 2 := by
-  classical
-  rw [jointCounts_eqL, roRun_map, expectedValue_map]
-  have hho : HashOnly (jointL message) := by
-    unfold jointL
-    refine hashOnly_bind hashOnly_buildTopTree (fun levels => hashOnly_map _ (hashOnly_bind (hrest levels) ?_))
-    intro keys
-    unfold afterKeys jointCounts
-    refine hashOnly_bind (hashOnly_pure _) (fun keys => ?_)
-    refine hashOnly_bind (hashOnly_countBlocks _ (hsign keys.2)) (fun signed => ?_)
-    cases signed.1 with
-    | none => exact hashOnly_pure _
-    | some sig => exact hashOnly_bind (hashOnly_countBlocks _ (hexp keys.1 sig)) (fun _ => hashOnly_pure _)
-  -- pointwise: the excess is bounded by the top-tree function `excessG`
-  have hpt : ∀ r ∈ support (roRun secret (jointL message) ∅),
-      (2 : ℝ≥0∞) ^ ((8 / 7 : ℝ) * (((r.1.1.2 - r.1.1.1 : ℕ)) : ℝ) / 1048576) ≤ excessG r.1.2 := by
-    intro r hr
-    obtain ⟨hash, _, heval⟩ := support_replay secret _ hho ∅ r hr
-    set answers := fixedAnswers secret hash
-    have hj : evalWithAnswerFn answers (jointL message) =
-        (evalWithAnswerFn answers (jointCounts keygen (fun keys => sign keys.2 message)
-          (fun keys sig => expand message keys.1 sig)), builtTree answers 0 0) := by
-      rw [jointCounts_eqL]
-      unfold jointL
-      simp only [evalWithAnswerFn_bind, evalWithAnswerFn_map, SigGolfCandidate.T3.Correctness.eval_buildTopTree]
-    have hle := eval_joint_cost_le_add answers keygen (fun keys => sign keys.2 message)
-      (fun keys sig => expand message keys.1 sig) (expandReplayExtra + excessField answers)
-      (fun sig hs => by
-        have := expand_cost_le_sign_field answers message sig hs
-        omega)
-    rw [heval, hj]
-    simp only
-    have hsub : (evalWithAnswerFn answers (jointCounts keygen (fun keys => sign keys.2 message)
-        (fun keys sig => expand message keys.1 sig))).2 - (evalWithAnswerFn answers (jointCounts keygen
-        (fun keys => sign keys.2 message) (fun keys sig => expand message keys.1 sig))).1 ≤
-        expandReplayExtra + excessField answers := by omega
-    have hEq : excessG (builtTree answers 0 0) = excessWeight (excessField answers) := by
-      unfold excessG excessField
-      by_cases hT : TopTreeOK answers
-      · have hL : TopLevelsOK (builtTree answers 0 0) := hT
-        rw [if_pos hL, if_pos hT]
-        rfl
-      · have hL : ¬TopLevelsOK (builtTree answers 0 0) := hT
-        rw [if_neg hL, if_neg hT]
-    rw [hEq]
-    unfold excessWeight
-    apply ENNReal.rpow_le_rpow_of_exponent_le (by norm_num)
-    have hc := (Nat.cast_le (α := ℝ)).mpr hsub
-    have h87 : (0 : ℝ) ≤ 8 / 7 := by norm_num
-    exact div_le_div_of_nonneg_right (mul_le_mul_of_nonneg_left hc h87) (by norm_num)
-  refine (expectedValue_mono_of_support hpt).trans ?_
-  change Ev secret (jointL message) ∅ (fun r => excessG r.1.2) ≤ 2
-  unfold jointL
-  rw [Ev_bind]
-  have hinner : ∀ (levels : List (List Digest)) (σ : RCache),
-      Ev secret ((fun c => (c, levels)) <$> (keygenRest levels >>= afterKeys message)) σ
-        (fun r => excessG r.1.2) ≤ excessG levels := by
-    intro levels σ
-    unfold Ev
-    rw [roRun_map, expectedValue_map]
-    exact Ev_const_le secret _ σ _
-  refine le_trans (Ev_mono _ _ _ (fun r => hinner r.1 r.2)) ?_
-  -- split off the cap-exhaustion event
-  have hsplitG : ∀ r : List (List Digest) × RCache, excessG r.1 ≤
-      excessWeight (max (topFieldV ((r.1.getD 11 []).getD 0 0)) (topFieldV ((r.1.getD 11 []).getD 1 0))) +
-        (if TopLevelsOK r.1 then 0 else 1) * excessWeight ClaudeWCT.WCT9.searchFuel := by
-    intro r
-    unfold excessG
-    split
-    · simp
-    · simp
-  refine le_trans (Ev_mono _ _ _ hsplitG) ?_
-  have hadd : Ev secret buildTopTree ∅ (fun r =>
-      excessWeight (max (topFieldV ((r.1.getD 11 []).getD 0 0)) (topFieldV ((r.1.getD 11 []).getD 1 0))) +
-        (if TopLevelsOK r.1 then 0 else 1) * excessWeight ClaudeWCT.WCT9.searchFuel) =
-      Ev secret buildTopTree ∅ (fun r =>
-        excessWeight (max (topFieldV ((r.1.getD 11 []).getD 0 0)) (topFieldV ((r.1.getD 11 []).getD 1 0)))) +
-      Ev secret buildTopTree ∅ (fun r => if TopLevelsOK r.1 then 0 else 1) *
-        excessWeight ClaudeWCT.WCT9.searchFuel := by
-    unfold Ev
-    rw [expectedValue_add, expectedValue_mul_const]
-  rw [hadd]
-  have h1 : Ev secret buildTopTree ∅ (fun r =>
-      excessWeight (max (topFieldV ((r.1.getD 11 []).getD 0 0)) (topFieldV ((r.1.getD 11 []).getD 1 0)))) ≤
-      ENNReal.ofReal (19 / 10) := by
-    obtain ⟨γ, pre, sel, k, hsplit, hbound⟩ := hpre
-    rw [hsplit]
-    exact (Ev_buildTop_rootChildren secret pre sel k hbound excessWeight).trans hnum
-  have h2 := Ev_buildTopTree_bad secret
-  calc _ ≤ ENNReal.ofReal (19 / 10) + ENNReal.ofReal (1 / 2 ^ 135) * ENNReal.ofReal 4 :=
-        add_le_add h1 (mul_le_mul' h2 excessWeight_searchFuel_le)
-    _ = ENNReal.ofReal (19 / 10 + 1 / 2 ^ 135 * 4) := by
-        rw [← ENNReal.ofReal_mul (by positivity), ← ENNReal.ofReal_add (by norm_num) (by positivity)]
-    _ ≤ ENNReal.ofReal 2 := ENNReal.ofReal_le_ofReal (by norm_num)
-    _ = 2 := by norm_num
-
-end SigGolfCandidate.Research.SharedExpansionV6
-end
 -- ==== merged from T3M_Images_Keygen ====
 section
 
@@ -1105,12 +947,12 @@ namespace ClaudeWCT.W9.T3M.Paired
 open SigGolfCandidate.Legacy
 
 def submission (I : Images) : Submission where
-  sizes := ⟨5195, 22012, 131072⟩
+  sizes := ⟨5193, 22012, 131072⟩
   layout := ⟨0x6620, 0x80, 0xa0, 0x80000, 0x7000, 0x1020⟩
   image := (ClaudeWCT.W9.T3M.submission I).image
 
 variable (I : Images)
-@[simp] theorem submission_sizes : (submission I).sizes = ⟨5195, 22012, 131072⟩ := rfl
+@[simp] theorem submission_sizes : (submission I).sizes = ⟨5193, 22012, 131072⟩ := rfl
 @[simp] theorem submission_layout : (submission I).layout = ⟨0x6620, 0x80, 0xa0, 0x80000, 0x7000, 0x1020⟩ := rfl
 @[simp] theorem submission_image : (submission I).image = (ClaudeWCT.W9.T3M.submission I).image := rfl
 @[simp] theorem submission_keygen : (submission I).image .keygen = SigGolfCandidate.T3M.Images.keygenImage := rfl
@@ -1256,6 +1098,32 @@ theorem hashOnly_packedSecret (pairQuery : Nat → M (Digest × Digest)) (h : �
     HashOnly (ClaudeWCT.WCT9.lowerNodeHash lay tree heap left right) := by
   unfold ClaudeWCT.WCT9.lowerNodeHash ClaudeWCT.WCT9.lowerHash
   exact hashOnly_halfHash _ _
+@[aesop safe apply] theorem hashOnly_lowerNodeHashN (lay tree heap n : Nat) (left right : Digest) :
+    HashOnly (ClaudeWCT.WCT9.lowerNodeHashN lay tree heap n left right) := by
+  unfold ClaudeWCT.WCT9.lowerNodeHashN ClaudeWCT.WCT9.lowerHash
+  exact hashOnly_halfHash _ _
+theorem hashOnly_lowerNonceSearch (lay tree heap : Nat) (left right : Digest) :
+    ∀ fuel n, HashOnly (ClaudeWCT.WCT9.lowerNonceSearch lay tree heap left right fuel n) := by
+  intro fuel
+  induction fuel with
+  | zero => intro n; unfold ClaudeWCT.WCT9.lowerNonceSearch
+            exact hashOnly_bind (hashOnly_lowerNodeHashN _ _ _ _ _ _) fun _ => hashOnly_pure _
+  | succ fuel ih =>
+      intro n; unfold ClaudeWCT.WCT9.lowerNonceSearch
+      refine hashOnly_bind (hashOnly_lowerNodeHashN _ _ _ _ _ _) fun _ => ?_
+      split
+      · exact hashOnly_pure _
+      · exact ih _
+@[aesop safe apply] theorem hashOnly_lowerNodeAt (lay tree heap : Nat) (left right : Digest) :
+    HashOnly (ClaudeWCT.WCT9.lowerNodeAt lay tree heap left right) := by
+  unfold ClaudeWCT.WCT9.lowerNodeAt
+  split
+  · exact hashOnly_map _ (hashOnly_lowerNodeHash _ _ _ _ _)
+  · exact hashOnly_lowerNonceSearch _ _ _ _ _ _ _
+@[aesop safe apply] theorem hashOnly_lowerNodeG (lay tree heap : Nat) (left right : Digest) :
+    HashOnly (ClaudeWCT.WCT9.lowerNodeG lay tree heap left right) := by
+  unfold ClaudeWCT.WCT9.lowerNodeG
+  exact hashOnly_map _ (hashOnly_lowerNodeAt _ _ _ _ _)
 @[aesop safe apply] theorem hashOnly_lowerLevel (lay tree h level : Nat) (nodes : List Digest) :
     HashOnly (ClaudeWCT.WCT9.lowerLevel lay tree h level nodes) := by
   unfold ClaudeWCT.WCT9.lowerLevel; hashes
@@ -1327,6 +1195,21 @@ theorem hashOnly_packedSecret (pairQuery : Nat → M (Digest × Digest)) (h : �
 @[aesop safe apply] theorem hashOnly_recoverLayerPair (sig : Signature) (index : Nat) (lay : Layer)
     (digits : List Nat) : HashOnly (ClaudeWCT.WCT9.recoverLayerPair sig index lay digits) := by
   unfold ClaudeWCT.WCT9.recoverLayerPair; hashes
+@[aesop safe apply] theorem hashOnly_recoverLayerPair0 (sig : Signature) (index : Nat) (lay : Layer)
+    (digits : List Nat) : HashOnly (ClaudeWCT.WCT9.recoverLayerPair0 sig index lay digits) := by
+  unfold ClaudeWCT.WCT9.recoverLayerPair0; hashes
+@[aesop safe apply] theorem hashOnly_recoverLayerPairW (sig : Signature) (index : Nat) (lay : Layer)
+    (digits : List Nat) : HashOnly (ClaudeWCT.WCT9.recoverLayerPairW sig index lay digits) := by
+  unfold ClaudeWCT.WCT9.recoverLayerPairW; hashes
+@[aesop safe apply] theorem hashOnly_recoverLayerPairV (sig : Signature) (nonces : List Nat) (index : Nat)
+    (lay : Layer) (digits : List Nat) :
+    HashOnly (ClaudeWCT.WCT9.recoverLayerPairV sig nonces index lay digits) := by
+  unfold ClaudeWCT.WCT9.recoverLayerPairV; hashes
+@[aesop safe apply] theorem hashOnly_recoverLayerPairGuardV (sig : Signature) (nonces : List Nat) (index : Nat)
+    (lay : Layer) (answer : Digest) (digits : List Nat) :
+    HashOnly (ClaudeWCT.WCT9.recoverLayerPairGuardV sig nonces index lay answer digits) := by
+  unfold ClaudeWCT.WCT9.recoverLayerPairGuardV ClaudeWCT.WCT9.lowerGuardedRun
+  hashes
 @[aesop safe apply] theorem hashOnly_expandLayersBC (sig : Signature) (index n : Nat)
     (msg : ClaudeWCT.WCT9.LayerMsg) : HashOnly (ClaudeWCT.WCT9.expandLayersBC sig index n msg) := by
   induction n generalizing msg with
@@ -2000,7 +1883,2063 @@ theorem avoids_buildForest (secret : BitVec 256) (target : HashInput)
   ClaudeWCT.WCT9.Wots.allQueriesSatisfy_mono (buildForest_queries index selected words)
     (fun query hq => avoidsQuery secret target ht index query hq)
 
+namespace GroundFresh
+open OracleComp OracleSpec OracleComp.EvalDist ENNReal
+open SigGolfCandidate.T3 SigGolfCandidate.T3.Sampling
+open SigGolfCandidate.T3.Freshness (Avoids avoids_pure avoids_bind avoids_foldlM avoids_mapM avoids_map
+  avoids_shortHash_of_ne avoids_privateHash_of_ne hasTag_privatePair hasTag_privateNonce HasTag preserves)
+open SigGolfCandidate.T3.QuerySpace (queryHeader queryHeader_padded queryHeader_leafInput)
+open SphincsSecurity (bytesLE bytesLE_length bytesLE_injective)
+
+/-! ## U16b ground trials: the oracle inputs of the lower-node nonce searches -/
+
+/-- Oracle input of trial `n` of the lower node `(lay, tree, heap)`. -/
+def gTrial (lay tree heap n : Nat) (left right : Digest) : HashInput :=
+  pad64 (ClaudeWCT.WCT9.lowerNodeInputN lay tree heap n left right)
+
+/-- The ground parameters: a lower layer, a 32-bit tree, a ground heap. -/
+structure GP (lay tree heap : Nat) : Prop where
+  l1 : 1 ≤ lay
+  l4 : lay < 4
+  t : tree < 2 ^ 32
+  h2 : 2 ≤ heap
+  h16 : heap < 16
+
+/-- The input carries the lower node tweak of `(lay, tree, heap)`. -/
+def GQ (lay tree heap : Nat) (x : HashInput) : Prop :=
+  queryHeader x = bytesLE 16 (ClaudeWCT.WCT9.lowerTweak lay tree heap)
+
+theorem gQ_gTrial {lay : Nat} (h0 : lay ≠ 0) (tree heap n : Nat) (left right : Digest) :
+    GQ lay tree heap (gTrial lay tree heap n left right) := by
+  unfold GQ gTrial ClaudeWCT.WCT9.lowerNodeInputN
+  rw [ClaudeWCT.WCT9.merkleTweak_lower h0]
+  simpa only [List.append_assoc] using
+    queryHeader_padded (bytesLE 16 left) (nonceBytes n ++ bytesLE 16 right) (bytesLE_length ..)
+      (ClaudeWCT.WCT9.lowerTweak lay tree heap)
+
+theorem gq_ne {input target : HashInput} {hdr : BitVec 128} {lay tree heap : Nat}
+    (h : queryHeader input = bytesLE 16 hdr) (hn : hdr ≠ ClaudeWCT.WCT9.lowerTweak lay tree heap)
+    (ht : GQ lay tree heap target) : input ≠ target := by
+  rintro rfl
+  exact hn (bytesLE_injective (h.symm.trans ht))
+
+theorem lowerTweak_marker' {heap : Nat} (hh : heap < 128) (lay tree : Nat) :
+    tweakMarker (ClaudeWCT.WCT9.lowerTweak lay tree heap) = 128 + heap := by
+  unfold ClaudeWCT.WCT9.lowerTweak ClaudeWCT.WCT9.lowerNodeWord ClaudeWCT.WCT9.lowerK
+  rw [append64_marker, BitVec.toNat_add, BitVec.toNat_ofNat, hyperWord_toNat]
+  omega
+
+theorem ne_ground_of_marker {hdr : BitVec 128} {lay tree heap : Nat} (hh : heap < 128)
+    (hm : tweakMarker hdr < 128) : hdr ≠ ClaudeWCT.WCT9.lowerTweak lay tree heap := by
+  rintro rfl
+  rw [lowerTweak_marker' hh] at hm
+  omega
+
+theorem header_ne_ground (tag l t p i : Nat) {lay tree heap : Nat} (hh : heap < 128) :
+    header tag l t p i ≠ ClaudeWCT.WCT9.lowerTweak lay tree heap :=
+  ne_ground_of_marker hh (by rw [header_marker]; omega)
+
+theorem hasTag_ne_ground {tag : Nat} {input target : HashInput} (hi : HasTag tag input)
+    {lay tree heap : Nat} (hh : heap < 128) (ht : GQ lay tree heap target) : input ≠ target := by
+  obtain ⟨l, tr, p, ix, h⟩ := hi
+  exact gq_ne h (header_ne_ground _ _ _ _ _ hh) ht
+
+theorem leafTweak_ne_ground (l : Layer) (t lf : Nat) {lay tree heap : Nat} (hh : heap < 128) :
+    leafTweak l t lf ≠ ClaudeWCT.WCT9.lowerTweak lay tree heap :=
+  ne_ground_of_marker hh (by rw [leafTweak_marker]; omega)
+
+theorem topTweak_ne_ground (heap' : Nat) {lay tree heap : Nat} (hh : heap < 128) :
+    nodeTweak 3 0 0 heap' ≠ ClaudeWCT.WCT9.lowerTweak lay tree heap := by
+  intro he
+  have hl := nodeTweak_top_low 0 heap'
+  have := topNodeWord_lt heap'
+  unfold tweakLow at hl
+  exact ClaudeWCT.WCT9.lowerTweak_ne_of_low_lt hh lay tree (x := nodeTweak 3 0 0 heap')
+    (by rw [hl]; omega) he.symm
+
+theorem chainHeader_ne_ground (l : Layer) (t lf i step : Nat) (hs : step < 7) {lay tree heap : Nat}
+    (hh : heap < 128) : chainHeader l t lf i step ≠ ClaudeWCT.WCT9.lowerTweak lay tree heap :=
+  fun he => ClaudeWCT.WCT9.lowerTweak_ne_chainHeader hh lay tree l t lf i step (by omega) he.symm
+
+theorem lowerTweak_ne_ground {lay tree heap lay' tree' heap' : Nat} (hp : GP lay tree heap)
+    (h1' : 1 ≤ lay') (h4' : lay' < 4) (ht' : tree' < 2 ^ 32) (hh' : heap' < 128)
+    (hne : ¬ (lay' = lay ∧ tree' = tree ∧ heap' = heap)) :
+    ClaudeWCT.WCT9.lowerTweak lay' tree' heap' ≠ ClaudeWCT.WCT9.lowerTweak lay tree heap := fun he =>
+  hne (ClaudeWCT.WCT9.lowerTweak_injective h1' h4' hp.l1 hp.l4 ht' hp.t hh' (by have := hp.h16; omega) he)
+
+theorem digestHeader_ne_ground (c : BitVec 32) {lay tree heap : Nat} (hh : heap < 128) :
+    digestHeader c ≠ ClaudeWCT.WCT9.lowerTweak lay tree heap :=
+  ne_ground_of_marker hh (by rw [digestHeader_marker]; omega)
+
+
+theorem gav_halfHash_of_ne (secret : BitVec 256) (target : HashInput) (high : Bool) (input : HashInput) (hne : pad64 input ≠ target) :
+    Avoids secret target (ClaudeWCT.WCT9.halfHash high input) := by
+  rw [ClaudeWCT.WCT9.halfHash_eq]
+  apply avoids_bind
+  · exact (allQueriesSatisfy_query_iff _ _).mpr hne
+  · intro _; exact avoids_pure _ _ _
+
+
+theorem chainInputW_header (l : Layer) (t lf i step : Nat) (value : Digest) :
+    queryHeader (pad64 (ClaudeWCT.WCT9.chainInputW l t lf i step value)) = bytesLE 16 (chainHeader l t lf i step) := by
+  unfold ClaudeWCT.WCT9.chainInputW
+  split
+  · simpa only [List.append_assoc] using
+      queryHeader_padded (bytesLE 16 value) (zero16 ++ zero16) (by simp [bytesLE_length]) (chainHeader l t lf i step)
+  · simpa only [SigGolfCandidate.T3.chainInput, List.append_assoc] using
+      queryHeader_padded zero16 (zero16 ++ bytesLE 16 value) (by simp [zero16]) (chainHeader l t lf i step)
+
+
+theorem maxDigit_le7 (l : Layer) (i : Nat) : maxDigit l i ≤ 7 := by unfold maxDigit; split_ifs <;> omega
+
+
+theorem merkleNodeInputN_header (l t h n : Nat) (left right : Digest) :
+    queryHeader (pad64 (ClaudeWCT.WCT9.lowerNodeInputN l t h n left right)) =
+      bytesLE 16 (ClaudeWCT.WCT9.merkleTweak l t h) := by
+  simpa only [ClaudeWCT.WCT9.lowerNodeInputN, List.append_assoc] using
+    queryHeader_padded (bytesLE 16 left) (nonceBytes n ++ bytesLE 16 right) (bytesLE_length ..)
+      (ClaudeWCT.WCT9.merkleTweak l t h)
+
+
+theorem merkleNodeInput_header (l t h : Nat) (left right : Digest) :
+    queryHeader (pad64 (ClaudeWCT.WCT9.merkleNodeInput l t h left right)) =
+      bytesLE 16 (ClaudeWCT.WCT9.merkleTweak l t h) := by
+  simpa only [ClaudeWCT.WCT9.merkleNodeInput, List.append_assoc] using
+    queryHeader_padded (bytesLE 16 left) (zero16 ++ bytesLE 16 right) (bytesLE_length ..)
+      (ClaudeWCT.WCT9.merkleTweak l t h)
+
+
+section Avoid
+variable (secret : BitVec 256) (target : HashInput) (lay tree heap : Nat) (ht : GQ lay tree heap target)
+  (hp : GP lay tree heap)
+include ht hp
+
+theorem gav_privatePair (tag l t p i : Nat) : Avoids secret target (privatePair tag l t p i) := by
+  unfold privatePair
+  apply avoids_bind
+  · exact avoids_privateHash_of_ne secret target _
+      (hasTag_ne_ground (hasTag_privatePair ..) (by have := hp.h16; omega) ht)
+  · intro _; exact avoids_pure _ _ _
+
+theorem gav_privateMac (region : Region) : Avoids secret target (privateMac region) := by
+  unfold privateMac privateMacKey
+  simp only [bind_assoc, pure_bind]
+  exact avoids_bind (avoids_privateHash_of_ne secret target _
+      (hasTag_ne_ground (hasTag_privatePair secret 14 0 0 0 0) (by have := hp.h16; omega) ht)) fun _ =>
+    avoids_bind (avoids_privateHash_of_ne secret target _
+      (hasTag_ne_ground (hasTag_privatePair secret 14 0 0 0 1) (by have := hp.h16; omega) ht)) fun _ =>
+    avoids_pure _ _ _
+
+theorem gav_privateNonce (message : Message) : Avoids secret target (privateNonce message) := by
+  unfold privateNonce
+  apply avoids_bind
+  · exact avoids_privateHash_of_ne secret target _
+      (hasTag_ne_ground (hasTag_privateNonce ..) (by have := hp.h16; omega) ht)
+  · intro _; exact avoids_pure _ _ _
+
+theorem gav_topChain (leaf i start count : Nat) (value : Digest) (hs : start + count ≤ 7) :
+    Avoids secret target (topChain leaf i start count value) := by
+  unfold topChain
+  refine ClaudeWCT.W9.T3.LayerBudget.Envelopes.avoids_foldlM_range'_inv _ (fun _ _ => True) count start
+    (fun k a hk hk' _ => ⟨?_, fun _ _ => trivial⟩) value trivial
+  unfold projHash
+  apply avoids_bind
+  · apply (allQueriesSatisfy_query_iff _ _).mpr
+    have hh : queryHeader (pad64 (topChainInput leaf i k a)) = bytesLE 16 (chainHeader 0 0 leaf i k) := by
+      unfold topChainInput
+      split
+      · simpa only [List.append_assoc] using
+          queryHeader_padded (bytesLE 16 a) (zero16 ++ zero16) (bytesLE_length ..) (chainHeader 0 0 leaf i k)
+      · simpa only [SigGolfCandidate.T3.chainInput, List.append_assoc] using
+          queryHeader_padded zero16 (zero16 ++ bytesLE 16 a) (by simp [zero16]) (chainHeader 0 0 leaf i k)
+    exact gq_ne hh (chainHeader_ne_ground 0 0 leaf i k (by omega) (by have := hp.h16; omega)) ht
+  · intro _; exact avoids_pure _ _ _
+
+theorem gav_leafHash (l : Layer) (t lf : Nat) (ends : List Digest) : Avoids secret target (SigGolfCandidate.T3.leafHash l t lf ends) := by
+  unfold SigGolfCandidate.T3.leafHash
+  apply avoids_shortHash_of_ne
+  exact gq_ne (queryHeader_leafInput ..) (leafTweak_ne_ground l t lf (by have := hp.h16; omega)) ht
+
+theorem gav_topPairsFrom (first start : Nat) (init : List Digest) :
+    Avoids secret target (topPairsFrom first start init) := by
+  unfold topPairsFrom topSeedPair
+  exact avoids_foldlM _ _ _ _ (fun acc j => avoids_bind (gav_privatePair secret target lay tree heap ht hp 0 0 0 _ 0)
+    (fun _ => avoids_pure _ _ _)) _
+
+theorem gav_buildLeafTopC (leaf : Nat) (coefs : List Digest) (signatureOnly : Bool) :
+    Avoids secret target (buildLeafTopC leaf coefs [] signatureOnly) := by
+  have hmax : ∀ i, maxDigit 0 i ≤ 7 := fun i => by unfold maxDigit; split_ifs <;> omega
+  unfold buildLeafTopC
+  apply avoids_bind
+  · apply avoids_foldlM
+    intro state i
+    refine avoids_bind (gav_topChain secret target lay tree heap ht hp _ _ _ _ _ (by simp)) (fun value => ?_)
+    split
+    · exact avoids_pure _ _ _
+    · exact avoids_bind (gav_topChain secret target lay tree heap ht hp _ _ _ _ _ (by simp [hmax]))
+        (fun _ => avoids_pure _ _ _)
+  · intro state
+    split
+    · exact avoids_pure _ _ _
+    · exact avoids_bind (gav_leafHash secret target lay tree heap ht hp _ _ _ _) (fun _ => avoids_pure _ _ _)
+
+theorem gav_topTreeStep (st : List Digest × List Digest × Digest) (leaf : Nat) :
+    Avoids secret target (topTreeStep st leaf) := by
+  unfold topTreeStep topFamilyCoefs
+  refine avoids_bind ?_ (fun cc => avoids_bind (gav_buildLeafTopC secret target lay tree heap ht hp _ _ _)
+    (fun _ => avoids_pure _ _ _))
+  split
+  · unfold topCoefsK
+    exact avoids_bind (gav_topPairsFrom secret target lay tree heap ht hp _ _ _) (fun _ => avoids_pure _ _ _)
+  · exact avoids_pure _ _ _
+
+theorem gav_topNodeHashN (heap' n : Nat) (left right : Digest) :
+    Avoids secret target (topNodeHashN heap' n left right) := by
+  unfold topNodeHashN projHash
+  apply avoids_bind
+  · apply (allQueriesSatisfy_query_iff _ _).mpr
+    apply gq_ne _ (topTweak_ne_ground heap' (by have := hp.h16; omega)) ht
+    simpa only [topNodeInput, List.append_assoc] using
+      (queryHeader_padded (bytesLE 16 left) (nonceBytes n ++ bytesLE 16 right) (bytesLE_length ..)
+        (nodeTweak 3 0 0 heap'))
+  · intro _; exact avoids_pure _ _ _
+
+theorem gav_topNonceSearch (h heap' : Nat) (left right : Digest) :
+    ∀ fuel n, Avoids secret target (topNonceSearch h heap' left right fuel n)
+  | 0, n => by
+      unfold topNonceSearch
+      exact avoids_bind (gav_topNodeHashN secret target lay tree heap ht hp _ _ _ _) fun _ => avoids_pure _ _ _
+  | fuel+1, n => by
+      unfold topNonceSearch
+      refine avoids_bind (gav_topNodeHashN secret target lay tree heap ht hp _ _ _ _) fun _ => ?_
+      split
+      · exact avoids_pure _ _ _
+      · exact gav_topNonceSearch h heap' left right fuel (n+1)
+
+theorem gav_buildTopLevel (level : Nat) (nodes : List Digest) : Avoids secret target (buildTopLevel level nodes) := by
+  unfold buildTopLevel
+  refine avoids_mapM _ _ _ _ fun i => ?_
+  split
+  · unfold nodeHash projHash
+    apply avoids_bind
+    · apply (allQueriesSatisfy_query_iff _ _).mpr
+      apply gq_ne _ (topTweak_ne_ground (2 ^ (12 - level) + i) (by have := hp.h16; omega)) ht
+      simpa only [List.append_assoc] using
+        (queryHeader_padded (bytesLE 16 (nodes.getD (2*i) 0)) (zero16 ++ bytesLE 16 (nodes.getD (2*i+1) 0))
+          (bytesLE_length ..) (nodeTweak 3 0 0 (2 ^ (12 - level) + i)))
+    · intro _; exact avoids_pure _ _ _
+  · exact avoids_map _ (gav_topNonceSearch secret target lay tree heap ht hp _ _ _ _ _ _)
+
+theorem gav_buildTopLevels (leaves : List Digest) : Avoids secret target (buildTopLevels leaves) := by
+  unfold buildTopLevels
+  exact avoids_foldlM _ _ _ _ (fun levels level => avoids_bind
+    (gav_buildTopLevel secret target lay tree heap ht hp _ _) fun _ => avoids_pure _ _ _) _
+
+theorem gav_buildTopTree : Avoids secret target buildTopTree := by
+  unfold buildTopTree
+  exact avoids_bind (avoids_foldlM _ _ _ _ (fun st leaf => gav_topTreeStep secret target lay tree heap ht hp st leaf) _)
+    fun st => gav_buildTopLevels secret target lay tree heap ht hp _
+
+theorem gav_keygen : Avoids secret target SigGolfCandidate.T3.keygen := by
+  unfold SigGolfCandidate.T3.keygen SigGolfCandidate.T3.keygenPayload maskedLevel pairedMask
+  refine avoids_bind (avoids_bind (gav_buildTopTree secret target lay tree heap ht hp) fun levels =>
+    avoids_bind (avoids_mapM _ _ _ _ fun level => avoids_bind (avoids_mapM _ _ _ _ fun pair =>
+      avoids_bind (gav_privatePair secret target lay tree heap ht hp _ _ _ _ _) fun _ => avoids_pure _ _ _)
+      fun _ => avoids_pure _ _ _) fun _ => avoids_pure _ _ _) fun pr => ?_
+  exact avoids_bind (gav_privateMac secret target lay tree heap ht hp _) fun _ => avoids_pure _ _ _
+
+theorem gav_digestSearch (rho : Digest) (message : Message) :
+    ∀ fuel counter, Avoids secret target
+      (SigGolfCandidate.Research.SharedForest.sharedDigestSearch rho message counter fuel)
+  | 0, counter => by unfold SigGolfCandidate.Research.SharedForest.sharedDigestSearch; exact avoids_pure _ _ _
+  | fuel+1, counter => by
+      unfold SigGolfCandidate.Research.SharedForest.sharedDigestSearch
+      refine avoids_bind ?_ fun output => ?_
+      · unfold digest publicHash
+        apply (allQueriesSatisfy_query_iff _ _).mpr
+        change pad64 (digestInput rho message _) ≠ target
+        exact gq_ne (queryHeader_padded _ _ (bytesLE_length ..) _)
+          (digestHeader_ne_ground _ (by have := hp.h16; omega)) ht
+      · split
+        · exact avoids_pure _ _ _
+        · exact gav_digestSearch rho message fuel (counter+1)
+
+theorem gav_ftsQuery (index : Nat) (q : Spec.Domain)
+    (hq : ClaudeWCT.W9.T3.Freshness.Paired.FtsQuery index q) :
+    SigGolfCandidate.T3.Freshness.avoidsQuery secret target q := by
+  have hh : heap < 128 := by have := hp.h16; omega
+  rcases hq with hlegacy|⟨coord,heap',left,pad,right,hcoord,_,_,rfl⟩
+  · rcases q with (coin | input) | (tweak | other)
+    · exact hlegacy.elim
+    · rcases ClaudeWCT.WCT9.FtsInput.hdrBlock (show ClaudeWCT.WCT9.FtsInput index input from hlegacy) with
+        ⟨coord, selected, t, step, hblock⟩ | ⟨coord, selected, -, -, hblock⟩ | ⟨coord, heap', hk, -, -, hblock⟩ | hblock
+      · exact gq_ne hblock (fun he => ClaudeWCT.WCT9.lowerTweak_ne_ftsChainHeaderP hh lay tree index coord selected
+          t step 0 he.symm) ht
+      · exact gq_ne hblock (ne_ground_of_marker hh (by
+          rw [ClaudeWCT.WCT9.ftsLeafHeader_tweakMarker]; omega)) ht
+      · exact gq_ne hblock (fun he => ClaudeWCT.WCT9.lowerTweak_ne_wctNodeHeader hh lay tree hk index heap' he.symm) ht
+      · exact gq_ne hblock (header_ne_ground _ _ _ _ _ hh) ht
+    · obtain ⟨coord, pair, -, -, rfl⟩ := (show ClaudeWCT.WCT9.FtsSeed index tweak from hlegacy)
+      exact hasTag_ne_ground (hasTag_privatePair secret 8 coord index 0 pair) hh ht
+    · exact hlegacy.elim
+  · have hblock : SigGolfCandidate.T3M.Extract.hdrBlock
+        (pad64 (ClaudeWCT.WCT9.wctTopInput coord index heap' left pad right)) =
+        bytesLE 16 (ClaudeWCT.WCT9.wctNodeHeader coord index heap') := by
+      unfold ClaudeWCT.WCT9.wctTopInput
+      rw [List.append_assoc (bytesLE 16 left ++ _),
+        ClaudeWCT.WCT9.hdrBlock_pad64_prefix _ _ _ (bytesLE_length _ _)]
+    exact gq_ne hblock (fun he => ClaudeWCT.WCT9.lowerTweak_ne_wctNodeHeader hh lay tree hcoord index heap' he.symm) ht
+
+theorem gav_buildForest (index : Nat) (selected : SigGolfCandidate.Research.SharedForest.ForestSelection)
+    (words : SigGolfCandidate.Research.SharedForest.ForestWords) :
+    Avoids secret target (SigGolfCandidate.Research.SharedForest.buildForest index selected words) :=
+  ClaudeWCT.WCT9.Wots.allQueriesSatisfy_mono
+    (ClaudeWCT.W9.T3.Freshness.Paired.buildForest_queries index selected words)
+    (fun query hq => gav_ftsQuery secret target lay tree heap ht hp index query hq)
+
+theorem gav_chainW (l : Layer) (t lf i start count : Nat) (value : Digest) (hs : start + count ≤ 7) :
+    Avoids secret target (ClaudeWCT.WCT9.chainW l t lf i start count value) := by
+  unfold ClaudeWCT.WCT9.chainW
+  refine ClaudeWCT.W9.T3.LayerBudget.Envelopes.avoids_foldlM_range'_inv _ (fun _ _ => True) count start
+    (fun k a hk hk' _ => ⟨?_, fun _ _ => trivial⟩) value trivial
+  exact gav_halfHash_of_ne secret target _ _
+    (gq_ne (chainInputW_header ..) (chainHeader_ne_ground l t lf i k (by omega) (by have := hp.h16; omega)) ht)
+
+theorem gav_chainPrefixes (l : Layer) (t lf i : Nat) :
+    ∀ count start (value : Digest), start + count ≤ 7 →
+      Avoids secret target (SigGolfCandidate.Research.SharedForest.chainPrefixes l t lf i start count value)
+  | 0, start, value, _ => by unfold SigGolfCandidate.Research.SharedForest.chainPrefixes; exact avoids_pure _ _ _
+  | count+1, start, value, hs => by
+      unfold SigGolfCandidate.Research.SharedForest.chainPrefixes
+      refine avoids_bind ?_ fun next => avoids_bind (gav_chainPrefixes l t lf i count (start+1) next (by omega))
+        fun _ => avoids_pure _ _ _
+      exact gav_halfHash_of_ne secret target _ _
+        (gq_ne (chainInputW_header ..) (chainHeader_ne_ground l t lf i start (by omega) (by have := hp.h16; omega)) ht)
+
+theorem gav_lowerLeafHash (l : Layer) (t lf : Nat) (ends : List Digest) :
+    Avoids secret target (ClaudeWCT.WCT9.lowerLeafHash l t lf ends) := by
+  rw [ClaudeWCT.WCT9.lowerLeafHash_eq]
+  unfold ClaudeWCT.WCT9.lowerHash
+  exact gav_halfHash_of_ne secret target _ _
+    (gq_ne (queryHeader_leafInput ..) (leafTweak_ne_ground l t lf (by have := hp.h16; omega)) ht)
+
+theorem gav_lowerCoefs (l : Layer) (t lf : Nat) (carry : List Digest) :
+    Avoids secret target (ClaudeWCT.WCT9.lowerCoefs l t lf carry) := by
+  unfold ClaudeWCT.WCT9.lowerCoefs ClaudeWCT.WCT9.lowerFamCoefs ClaudeWCT.WCT9.lowerSeedPair
+  split
+  · exact avoids_bind (avoids_bind (avoids_foldlM _ _ _ _ (fun state j =>
+      avoids_bind (gav_privatePair secret target lay tree heap ht hp 0 _ _ _ _) fun _ => avoids_pure _ _ _) _)
+      fun _ => avoids_pure _ _ _) fun _ => avoids_pure _ _ _
+  · exact avoids_pure _ _ _
+
+theorem gav_buildLeafPF (l : Layer) (t lf : Nat) (carry : List Digest) :
+    Avoids secret target (ClaudeWCT.WCT9.buildLeafPF l t lf [] carry) := by
+  unfold ClaudeWCT.WCT9.buildLeafPF
+  refine avoids_bind (gav_lowerCoefs secret target lay tree heap ht hp _ _ _ _) fun cc => ?_
+  rcases cc with ⟨coefs, carry'⟩
+  refine avoids_bind (avoids_foldlM _ _ _ _ (fun state i => ?_) _)
+    (fun state => avoids_bind (gav_lowerLeafHash secret target lay tree heap ht hp _ _ _ _) fun _ => avoids_pure _ _ _)
+  simp only [List.getD_nil]
+  exact avoids_bind (gav_chainW secret target lay tree heap ht hp _ _ _ _ _ _ _ (by omega)) fun value =>
+    avoids_bind (gav_chainW secret target lay tree heap ht hp _ _ _ _ _ _ _ (by have := maxDigit_le7 l i; omega))
+      fun _ => avoids_pure _ _ _
+
+theorem gav_buildLeafPrefixes (l : Layer) (t lf : Nat) (carry : List Digest) :
+    Avoids secret target (SigGolfCandidate.Research.SharedForest.buildLeafPrefixes l t lf carry) := by
+  unfold SigGolfCandidate.Research.SharedForest.buildLeafPrefixes
+  refine avoids_bind (gav_lowerCoefs secret target lay tree heap ht hp _ _ _ _) fun cc => ?_
+  rcases cc with ⟨coefs, carry'⟩
+  exact avoids_bind (avoids_mapM _ _ _ _
+    (fun i => gav_chainPrefixes secret target lay tree heap ht hp _ _ _ _ _ _ _ (by have := maxDigit_le7 l i; omega)))
+    fun prefixes => avoids_bind (gav_lowerLeafHash secret target lay tree heap ht hp _ _ _ _) fun _ => avoids_pure _ _ _
+
+/-- A lower node of another `(lay', tree', heap')` never queries a ground trial of `(lay, tree, heap)`. -/
+theorem gav_lowerNodeAt (l t h : Nat) (left right : Digest) (h1 : 1 ≤ l) (h4 : l < 4) (htr : t < 2 ^ 32)
+    (hh : h < 128) (hne : ¬ (l = lay ∧ t = tree ∧ h = heap)) :
+    Avoids secret target (ClaudeWCT.WCT9.lowerNodeAt l t h left right) := by
+  have hT : ClaudeWCT.WCT9.merkleTweak l t h ≠ ClaudeWCT.WCT9.lowerTweak lay tree heap := by
+    rw [ClaudeWCT.WCT9.merkleTweak_lower (by omega)]
+    exact lowerTweak_ne_ground hp h1 h4 htr hh hne
+  have hN : ∀ n, Avoids secret target (ClaudeWCT.WCT9.lowerNodeHashN l t h n left right) := fun n =>
+    gav_halfHash_of_ne secret target _ _ (gq_ne (merkleNodeInputN_header ..) hT ht)
+  have hS : ∀ fuel n, Avoids secret target (ClaudeWCT.WCT9.lowerNonceSearch l t h left right fuel n) := by
+    intro fuel
+    induction fuel with
+    | zero => intro n; unfold ClaudeWCT.WCT9.lowerNonceSearch; exact avoids_bind (hN n) fun _ => avoids_pure _ _ _
+    | succ fuel ih =>
+        intro n; unfold ClaudeWCT.WCT9.lowerNonceSearch
+        refine avoids_bind (hN n) fun _ => ?_
+        split
+        · exact avoids_pure _ _ _
+        · exact ih (n+1)
+  unfold ClaudeWCT.WCT9.lowerNodeAt
+  split
+  · exact avoids_map _ (gav_halfHash_of_ne secret target _ _
+      (gq_ne (merkleNodeInput_header ..) hT ht))
+  · exact hS _ _
+
+/-- The leaf loop of a prepared lower tree (any tree). -/
+theorem gav_treeLeaves (l : Layer) (t selected : Nat) :
+    Avoids secret target ((List.range (2 ^ height l)).foldlM
+      (fun (state : List Digest × List (List Digest) × List Digest) leaf => do
+        let ((root, prefixes), carry) ←
+          if leaf = selected then SigGolfCandidate.Research.SharedForest.buildLeafPrefixes l t leaf state.2.2
+          else do
+            let ((root, _), carry) ← ClaudeWCT.WCT9.buildLeafPF l t leaf [] state.2.2
+            pure ((root, []), carry)
+        pure (state.1 ++ [root], if leaf = selected then prefixes else state.2.1, carry))
+      ([], [], [])) := by
+  refine avoids_foldlM _ _ _ _ (fun state leaf => ?_) _
+  dsimp only
+  split
+  · refine avoids_bind (gav_buildLeafPrefixes secret target lay tree heap ht hp _ _ _ _) fun r => ?_
+    rcases r with ⟨⟨root, prefixes⟩, carry⟩
+    exact avoids_pure _ _ _
+  · refine avoids_bind (gav_buildLeafPF secret target lay tree heap ht hp _ _ _ _) fun r => ?_
+    rcases r with ⟨⟨root, prefixes⟩, carry⟩
+    simp only [pure_bind]
+    exact avoids_pure _ _ _
+
+/-- A lower level of another tree (heaps below 128). -/
+theorem gav_lowerLevel_other (l t h level : Nat) (nodes : List Digest) (h1 : 1 ≤ l) (h4 : l < 4)
+    (htr : t < 2 ^ 32) (h7 : h ≤ 7) (hlev : level < h) (hl1 : 1 ≤ level) (hlen : nodes.length / 2 ≤ 2 ^ (h - level))
+    (hne : ¬ (l = lay ∧ t = tree)) :
+    Avoids secret target (ClaudeWCT.WCT9.lowerLevel l t h level nodes) := by
+  unfold ClaudeWCT.WCT9.lowerLevel ClaudeWCT.WCT9.lowerNodeG
+  refine ClaudeWCT.W9.T3.LayerBudget.Envelopes.avoids_mapM_mem _ _ fun i hi => avoids_map _ ?_
+  have hi : i < nodes.length / 2 := List.mem_range.mp hi
+  have hp6 : 2 ^ (h - level) ≤ 2 ^ 6 := Nat.pow_le_pow_right (by decide) (by omega)
+  have : (2 : Nat) ^ 6 = 64 := by norm_num
+  exact gav_lowerNodeAt secret target lay tree heap ht hp _ _ _ _ _ h1 h4 htr (by omega) (fun h' => hne ⟨h'.1, h'.2.1⟩)
+
+/-- All lower levels of another tree. -/
+theorem gav_buildLevelsBelow_other (l t h : Nat) (h1 : 1 ≤ l) (h4 : l < 4) (htr : t < 2 ^ 32) (h7 : h ≤ 7)
+    (leaves : List Digest) (hlen : leaves.length ≤ 2 ^ h) (hne : ¬ (l = lay ∧ t = tree)) :
+    Avoids secret target (ClaudeWCT.WCT9.buildLevelsBelow 3 l t h leaves) := by
+  unfold ClaudeWCT.WCT9.buildLevelsBelow
+  refine ClaudeWCT.W9.T3.LayerBudget.Envelopes.avoids_foldlM_range'_inv _
+    (fun k (levels : List (List Digest)) => levels.length = k ∧
+      ∀ j < k, (levels.getD j []).length ≤ 2 ^ (h - j)) (h - 1) 1 ?_ [leaves]
+    ⟨rfl, fun j hj => by rw [show j = 0 by omega]; simpa using hlen⟩
+  intro k levels hk hk' ⟨hlk, hshape⟩
+  have hnodes := hshape (k - 1) (by omega)
+  rw [show h - (k - 1) = h - k + 1 by omega, Nat.pow_succ] at hnodes
+  refine ⟨avoids_bind (gav_lowerLevel_other secret target lay tree heap ht hp l t h k _ h1 h4 htr h7 (by omega)
+    (by omega) (by omega) hne) fun _ => avoids_pure _ _ _, fun b hb => ?_⟩
+  rw [mem_support_bind_iff] at hb
+  obtain ⟨nodes, hn, hb⟩ := hb
+  simp only [support_pure, Set.mem_singleton_iff] at hb
+  subst hb
+  have hlenN : nodes.length = (levels.getD (k - 1) []).length / 2 := by
+    unfold ClaudeWCT.WCT9.lowerLevel at hn
+    rw [ClaudeWCT.W9.T3.LayerBudget.Envelopes.length_of_mem_support_mapM _ _ _ hn, List.length_range]
+  refine ⟨by simp [hlk], fun j hj => ?_⟩
+  by_cases hjk : j < k
+  · rw [List.getD_append _ _ _ _ (by omega)]
+    exact hshape j hjk
+  · rw [show j = k by omega, List.getD_append_right _ _ _ _ (by omega), hlk, Nat.sub_self, List.getD_cons_zero,
+      hlenN]
+    omega
+
+end Avoid
+
+/-! ## Cost moment of a ground node search -/
+
+/-- The node value read from an answer. -/
+def gVal (lay heap : Nat) (answer : HashOutput) : Digest := ClaudeWCT.WCT9.lowerHalf lay heap answer
+
+theorem lowerNodeHashN_eq (lay tree heap n : Nat) (left right : Digest) :
+    ClaudeWCT.WCT9.lowerNodeHashN lay tree heap n left right =
+      (publicQuery (gTrial lay tree heap n left right) >>= fun answer => pure (gVal lay heap answer)) := by
+  unfold ClaudeWCT.WCT9.lowerNodeHashN ClaudeWCT.WCT9.lowerHash
+  rw [ClaudeWCT.WCT9.halfHash_eq]
+  rfl
+
+theorem lowerNonceSearch_zero_bind {β : Type} (lay tree heap : Nat) (left right : Digest) (n : Nat)
+    (next : Nat × Digest → M β) :
+    (ClaudeWCT.WCT9.lowerNonceSearch lay tree heap left right 0 n >>= next) =
+      (publicQuery (gTrial lay tree heap n left right) >>= fun answer => next (n, gVal lay heap answer)) := by
+  simp only [ClaudeWCT.WCT9.lowerNonceSearch, lowerNodeHashN_eq, bind_assoc, pure_bind]
+
+theorem lowerNonceSearch_succ_bind {β : Type} (lay tree heap : Nat) (left right : Digest) (fuel n : Nat)
+    (next : Nat × Digest → M β) :
+    (ClaudeWCT.WCT9.lowerNonceSearch lay tree heap left right (fuel + 1) n >>= next) =
+      (publicQuery (gTrial lay tree heap n left right) >>= fun answer =>
+        if ClaudeWCT.WCT9.lowerZeroOk lay heap (gVal lay heap answer) then next (n, gVal lay heap answer)
+        else (ClaudeWCT.WCT9.lowerNonceSearch lay tree heap left right fuel (n + 1) >>= next)) := by
+  simp only [ClaudeWCT.WCT9.lowerNonceSearch, lowerNodeHashN_eq, bind_assoc, pure_bind]
+  congr 1
+  funext answer
+  split <;> simp only [pure_bind]
+
+theorem lowerNodeInputN_length (lay tree heap n : Nat) (left right : Digest) :
+    (ClaudeWCT.WCT9.lowerNodeInputN lay tree heap n left right).length = 64 := by
+  simp [ClaudeWCT.WCT9.lowerNodeInputN, nonceBytes, SphincsSecurity.bytesLE_length]
+
+theorem gTrial_length (lay tree heap n : Nat) (left right : Digest) : (gTrial lay tree heap n left right).length = 64 := by
+  simp [gTrial, pad64, lowerNodeInputN_length]
+
+theorem gTrial_injective (lay tree heap : Nat) (left right : Digest) {k n : Nat} (hk : k < 2 ^ 64) (hn : n < 2 ^ 64)
+    (he : gTrial lay tree heap k left right = gTrial lay tree heap n left right) : k = n := by
+  unfold gTrial at he
+  have he' : ClaudeWCT.WCT9.lowerNodeInputN lay tree heap k left right =
+      ClaudeWCT.WCT9.lowerNodeInputN lay tree heap n left right := by
+    unfold pad64 at he
+    rw [lowerNodeInputN_length, lowerNodeInputN_length] at he
+    exact List.append_cancel_right he
+  unfold ClaudeWCT.WCT9.lowerNodeInputN at he'
+  simp only [List.append_assoc] at he'
+  have h1 := List.append_inj he' (by simp [SphincsSecurity.bytesLE_length])
+  have h2 := List.append_inj h1.2 (by simp [SphincsSecurity.bytesLE_length])
+  have h3 := List.append_inj h2.2 (by simp [nonceBytes, SphincsSecurity.bytesLE_length])
+  have h4 := SphincsSecurity.bytesLE_injective h3.1
+  have h5 := congrArg BitVec.toNat h4
+  simp only [BitVec.toNat_ofNat] at h5
+  rw [Nat.mod_eq_of_lt (Nat.lt_of_lt_of_le (Nat.mod_lt _ (by norm_num)) (by norm_num)),
+    Nat.mod_eq_of_lt (Nat.lt_of_lt_of_le (Nat.mod_lt _ (by norm_num)) (by norm_num)),
+    Nat.mod_eq_of_lt hk, Nat.mod_eq_of_lt hn] at h5
+  exact h5
+
+/-- Trials of different heaps of one lower tree differ. -/
+theorem gTrial_ne_heap {lay tree a b : Nat} (n m : Nat) (l r l' r' : Digest) (h1 : 1 ≤ lay) (h4 : lay < 4)
+    (ht : tree < 2 ^ 32) (ha : a < 128) (hb : b < 128) (hne : a ≠ b) :
+    gTrial lay tree a n l r ≠ gTrial lay tree b m l' r' := by
+  intro he
+  have h2 := gQ_gTrial (show lay ≠ 0 by omega) tree a n l r
+  have h3 := gQ_gTrial (show lay ≠ 0 by omega) tree b m l' r'
+  unfold GQ at h2 h3
+  rw [he] at h2
+  have := ClaudeWCT.WCT9.lowerTweak_injective h1 h4 h1 h4 ht ht ha hb (bytesLE_injective (h2.symm.trans h3))
+  exact hne this.2.2
+
+/-- **Cost moment of a lower-node nonce search** (copy of `V_topNonceSearch_bind`). -/
+theorem V_lowerNonceSearch_bind {β : Type} (secret : BitVec 256) (z : ℝ≥0∞) (lay tree heap : Nat) (left right : Digest)
+    (next : Nat × Digest → M β) (G : RCache → Prop) (B b : ℝ≥0∞)
+    (hG : ∀ cache, G cache → ∀ k answer, G (cache.cacheQuery (gTrial lay tree heap k left right) answer))
+    (hnext : ∀ cache, G cache → ∀ k answer,
+      V secret z (next (k, gVal lay heap answer)) (cache.cacheQuery (gTrial lay tree heap k left right) answer) ≤ B)
+    (hstep : z * expectedValue ($ᵗ HashOutput : ProbComp HashOutput)
+      (fun answer => if ClaudeWCT.WCT9.lowerZeroOk lay heap (gVal lay heap answer) then B else b) ≤ b)
+    (htail : z * B ≤ b) :
+    ∀ fuel n, n + fuel < 2 ^ 64 → ∀ cache, G cache →
+      (∀ k, n ≤ k → k ≤ n + fuel → cache (gTrial lay tree heap k left right) = none) →
+      V secret z (ClaudeWCT.WCT9.lowerNonceSearch lay tree heap left right fuel n >>= next) cache ≤ b := by
+  intro fuel
+  induction fuel with
+  | zero =>
+      intro n hn cache hg hfresh
+      rw [lowerNonceSearch_zero_bind, V_publicQuery, gTrial_length]
+      have hf := expectedValue_fresh (gTrial lay tree heap n left right) cache (hfresh n le_rfl (by omega))
+        (fun r => V secret z (next (n, gVal lay heap r.1)) r.2)
+      refine le_trans (le_of_eq (congrArg (fun t => z ^ (64 / 64) * t) hf)) ?_
+      simp only [show (64 : Nat) / 64 = 1 by decide, pow_one]
+      refine le_trans (mul_le_mul' le_rfl ?_) htail
+      refine (expectedValue_mono _ fun answer => hnext cache hg n answer).trans ?_
+      rw [expectedValue_const (by simp)]
+  | succ fuel ih =>
+      intro n hn cache hg hfresh
+      rw [lowerNonceSearch_succ_bind, V_publicQuery, gTrial_length]
+      have hf := expectedValue_fresh (gTrial lay tree heap n left right) cache (hfresh n le_rfl (by omega))
+        (fun r => V secret z (if ClaudeWCT.WCT9.lowerZeroOk lay heap (gVal lay heap r.1) then next (n, gVal lay heap r.1)
+          else (ClaudeWCT.WCT9.lowerNonceSearch lay tree heap left right fuel (n + 1) >>= next)) r.2)
+      refine le_trans (le_of_eq (congrArg (fun t => z ^ (64 / 64) * t) hf)) ?_
+      simp only [show (64 : Nat) / 64 = 1 by decide, pow_one]
+      refine le_trans (mul_le_mul' le_rfl (expectedValue_mono _ fun answer => ?_)) hstep
+      split
+      · exact hnext cache hg n answer
+      · apply ih (n + 1) (by omega) _ (hG cache hg n answer)
+        intro k hk1 hk2
+        have hne : gTrial lay tree heap k left right ≠ gTrial lay tree heap n left right := by
+          intro he
+          have := gTrial_injective lay tree heap left right (by omega) (by omega) he
+          omega
+        exact (QueryCache.cacheQuery_of_ne (cache := cache) answer hne).trans (hfresh k (by omega) (by omega))
+
+/-- Offset of the kept half of a lower node answer. -/
+def gOff (lay heap : Nat) : Nat := if ClaudeWCT.WCT9.lowerHigh lay heap then 128 else 0
+
+theorem gVal_toNat (lay heap : Nat) (a : HashOutput) :
+    (gVal lay heap a).toNat = a.toNat / 2 ^ gOff lay heap % 2 ^ 128 := by
+  unfold gVal gOff ClaudeWCT.WCT9.lowerHalf ClaudeWCT.WCT9.halfOf
+  cases ClaudeWCT.WCT9.lowerHigh lay heap <;> simp [BitVec.extractLsb'_toNat, Nat.shiftRight_eq_div_pow]
+
+theorem lowerZeroBits_le3 (lay heap : Nat) : ClaudeWCT.WCT9.lowerZeroBits lay heap ≤ 3 := by
+  unfold ClaudeWCT.WCT9.lowerZeroBits; split_ifs <;> omega
+
+theorem lowerZeroOk_gVal_iff (lay heap : Nat) (a : HashOutput) :
+    ClaudeWCT.WCT9.lowerZeroOk lay heap (gVal lay heap a) = true ↔
+      a.toNat / 2 ^ (gOff lay heap + (128 - ClaudeWCT.WCT9.lowerZeroBits lay heap)) %
+        2 ^ ClaudeWCT.WCT9.lowerZeroBits lay heap = 0 := by
+  have hb := lowerZeroBits_le3 lay heap
+  unfold ClaudeWCT.WCT9.lowerZeroOk
+  generalize ClaudeWCT.WCT9.lowerZeroBits lay heap = b at hb ⊢
+  have hv := (gVal lay heap a).isLt
+  have hlt : (gVal lay heap a).toNat / 2 ^ (128 - b) < 2 ^ b := by
+    rw [Nat.div_lt_iff_lt_mul (by positivity), ← pow_add]
+    exact lt_of_lt_of_le hv (Nat.pow_le_pow_right (by norm_num) (by omega))
+  rw [beq_iff_eq, ← Nat.mod_eq_of_lt hlt, gVal_toNat,
+    ClaudeWCT.W9.T3.TopMoment.window_of_half _ _ _ (by omega), Nat.div_div_eq_div_mul, ← pow_add]
+
+theorem gOff_add_le (lay heap : Nat) : gOff lay heap + 128 ≤ 256 := by
+  unfold gOff; split <;> omega
+
+/-- **Acceptance probability** of a ground trial: exactly `2^-b`. -/
+theorem prob_gAccept (lay heap : Nat) :
+    Pr[fun a : HashOutput => ClaudeWCT.WCT9.lowerZeroOk lay heap (gVal lay heap a) = true |
+      ($ᵗ HashOutput : ProbComp HashOutput)] = ((2 : ℝ≥0∞) ^ ClaudeWCT.WCT9.lowerZeroBits lay heap)⁻¹ := by
+  have hb := lowerZeroBits_le3 lay heap
+  simp only [lowerZeroOk_gVal_iff]
+  exact ClaudeWCT.W9.T3.TopMoment.prob_window _ _ _ (by have := gOff_add_le lay heap; omega) (by positivity)
+
+/-- The trials of every ground heap in `S` of the lower tree `(lay, tree)` are fresh. -/
+def FreshG (lay tree : Nat) (S : Nat → Prop) (cache : RCache) : Prop :=
+  ∀ heap, S heap → ∀ n l r, cache (gTrial lay tree heap n l r) = none
+
+theorem FreshG.mono {lay tree : Nat} {S S' : Nat → Prop} {cache : RCache} (h : FreshG lay tree S cache)
+    (hS : ∀ x, S' x → S x) : FreshG lay tree S' cache := fun heap hs => h heap (hS heap hs)
+
+theorem bound_lowerNodeHash (lay tree heap : Nat) (left right : Digest) :
+    SigGolfCandidate.T3.Cost.CBound (fun _ => True) 1 (ClaudeWCT.WCT9.lowerNodeHash lay tree heap left right) := by
+  unfold ClaudeWCT.WCT9.lowerNodeHash ClaudeWCT.WCT9.lowerHash
+  apply ClaudeWCT.WCT9.Cost.bound_halfHash <;>
+    simp [ClaudeWCT.WCT9.merkleNodeInput, pad64, SphincsSecurity.bytesLE_length, zero16]
+
+theorem lowerNonceCap_le' (lay heap : Nat) : ClaudeWCT.WCT9.lowerNonceCap lay heap ≤ 1024 := by
+  unfold ClaudeWCT.WCT9.lowerNonceCap ClaudeWCT.WCT9.lowerZeroBits
+  split_ifs <;> norm_num
+
+/-- **One lower node** (any heap of a lower tree): `V ≤ f · B`, with `f = z` off the ground and a geometric retry
+bound `f` on the ground (its trials fresh). -/
+theorem V_gnode {β : Type} (secret : BitVec 256) (z f B : ℝ≥0∞) (hz : 1 ≤ z) (lay tree heap : Nat)
+    (h1 : 1 ≤ lay) (h4 : lay < 4) (ht : tree < 2 ^ 32) (hh : heap < 128) (left right : Digest)
+    (next : Digest → M β) (S : Nat → Prop) (hS : ∀ x, S x → 2 ≤ x ∧ x < 16)
+    (hfac0 : ClaudeWCT.WCT9.lowerZeroBits lay heap = 0 → z ≤ f)
+    (hstep : ClaudeWCT.WCT9.lowerZeroBits lay heap ≠ 0 →
+      z * (((2 : ℝ≥0∞) ^ ClaudeWCT.WCT9.lowerZeroBits lay heap)⁻¹ +
+        (1 - ((2 : ℝ≥0∞) ^ ClaudeWCT.WCT9.lowerZeroBits lay heap)⁻¹) * f) ≤ f ∧ z ≤ f)
+    (hnext : ∀ v cache, FreshG lay tree (fun x => S x ∧ x ≠ heap) cache → V secret z (next v) cache ≤ B)
+    (cache : RCache) (hfresh : FreshG lay tree S cache)
+    (hheap : ClaudeWCT.WCT9.lowerZeroBits lay heap ≠ 0 → S heap) :
+    V secret z ((Prod.snd <$> ClaudeWCT.WCT9.lowerNodeAt lay tree heap left right) >>= next) cache ≤ f * B := by
+  have hpres : ∀ (c : RCache) k ans, FreshG lay tree (fun x => S x ∧ x ≠ heap) c →
+      FreshG lay tree (fun x => S x ∧ x ≠ heap) (c.cacheQuery (gTrial lay tree heap k left right) ans) := by
+    intro c k ans hc x hx n l r
+    have hx' := hS x hx.1
+    exact (QueryCache.cacheQuery_of_ne (cache := c) ans
+      (gTrial_ne_heap n k l r left right h1 h4 ht (by omega) hh hx.2)).trans (hc x hx n l r)
+  by_cases hb : ClaudeWCT.WCT9.lowerZeroBits lay heap = 0
+  · rw [ClaudeWCT.WCT9.lowerNodeAt_of_zero hb, Functor.map_map]
+    simp only [id_map']
+    refine le_trans (V_bind_le secret z _ next cache B (fun r hr => hnext _ _ ?_)) ?_
+    · intro x hx n l rr
+      have hx' := hS x hx.1
+      have hT : ClaudeWCT.WCT9.merkleTweak lay tree heap ≠ ClaudeWCT.WCT9.lowerTweak lay tree x := by
+        rw [ClaudeWCT.WCT9.merkleTweak_lower (by omega)]
+        exact lowerTweak_ne_ground ⟨h1, h4, ht, hx'.1, hx'.2⟩ h1 h4 ht hh (fun h' => hx.2 h'.2.2.symm)
+      have hav : Avoids secret (gTrial lay tree x n l rr) (ClaudeWCT.WCT9.lowerNodeHash lay tree heap left right) := by
+        unfold ClaudeWCT.WCT9.lowerNodeHash ClaudeWCT.WCT9.lowerHash
+        exact gav_halfHash_of_ne secret _ _ _
+          (gq_ne (merkleNodeInput_header ..) hT (gQ_gTrial (by omega) tree x n l rr))
+      rw [preserves secret _ _ hav cache r hr]
+      exact hfresh x hx.1 n l rr
+    · have hV := V_of_bound (bound_lowerNodeHash lay tree heap left right) secret z hz cache
+      rw [pow_one] at hV
+      exact mul_le_mul' (hV.trans (hfac0 hb)) le_rfl
+  · obtain ⟨hst, hzf⟩ := hstep hb
+    rw [bind_map_left]
+    unfold ClaudeWCT.WCT9.lowerNodeAt
+    rw [if_neg hb]
+    have hcap : ClaudeWCT.WCT9.lowerNonceCap lay heap - 1 < 2 ^ 64 := by
+      have := lowerNonceCap_le' lay heap
+      omega
+    refine V_lowerNonceSearch_bind secret z lay tree heap left right (fun x : Nat × Digest => next x.2)
+      (FreshG lay tree (fun x => S x ∧ x ≠ heap)) B
+      (f * B) (fun c hc k a => hpres c k a hc) (fun c hc k a => hnext (gVal lay heap a) _ (hpres c k a hc)) ?_ ?_
+      (ClaudeWCT.WCT9.lowerNonceCap lay heap - 1) 0 (by omega) cache (hfresh.mono (fun x hx => hx.1))
+      (fun k _ _ => hfresh heap (hheap hb) k left right)
+    · rw [ClaudeWCT.W9.T3.TopMoment.expectedValue_uniform_ite'
+        (fun a => ClaudeWCT.WCT9.lowerZeroOk lay heap (gVal lay heap a) = true), prob_gAccept]
+      calc z * (((2 : ℝ≥0∞) ^ ClaudeWCT.WCT9.lowerZeroBits lay heap)⁻¹ * B +
+            (1 - ((2 : ℝ≥0∞) ^ ClaudeWCT.WCT9.lowerZeroBits lay heap)⁻¹) * (f * B))
+          = z * (((2 : ℝ≥0∞) ^ ClaudeWCT.WCT9.lowerZeroBits lay heap)⁻¹ +
+            (1 - ((2 : ℝ≥0∞) ^ ClaudeWCT.WCT9.lowerZeroBits lay heap)⁻¹) * f) * B := by ring
+        _ ≤ f * B := mul_le_mul' hst le_rfl
+    · exact mul_le_mul' hzf le_rfl
+
+/-- Per-heap factor hypotheses for the lower tree `(lay, tree)`. -/
+def FacOK (z : ℝ≥0∞) (lay : Nat) (fac : Nat → ℝ≥0∞) : Prop :=
+  ∀ heap, (ClaudeWCT.WCT9.lowerZeroBits lay heap = 0 → z ≤ fac heap) ∧
+    (ClaudeWCT.WCT9.lowerZeroBits lay heap ≠ 0 →
+      z * (((2 : ℝ≥0∞) ^ ClaudeWCT.WCT9.lowerZeroBits lay heap)⁻¹ +
+        (1 - ((2 : ℝ≥0∞) ^ ClaudeWCT.WCT9.lowerZeroBits lay heap)⁻¹) * fac heap) ≤ fac heap ∧ z ≤ fac heap)
+
+theorem lowerZeroBits_ground {lay heap : Nat} (h : ClaudeWCT.WCT9.lowerZeroBits lay heap ≠ 0) : 2 ≤ heap ∧ heap < 16 := by
+  unfold ClaudeWCT.WCT9.lowerZeroBits at h
+  split_ifs at h with h1 <;> omega
+
+/-- **The nodes of one level** (indices `l`, heaps `base + i`): `V ≤ Π fac · B`. -/
+theorem V_gnodes {β : Type} (secret : BitVec 256) (z : ℝ≥0∞) (hz : 1 ≤ z) (lay tree : Nat) (fac : Nat → ℝ≥0∞)
+    (hfac : FacOK z lay fac) (h1 : 1 ≤ lay) (h4 : lay < 4) (ht : tree < 2 ^ 32) (base : Nat) (nodes : List Digest) :
+    ∀ (l : List Nat) (S : Nat → Prop) (next : List Digest → M β) (B : ℝ≥0∞),
+      (∀ x, S x → 2 ≤ x ∧ x < 16) → l.Nodup → (∀ i ∈ l, base + i < 128) →
+      (∀ i ∈ l, ClaudeWCT.WCT9.lowerZeroBits lay (base + i) ≠ 0 → S (base + i)) →
+      (∀ as cache, as.length = l.length → FreshG lay tree (fun x => S x ∧ ∀ i ∈ l, x ≠ base + i) cache →
+        V secret z (next as) cache ≤ B) →
+      ∀ cache, FreshG lay tree S cache →
+        V secret z ((l.mapM fun i => ClaudeWCT.WCT9.lowerNodeG lay tree (base + i) (nodes.getD (2 * i) 0)
+          (nodes.getD (2 * i + 1) 0)) >>= next) cache ≤ (l.map fun i => fac (base + i)).prod * B := by
+  intro l
+  induction l with
+  | nil =>
+      intro S next B _ _ _ _ hnext cache hfresh
+      simp only [List.mapM_nil, pure_bind, List.map_nil, List.prod_nil, one_mul]
+      exact hnext [] cache rfl (hfresh.mono (fun x hx => hx.1))
+  | cons i l ih =>
+      intro S next B hS hnd h128 hin hnext cache hfresh
+      rw [List.mapM_cons]
+      simp only [bind_assoc, pure_bind]
+      have hrest := ih (fun x => S x ∧ x ≠ base + i)
+      unfold ClaudeWCT.WCT9.lowerNodeG
+      refine le_trans (V_gnode secret z (fac (base + i)) ((l.map fun i => fac (base + i)).prod * B) hz lay tree (base + i)
+        h1 h4 ht (h128 i (List.mem_cons_self ..)) _ _ _ S hS (hfac (base + i)).1 (hfac (base + i)).2
+        (fun v cache' hc => ?_) cache hfresh (hin i (List.mem_cons_self ..))) (le_of_eq ?_)
+      · refine hrest (fun as => next (v :: as)) B (fun x hx => hS x hx.1) (List.nodup_cons.mp hnd).2
+          (fun j hj => h128 j (List.mem_cons_of_mem _ hj))
+          (fun j hj hb => ⟨hin j (List.mem_cons_of_mem _ hj) hb, fun he => (List.nodup_cons.mp hnd).1 (by
+            have : j = i := by omega
+            exact this ▸ hj)⟩) (fun as c' hlen hc' => ?_) cache' hc
+        apply hnext (v :: as) c' (by simp [hlen])
+        exact hc'.mono (fun x hx => ⟨⟨hx.1, hx.2 i (List.mem_cons_self ..)⟩,
+          fun j hj => hx.2 j (List.mem_cons_of_mem _ hj)⟩)
+      · rw [List.map_cons, List.prod_cons]; ring
+
+/-- The per-level factor of a lower tree of height `h`. -/
+noncomputable def levFac (fac : Nat → ℝ≥0∞) (h a : Nat) : ℝ≥0∞ :=
+  ((List.range (2 ^ (h - a))).map fun i => fac (2 ^ (h - a) + i)).prod
+
+theorem levelShape_appendL (h a : Nat) (ha : 1 ≤ a) (levels : List (List Digest)) (as : List Digest)
+    (hs : SigGolfCandidate.T3.Cost.LevelShape h (a - 1) levels) (has : as.length = 2 ^ (h - a)) :
+    SigGolfCandidate.T3.Cost.LevelShape h a (levels ++ [as]) := by
+  refine ⟨by simp [hs.1]; omega, fun j hj => ?_⟩
+  by_cases hold : j ≤ a - 1
+  · rw [List.getD_append levels [as] [] j (by have := hs.1; omega)]
+    exact hs.2 j hold
+  · have he : j = a := by omega
+    subst j
+    rw [List.getD_append_right levels [as] [] a (by have := hs.1; omega)]
+    simp only [hs.1, show a - (a - 1 + 1) = 0 by omega, List.getD_cons_zero]
+    exact has
+
+/-- **Levels `a .. a+n-1` of a lower tree** (height `h ≤ 7`). -/
+theorem V_glevels {β : Type} (secret : BitVec 256) (z : ℝ≥0∞) (hz : 1 ≤ z) (lay tree h : Nat) (fac : Nat → ℝ≥0∞)
+    (hfac : FacOK z lay fac) (h1 : 1 ≤ lay) (h4 : lay < 4) (ht : tree < 2 ^ 32) (h7 : h ≤ 7) :
+    ∀ n a, 1 ≤ a → a + n ≤ h → ∀ (levels : List (List Digest)) (next : List (List Digest) → M β) (B : ℝ≥0∞),
+      SigGolfCandidate.T3.Cost.LevelShape h (a - 1) levels →
+      (∀ ls cache, SigGolfCandidate.T3.Cost.LevelShape h (a - 1 + n) ls →
+        FreshG lay tree (fun x => 2 ≤ x ∧ x < 16 ∧ x < 2 ^ (h - (a - 1 + n))) cache → V secret z (next ls) cache ≤ B) →
+      ∀ cache, FreshG lay tree (fun x => 2 ≤ x ∧ x < 16 ∧ x < 2 ^ (h - (a - 1))) cache →
+        V secret z ((List.range' a n).foldlM (fun levels level => do
+            let nodes ← ClaudeWCT.WCT9.lowerLevel lay tree h level (levels.getD (level - 1) [])
+            pure (levels ++ [nodes])) levels >>= next) cache ≤
+          ((List.range' a n).map (levFac fac h)).prod * B := by
+  intro n
+  induction n with
+  | zero =>
+      intro a _ _ levels next B hsh hnext cache hf
+      simp only [List.range'_zero, List.foldlM_nil, pure_bind, List.map_nil, List.prod_nil, one_mul]
+      exact hnext levels cache (by simpa using hsh) (by simpa using hf)
+  | succ n ih =>
+      intro a ha han levels next B hsh hnext cache hf
+      have hlen : (levels.getD (a - 1) []).length = 2 ^ (h - (a - 1)) := hsh.2 (a - 1) le_rfl
+      have hp : 2 ^ (h - (a - 1)) = 2 ^ (h - a) * 2 := by
+        rw [show h - (a - 1) = h - a + 1 by omega, pow_succ]
+      have hpa : 2 ^ (h - a) ≤ 64 := by
+        calc 2 ^ (h - a) ≤ 2 ^ 6 := Nat.pow_le_pow_right (by norm_num) (by omega)
+          _ = 64 := by norm_num
+      rw [List.range'_succ, List.foldlM_cons, List.map_cons, List.prod_cons]
+      unfold ClaudeWCT.WCT9.lowerLevel
+      rw [hlen, hp, Nat.mul_div_cancel _ (by norm_num)]
+      simp only [bind_assoc, pure_bind]
+      have hrest := ih (a + 1) (by omega) (by omega)
+      refine le_trans (V_gnodes secret z hz lay tree fac hfac h1 h4 ht (2 ^ (h - a)) (levels.getD (a - 1) [])
+        (List.range (2 ^ (h - a))) (fun x => 2 ≤ x ∧ x < 16 ∧ x < 2 ^ (h - (a - 1))) _
+        (((List.range' (a + 1) n).map (levFac fac h)).prod * B)
+        (fun x hx => ⟨hx.1, hx.2.1⟩) List.nodup_range
+        (fun i hi => by rw [List.mem_range] at hi; omega)
+        (fun i hi hb => by
+          rw [List.mem_range] at hi
+          have := lowerZeroBits_ground hb
+          exact ⟨this.1, this.2, by omega⟩)
+        (fun as c hl hc => ?_) cache hf) (le_of_eq ?_)
+      · refine hrest (levels ++ [as]) next B
+          (levelShape_appendL h a ha levels as hsh (by simpa using hl))
+          (fun ls c' hs hc' => hnext ls c' (by rw [show a - 1 + (n + 1) = a + 1 - 1 + n by omega]; exact hs)
+            (by rw [show a - 1 + (n + 1) = a + 1 - 1 + n by omega]; exact hc')) c
+          (hc.mono (fun x hx => by
+            rw [show a + 1 - 1 = a by omega] at hx
+            refine ⟨⟨hx.1, hx.2.1, by omega⟩, fun i _ => by omega⟩))
+      · simp only [levFac]; ring
+
+open SigGolfCandidate.T3.Cost (CBound Bound LevelShape) in
+/-- Leaf loop bound of a prepared lower tree. -/
+theorem bound_treeLeaves (l : Layer) (t selected : Nat) :
+    CBound (fun st : List Digest × List (List Digest) × List Digest => st.1.length = 2 ^ height l)
+      (∑ leaf ∈ Finset.range (2 ^ height l), ClaudeWCT.WCT9.Cost.leafCostP l leaf)
+      ((List.range (2 ^ height l)).foldlM
+      (fun (state : List Digest × List (List Digest) × List Digest) leaf => do
+        let ((root, prefixes), carry) ←
+          if leaf = selected then SigGolfCandidate.Research.SharedForest.buildLeafPrefixes l t leaf state.2.2
+          else do
+            let ((root, _), carry) ← ClaudeWCT.WCT9.buildLeafPF l t leaf [] state.2.2
+            pure ((root, []), carry)
+        pure (state.1 ++ [root], if leaf = selected then prefixes else state.2.1, carry))
+      ([], [], [])) := by
+  refine (Bound.foldlM_range (2 ^ height l) _
+    (fun i (state : List Digest × List (List Digest) × List Digest) => state.1.length = i)
+    (ClaudeWCT.WCT9.Cost.leafCostP l) ([], [], []) rfl (fun leaf _ state hstate => ?_)).mono
+      (fun _ h => h) (fun _ h => h)
+  by_cases hs : leaf = selected
+  · simp only [if_pos hs]
+    refine (SigGolfCandidate.Research.SharedForest.bound_buildLeafPrefixes l t leaf state.2.2).bind' (l := 0)
+      (fun result _ => .pure _ 0 (by simp [hstate])) (by omega)
+  · simp only [if_neg hs]
+    refine (ClaudeWCT.WCT9.Cost.bound_buildLeafPF l t leaf [] (SigGolfCandidate.T3.Cost.validDigits_nil l)
+      state.2.2).bind' (l := 0) (fun result _ => ?_) (by omega)
+    exact .pure _ 0 (by simp [hstate])
+
+/-- **One prepared lower tree**: `V ≤ z^(leaf cost) · Π_levels levFac`, from a cache where its ground trials are
+fresh. -/
+theorem V_buildTreePrefixes (secret : BitVec 256) (z : ℝ≥0∞) (hz : 1 ≤ z) (l : Layer) (hl : l ≠ 0) (t selected : Nat)
+    (ht : t < 2 ^ 32) (fac : Nat → ℝ≥0∞) (hfac : FacOK z l.val fac) (cache : RCache)
+    (hfresh : FreshG l.val t (fun x => 2 ≤ x ∧ x < 16) cache) :
+    V secret z (SigGolfCandidate.Research.SharedForest.buildTreePrefixes l t selected) cache ≤
+      z ^ (∑ leaf ∈ Finset.range (2 ^ height l), ClaudeWCT.WCT9.Cost.leafCostP l leaf) *
+        ((List.range' 1 (height l - 1)).map (levFac fac (height l))).prod := by
+  have hl1 : 1 ≤ l.val := by have := l.isLt; fin_cases l <;> simp_all
+  have hl4 : l.val < 4 := l.isLt
+  have hh7 : height l ≤ 7 := by fin_cases l <;> simp_all [height]
+  have hh6 : 6 ≤ height l := by fin_cases l <;> simp_all [height]
+  unfold SigGolfCandidate.Research.SharedForest.buildTreePrefixes
+  have hleaf := bound_treeLeaves l t selected
+  refine le_trans (V_bind_le secret z _ _ cache _ (fun st hst => ?_)) (mul_le_mul' (V_of_bound hleaf secret z hz cache) le_rfl)
+  have hlen := hleaf.post_of_roRun secret cache st hst
+  have hf : FreshG l.val t (fun x => 2 ≤ x ∧ x < 16 ∧ x < 2 ^ (height l - (1 - 1))) st.2 := by
+    intro x hx n a b
+    rw [preserves secret _ _ (gav_treeLeaves secret _ l.val t x (gQ_gTrial (by omega) t x n a b)
+      ⟨hl1, hl4, ht, hx.1, hx.2.1⟩ l t selected) cache st hst]
+    exact hfresh x ⟨hx.1, hx.2.1⟩ n a b
+  unfold ClaudeWCT.WCT9.buildLevelsBelow
+  have h := V_glevels secret z hz l.val t (height l) fac hfac hl1 hl4 ht hh7 (height l - 1) 1 le_rfl (by omega)
+    [st.1.1] (fun levels => pure (SigGolfCandidate.Research.SharedForest.PreparedLower.mk levels st.1.2.1)) 1
+    ⟨rfl, fun j hj => by
+      have : j = 0 := by omega
+      subst j; simpa using hlen⟩ (fun ls c _ _ => by simp) st.2 hf
+  simpa using h
+
+/-- A whole prepared lower tree of another `(lay', tree')`. -/
+theorem gav_buildTreePrefixes_other (secret : BitVec 256) (target : HashInput) (lay tree heap : Nat)
+    (ht : GQ lay tree heap target) (hp : GP lay tree heap) (l : Layer) (hl : l ≠ 0) (t selected : Nat)
+    (htr : t < 2 ^ 32) (hne : ¬ (l.val = lay ∧ t = tree)) :
+    Avoids secret target (SigGolfCandidate.Research.SharedForest.buildTreePrefixes l t selected) := by
+  have hl1 : 1 ≤ l.val := by have := l.isLt; fin_cases l <;> simp_all
+  have hh7 : height l ≤ 7 := by fin_cases l <;> simp_all [height]
+  unfold SigGolfCandidate.Research.SharedForest.buildTreePrefixes
+  refine ClaudeWCT.W9.T3.LayerBudget.Envelopes.avoids_bind_support
+    (gav_treeLeaves secret target lay tree heap ht hp l t selected) fun st hs => ?_
+  have hlen := (bound_treeLeaves l t selected).post_of_support st hs
+  exact avoids_bind (gav_buildLevelsBelow_other secret target lay tree heap ht hp l.val t (height l) hl1 l.isLt htr hh7
+    _ (by rw [hlen]) hne) fun _ => avoids_pure _ _ _
+
+/-- The ground trials of the three signing trees are fresh. -/
+def PrepFresh (index : Nat) (cache : RCache) : Prop :=
+  ∀ l : Layer, l ≠ 0 → FreshG l.val (route index l).2 (fun x => 2 ≤ x ∧ x < 16) cache
+
+theorem route_tree_lt32 (index : Nat) (lay : Layer) (h : index < 2 ^ 31) : (route index lay).2 < 2 ^ 32 := by
+  have : (route index lay).2 ≤ index := by unfold route; exact Nat.div_le_self _ _
+  omega
+
+theorem freshG_after_other (secret : BitVec 256) (index : Nat) (hidx : index < 2 ^ 31) (l l' : Layer) (hl : l ≠ 0)
+    (hl' : l' ≠ 0) (hne : l' ≠ l) (cache : RCache)
+    (hc : FreshG l'.val (route index l').2 (fun x => 2 ≤ x ∧ x < 16) cache) (selected : Nat)
+    (r : SigGolfCandidate.Research.SharedForest.PreparedLower × RCache)
+    (hr : r ∈ support (roRun secret (SigGolfCandidate.Research.SharedForest.buildTreePrefixes l (route index l).2
+      selected) cache)) :
+    FreshG l'.val (route index l').2 (fun x => 2 ≤ x ∧ x < 16) r.2 := by
+  intro x hx n a b
+  have hl1 : 1 ≤ l'.val := by have := l'.isLt; fin_cases l' <;> simp_all
+  rw [preserves secret _ _ (gav_buildTreePrefixes_other secret _ l'.val (route index l').2 x
+    (gQ_gTrial (by omega) _ x n a b) ⟨hl1, l'.isLt, route_tree_lt32 index l' hidx, hx.1, hx.2⟩ l hl _ selected
+    (route_tree_lt32 index l hidx) (fun h => hne (Fin.ext h.1.symm))) cache r hr]
+  exact hc x hx n a b
+
+/-- **The prepared roots**: three lower trees, each `V`-bounded by its leaf cost and its level factors. -/
+theorem V_prepareRoots (secret : BitVec 256) (z : ℝ≥0∞) (hz : 1 ≤ z) (index : Nat) (hidx : index < 2 ^ 31)
+    (fac : Nat → Nat → ℝ≥0∞) (hfac : ∀ l : Layer, l ≠ 0 → FacOK z l.val (fac l.val)) (cache : RCache)
+    (hfresh : PrepFresh index cache) :
+    V secret z (SigGolfCandidate.Research.SharedForest.prepareRoots index) cache ≤
+      (z ^ (∑ leaf ∈ Finset.range (2 ^ height 1), ClaudeWCT.WCT9.Cost.leafCostP 1 leaf) *
+        ((List.range' 1 (height 1 - 1)).map (levFac (fac 1) (height 1))).prod) *
+      ((z ^ (∑ leaf ∈ Finset.range (2 ^ height 2), ClaudeWCT.WCT9.Cost.leafCostP 2 leaf) *
+        ((List.range' 1 (height 2 - 1)).map (levFac (fac 2) (height 2))).prod) *
+      ((z ^ (∑ leaf ∈ Finset.range (2 ^ height 3), ClaudeWCT.WCT9.Cost.leafCostP 3 leaf) *
+        ((List.range' 1 (height 3 - 1)).map (levFac (fac 3) (height 3))).prod) * 1)) := by
+  unfold SigGolfCandidate.Research.SharedForest.prepareRoots
+  refine le_trans (V_bind_le secret z _ _ cache _ (fun one h1 => ?_))
+    (mul_le_mul' (V_buildTreePrefixes secret z hz 1 (by decide) _ _ (route_tree_lt32 index 1 hidx) _ (hfac 1 (by decide))
+      cache (hfresh 1 (by decide))) le_rfl)
+  refine le_trans (V_bind_le secret z _ _ one.2 _ (fun two h2 => ?_))
+    (mul_le_mul' (V_buildTreePrefixes secret z hz 2 (by decide) _ _ (route_tree_lt32 index 2 hidx) _ (hfac 2 (by decide))
+      one.2 (freshG_after_other secret index hidx 1 2 (by decide) (by decide) (by decide) cache
+        (hfresh 2 (by decide)) _ one h1)) le_rfl)
+  refine le_trans (V_bind_le secret z _ _ two.2 _ (fun three h3 => ?_))
+    (mul_le_mul' (V_buildTreePrefixes secret z hz 3 (by decide) _ _ (route_tree_lt32 index 3 hidx) _ (hfac 3 (by decide))
+      two.2 (freshG_after_other secret index hidx 2 3 (by decide) (by decide) (by decide) one.2
+        (freshG_after_other secret index hidx 1 3 (by decide) (by decide) (by decide) cache
+          (hfresh 3 (by decide)) _ one h1) _ two h2)) le_rfl)
+  simp
+
+/-! ## U16b sign factors -/
+
+open ClaudeWCT.Numerics.CanonicalCompression (scale zNum zDen) in
+/-- Ground node factor `m_b` (`b = 1, 2, 3`). -/
+noncomputable def mG (b : Nat) : ℝ≥0∞ := ENNReal.ofReal ((ClaudeWCT.Numerics.TopZero.groundM b : ℝ) / scale)
+
+/-- Per-heap sign factor of the lower tree of layer `lay`: `z` off the ground, `m_b` on it. -/
+noncomputable def facS (lay heap : Nat) : ℝ≥0∞ :=
+  if ClaudeWCT.WCT9.lowerZeroBits lay heap = 0 then SigGolfCandidate.T3.Budgets.signingZ
+  else mG (ClaudeWCT.WCT9.lowerZeroBits lay heap)
+
+open ClaudeWCT.Numerics.CanonicalCompression (scale zNum zDen) in
+theorem signingZ_toReal_le : SigGolfCandidate.T3.Budgets.signingZ.toReal ≤ (zNum : ℝ) / zDen := by
+  have hz := ENNReal.toReal_mono (by unfold zDen; finiteness) ClaudeWCT.W9.T3.CanonicalSearch.signing_z_ratio
+  rwa [ENNReal.toReal_div, ENNReal.toReal_natCast, ENNReal.toReal_natCast] at hz
+
+theorem signingZ_ne_top : SigGolfCandidate.T3.Budgets.signingZ ≠ ⊤ := by
+  unfold SigGolfCandidate.T3.Budgets.signingZ SigGolfCandidate.Budget.zOf; finiteness
+
+theorem inv_two_pow_eq' (h : Nat) : ((2 : ℝ≥0∞) ^ h)⁻¹ = ENNReal.ofReal (1 / 2 ^ h) := by
+  rw [ENNReal.ofReal_div_of_pos (by positivity), ENNReal.ofReal_one, ENNReal.ofReal_pow (by norm_num),
+    ENNReal.ofReal_ofNat, one_div]
+
+open ClaudeWCT.Numerics.CanonicalCompression (scale zNum zDen) in
+theorem facS_ok (lay : Nat) : FacOK SigGolfCandidate.T3.Budgets.signingZ lay (facS lay) := by
+  intro heap
+  refine ⟨fun hb => by unfold facS; rw [if_pos hb], fun hb => ?_⟩
+  unfold facS
+  rw [if_neg hb]
+  have hb3 := lowerZeroBits_le3 lay heap
+  generalize ClaudeWCT.WCT9.lowerZeroBits lay heap = b at hb hb3 ⊢
+  set zr := SigGolfCandidate.T3.Budgets.signingZ.toReal with hzr
+  have hz0 : 0 ≤ zr := ENNReal.toReal_nonneg
+  have hzE : SigGolfCandidate.T3.Budgets.signingZ = ENNReal.ofReal zr := (ENNReal.ofReal_toReal signingZ_ne_top).symm
+  have hk := ClaudeWCT.Numerics.TopZero.groundM_step b (by omega) hb3 zr signingZ_toReal_le
+  have hq0 : (0 : ℝ) ≤ 1 / 2 ^ b := by positivity
+  have hq1 : (1 : ℝ) / 2 ^ b ≤ 1 := by
+    rw [div_le_one (by positivity)]; exact one_le_pow₀ (by norm_num)
+  have hm0 : (0 : ℝ) ≤ (ClaudeWCT.Numerics.TopZero.groundM b : ℝ) / scale := by positivity
+  unfold mG
+  rw [hzE, inv_two_pow_eq']
+  refine ⟨?_, ENNReal.ofReal_le_ofReal hk.2⟩
+  rw [← ENNReal.ofReal_one, ← ENNReal.ofReal_sub _ hq0, ← ENNReal.ofReal_mul (by linarith),
+    ← ENNReal.ofReal_add hq0 (by nlinarith), ← ENNReal.ofReal_mul hz0]
+  exact ENNReal.ofReal_le_ofReal hk.1
+
+theorem levFac_const (fac : Nat → ℝ≥0∞) (h a : Nat) (c : ℝ≥0∞) (hc : ∀ i < 2 ^ (h - a), fac (2 ^ (h - a) + i) = c) :
+    levFac fac h a = c ^ (2 ^ (h - a)) := by
+  unfold levFac
+  rw [List.map_congr_left (fun i hi => hc i (List.mem_range.mp hi)), List.map_const', List.prod_replicate,
+    List.length_range]
+
+theorem lzb_eq (lay heap : Nat) : ClaudeWCT.WCT9.lowerZeroBits lay heap =
+    if lay = 0 ∨ heap < 2 ∨ 16 ≤ heap then 0 else if 8 ≤ heap then 1 else if 4 ≤ heap then 2
+    else if lay = 1 then 3 else 2 := rfl
+
+theorem facS_of (lay heap k : Nat) (hk : ClaudeWCT.WCT9.lowerZeroBits lay heap = k) :
+    facS lay heap = if k = 0 then SigGolfCandidate.T3.Budgets.signingZ else mG k := by
+  unfold facS; rw [hk]
+
+theorem levFac_of (lay h a k : Nat) (hk : ∀ i < 2 ^ (h - a), ClaudeWCT.WCT9.lowerZeroBits lay (2 ^ (h - a) + i) = k) :
+    levFac (facS lay) h a = (if k = 0 then SigGolfCandidate.T3.Budgets.signingZ else mG k) ^ (2 ^ (h - a)) :=
+  levFac_const _ h a _ (fun i hi => facS_of lay _ k (hk i hi))
+
+theorem levFac_one :
+    ((List.range' 1 (height 1 - 1)).map (levFac (facS 1) (height 1))).prod =
+      SigGolfCandidate.T3.Budgets.signingZ ^ 112 * (mG 1 ^ 8 * mG 2 ^ 4 * mG 3 ^ 2) := by
+  have hh : height (1 : Layer) = 7 := rfl
+  rw [hh, show 7 - 1 = 6 from rfl]
+  simp only [List.range'_succ, List.range'_zero, List.map_cons, List.map_nil, List.prod_cons, List.prod_nil]
+  rw [levFac_of 1 7 1 0 (fun i hi => by simp only [Nat.reduceSub, Nat.reducePow] at hi ⊢; interval_cases i <;> rfl),
+    levFac_of 1 7 2 0 (fun i hi => by simp only [Nat.reduceSub, Nat.reducePow] at hi ⊢; interval_cases i <;> rfl),
+    levFac_of 1 7 3 0 (fun i hi => by simp only [Nat.reduceSub, Nat.reducePow] at hi ⊢; interval_cases i <;> rfl),
+    levFac_of 1 7 4 1 (fun i hi => by simp only [Nat.reduceSub, Nat.reducePow] at hi ⊢; interval_cases i <;> rfl),
+    levFac_of 1 7 5 2 (fun i hi => by simp only [Nat.reduceSub, Nat.reducePow] at hi ⊢; interval_cases i <;> rfl),
+    levFac_of 1 7 6 3 (fun i hi => by simp only [Nat.reduceSub, Nat.reducePow] at hi ⊢; interval_cases i <;> rfl)]
+  norm_num
+  ring
+
+theorem levFac_23 (lay : Nat) (hl : lay = 2 ∨ lay = 3) :
+    ((List.range' 1 5).map (levFac (facS lay) 6)).prod =
+      SigGolfCandidate.T3.Budgets.signingZ ^ 48 * (mG 1 ^ 8 * mG 2 ^ 6) := by
+  simp only [List.range'_succ, List.range'_zero, List.map_cons, List.map_nil, List.prod_cons, List.prod_nil]
+  rw [levFac_of lay 6 1 0 (fun i hi => by simp only [Nat.reduceSub, Nat.reducePow] at hi ⊢; rcases hl with rfl | rfl <;> interval_cases i <;> rfl),
+    levFac_of lay 6 2 0 (fun i hi => by simp only [Nat.reduceSub, Nat.reducePow] at hi ⊢; rcases hl with rfl | rfl <;> interval_cases i <;> rfl),
+    levFac_of lay 6 3 1 (fun i hi => by simp only [Nat.reduceSub, Nat.reducePow] at hi ⊢; rcases hl with rfl | rfl <;> interval_cases i <;> rfl),
+    levFac_of lay 6 4 2 (fun i hi => by simp only [Nat.reduceSub, Nat.reducePow] at hi ⊢; rcases hl with rfl | rfl <;> interval_cases i <;> rfl),
+    levFac_of lay 6 5 2 (fun i hi => by simp only [Nat.reduceSub, Nat.reducePow] at hi ⊢; rcases hl with rfl | rfl <;> interval_cases i <;> rfl)]
+  norm_num
+  ring
+
+theorem levFac_two :
+    ((List.range' 1 (height 2 - 1)).map (levFac (facS 2) (height 2))).prod =
+      SigGolfCandidate.T3.Budgets.signingZ ^ 48 * (mG 1 ^ 8 * mG 2 ^ 6) := levFac_23 2 (Or.inl rfl)
+
+theorem levFac_three :
+    ((List.range' 1 (height 3 - 1)).map (levFac (facS 3) (height 3))).prod =
+      SigGolfCandidate.T3.Budgets.signingZ ^ 48 * (mG 1 ^ 8 * mG 2 ^ 6) := levFac_23 3 (Or.inr rfl)
+
+theorem leafSum_one : ∑ leaf ∈ Finset.range (2 ^ height 1), ClaudeWCT.WCT9.Cost.leafCostP 1 leaf = 40285 := by
+  rw [Finset.sum_congr rfl (fun leaf _ => ClaudeWCT.WCT9.Cost.leafCostP_lower (by decide) leaf)]
+  decide
+
+theorem leafSum_two : ∑ leaf ∈ Finset.range (2 ^ height 2), ClaudeWCT.WCT9.Cost.leafCostP 2 leaf = 20143 := by
+  rw [Finset.sum_congr rfl (fun leaf _ => ClaudeWCT.WCT9.Cost.leafCostP_lower (by decide) leaf)]
+  decide
+
+theorem leafSum_three : ∑ leaf ∈ Finset.range (2 ^ height 3), ClaudeWCT.WCT9.Cost.leafCostP 3 leaf = 20143 := by
+  rw [Finset.sum_congr rfl (fun leaf _ => ClaudeWCT.WCT9.Cost.leafCostP_lower (by decide) leaf)]
+  decide
+
+/-- The 42 ground node factors of the three signing trees. -/
+noncomputable def groundE : ℝ≥0∞ := mG 1 ^ 24 * mG 2 ^ 16 * mG 3 ^ 2
+
+/-- **U16b prepared-roots moment**: `V prepareRoots ≤ z^80779 · Π m_b` (80779 = 80821 − 42). -/
+theorem V_prepareRoots_U16 (secret : BitVec 256) (index : Nat) (hidx : index < 2 ^ 31) (cache : RCache)
+    (hfresh : PrepFresh index cache) :
+    V secret SigGolfCandidate.T3.Budgets.signingZ (SigGolfCandidate.Research.SharedForest.prepareRoots index) cache ≤
+      SigGolfCandidate.T3.Budgets.signingZ ^ 80779 * groundE := by
+  refine (V_prepareRoots secret _ (SigGolfCandidate.Budget.one_le_zOf _) index hidx facS
+    (fun l _ => facS_ok l.val) cache hfresh).trans (le_of_eq ?_)
+  rw [levFac_one, levFac_two, levFac_three, leafSum_one, leafSum_two, leafSum_three]
+  unfold groundE
+  ring
+
+/-- Every ground trial (any lower tree with a 32-bit index) is fresh. -/
+def AllGFresh (cache : RCache) : Prop :=
+  ∀ lay tree heap, GP lay tree heap → ∀ n l r, cache (gTrial lay tree heap n l r) = none
+
+@[simp] theorem allGFresh_empty : AllGFresh ∅ := fun _ _ _ _ _ _ _ => rfl
+
+theorem preserves_allG {α : Type} (secret : BitVec 256) (program : M α)
+    (h : ∀ target lay tree heap, GQ lay tree heap target → GP lay tree heap → Avoids secret target program)
+    (cache : RCache) (hc : AllGFresh cache) (result : α × RCache)
+    (hr : result ∈ support (roRun secret program cache)) : AllGFresh result.2 := by
+  intro lay tree heap hp n l r
+  rw [preserves secret _ program (h _ lay tree heap (gQ_gTrial (by have := hp.l1; omega) tree heap n l r) hp)
+    cache result hr]
+  exact hc lay tree heap hp n l r
+
+theorem prepFresh_of_all (index : Nat) (hidx : index < 2 ^ 31) (cache : RCache) (hc : AllGFresh cache) :
+    PrepFresh index cache := by
+  intro l hl x hx n a b
+  have hl1 : 1 ≤ l.val := by have := l.isLt; fin_cases l <;> simp_all
+  exact hc l.val _ x ⟨hl1, l.isLt, route_tree_lt32 index l hidx, hx.1, hx.2⟩ n a b
+
+theorem keygen_allGFresh (secret : BitVec 256) (result : (Digest × Cache) × RCache)
+    (hr : result ∈ support (roRun secret SigGolfCandidate.T3.keygen ∅)) : AllGFresh result.2 :=
+  preserves_allG secret SigGolfCandidate.T3.keygen (fun target lay tree heap ht hp => gav_keygen secret target lay tree heap ht hp)
+    ∅ allGFresh_empty result hr
+
+theorem privateMac_allGFresh (secret : BitVec 256) (region : Region) (cache : RCache) (hc : AllGFresh cache)
+    (result : _ × RCache) (hr : result ∈ support (roRun secret (privateMac region) cache)) : AllGFresh result.2 :=
+  preserves_allG secret _ (fun target lay tree heap ht hp => gav_privateMac secret target lay tree heap ht hp region)
+    cache hc result hr
+
+theorem privateNonce_allGFresh (secret : BitVec 256) (message : Message) (cache : RCache) (hc : AllGFresh cache)
+    (result : _ × RCache) (hr : result ∈ support (roRun secret (privateNonce message) cache)) : AllGFresh result.2 :=
+  preserves_allG secret _ (fun target lay tree heap ht hp => gav_privateNonce secret target lay tree heap ht hp message)
+    cache hc result hr
+
+theorem digestSearch_allGFresh (secret : BitVec 256) (rho : Digest) (message : Message) (counter fuel : Nat)
+    (cache : RCache) (hc : AllGFresh cache) (result : _ × RCache)
+    (hr : result ∈ support (roRun secret
+      (SigGolfCandidate.Research.SharedForest.sharedDigestSearch rho message counter fuel) cache)) :
+    AllGFresh result.2 :=
+  preserves_allG secret _ (fun target lay tree heap ht hp =>
+    gav_digestSearch secret target lay tree heap ht hp rho message fuel counter) cache hc result hr
+
+theorem buildForest_allGFresh (secret : BitVec 256) (index : Nat)
+    (selected : SigGolfCandidate.Research.SharedForest.ForestSelection)
+    (words : SigGolfCandidate.Research.SharedForest.ForestWords) (cache : RCache) (hc : AllGFresh cache)
+    (result : _ × RCache) (hr : result ∈ support (roRun secret
+      (SigGolfCandidate.Research.SharedForest.buildForest index selected words) cache)) : AllGFresh result.2 :=
+  preserves_allG secret _ (fun target lay tree heap ht hp =>
+    gav_buildForest secret target lay tree heap ht hp index selected words) cache hc result hr
+
+/-! ## U16b lower cap exhaustion (completeness) -/
+
+open ClaudeWCT.W9.T3.TopMoment (Ev Ev_bind Ev_pure Ev_le_of_support Ev_publicQuery_fresh Ev_mono Ev_le_one) in
+/-- Value-weighted lower nonce-search bound, fuel-indexed (copy of `Ev_topNonceSearch_fuel`). -/
+theorem Ev_lowerNonceSearch_fuel {β : Type} (secret : BitVec 256) (lay tree heap : Nat) (left right : Digest)
+    (next : Nat × Digest → M β) (F : β × RCache → ℝ≥0∞) (G : RCache → Prop) (w : Digest → ℝ≥0∞) (b : Nat → ℝ≥0∞)
+    (hG : ∀ cache, G cache → ∀ k answer, G (cache.cacheQuery (gTrial lay tree heap k left right) answer))
+    (hnext : ∀ cache, G cache → ∀ k answer,
+      Ev secret (next (k, gVal lay heap answer)) (cache.cacheQuery (gTrial lay tree heap k left right) answer) F ≤
+        w (gVal lay heap answer))
+    (hstep : ∀ k, expectedValue ($ᵗ HashOutput : ProbComp HashOutput)
+      (fun answer => if ClaudeWCT.WCT9.lowerZeroOk lay heap (gVal lay heap answer) then w (gVal lay heap answer)
+        else b k) ≤ b (k + 1))
+    (htail : expectedValue ($ᵗ HashOutput : ProbComp HashOutput) (fun answer => w (gVal lay heap answer)) ≤ b 0) :
+    ∀ fuel n, n + fuel < 2 ^ 64 → ∀ cache, G cache →
+      (∀ k, n ≤ k → k ≤ n + fuel → cache (gTrial lay tree heap k left right) = none) →
+      Ev secret (ClaudeWCT.WCT9.lowerNonceSearch lay tree heap left right fuel n >>= next) cache F ≤ b fuel := by
+  intro fuel
+  induction fuel with
+  | zero =>
+      intro n hn cache hg hfresh
+      rw [lowerNonceSearch_zero_bind, Ev_publicQuery_fresh _ _ _ (hfresh n le_rfl (by omega))]
+      exact (expectedValue_mono _ fun answer => hnext cache hg n answer).trans htail
+  | succ fuel ih =>
+      intro n hn cache hg hfresh
+      rw [lowerNonceSearch_succ_bind, Ev_publicQuery_fresh _ _ _ (hfresh n le_rfl (by omega))]
+      refine le_trans (expectedValue_mono _ fun answer => ?_) (hstep fuel)
+      split
+      · exact hnext cache hg n answer
+      · apply ih (n + 1) (by omega) _ (hG cache hg n answer)
+        intro k hk1 hk2
+        have hne : gTrial lay tree heap k left right ≠ gTrial lay tree heap n left right := by
+          intro he
+          have := gTrial_injective lay tree heap left right (by omega) (by omega) he
+          omega
+        exact (QueryCache.cacheQuery_of_ne (cache := cache) answer hne).trans (hfresh k (by omega) (by omega))
+
+/-- Probability that one ground search with `b` zero bits exhausts its cap `128 · 2^b`. -/
+noncomputable def capFailG (b : Nat) : ℝ≥0∞ := (1 - ((2 : ℝ≥0∞) ^ b)⁻¹) ^ (128 * 2 ^ b)
+
+/-- Per-heap cap failure (0 off the ground). -/
+noncomputable def capFailH (lay heap : Nat) : ℝ≥0∞ :=
+  if ClaudeWCT.WCT9.lowerZeroBits lay heap = 0 then 0 else capFailG (ClaudeWCT.WCT9.lowerZeroBits lay heap)
+
+theorem lowerZeroOk_of_zero {lay heap : Nat} (hb : ClaudeWCT.WCT9.lowerZeroBits lay heap = 0) (v : Digest) :
+    ClaudeWCT.WCT9.lowerZeroOk lay heap v = true := by
+  unfold ClaudeWCT.WCT9.lowerZeroOk
+  rw [hb]
+  have := v.isLt
+  simp only [Nat.sub_zero, beq_iff_eq]
+  exact Nat.div_eq_of_lt this
+
+open ClaudeWCT.W9.T3.TopMoment (Ev Ev_bind Ev_pure Ev_le_of_support Ev_publicQuery_fresh Ev_mono Ev_le_one
+  capFail_step capFail_tail) in
+/-- **One lower node**: if every continuation after a node passing its zero test is bounded by `B` (and `F ≤ 1`),
+the node plus continuation is bounded by `B + capFailH`. -/
+theorem E_gnode {β : Type} (secret : BitVec 256) (lay tree heap : Nat) (h1 : 1 ≤ lay) (h4 : lay < 4)
+    (ht : tree < 2 ^ 32) (hh : heap < 128) (left right : Digest) (next : Digest → M β) (F : β × RCache → ℝ≥0∞)
+    (hF : ∀ r, F r ≤ 1) (S : Nat → Prop) (hS : ∀ x, S x → 2 ≤ x ∧ x < 16) (B : ℝ≥0∞)
+    (hnext : ∀ v cache, ClaudeWCT.WCT9.lowerZeroOk lay heap v = true →
+      FreshG lay tree (fun x => S x ∧ x ≠ heap) cache → Ev secret (next v) cache F ≤ B)
+    (cache : RCache) (hfresh : FreshG lay tree S cache)
+    (hheap : ClaudeWCT.WCT9.lowerZeroBits lay heap ≠ 0 → S heap) :
+    Ev secret ((Prod.snd <$> ClaudeWCT.WCT9.lowerNodeAt lay tree heap left right) >>= next) cache F ≤
+      B + capFailH lay heap := by
+  have hpres : ∀ (c : RCache) k ans, FreshG lay tree (fun x => S x ∧ x ≠ heap) c →
+      FreshG lay tree (fun x => S x ∧ x ≠ heap) (c.cacheQuery (gTrial lay tree heap k left right) ans) := by
+    intro c k ans hc x hx n l r
+    have hx' := hS x hx.1
+    exact (QueryCache.cacheQuery_of_ne (cache := c) ans
+      (gTrial_ne_heap n k l r left right h1 h4 ht (by omega) hh hx.2)).trans (hc x hx n l r)
+  by_cases hb : ClaudeWCT.WCT9.lowerZeroBits lay heap = 0
+  · rw [ClaudeWCT.WCT9.lowerNodeAt_of_zero hb, Functor.map_map]
+    simp only [id_map']
+    rw [Ev_bind]
+    refine Ev_le_of_support secret _ cache (fun r hr => le_trans (hnext _ _ (lowerZeroOk_of_zero hb _) ?_)
+      (le_add_right le_rfl))
+    intro x hx n l rr
+    have hx' := hS x hx.1
+    have hT : ClaudeWCT.WCT9.merkleTweak lay tree heap ≠ ClaudeWCT.WCT9.lowerTweak lay tree x := by
+      rw [ClaudeWCT.WCT9.merkleTweak_lower (by omega)]
+      exact lowerTweak_ne_ground ⟨h1, h4, ht, hx'.1, hx'.2⟩ h1 h4 ht hh (fun h' => hx.2 h'.2.2.symm)
+    have hav : Avoids secret (gTrial lay tree x n l rr) (ClaudeWCT.WCT9.lowerNodeHash lay tree heap left right) := by
+      unfold ClaudeWCT.WCT9.lowerNodeHash ClaudeWCT.WCT9.lowerHash
+      exact gav_halfHash_of_ne secret _ _ _
+        (gq_ne (merkleNodeInput_header ..) hT (gQ_gTrial (by omega) tree x n l rr))
+    rw [preserves secret _ _ hav cache r hr]
+    exact hfresh x hx.1 n l rr
+  · rw [bind_map_left]
+    unfold ClaudeWCT.WCT9.lowerNodeAt
+    rw [if_neg hb]
+    have hcap : ClaudeWCT.WCT9.lowerNonceCap lay heap - 1 < 2 ^ 64 := by
+      have := lowerNonceCap_le' lay heap
+      omega
+    have hcap1 : ClaudeWCT.WCT9.lowerNonceCap lay heap - 1 + 1 = 128 * 2 ^ ClaudeWCT.WCT9.lowerZeroBits lay heap := by
+      unfold ClaudeWCT.WCT9.lowerNonceCap; have : 0 < 2 ^ ClaudeWCT.WCT9.lowerZeroBits lay heap := by positivity
+      omega
+    set p : ℝ≥0∞ := ((2 : ℝ≥0∞) ^ ClaudeWCT.WCT9.lowerZeroBits lay heap)⁻¹ with hpdef
+    have hp1 : p ≤ 1 := by
+      rw [hpdef, ← prob_gAccept lay heap]; exact probEvent_le_one
+    have hres := Ev_lowerNonceSearch_fuel secret lay tree heap left right (fun x : Nat × Digest => next x.2) F
+      (FreshG lay tree (fun x => S x ∧ x ≠ heap))
+      (fun v => if ClaudeWCT.WCT9.lowerZeroOk lay heap v then B else 1)
+      (fun k => B + (1 - p) ^ (k + 1)) (fun c hc k a => hpres c k a hc) ?_ ?_ ?_
+      (ClaudeWCT.WCT9.lowerNonceCap lay heap - 1) 0 (by omega) cache
+      (hfresh.mono (fun x hx => hx.1)) (fun k _ _ => hfresh heap (hheap hb) k left right)
+    · refine hres.trans (le_of_eq ?_)
+      unfold capFailH capFailG
+      rw [if_neg hb, hcap1]
+    · intro σ hσ k ans
+      dsimp only
+      split
+      · rename_i hok
+        exact hnext _ _ hok (hpres σ k ans hσ)
+      · exact Ev_le_one secret _ _ F hF
+    · intro k
+      have he : (fun answer => if ClaudeWCT.WCT9.lowerZeroOk lay heap (gVal lay heap answer) = true then
+          (if ClaudeWCT.WCT9.lowerZeroOk lay heap (gVal lay heap answer) = true then B else 1)
+          else B + (1 - p) ^ (k + 1)) =
+          fun a => if ClaudeWCT.WCT9.lowerZeroOk lay heap (gVal lay heap a) = true then B else B + (1 - p) ^ (k + 1) := by
+        funext a; split <;> simp_all
+      rw [he, ClaudeWCT.W9.T3.TopMoment.expectedValue_uniform_ite'
+        (fun a => ClaudeWCT.WCT9.lowerZeroOk lay heap (gVal lay heap a) = true), prob_gAccept]
+      exact capFail_step p B hp1 k
+    · have he : (fun answer => if ClaudeWCT.WCT9.lowerZeroOk lay heap (gVal lay heap answer) = true then B
+          else (1 : ℝ≥0∞)) = fun a => if ClaudeWCT.WCT9.lowerZeroOk lay heap (gVal lay heap a) = true then B else 1 := rfl
+      rw [he, ClaudeWCT.W9.T3.TopMoment.expectedValue_uniform_ite'
+        (fun a => ClaudeWCT.WCT9.lowerZeroOk lay heap (gVal lay heap a) = true), prob_gAccept]
+      exact capFail_tail p B hp1
+
+/-- The zero bits of a level are those of its first heap (`2^k ≤ heap < 2^(k+1)`, `k ≤ 6`). -/
+theorem lzb_level (lay k i : Nat) (hk : k ≤ 6) (hi : i < 2 ^ k) :
+    ClaudeWCT.WCT9.lowerZeroBits lay (2 ^ k + i) = ClaudeWCT.WCT9.lowerZeroBits lay (2 ^ k) := by
+  rw [lzb_eq, lzb_eq]
+  interval_cases k <;> simp only [Nat.reducePow] at hi ⊢ <;> split_ifs <;> omega
+
+/-- Zero test of a value at lower level `j` of a tree of height `h`. -/
+def LevelOK (lay h j : Nat) (v : Digest) : Prop :=
+  v.toNat / 2 ^ (128 - ClaudeWCT.WCT9.lowerZeroBits lay (2 ^ (h - j))) = 0
+
+/-- The values of levels `0..k` pass their zero tests. -/
+def OKUpToG (lay h k : Nat) (levels : List (List Digest)) : Prop :=
+  ∀ j, j ≤ k → ∀ v ∈ levels.getD j [], LevelOK lay h j v
+
+theorem levelOK_of_ok {lay h a i : Nat} (hk : h - a ≤ 6) (hi : i < 2 ^ (h - a)) {v : Digest}
+    (hv : ClaudeWCT.WCT9.lowerZeroOk lay (2 ^ (h - a) + i) v = true) : LevelOK lay h a v := by
+  unfold LevelOK
+  unfold ClaudeWCT.WCT9.lowerZeroOk at hv
+  rw [lzb_level lay _ i hk hi] at hv
+  simpa using hv
+
+theorem levelOK_zero (lay h : Nat) (hh : 4 ≤ h) (v : Digest) : LevelOK lay h 0 v := by
+  unfold LevelOK
+  rw [Nat.sub_zero, ClaudeWCT.WCT9.lowerZeroBits_of_ge16 lay (by
+    calc 16 = 2 ^ 4 := by norm_num
+      _ ≤ 2 ^ h := Nat.pow_le_pow_right (by norm_num) hh)]
+  exact Nat.div_eq_of_lt v.isLt
+
+open ClaudeWCT.W9.T3.TopMoment (Ev Ev_bind Ev_pure Ev_le_of_support) in
+/-- **The nodes of one level**: `B + Σ capFailH`. -/
+theorem E_gnodes {β : Type} (secret : BitVec 256) (lay tree : Nat) (h1 : 1 ≤ lay) (h4 : lay < 4)
+    (ht : tree < 2 ^ 32) (base : Nat) (nodes : List Digest) (F : β × RCache → ℝ≥0∞) (hF : ∀ r, F r ≤ 1) :
+    ∀ (l : List Nat) (S : Nat → Prop) (next : List Digest → M β) (B : ℝ≥0∞),
+      (∀ x, S x → 2 ≤ x ∧ x < 16) → l.Nodup → (∀ i ∈ l, base + i < 128) →
+      (∀ i ∈ l, ClaudeWCT.WCT9.lowerZeroBits lay (base + i) ≠ 0 → S (base + i)) →
+      (∀ as cache, as.length = l.length →
+        (∀ k, k < l.length → ClaudeWCT.WCT9.lowerZeroOk lay (base + l.getD k 0) (as.getD k 0) = true) →
+        FreshG lay tree (fun x => S x ∧ ∀ i ∈ l, x ≠ base + i) cache → Ev secret (next as) cache F ≤ B) →
+      ∀ cache, FreshG lay tree S cache →
+        Ev secret ((l.mapM fun i => ClaudeWCT.WCT9.lowerNodeG lay tree (base + i) (nodes.getD (2 * i) 0)
+          (nodes.getD (2 * i + 1) 0)) >>= next) cache F ≤ B + (l.map fun i => capFailH lay (base + i)).sum := by
+  intro l
+  induction l with
+  | nil =>
+      intro S next B _ _ _ _ hnext cache hfresh
+      simp only [List.mapM_nil, pure_bind, List.map_nil, List.sum_nil, add_zero]
+      exact hnext [] cache rfl (fun k hk => by simp at hk) (hfresh.mono (fun x hx => hx.1))
+  | cons i l ih =>
+      intro S next B hS hnd h128 hin hnext cache hfresh
+      rw [List.mapM_cons]
+      simp only [bind_assoc, pure_bind]
+      have hrest := ih (fun x => S x ∧ x ≠ base + i)
+      unfold ClaudeWCT.WCT9.lowerNodeG
+      refine le_trans (E_gnode secret lay tree (base + i) h1 h4 ht (h128 i (List.mem_cons_self ..)) _ _ _ F hF S hS
+        (B + (l.map fun i => capFailH lay (base + i)).sum) (fun v cache' hok hc => ?_) cache hfresh
+        (hin i (List.mem_cons_self ..))) (le_of_eq ?_)
+      · refine hrest (fun as => next (v :: as)) B (fun x hx => hS x hx.1) (List.nodup_cons.mp hnd).2
+          (fun j hj => h128 j (List.mem_cons_of_mem _ hj))
+          (fun j hj hb => ⟨hin j (List.mem_cons_of_mem _ hj) hb, fun he => (List.nodup_cons.mp hnd).1 (by
+            have : j = i := by omega
+            exact this ▸ hj)⟩) (fun as c' hlen hoks hc' => ?_) cache' hc
+        apply hnext (v :: as) c' (by simp [hlen])
+        · intro k hk
+          cases k with
+          | zero => simpa using hok
+          | succ k => simpa using hoks k (by simp at hk; omega)
+        · exact hc'.mono (fun x hx => ⟨⟨hx.1, hx.2 i (List.mem_cons_self ..)⟩,
+            fun j hj => hx.2 j (List.mem_cons_of_mem _ hj)⟩)
+      · rw [List.map_cons, List.sum_cons]; ring
+
+theorem okUpToG_append (lay h a : Nat) (ha : 1 ≤ a) (levels : List (List Digest)) (as : List Digest)
+    (hlen : levels.length = a) (hok : OKUpToG lay h (a - 1) levels) (has : ∀ v ∈ as, LevelOK lay h a v) :
+    OKUpToG lay h a (levels ++ [as]) := by
+  intro j hj v hv
+  by_cases hold : j ≤ a - 1
+  · rw [List.getD_append levels [as] [] j (by omega)] at hv
+    exact hok j hold v hv
+  · have he : j = a := by omega
+    subst j
+    rw [List.getD_append_right levels [as] [] a (by omega)] at hv
+    simp only [hlen, Nat.sub_self, List.getD_cons_zero] at hv
+    exact has v hv
+
+/-- Per-level cap failure. -/
+noncomputable def levCap (lay h a : Nat) : ℝ≥0∞ :=
+  ((List.range (2 ^ (h - a))).map fun i => capFailH lay (2 ^ (h - a) + i)).sum
+
+theorem mem_getD_of_lt {as : List Digest} {v : Digest} (hv : v ∈ as) : ∃ k, k < as.length ∧ as.getD k 0 = v := by
+  obtain ⟨k, hk, he⟩ := List.getElem_of_mem hv
+  exact ⟨k, hk, by rw [List.getD_eq_getElem _ _ hk, he]⟩
+
+open ClaudeWCT.W9.T3.TopMoment (Ev Ev_bind Ev_pure Ev_le_of_support) in
+/-- **Levels `a .. a+n-1` of a lower tree** (additive cap-failure version of `V_glevels`). -/
+theorem E_glevels {β : Type} (secret : BitVec 256) (lay tree h : Nat) (h1 : 1 ≤ lay) (h4 : lay < 4)
+    (ht : tree < 2 ^ 32) (h7 : h ≤ 7) (F : β × RCache → ℝ≥0∞) (hF : ∀ r, F r ≤ 1) :
+    ∀ n a, 1 ≤ a → a + n ≤ h → ∀ (levels : List (List Digest)) (next : List (List Digest) → M β) (B : ℝ≥0∞),
+      SigGolfCandidate.T3.Cost.LevelShape h (a - 1) levels → OKUpToG lay h (a - 1) levels →
+      (∀ ls cache, SigGolfCandidate.T3.Cost.LevelShape h (a - 1 + n) ls → OKUpToG lay h (a - 1 + n) ls →
+        FreshG lay tree (fun x => 2 ≤ x ∧ x < 16 ∧ x < 2 ^ (h - (a - 1 + n))) cache → Ev secret (next ls) cache F ≤ B) →
+      ∀ cache, FreshG lay tree (fun x => 2 ≤ x ∧ x < 16 ∧ x < 2 ^ (h - (a - 1))) cache →
+        Ev secret ((List.range' a n).foldlM (fun levels level => do
+            let nodes ← ClaudeWCT.WCT9.lowerLevel lay tree h level (levels.getD (level - 1) [])
+            pure (levels ++ [nodes])) levels >>= next) cache F ≤
+          B + ((List.range' a n).map (levCap lay h)).sum := by
+  intro n
+  induction n with
+  | zero =>
+      intro a _ _ levels next B hsh hok hnext cache hf
+      simp only [List.range'_zero, List.foldlM_nil, pure_bind, List.map_nil, List.sum_nil, add_zero]
+      exact hnext levels cache (by simpa using hsh) (by simpa using hok) (by simpa using hf)
+  | succ n ih =>
+      intro a ha han levels next B hsh hok hnext cache hf
+      have hlen : (levels.getD (a - 1) []).length = 2 ^ (h - (a - 1)) := hsh.2 (a - 1) le_rfl
+      have hlevels : levels.length = a := by have := hsh.1; omega
+      have hp : 2 ^ (h - (a - 1)) = 2 ^ (h - a) * 2 := by
+        rw [show h - (a - 1) = h - a + 1 by omega, pow_succ]
+      have hpa : 2 ^ (h - a) ≤ 64 := by
+        calc 2 ^ (h - a) ≤ 2 ^ 6 := Nat.pow_le_pow_right (by norm_num) (by omega)
+          _ = 64 := by norm_num
+      rw [List.range'_succ, List.foldlM_cons, List.map_cons, List.sum_cons]
+      unfold ClaudeWCT.WCT9.lowerLevel
+      rw [hlen, hp, Nat.mul_div_cancel _ (by norm_num)]
+      simp only [bind_assoc, pure_bind]
+      have hrest := ih (a + 1) (by omega) (by omega)
+      refine le_trans (E_gnodes secret lay tree h1 h4 ht (2 ^ (h - a)) (levels.getD (a - 1) []) F hF
+        (List.range (2 ^ (h - a))) (fun x => 2 ≤ x ∧ x < 16 ∧ x < 2 ^ (h - (a - 1))) _
+        (B + ((List.range' (a + 1) n).map (levCap lay h)).sum)
+        (fun x hx => ⟨hx.1, hx.2.1⟩) List.nodup_range
+        (fun i hi => by rw [List.mem_range] at hi; omega)
+        (fun i hi hb => by
+          rw [List.mem_range] at hi
+          have := lowerZeroBits_ground hb
+          exact ⟨this.1, this.2, by omega⟩)
+        (fun as c hl hoks hc => ?_) cache hf) (le_of_eq ?_)
+      · have hasOK : ∀ v ∈ as, LevelOK lay h a v := by
+          intro v hv
+          obtain ⟨k, hk, hkv⟩ := mem_getD_of_lt hv
+          rw [hl, List.length_range] at hk
+          have := hoks k (by rw [List.length_range]; exact hk)
+          rw [List.getD_eq_getElem _ _ (by rw [List.length_range]; exact hk), List.getElem_range, hkv] at this
+          exact levelOK_of_ok (by omega) hk this
+        refine hrest (levels ++ [as]) next B
+          (levelShape_appendL h a ha levels as hsh (by simpa using hl))
+          (by simpa using okUpToG_append lay h a ha levels as hlevels hok hasOK)
+          (fun ls c' hs hok' hc' => hnext ls c' (by rw [show a - 1 + (n + 1) = a + 1 - 1 + n by omega]; exact hs)
+            (by rw [show a - 1 + (n + 1) = a + 1 - 1 + n by omega]; exact hok')
+            (by rw [show a - 1 + (n + 1) = a + 1 - 1 + n by omega]; exact hc')) c
+          (hc.mono (fun x hx => by
+            rw [show a + 1 - 1 = a by omega] at hx
+            refine ⟨⟨hx.1, hx.2.1, by omega⟩, fun i _ => by omega⟩))
+      · simp only [levCap]; ring
+
+/-- Every node of levels `0 .. height − 1` of a lower tree passes its zero test. -/
+def TreeOKL (l : Layer) (levels : List (List Digest)) : Prop :=
+  ∀ j, j < height l → ∀ i, i < 2 ^ (height l - j) → LevelOK l.val (height l) j ((levels.getD j []).getD i 0)
+
+/-- Cap failure of one lower tree. -/
+noncomputable def treeCap (l : Layer) : ℝ≥0∞ := ((List.range' 1 (height l - 1)).map (levCap l.val (height l))).sum
+
+open ClaudeWCT.W9.T3.TopMoment (Ev Ev_bind Ev_pure Ev_le_of_support) in
+/-- **Cap exhaustion of one prepared lower tree**: `E[1_{¬TreeOKL}] ≤ treeCap`. -/
+theorem E_tree0 (secret : BitVec 256) (l : Layer) (hl : l ≠ 0) (t selected : Nat) (ht : t < 2 ^ 32) (cache : RCache)
+    (hfresh : FreshG l.val t (fun x => 2 ≤ x ∧ x < 16) cache) :
+    open Classical in
+    Ev secret (SigGolfCandidate.Research.SharedForest.buildTreePrefixes l t selected) cache
+      (fun r => if TreeOKL l r.1.levels then 0 else 1) ≤ treeCap l := by
+  classical
+  have hl1 : 1 ≤ l.val := by have := l.isLt; fin_cases l <;> simp_all
+  have hl4 : l.val < 4 := l.isLt
+  have hh7 : height l ≤ 7 := by fin_cases l <;> simp_all [height]
+  have hh6 : 6 ≤ height l := by fin_cases l <;> simp_all [height]
+  unfold SigGolfCandidate.Research.SharedForest.buildTreePrefixes
+  rw [Ev_bind]
+  have hleaf := bound_treeLeaves l t selected
+  refine Ev_le_of_support secret _ cache (fun st hst => ?_)
+  have hlen := hleaf.post_of_roRun secret cache st hst
+  have hf : FreshG l.val t (fun x => 2 ≤ x ∧ x < 16 ∧ x < 2 ^ (height l - (1 - 1))) st.2 := by
+    intro x hx n a b
+    rw [preserves secret _ _ (gav_treeLeaves secret _ l.val t x (gQ_gTrial (by omega) t x n a b)
+      ⟨hl1, hl4, ht, hx.1, hx.2.1⟩ l t selected) cache st hst]
+    exact hfresh x ⟨hx.1, hx.2.1⟩ n a b
+  unfold ClaudeWCT.WCT9.buildLevelsBelow
+  have h := E_glevels secret l.val t (height l) hl1 hl4 ht hh7
+    (fun r : SigGolfCandidate.Research.SharedForest.PreparedLower × RCache => if TreeOKL l r.1.levels then 0 else 1)
+    (fun r => by split <;> simp) (height l - 1) 1 le_rfl (by omega)
+    [st.1.1] (fun levels => pure (SigGolfCandidate.Research.SharedForest.PreparedLower.mk levels st.1.2.1)) 0
+    ⟨rfl, fun j hj => by
+      have : j = 0 := by omega
+      subst j; simpa using hlen⟩
+    (fun j hj v hv => by
+      have : j = 0 := by omega
+      subst j
+      exact levelOK_zero l.val (height l) (by omega) v)
+    (fun ls c hs hok _ => by
+      rw [Ev_pure]
+      have hT : TreeOKL l ls := by
+        intro j hj i hi
+        have hlj : (ls.getD j []).length = 2 ^ (height l - j) := hs.2 j (by omega)
+        apply hok j (by omega)
+        rw [List.getD_eq_getElem (ls.getD j []) 0 (by rw [hlj]; exact hi)]
+        exact List.getElem_mem _
+      simp [hT]) st.2 hf
+  simpa [treeCap] using h
+
+/-! ## `lowerCheck`: every reachable lower tree's ground nodes pass their zero tests -/
+
+/-- The reachable lower trees: `2^12` on layer 1, `2^19` on layer 2, `2^25` on layer 3. -/
+def lowerTrees : List (Layer × Nat) :=
+  (List.range (2 ^ 12)).map (fun t => ((1 : Layer), t)) ++ (List.range (2 ^ 19)).map (fun t => ((2 : Layer), t)) ++
+    (List.range (2 ^ 25)).map (fun t => ((3 : Layer), t))
+
+open Classical in
+/-- One tree of `lowerCheck`. -/
+noncomputable def lowerCheckStep (acc : Bool) (lt : Layer × Nat) : M Bool := do
+  let p ← SigGolfCandidate.Research.SharedForest.buildTreePrefixes lt.1 lt.2 0
+  pure (acc && decide (TreeOKL lt.1 p.levels))
+
+/-- U16b completeness check: build every reachable lower tree and test its ground nodes. -/
+noncomputable def lowerCheck : M Bool := lowerTrees.foldlM lowerCheckStep true
+
+theorem mem_lowerTrees {lt : Layer × Nat} (h : lt ∈ lowerTrees) : lt.1 ≠ 0 ∧ lt.2 < 2 ^ 32 := by
+  unfold lowerTrees at h
+  simp only [List.mem_append, List.mem_map, List.mem_range] at h
+  rcases h with (⟨t, ht, rfl⟩ | ⟨t, ht, rfl⟩) | ⟨t, ht, rfl⟩ <;> exact ⟨by simp, by simp; omega⟩
+
+theorem lowerTrees_nodup : lowerTrees.Nodup := by
+  unfold lowerTrees
+  refine List.Nodup.append (List.Nodup.append ?_ ?_ ?_) ?_ ?_
+  · exact List.Nodup.map (fun a b h => by simpa using h) List.nodup_range
+  · exact List.Nodup.map (fun a b h => by simpa using h) List.nodup_range
+  · intro a ha hb
+    simp only [List.mem_map, List.mem_range] at ha hb
+    obtain ⟨_, _, rfl⟩ := ha; obtain ⟨_, _, h⟩ := hb
+    have := congrArg Prod.fst h; simp at this
+  · exact List.Nodup.map (fun a b h => by simpa using h) List.nodup_range
+  · intro a ha hb
+    simp only [List.mem_append, List.mem_map, List.mem_range] at ha hb
+    obtain ⟨_, _, h3⟩ := hb
+    rcases ha with ⟨_, _, h1⟩ | ⟨_, _, h1⟩ <;> rw [← h1] at h3 <;> (have := congrArg Prod.fst h3; simp at this)
+
+open ClaudeWCT.W9.T3.TopMoment (Ev Ev_bind Ev_pure Ev_le_of_support Ev_const_le) in
+/-- **The fold of `lowerCheck`**: `E[1_{false}] ≤ 1_{¬acc} + Σ treeCap` from a cache where the ground trials of the
+remaining trees are fresh. -/
+theorem E_lowerCheckFold (secret : BitVec 256) :
+    ∀ (L : List (Layer × Nat)) (acc : Bool) (cache : RCache), L.Nodup →
+      (∀ lt ∈ L, lt.1 ≠ 0 ∧ lt.2 < 2 ^ 32 ∧ FreshG lt.1.val lt.2 (fun x => 2 ≤ x ∧ x < 16) cache) →
+      Ev secret (L.foldlM lowerCheckStep acc) cache (fun r => if r.1 then 0 else 1) ≤
+        (if acc then 0 else 1) + (L.map fun lt => treeCap lt.1).sum := by
+  classical
+  intro L
+  induction L with
+  | nil =>
+      intro acc cache _ _
+      simp only [List.foldlM_nil, Ev_pure, List.map_nil, List.sum_nil, add_zero]
+      exact le_rfl
+  | cons lt L ih =>
+      intro acc cache hnd hL
+      obtain ⟨hl0, ht, hf⟩ := hL lt (List.mem_cons_self ..)
+      rw [List.foldlM_cons]
+      unfold lowerCheckStep
+      simp only [bind_assoc, pure_bind]
+      rw [Ev_bind]
+      have hrest : ∀ r ∈ support (roRun secret
+          (SigGolfCandidate.Research.SharedForest.buildTreePrefixes lt.1 lt.2 0) cache),
+          Ev secret (L.foldlM lowerCheckStep (acc && decide (TreeOKL lt.1 r.1.levels))) r.2
+            (fun r => if r.1 then 0 else 1) ≤
+          ((if acc then 0 else 1) + (L.map fun lt => treeCap lt.1).sum) +
+            (if TreeOKL lt.1 r.1.levels then 0 else 1) := by
+        intro r hr
+        refine (ih _ r.2 (List.nodup_cons.mp hnd).2 fun lt' hlt' => ?_).trans ?_
+        · obtain ⟨hl0', ht', hf'⟩ := hL lt' (List.mem_cons_of_mem _ hlt')
+          refine ⟨hl0', ht', fun x hx n a b => ?_⟩
+          have hl1 : 1 ≤ lt'.1.val := by
+            rcases lt' with ⟨l', t'⟩
+            have := l'.isLt; revert hl0'; fin_cases l' <;> simp
+          have hne : lt' ≠ lt := fun he => (List.nodup_cons.mp hnd).1 (he ▸ hlt')
+          rw [preserves secret _ _ (gav_buildTreePrefixes_other secret _ lt'.1.val lt'.2 x
+            (gQ_gTrial (by omega) _ x n a b) ⟨hl1, lt'.1.isLt, ht', hx.1, hx.2⟩ lt.1 hl0 lt.2 0 ht
+            (fun h => hne (Prod.ext (Fin.ext h.1.symm) h.2.symm))) cache r hr]
+          exact hf' x hx n a b
+        · cases acc <;> by_cases hT : TreeOKL lt.1 r.1.levels <;> simp [hT, add_comm]
+      refine (expectedValue_mono_of_support hrest).trans ?_
+      have hadd := expectedValue_add (roRun secret (SigGolfCandidate.Research.SharedForest.buildTreePrefixes lt.1 lt.2 0) cache)
+        (fun _ => (if acc then 0 else 1) + (L.map fun lt => treeCap lt.1).sum)
+        (fun r => if TreeOKL lt.1 r.1.levels then (0 : ℝ≥0∞) else 1)
+      refine (le_of_eq hadd).trans ?_
+      have h1 := Ev_const_le secret (SigGolfCandidate.Research.SharedForest.buildTreePrefixes lt.1 lt.2 0) cache
+        ((if acc then 0 else 1) + (L.map fun lt => treeCap lt.1).sum)
+      have h2 := E_tree0 secret lt.1 hl0 lt.2 0 ht cache hf
+      refine (add_le_add h1 h2).trans (le_of_eq ?_)
+      simp only [List.map_cons, List.sum_cons]
+      ring
+
+/-- `(3/8)^128`: a bound on every ground cap failure. -/
+noncomputable def cG : ℝ≥0∞ := ENNReal.ofReal ((3 / 8 : ℝ) ^ 128)
+
+theorem capFailG_le (b : Nat) (h1 : 1 ≤ b) (h3 : b ≤ 3) : capFailG b ≤ cG := by
+  unfold capFailG cG
+  rw [inv_two_pow_eq']
+  have hx : (0 : ℝ) ≤ 1 / 2 ^ b := by positivity
+  have hx1 : 1 / 2 ^ b ≤ (1 : ℝ) := by
+    rw [div_le_one (by positivity)]; exact one_le_pow₀ (by norm_num)
+  rw [← ENNReal.ofReal_one, ← ENNReal.ofReal_sub _ hx, ← ENNReal.ofReal_pow (by linarith)]
+  apply ENNReal.ofReal_le_ofReal
+  rw [mul_comm 128, pow_mul]
+  exact pow_le_pow_left₀ (pow_nonneg (by linarith) _)
+    (ClaudeWCT.W9.T3.TopMoment.capBase_real b h1 (by omega)) 128
+
+theorem levCap_of (lay h a k : Nat) (hk : ∀ i < 2 ^ (h - a), ClaudeWCT.WCT9.lowerZeroBits lay (2 ^ (h - a) + i) = k) :
+    levCap lay h a = (2 ^ (h - a) : ℕ) * (if k = 0 then 0 else capFailG k) := by
+  unfold levCap
+  rw [List.map_congr_left (fun i hi => by
+    show capFailH lay (2 ^ (h - a) + i) = (if k = 0 then 0 else capFailG k)
+    unfold capFailH; rw [hk i (List.mem_range.mp hi)]), List.map_const', List.sum_replicate, List.length_range,
+    nsmul_eq_mul]
+
+theorem treeCap_one_le : treeCap 1 ≤ 14 * cG := by
+  have c1 := capFailG_le 1 le_rfl (by norm_num)
+  have c2 := capFailG_le 2 (by norm_num) (by norm_num)
+  have c3 := capFailG_le 3 (by norm_num) le_rfl
+  unfold treeCap
+  rw [show height (1 : Layer) = 7 from rfl]
+  simp only [show 7 - 1 = 6 from rfl, List.range'_succ, List.range'_zero, List.map_cons, List.map_nil,
+    List.sum_cons, List.sum_nil, Nat.reduceAdd]
+  rw [show ((1 : Layer) : ℕ) = 1 from rfl]
+  rw [levCap_of 1 7 1 0 (fun i hi => by simp only [Nat.reduceSub, Nat.reducePow] at hi ⊢; interval_cases i <;> rfl),
+      levCap_of 1 7 2 0 (fun i hi => by simp only [Nat.reduceSub, Nat.reducePow] at hi ⊢; interval_cases i <;> rfl),
+      levCap_of 1 7 3 0 (fun i hi => by simp only [Nat.reduceSub, Nat.reducePow] at hi ⊢; interval_cases i <;> rfl),
+      levCap_of 1 7 4 1 (fun i hi => by simp only [Nat.reduceSub, Nat.reducePow] at hi ⊢; interval_cases i <;> rfl),
+      levCap_of 1 7 5 2 (fun i hi => by simp only [Nat.reduceSub, Nat.reducePow] at hi ⊢; interval_cases i <;> rfl),
+      levCap_of 1 7 6 3 (fun i hi => by simp only [Nat.reduceSub, Nat.reducePow] at hi ⊢; interval_cases i <;> rfl)]
+  simp only [Nat.reduceSub, Nat.reducePow, Nat.cast_ofNat, if_true, one_ne_zero, if_false,
+    OfNat.ofNat_ne_zero, mul_zero, zero_add, add_zero]
+  calc (8 : ℝ≥0∞) * capFailG 1 + (4 * capFailG 2 + 2 * capFailG 3) ≤ 8 * cG + (4 * cG + 2 * cG) := by gcongr
+    _ = 14 * cG := by ring
+
+theorem treeCap_two_le : treeCap 2 ≤ 14 * cG := by
+  have c1 := capFailG_le 1 le_rfl (by norm_num)
+  have c2 := capFailG_le 2 (by norm_num) (by norm_num)
+  have c3 := capFailG_le 3 (by norm_num) le_rfl
+  unfold treeCap
+  rw [show height (2 : Layer) = 6 from rfl]
+  simp only [show 6 - 1 = 5 from rfl, List.range'_succ, List.range'_zero, List.map_cons, List.map_nil,
+    List.sum_cons, List.sum_nil, Nat.reduceAdd]
+  rw [show ((2 : Layer) : ℕ) = 2 from rfl]
+  rw [levCap_of 2 6 1 0 (fun i hi => by simp only [Nat.reduceSub, Nat.reducePow] at hi ⊢; interval_cases i <;> rfl),
+      levCap_of 2 6 2 0 (fun i hi => by simp only [Nat.reduceSub, Nat.reducePow] at hi ⊢; interval_cases i <;> rfl),
+      levCap_of 2 6 3 1 (fun i hi => by simp only [Nat.reduceSub, Nat.reducePow] at hi ⊢; interval_cases i <;> rfl),
+      levCap_of 2 6 4 2 (fun i hi => by simp only [Nat.reduceSub, Nat.reducePow] at hi ⊢; interval_cases i <;> rfl),
+      levCap_of 2 6 5 2 (fun i hi => by simp only [Nat.reduceSub, Nat.reducePow] at hi ⊢; interval_cases i <;> rfl)]
+  simp only [Nat.reduceSub, Nat.reducePow, Nat.cast_ofNat, if_true, one_ne_zero, if_false,
+    OfNat.ofNat_ne_zero, mul_zero, zero_add, add_zero]
+  calc (8 : ℝ≥0∞) * capFailG 1 + (4 * capFailG 2 + 2 * capFailG 2) ≤ 8 * cG + (4 * cG + 2 * cG) := by gcongr
+    _ = 14 * cG := by ring
+
+theorem treeCap_three_le : treeCap 3 ≤ 14 * cG := by
+  have c1 := capFailG_le 1 le_rfl (by norm_num)
+  have c2 := capFailG_le 2 (by norm_num) (by norm_num)
+  have c3 := capFailG_le 3 (by norm_num) le_rfl
+  unfold treeCap
+  rw [show height (3 : Layer) = 6 from rfl]
+  simp only [show 6 - 1 = 5 from rfl, List.range'_succ, List.range'_zero, List.map_cons, List.map_nil,
+    List.sum_cons, List.sum_nil, Nat.reduceAdd]
+  rw [show ((3 : Layer) : ℕ) = 3 from rfl]
+  rw [levCap_of 3 6 1 0 (fun i hi => by simp only [Nat.reduceSub, Nat.reducePow] at hi ⊢; interval_cases i <;> rfl),
+      levCap_of 3 6 2 0 (fun i hi => by simp only [Nat.reduceSub, Nat.reducePow] at hi ⊢; interval_cases i <;> rfl),
+      levCap_of 3 6 3 1 (fun i hi => by simp only [Nat.reduceSub, Nat.reducePow] at hi ⊢; interval_cases i <;> rfl),
+      levCap_of 3 6 4 2 (fun i hi => by simp only [Nat.reduceSub, Nat.reducePow] at hi ⊢; interval_cases i <;> rfl),
+      levCap_of 3 6 5 2 (fun i hi => by simp only [Nat.reduceSub, Nat.reducePow] at hi ⊢; interval_cases i <;> rfl)]
+  simp only [Nat.reduceSub, Nat.reducePow, Nat.cast_ofNat, if_true, one_ne_zero, if_false,
+    OfNat.ofNat_ne_zero, mul_zero, zero_add, add_zero]
+  calc (8 : ℝ≥0∞) * capFailG 1 + (4 * capFailG 2 + 2 * capFailG 2) ≤ 8 * cG + (4 * cG + 2 * cG) := by gcongr
+    _ = 14 * cG := by ring
+
+theorem lowerTrees_sum_le : (lowerTrees.map fun lt => treeCap lt.1).sum ≤ ENNReal.ofReal (1 / 2 ^ 150) := by
+  have hs : (lowerTrees.map fun lt => treeCap lt.1).sum =
+      (2 ^ 12 : ℕ) * treeCap 1 + (2 ^ 19 : ℕ) * treeCap 2 + (2 ^ 25 : ℕ) * treeCap 3 := by
+    unfold lowerTrees
+    simp only [List.map_append, List.map_map, Function.comp_def, List.sum_append, List.map_const',
+      List.sum_replicate, List.length_range, nsmul_eq_mul]
+  rw [hs]
+  have h1 := treeCap_one_le
+  have h2 := treeCap_two_le
+  have h3 := treeCap_three_le
+  calc ((2 ^ 12 : ℕ) : ℝ≥0∞) * treeCap 1 + (2 ^ 19 : ℕ) * treeCap 2 + (2 ^ 25 : ℕ) * treeCap 3
+      ≤ (2 ^ 12 : ℕ) * (14 * cG) + (2 ^ 19 : ℕ) * (14 * cG) + (2 ^ 25 : ℕ) * (14 * cG) := by gcongr
+    _ = ENNReal.ofReal (477159424 * (3 / 8 : ℝ) ^ 128) := by
+        unfold cG
+        rw [ENNReal.ofReal_mul (by norm_num)]
+        norm_num
+        ring
+    _ ≤ ENNReal.ofReal (1 / 2 ^ 150) := ENNReal.ofReal_le_ofReal (by norm_num)
+
+open ClaudeWCT.W9.T3.TopMoment (Ev) in
+/-- **U16b lower cap exhaustion** (Ev form): from any cache where no ground trial is cached. -/
+theorem Ev_lowerCheck_false (secret : BitVec 256) (cache : RCache) (hc : AllGFresh cache) :
+    Ev secret lowerCheck cache (fun r => if r.1 then 0 else 1) ≤ ENNReal.ofReal (1 / 2 ^ 150) := by
+  unfold lowerCheck
+  refine (E_lowerCheckFold secret lowerTrees true cache lowerTrees_nodup fun lt hlt => ?_).trans ?_
+  · obtain ⟨h0, ht⟩ := mem_lowerTrees hlt
+    have hl1 : 1 ≤ lt.1.val := by
+      rcases lt with ⟨l', t'⟩
+      have := l'.isLt; revert h0; fin_cases l' <;> simp
+    exact ⟨h0, ht, fun x hx n a b => hc _ _ _ ⟨hl1, lt.1.isLt, ht, hx.1, hx.2⟩ n a b⟩
+  · simpa using lowerTrees_sum_le
+
+/-- **U16b lower cap exhaustion** (probability form, for `Merge097.everyMessage_failure_le`). -/
+theorem lowerCheck_failure_small (secret : BitVec 256) (cache : RCache) (hc : AllGFresh cache) :
+    Pr[fun value => value = false |
+      (simulateQ SphincsSecurity.romImpl (realize secret lowerCheck)).run' cache] ≤ ENNReal.ofReal (1 / 2 ^ 150) := by
+  classical
+  refine le_trans (le_of_eq ?_) (Ev_lowerCheck_false secret cache hc)
+  rw [StateT.run'_eq]
+  change Pr[fun value => value = false | Prod.fst <$> roRun secret lowerCheck cache] = _
+  rw [probEvent_map]
+  unfold ClaudeWCT.W9.T3.TopMoment.Ev
+  rw [← expectedValue_ite_one]
+  congr 1
+  funext r
+  rcases r with ⟨b, c⟩
+  cases b <;> simp
+
+theorem buildTopTree_allGFresh (secret : BitVec 256) (cache : RCache) (hc : AllGFresh cache)
+    (r : List (List Digest) × RCache) (hr : r ∈ support (roRun secret buildTopTree cache)) : AllGFresh r.2 :=
+  preserves_allG secret buildTopTree (fun target lay tree heap ht hp => gav_buildTopTree secret target lay tree heap ht hp)
+    cache hc r hr
+
+theorem eval_lowerCheckFold_true (answers : SigGolfCandidate.T3.Correctness.Answers) :
+    ∀ (L : List (Layer × Nat)) (acc : Bool), evalWithAnswerFn answers (L.foldlM lowerCheckStep acc) = true →
+      acc = true ∧ ∀ lt ∈ L, TreeOKL lt.1
+        (evalWithAnswerFn answers (SigGolfCandidate.Research.SharedForest.buildTreePrefixes lt.1 lt.2 0)).levels := by
+  classical
+  intro L
+  induction L with
+  | nil => intro acc h; simpa using h
+  | cons lt L ih =>
+      intro acc h
+      rw [List.foldlM_cons, evalWithAnswerFn_bind] at h
+      unfold lowerCheckStep at h
+      simp only [evalWithAnswerFn_bind, evalWithAnswerFn_pure] at h
+      obtain ⟨h1, h2⟩ := ih _ h
+      simp only [Bool.and_eq_true, decide_eq_true_eq] at h1
+      refine ⟨h1.1, fun lt' hlt' => ?_⟩
+      rcases List.mem_cons.mp hlt' with rfl | hlt'
+      · exact h1.2
+      · exact h2 lt' hlt'
+
+theorem getD_take_lt {α : Type} (l : List α) (n j : Nat) (d : α) (hj : j < n) : (l.take n).getD j d = l.getD j d := by
+  simp [List.getD_eq_getElem?_getD, List.getElem?_take, hj]
+
+theorem route_tree_mem (index : Nat) (hidx : index < 2 ^ 31) (lay : Layer) (hlay : lay ≠ 0) :
+    (lay, (route index lay).2) ∈ lowerTrees := by
+  unfold lowerTrees route
+  fin_cases lay
+  · exact absurd rfl hlay
+  all_goals
+    simp only [List.mem_append, List.mem_map, List.mem_range, Prod.mk.injEq]
+    simp [height]
+    omega
+
+/-- `lowerCheck` accepts only if every reachable lower tree passes its ground zero tests. -/
+theorem eval_lowerCheck_true (answers : SigGolfCandidate.T3.Correctness.Answers)
+    (h : evalWithAnswerFn answers lowerCheck = true) : SigGolfCandidate.Research.SharedForest.LowerTreesOK answers := by
+  have hall := (eval_lowerCheckFold_true answers lowerTrees true h).2
+  intro index hidx lay hlay j hj i hi
+  have hT := hall _ (route_tree_mem index hidx lay hlay)
+  rw [SigGolfCandidate.Research.SharedForest.eval_buildTreePrefixes_result answers hlay _ 0 (by positivity)] at hT
+  have := hT j hj i hi
+  unfold LevelOK at this
+  rw [getD_take_lt _ _ _ _ hj] at this
+  exact this
+
+open SigGolfCandidate.T3.SourceReplay (HashOnly hashOnly_pure hashOnly_bind hashOnly_foldlM hashOnly_mapM) in
+theorem hashOnly_buildTreePrefixes (l : Layer) (t selected : Nat) :
+    HashOnly (SigGolfCandidate.Research.SharedForest.buildTreePrefixes l t selected) := by
+  unfold SigGolfCandidate.Research.SharedForest.buildTreePrefixes
+  refine hashOnly_bind (hashOnly_foldlM _ _ (fun state leaf => ?_) _) fun state =>
+    hashOnly_bind (ClaudeWCT.W9.T3.SourceReplay.hashOnly_buildLevelsBelow _ _ _ _ _) fun _ => hashOnly_pure _
+  dsimp only
+  split
+  · refine hashOnly_bind ?_ fun r => ?_
+    · unfold SigGolfCandidate.Research.SharedForest.buildLeafPrefixes
+      refine hashOnly_bind ?_ fun cc => ?_
+      · unfold ClaudeWCT.WCT9.lowerCoefs ClaudeWCT.WCT9.lowerFamCoefs
+        split
+        · exact hashOnly_bind (hashOnly_bind (hashOnly_foldlM _ _ (fun acc j =>
+            hashOnly_bind (ClaudeWCT.W9.T3.SourceReplay.hashOnly_lowerSeedPair _ _ _) fun _ => hashOnly_pure _) _)
+            fun _ => hashOnly_pure _) fun _ => hashOnly_pure _
+        · exact hashOnly_pure _
+      · rcases cc with ⟨coefs, carry⟩
+        refine hashOnly_bind (hashOnly_mapM _ _ fun i => ?_) fun _ =>
+          hashOnly_bind (ClaudeWCT.W9.T3.SourceReplay.hashOnly_lowerLeafHash _ _ _ _) fun _ => hashOnly_pure _
+        have hc : ∀ count start (v : Digest),
+            HashOnly (SigGolfCandidate.Research.SharedForest.chainPrefixes l t leaf i start count v) := by
+          intro count
+          induction count with
+          | zero => intro start v; unfold SigGolfCandidate.Research.SharedForest.chainPrefixes; exact hashOnly_pure _
+          | succ count ih =>
+              intro start v
+              unfold SigGolfCandidate.Research.SharedForest.chainPrefixes
+              exact hashOnly_bind (ClaudeWCT.W9.T3.SourceReplay.hashOnly_halfHash _ _) fun _ =>
+                hashOnly_bind (ih _ _) fun _ => hashOnly_pure _
+        exact hc _ _ _
+    · rcases r with ⟨⟨root, prefixes⟩, carry⟩
+      exact hashOnly_pure _
+  · refine hashOnly_bind (ClaudeWCT.W9.T3.SourceReplay.hashOnly_buildLeafPF _ _ _ _ _) fun r => ?_
+    rcases r with ⟨⟨root, prefixes⟩, carry⟩
+    simp only [pure_bind]
+    exact hashOnly_pure _
+
+open SigGolfCandidate.T3.SourceReplay (HashOnly hashOnly_pure hashOnly_bind hashOnly_foldlM) in
+theorem hashOnly_lowerCheck : HashOnly lowerCheck := by
+  unfold lowerCheck
+  exact hashOnly_foldlM _ _ (fun acc lt => by
+    unfold lowerCheckStep
+    exact hashOnly_bind (hashOnly_buildTreePrefixes _ _ _) fun _ => hashOnly_pure _) _
+
+
+end GroundFresh
+
 end ClaudeWCT.W9.T3.Freshness.Paired
+
+-- ==== merged from ClaudeWCT_W9_T3_FullCache_NativeBudgetB1_ExpandMomentV6 ====
+section
+
+/-! # img-v6 expand excess moment with the 5,239-byte codec (r3-lean-topbytes)
+
+`expand` normalizes the top path (`SharedForest.normTop`), so the brute force is bounded by the true sibling field
+only when every top node passed its zero test (`TopTreeOK`); otherwise by `searchFuel`
+(`SharedForest.expand_cost_le_sign_field`, `excessField`). Hence
+
+`E[2^((8/7)(N_e ∸ N_s)/2^20)] ≤ E[excessWeight (max field₂ field₃)] + Pr[¬TopLevelsOK] · excessWeight searchFuel
+  ≤ 1.9 + 2^-135 · 4 ≤ 2`. -/
+
+namespace SigGolfCandidate.Research.SharedExpansionV6
+open OracleComp OracleSpec OracleComp.EvalDist ENNReal
+open SigGolfCandidate.T3 hiding Signature Witness sign expand verify signPayload digestSearch admissible
+open SigGolfCandidate.T3.Sampling SigGolfCandidate.T3.Cost
+open SigGolfCandidate.T3.Correctness (Answers builtTree treeValue)
+open SigGolfCandidate.T3.SourceReplay (fixedAnswers)
+open SigGolfCandidate.T3.SearchCost (cost counted_fst)
+open SigGolfCandidate.T3.ExpansionClosure (jointCounts)
+open SigGolfCandidate.T3.SourceReplay (HashOnly hashOnly_pure hashOnly_bind hashOnly_map hashOnly_buildTopTree)
+open SigGolfCandidate.T3.CountedReplay (hashOnly_countBlocks support_replay)
+open SigGolfCandidate.Research.SharedForest (Signature Witness sign expand expandReplayExtra topField
+  expand_cost_le_sign_field excessField TopTreeOK)
+open ClaudeWCT.W9.T3.TopMoment
+set_option maxHeartbeats 1000000
+set_option maxRecDepth 10000
+
+
+/-- The joint run, also returning the keygen's whole top tree. -/
+def jointL (message : Message) : M ((Nat × Nat) × List (List Digest)) :=
+  buildTopTree >>= fun levels => (fun c => (c, levels)) <$> (keygenRest levels >>= afterKeys message)
+
+theorem jointCounts_eqL (message : Message) :
+    jointCounts keygen (fun keys => sign keys.2 message) (fun keys sig => expand message keys.1 sig) =
+      Prod.fst <$> jointL message := by
+  rw [jointCounts_bind, keygen_split]
+  unfold jointL afterKeys
+  simp only [bind_assoc, map_bind, Functor.map_map, id_map']
+
+/-- U16b: `afterKeys` for an arbitrary expander. -/
+def afterKeysX {ω : Type} (message : Message) (ex : Digest → Signature → M ω)
+    (keys : Digest × SigGolfCandidate.T3.Cache) : M (Nat × Nat) :=
+  jointCounts (pure keys) (fun keys => sign keys.2 message) (fun keys sig => ex keys.1 sig)
+
+/-- U16b: `jointL` for an arbitrary expander. -/
+def jointLX {ω : Type} (message : Message) (ex : Digest → Signature → M ω) :
+    M ((Nat × Nat) × List (List Digest)) :=
+  buildTopTree >>= fun levels => (fun c => (c, levels)) <$> (keygenRest levels >>= afterKeysX message ex)
+
+theorem jointCounts_eqLX {ω : Type} (message : Message) (ex : Digest → Signature → M ω) :
+    jointCounts keygen (fun keys => sign keys.2 message) (fun keys sig => ex keys.1 sig) =
+      Prod.fst <$> jointLX message ex := by
+  rw [jointCounts_bind, keygen_split]
+  unfold jointLX afterKeysX
+  simp only [bind_assoc, map_bind, Functor.map_map, id_map']
+
+/-- U16b: the joint run with the (output-discarded) ground check `lowerCheck` presampled after the top tree. -/
+noncomputable def jointLB {ω : Type} (message : Message) (ex : Digest → Signature → M ω) :
+    M (((Nat × Nat) × List (List Digest)) × Bool) :=
+  buildTopTree >>= fun levels => ClaudeWCT.W9.T3.Freshness.Paired.GroundFresh.lowerCheck >>= fun b =>
+    (fun a => (a, b)) <$> ((fun c => (c, levels)) <$> (keygenRest levels >>= afterKeysX message ex))
+
+theorem expectedValue_congr_evalSPMF' {α : Type} {X Y : ProbComp α} (h : 𝒮[X] = 𝒮[Y])
+    (g : α → ENNReal) : expectedValue X g = expectedValue Y g := by
+  unfold OracleComp.EvalDist.expectedValue
+  have hp : ∀ a, Pr[= a | X] = Pr[= a | Y] := fun a => by unfold probOutput; rw [h]
+  simp only [hp]
+
+/-- Presampling a hash-only preparation whose output is discarded does not change an output expectation. -/
+theorem Ev_presample_fst {α β : Type} (secret : BitVec 256) (P : M α) (Q : M β) (c : RCache)
+    (F : α → ℝ≥0∞) :
+    Ev secret P c (fun r => F r.1) = Ev secret (Q >>= fun b => (fun a => (a, b)) <$> P) c (fun r => F r.1.1) := by
+  unfold Ev
+  rw [roRun_bind, expectedValue_bind]
+  have hL : expectedValue (roRun secret P c) (fun r => F r.1) =
+      expectedValue ((simulateQ SphincsSecurity.romImpl (realize secret P)).run' c) F := by
+    rw [StateT.run'_eq, expectedValue_map]; rfl
+  rw [hL, expectedValue_congr_evalSPMF'
+    (SphincsSecurity.Seeded.evalDist_presample_computation (realize secret P) (realize secret Q) c),
+    expectedValue_bind]
+  congr 1
+  funext q
+  rw [roRun_map, expectedValue_map, StateT.run'_eq, expectedValue_map]
+  rfl
+
+theorem Ev_jointL_eq_B {ω : Type} (secret : BitVec 256) (message : Message) (ex : Digest → Signature → M ω)
+    (F : (Nat × Nat) → ℝ≥0∞) :
+    Ev secret (jointLX message ex) ∅ (fun r => F r.1.1) = Ev secret (jointLB message ex) ∅ (fun r => F r.1.1.1) := by
+  unfold jointLX jointLB
+  rw [Ev_bind, Ev_bind]
+  congr 1
+  funext r
+  exact Ev_presample_fst secret _ _ r.2 (fun a : (Nat × Nat) × List (List Digest) => F a.1)
+
+/-- The excess weight as a function of the top tree. -/
+noncomputable def excessG (levels : List (List Digest)) : ℝ≥0∞ :=
+  open Classical in
+  if TopLevelsOK levels then
+    excessWeight (max (topFieldV ((levels.getD 11 []).getD 0 0)) (topFieldV ((levels.getD 11 []).getD 1 0)))
+  else excessWeight ClaudeWCT.WCT9.searchFuel
+
+/-- U16b: the excess weight as a function of the top tree and the ground check. -/
+noncomputable def excessGB (levels : List (List Digest)) (b : Bool) : ℝ≥0∞ :=
+  excessG levels + (if b then 0 else 1) * excessWeight SigGolfCandidate.Research.SharedForest.expandWorstCost
+
+theorem excessWeight_searchFuel_le : excessWeight ClaudeWCT.WCT9.searchFuel ≤ ENNReal.ofReal 4 := by
+  unfold excessWeight expandReplayExtra ClaudeWCT.WCT9.searchFuel
+  calc (2 : ℝ≥0∞) ^ ((8 / 7 : ℝ) * ((6243 + 425765 + 65535 : ℕ) : ℝ) / 1048576)
+      ≤ (2 : ℝ≥0∞) ^ ((2 : ℕ) : ℝ) :=
+        ENNReal.rpow_le_rpow_of_exponent_le (by norm_num) (by push_cast; norm_num)
+    _ = ENNReal.ofReal 4 := by rw [ENNReal.rpow_natCast]; norm_num
+
+theorem excessWeight_worst_le :
+    excessWeight SigGolfCandidate.Research.SharedForest.expandWorstCost ≤ ENNReal.ofReal (2 ^ 19) := by
+  unfold excessWeight expandReplayExtra SigGolfCandidate.Research.SharedForest.expandWorstCost
+  calc (2 : ℝ≥0∞) ^ ((8 / 7 : ℝ) * ((6243 + 425765 + 2 ^ 24 : ℕ) : ℝ) / 1048576)
+      ≤ (2 : ℝ≥0∞) ^ ((19 : ℕ) : ℝ) :=
+        ENNReal.rpow_le_rpow_of_exponent_le (by norm_num) (by push_cast; norm_num)
+    _ = ENNReal.ofReal (2 ^ 19) := by
+        rw [ENNReal.rpow_natCast, ENNReal.ofReal_pow (by norm_num)]; norm_num
+
+theorem hashOnly_jointLB {ω : Type} (message : Message) (ex : Digest → Signature → M ω)
+    (hsign : ∀ cache, HashOnly (sign cache message)) (hexp : ∀ pk sig, HashOnly (ex pk sig))
+    (hrest : ∀ levels, HashOnly (keygenRest levels)) : HashOnly (jointLB message ex) := by
+  unfold jointLB
+  refine hashOnly_bind hashOnly_buildTopTree (fun levels =>
+    hashOnly_bind ClaudeWCT.W9.T3.Freshness.Paired.GroundFresh.hashOnly_lowerCheck (fun b =>
+      hashOnly_map _ (hashOnly_map _ (hashOnly_bind (hrest levels) ?_))))
+  intro keys
+  unfold afterKeysX jointCounts
+  refine hashOnly_bind (hashOnly_pure _) (fun keys => ?_)
+  refine hashOnly_bind (hashOnly_countBlocks _ (hsign keys.2)) (fun signed => ?_)
+  cases signed.1 with
+  | none => exact hashOnly_pure _
+  | some sig => exact hashOnly_bind (hashOnly_countBlocks _ (hexp keys.1 sig)) (fun _ => hashOnly_pure _)
+
+/-- `E[excessG]` over the top tree (img-v6, unchanged). -/
+theorem Ev_excessG_le (secret : BitVec 256) (hpre : TopPrefixOK secret) (hnum : ExpandExcessNumeric19) :
+    Ev secret buildTopTree ∅ (fun r => excessG r.1) ≤
+      ENNReal.ofReal (19 / 10) + ENNReal.ofReal (1 / 2 ^ 135) * ENNReal.ofReal 4 := by
+  classical
+  have hsplitG : ∀ r : List (List Digest) × RCache, excessG r.1 ≤
+      excessWeight (max (topFieldV ((r.1.getD 11 []).getD 0 0)) (topFieldV ((r.1.getD 11 []).getD 1 0))) +
+        (if TopLevelsOK r.1 then 0 else 1) * excessWeight ClaudeWCT.WCT9.searchFuel := by
+    intro r
+    unfold excessG
+    split
+    · simp
+    · simp
+  refine le_trans (Ev_mono _ _ _ hsplitG) ?_
+  have hadd : Ev secret buildTopTree ∅ (fun r =>
+      excessWeight (max (topFieldV ((r.1.getD 11 []).getD 0 0)) (topFieldV ((r.1.getD 11 []).getD 1 0))) +
+        (if TopLevelsOK r.1 then 0 else 1) * excessWeight ClaudeWCT.WCT9.searchFuel) =
+      Ev secret buildTopTree ∅ (fun r =>
+        excessWeight (max (topFieldV ((r.1.getD 11 []).getD 0 0)) (topFieldV ((r.1.getD 11 []).getD 1 0)))) +
+      Ev secret buildTopTree ∅ (fun r => if TopLevelsOK r.1 then 0 else 1) *
+        excessWeight ClaudeWCT.WCT9.searchFuel := by
+    unfold Ev
+    rw [expectedValue_add, expectedValue_mul_const]
+  rw [hadd]
+  have h1 : Ev secret buildTopTree ∅ (fun r =>
+      excessWeight (max (topFieldV ((r.1.getD 11 []).getD 0 0)) (topFieldV ((r.1.getD 11 []).getD 1 0)))) ≤
+      ENNReal.ofReal (19 / 10) := by
+    obtain ⟨γ, pre, sel, k, hsplit, hbound⟩ := hpre
+    rw [hsplit]
+    exact (Ev_buildTop_rootChildren secret pre sel k hbound excessWeight).trans hnum
+  have h2 := Ev_buildTopTree_bad secret
+  exact add_le_add h1 (mul_le_mul' h2 excessWeight_searchFuel_le)
+
+/-- **U16b expand excess moment, any expander within `excessField`**: `E[2^((8/7)(N_e ∸ N_s)/2^20)] ≤ 2` on the honest joint run.
+U16b: the ground cap-exhaustion event `¬LowerTreesOK` (probability `≤ 2^-150`, `GroundFresh.Ev_lowerCheck_false`)
+costs at most `excessWeight expandWorstCost ≤ 2^19`. -/
+theorem expand_excess_moment_of {ω : Type} (secret : BitVec 256) (message : Message)
+    (ex : Digest → Signature → M ω)
+    (hsign : ∀ cache, HashOnly (sign cache message)) (hexp : ∀ pk sig, HashOnly (ex pk sig))
+    (hrest : ∀ levels, HashOnly (keygenRest levels))
+    (hpre : TopPrefixOK secret) (hnum : ExpandExcessNumeric19)
+    (hcost : ∀ (answers : Answers) (sig : Signature),
+      evalWithAnswerFn answers (sign (evalWithAnswerFn answers SigGolfCandidate.T3.keygen).2 message) = some sig →
+      cost answers (ex (evalWithAnswerFn answers SigGolfCandidate.T3.keygen).1 sig) ≤
+        cost answers (sign (evalWithAnswerFn answers SigGolfCandidate.T3.keygen).2 message) + expandReplayExtra +
+          excessField answers) :
+    expectedValue (roRun secret (jointCounts keygen (fun keys => sign keys.2 message)
+      (fun keys sig => ex keys.1 sig)) ∅)
+      (fun r => (2 : ℝ≥0∞) ^ ((8 / 7 : ℝ) * ((r.1.2 - r.1.1 : ℕ) : ℝ) / 1048576)) ≤ 2 := by
+  classical
+  rw [jointCounts_eqLX, roRun_map, expectedValue_map]
+  change Ev secret (jointLX message ex) ∅
+    (fun r => (fun c : Nat × Nat => (2 : ℝ≥0∞) ^ ((8 / 7 : ℝ) * ((c.2 - c.1 : ℕ) : ℝ) / 1048576)) r.1.1) ≤ 2
+  rw [Ev_jointL_eq_B secret message ex
+    (fun c : Nat × Nat => (2 : ℝ≥0∞) ^ ((8 / 7 : ℝ) * ((c.2 - c.1 : ℕ) : ℝ) / 1048576))]
+  have hho := hashOnly_jointLB message ex hsign hexp hrest
+  -- pointwise: the excess is bounded by `excessGB` of the top tree and the ground check
+  have hpt : ∀ r ∈ support (roRun secret (jointLB message ex) ∅),
+      (2 : ℝ≥0∞) ^ ((8 / 7 : ℝ) * (((r.1.1.1.2 - r.1.1.1.1 : ℕ)) : ℝ) / 1048576) ≤ excessGB r.1.1.2 r.1.2 := by
+    intro r hr
+    obtain ⟨hash, _, heval⟩ := support_replay secret _ hho ∅ r hr
+    set answers := fixedAnswers secret hash
+    have hj : evalWithAnswerFn answers (jointLB message ex) =
+        ((evalWithAnswerFn answers (jointCounts keygen (fun keys => sign keys.2 message)
+          (fun keys sig => ex keys.1 sig)), builtTree answers 0 0),
+          evalWithAnswerFn answers ClaudeWCT.W9.T3.Freshness.Paired.GroundFresh.lowerCheck) := by
+      rw [jointCounts_eqLX]
+      unfold jointLB jointLX
+      simp only [evalWithAnswerFn_bind, evalWithAnswerFn_map, SigGolfCandidate.T3.Correctness.eval_buildTopTree]
+    have hle := eval_joint_cost_le_add answers keygen (fun keys => sign keys.2 message)
+      (fun keys sig => ex keys.1 sig) (expandReplayExtra + excessField answers)
+      (fun sig hs => by
+        have := hcost answers sig hs
+        omega)
+    rw [heval, hj]
+    simp only
+    have hsub : (evalWithAnswerFn answers (jointCounts keygen (fun keys => sign keys.2 message)
+        (fun keys sig => ex keys.1 sig))).2 - (evalWithAnswerFn answers (jointCounts keygen
+        (fun keys => sign keys.2 message) (fun keys sig => ex keys.1 sig))).1 ≤
+        expandReplayExtra + excessField answers := by omega
+    have hW : excessWeight (excessField answers) ≤ excessGB (builtTree answers 0 0)
+        (evalWithAnswerFn answers ClaudeWCT.W9.T3.Freshness.Paired.GroundFresh.lowerCheck) := by
+      unfold excessGB
+      by_cases hlow : SigGolfCandidate.Research.SharedForest.LowerTreesOK answers
+      · have hEq : excessG (builtTree answers 0 0) = excessWeight (excessField answers) := by
+          unfold excessG excessField
+          rw [if_pos hlow]
+          by_cases hT : TopTreeOK answers
+          · have hL : TopLevelsOK (builtTree answers 0 0) := hT
+            rw [if_pos hL, if_pos hT]
+            rfl
+          · have hL : ¬TopLevelsOK (builtTree answers 0 0) := hT
+            rw [if_neg hL, if_neg hT]
+        rw [← hEq]
+        exact le_self_add
+      · have hb : evalWithAnswerFn answers ClaudeWCT.W9.T3.Freshness.Paired.GroundFresh.lowerCheck = false := by
+          cases h : evalWithAnswerFn answers ClaudeWCT.W9.T3.Freshness.Paired.GroundFresh.lowerCheck with
+          | false => rfl
+          | true => exact absurd (ClaudeWCT.W9.T3.Freshness.Paired.GroundFresh.eval_lowerCheck_true answers h) hlow
+        have hF : excessField answers = SigGolfCandidate.Research.SharedForest.expandWorstCost := by
+          unfold excessField
+          rw [if_neg hlow]
+        rw [hb, hF]
+        simp only [Bool.false_eq_true, if_false, one_mul]
+        exact le_add_self
+    refine le_trans ?_ hW
+    unfold excessWeight
+    apply ENNReal.rpow_le_rpow_of_exponent_le (by norm_num)
+    have hc := (Nat.cast_le (α := ℝ)).mpr hsub
+    have h87 : (0 : ℝ) ≤ 8 / 7 := by norm_num
+    exact div_le_div_of_nonneg_right (mul_le_mul_of_nonneg_left hc h87) (by norm_num)
+  refine (expectedValue_mono_of_support hpt).trans ?_
+  change Ev secret (jointLB message ex) ∅ (fun r => excessGB r.1.1.2 r.1.2) ≤ 2
+  unfold jointLB
+  rw [Ev_bind]
+  have hinner : ∀ r ∈ support (roRun secret buildTopTree ∅),
+      Ev secret (ClaudeWCT.W9.T3.Freshness.Paired.GroundFresh.lowerCheck >>= fun b =>
+        (fun a => (a, b)) <$> ((fun c => (c, r.1)) <$> (keygenRest r.1 >>= afterKeysX message ex))) r.2
+        (fun x => excessGB x.1.1.2 x.1.2) ≤
+        excessG r.1 + ENNReal.ofReal (1 / 2 ^ 150) *
+          excessWeight SigGolfCandidate.Research.SharedForest.expandWorstCost := by
+    intro r hr
+    rw [Ev_bind]
+    have hc : ∀ (b : Bool) (σ : RCache), Ev secret ((fun a => (a, b)) <$> ((fun c => (c, r.1)) <$>
+        (keygenRest r.1 >>= afterKeysX message ex))) σ (fun x => excessGB x.1.1.2 x.1.2) ≤ excessGB r.1 b := by
+      intro b σ
+      unfold Ev
+      rw [roRun_map, expectedValue_map, roRun_map, expectedValue_map]
+      exact Ev_const_le secret _ σ _
+    refine le_trans (Ev_mono _ _ _ (fun x => hc x.1 x.2)) ?_
+    have hfresh := ClaudeWCT.W9.T3.Freshness.Paired.GroundFresh.buildTopTree_allGFresh secret ∅
+      ClaudeWCT.W9.T3.Freshness.Paired.GroundFresh.allGFresh_empty r hr
+    have hsplit : Ev secret ClaudeWCT.W9.T3.Freshness.Paired.GroundFresh.lowerCheck r.2
+        (fun x => excessGB r.1 x.1) =
+        Ev secret ClaudeWCT.W9.T3.Freshness.Paired.GroundFresh.lowerCheck r.2 (fun _ => excessG r.1) +
+        Ev secret ClaudeWCT.W9.T3.Freshness.Paired.GroundFresh.lowerCheck r.2 (fun x => if x.1 then 0 else 1) *
+          excessWeight SigGolfCandidate.Research.SharedForest.expandWorstCost := by
+      unfold Ev excessGB
+      rw [← expectedValue_mul_const, ← expectedValue_add]
+    rw [hsplit]
+    exact add_le_add (Ev_const_le secret _ _ _)
+      (mul_le_mul' (ClaudeWCT.W9.T3.Freshness.Paired.GroundFresh.Ev_lowerCheck_false secret r.2 hfresh) le_rfl)
+  refine le_trans (expectedValue_mono_of_support hinner) ?_
+  have hadd : Ev secret buildTopTree ∅ (fun r => excessG r.1 + ENNReal.ofReal (1 / 2 ^ 150) *
+        excessWeight SigGolfCandidate.Research.SharedForest.expandWorstCost) =
+      Ev secret buildTopTree ∅ (fun r => excessG r.1) + Ev secret buildTopTree ∅ (fun _ =>
+        ENNReal.ofReal (1 / 2 ^ 150) * excessWeight SigGolfCandidate.Research.SharedForest.expandWorstCost) := by
+    unfold Ev
+    rw [expectedValue_add]
+  change Ev secret buildTopTree ∅ (fun r => excessG r.1 + ENNReal.ofReal (1 / 2 ^ 150) *
+        excessWeight SigGolfCandidate.Research.SharedForest.expandWorstCost) ≤ 2
+  rw [hadd]
+  calc _ ≤ (ENNReal.ofReal (19 / 10) + ENNReal.ofReal (1 / 2 ^ 135) * ENNReal.ofReal 4) +
+        ENNReal.ofReal (1 / 2 ^ 150) * ENNReal.ofReal (2 ^ 19) :=
+        add_le_add (Ev_excessG_le secret hpre hnum)
+          ((Ev_const_le secret _ _ _).trans (mul_le_mul' le_rfl excessWeight_worst_le))
+    _ = ENNReal.ofReal (19 / 10 + 1 / 2 ^ 135 * 4 + 1 / 2 ^ 150 * 2 ^ 19) := by
+        rw [← ENNReal.ofReal_mul (by positivity), ← ENNReal.ofReal_mul (by positivity),
+          ← ENNReal.ofReal_add (by norm_num) (by positivity),
+          ← ENNReal.ofReal_add (by positivity) (by positivity)]
+    _ ≤ ENNReal.ofReal 2 := ENNReal.ofReal_le_ofReal (by norm_num)
+    _ = 2 := by norm_num
+
+/-- **img-v6 / U16b expand excess moment** (statement unchanged). -/
+theorem expand_excess_moment (secret : BitVec 256) (message : Message)
+    (hsign : ∀ cache, HashOnly (sign cache message)) (hexp : ∀ pk sig, HashOnly (expand message pk sig))
+    (hrest : ∀ levels, HashOnly (keygenRest levels))
+    (hpre : TopPrefixOK secret) (hnum : ExpandExcessNumeric19) :
+    expectedValue (roRun secret (jointCounts keygen (fun keys => sign keys.2 message)
+      (fun keys sig => expand message keys.1 sig)) ∅)
+      (fun r => (2 : ℝ≥0∞) ^ ((8 / 7 : ℝ) * ((r.1.2 - r.1.1 : ℕ) : ℝ) / 1048576)) ≤ 2 :=
+  expand_excess_moment_of secret message (expand message) hsign hexp hrest hpre hnum
+    (fun answers sig hs => expand_cost_le_sign_field answers message sig hs)
+
+end SigGolfCandidate.Research.SharedExpansionV6
+end
 
 namespace SigGolfCandidate.Research.SharedSigningBudget
 open OracleComp OracleSpec ENNReal
@@ -2023,17 +3962,27 @@ theorem buildForest_preserves_rows (secret : BitVec 256) (index stage : Nat)
     (rowQ_pairTrial ..).searchQ index selected words) cache result hr]
   exact hfresh lay hl tree leaf left right counter hc
 
-/-- Fixed forest/root preparation and the certified canonical searches compose. -/
+/-- Fixed forest/root preparation and the certified canonical searches compose (U16b: the prepared roots cost
+`z^80779` and the 42 ground node factors `groundE`). -/
 theorem V_signFromOutput_certified (secret : BitVec 256) (cache : SigGolfCandidate.T3.Cache)
     (rho : Digest) (counter : BitVec 32) (output : HashOutput) (rcache : RCache)
-    (hfresh : RowsFreshFrom 0 rcache) :
+    (hfresh : RowsFreshFrom 0 rcache) (hg : ClaudeWCT.W9.T3.Freshness.Paired.GroundFresh.AllGFresh rcache) :
     V secret SigGolfCandidate.T3.Budgets.signingZ
       (signFromOutput cache rho counter output) rcache ≤
-      SigGolfCandidate.T3.Budgets.signingZ^112322 * ((ClaudeWCT.Numerics.TopZero.initialBound : ENNReal)/scale) := by
+      SigGolfCandidate.T3.Budgets.signingZ^112280 * (ClaudeWCT.W9.T3.Freshness.Paired.GroundFresh.groundE *
+        ((ClaudeWCT.Numerics.TopZero.initialBound : ENNReal)/scale)) := by
   have h := V_signFromOutput_fixed secret SigGolfCandidate.T3.Budgets.signingZ
     (SigGolfCandidate.T3.Budgets.signingZ^180 * ((ClaudeWCT.Numerics.TopZero.initialBound : ENNReal)/scale))
-    (SigGolfCandidate.Budget.one_le_zOf _) cache rho counter output rcache ?_
-  · simpa only [← mul_assoc, ← pow_add] using h
+    (SigGolfCandidate.T3.Budgets.signingZ^80779 * ClaudeWCT.W9.T3.Freshness.Paired.GroundFresh.groundE)
+    (SigGolfCandidate.Budget.one_le_zOf _) cache rho counter output rcache ?_ ?_
+  · refine h.trans (le_of_eq ?_)
+    rw [show 112280 = 31321 + 80779 + 180 by decide, pow_add, pow_add]
+    ac_rfl
+  · intro forest hforest
+    exact ClaudeWCT.W9.T3.Freshness.Paired.GroundFresh.V_prepareRoots_U16 secret (digestIndex output)
+      (digestIndex_lt output) forest.2
+      (ClaudeWCT.W9.T3.Freshness.Paired.GroundFresh.prepFresh_of_all _ (digestIndex_lt output) _
+        (ClaudeWCT.W9.T3.Freshness.Paired.GroundFresh.buildForest_allGFresh secret _ _ _ rcache hg forest hforest))
   · intro forest hforest prepared hprepared
     exact V_searchPreparedLayers_certified secret cache (digestIndex output) prepared.1 forest.1.2 prepared.2
       (prepareRoots_preserves_rows secret (digestIndex output) 0 forest.2
@@ -2229,7 +4178,8 @@ set_option backward.isDefEq.respectTransparency false
       · refine hashOnly_bind (hashOnly_topFoldN _ _ _) fun p => ?_
         rcases p with ⟨_, _⟩
         exact hashOnly_bind (hashOnly_topNode _ _ _) fun _ => hashOnly_pure _
-      · refine hashOnly_bind (hashOnly_recoverLayerPair _ _ _ _) fun pair => ?_
+      · refine hashOnly_bind (hashOnly_recoverLayerPairW _ _ _ _) fun r => ?_
+        rcases r with ⟨pair, ns⟩
         refine hashOnly_bind (ih _) fun previous => ?_
         cases previous <;> exact hashOnly_pure _
 @[aesop safe apply] theorem hashOnly_sharedDigestSearch (rho : Digest) (message : Message) (counter fuel : Nat) :
@@ -2289,7 +4239,7 @@ set_option backward.isDefEq.respectTransparency false
       split
       · exact hashOnly_verifyTopN _ _ _ _
       · split
-        · refine hashOnly_bind (hashOnly_recoverLayerPairGuard _ _ _ _ _) fun found => ?_
+        · refine hashOnly_bind (hashOnly_recoverLayerPairGuardV _ _ _ _ _ _) fun found => ?_
           cases found
           · exact hashOnly_pure _
           · exact ih _
@@ -2338,11 +4288,12 @@ noncomputable def everyMessageProgram : M Bool :=
     pure (accepted && result)) true
 
 theorem honestProgram_true (answers : Answers) (message : Message)
-    (hcomplete : SigningComplete answers (evalWithAnswerFn answers keygen).2) (htree : TopTreeOK answers) :
+    (hcomplete : SigningComplete answers (evalWithAnswerFn answers keygen).2) (htree : TopTreeOK answers)
+    (hlower : LowerTreesOK answers) :
     evalWithAnswerFn answers (honestProgram message)=true := by
   obtain ⟨sig,hs⟩ := hcomplete message
   have hc := keygen_correct answers
-  obtain ⟨w,he,hv⟩ := sign_expands answers _ hc.2.1 htree message sig hs
+  obtain ⟨w,he,hv⟩ := sign_expands answers _ hc.2.1 htree hlower message sig hs
   rw [←hc.1] at he hv
   simp only [honestProgram,evalWithAnswerFn_bind,hs,he,hv]
 
@@ -2361,9 +4312,10 @@ theorem hashOnly_everyMessageProgram : HashOnly everyMessageProgram :=
   hashOnly_foldlM _ _ (fun _ message => hashOnly_bind (hashOnly_honestProgram message) fun _ => hashOnly_pure _) _
 
 theorem everyMessageProgram_true_of_complete (answers : Answers)
-    (hcomplete : SigningComplete answers (evalWithAnswerFn answers keygen).2) (htree : TopTreeOK answers) :
+    (hcomplete : SigningComplete answers (evalWithAnswerFn answers keygen).2) (htree : TopTreeOK answers)
+    (hlower : LowerTreesOK answers) :
     evalWithAnswerFn answers everyMessageProgram=true := by
-  have hall := fun message => honestProgram_true answers message hcomplete htree
+  have hall := fun message => honestProgram_true answers message hcomplete htree hlower
   have hf : ∀ messages : List Message, ∀ accepted : Bool,
       evalWithAnswerFn answers (messages.foldlM (fun accepted message => do
         let result ← honestProgram message
@@ -2393,7 +4345,9 @@ set_option maxHeartbeats 1000000
 set_option backward.isDefEq.respectTransparency false
 
 noncomputable def digestMoment : ENNReal := (ftsBound:ENNReal)/scale
-noncomputable def postMoment : ENNReal := signingZ^112322*((ClaudeWCT.Numerics.TopZero.initialBound:ENNReal)/scale)
+/-- U16b: 112322 − 42 fixed compressions, the 42 ground node factors and the initial bound. -/
+noncomputable def postMoment : ENNReal :=
+  signingZ^112280*(ClaudeWCT.W9.T3.Freshness.Paired.GroundFresh.groundE*((ClaudeWCT.Numerics.TopZero.initialBound:ENNReal)/scale))
 noncomputable def payloadMoment : ENNReal := signingZ^2*(digestMoment*postMoment)
 noncomputable def signingMoment : ENNReal := signingZ^2*payloadMoment
 
@@ -2401,8 +4355,20 @@ theorem digestMoment_ge_one : 1 ≤ digestMoment := by
   apply (ENNReal.toReal_le_toReal (by simp) (by unfold digestMoment scale; finiteness)).mp
   norm_num [digestMoment,ENNReal.toReal_div,ftsBound,scale]
 
+theorem mG_ge_one (b : Nat) (h1 : 1 ≤ b) (h3 : b ≤ 3) : 1 ≤ ClaudeWCT.W9.T3.Freshness.Paired.GroundFresh.mG b := by
+  unfold ClaudeWCT.W9.T3.Freshness.Paired.GroundFresh.mG
+  rw [← ENNReal.ofReal_one]
+  apply ENNReal.ofReal_le_ofReal
+  interval_cases b <;> norm_num [ClaudeWCT.Numerics.TopZero.groundM, scale]
+
+theorem groundE_ge_one : 1 ≤ ClaudeWCT.W9.T3.Freshness.Paired.GroundFresh.groundE := by
+  unfold ClaudeWCT.W9.T3.Freshness.Paired.GroundFresh.groundE
+  exact one_le_mul (one_le_mul (one_le_pow₀ (mG_ge_one 1 le_rfl (by norm_num)))
+    (one_le_pow₀ (mG_ge_one 2 (by norm_num) (by norm_num)))) (one_le_pow₀ (mG_ge_one 3 (by norm_num) le_rfl))
+
 theorem postMoment_ge_one : 1 ≤ postMoment := by
   apply one_le_mul (one_le_pow₀ (SigGolfCandidate.Budget.one_le_zOf _))
+  refine one_le_mul groundE_ge_one ?_
   apply (ENNReal.toReal_le_toReal (by simp) (by unfold scale; finiteness)).mp
   norm_num [ENNReal.toReal_div,ClaudeWCT.Numerics.TopZero.initialBound,scale]
 
@@ -2429,7 +4395,8 @@ theorem V_sharedDigestSearch (secret : BitVec 256) (rho : Digest) (message : Mes
     digest_moment_step fuel counter hlimit cache hfresh
 
 theorem V_signPayload_certified (secret : BitVec 256) (cache : SigGolfCandidate.T3.Cache)
-    (message : Message) (rcache : RCache) (hfresh : AllSearchesFreshBC rcache) :
+    (message : Message) (rcache : RCache) (hfresh : AllSearchesFreshBC rcache)
+    (hg : ClaudeWCT.W9.T3.Freshness.Paired.GroundFresh.AllGFresh rcache) :
     V secret signingZ (SharedForest.signPayload cache message) rcache ≤ payloadMoment := by
   apply V_signPayload_fixed secret signingZ digestMoment postMoment
     (SigGolfCandidate.Budget.one_le_zOf _) postMoment_ge_one cache message rcache
@@ -2441,64 +4408,99 @@ theorem V_signPayload_certified (secret : BitVec 256) (cache : SigGolfCandidate.
   · intro nonce hn found hd counter output he
     have hnonce := privateNonce_preserves_fresh secret message rcache hfresh nonce hn
     have hrows : RowsFreshFrom 0 nonce.2 := fun lay _ => hnonce.2 lay lay.isLt
+    have hg2 := ClaudeWCT.W9.T3.Freshness.Paired.GroundFresh.digestSearch_allGFresh secret nonce.1 message 0 ClaudeWCT.WCT9.digestAttemptLimit nonce.2
+      (ClaudeWCT.W9.T3.Freshness.Paired.GroundFresh.privateNonce_allGFresh secret message rcache hg nonce hn) found hd
     rw [sharedDigestSearch_eq_run] at hd
     exact V_signFromOutput_certified secret cache nonce.1 counter output found.2
       (DigestGeneric.run_preserves_rows digestAccepted secret 0 nonce.1 message 0
-        ClaudeWCT.WCT9.digestAttemptLimit nonce.2 hrows found hd)
+        ClaudeWCT.WCT9.digestAttemptLimit nonce.2 hrows found hd) hg2
 
 theorem V_sign_certified (secret : BitVec 256) (cache : SigGolfCandidate.T3.Cache)
-    (message : Message) (rcache : RCache) (hfresh : AllSearchesFreshBC rcache) :
+    (message : Message) (rcache : RCache) (hfresh : AllSearchesFreshBC rcache)
+    (hg : ClaudeWCT.W9.T3.Freshness.Paired.GroundFresh.AllGFresh rcache) :
     V secret signingZ (SharedForest.sign cache message) rcache ≤ signingMoment := by
   apply V_sign_fixed secret signingZ payloadMoment (SigGolfCandidate.Budget.one_le_zOf _)
     payloadMoment_ge_one cache message rcache
   intro checked hc _
   exact V_signPayload_certified secret cache message checked.2
     (privateMac_preserves_fresh secret cache.region rcache hfresh checked hc)
+    (ClaudeWCT.W9.T3.Freshness.Paired.GroundFresh.privateMac_allGFresh secret cache.region rcache hg checked hc)
 
 theorem signingMoment_eq : signingMoment =
-    signingZ^112326*(((ftsBound:ENNReal)/scale)*((ClaudeWCT.Numerics.TopZero.initialBound:ENNReal)/scale)) := by
+    signingZ^112284*(((ftsBound:ENNReal)/scale)*(ClaudeWCT.W9.T3.Freshness.Paired.GroundFresh.groundE*
+      ((ClaudeWCT.Numerics.TopZero.initialBound:ENNReal)/scale))) := by
   unfold signingMoment payloadMoment digestMoment postMoment
-  rw [show 112326=2+2+112322 by decide,pow_add,pow_add]
+  rw [show 112284=2+2+112280 by decide,pow_add,pow_add]
   ac_rfl
 
-/-- The fixed sign cost proved for the current Lean scheme (`signingMoment_eq`: 2 + 2 + 112142 + 180; v6 lower
-seed families: `prepared_roots_cost` 80821 = 81146 − 325; T51 top 4-leaf families: `bound_signTop` 180 = 16 + 152 + 12). -/
-def schemeFixedSignCost : Nat := 112326
+/-- The fixed sign cost proved for the current Lean scheme (`signingMoment_eq`: 2 + 2 + 31321 + 80779 + 180; U16b:
+the prepared roots' fixed part 80779 = 80821 − 42, the 42 ground node searches are the factors `groundE`). -/
+def schemeFixedSignCost : Nat := 112284
 
 /-- img-v6 open obligation (opus-crumbs PORT v6 C): the scheme's proved fixed sign cost is at most the certified img-v6
 value 112326 (`TopZero.fixedSignCost`). Discharged by `decide` once the lower 7-leaf / top 4-leaf seed-family scheme
 ports land (they lower `bound_buildForest` / `prepared_roots_cost`); the v6 envelope has slack ≈ +100 compressions. -/
-def SchemeFixedCostV6 : Prop := schemeFixedSignCost ≤ ClaudeWCT.Numerics.TopZero.fixedSignCost
+def SchemeFixedCostV6 : Prop := schemeFixedSignCost ≤ ClaudeWCT.Numerics.TopZero.fixedSignCostU16
 
 /-- Discharged by the v6 seed-family scheme (r3-lean-seedfam). -/
 theorem schemeFixedCostV6_holds : SchemeFixedCostV6 := by
-  unfold SchemeFixedCostV6 schemeFixedSignCost ClaudeWCT.Numerics.TopZero.fixedSignCost
+  unfold SchemeFixedCostV6 schemeFixedSignCost ClaudeWCT.Numerics.TopZero.fixedSignCostU16
   decide
 
 theorem signingMoment_le_two (hfix : SchemeFixedCostV6) : signingMoment ≤ 2 := by
   rw [signingMoment_eq]
   have hz := ENNReal.toReal_mono (by unfold zDen; finiteness) signing_z_ratio
   rw [ENNReal.toReal_div,ENNReal.toReal_natCast,ENNReal.toReal_natCast] at hz
-  apply (ENNReal.toReal_le_toReal (by unfold signingZ SigGolfCandidate.Budget.zOf scale; finiteness)
-    (by simp)).mp
+  have hGt : ClaudeWCT.W9.T3.Freshness.Paired.GroundFresh.groundE ≠ ⊤ := by
+    unfold ClaudeWCT.W9.T3.Freshness.Paired.GroundFresh.groundE ClaudeWCT.W9.T3.Freshness.Paired.GroundFresh.mG
+    exact ENNReal.mul_ne_top (ENNReal.mul_ne_top (ENNReal.pow_ne_top ENNReal.ofReal_ne_top)
+      (ENNReal.pow_ne_top ENNReal.ofReal_ne_top)) (ENNReal.pow_ne_top ENNReal.ofReal_ne_top)
+  have hzt : signingZ ^ 112284 ≠ ⊤ := ENNReal.pow_ne_top (by unfold signingZ SigGolfCandidate.Budget.zOf; finiteness)
+  have hst : ∀ n : ℕ, (n : ℝ≥0∞) / (scale : ℝ≥0∞) ≠ ⊤ := fun n =>
+    ENNReal.div_ne_top (ENNReal.natCast_ne_top n) (by unfold scale; simp)
+  apply (ENNReal.toReal_le_toReal (ENNReal.mul_ne_top hzt (ENNReal.mul_ne_top (hst _)
+    (ENNReal.mul_ne_top hGt (hst _)))) (by simp)).mp
   simp only [ENNReal.toReal_mul,ENNReal.toReal_pow,ENNReal.toReal_div,ENNReal.toReal_natCast,
     ENNReal.toReal_ofNat]
   have hz1 : 1 ≤ signingZ.toReal := by
     have h1 : (1:ENNReal) ≤ signingZ := SigGolfCandidate.Budget.one_le_zOf _
     have h := ENNReal.toReal_mono (by unfold signingZ SigGolfCandidate.Budget.zOf; finiteness) h1
     simpa only [ENNReal.toReal_one] using h
-  have hfixed : signingZ.toReal^112326≤(ClaudeWCT.Numerics.TopZero.fixedBound:ℝ)/scale :=
+  have hfixed : signingZ.toReal^112284≤(ClaudeWCT.Numerics.TopZero.fixedBoundU16:ℝ)/scale :=
     ((pow_le_pow_right₀ hz1 hfix).trans (pow_le_pow_left₀ ENNReal.toReal_nonneg hz _)).trans
-      ClaudeWCT.Numerics.TopZero.fixed_ratio_bound
+      ClaudeWCT.Numerics.TopZero.fixed_ratio_bound_U16
+  have hmG : ∀ b, (ClaudeWCT.W9.T3.Freshness.Paired.GroundFresh.mG b).toReal = (ClaudeWCT.Numerics.TopZero.groundM b:ℝ)/scale := fun b => by
+    unfold ClaudeWCT.W9.T3.Freshness.Paired.GroundFresh.mG; exact ENNReal.toReal_ofReal (by positivity)
+  have hG : ClaudeWCT.W9.T3.Freshness.Paired.GroundFresh.groundE.toReal ≤ (ClaudeWCT.Numerics.TopZero.groundBound:ℝ)/scale := by
+    unfold ClaudeWCT.W9.T3.Freshness.Paired.GroundFresh.groundE
+    simp only [ENNReal.toReal_mul, ENNReal.toReal_pow, hmG]
+    have h := ClaudeWCT.Numerics.TopZero.groundBound_ratio_ge
+    calc _ = ((ClaudeWCT.Numerics.TopZero.groundM 1:ℝ)/scale)^24 *
+          (((ClaudeWCT.Numerics.TopZero.groundM 2:ℝ)/scale)^16 *
+            ((ClaudeWCT.Numerics.TopZero.groundM 3:ℝ)/scale)^2) := by ring
+      _ ≤ _ := h
+  have he := ClaudeWCT.Numerics.TopZero.envelope_ratio_le_two_U16
+  have h0 : (0:ℝ) ≤ (ftsBound:ℝ)/scale := div_nonneg (Nat.cast_nonneg _) (Nat.cast_nonneg _)
+  have h0' : (0:ℝ) ≤ (ClaudeWCT.Numerics.TopZero.initialBound:ℝ)/scale :=
+    div_nonneg (Nat.cast_nonneg _) (Nat.cast_nonneg _)
+  have hF0 : (0:ℝ) ≤ (ClaudeWCT.Numerics.TopZero.fixedBoundU16:ℝ)/scale :=
+    div_nonneg (Nat.cast_nonneg _) (Nat.cast_nonneg _)
+  have hGn : (0:ℝ) ≤ ClaudeWCT.W9.T3.Freshness.Paired.GroundFresh.groundE.toReal := ENNReal.toReal_nonneg
   calc
-    _ ≤ ((ClaudeWCT.Numerics.TopZero.fixedBound:ℝ)/scale)*(((ftsBound:ℝ)/scale)*
-        ((ClaudeWCT.Numerics.TopZero.initialBound:ℝ)/scale)) := by gcongr
-    _ ≤ 2 := ClaudeWCT.Numerics.TopZero.envelope_ratio_le_two
+    _ ≤ ((ClaudeWCT.Numerics.TopZero.fixedBoundU16:ℝ)/scale)*(((ftsBound:ℝ)/scale)*
+        (((ClaudeWCT.Numerics.TopZero.groundBound:ℝ)/scale)*
+          ((ClaudeWCT.Numerics.TopZero.initialBound:ℝ)/scale))) :=
+        mul_le_mul hfixed (mul_le_mul_of_nonneg_left (mul_le_mul_of_nonneg_right hG h0') h0)
+          (mul_nonneg h0 (mul_nonneg hGn h0')) hF0
+    _ = (((ClaudeWCT.Numerics.TopZero.fixedBoundU16:ℝ)/scale)*((ClaudeWCT.Numerics.TopZero.groundBound:ℝ)/scale))*
+        (((ftsBound:ℝ)/scale)*((ClaudeWCT.Numerics.TopZero.initialBound:ℝ)/scale)) := by ring
+    _ ≤ 2 := he
 
 theorem V_sign_le_two (hfix : SchemeFixedCostV6) (secret : BitVec 256) (cache : SigGolfCandidate.T3.Cache)
-    (message : Message) (rcache : RCache) (hfresh : AllSearchesFreshBC rcache) :
+    (message : Message) (rcache : RCache) (hfresh : AllSearchesFreshBC rcache)
+    (hg : ClaudeWCT.W9.T3.Freshness.Paired.GroundFresh.AllGFresh rcache) :
     V secret signingZ (SharedForest.sign cache message) rcache ≤ 2 :=
-  (V_sign_certified secret cache message rcache hfresh).trans (signingMoment_le_two hfix)
+  (V_sign_certified secret cache message rcache hfresh hg).trans (signingMoment_le_two hfix)
 
 def honestSignCount (message : Message) : M (Option SharedForest.Signature × Nat) := do
   let keys ← keygen
@@ -2511,7 +4513,7 @@ theorem honest_sign_exponential_budget (hfix : SchemeFixedCostV6) (secret : BitV
   apply expectedValue_le_of_support
   intro keys hkeys
   have h := V_sign_le_two hfix secret keys.1.2 message keys.2
-    (keygen_fresh_from_empty_bc secret keys hkeys)
+    (keygen_fresh_from_empty_bc secret keys hkeys) (ClaudeWCT.W9.T3.Freshness.Paired.GroundFresh.keygen_allGFresh secret keys hkeys)
   simpa only [V,signingZ_pow] using h
 end SigGolfCandidate.Research.SharedSigningBudget
 
@@ -2598,6 +4600,143 @@ theorem uniform_message_expand_exponential_budget (F : ExpandV6Facts) (secret : 
   intro message _
   rw [StateT.run'_eq, expectedValue_map]
   exact honest_expand_exponential_budget F secret message
+
+/-! ### U16b machine-faithful expand moment (codec round trip `sigDecC ∘ sigBC`, `expandN`) -/
+
+/-- U16b: the machine-faithful honest joint run: expand through the compact codec round trip. -/
+def honestJointCountsB (message : Message) : M (Nat × Nat) :=
+  jointCounts keygen (fun keys => sign keys.2 message)
+    (fun keys sig => ClaudeWCT.W9.T3M.Paired.expandN message keys.1
+      (ClaudeWCT.W9.T3M.SharedCodec.sigDecC (ClaudeWCT.W9.T3M.SharedCodec.sigBC sig)))
+
+theorem joint_sign_exponential_budgetB (hfix : SigGolfCandidate.Research.SharedSigningBudget.SchemeFixedCostV6)
+    (secret : BitVec 256) (message : Message) :
+    expectedValue (roRun secret (honestJointCountsB message) ∅)
+      (fun result => (2 : ENNReal) ^ ((result.1.1 : ℝ) / 131072)) ≤ 2 := by
+  refine le_trans ?_ (SigGolfCandidate.Research.SharedSigningBudget.honest_sign_exponential_budget hfix secret message)
+  simp only [honestJointCountsB, jointCounts, SigGolfCandidate.Research.SharedSigningBudget.honestSignCount,
+    SigGolfCandidate.T3.Sampling.roRun_bind, expectedValue_bind]
+  apply expectedValue_mono
+  intro keys
+  apply expectedValue_mono
+  rintro ⟨⟨sig, signCost⟩, rcache⟩
+  cases sig with
+  | none => simp only [SigGolfCandidate.T3.Sampling.roRun_pure, expectedValue_pure, le_refl]
+  | some sig =>
+    simp only [SigGolfCandidate.T3.Sampling.roRun_bind, expectedValue_bind]
+    apply expectedValue_le_of_support
+    intro expanded _
+    simp only [SigGolfCandidate.T3.Sampling.roRun_pure, expectedValue_pure, le_refl]
+
+theorem hashOnly_expandN_paired (message : Message) (pk : Digest) (sig : Signature) :
+    SigGolfCandidate.T3.SourceReplay.HashOnly (ClaudeWCT.W9.T3M.Paired.expandN message pk sig) :=
+  SigGolfCandidate.T3M.allQ_mono (ClaudeWCT.W9.T3M.Paired.publicOnly_expandN message pk sig) (fun q hq => by
+    rcases q with (q | q) | q <;>
+      simp [SigGolfCandidate.T3M.isPublic, SigGolfCandidate.T3.SourceReplay.isHash] at hq ⊢)
+
+theorem cost_map_U16 {α β : Type} (answers : SigGolfCandidate.T3.Correctness.Answers) (f : α → β) (p : M α) :
+    SigGolfCandidate.T3.SearchCost.cost answers (f <$> p) = SigGolfCandidate.T3.SearchCost.cost answers p := by
+  rw [map_eq_bind_pure_comp, SigGolfCandidate.T3.SearchCost.cost_bind]
+  simp only [Function.comp, SigGolfCandidate.T3.SearchCost.cost_pure, add_zero]
+
+/-- U16b: on oracles whose lower trees pass every zero test, the honest signature has clear ground bits
+(copy of lane witness's `Merge097.sign_lowerPathOK`). -/
+theorem sign_lowerPathOK_U16 (answers : SigGolfCandidate.T3.Correctness.Answers)
+    (hlower : SigGolfCandidate.Research.SharedForest.LowerTreesOK answers)
+    (message : Message) (sig : SigGolfCandidate.Research.SharedForest.Signature)
+    (he : evalWithAnswerFn answers
+      (SigGolfCandidate.Research.SharedForest.sign (evalWithAnswerFn answers keygen).2 message) = some sig) :
+    SigGolfCandidate.Research.SharedForest.LowerPathOK sig := by
+  have hcache := (SigGolfCandidate.T3.Correctness.keygen_correct answers).2.1
+  unfold SigGolfCandidate.Research.SharedForest.sign at he
+  simp only [evalWithAnswerFn_bind] at he
+  split_ifs at he with htag
+  · simp only [evalWithAnswerFn_pure, reduceCtorEq] at he
+  · unfold SigGolfCandidate.Research.SharedForest.signPayload at he
+    simp only [evalWithAnswerFn_bind] at he
+    cases hd : evalWithAnswerFn answers (SigGolfCandidate.Research.SharedForest.sharedDigestSearch
+        (evalWithAnswerFn answers (privateNonce message)) message 0 ClaudeWCT.WCT9.digestAttemptLimit) with
+    | none => simp only [hd, evalWithAnswerFn_pure, reduceCtorEq] at he
+    | some found =>
+        obtain ⟨counter, output⟩ := found
+        simp only [hd, evalWithAnswerFn_bind] at he
+        cases hs : evalWithAnswerFn answers (SigGolfCandidate.Research.SharedForest.signFromOutput
+            (evalWithAnswerFn answers keygen).2 (evalWithAnswerFn answers (privateNonce message)) counter output) with
+        | none => simp only [hs, evalWithAnswerFn_pure, reduceCtorEq] at he
+        | some original =>
+            simp only [hs, evalWithAnswerFn_pure, Option.some.injEq] at he
+            subst sig
+            exact SigGolfCandidate.Research.SharedForest.signFromOutput_lowerPathOK answers _ hcache hlower _ _ _
+              original hs
+
+/-- U16b: on `LowerTreesOK` the honest signature survives the codec round trip as `normTop`. -/
+theorem sigDecC_sigBC_sign (answers : SigGolfCandidate.T3.Correctness.Answers) (message : Message) (sig : Signature)
+    (hlower : SigGolfCandidate.Research.SharedForest.LowerTreesOK answers)
+    (hs : evalWithAnswerFn answers (sign (evalWithAnswerFn answers keygen).2 message) = some sig) :
+    ClaudeWCT.W9.T3M.SharedCodec.sigDecC (ClaudeWCT.W9.T3M.SharedCodec.sigBC sig) =
+      SigGolfCandidate.Research.SharedForest.normTop sig := by
+  have hp := sign_lowerPathOK_U16 answers hlower message sig hs
+  exact ClaudeWCT.W9.T3M.SharedCodec.sigDecC_sigBC_normTop sig
+    (ClaudeWCT.W9.T3M.SharedCodec.groundClear_of_lowerPathOK sig hp)
+
+theorem cost_expandN_normTop (answers : SigGolfCandidate.T3.Correctness.Answers) (message : Message) (pk : Digest)
+    (sig : Signature) :
+    SigGolfCandidate.T3.SearchCost.cost answers
+      (ClaudeWCT.W9.T3M.Paired.expandN message pk (SigGolfCandidate.Research.SharedForest.normTop sig)) =
+      SigGolfCandidate.T3.SearchCost.cost answers (expand message pk sig) := by
+  unfold SigGolfCandidate.Research.SharedForest.expand
+  rw [← ClaudeWCT.W9.T3M.Paired.expandN_snd, cost_map_U16]
+
+theorem excessField_of_not_lower (answers : SigGolfCandidate.T3.Correctness.Answers)
+    (hlower : ¬SigGolfCandidate.Research.SharedForest.LowerTreesOK answers) :
+    SigGolfCandidate.Research.SharedForest.excessField answers =
+      SigGolfCandidate.Research.SharedForest.expandWorstCost := by
+  unfold SigGolfCandidate.Research.SharedForest.excessField
+  rw [if_neg hlower]
+
+theorem cost_expandN_le_worst_add (answers : SigGolfCandidate.T3.Correctness.Answers) (message : Message)
+    (pk : Digest) (sig : Signature) (a b : Nat) :
+    SigGolfCandidate.T3.SearchCost.cost answers (ClaudeWCT.W9.T3M.Paired.expandN message pk sig) ≤
+      a + b + SigGolfCandidate.Research.SharedForest.expandWorstCost :=
+  le_trans (SigGolfCandidate.Research.SharedForest.expandN_count_le answers message pk sig) (Nat.le_add_left _ _)
+
+/-- U16b pointwise excess of the machine-faithful expander (`expandN ∘ sigDecC ∘ sigBC`): on `LowerTreesOK` the round
+trip is `normTop` and `expandN` costs what `expand` costs; otherwise the worst case `expandWorstCost`. -/
+theorem expandB_cost_le_sign_field (answers : SigGolfCandidate.T3.Correctness.Answers) (message : Message)
+    (sig : Signature)
+    (hs : evalWithAnswerFn answers (sign (evalWithAnswerFn answers keygen).2 message) = some sig) :
+    SigGolfCandidate.T3.SearchCost.cost answers (ClaudeWCT.W9.T3M.Paired.expandN message
+      (evalWithAnswerFn answers keygen).1
+      (ClaudeWCT.W9.T3M.SharedCodec.sigDecC (ClaudeWCT.W9.T3M.SharedCodec.sigBC sig))) ≤
+      SigGolfCandidate.T3.SearchCost.cost answers (sign (evalWithAnswerFn answers keygen).2 message) +
+        SigGolfCandidate.Research.SharedForest.expandReplayExtra +
+        SigGolfCandidate.Research.SharedForest.excessField answers := by
+  by_cases hlower : SigGolfCandidate.Research.SharedForest.LowerTreesOK answers
+  · rw [sigDecC_sigBC_sign answers message sig hlower hs, cost_expandN_normTop]
+    exact SigGolfCandidate.Research.SharedForest.expand_cost_le_sign_field answers message sig hs
+  · rw [excessField_of_not_lower answers hlower]
+    exact cost_expandN_le_worst_add answers message _ _ _ _
+
+/-- **U16b machine-faithful expand moment** (hypothesis-free): `E[2^(N_e/2^20)] ≤ 2` for the honest joint run whose
+expander is `expandN ∘ sigDecC ∘ sigBC` (Hölder with the sign moment and `expand_excess_moment_of`). -/
+theorem honest_expandB_exponential_budget (secret : BitVec 256) (message : Message) :
+    expectedValue (roRun secret (honestJointCountsB message) ∅)
+      (fun result => (2 : ENNReal) ^ ((result.1.2 : ℝ) / 1048576)) ≤ 2 := by
+  have hrest : ∀ levels, SigGolfCandidate.T3.SourceReplay.HashOnly
+      (SigGolfCandidate.Research.SharedExpansionV6.keygenRest levels) := fun levels => by
+    unfold SigGolfCandidate.Research.SharedExpansionV6.keygenRest
+      SigGolfCandidate.Research.SharedExpansionV6.payloadTail maskedLevel pairedMask
+    hashes
+  have F := expandV6_facts SigGolfCandidate.Research.SharedExpansionV6.expandExcessNumeric19_holds
+  have hS := joint_sign_exponential_budgetB SigGolfCandidate.Research.SharedSigningBudget.schemeFixedCostV6_holds
+    secret message
+  have hD := SigGolfCandidate.Research.SharedExpansionV6.expand_excess_moment_of secret message
+    (fun pk sig => ClaudeWCT.W9.T3M.Paired.expandN message pk
+      (ClaudeWCT.W9.T3M.SharedCodec.sigDecC (ClaudeWCT.W9.T3M.SharedCodec.sigBC sig)))
+    (fun cache => hashOnly_sign cache message) (fun pk sig => hashOnly_expandN_paired message pk _) hrest
+    (F.top_prefix secret) F.numeric (fun answers sig hs => expandB_cost_le_sign_field answers message sig hs)
+  exact ClaudeWCT.Arith.ExpectHolder.expand_moment_of_holder (roRun secret (honestJointCountsB message) ∅)
+    (fun r => r.1.1) (fun r => r.1.2) hS hD
 end SigGolfCandidate.Research.SharedExpansionClosure
 end
 
@@ -2606,7 +4745,7 @@ open OracleComp OracleSpec SigGolfCandidate.Legacy ENNReal OracleComp.EvalDist
 open SigGolfCandidate.T3 (M Spec Cache Digest keygen)
 open SigGolfCandidate.T3M (mrealize countBoth countCalls cacheB cacheDec isHash)
 open SigGolfCandidate.Research.SharedForest (Signature Witness sign expand)
-open ClaudeWCT.W9.T3M.Paired (submission expandN expandB verifyP witEnc witEncN)
+open ClaudeWCT.W9.T3M.Paired (submission expandN expandB verifyP witEnc witEncN witEncG)
 open ClaudeWCT.W9.T3M.SharedCodec (sigBC sigDecC)
 
 abbrev submission := ClaudeWCT.W9.T3M.Paired.submission
@@ -2618,6 +4757,8 @@ abbrev verifyP := ClaudeWCT.W9.T3M.Paired.verifyP
 abbrev witEnc := ClaudeWCT.W9.T3M.Paired.witEnc
 /-- img-v6: the honest expand output carries the top node nonces (`Paired.witEncN`). -/
 abbrev witEncN := ClaudeWCT.W9.T3M.Paired.witEncN
+/-- U16b: and the 9 ground lower fold nonces (`Paired.witEncG`). -/
+abbrev witEncG := ClaudeWCT.W9.T3M.Paired.witEncG
 
  def verifyCycleBound : Nat := 6895
  def claimedC : Nat := 6981
@@ -2644,11 +4785,11 @@ def KeygenRunWith : Prop := ∀ (hash : Hash) (sk : SecretKey),
  def SignTerminates : Prop := ∀ (hash : Hash) (sk : SecretKey) (cache : Bytes 131072) (m : Message),
   ((submission I).runWith hash .sign (sk,cache,m)).finished=true ∧
     ((submission I).runWith hash .sign (sk,cache,m)).cycles<CYCLE_LIMIT
- def ExpandRefines : Prop := ∀ (m : Message) (pk : PublicKey) (s : Bytes 5195),
+ def ExpandRefines : Prop := ∀ (m : Message) (pk : PublicKey) (s : Bytes 5193),
   (fun r => (r.value,r.hashCalls,r.hashCompressions)) <$> (submission I).run .expand (m,pk,s)=
-    (fun p => (p.1.map (fun x => witEncN x.1 x.2),p.2.1,p.2.2)) <$>
+    (fun p => (p.1.map (fun x => witEncG x.1 x.2),p.2.1,p.2.2)) <$>
       countBoth (mrealize 0 (expandN m pk (sigDecC s)))
- def ExpandTerminates : Prop := ∀ (hash : Hash) (m : Message) (pk : PublicKey) (s : Bytes 5195),
+ def ExpandTerminates : Prop := ∀ (hash : Hash) (m : Message) (pk : PublicKey) (s : Bytes 5193),
   ((submission I).runWith hash .expand (m,pk,s)).finished=true ∧
     ((submission I).runWith hash .expand (m,pk,s)).cycles<CYCLE_LIMIT
  def VerifyRefines : Prop := ∀ (m : Message) (pk : PublicKey) (w : Bytes 22012),
@@ -2789,12 +4930,6 @@ theorem merkle_honestInputW' (answers : Answers) (lay : Layer) (tree leaf step :
   dsimp only
   rw [Correctness.sibling_pair (fun n => treeValue (wotsTree answers lay tree) step n) (leaf / 2 ^ step),
     Correctness.div_pow_succ, WCT9.merkleNodeInputN_eq_lowerNodeInputP]
-theorem merkle_honestInputW (answers : Answers) (lay : Layer) (hlay : lay.val ≠ 0) (tree leaf step : Nat) :
-    honestInput answers (.node lay tree step (leaf / 2 ^ (step + 1))) =
-      pad64 (merkleInputW lay.val tree (height lay) leaf
-        (fun j => treeValue (wotsTree answers lay tree) j (leaf / 2 ^ j ^^^ 1)) (fun _ => 0) (fun _ => 0) step
-        (treeValue (wotsTree answers lay tree) step (leaf / 2 ^ step))) := by
-  rw [merkle_honestInputW', honestPads_lower answers (fun h => hlay (by rw [h]; rfl))]
 theorem hdrBlock_merkleInputW (lay tree h leaf : Nat) (path : Nat → Digest) (hpads : Nat → BitVec 64)
     (pads : Nat → Digest) (step : Nat) (value : Digest) :
     hdrBlock (pad64 (merkleInputW lay tree h leaf path hpads pads step value)) =
@@ -3299,50 +5434,6 @@ theorem layerP_shaped_core (answers : Answers) (N : HashOutput) (w : WBytes) (la
   congr 1
   funext v j
   rw [hmz j, hmh j, ← WCT9.lowerNodeHash_eqP', Fin.val_zero, WCT9.lowerNodeHash_top]
-
-theorem layerPairP_shaped_core (answers : Answers) (N : HashOutput) (w : WBytes) (lay : Layer) (digits : List Nat)
-    (hs : LayerShaped answers w (WCT9.digestIndex N) lay digits) (hlay : lay.val ≠ 0) :
-    layerPairP w (WCT9.digestIndex N) lay digits =
-      WCT9.recoverLayerPair (effectiveSignature (witDecP N w).signature (padDecP N w) digits) (WCT9.digestIndex N) lay digits := by
-  have hindex : WCT9.digestIndex N < 2 ^ 31 := WCT9.digestIndex_lt N
-  have hzero := chainPW_zero_route (WCT9.digestIndex N) lay
-  have hpath : ∀ j : Fin (height lay), ((effectiveSignature (witDecP N w).signature (padDecP N w) digits).layers lay).path j =
-      wpath w lay (route (WCT9.digestIndex N) lay).1 j.val := fun _ => rfl
-  have hvals : ∀ i : Fin (chainCount lay), ((effectiveSignature (witDecP N w).signature (padDecP N w) digits).layers lay).values i = wvalueFor w lay digits i.val :=
-    fun i => valueP_dec N w lay digits i
-  have hleaf := leafHashW_shaped (lay := lay) (tree := (route (WCT9.digestIndex N) lay).2)
-    (leaf := (route (WCT9.digestIndex N) lay).1) (pad := wtopLeafPad w) hs.2.2
-  unfold layerPairP WCT9.recoverLayerPair
-  simp only [hpath, hvals, Fin.val_castLE, WCT9.topLevel, hleaf]
-  have hmz : ∀ j : Fin (height lay - 1), wmerklePad w lay (route (WCT9.digestIndex N) lay).1 j.val = 0 := by
-    intro j
-    have h := (hs.1 j.val (by omega)).2.1 (Or.inl (by omega))
-    rwa [WCT9.honestNonce_lower answers (fun h0 => hlay (by rw [h0]; rfl)), WCT9.nonceDigest_zero] at h
-  have hmh : ∀ j : Fin (height lay - 1), wmerkleHigh w lay (route (WCT9.digestIndex N) lay).1 j.val = 0 :=
-    fun j => (hs.1 j.val (by omega)).2.2 (Or.inl (by omega))
-  generalize hr : route (WCT9.digestIndex N) lay = r at hs hzero hmz hmh ⊢
-  obtain ⟨leaf, tree⟩ := r
-  dsimp only at hs hzero hmz hmh ⊢
-  have hchains : ((List.finRange (chainCount lay)).mapM fun i =>
-      chainPW lay tree leaf i.val (digits.getD i.val 0) (maxDigit lay i.val - digits.getD i.val 0)
-        (wchainPads w lay i.val).1 (wchainPads w lay i.val).2
-        (wchainHeaderPad w lay i.val) (wvalueFor w lay digits i.val)) =
-      ((List.finRange (chainCount lay)).mapM fun i =>
-      WCT9.chainW lay tree leaf i.val (digits.getD i.val 0) (maxDigit lay i.val - digits.getD i.val 0)
-        (wvalueFor w lay digits i.val)) := by
-    refine congrArg (fun f => (List.finRange (chainCount lay)).mapM f) (funext fun i => ?_)
-    by_cases hd : digits.getD i.val 0 < maxDigit lay i.val
-    · rw [((hs.2.1 i.val i.isLt).2 hd).1, ((hs.2.1 i.val i.isLt).2 hd).2]
-      exact hzero i _ _ hindex
-    · have h0 : maxDigit lay i.val - digits.getD i.val 0 = 0 := by omega
-      rw [h0]
-      simp only [chainPW, WCT9.chainW, List.range'_zero, List.foldlM_nil]
-  rw [hchains]
-  congr 1
-  funext ends
-  congr 1
-  funext value
-  simp only [hmz, hmh, ← WCT9.lowerNodeHash_eqP hlay]
 
 end ClaudeWCT.W9.T3M.Extract
 end

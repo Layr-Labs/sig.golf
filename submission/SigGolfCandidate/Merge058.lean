@@ -885,6 +885,45 @@ theorem respects_lowerNodeHash (lay tree heap : Nat) (left right : Digest) (hh :
     Respects Enc.NonEnc (WCT9.lowerNodeHash lay tree heap left right) := by
   exact respects_lowerNodeHash' _ _ _ _ _ (nonEnc_of_hdr _ _ (SigGolfCandidate.T3M.Extract.hdrBlock_block4 left _ 0 right)
     (merkleTweak_notHyper lay tree heap hh))
+/-- U16b: one trial of a lower node (nonce `n` in the pad, block `left | tweak | n | right`). -/
+theorem respects_lowerNodeHashN' {S : Spec.Domain → Prop} (lay tree heap n : Nat) (left right : Digest)
+    (h : S (.inl (.inr (SigGolfCandidate.T3M.SecurityInputs.block4 left (WCT9.merkleTweak lay tree heap)
+      (BitVec.ofNat 128 (n % 2 ^ 64)) right)))) :
+    Respects S (WCT9.lowerNodeHashN lay tree heap n left right) := by
+  unfold WCT9.lowerNodeHashN WCT9.lowerHash
+  refine respects_halfHash' _ _ ?_
+  rw [show WCT9.lowerNodeInputN lay tree heap n left right = SigGolfCandidate.T3M.SecurityInputs.block4 left
+      (WCT9.merkleTweak lay tree heap) (BitVec.ofNat 128 (n % 2 ^ 64)) right by
+    unfold WCT9.lowerNodeInputN SigGolfCandidate.T3M.SecurityInputs.block4 SigGolfCandidate.T3.nonceBytes; rfl,
+    SigGolfCandidate.T3M.SecurityInputs.pad64_block4]
+  exact h
+theorem respects_lowerNonceSearch' {S : Spec.Domain → Prop} (lay tree heap : Nat) (left right : Digest)
+    (h : ∀ n, Respects S (WCT9.lowerNodeHashN lay tree heap n left right)) :
+    ∀ fuel n, Respects S (WCT9.lowerNonceSearch lay tree heap left right fuel n)
+  | 0, n => by
+      unfold WCT9.lowerNonceSearch
+      exact Respects.bind (h n) fun _ => Respects.pure' _
+  | fuel + 1, n => by
+      unfold WCT9.lowerNonceSearch
+      refine Respects.bind (h n) fun _ => ?_
+      split
+      · exact Respects.pure' _
+      · exact respects_lowerNonceSearch' lay tree heap left right h fuel (n + 1)
+/-- U16b: a canonical node respects `S` if each of its trials does. -/
+theorem respects_lowerNodeG' {S : Spec.Domain → Prop} (lay tree heap : Nat) (left right : Digest)
+    (h : ∀ n, Respects S (WCT9.lowerNodeHashN lay tree heap n left right)) :
+    Respects S (WCT9.lowerNodeG lay tree heap left right) := by
+  unfold WCT9.lowerNodeG WCT9.lowerNodeAt
+  refine Respects.map _ ?_
+  split
+  · refine Respects.map _ ?_
+    rw [← WCT9.lowerNodeHashN_zero]
+    exact h 0
+  · exact respects_lowerNonceSearch' lay tree heap left right h _ 0
+theorem respects_lowerNodeHashN (lay tree heap n : Nat) (left right : Digest) (hh : lay = 0 ∨ heap < 128) :
+    Respects Enc.NonEnc (WCT9.lowerNodeHashN lay tree heap n left right) :=
+  respects_lowerNodeHashN' _ _ _ _ _ _ (nonEnc_of_hdr _ _ (SigGolfCandidate.T3M.Extract.hdrBlock_block4 left _ _ right)
+    (merkleTweak_notHyper lay tree heap hh))
 theorem respects_buildLeafPF (lay : Layer) (tree leaf : Nat) (digits : List Nat) (carry : List Digest) :
     Respects Enc.NonEnc (WCT9.buildLeafPF lay tree leaf digits carry) := by
   unfold WCT9.buildLeafPF
@@ -952,7 +991,7 @@ theorem respects_buildLevelsBelow (lay tree h : Nat) (hh : h ≤ 12) (h7 : lay �
     have hi' := List.mem_range.mp hi
     have hn := hI (level - 1)
     have hp : 2 ^ 1 ≤ 2 ^ (h - level) := Nat.pow_le_pow_right (by decide) (by omega)
-    refine respects_lowerNodeHash lay tree _ _ _ ?_
+    refine respects_lowerNodeG' _ _ _ _ _ fun n => respects_lowerNodeHashN lay tree _ n _ _ ?_
     by_cases h0 : lay = 0
     · exact Or.inl h0
     · right
@@ -3189,57 +3228,6 @@ theorem queried_length_prefixTreeRows (T : Answers) (lay : Layer) (tree selected
     rcases r with ⟨⟨root,prefixes⟩,carry⟩
     simp only [pure_bind,queried_length_pure,evalWithAnswerFn_bind,evalWithAnswerFn_pure,Nat.add_zero]
 
-/-- C2 (#866): a lower level makes one (half-hash) query per node. -/
-theorem queried_length_lowerLevel (T : Answers) (lay tree h level : Nat) (nodes : List Digest) :
-    (SourceReplay.queried T (lowerLevel lay tree h level nodes)).length = nodes.length / 2 := by
-  unfold lowerLevel
-  rw [queried_length_mapM T _ _ (fun _ => 1) (fun i _ => by
-      unfold lowerNodeHash lowerHash
-      exact ClaudeWCT.W9.T3.Security.Wots.Mask.queried_length_halfHash _ _ _),
-    sum_map_one, List.length_range]
-
-/-- C2 (#866): `buildLevelsBelow` folds `lowerLevel`. -/
-theorem queried_length_buildLevelsBelow_congr (T T' : Answers) (tag lay tree h : Nat)
-    (leaves leaves' : List Digest) (hlen : leaves.length=leaves'.length) :
-    (SourceReplay.queried T (buildLevelsBelow tag lay tree h leaves)).length=
-      (SourceReplay.queried T' (buildLevelsBelow tag lay tree h leaves')).length := by
-  unfold buildLevelsBelow
-  suffices H : ∀ (ls : List Nat) (s s' : List (List Digest)), s.map List.length = s'.map List.length →
-      (SourceReplay.queried T (ls.foldlM (fun levels level => do
-        let nodes ← lowerLevel lay tree h level (levels.getD (level - 1) [])
-        pure (levels ++ [nodes])) s)).length =
-      (SourceReplay.queried T' (ls.foldlM (fun levels level => do
-        let nodes ← lowerLevel lay tree h level (levels.getD (level - 1) [])
-        pure (levels ++ [nodes])) s')).length from H _ _ _ (by simp [hlen])
-  intro ls
-  induction ls with
-  | nil => intro s s' _; rfl
-  | cons level ls ih =>
-      intro s s' hs
-      simp only [List.foldlM_cons, queried_length_bind, queried_length_lowerLevel, queried_length_pure,
-        Nat.add_zero, getD_length_of_map hs]
-      congr 1
-      apply ih
-      simp only [evalWithAnswerFn_bind, evalWithAnswerFn_pure, List.map_append, List.map_cons, List.map_nil,
-        ClaudeWCT.WCT9.eval_lowerLevel_length, hs, getD_length_of_map hs]
-
-theorem queried_length_buildTreePrefixes_congr (T T' : Answers) (lay : Layer) (hlay : lay ≠ 0)
-    (tree selected : Nat) :
-    (SourceReplay.queried T (buildTreePrefixes lay tree selected)).length=
-      (SourceReplay.queried T' (buildTreePrefixes lay tree selected)).length := by
-  simp only [buildTreePrefixes_factor,queried_length_bind,queried_length_prefixTreeRows,
-    queried_length_pure,Nat.add_zero]
-  congr 1
-  apply queried_length_buildLevelsBelow_congr
-  exact (eval_prefixTreeRows T hlay tree selected).1.trans (eval_prefixTreeRows T' hlay tree selected).1.symm
-
-theorem queried_length_prepareRoots_congr (T T' : Answers) (index : Nat) :
-    (SourceReplay.queried T (prepareRoots index)).length=
-      (SourceReplay.queried T' (prepareRoots index)).length := by
-  simp only [prepareRoots,queried_length_bind,queried_length_pure]
-  rw [queried_length_buildTreePrefixes_congr T T' 1 (by decide),
-    queried_length_buildTreePrefixes_congr T T' 2 (by decide),
-    queried_length_buildTreePrefixes_congr T T' 3 (by decide)]
 end Mask
 end ClaudeWCT.W9.T3.Security.Wots.CanonicalRef
 
@@ -3255,6 +3243,42 @@ set_option backward.isDefEq.respectTransparency false
 namespace Mask
 open ClaudeWCT.W9.T3.Security.Wots.Mask
 variable (answers : Answers) (messages : LeafAddr → LayerMsg) (a : ChainAddr)
+
+/-! U16b: the lower levels' query count depends on the ground nonce searches (`lowerNodeG`), so it is no longer
+answer-independent. Under a chain mask the levels see the same leaf roots (`wotsRoot_maskAt`) and make only untouched
+node queries (`respectsP_buildLevelsBelow`), so the count of `prepareRoots` is unchanged. -/
+theorem prefixTreeRows_roots_maskAt (hal : MaskOK a) (lay : Layer) (hlay : lay ≠ 0) (tree selected : Nat) :
+    (evalWithAnswerFn (maskAt answers messages a) (prefixTreeRows lay tree selected)).1 =
+      (evalWithAnswerFn answers (prefixTreeRows lay tree selected)).1 := by
+  have h1 := eval_prefixTreeRows (maskAt answers messages a) hlay tree selected
+  have h2 := eval_prefixTreeRows answers hlay tree selected
+  apply List.ext_getElem (h1.1.trans h2.1.symm)
+  intro j hj1 hj2
+  have hj : j < 2 ^ height lay := h1.1 ▸ hj1
+  rw [← List.getD_eq_getElem _ 0, ← List.getD_eq_getElem _ 0, h1.2.1 j hj, h2.2.1 j hj]
+  exact wotsRoot_maskAt answers messages a lay tree j
+    (slotOK_of hal (by have := height_pow_le lay; omega))
+
+theorem queried_length_buildTreePrefixes_mask (hal : MaskOK a) (lay : Layer) (hlay : lay ≠ 0)
+    (tree selected : Nat) :
+    (SourceReplay.queried (maskAt answers messages a) (buildTreePrefixes lay tree selected)).length =
+      (SourceReplay.queried answers (buildTreePrefixes lay tree selected)).length := by
+  simp only [buildTreePrefixes_factor, queried_length_bind, queried_length_prefixTreeRows,
+    queried_length_pure, Nat.add_zero]
+  congr 1
+  rw [prefixTreeRows_roots_maskAt answers messages a hal lay hlay tree selected]
+  have hlen := (eval_prefixTreeRows answers hlay tree selected).1
+  rw [ClaudeWCT.W9.T3.Security.Wots.CanonicalRef.Mask.queried_maskAt_of_respects answers messages a
+    (ClaudeWCT.W9.T3.Security.Wots.Mask.respectsP_buildLevelsBelow a 3 lay.val tree (height lay)
+      (fun h0 => by fin_cases lay <;> simp_all [height]) _ (by rw [hlen]))]
+
+theorem queried_length_prepareRoots_mask (hal : MaskOK a) (index : Nat) :
+    (SourceReplay.queried (maskAt answers messages a) (prepareRoots index)).length =
+      (SourceReplay.queried answers (prepareRoots index)).length := by
+  simp only [prepareRoots, queried_length_bind, queried_length_pure]
+  rw [queried_length_buildTreePrefixes_mask answers messages a hal 1 (by decide),
+    queried_length_buildTreePrefixes_mask answers messages a hal 2 (by decide),
+    queried_length_buildTreePrefixes_mask answers messages a hal 3 (by decide)]
 
 theorem wotsValues_maskAt (lay : Layer) (tree leaf : Nat) (digits : List Nat) (hvalid : Cost.ValidDigits lay digits)
     (hb : SlotOK a lay leaf)
@@ -3519,7 +3543,7 @@ theorem signFromOutput_maskEq (T : Answers) (a : ChainAddr)
   unfold signFromOutput
   refine ExecEq.bind (ExecEq.of_untouched T _ a (respectsP_buildForest a _ _ _)) ?_
   intro forest hforest
-  refine ExecEq.bind_effect (Mask.queried_length_prepareRoots_congr _ _ _) ?_
+  refine ExecEq.bind_effect (Mask.queried_length_prepareRoots_mask T (sourceMessages T) a hleaf _) ?_
   simp only [prepareRoots_result]
   refine ExecEq.bind (searchPreparedLayers_maskEq T a htree hleaf cache _ (digestIndex_lt output) forest.2 ?_) ?_
   · rw [←hforest,buildForest_commitment,sourceMessages_route_bottom T _ (digestIndex_lt output)]
@@ -10300,14 +10324,31 @@ theorem lowerNodeHash_free (lay : Layer) (tree heap : Nat) (left right : Digest)
     have := WCT9.lowerTweak_tag h128 lay.val tree
     unfold tweakTag at this
     omega
+/-- U16b: every trial of a lower node (nonce `n` in the pad) is free, as the plain node hash. -/
+theorem lowerNodeHashN_free (lay : Layer) (tree heap n : Nat) (left right : Digest) (hh : heap < 2 ^ height lay) :
+    AllQueriesSatisfy (WCT9.lowerNodeHashN lay.val tree heap n left right) WFree := by
+  unfold WCT9.lowerNodeHashN WCT9.lowerHash
+  apply Signer.halfHash_allowed_of_short
+  unfold WCT9.lowerNodeInputN
+  rw [List.append_assoc]
+  apply shortHash_free'
+  by_cases h0 : lay.val = 0
+  · rw [h0, WCT9.merkleTweak_top]; exact nodeTweak_probe_safeS 3 0 tree heap
+  · rw [WCT9.merkleTweak_lower h0]
+    right; left
+    have h7 : height lay ≤ 7 := by fin_cases lay <;> simp_all [height]
+    have h128 : heap < 128 := lt_of_lt_of_le hh (le_trans (Nat.pow_le_pow_right (by decide) h7) (by norm_num))
+    have := WCT9.lowerTweak_tag h128 lay.val tree
+    unfold tweakTag at this
+    omega
 theorem lowerSeedPair_free (lay : Layer) (tree pair : Nat) :
     AllQueriesSatisfy (WCT9.lowerSeedPair lay tree pair) WFree := by
   unfold WCT9.lowerSeedPair
   exact privatePair_free _ _ _ _ (by decide)
 theorem buildTreeP_free (lay : Layer) (tree selected : Nat) (digits : List Nat) :
     AllQueriesSatisfy (WCT9.buildTreeP lay tree selected digits) WFree :=
-  Signer.buildTreeP_allowed' WFree chainStepW_free leafHash_free (fun lay tree heap left right hh =>
-    lowerNodeHash_free lay tree heap left right hh) lowerSeedPair_free lay tree selected digits
+  Signer.buildTreeP_allowed' WFree chainStepW_free leafHash_free (fun lay tree heap n left right hh _ =>
+    lowerNodeHashN_free lay tree heap n left right hh) lowerSeedPair_free lay tree selected digits
 theorem maskedLevel_free (nodes : List Digest) (level : Nat) :
     AllQueriesSatisfy (maskedLevel nodes level) WFree := by
   unfold maskedLevel pairedMask
@@ -11815,7 +11856,7 @@ theorem buildTreePrefixes_free (lay : Layer) (tree selected : Nat) :
           simp) _ state hstate
       simpa using this
     exact bind_allowed WFree (Signer.buildLevelsBelow_allowed WFree
-      (fun lay tree heap left right hh => lowerNodeHash_free lay tree heap left right hh) lay tree _ hlen)
+      (fun lay tree heap n left right hh _ => lowerNodeHashN_free lay tree heap n left right hh) lay tree _ hlen)
       fun _ => pure_allowed _ _
 
 theorem prepareRoots_free (index : Nat) : AllQueriesSatisfy (prepareRoots index) WFree := by
@@ -11915,7 +11956,7 @@ theorem signFromOutput_answers (hidden : CanonTable.HiddenF) (cache : SigGolfCan
         (evalWithAnswerFn (wA hU omega 0) (prepareRoots (digestIndex output)))
         (forestCommitment (wA hU omega 0) (digestIndex output)))).map
         (fun layers => (⟨assembleWith (wA hU omega hidden) (rho, output, layers), counter,
-          fun lay => layers.counters.getD lay.val 0, !(layers.lows.getD 0 true), []⟩ :
+          fun lay => layers.counters.getD lay.val 0, !(layers.lows.getD 0 true), [], fun _ => []⟩ :
             SigGolfCandidate.Research.SharedForest.Witness)) := by
   simp only [signFromOutput, evalWithAnswerFn_bind]
   rw [buildForest_commitment, eval_free hU omega hidden 0 (prepareRoots_free _),
@@ -14630,6 +14671,32 @@ theorem lowerNodeHash_dn (lay : Layer) (tree heap : Nat) (left right : Digest) (
       have h128 : heap < 128 := lt_of_lt_of_le hh (le_trans (Nat.pow_le_pow_right (by decide) h7) (by norm_num))
       rw [WCT9.lowerTweak_toNat h128]
       omega
+/-- U16b: every trial of a lower node (nonce `n` in the pad) is no digest/nonce query. -/
+theorem lowerNodeHashN_dn (lay : Layer) (tree heap n : Nat) (left right : Digest) (hh : heap < 2 ^ height lay) :
+    AllQueriesSatisfy (WCT9.lowerNodeHashN lay.val tree heap n left right) NotDN := by
+  unfold WCT9.lowerNodeHashN WCT9.lowerHash
+  apply Signer.halfHash_allowed_of_short
+  have he : WCT9.lowerNodeInputN lay.val tree heap n left right =
+      SigGolfCandidate.T3M.SecurityInputs.block4 left (WCT9.merkleTweak lay.val tree heap)
+        (BitVec.ofNat 128 (n % 2 ^ 64)) right := by
+    unfold WCT9.lowerNodeInputN SigGolfCandidate.T3M.SecurityInputs.block4 SigGolfCandidate.T3.nonceBytes
+    rfl
+  rw [he]
+  unfold shortHash publicHash
+  refine SourceQueries.bind_allowed NotDN ((allQueriesSatisfy_query_iff _ _).mpr
+    (not_digest_of_low (h := WCT9.merkleTweak lay.val tree heap) ?_ ?_)) fun _ => SourceQueries.pure_allowed _ _
+  · rw [SigGolfCandidate.T3M.SecurityInputs.pad64_block4]
+    exact ClaudeWCT.W9.T3M.Extract.hdrBlock_block4 _ _ _ _
+  · by_cases h0 : lay.val = 0
+    · rw [h0, WCT9.merkleTweak_top]
+      have := nodeTweak_low_ne_zero 3 0 tree heap
+      unfold tweakLow at this
+      exact this
+    · rw [WCT9.merkleTweak_lower h0]
+      have h7 : height lay ≤ 7 := by fin_cases lay <;> simp_all [height]
+      have h128 : heap < 128 := lt_of_lt_of_le hh (le_trans (Nat.pow_le_pow_right (by decide) h7) (by norm_num))
+      rw [WCT9.lowerTweak_toNat h128]
+      omega
 /-- Pairing stage 1: a step of the current scheme (F or G row) is no digest query. -/
 theorem chainStepW_dn (lay : Layer) (tree leaf i step : Nat) (value : Digest) :
     AllQueriesSatisfy (shortHash (ClaudeWCT.WCT9.chainInputW lay tree leaf i step value)) SigGolfCandidate.T3.Security.BPair.NotDN := by
@@ -14651,7 +14718,7 @@ theorem buildTreeP_dn (lay : Layer) (tree selected : Nat) (digits : List Nat) :
     AllQueriesSatisfy (WCT9.buildTreeP lay tree selected digits) NotDN :=
   Signer.buildTreeP_allowed' NotDN chainStepW_dn
     SigGolfCandidate.T3.Security.BPair.leafHash_dn
-    (fun lay tree heap left right hh => lowerNodeHash_dn lay tree heap left right hh)
+    (fun lay tree heap n left right hh _ => lowerNodeHashN_dn lay tree heap n left right hh)
     (fun lay tree pair => by
       unfold WCT9.lowerSeedPair
       exact SigGolfCandidate.T3.Security.BPair.privatePair_dn _ _ _ _ _) lay tree selected digits
@@ -14910,7 +14977,7 @@ theorem tail_notDN : SharedQueries.TailAllowed NotDN where
   chainStep := SigGolfCandidate.T3.Security.BPair.chainStep_dn
   chainStepW := chainStepW_dn
   leaf := SigGolfCandidate.T3.Security.BPair.leafHash_dn
-  node := fun lay tree heap left right hh => WPair.lowerNodeHash_dn lay tree heap left right hh
+  node := fun lay tree heap n left right hh _ => WPair.lowerNodeHashN_dn lay tree heap n left right hh
   seed := fun _ _ _ => SigGolfCandidate.T3.Security.BPair.privatePair_dn _ _ _ _ _
   encoding := WPair.layerEncoding_dn
   top := SigGolfCandidate.T3.Security.BPair.signTop_dn

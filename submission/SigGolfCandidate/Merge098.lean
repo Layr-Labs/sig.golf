@@ -59,9 +59,9 @@ theorem submission_verificationBound (E : EncodingFacts) (F : SourceQueries) (P 
   have heq:=Credit.Paired.verify_run_agree E F P hash (okHashBy floors wt.topHigh hash) m pk _ hagree
   rw [hcyc,witnessCycles_eq,heq]
   rw [heq] at hacc
-  have hok : HashOkBy floors (ClaudeWCT.W9.T3M.wtopHigh (ClaudeWCT.W9.T3M.Paired.witEncN output wt))
+  have hok : HashOkBy floors (ClaudeWCT.W9.T3M.wtopHigh (ClaudeWCT.W9.T3M.Paired.witEncG output wt))
       (okHashBy floors wt.topHigh hash) := by
-    rw [ClaudeWCT.W9.T3M.Paired.wtopHigh_witEncN]; exact hashOkBy_okHashBy floors wt.topHigh hash
+    rw [ClaudeWCT.W9.T3M.Paired.wtopHigh_witEncG]; exact hashOkBy_okHashBy floors wt.topHigh hash
   have hc:=P.verify_accept_cycles floors hfloors (okHashBy floors wt.topHigh hash) m pk _
     hok (Credit.Paired.digestCap_okHashBy floors wt.topHigh hash m pk sig output wt hx) hacc
   unfold verifyCycleBound at hc
@@ -4901,7 +4901,7 @@ open ClaudeWCT.W9.T3M (Images)
 variable (I : Images)
 theorem keygen_run_eq (hadm : (submission I).Admissible) (sk : SecretKey) :
     (submission I).run .keygen sk = SigGolfCandidate.T3M.submission.run .keygen sk := by
-  have hvA : ((submission I).image .keygen).Valid ⟨5195, 22012, 131072⟩ ⟨0x6620, 0x80, 0xa0, 0x80000, 0x7000, 0x1020⟩ :=
+  have hvA : ((submission I).image .keygen).Valid ⟨5193, 22012, 131072⟩ ⟨0x6620, 0x80, 0xa0, 0x80000, 0x7000, 0x1020⟩ :=
     hadm.2 .keygen
   have hvB : (SigGolfCandidate.T3M.submission.image .keygen).Valid
       ⟨SigGolfCandidate.T3M.submission.sizes.signature, SigGolfCandidate.T3M.submission.sizes.witness, 131072⟩
@@ -5048,10 +5048,12 @@ set_option maxRecDepth 10000
 set_option linter.constructorNameAsVariable false
 attribute [local instance low] Classical.propDecidable
 
-/-- Some top position exhausts its nonce cap: every trial inside the cap fails the zero test. -/
+/-- Some multi-trial position exhausts its nonce cap: every trial inside the cap fails the zero test. The positions are
+the top positions below the root and (U16b) the lower ground positions (heaps 2..15, `lowerZeroBits ≠ 0`). -/
 def CapFail (labels : Labels) : Prop :=
-  ∃ n : TreeNode, n.1.lay = 0 ∧ n.1.level.val < 11 ∧ n.1.nonce.val = 0 ∧
-    ∀ j < trialCap n.1.lay n.1.level.val, trialFails labels n j
+  ∃ n : TreeNode, ((n.1.lay = 0 ∧ n.1.level.val < 11) ∨
+      (n.1.lay ≠ 0 ∧ WCT9.lowerZeroBits n.1.lay.val (2 ^ (height n.1.lay - n.1.level.val - 1)) ≠ 0)) ∧
+    n.1.nonce.val = 0 ∧ ∀ j < trialCap n.1.lay n.1.level.val, trialFails labels n j
 
 noncomputable local instance instSampleableTypeLabels_capFail : SampleableType Labels :=
   SampleableType.ofFintype _
@@ -5234,6 +5236,81 @@ theorem ratio_le {Q h : Nat} (hQ : Q + 2 ^ (256 - h) ≤ 2 ^ 256) (hh : h ≤ 25
     rw [one_div_pow]; field_simp
   rw [this]; linarith
 
+/-! ### U16b: the lower ground zero test passes with probability at least `2^-b` -/
+
+theorem lowerZeroBits_le_three (lay heap : Nat) : WCT9.lowerZeroBits lay heap ≤ 3 := by
+  unfold WCT9.lowerZeroBits; split_ifs <;> omega
+
+theorem card_pass_digest_low (lay heap : Nat) :
+    2 ^ (128 - WCT9.lowerZeroBits lay heap) ≤
+      (Finset.univ.filter (fun d : BitVec 128 => WCT9.lowerZeroOk lay heap d = true)).card := by
+  have hb3 := lowerZeroBits_le_three lay heap
+  have hlt : 2 ^ (128 - WCT9.lowerZeroBits lay heap) ≤ 2 ^ 128 := Nat.pow_le_pow_right (by decide) (by omega)
+  have hc : (Finset.range (2 ^ (128 - WCT9.lowerZeroBits lay heap))).card = 2 ^ (128 - WCT9.lowerZeroBits lay heap) :=
+    Finset.card_range _
+  rw [← hc]
+  apply Finset.card_le_card_of_injOn (fun x : Nat => (BitVec.ofNat 128 x : BitVec 128))
+  · intro x hx
+    simp only [Finset.coe_range, Set.mem_Iio] at hx
+    refine Finset.mem_coe.mpr (Finset.mem_filter.mpr ⟨Finset.mem_univ _, ?_⟩)
+    unfold WCT9.lowerZeroOk
+    simp only [BitVec.toNat_ofNat, beq_iff_eq]
+    rw [Nat.mod_eq_of_lt (by omega)]
+    exact Nat.div_eq_of_lt hx
+  · intro x hx y hy heq
+    simp only [Finset.coe_range, Set.mem_Iio] at hx hy
+    have := congrArg BitVec.toNat heq
+    simp only [BitVec.toNat_ofNat] at this
+    rwa [Nat.mod_eq_of_lt (by omega), Nat.mod_eq_of_lt (by omega)] at this
+
+theorem card_pass_hash_of (p : Extract.Pos) (ok : BitVec 128 → Bool) {b : Nat} (hb : b ≤ 128)
+    (hP : 2 ^ (128 - b) ≤ (Finset.univ.filter (fun d : BitVec 128 => ok d = true)).card) :
+    2 ^ (256 - b) ≤ (Finset.univ.filter (fun v : BitVec 256 => ¬ (ok (p.proj v) = false))).card := by
+  set P := Finset.univ.filter (fun d : BitVec 128 => ok d = true)
+  have hcard : (P ×ˢ (Finset.univ : Finset (BitVec 128))).card = P.card * 2 ^ 128 := by
+    rw [Finset.card_product, Finset.card_univ, Fintype.card_bitVec]
+  have h256 : 2 ^ (256 - b) ≤ P.card * 2 ^ 128 := by
+    calc 2 ^ (256 - b) = 2 ^ (128 - b) * 2 ^ 128 := by
+          rw [← pow_add, show 128 - b + 128 = 256 - b by omega]
+      _ ≤ P.card * 2 ^ 128 := Nat.mul_le_mul_right _ hP
+  refine h256.trans ?_
+  rw [← hcard]
+  apply Finset.card_le_card_of_injOn
+    (fun x : BitVec 128 × BitVec 128 =>
+      if p.high then joinHalves x.2 x.1 else joinHalves x.1 x.2)
+  · intro x hx
+    simp only [Finset.coe_product, Finset.coe_univ, Set.prod_univ, Set.mem_preimage, Finset.mem_coe, P,
+      Finset.mem_filter, Finset.mem_univ, true_and] at hx
+    refine Finset.mem_coe.mpr (Finset.mem_filter.mpr ⟨Finset.mem_univ _, ?_⟩)
+    rw [Extract.Pos.proj_eq]
+    cases p.high
+    · simp only [Bool.false_eq_true, ite_false, joinHalves_low, hx]; decide
+    · simp only [ite_true, joinHalves_high, hx]; decide
+  · intro x _ y _ heq
+    by_cases hp : p.high = true
+    · simp only [hp, ite_true] at heq
+      have h1 := congrArg (fun v : BitVec 256 => v.extractLsb' 0 128) heq
+      have h2 := congrArg (fun v : BitVec 256 => v.extractLsb' 128 128) heq
+      simp only [joinHalves_low, joinHalves_high] at h1 h2
+      exact Prod.ext h2 h1
+    · simp only [Bool.not_eq_true] at hp
+      simp only [hp, Bool.false_eq_true, ite_false] at heq
+      have h1 := congrArg (fun v : BitVec 256 => v.extractLsb' 0 128) heq
+      have h2 := congrArg (fun v : BitVec 256 => v.extractLsb' 128 128) heq
+      simp only [joinHalves_low, joinHalves_high] at h1 h2
+      exact Prod.ext h1 h2
+
+theorem card_fail_hash_low (p : Extract.Pos) (lay heap : Nat) :
+    (Finset.univ.filter (fun v : BitVec 256 => WCT9.lowerZeroOk lay heap (p.proj v) = false)).card +
+      2 ^ (256 - WCT9.lowerZeroBits lay heap) ≤ 2 ^ 256 := by
+  have hsum := Finset.card_filter_add_card_filter_not
+    (s := (Finset.univ : Finset (BitVec 256))) (fun v => WCT9.lowerZeroOk lay heap (p.proj v) = false)
+  rw [Finset.card_univ, Fintype.card_bitVec] at hsum
+  have := card_pass_hash_of p (WCT9.lowerZeroOk lay heap) (by have := lowerZeroBits_le_three lay heap; omega)
+    (card_pass_digest_low lay heap)
+  change _ = 2 ^ 256 at hsum
+  omega
+
 /-! ### One position -/
 
 /-- The cap trials of the position of `n`. -/
@@ -5251,7 +5328,7 @@ theorem trialSet_card (n : TreeNode) : (trialSet n).card = trialCap n.1.lay n.1.
 
 theorem allFail_iff (labels : Labels) (n : TreeNode) :
     (∀ j < trialCap n.1.lay n.1.level.val, trialFails labels n j) ↔
-      ∀ a ∈ trialSet n, topZeroOk (n.1.level.val + 1) ((Node.node n).toPos.proj (labels a)) = false := by
+      ∀ a ∈ trialSet n, trialZeroOk n.1.lay n.1.level.val ((Node.node n).toPos.proj (labels a)) = false := by
   unfold trialSet
   constructor
   · intro h a ha
@@ -5277,7 +5354,11 @@ theorem prob_allFail_le (n : TreeNode) (hl : n.1.lay = 0) (hlev : n.1.level.val 
   have hev : (fun labels : Labels => ∀ j < trialCap n.1.lay n.1.level.val, trialFails labels n j) =
       (fun labels : Labels => ∀ a ∈ trialSet n,
         (fun v => topZeroOk (n.1.level.val + 1) ((Node.node n).toPos.proj v) = false) (labels a)) := by
-    funext labels; exact propext (allFail_iff labels n)
+    funext labels
+    have h := allFail_iff labels n
+    unfold trialZeroOk at h
+    simp only [if_pos hl] at h
+    exact propext h
   rw [hev]
   refine (le_of_eq (prob_forall_mem (α := Node) (β := HashOutput) (inst := instSampleableTypeLabels_capFail)
     (trialSet n) (fun v => topZeroOk (n.1.level.val + 1) ((Node.node n).toPos.proj v) = false))).trans ?_
@@ -5330,11 +5411,108 @@ theorem card_fiber_le (l : Nat) :
     subst e1 e2 e3 e4
     rfl
 
+/-- U16b: the nonce-0 representatives of the lower ground positions. -/
+def lowReps : Finset TreeNode :=
+  Finset.univ.filter (fun n : TreeNode => n.1.lay ≠ 0 ∧
+    WCT9.lowerZeroBits n.1.lay.val (2 ^ (height n.1.lay - n.1.level.val - 1)) ≠ 0 ∧ n.1.nonce.val = 0)
+
+theorem card_lowReps_le : lowReps.card ≤ 3 * 2 ^ 33 := by
+  have hU : (Finset.univ : Finset (Fin 4 × Fin (2 ^ 25) × Fin 12 × Fin 16)).card = 3 * 2 ^ 33 := by
+    simp [Finset.card_univ, Fintype.card_prod, Fintype.card_fin]
+  rw [← hU]
+  apply Finset.card_le_card_of_injOn (fun n : TreeNode =>
+    ((⟨n.1.lay.val, n.1.lay.isLt⟩ : Fin 4), (⟨n.1.tree.val % 2 ^ 25, Nat.mod_lt _ (by positivity)⟩ : Fin (2 ^ 25)),
+      n.1.level, (⟨n.1.idx.val % 16, Nat.mod_lt _ (by norm_num)⟩ : Fin 16)))
+  · intro n _; simp
+  · have key : ∀ n : TreeNode, (n.1.lay ≠ 0 ∧
+        WCT9.lowerZeroBits n.1.lay.val (2 ^ (height n.1.lay - n.1.level.val - 1)) ≠ 0 ∧ n.1.nonce.val = 0) →
+        n.1.tree.val < 2 ^ 25 ∧ n.1.idx.val < 16 ∧ n.1.nonce.val = 0 := by
+      intro n hn
+      obtain ⟨-, hb, h0⟩ := hn
+      have hv : n.1.level.val < height n.1.lay ∧ n.1.idx.val < 2 ^ (height n.1.lay - n.1.level.val - 1) ∧
+          n.1.tree.val < 2 ^ treeBits n.1.lay ∧ (n.1.lay = 0 ∨ n.1.level.val + 1 < height n.1.lay) := n.2
+      refine ⟨lt_of_lt_of_le hv.2.2.1 (Nat.pow_le_pow_right (by norm_num)
+        (ClaudeWCT.W9.T3M.Extract.treeBits_le _)), ?_, h0⟩
+      have h16 : 2 ^ (height n.1.lay - n.1.level.val - 1) < 16 := by
+        by_contra hc
+        apply hb
+        unfold WCT9.lowerZeroBits
+        rw [if_pos (Or.inr (Or.inr (by omega)))]
+      exact lt_trans hv.2.1 h16
+    intro n hn m hm heq
+    simp only [lowReps, Finset.coe_filter, Finset.mem_univ, true_and, Set.mem_ofPred_eq] at hn hm
+    obtain ⟨hnt, hni, hn0⟩ := key n hn
+    obtain ⟨hmt, hmi, hm0⟩ := key m hm
+    simp only [Prod.mk.injEq, Fin.mk.injEq] at heq
+    obtain ⟨h1, h2, h3, h4⟩ := heq
+    rw [Nat.mod_eq_of_lt hnt, Nat.mod_eq_of_lt hmt] at h2
+    rw [Nat.mod_eq_of_lt hni, Nat.mod_eq_of_lt hmi] at h4
+    obtain ⟨⟨lay, tree, level, idx, nonce⟩, hv⟩ := n
+    obtain ⟨⟨lay', tree', level', idx', nonce'⟩, hv'⟩ := m
+    simp only at h1 h2 h3 h4 hn0 hm0
+    have e0 : lay = lay' := Fin.ext h1
+    have e1 : tree = tree' := Fin.ext h2
+    have e3 : idx = idx' := Fin.ext h4
+    have e4 : nonce = nonce' := Fin.ext (by omega)
+    subst e0 e1 h3 e3 e4
+    rfl
+
+theorem sum_low_arith : ((3 * 2 ^ 33 : Nat) : ℝ) * (36788 / 100000 : ℝ) ^ 128 ≤ 1 / 2 ^ 144 := by
+  norm_num
+
+theorem sum_lowReps_le (f : TreeNode → ℝ≥0∞)
+    (hf : ∀ n ∈ lowReps, f n ≤ ENNReal.ofReal ((36788 / 100000 : ℝ) ^ 128)) :
+    ∑ n ∈ lowReps, f n ≤ (2 ^ 144 : ℝ≥0∞)⁻¹ := by
+  calc ∑ n ∈ lowReps, f n ≤ ∑ n ∈ lowReps, ENNReal.ofReal ((36788 / 100000 : ℝ) ^ 128) := Finset.sum_le_sum hf
+    _ = (lowReps.card : ℝ≥0∞) * ENNReal.ofReal ((36788 / 100000 : ℝ) ^ 128) := by
+        rw [Finset.sum_const, nsmul_eq_mul]
+    _ ≤ ((3 * 2 ^ 33 : Nat) : ℝ≥0∞) * ENNReal.ofReal ((36788 / 100000 : ℝ) ^ 128) := by
+        gcongr; exact_mod_cast card_lowReps_le
+    _ = ENNReal.ofReal (((3 * 2 ^ 33 : Nat) : ℝ) * (36788 / 100000 : ℝ) ^ 128) := by
+        rw [ENNReal.ofReal_mul (by positivity), ENNReal.ofReal_natCast]
+    _ ≤ ENNReal.ofReal (1 / 2 ^ 144) := ENNReal.ofReal_le_ofReal sum_low_arith
+    _ = (2 ^ 144 : ℝ≥0∞)⁻¹ := by
+        rw [one_div, ENNReal.ofReal_inv_of_pos (by positivity), ENNReal.ofReal_pow (by norm_num),
+          ENNReal.ofReal_ofNat]
+
+theorem half_add_half : (2 ^ 144 : ℝ≥0∞)⁻¹ + (2 ^ 144 : ℝ≥0∞)⁻¹ ≤ (2 ^ 142 : ℝ≥0∞)⁻¹ := by
+  have e : ∀ k : ℕ, (2 ^ k : ℝ≥0∞)⁻¹ = ENNReal.ofReal (1 / 2 ^ k) := fun k => by
+    rw [one_div, ENNReal.ofReal_inv_of_pos (by positivity), ENNReal.ofReal_pow (by norm_num), ENNReal.ofReal_ofNat]
+  rw [e, e, ← ENNReal.ofReal_add (by positivity) (by positivity)]
+  exact ENNReal.ofReal_le_ofReal (by norm_num)
+
+theorem disjoint_reps : Disjoint topReps lowReps := by
+  rw [Finset.disjoint_left]
+  intro n hn hn'
+  simp only [topReps, lowReps, Finset.mem_filter, Finset.mem_univ, true_and] at hn hn'
+  exact hn'.1 hn.1
+
+theorem mem_topReps (n : TreeNode) :
+    n ∈ topReps ↔ n.1.lay = 0 ∧ n.1.level.val < 11 ∧ n.1.nonce.val = 0 := by
+  simp only [topReps, Finset.mem_filter, Finset.mem_univ, true_and]
+
+theorem mem_lowReps (n : TreeNode) :
+    n ∈ lowReps ↔ n.1.lay ≠ 0 ∧
+      WCT9.lowerZeroBits n.1.lay.val (2 ^ (height n.1.lay - n.1.level.val - 1)) ≠ 0 ∧ n.1.nonce.val = 0 := by
+  simp only [lowReps, Finset.mem_filter, Finset.mem_univ, true_and]
+
 theorem capFail_eq :
     CapFail = fun labels : Labels =>
-      ∃ n ∈ topReps, ∀ j < trialCap n.1.lay n.1.level.val, trialFails labels n j := by
+      ∃ n ∈ topReps ∪ lowReps, ∀ j < trialCap n.1.lay n.1.level.val, trialFails labels n j := by
   funext labels
-  simp only [CapFail, topReps, Finset.mem_filter, Finset.mem_univ, true_and, and_assoc]
+  apply propext
+  unfold CapFail
+  simp only [Finset.mem_union, mem_topReps, mem_lowReps]
+  constructor
+  · rintro ⟨n, hpos, h0, hall⟩
+    refine ⟨n, ?_, hall⟩
+    rcases hpos with h | h
+    · exact Or.inl ⟨h.1, h.2, h0⟩
+    · exact Or.inr ⟨h.1, h.2, h0⟩
+  · rintro ⟨n, hn, hall⟩
+    rcases hn with h | h
+    · exact ⟨n, Or.inl ⟨h.1, h.2.1⟩, h.2.2, hall⟩
+    · exact ⟨n, Or.inr ⟨h.1, h.2.1⟩, h.2.2, hall⟩
 
 /-! ### Arithmetic -/
 
@@ -5378,12 +5556,12 @@ theorem failR_nonneg (l : Nat) : 0 ≤ failR l := by
   linarith
 
 theorem sum_capR :
-    ∑ l ∈ Finset.range 11, ((2 ^ (11 - l) : Nat) : ℝ) * capR l ^ 104 ≤ 1 / 2 ^ 142 := by
+    ∑ l ∈ Finset.range 11, ((2 ^ (11 - l) : Nat) : ℝ) * capR l ^ 104 ≤ 1 / 2 ^ 144 := by
   simp only [Finset.sum_range_succ, Finset.sum_range_zero, capR]
   norm_num
 
 theorem sum_failR :
-    ∑ l ∈ Finset.range 11, ((2 ^ (11 - l) : Nat) : ℝ) * failR l ≤ 1 / 2 ^ 142 := by
+    ∑ l ∈ Finset.range 11, ((2 ^ (11 - l) : Nat) : ℝ) * failR l ≤ 1 / 2 ^ 144 := by
   refine le_trans (Finset.sum_le_sum fun l hl => ?_) sum_capR
   simp only [Finset.mem_range] at hl
   apply mul_le_mul_of_nonneg_left _ (by positivity)
@@ -5395,6 +5573,53 @@ theorem sum_failR :
     rw [this]; exact base_le_exp _
   · interval_cases l <;> norm_num [capR, topZeroBits, topZeroAlloc]
 
+/-- U16b: the real cap-failure bound of a lower ground position, `(1 - 2^-b)^(128 · 2^b) ≤ 0.36788^128`. -/
+theorem lowFail_le (b : Nat) : (1 - (1 / 2 : ℝ) ^ b) ^ (128 * 2 ^ b) ≤ (36788 / 100000 : ℝ) ^ 128 := by
+  have hx0 : 0 ≤ 1 - (1 / 2 : ℝ) ^ b := by
+    have : (1 / 2 : ℝ) ^ b ≤ 1 := pow_le_one₀ (by norm_num) (by norm_num)
+    linarith
+  rw [mul_comm, pow_mul]
+  exact pow_le_pow_left₀ (pow_nonneg hx0 _) (base_le_exp b) _
+
+theorem prob_lowFail_le (p : Extract.Pos) (lay heap : Nat) (S : Finset Node)
+    (hS : S.card = 128 * 2 ^ WCT9.lowerZeroBits lay heap) :
+    Pr[fun labels : Labels => ∀ a ∈ S,
+        (fun v => WCT9.lowerZeroOk lay heap (p.proj v) = false) (labels a) |
+      ($ᵗ Labels : ProbComp Labels)] ≤ ENNReal.ofReal ((36788 / 100000 : ℝ) ^ 128) := by
+  classical
+  refine (le_of_eq (prob_forall_mem (α := Node) (β := HashOutput) (inst := instSampleableTypeLabels_capFail)
+    S (fun v => WCT9.lowerZeroOk lay heap (p.proj v) = false))).trans ?_
+  rw [hS, Fintype.card_bitVec]
+  have hb3 := lowerZeroBits_le_three lay heap
+  refine le_trans ?_ (ENNReal.ofReal_le_ofReal (lowFail_le (WCT9.lowerZeroBits lay heap)))
+  rw [ENNReal.ofReal_pow (by
+    have : (1 / 2 : ℝ) ^ WCT9.lowerZeroBits lay heap ≤ 1 := pow_le_one₀ (by norm_num) (by norm_num)
+    linarith)]
+  gcongr
+  have hf := card_fail_hash_low p lay heap
+  have := ratio_le hf (by omega)
+  convert this using 2
+
+/-- U16b: one lower ground position exhausts its `128 · 2^b` trials with probability at most `0.36788^128`. -/
+theorem prob_allFail_le_low (n : TreeNode) (hl : n.1.lay ≠ 0)
+    (hb : WCT9.lowerZeroBits n.1.lay.val (2 ^ (height n.1.lay - n.1.level.val - 1)) ≠ 0) :
+    Pr[fun labels : Labels => ∀ j < trialCap n.1.lay n.1.level.val, trialFails labels n j |
+      ($ᵗ Labels : ProbComp Labels)] ≤ ENNReal.ofReal ((36788 / 100000 : ℝ) ^ 128) := by
+  classical
+  have hev : (fun labels : Labels => ∀ j < trialCap n.1.lay n.1.level.val, trialFails labels n j) =
+      (fun labels : Labels => ∀ a ∈ trialSet n,
+        (fun v => WCT9.lowerZeroOk n.1.lay.val (2 ^ (height n.1.lay - n.1.level.val - 1))
+          ((Node.node n).toPos.proj v) = false) (labels a)) := by
+    funext labels
+    have h := allFail_iff labels n
+    unfold trialZeroOk at h
+    simp only [if_neg hl] at h
+    exact propext h
+  rw [hev]
+  apply prob_lowFail_le
+  rw [trialSet_card, trialCap_lowerG hl hb]
+  rfl
+
 end CapFailBound
 
 open CapFailBound in
@@ -5403,7 +5628,11 @@ probability at most `2^-142`. -/
 theorem prob_capFail_le :
     Pr[CapFail | ($ᵗ Labels : ProbComp Labels)] ≤ (2 ^ 142 : ℝ≥0∞)⁻¹ := by
   rw [capFail_eq]
-  refine (probEvent_exists_finset_le_sum topReps _ _).trans ?_
+  refine (probEvent_exists_finset_le_sum (topReps ∪ lowReps) _ _).trans ?_
+  rw [Finset.sum_union disjoint_reps]
+  refine le_trans (add_le_add ?_ (sum_lowReps_le _ fun n hn => by
+    simp only [lowReps, Finset.mem_filter, Finset.mem_univ, true_and] at hn
+    exact prob_allFail_le_low n hn.1 hn.2.1)) half_add_half
   calc ∑ n ∈ topReps, Pr[fun labels : Labels =>
           ∀ j < trialCap n.1.lay n.1.level.val, trialFails labels n j | ($ᵗ Labels : ProbComp Labels)]
       ≤ ∑ n ∈ topReps, ENNReal.ofReal (failR n.1.level.val) := by
@@ -5432,8 +5661,8 @@ theorem prob_capFail_le :
         apply Finset.sum_congr rfl
         intro l _
         rw [ENNReal.ofReal_mul (by positivity), ENNReal.ofReal_natCast]
-    _ ≤ ENNReal.ofReal (1 / 2 ^ 142) := ENNReal.ofReal_le_ofReal sum_failR
-    _ = (2 ^ 142 : ℝ≥0∞)⁻¹ := by
+    _ ≤ ENNReal.ofReal (1 / 2 ^ 144) := ENNReal.ofReal_le_ofReal sum_failR
+    _ = (2 ^ 144 : ℝ≥0∞)⁻¹ := by
         rw [one_div, ENNReal.ofReal_inv_of_pos (by positivity), ENNReal.ofReal_pow (by norm_num),
           ENNReal.ofReal_ofNat]
 
@@ -6677,7 +6906,7 @@ of a trial replaced by its coordinate value (the used half). -/
 def trialCoord (n : TreeNode) (j : Nat) : Coord := .inl (.node (withNonce n j))
 /-- Value-level `trialFails`. -/
 def trialFailsV (v : Coord → Digest) (n : TreeNode) (j : Nat) : Prop :=
-  topZeroOk (n.1.level.val + 1) (v (trialCoord n j)) = false
+  trialZeroOk n.1.lay n.1.level.val (v (trialCoord n j)) = false
 instance (v : Coord → Digest) (n : TreeNode) (j : Nat) : Decidable (trialFailsV v n j) := by
   unfold trialFailsV; infer_instance
 /-- Value-level `Active`. -/
@@ -6832,17 +7061,33 @@ def msgSlots (L : EncLeaf) : List (Coord × Nat) :=
     [(.inl (.node (topNode ⟨L.1.lay.val + 1, by omega⟩ (childIndex L) (childIndex_treeBits L h) 0)), 0),
       (.inl (.node (topNode ⟨L.1.lay.val + 1, by omega⟩ (childIndex L) (childIndex_treeBits L h) 1)), 3)]
   else [(.inl (.wctNode (ftsTopNode (childIndex L) 8 0)), 0), (.inl (.wctNode (ftsTopNode (childIndex L) 8 1)), 3)]
+/-- Trials read through a coordinate (tree nodes: the trials of its position). -/
+def coordTrialDeps : Coord → List Coord
+  | .inl (.node m) => trialDeps m
+  | _ => []
+/-- U16b: every coordinate `msgVals` reads: the message slots and their trials. -/
+def msgDeps (L : EncLeaf) : List Coord :=
+  (msgSlots L).map Prod.fst ++ (msgSlots L).flatMap fun cs => coordTrialDeps cs.1
 /-- The large-game simulator may reveal internal message roots for free. These
 coordinates contain neither WOTS chain values nor FTS chain values or seeds. -/
 noncomputable def encodingDisclosed : List Coord :=
   (Finset.univ : Finset EncLeaf).toList.flatMap fun L => (msgSlots L).map Prod.fst
 
 /-- Top-nonce layer: every keygen nonce trial of a top position is a disclosed keygen coordinate (its input is
-public: children are cache values, the nonce is the trial index; no secret value). -/
-noncomputable def topTrialsDisclosed : List Coord :=
+public: children are cache values, the nonce is the trial index; no secret value). U16b: the trials of every lower
+ground position (heaps 2..15) are disclosed at keygen too (trial coordinates hold no secret value; the simulator may
+reveal them for free), so every multi-trial coordinate is a keygen coordinate. -/
+noncomputable def trialsDisclosed : List Coord :=
   ((Finset.univ : Finset TreeNode).filter fun n =>
-    n.1.lay = 0 ∧ trialCap n.1.lay n.1.level.val ≠ 1 ∧ n.1.nonce.val < trialCap n.1.lay n.1.level.val).toList.map
+    trialCap n.1.lay n.1.level.val ≠ 1 ∧ n.1.nonce.val < trialCap n.1.lay n.1.level.val).toList.map
     fun n => .inl (.node n)
+/-- U16b: the child coordinates of the lower ground positions (tree nodes two to five levels below a lower root; no
+secret value), disclosed at keygen so that every multi-trial position has known children (as on the top tree). -/
+noncomputable def groundChildren : List Coord :=
+  ((Finset.univ : Finset TreeNode).filter fun n =>
+    n.1.lay ≠ 0 ∧ trialCap n.1.lay n.1.level.val ≠ 1 ∧ n.1.nonce.val = 0).toList.flatMap
+    fun n => (childSlots (.node n)).map Prod.fst
+noncomputable def topTrialsDisclosed : List Coord := trialsDisclosed ++ groundChildren
 
 noncomputable def keygenDisclosed : List Coord :=
   keygenCacheDisclosed ++ encodingDisclosed ++ topTrialsDisclosed
@@ -6868,27 +7113,81 @@ theorem encodingDisclosed_shape {c : Coord} (hc : c ∈ encodingDisclosed) :
   · simp only [List.mem_cons, List.not_mem_nil, or_false] at hcs
     rcases hcs with rfl | rfl <;> exact Or.inr ⟨_, rfl⟩
 
-theorem mem_topTrialsDisclosed {c : Coord} :
-    c ∈ topTrialsDisclosed ↔ ∃ n : TreeNode, c = .inl (.node n) ∧
-      n.1.lay = 0 ∧ trialCap n.1.lay n.1.level.val ≠ 1 ∧ n.1.nonce.val < trialCap n.1.lay n.1.level.val := by
-  unfold topTrialsDisclosed
+theorem mem_trialsDisclosed {c : Coord} :
+    c ∈ trialsDisclosed ↔ ∃ n : TreeNode, c = .inl (.node n) ∧
+      trialCap n.1.lay n.1.level.val ≠ 1 ∧ n.1.nonce.val < trialCap n.1.lay n.1.level.val := by
+  unfold trialsDisclosed
   simp only [List.mem_map, Finset.mem_toList, Finset.mem_filter, Finset.mem_univ, true_and]
   constructor
   · rintro ⟨n, hn, rfl⟩; exact ⟨n, rfl, hn⟩
   · rintro ⟨n, rfl, hn⟩; exact ⟨n, hn, rfl⟩
+theorem mem_topTrialsDisclosed {c : Coord} (h : ∃ n : TreeNode, c = .inl (.node n) ∧
+      trialCap n.1.lay n.1.level.val ≠ 1 ∧ n.1.nonce.val < trialCap n.1.lay n.1.level.val) :
+    c ∈ topTrialsDisclosed :=
+  List.mem_append_left _ (mem_trialsDisclosed.mpr h)
+/-- U16b: a lower ground position is at least two levels above the leaves (`height ≥ 6`, heap `< 16`). -/
+theorem level_pos_of_ground {lay : Layer} {level : Nat} (hl : lay ≠ 0)
+    (hb : WCT9.lowerZeroBits lay.val (2 ^ (height lay - level - 1)) ≠ 0) : level ≠ 0 := by
+  intro h0
+  subst h0
+  apply hb
+  have h6 : 6 ≤ height lay := by fin_cases lay <;> simp [height] at hl ⊢
+  have : 16 ≤ 2 ^ (height lay - 0 - 1) :=
+    le_trans (by norm_num) (Nat.pow_le_pow_right (by norm_num) (show 4 ≤ height lay - 0 - 1 by omega))
+  unfold WCT9.lowerZeroBits
+  rw [if_pos (Or.inr (Or.inr this))]
+theorem groundChildren_shape {c : Coord} (hc : c ∈ groundChildren) : ∃ n, c = .inl (.node n) := by
+  unfold groundChildren at hc
+  obtain ⟨n, hn, hc⟩ := List.mem_flatMap.mp hc
+  simp only [Finset.mem_toList, Finset.mem_filter, Finset.mem_univ, true_and] at hn
+  obtain ⟨hl, h1, -⟩ := hn
+  have hlev : n.1.level.val ≠ 0 := by
+    rcases trialCap_ne_one h1 with h | h
+    · exact absurd h.1 hl
+    · exact level_pos_of_ground hl h.2
+  obtain ⟨⟨c', b⟩, hcs, rfl⟩ := List.mem_map.mp hc
+  simp only [childSlots] at hcs
+  split_ifs at hcs
+  · cases hcs
+  simp only [List.mem_append, Option.mem_toList, Option.map_eq_some_iff, Prod.mk.injEq] at hcs
+  rcases hcs with ⟨x, hx, hxe, -⟩ | ⟨x, hx, hxe, -⟩ <;> subst hxe <;>
+  · unfold treeChild at hx
+    rw [if_neg hlev] at hx
+    obtain ⟨m, -, rfl⟩ := Option.map_eq_some_iff.mp hx
+    exact ⟨m, rfl⟩
 theorem topTrialsDisclosed_shape {c : Coord} (hc : c ∈ topTrialsDisclosed) : ∃ n, c = .inl (.node n) := by
-  obtain ⟨n, rfl, -⟩ := mem_topTrialsDisclosed.mp hc
-  exact ⟨n, rfl⟩
-theorem trialCoord_mem_topTrials {n : TreeNode} (hl : n.1.lay = 0) (hc : trialCap n.1.lay n.1.level.val ≠ 1) {j : Nat}
+  rcases List.mem_append.mp hc with hc | hc
+  · obtain ⟨n, rfl, -⟩ := mem_trialsDisclosed.mp hc
+    exact ⟨n, rfl⟩
+  · exact groundChildren_shape hc
+/-- U16b: the child slots of a lower ground node are keygen coordinates. -/
+theorem groundChild_mem_keygen {n : TreeNode} (hl : n.1.lay ≠ 0) (h1 : trialCap n.1.lay n.1.level.val ≠ 1)
+    {cs : Coord × Nat} (hc : cs ∈ childSlots (.node n)) : cs.1 ∈ keygenDisclosed := by
+  apply List.mem_append_right
+  apply List.mem_append_right
+  unfold groundChildren
+  refine List.mem_flatMap.mpr ⟨withNonce n 0, ?_, ?_⟩
+  · simp only [Finset.mem_toList, Finset.mem_filter, Finset.mem_univ, true_and]
+    exact ⟨hl, h1, withNonce_nonce n (by norm_num)⟩
+  · refine List.mem_map.mpr ⟨cs, ?_, rfl⟩
+    have hpos := trialCap_pos n.1.lay n.1.level.val
+    simp only [childSlots] at hc ⊢
+    split_ifs at hc with hcap
+    · cases hc
+    have hcond : ¬ (trialCap (withNonce n 0).1.lay (withNonce n 0).1.level.val ≤ (withNonce n 0).1.nonce.val) := by
+      rw [withNonce_lay, withNonce_level, withNonce_nonce n (by norm_num)]; omega
+    rw [if_neg hcond]
+    exact hc
+theorem trialCoord_mem_topTrials {n : TreeNode} (hc : trialCap n.1.lay n.1.level.val ≠ 1) {j : Nat}
     (hj : j < trialCap n.1.lay n.1.level.val) : trialCoord n j ∈ topTrialsDisclosed := by
-  refine mem_topTrialsDisclosed.mpr ⟨withNonce n j, rfl, hl, hc, ?_⟩
+  refine mem_topTrialsDisclosed ⟨withNonce n j, rfl, hc, ?_⟩
   have := trialCap_le n.1.lay n.1.level.val
   rw [withNonce_nonce n (by omega)]
   exact hj
-theorem trialCoord_mem_keygen {n : TreeNode} (hl : n.1.lay = 0) (hc : trialCap n.1.lay n.1.level.val ≠ 1) {j : Nat}
+theorem trialCoord_mem_keygen {n : TreeNode} (hc : trialCap n.1.lay n.1.level.val ≠ 1) {j : Nat}
     (hj : j < trialCap n.1.lay n.1.level.val) : trialCoord n j ∈ keygenDisclosed := by
   apply List.mem_append_right
-  refine mem_topTrialsDisclosed.mpr ⟨withNonce n j, rfl, hl, hc, ?_⟩
+  refine mem_topTrialsDisclosed ⟨withNonce n j, rfl, hc, ?_⟩
   have := trialCap_le n.1.lay n.1.level.val
   rw [withNonce_nonce n (by omega)]
   exact hj
@@ -6898,10 +7197,12 @@ theorem mem_keygenDisclosed {c : Coord} :
   unfold keygenDisclosed
   simp only [List.mem_append, or_assoc]
 
+/-- The message of encoding leaf `L` from coordinate values. U16b: the root children of a lower tree (heaps 2, 3) are
+ground positions, so their values are read through the selected trial (`selVals`). -/
 def msgVals (vals : Coord → Digest) (L : EncLeaf) : WCT9.LayerMsg :=
   if h : L.1.lay.val < 3 then
-    .pair (vals (.inl (.node (topNode ⟨L.1.lay.val + 1, by omega⟩ (childIndex L) (childIndex_treeBits L h) 0))))
-      (vals (.inl (.node (topNode ⟨L.1.lay.val + 1, by omega⟩ (childIndex L) (childIndex_treeBits L h) 1))))
+    .pair (selVals vals (.inl (.node (topNode ⟨L.1.lay.val + 1, by omega⟩ (childIndex L) (childIndex_treeBits L h) 0))))
+      (selVals vals (.inl (.node (topNode ⟨L.1.lay.val + 1, by omega⟩ (childIndex L) (childIndex_treeBits L h) 1))))
   else .pair (vals (.inl (.wctNode (ftsTopNode (childIndex L) 8 0))))
     (vals (.inl (.wctNode (ftsTopNode (childIndex L) 8 1))))
 noncomputable def firstUnknownMsg (K : Coord → Prop) (L : EncLeaf) : Option (Coord × Nat) :=
@@ -10271,7 +10572,7 @@ noncomputable def routeQuery (a : AuxData) (st : RouterState) (X : HashInput) :
       | some cs => (fun y => (y, st')) <$>
           testReq U first ⟨X, h⟩ ⟨some (.inl cs.1, slotValue X cs.2), .target (refDigest a L)⟩
       | none => do
-          let pairs ← discloseAll U ((msgSlots L).map Prod.fst)
+          let pairs ← discloseAll U (msgDeps L)
           if X = Wots.encRow L.toWots (msgVals (lookupVal pairs) L) ctr 0 ∧ PrefixRow a L ctr then do
             tickReq U .call
             pure (prefixValue a L ctr, st')
@@ -10656,7 +10957,7 @@ noncomputable def routeQuery (a : AuxData) (st : RouterState) (X : HashInput) :
       let L := Classical.choose he
       let ctr := Classical.choose (Classical.choose_spec (Classical.choose_spec he))
       do
-        let pairs ← discloseAll U ((msgSlots L).map Prod.fst)
+        let pairs ← discloseAll U (msgDeps L)
         if X=Wots.encRow L.toWots (msgVals (lookupVal pairs) L) ctr 0 ∧ PrefixRow a L ctr then do
           tickReq U .call
           pure (prefixValue a L ctr,st')
@@ -10720,7 +11021,7 @@ noncomputable def routeQuerySelected (a : AuxData) (st : RouterState) (X : HashI
       let L := Classical.choose he
       let ctr := Classical.choose (Classical.choose_spec (Classical.choose_spec he))
       do
-        let pairs ← discloseAll U ((msgSlots L).map Prod.fst)
+        let pairs ← discloseAll U (msgDeps L)
         if X=Wots.encRow L.toWots (msgVals (lookupVal pairs) L) ctr 0 ∧ PrefixRow a L ctr then do
           tickReq U .call
           pure (prefixValue a L ctr,st')

@@ -21,7 +21,9 @@ def cfgW : Config := { noAlias := true }
 
 def cP1 : List (BitVec 32) := [0x66e37,0x700e0e13,0x58e3e83,0x3f37,0xe10f0f13,0x3fef713,0x471893,0x371713,0x1170733,0x2c8b7,0x28488893,0x1170733,0x70067]
 def cS1 : List (BitVec 32) := [0x1e585b3,0xe3303,0x65b023,0x1e60633,0x8e3303,0x663023,0x1e686b3,0x10e3303,0x66b023,0x1e787b3,0x18e3303,0x67b023,0x1e80833,0x20e3303,0x683023,0x28e3303,0x166f3823,0x6ed713,0x3f77713,0x471893,0x371713,0x1170733,0x2d8b7,0x88488893,0x1170733,0x70067]
-def cS2 : List (BitVec 32) := [0x1e585b3,0x30e3303,0x65b023,0x1e60633,0x38e3303,0x663023,0x1e686b3,0x40e3303,0x66b023,0x1e787b3,0x48e3303,0x67b023,0x1e80833,0x50e3303,0x683023,0x513,0x73]
+def cS2 : List (BitVec 32) := [0x1e585b3,0x30e3303,0x65b023,0x1e60633,0x38e3303,0x663023,0x1e686b3,0x40e3303,0x66b023,0x1e787b3,0x48e3303,0x67b023,0x1e80833,0x50e3303,0x683023]
+/-- U16b: word 45015 is `jal 54970` (the positional post-pass). -/
+def cJ45015 : List (BitVec 32) := [0x38d0906f]
 def cHook : List (BitVec 32) := [0x80cf706f]
 /-- The 128 offset rows of the jump table at 44193 (rows 0..63: line A, 64..127: line B), read from the image. -/
 def offTable : List (List Nat) := [[448,496,544,592,640],[432,496,544,592,640],[496,432,544,592,640],[480,432,544,592,640],[496,544,432,592,640],[480,544,432,592,640],[544,480,432,592,640],[528,480,432,592,640],[496,544,592,432,640],[480,544,592,432,640],[544,480,592,432,640],[528,480,592,432,640],[544,592,480,432,640],[528,592,480,432,640],[592,528,480,432,640],[576,528,480,432,640],[496,544,592,640,432],[480,544,592,640,432],[544,480,592,640,432],[528,480,592,640,432],[544,592,480,640,432],[528,592,480,640,432],[592,528,480,640,432],[576,528,480,640,432],[544,592,640,480,432],[528,592,640,480,432],[592,528,640,480,432],[576,528,640,480,432],[592,640,528,480,432],[576,640,528,480,432],[640,576,528,480,432],[624,576,528,480,432],[432,480,528,576,624],[416,480,528,576,624],[480,416,528,576,624],[464,416,528,576,624],[480,528,416,576,624],[464,528,416,576,624],[528,464,416,576,624],[512,464,416,576,624],[480,528,576,416,624],[464,528,576,416,624],[528,464,576,416,624],[512,464,576,416,624],[528,576,464,416,624],[512,576,464,416,624],[576,512,464,416,624],[560,512,464,416,624],[480,528,576,624,416],[464,528,576,624,416],[528,464,576,624,416],[512,464,576,624,416],[528,576,464,624,416],[512,576,464,624,416],[576,512,464,624,416],[560,512,464,624,416],[528,576,624,464,416],[512,576,624,464,416],[576,512,624,464,416],[560,512,624,464,416],[576,624,512,464,416],[560,624,512,464,416],[624,560,512,464,416],[608,560,512,464,416],[32,80,128,176,224],[32,96,144,192,240],[96,32,144,192,240],[80,32,144,192,240],[96,144,32,192,240],[80,144,32,192,240],[144,80,32,192,240],[128,80,32,192,240],[96,144,192,32,240],[80,144,192,32,240],[144,80,192,32,240],[128,80,192,32,240],[144,192,80,32,240],[128,192,80,32,240],[192,128,80,32,240],[176,128,80,32,240],[96,144,192,240,32],[80,144,192,240,32],[144,80,192,240,32],[128,80,192,240,32],[144,192,80,240,32],[128,192,80,240,32],[192,128,80,240,32],[176,128,80,240,32],[144,192,240,80,32],[128,192,240,80,32],[192,128,240,80,32],[176,128,240,80,32],[192,240,128,80,32],[176,240,128,80,32],[240,176,128,80,32],[224,176,128,80,32],[96,144,192,240,288],[80,144,192,240,288],[144,80,192,240,288],[128,80,192,240,288],[144,192,80,240,288],[128,192,80,240,288],[192,128,80,240,288],[176,128,80,240,288],[144,192,240,80,288],[128,192,240,80,288],[192,128,240,80,288],[176,128,240,80,288],[192,240,128,80,288],[176,240,128,80,288],[240,176,128,80,288],[224,176,128,80,288],[144,192,240,288,80],[128,192,240,288,80],[192,128,240,288,80],[176,128,240,288,80],[192,240,128,288,80],[176,240,128,288,80],[240,176,128,288,80],[224,176,128,288,80],[192,240,288,128,80],[176,240,288,128,80],[240,176,288,128,80],[224,176,288,128,80],[240,288,176,128,80],[224,288,176,128,80],[288,224,176,128,80],[272,224,176,128,80]]
@@ -34,12 +36,14 @@ theorem code_last {b : Nat} {code : List (BitVec 32)} (hlo : 44032 ≤ b)
 theorem code_P1 : CodeAt Images.expandImage (pcOf 44961) cP1 := code_last (by decide) (by decide) (by decide +kernel)
 theorem code_S1 : CodeAt Images.expandImage (pcOf 44974) cS1 := code_last (by decide) (by decide) (by decide +kernel)
 theorem code_S2 : CodeAt Images.expandImage (pcOf 45000) cS2 := code_last (by decide) (by decide) (by decide +kernel)
+theorem code_J45015 : CodeAt Images.expandImage (pcOf 45015) cJ45015 := code_last (by decide) (by decide) (by decide +kernel)
 theorem code_hook : CodeAt Images.expandImage (pcOf 54174) cHook := code_last (by decide) (by decide) (by decide +kernel)
 theorem code_table : CodeAt Images.expandImage (pcOf 44193) cTable := code_last (by decide) (by decide) (by decide +kernel)
 
 sym_block eP1 := symRun cfgW cP1 (pcOf 44961) 40
 sym_block eS1 := symRun cfgW cS1 (pcOf 44974) 40
 sym_block eS2 := symRun cfgW cS2 (pcOf 45000) 40
+sym_block eJ45015 := symRun cfgW cJ45015 (pcOf 45015) 4
 sym_block eHook := symRun cfgW cHook (pcOf 54174) 4
 
 
@@ -150,12 +154,12 @@ theorem s2_spec (u : MachineState) (hpc : u.pc = pcOf 45000) (a1 a2 a3 a5 a6 : N
     (h13 : u.getReg .x13 = BitVec.ofNat 64 a3) (h15 : u.getReg .x15 = BitVec.ofNat 64 a5)
     (h16 : u.getReg .x16 = BitVec.ofNat 64 a6) (h28 : u.getReg .x28 = BitVec.ofNat 64 0x66700)
     (h30 : u.getReg .x30 = BitVec.ofNat 64 11792) :
-    ∃ v, Steps Images.expandImage u 16 16 v ∧ v.pc = pcOf 45016 ∧ v.getReg .x10 = 0 ∧
+    ∃ v, Steps Images.expandImage u 15 15 v ∧ v.pc = pcOf 45015 ∧
       RegsExcept u v [.x6, .x10, .x11, .x12, .x13, .x15, .x16] ∧
       ∀ A, v.getMem A = upd (upd (upd (upd (upd u.getMem (a1 + 11792) (u.getMem (nonceAddr 6)))
         (a2 + 11792) (u.getMem (nonceAddr 7))) (a3 + 11792) (u.getMem (nonceAddr 8)))
         (a5 + 11792) (u.getMem (nonceAddr 9))) (a6 + 11792) (u.getMem (nonceAddr 10)) A := by
-  refine ⟨_, symRun_sound eS2 code_S2 u hpc ?_, rfl, rfl, ?_, ?_⟩
+  refine ⟨_, symRun_sound eS2 code_S2 u hpc ?_, rfl, ?_, ?_⟩
   · simp only [rv_simp, accessValid_iff, MEMORY_BYTES, ne_eq, BitVec.toNat_eq, BitVec.toNat_add, BitVec.toNat_sub,
       BitVec.toNat_ofNat, eS2.res, h11, h12, h13, h15, h16, h28, h30] <;> (try and_intros) <;> first | trivial | omega
   · intro x hx
@@ -164,6 +168,306 @@ theorem s2_spec (u : MachineState) (hpc : u.pc = pcOf 45000) (a1 a2 a3 a5 a6 : N
   · intro A
     simp only [Result.toState_getMem, eS2.res, memEval_cons, memEval_nil, Addr.eval, E.eval, BinOp.eval,
       RegFile.get, h11, h12, h13, h15, h16, h28, h30, BitVec.add_zero, BitVec.ofNat_add_ofNat, upd, nonceAddr]
+
+
+/-! ## U16b positional post-pass (words 54970..55019; pad-address table 55020..56043)
+`45015: jal 54970`. For each lower layer (1, 2, 3) the post-pass reads the fold-0 parent heap recorded by the grind stub
+at `0x700000 + 32 (lay - 1) + 24`, jumps into the table row `rowBase lay + leaf / 2` (`lui/addi a1, a2, a3`) and stores
+the recorded nonces (`+16`, `+8`, `+0`: classes 8..15, 4..7, 2..3) at the three pad addresses; `a0 := 0`; `ecall` at
+55019 (`post_spec`). -/
+def cPost : List (BitVec 32) := [0x700fb7,0x18fb903,0xfc090913,0x4000e13,0x3c97863,0x37e37,0xbb0e0e13,0x591e93,0x1de0e33,0xe00e7,0x10fbf03,0x1e5b023,0x8fbf03,0x1e63023,0xfbf03,0x1e6b023,0x700fb7,0x38fb903,0xfe090913,0x2000e13,0x3c97863,0x37e37,0x3b0e0e13,0x591e93,0x1de0e33,0xe00e7,0x30fbf03,0x1e5b023,0x28fbf03,0x1e63023,0x20fbf03,0x1e6b023,0x700fb7,0x58fb903,0xfe090913,0x2000e13,0x3c97863,0x37e37,0x7b0e0e13,0x591e93,0x1de0e33,0xe00e7,0x50fbf03,0x1e5b023,0x48fbf03,0x1e63023,0x40fbf03,0x1e6b023,0x513,0x73]
+/-! U16b expand positional post-pass (words 54970..55019; pad-address table 55020..56043). -/
+
+/-- The 128 table rows (8 words each: `lui/addi a1, a2, a3`, `jalr zero, 0(ra)`, `nop`), read from the image. -/
+def cTab : List (BitVec 32) := [0x45b7,0xfa858593,0x4637,0xfd860613,0x46b7,0x5868693,0x8067,0x13,0x45b7,0xff858593,0x4637,0x2860613,0x46b7,0x5868693,0x8067,0x13,0x45b7,0xff858593,0x4637,0x2860613,0x46b7,0x5868693,0x8067,0x13,0x45b7,0xff858593,0x4637,0x2860613,0x46b7,0x5868693,0x8067,0x13,0x45b7,0xfe858593,0x4637,0x2860613,0x46b7,0x5868693,0x8067,0x13,0x45b7,0xf8858593,0x4637,0x2860613,0x46b7,0x5868693,0x8067,0x13,0x45b7,0xfb858593,0x4637,0x2860613,0x46b7,0x5868693,0x8067,0x13,0x45b7,0xf8858593,0x4637,0x2860613,0x46b7,0x5868693,0x8067,0x13,0x45b7,0xfa858593,0x4637,0x1860613,0x46b7,0x5868693,0x8067,0x13,0x45b7,0x2858593,0x4637,0xf8860613,0x46b7,0x5868693,0x8067,0x13,0x45b7,0x2858593,0x4637,0xfb860613,0x46b7,0x5868693,0x8067,0x13,0x45b7,0x2858593,0x4637,0xf8860613,0x46b7,0x5868693,0x8067,0x13,0x45b7,0x1858593,0x4637,0xfe860613,0x46b7,0x5868693,0x8067,0x13,0x45b7,0xfb858593,0x4637,0xf8860613,0x46b7,0x5868693,0x8067,0x13,0x45b7,0xfe858593,0x4637,0xfb860613,0x46b7,0x5868693,0x8067,0x13,0x45b7,0xfb858593,0x4637,0xf8860613,0x46b7,0x5868693,0x8067,0x13,0x45b7,0xfa858593,0x4637,0xfd860613,0x46b7,0x4868693,0x8067,0x13,0x45b7,0x2858593,0x4637,0x5860613,0x46b7,0xf8868693,0x8067,0x13,0x45b7,0x2858593,0x4637,0x5860613,0x46b7,0xfb868693,0x8067,0x13,0x45b7,0x2858593,0x4637,0x5860613,0x46b7,0xf8868693,0x8067,0x13,0x45b7,0x1858593,0x4637,0x5860613,0x46b7,0xfe868693,0x8067,0x13,0x45b7,0xfb858593,0x4637,0x5860613,0x46b7,0xf8868693,0x8067,0x13,0x45b7,0xfe858593,0x4637,0x5860613,0x46b7,0xfb868693,0x8067,0x13,0x45b7,0xfb858593,0x4637,0x5860613,0x46b7,0xf8868693,0x8067,0x13,0x45b7,0xfa858593,0x4637,0x4860613,0x46b7,0x1868693,0x8067,0x13,0x45b7,0x5858593,0x4637,0xfb860613,0x46b7,0xf8868693,0x8067,0x13,0x45b7,0x5858593,0x4637,0xfe860613,0x46b7,0xfb868693,0x8067,0x13,0x45b7,0x5858593,0x4637,0xfb860613,0x46b7,0xf8868693,0x8067,0x13,0x45b7,0x4858593,0x4637,0x1860613,0x46b7,0xfe868693,0x8067,0x13,0x45b7,0xfe858593,0x4637,0xfb860613,0x46b7,0xf8868693,0x8067,0x13,0x45b7,0x1858593,0x4637,0xfe860613,0x46b7,0xfb868693,0x8067,0x13,0x45b7,0xfe858593,0x4637,0xfb860613,0x46b7,0xf8868693,0x8067,0x13,0x45b7,0xfa858593,0x4637,0x2860613,0x46b7,0x5868693,0x8067,0x13,0x45b7,0xff858593,0x4637,0x2860613,0x46b7,0x5868693,0x8067,0x13,0x45b7,0xff858593,0x4637,0x2860613,0x46b7,0x5868693,0x8067,0x13,0x45b7,0xff858593,0x4637,0x2860613,0x46b7,0x5868693,0x8067,0x13,0x45b7,0xfe858593,0x4637,0x2860613,0x46b7,0x5868693,0x8067,0x13,0x45b7,0xf8858593,0x4637,0x2860613,0x46b7,0x5868693,0x8067,0x13,0x45b7,0xfb858593,0x4637,0x2860613,0x46b7,0x5868693,0x8067,0x13,0x45b7,0xf8858593,0x4637,0x2860613,0x46b7,0x5868693,0x8067,0x13,0x45b7,0xfa858593,0x4637,0x1860613,0x46b7,0x5868693,0x8067,0x13,0x45b7,0x2858593,0x4637,0xf8860613,0x46b7,0x5868693,0x8067,0x13,0x45b7,0x2858593,0x4637,0xfb860613,0x46b7,0x5868693,0x8067,0x13,0x45b7,0x2858593,0x4637,0xf8860613,0x46b7,0x5868693,0x8067,0x13,0x45b7,0x1858593,0x4637,0xfe860613,0x46b7,0x5868693,0x8067,0x13,0x45b7,0xfb858593,0x4637,0xf8860613,0x46b7,0x5868693,0x8067,0x13,0x45b7,0xfe858593,0x4637,0xfb860613,0x46b7,0x5868693,0x8067,0x13,0x45b7,0xfb858593,0x4637,0xf8860613,0x46b7,0x5868693,0x8067,0x13,0x45b7,0xfa858593,0x4637,0x5860613,0x46b7,0x1868693,0x8067,0x13,0x45b7,0x2858593,0x4637,0x5860613,0x46b7,0xf8868693,0x8067,0x13,0x45b7,0x2858593,0x4637,0x5860613,0x46b7,0xfb868693,0x8067,0x13,0x45b7,0x2858593,0x4637,0x5860613,0x46b7,0xf8868693,0x8067,0x13,0x45b7,0x1858593,0x4637,0x5860613,0x46b7,0xfe868693,0x8067,0x13,0x45b7,0xfb858593,0x4637,0x5860613,0x46b7,0xf8868693,0x8067,0x13,0x45b7,0xfe858593,0x4637,0x5860613,0x46b7,0xfb868693,0x8067,0x13,0x45b7,0xfb858593,0x4637,0x5860613,0x46b7,0xf8868693,0x8067,0x13,0x45b7,0xfa858593,0x4637,0x4860613,0x46b7,0x1868693,0x8067,0x13,0x45b7,0x5858593,0x4637,0xfb860613,0x46b7,0xf8868693,0x8067,0x13,0x45b7,0x5858593,0x4637,0xfe860613,0x46b7,0xfb868693,0x8067,0x13,0x45b7,0x5858593,0x4637,0xfb860613,0x46b7,0xf8868693,0x8067,0x13,0x45b7,0x4858593,0x4637,0x1860613,0x46b7,0xfe868693,0x8067,0x13,0x45b7,0xfe858593,0x4637,0xfb860613,0x46b7,0xf8868693,0x8067,0x13,0x45b7,0x1858593,0x4637,0xfe860613,0x46b7,0xfb868693,0x8067,0x13,0x45b7,0xfe858593,0x4637,0xfb860613,0x46b7,0xf8868693,0x8067,0x13,0x55b7,0xc8058593,0x5637,0xcb060613,0x56b7,0xce068693,0x8067,0x13,0x55b7,0xc8058593,0x5637,0xcb060613,0x56b7,0xce068693,0x8067,0x13,0x55b7,0xc1058593,0x5637,0xcb060613,0x56b7,0xce068693,0x8067,0x13,0x55b7,0xc1058593,0x5637,0xcb060613,0x56b7,0xce068693,0x8067,0x13,0x55b7,0xcb058593,0x5637,0xc1060613,0x56b7,0xce068693,0x8067,0x13,0x55b7,0xcb058593,0x5637,0xc1060613,0x56b7,0xce068693,0x8067,0x13,0x55b7,0xc4058593,0x5637,0xc1060613,0x56b7,0xce068693,0x8067,0x13,0x55b7,0xc4058593,0x5637,0xc1060613,0x56b7,0xce068693,0x8067,0x13,0x55b7,0xcb058593,0x5637,0xce060613,0x56b7,0xc1068693,0x8067,0x13,0x55b7,0xcb058593,0x5637,0xce060613,0x56b7,0xc1068693,0x8067,0x13,0x55b7,0xc4058593,0x5637,0xce060613,0x56b7,0xc1068693,0x8067,0x13,0x55b7,0xc4058593,0x5637,0xce060613,0x56b7,0xc1068693,0x8067,0x13,0x55b7,0xce058593,0x5637,0xc4060613,0x56b7,0xc1068693,0x8067,0x13,0x55b7,0xce058593,0x5637,0xc4060613,0x56b7,0xc1068693,0x8067,0x13,0x55b7,0xc7058593,0x5637,0xc4060613,0x56b7,0xc1068693,0x8067,0x13,0x55b7,0xc7058593,0x5637,0xc4060613,0x56b7,0xc1068693,0x8067,0x13,0x55b7,0xcb058593,0x5637,0xce060613,0x56b7,0xd1068693,0x8067,0x13,0x55b7,0xcb058593,0x5637,0xce060613,0x56b7,0xd1068693,0x8067,0x13,0x55b7,0xc4058593,0x5637,0xce060613,0x56b7,0xd1068693,0x8067,0x13,0x55b7,0xc4058593,0x5637,0xce060613,0x56b7,0xd1068693,0x8067,0x13,0x55b7,0xce058593,0x5637,0xc4060613,0x56b7,0xd1068693,0x8067,0x13,0x55b7,0xce058593,0x5637,0xc4060613,0x56b7,0xd1068693,0x8067,0x13,0x55b7,0xc7058593,0x5637,0xc4060613,0x56b7,0xd1068693,0x8067,0x13,0x55b7,0xc7058593,0x5637,0xc4060613,0x56b7,0xd1068693,0x8067,0x13,0x55b7,0xce058593,0x5637,0xd1060613,0x56b7,0xc4068693,0x8067,0x13,0x55b7,0xce058593,0x5637,0xd1060613,0x56b7,0xc4068693,0x8067,0x13,0x55b7,0xc7058593,0x5637,0xd1060613,0x56b7,0xc4068693,0x8067,0x13,0x55b7,0xc7058593,0x5637,0xd1060613,0x56b7,0xc4068693,0x8067,0x13,0x55b7,0xd1058593,0x5637,0xc7060613,0x56b7,0xc4068693,0x8067,0x13,0x55b7,0xd1058593,0x5637,0xc7060613,0x56b7,0xc4068693,0x8067,0x13,0x55b7,0xca058593,0x5637,0xc7060613,0x56b7,0xc4068693,0x8067,0x13,0x55b7,0xca058593,0x5637,0xc7060613,0x56b7,0xc4068693,0x8067,0x13,0x65b7,0x93858593,0x6637,0x96860613,0x66b7,0x99868693,0x8067,0x13,0x65b7,0x93858593,0x6637,0x96860613,0x66b7,0x99868693,0x8067,0x13,0x65b7,0x8c858593,0x6637,0x96860613,0x66b7,0x99868693,0x8067,0x13,0x65b7,0x8c858593,0x6637,0x96860613,0x66b7,0x99868693,0x8067,0x13,0x65b7,0x96858593,0x6637,0x8c860613,0x66b7,0x99868693,0x8067,0x13,0x65b7,0x96858593,0x6637,0x8c860613,0x66b7,0x99868693,0x8067,0x13,0x65b7,0x8f858593,0x6637,0x8c860613,0x66b7,0x99868693,0x8067,0x13,0x65b7,0x8f858593,0x6637,0x8c860613,0x66b7,0x99868693,0x8067,0x13,0x65b7,0x96858593,0x6637,0x99860613,0x66b7,0x8c868693,0x8067,0x13,0x65b7,0x96858593,0x6637,0x99860613,0x66b7,0x8c868693,0x8067,0x13,0x65b7,0x8f858593,0x6637,0x99860613,0x66b7,0x8c868693,0x8067,0x13,0x65b7,0x8f858593,0x6637,0x99860613,0x66b7,0x8c868693,0x8067,0x13,0x65b7,0x99858593,0x6637,0x8f860613,0x66b7,0x8c868693,0x8067,0x13,0x65b7,0x99858593,0x6637,0x8f860613,0x66b7,0x8c868693,0x8067,0x13,0x65b7,0x92858593,0x6637,0x8f860613,0x66b7,0x8c868693,0x8067,0x13,0x65b7,0x92858593,0x6637,0x8f860613,0x66b7,0x8c868693,0x8067,0x13,0x65b7,0x96858593,0x6637,0x99860613,0x66b7,0x9c868693,0x8067,0x13,0x65b7,0x96858593,0x6637,0x99860613,0x66b7,0x9c868693,0x8067,0x13,0x65b7,0x8f858593,0x6637,0x99860613,0x66b7,0x9c868693,0x8067,0x13,0x65b7,0x8f858593,0x6637,0x99860613,0x66b7,0x9c868693,0x8067,0x13,0x65b7,0x99858593,0x6637,0x8f860613,0x66b7,0x9c868693,0x8067,0x13,0x65b7,0x99858593,0x6637,0x8f860613,0x66b7,0x9c868693,0x8067,0x13,0x65b7,0x92858593,0x6637,0x8f860613,0x66b7,0x9c868693,0x8067,0x13,0x65b7,0x92858593,0x6637,0x8f860613,0x66b7,0x9c868693,0x8067,0x13,0x65b7,0x99858593,0x6637,0x9c860613,0x66b7,0x8f868693,0x8067,0x13,0x65b7,0x99858593,0x6637,0x9c860613,0x66b7,0x8f868693,0x8067,0x13,0x65b7,0x92858593,0x6637,0x9c860613,0x66b7,0x8f868693,0x8067,0x13,0x65b7,0x92858593,0x6637,0x9c860613,0x66b7,0x8f868693,0x8067,0x13,0x65b7,0x9c858593,0x6637,0x92860613,0x66b7,0x8f868693,0x8067,0x13,0x65b7,0x9c858593,0x6637,0x92860613,0x66b7,0x8f868693,0x8067,0x13,0x65b7,0x95858593,0x6637,0x92860613,0x66b7,0x8f868693,0x8067,0x13,0x65b7,0x95858593,0x6637,0x92860613,0x66b7,0x8f868693,0x8067,0x13]
+/-- The decoded table (row `rowBase lay + leaf / 2`, columns a1, a2, a3), `SigGolfCandidate.U16b.padTab`. -/
+def padTab : List (List Nat) := [[16296,16344,16472],[16376,16424,16472],[16376,16424,16472],[16376,16424,16472],[16360,16424,16472],[16264,16424,16472],[16312,16424,16472],[16264,16424,16472],[16296,16408,16472],[16424,16264,16472],[16424,16312,16472],[16424,16264,16472],[16408,16360,16472],[16312,16264,16472],[16360,16312,16472],[16312,16264,16472],[16296,16344,16456],[16424,16472,16264],[16424,16472,16312],[16424,16472,16264],[16408,16472,16360],[16312,16472,16264],[16360,16472,16312],[16312,16472,16264],[16296,16456,16408],[16472,16312,16264],[16472,16360,16312],[16472,16312,16264],[16456,16408,16360],[16360,16312,16264],[16408,16360,16312],[16360,16312,16264],[16296,16424,16472],[16376,16424,16472],[16376,16424,16472],[16376,16424,16472],[16360,16424,16472],[16264,16424,16472],[16312,16424,16472],[16264,16424,16472],[16296,16408,16472],[16424,16264,16472],[16424,16312,16472],[16424,16264,16472],[16408,16360,16472],[16312,16264,16472],[16360,16312,16472],[16312,16264,16472],[16296,16472,16408],[16424,16472,16264],[16424,16472,16312],[16424,16472,16264],[16408,16472,16360],[16312,16472,16264],[16360,16472,16312],[16312,16472,16264],[16296,16456,16408],[16472,16312,16264],[16472,16360,16312],[16472,16312,16264],[16456,16408,16360],[16360,16312,16264],[16408,16360,16312],[16360,16312,16264],[19584,19632,19680],[19584,19632,19680],[19472,19632,19680],[19472,19632,19680],[19632,19472,19680],[19632,19472,19680],[19520,19472,19680],[19520,19472,19680],[19632,19680,19472],[19632,19680,19472],[19520,19680,19472],[19520,19680,19472],[19680,19520,19472],[19680,19520,19472],[19568,19520,19472],[19568,19520,19472],[19632,19680,19728],[19632,19680,19728],[19520,19680,19728],[19520,19680,19728],[19680,19520,19728],[19680,19520,19728],[19568,19520,19728],[19568,19520,19728],[19680,19728,19520],[19680,19728,19520],[19568,19728,19520],[19568,19728,19520],[19728,19568,19520],[19728,19568,19520],[19616,19568,19520],[19616,19568,19520],[22840,22888,22936],[22840,22888,22936],[22728,22888,22936],[22728,22888,22936],[22888,22728,22936],[22888,22728,22936],[22776,22728,22936],[22776,22728,22936],[22888,22936,22728],[22888,22936,22728],[22776,22936,22728],[22776,22936,22728],[22936,22776,22728],[22936,22776,22728],[22824,22776,22728],[22824,22776,22728],[22888,22936,22984],[22888,22936,22984],[22776,22936,22984],[22776,22936,22984],[22936,22776,22984],[22936,22776,22984],[22824,22776,22984],[22824,22776,22984],[22936,22984,22776],[22936,22984,22776],[22824,22984,22776],[22824,22984,22776],[22984,22824,22776],[22984,22824,22776],[22872,22824,22776],[22872,22824,22776]]
+def rowBase (lay : Nat) : Nat := if lay = 1 then 0 else if lay = 2 then 64 else 96
+
+/-- The post-pass and its table are one contiguous window (54970..56043), checked against the image once. -/
+theorem postTab_img : (Images.expandCode_172.drop (54970 - 44032)).take (cPost ++ cTab).length = cPost ++ cTab := by
+  decide +kernel
+theorem code_postTab : CodeAt Images.expandImage (pcOf 54970) (cPost ++ cTab) :=
+  codeAt_expand_last (by decide) (by decide) postTab_img
+theorem code_post : CodeAt Images.expandImage (pcOf 54970) cPost :=
+  codeAt_sub 0 code_postTab (by rw [List.length_append]; omega) (by rw [List.drop_zero, List.take_left' rfl])
+theorem code_tab : CodeAt Images.expandImage (pcOf 55020) cTab :=
+  codeAt_sub 50 code_postTab (by rw [List.length_append, show cPost.length = 50 from rfl])
+    (by rw [List.drop_left' (l₁ := cPost) (i := 50) rfl, List.take_length])
+/-- A sub-window of a checked list window. -/
+theorem postTab_window_sub {L W : List (BitVec 32)} {a n : Nat} (h : (L.drop a).take n = W) (o m : Nat)
+    (hm : o + m ≤ n) : (L.drop (a + o)).take m = (W.drop o).take m := by
+  rw [← h, List.drop_take, List.take_take, List.drop_drop, Nat.min_eq_left (by omega)]
+
+def tabRow (r : Nat) : List (BitVec 32) := (cTab.drop (8 * r)).take 7
+def cfgPP : Config := { noAlias := true }
+theorem tabRow_img : ∀ r < 128, (Images.expandCode_172.drop (55020 + 8 * r - 44032)).take 7 = tabRow r := by
+  intro r hr
+  have hw := postTab_window_sub postTab_img (cPost.length + 8 * r) 7
+    (by rw [List.length_append, show cPost.length = 50 from rfl, show cTab.length = 1024 from rfl]; omega)
+  rw [List.drop_length_add_append] at hw
+  have e : 55020 + 8 * r - 44032 = 54970 - 44032 + (cPost.length + 8 * r) := by
+    rw [show cPost.length = 50 from rfl]; omega
+  rw [e, hw]
+  rfl
+theorem tabRow_length (r : Nat) (hr : r < 128) : (tabRow r).length = 7 := by
+  unfold tabRow; rw [List.length_take, List.length_drop, show cTab.length = 1024 from rfl]; omega
+theorem code_prow (r : Nat) (hr : r < 128) : CodeAt Images.expandImage (pcOf (55020 + 8 * r)) (tabRow r) :=
+  codeAt_expand_last (by omega) (by rw [tabRow_length r hr]; omega) (by rw [tabRow_length r hr]; exact tabRow_img r hr)
+def pa (r k : Nat) : Nat := (padTab.getD r []).getD k 0
+def prowRegs (r : Nat) : RegFile :=
+  ((RegFile.init.set .x11 (.c (BitVec.ofNat 64 (pa r 0)))).set .x12 (.c (BitVec.ofNat 64 (pa r 1)))).set .x13
+    (.c (BitVec.ofNat 64 (pa r 2)))
+def prowRes (r : Nat) : Result := ⟨⟨prowRegs r, [], []⟩, .bin .and (.reg .x1) (.c 0xfffffffffffffffe#64), .jump, 7, 7⟩
+theorem run_prow (r : Nat) (hr : r < 128) : symRun cfgPP (tabRow r) (pcOf (55020 + 8 * r)) 10 = some (prowRes r) := by
+  interval_cases r <;> kernel_rfl
+theorem pa_bounds : ∀ r < 128, ∀ k < 3, pa r k % 8 = 0 ∧ 4128 ≤ pa r k ∧ pa r k + 8 ≤ 26144 := by decide +kernel
+
+
+def psl (a b : Nat) : List (BitVec 32) := (cPost.drop (a - 54970)).take (b - a)
+theorem code_psl (a b : Nat) (ha : 54970 ≤ a) (hb : b ≤ 55020) (hab : a ≤ b) :
+    CodeAt Images.expandImage (pcOf a) (psl a b) := by
+  have := codeAt_sub (a - 54970) code_post (seg := psl a b) (by simp [psl, show cPost.length = 50 from rfl]; omega)
+    (by simp [psl])
+  rwa [show 54970 + (a - 54970) = a by omega] at this
+sym_block pP0 := symRun cfgPP (psl 54970 54975) (pcOf 54970) 10
+sym_block pJ0 := symRun cfgPP (psl 54975 54980) (pcOf 54975) 10
+sym_block pS0 := symRun cfgPP (psl 54980 54991) (pcOf 54980) 20
+sym_block pJ1 := symRun cfgPP (psl 54991 54996) (pcOf 54991) 10
+sym_block pS1 := symRun cfgPP (psl 54996 55007) (pcOf 54996) 20
+sym_block pJ2 := symRun cfgPP (psl 55007 55012) (pcOf 55007) 10
+sym_block pS2 := symRun cfgPP (psl 55012 55020) (pcOf 55012) 20
+
+theorem pnb_ult (a b : Nat) (ha : a < 2 ^ 64) (hb : b < 2 ^ 64) :
+    (BitVec.ofNat 64 a).ult (BitVec.ofNat 64 b) = decide (a < b) := by
+  simp only [BitVec.ult, BitVec.toNat_ofNat]
+  rw [Nat.mod_eq_of_lt ha, Nat.mod_eq_of_lt hb]
+
+section post
+variable (s : MachineState)
+
+theorem pP_spec (hpc : s.pc = pcOf 54970) (q : Nat) (hq : q < 64)
+    (h : s.getMem (BitVec.ofNat 64 0x700018) = BitVec.ofNat 64 (64 + q)) :
+    ∃ t, Steps Images.expandImage s 5 5 t ∧ t.pc = pcOf 54975 ∧ t.getReg .x18 = BitVec.ofNat 64 q ∧
+      t.getReg .x31 = BitVec.ofNat 64 0x700000 ∧ RegsExcept s t [.x18, .x28, .x31]  ∧ ∀ A, t.getMem A = s.getMem A := by
+  have hc := code_psl 54970 54975 (by norm_num) (by norm_num) (by norm_num)
+  refine ⟨_, symRun_sound pP0 hc s hpc (by simp only [pP0.res]; t3n []), ?_, ?_, ?_, ?_, ?_⟩
+  · rw [Result.toState_pc]
+    simp only [pP0.res, E.eval, CmpOp.eval, BinOp.eval]
+    t3n [h]
+    have e : BitVec.ofNat 64 (64 + q + 18446744073709551552) = BitVec.ofNat 64 q := by rw [ofNat_eq_iff]; omega
+    rw [e, show (64#64 : Word) = BitVec.ofNat 64 64 from rfl, pnb_ult q 64 (by omega) (by omega)]
+    simp [hq]
+  · simp only [Result.toState_getReg, pP0.res]; t3n [h]
+    omega
+  · simp only [Result.toState_getReg, pP0.res]; t3n []
+  · intro r hr; simp at hr; cases r <;> simp_all [pP0.res, rv_simp] <;> rfl
+  · intro A; rfl
+
+theorem pJ_spec (hpc : s.pc = pcOf 54975) (q : Nat) (hq : q < 64) (h18 : s.getReg .x18 = BitVec.ofNat 64 q) :
+    ∃ t, Steps Images.expandImage s 5 5 t ∧ t.pc = pcOf (55020 + 8 * q) ∧ t.getReg .x1 = pcOf 54980 ∧
+      RegsExcept s t [.x1, .x28, .x29]  ∧ ∀ A, t.getMem A = s.getMem A := by
+  have hc := code_psl 54975 54980 (by norm_num) (by norm_num) (by norm_num)
+  refine ⟨_, symRun_sound pJ0 hc s hpc (by simp only [pJ0.res]; t3n []), ?_, ?_, ?_, ?_⟩
+  · rw [Result.toState_pc]
+    simp only [pJ0.res, E.eval, BinOp.eval]
+    t3n [h18]
+    rw [show q * 32 + 224176 = 0x1000 + 4 * (55020 + 8 * q) by omega]
+    exact SigGolfCandidate.T3M.Search.pcOf_and_max _
+  · simp only [Result.toState_getReg, pJ0.res]; t3n []
+  · intro r hr; simp at hr; cases r <;> simp_all [pJ0.res, rv_simp] <;> rfl
+  · intro A; rfl
+
+theorem pJ1_spec (hpc : s.pc = pcOf 54991) (q : Nat) (hq : q < 32) (h18 : s.getReg .x18 = BitVec.ofNat 64 q) :
+    ∃ t, Steps Images.expandImage s 5 5 t ∧ t.pc = pcOf (55020 + 8 * (64 + q)) ∧ t.getReg .x1 = pcOf 54996 ∧
+      RegsExcept s t [.x1, .x28, .x29]  ∧ ∀ A, t.getMem A = s.getMem A := by
+  have hc := code_psl 54991 54996 (by norm_num) (by norm_num) (by norm_num)
+  refine ⟨_, symRun_sound pJ1 hc s hpc (by simp only [pJ1.res]; t3n []), ?_, ?_, ?_, ?_⟩
+  · rw [Result.toState_pc]
+    simp only [pJ1.res, E.eval, BinOp.eval]
+    t3n [h18]
+    rw [show q * 32 + 226224 = 0x1000 + 4 * (55020 + 8 * (64 + q)) by omega]
+    exact SigGolfCandidate.T3M.Search.pcOf_and_max _
+  · simp only [Result.toState_getReg, pJ1.res]; t3n []
+  · intro r hr; simp at hr; cases r <;> simp_all [pJ1.res, rv_simp] <;> rfl
+  · intro A; rfl
+
+theorem pJ2_spec (hpc : s.pc = pcOf 55007) (q : Nat) (hq : q < 32) (h18 : s.getReg .x18 = BitVec.ofNat 64 q) :
+    ∃ t, Steps Images.expandImage s 5 5 t ∧ t.pc = pcOf (55020 + 8 * (96 + q)) ∧ t.getReg .x1 = pcOf 55012 ∧
+      RegsExcept s t [.x1, .x28, .x29]  ∧ ∀ A, t.getMem A = s.getMem A := by
+  have hc := code_psl 55007 55012 (by norm_num) (by norm_num) (by norm_num)
+  refine ⟨_, symRun_sound pJ2 hc s hpc (by simp only [pJ2.res]; t3n []), ?_, ?_, ?_, ?_⟩
+  · rw [Result.toState_pc]
+    simp only [pJ2.res, E.eval, BinOp.eval]
+    t3n [h18]
+    rw [show q * 32 + 227248 = 0x1000 + 4 * (55020 + 8 * (96 + q)) by omega]
+    exact SigGolfCandidate.T3M.Search.pcOf_and_max _
+  · simp only [Result.toState_getReg, pJ2.res]; t3n []
+  · intro r hr; simp at hr; cases r <;> simp_all [pJ2.res, rv_simp] <;> rfl
+  · intro A; rfl
+
+theorem prow_spec (r : Nat) (hr : r < 128) (hpc : s.pc = pcOf (55020 + 8 * r)) (ret : Nat)
+    (h1 : s.getReg .x1 = pcOf ret) :
+    ∃ t, Steps Images.expandImage s 7 7 t ∧ t.pc = pcOf ret ∧ t.getReg .x11 = BitVec.ofNat 64 (pa r 0) ∧
+      t.getReg .x12 = BitVec.ofNat 64 (pa r 1) ∧ t.getReg .x13 = BitVec.ofNat 64 (pa r 2) ∧
+      RegsExcept s t [.x11, .x12, .x13] ∧ ∀ A, t.getMem A = s.getMem A := by
+  refine ⟨_, symRun_sound (run_prow r hr) (code_prow r hr) s hpc trivial, ?_, rfl, rfl, rfl, ?_, fun A => rfl⟩
+  · simp only [Result.toState_pc, prowRes, E.eval, BinOp.eval, h1]
+    exact SigGolfCandidate.T3M.Search.pcOf_and_max _
+  · intro x hx
+    rw [Result.toState_getReg]
+    cases x <;> first | rfl | (exfalso; simp at hx)
+
+theorem pS0_spec (hpc : s.pc = pcOf 54980) (a1 a2 a3 : Nat) (b1 : a1 % 8 = 0 ∧ 4128 ≤ a1 ∧ a1 + 8 ≤ 26144)
+    (b2 : a2 % 8 = 0 ∧ 4128 ≤ a2 ∧ a2 + 8 ≤ 26144) (b3 : a3 % 8 = 0 ∧ 4128 ≤ a3 ∧ a3 + 8 ≤ 26144)
+    (h11 : s.getReg .x11 = BitVec.ofNat 64 a1) (h12 : s.getReg .x12 = BitVec.ofNat 64 a2)
+    (h13 : s.getReg .x13 = BitVec.ofNat 64 a3) (h31 : s.getReg .x31 = BitVec.ofNat 64 0x700000) (q : Nat)
+    (hq : q < 32) (h : s.getMem (BitVec.ofNat 64 0x700038) = BitVec.ofNat 64 (32 + q)) :
+    ∃ t, Steps Images.expandImage s 11 11 t ∧ t.pc = pcOf 54991 ∧ t.getReg .x18 = BitVec.ofNat 64 q ∧
+      t.getReg .x31 = BitVec.ofNat 64 0x700000 ∧ RegsExcept s t [.x18, .x28, .x30, .x31] ∧
+      ∀ A, t.getMem A = upd (upd (upd s.getMem a1 (s.getMem (BitVec.ofNat 64 0x700010))) a2
+        (s.getMem (BitVec.ofNat 64 0x700008))) a3 (s.getMem (BitVec.ofNat 64 0x700000)) A := by
+  have hc := code_psl 54980 54991 (by norm_num) (by norm_num) (by norm_num)
+  have hob : pS0.res.obligs s := by
+    simp only [pS0.res]; t3n [h11, h12, h13, h31]
+    simp only [and_true, Nat.add_zero]
+    omega
+  have e : s.getMem (BitVec.ofNat 64 0x700038) - 32#64 = BitVec.ofNat 64 q := by
+    rw [h]; apply BitVec.eq_of_toNat_eq; simp only [BitVec.toNat_sub, BitVec.toNat_ofNat]; omega
+  refine ⟨_, symRun_sound pS0 hc s hpc hob, ?_, ?_, ?_, ?_, ?_⟩
+  · rw [Result.toState_pc]
+    simp only [pS0.res, E.eval, CmpOp.eval, BinOp.eval]
+    t3n [h11, h12, h13, h31]
+    rw [e, show (32#64 : Word) = BitVec.ofNat 64 32 from rfl, pnb_ult q 32 (by omega) (by omega)]
+    simp [hq]
+  · simp only [Result.toState_getReg, pS0.res]; t3n [h11, h12, h13, h31]
+    exact e
+  · simp only [Result.toState_getReg, pS0.res]; t3n []
+  · intro r hr; simp at hr; cases r <;> simp_all [pS0.res, rv_simp] <;> rfl
+  · intro A
+    simp only [Result.toState_getMem, pS0.res, upd]
+    t3n [h11, h12, h13, h31, Nat.add_zero]
+theorem pS1_spec (hpc : s.pc = pcOf 54996) (a1 a2 a3 : Nat) (b1 : a1 % 8 = 0 ∧ 4128 ≤ a1 ∧ a1 + 8 ≤ 26144)
+    (b2 : a2 % 8 = 0 ∧ 4128 ≤ a2 ∧ a2 + 8 ≤ 26144) (b3 : a3 % 8 = 0 ∧ 4128 ≤ a3 ∧ a3 + 8 ≤ 26144)
+    (h11 : s.getReg .x11 = BitVec.ofNat 64 a1) (h12 : s.getReg .x12 = BitVec.ofNat 64 a2)
+    (h13 : s.getReg .x13 = BitVec.ofNat 64 a3) (h31 : s.getReg .x31 = BitVec.ofNat 64 0x700000) (q : Nat)
+    (hq : q < 32) (h : s.getMem (BitVec.ofNat 64 0x700058) = BitVec.ofNat 64 (32 + q)) :
+    ∃ t, Steps Images.expandImage s 11 11 t ∧ t.pc = pcOf 55007 ∧ t.getReg .x18 = BitVec.ofNat 64 q ∧
+      t.getReg .x31 = BitVec.ofNat 64 0x700000 ∧ RegsExcept s t [.x18, .x28, .x30, .x31] ∧
+      ∀ A, t.getMem A = upd (upd (upd s.getMem a1 (s.getMem (BitVec.ofNat 64 0x700030))) a2
+        (s.getMem (BitVec.ofNat 64 0x700028))) a3 (s.getMem (BitVec.ofNat 64 0x700020)) A := by
+  have hc := code_psl 54996 55007 (by norm_num) (by norm_num) (by norm_num)
+  have hob : pS1.res.obligs s := by
+    simp only [pS1.res]; t3n [h11, h12, h13, h31]
+    simp only [and_true, Nat.add_zero]
+    omega
+  have e : s.getMem (BitVec.ofNat 64 0x700058) - 32#64 = BitVec.ofNat 64 q := by
+    rw [h]; apply BitVec.eq_of_toNat_eq; simp only [BitVec.toNat_sub, BitVec.toNat_ofNat]; omega
+  refine ⟨_, symRun_sound pS1 hc s hpc hob, ?_, ?_, ?_, ?_, ?_⟩
+  · rw [Result.toState_pc]
+    simp only [pS1.res, E.eval, CmpOp.eval, BinOp.eval]
+    t3n [h11, h12, h13, h31]
+    rw [e, show (32#64 : Word) = BitVec.ofNat 64 32 from rfl, pnb_ult q 32 (by omega) (by omega)]
+    simp [hq]
+  · simp only [Result.toState_getReg, pS1.res]; t3n [h11, h12, h13, h31]
+    exact e
+  · simp only [Result.toState_getReg, pS1.res]; t3n []
+  · intro r hr; simp at hr; cases r <;> simp_all [pS1.res, rv_simp] <;> rfl
+  · intro A
+    simp only [Result.toState_getMem, pS1.res, upd]
+    t3n [h11, h12, h13, h31, Nat.add_zero]
+
+theorem pS2_spec (hpc : s.pc = pcOf 55012) (a1 a2 a3 : Nat) (b1 : a1 % 8 = 0 ∧ 4128 ≤ a1 ∧ a1 + 8 ≤ 26144)
+    (b2 : a2 % 8 = 0 ∧ 4128 ≤ a2 ∧ a2 + 8 ≤ 26144) (b3 : a3 % 8 = 0 ∧ 4128 ≤ a3 ∧ a3 + 8 ≤ 26144)
+    (h11 : s.getReg .x11 = BitVec.ofNat 64 a1) (h12 : s.getReg .x12 = BitVec.ofNat 64 a2)
+    (h13 : s.getReg .x13 = BitVec.ofNat 64 a3) (h31 : s.getReg .x31 = BitVec.ofNat 64 0x700000) :
+    ∃ t, Steps Images.expandImage s 7 7 t ∧ t.pc = pcOf 55019 ∧ t.getReg .x10 = 0 ∧
+      RegsExcept s t [.x10, .x30] ∧
+      (∀ A, t.getMem A = upd (upd (upd s.getMem a1 (s.getMem (BitVec.ofNat 64 0x700050))) a2
+        (s.getMem (BitVec.ofNat 64 0x700048))) a3 (s.getMem (BitVec.ofNat 64 0x700040)) A) ∧
+      fetch Images.expandImage t = some (.base .ECALL) := by
+  have hc := code_psl 55012 55020 (by norm_num) (by norm_num) (by norm_num)
+  have hob : pS2.res.obligs s := by
+    simp only [pS2.res]; t3n [h11, h12, h13, h31]
+    simp only [and_true, Nat.add_zero]
+    omega
+  refine ⟨_, symRun_sound pS2 hc s hpc hob, ?_, ?_, ?_, ?_, symRun_ecall pS2 hc s hob rfl⟩
+  · simp [pS2.res, Result.toState_pc, E.eval]
+  · simp only [Result.toState_getReg, pS2.res]; t3n []
+  · intro r hr; simp at hr; cases r <;> simp_all [pS2.res, rv_simp] <;> rfl
+  · intro A
+    simp only [Result.toState_getMem, pS2.res, upd]
+    t3n [h11, h12, h13, h31, Nat.add_zero]
+
+/-- Memory after the post-pass: the nine record-table nonces written at the pad addresses of rows `q1`, `64 + q2`,
+`96 + q3` (columns: class 8..15, 4..7, 2..3 = folds `H-4, H-3, H-2`). -/
+def postMem (M : Word → Word) (q1 q2 q3 : Nat) : Word → Word :=
+  upd (upd (upd (upd (upd (upd (upd (upd (upd M
+    (pa q1 0) (M (BitVec.ofNat 64 0x700010))) (pa q1 1) (M (BitVec.ofNat 64 0x700008)))
+    (pa q1 2) (M (BitVec.ofNat 64 0x700000)))
+    (pa (64 + q2) 0) (M (BitVec.ofNat 64 0x700030))) (pa (64 + q2) 1) (M (BitVec.ofNat 64 0x700028)))
+    (pa (64 + q2) 2) (M (BitVec.ofNat 64 0x700020)))
+    (pa (96 + q3) 0) (M (BitVec.ofNat 64 0x700050))) (pa (96 + q3) 1) (M (BitVec.ofNat 64 0x700048)))
+    (pa (96 + q3) 2) (M (BitVec.ofNat 64 0x700040))
+
+theorem upd_rec (M : Word → Word) (a : Nat) (v : Word) (o : Nat) (ha : a + 8 ≤ 26144) (ho : o < 0x100) :
+    upd M a v (BitVec.ofNat 64 (0x700000 + o)) = M (BitVec.ofNat 64 (0x700000 + o)) := by
+  unfold upd; rw [if_neg]; rw [ofNat_eq_iff]; omega
+
+/-- The positional post-pass (from 54970): 70 steps to the `ecall` at 55019 with `a0 = 0`. -/
+theorem post_spec (hpc : s.pc = pcOf 54970) (q1 q2 q3 : Nat) (hq1 : q1 < 64) (hq2 : q2 < 32) (hq3 : q3 < 32)
+    (h1 : s.getMem (BitVec.ofNat 64 0x700018) = BitVec.ofNat 64 (64 + q1))
+    (h2 : s.getMem (BitVec.ofNat 64 0x700038) = BitVec.ofNat 64 (32 + q2))
+    (h3 : s.getMem (BitVec.ofNat 64 0x700058) = BitVec.ofNat 64 (32 + q3)) :
+    ∃ t, Steps Images.expandImage s 70 70 t ∧ t.pc = pcOf 55019 ∧ t.getReg .x10 = 0 ∧
+      RegsExcept s t [.x1, .x10, .x11, .x12, .x13, .x18, .x28, .x29, .x30, .x31] ∧
+      (∀ A, t.getMem A = postMem s.getMem q1 q2 q3 A) ∧ fetch Images.expandImage t = some (.base .ECALL) := by
+  have pb := fun r (hr : r < 128) k (hk : k < 3) => pa_bounds r hr k hk
+  obtain ⟨u1, s1, p1, x18a, x31a, r1, m1⟩ := pP_spec s hpc q1 hq1 h1
+  obtain ⟨u2, s2, p2, x1b, r2, m2⟩ := pJ_spec u1 p1 q1 hq1 x18a
+  obtain ⟨u3, s3, p3, x11c, x12c, x13c, r3, m3⟩ := prow_spec u2 q1 (by omega) p2 54980 x1b
+  have e3 : u3.getMem = s.getMem := funext fun A => by rw [m3, m2, m1]
+  have g31 : u3.getReg .x31 = BitVec.ofNat 64 0x700000 := by rw [r3.get (by decide), r2.get (by decide)]; exact x31a
+  obtain ⟨u4, s4, p4, x18d, x31d, r4, m4⟩ := pS0_spec u3 p3 _ _ _ (pb q1 (by omega) 0 (by omega))
+    (pb q1 (by omega) 1 (by omega)) (pb q1 (by omega) 2 (by omega)) x11c x12c x13c g31 q2 hq2 (by rw [e3]; exact h2)
+  rw [e3] at m4
+  have e4 : u4.getMem = upd (upd (upd s.getMem (pa q1 0) (s.getMem (BitVec.ofNat 64 0x700010))) (pa q1 1)
+      (s.getMem (BitVec.ofNat 64 0x700008))) (pa q1 2) (s.getMem (BitVec.ofNat 64 0x700000)) := funext m4
+  have q4 : ∀ o, o < 0x100 → u4.getMem (BitVec.ofNat 64 (0x700000 + o)) = s.getMem (BitVec.ofNat 64 (0x700000 + o)) :=
+    fun o ho => by
+      rw [e4, upd_rec _ _ _ _ (pb q1 (by omega) 2 (by omega)).2.2 ho, upd_rec _ _ _ _ (pb q1 (by omega) 1 (by omega)).2.2 ho,
+        upd_rec _ _ _ _ (pb q1 (by omega) 0 (by omega)).2.2 ho]
+  obtain ⟨u5, s5, p5, x1e, r5, m5⟩ := pJ1_spec u4 p4 q2 hq2 x18d
+  obtain ⟨u6, s6, p6, x11f, x12f, x13f, r6, m6⟩ := prow_spec u5 (64 + q2) (by omega) p5 54996 x1e
+  have e6 : u6.getMem = u4.getMem := funext fun A => by rw [m6, m5]
+  have g31' : u6.getReg .x31 = BitVec.ofNat 64 0x700000 := by rw [r6.get (by decide), r5.get (by decide)]; exact x31d
+  obtain ⟨u7, s7, p7, x18g, x31g, r7, m7⟩ := pS1_spec u6 p6 _ _ _ (pb (64 + q2) (by omega) 0 (by omega))
+    (pb (64 + q2) (by omega) 1 (by omega)) (pb (64 + q2) (by omega) 2 (by omega)) x11f x12f x13f g31' q3 hq3
+    (by rw [e6, q4 0x58 (by omega)]; exact h3)
+  rw [e6] at m7
+  have e7 : u7.getMem = upd (upd (upd u4.getMem (pa (64 + q2) 0) (s.getMem (BitVec.ofNat 64 0x700030))) (pa (64 + q2) 1)
+      (s.getMem (BitVec.ofNat 64 0x700028))) (pa (64 + q2) 2) (s.getMem (BitVec.ofNat 64 0x700020)) := by
+    funext A; rw [m7, q4 0x30 (by omega), q4 0x28 (by omega), q4 0x20 (by omega)]
+  have q7 : ∀ o, o < 0x100 → u7.getMem (BitVec.ofNat 64 (0x700000 + o)) = s.getMem (BitVec.ofNat 64 (0x700000 + o)) :=
+    fun o ho => by
+      rw [e7, upd_rec _ _ _ _ (pb (64 + q2) (by omega) 2 (by omega)).2.2 ho,
+        upd_rec _ _ _ _ (pb (64 + q2) (by omega) 1 (by omega)).2.2 ho,
+        upd_rec _ _ _ _ (pb (64 + q2) (by omega) 0 (by omega)).2.2 ho, q4 o ho]
+  obtain ⟨u8, s8, p8, x1h, r8, m8⟩ := pJ2_spec u7 p7 q3 hq3 x18g
+  obtain ⟨u9, s9, p9, x11i, x12i, x13i, r9, m9⟩ := prow_spec u8 (96 + q3) (by omega) p8 55012 x1h
+  have e9 : u9.getMem = u7.getMem := funext fun A => by rw [m9, m8]
+  have g31'' : u9.getReg .x31 = BitVec.ofNat 64 0x700000 := by rw [r9.get (by decide), r8.get (by decide)]; exact x31g
+  obtain ⟨t, st, pt, x10t, rt, mt, ft⟩ := pS2_spec u9 p9 _ _ _ (pb (96 + q3) (by omega) 0 (by omega))
+    (pb (96 + q3) (by omega) 1 (by omega)) (pb (96 + q3) (by omega) 2 (by omega)) x11i x12i x13i g31''
+  refine ⟨t, Steps.of_eq (s1.trans (s2.trans (s3.trans (s4.trans (s5.trans (s6.trans (s7.trans (s8.trans
+    (s9.trans st))))))))) rfl rfl, pt, x10t, ?_, ?_, ft⟩
+  · exact ((((((((r1.trans r2).trans r3).trans r4).trans r5).trans r6).trans r7).trans r8).trans (r9.trans rt)).mono
+      (by decide)
+  · intro A
+    rw [mt, e9, show (0x700050 : Nat) = 0x700000 + 0x50 from rfl, show (0x700048 : Nat) = 0x700000 + 0x48 from rfl,
+      show (0x700040 : Nat) = 0x700000 + 0x40 from rfl, q7 _ (by omega), q7 _ (by omega), q7 _ (by omega), e7, e4]
+    rfl
+end post
 
 /-! ### The pad writer -/
 /-- The leaf word saved at `0x66758`; rows `A = leaf % 64`, `B = leaf / 64 % 64`. -/
@@ -198,9 +502,9 @@ theorem upd_nonce (M : Word → Word) (a : Nat) (v : Word) (k : Nat) (ha : a ≤
   rw [BitVec.toNat_ofNat, BitVec.toNat_ofNat, Nat.mod_eq_of_lt (by omega), Nat.mod_eq_of_lt (by omega)] at this
   omega
 
-/-- The pad writer: from `44961`, 67 steps to the `ecall` at `45016` with `a0 = 0`. -/
-theorem pad_spec (s : MachineState) (hpc : s.pc = pcOf 44961) :
-    ∃ t, Steps Images.expandImage s 67 67 t ∧ t.pc = pcOf 45016 ∧ t.getReg .x10 = 0 ∧
+/-- The pad writer: from `44961`, 66 steps to the post-pass jump at `45015`. -/
+theorem pad_pre (s : MachineState) (hpc : s.pc = pcOf 44961) :
+    ∃ t, Steps Images.expandImage s 66 66 t ∧ t.pc = pcOf 45015 ∧
       RegsExcept s t [.x6, .x10, .x11, .x12, .x13, .x14, .x15, .x16, .x17, .x28, .x29, .x30] ∧
       ∀ A, t.getMem A = padMem s.getMem A := by
   obtain ⟨u, su, up, u28, u29, u30, ru, mu⟩ := p1_spec s hpc
@@ -220,12 +524,12 @@ theorem pad_spec (s : MachineState) (hpc : s.pc = pcOf 44961) :
   obtain ⟨x, sx, xp, x11, x12, x13, x15, x16, rx, mx⟩ := row_spec _ hB w wp
   rw [if_neg (by omega)] at xp
   have bB := fun i (hi : i < 5) => offR_bounds _ hB i hi
-  obtain ⟨t, st, tp, t10, rt, mt⟩ := s2_spec x xp _ _ _ _ _
+  obtain ⟨t, st, tp, rt, mt⟩ := s2_spec x xp _ _ _ _ _
     ⟨(bB 0 (by decide)).1, (bB 0 (by decide)).2.2⟩ ⟨(bB 1 (by decide)).1, (bB 1 (by decide)).2.2⟩
     ⟨(bB 2 (by decide)).1, (bB 2 (by decide)).2.2⟩ ⟨(bB 3 (by decide)).1, (bB 3 (by decide)).2.2⟩
     ⟨(bB 4 (by decide)).1, (bB 4 (by decide)).2.2⟩
     x11 x12 x13 x15 x16 (by rw [rx .x28 (by simp)]; exact w28) (by rw [rx .x30 (by simp)]; exact w30)
-  refine ⟨t, Steps.of_eq (su.trans (sv.trans (sw.trans (sx.trans st)))) rfl rfl, tp, t10, ?_, ?_⟩
+  refine ⟨t, Steps.of_eq (su.trans (sv.trans (sw.trans (sx.trans st)))) rfl rfl, tp, ?_, ?_⟩
   · exact (((ru.trans rv).trans rw').trans (rx.trans rt)).mono (by simp)
   · intro A
     have hx' : x.getMem = w.getMem := funext mx
@@ -252,13 +556,63 @@ theorem pad_spec (s : MachineState) (hpc : s.pc = pcOf 44961) :
     rw [mt, hx', hn 6 (by decide), hn 7 (by decide), hn 8 (by decide), hn 9 (by decide), hn 10 (by decide), hw]
     rfl
 
-theorem pad_hook (s : MachineState) (hpc : s.pc = pcOf 54174) :
-    ∃ t, Steps Images.expandImage s 68 68 t ∧ t.pc = pcOf 45016 ∧ t.getReg .x10 = 0 ∧
-      RegsExcept s t [.x6, .x10, .x11, .x12, .x13, .x14, .x15, .x16, .x17, .x28, .x29, .x30] ∧
-      ∀ A, t.getMem A = padMem s.getMem A := by
+/-- The pad writer leaves the grind-stub record table (`0x700000 ..`) alone. -/
+theorem padMem_far (M : Word → Word) (a : Nat) (h1 : 0x700000 ≤ a) (h2 : a < 0x700100) :
+    padMem M (BitVec.ofNat 64 a) = M (BitVec.ofNat 64 a) := by
+  have hA : leafW M % 64 < 128 := by omega
+  have hB : 64 + leafW M / 64 % 64 < 128 := by omega
+  have a0 : offA (leafW M % 64) 0 ≤ 640 := (offR_bounds _ hA 0 (by decide)).2.2
+  have a1 : offA (leafW M % 64) 1 ≤ 640 := (offR_bounds _ hA 1 (by decide)).2.2
+  have a2 : offA (leafW M % 64) 2 ≤ 640 := (offR_bounds _ hA 2 (by decide)).2.2
+  have a3 : offA (leafW M % 64) 3 ≤ 640 := (offR_bounds _ hA 3 (by decide)).2.2
+  have a4 : offA (leafW M % 64) 4 ≤ 640 := (offR_bounds _ hA 4 (by decide)).2.2
+  have b0 : offB (leafW M / 64 % 64) 0 ≤ 640 := (offR_bounds _ hB 0 (by decide)).2.2
+  have b1 : offB (leafW M / 64 % 64) 1 ≤ 640 := (offR_bounds _ hB 1 (by decide)).2.2
+  have b2 : offB (leafW M / 64 % 64) 2 ≤ 640 := (offR_bounds _ hB 2 (by decide)).2.2
+  have b3 : offB (leafW M / 64 % 64) 3 ≤ 640 := (offR_bounds _ hB 3 (by decide)).2.2
+  have b4 : offB (leafW M / 64 % 64) 4 ≤ 640 := (offR_bounds _ hB 4 (by decide)).2.2
+  have key : ∀ (N : Word → Word) (c : Nat) (v : Word), c ≤ 12500 →
+      upd N c v (BitVec.ofNat 64 a) = N (BitVec.ofNat 64 a) := fun N c v hc => upd_ne N c v a (by omega) (by omega) (by omega)
+  simp only [padMem]
+  rw [key, key, key, key, key, key, key, key, key, key, key]
+  all_goals omega
+
+/-- U16b pad writer + positional post-pass: from `44961`, 137 steps to the `ecall` at `55019` with `a0 = 0`; memory is
+`postMem (padMem M) q1 q2 q3` where `64 + q1`, `32 + q2`, `32 + q3` are the recorded fold-0 parent heaps. -/
+theorem pad_spec (s : MachineState) (hpc : s.pc = pcOf 44961) (q1 q2 q3 : Nat) (hq1 : q1 < 64) (hq2 : q2 < 32)
+    (hq3 : q3 < 32) (h1 : s.getMem (BitVec.ofNat 64 0x700018) = BitVec.ofNat 64 (64 + q1))
+    (h2 : s.getMem (BitVec.ofNat 64 0x700038) = BitVec.ofNat 64 (32 + q2))
+    (h3 : s.getMem (BitVec.ofNat 64 0x700058) = BitVec.ofNat 64 (32 + q3)) :
+    ∃ t, Steps Images.expandImage s 137 137 t ∧ t.pc = pcOf 55019 ∧ t.getReg .x10 = 0 ∧
+      RegsExcept s t [.x1, .x6, .x10, .x11, .x12, .x13, .x14, .x15, .x16, .x17, .x18, .x28, .x29, .x30, .x31] ∧
+      (∀ A, t.getMem A = postMem (padMem s.getMem) q1 q2 q3 A) ∧ fetch Images.expandImage t = some (.base .ECALL) := by
+  obtain ⟨u, su, up, ru, mu⟩ := pad_pre s hpc
+  have hu : u.getMem = padMem s.getMem := funext mu
+  have sj := symRun_sound eJ45015 code_J45015 u up trivial
+  have hm : (eJ45015.res.toState u).getMem = padMem s.getMem := by rw [← hu]; rfl
+  have rj : RegsExcept u (eJ45015.res.toState u) [] := by
+    intro r hr
+    cases r <;> first | (simp only [rv_simp, eJ45015.res]; done) | rfl
+  obtain ⟨t, st, tp, t10, rt, mt, ft⟩ := post_spec (eJ45015.res.toState u)
+    (by simp only [rv_simp, eJ45015.res] <;> decide) q1 q2 q3 hq1 hq2 hq3
+    (by rw [hm, padMem_far _ 0x700018 (by norm_num) (by norm_num)]; exact h1)
+    (by rw [hm, padMem_far _ 0x700038 (by norm_num) (by norm_num)]; exact h2)
+    (by rw [hm, padMem_far _ 0x700058 (by norm_num) (by norm_num)]; exact h3)
+  refine ⟨t, Steps.of_eq (su.trans (sj.trans st)) rfl rfl, tp, t10, ?_, fun A => (mt A).trans (by rw [hm]), ft⟩
+  exact ((ru.trans rj).trans rt).mono (by decide)
+
+/-- From the exit hook `54174: jal 44961`: 138 steps to the `ecall` at 55019. -/
+theorem pad_hook (s : MachineState) (hpc : s.pc = pcOf 54174) (q1 q2 q3 : Nat) (hq1 : q1 < 64) (hq2 : q2 < 32)
+    (hq3 : q3 < 32) (h1 : s.getMem (BitVec.ofNat 64 0x700018) = BitVec.ofNat 64 (64 + q1))
+    (h2 : s.getMem (BitVec.ofNat 64 0x700038) = BitVec.ofNat 64 (32 + q2))
+    (h3 : s.getMem (BitVec.ofNat 64 0x700058) = BitVec.ofNat 64 (32 + q3)) :
+    ∃ t, Steps Images.expandImage s 138 138 t ∧ t.pc = pcOf 55019 ∧ t.getReg .x10 = 0 ∧
+      RegsExcept s t [.x1, .x6, .x10, .x11, .x12, .x13, .x14, .x15, .x16, .x17, .x18, .x28, .x29, .x30, .x31] ∧
+      (∀ A, t.getMem A = postMem (padMem s.getMem) q1 q2 q3 A) ∧ fetch Images.expandImage t = some (.base .ECALL) := by
   have s1 := symRun_sound eHook code_hook s hpc trivial
-  obtain ⟨t, st, tp, t10, rt, mt⟩ := pad_spec (eHook.res.toState s) (by simp only [rv_simp, eHook.res] <;> decide)
-  refine ⟨t, Steps.of_eq (s1.trans st) rfl rfl, tp, t10, ?_, fun A => (mt A).trans ?_⟩
+  obtain ⟨t, st, tp, t10, rt, mt, ft⟩ := pad_spec (eHook.res.toState s) (by simp only [rv_simp, eHook.res] <;> decide)
+    q1 q2 q3 hq1 hq2 hq3 h1 h2 h3
+  refine ⟨t, Steps.of_eq (s1.trans st) rfl rfl, tp, t10, ?_, fun A => (mt A).trans ?_, ft⟩
   · intro r hr
     rw [rt r hr]
     cases r <;> first | (simp only [rv_simp, eHook.res]; done) | rfl
@@ -611,25 +965,202 @@ theorem padMem_witEncN (M : Word → Word) (output : HashOutput) (w : SigGolfCan
     rw [BitVec.toNat_ofNat, BitVec.toNat_ofNat, Nat.mod_eq_of_lt (by omega), Nat.mod_eq_of_lt (by omega)] at this
     omega
 
+/-! ### Section 5 (U16b): the positional post-pass writes the 9 ground fold nonces (`witEncN` → `witEncG`) -/
+open ClaudeWCT.W9.T3M.PairedNonce
+
+/-- The post-pass pad table (`pa`, rows `rowBase lay + leaf / 2`, column `m` = fold `height lay - 4 + m`) is the
+ground fold nonce slot `0x1020 + lowerNoncePos`. -/
+theorem padTab_layout :
+    (∀ leaf, leaf < 128 → ∀ m, m < 3 →
+      pa (leaf / 2) m = 4128 + layerBase 1 + 16 * (lowerPlan 1 leaf).getD (3 + m) 0 + 32) ∧
+    (∀ leaf, leaf < 64 → ∀ m, m < 3 →
+      pa (64 + leaf / 2) m = 4128 + layerBase 2 + 16 * (lowerPlan 2 leaf).getD (2 + m) 0 + 32) ∧
+    (∀ leaf, leaf < 64 → ∀ m, m < 3 →
+      pa (96 + leaf / 2) m = 4128 + layerBase 3 + 16 * (lowerPlan 3 leaf).getD (2 + m) 0 + 32) := by
+  decide +kernel
+
+/-- The grind stub's record table (per lower layer `lay`, base `0x700000 + 32 (lay - 1)`): the ground nonces of folds
+`height lay - 4 + m` at `+16 - 8 m` and the fold-0 parent heap `2 ^ (height lay - 1) + leaf / 2` at `+24`. -/
+def RecTable (M : Word → Word) (output : HashOutput) (w : SigGolfCandidate.Research.SharedForest.Witness) : Prop :=
+  ∀ lay : Layer, lay ≠ 0 →
+    (∀ m, m < 3 → M (BitVec.ofNat 64 (0x700000 + 32 * (lay.val - 1) + 16 - 8 * m)) =
+      BitVec.ofNat 64 ((w.lowerNonces lay).getD (height lay - 4 + m) 0)) ∧
+    M (BitVec.ofNat 64 (0x700000 + 32 * (lay.val - 1) + 24)) =
+      BitVec.ofNat 64 (2 ^ (height lay - 1) + (route (WCT9.digestIndex output) lay).1 / 2)
+
+/-- The nine post-pass stores, in program order. -/
+def postList (M : Word → Word) (output : HashOutput) : List (Nat × Word) :=
+  [(4128 + lowerNoncePos output 1 3, M (BitVec.ofNat 64 0x700010)),
+   (4128 + lowerNoncePos output 1 4, M (BitVec.ofNat 64 0x700008)),
+   (4128 + lowerNoncePos output 1 5, M (BitVec.ofNat 64 0x700000)),
+   (4128 + lowerNoncePos output 2 2, M (BitVec.ofNat 64 0x700030)),
+   (4128 + lowerNoncePos output 2 3, M (BitVec.ofNat 64 0x700028)),
+   (4128 + lowerNoncePos output 2 4, M (BitVec.ofNat 64 0x700020)),
+   (4128 + lowerNoncePos output 3 2, M (BitVec.ofNat 64 0x700050)),
+   (4128 + lowerNoncePos output 3 3, M (BitVec.ofNat 64 0x700048)),
+   (4128 + lowerNoncePos output 3 4, M (BitVec.ofNat 64 0x700040))]
+
+theorem pa_ground (output : HashOutput) (lay : Layer) (hl : lay ≠ 0) (j r m : Nat)
+    (h : pa r m = 4128 + layerBase lay + 16 * (lowerPlan lay (route (WCT9.digestIndex output) lay).1).getD j 0 + 32) :
+    pa r m = 4128 + lowerNoncePos output lay j := by
+  rw [h, lowerNoncePos_eq output lay hl j]; omega
+
+theorem postMem_eq (M : Word → Word) (output : HashOutput) :
+    postMem M ((route (WCT9.digestIndex output) 1).1 / 2) ((route (WCT9.digestIndex output) 2).1 / 2)
+      ((route (WCT9.digestIndex output) 3).1 / 2) = updF M (postList M output) := by
+  have l1 : (route (WCT9.digestIndex output) 1).1 < 128 := lt_of_lt_of_eq (route_leaf_lt _ 1) (by decide)
+  have l2 : (route (WCT9.digestIndex output) 2).1 < 64 := lt_of_lt_of_eq (route_leaf_lt _ 2) (by decide)
+  have l3 : (route (WCT9.digestIndex output) 3).1 < 64 := lt_of_lt_of_eq (route_leaf_lt _ 3) (by decide)
+  have p1 := padTab_layout.1 _ l1
+  have p2 := padTab_layout.2.1 _ l2
+  have p3 := padTab_layout.2.2 _ l3
+  have e10 := pa_ground output 1 (by decide) 3 _ 0 (p1 0 (by decide))
+  have e11 := pa_ground output 1 (by decide) 4 _ 1 (p1 1 (by decide))
+  have e12 := pa_ground output 1 (by decide) 5 _ 2 (p1 2 (by decide))
+  have e20 := pa_ground output 2 (by decide) 2 _ 0 (p2 0 (by decide))
+  have e21 := pa_ground output 2 (by decide) 3 _ 1 (p2 1 (by decide))
+  have e22 := pa_ground output 2 (by decide) 4 _ 2 (p2 2 (by decide))
+  have e30 := pa_ground output 3 (by decide) 2 _ 0 (p3 0 (by decide))
+  have e31 := pa_ground output 3 (by decide) 3 _ 1 (p3 1 (by decide))
+  have e32 := pa_ground output 3 (by decide) 4 _ 2 (p3 2 (by decide))
+  simp only [postMem]
+  rw [e10, e11, e12, e20, e21, e22, e30, e31, e32]
+  rfl
+
+theorem postList_padMem (M : Word → Word) (output : HashOutput) : postList (padMem M) output = postList M output := by
+  unfold postList
+  rw [padMem_far M 0x700010 (by norm_num) (by norm_num), padMem_far M 0x700008 (by norm_num) (by norm_num),
+    padMem_far M 0x700000 (by norm_num) (by norm_num), padMem_far M 0x700030 (by norm_num) (by norm_num),
+    padMem_far M 0x700028 (by norm_num) (by norm_num), padMem_far M 0x700020 (by norm_num) (by norm_num),
+    padMem_far M 0x700050 (by norm_num) (by norm_num), padMem_far M 0x700048 (by norm_num) (by norm_num),
+    padMem_far M 0x700040 (by norm_num) (by norm_num)]
+
+theorem postList_val (M : Word → Word) (output : HashOutput) (w : SigGolfCandidate.Research.SharedForest.Witness)
+    (hrec : RecTable M output w) :
+    postList M output = groundFolds.map fun e =>
+      (4128 + lowerNoncePos output e.1 e.2, BitVec.ofNat 64 ((w.lowerNonces e.1).getD e.2 0)) := by
+  have v10 : M (BitVec.ofNat 64 0x700010) = BitVec.ofNat 64 ((w.lowerNonces 1).getD 3 0) := (hrec 1 (by decide)).1 0 (by decide)
+  have v11 : M (BitVec.ofNat 64 0x700008) = BitVec.ofNat 64 ((w.lowerNonces 1).getD 4 0) := (hrec 1 (by decide)).1 1 (by decide)
+  have v12 : M (BitVec.ofNat 64 0x700000) = BitVec.ofNat 64 ((w.lowerNonces 1).getD 5 0) := (hrec 1 (by decide)).1 2 (by decide)
+  have v20 : M (BitVec.ofNat 64 0x700030) = BitVec.ofNat 64 ((w.lowerNonces 2).getD 2 0) := (hrec 2 (by decide)).1 0 (by decide)
+  have v21 : M (BitVec.ofNat 64 0x700028) = BitVec.ofNat 64 ((w.lowerNonces 2).getD 3 0) := (hrec 2 (by decide)).1 1 (by decide)
+  have v22 : M (BitVec.ofNat 64 0x700020) = BitVec.ofNat 64 ((w.lowerNonces 2).getD 4 0) := (hrec 2 (by decide)).1 2 (by decide)
+  have v30 : M (BitVec.ofNat 64 0x700050) = BitVec.ofNat 64 ((w.lowerNonces 3).getD 2 0) := (hrec 3 (by decide)).1 0 (by decide)
+  have v31 : M (BitVec.ofNat 64 0x700048) = BitVec.ofNat 64 ((w.lowerNonces 3).getD 3 0) := (hrec 3 (by decide)).1 1 (by decide)
+  have v32 : M (BitVec.ofNat 64 0x700040) = BitVec.ofNat 64 ((w.lowerNonces 3).getD 4 0) := (hrec 3 (by decide)).1 2 (by decide)
+  unfold postList
+  rw [v10, v11, v12, v20, v21, v22, v30, v31, v32]
+  rfl
+
+theorem ground_slot_bound (output : HashOutput) (e : Layer × Nat) (he : e ∈ groundFolds) :
+    4128 + lowerNoncePos output e.1 e.2 + 16 ≤ 25264 := by
+  obtain ⟨hl, _, h2⟩ := lowerNoncePos_area output e he
+  have := (lower_area_ge e.1 hl).2
+  omega
+
+theorem lowerNoncePos_mod8 (output : HashOutput) (e : Layer × Nat) (he : e ∈ groundFolds) :
+    lowerNoncePos output e.1 e.2 % 8 = 0 := by
+  obtain ⟨hl, _, _⟩ := lowerNoncePos_area output e he
+  have hb : ∀ lay : Layer, layerBase lay % 8 = 0 := by decide
+  rw [lowerNoncePos_eq output e.1 hl e.2]
+  have := hb e.1
+  omega
+
+theorem groundList_bound (output : HashOutput) (w : SigGolfCandidate.Research.SharedForest.Witness) :
+    ∀ p ∈ groundFolds.map (fun e => (4128 + lowerNoncePos output e.1 e.2,
+      BitVec.ofNat 64 ((w.lowerNonces e.1).getD e.2 0))), p.1 < 2 ^ 64 := by
+  intro p hp
+  obtain ⟨e, he, rfl⟩ := List.mem_map.mp hp
+  have := ground_slot_bound output e he
+  show 4128 + lowerNoncePos output e.1 e.2 < 2 ^ 64
+  omega
+
+theorem groundList_nodup (output : HashOutput) (w : SigGolfCandidate.Research.SharedForest.Witness) :
+    ((groundFolds.map (fun e => (4128 + lowerNoncePos output e.1 e.2,
+      BitVec.ofNat 64 ((w.lowerNonces e.1).getD e.2 0)))).map Prod.fst).Nodup := by
+  rw [List.map_map]
+  apply List.Nodup.map_on _ (by decide)
+  intro x hx y hy e
+  by_contra hne
+  have := lowerNoncePos_disjoint output x y hx hy hne
+  simp only [Function.comp_apply] at e
+  omega
+
+/-- Word-level: with the record table holding the ground nonces and the fold-0 heaps, the pad writer followed by the
+post-pass turns the 2752 `witEnc` dwords into `witEncG`. -/
+theorem postPadMem_witEncG (M : Word → Word) (output : HashOutput) (w : SigGolfCandidate.Research.SharedForest.Witness)
+    (hleaf : leafW M % 4096 = (route (WCT9.digestIndex output) 0).1 % 4096)
+    (hn : ∀ j, j < 11 → M (nonceAddr j) = BitVec.ofNat 64 (w.topNonces.getD j 0))
+    (hrec : RecTable M output w)
+    (hbuf : ∀ k, k < 2752 → M (BitVec.ofNat 64 (4128 + 8 * k)) = (Paired.witEnc output w).extractLsb' (64 * k) 64) :
+    ∀ k, k < 2752 → postMem (padMem M) ((route (WCT9.digestIndex output) 1).1 / 2)
+      ((route (WCT9.digestIndex output) 2).1 / 2) ((route (WCT9.digestIndex output) 3).1 / 2)
+      (BitVec.ofNat 64 (4128 + 8 * k)) = (witEncG output w).extractLsb' (64 * k) 64 := by
+  intro k hk
+  rw [postMem_eq, postList_padMem, postList_val M output w hrec]
+  by_cases h : ∃ e ∈ groundFolds, 8 * k = lowerNoncePos output e.1 e.2
+  · obtain ⟨e, he, hk'⟩ := h
+    rw [hk', updF_in _ _ _ _ (groundList_bound output w) (groundList_nodup output w) (List.mem_map.mpr ⟨e, he, rfl⟩),
+      show 64 * k = 8 * lowerNoncePos output e.1 e.2 by omega]
+    exact (witEncG_nonce_lo output w e he).symm
+  · have hfree : ∀ e ∈ groundFolds, 8 * k + 8 ≤ lowerNoncePos output e.1 e.2 ∨
+        lowerNoncePos output e.1 e.2 + 8 ≤ 8 * k := by
+      intro e he
+      have h8 := lowerNoncePos_mod8 output e he
+      have hne : 8 * k ≠ lowerNoncePos output e.1 e.2 := fun q => h ⟨e, he, q⟩
+      omega
+    rw [updF_out _ _ _ (fun p hp q => ?_), padMem_witEncN M output w hleaf hn hbuf k hk]
+    · apply BitVec.eq_of_getLsbD_eq
+      intro i hi
+      rw [BitVec.getLsbD_extractLsb', BitVec.getLsbD_extractLsb',
+        witEncG_getLsbD_free output w _ (fun e he => by have := hfree e he; omega)]
+    · obtain ⟨e, he, rfl⟩ := List.mem_map.mp hp
+      dsimp only at q
+      have hb := ground_slot_bound output e he
+      have := congrArg BitVec.toNat q
+      rw [BitVec.toNat_ofNat, BitVec.toNat_ofNat, Nat.mod_eq_of_lt (by omega), Nat.mod_eq_of_lt (by omega)] at this
+      exact h ⟨e, he, by omega⟩
+
+/-- Every dword off the 11 top and 9 ground nonce slots is unchanged. -/
+theorem postPadMem_other (M : Word → Word) (output : HashOutput) (w : SigGolfCandidate.Research.SharedForest.Witness)
+    (hleaf : leafW M % 4096 = (route (WCT9.digestIndex output) 0).1 % 4096) (hrec : RecTable M output w) (A : Word)
+    (hA : ∀ j, j < 11 → A ≠ BitVec.ofNat 64 (4128 + noncePos output j))
+    (hA' : ∀ e ∈ groundFolds, A ≠ BitVec.ofNat 64 (4128 + lowerNoncePos output e.1 e.2)) :
+    postMem (padMem M) ((route (WCT9.digestIndex output) 1).1 / 2)
+      ((route (WCT9.digestIndex output) 2).1 / 2) ((route (WCT9.digestIndex output) 3).1 / 2) A = M A := by
+  rw [postMem_eq, postList_padMem, postList_val M output w hrec, updF_out _ _ _ (fun p hp => ?_),
+    padMem_other M output hleaf A hA]
+  obtain ⟨e, he, rfl⟩ := List.mem_map.mp hp
+  exact hA' e he
+
 section machine
 open SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv SigGolfCandidate.Rv SigGolfCandidate.T3M
-/-- Machine-level (from the post-pass hook `54174: jal 44961`): 68 steps to the `ecall` at 45016 with `a0 = 0`; the
-witness dwords become `Paired.witEncN output w`; only the eleven nonce slots `0x1020 + noncePos output j` change. -/
-theorem pad_hook_witEncN (s : MachineState) (hpc : s.pc = pcOf 54174) (output : HashOutput)
+/-- Machine-level (from the exit hook `54174: jal 44961`; U16b: pad writer then positional post-pass): 138 steps to
+the `ecall` at 55019 with `a0 = 0`; the witness dwords become `Paired.witEncG output w`; only the eleven top nonce slots
+and the nine ground nonce slots change. -/
+theorem pad_hook_witEncG (s : MachineState) (hpc : s.pc = pcOf 54174) (output : HashOutput)
     (w : SigGolfCandidate.Research.SharedForest.Witness)
     (hleaf : (s.getMem (BitVec.ofNat 64 0x66758)).toNat % 4096 = (route (WCT9.digestIndex output) 0).1 % 4096)
     (hn : ∀ j, j < 11 → s.getMem (nonceAddr j) = BitVec.ofNat 64 (w.topNonces.getD j 0))
+    (hrec : RecTable s.getMem output w)
     (hbuf : ∀ k, k < 2752 → s.getMem (BitVec.ofNat 64 (4128 + 8 * k)) =
       (Paired.witEnc output w).extractLsb' (64 * k) 64) :
-    ∃ t, Steps Images.expandImage s 68 68 t ∧
-      t.pc = pcOf 45016 ∧ t.getReg .x10 = 0 ∧
-      RegsExcept s t [.x6, .x10, .x11, .x12, .x13, .x14, .x15, .x16, .x17, .x28, .x29, .x30] ∧
-      (∀ k, k < 2752 → t.getMem (BitVec.ofNat 64 (4128 + 8 * k)) = (witEncN output w).extractLsb' (64 * k) 64) ∧
-      (∀ A, (∀ j, j < 11 → A ≠ BitVec.ofNat 64 (4128 + noncePos output j)) → t.getMem A = s.getMem A) := by
-  obtain ⟨t, st, tp, t10, rt, mt⟩ := pad_hook s hpc
-  refine ⟨t, st, tp, t10, rt, fun k hk => ?_, fun A hA => ?_⟩
-  · rw [mt]; exact padMem_witEncN s.getMem output w hleaf hn hbuf k hk
-  · rw [mt]; exact padMem_other s.getMem output hleaf A hA
+    ∃ t, Steps Images.expandImage s 138 138 t ∧
+      t.pc = pcOf 55019 ∧ t.getReg .x10 = 0 ∧
+      RegsExcept s t [.x1, .x6, .x10, .x11, .x12, .x13, .x14, .x15, .x16, .x17, .x18, .x28, .x29, .x30, .x31] ∧
+      fetch Images.expandImage t = some (.base .ECALL) ∧
+      (∀ k, k < 2752 → t.getMem (BitVec.ofNat 64 (4128 + 8 * k)) = (witEncG output w).extractLsb' (64 * k) 64) ∧
+      (∀ A, (∀ j, j < 11 → A ≠ BitVec.ofNat 64 (4128 + noncePos output j)) →
+        (∀ e ∈ groundFolds, A ≠ BitVec.ofNat 64 (4128 + lowerNoncePos output e.1 e.2)) → t.getMem A = s.getMem A) := by
+  have l1 : (route (WCT9.digestIndex output) 1).1 < 128 := lt_of_lt_of_eq (route_leaf_lt _ 1) (by decide)
+  have l2 : (route (WCT9.digestIndex output) 2).1 < 64 := lt_of_lt_of_eq (route_leaf_lt _ 2) (by decide)
+  have l3 : (route (WCT9.digestIndex output) 3).1 < 64 := lt_of_lt_of_eq (route_leaf_lt _ 3) (by decide)
+  obtain ⟨t, st, tp, t10, rt, mt, ft⟩ := pad_hook s hpc ((route (WCT9.digestIndex output) 1).1 / 2)
+    ((route (WCT9.digestIndex output) 2).1 / 2) ((route (WCT9.digestIndex output) 3).1 / 2)
+    (by omega) (by omega) (by omega) (hrec 1 (by decide)).2 (hrec 2 (by decide)).2 (hrec 3 (by decide)).2
+  refine ⟨t, st, tp, t10, rt, ft, fun k hk => ?_, fun A hA hA' => ?_⟩
+  · rw [mt]; exact postPadMem_witEncG s.getMem output w hleaf hn hrec hbuf k hk
+  · rw [mt]; exact postPadMem_other s.getMem output w hleaf hrec A hA hA'
 
 end machine
 
