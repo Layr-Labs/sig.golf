@@ -234,10 +234,58 @@ def merkleNodeInput (lay tree heap : Nat) (left right : Digest) : HashInput :=
 /-- Honest node hash of the current scheme (all layers; the top is `T3.nodeHash 3 0`, `lowerNodeHash_top`). -/
 def lowerNodeHash (lay tree heap : Nat) (left right : Digest) : M Digest :=
   lowerHash lay heap (merkleNodeInput lay tree heap left right)
-/-- `T3.buildLevel 3` with `lowerNodeHash`. -/
+/-! ### U16b ground layer: lower-tree node nonces (U-grind)
+Every lower-tree node (`lay ≠ 0`) with heap `2..15` (the three levels below the root) is the first trial
+`n < lowerNonceCap lay heap` of `lowerNodeHashN lay tree heap n left right` whose used half has its top
+`lowerZeroBits lay heap` bits clear (`lowerZeroOk`); if no trial passes, the last one (`n = cap - 1`) is kept. The nonce
+is the 64-bit counter at bytes 32..39 of the node input (the Merkle pad; bytes 40..47 stay 0); `n = 0` gives
+`merkleNodeInput`. Zero bits: heaps 8..15 -> 1, 4..7 -> 2, 2..3 -> 3 on layer 1, else 2; cap `128 · 2^b`.
+Every other node (the top tree, heaps 1 and ≥ 16) has `b = 0` and is the plain `lowerNodeHash`. -/
+def lowerZeroBits (lay heap : Nat) : Nat :=
+  if lay = 0 ∨ heap < 2 ∨ 16 ≤ heap then 0 else if 8 ≤ heap then 1 else if 4 ≤ heap then 2 else if lay = 1 then 3 else 2
+def lowerNonceCap (lay heap : Nat) : Nat := 128 * 2 ^ lowerZeroBits lay heap
+def lowerZeroOk (lay heap : Nat) (value : Digest) : Bool :=
+  value.toNat / 2 ^ (128 - lowerZeroBits lay heap) == 0
+def lowerNodeInputN (lay tree heap n : Nat) (left right : Digest) : HashInput :=
+  bytesLE 16 left ++ bytesLE 16 (merkleTweak lay tree heap) ++ nonceBytes n ++ bytesLE 16 right
+def lowerNodeHashN (lay tree heap n : Nat) (left right : Digest) : M Digest :=
+  lowerHash lay heap (lowerNodeInputN lay tree heap n left right)
+/-- Nonce search from trial `n` with `fuel` trials left; the last trial is kept (`T3.topNonceSearch` shape). -/
+def lowerNonceSearch (lay tree heap : Nat) (left right : Digest) : Nat → Nat → M (Nat × Digest)
+  | 0, n => do
+      let value ← lowerNodeHashN lay tree heap n left right
+      pure (n, value)
+  | fuel + 1, n => do
+      let value ← lowerNodeHashN lay tree heap n left right
+      if lowerZeroOk lay heap value then pure (n, value) else lowerNonceSearch lay tree heap left right fuel (n + 1)
+/-- The canonical node (nonce, value): the plain node hash when `b = 0`, else the first-nonce search. -/
+def lowerNodeAt (lay tree heap : Nat) (left right : Digest) : M (Nat × Digest) :=
+  if lowerZeroBits lay heap = 0 then (fun value => (0, value)) <$> lowerNodeHash lay tree heap left right
+  else lowerNonceSearch lay tree heap left right (lowerNonceCap lay heap - 1) 0
+/-- The canonical node value. -/
+def lowerNodeG (lay tree heap : Nat) (left right : Digest) : M Digest :=
+  Prod.snd <$> lowerNodeAt lay tree heap left right
+theorem lowerZeroBits_top (heap : Nat) : lowerZeroBits 0 heap = 0 := by simp [lowerZeroBits]
+theorem lowerNodeAt_of_zero {lay tree heap : Nat} (h : lowerZeroBits lay heap = 0) (left right : Digest) :
+    lowerNodeAt lay tree heap left right = (fun value => (0, value)) <$> lowerNodeHash lay tree heap left right := by
+  simp [lowerNodeAt, h]
+theorem lowerNodeG_of_zero {lay tree heap : Nat} (h : lowerZeroBits lay heap = 0) (left right : Digest) :
+    lowerNodeG lay tree heap left right = lowerNodeHash lay tree heap left right := by
+  simp [lowerNodeG, lowerNodeAt_of_zero h, Functor.map_map]
+theorem lowerNodeG_top (tree heap : Nat) (left right : Digest) :
+    lowerNodeG 0 tree heap left right = lowerNodeHash 0 tree heap left right :=
+  lowerNodeG_of_zero (lowerZeroBits_top heap) left right
+theorem nonceBytes_zero : nonceBytes 0 = zero16 := by decide
+theorem lowerNodeInputN_zero (lay tree heap : Nat) (left right : Digest) :
+    lowerNodeInputN lay tree heap 0 left right = merkleNodeInput lay tree heap left right := by
+  simp [lowerNodeInputN, merkleNodeInput, nonceBytes_zero]
+theorem lowerNodeHashN_zero (lay tree heap : Nat) (left right : Digest) :
+    lowerNodeHashN lay tree heap 0 left right = lowerNodeHash lay tree heap left right := by
+  simp [lowerNodeHashN, lowerNodeHash, lowerNodeInputN_zero]
+/-- `T3.buildLevel 3` with the canonical node `lowerNodeG` (U16b: ground heaps 2..15 on the lower layers). -/
 def lowerLevel (lay tree h level : Nat) (nodes : List Digest) : M (List Digest) :=
   (List.range (nodes.length / 2)).mapM fun i =>
-    lowerNodeHash lay tree (2 ^ (h-level) + i) (nodes.getD (2*i) 0) (nodes.getD (2*i+1) 0)
+    lowerNodeG lay tree (2 ^ (h-level) + i) (nodes.getD (2*i) 0) (nodes.getD (2*i+1) 0)
 /-- `T3.buildLevels 3` with `lowerLevel` (all levels, root included). -/
 def lowerLevels (lay tree h : Nat) (leaves : List Digest) : M (List (List Digest)) :=
   (List.range' 1 h).foldlM (fun levels level => do
@@ -519,7 +567,7 @@ theorem lowerNodeHash_top (tree heap : Nat) (left right : Digest) :
   rw [lowerHigh_top_eq_nodeHalfHigh, merkleTweak_top, halfHash_eq_projHash]
 theorem lowerLevel_top (tree h level : Nat) (nodes : List Digest) :
     lowerLevel 0 tree h level nodes = buildLevel 3 0 tree h level nodes := by
-  unfold lowerLevel buildLevel; simp only [lowerNodeHash_top]
+  unfold lowerLevel buildLevel; simp only [lowerNodeG_top, lowerNodeHash_top]
 theorem lowerLevels_top (tree h : Nat) (leaves : List Digest) :
     lowerLevels 0 tree h leaves = buildLevels 3 0 tree h leaves := by
   unfold lowerLevels buildLevels; simp only [lowerLevel_top]
@@ -1100,9 +1148,47 @@ def recoverLayerPair (sig : Signature) (index : Nat) (lay : Layer) (digits : Lis
   let top ← (List.finRange (height lay - 1)).foldlM (fun value j => do
     let other := (sig.layers lay).path (Fin.castLE (Nat.sub_le _ _) j)
     let pair := if leaf / 2 ^ j.val % 2 = 0 then (value, other) else (other, value)
-    lowerNodeHash lay.val tree (2 ^ (height lay - j.val - 1) + leaf / 2 ^ (j.val + 1)) pair.1 pair.2) value
+    lowerNodeG lay.val tree (2 ^ (height lay - j.val - 1) + leaf / 2 ^ (j.val + 1)) pair.1 pair.2) value
   let other := (sig.layers lay).path (topLevel lay)
   pure (if leaf / 2 ^ (height lay - 1) % 2 = 0 then (top, other) else (other, top))
+/-- U16b: `recoverLayerPair` also returning the nonce of every fold `j < height lay - 1` (0 for `b = 0`). -/
+def recoverLayerPairW (sig : Signature) (index : Nat) (lay : Layer) (digits : List Nat) :
+    M ((Digest × Digest) × List Nat) := do
+  let (leaf, tree) := route index lay
+  let ends ← (List.finRange (chainCount lay)).mapM fun i =>
+    chainW lay tree leaf i.val (digits.getD i.val 0)
+      (maxDigit lay i.val - digits.getD i.val 0) ((sig.layers lay).values i)
+  let value ← lowerLeafHash lay tree leaf ends
+  let st ← (List.finRange (height lay - 1)).foldlM (fun (st : Digest × List Nat) j => do
+    let other := (sig.layers lay).path (Fin.castLE (Nat.sub_le _ _) j)
+    let pair := if leaf / 2 ^ j.val % 2 = 0 then (st.1, other) else (other, st.1)
+    let r ← lowerNodeAt lay.val tree (2 ^ (height lay - j.val - 1) + leaf / 2 ^ (j.val + 1)) pair.1 pair.2
+    pure (r.2, st.2 ++ [r.1])) (value, [])
+  let other := (sig.layers lay).path (topLevel lay)
+  pure (if leaf / 2 ^ (height lay - 1) % 2 = 0 then (st.1, other) else (other, st.1), st.2)
+theorem foldlM_nonce_proj {α γ : Type} (l : List α) (f : Digest → α → M (γ × Digest)) (b : Digest) (ns : List γ) :
+    Prod.fst <$> l.foldlM (fun (st : Digest × List γ) a => do let r ← f st.1 a; pure (r.2, st.2 ++ [r.1])) (b, ns) =
+      l.foldlM (fun b a => Prod.snd <$> f b a) b := by
+  induction l generalizing b ns with
+  | nil => simp
+  | cons a l ih =>
+    simp only [List.foldlM_cons, map_bind, bind_map_left, bind_assoc, pure_bind]
+    refine congrArg (f b a >>= ·) (funext fun r => ?_)
+    exact ih r.2 (ns ++ [r.1])
+theorem recoverLayerPair_eq_W (sig : Signature) (index : Nat) (lay : Layer) (digits : List Nat) :
+    recoverLayerPair sig index lay digits = Prod.fst <$> recoverLayerPairW sig index lay digits := by
+  unfold recoverLayerPair recoverLayerPairW
+  rcases route index lay with ⟨leaf, tree⟩
+  simp only [map_bind, map_pure]
+  refine congrArg (_ >>= ·) (funext fun ends => congrArg (_ >>= ·) (funext fun value => ?_))
+  have h := foldlM_nonce_proj (List.finRange (height lay - 1))
+    (fun v (j : Fin (height lay - 1)) => lowerNodeAt lay.val tree (2 ^ (height lay - j.val - 1) + leaf / 2 ^ (j.val + 1))
+      (if leaf / 2 ^ j.val % 2 = 0 then (v, (sig.layers lay).path (Fin.castLE (Nat.sub_le _ _) j))
+        else ((sig.layers lay).path (Fin.castLE (Nat.sub_le _ _) j), v)).1
+      (if leaf / 2 ^ j.val % 2 = 0 then (v, (sig.layers lay).path (Fin.castLE (Nat.sub_le _ _) j))
+        else ((sig.layers lay).path (Fin.castLE (Nat.sub_le _ _) j), v)).2) value []
+  simp only [lowerNodeG]
+  rw [← h, bind_map_left]
 /-- Lower dispatch is defined only at ranks allocated in the absolute-address table. -/
 def lowerRankGood (answer : Digest) : Prop :=
   ∀ i : Fin 14, producerRankFloor i.val ≤ lowerWord answer / 2 ^ (9 * i.val) % 512
@@ -1117,13 +1203,29 @@ def lowerGuardedRun {α : Type} (run : Nat → M Digest) (finish : M α) (answer
   else do
     let _ ← (List.range (3 * lowerFirstBad answer)).mapM run
     pure none
+/-- U16b: the T1 (non-searching) lower recovery: every fold is the plain `lowerNodeHash` (nonce 0), which is what the
+verifier machine computes on zero pads. The legacy verifier (`recoverLayerPairGuard`, `verifyLayersBC`) uses it;
+the expanders use the searching `recoverLayerPair` / `recoverLayerPairW`. -/
+def recoverLayerPair0 (sig : Signature) (index : Nat) (lay : Layer) (digits : List Nat) :
+    M (Digest × Digest) := do
+  let (leaf, tree) := route index lay
+  let ends ← (List.finRange (chainCount lay)).mapM fun i =>
+    chainW lay tree leaf i.val (digits.getD i.val 0)
+      (maxDigit lay i.val - digits.getD i.val 0) ((sig.layers lay).values i)
+  let value ← lowerLeafHash lay tree leaf ends
+  let top ← (List.finRange (height lay - 1)).foldlM (fun value j => do
+    let other := (sig.layers lay).path (Fin.castLE (Nat.sub_le _ _) j)
+    let pair := if leaf / 2 ^ j.val % 2 = 0 then (value, other) else (other, value)
+    lowerNodeHash lay.val tree (2 ^ (height lay - j.val - 1) + leaf / 2 ^ (j.val + 1)) pair.1 pair.2) value
+  let other := (sig.layers lay).path (topLevel lay)
+  pure (if leaf / 2 ^ (height lay - 1) % 2 = 0 then (top, other) else (other, top))
 def recoverLayerPairGuard (sig : Signature) (index : Nat) (lay : Layer) (answer : Digest)
     (digits : List Nat) : M (Option (Digest × Digest)) :=
   lowerGuardedRun
     (fun i => chainW lay (route index lay).2 (route index lay).1 i
       (digits.getD i 0) (maxDigit lay i - digits.getD i 0) ((sig.layers lay).values ⟨i % chainCount lay,
         Nat.mod_lt _ (by fin_cases lay <;> decide)⟩))
-    (recoverLayerPair sig index lay digits) answer
+    (recoverLayerPair0 sig index lay digits) answer
 /-- Campaign T51: range check of the top group whose first chain is `3 g` (r6 groups `g ≤ 8`: `r6Valid`; r5 groups
 `9 ≤ g ≤ 15`: rank below 125; `g = 16` is the r7 pair at chains 48, 49: rank below 49). -/
 def topGroupValid (answer : Digest) (g : Nat) : Bool :=

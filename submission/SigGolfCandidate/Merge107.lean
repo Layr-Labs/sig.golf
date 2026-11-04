@@ -157,9 +157,7 @@ theorem layerPair_wots_route (answers : Answers) (w : WBytes) (index : Nat) (lay
   rcases layerPairP_wots answers w index lay digits hidx hvalid hlay reaches with hS | ⟨hmerkle, hchains, hleaf⟩
   · exact Or.inl (Or.inr (Or.inl (structuralHitSrc_mono hS hmono)))
   exact frame_wots_route answers w index lay msg digits hidx hfit hframe qs henc
-    (fun j hj => ⟨(hmerkle j hj).1, fun h => by
-        rw [WCT9.honestNonce_lower answers (fun h0 => hlay (by rw [h0]; rfl)), WCT9.nonceDigest_zero]
-        exact ((hmerkle j hj).2 (h.resolve_right hlay)).1,
+    (fun j hj => ⟨(hmerkle j hj).1, fun h => ((hmerkle j hj).2 (h.resolve_right hlay)).1,
       fun h => ((hmerkle j hj).2 (h.resolve_right hlay)).2⟩) hleaf
     (fun i hi => ⟨(hchains i hi).1, fun hlt => ⟨contactAt_mono ((hchains i hi).2 hlt).1 hmono,
       fun h2 => twoEdgeAt_mono (((hchains i hi).2 hlt).2 h2) hmono⟩⟩)
@@ -2515,12 +2513,13 @@ theorem leafOut_of_length (input : HashInput) (hl : input.length ≠ 64) : LeafO
   apply hl
   rw [heq, chainRowW_length]
 theorem foldOK_leafOut (lay tree h : Nat) (h7 : lay ≠ 0 → h ≤ 7) : Mask.FoldOK (LeafOut L) lay tree h := by
-  intro level i left right hlev hi
-  refine leafOut_of_hdr L _ _ (SigGolfCandidate.T3M.Extract.hdrBlock_block4 left _ 0 right)
+  intro level i
+  intros
+  refine leafOut_of_hdr L _ _ (SigGolfCandidate.T3M.Extract.hdrBlock_block4 _ _ _ _)
     fun l tr leaf c step hs => Mask.merkleTweak_ne_chainHeader ?_ l tr leaf c step hs
   by_cases h0 : lay = 0
   · exact Or.inl h0
-  · exact Or.inr (Mask.lowerHeap_lt' hlev (h7 h0) hi)
+  · exact Or.inr (Mask.lowerHeap_lt' ‹1 ≤ level› (h7 h0) ‹i < 2 ^ h / 2›)
 theorem respectsL_lowerLevels (lay tree h : Nat) (h7 : lay ≠ 0 → h ≤ 7) (leaves : List Digest)
     (hlen : leaves.length ≤ 2 ^ h) : Respects (LeafOut L) (WCT9.lowerLevels lay tree h leaves) :=
   Mask.respects_lowerLevels' (foldOK_leafOut L lay tree h h7) leaves hlen

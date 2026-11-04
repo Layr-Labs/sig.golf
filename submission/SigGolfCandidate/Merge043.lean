@@ -2751,6 +2751,35 @@ def LowerSeedQ (lay : Layer) (tree : Nat) : SigGolfCandidate.T3.Spec.Domain → 
   | _ => False
 def LowerQuery (lay : Layer) (tree : Nat) (q : SigGolfCandidate.T3.Spec.Domain) : Prop :=
   PubGood q ∨ LowerSeedQ lay tree q
+/-- U16b: the nonce search queries only node hashes `lowerNodeHashN` (one per trial). -/
+theorem allQ_lowerNonceSearch {P : SigGolfCandidate.T3.Spec.Domain → Prop} (lay tree heap : Nat) (left right : Digest)
+    (h : ∀ n, AllQueriesSatisfy (lowerNodeHashN lay tree heap n left right) P) :
+    ∀ fuel n, AllQueriesSatisfy (lowerNonceSearch lay tree heap left right fuel n) P
+  | 0, n => by
+      unfold lowerNonceSearch
+      exact allQ_bind (h n) fun _ => allQ_pure _
+  | fuel + 1, n => by
+      unfold lowerNonceSearch
+      refine allQ_bind (h n) fun _ => ?_
+      split
+      · exact allQ_pure _
+      · exact allQ_lowerNonceSearch lay tree heap left right h fuel (n + 1)
+theorem lowerZeroBits_ne_zero_lay {lay heap : Nat} (h : lowerZeroBits lay heap ≠ 0) : lay ≠ 0 :=
+  fun h0 => h (by simp [lowerZeroBits, h0])
+/-- U16b: a canonical node (`lowerNodeG`) queries only `lowerNodeHashN` trials (nonce 0 = `lowerNodeHash`; nonzero
+nonces only on the lower layers). -/
+theorem allQ_lowerNodeG {P : SigGolfCandidate.T3.Spec.Domain → Prop} (lay tree heap : Nat) (left right : Digest)
+    (h : ∀ n, (n = 0 ∨ lay ≠ 0) → AllQueriesSatisfy (lowerNodeHashN lay tree heap n left right) P) :
+    AllQueriesSatisfy (lowerNodeG lay tree heap left right) P := by
+  unfold lowerNodeG lowerNodeAt
+  refine SigGolfCandidate.T3M.allQ_map _ ?_
+  split
+  · refine SigGolfCandidate.T3M.allQ_map _ ?_
+    rw [← lowerNodeHashN_zero]
+    exact h 0 (Or.inl rfl)
+  · rename_i hb
+    exact allQ_lowerNonceSearch lay tree heap left right
+      (fun n => h n (Or.inr (lowerZeroBits_ne_zero_lay hb))) _ 0
 section
 variable (lay : Layer) (tree : Nat)
 theorem lowerQuery_chain (leaf i start count : Nat) (value : Digest) :
@@ -2779,9 +2808,9 @@ theorem lowerQuery_lowerLeafHash (leaf : Nat) (ends : List Digest) :
 theorem lowerQuery_lowerLevel (h level : Nat) (nodes : List Digest) :
     AllQueriesSatisfy (lowerLevel lay.val tree h level nodes) (LowerQuery lay tree) := by
   unfold lowerLevel
-  refine allQ_mono (allQ_mapM _ _ fun _ => ?_) (fun _ h => Or.inl h)
-  unfold lowerNodeHash lowerHash
-  exact pubGood_halfHash _ _ (by simp [merkleNodeInput, bytesLE_length, zero16])
+  refine allQ_mono (allQ_mapM _ _ fun _ => allQ_lowerNodeG _ _ _ _ _ fun n _ => ?_) (fun _ h => Or.inl h)
+  unfold lowerNodeHashN lowerHash
+  exact pubGood_halfHash _ _ (by simp [lowerNodeInputN, nonceBytes, bytesLE_length])
 theorem lowerQuery_buildLevels (h : Nat) (leaves : List Digest) :
     AllQueriesSatisfy (buildLevels 3 lay.val tree h leaves) (LowerQuery lay tree) := by
   unfold buildLevels
@@ -3119,6 +3148,11 @@ theorem lowerNodeHash_allowed_of_public (P : SigGolfCandidate.T3.Spec.Domain →
     AllQueriesSatisfy (WCT9.lowerNodeHash lay tree heap left right) P := by
   unfold WCT9.lowerNodeHash WCT9.lowerHash
   exact halfHash_allowed_of_short P _ (shortHash_allowed P hpublic _)
+theorem lowerNodeHashN_allowed_of_public (P : SigGolfCandidate.T3.Spec.Domain → Prop)
+    (hpublic : ∀ input, P (.inl (.inr input))) (lay tree heap n : Nat) (left right : Digest) :
+    AllQueriesSatisfy (WCT9.lowerNodeHashN lay tree heap n left right) P := by
+  unfold WCT9.lowerNodeHashN WCT9.lowerHash
+  exact halfHash_allowed_of_short P _ (shortHash_allowed P hpublic _)
 theorem allQ_bind_supp {α β : Type} {P : SigGolfCandidate.T3.Spec.Domain → Prop} {p : M α} {f : α → M β}
     (hp : AllQueriesSatisfy p P) (hf : ∀ a ∈ support p, AllQueriesSatisfy (f a) P) :
     AllQueriesSatisfy (p >>= f) P := by
@@ -3186,21 +3220,21 @@ theorem foldlM_support_fst_length {α β γ : Type} (items : List β) (f : List 
 theorem height_le_seven {lay : Layer} (h0 : lay.val ≠ 0) : height lay ≤ 7 := by
   fin_cases lay <;> simp_all [height]
 theorem lowerLevel_allowed (P : SigGolfCandidate.T3.Spec.Domain → Prop)
-    (hnode : ∀ (lay : Layer) tree heap left right, heap < 2 ^ height lay →
-      AllQueriesSatisfy (WCT9.lowerNodeHash lay.val tree heap left right) P)
+    (hnode : ∀ (lay : Layer) tree heap n left right, heap < 2 ^ height lay → (n = 0 ∨ lay.val ≠ 0) →
+      AllQueriesSatisfy (WCT9.lowerNodeHashN lay.val tree heap n left right) P)
     (lay : Layer) (tree level : Nat) (nodes : List Digest) (h1 : 1 ≤ level) (h2 : level < height lay)
     (hn : nodes.length = 2 ^ (height lay - (level - 1))) :
     AllQueriesSatisfy (WCT9.lowerLevel lay.val tree (height lay) level nodes) P := by
   unfold WCT9.lowerLevel
-  refine mapM_allowed_mem _ _ fun i hi => hnode lay tree _ _ _ ?_
+  refine mapM_allowed_mem _ _ fun i hi => WCT9.allQ_lowerNodeG _ _ _ _ _ fun n hn0 => hnode lay tree _ n _ _ ?_ hn0
   rw [List.mem_range, hn, show height lay - (level - 1) = (height lay - level) + 1 by omega, pow_succ,
     Nat.mul_div_cancel _ (by decide)] at hi
   have hle : 2 ^ (height lay - level) * 2 ≤ 2 ^ height lay := by
     rw [← pow_succ]; exact Nat.pow_le_pow_right (by decide) (by omega)
   omega
 theorem buildLevelsBelow_allowed (P : SigGolfCandidate.T3.Spec.Domain → Prop)
-    (hnode : ∀ (lay : Layer) tree heap left right, heap < 2 ^ height lay →
-      AllQueriesSatisfy (WCT9.lowerNodeHash lay.val tree heap left right) P)
+    (hnode : ∀ (lay : Layer) tree heap n left right, heap < 2 ^ height lay → (n = 0 ∨ lay.val ≠ 0) →
+      AllQueriesSatisfy (WCT9.lowerNodeHashN lay.val tree heap n left right) P)
     (lay : Layer) (tree : Nat) (leaves : List Digest) (hlen : leaves.length = 2 ^ height lay) :
     AllQueriesSatisfy (WCT9.buildLevelsBelow 3 lay.val tree (height lay) leaves) P := by
   unfold WCT9.buildLevelsBelow
@@ -3226,8 +3260,8 @@ theorem buildTreeP_allowed' (P : SigGolfCandidate.T3.Spec.Domain → Prop)
     (hchain : ∀ (lay : Layer) tree leaf i step value,
       AllQueriesSatisfy (shortHash (WCT9.chainInputW lay tree leaf i step value)) P)
     (hleaf : ∀ (lay : Layer) tree leaf ends, AllQueriesSatisfy (SigGolfCandidate.T3.leafHash lay tree leaf ends) P)
-    (hnode : ∀ (lay : Layer) tree heap left right, heap < 2 ^ height lay →
-      AllQueriesSatisfy (WCT9.lowerNodeHash lay.val tree heap left right) P)
+    (hnode : ∀ (lay : Layer) tree heap n left right, heap < 2 ^ height lay → (n = 0 ∨ lay.val ≠ 0) →
+      AllQueriesSatisfy (WCT9.lowerNodeHashN lay.val tree heap n left right) P)
     (hseed : ∀ (lay : Layer) tree pair, AllQueriesSatisfy (WCT9.lowerSeedPair lay tree pair) P)
     (lay : Layer) (tree selected : Nat) (digits : List Nat) :
     AllQueriesSatisfy (WCT9.buildTreeP lay tree selected digits) P := by
@@ -3355,8 +3389,9 @@ structure TailAllowed (Q : SigGolfCandidate.T3.Spec.Domain → Prop) : Prop wher
   chainStepW : ∀ lay tree leaf i step value,
     AllQueriesSatisfy (shortHash (WCT9.chainInputW lay tree leaf i step value)) Q
   leaf : ∀ lay tree leaf ends, AllQueriesSatisfy (SigGolfCandidate.T3.leafHash lay tree leaf ends) Q
-  node : ∀ (lay : Layer) tree heap left right, heap < 2 ^ height lay →
-    AllQueriesSatisfy (lowerNodeHash lay.val tree heap left right) Q
+  /-- U16b: every trial of a lower node (`lowerNodeHashN`, nonce `n`; nonzero nonces only below the top). -/
+  node : ∀ (lay : Layer) tree heap n left right, heap < 2 ^ height lay → (n = 0 ∨ lay.val ≠ 0) →
+    AllQueriesSatisfy (lowerNodeHashN lay.val tree heap n left right) Q
   seed : ∀ lay tree pair, AllQueriesSatisfy (lowerSeedPair lay tree pair) Q
   encoding : ∀ lay tree leaf msg counter,
     AllQueriesSatisfy (encodingHash lay (layerEncodingInput lay tree leaf msg counter)) Q
@@ -3862,6 +3897,33 @@ theorem lowerNodeHash_notDigest (lay : Layer) (tree heap : Nat) (left right : Di
       rw [SigGolfCandidate.T3.append64_marker, BitVec.toNat_add, BitVec.toNat_ofNat,
         SigGolfCandidate.T3.hyperWord_toNat]
       omega
+/-- U16b: every trial of a lower node of the honest tree shape is no digest query (nonce `n` only below the top; the
+nonce bytes sit after the packed node word, whose marker is `128 + heap`). -/
+theorem lowerNodeHashN_notDigest (lay : Layer) (tree heap n : Nat) (left right : Digest) (hh : heap < 2 ^ height lay)
+    (hn : n = 0 ∨ lay.val ≠ 0) :
+    AllQueriesSatisfy (ClaudeWCT.WCT9.lowerNodeHashN lay.val tree heap n left right)
+      SigGolfCandidate.T3.Security.BPB.NotDigestQ := by
+  by_cases h0 : lay.val = 0
+  · have hn0 : n = 0 := hn.resolve_right (fun h => h h0)
+    subst hn0
+    rw [ClaudeWCT.WCT9.lowerNodeHashN_zero]
+    exact lowerNodeHash_notDigest lay tree heap left right hh
+  · have h7 : heap < 128 := lt_of_lt_of_le hh
+      ((Nat.pow_le_pow_right (by decide) (ClaudeWCT.W9.T3.Security.Signer.height_le_seven h0)).trans (by norm_num))
+    unfold ClaudeWCT.WCT9.lowerNodeHashN ClaudeWCT.WCT9.lowerHash
+    refine ClaudeWCT.W9.T3.Security.Signer.halfHash_allowed_of_short _ _
+      (SigGolfCandidate.T3.Security.BPB.shortHash_ok_marker
+        (hdr := ClaudeWCT.WCT9.merkleTweak lay.val tree heap) ?_ ?_)
+    · unfold ClaudeWCT.WCT9.lowerNodeInputN
+      rw [List.append_assoc (SphincsSecurity.bytesLE 16 left ++
+          SphincsSecurity.bytesLE 16 (ClaudeWCT.WCT9.merkleTweak lay.val tree heap)),
+        SigGolfCandidate.T3M.Extract.hdrBlock_pad64 _ (by simp [SphincsSecurity.bytesLE_length, nonceBytes]),
+        SigGolfCandidate.T3M.Extract.hdrBlock_prefix]
+    · rw [ClaudeWCT.WCT9.merkleTweak_lower h0]
+      unfold ClaudeWCT.WCT9.lowerTweak ClaudeWCT.WCT9.lowerNodeWord ClaudeWCT.WCT9.lowerK
+      rw [SigGolfCandidate.T3.append64_marker, BitVec.toNat_add, BitVec.toNat_ofNat,
+        SigGolfCandidate.T3.hyperWord_toNat]
+      omega
 open SigGolfCandidate.T3.Security.BPB SigGolfCandidate.T3M SigGolfCandidate.T3M.SecurityInputs in
 /-- Pairing stage 1: a chain step of the current scheme (either format) is not a digest query. -/
 theorem chainStepW_ok_rev3 (lay : SigGolfCandidate.T3.Layer) (tree leaf i step : Nat) (v : SigGolfCandidate.T3.Digest) :
@@ -3888,7 +3950,7 @@ theorem wct_payNotDigest : PayNotDigest payAfterDigest := by
   · intro state
     apply SourceQueries.bind_allowed _ (W9.T3.Security.Signer.signLayersBC_allowed' _ _ layerEncoding_ok
       (W9.T3.Security.Signer.buildTreeP_allowed' _ chainStepW_ok_rev3 BPB.leafHash_ok
-        (fun lay _ _ _ _ hh => lowerNodeHash_notDigest lay _ _ _ _ hh)
+        (fun lay _ _ _ _ _ hh hn => lowerNodeHashN_notDigest lay _ _ _ _ _ hh hn)
         (fun _ _ _ => BPB.privatePair_ok _ _ _ _ _)) (BPB.signTop_ok _) _ _ _)
     intro layers
     split
@@ -4550,7 +4612,7 @@ theorem tail_public : SharedQueries.TailAllowed Q where
   chainStep := fun _ _ _ _ _ _ => SourceQueries.shortHash_allowed Q hpublic _
   chainStepW := fun _ _ _ _ _ _ => SourceQueries.shortHash_allowed Q hpublic _
   leaf := fun _ _ _ _ => SourceQueries.shortHash_allowed Q hpublic _
-  node := fun _ _ _ _ _ _ => W9.T3.Security.Signer.lowerNodeHash_allowed_of_public Q hpublic _ _ _ _ _
+  node := fun _ _ _ _ _ _ _ _ => W9.T3.Security.Signer.lowerNodeHashN_allowed_of_public Q hpublic _ _ _ _ _ _
   seed := fun _ _ _ => SourceQueries.privatePair_allowed Q hpair _ _ _ _ _
   encoding := fun lay _ _ msg _ => by
     cases msg <;> exact SourceQueries.shortHash_allowed Q hpublic _
@@ -4598,7 +4660,7 @@ theorem tail_notDigest : SharedQueries.TailAllowed BPB.NotDigestQ where
     · intro _; exact SourceQueries.pure_allowed _ _
   chainStepW := ClaudeWCT.Bank.WCT.chainStepW_ok_rev3
   leaf := BPB.leafHash_ok
-  node := fun lay _ _ _ _ hh => ClaudeWCT.Bank.WCT.lowerNodeHash_notDigest lay _ _ _ _ hh
+  node := fun lay _ _ _ _ _ hh hn => ClaudeWCT.Bank.WCT.lowerNodeHashN_notDigest lay _ _ _ _ _ hh hn
   seed := fun _ _ _ => BPB.privatePair_ok _ _ _ _ _
   encoding := WCT.layerEncoding_ok
   top := BPB.signTop_ok

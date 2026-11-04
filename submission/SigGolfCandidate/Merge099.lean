@@ -392,7 +392,7 @@ def coordVal (s : Secrets) (L : Labels) : Coord → Digest
 theorem trialFailsV_coordVal (s : Secrets) (L : Labels) (n : TreeNode) (j : Nat) :
     trialFailsV (coordVal s L) n j ↔ trialFails L n j := by
   unfold trialFailsV trialFails trialCoord
-  show topZeroOk _ (Extract.Paired.proj (Node.node (withNonce n j)).toPos (L (.node (withNonce n j)))) = false ↔ _
+  show trialZeroOk _ _ (Extract.Paired.proj (Node.node (withNonce n j)).toPos (L (.node (withNonce n j)))) = false ↔ _
   rw [CanonGraph.Paired.pairedProj_node]
   rfl
 theorem selNonceV_coordVal (s : Secrets) (L : Labels) (n : TreeNode) : selNonceV (coordVal s L) n = selNonce L n := by

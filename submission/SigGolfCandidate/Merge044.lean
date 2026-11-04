@@ -724,6 +724,32 @@ theorem top_tail_checked : tailCheck (acceptedMass topAcceptedHistogram 14) topD
 
 theorem initialBound_ge_scale : scale ≤ initialBound := by norm_num [scale, initialBound]
 
+/-- U16b fixed sign cost: the T51 cost 112326 minus the first trial of each of the 42 ground lower nodes. -/
+def fixedSignCostU16 : Nat := 112284
+
+/-- Fixed power for the U16b fixed sign cost 112284. -/
+def fixedBoundU16 : Nat := 616197827209629789846638660973109937165
+
+/-- U16b ground node factors `m_b` (over `2^128`, `b = 1, 2, 3`): rounded-up `z p / (1 - z (1 - p))`, `p = 2^-b`,
+for the sign `z = zNum/zDen` (equal to `keygenM 3, 4, 5`). -/
+def groundM (b : Nat) : Nat :=
+  if b = 1 then 340285965984933645675468342432275971788
+  else if b = 2 then 340289565125062062546873124227847124433
+  else 340296763633728263433442488925276359072
+
+/-- The 42 ground nodes: 24 with `b = 1`, 16 with `b = 2`, 2 with `b = 3`. -/
+def groundBound : Nat :=
+  mulUp (powerUp (groundM 1) 24) (mulUp (powerUp (groundM 2) 16) (powerUp (groundM 3) 2))
+
+theorem fixed_power_checked_U16 :
+    powerUp (ceilDiv (zNum * scale) zDen) fixedSignCostU16 ≤ fixedBoundU16 := by
+  decide +kernel
+
+/-- U16b signing moment 1.99982 < 1.99983 (claim 199983). -/
+theorem full_moment_checked_U16 :
+    mulUp (mulUp (mulUp fixedBoundU16 groundBound) ftsBound) initialBound * 100000 < 199983 * scale := by
+  decide +kernel
+
 end ClaudeWCT.Numerics.TopZero
 
 namespace ClaudeWCT.Numerics.TopZero
@@ -767,6 +793,57 @@ theorem envelope_ratio_le_two_of (F X : Nat) (hX : X ≤ 200000)
 theorem envelope_ratio_le_two : ((fixedBound:ℝ)/scale)*
     (((ftsBound:ℝ)/scale)*((initialBound:ℝ)/scale))≤2 :=
   envelope_ratio_le_two_of fixedBound 199893 (by norm_num) full_moment_checked
+
+/-- Geometric retry step for a ground node with `b ∈ {1,2,3}` zero bits, at the sign `z = zNum/zDen`. -/
+theorem groundM_step_z (b : Nat) (hb1 : 1 ≤ b) (hb3 : b ≤ 3) :
+    (zNum:ℝ)/zDen * (1/2^b + (1 - 1/2^b) * ((groundM b:ℝ)/scale)) ≤ (groundM b:ℝ)/scale ∧
+      (zNum:ℝ)/zDen ≤ (groundM b:ℝ)/scale := by
+  interval_cases b <;> norm_num [groundM, zNum, zDen, scale]
+
+theorem groundM_step (b : Nat) (hb1 : 1 ≤ b) (hb3 : b ≤ 3) (z : ℝ) (hz : z ≤ (zNum:ℝ)/zDen) :
+    z * (1/2^b + (1 - 1/2^b) * ((groundM b:ℝ)/scale)) ≤ (groundM b:ℝ)/scale ∧ z ≤ (groundM b:ℝ)/scale := by
+  obtain ⟨h1, h2⟩ := groundM_step_z b hb1 hb3
+  have hq : (1:ℝ)/2^b ≤ 1 := by
+    rw [div_le_one (by positivity)]; exact one_le_pow₀ (by norm_num)
+  have hp : 0 ≤ (1:ℝ)/2^b + (1 - 1/2^b) * ((groundM b:ℝ)/scale) := by
+    have : 0 ≤ 1 - (1:ℝ)/2^b := by linarith
+    positivity
+  exact ⟨(mul_le_mul_of_nonneg_right hz hp).trans h1, hz.trans h2⟩
+
+theorem fixed_ratio_bound_U16 : ((zNum:ℝ)/zDen)^fixedSignCostU16≤(fixedBoundU16:ℝ)/scale := by
+  have hs : (0:ℝ)<scale := by norm_num [scale]
+  have hceil := ceilDiv_ratio_le (zNum*scale) zDen (by norm_num [zDen])
+  have hc : ((zNum:ℝ)/zDen)≤(ceilDiv (zNum*scale) zDen:ℝ)/scale := by
+    apply (le_div_iff₀ hs).mpr
+    simpa only [Nat.cast_mul,mul_div_assoc,div_mul_eq_mul_div] using hceil
+  have hp := powerUp_ratio_ge (ceilDiv (zNum*scale) zDen) fixedSignCostU16
+  calc
+    _ ≤ ((ceilDiv (zNum*scale) zDen:ℝ)/scale)^fixedSignCostU16 := by gcongr
+    _ ≤ _ := hp.trans (div_le_div_of_nonneg_right (by exact_mod_cast fixed_power_checked_U16) hs.le)
+
+theorem groundBound_ratio_ge :
+    ((groundM 1:ℝ)/scale)^24 * (((groundM 2:ℝ)/scale)^16 * ((groundM 3:ℝ)/scale)^2) ≤ (groundBound:ℝ)/scale := by
+  unfold groundBound
+  calc
+    _ ≤ ((groundM 1:ℝ)/scale)^24 * ((powerUp (groundM 2) 16:ℝ)/scale * ((powerUp (groundM 3) 2:ℝ)/scale)) := by
+        gcongr
+        · exact powerUp_ratio_ge _ _
+        · exact powerUp_ratio_ge _ _
+    _ ≤ (powerUp (groundM 1) 24:ℝ)/scale * ((mulUp (powerUp (groundM 2) 16) (powerUp (groundM 3) 2):ℝ)/scale) := by
+        gcongr
+        · exact powerUp_ratio_ge _ _
+        · exact mulUp_ratio_ge _ _
+    _ ≤ _ := mulUp_ratio_ge _ _
+
+/-- U16b full moment ≤ 2 (1.99982): fixed `z^112284`, the 42 ground node factors, FTS and the initial bound. -/
+theorem envelope_ratio_le_two_U16 : (((fixedBoundU16:ℝ)/scale)*((groundBound:ℝ)/scale))*
+    (((ftsBound:ℝ)/scale)*((initialBound:ℝ)/scale))≤2 := by
+  have hm := mulUp_ratio_ge fixedBoundU16 groundBound
+  have he := envelope_ratio_le_two_of (mulUp fixedBoundU16 groundBound) 199983 (by norm_num)
+    full_moment_checked_U16
+  have h0 : (0:ℝ) ≤ ((ftsBound:ℝ)/scale)*((initialBound:ℝ)/scale) :=
+    mul_nonneg (div_nonneg (Nat.cast_nonneg _) (Nat.cast_nonneg _)) (div_nonneg (Nat.cast_nonneg _) (Nat.cast_nonneg _))
+  exact (mul_le_mul_of_nonneg_right hm h0).trans he
 
 end ClaudeWCT.Numerics.TopZero
 end

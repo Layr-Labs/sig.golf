@@ -23,13 +23,38 @@ open SphincsSecurity (bytesLE bytesLE_length)
 open SigGolfCandidate.T3M.Search (DIGITS NODE NOUT ENC csN4)
 open ClaudeWCT
 set_option maxHeartbeats 2000000
+/-- U16b: the grind stub's record of a lower layer after its climb: the fold nonces of the three ground folds
+`height lay - 4 + m` at `recB lay + 16 - 8 m` (classes 8..15, 4..7, 2..3) and the fold-0 parent heap at `+ 24`. -/
+def RecAt (t : MachineState) (lay : Layer) (leaf : Nat) (ns : List Nat) : Prop :=
+  ns.length = height lay - 1 ∧
+    (∀ m, m < 3 → t.getMem (BitVec.ofNat 64 (SharedRecover.Grind.recB lay.val + 16 - 8 * m)) =
+      BitVec.ofNat 64 (ns.getD (height lay - 4 + m) 0)) ∧
+    t.getMem (BitVec.ofNat 64 (SharedRecover.Grind.recB lay.val + 24)) = BitVec.ofNat 64 (2 ^ (height lay - 1) + leaf / 2)
 def RlPairPost (s0 : MachineState) (sig : Signature) (index : Nat) (lay : Layer) (WC WM ret : Nat)
-    (pair : Digest × Digest) (t : MachineState) : Prop :=
-  t.pc = pcOf ret ∧ DigAt t ENC pair.1 ∧ DigAt t (ENC + 48) pair.2 ∧
+    (res : (Digest × Digest) × List Nat) (t : MachineState) : Prop :=
+  t.pc = pcOf ret ∧ DigAt t ENC res.1.1 ∧ DigAt t (ENC + 48) res.1.2 ∧
     (∀ i < chainCount lay, DigAt t (WC - 64 * i + 48) (lval sig lay i)) ∧
     (∀ j < height lay, DigAt t (WM - 64 * j + sideOff (route index lay).1 j) (lpath sig lay j)) ∧
     RegsExcept s0 t rlRegs ∧
-    Frame s0 t (fun A => (RlScratch A ∨ RlWit lay (route index lay).1 WC WM A) ∨ A = ENC + 48 ∨ A = ENC + 56)
+    Frame s0 t (fun A => ((RlScratch A ∨ RlWit lay (route index lay).1 WC WM A) ∨ A = ENC + 48 ∨ A = ENC + 56) ∨
+      RecW lay A) ∧
+    RecAt t lay (route index lay).1 res.2
+/-- U16b: the lower-layer recovery with the fold nonces (`WCT9.recoverLayerPairW` body: `chainW`, `lowerLeafHash`
+and the ground node `lowerNodeAt`), unfolded. -/
+def recoverLayerPairNW (sig : WCT9.Signature) (index : Nat) (lay : Layer) (digits : List Nat) :
+    T3.M ((Digest × Digest) × List Nat) :=
+  ((List.finRange (chainCount lay)).mapM fun i => ClaudeWCT.WCT9.chainW lay (route index lay).2 (route index lay).1
+      i.val (digits.getD i.val 0) (maxDigit lay i.val - digits.getD i.val 0) ((sig.layers lay).values i)) >>=
+    fun ends => ClaudeWCT.WCT9.lowerLeafHash lay (route index lay).2 (route index lay).1 ends >>= fun value =>
+      (List.finRange (height lay - 1)).foldlM (fun (st : Digest × List Nat) j => do
+        let other := (sig.layers lay).path (Fin.castLE (Nat.sub_le _ _) j)
+        let pair := if (route index lay).1 / 2 ^ j.val % 2 = 0 then (st.1, other) else (other, st.1)
+        let r ← ClaudeWCT.WCT9.lowerNodeAt lay.val (route index lay).2
+          (2 ^ (height lay - j.val - 1) + (route index lay).1 / 2 ^ (j.val + 1)) pair.1 pair.2
+        pure (r.2, st.2 ++ [r.1])) (value, []) >>= fun st =>
+        pure (if (route index lay).1 / 2 ^ (height lay - 1) % 2 = 0 then
+          (st.1, (sig.layers lay).path (WCT9.topLevel lay)) else
+          ((sig.layers lay).path (WCT9.topLevel lay), st.1), st.2)
 /-- C2 + C3 (FULL): the lower-layer recovery of the current scheme (S23's `WCT9.recoverLayerPair` body, with
 `chainW`, `lowerLeafHash` and `lowerNodeHash`), unfolded. -/
 def recoverLayerPairN (sig : WCT9.Signature) (index : Nat) (lay : Layer) (digits : List Nat) :
@@ -51,12 +76,12 @@ section
 namespace SigGolfCandidate.T3M.Expand.BC
 open OracleComp SigGolfCandidate.T3
 open ClaudeWCT
-/-- C2 + C3 (FULL): `WCT9.recoverLayerPair` has the C2 + C3 body (`chainW`, `lowerLeafHash`, `lowerNodeHash`). -/
-theorem recoverLayerPair_eqN (sig : WCT9.Signature) (index : Nat) (lay : Layer) (digits : List Nat) :
-    WCT9.recoverLayerPair sig index lay digits = SigGolfCandidate.T3M.Expand.recoverLayerPairN sig index lay digits :=
+/-- U16b: `WCT9.recoverLayerPairW` has the body `recoverLayerPairNW` (`chainW`, `lowerLeafHash`, `lowerNodeAt`). -/
+theorem recoverLayerPairW_eqN (sig : WCT9.Signature) (index : Nat) (lay : Layer) (digits : List Nat) :
+    WCT9.recoverLayerPairW sig index lay digits = SigGolfCandidate.T3M.Expand.recoverLayerPairNW sig index lay digits :=
   rfl
 /-- img-v6: one layer of the expansion; the top layer re-derives its 11 node nonces (`WCT9.topFoldN`).
-Result: message, folded top node (0 for lower layers) and the top nonces ([] for lower layers). -/
+Result: message, folded top node (0 for lower layers) and the top nonces (U16b: the fold nonces on a lower layer). -/
 def recoverMsg (sig : WCT9.Signature) (index : Nat) (lay : Layer) (digits : List Nat) :
     M (WCT9.LayerMsg × Digest × List Nat) :=
   if lay = 0 then do
@@ -64,8 +89,8 @@ def recoverMsg (sig : WCT9.Signature) (index : Nat) (lay : Layer) (digits : List
     let root ← WCT9.topNode index vn.1 (WCT9.topSib sig)
     pure (.forest root, vn.1, vn.2)
   else do
-    let pair ← WCT9.recoverLayerPair sig index lay digits
-    pure (.pair pair.1 pair.2, 0, [])
+    let (pair, ns) ← WCT9.recoverLayerPairW sig index lay digits
+    pure (.pair pair.1 pair.2, 0, ns)
 end SigGolfCandidate.T3M.Expand.BC
 end
 section
@@ -183,9 +208,10 @@ def RecoverPost (s0 : MachineState) (sig : WCT9.Signature) (index : Nat) (lay : 
     (lay = 0 → ∃ root, mv.1 = .forest root) ∧
     (∀ i < chainCount lay, DigAt t (WC - 64 * i + 48) (lval (WCT9.toT3Signature sig) lay i)) ∧
     (∀ j < height lay, DigAt t (WM - 64 * j + sideOff (route index lay).1 j) (lpath (WCT9.toT3Signature sig) lay j)) ∧
-    RegsExcept s0 t rlRegs ∧ Frame s0 t (fun A => RlScratch A ∨ RlWit lay (route index lay).1 WC WM A) ∧
+    RegsExcept s0 t rlRegs ∧ Frame s0 t (fun A => (RlScratch A ∨ RlWit lay (route index lay).1 WC WM A) ∨ RecW lay A) ∧
     (lay = 0 → TopBlkG (WCT9.toT3Signature sig) index lay mv.2.1 t) ∧
-    (lay = 0 → NoncesAt t mv.2.2 (route index lay).1)
+    (lay = 0 → NoncesAt t mv.2.2 (route index lay).1) ∧
+    (lay ≠ 0 → RecAt t lay (route index lay).1 mv.2.2)
 theorem topProg_eq (sig : WCT9.Signature) (index : Nat) (digits : List Nat) :
     (WCT9.topFoldN sig index digits >>= fun vn => WCT9.topNode index vn.1 (WCT9.topSib sig) >>= fun root =>
       pure (vn, root)) = topProg (WCT9.toT3Signature sig) index 0 digits (by decide) := by
@@ -242,7 +268,8 @@ theorem rl_mk_finish {tc : MachineState} {sig : Signature} {lay : Layer} {tree l
       DigAt t (ENC + 48) (if leaf / 2 ^ j % 2 = 0 then lpath sig lay j else value) ∧
       (∀ q < height lay, DigAt t (WM - 64 * q + sideOff leaf q) (lpath sig lay q)) ∧
       RegsExcept tc t mkRegs ∧
-      Frame tc t (fun A => MkW leaf WM (height lay) A ∨ A = ENC ∨ A = ENC + 8 ∨ A = ENC + 48 ∨ A = ENC + 56) := by
+      Frame tc t (fun A => MkW lay leaf WM (height lay) A ∨ A = ENC ∨ A = ENC + 8 ∨ A = ENC + 48 ∨ A = ENC + 56) ∧
+      (∀ A, A < 2 ^ 64 → 0x700000 ≤ A → t.getMem (BitVec.ofNat 64 A) = u.getMem (BitVec.ofNat 64 A)) := by
   have hH := height_le lay
   have hlay := lay.isLt
   have hleaf' : leaf < 2 ^ 12 := lt_of_lt_of_le hleaf (Nat.pow_le_pow_right (by norm_num) hH)
@@ -267,11 +294,11 @@ theorem rl_mk_finish {tc : MachineState} {sig : Signature} {lay : Layer} {tree l
   have hpu2 : DigAt t2 P' (lpath sig lay j) := hpu.frame fu2 (by omega) (by simp) (by simp)
   have hn32 : t2.getMem (BitVec.ofNat 64 (NODE + 32)) = 0 := by
     rw [fu2.get (by decide) (by simp), hI.frame.get (by decide)
-      (by unfold MkW; simp only [NODE, NOUT]; rintro (h | h | h | h | h | h | h | ⟨j', _, h | h⟩ | h) <;>
+      (by unfold MkW; simp only [NODE, NOUT, RecW]; rintro (h | h | h | h | h | h | h | ⟨j', _, h | h⟩ | h) <;>
         first | omega | (have := sideOff_le leaf j'; omega)), cn32]
   have hn40 : t2.getMem (BitVec.ofNat 64 (NODE + 40)) = 0 := by
     rw [fu2.get (by decide) (by simp), hI.frame.get (by decide)
-      (by unfold MkW; simp only [NODE, NOUT]; rintro (h | h | h | h | h | h | h | ⟨j', _, h | h⟩ | h) <;>
+      (by unfold MkW; simp only [NODE, NOUT, RecW]; rintro (h | h | h | h | h | h | h | ⟨j', _, h | h⟩ | h) <;>
         first | omega | (have := sideOff_le leaf j'; omega)), cn40]
   obtain ⟨t3, k3, s3, hk3, p3, nl, nr, wsib, r3, f3⟩ : ∃ t3 k3, Steps im t2 k3 k3 t3 ∧ k3 ≤ 22 ∧
       t3.pc = pcOf 1117 ∧
@@ -320,7 +347,14 @@ theorem rl_mk_finish {tc : MachineState} {sig : Signature} {lay : Layer} {tree l
   obtain ⟨t, st, pt, m0, m8, m48, m56, rt, ft⟩ := BCBlocks.finish_spec (im := im) t3 p3 ret hz hl
     (by rw [g3 _ (by decide)]; exact c1)
   refine ⟨t, 1 + 3 + k3 + 18, ((s1.trans s2).trans s3).trans st, by omega, pt,
-    ⟨m0.trans nl.1, m8.trans nl.2⟩, ⟨m48.trans nr.1, m56.trans nr.2⟩, ?_, ?_, ?_⟩
+    ⟨m0.trans nl.1, m8.trans nl.2⟩, ⟨m48.trans nr.1, m56.trans nr.2⟩, ?_, ?_, ?_, ?_⟩
+  rotate_left 3
+  · intro A hA hA7
+    rw [ft.get hA (by simp only [BCBlocks.ENC]; omega), f3.get hA (by
+      have := sideOff_le leaf j
+      have hMb : M ≤ WM := by rw [hMdef]; exact Nat.sub_le _ _
+      simp only [NODE]; omega), fu2.get hA (fun h => h)]
+  rotate_right 3
   · intro q hq
     have hs := sideOff_le leaf q
     by_cases he : q = j
@@ -342,6 +376,7 @@ theorem rl_mk_finish {tc : MachineState} {sig : Signature} {lay : Layer} {tree l
       unfold MkW at h
       rcases h with h | h | h | h | h | h | h | ⟨q, hq, hqv⟩ | h
       all_goals first
+        | exact mkW_of (Or.inr (Or.inr (Or.inr (Or.inr (Or.inr (Or.inr (Or.inr h)))))))
         | exact mkW_of (by simp only [NODE, NOUT] at h ⊢; omega)
         | exact mkW_wit (by omega) hqv
     · exact h.elim
@@ -352,9 +387,30 @@ theorem rl_mk_finish {tc : MachineState} {sig : Signature} {lay : Layer} {tree l
       all_goals exact mkW_of (by simp only [NODE, NOUT] at h ⊢; omega)
     · exact Or.inr h
 
+/-- U16b: the lower climb invariant: `MkInv` plus the fold nonces so far and the stub's record of them. -/
+def LowInv (tc : MachineState) (sig : Signature) (lay : Layer) (leaf P WM : Nat) (j : Nat) (acc : Digest × List Nat)
+    (w : MachineState) : Prop :=
+  MkInv tc sig lay leaf P WM j acc.1 w ∧ acc.2.length = j ∧
+    (∀ k < j, ClaudeWCT.WCT9.lowerZeroBits lay.val (2 ^ (height lay - k - 1) + leaf / 2 ^ (k + 1)) ≠ 0 →
+      w.getMem (BitVec.ofNat 64 (Grind.recA lay.val (2 ^ (height lay - k - 1) + leaf / 2 ^ (k + 1)))) =
+        BitVec.ofNat 64 (acc.2.getD k 0)) ∧
+    (0 < j → w.getMem (BitVec.ofNat 64 (Grind.recB lay.val + 24)) = BitVec.ofNat 64 (2 ^ (height lay - 1) + leaf / 2))
+theorem ground_e (lay e heap : Nat) (c1 : 2 ^ e ≤ heap) (hg : ClaudeWCT.WCT9.lowerZeroBits lay heap ≠ 0) : e ≤ 3 := by
+  have h16 : heap < 16 := by
+    unfold ClaudeWCT.WCT9.lowerZeroBits at hg; split_ifs at hg <;> omega
+  by_contra hc
+  have : 2 ^ 4 ≤ 2 ^ e := Nat.pow_le_pow_right (by norm_num) (by omega)
+  omega
+theorem recA_ne_of_class (lay e e' : Nat) (hne : e ≠ e') (h3 : e ≤ 3) (h3' : e' ≤ 3) (h1 : 1 ≤ e) (h1' : 1 ≤ e')
+    {h h' : Nat} (c1 : 2 ^ e ≤ h) (c2 : h < 2 ^ (e + 1)) (c3 : 2 ^ e' ≤ h') (c4 : h' < 2 ^ (e' + 1)) :
+    Grind.recA lay h ≠ Grind.recA lay h' := by
+  unfold Grind.recA
+  interval_cases e <;> interval_cases e' <;> simp only [Nat.reducePow, Nat.reduceAdd, pow_one] at c1 c2 c3 c4 ⊢ <;>
+    first | (exfalso; omega) | (split_ifs <;> omega)
+
 theorem recoverLayerPair_tbsim {sk : BitVec 256} {s0 : MachineState} {wsig : WCT9.Signature} {index : Nat} {lay : Layer} {digits : List Nat}
     {P WC WM ret : Nat} (hpre : RlPre s0 (WCT9.toT3Signature wsig) index lay digits P WC WM ret) (hlow : lay ≠ 0) :
-    TBSim im sk s0 (rlCost lay) (recoverLayerPairN wsig index lay digits)
+    TBSim im sk s0 (rlCost lay) (recoverLayerPairNW wsig index lay digits)
       (RlPairPost s0 (WCT9.toT3Signature wsig) index lay WC WM ret) := by
   let sig := WCT9.toT3Signature wsig
   set tree := (route index lay).2 with htree_def
@@ -386,7 +442,7 @@ theorem recoverLayerPair_tbsim {sk : BitVec 256} {s0 : MachineState} {wsig : WCT
     · rw [f1g _ (by decide) (by decide) (by decide) (by decide) (by decide), hpre.c0]
     · rw [f1g _ (by decide) (by decide) (by decide) (by decide) (by decide), hpre.c8]
     · rw [r1.get (by decide), hpre.x23]; simp
-  unfold recoverLayerPairN
+  unfold recoverLayerPairNW
   refine (TBSim.steps st1 (TBSim.bind (W₂ := 10 + 8 * leafBlocks' lay + 13 + climbW lay)
     (rl_chains (im := im) (sk := sk) hpre r1 f1 hI0) (fun ends u hu => ?_))).mono (by unfold rlCost; omega) (fun _ _ h => h)
   obtain ⟨hlen, hC⟩ := hu
@@ -491,28 +547,86 @@ theorem recoverLayerPair_tbsim {sk : BitVec 256} {s0 : MachineState} {wsig : WCT
     exact ⟨(hfar' _ (by omega) (by omega) (by simp only [CHAIN]; omega) (by simp only [LEAFPK]; omega)
       (by simp only [NOUT]; omega)).trans hp.1, (hfar' _ (by omega) (by omega) (by simp only [CHAIN]; omega)
       (by simp only [LEAFPK]; omega) (by simp only [NOUT]; omega)).trans hp.2⟩
-  have hfold := tb_foldlM_finRange (image := im) (sk := sk) (height lay - 1)
-    (fun value j => do
+  have hH7 : height lay ≤ 7 := by fin_cases lay <;> simp_all [height]
+  have hH6 : 6 ≤ height lay := by fin_cases lay <;> simp_all [height]
+  have hlv : lay.val ≠ 0 := fun h => hlow (Fin.ext h)
+  have hl1 : 1 ≤ lay.val := by omega
+  have hl3 : lay.val ≤ 3 := by omega
+  have hthr : Grind.recThr lay.val = 2 ^ (height lay - 1) := by
+    unfold Grind.recThr; fin_cases lay <;> simp_all [height]
+  -- heap of fold `k`: `2 ^ (H - k - 1) ≤ heap < 2 ^ (H - k)`
+  have hheapk : ∀ k, k < height lay - 1 → 2 ^ (height lay - k - 1) ≤ 2 ^ (height lay - k - 1) + leaf / 2 ^ (k + 1) ∧
+      2 ^ (height lay - k - 1) + leaf / 2 ^ (k + 1) < 2 ^ (height lay - k - 1 + 1) := by
+    intro k hk
+    have e : 2 ^ height lay = 2 ^ (k + 1) * 2 ^ (height lay - k - 1) := by rw [← Nat.pow_add]; congr 1; omega
+    have hq : leaf / 2 ^ (k + 1) < 2 ^ (height lay - k - 1) := by
+      rw [Nat.div_lt_iff_lt_mul (Nat.two_pow_pos _), Nat.mul_comm, ← e]; exact hleaf
+    have h2 : 2 ^ (height lay - k - 1 + 1) = 2 ^ (height lay - k - 1) * 2 := Nat.pow_succ 2 _
+    rw [h2]
+    generalize leaf / 2 ^ (k + 1) = Y at hq ⊢
+    generalize 2 ^ (height lay - k - 1) = X at hq ⊢
+    omega
+  have hfold := tb_foldlM_valsW (im := im) (sk := sk)
+    (fun (st : Digest × List Nat) (j : Fin (height lay - 1)) => do
       let other := (sig.layers lay).path (Fin.castLE (Nat.sub_le _ _) j)
-      let pair := if leaf / 2 ^ j.val % 2 = 0 then (value, other) else (other, value)
-      ClaudeWCT.WCT9.lowerNodeHash lay.val tree (2 ^ (height lay - j.val - 1) + leaf / 2 ^ (j.val + 1)) pair.1 pair.2)
-    (ClaudeWCT.WCT9.halfOf (ClaudeWCT.WCT9.lowerHigh lay.val leaf) a) 81
-    (fun j value w => MkInv tc sig lay leaf P WM j value w)
-    (fun i acc w hw => (rl_mk_step (im := im) (by omega) (Or.inl (by omega)) htree hleaf hpre.hP hpre.hP' hpre.hP8 hpre.hWM8 hpre.hWM (by omega)
-      c5 c8 c9 c18 c15 (cpath i.val (by omega)) cn32 cn40 hw (Or.inl hlow)).mono le_rfl (fun _ _ h => h.1)) hM0
+      let pair := if leaf / 2 ^ j.val % 2 = 0 then (st.1, other) else (other, st.1)
+      let r ← ClaudeWCT.WCT9.lowerNodeAt lay.val tree (2 ^ (height lay - j.val - 1) + leaf / 2 ^ (j.val + 1)) pair.1 pair.2
+      pure (r.2, st.2 ++ [r.1])) (lowFoldW lay) (LowInv tc sig lay leaf P WM) (height lay - 1)
+    (fun i acc w hi hw => by
+      obtain ⟨hI, hlen, hrec, h24⟩ := hw
+      refine TBSim.bind (W₂ := 0) ((rl_mk_stepL (im := im) (sk := sk) (by omega) (Or.inl (by omega)) htree hleaf
+        hpre.hP hpre.hP' hpre.hP8 hpre.hWM8 hpre.hWM (by omega) c5 c8 c9 c18 c15 (cpath i.val (by omega)) cn32 cn40 hI
+        (Or.inl hlow) hlow (by omega)).mono le_rfl (fun _ _ h => h)) (fun r w' h => TBSim.pure ⟨h.1, ?_, ?_, ?_⟩)
+        |>.mono (by omega) (fun _ _ h => h)
+      · simp [hlen]
+      · intro k hk hg
+        rcases Nat.lt_succ_iff_lt_or_eq.mp hk with hk | rfl
+        · obtain ⟨c1, c2⟩ := hheapk k (by omega)
+          obtain ⟨c3, c4⟩ := hheapk i.val (by omega)
+          rw [h.2.2.2.2.2 (Grind.recA lay.val (2 ^ (height lay - k - 1) + leaf / 2 ^ (k + 1)))
+            (by have := Grind.recA_cases lay.val (2 ^ (height lay - k - 1) + leaf / 2 ^ (k + 1)) hl1 hl3; omega)
+            ⟨hlv, by have := Grind.recA_cases lay.val (2 ^ (height lay - k - 1) + leaf / 2 ^ (k + 1)) hl1 hl3; unfold Grind.recA Grind.recB at *; split_ifs <;> omega,
+              by have := Grind.recA_cases lay.val (2 ^ (height lay - k - 1) + leaf / 2 ^ (k + 1)) hl1 hl3; unfold Grind.recA Grind.recB at *; split_ifs <;> omega⟩
+            (fun ⟨hg', he⟩ => recA_ne_of_class lay.val (height lay - k - 1) (height lay - i.val - 1) (by omega)
+              (ground_e lay.val _ _ c1 hg) (ground_e lay.val _ _ c3 hg') (by omega) (by omega) c1 c2 c3 c4 he)
+            (fun ⟨_, he⟩ => Grind.recA_cases lay.val _ hl1 hl3 |>.2.2.2 he),
+            hrec k hk hg, List.getD_append _ _ _ _ (by omega)]
+        · rw [h.2.2.2.1 hg, List.getD_append_right _ _ _ _ (by omega), hlen, Nat.sub_self]; rfl
+      · intro hpos
+        obtain ⟨c3, c4⟩ := hheapk i.val (by omega)
+        by_cases h0 : i.val = 0
+        · rw [h.2.2.2.2.1 (by rw [hthr, h0, Nat.sub_zero]; omega)]
+          rw [h0]; simp
+        · rw [h.2.2.2.2.2 (Grind.recB lay.val + 24) (by unfold Grind.recB; omega)
+            ⟨hlv, by unfold Grind.recB; omega, by unfold Grind.recB; omega⟩
+            (fun ⟨_, he⟩ => (Grind.recA_cases lay.val _ hl1 hl3).2.2.2 he.symm)
+            (fun ⟨hth, _⟩ => by
+              rw [hthr] at hth
+              have : 2 ^ (height lay - i.val - 1 + 1) ≤ 2 ^ (height lay - 1) :=
+                Nat.pow_le_pow_right (by norm_num) (by omega)
+              omega), h24 (by omega)])
+    (List.finRange (height lay - 1)) 0 (ClaudeWCT.WCT9.halfOf (ClaudeWCT.WCT9.lowerHigh lay.val leaf) a, []) v4
+    (by rw [finRange_map_val]; simp) (by simp)
+    ⟨hM0, rfl, fun k hk => absurd hk (by omega), fun h => absurd h (by omega)⟩
   have hHp : 0 < height lay := by fin_cases lay <;> decide
-  have hcw : climbW lay = height lay * 81 := by unfold climbW; rw [if_neg hlow]
-  refine (TBSim.steps sv4 (TBSim.bind (W₂ := 45) hfold (fun root w hw => ?_))).mono (by omega) (fun _ _ h => h)
-  obtain ⟨t, k, st, hk, pt, pl, pr, pwi, rt, ft⟩ := rl_mk_finish (im := im) (by omega) hlow (by omega)
+  simp only [List.length_finRange, Nat.zero_add] at hfold
+  have hcw : climbW lay = ((List.range' 0 (height lay - 1)).map (lowFoldW lay)).sum + 81 := by
+    unfold climbW; rw [if_neg hlow]
+  refine (TBSim.steps sv4 (TBSim.bind (W₂ := 45) hfold (fun st w hw => ?_))).mono (by omega) (fun _ _ h => h)
+  obtain ⟨hwI, hwlen, hwrec, hw24⟩ := hw
+  obtain ⟨t, k, st, hk, pt, pl, pr, pwi, rt, ft, ftu⟩ := rl_mk_finish (im := im) (by omega) hlow (by omega)
     htree hleaf hpre.hP hpre.hP' hpre.hP8 hpre.hWM8 hpre.hWM (by omega)
-    c5 c8 c9 c18 c15 (cpath (height lay - 1) (by omega)) cn32 cn40 hw ret
+    c5 c8 c9 c18 c15 (cpath (height lay - 1) (by omega)) cn32 cn40 hwI ret
     (by rw [rtc.get (by decide)]; exact hpre.x1)
   have hpath : lpath sig lay (height lay - 1) = (wsig.layers lay).path (WCT9.topLevel lay) := by
     unfold lpath
     rw [dif_pos (by omega)]
     rfl
+  -- the finish (BC blocks) does not touch the record slots
+  have ftR : ∀ A, A < 2 ^ 64 → RecW lay A → t.getMem (BitVec.ofNat 64 A) = w.getMem (BitVec.ofNat 64 A) :=
+    fun A hA hR => ftu A hA (by unfold RecW at hR; omega)
   refine (TBSim.steps st (TBSim.pure ?_)).mono (by omega) (fun _ _ h => h)
-  refine ⟨pt, ?_, ?_, ?_, pwi, (rtc.trans rt).mono (by decide), ?_⟩
+  refine ⟨pt, ?_, ?_, ?_, pwi, (rtc.trans rt).mono (by decide), ?_, ?_⟩
   · simpa only [hpath, hleaf_def, apply_ite Prod.fst, Prod.fst] using pl
   · simpa only [hpath, hleaf_def, apply_ite Prod.snd, Prod.snd] using pr
   · intro i hi
@@ -520,9 +634,12 @@ theorem recoverLayerPair_tbsim {sk : BitVec 256} {s0 : MachineState} {wsig : WCT
     have hWi : WM + 64 ≤ WC - 64 * i + 48 := by omega
     exact (((hv.frame fu2 (by omega) (by simp) (by simp)).frame fwc (by omega)
       (by simp only [NOUT]; omega) (by simp only [NOUT]; omega)).frame ft (by omega)
-      (by rintro (h | h); exact not_MkW_of (by omega) (by simp only [NODE]; omega) (by simp only [NOUT]; omega) (by omega) h; simp only [ENC] at h; omega)
-      (by rintro (h | h); exact not_MkW_of (by omega) (by simp only [NODE]; omega) (by simp only [NOUT]; omega) (by omega) h; simp only [ENC] at h; omega))
+      (by rintro (h | h); exact not_MkW_of (by omega) (by simp only [NODE]; omega) (by simp only [NOUT]; omega) (by omega) (by omega) h; simp only [ENC] at h; omega)
+      (by rintro (h | h); exact not_MkW_of (by omega) (by simp only [NODE]; omega) (by simp only [NOUT]; omega) (by omega) (by omega) h; simp only [ENC] at h; omega))
   · refine (ftc.trans ft).mono (fun A hA h => ?_)
+    by_cases hR : RecW lay A
+    · exact Or.inr hR
+    refine Or.inl ?_
     rcases h with (((hX | hC) | hF) | hN) | hT
     · left; left
       unfold RlScratch
@@ -539,11 +656,31 @@ theorem recoverLayerPair_tbsim {sk : BitVec 256} {s0 : MachineState} {wsig : WCT
     · rcases hT with hM | hE
       · unfold MkW at hM
         rcases hM with h | h | h | h | h | h | h | ⟨j, hj, h⟩ | h
-        all_goals first | (left; left; unfold RlScratch; omega) | (left; right; right; exact ⟨j, hj, h⟩)
+        all_goals first
+          | (rcases h with h | h | h <;> first | (left; left; unfold RlScratch; omega) | exact absurd h hR)
+          | (left; left; unfold RlScratch; omega) | (left; right; right; exact ⟨j, hj, h⟩)
       · unfold RlScratch
         simp only [ENC] at hE
         simp only [ENC]
         omega
+  · -- the record of the three ground folds and the fold-0 heap
+    refine ⟨by simpa using hwlen, fun m hm => ?_, ?_⟩
+    · obtain ⟨c1, c2⟩ := hheapk (height lay - 4 + m) (by omega)
+      have hcl : height lay - (height lay - 4 + m) - 1 = 3 - m := by omega
+      rw [hcl] at c1 c2
+      have hrA : Grind.recA lay.val (2 ^ (height lay - (height lay - 4 + m) - 1) + leaf / 2 ^ (height lay - 4 + m + 1)) =
+          Grind.recB lay.val + 16 - 8 * m := by
+        rw [hcl]; unfold Grind.recA
+        interval_cases m <;> simp only [Nat.reducePow, Nat.reduceSub] at c1 c2 ⊢ <;> split_ifs <;> omega
+      have hg : ClaudeWCT.WCT9.lowerZeroBits lay.val
+          (2 ^ (height lay - (height lay - 4 + m) - 1) + leaf / 2 ^ (height lay - 4 + m + 1)) ≠ 0 := by
+        rw [hcl]; unfold ClaudeWCT.WCT9.lowerZeroBits
+        interval_cases m <;> simp only [Nat.reducePow, Nat.reduceSub] at c1 c2 ⊢ <;> split_ifs <;> omega
+      have := hwrec (height lay - 4 + m) (by omega) hg
+      rw [hrA] at this
+      rw [ftR _ (by unfold Grind.recB; omega) ⟨hlv, by unfold Grind.recB; omega, by unfold Grind.recB; omega⟩, this]
+    · rw [ftR _ (by unfold Grind.recB; omega) ⟨hlv, by unfold Grind.recB; omega, by unfold Grind.recB; omega⟩,
+        hw24 (by omega)]
 
 theorem recoverMsg_tbsim {sk : BitVec 256} {s0 : MachineState} {sig : WCT9.Signature} {index : Nat} {lay : Layer}
     {digits : List Nat} {P WC WM ret : Nat}
@@ -565,14 +702,22 @@ theorem recoverMsg_tbsim {sk : BitVec 256} {s0 : MachineState} {sig : WCT9.Signa
       (fun _ _ h => h)
     obtain ⟨⟨pc, enc, cv, pv, regs, frame⟩, blk, non⟩ := h
     refine TBSim.pure ⟨pc, enc, (fun hn => False.elim (hn rfl)), (fun _ => ⟨r.2, rfl⟩), cv, pv, regs, ?_,
-      fun _ => blk, fun _ => non⟩
-    exact frame.mono (by intro A hA h; rcases h with h | h; exact Or.inl (Or.inl h); exact Or.inr h)
-  · rw [recoverLayerPair_eqN]
-    refine (TBSim.bind (W₂ := 0) (recoverLayerPair_tbsim (im := im) hpre ht) (fun pair t h => ?_)).mono (by omega) (fun _ _ h => h)
-    obtain ⟨pc, enc, right, cv, pv, regs, frame⟩ := h
+      fun _ => blk, fun _ => non, fun hne => absurd rfl hne⟩
+    exact frame.mono (by intro A hA h; rcases h with h | h; exact Or.inl (Or.inl (Or.inl h)); exact Or.inl (Or.inr h))
+  · rw [recoverLayerPairW_eqN]
+    refine (TBSim.bind (W₂ := 0) (recoverLayerPair_tbsim (im := im) hpre ht) (fun res t h => ?_)).mono (by omega)
+      (fun _ _ h => h)
+    rcases res with ⟨pair, ns⟩
+    obtain ⟨pc, enc, right, cv, pv, regs, frame, recat⟩ := h
     refine TBSim.pure ⟨pc, enc, (fun _ => right), (fun he => False.elim (ht he)), cv, pv, regs, ?_,
-      fun he => False.elim (ht he), fun he => False.elim (ht he)⟩
-    exact frame.mono (by intro A hA h; rcases h with (h | h) | h; exact Or.inl (Or.inl h); exact Or.inr h; exact Or.inl (Or.inr h))
+      fun he => False.elim (ht he), fun he => False.elim (ht he), fun _ => recat⟩
+    exact frame.mono (by
+      intro A hA h
+      rcases h with ((h | h) | h) | h
+      · exact Or.inl (Or.inl (Or.inl h))
+      · exact Or.inl (Or.inr h)
+      · exact Or.inl (Or.inl (Or.inr h))
+      · exact Or.inr h)
 
 end SigGolfCandidate.T3M.Expand.SharedRecover
 end
@@ -1202,9 +1347,10 @@ section
 
 /-! # T51 DEC from the real initial state
 
-Word 0 is `j 54569` (DEC). From `w9init` with the 5,195-byte signature `b`, DEC writes the expander's inflated slot
-layout `SharedCodec.inflatedRead 0 (SharedCodec.digC b)` (332 slots at `0x7000`) and the hint at `0x66000`, rejects a
-hint `≥ 7744` at `j 354`, zeroes its temporaries and jumps to word 1 (2,006 steps in all). -/
+U16b: word 0 is `j 54886` (the pre-pass, 84 steps, then `j 54569` = DEC). From `w9init` with the 5,193-byte signature
+`b`, the pre-pass rebuilds DEC's T1 layout (`unpackB b`) and DEC writes the expander's inflated slot layout
+`SharedCodec.inflatedRead 0 (SharedCodec.digC b)` (332 slots at `0x7000`) and the hint at `0x66000`, rejects a hint
+`≥ 7744` at `j 354`, zeroes its temporaries and jumps to word 1 (2,090 steps in all). -/
 
 namespace ClaudeWCT.W9.Machine.Expand.PrePass
 open SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64 SigGolfCandidate.Rv SigGolfCandidate.T3M
@@ -1271,7 +1417,7 @@ theorem jalTo0_sound {w : BitVec 32} {n m : Nat} (h : jalTo0 w n = some m) :
     · cases h
   · cases h
 
-theorem entry_code0 : CodeAt Images.expandImage (pcOf 0) [0x4a43506f] :=
+theorem entry_code0 : CodeAt Images.expandImage (pcOf 0) [0x1993506f] :=
   codeAt_expand_current_chunk (by decide) (by decide) (by decide +kernel)
 
 theorem w9_pc (im : Image) (m : Message) (pk : PublicKey) {n : Nat} (σ : Bytes n) :
@@ -1282,9 +1428,40 @@ theorem w9_pc (im : Image) (m : Message) (pk : PublicKey) {n : Nat} (σ : Bytes 
   rfl
 
 theorem entry_step0 (s : MachineState) (hpc : s.pc = pcOf 0) :
-    Steps Images.expandImage s 1 1 (s.setPC (pcOf 54569)) := by
-  obtain ⟨imm, hd, hoff⟩ := jalTo0_sound (show jalTo0 (0x4a43506f#32) 0 = some 54569 by decide +kernel)
+    Steps Images.expandImage s 1 1 (s.setPC (pcOf 54886)) := by
+  obtain ⟨imm, hd, hoff⟩ := jalTo0_sound (show jalTo0 (0x1993506f#32) 0 = some 54886 by decide +kernel)
   exact jal_x0_step entry_code0 hd hoff s hpc
+
+/-- U16b: word 0 + the pre-pass: from word 0 to DEC's entry 54569 with the T1-layout signature `unpackB b`. -/
+theorem pre_entry (s0 : MachineState) (b : SharedCodec.CBytes) (hpc : s0.pc = pcOf 0) (hsig : SigMemC s0.getMem b) :
+    ∃ u, Steps Images.expandImage s0 85 85 u ∧ u.pc = pcOf 54569 ∧
+      (∀ r ∈ [Reg.x7, .x28, .x29, .x30, .x31], u.getReg r = 0) ∧ RegsExcept s0 u [.x7, .x28, .x29, .x30, .x31] ∧
+      SigMem u.getMem (unpackB b) ∧ Frame s0 u (fun A => 0x70d0 ≤ A ∧ A < 0x84c0) := by
+  have st0 := entry_step0 s0 hpc
+  obtain ⟨u, su, pu, zu, ru, mu⟩ := pre_spec (s0.setPC (pcOf 54886)) rfl
+  have e : (s0.setPC (pcOf 54886)).getMem = s0.getMem := funext fun _ => MachineState.getMem_setPC
+  have em : u.getMem = preMem s0.getMem := funext fun A => by rw [mu, e]
+  refine ⟨u, st0.trans su, pu, zu, fun r hr => (ru r hr).trans MachineState.getReg_setPC, by rw [em]; exact sigMem_pre hsig,
+    fun A hA hn => ?_⟩
+  rw [em]
+  have hn' : A < 0x70d0 ∨ 0x84c0 ≤ A := by omega
+  apply preMem_other s0.getMem A hA (by omega)
+  intro c hc he
+  simp only [List.mem_cons, List.not_mem_nil, or_false] at hc
+  unfold hiA at he
+  rcases hc with rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl <;> omega
+
+/-- U16b: the T1-layout read of DEC's slots is the U16b codec's (`digC_unpack`). -/
+theorem inflated_unpack (b : SharedCodec.CBytes) (k : Nat) (hk : k < 332) :
+    SharedCodec.inflatedRead (0 : SigGolfCandidate.T3.Digest) (T1C.digC (unpackB b)) k =
+      SharedCodec.inflatedRead (0 : SigGolfCandidate.T3.Digest) (SharedCodec.digC b) k := by
+  unfold SharedCodec.inflatedRead
+  split_ifs
+  · rfl
+  · rw [digC_unpack b _ (by unfold SharedCodec.externalFullIndex; split_ifs <;> omega)]
+
+theorem hints_unpack (b : SharedCodec.CBytes) : T1C.hints (unpackB b) = (SharedCodec.sigDecC b).policyHints := by
+  unfold T1C.hints; rw [xOfB_unpack]; rfl
 
 theorem dropTake_getD {α : Type} (l : List α) (d : α) (a i : Nat) (hi : i < 8) :
     ((l.drop a).take 8).getD i d = l.getD (a + i) d := by
@@ -1295,86 +1472,102 @@ theorem bytes_getD {n : Nat} (x : Bytes n) (i : Nat) (hi : i < n) :
   simp only [bytes, List.getD_eq_getElem?_getD, List.getElem?_map, List.getElem?_range hi, Option.map_some,
     Option.getD_some]
 
-/-- The DEC entry memory of the real initial state holds the 5,195-byte signature. -/
-theorem w9_sigMem (m : Message) (pk : PublicKey) (b : SharedCodec.CBytes) :
-    SigMem (w9init Images.expandImage m pk b).getMem b := by
+/-- U16b: the expand entry memory of the real initial state holds the 5,193-byte signature (bytes 5193..5194 zero). -/
+theorem w9_sigMemC (m : Message) (pk : PublicKey) (b : SharedCodec.CBytes) :
+    SigMemC (w9init Images.expandImage m pk b).getMem b := by
   constructor
   · intro j hj
     rw [w9_getMem _ _ _ (by decide) b _ (by omega), if_pos (by omega), show 0x7000 + 8 * j - 0x7000 = 8 * j by omega]
     exact bytesToWordLE_bytes_e b j (by omega)
   · rw [w9_getMem _ _ _ (by decide) b _ (by omega), if_pos (by omega), show 0x8448 - 0x7000 = 5192 by rfl]
+    have hb : b.toNat / 2 ^ (8 * 5192) < 2 ^ 8 := by
+      have := b.isLt
+      rw [Nat.div_lt_iff_lt_mul (by positivity), ← Nat.pow_add]
+      exact lt_of_lt_of_eq this (by norm_num)
     have hbyte : ∀ i, i < 3 → (bytesToWordLE (((bytes b).drop 5192).take 8)).toNat / 2 ^ (8 * i) % 256 =
         b.toNat / 2 ^ (8 * 5192) / 2 ^ (8 * i) % 256 := by
       intro i hi
-      rw [← extractByte_toNat_e, extractByte_bytesToWordLE_e _ _ (by omega), dropTake_getD _ _ _ _ (by omega),
-        bytes_getD b _ (by omega), BitVec.extractLsb'_toNat, Nat.shiftRight_eq_div_pow, Nat.div_div_eq_div_mul,
-        ← Nat.pow_add, show 8 * 5192 + 8 * i = 8 * (5192 + i) by omega]
+      rw [← extractByte_toNat_e, extractByte_bytesToWordLE_e _ _ (by omega), dropTake_getD _ _ _ _ (by omega)]
+      by_cases hi0 : i = 0
+      · subst hi0
+        rw [bytes_getD b _ (by omega), BitVec.extractLsb'_toNat, Nat.shiftRight_eq_div_pow]
+        simp
+      · rw [List.getD_eq_default _ _ (by rw [bytes_length_e]; omega)]
+        have : b.toNat / 2 ^ (8 * 5192) / 2 ^ (8 * i) = 0 := by
+          apply Nat.div_eq_of_lt
+          calc b.toNat / 2 ^ (8 * 5192) < 2 ^ 8 := hb
+            _ ≤ 2 ^ (8 * i) := Nat.pow_le_pow_right (by norm_num) (by omega)
+        rw [this]; rfl
     have h0 := hbyte 0 (by omega)
     have h1 := hbyte 1 (by omega)
     have h2 := hbyte 2 (by omega)
     rw [show 64 * 649 = 8 * 5192 by rfl]
     generalize (bytesToWordLE (((bytes b).drop 5192).take 8)).toNat = W at h0 h1 h2
-    generalize b.toNat / 2 ^ (8 * 5192) = B at h0 h1 h2
-    norm_num at h0 h1 h2 ⊢
+    generalize b.toNat / 2 ^ (8 * 5192) = B at h0 h1 h2 hb
+    norm_num at h0 h1 h2 hb ⊢
     omega
 
-/-- DEC, accepting, from any state at word 0 holding the signature. -/
-theorem dec_gen (s0 : MachineState) (b : SharedCodec.CBytes) (hpc : s0.pc = pcOf 0) (hsig : SigMem s0.getMem b)
+/-- DEC, accepting, from any state at word 0 holding the signature (U16b: word 0 + the pre-pass + DEC). -/
+theorem dec_gen (s0 : MachineState) (b : SharedCodec.CBytes) (hpc : s0.pc = pcOf 0) (hsig : SigMemC s0.getMem b)
     (hh : (SharedCodec.sigDecC b).policyHints.toNat < 7744) :
-    ∃ u, Steps Images.expandImage s0 2006 2006 u ∧ u.pc = pcOf 1 ∧
-      (∀ r ∈ [.x6, .x7, .x18, .x19, .x20, .x28, .x29, .x30], u.getReg r = 0) ∧
-      RegsExcept s0 u [.x6, .x7, .x18, .x19, .x20, .x28, .x29, .x30] ∧
+    ∃ u, Steps Images.expandImage s0 2090 2090 u ∧ u.pc = pcOf 1 ∧
+      (∀ r ∈ [.x6, .x7, .x18, .x19, .x20, .x28, .x29, .x30, .x31], u.getReg r = 0) ∧
+      RegsExcept s0 u [.x6, .x7, .x18, .x19, .x20, .x28, .x29, .x30, .x31] ∧
       (∀ k, k < 332 → DigAt u (0x7000 + 16 * k)
         (SharedCodec.inflatedRead (0 : SigGolfCandidate.T3.Digest) (SharedCodec.digC b) k)) ∧
       u.getMem (BitVec.ofNat 64 417792) = BitVec.ofNat 64 (SharedCodec.sigDecC b).policyHints.toNat ∧
       Frame s0 u (fun A => A = 417792 ∨ (0x70d0 ≤ A ∧ A < 0x84c0)) := by
-  have st0 := entry_step0 s0 hpc
-  have e : (s0.setPC (pcOf 54569)).getMem = s0.getMem := funext fun _ => MachineState.getMem_setPC
-  have hsig1 : SigMem (s0.setPC (pcOf 54569)).getMem b := by rw [e]; exact hsig
-  obtain ⟨t, st, tp, tz, tr, tm, th, tf⟩ := dec_run (s0.setPC (pcOf 54569)) rfl (by rw [hint_toNat hsig1]; exact hh)
-  refine ⟨t, st0.trans st, tp, tz, fun r hr => (tr r hr).trans MachineState.getReg_setPC, ?_,
-    th.trans (hint_eq hsig1), fun A hA hn => (tf A hA hn).trans MachineState.getMem_setPC⟩
-  intro k hk
-  have e0 := (tm k 0 hk (by omega)).trans (decOut_eq hsig1 k 0 hk (by omega))
-  have e1 := (tm k 1 hk (by omega)).trans (decOut_eq hsig1 k 1 hk (by omega))
-  unfold slotA at e0 e1
-  rw [Nat.mul_zero, Nat.add_zero] at e0
-  exact ⟨e0, e1⟩
+  obtain ⟨s1, st1, p1, z1, r1, hsig1, f1⟩ := pre_entry s0 b hpc hsig
+  obtain ⟨t, st, tp, tz, tr, tm, th, tf⟩ := dec_run s1 p1 (by rw [hint_toNat hsig1, hints_unpack]; exact hh)
+  refine ⟨t, st1.trans st, tp, ?_, (r1.trans tr).mono (by decide), ?_,
+    by rw [th, hint_eq hsig1, hints_unpack], (f1.trans tf).mono (fun A _ h => by rcases h with h | h; exact Or.inr h; exact h)⟩
+  · intro r hr
+    by_cases hr' : r ∈ [Reg.x6, .x7, .x18, .x19, .x20, .x28, .x29, .x30]
+    · exact tz r hr'
+    · have : r = .x31 := by simp only [List.mem_cons, List.not_mem_nil, or_false] at hr hr'; tauto
+      subst this
+      rw [tr .x31 (by decide)]; exact z1 .x31 (by decide)
+  · intro k hk
+    have e0 := (tm k 0 hk (by omega)).trans (decOut_eq hsig1 k 0 hk (by omega))
+    have e1 := (tm k 1 hk (by omega)).trans (decOut_eq hsig1 k 1 hk (by omega))
+    unfold slotA at e0 e1
+    rw [Nat.mul_zero, Nat.add_zero] at e0
+    rw [← inflated_unpack b k hk]
+    exact ⟨e0, e1⟩
 
 /-- DEC, accepting: from the real initial state, word 0 + DEC reach word 1 with `w9init`'s registers, the inflated
 slot layout of the decoded signature at `0x7000`, the hint at `0x66000`; only the hint word and `[0x70d0, 0x84c0)`
 are written. -/
 theorem dec_init (m : Message) (pk : PublicKey) (b : SharedCodec.CBytes)
     (hh : (SharedCodec.sigDecC b).policyHints.toNat < 7744) :
-    ∃ u, Steps Images.expandImage (w9init Images.expandImage m pk b) 2006 2006 u ∧ u.pc = pcOf 1 ∧
+    ∃ u, Steps Images.expandImage (w9init Images.expandImage m pk b) 2090 2090 u ∧ u.pc = pcOf 1 ∧
       (∀ r, u.getReg r = (w9init Images.expandImage m pk b).getReg r) ∧
       (∀ k, k < 332 → DigAt u (0x7000 + 16 * k)
         (SharedCodec.inflatedRead (0 : SigGolfCandidate.T3.Digest) (SharedCodec.digC b) k)) ∧
       u.getMem (BitVec.ofNat 64 417792) = BitVec.ofNat 64 (SharedCodec.sigDecC b).policyHints.toNat ∧
       Frame (w9init Images.expandImage m pk b) u (fun A => A = 417792 ∨ (0x70d0 ≤ A ∧ A < 0x84c0)) := by
-  obtain ⟨u, su, up, uz, ur, ui, uh, uf⟩ := dec_gen _ b (w9_pc Images.expandImage m pk b) (w9_sigMem m pk b) hh
+  obtain ⟨u, su, up, uz, ur, ui, uh, uf⟩ := dec_gen _ b (w9_pc Images.expandImage m pk b) (w9_sigMemC m pk b) hh
   refine ⟨u, su, up, ?_, ui, uh, uf⟩
   intro r
-  by_cases hr : r ∈ [.x6, .x7, .x18, .x19, .x20, .x28, .x29, .x30]
+  by_cases hr : r ∈ [.x6, .x7, .x18, .x19, .x20, .x28, .x29, .x30, .x31]
   · rw [uz r hr, w9_getReg_zero _ _ _ _ _ (by intro e; subst e; simp at hr)]
   · exact ur r hr
 
-/-- DEC, rejecting: a hint `≥ 7744` sends the expander to word 354 (the failure exit) after 80 steps. -/
+/-- DEC, rejecting: a hint `≥ 7744` sends the expander to word 354 (the failure exit) after 164 steps (U16b: word 0,
+the pre-pass, then DEC's 80). -/
 theorem dec_reject (m : Message) (pk : PublicKey) (b : SharedCodec.CBytes)
     (hh : 7744 ≤ (SharedCodec.sigDecC b).policyHints.toNat) :
-    ∃ u, Steps Images.expandImage (w9init Images.expandImage m pk b) 80 80 u ∧ u.pc = pcOf 354 := by
+    ∃ u, Steps Images.expandImage (w9init Images.expandImage m pk b) 164 164 u ∧ u.pc = pcOf 354 := by
   generalize hs0 : w9init Images.expandImage m pk b = s0
   have hpc : s0.pc = pcOf 0 := by rw [← hs0]; exact w9_pc Images.expandImage m pk b
-  have hsig : SigMem s0.getMem b := by rw [← hs0]; exact w9_sigMem m pk b
-  have st0 := entry_step0 s0 hpc
-  have e : (s0.setPC (pcOf 54569)).getMem = s0.getMem := funext fun _ => MachineState.getMem_setPC
-  have hsig1 : SigMem (s0.setPC (pcOf 54569)).getMem b := by rw [e]; exact hsig
-  obtain ⟨t, st, tp, -, -, -⟩ := d1_spec (s0.setPC (pcOf 54569)) rfl
-  rw [if_neg (by rw [hint_toNat hsig1]; omega)] at tp
+  have hsig : SigMemC s0.getMem b := by rw [← hs0]; exact w9_sigMemC m pk b
+  obtain ⟨s1, st1, p1, -, -, hsig1, -⟩ := pre_entry s0 b hpc hsig
+  obtain ⟨t, st, tp, -, -, -⟩ := d1_spec s1 p1
+  rw [if_neg (by rw [hint_toNat hsig1, hints_unpack]; omega)] at tp
   have hc : CodeAt Images.expandImage (pcOf 54647) [0xfadca06f] :=
     codeAt_t51_at 54647 (by decide) (by decide) (by decide)
   obtain ⟨imm, hd, hoff⟩ := jalTo0_sound (show jalTo0 (0xfadca06f#32) 54647 = some 354 by decide +kernel)
-  exact ⟨_, (st0.trans st).trans (jal_x0_step hc hd hoff t tp), rfl⟩
+  exact ⟨_, (st1.trans st).trans (jal_x0_step hc hd hoff t tp), rfl⟩
 
 end ClaudeWCT.W9.Machine.Expand.PrePass
 end

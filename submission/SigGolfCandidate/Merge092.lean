@@ -729,7 +729,8 @@ def StagePost (im : Image) (s : MachineState) (sig : WCT9.Signature) (hints : Bi
     LInv sig hints index n msg t ∧
     (∀ i<chainCount lay,DigAt t (lWC lay-64*i+48) (lval (WCT9.toT3Signature sig) lay i)) ∧
     (∀ j<height lay,DigAt t (lWM lay-64*j+sideOff (route index lay).1 j) (lpath (WCT9.toT3Signature sig) lay j)) ∧
-    Frame s t (fun A=>CsW lay A ∨ A=lD lay ∨ BC.RlScratch A ∨ RlWit lay (route index lay).1 (lWC lay) (lWM lay) A) ∧
+    Frame s t (fun A=>CsW lay A ∨ A=lD lay ∨ BC.RlScratch A ∨ RlWit lay (route index lay).1 (lWC lay) (lWM lay) A ∨
+      RecW lay A) ∧
     RegsExcept s t lRegs ∧
     t.getMem (BitVec.ofNat 64 (creditAddr lay))=BitVec.ofNat 64 (WCT9.CanonicalPolicy.credit lay low ds) ∧
     ds.length=chainCount lay ∧ (∃ a,WCT9.CanonicalPolicy.decode lay a=some ds) ∧
@@ -737,7 +738,8 @@ def StagePost (im : Image) (s : MachineState) (sig : WCT9.Signature) (hints : Bi
     t.getMem (BitVec.ofNat 64 (lD lay))=replaceWord32 (s.getMem (BitVec.ofNat 64 (lD lay))) (lk lay) (BitVec.ofNat 32 c.toNat) ∧
     hintFloor hints lay ≤ WCT9.CanonicalPolicy.credit lay low ds ∧
     (lay=0 → t.getMem (BitVec.ofNat 64 Search.FLAG)=BitVec.ofNat 64 (if low then 0 else 128)) ∧
-    (lay=0 → NoncesAt t nn (route index lay).1)
+    (lay=0 → NoncesAt t nn (route index lay).1) ∧
+    (lay≠0 → RecAt t lay (route index lay).1 nn)
 
 theorem decode_digit_le {lay : Layer} {v : Digest} {ds : List Nat} (h : WCT9.CanonicalPolicy.decode lay v = some ds) :
     ∀ i<chainCount lay,ds.getD i 0 ≤ maxDigit lay i := by
@@ -869,14 +871,15 @@ theorem stage_good {sig : WCT9.Signature} {hints : BitVec 16} {index n : Nat} {v
                exact hI.z.n40)
     refine (TBSim.steps s3 (TBSim.bind (W₂ := 0) (SharedRecover.recoverMsg_tbsim (im := im) (sk := sk) hrl)
       (fun mv t4 h4 => ?_))).mono (by omega) (fun _ _ h => h)
-    obtain ⟨p4, e4, er4, form4, cv4, pv4, r4, f4, blk4, non4⟩ := h4
+    obtain ⟨p4, e4, er4, form4, cv4, pv4, r4, f4, blk4, non4, rec4⟩ := h4
     have hfar4 : ∀ A, A < 0xA0000 → ¬ CsW lay A → A ≠ lD lay → (A < 0x2c48 ∨ 0x7000 ≤ A) → ¬ BC.RlScratch A →
         t4.getMem (BitVec.ofNat 64 A) = s.getMem (BitVec.ofNat 64 A) := by
       intro A hA h1 h2 h3 h4
-      have hw : ¬ (BC.RlScratch A ∨ RlWit lay (route index lay).1 (lWC lay) (lWM lay) A) := by
-        rintro (h | h)
+      have hw : ¬ ((BC.RlScratch A ∨ RlWit lay (route index lay).1 (lWC lay) (lWM lay) A) ∨ RecW lay A) := by
+        rintro ((h | h) | h)
         · exact h4 h
         · have := rlWit_range h; have := ltable_lo lay; omega
+        · unfold RecW at h; omega
       rw [f4.get (by omega) hw, m3 A hA h1 h2]
     have hd8 := htab.2.2.2.2.2.2.2.2.1
     have hd0 := htab.2.2.2.2.2.2.2.2.2.1
@@ -884,7 +887,7 @@ theorem stage_good {sig : WCT9.Signature} {hints : BitVec 16} {index n : Nat} {v
       intro A hA h; unfold CsW Search.DigW CreditW creditAddr at h; simp only [ENC, EOUT, DIGITS, Search.FLAG] at h hA; omega
     have nrl : ∀ A, ((A < CHAIN + 16 ∨ CHAIN + 112 ≤ A) ∧
         (A < NODE ∨ (NODE + 32 ≤ A ∧ A < NODE + 48) ∨ NOUT + 32 ≤ A) ∧ (A < LEAFPK ∨ LEAFPK + 896 ≤ A) ∧
-        A ≠ ENC ∧ A ≠ ENC + 8 ∧ A ≠ ENC + 48 ∧ A ≠ ENC + 56 ∧ (A % 8 = 0) ∧ A < 0x66700) → ¬ BC.RlScratch A := by
+        A ≠ ENC ∧ A ≠ ENC + 8 ∧ A ≠ ENC + 48 ∧ A ≠ ENC + 56 ∧ (A % 8 = 0) ∧ A < 0x66700 ∧ 1040 ≤ A) → ¬ BC.RlScratch A := by
       intro A hA h; unfold BC.RlScratch Expand.RlScratch at h; simp only [CHAIN, NODE, NOUT, LEAFPK, ENC] at h hA; omega
     have hI4base : BC.LInv sig index n mv.1 t4 := by
       have hx5 : t4.getReg .x5 = 0 := by
@@ -897,11 +900,13 @@ theorem stage_good {sig : WCT9.Signature} {hints : BitVec 16} {index n : Nat} {v
       · intro hn0
         exact form4 (Fin.ext (by simpa only [Fin.val_zero] using hlv.trans hn0))
       · refine ⟨c.toNat, by omega, ?_⟩
-        have hw : ¬ (BC.RlScratch (ENC + 32) ∨ RlWit lay (route index lay).1 (lWC lay) (lWM lay) (ENC + 32)) := by
-          rintro (h | h)
+        have hw : ¬ ((BC.RlScratch (ENC + 32) ∨ RlWit lay (route index lay).1 (lWC lay) (lWM lay) (ENC + 32)) ∨
+            RecW lay (ENC + 32)) := by
+          rintro ((h | h) | h)
           · exact nrl _ (by decide) h
           · have h1 := rlWit_range h; have := ltable_lo lay; have := htab.2.2.2.2.2.2.2.1
             simp only [ENC] at h1; omega
+          · unfold RecW at h; simp only [ENC] at h; omega
         rw [f4.get (by decide) hw, f3.get (by decide) (by simp only [ENC]; omega), e32]
       · intro lay'
         have htab' := ltable lay'
@@ -942,13 +947,16 @@ theorem stage_good {sig : WCT9.Signature} {hints : BitVec 16} {index n : Nat} {v
         · have := htab.2.2.2.2.2.2.2.2.1
           simp only [Search.TOP_DATA] at h
           omega
-        · rcases h with h | h
+        · rcases h with (h | h) | h
           · unfold BC.RlScratch Expand.RlScratch at h
             simp only [Search.TOP_DATA, CHAIN, NODE, NOUT, LEAFPK, ENC] at h
             omega
           · have hh := rlWit_range h
             have hb := htab.2.2.2.2.2.2.2.1
             simp only [Search.TOP_DATA] at hh
+            omega
+          · unfold RecW at h
+            simp only [Search.TOP_DATA] at h
             omega
       · apply hI.cf.frame (((f1.trans f2).trans f3).trans f4)
         intro i hi hi' h
@@ -960,13 +968,16 @@ theorem stage_good {sig : WCT9.Signature} {hints : BitVec 16} {index n : Nat} {v
         · have := htab.2.2.2.2.2.2.2.2.1
           simp only [Search.TOP_DATA] at h
           omega
-        · rcases h with h | h
+        · rcases h with (h | h) | h
           · unfold BC.RlScratch Expand.RlScratch at h
             simp only [Search.TOP_DATA, CHAIN, NODE, NOUT, LEAFPK, ENC] at h
             omega
           · have hh := rlWit_range h
             have hb := htab.2.2.2.2.2.2.2.1
             simp only [Search.TOP_DATA] at hh
+            omega
+          · unfold RecW at h
+            simp only [Search.TOP_DATA] at h
             omega
       · apply hI.reward.frame (((f1.trans f2).trans f3).trans f4)
         intro i hi hi' h
@@ -978,7 +989,7 @@ theorem stage_good {sig : WCT9.Signature} {hints : BitVec 16} {index n : Nat} {v
         · have := htab.2.2.2.2.2.2.2.2.1
           simp only [Search.TOP_DATA] at h
           omega
-        · rcases h with h | h
+        · rcases h with (h | h) | h
           · unfold BC.RlScratch Expand.RlScratch at h
             simp only [Search.TOP_DATA, CHAIN, NODE, NOUT, LEAFPK, ENC] at h
             omega
@@ -986,21 +997,26 @@ theorem stage_good {sig : WCT9.Signature} {hints : BitVec 16} {index n : Nat} {v
             have hb := htab.2.2.2.2.2.2.2.1
             simp only [Search.TOP_DATA] at hh
             omega
-    have frame4 : Frame s t4 (fun A => CsW lay A ∨ A=lD lay ∨ BC.RlScratch A ∨ RlWit lay (route index lay).1 (lWC lay) (lWM lay) A) :=
+          · unfold RecW at h
+            simp only [Search.TOP_DATA] at h
+            omega
+    have frame4 : Frame s t4 (fun A => CsW lay A ∨ A=lD lay ∨ BC.RlScratch A ∨ RlWit lay (route index lay).1 (lWC lay) (lWM lay) A ∨
+        RecW lay A) :=
       (((f1.trans f2).trans f3).trans f4).mono (fun A _ h=>by
-        rcases h with ((h|h)|h)|h|h
+        rcases h with ((h|h)|h)|(h|h)|h
         · -- T51: KCOPY's window is part of `Expand.RlScratch`
           exact Or.inr (Or.inr (Or.inl (Or.inl (by
             unfold Expand.RlScratch; simp only [CHAIN, NODE, NOUT, LEAFPK, ENC]; omega))))
         · exact Or.inl h
         · exact Or.inr (Or.inl h)
         · exact Or.inr (Or.inr (Or.inl h))
-        · exact Or.inr (Or.inr (Or.inr h)))
+        · exact Or.inr (Or.inr (Or.inr (Or.inl h)))
+        · exact Or.inr (Or.inr (Or.inr (Or.inr h))))
     have hint4 : t4.getMem (0x66000#64)=BitVec.ofNat 64 hints.toNat := by
       rw [frame4.get (by decide) ?_]
       · exact hI.hintsMem
       · intro h
-        rcases h with h|h|h|h
+        rcases h with h|h|h|h|h
         · unfold CsW Search.DigW CreditW creditAddr at h
           have := lay.isLt
           simp only [ENC,EOUT,DIGITS,Search.FLAG] at h
@@ -1010,32 +1026,35 @@ theorem stage_good {sig : WCT9.Signature} {hints : BitVec 16} {index n : Nat} {v
           simp only [ENC,NODE,NOUT,CHAIN,LEAFPK] at h
           omega
         · have := rlWit_range h; have := ltable lay; omega
+        · unfold RecW at h; omega
     have credit4 : t4.getMem (BitVec.ofNat 64 (creditAddr lay))=BitVec.ofNat 64 (WCT9.CanonicalPolicy.credit lay low ds) := by
       have ha := creditAddr_lt lay
       have hr : 0x66040≤creditAddr lay ∧ creditAddr lay<0x66060 := by unfold creditAddr;have:=lay.isLt;omega
       rw [f4.get ha ?_, f3.get ha ?_]
       · exact credit2
       · have := ltable lay; omega
-      · rintro (h|h)
+      · rintro ((h|h)|h)
         · unfold BC.RlScratch Expand.RlScratch at h
           simp only [ENC,NODE,NOUT,CHAIN,LEAFPK] at h
           omega
         · have := rlWit_range h;have:=ltable lay;omega
+        · unfold RecW at h; omega
     have flag4 : lay=0 → t4.getMem (BitVec.ofNat 64 Search.FLAG)=BitVec.ofNat 64 (if low then 0 else 128) := by
       intro hl0
       rw [f4.get (by decide) ?_, f3.get (by decide) ?_]
       · exact flag2 hl0
       · have := ltable lay; simp only [Search.FLAG]; omega
-      · rintro (h|h)
+      · rintro ((h|h)|h)
         · unfold BC.RlScratch Expand.RlScratch at h
           simp only [ENC,NODE,NOUT,CHAIN,LEAFPK,Search.FLAG] at h
           omega
         · have hr := rlWit_range h;have:=ltable lay;simp only [Search.FLAG] at hr;omega
+        · unfold RecW at h; simp only [Search.FLAG] at h; omega
     have zt4 : SigGolfCandidate.T3M.Search.ZeroCap.ZtOK 354 t4 := by
       refine hI.zt.frame frame4 ?_
       intro r hr h
       rw [show SigGolfCandidate.T3M.Search.ZeroCap.ZT 354=16747280 from rfl] at h
-      rcases h with h|h|h|h
+      rcases h with h|h|h|h|h
       · unfold CsW Search.DigW CreditW creditAddr at h
         have := lay.isLt
         simp only [ENC,EOUT,DIGITS,Search.FLAG] at h
@@ -1045,10 +1064,11 @@ theorem stage_good {sig : WCT9.Signature} {hints : BitVec 16} {index n : Nat} {v
         simp only [ENC,NODE,NOUT,CHAIN,LEAFPK] at h
         omega
       · have := rlWit_range h; have := ltable lay; omega
+      · unfold RecW at h; omega
     have t51src4 : Search.T51.T51TableW 0xFF9E00 t4 := by
       refine hI.t51src.frame frame4 (by decide) (by decide) ?_
       intro k hk h
-      rcases h with h|h|h|h
+      rcases h with h|h|h|h|h
       · unfold CsW Search.DigW CreditW creditAddr at h
         have := lay.isLt
         simp only [ENC,EOUT,DIGITS,Search.FLAG] at h
@@ -1058,12 +1078,16 @@ theorem stage_good {sig : WCT9.Signature} {hints : BitVec 16} {index n : Nat} {v
         simp only [ENC,NODE,NOUT,CHAIN,LEAFPK] at h
         omega
       · have := rlWit_range h; have := ltable lay; omega
-    refine TBSim.pure ⟨⟨hI4base,hI.hintsLt,hint4,zt4,t51src4⟩,cv4,pv4,frame4,?_,credit4,hlen,⟨v,hdec⟩,blk4,?_,creditFloor2,flag4,non4⟩
+      · unfold RecW at h; omega
+    refine TBSim.pure ⟨⟨hI4base,hI.hintsLt,hint4,zt4,t51src4⟩,cv4,pv4,frame4,?_,credit4,hlen,⟨v,hdec⟩,blk4,?_,creditFloor2,flag4,non4,
+      rec4⟩
     · exact (((r1.trans r2).trans r3).trans r4).mono (by decide)
-    · have hw : ¬ (BC.RlScratch (lD lay) ∨ RlWit lay (route index lay).1 (lWC lay) (lWM lay) (lD lay)) := by
-        rintro (h|h)
+    · have hw : ¬ ((BC.RlScratch (lD lay) ∨ RlWit lay (route index lay).1 (lWC lay) (lWM lay) (lD lay)) ∨
+          RecW lay (lD lay)) := by
+        rintro ((h|h)|h)
         · unfold BC.RlScratch Expand.RlScratch at h; simp only [CHAIN,NODE,NOUT,LEAFPK,ENC] at h;omega
         · exact counter_ne_wit lay lay _ h
+        · unfold RecW at h; omega
       rw [f4.get (by omega) hw,hD,f2.get (by omega) (ncs _ (by omega)),g1 _ (by omega)]
       congr 1
       apply BitVec.eq_of_toNat_eq
@@ -1085,19 +1109,19 @@ set_option maxRecDepth 20000
 abbrev Recovered := SigGolfCandidate.Research.SharedForest.RecoveredLayers
 def run (sig : WCT9.Signature) (hints : BitVec 16) (index : Nat) :
     Nat → WCT9.LayerMsg → Digest → List Nat → SigGolfCandidate.T3.M (Option Recovered)
-  | 0,.forest root,v,nn => pure (some ⟨v,root,[],[],[],nn⟩)
+  | 0,.forest root,v,nn => pure (some ⟨v,root,[],[],[],nn,[[]]⟩)
   | 0,.pair _ _,_,_ => pure none
   | n+1,msg,_,_ => do
     let some (c,ds,low,msg',v',nn') ← stage sig hints index n msg | pure none
     let some previous ← run sig hints index n msg' v' nn' | pure none
-    pure (some {previous with counters:=previous.counters++[c],digits:=previous.digits++[ds],lows:=previous.lows++[low]})
+    pure (some {previous with counters:=previous.counters++[c],digits:=previous.digits++[ds],lows:=previous.lows++[low],lowerNonces:=if n=0 then previous.lowerNonces else previous.lowerNonces++[nn']})
 def cost : Nat → Nat
   | 0 => 0
   | n+1 => stageCost (Fin.ofNat 4 n)+cost n
 
 def LW (index n : Nat) (A : Nat) : Prop :=
   Search.CsW A ∨ BC.RlScratch A ∨ ∃ lay : Layer,lay.val<n ∧
-    (A=lD lay ∨ RlWit lay (route index lay).1 (lWC lay) (lWM lay) A ∨ (CreditW lay A ∨ A=Search.FLAG))
+    (A=lD lay ∨ RlWit lay (route index lay).1 (lWC lay) (lWM lay) A ∨ (CreditW lay A ∨ A=Search.FLAG) ∨ RecW lay A)
 def Post (im : Image) (s : MachineState) (sig : WCT9.Signature) (hints : BitVec 16) (index n : Nat) (vin : Digest)
     (nin : List Nat) :
     Option Recovered → MachineState → Prop
@@ -1116,7 +1140,9 @@ def Post (im : Image) (s : MachineState) (sig : WCT9.Signature) (hints : BitVec 
     r.lows.length=n ∧
     (n≠0 → t.getMem (BitVec.ofNat 64 Search.FLAG)=BitVec.ofNat 64 (if r.lows.getD 0 true then 0 else 128)) ∧
     (n=0 → r.nonces=nin) ∧
-    (n≠0 → NoncesAt t r.nonces (route index 0).1)
+    (n≠0 → NoncesAt t r.nonces (route index 0).1) ∧
+    r.lowerNonces.length=max n 1 ∧
+    (∀ lay : Layer,lay≠0 → lay.val<n → RecAt t lay (route index lay).1 (r.lowerNonces.getD lay.val []))
 
 theorem scoped_write {lay : Layer} {A : Nat} :
     CsW lay A ↔ Search.CsW A ∨ (CreditW lay A ∨ A=Search.FLAG) := by
@@ -1136,7 +1162,7 @@ theorem stage_half {im : Image} {s t : MachineState} {sig : WCT9.Signature} {hin
   by_cases he : D=lD lay
   · rw [he,ctr,replaceWord32_other _ _ _ ht.2.2.2.2.2.2.2.2.2.2 hk (fun h=>hn ⟨he.symm,h⟩)]
   · rw [ff.get (by omega) ?_]
-    rintro (hs|hd|hs|hw)
+    rintro (hs|hd|hs|hw|hr)
     · unfold CsW Search.DigW CreditW creditAddr at hs
       simp only [ENC,EOUT,DIGITS,Search.FLAG] at hs
       omega
@@ -1151,13 +1177,14 @@ theorem stage_half {im : Image} {s t : MachineState} {sig : WCT9.Signature} {hin
       · exact counter_ne_wit 3 lay _ hw
       · have:=rlWit_range hw;have:=ltable_lo (Fin.ofNat 4 n);omega
       · have:=rlWit_range hw;have:=ltable_lo (Fin.ofNat 4 n);omega
+    · unfold RecW at hr; rcases hD with rfl|rfl|rfl|rfl|rfl|rfl <;> omega
 
 theorem old_wit_preserved {index n : Nat} {lay : Layer} (hn : n≤lay.val) {A : Nat}
     (hw : RlWit lay (route index lay).1 (lWC lay) (lWM lay) A) : ¬LW index n A := by
   have hr:=rlWit_range hw
   have ht:=ltable lay
   intro h
-  rcases h with h|h|⟨lay',hl,h|h|h⟩
+  rcases h with h|h|⟨lay',hl,h|h|h|h⟩
   · unfold Search.CsW Search.DigW at h; simp only [ENC,EOUT,DIGITS] at h;omega
   · unfold BC.RlScratch Expand.RlScratch at h;simp only [CHAIN,NODE,NOUT,LEAFPK,ENC] at h
     have:=ltable_lo lay;omega
@@ -1166,16 +1193,43 @@ theorem old_wit_preserved {index n : Nat} {lay : Layer} (hn : n≤lay.val) {A : 
     have hr':=rlWit_range h
     rcases ltable_disj lay' lay hne with hd|hd <;> omega
   · unfold CreditW creditAddr at h;simp only [Search.FLAG] at h;omega
+  · unfold RecW at h;omega
 
 theorem old_credit_preserved {index n : Nat} {lay : Layer} (hn : n≤lay.val) : ¬LW index n (creditAddr lay) := by
   have ha : 0x66040≤creditAddr lay ∧ creditAddr lay<0x66060 := by unfold creditAddr;have:=lay.isLt;omega
   intro h
-  rcases h with h|h|⟨lay',hl,h|h|h⟩
+  rcases h with h|h|⟨lay',hl,h|h|h|h⟩
   · unfold Search.CsW Search.DigW at h;simp only [ENC,EOUT,DIGITS] at h;omega
   · unfold BC.RlScratch Expand.RlScratch at h;simp only [CHAIN,NODE,NOUT,LEAFPK,ENC] at h;omega
   · have:=ltable lay';omega
   · have:=rlWit_range h;have:=ltable lay';omega
   · unfold CreditW creditAddr at h;unfold creditAddr at ha;simp only [Search.FLAG] at h;omega
+  · unfold RecW at h;omega
+
+/-- U16b: a later (lower-numbered) layer never writes the record slots of layer `lay`. -/
+theorem recW_not_LW {index n : Nat} {lay : Layer} (hn : n≤lay.val) {A : Nat} (hr : RecW lay A) : ¬LW index n A := by
+  unfold RecW at hr
+  intro h
+  rcases h with h|h|⟨lay',hl,h|h|h|h⟩
+  · unfold Search.CsW Search.DigW at h;simp only [ENC,EOUT,DIGITS] at h;omega
+  · unfold BC.RlScratch Expand.RlScratch at h;simp only [CHAIN,NODE,NOUT,LEAFPK,ENC] at h;omega
+  · have:=ltable lay';omega
+  · have:=rlWit_range h;have:=ltable lay';omega
+  · unfold CreditW creditAddr at h;simp only [Search.FLAG] at h;have:=lay'.isLt;omega
+  · unfold RecW at h;omega
+
+theorem recAt_frame {t u : MachineState} {lay : Layer} {leaf : Nat} {ns : List Nat} {W : Nat → Prop}
+    (h : RecAt t lay leaf ns) (hl : lay≠0) (hf : Frame t u W) (hW : ∀ A,RecW lay A → ¬W A) : RecAt u lay leaf ns := by
+  obtain ⟨hlen,hm,hh⟩:=h
+  have hv : lay.val≠0 := fun e=>hl (Fin.ext e)
+  have hlt:=lay.isLt
+  refine ⟨hlen,fun m hm'=>?_,?_⟩
+  · rw [hf.get (by unfold SharedRecover.Grind.recB;omega)
+      (hW _ ⟨hv,by unfold SharedRecover.Grind.recB;omega,by unfold SharedRecover.Grind.recB;omega⟩)]
+    exact hm m hm'
+  · rw [hf.get (by unfold SharedRecover.Grind.recB;omega)
+      (hW _ ⟨hv,by unfold SharedRecover.Grind.recB;omega,by unfold SharedRecover.Grind.recB;omega⟩)]
+    exact hh
 end SigGolfCandidate.T3M.Expand.SharedLayers
 
 namespace SigGolfCandidate.T3M.Expand.SharedLayers
@@ -1205,7 +1259,7 @@ theorem run_good {sig : WCT9.Signature} {hints : BitVec 16} {index : Nat} :
       (fun lay h=>False.elim (by omega)),(fun lay h=>False.elim (by omega)),
       (fun _ _ _ _ _=>rfl),RegsExcept.refl _ _,Frame.refl _ _,
       (fun _=>⟨rfl,rfl⟩),(fun h=>False.elim (h rfl)),hI.hintsMem,(fun lay h=>False.elim (by omega)),rfl,
-      (fun h=>False.elim (h rfl)),(fun _=>rfl),(fun h=>False.elim (h rfl))⟩
+      (fun h=>False.elim (h rfl)),(fun _=>rfl),(fun h=>False.elim (h rfl)),rfl,(fun lay _ h=>False.elim (by omega))⟩
   | n+1,value,vin,nin,s,hI => by
     have hn : n<4 := by have:=hI.hn;omega
     set lay : Layer:=Fin.ofNat 4 n with hlay
@@ -1217,19 +1271,19 @@ theorem run_good {sig : WCT9.Signature} {hints : BitVec 16} {index : Nat} :
     · exact (TBSim.pure (Q:=Post im s sig hints index (n+1) vin nin) (a:=none) hstage).mono (Nat.zero_le _) (fun _ _ h=>h)
     · have hs:=hstage
       simp only [StagePost,←hlay] at hstage
-      obtain ⟨hIt,cv,pv,ff,rr,credit,len,dec,blk,ctr,floor,flagS,nonS⟩:=hstage
+      obtain ⟨hIt,cv,pv,ff,rr,credit,len,dec,blk,ctr,floor,flagS,nonS,recS⟩:=hstage
       refine (TBSim.bind (W₂:=0) (run_good n msg v nn t hIt) (fun r' u hpost=>?_)).mono (by omega) (fun _ _ h=>h)
       cases r' with
       | none => exact TBSim.pure hpost
       | some out =>
-        obtain ⟨pc,x5,enc,clen,dlen,outs,credits,half,regs,frame,base,top,hintsEq,floors,llen,flagP,nbase,ntop⟩:=hpost
+        obtain ⟨pc,x5,enc,clen,dlen,outs,credits,half,regs,frame,base,top,hintsEq,floors,llen,flagP,nbase,ntop,lnlen,recP⟩:=hpost
         have hD : lD lay=0x3ce8 ∨ lD lay=0x4968 ∨ lD lay=0x55a8 ∨ lD lay=0x820 ∨ lD lay=0x810 ∨ lD lay=0x818 := by
           clear_value lay;fin_cases lay <;> simp [lD]
         have hk:=ht.2.2.2.2.2.2.2.2.2.2
         refine TBSim.pure ⟨pc,x5,enc,by simpa using clen,
           by simpa using dlen,?_,?_,?_,(rr.trans regs).mono (by decide),?_,
           (fun h=>False.elim (by omega)),?_,hintsEq,?_,by simpa using llen,fun _=>?_,
-          (fun h=>False.elim (by omega)),fun _=>?_⟩
+          (fun h=>False.elim (by omega)),fun _=>?_,?_,?_⟩
         · intro lay' hl
           by_cases hlt : lay'.val<n
           · rw [List.getD_append _ _ _ _ (by omega)]
@@ -1269,13 +1323,14 @@ theorem run_good {sig : WCT9.Signature} {hints : BitVec 16} {index : Nat} :
           exact stage_half hs D k hD' hk' (hnot lay (by omega))
         · refine (ff.trans frame).mono (fun A hA h=>?_)
           rcases h with h|h
-          · rcases h with h|h|h|h
+          · rcases h with h|h|h|h|h
             · rcases scoped_write.mp h with h|h
               · exact Or.inl h
-              · exact Or.inr (Or.inr ⟨lay,by omega,Or.inr (Or.inr h)⟩)
+              · exact Or.inr (Or.inr ⟨lay,by omega,Or.inr (Or.inr (Or.inl h))⟩)
             · exact Or.inr (Or.inr ⟨lay,by omega,Or.inl h⟩)
             · exact Or.inr (Or.inl h)
             · exact Or.inr (Or.inr ⟨lay,by omega,Or.inr (Or.inl h)⟩)
+            · exact Or.inr (Or.inr ⟨lay,by omega,Or.inr (Or.inr (Or.inr h))⟩)
           · rcases h with h|h|⟨other,ho,h⟩
             · exact Or.inl h
             · exact Or.inr (Or.inl h)
@@ -1312,6 +1367,20 @@ theorem run_good {sig : WCT9.Signature} {hints : BitVec 16} {index : Nat} :
             rw [nbase hn0]
             simpa only [hl0] using nonS hl0
           · exact ntop hn0
+        · by_cases hn0 : n=0
+          · subst hn0; simp only [↓reduceIte]; omega
+          · rw [if_neg hn0, List.length_append, List.length_singleton]; omega
+        · intro lay' hl0 hl
+          by_cases hlt : lay'.val<n
+          · have hn0 : n≠0 := by omega
+            rw [if_neg hn0, List.getD_append _ _ _ _ (by omega)]
+            exact recP lay' hl0 hlt
+          · have he : lay'=lay := Fin.ext (by omega)
+            subst lay'
+            have hn0 : n≠0 := fun h=>hl0 (Fin.ext (by omega))
+            rw [if_neg hn0, List.getD_append_right _ _ _ _ (by omega),show lay.val-out.lowerNonces.length=0 by omega]
+            simp only [List.getD_cons_zero]
+            exact recAt_frame (recS hl0) hl0 frame (fun A hA=>recW_not_LW (by omega) hA)
 end SigGolfCandidate.T3M.Expand.SharedLayers
 
 namespace SigGolfCandidate.T3M.Expand.SharedLayers
@@ -1354,7 +1423,8 @@ theorem run_eq_recover (sig : SharedForest.Signature) (index : Nat) :
     · rfl
     · simp only [BC.recoverMsg,if_neg hl,Nat.succ_ne_zero,ite_false,bind_assoc,pure_bind]
       congr 1
-      funext pair
+      funext pn
+      rcases pn with ⟨pair,ns⟩
       rw [ih (by omega)]
       rfl
 

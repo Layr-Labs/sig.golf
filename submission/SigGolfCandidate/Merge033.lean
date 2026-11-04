@@ -5755,7 +5755,7 @@ theorem lowerGuardedRun_of_good {α : Type} (run : Nat → M Digest) (finish : M
   simp only [lowerGuardedRun, if_pos h]
 theorem recoverLayerPairGuard_of_good (sig : Signature) (index : Nat) (lay : Layer) (answer : Digest)
     (digits : List Nat) (h : lowerRankGood answer) :
-    recoverLayerPairGuard sig index lay answer digits = some <$> recoverLayerPair sig index lay digits :=
+    recoverLayerPairGuard sig index lay answer digits = some <$> recoverLayerPair0 sig index lay digits :=
   lowerGuardedRun_of_good _ _ _ h
 /-- Only producer-selected lower words, not all broad-decoder words, satisfy the B4 cap. -/
 theorem lower_zero_count_le_producer {lay : Layer} (hlay : lay ≠ 0)
@@ -6840,12 +6840,19 @@ theorem layerCounterSearch_some (answers : Answers) (lay : Layer) (tree leaf : N
   obtain ⟨h1, h2, h3⟩ := layerCounterSearch_some_search answers lay tree leaf msg fuel counter found digits hlimit he
   exact ⟨h1, h2, producerDecode_decode h3⟩
 theorem ofNat_layer_val (n : Nat) (hn : n < 4) : (Fin.ofNat 4 n : Layer).val = n := Nat.mod_eq_of_lt hn
+/-- U16b: the legacy (T1) verifier `verifyLayersBC` recomputes the lower path folds without the ground search
+(`recoverLayerPair0`); it reproduces the legacy expander's searched folds (`recoverLayerPair`) only on answers where
+the two agree (e.g. every ground search stops at nonce 0). The live scheme (`SharedForest`) carries the nonces. -/
+def LegacyFoldsAgree (answers : Answers) : Prop :=
+  ∀ (sig : Signature) (index : Nat) (lay : Layer) (digits : List Nat), lay.val ≠ 0 →
+    evalWithAnswerFn answers (recoverLayerPair0 sig index lay digits) =
+      evalWithAnswerFn answers (recoverLayerPair sig index lay digits)
 theorem expandLayersBC_verified (answers : Answers) (sig : Signature) (index : Nat) :
     ∀ n, n ≤ 4 → ∀ msg root counters,
       evalWithAnswerFn answers (expandLayersBC sig index n msg) = some (root, counters) →
-      counters.length = n ∧ ∀ w : Witness, w.signature = sig →
+      counters.length = n ∧ (LegacyFoldsAgree answers → ∀ w : Witness, w.signature = sig →
         (∀ lay : Layer, lay.val < n → w.counters lay = counters.getD lay.val 0) →
-        evalWithAnswerFn answers (verifyLayersBC w index n msg) = some root := by
+        evalWithAnswerFn answers (verifyLayersBC w index n msg) = some root) := by
   intro n
   induction n with
   | zero =>
@@ -6867,7 +6874,7 @@ theorem expandLayersBC_verified (answers : Answers) (sig : Signature) (index : N
           simp only [if_true, evalWithAnswerFn_bind, evalWithAnswerFn_pure, Option.some.injEq,
             Prod.mk.injEq] at he
           obtain ⟨rfl, rfl⟩ := he
-          refine ⟨rfl, fun w hw hc => ?_⟩
+          refine ⟨rfl, fun _ w hw hc => ?_⟩
           have hcounter : w.counters (Fin.ofNat 4 0) = counter := by
             rw [hc _ (by rw [hlay]; omega), hlay]; rfl
           simp only [verifyLayersBC, hcounter, hnot, ite_false, evalWithAnswerFn_bind, if_true]
@@ -6883,7 +6890,7 @@ theorem expandLayersBC_verified (answers : Answers) (sig : Signature) (index : N
               simp only [hr, evalWithAnswerFn_pure, Option.some.injEq, Prod.mk.injEq] at he
               obtain ⟨rfl, rfl⟩ := he
               obtain ⟨hlen, hverify⟩ := ih (by omega) _ _ _ hr
-              refine ⟨by simp [hlen], fun w hw hc => ?_⟩
+              refine ⟨by simp [hlen], fun hg w hw hc => ?_⟩
               have hcounter : w.counters (Fin.ofNat 4 n) = counter := by
                 rw [hc _ (by rw [hlay]; omega), hlay,
                   List.getD_append_right previousCounters [counter] 0 n (by omega), hlen]
@@ -6891,8 +6898,9 @@ theorem expandLayersBC_verified (answers : Answers) (sig : Signature) (index : N
               have hgood := producerDecode_lowerRankGood
                 (lay := Fin.ofNat 4 n) (by intro h; have := congrArg Fin.val h; rw [hlay] at this; exact hn0 this) hproducer
               simp only [verifyLayersBC, hcounter, hnot, ite_false, evalWithAnswerFn_bind, hdecode, hn0, hw,
-                recoverLayerPairGuard_of_good _ _ _ _ _ hgood, evalWithAnswerFn_map]
-              apply hverify w hw
+                recoverLayerPairGuard_of_good _ _ _ _ _ hgood, evalWithAnswerFn_map,
+                hg sig index (Fin.ofNat 4 n) digits (by rw [hlay]; exact hn0)]
+              apply hverify hg w hw
               intro lay hsmall
               rw [hc lay (by omega), List.getD_append previousCounters [counter] 0 lay.val (by omega)]
       · simp only [evalWithAnswerFn_pure, reduceCtorEq] at he
@@ -7171,7 +7179,7 @@ theorem buildLeafPF_result (answers : Answers) {lay : Layer} (hlay : lay ≠ 0) 
 theorem eval_lowerLevel (answers : Answers) (lay tree h level : Nat) (nodes : List Digest) :
     evalWithAnswerFn answers (lowerLevel lay tree h level nodes) =
       (List.range (nodes.length / 2)).map fun i => evalWithAnswerFn answers
-        (lowerNodeHash lay tree (2 ^ (h - level) + i) (nodes.getD (2 * i) 0) (nodes.getD (2 * i + 1) 0)) :=
+        (lowerNodeG lay tree (2 ^ (h - level) + i) (nodes.getD (2 * i) 0) (nodes.getD (2 * i + 1) 0)) :=
   eval_mapM answers _ _
 theorem eval_lowerLevel_length (answers : Answers) (lay tree h level : Nat) (nodes : List Digest) :
     (evalWithAnswerFn answers (lowerLevel lay tree h level nodes)).length = nodes.length / 2 := by
@@ -7179,24 +7187,24 @@ theorem eval_lowerLevel_length (answers : Answers) (lay tree h level : Nat) (nod
 theorem eval_lowerLevel_getD (answers : Answers) (lay tree h level : Nat) (nodes : List Digest)
     (i : Nat) (hi : i < nodes.length / 2) :
     (evalWithAnswerFn answers (lowerLevel lay tree h level nodes)).getD i 0 =
-      evalWithAnswerFn answers (lowerNodeHash lay tree (2 ^ (h - level) + i)
+      evalWithAnswerFn answers (lowerNodeG lay tree (2 ^ (h - level) + i)
         (nodes.getD (2 * i) 0) (nodes.getD (2 * i + 1) 0)) := by
   rw [eval_lowerLevel]
   simp [List.getD_eq_getElem, hi]
-/-- `T3.Correctness.TreeLevels` for the trees of the current scheme (`lowerNodeHash`; at layer 0 it is
+/-- `T3.Correctness.TreeLevels` for the trees of the current scheme (U16b: `lowerNodeG`, ground heaps 2..15 on the lower layers; at layer 0 it is
 `nodeHash 3 0`, `lowerNodeHash_top`). -/
 def TreeLevelsL (answers : Answers) (lay tree h : Nat) (leaves : List Digest)
     (completed : Nat) (levels : List (List Digest)) : Prop :=
   SigGolfCandidate.T3.Cost.LevelShape h completed levels ∧ levels.getD 0 [] = leaves ∧
     ∀ level, level < completed → ∀ node, node < 2 ^ (h - (level + 1)) →
       (levels.getD (level + 1) []).getD node 0 = evalWithAnswerFn answers
-        (lowerNodeHash lay tree (2 ^ (h - (level + 1)) + node)
+        (lowerNodeG lay tree (2 ^ (h - (level + 1)) + node)
           ((levels.getD level []).getD (2 * node) 0) ((levels.getD level []).getD (2 * node + 1) 0))
 theorem treeLevelsL_top {answers : Answers} {tree h : Nat} {leaves : List Digest} {completed : Nat}
     {levels : List (List Digest)} :
     TreeLevelsL answers 0 tree h leaves completed levels ↔ TreeLevels answers 3 0 tree h leaves completed levels := by
   unfold TreeLevelsL TreeLevels
-  simp only [lowerNodeHash_top]
+  simp only [lowerNodeG_top, lowerNodeHash_top]
 theorem eval_lowerLevels_correct (answers : Answers) (lay tree h : Nat)
     (leaves : List Digest) (hlen : leaves.length = 2 ^ h) :
     TreeLevelsL answers lay tree h leaves h (evalWithAnswerFn answers (lowerLevels lay tree h leaves)) := by
@@ -7253,13 +7261,13 @@ theorem eval_merklePathL (answers : Answers) (lay tree h start n node : Nat)
     evalWithAnswerFn answers ((List.finRange n).foldlM (fun value j => do
       let other := path j
       let pair := if node / 2 ^ j.val % 2 = 0 then (value, other) else (other, value)
-      lowerNodeHash lay tree (2 ^ (h - (start + j.val + 1)) + node / 2 ^ (j.val + 1)) pair.1 pair.2)
+      lowerNodeG lay tree (2 ^ (h - (start + j.val + 1)) + node / 2 ^ (j.val + 1)) pair.1 pair.2)
       (treeValue levels start node)) = treeValue levels (start + n) (node / 2 ^ n) := by
   have hi := eval_foldlM_list_inv answers (List.finRange n)
     (fun value j => do
       let other := path j
       let pair := if node / 2 ^ j.val % 2 = 0 then (value, other) else (other, value)
-      lowerNodeHash lay tree (2 ^ (h - (start + j.val + 1)) + node / 2 ^ (j.val + 1)) pair.1 pair.2)
+      lowerNodeG lay tree (2 ^ (h - (start + j.val + 1)) + node / 2 ^ (j.val + 1)) pair.1 pair.2)
     (fun i value => value = treeValue levels (start + i) (node / 2 ^ i))
     (treeValue levels start node) (by simp) (fun i hi value hv => ?_)
   · simpa only [List.length_finRange] using hi
@@ -7528,7 +7536,7 @@ theorem digestSearch_some_good (answers : Answers) (rho : Digest) (message : Mes
         exact ⟨by rw [hcount], by rw [hcount]; omega, rfl, hgood⟩
       · obtain ⟨hlo, hhi, hrest⟩ := ih (counter + 1) found output (by omega) he
         exact ⟨by omega, by omega, hrest⟩
-theorem expand_implies_verify (answers : Answers) (message : Message) (pk : Digest)
+theorem expand_implies_verify (answers : Answers) (hg : LegacyFoldsAgree answers) (message : Message) (pk : Digest)
     (sig : Signature) (w : Witness)
     (he : evalWithAnswerFn answers (expand message pk sig) = some w) :
     evalWithAnswerFn answers (verify message pk w) = true := by
@@ -7556,7 +7564,7 @@ theorem expand_implies_verify (answers : Answers) (message : Message) (pk : Dige
             have hadm := admissible_of_producer hprod
             have hnot : ¬counter.toNat ≥ attemptLimit := by omega
             have hverified := (expandLayersBC_verified answers sig
-              (digestIndex output) 4 (by decide) _ root counters hl).2
+              (digestIndex output) 4 (by decide) _ root counters hl).2 hg
               ⟨sig, counter, fun lay => counters.getD lay.val 0⟩ rfl (fun _ _ => rfl)
             simp only [verify, hnot, ite_false, evalWithAnswerFn_bind, houtput, hadm,
               Bool.not_true, Bool.false_eq_true, hverified, evalWithAnswerFn_pure, hroot,
@@ -7921,7 +7929,7 @@ theorem assembled_forest_recovery (answers : Answers) (rho : Digest) (index : Na
     rw [assembledSignature_openings, signForest_openings]), signForest_root]
   rfl
 theorem expandWith_implies_verifyWith (limit : Nat) (hlimit : limit ≤ 2 ^ 32) (answers : Answers)
-    (message : Message) (pk : Digest) (sig : Signature) (w : Witness)
+    (hg : LegacyFoldsAgree answers) (message : Message) (pk : Digest) (sig : Signature) (w : Witness)
     (he : evalWithAnswerFn answers (expandWith limit message pk sig) = some w) :
     evalWithAnswerFn answers (verifyWith limit message pk w) = true := by
   simp only [expandWith, evalWithAnswerFn_bind] at he
@@ -7948,7 +7956,7 @@ theorem expandWith_implies_verifyWith (limit : Nat) (hlimit : limit ≤ 2 ^ 32) 
             have hadm := admissible_of_producer hprod
             have hnot : ¬counter.toNat ≥ limit := by omega
             have hverified := (expandLayersBC_verified answers sig
-              (digestIndex output) 4 (by decide) _ root counters hl).2
+              (digestIndex output) 4 (by decide) _ root counters hl).2 hg
               ⟨sig, counter, fun lay => counters.getD lay.val 0⟩ rfl (fun _ _ => rfl)
             simp only [verifyWith, hnot, ite_false, evalWithAnswerFn_bind, houtput, hadm,
               Bool.not_true, Bool.false_eq_true, hverified, evalWithAnswerFn_pure, hroot,
@@ -8877,14 +8885,53 @@ theorem bound_lowerNodeHash (lay tree heap : Nat) (left right : Digest) :
     CBound (fun _ => True) 1 (lowerNodeHash lay tree heap left right) := by
   unfold lowerNodeHash lowerHash
   apply bound_halfHash <;> simp [merkleNodeInput, pad64_length, zero16, SphincsSecurity.bytesLE_length]
+/-! U16b: worst-case trials of a lower node `lowerNodeG`: one hash off the ground (`lowerZeroBits = 0`), else the
+`lowerNonceCap` trials of the first-nonce search. -/
+def nodeCost (lay heap : Nat) : Nat := if lowerZeroBits lay heap = 0 then 1 else lowerNonceCap lay heap
+theorem bound_lowerNodeHashN (lay tree heap n : Nat) (left right : Digest) :
+    CBound (fun _ => True) 1 (lowerNodeHashN lay tree heap n left right) := by
+  unfold lowerNodeHashN lowerHash
+  apply bound_halfHash <;> simp [lowerNodeInputN, nonceBytes, pad64_length, SphincsSecurity.bytesLE_length]
+theorem bound_lowerNonceSearch (lay tree heap : Nat) (left right : Digest) :
+    ∀ fuel n, CBound (fun _ => True) (fuel + 1) (lowerNonceSearch lay tree heap left right fuel n)
+  | 0, n => by
+      unfold lowerNonceSearch
+      exact (bound_lowerNodeHashN lay tree heap n left right).bind' (l := 0) (fun _ _ => .pure _ 0 trivial)
+        (by omega)
+  | fuel + 1, n => by
+      unfold lowerNonceSearch
+      refine (bound_lowerNodeHashN lay tree heap n left right).bind' (l := fuel + 1) (fun v _ => ?_) (by omega)
+      split
+      · exact .pure _ _ trivial
+      · exact bound_lowerNonceSearch lay tree heap left right fuel (n + 1)
+theorem bound_lowerNodeAt (lay tree heap : Nat) (left right : Digest) :
+    CBound (fun _ => True) (nodeCost lay heap) (lowerNodeAt lay tree heap left right) := by
+  unfold lowerNodeAt nodeCost
+  split
+  · exact Bound.map _ (bound_lowerNodeHash lay tree heap left right) (fun _ _ => trivial)
+  · refine (bound_lowerNonceSearch lay tree heap left right _ 0).mono_k ?_
+    have : 0 < 2 ^ lowerZeroBits lay heap := Nat.two_pow_pos _
+    unfold lowerNonceCap
+    omega
+theorem bound_lowerNodeG (lay tree heap : Nat) (left right : Digest) :
+    CBound (fun _ => True) (nodeCost lay heap) (lowerNodeG lay tree heap left right) :=
+  Bound.map _ (bound_lowerNodeAt lay tree heap left right) (fun _ _ => trivial)
+/-- U16b: worst-case trials of the nodes of level `level` (`2^(h-level)` nodes, heaps `2^(h-level) + i`). -/
+def levelCost (lay h level : Nat) : Nat := ((List.range (2 ^ (h - level))).map fun i => nodeCost lay (2 ^ (h - level) + i)).sum
+/-- U16b: worst-case trials of levels `1..h-1` of a lower tree (`buildLevelsBelow`): `2^h - 2` off the ground. -/
+def belowCost (lay h : Nat) : Nat := ∑ i ∈ Finset.range (h - 1), levelCost lay h (1 + i)
+theorem belowCost_one : belowCost 1 7 = 6256 := by decide +kernel
+theorem belowCost_two : belowCost 2 6 = 5168 := by decide +kernel
+theorem belowCost_three : belowCost 3 6 = 5168 := by decide +kernel
 theorem bound_lowerLevel (lay tree h level : Nat) (nodes : List Digest) :
-    CBound (fun result => result.length = nodes.length / 2) (nodes.length / 2)
+    CBound (fun result => result.length = nodes.length / 2)
+      ((List.range (nodes.length / 2)).map fun i => nodeCost lay (2 ^ (h - level) + i)).sum
       (lowerLevel lay tree h level nodes) := by
   unfold lowerLevel
-  have hc := Bound.mapM_list (P := GoodQuery) (List.range (nodes.length / 2))
-    (fun i => lowerNodeHash lay tree (2 ^ (h - level) + i) (nodes.getD (2 * i) 0) (nodes.getD (2 * i + 1) 0))
-    (fun _ => 1) (fun _ _ => bound_lowerNodeHash _ _ _ _ _)
-  simpa using hc
+  exact Bound.mapM_list (P := GoodQuery) (List.range (nodes.length / 2))
+    (fun i => lowerNodeG lay tree (2 ^ (h - level) + i) (nodes.getD (2 * i) 0) (nodes.getD (2 * i + 1) 0))
+    (fun i => nodeCost lay (2 ^ (h - level) + i)) (fun _ _ => bound_lowerNodeG _ _ _ _ _) |>.mono (fun _ h => h)
+      (fun _ h => by simpa using h)
 theorem bound_buildChildF (index coord selected : Nat) (word : Rank) (coefs : List Digest) (pad : Digest)
     (hcoord : coord < 9) (hsel : selected < 128) :
     CBound (fun result : Digest × List Digest => result.2.length = 6) childCost
@@ -9007,18 +9054,20 @@ theorem bound_buildLeafPF (lay : Layer) (tree leaf : Nat) (digits : List Nat) (h
   · unfold digitTotal
     exact le_refl _
 theorem bound_buildLevelsBelow (tag lay tree h : Nat) (leaves : List Digest) (hlen : leaves.length = 2 ^ h)
-    (hh : 1 ≤ h) : CBound (LevelShape h (h - 1)) (2 ^ h - 2) (buildLevelsBelow tag lay tree h leaves) := by
+    (hh : 1 ≤ h) : CBound (LevelShape h (h - 1)) (belowCost lay h) (buildLevelsBelow tag lay tree h leaves) := by
   unfold buildLevelsBelow
-  refine Bound.foldlM_range'_le 1 (h - 1) _ (LevelShape h) (fun i => 2 ^ (h - i) / 2) [leaves]
+  refine Bound.foldlM_range'_le 1 (h - 1) _ (LevelShape h) (fun i => levelCost lay h (1 + i)) [leaves]
     ⟨rfl, fun j hj => by
       have he : j = 0 := by omega
       subst j
       simpa using hlen⟩
-    (fun i hi levels hlevels => ?_) (fun _ h => h) ?_
+    (fun i hi levels hlevels => ?_) (fun _ h => h) le_rfl
   · have hprevious : (levels.getD (1 + i - 1) []).length = 2 ^ (h - i) := by
       simpa using hlevels.2 i le_rfl
+    have hw : (levels.getD (1 + i - 1) []).length / 2 = 2 ^ (h - (1 + i)) := by
+      rw [hprevious, show h - i = h - (1 + i) + 1 by omega, pow_succ, Nat.mul_div_cancel _ (by decide : 0 < 2)]
     refine (bound_lowerLevel lay tree h (1 + i) (levels.getD (1 + i - 1) [])).bind' (l := 0)
-      (fun nodes hnodes => ?_) (by rw [hprevious]; omega)
+      (fun nodes hnodes => ?_) (by rw [hw, Nat.add_zero]; exact le_rfl)
     have hnext : nodes.length = 2 ^ (h - (i + 1)) := by
       rw [hprevious, show h - i = h - (i + 1) + 1 by omega, pow_succ, Nat.mul_div_cancel _ (by decide : 0 < 2)]
         at hnodes
@@ -9033,19 +9082,14 @@ theorem bound_buildLevelsBelow (tag lay tree h : Nat) (leaves : List Digest) (hl
       rw [List.getD_append_right levels [nodes] [] (i + 1) (by have := hlevels.1; omega)]
       simp only [hlevels.1, Nat.sub_self, List.getD_cons_zero]
       exact hnext
-  · have hs := sum_levels h
-    obtain ⟨k, rfl⟩ : ∃ k, h = k + 1 := ⟨h - 1, by omega⟩
-    rw [Finset.sum_range_succ, show k + 1 - k = 1 by omega] at hs
-    simp only [Nat.add_sub_cancel]
-    have : 1 ≤ 2 ^ (k + 1) := Nat.one_le_two_pow
-    norm_num at hs
-    omega
-def treeCostP (lay : Layer) : Nat := (∑ leaf ∈ Finset.range (2 ^ height lay), leafCostP lay leaf) + (2 ^ height lay - 2)
+/-- U16b: the levels below the root cost `belowCost` (ground nodes at their nonce cap). -/
+def treeCostP (lay : Layer) : Nat :=
+  (∑ leaf ∈ Finset.range (2 ^ height lay), leafCostP lay leaf) + belowCost lay.val (height lay)
 theorem bound_buildTreeP (lay : Layer) (tree selected : Nat) (digits : List Nat) (hd : ValidDigits lay digits) :
     CBound (fun result => LevelShape (height lay) (height lay - 1) result.1) (treeCostP lay)
       (buildTreeP lay tree selected digits) := by
   unfold buildTreeP
-  refine Bound.bind' (l := 2 ^ height lay - 2) (Bound.foldlM_range (2 ^ height lay) _
+  refine Bound.bind' (l := belowCost lay.val (height lay)) (Bound.foldlM_range (2 ^ height lay) _
     (fun i (state : List Digest × List Digest × List Digest) => state.1.length = i)
     (leafCostP lay) ([], [], []) rfl (fun leaf _ state hstate => ?_))
     (fun state hstate => ?_) le_rfl
@@ -9071,20 +9115,24 @@ theorem leafCostP_lower {lay : Layer} (hlay : lay ≠ 0) (leaf : Nat) :
   rw [digitTotal_lower hlay]
   simp [leafHashCost, hlay]
 /-- v6 lower trees: L1 reads 349 pairs (18 families of 19 + a 7-pair remainder), L2/L3 175 (9 · 19 + 4). -/
-theorem treeCostP_one : treeCostP 1 = 40411 := by
+theorem treeCostP_one : treeCostP 1 = 46541 := by
   unfold treeCostP
-  rw [Finset.sum_congr rfl (fun leaf _ => leafCostP_lower (by decide) leaf)]
+  rw [Finset.sum_congr rfl (fun leaf _ => leafCostP_lower (by decide) leaf),
+    show belowCost ((1 : Layer)).val (height 1) = 6256 from belowCost_one]
   decide
-theorem treeCostP_two : treeCostP 2 = 20205 := by
+theorem treeCostP_two : treeCostP 2 = 25311 := by
   unfold treeCostP
-  rw [Finset.sum_congr rfl (fun leaf _ => leafCostP_lower (by decide) leaf)]
+  rw [Finset.sum_congr rfl (fun leaf _ => leafCostP_lower (by decide) leaf),
+    show belowCost ((2 : Layer)).val (height 2) = 5168 from belowCost_two]
   decide
-theorem treeCostP_three : treeCostP 3 = 20205 := by
+theorem treeCostP_three : treeCostP 3 = 25311 := by
   unfold treeCostP
-  rw [Finset.sum_congr rfl (fun leaf _ => leafCostP_lower (by decide) leaf)]
+  rw [Finset.sum_congr rfl (fun leaf _ => leafCostP_lower (by decide) leaf),
+    show belowCost ((3 : Layer)).val (height 3) = 5168 from belowCost_three]
   decide
+/-- U16b: the ground searches add 6144 − 14 (L1) / 5120 − 14 (L2, L3) trials to the T1 lower trees. -/
 theorem treeCostP_lower :
-    treeCostP 1 + 2468 = treeCost 1 ∧ treeCostP 2 + 1234 = treeCost 2 ∧ treeCostP 3 + 1234 = treeCost 3 := by
+    treeCostP 1 = treeCost 1 + 3662 ∧ treeCostP 2 = treeCost 2 + 3872 ∧ treeCostP 3 = treeCost 3 + 3872 := by
   rw [treeCostP_one, treeCostP_two, treeCostP_three]
   decide
 def layerFixedCostP : Nat → Nat
@@ -9097,7 +9145,7 @@ theorem layerFixedCostP_succ_succ (n : Nat) :
     layerFixedCostP (n + 2) = treeCostP (Fin.ofNat 4 (n + 1)) + layerFixedCostP (n + 1) := rfl
 theorem layerFixedCost_succ_succ (n : Nat) :
     layerFixedCost (n + 2) = treeCost (Fin.ofNat 4 (n + 1)) + layerFixedCost (n + 1) := rfl
-theorem layerFixedCostP_four : layerFixedCostP 4 + 4936 = layerFixedCost 4 := by
+theorem layerFixedCostP_four : layerFixedCostP 4 = layerFixedCost 4 + 11406 := by
   obtain ⟨h1, h2, h3⟩ := treeCostP_lower
   have e3 : (Fin.ofNat 4 3 : Layer) = 3 := rfl
   have e2 : (Fin.ofNat 4 2 : Layer) = 2 := rfl
@@ -9155,8 +9203,21 @@ theorem bound_signLayersBC (cache : Cache) (index : Nat) :
               (by simp only [layerFixedCostP, hn, ite_false]; omega)
             refine (ih _).bind' (l := 0) (fun previous _ => ?_) (by omega)
             cases previous <;> exact .pure _ 0 trivial
-def recoverLayerPairCost (lay : Layer) : Nat := capacity lay - target lay + leafHashCost lay + (height lay - 1)
-theorem recoverLayerPairCost_succ (lay : Layer) : recoverLayerPairCost lay + 1 = recoverLayerCost lay := by
+/-- U16b: `nodeCost` is non-increasing on heaps `≥ 2` (fewer zero bits higher up the heap order). -/
+theorem nodeCost_anti (lay : Nat) {a b : Nat} (ha : 2 ≤ a) (hab : a ≤ b) : nodeCost lay b ≤ nodeCost lay a := by
+  unfold nodeCost lowerNonceCap lowerZeroBits
+  split_ifs <;> simp_all <;> omega
+theorem nodeCost_heap_le (lay : Nat) {e : Nat} (he : 1 ≤ e) (x : Nat) : nodeCost lay (2 ^ e + x) ≤ nodeCost lay (2 ^ e) :=
+  nodeCost_anti lay (by have := Nat.pow_le_pow_right (show 0 < 2 by decide) he; simpa using this) (by omega)
+/-- U16b: worst-case trials of the `height lay - 1` path folds of a lower layer (heap class `2^(height lay - j - 1)`). -/
+def pathCost (lay : Layer) : Nat := ∑ j ∈ Finset.range (height lay - 1), nodeCost lay.val (2 ^ (height lay - j - 1))
+theorem pathCost_one : pathCost 1 = 1795 := by decide +kernel
+theorem pathCost_two : pathCost 2 = 1282 := by decide +kernel
+theorem pathCost_three : pathCost 3 = 1282 := by decide +kernel
+/-- U16b: the path folds use `lowerNodeG` (`pathCost` instead of the T1 `height lay - 1`). -/
+def recoverLayerPairCost (lay : Layer) : Nat := capacity lay - target lay + leafHashCost lay + pathCost lay
+theorem recoverLayerPairCost_succ (lay : Layer) :
+    recoverLayerPairCost lay + height lay = recoverLayerCost lay + pathCost lay := by
   have : 1 ≤ height lay := by fin_cases lay <;> decide
   unfold recoverLayerPairCost recoverLayerCost
   omega
@@ -9164,6 +9225,27 @@ theorem bound_recoverLayerPair (sig : Signature) (index : Nat) (lay : Layer) (di
     (hd : ValidDigits lay digits) (hlen : digits.length = chainCount lay) (hsum : digits.sum = target lay) :
     CBound (fun _ => True) (recoverLayerPairCost lay) (recoverLayerPair sig index lay digits) := by
   unfold recoverLayerPair
+  dsimp only
+  refine (Bound.mapM_list (P := GoodQuery) (List.finRange (chainCount lay)) _
+    (fun i => maxDigit lay i.val - digits.getD i.val 0) (fun i _ => bound_chainW _ _ _ _ _ _ _)).bind'
+    (l := leafHashCost lay + pathCost lay) (fun ends hends => ?_) ?_
+  · refine (bound_lowerLeafHash lay _ _ ends (by simpa using hends)).bind (fun root _ => ?_)
+    refine ((Bound.foldlM_list (P := GoodQuery) (List.finRange (height lay - 1)) _
+      (fun _ _ => True) (fun i => nodeCost lay.val (2 ^ (height lay - i - 1))) root trivial
+      (fun i hi value _ => ?_)).bind' (l := 0) (fun _ _ => .pure _ 0 trivial) (by simp [pathCost]))
+    simp only [List.length_finRange] at hi
+    simp only [List.getElem_finRange, Fin.val_cast, Fin.val_mk]
+    exact (bound_lowerNodeG _ _ _ _ _).mono_k (nodeCost_heap_le _ (by omega) _)
+  · rw [sum_finRange (chainCount lay) (fun i => maxDigit lay i - digits.getD i 0),
+      remaining_steps lay digits hd hlen hsum]
+    simp only [recoverLayerPairCost]
+    omega
+/-- U16b: the T1 cost of the non-searching legacy recovery `recoverLayerPair0` (one hash per path fold). -/
+def recoverLayerPairCost0 (lay : Layer) : Nat := capacity lay - target lay + leafHashCost lay + (height lay - 1)
+theorem bound_recoverLayerPair0 (sig : Signature) (index : Nat) (lay : Layer) (digits : List Nat)
+    (hd : ValidDigits lay digits) (hlen : digits.length = chainCount lay) (hsum : digits.sum = target lay) :
+    CBound (fun _ => True) (recoverLayerPairCost0 lay) (recoverLayerPair0 sig index lay digits) := by
+  unfold recoverLayerPair0
   dsimp only
   refine (Bound.mapM_list (P := GoodQuery) (List.finRange (chainCount lay)) _
     (fun i => maxDigit lay i.val - digits.getD i.val 0) (fun i _ => bound_chainW _ _ _ _ _ _ _)).bind'
@@ -9175,15 +9257,15 @@ theorem bound_recoverLayerPair (sig : Signature) (index : Nat) (lay : Layer) (di
     exact bound_lowerNodeHash _ _ _ _ _
   · rw [sum_finRange (chainCount lay) (fun i => maxDigit lay i - digits.getD i 0),
       remaining_steps lay digits hd hlen hsum]
-    simp only [recoverLayerPairCost]
+    simp only [recoverLayerPairCost0]
     omega
 theorem bound_recoverLayerPairGuard (sig : Signature) (index : Nat) (lay : Layer) (answer : Digest)
     (digits : List Nat) (hd : ValidDigits lay digits) (hlen : digits.length = chainCount lay)
     (hsum : digits.sum = target lay) :
-    CBound (fun _ => True) (recoverLayerPairCost lay) (recoverLayerPairGuard sig index lay answer digits) := by
+    CBound (fun _ => True) (recoverLayerPairCost0 lay) (recoverLayerPairGuard sig index lay answer digits) := by
   unfold recoverLayerPairGuard lowerGuardedRun
   split_ifs
-  · exact Bound.map _ (bound_recoverLayerPair sig index lay digits hd hlen hsum) (fun _ _ => trivial)
+  · exact Bound.map _ (bound_recoverLayerPair0 sig index lay digits hd hlen hsum) (fun _ _ => trivial)
   · refine (Bound.mapM_list (P := GoodQuery) (List.range (3 * lowerFirstBad answer)) _
       (fun i => maxDigit lay i - digits.getD i 0) (fun i _ => bound_chainW _ _ _ _ _ _ _)).bind'
       (l := 0) (fun _ _ => .pure _ 0 trivial) ?_
@@ -9203,20 +9285,27 @@ theorem bound_recoverLayerPairGuard (sig : Signature) (index : Nat) (lay : Layer
         simp
       rw [he]
       exact remaining_steps lay digits hd hlen hsum
-    simp only [recoverLayerPairCost]
+    simp only [recoverLayerPairCost0]
     omega
 def recoveryLayersCostBC : Nat → Nat
   | 0 => 0
   | n + 1 => (if n = 0 then recoverLayerCost (Fin.ofNat 4 n) else recoverLayerPairCost (Fin.ofNat 4 n)) +
       recoveryLayersCostBC n
-theorem recoveryLayersCostBC_add : recoveryLayersCostBC 4 + 3 = recoveryLayersCost 4 := by
+/-- U16b: the 9 ground path folds add `1795 + 2 · 1282 − 16 = 4343` trials to the T1 recovery. -/
+theorem recoveryLayersCostBC_add : recoveryLayersCostBC 4 + 3 = recoveryLayersCost 4 + 4343 := by
   have h1 := recoverLayerPairCost_succ (Fin.ofNat 4 1)
   have h2 := recoverLayerPairCost_succ (Fin.ofNat 4 2)
   have h3 := recoverLayerPairCost_succ (Fin.ofNat 4 3)
+  have p1 : pathCost (Fin.ofNat 4 1) = 1795 := pathCost_one
+  have p2 : pathCost (Fin.ofNat 4 2) = 1282 := pathCost_two
+  have p3 : pathCost (Fin.ofNat 4 3) = 1282 := pathCost_three
+  have e1 : height (Fin.ofNat 4 1) = 7 := rfl
+  have e2 : height (Fin.ofNat 4 2) = 6 := rfl
+  have e3 : height (Fin.ofNat 4 3) = 6 := rfl
   simp only [recoveryLayersCostBC, recoveryLayersCost, if_true, show (3 : Nat) ≠ 0 by decide,
     show (2 : Nat) ≠ 0 by decide, show (1 : Nat) ≠ 0 by decide, if_false]
   omega
-theorem recoveryLayersCostBC_four_le : recoveryLayersCostBC 4 ≤ 481 := by
+theorem recoveryLayersCostBC_four_le : recoveryLayersCostBC 4 ≤ 4824 := by
   have h := recoveryLayersCostBC_add
   have h4 := recoveryLayersCost_four
   omega
@@ -9258,7 +9347,7 @@ theorem bound_verifyTop (sig : Signature) (index : Nat) (answer : Digest) :
     trivial (fun i hi value _ => bound_nodeHash _ _ _ _ _ _)).mono_k (by simp)
 def verifyLayersCostBC : Nat → Nat
   | 0 => 0
-  | n + 1 => (if n = 0 then capacity 0 else recoverLayerPairCost (Fin.ofNat 4 n)) + verifyLayersCostBC n
+  | n + 1 => (if n = 0 then capacity 0 else recoverLayerPairCost0 (Fin.ofNat 4 n)) + verifyLayersCostBC n
 /-- Campaign T51: 236 (top capacity) + 119 + 118 + 118 (lower targets 199/199/199). -/
 theorem verifyLayersCostBC_four_le : verifyLayersCostBC 4 ≤ 591 := by decide
 theorem bound_verifyLayersBC (w : Witness) (index : Nat) :
@@ -9321,7 +9410,7 @@ theorem bound_expandLayersBC (sig : Signature) (index : Nat) :
             refine (ih _).bind' (l := 0) (fun result _ => ?_) (by omega)
             cases result <;> exact .pure _ 0 trivial
 def signPayloadFixed : Nat := 2 + 31334 + layerFixedCostP 4
-theorem signPayloadFixed_eq : signPayloadFixed + 5512 = 2 + 31910 + layerFixedCost 4 := by
+theorem signPayloadFixed_eq : signPayloadFixed = 2 + 31910 + layerFixedCost 4 + 10830 := by
   have h := layerFixedCostP_four
   unfold signPayloadFixed
   omega
@@ -9365,16 +9454,16 @@ theorem bound_verifyWith (limit : Nat) (message : Message) (pk : Digest) (w : Wi
         (by have := verifyLayersCostBC_four_le; omega)
       cases r <;> exact .pure _ 0 trivial
 theorem bound_expandWith (limit : Nat) (message : Message) (pk : Digest) (sig : Signature) :
-    CBound (fun _ => True) (limit + 4 * counterLimit + 621) (expandWith limit message pk sig) := by
+    CBound (fun _ => True) (limit + 4 * counterLimit + 4964) (expandWith limit message pk sig) := by
   unfold expandWith
-  refine (bound_digestSearch sig.rho message limit 0).bind' (l := 4 * counterLimit + 621)
+  refine (bound_digestSearch sig.rho message limit 0).bind' (l := 4 * counterLimit + 4964)
     (fun found _ => ?_) (by omega)
   cases found with
   | none => exact .pure _ _ trivial
   | some pair =>
       obtain ⟨counter, output⟩ := pair
       dsimp only
-      refine (bound_recoverFts sig _ output).bind' (l := 4 * counterLimit + 481)
+      refine (bound_recoverFts sig _ output).bind' (l := 4 * counterLimit + 4824)
         (fun root _ => ?_) (by omega)
       refine (bound_expandLayersBC sig _ 4 (.pair root.1 root.2)).bind' (l := 0)
         (fun layers _ => ?_) (by have := recoveryLayersCostBC_four_le; omega)
@@ -9395,7 +9484,7 @@ theorem bound_verify (message : Message) (pk : Digest) (w : Witness) :
   bound_verifyWith digestAttemptLimit message pk w
 theorem sign_compression_ceiling (secret : BitVec 256) (cache : Cache) (message : Message) :
     ∀ result ∈ support (World.countBlocks (realize secret (Rev3.sign cache message))),
-      result.2 ≤ 18995993 := by
+      result.2 ≤ 19003049 := by
   intro result hr
   rw [World.countBlocks, ← realize_count] at hr
   have hc := (bound_sign cache message).count_support result
@@ -9519,7 +9608,7 @@ def sharedTree (lay : Layer) (tree selected : Nat) (digits : List Nat) :
   let levels ← buildLevelsBelow 3 lay.val tree (height lay) state.1
   pure (levels,state.2)
 
-def sharedTreeCost (lay : Layer) : Nat := (2^height lay/2)*631+(2^height lay-2)
+def sharedTreeCost (lay : Layer) : Nat := (2^height lay/2)*631+belowCost lay.val (height lay)
 
 /-- Compression bound for the complete actual OracleComp tree prototype. -/
 theorem bound_sharedTree (lay : Layer) (hlay : lay ≠ 0) (tree selected : Nat) (digits : List Nat)
@@ -9529,7 +9618,7 @@ theorem bound_sharedTree (lay : Layer) (hlay : lay ≠ 0) (tree selected : Nat) 
   have he : 2*(2^height lay/2) = 2^height lay := by
     fin_cases lay <;> decide
   unfold sharedTree sharedTreeCost
-  refine Bound.bind' (l := 2^height lay-2) (Bound.foldlM_range_le (2^height lay/2) _
+  refine Bound.bind' (l := belowCost lay.val (height lay)) (Bound.foldlM_range_le (2^height lay/2) _
     (fun i (state : List Digest × List Digest) => state.1.length = 2*i)
     (fun _ => 631) ([],[]) rfl (fun group _ state hs => ?_)
     (fun state hs => hs) (by simp)) (fun state hs => ?_) le_rfl
@@ -9757,6 +9846,10 @@ theorem topFold_proj (sig : Signature) (index : Nat) (digits : List Nat) :
 theorem recoverLayerPair_fill (sig : Signature) (index : Nat) (lay : Layer) (digits : List Nat) (c : Nat)
     (h : lay.val ≠ 0) : recoverLayerPair (fillTop sig c) index lay digits = recoverLayerPair sig index lay digits := by
   unfold recoverLayerPair
+  rw [fillTop_layers, fillLayer_ne lay (sig.layers lay) c h]
+theorem recoverLayerPairW_fill (sig : Signature) (index : Nat) (lay : Layer) (digits : List Nat) (c : Nat)
+    (h : lay.val ≠ 0) : recoverLayerPairW (fillTop sig c) index lay digits = recoverLayerPairW sig index lay digits := by
+  unfold recoverLayerPairW
   rw [fillTop_layers, fillLayer_ne lay (sig.layers lay) c h]
 
 theorem fin_ofNat_succ_ne (k : Nat) (hk : k + 1 < 4) : (Fin.ofNat 4 (k + 1) : Layer).val ≠ 0 := by
@@ -10045,13 +10138,14 @@ theorem expand_completes (answers : Answers) (message : Message) (pk : Digest) (
   rw [expandWith_eq_N, evalWithAnswerFn_map, hN]
   rfl
 
-theorem expand_implies_verify (answers : Answers) (message : Message) (pk : Digest)
+theorem expand_implies_verify (answers : Answers) (hg : LegacyFoldsAgree answers) (message : Message) (pk : Digest)
     (sig : Signature) (w : Witness) (he : evalWithAnswerFn answers (expand message pk sig) = some w) :
     evalWithAnswerFn answers (verify message pk w) = true := by
   obtain ⟨c, -, -, h⟩ := expand_completes answers message pk sig w he
-  exact expandWith_implies_verifyWith digestAttemptLimit digestAttemptLimit_le answers message pk _ w h
+  exact expandWith_implies_verifyWith digestAttemptLimit digestAttemptLimit_le answers hg message pk _ w h
 
-theorem expand_of_expandWith (answers : Answers) (message : Message) (pk : Digest) (sig : Signature)
+theorem expand_of_expandWith (answers : Answers) (hg : LegacyFoldsAgree answers) (message : Message) (pk : Digest)
+    (sig : Signature)
     (w : Witness) (he : evalWithAnswerFn answers (expandWith digestAttemptLimit message pk sig) = some w) :
     ∃ w', evalWithAnswerFn answers (expand message pk sig) = some w' ∧
       evalWithAnswerFn answers (verify message pk w') = true := by
@@ -10060,7 +10154,7 @@ theorem expand_of_expandWith (answers : Answers) (message : Message) (pk : Diges
   obtain ⟨y, hy⟩ := expandS_complete answers _ message pk sig x hx
   have he' : evalWithAnswerFn answers (expand message pk sig) = some y.2 := by
     rw [eval_expand, hy]; rfl
-  exact ⟨y.2, he', expand_implies_verify answers message pk sig y.2 he'⟩
+  exact ⟨y.2, he', expand_implies_verify answers hg message pk sig y.2 he'⟩
 
 end Rev3
 end ClaudeWCT.WCT9
@@ -10142,16 +10236,16 @@ theorem bound_searchTop (index : Nat) (v sib pk : Digest) :
       · exact ih (c + 1)
 
 theorem bound_expandS (limit : Nat) (message : Message) (pk : Digest) (sig : Signature) :
-    CBound (fun _ => True) (limit + 4 * counterLimit + 621 + searchFuel) (expandS limit message pk sig) := by
+    CBound (fun _ => True) (limit + 4 * counterLimit + 4964 + searchFuel) (expandS limit message pk sig) := by
   unfold expandS
-  refine (bound_digestSearch (proj sig).rho message limit 0).bind' (l := 4 * counterLimit + 621 + searchFuel)
+  refine (bound_digestSearch (proj sig).rho message limit 0).bind' (l := 4 * counterLimit + 4964 + searchFuel)
     (fun found _ => ?_) (by omega)
   cases found with
   | none => exact .pure _ _ trivial
   | some pair =>
       obtain ⟨counter, output⟩ := pair
       dsimp only
-      refine (bound_recoverFts (proj sig) _ output).bind' (l := 4 * counterLimit + 481 + searchFuel)
+      refine (bound_recoverFts (proj sig) _ output).bind' (l := 4 * counterLimit + 4824 + searchFuel)
         (fun root _ => ?_) (by omega)
       refine (bound_expandLayersT (proj sig) _ (topSib (proj sig)) 4 (.pair root.1 root.2)).bind' (l := searchFuel)
         (fun layers _ => ?_) (by have := recoveryLayersCostBC_four_le; omega)
@@ -10166,7 +10260,7 @@ theorem bound_expandS (limit : Nat) (message : Message) (pk : Digest) (sig : Sig
             cases c <;> exact .pure _ 0 trivial
 
 theorem bound_expand (message : Message) (pk : Digest) (sig : Signature) :
-    CBound (fun _ => True) (digestAttemptLimit + 4 * counterLimit + 621 + searchFuel) (Rev3.expand message pk sig) := by
+    CBound (fun _ => True) (digestAttemptLimit + 4 * counterLimit + 4964 + searchFuel) (Rev3.expand message pk sig) := by
   unfold Rev3.expand
   exact Bound.map _ (bound_expandS digestAttemptLimit message pk sig) (fun _ _ => trivial)
 
@@ -10403,6 +10497,152 @@ theorem eval_topNode_topFoldN_honest (answers : Answers) (sig : Signature) (inde
   simp only [treeValue] at hp ⊢
   rw [hp]
   simp [topLevelNode]
+
+/-! ### U16b: the verifier reads the lower fold nonces from the witness pads (`recoverLayerPairV`); reading back
+the nonces recorded by the expander's `recoverLayerPairW` reproduces its pair. -/
+theorem eval_lowerNonceSearch_hash (answers : Answers) (lay tree heap : Nat) (left right : Digest) :
+    ∀ fuel n, evalWithAnswerFn answers (lowerNodeHashN lay tree heap
+        (evalWithAnswerFn answers (lowerNonceSearch lay tree heap left right fuel n)).1 left right) =
+      (evalWithAnswerFn answers (lowerNonceSearch lay tree heap left right fuel n)).2
+  | 0, n => by
+      simp only [lowerNonceSearch, evalWithAnswerFn_bind, evalWithAnswerFn_pure]
+  | fuel+1, n => by
+      simp only [lowerNonceSearch, evalWithAnswerFn_bind]
+      split
+      · simp only [evalWithAnswerFn_pure]
+      · exact eval_lowerNonceSearch_hash answers lay tree heap left right fuel (n+1)
+
+/-- U16b: the canonical node value is the node hash at the canonical nonce. -/
+theorem eval_lowerNodeAt_hash (answers : Answers) (lay tree heap : Nat) (left right : Digest) :
+    evalWithAnswerFn answers (lowerNodeHashN lay tree heap
+        (evalWithAnswerFn answers (lowerNodeAt lay tree heap left right)).1 left right) =
+      (evalWithAnswerFn answers (lowerNodeAt lay tree heap left right)).2 := by
+  unfold lowerNodeAt
+  split
+  · simp only [evalWithAnswerFn_map, lowerNodeHashN_zero]
+  · exact eval_lowerNonceSearch_hash answers lay tree heap left right _ 0
+
+theorem eval_lowerNodeAt_fst_zero (answers : Answers) {lay tree heap : Nat} (h : lowerZeroBits lay heap = 0)
+    (left right : Digest) : (evalWithAnswerFn answers (lowerNodeAt lay tree heap left right)).1 = 0 := by
+  rw [lowerNodeAt_of_zero h]
+  simp only [evalWithAnswerFn_map]
+
+theorem eval_lowerNodeG (answers : Answers) (lay tree heap : Nat) (left right : Digest) :
+    evalWithAnswerFn answers (lowerNodeG lay tree heap left right) =
+      (evalWithAnswerFn answers (lowerNodeAt lay tree heap left right)).2 := by
+  simp only [lowerNodeG, evalWithAnswerFn_map]
+
+/-- U16b: a nonce-recording fold and the fold that reads the recorded nonces back (only where `P`; elsewhere the
+recorded nonce is 0) agree. -/
+theorem foldl_nonce_readback {k : Nat} (f : Digest → Fin k → Nat × Digest) (g : Digest → Nat → Fin k → Digest)
+    (P : Fin k → Prop) [DecidablePred P]
+    (hfg : ∀ v j, g v (f v j).1 j = (f v j).2) (hz : ∀ v j, ¬ P j → (f v j).1 = 0) (fin : List Nat) :
+    ∀ (js : List (Fin k)) (v : Digest) (ns : List Nat), (∀ i (hi : i < js.length), (js[i]).val = ns.length + i) →
+      (js.foldl (fun st j => ((f st.1 j).2, st.2 ++ [(f st.1 j).1])) (v, ns)).2 = fin →
+      js.foldl (fun v j => g v (if P j then fin.getD j.val 0 else 0) j) v =
+        (js.foldl (fun st j => ((f st.1 j).2, st.2 ++ [(f st.1 j).1])) (v, ns)).1 := by
+  have hpre : ∀ (js : List (Fin k)) (st : Digest × List Nat), ∃ t,
+      (js.foldl (fun st j => ((f st.1 j).2, st.2 ++ [(f st.1 j).1])) st).2 = st.2 ++ t := by
+    intro js
+    induction js with
+    | nil => intro st; exact ⟨[], by simp⟩
+    | cons j js ih =>
+      intro st
+      obtain ⟨t, ht⟩ := ih ((f st.1 j).2, st.2 ++ [(f st.1 j).1])
+      exact ⟨[(f st.1 j).1] ++ t, by rw [List.foldl_cons, ht, List.append_assoc]⟩
+  intro js
+  induction js with
+  | nil => intro v ns _ _; rfl
+  | cons j js ih =>
+    intro v ns hpos hfin
+    rw [List.foldl_cons, List.foldl_cons] at *
+    have hj : j.val = ns.length := by
+      have h0 := hpos 0 (by simp)
+      rw [List.getElem_cons_zero] at h0
+      simpa using h0
+    have hn : (if P j then fin.getD j.val 0 else 0) = (f v j).1 := by
+      split
+      · obtain ⟨t, ht⟩ := hpre js ((f v j).2, ns ++ [(f v j).1])
+        rw [← hfin, ht, hj, List.append_assoc, List.getD_append_right _ _ _ _ le_rfl, Nat.sub_self]
+        rfl
+      · rename_i hP; exact (hz v j hP).symm
+    rw [hn, hfg]
+    refine ih _ _ (fun i hi => ?_) hfin
+    have := hpos (i + 1) (by simp; omega)
+    simp only [List.getElem_cons_succ] at this
+    rw [this]; simp; omega
+
+/-- U16b: the nonce the verifier reads for lower fold `j` of layer `lay` (the fold whose parent has heap
+`2^(height lay - j - 1) + leaf / 2^(j+1)`): its witness pad, written only for the ground folds
+`height lay - 4 ≤ j` (parent heaps 2..15); every other fold pad is 0. -/
+def lowerFoldNonce (lay : Layer) (nonces : List Nat) (j : Nat) : Nat :=
+  if height lay ≤ j + 4 then nonces.getD j 0 else 0
+
+/-- U16b: `recoverLayerPair` with the fold nonces read back from the witness (`lowerNodeHashN`, no search). -/
+def recoverLayerPairV (sig : Signature) (nonces : List Nat) (index : Nat) (lay : Layer) (digits : List Nat) :
+    M (Digest × Digest) := do
+  let (leaf, tree) := route index lay
+  let ends ← (List.finRange (chainCount lay)).mapM fun i =>
+    chainW lay tree leaf i.val (digits.getD i.val 0)
+      (maxDigit lay i.val - digits.getD i.val 0) ((sig.layers lay).values i)
+  let value ← lowerLeafHash lay tree leaf ends
+  let top ← (List.finRange (height lay - 1)).foldlM (fun value j => do
+    let other := (sig.layers lay).path (Fin.castLE (Nat.sub_le _ _) j)
+    let pair := if leaf / 2 ^ j.val % 2 = 0 then (value, other) else (other, value)
+    lowerNodeHashN lay.val tree (2 ^ (height lay - j.val - 1) + leaf / 2 ^ (j.val + 1))
+      (lowerFoldNonce lay nonces j.val) pair.1 pair.2) value
+  let other := (sig.layers lay).path (topLevel lay)
+  pure (if leaf / 2 ^ (height lay - 1) % 2 = 0 then (top, other) else (other, top))
+
+/-- U16b: the verifier's guarded lower layer (`recoverLayerPairGuard` with `recoverLayerPairV`). -/
+def recoverLayerPairGuardV (sig : Signature) (nonces : List Nat) (index : Nat) (lay : Layer) (answer : Digest)
+    (digits : List Nat) : M (Option (Digest × Digest)) :=
+  lowerGuardedRun
+    (fun i => chainW lay (route index lay).2 (route index lay).1 i
+      (digits.getD i 0) (maxDigit lay i - digits.getD i 0) ((sig.layers lay).values ⟨i % chainCount lay,
+        Nat.mod_lt _ (by fin_cases lay <;> decide)⟩))
+    (recoverLayerPairV sig nonces index lay digits) answer
+
+theorem recoverLayerPairGuardV_of_good (sig : Signature) (nonces : List Nat) (index : Nat) (lay : Layer)
+    (answer : Digest) (digits : List Nat) (h : lowerRankGood answer) :
+    recoverLayerPairGuardV sig nonces index lay answer digits = some <$> recoverLayerPairV sig nonces index lay digits := by
+  simp only [recoverLayerPairGuardV, lowerGuardedRun, if_pos h]
+
+/-- U16b: fold heaps below the ground (`j + 4 < height lay`) have no zero bits. -/
+theorem lowerZeroBits_fold_off {lay : Layer} {j : Nat} (hj : ¬ height lay ≤ j + 4) (x : Nat) :
+    lowerZeroBits lay.val (2 ^ (height lay - j - 1) + x) = 0 := by
+  have : 2 ^ 4 ≤ 2 ^ (height lay - j - 1) := Nat.pow_le_pow_right (by decide) (by omega)
+  unfold lowerZeroBits
+  rw [if_pos (Or.inr (Or.inr (by omega)))]
+
+/-- U16b: reading back the nonces recorded by `recoverLayerPairW` reproduces its pair. -/
+theorem eval_recoverLayerPairV_W (answers : Answers) (sig : Signature) (index : Nat) (lay : Layer)
+    (digits : List Nat) :
+    evalWithAnswerFn answers (recoverLayerPairV sig
+        (evalWithAnswerFn answers (recoverLayerPairW sig index lay digits)).2 index lay digits) =
+      (evalWithAnswerFn answers (recoverLayerPairW sig index lay digits)).1 := by
+  unfold recoverLayerPairV recoverLayerPairW
+  rcases route index lay with ⟨leaf, tree⟩
+  simp only [evalWithAnswerFn_bind, evalWithAnswerFn_pure, eval_foldlM_eq]
+  have key := fun v0 => foldl_nonce_readback
+    (f := fun v (x : Fin (height lay - 1)) => evalWithAnswerFn answers
+      (lowerNodeAt lay.val tree (2 ^ (height lay - x.val - 1) + leaf / 2 ^ (x.val + 1))
+        (if leaf / 2 ^ x.val % 2 = 0 then (v, (sig.layers lay).path (Fin.castLE (Nat.sub_le _ _) x))
+          else ((sig.layers lay).path (Fin.castLE (Nat.sub_le _ _) x), v)).1
+        (if leaf / 2 ^ x.val % 2 = 0 then (v, (sig.layers lay).path (Fin.castLE (Nat.sub_le _ _) x))
+          else ((sig.layers lay).path (Fin.castLE (Nat.sub_le _ _) x), v)).2))
+    (g := fun v n (x : Fin (height lay - 1)) => evalWithAnswerFn answers
+      (lowerNodeHashN lay.val tree (2 ^ (height lay - x.val - 1) + leaf / 2 ^ (x.val + 1)) n
+        (if leaf / 2 ^ x.val % 2 = 0 then (v, (sig.layers lay).path (Fin.castLE (Nat.sub_le _ _) x))
+          else ((sig.layers lay).path (Fin.castLE (Nat.sub_le _ _) x), v)).1
+        (if leaf / 2 ^ x.val % 2 = 0 then (v, (sig.layers lay).path (Fin.castLE (Nat.sub_le _ _) x))
+          else ((sig.layers lay).path (Fin.castLE (Nat.sub_le _ _) x), v)).2))
+    (P := fun x => height lay ≤ x.val + 4)
+    (fun v x => eval_lowerNodeAt_hash answers _ _ _ _ _)
+    (fun v x hx => eval_lowerNodeAt_fst_zero answers (lowerZeroBits_fold_off hx _) _ _) _
+    (List.finRange (height lay - 1)) v0 [] (fun i hi => by simp) rfl
+  simp only [lowerFoldNonce]
+  rw [key]
 
 end ClaudeWCT.WCT9
 end
@@ -10851,6 +11091,8 @@ structure Witness where
   topHigh : Bool
   /-- Top-bytes layer: the re-derived nonces of the top path nodes of heights 1..11 (witness pads). -/
   topNonces : List Nat
+  /-- U16b: the re-derived nonces of the lower path folds `j < height lay - 1` (witness pads; 0 off the ground). -/
+  lowerNonces : Layer → List Nat
 
 def emptyPairOpening : PairOpening := ⟨fun _ => 0, fun _ => 0, fun _ => 0, fun _ => 0⟩
 
@@ -11443,7 +11685,8 @@ def signFromOutput (cache : SigGolfCandidate.T3.Cache) (rho : Digest) (digestCou
   let some layers ← searchPreparedLayers cache index prepared forest.2 | pure none
   let signature : Signature := ⟨rho, layers.policyHints, forest.1,
     fun lay => piecesSignature lay (layers.pieces.getD lay.val ([], []))⟩
-  pure (some ⟨signature, digestCounter, fun lay => layers.counters.getD lay.val 0, !(layers.lows.getD 0 true), []⟩)
+  pure (some ⟨signature, digestCounter, fun lay => layers.counters.getD lay.val 0, !(layers.lows.getD 0 true), [],
+    fun _ => []⟩)
 
 end SigGolfCandidate.Research.SharedForest
 
@@ -11583,13 +11826,25 @@ def normPathD (j : Nat) (d : Digest) : Digest :=
   if 1 ≤ j ∧ j ≤ 10 then BitVec.ofNat 128 (d.toNat % 2 ^ (128 - topZeroBits j))
   else if j = 11 then BitVec.ofNat 128 (d.toNat % 2 ^ 104) else d
 
+/-- U16b: zero bits of the lower path node at height `j` of layer `lay` (`lowerZeroBits` of its heap class
+`2^(height lay - j)`): heights `H-1, H-2, H-3` carry 3 (L1) or 2, 2, 1 bits; every other height 0. -/
+def lowerPathBits (lay : Layer) (j : Nat) : Nat := ClaudeWCT.WCT9.lowerZeroBits lay.val (2 ^ (height lay - j))
+/-- U16b: normal form of a lower path node: the compact codec does not store its `lowerPathBits` zero-test bits. -/
+def normLowerPathD (lay : Layer) (j : Nat) (d : Digest) : Digest :=
+  if lowerPathBits lay j = 0 then d else BitVec.ofNat 128 (d.toNat % 2 ^ (128 - lowerPathBits lay j))
+
 def normLayer (lay : Layer) (ls : LayerSignature lay) : LayerSignature lay :=
-  ⟨ls.values, fun j => if lay.val = 0 then normPathD j.val (ls.path j) else ls.path j⟩
+  ⟨ls.values, fun j => if lay.val = 0 then normPathD j.val (ls.path j) else normLowerPathD lay j.val (ls.path j)⟩
 
 /-- What the compact codec keeps (13-bit hint, normalized top path; T51: 5,195 bytes); `expand` applies it first. -/
 def normTop (sig : Signature) : Signature :=
   { sig with policyHints := BitVec.ofNat 16 (sig.policyHints.toNat % 2 ^ 13)
              layers := fun lay => normLayer lay (sig.layers lay) }
+
+/-- U16b: the lower path nodes pass their zero tests (no ground search hit its cap). -/
+def LowerPathOK (sig : Signature) : Prop :=
+  ∀ lay : Layer, lay ≠ 0 → ∀ j : Fin (height lay),
+    ((sig.layers lay).path j).toNat / 2 ^ (128 - lowerPathBits lay j.val) = 0
 
 /-- The honest top path passes its zero tests (no nonce search hit its cap). -/
 def TopPathOK (sig : Signature) : Prop :=
@@ -11604,6 +11859,8 @@ structure RecoveredLayers where
   lows : List Bool
   /-- Top-bytes layer: the nonces of the top path nodes of heights 1..11 (re-derived by `topFoldN`). -/
   nonces : List Nat
+  /-- U16b: per layer (top first, the top entry `[]`), the fold nonces of `recoverLayerPairW`. -/
+  lowerNonces : List (List Nat)
 
 /-- Hints allow one bottom-up pass. The final check compares these hints with
 the unique ancestor policy, so alternate hint encodings are rejected. -/
@@ -11618,14 +11875,15 @@ def recoverHintedLayers (sig : Signature) (index : Nat) (other : Digest) :
       if n = 0 then
         let (folded, nonces) ← topFoldN (mainSignature sig) index digits
         let root ← topNode index folded other
-        pure (some ⟨folded, root, [counter], [digits], [low], nonces⟩)
+        pure (some ⟨folded, root, [counter], [digits], [low], nonces, [[]]⟩)
       else
-        let pair ← recoverLayerPair (mainSignature sig) index lay digits
+        let (pair, ns) ← recoverLayerPairW (mainSignature sig) index lay digits
         let some previous ← recoverHintedLayers sig index other n (.pair pair.1 pair.2) | pure none
         pure (some { previous with
           counters := previous.counters ++ [counter]
           digits := previous.digits ++ [digits]
-          lows := previous.lows ++ [low] })
+          lows := previous.lows ++ [low]
+          lowerNonces := previous.lowerNonces ++ [ns] })
 
 def sharedDigestSearch (rho : Digest) (message : Message) (counter : Nat) :
     Nat → M (Option (BitVec 32 × HashOutput))
@@ -11659,10 +11917,10 @@ def expandFill (message : Message) (pk : Digest) (sig : Signature) : M (Option W
   if !policyHintsValid sig0.policyHints layers.digits layers.lows then return none
   if layers.root = pk then
     return some ⟨sig0, counter, fun lay => layers.counters.getD lay.val 0, !(layers.lows.getD 0 true),
-      layers.nonces⟩
+      layers.nonces, fun lay => layers.lowerNonces.getD lay.val []⟩
   let some c ← searchTop index layers.foldedTop ((sig0.layers 0).path topJ) pk searchFuel 1 | pure none
   pure (some ⟨fillTopSignature sig0 c, counter, fun lay => layers.counters.getD lay.val 0,
-    !(layers.lows.getD 0 true), layers.nonces⟩)
+    !(layers.lows.getD 0 true), layers.nonces, fun lay => layers.lowerNonces.getD lay.val []⟩)
 
 /-- img-v6 expansion: normalize to what the 5,239-byte codec keeps, then the old kernel. -/
 def expand (message : Message) (pk : Digest) (sig : Signature) : M (Option Witness) :=
@@ -11733,10 +11991,34 @@ theorem normPathD_ok (j : Nat) (hj : j < 12) (d : Digest) (hz : 1 ≤ j → topZ
 theorem normTop_rho (sig : Signature) : (normTop sig).rho = sig.rho := rfl
 theorem normTop_forest (sig : Signature) : (normTop sig).forest = sig.forest := rfl
 
-theorem normTop_layers_ne (sig : Signature) (lay : Layer) (h : lay ≠ 0) : (normTop sig).layers lay = sig.layers lay := by
+/-- U16b: a lower path node that passes its zero test is fixed by the normal form. -/
+theorem normLowerPathD_ok (lay : Layer) (j : Nat) (d : Digest) (hz : d.toNat / 2 ^ (128 - lowerPathBits lay j) = 0) :
+    normLowerPathD lay j d = d := by
+  unfold normLowerPathD
+  split
+  · rfl
+  · apply BitVec.eq_of_toNat_eq
+    have hlt : d.toNat < 2 ^ (128 - lowerPathBits lay j) := by
+      rcases Nat.lt_or_ge d.toNat (2 ^ (128 - lowerPathBits lay j)) with h | h
+      · exact h
+      · exact absurd hz (Nat.pos_iff_ne_zero.mp (Nat.div_pos h (Nat.two_pow_pos _)))
+    rw [BitVec.toNat_ofNat, Nat.mod_eq_of_lt hlt]
+    exact Nat.mod_eq_of_lt d.isLt
+theorem normLowerPathD_idem (lay : Layer) (j : Nat) (d : Digest) :
+    normLowerPathD lay j (normLowerPathD lay j d) = normLowerPathD lay j d := by
+  unfold normLowerPathD
+  split
+  · rfl
+  · exact ofNat_mod_pow_idem 128 (128 - lowerPathBits lay j) d.toNat (by omega)
+/-- U16b: `normTop` keeps a lower layer whose path passes its zero tests (`LowerPathOK`). -/
+theorem normTop_layers_ne (sig : Signature) (lay : Layer) (h : lay ≠ 0) (hz : LowerPathOK sig) :
+    (normTop sig).layers lay = sig.layers lay := by
   have h0 : lay.val ≠ 0 := fun hv => h (Fin.ext hv)
   unfold normTop normLayer
   simp only [h0, if_false]
+  congr 1
+  funext j
+  exact normLowerPathD_ok lay j.val _ (hz lay h j)
 
 theorem normTop_hints (sig : Signature) (h : sig.policyHints.toNat < 2 ^ 13) :
     (normTop sig).policyHints = sig.policyHints := by
@@ -11754,7 +12036,7 @@ theorem normTop_normTop (sig : Signature) : normTop (normTop sig) = normTop sig 
     funext j
     by_cases h0 : lay.val = 0
     · simp only [h0, if_true, normPathD_idem]
-    · simp only [h0, if_false]
+    · simp only [h0, if_false, normLowerPathD_idem]
 
 theorem normTop_fill (sig : Signature) (c : Nat) : normTop (fillTopSignature sig c) = normTop sig := by
   unfold normTop fillTopSignature
@@ -11770,8 +12052,8 @@ theorem normTop_fill (sig : Signature) (c : Nat) : normTop (fillTopSignature sig
   · simp only [h0, false_and, if_false]
 
 /-- Honest signatures (top path zero tests passed, 13-bit hint) normalize to the old `fillTopSignature sig 0`. -/
-theorem normTop_eq_fill (sig : Signature) (hh : sig.policyHints.toNat < 2 ^ 13) (hz : TopPathOK sig) :
-    normTop sig = fillTopSignature sig 0 := by
+theorem normTop_eq_fill (sig : Signature) (hh : sig.policyHints.toNat < 2 ^ 13) (hz : TopPathOK sig)
+    (hl : LowerPathOK sig) : normTop sig = fillTopSignature sig 0 := by
   unfold normTop fillTopSignature
   congr 1
   · apply BitVec.eq_of_toNat_eq
@@ -11789,6 +12071,7 @@ theorem normTop_eq_fill (sig : Signature) (hh : sig.policyHints.toNat < 2 ^ 13) 
       · simp [h11]
       · simp [h11]
     · simp only [h0, false_and, if_false]
+      exact normLowerPathD_ok lay j.val _ (hl lay (fun e => h0 (congrArg Fin.val e)) j)
 
 theorem expand_normTop (message : Message) (pk : Digest) (sig : Signature) :
     expand message pk (normTop sig) = expand message pk sig := by
@@ -11808,10 +12091,10 @@ theorem expandFill_fill (message : Message) (pk : Digest) (sig : Signature) (c :
 
 /-- On an honest signature (13-bit hint, top path zero tests passed) `expand` is the old kernel. -/
 theorem expand_eq_expandFill (message : Message) (pk : Digest) (sig : Signature)
-    (hh : sig.policyHints.toNat < 2 ^ 13) (htop : TopPathOK sig) :
+    (hh : sig.policyHints.toNat < 2 ^ 13) (htop : TopPathOK sig) (hlow : LowerPathOK sig) :
     expand message pk sig = expandFill message pk sig := by
   unfold expand
-  rw [normTop_eq_fill sig hh htop, expandFill_fill]
+  rw [normTop_eq_fill sig hh htop hlow, expandFill_fill]
 
 
 theorem canonical_fts_window : CanonicalPolicy.ftsSearchLimit = digestAttemptLimit := rfl
@@ -12136,7 +12419,7 @@ theorem bound_buildTreePrefixes (lay : Layer) (tree selected : Nat) :
     CBound (fun result => LevelShape (height lay) (height lay - 1) result.levels)
       (treeCostP lay) (buildTreePrefixes lay tree selected) := by
   unfold buildTreePrefixes
-  refine Bound.bind' (l := 2 ^ height lay - 2) (Bound.foldlM_range (2 ^ height lay) _
+  refine Bound.bind' (l := belowCost lay.val (height lay)) (Bound.foldlM_range (2 ^ height lay) _
     (fun i (state : List Digest × List (List Digest) × List Digest) => state.1.length = i)
     (leafCostP lay) ([], [], []) rfl (fun leaf _ state hstate => ?_))
     (fun state hstate => ?_) le_rfl
@@ -12163,7 +12446,7 @@ theorem bound_prepareRoots (index : Nat) :
     (l := 0) (fun three _ => .pure (PreparedRoots.mk one two three) 0 trivial) (by omega)
 
 /-- v6 lower families: 81146 − 325 (L1 349 + L2/L3 175 family pairs instead of 4 per leaf). -/
-theorem prepared_roots_cost : treeCostP 1 + treeCostP 2 + treeCostP 3 = 80821 := by
+theorem prepared_roots_cost : treeCostP 1 + treeCostP 2 + treeCostP 3 = 97163 := by
   rw [treeCostP_one, treeCostP_two, treeCostP_three]
 
 end SigGolfCandidate.Research.SharedForest
@@ -12380,7 +12663,8 @@ theorem digestAccepted_implies_verify {output : HashOutput} (h : digestAccepted 
   simpa only [verifyDigestAccepted, Bool.and_eq_true] using h.1
 
 /-- Broad normalized verification retains the machine's early abort ordering.
-Canonical producer floors and hints are checked by the signer and expander. -/
+Canonical producer floors and hints are checked by the signer and expander. U16b: the lower path folds read their
+nonces from the witness (`recoverLayerPairGuardV`, `w.lowerNonces`; only the ground folds' pads are nonzero). -/
 def verifyLayers (w : Witness) (index : Nat) : Nat → LayerMsg → M (Option Digest)
   | 0, _ => pure none
   | n + 1, msg => do
@@ -12392,7 +12676,8 @@ def verifyLayers (w : Witness) (index : Nat) : Nat → LayerMsg → M (Option Di
       if n = 0 then verifyTopN (mainSignature w.signature) w.topNonces index answer
       else
         let some digits := CanonicalPolicy.decode lay answer | pure none
-        let some pair ← recoverLayerPairGuard (mainSignature w.signature) index lay answer digits | pure none
+        let some pair ← recoverLayerPairGuardV (mainSignature w.signature) (w.lowerNonces lay) index lay answer digits
+          | pure none
         verifyLayers w index n (.pair pair.1 pair.2)
 
 def verify (message : Message) (pk : Digest) (w : Witness) : M Bool := do
@@ -12418,9 +12703,11 @@ theorem recoverHintedLayers_verified (answers : Answers) (sig : Signature) (inde
     ∀ n, n ≤ 4 → ∀ msg result,
       evalWithAnswerFn answers (recoverHintedLayers sig index ((sig.layers 0).path topJ) n msg) = some result →
       result.counters.length = n ∧ result.digits.length = n ∧ result.lows.length = n ∧
+        result.lowerNonces.length = n ∧
         ∀ w : Witness, w.signature = sig →
           (∀ lay : Layer, lay.val < n → w.counters lay = result.counters.getD lay.val 0) →
           w.topHigh = !(result.lows.getD 0 true) → w.topNonces = result.nonces →
+          (∀ lay : Layer, lay.val < n → w.lowerNonces lay = result.lowerNonces.getD lay.val []) →
           evalWithAnswerFn answers (verifyLayers w index n msg) = some result.root := by
   intro n
   induction n with
@@ -12443,7 +12730,7 @@ theorem recoverHintedLayers_verified (answers : Answers) (sig : Signature) (inde
           · subst n
             simp only [if_true, evalWithAnswerFn_bind, evalWithAnswerFn_pure, Option.some.injEq] at he
             subst result
-            refine ⟨rfl, rfl, rfl, fun w hw hc hh hnon => ?_⟩
+            refine ⟨rfl, rfl, rfl, rfl, fun w hw hc hh hnon _ => ?_⟩
             have hcounter : w.counters (Fin.ofNat 4 0) = counter := by
               rw [hc _ (by rw [hlay]; omega), hlay]; rfl
             have hdecode0 : SigGolfCandidate.T3.decode 0
@@ -12469,8 +12756,14 @@ theorem recoverHintedLayers_verified (answers : Answers) (sig : Signature) (inde
                 rename_i previous hr
                 simp only [evalWithAnswerFn_pure, Option.some.injEq] at he
                 subst result
-                obtain ⟨hlen, hdlen, hllen, hverify⟩ := ih (by omega) _ _ hr
-                refine ⟨by simp [hlen], by simp [hdlen], by simp [hllen], fun w hw hc hh => ?_⟩
+                obtain ⟨hlen, hdlen, hllen, hnlen, hverify⟩ := ih (by omega) _ _ hr
+                refine ⟨by simp [hlen], by simp [hdlen], by simp [hllen], by simp [hnlen],
+                  fun w hw hc hh hnon hln => ?_⟩
+                have hns : w.lowerNonces (Fin.ofNat 4 n) = (evalWithAnswerFn answers
+                    (recoverLayerPairW (mainSignature sig) index (Fin.ofNat 4 n) digits)).2 := by
+                  rw [hln _ (by rw [hlay]; omega), hlay,
+                    List.getD_append_right previous.lowerNonces _ [] n (by omega), hnlen]
+                  simp
                 have hcounter : w.counters (Fin.ofNat 4 n) = counter := by
                   rw [hc _ (by rw [hlay]; omega), hlay,
                     List.getD_append_right previous.counters [counter] 0 n (by omega), hlen]
@@ -12483,11 +12776,15 @@ theorem recoverHintedLayers_verified (answers : Answers) (sig : Signature) (inde
                   (CanonicalPolicy.producerDecodeAt_spec hproducer).2.2.2.resolve_left hnonzero
                 simp only [verifyLayers, hcounter, hnot, ite_false, evalWithAnswerFn_bind,
                   verificationHash_lower (Fin.ofNat 4 n) hnonzero,
-                  hdecode, hn0, hw, recoverLayerPairGuard_of_good _ _ _ _ _ hgood, evalWithAnswerFn_map]
+                  hdecode, hn0, hw, recoverLayerPairGuardV_of_good _ _ _ _ _ _ hgood, evalWithAnswerFn_map, hns,
+                  eval_recoverLayerPairV_W]
                 apply hverify w hw
                 · intro lay hsmall
                   rw [hc lay (by omega), List.getD_append previous.counters [counter] 0 lay.val (by omega)]
                 · rw [hh, List.getD_append previous.lows [low] true 0 (by omega)]
+                · exact hnon
+                · intro lay hsmall
+                  rw [hln lay (by omega), List.getD_append previous.lowerNonces _ [] lay.val (by omega)]
       · simp only [evalWithAnswerFn_pure, reduceCtorEq] at he
 
 end SigGolfCandidate.Research.SharedForest
@@ -12569,7 +12866,7 @@ theorem recoverHintedLayers_fill (sig : Signature) (index : Nat) (other : Digest
           | succ k =>
               have hne := fin_ofNat_succ_ne k (by omega)
               simp only [Nat.succ_ne_zero, if_false, mainSignature_fill,
-                recoverLayerPair_fill _ _ _ _ _ hne]
+                recoverLayerPairW_fill _ _ _ _ _ hne]
               apply bind_congr
               intro pair
               rw [ih (by omega)]
@@ -12628,10 +12925,12 @@ theorem verify_from_recovered (answers : Answers) (message : Message) (pk : Dige
           (forestSelectionFromOutput output) (forestWordsFromOutput output) sig.forest)).2)) = some result)
     (hpk : result.root = pk) :
     evalWithAnswerFn answers (verify message pk
-      ⟨sig, counter, fun lay => result.counters.getD lay.val 0, !(result.lows.getD 0 true), result.nonces⟩) = true := by
+      ⟨sig, counter, fun lay => result.counters.getD lay.val 0, !(result.lows.getD 0 true), result.nonces,
+      fun lay => result.lowerNonces.getD lay.val []⟩) = true := by
   have hc : ¬counter.toNat ≥ digestVerifyWindow := Nat.not_le.mpr counter.isLt
-  have hv := (recoverHintedLayers_verified answers sig (digestIndex output) 4 le_rfl _ _ hr).2.2.2
-    ⟨sig, counter, fun lay => result.counters.getD lay.val 0, !(result.lows.getD 0 true), result.nonces⟩ rfl (by intros; rfl) rfl
+  have hv := (recoverHintedLayers_verified answers sig (digestIndex output) 4 le_rfl _ _ hr).2.2.2.2
+    ⟨sig, counter, fun lay => result.counters.getD lay.val 0, !(result.lows.getD 0 true), result.nonces,
+      fun lay => result.lowerNonces.getD lay.val []⟩ rfl (by intros; rfl) rfl rfl (by intros; rfl)
   simp only [verify, hc, if_false, evalWithAnswerFn_bind, ho, ha, Bool.not_true,
     Bool.false_eq_true, hv, evalWithAnswerFn_pure, hpk, beq_self_eq_true]
 
@@ -12989,14 +13288,20 @@ theorem recoverHintedLayers_replay (answers : Answers) (sig : Signature) (index 
         [counter 0, counter 1, counter 2, counter 3],
         [digits 0, digits 1, digits 2, digits 3],
         [lows 0, lows 1, lows 2, lows 3],
-        (evalWithAnswerFn answers (topFoldN (mainSignature sig) index (digits 0))).2⟩ := by
+        (evalWithAnswerFn answers (topFoldN (mainSignature sig) index (digits 0))).2,
+        [[], (evalWithAnswerFn answers (recoverLayerPairW (mainSignature sig) index 1 (digits 1))).2,
+          (evalWithAnswerFn answers (recoverLayerPairW (mainSignature sig) index 2 (digits 2))).2,
+          (evalWithAnswerFn answers (recoverLayerPairW (mainSignature sig) index 3 (digits 3))).2]⟩ := by
   have hs0 := hs 0
   have hs1 := hs 1
   have hs2 := hs 2
   have hs3 := hs 3
-  have hp1 := hp 1 (by decide)
-  have hp2 := hp 2 (by decide)
-  have hp3 := hp 3 (by decide)
+  have hpW : ∀ lay, lay ≠ 0 → (evalWithAnswerFn answers
+      (recoverLayerPairW (mainSignature sig) index lay (digits lay))).1 = builtPair answers lay (route index lay).2 :=
+    fun lay hl => by rw [← hp lay hl, recoverLayerPair_eq_W, evalWithAnswerFn_map]
+  have hp1 := hpW 1 (by decide)
+  have hp2 := hpW 2 (by decide)
+  have hp3 := hpW 3 (by decide)
   simp only [show (0 : Layer) ≠ 3 by decide, show (1 : Layer) ≠ 3 by decide,
     show (2 : Layer) ≠ 3 by decide, if_false, if_true,
     show (Fin.ofNat 4 ((0 : Layer).val + 1) : Layer) = 1 from rfl,
@@ -13111,9 +13416,9 @@ theorem PreparedSearchFacts.recover_honest {answers : Answers} {cache : SigGolfC
     (hcache : cache.region = cacheRegion (maskedTop answers)) (hindex : index < 2 ^ 31)
     (sig : Signature) (hhints : sig.policyHints = result.policyHints)
     (hpieces : ∀ lay, sig.layers lay = piecesSignature lay (result.pieces.getD lay.val ([], []))) :
-    ∃ folded nonces, evalWithAnswerFn answers (recoverHintedLayers sig index ((sig.layers 0).path topJ)
+    ∃ folded nonces lowerNonces, evalWithAnswerFn answers (recoverHintedLayers sig index ((sig.layers 0).path topJ)
       4 (.pair forest.1 forest.2)) = some ⟨folded,
-        treeValue (builtTree answers 0 0) 12 0, result.counters, result.digits, result.lows, nonces⟩ := by
+        treeValue (builtTree answers 0 0) 12 0, result.counters, result.digits, result.lows, nonces, lowerNonces⟩ := by
   have hpiece : ∀ lay, sig.layers lay = piecesSignature lay
       (wotsPieces answers lay (route index lay).2 (route index lay).1 (result.digits.getD lay.val [])) := by
     intro lay
@@ -13158,7 +13463,7 @@ theorem PreparedSearchFacts.recover_honest {answers : Answers} {cache : SigGolfC
     list_four_getD result.counters 0 h.counters_length,
     list_four_getD result.digits [] h.digits_length,
     list_four_getD result.lows true h.lows_length] at hr
-  exact ⟨_, _, hr⟩
+  exact ⟨_, _, _, hr⟩
 
 end SigGolfCandidate.Research.SharedForest
 
@@ -13180,13 +13485,13 @@ theorem expand_complete_of_recovered (answers : Answers) (message : Message) (pk
         (evalWithAnswerFn answers (recoverForest (digestIndex output)
           (forestSelectionFromOutput output) (forestWordsFromOutput output) sig.forest)).2)) = some result)
     (hh : policyHintsValid sig.policyHints result.digits result.lows = true) (hpk : result.root = pk)
-    (htop : TopPathOK sig) :
+    (htop : TopPathOK sig) (hlow : LowerPathOK sig) :
     ∃ w, evalWithAnswerFn answers (expand message pk sig) = some w := by
   have hhbound' : sig.policyHints.toNat < 2 ^ 13 := by
     simp only [policyHintsValid, decide_eq_true_eq] at hh
     have := hh.1
     omega
-  rw [expand_eq_expandFill message pk sig hhbound' htop]
+  rw [expand_eq_expandFill message pk sig hhbound' htop hlow]
   have hhbound : sig.policyHints.toNat < 7744 := by
     simp only [policyHintsValid, decide_eq_true_eq] at hh
     exact hh.1
@@ -13278,8 +13583,10 @@ theorem signFromOutput_recovery (answers : Answers) (cache : SigGolfCandidate.T3
       subst w
       let sig : Signature := ⟨rho, layers.policyHints, built.1,
         fun lay => piecesSignature lay (layers.pieces.getD lay.val ([], []))⟩
-      obtain ⟨folded, nonces, hr⟩ := hf.recover_honest hcache (digestIndex_lt output) sig rfl (by intro lay; rfl)
-      refine ⟨rfl, ⟨folded, _, layers.counters, layers.digits, layers.lows, nonces⟩, ?_, rfl, hf.hints_valid, rfl⟩
+      obtain ⟨folded, nonces, lowerNonces, hr⟩ :=
+        hf.recover_honest hcache (digestIndex_lt output) sig rfl (by intro lay; rfl)
+      refine ⟨rfl, ⟨folded, _, layers.counters, layers.digits, layers.lows, nonces, lowerNonces⟩, ?_, rfl,
+        hf.hints_valid, rfl⟩
       change evalWithAnswerFn answers (recoverHintedLayers sig index ((sig.layers 0).path topJ) 4
         (.pair (evalWithAnswerFn answers (recoverForest index (forestSelectionFromOutput output)
           (forestWordsFromOutput output) built.1)).1
@@ -13350,9 +13657,61 @@ theorem signFromOutput_topPathOK (answers : Answers) (cache : SigGolfCandidate.T
   rw [signFromOutput_path answers cache hcache rho counter output w he j]
   exact htree j.val hj hj11 _ (sibling_lt _ _ (route0_leaf_lt _) hj11)
 
+/-- U16b completeness event: every node of every reachable lower tree passes its zero test (`lowerPathBits` of its
+level), i.e. no ground nonce search (heaps 2..15 of layers 1..3) hit its cap. -/
+def LowerTreesOK (answers : Answers) : Prop :=
+  ∀ index, index < 2 ^ 31 → ∀ lay : Layer, lay ≠ 0 → ∀ j, j < height lay → ∀ i, i < 2 ^ (height lay - j) →
+    (treeValue (wotsTree answers lay (route index lay).2) j i).toNat / 2 ^ (128 - lowerPathBits lay j) = 0
+
+/-- U16b: the signer's lower path node at height `j` is the keygen lower tree's node next to the signed leaf's
+ancestor. -/
+theorem signFromOutput_path_lower (answers : Answers) (cache : SigGolfCandidate.T3.Cache)
+    (hcache : cache.region = cacheRegion (maskedTop answers)) (rho : Digest)
+    (counter : BitVec 32) (output : HashOutput) (w : Witness)
+    (he : evalWithAnswerFn answers (signFromOutput cache rho counter output) = some w) (lay : Layer)
+    (j : Fin (height lay)) :
+    (w.signature.layers lay).path j = treeValue (wotsTree answers lay (route (digestIndex output) lay).2) j.val
+      ((route (digestIndex output) lay).1 / 2 ^ j.val ^^^ 1) := by
+  let index := digestIndex output
+  let built := evalWithAnswerFn answers (buildForest index (forestSelectionFromOutput output)
+    (forestWordsFromOutput output))
+  let prepared := evalWithAnswerFn answers (prepareRoots index)
+  unfold signFromOutput at he
+  simp only [evalWithAnswerFn_bind] at he
+  cases hs : evalWithAnswerFn answers (searchPreparedLayers cache index prepared built.2) with
+  | none =>
+    dsimp only [index, prepared, built] at hs
+    simp only [hs, evalWithAnswerFn_pure, reduceCtorEq] at he
+  | some layers =>
+    have hf := searchPreparedLayers_some answers cache index prepared built.2 layers hs
+    dsimp only [index, prepared, built] at hs
+    simp only [hs, evalWithAnswerFn_pure, Option.some.injEq] at he
+    subst w
+    have hp := hf.honest_pieces hcache (digestIndex_lt output) lay
+    change (piecesSignature lay (layers.pieces.getD lay.val ([], []))).path j = _
+    rw [hp]
+    simp [piecesSignature, wotsPieces, List.getD_eq_getElem, j.isLt, index]
+
+theorem sibling_lt_lower (lay : Layer) (leaf j : Nat) (hleaf : leaf < 2 ^ height lay) (hj : j < height lay) :
+    leaf / 2 ^ j ^^^ 1 < 2 ^ (height lay - j) := by
+  apply Nat.xor_lt_two_pow
+  · rw [Nat.div_lt_iff_lt_mul (by positivity), ← pow_add, show height lay - j + j = height lay by omega]
+    exact hleaf
+  · exact Nat.one_lt_two_pow (by omega)
+
+theorem signFromOutput_lowerPathOK (answers : Answers) (cache : SigGolfCandidate.T3.Cache)
+    (hcache : cache.region = cacheRegion (maskedTop answers)) (hlower : LowerTreesOK answers) (rho : Digest)
+    (counter : BitVec 32) (output : HashOutput) (w : Witness)
+    (he : evalWithAnswerFn answers (signFromOutput cache rho counter output) = some w) :
+    LowerPathOK w.signature := by
+  intro lay hl j
+  rw [signFromOutput_path_lower answers cache hcache rho counter output w he lay j]
+  exact hlower _ (digestIndex_lt output) lay hl j.val j.isLt _
+    (sibling_lt_lower lay _ _ (route_leaf_bound _ lay) j.isLt)
+
 theorem signPayload_expands (answers : Answers) (cache : SigGolfCandidate.T3.Cache)
     (hcache : cache.region = cacheRegion (maskedTop answers)) (htree : TopTreeOK answers)
-    (message : Message) (sig : Signature)
+    (hlower : LowerTreesOK answers) (message : Message) (sig : Signature)
     (he : evalWithAnswerFn answers (signPayload cache message) = some sig) :
     ∃ w, evalWithAnswerFn answers (expand message (treeValue (builtTree answers 0 0) 12 0) sig) = some w ∧
       evalWithAnswerFn answers (verify message (treeValue (builtTree answers 0 0) 12 0) w) = true := by
@@ -13374,6 +13733,7 @@ theorem signPayload_expands (answers : Answers) (cache : SigGolfCandidate.T3.Cac
       | some original =>
           have hh := signFromOutput_recovery answers cache hcache rho counter output original hs
           have htop := signFromOutput_topPathOK answers cache hcache htree rho counter output original hs
+          have hlow := signFromOutput_lowerPathOK answers cache hcache hlower rho counter output original hs
           dsimp only [rho] at hs
           simp only [hs, evalWithAnswerFn_pure, Option.some.injEq] at he
           subst sig
@@ -13383,12 +13743,12 @@ theorem signPayload_expands (answers : Answers) (cache : SigGolfCandidate.T3.Cac
             rw [hrho]
             exact hd
           obtain ⟨w, hw⟩ := expand_complete_of_recovered answers message _ original.signature
-            counter output result hd' hr hp hpk htop
+            counter output result hd' hr hp hpk htop hlow
           exact ⟨w, hw, expand_verified answers message _ original.signature w hw⟩
 
 theorem sign_expands (answers : Answers) (cache : SigGolfCandidate.T3.Cache)
     (hcache : cache.region = cacheRegion (maskedTop answers)) (htree : TopTreeOK answers)
-    (message : Message) (sig : Signature)
+    (hlower : LowerTreesOK answers) (message : Message) (sig : Signature)
     (he : evalWithAnswerFn answers (sign cache message) = some sig) :
     ∃ w, evalWithAnswerFn answers (expand message (treeValue (builtTree answers 0 0) 12 0) sig) = some w ∧
       evalWithAnswerFn answers (verify message (treeValue (builtTree answers 0 0) 12 0) w) = true := by
@@ -13396,7 +13756,7 @@ theorem sign_expands (answers : Answers) (cache : SigGolfCandidate.T3.Cache)
   simp only [evalWithAnswerFn_bind] at he
   split_ifs at he with htag
   · simp only [evalWithAnswerFn_pure, reduceCtorEq] at he
-  · exact signPayload_expands answers cache hcache htree message sig he
+  · exact signPayload_expands answers cache hcache htree hlower message sig he
 
 end SigGolfCandidate.Research.SharedForest
 
@@ -13702,22 +14062,27 @@ theorem maxDigit_le_seven (lay : Layer) (i : Nat) : maxDigit lay i ≤ 7 := by
   split_ifs <;> omega
 
 /-- Coarse unconditional main-tree recovery bound; no old local credit floor
-or old layer-two/three target is used. -/
+or old layer-two/three target is used. U16b: the `height lay - 1` path folds cost `pathCost lay` (ground folds at
+their nonce cap) instead of one hash each (`404 - (height lay - 1) + pathCost lay`: 2193 on layer 1, 1681 on 2, 3). -/
 theorem bound_recoverLayerPair_coarse (sig : ClaudeWCT.WCT9.Signature) (index : Nat)
     (lay : Layer) (digits : List Nat) :
-    CBound (fun _ => True) 404 (recoverLayerPair sig index lay digits) := by
+    CBound (fun _ => True) (404 - (height lay - 1) + pathCost lay) (recoverLayerPair sig index lay digits) := by
   unfold recoverLayerPair
   dsimp only
   refine (Bound.mapM_list (P := GoodQuery) (List.finRange (chainCount lay)) _
     (fun _ => 7) (fun i _ => (bound_chainW _ _ _ _ _ _ _).mono_k
       (Nat.sub_le _ _ |>.trans (maxDigit_le_seven lay i.val)))).bind'
-    (l := leafHashCost lay + (height lay - 1)) (fun ends hends => ?_) ?_
+    (l := leafHashCost lay + pathCost lay) (fun ends hends => ?_) ?_
   · refine (bound_lowerLeafHash lay _ _ ends (by simpa using hends)).bind (fun root _ => ?_)
     refine ((Bound.foldlM_list (P := GoodQuery) (List.finRange (height lay - 1)) _
-      (fun _ _ => True) (fun _ => 1) root trivial (fun i hi value _ => ?_)).bind' (l := 0)
-      (fun _ _ => .pure _ 0 trivial) (by simp))
-    exact bound_lowerNodeHash _ _ _ _ _
-  · fin_cases lay <;> decide
+      (fun _ _ => True) (fun i => nodeCost lay.val (2 ^ (height lay - i - 1))) root trivial
+      (fun i hi value _ => ?_)).bind' (l := 0) (fun _ _ => .pure _ 0 trivial) (by simp [pathCost]))
+    simp only [List.length_finRange] at hi
+    simp only [List.getElem_finRange, Fin.val_cast]
+    exact (bound_lowerNodeG _ _ _ _ _).mono_k (nodeCost_heap_le _ (by omega) _)
+  · have h : ((List.finRange (chainCount lay)).map fun _ => 7).sum + leafHashCost lay + (height lay - 1) ≤ 404 := by
+      fin_cases lay <;> decide
+    omega
 
 theorem bound_topFold_coarse (sig : ClaudeWCT.WCT9.Signature) (index : Nat) (digits : List Nat) :
     CBound (fun _ => True) 403 (topFold sig index digits) := by
@@ -13829,17 +14194,33 @@ theorem recoverHintedLayers_cost_replay (answers : Answers) (sig : Signature) (i
       (recoverLayerPair (mainSignature sig) index lay (digits lay)) =
       builtPair answers lay (route index lay).2) :
     cost answers (recoverHintedLayers sig index other 4 (.pair forest.1 forest.2)) ≤
-      recoverySearchCost answers sig index forest + (1616 + 425765) := by
+      recoverySearchCost answers sig index forest + (5959 + 425765) := by
   have hs0 := hs 0
   have hs1 := hs 1
   have hs2 := hs 2
   have hs3 := hs 3
-  have hp1 := hp 1 (by decide)
-  have hp2 := hp 2 (by decide)
-  have hp3 := hp 3 (by decide)
-  have hc1 := cost_bound answers (bound_recoverLayerPair_coarse (mainSignature sig) index 1 (digits 1))
-  have hc2 := cost_bound answers (bound_recoverLayerPair_coarse (mainSignature sig) index 2 (digits 2))
-  have hc3 := cost_bound answers (bound_recoverLayerPair_coarse (mainSignature sig) index 3 (digits 3))
+  have hpW : ∀ lay, lay ≠ 0 → (evalWithAnswerFn answers
+      (recoverLayerPairW (mainSignature sig) index lay (digits lay))).1 = builtPair answers lay (route index lay).2 :=
+    fun lay hl => by rw [← hp lay hl, recoverLayerPair_eq_W, evalWithAnswerFn_map]
+  have hp1 := hpW 1 (by decide)
+  have hp2 := hpW 2 (by decide)
+  have hp3 := hpW 3 (by decide)
+  have hpc1 : ClaudeWCT.WCT9.Cost.pathCost 1 = 1795 := ClaudeWCT.WCT9.Cost.pathCost_one
+  have hpc2 : ClaudeWCT.WCT9.Cost.pathCost 2 = 1282 := ClaudeWCT.WCT9.Cost.pathCost_two
+  have hpc3 : ClaudeWCT.WCT9.Cost.pathCost 3 = 1282 := ClaudeWCT.WCT9.Cost.pathCost_three
+  have hcW : ∀ lay, cost answers (recoverLayerPairW (mainSignature sig) index lay (digits lay)) ≤
+      404 - (height lay - 1) + ClaudeWCT.WCT9.Cost.pathCost lay := by
+    intro lay
+    have h := cost_bound answers (bound_recoverLayerPair_coarse (mainSignature sig) index lay (digits lay))
+    rw [recoverLayerPair_eq_W, ← bind_pure_comp, cost_bind] at h
+    simp only [cost_pure, Nat.add_zero] at h
+    exact h
+  have hc1 := hcW 1
+  have hc2 := hcW 2
+  have hc3 := hcW 3
+  rw [hpc1, show height 1 = 7 from rfl] at hc1
+  rw [hpc2, show height 2 = 6 from rfl] at hc2
+  rw [hpc3, show height 3 = 6 from rfl] at hc3
   have hct := cost_bound answers (bound_topFoldN_coarse (mainSignature sig) index (digits 0))
   have hcn := cost_bound answers (ClaudeWCT.WCT9.Cost.bound_topNode index
     (evalWithAnswerFn answers (topFoldN (mainSignature sig) index (digits 0))).1 other)
@@ -13935,7 +14316,7 @@ theorem PreparedSearchFacts.recovery_cost_le {answers : Answers} {cache : SigGol
       (recoverLayerPair (mainSignature sig) index lay (result.digits.getD lay.val [])) =
       builtPair answers lay (route index lay).2) :
     cost answers (recoverHintedLayers sig index other 4 (.pair forest.1 forest.2)) ≤
-      cost answers (searchPreparedLayers cache index prepared forest) + (1616 + 425765) := by
+      cost answers (searchPreparedLayers cache index prepared forest) + (5959 + 425765) := by
   have hs0 := h.search0
   have hs1 := h.search1
   have hs2 := h.search2
@@ -14114,7 +14495,10 @@ theorem recoverHintedLayers_selections (answers : Answers) (sig : Signature) (in
                       simp only [Nat.sub_self, List.getD_cons_zero]
                       rfl
                     · rw [if_neg hnxt, List.getD_append _ _ _ _ (by omega)]
-                  rw [hm]
+                  have hpw : pair = (evalWithAnswerFn answers (recoverLayerPairW (mainSignature sig) index
+                      (Fin.ofNat 4 n) digits)).1 := by
+                    simp only [pair, recoverLayerPair_eq_W, evalWithAnswerFn_map]
+                  rw [hm, hpw]
                   exact hsel lay hlt
                 · have hl : lay = Fin.ofNat 4 n := Fin.ext (by rw [hv]; omega)
                   subst lay

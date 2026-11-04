@@ -545,28 +545,57 @@ open SigGolfCandidate.T3 (topZeroBits topZeroAlloc)
 set_option maxHeartbeats 4000000
 set_option maxRecDepth 100000
 
+/-! U16b: DEC still reads the T1 layout (5,195 bytes at `0x7000`); the pre-pass rebuilds it from the 5,193-byte
+signature (`unpackB`, `sigMem_pre`). Local copies of the T1 codec definitions (SharedCodec now has the U16b layout). -/
+namespace T1C
+abbrev CBytes := Bytes 5195
+def cDig (b : CBytes) (k : Nat) : SigGolfCandidate.T3.Digest := b.extractLsb' (128 * k) 128
+def xOfB (b : CBytes) : Nat :=
+  SharedCodec.topBits 1 (cDig b 168) + SharedCodec.topBits 1 (cDig b 169) * 2 ^ 1 +
+  SharedCodec.topBits 2 (cDig b 170) * 2 ^ 2 + SharedCodec.topBits 3 (cDig b 171) * 2 ^ 4 +
+  SharedCodec.topBits 4 (cDig b 172) * 2 ^ 7 + SharedCodec.topBits 5 (cDig b 173) * 2 ^ 11 +
+  SharedCodec.topBits 6 (cDig b 174) * 2 ^ 16 + SharedCodec.topBits 7 (cDig b 175) * 2 ^ 22
+def digC (b : CBytes) (k : Nat) : SigGolfCandidate.T3.Digest :=
+  if k < 176 then (if 166 ≤ k then SharedCodec.clearTop (topZeroBits (k - 165)) (cDig b k) else cDig b k)
+  else if k = 176 then BitVec.ofNat 128 (b.toNat / 2 ^ (128 * 324) % 2 ^ 88 + xOfB b % 2 ^ 16 * 2 ^ 88)
+  else cDig b (k - 1)
+def hints (b : CBytes) : BitVec 16 := BitVec.ofNat 16 (xOfB b / 2 ^ 16)
+theorem topBits_lt' (j : Nat) (hj : j ≤ 128) (d : SigGolfCandidate.T3.Digest) : SharedCodec.topBits j d < 2 ^ j := by
+  unfold SharedCodec.topBits
+  rw [Nat.div_lt_iff_lt_mul (by positivity), ← Nat.pow_add, show j + (128 - j) = 128 by omega]
+  exact d.isLt
+theorem xOfB_lt (b : CBytes) : xOfB b < 2 ^ 29 := by
+  have t3 := topBits_lt' 1 (by norm_num) (cDig b 168); have t4 := topBits_lt' 1 (by norm_num) (cDig b 169)
+  have t5 := topBits_lt' 2 (by norm_num) (cDig b 170); have t6 := topBits_lt' 3 (by norm_num) (cDig b 171)
+  have t7 := topBits_lt' 4 (by norm_num) (cDig b 172); have t8 := topBits_lt' 5 (by norm_num) (cDig b 173)
+  have t9 := topBits_lt' 6 (by norm_num) (cDig b 174); have t10 := topBits_lt' 7 (by norm_num) (cDig b 175)
+  unfold xOfB
+  norm_num at *
+  omega
+end T1C
+
 /-- The DEC entry memory holds the 5,195-byte signature at `0x7000` (649 full dwords + 3 tail bytes). -/
-structure SigMem (M : Word → Word) (b : SharedCodec.CBytes) : Prop where
+structure SigMem (M : Word → Word) (b : T1C.CBytes) : Prop where
   word : ∀ j, j < 649 → M (BitVec.ofNat 64 (0x7000 + 8 * j)) = b.extractLsb' (64 * j) 64
   tail : (M (BitVec.ofNat 64 0x8448)).toNat % 2 ^ 24 = b.toNat / 2 ^ (64 * 649) % 2 ^ 24
 
-theorem cDig_word (b : SharedCodec.CBytes) (c w : Nat) (hw : w < 2) :
-    (SharedCodec.cDig b c).extractLsb' (64 * w) 64 = b.extractLsb' (64 * (2 * c + w)) 64 := by
-  unfold SharedCodec.cDig
+theorem cDig_word (b : T1C.CBytes) (c w : Nat) (hw : w < 2) :
+    (T1C.cDig b c).extractLsb' (64 * w) 64 = b.extractLsb' (64 * (2 * c + w)) 64 := by
+  unfold T1C.cDig
   rw [SharedCodec.extract_digest_word b (128 * c) w hw]
   congr 1
   omega
 
-theorem slot_word {M : Word → Word} {b : SharedCodec.CBytes} (h : SigMem M b) (c w : Nat) (hc : c < 324)
-    (hw : w < 2) : M (slotA c w) = (SharedCodec.cDig b c).extractLsb' (64 * w) 64 := by
+theorem slot_word {M : Word → Word} {b : T1C.CBytes} (h : SigMem M b) (c w : Nat) (hc : c < 324)
+    (hw : w < 2) : M (slotA c w) = (T1C.cDig b c).extractLsb' (64 * w) 64 := by
   rw [cDig_word b c w hw, ← h.word (2 * c + w) (by omega)]
   unfold slotA
   congr 2
   omega
 
-theorem topBits_cDig (b : SharedCodec.CBytes) (c n : Nat) (hn : n ≤ 64) :
-    SharedCodec.topBits n (SharedCodec.cDig b c) = (b.extractLsb' (64 * (2 * c + 1)) 64).toNat / 2 ^ (64 - n) := by
-  unfold SharedCodec.topBits SharedCodec.cDig
+theorem topBits_cDig (b : T1C.CBytes) (c n : Nat) (hn : n ≤ 64) :
+    SharedCodec.topBits n (T1C.cDig b c) = (b.extractLsb' (64 * (2 * c + 1)) 64).toNat / 2 ^ (64 - n) := by
+  unfold SharedCodec.topBits T1C.cDig
   rw [BitVec.extractLsb'_toNat, BitVec.extractLsb'_toNat, Nat.shiftRight_eq_div_pow, Nat.shiftRight_eq_div_pow]
   generalize b.toNat = x
   rw [show 64 * (2 * c + 1) = 128 * c + 64 by omega, Nat.pow_add, ← Nat.div_div_eq_div_mul]
@@ -575,34 +604,34 @@ theorem topBits_cDig (b : SharedCodec.CBytes) (c n : Nat) (hn : n ≤ 64) :
   congr 1
   rw [show (2 : Nat) ^ 128 = 2 ^ 64 * 2 ^ 64 by norm_num, Nat.mod_mul_right_div_self]
 
-theorem aH_word {M : Word → Word} {b : SharedCodec.CBytes} (h : SigMem M b) (j : Nat) (hj : j ≤ 10) :
+theorem aH_word {M : Word → Word} {b : T1C.CBytes} (h : SigMem M b) (j : Nat) (hj : j ≤ 10) :
     M (aH j) = b.extractLsb' (64 * (2 * (165 + j) + 1)) 64 := by
   rw [← h.word _ (by omega)]
   unfold aH pH
   congr 2
   omega
 
-theorem xD_xOfB {M : Word → Word} {b : SharedCodec.CBytes} (h : SigMem M b) :
-    (xD M).toNat = SharedCodec.xOfB b := by
+theorem xD_xOfB {M : Word → Word} {b : T1C.CBytes} (h : SigMem M b) :
+    (xD M).toNat = T1C.xOfB b := by
   rw [xD_toNat]
-  unfold xN SharedCodec.xOfB
+  unfold xN T1C.xOfB
   rw [topBits_cDig b 168 1 (by omega), topBits_cDig b 169 1 (by omega), topBits_cDig b 170 2 (by omega),
     topBits_cDig b 171 3 (by omega), topBits_cDig b 172 4 (by omega), topBits_cDig b 173 5 (by omega),
     topBits_cDig b 174 6 (by omega), topBits_cDig b 175 7 (by omega),
     aH_word h 3 (by omega), aH_word h 4 (by omega), aH_word h 5 (by omega), aH_word h 6 (by omega),
     aH_word h 7 (by omega), aH_word h 8 (by omega), aH_word h 9 (by omega), aH_word h 10 (by omega)]
 
-theorem hint_toNat {M : Word → Word} {b : SharedCodec.CBytes} (h : SigMem M b) :
-    (xD M >>> 16).toNat = (SharedCodec.sigDecC b).policyHints.toNat := by
+theorem hint_toNat {M : Word → Word} {b : T1C.CBytes} (h : SigMem M b) :
+    (xD M >>> 16).toNat = (T1C.hints b).toNat := by
   rw [BitVec.toNat_ushiftRight, Nat.shiftRight_eq_div_pow, xD_xOfB h]
-  show _ = (BitVec.ofNat 16 (SharedCodec.xOfB b / 2 ^ 16)).toNat
-  have := SharedCodec.xOfB_lt b
+  show _ = (BitVec.ofNat 16 (T1C.xOfB b / 2 ^ 16)).toNat
+  have := T1C.xOfB_lt b
   rw [BitVec.toNat_ofNat, Nat.mod_eq_of_lt (by omega)]
 
-theorem hint_eq {M : Word → Word} {b : SharedCodec.CBytes} (h : SigMem M b) :
-    xD M >>> 16 = BitVec.ofNat 64 (SharedCodec.sigDecC b).policyHints.toNat := by
+theorem hint_eq {M : Word → Word} {b : T1C.CBytes} (h : SigMem M b) :
+    xD M >>> 16 = BitVec.ofNat 64 (T1C.hints b).toNat := by
   apply BitVec.eq_of_toNat_eq
-  have := ((SharedCodec.sigDecC b).policyHints).isLt
+  have := ((T1C.hints b)).isLt
   rw [hint_toNat h, BitVec.toNat_ofNat, Nat.mod_eq_of_lt (by omega)]
 
 theorem clearTop_lo (t : Nat) (ht : t ≤ 64) (d : SigGolfCandidate.T3.Digest) :
@@ -644,9 +673,9 @@ theorem zero_extract (w : Nat) : (0 : SigGolfCandidate.T3.Digest).extractLsb' (6
   simp
 
 /-- DEC's output slots are the inflated layout of the decoded signature. -/
-theorem decOut_eq {M : Word → Word} {b : SharedCodec.CBytes} (h : SigMem M b) (k w : Nat) (hk : k < 332)
+theorem decOut_eq {M : Word → Word} {b : T1C.CBytes} (h : SigMem M b) (k w : Nat) (hk : k < 332)
     (hw : w < 2) :
-    decOut M k w = (SharedCodec.inflatedRead (0 : SigGolfCandidate.T3.Digest) (SharedCodec.digC b) k).extractLsb' (64 * w) 64 := by
+    decOut M k w = (SharedCodec.inflatedRead (0 : SigGolfCandidate.T3.Digest) (T1C.digC b) k).extractLsb' (64 * w) 64 := by
   by_cases hd : dummySlot k
   · have e : decOut M k w = 0 := by unfold decOut; rw [if_pos hd]
     rw [e, SharedCodec.inflatedRead, if_pos ((internalDummy_iff k).mpr hd), zero_extract]
@@ -657,12 +686,12 @@ theorem decOut_eq {M : Word → Word} {b : SharedCodec.CBytes} (h : SigMem M b) 
         else sibHi (M (BitVec.ofNat 64 0x8448)) (xD M)) := by
       unfold decOut; rw [if_neg hd, if_pos h180]
     rw [e, h180, show SharedCodec.externalFullIndex 180 = 176 from rfl]
-    have hd176 : SharedCodec.digC b 176 = BitVec.ofNat 128 (b.toNat / 2 ^ (64 * 648) % 2 ^ 88 +
-        SharedCodec.xOfB b % 2 ^ 16 * 2 ^ 88) := by
-      unfold SharedCodec.digC; rw [if_neg (by omega), if_pos rfl]
+    have hd176 : T1C.digC b 176 = BitVec.ofNat 128 (b.toNat / 2 ^ (64 * 648) % 2 ^ 88 +
+        T1C.xOfB b % 2 ^ 16 * 2 ^ 88) := by
+      unfold T1C.digC; rw [if_neg (by omega), if_pos rfl]
     rw [hd176]
     apply BitVec.eq_of_toNat_eq
-    have hX := SharedCodec.xOfB_lt b
+    have hX := T1C.xOfB_lt b
     have hw648 := h.word 648 (by omega)
     have ht := h.tail
     have hsplit : b.toNat / 2 ^ (64 * 649) = b.toNat / 2 ^ (64 * 648) / 2 ^ 64 := by
@@ -673,13 +702,13 @@ theorem decOut_eq {M : Word → Word} {b : SharedCodec.CBytes} (h : SigMem M b) 
         BitVec.extractLsb'_toNat, BitVec.extractLsb'_toNat, BitVec.toNat_ofNat, Nat.shiftRight_eq_div_pow,
         Nat.shiftRight_eq_div_pow]
       generalize b.toNat / 2 ^ (64 * 648) = T
-      generalize SharedCodec.xOfB b = X at hX
+      generalize T1C.xOfB b = X at hX
       norm_num
       omega
     · rw [if_neg (by omega), sibHi_toNat, ht, xD_xOfB h, BitVec.extractLsb'_toNat, BitVec.toNat_ofNat,
         Nat.shiftRight_eq_div_pow]
       generalize b.toNat / 2 ^ (64 * 648) = T
-      generalize SharedCodec.xOfB b = X at hX
+      generalize T1C.xOfB b = X at hX
       norm_num
       omega
   have e : decOut M k w = d1Mem M (slotA (srcK k) w) := by unfold decOut; rw [if_neg hd, if_neg h180]
@@ -690,8 +719,8 @@ theorem decOut_eq {M : Word → Word} {b : SharedCodec.CBytes} (h : SigMem M b) 
       unfold SharedCodec.externalFullIndex srcK; split_ifs <;> omega
     have hs : srcK k < 166 := by unfold srcK; split_ifs <;> omega
     rw [he]
-    have hdig : SharedCodec.digC b (srcK k) = SharedCodec.cDig b (srcK k) := by
-      unfold SharedCodec.digC; rw [if_pos (by omega), if_neg (by omega)]
+    have hdig : T1C.digC b (srcK k) = T1C.cDig b (srcK k) := by
+      unfold T1C.digC; rw [if_pos (by omega), if_neg (by omega)]
     rw [hdig, ← slot_word h _ w (by omega) hw]
     unfold slotA
     rw [d1Mem_frame _ _ (by omega) (by omega) (by omega)]
@@ -700,9 +729,9 @@ theorem decOut_eq {M : Word → Word} {b : SharedCodec.CBytes} (h : SigMem M b) 
       unfold SharedCodec.externalFullIndex; split_ifs <;> omega
     have hs : srcK k = k - 4 := by unfold srcK; split_ifs <;> omega
     rw [he, hs]
-    have hdig : SharedCodec.digC b (k - 4) =
-        SharedCodec.clearTop (topZeroBits (k - 4 - 165)) (SharedCodec.cDig b (k - 4)) := by
-      unfold SharedCodec.digC; rw [if_pos (by omega), if_pos (by omega)]
+    have hdig : T1C.digC b (k - 4) =
+        SharedCodec.clearTop (topZeroBits (k - 4 - 165)) (T1C.cDig b (k - 4)) := by
+      unfold T1C.digC; rw [if_pos (by omega), if_pos (by omega)]
     rw [hdig]
     have htz : topZeroBits (k - 4 - 165) ≤ 64 := by
       unfold topZeroBits topZeroAlloc
@@ -731,11 +760,434 @@ theorem decOut_eq {M : Word → Word} {b : SharedCodec.CBytes} (h : SigMem M b) 
       unfold SharedCodec.externalFullIndex; split_ifs <;> omega
     have hs : srcK k = k - 8 := by unfold srcK; split_ifs <;> omega
     rw [he, hs]
-    have hdig : SharedCodec.digC b (k - 7) = SharedCodec.cDig b (k - 8) := by
-      unfold SharedCodec.digC; rw [if_neg (by omega), if_neg (by omega), show k - 7 - 1 = k - 8 by omega]
+    have hdig : T1C.digC b (k - 7) = T1C.cDig b (k - 8) := by
+      unfold T1C.digC; rw [if_neg (by omega), if_neg (by omega), show k - 7 - 1 = k - 8 by omega]
     rw [hdig, ← slot_word h _ w (by omega) hw]
     unfold slotA
     rw [d1Mem_frame _ _ (by omega) (by omega) (by omega)]
+
+
+/-! ## U16b pre-pass (expand words 54886..54969, entered by `0: jal 54886`, then `j 54569` = DEC)
+The nine ground lower path siblings' top bits carry V (the old tail bytes 5193..5194): the pre-pass moves them back
+(`pre_spec`), turning the 5,193-byte signature into DEC's T1 layout (`sigMem_pre`, `digC_unpack`, `xOfB_unpack`). -/
+def cPre : List (BitVec 32) := [0x393,0x8f37,0xe1ff0f13,0xf4e83,0x5ede13,0xe1e13,0x1c3e3b3,0x1fefe93,0x1df0023,0x8f37,0xe0ff0f13,0xf4e83,0x6ede13,0x3e1e13,0x1c3e3b3,0x3fefe93,0x1df0023,0x8f37,0xdfff0f13,0xf4e83,0x7ede13,0x5e1e13,0x1c3e3b3,0x7fefe93,0x1df0023,0x8f37,0x12ff0f13,0xf4e83,0x6ede13,0x6e1e13,0x1c3e3b3,0x3fefe93,0x1df0023,0x8f37,0x11ff0f13,0xf4e83,0x6ede13,0x8e1e13,0x1c3e3b3,0x3fefe93,0x1df0023,0x8f37,0x10ff0f13,0xf4e83,0x7ede13,0xae1e13,0x1c3e3b3,0x7fefe93,0x1df0023,0x8f37,0x43ff0f13,0xf4e83,0x6ede13,0xbe1e13,0x1c3e3b3,0x3fefe93,0x1df0023,0x8f37,0x42ff0f13,0xf4e83,0x6ede13,0xde1e13,0x1c3e3b3,0x3fefe93,0x1df0023,0x8f37,0x41ff0f13,0xf4e83,0x7ede13,0xfe1e13,0x1c3e3b3,0x7fefe93,0x1df0023,0x8f37,0x449f0f13,0x7f0023,0x83d393,0x7f00a3,0x393,0xe13,0xe93,0xf13,0xf93,0x9c1ff06f]
+theorem code_pre : CodeAt Images.expandImage (pcOf 54886) cPre :=
+  codeAt_expand_last (by decide) (by decide) (by decide +kernel)
+theorem extractByte_toNat_p (w : Word) (b : Nat) :
+    (extractByte w b).toNat = w.toNat / 2 ^ (8 * b) % 256 := by
+  unfold extractByte
+  simp only [BitVec.truncate_eq_setWidth, BitVec.toNat_setWidth, BitVec.toNat_ushiftRight,
+    Nat.shiftRight_eq_div_pow]
+  rw [Nat.mul_comm b 8]
+
+def cfgU : Config := { noAlias := true }
+sym_block ePre := symRun cfgU cPre (pcOf 54886) 100
+
+/-- Word `w` with its top `g` bits cleared. -/
+def clrW (g : Nat) (w : Word) : Word := BitVec.ofNat 64 (w.toNat % 2 ^ (64 - g))
+/-- The high dword of compact slot `k` at `0x7000`. -/
+def hiA (k : Nat) : Nat := 0x7000 + 16 * k + 8
+/-- The 16-bit V field read from the top bits of the nine ground slots' high dwords. -/
+def vOfM (M : Word → Word) : Nat :=
+  (M (BitVec.ofNat 64 (hiA 225))).toNat / 2 ^ 61 + (M (BitVec.ofNat 64 (hiA 224))).toNat / 2 ^ 62 * 2 ^ 3 +
+  (M (BitVec.ofNat 64 (hiA 223))).toNat / 2 ^ 63 * 2 ^ 5 + (M (BitVec.ofNat 64 (hiA 274))).toNat / 2 ^ 62 * 2 ^ 6 +
+  (M (BitVec.ofNat 64 (hiA 273))).toNat / 2 ^ 62 * 2 ^ 8 + (M (BitVec.ofNat 64 (hiA 272))).toNat / 2 ^ 63 * 2 ^ 10 +
+  (M (BitVec.ofNat 64 (hiA 323))).toNat / 2 ^ 62 * 2 ^ 11 + (M (BitVec.ofNat 64 (hiA 322))).toNat / 2 ^ 62 * 2 ^ 13 +
+  (M (BitVec.ofNat 64 (hiA 321))).toNat / 2 ^ 63 * 2 ^ 15
+/-- The pre-pass memory: the nine ground high dwords lose their top bits, bytes 1..2 of the dword `0x8448`
+(signature bytes 5193..5194) receive V. -/
+def preMem (M : Word → Word) (A : Word) : Word :=
+  if A = BitVec.ofNat 64 0x8448 then
+    BitVec.ofNat 64 ((M A).toNat % 2 ^ 8 + vOfM M * 2 ^ 8 + (M A).toNat / 2 ^ 24 * 2 ^ 24)
+  else if A = BitVec.ofNat 64 (hiA 321) then clrW 1 (M A)
+  else if A = BitVec.ofNat 64 (hiA 322) then clrW 2 (M A)
+  else if A = BitVec.ofNat 64 (hiA 323) then clrW 2 (M A)
+  else if A = BitVec.ofNat 64 (hiA 272) then clrW 1 (M A)
+  else if A = BitVec.ofNat 64 (hiA 273) then clrW 2 (M A)
+  else if A = BitVec.ofNat 64 (hiA 274) then clrW 2 (M A)
+  else if A = BitVec.ofNat 64 (hiA 223) then clrW 1 (M A)
+  else if A = BitVec.ofNat 64 (hiA 224) then clrW 2 (M A)
+  else if A = BitVec.ofNat 64 (hiA 225) then clrW 3 (M A)
+  else M A
+
+theorem toNat_or_shl (x y : Word) (k : Nat) (hx : x.toNat < 2 ^ k) (hy : y.toNat * 2 ^ k < 2 ^ 64) :
+    (x ||| (y <<< k)).toNat = x.toNat + y.toNat * 2 ^ k := by
+  rw [BitVec.toNat_or, BitVec.toNat_shiftLeft, Nat.shiftLeft_eq, Nat.mod_eq_of_lt hy, Nat.lor_comm,
+    ← Nat.shiftLeft_eq, ← Nat.shiftLeft_add_eq_or_of_lt hx, Nat.shiftLeft_eq, Nat.add_comm]
+
+theorem top_term (w : Word) (g : Nat) (hg1 : 1 ≤ g) (hg : g ≤ 8) :
+    ((extractByte w 7).zeroExtend 64 >>> (8 - g)).toNat = w.toNat / 2 ^ (64 - g) := by
+  rw [BitVec.toNat_ushiftRight, BitVec.toNat_setWidth, extractByte_toNat_p, Nat.shiftRight_eq_div_pow]
+  have hw := w.isLt
+  have h256 : w.toNat / 2 ^ (8 * 7) < 256 := by
+    rw [Nat.div_lt_iff_lt_mul (by positivity)]; simpa using hw
+  rw [Nat.mod_eq_of_lt h256, Nat.mod_eq_of_lt (show w.toNat / 2 ^ (8 * 7) < 2 ^ 64 by omega), Nat.div_div_eq_div_mul, ← Nat.pow_add, show 8 * 7 + (8 - g) = 64 - g by omega]
+
+theorem clr_val (w : Word) (g : Nat) (hg1 : 1 ≤ g) (hg : g ≤ 3) :
+    replaceByte w 7 (((extractByte w 7).zeroExtend 64 &&& BitVec.ofNat 64 (2 ^ (8 - g) - 1)).truncate 8) = clrW g w := by
+  apply BitVec.eq_of_toNat_eq
+  rw [replaceByte_toNat _ _ (by omega), clrW, BitVec.toNat_ofNat]
+  simp only [BitVec.truncate_eq_setWidth, BitVec.toNat_setWidth, BitVec.toNat_and, BitVec.toNat_ofNat, extractByte_toNat_p]
+  have hw := w.isLt
+  rw [Nat.mod_eq_of_lt (a := (2 ^ (8 - g) - 1)) (by interval_cases g <;> norm_num),
+    Nat.and_two_pow_sub_one_eq_mod]
+  interval_cases g <;> norm_num <;> omega
+
+
+/-- One V term: the top `8 - sh` bits of the high byte of the dword at `a`, shifted to `off`. -/
+def tE (a sh off : Nat) : E :=
+  .bin .sll (.bin .srl (.un (.ld .bu 7) (.ld (.c (BitVec.ofNat 64 a)))) (.c (BitVec.ofNat 64 sh))) (.c (BitVec.ofNat 64 off))
+def vE : E :=
+  .bin .or (.bin .or (.bin .or (.bin .or (.bin .or (.bin .or (.bin .or (.bin .or (.bin .or (.c 0)
+    (tE 0x7e18 5 0)) (tE 0x7e08 6 3)) (tE 0x7df8 7 5)) (tE 0x8128 6 6)) (tE 0x8118 6 8)) (tE 0x8108 7 10))
+    (tE 0x8438 6 11)) (tE 0x8428 6 13)) (tE 0x8418 7 15)
+
+theorem tE_eval (s : MachineState) (a sh off : Nat) (hsh : sh < 8) (hoff : off < 64) :
+    (tE a sh off).eval s = ((extractByte (s.getMem (BitVec.ofNat 64 a)) 7).zeroExtend 64 >>> sh) <<< off := by
+  simp only [tE, E.eval, BinOp.eval, UnOp.eval, LoadKind.fromWord, BitVec.toNat_ofNat]
+  rw [Nat.mod_eq_of_lt (show sh % 2 ^ 64 < 64 by omega), Nat.mod_eq_of_lt (show off % 2 ^ 64 < 64 by omega),
+    Nat.mod_eq_of_lt (show sh < 2 ^ 64 by omega), Nat.mod_eq_of_lt (show off < 2 ^ 64 by omega)]
+
+theorem or_step (x w : Word) (g sh off : Nat) (hg1 : 1 ≤ g) (hg : g ≤ 3) (hsh : sh + g = 8) (hx : x.toNat < 2 ^ off)
+    (hog : off + g ≤ 16) :
+    (x ||| (((extractByte w 7).zeroExtend 64 >>> sh) <<< off)).toNat = x.toNat + w.toNat / 2 ^ (64 - g) * 2 ^ off ∧
+      x.toNat + w.toNat / 2 ^ (64 - g) * 2 ^ off < 2 ^ (off + g) := by
+  have ht := top_term w g hg1 (by omega)
+  rw [show 8 - g = sh by omega] at ht
+  have hw := w.isLt
+  have hb : w.toNat / 2 ^ (64 - g) < 2 ^ g := by
+    rw [Nat.div_lt_iff_lt_mul (by positivity), ← Nat.pow_add, show g + (64 - g) = 64 by omega]; exact hw
+  have hb2 : w.toNat / 2 ^ (64 - g) * 2 ^ off + 2 ^ off ≤ 2 ^ (off + g) := by
+    rw [Nat.pow_add, ← Nat.succ_mul, Nat.mul_comm]; exact Nat.mul_le_mul_left _ hb
+  have h16 : 2 ^ (off + g) ≤ 2 ^ 16 := Nat.pow_le_pow_right (by norm_num) hog
+  refine ⟨?_, by omega⟩
+  rw [toNat_or_shl _ _ _ hx (by rw [ht]; omega), ht]
+
+theorem vE_eval (s : MachineState) : ((vE.eval s).toNat = vOfM s.getMem) ∧ (vE.eval s).toNat < 2 ^ 16 := by
+  simp only [vE, E.eval, BinOp.eval]
+  rw [tE_eval s _ _ _ (by norm_num) (by norm_num), tE_eval s _ _ _ (by norm_num) (by norm_num),
+    tE_eval s _ _ _ (by norm_num) (by norm_num), tE_eval s _ _ _ (by norm_num) (by norm_num),
+    tE_eval s _ _ _ (by norm_num) (by norm_num), tE_eval s _ _ _ (by norm_num) (by norm_num),
+    tE_eval s _ _ _ (by norm_num) (by norm_num), tE_eval s _ _ _ (by norm_num) (by norm_num),
+    tE_eval s _ _ _ (by norm_num) (by norm_num)]
+  obtain ⟨e1, b1⟩ := or_step 0 (s.getMem (BitVec.ofNat 64 0x7e18)) 3 5 0 (by norm_num) (by norm_num) (by norm_num) (by simp) (by norm_num)
+  obtain ⟨e2, b2⟩ := or_step _ (s.getMem (BitVec.ofNat 64 0x7e08)) 2 6 3 (by norm_num) (by norm_num) (by norm_num) (by rw [e1]; exact b1) (by norm_num)
+  obtain ⟨e3, b3⟩ := or_step _ (s.getMem (BitVec.ofNat 64 0x7df8)) 1 7 5 (by norm_num) (by norm_num) (by norm_num) (by rw [e2]; exact b2) (by norm_num)
+  obtain ⟨e4, b4⟩ := or_step _ (s.getMem (BitVec.ofNat 64 0x8128)) 2 6 6 (by norm_num) (by norm_num) (by norm_num) (by rw [e3]; exact b3) (by norm_num)
+  obtain ⟨e5, b5⟩ := or_step _ (s.getMem (BitVec.ofNat 64 0x8118)) 2 6 8 (by norm_num) (by norm_num) (by norm_num) (by rw [e4]; exact b4) (by norm_num)
+  obtain ⟨e6, b6⟩ := or_step _ (s.getMem (BitVec.ofNat 64 0x8108)) 1 7 10 (by norm_num) (by norm_num) (by norm_num) (by rw [e5]; exact b5) (by norm_num)
+  obtain ⟨e7, b7⟩ := or_step _ (s.getMem (BitVec.ofNat 64 0x8438)) 2 6 11 (by norm_num) (by norm_num) (by norm_num) (by rw [e6]; exact b6) (by norm_num)
+  obtain ⟨e8, b8⟩ := or_step _ (s.getMem (BitVec.ofNat 64 0x8428)) 2 6 13 (by norm_num) (by norm_num) (by norm_num) (by rw [e7]; exact b7) (by norm_num)
+  obtain ⟨e9, b9⟩ := or_step _ (s.getMem (BitVec.ofNat 64 0x8418)) 1 7 15 (by norm_num) (by norm_num) (by norm_num) (by rw [e8]; exact b8) (by norm_num)
+  refine ⟨?_, ?_⟩
+  · rw [e9, e8, e7, e6, e5, e4, e3, e2, e1]
+    simp only [vOfM, hiA]
+    norm_num
+    rfl
+  · rw [e9]; exact b9
+
+theorem clr_eval (s : MachineState) (a g m : Nat) (hg1 : 1 ≤ g) (hg : g ≤ 3) (hm : m = 2 ^ (8 - g) - 1) :
+    E.eval s (.bin (.st .b 7) (.ld (.c (BitVec.ofNat 64 a)))
+      (.bin .and (.un (.ld .bu 7) (.ld (.c (BitVec.ofNat 64 a)))) (.c (BitVec.ofNat 64 m)))) =
+      clrW g (s.getMem (BitVec.ofNat 64 a)) := by
+  subst hm
+  simp only [E.eval, BinOp.eval, UnOp.eval, LoadKind.fromWord, StoreKind.merge]
+  exact clr_val _ g hg1 hg
+
+theorem v8448_eval (s : MachineState) :
+    E.eval s (.bin (.st .b 2) (.bin (.st .b 1) (.ld (.c (BitVec.ofNat 64 0x8448))) vE) (.bin .srl vE (.c 8))) =
+      BitVec.ofNat 64 ((s.getMem (BitVec.ofNat 64 0x8448)).toNat % 2 ^ 8 + vOfM s.getMem * 2 ^ 8 +
+        (s.getMem (BitVec.ofNat 64 0x8448)).toNat / 2 ^ 24 * 2 ^ 24) := by
+  obtain ⟨hv, hvb⟩ := vE_eval s
+  simp only [E.eval, BinOp.eval, StoreKind.merge]
+  apply BitVec.eq_of_toNat_eq
+  rw [replaceByte_toNat _ _ (by omega), replaceByte_toNat _ _ (by omega)]
+  simp only [BitVec.truncate_eq_setWidth, BitVec.toNat_setWidth, BitVec.toNat_ushiftRight, BitVec.toNat_ofNat,
+    Nat.shiftRight_eq_div_pow]
+  generalize vOfM s.getMem = V at hv ⊢
+  subst hv
+  have hW := (s.getMem (BitVec.ofNat 64 0x8448)).isLt
+  generalize (s.getMem (BitVec.ofNat 64 0x8448)).toNat = W at hW ⊢
+  generalize (E.eval s vE).toNat = T at hvb ⊢
+  norm_num
+  rw [show BitVec.toNat (8 : Word) % 64 = 8 from rfl]
+  norm_num at hvb hW ⊢
+  have h1 : W % 256 + 256 * (T % 256) < 65536 := by omega
+  have h3 : T / 256 % 256 = T / 256 := Nat.mod_eq_of_lt (by omega)
+  have h4 : (W % 256 + 256 * (T % 256) + 65536 * (W / 65536)) / 16777216 = W / 16777216 := by
+    have e : W / 16777216 = W / 65536 / 256 := by rw [Nat.div_div_eq_div_mul]
+    rw [e]
+    generalize W / 65536 = q
+    omega
+  have h5 : W / 16777216 * 16777216 ≤ W := Nat.div_mul_le_self _ _
+  have h6 : W / 16777216 * 16777216 + 16777216 ≤ 18446744073709551616 := by
+    have : W / 16777216 < 1099511627776 := by
+      rw [Nat.div_lt_iff_lt_mul (by norm_num)]; exact lt_of_lt_of_eq hW (by norm_num)
+    calc W / 16777216 * 16777216 + 16777216 = (W / 16777216 + 1) * 16777216 := by ring
+      _ ≤ 1099511627776 * 16777216 := Nat.mul_le_mul_right _ this
+      _ = 18446744073709551616 := by norm_num
+  rw [Nat.mod_eq_of_lt h1, h3, h4,
+    Nat.mod_eq_of_lt (show W % 256 + T * 256 + W / 16777216 * 16777216 < 18446744073709551616 by omega)]
+  omega
+
+theorem pre_spec (s : MachineState) (hpc : s.pc = pcOf 54886) :
+    ∃ u, Steps Images.expandImage s 84 84 u ∧ u.pc = pcOf 54569 ∧
+      (∀ r ∈ [Reg.x7, .x28, .x29, .x30, .x31], u.getReg r = 0) ∧ RegsExcept s u [.x7, .x28, .x29, .x30, .x31] ∧
+      ∀ A, u.getMem A = preMem s.getMem A := by
+  refine ⟨_, symRun_sound ePre code_pre s hpc trivial, rfl, ?_, ?_, ?_⟩
+  · intro r hr
+    simp only [List.mem_cons, List.not_mem_nil, or_false] at hr
+    rcases hr with rfl | rfl | rfl | rfl | rfl <;> rfl
+  · intro x hx
+    cases x <;> first | (exfalso; simp at hx; done) | rfl
+  · intro A
+    simp only [Result.toState_getMem, ePre.res, memEval_cons, memEval_nil, Addr.eval]
+    unfold preMem
+    simp only [hiA, Nat.reduceMul, Nat.reduceAdd]
+    by_cases h0 : A = BitVec.ofNat 64 0x8448
+    · subst h0; simp only [↓reduceIte]; exact v8448_eval s
+    simp only [h0, ↓reduceIte]
+    by_cases h1 : A = BitVec.ofNat 64 0x8418
+    · subst h1; simp only [↓reduceIte]; exact clr_eval s _ 1 _ (by norm_num) (by norm_num) (by norm_num)
+    simp only [h1, ↓reduceIte]
+    by_cases h2 : A = BitVec.ofNat 64 0x8428
+    · subst h2; simp only [↓reduceIte]; exact clr_eval s _ 2 _ (by norm_num) (by norm_num) (by norm_num)
+    simp only [h2, ↓reduceIte]
+    by_cases h3 : A = BitVec.ofNat 64 0x8438
+    · subst h3; simp only [↓reduceIte]; exact clr_eval s _ 2 _ (by norm_num) (by norm_num) (by norm_num)
+    simp only [h3, ↓reduceIte]
+    by_cases h4 : A = BitVec.ofNat 64 0x8108
+    · subst h4; simp only [↓reduceIte]; exact clr_eval s _ 1 _ (by norm_num) (by norm_num) (by norm_num)
+    simp only [h4, ↓reduceIte]
+    by_cases h5 : A = BitVec.ofNat 64 0x8118
+    · subst h5; simp only [↓reduceIte]; exact clr_eval s _ 2 _ (by norm_num) (by norm_num) (by norm_num)
+    simp only [h5, ↓reduceIte]
+    by_cases h6 : A = BitVec.ofNat 64 0x8128
+    · subst h6; simp only [↓reduceIte]; exact clr_eval s _ 2 _ (by norm_num) (by norm_num) (by norm_num)
+    simp only [h6, ↓reduceIte]
+    by_cases h7 : A = BitVec.ofNat 64 0x7df8
+    · subst h7; simp only [↓reduceIte]; exact clr_eval s _ 1 _ (by norm_num) (by norm_num) (by norm_num)
+    simp only [h7, ↓reduceIte]
+    by_cases h8 : A = BitVec.ofNat 64 0x7e08
+    · subst h8; simp only [↓reduceIte]; exact clr_eval s _ 2 _ (by norm_num) (by norm_num) (by norm_num)
+    simp only [h8, ↓reduceIte]
+    by_cases h9 : A = BitVec.ofNat 64 0x7e18
+    · subst h9; simp only [↓reduceIte]; exact clr_eval s _ 3 _ (by norm_num) (by norm_num) (by norm_num)
+    simp only [h9, ↓reduceIte]
+
+/-! U16b codec bridge: the 5,193-byte signature `b` vs DEC's T1 layout `unpackB b` (5,195 bytes). -/
+
+
+/-- The T1-layout signature DEC reads after the pre-pass: ground slots with their top bits cleared, tail
+`old 9 bytes | V` (bytes 5193..5194). -/
+def dN (b : SharedCodec.CBytes) (c : Nat) : SigGolfCandidate.T3.Digest :=
+  if SharedCodec.gBits c = 0 then SharedCodec.cDig b c else SharedCodec.clearTop (SharedCodec.gBits c) (SharedCodec.cDig b c)
+def unpackN (b : SharedCodec.CBytes) : Nat :=
+  digNat ((List.range 324).map (dN b)) + 2 ^ (128 * 324) * (b.toNat / 2 ^ (128 * 324) + SharedCodec.vOfB b * 2 ^ 72)
+def unpackB (b : SharedCodec.CBytes) : T1C.CBytes := BitVec.ofNat _ (unpackN b)
+
+theorem topBits_lt (j : Nat) (d : SigGolfCandidate.T3.Digest) (hj : j ≤ 128) : SharedCodec.topBits j d < 2 ^ j := by
+  unfold SharedCodec.topBits
+  rw [Nat.div_lt_iff_lt_mul (by positivity), ← Nat.pow_add, show j + (128 - j) = 128 by omega]
+  exact d.isLt
+
+theorem vOfB_lt (b : SharedCodec.CBytes) : SharedCodec.vOfB b < 2 ^ 16 := by
+  unfold SharedCodec.vOfB
+  have := topBits_lt 3 (SharedCodec.cDig b 225) (by omega); have := topBits_lt 2 (SharedCodec.cDig b 224) (by omega)
+  have := topBits_lt 1 (SharedCodec.cDig b 223) (by omega); have := topBits_lt 2 (SharedCodec.cDig b 274) (by omega)
+  have := topBits_lt 2 (SharedCodec.cDig b 273) (by omega); have := topBits_lt 1 (SharedCodec.cDig b 272) (by omega)
+  have := topBits_lt 2 (SharedCodec.cDig b 323) (by omega); have := topBits_lt 2 (SharedCodec.cDig b 322) (by omega)
+  have := topBits_lt 1 (SharedCodec.cDig b 321) (by omega)
+  norm_num at *
+  omega
+
+theorem tailN_lt (b : SharedCodec.CBytes) : b.toNat / 2 ^ (128 * 324) < 2 ^ 72 := by
+  have hb := b.isLt
+  rw [Nat.div_lt_iff_lt_mul (by positivity), ← pow_add]
+  exact lt_of_lt_of_eq hb (by norm_num)
+
+theorem unpackN_lt (b : SharedCodec.CBytes) : unpackN b < 2 ^ (8 * 5195) := by
+  have h1 := digNat_lt ((List.range 324).map (dN b))
+  rw [List.length_map, List.length_range] at h1
+  have h2 : b.toNat / 2 ^ (128 * 324) + SharedCodec.vOfB b * 2 ^ 72 < 2 ^ 88 := by
+    have := tailN_lt b; have := vOfB_lt b; norm_num at *; omega
+  have := lt_split _ _ _ _ h1 h2
+  unfold unpackN
+  exact lt_of_lt_of_eq this (by rw [← pow_add])
+
+theorem unpackB_toNat (b : SharedCodec.CBytes) : (unpackB b).toNat = unpackN b := by
+  unfold unpackB; rw [BitVec.toNat_ofNat, Nat.mod_eq_of_lt (unpackN_lt b)]
+
+theorem cDig_unpack (b : SharedCodec.CBytes) (c : Nat) (hc : c < 324) : T1C.cDig (unpackB b) c = dN b c := by
+  apply BitVec.eq_of_toNat_eq
+  rw [T1C.cDig, BitVec.extractLsb'_toNat, Nat.shiftRight_eq_div_pow, unpackB_toNat, unpackN]
+  have h1 := digNat_lt ((List.range 324).map (dN b))
+  rw [List.length_map, List.length_range] at h1
+  rw [← mod_digit _ 324 c hc, split_mod _ _ _ h1, digNat_digit, List.getD_eq_getElem?_getD, List.getElem?_map,
+    List.getElem?_range hc]
+  rfl
+
+theorem tail_unpack (b : SharedCodec.CBytes) :
+    (unpackB b).toNat / 2 ^ (128 * 324) = b.toNat / 2 ^ (128 * 324) + SharedCodec.vOfB b * 2 ^ 72 := by
+  have h1 := digNat_lt ((List.range 324).map (dN b))
+  rw [List.length_map, List.length_range] at h1
+  rw [unpackB_toNat, unpackN, split_div _ _ _ h1]
+
+theorem gBits_lo (c : Nat) (hc : c < 221) : SharedCodec.gBits c = 0 := by
+  unfold SharedCodec.gBits; split <;> omega
+
+theorem cDig_unpack_lo (b : SharedCodec.CBytes) (c : Nat) (hc : c < 221) : T1C.cDig (unpackB b) c = SharedCodec.cDig b c := by
+  rw [cDig_unpack b c (by omega), dN, gBits_lo c hc, if_pos rfl]
+
+theorem xOfB_unpack (b : SharedCodec.CBytes) : T1C.xOfB (unpackB b) = SharedCodec.xOfB b := by
+  unfold T1C.xOfB SharedCodec.xOfB
+  rw [cDig_unpack_lo b 168 (by norm_num), cDig_unpack_lo b 169 (by norm_num), cDig_unpack_lo b 170 (by norm_num),
+    cDig_unpack_lo b 171 (by norm_num), cDig_unpack_lo b 172 (by norm_num), cDig_unpack_lo b 173 (by norm_num),
+    cDig_unpack_lo b 174 (by norm_num), cDig_unpack_lo b 175 (by norm_num)]
+
+theorem digC_unpack (b : SharedCodec.CBytes) (k : Nat) (hk : k < 325) :
+    T1C.digC (unpackB b) k = SharedCodec.digC b k := by
+  unfold T1C.digC SharedCodec.digC
+  by_cases h1 : k < 176
+  · rw [if_pos h1, if_pos h1, cDig_unpack b k (by omega), dN, gBits_lo k (by omega), if_pos rfl]
+  rw [if_neg h1, if_neg h1]
+  by_cases h2 : k = 176
+  · subst h2
+    rw [if_pos rfl, if_pos rfl, tail_unpack, xOfB_unpack]
+    have ht := tailN_lt b; have hv := vOfB_lt b
+    congr 1
+    rw [Nat.mod_eq_of_lt (show b.toNat / 2 ^ (128 * 324) + SharedCodec.vOfB b * 2 ^ 72 < 2 ^ 88 by norm_num at *; omega),
+      Nat.mod_eq_of_lt ht]
+  · rw [if_neg h2, if_neg h2, cDig_unpack b (k - 1) (by omega), dN]
+
+/-- U16b: the expand entry memory holds the 5,193-byte signature at `0x7000` (649 full dwords + 1 tail byte; the
+dword `0x8448` holds only byte 5192, bytes 5193..5194 are zero). -/
+structure SigMemC (M : Word → Word) (b : SharedCodec.CBytes) : Prop where
+  word : ∀ j, j < 649 → M (BitVec.ofNat 64 (0x7000 + 8 * j)) = b.extractLsb' (64 * j) 64
+  tail : (M (BitVec.ofNat 64 0x8448)).toNat % 2 ^ 24 = b.toNat / 2 ^ (64 * 649)
+
+theorem ofNat64_inj {a c : Nat} (ha : a < 2 ^ 64) (hc : c < 2 ^ 64) (h : BitVec.ofNat 64 a = BitVec.ofNat 64 c) : a = c := by
+  have := congrArg BitVec.toNat h
+  rw [BitVec.toNat_ofNat, BitVec.toNat_ofNat, Nat.mod_eq_of_lt ha, Nat.mod_eq_of_lt hc] at this
+  exact this
+
+theorem cDigN_word (b : SharedCodec.CBytes) (c w : Nat) (hw : w < 2) :
+    (SharedCodec.cDig b c).extractLsb' (64 * w) 64 = b.extractLsb' (64 * (2 * c + w)) 64 := by
+  unfold SharedCodec.cDig
+  rw [SharedCodec.extract_digest_word b (128 * c) w hw]
+  congr 1
+  omega
+
+theorem hiWord_toNat (d : SigGolfCandidate.T3.Digest) : (d.extractLsb' 64 64).toNat = d.toNat / 2 ^ 64 := by
+  rw [BitVec.extractLsb'_toNat, Nat.shiftRight_eq_div_pow, Nat.mod_eq_of_lt]
+  rw [Nat.div_lt_iff_lt_mul (by positivity), ← Nat.pow_add]; exact d.isLt
+
+theorem topBits_hi {M : Word → Word} {b : SharedCodec.CBytes} (h : SigMemC M b) (c g : Nat) (hc : c < 324) (hg : g ≤ 64) :
+    SharedCodec.topBits g (SharedCodec.cDig b c) = (M (BitVec.ofNat 64 (hiA c))).toNat / 2 ^ (64 - g) := by
+  have e := cDigN_word b c 1 (by omega)
+  rw [show hiA c = 0x7000 + 8 * (2 * c + 1) by unfold hiA; omega, h.word _ (by omega), ← e, hiWord_toNat,
+    Nat.div_div_eq_div_mul, ← Nat.pow_add, show 64 + (64 - g) = 128 - g by omega]
+  rfl
+
+theorem vOfM_eq {M : Word → Word} {b : SharedCodec.CBytes} (h : SigMemC M b) : vOfM M = SharedCodec.vOfB b := by
+  unfold vOfM SharedCodec.vOfB
+  rw [topBits_hi h 225 3 (by norm_num) (by norm_num), topBits_hi h 224 2 (by norm_num) (by norm_num),
+    topBits_hi h 223 1 (by norm_num) (by norm_num), topBits_hi h 274 2 (by norm_num) (by norm_num),
+    topBits_hi h 273 2 (by norm_num) (by norm_num), topBits_hi h 272 1 (by norm_num) (by norm_num),
+    topBits_hi h 323 2 (by norm_num) (by norm_num), topBits_hi h 322 2 (by norm_num) (by norm_num),
+    topBits_hi h 321 1 (by norm_num) (by norm_num)]
+
+/-- `preMem` off the ten written dwords. -/
+theorem preMem_other (M : Word → Word) (A : Nat) (hA : A < 2 ^ 64) (h0 : A ≠ 0x8448)
+    (hg : ∀ c ∈ [225, 224, 223, 274, 273, 272, 323, 322, 321], A ≠ hiA c) :
+    preMem M (BitVec.ofNat 64 A) = M (BitVec.ofNat 64 A) := by
+  simp only [List.mem_cons, List.not_mem_nil, or_false, forall_eq_or_imp, forall_eq] at hg
+  unfold preMem
+  have n : ∀ c, A ≠ c → c < 2 ^ 64 → ¬ BitVec.ofNat 64 A = BitVec.ofNat 64 c := fun c h hc e => h (ofNat64_inj hA hc e)
+  rw [if_neg (n _ h0 (by norm_num)), if_neg (n _ hg.2.2.2.2.2.2.2.2 (by unfold hiA; norm_num)),
+    if_neg (n _ hg.2.2.2.2.2.2.2.1 (by unfold hiA; norm_num)), if_neg (n _ hg.2.2.2.2.2.2.1 (by unfold hiA; norm_num)),
+    if_neg (n _ hg.2.2.2.2.2.1 (by unfold hiA; norm_num)), if_neg (n _ hg.2.2.2.2.1 (by unfold hiA; norm_num)),
+    if_neg (n _ hg.2.2.2.1 (by unfold hiA; norm_num)), if_neg (n _ hg.2.2.1 (by unfold hiA; norm_num)),
+    if_neg (n _ hg.2.1 (by unfold hiA; norm_num)), if_neg (n _ hg.1 (by unfold hiA; norm_num))]
+
+theorem preMem_hi (M : Word → Word) (c : Nat) (hc : SharedCodec.gBits c ≠ 0) :
+    preMem M (BitVec.ofNat 64 (hiA c)) = clrW (SharedCodec.gBits c) (M (BitVec.ofNat 64 (hiA c))) := by
+  have : c = 225 ∨ c = 224 ∨ c = 223 ∨ c = 274 ∨ c = 273 ∨ c = 272 ∨ c = 323 ∨ c = 322 ∨ c = 321 := by
+    unfold SharedCodec.gBits at hc; split at hc <;> simp_all
+  rcases this with rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl <;> simp [preMem, hiA, SharedCodec.gBits]
+
+theorem clearTop_hiW (g : Nat) (hg : g ≤ 64) (d : SigGolfCandidate.T3.Digest) :
+    (SharedCodec.clearTop g d).extractLsb' (64 * 1) 64 = clrW g (d.extractLsb' (64 * 1) 64) := by
+  apply BitVec.eq_of_toNat_eq
+  rw [ClaudeWCT.W9.Machine.Expand.PrePass.clearTop_hi g hg d, clrW, BitVec.toNat_ofNat]
+  exact (Nat.mod_eq_of_lt (lt_of_lt_of_le (Nat.mod_lt _ (by positivity))
+    (Nat.pow_le_pow_right (by omega) (by omega)))).symm
+
+theorem gBits_le (c : Nat) : SharedCodec.gBits c ≤ 3 := by unfold SharedCodec.gBits; split <;> omega
+
+/-- The pre-pass turns the 5,193-byte U16b signature into DEC's 5,195-byte T1 layout `unpackB b`. -/
+theorem sigMem_pre {M : Word → Word} {b : SharedCodec.CBytes} (h : SigMemC M b) :
+    ClaudeWCT.W9.Machine.Expand.PrePass.SigMem (preMem M) (unpackB b) := by
+  constructor
+  · intro j hj
+    by_cases h648 : j = 648
+    · subst h648
+      rw [preMem_other M _ (by norm_num) (by norm_num) (by simp [hiA]), h.word 648 (by norm_num)]
+      apply BitVec.eq_of_toNat_eq
+      rw [BitVec.extractLsb'_toNat, BitVec.extractLsb'_toNat, Nat.shiftRight_eq_div_pow, Nat.shiftRight_eq_div_pow,
+        show 64 * 648 = 128 * 324 by norm_num, tail_unpack,
+        show SharedCodec.vOfB b * 2 ^ 72 = SharedCodec.vOfB b * 2 ^ 8 * 2 ^ 64 by ring, Nat.add_mul_mod_self_right]
+    · have hc : j / 2 < 324 := by omega
+      have hw : j % 2 < 2 := Nat.mod_lt _ (by omega)
+      have ej : j = 2 * (j / 2) + j % 2 := by omega
+      have e1 : (unpackB b).extractLsb' (64 * j) 64 = (dN b (j / 2)).extractLsb' (64 * (j % 2)) 64 := by
+        rw [← cDig_unpack b _ hc, ClaudeWCT.W9.Machine.Expand.PrePass.cDig_word _ _ _ hw, ← ej]
+      rw [e1]
+      by_cases hg : SharedCodec.gBits (j / 2) = 0
+      · rw [dN, if_pos hg, cDigN_word _ _ _ hw, ← ej, ← h.word j hj]
+        apply preMem_other M _ (by omega) (by omega)
+        intro c hc' he
+        have hne : j / 2 ≠ c := fun e => by
+          rw [e] at hg
+          simp only [List.mem_cons, List.not_mem_nil, or_false] at hc'
+          rcases hc' with rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl <;> simp [SharedCodec.gBits] at hg
+        unfold hiA at he; omega
+      · rw [dN, if_neg hg]
+        rcases Nat.mod_two_eq_zero_or_one j with h0 | h1
+        · rw [h0, ClaudeWCT.W9.Machine.Expand.PrePass.clearTop_lo _ (by have := gBits_le (j / 2); omega),
+            ← h0, cDigN_word _ _ _ hw, ← ej, ← h.word j hj]
+          apply preMem_other M _ (by omega) (by omega)
+          intro c _ he; unfold hiA at he; omega
+        · have ehi : 0x7000 + 8 * j = hiA (j / 2) := by unfold hiA; omega
+          rw [h1, clearTop_hiW _ (by have := gBits_le (j / 2); omega), ← h1, cDigN_word _ _ _ hw, ← ej, ← h.word j hj,
+            ehi, preMem_hi M _ hg]
+  · unfold preMem
+    rw [if_pos rfl, BitVec.toNat_ofNat]
+    have ht := h.tail
+    have hv := vOfB_lt b
+    rw [vOfM_eq h]
+    have hW := (M (BitVec.ofNat 64 0x8448)).isLt
+    have eT : (unpackB b).toNat / 2 ^ (64 * 649) = b.toNat / 2 ^ (64 * 649) + SharedCodec.vOfB b * 2 ^ 8 := by
+      rw [show 64 * 649 = 128 * 324 + 64 by norm_num, Nat.pow_add, ← Nat.div_div_eq_div_mul,
+        ← Nat.div_div_eq_div_mul b.toNat, tail_unpack,
+        show SharedCodec.vOfB b * 2 ^ 72 = SharedCodec.vOfB b * 2 ^ 8 * 2 ^ 64 by ring, Nat.add_mul_div_right _ _ (by positivity)]
+    have hB : b.toNat / 2 ^ (64 * 649) < 2 ^ 8 := by
+      have hb := b.isLt
+      rw [Nat.div_lt_iff_lt_mul (by positivity), ← pow_add]
+      exact lt_of_lt_of_eq hb (by norm_num)
+    rw [eT]
+    generalize (M (BitVec.ofNat 64 0x8448)).toNat = W at hW ht ⊢
+    generalize b.toNat / 2 ^ (64 * 649) = B at hB ht ⊢
+    generalize SharedCodec.vOfB b = V at hv ⊢
+    norm_num at hW ht hB hv ⊢
+    have h5 : W / 16777216 * 16777216 ≤ W := Nat.div_mul_le_self _ _
+    have h6 : W / 16777216 * 16777216 + 16777216 ≤ 18446744073709551616 := by
+      have : W / 16777216 < 1099511627776 := by
+        rw [Nat.div_lt_iff_lt_mul (by norm_num)]; exact lt_of_lt_of_eq hW (by norm_num)
+      calc W / 16777216 * 16777216 + 16777216 = (W / 16777216 + 1) * 16777216 := by ring
+        _ ≤ 1099511627776 * 16777216 := Nat.mul_le_mul_right _ this
+        _ = 18446744073709551616 := by norm_num
+    omega
 
 end ClaudeWCT.W9.Machine.Expand.PrePass
 end

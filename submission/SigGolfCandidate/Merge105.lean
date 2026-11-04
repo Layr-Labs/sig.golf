@@ -814,7 +814,7 @@ theorem rejected_hit_capFail {labels : Labels} {m node : Node} (hpos : m.toPos =
       have hfail_eq : trialFails labels mn (selNonce labels mn) ↔ trialFails labels mn mn.1.nonce.val := by
         unfold trialFails
         rw [withNonce_self]
-        change _ ↔ topZeroOk _ ((Node.node mn).toPos.proj (labels (.node mn))) = false
+        change _ ↔ trialZeroOk _ _ ((Node.node mn).toPos.proj (labels (.node mn))) = false
         rw [heq]
         rfl
       rcases Nat.lt_or_gt_of_ne hk with hlt | hgt
@@ -823,12 +823,8 @@ theorem rejected_hit_capFail {labels : Labels} {m node : Node} (hpos : m.toPos =
         rcases hspec.2 with hpass | hlast
         · exact absurd hfS hpass
         · have hcap2 : 1 < trialCap mn.1.lay mn.1.level.val := by omega
-          have htop : mn.1.lay = 0 ∧ mn.1.level.val < 11 := by
-            by_contra hn
-            unfold trialCap at hcap2
-            rw [if_neg hn] at hcap2
-            omega
-          refine ⟨withNonce mn 0, htop.1, htop.2, withNonce_nonce mn (by omega), fun j hj => ?_⟩
+          have htop := trialCap_ne_one (show trialCap mn.1.lay mn.1.level.val ≠ 1 by omega)
+          refine ⟨withNonce mn 0, htop, withNonce_nonce mn (by omega), fun j hj => ?_⟩
           change trialFails labels mn j
           rcases Nat.lt_or_ge j (selNonce labels mn) with hj' | hj'
           · exact hspec.1 j hj'
@@ -928,24 +924,27 @@ set_option maxHeartbeats 1000000
 set_option maxRecDepth 10000
 set_option backward.isDefEq.respectTransparency false
 
-/-- Top-nonce layer: under agreement, a rejected keygen trial is the cell of an active trial node. -/
+/-- Top-nonce layer: under agreement, a rejected nonce trial (a top keygen trial or, U16b, a lower ground trial) is the
+cell of an active trial node. -/
 theorem topTrial_cell {T : Answers} {labels : CanonGraph.Labels} (h : CanonGraph.Paired.Agrees T labels) {x : HashInput}
     (ht : TopTrial T x) : ∃ m : CanonGraph.Node, x = CanonGraph.Paired.cell (CanonGraph.secretsOf T) m labels := by
-  obtain ⟨level, c, k, hl, hc, hk, rfl⟩ := ht
-  have hlev : level < height (0 : Layer) := by simp [height]; omega
-  have hh : height (0 : Layer) - level - 1 = 11 - level := by simp [height]; omega
-  have hc' : c < 2 ^ (height (0 : Layer) - level - 1) := by rw [hh]; exact hc
-  have hpow : 2 ^ (height (0 : Layer) - level) = 2 * 2 ^ (height (0 : Layer) - level - 1) := by
+  obtain ⟨lay, tree, level, c, k, htb, hlev, hroot, hc, hk, rfl⟩ := ht
+  have h31 : tree < 2 ^ 31 := lt_of_lt_of_le htb
+    (le_trans (Nat.pow_le_pow_right (by decide) (ClaudeWCT.W9.T3M.Extract.treeBits_le lay)) (by norm_num))
+  have hpow : 2 ^ (height lay - level) = 2 * 2 ^ (height lay - level - 1) := by
     rw [← pow_succ']; congr 1; omega
+  have hroot' : lay = 0 ∨ level < height lay := Or.inr hlev
   obtain ⟨n, hn, hlay, htree, hlv, hidx⟩ :=
-    CanonGraph.Paired.treeNodeAt_some 0 0 level c hlev hc' (by decide) (Or.inl rfl)
-  have hL : Correctness.treeValue (WCT9.wotsTree T 0 0) level (2 * c) = CanonGraph.treeLabel labels 0 0 level (2 * c) :=
-    CanonGraph.Paired.builtTree_eq h 0 0 level (2 * c) (by omega) (by omega) (by decide) (Or.inl rfl)
-  have hR : Correctness.treeValue (WCT9.wotsTree T 0 0) level (2 * c + 1) = CanonGraph.treeLabel labels 0 0 level (2 * c + 1) :=
-    CanonGraph.Paired.builtTree_eq h 0 0 level (2 * c + 1) (by omega) (by omega) (by decide) (Or.inl rfl)
-  obtain ⟨hsel, -⟩ := CanonGraph.tree_step (fun m => h (.node m)) 0 0 level c n hn hL hR
+    CanonGraph.Paired.treeNodeAt_some lay ⟨tree, h31⟩ level c hlev hc htb hroot
+  have hL : Correctness.treeValue (WCT9.wotsTree T lay tree) level (2 * c) =
+      CanonGraph.treeLabel labels lay ⟨tree, h31⟩ level (2 * c) :=
+    CanonGraph.Paired.builtTree_eq h lay ⟨tree, h31⟩ level (2 * c) (by omega) (by omega) htb hroot'
+  have hR : Correctness.treeValue (WCT9.wotsTree T lay tree) level (2 * c + 1) =
+      CanonGraph.treeLabel labels lay ⟨tree, h31⟩ level (2 * c + 1) :=
+    CanonGraph.Paired.builtTree_eq h lay ⟨tree, h31⟩ level (2 * c + 1) (by omega) (by omega) htb hroot'
+  obtain ⟨hsel, -⟩ := CanonGraph.tree_step (fun m => h (.node m)) lay ⟨tree, h31⟩ level c n hn hL hR
   have hk' : k ≤ CanonGraph.selNonce labels n := by
-    have : WCT9.honestNonce T 0 0 level c = CanonGraph.selNonce labels n := hsel
+    have : WCT9.honestNonce T lay tree level c = CanonGraph.selNonce labels n := hsel
     omega
   have ha := CanonGraph.active_trial_of_le (labels := labels) (n := n) hk'
   have hcap := CanonGraph.trialCap_le n.1.lay n.1.level.val
@@ -954,8 +953,7 @@ theorem topTrial_cell {T : Answers} {labels : CanonGraph.Labels} (h : CanonGraph
   rw [CanonGraph.Paired.cell_node, CanonGraph.cell_node_active ha, CanonGraph.withNonce_nonce n (by omega)]
   simp only [CanonGraph.withNonce_lay, CanonGraph.withNonce_tree, CanonGraph.withNonce_level,
     CanonGraph.withNonce_idx]
-  rw [hlay, htree, hlv, hidx, hL, hR, hh]
-  rfl
+  rw [hlay, htree, hlv, hidx, hL, hR]
 theorem Variant.honest {labels : CanonGraph.Labels} {T T' : Answers} (hv : Variant labels T T') :
     ∀ q, HonestQuery T q → T q = T' q
   | .inl (.inl n), _ => hv.coin n
@@ -8352,15 +8350,49 @@ theorem encRow_encLeaf {L L' : EncLeaf} {m m' : WCT9.LayerMsg} {c c' : BitVec 32
 theorem msgFits_msgVals (v : Coord → Digest) (L : EncLeaf) : Extract.msgFits L.1.lay (msgVals v L) := by
   unfold msgVals
   split_ifs <;> trivial
-theorem msgVals_congr (v w : Coord → Digest) (L : EncLeaf) (h : ∀ cs ∈ msgSlots L, v cs.1 = w cs.1) :
+/-- U16b: `msgVals` reads the message slots and (through the selected trial) their trials. -/
+theorem msgVals_congr (v w : Coord → Digest) (L : EncLeaf) (h : ∀ c ∈ LargeResidual.msgDeps L, v c = w c) :
     msgVals v L = msgVals w L := by
+  have hsel : ∀ cs ∈ msgSlots L, LargeResidual.selVals v cs.1 = LargeResidual.selVals w cs.1 := by
+    intro cs hcs
+    unfold LargeResidual.selVals
+    have hs : ∀ n : TreeNode, cs.1 = .inl (.node n) → trialCap n.1.lay n.1.level.val ≠ 1 →
+        ∀ j < trialCap n.1.lay n.1.level.val, v (LargeResidual.trialCoord n j) = w (LargeResidual.trialCoord n j) := by
+      intro n hn h1 j hj
+      apply h
+      apply List.mem_append_right
+      refine List.mem_flatMap.mpr ⟨cs, hcs, ?_⟩
+      rw [hn]
+      exact LargeResidual.mem_trialDeps h1 hj
+    rw [LargeResidual.selCoordV_congr cs.1 hs]
+    apply h
+    rcases cs with ⟨(_ | _ | m | _ | _ | _ | _) | x, b⟩
+    all_goals first | exact List.mem_append_left _ (List.mem_map.mpr ⟨_, hcs, rfl⟩) | skip
+    show LargeResidual.trialCoord m (LargeResidual.selNonceV w m) ∈ _
+    by_cases h1 : trialCap m.1.lay m.1.level.val = 1
+    · rw [LargeResidual.selNonceV_cap_one h1]
+      have h0 : m.1.nonce.val = 0 := by
+        unfold msgSlots at hcs
+        split_ifs at hcs <;> simp only [List.mem_cons, List.not_mem_nil, or_false, Prod.mk.injEq] at hcs <;>
+          rcases hcs with ⟨h, -⟩ | ⟨h, -⟩ <;> cases h <;> rfl
+      have hw := withNonce_self m
+      rw [h0] at hw
+      show Sum.inl (CanonGraph.Node.node (withNonce m 0)) ∈ _
+      rw [hw]
+      exact List.mem_append_left _ (List.mem_map.mpr ⟨_, hcs, rfl⟩)
+    · apply List.mem_append_right
+      exact List.mem_flatMap.mpr ⟨_, hcs, LargeResidual.mem_trialDeps h1 (LargeResidual.selNonceV_lt w m)⟩
   unfold msgVals
-  unfold msgSlots at h
+  unfold msgSlots at hsel
   split_ifs with hl
-  · rw [dif_pos hl] at h
-    rw [h _ List.mem_cons_self, h _ (List.mem_cons_of_mem _ List.mem_cons_self)]
-  · rw [dif_neg hl] at h
-    rw [h _ List.mem_cons_self, h _ (List.mem_cons_of_mem _ List.mem_cons_self)]
+  · rw [dif_pos hl] at hsel
+    rw [hsel _ List.mem_cons_self, hsel _ (List.mem_cons_of_mem _ List.mem_cons_self)]
+  · rw [dif_neg hl] at hsel
+    have h' : ∀ cs ∈ msgSlots L, v cs.1 = w cs.1 := fun cs hcs =>
+      h _ (List.mem_append_left _ (List.mem_map.mpr ⟨cs, hcs, rfl⟩))
+    unfold msgSlots at h'
+    rw [dif_neg hl] at h'
+    rw [h' _ List.mem_cons_self, h' _ (List.mem_cons_of_mem _ List.mem_cons_self)]
 section Reference
 variable {U : Finset HashInput} {T : Answers} {vals : Coord → Digest} {nv : Message → Digest} {τ : Cell U → HashOutput} {a : AuxData}
 end Reference
@@ -8505,11 +8537,6 @@ theorem cellDepsP_sub {M N : CanonGraph.Node} (h : M.toPos = N.toPos) (hN : N.ba
 theorem used_base {M : CanonGraph.Node} (hu : CanonGraph.Paired.Filtered.Used M) :
     CanonGraph.Paired.Filtered.Used M.base := by
   cases M <;> exact hu
-theorem lay_zero_of_cap {lay : Layer} {level : Nat} (h : trialCap lay level ≠ 1) : lay = 0 := by
-  unfold trialCap at h
-  split_ifs at h with h'
-  · exact h'.1
-  · exact absurd rfl h
 theorem treeNodeAt_spec {lay : Layer} {tree : Fin (2^31)} {level c : Nat} {m : TreeNode}
     (h : treeNodeAt lay tree level c = some m) :
     m.1.lay = lay ∧ m.1.tree = tree ∧ m.1.level.val = level ∧ m.1.idx.val = c ∧ m.1.nonce.val = 0 := by
@@ -8587,14 +8614,40 @@ theorem selCoordV_self_of {v : Coord → Digest} {c : Coord}
   have hw := withNonce_self m
   rw [h0] at hw
   rw [hw]
-/-- Off the top tree, child slots are their own selected trials. -/
+/-- U16b: below a single-trial lower position (heap `≥ 16`) every child position is single-trial (heap `≥ 32`). -/
+theorem child_cap_one {n m : TreeNode} (hl : n.1.lay ≠ 0) (h1 : trialCap n.1.lay n.1.level.val = 1)
+    (hml : m.1.lay = n.1.lay) (hlev : m.1.level.val + 1 = n.1.level.val) : trialCap m.1.lay m.1.level.val = 1 := by
+  have hv : n.1.level.val < height n.1.lay ∧ n.1.idx.val < 2 ^ (height n.1.lay - n.1.level.val - 1) ∧
+      n.1.tree.val < 2 ^ treeBits n.1.lay ∧ (n.1.lay = 0 ∨ n.1.level.val + 1 < height n.1.lay) := n.2
+  have hroot : n.1.level.val + 1 < height n.1.lay := hv.2.2.2.resolve_left hl
+  have hlv : n.1.lay.val ≠ 0 := fun h => hl (Fin.ext h)
+  have hb : WCT9.lowerZeroBits n.1.lay.val (2 ^ (height n.1.lay - n.1.level.val - 1)) = 0 := by
+    by_contra hb
+    rw [trialCap_lowerG hl hb] at h1
+    unfold WCT9.lowerNonceCap at h1
+    have := @Nat.one_le_two_pow (WCT9.lowerZeroBits n.1.lay.val (2 ^ (height n.1.lay - n.1.level.val - 1)))
+    omega
+  have h2 : 2 ≤ 2 ^ (height n.1.lay - n.1.level.val - 1) :=
+    le_trans (by norm_num) (Nat.pow_le_pow_right (by norm_num) (show 1 ≤ height n.1.lay - n.1.level.val - 1 by omega))
+  have h16 : 16 ≤ 2 ^ (height n.1.lay - n.1.level.val - 1) := by
+    unfold WCT9.lowerZeroBits at hb
+    split_ifs at hb with h0
+    · rcases h0 with h | h | h <;> omega
+  rw [hml]
+  apply trialCap_lower_off hl
+  have hk : height n.1.lay - m.1.level.val - 1 = (height n.1.lay - n.1.level.val - 1) + 1 := by omega
+  rw [hk, pow_succ]
+  unfold WCT9.lowerZeroBits
+  rw [if_pos (Or.inr (Or.inr (by omega)))]
+/-- Below a single-trial lower position, child slots are their own selected trials. -/
 theorem selCoordV_child {v : Coord → Digest} {N : CanonGraph.Node}
-    (hN : ∀ n, N = .node n → n.1.lay ≠ 0) {cs : Coord × Nat} (hc : cs ∈ childSlots N) :
-    selCoordV v cs.1 = cs.1 := by
+    (hN : ∀ n, N = .node n → n.1.lay ≠ 0 ∧ trialCap n.1.lay n.1.level.val = 1) {cs : Coord × Nat}
+    (hc : cs ∈ childSlots N) : selCoordV v cs.1 = cs.1 := by
   apply selCoordV_self_of
   intro m hm
-  obtain ⟨n, rfl, hl, -, h0⟩ := childSlots_node_child hc hm
-  exact ⟨trialCap_lower (hl ▸ hN n rfl) _, h0⟩
+  obtain ⟨n, rfl, hl, hlev, h0⟩ := childSlots_node_child hc hm
+  obtain ⟨hl0, h1⟩ := hN n rfl
+  exact ⟨child_cap_one hl0 h1 hl hlev, h0⟩
 /-- A node of a single-trial position equal to its base representative is its position's selected trial. -/
 theorem sel_of_single {L : Labels} {N : CanonGraph.Node} (hb : N.base = N)
     (hN : ∀ n, N = .node n → trialCap n.1.lay n.1.level.val = 1) : N.sel L = N := by
@@ -8652,6 +8705,13 @@ theorem top_childSlots_keygen {n : TreeNode} (hl : n.1.lay = 0) {cs : Coord × N
   rcases hc with ⟨x, hx, rfl, -⟩ | ⟨x, hx, rfl, -⟩
   · rw [hl, ht] at hx; exact key _ (by omega) x hx
   · rw [hl, ht] at hx; exact key _ (by omega) x hx
+/-- U16b: the child slots of every multi-trial position (top positions below the root, lower ground positions) are
+keygen coordinates. -/
+theorem multi_childSlots_keygen {n : TreeNode} (h1 : trialCap n.1.lay n.1.level.val ≠ 1) {cs : Coord × Nat}
+    (hc : cs ∈ childSlots (.node n)) : cs.1 ∈ keygenDisclosed := by
+  rcases trialCap_ne_one h1 with h | h
+  · exact top_childSlots_keygen h.1 hc
+  · exact ClaudeWCT.W9.T3.Security.LargeResidual.groundChild_mem_keygen h.1 h1 hc
 theorem nonce_zero_of_base {n : TreeNode} (h : (CanonGraph.Node.node n).base = .node n) : n.1.nonce.val = 0 := by
   have := congrArg (fun M => match M with | CanonGraph.Node.node m => m.1.nonce.val | _ => 0) h
   simp only [CanonGraph.Node.base] at this
@@ -8663,7 +8723,7 @@ theorem trialDeps_keygen {n : TreeNode} {c : Coord} (hc : c ∈ trialDeps n) : c
   split_ifs at hc with h1
   · simp at hc
   · obtain ⟨j, hj, rfl⟩ := List.mem_map.mp hc
-    exact trialCoord_mem_keygen (lay_zero_of_cap h1) h1 (List.mem_range.mp hj)
+    exact trialCoord_mem_keygen h1 (List.mem_range.mp hj)
 theorem childTrialDeps_keygen {lay : Layer} {tree : Fin (2^31)} {level k : Nat} {c : Coord}
     (hc : c ∈ childTrialDeps lay tree level k) : c ∈ keygenDisclosed := by
   unfold childTrialDeps at hc
@@ -8726,6 +8786,24 @@ theorem selCoordV_coordVal_sel (s : Secrets) (L : Labels) (N : CanonGraph.Node) 
     rw [selNonceV_coordVal]
     rfl
   | _ => rfl
+
+/-- U16b: the selected trial coordinate of a node under the router labels (no coherence needed). -/
+theorem selCoordV_router (vals : Coord → Digest) (a : AuxData) (N : CanonGraph.Node) :
+    selCoordV vals (.inl N) = .inl (N.sel (routerLabels vals a)) := by
+  have h2 : selCoordV vals (.inl N) = selCoordV (coordVal (fun _ => 0) (routerLabels vals a)) (.inl N) :=
+    selCoordV_congr (.inl N) (fun n _ _ j _ => by
+      unfold trialCoord
+      simp only [coordVal, routerLabels]
+      exact (CanonGraph.Paired.joinLabels_val (fun M => vals (.inl M)) a.high (.node (withNonce n j))).symm)
+  rw [h2]
+  exact selCoordV_coordVal_sel _ _ N
+
+/-- U16b: the used half of a position's selected trial label is the value read through the selected trial. -/
+theorem proj_sel_router (vals : Coord → Digest) (a : AuxData) (n : TreeNode) :
+    (Node.node n).toPos.proj (routerLabels vals a (.node (selNode (routerLabels vals a) n))) =
+      vals (selCoordV vals (.inl (.node n))) := by
+  rw [selCoordV_router vals a]
+  exact CanonGraph.Paired.joinLabels_node (fun M => vals (.inl M)) a.high (selNode (routerLabels vals a) n)
 
 theorem Coherent.selCoord (h : Coherent U T vals nv τ a) (N : CanonGraph.Node) :
     selCoordV vals (.inl N) = .inl (N.sel (routerLabels vals a)) := by
@@ -8877,11 +8955,9 @@ theorem Coherent.leafMsg (h : Coherent U T vals nv τ a) (L : CanonEncoding.EncL
   · rw [dif_pos hl,dif_pos hl]
     congr 1
     · refine (treeLabel_top _ _ _ (childIndex_treeBits L hl) 0).trans ?_
-      rw [selNode_of_cap_one (trialCap_lower (fun h => absurd (congrArg Fin.val h) (by simp [topNode])) _) rfl]
-      exact CanonGraph.Paired.joinLabels_node _ _ _
+      exact LargeResidual.Paired.proj_sel_router vals a _
     · refine (treeLabel_top _ _ _ (childIndex_treeBits L hl) 1).trans ?_
-      rw [selNode_of_cap_one (trialCap_lower (fun h => absurd (congrArg Fin.val h) (by simp [topNode])) _) rfl]
-      exact CanonGraph.Paired.joinLabels_node _ _ _
+      exact LargeResidual.Paired.proj_sel_router vals a _
   · rw [dif_neg hl,dif_neg hl]
     congr 1
     · exact (ftsLabel_top _ _ _ 0).trans (CanonGraph.Paired.joinLabels_val _ _ _)
@@ -9818,19 +9894,25 @@ theorem case_unknownChild (hcoh : LargeResidual.Paired.Coherent U T vals nv τ a
     intro n hn hl
     subst hn
     exact hcsk (Known.base (Or.inl (LargeResidual.Paired.top_childSlots_keygen hl hcsm)))
-  have hcap1 : ∀ n, N = .node n → trialCap n.1.lay n.1.level.val = 1 := fun n hn => trialCap_lower (hlow n hn) _
+  have hcap1 : ∀ n, N = .node n → trialCap n.1.lay n.1.level.val = 1 := by
+    intro n hn
+    by_contra h1
+    subst hn
+    exact hcsk (Known.base (Or.inl (LargeResidual.Paired.multi_childSlots_keygen h1 hcsm)))
+  have hlow1 : ∀ n, N = .node n → n.1.lay ≠ 0 ∧ trialCap n.1.lay n.1.level.val = 1 :=
+    fun n hn => ⟨hlow n hn, hcap1 n hn⟩
   have hsel : N.sel (routerLabels vals a) = N := LargeResidual.Paired.sel_of_single hbN hcap1
   have hvN : honestValue T (.inl N) = vals (.inl N) := by rw [hcoh.honestValue_node N hu, hcoh.selCoord N, hsel]
   have hiN : Extract.Paired.honestInput T N.toPos = cellValues N vals := by rw [hcoh.honestInput N hu, hsel]
   have hchild : ∀ cs ∈ childSlots N, honestValue T cs.1 = vals cs.1 := fun cs hc => by
     rw [hcoh.honestValue_used cs.1 (LargeResidual.Paired.childSlots_used N hu cs hc),
-      LargeResidual.Paired.selCoordV_child hlow hc]
+      LargeResidual.Paired.selCoordV_child hlow1 hc]
   have hne' : X ≠ cellValues N vals → ∀ M : CanonGraph.Node, CanonGraph.Paired.Filtered.Used M →
       M.toPos = N.toPos → X ≠ cellValues M vals := fun hXc M hMu hMpos heq =>
     hXc (by rw [LargeResidual.Paired.eq_of_single hbN hcap1 hMpos (hcoh.cell_pos hN hMu heq).2] at heq; exact heq)
   have hNact : ∀ n, N = .node n → LargeResidual.ActiveV vals n ∧ ∀ cs ∈ childSlots N, vals (LargeResidual.selCoordV vals cs.1) = vals cs.1 := by
     intro n hn
-    refine ⟨⟨?_, fun j hj => ?_⟩, fun cs hc => by rw [LargeResidual.Paired.selCoordV_child hlow hc]⟩
+    refine ⟨⟨?_, fun j hj => ?_⟩, fun cs hc => by rw [LargeResidual.Paired.selCoordV_child hlow1 hc]⟩
     · rw [hcap1 n hn]; subst hn; rw [LargeResidual.Paired.nonce_zero_of_base hbN]; omega
     · subst hn; rw [LargeResidual.Paired.nonce_zero_of_base hbN] at hj; exact absurd hj (by omega)
   have hp : Parsed X := ⟨N,hu,hN⟩
@@ -10213,7 +10295,7 @@ theorem case_phantom (hcoh : LargeResidual.Paired.Coherent U T vals nv τ a) (hr
           apply ha
           refine ⟨by omega, fun j hj => ?_⟩
           rw [h1] at hov; exact absurd hj (by omega)
-        exact Known.base (Or.inl (LargeResidual.Paired.top_childSlots_keygen (LargeResidual.Paired.lay_zero_of_cap h1) hcs))
+        exact Known.base (Or.inl (LargeResidual.Paired.multi_childSlots_keygen h1 hcs))
     have hkN : (LargeResidual.Paired.RouterState.known st) (.inl (.node n)) := Known.node hslots
     apply outcome_continue hrel hlt X _ hnc
     · rw [LargeResidual.RouterState.next_of_not U st X _ (fun h' => hnd h'.2)]
@@ -10256,7 +10338,7 @@ theorem case_enc_known (hcoh : LargeResidual.Paired.Coherent U T vals nv τ a) (
     (pad : Wots.RowPad) (hfit : Extract.msgFits L.1.lay m) (hXe : X = Wots.encRow L.toWots m ctr pad)
     :
     QueryOutcome U T vals nv τ a q mon st ws X (observedRun aux q (Sum.elim vals nv) τ (do
-      let pairs ← discloseAll U ((msgSlots L).map Prod.fst)
+      let pairs ← discloseAll U (LargeResidual.msgDeps L)
       if X = Wots.encRow L.toWots (msgVals (lookupVal pairs) L) ctr 0 ∧ PrefixRow a L ctr then do
         tickReq U .call
         pure (prefixValue a L ctr, st.after X)
@@ -10270,16 +10352,20 @@ theorem case_enc_known (hcoh : LargeResidual.Paired.Coherent U T vals nv τ a) (
   have hnp : ¬Parsed X := by rw [hXe]; exact LargeResidual.Paired.not_parsed_of_encRow ⟨L, m, ctr, pad, hfit, rfl⟩
   have hnd : ¬IsDigestRow X := by rw [hXe]; exact encRow_not_digest L m ctr pad
   have hnext : st.next U X (T (.inl (.inr X))) = st.after X := LargeResidual.RouterState.next_of_not U st X _ (fun h => hnd h.2)
-  have hkc : ∀ c ∈ (msgSlots L).map Prod.fst, (LargeResidual.Paired.RouterState.known st) c := by
+  have hkc : ∀ c ∈ LargeResidual.msgDeps L, (LargeResidual.Paired.RouterState.known st) c := by
     intro c hc
-    obtain ⟨cs, hcs, rfl⟩ := List.mem_map.mp hc
-    exact hall cs hcs
+    rcases List.mem_append.mp hc with hc | hc
+    · obtain ⟨cs, hcs, rfl⟩ := List.mem_map.mp hc
+      exact hall cs hcs
+    · obtain ⟨cs, -, hc⟩ := List.mem_flatMap.mp hc
+      rcases cs with ⟨(_ | _ | m | _ | _ | _ | _) | x, b⟩
+      all_goals first | (simp [LargeResidual.coordTrialDeps] at hc) | skip
+      exact Known.base (Or.inl (LargeResidual.Paired.trialDeps_keygen hc))
   have hrel1 := hrel.discloseStates _ hkc
   rw [observed_discloseAll]
-  have hmv : msgVals (lookupVal (((msgSlots L).map Prod.fst).map fun c => (c, Sum.elim vals nv (.inl c)))) L =
+  have hmv : msgVals (lookupVal ((LargeResidual.msgDeps L).map fun c => (c, Sum.elim vals nv (.inl c)))) L =
       msgVals vals L :=
-    msgVals_congr _ _ L (fun cs hcs =>
-      lookupVal_map (fun c => Sum.elim vals nv (.inl c)) _ cs.1 (List.mem_map.mpr ⟨cs, hcs, rfl⟩))
+    msgVals_congr _ _ L (fun c hc => lookupVal_map (fun c => Sum.elim vals nv (.inl c)) _ c hc)
   rw [hmv]
   have hct : ∀y : HashOutput,ContactTest T (LargeResidual.Paired.RouterState.known st) X y ↔
       (a.sel L).isSome ∧
@@ -10331,12 +10417,12 @@ theorem case_enc_known (hcoh : LargeResidual.Paired.Coherent U T vals nv τ a) (
       apply hns _ hfound ctr.toNat hle
       rw [hpre.1, hcoh.leafMsg L, hctr]
     apply outcome_continue hrel1 hlt X _ hnc
-      (tickState q (discloseStates U q (Sum.elim vals nv) ws ((msgSlots L).map Prod.fst)) .call)
+      (tickState q (discloseStates U q (Sum.elim vals nv) ws (LargeResidual.msgDeps L)) .call)
     · rw [hnext, hTX]
     · show (discloseStates U q (Sum.elim vals nv) ws _).counters.calls + 1 = st.calls + 1
       rw [discloseStates_counters, hrel.wcalls]
-    · show (discloseStates U q (Sum.elim vals nv) ws ((msgSlots L).map Prod.fst)).counters.mass =
-        (discloseStates U q (Sum.elim vals nv) ws ((msgSlots L).map Prod.fst)).counters.mass + _
+    · show (discloseStates U q (Sum.elim vals nv) ws (LargeResidual.msgDeps L)).counters.mass =
+        (discloseStates U q (Sum.elim vals nv) ws (LargeResidual.msgDeps L)).counters.mass + _
       rw [if_neg (fun h => hnd h.2), Nat.add_zero]
     · show (discloseStates U q (Sum.elim vals nv) ws _).counters.probes ≤
         (discloseStates U q (Sum.elim vals nv) ws _).counters.calls + 1
@@ -10360,7 +10446,7 @@ theorem case_enc_known (hcoh : LargeResidual.Paired.Coherent U T vals nv τ a) (
     · rw [if_pos hsel]
       have hfresh := hrel1.fresh X hX hnd
       have hcomp := observed_testReq (U := U) (q := q) (vals := vals) (nv := nv) (τ := τ) (st := st)
-        (ws := discloseStates U q (Sum.elim vals nv) ws ((msgSlots L).map Prod.fst)) aux
+        (ws := discloseStates U q (Sum.elim vals nv) ws (LargeResidual.msgDeps L)) aux
         (st.after X) X hX ⟨none, encodingHit L.1.lay (refDigest a L)⟩ hfresh
       refine queryOutcome_congr hcomp ?_
       rw [effF_self _ _ (by intro g hg; cases hg)]
@@ -11123,7 +11209,7 @@ theorem selVals_lookup_sign (vals : Coord → Digest) (nv : Message → Digest) 
   have htr : ∀ n : CanonGraph.TreeNode, CanonGraph.trialCap n.1.lay n.1.level.val ≠ 1 →
       ∀ j < CanonGraph.trialCap n.1.lay n.1.level.val, ClaudeWCT.W9.T3.Security.LargeResidual.trialCoord n j ∈ items ++ ClaudeWCT.W9.T3.Security.LargeResidual.topTrialsDisclosed :=
     fun n h1 j hj => List.mem_append_right _
-      (ClaudeWCT.W9.T3.Security.LargeResidual.trialCoord_mem_topTrials (LargeResidual.Paired.lay_zero_of_cap h1) h1 hj)
+      (ClaudeWCT.W9.T3.Security.LargeResidual.trialCoord_mem_topTrials h1 hj)
   unfold ClaudeWCT.W9.T3.Security.LargeResidual.selVals
   rw [ClaudeWCT.W9.T3.Security.LargeResidual.selCoordV_congr c (fun n _ h1 j hj => hv0 _ (htr n h1 j hj))]
   apply hv0

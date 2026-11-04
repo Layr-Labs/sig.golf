@@ -2044,11 +2044,9 @@ theorem msgLabel_router (vals : LargeResidual.Coord → Digest) (a : AuxData) (L
   · rw [dif_pos hl,dif_pos hl]
     congr 1
     · refine (treeLabel_top _ _ _ (childIndex_treeBits L hl) 0).trans ?_
-      rw [selNode_of_cap_one (trialCap_lower (fun h => absurd (congrArg Fin.val h) (by simp [topNode])) _) rfl]
-      exact CanonGraph.Paired.joinLabels_node _ _ _
+      exact LargeResidual.Paired.proj_sel_router vals a _
     · refine (treeLabel_top _ _ _ (childIndex_treeBits L hl) 1).trans ?_
-      rw [selNode_of_cap_one (trialCap_lower (fun h => absurd (congrArg Fin.val h) (by simp [topNode])) _) rfl]
-      exact CanonGraph.Paired.joinLabels_node _ _ _
+      exact LargeResidual.Paired.proj_sel_router vals a _
   · rw [dif_neg hl,dif_neg hl]
     congr 1
     · exact (paired_ftsLabel_top _ _ _ 0).trans (CanonGraph.Paired.joinLabels_val _ _ _)

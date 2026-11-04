@@ -2704,7 +2704,7 @@ theorem submission_sign_valid :
   rw [submission_sign, submission_sizes, submission_layout]
   rw [Riscv.Image.Valid]
   rw [Riscv.Image.byteSize,
-    show Images.signImage.code.length = 25046 from Images.signCode_length,
+    show Images.signImage.code.length = 25184 from Images.signCode_length,
     show Images.signImage.data.length = 86144 from Images.signData_length]
   rw [layoutValid_of_data_length _ _ _ 86144 Images.signData_length]
   decide +kernel
@@ -2744,11 +2744,11 @@ namespace SigGolfCandidate.T3M.Paired
 open SigGolfCandidate.Legacy
 
 def submission : Submission where
-  sizes := ⟨5195, 22012, 131072⟩
+  sizes := ⟨5193, 22012, 131072⟩
   layout := ⟨0x6620, 0x80, 0xa0, 0x80000, 0x7000, 0x1020⟩
   image := SigGolfCandidate.T3M.submission.image
 
-@[simp] theorem submission_sizes : submission.sizes = ⟨5195, 22012, 131072⟩ := rfl
+@[simp] theorem submission_sizes : submission.sizes = ⟨5193, 22012, 131072⟩ := rfl
 @[simp] theorem submission_layout : submission.layout = ⟨0x6620, 0x80, 0xa0, 0x80000, 0x7000, 0x1020⟩ := rfl
 @[simp] theorem submission_image : submission.image = SigGolfCandidate.T3M.submission.image := rfl
 @[simp] theorem submission_keygen : submission.image .keygen = Images.keygenImage := rfl
@@ -2775,7 +2775,7 @@ theorem submission_sign_valid :
   rw [submission_sign, submission_sizes, submission_layout]
   rw [Riscv.Image.Valid]
   rw [Riscv.Image.byteSize,
-    show Images.signImage.code.length = 25046 from Images.signCode_length,
+    show Images.signImage.code.length = 25184 from Images.signCode_length,
     show Images.signImage.data.length = 86144 from Images.signData_length]
   rw [layoutValid_of_data_length _ _ _ 86144 Images.signData_length]
   decide +kernel
