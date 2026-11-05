@@ -414,7 +414,7 @@ theorem dispatch_chain_pre (pk : Digest) (w : ClaudeWCT.W9.T3M.WBytes) (a : Hash
       · rw [if_neg (fun h => hh (by rw [Nat.add_sub_cancel_left] at h; exact h.2))]
         have hw := hu.coords k.val (Nat.le_refl _) (by omega) off ho h8 (by omega)
           (fun _ => by unfold legHand; rw [if_neg (by omega)]; exact hh)
-        have he : regionAddr k.val + off - 0x1020 = V3.regionOffset k.val + off := by
+        have he : regionAddr k.val + off - 0x10A0 = V3.regionOffset k.val + off := by
           unfold regionAddr V3.regionOffset; omega
         have hb : Chain.base Frozen.layout k + off = regionAddr k.val + off := by
           base0; unfold coordinateBase regionAddr; omega
@@ -586,8 +586,8 @@ theorem coord_core_good (chains : N600.AllGood (P := P) Frozen.layout)
     (v u : MachineState) (padL padZ : Digest) (N C A : Nat) (Q : Prop)
     (K : Digest → OracleComp HashSpec Obs)
     (hu : N600.Pre Frozen.layout (V3.viewW w k.val v) index k j rank u)
-    (hL : DigAt v (0x1020 + V3.regionOffset k.val + 672) padL)
-    (hZ : DigAt v (0x1020 + V3.regionOffset k.val + 816) padZ)
+    (hL : DigAt v (0x10A0 + V3.regionOffset k.val + 672) padL)
+    (hZ : DigAt v (0x10A0 + V3.regionOffset k.val + 816) padZ)
     (hnext : ∀ ends entry, Chain.Post Frozen.layout (V3.viewW w k.val v) index k j u ends entry →
       ∀ computed t, Child.Post Frozen.layout k j entry computed t →
         GoodQFor (P := P) Frozen.image t N C Q A (K computed)) :
@@ -657,9 +657,9 @@ theorem prevOf_snoc (w : ClaudeWCT.W9.T3M.WBytes) (pairs : List (Digest × Diges
 theorem regionAddr_succ (n : Nat) (hn : n < 9) : regionAddr n = regionAddr (n + 1) + 848 := by
   unfold regionAddr; omega
 /-- Pairing stage 1: the legacy 6-level child of coordinate 0 still writes its level-5 block (`regionAddr 0 + 784 ..
-+ 864`), which overlaps the L1 layer start `WIT + 7664 = 11792`; the bound below excludes coordinate 0 (the live
++ 864`), which overlaps the L1 layer start `WIT + 7664 = 11920`; the bound below excludes coordinate 0 (the live
 shared route, `SharedCoord.writes_bounds`, has an A routine at coordinate 0 with frame `+ 784`). -/
-theorem coordW_bounds {n j A : Nat} (hn : n < 9) (hn0 : n ≠ 0) (h : coordW n j A) : 1200 ≤ A ∧ A < 11792 := by
+theorem coordW_bounds {n j A : Nat} (hn : n < 9) (hn0 : n ≠ 0) (h : coordW n j A) : 1200 ≤ A ∧ A < 11920 := by
   unfold coordW regionAddr at h; split_ifs at h <;> omega
 set_option maxRecDepth 100000 in
 /-- The witness top sibling of coordinate `k` survives in region `k + 1` (only the other hand-off slot is written). -/
@@ -672,9 +672,9 @@ theorem next_other (w : ClaudeWCT.W9.T3M.WBytes) (k : Fin 9) (j : Nat) (u t : Ma
   have hk := k.isLt
   have h1' : W9Machine.OrigW w u (regionAddr (k.val + 1) + off + 8) := by rw [Nat.add_assoc]; exact h1
   unfold legL legR at hoff hsel
-  have hlo : 0x1020 ≤ regionAddr (k.val + 1) + off := by unfold regionAddr; split_ifs at hoff <;> omega
+  have hlo : 0x10A0 ≤ regionAddr (k.val + 1) + off := by unfold regionAddr; split_ifs at hoff <;> omega
   have hdig := W9Machine.DigAt_origW h0 h1' hlo
-  have he : regionAddr (k.val + 1) + off - 0x1020 = V3.topOtherOff k.val j := by
+  have he : regionAddr (k.val + 1) + off - 0x10A0 = V3.topOtherOff k.val j := by
     unfold V3.topOtherOff V3.regionOffset regionAddr
     split_ifs at hsel ⊢ <;> omega
   rw [he] at hdig
@@ -698,7 +698,7 @@ theorem coord_next (pk : Digest) (w : ClaudeWCT.W9.T3M.WBytes) (a : HashOutput) 
   have hk := k.isLt
   have hc := dispatch_chain_pre pk w a k pairs u hu
   have hf := coord_frame w a k u u entry t ends computed hp ht
-  have hm (A : Nat) (hA : A < 2^64) (hs : A < 1200 ∨ 11792 ≤ A) :
+  have hm (A : Nat) (hA : A < 2^64) (hs : A < 1200 ∨ 11920 ≤ A) :
       t.getMem (BitVec.ofNat 64 A) = u.getMem (BitVec.ofNat 64 A) := by
     apply hf A hA
     intro hw
@@ -1510,7 +1510,7 @@ theorem chain_pre (pk : Digest) (w : ClaudeWCT.W9.T3M.WBytes) (a : HashOutput) (
       · rw [if_neg (fun h => hh (by rw [Nat.add_sub_cancel_left] at h; exact h.2))]
         have hw := hu.coords k.val (Nat.le_refl _) (by omega) off ho h8 (by omega)
           (fun _ => by simpa only [SharedCoord.isHand, if_neg (by omega : k.val ≠ 9)] using hh)
-        have he : regionAddr k.val + off - 0x1020 = V3.regionOffset k.val + off := by
+        have he : regionAddr k.val + off - 0x10A0 = V3.regionOffset k.val + off := by
           unfold regionAddr V3.regionOffset; omega
         have hb : Chain.base (SharedLayout.layout k) k + off = regionAddr k.val + off := by
           base0; unfold coordinateBase regionAddr; omega
@@ -1626,8 +1626,8 @@ theorem core_good (chains : ∀ k : Fin 9, N600.AllGood (P := P) (SharedLayout.l
     (v u : MachineState) (padL padR : Digest) (N C A : Nat) (Q : Prop)
     (K : Digest → OracleComp HashSpec Obs)
     (hu : N600.Pre (SharedLayout.layout k) (SharedV3.viewW w k.val v) index k raw rank u)
-    (hL : DigAt v (0x1020 + V3.regionOffset k.val + 672) padL)
-    (hR : DigAt v (0x1020 + V3.regionOffset k.val + 160) padR)
+    (hL : DigAt v (0x10A0 + V3.regionOffset k.val + 672) padL)
+    (hR : DigAt v (0x10A0 + V3.regionOffset k.val + 160) padR)
     (hnext : ∀ ends entry, Chain.Post (SharedLayout.layout k) (SharedV3.viewW w k.val v)
         index k raw u ends entry →
       ∀ computed t, SharedChild.Post (SharedLayout.layout k) k raw entry computed t →
@@ -1699,7 +1699,7 @@ set_option maxRecDepth 100000
 set_option maxHeartbeats 0
 
 theorem writes_bounds (k : Fin 9) (raw : Fin 128) (addr : Nat)
-    (h : SharedChild.writes (SharedLayout.layout k) k raw addr) : 1200 ≤ addr ∧ addr < 11792 := by
+    (h : SharedChild.writes (SharedLayout.layout k) k raw addr) : 1200 ≤ addr ∧ addr < 11920 := by
   have hk := k.isLt
   unfold SharedChild.writes SharedChild.outputAddr SharedChild.handAddr at h; rw [W9Machine.SharedLayout.base_eq] at h; unfold coordinateBase at h
   split_ifs at h <;> omega
@@ -1737,12 +1737,12 @@ theorem next_other (w : ClaudeWCT.W9.T3M.WBytes) (k : Fin 9) (raw : Fin 128)
   have hk := k.isLt
   have h1' : W9Machine.OrigW w u (regionAddr (k.val + 1) + off + 8) := by
     rw [Nat.add_assoc]; exact h1
-  have hlo : 0x1020 ≤ regionAddr (k.val + 1) + off := by
+  have hlo : 0x10A0 ≤ regionAddr (k.val + 1) + off := by
     unfold SharedV3.handR SharedV3.handL at hoff
     unfold regionAddr
     split_ifs at hoff <;> omega
   have hd := W9Machine.DigAt_origW h0 h1' hlo
-  have he : regionAddr (k.val + 1) + off - 0x1020 =
+  have he : regionAddr (k.val + 1) + off - 0x10A0 =
       SharedV3.topOtherOff k.val (SharedV3.physical k.val raw.val) := by
     unfold SharedV3.topOtherOff V3.regionOffset regionAddr
     unfold SharedV3.handR SharedV3.handL at hsel ⊢
@@ -1781,7 +1781,7 @@ theorem next (pk : Digest) (w : ClaudeWCT.W9.T3M.WBytes) (a : HashOutput) (k : F
   have hk := k.isLt
   have hc := SharedDispatch.chain_pre pk w a k rank pairs u hu
   have hf := frame_after_dispatch w a k rank u entry t ends computed hp ht
-  have hm (A : Nat) (hA : A < 2^64) (hs : A < 1200 ∨ 11792 ≤ A) :
+  have hm (A : Nat) (hA : A < 2^64) (hs : A < 1200 ∨ 11920 ≤ A) :
       t.getMem (BitVec.ofNat 64 A) = u.getMem (BitVec.ofNat 64 A) := by
     apply hf A hA
     intro hw
@@ -2038,7 +2038,7 @@ theorem good (links : ∀ k : Fin 9, sliceChecked (SharedDispatch.start k.val) (
       unfold SharedDispatch.chainEntryState
       rw [SharedLayout.chain_eq, slot_entry, hrank, ← hpc]
     have hk := k.isLt
-    have hreg : 0x1020 + V3.regionOffset k.val = regionAddr k.val := by
+    have hreg : 0x10A0 + V3.regionOffset k.val = regionAddr k.val := by
       unfold V3.regionOffset regionAddr; omega
     have core := core_good chains childs w (idxOf a) k (SharedForest.rawChildFromOutput a k)
       (SharedForest.forestRank a k.val) u (SharedDispatch.chainEntryState k (SharedForest.forestRank a k.val) u)

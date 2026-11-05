@@ -8,7 +8,7 @@ section
 Copied from the pre-port `ClaudeWCT.W9.T3M.Witness.{Layout,Encode,Honest}` (layout/encoding part only). The
 img-merged expander runs the old layer/leaf-buffer code unchanged and leaves the bytes `[8096, 23236)` of this
 layout at absolute `2904 + offset` before the witness-stack post-pass (words 49400..54175) moves them into the
-current layout (`ClaudeWCT.W9.T3M.witList`, at absolute 4128). -/
+current layout (`ClaudeWCT.W9.T3M.witList`, at absolute 4256). -/
 
 section
 namespace ClaudeWCT.W9.Machine.Expand.OldW
@@ -1201,7 +1201,7 @@ section
 
 /-! # The choice hint word of the paired witness (configuration e7b, expand readout)
 
-The 8-byte witness word at byte `choiceOff = 21104 = 8 * 1397` is the legacy word with its low byte replaced by
+The 8-byte witness word at byte `choiceOff = 11048 = 8 * 1381` is the legacy word with its low byte replaced by
 `choiceByte witness.topHigh`; the expand `end` routine produces exactly this with `sb` of the choice flag. -/
 
 namespace ClaudeWCT.W9.T3M.PairedReadout
@@ -1214,7 +1214,7 @@ theorem choiceByte_extract (output : HashOutput) (witness : SharedForest.Witness
   have hlen : choiceOff < (Paired.witListBase output witness).length := by
     rw [witListBase_length]; decide
   unfold Paired.witEnc
-  rw [extract_readLE _ 22012 choiceOff 1 (by decide)]
+  rw [extract_readLE _ 21756 choiceOff 1 (by decide)]
   have hd : ((Paired.witList output witness).drop choiceOff).take 1 = [choiceByte witness.topHigh] := by
     unfold Paired.witList
     rw [List.drop_set, if_neg (lt_irrefl _), Nat.sub_self]
@@ -1227,17 +1227,17 @@ theorem choiceByte_extract (output : HashOutput) (witness : SharedForest.Witness
   cases witness.topHigh <;> decide
 
 theorem choiceWord_witEnc (output : HashOutput) (witness : SharedForest.Witness) :
-    (Paired.witEnc output witness).extractLsb' (8*(8*1397)) 64 =
-      replaceByte ((ClaudeWCT.W9.T3M.witEnc output (Paired.mainWitness witness)).extractLsb' (8*(8*1397)) 64) 0
+    (Paired.witEnc output witness).extractLsb' (8*(8*1381)) 64 =
+      replaceByte ((ClaudeWCT.W9.T3M.witEnc output (Paired.mainWitness witness)).extractLsb' (8*(8*1381)) 64) 0
         (choiceByte witness.topHigh).toBitVec := by
-  have hb : (baseEnc output witness).extractLsb' (8*(8*1397)) 64 =
-      (ClaudeWCT.W9.T3M.witEnc output (Paired.mainWitness witness)).extractLsb' (8*(8*1397)) 64 :=
-    word_prefixEnc _ (Paired.forestBytes_length output witness) _ _ (8*1397) (by norm_num)
+  have hb : (baseEnc output witness).extractLsb' (8*(8*1381)) 64 =
+      (ClaudeWCT.W9.T3M.witEnc output (Paired.mainWitness witness)).extractLsb' (8*(8*1381)) 64 :=
+    word_prefixEnc _ (Paired.forestBytes_length output witness) _ _ (8*1381) (by norm_num)
   have hc := choiceByte_extract output witness
   rw [← hb]
   apply BitVec.eq_of_getLsbD_eq
   intro i hi
-  have hco : choiceOff = 8*1397 := rfl
+  have hco : choiceOff = 8*1381 := rfl
   simp only [replaceByte, BitVec.getLsbD_or, BitVec.getLsbD_and, BitVec.getLsbD_not,
     BitVec.getLsbD_shiftLeft, BitVec.getLsbD_setWidth, BitVec.getLsbD_extractLsb', hi, decide_true, Bool.true_and,
     Nat.zero_mul, Nat.sub_zero, show ¬ (i < 0) by omega, decide_false, Bool.not_false]

@@ -142,7 +142,7 @@ def result (k : Nat) : Result :=
   let regs := RegFile.init.set .x17 (.c 0x20160)
   let regs := (regs.set .x4 raw).set .x14 chainPC
   -- Pairing stage 1: coordinate 8 derives its base from the incoming `s0` (r3w: `addi s0,s0,-848`; the banks run at
-  -- `coordinateBase k - 1224`, the expand FTS frame).
+  -- `coordinateBase k - 1352`, the expand FTS frame).
   let regs := (regs.set .x8 (if k = 8 then .bin .add (.reg .x8) (.c (BitVec.ofNat 64 (2^64-848)))
     else .c (BitVec.ofNat 64 (9768-848*k)))).set .x28 (.c 0x66000)
   let regs := (regs.set .x15 node).set .x6 (.c 0xc0000)
@@ -191,7 +191,7 @@ theorem result_leaf (k : Fin 9) (u : MachineState) :
 
 theorem result_base (k : Fin 9) (u : MachineState)
     (h8 : k.val = 8 → u.getReg .x8 = BitVec.ofNat 64 3832) :
-    ((result k.val).toState u).getReg .x8=BitVec.ofNat 64 (coordinateBase k - 1224) := by
+    ((result k.val).toState u).getReg .x8=BitVec.ofNat 64 (coordinateBase k - 1352) := by
   by_cases hk : k.val = 8
   · obtain rfl : k = 8 := Fin.ext hk
     rw [Result.toState_getReg, show (result (8 : Fin 9).val).st.regs.get .x8 =
@@ -215,12 +215,12 @@ open SigGolfCandidate.T3 (Digest M)
 set_option maxRecDepth 100000
 set_option maxHeartbeats 1000000
 
-/-- r3w: the expander runs the shared banks 1224 bytes below verify (`delta8 = 153`). -/
+/-- r3w: the expander runs the shared banks 1352 bytes below verify (`delta8 = 169`). -/
 noncomputable def layout (image : Image) (k : Fin 9) : W9Machine.Layout :=
   ⟨image,Frozen.layout.chainWord,(SharedLayout.layout k).childWord,
-    fun _=>endWord k.val-(if k.val=8 then 79 else 75),153⟩
-theorem layout_shift (image : Image) (k : Fin 9) : (layout image k).shift = 1224 := rfl
-theorem layout_base (image : Image) (k k' : Fin 9) : Chain.base (layout image k) k' = coordinateBase k' - 1224 := by
+    fun _=>endWord k.val-(if k.val=8 then 79 else 75),169⟩
+theorem layout_shift (image : Image) (k : Fin 9) : (layout image k).shift = 1352 := rfl
+theorem layout_base (image : Image) (k k' : Fin 9) : Chain.base (layout image k) k' = coordinateBase k' - 1352 := by
   unfold Chain.base; rw [layout_shift]
 
 theorem steps (image : Image) (k : Fin 9) (u : MachineState)
@@ -298,7 +298,7 @@ theorem chain_pre (image : Image) (k : Fin 9) (u : MachineState)
     (hraw : rawRead k.val u=BitVec.ofNat 64 raw.val)
     (hrank : rankRead k.val u=BitVec.ofNat 64 rank.val)
     (hslot : Frozen.layout.chainWord (N600.embed rank)=195584+64*rank.val)
-    (hW : ∀off,off<848 → off%8=0 → u.getMem (BitVec.ofNat 64 (coordinateBase k - 1224+off))=
+    (hW : ∀off,off<848 → off%8=0 → u.getMem (BitVec.ofNat 64 (coordinateBase k - 1352+off))=
       w.extractLsb' (8*(V3.regionOffset k.val+off)) 64)
     (h8 : k.val = 8 → u.getReg .x8 = BitVec.ofNat 64 3832) :
     N600.Pre (layout image k) w index k raw rank ((result k.val).toState u) := by
@@ -337,7 +337,7 @@ set_option maxHeartbeats 1000000
 def writes (addr : Nat) : Prop := 1152≤addr ∧ addr<11000
 def isHand (n off : Nat) : Prop :=
   if n=9 then (752≤off ∧ off<784) ∨ (816≤off ∧ off<848) else SharedV3.isHand off
-/-- r3w: absolute base of FTS region `n` in the expander (the verify region `regionAddr n` moved down 1224 bytes). -/
+/-- r3w: absolute base of FTS region `n` in the expander (the verify region `regionAddr n` moved down 1352 bytes). -/
 def eRegion (n : Nat) : Nat := 9768-848*n
 def pcWord (n : Nat) : Nat := if n<9 then SharedDispatch.start n else 46862
 structure Fields (index : Nat) (raw : Fin 9 → Fin 128) (ranks : Fin 9 → Fin 563) (u : MachineState) : Prop where
@@ -357,7 +357,7 @@ structure Inv (w : W9Machine.WBytes) (index : Nat) (raw : Fin 9 → Fin 128) (ra
   there (the final pass restores it, `SharedScatter.finishCode`). -/
   coords : ∀ (m : Nat), n ≤ m → m ≤ 9 → ∀ (off : Nat), off < 848 → off % 8 = 0 →
     (m = 9 → 768 ≤ off ∧ off ≠ 792) → (m = n → ¬ isHand n off) →
-    W9Machine.OrigWD 1224 w u (eRegion m + off)
+    W9Machine.OrigWD 1352 w u (eRegion m + off)
   frame : Frame initial u writes
   /-- Pairing stage 1: `s0` holds the previous coordinate's base (coordinate 8's dispatch derives its base from it;
   after coordinate 8 it is `coordinateBase 8 = 2984`, read by the hand-off). -/
@@ -388,7 +388,7 @@ theorem fields_frame {index : Nat} {raw : Fin 9 → Fin 128} {ranks : Fin 9 → 
 theorem witness_view {w : W9Machine.WBytes} {index : Nat} {raw : Fin 9 → Fin 128}
     {ranks : Fin 9 → Fin 563} {initial u : MachineState} {k : Fin 9} {prev : Digest×Digest}
     (hu : Inv w index raw ranks initial k.val prev u) :
-    ∀off,off<848 → off%8=0 → u.getMem (BitVec.ofNat 64 (coordinateBase k - 1224+off))=
+    ∀off,off<848 → off%8=0 → u.getMem (BitVec.ofNat 64 (coordinateBase k - 1352+off))=
       (SharedV3.viewWB 2904 w k.val u).extractLsb' (8*(V3.regionOffset k.val+off)) 64 := by
   intro off ho h8
   have hk:=k.isLt
@@ -402,9 +402,9 @@ theorem witness_view {w : W9Machine.WBytes} {index : Nat} {raw : Fin 9 → Fin 1
   · rw [if_neg (fun h=>hh (by simpa only [Nat.add_sub_cancel_left] using h.2))]
     have hw:=hu.coords k.val (by omega) (by omega) off ho h8 (by omega)
       (fun _=>by simpa only [isHand,if_neg (by omega : k.val≠9)] using hh)
-    have he:eRegion k.val+off+1224-0x1020=V3.regionOffset k.val+off := by
+    have he:eRegion k.val+off+1352-0x10A0=V3.regionOffset k.val+off := by
       unfold eRegion V3.regionOffset;omega
-    have hb:coordinateBase k - 1224+off=eRegion k.val+off := by unfold coordinateBase eRegion;omega
+    have hb:coordinateBase k - 1352+off=eRegion k.val+off := by unfold coordinateBase eRegion;omega
     rw [hb]
     simpa only [W9Machine.OrigWD,he] using hw
 
@@ -442,18 +442,18 @@ theorem next_other {image : Image} (w : W9Machine.WBytes) (k : Fin 9) (raw : Fin
     (hoff : off=SharedV3.handL (k.val+1) ∨ off=SharedV3.handR (k.val+1))
     (hsel : if SharedV3.direction k.val (SharedV3.physical k.val raw.val)=0
       then off=SharedV3.handR (k.val+1) else off=SharedV3.handL (k.val+1))
-    (h0 : W9Machine.OrigWD 1224 w u (eRegion (k.val+1)+off))
-    (h1 : W9Machine.OrigWD 1224 w u (eRegion (k.val+1)+(off+8))) :
+    (h0 : W9Machine.OrigWD 1352 w u (eRegion (k.val+1)+off))
+    (h1 : W9Machine.OrigWD 1352 w u (eRegion (k.val+1)+(off+8))) :
     DigAt t (eRegion (k.val+1)+off)
       (SharedV3.topOther w k.val (SharedV3.physical k.val raw.val)) := by
   have hk:=k.isLt
-  have h1':W9Machine.OrigWD 1224 w u (eRegion (k.val+1)+off+8) := by rw [Nat.add_assoc];exact h1
-  have hlo:0x1020≤eRegion (k.val+1)+off+1224 := by
+  have h1':W9Machine.OrigWD 1352 w u (eRegion (k.val+1)+off+8) := by rw [Nat.add_assoc];exact h1
+  have hlo:0x10A0≤eRegion (k.val+1)+off+1352 := by
     unfold SharedV3.handR SharedV3.handL at hoff
     unfold eRegion
     split_ifs at hoff <;> omega
   have hd:=W9Machine.DigAt_origWD h0 h1' hlo
-  have he:eRegion (k.val+1)+off+1224-0x1020=SharedV3.topOtherOff k.val (SharedV3.physical k.val raw.val) := by
+  have he:eRegion (k.val+1)+off+1352-0x10A0=SharedV3.topOtherOff k.val (SharedV3.physical k.val raw.val) := by
     unfold SharedV3.topOtherOff V3.regionOffset eRegion
     unfold SharedV3.handR SharedV3.handL at hsel ⊢
     split_ifs at hsel ⊢ <;> omega
@@ -1722,13 +1722,13 @@ set_option maxRecDepth 100000
 theorem initial_of_original (w : W9Machine.WBytes) (index : Nat)
     (raw : Fin 9→Fin 128) (ranks : Fin 9→Fin 563) (s : MachineState)
     (hp:s.pc=pcOf 46513) (hf:Fields index raw ranks s)
-    (hw:∀A,2904≤A→A+8≤10616→A%8=0→A≠2928→W9Machine.OrigWD 1224 w s A) :
+    (hw:∀A,2904≤A→A+8≤10616→A%8=0→A≠2928→W9Machine.OrigWD 1352 w s A) :
     Inv w index raw ranks s 0 (SharedV3.initialPair w) s := by
   refine ⟨by decide,hp,hf,?_,?_,?_,Frame.refl _ _,fun h=>absurd h (by decide)⟩
   · have h:=W9Machine.DigAt_origWD (A:=10440) (hw 10440 (by decide) (by decide) (by decide) (by decide))
       (hw 10448 (by decide) (by decide) (by decide) (by decide)) (by decide)
     have e1:eRegion 0+SharedV3.handL 0=10440:=by unfold eRegion SharedV3.handL; rfl
-    have e2:10440+1224-0x1020=V3.regionOffset 0+672:=by unfold V3.regionOffset; rfl
+    have e2:10440+1352-0x10A0=V3.regionOffset 0+672:=by unfold V3.regionOffset; rfl
     rw [e2] at h
     show DigAt s (eRegion 0+SharedV3.handL 0) (SharedV3.leafPad w 0)
     unfold SharedV3.leafPad V3.leafPad
@@ -1736,7 +1736,7 @@ theorem initial_of_original (w : W9Machine.WBytes) (index : Nat)
   · have h:=W9Machine.DigAt_origWD (A:=9928) (hw 9928 (by decide) (by decide) (by decide) (by decide))
       (hw 9936 (by decide) (by decide) (by decide) (by decide)) (by decide)
     have e1:eRegion 0+SharedV3.handR 0=9928:=by unfold eRegion SharedV3.handR; rfl
-    have e2:9928+1224-0x1020=V3.regionOffset 0+160:=by unfold V3.regionOffset; rfl
+    have e2:9928+1352-0x10A0=V3.regionOffset 0+160:=by unfold V3.regionOffset; rfl
     rw [e2] at h
     show DigAt s (eRegion 0+SharedV3.handR 0) (W9Machine.wdig w (V3.regionOffset 0+160))
     rw [e1]; exact h

@@ -587,7 +587,7 @@ theorem endpointsCorrect : W9Machine.Chain.EndpointsCorrect := by
       rw [← Nat.add_assoc] at this
       exact h1.trans this
     have hdig := DigAt_origWD hw0 hw1 (by unfold base coordinateBase Layout.shift; omega)
-    have he : base L k + traceLeafSlot t + L.shift - 0x1020 = V3.regionOffset k.val + V3.leafSlot t := by
+    have he : base L k + traceLeafSlot t + L.shift - 0x10A0 = V3.regionOffset k.val + V3.leafSlot t := by
       unfold base coordinateBase Layout.shift traceLeafSlot V3.leafSlot V3.regionOffset
       split <;> omega
     rw [he] at hdig

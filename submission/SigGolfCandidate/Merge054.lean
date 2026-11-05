@@ -937,17 +937,17 @@ structure Images where
   expand : Riscv.Image
   verify : Riscv.Image
 def submission (I : Images) : Submission where
-  sizes := ⟨5310, 22012, 131072⟩
-  layout := ⟨0x6620, 0x80, 0xa0, 0x80000, 0x7000, 0x1020⟩
+  sizes := ⟨5310, 21756, 131072⟩
+  layout := ⟨0x65A0, 0x80, 0xa0, 0x80000, 0x7000, 0x10A0⟩
   image
     | .keygen => SigGolfCandidate.T3M.Images.keygenImage
     | .sign => I.sign
     | .expand => I.expand
     | .verify => I.verify
 variable (I : Images)
-@[simp] theorem submission_sizes : (submission I).sizes = ⟨5310, 22012, 131072⟩ := rfl
-@[simp] theorem submission_layout : (submission I).layout = ⟨0x6620, 0x80, 0xa0, 0x80000, 0x7000, 0x1020⟩ := rfl
-theorem message_after_witness : (submission I).layout.message = (submission I).layout.witness + 22016 := by
+@[simp] theorem submission_sizes : (submission I).sizes = ⟨5310, 21756, 131072⟩ := rfl
+@[simp] theorem submission_layout : (submission I).layout = ⟨0x65A0, 0x80, 0xa0, 0x80000, 0x7000, 0x10A0⟩ := rfl
+theorem message_after_witness : (submission I).layout.message = (submission I).layout.witness + 21760 := by
   rw [submission_layout]
 @[simp] theorem submission_keygen : (submission I).image .keygen = SigGolfCandidate.T3M.Images.keygenImage := rfl
 @[simp] theorem submission_sign : (submission I).image .sign = I.sign := rfl
@@ -959,13 +959,13 @@ namespace ClaudeWCT.W9.T3M.Paired
 open SigGolfCandidate.Legacy
 
 def submission (I : Images) : Submission where
-  sizes := ⟨5191, 22012, 131072⟩
-  layout := ⟨0x6620, 0x80, 0xa0, 0x80000, 0x7000, 0x1020⟩
+  sizes := ⟨5191, 21756, 131072⟩
+  layout := ⟨0x65A0, 0x80, 0xa0, 0x80000, 0x7000, 0x10A0⟩
   image := (ClaudeWCT.W9.T3M.submission I).image
 
 variable (I : Images)
-@[simp] theorem submission_sizes : (submission I).sizes = ⟨5191, 22012, 131072⟩ := rfl
-@[simp] theorem submission_layout : (submission I).layout = ⟨0x6620, 0x80, 0xa0, 0x80000, 0x7000, 0x1020⟩ := rfl
+@[simp] theorem submission_sizes : (submission I).sizes = ⟨5191, 21756, 131072⟩ := rfl
+@[simp] theorem submission_layout : (submission I).layout = ⟨0x65A0, 0x80, 0xa0, 0x80000, 0x7000, 0x10A0⟩ := rfl
 @[simp] theorem submission_image : (submission I).image = (ClaudeWCT.W9.T3M.submission I).image := rfl
 @[simp] theorem submission_keygen : (submission I).image .keygen = SigGolfCandidate.T3M.Images.keygenImage := rfl
 @[simp] theorem submission_sign : (submission I).image .sign = I.sign := rfl
@@ -1680,8 +1680,8 @@ open ClaudeWCT.WCT9.Rev3 (sign expand verify)
 open SigGolfCandidate.T3M (mrealize countBoth countCalls cacheB cacheDec isHash)
 open ClaudeWCT.W9.T3M (Images submission)
 def verifyCycleBound : Nat := 6997
-def claimedC : Nat := 7083
-def DigestCapOk (hash : Hash) (m : Message) (w : Bytes 22012) : Prop :=
+def claimedC : Nat := 7082
+def DigestCapOk (hash : Hash) (m : Message) (w : Bytes 21756) : Prop :=
   ∀ N, evalWithAnswerFn hash (mrealize 0 (digestP m w)) = some N → WCT9.capOk N = true
 variable (I : Images)
 def KeygenRunCounts : Prop := ∀ sk : SecretKey,
@@ -1709,13 +1709,13 @@ def ExpandRefines : Prop := ∀ (m : Message) (pk : PublicKey) (s : Bytes 5310),
 def ExpandTerminates : Prop := ∀ (hash : Hash) (m : Message) (pk : PublicKey) (s : Bytes 5310),
   ((submission I).runWith hash .expand (m, pk, s)).finished = true ∧
     ((submission I).runWith hash .expand (m, pk, s)).cycles < CYCLE_LIMIT
-def VerifyRefines : Prop := ∀ (m : Message) (pk : PublicKey) (w : Bytes 22012),
+def VerifyRefines : Prop := ∀ (m : Message) (pk : PublicKey) (w : Bytes 21756),
   (fun r => (r.value, r.hashCalls)) <$> (submission I).run .verify (m, pk, w) =
     (fun p => (if p.1 then some () else none, p.2)) <$> countCalls (mrealize 0 (verifyP m pk w))
-def VerifyTerminates : Prop := ∀ (hash : Hash) (m : Message) (pk : PublicKey) (w : Bytes 22012),
+def VerifyTerminates : Prop := ∀ (hash : Hash) (m : Message) (pk : PublicKey) (w : Bytes 21756),
   ((submission I).runWith hash .verify (m, pk, w)).finished = true ∧
     ((submission I).runWith hash .verify (m, pk, w)).cycles < CYCLE_LIMIT
-def VerifyAcceptCycles : Prop := ∀ (hash : Hash) (m : Message) (pk : PublicKey) (w : Bytes 22012),
+def VerifyAcceptCycles : Prop := ∀ (hash : Hash) (m : Message) (pk : PublicKey) (w : Bytes 21756),
   SigGolfCandidate.T3M.Verify.HashOk hash → DigestCapOk hash m w →
   ((submission I).runWith hash .verify (m, pk, w)).value.isSome = true →
     ((submission I).runWith hash .verify (m, pk, w)).cycles ≤ verifyCycleBound
@@ -4780,8 +4780,8 @@ abbrev witEncN := ClaudeWCT.W9.T3M.Paired.witEncN
 abbrev witEncG := ClaudeWCT.W9.T3M.Paired.witEncG
 
  def verifyCycleBound : Nat := 6896
- def claimedC : Nat := 6982
- def DigestCapOk (hash : Hash) (m : Message) (w : Bytes 22012) : Prop :=
+ def claimedC : Nat := 6981
+ def DigestCapOk (hash : Hash) (m : Message) (w : Bytes 21756) : Prop :=
   SigGolfCandidate.Research.SharedForest.jointAccountingCost
     (hash (SigGolfCandidate.T3M.toQ (SigGolfCandidate.T3.pad64
       (SigGolfCandidate.T3.digestInput (wrho w) m (wdc w)))))≤776
@@ -4811,15 +4811,15 @@ def KeygenRunWith : Prop := ∀ (hash : Hash) (sk : SecretKey),
  def ExpandTerminates : Prop := ∀ (hash : Hash) (m : Message) (pk : PublicKey) (s : Bytes 5191),
   ((submission I).runWith hash .expand (m,pk,s)).finished=true ∧
     ((submission I).runWith hash .expand (m,pk,s)).cycles<CYCLE_LIMIT
- def VerifyRefines : Prop := ∀ (m : Message) (pk : PublicKey) (w : Bytes 22012),
+ def VerifyRefines : Prop := ∀ (m : Message) (pk : PublicKey) (w : Bytes 21756),
   (fun r => (r.value,r.hashCalls)) <$> (submission I).run .verify (m,pk,w)=
     (fun p => (if p.1 then some () else none,p.2)) <$> countCalls (mrealize 0 (verifyP m pk w))
- def VerifyTerminates : Prop := ∀ (hash : Hash) (m : Message) (pk : PublicKey) (w : Bytes 22012),
+ def VerifyTerminates : Prop := ∀ (hash : Hash) (m : Message) (pk : PublicKey) (w : Bytes 21756),
   ((submission I).runWith hash .verify (m,pk,w)).finished=true ∧
     ((submission I).runWith hash .verify (m,pk,w)).cycles<CYCLE_LIMIT
  def VerifyAcceptCycles : Prop := ∀ (floors : SigGolfCandidate.T3.Layer→Nat),
   SigGolfCandidate.T3M.Verify.CreditFloors floors →
-  ∀ (hash : Hash) (m : Message) (pk : PublicKey) (w : Bytes 22012),
+  ∀ (hash : Hash) (m : Message) (pk : PublicKey) (w : Bytes 21756),
   SigGolfCandidate.T3M.Verify.HashOkBy floors (ClaudeWCT.W9.T3M.wtopHigh w) hash → DigestCapOk hash m w →
   ((submission I).runWith hash .verify (m,pk,w)).value.isSome=true →
     ((submission I).runWith hash .verify (m,pk,w)).cycles≤verifyCycleBound
@@ -5838,7 +5838,7 @@ structure Pre (L : Layout) (w : WBytes) (index : Nat) (k : Fin 9) (j : Fin 128)
 
 /-- Where the computed top value lands: the next region's leaf pad (`- 176`, direction 0) or its R pad (`- 688` =
 next region `+ 160`, direction 1); the final singleton (merged "Cm", stage 2) puts its left root on `WIT + 0`
-(direction 0) and its right root on `WIT + 48` (direction 1); witness trim: `WIT = 4128 = coordinateBase 8 - 80`. -/
+(direction 0) and its right root on `WIT + 48` (direction 1); witness trim: `WIT = 4256 = coordinateBase 8 - 80`. -/
 def handAddr (L : Layout) (k : Fin 9) (raw : Fin 128) : Nat :=
   if SharedV3.direction k.val (SharedV3.physical k.val raw.val) = 0 then
     (if k.val = 8 then Chain.base L k - 80 else Chain.base L k - 176)
@@ -5853,7 +5853,7 @@ def outputAddr (L : Layout) (k : Fin 9) (raw : Fin 128) : Nat :=
   else handAddr L k raw - 16
 
 /-- Pairing stage 1: coordinate 0 (an A routine, levels `0..4`, no level-5 block) writes only
-`[coordinateBase 0, + 784) = [10992, 11776)`, below the L1 layer at `WIT + 7664 = 11792`; the other regions keep
+`[coordinateBase 0, + 784) = [11120, 11904)`, below the L1 layer at `WIT + 7664 = 11920`; the other regions keep
 the 16-byte level-5 spill (`+ 864`). -/
 def writes (L : Layout) (k : Fin 9) (raw : Fin 128) (A : Nat) : Prop :=
   (Chain.base L k ≤ A ∧ A < Chain.base L k + (if k.val = 0 then 784 else 864)) ∨
@@ -6657,13 +6657,13 @@ set_option linter.unusedSimpArgs false
 namespace SigGolfCandidate.T3M.Verify
 open SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64 SigGolfCandidate.Rv
 open SigGolfCandidate.T3 (Digest)
-/-- Witness stack (charge 86): the witness starts at absolute 4128 (W 22012, still ending at 26140 next to the
+/-- Witness stack (charge 85): the witness starts at absolute 4256 (W 21756, ending at 26012 next to the
 message). -/
-def WIT : Nat := 0x1020
-def WSZ : Nat := 22012
+def WIT : Nat := 0x10A0
+def WSZ : Nat := 21756
 /-- Byte bound of the 2752 loaded witness words; the last word is the 4-byte digest counter
-zero-padded by the loader, since the witness itself is `WSZ = 22012` bytes. -/
-def WX : Nat := 22016
+zero-padded by the loader, since the witness itself is `WSZ = 21756` bytes. -/
+def WX : Nat := 21760
 def WLO : Nat := WIT + 48
 theorem ofNat_eq_iff {a b : Nat} (ha : a < 2 ^ 64) (hb : b < 2 ^ 64) :
     (BitVec.ofNat 64 a = BitVec.ofNat 64 b) ↔ a = b := by
@@ -7734,8 +7734,8 @@ theorem slotL_props (i : Nat) (hi : i ≤ 42) : slotL i % 16 = 0 ∧ 768 ≤ slo
   unfold slotL; split <;> omega
 theorem bufferSlot_props (c : LCtx) (i : Nat) (hi : i ≤ 42) :
     c.bufferSlot i % 8 = 0 ∧ 15288 ≤ c.bufferSlot i ∧ c.bufferSlot i + 32 ≤ 25984 := by
-  have hb : 11160 ≤ ClaudeWCT.W9.T3M.leafBufferBase c.lay ∧
-      ClaudeWCT.W9.T3M.leafBufferBase c.lay ≤ 21136 ∧
+  have hb : 11032 ≤ ClaudeWCT.W9.T3M.leafBufferBase c.lay ∧
+      ClaudeWCT.W9.T3M.leafBufferBase c.lay ≤ 21008 ∧
       ClaudeWCT.W9.T3M.leafBufferBase c.lay % 8 = 0 := by
     generalize c.lay = lay
     fin_cases lay <;> decide +kernel
@@ -7846,7 +7846,7 @@ theorem bufferArea_slot (c : LCtx) : c.S6 - 520 + 2248 ≤ c.bufferSlot 0 := by
   have hs : c.bufferSlot 0 = Verify.WIT + ClaudeWCT.W9.T3M.leafBufferBase c.lay := by
     unfold bufferSlot bufferOffset Verify.WIT
     rw [show slotL 0 = 768 from rfl]
-    have : 11160 ≤ ClaudeWCT.W9.T3M.leafBufferBase c.lay := by
+    have : 11032 ≤ ClaudeWCT.W9.T3M.leafBufferBase c.lay := by
       generalize c.lay = lay; fin_cases lay <;> decide +kernel
     omega
   rw [hs]
@@ -9695,7 +9695,7 @@ open SigGolfCandidate.Rv RiscvZkvm.Rv64
 theorem Pre.origW {L : Layout} {w : WBytes} {index : Nat} {k : Fin 9} {j : Fin 128}
     {rank : Fin 666} {u : MachineState} (h : Pre L w index k j rank u)
     (off : Nat) (ho : off < 848) (ha : off % 8 = 0) : OrigWD L.shift w u (base L k + off) := by
-  have he : base L k + off + L.shift - 0x1020 = V3.regionOffset k.val + off := by
+  have he : base L k + off + L.shift - 0x10A0 = V3.regionOffset k.val + off := by
     simp only [base, coordinateBase, Layout.shift, V3.regionOffset]
     omega
   simpa only [OrigWD, he] using h.witness off ho ha
@@ -10802,7 +10802,7 @@ theorem merkleField_of_frame {L : Layout} {w : WBytes} {index : Nat} {k : Fin 9}
   have h1 : OrigWD L.shift w u (base L k + off + 8) := by
     simpa only [Nat.add_assoc] using hu.origW (off + 8) (by omega) (by omega)
   have hdig := DigAt_origWD h0 h1 (by unfold base coordinateBase Layout.shift; omega)
-  have he : base L k + off + L.shift - 0x1020 = V3.regionOffset k.val + off := by
+  have he : base L k + off + L.shift - 0x10A0 = V3.regionOffset k.val + off := by
     unfold base coordinateBase Layout.shift V3.regionOffset
     omega
   rw [he] at hdig
@@ -10887,7 +10887,7 @@ theorem Inv.leafPost {L : Layout} {w : WBytes} {index : Nat} {k : Fin 9} {j : Fi
     have hw1 : OrigWD L.shift w u (base L k + 672 + 8) := by
       simpa only [Nat.add_assoc] using hu.origW 680 (by decide) (by decide)
     have hdig := DigAt_origWD hw0 hw1 (by unfold base coordinateBase Layout.shift; omega)
-    have he : base L k + 672 + L.shift - 0x1020 = V3.regionOffset k.val + 672 := by
+    have he : base L k + 672 + L.shift - 0x10A0 = V3.regionOffset k.val + 672 := by
       unfold base coordinateBase Layout.shift V3.regionOffset
       omega
     rw [he] at hdig
@@ -11346,7 +11346,7 @@ structure SetupMask (u : MachineState) : Prop where
   rankPadAt : u.getMem (BitVec.ofNat 64 (stackBase7 + 48)) = rankPad
   child : u.getMem (BitVec.ofNat 64 (dataBase7 + 368)) = BitVec.ofNat 64 0xf1b00
   jt : u.getMem (BitVec.ofNat 64 (dataBase7 + 376)) = BitVec.ofNat 64 0xfff00
-  coord : u.getMem (BitVec.ofNat 64 (dataBase7 + 464)) = BitVec.ofNat 64 10992
+  coord : u.getMem (BitVec.ofNat 64 (dataBase7 + 464)) = BitVec.ofNat 64 11120
   gate : u.getMem (BitVec.ofNat 64 (dataBase7 + 352)) = BitVec.ofNat 64 0x1524000000000000
   d0 : u.getMem (BitVec.ofNat 64 dataBase7) = BitVec.ofNat 64 0xfff
 structure ForestData (u : MachineState) : Prop where
@@ -11361,7 +11361,7 @@ structure GatePre (pk : Digest) (w : ClaudeWCT.W9.T3M.WBytes) (a : HashOutput) (
   forest : ForestData u
   digest : DigestAt a u
   bank : HeaderBank u
-  wit : Orig w (fun o => o ≠ 22000) u
+  wit : Orig w (fun o => o ≠ 21744) u
   setupMask : SetupMask u
   sp : u.getReg .x2 = BitVec.ofNat 64 stackBase7
 end W9Drv
@@ -11374,7 +11374,7 @@ structure SetupMask (u : MachineState) : Prop where
   rankPadAt : u.getMem (BitVec.ofNat 64 (stackBase7 + 48)) = BitVec.ofNat 64 0x1801800000c0000
   child : u.getMem (BitVec.ofNat 64 (dataBase7 + 368)) = BitVec.ofNat 64 0xf1b00
   jt : u.getMem (BitVec.ofNat 64 (dataBase7 + 376)) = BitVec.ofNat 64 0xfff00
-  coord : u.getMem (BitVec.ofNat 64 (dataBase7 + 464)) = BitVec.ofNat 64 10992
+  coord : u.getMem (BitVec.ofNat 64 (dataBase7 + 464)) = BitVec.ofNat 64 11120
   gate : u.getMem (BitVec.ofNat 64 (dataBase7 + 352)) = BitVec.ofNat 64 (791 * 2^50)
   d0 : u.getMem (BitVec.ofNat 64 dataBase7) = BitVec.ofNat 64 0xfff
   aTable : u.getMem (BitVec.ofNat 64 (dataBase7 + 56)) = BitVec.ofNat 64 0xe3300
@@ -11386,7 +11386,7 @@ structure Pre (pk : Digest) (w : ClaudeWCT.W9.T3M.WBytes) (a : HashOutput) (u : 
   forest : ForestData u
   digest : DigestAt a u
   bank : HeaderBank u
-  wit : Orig w (fun o => o ≠ 22000) u
+  wit : Orig w (fun o => o ≠ 21744) u
   setupMask : SetupMask u
   sp : u.getReg .x2 = BitVec.ofNat 64 stackBase7
 end W9Drv.SharedGate
@@ -11493,15 +11493,15 @@ theorem mem_handSlots {o : Nat} (h8 : o % 8 = 0) : o ∈ handSlots ↔ isHand o 
 def handBits (n : Nat) : List Nat := handSlots.map fun o => 8 * (regionOffset n + o)
 /-- The witness seen by coordinate `n` at state `u`: region `n`'s hand-off words read from memory. -/
 def viewW (w : WBytes) (n : Nat) (u : MachineState) : WBytes :=
-  setWords w (fun b => u.getMem (BitVec.ofNat 64 (0x1020 + b / 8))) (handBits n)
+  setWords w (fun b => u.getMem (BitVec.ofNat 64 (0x10A0 + b / 8))) (handBits n)
 
 theorem regionOffset_mod (n : Nat) : regionOffset n % 8 = 0 := by unfold regionOffset; omega
 theorem regionOffset_le (n : Nat) : regionOffset n ≤ 6864 := by unfold regionOffset; omega
 
 /-- A 64-bit witness word of the view: memory on region `n`'s hand-off words, the witness elsewhere. -/
-theorem view_word (w : WBytes) (n : Nat) (u : MachineState) (p : Nat) (hp : p % 8 = 0) (hpn : p + 8 ≤ 22012) :
+theorem view_word (w : WBytes) (n : Nat) (u : MachineState) (p : Nat) (hp : p % 8 = 0) (hpn : p + 8 ≤ 21756) :
     (viewW w n u).extractLsb' (8 * p) 64 =
-      if regionOffset n ≤ p ∧ isHand (p - regionOffset n) then u.getMem (BitVec.ofNat 64 (0x1020 + p))
+      if regionOffset n ≤ p ∧ isHand (p - regionOffset n) then u.getMem (BitVec.ofNat 64 (0x10A0 + p))
       else w.extractLsb' (8 * p) 64 := by
   have hr := regionOffset_mod n
   have hrl := regionOffset_le n
@@ -11529,7 +11529,7 @@ theorem view_word (w : WBytes) (n : Nat) (u : MachineState) (p : Nat) (hp : p % 
 
 /-- Outside region `n`'s hand-off words the view is the witness. -/
 theorem view_dig (w : WBytes) (n : Nat) (u : MachineState) (off : Nat) (h8 : off % 8 = 0)
-    (hb : off + 16 ≤ 22012)
+    (hb : off + 16 ≤ 21756)
     (h0 : ¬ (regionOffset n ≤ off ∧ isHand (off - regionOffset n)))
     (h1 : ¬ (regionOffset n ≤ off + 8 ∧ isHand (off + 8 - regionOffset n))) :
     wdig (viewW w n u) off = wdig w off := by
@@ -11540,7 +11540,7 @@ theorem view_dig (w : WBytes) (n : Nat) (u : MachineState) (off : Nat) (h8 : off
 
 /-- On a hand-off slot pair the view holds the memory digest. -/
 theorem view_dig_hand (w : WBytes) (n : Nat) (u : MachineState) (o : Nat) (ho : o = 672 ∨ o = 816) (hn : n ≤ 8)
-    (d : Digest) (hd : DigAt u (0x1020 + regionOffset n + o) d) :
+    (d : Digest) (hd : DigAt u (0x10A0 + regionOffset n + o) d) :
     wdig (viewW w n u) (regionOffset n + o) = d := by
   have hr := regionOffset_mod n
   have hrl := regionOffset_le n
@@ -11600,11 +11600,11 @@ theorem nodeHPad_view (w : WBytes) (n : Nat) (u : MachineState) (hn : n ≤ 8) (
   · rw [if_neg hl, if_neg hl]
 
 theorem leafPad_view (w : WBytes) (n : Nat) (u : MachineState) (hn : n ≤ 8) (d : Digest)
-    (hd : DigAt u (0x1020 + regionOffset n + 672) d) : leafPad (viewW w n u) n = d :=
+    (hd : DigAt u (0x10A0 + regionOffset n + 672) d) : leafPad (viewW w n u) n = d :=
   view_dig_hand w n u 672 (Or.inl rfl) hn d hd
 
 theorem nodePad5_view (w : WBytes) (n : Nat) (u : MachineState) (hn : n ≤ 8) (j : Fin 128) (d : Digest)
-    (hd : DigAt u (0x1020 + regionOffset n + 816) d) : nodePad (viewW w n u) n j.val 5 = d := by
+    (hd : DigAt u (0x10A0 + regionOffset n + 816) d) : nodePad (viewW w n u) n j.val 5 = d := by
   unfold nodePad padOff blkOff
   rw [if_neg (by decide), show regionOffset n + (784 + 32) = regionOffset n + 816 by omega]
   exact view_dig_hand w n u 816 (Or.inr rfl) hn d hd
@@ -11612,7 +11612,7 @@ theorem nodePad5_view (w : WBytes) (n : Nat) (u : MachineState) (hn : n ≤ 8) (
 /-- The nested child of coordinate `n` read through the view is the tree with the hand-off pads. -/
 theorem childProgram_view (w : WBytes) (index : Nat) (k : Fin 9) (u : MachineState) (j : Fin 128)
     (ends : List Digest) (padL padZ : Digest)
-    (hL : DigAt u (0x1020 + regionOffset k.val + 672) padL) (hZ : DigAt u (0x1020 + regionOffset k.val + 816) padZ) :
+    (hL : DigAt u (0x10A0 + regionOffset k.val + 672) padL) (hZ : DigAt u (0x10A0 + regionOffset k.val + 816) padZ) :
     childProgram (viewW w k.val u) index k j ends = childN w index k j ends padL padZ := by
   have hn : k.val ≤ 8 := by omega
   unfold childProgram childN
@@ -11691,15 +11691,15 @@ theorem mem_handSlots {o : Nat} (h8 : o % 8 = 0) : o ∈ handSlots ↔ isHand o 
 def handBits (n : Nat) : List Nat := handSlots.map fun o => 8 * (regionOffset n + o)
 /-- The witness seen by coordinate `n` at state `u`: region `n`'s hand-off words read from memory. -/
 def viewW (w : WBytes) (n : Nat) (u : MachineState) : WBytes :=
-  setWords w (fun b => u.getMem (BitVec.ofNat 64 (0x1020 + b / 8))) (handBits n)
+  setWords w (fun b => u.getMem (BitVec.ofNat 64 (0x10A0 + b / 8))) (handBits n)
 
 theorem regionOffset_mod (n : Nat) : regionOffset n % 8 = 0 := by unfold regionOffset; omega
 theorem regionOffset_le (n : Nat) : regionOffset n ≤ 6864 := by unfold regionOffset; omega
 
 /-- A 64-bit witness word of the view: memory on region `n`'s hand-off words, the witness elsewhere. -/
-theorem view_word (w : WBytes) (n : Nat) (u : MachineState) (p : Nat) (hp : p % 8 = 0) (hpn : p + 8 ≤ 22012) :
+theorem view_word (w : WBytes) (n : Nat) (u : MachineState) (p : Nat) (hp : p % 8 = 0) (hpn : p + 8 ≤ 21756) :
     (viewW w n u).extractLsb' (8 * p) 64 =
-      if regionOffset n ≤ p ∧ isHand (p - regionOffset n) then u.getMem (BitVec.ofNat 64 (0x1020 + p))
+      if regionOffset n ≤ p ∧ isHand (p - regionOffset n) then u.getMem (BitVec.ofNat 64 (0x10A0 + p))
       else w.extractLsb' (8 * p) 64 := by
   have hr := regionOffset_mod n
   have hrl := regionOffset_le n
@@ -11727,7 +11727,7 @@ theorem view_word (w : WBytes) (n : Nat) (u : MachineState) (p : Nat) (hp : p % 
 
 /-- Outside region `n`'s hand-off words the view is the witness. -/
 theorem view_dig (w : WBytes) (n : Nat) (u : MachineState) (off : Nat) (h8 : off % 8 = 0)
-    (hb : off + 16 ≤ 22012)
+    (hb : off + 16 ≤ 21756)
     (h0 : ¬ (regionOffset n ≤ off ∧ isHand (off - regionOffset n)))
     (h1 : ¬ (regionOffset n ≤ off + 8 ∧ isHand (off + 8 - regionOffset n))) :
     wdig (viewW w n u) off = wdig w off := by
@@ -11738,7 +11738,7 @@ theorem view_dig (w : WBytes) (n : Nat) (u : MachineState) (off : Nat) (h8 : off
 
 /-- On a hand-off slot pair the view holds the memory digest. -/
 theorem view_dig_hand (w : WBytes) (n : Nat) (u : MachineState) (o : Nat) (ho : o = 672 ∨ o = 160) (hn : n ≤ 8)
-    (d : Digest) (hd : DigAt u (0x1020 + regionOffset n + o) d) :
+    (d : Digest) (hd : DigAt u (0x10A0 + regionOffset n + o) d) :
     wdig (viewW w n u) (regionOffset n + o) = d := by
   have hr := regionOffset_mod n
   have hrl := regionOffset_le n
@@ -11800,11 +11800,11 @@ theorem nodeHPad_view (w : WBytes) (n : Nat) (u : MachineState) (hn : n ≤ 8)
   · rw [if_neg h, if_neg h]
 
 theorem leafPad_view (w : WBytes) (n : Nat) (u : MachineState) (hn : n ≤ 8) (d : Digest)
-    (hd : DigAt u (0x1020 + regionOffset n + 672) d) : leafPad (viewW w n u) n = d :=
+    (hd : DigAt u (0x10A0 + regionOffset n + 672) d) : leafPad (viewW w n u) n = d :=
   view_dig_hand w n u 672 (Or.inl rfl) hn d hd
 
 theorem nodePad4_view (w : WBytes) (n : Nat) (u : MachineState) (hn : n ≤ 8)
-    (j : Fin 128) (d : Digest) (hd : DigAt u (0x1020 + regionOffset n + 160) d) :
+    (j : Fin 128) (d : Digest) (hd : DigAt u (0x10A0 + regionOffset n + 160) d) :
     nodePad (viewW w n u) n j.val 4 = d := by
   rw [pad4 _ _ _ j.isLt]
   exact view_dig_hand w n u 160 (Or.inr rfl) hn d hd
@@ -11821,8 +11821,8 @@ theorem childInput_view (w : WBytes) (index n : Nat) (u : MachineState) (hn : n 
 
 theorem childProgram_view (w : WBytes) (index : Nat) (k : Fin 9) (u : MachineState)
     (raw : Fin 128) (ends : List Digest) (padL padR : Digest)
-    (hL : DigAt u (0x1020 + regionOffset k.val + 672) padL)
-    (hR : DigAt u (0x1020 + regionOffset k.val + 160) padR) :
+    (hL : DigAt u (0x10A0 + regionOffset k.val + 672) padL)
+    (hR : DigAt u (0x10A0 + regionOffset k.val + 160) padR) :
     childProgram (viewW w k.val u) index k raw ends = childN w index k raw ends padL padR := by
   have hn : k.val ≤ 8 := by omega
   let j : Fin 128 := ⟨physical k.val raw.val, physical_lt _ _ raw.isLt⟩
@@ -11878,8 +11878,8 @@ theorem chainProgram_view (w : WBytes) (index : Nat) (k : Fin 9) (u : MachineSta
 end W9Machine.SharedV3
 
 namespace W9Machine.SharedV3
-/-! Pairing stage 1 (pair1-expand, shared-file change): view lemmas for an arbitrary witness base `B` (verify: `0x1020`;
-expand's FTS initial phase: `0x520`). The unsuffixed declarations above are unchanged; `viewWB 0x1020 = viewW`. -/
+/-! Pairing stage 1 (pair1-expand, shared-file change): view lemmas for an arbitrary witness base `B` (verify: `0x10A0`;
+expand's FTS initial phase: `0x520`). The unsuffixed declarations above are unchanged; `viewWB 0x10A0 = viewW`. -/
 variable (B : Nat)
 open SigGolfCandidate.T3M SigGolfCandidate.Rv RiscvZkvm.Rv64 SigGolfCandidate.Legacy.Riscv
 open SigGolfCandidate.T3 (Digest M shortHash)
@@ -11890,7 +11890,7 @@ def viewWB (w : WBytes) (n : Nat) (u : MachineState) : WBytes :=
   setWords w (fun b => u.getMem (BitVec.ofNat 64 (B + b / 8))) (handBits n)
 
 /-- A 64-bit witness word of the view: memory on region `n`'s hand-off words, the witness elsewhere. -/
-theorem view_wordB (w : WBytes) (n : Nat) (u : MachineState) (p : Nat) (hp : p % 8 = 0) (hpn : p + 8 ≤ 22012) :
+theorem view_wordB (w : WBytes) (n : Nat) (u : MachineState) (p : Nat) (hp : p % 8 = 0) (hpn : p + 8 ≤ 21756) :
     ((viewWB B) w n u).extractLsb' (8 * p) 64 =
       if regionOffset n ≤ p ∧ isHand (p - regionOffset n) then u.getMem (BitVec.ofNat 64 (B + p))
       else w.extractLsb' (8 * p) 64 := by
@@ -11920,7 +11920,7 @@ theorem view_wordB (w : WBytes) (n : Nat) (u : MachineState) (p : Nat) (hp : p %
 
 /-- Outside region `n`'s hand-off words the view is the witness. -/
 theorem view_digB (w : WBytes) (n : Nat) (u : MachineState) (off : Nat) (h8 : off % 8 = 0)
-    (hb : off + 16 ≤ 22012)
+    (hb : off + 16 ≤ 21756)
     (h0 : ¬ (regionOffset n ≤ off ∧ isHand (off - regionOffset n)))
     (h1 : ¬ (regionOffset n ≤ off + 8 ∧ isHand (off + 8 - regionOffset n))) :
     wdig ((viewWB B) w n u) off = wdig w off := by
@@ -12058,7 +12058,7 @@ theorem chainProgram_viewB (w : WBytes) (index : Nat) (k : Fin 9) (u : MachineSt
 
 
 
-theorem viewWB_eq (w : WBytes) (n : Nat) (u : MachineState) : viewWB 0x1020 w n u = viewW w n u := rfl
+theorem viewWB_eq (w : WBytes) (n : Nat) (u : MachineState) : viewWB 0x10A0 w n u = viewW w n u := rfl
 end W9Machine.SharedV3
 
 end

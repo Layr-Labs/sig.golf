@@ -170,7 +170,7 @@ open SigGolfCandidate.T3M.Verify
 open SigGolfCandidate.T3 (Digest HashOutput Layer route height chainCount counterLimit decode encodingInput target
   dataDigits pad64)
 theorem geomL (lay : Layer) (h : lay ≠ 0) :
-    s6v lay.val = 4128 + ClaudeWCT.W9.T3M.layerBase lay + 16 * ClaudeWCT.W9.T3M.pathSlots lay + 520 ∧
+    s6v lay.val = 4256 + ClaudeWCT.W9.T3M.layerBase lay + 16 * ClaudeWCT.W9.T3M.pathSlots lay + 520 ∧
       ClaudeWCT.W9.T3M.layerBase lay + 16 * ClaudeWCT.W9.T3M.pathSlots lay + 2248 ≤ layerEnd lay.val ∧
       7664 ≤ ClaudeWCT.W9.T3M.layerBase lay ∧ layerEnd lay.val < 21137 := by
   fin_cases lay
@@ -233,7 +233,7 @@ theorem leafL_step (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index : Nat) (la
     fin_cases lay
     · exact absurd rfl hlay
     all_goals rfl
-  have hWIT : WIT = 4128 := rfl
+  have hWIT : WIT = 4256 := rfl
   obtain ⟨u, hu⟩ := spec_run (lfSlotCheck_at lay.val L.ck h0 lay.isLt hck) t (by rw [hpc]; rfl) hknown
     (by intro b hb; simp [specLf, h0] at hb) (by simp)
   have hst := hu.steps
@@ -587,7 +587,7 @@ theorem setup_post : SetupPost := fun w pk index lay msg s hs t ht => by
     intro h3
     obtain rfl : lay = 3 := Fin.ext h3
     have hm (A : Word) : t.getMem A = memEval s (T3M.specA 3 (trPc 3 (cpIdx index 3))).mem A := ht.mem A
-    have hf (A : Nat) (hA : A < 2 ^ 64) (h1 : A ≠ 4144) (h3 : A ≠ 4176) (h4 : A ≠ 4184) :
+    have hf (A : Nat) (hA : A < 2 ^ 64) (h1 : A ≠ 4272) (h3 : A ≠ 4304) (h4 : A ≠ 4312) :
         t.getMem (BitVec.ofNat 64 A) = s.getMem (BitVec.ofNat 64 A) := by
       rw [hm]
       apply memEval_frame_ofNat s _ A hA
@@ -647,10 +647,10 @@ theorem setup_hash : SetupHash := fun w pk index lay msg s hs t ht => by
     | forest root => exact hs.msg.elim
     | pair left right =>
     have hm3 := hs.msg.pair_top
-    have h10 : t.getReg .x10 = BitVec.ofNat 64 4128 := hkB (.x10, _) (by simp [bK, T3M.bK])
-    have h12d : t.getReg .x12 = BitVec.ofNat 64 4112 ∨ t.getReg .x12 = BitVec.ofNat 64 4176 := hpost.dst3 rfl
+    have h10 : t.getReg .x10 = BitVec.ofNat 64 4256 := hkB (.x10, _) (by simp [bK, T3M.bK])
+    have h12d : t.getReg .x12 = BitVec.ofNat 64 4240 ∨ t.getReg .x12 = BitVec.ofNat 64 4304 := hpost.dst3 rfl
     have hm (A : Word) : t.getMem A = memEval s (T3M.specA 3 (trPc 3 (cpIdx index 3))).mem A := ht.mem A
-    have hf : ∀ A, A < 2 ^ 64 → A ≠ 4144 →
+    have hf : ∀ A, A < 2 ^ 64 → A ≠ 4272 →
         t.getMem (BitVec.ofNat 64 A) = s.getMem (BitVec.ofNat 64 A) := by
       intro A hA h1
       rw [hm]
@@ -662,14 +662,14 @@ theorem setup_hash : SetupHash := fun w pk index lay msg s hs t ht => by
     have hH : WitHdr w s := hs.glob.2.1
     refine ⟨h5, ?_, ?_⟩
     · rcases h12d with h12 | h12
-      · exact hashArgs_of t 4128 64 4112 h10 h11 h12 (by decide +kernel) (by decide +kernel) (by decide +kernel)
+      · exact hashArgs_of t 4256 64 4240 h10 h11 h12 (by decide +kernel) (by decide +kernel) (by decide +kernel)
           (by decide +kernel) (by decide +kernel)
-      · exact hashArgs_of t 4128 64 4176 h10 h11 h12 (by decide +kernel) (by decide +kernel) (by decide +kernel)
+      · exact hashArgs_of t 4256 64 4304 h10 h11 h12 (by decide +kernel) (by decide +kernel) (by decide +kernel)
           (by decide +kernel) (by decide +kernel)
     change hashInput t = toQ (pad64 (ClaudeWCT.WCT9.pairEncodingInputH 3 (route index 3).2 (route index 3).1 left
       right (ClaudeWCT.W9.T3M.wbcCtr w index 3) (ClaudeWCT.W9.T3M.wbcPad w index 3) (ClaudeWCT.W9.T3M.wbcHigh w index 3)))
     rw [pair_input_block, show ClaudeWCT.W9.T3M.bcCounterOff index 3 = 8 * 4 from rfl]
-    apply T3M.row_hash t 4128 (by decide +kernel) (by decide +kernel) 3 _ _ left _ _ _ h10 h11
+    apply T3M.row_hash t 4256 (by decide +kernel) (by decide +kernel) 3 _ _ left _ _ _ h10 h11
     · exact ⟨(hf _ (by decide +kernel) (by decide +kernel)).trans hm3.1.1,
         (hf _ (by decide +kernel) (by decide +kernel)).trans hm3.1.2⟩
     · rw [hm]; simp only [T3M.specA, T3M.l3Writes, ↓reduceIte, List.cons_append, List.nil_append]
@@ -679,7 +679,7 @@ theorem setup_hash : SetupHash := fun w pk index lay msg s hs t ht => by
       try rfl
     · -- C3 (stage 2): word 857 of stage 1 (`sd t2,-152(s0)`) is gone; the high word is the witness word at offset 24
       refine (hf _ (by decide +kernel) (by decide +kernel)).trans ?_
-      refine (hm3.2.2 : s.getMem (BitVec.ofNat 64 (4128 + 24)) = wword w 3).trans ?_
+      refine (hm3.2.2 : s.getMem (BitVec.ofNat 64 (4256 + 24)) = wword w 3).trans ?_
       unfold ClaudeWCT.W9.T3M.wbcHigh ClaudeWCT.W9.T3M.rowBlock
       rw [if_pos (show (3 : Layer).val = 3 from rfl)]
       exact (Verify.wdig_hi w 2).symm
@@ -1373,7 +1373,7 @@ theorem layer_good_low (floors : Layer → Nat) (hbound : ∀ lay, floors lay �
 theorem layerIn_of_fts (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (idx : Nat) (left right : Digest) (u : MachineState)
     (hidx : idx < 2 ^ 31) (hglob : Glob [(.x5, 0)] w pk u) (hreg : u.getReg .x22 = BitVec.ofNat 64 idx)
     (hpc : u.pc = pcOf 854) (hleft : DigAt u WIT left) (hright : DigAt u (WIT + 48) right)
-    (hwit : Verify.Orig w (fun o => (24 ≤ o ∧ o < 48) ∨ (7664 ≤ o ∧ o < 21984)) u)
+    (hwit : Verify.Orig w (fun o => (24 ≤ o ∧ o < 48) ∨ (7664 ≤ o ∧ o < 21728)) u)
     (hbase8 : u.getReg .x8 = BitVec.ofNat 64 (WIT + 80)) (ha1 : u.getReg .x11 = 64)
     (hs10 : u.getReg .x26 = 6) (hOne : u.getReg .x7 = 1) (hTwo : u.getReg .x13 = 2) (hSeven : u.getReg .x30 = 7)
     (hThree : u.getReg .x19 = 3) (hFour : u.getReg .x20 = 4) (hFive : u.getReg .x21 = 5)
@@ -1382,10 +1382,10 @@ theorem layerIn_of_fts (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (idx : Nat) (
     (htop : ∀ k, k < 5 → u.getMem (BitVec.ofNat 64 (TOPLOAD + 8 * k)) =
       BitVec.ofNat 64 (topWords.getD k 0))
     (htop8 : u.getMem (BitVec.ofNat 64 (TOPLOAD - 8)) = BitVec.ofNat 64 24496)
-    (ha2 : u.getReg .x12 = BitVec.ofNat 64 4112 ∨ u.getReg .x12 = BitVec.ofNat 64 4176)
+    (ha2 : u.getReg .x12 = BitVec.ofNat 64 4240 ∨ u.getReg .x12 = BitVec.ofNat 64 4304)
     (hd0 : u.getMem (BitVec.ofNat 64 (TOPB9 - 304)) = 0xFFF) :
     ∃ t, Steps image u 0 0 t ∧ LayerIn w pk idx 3 (.pair left right) t := by
-  have hpk : preK 3 = [(.x5, 0)] ++ [(.x8, BitVec.ofNat 64 4208), (.x11, 64), (.x26, 6), (.x7, 1), (.x13, 2), (.x30, 7),
+  have hpk : preK 3 = [(.x5, 0)] ++ [(.x8, BitVec.ofNat 64 4336), (.x11, 64), (.x26, 6), (.x7, 1), (.x13, 2), (.x30, 7),
       (.x2, BitVec.ofNat 64 0xffbde0), (.x19, 3), (.x20, 4), (.x21, 5), (.x6, 0x10000)] := rfl
   have hk : ∀ p ∈ preK 3, u.getReg p.1 = p.2 := by
     intro p hp
@@ -1415,7 +1415,7 @@ theorem layerIn_of_fts (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (idx : Nat) (
     exact ⟨(htop 4 (by decide +kernel)).trans (by decide +kernel), htop8, htop⟩
   · intro h
     exact absurd h (by decide +kernel)
-  · exact hwit.mono (fun o ho => Or.inr ⟨by have hh : 21136 ≤ o := ho.1; omega, lt_of_lt_of_le ho.2 (by decide +kernel)⟩)
+  · exact hwit.mono (fun o ho => Or.inr ⟨by have hh : 21008 ≤ o := ho.1; omega, lt_of_lt_of_le ho.2 (by decide +kernel)⟩)
 theorem tree_next (index : Nat) (L : Layer) (h : L ≠ 0) : (route index L).2 = index / 2 ^ below (L.val - 1) := by
   rw [route_snd]
   fin_cases L
@@ -1645,7 +1645,7 @@ theorem mkKS_succ (lay leaf k s : Nat) (h : s ∈ mkKS lay leaf (k + 1)) : s ∈
   obtain ⟨j, ⟨hj, hkj⟩, hs⟩ := h
   exact ⟨j, ⟨hj, by omega⟩, hs⟩
 theorem mkBo_facts (lay leaf k : Nat) (hlay : lay < 4) (hleaf : leaf < 2 ^ hL lay) (hk : k < hL lay) :
-    mkBo lay leaf k % 8 = 0 ∧ 7664 ≤ mkBo lay leaf k ∧ mkBo lay leaf k + 80 ≤ 18904 ∧ mkBase lay ≤ mkBo lay leaf k ∧
+    mkBo lay leaf k % 8 = 0 ∧ 7664 ≤ mkBo lay leaf k ∧ mkBo lay leaf k + 80 ≤ 18776 ∧ mkBase lay ≤ mkBo lay leaf k ∧
       mkBo lay leaf k + 64 ≤ mkBase lay + 16 * mkPS lay := by
   have hp := ((route_facts lay leaf hlay hleaf).1 k hk).1
   rw [mkBo_plan]
@@ -1737,8 +1737,8 @@ theorem mkP_rd (lay leaf k : Nat) (hlay : lay < 4) (hleaf : leaf < 2 ^ hL lay) (
 theorem mkP_step (lay leaf k : Nat) (hlay : lay < 4) (hleaf : leaf < 2 ^ hL lay) (hk1 : k + 1 < hL lay) (o : Nat)
     (h8 : o % 8 = 0) (ho : mkP lay leaf (k + 1) (leaf / 2 ^ (k + 1) % 2) o) :
     (mkP lay leaf k (leaf / 2 ^ k % 2) o ∧ o ≠ mkBo lay leaf k + 16 ∧ o ≠ mkBo lay leaf k + 24) ∧
-      (0x1020 + o + 8 ≤ mkCur lay leaf (k + 1) (leaf / 2 ^ (k + 1) % 2) ∨
-        mkCur lay leaf (k + 1) (leaf / 2 ^ (k + 1) % 2) + 32 ≤ 0x1020 + o) := by
+      (0x10A0 + o + 8 ≤ mkCur lay leaf (k + 1) (leaf / 2 ^ (k + 1) % 2) ∨
+        mkCur lay leaf (k + 1) (leaf / 2 ^ (k + 1) % 2) + 32 ≤ 0x10A0 + o) := by
   have hb := mkBit_lt leaf k
   have hb' := mkBit_lt leaf (k + 1)
   obtain ⟨hB16, hBlo, hBhi, hBase, hBtop⟩ := mkBo_facts lay leaf k hlay hleaf (by omega)
@@ -1763,7 +1763,7 @@ theorem mkP_step (lay leaf k : Nat) (hlay : lay < 4) (hleaf : leaf < 2 ^ hL lay)
 theorem mkP_leaf (lay leaf : Nat) (hlay : lay < 4) (hleaf : leaf < 2 ^ hL lay) (o : Nat) (h8 : o % 8 = 0)
     (ho : mkP lay leaf 0 (leaf / 2 ^ 0 % 2) o) :
     (7664 ≤ o ∧ o < mkBase lay + 16 * mkPS lay) ∧
-      (0x1020 + o + 8 ≤ mkCur lay leaf 0 (leaf / 2 ^ 0 % 2) ∨ mkCur lay leaf 0 (leaf / 2 ^ 0 % 2) + 32 ≤ 0x1020 + o) := by
+      (0x10A0 + o + 8 ≤ mkCur lay leaf 0 (leaf / 2 ^ 0 % 2) ∨ mkCur lay leaf 0 (leaf / 2 ^ 0 % 2) + 32 ≤ 0x10A0 + o) := by
   have hhL : 0 < hL lay := by interval_cases lay <;> decide +kernel
   have hb := mkBit_lt leaf 0
   obtain ⟨hB16, hBlo, hBhi, hBase, hBtop⟩ := mkBo_facts lay leaf 0 hlay hleaf hhL
@@ -1847,7 +1847,7 @@ theorem mk_buffer_ge (lay o : Nat) (hlay : lay < 4) (h0 : lay ≠ 0)
 /-- T1: a level's hash destination never reaches below this layer's region (a left node written 16 bytes low has
 `plan ≥ 1`, `route_facts`). -/
 theorem mkCur_ge_base (lay leaf j : Nat) (hlay : lay < 4) (hleaf : leaf < 2 ^ hL lay) (hj : j < hL lay)
-    (h0 : lay ≠ 0) : 0x1020 + mkBase lay ≤ mkCur lay leaf j (leaf / 2 ^ j % 2) := by
+    (h0 : lay ≠ 0) : 0x10A0 + mkBase lay ≤ mkCur lay leaf j (leaf / 2 ^ j % 2) := by
   have hp := ((route_facts lay leaf hlay hleaf).1 j hj).2 h0
   have hb := mkBit_lt leaf j
   unfold mkCur mkVal mkBlk
@@ -2088,7 +2088,7 @@ theorem mk_node_at (lay leaf j : Nat) (hlay : lay < 4) (hleaf : leaf < 2 ^ hL la
       rwa [show mkBlk lay leaf j + 48 * 1 + 16 * 1 - 16 = mkVal lay leaf j 1 by unfold mkVal mkBlk; omega] at h
 theorem mkCur_bounds (lay leaf j b : Nat) (hlay : lay < 4) (hleaf : leaf < 2 ^ hL lay) (hj : j < hL lay)
     (hb : b < 2) :
-    WLO ≤ mkCur lay leaf j b ∧ mkCur lay leaf j b % 8 = 0 ∧ mkCur lay leaf j b + 32 ≤ 0x1020 + 18904 := by
+    WLO ≤ mkCur lay leaf j b ∧ mkCur lay leaf j b % 8 = 0 ∧ mkCur lay leaf j b + 32 ≤ 0x10A0 + 18776 := by
   obtain ⟨hB16, hBlo, hBhi, -, -⟩ := mkBo_facts lay leaf j hlay hleaf hj
   unfold mkCur mkVal mkBlk WLO WIT
   omega
@@ -3574,7 +3574,7 @@ def k0 : List (Reg × Word) :=
    (.x21, 0), (.x22, 0), (.x23, 0), (.x24, 0), (.x25, 0), (.x26, 0), (.x27, 0), (.x28, 0), (.x29, 0),
    (.x30, 0), (.x31, 0)]
 def VERIFY_DATA : Nat := 0xffbde0
-def MSGADDR : Nat := 26144
+def MSGADDR : Nat := 26016
 structure InitOK (m : T3.Message) (pk : Digest) (w : ClaudeWCT.W9.T3M.WBytes) (s : MachineState) : Prop where
   known : KnownOK k0 s
   pc : s.pc = pcOf 0
@@ -3605,18 +3605,18 @@ theorem verifyData_initialMask :
     bytesToWordLE ((((submission.image .verify).data).take 8)) = 0xfff#64 := by
   decide +kernel
 set_option maxRecDepth 200000 in
-theorem init_ok (m : Legacy.Message) (pk : PublicKey) (w : Bytes 22012) (s : MachineState)
+theorem init_ok (m : Legacy.Message) (pk : PublicKey) (w : Bytes 21756) (s : MachineState)
     (h : initialState submission .verify (m, pk, w) = some s) : InitOK m pk w s := by
   unfold initialState at h
   simp only [submission_admissible.2 .verify, if_true, Option.some.injEq] at h
   subst h
   have hl : inputBuffers submission.sizes submission.layout .verify (m, pk, w) =
-      [(MSGADDR, bytes m), (0xA0, bytes pk), (0x1020, bytes w)] := rfl
+      [(MSGADDR, bytes m), (0xA0, bytes pk), (0x10A0, bytes w)] := rfl
   rw [hl]
   simp only [List.foldl_cons, List.foldl_nil]
   have lm : (bytes m).length = 32 := length_bytes m
   have lp : (bytes pk).length = 16 := length_bytes pk
-  have lw : (bytes w).length = 22012 := length_bytes w
+  have lw : (bytes w).length = 21756 := length_bytes w
   have lD := verifyData_length
   have eD := dataBase_verify
   set blank : MachineState := { regs := fun _ => 0, mem := fun _ => 0, pc := 0x1000 }
@@ -3624,7 +3624,7 @@ theorem init_ok (m : Legacy.Message) (pk : PublicKey) (w : Bytes 22012) (s : Mac
     (submission.image .verify).data
   set s1 := s0.writeBytesAsWords (BitVec.ofNat 64 MSGADDR) (bytes m)
   set s2 := s1.writeBytesAsWords (BitVec.ofNat 64 0xA0) (bytes pk)
-  set s3 := s2.writeBytesAsWords (BitVec.ofNat 64 0x1020) (bytes w)
+  set s3 := s2.writeBytesAsWords (BitVec.ofNat 64 0x10A0) (bytes w)
   have gm : ∀ A, (s3.setReg .x2 (BitVec.ofNat 64 (dataBase (submission.image .verify)))).getMem A =
       s3.getMem A := fun A => by simp [MachineState.setReg, MachineState.getMem]
   have g0 : ∀ A, A < 2 ^ 64 → s0.getMem (BitVec.ofNat 64 A) =
@@ -3647,10 +3647,10 @@ theorem init_ok (m : Legacy.Message) (pk : PublicKey) (w : Bytes 22012) (s : Mac
     intro A hA
     rw [getMem_writeBytesAsWords _ s1 0xA0 A (by rw [lp]; omega) hA, lp]
   have g3 : ∀ A, A < 2 ^ 64 → s3.getMem (BitVec.ofNat 64 A) =
-      if 0x1020 ≤ A ∧ A < 0x1020 + 8 * ((22012 + 7) / 8) ∧ (A - 0x1020) % 8 = 0 then
-        bytesToWordLE (((bytes w).drop (A - 0x1020)).take 8) else s2.getMem (BitVec.ofNat 64 A) := by
+      if 0x10A0 ≤ A ∧ A < 0x10A0 + 8 * ((21756 + 7) / 8) ∧ (A - 0x10A0) % 8 = 0 then
+        bytesToWordLE (((bytes w).drop (A - 0x10A0)).take 8) else s2.getMem (BitVec.ofNat 64 A) := by
     intro A hA
-    rw [getMem_writeBytesAsWords _ s2 0x1020 A (by rw [lw]; omega) hA, lw]
+    rw [getMem_writeBytesAsWords _ s2 0x10A0 A (by rw [lw]; omega) hA, lw]
   have gb : ∀ A, VERIFY_DATA ≤ A → A < 2 ^ 24 →
       (s3.setReg .x2 (BitVec.ofNat 64 (dataBase (submission.image .verify)))).getByte
         (BitVec.ofNat 64 A) = (submission.image .verify).data.getD (A - VERIFY_DATA) 0 := by
@@ -3705,7 +3705,7 @@ theorem init_ok (m : Legacy.Message) (pk : PublicKey) (w : Bytes 22012) (s : Mac
   · intro k hk
     unfold MSGADDR
     rw [gm, g3 _ (by omega), if_neg (by omega), g2 _ (by omega), if_neg (by omega), g1 _ (by omega),
-      if_pos (by unfold MSGADDR; omega), show 26144 + 8 * k - MSGADDR = 8 * k by unfold MSGADDR; omega,
+      if_pos (by unfold MSGADDR; omega), show 26016 + 8 * k - MSGADDR = 8 * k by unfold MSGADDR; omega,
       bytes_word m k (by omega)]
   · refine ⟨?_, ?_⟩
     · show (s3.setReg .x2 _).getMem (BitVec.ofNat 64 0xA0) = _
@@ -3717,7 +3717,7 @@ theorem init_ok (m : Legacy.Message) (pk : PublicKey) (w : Bytes 22012) (s : Mac
   · intro j hj
     unfold WX at hj
     rw [gm, g3 _ (by unfold WIT; omega), if_pos (by unfold WIT; omega),
-      show WIT + 8 * j - 0x1020 = 8 * j by unfold WIT; omega, bytes_word_lt w j (by norm_num) (by omega)]
+      show WIT + 8 * j - 0x10A0 = 8 * j by unfold WIT; omega, bytes_word_lt w j (by norm_num) (by omega)]
     rfl
   · intro A hA hz
     unfold WIT at hA

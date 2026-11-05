@@ -13638,10 +13638,10 @@ open ClaudeWCT.W9.T3M.SharedCodec SharedSerializer
 set_option maxHeartbeats 1500000
 set_option maxRecDepth 100000
 
-/-- The paired submission's sizes and layout (witness stack: W 22012, witness at 4128 = 0x1020, message at
-26144 = 0x6620). -/
+/-- The paired submission's sizes and layout (witness stack: W 21756, witness at 4256 = 0x10A0, message at
+26016 = 0x65A0). -/
 def runtimeSub (imgs : Phase→Image) : Submission :=
-  ⟨⟨5191,22012,131072⟩,⟨0x6620,0x80,0xa0,0x80000,0x7000,0x1020⟩,imgs⟩
+  ⟨⟨5191,21756,131072⟩,⟨0x65A0,0x80,0xa0,0x80000,0x7000,0x10A0⟩,imgs⟩
 
 theorem initialState_of_wsub (imgs : Phase→Image)
     (hv : (imgs .sign).Valid (runtimeSub imgs).sizes (runtimeSub imgs).layout)

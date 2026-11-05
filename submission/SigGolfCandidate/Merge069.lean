@@ -17,7 +17,7 @@ set_option maxRecDepth 100000
 set_option linter.unusedSimpArgs false
 
 def cDA : List (BitVec 32) :=
-  [0x20e37,0x160e0e13,0xe3503,0x3455513,0x301eb7,0xe8e93,0x3f37,0xe10f0f13,0x50313,0x3f37313,0x731313,0x323b7,
+  [0x20e37,0x160e0e13,0xe3503,0x3455513,0x301eb7,0xe8e93,0x3f37,0xe90f0f13,0x50313,0x3f37313,0x731313,0x323b7,
     0xe7838393,0x6383b3,0x38067]
 def cDB : List (BitVec 32) := [0x655313,0x3f37313,0x731313,0x343b7,0xe7838393,0x6383b3,0x38067]
 def cJ : List (BitVec 32) := [0x40406f]
@@ -83,7 +83,7 @@ theorem dA_spec {im : Image} (hc : CodeAt im (pcOf 50055) cDA) (s : MachineState
     ∃ t, Steps im s RDA.res.steps RDA.res.cycles t ∧
       t.pc = pcOf (50078 + 32 * (leafOf (s.getMem (BitVec.ofNat 64 0x20160)) % 64)) ∧
       t.getReg .x10 = BitVec.ofNat 64 (leafOf (s.getMem (BitVec.ofNat 64 0x20160))) ∧
-      t.getReg .x29 = BitVec.ofNat 64 0x301000 ∧ t.getReg .x30 = BitVec.ofNat 64 11792 ∧
+      t.getReg .x29 = BitVec.ofNat 64 0x301000 ∧ t.getReg .x30 = BitVec.ofNat 64 11920 ∧
       RegsExcept s t [.x6, .x7, .x10, .x28, .x29, .x30] ∧ ∀ A, t.getMem A = s.getMem A := by
   have hl := leafOf_lt (s.getMem (BitVec.ofNat 64 0x20160))
   refine ⟨_, symRun_sound RDA hc s hpc (by simp [RDA.res, Result.obligs, Oblig.all, rv_simp, accessValid_iff,
@@ -166,6 +166,19 @@ theorem zpro_spec {im : Image} {code : List (BitVec 32)} {p a e next : Nat}
   simp only [Result.toState_getReg, zProResAt]
   cases x <;> simp_all [RegFile.get, RegFile.set, RegFile.init, E.eval] <;> rfl
 
+/-- E4: the band-copy prologue (`t3 := 26136`, `t5 := 26072`). -/
+theorem dpro_spec {im : Image} (hc : CodeAt im (pcOf 49279) cDg) (s : MachineState) (hpc : s.pc = pcOf 49279) :
+    ∃ t, Steps im s 3 3 t ∧ t.pc = pcOf 49282 ∧
+      (t.getReg .x28 = BitVec.ofNat 64 26136 ∧ t.getReg .x30 = BitVec.ofNat 64 26072) ∧
+      RegsExcept s t [.x28, .x30] ∧ ∀ A, t.getMem A = s.getMem A := by
+  have := symRun_sound run_dg hc s hpc (by simp [dProRes, Result.obligs, Oblig.all])
+  refine ⟨_, this, by simp [dProRes, E.eval], ⟨by simp [dProRes, RegFile.get, RegFile.set, E.eval],
+    by simp [dProRes, RegFile.get, RegFile.set, E.eval]⟩, ?_, fun A => rfl⟩
+  intro x hx
+  simp only [List.mem_cons, List.not_mem_nil, or_false, not_or] at hx
+  simp only [Result.toState_getReg, dProRes]
+  cases x <;> simp_all [RegFile.get, RegFile.set, RegFile.init, E.eval] <;> rfl
+
 /-! ### The whole post-pass as a memory map -/
 /-- T1 scratch for the three lower leaf buffers. -/
 abbrev SCR : Nat := 0x302000
@@ -180,10 +193,10 @@ abbrev PS6 (M : Nat → Word) : Nat → Word := bmv (PS5 M) 17864 880 331
 abbrev PS7 (M : Nat → Word) : Nat → Word := fcp (PS6 M) (SCR + 1456) 15288 102
 abbrev PS8 (M : Nat → Word) : Nat → Word := fcp (PS7 M) (SCR + 736) 18752 86
 abbrev PS9 (M : Nat → Word) : Nat → Word := fcp (PS8 M) SCR 22008 86
-abbrev PS10 (M : Nat → Word) : Nat → Word := zfill (PS9 M) 25952 20
-abbrev PS11 (M : Nat → Word) : Nat → Word := bmv (PS10 M) 10560 1224 958
+abbrev PS10 (M : Nat → Word) : Nat → Word := dmv (PS9 M) 26136 8
+abbrev PS11 (M : Nat → Word) : Nat → Word := bmv (PS10 M) 10560 1352 958
 /-- Memory after the save, permutation, FTS move and zero stages. -/
-def stage7 (M : Nat → Word) : Nat → Word := zfill (PS11 M) 11792 437
+def stage7 (M : Nat → Word) : Nat → Word := zfill (PS11 M) 11920 421
 
 /-- Memory after the post-pass, from the memory `M` at its entry (`leaf` = the top leaf). -/
 def ppMem (leaf : Nat) (M : Nat → Word) : Nat → Word :=
@@ -197,7 +210,7 @@ theorem vFun_20160 (M : Nat → Word) : vFun M 0x20160 = M 0x20160 := by
 
 /-- `mem[0x20160]` is not touched before the dispatch reads it. -/
 theorem stages_20160 (M : Nat → Word) : stage7 M 0x20160 = M 0x20160 := by
-  simp only [stage7, PS11, PS10, PS9, PS8, PS7, PS6, PS5, PS4, PS3, PS2, PS1, zfill, bmv, fcp]
+  simp only [stage7, PS11, PS10, PS9, PS8, PS7, PS6, PS5, PS4, PS3, PS2, PS1, zfill, bmv, fcp, dmv]
   simp (config := { decide := true })
 
 theorem vFun_congr (M1 M2 : Nat → Word) (h : ∀ B < 2 ^ 64, M1 B = M2 B) (A : Nat) (hA : A < 2 ^ 64) :
@@ -220,11 +233,11 @@ theorem rowFun_congr (pairs : List (Nat × Nat)) (hp : ∀ e ∈ pairs, e.1 < 40
 /-- Cycles of the whole post-pass. -/
 def ppCycles : Nat :=
   6 + 5 * 432 + 6 + 5 * 96 + 6 + 5 * 284 + 6 + 5 * 407 + RJA.res.cycles + 5 + 5 * 321 + 5 + 5 * 331 +
-    6 + 5 * 102 + 6 + 5 * 86 + 6 + 5 * 86 + 4 + 3 * 20 + RJB.res.cycles + 5 + 5 * 958 + 4 + 3 * 437 + 586 +
+    6 + 5 * 102 + 6 + 5 * 86 + 6 + 5 * 86 + 3 + 4 * 8 + RJB.res.cycles + 5 + 5 * 958 + 4 + 3 * 421 + 586 +
     RDA.res.cycles + 25 + RDB.res.cycles + 25 + RJ.res.cycles
 
 theorem pp_spec (s : MachineState) (hpc : s.pc = pcOf 49400) :
-    ∃ t, Steps Images.expandImage s 17612 ppCycles t ∧ t.pc = pcOf 54174 ∧
+    ∃ t, Steps Images.expandImage s 17535 ppCycles t ∧ t.pc = pcOf 54174 ∧
       RegsExcept s t [.x6, .x7, .x10, .x28, .x29, .x30] ∧
       ∀ A < 2 ^ 64, t.getMem (BitVec.ofNat 64 A) =
         ppMem (leafOf (s.getMem (BitVec.ofNat 64 0x20160))) (fun B => s.getMem (BitVec.ofNat 64 B)) A := by
@@ -282,21 +295,22 @@ theorem pp_spec (s : MachineState) (hpc : s.pc = pcOf 49400) :
     (by decide) 86 le_rfl
   have pu9 : u9.pc = pcOf 49279 := by rw [I9.pc, if_neg (by decide)]
   -- zero tail band
-  obtain ⟨t10, st10, pt10, rt10, rr10, mt10⟩ := zpro_spec run_zg code_zg u9 pu9
-  obtain ⟨u10, su10, ru10, pu10', _, mu10⟩ := z_loop (Or.inr rfl) code_zgb t10 (PS9 (fun B => s.getMem (BitVec.ofNat 64 B))) 25952 20 (by decide) pt10 rt10.1
-    rt10.2 (fun A hA => by rw [mt10, I9.mem A hA]) (by decide) (by decide) 20 le_rfl
-  have pu10 : u10.pc = pcOf 49286 := by rw [pu10', if_neg (by decide)]
+  obtain ⟨t10, st10, pt10, rt10, rr10, mt10⟩ := dpro_spec code_dg u9 pu9
+  obtain ⟨u10, su10, ru10, I10⟩ := d_loop code_dgb t10 (PS9 (fun B => s.getMem (BitVec.ofNat 64 B))) 26136 26072 8
+    (by decide) (by decide) pt10 rt10.1 rt10.2 (fun A hA => by rw [mt10, I9.mem A hA]) (by decide) (by decide)
+    (by decide) (by decide) 8 le_rfl
+  have pu10 : u10.pc = pcOf 49286 := by rw [I10.pc, if_neg (by decide)]
   obtain ⟨v10, sv10, pv10, rv10, mv10⟩ := jB_spec code_jB u10 pu10
   -- move 4 (FTS block)
   obtain ⟨t11, st11, pt11, a11, b11, c11, rt11, mt11⟩ := pro_spec run_mv4 code_mv4 (Or.inr rfl) v10 pv10
-  obtain ⟨u11, su11, ru11, I11⟩ := m_loop (by decide) code_m4 t11 (PS10 (fun B => s.getMem (BitVec.ofNat 64 B))) 10560 1224 2896 958 (by decide)
-    (by decide) pt11 a11 b11 c11 (fun A hA => by rw [mt11, mv10, mu10 A hA]) (by decide) (by decide) (by decide)
+  obtain ⟨u11, su11, ru11, I11⟩ := m_loop (by decide) code_m4 t11 (PS10 (fun B => s.getMem (BitVec.ofNat 64 B))) 10560 1352 2896 958 (by decide)
+    (by decide) pt11 a11 b11 c11 (fun A hA => by rw [mt11, mv10, I10.mem A hA]) (by decide) (by decide) (by decide)
     (by decide) (by decide) 958 le_rfl
   have pu11 : u11.pc = pcOf 49462 := by rw [I11.pc, if_neg (by decide)]
   -- zero
   obtain ⟨t12, st12, pt12, rt12, rr12, mt12⟩ := zpro_spec run_zpro code_zpro u11 pu11
-  obtain ⟨u12, su12, ru12, pu12', _, mu12⟩ := z_loop (Or.inl rfl) code_z t12 (PS11 (fun B => s.getMem (BitVec.ofNat 64 B))) 11792 437 (by decide) pt12 rt12.1
-    rt12.2 (fun A hA => by rw [mt12, I11.mem A hA]) (by decide) (by decide) 437 le_rfl
+  obtain ⟨u12, su12, ru12, pu12', _, mu12⟩ := z_loop rfl code_z t12 (PS11 (fun B => s.getMem (BitVec.ofNat 64 B))) 11920 421 (by decide) pt12 rt12.1
+    rt12.2 (fun A hA => by rw [mt12, I11.mem A hA]) (by decide) (by decide) 421 le_rfl
   have pu12 : u12.pc = pcOf 49469 := by rw [pu12', if_neg (by decide)]
   -- values
   obtain ⟨u13, su13, pu13, ru13, _, mu13⟩ := vals_spec code_vals u12 pu12
@@ -323,12 +337,12 @@ theorem pp_spec (s : MachineState) (hpc : s.pc = pcOf 49400) :
   refine ⟨u18, ?_, pu18, ?_, ?_⟩
   · have hS := ((((((((((((((((((((((((((((((st1.trans su1).trans st2).trans su2).trans st3).trans su3).trans st4).trans su4).trans sv4).trans st5).trans su5).trans st6).trans su6).trans st7).trans su7).trans st8).trans su8).trans st9).trans su9).trans st10).trans su10).trans sv10).trans st11).trans su11).trans st12).trans su12).trans su13).trans su14).trans su15).trans su16).trans su17).trans su18
     have hk : 6 + 5 * 432 + 6 + 5 * 96 + 6 + 5 * 284 + 6 + 5 * 407 + RJA.res.steps + 5 + 5 * 321 + 5 + 5 * 331 +
-        6 + 5 * 102 + 6 + 5 * 86 + 6 + 5 * 86 + 4 + 3 * 20 + RJB.res.steps + 5 + 5 * 958 + 4 + 3 * 437 + 586 +
-        RDA.res.steps + 25 + RDB.res.steps + 25 + RJ.res.steps = 17612 := by
+        6 + 5 * 102 + 6 + 5 * 86 + 6 + 5 * 86 + 3 + 4 * 8 + RJB.res.steps + 5 + 5 * 958 + 4 + 3 * 421 + 586 +
+        RDA.res.steps + 25 + RDB.res.steps + 25 + RJ.res.steps = 17535 := by
       rw [show RDA.res.steps = 15 from rfl, show RDB.res.steps = 7 from rfl, show RJ.res.steps = 1 from rfl,
         show RJA.res.steps = 1 from rfl, show RJB.res.steps = 1 from rfl]
     have hc : 6 + 5 * 432 + 6 + 5 * 96 + 6 + 5 * 284 + 6 + 5 * 407 + RJA.res.cycles + 5 + 5 * 321 + 5 + 5 * 331 +
-        6 + 5 * 102 + 6 + 5 * 86 + 6 + 5 * 86 + 4 + 3 * 20 + RJB.res.cycles + 5 + 5 * 958 + 4 + 3 * 437 + 586 +
+        6 + 5 * 102 + 6 + 5 * 86 + 6 + 5 * 86 + 3 + 4 * 8 + RJB.res.cycles + 5 + 5 * 958 + 4 + 3 * 421 + 586 +
         RDA.res.cycles + 25 + RDB.res.cycles + 25 + RJ.res.cycles = ppCycles := rfl
     exact Steps.of_eq hS hk hc
   · exact (((((((((((((((((((((((((((((((rt1.trans ru1).trans rt2).trans ru2).trans rt3).trans ru3).trans rt4).trans ru4).trans rv4).trans rt5).trans ru5).trans rt6).trans ru6).trans rt7).trans ru7).trans rt8).trans ru8).trans rt9).trans ru9).trans rr10).trans ru10).trans rv10).trans rt11).trans ru11).trans rr12).trans ru12).trans ru13).trans ru14).trans ru15).trans ru16).trans ru17).trans ru18).mono (by decide)

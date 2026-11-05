@@ -3339,7 +3339,7 @@ checksum chain (group 17) 5. -/
 def mx (q : Nat) : Nat := if q<9 then 5 else if q<16 then 4 else if q=16 then 6 else 5
 /-- Top chain `i`'s block in the top chain area (even pairing, charge 86: pair `p = (2p, 2p+1)` at `104 (26 - p)`,
 G chain at `+16`, F chain at `+40`; `= W9.T3M.chainSlot 0 i`). -/
-def topSlot (i : Nat) : Nat := 104*(26-i/2)+16+24*(i%2)
+def topSlot (i : Nat) : Nat := if i = 50 then 144 else if i % 2 = 0 then 224 + 104 * (24 - i / 2) else 248 + 104 * (24 - i / 2)
 /-- Top chain format (T51): chain `i` is G (value first) iff it is even and `i ≤ 50` (`= T3.topIsG`). -/
 def topG (i : Nat) : Bool := decide (i%2=0 ∧ i ≤ 50)
 def off (i : Nat) : Word := BitVec.ofNat 64 (topSlot i)-BitVec.ofNat 64 1664
@@ -3607,7 +3607,7 @@ structure NCtx where
   digits : Nat → Nat
   ret : Nat
 namespace NCtx
-/-- Charge 86: chain `i`'s block (`= WIT + chainBlock 0 i` for `S3 = 14128`). -/
+/-- Charge 85: chain `i`'s block (`= WIT + chainBlock 0 i` for `S3 = 14128`). -/
 def blk (c : NCtx) (i : Nat) : Nat := c.S3 - 1664 + topSlot i
 /-- Address of the supplied value (G: block start, F: block + 48). -/
 def vAt (c : NCtx) (i : Nat) : Nat := c.blk i + 48 * (i % 2)
@@ -3632,7 +3632,7 @@ def pad1 (c : NCtx) (i : Nat) : Digest := ClaudeWCT.W9.T3M.wdig c.w (c.pad1At i 
 def padHeader (c : NCtx) (i : Nat) : Word := (ClaudeWCT.W9.T3M.wdig c.w (c.blk i - Verify.WIT + 16)).extractLsb' 64 64
 def val (c : NCtx) (i : Nat) : Digest := ClaudeWCT.W9.T3M.wdig c.w (c.vAt i - Verify.WIT)
 def ok (c : NCtx) : Prop :=
-  c.tree = 0 ∧ c.leaf < 4096 ∧ c.S3 % 8 = 0 ∧ Verify.WIT + 8336 + 1664 ≤ c.S3 ∧ c.S3 + 1144 ≤ 15272 ∧
+  c.tree = 0 ∧ c.leaf < 4096 ∧ c.S3 % 8 = 0 ∧ Verify.WIT + 8208 + 1664 ≤ c.S3 ∧ c.S3 + 1144 ≤ 15272 ∧
     c.ret < 209920
 def known (c : NCtx) : List (Reg × Word) :=
   [(.x5, 0), (.x11, 64), (.x7, 1), (.x13, 2), (.x19, 3), (.x20, 4), (.x21, 5), (.x26, 6),
@@ -3684,7 +3684,8 @@ when `i` is odd. -/
 def Wr (c : NCtx) (i : Nat) (A : Nat) : Prop :=
   (slot 1 ≤ A ∧ A < c.bufferEnd i) ∨ (0 < i ∧ slot 0 - 16 ≤ A ∧ A < slot 0 + 16) ∨
     (c.S3 + 104 * (27 - i / 2) ≤ A + 1664 ∧ A < c.S3 + 1160) ∨
-    (i % 2 = 1 ∧ c.S3 + 104 * (26 - i / 2) ≤ A + 1664 ∧ A + 1664 < c.S3 + 104 * (26 - i / 2) + 40)
+    (i % 2 = 1 ∧ c.S3 + 104 * (26 - i / 2) + 24 * (i / 51 % 2) ≤ A + 1664 ∧
+      A + 1664 < c.S3 + 104 * (26 - i / 2) + 40 + 24 * (i / 51 % 2))
 /-- Chain `i`'s own writes: its header word and the 32-byte destination of its interior steps. -/
 def WrIn (c : NCtx) (i : Nat) (A : Nat) : Prop :=
   c.Wr i A ∨ (c.blk i + 16 ≤ A ∧ A < c.blk i + 24) ∨ (c.oAt i ≤ A ∧ A < c.oAt i + 32)
@@ -3714,23 +3715,24 @@ def PreHash (c : NCtx) (s0 : MachineState) (i : Nat) (acc : List Digest) (m : Na
     t.pc = pcOf (c.rungPc i m + (if m = last i then 2 else 1)) ∧ fetch vimage t = some (.base .ECALL)
 def EndInv (c : NCtx) (s0 : MachineState) (i : Nat) (acc : List Digest) (s : MachineState) : Prop :=
   c.Base s0 (c.Wr (i + 1)) acc s ∧ acc.length = i + 1 ∧ s.pc = pcOf (c.endPc i)
-theorem topSlot_props (i : Nat) (hi : i < 51) : topSlot i % 8 = 0 ∧ 16 ≤ topSlot i ∧ topSlot i + 64 ≤ 2808 := by
-  unfold topSlot; omega
+theorem topSlot_props (i : Nat) (hi : i < 51) : topSlot i % 8 = 0 ∧ 144 ≤ topSlot i ∧ topSlot i + 64 ≤ 2808 := by
+  unfold topSlot; split_ifs <;> omega
 theorem topG_eq (i : Nat) : topG i = T3.topIsG i := by simp [topG, T3.topIsG]
 theorem topG_isG (i : Nat) : topG i = ClaudeWCT.WCT9.isG 0 i := by rw [ClaudeWCT.WCT9.isG_top_eq, topG_eq]
 theorem topG_lt (i : Nat) (hi : i < 51) : topG i = decide (i % 2 = 0) := by
   unfold topG; by_cases h : i % 2 = 0 <;> simp [h] <;> omega
-theorem topSlot_eq (i : Nat) : topSlot i = ClaudeWCT.W9.T3M.chainSlot 0 i := by
-  unfold topSlot ClaudeWCT.W9.T3M.chainSlot; simp only [Fin.val_zero, if_true]; split <;> omega
+theorem topSlot_eq (i : Nat) : topSlot i = ClaudeWCT.W9.T3M.chainSlot 0 i + 128 := by
+  unfold topSlot ClaudeWCT.W9.T3M.chainSlot; simp only [Fin.val_zero, if_true]; split_ifs <;> omega
 theorem blk_props (c : NCtx) (hc : c.ok) (i : Nat) (hi : i < 51) :
     c.blk i % 8 = 0 ∧ Verify.WIT + 8352 ≤ c.blk i ∧ c.blk i + 80 ≤ 15288 := by
   obtain ⟨-, -, h64, hlo, hhi, -⟩ := hc
   have := topSlot_props i hi
   unfold blk Verify.WIT at *; refine ⟨?_, ?_, ?_⟩ <;> omega
-/-- Chain `i`'s block lies in pair `i / 2` (`[pair, pair + 104)` with `pair = S3 - 1664 + 104 (26 - i / 2)`). -/
+/-- Chain `i`'s block lies in pair `i / 2` (`[pair, pair + 104)` with `pair = S3 - 1664 + 104 (26 - i / 2)`;
+the checksum chain 50 sits 24 bytes higher in pair 25, so it starts on the old top path's last word). -/
 theorem blk_eq (c : NCtx) (i : Nat) (hi : i < 51) :
-    c.blk i = c.S3 - 1664 + 104 * (26 - i / 2) + 16 + 24 * (i % 2) := by
-  unfold blk topSlot; omega
+    c.blk i = c.S3 - 1664 + 104 * (26 - i / 2) + 16 + 24 * (i % 2) + 24 * (i / 50) := by
+  unfold blk topSlot; split_ifs <;> omega
 theorem vAt_props (c : NCtx) (hc : c.ok) (i : Nat) (hi : i < 51) :
     c.vAt i % 8 = 0 ∧ c.vAt i = c.blk i + 48 * (i % 2) := by
   have hb := c.blk_props hc i hi
@@ -3877,7 +3879,11 @@ theorem notWr_block (c : NCtx) (hc : c.ok) {i A : Nat} (hi : i < 51) (h1 : c.blk
   have hhi := hc.2.2.2.2.1
   unfold Wr
   rw [slot0, slot1]
-  omega
+  by_cases h50 : i = 50
+  · subst h50; omega
+  · have : i / 50 = 0 := by omega
+    have : i / 51 = 0 := by omega
+    omega
 theorem dig_at {c : NCtx} {s0 t : MachineState} {W : Nat → Prop} (hF : Frame s0 t W) (h0 : c.Orig0 s0)
     (hc : c.ok) {i A : Nat} (hi : i < 51) (hA1 : c.blk i ≤ A) (hA2 : A + 16 ≤ c.blk i + 64)
     (hA8 : (A - c.blk i) % 8 = 0) (hW0 : ¬ W A) (hW1 : ¬ W (A + 8)) :
@@ -4012,12 +4018,20 @@ theorem WrIn_next (c : NCtx) (hc : c.ok) (i A : Nat) (hi : i < 51) (h : c.WrIn i
   · exact c.Wr_mono i A h
   · have he := c.blk_eq i hi
     unfold Wr; right; right
+    by_cases h50 : i = 50
+    · subst h50; right; omega
+    have : i / 50 = 0 := by omega
+    have : (i + 1) / 51 = 0 := by omega
     by_cases h2 : i % 2 = 0
     · right; omega
     · left; omega
   · have he := c.blk_eq i hi
     unfold oAt at h
     unfold Wr; right; right
+    by_cases h50 : i = 50
+    · subst h50; right; omega
+    have : i / 50 = 0 := by omega
+    have : (i + 1) / 51 = 0 := by omega
     by_cases h2 : i % 2 = 0
     · right; omega
     · left; omega
@@ -4101,7 +4115,7 @@ theorem bufferVal_source (c : NCtx) (digits : List Nat)
       by_cases h : i % 2 = 0 <;> simp [h] <;> omega
     rw [hv]
     simp only [vAt, blk, hS, ClaudeWCT.W9.T3M.chainBlock, ClaudeWCT.W9.T3M.layerBase,
-      ClaudeWCT.W9.T3M.pathSlots, Matrix.cons_val_zero, Verify.WIT, ← topSlot_eq]
+      ClaudeWCT.W9.T3M.pathSlots, Matrix.cons_val_zero, Verify.WIT, topSlot_eq]
     omega
 
 theorem bufferVal_nonmax (c : NCtx) (i : Nat) (h : c.dig i ≠ topMax i) :

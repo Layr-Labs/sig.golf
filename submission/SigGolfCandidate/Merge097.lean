@@ -84,7 +84,7 @@ theorem expand_eq (P : Pending I) (m : Message) (pk : PublicKey) (s : Bytes 5310
   unfold SigGolfCandidate.Bridge.countCalls
   rw [countFrom_map]
 set_option maxRecDepth 100000 in
-theorem verify_eq (P : Pending I) (m : Message) (pk : PublicKey) (w : Bytes 22012) :
+theorem verify_eq (P : Pending I) (m : Message) (pk : PublicKey) (w : Bytes 21756) :
     (fun r => (r.value, r.hashCalls)) <$> (submission I).run .verify (m, pk, w) =
       (fun p => (if p.1 then some () else none, p.2)) <$>
         SigGolfCandidate.Bridge.countCalls (relabel toQ (hrealize 0 (verifyP m pk w))) := by
@@ -558,7 +558,7 @@ theorem expand_eq (P : Pending I) (m : Message) (pk : PublicKey) (s : Bytes 5191
   unfold SigGolfCandidate.Bridge.countCalls
   rw [countFrom_map]
 set_option maxRecDepth 100000 in
-theorem verify_eq (P : Pending I) (m : Message) (pk : PublicKey) (w : Bytes 22012) :
+theorem verify_eq (P : Pending I) (m : Message) (pk : PublicKey) (w : Bytes 21756) :
     (fun r => (r.value, r.hashCalls)) <$> (submission I).run .verify (m, pk, w) =
       (fun p => (if p.1 then some () else none, p.2)) <$>
         SigGolfCandidate.Bridge.countCalls (relabel toQ (hrealize 0 (verifyP m pk w))) := by
@@ -995,7 +995,7 @@ set_option maxRecDepth 10000
 theorem witEncN_getLsbD_free (output : HashOutput) (w : SigGolfCandidate.Research.SharedForest.Witness) (i : Nat)
     (h : ∀ j, j < 11 → i / 8 < noncePos output j ∨ noncePos output j + 8 ≤ i / 8) :
     (witEncN output w).getLsbD i = (Paired.witEnc output w).getLsbD i := by
-  by_cases hlt : i < 8 * 22012
+  by_cases hlt : i < 8 * 21756
   · have e : ∀ x : WBytes, x.getLsbD i = (x.extractLsb' (8 * (i / 8)) (8 * 1)).getLsbD (i % 8) := by
       intro x
       rw [BitVec.getLsbD_extractLsb']
@@ -1260,8 +1260,8 @@ theorem chain_fields_N (output : HashOutput) (w : SigGolfCandidate.Research.Shar
     · exact hb i hi
     · exact hv i
 
-theorem merkleBlock_lower_ge (lay : Layer) (hl : lay ≠ 0) (leaf j : Nat) : 11144 ≤ merkleBlock lay leaf j := by
-  have : 11144 ≤ layerBase lay := by
+theorem merkleBlock_lower_ge (lay : Layer) (hl : lay ≠ 0) (leaf j : Nat) : 11016 ≤ merkleBlock lay leaf j := by
+  have : 11016 ≤ layerBase lay := by
     fin_cases lay
     · exact absurd rfl hl
     all_goals decide
@@ -1326,7 +1326,7 @@ theorem layerGuardedPairP_N (output : HashOutput) (w : SigGolfCandidate.Research
     simp only [layerChainP, hcp, hh, hvf digits (i % chainCount lay) (Nat.mod_lt _ hpos)]
   simp only [layerGuardedPairP, hc, layerPairP_N output w index lay hl]
 
-theorem rowBlock_out (index : Nat) (lay : Layer) : rowBlock index lay = 0 ∨ 11144 ≤ rowBlock index lay := by
+theorem rowBlock_out (index : Nat) (lay : Layer) : rowBlock index lay = 0 ∨ 11016 ≤ rowBlock index lay := by
   unfold rowBlock
   split
   · exact Or.inl rfl
@@ -1681,10 +1681,10 @@ theorem wbcHigh_witEncG (output : HashOutput) (w : SigGolfCandidate.Research.Sha
 
 /-! Top layer: every read lies below the first lower path slot area. -/
 theorem wdig_G_low (output : HashOutput) (w : SigGolfCandidate.Research.SharedForest.Witness) (off : Nat)
-    (h : off + 16 ≤ 12008) : wdig (witEncG output w) off = wdig (witEncN output w) off :=
+    (h : off + 16 ≤ 11880) : wdig (witEncG output w) off = wdig (witEncN output w) off :=
   extract_witEncG_low output w off 16 128 (by omega) h
 
-theorem chainBlock_top_lt (i : Nat) : chainBlock 0 i + 64 ≤ 11144 := by
+theorem chainBlock_top_lt (i : Nat) : chainBlock 0 i + 64 ≤ 11016 := by
   unfold chainBlock chainSlot
   simp only [layerBase, pathSlots, Fin.isValue, Matrix.cons_val_zero, Fin.val_zero, ↓reduceIte]
   split_ifs <;> omega
@@ -2691,7 +2691,7 @@ theorem expand_value (E : EncodingFacts) (F : SourceQueries) (P : Pending I) (m 
   rw [value_of_counts (F := Option.map (fun x : SigGolfCandidate.T3.HashOutput × Witness => witEncG x.1 x.2))
     (P.expand_refines m pk s), expandB, ClaudeWCT.W9.T3M.Paired.expandB, mrealize_map]
 set_option maxRecDepth 100000 in
-theorem verify_value (E : EncodingFacts) (F : SourceQueries) (P : Pending I) (m : Message) (pk : PublicKey) (w : Bytes 22012) :
+theorem verify_value (E : EncodingFacts) (F : SourceQueries) (P : Pending I) (m : Message) (pk : PublicKey) (w : Bytes 21756) :
     (fun r => r.value.isSome) <$> (submission I).run .verify (m, pk, w) = mrealize 0 (verifyP m pk w) := by
   have h := congrArg (fun x => (fun p : Option Unit × Nat => p.1.isSome) <$> x) (P.verify_refines m pk w)
   simp only [Functor.map_map] at h
@@ -4454,7 +4454,7 @@ set_option maxHeartbeats 1000000
 set_option backward.isDefEq.respectTransparency false
 
 theorem expand_witness (E : EncodingFacts) (F : SourceQueries) (P : Final.Paired.Pending I)
-    (hash : Hash) (m : Message) (pk : PublicKey) (s : Bytes 5191) (w : Bytes 22012)
+    (hash : Hash) (m : Message) (pk : PublicKey) (s : Bytes 5191) (w : Bytes 21756)
     (he : ((Final.Paired.submission I).runWith hash .expand (m,pk,s)).value=some w) :
     ∃sig output wt,evalWithAnswerFn (machineAnswers hash 0)
       (ClaudeWCT.W9.T3M.Paired.expandN m pk sig)=some (output,wt) ∧
@@ -4472,7 +4472,7 @@ theorem expand_witness (E : EncodingFacts) (F : SourceQueries) (P : Final.Paired
     exact ⟨_,output,wt,hx,(Option.some.inj he).symm⟩
 
 theorem verify_run_agree (E : EncodingFacts) (F : SourceQueries) (P : Final.Paired.Pending I)
-    (f g : Hash) (m : Message) (pk : PublicKey) (w : Bytes 22012)
+    (f g : Hash) (m : Message) (pk : PublicKey) (w : Bytes 21756)
     (hagree : Agree f g (mrealize 0 (ClaudeWCT.W9.T3M.Paired.verifyP m pk w))) :
     (Final.Paired.submission I).runWith f .verify (m,pk,w)=
       (Final.Paired.submission I).runWith g .verify (m,pk,w) := by

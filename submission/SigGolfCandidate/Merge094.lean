@@ -344,7 +344,7 @@ theorem RecTable.frame {s t : MachineState} {output : HashOutput} {w : SharedFor
 theorem ppMem_rec (leaf : Nat) (M : Nat → Word) (A : Nat) (h1 : 0x700000 ≤ A) (h2 : A < 0x700060) :
     PostPass.ppMem leaf M A = M A := by
   rw [PostPass.ppMem_out _ _ _ (by omega), PostPass.stage7_unfold, PostPass.zfill_miss _ _ _ _ (by omega),
-    PostPass.bmv_miss _ _ _ _ _ (by omega), PostPass.zfill_miss _ _ _ _ (by omega), PostPass.fcp_miss _ _ _ _ _ (by omega),
+    PostPass.bmv_miss _ _ _ _ _ (by omega), PostPass.dmv_miss _ _ _ _ (by omega), PostPass.fcp_miss _ _ _ _ _ (by omega),
     PostPass.fcp_miss _ _ _ _ _ (by omega), PostPass.fcp_miss _ _ _ _ _ (by omega), PostPass.bmv_miss _ _ _ _ _ (by omega),
     PostPass.bmv_miss _ _ _ _ _ (by omega), PostPass.bmv_miss _ _ _ _ _ (by omega), PostPass.fcp_miss _ _ _ _ _ (by omega),
     PostPass.fcp_miss _ _ _ _ _ (by omega), PostPass.fcp_miss _ _ _ _ _ (by omega)]
@@ -412,10 +412,10 @@ theorem scatter_finish_readout {im : Image} (hc : ∀k:Fin 9,CoordinateCode im k
   -- Stage 2 (C3): the final pass restores the counter word (`off = 32`) and the row-tweak pad (`off = 24`); every
   -- other prefix word is the scatter's original word.
   have hprefix : ∀ (off:Nat), off+8≤7664 → off%8=0 →
-      W9Machine.OrigWD 1224 (Paired.witEnc output witness) v (2904+off) := by
+      W9Machine.OrigWD 1352 (Paired.witEnc output witness) v (2904+off) := by
     intro off hb hal
     unfold W9Machine.OrigWD
-    rw [show 2904+off+1224-0x1020=off by omega]
+    rw [show 2904+off+1352-0x10A0=off by omega]
     by_cases h32:off=32
     · subst off
       rw [Paired.counterWord_witEnc]
@@ -426,13 +426,13 @@ theorem scatter_finish_readout {im : Image} (hc : ∀k:Fin 9,CoordinateCode im k
       exact vpad
     have ho:=ScatterInv.original_prefix_forest output witness b s t hin hforest ht hz off hb hal (Or.inl h32) h24
     unfold W9Machine.OrigWD at ho
-    rw [show 2904+off+1224-0x1020=off by omega] at ho
+    rw [show 2904+off+1352-0x10A0=off by omega] at ho
     rw [vf.get (A:=2904+off) (by omega) (by omega)]
     exact (uf.get (by omega) (by tauto)).trans ho
   refine ⟨v,(st.trans tu).trans uv,vp,v5,?_,?_,?_,hframe⟩
   · intro j hj
     have hh:=hprefix (8*j) (by omega) (by omega)
-    simpa only [W9Machine.OrigWD,show 2904+8*j+1224-0x1020=8*j by omega,
+    simpa only [W9Machine.OrigWD,show 2904+8*j+1352-0x10A0=8*j by omega,
       show 8*(8*j)=64*j by omega] using hh
   · intro j hj hj' hc
     have hm':v.getMem (BitVec.ofNat 64 (2904+8*j))=s.getMem (BitVec.ofNat 64 (2904+8*j)):=
@@ -1342,7 +1342,7 @@ def PairedExpPost : Option (HashOutput × SigGolfCandidate.Research.SharedForest
   | none,t => (t.pc=pcOf 356 ∨ t.pc=pcOf 45231) ∧ t.getReg .x5=1 ∧ t.getReg .x10=1 ∧
       fetch Images.expandImage t=some (.base .ECALL)
   | some (output,w),t => t.pc=pcOf 55019 ∧ t.getReg .x5=1 ∧ t.getReg .x10=0 ∧
-      readBuffer t 4128 22012=ClaudeWCT.W9.T3M.Paired.witEncG output w ∧
+      readBuffer t 4256 21756=ClaudeWCT.W9.T3M.Paired.witEncG output w ∧
       fetch Images.expandImage t=some (.base .ECALL)
 end ClaudeWCT.W9.Machine.ExpandLink
 
@@ -1854,8 +1854,8 @@ theorem suffix_done {sk : BitVec 256} {r : Option (HashOutput × SharedForest.Wi
       rw [tm A (by omega)]; exact ppMem_rec _ _ A h1 h2)
     obtain ⟨u,su,up,u10,ur,fetch,ubuf,_⟩:=PadWit.pad_hook_witEncG t tp output w tleaf tnon trec tbuf
     have u5 : u.getReg .x5=1 := by rw [ur .x5 (by simp),tr .x5 (by simp)]; exact h5
-    have rb : readBuffer u 4128 22012=Paired.witEncG output w :=
-      SharedWitnessOutput.readBuffer_words u 4128 22012 2752 _ (by decide) (by decide) (by decide) ubuf
+    have rb : readBuffer u 4256 21756=Paired.witEncG output w :=
+      SharedWitnessOutput.readBuffer_words u 4256 21756 2720 _ (by decide) (by decide) (by decide) ubuf
     exact (TBSim.steps (st.trans su) (TBSim.pure (Q:=ClaudeWCT.W9.Machine.ExpandLink.PairedExpPost)
       (a:=some (output,w)) ⟨up,u5,u10,rb,fetch⟩)).mono (by unfold suffixW; omega) (fun _ _ h=>h)
 
@@ -2107,7 +2107,7 @@ theorem paired_expand_tbsim : PairedExpandSimulation := by
   · rw [if_neg bad]
     have hh:(SharedCodec.sigDecC b).policyHints.toNat<7744:=by omega
     obtain ⟨u,su,up,ureg,uin,uh,uf⟩:=PrePass.dec_init message pk b hh
-    have hmsg : ∀ k, k<4 → u.getMem (BitVec.ofNat 64 (0x6620+8*k))=message.extractLsb' (64*k) 64 := fun k hk =>
+    have hmsg : ∀ k, k<4 → u.getMem (BitVec.ofNat 64 (0x65A0+8*k))=message.extractLsb' (64*k) 64 := fun k hk =>
       (uf.get (by omega) (by omega)).trans
         (SharedInit.msgWord Images.expandData_length SharedInit.installed_dataBase message pk _ k hk)
     have u5 : u.getReg .x5=0 := (ureg .x5).trans (initial_x5 message pk _)
@@ -4514,7 +4514,7 @@ theorem sdata_zero (A : Nat) (hA : A < SIGN_DATA) : sdata.getMem (BitVec.ofNat 6
 def sinit (sk : SecretKey) (cache : Bytes 131072) (m : Message) : MachineState :=
   (((sdata.writeBytesAsWords
     (BitVec.ofNat 64 0x80) (bytes sk)).writeBytesAsWords (BitVec.ofNat 64 0x80000) (bytes cache)).writeBytesAsWords
-    (BitVec.ofNat 64 0x6620) (bytes m)).setReg .x2 (BitVec.ofNat 64 SIGN_DATA)
+    (BitVec.ofNat 64 0x65A0) (bytes m)).setReg .x2 (BitVec.ofNat 64 SIGN_DATA)
 theorem sinit_pc (sk : SecretKey) (cache : Bytes 131072) (m : Message) : (sinit sk cache m).pc = pcOf 0 := by
   unfold sinit
   rw [MachineState.pc_setReg, MachineState.pc_writeBytesAsWords, MachineState.pc_writeBytesAsWords,
@@ -4523,13 +4523,13 @@ theorem sinit_pc (sk : SecretKey) (cache : Bytes 131072) (m : Message) : (sinit 
 theorem bytes_length' {n : Nat} (x : Bytes n) : (bytes x).length = n := by simp [bytes]
 theorem sinit_getMem (sk : SecretKey) (cache : Bytes 131072) (m : Message) (A : Nat) (hA : A < 2 ^ 64) :
     (sinit sk cache m).getMem (BitVec.ofNat 64 A) =
-      if 0x6620 ≤ A ∧ A < 0x6640 ∧ (A - 0x6620) % 8 = 0 then bytesToWordLE (((bytes m).drop (A - 0x6620)).take 8)
+      if 0x65A0 ≤ A ∧ A < 0x65C0 ∧ (A - 0x65A0) % 8 = 0 then bytesToWordLE (((bytes m).drop (A - 0x65A0)).take 8)
       else if 0x80000 ≤ A ∧ A < 0xA0000 ∧ (A - 0x80000) % 8 = 0 then
         bytesToWordLE (((bytes cache).drop (A - 0x80000)).take 8)
       else if 0x80 ≤ A ∧ A < 0xA0 ∧ (A - 0x80) % 8 = 0 then bytesToWordLE (((bytes sk).drop (A - 0x80)).take 8)
       else sdata.getMem (BitVec.ofNat 64 A) := by
   unfold sinit
-  rw [MachineState.getMem_setReg, getMem_writeBytesAsWords _ _ 0x6620 A (by rw [bytes_length']; decide) hA,
+  rw [MachineState.getMem_setReg, getMem_writeBytesAsWords _ _ 0x65A0 A (by rw [bytes_length']; decide) hA,
     getMem_writeBytesAsWords _ _ 0x80000 A (by rw [bytes_length']; decide) hA,
     getMem_writeBytesAsWords _ _ 0x80 A (by rw [bytes_length']; decide) hA, bytes_length', bytes_length',
     bytes_length']
@@ -4539,14 +4539,14 @@ theorem sinit_sk (sk : SecretKey) (cache : Bytes 131072) (m : Message) (j : Nat)
     show SK + 8 * j - 0x80 = 8 * j by sg_omega, bytesToWordLE_bytes sk j (by omega)]
 theorem sinit_msg (sk : SecretKey) (cache : Bytes 131072) (m : Message) (j : Nat) (hj : j < 4) :
     (sinit sk cache m).getMem (BitVec.ofNat 64 (MSG + 8 * j)) = m.extractLsb' (64 * j) 64 := by
-  rw [sinit_getMem _ _ _ _ (by sg_omega), if_pos (by sg_omega), show MSG + 8 * j - 0x6620 = 8 * j by sg_omega,
+  rw [sinit_getMem _ _ _ _ (by sg_omega), if_pos (by sg_omega), show MSG + 8 * j - 0x65A0 = 8 * j by sg_omega,
     bytesToWordLE_bytes m j (by omega)]
 theorem sinit_cache (sk : SecretKey) (cache : Bytes 131072) (m : Message) (j : Nat) (hj : j < 16384) :
     (sinit sk cache m).getMem (BitVec.ofNat 64 (CACHE + 8 * j)) = cache.extractLsb' (64 * j) 64 := by
   rw [sinit_getMem _ _ _ _ (by sg_omega), if_neg (by sg_omega), if_pos (by sg_omega),
     show CACHE + 8 * j - 0x80000 = 8 * j by sg_omega, bytesToWordLE_bytes cache j (by omega)]
 theorem sinit_zero (sk : SecretKey) (cache : Bytes 131072) (m : Message) (A : Nat) (hA : A < SIGN_DATA)
-    (h : A < 0x80 ∨ (0xA0 ≤ A ∧ A < 0x6620) ∨ (0x6640 ≤ A ∧ A < 0x80000) ∨ 0xA0000 ≤ A) :
+    (h : A < 0x80 ∨ (0xA0 ≤ A ∧ A < 0x65A0) ∨ (0x65C0 ≤ A ∧ A < 0x80000) ∨ 0xA0000 ≤ A) :
     (sinit sk cache m).getMem (BitVec.ofNat 64 A) = 0 := by
   rw [sinit_getMem _ _ _ _ (by unfold SIGN_DATA at hA; omega), if_neg (by omega), if_neg (by omega), if_neg (by omega), sdata_zero A hA]
 theorem sinit_cacheWords (sk : SecretKey) (cache : Bytes 131072) (m : Message) (j : Nat) (hj : j < 16384) :
