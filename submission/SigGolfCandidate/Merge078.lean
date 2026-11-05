@@ -1472,40 +1472,13 @@ theorem bytes_getD {n : Nat} (x : Bytes n) (i : Nat) (hi : i < n) :
   simp only [bytes, List.getD_eq_getElem?_getD, List.getElem?_map, List.getElem?_range hi, Option.map_some,
     Option.getD_some]
 
-/-- U16b: the expand entry memory of the real initial state holds the 5,193-byte signature (bytes 5193..5194 zero). -/
+/-- U16b: the expand entry memory of the real initial state holds the 5,193-byte signature (bytes 5192..5194 zero). -/
 theorem w9_sigMemC (m : Message) (pk : PublicKey) (b : SharedCodec.CBytes) :
     SigMemC (w9init Images.expandImage m pk b).getMem b := by
   constructor
-  · intro j hj
-    rw [w9_getMem _ _ _ (by decide) b _ (by omega), if_pos (by omega), show 0x7000 + 8 * j - 0x7000 = 8 * j by omega]
-    exact bytesToWordLE_bytes_e b j (by omega)
-  · rw [w9_getMem _ _ _ (by decide) b _ (by omega), if_pos (by omega), show 0x8448 - 0x7000 = 5192 by rfl]
-    have hb : b.toNat / 2 ^ (8 * 5192) < 2 ^ 8 := by
-      have := b.isLt
-      rw [Nat.div_lt_iff_lt_mul (by positivity), ← Nat.pow_add]
-      exact lt_of_lt_of_eq this (by norm_num)
-    have hbyte : ∀ i, i < 3 → (bytesToWordLE (((bytes b).drop 5192).take 8)).toNat / 2 ^ (8 * i) % 256 =
-        b.toNat / 2 ^ (8 * 5192) / 2 ^ (8 * i) % 256 := by
-      intro i hi
-      rw [← extractByte_toNat_e, extractByte_bytesToWordLE_e _ _ (by omega), dropTake_getD _ _ _ _ (by omega)]
-      by_cases hi0 : i = 0
-      · subst hi0
-        rw [bytes_getD b _ (by omega), BitVec.extractLsb'_toNat, Nat.shiftRight_eq_div_pow]
-        simp
-      · rw [List.getD_eq_default _ _ (by rw [bytes_length_e]; omega)]
-        have : b.toNat / 2 ^ (8 * 5192) / 2 ^ (8 * i) = 0 := by
-          apply Nat.div_eq_of_lt
-          calc b.toNat / 2 ^ (8 * 5192) < 2 ^ 8 := hb
-            _ ≤ 2 ^ (8 * i) := Nat.pow_le_pow_right (by norm_num) (by omega)
-        rw [this]; rfl
-    have h0 := hbyte 0 (by omega)
-    have h1 := hbyte 1 (by omega)
-    have h2 := hbyte 2 (by omega)
-    rw [show 64 * 649 = 8 * 5192 by rfl]
-    generalize (bytesToWordLE (((bytes b).drop 5192).take 8)).toNat = W at h0 h1 h2
-    generalize b.toNat / 2 ^ (8 * 5192) = B at h0 h1 h2 hb
-    norm_num at h0 h1 h2 hb ⊢
-    omega
+  intro j hj
+  rw [w9_getMem _ _ _ (by decide) b _ (by omega), if_pos (by omega), show 0x7000 + 8 * j - 0x7000 = 8 * j by omega]
+  exact bytesToWordLE_bytes_e b j (by omega)
 
 /-- DEC, accepting, from any state at word 0 holding the signature (U16b: word 0 + the pre-pass + DEC). -/
 theorem dec_gen (s0 : MachineState) (b : SharedCodec.CBytes) (hpc : s0.pc = pcOf 0) (hsig : SigMemC s0.getMem b)

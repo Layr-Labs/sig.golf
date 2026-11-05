@@ -2580,9 +2580,12 @@ theorem nodeHash_dn {tag : Nat} (lay tree heap : Nat) (left right : Digest) (_ht
     (not_digest_of_low (by rw [pad64_nodeInputP, nodeInputP]; exact Extract.hdrBlock_block4 _ _ _ _)
       (nodeTweak_low_ne_zero _ _ _ _)))
     fun _ => pure_allowed _ _
+theorem pairedMask_dn (level pair : Nat) : AllQueriesSatisfy (pairedMask level pair) NotDN := by
+  unfold pairedMask
+  exact pure_allowed _ _
 theorem mask_dn (level index : Nat) : AllQueriesSatisfy (mask level index) NotDN := by
-  unfold mask pairedMask
-  exact bind_allowed NotDN (privatePair_dn _ _ _ _ _) fun _ => pure_allowed _ _
+  unfold mask
+  exact bind_allowed NotDN (pairedMask_dn _ _) fun _ => pure_allowed _ _
 theorem buildLeaf_dn (lay : Layer) (tree leaf : Nat) (digits : List Nat) (signatureOnly : Bool) :
     AllQueriesSatisfy (buildLeaf lay tree leaf digits signatureOnly) NotDN := by
   unfold buildLeaf
@@ -2624,9 +2627,9 @@ theorem buildTree_dn (lay : Layer) (tree selected : Nat) (digits : List Nat) :
     exact bind_allowed NotDN (buildLevels_dn _ _ _ _ (by decide)) fun _ => pure_allowed _ _
 theorem maskedLevel_dn (nodes : List Digest) (level : Nat) :
     AllQueriesSatisfy (maskedLevel nodes level) NotDN := by
-  unfold maskedLevel pairedMask
+  unfold maskedLevel
   apply bind_allowed NotDN
-  · exact mapM_allowed NotDN _ _ (fun pair => bind_allowed NotDN (privatePair_dn _ _ _ _ _) (fun _ => pure_allowed _ _))
+  · exact mapM_allowed NotDN _ _ (fun pair => bind_allowed NotDN (pairedMask_dn _ _) (fun _ => pure_allowed _ _))
   · intro _; exact pure_allowed _ _
 theorem topPairsFrom_dn (first start : Nat) (init : List Digest) :
     AllQueriesSatisfy (topPairsFrom first start init) NotDN := by
@@ -2696,19 +2699,21 @@ theorem buildTopLevels_dn (leaves : List Digest) : AllQueriesSatisfy (buildTopLe
 theorem buildTopTree_dn : AllQueriesSatisfy buildTopTree NotDN := by
   unfold buildTopTree
   exact bind_allowed NotDN (foldlM_allowed NotDN _ _ topTreeStep_dn _) fun _ => buildTopLevels_dn _
+section keygenSafety
+attribute [local irreducible] maskedLevel keygenPayload
+set_option backward.isDefEq.respectTransparency true in
 theorem keygenPayload_dn : AllQueriesSatisfy keygenPayload NotDN := by
   unfold keygenPayload
-  apply bind_allowed NotDN buildTopTree_dn
-  intro built
-  apply bind_allowed NotDN
-  · exact mapM_allowed NotDN _ _ (fun level => maskedLevel_dn _ _)
-  · intro _
-    exact pure_allowed _ _
+  exact bind_allowed NotDN buildTopTree_dn fun built =>
+    bind_allowed NotDN (mapM_allowed NotDN _ _ (fun level => maskedLevel_dn _ _))
+      fun _ => pure_allowed _ _
+set_option backward.isDefEq.respectTransparency true in
 theorem keygen_dn : AllQueriesSatisfy keygen NotDN := by
   unfold keygen
   apply bind_allowed NotDN keygenPayload_dn
   intro generated
   exact bind_allowed NotDN (privateMac_dn _) fun _ => pure_allowed _ _
+end keygenSafety
 theorem topPath_dn (cache : T3.Cache) (leaf : Nat) : AllQueriesSatisfy (topPath cache leaf) NotDN := by
   unfold topPath
   exact mapM_allowed NotDN _ _ fun level =>

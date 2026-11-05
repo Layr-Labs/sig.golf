@@ -1666,7 +1666,9 @@ def seg_1227 : List (BitVec 32) := [134711,921107,3767,135171731,963331,7221283,
 def seg_1432 : List (BitVec 32) := [2782912623]
 def seg_1433 : List (BitVec 32) := [2835,35895,3205237779,6711,657939]
 def seg_1438 : List (BitVec 32) := [23551539,1986067,920467,4919,3490906899,34280339,7562035,1823635,33788819,134711,921107,7223331,8272931,132407,328979,67110291,132663,101058067]
-def seg_1456 : List (BitVec 32) := [115]
+def seg_1456 : List (BitVec 32) := [0x7fd1306f]
+def sgMaskStub : List (BitVec 32) :=
+  [0xb1c63,0x63023,0x63423,0x63823,0x63c23,0xff9eb06f,0x73,0xff1eb06f]
 def seg_1457 : List (BitVec 32) := [11831,921107,1711763,1105071667,25038387,5119507,528055,34508435,31329843,1834643,5152403,13536947,930563,963459,7553843,7090211,9319171,9352067,7553843,7091235,17566739,1726995,1772307,12583699,4100680419]
 def seg_1482 : List (BitVec 32) := [2492461167]
 def kerCode : List (BitVec 32) := seg_543 ++ seg_545 ++ ker_546
@@ -2060,19 +2062,7 @@ theorem TBSim.privatePair_bind {s : MachineState} {tag lay tree position index :
     unfold privatePair; rw [bind_assoc]; simp only [pure_bind]
   rw [this]
   exact TBSim.of_eq (TBSim.privateHash_bind hf ht0 hv hq h) rfl (by rw [hb])
-theorem TBSim.mask_bind {s : MachineState} {level index : Nat} {W : Nat}
-    {f : Digest → M β} {Q : β → MachineState → Prop}
-    (hf : fetch image s = some (.base .ECALL)) (ht0 : s.getReg .x5 = 0)
-    (hv : hashArgumentsValid s = true)
-    (hq : hashInput s = toQ (privateInput sk (.inl (header 13 0 0 level (index/2)))))
-    (h : ∀ a : BitVec 256, TBSim image sk (writeHash s a) W
-      (f (if index % 2 = 0 then a.extractLsb' 0 128 else a.extractLsb' 128 128)) Q) :
-    TBSim image sk s (8 + W) (mask level index >>= f) Q := by
-  have : mask level index >>= f = privatePair 13 0 0 level (index/2) >>=
-      fun x => f (if index % 2 = 0 then x.1 else x.2) := by
-    unfold mask T3.pairedMask; rw [bind_assoc]; simp only [pure_bind]
-  rw [this]
-  exact TBSim.privatePair_bind hf ht0 hv hq h
+
 end tb
 structure Failed (t : MachineState) : Prop where
   pc : t.pc = pcOf 545

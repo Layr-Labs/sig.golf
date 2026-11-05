@@ -3263,7 +3263,7 @@ theorem keygen_notDigest : AllQueriesSatisfy keygen BPB.NotDigestQ := by
       apply SourceQueries.bind_allowed
       · apply SourceQueries.mapM_allowed
         intro pair
-        exact SourceQueries.bind_allowed _ (BPB.privatePair_ok 13 0 0 level pair)
+        exact SourceQueries.bind_allowed _ (SourceQueries.pure_allowed _ _)
           (fun _ => SourceQueries.pure_allowed _ _)
       · intro _; exact SourceQueries.pure_allowed _ _
     · intro _
@@ -7633,7 +7633,7 @@ theorem verifyWith_attemptLimit : verifyWith SigGolfCandidate.T3.attemptLimit = 
 /-! ### H2: the compact signature omits the top 16 bits (112..127, T51; #938 img-v6: 19 bits 109..127) of the top
 layer's level-11 sibling. Expand recovers everything up to the level-11 node `v` with those bits zero, then searches
 the 2^16 completions against the public key. The witness carries the completed signature, so verify is unchanged. -/
-def setTop (d : Digest) (c : Nat) : Digest := BitVec.ofNat 128 (d.toNat % 2 ^ 112 + c % 2 ^ 16 * 2 ^ 112)
+def setTop (d : Digest) (c : Nat) : Digest := BitVec.ofNat 128 (d.toNat % 2 ^ 111 + c % 2 ^ 17 * 2 ^ 111)
 def fillLayer (lay : Layer) (ls : LayerSignature lay) (c : Nat) : LayerSignature lay :=
   ⟨ls.values, fun j => if lay.val = 0 ∧ j.val = 11 then setTop (ls.path j) c else ls.path j⟩
 def fillTop (sig : Signature) (c : Nat) : Signature :=
@@ -7688,7 +7688,7 @@ def expandLayersT (sig : Signature) (index : Nat) (other : Digest) :
         let pair ← recoverLayerPair sig index lay digits
         let some (v, root, counters) ← expandLayersT sig index other n (.pair pair.1 pair.2) | pure none
         pure (some (v, root, counters ++ [counter]))
-def searchFuel : Nat := 65535
+def searchFuel : Nat := 131071
 /-- Candidates `c, c + 1, ...` for the omitted bits; the first whose root is `pk`. -/
 def searchTop (index : Nat) (v sib pk : Digest) : Nat → Nat → M (Option Nat)
   | 0, _ => pure none
@@ -9640,7 +9640,7 @@ end
 -- ==== merged from ClaudeWCT_WCT9_Omit ====
 section
 
-/-! # H2: two omitted signature bytes, recovered by a 2^16 search against the public key
+/-! # H2: two omitted signature bytes, recovered by a 2^17 search against the public key
 
 `Limits.lean` defines the omission (`setTop`, `fillTop`, `proj`, `topSib`) and the expander `expandS`: it runs the
 old expansion on `proj sig` (the omitted top 16 bits of the top layer's level-11 sibling read as zero), keeps the
@@ -9658,14 +9658,14 @@ set_option maxRecDepth 10000
 /-! ### Bits -/
 
 theorem setTop_toNat (d : Digest) (c : Nat) :
-    (setTop d c).toNat = d.toNat % 2 ^ 112 + c % 2 ^ 16 * 2 ^ 112 := by
+    (setTop d c).toNat = d.toNat % 2 ^ 111 + c % 2 ^ 17 * 2 ^ 111 := by
   unfold setTop
   rw [BitVec.toNat_ofNat]
   apply Nat.mod_eq_of_lt
-  have h1 : d.toNat % 2 ^ 112 < 2 ^ 112 := Nat.mod_lt _ (by positivity)
-  have h2 : c % 2 ^ 16 < 2 ^ 16 := Nat.mod_lt _ (by positivity)
-  have h3 : c % 2 ^ 16 * 2 ^ 112 ≤ (2 ^ 16 - 1) * 2 ^ 112 := Nat.mul_le_mul_right _ (by omega)
-  have h4 : (2 ^ 16 - 1) * 2 ^ 112 + 2 ^ 112 = (2 : Nat) ^ 128 := by norm_num
+  have h1 : d.toNat % 2 ^ 111 < 2 ^ 111 := Nat.mod_lt _ (by positivity)
+  have h2 : c % 2 ^ 17 < 2 ^ 17 := Nat.mod_lt _ (by positivity)
+  have h3 : c % 2 ^ 17 * 2 ^ 111 ≤ (2 ^ 17 - 1) * 2 ^ 111 := Nat.mul_le_mul_right _ (by omega)
+  have h4 : (2 ^ 17 - 1) * 2 ^ 111 + 2 ^ 111 = (2 : Nat) ^ 128 := by norm_num
   omega
 
 theorem setTop_setTop (d : Digest) (a b : Nat) : setTop (setTop d a) b = setTop d b := by
@@ -9674,20 +9674,20 @@ theorem setTop_setTop (d : Digest) (a b : Nat) : setTop (setTop d a) b = setTop 
   congr 1
   rw [Nat.add_mul_mod_self_right, Nat.mod_mod]
 
-theorem setTop_self (d : Digest) : setTop d (d.toNat / 2 ^ 112) = d := by
+theorem setTop_self (d : Digest) : setTop d (d.toNat / 2 ^ 111) = d := by
   apply BitVec.eq_of_toNat_eq
   rw [setTop_toNat]
   have hd := d.isLt
-  have h : d.toNat / 2 ^ 112 < 2 ^ 16 := by
+  have h : d.toNat / 2 ^ 111 < 2 ^ 17 := by
     rw [Nat.div_lt_iff_lt_mul (by positivity)]
     norm_num at hd ⊢
     omega
   rw [Nat.mod_eq_of_lt h]
-  have := Nat.mod_add_div d.toNat (2 ^ 112)
+  have := Nat.mod_add_div d.toNat (2 ^ 111)
   rw [Nat.mul_comm] at this
   omega
 
-theorem top_lt (d : Digest) : d.toNat / 2 ^ 112 < 2 ^ 16 := by
+theorem top_lt (d : Digest) : d.toNat / 2 ^ 111 < 2 ^ 17 := by
   have hd := d.isLt
   rw [Nat.div_lt_iff_lt_mul (by positivity)]
   norm_num at hd ⊢
@@ -9745,7 +9745,7 @@ theorem topSib_fillTop (sig : Signature) (c : Nat) : topSib (fillTop sig c) = se
   simp only [fillLayer]
   rw [if_pos ⟨rfl, rfl⟩]
 
-theorem fillTop_self (sig : Signature) : fillTop sig ((topSib sig).toNat / 2 ^ 112) = sig := by
+theorem fillTop_self (sig : Signature) : fillTop sig ((topSib sig).toNat / 2 ^ 111) = sig := by
   cases sig with
   | mk rho openings layers =>
     unfold fillTop
@@ -9839,7 +9839,7 @@ theorem topFoldN_fill (sig : Signature) (index : Nat) (digits : List Nat) (a b :
 
 theorem topFold_proj (sig : Signature) (index : Nat) (digits : List Nat) :
     topFold (proj sig) index digits = topFold sig index digits := by
-  have h := topFold_fill sig index digits 0 ((topSib sig).toNat / 2 ^ 112)
+  have h := topFold_fill sig index digits 0 ((topSib sig).toNat / 2 ^ 111)
   rw [fillTop_self] at h
   exact h
 
@@ -10073,7 +10073,7 @@ theorem expandS_complete (answers : Answers) (limit : Nat) (m : Message) (pk : D
     (x : HashOutput × Witness) (h : evalWithAnswerFn answers (expandWithN limit m pk σ) = some x) :
     ∃ y, evalWithAnswerFn answers (expandS limit m pk σ) = some y := by
   have hσ := fillTop_self σ
-  set ch := (topSib σ).toNat / 2 ^ 112 with hch
+  set ch := (topSib σ).toNat / 2 ^ 111 with hch
   rw [← hσ, eval_expandWithN_fill] at h
   unfold expandS
   simp only [evalWithAnswerFn_bind]
@@ -11950,8 +11950,8 @@ theorem normPathD_setTop (d : Digest) (c : Nat) : normPathD 11 (setTop d c) = no
   unfold normPathD
   simp only [show ¬(1 ≤ 11 ∧ 11 ≤ 10) by omega, if_false, if_true]
   congr 1
-  rw [setTop_toNat, Nat.add_mod, Nat.mod_mod_of_dvd _ (Nat.pow_dvd_pow 2 (by norm_num : 104 ≤ 112)),
-    show c % 2 ^ 16 * 2 ^ 112 % 2 ^ 104 = 0 from
+  rw [setTop_toNat, Nat.add_mod, Nat.mod_mod_of_dvd _ (Nat.pow_dvd_pow 2 (by norm_num : 104 ≤ 111)),
+    show c % 2 ^ 17 * 2 ^ 111 % 2 ^ 104 = 0 from
       Nat.mod_eq_zero_of_dvd (Dvd.dvd.mul_left (Nat.pow_dvd_pow 2 (by norm_num)) _), add_zero, Nat.mod_mod]
 
 /-- T51: the zero-bit allocation (`b_h = 0,0,1,1,2,3,4,5,6,7,8`; #938 had `b_h = h`). -/
@@ -11969,12 +11969,12 @@ theorem normPathD_ok (j : Nat) (hj : j < 12) (d : Digest) (hz : 1 ≤ j → topZ
   by_cases h11 : j = 11
   · subst h11
     simp only [show ¬(1 ≤ 11 ∧ 11 ≤ 10) by omega, if_false, if_true]
-    have h' : d.toNat / 2 ^ 104 % 2 ^ 8 = 0 := by
+    have h' : d.toNat / 2 ^ 104 % 2 ^ 7 = 0 := by
       have := hz (by omega)
       unfold topZeroOk at this
       simpa using this
     apply BitVec.eq_of_toNat_eq
-    rw [BitVec.toNat_ofNat, setTop_toNat, show (2 : Nat) ^ 112 = 2 ^ 104 * 2 ^ 8 by norm_num, Nat.mod_mul, h']
+    rw [BitVec.toNat_ofNat, setTop_toNat, show (2 : Nat) ^ 111 = 2 ^ 104 * 2 ^ 7 by norm_num, Nat.mod_mul, h']
     simp only [mul_zero, add_zero, Nat.zero_mod, zero_mul]
     exact Nat.mod_eq_of_lt (Nat.lt_of_le_of_lt (Nat.mod_le _ _) d.isLt)
   · have h1 : 1 ≤ j ∧ j ≤ 10 := by omega
@@ -12831,7 +12831,7 @@ theorem topFold_fill_signature (sig : Signature) (index : Nat) (digits : List Na
       topFold (mainSignature sig) index digits := by
   rw [mainSignature_fill]
   have h := topFold_fill (mainSignature sig) index digits c
-    ((topSib (mainSignature sig)).toNat / 2 ^ 112)
+    ((topSib (mainSignature sig)).toNat / 2 ^ 111)
   rw [fillTop_self] at h
   exact h
 
@@ -12840,7 +12840,7 @@ theorem topFoldN_fill_signature (sig : Signature) (index : Nat) (digits : List N
       topFoldN (mainSignature sig) index digits := by
   rw [mainSignature_fill]
   have h := topFoldN_fill (mainSignature sig) index digits c
-    ((topSib (mainSignature sig)).toNat / 2 ^ 112)
+    ((topSib (mainSignature sig)).toNat / 2 ^ 111)
   rw [fillTop_self] at h
   exact h
 
@@ -13528,15 +13528,15 @@ theorem expand_complete_of_recovered (answers : Answers) (message : Message) (pk
     exact ⟨_, rfl⟩
   · have hz : evalWithAnswerFn answers (topNode index result.foldedTop ((sig0.layers 0).path topJ)) ≠ pk := hzero
     have hcompletion : evalWithAnswerFn answers (topNode index result.foldedTop
-        (setTop ((sig0.layers 0).path topJ) (((sig.layers 0).path topJ).toNat / 2 ^ 112))) = pk := by
+        (setTop ((sig0.layers 0).path topJ) (((sig.layers 0).path topJ).toNat / 2 ^ 111))) = pk := by
       rw [topPath_fill_signature, setTop_setTop, setTop_self]
       exact hroot
-    have hn : ((sig.layers 0).path topJ).toNat / 2 ^ 112 ≠ 0 := by
+    have hn : ((sig.layers 0).path topJ).toNat / 2 ^ 111 ≠ 0 := by
       intro he
       rw [he, topPath_fill_signature, setTop_setTop] at hcompletion
       exact hz hcompletion
     obtain ⟨c, hc⟩ := searchTop_complete answers index result.foldedTop ((sig0.layers 0).path topJ)
-      pk searchFuel 1 (((sig.layers 0).path topJ).toNat / 2 ^ 112) (by omega)
+      pk searchFuel 1 (((sig.layers 0).path topJ).toNat / 2 ^ 111) (by omega)
       (by have ht := top_lt ((sig.layers 0).path topJ); unfold searchFuel; omega) hcompletion
     dsimp only [sig0] at hz
     dsimp only [sig0, index] at hc

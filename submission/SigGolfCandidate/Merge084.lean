@@ -1,3 +1,4 @@
+import SigGolfCandidate.MaskMachine
 import SigGolfCandidate.Merge054
 import SigGolfCandidate.Merge075
 import SigGolfCandidate.Merge083
@@ -3527,8 +3528,10 @@ theorem blk1438_spec (s : MachineState) (hpc : s.pc = pcOf 1438) (leaf lv : Nat)
     simp only [Result.toState_getMem,blk_1438.res]
     t3n []
     rw [if_neg (by omega),if_neg (by omega)]
-theorem fetch_1456 (s : MachineState) (hpc : s.pc = pcOf 1456) :
-    fetch image s = some (.base .ECALL) := (codeAt_1456.fetch s hpc).trans rfl
+theorem cacheMaskCode : CacheMaskMachine.Code image true where
+  jump := codeAt_sign_slice (by decide +kernel) (by decide +kernel)
+  zero := codeAt_sign_slice (by decide +kernel) (by decide +kernel)
+theorem cacheMaskRunner : MaskSelectRunner image 1456 := CacheMaskMachine.runner cacheMaskCode
 theorem blk1457_spec (s : MachineState) (hpc : s.pc = pcOf 1457) (sib lo lv out : Nat)
     (hlo2 : 2≤lo) (hlo : lo≤4096) (hsib : sib<lo) (hlv : lv<12)
     (hout0 : SIG+3056≤out) (hout : out+16≤SIG+3248) (hout8 : out%8=0)
@@ -3616,7 +3619,7 @@ structure Code (im : Image) : Prop where
   codeAt_447 : CodeAt im (pcOf 447) seg_447
   codeAt_1433 : CodeAt im (pcOf 1433) seg_1433
   codeAt_1438 : CodeAt im (pcOf 1438) seg_1438
-  codeAt_1456 : CodeAt im (pcOf 1456) seg_1456
+  cacheMaskCode : CacheMaskMachine.Code im true
   codeAt_1457 : CodeAt im (pcOf 1457) seg_1457
   codeAt_1482 : CodeAt im (pcOf 1482) seg_1482
 variable {im : Image}
@@ -3691,8 +3694,8 @@ theorem blk1438_spec (hcode : Code im) (s : MachineState) (hpc : s.pc = pcOf 143
     simp only [Result.toState_getMem,blk_1438.res]
     t3n []
     rw [if_neg (by omega),if_neg (by omega)]
-theorem fetch_1456 (hcode : Code im) (s : MachineState) (hpc : s.pc = pcOf 1456) :
-    fetch im s = some (.base .ECALL) := (hcode.codeAt_1456.fetch s hpc).trans rfl
+theorem cacheMaskRunner (hcode : Code im) : MaskSelectRunner im 1456 :=
+  CacheMaskMachine.runner hcode.cacheMaskCode
 theorem blk1457_spec (hcode : Code im) (s : MachineState) (hpc : s.pc = pcOf 1457) (sib lo lv out : Nat)
     (hlo2 : 2≤lo) (hlo : lo≤4096) (hsib : sib<lo) (hlv : lv<12)
     (hout0 : SIG+3056≤out) (hout : out+16≤SIG+3248) (hout8 : out%8=0)
@@ -3772,7 +3775,11 @@ open SigGolfCandidate.T3M
 set_option maxHeartbeats 0
 set_option maxRecDepth 100000
 theorem installed_code : Code Images.signImage := by
-  constructor <;> exact codeAt_sign_current_slice (by decide +kernel) (by decide +kernel)
+  constructor
+  all_goals first
+    | exact codeAt_sign_current_slice (by decide +kernel) (by decide +kernel)
+    | exact ⟨codeAt_sign_current_slice (by decide +kernel) (by decide +kernel),
+        codeAt_sign_current_slice (by decide +kernel) (by decide +kernel)⟩
 
 end SigGolfCandidate.T3M.Sign.SharedTopBlocks
 end

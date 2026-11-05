@@ -50,41 +50,6 @@ theorem Steps.iterate {image : Image} {k c : Nat} (Inv : Nat → MachineState �
     obtain ⟨u, h3, h4⟩ := ih t h2
     exact ⟨u, Steps.of_eq (h1.trans h3) (by rw [Nat.succ_mul, Nat.add_comm])
       (by rw [Nat.succ_mul, Nat.add_comm]), h4⟩
-abbrev Layout := List (Nat × List (BitVec 32))
-def layoutOk : Nat → Layout → Bool
-  | _, [] => true
-  | n, (o, seg) :: rest => (o == n) && layoutOk (n + seg.length) rest
-def layoutCode (L : Layout) : List (BitVec 32) := (L.map Prod.snd).flatten
-theorem layout_split : ∀ (L : Layout) (n i o : Nat) (seg : List (BitVec 32)),
-    layoutOk n L = true → L[i]? = some (o, seg) →
-    ∃ pre post, layoutCode L = pre ++ seg ++ post ∧ n + pre.length = o := by
-  intro L
-  induction L with
-  | nil => intro n i o seg _ h; simp at h
-  | cons p L ih =>
-    intro n i o seg hok hi
-    obtain ⟨o', seg'⟩ := p
-    simp only [layoutOk, Bool.and_eq_true, beq_iff_eq] at hok
-    cases i with
-    | zero =>
-      simp only [List.getElem?_cons_zero, Option.some.injEq, Prod.mk.injEq] at hi
-      obtain ⟨rfl, rfl⟩ := hi
-      exact ⟨[], layoutCode L, by simp [layoutCode], by simp [hok.1]⟩
-    | succ i =>
-      simp only [List.getElem?_cons_succ] at hi
-      obtain ⟨pre, post, h1, h2⟩ := ih _ i o seg hok.2 hi
-      refine ⟨seg' ++ pre, post, ?_, ?_⟩
-      · simp only [layoutCode, List.map_cons, List.flatten_cons] at h1 ⊢
-        rw [h1]; simp
-      · simp only [List.length_append]; omega
-theorem codeAt_layout {image : Image} {L : Layout} (himage : image.code = layoutCode L)
-    (hok : layoutOk 0 L = true) {i o : Nat} {seg : List (BitVec 32)}
-    (hi : L[i]? = some (o, seg)) (hrange : 0x1000 + 4 * (o + seg.length) < 2 ^ 64) :
-    CodeAt image (BitVec.ofNat 64 (0x1000 + 4 * o)) seg := by
-  obtain ⟨pre, post, h1, h2⟩ := layout_split L 0 i o seg hok hi
-  refine CodeAt.of_append (himage.trans h1) _ ?_ (by omega)
-  rw [BitVec.toNat_ofNat, Nat.mod_eq_of_lt (by omega)]
-  omega
 def readWordsSym (cfg : Config) (mem : SymMem) (k : Addr) : Nat → Option (List E × List Oblig)
   | 0 => some ([], [])
   | n + 1 =>

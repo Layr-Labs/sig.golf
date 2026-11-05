@@ -47,18 +47,22 @@ theorem sat_privatePair (T : Answers) (tag lay tree position index : Nat) :
     QueriesSat T (HonestQuery T) (SigGolfCandidate.T3.privatePair tag lay tree position index) := by
   unfold SigGolfCandidate.T3.privatePair
   exact QueriesSat.bind (sat_privateHash T _) (QueriesSat.pure' _)
+theorem sat_pairedMask (T : Answers) (level pair : Nat) :
+    QueriesSat T (HonestQuery T) (SigGolfCandidate.T3.pairedMask level pair) := by
+  unfold SigGolfCandidate.T3.pairedMask
+  exact QueriesSat.pure' _
 theorem sat_mask (T : Answers) (level index : Nat) : QueriesSat T (HonestQuery T) (SigGolfCandidate.T3.mask level index) := by
-  unfold SigGolfCandidate.T3.mask SigGolfCandidate.T3.pairedMask
-  exact QueriesSat.bind (sat_privatePair T _ _ _ _ _) (QueriesSat.pure' _)
+  unfold SigGolfCandidate.T3.mask
+  exact QueriesSat.bind (sat_pairedMask T _ _) (QueriesSat.pure' _)
 theorem sat_privateMac (T : Answers) (region : Region) : QueriesSat T (HonestQuery T) (SigGolfCandidate.T3.privateMac region) := by
   unfold SigGolfCandidate.T3.privateMac SigGolfCandidate.T3.privateMacKey
   exact QueriesSat.bind (QueriesSat.bind (sat_privateHash T _) (QueriesSat.bind
     (sat_privateHash T _) (QueriesSat.pure' _))) (QueriesSat.pure' _)
 theorem sat_maskedLevel (T : Answers) (nodes : List Digest) (level : Nat) :
     QueriesSat T (HonestQuery T) (SigGolfCandidate.T3.maskedLevel nodes level) := by
-  unfold SigGolfCandidate.T3.maskedLevel SigGolfCandidate.T3.pairedMask
+  unfold SigGolfCandidate.T3.maskedLevel
   exact QueriesSat.bind (QueriesSat.mapM _ _ fun _ _ =>
-    QueriesSat.bind (sat_privatePair T _ _ _ _ _) (QueriesSat.pure' _)) (QueriesSat.pure' _)
+    QueriesSat.bind (sat_pairedMask T _ _) (QueriesSat.pure' _)) (QueriesSat.pure' _)
 theorem sat_privateNonce (T : Answers) (message : Message) :
     QueriesSat T (HonestQuery T) (SigGolfCandidate.T3.privateNonce message) := by
   unfold SigGolfCandidate.T3.privateNonce
@@ -853,18 +857,22 @@ theorem sat_privatePair (T : Answers) (tag lay tree position index : Nat) :
     QueriesSat T (HonestQuery T) (SigGolfCandidate.T3.privatePair tag lay tree position index) := by
   unfold SigGolfCandidate.T3.privatePair
   exact QueriesSat.bind (sat_privateHash T _) (QueriesSat.pure' _)
+theorem sat_pairedMask (T : Answers) (level pair : Nat) :
+    QueriesSat T (HonestQuery T) (SigGolfCandidate.T3.pairedMask level pair) := by
+  unfold SigGolfCandidate.T3.pairedMask
+  exact QueriesSat.pure' _
 theorem sat_mask (T : Answers) (level index : Nat) : QueriesSat T (HonestQuery T) (SigGolfCandidate.T3.mask level index) := by
-  unfold SigGolfCandidate.T3.mask SigGolfCandidate.T3.pairedMask
-  exact QueriesSat.bind (sat_privatePair T _ _ _ _ _) (QueriesSat.pure' _)
+  unfold SigGolfCandidate.T3.mask
+  exact QueriesSat.bind (sat_pairedMask T _ _) (QueriesSat.pure' _)
 theorem sat_privateMac (T : Answers) (region : Region) : QueriesSat T (HonestQuery T) (SigGolfCandidate.T3.privateMac region) := by
   unfold SigGolfCandidate.T3.privateMac SigGolfCandidate.T3.privateMacKey
   exact QueriesSat.bind (QueriesSat.bind (sat_privateHash T _) (QueriesSat.bind
     (sat_privateHash T _) (QueriesSat.pure' _))) (QueriesSat.pure' _)
 theorem sat_maskedLevel (T : Answers) (nodes : List Digest) (level : Nat) :
     QueriesSat T (HonestQuery T) (SigGolfCandidate.T3.maskedLevel nodes level) := by
-  unfold SigGolfCandidate.T3.maskedLevel SigGolfCandidate.T3.pairedMask
+  unfold SigGolfCandidate.T3.maskedLevel
   exact QueriesSat.bind (QueriesSat.mapM _ _ fun _ _ =>
-    QueriesSat.bind (sat_privatePair T _ _ _ _ _) (QueriesSat.pure' _)) (QueriesSat.pure' _)
+    QueriesSat.bind (sat_pairedMask T _ _) (QueriesSat.pure' _)) (QueriesSat.pure' _)
 theorem sat_privateNonce (T : Answers) (message : Message) :
     QueriesSat T (HonestQuery T) (SigGolfCandidate.T3.privateNonce message) := by
   unfold SigGolfCandidate.T3.privateNonce

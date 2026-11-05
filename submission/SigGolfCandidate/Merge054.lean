@@ -14,6 +14,8 @@ import SigGolfCandidate.Merge051
 import SigGolfCandidate.Merge052
 import SigGolfCandidate.Merge053
 
+attribute [local irreducible] SigGolfCandidate.T3.maskedLevel
+
 -- ==== merged from ClaudeWCT_W9_T3_FullCache_NativeBudgetB1_KeygenMomentV6 ====
 section
 
@@ -349,12 +351,22 @@ theorem V_levels {β : Type} (secret : BitVec 256) (z : ℝ≥0∞) (m : Nat →
             omega⟩))
       · simp only [List.length_range, mlev]; ring
 
+theorem bound_maskedLevel_zero (nodes : List Digest) (level : Nat) :
+    CBound (fun _ => True) 0 (maskedLevel nodes level) := by
+  have hp (pair : Nat) : CBound (fun _ => True) 0 (pairedMask level pair) := .pure _ 0 trivial
+  unfold maskedLevel
+  refine (Bound.mapM_list (P := GoodQuery) (List.range (2^(11-level))) _ (fun _ => 0)
+    (fun pair _ => (hp pair).bind' (l := 0)
+      (fun _ _ => .pure _ 0 trivial) (by decide))).bind' (l := 0)
+      (fun _ _ => .pure _ 0 trivial) (by simp)
+
+set_option backward.isDefEq.respectTransparency true in
 theorem bound_keygenRest (levels : List (List Digest)) :
-    CBound (fun _ => True) 4097 (SigGolfCandidate.Research.SharedExpansionV6.keygenRest levels) := by
+    CBound (fun _ => True) 2 (SigGolfCandidate.Research.SharedExpansionV6.keygenRest levels) := by
   unfold SigGolfCandidate.Research.SharedExpansionV6.keygenRest SigGolfCandidate.Research.SharedExpansionV6.payloadTail
   simp only [bind_assoc]
-  refine (Bound.mapM_list (P := GoodQuery) (List.range' 0 12) _ (fun level => 2^(11-level))
-    (fun level _ => bound_maskedLevel (levels.getD level []) level)).bind' (l := 2)
+  refine (Bound.mapM_list (P := GoodQuery) (List.range' 0 12) _ (fun _ => 0)
+    (fun level _ => bound_maskedLevel_zero (levels.getD level []) level)).bind' (l := 2)
     (fun _ _ => ?_) (by decide +kernel)
   simp only [pure_bind]
   exact (bound_privateMac _).bind' (l := 0) (fun _ _ => .pure _ 0 trivial) (by omega)
@@ -387,7 +399,7 @@ theorem V_keygen (secret : BitVec 256) (z : ℝ≥0∞) (hz : 1 ≤ z) (m : Nat 
     (hstep : ∀ h, 1 ≤ h → h ≤ 11 →
       z * (((2 : ℝ≥0∞) ^ topZeroBits h)⁻¹ + (1 - ((2 : ℝ≥0∞) ^ topZeroBits h)⁻¹) * m h) ≤ m h)
     (hzm : ∀ h, 1 ≤ h → h ≤ 11 → z ≤ m h) :
-    V secret z keygen ∅ ≤ z ^ topLeavesCost * (((List.range' 1 11).map (mlev m)).prod * (z * z ^ 4097)) := by
+    V secret z keygen ∅ ≤ z ^ topLeavesCost * (((List.range' 1 11).map (mlev m)).prod * (z * z ^ 2)) := by
   rw [SigGolfCandidate.Research.SharedExpansionV6.keygen_split]
   unfold buildTopTree
   simp only [bind_assoc]
@@ -400,7 +412,7 @@ theorem V_keygen (secret : BitVec 256) (z : ℝ≥0∞) (hz : 1 ≤ z) (m : Nat 
   have hlen := hleaf.post_of_roRun secret ∅ r hr
   have hf := leafLoop_fresh secret r hr
   rw [buildTopLevels_split12, bind_assoc]
-  refine V_levels secret z m hstep hzm 11 1 (by omega) (by omega) [r.1.1] _ (z * z ^ 4097)
+  refine V_levels secret z m hstep hzm 11 1 (by omega) (by omega) [r.1.1] _ (z * z ^ 2)
     ⟨rfl, fun j hj => by
       have : j = 0 := by omega
       subst j; simpa using hlen⟩ (fun ls c hs _ => ?_) r.2 (by simpa using hf)
@@ -469,18 +481,18 @@ theorem levels_prod (m : Nat → ℝ≥0∞) :
   simp [List.range'_succ, mlev, Fin.prod_univ_succ, mul_assoc]
 
 /-! Campaign T51 keygen certificate (KEYGEN-T51 section 4): heights 1, 2 (`b = 0`) cost `z` per node, heights
-3..11 use #938's `keygenM (b_h - 1)`; fixed work `topLeavesCost + 4098 = 1,039,874`. -/
+3..11 use #938's `keygenM (b_h - 1)`; fixed work `topLeavesCost + 3 = 1,035,779`. -/
 /-- The integer certificate entry of height `i + 1`. -/
 def entryT51 (i : Fin 11) : Nat :=
   if topZeroBits (i.val + 1) = 0 then keygenZFix else keygenM ⟨(topZeroBits (i.val + 1) - 1) % 11, Nat.mod_lt _ (by decide)⟩
 def keygenListT51 : List (Nat × Nat) :=
-  (keygenZFix, 1039874) :: List.ofFn fun i : Fin 11 => (entryT51 i, 2 ^ (11 - i.val))
+  (keygenZFix, 1035779) :: List.ofFn fun i : Fin 11 => (entryT51 i, 2 ^ (11 - i.val))
 
-theorem keygenT51_list_checked : prodUp keygenListT51 * 100000 < 199934 * scale := by decide +kernel
+theorem keygenT51_list_checked : prodUp keygenListT51 * 100000 < 199990 * scale := by decide +kernel
 
 theorem keygenListT51_prod :
     (keygenListT51.map fun e => ((e.1:ℝ)/scale)^e.2).prod =
-      ((keygenZFix:ℝ)/scale)^1039874 * ∏ i : Fin 11, ((entryT51 i:ℝ)/scale)^(2^(11-i.val)) := by
+      ((keygenZFix:ℝ)/scale)^1035779 * ∏ i : Fin 11, ((entryT51 i:ℝ)/scale)^(2^(11-i.val)) := by
   rw [keygenListT51, List.map_cons, List.prod_cons, List.map_ofFn, List.prod_ofFn]
   rfl
 
@@ -494,25 +506,25 @@ theorem mT_le_entry (i : Fin 11) (hzf : zR ≤ (keygenZFix:ℝ)/scale) :
 
 theorem keygen_moment_T51 (z : ℝ) (hz0 : 0 ≤ z) (hz : z ≤ (keygenZNum:ℝ)/keygenZDen)
     (m : Fin 11 → ℝ) (hm0 : ∀ i, 0 ≤ m i) (hm : ∀ i, m i ≤ (entryT51 i:ℝ)/scale) :
-    z^1039874 * ∏ i : Fin 11, (m i)^(2^(11-i.val)) ≤ 2 := by
+    z^1035779 * ∏ i : Fin 11, (m i)^(2^(11-i.val)) ≤ 2 := by
   have hzf := hz.trans keygenZ_fix
   have hprod := prodUp_ratio_ge keygenListT51
   rw [keygenListT51_prod] at hprod
-  have hnum : (prodUp keygenListT51:ℝ)/scale < 199934/100000 := by
+  have hnum : (prodUp keygenListT51:ℝ)/scale < 199990/100000 := by
     have h := keygenT51_list_checked
-    have h' : (prodUp keygenListT51:ℝ)*100000 < 199934*(scale:ℝ) := by exact_mod_cast h
+    have h' : (prodUp keygenListT51:ℝ)*100000 < 199990*(scale:ℝ) := by exact_mod_cast h
     have hs0 : (0:ℝ) < scale := by norm_num [scale]
     generalize (prodUp keygenListT51:ℝ) = P at h' ⊢
     generalize (scale:ℝ) = S at h' hs0 ⊢
     rw [div_lt_iff₀ hs0]; linarith
-  have hstep : z^1039874 * ∏ i : Fin 11, (m i)^(2^(11-i.val)) ≤
-      ((keygenZFix:ℝ)/scale)^1039874 * ∏ i : Fin 11, ((entryT51 i:ℝ)/scale)^(2^(11-i.val)) := by
+  have hstep : z^1035779 * ∏ i : Fin 11, (m i)^(2^(11-i.val)) ≤
+      ((keygenZFix:ℝ)/scale)^1035779 * ∏ i : Fin 11, ((entryT51 i:ℝ)/scale)^(2^(11-i.val)) := by
     apply mul_le_mul (pow_le_pow_left₀ hz0 hzf _) _ (Finset.prod_nonneg fun i _ => pow_nonneg (hm0 i) _)
       (by positivity)
     exact Finset.prod_le_prod (fun i _ => pow_nonneg (hm0 i) _) (fun i _ => pow_le_pow_left₀ (hm0 i) (hm i) _)
   linarith
 
-/-- **Campaign T51 keygen moment**: `E[2^(countBlocks keygen / 2^20)] ≤ 2` (zero bits `b_h = 0,0,1,1,2..8`). -/
+/-- **Campaign T51 keygen moment**: `E[2^(countBlocks keygen / 2^20)] ≤ 2` (zero bits `b_h = 0,0,2,2,3,4,5,6,7,8,7`). -/
 theorem keygen_moment_v6 (secret : BitVec 256) :
     expectedValue (roRun secret (countBlocks keygen) ∅)
       (fun result => (2 : ℝ≥0∞) ^ ((result.1.2 : ℝ) / 1048576)) ≤ 2 := by
@@ -540,14 +552,14 @@ theorem keygen_moment_v6 (secret : BitVec 256) :
     (fun i => mT_le_entry i hzf)
   have hm0 : ∀ i : Fin 11, 0 ≤ mT (i.val + 1) ^ (2 ^ (11 - i.val)) := fun i => pow_nonneg (mT_nonneg _) _
   have heq : ENNReal.ofReal zR ^ 1035776 * ((∏ i : Fin 11, ENNReal.ofReal (mT (i.val + 1)) ^ (2 ^ (11 - i.val))) *
-      (ENNReal.ofReal zR * ENNReal.ofReal zR ^ 4097)) =
-      ENNReal.ofReal (zR ^ 1039874 * ∏ i : Fin 11, (mT (i.val + 1)) ^ (2 ^ (11 - i.val))) := by
+      (ENNReal.ofReal zR * ENNReal.ofReal zR ^ 2)) =
+      ENNReal.ofReal (zR ^ 1035779 * ∏ i : Fin 11, (mT (i.val + 1)) ^ (2 ^ (11 - i.val))) := by
     rw [ENNReal.ofReal_mul (pow_nonneg zR_nonneg _), ENNReal.ofReal_prod_of_nonneg (fun i _ => hm0 i),
       ENNReal.ofReal_pow zR_nonneg]
     simp only [ENNReal.ofReal_pow (mT_nonneg _)]
     ring
   rw [heq]
-  calc ENNReal.ofReal (zR ^ 1039874 * ∏ i : Fin 11, (mT (i.val + 1)) ^ (2 ^ (11 - i.val))) ≤ ENNReal.ofReal 2 :=
+  calc ENNReal.ofReal (zR ^ 1035779 * ∏ i : Fin 11, (mT (i.val + 1)) ^ (2 ^ (11 - i.val))) ≤ ENNReal.ofReal 2 :=
         ENNReal.ofReal_le_ofReal hnum
     _ = 2 := ENNReal.ofReal_ofNat 2
 
@@ -902,11 +914,11 @@ namespace SigGolfCandidate.T3M.Images
 open SigGolfCandidate.Legacy
 def keygenCode_0 : List (BitVec 32) := bv_list% 32 [0x293,0x8000e93,0x20f37,0xeb303,0x8eb383,0x6f3023,0x7f3423,0x9000e93,0x20f37,0x20f0f13,0xeb303,0x8eb383,0x6f3023,0x7f3423,0x20f37,0x20f3823,0x20f3c23,0x413,0x493,0x3300d13,0x3300d93,0xf93,0x20b37,0x460b0b13,0x50137,0x913,0x1337,0x2695263,0x21bb7,0xa00b8b93,0x6903b3,0x439393,0x238cb3,0x1bc000ef,0x190913,0xfddff06f,0xc00793,0xa93,0x300000ef,0x3b80006f,0x1013303,0x1813383,0x6f3023,0x7f3423,0x9c37,0x20c0c13,0x40000a13,0x200693,0x100313,0x86a0663,0x993,0x749dc63,0x1337,0xd0130313,0x2069f13,0x1e36333,0x2099393,0x20e37,0x6e3823,0x7e3c23,0x20537,0x4000593,0x20637,0x6060613,0x73,0x13a0e33,0x4e1e13,0x2e0e33,0xe3303,0x8e3383,0x20eb7,0x60e8e93,0xebe03,0x8ebe83,0x1c34333,0x1d3c3b3,0x6c3023,0x7c3423,0x10c0c13,0x198993,0xf8dff06f,0x1a5a13,0x168693,0xf75ff06f,0x8000e93,0x9f37,0xfe0f0f13,0xeb303,0x8eb383,0x6f3023,0x7f3423,0x9000e93,0x9f37,0xeb303,0x8eb383,0x6f3023,0x7f3423,0x9f37,0xfe0f0f13,0x20f3823,0x20f3c23,0x1337,0xe0130313,0x393,0x9e37,0xfe0e0e13,0x6e3823,0x7e3c23,0x9537,0xfe050513,0x85b7,0x4058593,0x9637,0x73,0x100293,0x513,0x73,0xa13,0x11a1e63,0x20eb7,0x1d0e8e93,0xeb303,0x8eb383,0x6bb023,0x7bb423,0x55a0463,0x7340006f,0x14383b3,0x2039313,0x1041f13,0x1e36333,0x10136313,0x20e37,0x1a0e0e13,0x6e3823,0xa90006f,0x1a050513,0x4000593,0x20637,0x1d060613,0x73,0x1a0a13,0xfa1ff06f,0x8067,0x8193,0x1091313,0x20136313,0x3041f13,0x1e36333,0xc100f13,0x38f1f13,0x1e36333,0x20e37,0x600e0e13,0x6e3823,0xe3c23,0x13,0x71c000ef,0xda9dc63,0x198693,0x788000ef,0x6c0006f,0x1041313,0x20e1f13,0x1e36333,0x136313,0x48393,0x2091f13,0x1e3e3b3,0x20e37,0x6e3823,0x7e3c23,0x20537,0x4000593,0x20637,0x4060613,0x73,0x19fe13,0x4e1e13,0x20eb7,0x40e8e93,0x1de0e33,0x20f37,0x1d0f0f13,0xe3303,0x8e3383,0x6f3023,0x7f3423,0x13b0e33,0xe4883,0x700a93,0x41463,0x7b00006f,0xf8463,0x88a93,0xec9ff0ef,0x20f9a63,0x1303f33,0x1e98e33,0x4e1e13,0x20eb7,0x600e8e93,0x1de0e33,0x20eb7,0x1d0e8e93,0xeb303,0x8eb383,0x6e3023,0x7e3423,0x10b8b93,0x198993,0xf2dff06f,0x40f9263,0x1d0593,0x459593,0x3f58593,0xfc05f593,0x20537,0x60050513,0x20637,0x3c060613,0x197e93,0x73,0x4e9e93,0x41d60eb3,0x10eb303,0x18eb383,0x6cb023,0x7cb423,0x18067,0x7ac0006f,0xfff78313,0x6a1a33,0xa0a0663,0xa0c13,0x1a1313,0x86c5c63,0x5c1e13,0x2e0e33,0x20f37,0x200f0f13,0xe3303,0x8e3383,0x6f3023,0x7f3423,0x20f37,0x230f0f13,0x10e3303,0x18e3383,0x6f3023,0x7f3423,0x2049e13,0x1cae333,0x1830333,0xfe6f3023,0xfe0f3423]
 
-def keygenCode_1 : List (BitVec 32) := bv_list% 32 [0x1c7e93,0x4e9e93,0x20537,0x20050513,0x4000593,0x20637,0x24060613,0x73,0x73c0006f,0x2e0e33,0x41d60eb3,0x10eb303,0x18eb383,0x6e3023,0x7e3423,0x13,0x1c0c13,0xf69ff06f,0x7080006f,0xf59ff06f,0x8067,0x50137,0x10113,0xa000f13,0x1013303,0x1813383,0x6f3023,0x7f3423,0x80c37,0x20c0c13,0x1a37,0xa0a13,0xb13,0xb93,0x1a5d13,0x4a1a93,0x50137,0x10113,0x2a8ab3,0x1337,0xd0130313,0x20b1393,0x736333,0x20b9393,0x20e37,0xe0e13,0x6e3823,0x7e3c23,0x20537,0x50513,0x4000593,0x20637,0x6060613,0x73,0xab303,0x63383,0x734333,0x6c3023,0x8ab303,0x863383,0x734333,0x6c3423,0x10ab303,0x1063383,0x734333,0x6c3823,0x18ab303,0x1863383,0x734333,0x6c3c23,0x20a8a93,0x20c0c13,0x1b8b93,0xf7abece3,0x1a5a13,0x1b0b13,0xc00313,0xf46b68e3,0x20e37,0xe0e13,0xeb7,0x80e8e93,0xeb303,0x6e3023,0x8eb303,0x6e3423,0x10eb303,0x26e3023,0x18eb303,0x26e3423,0x20e3823,0x20e3c23,0x1337,0xe0130313,0x6e3823,0xe3c23,0x20537,0x50513,0x4000593,0x70637,0x60613,0x73,0x100313,0x2031313,0x6e3c23,0x70637,0x2060613,0x73,0xfff00913,0x395913,0xa09b7,0x98993,0x70b37,0xb0b13,0x80cb7,0xc8c93,0xb3b83,0x12bfbb3,0x8b3c03,0x806b7,0x2068693,0x713,0x6e783,0xe787b3,0x377b833,0x37787b3,0x381813,0x3d7d893,0x1180833,0x127f7b3,0xf80833,0x3d85713,0x1287833,0x1070733,0x46e783,0xe787b3,0x377b833,0x37787b3,0x381813,0x3d7d893,0x1180833,0x127f7b3,0xf80833,0x3d85713,0x1287833,0x1070733,0x868693,0xf9369ee3,0x3d75793,0x1277733,0xf70733,0x12747b3,0x17b793,0xfff78793,0xf77733,0x1870733,0xecb023,0x10b0b13,0xb3b83,0x12bfbb3,0x8b3c03,0x806b7,0x2068693,0x713,0x6e783,0xe787b3,0x377b833,0x37787b3,0x381813,0x3d7d893,0x1180833,0x127f7b3,0xf80833,0x3d85713,0x1287833,0x1070733,0x46e783,0xe787b3,0x377b833,0x37787b3,0x381813,0x3d7d893,0x1180833,0x127f7b3,0xf80833,0x3d85713,0x1287833,0x1070733,0x868693,0xf9369ee3,0x3d75793,0x1277733,0xf70733,0x12747b3,0x17b793,0xfff78793,0xf77733,0x1870733,0xecb423,0x10b0b13,0xb3b83,0x12bfbb3,0x8b3c03,0x806b7,0x2068693,0x713,0x6e783,0xe787b3,0x377b833,0x37787b3,0x381813,0x3d7d893,0x1180833,0x127f7b3,0xf80833,0x3d85713,0x1287833,0x1070733,0x46e783,0xe787b3,0x377b833,0x37787b3,0x381813,0x3d7d893,0x1180833,0x127f7b3,0xf80833,0x3d85713,0x1287833,0x1070733,0x868693,0xf9369ee3,0x3d75793,0x1277733,0xf70733,0x12747b3,0x17b793,0xfff78793,0xf77733,0x1870733,0xecb823,0x10b0b13,0xb3b83,0x12bfbb3,0x8b3c03,0x806b7,0x2068693,0x713,0x6e783,0xe787b3,0x377b833,0x37787b3,0x381813,0x3d7d893,0x1180833,0x127f7b3]
+def keygenCode_1 : List (BitVec 32) := bv_list% 32 [0x1c7e93,0x4e9e93,0x20537,0x20050513,0x4000593,0x20637,0x24060613,0x73,0x73c0006f,0x2e0e33,0x41d60eb3,0x10eb303,0x18eb383,0x6e3023,0x7e3423,0x13,0x1c0c13,0xf69ff06f,0x7080006f,0xf59ff06f,0x8067,0x50137,0x10113,0xa000f13,0x1013303,0x1813383,0x6f3023,0x7f3423,0x80c37,0x20c0c13,0x1a37,0xa0a13,0xb13,0xb93,0x1a5d13,0x4a1a93,0x50137,0x10113,0x2a8ab3,0x1337,0xd0130313,0x20b1393,0x736333,0x20b9393,0x20e37,0xe0e13,0x6e3823,0x7e3c23,0x20537,0x50513,0x4000593,0x20637,0x6060613,0x3310006f,0xab303,0x63383,0x734333,0x6c3023,0x8ab303,0x863383,0x734333,0x6c3423,0x10ab303,0x1063383,0x734333,0x6c3823,0x18ab303,0x1863383,0x734333,0x6c3c23,0x20a8a93,0x20c0c13,0x1b8b93,0xf7abece3,0x1a5a13,0x1b0b13,0xc00313,0xf46b68e3,0x20e37,0xe0e13,0xeb7,0x80e8e93,0xeb303,0x6e3023,0x8eb303,0x6e3423,0x10eb303,0x26e3023,0x18eb303,0x26e3423,0x20e3823,0x20e3c23,0x1337,0xe0130313,0x6e3823,0xe3c23,0x20537,0x50513,0x4000593,0x70637,0x60613,0x73,0x100313,0x2031313,0x6e3c23,0x70637,0x2060613,0x73,0xfff00913,0x395913,0xa09b7,0x98993,0x70b37,0xb0b13,0x80cb7,0xc8c93,0xb3b83,0x12bfbb3,0x8b3c03,0x806b7,0x2068693,0x713,0x6e783,0xe787b3,0x377b833,0x37787b3,0x381813,0x3d7d893,0x1180833,0x127f7b3,0xf80833,0x3d85713,0x1287833,0x1070733,0x46e783,0xe787b3,0x377b833,0x37787b3,0x381813,0x3d7d893,0x1180833,0x127f7b3,0xf80833,0x3d85713,0x1287833,0x1070733,0x868693,0xf9369ee3,0x3d75793,0x1277733,0xf70733,0x12747b3,0x17b793,0xfff78793,0xf77733,0x1870733,0xecb023,0x10b0b13,0xb3b83,0x12bfbb3,0x8b3c03,0x806b7,0x2068693,0x713,0x6e783,0xe787b3,0x377b833,0x37787b3,0x381813,0x3d7d893,0x1180833,0x127f7b3,0xf80833,0x3d85713,0x1287833,0x1070733,0x46e783,0xe787b3,0x377b833,0x37787b3,0x381813,0x3d7d893,0x1180833,0x127f7b3,0xf80833,0x3d85713,0x1287833,0x1070733,0x868693,0xf9369ee3,0x3d75793,0x1277733,0xf70733,0x12747b3,0x17b793,0xfff78793,0xf77733,0x1870733,0xecb423,0x10b0b13,0xb3b83,0x12bfbb3,0x8b3c03,0x806b7,0x2068693,0x713,0x6e783,0xe787b3,0x377b833,0x37787b3,0x381813,0x3d7d893,0x1180833,0x127f7b3,0xf80833,0x3d85713,0x1287833,0x1070733,0x46e783,0xe787b3,0x377b833,0x37787b3,0x381813,0x3d7d893,0x1180833,0x127f7b3,0xf80833,0x3d85713,0x1287833,0x1070733,0x868693,0xf9369ee3,0x3d75793,0x1277733,0xf70733,0x12747b3,0x17b793,0xfff78793,0xf77733,0x1870733,0xecb823,0x10b0b13,0xb3b83,0x12bfbb3,0x8b3c03,0x806b7,0x2068693,0x713,0x6e783,0xe787b3,0x377b833,0x37787b3,0x381813,0x3d7d893,0x1180833,0x127f7b3]
 
-def keygenCode_2 : List (BitVec 32) := bv_list% 32 [16255027,64509715,19429427,17237811,4646787,15173555,58177587,58165171,3676179,64477331,18352179,19396531,16255027,64509715,19429427,17237811,8816275,0xf9369ee3,64444307,19363635,16189235,19351475,1554323,0xfff78793,16217907,25626419,15514659,1049235,1299,115]++List.replicate 45 19++bv_list% 32 [12583827,264803,1049491,7603299,915,6521747,7639859,19071795,134711,437128723,33772435,8272931,33755923,16995091,50598803,7562035,202379027,59711251,31679283,268071827,8622995,7562035,134865811,7562035,0x885ff06f,0x650006f,0x600f13,65603379,34019091,1533715,3731,132407,15022115,343075,67110291,67438099,115,67449347,4993059,75837955,4994083,84226563,4995107,92615171,4996131,34343955,1052435,34545427,31917875,2002579,0x1000f13,0xfbee98e3,2451,32871,19,0x3d0006f,1939,136503,0xc050513,136631,0xff050513,2067,3091,531,1555,429715,2031379,985187,15222835,16534579,12730931,66576147,1447443,31876659,66543379,1546131,31975347,1513235,2023059,0xfc0e96e3,1187603,32000051,2236179,32000051,7479059,32000051,4737075,343811,31999795,8732419,32262067,0xf8b512e3,134967,485439523,486489123,32871,19,5245587,28315411,0x85e9c6e3,4197011,0x1480006f]++bv_list% 32 [0x6041263,0x19f313,0x393,0x4731c63,0x3400393,0x533c863,0x10e3303,0x46e3023,0x18e3303,0x46e3423,0x40e3823,0x40e3c23,0x60e3023,0x60e3423,0x30e0513,0x4000593,0x20e0613,0xfffa8313,0x3300393,0x99463,0xa8313,0x6a1463,0x30e0613,0x73,0xf10ff06f,0x20e3023,0x20e3423,0xe0513,0x4000593,0x30e0613,0x73,0xef4ff06f] ++ bv_list% 32 [0x100a13,0x100693,0x851ff06f,0x1a5a13,0x168693,0x84dff06f,0xc00e13,0x9c68063,0xffd68713,0x300e13,0x7c6ca63,0x71863,0x100713,0x80006f,0x800713,0x4000e13,0x40ee0e33,0xfff00813,0x1c81833,0xb00e13,0x1c69663,0xff00813,0x2881813,0x6800893,0xe898b3,0x41d60f33,0x18f3f03,0x10f7f33,0x20f0663,0x20e37,0x220e3f03,0x1f0f13,0x11f7e63,0x23ee3023,0x20537,0x20050513,0x4000593,0x73,0xfcdff06f,0x20e37,0x220e3023,0x4c1e13,0x2e0e33,0x41d60eb3,0x10eb303,0x18eb383,0x6e3023]
+def keygenCode_2 : List (BitVec 32) := bv_list% 32 [16255027,64509715,19429427,17237811,4646787,15173555,58177587,58165171,3676179,64477331,18352179,19396531,16255027,64509715,19429427,17237811,8816275,0xf9369ee3,64444307,19363635,16189235,19351475,1554323,0xfff78793,16217907,25626419,15514659,1049235,1299,115]++List.replicate 45 19++bv_list% 32 [12583827,264803,1049491,7603299,915,6521747,7639859,19071795,134711,437128723,33772435,8272931,33755923,16995091,50598803,7562035,202379027,59711251,31679283,268071827,8622995,7562035,134865811,7562035,0x885ff06f,0x650006f,0x600f13,65603379,34019091,1533715,3731,132407,15022115,343075,67110291,67438099,115,67449347,4993059,75837955,4994083,84226563,4995107,92615171,4996131,34343955,1052435,34545427,31917875,2002579,0x1000f13,0xfbee98e3,2451,32871,19,0x3d0006f,1939,136503,0xc050513,136631,0xff050513,2067,3091,531,1555,429715,2031379,985187,15222835,16534579,12730931,66576147,1447443,31876659,66543379,1546131,31975347,1513235,2023059,0xfc0e96e3,1187603,32000051,2236179,32000051,7479059,32000051,4737075,343811,31999795,8732419,32262067,0xf8b512e3,134967,485439523,486489123,32871,19,5245587,28315411,0x85e9c6e3,4197011,0x1480006f]++bv_list% 32 [0x6041263,0x19f313,0x393,0x4731c63,0x3400393,0x533c863,0x10e3303,0x46e3023,0x18e3303,0x46e3423,0x40e3823,0x40e3c23,0x60e3023,0x60e3423,0x30e0513,0x4000593,0x20e0613,0xfffa8313,0x3300393,0x99463,0xa8313,0x6a1463,0x30e0613,0x73,0xf10ff06f,0x20e3023,0x20e3423,0xe0513,0x4000593,0x30e0613,0x73,0xef4ff06f] ++ bv_list% 32 [0x100a13,0x100693,0x851ff06f,0x1a5a13,0x168693,0x84dff06f,0xc00e13,0x9c68063,0xffd68713,0x300e13,0x7c6ca63,0x71663,0x200713,0x80006f,0x170713,0x4000e13,0x40ee0e33,0xfff00813,0x1c81833,0xb00e13,0x1c69663,0x7f00813,0x4840006f,0x6800893,0xe898b3,0x41d60f33,0x18f3f03,0x10f7f33,0x20f0663,0x20e37,0x220e3f03,0x1f0f13,0x11f7e63,0x23ee3023,0x20537,0x20050513,0x4000593,0x73,0xfcdff06f,0x20e37,0x220e3023,0x4c1e13,0x2e0e33,0x41d60eb3,0x10eb303,0x18eb383,0x6e3023]
 def keygenCode_3 : List (BitVec 32) := bv_list% 32 [0x7e3423,0x83dff06f] ++ bv_list% 32 [0x3000f13,0xefe9cc63,0x600a93,0x3200f13,0xefe9c663,0x500a93,0xee4ff06f] ++ List.replicate 247 19
-def keygenCode_4 : List (BitVec 32) := List.replicate 93 19 ++ bv_list% 32 [3148435,2579093091,4197011,2555375727,787347,267645715,8590099,8639379,6546355,7735,4043181587,29618995,4395795,4445075,29619123,6546355,15927,859704851,29618995,2298643,2347923,29619123,6546355,24119,1432227347,29618995,1250067,1299347,29619123,6546355,50566035,2706370671] ++ bv_list% 32 [0x397f13,0x40f1263,0x21c37,0x295f13,0x1f7e93,0x1f00713,0x2ef0733,0x1d70733,0x175713,0x2071713,0x176713,0xe8c63,0x1f0c3203,0x4c3023,0x1f8c3203,0x4c3423,0x10c0c13,0xf70ff06f,0x993,0x8067,0x397f13,0x6f1f13,0x1e686b3,0x713,0x793,0x215b7,0x1f058513,0xfbcff06f]
+def keygenCode_4 : List (BitVec 32) := bv_list% 32 [0xb1c63,0x63023,0x63423,0x63823,0x63c23,0xcc4ff06f,0x73,0xcbcff06f] ++ bv_list% 32 [0x700713,0x2881813,0xb79ff06f] ++ List.replicate 82 19 ++ bv_list% 32 [3148435,2579093091,4197011,2555375727,787347,267645715,8590099,8639379,6546355,7735,4043181587,29618995,4395795,4445075,29619123,6546355,15927,859704851,29618995,2298643,2347923,29619123,6546355,24119,1432227347,29618995,1250067,1299347,29619123,6546355,50566035,2706370671] ++ bv_list% 32 [0x397f13,0x40f1263,0x21c37,0x295f13,0x1f7e93,0x1f00713,0x2ef0733,0x1d70733,0x175713,0x2071713,0x176713,0xe8c63,0x1f0c3203,0x4c3023,0x1f8c3203,0x4c3423,0x10c0c13,0xf70ff06f,0x993,0x8067,0x397f13,0x6f1f13,0x1e686b3,0x713,0x793,0x215b7,0x1f058513,0xfbcff06f]
 def keygenCode : List (BitVec 32) :=
   [keygenCode_0, keygenCode_1, keygenCode_2, keygenCode_3, keygenCode_4].foldl (· ++ ·) []
 def keygenData : List (BitVec 8) := [
@@ -947,12 +959,12 @@ namespace ClaudeWCT.W9.T3M.Paired
 open SigGolfCandidate.Legacy
 
 def submission (I : Images) : Submission where
-  sizes := ⟨5193, 22012, 131072⟩
+  sizes := ⟨5192, 22012, 131072⟩
   layout := ⟨0x6620, 0x80, 0xa0, 0x80000, 0x7000, 0x1020⟩
   image := (ClaudeWCT.W9.T3M.submission I).image
 
 variable (I : Images)
-@[simp] theorem submission_sizes : (submission I).sizes = ⟨5193, 22012, 131072⟩ := rfl
+@[simp] theorem submission_sizes : (submission I).sizes = ⟨5192, 22012, 131072⟩ := rfl
 @[simp] theorem submission_layout : (submission I).layout = ⟨0x6620, 0x80, 0xa0, 0x80000, 0x7000, 0x1020⟩ := rfl
 @[simp] theorem submission_image : (submission I).image = (ClaudeWCT.W9.T3M.submission I).image := rfl
 @[simp] theorem submission_keygen : (submission I).image .keygen = SigGolfCandidate.T3M.Images.keygenImage := rfl
@@ -2140,13 +2152,20 @@ theorem gav_buildTopTree : Avoids secret target buildTopTree := by
   exact avoids_bind (avoids_foldlM _ _ _ _ (fun st leaf => gav_topTreeStep secret target lay tree heap ht hp st leaf) _)
     fun st => gav_buildTopLevels secret target lay tree heap ht hp _
 
+section
+attribute [local irreducible] SigGolfCandidate.T3.keygenPayload
+set_option backward.isDefEq.respectTransparency true in
+set_option maxHeartbeats 2000000 in
 theorem gav_keygen : Avoids secret target SigGolfCandidate.T3.keygen := by
-  unfold SigGolfCandidate.T3.keygen SigGolfCandidate.T3.keygenPayload maskedLevel pairedMask
+  unfold SigGolfCandidate.T3.keygen SigGolfCandidate.T3.keygenPayload
   refine avoids_bind (avoids_bind (gav_buildTopTree secret target lay tree heap ht hp) fun levels =>
-    avoids_bind (avoids_mapM _ _ _ _ fun level => avoids_bind (avoids_mapM _ _ _ _ fun pair =>
-      avoids_bind (gav_privatePair secret target lay tree heap ht hp _ _ _ _ _) fun _ => avoids_pure _ _ _)
-      fun _ => avoids_pure _ _ _) fun _ => avoids_pure _ _ _) fun pr => ?_
-  exact avoids_bind (gav_privateMac secret target lay tree heap ht hp _) fun _ => avoids_pure _ _ _
+    avoids_bind (avoids_mapM _ _ _ _ fun level => ?_) fun _ => avoids_pure _ _ _) fun pr => ?_
+  · unfold maskedLevel
+    refine avoids_bind (avoids_mapM _ _ _ _ fun pair => ?_) fun _ => avoids_pure _ _ _
+    unfold pairedMask
+    exact avoids_bind (avoids_pure _ _ _) fun _ => avoids_pure _ _ _
+  · exact avoids_bind (gav_privateMac secret target lay tree heap ht hp _) fun _ => avoids_pure _ _ _
+end
 
 theorem gav_digestSearch (rho : Digest) (message : Message) :
     ∀ fuel counter, Avoids secret target
@@ -3735,7 +3754,7 @@ noncomputable def excessGB (levels : List (List Digest)) (b : Bool) : ℝ≥0∞
 
 theorem excessWeight_searchFuel_le : excessWeight ClaudeWCT.WCT9.searchFuel ≤ ENNReal.ofReal 4 := by
   unfold excessWeight expandReplayExtra ClaudeWCT.WCT9.searchFuel
-  calc (2 : ℝ≥0∞) ^ ((8 / 7 : ℝ) * ((6243 + 425765 + 65535 : ℕ) : ℝ) / 1048576)
+  calc (2 : ℝ≥0∞) ^ ((8 / 7 : ℝ) * ((6243 + 425765 + 131071 : ℕ) : ℝ) / 1048576)
       ≤ (2 : ℝ≥0∞) ^ ((2 : ℕ) : ℝ) :=
         ENNReal.rpow_le_rpow_of_exponent_le (by norm_num) (by push_cast; norm_num)
     _ = ENNReal.ofReal 4 := by rw [ENNReal.rpow_natCast]; norm_num
@@ -4785,11 +4804,11 @@ def KeygenRunWith : Prop := ∀ (hash : Hash) (sk : SecretKey),
  def SignTerminates : Prop := ∀ (hash : Hash) (sk : SecretKey) (cache : Bytes 131072) (m : Message),
   ((submission I).runWith hash .sign (sk,cache,m)).finished=true ∧
     ((submission I).runWith hash .sign (sk,cache,m)).cycles<CYCLE_LIMIT
- def ExpandRefines : Prop := ∀ (m : Message) (pk : PublicKey) (s : Bytes 5193),
+ def ExpandRefines : Prop := ∀ (m : Message) (pk : PublicKey) (s : Bytes 5192),
   (fun r => (r.value,r.hashCalls,r.hashCompressions)) <$> (submission I).run .expand (m,pk,s)=
     (fun p => (p.1.map (fun x => witEncG x.1 x.2),p.2.1,p.2.2)) <$>
       countBoth (mrealize 0 (expandN m pk (sigDecC s)))
- def ExpandTerminates : Prop := ∀ (hash : Hash) (m : Message) (pk : PublicKey) (s : Bytes 5193),
+ def ExpandTerminates : Prop := ∀ (hash : Hash) (m : Message) (pk : PublicKey) (s : Bytes 5192),
   ((submission I).runWith hash .expand (m,pk,s)).finished=true ∧
     ((submission I).runWith hash .expand (m,pk,s)).cycles<CYCLE_LIMIT
  def VerifyRefines : Prop := ∀ (m : Message) (pk : PublicKey) (w : Bytes 22012),

@@ -5803,8 +5803,9 @@ theorem bound_privateMacKey : CBound (fun _ => True) 2 privateMacKey := by
 theorem bound_privateMac (region : Region) : CBound (fun _ => True) 2 (privateMac region) := by
   unfold privateMac
   exact bound_privateMacKey.bind' (l := 0) (fun _ _ => .pure _ 0 trivial) (by decide)
-theorem bound_pairedMask (level pair : Nat) : CBound (fun _ => True) 1 (pairedMask level pair) :=
-  bound_privatePair 13 0 0 level pair
+theorem bound_pairedMask (level pair : Nat) : CBound (fun _ => True) 1 (pairedMask level pair) := by
+  unfold pairedMask
+  exact .pure _ 1 trivial
 theorem bound_mask (level index : Nat) : CBound (fun _ => True) 1 (mask level index) := by
   unfold mask
   exact (bound_pairedMask level (index/2)).bind' (l := 0) (fun _ _ => .pure _ 0 trivial) (by decide)
@@ -5977,7 +5978,7 @@ theorem bound_buildTopLevel (level : Nat) (nodes : List Digest) :
   simpa [List.map_const', List.sum_replicate, Nat.mul_comm] using hc
 /-- Σ over levels 1..12 of (nodes at the level) × (worst trials per node `104·2^b_h`): T51
 (`b_h = 0,0,1,1,2,3,4,5,6,7,8`) 851,969 (#938, `b_h = h`: 4,685,825). -/
-def topTreeNodeCost : Nat := 851969
+def topTreeNodeCost : Nat := 1304577
 theorem bound_buildTopLevels (leaves : List Digest) (hlen : leaves.length=2^12) :
     CBound (LevelShape 12 12) topTreeNodeCost (buildTopLevels leaves) := by
   unfold buildTopLevels
@@ -8630,6 +8631,11 @@ theorem cacheRegion_read (f : Nat → Nat → Digest) (level node : Nat)
     cacheWordList_getD f level node hlo hhi hnode]
 def maskedTop (answers : Answers) (level node : Nat) : Digest :=
   treeValue (builtTree answers 0 0) level node ^^^ evalWithAnswerFn answers (mask level node)
+/-- The bottom cache level is the already public top-leaf table. -/
+theorem maskedTop_leaf (answers : Answers) (node : Nat) :
+    maskedTop answers 0 node = treeValue (builtTree answers 0 0) 0 node := by
+  simp [maskedTop, mask, pairedMask, evalWithAnswerFn_bind, evalWithAnswerFn_pure]
+
 theorem eval_mask_even (A : Answers) (level pair : Nat) :
     evalWithAnswerFn A (mask level (2*pair))=(evalWithAnswerFn A (pairedMask level pair)).1 := by
   simp [mask,evalWithAnswerFn_bind,evalWithAnswerFn_pure,Nat.mul_div_cancel_left]

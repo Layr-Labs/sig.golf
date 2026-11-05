@@ -316,10 +316,16 @@ def nonce_C : List (BitVec 32) := [0x1a0693,0x1640b06f]
 /-! T51 ZB (54553..54568): `a4 = b_h = topZeroBits h` (0 for `h < 3`, 1 for `h = 3`, else `h - 3`) and the zero-test
 mask `t6` (0 for `b_h = 0`, the top `b_h` bits, bits 40..47 for `h = 11`), then `j 43215`. -/
 def nonce_Z0 : List (BitVec 32) := [0x00000713,0x00000f93,0x00300e13,0x03c6c863]
-def nonce_Z1 : List (BitVec 32) := [0xffd68713,0x00071463]
+def nonce_Z1 : List (BitVec 32) := [0xffd68713,0x2d80006f]
 def nonce_Z2 : List (BitVec 32) := [0x00100713,0x04000e13,0x40ee0e33,0xfff00f93,0x01cf9fb3,0x00b00e13,0x01c69663]
 def nonce_Z3 : List (BitVec 32) := [0x04000e13,0x40ee0e33,0xfff00f93,0x01cf9fb3,0x00b00e13,0x01c69663]
-def nonce_Z4 : List (BitVec 32) := [0x0ff00f93,0x028f9f93,0xe9df406f]
+def nonce_Z4 : List (BitVec 32) := [0x07f00f93,0x2c80006f,0xe9df406f]
+def nonce_Alloc0 : List (BitVec 32) := [0x71663,0x200713,0xd29ff06f,0x170713,0xd21ff06f]
+def nonce_Alloc1 : List (BitVec 32) := [0x700713,0x28f9f93,0xd35ff06f]
+def nonce_ZA0 : List (BitVec 32) := nonce_Alloc0.take 1
+def nonce_ZA1 : List (BitVec 32) := (nonce_Alloc0.drop 1).take 2
+def nonce_ZA2 : List (BitVec 32) := nonce_Alloc0.drop 3
+def nonce_ZA3 : List (BitVec 32) := nonce_Alloc1
 def nonce_Z5 : List (BitVec 32) := [0xe9df406f]
 def nonce_D : List (BitVec 32) := [0x800e13,0x80006f]
 def nonce_E : List (BitVec 32) := [0x4000e13,0x40ee0e33,0xfff00f93,0x1cf9fb3,0xb00e13,0x1c69663]
@@ -395,6 +401,10 @@ class Code (im : Image) : Prop where
   codeAt_nZ3 : CodeAt im (pcOf 54560) nonce_Z3
   codeAt_nZ4 : CodeAt im (pcOf 54566) nonce_Z4
   codeAt_nZ5 : CodeAt im (pcOf 54568) nonce_Z5
+  codeAt_nZA0 : CodeAt im (pcOf 54740) nonce_ZA0
+  codeAt_nZA1 : CodeAt im (pcOf 54741) nonce_ZA1
+  codeAt_nZA2 : CodeAt im (pcOf 54743) nonce_ZA2
+  codeAt_nZA3 : CodeAt im (pcOf 54745) nonce_ZA3
   codeAt_nG : CodeAt im (pcOf 43215) nonce_G
   codeAt_nL : CodeAt im (pcOf 43225) nonce_L
   codeAt_nH : CodeAt im (pcOf 43228) nonce_H

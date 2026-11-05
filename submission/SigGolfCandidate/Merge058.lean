@@ -55,10 +55,11 @@ theorem respects_keygenRest (c : ChainAddr) (levels : List (List Digest)) :
   unfold keygenRest Correctness.cachePayloadProgram
   refine Respects.bind (Respects.pure' _) fun levels => ?_
   refine Respects.bind (Respects.mapM _ _ fun level _ => ?_) fun _ => Respects.pure' _
-  unfold maskedLevel pairedMask
-  exact Respects.bind (Respects.mapM _ _ fun pair _ => Respects.bind
-    (Respects.privatePair _ _ _ _ _ (untouched_privatePair c (by decide) _ _ _ _)) fun _ => Respects.pure' _)
-    fun _ => Respects.pure' _
+  unfold maskedLevel
+  refine Respects.bind (Respects.mapM _ _ fun pair _ => ?_) fun _ => Respects.pure' _
+  refine Respects.bind ?_ fun _ => Respects.pure' _
+  unfold pairedMask
+  exact Respects.pure' _
 theorem eval_buildLeafTop_sig (T : Answers) (leaf : Nat) (digits : List Nat) (hvalid : Cost.ValidDigits 0 digits) :
     evalWithAnswerFn T (buildLeafTop leaf digits true) =
       (0, (List.range (chainCount 0)).map (WCT9.wotsValue T 0 0 leaf digits)) := by
@@ -10247,9 +10248,12 @@ theorem nodeHash_free (tag lay tree heap : Nat) (left right : Digest) :
   unfold nodeHash
   rw [List.append_assoc]
   exact projHash_free' _ _ _ (nodeTweak_probe_safeS tag lay tree heap)
+theorem pairedMask_free (level pair : Nat) : AllQueriesSatisfy (pairedMask level pair) WFree := by
+  unfold pairedMask
+  exact pure_allowed _ _
 theorem mask_free (level index : Nat) : AllQueriesSatisfy (mask level index) WFree := by
-  unfold mask pairedMask
-  exact bind_allowed WFree (privatePair_free _ _ _ _ (by decide)) fun _ => pure_allowed _ _
+  unfold mask
+  exact bind_allowed WFree (pairedMask_free _ _) fun _ => pure_allowed _ _
 theorem buildLeaf_free (lay : Layer) (tree leaf : Nat) (digits : List Nat) (signatureOnly : Bool) :
     AllQueriesSatisfy (buildLeaf lay tree leaf digits signatureOnly) WFree := by
   unfold buildLeaf
@@ -10351,9 +10355,9 @@ theorem buildTreeP_free (lay : Layer) (tree selected : Nat) (digits : List Nat) 
     lowerNodeHashN_free lay tree heap n left right hh) lowerSeedPair_free lay tree selected digits
 theorem maskedLevel_free (nodes : List Digest) (level : Nat) :
     AllQueriesSatisfy (maskedLevel nodes level) WFree := by
-  unfold maskedLevel pairedMask
+  unfold maskedLevel
   apply bind_allowed WFree
-  · exact mapM_allowed WFree _ _ (fun pair => bind_allowed WFree (privatePair_free _ _ _ _ (by decide))
+  · exact mapM_allowed WFree _ _ (fun pair => bind_allowed WFree (pairedMask_free _ _)
       (fun _ => pure_allowed _ _))
   · intro _; exact pure_allowed _ _
 /-- img-v6 top family coefficients (r3-lean-nonsec port): pairs from `topPairsFrom`. -/
@@ -10437,6 +10441,9 @@ theorem buildTopTree_free : AllQueriesSatisfy buildTopTree WFree := by
       exact bind_allowed WFree (buildLeafTopC_free _ _ _ _) fun _ => pure_allowed _ _
   · intro roots
     exact buildTopLevels_free _
+section keygenCacheSafety
+attribute [local irreducible] maskedLevel keygenPayload
+set_option backward.isDefEq.respectTransparency true in
 theorem keygenPayload_free : AllQueriesSatisfy keygenPayload WFree := by
   unfold keygenPayload
   apply bind_allowed WFree buildTopTree_free
@@ -10445,11 +10452,13 @@ theorem keygenPayload_free : AllQueriesSatisfy keygenPayload WFree := by
   · exact mapM_allowed WFree _ _ (fun level => maskedLevel_free _ _)
   · intro _
     exact pure_allowed _ _
+set_option backward.isDefEq.respectTransparency true in
 theorem keygen_free : AllQueriesSatisfy keygen WFree := by
   unfold keygen
   apply bind_allowed WFree keygenPayload_free
   intro generated
   exact bind_allowed WFree (privateMac_free _) fun _ => pure_allowed _ _
+end keygenCacheSafety
 theorem counterSearch_free (lay : Layer) (tree leaf : Nat) (message : Digest) (counter fuel : Nat) :
     AllQueriesSatisfy (counterSearch lay tree leaf message counter fuel) WFree := by
   induction fuel generalizing counter with

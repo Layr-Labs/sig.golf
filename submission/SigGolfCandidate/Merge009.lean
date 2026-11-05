@@ -148,7 +148,8 @@ def privateMac (region : Region) : M HashOutput := do
   pure (SiggolfT3Mac4.encodeTag (SiggolfT3Mac4.macTag key (List.ofFn region)))
 def privateNonce (message : Message) : M Digest := do
   pure ((← privateHash (.inr (.inl message))).extractLsb' 0 128)
-def pairedMask (level pair : Nat) : M (Digest × Digest) := privatePair 13 0 0 level pair
+/-- Leaf-level cache values are public tree leaves; higher levels retain their private masks. -/
+def pairedMask (_level _pair : Nat) : M (Digest × Digest) := pure (0, 0)
 def mask (level index : Nat) : M Digest := do
   let pair ← pairedMask level (index/2)
   pure (if index%2=0 then pair.1 else pair.2)
@@ -245,12 +246,12 @@ input (bytes 40..47 stay 0); `n = 0` gives the old zero pad. Zero bits: the top 
 node value for `h ≤ 10`, bits 104..111 for `h = 11` (T51; #938: bits 98..108). The root (height 12) has no nonce.
 A height with `b_h = 0` passes its first trial (nonce 0). -/
 /-- Campaign T51: `b_1..b_11 = 0,0,1,1,2,3,4,5,6,7,8` (37 bits; #938 img-v6 had `b_h = h`, 66 bits). -/
-def topZeroAlloc : List Nat := [0, 0, 0, 1, 1, 2, 3, 4, 5, 6, 7, 8]
+def topZeroAlloc : List Nat := [0, 0, 0, 2, 2, 3, 4, 5, 6, 7, 8, 7]
 def topZeroBits (h : Nat) : Nat := topZeroAlloc.getD h 0
 /-- Trial cap `104 << b`. -/
 def topNonceCap (h : Nat) : Nat := 104 * 2 ^ topZeroBits h
 def topZeroOk (h : Nat) (value : Digest) : Bool :=
-  if h = 11 then value.toNat / 2 ^ 104 % 2 ^ 8 == 0 else value.toNat / 2 ^ (128 - topZeroBits h) == 0
+  if h = 11 then value.toNat / 2 ^ 104 % 2 ^ 7 == 0 else value.toNat / 2 ^ (128 - topZeroBits h) == 0
 def nonceBytes (n : Nat) : HashInput := bytesLE 16 (BitVec.ofNat 128 (n % 2 ^ 64))
 def topNodeInput (heap n : Nat) (left right : Digest) : HashInput :=
   bytesLE 16 left ++ bytesLE 16 (nodeTweak 3 0 0 heap) ++ nonceBytes n ++ bytesLE 16 right

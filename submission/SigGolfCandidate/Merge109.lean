@@ -79,11 +79,7 @@ theorem Coherent.private_header (hcoh : Coherent U T vals nv τ a)
     cases h
 theorem Coherent.mask_eq (hcoh : Coherent U T vals nv τ a) (level node : Nat) :
     maskOf a level node = evalWithAnswerFn T (T3.mask level node) := by
-  have hp := hcoh.private_header 13 level (node/2) (by decide) (by decide)
-  unfold maskOf T3.mask pairedMask privatePair privateHash
-  simp only [evalWithAnswerFn_bind, evalWithAnswerFn_pure]
-  rw [← hp]
-  rfl
+  simp [maskOf, SigGolfCandidate.T3.mask, pairedMask, evalWithAnswerFn_bind, evalWithAnswerFn_pure, SphincsSecurity.digestBits]
 theorem Coherent.mac_eq (hcoh : Coherent U T vals nv τ a) (region : Region) :
     macOf a region = evalWithAnswerFn T (T3.privateMac region) := by
   have hk : (fun i : Fin 2 => a.priv (.inl (header 14 0 0 0 i.val))) =
@@ -411,11 +407,7 @@ theorem _root_.ClaudeWCT.W9.T3.Security.LargeResidual.Paired.Coherent.private_he
     cases h
 theorem _root_.ClaudeWCT.W9.T3.Security.LargeResidual.Paired.Coherent.mask_eq (hcoh : LargeResidual.Paired.Coherent U T vals nv τ a) (level node : Nat) :
     maskOf a level node = evalWithAnswerFn T (SigGolfCandidate.T3.mask level node) := by
-  have hp := hcoh.private_header 13 level (node/2) (by decide) (by decide)
-  unfold maskOf SigGolfCandidate.T3.mask pairedMask privatePair privateHash
-  simp only [evalWithAnswerFn_bind, evalWithAnswerFn_pure]
-  rw [← hp]
-  rfl
+  simp [maskOf, SigGolfCandidate.T3.mask, pairedMask, evalWithAnswerFn_bind, evalWithAnswerFn_pure, SphincsSecurity.digestBits]
 theorem _root_.ClaudeWCT.W9.T3.Security.LargeResidual.Paired.Coherent.mac_eq (hcoh : LargeResidual.Paired.Coherent U T vals nv τ a) (region : Region) :
     macOf a region = evalWithAnswerFn T (SigGolfCandidate.T3.privateMac region) := by
   have hk : (fun i : Fin 2 => a.priv (.inl (header 14 0 0 0 i.val))) =

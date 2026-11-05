@@ -5,7 +5,7 @@ namespace SigGolf.Challenge
 
 def submission : SigGolf.Submission := SigGolfCandidate.Transfer.currentOf SigGolfCandidate.T3M.Paired.submission
 
-theorem signature_bytes : submission.sizes.signature = 5193 := rfl
+theorem signature_bytes : submission.sizes.signature = 5192 := rfl
 
 theorem witness_bytes : submission.sizes.witness = 22012 := rfl
 
@@ -26,9 +26,8 @@ end SigGolf.Challenge
 #print axioms SigGolf.Challenge.layout_offsets
 #print axioms SigGolf.Challenge.certificate
 
-/- M0 with the promoted cap-776 signer and its Route C certificate.
-   Verify image: P2c + P5 + landing fix. Accepting runs save 10 cycles.
-   Plus FTS digest-field repacking (dispatch 93 -> 85 words) and the topdigit lever (top body 345 -> 344).
-   S = 5193, W = 22012, K = 131072, C = 6981; score = 36,252,333.
-   Out-of-window lower words execute rank-checked chains before rejection,
-   so the all-path cycle budget is 15,784. -/
+/- Public-cache zero masks and a 37-bit upper carrier, combined with the
+   promoted 16-bit lower carrier. Declared sizes and cycle bound:
+   S = 5192, W = 22012, K = 131072, C = 6981; product = 36,245,352.
+   The inherited cap-776 signer, public verifier, and witness layout remain
+   part of the certificate above. -/
