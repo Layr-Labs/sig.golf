@@ -32,19 +32,19 @@ def HashOkBy (floors : T3.Layer → Nat) (high : Bool) (hash : Hash) : Prop :=
       ClaudeWCT.WCT9.CanonicalPolicy.pathReward lay (ClaudeWCT.WCT9.verificationLow lay high (hash q)) ds
 /-- The cap is far above any needed path allocation and keeps Nat subtraction exact. -/
 def CreditFloors (floors : T3.Layer → Nat) : Prop :=
-  (∀ lay, floors lay ≤ 301) ∧ 67 ≤ ((List.finRange 4).map floors).sum
+  (∀ lay, floors lay ≤ 301) ∧ 66 ≤ ((List.finRange 4).map floors).sum
 end SigGolfCandidate.T3M.Verify
 
 namespace SigGolfCandidate.T3M.Verify
 /-- Clip excess producer credit without needing a per-digit upper bound. -/
 theorem creditFloors_clip (credits : T3.Layer → Nat)
-    (h : 67 ≤ ((List.finRange 4).map credits).sum) :
+    (h : 66 ≤ ((List.finRange 4).map credits).sum) :
     CreditFloors (fun lay => min 67 (credits lay)) := by
   constructor
   · intro lay
     exact (Nat.min_le_left _ _).trans (by decide)
-  · change 67 ≤ credits 0 + (credits 1 + (credits 2 + (credits 3 + 0))) at h
-    change 67 ≤ min 67 (credits 0) + (min 67 (credits 1) +
+  · change 66 ≤ credits 0 + (credits 1 + (credits 2 + (credits 3 + 0))) at h
+    change 66 ≤ min 67 (credits 0) + (min 67 (credits 1) +
       (min 67 (credits 2) + (min 67 (credits 3) + 0)))
     omega
 end SigGolfCandidate.T3M.Verify

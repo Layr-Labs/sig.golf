@@ -1445,7 +1445,7 @@ theorem pre_entry (s0 : MachineState) (b : SharedCodec.CBytes) (hpc : s0.pc = pc
     fun A hA hn => ?_⟩
   rw [em]
   have hn' : A < 0x70d0 ∨ 0x84c0 ≤ A := by omega
-  apply preMem_other s0.getMem A hA (by omega)
+  apply preMem_other s0.getMem A hA (by omega) (by omega)
   intro c hc he
   simp only [List.mem_cons, List.not_mem_nil, or_false] at hc
   unfold hiA at he
@@ -1472,13 +1472,46 @@ theorem bytes_getD {n : Nat} (x : Bytes n) (i : Nat) (hi : i < n) :
   simp only [bytes, List.getD_eq_getElem?_getD, List.getElem?_map, List.getElem?_range hi, Option.map_some,
     Option.getD_some]
 
-/-- U16b: the expand entry memory of the real initial state holds the 5,193-byte signature (bytes 5192..5194 zero). -/
+set_option maxRecDepth 100000 in
+theorem bytesToWordLE_last5191 (b : Bytes 5191) :
+    bytesToWordLE (((bytes b).drop (8 * 648)).take 8) = b.extractLsb' (64 * 648) 64 := by
+  apply word_ext_bytes_e
+  intro i hi
+  rw [extractByte_bytesToWordLE_e _ _ hi]
+  apply BitVec.eq_of_toNat_eq
+  rw [extractByte_toNat_e]
+  by_cases h : i < 7
+  · simp only [bytes, List.getD_eq_getElem?_getD, List.getElem?_take, List.getElem?_drop,
+      List.getElem?_map, List.getElem?_range (show 8 * 648 + i < 5191 by omega), if_pos hi, Option.map_some,
+      Option.getD_some, BitVec.extractLsb'_toNat, Nat.shiftRight_eq_div_pow]
+    rw [show 8 * (8 * 648 + i) = 64 * 648 + 8 * i by ring, Nat.pow_add, ← Nat.div_div_eq_div_mul]
+    generalize b.toNat / 2 ^ (64 * 648) = y
+    interval_cases i <;> norm_num at h ⊢ <;> omega
+  · have ei : i = 7 := by omega
+    subst i
+    have bound : b.toNat / 2 ^ 41472 < 2 ^ 56 := by
+      rw [Nat.div_lt_iff_lt_mul (by positivity)]
+      exact b.isLt
+    simp only [bytes, List.getD_eq_getElem?_getD, List.getElem?_take, List.getElem?_drop,
+      List.getElem?_map, List.getElem?_range, Nat.reduceMul, Nat.reduceAdd, Nat.reduceLT,
+      if_true, if_false, Option.map_none, Option.getD_none,
+      BitVec.extractLsb'_toNat, Nat.shiftRight_eq_div_pow]
+    norm_num
+    rw [Nat.mod_eq_of_lt (lt_trans bound (by norm_num))]
+    change (0 : Nat) = (b.toNat / 2 ^ 41472) / 2 ^ 56 % 256
+    rw [Nat.div_eq_of_lt bound]
+
+/-- U16b: the expand entry memory of the real initial state holds the 5,193-byte signature (bytes 5191..5194 zero). -/
 theorem w9_sigMemC (m : Message) (pk : PublicKey) (b : SharedCodec.CBytes) :
     SigMemC (w9init Images.expandImage m pk b).getMem b := by
   constructor
   intro j hj
   rw [w9_getMem _ _ _ (by decide) b _ (by omega), if_pos (by omega), show 0x7000 + 8 * j - 0x7000 = 8 * j by omega]
-  exact bytesToWordLE_bytes_e b j (by omega)
+  by_cases hfull : j < 648
+  · exact bytesToWordLE_bytes_e b j (by omega)
+  · have ej : j = 648 := by omega
+    subst j
+    exact bytesToWordLE_last5191 b
 
 /-- DEC, accepting, from any state at word 0 holding the signature (U16b: word 0 + the pre-pass + DEC). -/
 theorem dec_gen (s0 : MachineState) (b : SharedCodec.CBytes) (hpc : s0.pc = pcOf 0) (hsig : SigMemC s0.getMem b)

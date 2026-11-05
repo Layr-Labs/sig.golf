@@ -696,7 +696,7 @@ Entries below the top floor 14 never matter. -/
 def topAcceptedHistogram : List (Nat × Nat) :=
   topCounts.flatMap fun e => [(e.1 + 2, e.2 * 2 ^ 128), (e.1, e.2 * topHighW)]
 
-def initialBound : Nat := 366456120528192306738282144921825420507
+def initialBound : Nat := 366261175301868671147750736727906733560
 
 /-- T51 fixed sign cost (PINNED P12, measured): 4 + 112142 + 16 top family pairs + 152 + 12 = 112326 compressions. -/
 def fixedSignCost : Nat := 112326
@@ -705,7 +705,7 @@ def fixedSignCost : Nat := 112326
 def fixedBound : Nat := 616334705435489293055497825014826663607
 
 theorem initial_checked :
-    recurrenceCheck topDen topAcceptedHistogram 14 67 rowOne initialBound = true := by
+    recurrenceCheck topDen topAcceptedHistogram 14 66 rowOne initialBound = true := by
   decide +kernel
 
 theorem fixed_power_checked :
@@ -735,19 +735,20 @@ for the sign `z = zNum/zDen` (equal to `keygenM 3, 4, 5`). -/
 def groundM (b : Nat) : Nat :=
   if b = 1 then 340285965984933645675468342432275971788
   else if b = 2 then 340289565125062062546873124227847124433
-  else 340296763633728263433442488925276359072
+  else if b = 3 then 340296763633728263433442488925276359072
+  else 340311161564765781666276742203532247926
 
-/-- The 42 ground nodes: 24 with `b = 1`, 16 with `b = 2`, 2 with `b = 3`. -/
+/-- The 42 ground nodes: 24 with `b = 1`, 12 with `b = 3`, 6 with `b = 4`. -/
 def groundBound : Nat :=
-  mulUp (powerUp (groundM 1) 24) (mulUp (powerUp (groundM 2) 16) (powerUp (groundM 3) 2))
+  mulUp (powerUp (groundM 1) 24) (mulUp (powerUp (groundM 3) 12) (powerUp (groundM 4) 6))
 
 theorem fixed_power_checked_U16 :
     powerUp (ceilDiv (zNum * scale) zDen) fixedSignCostU16 ≤ fixedBoundU16 := by
   decide +kernel
 
-/-- U16b signing moment 1.99982 < 1.99983 (claim 199983). -/
+/-- U24 signing moment 1.999949891 < 1.99995 (claim 199995). -/
 theorem full_moment_checked_U16 :
-    mulUp (mulUp (mulUp fixedBoundU16 groundBound) ftsBound) initialBound * 100000 < 199983 * scale := by
+    mulUp (mulUp (mulUp fixedBoundU16 groundBound) ftsBound) initialBound * 100000 < 199995 * scale := by
   decide +kernel
 
 end ClaudeWCT.Numerics.TopZero
@@ -795,12 +796,12 @@ theorem envelope_ratio_le_two : ((fixedBound:ℝ)/scale)*
   envelope_ratio_le_two_of fixedBound 199893 (by norm_num) full_moment_checked
 
 /-- Geometric retry step for a ground node with `b ∈ {1,2,3}` zero bits, at the sign `z = zNum/zDen`. -/
-theorem groundM_step_z (b : Nat) (hb1 : 1 ≤ b) (hb3 : b ≤ 3) :
+theorem groundM_step_z (b : Nat) (hb1 : 1 ≤ b) (hb3 : b ≤ 4) :
     (zNum:ℝ)/zDen * (1/2^b + (1 - 1/2^b) * ((groundM b:ℝ)/scale)) ≤ (groundM b:ℝ)/scale ∧
       (zNum:ℝ)/zDen ≤ (groundM b:ℝ)/scale := by
   interval_cases b <;> norm_num [groundM, zNum, zDen, scale]
 
-theorem groundM_step (b : Nat) (hb1 : 1 ≤ b) (hb3 : b ≤ 3) (z : ℝ) (hz : z ≤ (zNum:ℝ)/zDen) :
+theorem groundM_step (b : Nat) (hb1 : 1 ≤ b) (hb3 : b ≤ 4) (z : ℝ) (hz : z ≤ (zNum:ℝ)/zDen) :
     z * (1/2^b + (1 - 1/2^b) * ((groundM b:ℝ)/scale)) ≤ (groundM b:ℝ)/scale ∧ z ≤ (groundM b:ℝ)/scale := by
   obtain ⟨h1, h2⟩ := groundM_step_z b hb1 hb3
   have hq : (1:ℝ)/2^b ≤ 1 := by
@@ -822,14 +823,14 @@ theorem fixed_ratio_bound_U16 : ((zNum:ℝ)/zDen)^fixedSignCostU16≤(fixedBound
     _ ≤ _ := hp.trans (div_le_div_of_nonneg_right (by exact_mod_cast fixed_power_checked_U16) hs.le)
 
 theorem groundBound_ratio_ge :
-    ((groundM 1:ℝ)/scale)^24 * (((groundM 2:ℝ)/scale)^16 * ((groundM 3:ℝ)/scale)^2) ≤ (groundBound:ℝ)/scale := by
+    ((groundM 1:ℝ)/scale)^24 * (((groundM 3:ℝ)/scale)^12 * ((groundM 4:ℝ)/scale)^6) ≤ (groundBound:ℝ)/scale := by
   unfold groundBound
   calc
-    _ ≤ ((groundM 1:ℝ)/scale)^24 * ((powerUp (groundM 2) 16:ℝ)/scale * ((powerUp (groundM 3) 2:ℝ)/scale)) := by
+    _ ≤ ((groundM 1:ℝ)/scale)^24 * ((powerUp (groundM 3) 12:ℝ)/scale * ((powerUp (groundM 4) 6:ℝ)/scale)) := by
         gcongr
         · exact powerUp_ratio_ge _ _
         · exact powerUp_ratio_ge _ _
-    _ ≤ (powerUp (groundM 1) 24:ℝ)/scale * ((mulUp (powerUp (groundM 2) 16) (powerUp (groundM 3) 2):ℝ)/scale) := by
+    _ ≤ (powerUp (groundM 1) 24:ℝ)/scale * ((mulUp (powerUp (groundM 3) 12) (powerUp (groundM 4) 6):ℝ)/scale) := by
         gcongr
         · exact powerUp_ratio_ge _ _
         · exact mulUp_ratio_ge _ _
@@ -839,7 +840,7 @@ theorem groundBound_ratio_ge :
 theorem envelope_ratio_le_two_U16 : (((fixedBoundU16:ℝ)/scale)*((groundBound:ℝ)/scale))*
     (((ftsBound:ℝ)/scale)*((initialBound:ℝ)/scale))≤2 := by
   have hm := mulUp_ratio_ge fixedBoundU16 groundBound
-  have he := envelope_ratio_le_two_of (mulUp fixedBoundU16 groundBound) 199983 (by norm_num)
+  have he := envelope_ratio_le_two_of (mulUp fixedBoundU16 groundBound) 199995 (by norm_num)
     full_moment_checked_U16
   have h0 : (0:ℝ) ≤ ((ftsBound:ℝ)/scale)*((initialBound:ℝ)/scale) :=
     mul_nonneg (div_nonneg (Nat.cast_nonneg _) (Nat.cast_nonneg _)) (div_nonneg (Nat.cast_nonneg _) (Nat.cast_nonneg _))

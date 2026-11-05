@@ -831,7 +831,11 @@ theorem signatureWord {im : Image} (hlen:im.data.length=29936) (hb:dataBase im=D
     (w9init im m pk b).getMem (BitVec.ofNat 64 (0x7000+8*i))=b.extractLsb' (64*i) 64 := by
   rw [getMem hlen hb _ _ _ _ (by omega),if_pos (by omega),
     show 0x7000+8*i-0x7000=8*i by omega]
-  exact SigGolfCandidate.T3M.Expand.bytesToWordLE_bytes_e b i (by omega)
+  by_cases hfull : i < 648
+  · exact SigGolfCandidate.T3M.Expand.bytesToWordLE_bytes_e b i (by omega)
+  · have ei : i = 648 := by omega
+    subst i
+    exact ClaudeWCT.W9.Machine.Expand.PrePass.bytesToWordLE_last5191 b
 
 end ClaudeWCT.W9.Machine.Expand.SharedInit
 
@@ -2744,11 +2748,11 @@ namespace SigGolfCandidate.T3M.Paired
 open SigGolfCandidate.Legacy
 
 def submission : Submission where
-  sizes := ⟨5192, 22012, 131072⟩
+  sizes := ⟨5191, 22012, 131072⟩
   layout := ⟨0x6620, 0x80, 0xa0, 0x80000, 0x7000, 0x1020⟩
   image := SigGolfCandidate.T3M.submission.image
 
-@[simp] theorem submission_sizes : submission.sizes = ⟨5192, 22012, 131072⟩ := rfl
+@[simp] theorem submission_sizes : submission.sizes = ⟨5191, 22012, 131072⟩ := rfl
 @[simp] theorem submission_layout : submission.layout = ⟨0x6620, 0x80, 0xa0, 0x80000, 0x7000, 0x1020⟩ := rfl
 @[simp] theorem submission_image : submission.image = SigGolfCandidate.T3M.submission.image := rfl
 @[simp] theorem submission_keygen : submission.image .keygen = Images.keygenImage := rfl

@@ -959,12 +959,12 @@ namespace ClaudeWCT.W9.T3M.Paired
 open SigGolfCandidate.Legacy
 
 def submission (I : Images) : Submission where
-  sizes := ⟨5192, 22012, 131072⟩
+  sizes := ⟨5191, 22012, 131072⟩
   layout := ⟨0x6620, 0x80, 0xa0, 0x80000, 0x7000, 0x1020⟩
   image := (ClaudeWCT.W9.T3M.submission I).image
 
 variable (I : Images)
-@[simp] theorem submission_sizes : (submission I).sizes = ⟨5192, 22012, 131072⟩ := rfl
+@[simp] theorem submission_sizes : (submission I).sizes = ⟨5191, 22012, 131072⟩ := rfl
 @[simp] theorem submission_layout : (submission I).layout = ⟨0x6620, 0x80, 0xa0, 0x80000, 0x7000, 0x1020⟩ := rfl
 @[simp] theorem submission_image : (submission I).image = (ClaudeWCT.W9.T3M.submission I).image := rfl
 @[simp] theorem submission_keygen : (submission I).image .keygen = SigGolfCandidate.T3M.Images.keygenImage := rfl
@@ -2482,14 +2482,14 @@ theorem gVal_toNat (lay heap : Nat) (a : HashOutput) :
   unfold gVal gOff ClaudeWCT.WCT9.lowerHalf ClaudeWCT.WCT9.halfOf
   cases ClaudeWCT.WCT9.lowerHigh lay heap <;> simp [BitVec.extractLsb'_toNat, Nat.shiftRight_eq_div_pow]
 
-theorem lowerZeroBits_le3 (lay heap : Nat) : ClaudeWCT.WCT9.lowerZeroBits lay heap ≤ 3 := by
+theorem lowerZeroBits_le4 (lay heap : Nat) : ClaudeWCT.WCT9.lowerZeroBits lay heap ≤ 4 := by
   unfold ClaudeWCT.WCT9.lowerZeroBits; split_ifs <;> omega
 
 theorem lowerZeroOk_gVal_iff (lay heap : Nat) (a : HashOutput) :
     ClaudeWCT.WCT9.lowerZeroOk lay heap (gVal lay heap a) = true ↔
       a.toNat / 2 ^ (gOff lay heap + (128 - ClaudeWCT.WCT9.lowerZeroBits lay heap)) %
         2 ^ ClaudeWCT.WCT9.lowerZeroBits lay heap = 0 := by
-  have hb := lowerZeroBits_le3 lay heap
+  have hb := lowerZeroBits_le4 lay heap
   unfold ClaudeWCT.WCT9.lowerZeroOk
   generalize ClaudeWCT.WCT9.lowerZeroBits lay heap = b at hb ⊢
   have hv := (gVal lay heap a).isLt
@@ -2506,7 +2506,7 @@ theorem gOff_add_le (lay heap : Nat) : gOff lay heap + 128 ≤ 256 := by
 theorem prob_gAccept (lay heap : Nat) :
     Pr[fun a : HashOutput => ClaudeWCT.WCT9.lowerZeroOk lay heap (gVal lay heap a) = true |
       ($ᵗ HashOutput : ProbComp HashOutput)] = ((2 : ℝ≥0∞) ^ ClaudeWCT.WCT9.lowerZeroBits lay heap)⁻¹ := by
-  have hb := lowerZeroBits_le3 lay heap
+  have hb := lowerZeroBits_le4 lay heap
   simp only [lowerZeroOk_gVal_iff]
   exact ClaudeWCT.W9.T3.TopMoment.prob_window _ _ _ (by have := gOff_add_le lay heap; omega) (by positivity)
 
@@ -2523,7 +2523,7 @@ theorem bound_lowerNodeHash (lay tree heap : Nat) (left right : Digest) :
   apply ClaudeWCT.WCT9.Cost.bound_halfHash <;>
     simp [ClaudeWCT.WCT9.merkleNodeInput, pad64, SphincsSecurity.bytesLE_length, zero16]
 
-theorem lowerNonceCap_le' (lay heap : Nat) : ClaudeWCT.WCT9.lowerNonceCap lay heap ≤ 1024 := by
+theorem lowerNonceCap_le' (lay heap : Nat) : ClaudeWCT.WCT9.lowerNonceCap lay heap ≤ 2048 := by
   unfold ClaudeWCT.WCT9.lowerNonceCap ClaudeWCT.WCT9.lowerZeroBits
   split_ifs <;> norm_num
 
@@ -2846,7 +2846,7 @@ theorem facS_ok (lay : Nat) : FacOK SigGolfCandidate.T3.Budgets.signingZ lay (fa
   refine ⟨fun hb => by unfold facS; rw [if_pos hb], fun hb => ?_⟩
   unfold facS
   rw [if_neg hb]
-  have hb3 := lowerZeroBits_le3 lay heap
+  have hb3 := lowerZeroBits_le4 lay heap
   generalize ClaudeWCT.WCT9.lowerZeroBits lay heap = b at hb hb3 ⊢
   set zr := SigGolfCandidate.T3.Budgets.signingZ.toReal with hzr
   have hz0 : 0 ≤ zr := ENNReal.toReal_nonneg
@@ -2870,8 +2870,8 @@ theorem levFac_const (fac : Nat → ℝ≥0∞) (h a : Nat) (c : ℝ≥0∞) (hc
     List.length_range]
 
 theorem lzb_eq (lay heap : Nat) : ClaudeWCT.WCT9.lowerZeroBits lay heap =
-    if lay = 0 ∨ heap < 2 ∨ 16 ≤ heap then 0 else if 8 ≤ heap then 1 else if 4 ≤ heap then 2
-    else if lay = 1 then 3 else 2 := rfl
+    if lay = 0 ∨ heap < 2 ∨ 16 ≤ heap then 0 else if 8 ≤ heap then 1 else if 4 ≤ heap then 3
+    else 4 := rfl
 
 theorem facS_of (lay heap k : Nat) (hk : ClaudeWCT.WCT9.lowerZeroBits lay heap = k) :
     facS lay heap = if k = 0 then SigGolfCandidate.T3.Budgets.signingZ else mG k := by
@@ -2883,7 +2883,7 @@ theorem levFac_of (lay h a k : Nat) (hk : ∀ i < 2 ^ (h - a), ClaudeWCT.WCT9.lo
 
 theorem levFac_one :
     ((List.range' 1 (height 1 - 1)).map (levFac (facS 1) (height 1))).prod =
-      SigGolfCandidate.T3.Budgets.signingZ ^ 112 * (mG 1 ^ 8 * mG 2 ^ 4 * mG 3 ^ 2) := by
+      SigGolfCandidate.T3.Budgets.signingZ ^ 112 * (mG 1 ^ 8 * mG 3 ^ 4 * mG 4 ^ 2) := by
   have hh : height (1 : Layer) = 7 := rfl
   rw [hh, show 7 - 1 = 6 from rfl]
   simp only [List.range'_succ, List.range'_zero, List.map_cons, List.map_nil, List.prod_cons, List.prod_nil]
@@ -2891,30 +2891,30 @@ theorem levFac_one :
     levFac_of 1 7 2 0 (fun i hi => by simp only [Nat.reduceSub, Nat.reducePow] at hi ⊢; interval_cases i <;> rfl),
     levFac_of 1 7 3 0 (fun i hi => by simp only [Nat.reduceSub, Nat.reducePow] at hi ⊢; interval_cases i <;> rfl),
     levFac_of 1 7 4 1 (fun i hi => by simp only [Nat.reduceSub, Nat.reducePow] at hi ⊢; interval_cases i <;> rfl),
-    levFac_of 1 7 5 2 (fun i hi => by simp only [Nat.reduceSub, Nat.reducePow] at hi ⊢; interval_cases i <;> rfl),
-    levFac_of 1 7 6 3 (fun i hi => by simp only [Nat.reduceSub, Nat.reducePow] at hi ⊢; interval_cases i <;> rfl)]
+    levFac_of 1 7 5 3 (fun i hi => by simp only [Nat.reduceSub, Nat.reducePow] at hi ⊢; interval_cases i <;> rfl),
+    levFac_of 1 7 6 4 (fun i hi => by simp only [Nat.reduceSub, Nat.reducePow] at hi ⊢; interval_cases i <;> rfl)]
   norm_num
   ring
 
 theorem levFac_23 (lay : Nat) (hl : lay = 2 ∨ lay = 3) :
     ((List.range' 1 5).map (levFac (facS lay) 6)).prod =
-      SigGolfCandidate.T3.Budgets.signingZ ^ 48 * (mG 1 ^ 8 * mG 2 ^ 6) := by
+      SigGolfCandidate.T3.Budgets.signingZ ^ 48 * (mG 1 ^ 8 * mG 3 ^ 4 * mG 4 ^ 2) := by
   simp only [List.range'_succ, List.range'_zero, List.map_cons, List.map_nil, List.prod_cons, List.prod_nil]
   rw [levFac_of lay 6 1 0 (fun i hi => by simp only [Nat.reduceSub, Nat.reducePow] at hi ⊢; rcases hl with rfl | rfl <;> interval_cases i <;> rfl),
     levFac_of lay 6 2 0 (fun i hi => by simp only [Nat.reduceSub, Nat.reducePow] at hi ⊢; rcases hl with rfl | rfl <;> interval_cases i <;> rfl),
     levFac_of lay 6 3 1 (fun i hi => by simp only [Nat.reduceSub, Nat.reducePow] at hi ⊢; rcases hl with rfl | rfl <;> interval_cases i <;> rfl),
-    levFac_of lay 6 4 2 (fun i hi => by simp only [Nat.reduceSub, Nat.reducePow] at hi ⊢; rcases hl with rfl | rfl <;> interval_cases i <;> rfl),
-    levFac_of lay 6 5 2 (fun i hi => by simp only [Nat.reduceSub, Nat.reducePow] at hi ⊢; rcases hl with rfl | rfl <;> interval_cases i <;> rfl)]
+    levFac_of lay 6 4 3 (fun i hi => by simp only [Nat.reduceSub, Nat.reducePow] at hi ⊢; rcases hl with rfl | rfl <;> interval_cases i <;> rfl),
+    levFac_of lay 6 5 4 (fun i hi => by simp only [Nat.reduceSub, Nat.reducePow] at hi ⊢; rcases hl with rfl | rfl <;> interval_cases i <;> rfl)]
   norm_num
   ring
 
 theorem levFac_two :
     ((List.range' 1 (height 2 - 1)).map (levFac (facS 2) (height 2))).prod =
-      SigGolfCandidate.T3.Budgets.signingZ ^ 48 * (mG 1 ^ 8 * mG 2 ^ 6) := levFac_23 2 (Or.inl rfl)
+      SigGolfCandidate.T3.Budgets.signingZ ^ 48 * (mG 1 ^ 8 * mG 3 ^ 4 * mG 4 ^ 2) := levFac_23 2 (Or.inl rfl)
 
 theorem levFac_three :
     ((List.range' 1 (height 3 - 1)).map (levFac (facS 3) (height 3))).prod =
-      SigGolfCandidate.T3.Budgets.signingZ ^ 48 * (mG 1 ^ 8 * mG 2 ^ 6) := levFac_23 3 (Or.inr rfl)
+      SigGolfCandidate.T3.Budgets.signingZ ^ 48 * (mG 1 ^ 8 * mG 3 ^ 4 * mG 4 ^ 2) := levFac_23 3 (Or.inr rfl)
 
 theorem leafSum_one : ∑ leaf ∈ Finset.range (2 ^ height 1), ClaudeWCT.WCT9.Cost.leafCostP 1 leaf = 40285 := by
   rw [Finset.sum_congr rfl (fun leaf _ => ClaudeWCT.WCT9.Cost.leafCostP_lower (by decide) leaf)]
@@ -2929,7 +2929,7 @@ theorem leafSum_three : ∑ leaf ∈ Finset.range (2 ^ height 3), ClaudeWCT.WCT9
   decide
 
 /-- The 42 ground node factors of the three signing trees. -/
-noncomputable def groundE : ℝ≥0∞ := mG 1 ^ 24 * mG 2 ^ 16 * mG 3 ^ 2
+noncomputable def groundE : ℝ≥0∞ := mG 1 ^ 24 * mG 3 ^ 12 * mG 4 ^ 6
 
 /-- **U16b prepared-roots moment**: `V prepareRoots ≤ z^80779 · Π m_b` (80779 = 80821 − 42). -/
 theorem V_prepareRoots_U16 (secret : BitVec 256) (index : Nat) (hidx : index < 2 ^ 31) (cache : RCache)
@@ -3420,7 +3420,7 @@ theorem E_lowerCheckFold (secret : BitVec 256) :
 /-- `(3/8)^128`: a bound on every ground cap failure. -/
 noncomputable def cG : ℝ≥0∞ := ENNReal.ofReal ((3 / 8 : ℝ) ^ 128)
 
-theorem capFailG_le (b : Nat) (h1 : 1 ≤ b) (h3 : b ≤ 3) : capFailG b ≤ cG := by
+theorem capFailG_le (b : Nat) (h1 : 1 ≤ b) (h3 : b ≤ 4) : capFailG b ≤ cG := by
   unfold capFailG cG
   rw [inv_two_pow_eq']
   have hx : (0 : ℝ) ≤ 1 / 2 ^ b := by positivity
@@ -3442,8 +3442,8 @@ theorem levCap_of (lay h a k : Nat) (hk : ∀ i < 2 ^ (h - a), ClaudeWCT.WCT9.lo
 
 theorem treeCap_one_le : treeCap 1 ≤ 14 * cG := by
   have c1 := capFailG_le 1 le_rfl (by norm_num)
-  have c2 := capFailG_le 2 (by norm_num) (by norm_num)
-  have c3 := capFailG_le 3 (by norm_num) le_rfl
+  have c2 := capFailG_le 3 (by norm_num) (by norm_num)
+  have c3 := capFailG_le 4 (by norm_num) le_rfl
   unfold treeCap
   rw [show height (1 : Layer) = 7 from rfl]
   simp only [show 7 - 1 = 6 from rfl, List.range'_succ, List.range'_zero, List.map_cons, List.map_nil,
@@ -3453,17 +3453,17 @@ theorem treeCap_one_le : treeCap 1 ≤ 14 * cG := by
       levCap_of 1 7 2 0 (fun i hi => by simp only [Nat.reduceSub, Nat.reducePow] at hi ⊢; interval_cases i <;> rfl),
       levCap_of 1 7 3 0 (fun i hi => by simp only [Nat.reduceSub, Nat.reducePow] at hi ⊢; interval_cases i <;> rfl),
       levCap_of 1 7 4 1 (fun i hi => by simp only [Nat.reduceSub, Nat.reducePow] at hi ⊢; interval_cases i <;> rfl),
-      levCap_of 1 7 5 2 (fun i hi => by simp only [Nat.reduceSub, Nat.reducePow] at hi ⊢; interval_cases i <;> rfl),
-      levCap_of 1 7 6 3 (fun i hi => by simp only [Nat.reduceSub, Nat.reducePow] at hi ⊢; interval_cases i <;> rfl)]
+      levCap_of 1 7 5 3 (fun i hi => by simp only [Nat.reduceSub, Nat.reducePow] at hi ⊢; interval_cases i <;> rfl),
+      levCap_of 1 7 6 4 (fun i hi => by simp only [Nat.reduceSub, Nat.reducePow] at hi ⊢; interval_cases i <;> rfl)]
   simp only [Nat.reduceSub, Nat.reducePow, Nat.cast_ofNat, if_true, one_ne_zero, if_false,
     OfNat.ofNat_ne_zero, mul_zero, zero_add, add_zero]
-  calc (8 : ℝ≥0∞) * capFailG 1 + (4 * capFailG 2 + 2 * capFailG 3) ≤ 8 * cG + (4 * cG + 2 * cG) := by gcongr
+  calc (8 : ℝ≥0∞) * capFailG 1 + (4 * capFailG 3 + 2 * capFailG 4) ≤ 8 * cG + (4 * cG + 2 * cG) := by gcongr
     _ = 14 * cG := by ring
 
 theorem treeCap_two_le : treeCap 2 ≤ 14 * cG := by
   have c1 := capFailG_le 1 le_rfl (by norm_num)
-  have c2 := capFailG_le 2 (by norm_num) (by norm_num)
-  have c3 := capFailG_le 3 (by norm_num) le_rfl
+  have c2 := capFailG_le 3 (by norm_num) (by norm_num)
+  have c3 := capFailG_le 4 (by norm_num) le_rfl
   unfold treeCap
   rw [show height (2 : Layer) = 6 from rfl]
   simp only [show 6 - 1 = 5 from rfl, List.range'_succ, List.range'_zero, List.map_cons, List.map_nil,
@@ -3472,17 +3472,17 @@ theorem treeCap_two_le : treeCap 2 ≤ 14 * cG := by
   rw [levCap_of 2 6 1 0 (fun i hi => by simp only [Nat.reduceSub, Nat.reducePow] at hi ⊢; interval_cases i <;> rfl),
       levCap_of 2 6 2 0 (fun i hi => by simp only [Nat.reduceSub, Nat.reducePow] at hi ⊢; interval_cases i <;> rfl),
       levCap_of 2 6 3 1 (fun i hi => by simp only [Nat.reduceSub, Nat.reducePow] at hi ⊢; interval_cases i <;> rfl),
-      levCap_of 2 6 4 2 (fun i hi => by simp only [Nat.reduceSub, Nat.reducePow] at hi ⊢; interval_cases i <;> rfl),
-      levCap_of 2 6 5 2 (fun i hi => by simp only [Nat.reduceSub, Nat.reducePow] at hi ⊢; interval_cases i <;> rfl)]
+      levCap_of 2 6 4 3 (fun i hi => by simp only [Nat.reduceSub, Nat.reducePow] at hi ⊢; interval_cases i <;> rfl),
+      levCap_of 2 6 5 4 (fun i hi => by simp only [Nat.reduceSub, Nat.reducePow] at hi ⊢; interval_cases i <;> rfl)]
   simp only [Nat.reduceSub, Nat.reducePow, Nat.cast_ofNat, if_true, one_ne_zero, if_false,
     OfNat.ofNat_ne_zero, mul_zero, zero_add, add_zero]
-  calc (8 : ℝ≥0∞) * capFailG 1 + (4 * capFailG 2 + 2 * capFailG 2) ≤ 8 * cG + (4 * cG + 2 * cG) := by gcongr
+  calc (8 : ℝ≥0∞) * capFailG 1 + (4 * capFailG 3 + 2 * capFailG 4) ≤ 8 * cG + (4 * cG + 2 * cG) := by gcongr
     _ = 14 * cG := by ring
 
 theorem treeCap_three_le : treeCap 3 ≤ 14 * cG := by
   have c1 := capFailG_le 1 le_rfl (by norm_num)
-  have c2 := capFailG_le 2 (by norm_num) (by norm_num)
-  have c3 := capFailG_le 3 (by norm_num) le_rfl
+  have c2 := capFailG_le 3 (by norm_num) (by norm_num)
+  have c3 := capFailG_le 4 (by norm_num) le_rfl
   unfold treeCap
   rw [show height (3 : Layer) = 6 from rfl]
   simp only [show 6 - 1 = 5 from rfl, List.range'_succ, List.range'_zero, List.map_cons, List.map_nil,
@@ -3491,11 +3491,11 @@ theorem treeCap_three_le : treeCap 3 ≤ 14 * cG := by
   rw [levCap_of 3 6 1 0 (fun i hi => by simp only [Nat.reduceSub, Nat.reducePow] at hi ⊢; interval_cases i <;> rfl),
       levCap_of 3 6 2 0 (fun i hi => by simp only [Nat.reduceSub, Nat.reducePow] at hi ⊢; interval_cases i <;> rfl),
       levCap_of 3 6 3 1 (fun i hi => by simp only [Nat.reduceSub, Nat.reducePow] at hi ⊢; interval_cases i <;> rfl),
-      levCap_of 3 6 4 2 (fun i hi => by simp only [Nat.reduceSub, Nat.reducePow] at hi ⊢; interval_cases i <;> rfl),
-      levCap_of 3 6 5 2 (fun i hi => by simp only [Nat.reduceSub, Nat.reducePow] at hi ⊢; interval_cases i <;> rfl)]
+      levCap_of 3 6 4 3 (fun i hi => by simp only [Nat.reduceSub, Nat.reducePow] at hi ⊢; interval_cases i <;> rfl),
+      levCap_of 3 6 5 4 (fun i hi => by simp only [Nat.reduceSub, Nat.reducePow] at hi ⊢; interval_cases i <;> rfl)]
   simp only [Nat.reduceSub, Nat.reducePow, Nat.cast_ofNat, if_true, one_ne_zero, if_false,
     OfNat.ofNat_ne_zero, mul_zero, zero_add, add_zero]
-  calc (8 : ℝ≥0∞) * capFailG 1 + (4 * capFailG 2 + 2 * capFailG 2) ≤ 8 * cG + (4 * cG + 2 * cG) := by gcongr
+  calc (8 : ℝ≥0∞) * capFailG 1 + (4 * capFailG 3 + 2 * capFailG 4) ≤ 8 * cG + (4 * cG + 2 * cG) := by gcongr
     _ = 14 * cG := by ring
 
 theorem lowerTrees_sum_le : (lowerTrees.map fun lt => treeCap lt.1).sum ≤ ENNReal.ofReal (1 / 2 ^ 150) := by
@@ -3754,7 +3754,7 @@ noncomputable def excessGB (levels : List (List Digest)) (b : Bool) : ℝ≥0∞
 
 theorem excessWeight_searchFuel_le : excessWeight ClaudeWCT.WCT9.searchFuel ≤ ENNReal.ofReal 4 := by
   unfold excessWeight expandReplayExtra ClaudeWCT.WCT9.searchFuel
-  calc (2 : ℝ≥0∞) ^ ((8 / 7 : ℝ) * ((6243 + 425765 + 131071 : ℕ) : ℝ) / 1048576)
+  calc (2 : ℝ≥0∞) ^ ((8 / 7 : ℝ) * ((11875 + 425765 + 131071 : ℕ) : ℝ) / 1048576)
       ≤ (2 : ℝ≥0∞) ^ ((2 : ℕ) : ℝ) :=
         ENNReal.rpow_le_rpow_of_exponent_le (by norm_num) (by push_cast; norm_num)
     _ = ENNReal.ofReal 4 := by rw [ENNReal.rpow_natCast]; norm_num
@@ -3762,7 +3762,7 @@ theorem excessWeight_searchFuel_le : excessWeight ClaudeWCT.WCT9.searchFuel ≤ 
 theorem excessWeight_worst_le :
     excessWeight SigGolfCandidate.Research.SharedForest.expandWorstCost ≤ ENNReal.ofReal (2 ^ 19) := by
   unfold excessWeight expandReplayExtra SigGolfCandidate.Research.SharedForest.expandWorstCost
-  calc (2 : ℝ≥0∞) ^ ((8 / 7 : ℝ) * ((6243 + 425765 + 2 ^ 24 : ℕ) : ℝ) / 1048576)
+  calc (2 : ℝ≥0∞) ^ ((8 / 7 : ℝ) * ((11875 + 425765 + 2 ^ 24 : ℕ) : ℝ) / 1048576)
       ≤ (2 : ℝ≥0∞) ^ ((19 : ℕ) : ℝ) :=
         ENNReal.rpow_le_rpow_of_exponent_le (by norm_num) (by push_cast; norm_num)
     _ = ENNReal.ofReal (2 ^ 19) := by
@@ -4374,7 +4374,7 @@ theorem digestMoment_ge_one : 1 ≤ digestMoment := by
   apply (ENNReal.toReal_le_toReal (by simp) (by unfold digestMoment scale; finiteness)).mp
   norm_num [digestMoment,ENNReal.toReal_div,ftsBound,scale]
 
-theorem mG_ge_one (b : Nat) (h1 : 1 ≤ b) (h3 : b ≤ 3) : 1 ≤ ClaudeWCT.W9.T3.Freshness.Paired.GroundFresh.mG b := by
+theorem mG_ge_one (b : Nat) (h1 : 1 ≤ b) (h3 : b ≤ 4) : 1 ≤ ClaudeWCT.W9.T3.Freshness.Paired.GroundFresh.mG b := by
   unfold ClaudeWCT.W9.T3.Freshness.Paired.GroundFresh.mG
   rw [← ENNReal.ofReal_one]
   apply ENNReal.ofReal_le_ofReal
@@ -4383,7 +4383,7 @@ theorem mG_ge_one (b : Nat) (h1 : 1 ≤ b) (h3 : b ≤ 3) : 1 ≤ ClaudeWCT.W9.T
 theorem groundE_ge_one : 1 ≤ ClaudeWCT.W9.T3.Freshness.Paired.GroundFresh.groundE := by
   unfold ClaudeWCT.W9.T3.Freshness.Paired.GroundFresh.groundE
   exact one_le_mul (one_le_mul (one_le_pow₀ (mG_ge_one 1 le_rfl (by norm_num)))
-    (one_le_pow₀ (mG_ge_one 2 (by norm_num) (by norm_num)))) (one_le_pow₀ (mG_ge_one 3 (by norm_num) le_rfl))
+    (one_le_pow₀ (mG_ge_one 3 (by norm_num) (by norm_num)))) (one_le_pow₀ (mG_ge_one 4 (by norm_num) le_rfl))
 
 theorem postMoment_ge_one : 1 ≤ postMoment := by
   apply one_le_mul (one_le_pow₀ (SigGolfCandidate.Budget.one_le_zOf _))
@@ -4495,8 +4495,8 @@ theorem signingMoment_le_two (hfix : SchemeFixedCostV6) : signingMoment ≤ 2 :=
     simp only [ENNReal.toReal_mul, ENNReal.toReal_pow, hmG]
     have h := ClaudeWCT.Numerics.TopZero.groundBound_ratio_ge
     calc _ = ((ClaudeWCT.Numerics.TopZero.groundM 1:ℝ)/scale)^24 *
-          (((ClaudeWCT.Numerics.TopZero.groundM 2:ℝ)/scale)^16 *
-            ((ClaudeWCT.Numerics.TopZero.groundM 3:ℝ)/scale)^2) := by ring
+          (((ClaudeWCT.Numerics.TopZero.groundM 3:ℝ)/scale)^12 *
+            ((ClaudeWCT.Numerics.TopZero.groundM 4:ℝ)/scale)^6) := by ring
       _ ≤ _ := h
   have he := ClaudeWCT.Numerics.TopZero.envelope_ratio_le_two_U16
   have h0 : (0:ℝ) ≤ (ftsBound:ℝ)/scale := div_nonneg (Nat.cast_nonneg _) (Nat.cast_nonneg _)
@@ -4779,8 +4779,8 @@ abbrev witEncN := ClaudeWCT.W9.T3M.Paired.witEncN
 /-- U16b: and the 9 ground lower fold nonces (`Paired.witEncG`). -/
 abbrev witEncG := ClaudeWCT.W9.T3M.Paired.witEncG
 
- def verifyCycleBound : Nat := 6895
- def claimedC : Nat := 6981
+ def verifyCycleBound : Nat := 6896
+ def claimedC : Nat := 6982
  def DigestCapOk (hash : Hash) (m : Message) (w : Bytes 22012) : Prop :=
   SigGolfCandidate.Research.SharedForest.jointAccountingCost
     (hash (SigGolfCandidate.T3M.toQ (SigGolfCandidate.T3.pad64
@@ -4804,11 +4804,11 @@ def KeygenRunWith : Prop := ∀ (hash : Hash) (sk : SecretKey),
  def SignTerminates : Prop := ∀ (hash : Hash) (sk : SecretKey) (cache : Bytes 131072) (m : Message),
   ((submission I).runWith hash .sign (sk,cache,m)).finished=true ∧
     ((submission I).runWith hash .sign (sk,cache,m)).cycles<CYCLE_LIMIT
- def ExpandRefines : Prop := ∀ (m : Message) (pk : PublicKey) (s : Bytes 5192),
+ def ExpandRefines : Prop := ∀ (m : Message) (pk : PublicKey) (s : Bytes 5191),
   (fun r => (r.value,r.hashCalls,r.hashCompressions)) <$> (submission I).run .expand (m,pk,s)=
     (fun p => (p.1.map (fun x => witEncG x.1 x.2),p.2.1,p.2.2)) <$>
       countBoth (mrealize 0 (expandN m pk (sigDecC s)))
- def ExpandTerminates : Prop := ∀ (hash : Hash) (m : Message) (pk : PublicKey) (s : Bytes 5192),
+ def ExpandTerminates : Prop := ∀ (hash : Hash) (m : Message) (pk : PublicKey) (s : Bytes 5191),
   ((submission I).runWith hash .expand (m,pk,s)).finished=true ∧
     ((submission I).runWith hash .expand (m,pk,s)).cycles<CYCLE_LIMIT
  def VerifyRefines : Prop := ∀ (m : Message) (pk : PublicKey) (w : Bytes 22012),

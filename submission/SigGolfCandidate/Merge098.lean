@@ -50,7 +50,7 @@ theorem claimedC_eq : claimedC=verifyCycleBound+witnessCycles (submission I).siz
   rw [witnessCycles_eq];decide
 
 theorem submission_verificationBound (E : EncodingFacts) (F : SourceQueries) (P : Pending I) :
-    (submission I).VerificationBound 6981 := by
+    (submission I).VerificationBound 6982 := by
   intro hash sk m
   dsimp only
   intro h
@@ -75,7 +75,7 @@ open ClaudeWCT.W9.T3M (Images)
 variable {I : Images}
 
 theorem certificate_of (E : EncodingFacts) (F : SourceQueries) (P : Pending I) (S : SourceFacts) :
-    Certificate (submission I) 6981 where
+    Certificate (submission I) 6982 where
   admissible := P.admissible
   termination := submission_terminates P
   completeness := submission_complete E F P S
@@ -1027,8 +1027,8 @@ def submissionNew (I : Images) : SigGolf.Submission := currentOf (submission I)
 theorem legacyOf_submissionNew (I : Images) : legacyOf (submissionNew I) = submission I :=
   legacyOf_currentOf (submission I)
 theorem certificateNew_of {I : Images} (E : EncodingFacts) (F : SourceQueries) (P : Pending I) (S : SourceFacts) :
-    SigGolf.Certificate (submissionNew I) 6981 := by
-  have hL : SigGolfCandidate.Legacy.Certificate (legacyOf (submissionNew I)) 6981 := by
+    SigGolf.Certificate (submissionNew I) 6982 := by
+  have hL : SigGolfCandidate.Legacy.Certificate (legacyOf (submissionNew I)) 6982 := by
     rw [legacyOf_submissionNew]
     exact certificate_of E F P S
   have hrun : RunAgrees (submissionNew I) := runAgrees_of_admissible (submissionNew I) hL.admissible
@@ -4963,7 +4963,7 @@ open ClaudeWCT.W9.T3M (Images)
 variable (I : Images)
 theorem keygen_run_eq (hadm : (submission I).Admissible) (sk : SecretKey) :
     (submission I).run .keygen sk = SigGolfCandidate.T3M.submission.run .keygen sk := by
-  have hvA : ((submission I).image .keygen).Valid ⟨5192, 22012, 131072⟩ ⟨0x6620, 0x80, 0xa0, 0x80000, 0x7000, 0x1020⟩ :=
+  have hvA : ((submission I).image .keygen).Valid ⟨5191, 22012, 131072⟩ ⟨0x6620, 0x80, 0xa0, 0x80000, 0x7000, 0x1020⟩ :=
     hadm.2 .keygen
   have hvB : (SigGolfCandidate.T3M.submission.image .keygen).Valid
       ⟨SigGolfCandidate.T3M.submission.sizes.signature, SigGolfCandidate.T3M.submission.sizes.witness, 131072⟩
@@ -5087,7 +5087,7 @@ theorem pending_of_machine {I : Images} (M : MachineFacts I) : Pending I where
 theorem certificate_of_security {I : Images}
     (expandV6 : SigGolfCandidate.Research.SharedExpansionClosure.ExpandV6Facts) (security : SecurityP)
     (keygenMoment : KeygenMoment) (M : MachineFacts I) :
-    SigGolf.Certificate (submissionNew I) 6981 :=
+    SigGolf.Certificate (submissionNew I) 6982 :=
   certificateNew_of encodingFacts sourceQueries_holds (pending_of_machine M) (sourceFacts_of_securityP expandV6 security keygenMoment)
 end ClaudeWCT.W9.T3M.Final.Paired
 end
@@ -5300,13 +5300,13 @@ theorem ratio_le {Q h : Nat} (hQ : Q + 2 ^ (256 - h) ≤ 2 ^ 256) (hh : h ≤ 25
 
 /-! ### U16b: the lower ground zero test passes with probability at least `2^-b` -/
 
-theorem lowerZeroBits_le_three (lay heap : Nat) : WCT9.lowerZeroBits lay heap ≤ 3 := by
+theorem lowerZeroBits_le_four (lay heap : Nat) : WCT9.lowerZeroBits lay heap ≤ 4 := by
   unfold WCT9.lowerZeroBits; split_ifs <;> omega
 
 theorem card_pass_digest_low (lay heap : Nat) :
     2 ^ (128 - WCT9.lowerZeroBits lay heap) ≤
       (Finset.univ.filter (fun d : BitVec 128 => WCT9.lowerZeroOk lay heap d = true)).card := by
-  have hb3 := lowerZeroBits_le_three lay heap
+  have hb3 := lowerZeroBits_le_four lay heap
   have hlt : 2 ^ (128 - WCT9.lowerZeroBits lay heap) ≤ 2 ^ 128 := Nat.pow_le_pow_right (by decide) (by omega)
   have hc : (Finset.range (2 ^ (128 - WCT9.lowerZeroBits lay heap))).card = 2 ^ (128 - WCT9.lowerZeroBits lay heap) :=
     Finset.card_range _
@@ -5368,7 +5368,7 @@ theorem card_fail_hash_low (p : Extract.Pos) (lay heap : Nat) :
   have hsum := Finset.card_filter_add_card_filter_not
     (s := (Finset.univ : Finset (BitVec 256))) (fun v => WCT9.lowerZeroOk lay heap (p.proj v) = false)
   rw [Finset.card_univ, Fintype.card_bitVec] at hsum
-  have := card_pass_hash_of p (WCT9.lowerZeroOk lay heap) (by have := lowerZeroBits_le_three lay heap; omega)
+  have := card_pass_hash_of p (WCT9.lowerZeroOk lay heap) (by have := lowerZeroBits_le_four lay heap; omega)
     (card_pass_digest_low lay heap)
   change _ = 2 ^ 256 at hsum
   omega
@@ -5652,7 +5652,7 @@ theorem prob_lowFail_le (p : Extract.Pos) (lay heap : Nat) (S : Finset Node)
   refine (le_of_eq (prob_forall_mem (α := Node) (β := HashOutput) (inst := instSampleableTypeLabels_capFail)
     S (fun v => WCT9.lowerZeroOk lay heap (p.proj v) = false))).trans ?_
   rw [hS, Fintype.card_bitVec]
-  have hb3 := lowerZeroBits_le_three lay heap
+  have hb3 := lowerZeroBits_le_four lay heap
   refine le_trans ?_ (ENNReal.ofReal_le_ofReal (lowFail_le (WCT9.lowerZeroBits lay heap)))
   rw [ENNReal.ofReal_pow (by
     have : (1 / 2 : ℝ) ^ WCT9.lowerZeroBits lay heap ≤ 1 := pow_le_one₀ (by norm_num) (by norm_num)

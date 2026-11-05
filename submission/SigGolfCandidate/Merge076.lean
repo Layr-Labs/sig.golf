@@ -307,7 +307,7 @@ open SigGolfCandidate.T3M.Search (DIGITS NODE NOUT ENC)
 def seg_n1139 : List (BitVec 32) := [0x1202906f]
 /-- U16b: word 1138 is `jal 54800` (the grind stub); the stub words 54800..54885. -/
 def seg_g1138 : List (BitVec 32) := [0x6783406f]
-def cStub : List (BitVec 32) := [0x3e703423,0x3fc03823,0x3fd03c23,0x41e03023,0x41f03423,0x73,0x1053f83,0x8fd393,0xff3f393,0x700e13,0x11c39263,0x38fd393,0xc100e13,0xfc39c63,0xffff393,0xf8038393,0x30fde13,0xffe7e13,0x5e1e13,0x700f37,0x1cf0f33,0x2000e93,0xe1463,0x4000e93,0x1d3e463,0x7f3c23,0x1000e13,0xdc3f063,0x100e93,0x800e13,0x3c3f063,0x200e93,0x400e13,0x1c3fa63,0x30fde13,0xffe7e13,0xe1463,0x300e93,0x13fe13,0x1e4e13,0x4e1e13,0xce0f33,0xff0f13,0x8000f93,0x1df9fb3,0x800e13,0x41de0eb3,0xf4e03,0x1de5e33,0xe0e63,0x2053383,0x138393,0x1f3f863,0x2753023,0x73,0xfe1ff06f,0x1053f83,0x30fde13,0xffe7e13,0x5e1e13,0x700f37,0x1cf0f33,0xffff393,0xf8038393,0xe93,0x400e13,0x1c3ea63,0x800e93,0x800e13,0x1c3e463,0x1000e93,0x1df0f33,0x2053383,0x7f3023,0x2053023,0x3e803383,0x3e003423,0x3f003e03,0x3e003823,0x3f803e83,0x3e003c23,0x40003f03,0x40003023,0x40803f83,0x40003423,0x839cb06f]
+def cStub : List (BitVec 32) := bv_list% 32 [0x3e703423,0x3fc03823,0x3fd03c23,0x41e03023,0x41f03423,0x73,0x1053f83,0x8fd393,0xff3f393,0x700e13,0x11c39263,0x38fd393,0xc100e13,0xfc39c63,0xffff393,0xf8038393,0x30fde13,0xffe7e13,0x5e1e13,0x700f37,0x1cf0f33,0x2000e93,0xe1463,0x4000e93,0x1d3e463,0x7f3c23,0x1000e13,0xdc3f063,0x100e93,0x800e13,0x3c3f063,0x300e93,0x400e13,0x1c3fa63,0x400e93,0x13,0x13,0x13,0x13fe13,0x1e4e13,0x4e1e13,0xce0f33,0xff0f13,0x8000f93,0x1df9fb3,0x800e13,0x41de0eb3,0xf4e03,0x1de5e33,0xe0e63,0x2053383,0x138393,0x1f3f863,0x2753023,0x73,0xfe1ff06f,0x1053f83,0x30fde13,0xffe7e13,0x5e1e13,0x700f37,0x1cf0f33,0xffff393,0xf8038393,0xe93,0x400e13,0x1c3ea63,0x800e93,0x800e13,0x1c3e463,0x1000e93,0x1df0f33,0x2053383,0x7f3023,0x2053023,0x3e803383,0x3e003423,0x3f003e03,0x3e003823,0x3f803e83,0x3e003c23,0x40003f03,0x40003023,0x40803f83,0x40003423,0x839cb06f]
 def seg_1140 : List (BitVec 32) := [4228647955,1706515,4020236399]
 def nonce_A : List (BitVec 32) := [0xc00e13,0xdc79863]
 def nonce_B : List (BitVec 32) := [0xb00e13,0xdca7463]
@@ -1872,7 +1872,7 @@ theorem b5_spec (hpc : s.pc = pcOf 54828) :
 
 theorem b6_spec (hpc : s.pc = pcOf 54831) :
     ∃ t, Steps im s 3 3 t ∧ t.pc = (if (s.getReg .x7).ult 4#64 = true then pcOf 54834 else pcOf 54838) ∧
-      t.getReg .x29 = 2#64 ∧ RegsExcept s t [.x28, .x29] ∧ Frame s t (fun _ => False) := by
+      t.getReg .x29 = 3#64 ∧ RegsExcept s t [.x28, .x29] ∧ Frame s t (fun _ => False) := by
   have hc := code_sl (Code.codeAt_stub (im := im)) 54831 54834 (by norm_num) (by norm_num) (by norm_num)
   refine ⟨_, symRun_sound gB6 hc s hpc (by simp [gB6.res, rv_simp]), ?_, ?_, ?_, ?_⟩
   · rw [Result.toState_pc]
@@ -1882,13 +1882,12 @@ theorem b6_spec (hpc : s.pc = pcOf 54831) :
   · intro A _ _; simp [gB6.res, rv_simp]
 
 theorem b7_spec (hpc : s.pc = pcOf 54834) :
-    ∃ t, Steps im s 3 3 t ∧
-      t.pc = (if (s.getReg .x31 >>> 48 &&& 255#64) = 0#64 then pcOf 54837 else pcOf 54838) ∧
-      RegsExcept s t [.x28] ∧ Frame s t (fun _ => False) := by
+    ∃ t, Steps im s 3 3 t ∧ t.pc = pcOf 54837 ∧ t.getReg .x29 = 4#64 ∧
+      RegsExcept s t [.x29] ∧ Frame s t (fun _ => False) := by
   have hc := code_sl (Code.codeAt_stub (im := im)) 54834 54837 (by norm_num) (by norm_num) (by norm_num)
-  refine ⟨_, symRun_sound gB7 hc s hpc (by simp [gB7.res, rv_simp]), ?_, ?_, ?_⟩
-  · rw [Result.toState_pc]
-    by_cases hc : (s.getReg .x31 >>> 48 &&& 255#64) = 0#64 <;> simp [gB7.res, E.eval, CmpOp.eval, BinOp.eval, hc]
+  refine ⟨_, symRun_sound gB7 hc s hpc (by simp [gB7.res, rv_simp]), ?_, ?_, ?_, ?_⟩
+  · simp [gB7.res, Result.toState_pc, E.eval]
+  · simp only [Result.toState_getReg, gB7.res]; t3n []
   · intro r hr; simp at hr; cases r <;> simp_all [gB7.res, rv_simp] <;> rfl
   · intro A _ _; simp [gB7.res, rv_simp]
 
@@ -1908,7 +1907,7 @@ theorem b8b_spec (hpc : s.pc = pcOf 54838) :
   · intro A _ _; simp [gB8b.res, rv_simp]
 
 theorem b8c_spec (hpc : s.pc = pcOf 54837) :
-    ∃ t, Steps im s 1 1 t ∧ t.pc = pcOf 54838 ∧ t.getReg .x29 = 3#64 ∧ RegsExcept s t [.x29] ∧
+    ∃ t, Steps im s 1 1 t ∧ t.pc = pcOf 54838 ∧ t.getReg .x29 = s.getReg .x29 ∧ RegsExcept s t [.x29] ∧
       Frame s t (fun _ => False) := by
   have hc := code_sl (Code.codeAt_stub (im := im)) 54837 54838 (by norm_num) (by norm_num) (by norm_num)
   refine ⟨_, symRun_sound gB8c hc s hpc (by simp [gB8c.res, rv_simp]), ?_, ?_, ?_, ?_⟩
@@ -2293,26 +2292,16 @@ theorem setup_spec (u : MachineState) (hpc : u.pc = pcOf 54828) (lay tree heap :
       rw [x29b]; simp [ClaudeWCT.WCT9.lowerZeroBits, show ¬ heap < 2 by omega, show ¬ 16 ≤ heap by omega, h8, h4,
         show lay ≠ 0 by omega]
     rw [if_pos (by simp; omega)] at p2
-    obtain ⟨v3, s3, p3, r3, f3⟩ := b7_spec (im := im) v2 p2
-    have g31 : v2.getReg .x31 = BitVec.ofNat 64 (lowTw lay tree heap) := by
-      rw [r2.get (by decide), r1.get (by decide)]; exact h31
-    rw [g31, lowTw_byte6 lay tree heap h1 h3 ht (by omega)] at p3
-    by_cases hl1 : lay = 1
-    · subst hl1
-      rw [if_pos rfl] at p3
-      obtain ⟨v4, s4, p4, x29c, r4, f4⟩ := b8c_spec (im := im) v3 p3
-      refine ⟨v4, 10, ((s1.trans s2).trans s3).trans s4, le_rfl, p4, ?_, (((r1.trans r2).trans r3).trans r4).mono
-        (by decide), (((f1.trans f2).trans f3).trans f4).mono (fun _ _ h => by
-          rcases h with ((h | h) | h) | h <;> exact h)⟩
-      rw [x29c]; simp [ClaudeWCT.WCT9.lowerZeroBits, show ¬ heap < 2 by omega, show ¬ 16 ≤ heap by omega, h8, h4]
-    · have hne : BitVec.ofNat 64 (lay - 1) ≠ 0#64 := by
-        rw [Ne, show (0#64 : Word) = BitVec.ofNat 64 0 from rfl, ofNat_inj (by omega) (by omega)]; omega
-      rw [if_neg hne] at p3
-      refine ⟨v3, 9, (s1.trans s2).trans s3, by omega, p3, ?_, ((r1.trans r2).trans r3).mono (by decide),
-        ((f1.trans f2).trans f3).mono (fun _ _ h => by rcases h with (h | h) | h <;> exact h)⟩
-      rw [r3.get (by decide), x29b]; simp [ClaudeWCT.WCT9.lowerZeroBits, show ¬ heap < 2 by omega,
-        show ¬ 16 ≤ heap by omega, h8, h4, hl1, show lay ≠ 0 by omega]
-  have hb : ClaudeWCT.WCT9.lowerZeroBits lay heap ≤ 3 ∧ 1 ≤ ClaudeWCT.WCT9.lowerZeroBits lay heap := by
+    obtain ⟨v3, s3, p3, x29c, r3, f3⟩ := b7_spec (im := im) v2 p2
+    obtain ⟨v4, s4, p4, x29d, r4, f4⟩ := b8c_spec (im := im) v3 p3
+    refine ⟨v4, 10, ((s1.trans s2).trans s3).trans s4, le_rfl, p4, ?_,
+      (((r1.trans r2).trans r3).trans r4).mono (by decide),
+      (((f1.trans f2).trans f3).trans f4).mono (fun _ _ h => by
+        rcases h with ((h | h) | h) | h <;> exact h)⟩
+    rw [x29d, x29c]
+    simp [ClaudeWCT.WCT9.lowerZeroBits, show ¬ heap < 2 by omega,
+      show ¬ 16 ≤ heap by omega, h8, h4, show lay ≠ 0 by omega]
+  have hb : ClaudeWCT.WCT9.lowerZeroBits lay heap ≤ 4 ∧ 1 ≤ ClaudeWCT.WCT9.lowerZeroBits lay heap := by
     unfold ClaudeWCT.WCT9.lowerZeroBits; split_ifs <;> omega
   obtain ⟨v, sv, pv, x30, x31, x29, rv, fv⟩ := b8b_spec (im := im) w pw
   refine ⟨v, kw + 9, sw.trans sv, by omega, pv, ?_, ?_, ?_, (rw.trans rv).mono (by decide),
@@ -2402,7 +2391,7 @@ theorem hashInput_N {t u : MachineState} {lay tree heap : Nat} {l r : Digest} (F
     g _ (by simp) (by simp) (by simp), F.w0, F.w8, F.w16, F.w24, F.w40, F.w48, F.w56]
 
 /-- The stub's zero test on the used half's top byte is `lowerZeroOk`. -/
-theorem zero_test (v : Digest) (b : Nat) (hb1 : 1 ≤ b) (hb : b ≤ 3) :
+theorem zero_test (v : Digest) (b : Nat) (hb1 : 1 ≤ b) (hb : b ≤ 4) :
     ((extractByte (v.extractLsb' 64 64) 7).zeroExtend 64 >>> ((BitVec.ofNat 64 (8 - b)).toNat % 64) = 0#64) ↔
       v.toNat / 2 ^ (128 - b) = 0 := by
   have hv := v.isLt
@@ -2587,9 +2576,9 @@ end found
 /-! U16b grind stub: the search loop and the whole stub (word 1138 -> 1139). -/
 
 theorem zb_range (lay heap : Nat) (hg : lowerZeroBits lay heap ≠ 0) :
-    1 ≤ lowerZeroBits lay heap ∧ lowerZeroBits lay heap ≤ 3 := by
+    1 ≤ lowerZeroBits lay heap ∧ lowerZeroBits lay heap ≤ 4 := by
   unfold ClaudeWCT.WCT9.lowerZeroBits at *; split_ifs at * <;> omega
-theorem cap_le (lay heap : Nat) : lowerNonceCap lay heap ≤ 1024 := by
+theorem cap_le (lay heap : Nat) : lowerNonceCap lay heap ≤ 2048 := by
   unfold ClaudeWCT.WCT9.lowerNonceCap ClaudeWCT.WCT9.lowerZeroBits; split_ifs <;> norm_num
 theorem high_eq (lay heap : Nat) (h3 : lay ≤ 3) :
     (NOUT + if ClaudeWCT.WCT9.lowerHigh lay heap then 16 else 0) + 15 = topByteA heap := by

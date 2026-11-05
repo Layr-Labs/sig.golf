@@ -1437,9 +1437,9 @@ open SigGolfCandidate.Research
 set_option maxHeartbeats 1000000
 set_option maxRecDepth 10000
 
-/-- img-v6 machine policy check: pool 67, hints `484·f1 + 22·f2 + f3`; L1 residual < 54, L2 < 40, L3 < 22. -/
+/-- img-v6 machine policy check: pool 66, hints `484·f1 + 22·f2 + f3`; L1 residual < 54, L2 < 40, L3 < 22. -/
 def policyCondition (hints : BitVec 16) (digits : List (List Nat)) (lows : List Bool) : Prop :=
-  let r1:=67-CanonicalPolicy.credit 0 (lows.getD 0 true) (digits.getD 0 [])
+  let r1:=66-CanonicalPolicy.credit 0 (lows.getD 0 true) (digits.getD 0 [])
   let r2:=r1-CanonicalPolicy.credit 1 (lows.getD 1 true) (digits.getD 1 [])
   let r3:=r2-CanonicalPolicy.credit 2 (lows.getD 2 true) (digits.getD 2 [])
   r1<54 ∧ r2<40 ∧ r3<22 ∧
@@ -1473,16 +1473,16 @@ theorem policyCondition_iff (hints : BitVec 16) (digits : List (List Nat)) (lows
     rw [CanonicalPolicy.lower_three_progress _ hR3]
     exact he3
   · rintro ⟨hH,he1,he2,he3⟩
-    have hr1 : 67-CanonicalPolicy.credit 0 (lows.getD 0 true) (digits.getD 0 [])<54 := by omega
+    have hr1 : 66-CanonicalPolicy.credit 0 (lows.getD 0 true) (digits.getD 0 [])<54 := by omega
     have ht1 := (CanonicalPolicy.lower_one_progress ⟨_,hr1⟩).2
     simp only [Fin.val_mk] at ht1
-    have hr2 : 67-CanonicalPolicy.credit 0 (lows.getD 0 true) (digits.getD 0 [])-
+    have hr2 : 66-CanonicalPolicy.credit 0 (lows.getD 0 true) (digits.getD 0 [])-
         CanonicalPolicy.credit 1 (lows.getD 1 true) (digits.getD 1 [])<40 := by
       rw [←he1] at ht1
       omega
     have ht2 := (CanonicalPolicy.lower_two_progress ⟨_,hr2⟩).2
     simp only [Fin.val_mk] at ht2
-    have hr3 : 67-CanonicalPolicy.credit 0 (lows.getD 0 true) (digits.getD 0 [])-
+    have hr3 : 66-CanonicalPolicy.credit 0 (lows.getD 0 true) (digits.getD 0 [])-
         CanonicalPolicy.credit 1 (lows.getD 1 true) (digits.getD 1 [])-
         CanonicalPolicy.credit 2 (lows.getD 2 true) (digits.getD 2 [])<22 := by
       rw [←he2] at ht2
@@ -5242,7 +5242,7 @@ section
 
 /-! # img-v6 expand final policy check (canon-v6 porter)
 
-Machine proof of the expand policy check at 46929..46979 for the img-v6 image: credit pool 67, policy hints in
+Machine proof of the expand policy check at 46929..46979 for the img-v6 image: credit pool 66, policy hints in
 the mixed radix `484·f1 + 22·f2 + f3`, L1 floors by residual `< 54`, L2 `< 40`, L3 floor = residual `< 22`.
 Adapted from `SharedValidate` in `Expand/H2Front.lean` (e7b: pool 72, radix 20); new namespace
 `SharedValidateV6`, result `validate_source_steps` against `SharedForest.policyHintsValid` (bound 7744). -/
@@ -5451,7 +5451,7 @@ open SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64 SigGol
 set_option autoImplicit false
 set_option maxHeartbeats 1500000
 set_option maxRecDepth 10000
-def initCode : List (BitVec 32) := [0x66e37,0xe0e13,0xe3a03,0x4300a93]
+def initCode : List (BitVec 32) := [0x66e37,0xe0e13,0xe3a03,0x4200a93]
 sym_block initRun := symRun {noAlias:=true} initCode (pcOf 46929) 100
 def range1Code : List (BitVec 32) := [0x3600393,0x87afc63]
 sym_block range1Run := symRun {noAlias:=true} range1Code (pcOf 46940) 100
@@ -5505,7 +5505,7 @@ theorem init_steps {im : Image} (hc : CodeAt im (pcOf 46929) initCode)
     (s : MachineState) (hp : s.pc=pcOf 46929) (hints : Nat)
     (hm : s.getMem (0x66000#64)=BitVec.ofNat 64 hints) :
     ∃t,Steps im s 4 4 t ∧ t.pc=pcOf 46933 ∧ t.getReg .x20=BitVec.ofNat 64 hints ∧
-      t.getReg .x21=67 ∧ RegsExcept s t [.x20,.x21,.x28] ∧ Frame s t (fun _=>False) := by
+      t.getReg .x21=66 ∧ RegsExcept s t [.x20,.x21,.x28] ∧ Frame s t (fun _=>False) := by
   refine ⟨_,symRun_sound initRun hc s hp (by simp [initRun.res,rv_simp]),rfl,?_,rfl,?_,?_⟩
   · simp [initRun.res,rv_simp,hm]
   · intro r hr;cases r <;> first | exact (hr (by decide)).elim | rfl
@@ -5822,7 +5822,7 @@ set_option maxHeartbeats 2500000
 set_option maxRecDepth 20000
 
 abbrev Condition (H C0 C1 C2 : Nat) (T1 T2 : Nat→Nat) : Prop :=
-  let R1:=67-C0
+  let R1:=66-C0
   let R2:=R1-C1
   let R3:=R2-C2
   R1<54 ∧ R2<40 ∧ R3<22 ∧ H/484=T1 R1 ∧ H/22%22=T2 R2 ∧ H%22=R3
@@ -5841,21 +5841,21 @@ theorem validate_steps {im : Image} (hc : Code im)
       t.pc=(if Condition H C0 C1 C2 T1 T2 then pcOf 42795 else pcOf 354) ∧
       RegsExcept s t [.x6,.x7,.x20,.x21,.x28,.x29] ∧ Frame s t (fun _=>False) := by
   obtain ⟨u,su,pu,u20,u21,ru,fu⟩:=init_steps hc.init s hp H hm
-  obtain ⟨v,n1,c1,hn1,hc1,sv,pv,v21,rv,fv⟩:=phase1_steps hc u pu 67 C0 H (by omega) hC0 hH u21 u20
+  obtain ⟨v,n1,c1,hn1,hc1,sv,pv,v21,rv,fv⟩:=phase1_steps hc u pu 66 C0 H (by omega) hC0 hH u21 u20
     (by rw [fu.get (by decide) (by simp)];exact hm0) T1 ht1
     (fun r hr=>by rw [fu.getByte (by omega) (by simp)];exact hb1 r hr)
-  by_cases h1 : 67-C0<54 ∧ H/484=T1 (67-C0)
+  by_cases h1 : 66-C0<54 ∧ H/484=T1 (66-C0)
   · rw [if_pos h1] at pv
-    obtain ⟨w,n2,c2,hn2,hc2,sw,pw,w21,rw_,fw⟩:=phase2_steps hc v pv (67-C0) C1 H (by omega) hC1 hH v21
+    obtain ⟨w,n2,c2,hn2,hc2,sw,pw,w21,rw_,fw⟩:=phase2_steps hc v pv (66-C0) C1 H (by omega) hC1 hH v21
       (by rw [rv.get (by decide)];exact u20)
       (by rw [fv.get (by decide) (by simp),fu.get (by decide) (by simp)];exact hm1) T2 ht2
       (fun r hr=>by rw [fv.getByte (by omega) (by simp),fu.getByte (by omega) (by simp)];exact hb2 r hr)
-    by_cases h2 : 67-C0-C1<40 ∧ H/22%22=T2 (67-C0-C1)
+    by_cases h2 : 66-C0-C1<40 ∧ H/22%22=T2 (66-C0-C1)
     · rw [if_pos h2] at pw
-      obtain ⟨x,n3,c3,hn3,hc3,sx,px,x21,rx,fx⟩:=phase3_steps hc w pw (67-C0-C1) C2 H (by omega) hC2 hH w21
+      obtain ⟨x,n3,c3,hn3,hc3,sx,px,x21,rx,fx⟩:=phase3_steps hc w pw (66-C0-C1) C2 H (by omega) hC2 hH w21
         (by rw [rw_.get (by decide),rv.get (by decide)];exact u20)
         (by rw [fw.get (by decide) (by simp),fv.get (by decide) (by simp),fu.get (by decide) (by simp)];exact hm2)
-      by_cases h3 : 67-C0-C1-C2<22 ∧ H%22=67-C0-C1-C2
+      by_cases h3 : 66-C0-C1-C2<22 ∧ H%22=66-C0-C1-C2
       · rw [if_pos h3] at px
         obtain ⟨t,st,pt,rt,ft⟩:=good_steps hc.good x px
         refine ⟨t,4+n1+n2+n3+1,4+c1+c2+c3+1,by omega,by omega,(((su.trans sv).trans sw).trans sx).trans st,?_,?_,?_⟩

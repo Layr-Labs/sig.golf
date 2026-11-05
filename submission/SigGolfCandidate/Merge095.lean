@@ -1472,9 +1472,9 @@ def gwB1 : List (BitVec 32) := bv_list% 32 [0x1053f83,0x8fd393,0xff3f393,0x700e1
 def gwB2 : List (BitVec 32) := bv_list% 32 [0x38fd393,0xc100e13,0x9c39463]
 def gwB3 : List (BitVec 32) := bv_list% 32 [0xffff393,0xf8038393,0x1000e13,0x7c3fc63]
 def gwB4 : List (BitVec 32) := bv_list% 32 [0x100e93,0x800e13,0x3c3f063]
-def gwB5 : List (BitVec 32) := bv_list% 32 [0x200e93,0x400e13,0x1c3fa63]
-def gwB6 : List (BitVec 32) := bv_list% 32 [0x30fde13,0xffe7e13,0xe1463]
-def gwB7 : List (BitVec 32) := bv_list% 32 [0x300e93]
+def gwB5 : List (BitVec 32) := bv_list% 32 [0x300e93,0x400e13,0x1c3fa63]
+def gwB6 : List (BitVec 32) := bv_list% 32 [0x400e93,0x13,0x13]
+def gwB7 : List (BitVec 32) := bv_list% 32 [0x13]
 def gwBb : List (BitVec 32) := bv_list% 32 [0x13fe13,0x1e4e13,0x4e1e13,0xce0f33,0xff0f13,0x8000f93,0x1df9fb3,0x800e13,0x41de0eb3]
 def gwLb : List (BitVec 32) := bv_list% 32 [0xf4e03]
 def gwL : List (BitVec 32) := bv_list% 32 [0x1de5e33,0xe0e63]
@@ -6618,12 +6618,12 @@ theorem g_blocks (lay tree heap n : Nat) (l r : Digest) :
     blocks_toQ ⟨by rw [lowerNodeInputN_length]; omega, by rw [lowerNodeInputN_length]⟩, lowerNodeInputN_length]
 theorem g_hiO_le (heap : Nat) : hiO heap ≤ 16 := by unfold hiO; split <;> omega
 theorem g_hiO_mod (heap : Nat) : hiO heap % 8 = 0 := by unfold hiO; split <;> omega
-theorem g_zb_le (lay heap : Nat) : ClaudeWCT.WCT9.lowerZeroBits lay heap ≤ 3 := by
+theorem g_zb_le (lay heap : Nat) : ClaudeWCT.WCT9.lowerZeroBits lay heap ≤ 4 := by
   unfold ClaudeWCT.WCT9.lowerZeroBits; split_ifs <;> omega
-theorem g_cap_lt (lay heap : Nat) : ClaudeWCT.WCT9.lowerNonceCap lay heap ≤ 1024 := by
+theorem g_cap_lt (lay heap : Nat) : ClaudeWCT.WCT9.lowerNonceCap lay heap ≤ 2048 := by
   unfold ClaudeWCT.WCT9.lowerNonceCap
   have := g_zb_le lay heap
-  have : 2 ^ ClaudeWCT.WCT9.lowerZeroBits lay heap ≤ 2 ^ 3 := Nat.pow_le_pow_right (by norm_num) this
+  have : 2 ^ ClaudeWCT.WCT9.lowerZeroBits lay heap ≤ 2 ^ 4 := Nat.pow_le_pow_right (by norm_num) this
   omega
 theorem g_zb_le8 (lay heap : Nat) : ClaudeWCT.WCT9.lowerZeroBits lay heap ≤ 8 := by
   have := g_zb_le lay heap; omega
@@ -6925,7 +6925,7 @@ theorem g_checks {lay tree heap : Nat} (hl : lay < 4) (htr : tree < 2 ^ 32) (hh 
     exact ((r1.trans r2).trans r3).mono (by simp)
   · intro A; simp [v3, v2, v1, gRunB3.res, gRunB2.res, gRunB1.res, rv_simp]
 /-- `g_b` (`25074..25082`): the used-half byte pointer, the trial cap `128 << b` and the shift `8 - b`. -/
-theorem g_Bb (u : MachineState) (hpc : u.pc = pcOf 25074) {heap b : Nat} (hb : b ≤ 3)
+theorem g_Bb (u : MachineState) (hpc : u.pc = pcOf 25074) {heap b : Nat} (hb : b ≤ 4)
     (h7 : u.getReg .x7 = BitVec.ofNat 64 heap) (h12 : u.getReg .x12 = BitVec.ofNat 64 NOUT)
     (h29 : u.getReg .x29 = BitVec.ofNat 64 b) :
     Steps im u 9 9 (gRunBb.res.toState u) ∧ (gRunBb.res.toState u).pc = pcOf 25083 ∧
@@ -6954,7 +6954,7 @@ theorem g_bsel {lay tree heap : Nat} (hl1 : 1 ≤ lay) (hl : lay < 4) (htr : tre
       v.getReg .x29 = BitVec.ofNat 64 (ClaudeWCT.WCT9.lowerZeroBits lay heap) ∧
       RegsExcept u v [.x28, .x29] ∧ (∀ A, v.getMem A = u.getMem A) := by
   have zb : ClaudeWCT.WCT9.lowerZeroBits lay heap =
-      if 8 ≤ heap then 1 else if 4 ≤ heap then 2 else if lay = 1 then 3 else 2 := by
+      if 8 ≤ heap then 1 else if 4 ≤ heap then 3 else 4 := by
     unfold ClaudeWCT.WCT9.lowerZeroBits; rw [if_neg (by omega)]
   have st4 := symRun_sound gRunB4 hg.cB4 u hpc (by simp [gRunB4.res, rv_simp])
   set v4 := gRunB4.res.toState u
@@ -6975,7 +6975,7 @@ theorem g_bsel {lay tree heap : Nat} (hl1 : 1 ≤ lay) (hl : lay < 4) (htr : tre
   set v5 := gRunB5.res.toState v4
   have r5 : RegsExcept v4 v5 [.x28, .x29] := by
     intro x hx; simp at hx; cases x <;> simp_all [v5, gRunB5.res, rv_simp] <;> rfl
-  have v5x29 : v5.getReg .x29 = 2#64 := by simp [v5, gRunB5.res, rv_simp]
+  have v5x29 : v5.getReg .x29 = 3#64 := by simp [v5, gRunB5.res, rv_simp]
   have m5 : ∀ A, v5.getMem A = u.getMem A := fun A => by simp [v5, gRunB5.res, rv_simp, m4]
   have v4x7 : v4.getReg .x7 = BitVec.ofNat 64 heap := by rw [r4.get (by simp), h7]
   have p5 : v5.pc = if 4 ≤ heap then pcOf 25074 else pcOf 25070 := by
@@ -6989,35 +6989,21 @@ theorem g_bsel {lay tree heap : Nat} (hl1 : 1 ≤ lay) (hl : lay < 4) (htr : tre
   rw [if_neg h4] at p5
   have st6 := symRun_sound gRunB6 hg.cB6 v5 p5 (by simp [gRunB6.res, rv_simp])
   set v6 := gRunB6.res.toState v5
-  have r6 : RegsExcept v5 v6 [.x28] := by
+  have r6 : RegsExcept v5 v6 [.x29] := by
     intro x hx; simp at hx; cases x <;> simp_all [v6, gRunB6.res, rv_simp] <;> rfl
   have m6 : ∀ A, v6.getMem A = u.getMem A := fun A => by simp [v6, gRunB6.res, rv_simp, m5]
-  have v5x31 : v5.getReg .x31 = BitVec.ofNat 64 (gN lay tree heap) := by
-    rw [r5.get (by simp), r4.get (by simp), h31]
-  have p6 : v6.pc = if lay = 1 then pcOf 25073 else pcOf 25074 := by
-    simp only [v6, Result.toState_pc, gRunB6.res, E.eval, BinOp.eval, CmpOp.eval, v5x31]
-    have e6 : BitVec.ofNat 64 (gN lay tree heap) >>> ((48#64 : Word).toNat % 64) &&& 255#64 =
-        BitVec.ofNat 64 (lay - 1) := g_byte6 hl htr (by omega)
-    rw [e6]
-    by_cases h : lay = 1
-    · subst h; simp
-    · have : BitVec.ofNat 64 (lay - 1) ≠ 0#64 := by
-        intro he; rw [ofNat_inj (by omega) (by decide)] at he; omega
-      simp [h, this]
-  have st56 : Steps im u 9 9 v6 := (st45.trans st6).of_eq (by simp [gRunB6.res]) (by simp [gRunB6.res])
-  by_cases hL : lay = 1
-  · rw [if_pos hL] at p6
-    have st7 := symRun_sound gRunB7 hg.cB7 v6 p6 (by simp [gRunB7.res, rv_simp])
-    set v7 := gRunB7.res.toState v6
-    have r7 : RegsExcept v6 v7 [.x29] := by
-      intro x hx; simp at hx; cases x <;> simp_all [v7, gRunB7.res, rv_simp] <;> rfl
-    refine ⟨v7, 10, (st56.trans st7).of_eq (by simp [gRunB7.res]) (by simp [gRunB7.res]), le_refl _,
-      by simp [v7, gRunB7.res, rv_simp], ?_, (((r4.trans r5).trans r6).trans r7).mono (by simp),
-      fun A => by simp [v7, gRunB7.res, rv_simp, m6]⟩
-    rw [zb, if_neg h8, if_neg h4, if_pos hL]; simp [v7, gRunB7.res, rv_simp]
-  · rw [if_neg hL] at p6
-    refine ⟨v6, 9, st56, by omega, p6, ?_, ((r4.trans r5).trans r6).mono (by simp), m6⟩
-    rw [zb, if_neg h8, if_neg h4, if_neg hL, r6.get (by simp), v5x29]
+  have p6 : v6.pc = pcOf 25073 := by simp [v6, gRunB6.res, rv_simp]
+  have st7 := symRun_sound gRunB7 hg.cB7 v6 p6 (by simp [gRunB7.res, rv_simp])
+  set v7 := gRunB7.res.toState v6
+  have r7 : RegsExcept v6 v7 [] := by
+    intro x hx; cases x <;> simp_all [v7, gRunB7.res, rv_simp] <;> rfl
+  refine ⟨v7, 10, ((st45.trans st6).trans st7).of_eq
+      (by simp [gRunB6.res, gRunB7.res]) (by simp [gRunB6.res, gRunB7.res]), le_rfl,
+    by simp [v7, gRunB7.res, rv_simp], ?_,
+    (((r4.trans r5).trans r6).trans r7).mono (by simp),
+    fun A => by simp [v7, gRunB7.res, rv_simp, m6]⟩
+  rw [zb, if_neg h8, if_neg h4]
+  simp [v7, gRunB7.res, v6, gRunB6.res, rv_simp]
 /-- Cycle bound of one lower node hash through the grind stub. -/
 def grindCost (lay heap : Nat) : Nat :=
   if ClaudeWCT.WCT9.lowerZeroBits lay heap = 0 then 37 else 64 + 16 * ClaudeWCT.WCT9.lowerNonceCap lay heap
@@ -7970,7 +7956,7 @@ structure BtPost (sk : SecretKey) (cache : Bytes 131072) (lay : Layer) (tree sel
   base : Base (cfFlag := cfFlag) sk cache u
   regs : RegsExcept s u btAllRegs
   frame : Frame s u (BtAllW lay tree sb)
-def btCost : Nat := 37510000
+def btCost : Nat := 37580000
 theorem sumTo_le_mul (f : Nat → Nat) (b : Nat) : ∀ n, (∀ j < n, f j ≤ b) → sumTo f n ≤ n * b
   | 0, _ => by simp [sumTo]
   | n + 1, h => by
@@ -7988,9 +7974,9 @@ theorem heapH_sib {H sel i : Nat} (hi : i < H) :
   have h2 : 2 ^ H = 2 ^ (H - i) * 2 ^ i := by rw [← pow_add, Nat.sub_add_cancel hi.le]
   rw [h2, Nat.add_comm, Nat.add_mul_div_right _ _ (Nat.two_pow_pos i), Nat.add_comm,
     two_pow_add_xor_one (by omega)]
-/-- U16b: the level loop bound with the grind stub (layer 1: 108945, layers 2..3: 87368). -/
+/-- U24: level-loop bounds are 174481 for layer 1 and 169288 for layers 2 and 3. -/
 theorem btLev_costs (lay : Layer) (hlay : lay ≠ 0) (tree : Nat) :
-    SharedTree.levWB (btLev lay tree) ≤ 109000 := by
+    SharedTree.levWB (btLev lay tree) ≤ 175000 := by
   have e : SharedTree.levWB (btLev lay tree) = SharedTree.levWB ⟨3, lay.val, 0, height lay, 0, 0⟩ := rfl
   have hv : lay.val = 1 ∨ lay.val = 2 ∨ lay.val = 3 := by
     have := lay.isLt; have : lay.val ≠ 0 := fun h => hlay (Fin.ext h); omega

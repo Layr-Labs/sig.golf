@@ -242,7 +242,7 @@ is the 64-bit counter at bytes 32..39 of the node input (the Merkle pad; bytes 4
 `merkleNodeInput`. Zero bits: heaps 8..15 -> 1, 4..7 -> 2, 2..3 -> 3 on layer 1, else 2; cap `128 · 2^b`.
 Every other node (the top tree, heaps 1 and ≥ 16) has `b = 0` and is the plain `lowerNodeHash`. -/
 def lowerZeroBits (lay heap : Nat) : Nat :=
-  if lay = 0 ∨ heap < 2 ∨ 16 ≤ heap then 0 else if 8 ≤ heap then 1 else if 4 ≤ heap then 2 else if lay = 1 then 3 else 2
+  if lay = 0 ∨ heap < 2 ∨ 16 ≤ heap then 0 else if 8 ≤ heap then 1 else if 4 ≤ heap then 3 else 4
 def lowerNonceCap (lay heap : Nat) : Nat := 128 * 2 ^ lowerZeroBits lay heap
 def lowerZeroOk (lay heap : Nat) (value : Digest) : Bool :=
   value.toNat / 2 ^ (128 - lowerZeroBits lay heap) == 0
@@ -828,7 +828,7 @@ Defined before the encoding selector because the top producer choice uses the ca
   LOW costs 4 cycles, HIGH 6). -/
 namespace CanonicalPolicy
 /-- The credit pool every canonical path must reach. -/
-def totalCredit : Nat := 67
+def totalCredit : Nat := 66
 /-- The (fixed) top credit floor (on the path-aware credit). -/
 def topFloor : Nat := 14
 /-- All three lower layers use digit sum 201. Layer 1's existing broad decoder
@@ -1508,7 +1508,7 @@ theorem lower_three_progress (r : Nat) (hr : r < 22) :
     threshold 3 r = r := by simp [threshold, show r ≤ 21 by omega]
 
 theorem accepted_top_residual {answer : Digest} {low : Bool} {digits : List Nat}
-    (h : producerDecodeAt 0 14 low answer = some digits) : nextResidual 67 0 low digits < 54 := by
+    (h : producerDecodeAt 0 14 low answer = some digits) : nextResidual 66 0 low digits < 54 := by
   have hc := producerDecodeAt_credit h
   unfold nextResidual
   omega
