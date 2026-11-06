@@ -193,7 +193,7 @@ noncomputable def honestLaw : Proposal → ENNReal :=
 
 theorem sum_producer (g : Proposal → ENNReal) :
     (∑ a : HashOutput, if producer a = true then g (proposal a) else 0) =
-      ((791*2^62 : Nat) : ENNReal) * ∑ p : Proposal, if capOk p.2 = true then g p else 0 := by
+      ((812*2^62 : Nat) : ENNReal) * ∑ p : Proposal, if capOk p.2 = true then g p else 0 := by
   rw [← sum_admissible (fun p => if capOk p.2 = true then g p else 0)]
   apply Finset.sum_congr rfl
   intro a _
@@ -257,7 +257,7 @@ theorem sum_capOk_prod_one :
 
 theorem producer_acceptance_eq :
     Pr[fun a : HashOutput => producer a = true | ($ᵗ HashOutput : ProbComp HashOutput)] =
-      ((791*2^62 : Nat) : ENNReal) * (((2^31 : Nat) : ENNReal) * (capSet.card : ENNReal)) /
+      ((812*2^62 : Nat) : ENNReal) * (((2^31 : Nat) : ENNReal) * (capSet.card : ENNReal)) /
         (Fintype.card HashOutput : ENNReal) := by
   rw [← expectedValue_ite_one, BPORS.expected_uniform_eq_finiteAverage]
   unfold SigGolfResearch.Gate6.Moments.finiteAverage
@@ -278,8 +278,8 @@ theorem acceptedProposalHonest (g : Proposal → ENNReal) :
   set K := ((2^31 : Nat) : ENNReal)*(capSet.card : ENNReal)
   set S := ∑ p : Proposal, if capOk p.2 = true then g p else 0
   simp only [div_eq_mul_inv]
-  calc ((791*2^62 : Nat) : ENNReal)*S*(Fintype.card HashOutput : ENNReal)⁻¹
-      = ((791*2^62 : Nat) : ENNReal)*S*(Fintype.card HashOutput : ENNReal)⁻¹*(K⁻¹*K) := by
+  calc ((812*2^62 : Nat) : ENNReal)*S*(Fintype.card HashOutput : ENNReal)⁻¹
+      = ((812*2^62 : Nat) : ENNReal)*S*(Fintype.card HashOutput : ENNReal)⁻¹*(K⁻¹*K) := by
         rw [ENNReal.inv_mul_cancel hK hK', mul_one]
     _ = _ := by ring
 
@@ -546,7 +546,7 @@ theorem predicate_card_nat (p : SharedDigestFields.Fields → Prop) [DecidablePr
   simpa only [Nat.card_eq_fintype_card] using SharedDigestFields.predicate_card p
 
 theorem producer_card_fields : Nat.card {a : HashOutput // producer a = true} =
-    fieldRetained*2^31*791*2^76 := by
+    fieldRetained*2^31*812*2^76 := by
   have he := congrArg (fun p : HashOutput → Bool => Nat.card {a : HashOutput // p a = true}) producer_fields_eq
   calc _ = Nat.card {a : HashOutput // SharedDigestFields.accepted (SharedDigestFields.fields a) = true} := he
        _ = Nat.card {f : SharedDigestFields.Fields // SharedDigestFields.accepted f = true} * 2^76 := predicate_card_nat (fun f => SharedDigestFields.accepted f = true)
@@ -557,7 +557,7 @@ theorem uniform_card_bool {α : Type} [Fintype α] [SampleableType α] (p : α �
   rw [probEvent_uniformSample, ← Fintype.card_subtype, Nat.card_eq_fintype_card]
 
 theorem producer_card : Nat.card {a : HashOutput // producer a = true} =
-    791*2^62*(2^31*capSet.card) := by
+    812*2^62*(2^31*capSet.card) := by
   have he := producer_acceptance_eq
   rw [uniform_card_bool producer] at he
   have hn : (Fintype.card HashOutput : ENNReal) ≠ 0 := by
@@ -571,12 +571,12 @@ theorem producer_card : Nat.card {a : HashOutput // producer a = true} =
 theorem capSet_card_fields : capSet.card = fieldRetained*2^14 := by
   have h := producer_card_fields
   rw [producer_card] at h
-  have he : (791*2^93)*capSet.card = (791*2^93)*(fieldRetained*2^14) := by
+  have he : (812*2^93)*capSet.card = (812*2^93)*(fieldRetained*2^14) := by
     calc
-      _ = 791*2^62*(2^31*capSet.card) := by ring
-      _ = fieldRetained*2^31*791*2^76 := h
+      _ = 812*2^62*(2^31*capSet.card) := by ring
+      _ = fieldRetained*2^31*812*2^76 := h
       _ = _ := by ring
-  exact Nat.eq_of_mul_eq_mul_left (by norm_num : 0<791*2^93) he
+  exact Nat.eq_of_mul_eq_mul_left (by norm_num : 0<812*2^93) he
 
 theorem capSet_card_scaled : capSet.card*16 = count := by
   rw [capSet_card_fields]
@@ -600,7 +600,7 @@ theorem kappa_exact : kappa = (total : ENNReal)/count := by
        _ = (total : ENNReal)*capSet.card := by rw [ha]
 
 /-- Cap 777: `2 kappa = 2.0188326… ≤ 2.018833` (the thinned Poisson parameter). -/
-theorem kappa_rate : (2:ENNReal)*kappa ≤ (2027792:ENNReal)/1000000 := by
+theorem kappa_rate : (2:ENNReal)*kappa ≤ (2018833:ENNReal)/1000000 := by
   rw [kappa_exact]
   unfold total count
   apply (ENNReal.toReal_le_toReal (by finiteness) (by finiteness)).mp
@@ -615,7 +615,7 @@ open SigGolfCandidate.T3 ClaudeWCT.Numerics.SharedFtsCount ClaudeWCT.Numerics.Ca
 set_option maxHeartbeats 1000000
 set_option maxRecDepth 100000
 
-theorem capSet_card_value : capSet.card = 3231111570626159904052478477365212970106880 := by
+theorem capSet_card_value : capSet.card = 3245450420714031830069679340740189437804544 := by
   have h := capSet_card_scaled
   norm_num [count] at h
   omega
@@ -2786,6 +2786,35 @@ theorem allQ_lowerNodeG {P : SigGolfCandidate.T3.Spec.Domain → Prop} (lay tree
   · rename_i hb
     exact allQ_lowerNonceSearch lay tree heap left right
       (fun n => h n (Or.inr (lowerZeroBits_ne_zero_lay hb))) _ 0
+/-- E8: the FTS nonce search queries only `ftsNodeHashN` trials. -/
+theorem allQ_ftsNonceSearch {P : SigGolfCandidate.T3.Spec.Domain → Prop} (coord index heap : Nat) (left right : Digest)
+    (h : ∀ n, AllQueriesSatisfy (ftsNodeHashN coord index heap n left right) P) :
+    ∀ fuel n, AllQueriesSatisfy (ftsNonceSearch coord index heap left right fuel n) P
+  | 0, n => by
+      unfold ftsNonceSearch
+      exact allQ_bind (h n) fun _ => allQ_pure _
+  | fuel + 1, n => by
+      unfold ftsNonceSearch
+      refine allQ_bind (h n) fun _ => ?_
+      split
+      · exact allQ_pure _
+      · exact allQ_ftsNonceSearch coord index heap left right h fuel (n + 1)
+/-- E8: a canonical FTS node (`ftsNodeG`) is the plain node or (heaps `8..15`) `ftsNodeHashN` trials. -/
+theorem allQ_ftsNodeG {P : SigGolfCandidate.T3.Spec.Domain → Prop} (coord index heap : Nat) (left right : Digest)
+    (h0 : AllQueriesSatisfy (wctNodeHashH coord index heap left right) P)
+    (h : ∀ n, 8 ≤ heap ∧ heap < 16 → AllQueriesSatisfy (ftsNodeHashN coord index heap n left right) P) :
+    AllQueriesSatisfy (ftsNodeG coord index heap left right) P := by
+  unfold ftsNodeG ftsNodeAt
+  refine SigGolfCandidate.T3M.allQ_map _ ?_
+  split
+  · exact SigGolfCandidate.T3M.allQ_map _ h0
+  · rename_i hb
+    have hg : 8 ≤ heap ∧ heap < 16 := by
+      by_contra hn; exact hb (ftsZeroBits_off hn)
+    exact allQ_ftsNonceSearch coord index heap left right (fun n => h n hg) _ 0
+theorem ftsNodeInputN_eq_top (coord index heap n : Nat) (left right : Digest) :
+    ftsNodeInputN coord index heap n left right =
+      wctTopInput coord index heap left (BitVec.ofNat 128 (n % 2 ^ 64)) right := rfl
 section
 variable (lay : Layer) (tree : Nat)
 theorem lowerQuery_chain (leaf i start count : Nat) (value : Digest) :
@@ -3007,7 +3036,8 @@ theorem sharedNode_allowed (first : Bool) (coord index heap : Nat)
     · split
       · exact highHash_allowed P hpublic _
       · exact shortHash_allowed P hpublic _
-    · exact nodeHashH_allowed P hpublic _ _ _ _ _
+    · exact WCT9.allQ_ftsNodeG _ _ _ _ _ (nodeHashH_allowed P hpublic _ _ _ _ _)
+        (fun _ _ => by unfold WCT9.ftsNodeHashN; exact shortHash_allowed P hpublic _)
 include hpublic in
 theorem heapBuild_allowed (index coord : Nat) (padR : Digest) (leaves : List Digest) :
     AllQueriesSatisfy (WCT9.heapBuild index coord padR leaves) P := by
@@ -4695,8 +4725,10 @@ theorem forest_notDigest : ForestAllowed BPB.NotDigestQ where
       · split
         · exact allQ_highHash_of_shortHash _ (topInput_notDigest ..)
         · exact topInput_notDigest ..
-      · exact ClaudeWCT.WCT9.allQ_ftsHash_of_shortHash heap (ClaudeWCT.WCT9.nodeInput coord index heap left right)
-          (BPB.nodeHash_ok 3 (ClaudeWCT.WCT9.nodeLayer coord) index heap left right (by decide))
+      · exact ClaudeWCT.WCT9.allQ_ftsNodeG _ _ _ _ _
+          (ClaudeWCT.WCT9.allQ_ftsHash_of_shortHash heap (ClaudeWCT.WCT9.nodeInput coord index heap left right)
+            (BPB.nodeHash_ok 3 (ClaudeWCT.WCT9.nodeLayer coord) index heap left right (by decide)))
+          (fun n _ => topInput_notDigest coord index heap left (BitVec.ofNat 128 (n % 2 ^ 64)) right)
 
 theorem payNotDigest : PayNotDigest payAfterDigest :=
   pay_allowed _ tail_notDigest forest_notDigest

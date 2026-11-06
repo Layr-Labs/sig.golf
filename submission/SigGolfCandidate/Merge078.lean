@@ -1388,10 +1388,10 @@ section
 
 /-! # T51 DEC from the real initial state
 
-E11: word 0 is `j 60000` (the pre-pass, 108 steps, then `j 54569` = DEC). From `w9init` with the 5,190-byte signature
+E8 (P1): word 0 is `j 60734` (the pre-pass, 185 steps, then `j 54569` = DEC). From `w9init` with the 5,189-byte signature
 `b`, the pre-pass rebuilds DEC's T1 layout (`unpackB b`) and DEC writes the expander's inflated slot layout
 `SharedCodec.inflatedRead 0 (SharedCodec.digC b)` (332 slots at `0x7000`) and the hint at `0x66000`, rejects a hint
-`≥ 7744` at `j 354`, zeroes its temporaries and jumps to word 1 (2,114 steps in all). -/
+`≥ 7744` at `j 354`, zeroes its temporaries and jumps to word 1 (2,191 steps in all). -/
 
 namespace ClaudeWCT.W9.Machine.Expand.PrePass
 open SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64 SigGolfCandidate.Rv SigGolfCandidate.T3M
@@ -1458,7 +1458,7 @@ theorem jalTo0_sound {w : BitVec 32} {n m : Nat} (h : jalTo0 w n = some m) :
     · cases h
   · cases h
 
-theorem entry_code0 : CodeAt Images.expandImage (pcOf 0) [0x1813a06f] :=
+theorem entry_code0 : CodeAt Images.expandImage (pcOf 0) [0x4f83b06f] :=
   codeAt_expand_current_chunk (by decide) (by decide) (by decide +kernel)
 
 theorem w9_pc (im : Image) (m : Message) (pk : PublicKey) {n : Nat} (σ : Bytes n) :
@@ -1469,28 +1469,28 @@ theorem w9_pc (im : Image) (m : Message) (pk : PublicKey) {n : Nat} (σ : Bytes 
   rfl
 
 theorem entry_step0 (s : MachineState) (hpc : s.pc = pcOf 0) :
-    Steps Images.expandImage s 1 1 (s.setPC (pcOf 60000)) := by
-  obtain ⟨imm, hd, hoff⟩ := jalTo0_sound (show jalTo0 (0x1813a06f#32) 0 = some 60000 by decide +kernel)
+    Steps Images.expandImage s 1 1 (s.setPC (pcOf 60734)) := by
+  obtain ⟨imm, hd, hoff⟩ := jalTo0_sound (show jalTo0 (0x4f83b06f#32) 0 = some 60734 by decide +kernel)
   exact jal_x0_step entry_code0 hd hoff s hpc
 
 /-- E11: word 0 + the pre-pass: from word 0 to DEC's entry 54569 with the T1-layout signature `unpackB b`. -/
 theorem pre_entry (s0 : MachineState) (b : SharedCodec.CBytes) (hpc : s0.pc = pcOf 0) (hsig : SigMemC s0.getMem b) :
-    ∃ u, Steps Images.expandImage s0 109 109 u ∧ u.pc = pcOf 54569 ∧
+    ∃ u, Steps Images.expandImage s0 186 186 u ∧ u.pc = pcOf 54569 ∧
       (∀ r ∈ [Reg.x7, .x28, .x29, .x30, .x31], u.getReg r = 0) ∧ RegsExcept s0 u [.x7, .x28, .x29, .x30, .x31] ∧
-      SigMem u.getMem (unpackB b) ∧ Frame s0 u (fun A => 0x70d0 ≤ A ∧ A < 0x84c0) := by
+      SigMem u.getMem (unpackB b) ∧ Frame s0 u (fun A => 0x70b0 ≤ A ∧ A < 0x84c0) := by
   have st0 := entry_step0 s0 hpc
-  obtain ⟨u, su, pu, zu, ru, mu⟩ := pre_spec (s0.setPC (pcOf 60000)) rfl
-  have e : (s0.setPC (pcOf 60000)).getMem = s0.getMem := funext fun _ => MachineState.getMem_setPC
+  obtain ⟨u, su, pu, zu, ru, mu⟩ := pre_spec (s0.setPC (pcOf 60734)) rfl
+  have e : (s0.setPC (pcOf 60734)).getMem = s0.getMem := funext fun _ => MachineState.getMem_setPC
   have em : u.getMem = preMem s0.getMem := funext fun A => by rw [mu, e]
   refine ⟨u, st0.trans su, pu, zu, fun r hr => (ru r hr).trans MachineState.getReg_setPC, by rw [em]; exact sigMem_pre hsig,
     fun A hA hn => ?_⟩
   rw [em]
-  have hn' : A < 0x70d0 ∨ 0x84c0 ≤ A := by omega
+  have hn' : A < 0x70b0 ∨ 0x84c0 ≤ A := by omega
   apply preMem_other s0.getMem A hA (by omega) (by omega)
   intro c hc he
   simp only [List.mem_cons, List.not_mem_nil, or_false] at hc
   unfold hiA at he
-  rcases hc with rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl <;> omega
+  rcases hc with rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl <;> omega
 
 /-- U16b: the T1-layout read of DEC's slots is the U16b codec's (`digC_unpack`). -/
 theorem inflated_unpack (b : SharedCodec.CBytes) (k : Nat) (hk : k < 332) :
@@ -1513,7 +1513,7 @@ theorem bytes_getD {n : Nat} (x : Bytes n) (i : Nat) (hi : i < n) :
   simp only [bytes, List.getD_eq_getElem?_getD, List.getElem?_map, List.getElem?_range hi, Option.map_some,
     Option.getD_some]
 
-/-- E11: the expand entry memory of the real initial state holds the 5,190-byte signature. -/
+/-- E8 (P1): the expand entry memory of the real initial state holds the 5,189-byte signature. -/
 theorem w9_sigMemC (m : Message) (pk : PublicKey) (b : SharedCodec.CBytes) :
     SigMemC (w9init Images.expandImage m pk b).getMem b := by
   constructor
@@ -1524,17 +1524,17 @@ theorem w9_sigMemC (m : Message) (pk : PublicKey) (b : SharedCodec.CBytes) :
 /-- DEC, accepting, from any state at word 0 holding the signature (U16b: word 0 + the pre-pass + DEC). -/
 theorem dec_gen (s0 : MachineState) (b : SharedCodec.CBytes) (hpc : s0.pc = pcOf 0) (hsig : SigMemC s0.getMem b)
     (hh : (SharedCodec.sigDecC b).policyHints.toNat < 7744) :
-    ∃ u, Steps Images.expandImage s0 2114 2114 u ∧ u.pc = pcOf 1 ∧
+    ∃ u, Steps Images.expandImage s0 2191 2191 u ∧ u.pc = pcOf 1 ∧
       (∀ r ∈ [.x6, .x7, .x18, .x19, .x20, .x28, .x29, .x30, .x31], u.getReg r = 0) ∧
       RegsExcept s0 u [.x6, .x7, .x18, .x19, .x20, .x28, .x29, .x30, .x31] ∧
       (∀ k, k < 332 → DigAt u (0x7000 + 16 * k)
         (SharedCodec.inflatedRead (0 : SigGolfCandidate.T3.Digest) (SharedCodec.digC b) k)) ∧
       u.getMem (BitVec.ofNat 64 417792) = BitVec.ofNat 64 (SharedCodec.sigDecC b).policyHints.toNat ∧
-      Frame s0 u (fun A => A = 417792 ∨ (0x70d0 ≤ A ∧ A < 0x84c0)) := by
+      Frame s0 u (fun A => A = 417792 ∨ (0x70b0 ≤ A ∧ A < 0x84c0)) := by
   obtain ⟨s1, st1, p1, z1, r1, hsig1, f1⟩ := pre_entry s0 b hpc hsig
   obtain ⟨t, st, tp, tz, tr, tm, th, tf⟩ := dec_run s1 p1 (by rw [hint_toNat hsig1, hints_unpack]; exact hh)
   refine ⟨t, st1.trans st, tp, ?_, (r1.trans tr).mono (by decide), ?_,
-    by rw [th, hint_eq hsig1, hints_unpack], (f1.trans tf).mono (fun A _ h => by rcases h with h | h; exact Or.inr h; exact h)⟩
+    by rw [th, hint_eq hsig1, hints_unpack], (f1.trans tf).mono (fun A _ h => by rcases h with h | h; exact Or.inr h; exact h.elim Or.inl (fun h' => Or.inr ⟨by omega, h'.2⟩))⟩
   · intro r hr
     by_cases hr' : r ∈ [Reg.x6, .x7, .x18, .x19, .x20, .x28, .x29, .x30]
     · exact tz r hr'
@@ -1550,16 +1550,16 @@ theorem dec_gen (s0 : MachineState) (b : SharedCodec.CBytes) (hpc : s0.pc = pcOf
     exact ⟨e0, e1⟩
 
 /-- DEC, accepting: from the real initial state, word 0 + DEC reach word 1 with `w9init`'s registers, the inflated
-slot layout of the decoded signature at `0x7000`, the hint at `0x66000`; only the hint word and `[0x70d0, 0x84c0)`
+slot layout of the decoded signature at `0x7000`, the hint at `0x66000`; only the hint word and `[0x70b0, 0x84c0)`
 are written. -/
 theorem dec_init (m : Message) (pk : PublicKey) (b : SharedCodec.CBytes)
     (hh : (SharedCodec.sigDecC b).policyHints.toNat < 7744) :
-    ∃ u, Steps Images.expandImage (w9init Images.expandImage m pk b) 2114 2114 u ∧ u.pc = pcOf 1 ∧
+    ∃ u, Steps Images.expandImage (w9init Images.expandImage m pk b) 2191 2191 u ∧ u.pc = pcOf 1 ∧
       (∀ r, u.getReg r = (w9init Images.expandImage m pk b).getReg r) ∧
       (∀ k, k < 332 → DigAt u (0x7000 + 16 * k)
         (SharedCodec.inflatedRead (0 : SigGolfCandidate.T3.Digest) (SharedCodec.digC b) k)) ∧
       u.getMem (BitVec.ofNat 64 417792) = BitVec.ofNat 64 (SharedCodec.sigDecC b).policyHints.toNat ∧
-      Frame (w9init Images.expandImage m pk b) u (fun A => A = 417792 ∨ (0x70d0 ≤ A ∧ A < 0x84c0)) := by
+      Frame (w9init Images.expandImage m pk b) u (fun A => A = 417792 ∨ (0x70b0 ≤ A ∧ A < 0x84c0)) := by
   obtain ⟨u, su, up, uz, ur, ui, uh, uf⟩ := dec_gen _ b (w9_pc Images.expandImage m pk b) (w9_sigMemC m pk b) hh
   refine ⟨u, su, up, ?_, ui, uh, uf⟩
   intro r
@@ -1567,11 +1567,11 @@ theorem dec_init (m : Message) (pk : PublicKey) (b : SharedCodec.CBytes)
   · rw [uz r hr, w9_getReg_zero _ _ _ _ _ (by intro e; subst e; simp at hr)]
   · exact ur r hr
 
-/-- DEC, rejecting: a hint `≥ 7744` sends the expander to word 354 (the failure exit) after 188 steps (E11: word 0,
+/-- DEC, rejecting: a hint `≥ 7744` sends the expander to word 354 (the failure exit) after 265 steps (E11: word 0,
 the pre-pass, then DEC's 80). -/
 theorem dec_reject (m : Message) (pk : PublicKey) (b : SharedCodec.CBytes)
     (hh : 7744 ≤ (SharedCodec.sigDecC b).policyHints.toNat) :
-    ∃ u, Steps Images.expandImage (w9init Images.expandImage m pk b) 188 188 u ∧ u.pc = pcOf 354 := by
+    ∃ u, Steps Images.expandImage (w9init Images.expandImage m pk b) 265 265 u ∧ u.pc = pcOf 354 := by
   generalize hs0 : w9init Images.expandImage m pk b = s0
   have hpc : s0.pc = pcOf 0 := by rw [← hs0]; exact w9_pc Images.expandImage m pk b
   have hsig : SigMemC s0.getMem b := by rw [← hs0]; exact w9_sigMemC m pk b

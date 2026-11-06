@@ -412,6 +412,39 @@ theorem coordVal_selCoordV_node (s : Secrets) (L : Labels) (n : TreeNode) :
   show Extract.Paired.proj (Node.node (withNonce n (selNonceV (coordVal s L) n))).toPos _ = _
   rw [CanonGraph.Paired.pairedProj_node, selNonceV_coordVal]
   rfl
+/-- E8: a level-3 FTS trial coordinate's value is the low half of its label. -/
+theorem coordVal_wTrial3 (s : Secrets) (L : Labels) (n : WctNodePos) (h3 : n.1.level.val = 3) (j : Nat) :
+    coordVal s L (wTrialCoord n j) = (L (.wctNode (wWithNonce n j))).extractLsb' 0 128 := by
+  show Extract.Paired.proj (.wctNode n.1.index.val n.1.coord.val n.1.level.val n.1.idx.val) _ = _
+  rw [h3, Extract.Paired.proj_level3]
+theorem wSelNonceV_coordVal (s : Secrets) (L : Labels) (n : WctNodePos) :
+    wSelNonceV (coordVal s L) n = wSelNonce L n := by
+  by_cases h3 : n.1.level.val = 3
+  · unfold wSelNonceV wSelNonce
+    congr 1
+    apply find?_congr'
+    intro j _
+    have hiff : wTrialFailsV (coordVal s L) n j ↔ wTrialFails L n j := by
+      unfold wTrialFailsV wTrialFails; rw [coordVal_wTrial3 s L n h3]
+    simp only [decide_eq_decide.mpr hiff]
+  · rw [wSelNonceV_cap_one (wTrialCap_off h3), wSelNonce_of_cap_one (wTrialCap_off h3)]
+theorem wActiveV_coordVal (s : Secrets) (L : Labels) (n : WctNodePos) :
+    WActiveV (coordVal s L) n ↔ WActive L n := by
+  by_cases h3 : n.1.level.val = 3
+  · unfold WActiveV WActive
+    have hiff : ∀ j, wTrialFailsV (coordVal s L) n j ↔ wTrialFails L n j := fun j => by
+      unfold wTrialFailsV wTrialFails; rw [coordVal_wTrial3 s L n h3]
+    simp only [hiff]
+  · unfold WActiveV WActive
+    rw [wTrialCap_off h3]
+    exact ⟨fun h => ⟨h.1, fun j hj => by omega⟩, fun h => ⟨h.1, fun j hj => by omega⟩⟩
+/-- E8: the value of an FTS-node coordinate's selected trial is the label of the selected trial node. -/
+theorem coordVal_selCoordV_wct (s : Secrets) (L : Labels) (n : WctNodePos) :
+    coordVal s L (selCoordV (coordVal s L) (.inl (.wctNode n))) =
+      Extract.Paired.proj (Node.wctNode n).toPos (L (.wctNode (wSelNode L n))) := by
+  show Extract.Paired.proj (Node.wctNode (wWithNonce n (wSelNonceV (coordVal s L) n))).toPos _ = _
+  rw [wSelNonceV_coordVal]
+  rfl
 theorem treeLabel_eq (s : Secrets) (L : Labels) (lay : Layer) (tree : Fin (2^31)) (level c : Nat) :
     treeLabel L lay tree level c=treeVal (coordVal s L) lay tree level c := by
   unfold treeLabel treeVal treeChild
@@ -428,8 +461,8 @@ theorem treeLabel_eq (s : Secrets) (L : Labels) (lay : Layer) (tree : Fin (2^31)
     | some n => exact (coordVal_selCoordV_node s L n).symm
 
 theorem ftsLabel_eq (s : Secrets) (L : Labels) (index : Fin (2^31)) (coord : Fin 9) (level c : Nat) :
-    CanonGraph.Paired.ftsLabel L index coord level c=((ftsChild index coord level c).map (coordVal s L)).getD 0 := by
-  unfold CanonGraph.Paired.ftsLabel ftsChild
+    CanonGraph.Paired.ftsLabel L index coord level c=ftsChildVal (coordVal s L) index coord level c := by
+  unfold CanonGraph.Paired.ftsLabel ftsChildVal ftsChild
   by_cases h0 : level=0
   · rw [if_pos h0,if_pos h0]
     split_ifs <;> rfl
@@ -437,8 +470,9 @@ theorem ftsLabel_eq (s : Secrets) (L : Labels) (index : Fin (2^31)) (coord : Fin
     cases hn : ftsNodeAt index coord (level-1) c with
     | none => rfl
     | some n =>
-      simp only [Option.map_some,Option.getD_some,coordVal,CanonGraph.Node.toPos,
-        ftsNodeAt_coord hn,ftsNodeAt_level hn]
+      simp only [Option.map_some,Option.getD_some]
+      rw [coordVal_selCoordV_wct]
+      simp only [CanonGraph.Node.toPos, ftsNodeAt_coord hn,ftsNodeAt_level hn]
       have hi : n.1.index=index := by
         unfold ftsNodeAt at hn
         split_ifs at hn
@@ -453,6 +487,26 @@ theorem ftsLabel_eq (s : Secrets) (L : Labels) (index : Fin (2^31)) (coord : Fin
         rfl
       rw [hi,hc]
 
+/-- E8: off the ground children (level `≠ 4`) an FTS child is its own selected trial. -/
+theorem selCoordV_ftsChild {v : Coord → Digest} {index : Fin (2^31)} {coord : Fin 9} {level c : Nat} {x : Coord}
+    (hx : ftsChild index coord level c = some x) (h4 : level ≠ 4) : selCoordV v x = x := by
+  unfold ftsChild at hx
+  split_ifs at hx with h0 hr
+  · cases hx; rfl
+  · obtain ⟨m, hm, rfl⟩ := Option.map_eq_some_iff.mp hx
+    have hl := ftsNodeAt_level hm
+    have h1 : wTrialCap m.1.coord.val m.1.level.val = 1 := wTrialCap_off (by omega)
+    show Sum.inl (CanonGraph.Node.wctNode (wWithNonce m (wSelNonceV v m))) = _
+    rw [wSelNonceV_cap_one h1]
+    have hw := wWithNonce_self m
+    rw [ftsNodeAt_nonce hm] at hw
+    rw [hw]
+theorem ftsChildVal_plain {v : Coord → Digest} {index : Fin (2^31)} {coord : Fin 9} {level c : Nat}
+    (h4 : level ≠ 4) : ftsChildVal v index coord level c = ((ftsChild index coord level c).map v).getD 0 := by
+  unfold ftsChildVal
+  cases hx : ftsChild index coord level c with
+  | none => rfl
+  | some x => simp only [Option.map_some, Option.getD_some, selCoordV_ftsChild hx h4]
 theorem pads_eq (s : Secrets) (L : Labels) (index : Fin (2^31)) (coord : Fin 9) (branch : Nat) :
     CanonGraph.Paired.pads L index coord branch=padVals (coordVal s L) index coord branch := by
   unfold CanonGraph.Paired.pads padVals padCoord
@@ -461,7 +515,8 @@ theorem pads_eq (s : Secrets) (L : Labels) (index : Fin (2^31)) (coord : Fin 9) 
   all_goals
     dsimp only
     rw [ftsLabel_eq s,ftsLabel_eq s]
-    simp only [Fin.val_zero,Fin.val_one,Nat.add_zero]
+    simp only [ftsChildVal_plain (show (5:Nat) ≠ 4 by decide), ftsChildVal_plain (show (6:Nat) ≠ 4 by decide),
+      Fin.val_zero,Fin.val_one,Nat.add_zero]
 
 theorem coordVal_wctItem (s : Secrets) (L : Labels) (a : WctAddr) (p : Nat) :
     coordVal s L (wctItem a p)=wctValueL s L a p := by
@@ -512,13 +567,43 @@ theorem cell_eq_cellValues (s : Secrets) (L : Labels) (N : CanonGraph.Node)
       rw [pads_eq s L]
       simp only [cellValues,coordVal_wctItem,wctValueL_three]
   | wctNode n =>
-      change pad64 (nodeInputP 3 _ _ _ (CanonGraph.Paired.ftsLabel L _ _ _ _)
-        (if n.1.level.val=4 then (CanonGraph.Paired.pads L n.1.index n.1.coord (n.1.idx.val/2)).2 else 0)
-        (CanonGraph.Paired.ftsLabel L _ _ _ _))=_
-      rw [ftsLabel_eq s,ftsLabel_eq s,pads_eq s L]
-      rfl
+      by_cases hav : WActive L n
+      · rw [CanonGraph.Paired.cell_wctNode_active hav]
+        simp only [cellValues, if_pos ((wActiveV_coordVal s L n).mpr hav)]
+        rw [ftsLabel_eq s,ftsLabel_eq s,pads_eq s L]
+      · rw [CanonGraph.Paired.cell_wctNode_inactive hav]
+        simp only [cellValues, if_neg (fun h => hav ((wActiveV_coordVal s L n).mp h))]
   | forest i => exact hu.elim
 
+/-- E8: an FTS child reads its selected trial: agreement on the child slot and on the child position's trials. -/
+theorem ftsChildVal_congr {v w : Coord → Digest} {index : Fin (2^31)} {coord : Fin 9} {level c : Nat} {x : Coord}
+    (hx : ftsChild index coord level c = some x) (h0 : v x = w x)
+    (hd : ∀ y ∈ childWTrialDeps index coord level c, v y = w y) :
+    ftsChildVal v index coord level c = ftsChildVal w index coord level c := by
+  have hx' := hx
+  unfold ftsChildVal
+  rw [hx]
+  simp only [Option.map_some, Option.getD_some]
+  unfold ftsChild at hx
+  split_ifs at hx with h0' hr
+  · cases hx; exact h0
+  · obtain ⟨m, hm, rfl⟩ := Option.map_eq_some_iff.mp hx
+    have hsel : selCoordV v (.inl (.wctNode m)) = selCoordV w (.inl (.wctNode m)) := by
+      simp only [selCoordV]
+      by_cases h1 : wTrialCap m.1.coord.val m.1.level.val = 1
+      · rw [wSelNonceV_cap_one h1, wSelNonceV_cap_one h1]
+      · rw [wSelNonceV_congr (fun j hj => hd _ (by unfold childWTrialDeps; rw [hx']; exact mem_wTrialDeps h1 hj))]
+    rw [← hsel]
+    simp only [selCoordV]
+    by_cases h1 : wTrialCap m.1.coord.val m.1.level.val = 1
+    · rw [wSelNonceV_cap_one h1]
+      have hw := wWithNonce_self m
+      rw [ftsNodeAt_nonce hm] at hw
+      rw [hw]; exact h0
+    · apply hd
+      unfold childWTrialDeps
+      rw [hx']
+      exact mem_wTrialDeps h1 (wSelNonceV_lt v m)
 theorem cellValues_congr (N : CanonGraph.Node) (v v' : Coord → Digest)
     (hdep : ∀ c ∈ cellDepsP N, v c = v' c) : cellValues N v = cellValues N v' := by
   have h : ∀ cs ∈ childSlots N, v cs.1 = v' cs.1 := by
@@ -526,6 +611,8 @@ theorem cellValues_congr (N : CanonGraph.Node) (v v' : Coord → Digest)
     apply hdep
     cases N with
     | node n => exact LargeResidual.mem_cellDeps_of_slot (N := .node n) hcs
+    | wctNode n => exact List.mem_append_left _ (List.mem_append_left _ (List.mem_append_left _
+        (List.mem_map.mpr ⟨cs, hcs, rfl⟩)))
     | _ => exact List.mem_map.mpr ⟨cs, hcs, rfl⟩
   cases N with
   | chain p => exact LargeResidual.cellValues_congr (.chain p) v v' hdep
@@ -552,38 +639,50 @@ theorem cellValues_congr (N : CanonGraph.Node) (v v' : Coord → Digest)
       simp only [cellValues, padVals]
       rw [hfg, hp]
   | wctNode n =>
+      have hdw : ∀ c ∈ wTrialDeps n, v c = v' c := fun c hc =>
+        hdep c (List.mem_append_left _ (List.mem_append_left _ (List.mem_append_right _ hc)))
+      have hdl : ∀ c ∈ childWTrialDeps n.1.index n.1.coord n.1.level.val (2 * n.1.idx.val), v c = v' c :=
+        fun c hc => hdep c (List.mem_append_left _ (List.mem_append_right _ hc))
+      have hdr : ∀ c ∈ childWTrialDeps n.1.index n.1.coord n.1.level.val (2 * n.1.idx.val + 1), v c = v' c :=
+        fun c hc => hdep c (List.mem_append_right _ hc)
+      have ha : WActiveV v n ↔ WActiveV v' n := wActiveV_congr (fun h1 j hj => hdw _ (mem_wTrialDeps h1 hj))
       simp only [cellValues]
-      have h1 : ((ftsChild n.1.index n.1.coord n.1.level.val (2 * n.1.idx.val)).map v).getD 0 =
-          ((ftsChild n.1.index n.1.coord n.1.level.val (2 * n.1.idx.val)).map v').getD 0 := by
+      by_cases hav : WActiveV v n
+      swap
+      · rw [if_neg hav, if_neg (fun h' => hav (ha.mpr h'))]
+      have hlt : ¬ wTrialCap n.1.coord.val n.1.level.val ≤ n.1.nonce.val := by have := hav.1; omega
+      have h1 : ftsChildVal v n.1.index n.1.coord n.1.level.val (2 * n.1.idx.val) =
+          ftsChildVal v' n.1.index n.1.coord n.1.level.val (2 * n.1.idx.val) := by
         cases hc : ftsChild n.1.index n.1.coord n.1.level.val (2 * n.1.idx.val) with
-        | none => rfl
-        | some c =>
-            have := h (c, 0) (by simp [childSlots, hc])
-            simp [this]
-      have h2 : ((ftsChild n.1.index n.1.coord n.1.level.val (2 * n.1.idx.val + 1)).map v).getD 0 =
-          ((ftsChild n.1.index n.1.coord n.1.level.val (2 * n.1.idx.val + 1)).map v').getD 0 := by
+        | none => unfold ftsChildVal; rw [hc]; rfl
+        | some c => exact ftsChildVal_congr hc (h (c, 0) (by simp [childSlots, hc, hlt])) hdl
+      have h2 : ftsChildVal v n.1.index n.1.coord n.1.level.val (2 * n.1.idx.val + 1) =
+          ftsChildVal v' n.1.index n.1.coord n.1.level.val (2 * n.1.idx.val + 1) := by
         cases hc : ftsChild n.1.index n.1.coord n.1.level.val (2 * n.1.idx.val + 1) with
-        | none => rfl
-        | some c =>
-            have := h (c, 3) (by simp [childSlots, hc])
-            simp [this]
-      have h3 : (if n.1.level.val = 4 then (padVals v n.1.index n.1.coord (n.1.idx.val/2)).2 else 0) =
-          (if n.1.level.val = 4 then (padVals v' n.1.index n.1.coord (n.1.idx.val/2)).2 else 0) := by
+        | none => unfold ftsChildVal; rw [hc]; rfl
+        | some c => exact ftsChildVal_congr hc (h (c, 3) (by simp [childSlots, hc, hlt])) hdr
+      have h3 : (if n.1.level.val = 4 then (padVals v n.1.index n.1.coord (n.1.idx.val/2)).2
+            else if n.1.level.val = 3 then BitVec.ofNat 128 (n.1.nonce.val % 2 ^ 64) else 0) =
+          (if n.1.level.val = 4 then (padVals v' n.1.index n.1.coord (n.1.idx.val/2)).2
+            else if n.1.level.val = 3 then BitVec.ofNat 128 (n.1.nonce.val % 2 ^ 64) else 0) := by
         split_ifs with hl
         · unfold padVals
           cases hc : padCoord n.1.index n.1.coord (n.1.idx.val/2) 1 with
           | none => rfl
           | some c =>
-              have := h (c, 2) (by simp [childSlots, hc, hl])
+              have := h (c, 2) (by simp only [childSlots, if_neg hlt]; simp [hc, hl])
               simp [this]
         · rfl
-      rw [h1, h2, h3]
+        · rfl
+      rw [if_pos hav, if_pos (ha.mp hav), h1, h2, h3]
   | forest index => exact LargeResidual.cellValues_congr (.forest index) v v' hdep
 
 theorem slot_cellValues (N : CanonGraph.Node) (v : Coord → Digest)
-    (hN : ∀ n, N = .node n → ActiveV v n ∧ ∀ cs ∈ childSlots N, v (selCoordV v cs.1) = v cs.1) :
-    ∀ cs ∈ childSlots N, slotValue (cellValues N v) cs.2 = v cs.1 := by
-  intro cs hcs
+    (hN : ∀ n, N = .node n → ActiveV v n ∧ ∀ cs ∈ childSlots N, v (selCoordV v cs.1) = v cs.1)
+    (hW : ∀ n, N = .wctNode n → WActiveV v n) :
+    ∀ cs ∈ childSlots N, (∀ n, N = .wctNode n → v (selCoordV v cs.1) = v cs.1) →
+      slotValue (cellValues N v) cs.2 = v cs.1 := by
+  intro cs hcs hsel
   cases N with
   | chain p => exact LargeResidual.slot_cellValues (.chain p) v (fun _ h => by cases h) cs hcs
 
@@ -606,22 +705,25 @@ theorem slot_cellValues (N : CanonGraph.Node) (v : Coord → Digest)
         rw [LargeResidual.slotValue_ftsLeaf_pad]
         unfold padVals; rw [hc]; rfl
   | wctNode n =>
-      simp only [childSlots, List.mem_append] at hcs
+      have ha := hW n rfl
+      have hsel := hsel n rfl
+      have hlt : ¬ wTrialCap n.1.coord.val n.1.level.val ≤ n.1.nonce.val := by have := ha.1; omega
+      simp only [childSlots, if_neg hlt, List.mem_append] at hcs
       rcases hcs with (hcs | hcs) | hcs
       · simp only [Option.mem_toList, Option.map_eq_some_iff] at hcs
         obtain ⟨c, hc, rfl⟩ := hcs
-        simp only [cellValues, nodeInputP, pad64_block4]
+        simp only [cellValues, if_pos ha, nodeInputP, pad64_block4]
         refine ((slotValue_block4 _ _ _ _).1).trans ?_
-        rw [hc]; rfl
+        unfold ftsChildVal; rw [hc]; exact hsel
       · simp only [Option.mem_toList, Option.map_eq_some_iff] at hcs
         obtain ⟨c, hc, rfl⟩ := hcs
-        simp only [cellValues, nodeInputP, pad64_block4]
+        simp only [cellValues, if_pos ha, nodeInputP, pad64_block4]
         refine ((slotValue_block4 _ _ _ _).2.2).trans ?_
-        rw [hc]; rfl
+        unfold ftsChildVal; rw [hc]; exact hsel
       · split_ifs at hcs with hl
         · simp only [Option.mem_toList, Option.map_eq_some_iff] at hcs
           obtain ⟨c, hc, rfl⟩ := hcs
-          simp only [cellValues, nodeInputP, pad64_block4, if_pos hl]
+          simp only [cellValues, if_pos ha, nodeInputP, pad64_block4, if_pos hl]
           refine ((slotValue_block4 _ _ _ _).2.1).trans ?_
           unfold padVals; rw [hc]; rfl
         · simp at hcs
@@ -1052,9 +1154,10 @@ set_option backward.isDefEq.respectTransparency false
 attribute [local instance] Classical.propDecidable
 attribute [local irreducible] sharedNodes ClaudeWCT.WCT9.heapBuild
 
-theorem selCoordV_eq_self {v : Coord → Digest} {c : Coord} (h : ∀ n, c ≠ .inl (.node n)) : selCoordV v c = c := by
-  rcases c with (_ | _ | n | _ | _ | _ | _) | s
-  all_goals first | rfl | exact absurd rfl (h n)
+theorem selCoordV_eq_self {v : Coord → Digest} {c : Coord} (h : ∀ n, c ≠ .inl (.node n))
+    (hw : ∀ n, c ≠ .inl (.wctNode n)) : selCoordV v c = c := by
+  rcases c with (_ | _ | n | _ | _ | m | _) | s
+  all_goals first | rfl | exact absurd rfl (h n) | exact absurd rfl (hw m)
 theorem ftsChild_not_node {index : Fin (2^31)} {coord : Fin 9} {level physical : Nat} {c : Coord}
     (h : ftsChild index coord level physical = some c) : ∀ n, c ≠ .inl (.node n) := by
   intro n hn; subst hn
@@ -1062,7 +1165,11 @@ theorem ftsChild_not_node {index : Fin (2^31)} {coord : Fin 9} {level physical :
   split_ifs at h <;> simp at h
 theorem wctItem_not_node (a : WctAddr) (p : Nat) : ∀ n, wctItem a p ≠ .inl (.node n) := by
   intro n; unfold wctItem; split_ifs <;> simp
+theorem wctItem_not_wct (a : WctAddr) (p : Nat) : ∀ n, wctItem a p ≠ .inl (.wctNode n) := by
+  intro n; unfold wctItem; split_ifs <;> simp
 theorem chainItem_not_node (L : CanonGraph.LeafPos) (i d : Nat) : ∀ n, chainItem L i d ≠ .inl (.node n) := by
+  intro n; unfold chainItem; split_ifs <;> simp
+theorem chainItem_not_wct (L : CanonGraph.LeafPos) (i d : Nat) : ∀ n, chainItem L i d ≠ .inl (.wctNode n) := by
   intro n; unfold chainItem; split_ifs <;> simp
 /-- Honest values of used coordinates (top-nonce layer: a tree-node coordinate has the value of its position's
 selected trial). -/
@@ -1077,12 +1184,13 @@ theorem honestValue_used_eq {T : Answers} {labels : CanonGraph.Labels} (h : Cano
     | node m =>
       rw [coordVal_selCoordV_node, CanonGraph.Paired.pairedProj_node]
       rfl
+    | wctNode m => rw [coordVal_selCoordV_wct]; rfl
     | _ => rfl
   | inr s => rfl
 theorem honestValue_used_eq_plain {T : Answers} {labels : CanonGraph.Labels} (h : CanonGraph.Paired.Agrees T labels)
-    (c : Coord) (hc : UsedCoord c) (hn : ∀ n, c ≠ .inl (.node n)) :
+    (c : Coord) (hc : UsedCoord c) (hn : ∀ n, c ≠ .inl (.node n)) (hw : ∀ n, c ≠ .inl (.wctNode n)) :
     honestValue T c=coordVal (secretsOf T) labels c := by
-  rw [honestValue_used_eq h c hc, selCoordV_eq_self hn]
+  rw [honestValue_used_eq h c hc, selCoordV_eq_self hn hw]
 
  theorem buildForest_pairs (T : Answers) (index : Nat) (selected : ForestSelection) (words : ForestWords)
     (p : Fin 4) : (evalWithAnswerFn T (buildForest index selected words)).1.pairs p=
@@ -1181,18 +1289,19 @@ theorem honestValue_used_eq_plain {T : Answers} {labels : CanonGraph.Labels} (h 
   rw [wctPath_map, List.getD_eq_getElem _ _ (by simpa using hl)]
   simp only [List.getElem_map,List.getElem_range]
   rw [ftsLabel_eq (secretsOf T)]
+  unfold ftsChildVal
   cases hc : ftsChild (digestIndex N) k l ((physicalChildFromOutput N k).val/2^l ^^^ 1) with
   | none => rfl
   | some c =>
     simp only [Option.map_some,Option.getD_some]
-    exact honestValue_used_eq_plain h c (ftsChild_used _ _ _ _ hl c hc) (ftsChild_not_node hc)
+    exact honestValue_used_eq h c (ftsChild_used _ _ _ _ hl c hc)
 
  theorem openingValues_chain {T : Answers} {labels : CanonGraph.Labels} (h : CanonGraph.Paired.Agrees T labels)
     (N : HashOutput) (k : Fin 9) (t : Fin 6) :
     openingValues N (honestValue T) k t=
       WCT9.chainValue T (WCT9.digestIndex N) k.val (rawChildFromOutput N k).val (forestRank N k.val) t := by
   unfold openingValues
-  rw [honestValue_used_eq_plain h _ (wctItem_used _ _) (wctItem_not_node _ _),coordVal_wctItem]
+  rw [honestValue_used_eq_plain h _ (wctItem_used _ _) (wctItem_not_node _ _) (wctItem_not_wct _ _),coordVal_wctItem]
   rw [←CanonGraph.Paired.wctValue_eq h _ _ (Nat.sub_le _ _)]
   rfl
 
@@ -1300,7 +1409,8 @@ attribute [local instance] Classical.propDecidable
  theorem chainItem_value {T : Answers} {labels : CanonGraph.Labels} (h : CanonGraph.Paired.Agrees T labels)
     (L : CanonGraph.LeafPos) (digits : List Nat) (i : Nat) (hi : i<58) (hd : digits.getD i 0≤7) :
     WCT9.wotsValue T L.lay L.tree.val L.leaf.val digits i=honestValue T (chainItem L i (digits.getD i 0)) := by
-  rw [CanonGraph.Paired.leafValue_eq h L digits i hi hd,honestValue_used_eq_plain h _ (chainItem_used _ _ _) (chainItem_not_node _ _ _)]
+  rw [CanonGraph.Paired.leafValue_eq h L digits i hi hd,honestValue_used_eq_plain h _ (chainItem_used _ _ _) (chainItem_not_node _ _ _)
+    (chainItem_not_wct _ _ _)]
   -- C3 (#866): `leafValue_eq` states a revealed value through `Pos.proj` of its last step's label.
   unfold chainItem
   by_cases hz : digits.getD i 0=0

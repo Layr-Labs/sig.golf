@@ -229,8 +229,9 @@ theorem honestInput_short_all {A T : Answers} (hAT : Wots.Ref.ShortAgree A T)
       rw [Wots.PairedReference.pads_short hAT index coord _ hc,Wots.Ref.wctEnds_short hAT index coord child hc hch]
   | wctNode index coord level node =>
       have hc := hb.2.1
-      simp only [Extract.Paired.honestInput]
-      rw [Wots.PairedReference.nodes_short hAT index coord hc,Wots.PairedReference.pads_short hAT index coord _ hc]
+      simp only [Extract.Paired.honestInput, Extract.Paired.honestFtsNonce]
+      rw [Wots.PairedReference.nodes_short hAT index coord hc,Wots.PairedReference.pads_short hAT index coord _ hc,
+        Wots.CanonicalRef.ftsNodeAt_short _ _ _ _ _ A T hAT]
 section Short
 variable {A T : Answers} (hAT : Wots.Ref.ShortAgree A T)
 include hAT
@@ -2028,7 +2029,9 @@ theorem paired_ftsLabel_top (labels : Labels) (index : Fin (2^31)) (coord : Fin 
   rw [if_neg (by omega)]
   unfold ftsNodeAt
   rw [dif_pos (show 6-1<6 ∧ b.val<2^(7-(6-1)-1) by have := b.isLt;omega)]
-  rfl
+  change Extract.Paired.proj (CanonGraph.Node.wctNode (ftsTopNode index coord b)).toPos
+    (labels (.wctNode (wSelNode labels (ftsTopNode index coord b)))) = _
+  rw [wSelNode_of_cap_one (wTrialCap_off (by show (5:Nat) ≠ 3; decide)) rfl]
 
 theorem msgLabel_router (vals : LargeResidual.Coord → Digest) (a : AuxData) (L : EncLeaf) :
     msgLabel (LargeResidual.Paired.routerLabels vals a) L = LargeResidual.msgVals vals L := by
@@ -4182,6 +4185,29 @@ theorem bank_routeQuerySelected (a : AuxData) (st : RouterState) (ws : LargeResi
           simp only [discloseTableValue]
           rw [Function.update_of_ne (by simp)]
       rw [dif_neg hph]
+      by_cases hwp : ∃ n : ClaudeWCT.W9.T3.Security.CanonGraph.WctNodePos, X = ClaudeWCT.W9.T3.Security.CanonGraph.wphantom n ∧
+          ClaudeWCT.W9.T3.Security.CanonGraph.Paired.Filtered.Used (.wctNode n)
+      · rw [dif_pos hwp]
+        have hndX : ¬(X ∈ U ∧ IsDigestRow X) := by
+          rintro ⟨-, ρ, m, c, hd⟩
+          obtain ⟨n, hn, -⟩ := hwp
+          have := congrArg List.length (hn.symm.trans hd)
+          rw [ClaudeWCT.W9.T3.Security.CanonGraph.wphantom_length, Cost.pad64_length] at this
+          simp [digestInput, SphincsSecurity.bytesLE_length] at this
+        apply ev_discloseAll_le
+        intro pairs s1 hd
+        split
+        · rw [ev_lazy_map]
+          exact ev_readReq_call_le U aux q ⟨X,hX⟩ s1 _ _ (((hnd hndX).of_disc U hd).map U _)
+        · rw [lazy_discloseReq]
+          apply ev_bind_le
+          intro v
+          rw [lazy_pure, expectedValue_pure]
+          apply ((hnd hndX).of_disc U hd).1
+          refine ⟨fun row hr => rfl, rfl, rfl, fun m => ?_⟩
+          simp only [discloseTableValue]
+          rw [Function.update_of_ne (by simp)]
+      rw [dif_neg hwp]
       by_cases he : EncRow X
       · rw [dif_pos he]
         have hndX : ¬(X ∈ U ∧ IsDigestRow X) := by
@@ -11521,64 +11547,119 @@ set_option maxRecDepth 10000
 set_option backward.isDefEq.respectTransparency false
 noncomputable local instance : DecidableEq SigGolfCandidate.T3.Cache := Classical.decEq _
 
-theorem queried_length_sharedNode (answers : Answers) (first : Bool) (coord index heap : Nat)
-    (pads : Nat → PairRoot) (left right : Digest) :
-    (SourceReplay.queried answers (sharedNode first coord index heap pads left right)).length = 1 := by
-  unfold sharedNode sharedOuterHash
-  split
-  · split <;> rfl
-  · split
-    · split <;> rfl
-    · unfold wctNodeHashH ftsHash
-      split <;> rfl
+-- E8: the exact forest query counts (`queried_length_sharedNode` .. `queried_length_buildForest`) no longer hold:
+-- the FTS ground nodes (heaps 8..15) make a data-dependent number of trial queries. The count is still
+-- world-independent: the rows and coefficients have fixed counts, the heaps' queries are `WFree` and their leaves agree.
 
-theorem queried_length_sharedHeap (answers : Answers) (first : Bool) (index coord : Nat)
-    (pads : Nat → PairRoot) (leaves : List Digest) :
-    (SourceReplay.queried answers (sharedHeap first index coord pads leaves)).length =
-      if first then 124 else 126 := by
-  unfold sharedHeap
-  rw [queried_length_foldlM answers _ _ (fun _ => 1) (fun _ _ _ => by
-    rw [queried_length_bind, queried_length_sharedNode, queried_length_pure]), sum_map_one,
-    List.length_reverse, List.length_range']
+/-- A fold whose steps have equal query counts and related results on related states. -/
+theorem queried_length_foldlM_rel {A B : Answers} {α β : Type} (R : β → β → Prop) (f : β → α → M β)
+    (hf : ∀ x s s', R s s' → (SourceReplay.queried A (f s x)).length = (SourceReplay.queried B (f s' x)).length ∧
+      R (evalWithAnswerFn A (f s x)) (evalWithAnswerFn B (f s' x))) :
+    ∀ (items : List α) s s', R s s' →
+      (SourceReplay.queried A (items.foldlM f s)).length = (SourceReplay.queried B (items.foldlM f s')).length ∧
+      R (evalWithAnswerFn A (items.foldlM f s)) (evalWithAnswerFn B (items.foldlM f s'))
+  | [], s, s', h => ⟨rfl, h⟩
+  | x :: items, s, s', h => by
+      obtain ⟨h1, h2⟩ := hf x s s' h
+      obtain ⟨h3, h4⟩ := queried_length_foldlM_rel R f hf items _ _ h2
+      simp only [List.foldlM_cons, queried_length_bind, evalWithAnswerFn_bind]
+      exact ⟨by rw [h1, h3], h4⟩
 
-theorem queried_length_buildSharedCoordinate (answers : Answers) (first : Bool) (index coord : Nat)
+theorem buildSharedCoordinate_rows (first : Bool) (index coord : Nat) (selected : Child) (word : Rank)
+    (pads : Nat → PairRoot) :
+    buildSharedCoordinate first index coord selected word pads =
+      ftsCoefs index coord >>= fun coefs => sharedRows first index coord selected word coefs pads >>= fun state =>
+        sharedHeap first index coord pads state.1 >>= fun nodes => pure (nodes, state.2) := rfl
+
+theorem queried_length_sharedRows (A : Answers) (first : Bool) (index coord : Nat) (selected : Child)
+    (word : Rank) (coefs : List Digest) (pads : Nat → PairRoot) :
+    (SourceReplay.queried A (sharedRows first index coord selected word coefs pads)).length = 3200 := by
+  unfold sharedRows
+  rw [queried_length_foldlM A _ _ (fun _ => 25) (fun _ _ _ => by
+      rw [queried_length_bind, queried_length_buildChildH, queried_length_pure])]
+  decide
+
+theorem sharedRows_roots_eq (A : Answers) (first : Bool) (index coord : Nat) (selected : Child) (word : Rank)
+    (pads : Nat → PairRoot) :
+    (evalWithAnswerFn A (sharedRows first index coord selected word (List.ofFn (ftsCoef A index coord)) pads)).1 =
+      sharedLeaves A first index coord pads := by
+  obtain ⟨hlen, hroot, -⟩ := eval_sharedRows A first index coord selected word pads
+  apply List.ext_getElem (by simpa only [sharedLeaves, List.length_ofFn] using hlen)
+  intro j hj hk
+  simpa only [sharedLeaves, List.getD_eq_getElem _ _ hj, List.getElem_ofFn] using hroot j (by omega)
+
+theorem queried_length_buildSharedCoordinate_eq (A : Answers) (first : Bool) (index coord : Nat)
     (selected : Child) (word : Rank) (pads : Nat → PairRoot) :
-    (SourceReplay.queried answers (buildSharedCoordinate first index coord selected word pads)).length =
-      3227 + (if first then 124 else 126) := by
-  unfold buildSharedCoordinate
-  rw [queried_length_bind, queried_length_ftsCoefs, queried_length_bind,
-    queried_length_foldlM answers _ _ (fun _ => 25) (fun _ _ _ => by
-      rw [queried_length_bind, queried_length_buildChildH, queried_length_pure]),
-    queried_length_bind, queried_length_sharedHeap, queried_length_pure]
-  have : ((List.range 128).map (fun _ => (25 : Nat))).sum = 3200 := by decide
-  simp only [this]
-  omega
-
-theorem queried_length_buildPair (answers : Answers) (index pair : Nat)
-    (selected : SigGolfCandidate.Research.SharedForest.Selection) (aWord bWord : Rank) (prev : PairRoot) :
-    (SourceReplay.queried answers (buildPair index pair selected aWord bWord prev)).length = 6704 := by
-  unfold buildPair
-  rw [queried_length_bind, queried_length_buildSharedCoordinate, queried_length_bind,
-    queried_length_buildSharedCoordinate, queried_length_pure]
-  decide
-
-theorem queried_length_buildSingleton (answers : Answers) (index : Nat)
-    (selected : Child) (word : Rank) (prev : PairRoot) :
-    (SourceReplay.queried answers (buildSingleton index selected word prev)).length = 3353 := by
-  unfold buildSingleton
-  rw [queried_length_bind, queried_length_buildSharedCoordinate, queried_length_pure]
-  decide
-
-theorem queried_length_buildForest (answers : Answers) (index : Nat)
-    (selected : ForestSelection) (words : ForestWords) :
-    (SourceReplay.queried answers (buildForest index selected words)).length = 30169 := by
-  unfold buildForest
-  rw [queried_length_bind, queried_length_foldlM answers _ _ (fun _ => 6704) (fun _ _ _ => by
-    rw [queried_length_bind, queried_length_buildPair, queried_length_pure]),
-    queried_length_bind, queried_length_buildSingleton, queried_length_pure]
-  decide
+    (SourceReplay.queried A (buildSharedCoordinate first index coord selected word pads)).length =
+      27 + (3200 + ((SourceReplay.queried A (sharedHeap first index coord pads
+        (sharedLeaves A first index coord pads))).length + 0)) := by
+  rw [buildSharedCoordinate_rows, queried_length_bind, queried_length_ftsCoefs, queried_length_bind,
+    queried_length_sharedRows, eval_ftsCoefs, sharedRows_roots_eq, queried_length_bind, queried_length_pure]
 
 variable {U : Finset HashInput} (hU : CanonGraph.canonInputs ⊆ U) (omega : CanonTable.Omega U)
+
+theorem queried_length_buildSharedCoordinate_world (hidden hidden' : CanonTable.HiddenF) (first : Bool)
+    (index : Nat) (hindex : index < 2 ^ 31) (coord : Nat) (hcoord : coord < 9) (selected : Child) (word : Rank)
+    (pads : Nat → PairRoot) :
+    (SourceReplay.queried (wA hU omega hidden) (buildSharedCoordinate first index coord selected word pads)).length =
+      (SourceReplay.queried (wA hU omega hidden') (buildSharedCoordinate first index coord selected word pads)).length := by
+  have hl := sharedLeaves_world hU omega hidden hidden' first index hindex ⟨coord, hcoord⟩ pads
+  simp only at hl
+  rw [queried_length_buildSharedCoordinate_eq, queried_length_buildSharedCoordinate_eq, hl,
+    queried_length_free hU omega hidden hidden' (sharedHeap_free _ _ _ _ _)]
+
+/-- A bind has world-independent query count when its head does and the continuation does on related results. -/
+theorem queried_length_bind_rel {A B : Answers} {α β : Type} (R : α → α → Prop) (x : M α) (g : α → M β)
+    (hx : (SourceReplay.queried A x).length = (SourceReplay.queried B x).length)
+    (hr : R (evalWithAnswerFn A x) (evalWithAnswerFn B x))
+    (hg : ∀ s s', R s s' → (SourceReplay.queried A (g s)).length = (SourceReplay.queried B (g s')).length) :
+    (SourceReplay.queried A (x >>= g)).length = (SourceReplay.queried B (x >>= g)).length := by
+  rw [queried_length_bind, queried_length_bind, hx, hg _ _ hr]
+
+theorem queried_length_buildPair_world (hidden hidden' : CanonTable.HiddenF) (index : Nat) (hindex : index < 2 ^ 31)
+    (pair : Fin 4) (s : SigGolfCandidate.Research.SharedForest.Selection) (aWord bWord : Rank) (prev : PairRoot) :
+    (SourceReplay.queried (wA hU omega hidden) (buildPair index pair.val s aWord bWord prev)).length =
+      (SourceReplay.queried (wA hU omega hidden') (buildPair index pair.val s aWord bWord prev)).length := by
+  have hp := pair.isLt
+  unfold buildPair
+  refine queried_length_bind_rel (fun x y => x.1 = y.1) _ _
+    (queried_length_buildSharedCoordinate_world hU omega hidden hidden' true index hindex (2 * pair.val) (by omega) _ _ _)
+    ?_ (fun a a' ha => ?_)
+  · beta_reduce
+    rw [buildSharedCoordinate_result, buildSharedCoordinate_result]
+    dsimp only
+    exact sharedNodes_world hU omega hidden hidden' true index hindex ⟨2 * pair.val, by omega⟩ (fun _ => prev)
+  · beta_reduce at ha ⊢
+    rw [queried_length_bind, queried_length_bind, queried_length_pure, queried_length_pure, ha]
+    exact congrArg (· + 0) (queried_length_buildSharedCoordinate_world hU omega hidden hidden' false index hindex
+      (2 * pair.val + 1) (by omega) _ _ _)
+
+theorem queried_length_buildForest_world (hidden hidden' : CanonTable.HiddenF) (index : Nat) (hindex : index < 2 ^ 31)
+    (selected : ForestSelection) (words : ForestWords) :
+    (SourceReplay.queried (wA hU omega hidden) (buildForest index selected words)).length =
+      (SourceReplay.queried (wA hU omega hidden') (buildForest index selected words)).length := by
+  have hfold := queried_length_foldlM_rel (A := wA hU omega hidden) (B := wA hU omega hidden')
+    (fun (x y : List PairOpening × PairRoot) => x.2 = y.2)
+    (fun (state : List PairOpening × PairRoot) pair => do
+      let built ← buildPair index pair.val (selected.pairs pair) (words.first pair) (words.second pair) state.2
+      pure (state.1 ++ [built.1], built.2))
+    (fun pair st st' hst => by
+      beta_reduce at hst ⊢
+      rw [queried_length_bind, queried_length_bind, queried_length_pure, queried_length_pure, hst]
+      refine ⟨congrArg (· + 0) (queried_length_buildPair_world hU omega hidden hidden' index hindex pair _ _ _ _), ?_⟩
+      simp only [evalWithAnswerFn_bind, evalWithAnswerFn_pure, buildPair_result]
+      exact expectedPairRoot_world hU omega hidden hidden' index hindex pair _)
+    (List.finRange 4) ([], ftsStart) ([], ftsStart) rfl
+  unfold buildForest
+  refine queried_length_bind_rel (fun x y : List PairOpening × PairRoot => x.2 = y.2) _ _ hfold.1 hfold.2
+    (fun st st' hst => ?_)
+  beta_reduce at hst ⊢
+  rw [queried_length_bind, queried_length_bind, queried_length_pure, queried_length_pure, hst]
+  refine congrArg (· + 0) ?_
+  unfold buildSingleton
+  exact queried_length_bind_rel (fun _ _ => True) _ _
+    (queried_length_buildSharedCoordinate_world hU omega hidden hidden' false index hindex 8 (by decide) _ _ _) trivial
+    (fun _ _ _ => by rw [queried_length_pure, queried_length_pure])
 
 attribute [local irreducible] searchPreparedLayers prepareRoots buildForest
   sharedDigestSearch forestCommitment
@@ -11588,8 +11669,11 @@ theorem signFromOutput_charge_eq (hidden hidden' : CanonTable.HiddenF) (cache : 
     (SourceReplay.queried (wA hU omega hidden) (signFromOutput cache rho counter output)).length =
       (SourceReplay.queried (wA hU omega hidden') (signFromOutput cache rho counter output)).length := by
   unfold signFromOutput
-  conv_lhs => rw [queried_length_bind, queried_length_buildForest]
-  conv_rhs => rw [queried_length_bind, queried_length_buildForest]
+  have hforest := queried_length_buildForest_world hU omega hidden hidden' (digestIndex output)
+    (digestIndex_lt output) (forestSelectionFromOutput output) (forestWordsFromOutput output)
+  conv_lhs => rw [queried_length_bind]
+  conv_rhs => rw [queried_length_bind]
+  rw [hforest]
   apply congrArg (Nat.add _)
   conv_lhs => rw [queried_length_bind]
   conv_rhs => rw [queried_length_bind]
@@ -12748,7 +12832,7 @@ theorem nearLawSpec_producer : nearLawSpec.producer=SigGolfCandidate.Research.Sh
   change producer = _
   exact funext producer_source
 
-theorem nearLawSpec_mean : ClaudeWCT.Numerics.Law.lawAvg nearLawSpec.law (2^32) nearLawSpec.price≤(19493/50) :=
+theorem nearLawSpec_mean : ClaudeWCT.Numerics.Law.lawAvg nearLawSpec.law (2^32) nearLawSpec.price≤(19399/50) :=
   law_nearPrice_mean_bound
 
 theorem forced_near_payoff_le {β : Type} (slot q : Nat)
@@ -12756,8 +12840,8 @@ theorem forced_near_payoff_le {β : Type} (slot q : Nat)
     (hW : CaseC.SuperProg (NearWorld.implG nearLawSpec slot) (NearWorld.ΦI nearLawSpec q) W) :
     expectedValue (SecretGuessObservation.forcedWithRun WPair.envL WPair.samplerL slot W WPair.initL)
       (fun r => NearWorld.nearPayoff nearLawSpec q r.2)≤
-      (q:ENNReal)*((19493/50)+1/1024)/2^128 :=
-  NearWorld.forced_payoff_le nearLawSpec nearCovered_mono (19493/50) nearLawSpec_mean slot q W hW
+      (q:ENNReal)*((19399/50)+1/1024)/2^128 :=
+  NearWorld.forced_payoff_le nearLawSpec nearCovered_mono (19399/50) nearLawSpec_mean slot q W hW
 
 end ClaudeWCT.Bank.Paired
 

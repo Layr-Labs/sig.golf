@@ -4,6 +4,7 @@ import SigGolfCandidate.Merge052
 import SigGolfCandidate.Merge054
 import SigGolfCandidate.Merge056
 import SigGolfCandidate.Merge057
+import SigGolfCandidate.FtsVerify
 set_option linter.all false
 
 -- ==== merged from ClaudeWCT_W9_T3M_Final_BridgeAbs ====
@@ -547,11 +548,11 @@ theorem sign_eq (P : Pending I) (sk : SecretKey) (cache : Bytes 131072) (m : Mes
   rw [mrealize_eq_relabel] at h
   exact h
 set_option maxRecDepth 100000 in
-theorem expand_eq (P : Pending I) (m : Message) (pk : PublicKey) (s : Bytes 5190) :
+theorem expand_eq (P : Pending I) (m : Message) (pk : PublicKey) (s : Bytes 5189) :
     (fun r => (r.value, r.hashCalls)) <$> (submission I).run .expand (m, pk, s) =
       SigGolfCandidate.Bridge.countCalls (relabel toQ (hrealize 0 (expandB m pk (sigDecC s)))) := by
   have h := calls_of_counts
-    (F := Option.map (fun x : SigGolfCandidate.T3.HashOutput × SigGolfCandidate.Research.SharedForest.Witness => ClaudeWCT.W9.T3M.Paired.witEncG x.1 x.2))
+    (F := Option.map (fun x : SigGolfCandidate.T3.HashOutput × SigGolfCandidate.Research.SharedForest.Witness => ClaudeWCT.W9.T3M.Paired.witEncF x.1 x.2))
     (P.expand_refines m pk s)
   rw [mrealize_eq_relabel] at h
   refine h.trans ?_
@@ -1680,6 +1681,23 @@ theorem wbcHigh_witEncG (output : HashOutput) (w : SigGolfCandidate.Research.Sha
   unfold wtopHigh wchoice
   rw [extract_witEncG_low output w choiceOff 1 8 (by omega) (by unfold choiceOff; omega)]
 
+/-! E8: `witEncF` reads the same as `witEncG` outside the FTS forest region. -/
+@[simp] theorem wtopHigh_witEncF (output : HashOutput) (w : SigGolfCandidate.Research.SharedForest.Witness) :
+    wtopHigh (witEncF output w) = w.topHigh := by
+  rw [← wtopHigh_witEncG output w]
+  unfold wtopHigh wchoice
+  rw [PairedNonce.extract_witEncF_high output w choiceOff 8 (by unfold choiceOff; omega)]
+@[simp] theorem wrho_witEncF (output : HashOutput) (w : SigGolfCandidate.Research.SharedForest.Witness) :
+    wrho (witEncF output w) = w.signature.rho := by
+  rw [← wrho_witEncG output w]
+  unfold wrho wdig
+  rw [PairedNonce.extract_witEncF_high output w rhoOff 128 (by unfold rhoOff; omega)]
+@[simp] theorem wdc_witEncF (output : HashOutput) (w : SigGolfCandidate.Research.SharedForest.Witness) :
+    wdc (witEncF output w) = w.digestCounter := by
+  rw [← wdc_witEncG output w]
+  unfold wdc wle32
+  rw [PairedNonce.extract_witEncF_high output w dcOff 32 (by unfold dcOff; omega)]
+
 /-! Top layer: every read lies below the first lower path slot area. -/
 theorem wdig_G_low (output : HashOutput) (w : SigGolfCandidate.Research.SharedForest.Witness) (off : Nat)
     (h : off + 16 ≤ 11880) : wdig (witEncG output w) off = wdig (witEncN output w) off :=
@@ -1847,6 +1865,44 @@ theorem layersCanonicalBC_witEncG (output : HashOutput)
   rw [layersCanonicalBC_eq_H, wtopHigh_witEncG]
   exact layersCanonicalBCH_witEncG output w n hn left right
 
+/-! E8: the layers read nothing of the FTS forest region, so `witEncF` (the 9 FTS nonces) reads as `witEncG`. -/
+theorem wdig_witEncF_eq (output : HashOutput) (w : SigGolfCandidate.Research.SharedForest.Witness) (off : Nat)
+    (h : off + 16 ≤ 112 ∨ 7664 ≤ off) : wdig (witEncF output w) off = wdig (witEncG output w) off := by
+  unfold wdig
+  rcases h with h | h
+  · exact PairedNonce.extract_witEncF_free output w off 16 128 (by omega)
+      (fun c hc => Or.inl (by have := PairedNonce.ftsNoncePos_ge output c hc; omega))
+  · exact PairedNonce.extract_witEncF_high output w off 128 h
+
+theorem layersCanonicalBC_witEncF (output : HashOutput)
+    (w : SigGolfCandidate.Research.SharedForest.Witness) (n : Nat) (left right : Digest) (hn : n ≤ 4) :
+    layersCanonicalBC (witEncF output w) (WCT9.digestIndex output) n (.pair left right) =
+      SigGolfCandidate.Research.SharedForest.verifyLayers w (WCT9.digestIndex output) n (.pair left right) := by
+  have hrow (lay : Layer) := rowBlock_out (WCT9.digestIndex output) lay
+  have hfree (off k m : Nat) (hm : m ≤ 8 * k) (h : off + k ≤ 112 ∨ 7664 ≤ off) :
+      (witEncF output w).extractLsb' (8 * off) m = (witEncG output w).extractLsb' (8 * off) m := by
+    rcases h with h | h
+    · exact PairedNonce.extract_witEncF_free output w off k m hm
+        (fun c hc => Or.inl (by have := PairedNonce.ftsNoncePos_ge output c hc; omega))
+    · exact PairedNonce.extract_witEncF_high output w off m h
+  rw [layersCanonicalBC_eq_H, wtopHigh_witEncF,
+    layersCanonicalBCH_tail _ (witEncF output w) (witEncG output w) _
+      (fun off h1 _ => wdig_witEncF_eq output w off (Or.inr h1))
+      (fun lay => by
+        unfold wleafHigh
+        rw [wdig_witEncF_eq output w _ (Or.inr (by have := leafBufferBase_bounds lay; omega))])
+      (fun lay => by
+        unfold wbcCtr wle32 bcCounterOff
+        exact hfree _ 4 32 (by omega) (by rcases hrow lay with h | h <;> omega))
+      (fun lay => by
+        unfold wbcPad bcCounterOff
+        exact hfree _ 12 96 (by omega) (by rcases hrow lay with h | h <;> omega))
+      (fun lay => by
+        unfold wbcHigh
+        rw [wdig_witEncF_eq output w _ (by rcases hrow lay with h | h <;> omega)])]
+  rw [← wtopHigh_witEncG output w, ← layersCanonicalBC_eq_H]
+  exact layersCanonicalBC_witEncG output w n left right hn
+
 end ClaudeWCT.W9.T3M.Paired
 
 /-! ### HonestN 7: the FTS forest reads only bytes below 7696 -/
@@ -1907,13 +1963,14 @@ theorem blkOff_bound (k : Fin 9) (c : Nat) (hc : c < 128) (l : Nat) (hl : l ≤ 
     omega
 
 theorem pathReadout_witEncN (output : HashOutput) (w : SigGolfCandidate.Research.SharedForest.Witness)
-    (k : Fin 9) (raw : Child) (path : Nat → Digest)
-    (h : PathReadout (Paired.witEnc output w) k raw path) :
-    PathReadout (Paired.witEncN output w) k raw path := by
+    (k : Fin 9) (raw : Child) (path : Nat → Digest) (p3 : Digest)
+    (h : PathReadout (Paired.witEnc output w) k raw path p3) :
+    PathReadout (Paired.witEncN output w) k raw path p3 := by
   have hc := SharedV3.physical_lt k.val raw.val raw.isLt
   have hr := regionOffset_le k
-  refine ⟨fun l hl => Eq.trans ?_ (h.headerPads l hl), fun l hl hne => Eq.trans ?_ (h.nodePads l hl hne),
-    fun l hl => Eq.trans ?_ (h.siblings l hl), Eq.trans ?_ h.topOther⟩
+  have hl3 : 3 ≤ SharedV3.lastLevel k.val := by unfold SharedV3.lastLevel; split_ifs <;> omega
+  refine ⟨fun l hl => Eq.trans ?_ (h.headerPads l hl), fun l hl hne hne3 => Eq.trans ?_ (h.nodePads l hl hne hne3),
+    Eq.trans ?_ h.nodePad3, fun l hl => Eq.trans ?_ (h.siblings l hl), Eq.trans ?_ h.topOther⟩
   · unfold SharedV3.nodeHPad SharedV3.nodeTw
     have := blkOff_bound k _ hc l hl
     split_ifs
@@ -1922,6 +1979,9 @@ theorem pathReadout_witEncN (output : HashOutput) (w : SigGolfCandidate.Research
       | rfl
   · unfold SharedV3.nodePad
     have := blkOff_bound k _ hc l hl
+    exact wdigM_witEncN_low output w _ (by omega)
+  · unfold SharedV3.nodePad
+    have := blkOff_bound k _ hc 3 hl3
     exact wdigM_witEncN_low output w _ (by omega)
   · unfold SharedV3.sibling SharedV3.sibOff
     have := blkOff_bound k _ hc l hl
@@ -1937,21 +1997,7 @@ theorem initialPair_witEncN (output : HashOutput) (w : SigGolfCandidate.Research
   rw [wdigM_witEncN_low output w (V3.regionOffset 0 + 672) (by unfold V3.regionOffset; omega),
     wdigM_witEncN_low output w (V3.regionOffset 0 + 160) (by unfold V3.regionOffset; omega)]
 
-theorem forest_witEncN (output : HashOutput) (witness : SigGolfCandidate.Research.SharedForest.Witness)
-    (index : Nat) (hi : index < 2 ^ 31) :
-    SharedV3.forest (Paired.witEncN output witness) index (rawChildFromOutput output)
-      (fun k => ClaudeWCT.WCT9.embed (forestRank output k.val)) =
-      recoverForest index (forestSelectionFromOutput output) (forestWordsFromOutput output)
-        witness.signature.forest := by
-  have hp : ∀ k, PathReadout (Paired.witEncN output witness) k
-      (coordinateRaw (forestSelectionFromOutput output) k) (coordinatePath witness.signature.forest k) := by
-    intro k; rw [coordinateRaw_output]
-    exact pathReadout_witEncN output witness k _ _ (pathReadout_witEnc output witness k)
-  have h := forest_canonical (Paired.witEncN output witness) index hi
-    (forestSelectionFromOutput output) (forestWordsFromOutput output) witness.signature.forest
-    ((initialPair_witEncN output witness).trans (PairedReadout.initialPair_witEnc output witness))
-    (fun k => chainReadout_witEncN output witness k _ _ (chainReadout_witEnc output witness k _)) hp
-  simpa only [coordinateRaw_output, coordinateWord_output] using h
+
 
 /-! U16b: the FTS forest reads only bytes below 7696, so it reads the same on `witEncG`. -/
 theorem wdigM_witEncG_low (output : HashOutput) (w : SigGolfCandidate.Research.SharedForest.Witness)
@@ -1987,13 +2033,14 @@ theorem chainReadout_witEncG (output : HashOutput) (w : SigGolfCandidate.Researc
         omega)
 
 theorem pathReadout_witEncG (output : HashOutput) (w : SigGolfCandidate.Research.SharedForest.Witness)
-    (k : Fin 9) (raw : Child) (path : Nat → Digest)
-    (h : PathReadout (Paired.witEnc output w) k raw path) :
-    PathReadout (Paired.witEncG output w) k raw path := by
+    (k : Fin 9) (raw : Child) (path : Nat → Digest) (p3 : Digest)
+    (h : PathReadout (Paired.witEnc output w) k raw path p3) :
+    PathReadout (Paired.witEncG output w) k raw path p3 := by
   have hc := SharedV3.physical_lt k.val raw.val raw.isLt
   have hr := regionOffset_le k
-  refine ⟨fun l hl => Eq.trans ?_ (h.headerPads l hl), fun l hl hne => Eq.trans ?_ (h.nodePads l hl hne),
-    fun l hl => Eq.trans ?_ (h.siblings l hl), Eq.trans ?_ h.topOther⟩
+  have hl3 : 3 ≤ SharedV3.lastLevel k.val := by unfold SharedV3.lastLevel; split_ifs <;> omega
+  refine ⟨fun l hl => Eq.trans ?_ (h.headerPads l hl), fun l hl hne hne3 => Eq.trans ?_ (h.nodePads l hl hne hne3),
+    Eq.trans ?_ h.nodePad3, fun l hl => Eq.trans ?_ (h.siblings l hl), Eq.trans ?_ h.topOther⟩
   · unfold SharedV3.nodeHPad SharedV3.nodeTw
     have := blkOff_bound k _ hc l hl
     split_ifs
@@ -2002,6 +2049,9 @@ theorem pathReadout_witEncG (output : HashOutput) (w : SigGolfCandidate.Research
       | rfl
   · unfold SharedV3.nodePad
     have := blkOff_bound k _ hc l hl
+    exact wdigM_witEncG_low output w _ (by omega)
+  · unfold SharedV3.nodePad
+    have := blkOff_bound k _ hc 3 hl3
     exact wdigM_witEncG_low output w _ (by omega)
   · unfold SharedV3.sibling SharedV3.sibOff
     have := blkOff_bound k _ hc l hl
@@ -2017,20 +2067,207 @@ theorem initialPair_witEncG (output : HashOutput) (w : SigGolfCandidate.Research
   rw [wdigM_witEncG_low output w (V3.regionOffset 0 + 672) (by unfold V3.regionOffset; omega),
     wdigM_witEncG_low output w (V3.regionOffset 0 + 160) (by unfold V3.regionOffset; omega)]
 
-theorem forest_witEncG (output : HashOutput) (witness : SigGolfCandidate.Research.SharedForest.Witness)
+
+
+/-! ### E8: the verifier's forest on `witEncF` (the 9 FTS nonces in the level-3 pads) -/
+
+/-- A region-relative read window `[o, o + len)` of child `j`'s readouts avoids its level-3 nonce word. -/
+def winFree (j o len : Nat) : Prop :=
+  (o + len ≤ SharedV3.blkOff j 3 + 32 ∨ SharedV3.blkOff j 3 + 40 ≤ o) ∧ o + len ≤ 848
+instance (j o len : Nat) : Decidable (winFree j o len) := by unfold winFree; infer_instance
+
+set_option maxRecDepth 100000 in
+theorem win_path : ∀ j : Fin 128, ∀ l : Fin 6,
+    winFree j.val (SharedV3.sibOff j.val l.val) 16 ∧
+    (l.val ≠ 3 → winFree j.val (SharedV3.blkOff j.val l.val + 32) 16) ∧
+    (l.val < 4 → winFree j.val (SharedV3.blkOff j.val l.val + 16) 16) := by decide +kernel
+set_option maxRecDepth 100000 in
+theorem win_chain : ∀ j : Fin 128, ∀ i : Fin 6,
+    winFree j.val (ClaudeWCT.W9.T3M.wctChainOff i.val + ClaudeWCT.W9.T3M.wctPad0Off i.val) 16 ∧
+    winFree j.val (ClaudeWCT.W9.T3M.wctChainOff i.val + 24) 8 ∧
+    winFree j.val (ClaudeWCT.W9.T3M.wctChainOff i.val + ClaudeWCT.W9.T3M.wctPad1Off i.val) 16 ∧
+    winFree j.val (V3.leafSlot i.val) 16 ∧
+    winFree j.val (ClaudeWCT.W9.T3M.wctChainOff i.val + ClaudeWCT.W9.T3M.wctValueOff i.val) 16 := by decide +kernel
+set_option maxRecDepth 100000 in
+theorem win_hand : ∀ j : Fin 128, winFree j.val 160 16 ∧ winFree j.val 672 16 := by decide +kernel
+
+theorem rawChild_mod (output : HashOutput) (k : Fin 9) :
+    rawChildFromOutput output ⟨k.val % 9, Nat.mod_lt _ (by decide)⟩ = rawChildFromOutput output k := by
+  congr 1; exact Fin.ext (Nat.mod_eq_of_lt k.isLt)
+
+/-- A read window of coordinate `k`'s region avoiding its own nonce word avoids all nine. -/
+theorem region_free (output : HashOutput) (k : Fin 9) (o len : Nat)
+    (h : winFree (SharedV3.physical k.val (rawChildFromOutput output k).val) o len) :
+    ∀ c < 9, V3.regionOffset k.val + o + len ≤ Paired.ftsNoncePos output c ∨
+      Paired.ftsNoncePos output c + 8 ≤ V3.regionOffset k.val + o := by
+  intro c hc
+  have hb := PairedReadout.block_bound ⟨SharedV3.physical c
+    (rawChildFromOutput output ⟨c % 9, Nat.mod_lt _ (by decide)⟩).val,
+    SharedV3.physical_lt _ _ (Fin.isLt _)⟩ 3 (by decide)
+  dsimp only at hb
+  have hk := k.isLt
+  unfold winFree at h
+  by_cases he : c = k.val
+  · subst he
+    have hr := rawChild_mod output k
+    unfold Paired.ftsNoncePos
+    rw [hr]
+    omega
+  · unfold Paired.ftsNoncePos SharedV3.blkOff at *
+    simp only [show (3:Nat) < 5 by decide, ↓reduceIte] at *
+    unfold V3.regionOffset
+    rcases Nat.lt_or_gt_of_ne he with h' | h'
+    · left; omega
+    · right; omega
+
+theorem wdigF_region (output : HashOutput) (w : SigGolfCandidate.Research.SharedForest.Witness) (k : Fin 9) (o : Nat)
+    (h : winFree (SharedV3.physical k.val (rawChildFromOutput output k).val) o 16) :
+    W9Machine.wdig (Paired.witEncF output w) (V3.regionOffset k.val + o) =
+      W9Machine.wdig (Paired.witEncG output w) (V3.regionOffset k.val + o) := by
+  have := region_free output k o 16 h
+  have hr := regionOffset_le k
+  exact PairedNonce.extract_witEncF_free output w _ 16 128 (by omega) (fun c hc => by have := this c hc; omega)
+
+theorem chainReadout_witEncF (output : HashOutput) (w : SigGolfCandidate.Research.SharedForest.Witness)
+    (k : Fin 9) (word : Rank) (values : Fin 6 → Digest)
+    (h : ChainReadout (Paired.witEncG output w) k word values) :
+    ChainReadout (Paired.witEncF output w) k word values := by
+  have hj := SharedV3.physical_lt k.val (rawChildFromOutput output k).val (Fin.isLt _)
+  refine ⟨fun i => Eq.trans ?_ (h.padA i), fun i => Eq.trans ?_ (h.padB i), fun i => Eq.trans ?_ (h.padC i),
+    fun i => Eq.trans ?_ (h.reveal i)⟩
+  · unfold V3.chainPadA V3.chainOffset
+    rw [Nat.add_assoc]
+    exact wdigF_region output w k _ (win_chain ⟨_, hj⟩ i).1
+  · unfold V3.chainPadB V3.chainOffset
+    have := region_free output k _ 8 (win_chain ⟨_, hj⟩ i).2.1
+    have hr := regionOffset_le k
+    rw [Nat.add_assoc]
+    exact PairedNonce.extract_witEncF_free output w _ 8 64 le_rfl (fun c hc => by have := this c hc; omega)
+  · unfold V3.chainPadC V3.chainOffset
+    rw [Nat.add_assoc]
+    exact wdigF_region output w k _ (win_chain ⟨_, hj⟩ i).2.2.1
+  · unfold V3.reveal V3.chainOffset
+    split_ifs
+    · exact wdigF_region output w k _ (win_chain ⟨_, hj⟩ i).2.2.2.1
+    · rw [Nat.add_assoc]
+      exact wdigF_region output w k _ (win_chain ⟨_, hj⟩ i).2.2.2.2
+
+theorem nodePad3_witEncF (output : HashOutput) (w : SigGolfCandidate.Research.SharedForest.Witness) (k : Fin 9)
+    (hG : SharedV3.nodePad (Paired.witEncG output w) k.val (SharedV3.physical k.val (rawChildFromOutput output k).val) 3 = 0) :
+    SharedV3.nodePad (Paired.witEncF output w) k.val (SharedV3.physical k.val (rawChildFromOutput output k).val) 3 =
+      nDig (w.ftsNonces.getD k.val 0) := by
+  have hpos : V3.regionOffset k.val + SharedV3.blkOff (SharedV3.physical k.val (rawChildFromOutput output k).val) 3 + 32 =
+      Paired.ftsNoncePos output k.val := by
+    unfold Paired.ftsNoncePos; rw [rawChild_mod]
+  have hlo := PairedNonce.witEncF_nonce_lo output w k.val k.isLt
+  have hhi := PairedNonce.witEncF_nonce_hi output w k.val k.isLt
+  have elo : (SharedV3.nodePad (Paired.witEncF output w) k.val
+      (SharedV3.physical k.val (rawChildFromOutput output k).val) 3).extractLsb' 0 64 =
+      BitVec.ofNat 64 (w.ftsNonces.getD k.val 0) := by
+    unfold SharedV3.nodePad; rw [hpos, W9Machine.wdig_lo]; exact hlo
+  have ehi : (SharedV3.nodePad (Paired.witEncF output w) k.val
+      (SharedV3.physical k.val (rawChildFromOutput output k).val) 3).extractLsb' 64 64 = 0 := by
+    unfold SharedV3.nodePad; rw [hpos, PairedReadout.wdig_hi_extract, hhi, ← PairedReadout.wdig_hi_extract, ← hpos]
+    have := congrArg (fun d : Digest => d.extractLsb' 64 64) hG
+    simp only [SharedV3.nodePad] at this
+    rw [show (BitVec.extractLsb' 64 64 (0 : Digest)) = 0 from rfl] at this
+    exact this
+  generalize SharedV3.nodePad (Paired.witEncF output w) k.val
+    (SharedV3.physical k.val (rawChildFromOutput output k).val) 3 = d at elo ehi ⊢
+  unfold nDig
+  apply BitVec.eq_of_toNat_eq
+  have h1 := congrArg BitVec.toNat elo
+  have h2 := congrArg BitVec.toNat ehi
+  simp only [BitVec.extractLsb'_toNat, BitVec.toNat_ofNat, Nat.shiftRight_eq_div_pow, Nat.pow_zero,
+    Nat.div_one] at h1 h2
+  have hd := d.isLt
+  have hz : (0 : BitVec 64).toNat = 0 := rfl
+  rw [hz] at h2
+  rw [BitVec.toNat_ofNat]
+  simp only [Nat.reducePow] at h1 h2 hd ⊢
+  omega
+
+theorem pathReadout_witEncF (output : HashOutput) (w : SigGolfCandidate.Research.SharedForest.Witness) (k : Fin 9) :
+    PathReadout (Paired.witEncF output w) k (rawChildFromOutput output k) (coordinatePath w.signature.forest k)
+      (nDig (w.ftsNonces.getD k.val 0)) := by
+  have hG := pathReadout_witEncG output w k _ _ _ (pathReadout_witEnc output w k)
+  have hj := SharedV3.physical_lt k.val (rawChildFromOutput output k).val (Fin.isLt _)
+  have hW : SharedV3.nodePad (Paired.witEnc output w) k.val
+      (SharedV3.physical k.val (rawChildFromOutput output k).val) 3 = 0 :=
+    PairedReadout.nodePad_witEnc output w k 3 (by unfold SharedV3.lastLevel; split <;> omega) (by decide)
+  refine ⟨fun l hl => ?_, fun l hl hne hne3 => ?_, ?_, fun l hl => ?_, ?_⟩
+  · have := hG.headerPads l hl
+    have hl6 : l < 6 := by unfold SharedV3.lastLevel at hl; split at hl <;> omega
+    unfold SharedV3.nodeHPad SharedV3.nodeTw at this ⊢
+    split_ifs at this ⊢ with h4
+    · rw [Nat.add_assoc, wdigF_region output w k _ ((win_path ⟨_, hj⟩ ⟨l, hl6⟩).2.2 h4), ← Nat.add_assoc]
+      exact this
+    · exact this
+  · have := hG.nodePads l hl hne hne3
+    have hl6 : l < 6 := by unfold SharedV3.lastLevel at hl; split at hl <;> omega
+    unfold SharedV3.nodePad at this ⊢
+    rw [Nat.add_assoc, wdigF_region output w k _ ((win_path ⟨_, hj⟩ ⟨l, hl6⟩).2.1 hne3), ← Nat.add_assoc]
+    exact this
+  · exact nodePad3_witEncF output w k (hG.nodePad3.trans hW)
+  · have := hG.siblings l hl
+    have hl6 : l < 6 := by unfold SharedV3.lastLevel at hl; split at hl <;> omega
+    unfold SharedV3.sibling at this ⊢
+    rw [wdigF_region output w k _ (win_path ⟨_, hj⟩ ⟨l, hl6⟩).1]
+    exact this
+  · have := hG.topOther
+    refine Eq.trans ?_ this
+    unfold SharedV3.topOther SharedV3.topOtherOff SharedV3.handR SharedV3.handL
+    have hk := k.isLt
+    by_cases h8 : k.val = 8
+    · have hr : V3.regionOffset k.val = 80 := by unfold V3.regionOffset; omega
+      rw [if_pos (show k.val + 1 = 9 by omega), if_pos (show k.val + 1 = 9 by omega), hr]
+      unfold W9Machine.wdig
+      split_ifs
+      · exact PairedNonce.extract_witEncF_free output w _ 16 128 (by omega) (fun c hc => Or.inl (by
+          have := PairedNonce.ftsNoncePos_ge output c hc; omega))
+      · exact PairedNonce.extract_witEncF_free output w _ 16 128 (by omega) (fun c hc => Or.inl (by
+          have := PairedNonce.ftsNoncePos_ge output c hc; omega))
+    · let k1 : Fin 9 := ⟨k.val + 1, by omega⟩
+      have hj1 := SharedV3.physical_lt k1.val (rawChildFromOutput output k1).val (Fin.isLt _)
+      have hr1 : V3.regionOffset k.val = V3.regionOffset k1.val + 848 := by
+        unfold V3.regionOffset; dsimp only [k1]; omega
+      have hh := win_hand ⟨_, hj1⟩
+      rw [if_neg (show ¬ k.val + 1 = 9 by omega), if_neg (show ¬ k.val + 1 = 9 by omega)]
+      split_ifs with hd
+      · have e : V3.regionOffset k.val + 160 - 848 = V3.regionOffset k1.val + 160 := by omega
+        rw [e]; exact wdigF_region output w k1 160 hh.1
+      · have e : V3.regionOffset k.val + 672 - 848 = V3.regionOffset k1.val + 672 := by omega
+        rw [e]; exact wdigF_region output w k1 672 hh.2
+
+theorem initialPair_witEncF (output : HashOutput) (w : SigGolfCandidate.Research.SharedForest.Witness) :
+    SharedV3.initialPair (Paired.witEncF output w) = SharedV3.initialPair (Paired.witEncG output w) := by
+  have hj := SharedV3.physical_lt 0 (rawChildFromOutput output 0).val (Fin.isLt _)
+  have hh := win_hand ⟨_, hj⟩
+  unfold SharedV3.initialPair SharedV3.leafPad V3.leafPad
+  have h1 := wdigF_region output w 0 672 hh.2
+  have h2 := wdigF_region output w 0 160 hh.1
+  simp only [Fin.val_zero] at h1 h2
+  rw [h1, h2]
+
+/-- E8: the verifier's FTS forest on the expander's output `witEncF` is the scheme's `recoverForestN` with the
+witness's nonces. -/
+theorem forest_witEncF (output : HashOutput) (witness : SigGolfCandidate.Research.SharedForest.Witness)
     (index : Nat) (hi : index < 2 ^ 31) :
-    SharedV3.forest (Paired.witEncG output witness) index (rawChildFromOutput output)
+    SharedV3.forest (Paired.witEncF output witness) index (rawChildFromOutput output)
       (fun k => ClaudeWCT.WCT9.embed (forestRank output k.val)) =
-      recoverForest index (forestSelectionFromOutput output) (forestWordsFromOutput output)
-        witness.signature.forest := by
-  have hp : ∀ k, PathReadout (Paired.witEncG output witness) k
-      (coordinateRaw (forestSelectionFromOutput output) k) (coordinatePath witness.signature.forest k) := by
+      recoverForestN index (forestSelectionFromOutput output) (forestWordsFromOutput output)
+        witness.signature.forest witness.ftsNonces := by
+  have hp : ∀ k, PathReadout (Paired.witEncF output witness) k
+      (coordinateRaw (forestSelectionFromOutput output) k) (coordinatePath witness.signature.forest k)
+      (nDig (witness.ftsNonces.getD k.val 0)) := by
     intro k; rw [coordinateRaw_output]
-    exact pathReadout_witEncG output witness k _ _ (pathReadout_witEnc output witness k)
-  have h := forest_canonical (Paired.witEncG output witness) index hi
-    (forestSelectionFromOutput output) (forestWordsFromOutput output) witness.signature.forest
-    ((initialPair_witEncG output witness).trans (PairedReadout.initialPair_witEnc output witness))
-    (fun k => chainReadout_witEncG output witness k _ _ (chainReadout_witEnc output witness k _)) hp
+    exact pathReadout_witEncF output witness k
+  have h := forest_canonicalN (Paired.witEncF output witness) index hi
+    (forestSelectionFromOutput output) (forestWordsFromOutput output) witness.signature.forest witness.ftsNonces
+    ((initialPair_witEncF output witness).trans ((initialPair_witEncG output witness).trans
+      (PairedReadout.initialPair_witEnc output witness)))
+    (fun k => chainReadout_witEncF output witness k _ _
+      (chainReadout_witEncG output witness k _ _ (chainReadout_witEnc output witness k _))) hp
   simpa only [coordinateRaw_output, coordinateWord_output] using h
 end W9Drv.SharedCanonical
 
@@ -2367,11 +2604,13 @@ theorem expandN_nonces_raw (answers : Answers) (message : Message) (pk : Digest)
       evalWithAnswerFn answers (recoverHintedLayers (fillTopSignature sig 0) (WCT9.digestIndex output)
         (((fillTopSignature sig 0).layers 0).path WCT9.topJ) 4
         (.pair (evalWithAnswerFn answers (recoverForest (WCT9.digestIndex output)
-          (forestSelectionFromOutput output) (forestWordsFromOutput output) sig.forest)).1
+          (forestSelectionFromOutput output) (forestWordsFromOutput output) sig.forest)).1.1
           (evalWithAnswerFn answers (recoverForest (WCT9.digestIndex output)
-          (forestSelectionFromOutput output) (forestWordsFromOutput output) sig.forest)).2)) = some result ∧
+          (forestSelectionFromOutput output) (forestWordsFromOutput output) sig.forest)).1.2)) = some result ∧
       w.signature = fillTopSignature sig c ∧ w.topNonces = result.nonces ∧
-        ∀ lay, w.lowerNonces lay = result.lowerNonces.getD lay.val [] := by
+        (∀ lay, w.lowerNonces lay = result.lowerNonces.getD lay.val []) ∧
+        w.ftsNonces = (evalWithAnswerFn answers (recoverForest (WCT9.digestIndex output)
+          (forestSelectionFromOutput output) (forestWordsFromOutput output) sig.forest)).2 := by
   unfold expandN at he
   simp only [show (fillTopSignature sig 0).rho = sig.rho from rfl,
     show (fillTopSignature sig 0).forest = sig.forest from rfl,
@@ -2388,7 +2627,7 @@ theorem expandN_nonces_raw (answers : Answers) (message : Message) (pk : Digest)
           (forestSelectionFromOutput N) (forestWordsFromOutput N) sig.forest)
         cases hr : evalWithAnswerFn answers (recoverHintedLayers (fillTopSignature sig 0)
           (WCT9.digestIndex N) (((fillTopSignature sig 0).layers 0).path WCT9.topJ) 4
-          (.pair forest.1 forest.2)) with
+          (.pair forest.1.1 forest.1.2)) with
         | none =>
             dsimp only [forest] at hr
             simp only [hr, evalWithAnswerFn_pure, reduceCtorEq] at he
@@ -2400,7 +2639,7 @@ theorem expandN_nonces_raw (answers : Answers) (message : Message) (pk : Digest)
               by_cases hk : result.root = pk
               · simp only [hk, if_true, evalWithAnswerFn_pure, Option.some.injEq, Prod.mk.injEq] at he
                 obtain ⟨rfl, rfl⟩ := he
-                exact ⟨result, 0, (by first | exact hr | rfl), rfl, rfl, fun _ => rfl⟩
+                exact ⟨result, 0, (by first | exact hr | rfl), rfl, rfl, fun _ => rfl, rfl⟩
               · simp only [hk, if_false, evalWithAnswerFn_bind] at he
                 cases hc : evalWithAnswerFn answers (WCT9.searchTop (WCT9.digestIndex N) result.foldedTop
                   (((fillTopSignature sig 0).layers 0).path WCT9.topJ) pk WCT9.searchFuel 1) with
@@ -2409,7 +2648,7 @@ theorem expandN_nonces_raw (answers : Answers) (message : Message) (pk : Digest)
                     simp only [hc, evalWithAnswerFn_pure, Option.some.injEq, Prod.mk.injEq] at he
                     obtain ⟨rfl, rfl⟩ := he
                     exact ⟨result, c, (by first | exact hr | rfl), fillTopSignature_fillTopSignature sig 0 c, rfl,
-                      fun _ => rfl⟩
+                      fun _ => rfl, rfl⟩
             · have hp0 := Bool.eq_false_of_not_eq_true hp
               simp only [hp0, Bool.not_false, if_true, evalWithAnswerFn_pure, reduceCtorEq] at he
 
@@ -2423,12 +2662,12 @@ theorem expandN_topNonces (answers : Answers) (message : Message) (pk : Digest)
       evalWithAnswerFn answers (recoverHintedLayers (fillTopSignature sig 0) (WCT9.digestIndex output)
         (((fillTopSignature sig 0).layers 0).path WCT9.topJ) 4
         (.pair (evalWithAnswerFn answers (recoverForest (WCT9.digestIndex output)
-          (forestSelectionFromOutput output) (forestWordsFromOutput output) sig.forest)).1
+          (forestSelectionFromOutput output) (forestWordsFromOutput output) sig.forest)).1.1
           (evalWithAnswerFn answers (recoverForest (WCT9.digestIndex output)
-          (forestSelectionFromOutput output) (forestWordsFromOutput output) sig.forest)).2)) = some result ∧
+          (forestSelectionFromOutput output) (forestWordsFromOutput output) sig.forest)).1.2)) = some result ∧
       w.topNonces = (evalWithAnswerFn answers
         (ClaudeWCT.WCT9.topFoldN (mainSignature w.signature) (WCT9.digestIndex output) (result.digits.getD 0 []))).2 := by
-  obtain ⟨result, c, hr, hsig, hn, -⟩ := expandN_nonces_raw answers message pk sig output w he
+  obtain ⟨result, c, hr, hsig, hn, -, -⟩ := expandN_nonces_raw answers message pk sig output w he
   refine ⟨result, hr, ?_⟩
   rw [hn, (recoverHintedLayers_nonces answers _ _ _ 4 _ result hr).2, hsig, topFoldN_fill_signature,
     topFoldN_fill_signature]
@@ -2449,7 +2688,7 @@ set_option maxHeartbeats 1000000
 set_option maxRecDepth 10000
 
 theorem ftsP_accepted (w : WBytes) (output : HashOutput)
-    (hg : output.toNat/2^242%16384<791)
+    (hg : output.toNat/2^242%16384<812)
     (hr : ∀ k : Fin 9,rawForestRank output k.val<563) :
     ftsP w output = (do
       let p ← SharedV3.forest w (WCT9.digestIndex output) (rawChildFromOutput output)
@@ -2483,12 +2722,12 @@ theorem verifyP_source_of (answers : SigGolfCandidate.T3.Correctness.Answers)
     (hrho : wrho wb=w.signature.rho) (hdc : wdc wb=w.digestCounter)
     (hd : evalWithAnswerFn answers (digest w.signature.rho message w.digestCounter)=output)
     (hbound : w.digestCounter.toNat<WCT9.digestVerifyWindow)
-    (hg : output.toNat/2^242%16384<791)
+    (hg : output.toNat/2^242%16384<812)
     (hr : ∀ k : Fin 9,rawForestRank output k.val<563)
     (hf : SharedV3.forest wb (WCT9.digestIndex output) (rawChildFromOutput output)
       (fun k=>WCT9.embed (forestRank output k.val)) =
-      recoverForest (WCT9.digestIndex output) (forestSelectionFromOutput output)
-        (forestWordsFromOutput output) w.signature.forest)
+      recoverForestN (WCT9.digestIndex output) (forestSelectionFromOutput output)
+        (forestWordsFromOutput output) w.signature.forest w.ftsNonces)
     (hl : ∀left right,layersCanonicalBC wb (WCT9.digestIndex output) 4 (.pair left right)=
       SigGolfCandidate.Research.SharedForest.verifyLayers w (WCT9.digestIndex output) 4 (.pair left right)) :
     evalWithAnswerFn answers (verifyP message pk wb)=
@@ -2516,11 +2755,11 @@ open W9Machine
 set_option maxHeartbeats 1000000
 set_option maxRecDepth 10000
 
-theorem verifyP_witEncG_eval (answers : SigGolfCandidate.T3.Correctness.Answers)
+theorem verifyP_witEncF_eval (answers : SigGolfCandidate.T3.Correctness.Answers)
     (message : Message) (pk : Digest) (sig : SigGolfCandidate.Research.SharedForest.Signature)
     (output : HashOutput) (w : SigGolfCandidate.Research.SharedForest.Witness)
     (he : evalWithAnswerFn answers (expandN message pk sig)=some (output,w)) :
-    evalWithAnswerFn answers (verifyP message pk (witEncG output w))=
+    evalWithAnswerFn answers (verifyP message pk (witEncF output w))=
       evalWithAnswerFn answers (SigGolfCandidate.Research.SharedForest.verify message pk w) := by
   obtain ⟨_,counter,result,c,hs,_,_,hw,hc,_⟩ := expandN_selections answers message pk sig output w he
   have hsearch := sharedDigestSearch_some answers sig.rho message WCT9.digestAttemptLimit 0
@@ -2535,10 +2774,11 @@ theorem verifyP_witEncG_eval (answers : SigGolfCandidate.T3.Correctness.Answers)
     unfold WCT9.digestAttemptLimit WCT9.digestVerifyWindow at *
     omega
   exact verifyP_source_of answers message pk _ output w
-    (ClaudeWCT.W9.T3M.Paired.wrho_witEncG output w)
-    (ClaudeWCT.W9.T3M.Paired.wdc_witEncG output w) hd hb hg hr
-    (W9Drv.SharedCanonical.forest_witEncG output w _ (WCT9.digestIndex_lt output))
-    (fun left right=>layersCanonicalBC_witEncG output w 4 left right (by decide))
+    (ClaudeWCT.W9.T3M.Paired.wrho_witEncF output w)
+    (ClaudeWCT.W9.T3M.Paired.wdc_witEncF output w) hd hb hg hr
+    (W9Drv.SharedCanonical.forest_witEncF output w _ (WCT9.digestIndex_lt output))
+    (fun left right=>layersCanonicalBC_witEncF output w 4 left right (by decide))
+
 
 end ClaudeWCT.W9.T3M.Paired
 
@@ -2580,7 +2820,7 @@ theorem expand_eq_expandN (m : Message) (pk : Digest) (sig : SigGolfCandidate.Re
 theorem eval_expandB (answers : Correctness.Answers) (m : Message) (pk : Digest)
     (sig : SigGolfCandidate.Research.SharedForest.Signature) :
     evalWithAnswerFn answers (expandB m pk sig)=
-      (evalWithAnswerFn answers (expandN m pk sig)).map (fun p=>witEncG p.1 p.2) := by
+      (evalWithAnswerFn answers (expandN m pk sig)).map (fun p=>witEncF p.1 p.2) := by
   rw [expandB,evalWithAnswerFn_map]
 
 /-- U16b: on oracles whose lower trees pass every zero test, the honest signature has clear ground bits. -/
@@ -2625,14 +2865,16 @@ theorem honestB_eval (answers : Correctness.Answers) (m : Message)
   | some sig=>
     simp only []
     rw [ClaudeWCT.W9.T3M.SharedCodec.sigDecC_sigBC_normTop sig
-      (ClaudeWCT.W9.T3M.SharedCodec.groundClear_of_lowerPathOK sig (sign_lowerPathOK answers hlower m sig hs))]
+      (ClaudeWCT.W9.T3M.SharedCodec.groundClear_of_lowerPathOK sig (sign_lowerPathOK answers hlower m sig hs)
+        (ClaudeWCT.W9.T3M.SharedCodec.ftsSlotsClear_of_ftsPathOK sig
+          (SigGolfCandidate.Research.SharedExpansionClosure.sign_ftsPathOK_U16 answers hlower m sig hs)))]
     rw [expand_eq_expandN,evalWithAnswerFn_bind,evalWithAnswerFn_bind,evalWithAnswerFn_map,eval_expandB]
     cases hx : evalWithAnswerFn answers (expandN m (evalWithAnswerFn answers keygen).1 (SigGolfCandidate.Research.SharedForest.normTop sig)) with
     | none=>rfl
     | some x=>
       obtain ⟨output,w⟩:=x
       simp only [Option.map_some]
-      exact verifyP_witEncG_eval answers m _ (SigGolfCandidate.Research.SharedForest.normTop sig) output w hx
+      exact verifyP_witEncF_eval answers m _ (SigGolfCandidate.Research.SharedForest.normTop sig) output w hx
 
 end ClaudeWCT.W9.T3M.Paired
 
@@ -2687,9 +2929,9 @@ theorem sign_value (E : EncodingFacts) (F : SourceQueries) (P : Pending I) (sk :
       Option.map sigBC <$> mrealize sk (sign (cacheDec cache) m) :=
   value_of_counts (F := Option.map sigBC) (P.sign_refines sk cache m)
 set_option maxRecDepth 100000 in
-theorem expand_value (E : EncodingFacts) (F : SourceQueries) (P : Pending I) (m : Message) (pk : PublicKey) (s : Bytes 5190) :
+theorem expand_value (E : EncodingFacts) (F : SourceQueries) (P : Pending I) (m : Message) (pk : PublicKey) (s : Bytes 5189) :
     (fun r => r.value) <$> (submission I).run .expand (m, pk, s) = mrealize 0 (expandB m pk (sigDecC s)) := by
-  rw [value_of_counts (F := Option.map (fun x : SigGolfCandidate.T3.HashOutput × Witness => witEncG x.1 x.2))
+  rw [value_of_counts (F := Option.map (fun x : SigGolfCandidate.T3.HashOutput × Witness => ClaudeWCT.W9.T3M.Paired.witEncF x.1 x.2))
     (P.expand_refines m pk s), expandB, ClaudeWCT.W9.T3M.Paired.expandB, mrealize_map]
 set_option maxRecDepth 100000 in
 theorem verify_value (E : EncodingFacts) (F : SourceQueries) (P : Pending I) (m : Message) (pk : PublicKey) (w : Bytes 21756) :
@@ -2845,12 +3087,12 @@ theorem abstract_sign_encoded_value (E : EncodingFacts) (F : SourceQueries) (P :
   rw [cacheDec_cacheB] at h
   exact h
 theorem abstract_expand_raw_cost (E : EncodingFacts) (F : SourceQueries) (P : Pending I) (m : Message) (pk : PublicKey)
-    (sig : Bytes 5190) (hash : Hash) :
+    (sig : Bytes 5189) (hash : Hash) :
     (evalWithAnswerFn hash ((submission I).run .expand (m,pk,sig))).hashCompressions =
       (evalWithAnswerFn hash (mrealize 0 (SigGolfCandidate.T3.Cost.countBlocks (expandN m pk (sigDecC sig))))).2 := by
   exact abstract_count_refinement 0 hash (expandN m pk (sigDecC sig))
     ((submission I).run .expand (m,pk,sig))
-    (Option.map (fun x : SigGolfCandidate.T3.HashOutput × Witness => witEncG x.1 x.2))
+    (Option.map (fun x : SigGolfCandidate.T3.HashOutput × Witness => ClaudeWCT.W9.T3M.Paired.witEncF x.1 x.2))
     (P.expand_refines m pk sig) (F.good_expandN _ _ _)
 theorem abstract_expand_encoded_cost (E : EncodingFacts) (F : SourceQueries) (P : Pending I) (m : Message) (pk : PublicKey)
     (sig : Signature) (hg : ClaudeWCT.W9.T3M.SharedCodec.GroundClear sig) (hash : Hash) :
@@ -3053,7 +3295,7 @@ def recoveredWitness (w : SigGolfCandidate.Research.SharedForest.Witness) (outpu
   let forest ← recoverForest (WCT9.digestIndex output) (forestSelectionFromOutput output)
     (forestWordsFromOutput output) w.signature.forest
   recoverHintedLayers w.signature (WCT9.digestIndex output) ((w.signature.layers 0).path WCT9.topJ)
-    4 (.pair forest.1 forest.2)
+    4 (.pair forest.1.1 forest.1.2)
 
 theorem expandN_recovered (answers : Correctness.Answers) (message : Message) (pk : Digest)
     (sig : SigGolfCandidate.Research.SharedForest.Signature) (output : HashOutput)
@@ -3064,9 +3306,11 @@ theorem expandN_recovered (answers : Correctness.Answers) (message : Message) (p
       (∀lay,w.counters lay=result.counters.getD lay.val 0) ∧
       evalWithAnswerFn answers (digest w.signature.rho message w.digestCounter)=output ∧
       digestAccepted output=true ∧ w.topHigh = !(result.lows.getD 0 true) ∧
-      (∀ lay, w.lowerNonces lay = result.lowerNonces.getD lay.val []) := by
+      (∀ lay, w.lowerNonces lay = result.lowerNonces.getD lay.val []) ∧
+      w.ftsNonces = (evalWithAnswerFn answers (recoverForest (WCT9.digestIndex output)
+        (forestSelectionFromOutput output) (forestWordsFromOutput output) w.signature.forest)).2 := by
   obtain ⟨_,counter,result,c,hs,hr,hh,hw,hc,hcs,htop⟩ := expandN_selections answers message pk sig output w he
-  obtain ⟨result0, -, hr0', -, -, hlow⟩ := expandN_nonces_raw answers message pk sig output w he
+  obtain ⟨result0, -, hr0', -, -, hlow, hfts⟩ := expandN_nonces_raw answers message pk sig output w he
   have hres : result0 = result := Option.some.inj (hr0'.symm.trans hr)
   let index := WCT9.digestIndex output
   let forest := evalWithAnswerFn answers (recoverForest index (forestSelectionFromOutput output)
@@ -3074,18 +3318,18 @@ theorem expandN_recovered (answers : Correctness.Answers) (message : Message) (p
   let other := ((fillTopSignature sig 0).layers 0).path WCT9.topJ
   let other' := ((fillTopSignature sig c).layers 0).path WCT9.topJ
   let result' : RecoveredLayers := {result with root:=evalWithAnswerFn answers (WCT9.topNode index result.foldedTop other')}
-  have hr0 : evalWithAnswerFn answers (recoverHintedLayers sig index other 4 (.pair forest.1 forest.2))=some result := by
+  have hr0 : evalWithAnswerFn answers (recoverHintedLayers sig index other 4 (.pair forest.1.1 forest.1.2))=some result := by
     rw [recoverHintedLayers_fill _ _ _ _ _ (by decide)] at hr
     exact hr
-  have hr1 := eval_recoverHintedLayers_other answers sig index other other' 4 (.pair forest.1 forest.2)
+  have hr1 := eval_recoverHintedLayers_other answers sig index other other' 4 (.pair forest.1.1 forest.1.2)
   rw [hr0] at hr1
   have hr2 : evalWithAnswerFn answers (recoverHintedLayers (fillTopSignature sig c) index other'
-      4 (.pair forest.1 forest.2))=some result' := by
+      4 (.pair forest.1.1 forest.1.2))=some result' := by
     rw [recoverHintedLayers_fill _ _ _ _ _ (by decide)]
     exact hr1
   have hs' := sharedDigestSearch_some answers sig.rho message WCT9.digestAttemptLimit 0
     counter output (by decide) hs
-  refine ⟨result',?_,?_,?_,?_,hs'.2.2.1,htop,?_⟩
+  refine ⟨result',?_,?_,?_,?_,hs'.2.2.1,htop,?_,?_⟩
   · rw [recoveredWitness,evalWithAnswerFn_bind,hw]
     exact hr2
   · rw [hw,hints_retained]
@@ -3095,6 +3339,8 @@ theorem expandN_recovered (answers : Correctness.Answers) (message : Message) (p
     exact hs'.2.2.2
   · intro lay
     rw [hlow lay, hres]
+  · rw [hfts, hw]
+    try rfl
 end ClaudeWCT.W9.T3M.Paired
 end
 -- ==== merged from ClaudeWCT_W9_T3M_Final_BridgeMain ====
@@ -3433,6 +3679,16 @@ theorem topCheck_allGFresh (secret : BitVec 256) (r : Bool × Sampling.RCache)
   obtain ⟨r0, hr0, rfl⟩ := hr
   exact ClaudeWCT.W9.T3.Freshness.Paired.GroundFresh.buildTopTree_allGFresh secret ∅ ClaudeWCT.W9.T3.Freshness.Paired.GroundFresh.allGFresh_empty r0 hr0
 
+/-- E8 stage 2: the cache left by the top check has every FTS ground entry fresh (`FtsComplete.buildTopTree_allFFresh`). -/
+theorem topCheck_allFFresh (secret : BitVec 256) (r : Bool × Sampling.RCache)
+    (hr : r ∈ support (Sampling.roRun secret topCheck ∅)) : ClaudeWCT.W9.T3.Freshness.Paired.FtsFresh.AllFFresh r.2 := by
+  unfold topCheck at hr
+  rw [Sampling.roRun_bind] at hr
+  simp only [Sampling.roRun_pure, support_bind, Set.mem_iUnion, support_pure, Set.mem_singleton_iff] at hr
+  obtain ⟨r0, hr0, rfl⟩ := hr
+  exact ClaudeWCT.W9.T3.Freshness.Paired.FtsComplete.buildTopTree_allFFresh secret ∅
+    ClaudeWCT.W9.T3.Freshness.Paired.FtsFresh.allFFresh_empty r0 hr0
+
 /-- U16b: the key-level checks fail with probability at most `2^-135 + 2^-150` (top caps, then lower caps on the
 fresh cache left by the top tree). -/
 theorem fullCheck_failure_small (secret : BitVec 256) :
@@ -3450,7 +3706,7 @@ theorem fullCheck_failure_small (secret : BitVec 256) :
     rw [Sampling.roRun_bind, map_bind]
     simp only [Sampling.roRun_pure, map_pure, h1, Bool.true_and]
     refine le_trans (le_of_eq ?_) (ClaudeWCT.W9.T3.Freshness.Paired.GroundFresh.lowerCheck_failure_small secret r.2
-      (topCheck_allGFresh secret r hr))
+      (topCheck_allGFresh secret r hr) (topCheck_allFFresh secret r hr))
     rw [StateT.run'_eq]
     change _ = Pr[fun value => value = false | Prod.fst <$> Sampling.roRun secret
       ClaudeWCT.W9.T3.Freshness.Paired.GroundFresh.lowerCheck r.2]
@@ -4353,6 +4609,15 @@ theorem notEnc_outer (coord index heap : Nat) (hcoord : coord < 9) (left right :
   · exact notEnc_topLow _ _ _ hcoord _ _ _
   · exact allQ_highHash_of_shortHash _ (notEnc_topLow _ _ _ hcoord _ _ _)
 
+theorem notEnc_ftsN (coord index heap n : Nat) (hcoord : coord < 9) (left right : Digest) :
+    AllQueriesSatisfy (WCT9.ftsNodeHashN coord index heap n left right) NotEncS := by
+  unfold WCT9.ftsNodeHashN; rw [WCT9.ftsNodeInputN_eq_top]; exact notEnc_topLow _ _ _ hcoord _ _ _
+
+theorem notEnc_plainH (coord index heap : Nat) (hcoord : coord < 9) (left right : Digest) :
+    AllQueriesSatisfy (WCT9.wctNodeHashH coord index heap left right) NotEncS := by
+  change AllQueriesSatisfy (ftsHash heap (wctTopInput coord index heap left 0 right)) NotEncS
+  exact allQ_ftsHash_of_shortHash _ _ (notEnc_topLow _ _ _ hcoord _ _ _)
+
 theorem notEnc_node (first : Bool) (coord index heap : Nat) (hcoord : coord < 9)
     (pads : Nat → PairRoot) (left right : Digest) :
     AllQueriesSatisfy (sharedNode first coord index heap pads left right) NotEncS := by
@@ -4363,8 +4628,17 @@ theorem notEnc_node (first : Bool) (coord index heap : Nat) (hcoord : coord < 9)
     · split
       · exact allQ_highHash_of_shortHash _ (notEnc_topLow _ _ _ hcoord _ _ _)
       · exact notEnc_topLow _ _ _ hcoord _ _ _
-    · change AllQueriesSatisfy (ftsHash heap (wctTopInput coord index heap left 0 right)) NotEncS
-      exact allQ_ftsHash_of_shortHash _ _ (notEnc_topLow _ _ _ hcoord _ _ _)
+    · exact WCT9.allQ_ftsNodeG _ _ _ _ _ (notEnc_plainH _ _ _ hcoord _ _)
+        (fun n _ => notEnc_ftsN _ _ _ n hcoord _ _)
+
+theorem notEnc_nodeAt (first : Bool) (coord index heap : Nat) (hcoord : coord < 9)
+    (pads : Nat → PairRoot) (left right : Digest) :
+    AllQueriesSatisfy (sharedNodeAt first coord index heap pads left right) NotEncS := by
+  unfold sharedNodeAt
+  split
+  · exact SigGolfCandidate.T3M.allQ_map _ (notEnc_node _ _ _ _ hcoord _ _ _)
+  · exact allQ_ftsNodeAt _ _ _ _ _ (notEnc_plainH _ _ _ hcoord _ _)
+      (fun n _ => notEnc_ftsN _ _ _ n hcoord _ _)
 
 theorem notEnc_inner (first : Bool) (index coord : Nat) (hcoord : coord < 9) (selected : Child)
     (word : Rank) (values : Fin 6 → Digest) (path : Nat → Digest) (prev : PairRoot) :
@@ -4372,7 +4646,14 @@ theorem notEnc_inner (first : Bool) (index coord : Nat) (hcoord : coord < 9) (se
   unfold recoverSharedInner
   exact allQ_bind (allQ_mapM _ _ fun _ => notEnc_ftsChain _ _ _ _ _ _ _) fun _ =>
     allQ_bind (notEnc_ftsLeafH _ _ _ _ _ _) fun _ =>
-      allQ_foldlM _ _ (fun _ _ => notEnc_node _ _ _ _ hcoord _ _ _) _
+      allQ_foldlM _ _ (fun _ _ => allQ_bind (notEnc_nodeAt _ _ _ _ hcoord _ _ _) fun _ => allQ_pure _) _
+
+theorem notEnc_sharedOuter (index coord : Nat) (hcoord : coord < 9) (selected : Child) (word : Rank)
+    (values : Fin 6 → Digest) (path : Nat → Digest) (prev : PairRoot) :
+    AllQueriesSatisfy (recoverSharedOuter index coord selected word values path prev) NotEncS := by
+  unfold recoverSharedOuter
+  exact allQ_bind (notEnc_inner _ _ _ hcoord _ _ _ _ _) fun _ =>
+    allQ_bind (notEnc_outer _ _ _ hcoord _ _) fun _ => allQ_pure _
 
 theorem notEnc_pair (index : Nat) (pair : Fin 4) (selected : Selection) (aWord bWord : Rank)
     (opened : PairOpening) (prev : PairRoot) :
@@ -4380,8 +4661,7 @@ theorem notEnc_pair (index : Nat) (pair : Fin 4) (selected : Selection) (aWord b
   unfold recoverPair
   have hpair := pair.isLt
   exact allQ_bind (notEnc_inner _ _ _ (by omega) _ _ _ _ _) fun _ =>
-    allQ_bind (notEnc_inner _ _ _ (by omega) _ _ _ _ _) fun _ =>
-      allQ_bind (notEnc_outer _ _ _ (by omega) _ _) fun _ => allQ_pure _
+    allQ_bind (notEnc_sharedOuter _ _ (by omega) _ _ _ _ _) fun _ => allQ_pure _
 
 theorem notEnc_singleton (index : Nat) (selected : Child) (word : Rank) (opened : SingletonOpening)
     (prev : PairRoot) : AllQueriesSatisfy (recoverSingleton index selected word opened prev) NotEncS := by
@@ -4392,15 +4672,45 @@ theorem notEnc_singleton (index : Nat) (selected : Child) (word : Rank) (opened 
 theorem notEnc_forest (index : Nat) (selected : ForestSelection) (words : ForestWords) (opened : ForestOpening) :
     AllQueriesSatisfy (recoverForest index selected words opened) NotEncS := by
   unfold recoverForest
-  exact allQ_bind (allQ_foldlM _ _ (fun _ _ => notEnc_pair _ _ _ _ _ _ _) _) fun _ =>
-    notEnc_singleton _ _ _ _ _
+  exact allQ_bind (allQ_foldlM _ _ (fun _ _ => allQ_bind (notEnc_pair _ _ _ _ _ _ _) fun _ => allQ_pure _) _) fun _ =>
+    allQ_bind (notEnc_singleton _ _ _ _ _) fun _ => allQ_pure _
+
+theorem notEnc_nodeN (first : Bool) (coord index heap : Nat) (hcoord : coord < 9)
+    (pads : Nat → PairRoot) (n : Nat) (left right : Digest) :
+    AllQueriesSatisfy (sharedNodeN first coord index heap pads n left right) NotEncS := by
+  unfold sharedNodeN
+  split
+  · exact notEnc_ftsN _ _ _ n hcoord _ _
+  · exact notEnc_node _ _ _ _ hcoord _ _ _
+
+theorem notEnc_innerN (first : Bool) (index coord : Nat) (hcoord : coord < 9) (selected : Child)
+    (word : Rank) (values : Fin 6 → Digest) (path : Nat → Digest) (n : Nat) (prev : PairRoot) :
+    AllQueriesSatisfy (recoverSharedInnerN first index coord selected word values path n prev) NotEncS := by
+  unfold recoverSharedInnerN
+  exact allQ_bind (allQ_mapM _ _ fun _ => notEnc_ftsChain _ _ _ _ _ _ _) fun _ =>
+    allQ_bind (notEnc_ftsLeafH _ _ _ _ _ _) fun _ =>
+      allQ_foldlM _ _ (fun _ _ => notEnc_nodeN _ _ _ _ hcoord _ _ _ _) _
+
+theorem notEnc_forestN (index : Nat) (selected : ForestSelection) (words : ForestWords) (opened : ForestOpening)
+    (nonces : List Nat) : AllQueriesSatisfy (recoverForestN index selected words opened nonces) NotEncS := by
+  unfold recoverForestN
+  refine allQ_bind (allQ_foldlM _ _ (fun _ pair => ?_) _) fun _ => ?_
+  · have hpair := pair.isLt
+    unfold recoverPairN
+    refine allQ_bind (notEnc_innerN _ _ _ (by omega) _ _ _ _ _ _) fun _ => ?_
+    unfold recoverSharedOuterN
+    exact allQ_bind (notEnc_innerN _ _ _ (by omega) _ _ _ _ _ _) fun _ =>
+      allQ_bind (notEnc_outer _ _ _ (by omega) _ _) fun _ => allQ_pure _
+  · unfold recoverSingletonN
+    exact allQ_bind (notEnc_innerN _ _ _ (by decide) _ _ _ _ _ _) fun _ =>
+      allQ_bind (notEnc_outer _ _ _ (by decide) _ _) fun _ => allQ_pure _
 
 theorem recovered_credit_floors (answers : SigGolfCandidate.T3.Correctness.Answers)
     (sig : SigGolfCandidate.Research.SharedForest.Signature) (index : Nat) (other : Digest)
     (msg : LayerMsg) (result : RecoveredLayers)
     (he : evalWithAnswerFn answers (recoverHintedLayers sig index other 4 msg) = some result)
     (hh : policyHintsValid sig.policyHints result.digits result.lows = true) :
-    CreditFloors (fun lay => min 65
+    CreditFloors (fun lay => min 66
       (CanonicalPolicy.credit lay (result.lows.getD lay.val true) (result.digits.getD lay.val []))) := by
   apply creditFloors_clip
   exact policyHints_credit_sum _ _ _ hh (fun lay =>
@@ -4412,18 +4722,20 @@ theorem agree_verify (hash : Hash) (message : SigGolfCandidate.T3.Message) (pk :
     (hr : evalWithAnswerFn (machineAnswers hash 0)
       (recoverHintedLayers w.signature (digestIndex output) ((w.signature.layers 0).path topJ) 4
         (.pair (evalWithAnswerFn (machineAnswers hash 0) (recoverForest (digestIndex output)
-          (forestSelectionFromOutput output) (forestWordsFromOutput output) w.signature.forest)).1
+          (forestSelectionFromOutput output) (forestWordsFromOutput output) w.signature.forest)).1.1
           (evalWithAnswerFn (machineAnswers hash 0) (recoverForest (digestIndex output)
-          (forestSelectionFromOutput output) (forestWordsFromOutput output) w.signature.forest)).2)) = some result)
+          (forestSelectionFromOutput output) (forestWordsFromOutput output) w.signature.forest)).1.2)) = some result)
     (hh : policyHintsValid w.signature.policyHints result.digits result.lows = true)
     (hc : ∀ lay, w.counters lay = result.counters.getD lay.val 0)
     (htop : w.topHigh = !(result.lows.getD 0 true))
-    (hln : ∀ lay, w.lowerNonces lay = result.lowerNonces.getD lay.val []) :
+    (hln : ∀ lay, w.lowerNonces lay = result.lowerNonces.getD lay.val [])
+    (hfn : w.ftsNonces = (evalWithAnswerFn (machineAnswers hash 0) (recoverForest (digestIndex output)
+      (forestSelectionFromOutput output) (forestWordsFromOutput output) w.signature.forest)).2) :
     ∃ floors : Layer → Nat, CreditFloors floors ∧
       Agree hash (okHashBy floors w.topHigh hash)
         (mrealize 0 (SigGolfCandidate.Research.SharedForest.verify message pk w)) := by
   let floors : Layer → Nat := fun lay =>
-    min 65 (CanonicalPolicy.credit lay (result.lows.getD lay.val true) (result.digits.getD lay.val []))
+    min 66 (CanonicalPolicy.credit lay (result.lows.getD lay.val true) (result.digits.getD lay.val []))
   refine ⟨floors, recovered_credit_floors _ _ _ _ _ result hr hh, ?_⟩
   unfold SigGolfCandidate.Research.SharedForest.verify
   split
@@ -4433,7 +4745,8 @@ theorem agree_verify (hash : Hash) (message : SigGolfCandidate.T3.Message) (pk :
     split
     · trivial
     · refine (agree_mrealize_bind _ _).mpr
-        ⟨agree_mrealize (notEnc_forest _ _ _ _) (hfg_okBy floors w.topHigh hash), ?_⟩
+        ⟨agree_mrealize (notEnc_forestN _ _ _ _ _) (hfg_okBy floors w.topHigh hash), ?_⟩
+      rw [hfn, SigGolfCandidate.Research.SharedForest.eval_recoverForestN]
       refine (agree_mrealize_bind _ _).mpr ⟨?_, ?_⟩
       · exact agree_layers floors hash w.signature (digestIndex output) 4 le_rfl _ result hr
           (fun lay _ => Nat.min_le_right _ _) w rfl (fun lay _ => hc lay) htop (fun lay _ => hln lay)
@@ -4455,11 +4768,11 @@ set_option maxHeartbeats 1000000
 set_option backward.isDefEq.respectTransparency false
 
 theorem expand_witness (E : EncodingFacts) (F : SourceQueries) (P : Final.Paired.Pending I)
-    (hash : Hash) (m : Message) (pk : PublicKey) (s : Bytes 5190) (w : Bytes 21756)
+    (hash : Hash) (m : Message) (pk : PublicKey) (s : Bytes 5189) (w : Bytes 21756)
     (he : ((Final.Paired.submission I).runWith hash .expand (m,pk,s)).value=some w) :
     ∃sig output wt,evalWithAnswerFn (machineAnswers hash 0)
       (ClaudeWCT.W9.T3M.Paired.expandN m pk sig)=some (output,wt) ∧
-      w=ClaudeWCT.W9.T3M.Paired.witEncG output wt := by
+      w=ClaudeWCT.W9.T3M.Paired.witEncF output wt := by
   have h := congrArg (evalWithAnswerFn hash) (Final.Paired.expand_value E F P m pk s)
   rw [evalWithAnswerFn_map,eval_mrealize hash 0 (ClaudeWCT.W9.T3M.Paired.expandB m pk (Final.Paired.sigDecC s)),
     ClaudeWCT.W9.T3M.Paired.eval_expandB] at h
@@ -4630,12 +4943,12 @@ theorem agree_verifyP_source_of (f g : Hash) (message : SigGolfCandidate.T3.Mess
     (hrho : wrho wb=w.signature.rho) (hdc : wdc wb=w.digestCounter)
     (hd : evalWithAnswerFn (machineAnswers f 0)
       (SigGolfCandidate.T3.digest w.signature.rho message w.digestCounter)=output)
-    (hg : output.toNat/2^242%16384<791)
+    (hg : output.toNat/2^242%16384<812)
     (hr : ∀ k : Fin 9,rawForestRank output k.val<563)
     (hf : SharedV3.forest wb (WCT9.digestIndex output) (rawChildFromOutput output)
       (fun k=>WCT9.embed (forestRank output k.val)) =
-      recoverForest (WCT9.digestIndex output) (forestSelectionFromOutput output)
-        (forestWordsFromOutput output) w.signature.forest)
+      recoverForestN (WCT9.digestIndex output) (forestSelectionFromOutput output)
+        (forestWordsFromOutput output) w.signature.forest w.ftsNonces)
     (hl : ∀left right,layersCanonicalBC wb (WCT9.digestIndex output) 4 (.pair left right)=
       SigGolfCandidate.Research.SharedForest.verifyLayers w (WCT9.digestIndex output) 4 (.pair left right))
     (hagree : Agree f g (mrealize 0 (SigGolfCandidate.Research.SharedForest.verify message pk w))) :
@@ -4678,25 +4991,25 @@ theorem agree_verifyP (hash : Hash) (message : SigGolfCandidate.T3.Message) (pk 
     (he : evalWithAnswerFn (machineAnswers hash 0) (ClaudeWCT.W9.T3M.Paired.expandN message pk sig)=some (output,w)) :
     ∃ floors : Layer → Nat,CreditFloors floors ∧
       Agree hash (okHashBy floors w.topHigh hash)
-        (mrealize 0 (ClaudeWCT.W9.T3M.Paired.verifyP message pk (ClaudeWCT.W9.T3M.Paired.witEncG output w))) := by
-  obtain ⟨result,hr,hh,hc,hd,ha,htop,hln⟩ := ClaudeWCT.W9.T3M.Paired.expandN_recovered _ message pk sig output w he
+        (mrealize 0 (ClaudeWCT.W9.T3M.Paired.verifyP message pk (ClaudeWCT.W9.T3M.Paired.witEncF output w))) := by
+  obtain ⟨result,hr,hh,hc,hd,ha,htop,hln,hfn⟩ := ClaudeWCT.W9.T3M.Paired.expandN_recovered _ message pk sig output w he
   simp only [ClaudeWCT.W9.T3M.Paired.recoveredWitness,evalWithAnswerFn_bind] at hr
-  obtain ⟨floors,hfloors,hagree⟩ := agree_verify hash message pk w output result hd hr hh hc htop hln
+  obtain ⟨floors,hfloors,hagree⟩ := agree_verify hash message pk w output result hd hr hh hc htop hln hfn
   obtain ⟨hg,hrank,_⟩ := accepted_conditions output ha
   refine ⟨floors,hfloors,agree_verifyP_of_old (fun _ hq => (okHashBy_eq_of_not_enc floors w.topHigh hash hq).symm)
     message pk _ (agree_verifyP_source_of hash (okHashBy floors w.topHigh hash) message pk _ output w
-    (ClaudeWCT.W9.T3M.Paired.wrho_witEncG output w)
-    (ClaudeWCT.W9.T3M.Paired.wdc_witEncG output w) hd hg hrank
-    (W9Drv.SharedCanonical.forest_witEncG output w _ (WCT9.digestIndex_lt output))
-    (fun left right=>ClaudeWCT.W9.T3M.Paired.layersCanonicalBC_witEncG output w 4 left right (by decide)) hagree)⟩
+    (ClaudeWCT.W9.T3M.Paired.wrho_witEncF output w)
+    (ClaudeWCT.W9.T3M.Paired.wdc_witEncF output w) hd hg hrank
+    (W9Drv.SharedCanonical.forest_witEncF output w _ (WCT9.digestIndex_lt output))
+    (fun left right=>ClaudeWCT.W9.T3M.Paired.layersCanonicalBC_witEncF output w 4 left right (by decide)) hagree)⟩
 
 theorem digestCap_okHashBy (floors : Layer → Nat) (high : Bool) (hash : Hash)
     (message : SigGolfCandidate.T3.Message) (pk : Digest)
     (sig : SigGolfCandidate.Research.SharedForest.Signature) (output : HashOutput)
     (w : SigGolfCandidate.Research.SharedForest.Witness)
     (he : evalWithAnswerFn (machineAnswers hash 0) (ClaudeWCT.W9.T3M.Paired.expandN message pk sig)=some (output,w)) :
-    Final.Paired.DigestCapOk (okHashBy floors high hash) message (ClaudeWCT.W9.T3M.Paired.witEncG output w) := by
-  obtain ⟨_,_,_,_,hd,ha,_,_⟩ := ClaudeWCT.W9.T3M.Paired.expandN_recovered _ message pk sig output w he
+    Final.Paired.DigestCapOk (okHashBy floors high hash) message (ClaudeWCT.W9.T3M.Paired.witEncF output w) := by
+  obtain ⟨_,_,_,_,hd,ha,_,_,_⟩ := ClaudeWCT.W9.T3M.Paired.expandN_recovered _ message pk sig output w he
   have hagree := agree_mrealize (notEnc_digest w.signature.rho message w.digestCounter) (hfg_okBy floors high hash)
   have hd' : evalWithAnswerFn (machineAnswers (okHashBy floors high hash) 0)
       (SigGolfCandidate.T3.digest w.signature.rho message w.digestCounter)=output := by
@@ -4705,7 +5018,7 @@ theorem digestCap_okHashBy (floors : Layer → Nat) (high : Bool) (hash : Hash)
   unfold SigGolfCandidate.T3.digest at hd'
   rw [mrealize_publicHash,eval_liftQ] at hd'
   unfold Final.Paired.DigestCapOk
-  rw [ClaudeWCT.W9.T3M.Paired.wrho_witEncG,ClaudeWCT.W9.T3M.Paired.wdc_witEncG,hd']
+  rw [ClaudeWCT.W9.T3M.Paired.wrho_witEncF,ClaudeWCT.W9.T3M.Paired.wdc_witEncF,hd']
   exact (accepted_conditions output ha).2.2.trans (by norm_num)
 end ClaudeWCT.W9.T3M.Final.Credit.Paired
 end

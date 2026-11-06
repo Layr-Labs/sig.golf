@@ -437,8 +437,8 @@ theorem keygen_not_chain (c : Coord) (hc : c ∈ keygenDisclosed) : NotChain c :
     exact treeChild_not_chain h
   · rcases encodingDisclosed_shape hc with ⟨n, rfl⟩ | ⟨i, rfl⟩
     all_goals exact ⟨fun p => by simp, fun a => by simp⟩
-  · obtain ⟨n, rfl⟩ := ClaudeWCT.W9.T3.Security.LargeResidual.topTrialsDisclosed_shape hc
-    exact ⟨fun p => by simp, fun a => by simp⟩
+  · rcases ClaudeWCT.W9.T3.Security.LargeResidual.topTrialsDisclosed_shape hc with ⟨n, rfl⟩ | ⟨n, rfl⟩
+    all_goals exact ⟨fun p => by simp, fun a => by simp⟩
 theorem layerItems_chain (A : Answers) (index : Fin (2^31)) (c : Coord)
     (hc : c ∈ layerItems (Wots.referenceDigits A) index) :
     (∀ p, c = .inl (.chain p) → p.2.val + 1 = Wots.depth A (wotsAddr p.1)) ∧
@@ -551,8 +551,8 @@ theorem keygen_not_wct (a : CanonGraph.WctAddr) (p : Nat) : wctItem a p ∉ keyg
     exact treeChild_ne_wctItem h a p rfl
   · rcases encodingDisclosed_shape hc with ⟨n, h⟩ | ⟨i, h⟩
     all_goals unfold wctItem at h; split_ifs at h <;> simp at h
-  · obtain ⟨n, h⟩ := ClaudeWCT.W9.T3.Security.LargeResidual.topTrialsDisclosed_shape hc
-    unfold wctItem at h; split_ifs at h <;> simp at h
+  · rcases ClaudeWCT.W9.T3.Security.LargeResidual.topTrialsDisclosed_shape hc with ⟨n, h⟩ | ⟨n, h⟩
+    all_goals unfold wctItem at h; split_ifs at h <;> simp at h
 theorem layerItems_not_wct (digitsOf : Wots.LeafAddr → List Nat) (index : Fin (2^31)) (a : CanonGraph.WctAddr)
     (p : Nat) : wctItem a p ∉ layerItems digitsOf index := by
   intro hc
@@ -988,8 +988,8 @@ theorem keygen_not_chain (c : Coord) (hc : c ∈ keygenDisclosed) : NotChain c :
     exact treeChild_not_chain h
   · rcases encodingDisclosed_shape hc with ⟨n, rfl⟩ | ⟨i, rfl⟩
     all_goals exact ⟨fun p => by simp, fun a => by simp⟩
-  · obtain ⟨n, rfl⟩ := ClaudeWCT.W9.T3.Security.LargeResidual.topTrialsDisclosed_shape hc
-    exact ⟨fun p => by simp, fun a => by simp⟩
+  · rcases ClaudeWCT.W9.T3.Security.LargeResidual.topTrialsDisclosed_shape hc with ⟨n, rfl⟩ | ⟨n, rfl⟩
+    all_goals exact ⟨fun p => by simp, fun a => by simp⟩
 theorem layerItems_chain (A : Answers) (index : Fin (2^31)) (c : Coord)
     (hc : c ∈ layerItems (Wots.CanonicalRef.referenceDigits A (Wots.CanonicalRef.sourceMessages A)) index) :
     (∀ p, c = .inl (.chain p) → p.2.val + 1 = Wots.CanonicalRef.depth A (Wots.CanonicalRef.sourceMessages A) (wotsAddr p.1)) ∧
@@ -1287,8 +1287,8 @@ theorem keygen_not_wct (a : CanonGraph.WctAddr) (p : Nat) : wctItem a p ∉ keyg
     exact treeChild_ne_wctItem h a p rfl
   · rcases encodingDisclosed_shape hc with ⟨n, h⟩ | ⟨i, h⟩
     all_goals unfold wctItem at h; split_ifs at h <;> simp at h
-  · obtain ⟨n, h⟩ := ClaudeWCT.W9.T3.Security.LargeResidual.topTrialsDisclosed_shape hc
-    unfold wctItem at h; split_ifs at h <;> simp at h
+  · rcases ClaudeWCT.W9.T3.Security.LargeResidual.topTrialsDisclosed_shape hc with ⟨n, h⟩ | ⟨n, h⟩
+    all_goals unfold wctItem at h; split_ifs at h <;> simp at h
 theorem layerItems_not_wct (digitsOf : Wots.LeafAddr → List Nat) (index : Fin (2^31)) (a : CanonGraph.WctAddr)
     (p : Nat) : wctItem a p ∉ layerItems digitsOf index := by
   intro hc

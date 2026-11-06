@@ -607,9 +607,8 @@ theorem encodingQuery_ne_cell (key : EncKey) (secrets : Secrets) (node : Node) (
     encQuery key ≠ cell secrets node labels := by
   intro heq
   by_cases hp : PhantomAt node labels
-  · obtain ⟨n, rfl, hc⟩ := cell_of_phantomAt (secrets := secrets) hp
-    have hl := congrArg List.length heq
-    rw [hc, phantom_length, encQuery_length] at hl
+  · have hl := congrArg List.length heq
+    rw [cell_of_phantomAt (secrets := secrets) hp, phantomOf_length hp, encQuery_length] at hl
     omega
   · have h1 := hdrBlock_encQuery key
     rw [heq, hdrBlock_cell _ _ _ hp] at h1
@@ -2205,8 +2204,11 @@ theorem sharedNode_nonEnc (first : Bool) (coord index heap : Nat) (hcoord : coor
     · split
       · exact topHigh_nonEnc _ _ _ hcoord _ _ _
       · exact topLow_nonEnc _ _ _ hcoord _ _ _
-    · change AllQueriesSatisfy (WCT9.ftsHash heap (WCT9.wctTopInput coord index heap left 0 right)) NonEnc
-      exact WCT9.allQ_ftsHash_of_shortHash _ _ (topLow_nonEnc _ _ _ hcoord _ _ _)
+    · exact WCT9.allQ_ftsNodeG _ _ _ _ _
+        (by change AllQueriesSatisfy (WCT9.ftsHash heap (WCT9.wctTopInput coord index heap left 0 right)) NonEnc
+            exact WCT9.allQ_ftsHash_of_shortHash _ _ (topLow_nonEnc _ _ _ hcoord _ _ _))
+        (fun n _ => by
+          unfold WCT9.ftsNodeHashN; rw [WCT9.ftsNodeInputN_eq_top]; exact topLow_nonEnc _ _ _ hcoord _ _ _)
 
 theorem sharedHeap_nonEnc (first : Bool) (index coord : Nat) (hcoord : coord < 9)
     (pads : Nat → PairRoot) (leaves : List Digest) :
@@ -2569,8 +2571,11 @@ theorem sharedNode_untouched (a : ChainAddr) (first : Bool) (coord index heap : 
     · split
       · exact topHigh_untouched a _ _ _ _ _ _
       · exact topLow_untouched a _ _ _ _ _ _
-    · change AllQueriesSatisfy (WCT9.ftsHash heap (WCT9.wctTopInput coord index heap left 0 right)) (UntouchedP a)
-      exact WCT9.allQ_ftsHash_of_shortHash _ _ (topLow_untouched a _ _ _ _ _ _)
+    · exact WCT9.allQ_ftsNodeG _ _ _ _ _
+        (by change AllQueriesSatisfy (WCT9.ftsHash heap (WCT9.wctTopInput coord index heap left 0 right)) (UntouchedP a)
+            exact WCT9.allQ_ftsHash_of_shortHash _ _ (topLow_untouched a _ _ _ _ _ _))
+        (fun n _ => by
+          unfold WCT9.ftsNodeHashN; rw [WCT9.ftsNodeInputN_eq_top]; exact topLow_untouched a _ _ _ _ _ _)
 
 theorem sharedHeap_untouched (a : ChainAddr) (first : Bool) (index coord : Nat)
     (pads : Nat → PairRoot) (leaves : List Digest) :
@@ -4221,10 +4226,9 @@ theorem encodingQuery_ne_cell (key : EncKey) (secrets : Secrets) (node : Node) (
     encQuery key ≠ CanonGraph.Paired.cell secrets node labels := by
   intro heq
   by_cases hp : CanonGraph.PhantomAt node labels
-  · obtain ⟨n, rfl, hc⟩ := CanonGraph.cell_of_phantomAt (secrets := secrets) hp
-    have hl := congrArg List.length heq
-    change (encQuery key).length = (CanonGraph.cell secrets (.node n) labels).length at hl
-    rw [hc, CanonGraph.phantom_length, CanonGraph.encQuery_length] at hl
+  · have hl := congrArg List.length heq
+    rw [CanonGraph.Paired.cell_of_phantomAt (secrets := secrets) hp, CanonGraph.phantomOf_length hp,
+      CanonGraph.encQuery_length] at hl
     omega
   · have h1 := hdrBlock_encQuery key
     rw [heq, CanonGraph.Paired.hdrBlock_cell _ _ _ hp] at h1
@@ -11432,7 +11436,8 @@ theorem sharedNode_free (first : Bool) (coord index heap : Nat) (pads : Nat → 
     · split
       · exact wctTopHash_free _ _ _ _ _ _
       · exact lowTop_free _ _ _ _ _ _
-    · exact nodeHashH_free _ _ _ _ _
+    · exact WCT9.allQ_ftsNodeG _ _ _ _ _ (nodeHashH_free _ _ _ _ _)
+        (fun n _ => by unfold WCT9.ftsNodeHashN; rw [WCT9.ftsNodeInputN_eq_top]; exact lowTop_free _ _ _ _ _ _)
 
 theorem sharedHeap_free (first : Bool) (index coord : Nat) (pads : Nat → PairRoot) (leaves : List Digest) :
     AllQueriesSatisfy (sharedHeap first index coord pads leaves) WFree := by
@@ -11966,7 +11971,7 @@ theorem signFromOutput_answers (hidden : CanonTable.HiddenF) (cache : SigGolfCan
         (evalWithAnswerFn (wA hU omega 0) (prepareRoots (digestIndex output)))
         (forestCommitment (wA hU omega 0) (digestIndex output)))).map
         (fun layers => (⟨assembleWith (wA hU omega hidden) (rho, output, layers), counter,
-          fun lay => layers.counters.getD lay.val 0, !(layers.lows.getD 0 true), [], fun _ => []⟩ :
+          fun lay => layers.counters.getD lay.val 0, !(layers.lows.getD 0 true), [], fun _ => [], []⟩ :
             SigGolfCandidate.Research.SharedForest.Witness)) := by
   simp only [signFromOutput, evalWithAnswerFn_bind]
   rw [buildForest_commitment, eval_free hU omega hidden 0 (prepareRoots_free _),
@@ -14740,12 +14745,11 @@ theorem cell_not_digest (s : CanonGraph.Secrets) (node : CanonGraph.Node) (label
     CanonGraph.cell s node labels ∉ digestInputs := by
   -- top-nonce layer (r3-lean-nonsec): a phantom cell is 192 bytes, a digest input one 64-byte block
   by_cases hp : CanonGraph.PhantomAt node labels
-  · obtain ⟨n, rfl, hc⟩ := CanonGraph.cell_of_phantomAt (secrets := s) hp
-    rw [hc]
+  · rw [CanonGraph.cell_of_phantomAt (secrets := s) hp]
     intro hm
     obtain ⟨rho, m, ctr, he⟩ := SigGolfCandidate.T3.Security.BPair.mem_digestInputs.mp hm
     have hl := congrArg List.length he
-    rw [CanonGraph.phantom_length] at hl
+    rw [CanonGraph.phantomOf_length hp] at hl
     unfold pad64 at hl
     simp [SigGolfCandidate.T3.Security.BPair.digestInput_length] at hl
   have h := CanonGraph.hdrBlock_cell s node labels hp

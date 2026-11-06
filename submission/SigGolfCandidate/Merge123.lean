@@ -781,11 +781,11 @@ theorem verify_good
 theorem verify_good_6997
     (hprefix : W9Fin.V7.PrefixGood GatePre)
     (fts : ∀ w : WB, FtsGoodByCost GatePre FtsOut ftsProgram (fun a => 861 + cost a) (P w))
-    (after : AfterGoodBudget FtsOut afterProgram 5249 P)
+    (after : AfterGoodBudget FtsOut afterProgram 5248 P)
     (hnone : ∀ pk w i, afterProgram pk w i none = pure false)
     (m : SigGolfCandidate.Legacy.Message) (pk : PublicKey) (w : WB) (s : MachineState)
     (hs : initialState submission .verify (m,pk,w) = some s) :
-    GoodQP (Pre (P w) cost 776 m w) s 10083 15784 True 6897
+    GoodQP (Pre (P w) cost 777 m w) s 10083 15784 True 6897
       (ccM (verifyP ftsProgram afterProgram m pk w) Kb) :=
   verify_good hprefix fts after hnone m pk w s hs
 end
@@ -830,7 +830,7 @@ theorem fts_installed {P : Hash → Prop} :
   exact goodQP_frozen.mp h
 
 theorem after_installed (floors : SigGolfCandidate.T3.Layer → Nat) (hcredit : CreditFloors floors) :
-    AfterGoodBudget installedOut SigGolfCandidate.T3M.Verify.afterFts 5249
+    AfterGoodBudget installedOut SigGolfCandidate.T3M.Verify.afterFts 5248
       (fun w => HashOkBy floors (ClaudeWCT.W9.T3M.wtopHigh w)) :=
   fun pk w Q hQ answer top state hstate =>
     SigGolfCandidate.T3M.after_good_budget floors hcredit pk w Q hQ answer top state hstate
@@ -839,7 +839,7 @@ theorem installed_verify_good (floors : SigGolfCandidate.T3.Layer → Nat) (hcre
     (message : SigGolfCandidate.Legacy.Message) (pk : PublicKey) (witness : WB) (state : MachineState)
     (hstate : initialState submission .verify (message, pk, witness) = some state) :
     GoodQP (Pre (HashOkBy floors (ClaudeWCT.W9.T3M.wtopHigh witness))
-      SigGolfCandidate.Research.SharedForest.jointAccountingCost 776 message witness)
+      SigGolfCandidate.Research.SharedForest.jointAccountingCost 777 message witness)
       state 10083 15784 True 6897
       (ccM (verifyP installedFts SigGolfCandidate.T3M.Verify.afterFts message pk witness) Kb) :=
   verify_good_6997 (P := fun w => HashOkBy floors (ClaudeWCT.W9.T3M.wtopHigh w)) W9Fin.V7.prefixGood
@@ -866,7 +866,7 @@ theorem paired_ftsP_eq (w : ClaudeWCT.W9.T3M.WBytes) (output : HashOutput) :
     funext (fun state => funext (fun coord => paired_ftsStep_eq w output state coord))
   rw [hs]
   unfold W9Drv.SharedCoord.ftsN
-  cases h : decide (output.toNat / 2^242 % 16384 < 791) <;>
+  cases h : decide (output.toNat / 2^242 % 16384 < 812) <;>
     try simp only [Bool.not_false,Bool.not_true,Bool.false_eq_true,↓reduceIte]
   rfl
 

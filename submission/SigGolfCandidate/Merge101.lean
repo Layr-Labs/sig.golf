@@ -844,9 +844,16 @@ def TopTrial (T : Answers) (x : HashInput) : Prop :=
     k < WCT9.honestNonce T lay tree level c ∧
     x = pad64 (WCT9.merkleNodeInputN lay.val tree (2 ^ (height lay - level - 1) + c) k
       (treeValue (WCT9.wotsTree T lay tree) level (2 * c)) (treeValue (WCT9.wotsTree T lay tree) level (2 * c + 1)))
+/-- E8: a rejected FTS ground trial (nonce below the honest one) of a level-3 (heap `8 + c`) node, with honest
+children. -/
+def FtsTrial (T : Answers) (x : HashInput) : Prop :=
+  ∃ (index coord c k : Nat), index < 2 ^ 31 ∧ coord < 9 ∧ c < 8 ∧
+    k < Extract.Paired.honestFtsNonce T index coord (8 + c) ∧
+    x = pad64 (WCT9.wctTopInput coord index (8 + c) ((Extract.Paired.nodes T index coord).getD (2 * (8 + c)) 0)
+      (BitVec.ofNat 128 (k % 2 ^ 64)) ((Extract.Paired.nodes T index coord).getD (2 * (8 + c) + 1) 0))
 def HonestQuery (T : Answers) : SigGolfCandidate.T3.Spec.Domain → Prop
   | .inl (.inr x) => Extract.posOf x = none ∨ (∃ p : Extract.Pos, Extract.Paired.Bounded p ∧ x = Extract.Paired.honestInput T p) ∨
-      TopTrial T x
+      TopTrial T x ∨ FtsTrial T x
   | _ => True
 theorem honestQuery_private (T : Answers) (c : Coordinate) : HonestQuery T (.inr c) := trivial
 theorem honestQuery_honest (T : Answers) (p : Extract.Pos) (hp : Extract.Paired.Bounded p) :
@@ -1193,8 +1200,8 @@ theorem honestQuery_topTrial (T : Answers) (level c k : Nat) (hl : level < 11) (
   rw [← WCT9.merkleNodeInputN_top 0]
   rcases Nat.lt_or_ge k (WCT9.honestNonce T 0 0 level c) with hlt | hge
   · have hh0 : height (0 : Layer) - level - 1 = 11 - level := by simp [height]; omega
-    refine Or.inr (Or.inr ⟨0, 0, level, c, k, by simp [Extract.treeBits], by simp [height]; omega, Or.inl rfl,
-      by rw [hh0]; exact hc, hlt, ?_⟩)
+    refine Or.inr (Or.inr (Or.inl ⟨0, 0, level, c, k, by simp [Extract.treeBits], by simp [height]; omega, Or.inl rfl,
+      by rw [hh0]; exact hc, hlt, ?_⟩))
     rw [hh0]
     rfl
   · have heq : k = WCT9.honestNonce T 0 0 level c := le_antisymm hk hge
@@ -1489,7 +1496,7 @@ theorem honestQuery_lowerNode (T : Answers) (lay : Layer) (tree : Nat) (ht : tre
   rw [← Nat.sub_sub] at hk ⊢
   rw [← WCT9.honestNonce_lowerAt T hlay tree level node hlevel hc] at hk
   rcases Nat.lt_or_ge k (WCT9.honestNonce T lay tree level node) with hlt | hge
-  · exact Or.inr (Or.inr ⟨lay, tree, level, node, k, ht, hlevel, hroot, hc, hlt, rfl⟩)
+  · exact Or.inr (Or.inr (Or.inl ⟨lay, tree, level, node, k, ht, hlevel, hroot, hc, hlt, rfl⟩))
   · have heq : k = WCT9.honestNonce T lay tree level node := le_antisymm hk hge
     subst heq
     refine Or.inr (Or.inl ⟨.node lay tree level node, ⟨by
@@ -1904,9 +1911,40 @@ attribute [local irreducible] SharedForest.sharedNodes SharedForest.firstNodes S
 attribute [local irreducible] Extract.Paired.pads Extract.Paired.pairPrev Extract.Paired.nodes
 variable (T : Answers) (index : Nat) (hidx : index < 2^31)
 
+/-! E8: the FTS ground search queries its trials up to the found nonce. -/
+def ftsQueryN (coord index heap k : Nat) (left right : Digest) : SigGolfCandidate.T3.Spec.Domain :=
+  .inl (.inr (pad64 (WCT9.ftsNodeInputN coord index heap k left right)))
+theorem eval_ftsNonceSearch_succ_of_not (coord index heap : Nat) (left right : Digest) (fuel n : Nat)
+    (hz : ¬ WCT9.ftsZeroOk coord heap (evalWithAnswerFn T (WCT9.ftsNodeHashN coord index heap n left right)) = true) :
+    evalWithAnswerFn T (WCT9.ftsNonceSearch coord index heap left right (fuel + 1) n) =
+      evalWithAnswerFn T (WCT9.ftsNonceSearch coord index heap left right fuel (n + 1)) := by
+  simp only [WCT9.ftsNonceSearch, evalWithAnswerFn_bind]
+  rw [if_neg hz]
+theorem sat_ftsNonceSearch {Q : SigGolfCandidate.T3.Spec.Domain → Prop} (coord index heap : Nat)
+    (left right : Digest) :
+    ∀ fuel n, (∀ k, n ≤ k → k ≤ (evalWithAnswerFn T (WCT9.ftsNonceSearch coord index heap left right fuel n)).1 →
+        Q (ftsQueryN coord index heap k left right)) →
+      QueriesSat T Q (WCT9.ftsNonceSearch coord index heap left right fuel n)
+  | 0, n, hk => by
+      have h1 := hk n le_rfl (Extract.Paired.ftsNonceSearch_fst_le T coord index heap left right 0 n).1
+      unfold WCT9.ftsNonceSearch
+      exact QueriesSat.bind (SigGolfCandidate.T3.Security.Wots.Structural.sat_shortHash _ h1) (QueriesSat.pure' _)
+  | fuel + 1, n, hk => by
+      have h1 := hk n le_rfl (Extract.Paired.ftsNonceSearch_fst_le T coord index heap left right (fuel + 1) n).1
+      have hrec : ¬ WCT9.ftsZeroOk coord heap (evalWithAnswerFn T (WCT9.ftsNodeHashN coord index heap n left right)) =
+            true → QueriesSat T Q (WCT9.ftsNonceSearch coord index heap left right fuel (n + 1)) := fun hz =>
+        sat_ftsNonceSearch coord index heap left right fuel (n + 1) (fun k hk1 hk2 => hk k (by omega) (by
+          rw [eval_ftsNonceSearch_succ_of_not T coord index heap left right fuel n hz]
+          exact hk2))
+      unfold WCT9.ftsNonceSearch
+      refine QueriesSat.bind (SigGolfCandidate.T3.Security.Wots.Structural.sat_shortHash _ h1) ?_
+      split
+      · exact QueriesSat.pure' _
+      · next hz => exact hrec hz
+
  include hidx in
 theorem honest_sharedNode_input (coord : Coord) (heap : Nat)
-    (hcut:SharedForest.heapCut (Extract.Paired.first coord.val) ≤ heap) (hh:heap<128) :
+    (hcut:SharedForest.heapCut (Extract.Paired.first coord.val) ≤ heap) (hh:heap<128) (hg : ¬(8 ≤ heap ∧ heap < 16)) :
     HonestQuery T (.inl (.inr (pad64 (wctTopInput coord.val index heap
       ((Extract.Paired.nodes T index coord.val).getD (2*heap) 0)
       (if 4≤heap ∧ heap<8 then (Extract.Paired.pads T index coord.val (heap/2-2)).2 else 0)
@@ -1927,7 +1965,14 @@ theorem honest_sharedNode_input (coord : Coord) (heap : Nat)
     have hhi:heap<2*2^(6-Extract.heapLevel heap) := by omega
     generalize Extract.heapLevel heap=L at hL hlo hhi ⊢
     interval_cases L <;> norm_num at hlo hhi ⊢ <;> omega
-  simp only [Extract.Paired.honestInput,hH,he]
+  have h3 : Extract.heapLevel heap≠3 := by
+    have hlo:2^(6-Extract.heapLevel heap)≤heap := by omega
+    have hhi:heap<2*2^(6-Extract.heapLevel heap) := by omega
+    intro h3
+    rw [h3] at hlo hhi
+    norm_num at hlo hhi
+    omega
+  simp only [Extract.Paired.honestInput,hH,he,if_neg h3]
 
  include hidx in
 theorem sat_sharedNode (coord : Coord) (heap : Nat)
@@ -1937,7 +1982,27 @@ theorem sat_sharedNode (coord : Coord) (heap : Nat)
         (Extract.Paired.pads T index coord.val)
         ((Extract.Paired.nodes T index coord.val).getD (2*heap) 0)
         ((Extract.Paired.nodes T index coord.val).getD (2*heap+1) 0)) := by
-  have hq:=honest_sharedNode_input T index hidx coord heap hcut hh
+  by_cases hg : 8 ≤ heap ∧ heap < 16
+  · -- E8: the FTS ground trials are honest queries: the found one is the honest input, the earlier ones `FtsTrial`s.
+    obtain ⟨c, rfl⟩ : ∃ c, heap = 8 + c := ⟨heap - 8, by omega⟩
+    rw [Extract.Paired.sharedNode_ground _ _ _ _ _ hg.1 hg.2]
+    unfold ftsNodeG
+    refine QueriesSat.map _ ?_
+    rw [Extract.Paired.ftsNodeAt_ground hg.1 hg.2]
+    refine sat_ftsNonceSearch T coord.val index (8 + c) _ _ _ 0 (fun k _ hk => ?_)
+    rw [← Extract.Paired.ftsNodeAt_ground hg.1 hg.2] at hk
+    change k ≤ Extract.Paired.honestFtsNonce T index coord.val (8 + c) at hk
+    unfold ftsQueryN
+    rw [ftsNodeInputN_eq_top]
+    rcases Nat.lt_or_ge k (Extract.Paired.honestFtsNonce T index coord.val (8 + c)) with hlt | hge
+    · exact Or.inr (Or.inr (Or.inr ⟨index, coord.val, c, k, hidx, coord.isLt, by omega, hlt, rfl⟩))
+    · have heq : k = Extract.Paired.honestFtsNonce T index coord.val (8 + c) := le_antisymm hk hge
+      subst heq
+      refine Or.inr (Or.inl ⟨.wctNode index coord.val 3 c, ⟨⟨hidx, coord.isLt, by decide, by norm_num; omega⟩,
+        fun _ => by decide⟩, ?_⟩)
+      simp only [Extract.Paired.honestInput, if_neg (show (3:Nat) ≠ 4 by decide), if_pos (rfl : (3:Nat) = 3),
+        show 2 ^ (6 - 3) + c = 8 + c by norm_num, if_true]
+  have hq:=honest_sharedNode_input T index hidx coord heap hcut hh hg
   unfold SharedForest.sharedNode
   split_ifs with h4 h8 hf
   · unfold SharedForest.sharedOuterHash
@@ -1950,7 +2015,7 @@ theorem sat_sharedNode (coord : Coord) (heap : Nat)
   · rw [if_pos (show 4≤heap ∧ heap<8 by omega)] at hq
     exact SigGolfCandidate.T3.Security.Wots.Structural.sat_shortHash _ hq
   · rw [if_neg (by omega : ¬(4≤heap ∧ heap<8)),wctTopInput_zero] at hq
-    rw [nodeHashH_eq]
+    rw [ftsNodeG_of_zero (ftsZeroBits_off hg), nodeHashH_eq]
     exact ClaudeWCT.WCT9.Wots.Structural.sat_ftsHash T _ _ hq
 
 end ClaudeWCT.W9.T3.Security.Wots.PairedStructural

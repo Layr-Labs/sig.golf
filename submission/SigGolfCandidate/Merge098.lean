@@ -61,9 +61,9 @@ theorem submission_verificationBound (E : EncodingFacts) (F : SourceQueries) (P 
   have heq:=Credit.Paired.verify_run_agree E F P hash (okHashBy floors wt.topHigh hash) m pk _ hagree
   rw [hcyc,witnessCycles_eq,heq]
   rw [heq] at hacc
-  have hok : HashOkBy floors (ClaudeWCT.W9.T3M.wtopHigh (ClaudeWCT.W9.T3M.Paired.witEncG output wt))
+  have hok : HashOkBy floors (ClaudeWCT.W9.T3M.wtopHigh (ClaudeWCT.W9.T3M.Paired.witEncF output wt))
       (okHashBy floors wt.topHigh hash) := by
-    rw [ClaudeWCT.W9.T3M.Paired.wtopHigh_witEncG]; exact hashOkBy_okHashBy floors wt.topHigh hash
+    rw [ClaudeWCT.W9.T3M.Paired.wtopHigh_witEncF]; exact hashOkBy_okHashBy floors wt.topHigh hash
   have hc:=P.verify_accept_cycles floors hfloors (okHashBy floors wt.topHigh hash) m pk _
     hok (Credit.Paired.digestCap_okHashBy floors wt.topHigh hash m pk sig output wt hx) hacc
   unfold verifyCycleBound at hc
@@ -4964,7 +4964,7 @@ open ClaudeWCT.W9.T3M (Images)
 variable (I : Images)
 theorem keygen_run_eq (hadm : (submission I).Admissible) (sk : SecretKey) :
     (submission I).run .keygen sk = SigGolfCandidate.T3M.submission.run .keygen sk := by
-  have hvA : ((submission I).image .keygen).Valid ⟨5190, 21756, 131072⟩ ⟨0x65A0, 0x80, 0xa0, 0x80000, 0x7000, 0x10A0⟩ :=
+  have hvA : ((submission I).image .keygen).Valid ⟨5189, 21756, 131072⟩ ⟨0x65A0, 0x80, 0xa0, 0x80000, 0x7000, 0x10A0⟩ :=
     hadm.2 .keygen
   have hvB : (SigGolfCandidate.T3M.submission.image .keygen).Valid
       ⟨SigGolfCandidate.T3M.submission.sizes.signature, SigGolfCandidate.T3M.submission.sizes.witness, 131072⟩
@@ -5113,10 +5113,16 @@ attribute [local instance low] Classical.propDecidable
 
 /-- Some multi-trial position exhausts its nonce cap: every trial inside the cap fails the zero test. The positions are
 the top positions below the root and (U16b) the lower ground positions (heaps 2..15, `lowerZeroBits ≠ 0`). -/
-def CapFail (labels : Labels) : Prop :=
+def CapFailT (labels : Labels) : Prop :=
   ∃ n : TreeNode, ((n.1.lay = 0 ∧ n.1.level.val < 11) ∨
       (n.1.lay ≠ 0 ∧ WCT9.lowerZeroBits n.1.lay.val (2 ^ (height n.1.lay - n.1.level.val - 1)) ≠ 0)) ∧
     n.1.nonce.val = 0 ∧ ∀ j < trialCap n.1.lay n.1.level.val, trialFails labels n j
+/-- E8: some FTS ground position (node level 3, nonce-0 representative) exhausts its cap. -/
+def CapFailW (labels : Labels) : Prop :=
+  ∃ m : WctNodePos, m.1.level.val = 3 ∧ m.1.nonce.val = 0 ∧
+    ∀ j < wTrialCap m.1.coord.val m.1.level.val, wTrialFails labels m j
+/-- Some multi-trial position (tree or, E8, FTS ground) exhausts its nonce cap. -/
+def CapFail (labels : Labels) : Prop := CapFailT labels ∨ CapFailW labels
 
 noncomputable local instance instSampleableTypeLabels_capFail : SampleableType Labels :=
   SampleableType.ofFintype _
@@ -5560,11 +5566,11 @@ theorem mem_lowReps (n : TreeNode) :
   simp only [lowReps, Finset.mem_filter, Finset.mem_univ, true_and]
 
 theorem capFail_eq :
-    CapFail = fun labels : Labels =>
+    CapFailT = fun labels : Labels =>
       ∃ n ∈ topReps ∪ lowReps, ∀ j < trialCap n.1.lay n.1.level.val, trialFails labels n j := by
   funext labels
   apply propext
-  unfold CapFail
+  unfold CapFailT
   simp only [Finset.mem_union, mem_topReps, mem_lowReps]
   constructor
   · rintro ⟨n, hpos, h0, hall⟩
@@ -5683,19 +5689,184 @@ theorem prob_allFail_le_low (n : TreeNode) (hl : n.1.lay ≠ 0)
   rw [trialSet_card, trialCap_lowerG hl hb]
   rfl
 
+/-! ### E8: the FTS ground positions (`b = ftsZeroBits coord 8 ∈ {1, 2}`, cap `128 · 2^b`) -/
+
+theorem ftsZeroBits_le_two (coord heap : Nat) : WCT9.ftsZeroBits coord heap ≤ 2 := by
+  unfold WCT9.ftsZeroBits; split_ifs <;> omega
+
+theorem card_pass_digest_fts (coord : Nat) :
+    2 ^ (128 - WCT9.ftsZeroBits coord 8) ≤
+      (Finset.univ.filter (fun d : BitVec 128 => WCT9.ftsZeroOk coord 8 d = true)).card := by
+  have hb := ftsZeroBits_le_two coord 8
+  have hlt : 2 ^ (128 - WCT9.ftsZeroBits coord 8) ≤ 2 ^ 128 := Nat.pow_le_pow_right (by decide) (by omega)
+  have hc : (Finset.range (2 ^ (128 - WCT9.ftsZeroBits coord 8))).card = 2 ^ (128 - WCT9.ftsZeroBits coord 8) :=
+    Finset.card_range _
+  rw [← hc]
+  apply Finset.card_le_card_of_injOn (fun x : Nat => (BitVec.ofNat 128 x : BitVec 128))
+  · intro x hx
+    simp only [Finset.coe_range, Set.mem_Iio] at hx
+    refine Finset.mem_coe.mpr (Finset.mem_filter.mpr ⟨Finset.mem_univ _, ?_⟩)
+    unfold WCT9.ftsZeroOk
+    simp only [BitVec.toNat_ofNat, beq_iff_eq]
+    rw [Nat.mod_eq_of_lt (by omega)]
+    exact Nat.div_eq_of_lt hx
+  · intro x hx y hy heq
+    simp only [Finset.coe_range, Set.mem_Iio] at hx hy
+    have := congrArg BitVec.toNat heq
+    simp only [BitVec.toNat_ofNat] at this
+    rwa [Nat.mod_eq_of_lt (by omega), Nat.mod_eq_of_lt (by omega)] at this
+
+theorem card_fail_hash_fts (coord : Nat) :
+    (Finset.univ.filter (fun v : BitVec 256 =>
+        WCT9.ftsZeroOk coord 8 ((Extract.Pos.forest 0).proj v) = false)).card +
+      2 ^ (256 - WCT9.ftsZeroBits coord 8) ≤ 2 ^ 256 := by
+  have hsum := Finset.card_filter_add_card_filter_not
+    (s := (Finset.univ : Finset (BitVec 256))) (fun v => WCT9.ftsZeroOk coord 8 ((Extract.Pos.forest 0).proj v) = false)
+  rw [Finset.card_univ, Fintype.card_bitVec] at hsum
+  have := card_pass_hash_of (Extract.Pos.forest 0) (WCT9.ftsZeroOk coord 8)
+    (by have := ftsZeroBits_le_two coord 8; omega) (card_pass_digest_fts coord)
+  change _ = 2 ^ 256 at hsum
+  omega
+
+theorem prob_ftsFail_le (coord : Nat) (S : Finset Node) (hS : S.card = 128 * 2 ^ WCT9.ftsZeroBits coord 8) :
+    Pr[fun labels : Labels => ∀ a ∈ S,
+        (fun v => WCT9.ftsZeroOk coord 8 ((Extract.Pos.forest 0).proj v) = false) (labels a) |
+      ($ᵗ Labels : ProbComp Labels)] ≤ ENNReal.ofReal ((36788 / 100000 : ℝ) ^ 128) := by
+  classical
+  refine (le_of_eq (prob_forall_mem (α := Node) (β := HashOutput) (inst := instSampleableTypeLabels_capFail)
+    S (fun v => WCT9.ftsZeroOk coord 8 ((Extract.Pos.forest 0).proj v) = false))).trans ?_
+  rw [hS, Fintype.card_bitVec]
+  have hb := ftsZeroBits_le_two coord 8
+  refine le_trans ?_ (ENNReal.ofReal_le_ofReal (lowFail_le (WCT9.ftsZeroBits coord 8)))
+  rw [ENNReal.ofReal_pow (by
+    have : (1 / 2 : ℝ) ^ WCT9.ftsZeroBits coord 8 ≤ 1 := pow_le_one₀ (by norm_num) (by norm_num)
+    linarith)]
+  gcongr
+  have hf := card_fail_hash_fts coord
+  have := ratio_le hf (by omega)
+  convert this using 2
+
+/-- The cap trials of the FTS position of `m`. -/
+def wTrialSet (m : WctNodePos) : Finset Node :=
+  (Finset.range (wTrialCap m.1.coord.val m.1.level.val)).image (fun j => Node.wctNode (wWithNonce m j))
+
+theorem wTrialSet_card (m : WctNodePos) : (wTrialSet m).card = wTrialCap m.1.coord.val m.1.level.val := by
+  unfold wTrialSet
+  rw [Finset.card_image_of_injOn, Finset.card_range]
+  intro i hi j hj hij
+  simp only [Finset.coe_range, Set.mem_Iio] at hi hj
+  have hc := wTrialCap_le m.1.coord.val m.1.level.val
+  have h := congrArg (fun x : WctNodePos => x.1.nonce.val) (Node.wctNode.inj hij)
+  rwa [wWithNonce_nonce m (by omega), wWithNonce_nonce m (by omega)] at h
+
+/-- E8: one FTS ground position exhausts its `128 · 2^b` trials with probability at most `0.36788^128`. -/
+theorem prob_wAllFail_le (m : WctNodePos) (h3 : m.1.level.val = 3) :
+    Pr[fun labels : Labels => ∀ j < wTrialCap m.1.coord.val m.1.level.val, wTrialFails labels m j |
+      ($ᵗ Labels : ProbComp Labels)] ≤ ENNReal.ofReal ((36788 / 100000 : ℝ) ^ 128) := by
+  classical
+  have hev : (fun labels : Labels => ∀ j < wTrialCap m.1.coord.val m.1.level.val, wTrialFails labels m j) =
+      (fun labels : Labels => ∀ a ∈ wTrialSet m,
+        (fun v => WCT9.ftsZeroOk m.1.coord.val 8 ((Extract.Pos.forest 0).proj v) = false) (labels a)) := by
+    funext labels
+    apply propext
+    unfold wTrialSet
+    constructor
+    · intro h a ha
+      obtain ⟨j, hj, rfl⟩ := Finset.mem_image.mp ha
+      exact h j (Finset.mem_range.mp hj)
+    · intro h j hj
+      exact h _ (Finset.mem_image.mpr ⟨j, Finset.mem_range.mpr hj, rfl⟩)
+  rw [hev]
+  apply prob_ftsFail_le
+  rw [wTrialSet_card]
+  unfold wTrialCap WCT9.ftsNonceCap
+  rw [if_pos h3]
+
+/-- E8: the nonce-0 representatives of the FTS ground positions. -/
+def wctReps : Finset WctNodePos :=
+  Finset.univ.filter (fun m : WctNodePos => m.1.level.val = 3 ∧ m.1.nonce.val = 0)
+
+theorem card_wctReps_le : wctReps.card ≤ 72 * 2 ^ 31 := by
+  have hU : (Finset.univ : Finset (Fin (2 ^ 31) × Fin 9 × Fin 8)).card = 72 * 2 ^ 31 := by
+    simp [Finset.card_univ, Fintype.card_prod, Fintype.card_fin]
+  rw [← hU]
+  apply Finset.card_le_card_of_injOn (fun m : WctNodePos =>
+    (m.1.index, m.1.coord, (⟨m.1.idx.val % 8, Nat.mod_lt _ (by norm_num)⟩ : Fin 8)))
+  · intro m _; simp
+  · intro n hn m hm heq
+    simp only [wctReps, Finset.coe_filter, Finset.mem_univ, true_and, Set.mem_setOf_eq] at hn hm
+    have hvn : n.1.idx.val < 2 ^ (7 - n.1.level.val - 1) := n.2
+    have hvm : m.1.idx.val < 2 ^ (7 - m.1.level.val - 1) := m.2
+    rw [hn.1] at hvn
+    rw [hm.1] at hvm
+    norm_num at hvn hvm
+    simp only [Prod.mk.injEq, Fin.mk.injEq] at heq
+    obtain ⟨h1, h2, h4⟩ := heq
+    rw [Nat.mod_eq_of_lt hvn, Nat.mod_eq_of_lt hvm] at h4
+    obtain ⟨⟨index, coord, level, idx, nonce⟩, hv⟩ := n
+    obtain ⟨⟨index', coord', level', idx', nonce'⟩, hv'⟩ := m
+    simp only at h1 h2 h4 hn hm
+    have e2 : level = level' := Fin.ext (by omega)
+    have e3 : idx = idx' := Fin.ext h4
+    have e4 : nonce = nonce' := Fin.ext (by omega)
+    subst h1 h2 e2 e3 e4
+    rfl
+
+theorem sum_wct_arith : ((72 * 2 ^ 31 : Nat) : ℝ) * (36788 / 100000 : ℝ) ^ 128 ≤ 1 / 2 ^ 145 := by
+  norm_num
+
+theorem sum_wctReps_le (f : WctNodePos → ℝ≥0∞)
+    (hf : ∀ m ∈ wctReps, f m ≤ ENNReal.ofReal ((36788 / 100000 : ℝ) ^ 128)) :
+    ∑ m ∈ wctReps, f m ≤ (2 ^ 145 : ℝ≥0∞)⁻¹ := by
+  calc ∑ m ∈ wctReps, f m ≤ ∑ m ∈ wctReps, ENNReal.ofReal ((36788 / 100000 : ℝ) ^ 128) := Finset.sum_le_sum hf
+    _ = (wctReps.card : ℝ≥0∞) * ENNReal.ofReal ((36788 / 100000 : ℝ) ^ 128) := by
+        rw [Finset.sum_const, nsmul_eq_mul]
+    _ ≤ ((72 * 2 ^ 31 : Nat) : ℝ≥0∞) * ENNReal.ofReal ((36788 / 100000 : ℝ) ^ 128) := by
+        gcongr; exact_mod_cast card_wctReps_le
+    _ = ENNReal.ofReal (((72 * 2 ^ 31 : Nat) : ℝ) * (36788 / 100000 : ℝ) ^ 128) := by
+        rw [ENNReal.ofReal_mul (by positivity), ENNReal.ofReal_natCast]
+    _ ≤ ENNReal.ofReal (1 / 2 ^ 145) := ENNReal.ofReal_le_ofReal sum_wct_arith
+    _ = (2 ^ 145 : ℝ≥0∞)⁻¹ := by
+        rw [one_div, ENNReal.ofReal_inv_of_pos (by positivity), ENNReal.ofReal_pow (by norm_num),
+          ENNReal.ofReal_ofNat]
+
+theorem capFailW_eq :
+    CapFailW = fun labels : Labels =>
+      ∃ m ∈ wctReps, ∀ j < wTrialCap m.1.coord.val m.1.level.val, wTrialFails labels m j := by
+  funext labels
+  apply propext
+  unfold CapFailW
+  simp only [wctReps, Finset.mem_filter, Finset.mem_univ, true_and]
+  exact ⟨fun ⟨m, h3, h0, h⟩ => ⟨m, ⟨h3, h0⟩, h⟩, fun ⟨m, ⟨h3, h0⟩, h⟩ => ⟨m, h3, h0, h⟩⟩
+
+theorem three_quarters : (2 ^ 145 : ℝ≥0∞)⁻¹ + ((2 ^ 144 : ℝ≥0∞)⁻¹ + (2 ^ 144 : ℝ≥0∞)⁻¹) ≤ (2 ^ 142 : ℝ≥0∞)⁻¹ := by
+  have e : ∀ k : ℕ, (2 ^ k : ℝ≥0∞)⁻¹ = ENNReal.ofReal (1 / 2 ^ k) := fun k => by
+    rw [one_div, ENNReal.ofReal_inv_of_pos (by positivity), ENNReal.ofReal_pow (by norm_num), ENNReal.ofReal_ofNat]
+  rw [e, e, e, ← ENNReal.ofReal_add (by positivity) (by positivity),
+    ← ENNReal.ofReal_add (by positivity) (by positivity)]
+  exact ENNReal.ofReal_le_ofReal (by norm_num)
+
 end CapFailBound
 
 open CapFailBound in
-/-- **Cap failure is negligible**: under uniformly random labels, some top position exhausts its nonce cap with
-probability at most `2^-142`. -/
-theorem prob_capFail_le :
-    Pr[CapFail | ($ᵗ Labels : ProbComp Labels)] ≤ (2 ^ 142 : ℝ≥0∞)⁻¹ := by
+/-- E8: an FTS ground position exhausts its cap with probability at most `2^-145`. -/
+theorem prob_capFailW_le :
+    Pr[CapFailW | ($ᵗ Labels : ProbComp Labels)] ≤ (2 ^ 145 : ℝ≥0∞)⁻¹ := by
+  rw [capFailW_eq]
+  refine (probEvent_exists_finset_le_sum wctReps _ _).trans ?_
+  exact sum_wctReps_le _ fun m hm => by
+    simp only [wctReps, Finset.mem_filter, Finset.mem_univ, true_and] at hm
+    exact prob_wAllFail_le m hm.1
+
+open CapFailBound in
+theorem prob_capFailT_le :
+    Pr[CapFailT | ($ᵗ Labels : ProbComp Labels)] ≤ (2 ^ 144 : ℝ≥0∞)⁻¹ + (2 ^ 144 : ℝ≥0∞)⁻¹ := by
   rw [capFail_eq]
   refine (probEvent_exists_finset_le_sum (topReps ∪ lowReps) _ _).trans ?_
   rw [Finset.sum_union disjoint_reps]
-  refine le_trans (add_le_add ?_ (sum_lowReps_le _ fun n hn => by
+  refine add_le_add ?_ (sum_lowReps_le _ fun n hn => by
     simp only [lowReps, Finset.mem_filter, Finset.mem_univ, true_and] at hn
-    exact prob_allFail_le_low n hn.1 hn.2.1)) half_add_half
+    exact prob_allFail_le_low n hn.1 hn.2.1)
   calc ∑ n ∈ topReps, Pr[fun labels : Labels =>
           ∀ j < trialCap n.1.lay n.1.level.val, trialFails labels n j | ($ᵗ Labels : ProbComp Labels)]
       ≤ ∑ n ∈ topReps, ENNReal.ofReal (failR n.1.level.val) := by
@@ -5729,6 +5900,31 @@ theorem prob_capFail_le :
         rw [one_div, ENNReal.ofReal_inv_of_pos (by positivity), ENNReal.ofReal_pow (by norm_num),
           ENNReal.ofReal_ofNat]
 
+
+open CapFailBound in
+/-- **Cap failure is negligible**: under uniformly random labels, some multi-trial position exhausts its nonce cap
+with probability at most `2^-142` (top and lower ground positions `≤ 2 · 2^-144`, E8: FTS ground positions
+`≤ 2^-145`). -/
+theorem prob_capFail_le :
+    Pr[CapFail | ($ᵗ Labels : ProbComp Labels)] ≤ (2 ^ 142 : ℝ≥0∞)⁻¹ := by
+  have hsplit : CapFail = fun labels : Labels =>
+      ∃ b ∈ (Finset.univ : Finset Bool), (if b then CapFailW labels else CapFailT labels) := by
+    funext labels
+    apply propext
+    unfold CapFail
+    constructor
+    · rintro (h | h)
+      · exact ⟨false, Finset.mem_univ _, by simpa using h⟩
+      · exact ⟨true, Finset.mem_univ _, by simpa using h⟩
+    · rintro ⟨b, -, h⟩
+      cases b
+      · exact Or.inl (by simpa using h)
+      · exact Or.inr (by simpa using h)
+  rw [hsplit]
+  refine (probEvent_exists_finset_le_sum (Finset.univ : Finset Bool) _ _).trans ?_
+  rw [Fintype.sum_bool]
+  simp only [↓reduceIte, Bool.false_eq_true]
+  exact le_trans (add_le_add prob_capFailW_le prob_capFailT_le) three_quarters
 
 end ClaudeWCT.W9.T3.Security.CanonGraph
 end
@@ -6980,10 +7176,31 @@ instance (v : Coord → Digest) (n : TreeNode) : Decidable (ActiveV v n) := by u
 def selNonceV (v : Coord → Digest) (n : TreeNode) : Nat :=
   ((List.range (trialCap n.1.lay n.1.level.val)).find? fun j => !decide (trialFailsV v n j)).getD
     (trialCap n.1.lay n.1.level.val - 1)
-/-- The selected trial coordinate of a tree-node coordinate (identity on other coordinates). -/
+/-! E8: the FTS ground trials at the value level (the mirror of `CanonGraph.wSelNonce`). -/
+/-- Coordinate of FTS trial `j` of the position of `n`. -/
+def wTrialCoord (n : WctNodePos) (j : Nat) : Coord := .inl (.wctNode (wWithNonce n j))
+/-- Value-level `wTrialFails`. -/
+def wTrialFailsV (v : Coord → Digest) (n : WctNodePos) (j : Nat) : Prop :=
+  WCT9.ftsZeroOk n.1.coord.val 8 (v (wTrialCoord n j)) = false
+instance (v : Coord → Digest) (n : WctNodePos) (j : Nat) : Decidable (wTrialFailsV v n j) := by
+  unfold wTrialFailsV; infer_instance
+/-- Value-level `WActive`. -/
+def WActiveV (v : Coord → Digest) (n : WctNodePos) : Prop :=
+  n.1.nonce.val < wTrialCap n.1.coord.val n.1.level.val ∧ ∀ j < n.1.nonce.val, wTrialFailsV v n j
+instance (v : Coord → Digest) (n : WctNodePos) : Decidable (WActiveV v n) := by unfold WActiveV; infer_instance
+/-- Value-level `wSelNonce`. -/
+def wSelNonceV (v : Coord → Digest) (n : WctNodePos) : Nat :=
+  ((List.range (wTrialCap n.1.coord.val n.1.level.val)).find? fun j => !decide (wTrialFailsV v n j)).getD
+    (wTrialCap n.1.coord.val n.1.level.val - 1)
+/-- The selected trial coordinate of a tree-node or FTS-node coordinate (identity on other coordinates). -/
 def selCoordV (v : Coord → Digest) : Coord → Coord
   | .inl (.node n) => .inl (.node (withNonce n (selNonceV v n)))
+  | .inl (.wctNode n) => .inl (.wctNode (wWithNonce n (wSelNonceV v n)))
   | c => c
+/-- E8: trials read by the cell of an FTS node of this position (none for single-trial positions). -/
+def wTrialDeps (n : WctNodePos) : List Coord :=
+  if wTrialCap n.1.coord.val n.1.level.val = 1 then [] else
+    (List.range (wTrialCap n.1.coord.val n.1.level.val)).map (wTrialCoord n)
 /-- Tree value from coordinate values: the value of the selected trial of the child position. -/
 def treeVal (v : Coord → Digest) (lay : Layer) (tree : Fin (2^31)) (level c : Nat) : Digest :=
   ((treeChild lay tree level c).map fun x => v (selCoordV v x)).getD 0
@@ -7024,6 +7241,44 @@ theorem selNonceV_congr {v w : Coord → Digest} {n : TreeNode}
 theorem selNonceV_cap_one {v : Coord → Digest} {n : TreeNode} (h : trialCap n.1.lay n.1.level.val = 1) :
     selNonceV v n = 0 := by
   have := selNonceV_lt v n; omega
+theorem wSelNonceV_lt (v : Coord → Digest) (n : WctNodePos) :
+    wSelNonceV v n < wTrialCap n.1.coord.val n.1.level.val := by
+  have hc := wTrialCap_pos n.1.coord.val n.1.level.val
+  unfold wSelNonceV
+  cases hf : (List.range (wTrialCap n.1.coord.val n.1.level.val)).find? fun j => !decide (wTrialFailsV v n j) with
+  | none => simp only [Option.getD_none]; omega
+  | some j =>
+      simp only [Option.getD_some]
+      exact List.mem_range.mp (List.mem_of_find?_eq_some hf)
+theorem wSelNonceV_congr {v w : Coord → Digest} {n : WctNodePos}
+    (h : ∀ j < wTrialCap n.1.coord.val n.1.level.val, v (wTrialCoord n j) = w (wTrialCoord n j)) :
+    wSelNonceV v n = wSelNonceV w n := by
+  unfold wSelNonceV
+  congr 1
+  apply find?_congr'
+  intro j hj
+  rw [List.mem_range] at hj
+  have hiff : wTrialFailsV v n j ↔ wTrialFailsV w n j := by unfold wTrialFailsV; rw [h j hj]
+  simp only [decide_eq_decide.mpr hiff]
+theorem wSelNonceV_cap_one {v : Coord → Digest} {n : WctNodePos} (h : wTrialCap n.1.coord.val n.1.level.val = 1) :
+    wSelNonceV v n = 0 := by
+  have := wSelNonceV_lt v n; omega
+theorem wActiveV_congr {v w : Coord → Digest} {n : WctNodePos}
+    (h : wTrialCap n.1.coord.val n.1.level.val ≠ 1 →
+      ∀ j < wTrialCap n.1.coord.val n.1.level.val, v (wTrialCoord n j) = w (wTrialCoord n j)) :
+    WActiveV v n ↔ WActiveV w n := by
+  unfold WActiveV wTrialFailsV
+  by_cases h1 : wTrialCap n.1.coord.val n.1.level.val = 1
+  · rw [h1]
+    constructor <;> rintro ⟨hn, -⟩ <;> exact ⟨hn, fun j hj => by omega⟩
+  · constructor <;> rintro ⟨hn, hj⟩ <;> refine ⟨hn, fun j hjn => ?_⟩
+    · rw [← h h1 j (by omega)]; exact hj j hjn
+    · rw [h h1 j (by omega)]; exact hj j hjn
+theorem mem_wTrialDeps {n : WctNodePos} (h : wTrialCap n.1.coord.val n.1.level.val ≠ 1) {j : Nat}
+    (hj : j < wTrialCap n.1.coord.val n.1.level.val) : wTrialCoord n j ∈ wTrialDeps n := by
+  unfold wTrialDeps
+  rw [if_neg h]
+  exact List.mem_map.mpr ⟨j, List.mem_range.mpr hj, rfl⟩
 theorem activeV_congr {v w : Coord → Digest} {n : TreeNode}
     (h : trialCap n.1.lay n.1.level.val ≠ 1 → ∀ j < trialCap n.1.lay n.1.level.val, v (trialCoord n j) = w (trialCoord n j)) :
     ActiveV v n ↔ ActiveV w n := by
@@ -7042,14 +7297,27 @@ theorem mem_trialDeps {n : TreeNode} (h : trialCap n.1.lay n.1.level.val ≠ 1) 
 /-- Selection of a coordinate only reads the trials of its position. -/
 theorem selCoordV_congr {v w : Coord → Digest} (c : Coord)
     (h : ∀ n : TreeNode, c = .inl (.node n) → trialCap n.1.lay n.1.level.val ≠ 1 →
-      ∀ j < trialCap n.1.lay n.1.level.val, v (trialCoord n j) = w (trialCoord n j)) :
+      ∀ j < trialCap n.1.lay n.1.level.val, v (trialCoord n j) = w (trialCoord n j))
+    (hw : ∀ n : WctNodePos, c = .inl (.wctNode n) → wTrialCap n.1.coord.val n.1.level.val ≠ 1 →
+      ∀ j < wTrialCap n.1.coord.val n.1.level.val, v (wTrialCoord n j) = w (wTrialCoord n j)) :
     selCoordV v c = selCoordV w c := by
-  rcases c with (_ | _ | n | _ | _ | _ | _) | s
+  rcases c with (_ | _ | n | _ | _ | n | _) | s
   all_goals try rfl
-  simp only [selCoordV]
-  by_cases h1 : trialCap n.1.lay n.1.level.val = 1
-  · rw [selNonceV_cap_one h1, selNonceV_cap_one h1]
-  · rw [selNonceV_congr (h n rfl h1)]
+  · simp only [selCoordV]
+    by_cases h1 : trialCap n.1.lay n.1.level.val = 1
+    · rw [selNonceV_cap_one h1, selNonceV_cap_one h1]
+    · rw [selNonceV_congr (h n rfl h1)]
+  · simp only [selCoordV]
+    by_cases h1 : wTrialCap n.1.coord.val n.1.level.val = 1
+    · rw [wSelNonceV_cap_one h1, wSelNonceV_cap_one h1]
+    · rw [wSelNonceV_congr (hw n rfl h1)]
+/-- A tree child is no FTS node. -/
+theorem treeChild_not_wct {lay : Layer} {tree : Fin (2^31)} {level c : Nat} {x : Coord}
+    (hx : treeChild lay tree level c = some x) : ∀ n : WctNodePos, x ≠ .inl (.wctNode n) := by
+  intro n hn
+  subst hn
+  unfold treeChild at hx
+  split_ifs at hx <;> simp at hx
 theorem treeVal_congr {v w : Coord → Digest} (lay : Layer) (tree : Fin (2^31)) (level c : Nat)
     (h : ∀ x ∈ (treeChild lay tree level c).toList, v (selCoordV v x) = w (selCoordV v x))
     (hd : ∀ x ∈ childTrialDeps lay tree level c, v x = w x) :
@@ -7064,11 +7332,12 @@ theorem treeVal_congr {v w : Coord → Digest} (lay : Layer) (tree : Fin (2^31))
       rw [hx]
       congr 1
       apply selCoordV_congr
-      intro n hn h1 j hj
-      apply hd
-      unfold childTrialDeps
-      rw [ht, hn]
-      exact mem_trialDeps h1 hj
+      · intro n hn h1 j hj
+        apply hd
+        unfold childTrialDeps
+        rw [ht, hn]
+        exact mem_trialDeps h1 hj
+      · intro n hn; exact absurd hn (treeChild_not_wct ht n)
 
 noncomputable def honestValue (A : Answers) : Coord → Digest
   | .inl N => N.toPos.proj (A (.inl (.inr (Extract.honestInput A N.toPos))))
@@ -7150,7 +7419,13 @@ noncomputable def groundChildren : List Coord :=
   ((Finset.univ : Finset TreeNode).filter fun n =>
     n.1.lay ≠ 0 ∧ trialCap n.1.lay n.1.level.val ≠ 1 ∧ n.1.nonce.val = 0).toList.flatMap
     fun n => (childSlots (.node n)).map Prod.fst
-noncomputable def topTrialsDisclosed : List Coord := trialsDisclosed ++ groundChildren
+/-- E8: the trials and the child coordinates of every FTS ground position (level 3, heaps 8..15; no secret value),
+disclosed at keygen as for the lower ground positions. -/
+noncomputable def wGroundDisclosed : List Coord :=
+  ((Finset.univ : Finset WctNodePos).filter fun n =>
+    wTrialCap n.1.coord.val n.1.level.val ≠ 1 ∧ n.1.nonce.val = 0).toList.flatMap
+    fun n => wTrialDeps n ++ (childSlots (.wctNode n)).map Prod.fst
+noncomputable def topTrialsDisclosed : List Coord := trialsDisclosed ++ (groundChildren ++ wGroundDisclosed)
 
 noncomputable def keygenDisclosed : List Coord :=
   keygenCacheDisclosed ++ encodingDisclosed ++ topTrialsDisclosed
@@ -7218,16 +7493,45 @@ theorem groundChildren_shape {c : Coord} (hc : c ∈ groundChildren) : ∃ n, c 
     rw [if_neg hlev] at hx
     obtain ⟨m, -, rfl⟩ := Option.map_eq_some_iff.mp hx
     exact ⟨m, rfl⟩
-theorem topTrialsDisclosed_shape {c : Coord} (hc : c ∈ topTrialsDisclosed) : ∃ n, c = .inl (.node n) := by
+theorem wGroundDisclosed_shape {c : Coord} (hc : c ∈ wGroundDisclosed) : ∃ n, c = .inl (.wctNode n) := by
+  unfold wGroundDisclosed at hc
+  obtain ⟨n, hn, hc⟩ := List.mem_flatMap.mp hc
+  have h3 : n.1.level.val = 3 := by
+    simp only [Finset.mem_toList, Finset.mem_filter, Finset.mem_univ, true_and] at hn
+    by_contra h; exact hn.1 (by unfold wTrialCap; rw [if_neg h])
+  rcases List.mem_append.mp hc with hc | hc
+  · unfold wTrialDeps at hc
+    split_ifs at hc
+    · cases hc
+    · obtain ⟨j, -, rfl⟩ := List.mem_map.mp hc
+      exact ⟨_, rfl⟩
+  · obtain ⟨⟨c', b⟩, hcs, rfl⟩ := List.mem_map.mp hc
+    simp only [childSlots] at hcs
+    have hf : ∀ k x, ftsChild n.1.index n.1.coord 3 k = some x → ∃ m, x = .inl (.wctNode m) := by
+      intro k x hx
+      unfold ftsChild at hx
+      rw [if_neg (by decide)] at hx
+      obtain ⟨m, -, rfl⟩ := Option.map_eq_some_iff.mp hx
+      exact ⟨m, rfl⟩
+    simp only [h3, List.mem_append, Option.mem_toList, Option.map_eq_some_iff, Prod.mk.injEq] at hcs
+    rcases hcs with (⟨x, hx, hxe, -⟩ | ⟨x, hx, hxe, -⟩) | hcs
+    · subst hxe; exact hf _ _ hx
+    · subst hxe; exact hf _ _ hx
+    · simp at hcs
+theorem topTrialsDisclosed_shape {c : Coord} (hc : c ∈ topTrialsDisclosed) :
+    (∃ n, c = .inl (.node n)) ∨ ∃ n, c = .inl (.wctNode n) := by
   rcases List.mem_append.mp hc with hc | hc
   · obtain ⟨n, rfl, -⟩ := mem_trialsDisclosed.mp hc
-    exact ⟨n, rfl⟩
-  · exact groundChildren_shape hc
+    exact Or.inl ⟨n, rfl⟩
+  · rcases List.mem_append.mp hc with hc | hc
+    · exact Or.inl (groundChildren_shape hc)
+    · exact Or.inr (wGroundDisclosed_shape hc)
 /-- U16b: the child slots of a lower ground node are keygen coordinates. -/
 theorem groundChild_mem_keygen {n : TreeNode} (hl : n.1.lay ≠ 0) (h1 : trialCap n.1.lay n.1.level.val ≠ 1)
     {cs : Coord × Nat} (hc : cs ∈ childSlots (.node n)) : cs.1 ∈ keygenDisclosed := by
   apply List.mem_append_right
   apply List.mem_append_right
+  apply List.mem_append_left
   unfold groundChildren
   refine List.mem_flatMap.mpr ⟨withNonce n 0, ?_, ?_⟩
   · simp only [Finset.mem_toList, Finset.mem_filter, Finset.mem_univ, true_and]
@@ -7254,6 +7558,24 @@ theorem trialCoord_mem_keygen {n : TreeNode} (hc : trialCap n.1.lay n.1.level.va
   have := trialCap_le n.1.lay n.1.level.val
   rw [withNonce_nonce n (by omega)]
   exact hj
+/-- E8: the trials and the children of an FTS ground position are keygen coordinates. -/
+theorem wGround_mem_keygen {n : WctNodePos} (h1 : wTrialCap n.1.coord.val n.1.level.val ≠ 1) {c : Coord}
+    (hc : c ∈ wTrialDeps n ++ (childSlots (.wctNode n)).map Prod.fst) : c ∈ keygenDisclosed := by
+  apply List.mem_append_right
+  apply List.mem_append_right
+  apply List.mem_append_right
+  unfold wGroundDisclosed
+  refine List.mem_flatMap.mpr ⟨wWithNonce n 0, ?_, hc⟩
+  simp only [Finset.mem_toList, Finset.mem_filter, Finset.mem_univ, true_and]
+  exact ⟨h1, wWithNonce_nonce n (by norm_num)⟩
+theorem wTrialCoord_mem_topTrials {n : WctNodePos} (h1 : wTrialCap n.1.coord.val n.1.level.val ≠ 1) {j : Nat}
+    (hj : j < wTrialCap n.1.coord.val n.1.level.val) : wTrialCoord n j ∈ topTrialsDisclosed := by
+  apply List.mem_append_right
+  apply List.mem_append_right
+  unfold wGroundDisclosed
+  refine List.mem_flatMap.mpr ⟨wWithNonce n 0, ?_, List.mem_append_left _ (mem_wTrialDeps h1 hj)⟩
+  simp only [Finset.mem_toList, Finset.mem_filter, Finset.mem_univ, true_and]
+  exact ⟨h1, wWithNonce_nonce n (by norm_num)⟩
 /-- Membership in the keygen disclosure by its three parts. -/
 theorem mem_keygenDisclosed {c : Coord} :
     c ∈ keygenDisclosed ↔ c ∈ keygenCacheDisclosed ∨ c ∈ encodingDisclosed ∨ c ∈ topTrialsDisclosed := by
@@ -7315,7 +7637,8 @@ def padCoord (index : Fin (2^31)) (coord : Fin 9) (branch : Nat) (side : Fin 2) 
 def childSlots : CanonGraph.Node → List (Coord×Nat)
  | .wctLeaf L => (List.ofFn fun t:Fin 6 => (wctItem (L.index,L.coord,L.child,t) 4,ftsLeafSlot t.val)) ++
    ((padCoord L.index L.coord (L.child.val%2) 0).map (·,2)).toList
- | .wctNode n => ((ftsChild n.1.index n.1.coord n.1.level.val (2*n.1.idx.val)).map (·,0)).toList ++
+ | .wctNode n => if wTrialCap n.1.coord.val n.1.level.val ≤ n.1.nonce.val then [] else
+   ((ftsChild n.1.index n.1.coord n.1.level.val (2*n.1.idx.val)).map (·,0)).toList ++
    ((ftsChild n.1.index n.1.coord n.1.level.val (2*n.1.idx.val+1)).map (·,3)).toList ++
    (if n.1.level.val=4 then ((padCoord n.1.index n.1.coord (n.1.idx.val/2) 1).map (·,2)).toList else [])
  | n => LargeResidual.childSlots n
@@ -10921,15 +11244,25 @@ def RouterState.known (st : RouterState) : Coord → Prop :=
 def padVals (v : Coord → Digest) (index : Fin (2^31)) (coord : Fin 9) (branch : Nat) : Digest×Digest :=
   (((padCoord index coord branch 0).map v).getD 0,((padCoord index coord branch 1).map v).getD 0)
 
+/-- E8: an FTS child value, read through the selected trial of the child position. -/
+def ftsChildVal (v : Coord → Digest) (index : Fin (2^31)) (coord : Fin 9) (level physical : Nat) : Digest :=
+  ((ftsChild index coord level physical).map fun x => v (selCoordV v x)).getD 0
+/-- E8: the trials of an FTS child position. -/
+def childWTrialDeps (index : Fin (2^31)) (coord : Fin 9) (level physical : Nat) : List Coord :=
+  match ftsChild index coord level physical with
+  | some (.inl (.wctNode m)) => wTrialDeps m
+  | _ => []
+
 noncomputable def cellValues : CanonGraph.Node → (Coord → Digest) → HashInput
   | .wctLeaf L,v => pad64 (Extract.wctLeafInputP L.index.val L.coord.val L.child.val
       (padVals v L.index L.coord (L.child.val%2)).1
       (List.ofFn fun t : Fin 6 => v (wctItem (L.index,L.coord,L.child,t) 4)))
-  | .wctNode n,v => pad64 (nodeInputP 3 (WCT9.nodeLayer n.1.coord.val) n.1.index.val
+  | .wctNode n,v => if WActiveV v n then pad64 (nodeInputP 3 (WCT9.nodeLayer n.1.coord.val) n.1.index.val
       (2^(7-n.1.level.val-1)+n.1.idx.val)
-      (((ftsChild n.1.index n.1.coord n.1.level.val (2*n.1.idx.val)).map v).getD 0)
-      (if n.1.level.val=4 then (padVals v n.1.index n.1.coord (n.1.idx.val/2)).2 else 0)
-      (((ftsChild n.1.index n.1.coord n.1.level.val (2*n.1.idx.val+1)).map v).getD 0))
+      (ftsChildVal v n.1.index n.1.coord n.1.level.val (2*n.1.idx.val))
+      (if n.1.level.val=4 then (padVals v n.1.index n.1.coord (n.1.idx.val/2)).2
+        else if n.1.level.val=3 then BitVec.ofNat 128 (n.1.nonce.val % 2 ^ 64) else 0)
+      (ftsChildVal v n.1.index n.1.coord n.1.level.val (2*n.1.idx.val+1))) else wphantom n
   | n,v => LargeResidual.cellValues n v
 noncomputable def cellFrom (N : CanonGraph.Node) (v : Coord → Digest) : HashInput := cellValues N v
 /-- Top-nonce layer: the node of the queried position whose cell is `X` (unique by `cell_separated`), else `N`. -/
@@ -10939,6 +11272,9 @@ noncomputable def cellNode (N : CanonGraph.Node) (v : Coord → Digest) (X : Has
 /-- Every coordinate a cell reads (slots plus, on the top tree, the trials of the own and child positions). -/
 def cellDepsP : CanonGraph.Node → List Coord
   | .node n => LargeResidual.cellDeps (.node n)
+  | .wctNode n => (childSlots (.wctNode n)).map Prod.fst ++ wTrialDeps n ++
+      childWTrialDeps n.1.index n.1.coord n.1.level.val (2 * n.1.idx.val) ++
+      childWTrialDeps n.1.index n.1.coord n.1.level.val (2 * n.1.idx.val + 1)
   | N => (childSlots N).map Prod.fst
 noncomputable def refDigest (a : AuxData) (L : CanonEncoding.EncLeaf) : Digest :=
   match a.sel L with
@@ -11010,6 +11346,14 @@ noncomputable def routeQuery (a : AuxData) (st : RouterState) (X : HashInput) :
         else do
           let v ← discloseReq U (.inl (.inl (.node n))) .call
           pure (CanonGraph.Paired.presentEquiv (.node n) (ChainGraph.joinOutput v (a.high (.node n))),st')
+    else if hwp : ∃ n : WctNodePos, X = wphantom n ∧ CanonGraph.Paired.Filtered.Used (.wctNode n) then
+      let n := Classical.choose hwp
+      do
+        let pairs ← discloseAll U (wTrialDeps n)
+        if WActiveV (lookupVal pairs) n then (fun y => (y,st')) <$> readReq U ⟨X,h⟩ .call
+        else do
+          let v ← discloseReq U (.inl (.inl (.wctNode n))) .call
+          pure (CanonGraph.Paired.presentEquiv (.wctNode n) (ChainGraph.joinOutput v (a.high (.wctNode n))),st')
     else if he : EncRow X then
       let L := Classical.choose he
       let ctr := Classical.choose (Classical.choose_spec (Classical.choose_spec he))
@@ -11074,6 +11418,14 @@ noncomputable def routeQuerySelected (a : AuxData) (st : RouterState) (X : HashI
         else do
           let v ← discloseReq U (.inl (.inl (.node n))) .call
           pure (CanonGraph.Paired.presentEquiv (.node n) (ChainGraph.joinOutput v (a.high (.node n))),st')
+    else if hwp : ∃ n : WctNodePos, X = wphantom n ∧ CanonGraph.Paired.Filtered.Used (.wctNode n) then
+      let n := Classical.choose hwp
+      do
+        let pairs ← discloseAll U (wTrialDeps n)
+        if WActiveV (lookupVal pairs) n then (fun y => (y,st')) <$> readReq U ⟨X,h⟩ .call
+        else do
+          let v ← discloseReq U (.inl (.inl (.wctNode n))) .call
+          pure (CanonGraph.Paired.presentEquiv (.wctNode n) (ChainGraph.joinOutput v (a.high (.wctNode n))),st')
     else if he : EncRow X then
       let L := Classical.choose he
       let ctr := Classical.choose (Classical.choose_spec (Classical.choose_spec he))

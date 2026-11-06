@@ -240,11 +240,12 @@ Every lower-tree node (`lay ≠ 0`) with heap `2..15` (the three levels below th
 `n < lowerNonceCap lay heap` of `lowerNodeHashN lay tree heap n left right` whose used half has its top
 `lowerZeroBits lay heap` bits clear (`lowerZeroOk`); if no trial passes, the last one (`n = cap - 1`) is kept. The nonce
 is the 64-bit counter at bytes 32..39 of the node input (the Merkle pad; bytes 40..47 stay 0); `n = 0` gives
-`merkleNodeInput`. Zero bits (E11 V29): heaps 16..31 -> 1, 8..15 -> 2, 4..7 -> 3, 2..3 -> 3 on layer 1, else 4; cap `128 · 2^b`.
-Every other node (the top tree, heaps 1 and ≥ 16) has `b = 0` and is the plain `lowerNodeHash`. -/
+`merkleNodeInput`. Zero bits (E8 P1, (3,2,1,1) × 3): heaps 16..31 -> 1, 8..15 -> 1, 4..7 -> 2, 2..3 -> 3 (E11 V29:
+1, 2, 3, 3 on layer 1 / 4); cap `128 · 2^b`. Every other node (the top tree, heaps 1 and ≥ 32) has `b = 0` and is the
+plain `lowerNodeHash`. -/
 def lowerZeroBits (lay heap : Nat) : Nat :=
-  if lay = 0 ∨ heap < 2 ∨ 32 ≤ heap then 0 else if 16 ≤ heap then 1 else if 8 ≤ heap then 2 else if 4 ≤ heap then 3
-  else if lay = 1 then 3 else 4
+  if lay = 0 ∨ heap < 2 ∨ 32 ≤ heap then 0 else if 16 ≤ heap then 1 else if 8 ≤ heap then 1 else if 4 ≤ heap then 2
+  else if lay = 1 then 3 else 3
 def lowerNonceCap (lay heap : Nat) : Nat := 128 * 2 ^ lowerZeroBits lay heap
 def lowerZeroOk (lay heap : Nat) (value : Digest) : Bool :=
   value.toNat / 2 ^ (128 - lowerZeroBits lay heap) == 0
@@ -694,6 +695,43 @@ theorem wctNodeHashH_of_low {heap : Nat} (h : ftsHighHeap heap = false) (coord i
     wctNodeHashH coord index heap left right = wctNodeHash coord index heap left right := by
   unfold wctNodeHashH
   rw [ftsHash_of_low h, wctNodeHash_eq_short]
+/-! ### E8 stage 2 (S1 point P1): FTS heap-8..15 ground nodes
+Every FTS node of heap `8..15` (level 3 of each 128-leaf coordinate tree) is the first trial `n < ftsNonceCap coord heap`
+of `ftsNodeHashN coord index heap n left right` (the node input with the 64-bit nonce at the pad, bytes 32..39) whose
+kept low half has its top `ftsZeroBits coord heap` bits clear; if no trial passes, the last one is kept. Coordinates
+0 and 1 demand 1 zero bit, coordinates 2..8 demand 2 (16 carrier bits); every other node has `b = 0` and is the
+plain `wctNodeHashH`. `n = 0` is the plain node input. -/
+def ftsZeroBits (coord heap : Nat) : Nat := if 8 ≤ heap ∧ heap < 16 then (if coord ≤ 1 then 1 else 2) else 0
+def ftsNonceCap (coord heap : Nat) : Nat := 128 * 2 ^ ftsZeroBits coord heap
+def ftsZeroOk (coord heap : Nat) (value : Digest) : Bool :=
+  value.toNat / 2 ^ (128 - ftsZeroBits coord heap) == 0
+def ftsNodeInputN (coord index heap n : Nat) (left right : Digest) : HashInput :=
+  bytesLE 16 left ++ bytesLE 16 (wctNodeHeader coord index heap) ++ nonceBytes n ++ bytesLE 16 right
+def ftsNodeHashN (coord index heap n : Nat) (left right : Digest) : M Digest :=
+  shortHash (ftsNodeInputN coord index heap n left right)
+/-- Nonce search from trial `n` with `fuel` trials left; the last trial is kept. -/
+def ftsNonceSearch (coord index heap : Nat) (left right : Digest) : Nat → Nat → M (Nat × Digest)
+  | 0, n => do
+      let value ← ftsNodeHashN coord index heap n left right
+      pure (n, value)
+  | fuel + 1, n => do
+      let value ← ftsNodeHashN coord index heap n left right
+      if ftsZeroOk coord heap value then pure (n, value) else ftsNonceSearch coord index heap left right fuel (n + 1)
+/-- The canonical FTS node (nonce, value). -/
+def ftsNodeAt (coord index heap : Nat) (left right : Digest) : M (Nat × Digest) :=
+  if ftsZeroBits coord heap = 0 then (fun value => (0, value)) <$> wctNodeHashH coord index heap left right
+  else ftsNonceSearch coord index heap left right (ftsNonceCap coord heap - 1) 0
+/-- The canonical FTS node value. -/
+def ftsNodeG (coord index heap : Nat) (left right : Digest) : M Digest :=
+  Prod.snd <$> ftsNodeAt coord index heap left right
+theorem ftsZeroBits_off {coord heap : Nat} (h : ¬ (8 ≤ heap ∧ heap < 16)) : ftsZeroBits coord heap = 0 := by
+  simp [ftsZeroBits, h]
+theorem ftsNodeAt_of_zero {coord index heap : Nat} (h : ftsZeroBits coord heap = 0) (left right : Digest) :
+    ftsNodeAt coord index heap left right = (fun value => (0, value)) <$> wctNodeHashH coord index heap left right := by
+  simp [ftsNodeAt, h]
+theorem ftsNodeG_of_zero {coord index heap : Nat} (h : ftsZeroBits coord heap = 0) (left right : Digest) :
+    ftsNodeG coord index heap left right = wctNodeHashH coord index heap left right := by
+  simp [ftsNodeG, ftsNodeAt_of_zero h, Functor.map_map]
 /-- One FTS coordinate (nested FTS r1-1): `prev` is the previous coordinate's top pair `(L, R)`; every leaf
 carries `L` in its pad slot and the two top nodes carry `R` in their pad slot. -/
 def buildCoordinateF (index : Nat) (coord : Coord) (selected : Child) (word : Rank) (prev : Digest × Digest) :
@@ -830,7 +868,7 @@ Defined before the encoding selector because the top producer choice uses the ca
   LOW costs 4 cycles, HIGH 6). -/
 namespace CanonicalPolicy
 /-- The credit pool every canonical path must reach. -/
-def totalCredit : Nat := 65
+def totalCredit : Nat := 66
 /-- The (fixed) top credit floor (on the path-aware credit). -/
 def topFloor : Nat := 14
 /-- All three lower layers use digit sum 201. Layer 1's existing broad decoder
@@ -1510,7 +1548,7 @@ theorem lower_three_progress (r : Nat) (hr : r < 22) :
     threshold 3 r = r := by simp [threshold, show r ≤ 21 by omega]
 
 theorem accepted_top_residual {answer : Digest} {low : Bool} {digits : List Nat}
-    (h : producerDecodeAt 0 14 low answer = some digits) : nextResidual 65 0 low digits < 54 := by
+    (h : producerDecodeAt 0 14 low answer = some digits) : nextResidual 66 0 low digits < 54 := by
   have hc := producerDecodeAt_credit h
   unfold nextResidual
   omega

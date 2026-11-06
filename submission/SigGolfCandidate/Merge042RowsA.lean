@@ -13,8 +13,14 @@ open ClaudeWCT.Numerics.SharedPathPacked
 certify_pair_chunk 5 0 1 Pair_5_0 pair_5_0_checked
 certify_pair_chunk 5 1 1 Pair_5_1 pair_5_1_checked
 certify_pair_chunk 5 2 1 Pair_5_2 pair_5_2_checked
-certify_pair_chunk 5 3 1 Pair_5_3 pair_5_3_checked
-certify_pair_chunk 5 4 1 Pair_5_4 pair_5_4_checked
+noncomputable def Pair_5_3 : Nat := pair_copy% 5 2
+theorem pair_5_3_checked : pairChunkWith cachedCoordinate 5 3 1 = Pair_5_3 :=
+  (pairChunkWith_mirror cachedCoordinate 5 3 2 rfl (by decide) (by decide)
+    (addFirst_swap _ _ (by decide +kernel))).trans pair_5_2_checked
+noncomputable def Pair_5_4 : Nat := pair_copy% 5 1
+theorem pair_5_4_checked : pairChunkWith cachedCoordinate 5 4 1 = Pair_5_4 :=
+  (pairChunkWith_mirror cachedCoordinate 5 4 1 rfl (by decide) (by decide)
+    (addFirst_swap _ _ (by decide +kernel))).trans pair_5_1_checked
 certify_pair_chunk 5 5 1 Pair_5_5 pair_5_5_checked
 
 noncomputable def Pair_5 : Nat := pair_sum_numeral% 5
@@ -48,8 +54,14 @@ certify_pair_chunk 6 0 1 Pair_6_0 pair_6_0_checked
 certify_pair_chunk 6 1 1 Pair_6_1 pair_6_1_checked
 certify_pair_chunk 6 2 1 Pair_6_2 pair_6_2_checked
 certify_pair_chunk 6 3 1 Pair_6_3 pair_6_3_checked
-certify_pair_chunk 6 4 1 Pair_6_4 pair_6_4_checked
-certify_pair_chunk 6 5 1 Pair_6_5 pair_6_5_checked
+noncomputable def Pair_6_4 : Nat := pair_copy% 6 2
+theorem pair_6_4_checked : pairChunkWith cachedCoordinate 6 4 1 = Pair_6_4 :=
+  (pairChunkWith_mirror cachedCoordinate 6 4 2 rfl (by decide) (by decide)
+    (addFirst_swap _ _ (by decide +kernel))).trans pair_6_2_checked
+noncomputable def Pair_6_5 : Nat := pair_copy% 6 1
+theorem pair_6_5_checked : pairChunkWith cachedCoordinate 6 5 1 = Pair_6_5 :=
+  (pairChunkWith_mirror cachedCoordinate 6 5 1 rfl (by decide) (by decide)
+    (addFirst_swap _ _ (by decide +kernel))).trans pair_6_1_checked
 certify_pair_chunk 6 6 1 Pair_6_6 pair_6_6_checked
 
 noncomputable def Pair_6 : Nat := pair_sum_numeral% 6
@@ -85,9 +97,18 @@ certify_pair_chunk 7 0 1 Pair_7_0 pair_7_0_checked
 certify_pair_chunk 7 1 1 Pair_7_1 pair_7_1_checked
 certify_pair_chunk 7 2 1 Pair_7_2 pair_7_2_checked
 certify_pair_chunk 7 3 1 Pair_7_3 pair_7_3_checked
-certify_pair_chunk 7 4 1 Pair_7_4 pair_7_4_checked
-certify_pair_chunk 7 5 1 Pair_7_5 pair_7_5_checked
-certify_pair_chunk 7 6 1 Pair_7_6 pair_7_6_checked
+noncomputable def Pair_7_4 : Nat := pair_copy% 7 3
+theorem pair_7_4_checked : pairChunkWith cachedCoordinate 7 4 1 = Pair_7_4 :=
+  (pairChunkWith_mirror cachedCoordinate 7 4 3 rfl (by decide) (by decide)
+    (addFirst_swap _ _ (by decide +kernel))).trans pair_7_3_checked
+noncomputable def Pair_7_5 : Nat := pair_copy% 7 2
+theorem pair_7_5_checked : pairChunkWith cachedCoordinate 7 5 1 = Pair_7_5 :=
+  (pairChunkWith_mirror cachedCoordinate 7 5 2 rfl (by decide) (by decide)
+    (addFirst_swap _ _ (by decide +kernel))).trans pair_7_2_checked
+noncomputable def Pair_7_6 : Nat := pair_copy% 7 1
+theorem pair_7_6_checked : pairChunkWith cachedCoordinate 7 6 1 = Pair_7_6 :=
+  (pairChunkWith_mirror cachedCoordinate 7 6 1 rfl (by decide) (by decide)
+    (addFirst_swap _ _ (by decide +kernel))).trans pair_7_1_checked
 certify_pair_chunk 7 7 1 Pair_7_7 pair_7_7_checked
 
 noncomputable def Pair_7 : Nat := pair_sum_numeral% 7
@@ -126,9 +147,18 @@ certify_pair_chunk 8 1 1 Pair_8_1 pair_8_1_checked
 certify_pair_chunk 8 2 1 Pair_8_2 pair_8_2_checked
 certify_pair_chunk 8 3 1 Pair_8_3 pair_8_3_checked
 certify_pair_chunk 8 4 1 Pair_8_4 pair_8_4_checked
-certify_pair_chunk 8 5 1 Pair_8_5 pair_8_5_checked
-certify_pair_chunk 8 6 1 Pair_8_6 pair_8_6_checked
-certify_pair_chunk 8 7 1 Pair_8_7 pair_8_7_checked
+noncomputable def Pair_8_5 : Nat := pair_copy% 8 3
+theorem pair_8_5_checked : pairChunkWith cachedCoordinate 8 5 1 = Pair_8_5 :=
+  (pairChunkWith_mirror cachedCoordinate 8 5 3 rfl (by decide) (by decide)
+    (addFirst_swap _ _ (by decide +kernel))).trans pair_8_3_checked
+noncomputable def Pair_8_6 : Nat := pair_copy% 8 2
+theorem pair_8_6_checked : pairChunkWith cachedCoordinate 8 6 1 = Pair_8_6 :=
+  (pairChunkWith_mirror cachedCoordinate 8 6 2 rfl (by decide) (by decide)
+    (addFirst_swap _ _ (by decide +kernel))).trans pair_8_2_checked
+noncomputable def Pair_8_7 : Nat := pair_copy% 8 1
+theorem pair_8_7_checked : pairChunkWith cachedCoordinate 8 7 1 = Pair_8_7 :=
+  (pairChunkWith_mirror cachedCoordinate 8 7 1 rfl (by decide) (by decide)
+    (addFirst_swap _ _ (by decide +kernel))).trans pair_8_1_checked
 certify_pair_chunk 8 8 1 Pair_8_8 pair_8_8_checked
 
 noncomputable def Pair_8 : Nat := pair_sum_numeral% 8
@@ -169,10 +199,22 @@ certify_pair_chunk 9 1 1 Pair_9_1 pair_9_1_checked
 certify_pair_chunk 9 2 1 Pair_9_2 pair_9_2_checked
 certify_pair_chunk 9 3 1 Pair_9_3 pair_9_3_checked
 certify_pair_chunk 9 4 1 Pair_9_4 pair_9_4_checked
-certify_pair_chunk 9 5 1 Pair_9_5 pair_9_5_checked
-certify_pair_chunk 9 6 1 Pair_9_6 pair_9_6_checked
-certify_pair_chunk 9 7 1 Pair_9_7 pair_9_7_checked
-certify_pair_chunk 9 8 1 Pair_9_8 pair_9_8_checked
+noncomputable def Pair_9_5 : Nat := pair_copy% 9 4
+theorem pair_9_5_checked : pairChunkWith cachedCoordinate 9 5 1 = Pair_9_5 :=
+  (pairChunkWith_mirror cachedCoordinate 9 5 4 rfl (by decide) (by decide)
+    (addFirst_swap _ _ (by decide +kernel))).trans pair_9_4_checked
+noncomputable def Pair_9_6 : Nat := pair_copy% 9 3
+theorem pair_9_6_checked : pairChunkWith cachedCoordinate 9 6 1 = Pair_9_6 :=
+  (pairChunkWith_mirror cachedCoordinate 9 6 3 rfl (by decide) (by decide)
+    (addFirst_swap _ _ (by decide +kernel))).trans pair_9_3_checked
+noncomputable def Pair_9_7 : Nat := pair_copy% 9 2
+theorem pair_9_7_checked : pairChunkWith cachedCoordinate 9 7 1 = Pair_9_7 :=
+  (pairChunkWith_mirror cachedCoordinate 9 7 2 rfl (by decide) (by decide)
+    (addFirst_swap _ _ (by decide +kernel))).trans pair_9_2_checked
+noncomputable def Pair_9_8 : Nat := pair_copy% 9 1
+theorem pair_9_8_checked : pairChunkWith cachedCoordinate 9 8 1 = Pair_9_8 :=
+  (pairChunkWith_mirror cachedCoordinate 9 8 1 rfl (by decide) (by decide)
+    (addFirst_swap _ _ (by decide +kernel))).trans pair_9_1_checked
 certify_pair_chunk 9 9 1 Pair_9_9 pair_9_9_checked
 
 noncomputable def Pair_9 : Nat := pair_sum_numeral% 9
@@ -216,10 +258,22 @@ certify_pair_chunk 10 2 1 Pair_10_2 pair_10_2_checked
 certify_pair_chunk 10 3 1 Pair_10_3 pair_10_3_checked
 certify_pair_chunk 10 4 1 Pair_10_4 pair_10_4_checked
 certify_pair_chunk 10 5 1 Pair_10_5 pair_10_5_checked
-certify_pair_chunk 10 6 1 Pair_10_6 pair_10_6_checked
-certify_pair_chunk 10 7 1 Pair_10_7 pair_10_7_checked
-certify_pair_chunk 10 8 1 Pair_10_8 pair_10_8_checked
-certify_pair_chunk 10 9 1 Pair_10_9 pair_10_9_checked
+noncomputable def Pair_10_6 : Nat := pair_copy% 10 4
+theorem pair_10_6_checked : pairChunkWith cachedCoordinate 10 6 1 = Pair_10_6 :=
+  (pairChunkWith_mirror cachedCoordinate 10 6 4 rfl (by decide) (by decide)
+    (addFirst_swap _ _ (by decide +kernel))).trans pair_10_4_checked
+noncomputable def Pair_10_7 : Nat := pair_copy% 10 3
+theorem pair_10_7_checked : pairChunkWith cachedCoordinate 10 7 1 = Pair_10_7 :=
+  (pairChunkWith_mirror cachedCoordinate 10 7 3 rfl (by decide) (by decide)
+    (addFirst_swap _ _ (by decide +kernel))).trans pair_10_3_checked
+noncomputable def Pair_10_8 : Nat := pair_copy% 10 2
+theorem pair_10_8_checked : pairChunkWith cachedCoordinate 10 8 1 = Pair_10_8 :=
+  (pairChunkWith_mirror cachedCoordinate 10 8 2 rfl (by decide) (by decide)
+    (addFirst_swap _ _ (by decide +kernel))).trans pair_10_2_checked
+noncomputable def Pair_10_9 : Nat := pair_copy% 10 1
+theorem pair_10_9_checked : pairChunkWith cachedCoordinate 10 9 1 = Pair_10_9 :=
+  (pairChunkWith_mirror cachedCoordinate 10 9 1 rfl (by decide) (by decide)
+    (addFirst_swap _ _ (by decide +kernel))).trans pair_10_1_checked
 certify_pair_chunk 10 10 1 Pair_10_10 pair_10_10_checked
 
 noncomputable def Pair_10 : Nat := pair_sum_numeral% 10
@@ -265,11 +319,26 @@ certify_pair_chunk 11 2 1 Pair_11_2 pair_11_2_checked
 certify_pair_chunk 11 3 1 Pair_11_3 pair_11_3_checked
 certify_pair_chunk 11 4 1 Pair_11_4 pair_11_4_checked
 certify_pair_chunk 11 5 1 Pair_11_5 pair_11_5_checked
-certify_pair_chunk 11 6 1 Pair_11_6 pair_11_6_checked
-certify_pair_chunk 11 7 1 Pair_11_7 pair_11_7_checked
-certify_pair_chunk 11 8 1 Pair_11_8 pair_11_8_checked
-certify_pair_chunk 11 9 1 Pair_11_9 pair_11_9_checked
-certify_pair_chunk 11 10 1 Pair_11_10 pair_11_10_checked
+noncomputable def Pair_11_6 : Nat := pair_copy% 11 5
+theorem pair_11_6_checked : pairChunkWith cachedCoordinate 11 6 1 = Pair_11_6 :=
+  (pairChunkWith_mirror cachedCoordinate 11 6 5 rfl (by decide) (by decide)
+    (addFirst_swap _ _ (by decide +kernel))).trans pair_11_5_checked
+noncomputable def Pair_11_7 : Nat := pair_copy% 11 4
+theorem pair_11_7_checked : pairChunkWith cachedCoordinate 11 7 1 = Pair_11_7 :=
+  (pairChunkWith_mirror cachedCoordinate 11 7 4 rfl (by decide) (by decide)
+    (addFirst_swap _ _ (by decide +kernel))).trans pair_11_4_checked
+noncomputable def Pair_11_8 : Nat := pair_copy% 11 3
+theorem pair_11_8_checked : pairChunkWith cachedCoordinate 11 8 1 = Pair_11_8 :=
+  (pairChunkWith_mirror cachedCoordinate 11 8 3 rfl (by decide) (by decide)
+    (addFirst_swap _ _ (by decide +kernel))).trans pair_11_3_checked
+noncomputable def Pair_11_9 : Nat := pair_copy% 11 2
+theorem pair_11_9_checked : pairChunkWith cachedCoordinate 11 9 1 = Pair_11_9 :=
+  (pairChunkWith_mirror cachedCoordinate 11 9 2 rfl (by decide) (by decide)
+    (addFirst_swap _ _ (by decide +kernel))).trans pair_11_2_checked
+noncomputable def Pair_11_10 : Nat := pair_copy% 11 1
+theorem pair_11_10_checked : pairChunkWith cachedCoordinate 11 10 1 = Pair_11_10 :=
+  (pairChunkWith_mirror cachedCoordinate 11 10 1 rfl (by decide) (by decide)
+    (addFirst_swap _ _ (by decide +kernel))).trans pair_11_1_checked
 certify_pair_chunk 11 11 1 Pair_11_11 pair_11_11_checked
 
 noncomputable def Pair_11 : Nat := pair_sum_numeral% 11
@@ -322,11 +391,26 @@ certify_pair_chunk 12 3 1 Pair_12_3 pair_12_3_checked
 certify_pair_chunk 12 4 1 Pair_12_4 pair_12_4_checked
 certify_pair_chunk 12 5 1 Pair_12_5 pair_12_5_checked
 certify_pair_chunk 12 6 1 Pair_12_6 pair_12_6_checked
-certify_pair_chunk 12 7 1 Pair_12_7 pair_12_7_checked
-certify_pair_chunk 12 8 1 Pair_12_8 pair_12_8_checked
-certify_pair_chunk 12 9 1 Pair_12_9 pair_12_9_checked
-certify_pair_chunk 12 10 1 Pair_12_10 pair_12_10_checked
-certify_pair_chunk 12 11 1 Pair_12_11 pair_12_11_checked
+noncomputable def Pair_12_7 : Nat := pair_copy% 12 5
+theorem pair_12_7_checked : pairChunkWith cachedCoordinate 12 7 1 = Pair_12_7 :=
+  (pairChunkWith_mirror cachedCoordinate 12 7 5 rfl (by decide) (by decide)
+    (addFirst_swap _ _ (by decide +kernel))).trans pair_12_5_checked
+noncomputable def Pair_12_8 : Nat := pair_copy% 12 4
+theorem pair_12_8_checked : pairChunkWith cachedCoordinate 12 8 1 = Pair_12_8 :=
+  (pairChunkWith_mirror cachedCoordinate 12 8 4 rfl (by decide) (by decide)
+    (addFirst_swap _ _ (by decide +kernel))).trans pair_12_4_checked
+noncomputable def Pair_12_9 : Nat := pair_copy% 12 3
+theorem pair_12_9_checked : pairChunkWith cachedCoordinate 12 9 1 = Pair_12_9 :=
+  (pairChunkWith_mirror cachedCoordinate 12 9 3 rfl (by decide) (by decide)
+    (addFirst_swap _ _ (by decide +kernel))).trans pair_12_3_checked
+noncomputable def Pair_12_10 : Nat := pair_copy% 12 2
+theorem pair_12_10_checked : pairChunkWith cachedCoordinate 12 10 1 = Pair_12_10 :=
+  (pairChunkWith_mirror cachedCoordinate 12 10 2 rfl (by decide) (by decide)
+    (addFirst_swap _ _ (by decide +kernel))).trans pair_12_2_checked
+noncomputable def Pair_12_11 : Nat := pair_copy% 12 1
+theorem pair_12_11_checked : pairChunkWith cachedCoordinate 12 11 1 = Pair_12_11 :=
+  (pairChunkWith_mirror cachedCoordinate 12 11 1 rfl (by decide) (by decide)
+    (addFirst_swap _ _ (by decide +kernel))).trans pair_12_1_checked
 certify_pair_chunk 12 12 1 Pair_12_12 pair_12_12_checked
 
 noncomputable def Pair_12 : Nat := pair_sum_numeral% 12
@@ -484,12 +568,30 @@ certify_pair_chunk 13 3 1 Pair_13_3 pair_13_3_checked
 certify_pair_chunk 13 4 1 Pair_13_4 pair_13_4_checked
 certify_pair_chunk 13 5 1 Pair_13_5 pair_13_5_checked
 certify_pair_chunk 13 6 1 Pair_13_6 pair_13_6_checked
-certify_pair_chunk 13 7 1 Pair_13_7 pair_13_7_checked
-certify_pair_chunk 13 8 1 Pair_13_8 pair_13_8_checked
-certify_pair_chunk 13 9 1 Pair_13_9 pair_13_9_checked
-certify_pair_chunk 13 10 1 Pair_13_10 pair_13_10_checked
-certify_pair_chunk 13 11 1 Pair_13_11 pair_13_11_checked
-certify_pair_chunk 13 12 1 Pair_13_12 pair_13_12_checked
+noncomputable def Pair_13_7 : Nat := pair_copy% 13 6
+theorem pair_13_7_checked : pairChunkWith cachedCoordinate 13 7 1 = Pair_13_7 :=
+  (pairChunkWith_mirror cachedCoordinate 13 7 6 rfl (by decide) (by decide)
+    (addFirst_swap _ _ (by decide +kernel))).trans pair_13_6_checked
+noncomputable def Pair_13_8 : Nat := pair_copy% 13 5
+theorem pair_13_8_checked : pairChunkWith cachedCoordinate 13 8 1 = Pair_13_8 :=
+  (pairChunkWith_mirror cachedCoordinate 13 8 5 rfl (by decide) (by decide)
+    (addFirst_swap _ _ (by decide +kernel))).trans pair_13_5_checked
+noncomputable def Pair_13_9 : Nat := pair_copy% 13 4
+theorem pair_13_9_checked : pairChunkWith cachedCoordinate 13 9 1 = Pair_13_9 :=
+  (pairChunkWith_mirror cachedCoordinate 13 9 4 rfl (by decide) (by decide)
+    (addFirst_swap _ _ (by decide +kernel))).trans pair_13_4_checked
+noncomputable def Pair_13_10 : Nat := pair_copy% 13 3
+theorem pair_13_10_checked : pairChunkWith cachedCoordinate 13 10 1 = Pair_13_10 :=
+  (pairChunkWith_mirror cachedCoordinate 13 10 3 rfl (by decide) (by decide)
+    (addFirst_swap _ _ (by decide +kernel))).trans pair_13_3_checked
+noncomputable def Pair_13_11 : Nat := pair_copy% 13 2
+theorem pair_13_11_checked : pairChunkWith cachedCoordinate 13 11 1 = Pair_13_11 :=
+  (pairChunkWith_mirror cachedCoordinate 13 11 2 rfl (by decide) (by decide)
+    (addFirst_swap _ _ (by decide +kernel))).trans pair_13_2_checked
+noncomputable def Pair_13_12 : Nat := pair_copy% 13 1
+theorem pair_13_12_checked : pairChunkWith cachedCoordinate 13 12 1 = Pair_13_12 :=
+  (pairChunkWith_mirror cachedCoordinate 13 12 1 rfl (by decide) (by decide)
+    (addFirst_swap _ _ (by decide +kernel))).trans pair_13_1_checked
 certify_pair_chunk 13 13 1 Pair_13_13 pair_13_13_checked
 
 noncomputable def Pair_13 : Nat := pair_sum_numeral% 13
@@ -632,12 +734,30 @@ certify_pair_chunk 14 4 1 Pair_14_4 pair_14_4_checked
 certify_pair_chunk 14 5 1 Pair_14_5 pair_14_5_checked
 certify_pair_chunk 14 6 1 Pair_14_6 pair_14_6_checked
 certify_pair_chunk 14 7 1 Pair_14_7 pair_14_7_checked
-certify_pair_chunk 14 8 1 Pair_14_8 pair_14_8_checked
-certify_pair_chunk 14 9 1 Pair_14_9 pair_14_9_checked
-certify_pair_chunk 14 10 1 Pair_14_10 pair_14_10_checked
-certify_pair_chunk 14 11 1 Pair_14_11 pair_14_11_checked
-certify_pair_chunk 14 12 1 Pair_14_12 pair_14_12_checked
-certify_pair_chunk 14 13 1 Pair_14_13 pair_14_13_checked
+noncomputable def Pair_14_8 : Nat := pair_copy% 14 6
+theorem pair_14_8_checked : pairChunkWith cachedCoordinate 14 8 1 = Pair_14_8 :=
+  (pairChunkWith_mirror cachedCoordinate 14 8 6 rfl (by decide) (by decide)
+    (addFirst_swap _ _ (by decide +kernel))).trans pair_14_6_checked
+noncomputable def Pair_14_9 : Nat := pair_copy% 14 5
+theorem pair_14_9_checked : pairChunkWith cachedCoordinate 14 9 1 = Pair_14_9 :=
+  (pairChunkWith_mirror cachedCoordinate 14 9 5 rfl (by decide) (by decide)
+    (addFirst_swap _ _ (by decide +kernel))).trans pair_14_5_checked
+noncomputable def Pair_14_10 : Nat := pair_copy% 14 4
+theorem pair_14_10_checked : pairChunkWith cachedCoordinate 14 10 1 = Pair_14_10 :=
+  (pairChunkWith_mirror cachedCoordinate 14 10 4 rfl (by decide) (by decide)
+    (addFirst_swap _ _ (by decide +kernel))).trans pair_14_4_checked
+noncomputable def Pair_14_11 : Nat := pair_copy% 14 3
+theorem pair_14_11_checked : pairChunkWith cachedCoordinate 14 11 1 = Pair_14_11 :=
+  (pairChunkWith_mirror cachedCoordinate 14 11 3 rfl (by decide) (by decide)
+    (addFirst_swap _ _ (by decide +kernel))).trans pair_14_3_checked
+noncomputable def Pair_14_12 : Nat := pair_copy% 14 2
+theorem pair_14_12_checked : pairChunkWith cachedCoordinate 14 12 1 = Pair_14_12 :=
+  (pairChunkWith_mirror cachedCoordinate 14 12 2 rfl (by decide) (by decide)
+    (addFirst_swap _ _ (by decide +kernel))).trans pair_14_2_checked
+noncomputable def Pair_14_13 : Nat := pair_copy% 14 1
+theorem pair_14_13_checked : pairChunkWith cachedCoordinate 14 13 1 = Pair_14_13 :=
+  (pairChunkWith_mirror cachedCoordinate 14 13 1 rfl (by decide) (by decide)
+    (addFirst_swap _ _ (by decide +kernel))).trans pair_14_1_checked
 certify_pair_chunk 14 14 1 Pair_14_14 pair_14_14_checked
 
 noncomputable def Pair_14 : Nat := pair_sum_numeral% 14

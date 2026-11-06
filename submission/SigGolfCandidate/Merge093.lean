@@ -1354,7 +1354,7 @@ theorem ScatterInv.forest_pre (output : HashOutput) (witness : SharedForest.Witn
   have hframe:Frame s u ScatterW:=
     (ht.frame.trans uf).mono (by intro A hA h;rcases h with h|h;exact h;exact h.elim)
   apply SharedForestRun.initial_of_original _ _ _ _ u up
-  · exact SharedForestRun.fields_frame hframe hfields
+  · exact SharedForestRun.fields_frame (hframe.mono (fun _ _ h => Or.inl h)) hfields
   · intro A hA hB h8 hpad
     by_cases hlo : A-2904+8 ≤ 7664
     swap
@@ -1554,7 +1554,7 @@ set_option maxHeartbeats 1500000
 set_option maxRecDepth 10000
 
 def Work (A : Nat) : Prop :=
-  A=SharedCompact.policyAddress ∨ (0x70d0≤A ∧ A<0x84c0) ∨ Writes A
+  A=SharedCompact.policyAddress ∨ (0x70b0≤A ∧ A<0x84c0) ∨ Writes A
 
 structure Prepared (s0:MachineState) (message:SigGolfCandidate.T3.Message) (b:SharedCodec.CBytes) (s:MachineState) : Prop where
   pc : s.pc=pcOf 45056
@@ -1569,7 +1569,7 @@ structure Prepared (s0:MachineState) (message:SigGolfCandidate.T3.Message) (b:Sh
 
 /-- T51: the front after DEC (word 0 -> DEC 54569 -> `j 1`): from word 1 with the inflated slot layout and the hint
 already written (`Expand_PrePassInit.dec_init`), the front tail + zero block + `j 45056` (37 steps). `s0` is the real
-initial state; DEC wrote only the hint word and `[0x70d0, 0x84c0)`. -/
+initial state; DEC wrote only the hint word and `[0x70b0, 0x84c0)`. -/
 theorem prepare {im:Image}
     (hf:CodeAt im (pcOf 1) frontTail)
     (hz:CodeAt im (pcOf 42719) zeroBlk) (hj:CodeAt im (pcOf 30) [0x7892b06f])
@@ -1580,7 +1580,7 @@ theorem prepare {im:Image}
       BitVec.ofNat 64 (SharedCodec.sigDecC b).policyHints.toNat)
     (hm:∀k,k < 4 → s.getMem (BitVec.ofNat 64 (0x65A0+8*k))=message.extractLsb' (64*k) 64)
     (hd:SharedInit.DataAt s)
-    (hf0:Frame s0 s (fun A=>A=SharedCompact.policyAddress ∨ (0x70d0≤A ∧ A<0x84c0))) :
+    (hf0:Frame s0 s (fun A=>A=SharedCompact.policyAddress ∨ (0x70b0≤A ∧ A<0x84c0))) :
     ∃t,Steps im s 37 37 t ∧ Prepared s0 message b t := by
   obtain ⟨t,ut,tp,t5,t0,t8,tm,tz,tr,tf⟩:=setup hf hz hj s hp h5
   refine ⟨t,ut,⟨tp,t5,?_,?_,?_,?_,?_,?_,tz⟩⟩
@@ -2705,7 +2705,7 @@ theorem submission_sign_valid :
   rw [submission_sign, submission_sizes, submission_layout]
   rw [Riscv.Image.Valid]
   rw [Riscv.Image.byteSize,
-    show Images.signImage.code.length = 25308 from Images.signCode_length,
+    show Images.signImage.code.length = 25562 from Images.signCode_length,
     show Images.signImage.data.length = 86144 from Images.signData_length]
   rw [layoutValid_of_data_length _ _ _ 86144 Images.signData_length]
   decide +kernel
@@ -2745,11 +2745,11 @@ namespace SigGolfCandidate.T3M.Paired
 open SigGolfCandidate.Legacy
 
 def submission : Submission where
-  sizes := ⟨5190, 21756, 131072⟩
+  sizes := ⟨5189, 21756, 131072⟩
   layout := ⟨0x65A0, 0x80, 0xa0, 0x80000, 0x7000, 0x10A0⟩
   image := SigGolfCandidate.T3M.submission.image
 
-@[simp] theorem submission_sizes : submission.sizes = ⟨5190, 21756, 131072⟩ := rfl
+@[simp] theorem submission_sizes : submission.sizes = ⟨5189, 21756, 131072⟩ := rfl
 @[simp] theorem submission_layout : submission.layout = ⟨0x65A0, 0x80, 0xa0, 0x80000, 0x7000, 0x10A0⟩ := rfl
 @[simp] theorem submission_image : submission.image = SigGolfCandidate.T3M.submission.image := rfl
 @[simp] theorem submission_keygen : submission.image .keygen = Images.keygenImage := rfl
@@ -2776,7 +2776,7 @@ theorem submission_sign_valid :
   rw [submission_sign, submission_sizes, submission_layout]
   rw [Riscv.Image.Valid]
   rw [Riscv.Image.byteSize,
-    show Images.signImage.code.length = 25308 from Images.signCode_length,
+    show Images.signImage.code.length = 25562 from Images.signCode_length,
     show Images.signImage.data.length = 86144 from Images.signData_length]
   rw [layoutValid_of_data_length _ _ _ 86144 Images.signData_length]
   decide +kernel

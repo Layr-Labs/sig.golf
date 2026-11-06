@@ -56,6 +56,26 @@ theorem pubGood_leafHashH (heap index coord child : Nat) (pad : Digest) (ends : 
 theorem pubGood_wctNodeHashH (coord index heap : Nat) (l r : Digest) :
     AllQueriesSatisfy (WCT9.wctNodeHashH coord index heap l r) PubGood :=
   WCT9.allQ_ftsHash_of_shortHash _ _ (pubGood_shortHash _ (by simp [bytesLE_length, zero16]))
+/-- E8: a canonical FTS node (`ftsNodeAt`) is the plain node or (heaps `8..15`) `ftsNodeHashN` trials. -/
+theorem allQ_ftsNodeAt {P : SigGolfCandidate.T3.Spec.Domain → Prop} (coord index heap : Nat) (left right : Digest)
+    (h0 : AllQueriesSatisfy (WCT9.wctNodeHashH coord index heap left right) P)
+    (h : ∀ n, 8 ≤ heap ∧ heap < 16 → AllQueriesSatisfy (WCT9.ftsNodeHashN coord index heap n left right) P) :
+    AllQueriesSatisfy (WCT9.ftsNodeAt coord index heap left right) P := by
+  unfold WCT9.ftsNodeAt
+  split
+  · exact allQ_map _ h0
+  · rename_i hb
+    have hg : 8 ≤ heap ∧ heap < 16 := by
+      by_contra hn; exact hb (WCT9.ftsZeroBits_off hn)
+    exact WCT9.allQ_ftsNonceSearch coord index heap left right (fun n => h n hg) _ 0
+/-- E8: an FTS ground node's trials are public, well-formed queries. -/
+theorem pubGood_ftsNodeAt (coord index heap : Nat) (l r : Digest) :
+    AllQueriesSatisfy (WCT9.ftsNodeAt coord index heap l r) PubGood :=
+  allQ_ftsNodeAt _ _ _ _ _ (pubGood_wctNodeHashH ..)
+    (fun _ _ => pubGood_shortHash _ (by simp [WCT9.ftsNodeInputN, bytesLE_length]))
+theorem pubGood_ftsNodeG (coord index heap : Nat) (l r : Digest) :
+    AllQueriesSatisfy (WCT9.ftsNodeG coord index heap l r) PubGood :=
+  allQ_map _ (pubGood_ftsNodeAt ..)
 theorem pubGood_layerEncodingInputP (lay : Layer) (tree leaf : Nat) (msg : WCT9.LayerMsg) (c : BitVec 32)
     (pad : BitVec 96) (padR : Digest) (hi : BitVec 64) :
     AllQueriesSatisfy (ClaudeWCT.WCT9.encodingHash lay (layerEncodingInputP lay tree leaf msg c pad padR hi)) PubGood := by
@@ -537,20 +557,32 @@ theorem public_sharedNode (first : Bool) (coord index heap : Nat)
       · unfold highHash
         exact public_bind (public_publicHash _) fun _ => public_pure _
       · exact public_shortHash _
-    · exact public_wctNodeHashH _ _ _ _ _
+    · exact allQ_mono (ClaudeWCT.W9.T3M.pubGood_ftsNodeG ..) fun _ h=>h.1
+theorem public_sharedNodeAt (first : Bool) (coord index heap : Nat)
+    (pads : Nat → PairRoot) (left right : Digest) :
+    Only (sharedNodeAt first coord index heap pads left right) := by
+  unfold sharedNodeAt
+  split
+  · exact public_map _ (public_sharedNode _ _ _ _ _ _ _)
+  · exact allQ_mono (ClaudeWCT.W9.T3M.pubGood_ftsNodeAt ..) fun _ h=>h.1
 theorem public_recoverSharedInner (first : Bool) (index coord : Nat) (selected : Child)
     (word : Rank) (values : Fin 6 → Digest) (path : Nat → Digest) (prev : PairRoot) :
     Only (recoverSharedInner first index coord selected word values path prev) := by
   unfold recoverSharedInner
   refine public_bind (public_mapM _ _ (fun _ => public_chain _ _ _ _ _ _ _)) fun _ => ?_
   refine public_bind (public_leafHashH _ _ _ _ _ _) fun _ => ?_
-  exact public_foldlM _ _ (fun _ _ => public_sharedNode _ _ _ _ _ _ _) _
+  exact public_foldlM _ _ (fun _ _ => public_bind (public_sharedNodeAt _ _ _ _ _ _ _) fun _ => public_pure _) _
+theorem public_recoverSharedOuter (index coord : Nat) (selected : Child) (word : Rank)
+    (values : Fin 6 → Digest) (path : Nat → Digest) (prev : PairRoot) :
+    Only (recoverSharedOuter index coord selected word values path prev) := by
+  unfold recoverSharedOuter
+  refine public_bind (public_recoverSharedInner _ _ _ _ _ _ _ _) fun _ => ?_
+  exact public_bind (public_sharedOuterHash _ _ _ _ _) fun _ => public_pure _
 theorem public_recoverPair (index pair : Nat) (s : Selection) (aWord bWord : Rank)
     (opened : PairOpening) (prev : PairRoot) : Only (recoverPair index pair s aWord bWord opened prev) := by
   unfold recoverPair
   refine public_bind (public_recoverSharedInner _ _ _ _ _ _ _ _) fun _ => ?_
-  refine public_bind (public_recoverSharedInner _ _ _ _ _ _ _ _) fun _ => ?_
-  exact public_bind (public_sharedOuterHash _ _ _ _ _) fun _ => public_pure _
+  exact public_bind (public_recoverSharedOuter _ _ _ _ _ _ _) fun _ => public_pure _
 theorem public_recoverSingleton (index : Nat) (selected : Child) (word : Rank)
     (opened : SingletonOpening) (prev : PairRoot) : Only (recoverSingleton index selected word opened prev) := by
   unfold recoverSingleton
@@ -559,8 +591,8 @@ theorem public_recoverSingleton (index : Nat) (selected : Child) (word : Rank)
 theorem public_recoverForest (index : Nat) (selected : ForestSelection) (words : ForestWords)
     (opened : ForestOpening) : Only (recoverForest index selected words opened) := by
   unfold recoverForest
-  exact public_bind (public_foldlM _ _ (fun _ _ => public_recoverPair _ _ _ _ _ _ _) _) fun _ =>
-    public_recoverSingleton _ _ _ _ _
+  exact public_bind (public_foldlM _ _ (fun _ _ => public_bind (public_recoverPair _ _ _ _ _ _ _) fun _ => public_pure _) _)
+    fun _ => public_bind (public_recoverSingleton _ _ _ _ _) fun _ => public_pure _
 theorem public_layerCounterSearchAt (lay : Layer) (floor tree leaf : Nat)
     (msg : LayerMsg) (counter fuel : Nat) :
     Only (CanonicalPolicy.layerCounterSearchAt lay floor tree leaf msg counter fuel) := by
@@ -780,20 +812,32 @@ theorem good_sharedNode (first : Bool) (coord index heap : Nat)
       · unfold highHash
         exact good_bind (good_publicHash _ (by simp [wctTopInput_length])) fun _ => good_pure _
       · exact good_shortHash _ (by simp [wctTopInput_length])
-    · exact good_wctNodeHashH _ _ _ _ _
+    · exact allQ_mono (ClaudeWCT.W9.T3M.pubGood_ftsNodeG ..) fun _ h=>h.2
+theorem good_sharedNodeAt (first : Bool) (coord index heap : Nat)
+    (pads : Nat → PairRoot) (left right : Digest) :
+    Good (sharedNodeAt first coord index heap pads left right) := by
+  unfold sharedNodeAt
+  split
+  · exact good_map _ (good_sharedNode _ _ _ _ _ _ _)
+  · exact allQ_mono (ClaudeWCT.W9.T3M.pubGood_ftsNodeAt ..) fun _ h=>h.2
 theorem good_recoverSharedInner (first : Bool) (index coord : Nat) (selected : Child)
     (word : Rank) (values : Fin 6 → Digest) (path : Nat → Digest) (prev : PairRoot) :
     Good (recoverSharedInner first index coord selected word values path prev) := by
   unfold recoverSharedInner
   refine good_bind (good_mapM _ _ (fun _ => good_chain _ _ _ _ _ _ _)) fun _ => ?_
   refine good_bind (good_leafHashH _ _ _ _ _ _) fun _ => ?_
-  exact good_foldlM _ _ (fun _ _ => good_sharedNode _ _ _ _ _ _ _) _
+  exact good_foldlM _ _ (fun _ _ => good_bind (good_sharedNodeAt _ _ _ _ _ _ _) fun _ => good_pure _) _
+theorem good_recoverSharedOuter (index coord : Nat) (selected : Child) (word : Rank)
+    (values : Fin 6 → Digest) (path : Nat → Digest) (prev : PairRoot) :
+    Good (recoverSharedOuter index coord selected word values path prev) := by
+  unfold recoverSharedOuter
+  refine good_bind (good_recoverSharedInner _ _ _ _ _ _ _ _) fun _ => ?_
+  exact good_bind (good_sharedOuterHash _ _ _ _ _) fun _ => good_pure _
 theorem good_recoverPair (index pair : Nat) (s : Selection) (aWord bWord : Rank)
     (opened : PairOpening) (prev : PairRoot) : Good (recoverPair index pair s aWord bWord opened prev) := by
   unfold recoverPair
   refine good_bind (good_recoverSharedInner _ _ _ _ _ _ _ _) fun _ => ?_
-  refine good_bind (good_recoverSharedInner _ _ _ _ _ _ _ _) fun _ => ?_
-  exact good_bind (good_sharedOuterHash _ _ _ _ _) fun _ => good_pure _
+  exact good_bind (good_recoverSharedOuter _ _ _ _ _ _ _) fun _ => good_pure _
 theorem good_recoverSingleton (index : Nat) (selected : Child) (word : Rank)
     (opened : SingletonOpening) (prev : PairRoot) : Good (recoverSingleton index selected word opened prev) := by
   unfold recoverSingleton
@@ -802,8 +846,34 @@ theorem good_recoverSingleton (index : Nat) (selected : Child) (word : Rank)
 theorem good_recoverForest (index : Nat) (selected : ForestSelection) (words : ForestWords)
     (opened : ForestOpening) : Good (recoverForest index selected words opened) := by
   unfold recoverForest
-  exact good_bind (good_foldlM _ _ (fun _ _ => good_recoverPair _ _ _ _ _ _ _) _) fun _ =>
-    good_recoverSingleton _ _ _ _ _
+  exact good_bind (good_foldlM _ _ (fun _ _ => good_bind (good_recoverPair _ _ _ _ _ _ _) fun _ => good_pure _) _)
+    fun _ => good_bind (good_recoverSingleton _ _ _ _ _) fun _ => good_pure _
+theorem good_sharedNodeN (first : Bool) (coord index heap : Nat)
+    (pads : Nat → PairRoot) (n : Nat) (left right : Digest) :
+    Good (sharedNodeN first coord index heap pads n left right) := by
+  unfold sharedNodeN
+  split
+  · exact good_shortHash _ (by simp [ClaudeWCT.WCT9.ftsNodeInputN, SphincsSecurity.bytesLE_length])
+  · exact good_sharedNode _ _ _ _ _ _ _
+theorem good_recoverSharedInnerN (first : Bool) (index coord : Nat) (selected : Child)
+    (word : Rank) (values : Fin 6 → Digest) (path : Nat → Digest) (nonce : Nat) (prev : PairRoot) :
+    Good (recoverSharedInnerN first index coord selected word values path nonce prev) := by
+  unfold recoverSharedInnerN
+  refine good_bind (good_mapM _ _ (fun _ => good_chain _ _ _ _ _ _ _)) fun _ => ?_
+  refine good_bind (good_leafHashH _ _ _ _ _ _) fun _ => ?_
+  exact good_foldlM _ _ (fun _ _ => good_sharedNodeN _ _ _ _ _ _ _ _) _
+theorem good_recoverForestN (index : Nat) (selected : ForestSelection) (words : ForestWords)
+    (opened : ForestOpening) (nonces : List Nat) : Good (recoverForestN index selected words opened nonces) := by
+  unfold recoverForestN
+  refine good_bind (good_foldlM _ _ (fun _ _ => ?_) _) fun _ => ?_
+  · unfold recoverPairN
+    refine good_bind (good_recoverSharedInnerN _ _ _ _ _ _ _ _ _) fun _ => ?_
+    unfold recoverSharedOuterN
+    refine good_bind (good_recoverSharedInnerN _ _ _ _ _ _ _ _ _) fun _ => ?_
+    exact good_bind (good_sharedOuterHash _ _ _ _ _) fun _ => good_pure _
+  · unfold recoverSingletonN
+    refine good_bind (good_recoverSharedInnerN _ _ _ _ _ _ _ _ _) fun _ => ?_
+    exact good_bind (good_sharedOuterHash _ _ _ _ _) fun _ => good_pure _
 theorem good_layerCounterSearchAt (lay : Layer) (floor tree leaf : Nat)
     (msg : LayerMsg) (counter fuel : Nat) :
     Good (CanonicalPolicy.layerCounterSearchAt lay floor tree leaf msg counter fuel) := by
@@ -1059,7 +1129,7 @@ theorem good_verify (message : Message) (pk : Digest) (w : SigGolfCandidate.Rese
     Good (verify message pk w) := by
   unfold verify
   refine allQ_ite _ (good_pure _) (good_bind (good_digest ..) fun output=>?_)
-  refine allQ_ite _ (good_pure _) (good_bind (good_recoverForest ..) fun forest=>?_)
+  refine allQ_ite _ (good_pure _) (good_bind (good_recoverForestN ..) fun forest=>?_)
   refine good_bind (good_verifyLayers ..) fun found=>?_
   cases found <;> exact good_pure _
 end SigGolfCandidate.Research.SharedForest
@@ -4297,7 +4367,7 @@ set_option backward.isDefEq.respectTransparency false in
 `wctTopInput`. -/
 theorem sharedNode_eq_nodeProgramP (index coord level node : Nat) (hc : coord < 9) (hl : level < 6)
     (hn : node < 2^(6-level)) (hu : first coord = true → level < 5) (ps : Nat → SharedForest.PairRoot)
-    (left right : Digest) :
+    (left right : Digest) (h3 : level ≠ 3) :
     SharedForest.sharedNode (first coord) coord index (2^(6-level)+node) ps left right =
     nodeProgram coord level node (ClaudeWCT.WCT9.wctTopInput coord index (2^(6-level)+node) left
       (if level=4 then (ps ((2^(6-level)+node)/2-2)).2 else 0) right) := by
@@ -4350,8 +4420,13 @@ theorem sharedNode_eq_nodeProgramP (index coord level node : Nat) (hc : coord < 
           · omega
         simp only [hf, if_false, nodeProgram, if_neg hp, ↓reduceIte]
         rfl
-    · have hlt : level<4 := by omega
+    · have hlt : level<3 := by omega
       simp only [if_neg (show ¬4≤level by omega), if_neg hlev, ↓reduceIte]
+      have h16 : 16 ≤ 2^(6-level)+node := by
+        have : 2^4 ≤ 2^(6-level) := Nat.pow_le_pow_right (by norm_num) (by omega)
+        norm_num at this
+        omega
+      rw [ClaudeWCT.WCT9.ftsNodeG_of_zero (ClaudeWCT.WCT9.ftsZeroBits_off (by omega))]
       have hnode : ClaudeWCT.WCT9.wctNodeHashH coord index (2^(6-level)+node) left right =
           ClaudeWCT.WCT9.ftsHash (2^(6-level)+node) (ClaudeWCT.WCT9.wctTopInput coord index (2^(6-level)+node) left 0 right) := by
         unfold ClaudeWCT.WCT9.wctNodeHashH ClaudeWCT.WCT9.wctTopInput
@@ -4367,6 +4442,12 @@ theorem sharedNode_eq_nodeProgramP (index coord level node : Nat) (hc : coord < 
         simp only [nodeProgram, if_neg hh]
 
 
+/-- E8: the honest nonce of the FTS node at heap `heap` (the found ground trial on heaps `8..15`; `0` elsewhere). -/
+noncomputable def honestFtsNonce (answers : Answers) (index coord heap : Nat) : Nat :=
+  (evalWithAnswerFn answers (ClaudeWCT.WCT9.ftsNodeAt coord index heap
+    ((nodes answers index coord).getD (2*heap) 0) ((nodes answers index coord).getD (2*heap+1) 0))).1
+
+/-- E8: the honest input of a level-3 (heap `8..15`) FTS node carries its honest (found) nonce in the pad slot. -/
 noncomputable def honestInput (answers : Answers) : Pos → HashInput
   | .wctLeaf index coord child => pad64 (wctLeafInputP index coord child
       (pads answers index coord (physical coord child/64)).1 (wctEnds answers index coord child))
@@ -4374,7 +4455,8 @@ noncomputable def honestInput (answers : Answers) : Pos → HashInput
       let heap := 2^(6-level)+node
       pad64 (ClaudeWCT.WCT9.wctTopInput coord index heap
         ((nodes answers index coord).getD (2*heap) 0)
-        (if level = 4 then (pads answers index coord (heap/2-2)).2 else 0)
+        (if level = 4 then (pads answers index coord (heap/2-2)).2
+          else if level = 3 then BitVec.ofNat 128 (honestFtsNonce answers index coord heap % 2 ^ 64) else 0)
         ((nodes answers index coord).getD (2*heap+1) 0))
   | position => Extract.honestInput answers position
 
@@ -10674,10 +10756,14 @@ set_option maxRecDepth 10000
 set_option backward.isDefEq.respectTransparency false
 
 /-- The forest consumes a fixed budget before the prepared lower roots and the canonical search. U16b: the prepared
-roots (with the ground nonce searches) are bounded by a moment `P` at every reached state. -/
-theorem V_signFromOutput_fixed (secret : BitVec 256) (z L P : ENNReal) (hz : 1 ≤ z)
+roots (with the ground nonce searches) are bounded by a moment `P` at every reached state. E8: the forest itself (with
+the FTS ground nonce searches) is bounded by a moment `F`. -/
+theorem V_signFromOutput_fixed (secret : BitVec 256) (z L P : ENNReal) {F : ENNReal}
     (cache : SigGolfCandidate.T3.Cache) (rho : Digest) (counter : BitVec 32)
     (output : HashOutput) (rcache : RCache)
+    (hforest : V secret z (SigGolfCandidate.Research.SharedForest.buildForest (digestIndex output)
+      (SigGolfCandidate.Research.SharedForest.forestSelectionFromOutput output)
+      (SigGolfCandidate.Research.SharedForest.forestWordsFromOutput output)) rcache ≤ F)
     (hprep : ∀ forest ∈ support (roRun secret
         (SigGolfCandidate.Research.SharedForest.buildForest (digestIndex output) (SigGolfCandidate.Research.SharedForest.forestSelectionFromOutput output)
           (SigGolfCandidate.Research.SharedForest.forestWordsFromOutput output)) rcache),
@@ -10689,10 +10775,9 @@ theorem V_signFromOutput_fixed (secret : BitVec 256) (z L P : ENNReal) (hz : 1 �
       V secret z (SigGolfCandidate.Research.SharedForest.searchPreparedLayers cache (digestIndex output) prepared.1 forest.1.2)
         prepared.2 ≤ L) :
     V secret z (SigGolfCandidate.Research.SharedForest.signFromOutput cache rho counter output) rcache ≤
-      z ^ 31321 * (P * L) := by
+      F * (P * L) := by
   unfold SigGolfCandidate.Research.SharedForest.signFromOutput
-  refine V_bind_bounded secret z _ _ rcache (z ^ 31321) (P * L)
-    (V_of_bound (SigGolfCandidate.Research.SharedForest.bound_buildForest ..) secret z hz rcache) ?_
+  refine V_bind_bounded secret z _ _ rcache F (P * L) hforest ?_
   intro forest hforest
   refine V_bind_bounded secret z _ _ forest.2 P L (hprep forest hforest) ?_
   intro prepared hprepared
@@ -11102,7 +11187,7 @@ structure SearchEnvelope (z : ENNReal) where
   one_ge : ∀ r, r < 54 → 1 ≤ one r
   two_ge : ∀ r, r < 40 → 1 ≤ two r
   three_ge : ∀ r, r < 22 → 1 ≤ three r
-  initial_step : z * (acceptedWeight (decoder 0 14) (fun dl => one (nextResidual 65 0 dl.2 dl.1)) +
+  initial_step : z * (acceptedWeight (decoder 0 14) (fun dl => one (nextResidual 66 0 dl.2 dl.1)) +
     SphincsSecurity.Completeness.failMass (decoder 0 14) * initial) ≤ initial
   one_step : ∀ r, r < 54 → z *
     (acceptedWeight (decoder 1 (threshold 1 r)) (fun dl => two (nextResidual r 1 dl.2 dl.1)) +
@@ -11119,55 +11204,83 @@ theorem decoder_spec {lay : Layer} {floor : Nat} {answer : HashOutput} {ds : Lis
     producerDecodeAt lay floor low (encodingAnswer lay answer) = some ds :=
   (producerDecodeOut_spec h).2
 
+/-- E1: the zero-mask frontier's masks make no HASH call (`pairedMask` is `pure (0, 0)`). -/
+theorem bound_mask_e1 (level index : Nat) :
+    SigGolfCandidate.T3.Cost.CBound (fun _ => True) 0 (SigGolfCandidate.T3.mask level index) := by
+  unfold SigGolfCandidate.T3.mask SigGolfCandidate.T3.pairedMask
+  exact (SigGolfCandidate.T3.Cost.Bound.pure (Post := fun _ => True)
+    ((0 : SigGolfCandidate.T3.Digest), (0 : SigGolfCandidate.T3.Digest)) 0 trivial).bind' (l := 0)
+    (fun _ _ => .pure _ 0 trivial) (by decide)
+
+/-- E1: the top path only reads the public cache (no compression; the legacy bound charged 12 masks). -/
+theorem bound_topPath_e1 (cache : SigGolfCandidate.T3.Cache) (leaf : Nat) :
+    SigGolfCandidate.T3.Cost.CBound (fun result => result.length=12) 0 (SigGolfCandidate.T3.topPath cache leaf) := by
+  unfold SigGolfCandidate.T3.topPath
+  apply (SigGolfCandidate.T3.Cost.Bound.mapM_list (P := SigGolfCandidate.T3.Cost.GoodQuery) (List.range 12) _
+    (fun _ => 0) (fun level _ => (bound_mask_e1 level _).bind' (l := 0)
+      (fun _ _ => .pure _ 0 trivial) (by decide))).mono_k
+  simp
+
+/-- E1: signing the top layer costs its 16 family pairs plus the digit sum (`16 + 152 = 168`). -/
+theorem bound_signTop_e1 (cache : SigGolfCandidate.T3.Cache) (leaf : Nat) (digits : List Nat)
+    (hlen : digits.length=51) (hsum : digits.sum≤152) :
+    SigGolfCandidate.T3.Cost.CBound (fun result => result.1.length=51 ∧ result.2.length=12) 168
+      (SigGolfCandidate.T3.signTop cache leaf digits) := by
+  unfold SigGolfCandidate.T3.signTop
+  refine (SigGolfCandidate.T3.Cost.bound_topSignatureLeaf leaf digits hlen).bind' (l := 0) (fun result hr => ?_)
+    (by omega)
+  refine (bound_topPath_e1 cache leaf).bind' (l := 0) (fun path hp => ?_) (by decide)
+  exact .pure (result.2,path) 0 ⟨hr,hp⟩
+
 /-- The actual four searches follow canonical ancestors. Their continuation
 weights depend on the remaining path-aware credit, and the retained lower reveals cost no HASH calls. -/
 theorem V_searchPreparedLayers (secret : BitVec 256) (z : ENNReal) (hz : 1 ≤ z)
     (E : SearchEnvelope z) (cache : SigGolfCandidate.T3.Cache) (index : Nat)
     (prepared : PreparedRoots) (forest : PairRoot) (rcache : RCache)
     (hfresh : RowsFreshFrom 0 rcache) :
-    V secret z (searchPreparedLayers cache index prepared forest) rcache ≤ z^180 * E.initial := by
-  have hfactor : 1 ≤ z^180 := one_le_pow₀ hz
+    V secret z (searchPreparedLayers cache index prepared forest) rcache ≤ z^168 * E.initial := by
+  have hfactor : 1 ≤ z^168 := one_le_pow₀ hz
   unfold searchPreparedLayers
   simp only [CanonicalPolicy.totalCredit, threshold_top]
   apply V_layerSearch_bind (secret := secret) (z := z) (lay := 0)
-    (weight := fun dl => z^180 * E.one (nextResidual 65 0 dl.2 dl.1))
+    (weight := fun dl => z^168 * E.one (nextResidual 66 0 dl.2 dl.1))
   · intro rc _
     simpa only [V_pure] using one_le_mul hfactor E.initial_ge
   · intro rc hr counter hc answer dl0 hd0
     obtain ⟨ds0, l0⟩ := dl0
     have hd0' := decoder_spec hd0
     have hres1 := accepted_top_residual hd0'
-    have hp1 : threshold 1 (nextResidual 65 0 l0 ds0) < 16 :=
-      lower_one_floor_lt ⟨nextResidual 65 0 l0 ds0, hres1⟩
-    simp only [show ¬ (threshold 1 (nextResidual 65 0 l0 ds0) ≥ 16) by omega, ↓reduceIte]
+    have hp1 : threshold 1 (nextResidual 66 0 l0 ds0) < 16 :=
+      lower_one_floor_lt ⟨nextResidual 66 0 l0 ds0, hres1⟩
+    simp only [show ¬ (threshold 1 (nextResidual 66 0 l0 ds0) ≥ 16) by omega, ↓reduceIte]
     apply V_layerSearch_bind (secret := secret) (z := z) (lay := 1)
-      (weight := fun dl => z^180 * E.two (nextResidual (nextResidual 65 0 l0 ds0) 1 dl.2 dl.1))
+      (weight := fun dl => z^168 * E.two (nextResidual (nextResidual 66 0 l0 ds0) 1 dl.2 dl.1))
     · intro rc _
       simpa only [V_pure] using one_le_mul hfactor (E.one_ge _ hres1)
     · intro rc hr counter1 hc1 answer1 dl1 hd1
       obtain ⟨ds1, l1⟩ := dl1
       have hd1' := decoder_spec hd1
-      have hres2 : nextResidual (nextResidual 65 0 l0 ds0) 1 l1 ds1 < 40 :=
-        accepted_one_residual ⟨nextResidual 65 0 l0 ds0, hres1⟩ hd1'
-      have hp2 : threshold 2 (nextResidual (nextResidual 65 0 l0 ds0) 1 l1 ds1) ≤ 19 :=
-        (lower_two_progress ⟨nextResidual (nextResidual 65 0 l0 ds0) 1 l1 ds1, hres2⟩).1
-      simp only [show ¬ (threshold 2 (nextResidual (nextResidual 65 0 l0 ds0) 1 l1 ds1) ≥ 22) by omega,
+      have hres2 : nextResidual (nextResidual 66 0 l0 ds0) 1 l1 ds1 < 40 :=
+        accepted_one_residual ⟨nextResidual 66 0 l0 ds0, hres1⟩ hd1'
+      have hp2 : threshold 2 (nextResidual (nextResidual 66 0 l0 ds0) 1 l1 ds1) ≤ 19 :=
+        (lower_two_progress ⟨nextResidual (nextResidual 66 0 l0 ds0) 1 l1 ds1, hres2⟩).1
+      simp only [show ¬ (threshold 2 (nextResidual (nextResidual 66 0 l0 ds0) 1 l1 ds1) ≥ 22) by omega,
         ↓reduceIte]
       apply V_layerSearch_bind (secret := secret) (z := z) (lay := 2)
-        (weight := fun dl => z^180 * E.three
-          (nextResidual (nextResidual (nextResidual 65 0 l0 ds0) 1 l1 ds1) 2 dl.2 dl.1))
+        (weight := fun dl => z^168 * E.three
+          (nextResidual (nextResidual (nextResidual 66 0 l0 ds0) 1 l1 ds1) 2 dl.2 dl.1))
       · intro rc _
         simpa only [V_pure] using one_le_mul hfactor (E.two_ge _ hres2)
       · intro rc hr counter2 hc2 answer2 dl2 hd2
         obtain ⟨ds2, l2⟩ := dl2
         have hd2' := decoder_spec hd2
-        have hres3 : nextResidual (nextResidual (nextResidual 65 0 l0 ds0) 1 l1 ds1) 2 l2 ds2 < 22 :=
-          accepted_two_residual ⟨nextResidual (nextResidual 65 0 l0 ds0) 1 l1 ds1, hres2⟩ hd2'
+        have hres3 : nextResidual (nextResidual (nextResidual 66 0 l0 ds0) 1 l1 ds1) 2 l2 ds2 < 22 :=
+          accepted_two_residual ⟨nextResidual (nextResidual 66 0 l0 ds0) 1 l1 ds1, hres2⟩ hd2'
         have hp3 := lower_three_progress _ hres3
         simp only [show ¬ (threshold 3
-            (nextResidual (nextResidual (nextResidual 65 0 l0 ds0) 1 l1 ds1) 2 l2 ds2) ≥ 22) by omega,
+            (nextResidual (nextResidual (nextResidual 66 0 l0 ds0) 1 l1 ds1) 2 l2 ds2) ≥ 22) by omega,
           ↓reduceIte]
-        apply V_layerSearch_bind (secret := secret) (z := z) (lay := 3) (weight := fun _ => z^180)
+        apply V_layerSearch_bind (secret := secret) (z := z) (lay := 3) (weight := fun _ => z^168)
         · intro rc _
           simpa only [V_pure] using one_le_mul hfactor (E.three_ge _ hres3)
         · intro rc hr counter3 hc3 answer3 dl3 hd3
@@ -11175,26 +11288,26 @@ theorem V_searchPreparedLayers (secret : BitVec 256) (z : ENNReal) (hz : 1 ≤ z
           have hd : SigGolfCandidate.T3.decode 0 (encodingAnswer 0 answer) = some ds0 :=
             (producerDecodeAt_spec hd0').1
           have hds := SigGolfCandidate.T3.decode_length_sum hd
-          have hbound := bound_signTop cache (route index 0).1 ds0
+          have hbound := bound_signTop_e1 cache (route index 0).1 ds0
             (by exact hds.1)
             (by exact hds.2.le)
-          refine (V_bind_bounded secret z _ _ rc (z^180) 1
+          refine (V_bind_bounded secret z _ _ rc (z^168) 1
             (V_of_bound hbound secret z hz rc) ?_).trans_eq (mul_one _)
           intro top _
           simp only [V_pure]
           exact le_rfl
         · simpa only [mul_one] using scaled_step z
-            (E.three (nextResidual (nextResidual (nextResidual 65 0 l0 ds0) 1 l1 ds1) 2 l2 ds2))
-            (z^180) _ (fun _ => 1) (E.three_step _ hres3)
+            (E.three (nextResidual (nextResidual (nextResidual 66 0 l0 ds0) 1 l1 ds1) 2 l2 ds2))
+            (z^168) _ (fun _ => 1) (E.three_step _ hres3)
         · decide
         · exact hr
-      · exact scaled_step z _ (z^180) _ _ (E.two_step _ hres2)
+      · exact scaled_step z _ (z^168) _ _ (E.two_step _ hres2)
       · decide
       · exact hr
-    · exact scaled_step z _ (z^180) _ _ (E.one_step _ hres1)
+    · exact scaled_step z _ (z^168) _ _ (E.one_step _ hres1)
     · decide
     · exact hr
-  · exact scaled_step z _ (z^180) _ _ E.initial_step
+  · exact scaled_step z _ (z^168) _ _ E.initial_step
   · decide
   · exact hfresh
 
@@ -11238,14 +11351,14 @@ noncomputable def envelope_of_rows
       Pr[fun answer => ∃ dl, decoder lay floor answer = some dl ∧ dcredit lay dl = i.val |
         ($ᵗ HashOutput : ProbComp HashOutput)] =
         if floor ≤ i.val then (histogramWeight (lowerHist lay.val) i.val : ENNReal)/lowerDen else 0)
-    (hinitial : recurrenceCheck topDen topHist 14 65 one initial = true)
+    (hinitial : recurrenceCheck topDen topHist 14 66 one initial = true)
     (hone : ∀ r, r < 54 → recurrenceCheck lowerDen (lowerHist 1) (threshold 1 r) r two
       (one[r]?.getD 0) = true)
     (htwo : ∀ r, r < 40 → recurrenceCheck lowerDen (lowerHist 2) (threshold 2 r) r three
       (two[r]?.getD 0) = true)
     (hthree : ∀ r, r < 22 → recurrenceCheck lowerDen (lowerHist 3) (threshold 3 r) r #[scale]
       (three[r]?.getD 0) = true) : SearchEnvelope ((zNum : ENNReal)/zDen) := by
-  have h0 := decoder_recurrence 220 (decoder 0 14) (dcredit 0) topHist 14 65 topDen one initial
+  have h0 := decoder_recurrence 220 (decoder 0 14) (dcredit 0) topHist 14 66 topDen one initial
     htopDen htopBound htopHist htopLaw hinitial
   have h1 (r : Nat) (hr : r < 54) := decoder_recurrence 128 (decoder 1 (threshold 1 r))
     (dcredit 1) (lowerHist 1) (threshold 1 r) r lowerDen two (one[r]?.getD 0) hlowerDen
@@ -11352,7 +11465,7 @@ theorem V_searchPreparedLayers_certified (secret : BitVec 256) (cache : SigGolfC
     (hfresh : RowsFreshFrom 0 rcache) :
     V secret SigGolfCandidate.T3.Budgets.signingZ
       (SigGolfCandidate.Research.SharedForest.searchPreparedLayers cache index prepared forest) rcache ≤
-      SigGolfCandidate.T3.Budgets.signingZ^180 * ((ClaudeWCT.Numerics.TopZero.initialBound : ENNReal)/scale) := by
+      SigGolfCandidate.T3.Budgets.signingZ^168 * ((ClaudeWCT.Numerics.TopZero.initialBound : ENNReal)/scale) := by
   have h := V_searchPreparedLayers secret SigGolfCandidate.T3.Budgets.signingZ
     (SigGolfCandidate.Budget.one_le_zOf _) (certifiedEnvelope.mono_z signing_z_ratio)
     cache index prepared forest rcache hfresh
@@ -11590,7 +11703,7 @@ theorem searchPreparedLayers_complete (answers : Answers) (hgood : ContextGood a
   have hd0 := (canonical_search_some' answers 0 14 (route index 0).2 (route index 0).1
     (.pair (topPair 1 prepared.one.levels).1 (topPair 1 prepared.one.levels).2)
     (searchLimit 0) 0 c0 d0 l0 (by decide) hs0).2.2.2
-  let r1 := CanonicalPolicy.nextResidual 65 0 l0 d0
+  let r1 := CanonicalPolicy.nextResidual 66 0 l0 d0
   have hr1 : r1<54 := CanonicalPolicy.accepted_top_residual hd0
   have hf1' : CanonicalPolicy.threshold 1 r1<16 := CanonicalPolicy.lower_one_floor_lt ⟨r1,hr1⟩
   have hf1 : CanonicalPolicy.threshold 1 r1<19 := by omega
@@ -12374,9 +12487,9 @@ theorem expand_cost_le_recovery (answers : Answers) (message : Message) (pk : Di
         (forestWordsFromOutput output) sig.forest) +
       cost answers (recoverHintedLayers sig (digestIndex output) ((sig.layers 0).path topJ) 4
         (.pair (evalWithAnswerFn answers (recoverForest (digestIndex output)
-          (forestSelectionFromOutput output) (forestWordsFromOutput output) sig.forest)).1
+          (forestSelectionFromOutput output) (forestWordsFromOutput output) sig.forest)).1.1
           (evalWithAnswerFn answers (recoverForest (digestIndex output)
-            (forestSelectionFromOutput output) (forestWordsFromOutput output) sig.forest)).2)) + searchFuel := by
+            (forestSelectionFromOutput output) (forestWordsFromOutput output) sig.forest)).1.2)) + searchFuel := by
   unfold expandFill
   split
   · simp only [cost_pure]; omega
@@ -12435,10 +12548,10 @@ theorem signFromOutput_recovery_cost_le (answers : Answers) (cache : SigGolfCand
     (he : evalWithAnswerFn answers (signFromOutput cache rho counter output) = some w) :
     cost answers (recoverHintedLayers w.signature (digestIndex output) ((w.signature.layers 0).path topJ) 4
       (.pair (evalWithAnswerFn answers (recoverForest (digestIndex output)
-        (forestSelectionFromOutput output) (forestWordsFromOutput output) w.signature.forest)).1
+        (forestSelectionFromOutput output) (forestWordsFromOutput output) w.signature.forest)).1.1
         (evalWithAnswerFn answers (recoverForest (digestIndex output)
-          (forestSelectionFromOutput output) (forestWordsFromOutput output) w.signature.forest)).2)) ≤
-      cost answers (signFromOutput cache rho counter output) + (12100 + 66757) := by
+          (forestSelectionFromOutput output) (forestWordsFromOutput output) w.signature.forest)).1.2)) ≤
+      cost answers (signFromOutput cache rho counter output) + (7748 + 66757) := by
   let index := digestIndex output
   let built := evalWithAnswerFn answers (buildForest index (forestSelectionFromOutput output) (forestWordsFromOutput output))
   let prepared := evalWithAnswerFn answers (prepareRoots index)
@@ -12469,13 +12582,13 @@ theorem signFromOutput_recovery_cost_le (answers : Answers) (cache : SigGolfCand
     have hm2 : topPair 3 prepared.three.levels = builtPair answers 3 (route index 3).2 := by
       dsimp only [prepared]; rw [prepareRoots_result]; exact fixedPrepared_pair answers index 3
     have hc := hf.recovery_cost_le sig ((sig.layers 0).path topJ) rfl hm0 hm1 hm2 hp
-    have hforest : evalWithAnswerFn answers (recoverForest index (forestSelectionFromOutput output)
-      (forestWordsFromOutput output) built.1) = built.2 := recoverForest_honest answers index _ _
+    have hforest : (evalWithAnswerFn answers (recoverForest index (forestSelectionFromOutput output)
+      (forestWordsFromOutput output) built.1)).1 = built.2 := recoverForest_honest answers index _ _
     change cost answers (recoverHintedLayers sig index ((sig.layers 0).path topJ) 4
       (.pair (evalWithAnswerFn answers (recoverForest index (forestSelectionFromOutput output)
-        (forestWordsFromOutput output) built.1)).1
+        (forestWordsFromOutput output) built.1)).1.1
         (evalWithAnswerFn answers (recoverForest index (forestSelectionFromOutput output)
-          (forestWordsFromOutput output) built.1)).2)) ≤ _
+          (forestWordsFromOutput output) built.1)).1.2)) ≤ _
     rw [hforest, signFromOutput_cost]
     dsimp only [index, prepared, built] at hc ⊢
     omega
@@ -12489,10 +12602,10 @@ theorem signFromOutput_recovery_cost_le_norm (answers : Answers) (cache : SigGol
     cost answers (recoverHintedLayers (normTop w.signature) (digestIndex output)
       (((normTop w.signature).layers 0).path topJ) 4
       (.pair (evalWithAnswerFn answers (recoverForest (digestIndex output)
-        (forestSelectionFromOutput output) (forestWordsFromOutput output) w.signature.forest)).1
+        (forestSelectionFromOutput output) (forestWordsFromOutput output) w.signature.forest)).1.1
         (evalWithAnswerFn answers (recoverForest (digestIndex output)
-          (forestSelectionFromOutput output) (forestWordsFromOutput output) w.signature.forest)).2)) ≤
-      cost answers (signFromOutput cache rho counter output) + (12100 + 66757) := by
+          (forestSelectionFromOutput output) (forestWordsFromOutput output) w.signature.forest)).1.2)) ≤
+      cost answers (signFromOutput cache rho counter output) + (7748 + 66757) := by
   have hlow := signFromOutput_lowerPathOK answers cache hcache hlower rho counter output w he
   let index := digestIndex output
   let built := evalWithAnswerFn answers (buildForest index (forestSelectionFromOutput output) (forestWordsFromOutput output))
@@ -12531,13 +12644,13 @@ theorem signFromOutput_recovery_cost_le_norm (answers : Answers) (cache : SigGol
     have hm2 : topPair 3 prepared.three.levels = builtPair answers 3 (route index 3).2 := by
       dsimp only [prepared]; rw [prepareRoots_result]; exact fixedPrepared_pair answers index 3
     have hc := hf.recovery_cost_le sig' ((sig'.layers 0).path topJ) hh' hm0 hm1 hm2 hp
-    have hforest : evalWithAnswerFn answers (recoverForest index (forestSelectionFromOutput output)
-      (forestWordsFromOutput output) built.1) = built.2 := recoverForest_honest answers index _ _
+    have hforest : (evalWithAnswerFn answers (recoverForest index (forestSelectionFromOutput output)
+      (forestWordsFromOutput output) built.1)).1 = built.2 := recoverForest_honest answers index _ _
     change cost answers (recoverHintedLayers sig' index ((sig'.layers 0).path topJ) 4
       (.pair (evalWithAnswerFn answers (recoverForest index (forestSelectionFromOutput output)
-        (forestWordsFromOutput output) built.1)).1
+        (forestWordsFromOutput output) built.1)).1.1
         (evalWithAnswerFn answers (recoverForest index (forestSelectionFromOutput output)
-          (forestWordsFromOutput output) built.1)).2)) ≤ _
+          (forestWordsFromOutput output) built.1)).1.2)) ≤ _
     rw [hforest, signFromOutput_cost]
     dsimp only [index, prepared, built] at hc ⊢
     omega
@@ -12671,8 +12784,8 @@ theorem bound_expandFill (message : Message) (pk : Digest) (sig : Signature) :
   unfold expandFill
   split
   · exact .pure _ _ trivial
-  · refine (bound_sharedDigestSearch _ _ _ _).bind' (l := 284 + recoverWorst 4 + searchFuel)
-      (fun found _ => ?_) (by rw [recoverWorst_four]; unfold expandWorstCost searchFuel digestAttemptLimit; omega)
+  · refine (bound_sharedDigestSearch _ _ _ _).bind' (l := ftsRecoverWorst + recoverWorst 4 + searchFuel)
+      (fun found _ => ?_) (by rw [recoverWorst_four]; unfold expandWorstCost searchFuel digestAttemptLimit ftsRecoverWorst; omega)
     rcases found with _ | ⟨counter, output⟩
     · exact .pure _ _ trivial
     · dsimp only
@@ -12697,8 +12810,8 @@ theorem bound_expandN (message : Message) (pk : Digest) (sig : Signature) :
   unfold ClaudeWCT.W9.T3M.Paired.expandN
   split
   · exact .pure _ _ trivial
-  · refine (bound_sharedDigestSearch _ _ _ _).bind' (l := 284 + recoverWorst 4 + searchFuel)
-      (fun found _ => ?_) (by rw [recoverWorst_four]; unfold expandWorstCost searchFuel digestAttemptLimit; omega)
+  · refine (bound_sharedDigestSearch _ _ _ _).bind' (l := ftsRecoverWorst + recoverWorst 4 + searchFuel)
+      (fun found _ => ?_) (by rw [recoverWorst_four]; unfold expandWorstCost searchFuel digestAttemptLimit ftsRecoverWorst; omega)
     rcases found with _ | ⟨counter, output⟩
     · exact .pure _ _ trivial
     · dsimp only
@@ -12726,9 +12839,9 @@ theorem expand_cost_le_worst (answers : Answers) (message : Message) (pk : Diges
 
 /-- Expand's pointwise excess over the signer (img-v6): replay 1,616 + 284 = 1,900 plus the worst-case re-derivation of the
 11 ancestor top-node nonces `Σ_h (104·2^b_h − 1) = 66,757` (E11: T51's `topZeroAlloc`; img-v6's `b_h = h` gave
-425,765); E11 (V29): plus the worst case of the 12 ground path folds `Σ (cap − 1) = 2812 + 2·3836 = 10484`
-(replay 12,100 + 284 = 12,384). -/
-def expandReplayExtra : Nat := 12384 + 66757
+425,765); E11: plus the worst case of the 12 ground path folds, E8 P1 widths (3,2,1,1): `Σ (cap − 1) = 3 · 2044 = 6132`
+(replay 7,748 + 284 = 8,032); E8: plus the worst case of the 9 FTS ground path nodes `7·511 + 2·255 = 4087`. -/
+def expandReplayExtra : Nat := 8032 + 4087 + 66757
 
 theorem expand_cost_le_payload_add (answers : Answers) (cache : SigGolfCandidate.T3.Cache)
     (hcache : cache.region = cacheRegion (maskedTop answers)) (hlower : LowerTreesOK answers) (message : Message)
@@ -12762,6 +12875,7 @@ theorem expand_cost_le_payload_add (answers : Answers) (cache : SigGolfCandidate
       have hx := expand_cost_le_recovery answers message pk (normTop original.signature) counter output hd'
       have hf := cost_bound answers (bound_recoverForest (digestIndex output)
         (forestSelectionFromOutput output) (forestWordsFromOutput output) original.signature.forest)
+      simp only [ftsRecoverWorst] at hf
       simp only [normTop_rho, normTop_forest] at hx
       rw [hh.1] at hx
       change cost answers (expandFill message pk (normTop original.signature)) ≤ _
@@ -13700,9 +13814,9 @@ theorem expand_cost_le_recovery_field (answers : Answers) (message : Message) (p
       some (counter, output))
     (hr : evalWithAnswerFn answers (recoverHintedLayers sig (digestIndex output) ((sig.layers 0).path topJ) 4
       (.pair (evalWithAnswerFn answers (recoverForest (digestIndex output)
-        (forestSelectionFromOutput output) (forestWordsFromOutput output) sig.forest)).1
+        (forestSelectionFromOutput output) (forestWordsFromOutput output) sig.forest)).1.1
         (evalWithAnswerFn answers (recoverForest (digestIndex output)
-          (forestSelectionFromOutput output) (forestWordsFromOutput output) sig.forest)).2)) = some result)
+          (forestSelectionFromOutput output) (forestWordsFromOutput output) sig.forest)).1.2)) = some result)
     (hpk : result.root = pk) :
     cost answers (expandFill message pk sig) ≤
       cost answers (sharedDigestSearch sig.rho message 0 digestAttemptLimit) +
@@ -13710,9 +13824,9 @@ theorem expand_cost_le_recovery_field (answers : Answers) (message : Message) (p
         (forestWordsFromOutput output) sig.forest) +
       cost answers (recoverHintedLayers sig (digestIndex output) ((sig.layers 0).path topJ) 4
         (.pair (evalWithAnswerFn answers (recoverForest (digestIndex output)
-          (forestSelectionFromOutput output) (forestWordsFromOutput output) sig.forest)).1
+          (forestSelectionFromOutput output) (forestWordsFromOutput output) sig.forest)).1.1
           (evalWithAnswerFn answers (recoverForest (digestIndex output)
-            (forestSelectionFromOutput output) (forestWordsFromOutput output) sig.forest)).2)) +
+            (forestSelectionFromOutput output) (forestWordsFromOutput output) sig.forest)).1.2)) +
       topField ((sig.layers 0).path topJ) := by
   let index := digestIndex output
   let forest := evalWithAnswerFn answers (recoverForest index (forestSelectionFromOutput output)
@@ -13720,12 +13834,12 @@ theorem expand_cost_le_recovery_field (answers : Answers) (message : Message) (p
   let sig0 := fillTopSignature sig 0
   have hroot : evalWithAnswerFn answers (topNode index result.foldedTop ((sig.layers 0).path topJ)) = pk := by
     have he := eval_recoverHintedLayers_other answers sig index ((sig.layers 0).path topJ)
-      ((sig.layers 0).path topJ) 4 (.pair forest.1 forest.2)
+      ((sig.layers 0).path topJ) 4 (.pair forest.1.1 forest.1.2)
     rw [hr] at he
     simp only [Option.map_some, Option.some.injEq] at he
     exact (congrArg RecoveredLayers.root he).symm.trans hpk
   have hr0 : evalWithAnswerFn answers (recoverHintedLayers sig index ((sig0.layers 0).path topJ) 4
-      (.pair forest.1 forest.2)) = some {result with
+      (.pair forest.1.1 forest.1.2)) = some {result with
         root := evalWithAnswerFn answers (topNode index result.foldedTop ((sig0.layers 0).path topJ))} := by
     rw [eval_recoverHintedLayers_other answers sig index ((sig.layers 0).path topJ)]
     rw [hr]
@@ -13861,6 +13975,7 @@ theorem expand_cost_le_payload_field (answers : Answers) (cache : SigGolfCandida
         hres (hroot.trans hpk.symm)
       have hf := cost_bound answers (bound_recoverForest (digestIndex output)
         (forestSelectionFromOutput output) (forestWordsFromOutput output) original.signature.forest)
+      simp only [ftsRecoverWorst] at hf
       have hle := topField_sib_le answers (digestIndex output)
       rw [← hsib] at hle
       rw [hrho] at hx
@@ -14183,7 +14298,7 @@ theorem expand_excess_numeric19 :
   exact ENNReal.ofReal_le_ofReal h
 
 /-! N2b at a 2^20 brute-force field (E2 for E11): replay R = 79,141, 64 blocks of 2^14,
-`w^79141 · 2^-40 · Σ_{a,b<2^20} w^max(a,b) ≤ 19/10` (kernel check < 1.842; exact block value 1.8419906). -/
+`w^78876 · 2^-40 · Σ_{a,b<2^20} w^max(a,b) ≤ 19/10` (E8: replay + 4,087 FTS; kernel check < 1.85, exact about 1.8477). -/
 def blockV20 : Nat := powerUp expandWFix 16384
 def pw20 : Nat → Nat
   | 0 => scale
@@ -14198,15 +14313,15 @@ theorem pw20_ratio_ge (k : Nat) : (((blockV20:ℝ)/scale))^k ≤ (pw20 k:ℝ)/sc
 
 def blockSum20 : Nat := ∑ i ∈ range 64, ∑ j ∈ range 64, pw20 (max i j + 1)
 
-theorem expand_block20_checked : mulUp (powerUp expandWFix 79141) blockSum20 * 100000 <
-    184200 * scale * 4096 := by decide +kernel
+theorem expand_block20_checked : mulUp (powerUp expandWFix 78876) blockSum20 * 100000 <
+    185000 * scale * 4096 := by decide +kernel
 
 theorem blockV20_eq : blockV20 = powerUp expandWFix 16384 := rfl
 
 attribute [irreducible] blockSum20 blockV20
 
 theorem expand_excess_moment20 (w : ℝ) (hw1 : 1 ≤ w) (hw : w ≤ (expandWNum:ℝ)/expandWDen) :
-    w^79141 * ((1:ℝ)/2^40 * ∑ a ∈ range (2^20), ∑ b ∈ range (2^20), w^(max a b)) ≤ 19 / 10 := by
+    w^78876 * ((1:ℝ)/2^40 * ∑ a ∈ range (2^20), ∑ b ∈ range (2^20), w^(max a b)) ≤ 19 / 10 := by
   have hwf := hw.trans expandW_fix
   have hw0 : 0 ≤ w := by linarith
   set v : ℝ := w^16384 with hv
@@ -14242,11 +14357,11 @@ theorem expand_excess_moment20 (w : ℝ) (hw1 : 1 ≤ w) (hw : w ≤ (expandWNum
           Finset.sum_le_sum fun i _ => Finset.sum_le_sum fun j _ => hterm i j
       _ = (blockSum20:ℝ)/scale := by
           simp only [blockSum20, Nat.cast_sum, Finset.sum_div]
-  have hK : w^79141 ≤ (powerUp expandWFix 79141:ℝ)/scale :=
+  have hK : w^78876 ≤ (powerUp expandWFix 78876:ℝ)/scale :=
     (pow_le_pow_left₀ hw0 hwf _).trans (powerUp_ratio_ge _ _)
-  have hcheck : (mulUp (powerUp expandWFix 79141) blockSum20:ℝ) * 100000 <
-      184200 * (scale:ℝ) * 4096 := by exact_mod_cast expand_block20_checked
-  have hmul := mulUp_ratio_ge (powerUp expandWFix 79141) blockSum20
+  have hcheck : (mulUp (powerUp expandWFix 78876) blockSum20:ℝ) * 100000 <
+      185000 * (scale:ℝ) * 4096 := by exact_mod_cast expand_block20_checked
+  have hmul := mulUp_ratio_ge (powerUp expandWFix 78876) blockSum20
   have hs : (0:ℝ) < scale := by norm_num [scale]
   have hS : (1:ℝ)/2^40 * ∑ a ∈ range (2^20), ∑ b ∈ range (2^20), w^(max a b) ≤
       ((blockSum20:ℝ)/scale) / 4096 := by
@@ -14260,18 +14375,18 @@ theorem expand_excess_moment20 (w : ℝ) (hw1 : 1 ≤ w) (hw : w ≤ (expandWNum
     have h4 := hsum.trans h3
     have h5 : (0:ℝ) ≤ 1/2^40 := by positivity
     exact mul_le_mul_of_nonneg_left h4 h5
-  have hB : w^79141 * ((1:ℝ)/2^40 * ∑ a ∈ range (2^20), ∑ b ∈ range (2^20), w^(max a b)) ≤
-      ((powerUp expandWFix 79141:ℝ)/scale) * (((blockSum20:ℝ)/scale) / 4096) :=
+  have hB : w^78876 * ((1:ℝ)/2^40 * ∑ a ∈ range (2^20), ∑ b ∈ range (2^20), w^(max a b)) ≤
+      ((powerUp expandWFix 78876:ℝ)/scale) * (((blockSum20:ℝ)/scale) / 4096) :=
     mul_le_mul hK hS
       (mul_nonneg (by norm_num) (Finset.sum_nonneg fun a _ => Finset.sum_nonneg fun b _ => pow_nonneg hw0 _))
       (div_nonneg (Nat.cast_nonneg _) (Nat.cast_nonneg _))
-  have hC : ((powerUp expandWFix 79141:ℝ)/scale) * (((blockSum20:ℝ)/scale) / 4096) ≤
-      ((mulUp (powerUp expandWFix 79141) blockSum20:ℝ)/scale) / 4096 := by
+  have hC : ((powerUp expandWFix 78876:ℝ)/scale) * (((blockSum20:ℝ)/scale) / 4096) ≤
+      ((mulUp (powerUp expandWFix 78876) blockSum20:ℝ)/scale) / 4096 := by
     rw [← mul_div_assoc]
     exact div_le_div_of_nonneg_right hmul (by norm_num)
-  have hD : ((mulUp (powerUp expandWFix 79141) blockSum20:ℝ)/scale) / 4096 ≤ 19 / 10 := by
+  have hD : ((mulUp (powerUp expandWFix 78876) blockSum20:ℝ)/scale) / 4096 ≤ 19 / 10 := by
     have hs0 : (0:ℝ) < scale := by norm_num [scale]
-    generalize (mulUp (powerUp expandWFix 79141) blockSum20:ℝ) = P at hcheck ⊢
+    generalize (mulUp (powerUp expandWFix 78876) blockSum20:ℝ) = P at hcheck ⊢
     generalize (scale:ℝ) = S at hcheck hs0 ⊢
     rw [div_div, div_le_iff₀ (by positivity)]
     nlinarith
@@ -14298,7 +14413,7 @@ theorem avgF_ofReal (ψ : Nat → ℝ) (hψ : ∀ c, 0 ≤ ψ c) :
   norm_num
 
 theorem excessWeight_eq (c : Nat) :
-    excessWeight c = ENNReal.ofReal (((2:ℝ)^(1/((917504:ℕ):ℝ)))^(79141 + c)) := by
+    excessWeight c = ENNReal.ofReal (((2:ℝ)^(1/((917504:ℕ):ℝ)))^(78876 + c)) := by
   unfold excessWeight SigGolfCandidate.Research.SharedForest.expandReplayExtra
   rw [show (2:ENNReal) = ENNReal.ofReal 2 by norm_num, ENNReal.ofReal_rpow_of_pos (by norm_num)]
   congr 1
@@ -14317,14 +14432,14 @@ theorem expandExcessNumeric19_holds : ExpandExcessNumeric19 := by
   have hw1 : 1 ≤ w := Real.one_le_rpow (by norm_num) (by positivity)
   have hw0 : 0 ≤ w := by linarith
   have hin : ∀ c2, avgF (fun c3 => excessWeight (max c2 c3)) =
-      ENNReal.ofReal (∑ c3 ∈ range (2^20), (1/2^20) * w^(79141 + max c2 c3)) := by
+      ENNReal.ofReal (∑ c3 ∈ range (2^20), (1/2^20) * w^(78876 + max c2 c3)) := by
     intro c2
     simp_rw [excessWeight_eq]
-    exact avgF_ofReal (fun c3 => w^(79141 + max c2 c3)) (fun _ => pow_nonneg hw0 _)
+    exact avgF_ofReal (fun c3 => w^(78876 + max c2 c3)) (fun _ => pow_nonneg hw0 _)
   simp_rw [hin]
   rw [avgF_ofReal _ (fun _ => Finset.sum_nonneg fun _ _ => mul_nonneg (by positivity) (pow_nonneg hw0 _))]
-  have hreal : ∑ c2 ∈ range (2^20), (1/2^20) * ∑ c3 ∈ range (2^20), (1/2^20) * w^(79141 + max c2 c3) =
-      w^79141 * ((1:ℝ)/2^40 * ∑ a ∈ range (2^20), ∑ b ∈ range (2^20), w^(max a b)) := by
+  have hreal : ∑ c2 ∈ range (2^20), (1/2^20) * ∑ c3 ∈ range (2^20), (1/2^20) * w^(78876 + max c2 c3) =
+      w^78876 * ((1:ℝ)/2^40 * ∑ a ∈ range (2^20), ∑ b ∈ range (2^20), w^(max a b)) := by
     simp only [pow_add, Finset.mul_sum]
     refine Finset.sum_congr rfl fun a _ => Finset.sum_congr rfl fun b _ => ?_
     ring

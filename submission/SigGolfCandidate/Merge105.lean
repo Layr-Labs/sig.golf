@@ -797,7 +797,7 @@ theorem rejected_hit_capFail {labels : Labels} {m node : Node} (hpos : m.toPos =
   have hsel := sel_eq_of_toPos labels hpos
   cases m with
   | node mn =>
-      have ha : Active labels mn := by by_contra ha; exact hp ⟨mn, rfl, ha⟩
+      have ha : Active labels mn := active_of_not_phantomAt hp
       rw [← hsel] at hne heq
       rw [← hpos] at heq
       change Extract.Paired.proj (Node.node mn).toPos (labels (.node mn)) =
@@ -825,7 +825,7 @@ theorem rejected_hit_capFail {labels : Labels} {m node : Node} (hpos : m.toPos =
         · exact absurd hfS hpass
         · have hcap2 : 1 < trialCap mn.1.lay mn.1.level.val := by omega
           have htop := trialCap_ne_one (show trialCap mn.1.lay mn.1.level.val ≠ 1 by omega)
-          refine ⟨withNonce mn 0, htop, withNonce_nonce mn (by omega), fun j hj => ?_⟩
+          refine Or.inl ⟨withNonce mn 0, htop, withNonce_nonce mn (by omega), fun j hj => ?_⟩
           change trialFails labels mn j
           rcases Nat.lt_or_ge j (selNonce labels mn) with hj' | hj'
           · exact hspec.1 j hj'
@@ -839,6 +839,55 @@ theorem rejected_hit_capFail {labels : Labels} {m node : Node} (hpos : m.toPos =
         · exfalso
           have := ha.1
           omega
+  | wctNode mn =>
+      have ha : WActive labels mn := wActive_of_not_phantomAt hp
+      rw [← hsel] at hne heq
+      rw [← hpos] at heq
+      change Extract.Paired.proj (Node.wctNode mn).toPos (labels (.wctNode mn)) =
+        Extract.Paired.proj (Node.wctNode mn).toPos (labels (.wctNode (wSelNode labels mn))) at heq
+      have hk : mn.1.nonce.val ≠ wSelNonce labels mn := by
+        intro hk
+        apply hne
+        change Node.wctNode mn = Node.wctNode (wWithNonce mn (wSelNonce labels mn))
+        rw [← hk, wWithNonce_self]
+      have hspec := wSelNonce_spec labels mn
+      have hS := wSelNonce_lt labels mn
+      have hcapmax := wTrialCap_le mn.1.coord.val mn.1.level.val
+      by_cases h3 : mn.1.level.val = 3
+      · have hproj : ∀ y, Extract.Paired.proj (Node.wctNode mn).toPos y = y.extractLsb' 0 128 := by
+          intro y
+          show Extract.Paired.proj (.wctNode mn.1.index.val mn.1.coord.val mn.1.level.val mn.1.idx.val) y = _
+          rw [h3, Extract.Paired.proj_level3]
+        rw [hproj, hproj] at heq
+        have hfail_eq : wTrialFails labels mn (wSelNonce labels mn) ↔ wTrialFails labels mn mn.1.nonce.val := by
+          unfold wTrialFails
+          rw [wWithNonce_self]
+          change _ ↔ WCT9.ftsZeroOk _ _ ((labels (.wctNode mn)).extractLsb' 0 128) = false
+          rw [heq]
+          rfl
+        rcases Nat.lt_or_gt_of_ne hk with hlt | hgt
+        · have hfk : wTrialFails labels mn mn.1.nonce.val := hspec.1 _ hlt
+          have hfS := hfail_eq.2 hfk
+          rcases hspec.2 with hpass | hlast
+          · exact absurd hfS hpass
+          · refine Or.inr ⟨wWithNonce mn 0, h3, wWithNonce_nonce mn (by omega), fun j hj => ?_⟩
+            change wTrialFails labels mn j
+            rcases Nat.lt_or_ge j (wSelNonce labels mn) with hj' | hj'
+            · exact hspec.1 j hj'
+            · have : j = wSelNonce labels mn := by
+                change j < wTrialCap mn.1.coord.val mn.1.level.val at hj
+                omega
+              rw [this]; exact hfS
+        · have hfS : wTrialFails labels mn (wSelNonce labels mn) := ha.2 _ hgt
+          rcases hspec.2 with hpass | hlast
+          · exact absurd hfS hpass
+          · exfalso
+            have := ha.1
+            omega
+      · exfalso
+        have h1 := wTrialCap_off (coord := mn.1.coord.val) h3
+        have := ha.1
+        omega
   | _ =>
       exfalso
       apply hne
@@ -955,6 +1004,38 @@ theorem topTrial_cell {T : Answers} {labels : CanonGraph.Labels} (h : CanonGraph
   simp only [CanonGraph.withNonce_lay, CanonGraph.withNonce_tree, CanonGraph.withNonce_level,
     CanonGraph.withNonce_idx]
   rw [hlay, htree, hlv, hidx, hL, hR]
+/-- E8: under agreement, a rejected FTS ground trial is the cell of an active FTS trial node. -/
+theorem ftsTrial_cell {T : Answers} {labels : CanonGraph.Labels} (h : CanonGraph.Paired.Agrees T labels)
+    {x : HashInput} (ht : FtsTrial T x) :
+    ∃ m : CanonGraph.Node, x = CanonGraph.Paired.cell (CanonGraph.secretsOf T) m labels := by
+  obtain ⟨index, coord, c, k, hi, hco, hc, hk, rfl⟩ := ht
+  obtain ⟨n, hn, hni, hnc, hnl, hnx⟩ :=
+    CanonGraph.ftsNodeAt_some ⟨index, hi⟩ ⟨coord, hco⟩ 3 c (by decide) (by norm_num; omega)
+  have htl : 3 ≤ CanonGraph.Paired.topLevel ⟨coord, hco⟩ := by
+    unfold CanonGraph.Paired.topLevel; split_ifs <;> omega
+  have hL := CanonGraph.Paired.actual_nodes_label T labels h ⟨index, hi⟩ ⟨coord, hco⟩ 3 (2*c) htl
+    (by norm_num; omega)
+  have hR := CanonGraph.Paired.actual_nodes_label T labels h ⟨index, hi⟩ ⟨coord, hco⟩ 3 (2*c+1) htl
+    (by norm_num; omega)
+  have e1 : 2*(8+c) = 2^(7-3)+2*c := by norm_num; omega
+  have e2 : 2*(8+c)+1 = 2^(7-3)+(2*c+1) := by norm_num; omega
+  have hfs := CanonGraph.Paired.fts_step T labels h ⟨index, hi⟩ ⟨coord, hco⟩ c hc n hn
+  have hsel : Extract.Paired.honestFtsNonce T index coord (8+c) = CanonGraph.wSelNonce labels n := by
+    unfold Extract.Paired.honestFtsNonce
+    rw [e2, e1]
+    erw [hL, hR]
+    exact congrArg Prod.fst hfs
+  rw [hsel] at hk
+  have ha := CanonGraph.wActive_trial_of_le (labels := labels) (n := n) hk.le
+  have hs := CanonGraph.wSelNonce_lt labels n
+  have hcl := CanonGraph.wTrialCap_le n.1.coord.val n.1.level.val
+  refine ⟨.wctNode (CanonGraph.wWithNonce n k), ?_⟩
+  rw [CanonGraph.Paired.cell_wctNode_active ha, CanonGraph.wWithNonce_nonce n (by omega)]
+  simp only [CanonGraph.wWithNonce_index, CanonGraph.wWithNonce_coord, CanonGraph.wWithNonce_level,
+    CanonGraph.wWithNonce_idx, hni, hnc, hnl, hnx, if_neg (show (3:Nat) ≠ 4 by decide), if_pos (rfl : (3:Nat) = 3)]
+  rw [e2, e1]
+  erw [hL, hR]
+  rfl
 theorem Variant.honest {labels : CanonGraph.Labels} {T T' : Answers} (hv : Variant labels T T') :
     ∀ q, HonestQuery T q → T q = T' q
   | .inl (.inl n), _ => hv.coin n
@@ -965,7 +1046,8 @@ theorem Variant.honest {labels : CanonGraph.Labels} {T T' : Answers} (hv : Varia
       cases h
       rw [hx]
       exact ⟨_, CanonGraph.Paired.honestInput_eq T labels hv.agrees node hp⟩)
-  | .inl (.inr x), Or.inr (Or.inr ht) => hv.pub x (fun _ _ => topTrial_cell hv.agrees ht)
+  | .inl (.inr x), Or.inr (Or.inr (Or.inl ht)) => hv.pub x (fun _ _ => topTrial_cell hv.agrees ht)
+  | .inl (.inr x), Or.inr (Or.inr (Or.inr ht)) => hv.pub x (fun _ _ => ftsTrial_cell hv.agrees ht)
 
 theorem Variant.congr {labels : CanonGraph.Labels} {T T' : Answers} (hv : Variant labels T T') {α : Type}
     {program : M α} (hp : QueriesSat T (HonestQuery T) program) :
@@ -1188,6 +1270,35 @@ theorem topHigh_short (coord index heap : Nat) (left pad right : Digest) :
   rw [hh]
   rfl
 
+/-! E8: the FTS ground search respects short agreement. -/
+theorem ftsNodeHashN_short (coord index heap n : Nat) (left right : Digest) :
+    ShortRespects (WCT9.ftsNodeHashN coord index heap n left right) := by
+  unfold WCT9.ftsNodeHashN; rw [WCT9.ftsNodeInputN_eq_top]; exact topLow_short _ _ _ _ _ _
+theorem ftsNonceSearch_short (coord index heap : Nat) (left right : Digest) :
+    ∀ fuel n, ShortRespects (WCT9.ftsNonceSearch coord index heap left right fuel n)
+  | 0, n => by
+      unfold WCT9.ftsNonceSearch
+      exact ShortRespects.bind (ftsNodeHashN_short _ _ _ _ _ _) fun _ => ShortRespects.pure' _
+  | fuel + 1, n => by
+      unfold WCT9.ftsNonceSearch
+      refine ShortRespects.bind (ftsNodeHashN_short _ _ _ _ _ _) fun _ => ?_
+      split
+      · exact ShortRespects.pure' _
+      · exact ftsNonceSearch_short coord index heap left right fuel (n + 1)
+theorem wctNodeHashH_short (coord index heap : Nat) (left right : Digest) :
+    ShortRespects (WCT9.wctNodeHashH coord index heap left right) := by
+  change ShortRespects (WCT9.ftsHash heap (WCT9.wctTopInput coord index heap left 0 right))
+  rw [WCT9.ftsHash_eq]
+  split
+  · exact topHigh_short _ _ _ _ _ _
+  · exact topLow_short _ _ _ _ _ _
+theorem ftsNodeAt_short (coord index heap : Nat) (left right : Digest) :
+    ShortRespects (WCT9.ftsNodeAt coord index heap left right) := by
+  unfold WCT9.ftsNodeAt
+  split
+  · exact ShortRespects.map _ (wctNodeHashH_short _ _ _ _ _)
+  · exact ftsNonceSearch_short _ _ _ _ _ _ _
+
 theorem sharedNode_short (first : Bool) (coord index heap : Nat)
     (pads : Nat → PairRoot) (left right : Digest) :
     ShortRespects (sharedNode first coord index heap pads left right) := by
@@ -1201,11 +1312,8 @@ theorem sharedNode_short (first : Bool) (coord index heap : Nat)
     · split
       · exact topHigh_short _ _ _ _ _ _
       · exact topLow_short _ _ _ _ _ _
-    · change ShortRespects (WCT9.ftsHash heap (WCT9.wctTopInput coord index heap left 0 right))
-      rw [WCT9.ftsHash_eq]
-      split
-      · exact topHigh_short _ _ _ _ _ _
-      · exact topLow_short _ _ _ _ _ _
+    · unfold WCT9.ftsNodeG
+      exact ShortRespects.map _ (ftsNodeAt_short _ _ _ _ _)
 
 theorem sharedHeap_short (first : Bool) (index coord : Nat)
     (pads : Nat → PairRoot) (leaves : List Digest) :
@@ -1409,8 +1517,9 @@ theorem honestInput_short {A T : Answers} (hAT : ShortAgree A T)
       rw [pads_short hAT index coord _ hc,Ref.wctEnds_short hAT index coord child hc hch]
   | wctNode index coord level node =>
       have hc := hb.legacy.2.1
-      simp only [Extract.Paired.honestInput]
-      rw [nodes_short hAT index coord hc,pads_short hAT index coord _ hc]
+      simp only [Extract.Paired.honestInput, Extract.Paired.honestFtsNonce]
+      rw [nodes_short hAT index coord hc,pads_short hAT index coord _ hc,
+        CanonicalRef.ftsNodeAt_short _ _ _ _ _ A T hAT]
 
 theorem honestInput_length (T : Answers) (position : Extract.Pos) :
     (Extract.Paired.honestInput T position).length ≤ SeccLaw.maxInputLength := by
@@ -8365,10 +8474,27 @@ theorem msgVals_congr (v w : Coord → Digest) (L : EncLeaf) (h : ∀ c ∈ Larg
       refine List.mem_flatMap.mpr ⟨cs, hcs, ?_⟩
       rw [hn]
       exact LargeResidual.mem_trialDeps h1 hj
-    rw [LargeResidual.selCoordV_congr cs.1 hs]
+    have hmw : ∀ m : WctNodePos, cs.1 = .inl (.wctNode m) →
+        wTrialCap m.1.coord.val m.1.level.val = 1 ∧ m.1.nonce.val = 0 := by
+      intro m hm
+      obtain ⟨c, b⟩ := cs
+      simp only at hm
+      subst hm
+      unfold msgSlots at hcs
+      split_ifs at hcs <;> simp only [List.mem_cons, List.not_mem_nil, or_false, Prod.mk.injEq] at hcs <;>
+        rcases hcs with ⟨h, -⟩ | ⟨h, -⟩ <;> cases h <;> exact ⟨wTrialCap_off (by show (5:Nat) ≠ 3; decide), rfl⟩
+    rw [LargeResidual.selCoordV_congr cs.1 hs (fun n hn h1 => absurd (hmw n hn).1 h1)]
     apply h
-    rcases cs with ⟨(_ | _ | m | _ | _ | _ | _) | x, b⟩
+    rcases cs with ⟨(_ | _ | m | _ | _ | m | _) | x, b⟩
     all_goals first | exact List.mem_append_left _ (List.mem_map.mpr ⟨_, hcs, rfl⟩) | skip
+    swap
+    · obtain ⟨h1, h0⟩ := hmw m rfl
+      show Sum.inl (CanonGraph.Node.wctNode (wWithNonce m (LargeResidual.wSelNonceV w m))) ∈ _
+      rw [LargeResidual.wSelNonceV_cap_one h1]
+      have hw := wWithNonce_self m
+      rw [h0] at hw
+      rw [hw]
+      exact List.mem_append_left _ (List.mem_map.mpr ⟨_, hcs, rfl⟩)
     show LargeResidual.trialCoord m (LargeResidual.selNonceV w m) ∈ _
     by_cases h1 : trialCap m.1.lay m.1.level.val = 1
     · rw [LargeResidual.selNonceV_cap_one h1]
@@ -8472,46 +8598,70 @@ theorem presentEquiv_toPos {M N : CanonGraph.Node} (h : M.toPos = N.toPos) :
     CanonGraph.Paired.presentEquiv M = CanonGraph.Paired.presentEquiv N := by
   rw [← presentEquiv_base M, ← presentEquiv_base N, CanonGraph.toPos_injective_base h]
 /-- The node is not an over-cap tree node (`nonce ≥ trialCap`, a structural phantom with no slots). -/
-def NoOver (M : CanonGraph.Node) : Prop := ∀ m, M = .node m → m.1.nonce.val < trialCap m.1.lay m.1.level.val
+def NoOver (M : CanonGraph.Node) : Prop :=
+  (∀ m, M = .node m → m.1.nonce.val < trialCap m.1.lay m.1.level.val) ∧
+    (∀ m, M = .wctNode m → m.1.nonce.val < wTrialCap m.1.coord.val m.1.level.val)
 theorem noOver_of_not_phantom {L : Labels} {M : CanonGraph.Node} (h : ¬ PhantomAt M L) : NoOver M := by
-  intro m hm
-  subst hm
-  by_contra hc
-  exact h ⟨m, rfl, fun ha => hc ha.1⟩
+  refine ⟨fun m hm => ?_, fun m hm => ?_⟩ <;> subst hm <;> by_contra hc
+  · exact h (Or.inl ⟨m, rfl, fun ha => hc ha.1⟩)
+  · exact h (Or.inr ⟨m, rfl, fun ha => hc ha.1⟩)
 theorem noOver_base (M : CanonGraph.Node) : NoOver M.base := by
-  intro m hm
+  refine ⟨fun m hm => ?_, fun m hm => ?_⟩
+  · cases M with
+    | node n =>
+      cases hm
+      have := trialCap_pos n.1.lay n.1.level.val
+      simp only [withNonce_lay, withNonce_level]
+      rw [withNonce_nonce n (by norm_num)]
+      exact this
+    | _ => cases hm
+  · cases M with
+    | wctNode n =>
+      cases hm
+      have := wTrialCap_pos n.1.coord.val n.1.level.val
+      simp only [wWithNonce_coord, wWithNonce_level]
+      rw [wWithNonce_nonce n (by norm_num)]
+      exact this
+    | _ => cases hm
+/-- Over-cap nodes (structural phantoms) have no child slots. -/
+theorem childSlots_of_not_noOver {M : CanonGraph.Node} (hM : ¬ NoOver M) : childSlots M = [] := by
   cases M with
-  | node n =>
-    cases hm
-    have := trialCap_pos n.1.lay n.1.level.val
-    simp only [withNonce_lay, withNonce_level]
-    rw [withNonce_nonce n (by norm_num)]
-    exact this
-  | _ => cases hm
+  | node m =>
+    have h1 : trialCap m.1.lay m.1.level.val ≤ m.1.nonce.val := by
+      by_contra h; exact hM ⟨fun m' hm' => (by cases hm'; omega), fun m' hm' => by cases hm'⟩
+    change LargeResidual.childSlots (.node m) = []
+    simp only [LargeResidual.childSlots]; rw [if_pos h1]
+  | wctNode m =>
+    have h1 : wTrialCap m.1.coord.val m.1.level.val ≤ m.1.nonce.val := by
+      by_contra h; exact hM ⟨fun m' hm' => (by cases hm'), fun m' hm' => by cases hm'; omega⟩
+    simp only [childSlots]; rw [if_pos h1]
+  | _ => exact absurd ⟨fun m' hm' => (by cases hm'), fun m' hm' => by cases hm'⟩ hM
 theorem childSlots_base_of {M : CanonGraph.Node} (hM : NoOver M) : childSlots M.base = childSlots M := by
   cases M with
   | node m =>
-    have h1 := hM m rfl
+    have h1 := hM.1 m rfl
     have h0 := trialCap_pos m.1.lay m.1.level.val
     show LargeResidual.childSlots (.node (withNonce m 0)) = LargeResidual.childSlots (.node m)
     simp only [LargeResidual.childSlots]
     rw [if_neg (by simp only [withNonce_lay, withNonce_level]; rw [withNonce_nonce m (by norm_num)]; omega),
       if_neg (by omega)]
     rfl
+  | wctNode m =>
+    have h1 := hM.2 m rfl
+    have h0 := wTrialCap_pos m.1.coord.val m.1.level.val
+    show childSlots (.wctNode (wWithNonce m 0)) = childSlots (.wctNode m)
+    have e1 : ¬ wTrialCap (wWithNonce m 0).1.coord.val (wWithNonce m 0).1.level.val ≤ (wWithNonce m 0).1.nonce.val := by
+      rw [wWithNonce_nonce m (by norm_num)]; exact Nat.not_le.mpr h0
+    have e2 : ¬ wTrialCap m.1.coord.val m.1.level.val ≤ m.1.nonce.val := by omega
+    simp only [childSlots]
+    rw [if_neg e1, if_neg e2]
+    rfl
   | _ => rfl
 theorem childSlots_sub_base (M : CanonGraph.Node) : ∀ cs ∈ childSlots M, cs ∈ childSlots M.base := by
   intro cs hcs
   by_cases hM : NoOver M
   · rw [childSlots_base_of hM]; exact hcs
-  · cases M with
-    | node m =>
-      have h1 : trialCap m.1.lay m.1.level.val ≤ m.1.nonce.val := by
-        by_contra h; exact hM (fun m' hm' => by cases hm'; omega)
-      change cs ∈ LargeResidual.childSlots (.node m) at hcs
-      simp only [LargeResidual.childSlots] at hcs
-      rw [if_pos h1] at hcs
-      cases hcs
-    | _ => exact hcs
+  · rw [childSlots_of_not_noOver hM] at hcs; cases hcs
 theorem childSlots_eq_of {M N : CanonGraph.Node} (h : M.toPos = N.toPos) (hM : NoOver M) (hN : NoOver N) :
     childSlots M = childSlots N := by
   rw [← childSlots_base_of hM, ← childSlots_base_of hN, CanonGraph.toPos_injective_base h]
@@ -8526,6 +8676,20 @@ theorem cellDepsP_sub_base (M : CanonGraph.Node) : ∀ c ∈ cellDepsP M, c ∈ 
     rcases hc with ((hc | hc) | hc) | hc
     · obtain ⟨cs, hcs, rfl⟩ := List.mem_map.mp hc
       exact Or.inl (Or.inl (Or.inl (List.mem_map.mpr ⟨cs, childSlots_sub_base (.node m) cs hcs, rfl⟩)))
+    · exact Or.inl (Or.inl (Or.inr hc))
+    · exact Or.inl (Or.inr hc)
+    · exact Or.inr hc
+  | wctNode m =>
+    change c ∈ (childSlots (.wctNode m)).map Prod.fst ++ wTrialDeps m ++
+      childWTrialDeps m.1.index m.1.coord m.1.level.val (2 * m.1.idx.val) ++
+      childWTrialDeps m.1.index m.1.coord m.1.level.val (2 * m.1.idx.val + 1) at hc
+    change c ∈ (childSlots (.wctNode (wWithNonce m 0))).map Prod.fst ++ wTrialDeps m ++
+      childWTrialDeps m.1.index m.1.coord m.1.level.val (2 * m.1.idx.val) ++
+      childWTrialDeps m.1.index m.1.coord m.1.level.val (2 * m.1.idx.val + 1)
+    simp only [List.mem_append] at hc ⊢
+    rcases hc with ((hc | hc) | hc) | hc
+    · obtain ⟨cs, hcs, rfl⟩ := List.mem_map.mp hc
+      exact Or.inl (Or.inl (Or.inl (List.mem_map.mpr ⟨cs, childSlots_sub_base (.wctNode m) cs hcs, rfl⟩)))
     · exact Or.inl (Or.inl (Or.inr hc))
     · exact Or.inl (Or.inr hc)
     · exact Or.inr hc
@@ -8545,6 +8709,65 @@ theorem treeNodeAt_spec {lay : Layer} {tree : Fin (2^31)} {level c : Nat} {m : T
   split_ifs at h
   cases h
   exact ⟨rfl, rfl, rfl, rfl, rfl⟩
+/-- E8: the child slots of an FTS node are FTS children of its own coordinate (one level down) or, at level 4, a pad
+of the previous coordinate. -/
+theorem wct_childSlots_cases {n : WctNodePos} {cs : Coord×Nat} (hc : cs∈childSlots (.wctNode n)) :
+    (∃ k, ftsChild n.1.index n.1.coord n.1.level.val k = some cs.1) ∨
+      (n.1.level.val = 4 ∧ padCoord n.1.index n.1.coord (n.1.idx.val/2) 1 = some cs.1) := by
+  obtain ⟨c,b⟩ := cs
+  by_cases hov : wTrialCap n.1.coord.val n.1.level.val ≤ n.1.nonce.val
+  · simp only [childSlots, if_pos hov] at hc; cases hc
+  simp only [childSlots, if_neg hov, List.mem_append, Option.mem_toList, Option.map_eq_some_iff,
+    Prod.mk.injEq] at hc
+  rcases hc with (⟨x, hx, rfl, -⟩ | ⟨x, hx, rfl, -⟩) | hc
+  · exact Or.inl ⟨_, hx⟩
+  · exact Or.inl ⟨_, hx⟩
+  · split_ifs at hc with h4
+    · simp only [Option.mem_toList, Option.map_eq_some_iff, Prod.mk.injEq] at hc
+      obtain ⟨x, hx, rfl, -⟩ := hc
+      exact Or.inr ⟨h4, hx⟩
+    · cases hc
+theorem ftsChild_wct {index : Fin (2^31)} {k : Fin 9} {level c : Nat} {m : WctNodePos}
+    (h : ftsChild index k level c = some (.inl (.wctNode m))) :
+    m.1.coord = k ∧ m.1.level.val + 1 = level ∧ m.1.nonce.val = 0 := by
+  unfold ftsChild at h
+  by_cases h0 : level = 0
+  · rw [if_pos h0] at h
+    split_ifs at h <;> simp at h
+  · rw [if_neg h0] at h
+    obtain ⟨m', hm, he⟩ := Option.map_eq_some_iff.mp h
+    simp only [Sum.inl.injEq, CanonGraph.Node.wctNode.injEq] at he
+    subst he
+    exact ⟨ftsNodeAt_coord hm, by have := ftsNodeAt_level hm; omega, ftsNodeAt_nonce hm⟩
+theorem wct_childSlots_used {n : WctNodePos} (hu : CanonGraph.Paired.Filtered.Used (.wctNode n))
+    {cs : Coord×Nat} (hc : cs∈childSlots (.wctNode n)) : UsedCoord cs.1 := by
+  have hu' : CanonGraph.Paired.first n.1.coord.val → n.1.level.val < 5 := hu
+  have hl6 := n.1.level.isLt
+  rcases wct_childSlots_cases hc with ⟨k, hx⟩ | ⟨h4, hx⟩
+  · refine ftsChild_used _ _ _ _ ?_ _ hx
+    split_ifs with hf
+    · exact lt_of_lt_of_le (hu' (by simpa [SigGolfCandidate.Research.SharedForest.firstCoord, CanonGraph.Paired.first] using hf)) (by omega)
+    · omega
+  · unfold padCoord at hx
+    split_ifs at hx with h0 hodd
+    · exact ftsChild_used _ _ _ _ (by split_ifs <;> omega) _ hx
+    · refine ftsChild_used _ _ _ _ ?_ _ hx
+      have : SigGolfCandidate.Research.SharedForest.firstCoord (n.1.coord.val - 1) = false := by simp [SigGolfCandidate.Research.SharedForest.firstCoord]; omega
+      simp [this]
+theorem wct_childSlots_ne {n : WctNodePos} {cs : Coord×Nat} (hc : cs∈childSlots (.wctNode n)) :
+    cs.1≠.inl (.wctNode n) := by
+  intro he
+  rcases wct_childSlots_cases hc with ⟨k, hx⟩ | ⟨h4, hx⟩
+  · rw [he] at hx
+    have := (ftsChild_wct hx).2.1
+    omega
+  · rw [he] at hx
+    unfold padCoord at hx
+    split_ifs at hx with h0 hodd <;>
+    · have := congrArg Fin.val (ftsChild_wct hx).1
+      simp only at this
+      omega
+
 /-- A tree-node child coordinate of a slot list belongs to a tree node of the same layer and has nonce 0. -/
 theorem childSlots_node_child {N : CanonGraph.Node} {cs : Coord × Nat} (hc : cs ∈ childSlots N) {m : TreeNode}
     (hm : cs.1 = .inl (.node m)) :
@@ -8591,30 +8814,94 @@ theorem childSlots_node_child {N : CanonGraph.Node} {cs : Coord × Nat} (hc : cs
       unfold padCoord ftsChild at hx
       split_ifs at hx <;> simp at hx
   | wctNode n =>
-    simp only [childSlots, List.mem_append, Option.mem_toList, Option.map_eq_some_iff, Prod.mk.injEq] at hc
-    rcases hc with (⟨x, hx, hxe, -⟩ | ⟨x, hx, hxe, -⟩) | hc
-    · subst hxe; unfold ftsChild at hx; split_ifs at hx <;> simp at hx
-    · subst hxe; unfold ftsChild at hx; split_ifs at hx <;> simp at hx
-    · split_ifs at hc
-      · simp only [Option.mem_toList, Option.map_eq_some_iff, Prod.mk.injEq] at hc
-        obtain ⟨x, hx, hxe, -⟩ := hc
-        subst hxe; unfold padCoord ftsChild at hx; split_ifs at hx <;> simp at hx
-      · simp at hc
+    rcases wct_childSlots_cases hc with ⟨k, hx⟩ | ⟨-, hx⟩
+    · unfold ftsChild at hx; split_ifs at hx <;> simp at hx
+    · unfold padCoord ftsChild at hx; split_ifs at hx <;> simp at hx
   | forest index =>
     simp only [childSlots, LargeResidual.childSlots, List.mem_flatMap, List.mem_cons, List.mem_range,
       List.not_mem_nil, or_false, Prod.mk.injEq] at hc
     obtain ⟨i, -, h | h⟩ := hc <;> simp at h
 theorem selCoordV_self_of {v : Coord → Digest} {c : Coord}
-    (h : ∀ m : TreeNode, c = .inl (.node m) → trialCap m.1.lay m.1.level.val = 1 ∧ m.1.nonce.val = 0) :
+    (h : ∀ m : TreeNode, c = .inl (.node m) → trialCap m.1.lay m.1.level.val = 1 ∧ m.1.nonce.val = 0)
+    (hw : ∀ m : WctNodePos, c = .inl (.wctNode m) → wTrialCap m.1.coord.val m.1.level.val = 1 ∧ m.1.nonce.val = 0) :
     selCoordV v c = c := by
-  rcases c with (_ | _ | m | _ | _ | _ | _) | s
+  rcases c with (_ | _ | m | _ | _ | m | _) | s
   all_goals try rfl
-  obtain ⟨h1, h0⟩ := h m rfl
-  show Sum.inl (CanonGraph.Node.node (withNonce m (selNonceV v m))) = _
-  rw [selNonceV_cap_one h1]
-  have hw := withNonce_self m
+  · obtain ⟨h1, h0⟩ := h m rfl
+    show Sum.inl (CanonGraph.Node.node (withNonce m (selNonceV v m))) = _
+    rw [selNonceV_cap_one h1]
+    have hw := withNonce_self m
+    rw [h0] at hw
+    rw [hw]
+  · obtain ⟨h1, h0⟩ := hw m rfl
+    show Sum.inl (CanonGraph.Node.wctNode (wWithNonce m (wSelNonceV v m))) = _
+    rw [wSelNonceV_cap_one h1]
+    have hw := wWithNonce_self m
+    rw [h0] at hw
+    rw [hw]
+/-- E8: an FTS child coordinate of a slot list has nonce 0. -/
+theorem childSlots_wct_nonce {N : CanonGraph.Node} {cs : Coord × Nat} (hc : cs ∈ childSlots N) {m : WctNodePos}
+    (hm : cs.1 = .inl (.wctNode m)) : m.1.nonce.val = 0 := by
+  obtain ⟨c, b⟩ := cs
+  simp only at hm
+  subst hm
+  cases N with
+  | node n =>
+    simp only [childSlots, LargeResidual.childSlots] at hc
+    split_ifs at hc
+    · cases hc
+    simp only [List.mem_append, Option.mem_toList, Option.map_eq_some_iff, Prod.mk.injEq] at hc
+    rcases hc with ⟨x, hx, hxe, -⟩ | ⟨x, hx, hxe, -⟩ <;> subst hxe <;>
+    · unfold treeChild at hx
+      split_ifs at hx <;> simp at hx
+  | chain p =>
+    simp only [childSlots, LargeResidual.childSlots, List.mem_singleton, Prod.mk.injEq] at hc
+    unfold chainChild at hc
+    split_ifs at hc <;> simp at hc
+  | leaf L =>
+    simp only [childSlots, LargeResidual.childSlots, List.mem_map, Prod.mk.injEq] at hc
+    obtain ⟨i, -, h, -⟩ := hc
+    simp at h
+  | wctChain p =>
+    simp only [childSlots, LargeResidual.childSlots, List.mem_singleton, Prod.mk.injEq] at hc
+    have := hc.1
+    unfold wctItem at this
+    split_ifs at this <;> simp at this
+  | wctLeaf L =>
+    simp only [childSlots, List.mem_append, List.mem_ofFn, Option.mem_toList, Option.map_eq_some_iff,
+      Prod.mk.injEq] at hc
+    rcases hc with ⟨t, ht⟩ | ⟨x, hx, hxe, -⟩
+    · have := ht.1
+      unfold wctItem at this
+      split_ifs at this <;> simp at this
+    · subst hxe
+      unfold padCoord at hx
+      split_ifs at hx <;> exact (ftsChild_wct hx).2.2
+  | wctNode n =>
+    rcases wct_childSlots_cases hc with ⟨k, hx⟩ | ⟨-, hx⟩
+    · exact (ftsChild_wct hx).2.2
+    · unfold padCoord at hx
+      split_ifs at hx <;> exact (ftsChild_wct hx).2.2
+  | forest index =>
+    simp only [childSlots, LargeResidual.childSlots, List.mem_flatMap, List.mem_cons, List.mem_range,
+      List.not_mem_nil, or_false, Prod.mk.injEq] at hc
+    obtain ⟨i, -, ⟨h, -⟩ | ⟨h, -⟩⟩ := hc <;> cases h <;> rfl
+/-- E8: a non-keygen FTS child coordinate is a single-trial position (the ground trials are keygen coordinates). -/
+theorem childSlots_wct_of_not_keygen {N : CanonGraph.Node} {cs : Coord × Nat} (hc : cs ∈ childSlots N)
+    (hk : cs.1 ∉ keygenDisclosed) :
+    ∀ m : WctNodePos, cs.1 = .inl (.wctNode m) → wTrialCap m.1.coord.val m.1.level.val = 1 ∧ m.1.nonce.val = 0 := by
+  intro m hm
+  have h0 := childSlots_wct_nonce hc hm
+  refine ⟨?_, h0⟩
+  by_contra h1
+  apply hk
+  rw [hm]
+  have hmem := mem_wTrialDeps h1 (j := 0) (wTrialCap_pos _ _)
+  have hw := wWithNonce_self m
   rw [h0] at hw
-  rw [hw]
+  unfold wTrialCoord at hmem
+  rw [hw] at hmem
+  exact ClaudeWCT.W9.T3.Security.LargeResidual.wGround_mem_keygen h1 (List.mem_append_left _ hmem)
 /-- Below a single-trial lower position (E11: heap `≥ 32`) every child position is single-trial (heap `≥ 64`). -/
 theorem child_cap_one {n m : TreeNode} (hl : n.1.lay ≠ 0) (h1 : trialCap n.1.lay n.1.level.val = 1)
     (hml : m.1.lay = n.1.lay) (hlev : m.1.level.val + 1 = n.1.level.val) : trialCap m.1.lay m.1.level.val = 1 := by
@@ -8643,32 +8930,68 @@ theorem child_cap_one {n m : TreeNode} (hl : n.1.lay ≠ 0) (h1 : trialCap n.1.l
 /-- Below a single-trial lower position, child slots are their own selected trials. -/
 theorem selCoordV_child {v : Coord → Digest} {N : CanonGraph.Node}
     (hN : ∀ n, N = .node n → n.1.lay ≠ 0 ∧ trialCap n.1.lay n.1.level.val = 1) {cs : Coord × Nat}
-    (hc : cs ∈ childSlots N) : selCoordV v cs.1 = cs.1 := by
-  apply selCoordV_self_of
+    (hc : cs ∈ childSlots N)
+    (hw : ∀ m : WctNodePos, cs.1 = .inl (.wctNode m) → wTrialCap m.1.coord.val m.1.level.val = 1 ∧ m.1.nonce.val = 0) :
+    selCoordV v cs.1 = cs.1 := by
+  apply selCoordV_self_of _ hw
   intro m hm
   obtain ⟨n, rfl, hl, hlev, h0⟩ := childSlots_node_child hc hm
   obtain ⟨hl0, h1⟩ := hN n rfl
   exact ⟨child_cap_one hl0 h1 hl hlev, h0⟩
+theorem wnonce_zero_of_base {n : WctNodePos} (h : (CanonGraph.Node.wctNode n).base = .wctNode n) :
+    n.1.nonce.val = 0 := by
+  have := congrArg (fun M => match M with | CanonGraph.Node.wctNode m => m.1.nonce.val | _ => 0) h
+  simp only [CanonGraph.Node.base] at this
+  rw [← this, wWithNonce_nonce n (by norm_num)]
+theorem node_childSlots_not_wct {n : TreeNode} {cs : Coord × Nat} (hc : cs ∈ childSlots (.node n))
+    (m : WctNodePos) : cs.1 ≠ .inl (.wctNode m) := by
+  intro hm
+  obtain ⟨c, b⟩ := cs
+  simp only at hm
+  subst hm
+  simp only [childSlots, LargeResidual.childSlots] at hc
+  split_ifs at hc
+  · cases hc
+  simp only [List.mem_append, Option.mem_toList, Option.map_eq_some_iff, Prod.mk.injEq] at hc
+  rcases hc with ⟨x, hx, hxe, -⟩ | ⟨x, hx, hxe, -⟩ <;> subst hxe <;>
+  · unfold treeChild at hx
+    split_ifs at hx <;> simp at hx
 /-- A node of a single-trial position equal to its base representative is its position's selected trial. -/
 theorem sel_of_single {L : Labels} {N : CanonGraph.Node} (hb : N.base = N)
-    (hN : ∀ n, N = .node n → trialCap n.1.lay n.1.level.val = 1) : N.sel L = N := by
+    (hN : ∀ n, N = .node n → trialCap n.1.lay n.1.level.val = 1)
+    (hW : ∀ n, N = .wctNode n → wTrialCap n.1.coord.val n.1.level.val = 1) : N.sel L = N := by
   cases N with
   | node n =>
     have h0 : n.1.nonce.val = 0 := by
       have := congrArg (fun M => match M with | CanonGraph.Node.node m => m.1.nonce.val | _ => 0) hb
       simpa [CanonGraph.Node.base, withNonce] using this.symm
     exact congrArg CanonGraph.Node.node (selNode_of_cap_one (hN n rfl) h0)
+  | wctNode n =>
+    exact congrArg CanonGraph.Node.wctNode (wSelNode_of_cap_one (hW n rfl) (wnonce_zero_of_base hb))
   | _ => rfl
 /-- Two non-phantom nodes of one single-trial position coincide (with the base representative). -/
 theorem eq_of_single {L : Labels} {M N : CanonGraph.Node} (hb : N.base = N)
-    (hN : ∀ n, N = .node n → trialCap n.1.lay n.1.level.val = 1) (hM : M.toPos = N.toPos)
+    (hN : ∀ n, N = .node n → trialCap n.1.lay n.1.level.val = 1)
+    (hW : ∀ n, N = .wctNode n → wTrialCap n.1.coord.val n.1.level.val = 1) (hM : M.toPos = N.toPos)
     (hnp : ¬ PhantomAt M L) : M = N := by
   have hbase := CanonGraph.toPos_injective_base hM
   rw [hb] at hbase
   cases M with
+  | wctNode m =>
+    subst hbase
+    have ha := wActive_of_not_phantomAt hnp
+    have hcap := hW _ rfl
+    have h0 : m.1.nonce.val = 0 := by
+      have := ha.1
+      simp only [CanonGraph.Node.base, wWithNonce_coord, wWithNonce_level] at hcap
+      omega
+    show CanonGraph.Node.wctNode m = CanonGraph.Node.wctNode (wWithNonce m 0)
+    have hw := wWithNonce_self m
+    rw [h0] at hw
+    rw [hw]
   | node m =>
     subst hbase
-    have ha : Active L m := by by_contra ha; exact hnp ⟨m, rfl, ha⟩
+    have ha : Active L m := active_of_not_phantomAt hnp
     have hcap := hN _ rfl
     have h0 : m.1.nonce.val = 0 := by
       have := ha.1
@@ -8713,6 +9036,18 @@ theorem multi_childSlots_keygen {n : TreeNode} (h1 : trialCap n.1.lay n.1.level.
   rcases trialCap_ne_one h1 with h | h
   · exact top_childSlots_keygen h.1 hc
   · exact ClaudeWCT.W9.T3.Security.LargeResidual.groundChild_mem_keygen h.1 h1 hc
+/-- E8: the child slots of an FTS ground position are keygen coordinates. -/
+theorem wGround_childSlots_keygen {n : WctNodePos} (h1 : wTrialCap n.1.coord.val n.1.level.val ≠ 1)
+    {cs : Coord × Nat} (hc : cs ∈ childSlots (.wctNode n)) : cs.1 ∈ keygenDisclosed := by
+  have h3 : n.1.level.val = 3 := by by_contra h; exact h1 (wTrialCap_off h)
+  by_cases hov : wTrialCap n.1.coord.val n.1.level.val ≤ n.1.nonce.val
+  · simp only [childSlots, if_pos hov] at hc; cases hc
+  have hov' : ¬ wTrialCap n.1.coord.val 3 ≤ n.1.nonce.val := h3 ▸ hov
+  have heq : childSlots (.wctNode n) = LargeResidual.childSlots (.wctNode n) := by
+    simp [childSlots, LargeResidual.childSlots, h3, hov', ftsChild, LargeResidual.ftsChild]
+  rw [heq] at hc
+  exact ClaudeWCT.W9.T3.Security.LargeResidual.wGround_mem_keygen h1
+    (List.mem_append_right _ (List.mem_map.mpr ⟨cs, hc, rfl⟩))
 theorem nonce_zero_of_base {n : TreeNode} (h : (CanonGraph.Node.node n).base = .node n) : n.1.nonce.val = 0 := by
   have := congrArg (fun M => match M with | CanonGraph.Node.node m => m.1.nonce.val | _ => 0) h
   simp only [CanonGraph.Node.base] at this
@@ -8731,6 +9066,16 @@ theorem childTrialDeps_keygen {lay : Layer} {tree : Fin (2^31)} {level k : Nat} 
   split at hc
   · exact trialDeps_keygen hc
   · simp at hc
+theorem wTrialDeps_keygen {n : WctNodePos} {c : Coord} (hc : c ∈ wTrialDeps n) : c ∈ keygenDisclosed := by
+  by_cases h1 : wTrialCap n.1.coord.val n.1.level.val = 1
+  · unfold wTrialDeps at hc; rw [if_pos h1] at hc; cases hc
+  · exact ClaudeWCT.W9.T3.Security.LargeResidual.wGround_mem_keygen h1 (List.mem_append_left _ hc)
+theorem childWTrialDeps_keygen {index : Fin (2^31)} {coord : Fin 9} {level k : Nat} {c : Coord}
+    (hc : c ∈ childWTrialDeps index coord level k) : c ∈ keygenDisclosed := by
+  unfold childWTrialDeps at hc
+  split at hc
+  · exact wTrialDeps_keygen hc
+  · simp at hc
 theorem cellDepsP_known (st : RouterState) {N : CanonGraph.Node}
     (hall : ∀ cs ∈ childSlots N, RouterState.known st cs.1) : ∀ c ∈ cellDepsP N, RouterState.known st c := by
   intro c hc
@@ -8742,10 +9087,22 @@ theorem cellDepsP_known (st : RouterState) {N : CanonGraph.Node}
     · exact Known.base (Or.inl (trialDeps_keygen hc))
     · exact Known.base (Or.inl (childTrialDeps_keygen hc))
     · exact Known.base (Or.inl (childTrialDeps_keygen hc))
+  | wctNode n =>
+    simp only [cellDepsP, List.mem_append] at hc
+    rcases hc with ((hc | hc) | hc) | hc
+    · obtain ⟨cs, hcs, rfl⟩ := List.mem_map.mp hc; exact hall cs hcs
+    · exact Known.base (Or.inl (wTrialDeps_keygen hc))
+    · exact Known.base (Or.inl (childWTrialDeps_keygen hc))
+    · exact Known.base (Or.inl (childWTrialDeps_keygen hc))
   | _ => obtain ⟨cs, hcs, rfl⟩ := List.mem_map.mp hc; exact hall cs hcs
 theorem ne_phantom_of_length {X : HashInput} (h : X.length = 64) : ∀ n, X ≠ phantom n := by
   intro n hX
   have := phantom_length n
+  rw [← hX, h] at this
+  exact absurd this (by decide)
+theorem ne_wphantom_of_length {X : HashInput} (h : X.length = 64) : ∀ n, X ≠ wphantom n := by
+  intro n hX
+  have := wphantom_length n
   rw [← hX, h] at this
   exact absurd this (by decide)
 
@@ -8786,6 +9143,10 @@ theorem selCoordV_coordVal_sel (s : Secrets) (L : Labels) (N : CanonGraph.Node) 
     show Sum.inl (CanonGraph.Node.node (withNonce n (selNonceV (coordVal s L) n))) = _
     rw [selNonceV_coordVal]
     rfl
+  | wctNode n =>
+    show Sum.inl (CanonGraph.Node.wctNode (wWithNonce n (wSelNonceV (coordVal s L) n))) = _
+    rw [wSelNonceV_coordVal]
+    rfl
   | _ => rfl
 
 /-- U16b: the selected trial coordinate of a node under the router labels (no coherence needed). -/
@@ -8796,6 +9157,10 @@ theorem selCoordV_router (vals : Coord → Digest) (a : AuxData) (N : CanonGraph
       unfold trialCoord
       simp only [coordVal, routerLabels]
       exact (CanonGraph.Paired.joinLabels_val (fun M => vals (.inl M)) a.high (.node (withNonce n j))).symm)
+      (fun n _ _ j _ => by
+      unfold wTrialCoord
+      simp only [coordVal, routerLabels]
+      exact (CanonGraph.Paired.joinLabels_val (fun M => vals (.inl M)) a.high (.wctNode (wWithNonce n j))).symm)
   rw [h2]
   exact selCoordV_coordVal_sel _ _ N
 
@@ -8874,6 +9239,10 @@ theorem childSlots_used (N : CanonGraph.Node) (hu : CanonGraph.Paired.Filtered.U
       split_ifs at hx
       · obtain ⟨L, -, rfl⟩ := Option.map_eq_some_iff.mp hx; trivial
       · obtain ⟨m, -, rfl⟩ := Option.map_eq_some_iff.mp hx; trivial
+  by_cases hwct : ∃ n, N = .wctNode n
+  · obtain ⟨n, rfl⟩ := hwct
+    exact wct_childSlots_used hu hc
+  have hww : ∀ m, N = .wctNode m → False := fun m hm => hwct ⟨m, hm⟩
   obtain ⟨c,b⟩ := cs
   cases c with
   | inr s => trivial
@@ -8892,8 +9261,10 @@ theorem childSlots_used (N : CanonGraph.Node) (hu : CanonGraph.Paired.Filtered.U
     rw [cell_eq_cellValues secrets left N hu,cell_eq_cellValues secrets right N hu] at heq
     have hs := congrArg (fun input => slotValue input b) heq
     have hnn : ∀ m, N = .node m → False := fun m hm => hnode ⟨m, hm⟩
-    rw [slot_cellValues N (coordVal secrets left) (fun m hm => (hnn m hm).elim) (Sum.inl n,b) hc,
-      slot_cellValues N (coordVal secrets right) (fun m hm => (hnn m hm).elim) (Sum.inl n,b) hc] at hs
+    rw [slot_cellValues N (coordVal secrets left) (fun m hm => (hnn m hm).elim) (fun m hm => (hww m hm).elim)
+        (Sum.inl n,b) hc (fun m hm => (hww m hm).elim),
+      slot_cellValues N (coordVal secrets right) (fun m hm => (hnn m hm).elim) (fun m hm => (hww m hm).elim)
+        (Sum.inl n,b) hc (fun m hm => (hww m hm).elim)] at hs
     change Extract.Paired.proj n.toPos 0=Extract.Paired.proj n.toPos (right n) at hs
     rw [show right n=value from Function.update_self ..,
       CanonGraph.Paired.proj_presentEquiv,ChainGraph.joinOutput_low] at hs
@@ -8931,7 +9302,9 @@ theorem ftsLabel_top (labels : Labels) (index : Fin (2^31)) (coord : Fin 9) (b :
   rw [if_neg (by decide)]
   unfold ftsNodeAt
   rw [dif_pos (show 6-1<6 ∧ b.val<2^(7-(6-1)-1) by have:=b.isLt;omega)]
-  rfl
+  change Extract.Paired.proj (CanonGraph.Node.wctNode (ftsTopNode index coord b)).toPos
+    (labels (.wctNode (wSelNode labels (ftsTopNode index coord b)))) = _
+  rw [wSelNode_of_cap_one (wTrialCap_off (by show (5:Nat) ≠ 3; decide)) rfl]
 
 section Coherent
 variable {U : Finset HashInput} {T : Answers} {vals : Coord→Digest} {nv : Message→Digest}
@@ -9555,7 +9928,7 @@ theorem keygen_inl {c : Coord} (hc : c ∈ keygenDisclosed) : ∃ N, c = .inl N 
   rcases LargeResidual.mem_keygenDisclosed.mp hc with hc | hc | hc
   rotate_left
   · rcases encodingDisclosed_shape hc with ⟨n, rfl⟩ | ⟨i, rfl⟩ <;> exact ⟨_, rfl⟩
-  · obtain ⟨n, rfl⟩ := LargeResidual.topTrialsDisclosed_shape hc; exact ⟨_, rfl⟩
+  · rcases LargeResidual.topTrialsDisclosed_shape hc with ⟨n, rfl⟩ | ⟨n, rfl⟩ <;> exact ⟨_, rfl⟩
   · unfold keygenCacheDisclosed at hc
     simp only [List.mem_flatMap, List.mem_filterMap] at hc
     obtain ⟨level, _, node, _, h⟩ := hc
@@ -9638,6 +10011,10 @@ theorem childSlots_ne (N : CanonGraph.Node) (hu : CanonGraph.Paired.Filtered.Use
     · cases hc
     simp only [List.mem_append, Option.mem_toList, Option.map_eq_some_iff, Prod.mk.injEq] at hc
     rcases hc with ⟨x, hx, hxe, -⟩ | ⟨x, hx, hxe, -⟩ <;> subst hxe <;> exact treeChild_ne_self n _ hx
+  by_cases hwct : ∃ n, N = .wctNode n
+  · obtain ⟨n, rfl⟩ := hwct
+    exact wct_childSlots_ne hc he
+  have hww : ∀ m, N = .wctNode m → False := fun m hm => hwct ⟨m, hm⟩
   obtain ⟨c,b⟩ := cs
   dsimp only at he
   subst c
@@ -9653,8 +10030,10 @@ theorem childSlots_ne (N : CanonGraph.Node) (hu : CanonGraph.Paired.Filtered.Use
   rw [cell_eq_cellValues secrets left N hu,cell_eq_cellValues secrets right N hu] at heq
   have hs := congrArg (fun input => slotValue input b) heq
   have hnn : ∀ m, N = .node m → False := fun m hm => hnode ⟨m, hm⟩
-  rw [slot_cellValues N (coordVal secrets left) (fun m hm => (hnn m hm).elim) (Sum.inl N,b) hc,
-    slot_cellValues N (coordVal secrets right) (fun m hm => (hnn m hm).elim) (Sum.inl N,b) hc] at hs
+  rw [slot_cellValues N (coordVal secrets left) (fun m hm => (hnn m hm).elim) (fun m hm => (hww m hm).elim)
+      (Sum.inl N,b) hc (fun m hm => (hww m hm).elim),
+    slot_cellValues N (coordVal secrets right) (fun m hm => (hnn m hm).elim) (fun m hm => (hww m hm).elim)
+      (Sum.inl N,b) hc (fun m hm => (hww m hm).elim)] at hs
   change Extract.Paired.proj N.toPos 0=Extract.Paired.proj N.toPos (right N) at hs
   rw [show right N=value from Function.update_self ..,
     CanonGraph.Paired.proj_presentEquiv,ChainGraph.joinOutput_low] at hs
@@ -9697,14 +10076,7 @@ theorem contactTest_parsed {A : Answers} {K : Coord→Prop} {X : HashInput} {y :
           unfold firstUnknown; rw [childSlots_eq_of he hov hN0]
         rw [hfu, hv, he] at h
         exact h
-      · have h0 : childSlots N' = [] := by
-          cases N' with
-          | node m =>
-            have h1 : trialCap m.1.lay m.1.level.val ≤ m.1.nonce.val := by
-              by_contra h2; exact hov (fun m' hm' => by cases hm'; omega)
-            change LargeResidual.childSlots (.node m) = []
-            simp only [LargeResidual.childSlots]; rw [if_pos h1]
-          | _ => exact absurd (fun m' hm' => by cases hm') hov
+      · have h0 : childSlots N' = [] := childSlots_of_not_noOver hov
         rcases h with ⟨cs, hcs, -⟩ | h
         · unfold firstUnknown at hcs; rw [h0] at hcs; cases hcs
         · rw [hv, he] at h; exact Or.inr h
@@ -9758,15 +10130,15 @@ theorem Coherent.not_cell_parsed (h : Coherent U T vals nv τ a) {X : HashInput}
   exact hne N' hu (h.cell_pos hN hu heq).1 heq
 
 theorem not_cell_unparsed (h : Coherent U T vals nv τ a) {X : HashInput} (hp : ¬Parsed X)
-    (hph : ∀ n, X ≠ phantom n) :
+    (hph : ∀ n, X ≠ phantom n) (hwph : ∀ n, CanonGraph.Paired.Filtered.Used (.wctNode n) → X ≠ wphantom n) :
     ∀N',CanonGraph.Paired.Filtered.Used N' → X≠cellValues N' vals := by
   intro N' hu heq
   have hc : X = CanonGraph.Paired.cell (secretsOf T) N' (routerLabels vals a) := heq.trans (h.cell N' hu).symm
   by_cases hphA : PhantomAt N' (routerLabels vals a)
-  · obtain ⟨n, rfl, hn⟩ := hphA
-    apply hph n
-    rw [hc, CanonGraph.Paired.cell_node]
-    exact cell_node_inactive hn
+  · rw [CanonGraph.Paired.cell_of_phantomAt hphA] at hc
+    rcases hphA with ⟨n, rfl, -⟩ | ⟨n, rfl, -⟩
+    · exact hph n hc
+    · exact hwph n hu hc
   · exact hp ⟨N',hu,by rw [hc]; exact CanonGraph.Paired.posOf_cell _ _ _ hphA⟩
 
 theorem Coherent.activeV_iff (h : Coherent U T vals nv τ a) (n : TreeNode) :
@@ -9780,13 +10152,35 @@ theorem Coherent.cell_phantom (h : Coherent U T vals nv τ a) {N' : CanonGraph.N
     N' = .node n ∧ ¬ Active (routerLabels vals a) n := by
   have hc : phantom n = CanonGraph.Paired.cell (secretsOf T) N' (routerLabels vals a) := heq.trans (h.cell N' hu).symm
   by_cases hphA : PhantomAt N' (routerLabels vals a)
-  · obtain ⟨m, rfl, hm⟩ := hphA
-    rw [CanonGraph.Paired.cell_node, cell_node_inactive hm] at hc
-    have := phantom_injective hc
-    subst this
-    exact ⟨rfl, hm⟩
+  · rw [CanonGraph.Paired.cell_of_phantomAt hphA] at hc
+    rcases hphA with ⟨m, rfl, hm⟩ | ⟨m, rfl, -⟩
+    · have := phantom_injective hc
+      subst this
+      exact ⟨rfl, hm⟩
+    · exact absurd hc (phantom_ne_wphantom n m)
   · have := CanonGraph.Paired.posOf_cell (secretsOf T) N' (routerLabels vals a) hphA
     rw [← hc, posOf_phantom] at this
+    cases this
+
+theorem Coherent.wActiveV_iff (h : Coherent U T vals nv τ a) (n : WctNodePos) :
+    WActiveV vals n ↔ WActive (routerLabels vals a) n := by
+  have := wActiveV_coordVal (secretsOf T) (routerLabels vals a) n
+  rwa [h.coordVal] at this
+
+/-- E8: an FTS phantom input is the cell of exactly its own (inactive) FTS node. -/
+theorem Coherent.cell_wphantom (h : Coherent U T vals nv τ a) {N' : CanonGraph.Node} {n : WctNodePos}
+    (hu : CanonGraph.Paired.Filtered.Used N') (heq : wphantom n = cellValues N' vals) :
+    N' = .wctNode n ∧ ¬ WActive (routerLabels vals a) n := by
+  have hc : wphantom n = CanonGraph.Paired.cell (secretsOf T) N' (routerLabels vals a) := heq.trans (h.cell N' hu).symm
+  by_cases hphA : PhantomAt N' (routerLabels vals a)
+  · rw [CanonGraph.Paired.cell_of_phantomAt hphA] at hc
+    rcases hphA with ⟨m, rfl, -⟩ | ⟨m, rfl, hm⟩
+    · exact absurd hc.symm (phantom_ne_wphantom m n)
+    · have := wphantom_injective hc
+      subst this
+      exact ⟨rfl, hm⟩
+  · have := CanonGraph.Paired.posOf_cell (secretsOf T) N' (routerLabels vals a) hphA
+    rw [← hc, posOf_wphantom] at this
     cases this
 
 theorem not_prefix_parsed {X : HashInput} (hp : Parsed X) : ¬HonestPrefix vals a X := by
@@ -9902,20 +10296,33 @@ theorem case_unknownChild (hcoh : LargeResidual.Paired.Coherent U T vals nv τ a
     exact hcsk (Known.base (Or.inl (LargeResidual.Paired.multi_childSlots_keygen h1 hcsm)))
   have hlow1 : ∀ n, N = .node n → n.1.lay ≠ 0 ∧ trialCap n.1.lay n.1.level.val = 1 :=
     fun n hn => ⟨hlow n hn, hcap1 n hn⟩
-  have hsel : N.sel (routerLabels vals a) = N := LargeResidual.Paired.sel_of_single hbN hcap1
+  have hwcap : ∀ m, N = .wctNode m → wTrialCap m.1.coord.val m.1.level.val = 1 := by
+    intro m hm
+    by_contra h1
+    subst hm
+    exact hcsk (Known.base (Or.inl (LargeResidual.Paired.wGround_childSlots_keygen h1 hcsm)))
+  have hcsw := LargeResidual.Paired.childSlots_wct_of_not_keygen hcsm (fun hk => hcsk (Known.base (Or.inl hk)))
+  have hsel : N.sel (routerLabels vals a) = N := LargeResidual.Paired.sel_of_single hbN hcap1 hwcap
   have hvN : honestValue T (.inl N) = vals (.inl N) := by rw [hcoh.honestValue_node N hu, hcoh.selCoord N, hsel]
   have hiN : Extract.Paired.honestInput T N.toPos = cellValues N vals := by rw [hcoh.honestInput N hu, hsel]
-  have hchild : ∀ cs ∈ childSlots N, honestValue T cs.1 = vals cs.1 := fun cs hc => by
-    rw [hcoh.honestValue_used cs.1 (LargeResidual.Paired.childSlots_used N hu cs hc),
-      LargeResidual.Paired.selCoordV_child hlow1 hc]
+  have hchild : honestValue T cs.1 = vals cs.1 := by
+    rw [hcoh.honestValue_used cs.1 (LargeResidual.Paired.childSlots_used N hu cs hcsm),
+      LargeResidual.Paired.selCoordV_child hlow1 hcsm hcsw]
   have hne' : X ≠ cellValues N vals → ∀ M : CanonGraph.Node, CanonGraph.Paired.Filtered.Used M →
       M.toPos = N.toPos → X ≠ cellValues M vals := fun hXc M hMu hMpos heq =>
-    hXc (by rw [LargeResidual.Paired.eq_of_single hbN hcap1 hMpos (hcoh.cell_pos hN hMu heq).2] at heq; exact heq)
+    hXc (by rw [LargeResidual.Paired.eq_of_single hbN hcap1 hwcap hMpos (hcoh.cell_pos hN hMu heq).2] at heq; exact heq)
   have hNact : ∀ n, N = .node n → LargeResidual.ActiveV vals n ∧ ∀ cs ∈ childSlots N, vals (LargeResidual.selCoordV vals cs.1) = vals cs.1 := by
     intro n hn
-    refine ⟨⟨?_, fun j hj => ?_⟩, fun cs hc => by rw [LargeResidual.Paired.selCoordV_child hlow1 hc]⟩
+    refine ⟨⟨?_, fun j hj => ?_⟩, fun cs hc => ?_⟩
     · rw [hcap1 n hn]; subst hn; rw [LargeResidual.Paired.nonce_zero_of_base hbN]; omega
     · subst hn; rw [LargeResidual.Paired.nonce_zero_of_base hbN] at hj; exact absurd hj (by omega)
+    · rw [LargeResidual.Paired.selCoordV_child hlow1 hc
+        (fun m hm => absurd hm (LargeResidual.Paired.node_childSlots_not_wct (hn ▸ hc) m))]
+  have hWact : ∀ m, N = .wctNode m → LargeResidual.WActiveV vals m := by
+    intro m hm
+    refine ⟨?_, fun j hj => ?_⟩
+    · rw [hwcap m hm]; subst hm; rw [LargeResidual.Paired.wnonce_zero_of_base hbN]; omega
+    · subst hm; rw [LargeResidual.Paired.wnonce_zero_of_base hbN] at hj; exact absurd hj (by omega)
   have hp : Parsed X := ⟨N,hu,hN⟩
   have hnd : ¬IsDigestRow X := fun hd => LargeResidual.Paired.not_parsed_of_digest hd hp
   have hadm : ∀ g ∈ (⟨some (.inl cs.1, slotValue X cs.2), .label (.inl (.inl N))⟩ : Probe WCoord).guess, ∀ parent,
@@ -9947,10 +10354,10 @@ theorem case_unknownChild (hcoh : LargeResidual.Paired.Coherent U T vals nv τ a
     · rintro (⟨cs', hcs', h⟩ | h)
       · rw [hfu] at hcs'
         cases hcs'
-        exact Or.inl (by simpa only [hchild cs hcsm] using h)
+        exact Or.inl (by simpa only [hchild] using h)
       · exact Or.inr h
     · rintro (h | h)
-      · exact Or.inl ⟨cs,hfu,by simpa only [hchild cs hcsm] using h⟩
+      · exact Or.inl ⟨cs,hfu,by simpa only [hchild] using h⟩
       · exact Or.inr h
   have hres : X ≠ cellValues N vals → T (.inl (.inr X)) = rowPresent X (τ ⟨X, hX⟩) := fun hXc =>
     hcoh.residual X hX (fun N' hu' => by rw [hcoh.cell N' hu']; exact hcoh.not_cell_parsed hN (hne' hXc) N' hu') (LargeResidual.Paired.not_prefix_parsed hp)
@@ -9966,7 +10373,8 @@ theorem case_unknownChild (hcoh : LargeResidual.Paired.Coherent U T vals nv τ a
     by_cases hXc : X = cellValues N vals
     · have hslot : slotValue X cs.2 = vals cs.1 := by
         rw [hXc]
-        exact slot_cellValues N vals hNact cs hcsm
+        exact slot_cellValues N vals hNact hWact cs hcsm
+          (fun m _ => by rw [LargeResidual.Paired.selCoordV_child hlow1 hcsm hcsw])
       have hkeep : ¬(⟨some (.inl cs.1, slotValue X cs.2), .label (.inl (.inl N))⟩ : Probe WCoord).keep (Sum.elim vals nv) (τ ⟨X, hX⟩) := by
         rw [keep_guess_label]
         intro h
@@ -10160,10 +10568,14 @@ theorem case_knownChildren (hcoh : LargeResidual.Paired.Coherent U T vals nv τ 
         .inl (N.sel (routerLabels vals a)) := by
       rw [← hcoh.selCoord N]
       apply LargeResidual.selCoordV_congr
-      intro n hn h1 j hj
-      have hN' : N = .node n := Sum.inl.inj hn
-      subst hN'
-      exact hv0c _ (List.mem_append_left _ (List.mem_append_left _ (List.mem_append_right _ (LargeResidual.mem_trialDeps h1 hj))))
+      · intro n hn h1 j hj
+        have hN' : N = .node n := Sum.inl.inj hn
+        subst hN'
+        exact hv0c _ (List.mem_append_left _ (List.mem_append_left _ (List.mem_append_right _ (LargeResidual.mem_trialDeps h1 hj))))
+      · intro n hn h1 j hj
+        have hN' : N = .wctNode n := Sum.inl.inj hn
+        subst hN'
+        exact hv0c _ (List.mem_append_left _ (List.mem_append_left _ (List.mem_append_right _ (LargeResidual.mem_wTrialDeps h1 hj))))
     rw [hsc]
     have hSu : CanonGraph.Paired.Filtered.Used (N.sel (routerLabels vals a)) :=
       (CanonGraph.Paired.Filtered.used_iff_bounded _).2 (by
@@ -10334,6 +10746,100 @@ theorem case_phantom (hcoh : LargeResidual.Paired.Coherent U T vals nv τ a) (hr
       exact hslots
     · exact fun _ => henc
 
+theorem case_wphantom (hcoh : LargeResidual.Paired.Coherent U T vals nv τ a) (hrel : Rel U T vals nv τ a q mon st ws)
+    (hlt : st.calls < q) (X : HashInput) (hX : X ∈ U) (hnp : ¬Parsed X) (n : WctNodePos) (hXn : X = wphantom n)
+    (hun : CanonGraph.Paired.Filtered.Used (.wctNode n)) :
+    QueryOutcome U T vals nv τ a q mon st ws X (observedRun aux q (Sum.elim vals nv) τ (do
+      let pairs ← discloseAll U (LargeResidual.wTrialDeps n)
+      if LargeResidual.WActiveV (lookupVal pairs) n then (fun y => (y, st.after X)) <$> readReq U ⟨X, hX⟩ .call
+      else do
+        let v ← discloseReq U (.inl (.inl (.wctNode n))) .call
+        pure (CanonGraph.Paired.presentEquiv (.wctNode n) (ChainGraph.joinOutput v (a.high (.wctNode n))), st.after X)) ws) := by
+  have hlen : X.length ≠ 64 := by rw [hXn, wphantom_length]; decide
+  have hne : ¬LargeResidual.EncRow X := by
+    rintro ⟨L, m, ctr, pad, -, rfl⟩
+    exact hlen (ClaudeWCT.W9.T3.Security.Wots.Enc.encRow_length _ _ _ _)
+  have hnd : ¬IsDigestRow X := by
+    rintro ⟨rho, m, c, hd⟩
+    apply hlen
+    rw [hd, Cost.pad64_length]
+    simp [digestInput, SphincsSecurity.bytesLE_length]
+  have hnc : ¬(X ∉ st.seen ∧ X ∈ U ∧ ContactTest T (LargeResidual.Paired.RouterState.known st) X (T (.inl (.inr X)))) :=
+    fun h => LargeResidual.Paired.contactTest_other hnp hne h.2.2
+  have hkc : ∀ c ∈ LargeResidual.wTrialDeps n, (LargeResidual.Paired.RouterState.known st) c :=
+    fun c hc => Known.base (Or.inl (LargeResidual.Paired.wTrialDeps_keygen hc))
+  have hrel1 := hrel.discloseStates _ hkc
+  rw [observed_discloseAll]
+  have hact : LargeResidual.WActiveV (lookupVal ((LargeResidual.wTrialDeps n).map fun c => (c, Sum.elim vals nv (.inl c)))) n ↔ LargeResidual.WActiveV vals n :=
+    LargeResidual.wActiveV_congr (fun h1 j hj => lookupVal_map (fun c => Sum.elim vals nv (.inl c)) _ _ (LargeResidual.mem_wTrialDeps h1 hj))
+  have henc : ∀ (L : EncLeaf) (ctr : BitVec 32), X = Wots.encRow L.toWots (msgVals vals L) ctr 0 →
+      ∀ cs ∈ msgSlots L, (LargeResidual.Paired.RouterState.known st) cs.1 :=
+    fun L' ctr' hL' => absurd ⟨L', _, ctr', 0, msgFits_msgVals vals L', hL'⟩ hne
+  by_cases ha : LargeResidual.WActiveV vals n
+  · rw [if_pos (hact.mpr ha)]
+    have hnot : ∀ N' : CanonGraph.Node, CanonGraph.Paired.Filtered.Used N' → X ≠ cellValues N' vals := by
+      intro N' hu' heq
+      obtain ⟨rfl, hn⟩ := hcoh.cell_wphantom hu' (hXn.symm.trans heq)
+      exact hn ((hcoh.wActiveV_iff n).mp ha)
+    have hTX : T (.inl (.inr X)) = τ ⟨X, hX⟩ :=
+      hcoh.residual_unparsed X hX hnp (fun N' hu' => by rw [hcoh.cell N' hu']; exact hnot N' hu')
+        (LargeResidual.Paired.not_prefix_enc hne)
+    rw [observed_map, ← bind_pure (readReq U ⟨X, hX⟩ .call), observed_readReq, observed_pure, map_pure]
+    exact continue_read_call hrel1 hlt X hX hnd hTX hnc (fun N' hu' hN' => absurd hN' (hnot N' hu')) henc
+  · rw [if_neg (fun h => ha (hact.mp h)), observed_discloseReq, observed_pure]
+    have hXc : X = cellValues (.wctNode n) vals := by
+      rw [hXn]
+      show wphantom n = LargeResidual.Paired.cellValues (.wctNode n) vals
+      simp only [LargeResidual.Paired.cellValues, if_neg ha]
+    have hTX : T (.inl (.inr X)) = routerLabels vals a (.wctNode n) := by
+      rw [hXc]; exact hcoh.honest_answer _ hun
+    have hslots : ∀ cs ∈ childSlots (.wctNode n), (LargeResidual.Paired.RouterState.known st) cs.1 := by
+      intro cs hcs
+      by_cases hov : wTrialCap n.1.coord.val n.1.level.val ≤ n.1.nonce.val
+      · simp only [childSlots, if_pos hov] at hcs; cases hcs
+      · have h1 : wTrialCap n.1.coord.val n.1.level.val ≠ 1 := by
+          intro h1
+          apply ha
+          refine ⟨by omega, fun j hj => ?_⟩
+          rw [h1] at hov; exact absurd hj (by omega)
+        exact Known.base (Or.inl (LargeResidual.Paired.wGround_childSlots_keygen h1 hcs))
+    have hkN : (LargeResidual.Paired.RouterState.known st) (.inl (.wctNode n)) := Known.node hslots
+    apply outcome_continue hrel hlt X _ hnc
+    · rw [LargeResidual.RouterState.next_of_not U st X _ (fun h' => hnd h'.2)]
+      congr 3
+      rw [hTX]
+      rfl
+    · show (discloseStates U q (Sum.elim vals nv) ws _).counters.calls + 1 = st.calls + 1
+      rw [discloseStates_counters, hrel.wcalls]
+    · show (discloseStates U q (Sum.elim vals nv) ws _).counters.mass = ws.counters.mass + _
+      rw [discloseStates_counters, if_neg (fun h => hnd h.2), Nat.add_zero]
+    · show (discloseStates U q (Sum.elim vals nv) ws _).counters.probes ≤ (discloseStates U q (Sum.elim vals nv) ws _).counters.calls + 1
+      rw [discloseStates_counters]
+      have := hrel.probes; omega
+    · intro c
+      show Sum.elim vals nv c ∈ Function.update (discloseStates U q (Sum.elim vals nv) ws _).candidates
+        (.inl (.inl (.wctNode n))) {Sum.elim vals nv (.inl (.inl (.wctNode n)))} c
+      by_cases hc : c = .inl (.inl (.wctNode n))
+      · subst hc
+        rw [Function.update_self]
+        exact Finset.mem_singleton_self _
+      · rw [Function.update_of_ne hc]
+        exact hrel1.mem c
+    · intro c hck
+      show 2 ^ 128 - (discloseStates U q (Sum.elim vals nv) ws _).counters.probes ≤
+        (Function.update (discloseStates U q (Sum.elim vals nv) ws _).candidates (.inl (.inl (.wctNode n)))
+          {Sum.elim vals nv (.inl (.inl (.wctNode n)))} (.inl c)).card
+      rw [Function.update_of_ne (fun h => hck (by rw [Sum.inl.inj h]; exact hkN))]
+      exact hrel1.hidden c hck
+    · intro row v hv
+      exact hrel1.rowsEq row v hv
+    · intro row v hv
+      exact Or.inr (hrel1.rowsSeen row v hv)
+    · intro _ N' hu' hN'
+      obtain ⟨rfl, -⟩ := hcoh.cell_wphantom hu' (hXn.symm.trans hN')
+      exact hslots
+    · exact fun _ => henc
+
 theorem case_enc_known (hcoh : LargeResidual.Paired.Coherent U T vals nv τ a) (hrel : Rel U T vals nv τ a q mon st ws)
     (hlt : st.calls < q) (X : HashInput) (hX : X ∈ U) (L : EncLeaf) (m : WCT9.LayerMsg) (ctr : BitVec 32)
     (pad : Wots.RowPad) (hfit : Extract.msgFits L.1.lay m) (hXe : X = Wots.encRow L.toWots m ctr pad)
@@ -10348,6 +10854,8 @@ theorem case_enc_known (hcoh : LargeResidual.Paired.Coherent U T vals nv τ a) (
       else (fun y => (y,st.after X)) <$> readReq U ⟨X,hX⟩ .call) ws) := by
   have hph : ∀ n, X ≠ phantom n :=
     LargeResidual.Paired.ne_phantom_of_length (by rw [hXe]; exact ClaudeWCT.W9.T3.Security.Wots.Enc.encRow_length _ _ _ _)
+  have hwph : ∀ n, CanonGraph.Paired.Filtered.Used (.wctNode n) → X ≠ wphantom n := fun n _ =>
+    LargeResidual.Paired.ne_wphantom_of_length (by rw [hXe]; exact ClaudeWCT.W9.T3.Security.Wots.Enc.encRow_length _ _ _ _) n
   have hall : ∀cs∈msgSlots L,LargeResidual.Paired.RouterState.known st cs.1 :=
     LargeResidual.Paired.RouterState.msgSlot_known st L
   have hnp : ¬Parsed X := by rw [hXe]; exact LargeResidual.Paired.not_parsed_of_encRow ⟨L, m, ctr, pad, hfit, rfl⟩
@@ -10385,7 +10893,7 @@ theorem case_enc_known (hcoh : LargeResidual.Paired.Coherent U T vals nv τ a) (
     · rintro ⟨hsel,hi,hns,hd⟩
       exact ⟨hsel,hi,hns,(hcoh.canDecode_ref L hsel _).mpr hd⟩
   have hcell : ∀ N' : CanonGraph.Node, CanonGraph.Paired.Filtered.Used N' → X = cellValues N' vals → ∀ cs ∈ childSlots N', (LargeResidual.Paired.RouterState.known st) cs.1 :=
-    fun N' hu' hN' => absurd hN' (LargeResidual.Paired.not_cell_unparsed hcoh hnp hph N' hu')
+    fun N' hu' hN' => absurd hN' (LargeResidual.Paired.not_cell_unparsed hcoh hnp hph hwph N' hu')
   have henc : ∀ (L' : EncLeaf) (ctr' : BitVec 32), X = Wots.encRow L'.toWots (msgVals vals L') ctr' 0 →
       ∀ cs ∈ msgSlots L', (LargeResidual.Paired.RouterState.known st) cs.1 := by
     intro L' ctr' hL'
@@ -10437,7 +10945,7 @@ theorem case_enc_known (hcoh : LargeResidual.Paired.Coherent U T vals nv τ a) (
     · exact fun _ => henc
   · rw [if_neg hpre]
     have hTX : T (.inl (.inr X)) = τ ⟨X, hX⟩ :=
-      hcoh.residual_unparsed X hX hnp (fun N' hu' => by rw [hcoh.cell N' hu']; exact LargeResidual.Paired.not_cell_unparsed hcoh hnp hph N' hu')
+      hcoh.residual_unparsed X hX hnp (fun N' hu' => by rw [hcoh.cell N' hu']; exact LargeResidual.Paired.not_cell_unparsed hcoh hnp hph hwph N' hu')
         (by rw [hXe, LargeResidual.Paired.honestPrefix_iff, ← hXe]; exact hpre)
     have hri : Wots.CanonicalRef.referenceInput T (Wots.CanonicalRef.sourceMessages T) L.toWots ≠ some X := by
       rw [hXe]
@@ -10537,15 +11045,19 @@ theorem case_digest (hcoh : LargeResidual.Paired.Coherent U T vals nv τ a) (hre
     obtain ⟨rho, m, c, hdX⟩ := hd
     exact LargeResidual.Paired.ne_phantom_of_length (by
       rw [hdX, Cost.pad64_length]; simp [digestInput, SphincsSecurity.bytesLE_length])
+  have hwph : ∀ n, CanonGraph.Paired.Filtered.Used (.wctNode n) → X ≠ wphantom n := by
+    obtain ⟨rho, m, c, hdX⟩ := hd
+    exact fun n _ => LargeResidual.Paired.ne_wphantom_of_length (by
+      rw [hdX, Cost.pad64_length]; simp [digestInput, SphincsSecurity.bytesLE_length]) n
   have hne : ¬LargeResidual.EncRow X := by
     rintro ⟨L, m, ctr, pad, -, rfl⟩
     exact encRow_not_digest L m ctr pad hd
   have hTX : T (.inl (.inr X)) = τ ⟨X, hX⟩ :=
-    hcoh.residual_unparsed X hX hnp (fun N' hu' => by rw [hcoh.cell N' hu']; exact LargeResidual.Paired.not_cell_unparsed hcoh hnp hph N' hu') (LargeResidual.Paired.not_prefix_enc hne)
+    hcoh.residual_unparsed X hX hnp (fun N' hu' => by rw [hcoh.cell N' hu']; exact LargeResidual.Paired.not_cell_unparsed hcoh hnp hph hwph N' hu') (LargeResidual.Paired.not_prefix_enc hne)
   rw [observed_map, ← bind_pure (readReq U ⟨X, hX⟩ .mass), observed_readReq, observed_pure, map_pure]
   have h := continue_read hrel hlt X hX .mass (Or.inr ⟨rfl, hd⟩) hTX
     (fun h => LargeResidual.Paired.contactTest_other hnp hne h.2.2)
-    (fun N' hu' hN' => absurd hN' (LargeResidual.Paired.not_cell_unparsed hcoh hnp hph N' hu'))
+    (fun N' hu' hN' => absurd hN' (LargeResidual.Paired.not_cell_unparsed hcoh hnp hph hwph N' hu'))
     (fun L' ctr' hL' => absurd ⟨L', _, ctr', 0, msgFits_msgVals vals L', hL'⟩ hne)
   have heq : (if st.Fresh X then { st.after X with births := (X, τ ⟨X, hX⟩) :: st.births } else st.after X) =
       st.next U X (τ ⟨X, hX⟩) := by
@@ -10557,14 +11069,14 @@ theorem case_digest (hcoh : LargeResidual.Paired.Coherent U T vals nv τ a) (hre
   exact h
 theorem case_other (hcoh : LargeResidual.Paired.Coherent U T vals nv τ a) (hrel : Rel U T vals nv τ a q mon st ws)
     (hlt : st.calls < q) (X : HashInput) (hX : X ∈ U) (hnp : ¬Parsed X) (hne : ¬LargeResidual.EncRow X) (hnd : ¬IsDigestRow X)
-    (hph : ∀ n, X ≠ phantom n) :
+    (hph : ∀ n, X ≠ phantom n) (hwph : ∀ n, CanonGraph.Paired.Filtered.Used (.wctNode n) → X ≠ wphantom n) :
     QueryOutcome U T vals nv τ a q mon st ws X (observedRun aux q (Sum.elim vals nv) τ
       ((fun y => (y, st.after X)) <$> readReq U ⟨X, hX⟩ .call) ws) := by
   have hTX : T (.inl (.inr X)) = τ ⟨X, hX⟩ :=
-    hcoh.residual_unparsed X hX hnp (fun N' hu' => by rw [hcoh.cell N' hu']; exact LargeResidual.Paired.not_cell_unparsed hcoh hnp hph N' hu') (LargeResidual.Paired.not_prefix_enc hne)
+    hcoh.residual_unparsed X hX hnp (fun N' hu' => by rw [hcoh.cell N' hu']; exact LargeResidual.Paired.not_cell_unparsed hcoh hnp hph hwph N' hu') (LargeResidual.Paired.not_prefix_enc hne)
   rw [observed_map, ← bind_pure (readReq U ⟨X, hX⟩ .call), observed_readReq, observed_pure, map_pure]
   exact continue_read_call hrel hlt X hX hnd hTX (fun h => LargeResidual.Paired.contactTest_other hnp hne h.2.2)
-    (fun N' hu' hN' => absurd hN' (LargeResidual.Paired.not_cell_unparsed hcoh hnp hph N' hu'))
+    (fun N' hu' hN' => absurd hN' (LargeResidual.Paired.not_cell_unparsed hcoh hnp hph hwph N' hu'))
     (fun L' ctr' hL' => absurd ⟨L', _, ctr', 0, msgFits_msgVals vals L', hL'⟩ hne)
 theorem routeQuery_observed (hcoh : LargeResidual.Paired.Coherent U T vals nv τ a) (hrel : Rel U T vals nv τ a q mon st ws)
     (hlt : st.calls < q) (hq : q ≤ 2 ^ 127) (hok : FamOK st) (X : HashInput) :
@@ -10590,6 +11102,10 @@ theorem routeQuery_observed (hcoh : LargeResidual.Paired.Coherent U T vals nv τ
       · rw [dif_pos hph]
         exact case_phantom aux hcoh hrel hlt X hX hp _ (Classical.choose_spec hph)
       rw [dif_neg hph]
+      by_cases hwp : ∃ n : WctNodePos, X = wphantom n ∧ CanonGraph.Paired.Filtered.Used (.wctNode n)
+      · rw [dif_pos hwp]
+        exact case_wphantom aux hcoh hrel hlt X hX hp _ (Classical.choose_spec hwp).1 (Classical.choose_spec hwp).2
+      rw [dif_neg hwp]
       by_cases he : LargeResidual.EncRow X
       · rw [dif_pos he]
         have hspec := Classical.choose_spec (Classical.choose_spec (Classical.choose_spec (Classical.choose_spec he)))
@@ -10599,7 +11115,7 @@ theorem routeQuery_observed (hcoh : LargeResidual.Paired.Coherent U T vals nv τ
         · rw [if_pos hd]
           exact case_digest aux hcoh hrel hlt X hX hd
         · rw [if_neg hd]
-          exact case_other aux hcoh hrel hlt X hX hp he hd (fun n h => hph ⟨n, h⟩)
+          exact case_other aux hcoh hrel hlt X hX hp he hd (fun n h => hph ⟨n, h⟩) (fun n hu h => hwp ⟨n, h, hu⟩)
   · rw [dif_neg hX]
     exact case_outside aux hcoh hrel hlt X hX
 
@@ -10921,7 +11437,9 @@ theorem _root_.ClaudeWCT.W9.T3.Security.LargeResidual.Paired.Coherent.digestRow 
     T (.inl (.inr (pad64 (digestInput rho m c)))) = τ ⟨_, digestRow_mem hUpub rho m c⟩ := by
   have hd := digestRow_isDigest rho m c
   have hnp := LargeResidual.Paired.not_parsed_of_digest hd
-  apply hcoh.residual_unparsed _ _ hnp (fun N' hu' => by rw [hcoh.cell N' hu']; exact LargeResidual.Paired.not_cell_unparsed hcoh hnp (LargeResidual.Paired.ne_phantom_of_length (by rw [Cost.pad64_length]; simp [digestInput, SphincsSecurity.bytesLE_length])) N' hu')
+  have hlen : (pad64 (digestInput rho m c)).length = 64 := by
+    rw [Cost.pad64_length]; simp [digestInput, SphincsSecurity.bytesLE_length]
+  apply hcoh.residual_unparsed _ _ hnp (fun N' hu' => by rw [hcoh.cell N' hu']; exact LargeResidual.Paired.not_cell_unparsed hcoh hnp (LargeResidual.Paired.ne_phantom_of_length hlen) (fun n _ => LargeResidual.Paired.ne_wphantom_of_length hlen n) N' hu')
   rintro ⟨L, ctr, hX, -⟩
   exact encRow_not_digest L _ ctr 0 (hX ▸ hd)
 theorem _root_.ClaudeWCT.W9.T3.Security.LargeResidual.Paired.Coherent.privateNonce (hcoh : LargeResidual.Paired.Coherent U T vals nv τ a) (m : Message) :
@@ -11199,8 +11717,37 @@ theorem signItems_node_nonce (T : Answers) (N : HashOutput) :
           cases he
           exact (LargeResidual.Paired.treeNodeAt_spec hm').2.2.2.2
       · simp at hl
+theorem signItems_wct_nonce (T : Answers) (N : HashOutput) :
+    ∀ c ∈ LargeResidual.Paired.signItems T N, ∀ m : CanonGraph.WctNodePos, c = .inl (.wctNode m) → m.1.nonce.val = 0 := by
+  intro c hc m hm
+  subst hm
+  rcases List.mem_append.mp hc with hc | hc
+  · unfold LargeResidual.Paired.ftsItems at hc
+    obtain ⟨k, -, hk⟩ := List.mem_flatMap.mp hc
+    rcases List.mem_append.mp hk with hk | hk
+    · unfold LargeResidual.Paired.wctOpened at hk
+      obtain ⟨t, ht⟩ := List.mem_ofFn.mp hk
+      exact absurd ht (LargeResidual.Paired.wctItem_not_wct _ _ m)
+    · unfold LargeResidual.Paired.wctPath at hk
+      obtain ⟨l, -, hl⟩ := List.mem_filterMap.mp hk
+      exact (LargeResidual.Paired.ftsChild_wct hl).2.2
+  · unfold ClaudeWCT.W9.T3.Security.LargeResidual.layerItems at hc
+    obtain ⟨lay, -, hl⟩ := List.mem_flatMap.mp hc
+    rcases List.mem_append.mp hl with hl | hl
+    · unfold ClaudeWCT.W9.T3.Security.LargeResidual.layerChains at hl
+      split_ifs at hl
+      · obtain ⟨i, -, hi⟩ := List.mem_map.mp hl
+        exact absurd hi (LargeResidual.Paired.chainItem_not_wct _ _ _ m)
+      · simp at hl
+    · unfold ClaudeWCT.W9.T3.Security.LargeResidual.layerPath at hl
+      split_ifs at hl
+      · obtain ⟨j, -, hj⟩ := List.mem_filterMap.mp hl
+        unfold ClaudeWCT.W9.T3.Security.LargeResidual.treeChild at hj
+        split_ifs at hj <;> simp at hj
+      · simp at hl
 theorem selVals_lookup_sign (vals : Coord → Digest) (nv : Message → Digest) (items : List Coord)
     (hitems : ∀ c ∈ items, ∀ m : CanonGraph.TreeNode, c = .inl (.node m) → m.1.nonce.val = 0)
+    (hwitems : ∀ c ∈ items, ∀ m : CanonGraph.WctNodePos, c = .inl (.wctNode m) → m.1.nonce.val = 0)
     (c : Coord) (hc : c ∈ items) :
     ClaudeWCT.W9.T3.Security.LargeResidual.selVals (lookupVal ((items ++ ClaudeWCT.W9.T3.Security.LargeResidual.topTrialsDisclosed).map
       (fun c => (c, Sum.elim vals nv (.inl c))))) c = ClaudeWCT.W9.T3.Security.LargeResidual.selVals vals c := by
@@ -11211,20 +11758,35 @@ theorem selVals_lookup_sign (vals : Coord → Digest) (nv : Message → Digest) 
       ∀ j < CanonGraph.trialCap n.1.lay n.1.level.val, ClaudeWCT.W9.T3.Security.LargeResidual.trialCoord n j ∈ items ++ ClaudeWCT.W9.T3.Security.LargeResidual.topTrialsDisclosed :=
     fun n h1 j hj => List.mem_append_right _
       (ClaudeWCT.W9.T3.Security.LargeResidual.trialCoord_mem_topTrials h1 hj)
+  have htw : ∀ n : CanonGraph.WctNodePos, CanonGraph.wTrialCap n.1.coord.val n.1.level.val ≠ 1 →
+      ∀ j < CanonGraph.wTrialCap n.1.coord.val n.1.level.val,
+        ClaudeWCT.W9.T3.Security.LargeResidual.wTrialCoord n j ∈ items ++ ClaudeWCT.W9.T3.Security.LargeResidual.topTrialsDisclosed :=
+    fun n h1 j hj => List.mem_append_right _
+      (ClaudeWCT.W9.T3.Security.LargeResidual.wTrialCoord_mem_topTrials h1 hj)
   unfold ClaudeWCT.W9.T3.Security.LargeResidual.selVals
-  rw [ClaudeWCT.W9.T3.Security.LargeResidual.selCoordV_congr c (fun n _ h1 j hj => hv0 _ (htr n h1 j hj))]
+  rw [ClaudeWCT.W9.T3.Security.LargeResidual.selCoordV_congr c (fun n _ h1 j hj => hv0 _ (htr n h1 j hj))
+    (fun n _ h1 j hj => hv0 _ (htw n h1 j hj))]
   apply hv0
-  rcases c with (_ | _ | m | _ | _ | _ | _) | s
+  rcases c with (_ | _ | m | _ | _ | m | _) | s
   all_goals first | exact List.mem_append_left _ hc | skip
-  show ClaudeWCT.W9.T3.Security.LargeResidual.trialCoord m (ClaudeWCT.W9.T3.Security.LargeResidual.selNonceV vals m) ∈ _
-  by_cases h1 : CanonGraph.trialCap m.1.lay m.1.level.val = 1
-  · rw [ClaudeWCT.W9.T3.Security.LargeResidual.selNonceV_cap_one h1]
-    have hw := CanonGraph.withNonce_self m
-    rw [hitems _ hc m rfl] at hw
-    show Sum.inl (CanonGraph.Node.node (CanonGraph.withNonce m 0)) ∈ _
-    rw [hw]
-    exact List.mem_append_left _ hc
-  · exact htr m h1 _ (ClaudeWCT.W9.T3.Security.LargeResidual.selNonceV_lt vals m)
+  · show ClaudeWCT.W9.T3.Security.LargeResidual.trialCoord m (ClaudeWCT.W9.T3.Security.LargeResidual.selNonceV vals m) ∈ _
+    by_cases h1 : CanonGraph.trialCap m.1.lay m.1.level.val = 1
+    · rw [ClaudeWCT.W9.T3.Security.LargeResidual.selNonceV_cap_one h1]
+      have hw := CanonGraph.withNonce_self m
+      rw [hitems _ hc m rfl] at hw
+      show Sum.inl (CanonGraph.Node.node (CanonGraph.withNonce m 0)) ∈ _
+      rw [hw]
+      exact List.mem_append_left _ hc
+    · exact htr m h1 _ (ClaudeWCT.W9.T3.Security.LargeResidual.selNonceV_lt vals m)
+  · show ClaudeWCT.W9.T3.Security.LargeResidual.wTrialCoord m (ClaudeWCT.W9.T3.Security.LargeResidual.wSelNonceV vals m) ∈ _
+    by_cases h1 : CanonGraph.wTrialCap m.1.coord.val m.1.level.val = 1
+    · rw [ClaudeWCT.W9.T3.Security.LargeResidual.wSelNonceV_cap_one h1]
+      have hw := CanonGraph.wWithNonce_self m
+      rw [hwitems _ hc m rfl] at hw
+      show Sum.inl (CanonGraph.Node.wctNode (CanonGraph.wWithNonce m 0)) ∈ _
+      rw [hw]
+      exact List.mem_append_left _ hc
+    · exact htw m h1 _ (ClaudeWCT.W9.T3.Security.LargeResidual.wSelNonceV_lt vals m)
 theorem observed_signFinish (hcoh : LargeResidual.Paired.Coherent U T vals nv τ a) (st1 : RouterState) (rho : Digest)
     (found : Option (BitVec 32 × HashOutput)) (ws1 : LargeResidual.State WCoord (Cell U)) :
     observedRun aux q (Sum.elim vals nv) τ (signFinish U a st1 rho found) ws1 =
@@ -11252,7 +11814,7 @@ theorem observed_signFinish (hcoh : LargeResidual.Paired.Coherent U T vals nv τ
             hcoh.routerLows_eq _ (routeAddr_enc _ (LargeResidual.digestIndex N).isLt lay))]
           apply assembleSig_congr
           intro c' hc'
-          exact selVals_lookup_sign vals nv _ (signItems_node_nonce T N) c' hc'
+          exact selVals_lookup_sign vals nv _ (signItems_node_nonce T N) (signItems_wct_nonce T N) c' hc'
         rw [hs]
       · rw [if_neg (fun h => hok ((hcoh.routeOk_iff _ hidx).mp h)), if_neg hok, if_neg hok, if_neg hok]
         exact observed_pure aux q _ τ _ ws1

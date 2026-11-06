@@ -2,6 +2,7 @@ import SigGolfCandidate.Merge015
 import SigGolfCandidate.Merge052
 import SigGolfCandidate.Merge054
 import SigGolfCandidate.Merge055
+import SigGolfCandidate.FtsBridge
 set_option linter.all false
 
 -- ==== merged from W9Drv_FtsCore ====
@@ -2246,6 +2247,50 @@ theorem fts_good_of
 
 end W9Drv.SharedCoord
 
+namespace W9Machine.SharedV3
+open OracleComp SigGolfCandidate.T3
+open SphincsSecurity (bytesLE)
+
+/-- E8: one fold level of the expand child with its nonce: level 3 is the FTS ground node (first-nonce search for
+`ftsWidth coord` zero bits, the nonce in the pad), every other level the plain witness-read node. -/
+def childStepG (w : WBytes) (index coord j : Nat) (padR : Digest) (acc : Digest × Nat) (level : Nat) :
+    M (Digest × Nat) :=
+  if level = 3 then do
+    let left := if j / 2 ^ 3 % 2 = 0 then acc.1 else sibling w coord j 3
+    let right := if j / 2 ^ 3 % 2 = 0 then sibling w coord j 3 else acc.1
+    let r ← SigGolfCandidate.FtsGrind.groundFold (SigGolfCandidate.FtsGrind.ftsWidth coord)
+      (bytesLE 16 left ++ bytesLE 16 (V3.nodeHdr coord index ((128 + j) / 2 ^ (3 + 1)) (nodeHPad w coord j 3)))
+      (bytesLE 16 right)
+    pure (r.2.extractLsb' 0 128, r.1)
+  else (fun v => (v, acc.2)) <$> hashSel (hiOut j (level + 1)) (childInput w index coord j padR acc.1 level)
+
+/-- E8: `childN` with the level-3 ground node; also returns its nonce. -/
+def childNG (w : WBytes) (index : Nat) (k : Fin 9) (raw : Fin 128) (ends : List Digest)
+    (padL padR : Digest) : M (Digest × Nat) := do
+  let leaf ← hashSel (hiOut (physical k.val raw.val) 0) (V3.leafInput k.val index raw.val padL ends)
+  let j := physical k.val raw.val
+  let n := lastLevel k.val
+  let acc ← (List.range n).foldlM (childStepG w index k.val j padR) (leaf, 0)
+  let top ← if k.val = 8 then hashSel (decide (direction k.val j = 0)) (childInput w index k.val j padR acc.1 n)
+    else V3.hashHi (childInput w index k.val j padR acc.1 n)
+  pure (top, acc.2)
+
+def coordinateG (w : WBytes) (index : Nat) (k : Fin 9) (raw : Fin 128) (rank : Fin 666)
+    (prev : PairRoot) : M (PairRoot × Nat) := do
+  let ends ← V3.chainProgram w index k raw rank
+  let computed ← childNG w index k raw ends prev.1 prev.2
+  pure (orderPair k.val (physical k.val raw.val) computed.1 (topOther w k.val (physical k.val raw.val)),
+    computed.2)
+
+/-- E8: the expand forest with its 9 ground nonces. -/
+def forestG (w : WBytes) (index : Nat) (raw : Fin 9 → Fin 128) (ranks : Fin 9 → Fin 666) :
+    M (PairRoot × List Nat) :=
+  (List.finRange 9).foldlM (fun (acc : PairRoot × List Nat) k => do
+    let r ← coordinateG w index k (raw k) (ranks k) acc.1
+    pure (r.1, acc.2 ++ [r.2])) (initialPair w, [])
+
+end W9Machine.SharedV3
+
 namespace W9Drv.SharedCanonical
 variable {P : SigGolfCandidate.Legacy.Hash → Prop}
 open OracleComp SigGolfCandidate.T3 ClaudeWCT.WCT9 W9Machine
@@ -2261,12 +2306,14 @@ structure ChainReadout (w : SharedV3.WBytes) (coord : Fin 9) (word : Rank)
   padC : ∀ i : Fin 6, V3.chainPadC w coord.val i.val = 0
   reveal : ∀ i : Fin 6, V3.reveal w coord.val i.val (wordDigit word i) = values i
 
+/-- E8: `p3` is the level-3 pad (the FTS ground nonce in the honest witness `witEncF`; 0 in `witEnc`). -/
 structure PathReadout (w : SharedV3.WBytes) (coord : Fin 9) (raw : Child)
-    (path : Nat → Digest) : Prop where
+    (path : Nat → Digest) (p3 : Digest := 0) : Prop where
   headerPads : ∀ l, l ≤ SharedV3.lastLevel coord.val →
     SharedV3.nodeHPad w coord.val (SharedV3.physical coord.val raw.val) l = 0
-  nodePads : ∀ l, l ≤ SharedV3.lastLevel coord.val → l ≠ 4 →
+  nodePads : ∀ l, l ≤ SharedV3.lastLevel coord.val → l ≠ 4 → l ≠ 3 →
     SharedV3.nodePad w coord.val (SharedV3.physical coord.val raw.val) l = 0
+  nodePad3 : SharedV3.nodePad w coord.val (SharedV3.physical coord.val raw.val) 3 = p3
   siblings : ∀ l, l ≤ SharedV3.lastLevel coord.val →
     SharedV3.sibling w coord.val (SharedV3.physical coord.val raw.val) l = path l
   topOther : SharedV3.topOther w coord.val (SharedV3.physical coord.val raw.val) =
@@ -2350,48 +2397,50 @@ theorem leafSel_eq (k index raw child : Nat) (hc : child < 128) (pad : Digest) (
   exact hashSel_eq_ftsHash (by rw [hiOut_heap child 0 hc (by decide), Nat.pow_zero, Nat.div_one]) _
 
 theorem childInput_readout (w : SharedV3.WBytes) (index : Nat) (coord : Fin 9)
-    (raw : Child) (path : Nat → Digest) (padR value : Digest) (level : Nat)
-    (h : PathReadout w coord raw path) (hl : level ≤ SharedV3.lastLevel coord.val) :
+    (raw : Child) (path : Nat → Digest) (padR p3 value : Digest) (level : Nat)
+    (h : PathReadout w coord raw path p3) (hl : level ≤ SharedV3.lastLevel coord.val) :
     SharedV3.childInput w index coord.val (SharedV3.physical coord.val raw.val) padR value level =
       let child := SharedV3.physical coord.val raw.val
       let other := path level
       let left := if child / 2 ^ level % 2 = 0 then value else other
       let right := if child / 2 ^ level % 2 = 0 then other else value
       wctTopInput coord.val index ((128 + child) / 2 ^ (level + 1)) left
-        (if level = 4 then padR else 0) right := by
+        (if level = 4 then padR else if level = 3 then p3 else 0) right := by
   simp only [SharedV3.childInput, h.siblings level hl, h.headerPads level hl,
     nodeInput_zero_header]
   by_cases he : level = 4
   · simp only [if_pos he]
-  · simp only [if_neg he, h.nodePads level hl he]
+  · by_cases h3 : level = 3
+    · subst h3; simp only [if_neg he, if_true, h.nodePad3]
+    · simp only [if_neg he, if_neg h3, h.nodePads level hl he h3]
 
 
 def canonicalChildInput (index coord physical : Nat) (path : Nat → Digest)
-    (padR value : Digest) (level : Nat) : HashInput :=
+    (padR p3 value : Digest) (level : Nat) : HashInput :=
   let other := path level
   let left := if physical / 2 ^ level % 2 = 0 then value else other
   let right := if physical / 2 ^ level % 2 = 0 then other else value
   wctTopInput coord index ((128 + physical) / 2 ^ (level + 1)) left
-    (if level = 4 then padR else 0) right
+    (if level = 4 then padR else if level = 3 then p3 else 0) right
 
 def canonicalChildN (index : Nat) (coord : Fin 9) (raw : Child)
-    (ends : List Digest) (padL padR : Digest) (path : Nat → Digest) : M Digest := do
+    (ends : List Digest) (padL padR p3 : Digest) (path : Nat → Digest) : M Digest := do
   let leaf ← leafHashH (128 + SharedV3.physical coord.val raw.val) index coord.val raw.val padL ends
   let child := SharedV3.physical coord.val raw.val
   let last := SharedV3.lastLevel coord.val
   let value ← (List.range last).foldlM
     (fun value level => SharedV3.hashSel (SharedV3.hiOut child (level + 1))
-      (canonicalChildInput index coord.val child path padR value level)) leaf
+      (canonicalChildInput index coord.val child path padR p3 value level)) leaf
   if coord.val = 8 then
     SharedV3.hashSel (decide (SharedV3.direction coord.val child = 0))
-      (canonicalChildInput index coord.val child path padR value last)
-  else highHash (canonicalChildInput index coord.val child path padR value last)
+      (canonicalChildInput index coord.val child path padR p3 value last)
+  else highHash (canonicalChildInput index coord.val child path padR p3 value last)
 
 theorem childN_canonical (w : SharedV3.WBytes) (index : Nat) (coord : Fin 9)
     (raw : Child) (path : Nat → Digest) (ends : List Digest) (hlen : ends.length = 6)
-    (padL padR : Digest) (h : PathReadout w coord raw path) :
+    (padL padR p3 : Digest) (h : PathReadout w coord raw path p3) :
     SharedV3.childN w index coord raw ends padL padR =
-      canonicalChildN index coord raw ends padL padR path := by
+      canonicalChildN index coord raw ends padL padR p3 path := by
   unfold SharedV3.childN canonicalChildN
   rw [leafSel_eq _ _ _ _ (SharedV3.physical_lt _ _ raw.isLt) _ _ hlen]
   apply bind_congr
@@ -2402,15 +2451,15 @@ theorem childN_canonical (w : SharedV3.WBytes) (index : Nat) (coord : Fin 9)
         (SharedV3.childInput w index coord.val (SharedV3.physical coord.val raw.val) padR value level)) leaf =
       (List.range (SharedV3.lastLevel coord.val)).foldlM
       (fun value level => SharedV3.hashSel (SharedV3.hiOut (SharedV3.physical coord.val raw.val) (level + 1))
-        (canonicalChildInput index coord.val (SharedV3.physical coord.val raw.val) path padR value level)) leaf := by
+        (canonicalChildInput index coord.val (SharedV3.physical coord.val raw.val) path padR p3 value level)) leaf := by
     apply foldlM_congr_mem
     intro value level hl
-    rw [childInput_readout _ _ _ _ _ _ _ _ h (by have := List.mem_range.mp hl; omega)]
+    rw [childInput_readout _ _ _ _ _ _ _ _ _ h (by have := List.mem_range.mp hl; omega)]
     rfl
   rw [hf]
   apply bind_congr
   intro value
-  rw [childInput_readout _ _ _ _ _ _ _ _ h le_rfl]
+  rw [childInput_readout _ _ _ _ _ _ _ _ _ h le_rfl]
   rfl
 
 theorem length_of_support_mapM {α β : Type} (f : α → M β) :
@@ -2426,27 +2475,51 @@ theorem length_of_support_mapM {α β : Type} (f : α → M β) :
     simp [length_of_support_mapM f xs zs hzs]
 
 def canonicalCoordinate (index : Nat) (coord : Fin 9) (raw : Child) (word : Rank)
-    (values : Fin 6 → Digest) (path : Nat → Digest) (prev : PairRoot) : M PairRoot := do
+    (values : Fin 6 → Digest) (path : Nat → Digest) (prev : PairRoot) (p3 : Digest := 0) : M PairRoot := do
   let ends ← (List.finRange 6).mapM fun i =>
     ClaudeWCT.WCT9.chain index coord.val raw.val i.val (4 - wordDigit word i)
       (wordDigit word i) (values i)
-  let computed ← canonicalChildN index coord raw ends prev.1 prev.2 path
+  let computed ← canonicalChildN index coord raw ends prev.1 prev.2 p3 path
   pure (SharedV3.orderPair coord.val (SharedV3.physical coord.val raw.val) computed
     (path (SharedV3.lastLevel coord.val + 1)))
 
 theorem coordinate_canonical (w : SharedV3.WBytes) (index : Nat) (coord : Fin 9)
     (raw : Child) (word : Rank) (values : Fin 6 → Digest) (path : Nat → Digest)
-    (prev : PairRoot) (hi : index < 2 ^ 31)
-    (hc : ChainReadout w coord word values) (hp : PathReadout w coord raw path) :
+    (prev : PairRoot) (p3 : Digest) (hi : index < 2 ^ 31)
+    (hc : ChainReadout w coord word values) (hp : PathReadout w coord raw path p3) :
     SharedV3.coordinate w index coord raw (ClaudeWCT.WCT9.embed word) prev =
-      canonicalCoordinate index coord raw word values path prev := by
+      canonicalCoordinate index coord raw word values path prev p3 := by
   unfold SharedV3.coordinate canonicalCoordinate
   rw [chainProgram_zero _ _ _ _ _ _ hi hc]
   apply OracleComp.bind_congr_of_forall_mem_support
   intro ends hends
   have hlen : ends.length = 6 := by
     simpa using length_of_support_mapM _ (List.finRange 6) ends hends
-  rw [childN_canonical _ _ _ _ _ _ hlen _ _ hp, hp.topOther]
+  rw [childN_canonical _ _ _ _ _ _ hlen _ _ _ hp, hp.topOther]
+
+/-- E8: the expand ground step is the source's ground node (the header pad zero). -/
+theorem groundStep_canonical (k : Fin 9) (index heap : Nat) (hg : 8 ≤ heap ∧ heap < 16) (L R : Digest) :
+    (do let r ← SigGolfCandidate.FtsGrind.groundFold (SigGolfCandidate.FtsGrind.ftsWidth k.val)
+          (SphincsSecurity.bytesLE 16 L ++ SphincsSecurity.bytesLE 16 (V3.nodeHdr k.val index heap 0))
+          (SphincsSecurity.bytesLE 16 R)
+        pure (r.2.extractLsb' 0 128, r.1)) =
+      (fun r => (r.2, r.1)) <$> ftsNodeAt k.val index heap L R := by
+  have hh : V3.nodeHdr k.val index heap 0 = wctNodeHeader k.val index heap := by
+    rw [W9Drv.nodeHdr_canonical, SigGolfCandidate.T3M.SecurityInputs.withHigh_nodeTweak_zero]; rfl
+  have hz : ftsZeroBits k.val heap = SigGolfCandidate.FtsGrind.ftsWidth k.val := by
+    simp only [ftsZeroBits, SigGolfCandidate.FtsGrind.ftsWidth, if_pos hg]
+  have hnz : ftsZeroBits k.val heap ≠ 0 := by
+    rw [hz]; unfold SigGolfCandidate.FtsGrind.ftsWidth; split <;> omega
+  have hcap : ftsNonceCap k.val heap - 1 = SigGolfCandidate.FtsGrind.FUEL (SigGolfCandidate.FtsGrind.ftsWidth k.val) := by
+    unfold ftsNonceCap SigGolfCandidate.FtsGrind.FUEL; rw [hz]
+  rw [hh]
+  unfold ftsNodeAt SigGolfCandidate.FtsGrind.groundFold
+  rw [if_neg hnz, SigGolfCandidate.FtsGrind.ftsNonceSearch_eq, hcap, hz]
+  simp only [Functor.map_map, map_eq_bind_pure_comp, bind_assoc, pure_bind, Function.comp]
+  rfl
+
+theorem lastLevel_ge4 (coord : Nat) : 4 ≤ SharedV3.lastLevel coord := by
+  rcases SharedV3.lastLevel_cases coord with h | h <;> omega
 
 end W9Drv.SharedCanonical
 
@@ -2465,11 +2538,11 @@ def canonicalInnerStep (first : Bool) (index coord child : Nat) (path : Nat → 
   sharedNode first coord index ((128 + child) / 2 ^ (level + 1)) (fun _ => prev) lr.1 lr.2
 
 theorem canonicalInnerStep_eq (first : Bool) (index coord child : Nat) (hc : child < 128)
-    (path : Nat → Digest) (prev : PairRoot) (value : Digest) (level : Nat) (hl : level < 5) :
+    (path : Nat → Digest) (prev : PairRoot) (p3 value : Digest) (level : Nat) (hl : level < 5) (h3 : level ≠ 3) :
     canonicalInnerStep first index coord child path prev value level =
-      if level = 4 ∧ first then highHash (canonicalChildInput index coord child path prev.2 value level)
+      if level = 4 ∧ first then highHash (canonicalChildInput index coord child path prev.2 p3 value level)
       else SharedV3.hashSel (SharedV3.hiOut child (level + 1))
-        (canonicalChildInput index coord child path prev.2 value level) := by
+        (canonicalChildInput index coord child path prev.2 p3 value level) := by
   unfold canonicalInnerStep canonicalChildInput
   by_cases he : level = 4
   · subst level
@@ -2482,74 +2555,79 @@ theorem canonicalInnerStep_eq (first : Bool) (index coord child : Nat) (hc : chi
   · have hge : ¬(128 + child) / 2 ^ (level + 1) < 8 := by
       interval_cases level <;> norm_num at * <;> omega
     have hg4 : ¬(128 + child) / 2 ^ (level + 1) < 4 := by omega
-    simp only [sharedNode, if_neg hg4, if_neg hge, he, false_and, ↓reduceIte]
+    simp only [sharedNode, if_neg hg4, if_neg hge, he, h3, false_and, ↓reduceIte]
+    have h16 : 16 ≤ (128 + child) / 2 ^ (level + 1) := by
+      interval_cases level <;> norm_num at * <;> omega
+    rw [ftsNodeG_of_zero (ftsZeroBits_off (by omega))]
     rw [sel_topInput_zero (hiOut_heap child (level + 1) hc (by omega))]
     split_ifs <;> rfl
 
+/-- E8: the source coordinate with the nonce of its level-3 ground node. -/
 def sourceCoordinate (index : Nat) (coord : Fin 9) (raw : Child) (word : Rank)
-    (values : Fin 6 → Digest) (path : Nat → Digest) (prev : PairRoot) : M PairRoot := do
+    (values : Fin 6 → Digest) (path : Nat → Digest) (prev : PairRoot) : M (PairRoot × Nat) := do
   let child : Child := ⟨SharedV3.physical coord.val raw.val, SharedV3.physical_lt _ _ raw.isLt⟩
   let inner ← recoverSharedInner (SharedV3.first coord.val) index coord.val child word values path prev
   if SharedV3.first coord.val then
-    pure (SharedV3.orderPair coord.val child.val inner (path 5))
+    pure (SharedV3.orderPair coord.val child.val inner.1 (path 5), inner.2)
   else
-    let lr := if child.val / 32 % 2 = 0 then (inner, path 5) else (path 5, inner)
+    let lr := if child.val / 32 % 2 = 0 then (inner.1, path 5) else (path 5, inner.1)
     let outer ← sharedOuterHash coord.val index (2 + child.val / 64) lr.1 lr.2
-    pure (SharedV3.orderPair coord.val child.val outer (path 6))
+    pure (SharedV3.orderPair coord.val child.val outer (path 6), inner.2)
 
-theorem recoverSharedInner_false (index coord : Nat) (child : Child) (word : Rank)
+/-- E8: a shared node off the ground heaps reports nonce 0. -/
+theorem sharedNodeAt_plain (first : Bool) (coord index heap : Nat) (pads : Nat → PairRoot) (left right : Digest)
+    (hng : ¬ (8 ≤ heap ∧ heap < 16)) :
+    sharedNodeAt first coord index heap pads left right =
+      (fun v => (0, v)) <$> sharedNode first coord index heap pads left right := by
+  unfold sharedNodeAt
+  split_ifs with h8
+  · rfl
+  · rw [ftsNodeAt_of_zero (ftsZeroBits_off hng)]
+    simp only [sharedNode, if_neg (show ¬ heap < 4 by omega), if_neg h8, ftsNodeG_of_zero (ftsZeroBits_off hng)]
+
+/-- E8: one step of the recovered path with its nonce: level 3 is the ground node, every other level the canonical
+hash. -/
+def canonicalStepG (first : Bool) (index coord child : Nat) (path : Nat → Digest) (padR : Digest)
+    (acc : Digest × Nat) (level : Nat) : M (Digest × Nat) :=
+  if level = 3 then
+    (fun r => (r.2, r.1)) <$> ftsNodeAt coord index ((128 + child) / 2 ^ (3 + 1))
+      (if child / 2 ^ 3 % 2 = 0 then acc.1 else path 3) (if child / 2 ^ 3 % 2 = 0 then path 3 else acc.1)
+  else (fun v => (v, acc.2)) <$>
+    (if level = 4 ∧ first then highHash (canonicalChildInput index coord child path padR 0 acc.1 level)
+     else SharedV3.hashSel (SharedV3.hiOut child (level + 1)) (canonicalChildInput index coord child path padR 0 acc.1 level))
+
+theorem recoverSharedInner_G (first : Bool) (index coord : Nat) (child : Child) (word : Rank)
     (values : Fin 6 → Digest) (path : Nat → Digest) (prev : PairRoot) :
-    recoverSharedInner false index coord child word values path prev = (do
+    recoverSharedInner first index coord child word values path prev = (do
       let ends ← (List.finRange 6).mapM fun i =>
-        ClaudeWCT.WCT9.chain index coord (rawChild false child.val) i.val (4 - wordDigit word i)
+        ClaudeWCT.WCT9.chain index coord (rawChild first child.val) i.val (4 - wordDigit word i)
           (wordDigit word i) (values i)
-      let leaf ← leafHashH (128 + child.val) index coord (rawChild false child.val) prev.1 ends
-      (List.range 5).foldlM (fun value level =>
-        SharedV3.hashSel (SharedV3.hiOut child.val (level + 1))
-          (canonicalChildInput index coord child.val path prev.2 value level)) leaf) := by
+      let leaf ← leafHashH (128 + child.val) index coord (rawChild first child.val) prev.1 ends
+      (List.range 5).foldlM (canonicalStepG first index coord child.val path prev.2) (leaf, 0)) := by
   unfold recoverSharedInner
   apply bind_congr
   intro ends
   apply bind_congr
   intro leaf
   apply foldlM_congr_mem
-  intro value level hl
-  exact (canonicalInnerStep_eq false index coord child.val child.isLt path prev value level
-    (List.mem_range.mp hl)).trans (by simp)
-
-theorem recoverSharedInner_true (index coord : Nat) (child : Child) (word : Rank)
-    (values : Fin 6 → Digest) (path : Nat → Digest) (prev : PairRoot) :
-    recoverSharedInner true index coord child word values path prev = (do
-      let ends ← (List.finRange 6).mapM fun i =>
-        ClaudeWCT.WCT9.chain index coord child.val i.val (4 - wordDigit word i)
-          (wordDigit word i) (values i)
-      let leaf ← leafHashH (128 + child.val) index coord child.val prev.1 ends
-      let value ← (List.range 4).foldlM (fun value level =>
-        SharedV3.hashSel (SharedV3.hiOut child.val (level + 1))
-          (canonicalChildInput index coord child.val path prev.2 value level)) leaf
-      highHash (canonicalChildInput index coord child.val path prev.2 value 4)) := by
-  unfold recoverSharedInner
-  apply bind_congr
-  intro ends
-  apply bind_congr
-  intro leaf
-  change (List.range 5).foldlM (canonicalInnerStep true index coord child.val path prev) leaf = _
-  rw [show List.range 5 = List.range 4 ++ [4] from rfl, List.foldlM_append]
-  have hf : (List.range 4).foldlM (canonicalInnerStep true index coord child.val path prev) leaf =
-      (List.range 4).foldlM (fun value level =>
-        SharedV3.hashSel (SharedV3.hiOut child.val (level + 1))
-          (canonicalChildInput index coord child.val path prev.2 value level)) leaf := by
-    apply foldlM_congr_mem
-    intro value level hl
-    rw [canonicalInnerStep_eq _ _ _ _ child.isLt _ _ _ _ (by have := List.mem_range.mp hl; omega)]
-    have he : level ≠ 4 := by have := List.mem_range.mp hl; omega
-    simp [he]
-  rw [hf]
-  apply bind_congr
-  intro value
-  simp only [List.foldlM_cons, List.foldlM_nil, bind_pure_comp]
-  rw [canonicalInnerStep_eq _ _ _ _ child.isLt _ _ _ _ (by decide)]
-  simp
+  intro acc level hl
+  have hl5 := List.mem_range.mp hl
+  have hc := child.isLt
+  unfold canonicalStepG
+  by_cases h3 : level = 3
+  · subst h3
+    have hge : ¬ (128 + child.val) / 2 ^ (3 + 1) < 8 := by norm_num; omega
+    simp only [if_true, sharedNodeAt, if_neg hge, map_eq_bind_pure_comp]
+    by_cases hb : child.val / 2 ^ 3 % 2 = 0 <;> simp only [hb, if_true, if_false] <;> rfl
+  · rw [if_neg h3]
+    have hng : ¬ (8 ≤ (128 + child.val) / 2 ^ (level + 1) ∧ (128 + child.val) / 2 ^ (level + 1) < 16) := by
+      interval_cases level <;> norm_num <;> omega
+    have e := canonicalInnerStep_eq first index coord child.val hc path prev 0 acc.1 level hl5 h3
+    unfold canonicalInnerStep at e
+    dsimp only at e ⊢
+    rw [← e, sharedNodeAt_plain _ _ _ _ _ _ _ hng]
+    simp only [map_eq_bind_pure_comp, bind_assoc, pure_bind, Function.comp, if_neg h3]
+    rfl
 
 end W9Drv.SharedCanonical
 
@@ -2584,33 +2662,51 @@ theorem canonical_top_outer (coord : Fin 9) (p : Nat) (hp : p < 128) (hf : Share
       rfl
   · rw [if_neg h8, if_neg (fun h => h8 h.1)]
 
-theorem canonicalCoordinate_eq_sourceCoordinate (index : Nat) (coord : Fin 9)
+/-- The top fold of a canonical coordinate (`canonicalChildN`'s last step). -/
+def canonicalTop (coord : Fin 9) (child : Nat) (input : HashInput) : M Digest :=
+  if coord.val = 8 then SharedV3.hashSel (decide (SharedV3.direction coord.val child = 0)) input
+  else highHash input
+
+/-- E8: the canonical coordinate with its level-3 ground node (the expand side's program). -/
+def canonicalCoordinateG (index : Nat) (coord : Fin 9) (raw : Child) (word : Rank)
+    (values : Fin 6 → Digest) (path : Nat → Digest) (prev : PairRoot) : M (PairRoot × Nat) := do
+  let ends ← (List.finRange 6).mapM fun i =>
+    ClaudeWCT.WCT9.chain index coord.val raw.val i.val (4 - wordDigit word i)
+      (wordDigit word i) (values i)
+  let leaf ← leafHashH (128 + SharedV3.physical coord.val raw.val) index coord.val raw.val prev.1 ends
+  let acc ← (List.range (SharedV3.lastLevel coord.val)).foldlM
+    (canonicalStepG (SharedV3.first coord.val) index coord.val (SharedV3.physical coord.val raw.val) path prev.2)
+    (leaf, 0)
+  let top ← canonicalTop coord (SharedV3.physical coord.val raw.val)
+    (canonicalChildInput index coord.val (SharedV3.physical coord.val raw.val) path prev.2 0 acc.1
+      (SharedV3.lastLevel coord.val))
+  pure (SharedV3.orderPair coord.val (SharedV3.physical coord.val raw.val) top
+    (path (SharedV3.lastLevel coord.val + 1)), acc.2)
+
+theorem canonicalCoordinateG_eq_sourceCoordinate (index : Nat) (coord : Fin 9)
     (raw : Child) (word : Rank) (values : Fin 6 → Digest) (path : Nat → Digest) (prev : PairRoot) :
-    canonicalCoordinate index coord raw word values path prev =
+    canonicalCoordinateG index coord raw word values path prev =
       sourceCoordinate index coord raw word values path prev := by
   have hraw : rawChild (SharedV3.first coord.val) (SharedV3.physical coord.val raw.val) = raw.val :=
     raw_physical_child _ _ raw.isLt
-  unfold canonicalCoordinate sourceCoordinate
+  unfold canonicalCoordinateG sourceCoordinate
+  simp only [recoverSharedInner_G]
   cases hf : SharedV3.first coord.val with
   | false =>
-      simp only [hf, Bool.false_eq_true, ↓reduceIte]
-      rw [recoverSharedInner_false]
       simp only [hf] at hraw
-      simp only [hraw, bind_assoc]
+      simp only [hf, hraw, Bool.false_eq_true, ↓reduceIte, bind_assoc, SharedV3.lastLevel]
       apply bind_congr
       intro ends
-      unfold canonicalChildN
-      simp only [SharedV3.lastLevel, hf, Bool.false_eq_true, ↓reduceIte, bind_assoc]
       apply bind_congr
       intro leaf
       apply bind_congr
-      intro value
-      rw [canonical_top_outer coord (SharedV3.physical coord.val raw.val)
+      intro acc
+      rw [canonicalTop, canonical_top_outer coord (SharedV3.physical coord.val raw.val)
         (SharedV3.physical_lt _ _ raw.isLt) hf]
       have heap : (128 + SharedV3.physical coord.val raw.val) / 2 ^ (5 + 1) =
           2 + SharedV3.physical coord.val raw.val / 64 := by norm_num; omega
       simp only [canonicalChildInput, sharedOuterHash, heap, show (5 : Nat) ≠ 4 by decide,
-        if_false, show 2 ^ 5 = 32 by decide]
+        show (5 : Nat) ≠ 3 by decide, if_false, show 2 ^ 5 = 32 by decide]
       split_ifs <;> rfl
   | true =>
       have hn : coord.val ≠ 8 := by
@@ -2618,13 +2714,17 @@ theorem canonicalCoordinate_eq_sourceCoordinate (index : Nat) (coord : Fin 9)
         simp [SharedV3.first, he] at hf
       have hp : SharedV3.physical coord.val raw.val = raw.val := by
         simp [SharedV3.physical, hf, physicalChild]
-      simp only [hf, ↓reduceIte]
-      rw [recoverSharedInner_true]
-      simp only [hp, bind_assoc]
+      simp only [hf, hp, ↓reduceIte, hn, bind_assoc, SharedV3.lastLevel]
       apply bind_congr
       intro ends
-      unfold canonicalChildN
-      simp only [SharedV3.lastLevel, hf, hp, ↓reduceIte, hn, bind_assoc]
+      apply bind_congr
+      intro leaf
+      rw [show List.range 5 = List.range 4 ++ [4] from rfl, List.foldlM_append]
+      simp only [bind_assoc, List.foldlM_cons, List.foldlM_nil, bind_pure]
+      apply bind_congr
+      intro acc
+      simp only [canonicalStepG, canonicalTop, hn, show (4 : Nat) ≠ 3 by decide, if_false, and_self, if_true,
+        map_eq_bind_pure_comp, bind_assoc, pure_bind, Function.comp]
 
 end W9Drv.SharedCanonical
 
@@ -2647,13 +2747,14 @@ theorem physical_rawOfPhysical (first : Bool) (child : Child) :
   cases first <;> simp only [physicalChild, rawOfPhysical, rawChild, Bool.false_eq_true, ↓reduceIte] <;> omega
 
 def sourcePair (index : Nat) (pair : Fin 4) (s : SigGolfCandidate.Research.SharedForest.Selection) (aWord bWord : Rank)
-    (opened : PairOpening) (prev : PairRoot) : M PairRoot := do
+    (opened : PairOpening) (prev : PairRoot) : M (PairRoot × List Nat) := do
   let a ← sourceCoordinate index ⟨2 * pair.val, by omega⟩
     (rawOfPhysical true (firstChild s)) aWord opened.firstValues
     (fun i => opened.firstPath ⟨i % 6, Nat.mod_lt _ (by decide)⟩) prev
-  sourceCoordinate index ⟨2 * pair.val + 1, by omega⟩
+  let b ← sourceCoordinate index ⟨2 * pair.val + 1, by omega⟩
     (rawOfPhysical false (secondChild s)) bWord opened.secondValues
-    (fun i => opened.secondPath ⟨i % 7, Nat.mod_lt _ (by decide)⟩) a
+    (fun i => opened.secondPath ⟨i % 7, Nat.mod_lt _ (by decide)⟩) a.1
+  pure (b.1, [a.2, b.2])
 
 theorem sourcePair_eq_recoverPair (index : Nat) (pair : Fin 4) (s : SigGolfCandidate.Research.SharedForest.Selection) (aWord bWord : Rank)
     (opened : PairOpening) (prev : PairRoot) :
@@ -2665,13 +2766,13 @@ theorem sourcePair_eq_recoverPair (index : Nat) (pair : Fin 4) (s : SigGolfCandi
     simp only [SharedV3.physical, hfirst, physical_rawOfPhysical]
   have hb : SharedV3.physical (2 * pair.val + 1) (rawOfPhysical false (secondChild s)).val = (secondChild s).val := by
     simp only [SharedV3.physical, hsecond, physical_rawOfPhysical]
-  unfold sourcePair sourceCoordinate recoverPair
+  unfold sourcePair sourceCoordinate recoverPair recoverSharedOuter
   simp only [ha, hb, hfirst, hsecond, Bool.false_eq_true, ↓reduceIte, bind_assoc, pure_bind,
     SharedV3.orderPair, SharedV3.direction, SharedV3.lastLevel]
   rfl
 
 def sourceSingleton (index : Nat) (selected : Child) (word : Rank)
-    (opened : SingletonOpening) (prev : PairRoot) : M PairRoot :=
+    (opened : SingletonOpening) (prev : PairRoot) : M (PairRoot × Nat) :=
   sourceCoordinate index 8 (rawOfPhysical false selected) word opened.values
     (fun i => opened.path ⟨i % 7, Nat.mod_lt _ (by decide)⟩) prev
 
@@ -2687,11 +2788,13 @@ theorem sourceSingleton_eq_recoverSingleton (index : Nat) (selected : Child) (wo
   rfl
 
 def sourceGroupedForest (index : Nat) (selected : ForestSelection) (words : ForestWords)
-    (opened : ForestOpening) : M PairRoot := do
-  let prev ← (List.finRange 4).foldlM (fun prev pair =>
-    sourcePair index pair (selected.pairs pair) (words.first pair) (words.second pair)
-      (opened.pairs pair) prev) ftsStart
-  sourceSingleton index selected.singleton words.singleton opened.singleton prev
+    (opened : ForestOpening) : M (PairRoot × List Nat) := do
+  let prev ← (List.finRange 4).foldlM (fun (acc : PairRoot × List Nat) pair => do
+    let r ← sourcePair index pair (selected.pairs pair) (words.first pair) (words.second pair)
+      (opened.pairs pair) acc.1
+    pure (r.1, acc.2 ++ r.2)) (ftsStart, [])
+  let last ← sourceSingleton index selected.singleton words.singleton opened.singleton prev.1
+  pure (last.1, prev.2 ++ [last.2])
 
 theorem sourceGroupedForest_eq_recoverForest (index : Nat) (selected : ForestSelection)
     (words : ForestWords) (opened : ForestOpening) :
@@ -2738,10 +2841,11 @@ def coordinatePath (opened : ForestOpening) (coord : Fin 9) : Nat → Digest :=
   else fun level => opened.singleton.path ⟨level % 7, Nat.mod_lt _ (by decide)⟩
 
 def sourceNineForest (index : Nat) (selected : ForestSelection) (words : ForestWords)
-    (opened : ForestOpening) : M PairRoot :=
-  (List.finRange 9).foldlM (fun prev coord =>
-    sourceCoordinate index coord (coordinateRaw selected coord) (coordinateWord words coord)
-      (coordinateValues opened coord) (coordinatePath opened coord) prev) ftsStart
+    (opened : ForestOpening) : M (PairRoot × List Nat) :=
+  (List.finRange 9).foldlM (fun (acc : PairRoot × List Nat) coord => do
+    let r ← sourceCoordinate index coord (coordinateRaw selected coord) (coordinateWord words coord)
+      (coordinateValues opened coord) (coordinatePath opened coord) acc.1
+    pure (r.1, acc.2 ++ [r.2])) (ftsStart, [])
 
 attribute [local irreducible] sourceCoordinate rawOfPhysical
 
@@ -2751,26 +2855,76 @@ theorem sourceNineForest_eq_grouped (index : Nat) (selected : ForestSelection)
   have hnine : List.finRange 9 = [0, 1, 2, 3, 4, 5, 6, 7, 8] := by decide
   have hfour : List.finRange 4 = [0, 1, 2, 3] := by decide
   simp only [sourceNineForest, sourceGroupedForest, hnine, hfour, List.foldlM_cons, List.foldlM_nil,
-    sourcePair, sourceSingleton, bind_assoc, pure_bind]
+    sourcePair, sourceSingleton, bind_assoc, pure_bind, List.nil_append, List.append_assoc, List.cons_append,
+    List.singleton_append]
   simp only [coordinateRaw, coordinateChild, coordinateWord, coordinateValues, coordinatePath]
   norm_num [SharedV3.first]
   rfl
 
-theorem forest_canonical (w : SharedV3.WBytes) (index : Nat) (hi : index < 2 ^ 31)
+theorem coordinate_canonicalG (w : SharedV3.WBytes) (index : Nat) (coord : Fin 9)
+    (raw : Child) (word : Rank) (values : Fin 6 → Digest) (path : Nat → Digest)
+    (prev : PairRoot) (p3 : Digest) (hi : index < 2 ^ 31)
+    (hc : ChainReadout w coord word values) (hp : PathReadout w coord raw path p3) :
+    SharedV3.coordinateG w index coord raw (ClaudeWCT.WCT9.embed word) prev =
+      canonicalCoordinateG index coord raw word values path prev := by
+  unfold SharedV3.coordinateG canonicalCoordinateG SharedV3.childNG
+  rw [chainProgram_zero _ _ _ _ _ _ hi hc]
+  simp only [bind_assoc]
+  apply OracleComp.bind_congr_of_forall_mem_support
+  intro ends hends
+  have hlen : ends.length = 6 := by
+    simpa using length_of_support_mapM _ (List.finRange 6) ends hends
+  rw [leafSel_eq _ _ _ _ (SharedV3.physical_lt _ _ raw.isLt) _ _ hlen]
+  apply bind_congr
+  intro leaf
+  have h4 := lastLevel_ge4 coord.val
+  have hf : (List.range (SharedV3.lastLevel coord.val)).foldlM
+      (SharedV3.childStepG w index coord.val (SharedV3.physical coord.val raw.val) prev.2) (leaf, 0) =
+      (List.range (SharedV3.lastLevel coord.val)).foldlM
+      (canonicalStepG (SharedV3.first coord.val) index coord.val (SharedV3.physical coord.val raw.val) path prev.2)
+      (leaf, 0) := by
+    apply foldlM_congr_mem
+    intro acc level hl
+    have hll := List.mem_range.mp hl
+    unfold SharedV3.childStepG canonicalStepG
+    by_cases h3 : level = 3
+    · subst h3
+      simp only [if_true]
+      rw [hp.siblings 3 (by omega), hp.headerPads 3 (by omega)]
+      have hc' := SharedV3.physical_lt coord.val raw.val raw.isLt
+      exact groundStep_canonical coord index _ (by norm_num; omega) _ _
+    · simp only [if_neg h3]
+      have hnf : ¬ (level = 4 ∧ SharedV3.first coord.val = true) := by
+        rintro ⟨rfl, hf⟩
+        have : SharedV3.lastLevel coord.val = 4 := by unfold SharedV3.lastLevel; rw [hf]; rfl
+        omega
+      rw [if_neg hnf, childInput_readout _ _ _ _ _ _ _ _ _ hp (by omega)]
+      simp only [canonicalChildInput, if_neg h3]
+  rw [hf]
+  apply bind_congr
+  intro acc
+  have hl5 : SharedV3.lastLevel coord.val ≠ 3 := by omega
+  rw [childInput_readout _ _ _ _ _ _ _ _ _ hp le_rfl, hp.topOther]
+  simp only [canonicalChildInput, canonicalTop, if_neg hl5]
+  split_ifs <;> simp only [bind_assoc, pure_bind] <;> rfl
+
+
+theorem forest_canonicalG (w : SharedV3.WBytes) (index : Nat) (hi : index < 2 ^ 31)
     (selected : ForestSelection) (words : ForestWords) (opened : ForestOpening)
     (hstart : SharedV3.initialPair w = ftsStart)
     (hc : ∀ coord, ChainReadout w coord (coordinateWord words coord) (coordinateValues opened coord))
-    (hp : ∀ coord, PathReadout w coord (coordinateRaw selected coord) (coordinatePath opened coord)) :
-    SharedV3.forest w index (coordinateRaw selected)
+    (hp : ∀ coord, ∃ p3, PathReadout w coord (coordinateRaw selected coord) (coordinatePath opened coord) p3) :
+    SharedV3.forestG w index (coordinateRaw selected)
       (fun coord => ClaudeWCT.WCT9.embed (coordinateWord words coord)) =
         recoverForest index selected words opened := by
   rw [← sourceGroupedForest_eq_recoverForest, ← sourceNineForest_eq_grouped]
-  unfold SharedV3.forest sourceNineForest
+  unfold SharedV3.forestG sourceNineForest
   rw [hstart]
   apply foldlM_congr_mem
-  intro prev coord _
-  exact (coordinate_canonical w index coord _ _ _ _ prev hi (hc coord) (hp coord)).trans
-    (canonicalCoordinate_eq_sourceCoordinate index coord _ _ _ _ prev)
+  intro acc coord _
+  obtain ⟨p3, hp3⟩ := hp coord
+  rw [coordinate_canonicalG w index coord _ _ _ _ acc.1 p3 hi (hc coord) hp3,
+    canonicalCoordinateG_eq_sourceCoordinate]
 
 end W9Drv.SharedCanonical
 
@@ -2885,21 +3039,25 @@ theorem chainReadout_witEnc (output : HashOutput) (witness : SigGolfCandidate.Re
 theorem pathReadout_witEnc (output : HashOutput) (witness : SigGolfCandidate.Research.SharedForest.Witness)
     (k : Fin 9) :
     PathReadout (Paired.witEnc output witness) k (rawChildFromOutput output k)
-      (coordinatePath witness.signature.forest k) := by
-  refine ⟨?_,?_,?_,Paired.wtopOther_witEnc output witness k⟩
+      (coordinatePath witness.signature.forest k)
+      (SharedV3.nodePad (Paired.witEnc output witness) k.val
+        (SharedV3.physical k.val (rawChildFromOutput output k).val) 3) := by
+  refine ⟨?_,?_,rfl,?_,Paired.wtopOther_witEnc output witness k⟩
   · intro l hl;exact PairedReadout.nodeHPad_witEnc output witness k l
-  · intro l hl hne;exact PairedReadout.nodePad_witEnc output witness k l hl hne
+  · intro l hl hne _;exact PairedReadout.nodePad_witEnc output witness k l hl hne
   · intro l hl;exact Paired.wsibling_witEnc output witness k l (by omega)
 
-theorem forest_witEnc (output : HashOutput) (witness : SigGolfCandidate.Research.SharedForest.Witness)
+/-- E8: the expand side reads the honest (zero-pad) witness `witEnc`; its forest with the level-3 ground nodes is the
+source recovery, nonces included. -/
+theorem forest_witEncG' (output : HashOutput) (witness : SigGolfCandidate.Research.SharedForest.Witness)
     (index : Nat) (hi:index<2^31) :
-    SharedV3.forest (Paired.witEnc output witness) index (rawChildFromOutput output)
+    SharedV3.forestG (Paired.witEnc output witness) index (rawChildFromOutput output)
       (fun k=>ClaudeWCT.WCT9.embed (forestRank output k.val)) =
       recoverForest index (forestSelectionFromOutput output) (forestWordsFromOutput output) witness.signature.forest := by
-  have hp:∀k,PathReadout (Paired.witEnc output witness) k
-      (coordinateRaw (forestSelectionFromOutput output) k) (coordinatePath witness.signature.forest k):=by
-    intro k;rw[coordinateRaw_output];exact pathReadout_witEnc output witness k
-  have h:=forest_canonical (Paired.witEnc output witness) index hi
+  have hp:∀k,∃ p3, PathReadout (Paired.witEnc output witness) k
+      (coordinateRaw (forestSelectionFromOutput output) k) (coordinatePath witness.signature.forest k) p3:=by
+    intro k;rw[coordinateRaw_output];exact ⟨_, pathReadout_witEnc output witness k⟩
+  have h:=forest_canonicalG (Paired.witEnc output witness) index hi
     (forestSelectionFromOutput output) (forestWordsFromOutput output) witness.signature.forest
     (PairedReadout.initialPair_witEnc output witness)
     (fun k=>chainReadout_witEnc output witness k _) hp

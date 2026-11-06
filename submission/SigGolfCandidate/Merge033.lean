@@ -8921,9 +8921,9 @@ theorem bound_lowerNodeG (lay tree heap : Nat) (left right : Digest) :
 def levelCost (lay h level : Nat) : Nat := ((List.range (2 ^ (h - level))).map fun i => nodeCost lay (2 ^ (h - level) + i)).sum
 /-- U16b: worst-case trials of levels `1..h-1` of a lower tree (`buildLevelsBelow`): `2^h - 2` off the ground. -/
 def belowCost (lay h : Nat) : Nat := ∑ i ∈ Finset.range (h - 1), levelCost lay h (1 + i)
-theorem belowCost_one : belowCost 1 7 = 14432 := by decide +kernel
-theorem belowCost_two : belowCost 2 6 = 16416 := by decide +kernel
-theorem belowCost_three : belowCost 3 6 = 16416 := by decide +kernel
+theorem belowCost_one : belowCost 1 7 = 10336 := by decide +kernel
+theorem belowCost_two : belowCost 2 6 = 10272 := by decide +kernel
+theorem belowCost_three : belowCost 3 6 = 10272 := by decide +kernel
 theorem bound_lowerLevel (lay tree h level : Nat) (nodes : List Digest) :
     CBound (fun result => result.length = nodes.length / 2)
       ((List.range (nodes.length / 2)).map fun i => nodeCost lay (2 ^ (h - level) + i)).sum
@@ -9116,24 +9116,24 @@ theorem leafCostP_lower {lay : Layer} (hlay : lay ≠ 0) (leaf : Nat) :
   rw [digitTotal_lower hlay]
   simp [leafHashCost, hlay]
 /-- v6 lower trees: L1 reads 349 pairs (18 families of 19 + a 7-pair remainder), L2/L3 175 (9 · 19 + 4). -/
-theorem treeCostP_one : treeCostP 1 = 54717 := by
+theorem treeCostP_one : treeCostP 1 = 50621 := by
   unfold treeCostP
   rw [Finset.sum_congr rfl (fun leaf _ => leafCostP_lower (by decide) leaf),
-    show belowCost ((1 : Layer)).val (height 1) = 14432 from belowCost_one]
+    show belowCost ((1 : Layer)).val (height 1) = 10336 from belowCost_one]
   decide
-theorem treeCostP_two : treeCostP 2 = 36559 := by
+theorem treeCostP_two : treeCostP 2 = 30415 := by
   unfold treeCostP
   rw [Finset.sum_congr rfl (fun leaf _ => leafCostP_lower (by decide) leaf),
-    show belowCost ((2 : Layer)).val (height 2) = 16416 from belowCost_two]
+    show belowCost ((2 : Layer)).val (height 2) = 10272 from belowCost_two]
   decide
-theorem treeCostP_three : treeCostP 3 = 36559 := by
+theorem treeCostP_three : treeCostP 3 = 30415 := by
   unfold treeCostP
   rw [Finset.sum_congr rfl (fun leaf _ => leafCostP_lower (by decide) leaf),
-    show belowCost ((3 : Layer)).val (height 3) = 16416 from belowCost_three]
+    show belowCost ((3 : Layer)).val (height 3) = 10272 from belowCost_three]
   decide
 /-- U16b: the ground searches add 6144 − 14 (L1) / 5120 − 14 (L2, L3) trials to the T1 lower trees. -/
 theorem treeCostP_lower :
-    treeCostP 1 = treeCost 1 + 11838 ∧ treeCostP 2 = treeCost 2 + 15120 ∧ treeCostP 3 = treeCost 3 + 15120 := by
+    treeCostP 1 = treeCost 1 + 7742 ∧ treeCostP 2 = treeCost 2 + 8976 ∧ treeCostP 3 = treeCost 3 + 8976 := by
   rw [treeCostP_one, treeCostP_two, treeCostP_three]
   decide
 def layerFixedCostP : Nat → Nat
@@ -9146,7 +9146,7 @@ theorem layerFixedCostP_succ_succ (n : Nat) :
     layerFixedCostP (n + 2) = treeCostP (Fin.ofNat 4 (n + 1)) + layerFixedCostP (n + 1) := rfl
 theorem layerFixedCost_succ_succ (n : Nat) :
     layerFixedCost (n + 2) = treeCost (Fin.ofNat 4 (n + 1)) + layerFixedCost (n + 1) := rfl
-theorem layerFixedCostP_four : layerFixedCostP 4 = layerFixedCost 4 + 42078 := by
+theorem layerFixedCostP_four : layerFixedCostP 4 = layerFixedCost 4 + 25694 := by
   obtain ⟨h1, h2, h3⟩ := treeCostP_lower
   have e3 : (Fin.ofNat 4 3 : Layer) = 3 := rfl
   have e2 : (Fin.ofNat 4 2 : Layer) = 2 := rfl
@@ -9212,9 +9212,9 @@ theorem nodeCost_heap_le (lay : Nat) {e : Nat} (he : 1 ≤ e) (x : Nat) : nodeCo
   nodeCost_anti lay (by have := Nat.pow_le_pow_right (show 0 < 2 by decide) he; simpa using this) (by omega)
 /-- U16b: worst-case trials of the `height lay - 1` path folds of a lower layer (heap class `2^(height lay - j - 1)`). -/
 def pathCost (lay : Layer) : Nat := ∑ j ∈ Finset.range (height lay - 1), nodeCost lay.val (2 ^ (height lay - j - 1))
-theorem pathCost_one : pathCost 1 = 2818 := by decide +kernel
-theorem pathCost_two : pathCost 2 = 3841 := by decide +kernel
-theorem pathCost_three : pathCost 3 = 3841 := by decide +kernel
+theorem pathCost_one : pathCost 1 = 2050 := by decide +kernel
+theorem pathCost_two : pathCost 2 = 2049 := by decide +kernel
+theorem pathCost_three : pathCost 3 = 2049 := by decide +kernel
 /-- U16b: the path folds use `lowerNodeG` (`pathCost` instead of the T1 `height lay - 1`). -/
 def recoverLayerPairCost (lay : Layer) : Nat := capacity lay - target lay + leafHashCost lay + pathCost lay
 theorem recoverLayerPairCost_succ (lay : Layer) :
@@ -9292,21 +9292,21 @@ def recoveryLayersCostBC : Nat → Nat
   | 0 => 0
   | n + 1 => (if n = 0 then recoverLayerCost (Fin.ofNat 4 n) else recoverLayerPairCost (Fin.ofNat 4 n)) +
       recoveryLayersCostBC n
-/-- U16b: the 9 ground path folds add `2818 + 2 · 3841 − 16 = 10484` trials to the T1 recovery. -/
-theorem recoveryLayersCostBC_add : recoveryLayersCostBC 4 + 3 = recoveryLayersCost 4 + 10484 := by
+/-- U16b: the 9 ground path folds add `2050 + 2 · 2049 − 16 = 6132` trials to the T1 recovery (E8 P1 widths (3,2,1,1)). -/
+theorem recoveryLayersCostBC_add : recoveryLayersCostBC 4 + 3 = recoveryLayersCost 4 + 6132 := by
   have h1 := recoverLayerPairCost_succ (Fin.ofNat 4 1)
   have h2 := recoverLayerPairCost_succ (Fin.ofNat 4 2)
   have h3 := recoverLayerPairCost_succ (Fin.ofNat 4 3)
-  have p1 : pathCost (Fin.ofNat 4 1) = 2818 := pathCost_one
-  have p2 : pathCost (Fin.ofNat 4 2) = 3841 := pathCost_two
-  have p3 : pathCost (Fin.ofNat 4 3) = 3841 := pathCost_three
+  have p1 : pathCost (Fin.ofNat 4 1) = 2050 := pathCost_one
+  have p2 : pathCost (Fin.ofNat 4 2) = 2049 := pathCost_two
+  have p3 : pathCost (Fin.ofNat 4 3) = 2049 := pathCost_three
   have e1 : height (Fin.ofNat 4 1) = 7 := rfl
   have e2 : height (Fin.ofNat 4 2) = 6 := rfl
   have e3 : height (Fin.ofNat 4 3) = 6 := rfl
   simp only [recoveryLayersCostBC, recoveryLayersCost, if_true, show (3 : Nat) ≠ 0 by decide,
     show (2 : Nat) ≠ 0 by decide, show (1 : Nat) ≠ 0 by decide, if_false]
   omega
-theorem recoveryLayersCostBC_four_le : recoveryLayersCostBC 4 ≤ 10965 := by
+theorem recoveryLayersCostBC_four_le : recoveryLayersCostBC 4 ≤ 6613 := by
   have h := recoveryLayersCostBC_add
   have h4 := recoveryLayersCost_four
   omega
@@ -9411,7 +9411,7 @@ theorem bound_expandLayersBC (sig : Signature) (index : Nat) :
             refine (ih _).bind' (l := 0) (fun result _ => ?_) (by omega)
             cases result <;> exact .pure _ 0 trivial
 def signPayloadFixed : Nat := 2 + 31334 + layerFixedCostP 4
-theorem signPayloadFixed_eq : signPayloadFixed = 2 + 31910 + layerFixedCost 4 + 41502 := by
+theorem signPayloadFixed_eq : signPayloadFixed = 2 + 31910 + layerFixedCost 4 + 25118 := by
   have h := layerFixedCostP_four
   unfold signPayloadFixed
   omega
@@ -9464,7 +9464,7 @@ theorem bound_expandWith (limit : Nat) (message : Message) (pk : Digest) (sig : 
   | some pair =>
       obtain ⟨counter, output⟩ := pair
       dsimp only
-      refine (bound_recoverFts sig _ output).bind' (l := 4 * counterLimit + 10965)
+      refine (bound_recoverFts sig _ output).bind' (l := 4 * counterLimit + 6613)
         (fun root _ => ?_) (by omega)
       refine (bound_expandLayersBC sig _ 4 (.pair root.1 root.2)).bind' (l := 0)
         (fun layers _ => ?_) (by have := recoveryLayersCostBC_four_le; omega)
@@ -10246,7 +10246,7 @@ theorem bound_expandS (limit : Nat) (message : Message) (pk : Digest) (sig : Sig
   | some pair =>
       obtain ⟨counter, output⟩ := pair
       dsimp only
-      refine (bound_recoverFts (proj sig) _ output).bind' (l := 4 * counterLimit + 10965 + searchFuel)
+      refine (bound_recoverFts (proj sig) _ output).bind' (l := 4 * counterLimit + 6613 + searchFuel)
         (fun root _ => ?_) (by omega)
       refine (bound_expandLayersT (proj sig) _ (topSib (proj sig)) 4 (.pair root.1 root.2)).bind' (l := searchFuel)
         (fun layers _ => ?_) (by have := recoveryLayersCostBC_four_le; omega)
@@ -10884,7 +10884,21 @@ def sharedNode (first : Bool) (coord index heap : Nat)
   else if heap < 8 then
     let input := wctTopInput coord index heap left (pads (heap / 2 - 2)).2 right
     if first then highHash input else shortHash input
-  else wctNodeHashH coord index heap left right
+  else ftsNodeG coord index heap left right
+
+/-- E8: a shared node with its nonce: the ground FTS nodes (heaps `8..15`) report the found nonce, every other
+node `0`. -/
+def sharedNodeAt (first : Bool) (coord index heap : Nat)
+    (pads : Nat → PairRoot) (left right : Digest) : M (Nat × Digest) :=
+  if heap < 8 then (fun value => (0, value)) <$> sharedNode first coord index heap pads left right
+  else ftsNodeAt coord index heap left right
+
+theorem sharedNodeAt_snd (first : Bool) (coord index heap : Nat) (pads : Nat → PairRoot) (left right : Digest) :
+    Prod.snd <$> sharedNodeAt first coord index heap pads left right = sharedNode first coord index heap pads left right := by
+  unfold sharedNodeAt
+  split_ifs with h
+  · simp [Functor.map_map]
+  · simp only [sharedNode, if_neg (show ¬ heap < 4 by omega), if_neg h]; rfl
 
 def sharedHeap (first : Bool) (index coord : Nat) (pads : Nat → PairRoot)
     (leaves : List Digest) : M (Array Digest) :=
@@ -10918,34 +10932,39 @@ def buildPair (index pair : Nat) (s : Selection) (aWord bWord : Rank)
       fun i => b.2.getD i.val 0, fun i => authAt b.1 (secondChild s).val i.val⟩,
     (b.1.getD 2 0, b.1.getD 3 0))
 
+/-- E8: the recovered path value and the nonce of its level-3 (heap `8..15`) node. -/
 def recoverSharedInner (first : Bool) (index coord : Nat) (selected : Child)
     (word : Rank) (values : Fin 6 → Digest) (path : Nat → Digest)
-    (prev : PairRoot) : M Digest := do
+    (prev : PairRoot) : M (Digest × Nat) := do
   let ends ← (List.finRange 6).mapM fun i =>
     let deficit := wordDigit word i
     chain index coord (rawChild first selected.val) i.val (4 - deficit) deficit (values i)
   let leaf ← leafHashH (128 + selected.val) index coord (rawChild first selected.val) prev.1 ends
-  (List.range 5).foldlM (fun value level => do
+  (List.range 5).foldlM (fun (acc : Digest × Nat) level => do
     let other := path level
-    let lr := if selected.val / 2 ^ level % 2 = 0 then (value, other) else (other, value)
-    sharedNode first coord index ((128 + selected.val) / 2 ^ (level + 1))
-      (fun _ => prev) lr.1 lr.2) leaf
+    let lr := if selected.val / 2 ^ level % 2 = 0 then (acc.1, other) else (other, acc.1)
+    let r ← sharedNodeAt first coord index ((128 + selected.val) / 2 ^ (level + 1))
+      (fun _ => prev) lr.1 lr.2
+    pure (r.2, if level = 3 then r.1 else acc.2)) (leaf, 0)
+
+def recoverSharedOuter (index coord : Nat) (selected : Child) (word : Rank)
+    (values : Fin 6 → Digest) (path : Nat → Digest) (prev : PairRoot) : M (PairRoot × Nat) := do
+  let inner ← recoverSharedInner false index coord selected word values path prev
+  let lr := if selected.val / 32 % 2 = 0 then (inner.1, path 5) else (path 5, inner.1)
+  let outer ← sharedOuterHash coord index (2 + selected.val / 64) lr.1 lr.2
+  pure (if selected.val / 64 % 2 = 0 then (outer, path 6) else (path 6, outer), inner.2)
 
 def recoverPair (index pair : Nat) (s : Selection) (aWord bWord : Rank)
-    (opened : PairOpening) (prev : PairRoot) : M PairRoot := do
+    (opened : PairOpening) (prev : PairRoot) : M (PairRoot × List Nat) := do
   let aChild := firstChild s
   let bChild := secondChild s
   let a ← recoverSharedInner true index (2 * pair) aChild aWord opened.firstValues
     (fun i => opened.firstPath ⟨i % 6, Nat.mod_lt _ (by decide)⟩) prev
-  let aPair := if aChild.val / 32 % 2 = 0 then (a, opened.firstPath 5)
-    else (opened.firstPath 5, a)
-  let b ← recoverSharedInner false index (2 * pair + 1) bChild bWord opened.secondValues
+  let aPair := if aChild.val / 32 % 2 = 0 then (a.1, opened.firstPath 5)
+    else (opened.firstPath 5, a.1)
+  let b ← recoverSharedOuter index (2 * pair + 1) bChild bWord opened.secondValues
     (fun i => opened.secondPath ⟨i % 7, Nat.mod_lt _ (by decide)⟩) aPair
-  let lr := if bChild.val / 32 % 2 = 0 then (b, opened.secondPath 5)
-    else (opened.secondPath 5, b)
-  let outer ← sharedOuterHash (2 * pair + 1) index (2 + bChild.val / 64) lr.1 lr.2
-  pure (if bChild.val / 64 % 2 = 0 then (outer, opened.secondPath 6)
-    else (opened.secondPath 6, outer))
+  pure (b.1, [a.2, b.2])
 
 def pairOpeningDigests : Nat := 6 + 6 + 6 + 7
 
@@ -11094,6 +11113,8 @@ structure Witness where
   topNonces : List Nat
   /-- U16b: the re-derived nonces of the lower path folds `j < height lay - 1` (witness pads; 0 off the ground). -/
   lowerNonces : Layer → List Nat
+  /-- E8: the re-derived nonces of the 9 FTS level-3 (heap `8..15`) path nodes, coordinate order (witness pads). -/
+  ftsNonces : List Nat := []
 
 def emptyPairOpening : PairOpening := ⟨fun _ => 0, fun _ => 0, fun _ => 0, fun _ => 0⟩
 
@@ -11105,14 +11126,14 @@ def buildSingleton (index : Nat) (selected : Child) (word : Rank) (prev : PairRo
     (built.1.getD 2 0, built.1.getD 3 0))
 
 def recoverSingleton (index : Nat) (selected : Child) (word : Rank)
-    (opened : SingletonOpening) (prev : PairRoot) : M PairRoot := do
+    (opened : SingletonOpening) (prev : PairRoot) : M (PairRoot × Nat) := do
   let inner ← recoverSharedInner false index 8 selected word opened.values
     (fun i => opened.path ⟨i % 7, Nat.mod_lt _ (by decide)⟩) prev
-  let lr := if selected.val / 32 % 2 = 0 then (inner, opened.path 5)
-    else (opened.path 5, inner)
+  let lr := if selected.val / 32 % 2 = 0 then (inner.1, opened.path 5)
+    else (opened.path 5, inner.1)
   let outer ← sharedOuterHash 8 index (2 + selected.val / 64) lr.1 lr.2
   pure (if selected.val / 64 % 2 = 0 then (outer, opened.path 6)
-    else (opened.path 6, outer))
+    else (opened.path 6, outer), inner.2)
 
 def buildForest (index : Nat) (selected : ForestSelection) (words : ForestWords) :
     M (ForestOpening × PairRoot) := do
@@ -11125,11 +11146,66 @@ def buildForest (index : Nat) (selected : ForestSelection) (words : ForestWords)
   pure (⟨fun pair => state.1.getD pair.val emptyPairOpening, last.1⟩, last.2)
 
 def recoverForest (index : Nat) (selected : ForestSelection) (words : ForestWords)
-    (opened : ForestOpening) : M PairRoot := do
+    (opened : ForestOpening) : M (PairRoot × List Nat) := do
   let prev ← (List.finRange 4).foldlM
-    (fun prev pair => recoverPair index pair.val (selected.pairs pair)
-      (words.first pair) (words.second pair) (opened.pairs pair) prev) ftsStart
-  recoverSingleton index selected.singleton words.singleton opened.singleton prev
+    (fun (acc : PairRoot × List Nat) pair => do
+      let r ← recoverPair index pair.val (selected.pairs pair)
+        (words.first pair) (words.second pair) (opened.pairs pair) acc.1
+      pure (r.1, acc.2 ++ r.2)) (ftsStart, [])
+  let last ← recoverSingleton index selected.singleton words.singleton opened.singleton prev.1
+  pure (last.1, prev.2 ++ [last.2])
+
+/-! E8: verification reads the 9 FTS ground nonces from the witness: the level-3 (heap `8..15`) path node is hashed
+once with the given nonce in its pad (`ftsNodeHashN`); every other node is `sharedNode`. -/
+def sharedNodeN (first : Bool) (coord index heap : Nat) (pads : Nat → PairRoot) (n : Nat)
+    (left right : Digest) : M Digest :=
+  if 8 ≤ heap ∧ heap < 16 then ftsNodeHashN coord index heap n left right
+  else sharedNode first coord index heap pads left right
+
+def recoverSharedInnerN (first : Bool) (index coord : Nat) (selected : Child)
+    (word : Rank) (values : Fin 6 → Digest) (path : Nat → Digest) (nonce : Nat)
+    (prev : PairRoot) : M Digest := do
+  let ends ← (List.finRange 6).mapM fun i =>
+    let deficit := wordDigit word i
+    chain index coord (rawChild first selected.val) i.val (4 - deficit) deficit (values i)
+  let leaf ← leafHashH (128 + selected.val) index coord (rawChild first selected.val) prev.1 ends
+  (List.range 5).foldlM (fun value level => do
+    let other := path level
+    let lr := if selected.val / 2 ^ level % 2 = 0 then (value, other) else (other, value)
+    sharedNodeN first coord index ((128 + selected.val) / 2 ^ (level + 1)) (fun _ => prev) nonce lr.1 lr.2) leaf
+
+def recoverSharedOuterN (index coord : Nat) (selected : Child) (word : Rank)
+    (values : Fin 6 → Digest) (path : Nat → Digest) (nonce : Nat) (prev : PairRoot) : M PairRoot := do
+  let inner ← recoverSharedInnerN false index coord selected word values path nonce prev
+  let lr := if selected.val / 32 % 2 = 0 then (inner, path 5) else (path 5, inner)
+  let outer ← sharedOuterHash coord index (2 + selected.val / 64) lr.1 lr.2
+  pure (if selected.val / 64 % 2 = 0 then (outer, path 6) else (path 6, outer))
+
+def recoverPairN (index pair : Nat) (s : Selection) (aWord bWord : Rank)
+    (opened : PairOpening) (nonces : List Nat) (prev : PairRoot) : M PairRoot := do
+  let aChild := firstChild s
+  let bChild := secondChild s
+  let a ← recoverSharedInnerN true index (2 * pair) aChild aWord opened.firstValues
+    (fun i => opened.firstPath ⟨i % 6, Nat.mod_lt _ (by decide)⟩) (nonces.getD (2 * pair) 0) prev
+  let aPair := if aChild.val / 32 % 2 = 0 then (a, opened.firstPath 5) else (opened.firstPath 5, a)
+  recoverSharedOuterN index (2 * pair + 1) bChild bWord opened.secondValues
+    (fun i => opened.secondPath ⟨i % 7, Nat.mod_lt _ (by decide)⟩) (nonces.getD (2 * pair + 1) 0) aPair
+
+def recoverSingletonN (index : Nat) (selected : Child) (word : Rank)
+    (opened : SingletonOpening) (nonce : Nat) (prev : PairRoot) : M PairRoot := do
+  let inner ← recoverSharedInnerN false index 8 selected word opened.values
+    (fun i => opened.path ⟨i % 7, Nat.mod_lt _ (by decide)⟩) nonce prev
+  let lr := if selected.val / 32 % 2 = 0 then (inner, opened.path 5) else (opened.path 5, inner)
+  let outer ← sharedOuterHash 8 index (2 + selected.val / 64) lr.1 lr.2
+  pure (if selected.val / 64 % 2 = 0 then (outer, opened.path 6) else (opened.path 6, outer))
+
+/-- E8: the verifier's forest, with the witness's FTS ground nonces (coordinate order). -/
+def recoverForestN (index : Nat) (selected : ForestSelection) (words : ForestWords)
+    (opened : ForestOpening) (nonces : List Nat) : M PairRoot := do
+  let prev ← (List.finRange 4).foldlM
+    (fun (acc : PairRoot) pair => recoverPairN index pair.val (selected.pairs pair)
+        (words.first pair) (words.second pair) (opened.pairs pair) nonces acc) ftsStart
+  recoverSingletonN index selected.singleton words.singleton opened.singleton (nonces.getD 8 0) prev
 
 /-- Physical B children rotate the raw seven-bit field right by one: the
 shared low bit becomes the branch bit, and the next six bits select within it. -/
@@ -11306,8 +11382,8 @@ theorem recoverSharedInner_honest (answers : Answers) (first : Bool) (index coor
     (hvalues : ∀ i, values i = chainValue answers index coord (rawChild first selected.val) word i)
     (hpath : ∀ level, level < 5 → path level =
       authAt (sharedNodes answers first index coord pads) selected.val level) :
-    evalWithAnswerFn answers (recoverSharedInner first index coord selected word values path
-      (pads (selected.val / 64))) =
+    (evalWithAnswerFn answers (recoverSharedInner first index coord selected word values path
+      (pads (selected.val / 64)))).1 =
       (sharedNodes answers first index coord pads).getD ((128 + selected.val) / 32) 0 := by
   let nodes := sharedNodes answers first index coord pads
   have hg := sharedNodes_graph answers first index coord pads
@@ -11326,14 +11402,24 @@ theorem recoverSharedInner_honest (answers : Answers) (first : Bool) (index coor
       List.getD_eq_getElem _ _ (by simp only [List.length_ofFn]; exact selected.isLt), List.getElem_ofFn] at hl
     exact hl.symm
   have hwalk := eval_foldlM_range_inv answers 5
-    (fun value level => do
+    (fun (acc : Digest × Nat) level => do
       let other := path level
-      let lr := if selected.val / 2 ^ level % 2 = 0 then (value, other) else (other, value)
-      sharedNode first coord index ((128 + selected.val) / 2 ^ (level + 1))
-        (fun _ => pads (selected.val / 64)) lr.1 lr.2)
-    (fun done value => value = nodes.getD ((128 + selected.val) / 2 ^ done) 0)
-    (nodes.getD (128 + selected.val) 0) (by simp) (by
-      intro level hlevel value hv
+      let lr := if selected.val / 2 ^ level % 2 = 0 then (acc.1, other) else (other, acc.1)
+      let r ← sharedNodeAt first coord index ((128 + selected.val) / 2 ^ (level + 1))
+        (fun _ => pads (selected.val / 64)) lr.1 lr.2
+      pure (r.2, if level = 3 then r.1 else acc.2))
+    (fun done acc => acc.1 = nodes.getD ((128 + selected.val) / 2 ^ done) 0)
+    (nodes.getD (128 + selected.val) 0, 0) (by simp) (by
+      intro level hlevel acc hv
+      obtain ⟨value, nonce⟩ := acc
+      simp only at hv
+      have hsnd := congrArg (evalWithAnswerFn answers) (sharedNodeAt_snd first coord index
+        ((128 + selected.val) / 2 ^ (level + 1)) (fun _ => pads (selected.val / 64))
+        (if selected.val / 2 ^ level % 2 = 0 then (value, path level) else (path level, value)).1
+        (if selected.val / 2 ^ level % 2 = 0 then (value, path level) else (path level, value)).2)
+      rw [SigGolfCandidate.T3M.eval_map] at hsnd
+      simp only [evalWithAnswerFn_bind, evalWithAnswerFn_pure]
+      rw [hsnd]
       have hb : 4 ≤ (128 + selected.val) / 2 ^ (level + 1) ∧
           (128 + selected.val) / 2 ^ (level + 1) < 128 := by
         have hs := selected.isLt
@@ -11387,21 +11473,14 @@ theorem ordered_top_pair (nodes : Array Digest) (selected : Nat) (hs : selected 
   rw [hd]
   rcases hq with h | h <;> rw [h] <;> rfl
 
-def recoverSharedOuter (index coord : Nat) (selected : Child) (word : Rank)
-    (values : Fin 6 → Digest) (path : Nat → Digest) (prev : PairRoot) : M PairRoot := do
-  let inner ← recoverSharedInner false index coord selected word values path prev
-  let lr := if selected.val / 32 % 2 = 0 then (inner, path 5) else (path 5, inner)
-  let outer ← sharedOuterHash coord index (2 + selected.val / 64) lr.1 lr.2
-  pure (if selected.val / 64 % 2 = 0 then (outer, path 6) else (path 6, outer))
-
 theorem recoverSharedOuter_honest (answers : Answers) (index coord : Nat)
     (selected : Child) (word : Rank) (pads : Nat → PairRoot)
     (values : Fin 6 → Digest) (path : Nat → Digest)
     (hvalues : ∀ i, values i = chainValue answers index coord (rawChild false selected.val) word i)
     (hpath : ∀ level, level < 7 → path level =
       authAt (sharedNodes answers false index coord pads) selected.val level) :
-    evalWithAnswerFn answers (recoverSharedOuter index coord selected word values path
-      (pads (selected.val / 64))) =
+    (evalWithAnswerFn answers (recoverSharedOuter index coord selected word values path
+      (pads (selected.val / 64)))).1 =
       ((sharedNodes answers false index coord pads).getD 2 0,
        (sharedNodes answers false index coord pads).getD 3 0) := by
   let nodes := sharedNodes answers false index coord pads
@@ -11432,7 +11511,7 @@ theorem recoverSingleton_eq_outer (index : Nat) (selected : Child) (word : Rank)
 theorem recoverSingleton_honest (answers : Answers) (index : Nat) (selected : Child)
     (word : Rank) (prev : PairRoot) :
     let built := evalWithAnswerFn answers (buildSingleton index selected word prev)
-    evalWithAnswerFn answers (recoverSingleton index selected word built.1 prev) = built.2 := by
+    (evalWithAnswerFn answers (recoverSingleton index selected word built.1 prev)).1 = built.2 := by
   unfold buildSingleton
   simp only [evalWithAnswerFn_bind, buildSharedCoordinate_result, evalWithAnswerFn_pure]
   rw [recoverSingleton_eq_outer]
@@ -11482,8 +11561,8 @@ theorem buildPair_result (answers : Answers) (index pair : Nat) (s : Selection)
 
 theorem recoverPair_expected (answers : Answers) (index pair : Nat) (s : Selection)
     (aWord bWord : Rank) (prev : PairRoot) :
-    evalWithAnswerFn answers (recoverPair index pair s aWord bWord
-      (expectedPairOpening answers index pair s aWord bWord prev) prev) =
+    (evalWithAnswerFn answers (recoverPair index pair s aWord bWord
+      (expectedPairOpening answers index pair s aWord bWord prev) prev)).1 =
       expectedPairRoot answers index pair prev := by
   let a := firstNodes answers index pair prev
   let b := secondNodes answers index pair prev
@@ -11501,13 +11580,14 @@ theorem recoverPair_expected (answers : Answers) (index pair : Nat) (s : Selecti
       rw [Nat.mod_eq_of_lt (by omega)]
       )
   unfold recoverPair
-  rw [evalWithAnswerFn_bind, ha]
-  change evalWithAnswerFn answers
+  rw [evalWithAnswerFn_bind, ha, evalWithAnswerFn_bind]
+  simp only [evalWithAnswerFn_pure]
+  change (evalWithAnswerFn answers
     (recoverSharedOuter index (2 * pair + 1) (secondChild s) bWord opened.secondValues
       (fun i => opened.secondPath ⟨i % 7, Nat.mod_lt _ (by decide)⟩)
       (if (firstChild s).val / 32 % 2 = 0 then
         (a.getD ((128 + (firstChild s).val) / 32) 0, authAt a (firstChild s).val 5)
-      else (authAt a (firstChild s).val 5, a.getD ((128 + (firstChild s).val) / 32) 0))) = _
+      else (authAt a (firstChild s).val 5, a.getD ((128 + (firstChild s).val) / 32) 0)))).1 = _
   rw [ordered_branch_pair a (firstChild s).val (firstChild s).isLt, selected_branch s]
   apply recoverSharedOuter_honest answers index (2 * pair + 1) (secondChild s) bWord (nodesPair a)
   · intro i
@@ -11521,7 +11601,7 @@ theorem recoverPair_expected (answers : Answers) (index pair : Nat) (s : Selecti
 theorem recoverPair_honest (answers : Answers) (index pair : Nat) (s : Selection)
     (aWord bWord : Rank) (prev : PairRoot) :
     let built := evalWithAnswerFn answers (buildPair index pair s aWord bWord prev)
-    evalWithAnswerFn answers (recoverPair index pair s aWord bWord built.1 prev) = built.2 := by
+    (evalWithAnswerFn answers (recoverPair index pair s aWord bWord built.1 prev)).1 = built.2 := by
   rw [buildPair_result]
   exact recoverPair_expected answers index pair s aWord bWord prev
 
@@ -11541,7 +11621,7 @@ builder's final commitment under every fixed oracle answer function. -/
 theorem recoverForest_honest (answers : Answers) (index : Nat)
     (selected : ForestSelection) (words : ForestWords) :
     let built := evalWithAnswerFn answers (buildForest index selected words)
-    evalWithAnswerFn answers (recoverForest index selected words built.1) = built.2 := by
+    (evalWithAnswerFn answers (recoverForest index selected words built.1)).1 = built.2 := by
   have hfour : List.finRange 4 = [0, 1, 2, 3] := by decide
   have hv0 : (0 : Fin 4).val = 0 := rfl
   have hv1 : (1 : Fin 4).val = 1 := rfl
@@ -11687,7 +11767,7 @@ def signFromOutput (cache : SigGolfCandidate.T3.Cache) (rho : Digest) (digestCou
   let signature : Signature := ⟨rho, layers.policyHints, forest.1,
     fun lay => piecesSignature lay (layers.pieces.getD lay.val ([], []))⟩
   pure (some ⟨signature, digestCounter, fun lay => layers.counters.getD lay.val 0, !(layers.lows.getD 0 true), [],
-    fun _ => []⟩)
+    fun _ => [], []⟩)
 
 end SigGolfCandidate.Research.SharedForest
 
@@ -11775,8 +11855,8 @@ def ranksAccepted (output : HashOutput) : Bool :=
 
 /-- Joint cap 777 (`P(joint ≤ 777 | gate, ranks) = 0.990672`). -/
 def digestAccepted (output : HashOutput) : Bool :=
-  decide (output.toNat / 2 ^ 242 % 16384 < 791) && ranksAccepted output &&
-    decide (jointAccountingCost output ≤ 776)
+  decide (output.toNat / 2 ^ 242 % 16384 < 812) && ranksAccepted output &&
+    decide (jointAccountingCost output ≤ 777)
 
 theorem firstCoord_eq_shared (coord : Nat) : firstCoord coord = decide (coord < 8 ∧ coord % 2 = 0) := rfl
 
@@ -11785,9 +11865,9 @@ theorem ranksAccepted_iff (output : HashOutput) : ranksAccepted output = true �
   simp [ranksAccepted, List.all_eq_true]
 
 theorem accepted_conditions (output : HashOutput) (h : digestAccepted output = true) :
-    output.toNat / 2 ^ 242 % 16384 < 791 ∧
+    output.toNat / 2 ^ 242 % 16384 < 812 ∧
     (∀ coord : Fin 9, rawForestRank output coord.val < 563) ∧
-    jointAccountingCost output ≤ 776 := by
+    jointAccountingCost output ≤ 777 := by
   simpa only [digestAccepted, Bool.and_eq_true, decide_eq_true_eq, ranksAccepted_iff,
     and_assoc] using h
 end SigGolfCandidate.Research.SharedForest
@@ -11846,6 +11926,13 @@ def normTop (sig : Signature) : Signature :=
 def LowerPathOK (sig : Signature) : Prop :=
   ∀ lay : Layer, lay ≠ 0 → ∀ j : Fin (height lay),
     ((sig.layers lay).path j).toNat / 2 ^ (128 - lowerPathBits lay j.val) = 0
+
+/-- E8 stage 2: the opened level-4 FTS siblings (heap `8..15` nodes, which carry codec bits in their top
+`ftsZeroBits c 8` bits) pass their zero tests (no FTS ground search hit its cap). -/
+def FtsPathOK (sig : Signature) : Prop :=
+  (∀ p : Fin 4, ftsZeroOk (2 * p.val) 8 ((sig.forest.pairs p).firstPath 4) = true ∧
+    ftsZeroOk (2 * p.val + 1) 8 ((sig.forest.pairs p).secondPath 4) = true) ∧
+  ftsZeroOk 8 8 (sig.forest.singleton.path 4) = true
 
 /-- The honest top path passes its zero tests (no nonce search hit its cap). -/
 def TopPathOK (sig : Signature) : Prop :=
@@ -11914,14 +12001,14 @@ def expandFill (message : Message) (pk : Digest) (sig : Signature) : M (Option W
   let forest ← recoverForest index (forestSelectionFromOutput output)
     (forestWordsFromOutput output) sig0.forest
   let some layers ← recoverHintedLayers sig0 index ((sig0.layers 0).path topJ)
-    4 (.pair forest.1 forest.2) | pure none
+    4 (.pair forest.1.1 forest.1.2) | pure none
   if !policyHintsValid sig0.policyHints layers.digits layers.lows then return none
   if layers.root = pk then
     return some ⟨sig0, counter, fun lay => layers.counters.getD lay.val 0, !(layers.lows.getD 0 true),
-      layers.nonces, fun lay => layers.lowerNonces.getD lay.val []⟩
+      layers.nonces, fun lay => layers.lowerNonces.getD lay.val [], forest.2⟩
   let some c ← searchTop index layers.foldedTop ((sig0.layers 0).path topJ) pk searchFuel 1 | pure none
   pure (some ⟨fillTopSignature sig0 c, counter, fun lay => layers.counters.getD lay.val 0,
-    !(layers.lows.getD 0 true), layers.nonces, fun lay => layers.lowerNonces.getD lay.val []⟩)
+    !(layers.lows.getD 0 true), layers.nonces, fun lay => layers.lowerNonces.getD lay.val [], forest.2⟩)
 
 /-- img-v6 expansion: normalize to what the 5,239-byte codec keeps, then the old kernel. -/
 def expand (message : Message) (pk : Digest) (sig : Signature) : M (Option Witness) :=
@@ -12447,7 +12534,7 @@ theorem bound_prepareRoots (index : Nat) :
     (l := 0) (fun three _ => .pure (PreparedRoots.mk one two three) 0 trivial) (by omega)
 
 /-- v6 lower families: 81146 − 325 (L1 349 + L2/L3 175 family pairs instead of 4 per leaf). -/
-theorem prepared_roots_cost : treeCostP 1 + treeCostP 2 + treeCostP 3 = 127835 := by
+theorem prepared_roots_cost : treeCostP 1 + treeCostP 2 + treeCostP 3 = 111451 := by
   rw [treeCostP_one, treeCostP_two, treeCostP_three]
 
 end SigGolfCandidate.Research.SharedForest
@@ -12475,75 +12562,157 @@ theorem bound_sharedOuterHash (coord index heap : Nat) (left right : Digest) :
   · apply bound_shortHash <;> simp [wctTopInput_length, pad64_length]
   · exact bound_highHash64 _ (wctTopInput_length ..)
 
+/-- E8: worst-case trials of a shared node: the cap on a ground FTS node, else 1. -/
+def sharedNodeCost (coord heap : Nat) : Nat := if 8 ≤ heap ∧ heap < 16 then ftsNonceCap coord heap else 1
+/-- E8: the ground cap of coordinate `coord` (every heap `8..15` node of a coordinate has the same cap). -/
+def ftsCapOf (coord : Nat) : Nat := ftsNonceCap coord 8
+
+theorem bound_ftsNodeHashN (coord index heap n : Nat) (left right : Digest) :
+    CBound (fun _ => True) 1 (ftsNodeHashN coord index heap n left right) := by
+  unfold ftsNodeHashN
+  apply bound_shortHash <;> simp [ftsNodeInputN, nonceBytes, pad64_length, SphincsSecurity.bytesLE_length]
+
+theorem bound_ftsNonceSearch (coord index heap : Nat) (left right : Digest) :
+    ∀ fuel n, CBound (fun _ => True) (fuel + 1) (ftsNonceSearch coord index heap left right fuel n)
+  | 0, n => by
+      unfold ftsNonceSearch
+      exact (bound_ftsNodeHashN coord index heap n left right).bind' (l := 0) (fun _ _ => .pure _ 0 trivial)
+        (by omega)
+  | fuel + 1, n => by
+      unfold ftsNonceSearch
+      refine (bound_ftsNodeHashN coord index heap n left right).bind' (l := fuel + 1) (fun v _ => ?_) (by omega)
+      split
+      · exact .pure _ _ trivial
+      · exact bound_ftsNonceSearch coord index heap left right fuel (n + 1)
+
 theorem bound_sharedNode (first : Bool) (coord index heap : Nat) (pads : Nat → PairRoot)
     (left right : Digest) :
-    CBound (fun _ => True) 1 (sharedNode first coord index heap pads left right) := by
-  unfold sharedNode
-  split
-  · exact bound_sharedOuterHash ..
-  · split
+    CBound (fun _ => True) (sharedNodeCost coord heap) (sharedNode first coord index heap pads left right) := by
+  unfold sharedNodeCost
+  by_cases hg : 8 ≤ heap ∧ heap < 16
+  · rw [if_pos hg]
+    have e : sharedNode first coord index heap pads left right = ftsNodeG coord index heap left right := by
+      simp only [sharedNode, if_neg (show ¬ heap < 4 by omega), if_neg (show ¬ heap < 8 by omega)]
+    rw [e]
+    unfold ftsNodeG ftsNodeAt
+    rw [if_neg (by simp only [ftsZeroBits, if_pos hg]; split <;> omega)]
+    refine Bound.map _ ((bound_ftsNonceSearch coord index heap left right _ 0).mono_k ?_) (fun _ _ => trivial)
+    have : 0 < 2 ^ ftsZeroBits coord heap := Nat.two_pow_pos _
+    unfold ftsNonceCap; omega
+  · rw [if_neg hg]
+    unfold sharedNode
+    split
+    · exact bound_sharedOuterHash ..
     · split
-      · exact bound_highHash64 _ (wctTopInput_length ..)
-      · apply bound_shortHash <;> simp [wctTopInput_length, pad64_length]
-    · rw [nodeHashH_eq, ftsHash_eq]
-      split
-      · exact bound_highHash64 _ (nodeInput_length ..)
-      · apply bound_shortHash <;> simp [nodeInput_length, pad64_length]
+      · split
+        · exact bound_highHash64 _ (wctTopInput_length ..)
+        · apply bound_shortHash <;> simp [wctTopInput_length, pad64_length]
+      · rw [ftsNodeG_of_zero (ftsZeroBits_off hg), nodeHashH_eq, ftsHash_eq]
+        split
+        · exact bound_highHash64 _ (nodeInput_length ..)
+        · apply bound_shortHash <;> simp [nodeInput_length, pad64_length]
+
+theorem sharedNodeCost_le (coord heap : Nat) : sharedNodeCost coord heap ≤ ftsCapOf coord := by
+  unfold sharedNodeCost ftsCapOf ftsNonceCap ftsZeroBits
+  split_ifs <;> simp_all <;> omega
+
+/-- One heap segment `(List.range' a n).reverse` of the shared heap loop at a constant per-node cost bound. -/
+theorem bound_heapSeg (first : Bool) (index coord : Nat) (pads : Nat → PairRoot) (a n c : Nat)
+    (hc : ∀ heap, a ≤ heap → heap < a + n → sharedNodeCost coord heap ≤ c) (init : Array Digest) :
+    CBound (fun _ => True) (n * c) ((List.range' a n).reverse.foldlM
+      (fun (nodes : Array Digest) heap => do
+        let value ← sharedNode first coord index heap pads
+          (nodes.getD (2 * heap) 0) (nodes.getD (2 * heap + 1) 0)
+        pure (nodes.set! heap value)) init) := by
+  apply (Bound.foldlM_list (P := GoodQuery) (List.range' a n).reverse _ (fun _ _ => True) (fun _ => c) init
+    trivial (fun i hi nodes _ => ?_)).mono_k (by simp)
+  have hm := List.getElem_mem hi
+  rw [List.mem_reverse, List.mem_range'_1] at hm
+  exact (bound_sharedNode first coord index _ pads _ _).bind' (l := 0)
+    (fun value _ => .pure (nodes.set! _ value) 0 trivial) (by have := hc _ hm.1 hm.2; omega)
+
+set_option maxHeartbeats 1000000 in
+theorem bound_heapAll (first : Bool) (index coord : Nat) (pads : Nat → PairRoot) (a m : Nat) (ham : a + m = 8)
+    (init : Array Digest) :
+    CBound (fun _ => True) (m + 8 * ftsCapOf coord + 112) ((List.range' a (m + (8 + 112))).reverse.foldlM
+      (fun (nodes : Array Digest) heap => do
+        let value ← sharedNode first coord index heap pads
+          (nodes.getD (2 * heap) 0) (nodes.getD (2 * heap + 1) 0)
+        pure (nodes.set! heap value)) init) := by
+  have hsplit : (List.range' a (m + (8 + 112))).reverse =
+      (List.range' (8 + 8) 112).reverse ++ ((List.range' 8 8).reverse ++ (List.range' a m).reverse) := by
+    rw [← List.range'_append_1 (s := a) (m := m) (n := 8 + 112), ham,
+      ← List.range'_append_1 (s := 8) (m := 8) (n := 112), List.reverse_append,
+      List.reverse_append, List.append_assoc]
+  rw [hsplit]
+  simp only [List.foldlM_append]
+  have one : ∀ heap, ¬ (8 ≤ heap ∧ heap < 16) → sharedNodeCost coord heap ≤ 1 := fun heap h => by
+    unfold sharedNodeCost; rw [if_neg h]
+  refine (bound_heapSeg first index coord pads (8 + 8) 112 1 (fun h h1 _ => one h (by omega)) _).bind'
+    (l := 8 * ftsCapOf coord + m) (fun nodes _ => ?_) (by omega)
+  refine (bound_heapSeg first index coord pads 8 8 (ftsCapOf coord)
+    (fun h _ _ => sharedNodeCost_le coord h) _).bind' (l := m) (fun nodes _ => ?_) le_rfl
+  exact (bound_heapSeg first index coord pads a m 1 (fun h h1 h2 => one h (by omega)) _).mono_k (by omega)
 
 theorem bound_sharedHeap (first : Bool) (index coord : Nat) (pads : Nat → PairRoot)
     (leaves : List Digest) :
-    CBound (fun _ => True) (if first then 124 else 126) (sharedHeap first index coord pads leaves) := by
-  unfold sharedHeap
-  apply (Bound.foldlM_list (P := GoodQuery)
-    (List.range' (if first then 4 else 2) (if first then 124 else 126)).reverse
-    (fun (nodes : Array Digest) heap => do
-      let value ← sharedNode first coord index heap pads
-        (nodes.getD (2 * heap) 0) (nodes.getD (2 * heap + 1) 0)
-      pure (nodes.set! heap value)) (fun _ _ => True) (fun _ => 1) _
-    trivial (fun i hi nodes _ =>
-      (bound_sharedNode first coord index _ pads _ _).bind' (l := 0)
-        (fun value _ => .pure (nodes.set! _ value) 0 trivial) (by omega))).mono_k
-  simp
+    CBound (fun _ => True) ((if first then 124 else 126) + 8 * (ftsCapOf coord - 1))
+      (sharedHeap first index coord pads leaves) := by
+  have hcap : 1 ≤ ftsCapOf coord := by
+    unfold ftsCapOf ftsNonceCap; have := Nat.two_pow_pos (ftsZeroBits coord 8); omega
+  cases first
+  · exact (bound_heapAll false index coord pads 2 6 rfl _).mono_k (by simp only [Bool.false_eq_true, if_false]; omega)
+  · exact (bound_heapAll true index coord pads 4 4 rfl _).mono_k (by simp only [if_true]; omega)
+
+theorem ftsCapOf_le (coord : Nat) : ftsCapOf coord ≤ 512 := by
+  unfold ftsCapOf ftsNonceCap ftsZeroBits; split_ifs <;> simp_all
+
+/-- E8: worst-case extra trials of a coordinate's 8 ground nodes (uniform bound, cap 512). -/
+def ftsCoordExtra : Nat := 8 * 511
 
 theorem bound_buildSharedCoordinate (first : Bool) (index coord : Nat)
     (hcoord : coord < 9) (selected : Child) (word : Rank) (pads : Nat → PairRoot) :
-    CBound (fun _ => True) (if first then 3479 else 3481)
+    CBound (fun _ => True) ((if first then 3479 else 3481) + ftsCoordExtra)
       (buildSharedCoordinate first index coord selected word pads) := by
+  have hc := ftsCapOf_le coord
   unfold buildSharedCoordinate
   refine (cbound_of_ftsBound (ftsBound_ftsCoefs index coord hcoord)).bind'
-    (l := 3328 + if first then 124 else 126) (fun coefs _ => ?_) ?_
+    (l := 3328 + ((if first then 124 else 126) + ftsCoordExtra)) (fun coefs _ => ?_) ?_
   · refine (Bound.foldlM_range_le 128 _ (fun _ _ => True) (fun _ => 26) ([], [])
       trivial (fun j hj state _ => ?_) (fun _ _ => trivial) (by simp)).bind'
-      (l := if first then 124 else 126) (fun state _ => ?_) le_rfl
+      (l := (if first then 124 else 126) + ftsCoordExtra) (fun state _ => ?_) le_rfl
     · refine (bound_buildChildH (128 + j) index coord (rawChild first j) word coefs (pads (j / 64)).1
         hcoord (rawChild_lt first j hj)).bind' (l := 0)
         (fun child _ => .pure _ 0 trivial) (by simp [ClaudeWCT.WCT9.childCost])
     · exact (bound_sharedHeap first index coord pads state.1).bind' (l := 0)
-        (fun nodes _ => .pure (nodes, state.2) 0 trivial) (by omega)
+        (fun nodes _ => .pure (nodes, state.2) 0 trivial) (by unfold ftsCoordExtra; omega)
   · cases first <;> decide
 
 theorem bound_buildPair (index pair : Nat) (hpair : pair < 4) (s : Selection)
     (aWord bWord : Rank) (prev : PairRoot) :
-    CBound (fun _ => True) 6960 (buildPair index pair s aWord bWord prev) := by
+    CBound (fun _ => True) (6960 + 2 * ftsCoordExtra) (buildPair index pair s aWord bWord prev) := by
   unfold buildPair
+  have h1 := ftsCapOf_le (2 * pair); have h2 := ftsCapOf_le (2 * pair + 1)
   refine (bound_buildSharedCoordinate true index (2 * pair) (by omega)
-    (firstChild s) aWord (fun _ => prev)).bind' (l := 3481) (fun a _ => ?_) (by decide)
+    (firstChild s) aWord (fun _ => prev)).bind' (l := 3481 + ftsCoordExtra) (fun a _ => ?_)
+      (by simp only [if_true]; omega)
   exact (bound_buildSharedCoordinate false index (2 * pair + 1) (by omega)
     (secondChild s) bWord (nodesPair a.1)).bind' (l := 0)
-    (fun b _ => .pure _ 0 trivial) (by decide)
+    (fun b _ => .pure _ 0 trivial) (by simp only [Bool.false_eq_true, if_false]; omega)
 
 theorem bound_buildSingleton (index : Nat) (selected : Child) (word : Rank) (prev : PairRoot) :
-    CBound (fun _ => True) 3481 (buildSingleton index selected word prev) := by
+    CBound (fun _ => True) (3481 + ftsCoordExtra) (buildSingleton index selected word prev) := by
   unfold buildSingleton
+  have h1 := ftsCapOf_le 8
   exact (bound_buildSharedCoordinate false index 8 (by decide) selected word (fun _ => prev)).bind'
-    (l := 0) (fun built _ => .pure _ 0 trivial) (by decide)
+    (l := 0) (fun built _ => .pure _ 0 trivial) (by simp only [Bool.false_eq_true, if_false]; omega)
 
 theorem bound_buildForest (index : Nat) (selected : ForestSelection) (words : ForestWords) :
-    CBound (fun _ => True) 31321 (buildForest index selected words) := by
+    CBound (fun _ => True) (31321 + 9 * ftsCoordExtra) (buildForest index selected words) := by
   unfold buildForest
   refine (Bound.foldlM_list (P := GoodQuery) (List.finRange 4) _ (fun _ _ => True)
-    (fun _ => 6960) ([], ftsStart) trivial (fun i hi state _ => ?_)).bind'
-    (l := 3481) (fun state _ => ?_) (by simp)
+    (fun _ => 6960 + 2 * ftsCoordExtra) ([], ftsStart) trivial (fun i hi state _ => ?_)).bind'
+    (l := 3481 + ftsCoordExtra) (fun state _ => ?_) (by simp [ftsCoordExtra])
   · exact (bound_buildPair index _ ((List.finRange 4)[i]'hi).isLt _ _ _ state.2).bind'
       (l := 0) (fun built _ => .pure _ 0 trivial) (by decide)
   · exact (bound_buildSingleton index selected.singleton words.singleton state.2).bind'
@@ -12620,18 +12789,18 @@ theorem canonical_search_valid_credit (answers : Answers) (lay : Layer) (floor t
 
 theorem canonical_four_residual (d0 d1 d2 d3 : List Nat) (l0 l1 l2 l3 : Bool)
     (h0 : 14 ≤ CanonicalPolicy.credit 0 l0 d0)
-    (h1 : CanonicalPolicy.threshold 1 (CanonicalPolicy.nextResidual 65 0 l0 d0) ≤
+    (h1 : CanonicalPolicy.threshold 1 (CanonicalPolicy.nextResidual 66 0 l0 d0) ≤
       CanonicalPolicy.credit 1 l1 d1)
     (h2 : CanonicalPolicy.threshold 2
-      (CanonicalPolicy.nextResidual (CanonicalPolicy.nextResidual 65 0 l0 d0) 1 l1 d1) ≤
+      (CanonicalPolicy.nextResidual (CanonicalPolicy.nextResidual 66 0 l0 d0) 1 l1 d1) ≤
       CanonicalPolicy.credit 2 l2 d2)
     (h3 : CanonicalPolicy.threshold 3
       (CanonicalPolicy.nextResidual
-        (CanonicalPolicy.nextResidual (CanonicalPolicy.nextResidual 65 0 l0 d0) 1 l1 d1) 2 l2 d2) ≤
+        (CanonicalPolicy.nextResidual (CanonicalPolicy.nextResidual 66 0 l0 d0) 1 l1 d1) 2 l2 d2) ≤
       CanonicalPolicy.credit 3 l3 d3) :
     CanonicalPolicy.nextResidual (CanonicalPolicy.nextResidual
-      (CanonicalPolicy.nextResidual (CanonicalPolicy.nextResidual 65 0 l0 d0) 1 l1 d1) 2 l2 d2) 3 l3 d3 = 0 := by
-  let r1 := CanonicalPolicy.nextResidual 65 0 l0 d0
+      (CanonicalPolicy.nextResidual (CanonicalPolicy.nextResidual 66 0 l0 d0) 1 l1 d1) 2 l2 d2) 3 l3 d3 = 0 := by
+  let r1 := CanonicalPolicy.nextResidual 66 0 l0 d0
   have hr1 : r1 < 54 := by dsimp [r1, CanonicalPolicy.nextResidual]; omega
   have hw1 := firstThreshold_window ⟨r1, hr1⟩
   change CanonicalPolicy.threshold 1 r1 < 16 ∧ r1 - CanonicalPolicy.threshold 1 r1 ≤ 39 at hw1
@@ -12656,7 +12825,7 @@ namespace SigGolfCandidate.Research.SharedForest
 open OracleComp OracleSpec SigGolfCandidate.T3 ClaudeWCT.WCT9
 
 def verifyDigestAccepted (output : HashOutput) : Bool :=
-  decide (output.toNat / 2 ^ 242 % 16384 < 791) && ranksAccepted output
+  decide (output.toNat / 2 ^ 242 % 16384 < 812) && ranksAccepted output
 
 theorem digestAccepted_implies_verify {output : HashOutput} (h : digestAccepted output = true) :
     verifyDigestAccepted output = true := by
@@ -12686,8 +12855,8 @@ def verify (message : Message) (pk : Digest) (w : Witness) : M Bool := do
   let output ← digest w.signature.rho message w.digestCounter
   if !verifyDigestAccepted output then return false
   let index := digestIndex output
-  let forest ← recoverForest index (forestSelectionFromOutput output)
-    (forestWordsFromOutput output) w.signature.forest
+  let forest ← recoverForestN index (forestSelectionFromOutput output)
+    (forestWordsFromOutput output) w.signature.forest w.ftsNonces
   let some root ← verifyLayers w index 4 (.pair forest.1 forest.2) | pure false
   pure (root == pk)
 
@@ -12914,6 +13083,179 @@ theorem sharedDigestSearch_some (answers : Answers) (rho : Digest) (message : Me
       · obtain ⟨hlo, hhi, hg, ho⟩ := ih (counter + 1) found output (by omega) he
         exact ⟨by omega, by omega, hg, ho⟩
 
+/-! E8: verification with the recovered nonces recomputes the recovered forest: each ground node's found nonce
+hashes to its value (`eval_ftsNonceSearch_hash`), every other node ignores the nonce. -/
+theorem eval_ftsNonceSearch_hash (answers : Answers) (coord index heap : Nat) (left right : Digest) :
+    ∀ fuel n, evalWithAnswerFn answers (ftsNodeHashN coord index heap
+        (evalWithAnswerFn answers (ftsNonceSearch coord index heap left right fuel n)).1 left right) =
+      (evalWithAnswerFn answers (ftsNonceSearch coord index heap left right fuel n)).2
+  | 0, n => by simp only [ftsNonceSearch, evalWithAnswerFn_bind, evalWithAnswerFn_pure]
+  | fuel + 1, n => by
+      simp only [ftsNonceSearch, evalWithAnswerFn_bind]
+      split
+      · simp only [evalWithAnswerFn_pure]
+      · exact eval_ftsNonceSearch_hash answers coord index heap left right fuel (n + 1)
+
+theorem eval_sharedNodeN_at (answers : Answers) (first : Bool) (coord index heap : Nat) (pads : Nat → PairRoot)
+    (left right : Digest) (n : Nat)
+    (hn : 8 ≤ heap ∧ heap < 16 → n = (evalWithAnswerFn answers (sharedNodeAt first coord index heap pads left right)).1) :
+    evalWithAnswerFn answers (sharedNodeN first coord index heap pads n left right) =
+      (evalWithAnswerFn answers (sharedNodeAt first coord index heap pads left right)).2 := by
+  unfold sharedNodeN
+  by_cases hg : 8 ≤ heap ∧ heap < 16
+  · rw [if_pos hg, hn hg]
+    unfold sharedNodeAt
+    rw [if_neg (by omega)]
+    unfold ftsNodeAt
+    have hz : ftsZeroBits coord heap ≠ 0 := by simp only [ftsZeroBits, if_pos hg]; split <;> omega
+    rw [if_neg hz]
+    exact eval_ftsNonceSearch_hash answers coord index heap left right _ 0
+  · rw [if_neg hg]
+    unfold sharedNodeAt
+    split_ifs with h8
+    · simp only [evalWithAnswerFn_map]
+    · rw [ftsNodeAt_of_zero (ftsZeroBits_off hg)]
+      simp only [evalWithAnswerFn_map, sharedNode, if_neg (show ¬ heap < 4 by omega), if_neg h8,
+        ftsNodeG_of_zero (ftsZeroBits_off hg)]
+
+/-- The recovered-path step with the nonce slot (`recoverSharedInner`'s fold body). -/
+def innerStepA (first : Bool) (index coord : Nat) (selected : Child) (path : Nat → Digest) (prev : PairRoot)
+    (acc : Digest × Nat) (level : Nat) : M (Digest × Nat) := do
+  let other := path level
+  let lr := if selected.val / 2 ^ level % 2 = 0 then (acc.1, other) else (other, acc.1)
+  let r ← sharedNodeAt first coord index ((128 + selected.val) / 2 ^ (level + 1)) (fun _ => prev) lr.1 lr.2
+  pure (r.2, if level = 3 then r.1 else acc.2)
+
+def innerStepN (first : Bool) (index coord : Nat) (selected : Child) (path : Nat → Digest) (nonce : Nat)
+    (prev : PairRoot) (value : Digest) (level : Nat) : M Digest := do
+  let other := path level
+  let lr := if selected.val / 2 ^ level % 2 = 0 then (value, other) else (other, value)
+  sharedNodeN first coord index ((128 + selected.val) / 2 ^ (level + 1)) (fun _ => prev) nonce lr.1 lr.2
+
+theorem heap_ground_iff (s level : Nat) (hs : s < 128) (hl : level < 5) :
+    (8 ≤ (128 + s) / 2 ^ (level + 1) ∧ (128 + s) / 2 ^ (level + 1) < 16) ↔ level = 3 := by
+  interval_cases level <;> norm_num <;> omega
+
+theorem eval_fold_plain (answers : Answers) (first : Bool) (index coord : Nat) (selected : Child)
+    (path : Nat → Digest) (prev : PairRoot) (n : Nat) :
+    ∀ (L : List Nat), (∀ l ∈ L, l ≠ 3 ∧ l < 5) → ∀ (acc : Digest × Nat),
+      evalWithAnswerFn answers (L.foldlM (innerStepN first index coord selected path n prev) acc.1) =
+        (evalWithAnswerFn answers (L.foldlM (innerStepA first index coord selected path prev) acc)).1 ∧
+      (evalWithAnswerFn answers (L.foldlM (innerStepA first index coord selected path prev) acc)).2 = acc.2
+  | [], _, acc => by simp
+  | l :: L, h, acc => by
+      have hl := h l (List.mem_cons_self ..)
+      have ih := eval_fold_plain answers first index coord selected path prev n L
+        (fun l' hl' => h l' (List.mem_cons_of_mem _ hl'))
+      simp only [List.foldlM_cons, evalWithAnswerFn_bind]
+      have hng : ¬ (8 ≤ (128 + selected.val) / 2 ^ (l + 1) ∧ (128 + selected.val) / 2 ^ (l + 1) < 16) := by
+        rw [heap_ground_iff _ _ selected.isLt hl.2]; exact hl.1
+      have e1 := eval_sharedNodeN_at answers first coord index ((128 + selected.val) / 2 ^ (l + 1)) (fun _ => prev)
+        (if selected.val / 2 ^ l % 2 = 0 then (acc.1, path l) else (path l, acc.1)).1
+        (if selected.val / 2 ^ l % 2 = 0 then (acc.1, path l) else (path l, acc.1)).2 n (fun h => absurd h hng)
+      have hstep : evalWithAnswerFn answers (innerStepA first index coord selected path prev acc l) =
+          (evalWithAnswerFn answers (innerStepN first index coord selected path n prev acc.1 l),
+            acc.2) := by
+        simp only [innerStepA, innerStepN, evalWithAnswerFn_bind, evalWithAnswerFn_pure, if_neg hl.1, e1]
+      have hstepN : evalWithAnswerFn answers (innerStepN first index coord selected path n prev acc.1 l) =
+          (evalWithAnswerFn answers (innerStepA first index coord selected path prev acc l)).1 := by rw [hstep]
+      rw [hstepN]
+      obtain ⟨i1, i2⟩ := ih (evalWithAnswerFn answers (innerStepA first index coord selected path prev acc l))
+      refine ⟨i1, ?_⟩
+      rw [i2, hstep]
+
+theorem eval_recoverSharedInnerN (answers : Answers) (first : Bool) (index coord : Nat) (selected : Child)
+    (word : Rank) (values : Fin 6 → Digest) (path : Nat → Digest) (prev : PairRoot) :
+    evalWithAnswerFn answers (recoverSharedInnerN first index coord selected word values path
+      (evalWithAnswerFn answers (recoverSharedInner first index coord selected word values path prev)).2 prev) =
+      (evalWithAnswerFn answers (recoverSharedInner first index coord selected word values path prev)).1 := by
+  have hA : recoverSharedInner first index coord selected word values path prev = (do
+      let ends ← (List.finRange 6).mapM fun i =>
+        chain index coord (rawChild first selected.val) i.val (4 - wordDigit word i) (wordDigit word i) (values i)
+      let leaf ← leafHashH (128 + selected.val) index coord (rawChild first selected.val) prev.1 ends
+      ([0,1,2] ++ [3] ++ [4]).foldlM (innerStepA first index coord selected path prev) (leaf, 0)) := rfl
+  have hN (nonce : Nat) : recoverSharedInnerN first index coord selected word values path nonce prev = (do
+      let ends ← (List.finRange 6).mapM fun i =>
+        chain index coord (rawChild first selected.val) i.val (4 - wordDigit word i) (wordDigit word i) (values i)
+      let leaf ← leafHashH (128 + selected.val) index coord (rawChild first selected.val) prev.1 ends
+      ([0,1,2] ++ [3] ++ [4]).foldlM (innerStepN first index coord selected path nonce prev) leaf) := rfl
+  rw [hA, hN]
+  simp only [evalWithAnswerFn_bind, List.foldlM_append]
+  generalize evalWithAnswerFn answers (leafHashH _ _ _ _ _ _) = leaf
+  rw [(eval_fold_plain answers first index coord selected path prev _ [0,1,2] (by decide) (leaf, 0)).1]
+  generalize evalWithAnswerFn answers ([0,1,2].foldlM (innerStepA first index coord selected path prev) (leaf, 0)) = a3
+  simp only [List.foldlM_cons, List.foldlM_nil, bind_pure]
+  have q := fun n => eval_fold_plain answers first index coord selected path prev n [4] (by decide)
+    (evalWithAnswerFn answers (innerStepA first index coord selected path prev a3 3))
+  simp only [List.foldlM_cons, List.foldlM_nil, bind_pure] at q
+  rw [(q 0).2]
+  have h3 : evalWithAnswerFn answers (innerStepN first index coord selected path
+      (evalWithAnswerFn answers (innerStepA first index coord selected path prev a3 3)).2 prev a3.1 3) =
+      (evalWithAnswerFn answers (innerStepA first index coord selected path prev a3 3)).1 := by
+    simp only [innerStepA, innerStepN, evalWithAnswerFn_bind, evalWithAnswerFn_pure]
+    exact eval_sharedNodeN_at answers first coord index _ _ _ _ _ (fun _ => rfl)
+  rw [h3]
+  exact (q _).1
+
+theorem eval_recoverSharedOuterN (answers : Answers) (index coord : Nat) (selected : Child) (word : Rank)
+    (values : Fin 6 → Digest) (path : Nat → Digest) (prev : PairRoot) :
+    evalWithAnswerFn answers (recoverSharedOuterN index coord selected word values path
+      (evalWithAnswerFn answers (recoverSharedOuter index coord selected word values path prev)).2 prev) =
+      (evalWithAnswerFn answers (recoverSharedOuter index coord selected word values path prev)).1 := by
+  unfold recoverSharedOuterN recoverSharedOuter
+  simp only [evalWithAnswerFn_bind, evalWithAnswerFn_pure]
+  rw [eval_recoverSharedInnerN]
+
+theorem eval_recoverPairN (answers : Answers) (index pair : Nat) (s : Selection) (aWord bWord : Rank)
+    (opened : PairOpening) (nonces : List Nat) (prev : PairRoot)
+    (h1 : nonces.getD (2 * pair) 0 = (evalWithAnswerFn answers (recoverPair index pair s aWord bWord opened prev)).2.getD 0 0)
+    (h2 : nonces.getD (2 * pair + 1) 0 =
+      (evalWithAnswerFn answers (recoverPair index pair s aWord bWord opened prev)).2.getD 1 0) :
+    evalWithAnswerFn answers (recoverPairN index pair s aWord bWord opened nonces prev) =
+      (evalWithAnswerFn answers (recoverPair index pair s aWord bWord opened prev)).1 := by
+  unfold recoverPair at h1 h2 ⊢
+  unfold recoverPairN
+  simp only [evalWithAnswerFn_bind, evalWithAnswerFn_pure, List.getD_eq_getElem?_getD,
+    List.getElem?_cons_zero, List.getElem?_cons_succ, Option.getD_some] at h1 h2 ⊢
+  rw [h1, eval_recoverSharedInnerN, h2, eval_recoverSharedOuterN]
+
+theorem eval_recoverSingletonN (answers : Answers) (index : Nat) (selected : Child) (word : Rank)
+    (opened : SingletonOpening) (prev : PairRoot) :
+    evalWithAnswerFn answers (recoverSingletonN index selected word opened
+      (evalWithAnswerFn answers (recoverSingleton index selected word opened prev)).2 prev) =
+      (evalWithAnswerFn answers (recoverSingleton index selected word opened prev)).1 := by
+  unfold recoverSingletonN recoverSingleton
+  simp only [evalWithAnswerFn_bind, evalWithAnswerFn_pure]
+  rw [eval_recoverSharedInnerN]
+
+@[simp] theorem eval_recoverPair_length (answers : Answers) (index pair : Nat) (s : Selection) (aWord bWord : Rank)
+    (opened : PairOpening) (prev : PairRoot) :
+    (evalWithAnswerFn answers (recoverPair index pair s aWord bWord opened prev)).2.length = 2 := by
+  unfold recoverPair; simp only [evalWithAnswerFn_bind, evalWithAnswerFn_pure, List.length_cons, List.length_nil]
+
+theorem eval_recoverForestN (answers : Answers) (index : Nat) (selected : ForestSelection) (words : ForestWords)
+    (opened : ForestOpening) :
+    evalWithAnswerFn answers (recoverForestN index selected words opened
+      (evalWithAnswerFn answers (recoverForest index selected words opened)).2) =
+      (evalWithAnswerFn answers (recoverForest index selected words opened)).1 := by
+  unfold recoverForestN recoverForest
+  simp only [evalWithAnswerFn_bind, evalWithAnswerFn_pure, show List.finRange 4 = [0,1,2,3] from rfl,
+    List.foldlM_cons, List.foldlM_nil]
+  rw [eval_recoverPairN answers index (((0 : Fin 4)) : Nat) _ _ _ _ _ _ (by simp [List.getD_eq_getElem?_getD])
+    (by simp [List.getD_eq_getElem?_getD])]
+  rw [eval_recoverPairN answers index (((1 : Fin 4)) : Nat) _ _ _ _ _ _ (by simp [List.getD_eq_getElem?_getD])
+    (by simp [List.getD_eq_getElem?_getD])]
+  rw [eval_recoverPairN answers index (((2 : Fin 4)) : Nat) _ _ _ _ _ _ (by simp [List.getD_eq_getElem?_getD])
+    (by simp [List.getD_eq_getElem?_getD])]
+  rw [eval_recoverPairN answers index (((3 : Fin 4)) : Nat) _ _ _ _ _ _ (by simp [List.getD_eq_getElem?_getD])
+    (by simp [List.getD_eq_getElem?_getD])]
+  have hl8 : ∀ (a b c d : List Nat) (e : Nat), a.length = 2 → b.length = 2 → c.length = 2 → d.length = 2 →
+      ([] ++ a ++ b ++ c ++ d ++ [e]).getD 8 0 = e := by
+    intro a b c d e ha hb hc hd
+    simp [List.getD_eq_getElem?_getD, List.getElem?_append, ha, hb, hc, hd]
+  rw [hl8 _ _ _ _ _ (by simp) (by simp) (by simp) (by simp), eval_recoverSingletonN]
+
+
 theorem verify_from_recovered (answers : Answers) (message : Message) (pk : Digest)
     (sig : Signature) (counter : BitVec 32) (output : HashOutput) (result : RecoveredLayers)
     (ho : evalWithAnswerFn answers (digest sig.rho message counter) = output)
@@ -12921,19 +13263,26 @@ theorem verify_from_recovered (answers : Answers) (message : Message) (pk : Dige
     (hr : evalWithAnswerFn answers (recoverHintedLayers sig (digestIndex output)
       ((sig.layers 0).path topJ) 4
       (.pair (evalWithAnswerFn answers (recoverForest (digestIndex output)
-        (forestSelectionFromOutput output) (forestWordsFromOutput output) sig.forest)).1
+        (forestSelectionFromOutput output) (forestWordsFromOutput output) sig.forest)).1.1
         (evalWithAnswerFn answers (recoverForest (digestIndex output)
-          (forestSelectionFromOutput output) (forestWordsFromOutput output) sig.forest)).2)) = some result)
+          (forestSelectionFromOutput output) (forestWordsFromOutput output) sig.forest)).1.2)) = some result)
     (hpk : result.root = pk) :
     evalWithAnswerFn answers (verify message pk
       ⟨sig, counter, fun lay => result.counters.getD lay.val 0, !(result.lows.getD 0 true), result.nonces,
-      fun lay => result.lowerNonces.getD lay.val []⟩) = true := by
+      fun lay => result.lowerNonces.getD lay.val [],
+      (evalWithAnswerFn answers (recoverForest (digestIndex output)
+        (forestSelectionFromOutput output) (forestWordsFromOutput output) sig.forest)).2⟩) = true := by
   have hc : ¬counter.toNat ≥ digestVerifyWindow := Nat.not_le.mpr counter.isLt
   have hv := (recoverHintedLayers_verified answers sig (digestIndex output) 4 le_rfl _ _ hr).2.2.2.2
     ⟨sig, counter, fun lay => result.counters.getD lay.val 0, !(result.lows.getD 0 true), result.nonces,
-      fun lay => result.lowerNonces.getD lay.val []⟩ rfl (by intros; rfl) rfl rfl (by intros; rfl)
+      fun lay => result.lowerNonces.getD lay.val [],
+      (evalWithAnswerFn answers (recoverForest (digestIndex output)
+        (forestSelectionFromOutput output) (forestWordsFromOutput output) sig.forest)).2⟩
+      rfl (by intros; rfl) rfl rfl (by intros; rfl)
+  have hn := eval_recoverForestN answers (digestIndex output) (forestSelectionFromOutput output)
+    (forestWordsFromOutput output) sig.forest
   simp only [verify, hc, if_false, evalWithAnswerFn_bind, ho, ha, Bool.not_true,
-    Bool.false_eq_true, hv, evalWithAnswerFn_pure, hpk, beq_self_eq_true]
+    Bool.false_eq_true, hn, hv, evalWithAnswerFn_pure, hpk, beq_self_eq_true]
 
 end SigGolfCandidate.Research.SharedForest
 
@@ -12967,8 +13316,8 @@ theorem buildForest_commitment (answers : Answers) (index : Nat)
 
 theorem recoverForest_commitment (answers : Answers) (index : Nat)
     (selected : ForestSelection) (words : ForestWords) :
-    evalWithAnswerFn answers (recoverForest index selected words
-      (evalWithAnswerFn answers (buildForest index selected words)).1) = forestCommitment answers index :=
+    (evalWithAnswerFn answers (recoverForest index selected words
+      (evalWithAnswerFn answers (buildForest index selected words)).1)).1 = forestCommitment answers index :=
   (recoverForest_honest answers index selected words).trans (buildForest_commitment answers index selected words)
 
 def fixedPrepared (answers : Answers) (index : Nat) (lay : Layer) : PreparedLower :=
@@ -13023,8 +13372,8 @@ theorem expandFill_verified (answers : Answers) (message : Message) (pk : Digest
       dsimp only [sig0] at hd
       simp only [hd, evalWithAnswerFn_bind] at he
       let index := digestIndex output
-      let forest := evalWithAnswerFn answers (recoverForest index (forestSelectionFromOutput output)
-        (forestWordsFromOutput output) sig0.forest)
+      let forest := (evalWithAnswerFn answers (recoverForest index (forestSelectionFromOutput output)
+        (forestWordsFromOutput output) sig0.forest)).1
       cases hr : evalWithAnswerFn answers (recoverHintedLayers sig0 index ((sig0.layers 0).path topJ)
         4 (.pair forest.1 forest.2)) with
       | none =>
@@ -13482,9 +13831,9 @@ theorem expand_complete_of_recovered (answers : Answers) (message : Message) (pk
     (hr : evalWithAnswerFn answers (recoverHintedLayers sig (digestIndex output)
       ((sig.layers 0).path topJ) 4
       (.pair (evalWithAnswerFn answers (recoverForest (digestIndex output)
-        (forestSelectionFromOutput output) (forestWordsFromOutput output) sig.forest)).1
+        (forestSelectionFromOutput output) (forestWordsFromOutput output) sig.forest)).1.1
         (evalWithAnswerFn answers (recoverForest (digestIndex output)
-          (forestSelectionFromOutput output) (forestWordsFromOutput output) sig.forest)).2)) = some result)
+          (forestSelectionFromOutput output) (forestWordsFromOutput output) sig.forest)).1.2)) = some result)
     (hh : policyHintsValid sig.policyHints result.digits result.lows = true) (hpk : result.root = pk)
     (htop : TopPathOK sig) (hlow : LowerPathOK sig) :
     ∃ w, evalWithAnswerFn answers (expand message pk sig) = some w := by
@@ -13497,8 +13846,8 @@ theorem expand_complete_of_recovered (answers : Answers) (message : Message) (pk
     simp only [policyHintsValid, decide_eq_true_eq] at hh
     exact hh.1
   let index := digestIndex output
-  let forest := evalWithAnswerFn answers (recoverForest index (forestSelectionFromOutput output)
-    (forestWordsFromOutput output) sig.forest)
+  let forest := (evalWithAnswerFn answers (recoverForest index (forestSelectionFromOutput output)
+    (forestWordsFromOutput output) sig.forest)).1
   let sig0 := fillTopSignature sig 0
   let result0 : RecoveredLayers := {result with
     root := evalWithAnswerFn answers (topNode index result.foldedTop ((sig0.layers 0).path topJ))}
@@ -13561,9 +13910,9 @@ theorem signFromOutput_recovery (answers : Answers) (cache : SigGolfCandidate.T3
       evalWithAnswerFn answers (recoverHintedLayers w.signature (digestIndex output)
         ((w.signature.layers 0).path topJ) 4
         (.pair (evalWithAnswerFn answers (recoverForest (digestIndex output)
-          (forestSelectionFromOutput output) (forestWordsFromOutput output) w.signature.forest)).1
+          (forestSelectionFromOutput output) (forestWordsFromOutput output) w.signature.forest)).1.1
           (evalWithAnswerFn answers (recoverForest (digestIndex output)
-            (forestSelectionFromOutput output) (forestWordsFromOutput output) w.signature.forest)).2)) = some result ∧
+            (forestSelectionFromOutput output) (forestWordsFromOutput output) w.signature.forest)).1.2)) = some result ∧
       result.root = treeValue (builtTree answers 0 0) 12 0 ∧
       policyHintsValid w.signature.policyHints result.digits result.lows = true ∧
       w.topHigh = !(result.lows.getD 0 true) := by
@@ -13590,11 +13939,11 @@ theorem signFromOutput_recovery (answers : Answers) (cache : SigGolfCandidate.T3
         hf.hints_valid, rfl⟩
       change evalWithAnswerFn answers (recoverHintedLayers sig index ((sig.layers 0).path topJ) 4
         (.pair (evalWithAnswerFn answers (recoverForest index (forestSelectionFromOutput output)
-          (forestWordsFromOutput output) built.1)).1
+          (forestWordsFromOutput output) built.1)).1.1
           (evalWithAnswerFn answers (recoverForest index (forestSelectionFromOutput output)
-            (forestWordsFromOutput output) built.1)).2)) = _
-      have hforest : evalWithAnswerFn answers (recoverForest index (forestSelectionFromOutput output)
-          (forestWordsFromOutput output) built.1) = built.2 :=
+            (forestWordsFromOutput output) built.1)).1.2)) = _
+      have hforest : (evalWithAnswerFn answers (recoverForest index (forestSelectionFromOutput output)
+          (forestWordsFromOutput output) built.1)).1 = built.2 :=
         recoverForest_honest answers index _ _
       rw [hforest]
       exact hr
@@ -13658,11 +14007,28 @@ theorem signFromOutput_topPathOK (answers : Answers) (cache : SigGolfCandidate.T
   rw [signFromOutput_path answers cache hcache rho counter output w he j]
   exact htree j.val hj hj11 _ (sibling_lt _ _ (route0_leaf_lt _) hj11)
 
+/-- E8 stage 2: the honest pads of FTS pair `p` (the previous pair's top pair; `forestPrev 4` feeds the singleton). -/
+def forestPrev (answers : Answers) (index : Nat) : Nat → PairRoot
+  | 0 => ftsStart
+  | p + 1 => expectedPairRoot answers index p (forestPrev answers index p)
+
+/-- E8 stage 2 completeness event: every FTS ground node (heaps `8..15`) of every coordinate tree of every forest
+index passes its zero test, i.e. no FTS ground nonce search hit its cap. -/
+def FtsTreesOK (answers : Answers) : Prop :=
+  ∀ index, index < 2 ^ 31 → ∀ heap, 8 ≤ heap → heap < 16 →
+    (∀ pair, pair < 4 →
+      ftsZeroOk (2 * pair) heap ((firstNodes answers index pair (forestPrev answers index pair)).getD heap 0) = true ∧
+      ftsZeroOk (2 * pair + 1) heap
+        ((secondNodes answers index pair (forestPrev answers index pair)).getD heap 0) = true) ∧
+    ftsZeroOk 8 heap ((sharedNodes answers false index 8 (fun _ => forestPrev answers index 4)).getD heap 0) = true
+
 /-- U16b completeness event: every node of every reachable lower tree passes its zero test (`lowerPathBits` of its
-level), i.e. no ground nonce search (heaps 2..15 of layers 1..3) hit its cap. -/
+level), i.e. no ground nonce search (heaps 2..15 of layers 1..3) hit its cap. E8 stage 2: and every FTS ground
+node passes its zero test (`FtsTreesOK`). -/
 def LowerTreesOK (answers : Answers) : Prop :=
-  ∀ index, index < 2 ^ 31 → ∀ lay : Layer, lay ≠ 0 → ∀ j, j < height lay → ∀ i, i < 2 ^ (height lay - j) →
-    (treeValue (wotsTree answers lay (route index lay).2) j i).toNat / 2 ^ (128 - lowerPathBits lay j) = 0
+  (∀ index, index < 2 ^ 31 → ∀ lay : Layer, lay ≠ 0 → ∀ j, j < height lay → ∀ i, i < 2 ^ (height lay - j) →
+    (treeValue (wotsTree answers lay (route index lay).2) j i).toNat / 2 ^ (128 - lowerPathBits lay j) = 0) ∧
+  FtsTreesOK answers
 
 /-- U16b: the signer's lower path node at height `j` is the keygen lower tree's node next to the signed leaf's
 ancestor. -/
@@ -13707,7 +14073,7 @@ theorem signFromOutput_lowerPathOK (answers : Answers) (cache : SigGolfCandidate
     LowerPathOK w.signature := by
   intro lay hl j
   rw [signFromOutput_path_lower answers cache hcache rho counter output w he lay j]
-  exact hlower _ (digestIndex_lt output) lay hl j.val j.isLt _
+  exact hlower.1 _ (digestIndex_lt output) lay hl j.val j.isLt _
     (sibling_lt_lower lay _ _ (route_leaf_bound _ lay) j.isLt)
 
 theorem signPayload_expands (answers : Answers) (cache : SigGolfCandidate.T3.Cache)
@@ -13908,8 +14274,8 @@ def coordinateCost (f : Fields) (k : Fin 9) : Nat :=
      else SharedForest.bCorrection (f.1 k).toNat)
 def cost (f : Fields) : Nat := ((List.finRange 9).map (coordinateCost f)).sum
 def accepted (f : Fields) : Bool :=
-  decide (f.2.2.2.toNat < 791) &&
-    (List.finRange 9).all (fun k => decide ((f.2.1 k).toNat < 563)) && decide (cost f ≤ 776)
+  decide (f.2.2.2.toNat < 812) &&
+    (List.finRange 9).all (fun k => decide ((f.2.1 k).toNat < 563)) && decide (cost f ≤ 777)
 
 theorem decodedRank_fields (a : HashOutput) (k : Fin 9) :
     decodedRank (fields a) k = SharedForest.forestRank a k.val := by
@@ -14028,7 +14394,7 @@ theorem policyHints_credit_sum (hints : BitVec 16) (digits : List (List Nat)) (l
     (hh : policyHintsValid hints digits lows = true)
     (hc : ∀ lay : Layer, hintFloor hints lay ≤
       CanonicalPolicy.credit lay (lows.getD lay.val true) (digits.getD lay.val [])) :
-    65 ≤ ((List.finRange 4).map fun lay =>
+    66 ≤ ((List.finRange 4).map fun lay =>
       CanonicalPolicy.credit lay (lows.getD lay.val true) (digits.getD lay.val [])).sum := by
   simp only [policyHintsValid, decide_eq_true_eq] at hh
   have h0 : 14 ≤ CanonicalPolicy.credit 0 (lows.getD 0 true) (digits.getD 0 []) := by
@@ -14042,7 +14408,7 @@ theorem policyHints_credit_sum (hints : BitVec 16) (digits : List (List Nat)) (l
   have hz := canonical_four_residual (digits.getD 0 []) (digits.getD 1 []) (digits.getD 2 [])
     (digits.getD 3 []) (lows.getD 0 true) (lows.getD 1 true) (lows.getD 2 true) (lows.getD 3 true) h0 h1 h2 h3
   simp only [CanonicalPolicy.nextResidual] at hz
-  change 65 ≤ CanonicalPolicy.credit 0 (lows.getD 0 true) (digits.getD 0 []) +
+  change 66 ≤ CanonicalPolicy.credit 0 (lows.getD 0 true) (digits.getD 0 []) +
     (CanonicalPolicy.credit 1 (lows.getD 1 true) (digits.getD 1 []) +
       (CanonicalPolicy.credit 2 (lows.getD 2 true) (digits.getD 2 []) +
       (CanonicalPolicy.credit 3 (lows.getD 3 true) (digits.getD 3 []) + 0)))
@@ -14119,47 +14485,99 @@ theorem bound_topFoldN_coarse (sig : ClaudeWCT.WCT9.Signature) (index : Nat) (di
     exact (Cost.bound_topNodeAt _ _ _ _).bind' (l := 0) (fun _ _ => .pure _ 0 trivial) (by rw [hjv]; simp)
   · decide
 
+theorem bound_sharedNodeAt (first : Bool) (coord index heap : Nat) (pads : Nat → PairRoot)
+    (left right : Digest) :
+    CBound (fun _ => True) (sharedNodeCost coord heap) (sharedNodeAt first coord index heap pads left right) := by
+  unfold sharedNodeAt
+  split_ifs with h8
+  · exact Bound.map (Q := fun _ => True) _ (bound_sharedNode first coord index heap pads left right) (fun _ _ => trivial)
+  · unfold ftsNodeAt sharedNodeCost
+    by_cases hg : 8 ≤ heap ∧ heap < 16
+    · rw [if_pos hg, if_neg (by simp only [ftsZeroBits, if_pos hg]; split <;> omega)]
+      refine (bound_ftsNonceSearch coord index heap left right _ 0).mono_k ?_
+      have : 0 < 2 ^ ftsZeroBits coord heap := Nat.two_pow_pos _
+      unfold ftsNonceCap; omega
+    · rw [if_neg hg, if_pos (ftsZeroBits_off hg)]
+      refine Bound.map (Q := fun _ => True) _ ?_ (fun _ _ => trivial)
+      rw [nodeHashH_eq, ftsHash_eq]
+      split
+      · exact bound_highHash64 _ (nodeInput_length ..)
+      · apply bound_shortHash <;> simp [nodeInput_length, pad64_length]
+
 theorem bound_recoverSharedInner (first : Bool) (index coord : Nat) (hc : coord<9)
     (selected : Child) (word : Rank) (values : Fin 6 → Digest) (path : Nat → Digest) (prev : PairRoot) :
-    CBound (fun _ => True) 31 (recoverSharedInner first index coord selected word values path prev) := by
+    CBound (fun _ => True) (30 + ftsCapOf coord)
+      (recoverSharedInner first index coord selected word values path prev) := by
   unfold recoverSharedInner
   have hj := rawChild_lt first selected.val selected.isLt
   refine (Bound.mapM_list (P := GoodQuery) (List.finRange 6) _ (fun _ => 4)
     (fun i _ => (cbound_of_ftsBound (ftsBound_chain index coord (rawChild first selected.val)
       i.val (4-wordDigit word i) (wordDigit word i) (values i) hc hj i.isLt
       (by have h := wordDigit_le_four word i; omega))).mono_k (wordDigit_le_four word i))).bind'
-      (l := 7) (fun ends hends => ?_) (by decide)
+      (l := 6 + ftsCapOf coord) (fun ends hends => ?_) (by simp; omega)
   refine (cbound_of_ftsBound (ftsBound_leafHashH index (128 + selected.val) coord (rawChild first selected.val)
     prev.1 ends hc hj (by simpa using hends))).bind'
-      (l := 5) (fun leaf _ => ?_) (by decide)
-  exact (Bound.foldlM_list (P := GoodQuery) (List.range 5) _ (fun _ _ => True) (fun _ => 1)
-    leaf trivial (fun i hi value _ => bound_sharedNode ..)).mono_k (by simp)
+      (l := 4 + ftsCapOf coord) (fun leaf _ => ?_) (by omega)
+  refine (Bound.foldlM_list (P := GoodQuery) (List.range 5) _ (fun _ _ => True)
+    (fun i => if i = 3 then ftsCapOf coord else 1)
+    (leaf, 0) trivial (fun i hi acc _ => ?_)).mono_k ?_
+  · have hi' : i < 5 := by simpa using hi
+    simp only [List.getElem_range]
+    have hs := selected.isLt
+    refine (bound_sharedNodeAt first coord index _ _ _ _).bind' (l := 0) (fun r _ => .pure _ 0 trivial) ?_
+    rw [Nat.add_zero]
+    by_cases h3 : i = 3
+    · subst h3
+      rw [if_pos rfl]
+      unfold sharedNodeCost ftsCapOf
+      rw [if_pos (by omega)]
+      simp only [ftsNonceCap, ftsZeroBits, if_pos (show 8 ≤ (128 + selected.val) / 2 ^ (3 + 1) ∧
+        (128 + selected.val) / 2 ^ (3 + 1) < 16 by omega), if_pos (show 8 ≤ 8 ∧ 8 < 16 by omega)]
+      exact le_rfl
+    · rw [if_neg h3]
+      unfold sharedNodeCost
+      rw [if_neg (by interval_cases i <;> simp_all <;> omega)]
+  · simp [Finset.sum_range_succ] <;> omega
+
+/-- E8: worst-case calls of the FTS recovery: 284 plus `cap - 1` per coordinate (2·255 + 7·511). -/
+def ftsRecoverWorst : Nat := 4371
 
 theorem bound_recoverPair (index pair : Nat) (hp : pair<4) (selected : Selection)
     (aWord bWord : Rank) (opened : PairOpening) (prev : PairRoot) :
-    CBound (fun _ => True) 63 (recoverPair index pair selected aWord bWord opened prev) := by
-  unfold recoverPair
-  refine (bound_recoverSharedInner true index (2*pair) (by omega) _ _ _ _ _).bind'
-    (l := 32) (fun a _ => ?_) (by decide)
-  refine (bound_recoverSharedInner false index (2*pair+1) (by omega) _ _ _ _ _).bind'
-    (l := 1) (fun b _ => ?_) (by decide)
+    CBound (fun _ => True) (61 + ftsCapOf (2 * pair) + ftsCapOf (2 * pair + 1))
+      (recoverPair index pair selected aWord bWord opened prev) := by
+  unfold recoverPair recoverSharedOuter
+  simp only [bind_assoc]
+  have h1 := bound_recoverSharedInner true index (2*pair) (by omega) (firstChild selected) aWord
+    opened.firstValues (fun i => opened.firstPath ⟨i % 6, Nat.mod_lt _ (by decide)⟩) prev
+  refine h1.bind' (l := 31 + ftsCapOf (2 * pair + 1)) (fun a _ => ?_) (by omega)
+  have h2 := bound_recoverSharedInner false index (2*pair+1) (by omega) (secondChild selected) bWord
+    opened.secondValues (fun i => opened.secondPath ⟨i % 7, Nat.mod_lt _ (by decide)⟩)
+    (if (firstChild selected).val / 32 % 2 = 0 then (a.1, opened.firstPath 5) else (opened.firstPath 5, a.1))
+  refine h2.bind' (l := 1) (fun b _ => ?_) (by omega)
   exact (bound_sharedOuterHash ..).bind' (l := 0) (fun outer _ => .pure _ 0 trivial) (by decide)
 
 theorem bound_recoverSingleton (index : Nat) (selected : Child) (word : Rank)
     (opened : SingletonOpening) (prev : PairRoot) :
-    CBound (fun _ => True) 32 (recoverSingleton index selected word opened prev) := by
+    CBound (fun _ => True) (31 + ftsCapOf 8) (recoverSingleton index selected word opened prev) := by
   unfold recoverSingleton
-  refine (bound_recoverSharedInner false index 8 (by decide) _ _ _ _ _).bind'
-    (l := 1) (fun inner _ => ?_) (by decide)
+  have h1 := bound_recoverSharedInner false index 8 (by decide) selected word opened.values
+    (fun i => opened.path ⟨i % 7, Nat.mod_lt _ (by decide)⟩) prev
+  refine h1.bind' (l := 1) (fun inner _ => ?_) (by omega)
   exact (bound_sharedOuterHash ..).bind' (l := 0) (fun outer _ => .pure _ 0 trivial) (by decide)
 
 theorem bound_recoverForest (index : Nat) (selected : ForestSelection) (words : ForestWords)
     (opened : ForestOpening) :
-    CBound (fun _ => True) 284 (recoverForest index selected words opened) := by
+    CBound (fun _ => True) ftsRecoverWorst (recoverForest index selected words opened) := by
   unfold recoverForest
-  refine (Bound.foldlM_list (P := GoodQuery) (List.finRange 4) _ (fun _ _ => True) (fun _ => 63)
-    ftsStart trivial (fun i hi prev _ => bound_recoverPair index ((List.finRange 4)[i]).val ((List.finRange 4)[i]).isLt _ _ _ _ _)).bind'
-      (l := 32) (fun prev _ => bound_recoverSingleton ..) (by decide)
+  refine (Bound.foldlM_list (P := GoodQuery) (List.finRange 4) _ (fun _ _ => True)
+    (fun i => 61 + ftsCapOf (2 * i) + ftsCapOf (2 * i + 1))
+    (ftsStart, []) trivial (fun i hi acc _ => ?_)).bind'
+      (l := 31 + ftsCapOf 8) (fun prev _ => ?_) ?_
+  · exact (bound_recoverPair index ((List.finRange 4)[i]).val ((List.finRange 4)[i]).isLt _ _ _ _ _).bind'
+      (l := 0) (fun r _ => .pure _ 0 trivial) (by simp)
+  · exact (bound_recoverSingleton ..).bind' (l := 0) (fun r _ => .pure _ 0 trivial) (by omega)
+  · decide
 
 end SigGolfCandidate.Research.SharedForest
 
@@ -14195,7 +14613,7 @@ theorem recoverHintedLayers_cost_replay (answers : Answers) (sig : Signature) (i
       (recoverLayerPair (mainSignature sig) index lay (digits lay)) =
       builtPair answers lay (route index lay).2) :
     cost answers (recoverHintedLayers sig index other 4 (.pair forest.1 forest.2)) ≤
-      recoverySearchCost answers sig index forest + (12100 + 66757) := by
+      recoverySearchCost answers sig index forest + (7748 + 66757) := by
   have hs0 := hs 0
   have hs1 := hs 1
   have hs2 := hs 2
@@ -14206,9 +14624,9 @@ theorem recoverHintedLayers_cost_replay (answers : Answers) (sig : Signature) (i
   have hp1 := hpW 1 (by decide)
   have hp2 := hpW 2 (by decide)
   have hp3 := hpW 3 (by decide)
-  have hpc1 : ClaudeWCT.WCT9.Cost.pathCost 1 = 2818 := ClaudeWCT.WCT9.Cost.pathCost_one
-  have hpc2 : ClaudeWCT.WCT9.Cost.pathCost 2 = 3841 := ClaudeWCT.WCT9.Cost.pathCost_two
-  have hpc3 : ClaudeWCT.WCT9.Cost.pathCost 3 = 3841 := ClaudeWCT.WCT9.Cost.pathCost_three
+  have hpc1 : ClaudeWCT.WCT9.Cost.pathCost 1 = 2050 := ClaudeWCT.WCT9.Cost.pathCost_one
+  have hpc2 : ClaudeWCT.WCT9.Cost.pathCost 2 = 2049 := ClaudeWCT.WCT9.Cost.pathCost_two
+  have hpc3 : ClaudeWCT.WCT9.Cost.pathCost 3 = 2049 := ClaudeWCT.WCT9.Cost.pathCost_three
   have hcW : ∀ lay, cost answers (recoverLayerPairW (mainSignature sig) index lay (digits lay)) ≤
       404 - (height lay - 1) + ClaudeWCT.WCT9.Cost.pathCost lay := by
     intro lay
@@ -14317,7 +14735,7 @@ theorem PreparedSearchFacts.recovery_cost_le {answers : Answers} {cache : SigGol
       (recoverLayerPair (mainSignature sig) index lay (result.digits.getD lay.val [])) =
       builtPair answers lay (route index lay).2) :
     cost answers (recoverHintedLayers sig index other 4 (.pair forest.1 forest.2)) ≤
-      cost answers (searchPreparedLayers cache index prepared forest) + (12100 + 66757) := by
+      cost answers (searchPreparedLayers cache index prepared forest) + (7748 + 66757) := by
   have hs0 := h.search0
   have hs1 := h.search1
   have hs2 := h.search2
@@ -15225,14 +15643,14 @@ def viewProposal (v : Coordinates) : Proposal :=
   (v.1.2.2.1, v.1.1, fun k => ⟨(v.1.2.1 k).val % 563, Nat.mod_lt _ (by decide)⟩)
 def proposal (a : HashOutput) : Proposal := viewProposal (coordinates a)
 def admissibleView (v : Coordinates) : Bool :=
-  decide (v.1.2.2.2.val < 791) && (List.finRange 9).all (fun k => decide ((v.1.2.1 k).val < 563))
+  decide (v.1.2.2.2.val < 812) && (List.finRange 9).all (fun k => decide ((v.1.2.1 k).val < 563))
 def admissible (a : HashOutput) : Bool := admissibleView (coordinates a)
 
 theorem admissibleView_iff (v : Coordinates) :
-    admissibleView v = true ↔ v.1.2.2.2.val < 791 ∧ ∀ k : Fin 9, (v.1.2.1 k).val < 563 := by
+    admissibleView v = true ↔ v.1.2.2.2.val < 812 ∧ ∀ k : Fin 9, (v.1.2.1 k).val < 563 := by
   simp only [admissibleView, Bool.and_eq_true, decide_eq_true_eq, List.all_eq_true,
     List.mem_finRange, forall_true_left]
-abbrev FibreData := Fin 791 × (Fin 62 → Bool)
+abbrev FibreData := Fin 812 × (Fin 62 → Bool)
 def fibreEquiv (p : Proposal) :
     {v : Coordinates // admissibleView v = true ∧ viewProposal v = p} ≃ FibreData where
   toFun v := (⟨v.1.1.2.2.2.val, ((admissibleView_iff v.1).1 v.2.1).1⟩, v.1.2)
@@ -15251,7 +15669,7 @@ def fibreEquiv (p : Proposal) :
 
 theorem card_fibre (p : Proposal) :
     (Finset.univ.filter (fun a : HashOutput => admissible a = true ∧ proposal a = p)).card =
-      791 * 2^62 := by
+      812 * 2^62 := by
   have e : {a : HashOutput // admissible a = true ∧ proposal a = p} ≃
       {v : Coordinates // admissibleView v = true ∧ viewProposal v = p} :=
     coordinatesEquiv.subtypeEquiv (fun _ => Iff.rfl)
@@ -15261,7 +15679,7 @@ theorem card_fibre (p : Proposal) :
 
 theorem sum_admissible (g : Proposal → ENNReal) :
     (∑ a : HashOutput, if admissible a = true then g (proposal a) else 0) =
-      ((791 * 2^62 : Nat) : ENNReal) * ∑ p, g p := by
+      ((812 * 2^62 : Nat) : ENNReal) * ∑ p, g p := by
   rw [← Finset.sum_filter, ← Finset.sum_fiberwise _ proposal, Finset.mul_sum]
   apply Finset.sum_congr rfl
   intro p _
@@ -15270,7 +15688,7 @@ theorem sum_admissible (g : Proposal → ENNReal) :
 
 theorem acceptance_eq :
     Pr[fun a : HashOutput => admissible a = true | ($ᵗ HashOutput : ProbComp HashOutput)] =
-      (791 * 563^9 : ENNReal) / 2^104 := by
+      (812 * 563^9 : ENNReal) / 2^104 := by
   rw [← expectedValue_ite_one, BPORS.expected_uniform_eq_finiteAverage]
   unfold SigGolfResearch.Gate6.Moments.finiteAverage
   rw [sum_admissible (fun _ => 1), Finset.sum_const, Finset.card_univ, nsmul_eq_mul, mul_one]
@@ -15302,7 +15720,7 @@ def coordinateCost (a : Alphabet) (k : Fin 9) : Nat :=
     else SharedForest.bCorrection (lowField a.1 k)
 def cost (a : Alphabet) : Nat := ((List.finRange 9).map (coordinateCost a)).sum
 /-- The producer's joint cap 777 (`SharedForest.digestAccepted`). -/
-def capOk (a : Alphabet) : Bool := decide (cost a ≤ 776)
+def capOk (a : Alphabet) : Bool := decide (cost a ≤ 777)
 def producer (a : HashOutput) : Bool := admissible a && capOk (proposal a).2
 
 theorem proposal_index (a : HashOutput) : (proposal a).1.val = ClaudeWCT.WCT9.digestIndex a := by
@@ -15338,7 +15756,7 @@ theorem cost_source (a : HashOutput) : cost (proposal a).2 = SharedForest.jointA
   simp only [cost, SharedForest.jointAccountingCost, h]
 
 theorem admissible_source (a : HashOutput) :
-    admissible a = (decide (a.toNat/2^242%16384 < 791) && SharedForest.ranksAccepted a) := by
+    admissible a = (decide (a.toNat/2^242%16384 < 812) && SharedForest.ranksAccepted a) := by
   simp only [admissible, admissibleView, coordinates, rawFields, BitVec.val_toFin,
     BitVec.extractLsb'_toNat, Nat.shiftRight_eq_div_pow]
   rfl

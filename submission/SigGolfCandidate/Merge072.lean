@@ -244,7 +244,7 @@ def tabRow4 (r : Nat) : List (BitVec 32) := (cTab4.drop (4 * r)).take 3
 theorem tabRow4_e11 (r : Nat) (hr : r < 128) :
     (Images.expandE11Code.drop (60150 + 4 * r - 60000)).take (tabRow4 r).length = tabRow4 r := by
   have hl : (tabRow4 r).length = 3 := by
-    unfold tabRow4 cTab4; simp only [List.length_take, List.length_drop, show Images.expandE11Code.length = 734 from rfl]
+    unfold tabRow4 cTab4; simp only [List.length_take, List.length_drop, show Images.expandE11Code.length = 919 from rfl]
     omega
   rw [hl]
   unfold tabRow4 cTab4
@@ -253,7 +253,7 @@ theorem tabRow4_e11 (r : Nat) (hr : r < 128) :
 theorem code_prow4 (r : Nat) (hr : r < 128) : CodeAt Images.expandImage (pcOf (60150 + 4 * r)) (tabRow4 r) :=
   codeAt_e11_at (60150 + 4 * r) (by omega) (by
     have := tabRow4_e11 r hr
-    unfold tabRow4 cTab4; simp only [List.length_take, List.length_drop, show Images.expandE11Code.length = 734 from rfl]
+    unfold tabRow4 cTab4; simp only [List.length_take, List.length_drop, show Images.expandE11Code.length = 919 from rfl]
     omega) (tabRow4_e11 r hr)
 def prow4Res (r : Nat) : Result :=
   ⟨⟨RegFile.init.set .x14 (.c (BitVec.ofNat 64 (pa4 r))), [], []⟩, .bin .and (.reg .x1) (.c 0xfffffffffffffffe#64), .jump, 3, 3⟩
@@ -499,15 +499,14 @@ theorem pS2_spec (hpc : s.pc = pcOf 60718) (a1 a2 a3 : Nat) (b1 : a1 % 8 = 0 ∧
 
 theorem pT2_spec (hpc : s.pc = pcOf 60729) (a4 : Nat) (b4 : a4 % 8 = 0 ∧ 4256 ≤ a4 ∧ a4 + 8 ≤ 26016)
     (h14 : s.getReg .x14 = BitVec.ofNat 64 a4) (h31 : s.getReg .x31 = BitVec.ofNat 64 0x700000) :
-    ∃ t, Steps Images.expandImage s 3 3 t ∧ t.pc = pcOf 60732 ∧ t.getReg .x10 = 0 ∧ RegsExcept s t [.x10, .x30] ∧
-      (∀ A, t.getMem A = upd s.getMem a4 (s.getMem (BitVec.ofNat 64 0x700140)) A) ∧
-      fetch Images.expandImage t = some (.base .ECALL) := by
+    ∃ t, Steps Images.expandImage s 4 4 t ∧ t.pc = pcOf 61050 ∧ t.getReg .x10 = 0 ∧ RegsExcept s t [.x10, .x30] ∧
+      (∀ A, t.getMem A = upd s.getMem a4 (s.getMem (BitVec.ofNat 64 0x700140)) A) := by
   have hc := code_psl 60729 60733 (by norm_num) (by norm_num) (by norm_num)
   have hob : pT2.res.obligs s := by
     simp only [pT2.res]; t3n [h14, h31]
     simp only [and_true, Nat.add_zero]
     omega
-  refine ⟨_, symRun_sound pT2 hc s hpc hob, ?_, ?_, ?_, ?_, symRun_ecall pT2 hc s hob rfl⟩
+  refine ⟨_, symRun_sound pT2 hc s hpc hob, ?_, ?_, ?_, ?_⟩
   · simp [pT2.res, Result.toState_pc, E.eval]
   · simp only [Result.toState_getReg, pT2.res]; t3n []
   · intro r hr; simp at hr; cases r <;> simp_all [pT2.res, rv_simp] <;> rfl
@@ -553,14 +552,14 @@ theorem upd_rec (M : Word → Word) (a : Nat) (v : Word) (o : Nat) (ha : a + 8 �
     upd M a v (BitVec.ofNat 64 (0x700000 + o)) = M (BitVec.ofNat 64 (0x700000 + o)) := by
   unfold upd; rw [if_neg]; rw [ofNat_eq_iff]; omega
 
-/-- The positional post-pass (from 60662): 100 steps to the `ecall` at 60732 with `a0 = 0`. -/
+/-- The positional post-pass (from 60662): 101 steps, through E8's HALT hook `60732: jal 61050`, with `a0 = 0`. -/
 theorem post_spec (hpc : s.pc = pcOf 60662) (q1 q2 q3 : Nat) (hq1 : q1 < 64) (hq2 : q2 < 32) (hq3 : q3 < 32)
     (h1 : s.getMem (BitVec.ofNat 64 0x700018) = BitVec.ofNat 64 (64 + q1))
     (h2 : s.getMem (BitVec.ofNat 64 0x700038) = BitVec.ofNat 64 (32 + q2))
     (h3 : s.getMem (BitVec.ofNat 64 0x700058) = BitVec.ofNat 64 (32 + q3)) :
-    ∃ t, Steps Images.expandImage s 100 100 t ∧ t.pc = pcOf 60732 ∧ t.getReg .x10 = 0 ∧
+    ∃ t, Steps Images.expandImage s 101 101 t ∧ t.pc = pcOf 61050 ∧ t.getReg .x10 = 0 ∧
       RegsExcept s t [.x1, .x10, .x11, .x12, .x13, .x14, .x18, .x28, .x29, .x30, .x31] ∧
-      (∀ A, t.getMem A = postMem s.getMem q1 q2 q3 A) ∧ fetch Images.expandImage t = some (.base .ECALL) := by
+      (∀ A, t.getMem A = postMem s.getMem q1 q2 q3 A) := by
   have pb := fun r (hr : r < 128) k (hk : k < 3) => pa_bounds r hr k hk
   have pb4 := fun r (hr : r < 128) => pa4_bounds r hr
   -- layer 1
@@ -639,7 +638,7 @@ theorem post_spec (hpc : s.pc = pcOf 60662) (q1 q2 q3 : Nat) (hq1 : q1 < 64) (hq
     show (0x700040 : Nat) = 0x700000 + 0x40 from rfl, q12 0x50 (by norm_num), q12 0x48 (by norm_num), q12 0x40 (by norm_num)] at mw4
   obtain ⟨w5, k5, pw5, z14e, rw5, mw5⟩ := prow4_spec w4 (96 + q3) (by omega) pw4 60729 z1d
   have i31e : w5.getReg .x31 = BitVec.ofNat 64 0x700000 := by rw [rw5.get (by decide)]; exact z31d
-  obtain ⟨t, st, pt, x10t, rt, mt, ft⟩ := pT2_spec w5 pw5 _ (pb4 (96 + q3) (by omega)) z14e i31e
+  obtain ⟨t, st, pt, x10t, rt, mt⟩ := pT2_spec w5 pw5 _ (pb4 (96 + q3) (by omega)) z14e i31e
   have hw5 : w5.getMem = upd (upd (upd v6.getMem (pa (96 + q3) 0) (s.getMem (BitVec.ofNat 64 (0x700000 + 0x50))))
       (pa (96 + q3) 1) (s.getMem (BitVec.ofNat 64 (0x700000 + 0x48)))) (pa (96 + q3) 2)
       (s.getMem (BitVec.ofNat 64 (0x700000 + 0x40))) := funext fun A => by rw [mw5, mw4]
@@ -649,7 +648,7 @@ theorem post_spec (hpc : s.pc = pcOf 60662) (q1 q2 q3 : Nat) (hq1 : q1 < 64) (hq
       upd_rec _ _ _ _ (pb (96 + q3) (by omega) 0 (by omega)).2.2 (by norm_num), q12 0x140 (by norm_num)]
   refine ⟨t, Steps.of_eq (s1.trans (s2.trans (s3.trans (s4.trans (s5.trans (s6.trans (t1.trans (t2.trans (t3.trans
     (t4.trans (t5.trans (t6.trans (k1.trans (k2.trans (k3.trans (k4.trans (k5.trans st))))))))))))))))) rfl rfl,
-    pt, x10t, ?_, ?_, ft⟩
+    pt, x10t, ?_, ?_⟩
   · exact ((((((((((((((((r1.trans r2).trans r3).trans r4).trans r5).trans r6).trans rv1).trans rv2).trans rv3).trans
       rv4).trans rv5).trans rv6).trans rw1).trans rw2).trans rw3).trans rw4).trans (rw5.trans rt)).mono (by decide)
   · intro A
@@ -771,9 +770,9 @@ theorem pad_spec (s : MachineState) (hpc : s.pc = pcOf 44961) (q1 q2 q3 : Nat) (
     (hq3 : q3 < 32) (h1 : s.getMem (BitVec.ofNat 64 0x700018) = BitVec.ofNat 64 (64 + q1))
     (h2 : s.getMem (BitVec.ofNat 64 0x700038) = BitVec.ofNat 64 (32 + q2))
     (h3 : s.getMem (BitVec.ofNat 64 0x700058) = BitVec.ofNat 64 (32 + q3)) :
-    ∃ t, Steps Images.expandImage s 167 167 t ∧ t.pc = pcOf 60732 ∧ t.getReg .x10 = 0 ∧
+    ∃ t, Steps Images.expandImage s 168 168 t ∧ t.pc = pcOf 61050 ∧ t.getReg .x10 = 0 ∧
       RegsExcept s t [.x1, .x6, .x10, .x11, .x12, .x13, .x14, .x15, .x16, .x17, .x18, .x28, .x29, .x30, .x31] ∧
-      (∀ A, t.getMem A = postMem (padMem s.getMem) q1 q2 q3 A) ∧ fetch Images.expandImage t = some (.base .ECALL) := by
+      (∀ A, t.getMem A = postMem (padMem s.getMem) q1 q2 q3 A) := by
   obtain ⟨u, su, up, ru, mu⟩ := pad_pre s hpc
   have hu : u.getMem = padMem s.getMem := funext mu
   have sj := symRun_sound eJ45015 code_J45015 u up trivial
@@ -781,12 +780,12 @@ theorem pad_spec (s : MachineState) (hpc : s.pc = pcOf 44961) (q1 q2 q3 : Nat) (
   have rj : RegsExcept u (eJ45015.res.toState u) [] := by
     intro r hr
     cases r <;> first | (simp only [rv_simp, eJ45015.res]; done) | rfl
-  obtain ⟨t, st, tp, t10, rt, mt, ft⟩ := post_spec (eJ45015.res.toState u)
+  obtain ⟨t, st, tp, t10, rt, mt⟩ := post_spec (eJ45015.res.toState u)
     (by simp only [rv_simp, eJ45015.res] <;> decide) q1 q2 q3 hq1 hq2 hq3
     (by rw [hm, padMem_far _ 0x700018 (by norm_num) (by norm_num)]; exact h1)
     (by rw [hm, padMem_far _ 0x700038 (by norm_num) (by norm_num)]; exact h2)
     (by rw [hm, padMem_far _ 0x700058 (by norm_num) (by norm_num)]; exact h3)
-  refine ⟨t, Steps.of_eq (su.trans (sj.trans st)) rfl rfl, tp, t10, ?_, fun A => (mt A).trans (by rw [hm]), ft⟩
+  refine ⟨t, Steps.of_eq (su.trans (sj.trans st)) rfl rfl, tp, t10, ?_, fun A => (mt A).trans (by rw [hm])⟩
   exact ((ru.trans rj).trans rt).mono (by decide)
 
 /-- From the exit hook `54174: jal 44961`: 168 steps to the `ecall` at 60732. -/
@@ -794,13 +793,13 @@ theorem pad_hook (s : MachineState) (hpc : s.pc = pcOf 54174) (q1 q2 q3 : Nat) (
     (hq3 : q3 < 32) (h1 : s.getMem (BitVec.ofNat 64 0x700018) = BitVec.ofNat 64 (64 + q1))
     (h2 : s.getMem (BitVec.ofNat 64 0x700038) = BitVec.ofNat 64 (32 + q2))
     (h3 : s.getMem (BitVec.ofNat 64 0x700058) = BitVec.ofNat 64 (32 + q3)) :
-    ∃ t, Steps Images.expandImage s 168 168 t ∧ t.pc = pcOf 60732 ∧ t.getReg .x10 = 0 ∧
+    ∃ t, Steps Images.expandImage s 169 169 t ∧ t.pc = pcOf 61050 ∧ t.getReg .x10 = 0 ∧
       RegsExcept s t [.x1, .x6, .x10, .x11, .x12, .x13, .x14, .x15, .x16, .x17, .x18, .x28, .x29, .x30, .x31] ∧
-      (∀ A, t.getMem A = postMem (padMem s.getMem) q1 q2 q3 A) ∧ fetch Images.expandImage t = some (.base .ECALL) := by
+      (∀ A, t.getMem A = postMem (padMem s.getMem) q1 q2 q3 A) := by
   have s1 := symRun_sound eHook code_hook s hpc trivial
-  obtain ⟨t, st, tp, t10, rt, mt, ft⟩ := pad_spec (eHook.res.toState s) (by simp only [rv_simp, eHook.res] <;> decide)
+  obtain ⟨t, st, tp, t10, rt, mt⟩ := pad_spec (eHook.res.toState s) (by simp only [rv_simp, eHook.res] <;> decide)
     q1 q2 q3 hq1 hq2 hq3 h1 h2 h3
-  refine ⟨t, Steps.of_eq (s1.trans st) rfl rfl, tp, t10, ?_, fun A => (mt A).trans ?_, ft⟩
+  refine ⟨t, Steps.of_eq (s1.trans st) rfl rfl, tp, t10, ?_, fun A => (mt A).trans ?_⟩
   · intro r hr
     rw [rt r hr]
     cases r <;> first | (simp only [rv_simp, eHook.res]; done) | rfl
@@ -1360,20 +1359,19 @@ theorem pad_hook_witEncG (s : MachineState) (hpc : s.pc = pcOf 54174) (output : 
     (hrec : RecTable s.getMem output w)
     (hbuf : ∀ k, k < 2720 → s.getMem (BitVec.ofNat 64 (4256 + 8 * k)) =
       (Paired.witEnc output w).extractLsb' (64 * k) 64) :
-    ∃ t, Steps Images.expandImage s 168 168 t ∧
-      t.pc = pcOf 60732 ∧ t.getReg .x10 = 0 ∧
+    ∃ t, Steps Images.expandImage s 169 169 t ∧
+      t.pc = pcOf 61050 ∧ t.getReg .x10 = 0 ∧
       RegsExcept s t [.x1, .x6, .x10, .x11, .x12, .x13, .x14, .x15, .x16, .x17, .x18, .x28, .x29, .x30, .x31] ∧
-      fetch Images.expandImage t = some (.base .ECALL) ∧
       (∀ k, k < 2720 → t.getMem (BitVec.ofNat 64 (4256 + 8 * k)) = (witEncG output w).extractLsb' (64 * k) 64) ∧
       (∀ A, (∀ j, j < 11 → A ≠ BitVec.ofNat 64 (4256 + noncePos output j)) →
         (∀ e ∈ groundFolds, A ≠ BitVec.ofNat 64 (4256 + lowerNoncePos output e.1 e.2)) → t.getMem A = s.getMem A) := by
   have l1 : (route (WCT9.digestIndex output) 1).1 < 128 := lt_of_lt_of_eq (route_leaf_lt _ 1) (by decide)
   have l2 : (route (WCT9.digestIndex output) 2).1 < 64 := lt_of_lt_of_eq (route_leaf_lt _ 2) (by decide)
   have l3 : (route (WCT9.digestIndex output) 3).1 < 64 := lt_of_lt_of_eq (route_leaf_lt _ 3) (by decide)
-  obtain ⟨t, st, tp, t10, rt, mt, ft⟩ := pad_hook s hpc ((route (WCT9.digestIndex output) 1).1 / 2)
+  obtain ⟨t, st, tp, t10, rt, mt⟩ := pad_hook s hpc ((route (WCT9.digestIndex output) 1).1 / 2)
     ((route (WCT9.digestIndex output) 2).1 / 2) ((route (WCT9.digestIndex output) 3).1 / 2)
     (by omega) (by omega) (by omega) (hrec 1 (by decide)).2.1 (hrec 2 (by decide)).2.1 (hrec 3 (by decide)).2.1
-  refine ⟨t, st, tp, t10, rt, ft, fun k hk => ?_, fun A hA hA' => ?_⟩
+  refine ⟨t, st, tp, t10, rt, fun k hk => ?_, fun A hA hA' => ?_⟩
   · rw [mt]; exact postPadMem_witEncG s.getMem output w hleaf hn hrec hbuf k hk
   · rw [mt]; exact postPadMem_other s.getMem output w hleaf hrec A hA hA'
 

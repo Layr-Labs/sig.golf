@@ -1783,15 +1783,14 @@ theorem step_node {im : Image} {c h index : Nat}
     (hlook:LookOK im (look c)) (hc:c<9) (hh:h<128)
     (s : MachineState) (hpc:s.pc=pcOf (entry c)) (h18:s.getReg .x18=BitVec.ofNat 64 h)
     (h22:s.getReg .x22=BitVec.ofNat 64 index) :
-    ∃t,Steps im s (cycles c (mode h)) (cycles c (mode h)) t ∧
-      fetch im t=some (.base .ECALL) ∧ t.pc=pcOf (hashPc c) ∧
+    ∃t,Steps im s (cycles c (mode h)) (cycles c (mode h)) t ∧ t.pc=pcOf (hashPc c) ∧
       t.getReg .x10=BitVec.ofNat 64 NODEW ∧ t.getReg .x11=BitVec.ofNat 64 64 ∧
       t.getReg .x12=BitVec.ofNat 64 NOUTW ∧
       (∀k,k<8 → t.getMem (BitVec.ofNat 64 (NODEW+8*k))=(value c (mode h) (8*k)).eval s) ∧
       RegsExcept s t [.x6,.x7,.x10,.x11,.x12,.x28] ∧ Frame s t writes := by
-  obtain ⟨hs,he⟩:=runA_pres hlook (node_run hc (mode_lt h)) s hpc
+  obtain ⟨hs,-⟩:=runA_pres hlook (node_run hc (mode_lt h)) s hpc
     (obligations_hold s hc hh h18) (branches_hold s hh h18)
-  refine ⟨(expected c (mode h)).toState s,hs,he rfl,rfl,rfl,rfl,rfl,?_,?_,?_⟩
+  refine ⟨(expected c (mode h)).toState s,hs,rfl,rfl,rfl,rfl,?_,?_,?_⟩
   · intro k hk
     rw[expected,pres_getMem,mem_read s c (mode h) hk]
   · exact (pres_regsExcept (regs c (mode h)) _ _ _ _ _ _ s).mono (by simp[regs])
@@ -2746,14 +2745,14 @@ theorem gate_eval (s : MachineState) (a : BitVec 256) (ha:OutAt s NBUF a) :
 
 theorem gate_spec (m : Bool) (hl:LookOK im (look m)) (s : MachineState) (hpc:s.pc=pcOf (base m+15))
     (a : BitVec 256) (ha:OutAt s NBUF a) :
-    ∃t,Steps im s 6 6 t ∧ t.pc=(if gateN a < 791 then pcOf (base m+21) else pcOf (next m)) ∧
+    ∃t,Steps im s 6 6 t ∧ t.pc=(if gateN a < 812 then pcOf (base m+21) else pcOf (next m)) ∧
       (m=true → t.getReg .x17=BitVec.ofNat 64 NBUF) ∧
       RegsExcept s t [.x6,.x7,.x17,.x28] ∧ Frame s t (fun _=>False) := by
-  have hbr:∀b∈(expectedGate m (decide (¬gateN a < 791))).brs,b.holds s:=by
+  have hbr:∀b∈(expectedGate m (decide (¬gateN a < 812))).brs,b.holds s:=by
     intro b hb
     simp only[expectedGate,pres,pres2,List.mem_singleton]at hb
     subst hb
-    exact geu_holds s gateE (gateN a) 791 (by unfold gateN;omega) (by decide) (gate_eval s a ha)
+    exact geu_holds s gateE (gateN a) 812 (by unfold gateN;omega) (by decide) (gate_eval s a ha)
   obtain ⟨hs,hp,-,hr,hm⟩:=SearchM.piece hl (gate_run m _) s hpc rfl hbr rfl
   refine ⟨_,hs,?_,?_,?_,fun A _ _=>by rw[hm];rfl⟩
   · rw[hp];simp only[expectedGate,pres,pres2,decide_eq_true_eq]
@@ -2810,13 +2809,13 @@ theorem rank_spec (m : Bool) (k : Nat) (hk:k < 9) (hl:LookOK im (look m)) (s : M
 
 theorem cap_spec (m : Bool) (hl:LookOK im (look m)) (s : MachineState) (hpc:s.pc=pcOf (cap m))
     (total : Nat) (ht:total < 2^64) (hs:s.getReg (sumReg m)=BitVec.ofNat 64 total) :
-    ∃t,Steps im s 2 2 t ∧ t.pc=(if total ≤ 776 then pcOf (accepted m) else pcOf (next m)) ∧
+    ∃t,Steps im s 2 2 t ∧ t.pc=(if total ≤ 777 then pcOf (accepted m) else pcOf (next m)) ∧
       RegsExcept s t [.x6] ∧ Frame s t (fun _=>False) := by
-  have hbr:∀b∈(expectedCap m (decide (¬total < 777))).brs,b.holds s:=by
+  have hbr:∀b∈(expectedCap m (decide (¬total < 778))).brs,b.holds s:=by
     intro b hb
     simp only[expectedCap,pres,pres2,List.mem_singleton]at hb
     subst hb
-    exact geu_holds s (.reg (sumReg m)) total 777 ht (by decide) hs
+    exact geu_holds s (.reg (sumReg m)) total 778 ht (by decide) hs
   obtain ⟨st,hp,-,hr,hm⟩:=SearchM.piece hl (cap_run m _) s hpc rfl hbr rfl
   refine ⟨_,st,?_,(pres_regsExcept _ _ _ _ _ _ _ s).mono (by simp [rankReg,addrReg,sumReg]),fun A _ _=>by rw[hm];rfl⟩
   rw[hp];simp only[expectedCap,pres,pres2,decide_eq_true_eq]
@@ -3071,10 +3070,10 @@ set_option linter.unusedSimpArgs false
 attribute [local instance] Classical.propDecidable
 variable {im : Image}
 
-def acceptedTest (a : BitVec 256) : Bool := decide (gateN a < 791) &&
-  (List.range 9).all (fun k=>decide (rankN a k < 563)) && decide (psum a 9 ≤ 776)
+def acceptedTest (a : BitVec 256) : Bool := decide (gateN a < 812) &&
+  (List.range 9).all (fun k=>decide (rankN a k < 563)) && decide (psum a 9 ≤ 777)
 theorem acceptedTest_iff (a : BitVec 256) : acceptedTest a=true ↔
-    gateN a < 791 ∧ (∀k,k < 9 → rankN a k < 563) ∧ psum a 9 ≤ 776 := by
+    gateN a < 812 ∧ (∀k,k < 9 → rankN a k < 563) ∧ psum a 9 ≤ 777 := by
   simp only[acceptedTest,Bool.and_eq_true,decide_eq_true_eq,List.all_eq_true,List.mem_range,and_assoc]
 
 theorem checks_spec (m : Bool) (hl:LookOK im (look m)) (s : MachineState)
@@ -3083,7 +3082,7 @@ theorem checks_spec (m : Bool) (hl:LookOK im (look m)) (s : MachineState)
       Frame s t (fun _=>False) ∧ t.pc=(if acceptedTest a then pcOf (accepted m) else pcOf (next m)) ∧
       (acceptedTest a=true → t.getReg .x17=BitVec.ofNat 64 NBUF) := by
   obtain ⟨t1,s1,p1,r17,r1,f1⟩:=gate_spec m hl s hpc a ha
-  by_cases hg:gateN a < 791
+  by_cases hg:gateN a < 812
   · rw[if_pos hg]at p1
     obtain ⟨t2,s2,p2,sm2,tb2,r172,r2,f2⟩:=init_spec m hl t1 p1 r17
     obtain ⟨t3,c3,s3,b3,r3,f3,p3⟩:=fields_from m hl a 9 0 rfl t2 p2
@@ -3097,7 +3096,7 @@ theorem checks_spec (m : Bool) (hl:LookOK im (look m)) (s : MachineState)
       · exact (((r1.trans r2).trans r3).trans r4).mono (by cases m <;> simp [sumReg])
       · exact (((f1.trans f2).trans f3).trans f4).mono (fun A _ h=>by simpa using h)
       · rw[p4]
-        have he:(acceptedTest a=true) ↔ psum a 9 ≤ 776:=by
+        have he:(acceptedTest a=true) ↔ psum a 9 ≤ 777:=by
           constructor
           · intro h;exact ((acceptedTest_iff a).mp h).2.2
           · intro h;exact (acceptedTest_iff a).mpr ⟨hg,hf,h⟩
