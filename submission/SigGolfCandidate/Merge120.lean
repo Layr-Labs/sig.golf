@@ -89,15 +89,26 @@ theorem groupFactsK (q k : Nat) (hq : q<17) (hk : k<nRank q) : GroupFactsK q k :
     obtain ⟨⟨⟨⟨htails,hrungs⟩,hpB⟩,hpC⟩,hdisp⟩ := hb
     have eb : gbase q k=base q (kdig q k 1) (kdig q k 2) := by simp [gbase,hn]
     have hsA : q≠0 → skipA q k=false := by intro h0; simp [skipA,h0]
-    have eB : gB q k=pcB q (kdig q k 1) (kdig q k 2)+(if skipB q k then 4 else 0) := by
+    have eB : gB q k=pcB q (kdig q k 1) (kdig q k 2)+(if skipB q k then 4 else 0)-(if skipFirstB q (kdig q k 1) then 4 else 0) := by
       unfold gB pcB
       by_cases hsh : sharedG q=true
       · rw [if_pos hsh, eb]
       · have h0 : q≠0 := by intro h0; subst h0; simp [sharedG] at hsh
         have hsB : skipB q k=false := by simp [skipB,hn,hsh]
-        rw [if_neg hsh, eb, hsA h0, hsB]; simp
+        rw [if_neg hsh, eb, hsA h0, hsB]; simp [skipFirstB,h0]
     have eC : gC q k=pcC q (kdig q k 1) (kdig q k 2) := by
-      unfold gC; rw [eB]; unfold pcC; split_ifs <;> omega
+      have hf : skipFirstB q (kdig q k 1)=true → skipB q k=true := by
+        intro hf
+        simp only [skipFirstB,decide_eq_true_eq] at hf
+        rcases hf with ⟨rfl, hd⟩
+        simp [skipB,sharedG,hd]
+      have hl : skipFirstB q (kdig q k 1)=true → partLen q (kdig q k 1)=4 := by
+        intro hf
+        simp only [skipFirstB,decide_eq_true_eq] at hf
+        simp [partLen,hf.2]
+      unfold gC; rw [eB]; unfold pcC pcB
+      cases hsf : skipFirstB q (kdig q k 1) <;> cases hsk : skipB q k <;> simp only [hsf,hsk,Bool.false_eq_true,ite_false,ite_true]
+      all_goals first | have := hf hsf; contradiction | have := hl hsf; omega | omega
     have hsC : skipC q k=skipBody q (kdig q k 1) (kdig q k 2) := by
       simp only [skipC,skipBody,hn,Bool.false_or]
       by_cases h9 : q<9 <;> simp [h9]
@@ -118,7 +129,13 @@ theorem groupFactsK (q k : Nat) (hq : q<17) (hk : k<nRank q) : GroupFactsK q k :
       exact rungsOK_mono q 1 _ _ _ (by omega) h1
     · rw [eB]
       cases hsk : skipB q k
-      · simpa using hpB
+      · have hsf : skipFirstB q (kdig q k 1)=false := by
+          by_contra hh
+          have ht : skipFirstB q (kdig q k 1)=true := by cases h : skipFirstB q (kdig q k 1) <;> simp_all
+          simp only [skipFirstB,decide_eq_true_eq] at ht
+          rcases ht with ⟨rfl, hd⟩
+          simp [skipB,sharedG,hd] at hsk
+        simpa [hsf] using hpB
       · have hm' := hsk
         simp only [skipB,Bool.and_eq_true,decide_eq_true_eq] at hm'
         exact partOK_skip _ _ _ _ hm'.2.2
@@ -253,9 +270,12 @@ theorem chk_tail (c : NCtx) (hds : c.DigitsOk) (i : Nat) (hi : i<50) (h0 : i%3=0
 theorem skipB_eq (c : NCtx) (hds : c.DigitsOk) (q : Nat) (hq : q<17) :
     skipB q (c.kOf q)=decide (c.bufferSafe (3*q+1)) := by
   obtain ⟨k1,k2,-⟩ := c.kdig_kOf' hds q hq
+  by_cases hq0 : q=0
+  · subst q
+    simp [skipB,sharedG,k2,bufferSafe,topMax_mx 1 (by omega)]
   have he : c.bufferSafe (3*q+1) ↔ c.dig (3*q+1)=mx q ∧ c.dig (3*q)=mx q := by
-    simp [bufferSafe,topMax_mx (3*q+1) (by omega),topMax_mx (3*q) (by omega),show (3*q+1)/3=q by omega,
-      show (3*q)/3=q by omega,show (3*q+1)%3=1 by omega,show 3*q+1≠0 by omega,show 3*q+1≠50 by omega]
+    simp [bufferSafe,hq0,topMax_mx (3*q+1) (by omega),topMax_mx (3*q) (by omega),show (3*q+1)/3=q by omega,
+      show (3*q)/3=q by omega,show (3*q+1)%3=1 by omega,show 3*q+1≠0 by omega,show 3*q+1≠50 by omega,show 3*q+1≠1 by omega]
   by_cases ha : c.dig (3*q)=mx q
   · by_cases hb : c.dig (3*q+1)=mx q
     · have hr : (rowInl q (c.kOf q) || sharedG q)=true := by
@@ -264,9 +284,9 @@ theorem skipB_eq (c : NCtx) (hds : c.DigitsOk) (q : Nat) (hq : q<17) :
         · have hm := mx_bounds' q
           have hk3 : 3 ≤ kss q (c.kOf q) := by unfold kss; rw [k1,k2,ha,hb]; omega
           simp [rowInl, show 9 ≤ q by omega, show q<16 by omega, hk3]
-      simp only [skipB,hr,Bool.true_and,k1,k2,ha,hb,he]
-    · simp [skipB,k1,k2,he,hb]
-  · simp [skipB,k1,k2,he,ha]
+      simp only [skipB,hr,Bool.true_and,k1,k2,ha,hb,he,hq0,false_or]
+    · simp [skipB,k1,k2,he,hb,hq0]
+  · simp [skipB,k1,k2,he,ha,hq0]
 /-- Chain C of a triple `q < 16` is skipped (buffer-safe) iff chains B and C both hold their largest digit. -/
 theorem skipC_eq (c : NCtx) (hds : c.DigitsOk) (q : Nat) (hq : q<16) :
     skipC q (c.kOf q)=decide (c.bufferSafe (3*q+2)) := by
@@ -274,7 +294,7 @@ theorem skipC_eq (c : NCtx) (hds : c.DigitsOk) (q : Nat) (hq : q<16) :
   have k3 := k3 (by omega)
   have he : c.bufferSafe (3*q+2) ↔ c.dig (3*q+2)=mx q ∧ c.dig (3*q+1)=mx q := by
     simp [bufferSafe,topMax_mx (3*q+2) (by omega),topMax_mx (3*q+1) (by omega),show (3*q+2)/3=q by omega,
-      show (3*q+1)/3=q by omega,show (3*q+2)%3=2 by omega,show 3*q+2≠0 by omega,show 3*q+2≠50 by omega]
+      show (3*q+1)/3=q by omega,show (3*q+2)%3=2 by omega,show 3*q+2≠0 by omega,show 3*q+2≠50 by omega,show 3*q+2≠1 by omega]
   by_cases hb : c.dig (3*q+1)=mx q
   · by_cases hc : c.dig (3*q+2)=mx q
     · have hr : (rowInl q (c.kOf q) || decide (q<9))=true := by
@@ -1331,7 +1351,7 @@ theorem lead_copy_end (c : NCtx) (hds : c.DigitsOk) (i : Nat) (hi : i<51) (h0 : 
 theorem bufferSafe_pc (c : NCtx) (hds : c.DigitsOk) (i : Nat) (hi : i<51) (hs : c.bufferSafe i) (hiz : i≠0) :
     c.startPc i=c.endPc i := by
   have ht : ¬ (i%3=0 ∧ i<50) := by
-    rintro ⟨h0,-⟩; rcases hs.2 with hz | hz; exact hiz hz; exact hz.2.1 h0
+    rintro ⟨h0,-⟩; rcases hs.2 with h | h | h <;> omega
   simpa [hs] using c.inline_max_end hds i hi ht hs.1
 /-- The buffer-safe end-state bookkeeping (registers, frame, slots) before any pc update. -/
 theorem buffer_skip_base (c : NCtx) (hc : c.ok) (s0 s : MachineState) (h0 : c.Orig0 s0)
@@ -1557,7 +1577,7 @@ theorem chain_good (c : NCtx) (hc : c.ok) (hds : c.DigitsOk) {s0 : MachineState}
         exact Verify.GoodQP.stepsQ hst (hK _ _ ht) (by omega) (by simp [chainCost,hz,c.tableJump_zero])
           (fun hq => ⟨hq,by simp [chainCost,hz,c.tableJump_zero]⟩)
       · have hj : c.tableJump i=0 := by
-          have : i%3≠0 := by rcases hz.2 with h|h; exact absurd h hiz; exact h.2.1
+          have : i%3≠0 := by rcases hz.2 with h|h|h <;> omega
           simp [tableJump,this]
         obtain ⟨hst,ht⟩ := c.buffer_skip hc hds s0 s h0 i hi hz hiz acc hs
         exact Verify.GoodQP.stepsQ hst (hK _ _ ht) (by omega) (by simp [chainCost,hz,hj])

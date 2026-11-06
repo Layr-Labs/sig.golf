@@ -18537,7 +18537,7 @@ set_option maxHeartbeats 1000000
 set_option linter.unusedSimpArgs false
 
 /-! ### Packed tables (`t51tables.py`, 1892 bytes = 473 little-endian 32-bit entries)
-Lanes: bits 0..7 score `wc + 4 safe`, 8..13 zero digits, 14..17 `[d_0 = max]` (r6 only), 18..21
+Lanes: bits 0..7 score `wc + 4 safe`, 8..13 zero digits, 14..17 `[d_0 = max ∨ d_1 = max]` (r6 only; group-0 correction), 18..21
 `[d_0 + d_1 + d_2 < 3]` (r5 only), 22..30 weight (digit sum; INVALID = weight 256 only).
 `T6C` entries 0..295 = `[INVALID]*40 ++ E6(0..215) ++ [INVALID]*40`, `T5` entries 296..423 (`T5[raw7]`, INVALID for
 `raw7 < 3`, else `E5(127 - raw7)`), `E7` entries 424..472 (`E7[raw7 - 79] = E7(127 - raw7)`, the r7 pair). -/
@@ -18547,7 +18547,7 @@ def tScore (m a b c : Nat) : Nat :=
     4 * ((if a = m ∧ b = m then 1 else 0) + (if b = m ∧ c = m then 1 else 0))
 def tZeros (a b c : Nat) : Nat := (if a = 0 then 1 else 0) + (if b = 0 then 1 else 0) + (if c = 0 then 1 else 0)
 def entry6 (r : Nat) : Nat :=
-  (r % 6 + r / 6 % 6 + r / 36) * 2 ^ 22 + (if r % 6 = 5 then 2 ^ 14 else 0) +
+  (r % 6 + r / 6 % 6 + r / 36) * 2 ^ 22 + (if r % 6 = 5 ∨ r / 6 % 6 = 5 then 2 ^ 14 else 0) +
     tZeros (r % 6) (r / 6 % 6) (r / 36) * 2 ^ 8 + tScore 5 (r % 6) (r / 6 % 6) (r / 36)
 def entry5 (r : Nat) : Nat :=
   (r % 5 + r / 5 % 5 + r / 25) * 2 ^ 22 + (if r % 5 + r / 5 % 5 + r / 25 < 3 then 2 ^ 18 else 0) +
@@ -18647,7 +18647,7 @@ theorem tEntry_lanes : ∀ f < 473,
 /-- r6 entry of rank `r` (`r < 216`): table index `40 + r`. -/
 theorem lanes6 : ∀ r < 216,
     eW (40 + r) = r % 6 + r / 6 % 6 + r / 36 ∧ eZ (40 + r) = tZeros (r % 6) (r / 6 % 6) (r / 36) ∧
-      eS (40 + r) = tScore 5 (r % 6) (r / 6 % 6) (r / 36) ∧ eD (40 + r) = (if r % 6 = 5 then 1 else 0) ∧
+      eS (40 + r) = tScore 5 (r % 6) (r / 6 % 6) (r / 36) ∧ eD (40 + r) = (if r % 6 = 5 ∨ r / 6 % 6 = 5 then 1 else 0) ∧
       eP (40 + r) = 0 := by
   decide +kernel
 /-- r5 entry of raw field `raw7 ≥ 3` (rank `127 - raw7 < 125`): table index `296 + raw7`. -/
@@ -18775,14 +18775,14 @@ theorem wordCredit_top (ds : List Nat) :
   unfold WCT9.wordCredit
   rw [length_filter_range', show T3.chainCount 0 = 51 from rfl, sum51]
   rfl
-theorem safe_top_mid (ds : List Nat) (g : Nat) (hg : g < 16) (j : Nat) (hj : j = 1 ∨ j = 2) :
+theorem safe_top_mid (ds : List Nat) (g : Nat) (hg : g < 16) (j : Nat) (hj : j = 1 ∨ j = 2) (hne : g ≠ 0 ∨ j ≠ 1) :
     WCT9.safeZeroCopy 0 ds (3 * g + j) ↔
       ds.getD (3 * g + j) 0 = T3.maxDigit 0 (3 * g + j) ∧ ds.getD (3 * g + j - 1) 0 = T3.maxDigit 0 (3 * g + j - 1) := by
   unfold WCT9.safeZeroCopy
   constructor
-  · rintro ⟨h1, h2 | ⟨h3, _⟩ | ⟨_, _, _, h4⟩⟩
+  · rintro ⟨h1, h2 | h3 | ⟨_, _, _, h4⟩⟩
     · omega
-    · exact absurd rfl h3
+    · omega
     · exact ⟨h1, h4⟩
   · rintro ⟨h1, h2⟩
     exact ⟨h1, Or.inr (Or.inr ⟨by omega, by omega, by omega, h2⟩)⟩
@@ -18790,10 +18790,10 @@ theorem safe_top_first (ds : List Nat) (g : Nat) :
     WCT9.safeZeroCopy 0 ds (3 * g) ↔ g = 0 ∧ ds.getD 0 0 = 5 := by
   unfold WCT9.safeZeroCopy
   constructor
-  · rintro ⟨h1, h2 | ⟨h3, _⟩ | ⟨_, h5, _⟩⟩
+  · rintro ⟨h1, h2 | h3 | ⟨_, h5, _⟩⟩
     · have hg : g = 0 := by omega
       subst hg; exact ⟨rfl, by simpa [T3.maxDigit] using h1⟩
-    · exact absurd rfl h3
+    · omega
     · omega
   · rintro ⟨rfl, h⟩
     exact ⟨by simpa [T3.maxDigit] using h, Or.inl rfl⟩
@@ -18801,22 +18801,22 @@ theorem safe_top_49 (ds : List Nat) :
     WCT9.safeZeroCopy 0 ds 49 ↔ ds.getD 48 0 = 6 ∧ ds.getD 49 0 = 6 := by
   unfold WCT9.safeZeroCopy
   constructor
-  · rintro ⟨h1, h2 | ⟨h3, _⟩ | ⟨_, _, _, h4⟩⟩
+  · rintro ⟨h1, h2 | h3 | ⟨_, _, _, h4⟩⟩
     · omega
-    · exact absurd rfl h3
+    · omega
     · exact ⟨by simpa [T3.maxDigit] using h4, by simpa [T3.maxDigit] using h1⟩
   · rintro ⟨h1, h2⟩
     exact ⟨by simpa [T3.maxDigit] using h2, Or.inr (Or.inr ⟨by omega, by omega, by omega,
       by simpa [T3.maxDigit] using h1⟩)⟩
 theorem safe_top_50 (ds : List Nat) : ¬ WCT9.safeZeroCopy 0 ds 50 := by
   unfold WCT9.safeZeroCopy
-  rintro ⟨_, h2 | ⟨h3, _⟩ | ⟨_, _, h5, _⟩⟩
+  rintro ⟨_, h2 | h3 | ⟨_, _, h5, _⟩⟩
   · omega
-  · exact h3 rfl
+  · omega
   · exact h5 ⟨rfl, rfl⟩
 /-- `savedCopies` of a top word: the i = 0 copy, the in-triple copies and the r7 pair copy (chain 49). -/
 theorem savedCopies_top (ds : List Nat) :
-    WCT9.savedCopies 0 ds = (if ds.getD 0 0 = 5 then 1 else 0) + ∑ g ∈ Finset.range 16,
+    WCT9.savedCopies 0 ds = (if ds.getD 0 0 = 5 ∨ ds.getD 1 0 = 5 then 1 else 0) + ∑ g ∈ Finset.range 16,
       ((if ds.getD (3 * g) 0 = T3.maxDigit 0 (3 * g) ∧ ds.getD (3 * g + 1) 0 = T3.maxDigit 0 (3 * g + 1)
           then 1 else 0) +
        (if ds.getD (3 * g + 1) 0 = T3.maxDigit 0 (3 * g + 1) ∧ ds.getD (3 * g + 2) 0 = T3.maxDigit 0 (3 * g + 2)
@@ -18827,20 +18827,32 @@ theorem savedCopies_top (ds : List Nat) :
     if_neg (show ¬ WCT9.safeZeroCopy 0 ds 48 from fun h => by
       have := (safe_top_first ds 16).1 h; omega)]
   have h1 : ∀ g ∈ Finset.range 16, (if WCT9.safeZeroCopy 0 ds (3 * g + 1) then 1 else 0) =
-      (if ds.getD (3 * g) 0 = T3.maxDigit 0 (3 * g) ∧ ds.getD (3 * g + 1) 0 = T3.maxDigit 0 (3 * g + 1)
+      (if (g = 0 ∨ ds.getD (3 * g) 0 = T3.maxDigit 0 (3 * g)) ∧ ds.getD (3 * g + 1) 0 = T3.maxDigit 0 (3 * g + 1)
         then 1 else 0) := fun g hg => by
-    rw [if_congr ((safe_top_mid ds g (Finset.mem_range.1 hg) 1 (Or.inl rfl)).trans and_comm) rfl rfl]; rfl
+    apply if_congr _ rfl rfl
+    unfold WCT9.safeZeroCopy
+    have he : 3*g+1=1 ↔ g=0 := by omega
+    simp only [show 3*g+1≠0 by omega,show 3*g+1≠50 by omega,show 3*g+1>0 by omega,
+      show (3*g+1)%3≠0 by omega,he, false_or,true_and,not_false_eq_true,
+      show 3*g+1-1=3*g by omega]
+    have hmod : (3*g+1)%3≠0 := by omega
+    tauto
   have h2 : ∀ g ∈ Finset.range 16, (if WCT9.safeZeroCopy 0 ds (3 * g + 2) then 1 else 0) =
       (if ds.getD (3 * g + 1) 0 = T3.maxDigit 0 (3 * g + 1) ∧ ds.getD (3 * g + 2) 0 = T3.maxDigit 0 (3 * g + 2)
         then 1 else 0) := fun g hg => by
-    rw [if_congr ((safe_top_mid ds g (Finset.mem_range.1 hg) 2 (Or.inr rfl)).trans and_comm) rfl rfl]; rfl
+    rw [if_congr ((safe_top_mid ds g (Finset.mem_range.1 hg) 2 (Or.inr rfl) (Or.inr (by omega))).trans and_comm) rfl rfl]; rfl
   have h0 : ∀ g, (if WCT9.safeZeroCopy 0 ds (3 * g) then 1 else 0) =
       (if g = 0 ∧ ds.getD 0 0 = 5 then 1 else 0) := fun g => if_congr (safe_top_first ds g) rfl rfl
   rw [Finset.sum_congr rfl (fun g hg => by rw [h0 g, h1 g hg, h2 g hg])]
   simp only [Finset.sum_add_distrib]
   rw [Finset.sum_range_succ' (fun g => if g = 0 ∧ ds.getD 0 0 = 5 then 1 else 0)]
   simp only [Nat.succ_ne_zero, false_and, if_false, Finset.sum_const_zero, zero_add, true_and]
-  ring
+  rw [Finset.sum_range_succ' (fun g => if (g = 0 ∨ ds.getD (3*g) 0 = T3.maxDigit 0 (3*g)) ∧ ds.getD (3*g+1) 0 = T3.maxDigit 0 (3*g+1) then 1 else 0),
+    Finset.sum_range_succ' (fun g => if ds.getD (3*g) 0 = T3.maxDigit 0 (3*g) ∧ ds.getD (3*g+1) 0 = T3.maxDigit 0 (3*g+1) then 1 else 0)]
+  simp only [Nat.succ_ne_zero,false_or,Nat.mul_zero,Nat.zero_add,
+    show T3.maxDigit 0 0=5 from rfl,show T3.maxDigit 0 1=5 from rfl,true_or,true_and]
+  by_cases ha : ds.getD 0 0=5 <;> by_cases hb : ds.getD 1 0=5 <;>
+    simp only [ha,hb,or_true,true_or,and_true,true_and,or_false,false_or,and_false,false_and,if_true,if_false] <;> ring
 theorem filter_length_sum (l : List Nat) (p : Nat → Bool) :
     (l.filter p).length = ∑ i ∈ Finset.range l.length, if p (l.getD i 0) then 1 else 0 := by
   induction l with
@@ -18962,7 +18974,7 @@ theorem group_lanes {v : Digest} (hv : T3.topRanksValid v = true) (j : Nat) (hj 
       4 * ((if d (3 * j) = m (3 * j) ∧ d (3 * j + 1) = m (3 * j + 1) then 1 else 0) +
         (if d (3 * j + 1) = m (3 * j + 1) ∧ d (3 * j + 2) = m (3 * j + 2) then 1 else 0)) ∧
     eP (gIdx v j) = (if 9 ≤ j ∧ d (3 * j) + d (3 * j + 1) + d (3 * j + 2) < 3 then 1 else 0) ∧
-    (j = 0 → eD (gIdx v 0) = if d 0 = 5 then 1 else 0) := by
+    (j = 0 → eD (gIdx v 0) = if d 0 = 5 ∨ d 1 = 5 then 1 else 0) := by
   intro d m
   obtain ⟨h6, h5, _⟩ := valid_groups hv
   by_cases hj9 : j < 9
@@ -18983,7 +18995,8 @@ theorem group_lanes {v : Digest} (hv : T3.topRanksValid v = true) (j : Nat) (hj 
     subst hj0
     have c0' : T3.coreDigit 0 v 0 = r % 6 := by simpa using c0
     have hidx' : gIdx v 0 = 40 + r := by simpa using hidx
-    simp only [d, c0', hidx', hD]
+    have c1' : T3.coreDigit 0 v 1 = r / 6 % 6 := by simpa using c1
+    simp only [d, c0', c1', hidx', hD]
   · obtain ⟨hiff, hidx, hle⟩ := gIdx_r5 v j ⟨by omega, hj⟩
     have hr := h5 j (by omega) hj
     have c0 := coreDigit_r5g v j 0 ⟨by omega, hj⟩ (by norm_num)
@@ -19096,7 +19109,7 @@ theorem reward_lanes {v : Digest} {ds : List Nat} (h : WCT9.CanonicalPolicy.deco
   unfold WCT9.CanonicalPolicy.reward
   rw [wordCredit_top, savedCopies_top, ds_getD_50' h]
   have hD := (group_lanes hv 0 (by norm_num)).2.2.2.2 rfl
-  rw [hD, ds_getD_data h 0 (by norm_num)]
+  rw [hD, ds_getD_data h 0 (by norm_num), ds_getD_data h 1 (by norm_num)]
   unfold LS
   have hS : ∀ j ∈ Finset.range 16, eS (gIdx v j) =
       ((if ds.getD (3 * j) 0 + 1 = T3.maxDigit 0 (3 * j) then 1 else 0) +
@@ -19665,11 +19678,11 @@ theorem saved_layer (lay : Layer) (hl : lay ≠ 0) (ds : List Nat) (i : Nat) :
   constructor
   · rintro ⟨ha, (h0 | h1) | ⟨hm, hp⟩⟩
     · exact ⟨ha, Or.inl h0⟩
-    · exact ⟨ha, Or.inr (Or.inl h1)⟩
+    · exact ⟨ha, Or.inr (Or.inl h1.2)⟩
     · exact ⟨ha, Or.inr (Or.inr ⟨by omega, hm, fun h => hl h.1, hp⟩)⟩
   · rintro ⟨ha, h0 | h1 | ⟨_, hm, _, hp⟩⟩
     · exact ⟨ha, Or.inl (Or.inl h0)⟩
-    · exact ⟨ha, Or.inl (Or.inr h1)⟩
+    · exact ⟨ha, Or.inl (Or.inr ⟨hl,h1⟩)⟩
     · exact ⟨ha, Or.inr ⟨hm, hp⟩⟩
 
 theorem credit_layer (lay : Layer) (hl : lay ≠ 0) (ds : List Nat) (i : Nat) :

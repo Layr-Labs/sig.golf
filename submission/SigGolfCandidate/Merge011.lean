@@ -784,7 +784,7 @@ def layerEncodingInput (lay : Layer) (tree leaf : Nat) : LayerMsg → BitVec 32 
 is never safe (the r7 pair's chain 49 is safe iff `d48 = d49 = 6`; chain 48 never, `48 % 3 = 0`). -/
 def safeZeroCopy (lay : Layer) (digits : List Nat) (i : Nat) : Prop :=
   digits.getD i 0 = maxDigit lay i ∧
-    (i = 0 ∨ (lay ≠ 0 ∧ i = 1) ∨
+    (i = 0 ∨ i = 1 ∨
       (0 < i ∧ i % 3 ≠ 0 ∧ ¬(lay = 0 ∧ i = 50) ∧ digits.getD (i-1) 0 = maxDigit lay (i-1)))
 instance (lay : Layer) (digits : List Nat) (i : Nat) : Decidable (safeZeroCopy lay digits i) := by
   unfold safeZeroCopy
@@ -868,7 +868,7 @@ Defined before the encoding selector because the top producer choice uses the ca
   LOW costs 4 cycles, HIGH 6). -/
 namespace CanonicalPolicy
 /-- The credit pool every canonical path must reach. -/
-def totalCredit : Nat := 66
+def totalCredit : Nat := 67
 /-- The (fixed) top credit floor (on the path-aware credit). -/
 def topFloor : Nat := 14
 /-- All three lower layers use digit sum 201. Layer 1's existing broad decoder
@@ -1548,7 +1548,7 @@ theorem lower_three_progress (r : Nat) (hr : r < 22) :
     threshold 3 r = r := by simp [threshold, show r ≤ 21 by omega]
 
 theorem accepted_top_residual {answer : Digest} {low : Bool} {digits : List Nat}
-    (h : producerDecodeAt 0 14 low answer = some digits) : nextResidual 66 0 low digits < 54 := by
+    (h : producerDecodeAt 0 14 low answer = some digits) : nextResidual 67 0 low digits < 54 := by
   have hc := producerDecodeAt_credit h
   unfold nextResidual
   omega

@@ -3382,7 +3382,8 @@ def base (q dB dC : Nat) : Nat :=
 def partLen (q d : Nat) : Nat :=
   if d=mx q then 4 else if d+1=mx q then 5 else 4+2*(mx q-d)
 def pcB (q dB dC : Nat) : Nat := base q dB dC+2*mx q+1
-def pcC (q dB dC : Nat) : Nat := pcB q dB dC+partLen q dB
+def skipFirstB (q dB : Nat) : Bool := decide (q = 0 ∧ dB = mx q)
+def pcC (q dB dC : Nat) : Nat := pcB q dB dC+partLen q dB-(if skipFirstB q dB then 4 else 0)
 /-- r6 bodies omit chain C's copy when chains B and C both have the largest digit (C is buffer-safe). -/
 def skipBody (q dB dC : Nat) : Bool := decide (q<9 ∧ dB=mx q ∧ dC=mx q)
 /-- End of the body (next dispatch). The r7 pair (q = 16) has no chain C: its checksum dispatch is at `pcC`. -/
@@ -3414,11 +3415,11 @@ def gbase (q k : Nat) : Nat :=
 /-- Shared-body groups: the r6 groups and the r7 pair. -/
 def sharedG (q : Nat) : Bool := decide (q<9 ∨ q=16)
 def skipA (q k : Nat) : Bool := decide (q=0 ∧ kdig q k 0=mx q)
-def skipB (q k : Nat) : Bool := (rowInl q k || sharedG q) && decide (kdig q k 0=mx q ∧ kdig q k 1=mx q)
+def skipB (q k : Nat) : Bool := (rowInl q k || sharedG q) && decide ((q = 0 ∨ kdig q k 0=mx q) ∧ kdig q k 1=mx q)
 def skipC (q k : Nat) : Bool := (rowInl q k || decide (q<9)) && decide (kdig q k 1=mx q ∧ kdig q k 2=mx q)
 /-- Start of chain B. Shared-body groups keep chain B's copy in the body; a buffer-safe chain B is jumped over (+4). -/
 def gB (q k : Nat) : Nat :=
-  if sharedG q then gbase q k+2*mx q+1+(if skipB q k then 4 else 0)
+  if sharedG q then gbase q k+2*mx q+1+(if skipB q k then 4 else 0)-(if skipFirstB q (kdig q k 1) then 4 else 0)
   else gbase q k+2*mx q+1-(if skipA q k then 4 else 0)
 def gC (q k : Nat) : Nat := gB q k+partLen q (kdig q k 1)-(if skipB q k then 4 else 0)
 /-- End of the group's code for rank `k` (the next dispatch); the r7 pair has no chain C. -/
@@ -3526,7 +3527,7 @@ def dispatchOK (q dB dC : Nat) : Bool :=
 def blockCheck (q dB dC : Nat) : Bool :=
   tailsOK q (termSlot (3*q)) (base q dB dC) &&
   rungsOK q 1 (termSlot (3*q)) (base q dB dC + 2) &&
-  partOK q (3*q+1) dB (pcB q dB dC) &&
+  partOK q (3*q+1) dB (pcB q dB dC) (skipFirstB q dB) &&
   (decide (q=16) || partOK q (3*q+2) dC (pcC q dB dC) (skipBody q dB dC)) && dispatchOK q dB dC
 def inlineCheck (q k : Nat) : Bool :=
   let dA := kdig q k 0
@@ -3652,7 +3653,7 @@ def entPc (c : NCtx) (q : Nat) : Nat := entW q (c.kOf q)
 never buffer-safe (its arm always copies). -/
 def bufferSafe (c : NCtx) (i : Nat) : Prop :=
   c.dig i = topMax i ∧
-    (i = 0 ∨ (0 < i ∧ i % 3 ≠ 0 ∧ i ≠ 50 ∧ c.dig (i-1) = topMax (i-1)))
+    (i = 0 ∨ i = 1 ∨ (0 < i ∧ i % 3 ≠ 0 ∧ i ≠ 50 ∧ c.dig (i-1) = topMax (i-1)))
 instance (c : NCtx) (i : Nat) : Decidable (c.bufferSafe i) := by
   unfold bufferSafe; infer_instance
 /-- End of the leaf-buffer bytes written by chains `1 .. i-1` (endpad leaf: chain `j >= 1` writes `[slot j, slot j +
@@ -4059,7 +4060,8 @@ theorem Wr_hash (c : NCtx) (i A : Nat) (hn : c.dig i ≠ topMax i)
 
 theorem bufferSafe_end (c : NCtx) (i : Nat) (hs : c.bufferSafe i) :
     c.bufferEnd i = slot i := by
-  rcases hs.2 with h | h
+  rcases hs.2 with h | h | h
+  · simp [bufferEnd, h]
   · simp [bufferEnd, h]
   · simp [bufferEnd, h.2.2.2]
 
@@ -4149,7 +4151,10 @@ theorem rungPc_end (c : NCtx) (hds : c.DigitsOk) (i : Nat) (hi : i < 51) (hd : c
     by_cases h0 : i%3=0
     · rw [h0] at hk
       have hskipA : skipA (i/3) (c.kOf (i/3))=false := by simp [skipA, hk, Nat.ne_of_lt hdq]
-      have hskipB : skipB (i/3) (c.kOf (i/3))=false := by simp [skipB, hk, Nat.ne_of_lt hdq]
+      have hskipB : skipB (i/3) (c.kOf (i/3))=skipFirstB (i/3) (kdig (i/3) (c.kOf (i/3)) 1) := by
+        by_cases hq0 : i/3=0
+        · simp [skipB,skipFirstB,hq0,sharedG]
+        · simp [skipB,skipFirstB,hq0,hk,Nat.ne_of_lt hdq]
       simp only [rungPc,endPc,qb,qB,h0,h50,and_self,if_true,gB,hskipA,hskipB,Bool.false_eq_true,if_false,
         Nat.sub_zero,Nat.add_zero]
       split_ifs <;> omega

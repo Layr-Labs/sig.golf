@@ -113,9 +113,9 @@ theorem leafBufferSlot_gap_two (lay : Layer) (i j : Nat) (h : i + 2 ≤ j) :
   unfold leafBufferSlot
   split_ifs <;> omega
 
-theorem leafBufferSlot_head_gap (lay : Layer) (h : lay ≠ 0) :
+theorem leafBufferSlot_head_gap (lay : Layer) :
     leafBufferSlot lay 0 + 32 ≤ leafBufferSlot lay 1 := by
-  simp [leafBufferSlot,h]
+  simp [leafBufferSlot]
 
 theorem leafBufferBase_bounds (lay : Layer) :
     11032 ≤ leafBufferBase lay ∧ leafBufferBase lay ≤ 21008 ∧ leafBufferBase lay % 8 = 0 := by
@@ -146,9 +146,9 @@ theorem leafBuffer_safe_separate (lay : Layer) (digits : List Nat) (i j : Nat)
   · have hpred : i-1=j := by omega
     obtain ⟨-, hfirst | hsecond | hprevious⟩ := hsafe
     · omega
-    · obtain ⟨hlay,hi⟩ := hsecond
+    · have hi := hsecond
       have hj0 : j=0 := by omega
-      have hgap := leafBufferSlot_head_gap lay hlay
+      have hgap := leafBufferSlot_head_gap lay
       rw [hi, hj0]
       unfold leafBufferWriteEnd
       split <;> omega
