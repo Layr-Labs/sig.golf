@@ -1,4 +1,5 @@
 import Mathlib
+set_option linter.all false
 
 -- ==== merged from T3_Rev ====
 section

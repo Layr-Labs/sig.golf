@@ -6,6 +6,7 @@ import SigGolfCandidate.Merge058
 import SigGolfCandidate.Merge098
 import SigGolfCandidate.Merge105
 import SigGolfCandidate.Merge106
+set_option linter.all false
 
 -- ==== merged from ClaudeWCT_W9_T3_Secc_LargeContactCase ====
 section

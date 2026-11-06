@@ -1,4 +1,5 @@
 import SigGolfCandidate.Merge040
+set_option linter.all false
 
 -- ==== merged from ClaudeWCT_Numerics_TopZeroChecks ====
 section
@@ -696,7 +697,8 @@ Entries below the top floor 14 never matter. -/
 def topAcceptedHistogram : List (Nat × Nat) :=
   topCounts.flatMap fun e => [(e.1 + 2, e.2 * 2 ^ 128), (e.1, e.2 * topHighW)]
 
-def initialBound : Nat := 366261175301868671147750736727906733560
+/-- E11: least passing value at pool 65 (366099732761924650264075419357556404353), rounded up. -/
+def initialBound : Nat := 366099732800000000000000000000000000000
 
 /-- T51 fixed sign cost (PINNED P12, measured): 4 + 112142 + 16 top family pairs + 152 + 12 = 112326 compressions. -/
 def fixedSignCost : Nat := 112326
@@ -705,7 +707,7 @@ def fixedSignCost : Nat := 112326
 def fixedBound : Nat := 616334705435489293055497825014826663607
 
 theorem initial_checked :
-    recurrenceCheck topDen topAcceptedHistogram 14 66 rowOne initialBound = true := by
+    recurrenceCheck topDen topAcceptedHistogram 14 65 rowOne initialBound = true := by
   decide +kernel
 
 theorem fixed_power_checked :
@@ -724,13 +726,13 @@ theorem top_tail_checked : tailCheck (acceptedMass topAcceptedHistogram 14) topD
 
 theorem initialBound_ge_scale : scale ≤ initialBound := by norm_num [scale, initialBound]
 
-/-- U16b fixed sign cost: the T51 cost 112326 minus the first trial of each of the 42 ground lower nodes. -/
-def fixedSignCostU16 : Nat := 112284
+/-- E11 (V29) fixed sign cost: the T51 cost 112326 minus the first trial of each of the 90 ground lower nodes. -/
+def fixedSignCostU16 : Nat := 112236
 
-/-- Fixed power for the U16b fixed sign cost 112284. -/
-def fixedBoundU16 : Nat := 616197827209629789846638660973109937165
+/-- Fixed power for the E11 fixed sign cost 112236. -/
+def fixedBoundU16 : Nat := 616041432173760406711357252548598717494
 
-/-- U16b ground node factors `m_b` (over `2^128`, `b = 1, 2, 3`): rounded-up `z p / (1 - z (1 - p))`, `p = 2^-b`,
+/-- Ground node factors `m_b` (over `2^128`, `b = 1, 2, 3, 4`): rounded-up `z p / (1 - z (1 - p))`, `p = 2^-b`,
 for the sign `z = zNum/zDen` (equal to `keygenM 3, 4, 5`). -/
 def groundM (b : Nat) : Nat :=
   if b = 1 then 340285965984933645675468342432275971788
@@ -738,17 +740,17 @@ def groundM (b : Nat) : Nat :=
   else if b = 3 then 340296763633728263433442488925276359072
   else 340311161564765781666276742203532247926
 
-/-- The 42 ground nodes: 24 with `b = 1`, 12 with `b = 3`, 6 with `b = 4`. -/
+/-- E11 (V29): the 90 ground nodes: 48 with `b = 1`, 24 with `b = 2`, 14 with `b = 3`, 4 with `b = 4`. -/
 def groundBound : Nat :=
-  mulUp (powerUp (groundM 1) 24) (mulUp (powerUp (groundM 3) 12) (powerUp (groundM 4) 6))
+  mulUp (powerUp (groundM 1) 48) (mulUp (powerUp (groundM 2) 24) (mulUp (powerUp (groundM 3) 14) (powerUp (groundM 4) 4)))
 
 theorem fixed_power_checked_U16 :
     powerUp (ceilDiv (zNum * scale) zDen) fixedSignCostU16 ≤ fixedBoundU16 := by
   decide +kernel
 
-/-- U24 signing moment 1.999949891 < 1.99995 (claim 199995). -/
+/-- E11 (V29, pool 65) signing moment 1.9999143 < 1.99992 (claim 199992). -/
 theorem full_moment_checked_U16 :
-    mulUp (mulUp (mulUp fixedBoundU16 groundBound) ftsBound) initialBound * 100000 < 199995 * scale := by
+    mulUp (mulUp (mulUp fixedBoundU16 groundBound) ftsBound) initialBound * 100000 < 199992 * scale := by
   decide +kernel
 
 end ClaudeWCT.Numerics.TopZero
@@ -823,24 +825,32 @@ theorem fixed_ratio_bound_U16 : ((zNum:ℝ)/zDen)^fixedSignCostU16≤(fixedBound
     _ ≤ _ := hp.trans (div_le_div_of_nonneg_right (by exact_mod_cast fixed_power_checked_U16) hs.le)
 
 theorem groundBound_ratio_ge :
-    ((groundM 1:ℝ)/scale)^24 * (((groundM 3:ℝ)/scale)^12 * ((groundM 4:ℝ)/scale)^6) ≤ (groundBound:ℝ)/scale := by
+    ((groundM 1:ℝ)/scale)^48 * (((groundM 2:ℝ)/scale)^24 * (((groundM 3:ℝ)/scale)^14 * ((groundM 4:ℝ)/scale)^4)) ≤
+      (groundBound:ℝ)/scale := by
   unfold groundBound
   calc
-    _ ≤ ((groundM 1:ℝ)/scale)^24 * ((powerUp (groundM 3) 12:ℝ)/scale * ((powerUp (groundM 4) 6:ℝ)/scale)) := by
+    _ ≤ ((groundM 1:ℝ)/scale)^48 * (((groundM 2:ℝ)/scale)^24 *
+          ((powerUp (groundM 3) 14:ℝ)/scale * ((powerUp (groundM 4) 4:ℝ)/scale))) := by
         gcongr
         · exact powerUp_ratio_ge _ _
         · exact powerUp_ratio_ge _ _
-    _ ≤ (powerUp (groundM 1) 24:ℝ)/scale * ((mulUp (powerUp (groundM 3) 12) (powerUp (groundM 4) 6):ℝ)/scale) := by
+    _ ≤ ((groundM 1:ℝ)/scale)^48 * ((powerUp (groundM 2) 24:ℝ)/scale *
+          ((mulUp (powerUp (groundM 3) 14) (powerUp (groundM 4) 4):ℝ)/scale)) := by
+        gcongr
+        · exact powerUp_ratio_ge _ _
+        · exact mulUp_ratio_ge _ _
+    _ ≤ (powerUp (groundM 1) 48:ℝ)/scale * ((mulUp (powerUp (groundM 2) 24)
+          (mulUp (powerUp (groundM 3) 14) (powerUp (groundM 4) 4)):ℝ)/scale) := by
         gcongr
         · exact powerUp_ratio_ge _ _
         · exact mulUp_ratio_ge _ _
     _ ≤ _ := mulUp_ratio_ge _ _
 
-/-- U16b full moment ≤ 2 (1.99982): fixed `z^112284`, the 42 ground node factors, FTS and the initial bound. -/
+/-- U16b full moment ≤ 2 (1.99992): fixed `z^112236`, the 90 ground node factors, FTS and the initial bound. -/
 theorem envelope_ratio_le_two_U16 : (((fixedBoundU16:ℝ)/scale)*((groundBound:ℝ)/scale))*
     (((ftsBound:ℝ)/scale)*((initialBound:ℝ)/scale))≤2 := by
   have hm := mulUp_ratio_ge fixedBoundU16 groundBound
-  have he := envelope_ratio_le_two_of (mulUp fixedBoundU16 groundBound) 199995 (by norm_num)
+  have he := envelope_ratio_le_two_of (mulUp fixedBoundU16 groundBound) 199992 (by norm_num)
     full_moment_checked_U16
   have h0 : (0:ℝ) ≤ ((ftsBound:ℝ)/scale)*((initialBound:ℝ)/scale) :=
     mul_nonneg (div_nonneg (Nat.cast_nonneg _) (Nat.cast_nonneg _)) (div_nonneg (Nat.cast_nonneg _) (Nat.cast_nonneg _))

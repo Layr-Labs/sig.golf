@@ -35,6 +35,7 @@ import VCVio.ProgramLogic.Relational.ProgrammingOracle
 import VCVio.ProgramLogic.Relational.Quantitative
 import Mathlib.Tactic.IrreducibleDef
 import VCVio.OracleComp.QueryTracking.WriterCost
+set_option linter.all false
 
 -- ==== merged from SphincsSecurity_Compat ====
 section

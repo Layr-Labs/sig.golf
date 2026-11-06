@@ -2,6 +2,7 @@ import SigGolfCandidate.Merge011
 import SigGolfCandidate.Merge028
 import SigGolfCandidate.Merge033
 import SigGolfCandidate.Merge051
+set_option linter.all false
 
 -- ==== merged from ClaudeWCT_W9_T3M_Witness_Layout ====
 section
@@ -1696,12 +1697,13 @@ def witEncN (output : HashOutput) (witness : SigGolfCandidate.Research.SharedFor
 /-! ### U16b ground layer: the lower fold nonces
 The nonce of lower fold `j` of layer `lay ≠ 0` (the fold whose parent has heap `2^(height lay - j - 1) + leaf / 2^(j+1)`)
 is stored like a top nonce in its window's Z pad: witness bytes `[merkleBlock lay leaf j + 32, +8)` (read by the
-verifier as `wmerklePad w lay leaf j`). Only the ground folds `j = height lay - 4 .. height lay - 2` (parent heaps
-`8..15`, `4..7`, `2..3`) carry one; the expander's positional post-pass writes exactly these 9 words (pad table
-`padTab_layout`). `witListG` / `witEncG` = `witListN` / `witEncN` with these words written. -/
-/-- The 9 ground folds `(lay, j)`. -/
+verifier as `wmerklePad w lay leaf j`). Only the ground folds `j = height lay - 5 .. height lay - 2` (parent heaps
+`16..31`, `8..15`, `4..7`, `2..3`; E11) carry one; the expander's positional post-pass writes exactly these 12 words
+(pad tables `padTab_layout` and the E11 level-4 table). `witListG` / `witEncG` = `witListN` / `witEncN` with these
+words written. -/
+/-- The 12 ground folds `(lay, j)`. -/
 def groundFolds : List (Layer × Nat) :=
-  [(1, 3), (1, 4), (1, 5), (2, 2), (2, 3), (2, 4), (3, 2), (3, 3), (3, 4)]
+  [(1, 3), (1, 4), (1, 5), (1, 2), (2, 2), (2, 3), (2, 4), (2, 1), (3, 2), (3, 3), (3, 4), (3, 1)]
 /-- Witness offset of the nonce of lower fold `j` of layer `lay`. -/
 def lowerNoncePos (output : HashOutput) (lay : Layer) (j : Nat) : Nat :=
   merkleBlock lay (route (WCT9.digestIndex output) lay).1 j + 32
@@ -4215,13 +4217,13 @@ theorem expandN0_facts (answers : Correctness.Answers) (m : Message) (pk : Diges
 /-- An H2 expansion is the old expansion of a completion `fillTop σ c`. -/
 theorem expandN_completion (answers : Correctness.Answers) (m : Message) (pk : Digest) (σ : WCT9.Signature)
     (N : HashOutput) (w : WCT9.Witness) (he : evalWithAnswerFn answers (expandN m pk σ) = some (N, w)) :
-    ∃ c, c < 2 ^ 19 ∧ w.signature = WCT9.fillTop σ c ∧
+    ∃ c, c < 2 ^ 21 ∧ w.signature = WCT9.fillTop σ c ∧
       evalWithAnswerFn answers (expandN0 m pk (WCT9.fillTop σ c)) = some (N, w) :=
   WCT9.eval_expandS answers _ m pk σ N w he
 structure ExpandFacts (answers : Correctness.Answers) (m : Message) (pk : Digest) (σ : WCT9.Signature)
     (N : HashOutput) (w : WCT9.Witness) : Prop where
   rho : w.signature.rho = σ.rho
-  fill : ∃ c, c < 2 ^ 19 ∧ w.signature = WCT9.fillTop σ c ∧
+  fill : ∃ c, c < 2 ^ 21 ∧ w.signature = WCT9.fillTop σ c ∧
     evalWithAnswerFn answers (expandN0 m pk (WCT9.fillTop σ c)) = some (N, w)
   dc : w.digestCounter.toNat < WCT9.digestAttemptLimit
   digest : evalWithAnswerFn answers (digest σ.rho m w.digestCounter) = N
@@ -5471,8 +5473,8 @@ slot areas `[layerBase lay + 32, layerBase lay + 16 * pathSlots lay)` of the low
 Z pad slot of a ground fold is no other slot of any window (`lowerPlanL1_free`, `lowerPlanL32_free`), so `witEncG`
 agrees with `witEncN` on every other read. -/
 
-/-- Ground folds: lower layer, one of the three levels below the root (parent heaps `2..15`). -/
-def IsGround (lay : Layer) (j : Nat) : Prop := lay.val ≠ 0 ∧ height lay ≤ j + 4 ∧ j + 1 < height lay
+/-- Ground folds: lower layer, one of the four levels below the root (parent heaps `2..31`, E11). -/
+def IsGround (lay : Layer) (j : Nat) : Prop := lay.val ≠ 0 ∧ height lay ≤ j + 5 ∧ j + 1 < height lay
 
 instance (lay : Layer) (j : Nat) : Decidable (IsGround lay j) := by unfold IsGround; infer_instance
 
@@ -5481,22 +5483,22 @@ theorem mem_groundFolds (e : Layer × Nat) : e ∈ groundFolds ↔ IsGround e.1 
   unfold IsGround groundFolds
   fin_cases lay <;> simp [height] <;> omega
 
-theorem lowerPlanL1_free0 : ∀ r, r < 128 → ∀ j, j < 7 → ∀ k, k < 3 →
-    (lowerPlanL1.getD r []).getD j 0 ≠ (lowerPlanL1.getD r []).getD (k + 3) 0 + 2 := by decide +kernel
-theorem lowerPlanL1_free1 : ∀ r, r < 128 → ∀ j, j < 7 → ∀ k, k < 3 →
-    (lowerPlanL1.getD r []).getD j 0 + 1 ≠ (lowerPlanL1.getD r []).getD (k + 3) 0 + 2 := by decide +kernel
-theorem lowerPlanL1_free3 : ∀ r, r < 128 → ∀ j, j < 7 → ∀ k, k < 3 →
-    (lowerPlanL1.getD r []).getD j 0 + 3 ≠ (lowerPlanL1.getD r []).getD (k + 3) 0 + 2 := by decide +kernel
-theorem lowerPlanL1_inj : ∀ r, r < 128 → ∀ j, j < 7 → ∀ k, k < 3 →
-    (lowerPlanL1.getD r []).getD j 0 = (lowerPlanL1.getD r []).getD (k + 3) 0 → j = k + 3 := by decide +kernel
-theorem lowerPlanL32_free0 : ∀ r, r < 64 → ∀ j, j < 6 → ∀ k, k < 3 →
-    (lowerPlanL32.getD r []).getD j 0 ≠ (lowerPlanL32.getD r []).getD (k + 2) 0 + 2 := by decide +kernel
-theorem lowerPlanL32_free1 : ∀ r, r < 64 → ∀ j, j < 6 → ∀ k, k < 3 →
-    (lowerPlanL32.getD r []).getD j 0 + 1 ≠ (lowerPlanL32.getD r []).getD (k + 2) 0 + 2 := by decide +kernel
-theorem lowerPlanL32_free3 : ∀ r, r < 64 → ∀ j, j < 6 → ∀ k, k < 3 →
-    (lowerPlanL32.getD r []).getD j 0 + 3 ≠ (lowerPlanL32.getD r []).getD (k + 2) 0 + 2 := by decide +kernel
-theorem lowerPlanL32_inj : ∀ r, r < 64 → ∀ j, j < 6 → ∀ k, k < 3 →
-    (lowerPlanL32.getD r []).getD j 0 = (lowerPlanL32.getD r []).getD (k + 2) 0 → j = k + 2 := by decide +kernel
+theorem lowerPlanL1_free0 : ∀ r, r < 128 → ∀ j, j < 7 → ∀ k, k < 4 →
+    (lowerPlanL1.getD r []).getD j 0 ≠ (lowerPlanL1.getD r []).getD (k + 2) 0 + 2 := by decide +kernel
+theorem lowerPlanL1_free1 : ∀ r, r < 128 → ∀ j, j < 7 → ∀ k, k < 4 →
+    (lowerPlanL1.getD r []).getD j 0 + 1 ≠ (lowerPlanL1.getD r []).getD (k + 2) 0 + 2 := by decide +kernel
+theorem lowerPlanL1_free3 : ∀ r, r < 128 → ∀ j, j < 7 → ∀ k, k < 4 →
+    (lowerPlanL1.getD r []).getD j 0 + 3 ≠ (lowerPlanL1.getD r []).getD (k + 2) 0 + 2 := by decide +kernel
+theorem lowerPlanL1_inj : ∀ r, r < 128 → ∀ j, j < 7 → ∀ k, k < 4 →
+    (lowerPlanL1.getD r []).getD j 0 = (lowerPlanL1.getD r []).getD (k + 2) 0 → j = k + 2 := by decide +kernel
+theorem lowerPlanL32_free0 : ∀ r, r < 64 → ∀ j, j < 6 → ∀ k, k < 4 →
+    (lowerPlanL32.getD r []).getD j 0 ≠ (lowerPlanL32.getD r []).getD (k + 1) 0 + 2 := by decide +kernel
+theorem lowerPlanL32_free1 : ∀ r, r < 64 → ∀ j, j < 6 → ∀ k, k < 4 →
+    (lowerPlanL32.getD r []).getD j 0 + 1 ≠ (lowerPlanL32.getD r []).getD (k + 1) 0 + 2 := by decide +kernel
+theorem lowerPlanL32_free3 : ∀ r, r < 64 → ∀ j, j < 6 → ∀ k, k < 4 →
+    (lowerPlanL32.getD r []).getD j 0 + 3 ≠ (lowerPlanL32.getD r []).getD (k + 1) 0 + 2 := by decide +kernel
+theorem lowerPlanL32_inj : ∀ r, r < 64 → ∀ j, j < 6 → ∀ k, k < 4 →
+    (lowerPlanL32.getD r []).getD j 0 = (lowerPlanL32.getD r []).getD (k + 1) 0 → j = k + 1 := by decide +kernel
 theorem lowerPlanL32_le16 : ∀ r ∈ lowerPlanL32, ∀ x ∈ r, x ≤ 16 := by decide +kernel
 
 /-- Slot `s` (`< 4`) of the level-`j` window of a lower leaf meets the Z pad of ground fold `j'` only if it is it. -/
@@ -5513,7 +5515,7 @@ theorem lower_slot_free (lay : Layer) (hl : lay ≠ 0) (leaf j j' s : Nat) (hj :
     rw [if_pos h1] at h
     rw [hH] at hj hg1 hg2
     have hr : leaf % 128 < 128 := Nat.mod_lt _ (by decide)
-    obtain ⟨k, rfl⟩ : ∃ k, j' = k + 3 := ⟨j' - 3, by omega⟩
+    obtain ⟨k, rfl⟩ : ∃ k, j' = k + 2 := ⟨j' - 2, by omega⟩
     have h0 := lowerPlanL1_free0 _ hr j hj k (by omega)
     have h1' := lowerPlanL1_free1 _ hr j hj k (by omega)
     have h3 := lowerPlanL1_free3 _ hr j hj k (by omega)
@@ -5528,7 +5530,7 @@ theorem lower_slot_free (lay : Layer) (hl : lay ≠ 0) (leaf j j' s : Nat) (hj :
     rw [if_neg (show lay.val ≠ 1 by omega)] at h
     rw [hH] at hj hg1 hg2
     have hr : leaf % 64 < 64 := Nat.mod_lt _ (by decide)
-    obtain ⟨k, rfl⟩ : ∃ k, j' = k + 2 := ⟨j' - 2, by omega⟩
+    obtain ⟨k, rfl⟩ : ∃ k, j' = k + 1 := ⟨j' - 1, by omega⟩
     have h0 := lowerPlanL32_free0 _ hr j hj k (by omega)
     have h1' := lowerPlanL32_free1 _ hr j hj k (by omega)
     have h3 := lowerPlanL32_free3 _ hr j hj k (by omega)
@@ -5859,7 +5861,7 @@ theorem wmerklePad_witEncG_lower (output : HashOutput) (w : SigGolfCandidate.Res
     (lay : Layer) (hl : lay ≠ 0) (j : Nat) (hj : j + 1 < height lay) :
     wmerklePad (witEncG output w) lay (route (WCT9.digestIndex output) lay).1 j =
       BitVec.ofNat 128 (WCT9.lowerFoldNonce lay (w.lowerNonces lay) j % 2 ^ 64) := by
-  by_cases h4 : height lay ≤ j + 4
+  by_cases h4 : height lay ≤ j + 5
   · have hg : IsGround lay j := ⟨fun h => hl (Fin.ext h), h4, hj⟩
     rw [wmerklePad_witEncG_ground output w lay j hg]
     unfold WCT9.lowerFoldNonce

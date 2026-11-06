@@ -1,5 +1,6 @@
 import SigGolfCandidate.Merge047
 import SigGolfCandidate.Merge049
+set_option linter.all false
 
 -- ==== merged from T3M_Verify_Code ====
 section

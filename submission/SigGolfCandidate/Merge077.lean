@@ -1,5 +1,6 @@
 import SigGolfCandidate.Merge058
 import SigGolfCandidate.Merge076
+set_option linter.all false
 
 -- ==== merged from T3M_Expand_NonceBlocks ====
 section
@@ -50,9 +51,9 @@ sym_block nbK := symRun { noAlias := true } nonce_K (pcOf 43240) 30
 sym_block nbS := symRun { noAlias := true } nonce_S (pcOf 43248) 30
 
 /-- Mask of the zero test on the high word of a top node of height `h` (`1 ≤ h ≤ 11`). T51: the top `b_h` bits
-(`b_h = topZeroBits h`; no bit for `b_h = 0`), bits 104..111 (high word bits 40..47) for `h = 11`. -/
+(`b_h = topZeroBits h`; no bit for `b_h = 0`), bits 101..107 (high word bits 37..43, E11) for `h = 11`. -/
 def maskE (h : Nat) : Nat :=
-  if h = 11 then 127 * 2 ^ 40 else (2 ^ topZeroBits h - 1) * 2 ^ (64 - topZeroBits h)
+  if h = 11 then 127 * 2 ^ 37 else (2 ^ topZeroBits h - 1) * 2 ^ (64 - topZeroBits h)
 /-- Cycles of ZB (54553..54568) at height `h`. -/
 def zbK (h : Nat) : Nat := if h < 3 then 5 else if h = 11 then 21 else 16
 def midBits (h : Nat) : Nat := if h = 3 then 2 else h - 2
@@ -210,7 +211,7 @@ theorem za2_spec (hpc : s.pc = pcOf 54743) (h : Nat) (h3 : 3 ≤ h) (h11 : h ≤
 
 theorem za3_spec (hpc : s.pc = pcOf 54745) :
     ∃ t, Steps im s 3 3 t ∧ t.pc = pcOf 54568 ∧ t.getReg .x14 = 7 ∧
-      t.getReg .x31 = s.getReg .x31 <<< 40 ∧
+      t.getReg .x31 = s.getReg .x31 <<< 37 ∧
       RegsExcept s t [.x14, .x31] ∧ Frame s t (fun _ => False) := by
   refine ⟨_, symRun_sound nbZA3 (Code.codeAt_nZA3 (im := im)) s hpc
     (by simp [nbZA3.res, rv_simp]), ?_, ?_, ?_, ?_, ?_⟩
@@ -513,8 +514,8 @@ theorem ne_topZeroBits_eq (h : Nat) (h1 : 1 ≤ h) (h11 : h ≤ 11) :
 
 /-- The machine's zero test (43225..43227) is `topZeroOk`. -/
 theorem ne_zero_test_bits104 (v : BitVec 128) :
-    (v.extractLsb' 64 64 &&& BitVec.ofNat 64 ((2 ^ 7 - 1) * 2 ^ 40) = 0#64) ↔
-      v.toNat / 2 ^ 104 % 2 ^ 7 = 0 := by
+    (v.extractLsb' 64 64 &&& BitVec.ofNat 64 ((2 ^ 7 - 1) * 2 ^ 37) = 0#64) ↔
+      v.toNat / 2 ^ 101 % 2 ^ 7 = 0 := by
   rw [← BitVec.toNat_inj, BitVec.toNat_and, BitVec.toNat_ofNat, Nat.mod_eq_of_lt (by norm_num), ne_hiword_toNat,
     BitVec.toNat_zero, ne_land_mask_eq_zero, Nat.div_div_eq_div_mul, ← Nat.pow_add]
 /-- The machine's zero test (43225..43227, mask from ZB 54553) is `topZeroOk`. -/
@@ -522,7 +523,7 @@ theorem ne_zero_test (v : Digest) (h : Nat) (h1 : 1 ≤ h) (h11 : h ≤ 11) :
     (v.extractLsb' 64 64 &&& BitVec.ofNat 64 (maskE h) = 0#64) ↔ topZeroOk h v = true := by
   unfold maskE topZeroOk
   by_cases hc : h = 11
-  · rw [if_pos hc, if_pos hc, show (127 : Nat) * 2 ^ 40 = (2 ^ 7 - 1) * 2 ^ 40 by norm_num, ne_zero_test_bits104,
+  · rw [if_pos hc, if_pos hc, show (127 : Nat) * 2 ^ 37 = (2 ^ 7 - 1) * 2 ^ 37 by norm_num, ne_zero_test_bits104,
       beq_iff_eq]
   · have hb : topZeroBits h ≤ 64 := by interval_cases h <;> decide
     rw [if_neg hc, if_neg hc, ne_zero_test_hi v _ hb, beq_iff_eq]
@@ -1104,9 +1105,11 @@ theorem wordsOf_block4 (l r : Digest) (T : BitVec 128) :
     wordsOf_bytesLE16]
   rfl
 def mkRegs : List Reg := [.x6, .x7, .x10, .x11, .x12, .x13, .x14, .x17, .x20, .x22, .x24, .x28, .x29, .x30, .x31]
-/-- U16b: the grind stub's record slots of lower layer `lay` (`0x700000 + 32 (lay - 1)`, 4 dwords; none on the top). -/
+/-- U16b: the grind stub's record slots of lower layer `lay` (`0x700000 + 32 (lay - 1)`, 4 dwords, and (E11) the
+class 16..31 nonce at `+ 0x100`; none on the top). -/
 def RecW (lay : Layer) (A : Nat) : Prop :=
-  lay.val ≠ 0 ∧ 0x700000 + 32 * (lay.val - 1) ≤ A ∧ A < 0x700000 + 32 * (lay.val - 1) + 32
+  lay.val ≠ 0 ∧ ((0x700000 + 32 * (lay.val - 1) ≤ A ∧ A < 0x700000 + 32 * (lay.val - 1) + 32) ∨
+    A = 0x700000 + 32 * (lay.val - 1) + 256)
 /-- U16b: the node climb also writes the stub's `SAVE` area `[1000, 1040)` (left zero) and the layer's record slots. -/
 def MkW (lay : Layer) (leaf WM j : Nat) (A : Nat) : Prop :=
   A = NODE ∨ A = NODE + 8 ∨ A = NODE + 16 ∨ A = NODE + 24 ∨ A = NODE + 48 ∨ A = NODE + 56 ∨
@@ -1158,7 +1161,7 @@ theorem frame_readWordsL {s t : MachineState} {W : Nat → Prop} (h : Frame s t 
 the nonce search, at most `topNonceCap (j + 1) - 1` failed trials of 22 cycles each. -/
 def topNodeW (j : Nat) : Nat := 154 + 22 * (T3.topNonceCap (j + 1) - 1)
 /-- U16b: cycles of lower fold `j` of layer `lay` (heap class `2 ^ (height lay - j - 1)`): the node step with the grind
-stub (`Grind.stubW`: 47 off the ground, `91 + 16 (cap - 1)` on a ground heap). -/
+stub (`Grind.stubW`: 65 off the ground, `104 + 16 (cap - 1)` on a ground heap). -/
 def lowFoldW (lay : Layer) (j : Nat) : Nat := 73 + SharedRecover.Grind.stubW lay.val (2 ^ (height lay - j - 1))
 /-- Cycles of the node climb (img-v6: the hook 1139 adds 4 (lower) / 6 (top root) cycles per plain node, 81 total;
 the 11 top nodes below the root take `topNodeW`). -/
@@ -1615,8 +1618,8 @@ theorem merkleTweak_words_low (lay tree heap : Nat) (h1 : 1 ≤ lay) (h3 : lay �
 theorem zb_class (lay heap e : Nat) (he1 : 1 ≤ e) (h1 : 2 ^ e ≤ heap) (h2 : heap < 2 ^ (e + 1)) :
     ClaudeWCT.WCT9.lowerZeroBits lay heap = ClaudeWCT.WCT9.lowerZeroBits lay (2 ^ e) := by
   unfold ClaudeWCT.WCT9.lowerZeroBits
-  by_cases e4 : 4 ≤ e
-  · have : 16 ≤ 2 ^ e := le_trans (by norm_num : 16 ≤ 2 ^ 4) (Nat.pow_le_pow_right (by norm_num) e4)
+  by_cases e4 : 5 ≤ e
+  · have : 32 ≤ 2 ^ e := le_trans (by norm_num : 32 ≤ 2 ^ 5) (Nat.pow_le_pow_right (by norm_num) e4)
     rw [if_pos (by omega), if_pos (by omega)]
   · interval_cases e <;> simp only [pow_one, Nat.reducePow] at h1 h2 ⊢ <;> split_ifs <;> omega
 theorem stubW_class (lay heap e : Nat) (he1 : 1 ≤ e) (h1 : 2 ^ e ≤ heap) (h2 : heap < 2 ^ (e + 1)) :
@@ -1811,8 +1814,8 @@ theorem rl_mk_stepL {tc : MachineState} {sig : Signature} {lay : Layer} {tree le
       rcases h with h | h | h | h
       · exact Or.inl h
       · exact Or.inr (Or.inl (by unfold Grind.SaveW at h; exact h))
-      · refine Or.inr (Or.inr ⟨hlow', ?_, ?_⟩) <;> (unfold Grind.recA Grind.recB at h hrc; split_ifs at h hrc <;> omega)
-      · refine Or.inr (Or.inr ⟨hlow', ?_, ?_⟩) <;> (unfold Grind.recB at h; omega))
+      · refine Or.inr (Or.inr ⟨hlow', ?_⟩); unfold Grind.recA Grind.recB at h hrc; split_ifs at h hrc <;> omega
+      · refine Or.inr (Or.inr ⟨hlow', ?_⟩); unfold Grind.recB at h; omega)
   have hd := hws.out
   have p5 : ws.pc = pcOf 1139 := hws_pc
   have hskip' : height lay ≠ 12 ∨ 11 ≤ j := by

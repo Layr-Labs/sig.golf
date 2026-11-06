@@ -13,6 +13,7 @@ import SigGolfCandidate.Merge107
 import SigGolfCandidate.Merge108
 import SigGolfCandidate.Merge109
 import SigGolfCandidate.Merge110
+set_option linter.all false
 
 -- ==== merged from ClaudeWCT_W9_T3_Secc_WotsLeafRef ====
 section

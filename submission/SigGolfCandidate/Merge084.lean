@@ -2,6 +2,7 @@ import SigGolfCandidate.MaskMachine
 import SigGolfCandidate.Merge054
 import SigGolfCandidate.Merge075
 import SigGolfCandidate.Merge083
+set_option linter.all false
 
 -- ==== merged from ClaudeWCT_W9_New_Machine_Sign_FtsTableCheck ====
 section

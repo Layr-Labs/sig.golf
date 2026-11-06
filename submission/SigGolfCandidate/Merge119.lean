@@ -5,6 +5,7 @@ import SigGolfCandidate.Merge115
 import SigGolfCandidate.Merge116
 import SigGolfCandidate.Merge117
 import SigGolfCandidate.Merge118
+set_option linter.all false
 
 -- ==== merged from T3M_Verify_Nonbinary_ChainsGoodChecksPart8 ====
 section

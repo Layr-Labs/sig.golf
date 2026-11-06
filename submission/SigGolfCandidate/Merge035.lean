@@ -5,6 +5,7 @@ import Mathlib.Data.Nat.Choose.Basic
 import Mathlib.Algebra.BigOperators.Fin
 import Mathlib.Tactic.FinCases
 import Mathlib.Tactic.NormNum
+set_option linter.all false
 
 -- ==== merged from ClaudeWCT_Numerics_LowerZeroCreditPoly ====
 section

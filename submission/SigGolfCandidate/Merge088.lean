@@ -1,4 +1,5 @@
 import SigGolfCandidate.Merge084
+set_option linter.all false
 
 -- ==== merged from W9Machine_WctN600Check44 ====
 section

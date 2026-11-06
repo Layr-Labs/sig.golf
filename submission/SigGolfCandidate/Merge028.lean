@@ -13,6 +13,7 @@ import SigGolfCandidate.Merge009
 import SigGolfCandidate.Merge015
 import SigGolfCandidate.Merge026
 import SigGolfCandidate.Merge027
+set_option linter.all false
 
 attribute [local irreducible] SigGolfCandidate.T3.maskedLevel
 

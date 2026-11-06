@@ -2,6 +2,7 @@ import SigGolfCandidate.Merge015
 import SigGolfCandidate.Merge052
 import SigGolfCandidate.Merge054
 import SigGolfCandidate.Merge055
+set_option linter.all false
 
 -- ==== merged from W9Drv_FtsCore ====
 section

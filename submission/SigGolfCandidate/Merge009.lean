@@ -3,6 +3,7 @@ import SigGolfCandidate.Merge005
 import SigGolfCandidate.Merge006
 import SigGolfCandidate.Merge007
 import SigGolfCandidate.Merge008
+set_option linter.all false
 
 -- ==== merged from T3_Core ====
 section
@@ -243,7 +244,7 @@ Every top node at height `h ∈ 1..11` (level `h` of `buildTopLevels`; heap `2^(
 `n < topNonceCap h` of `topNodeHashN heap n left right` whose zero bits (`topZeroOk h`) are clear; if no trial
 passes, the last one (`n = topNonceCap h - 1`) is kept. The nonce is the 64-bit counter at bytes 32..39 of the node
 input (bytes 40..47 stay 0); `n = 0` gives the old zero pad. Zero bits: the top `topZeroBits h` bits of the 128-bit
-node value for `h ≤ 10`, bits 104..111 for `h = 11` (T51; #938: bits 98..108). The root (height 12) has no nonce.
+node value for `h ≤ 10`, bits 101..107 for `h = 11` (E11) (T51; #938: bits 98..108). The root (height 12) has no nonce.
 A height with `b_h = 0` passes its first trial (nonce 0). -/
 /-- Campaign T51: `b_1..b_11 = 0,0,1,1,2,3,4,5,6,7,8` (37 bits; #938 img-v6 had `b_h = h`, 66 bits). -/
 def topZeroAlloc : List Nat := [0, 0, 0, 2, 2, 3, 4, 5, 6, 7, 8, 7]
@@ -251,7 +252,7 @@ def topZeroBits (h : Nat) : Nat := topZeroAlloc.getD h 0
 /-- Trial cap `104 << b`. -/
 def topNonceCap (h : Nat) : Nat := 104 * 2 ^ topZeroBits h
 def topZeroOk (h : Nat) (value : Digest) : Bool :=
-  if h = 11 then value.toNat / 2 ^ 104 % 2 ^ 7 == 0 else value.toNat / 2 ^ (128 - topZeroBits h) == 0
+  if h = 11 then value.toNat / 2 ^ 101 % 2 ^ 7 == 0 else value.toNat / 2 ^ (128 - topZeroBits h) == 0
 def nonceBytes (n : Nat) : HashInput := bytesLE 16 (BitVec.ofNat 128 (n % 2 ^ 64))
 def topNodeInput (heap n : Nat) (left right : Digest) : HashInput :=
   bytesLE 16 left ++ bytesLE 16 (nodeTweak 3 0 0 heap) ++ nonceBytes n ++ bytesLE 16 right

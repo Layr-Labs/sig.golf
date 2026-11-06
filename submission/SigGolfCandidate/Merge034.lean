@@ -1,5 +1,6 @@
 import Mathlib.Data.FinEnum
 import SigGolfCandidate.Merge031
+set_option linter.all false
 
 -- ==== merged from ClaudeWCT_Numerics_LowerCreditCount ====
 section

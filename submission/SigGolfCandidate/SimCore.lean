@@ -1,5 +1,6 @@
 import SigGolfCandidate.Merge011
 import SigGolfCandidate.RvCore
+set_option linter.all false
 
 -- ==== merged from T3M_Sim ====
 section

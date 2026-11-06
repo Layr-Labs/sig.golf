@@ -3,6 +3,7 @@ import SigGolfCandidate.Merge058
 import SigGolfCandidate.Merge074
 import SigGolfCandidate.Merge076
 import SigGolfCandidate.Merge077
+set_option linter.all false
 
 -- ==== merged from T3M_Expand_Layers ====
 section
@@ -29,7 +30,8 @@ def RecAt (t : MachineState) (lay : Layer) (leaf : Nat) (ns : List Nat) : Prop :
   ns.length = height lay - 1 ∧
     (∀ m, m < 3 → t.getMem (BitVec.ofNat 64 (SharedRecover.Grind.recB lay.val + 16 - 8 * m)) =
       BitVec.ofNat 64 (ns.getD (height lay - 4 + m) 0)) ∧
-    t.getMem (BitVec.ofNat 64 (SharedRecover.Grind.recB lay.val + 24)) = BitVec.ofNat 64 (2 ^ (height lay - 1) + leaf / 2)
+    t.getMem (BitVec.ofNat 64 (SharedRecover.Grind.recB lay.val + 24)) = BitVec.ofNat 64 (2 ^ (height lay - 1) + leaf / 2) ∧
+    t.getMem (BitVec.ofNat 64 (SharedRecover.Grind.recB lay.val + 256)) = BitVec.ofNat 64 (ns.getD (height lay - 5) 0)
 def RlPairPost (s0 : MachineState) (sig : Signature) (index : Nat) (lay : Layer) (WC WM ret : Nat)
     (res : (Digest × Digest) × List Nat) (t : MachineState) : Prop :=
   t.pc = pcOf ret ∧ DigAt t ENC res.1.1 ∧ DigAt t (ENC + 48) res.1.2 ∧
@@ -395,13 +397,13 @@ def LowInv (tc : MachineState) (sig : Signature) (lay : Layer) (leaf P WM : Nat)
       w.getMem (BitVec.ofNat 64 (Grind.recA lay.val (2 ^ (height lay - k - 1) + leaf / 2 ^ (k + 1)))) =
         BitVec.ofNat 64 (acc.2.getD k 0)) ∧
     (0 < j → w.getMem (BitVec.ofNat 64 (Grind.recB lay.val + 24)) = BitVec.ofNat 64 (2 ^ (height lay - 1) + leaf / 2))
-theorem ground_e (lay e heap : Nat) (c1 : 2 ^ e ≤ heap) (hg : ClaudeWCT.WCT9.lowerZeroBits lay heap ≠ 0) : e ≤ 3 := by
-  have h16 : heap < 16 := by
+theorem ground_e (lay e heap : Nat) (c1 : 2 ^ e ≤ heap) (hg : ClaudeWCT.WCT9.lowerZeroBits lay heap ≠ 0) : e ≤ 4 := by
+  have h16 : heap < 32 := by
     unfold ClaudeWCT.WCT9.lowerZeroBits at hg; split_ifs at hg <;> omega
   by_contra hc
-  have : 2 ^ 4 ≤ 2 ^ e := Nat.pow_le_pow_right (by norm_num) (by omega)
+  have : 2 ^ 5 ≤ 2 ^ e := Nat.pow_le_pow_right (by norm_num) (by omega)
   omega
-theorem recA_ne_of_class (lay e e' : Nat) (hne : e ≠ e') (h3 : e ≤ 3) (h3' : e' ≤ 3) (h1 : 1 ≤ e) (h1' : 1 ≤ e')
+theorem recA_ne_of_class (lay e e' : Nat) (hne : e ≠ e') (h3 : e ≤ 4) (h3' : e' ≤ 4) (h1 : 1 ≤ e) (h1' : 1 ≤ e')
     {h h' : Nat} (c1 : 2 ^ e ≤ h) (c2 : h < 2 ^ (e + 1)) (c3 : 2 ^ e' ≤ h') (c4 : h' < 2 ^ (e' + 1)) :
     Grind.recA lay h ≠ Grind.recA lay h' := by
   unfold Grind.recA
@@ -585,8 +587,7 @@ theorem recoverLayerPair_tbsim {sk : BitVec 256} {s0 : MachineState} {wsig : WCT
           obtain ⟨c3, c4⟩ := hheapk i.val (by omega)
           rw [h.2.2.2.2.2 (Grind.recA lay.val (2 ^ (height lay - k - 1) + leaf / 2 ^ (k + 1)))
             (by have := Grind.recA_cases lay.val (2 ^ (height lay - k - 1) + leaf / 2 ^ (k + 1)) hl1 hl3; omega)
-            ⟨hlv, by have := Grind.recA_cases lay.val (2 ^ (height lay - k - 1) + leaf / 2 ^ (k + 1)) hl1 hl3; unfold Grind.recA Grind.recB at *; split_ifs <;> omega,
-              by have := Grind.recA_cases lay.val (2 ^ (height lay - k - 1) + leaf / 2 ^ (k + 1)) hl1 hl3; unfold Grind.recA Grind.recB at *; split_ifs <;> omega⟩
+            ⟨hlv, by unfold Grind.recA Grind.recB; split_ifs <;> omega⟩
             (fun ⟨hg', he⟩ => recA_ne_of_class lay.val (height lay - k - 1) (height lay - i.val - 1) (by omega)
               (ground_e lay.val _ _ c1 hg) (ground_e lay.val _ _ c3 hg') (by omega) (by omega) c1 c2 c3 c4 he)
             (fun ⟨_, he⟩ => Grind.recA_cases lay.val _ hl1 hl3 |>.2.2.2 he),
@@ -598,7 +599,7 @@ theorem recoverLayerPair_tbsim {sk : BitVec 256} {s0 : MachineState} {wsig : WCT
         · rw [h.2.2.2.2.1 (by rw [hthr, h0, Nat.sub_zero]; omega)]
           rw [h0]; simp
         · rw [h.2.2.2.2.2 (Grind.recB lay.val + 24) (by unfold Grind.recB; omega)
-            ⟨hlv, by unfold Grind.recB; omega, by unfold Grind.recB; omega⟩
+            ⟨hlv, Or.inl ⟨by unfold Grind.recB; omega, by unfold Grind.recB; omega⟩⟩
             (fun ⟨_, he⟩ => (Grind.recA_cases lay.val _ hl1 hl3).2.2.2 he.symm)
             (fun ⟨hth, _⟩ => by
               rw [hthr] at hth
@@ -663,8 +664,8 @@ theorem recoverLayerPair_tbsim {sk : BitVec 256} {s0 : MachineState} {wsig : WCT
         simp only [ENC] at hE
         simp only [ENC]
         omega
-  · -- the record of the three ground folds and the fold-0 heap
-    refine ⟨by simpa using hwlen, fun m hm => ?_, ?_⟩
+  · -- the record of the four ground folds and the fold-0 heap
+    refine ⟨by simpa using hwlen, fun m hm => ?_, ?_, ?_⟩
     · obtain ⟨c1, c2⟩ := hheapk (height lay - 4 + m) (by omega)
       have hcl : height lay - (height lay - 4 + m) - 1 = 3 - m := by omega
       rw [hcl] at c1 c2
@@ -678,9 +679,22 @@ theorem recoverLayerPair_tbsim {sk : BitVec 256} {s0 : MachineState} {wsig : WCT
         interval_cases m <;> simp only [Nat.reducePow, Nat.reduceSub] at c1 c2 ⊢ <;> split_ifs <;> omega
       have := hwrec (height lay - 4 + m) (by omega) hg
       rw [hrA] at this
-      rw [ftR _ (by unfold Grind.recB; omega) ⟨hlv, by unfold Grind.recB; omega, by unfold Grind.recB; omega⟩, this]
-    · rw [ftR _ (by unfold Grind.recB; omega) ⟨hlv, by unfold Grind.recB; omega, by unfold Grind.recB; omega⟩,
+      rw [ftR _ (by unfold Grind.recB; omega) ⟨hlv, Or.inl ⟨by unfold Grind.recB; omega, by unfold Grind.recB; omega⟩⟩, this]
+    · rw [ftR _ (by unfold Grind.recB; omega) ⟨hlv, Or.inl ⟨by unfold Grind.recB; omega, by unfold Grind.recB; omega⟩⟩,
         hw24 (by omega)]
+    · obtain ⟨c1, c2⟩ := hheapk (height lay - 5) (by omega)
+      have hcl : height lay - (height lay - 5) - 1 = 4 := by omega
+      rw [hcl] at c1 c2
+      have hrA : Grind.recA lay.val (2 ^ (height lay - (height lay - 5) - 1) + leaf / 2 ^ (height lay - 5 + 1)) =
+          Grind.recB lay.val + 256 := by
+        rw [hcl]; unfold Grind.recA; simp only [Nat.reducePow, Nat.reduceAdd] at c1 c2 ⊢; split_ifs <;> omega
+      have hg : ClaudeWCT.WCT9.lowerZeroBits lay.val
+          (2 ^ (height lay - (height lay - 5) - 1) + leaf / 2 ^ (height lay - 5 + 1)) ≠ 0 := by
+        rw [hcl]; unfold ClaudeWCT.WCT9.lowerZeroBits; simp only [Nat.reducePow, Nat.reduceAdd] at c1 c2 ⊢
+        split_ifs <;> omega
+      have := hwrec (height lay - 5) (by omega) hg
+      rw [hrA] at this
+      rw [ftR _ (by unfold Grind.recB; omega) ⟨hlv, Or.inr (by unfold Grind.recB; omega)⟩, this]
 
 theorem recoverMsg_tbsim {sk : BitVec 256} {s0 : MachineState} {sig : WCT9.Signature} {index : Nat} {lay : Layer}
     {digits : List Nat} {P WC WM ret : Nat}
@@ -772,6 +786,33 @@ theorem bytesToWordLE_bytes_e {n : Nat} (x : Bytes n) (j : Nat) (hj : 8 * j + 8 
   generalize x.toNat / 2 ^ (64 * j) = y
   interval_cases i <;> simp only [Nat.reducePow, Nat.reduceMul, Nat.mul_zero, pow_zero, Nat.div_one] <;> omega
 theorem bytes_length_e {n : Nat} (x : Bytes n) : (bytes x).length = n := by simp [bytes]
+/-- A possibly partial last word (E11: word 648 holds the 6-byte tail). -/
+theorem bytesToWordLE_bytes_p {n : Nat} (x : Bytes n) (j : Nat) (_hj : 8 * j < n) :
+    bytesToWordLE (((bytes x).drop (8 * j)).take 8) = x.extractLsb' (64 * j) 64 := by
+  apply word_ext_bytes_e
+  intro i hi
+  rw [extractByte_bytesToWordLE_e _ _ hi]
+  apply BitVec.eq_of_toNat_eq
+  rw [extractByte_toNat_e]
+  by_cases hin : 8 * j + i < n
+  · simp only [bytes, List.getD_eq_getElem?_getD, List.getElem?_take, List.getElem?_drop,
+      List.getElem?_map, List.getElem?_range hin, if_pos hi, Option.map_some,
+      Option.getD_some, BitVec.extractLsb'_toNat, Nat.shiftRight_eq_div_pow]
+    rw [show 8 * (8 * j + i) = 64 * j + 8 * i by ring, Nat.pow_add, ← Nat.div_div_eq_div_mul]
+    generalize x.toNat / 2 ^ (64 * j) = y
+    interval_cases i <;> simp only [Nat.reducePow, Nat.reduceMul, Nat.mul_zero, pow_zero, Nat.div_one] <;> omega
+  · have hn : (List.range n)[8 * j + i]? = none := by
+      rw [List.getElem?_eq_none]; simp; omega
+    simp only [bytes, List.getD_eq_getElem?_getD, List.getElem?_take, List.getElem?_drop,
+      List.getElem?_map, hn, if_pos hi, Option.map_none, Option.getD_none, BitVec.extractLsb'_toNat,
+      Nat.shiftRight_eq_div_pow]
+    have hx := x.isLt
+    have hy : x.toNat / 2 ^ (64 * j) < 2 ^ (8 * i) := by
+      rw [Nat.div_lt_iff_lt_mul (by positivity), ← Nat.pow_add]
+      exact lt_of_lt_of_le hx (Nat.pow_le_pow_right (by norm_num) (by omega))
+    have h0 : x.toNat / 2 ^ (64 * j) % 2 ^ 64 / 2 ^ (8 * i) = 0 :=
+      Nat.div_eq_of_lt (lt_of_le_of_lt (Nat.mod_le _ _) hy)
+    rw [h0]; rfl
 end SigGolfCandidate.T3M.Expand
 end
 section
@@ -1347,10 +1388,10 @@ section
 
 /-! # T51 DEC from the real initial state
 
-U16b: word 0 is `j 54886` (the pre-pass, 84 steps, then `j 54569` = DEC). From `w9init` with the 5,193-byte signature
+E11: word 0 is `j 60000` (the pre-pass, 108 steps, then `j 54569` = DEC). From `w9init` with the 5,190-byte signature
 `b`, the pre-pass rebuilds DEC's T1 layout (`unpackB b`) and DEC writes the expander's inflated slot layout
 `SharedCodec.inflatedRead 0 (SharedCodec.digC b)` (332 slots at `0x7000`) and the hint at `0x66000`, rejects a hint
-`≥ 7744` at `j 354`, zeroes its temporaries and jumps to word 1 (2,090 steps in all). -/
+`≥ 7744` at `j 354`, zeroes its temporaries and jumps to word 1 (2,114 steps in all). -/
 
 namespace ClaudeWCT.W9.Machine.Expand.PrePass
 open SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64 SigGolfCandidate.Rv SigGolfCandidate.T3M
@@ -1417,7 +1458,7 @@ theorem jalTo0_sound {w : BitVec 32} {n m : Nat} (h : jalTo0 w n = some m) :
     · cases h
   · cases h
 
-theorem entry_code0 : CodeAt Images.expandImage (pcOf 0) [0x1993506f] :=
+theorem entry_code0 : CodeAt Images.expandImage (pcOf 0) [0x1813a06f] :=
   codeAt_expand_current_chunk (by decide) (by decide) (by decide +kernel)
 
 theorem w9_pc (im : Image) (m : Message) (pk : PublicKey) {n : Nat} (σ : Bytes n) :
@@ -1428,18 +1469,18 @@ theorem w9_pc (im : Image) (m : Message) (pk : PublicKey) {n : Nat} (σ : Bytes 
   rfl
 
 theorem entry_step0 (s : MachineState) (hpc : s.pc = pcOf 0) :
-    Steps Images.expandImage s 1 1 (s.setPC (pcOf 54886)) := by
-  obtain ⟨imm, hd, hoff⟩ := jalTo0_sound (show jalTo0 (0x1993506f#32) 0 = some 54886 by decide +kernel)
+    Steps Images.expandImage s 1 1 (s.setPC (pcOf 60000)) := by
+  obtain ⟨imm, hd, hoff⟩ := jalTo0_sound (show jalTo0 (0x1813a06f#32) 0 = some 60000 by decide +kernel)
   exact jal_x0_step entry_code0 hd hoff s hpc
 
-/-- U16b: word 0 + the pre-pass: from word 0 to DEC's entry 54569 with the T1-layout signature `unpackB b`. -/
+/-- E11: word 0 + the pre-pass: from word 0 to DEC's entry 54569 with the T1-layout signature `unpackB b`. -/
 theorem pre_entry (s0 : MachineState) (b : SharedCodec.CBytes) (hpc : s0.pc = pcOf 0) (hsig : SigMemC s0.getMem b) :
-    ∃ u, Steps Images.expandImage s0 85 85 u ∧ u.pc = pcOf 54569 ∧
+    ∃ u, Steps Images.expandImage s0 109 109 u ∧ u.pc = pcOf 54569 ∧
       (∀ r ∈ [Reg.x7, .x28, .x29, .x30, .x31], u.getReg r = 0) ∧ RegsExcept s0 u [.x7, .x28, .x29, .x30, .x31] ∧
       SigMem u.getMem (unpackB b) ∧ Frame s0 u (fun A => 0x70d0 ≤ A ∧ A < 0x84c0) := by
   have st0 := entry_step0 s0 hpc
-  obtain ⟨u, su, pu, zu, ru, mu⟩ := pre_spec (s0.setPC (pcOf 54886)) rfl
-  have e : (s0.setPC (pcOf 54886)).getMem = s0.getMem := funext fun _ => MachineState.getMem_setPC
+  obtain ⟨u, su, pu, zu, ru, mu⟩ := pre_spec (s0.setPC (pcOf 60000)) rfl
+  have e : (s0.setPC (pcOf 60000)).getMem = s0.getMem := funext fun _ => MachineState.getMem_setPC
   have em : u.getMem = preMem s0.getMem := funext fun A => by rw [mu, e]
   refine ⟨u, st0.trans su, pu, zu, fun r hr => (ru r hr).trans MachineState.getReg_setPC, by rw [em]; exact sigMem_pre hsig,
     fun A hA hn => ?_⟩
@@ -1449,7 +1490,7 @@ theorem pre_entry (s0 : MachineState) (b : SharedCodec.CBytes) (hpc : s0.pc = pc
   intro c hc he
   simp only [List.mem_cons, List.not_mem_nil, or_false] at hc
   unfold hiA at he
-  rcases hc with rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl <;> omega
+  rcases hc with rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl <;> omega
 
 /-- U16b: the T1-layout read of DEC's slots is the U16b codec's (`digC_unpack`). -/
 theorem inflated_unpack (b : SharedCodec.CBytes) (k : Nat) (hk : k < 332) :
@@ -1472,51 +1513,18 @@ theorem bytes_getD {n : Nat} (x : Bytes n) (i : Nat) (hi : i < n) :
   simp only [bytes, List.getD_eq_getElem?_getD, List.getElem?_map, List.getElem?_range hi, Option.map_some,
     Option.getD_some]
 
-set_option maxRecDepth 100000 in
-theorem bytesToWordLE_last5191 (b : Bytes 5191) :
-    bytesToWordLE (((bytes b).drop (8 * 648)).take 8) = b.extractLsb' (64 * 648) 64 := by
-  apply word_ext_bytes_e
-  intro i hi
-  rw [extractByte_bytesToWordLE_e _ _ hi]
-  apply BitVec.eq_of_toNat_eq
-  rw [extractByte_toNat_e]
-  by_cases h : i < 7
-  · simp only [bytes, List.getD_eq_getElem?_getD, List.getElem?_take, List.getElem?_drop,
-      List.getElem?_map, List.getElem?_range (show 8 * 648 + i < 5191 by omega), if_pos hi, Option.map_some,
-      Option.getD_some, BitVec.extractLsb'_toNat, Nat.shiftRight_eq_div_pow]
-    rw [show 8 * (8 * 648 + i) = 64 * 648 + 8 * i by ring, Nat.pow_add, ← Nat.div_div_eq_div_mul]
-    generalize b.toNat / 2 ^ (64 * 648) = y
-    interval_cases i <;> norm_num at h ⊢ <;> omega
-  · have ei : i = 7 := by omega
-    subst i
-    have bound : b.toNat / 2 ^ 41472 < 2 ^ 56 := by
-      rw [Nat.div_lt_iff_lt_mul (by positivity)]
-      exact b.isLt
-    simp only [bytes, List.getD_eq_getElem?_getD, List.getElem?_take, List.getElem?_drop,
-      List.getElem?_map, List.getElem?_range, Nat.reduceMul, Nat.reduceAdd, Nat.reduceLT,
-      if_true, if_false, Option.map_none, Option.getD_none,
-      BitVec.extractLsb'_toNat, Nat.shiftRight_eq_div_pow]
-    norm_num
-    rw [Nat.mod_eq_of_lt (lt_trans bound (by norm_num))]
-    change (0 : Nat) = (b.toNat / 2 ^ 41472) / 2 ^ 56 % 256
-    rw [Nat.div_eq_of_lt bound]
-
-/-- U16b: the expand entry memory of the real initial state holds the 5,193-byte signature (bytes 5191..5194 zero). -/
+/-- E11: the expand entry memory of the real initial state holds the 5,190-byte signature. -/
 theorem w9_sigMemC (m : Message) (pk : PublicKey) (b : SharedCodec.CBytes) :
     SigMemC (w9init Images.expandImage m pk b).getMem b := by
   constructor
   intro j hj
   rw [w9_getMem _ _ _ (by decide) b _ (by omega), if_pos (by omega), show 0x7000 + 8 * j - 0x7000 = 8 * j by omega]
-  by_cases hfull : j < 648
-  · exact bytesToWordLE_bytes_e b j (by omega)
-  · have ej : j = 648 := by omega
-    subst j
-    exact bytesToWordLE_last5191 b
+  exact SigGolfCandidate.T3M.Expand.bytesToWordLE_bytes_p b j (by omega)
 
 /-- DEC, accepting, from any state at word 0 holding the signature (U16b: word 0 + the pre-pass + DEC). -/
 theorem dec_gen (s0 : MachineState) (b : SharedCodec.CBytes) (hpc : s0.pc = pcOf 0) (hsig : SigMemC s0.getMem b)
     (hh : (SharedCodec.sigDecC b).policyHints.toNat < 7744) :
-    ∃ u, Steps Images.expandImage s0 2090 2090 u ∧ u.pc = pcOf 1 ∧
+    ∃ u, Steps Images.expandImage s0 2114 2114 u ∧ u.pc = pcOf 1 ∧
       (∀ r ∈ [.x6, .x7, .x18, .x19, .x20, .x28, .x29, .x30, .x31], u.getReg r = 0) ∧
       RegsExcept s0 u [.x6, .x7, .x18, .x19, .x20, .x28, .x29, .x30, .x31] ∧
       (∀ k, k < 332 → DigAt u (0x7000 + 16 * k)
@@ -1546,7 +1554,7 @@ slot layout of the decoded signature at `0x7000`, the hint at `0x66000`; only th
 are written. -/
 theorem dec_init (m : Message) (pk : PublicKey) (b : SharedCodec.CBytes)
     (hh : (SharedCodec.sigDecC b).policyHints.toNat < 7744) :
-    ∃ u, Steps Images.expandImage (w9init Images.expandImage m pk b) 2090 2090 u ∧ u.pc = pcOf 1 ∧
+    ∃ u, Steps Images.expandImage (w9init Images.expandImage m pk b) 2114 2114 u ∧ u.pc = pcOf 1 ∧
       (∀ r, u.getReg r = (w9init Images.expandImage m pk b).getReg r) ∧
       (∀ k, k < 332 → DigAt u (0x7000 + 16 * k)
         (SharedCodec.inflatedRead (0 : SigGolfCandidate.T3.Digest) (SharedCodec.digC b) k)) ∧
@@ -1559,11 +1567,11 @@ theorem dec_init (m : Message) (pk : PublicKey) (b : SharedCodec.CBytes)
   · rw [uz r hr, w9_getReg_zero _ _ _ _ _ (by intro e; subst e; simp at hr)]
   · exact ur r hr
 
-/-- DEC, rejecting: a hint `≥ 7744` sends the expander to word 354 (the failure exit) after 164 steps (U16b: word 0,
+/-- DEC, rejecting: a hint `≥ 7744` sends the expander to word 354 (the failure exit) after 188 steps (E11: word 0,
 the pre-pass, then DEC's 80). -/
 theorem dec_reject (m : Message) (pk : PublicKey) (b : SharedCodec.CBytes)
     (hh : 7744 ≤ (SharedCodec.sigDecC b).policyHints.toNat) :
-    ∃ u, Steps Images.expandImage (w9init Images.expandImage m pk b) 164 164 u ∧ u.pc = pcOf 354 := by
+    ∃ u, Steps Images.expandImage (w9init Images.expandImage m pk b) 188 188 u ∧ u.pc = pcOf 354 := by
   generalize hs0 : w9init Images.expandImage m pk b = s0
   have hpc : s0.pc = pcOf 0 := by rw [← hs0]; exact w9_pc Images.expandImage m pk b
   have hsig : SigMemC s0.getMem b := by rw [← hs0]; exact w9_sigMemC m pk b

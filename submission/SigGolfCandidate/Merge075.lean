@@ -7,6 +7,7 @@ import SigGolfCandidate.Merge052
 import SigGolfCandidate.Merge055
 import SigGolfCandidate.Merge058
 import SigGolfCandidate.Merge074
+set_option linter.all false
 
 -- ==== merged from ClaudeWCT_W9_New_Machine_Sign_Search ====
 section

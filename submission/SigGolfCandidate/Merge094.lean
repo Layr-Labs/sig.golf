@@ -13,6 +13,7 @@ import SigGolfCandidate.Merge078
 import SigGolfCandidate.Merge080
 import SigGolfCandidate.Merge084
 import SigGolfCandidate.Merge093
+set_option linter.all false
 
 -- ==== merged from ClaudeWCT_W9_New_Machine_ExpandLink_Link ====
 section
@@ -330,18 +331,19 @@ theorem NoncesAt.frame {s t : MachineState} {n : List Nat} {l : Nat} {W : Nat �
   ⟨h.1, fun k hk => (hf.get (by omega) (hW _ (by omega) (by omega))).trans (h.2.1 k hk),
     (hf.get (by omega) (hW _ (by omega) (by omega))).trans h.2.2⟩
 
-/-- U16b: the record table survives a frame that keeps `[0x700000, 0x700060)`. -/
+/-- U16b: the record table survives a frame that keeps `[0x700000, 0x700160)`. -/
 theorem RecTable.frame {s t : MachineState} {output : HashOutput} {w : SharedForest.Witness}
     (h : PadWit.RecTable s.getMem output w)
-    (hk : ∀ A, 0x700000 ≤ A → A < 0x700060 → t.getMem (BitVec.ofNat 64 A)=s.getMem (BitVec.ofNat 64 A)) :
+    (hk : ∀ A, 0x700000 ≤ A → A < 0x700160 → t.getMem (BitVec.ofNat 64 A)=s.getMem (BitVec.ofNat 64 A)) :
     PadWit.RecTable t.getMem output w := by
   intro lay hl
   have hv : lay.val≠0 := fun e=>hl (Fin.ext e)
   have hlt:=lay.isLt
-  exact ⟨fun m hm=>(hk _ (by omega) (by omega)).trans ((h lay hl).1 m hm),(hk _ (by omega) (by omega)).trans (h lay hl).2⟩
+  exact ⟨fun m hm=>(hk _ (by omega) (by omega)).trans ((h lay hl).1 m hm),(hk _ (by omega) (by omega)).trans (h lay hl).2.1,
+    (hk _ (by omega) (by omega)).trans (h lay hl).2.2⟩
 
-/-- The post-pass leaves the record table `[0x700000, 0x700060)` untouched. -/
-theorem ppMem_rec (leaf : Nat) (M : Nat → Word) (A : Nat) (h1 : 0x700000 ≤ A) (h2 : A < 0x700060) :
+/-- The post-pass leaves the record table `[0x700000, 0x700160)` untouched. -/
+theorem ppMem_rec (leaf : Nat) (M : Nat → Word) (A : Nat) (h1 : 0x700000 ≤ A) (h2 : A < 0x700160) :
     PostPass.ppMem leaf M A = M A := by
   rw [PostPass.ppMem_out _ _ _ (by omega), PostPass.stage7_unfold, PostPass.zfill_miss _ _ _ _ (by omega),
     PostPass.bmv_miss _ _ _ _ _ (by omega), PostPass.dmv_miss _ _ _ _ (by omega), PostPass.fcp_miss _ _ _ _ _ (by omega),
@@ -350,8 +352,8 @@ theorem ppMem_rec (leaf : Nat) (M : Nat → Word) (A : Nat) (h1 : 0x700000 ≤ A
     PostPass.fcp_miss _ _ _ _ _ (by omega), PostPass.fcp_miss _ _ _ _ _ (by omega)]
 
 /-- Cycles of the U16b witness tail: post-pass (49400 -> 54174) + pad writer hook and positional post-pass
-(54174 -> 55019). -/
-def suffixW : Nat := PostPass.ppCycles + 138
+(54174 -> 60732). -/
+def suffixW : Nat := PostPass.ppCycles + 168
 end ClaudeWCT.W9.Machine.Expand.SharedCompactMain
 
 namespace ClaudeWCT.W9.Machine.Expand.SharedScatter
@@ -474,7 +476,7 @@ theorem clear_scatter_finish {im:Image} (hz:SharedZero.ClearCode im)
     (hflag:s.getMem (BitVec.ofNat 64 Search.FLAG)=BitVec.ofNat 64 (if witness.topHigh then 128 else 0)) :
     ∃v,Steps im s 4984 5161 v ∧ v.pc=pcOf 49400 ∧ v.getReg .x5=1 ∧
       ClaudeWCT.W9.Machine.Expand.SharedCompactMain.Phase1 output witness v ∧
-      (∀ A, (0x66700 ≤ A ∧ A < 0x66760 ∨ 0x700000 ≤ A ∧ A < 0x700060) → v.getMem (BitVec.ofNat 64 A)=s.getMem (BitVec.ofNat 64 A)) := by
+      (∀ A, (0x66700 ≤ A ∧ A < 0x66760 ∨ 0x700000 ≤ A ∧ A < 0x700160) → v.getMem (BitVec.ofNat 64 A)=s.getMem (BitVec.ofNat 64 A)) := by
   obtain ⟨t,st,tp,tzero,tctr,tmode,tdigest,tr,tf⟩:=SharedZero.final_clear hz s hp
   have tin:SharedCompact.ForestAt t b:=hin.frame tf (by intros A hA hB hw;omega)
   have tplan:PlanAt t:=hplan.frame tf (by intros A hA hB hw;omega)
@@ -856,7 +858,7 @@ theorem finish_steps {im : Image} (hcompact : CompactCodeAt im)
     (hflag : s.getMem (BitVec.ofNat 64 Search.FLAG)=BitVec.ofNat 64 (if witness.topHigh then 128 else 0)) :
     ∃v,Steps im s 70972 71149 v ∧ v.pc=pcOf 49400 ∧ v.getReg .x5=1 ∧
       ClaudeWCT.W9.Machine.Expand.SharedCompactMain.Phase1 output witness v ∧
-      (∀ A, (0x66700 ≤ A ∧ A < 0x66760 ∨ 0x700000 ≤ A ∧ A < 0x700060) → v.getMem (BitVec.ofNat 64 A)=s.getMem (BitVec.ofNat 64 A)) := by
+      (∀ A, (0x66700 ≤ A ∧ A < 0x66760 ∨ 0x700000 ≤ A ∧ A < 0x700160) → v.getMem (BitVec.ofNat 64 A)=s.getMem (BitVec.ofNat 64 A)) := by
   obtain ⟨t,st,pt,main,ctr,keep⟩:=compact_main_steps hcompact output (Paired.mainWitness witness) s hpc hout hp hlp htp hmain
   have tin : SharedCompact.ForestAt t b := by
     intro k hk
@@ -1274,7 +1276,7 @@ theorem top_good {im : Image} {sk : BitVec 256} (hsearch : SrchCoreAt im)
     (hentry : CodeAt im (pcOf 351) [0x4d52706f])
     {output : HashOutput} {w : SharedForest.Witness} {b : SharedCodec.CBytes} {folded root pk : Digest} {s : MachineState}
     (h : TopReady output w b folded root pk s) :
-    TBSim im sk s 15800000 (topProgram output w folded root pk) Done := by
+    TBSim im sk s 31600000 (topProgram output w folded root pk) Done := by
   have hsib : WCT9.setTop (WCT9.topSib (SharedForest.mainSignature w.signature)) 0=
       WCT9.topSib (SharedForest.mainSignature w.signature) := by
     rw [←WCT9.topSib_fillTop,h.proj]
@@ -1282,7 +1284,7 @@ theorem top_good {im : Image} {sk : BitVec 256} (hsearch : SrchCoreAt im)
     (WCT9.topSib (SharedForest.mainSignature w.signature)) root pk hsib s h.pc h.x5 h.root
     h.stable.pk.1 h.stable.pk.2 h.stable.index h.top
   unfold topProgram
-  refine (TBSim.bind (W₂:=71150) call (fun result t ht=>?_)).mono (W':=15800000) (by norm_num) (fun _ _ h=>h)
+  refine (TBSim.bind (W₂:=71150) call (fun result t ht=>?_)).mono (W':=31600000) (by norm_num) (fun _ _ h=>h)
   cases result with
   | none => exact (TBSim.pure (Q:=Done) (a:=none) ht).mono (by omega) (fun _ _ h=>h)
   | some c =>
@@ -1336,12 +1338,12 @@ open SigGolfCandidate.T3 (HashOutput)
 
 def I0 : ClaudeWCT.W9.T3M.Images := ⟨Images.signImage,Images.expandImage,Images.verifyImage⟩
 
-def pairedExpandCost : Nat := 4230000000 + ClaudeWCT.W9.Machine.Expand.SharedCompactMain.suffixW
+def pairedExpandCost : Nat := 4260000000 + ClaudeWCT.W9.Machine.Expand.SharedCompactMain.suffixW
 
 def PairedExpPost : Option (HashOutput × SigGolfCandidate.Research.SharedForest.Witness) → MachineState → Prop
   | none,t => (t.pc=pcOf 356 ∨ t.pc=pcOf 45231) ∧ t.getReg .x5=1 ∧ t.getReg .x10=1 ∧
       fetch Images.expandImage t=some (.base .ECALL)
-  | some (output,w),t => t.pc=pcOf 55019 ∧ t.getReg .x5=1 ∧ t.getReg .x10=0 ∧
+  | some (output,w),t => t.pc=pcOf 60732 ∧ t.getReg .x5=1 ∧ t.getReg .x10=0 ∧
       readBuffer t 4256 21756=ClaudeWCT.W9.T3M.Paired.witEncG output w ∧
       fetch Images.expandImage t=some (.base .ECALL)
 end ClaudeWCT.W9.Machine.ExpandLink
@@ -1446,7 +1448,7 @@ set_option maxRecDepth 100000
 set_option maxHeartbeats 1000000
 
 /-- img-v6: the expander reads the 5,239-byte signature (`SharedCodec.sigDecC`, 19-bit top field). -/
-abbrev PairedExpandSimulation : Prop := ∀(sk : SecretKey)(message : Message)(pk : PublicKey)(b : Bytes 5191),
+abbrev PairedExpandSimulation : Prop := ∀(sk : SecretKey)(message : Message)(pk : PublicKey)(b : Bytes 5190),
   TBSim Images.expandImage sk (w9init Images.expandImage message pk b) pairedExpandCost
     (ClaudeWCT.W9.T3M.Paired.expandN message pk (ClaudeWCT.W9.T3M.SharedCodec.sigDecC b)) PairedExpPost
 
@@ -1465,7 +1467,7 @@ theorem pairedExpandCost_lt : pairedExpandCost+1<CYCLE_LIMIT := by
   unfold pairedExpandCost ClaudeWCT.W9.Machine.Expand.SharedCompactMain.suffixW CYCLE_LIMIT
   omega
 
-theorem paired_expand_initial (message : Message) (pk : PublicKey) (b : Bytes 5191) :
+theorem paired_expand_initial (message : Message) (pk : PublicKey) (b : Bytes 5190) :
     initialState SigGolfCandidate.T3M.Paired.submission .expand (message,pk,b)=
       some (w9init Images.expandImage message pk b) := by
   unfold initialState
@@ -1550,10 +1552,10 @@ def SuffixDone (im : Image) (r : Option (HashOutput × SharedForest.Witness)) (s
 theorem layers_good {sk : BitVec 256} {output : HashOutput} {sig : SharedForest.Signature}
     {b : SharedCodec.CBytes} {counter : BitVec 32} {forest : Digest × Digest} {pk : Digest} {s : MachineState}
     (h : LayersReady output sig b counter forest pk s) :
-    TBSim Images.expandImage sk s 3805800060 (recoverProgram output sig counter forest pk) (SuffixDone Images.expandImage) := by
+    TBSim Images.expandImage sk s 3821600060 (recoverProgram output sig counter forest pk) (SuffixDone Images.expandImage) := by
   have call:=SigGolfCandidate.T3M.Expand.SharedLayers.installed_recover_good (sk:=sk) (vin:=0) h.inv
   unfold recoverProgram
-  refine TBSim.bind (W₂:=15800060) call (fun result t ht=>?_)
+  refine TBSim.bind (W₂:=31600060) call (fun result t ht=>?_)
   cases result with
   | none => exact (TBSim.pure (Q:=SuffixDone Images.expandImage) (a:=none) (Or.inr ht)).mono (by omega) (fun _ _ h=>h)
   | some r =>
@@ -1562,8 +1564,8 @@ theorem layers_good {sk : BitVec 256} {output : HashOutput} {sig : SharedForest.
     have trec : PadWit.RecTable t.getMem output ⟨sig,counter,fun lay=>r.counters.getD lay.val 0,!(r.lows.getD 0 true),
         r.nonces,fun lay=>r.lowerNonces.getD lay.val []⟩ := by
       intro lay hl
-      obtain ⟨_,hm,hh⟩:=recP lay hl lay.isLt
-      exact ⟨fun m hm'=>hm m hm',hh⟩
+      obtain ⟨_,hm,hh,h4⟩:=recP lay hl lay.isLt
+      exact ⟨fun m hm'=>hm m hm',hh,h4⟩
     have stable:=h.stable.frame frame (layer_keep _)
     have jump:=SharedControl.validate_step t tp
     let u:=t.setPC (pcOf 46929)
@@ -1697,11 +1699,11 @@ theorem forest_suffix_good {sk : BitVec 256} {output : HashOutput} {b : SharedCo
       (WCT9.digestIndex output) (SharedForest.rawChildFromOutput output)
       (fun k=>SharedForest.forestRank output k.val) s 0
       (W9Machine.SharedV3.initialPair (Paired.witEnc output ⟨SharedCompactMain.forestSig (SharedCodec.sigDecC b),counter,fun _=>0,false,[],fun _=>[]⟩)) s) :
-    TBSim Images.expandImage sk s 3805804681 (forestProgram output b counter pk) (SuffixDone Images.expandImage) := by
+    TBSim Images.expandImage sk s 3821604681 (forestProgram output b counter pk) (SuffixDone Images.expandImage) := by
   have call:=SharedForestRun.installed_forest_good sk output ⟨SharedCompactMain.forestSig (SharedCodec.sigDecC b),counter,fun _=>0,false,[],fun _=>[]⟩
     (WCT9.digestIndex output) hi s hI
   unfold forestProgram
-  refine TBSim.bind (W₂:=3805802665) call (fun pair t ht=>?_)
+  refine TBSim.bind (W₂:=3821602665) call (fun pair t ht=>?_)
   obtain ⟨tp,left,right,frame,fields,x8⟩:=ht
   have memory:=hm.frame frame
   obtain ⟨u,tu,up,u2,u5,roots,rho,dc,zeros,moved,regs,fr⟩:=SharedHandoff.steps SharedHandoff.installed_code t tp x8
@@ -1866,7 +1868,7 @@ theorem forest_suffix_halted {sk : BitVec 256} {output : HashOutput} {b : Shared
       (WCT9.digestIndex output) (SharedForest.rawChildFromOutput output)
       (fun k=>SharedForest.forestRank output k.val) s 0
       (W9Machine.SharedV3.initialPair (Paired.witEnc output ⟨SharedCompactMain.forestSig (SharedCodec.sigDecC b),counter,fun _=>0,false,[],fun _=>[]⟩)) s) :
-    TBSim Images.expandImage sk s (3805804681+suffixW) (forestProgram output b counter pk)
+    TBSim Images.expandImage sk s (3821604681+suffixW) (forestProgram output b counter pk)
       ClaudeWCT.W9.Machine.ExpandLink.PairedExpPost := by
   simpa only [bind_pure] using
     (TBSim.bind (W₂:=suffixW) (forest_suffix_good hi hm hI) (fun _ _ h=>suffix_done h))
@@ -2056,7 +2058,7 @@ theorem initial_x5 (message : Message) (pk : PublicKey) (b : SharedCodec.CBytes)
   rfl
 
 /-- Cycle budget after the digest search (layers + top + compaction/scatter + img-v6 witness tail). -/
-def searchedW : Nat := 3805809854 + suffixW
+def searchedW : Nat := 3821609854 + suffixW
 
 theorem searched_continue {sk : BitVec 256} {s0 s : MachineState} {pk : Digest} {b : SharedCodec.CBytes}
     (initial : InitialMemory b pk s0) (hh:(SharedCodec.sigDecC b).policyHints.toNat<7744)

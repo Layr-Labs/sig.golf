@@ -1,4 +1,5 @@
 import Mathlib
+set_option linter.all false
 
 -- ==== merged from ClaudeWCT_Arith_GF128 ====
 section

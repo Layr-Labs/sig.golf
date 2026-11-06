@@ -5,6 +5,7 @@ import SigGolfCandidate.Merge054
 import SigGolfCandidate.Merge058
 import SigGolfCandidate.Merge110
 import SigGolfCandidate.Merge111
+set_option linter.all false
 
 -- ==== merged from ClaudeWCT_W9_T3_Secc_WotsFamCore ====
 section

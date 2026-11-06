@@ -1,4 +1,5 @@
 import SigGolfCandidate.Merge026
+set_option linter.all false
 
 -- ==== merged from ClaudeWCT_W9_T3_FullCache_NativeBudgetB1_EnvelopesV5 ====
 section

@@ -13,6 +13,7 @@ import SigGolfCandidate.Merge029
 import SigGolfCandidate.Merge030
 import SigGolfCandidate.Merge031
 import SigGolfCandidate.Merge032
+set_option linter.all false
 
 -- ==== merged from ClaudeWCT_Bank_Spec ====
 section
@@ -7633,7 +7634,7 @@ theorem verifyWith_attemptLimit : verifyWith SigGolfCandidate.T3.attemptLimit = 
 /-! ### H2: the compact signature omits the top 16 bits (112..127, T51; #938 img-v6: 19 bits 109..127) of the top
 layer's level-11 sibling. Expand recovers everything up to the level-11 node `v` with those bits zero, then searches
 the 2^16 completions against the public key. The witness carries the completed signature, so verify is unchanged. -/
-def setTop (d : Digest) (c : Nat) : Digest := BitVec.ofNat 128 (d.toNat % 2 ^ 111 + c % 2 ^ 17 * 2 ^ 111)
+def setTop (d : Digest) (c : Nat) : Digest := BitVec.ofNat 128 (d.toNat % 2 ^ 108 + c % 2 ^ 20 * 2 ^ 108)
 def fillLayer (lay : Layer) (ls : LayerSignature lay) (c : Nat) : LayerSignature lay :=
   ⟨ls.values, fun j => if lay.val = 0 ∧ j.val = 11 then setTop (ls.path j) c else ls.path j⟩
 def fillTop (sig : Signature) (c : Nat) : Signature :=
@@ -7688,7 +7689,7 @@ def expandLayersT (sig : Signature) (index : Nat) (other : Digest) :
         let pair ← recoverLayerPair sig index lay digits
         let some (v, root, counters) ← expandLayersT sig index other n (.pair pair.1 pair.2) | pure none
         pure (some (v, root, counters ++ [counter]))
-def searchFuel : Nat := 131071
+def searchFuel : Nat := 1048575
 /-- Candidates `c, c + 1, ...` for the omitted bits; the first whose root is `pk`. -/
 def searchTop (index : Nat) (v sib pk : Digest) : Nat → Nat → M (Option Nat)
   | 0, _ => pure none
@@ -8920,9 +8921,9 @@ theorem bound_lowerNodeG (lay tree heap : Nat) (left right : Digest) :
 def levelCost (lay h level : Nat) : Nat := ((List.range (2 ^ (h - level))).map fun i => nodeCost lay (2 ^ (h - level) + i)).sum
 /-- U16b: worst-case trials of levels `1..h-1` of a lower tree (`buildLevelsBelow`): `2^h - 2` off the ground. -/
 def belowCost (lay h : Nat) : Nat := ∑ i ∈ Finset.range (h - 1), levelCost lay h (1 + i)
-theorem belowCost_one : belowCost 1 7 = 10352 := by decide +kernel
-theorem belowCost_two : belowCost 2 6 = 10288 := by decide +kernel
-theorem belowCost_three : belowCost 3 6 = 10288 := by decide +kernel
+theorem belowCost_one : belowCost 1 7 = 14432 := by decide +kernel
+theorem belowCost_two : belowCost 2 6 = 16416 := by decide +kernel
+theorem belowCost_three : belowCost 3 6 = 16416 := by decide +kernel
 theorem bound_lowerLevel (lay tree h level : Nat) (nodes : List Digest) :
     CBound (fun result => result.length = nodes.length / 2)
       ((List.range (nodes.length / 2)).map fun i => nodeCost lay (2 ^ (h - level) + i)).sum
@@ -9115,24 +9116,24 @@ theorem leafCostP_lower {lay : Layer} (hlay : lay ≠ 0) (leaf : Nat) :
   rw [digitTotal_lower hlay]
   simp [leafHashCost, hlay]
 /-- v6 lower trees: L1 reads 349 pairs (18 families of 19 + a 7-pair remainder), L2/L3 175 (9 · 19 + 4). -/
-theorem treeCostP_one : treeCostP 1 = 50637 := by
+theorem treeCostP_one : treeCostP 1 = 54717 := by
   unfold treeCostP
   rw [Finset.sum_congr rfl (fun leaf _ => leafCostP_lower (by decide) leaf),
-    show belowCost ((1 : Layer)).val (height 1) = 10352 from belowCost_one]
+    show belowCost ((1 : Layer)).val (height 1) = 14432 from belowCost_one]
   decide
-theorem treeCostP_two : treeCostP 2 = 30431 := by
+theorem treeCostP_two : treeCostP 2 = 36559 := by
   unfold treeCostP
   rw [Finset.sum_congr rfl (fun leaf _ => leafCostP_lower (by decide) leaf),
-    show belowCost ((2 : Layer)).val (height 2) = 10288 from belowCost_two]
+    show belowCost ((2 : Layer)).val (height 2) = 16416 from belowCost_two]
   decide
-theorem treeCostP_three : treeCostP 3 = 30431 := by
+theorem treeCostP_three : treeCostP 3 = 36559 := by
   unfold treeCostP
   rw [Finset.sum_congr rfl (fun leaf _ => leafCostP_lower (by decide) leaf),
-    show belowCost ((3 : Layer)).val (height 3) = 10288 from belowCost_three]
+    show belowCost ((3 : Layer)).val (height 3) = 16416 from belowCost_three]
   decide
 /-- U16b: the ground searches add 6144 − 14 (L1) / 5120 − 14 (L2, L3) trials to the T1 lower trees. -/
 theorem treeCostP_lower :
-    treeCostP 1 = treeCost 1 + 7758 ∧ treeCostP 2 = treeCost 2 + 8992 ∧ treeCostP 3 = treeCost 3 + 8992 := by
+    treeCostP 1 = treeCost 1 + 11838 ∧ treeCostP 2 = treeCost 2 + 15120 ∧ treeCostP 3 = treeCost 3 + 15120 := by
   rw [treeCostP_one, treeCostP_two, treeCostP_three]
   decide
 def layerFixedCostP : Nat → Nat
@@ -9145,7 +9146,7 @@ theorem layerFixedCostP_succ_succ (n : Nat) :
     layerFixedCostP (n + 2) = treeCostP (Fin.ofNat 4 (n + 1)) + layerFixedCostP (n + 1) := rfl
 theorem layerFixedCost_succ_succ (n : Nat) :
     layerFixedCost (n + 2) = treeCost (Fin.ofNat 4 (n + 1)) + layerFixedCost (n + 1) := rfl
-theorem layerFixedCostP_four : layerFixedCostP 4 = layerFixedCost 4 + 25742 := by
+theorem layerFixedCostP_four : layerFixedCostP 4 = layerFixedCost 4 + 42078 := by
   obtain ⟨h1, h2, h3⟩ := treeCostP_lower
   have e3 : (Fin.ofNat 4 3 : Layer) = 3 := rfl
   have e2 : (Fin.ofNat 4 2 : Layer) = 2 := rfl
@@ -9211,9 +9212,9 @@ theorem nodeCost_heap_le (lay : Nat) {e : Nat} (he : 1 ≤ e) (x : Nat) : nodeCo
   nodeCost_anti lay (by have := Nat.pow_le_pow_right (show 0 < 2 by decide) he; simpa using this) (by omega)
 /-- U16b: worst-case trials of the `height lay - 1` path folds of a lower layer (heap class `2^(height lay - j - 1)`). -/
 def pathCost (lay : Layer) : Nat := ∑ j ∈ Finset.range (height lay - 1), nodeCost lay.val (2 ^ (height lay - j - 1))
-theorem pathCost_one : pathCost 1 = 3331 := by decide +kernel
-theorem pathCost_two : pathCost 2 = 3330 := by decide +kernel
-theorem pathCost_three : pathCost 3 = 3330 := by decide +kernel
+theorem pathCost_one : pathCost 1 = 2818 := by decide +kernel
+theorem pathCost_two : pathCost 2 = 3841 := by decide +kernel
+theorem pathCost_three : pathCost 3 = 3841 := by decide +kernel
 /-- U16b: the path folds use `lowerNodeG` (`pathCost` instead of the T1 `height lay - 1`). -/
 def recoverLayerPairCost (lay : Layer) : Nat := capacity lay - target lay + leafHashCost lay + pathCost lay
 theorem recoverLayerPairCost_succ (lay : Layer) :
@@ -9291,21 +9292,21 @@ def recoveryLayersCostBC : Nat → Nat
   | 0 => 0
   | n + 1 => (if n = 0 then recoverLayerCost (Fin.ofNat 4 n) else recoverLayerPairCost (Fin.ofNat 4 n)) +
       recoveryLayersCostBC n
-/-- U16b: the 9 ground path folds add `3331 + 2 · 3330 − 16 = 9975` trials to the T1 recovery. -/
-theorem recoveryLayersCostBC_add : recoveryLayersCostBC 4 + 3 = recoveryLayersCost 4 + 9975 := by
+/-- U16b: the 9 ground path folds add `2818 + 2 · 3841 − 16 = 10484` trials to the T1 recovery. -/
+theorem recoveryLayersCostBC_add : recoveryLayersCostBC 4 + 3 = recoveryLayersCost 4 + 10484 := by
   have h1 := recoverLayerPairCost_succ (Fin.ofNat 4 1)
   have h2 := recoverLayerPairCost_succ (Fin.ofNat 4 2)
   have h3 := recoverLayerPairCost_succ (Fin.ofNat 4 3)
-  have p1 : pathCost (Fin.ofNat 4 1) = 3331 := pathCost_one
-  have p2 : pathCost (Fin.ofNat 4 2) = 3330 := pathCost_two
-  have p3 : pathCost (Fin.ofNat 4 3) = 3330 := pathCost_three
+  have p1 : pathCost (Fin.ofNat 4 1) = 2818 := pathCost_one
+  have p2 : pathCost (Fin.ofNat 4 2) = 3841 := pathCost_two
+  have p3 : pathCost (Fin.ofNat 4 3) = 3841 := pathCost_three
   have e1 : height (Fin.ofNat 4 1) = 7 := rfl
   have e2 : height (Fin.ofNat 4 2) = 6 := rfl
   have e3 : height (Fin.ofNat 4 3) = 6 := rfl
   simp only [recoveryLayersCostBC, recoveryLayersCost, if_true, show (3 : Nat) ≠ 0 by decide,
     show (2 : Nat) ≠ 0 by decide, show (1 : Nat) ≠ 0 by decide, if_false]
   omega
-theorem recoveryLayersCostBC_four_le : recoveryLayersCostBC 4 ≤ 10456 := by
+theorem recoveryLayersCostBC_four_le : recoveryLayersCostBC 4 ≤ 10965 := by
   have h := recoveryLayersCostBC_add
   have h4 := recoveryLayersCost_four
   omega
@@ -9410,7 +9411,7 @@ theorem bound_expandLayersBC (sig : Signature) (index : Nat) :
             refine (ih _).bind' (l := 0) (fun result _ => ?_) (by omega)
             cases result <;> exact .pure _ 0 trivial
 def signPayloadFixed : Nat := 2 + 31334 + layerFixedCostP 4
-theorem signPayloadFixed_eq : signPayloadFixed = 2 + 31910 + layerFixedCost 4 + 25166 := by
+theorem signPayloadFixed_eq : signPayloadFixed = 2 + 31910 + layerFixedCost 4 + 41502 := by
   have h := layerFixedCostP_four
   unfold signPayloadFixed
   omega
@@ -9454,16 +9455,16 @@ theorem bound_verifyWith (limit : Nat) (message : Message) (pk : Digest) (w : Wi
         (by have := verifyLayersCostBC_four_le; omega)
       cases r <;> exact .pure _ 0 trivial
 theorem bound_expandWith (limit : Nat) (message : Message) (pk : Digest) (sig : Signature) :
-    CBound (fun _ => True) (limit + 4 * counterLimit + 10596) (expandWith limit message pk sig) := by
+    CBound (fun _ => True) (limit + 4 * counterLimit + 11105) (expandWith limit message pk sig) := by
   unfold expandWith
-  refine (bound_digestSearch sig.rho message limit 0).bind' (l := 4 * counterLimit + 10596)
+  refine (bound_digestSearch sig.rho message limit 0).bind' (l := 4 * counterLimit + 11105)
     (fun found _ => ?_) (by omega)
   cases found with
   | none => exact .pure _ _ trivial
   | some pair =>
       obtain ⟨counter, output⟩ := pair
       dsimp only
-      refine (bound_recoverFts sig _ output).bind' (l := 4 * counterLimit + 10456)
+      refine (bound_recoverFts sig _ output).bind' (l := 4 * counterLimit + 10965)
         (fun root _ => ?_) (by omega)
       refine (bound_expandLayersBC sig _ 4 (.pair root.1 root.2)).bind' (l := 0)
         (fun layers _ => ?_) (by have := recoveryLayersCostBC_four_le; omega)
@@ -9484,7 +9485,7 @@ theorem bound_verify (message : Message) (pk : Digest) (w : Witness) :
   bound_verifyWith digestAttemptLimit message pk w
 theorem sign_compression_ceiling (secret : BitVec 256) (cache : Cache) (message : Message) :
     ∀ result ∈ support (World.countBlocks (realize secret (Rev3.sign cache message))),
-      result.2 ≤ 19017385 := by
+      result.2 ≤ 19033721 := by
   intro result hr
   rw [World.countBlocks, ← realize_count] at hr
   have hc := (bound_sign cache message).count_support result
@@ -9658,14 +9659,14 @@ set_option maxRecDepth 10000
 /-! ### Bits -/
 
 theorem setTop_toNat (d : Digest) (c : Nat) :
-    (setTop d c).toNat = d.toNat % 2 ^ 111 + c % 2 ^ 17 * 2 ^ 111 := by
+    (setTop d c).toNat = d.toNat % 2 ^ 108 + c % 2 ^ 20 * 2 ^ 108 := by
   unfold setTop
   rw [BitVec.toNat_ofNat]
   apply Nat.mod_eq_of_lt
-  have h1 : d.toNat % 2 ^ 111 < 2 ^ 111 := Nat.mod_lt _ (by positivity)
-  have h2 : c % 2 ^ 17 < 2 ^ 17 := Nat.mod_lt _ (by positivity)
-  have h3 : c % 2 ^ 17 * 2 ^ 111 ≤ (2 ^ 17 - 1) * 2 ^ 111 := Nat.mul_le_mul_right _ (by omega)
-  have h4 : (2 ^ 17 - 1) * 2 ^ 111 + 2 ^ 111 = (2 : Nat) ^ 128 := by norm_num
+  have h1 : d.toNat % 2 ^ 108 < 2 ^ 108 := Nat.mod_lt _ (by positivity)
+  have h2 : c % 2 ^ 20 < 2 ^ 20 := Nat.mod_lt _ (by positivity)
+  have h3 : c % 2 ^ 20 * 2 ^ 108 ≤ (2 ^ 20 - 1) * 2 ^ 108 := Nat.mul_le_mul_right _ (by omega)
+  have h4 : (2 ^ 20 - 1) * 2 ^ 108 + 2 ^ 108 = (2 : Nat) ^ 128 := by norm_num
   omega
 
 theorem setTop_setTop (d : Digest) (a b : Nat) : setTop (setTop d a) b = setTop d b := by
@@ -9674,20 +9675,20 @@ theorem setTop_setTop (d : Digest) (a b : Nat) : setTop (setTop d a) b = setTop 
   congr 1
   rw [Nat.add_mul_mod_self_right, Nat.mod_mod]
 
-theorem setTop_self (d : Digest) : setTop d (d.toNat / 2 ^ 111) = d := by
+theorem setTop_self (d : Digest) : setTop d (d.toNat / 2 ^ 108) = d := by
   apply BitVec.eq_of_toNat_eq
   rw [setTop_toNat]
   have hd := d.isLt
-  have h : d.toNat / 2 ^ 111 < 2 ^ 17 := by
+  have h : d.toNat / 2 ^ 108 < 2 ^ 20 := by
     rw [Nat.div_lt_iff_lt_mul (by positivity)]
     norm_num at hd ⊢
     omega
   rw [Nat.mod_eq_of_lt h]
-  have := Nat.mod_add_div d.toNat (2 ^ 111)
+  have := Nat.mod_add_div d.toNat (2 ^ 108)
   rw [Nat.mul_comm] at this
   omega
 
-theorem top_lt (d : Digest) : d.toNat / 2 ^ 111 < 2 ^ 17 := by
+theorem top_lt (d : Digest) : d.toNat / 2 ^ 108 < 2 ^ 20 := by
   have hd := d.isLt
   rw [Nat.div_lt_iff_lt_mul (by positivity)]
   norm_num at hd ⊢
@@ -9745,7 +9746,7 @@ theorem topSib_fillTop (sig : Signature) (c : Nat) : topSib (fillTop sig c) = se
   simp only [fillLayer]
   rw [if_pos ⟨rfl, rfl⟩]
 
-theorem fillTop_self (sig : Signature) : fillTop sig ((topSib sig).toNat / 2 ^ 111) = sig := by
+theorem fillTop_self (sig : Signature) : fillTop sig ((topSib sig).toNat / 2 ^ 108) = sig := by
   cases sig with
   | mk rho openings layers =>
     unfold fillTop
@@ -9839,7 +9840,7 @@ theorem topFoldN_fill (sig : Signature) (index : Nat) (digits : List Nat) (a b :
 
 theorem topFold_proj (sig : Signature) (index : Nat) (digits : List Nat) :
     topFold (proj sig) index digits = topFold sig index digits := by
-  have h := topFold_fill sig index digits 0 ((topSib sig).toNat / 2 ^ 111)
+  have h := topFold_fill sig index digits 0 ((topSib sig).toNat / 2 ^ 108)
   rw [fillTop_self] at h
   exact h
 
@@ -10012,7 +10013,7 @@ theorem topSib_proj (σ : Signature) : topSib (proj σ) = setTop (topSib σ) 0 :
 /-- Every answer of the H2 expander is the old expander's answer on some completion. -/
 theorem eval_expandS (answers : Answers) (limit : Nat) (m : Message) (pk : Digest) (σ : Signature)
     (N : HashOutput) (w : Witness) (h : evalWithAnswerFn answers (expandS limit m pk σ) = some (N, w)) :
-    ∃ c, c < 2 ^ 19 ∧ w.signature = fillTop σ c ∧
+    ∃ c, c < 2 ^ 21 ∧ w.signature = fillTop σ c ∧
       evalWithAnswerFn answers (expandWithN limit m pk (fillTop σ c)) = some (N, w) := by
   unfold expandS at h
   simp only [evalWithAnswerFn_bind] at h
@@ -10073,7 +10074,7 @@ theorem expandS_complete (answers : Answers) (limit : Nat) (m : Message) (pk : D
     (x : HashOutput × Witness) (h : evalWithAnswerFn answers (expandWithN limit m pk σ) = some x) :
     ∃ y, evalWithAnswerFn answers (expandS limit m pk σ) = some y := by
   have hσ := fillTop_self σ
-  set ch := (topSib σ).toNat / 2 ^ 111 with hch
+  set ch := (topSib σ).toNat / 2 ^ 108 with hch
   rw [← hσ, eval_expandWithN_fill] at h
   unfold expandS
   simp only [evalWithAnswerFn_bind]
@@ -10129,7 +10130,7 @@ theorem eval_expand (answers : Answers) (message : Message) (pk : Digest) (sig :
 
 theorem expand_completes (answers : Answers) (message : Message) (pk : Digest) (sig : Signature) (w : Witness)
     (he : evalWithAnswerFn answers (expand message pk sig) = some w) :
-    ∃ c, c < 2 ^ 19 ∧ w.signature = fillTop sig c ∧
+    ∃ c, c < 2 ^ 21 ∧ w.signature = fillTop sig c ∧
       evalWithAnswerFn answers (expandWith digestAttemptLimit message pk (fillTop sig c)) = some w := by
   rw [eval_expand] at he
   obtain ⟨⟨N, w'⟩, hx, rfl⟩ := map_some_inv he
@@ -10236,16 +10237,16 @@ theorem bound_searchTop (index : Nat) (v sib pk : Digest) :
       · exact ih (c + 1)
 
 theorem bound_expandS (limit : Nat) (message : Message) (pk : Digest) (sig : Signature) :
-    CBound (fun _ => True) (limit + 4 * counterLimit + 10596 + searchFuel) (expandS limit message pk sig) := by
+    CBound (fun _ => True) (limit + 4 * counterLimit + 11105 + searchFuel) (expandS limit message pk sig) := by
   unfold expandS
-  refine (bound_digestSearch (proj sig).rho message limit 0).bind' (l := 4 * counterLimit + 10596 + searchFuel)
+  refine (bound_digestSearch (proj sig).rho message limit 0).bind' (l := 4 * counterLimit + 11105 + searchFuel)
     (fun found _ => ?_) (by omega)
   cases found with
   | none => exact .pure _ _ trivial
   | some pair =>
       obtain ⟨counter, output⟩ := pair
       dsimp only
-      refine (bound_recoverFts (proj sig) _ output).bind' (l := 4 * counterLimit + 10456 + searchFuel)
+      refine (bound_recoverFts (proj sig) _ output).bind' (l := 4 * counterLimit + 10965 + searchFuel)
         (fun root _ => ?_) (by omega)
       refine (bound_expandLayersT (proj sig) _ (topSib (proj sig)) 4 (.pair root.1 root.2)).bind' (l := searchFuel)
         (fun layers _ => ?_) (by have := recoveryLayersCostBC_four_le; omega)
@@ -10260,13 +10261,13 @@ theorem bound_expandS (limit : Nat) (message : Message) (pk : Digest) (sig : Sig
             cases c <;> exact .pure _ 0 trivial
 
 theorem bound_expand (message : Message) (pk : Digest) (sig : Signature) :
-    CBound (fun _ => True) (digestAttemptLimit + 4 * counterLimit + 10596 + searchFuel) (Rev3.expand message pk sig) := by
+    CBound (fun _ => True) (digestAttemptLimit + 4 * counterLimit + 11105 + searchFuel) (Rev3.expand message pk sig) := by
   unfold Rev3.expand
   exact Bound.map _ (bound_expandS digestAttemptLimit message pk sig) (fun _ _ => trivial)
 
 theorem expand_compression_ceiling (secret : BitVec 256) (message : Message) (pk : Digest) (sig : Signature) :
     ∀ result ∈ support (World.countBlocks (realize secret (Rev3.expand message pk sig))),
-      result.2 ≤ 19404908 := by
+      result.2 ≤ 20322921 := by
   intro result hr
   rw [World.countBlocks, ← realize_count] at hr
   have hc := (bound_expand message pk sig).count_support result
@@ -10574,9 +10575,9 @@ theorem foldl_nonce_readback {k : Nat} (f : Digest → Fin k → Nat × Digest) 
 
 /-- U16b: the nonce the verifier reads for lower fold `j` of layer `lay` (the fold whose parent has heap
 `2^(height lay - j - 1) + leaf / 2^(j+1)`): its witness pad, written only for the ground folds
-`height lay - 4 ≤ j` (parent heaps 2..15); every other fold pad is 0. -/
+`height lay - 5 ≤ j` (parent heaps 2..31, E11); every other fold pad is 0. -/
 def lowerFoldNonce (lay : Layer) (nonces : List Nat) (j : Nat) : Nat :=
-  if height lay ≤ j + 4 then nonces.getD j 0 else 0
+  if height lay ≤ j + 5 then nonces.getD j 0 else 0
 
 /-- U16b: `recoverLayerPair` with the fold nonces read back from the witness (`lowerNodeHashN`, no search). -/
 def recoverLayerPairV (sig : Signature) (nonces : List Nat) (index : Nat) (lay : Layer) (digits : List Nat) :
@@ -10608,10 +10609,10 @@ theorem recoverLayerPairGuardV_of_good (sig : Signature) (nonces : List Nat) (in
     recoverLayerPairGuardV sig nonces index lay answer digits = some <$> recoverLayerPairV sig nonces index lay digits := by
   simp only [recoverLayerPairGuardV, lowerGuardedRun, if_pos h]
 
-/-- U16b: fold heaps below the ground (`j + 4 < height lay`) have no zero bits. -/
-theorem lowerZeroBits_fold_off {lay : Layer} {j : Nat} (hj : ¬ height lay ≤ j + 4) (x : Nat) :
+/-- U16b: fold heaps below the ground (`j + 5 < height lay`) have no zero bits. -/
+theorem lowerZeroBits_fold_off {lay : Layer} {j : Nat} (hj : ¬ height lay ≤ j + 5) (x : Nat) :
     lowerZeroBits lay.val (2 ^ (height lay - j - 1) + x) = 0 := by
-  have : 2 ^ 4 ≤ 2 ^ (height lay - j - 1) := Nat.pow_le_pow_right (by decide) (by omega)
+  have : 2 ^ 5 ≤ 2 ^ (height lay - j - 1) := Nat.pow_le_pow_right (by decide) (by omega)
   unfold lowerZeroBits
   rw [if_pos (Or.inr (Or.inr (by omega)))]
 
@@ -10637,7 +10638,7 @@ theorem eval_recoverLayerPairV_W (answers : Answers) (sig : Signature) (index : 
           else ((sig.layers lay).path (Fin.castLE (Nat.sub_le _ _) x), v)).1
         (if leaf / 2 ^ x.val % 2 = 0 then (v, (sig.layers lay).path (Fin.castLE (Nat.sub_le _ _) x))
           else ((sig.layers lay).path (Fin.castLE (Nat.sub_le _ _) x), v)).2))
-    (P := fun x => height lay ≤ x.val + 4)
+    (P := fun x => height lay ≤ x.val + 5)
     (fun v x => eval_lowerNodeAt_hash answers _ _ _ _ _)
     (fun v x hx => eval_lowerNodeAt_fst_zero answers (lowerZeroBits_fold_off hx _) _ _) _
     (List.finRange (height lay - 1)) v0 [] (fun i hi => by simp) rfl
@@ -11824,7 +11825,7 @@ def fillTopSignature (sig : Signature) (c : Nat) : Signature :=
 104..127 (104..111 zero-test bits, 112..127 brute-forced). (#938 img-v6, 5,239 bytes: top `j` bits, sibling 98..127.) -/
 def normPathD (j : Nat) (d : Digest) : Digest :=
   if 1 ≤ j ∧ j ≤ 10 then BitVec.ofNat 128 (d.toNat % 2 ^ (128 - topZeroBits j))
-  else if j = 11 then BitVec.ofNat 128 (d.toNat % 2 ^ 104) else d
+  else if j = 11 then BitVec.ofNat 128 (d.toNat % 2 ^ 101) else d
 
 /-- U16b: zero bits of the lower path node at height `j` of layer `lay` (`lowerZeroBits` of its heap class
 `2^(height lay - j)`): heights `H-1, H-2, H-3` carry 3 (L1) or 2, 2, 1 bits; every other height 0. -/
@@ -11943,15 +11944,15 @@ theorem normPathD_idem (j : Nat) (d : Digest) : normPathD j (normPathD j d) = no
     exact ofNat_mod_pow_idem 128 (128 - topZeroBits j) d.toNat (by omega)
   · by_cases h11 : j = 11
     · simp only [if_neg h1, if_pos h11]
-      exact ofNat_mod_pow_idem 128 104 d.toNat (by omega)
+      exact ofNat_mod_pow_idem 128 101 d.toNat (by omega)
     · simp only [if_neg h1, if_neg h11]
 
 theorem normPathD_setTop (d : Digest) (c : Nat) : normPathD 11 (setTop d c) = normPathD 11 d := by
   unfold normPathD
   simp only [show ¬(1 ≤ 11 ∧ 11 ≤ 10) by omega, if_false, if_true]
   congr 1
-  rw [setTop_toNat, Nat.add_mod, Nat.mod_mod_of_dvd _ (Nat.pow_dvd_pow 2 (by norm_num : 104 ≤ 111)),
-    show c % 2 ^ 17 * 2 ^ 111 % 2 ^ 104 = 0 from
+  rw [setTop_toNat, Nat.add_mod, Nat.mod_mod_of_dvd _ (Nat.pow_dvd_pow 2 (by norm_num : 101 ≤ 108)),
+    show c % 2 ^ 20 * 2 ^ 108 % 2 ^ 101 = 0 from
       Nat.mod_eq_zero_of_dvd (Dvd.dvd.mul_left (Nat.pow_dvd_pow 2 (by norm_num)) _), add_zero, Nat.mod_mod]
 
 /-- T51: the zero-bit allocation (`b_h = 0,0,1,1,2,3,4,5,6,7,8`; #938 had `b_h = h`). -/
@@ -11969,12 +11970,12 @@ theorem normPathD_ok (j : Nat) (hj : j < 12) (d : Digest) (hz : 1 ≤ j → topZ
   by_cases h11 : j = 11
   · subst h11
     simp only [show ¬(1 ≤ 11 ∧ 11 ≤ 10) by omega, if_false, if_true]
-    have h' : d.toNat / 2 ^ 104 % 2 ^ 7 = 0 := by
+    have h' : d.toNat / 2 ^ 101 % 2 ^ 7 = 0 := by
       have := hz (by omega)
       unfold topZeroOk at this
       simpa using this
     apply BitVec.eq_of_toNat_eq
-    rw [BitVec.toNat_ofNat, setTop_toNat, show (2 : Nat) ^ 111 = 2 ^ 104 * 2 ^ 7 by norm_num, Nat.mod_mul, h']
+    rw [BitVec.toNat_ofNat, setTop_toNat, show (2 : Nat) ^ 108 = 2 ^ 101 * 2 ^ 7 by norm_num, Nat.mod_mul, h']
     simp only [mul_zero, add_zero, Nat.zero_mod, zero_mul]
     exact Nat.mod_eq_of_lt (Nat.lt_of_le_of_lt (Nat.mod_le _ _) d.isLt)
   · have h1 : 1 ≤ j ∧ j ≤ 10 := by omega
@@ -12446,7 +12447,7 @@ theorem bound_prepareRoots (index : Nat) :
     (l := 0) (fun three _ => .pure (PreparedRoots.mk one two three) 0 trivial) (by omega)
 
 /-- v6 lower families: 81146 − 325 (L1 349 + L2/L3 175 family pairs instead of 4 per leaf). -/
-theorem prepared_roots_cost : treeCostP 1 + treeCostP 2 + treeCostP 3 = 111499 := by
+theorem prepared_roots_cost : treeCostP 1 + treeCostP 2 + treeCostP 3 = 127835 := by
   rw [treeCostP_one, treeCostP_two, treeCostP_three]
 
 end SigGolfCandidate.Research.SharedForest
@@ -12619,18 +12620,18 @@ theorem canonical_search_valid_credit (answers : Answers) (lay : Layer) (floor t
 
 theorem canonical_four_residual (d0 d1 d2 d3 : List Nat) (l0 l1 l2 l3 : Bool)
     (h0 : 14 ≤ CanonicalPolicy.credit 0 l0 d0)
-    (h1 : CanonicalPolicy.threshold 1 (CanonicalPolicy.nextResidual 66 0 l0 d0) ≤
+    (h1 : CanonicalPolicy.threshold 1 (CanonicalPolicy.nextResidual 65 0 l0 d0) ≤
       CanonicalPolicy.credit 1 l1 d1)
     (h2 : CanonicalPolicy.threshold 2
-      (CanonicalPolicy.nextResidual (CanonicalPolicy.nextResidual 66 0 l0 d0) 1 l1 d1) ≤
+      (CanonicalPolicy.nextResidual (CanonicalPolicy.nextResidual 65 0 l0 d0) 1 l1 d1) ≤
       CanonicalPolicy.credit 2 l2 d2)
     (h3 : CanonicalPolicy.threshold 3
       (CanonicalPolicy.nextResidual
-        (CanonicalPolicy.nextResidual (CanonicalPolicy.nextResidual 66 0 l0 d0) 1 l1 d1) 2 l2 d2) ≤
+        (CanonicalPolicy.nextResidual (CanonicalPolicy.nextResidual 65 0 l0 d0) 1 l1 d1) 2 l2 d2) ≤
       CanonicalPolicy.credit 3 l3 d3) :
     CanonicalPolicy.nextResidual (CanonicalPolicy.nextResidual
-      (CanonicalPolicy.nextResidual (CanonicalPolicy.nextResidual 66 0 l0 d0) 1 l1 d1) 2 l2 d2) 3 l3 d3 = 0 := by
-  let r1 := CanonicalPolicy.nextResidual 66 0 l0 d0
+      (CanonicalPolicy.nextResidual (CanonicalPolicy.nextResidual 65 0 l0 d0) 1 l1 d1) 2 l2 d2) 3 l3 d3 = 0 := by
+  let r1 := CanonicalPolicy.nextResidual 65 0 l0 d0
   have hr1 : r1 < 54 := by dsimp [r1, CanonicalPolicy.nextResidual]; omega
   have hw1 := firstThreshold_window ⟨r1, hr1⟩
   change CanonicalPolicy.threshold 1 r1 < 16 ∧ r1 - CanonicalPolicy.threshold 1 r1 ≤ 39 at hw1
@@ -12831,7 +12832,7 @@ theorem topFold_fill_signature (sig : Signature) (index : Nat) (digits : List Na
       topFold (mainSignature sig) index digits := by
   rw [mainSignature_fill]
   have h := topFold_fill (mainSignature sig) index digits c
-    ((topSib (mainSignature sig)).toNat / 2 ^ 111)
+    ((topSib (mainSignature sig)).toNat / 2 ^ 108)
   rw [fillTop_self] at h
   exact h
 
@@ -12840,7 +12841,7 @@ theorem topFoldN_fill_signature (sig : Signature) (index : Nat) (digits : List N
       topFoldN (mainSignature sig) index digits := by
   rw [mainSignature_fill]
   have h := topFoldN_fill (mainSignature sig) index digits c
-    ((topSib (mainSignature sig)).toNat / 2 ^ 111)
+    ((topSib (mainSignature sig)).toNat / 2 ^ 108)
   rw [fillTop_self] at h
   exact h
 
@@ -13528,15 +13529,15 @@ theorem expand_complete_of_recovered (answers : Answers) (message : Message) (pk
     exact ⟨_, rfl⟩
   · have hz : evalWithAnswerFn answers (topNode index result.foldedTop ((sig0.layers 0).path topJ)) ≠ pk := hzero
     have hcompletion : evalWithAnswerFn answers (topNode index result.foldedTop
-        (setTop ((sig0.layers 0).path topJ) (((sig.layers 0).path topJ).toNat / 2 ^ 111))) = pk := by
+        (setTop ((sig0.layers 0).path topJ) (((sig.layers 0).path topJ).toNat / 2 ^ 108))) = pk := by
       rw [topPath_fill_signature, setTop_setTop, setTop_self]
       exact hroot
-    have hn : ((sig.layers 0).path topJ).toNat / 2 ^ 111 ≠ 0 := by
+    have hn : ((sig.layers 0).path topJ).toNat / 2 ^ 108 ≠ 0 := by
       intro he
       rw [he, topPath_fill_signature, setTop_setTop] at hcompletion
       exact hz hcompletion
     obtain ⟨c, hc⟩ := searchTop_complete answers index result.foldedTop ((sig0.layers 0).path topJ)
-      pk searchFuel 1 (((sig.layers 0).path topJ).toNat / 2 ^ 111) (by omega)
+      pk searchFuel 1 (((sig.layers 0).path topJ).toNat / 2 ^ 108) (by omega)
       (by have ht := top_lt ((sig.layers 0).path topJ); unfold searchFuel; omega) hcompletion
     dsimp only [sig0] at hz
     dsimp only [sig0, index] at hc
@@ -14027,7 +14028,7 @@ theorem policyHints_credit_sum (hints : BitVec 16) (digits : List (List Nat)) (l
     (hh : policyHintsValid hints digits lows = true)
     (hc : ∀ lay : Layer, hintFloor hints lay ≤
       CanonicalPolicy.credit lay (lows.getD lay.val true) (digits.getD lay.val [])) :
-    66 ≤ ((List.finRange 4).map fun lay =>
+    65 ≤ ((List.finRange 4).map fun lay =>
       CanonicalPolicy.credit lay (lows.getD lay.val true) (digits.getD lay.val [])).sum := by
   simp only [policyHintsValid, decide_eq_true_eq] at hh
   have h0 : 14 ≤ CanonicalPolicy.credit 0 (lows.getD 0 true) (digits.getD 0 []) := by
@@ -14041,7 +14042,7 @@ theorem policyHints_credit_sum (hints : BitVec 16) (digits : List (List Nat)) (l
   have hz := canonical_four_residual (digits.getD 0 []) (digits.getD 1 []) (digits.getD 2 [])
     (digits.getD 3 []) (lows.getD 0 true) (lows.getD 1 true) (lows.getD 2 true) (lows.getD 3 true) h0 h1 h2 h3
   simp only [CanonicalPolicy.nextResidual] at hz
-  change 66 ≤ CanonicalPolicy.credit 0 (lows.getD 0 true) (digits.getD 0 []) +
+  change 65 ≤ CanonicalPolicy.credit 0 (lows.getD 0 true) (digits.getD 0 []) +
     (CanonicalPolicy.credit 1 (lows.getD 1 true) (digits.getD 1 []) +
       (CanonicalPolicy.credit 2 (lows.getD 2 true) (digits.getD 2 []) +
       (CanonicalPolicy.credit 3 (lows.getD 3 true) (digits.getD 3 []) + 0)))
@@ -14100,15 +14101,15 @@ theorem bound_topFold_coarse (sig : ClaudeWCT.WCT9.Signature) (index : Nat) (dig
   · decide
 
 /-- Top-bytes layer: the expander's nonce re-derivation costs at most `topNonceCap h = 104·2^h` per path node of
-height `h = 1..11` (Σ = 425,776), on top of the 392 chain/leaf compressions. -/
-def topFoldNCost : Nat := 392 + 425776
+height `h = 1..11` (Σ = 66,768), on top of the 392 chain/leaf compressions. -/
+def topFoldNCost : Nat := 392 + 66768
 theorem bound_topFoldN_coarse (sig : ClaudeWCT.WCT9.Signature) (index : Nat) (digits : List Nat) :
     CBound (fun _ => True) topFoldNCost (topFoldN sig index digits) := by
   unfold topFoldN topEnds topFoldNCost
   refine (Bound.mapM_list (P := GoodQuery) (List.finRange (chainCount 0)) _
     (fun _ => 7) (fun i _ => (bound_layChain _ _ _ _ _ _ _).mono_k
       (Nat.sub_le _ _ |>.trans (maxDigit_le_seven 0 i.val)))).bind'
-    (l := leafHashCost 0 + 425776) (fun ends hends => ?_) ?_
+    (l := leafHashCost 0 + 66768) (fun ends hends => ?_) ?_
   · refine (bound_leafHash 0 _ _ ends (by simpa using hends)).bind (fun root _ => ?_)
     refine (Bound.foldlM_list (P := GoodQuery) ((List.finRange (height 0)).take 11) _
       (fun _ _ => True) (fun i => topNonceCap (i + 1)) (root, []) trivial (fun i hi st _ => ?_)).mono_k
@@ -14194,7 +14195,7 @@ theorem recoverHintedLayers_cost_replay (answers : Answers) (sig : Signature) (i
       (recoverLayerPair (mainSignature sig) index lay (digits lay)) =
       builtPair answers lay (route index lay).2) :
     cost answers (recoverHintedLayers sig index other 4 (.pair forest.1 forest.2)) ≤
-      recoverySearchCost answers sig index forest + (11591 + 425765) := by
+      recoverySearchCost answers sig index forest + (12100 + 66757) := by
   have hs0 := hs 0
   have hs1 := hs 1
   have hs2 := hs 2
@@ -14205,9 +14206,9 @@ theorem recoverHintedLayers_cost_replay (answers : Answers) (sig : Signature) (i
   have hp1 := hpW 1 (by decide)
   have hp2 := hpW 2 (by decide)
   have hp3 := hpW 3 (by decide)
-  have hpc1 : ClaudeWCT.WCT9.Cost.pathCost 1 = 3331 := ClaudeWCT.WCT9.Cost.pathCost_one
-  have hpc2 : ClaudeWCT.WCT9.Cost.pathCost 2 = 3330 := ClaudeWCT.WCT9.Cost.pathCost_two
-  have hpc3 : ClaudeWCT.WCT9.Cost.pathCost 3 = 3330 := ClaudeWCT.WCT9.Cost.pathCost_three
+  have hpc1 : ClaudeWCT.WCT9.Cost.pathCost 1 = 2818 := ClaudeWCT.WCT9.Cost.pathCost_one
+  have hpc2 : ClaudeWCT.WCT9.Cost.pathCost 2 = 3841 := ClaudeWCT.WCT9.Cost.pathCost_two
+  have hpc3 : ClaudeWCT.WCT9.Cost.pathCost 3 = 3841 := ClaudeWCT.WCT9.Cost.pathCost_three
   have hcW : ∀ lay, cost answers (recoverLayerPairW (mainSignature sig) index lay (digits lay)) ≤
       404 - (height lay - 1) + ClaudeWCT.WCT9.Cost.pathCost lay := by
     intro lay
@@ -14316,7 +14317,7 @@ theorem PreparedSearchFacts.recovery_cost_le {answers : Answers} {cache : SigGol
       (recoverLayerPair (mainSignature sig) index lay (result.digits.getD lay.val [])) =
       builtPair answers lay (route index lay).2) :
     cost answers (recoverHintedLayers sig index other 4 (.pair forest.1 forest.2)) ≤
-      cost answers (searchPreparedLayers cache index prepared forest) + (11591 + 425765) := by
+      cost answers (searchPreparedLayers cache index prepared forest) + (12100 + 66757) := by
   have hs0 := h.search0
   have hs1 := h.search1
   have hs2 := h.search2

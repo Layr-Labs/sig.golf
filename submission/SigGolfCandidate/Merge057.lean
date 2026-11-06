@@ -8,6 +8,7 @@ import SigGolfCandidate.Merge051
 import SigGolfCandidate.Merge053
 import SigGolfCandidate.Merge054
 import SigGolfCandidate.Merge056
+set_option linter.all false
 
 -- ==== merged from ClaudeWCT_W9_T3M_Extract_Wct ====
 section
@@ -5790,9 +5791,9 @@ active trial `nonce = 0`. -/
 theorem lowerZeroBits_level (lay k c : Nat) (hc : c < 2 ^ k) :
     WCT9.lowerZeroBits lay (2 ^ k + c) = WCT9.lowerZeroBits lay (2 ^ k) := by
   unfold WCT9.lowerZeroBits
-  rcases Nat.lt_or_ge k 4 with hk | hk
+  rcases Nat.lt_or_ge k 5 with hk | hk
   · interval_cases k <;> simp at hc ⊢ <;> split_ifs <;> omega
-  · have : 16 ≤ 2 ^ k := le_trans (by norm_num) (Nat.pow_le_pow_right (by norm_num) hk)
+  · have : 32 ≤ 2 ^ k := le_trans (by norm_num) (Nat.pow_le_pow_right (by norm_num) hk)
     rw [if_pos (Or.inr (Or.inr (by omega))), if_pos (Or.inr (Or.inr this))]
 /-- Trials of position `(lay, level)`: `cap_(level+1) = 104 · 2^(level+1)` on the top tree below the root; U16b: the
 ground search cap `lowerNonceCap = 128 · 2^b` on the lower ground positions (heaps 2..15, `b = lowerZeroBits ≠ 0`);

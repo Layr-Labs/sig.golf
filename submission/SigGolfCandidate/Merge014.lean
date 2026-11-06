@@ -9,6 +9,7 @@ import Mathlib.Algebra.BigOperators.Fin
 import Mathlib.Data.Fintype.Perm
 import VCVio.OracleComp.Constructions.SampleableType
 import SigGolfCandidate.Merge005
+set_option linter.all false
 
 -- ==== merged from SphincsSecurity_Completeness_Octopus_Split ====
 section

@@ -7,6 +7,7 @@ import SigGolfCandidate.Merge058
 import SigGolfCandidate.Merge105
 import SigGolfCandidate.Merge107
 import SigGolfCandidate.Merge108
+set_option linter.all false
 
 -- ==== merged from T3_Secc_LargeCouplingKeygen ====
 section

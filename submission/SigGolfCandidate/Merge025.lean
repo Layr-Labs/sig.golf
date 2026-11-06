@@ -1,5 +1,6 @@
 import SigGolfCandidate.Merge003
 import SigGolfCandidate.Merge022
+set_option linter.all false
 
 -- ==== merged from T3_Gate6_Budget ====
 section

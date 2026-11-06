@@ -1,4 +1,5 @@
 import SigGolfCandidate.Merge064
+set_option linter.all false
 
 -- ==== merged from T3M_Verify_ChainCheckT3 ====
 section

@@ -2,6 +2,7 @@ import SigGolfCandidate.Merge051
 import SigGolfCandidate.Merge054
 import SigGolfCandidate.Merge055
 import SigGolfCandidate.Merge058
+set_option linter.all false
 
 -- ==== merged from W9Drv_ChildPrefix ====
 section

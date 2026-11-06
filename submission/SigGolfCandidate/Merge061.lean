@@ -1,6 +1,7 @@
 import SigGolfCandidate.Merge054
 import SigGolfCandidate.Merge058
 import SigGolfCandidate.Merge060
+set_option linter.all false
 
 -- ==== merged from ClaudeWCT_W9_New_Machine_Expand_Canon ====
 section

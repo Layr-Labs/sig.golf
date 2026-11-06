@@ -1,6 +1,7 @@
 import VCVio.OracleComp.ProbComp
 import SigGolfCandidate.Merge017
 import SigGolfCandidate.Merge018
+set_option linter.all false
 
 -- ==== merged from ClaudeWCT_Arith_FamilySideChannel ====
 section

@@ -4,6 +4,7 @@ import Mathlib.Tactic.NormNum
 import Mathlib.Tactic.Linarith
 import Mathlib.Tactic.Ring
 import Mathlib.Tactic.Positivity
+set_option linter.all false
 
 -- ==== merged from Research_V7Composed198Closing ====
 section

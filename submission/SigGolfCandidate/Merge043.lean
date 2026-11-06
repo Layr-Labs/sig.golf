@@ -4,6 +4,7 @@ import SigGolfCandidate.Merge028
 import SigGolfCandidate.Merge030
 import SigGolfCandidate.Merge033
 import SigGolfCandidate.Merge042
+set_option linter.all false
 
 -- ==== merged from ClaudeWCT_Numerics_N600Cap ====
 section

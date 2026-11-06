@@ -16,6 +16,7 @@ import SigGolfCandidate.Merge075
 import SigGolfCandidate.Merge093
 import SigGolfCandidate.Merge094
 import SigGolfCandidate.Merge097
+set_option linter.all false
 
 -- ==== merged from ClaudeWCT_W9_T3M_Final_Main ====
 section
@@ -50,7 +51,7 @@ theorem claimedC_eq : claimedC=verifyCycleBound+witnessCycles (submission I).siz
   rw [witnessCycles_eq];decide
 
 theorem submission_verificationBound (E : EncodingFacts) (F : SourceQueries) (P : Pending I) :
-    (submission I).VerificationBound 6981 := by
+    (submission I).VerificationBound 6982 := by
   intro hash sk m
   dsimp only
   intro h
@@ -75,7 +76,7 @@ open ClaudeWCT.W9.T3M (Images)
 variable {I : Images}
 
 theorem certificate_of (E : EncodingFacts) (F : SourceQueries) (P : Pending I) (S : SourceFacts) :
-    Certificate (submission I) 6981 where
+    Certificate (submission I) 6982 where
   admissible := P.admissible
   termination := submission_terminates P
   completeness := submission_complete E F P S
@@ -1027,8 +1028,8 @@ def submissionNew (I : Images) : SigGolf.Submission := currentOf (submission I)
 theorem legacyOf_submissionNew (I : Images) : legacyOf (submissionNew I) = submission I :=
   legacyOf_currentOf (submission I)
 theorem certificateNew_of {I : Images} (E : EncodingFacts) (F : SourceQueries) (P : Pending I) (S : SourceFacts) :
-    SigGolf.Certificate (submissionNew I) 6981 := by
-  have hL : SigGolfCandidate.Legacy.Certificate (legacyOf (submissionNew I)) 6981 := by
+    SigGolf.Certificate (submissionNew I) 6982 := by
+  have hL : SigGolfCandidate.Legacy.Certificate (legacyOf (submissionNew I)) 6982 := by
     rw [legacyOf_submissionNew]
     exact certificate_of E F P S
   have hrun : RunAgrees (submissionNew I) := runAgrees_of_admissible (submissionNew I) hL.admissible
@@ -2944,7 +2945,7 @@ sym_block btOK := symRun { noAlias := true } ktOK (pcOf 760) 100
 /-- Mask of the zero test on the high word of a top node of height `h` (`1 ≤ h ≤ 11`). Campaign T51: `h = 11` tests
 node bits 104..111 (high-word mask `0xFF << 40`). -/
 def maskN (h : Nat) : Nat :=
-  if h = 11 then (2 ^ 7 - 1) * 2 ^ 40 else (2 ^ topZeroBits h - 1) * 2 ^ (64 - topZeroBits h)
+  if h = 11 then (2 ^ 7 - 1) * 2 ^ 37 else (2 ^ topZeroBits h - 1) * 2 ^ (64 - topZeroBits h)
 
 /-! ### Jumps -/
 theorem kt230_spec (s : MachineState) (hpc : s.pc = pcOf 230) :
@@ -3125,7 +3126,7 @@ theorem ktC4_spec (s : MachineState) (hpc : s.pc = pcOf 735) (h : Nat)
 
 theorem ktCA_spec (s : MachineState) (hpc : s.pc = pcOf 1032) (h16 : s.getReg .x16 = 127) :
     ∃ t, Steps image s 3 3 t ∧ t.pc = pcOf 744 ∧ t.getReg .x14 = 7 ∧
-      t.getReg .x16 = BitVec.ofNat 64 ((2 ^ 7 - 1) * 2 ^ 40) ∧
+      t.getReg .x16 = BitVec.ofNat 64 ((2 ^ 7 - 1) * 2 ^ 37) ∧
       RegsExcept s t [.x14, .x16] ∧ Frame s t (fun _ => False) := by
   refine ⟨_, symRun_sound btCA codeAt_ktCA s hpc (by simp [btCA.res, rv_simp]), ?_, ?_, ?_, ?_, ?_⟩
   · rfl
@@ -3136,7 +3137,7 @@ theorem ktCA_spec (s : MachineState) (hpc : s.pc = pcOf 1032) (h16 : s.getReg .x
 
 theorem ktC6_spec (s : MachineState) (hpc : s.pc = pcOf 742) :
     ∃ t, Steps image s 5 5 t ∧ t.pc = pcOf 744 ∧ t.getReg .x14 = 7 ∧
-      t.getReg .x16 = BitVec.ofNat 64 ((2 ^ 7 - 1) * 2 ^ 40) ∧
+      t.getReg .x16 = BitVec.ofNat 64 ((2 ^ 7 - 1) * 2 ^ 37) ∧
       RegsExcept s t [.x14, .x16] ∧ Frame s t (fun _ => False) := by
   obtain ⟨u, su, pu, xu, ru, fu⟩ := ktC6_head_spec s hpc
   obtain ⟨v, sv, pv, x14, x16, rv, fv⟩ := ktCA_spec u pu xu
@@ -3313,10 +3314,10 @@ theorem zero_test_hi (v : BitVec 128) (b : Nat) (hb : b ≤ 64) :
     rw [Nat.div_lt_iff_lt_mul (Nat.two_pow_pos _), ← Nat.pow_add, show b + (128 - b) = 128 by omega]
     exact v.isLt
   rw [Nat.mod_eq_of_lt hv]
-/-- Campaign T51: the `h = 11` zero test, high-word mask `0xFF << 40` = node bits 104..111. -/
+/-- Campaign T51: the `h = 11` zero test, high-word mask `0x7F << 37` = node bits 101..107 (E11). -/
 theorem zero_test_bits104 (v : BitVec 128) :
-    (v.extractLsb' 64 64 &&& BitVec.ofNat 64 ((2 ^ 7 - 1) * 2 ^ 40) = 0#64) ↔
-      v.toNat / 2 ^ 104 % 2 ^ 7 = 0 := by
+    (v.extractLsb' 64 64 &&& BitVec.ofNat 64 ((2 ^ 7 - 1) * 2 ^ 37) = 0#64) ↔
+      v.toNat / 2 ^ 101 % 2 ^ 7 = 0 := by
   rw [← BitVec.toNat_inj, BitVec.toNat_and, BitVec.toNat_ofNat, Nat.mod_eq_of_lt (by norm_num), hiword_toNat,
     BitVec.toNat_zero, land_mask_eq_zero, Nat.div_div_eq_div_mul, ← Nat.pow_add]
 /-- Campaign T51: `b_h = 0,0,1,1,2,3,4,5,6,7,8` (#938: `b_h = h`). -/
@@ -4963,7 +4964,7 @@ open ClaudeWCT.W9.T3M (Images)
 variable (I : Images)
 theorem keygen_run_eq (hadm : (submission I).Admissible) (sk : SecretKey) :
     (submission I).run .keygen sk = SigGolfCandidate.T3M.submission.run .keygen sk := by
-  have hvA : ((submission I).image .keygen).Valid ⟨5191, 21756, 131072⟩ ⟨0x65A0, 0x80, 0xa0, 0x80000, 0x7000, 0x10A0⟩ :=
+  have hvA : ((submission I).image .keygen).Valid ⟨5190, 21756, 131072⟩ ⟨0x65A0, 0x80, 0xa0, 0x80000, 0x7000, 0x10A0⟩ :=
     hadm.2 .keygen
   have hvB : (SigGolfCandidate.T3M.submission.image .keygen).Valid
       ⟨SigGolfCandidate.T3M.submission.sizes.signature, SigGolfCandidate.T3M.submission.sizes.witness, 131072⟩
@@ -5087,7 +5088,7 @@ theorem pending_of_machine {I : Images} (M : MachineFacts I) : Pending I where
 theorem certificate_of_security {I : Images}
     (expandV6 : SigGolfCandidate.Research.SharedExpansionClosure.ExpandV6Facts) (security : SecurityP)
     (keygenMoment : KeygenMoment) (M : MachineFacts I) :
-    SigGolf.Certificate (submissionNew I) 6981 :=
+    SigGolf.Certificate (submissionNew I) 6982 :=
   certificateNew_of encodingFacts sourceQueries_holds (pending_of_machine M) (sourceFacts_of_securityP expandV6 security keygenMoment)
 end ClaudeWCT.W9.T3M.Final.Paired
 end
@@ -5184,10 +5185,10 @@ theorem card_pass_digest {h : Nat} (h11 : h ≤ 11) :
   · subst he
     have hb : topZeroBits 11 = 7 := rfl
     rw [hb]
-    have hc : ((Finset.range (2 ^ 17)) ×ˢ (Finset.range (2 ^ 104))).card = 2 ^ (128 - 7) := by
+    have hc : ((Finset.range (2 ^ 20)) ×ˢ (Finset.range (2 ^ 101))).card = 2 ^ (128 - 7) := by
       rw [Finset.card_product, Finset.card_range, Finset.card_range]; norm_num
     rw [← hc]
-    apply Finset.card_le_card_of_injOn (fun p : Nat × Nat => (BitVec.ofNat 128 (p.1 * 2 ^ 111 + p.2) :
+    apply Finset.card_le_card_of_injOn (fun p : Nat × Nat => (BitVec.ofNat 128 (p.1 * 2 ^ 108 + p.2) :
       BitVec 128))
     · intro p hp
       simp only [Finset.coe_product, Finset.coe_range, Set.mem_prod, Set.mem_Iio] at hp
@@ -5300,13 +5301,13 @@ theorem ratio_le {Q h : Nat} (hQ : Q + 2 ^ (256 - h) ≤ 2 ^ 256) (hh : h ≤ 25
 
 /-! ### U16b: the lower ground zero test passes with probability at least `2^-b` -/
 
-theorem lowerZeroBits_le_four (lay heap : Nat) : WCT9.lowerZeroBits lay heap ≤ 4 := by
+theorem lowerZeroBits_le_three (lay heap : Nat) : WCT9.lowerZeroBits lay heap ≤ 4 := by
   unfold WCT9.lowerZeroBits; split_ifs <;> omega
 
 theorem card_pass_digest_low (lay heap : Nat) :
     2 ^ (128 - WCT9.lowerZeroBits lay heap) ≤
       (Finset.univ.filter (fun d : BitVec 128 => WCT9.lowerZeroOk lay heap d = true)).card := by
-  have hb3 := lowerZeroBits_le_four lay heap
+  have hb3 := lowerZeroBits_le_three lay heap
   have hlt : 2 ^ (128 - WCT9.lowerZeroBits lay heap) ≤ 2 ^ 128 := Nat.pow_le_pow_right (by decide) (by omega)
   have hc : (Finset.range (2 ^ (128 - WCT9.lowerZeroBits lay heap))).card = 2 ^ (128 - WCT9.lowerZeroBits lay heap) :=
     Finset.card_range _
@@ -5368,7 +5369,7 @@ theorem card_fail_hash_low (p : Extract.Pos) (lay heap : Nat) :
   have hsum := Finset.card_filter_add_card_filter_not
     (s := (Finset.univ : Finset (BitVec 256))) (fun v => WCT9.lowerZeroOk lay heap (p.proj v) = false)
   rw [Finset.card_univ, Fintype.card_bitVec] at hsum
-  have := card_pass_hash_of p (WCT9.lowerZeroOk lay heap) (by have := lowerZeroBits_le_four lay heap; omega)
+  have := card_pass_hash_of p (WCT9.lowerZeroOk lay heap) (by have := lowerZeroBits_le_three lay heap; omega)
     (card_pass_digest_low lay heap)
   change _ = 2 ^ 256 at hsum
   omega
@@ -5478,24 +5479,24 @@ def lowReps : Finset TreeNode :=
   Finset.univ.filter (fun n : TreeNode => n.1.lay ≠ 0 ∧
     WCT9.lowerZeroBits n.1.lay.val (2 ^ (height n.1.lay - n.1.level.val - 1)) ≠ 0 ∧ n.1.nonce.val = 0)
 
-theorem card_lowReps_le : lowReps.card ≤ 3 * 2 ^ 33 := by
-  have hU : (Finset.univ : Finset (Fin 4 × Fin (2 ^ 25) × Fin 12 × Fin 16)).card = 3 * 2 ^ 33 := by
+theorem card_lowReps_le : lowReps.card ≤ 3 * 2 ^ 34 := by
+  have hU : (Finset.univ : Finset (Fin 4 × Fin (2 ^ 25) × Fin 12 × Fin 32)).card = 3 * 2 ^ 34 := by
     simp [Finset.card_univ, Fintype.card_prod, Fintype.card_fin]
   rw [← hU]
   apply Finset.card_le_card_of_injOn (fun n : TreeNode =>
     ((⟨n.1.lay.val, n.1.lay.isLt⟩ : Fin 4), (⟨n.1.tree.val % 2 ^ 25, Nat.mod_lt _ (by positivity)⟩ : Fin (2 ^ 25)),
-      n.1.level, (⟨n.1.idx.val % 16, Nat.mod_lt _ (by norm_num)⟩ : Fin 16)))
+      n.1.level, (⟨n.1.idx.val % 32, Nat.mod_lt _ (by norm_num)⟩ : Fin 32)))
   · intro n _; simp
   · have key : ∀ n : TreeNode, (n.1.lay ≠ 0 ∧
         WCT9.lowerZeroBits n.1.lay.val (2 ^ (height n.1.lay - n.1.level.val - 1)) ≠ 0 ∧ n.1.nonce.val = 0) →
-        n.1.tree.val < 2 ^ 25 ∧ n.1.idx.val < 16 ∧ n.1.nonce.val = 0 := by
+        n.1.tree.val < 2 ^ 25 ∧ n.1.idx.val < 32 ∧ n.1.nonce.val = 0 := by
       intro n hn
       obtain ⟨-, hb, h0⟩ := hn
       have hv : n.1.level.val < height n.1.lay ∧ n.1.idx.val < 2 ^ (height n.1.lay - n.1.level.val - 1) ∧
           n.1.tree.val < 2 ^ treeBits n.1.lay ∧ (n.1.lay = 0 ∨ n.1.level.val + 1 < height n.1.lay) := n.2
       refine ⟨lt_of_lt_of_le hv.2.2.1 (Nat.pow_le_pow_right (by norm_num)
         (ClaudeWCT.W9.T3M.Extract.treeBits_le _)), ?_, h0⟩
-      have h16 : 2 ^ (height n.1.lay - n.1.level.val - 1) < 16 := by
+      have h16 : 2 ^ (height n.1.lay - n.1.level.val - 1) < 32 := by
         by_contra hc
         apply hb
         unfold WCT9.lowerZeroBits
@@ -5519,7 +5520,7 @@ theorem card_lowReps_le : lowReps.card ≤ 3 * 2 ^ 33 := by
     subst e0 e1 h3 e3 e4
     rfl
 
-theorem sum_low_arith : ((3 * 2 ^ 33 : Nat) : ℝ) * (36788 / 100000 : ℝ) ^ 128 ≤ 1 / 2 ^ 144 := by
+theorem sum_low_arith : ((3 * 2 ^ 34 : Nat) : ℝ) * (36788 / 100000 : ℝ) ^ 128 ≤ 1 / 2 ^ 144 := by
   norm_num
 
 theorem sum_lowReps_le (f : TreeNode → ℝ≥0∞)
@@ -5528,9 +5529,9 @@ theorem sum_lowReps_le (f : TreeNode → ℝ≥0∞)
   calc ∑ n ∈ lowReps, f n ≤ ∑ n ∈ lowReps, ENNReal.ofReal ((36788 / 100000 : ℝ) ^ 128) := Finset.sum_le_sum hf
     _ = (lowReps.card : ℝ≥0∞) * ENNReal.ofReal ((36788 / 100000 : ℝ) ^ 128) := by
         rw [Finset.sum_const, nsmul_eq_mul]
-    _ ≤ ((3 * 2 ^ 33 : Nat) : ℝ≥0∞) * ENNReal.ofReal ((36788 / 100000 : ℝ) ^ 128) := by
+    _ ≤ ((3 * 2 ^ 34 : Nat) : ℝ≥0∞) * ENNReal.ofReal ((36788 / 100000 : ℝ) ^ 128) := by
         gcongr; exact_mod_cast card_lowReps_le
-    _ = ENNReal.ofReal (((3 * 2 ^ 33 : Nat) : ℝ) * (36788 / 100000 : ℝ) ^ 128) := by
+    _ = ENNReal.ofReal (((3 * 2 ^ 34 : Nat) : ℝ) * (36788 / 100000 : ℝ) ^ 128) := by
         rw [ENNReal.ofReal_mul (by positivity), ENNReal.ofReal_natCast]
     _ ≤ ENNReal.ofReal (1 / 2 ^ 144) := ENNReal.ofReal_le_ofReal sum_low_arith
     _ = (2 ^ 144 : ℝ≥0∞)⁻¹ := by
@@ -5652,7 +5653,7 @@ theorem prob_lowFail_le (p : Extract.Pos) (lay heap : Nat) (S : Finset Node)
   refine (le_of_eq (prob_forall_mem (α := Node) (β := HashOutput) (inst := instSampleableTypeLabels_capFail)
     S (fun v => WCT9.lowerZeroOk lay heap (p.proj v) = false))).trans ?_
   rw [hS, Fintype.card_bitVec]
-  have hb3 := lowerZeroBits_le_four lay heap
+  have hb3 := lowerZeroBits_le_three lay heap
   refine le_trans ?_ (ENNReal.ofReal_le_ofReal (lowFail_le (WCT9.lowerZeroBits lay heap)))
   rw [ENNReal.ofReal_pow (by
     have : (1 / 2 : ℝ) ^ WCT9.lowerZeroBits lay heap ≤ 1 := pow_le_one₀ (by norm_num) (by norm_num)
@@ -7194,8 +7195,8 @@ theorem level_pos_of_ground {lay : Layer} {level : Nat} (hl : lay ≠ 0)
   subst h0
   apply hb
   have h6 : 6 ≤ height lay := by fin_cases lay <;> simp [height] at hl ⊢
-  have : 16 ≤ 2 ^ (height lay - 0 - 1) :=
-    le_trans (by norm_num) (Nat.pow_le_pow_right (by norm_num) (show 4 ≤ height lay - 0 - 1 by omega))
+  have : 32 ≤ 2 ^ (height lay - 0 - 1) :=
+    le_trans (by norm_num) (Nat.pow_le_pow_right (by norm_num) (show 5 ≤ height lay - 0 - 1 by omega))
   unfold WCT9.lowerZeroBits
   rw [if_pos (Or.inr (Or.inr this))]
 theorem groundChildren_shape {c : Coord} (hc : c ∈ groundChildren) : ∃ n, c = .inl (.node n) := by

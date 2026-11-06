@@ -8,6 +8,7 @@ import Mathlib.Tactic.Positivity
 import Mathlib.Tactic.Ring
 import Mathlib.Tactic.IntervalCases
 import Mathlib.Tactic.NormNum
+set_option linter.all false
 
 -- ==== merged from ClaudeWCT_Arith_SideChannel ====
 section

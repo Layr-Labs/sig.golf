@@ -1,4 +1,5 @@
 import SigGolfCandidate.Merge015
+set_option linter.all false
 
 -- ==== merged from ClaudeWCT_Numerics_TopCreditCount ====
 section

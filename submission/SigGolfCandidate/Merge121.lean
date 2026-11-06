@@ -7,6 +7,7 @@ import SigGolfCandidate.Merge058
 import SigGolfCandidate.Merge068
 import SigGolfCandidate.Merge112
 import SigGolfCandidate.Merge120
+set_option linter.all false
 
 -- ==== merged from T3M_Verify_ChainCheckAll ====
 section

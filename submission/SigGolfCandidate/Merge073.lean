@@ -1,4 +1,5 @@
 import RiscvZkvm.Rv64.Word
+set_option linter.all false
 
 -- ==== merged from ClaudeWCT_W9_New_Machine_Expand_PrePassBits ====
 section
@@ -7,7 +8,7 @@ section
 
 Pure `BitVec 64` / `Nat` lemmas: the top-bit clear of a path node's high dword (`slli; srli`), the top-bit
 extraction, the 29-bit accumulator `X` (`xD`) and the sibling's high dword (`sibHi`: tail bytes 8..10 and
-`X % 2^16` at bit 24). -/
+`X % 2^24` at bit 13, E11). -/
 
 namespace ClaudeWCT.W9.Machine.Expand.PrePass
 open RiscvZkvm.Rv64
@@ -26,7 +27,7 @@ def xN (M : BitVec 64 → BitVec 64) : Nat :=
   (M (aH 3)).toNat / 2 ^ 62 + (M (aH 4)).toNat / 2 ^ 62 * 2 ^ 2 + (M (aH 5)).toNat / 2 ^ 61 * 2 ^ 4 + (M (aH 6)).toNat / 2 ^ 60 * 2 ^ 7 + (M (aH 7)).toNat / 2 ^ 59 * 2 ^ 11 + (M (aH 8)).toNat / 2 ^ 58 * 2 ^ 16 + (M (aH 9)).toNat / 2 ^ 57 * 2 ^ 22 + (M (aH 10)).toNat / 2 ^ 56 * 2 ^ 29
 def sibHi (W X : BitVec 64) : BitVec 64 :=
   (((extractByte W 0).zeroExtend 64 ||| ((extractByte W 1).zeroExtend 64 <<< 8)) |||
-    (((X <<< 40) >>> 40) <<< 16))
+    (((X <<< 40) >>> 40) <<< 13))
 
 theorem toNat_or_shift (a b : BitVec 64) (k : Nat) (ha : a.toNat < 2 ^ k)
     (hb : b.toNat * 2 ^ k < 2 ^ 64) : (a ||| (b <<< k)).toNat = a.toNat + b.toNat * 2 ^ k := by
@@ -92,16 +93,16 @@ theorem zext_byte_toNat (W : BitVec 64) (i : Nat) :
     Nat.shiftRight_eq_div_pow]
   rw [Nat.mod_eq_of_lt (show W.toNat / 2 ^ (i * 8) % 2 ^ 8 < 2 ^ 64 by omega)]
 
-theorem sibHi_toNat (W X : BitVec 64) :
-    (sibHi W X).toNat = W.toNat % 2 ^ 16 + X.toNat % 2 ^ 24 * 2 ^ 16 := by
-  have hW := W.isLt
+theorem sibHi_toNat (W X : BitVec 64) (hW : W.toNat % 2 ^ 16 < 2 ^ 13) :
+    (sibHi W X).toNat = W.toNat % 2 ^ 16 + X.toNat % 2 ^ 24 * 2 ^ 13 := by
+  have hW' := W.isLt
   have e0 := zext_byte_toNat W 0
   have e1 := zext_byte_toNat W 1
   have hx : ((X <<< 40) >>> 40).toNat = X.toNat % 2 ^ 24 := clr_toNat 40 (by omega) X
   unfold sibHi
   have s1 := toNat_or_shift ((extractByte W 0).zeroExtend 64) ((extractByte W 1).zeroExtend 64) 8
     (by rw [e0]; omega) (by rw [e1]; omega)
-  have s2 := toNat_or_shift _ ((X <<< 40) >>> 40) 16 (by rw [s1, e0, e1]; omega) (by rw [hx]; omega)
+  have s2 := toNat_or_shift _ ((X <<< 40) >>> 40) 13 (by rw [s1, e0, e1]; omega) (by rw [hx]; omega)
   rw [s2, s1, e0, e1, hx]
   omega
 

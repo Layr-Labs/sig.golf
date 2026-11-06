@@ -1,4 +1,5 @@
 import SigGolfCandidate.Merge039
+set_option linter.all false
 
 -- ==== merged from ClaudeWCT_Numerics_N600PriceChecks ====
 section
@@ -888,7 +889,15 @@ set_option maxRecDepth 1000000
 set_option maxHeartbeats 200000000
 set_option Elab.async false
 
-def cutMask : Nat := (1 <<< (1024*2048))-1
+/-- Compiled code computes `cutMask` at initialization instead of embedding it: as a closed
+`Nat` constant it would be emitted to C as two 631,000-digit decimal literals, and printing them
+takes ~200 s. The kernel and every proof see only the definition of `cutMask` below; compiled code
+here only proposes numerals that `decide +kernel` re-checks. -/
+@[noinline] def cutMaskOf (bits : Nat) : Nat := (1 <<< bits)-1
+def cutMaskRuntime : Nat := cutMaskOf (1024*2048)
+@[implemented_by cutMaskRuntime] def cutMask : Nat := (1 <<< (1024*2048))-1
+/-- The runtime twin is the same number (kernel-checked). -/
+theorem cutMaskRuntime_eq : cutMaskRuntime = cutMask := by decide +kernel
 
 def hadamard : Nat → Nat → Nat → Nat
   | 0, a, b => a*b

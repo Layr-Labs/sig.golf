@@ -1,4 +1,5 @@
 import Lean.Elab.Term
+set_option linter.all false
 
 -- ==== merged from T3M_Images_Literals ====
 section

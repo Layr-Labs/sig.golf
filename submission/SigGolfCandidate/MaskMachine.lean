@@ -1,4 +1,5 @@
 import SigGolfCandidate.SimCore
+set_option linter.all false
 
 namespace SigGolfCandidate.T3M.CacheMaskMachine
 open SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64 SigGolfCandidate.Rv

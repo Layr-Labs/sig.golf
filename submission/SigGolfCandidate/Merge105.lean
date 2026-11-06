@@ -9,6 +9,7 @@ import SigGolfCandidate.Merge099
 import SigGolfCandidate.Merge101
 import SigGolfCandidate.Merge102
 import SigGolfCandidate.Merge104
+set_option linter.all false
 
 -- ==== merged from T3_Secc_WotsStructural ====
 section
@@ -8614,7 +8615,7 @@ theorem selCoordV_self_of {v : Coord → Digest} {c : Coord}
   have hw := withNonce_self m
   rw [h0] at hw
   rw [hw]
-/-- U16b: below a single-trial lower position (heap `≥ 16`) every child position is single-trial (heap `≥ 32`). -/
+/-- Below a single-trial lower position (E11: heap `≥ 32`) every child position is single-trial (heap `≥ 64`). -/
 theorem child_cap_one {n m : TreeNode} (hl : n.1.lay ≠ 0) (h1 : trialCap n.1.lay n.1.level.val = 1)
     (hml : m.1.lay = n.1.lay) (hlev : m.1.level.val + 1 = n.1.level.val) : trialCap m.1.lay m.1.level.val = 1 := by
   have hv : n.1.level.val < height n.1.lay ∧ n.1.idx.val < 2 ^ (height n.1.lay - n.1.level.val - 1) ∧
@@ -8629,7 +8630,7 @@ theorem child_cap_one {n m : TreeNode} (hl : n.1.lay ≠ 0) (h1 : trialCap n.1.l
     omega
   have h2 : 2 ≤ 2 ^ (height n.1.lay - n.1.level.val - 1) :=
     le_trans (by norm_num) (Nat.pow_le_pow_right (by norm_num) (show 1 ≤ height n.1.lay - n.1.level.val - 1 by omega))
-  have h16 : 16 ≤ 2 ^ (height n.1.lay - n.1.level.val - 1) := by
+  have h16 : 32 ≤ 2 ^ (height n.1.lay - n.1.level.val - 1) := by
     unfold WCT9.lowerZeroBits at hb
     split_ifs at hb with h0
     · rcases h0 with h | h | h <;> omega
