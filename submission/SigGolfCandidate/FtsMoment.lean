@@ -112,7 +112,7 @@ theorem notF_public {secret : BitVec 256} {index : Nat} {S : Nat → Nat → Pro
 
 /-- A tagged private query (tag byte `≠ 6`). -/
 theorem notF_private {secret : BitVec 256} {index : Nat} {S : Nat → Nat → Prop} (hS : ∀ c x, S c x → c < 9)
-    (tag lay tree position idx : Nat) (ht : tag % 256 ≠ 6) :
+    (tag lay tree position idx : Nat) (ht : tag % 256 ≠ 254) :
     NotF secret index S (.inr (.inl (header tag lay tree position idx))) := by
   intro coord heap hs n l r
   show privateInput secret (.inl (header tag lay tree position idx)) ≠ _
@@ -211,11 +211,11 @@ theorem ftsChainInputW_header (coord selected i step : Nat) (value : Digest) :
       queryHeader_padded zero16 (_ : HashInput) (by simp [zero16])
         (ClaudeWCT.WCT9.ftsChainHeader index coord selected i step)
 
-theorem notF_chain (coord selected i start count : Nat) (value : Digest) :
+theorem notF_chain (coord selected i start count : Nat) (value : Digest) (hi : i < 6) :
     AllQueriesSatisfy (ClaudeWCT.WCT9.chain index coord selected i start count value) (NotF secret index S) := by
   unfold ClaudeWCT.WCT9.chain
   exact allQ_foldlM _ _ (fun v step => notF_projHash _ (ftsChainInputW_header hS coord selected i step v)
-    (fun c x _ he => ClaudeWCT.WCT9.wctNodeHeader_ne_ftsChainHeaderP c index x _ _ _ _ _ _ he.symm)) _
+    (fun c x _ he => ClaudeWCT.WCT9.wctNodeHeader_ne_ftsChainHeaderP c index x _ _ _ _ _ _ hi he.symm)) _
 
 theorem notF_leafHashH (heap coord selected : Nat) (pad : Digest) (ends : List Digest) :
     AllQueriesSatisfy (ClaudeWCT.WCT9.leafHashH heap index coord selected pad ends) (NotF secret index S) := by
@@ -232,8 +232,8 @@ theorem notF_buildChildH (heap coord selected : Nat) (word : Rank) (coefs : List
     AllQueriesSatisfy (ClaudeWCT.WCT9.buildChildH heap index coord selected word coefs pad) (NotF secret index S) := by
   unfold ClaudeWCT.WCT9.buildChildH
   refine allQ_bind (allQ_foldlM _ _ (fun st i => ?_) _) fun st => ?_
-  · exact allQ_bind (notF_chain hS _ _ _ _ _ _) fun _ =>
-      allQ_bind (notF_chain hS _ _ _ _ _ _) fun _ => allQ_pure _
+  · exact allQ_bind (notF_chain hS _ _ _ _ _ _ (by omega)) fun _ =>
+      allQ_bind (notF_chain hS _ _ _ _ _ _ (by omega)) fun _ => allQ_pure _
   · exact allQ_bind (notF_leafHashH hS _ _ _ _ _) fun _ => allQ_pure _
 
 theorem notF_ftsCoefs (coord : Nat) :
@@ -718,7 +718,7 @@ theorem fq_ne {input target : HashInput} {hdr : BitVec 128} {coord index heap : 
   exact hn (bytesLE_injective (h.symm.trans ht))
 
 theorem hasTag_ne_fts {tag : Nat} {input target : HashInput} (hi : HasTag tag input) {coord index heap : Nat}
-    (hp : FP coord index heap) (ht : FQ coord index heap target) (htag : tag % 256 ≠ 6 := by decide) :
+    (hp : FP coord index heap) (ht : FQ coord index heap target) (htag : tag % 256 ≠ 254 := by decide) :
     input ≠ target := by
   obtain ⟨l, tr, p, ix, h⟩ := hi
   exact fq_ne h (fun he => ClaudeWCT.WCT9.wctNodeHeader_ne_header hp.1 index heap tag l tr p ix htag he.symm) ht
@@ -747,10 +747,10 @@ theorem topTweak_ne_fts (heap' : Nat) {coord index heap : Nat} (hp : FP coord in
   unfold tweakLow at h1
   simp only [BitVec.extractLsb'_toNat, Nat.shiftRight_zero, BitVec.toNat_ofNat] at h2
   have h4 : ClaudeWCT.WCT9.ftsNodeLowN index coord heap % 2 ^ 64 = ClaudeWCT.WCT9.ftsNodeLowN index coord heap :=
-    Nat.mod_eq_of_lt (lt_trans (ClaudeWCT.WCT9.ftsNodeLowN_lt _ _ _) (by norm_num))
+    Nat.mod_eq_of_lt (ClaudeWCT.WCT9.ftsNodeLowN_lt _ _ _)
   rw [h4] at h2
-  have h5 : 2 ^ 16 ≤ ClaudeWCT.WCT9.ftsNodeLowN index coord heap := by
-    rw [ClaudeWCT.WCT9.ftsNodeLowN_eq, Nat.mod_eq_of_lt (show coord + 1 < 16 by have := hp.1; omega)]; omega
+  have h5 : 4096 ≤ ClaudeWCT.WCT9.ftsNodeLowN index coord heap := by
+    rw [ClaudeWCT.WCT9.ftsNodeLowN_eq, Nat.mod_eq_of_lt (show coord + 1 < 16 by have := hp.1; omega)]; unfold SigGolfCandidate.T3.ftsBias; have := hp.2.2.2; omega
   omega
 
 section FAvoid
@@ -758,7 +758,7 @@ variable (secret : BitVec 256) (target : HashInput) (coord index heap : Nat) (ht
   (hp : FP coord index heap)
 include ht hp
 
-theorem fav_privatePair (tag l t p i : Nat) (htag : tag % 256 ≠ 6 := by decide) :
+theorem fav_privatePair (tag l t p i : Nat) (htag : tag % 256 ≠ 254 := by decide) :
     Avoids secret target (privatePair tag l t p i) := by
   unfold privatePair
   apply avoids_bind

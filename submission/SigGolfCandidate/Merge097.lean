@@ -4571,14 +4571,20 @@ theorem notEnc_ftsChain (index coord selected i start count : Nat) (value : Dige
   split
   · rw [List.append_assoc (bytesLE 16 v ++ _)]
     exact nonEnc_of_hdr _ _ (hdrBlock_pad64_prefix _ _ _ (bytesLE_length _ _))
-      (notHyper_of_marker
-        (ne_of_gt (lt_of_lt_of_le (by decide) (ftsChainHeaderP_tweakMarker _ _ _ _ _ 0))))
+      (notHyper_of_tag (by
+        unfold SigGolfCandidate.T3.tweakTag WCT9.ftsChainHeader
+        change _ / 2^8 % 256 ≠ 2
+        rw [ftsChainHeaderP_byte1]
+        omega))
   · unfold WCT9.chainInput
     rw [List.append_assoc (SigGolfCandidate.T3.zero16 ++ _)]
     -- C2/C3 (#866): `NonEnc` excludes every hyper tweak whatever its high word (`NotHyper`).
     exact nonEnc_of_hdr _ _ (hdrBlock_pad64_prefix _ _ _ (by simp [SigGolfCandidate.T3.zero16]))
-      (notHyper_of_marker
-        (ne_of_gt (lt_of_lt_of_le (by decide) (ftsChainHeaderP_tweakMarker _ _ _ _ _ 0))))
+      (notHyper_of_tag (by
+        unfold SigGolfCandidate.T3.tweakTag WCT9.ftsChainHeader
+        change _ / 2^8 % 256 ≠ 2
+        rw [ftsChainHeaderP_byte1]
+        omega))
 
 theorem notEnc_ftsLeaf (index coord selected : Nat) (pad : Digest) (ends : List Digest) :
     AllQueriesSatisfy (leafHashP index coord selected pad ends) NotEncS := by

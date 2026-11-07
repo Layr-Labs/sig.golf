@@ -1186,7 +1186,7 @@ open SphincsSecurity (bytesLE)
 def chainPrefix (index coord child : Nat) : Nat :=
   (index <<< 27) ||| ((coord + 1) <<< 16) ||| (child <<< 20)
 def chainLow (index coord child chain step : Nat) : Nat :=
-  0x80 ||| (chain <<< 2) ||| (step <<< 8) ||| chainPrefix index coord child
+  SigGolfCandidate.T3.ftsBias ((chain <<< 8) ||| step ||| chainPrefix index coord child)
 abbrev HeaderPad := BitVec 64
 /-- Witness stack: F chains (0, 2, 4, 5) hash `a | header | c | value`, G chains (1, 3) hash
 `value | header | a | c`. -/

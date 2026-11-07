@@ -15,7 +15,7 @@ theorem layout_offsets : submission.layout =
   { message := 26016, secretKey := 128, publicKey := 160,
     cache := 524288, signature := 28672, witness := 4256 } := rfl
 
-theorem certificate : SigGolf.Certificate submission 6980 := by
+theorem certificate : SigGolf.Certificate submission 6979 := by
   exact SigGolfCandidate.Packaging.certificate_ready
 
 end SigGolf.Challenge
@@ -26,10 +26,7 @@ end SigGolf.Challenge
 #print axioms SigGolf.Challenge.layout_offsets
 #print axioms SigGolf.Challenge.certificate
 
-/- Z3 on mpjunior92's a52c60c9 (top chain-1 copy omission, inlined final top pair): the WOTS
-   marker bound uses chainCount <= 51 (per-chain rate 88, marker sum 4488), which lifts the
-   route-C FTS gate to 826; the freed sign budget restores the E11 lower ground widths
-   (3,3,2,1 on layer 1, 4,3,2,1 on layers 2, 3) for a 45-bit V carrier (top sibling bits
-   32..76, 4-byte tail) at credit pool 66.
-   Claimed S = 5188, W = 21756, K = 131072, C = 6980;
-   product = 36,217,428. -/
+/- Combines the promoted Z4 5188-byte representation with this session's FTS label
+   translation and chain-byte repacking. The accepted setup is one instruction shorter.
+   Target S = 5188, W = 21756, K = 131072, C = 6979; product = 36,207,052.
+   The complete combined certificate still requires the official accepting check. -/
