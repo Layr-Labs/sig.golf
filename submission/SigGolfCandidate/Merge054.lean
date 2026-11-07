@@ -1584,8 +1584,9 @@ set_option backward.isDefEq.respectTransparency false
 set_option linter.unusedSimpArgs false
 theorem ftsChain_not_search (index coord selected t step : Nat) :
     ¬ SearchHdr (ClaudeWCT.WCT9.ftsChainHeader index coord selected t step) := by
-  have := ClaudeWCT.WCT9.ftsChainHeaderP_tweakMarker index coord selected t step 0
-  unfold SearchHdr RowHdr ClaudeWCT.WCT9.ftsChainHeader; omega
+  have := ClaudeWCT.WCT9.ftsChainHeaderP_byte1 index coord selected t step 0
+  unfold SearchHdr RowHdr tweakMarker tweakLow tweakTag ClaudeWCT.WCT9.ftsChainHeader
+  omega
 theorem ftsLeaf_not_search (index coord selected : Nat) :
     ¬ SearchHdr (ClaudeWCT.WCT9.ftsLeafHeader index coord selected) := by
   unfold SearchHdr RowHdr
@@ -5067,8 +5068,8 @@ abbrev witEncN := ClaudeWCT.W9.T3M.Paired.witEncN
 /-- U16b: and the 9 ground lower fold nonces (`Paired.witEncG`). -/
 abbrev witEncG := ClaudeWCT.W9.T3M.Paired.witEncG
 
- def verifyCycleBound : Nat := 6895
- def claimedC : Nat := 6980
+ def verifyCycleBound : Nat := 6894
+ def claimedC : Nat := 6979
  def DigestCapOk (hash : Hash) (m : Message) (w : Bytes 21756) : Prop :=
   SigGolfCandidate.Research.SharedForest.jointAccountingCost
     (hash (SigGolfCandidate.T3M.toQ (SigGolfCandidate.T3.pad64
@@ -5256,7 +5257,7 @@ theorem topLow_merkleInputW (tree h leaf : Nat) (path : Nat → Digest) (hpads :
     TopLow (hdrBlock (pad64 (merkleInputW 0 tree h leaf path hpads pads step value))) := by
   rw [hdrBlock_merkleInputW, topLow_bytesLE_iff, tweakLow_eq_low, BitVec.extractLsb'_append_eq_right,
     WCT9.merkleWord_top, topNodeWord_toNat64]
-  exact ⟨topNodeWord_pos _, lt_trans (topNodeWord_lt _) (by norm_num)⟩
+  exact ⟨topNodeWord_pos _, topNodeWord_lt _⟩
 /-- C4: two top fold inputs of the same step have the same decoding key (the key of a top label keeps only the low
 word, which is the label `topNodeWord heap`). -/
 theorem merkleInputW_sameHeader_top {tree h leaf step : Nat}
@@ -6637,7 +6638,7 @@ set_option autoImplicit false
 namespace W9Machine
 open SigGolfCandidate.T3M SigGolfCandidate.Rv RiscvZkvm.Rv64
 def packedHeader (chain digit : Nat) : E :=
-  addC (.reg .x31) (BitVec.ofNat 64 (128 + 4 * chain + 256 * digit) - BitVec.ofNat 64 1537)
+  addC (.reg .x31) (BitVec.ofNat 64 (256 * chain + digit) - BitVec.ofNat 64 1537)
 def packedPos (digit : Nat) : E :=
   if digit = 1 then .reg .x7 else if digit = 2 then .reg .x13 else if digit = 3 then .reg .x19 else .c 0
 def headRHRel (rb : Reg) (off dst : Word) (p chain digit : Nat) : Result :=
@@ -6650,8 +6651,8 @@ def rungRRel (rb : Reg) (digit : Nat) (dst : Option Word) (p : Nat) : Result :=
   ⟨⟨(match dst with
       | some off => RegFile.init.set .x12 (addC (.reg rb) off)
       | none => RegFile.init),
-    [(⟨some (.reg .x10), 16⟩, .bin (.st .b 1) (.ld (addC (.reg .x10) 16)) (packedPos digit))],
-    [.align8 (.reg .x10), .valid ⟨some (.reg .x10), 17⟩ 1]⟩,
+    [(⟨some (.reg .x10), 16⟩, .bin (.st .b 0) (.ld (addC (.reg .x10) 16)) (packedPos digit))],
+    [.align8 (.reg .x10), .valid ⟨some (.reg .x10), 16⟩ 1]⟩,
     .c (pcOf (p + n)), .ecall, n, n⟩
 def copyFHRel (rb : Reg) (off dst : Word) (p : Nat) : Result :=
   ⟨⟨copyRegs rb off,
@@ -7943,6 +7944,28 @@ theorem replaceByte_toNat (w : BitVec 64) (pos : Nat) (hp : pos < 8) (b : BitVec
           Nat.testBit_lt_two_pow (lt_of_lt_of_le hb (Nat.pow_le_pow_right (by norm_num) (by omega)))
         simp [h1, h2, show ¬ j < pos * 8 by omega, this, hb', show j - 8 * pos - 8 + (8 * pos + 8) = j by omega]
   rw [key, BitVec.toNat_ofNat, Nat.mod_eq_of_lt hlt]
+theorem mergeByteZero (a p q : Nat) (ha : a % 256 = 0) (hp : p < 256) (hq : q < 256) :
+    StoreKind.merge .b (BitVec.ofNat 64 (a+p)) 0 (BitVec.ofNat 64 q) = BitVec.ofNat 64 (a+q) := by
+  apply BitVec.eq_of_toNat_eq
+  simp only [StoreKind.merge]
+  rw [replaceByte_toNat _ _ (by decide)]
+  simp only [BitVec.truncate_eq_setWidth, BitVec.toNat_setWidth, BitVec.toNat_ofNat]
+  norm_num only
+  omega
+theorem mergeByteBias (a p q : Nat) (ha : a % 256 = 0) (hp : p < 256) (hq : q < 256) :
+    StoreKind.merge .b (BitVec.ofNat 64 (SigGolfCandidate.T3.ftsBias (a+p))) 0 (BitVec.ofNat 64 q) =
+      BitVec.ofNat 64 (SigGolfCandidate.T3.ftsBias (a+q)) := by
+  have h (n : Nat) : BitVec.ofNat 64 (SigGolfCandidate.T3.ftsBias n) =
+      BitVec.ofNat 64 (n+(2^64-67584)) := by
+    apply BitVec.eq_of_toNat_eq
+    simp only [SigGolfCandidate.T3.ftsBias, BitVec.toNat_ofNat, Nat.mod_mod]
+    rw [Nat.add_sub_assoc (by decide : 67584 ≤ 2^64)]
+  rw [h,h]
+  have ha' : (a+(2^64-67584)) % 256 = 0 := by
+    rw [Nat.add_mod, ha]
+    norm_num
+  simpa only [Nat.add_assoc, Nat.add_left_comm, Nat.add_comm] using
+    mergeByteZero (a+(2^64-67584)) p q ha' hp hq
 theorem stepByte (w : Word) (L J m : Nat) (hL : L < 256) (hm : m < 256) (hJ : J < 2 ^ 48)
     (h1 : w.toNat % 256 = L) (h2 : w.toNat / 2 ^ 16 = J) :
     StoreKind.merge .b w 1 (BitVec.ofNat 64 m) = BitVec.ofNat 64 (L + 256 * m + 2 ^ 16 * J) := by
@@ -9295,52 +9318,53 @@ theorem chainPrefix_value (index coord child : Nat) (hk : coord < 9) (hj : child
   omega
 theorem chainLow_add (index coord child chain digit : Nat) (hc : chain < 6) (hd : digit < 4) :
     V3.chainLow index coord child chain digit =
-      V3.chainPrefix index coord child + (128 + 4 * chain + 256 * digit) := by
-  have hlo : 128 ||| (chain <<< 2) ||| (digit <<< 8) = 128 + 4 * chain + 256 * digit := by
-    interval_cases chain <;> interval_cases digit <;> decide
+      SigGolfCandidate.T3.ftsBias (V3.chainPrefix index coord child + (256 * chain + digit)) := by
+  have hlo : (chain <<< 8) ||| digit = 256 * chain + digit := by
+    rw [← Nat.shiftLeft_add_eq_or_of_lt (by omega : digit < 2^8), Nat.shiftLeft_eq]
+    omega
   unfold V3.chainLow
-  rw [hlo, Nat.or_comm, chainPrefix_shift,
-    ← Nat.shiftLeft_add_eq_or_of_lt (by omega : 128 + 4 * chain + 256 * digit < 2 ^ 16)]
+  rw [hlo, Nat.or_comm (256 * chain + digit), chainPrefix_shift,
+    ← Nat.shiftLeft_add_eq_or_of_lt (by omega : 256 * chain + digit < 2 ^ 16)]
 theorem leafLow_eq (index coord child : Nat) (hi : index < 2 ^ 31) (hk : coord < 9) (hj : child < 128) :
-    V3.leafLow index coord child = 1537 + V3.chainPrefix index coord child := by
+    V3.leafLow index coord child = SigGolfCandidate.T3.ftsBias (1537 + V3.chainPrefix index coord child) := by
   rw [chainPrefix_value _ _ _ hk hj]
   unfold V3.leafLow ClaudeWCT.WCT9.ftsLeafLow
   rw [Nat.mod_eq_of_lt (by omega : coord + 1 < 16), Nat.mod_eq_of_lt hj, Nat.mod_eq_of_lt hi]
+  congr 1
   omega
+theorem wordBias (n : Nat) :
+    BitVec.ofNat 64 (SigGolfCandidate.T3.ftsBias n) =
+      BitVec.ofNat 64 n + BitVec.ofNat 64 (2^64-67584) := by
+  calc
+    BitVec.ofNat 64 (SigGolfCandidate.T3.ftsBias n) = BitVec.ofNat 64 (n+(2^64-67584)) := by
+      apply BitVec.eq_of_toNat_eq
+      simp only [SigGolfCandidate.T3.ftsBias, BitVec.toNat_ofNat, Nat.mod_mod]
+      rw [Nat.add_sub_assoc (by norm_num : 67584 ≤ 2^64)]
+    _ = _ := BitVec.ofNat_add _ _
 theorem packedHeader_eval (s : MachineState) (index coord child chain digit : Nat)
     (hp : s.getReg .x31 = BitVec.ofNat 64 (V3.leafLow index coord child))
     (hi : index < 2 ^ 31) (hk : coord < 9) (hj : child < 128)
     (hc : chain < 6) (hd : digit < 4) :
     (packedHeader chain digit).eval s = BitVec.ofNat 64 (V3.chainLow index coord child chain digit) := by
   simp only [packedHeader, addC_eval, E.eval, hp]
-  rw [leafLow_eq _ _ _ hi hk hj, chainLow_add _ _ _ _ _ hc hd, chainPrefix_value _ _ _ hk hj]
-  apply BitVec.eq_of_toNat_eq
-  simp only [BitVec.toNat_add, BitVec.toNat_sub, BitVec.toNat_ofNat]
-  have hc' : 128 + 4 * chain + 256 * digit < 1537 := by omega
-  rw [Nat.mod_eq_of_lt (by omega : 128 + 4 * chain + 256 * digit < 2 ^ 64),
-    Nat.mod_eq_of_lt (by omega : 1537 < 2 ^ 64),
-    Nat.mod_eq_of_lt (by omega : 1537 + 65536 * (2048 * index + 16 * child + (coord + 1)) < 2 ^ 64)]
-  omega
+  rw [leafLow_eq _ _ _ hi hk hj, chainLow_add _ _ _ _ _ hc hd]
+  rw [wordBias,wordBias]
+  simp only [BitVec.ofNat_add]
+  abel
 theorem packedPos_eval (s : MachineState) (digit : Nat) (hd : digit < 4)
     (h7 : s.getReg .x7 = 1) (h13 : s.getReg .x13 = 2) (h19 : s.getReg .x19 = 3) :
     (packedPos digit).eval s = BitVec.ofNat 64 digit := by
   interval_cases digit <;> simp [packedPos, E.eval, h7, h13, h19]
 theorem wct_header_step (k index child t old digit : Nat) (hk : k < 9)
     (hi : index < 2 ^ 31) (hj : child < 128) (ht : t < 6) (ho : old < 4) (hd : digit < 4) :
-    StoreKind.merge .b (BitVec.ofNat 64 (V3.chainLow index k child t old)) 1
+    StoreKind.merge .b (BitVec.ofNat 64 (V3.chainLow index k child t old)) 0
       (BitVec.ofNat 64 digit) = BitVec.ofNat 64 (V3.chainLow index k child t digit) := by
-  have heq : ∀ d, d < 4 → V3.chainLow index k child t d =
-      (128 + 4 * t) + 256 * d + 2 ^ 16 * (2048 * index + 16 * child + (k + 1)) := by
-    intro d h
-    rw [chainLow_add _ _ _ _ _ ht h, chainPrefix_value _ _ _ hk hj]
+  rw [chainLow_add _ _ _ _ _ ht ho, chainLow_add _ _ _ _ _ ht hd]
+  have ha : (V3.chainPrefix index k child + 256*t) % 256 = 0 := by
+    rw [chainPrefix_value _ _ _ hk hj]
     omega
-  rw [heq old ho, heq digit hd]
-  apply stepByte _ (128 + 4 * t) (2048 * index + 16 * child + (k + 1)) digit
-    (by omega) (by omega) (by omega)
-  all_goals
-    rw [BitVec.toNat_ofNat, Nat.mod_eq_of_lt
-      (by omega : 128 + 4 * t + 256 * old + 2 ^ 16 * (2048 * index + 16 * child + (k + 1)) < 2 ^ 64)]
-    omega
+  simpa only [Nat.add_assoc] using mergeByteBias
+    (V3.chainPrefix index k child + 256*t) old digit ha (by omega) (by omega)
 end W9Machine
 end
 -- ==== merged from W9Machine_WctImage ====
@@ -9690,13 +9714,13 @@ theorem rungRRel_mem (s : MachineState) (rb : Reg) (digit p A X : Nat) (dst : Op
     (h10 : s.getReg .x10 = BitVec.ofNat 64 A) (hhi : A + 64 < 2 ^ 64)
     (hX : X < 2 ^ 64) (hstep : (packedPos digit).eval s = BitVec.ofNat 64 digit) :
     ((rungRRel rb digit dst p).toState s).getMem (BitVec.ofNat 64 X) =
-      if X = A + 16 then StoreKind.merge .b (s.getMem (BitVec.ofNat 64 (A + 16))) 1
+      if X = A + 16 then StoreKind.merge .b (s.getMem (BitVec.ofNat 64 (A + 16))) 0
         (BitVec.ofNat 64 digit) else s.getMem (BitVec.ofNat 64 X) := by
   have hk : (⟨some (.reg .x10), 16⟩ : Addr).eval s = BitVec.ofNat 64 (A + 16) := by
     simp only [Addr.eval, E.eval, h10]
     exact ofNat_add_ofNat A 16
   have hm := memEval_one s ⟨some (.reg .x10), 16⟩
-    (.bin (.st .b 1) (.ld (addC (.reg .x10) 16)) (packedPos digit)) (A + 16) X
+    (.bin (.st .b 0) (.ld (addC (.reg .x10) 16)) (packedPos digit)) (A + 16) X
     hk (by omega) hX
   have ha : BitVec.ofNat 64 A + (16 : Word) = BitVec.ofNat 64 (A + 16) :=
     ofNat_add_ofNat A 16
@@ -9713,7 +9737,7 @@ theorem rungRRel_hashInput (s : MachineState) (rb : Reg) (digit p A : Nat) (dst 
     (halign : A % 8 = 0) (hhi : A + 64 < 2 ^ 64)
     (h11 : s.getReg .x11 = BitVec.ofNat 64 64)
     (hstep : (packedPos digit).eval s = BitVec.ofNat 64 digit)
-    (hlo : StoreKind.merge .b (s.getMem (BitVec.ofNat 64 (A + 16))) 1
+    (hlo : StoreKind.merge .b (s.getMem (BitVec.ofNat 64 (A + 16))) 0
       (BitVec.ofNat 64 digit) = hdr.extractLsb' 0 64)
     (hhigh : s.getMem (BitVec.ofNat 64 (A + 24)) = hdr.extractLsb' 64 64)
     (hp0 : DigAt s A pad0) (hp1 : DigAt s (A + 32) pad1) (hv : DigAt s (A + 48) value) :
@@ -9809,7 +9833,7 @@ theorem rung_trace_mem (value : ChainWord → Word) (tr : ChainTrace) (s : Machi
     (B digit p : Nat) (dst : Option Word) (ht : TraceMem value B tr s)
     (h10 : s.getReg .x10 = BitVec.ofNat 64 (B + tr.input)) (hB : B + 784 < 2 ^ 64)
     (hi : tr.input + 64 ≤ 784) (hstep : (packedPos digit).eval s = BitVec.ofNat 64 digit)
-    (hh : StoreKind.merge .b (s.getMem (BitVec.ofNat 64 (B + tr.input + 16))) 1
+    (hh : StoreKind.merge .b (s.getMem (BitVec.ofNat 64 (B + tr.input + 16))) 0
       (BitVec.ofNat 64 digit) = value (.header tr.chain digit)) :
     TraceMem value B (tr.put (tr.input + 16) (.header tr.chain digit))
       ((rungRRel .x8 digit dst p).toState s) := by
@@ -10649,10 +10673,10 @@ theorem rungRRel_obligations (s : MachineState) (B off digit pc : Nat) (dst : Op
   · change (s.getReg .x10).toNat % 8 = 0
     rw [h10, BitVec.toNat_ofNat, Nat.mod_eq_of_lt (by omega : B + off < 2 ^ 64)]
     omega
-  · change accessValid ((⟨some (.reg .x10), 17⟩ : Addr).eval s) 1 = true
-    have he : (⟨some (.reg .x10), 17⟩ : Addr).eval s = BitVec.ofNat 64 (B + off + 17) := by
+  · change accessValid ((⟨some (.reg .x10), 16⟩ : Addr).eval s) 1 = true
+    have he : (⟨some (.reg .x10), 16⟩ : Addr).eval s = BitVec.ofNat 64 (B + off + 16) := by
       simp only [Addr.eval, E.eval, h10]
-      exact ofNat_add_ofNat (B + off) 17
+      exact ofNat_add_ofNat (B + off) 16
     rw [he]
     exact valid_ofNat _ _ (by omega) (by omega)
 theorem copyFHRel_obligations (s : MachineState) (B off dst pc : Nat)
@@ -11586,7 +11610,7 @@ theorem wordsOf_bytesLE8 (x : BitVec 64) : wordsOf (bytesLE 8 x) = [x] := by
 theorem chainInput_length (index coord child chain step : Nat) (a c value : Digest)
     (b : V3.HeaderPad) : (V3.chainInput index coord child chain step a b c value).length = 64 := by
   unfold V3.chainInput
-  split <;> simp [SphincsSecurity.bytesLE_length]
+  split <;> simp only [List.length_append, SphincsSecurity.bytesLE_length]
 /-- Witness stack: the eight words of an FTS step input, G chains (1, 3) `value | header | a | c`, F chains
 `a | header | c | value`. -/
 theorem wordsOf_chainInput (index coord child chain step : Nat) (a c value : Digest)
@@ -11605,10 +11629,10 @@ theorem wordsOf_chainInput (index coord child chain step : Nat) (a c value : Dig
   by_cases hG : ClaudeWCT.WCT9.ftsIsG chain = true
   all_goals first | rw [if_pos hG, if_pos hG] | rw [if_neg hG, if_neg hG]
   all_goals
-    rw [wordsOf_append _ _ (by simp [List.length_append, SphincsSecurity.bytesLE_length]),
-      wordsOf_append _ _ (by simp [List.length_append, SphincsSecurity.bytesLE_length]),
-      wordsOf_append _ _ (by simp [List.length_append, SphincsSecurity.bytesLE_length]),
-      wordsOf_append _ _ (by simp [List.length_append, SphincsSecurity.bytesLE_length])]
+    rw [wordsOf_append _ _ (by simp only [List.length_append, SphincsSecurity.bytesLE_length]),
+      wordsOf_append _ _ (by simp only [List.length_append, SphincsSecurity.bytesLE_length]),
+      wordsOf_append _ _ (by simp only [List.length_append, SphincsSecurity.bytesLE_length]),
+      wordsOf_append _ _ (by simp only [List.length_append, SphincsSecurity.bytesLE_length])]
     rw [wordsOf_bytesLE16, wordsOf_bytesLE16, wordsOf_bytesLE16, wordsOf_bytesLE8, wordsOf_bytesLE8]
     rfl
 end W9Machine

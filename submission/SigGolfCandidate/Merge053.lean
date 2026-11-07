@@ -953,7 +953,7 @@ theorem goodQ_coordinate (w : WBytes) (index : Nat) (k : Fin 9) (raw : Fin 128) 
   refine allQ_bind ?_ fun ends=>?_
   · unfold V3.chainProgram
     exact allQ_mapM _ _ fun _=>allQ_foldlM _ _ (fun _ _=>good_projHash _ _ (by
-      unfold V3.chainInput; split <;> simp [SphincsSecurity.bytesLE_length])) _
+      unfold V3.chainInput; split <;> simp only [List.length_append, SphincsSecurity.bytesLE_length] <;> omega)) _
   · refine allQ_bind ?_ fun _=>allQ_pure _
     unfold SharedV3.childN
     have hsel : ∀ hi input, 0 < input.length → Good (SharedV3.hashSel hi input) := by
@@ -4108,12 +4108,12 @@ theorem hashHitAt_of_low {answers : Answers} {pos : Pos} {honest actual : HashIn
     HashHitAt answers pos honest actual := by
   unfold HashHitAt; rw [hp]; exact h
 def hdrBlock (input : HashInput) : HashInput := (input.drop 16).take 16
-/-- C4: a header block whose low word `W` (its first 8 bytes) satisfies `1 ≤ W < 2 ^ 16`. Among 64-byte positions
+/-- C4: a header block whose low word `W` (its first 8 bytes) satisfies `1 ≤ W < 4096`. Among 64-byte positions
 only the top folds have such a label (`T3.topNodeWord`, in `[1, 4096)`): the digest has `W = 0`, every FTS word is
-`≥ 2 ^ 16` (coordinate nibble `coord + 1`), WOTS chain and lower fold words carry type byte 193. -/
-def TopLow (b : HashInput) : Prop := 1 ≤ readLE (b.take 8) ∧ readLE (b.take 8) < 2 ^ 16
+`≥ 4096` (coordinate nibble `coord + 1`), WOTS chain and lower fold words carry type byte 193. -/
+def TopLow (b : HashInput) : Prop := 1 ≤ readLE (b.take 8) ∧ readLE (b.take 8) < 4096
 instance (b : HashInput) : Decidable (TopLow b) :=
-  inferInstanceAs (Decidable (1 ≤ readLE (b.take 8) ∧ readLE (b.take 8) < 2 ^ 16))
+  inferInstanceAs (Decidable (1 ≤ readLE (b.take 8) ∧ readLE (b.take 8) < 4096))
 /-- C3 (FULL, S2-2) + C4: the decoding key of an input's header block. Leaf-length inputs (704 or 832 bytes) and
 64-byte inputs with a top label (`TopLow`) are keyed by the low tweak word only (their high word is a witness pad);
 every other input by its canonical header. -/
@@ -4693,7 +4693,7 @@ theorem readLE_take8 (h : BitVec 128) : readLE ((bytesLE 16 h).take 8) = tweakLo
     (BitVec.extractLsb'_append_extractLsb' (w := 64) (len := 64) (x := h)).symm
   conv_lhs => rw [he, SigGolfCandidate.T3M.Extract.bytesLE_header_words, List.take_left' (bytesLE_length 8 _)]
   rw [SigGolfCandidate.T3M.readLE_bytesLE, tweakLow_eq_low]
-theorem topLow_bytesLE_iff (h : BitVec 128) : TopLow (bytesLE 16 h) ↔ 1 ≤ tweakLow h ∧ tweakLow h < 2 ^ 16 := by
+theorem topLow_bytesLE_iff (h : BitVec 128) : TopLow (bytesLE 16 h) ↔ 1 ≤ tweakLow h ∧ tweakLow h < 4096 := by
   unfold TopLow; rw [readLE_take8]
 end ClaudeWCT.W9.T3M.Extract
 end
@@ -5212,14 +5212,14 @@ theorem leaf_bounded_of_treeBits {lay : Layer} {tree leaf : Nat} (ht : tree < 2 
     (hl : leaf < 2 ^ height lay) : (Pos.leaf lay tree leaf).Bounded :=
   ⟨hl, lt_trans (routed_lt_of_treeBits ht hl) (by norm_num)⟩
 /-- C4 key class of a position from its input length and header (adapted from b3cc11b's `keyClass`): leaves by
-length (704/832), FTS leaf (128), forest (320); 64-byte inputs by the low word `W`: top folds `1 ≤ W < 2 ^ 16`,
+length (704/832), FTS leaf (128), forest (320); 64-byte inputs by the low word `W`: top folds `1 ≤ W < 4096`,
 marked words (WOTS and FTS chains, packed lower and FTS folds) byte0 `≥ 128`, FTS two-word folds otherwise. -/
 def keyClass (len : Nat) (h : BitVec 128) : Nat :=
   if len = 832 ∨ len = 704 then 2
   else if len = 128 then 4
   else if len = 320 then 6
-  else if 1 ≤ tweakLow h ∧ tweakLow h < 2 ^ 16 then 1
-  else if 128 ≤ tweakMarker h then 0
+  else if 1 ≤ tweakLow h ∧ tweakLow h < 4096 then 1
+  else if 128 ≤ tweakMarker h ∨ (tweakMarker h < 4 ∧ 248 ≤ tweakTag h ∧ tweakTag h < 254) then 0
   else 5
 def Pos.cls : Pos → Nat
   | .chain .. => 0
@@ -5263,12 +5263,12 @@ private theorem ftsLeafHeader_tweakHigh (index coord selected : Nat) :
     tweakHigh (WCT9.ftsLeafHeader index coord selected) = 0 := by
   unfold tweakHigh
   rw [WCT9.ftsLeafHeader_toNat]
-  exact Nat.div_eq_of_lt (lt_trans (WCT9.ftsLeafLow_lt _ _ _) (by norm_num))
+  exact Nat.div_eq_of_lt (WCT9.ftsLeafLow_lt _ _ _)
 private theorem wctNodeHeader_tweakHigh {coord : Nat} (hk : coord < 9) (index : Nat) {heap : Nat}
     (hn : ¬ FtsNew heap) : tweakHigh (WCT9.wctNodeHeader coord index heap) = heap % 2 ^ 64 := by
   unfold tweakHigh
   rw [WCT9.wctNodeHeader_toNat hk, if_neg hn]
-  have := lt_trans (WCT9.ftsLeafLow_lt index coord 0) (show 2 ^ 58 < 2 ^ 64 by norm_num)
+  have := WCT9.ftsLeafLow_lt index coord 0
   omega
 theorem ftsNew_wctNode {level nd : Nat} (hl : level < 6) (hnd : nd < 2 ^ (7 - level - 1)) :
     FtsNew (2 ^ (7 - level - 1) + nd) ↔ level < 4 := by
@@ -5304,14 +5304,20 @@ theorem Pos.keyClass_eq {p : Pos} (hb : p.Bounded) : keyClass p.len p.hdr = p.cl
       simp only [keyClass, Pos.len, Pos.hdr, Pos.cls, tweakMarker]
       split_ifs <;> omega
   | wctChain index coord child t step =>
-      obtain ⟨-, hk, -, -, -⟩ := hb
-      have hm := WCT9.ftsChainHeaderP_firstByte index coord child t step 0
-      have hL : 2 ^ 16 ≤ tweakLow (WCT9.ftsChainHeader index coord child t step) := by
+      obtain ⟨-, hk, -, ht, -⟩ := hb
+      have hm := WCT9.ftsChainHeaderP_tweakMarker index coord child t step 0
+      have htag := WCT9.ftsChainHeaderP_byte1 index coord child t step 0
+      have hL : 4096 ≤ tweakLow (WCT9.ftsChainHeader index coord child t step) := by
         unfold WCT9.ftsChainHeader
         rw [tweakLow_eq_low, WCT9.ftsChainHeaderP_low, BitVec.toNat_ofNat,
-          Nat.mod_eq_of_lt (lt_trans (WCT9.ftsChainLow_lt _ _ _ _ _) (by norm_num))]
+          Nat.mod_eq_of_lt (WCT9.ftsChainLow_lt _ _ _ _ _)]
         exact WCT9.ftsChainLow_ge (by omega) _ _ _ _
-      simp only [keyClass, Pos.len, Pos.hdr, Pos.cls, WCT9.ftsChainHeader, tweakMarker] at hm hL ⊢
+      have hT : 248 ≤ tweakTag (WCT9.ftsChainHeader index coord child t step) ∧
+          tweakTag (WCT9.ftsChainHeader index coord child t step) < 254 := by
+        unfold WCT9.ftsChainHeader tweakTag
+        rw [Nat.mod_eq_of_lt (by omega : t < 8)] at htag
+        omega
+      simp only [keyClass, Pos.len, Pos.hdr, Pos.cls, WCT9.ftsChainHeader] at hm hL hT ⊢
       split_ifs <;> omega
   | leaf lay tree lf =>
       simp only [keyClass, Pos.len, Pos.cls]
@@ -5343,23 +5349,24 @@ theorem Pos.keyClass_eq {p : Pos} (hb : p.Bounded) : keyClass p.len p.hdr = p.cl
       obtain ⟨-, hk, hlev, hnd⟩ := hb
       have hiff := ftsNew_wctNode hlev hnd
       have hlow := WCT9.wctNodeHeader_toNat hk index (2 ^ (7 - level - 1) + nd)
+      have htag := WCT9.wctNodeHeader_tweakTag hk index (2 ^ (7 - level - 1) + nd)
       have hm := WCT9.wctNodeHeader_tweakMarker coord index (2 ^ (7 - level - 1) + nd)
       have hge := WCT9.ftsLeafLow_ge (show coord < 15 by omega) index 0
       have hlt := WCT9.ftsLeafLow_lt index coord 0
-      have hgeN : 2 ^ 16 ≤ WCT9.ftsNodeLowN index coord (2 ^ (7 - level - 1) + nd) := by
-        rw [WCT9.ftsNodeLowN_eq, Nat.mod_eq_of_lt (show coord + 1 < 16 by omega)]; omega
+      have hgeN : 4096 ≤ WCT9.ftsNodeLowN index coord (2 ^ (7 - level - 1) + nd) := by
+        rw [WCT9.ftsNodeLowN_eq, Nat.mod_eq_of_lt (show coord + 1 < 16 by omega)]; unfold SigGolfCandidate.T3.ftsBias; omega
       have hltN := WCT9.ftsNodeLowN_lt index coord (2 ^ (7 - level - 1) + nd)
       simp only [keyClass, Pos.len, Pos.hdr, Pos.cls]
       unfold tweakLow
       by_cases hl4 : level < 4
       · have hn := hiff.mpr hl4
-        rw [if_pos hn] at hlow
+        rw [if_pos hn] at hlow htag
         rw [if_pos ⟨hk, hn⟩] at hm
         obtain ⟨h8, h128⟩ := hn
         simp only [if_pos hl4]
         split_ifs <;> omega
       · have hn : ¬ FtsNew (2 ^ (7 - level - 1) + nd) := fun h => hl4 (hiff.mp h)
-        rw [if_neg hn] at hlow
+        rw [if_neg hn] at hlow htag
         rw [if_neg (fun h => hn h.2)] at hm
         simp only [if_neg hl4]
         split_ifs <;> omega
@@ -5376,8 +5383,11 @@ theorem keyClass_of_low_eq (len : Nat) {h h' : BitVec 128} (he : h.extractLsb' 0
     rw [← Nat.mod_mod_of_dvd h.toNat (show 256 ∣ 2 ^ 64 by norm_num),
       ← Nat.mod_mod_of_dvd h'.toNat (show 256 ∣ 2 ^ 64 by norm_num)]
     exact congrArg (· % 256) hv
+  have ht : tweakTag h = tweakTag h' := by
+    unfold tweakTag
+    omega
   unfold keyClass
-  rw [hl, hm]
+  rw [hl, hm, ht]
 private theorem node_level_inj {lay : Layer} {level nd level' nd' : Nat} (hlev : level < height lay)
     (hlev' : level' < height lay) (hnd : nd < 2 ^ (height lay - level - 1))
     (hnd' : nd' < 2 ^ (height lay - level' - 1))
@@ -5424,7 +5434,7 @@ theorem Pos.hdr_injective {p p' : Pos} (hb : p.Bounded) (hb' : p'.Bounded) (hlen
         (by omega) hi' (by omega) hj' (by omega) (by omega) h
       subst_vars; rfl
     case wctNode index' coord' level' nd' =>
-      exact False.elim (WCT9.wctNodeHeader_ne_ftsChainHeaderP _ _ _ _ _ _ _ _ 0 h.symm)
+      exact False.elim (WCT9.wctNodeHeader_ne_ftsChainHeaderP _ _ _ _ _ _ _ _ 0 ht h.symm)
     case node lay' tree' level' nd' =>
       obtain ⟨-, -, -, -, hnd'⟩ := hb'
       by_cases hz' : lay' = 0
@@ -5529,7 +5539,7 @@ theorem Pos.hdr_injective {p p' : Pos} (hb : p.Bounded) (hb' : p'.Bounded) (hlen
     case chain lay tree lf i step =>
       exact False.elim (WCT9.wctNodeHeader_ne_chainHeader _ _ _ _ _ _ _ _ h)
     case wctChain index' coord' child t step =>
-      exact False.elim (WCT9.wctNodeHeader_ne_ftsChainHeaderP _ _ _ _ _ _ _ _ 0 h)
+      exact False.elim (WCT9.wctNodeHeader_ne_ftsChainHeaderP _ _ _ _ _ _ _ _ 0 hb'.2.2.2.1 h)
     case node lay' tree' level' nd' =>
       obtain ⟨-, hc9, -, -⟩ := hb
       obtain ⟨-, -, -, -, hnd'⟩ := hb'
@@ -5550,8 +5560,8 @@ theorem rowTweak_ne_hdr (lay : Layer) (tree leaf : Nat) {p : Pos} (hb : p.Bounde
       have := chainHeader_firstByte lay' tree' lf i step
       simp only [Pos.hdr, tweakMarker] at hM; omega
   | wctChain index coord child t step =>
-      have := WCT9.ftsChainHeaderP_firstByte index coord child t step 0
-      simp only [Pos.hdr, WCT9.ftsChainHeader, tweakMarker] at hM; omega
+      have := WCT9.ftsChainHeaderP_byte1 index coord child t step 0
+      simp only [Pos.hdr, WCT9.ftsChainHeader, tweakTag] at hT; omega
   | leaf lay' tree' lf => simp only [Pos.hdr] at hH; rw [leafTweak_high] at hH; omega
   | node lay' tree' level nd =>
       simp only [Pos.hdr] at hH
@@ -5567,7 +5577,7 @@ theorem rowTweak_ne_hdr (lay : Layer) (tree leaf : Nat) {p : Pos} (hb : p.Bounde
       simp only [Pos.hdr, tweakHigh] at hH
       rw [WCT9.ftsLeafHeader_toNat] at hH
       have := WCT9.ftsLeafLow_lt index coord child
-      rw [Nat.div_eq_of_lt (lt_trans this (by norm_num))] at hH; omega
+      rw [Nat.div_eq_of_lt this] at hH; omega
   | wctNode index coord level nd =>
       obtain ⟨-, hk, -, -⟩ := hb
       have := WCT9.wctNodeHeader_tweakTag hk index (2 ^ (7 - level - 1) + nd)
@@ -5578,7 +5588,7 @@ theorem Pos.hdr_firstByte_chain (lay : Layer) (tree leaf i step : Nat) :
     128 ≤ (Pos.chain lay tree leaf i step).hdr.toNat % 256 :=
   chainHeader_firstByte lay tree leaf i step
 theorem Pos.hdr_firstByte_wctChain (index coord child t step : Nat) :
-    (Pos.wctChain index coord child t step).hdr.toNat % 256 = 128 + 4 * (t % 8) :=
+    (Pos.wctChain index coord child t step).hdr.toNat % 256 = step % 4 :=
   WCT9.ftsChainHeaderP_firstByte index coord child t step 0
 /-- C4: the marker byte of a position of class neither 0 (marked) nor 1 (top fold, whose marker byte is the heap's
 low byte) is below 128. -/
@@ -5615,7 +5625,9 @@ theorem Pos.canonicalHeader_eq {p : Pos} (hb : p.Bounded) :
         (SigGolfCandidate.T3M.chainHeader_high_zero lay tree leaf i step hb.1 hb.2.1 hb.2.2.1 (by have := hb.2.2.2; omega))
   | wctChain index coord child t step =>
       exact canonicalHeader_high_zero _ (WCT9.ftsChainHeaderP_high index coord child t step 0)
-  | leaf => exact canonicalHeader_marker_ne _ (Pos.hdr_marker_lt hb (by simp [Pos.cls]) (by simp [Pos.cls]))
+  | leaf lay tree leaf =>
+      apply canonicalHeader_high_zero
+      exact BitVec.extractLsb'_append_eq_left
   | node lay tree level nd =>
       apply canonicalHeader_high_zero
       simp only [Pos.hdr]
@@ -5623,8 +5635,12 @@ theorem Pos.canonicalHeader_eq {p : Pos} (hb : p.Bounded) :
       · subst hz; exact WCT9.merkleTweak_top_high _ _
       · rw [merkleTweak_layer_lower hz]
         exact WCT9.lowerTweak_high _ _ _
-  | forest => exact canonicalHeader_marker_ne _ (Pos.hdr_marker_lt hb (by simp [Pos.cls]) (by simp [Pos.cls]))
-  | wctLeaf => exact canonicalHeader_marker_ne _ (Pos.hdr_marker_lt hb (by simp [Pos.cls]) (by simp [Pos.cls]))
+  | forest index =>
+      apply canonicalHeader_marker_ne _ (Pos.hdr_marker_lt hb (by simp [Pos.cls]) (by simp [Pos.cls]))
+      have ht := header_tag 15 0 index 0 0
+      simp only [Pos.hdr, tweakTag] at ht ⊢
+      omega
+  | wctLeaf index coord child => exact canonicalHeader_high_zero _ (WCT9.ftsLeafHeader_high index coord child)
   | wctNode index coord level nd =>
       by_cases hl4 : level < 4
       · apply canonicalHeader_high_zero
@@ -5632,7 +5648,13 @@ theorem Pos.canonicalHeader_eq {p : Pos} (hb : p.Bounded) :
         simp only [Pos.hdr]
         rw [WCT9.wctNodeHeader_high hk, if_pos ((ftsNew_wctNode hlev hnd).mpr hl4)]
         rfl
-      · exact canonicalHeader_marker_ne _ (Pos.hdr_marker_lt hb (by simp [Pos.cls, hl4]) (by simp [Pos.cls, hl4]))
+      · apply canonicalHeader_marker_ne _ (Pos.hdr_marker_lt hb (by simp [Pos.cls, hl4]) (by simp [Pos.cls, hl4]))
+        obtain ⟨-, hk, hlev, hnd⟩ := hb
+        have hn : ¬ FtsNew (2 ^ (7-level-1)+nd) := fun h => hl4 ((ftsNew_wctNode hlev hnd).mp h)
+        have ht := WCT9.wctNodeHeader_byte1 hk index (2 ^ (7-level-1)+nd)
+        rw [if_neg hn] at ht
+        simp only [Pos.hdr] at *
+        omega
 /-! ### Length-aware position decoding (C3 FULL, S2-2)
 The leaf tweak's high word and the encoding row tweak's high word are witness pads. An encoding with high word 0 has
 the 16-byte header of a leaf tweak, so a position is decoded from the input length (`Pos.len`) and the decoding key
@@ -5749,21 +5771,18 @@ theorem rowTweak_low_ne_hdr (lay : Layer) (tree leaf : Nat) {p : Pos} (hb : p.Bo
     rw [tweakLow_eq_low, ← h, rowTweak, append64_low]
   have hy := hyperWord_toNat lay.val (tree * 2 ^ height lay + leaf)
   have hm : tweakMarker p.hdr = 1 := by rw [← low_tweakMarker, ← h, low_tweakMarker, rowTweak_marker]
+  have ht : tweakTag p.hdr = 2 := by rw [← low_tweakTag, ← h, low_tweakTag, rowTweak_tag]
   have hk := Pos.keyClass_eq hb
   rw [h64] at hk
   unfold keyClass at hk
   rw [if_neg (by decide), if_neg (by decide), if_neg (by decide), if_neg (by rw [hL, hy]; omega),
-    if_neg (by rw [hm]; omega)] at hk
+    if_neg (by rw [hm, ht]; omega)] at hk
   cases p with
   | wctNode index coord level nd =>
       obtain ⟨-, hk9, -, -⟩ := hb
-      have hw := WCT9.wctNodeHeader_toNat hk9 index (2 ^ (7 - level - 1) + nd)
-      have := WCT9.ftsLeafLow_lt index coord 0
-      have := WCT9.ftsNodeLowN_lt index coord (2 ^ (7 - level - 1) + nd)
-      simp only [Pos.hdr] at hL
-      unfold tweakLow at hL
-      rw [hw] at hL
-      split_ifs at hL <;> omega
+      have hh := WCT9.wctNodeHeader_tweakTag hk9 index (2 ^ (7 - level - 1) + nd)
+      simp only [Pos.hdr] at ht
+      split_ifs at hh <;> omega
   | node lay' => simp only [Pos.cls] at hk; split_ifs at hk <;> omega
   | _ => simp [Pos.cls] at hk
 end ClaudeWCT.W9.T3M.Extract
@@ -8117,16 +8136,22 @@ theorem ftsChainHeader_ne_wots (index coord selected t step : Nat) :
   fun l tr leaf i st => ftsChainHeaderP_ne_chainHeader _ _ _ _ _ 0 l tr leaf i st
 theorem ftsChainHeader_ne_header' (index coord selected t step : Nat) :
     ∀ l tr p ix, ftsChainHeader index coord selected t step ≠ header 4 l tr p ix :=
-  fun l tr p ix => ftsChainHeaderP_ne_header _ _ _ _ _ 0 4 l tr p ix
+  fun l tr p ix => ftsChainHeaderP_ne_header _ _ _ _ _ 0 4 l tr p ix (by decide)
 theorem hdrTag_ftsChain {input : HashInput} {index coord selected t step : Nat}
     (h : SigGolfCandidate.T3M.Extract.hdrBlock input = bytesLE 16 (ftsChainHeader index coord selected t step)) :
-    Security.BPB.hdrTag input = 1 := by
+    Security.BPB.hdrTag input = 248+t%8 := by
   unfold Security.BPB.hdrTag
-  rw [h, bytesLE16_first_toNat, show (ftsChainHeader index coord selected t step).toNat % 256 = 128 + 4 * (t % 8)
-    from ftsChainHeaderP_firstByte _ _ _ _ _ 0, if_pos (by omega)]
+  rw [h, bytesLE16_first_toNat, show (ftsChainHeader index coord selected t step).toNat % 256 = step % 4
+    from ftsChainHeaderP_firstByte _ _ _ _ _ 0, if_neg (by omega)]
+  have hb : ((bytesLE 16 (ftsChainHeader index coord selected t step)).getD 1 0).toNat =
+      (ftsChainHeader index coord selected t step).toNat / 2^8 % 256 := by
+    show ((ftsChainHeader index coord selected t step).extractLsb' 8 8).toNat = _
+    rw [BitVec.extractLsb'_toNat, Nat.shiftRight_eq_div_pow]
+  rw [hb]
+  exact ftsChainHeaderP_byte1 _ _ _ _ _ 0
 theorem hdrTag_ftsLeaf {input : HashInput} {index coord selected : Nat}
     (h : SigGolfCandidate.T3M.Extract.hdrBlock input = bytesLE 16 (ftsLeafHeader index coord selected)) :
-    Security.BPB.hdrTag input = 6 := by
+    Security.BPB.hdrTag input = 254 := by
   unfold Security.BPB.hdrTag
   rw [h, bytesLE16_first_toNat, ftsLeafHeader_firstByte, if_neg (by decide)]
   have hb : ((bytesLE 16 (ftsLeafHeader index coord selected)).getD 1 0).toNat =
@@ -8153,8 +8178,10 @@ theorem ftsQuery_nonEnc {index : Nat} {q : Query} (h : FtsQuery index q) : Enc.N
   · exact h.elim
   · rcases FtsInput.hdrBlock (show FtsInput index input from h) with
       ⟨coord, selected, t, step, hblock⟩ | ⟨coord, selected, -, -, hblock⟩ | ⟨coord, heap, hk, -, -, hblock⟩ | hblock
-    · exact Enc.nonEnc_of_hdr input _ hblock (Enc.notHyper_of_marker
-        (ne_of_gt (lt_of_lt_of_le (by decide) (ftsChainHeaderP_tweakMarker index coord selected t step 0))))
+    · exact Enc.nonEnc_of_hdr input _ hblock (Enc.notHyper_of_tag (by
+        have ht := ftsChainHeaderP_byte1 index coord selected t step 0
+        unfold tweakTag ftsChainHeader
+        omega))
     · exact Enc.nonEnc_of_hdr input _ hblock (Enc.notHyper_of_tag (by rw [ftsLeafHeader_tweakTag]; decide))
     · exact Enc.nonEnc_of_hdr input _ hblock (Enc.notHyper_of_tag (by
         rw [wctNodeHeader_tweakTag hk]; split <;> decide))
@@ -8176,10 +8203,11 @@ theorem ftsQuery_notDigest {index : Nat} {q : Query} (h : FtsQuery index q) : BP
   · show BPB.hdrMarker input ≠ 0
     rcases FtsInput.hdrBlock (show FtsInput index input from h) with
       ⟨coord, selected, t, step, hblock⟩ | ⟨coord, selected, -, -, hblock⟩ | ⟨coord, heap, -, -, -, hblock⟩ | hblock
-    · refine BPB.hdrMarker_ne_zero hblock ?_
-      unfold tweakMarker
-      rw [show ftsChainHeader index coord selected t step = ftsChainHeaderP index coord selected t step 0 from rfl,
-        ftsChainHeaderP_firstByte]
+    · rw [BPB.hdrMarker_eq hblock]
+      have ht := ftsChainLow_tag index coord selected t step
+      have hl := ftsChainLow_lt index coord selected t step
+      unfold tweakLow
+      rw [ftsChainHeader_toNat, Nat.mod_eq_of_lt hl]
       omega
     · refine BPB.hdrMarker_ne_zero hblock ?_; unfold tweakMarker; rw [ftsLeafHeader_firstByte]; decide
     · exact BPB.hdrMarker_ne_zero hblock (wctNodeHeader_tweakMarker_ne_zero _ _ _)
@@ -8256,13 +8284,17 @@ theorem respects_chain (coord selected t start count : Nat) (value : Digest) :
   unfold ftsChainInputW; split
   · rw [List.append_assoc (bytesLE 16 v ++ _)]
     exact Wots.Enc.nonEnc_of_hdr _ _ (hdrBlock_pad64_prefix _ _ _ (bytesLE_length _ _))
-      (Wots.Enc.notHyper_of_marker
-        (ne_of_gt (lt_of_lt_of_le (by decide) (ftsChainHeaderP_tweakMarker index coord selected t step 0))))
+      (Wots.Enc.notHyper_of_tag (by
+        have ht := ftsChainHeaderP_byte1 index coord selected t step 0
+        unfold tweakTag ftsChainHeader
+        omega))
   · unfold chainInput
     rw [List.append_assoc (zero16 ++ _)]
     exact Wots.Enc.nonEnc_of_hdr _ _ (hdrBlock_pad64_prefix _ _ _ (by simp [zero16]))
-      (Wots.Enc.notHyper_of_marker
-        (ne_of_gt (lt_of_lt_of_le (by decide) (ftsChainHeaderP_tweakMarker index coord selected t step 0))))
+      (Wots.Enc.notHyper_of_tag (by
+        have ht := ftsChainHeaderP_byte1 index coord selected t step 0
+        unfold tweakTag ftsChainHeader
+        omega))
 theorem respects_leafHash (coord selected : Nat) (ends : List Digest) :
     Wots.Mask.Respects Wots.Enc.NonEnc (WCT9.leafHash index coord selected ends) := by
   unfold WCT9.leafHash
