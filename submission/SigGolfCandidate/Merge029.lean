@@ -175,12 +175,26 @@ theorem canonicalHeader_high_zero (hdr : BitVec 128) (hz : hdr.extractLsb' 64 64
   have hzero : bytesLE 8 (0#64) = List.replicate 8 0 := by decide +kernel
   rw [hzero]
   exact canonicalHeader_zero_pad _ (bytesLE_length _ _)
+theorem bytesLE16_tag (hdr : BitVec 128) :
+    ((bytesLE 16 hdr).getD 1 0).toNat = hdr.toNat / 256 % 256 := by
+  simp [bytesLE, List.getD_eq_getElem?_getD, BitVec.extractLsb'_toNat, Nat.shiftRight_eq_div_pow]
+theorem canonicalHeader_fts_words (high low : BitVec 64)
+    (hm : low.toNat % 256 < 4) (ht : 248 ≤ low.toNat / 256 % 256 ∧ low.toNat / 256 % 256 < 254) :
+    canonicalHeader (bytesLE 16 (high ++ low)) = bytesLE 8 low ++ List.replicate 8 0 := by
+  rw [bytesLE_header_words]
+  apply canonicalHeader_fts_marked _ _ (bytesLE_length _ _)
+  unfold ftsChainMark
+  have htag : ((bytesLE 8 low).getD 1 0).toNat = low.toNat / 256 % 256 := by
+    simp [bytesLE, List.getD_eq_getElem?_getD, BitVec.extractLsb'_toNat, Nat.shiftRight_eq_div_pow]
+  rw [bytesLE8_marker, htag]
+  exact ⟨hm,ht⟩
 theorem canonicalHeader_marker_ne (hdr : BitVec 128)
-    (hm : hdr.toNat % 256 < 128) :
+    (hm : hdr.toNat % 256 < 128)
+    (ht : ¬ (hdr.toNat % 256 < 4 ∧ 248 ≤ hdr.toNat / 256 % 256 ∧ hdr.toNat / 256 % 256 < 254)) :
     canonicalHeader (bytesLE 16 hdr) = bytesLE 16 hdr := by
   apply canonicalHeader_unmarked
-  rw [bytesLE16_marker]
-  omega
+  · rw [bytesLE16_marker]; omega
+  · simpa only [ftsChainMark, bytesLE16_marker, bytesLE16_tag] using ht
 end SigGolfCandidate.T3M.Extract
 end
 -- ==== merged from T3M_Final_SecurityP ====

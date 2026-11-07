@@ -1,3 +1,4 @@
+import SigGolfCandidate.KeygenLabel
 import SigGolfCandidate.Merge026
 import SigGolfCandidate.Merge028
 import SigGolfCandidate.Merge033
@@ -1701,8 +1702,20 @@ def hook153 : BitVec 32 := 0x1890a06f
 def hook540 : BitVec 32 := 0x3791306f
 /-- The sign code: the record window at 11003, (nested FTS r1-1) the trampolines at 21450 and (C4, FTS
 coordinate + 1) the coordinate-0 arena at 1700. -/
+def legacyLabelStub0 : List (BitVec 32) := bv_list% 32 [0x7ec193,0x11b193,0x3900393,0x27181b3,0x1d181b3,0x353c23,0xcd9f206f]
+def legacyLabelStub1 : List (BitVec 32) := bv_list% 32 [0x7ec193,0x11b193,0x3900393,0x27181b3,0x1d181b3,0x353c23,0xd51f306f]
+def legacyLabelStub2 : List (BitVec 32) := bv_list% 32 [0x7ec193,0x11b193,0x3900393,0x27181b3,0x1d181b3,0x353c23,0xdc5f406f]
+def legacyLabelStub3 : List (BitVec 32) := bv_list% 32 [0x7ec193,0x11b193,0x3900393,0x27181b3,0x1d181b3,0x353c23,0xe39f506f]
+def legacyLabelStub4 : List (BitVec 32) := bv_list% 32 [0x7ec193,0x11b193,0x3900393,0x27181b3,0x1d181b3,0x353c23,0xea9f606f]
+def legacyLabelStub5 : List (BitVec 32) := bv_list% 32 [0x7ec193,0x11b193,0x3900393,0x27181b3,0x1d181b3,0x353c23,0xf1df706f]
+def legacyLabelStub6 : List (BitVec 32) := bv_list% 32 [0x7ec193,0x11b193,0x3900393,0x27181b3,0x1d181b3,0x353c23,0xf91f806f]
+def legacyLabelStub7 : List (BitVec 32) := bv_list% 32 [0x7ec193,0x11b193,0x3900393,0x27181b3,0x1d181b3,0x353c23,0x800fa06f]
+def legacyLabelStub8 : List (BitVec 32) := bv_list% 32 [0x7ec193,0x11b193,0x3900393,0x27181b3,0x1d181b3,0x353c23,0x874fb06f]
+def legacyLabelStubPc (c : Nat) : Nat := 25625+7*c
+def legacyLabelStub (c : Nat) : List (BitVec 32) := [legacyLabelStub0,legacyLabelStub1,legacyLabelStub2,legacyLabelStub3,legacyLabelStub4,legacyLabelStub5,legacyLabelStub6,legacyLabelStub7,legacyLabelStub8].getD c []
 def NewCodeAt (im : Image) : Prop :=
-  signNew <+: im.code.drop 11003 ∧ signTramp <+: im.code.drop 21450 ∧ arenaCode <+: im.code.drop 1700
+  signNew <+: im.code.drop 11003 ∧ signTramp <+: im.code.drop 21450 ∧ arenaCode <+: im.code.drop 1700 ∧
+    ∀ c, c < 9 → legacyLabelStub c <+: im.code.drop (legacyLabelStubPc c)
 /-- [h2 lane] the sign prepass appended at word 20813 (entered from the record's copy at 20730): move digest 192 (the top
 sibling, scratch 0x7ca0) to the last scratch slot and digests 193..340 down one slot, then return to 20731. -/
 def h2SignTail : List (BitVec 32) := [0x8e37, 0xca0e0e13, 0xe3703, 0x8e3783, 0xe0e93, 0x10e0e13, 0x8f37, 0x5f0f0f13,
@@ -1864,7 +1877,7 @@ def arenaLook (n : Nat) : Option (BitVec 32) := if 1700 ≤ n then arenaCode[n -
 /-- A coordinate's code window, falling through to the trampolines (nested FTS r1-1), and below the window to the
 C4 arena. -/
 def coordLook (c n : Nat) : Option (BitVec 32) :=
-  if cbase c ≤ n then
+  if legacyLabelStubPc c ≤ n then (legacyLabelStub c)[n-legacyLabelStubPc c]? else if cbase c ≤ n then
     (match (coordCodes.getD c [])[n - cbase c]? with | some w => some w | none => trampLook n)
   else arenaLook n
 def tailLook (n : Nat) : Option (BitVec 32) := if 20715 ≤ n then tailCode[n - 20715]? else none
@@ -1947,7 +1960,7 @@ theorem trampLook_ok {im : Image} (h : NewCodeAt im) : LookOK im trampLook := by
   · cases hw
 theorem arenaLook_ok {im : Image} (h : NewCodeAt im) : LookOK im arenaLook := by
   intro n w hw
-  obtain ⟨rest, hrest⟩ := h.2.2
+  obtain ⟨rest, hrest⟩ := h.2.2.1
   unfold arenaLook at hw
   split at hw
   · rename_i hle
@@ -1961,14 +1974,24 @@ theorem coordLook_ok {im : Image} (h : NewCodeAt im) {c : Nat} (hc : c < 9) : Lo
   unfold coordLook at hw
   split at hw
   · rename_i hle
+    obtain ⟨rest, hr⟩ := h.2.2.2 c hc
+    have hi : n - legacyLabelStubPc c < (legacyLabelStub c).length := (List.getElem?_eq_some_iff.mp hw).1
+    have he : (im.code.drop (legacyLabelStubPc c))[n - legacyLabelStubPc c]? = some w := by
+      rw [← hr, List.getElem?_append_left hi]
+      exact hw
+    rwa [List.getElem?_drop, Nat.add_sub_cancel' hle] at he
+  ·
     split at hw
-    · rename_i w' hw'
-      cases hw
-      have := newCode_word h (signNew_coord hc hw')
-      have hb := cbase_ge c hc
-      rwa [show 11003 + (cbase c - 11003 + (n - cbase c)) = n by omega] at this
-    · exact trampLook_ok h n w hw
-  · exact arenaLook_ok h n w hw
+    · rename_i hle
+      split at hw
+      · rename_i w' hw'
+        cases hw
+        have := newCode_word h (signNew_coord hc hw')
+        have hb := cbase_ge c hc
+        rwa [show 11003 + (cbase c - 11003 + (n - cbase c)) = n by omega] at this
+      · exact trampLook_ok h n w hw
+    · exact arenaLook_ok h n w hw
+
 theorem tailLook_ok {im : Image} (h : NewCodeAt im) : LookOK im tailLook := by
   intro n w hw
   unfold tailLook at hw
@@ -2492,7 +2515,7 @@ def kOwn (off : Nat) : Bool := off = 27 || off = 42 || off = 44 || off = 75 || o
 def kSubL : Rv.Layout := subL.map fun p =>
   if p.1 = 27 then (27, sub27K) else if p.1 = 42 then (42, sub42K) else if p.1 = 44 then (44, sub44K)
   else if p.1 = 75 then (75, sub75K) else if p.1 = 96 then (96, sub96K) else if p.1 = 106 then (106, sub106K)
-  else if p.1 = 120 then (120, sub120K) else if p.1 = 140 then (140, sub140K) else if p.1 = 147 then (147, sub147K)
+  else if p.1 = 120 then (120, KeygenLabel.pre) else if p.1 = 140 then (140, sub140K) else if p.1 = 147 then (147, sub147K)
   else if p.1 = 113 then (113, sub113K) else if p.1 = 157 then (157, sub157K)
   else if p.1 = 9 then (9, sub9K) else if p.1 = 80 then (80, sub80K) else if p.1 = 82 then (82, sub82K) else p
 theorem kSubL_ok : layoutOk 0 kSubL = true := by decide +kernel
@@ -2519,7 +2542,7 @@ def kgAllocStub : List (BitVec 32) := [0x700713,0x2581813,0xb79ff06f]
 def seg_542 : List (BitVec 32) :=
   List.replicate 45 0x00000013 ++ packedHelper ++ coefgenCode ++ [0x00000013] ++ hornCode ++ [0x00000013] ++
     capCode ++ kgStepCode ++ kchkCode ++ capCont ++ List.replicate 247 0x00000013 ++ kgMaskStub ++ kgAllocStub ++ List.replicate 82 0x00000013
-def mainL : Rv.Layout := [(0, seg_0), (26, seg_26), (28, seg_28), (34, seg_34), (36, seg_36), (39, seg_39), (48, seg_48), (50, seg_50), (51, seg_51), (52, seg_52), (64, seg_64), (65, seg_65), (81, seg_81), (84, seg_84), (113, seg_113), (114, seg_114), (116, seg_116), (117, layoutCode kSubL), (277, seg_277), (289, seg_289), (295, seg_295), (309, seg_309), (310, seg_310), (330, seg_330), (334, seg_334), (542, seg_542), (1117, maxDigitCode), (1121, revCode), (1149, ktopCode)]
+def mainL : Rv.Layout := [(0, seg_0), (26, seg_26), (28, seg_28), (34, seg_34), (36, seg_36), (39, seg_39), (48, seg_48), (50, seg_50), (51, seg_51), (52, seg_52), (64, seg_64), (65, seg_65), (81, seg_81), (84, seg_84), (113, seg_113), (114, seg_114), (116, seg_116), (117, layoutCode kSubL), (277, seg_277), (289, seg_289), (295, seg_295), (309, seg_309), (310, seg_310), (330, seg_330), (334, seg_334), (542, seg_542), (1117, maxDigitCode), (1121, revCode), (1149, ktopCode), (1177, KeygenLabel.stub)]
 theorem mainL_ok : layoutOk 0 mainL = true := by decide +kernel
 abbrev image : Image := Images.keygenImage
 theorem code_eq : image.code = layoutCode mainL := by decide +kernel
@@ -2701,8 +2724,8 @@ theorem codeAt_sub_117 {image : Image} {b : Nat} (h : SubAt image b) :
 theorem codeAt_sub_118 {image : Image} {b : Nat} (h : SubAt image b) :
     CodeAt image (pcOf (b + 118)) sub_118 :=
   h.1 118 sub_118 (by decide +kernel) (by decide)
-theorem codeAt_sub120K {image : Image} {b : Nat} (h : SubAt image b) :
-    CodeAt image (pcOf (b + 120)) sub120K :=
+theorem codeAt_sub120RemapK {image : Image} {b : Nat} (h : SubAt image b) :
+    CodeAt image (pcOf (b + 120)) KeygenLabel.pre :=
   codeAt_kSub h (by decide +kernel)
 theorem codeAt_sub140K {image : Image} {b : Nat} (h : SubAt image b) :
     CodeAt image (pcOf (b + 140)) sub140K :=

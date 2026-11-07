@@ -1186,7 +1186,7 @@ open SphincsSecurity (bytesLE)
 def chainPrefix (index coord child : Nat) : Nat :=
   (index <<< 27) ||| ((coord + 1) <<< 16) ||| (child <<< 20)
 def chainLow (index coord child chain step : Nat) : Nat :=
-  0x80 ||| (chain <<< 2) ||| (step <<< 8) ||| chainPrefix index coord child
+  SigGolfCandidate.T3.ftsBias ((chain <<< 8) ||| step ||| chainPrefix index coord child)
 abbrev HeaderPad := BitVec 64
 /-- Witness stack: F chains (0, 2, 4, 5) hash `a | header | c | value`, G chains (1, 3) hash
 `value | header | a | c`. -/
@@ -1229,7 +1229,7 @@ def nodeLow (coord index : Nat) : Nat := ClaudeWCT.WCT9.ftsLeafLow index coord 0
 word `hp`; the other heaps carry `nodeLow` and the heap. -/
 def nodeHdr (coord index heap : Nat) (hp : BitVec 64) : Digest :=
   if 8 ≤ heap ∧ heap < 128 then hp ++ BitVec.ofNat 64 (nodeLow coord index - heap)
-  else BitVec.ofNat 64 heap ++ BitVec.ofNat 64 (nodeLow coord index)
+  else BitVec.ofNat 64 (SigGolfCandidate.T3.ftsHeapLabel heap) ++ BitVec.ofNat 64 (nodeLow coord index)
 def nodeInput (coord index heap : Nat) (left : Digest) (hp : BitVec 64) (pad right : Digest) : HashInput :=
   bytesLE 16 left ++ bytesLE 16 (nodeHdr coord index heap hp) ++ bytesLE 16 pad ++ bytesLE 16 right
 /-- Nested FTS (r1-1): fold block offset of child level `level` in a region. Levels 0..4 follow the child plan;
