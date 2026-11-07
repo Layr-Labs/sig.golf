@@ -6,6 +6,7 @@ import SigGolfCandidate.Merge094
 import SigGolfCandidate.Merge095
 import SigGolfCandidate.FtsSignGrind
 import SigGolfCandidate.FtsBridge
+set_option debug.skipKernelTC false
 set_option linter.all false
 
 -- ==== merged from ClaudeWCT_W9_New_Machine_Sign_PackedLeaf ====
@@ -4542,7 +4543,7 @@ theorem fChildStep_eq (index c j : Nat) (word : WCT9.Rank) (coefs : List Digest)
   dsimp only
   rw [← chain4_eq index c j i.val _ hd]
   simp only [bind_assoc, pure_bind]
-def bodyRegs : List Reg := [.x1, .x6, .x7, .x10, .x11, .x12, .x13, .x14, .x15, .x16, .x17, .x26, .x28, .x29]
+def bodyRegs : List Reg := [.x1, .x3, .x6, .x7, .x10, .x11, .x12, .x13, .x14, .x15, .x16, .x17, .x26, .x28, .x29]
 def bodyW (c : Nat) (A : Nat) : Prop :=
   (PRIVW + 16 ≤ A ∧ A < PRIVW + 32) ∨ (PAIRW ≤ A ∧ A < PAIRW + 32) ∨ (CHAINW + 16 ≤ A ∧ A < CHAINW + 32) ∨
     (CHAINW + 48 ≤ A ∧ A < CHAINW + 112) ∨ (LEAFW ≤ A ∧ A < LEAFW + 128) ∨ (slotV c 0 ≤ A ∧ A < slotV c 6)
@@ -4838,7 +4839,7 @@ theorem heapBuild_eq (index c : Nat) (padR : Digest) (leaves : List Digest) :
   unfold WCT9.heapBuild
   rw [heap_order_list, List.foldlM_map]
   rfl
-def treeRegs : List Reg := [.x6, .x7, .x10, .x11, .x12, .x28, .x29]
+def treeRegs : List Reg := [.x3, .x6, .x7, .x10, .x11, .x12, .x28, .x29]
 def treeW (A : Nat) : Prop :=
   (A = NODEW ∨ A = NODEW + 8 ∨ A = NODEW + 16 ∨ A = NODEW + 24 ∨ A = NODEW + 48 ∨ A = NODEW + 56) ∨
     (NOUTW ≤ A ∧ A < NOUTW + 32) ∨ (HEAPW + 16 ≤ A ∧ A < HEAPW + 2048) ∨ (A = NODEW + 32 ∨ A = NODEW + 40)
@@ -4855,11 +4856,11 @@ structure TreeInv (c index : Nat) (padR : Digest) (s0 : MachineState) (k : Nat) 
   pad : DigAt t (NODEW + 32) (treePad k padR)
   regs : RegsExcept s0 t (.x18 :: treeRegs)
   frame : Frame s0 t treeW
-def treeC : Nat := 32 + (8 + 25)
+def treeC : Nat := 42 + (8 + 25)
 theorem hashInput_node (t : MachineState) {c index h : Nat} {pad L R : Digest} (hc : c < 9) (hidx : index < 2 ^ 31)
     (hh : h < 128) (h10 : t.getReg .x10 = BitVec.ofNat 64 NODEW) (h11 : t.getReg .x11 = BitVec.ofNat 64 64)
     (hL : DigAt t NODEW L) (m16 : t.getMem (BitVec.ofNat 64 (NODEW + 16)) = BitVec.ofNat 64 (nodeLoN c index h))
-    (m24 : t.getMem (BitVec.ofNat 64 (NODEW + 24)) = BitVec.ofNat 64 (if 8 ≤ h then 0 else h))
+    (m24 : t.getMem (BitVec.ofNat 64 (NODEW + 24)) = BitVec.ofNat 64 (if 8 ≤ h then 0 else SigGolfCandidate.T3.ftsHeapLabel h))
     (hP : DigAt t (NODEW + 32) pad)
     (hR : DigAt t (NODEW + 48) R) : hashInput t = toQ (pad64 (nodeIn c index h pad L R)) := by
   refine hashInput_of_words t _ 0 NODEW (by rw [pad64_of_aligned _ (by rw [nodeIn_len]), nodeIn_len]) h10 (by ao)
@@ -5706,7 +5707,7 @@ def hashProgram (c index h : Nat) (pad L R : Digest) : M Digest :=
   else if high c h then publicHash (nodeIn c index h pad L R) >>= fun o=>pure (o.extractLsb' 128 128)
   else shortHash (nodeIn c index h pad L R)
 
-theorem cycles_le (c m : Nat) : cycles c m≤38 := by unfold cycles;split_ifs <;> omega
+theorem cycles_le (c m : Nat) : cycles c m≤48 := by unfold cycles;split_ifs <;> omega
 
 theorem hashPc_tail (c : Nat) (hc:c<9) : pcOf (hashPc c)+4=pcOf (SharedTail.entry c) := by
   have h:∀c,c<9→pcOf (hashPc c)+4=pcOf (SharedTail.entry c):=by decide +kernel
@@ -5723,7 +5724,7 @@ theorem node_read (s : MachineState) {h : Nat} (h18:s.getReg .x18=BitVec.ofNat 6
 theorem readWords_node (t : MachineState) {c index h : Nat} {pad L R : Digest} (hc : c < 9) (hidx : index < 2 ^ 31)
     (hh : h < 128) (hL : DigAt t NODEW L)
     (m16 : t.getMem (BitVec.ofNat 64 (NODEW + 16)) = BitVec.ofNat 64 (nodeLoN c index h))
-    (m24 : t.getMem (BitVec.ofNat 64 (NODEW + 24)) = BitVec.ofNat 64 (if 8 ≤ h then 0 else h))
+    (m24 : t.getMem (BitVec.ofNat 64 (NODEW + 24)) = BitVec.ofNat 64 (if 8 ≤ h then 0 else SigGolfCandidate.T3.ftsHeapLabel h))
     (hP : DigAt t (NODEW + 32) pad) (hR : DigAt t (NODEW + 48) R) :
     t.readWords (BitVec.ofNat 64 NODEW) 8 = wordsOf (nodeIn c index h pad L R) := by
   have e:=wordsOf_node c index h pad L R hc hidx hh
@@ -5868,7 +5869,7 @@ theorem signW_le (c h : Nat) : SigGolfCandidate.FtsGrind.signW (SigGolfCandidate
 
 /-- Cycles of one heap step: the node routine, the site `jal`, the trampoline round trip (worst case: a width-2
 ground node), the tail. -/
-def unitC : Nat := 61+(18*511+40)
+def unitC : Nat := 71+(18*511+40)
 
 theorem hash_unit {im : Image} {sk : BitVec 256} {c index h : Nat} {pad L R : Digest}
     (hn:LookOK im (look c)) (ht:LookOK im (SharedTail.look c)) (hg:GrindCode im)
@@ -5879,7 +5880,7 @@ theorem hash_unit {im : Image} {sk : BitVec 256} {c index h : Nat} {pad L R : Di
     TBSim im sk s unitC (hashProgram c index h pad L R) (fun root t=>
       t.pc=pcOf (if h-1≠SharedTail.limit c then SharedTail.nodePc c else SharedTail.finishPc c) ∧
       t.getReg .x18=BitVec.ofNat 64 (h-1) ∧ DigAt t (HEAPW+16*h) root ∧
-      RegsExcept s t [.x6,.x7,.x10,.x11,.x12,.x18,.x28,.x29] ∧ Frame s t (unitW h)) := by
+      RegsExcept s t [.x3,.x6,.x7,.x10,.x11,.x12,.x18,.x28,.x29] ∧ Frame s t (unitW h)) := by
   obtain ⟨u,su,upc,x10,x11,x12,um,ru,fu⟩:=step_node hn hc hh s hpc h18 h22
   have hw:=input_of_readout s u hc hi hh h18 h22 hL hR hp um
   obtain ⟨hpcb,hent⟩:=hashPc_lt c hc
@@ -6019,7 +6020,7 @@ structure Inv (c index : Nat) (s0 : MachineState) (k : Nat) (nodes : Array Diges
   x22 : t.getReg .x22=BitVec.ofNat 64 index
   size : nodes.size=256
   heap : ∀ m, 127-k < m → m < 256 → DigAt t (HEAPW+16*m) (nodes.getD m 0)
-  regs : RegsExcept s0 t [.x6,.x7,.x10,.x11,.x12,.x18,.x28,.x29]
+  regs : RegsExcept s0 t [.x3,.x6,.x7,.x10,.x11,.x12,.x18,.x28,.x29]
   frame : Frame s0 t treeW
 
 theorem padBase_bound {c h : Nat} (hc:c<9) (hh:4≤h ∧ h<8) :
@@ -6116,7 +6117,7 @@ theorem path_copies {c sel : Nat} (hlook:LookOK im (look c)) (hc:c < 9) (hsel:se
       (∀ m, minHeap c ≤ m  →  m < 256  →  DigAt t (HEAPW+16*m) (heap.getD m 0))  → 
       ∃ u, Steps im t (12*n) (12*n) u ∧ u.pc=pcOf (entry c (levels c)) ∧
         (∀ l, levels c-n ≤ l  →  l < levels c  →  DigAt u (target c l) (heap.getD (2^(7-l)+(sel/2^l ^^^1)) 0)) ∧
-        RegsExcept t u [.x6,.x7,.x28,.x29] ∧ Frame t u (fun A=>target c (levels c-n) ≤ A ∧ A < target c (levels c)) := by
+        RegsExcept t u [.x3,.x6,.x7,.x28,.x29] ∧ Frame t u (fun A=>target c (levels c-n) ≤ A ∧ A < target c (levels c)) := by
   intro n
   induction n with
   | zero =>
@@ -6292,7 +6293,7 @@ theorem finish {im : Image} {c sel : Nat}
     ∃t n,Steps im s n n t ∧ n ≤ 110 ∧ t.pc=pcOf (SharedEnd.nextPc c) ∧ RootAt c nodes t ∧
       (∀l, l < SharedPath.levels c  →  DigAt t (SharedPath.target c l) (nodes.getD (2^(7-l)+(sel/2^l ^^^1)) 0)) ∧
       (SharedEnd.first c=true  →  DigAt t (SharedEnd.target c) 0) ∧
-      RegsExcept s t [.x6,.x7,.x24,.x28,.x29] ∧ Frame s t (FinalWrites c) := by
+      RegsExcept s t [.x3,.x6,.x7,.x24,.x28,.x29] ∧ Frame s t (FinalWrites c) := by
   obtain ⟨el,ep,ee,em,en,es⟩:=layout c hc
   obtain ⟨u,su,hcu,upc,u24,um,ur,uf⟩:=SharedFinish.step_finish hf hc (SharedNext.raw_lt c hsel) s (hpc.trans (congrArg pcOf el)) h24
   have huRoots:RootAt c nodes u:=by
@@ -7175,8 +7176,13 @@ section
 
 macro "sign_slice_fast" : tactic => `(tactic|
   first
-  | (apply SigGolfCandidate.T3M.codeAt_sign_last <;> decide +kernel)
-  | (apply SigGolfCandidate.T3M.codeAt_sign_current_slice <;> decide +kernel))
+  | (apply SigGolfCandidate.T3M.codeAt_sign_last
+     · decide
+     · decide
+     · decide +kernel)
+  | (apply SigGolfCandidate.T3M.codeAt_sign_current_slice
+     · decide
+     · decide +kernel))
 
 -- Campaign T51 (as R6, D6): the dead legacy `ClaudeWCT.W9.Machine.Sign` cluster (coefs/coord/fts/rest/compaction,
 -- `final_digests`, `rest_tbsim`, `sign_tbsim_w`, ...; no user) was removed.
@@ -7618,7 +7624,7 @@ theorem entry_steps {im : Image} (hc : ExtraCode im)
       DigAt t (0x66000+160) left ∧ DigAt t (0x66000+176) right ∧
       t.getMem (0x66000#64)=0 ∧
       (∀ i,i<43 → t.getByte (BitVec.ofNat 64 (DIGITS+i))=0) ∧
-      RegsExcept s t [.x6,.x7,.x8,.x28,.x29] ∧
+      RegsExcept s t [.x3,.x6,.x7,.x8,.x28,.x29] ∧
       Frame s t (fun A => A=0x66000 ∨ 0x66000+160≤A ∧ A<0x66000+192 ∨ DIGITS≤A ∧ A<DIGITS+56) := by
   obtain ⟨a,sa,pa,a8,a28,a29,ar,af⟩ := front_steps hc.front s hp
   obtain ⟨b,ab,pb,bl,br,brs,bf⟩ := copy22107_steps hc.copyA a pa (0x66000+160)
@@ -7646,7 +7652,7 @@ theorem done_steps {im : Image} (hc : ExtraCode im)
     ∃ t, Steps im s 18 18 t ∧ t.pc=(if lay<3 then pcOf 22128 else pcOf 22182) ∧
       t.getReg .x8=BitVec.ofNat 64 (lay+1) ∧
       DigAt t (0x66000+64+32*(lay-1)) left ∧ DigAt t (0x66000+80+32*(lay-1)) right ∧
-      RegsExcept s t [.x6,.x7,.x8,.x28,.x29,.x30] ∧
+      RegsExcept s t [.x3,.x6,.x7,.x8,.x28,.x29,.x30] ∧
       Frame s t (fun A => 0x66000+64+32*(lay-1)≤A ∧ A<0x66000+96+32*(lay-1)) := by
   obtain ⟨a,sa,pa,a28,a29,ar,af⟩ := donePrep_steps hc.donePrep s hp lay hl hh h8
   obtain ⟨b,ab,pb,bl,br,brs,bf⟩ := copy22171_steps hc.copyB a pa (0x66000+64+32*(lay-1))
@@ -7707,7 +7713,7 @@ theorem step_steps {im : Image} (hc : CodeAt im (pcOf 22436) stepCode)
       t.getReg .x24=BitVec.ofNat 64 (buffer lay (i+1) 0) ∧
       t.getMem (BitVec.ofNat 64 (sb+16*i))=s.getMem (BitVec.ofNat 64 (buffer lay i d)) ∧
       t.getMem (BitVec.ofNat 64 (sb+16*i+8))=s.getMem (BitVec.ofNat 64 (buffer lay i d+8)) ∧
-      RegsExcept s t [.x6,.x7,.x21,.x22,.x23,.x24,.x28] ∧
+      RegsExcept s t [.x3,.x6,.x7,.x21,.x22,.x23,.x24,.x28] ∧
       Frame s t (fun A => A=sb+16*i ∨ A=sb+16*i+8) := by
   have ho : Oblig.all s step.res.st.obl := by
     simp only [step.res]
@@ -7787,7 +7793,7 @@ theorem iteration_steps {im : Image} (hc : CodeAt im (pcOf 22436) stepCode)
       t.getReg .x23=BitVec.ofNat 64 (sb+16*(i+1)) ∧
       t.getReg .x24=BitVec.ofNat 64 (buffer lay (i+1) 0) ∧
       DigAt t (sb+16*i) v ∧
-      RegsExcept s t [.x6,.x7,.x21,.x22,.x23,.x24,.x28] ∧
+      RegsExcept s t [.x3,.x6,.x7,.x21,.x22,.x23,.x24,.x28] ∧
       Frame s t (fun A => A=sb+16*i ∨ A=sb+16*i+8) := by
   obtain ⟨a,sa,ap,a6,ar,af⟩ := byte_steps hbcode s hp i d hi hd h22 hb
   obtain ⟨t,aToT,tp,t21,t22,t23,t24,tl,tr,ts,tf⟩ := step_steps hc a ap lay i d sb hl hh hi hd hsb hsb' hsb8
@@ -7818,7 +7824,7 @@ theorem loop_steps {im : Image} (hc : CodeAt im (pcOf 22436) stepCode)
       (∀ j,j<43 → ∀ d,d<8 → DigAt s (buffer lay j d) (prefixes j d)) →
       ∃ t, Steps im s (13*count) (13*count) t ∧ t.pc=pcOf 22448 ∧
         (∀ j,i≤j → j<43 → DigAt t (sb+16*j) (prefixes j (digits j))) ∧
-        RegsExcept s t [.x6,.x7,.x21,.x22,.x23,.x24,.x28] ∧
+        RegsExcept s t [.x3,.x6,.x7,.x21,.x22,.x23,.x24,.x28] ∧
         Frame s t (fun A => sb+16*i≤A ∧ A<sb+16*43) := by
   intro count
   induction count with
@@ -8043,7 +8049,7 @@ theorem reveal_steps {im : Image} (hc : CodeAt im (pcOf 22436) stepCode)
     (hv : ∀ j,j<43 → ∀ d,d<8 → DigAt s (buffer lay j d) (prefixes j d)) :
     ∃ t k, Steps im s k k t ∧ k≤576 ∧ t.pc=pcOf 22448 ∧
       DigsAt t (sigBase lay) ((List.range 43).map fun i => prefixes i (digits i)) ∧
-      RegsExcept s t [.x6,.x7,.x21,.x22,.x23,.x24,.x28] ∧
+      RegsExcept s t [.x3,.x6,.x7,.x21,.x22,.x23,.x24,.x28] ∧
       Frame s t (fun A => sigBase lay≤A ∧ A<sigBase lay+688) := by
   obtain ⟨a,k,sa,hk,ap,a21,a22,a23,a24,ar,af⟩ := setup_steps hsetup s hp lay hl hh h8
   obtain ⟨t,aToT,tp,tv,tr,tf⟩ := loop_steps hc hbcode lay (sigBase lay) hl hh
@@ -8348,7 +8354,7 @@ theorem read22230_steps {im : Image} (hc : CodeAt im (pcOf 22230) read22230Code)
     (hrm : s.getMem (0x66008#64)=BitVec.ofNat 64 r) (hcm : s.getMem (0x66018#64)=BitVec.ofNat 64 c) :
     ∃ t, Steps im s 5 5 t ∧ t.pc=(if c<r then pcOf 22237 else pcOf 22235) ∧
       t.getReg .x6=BitVec.ofNat 64 r ∧ t.getReg .x7=BitVec.ofNat 64 c ∧ t.getReg .x28=BitVec.ofNat 64 0x66000 ∧
-      RegsExcept s t [.x6,.x7,.x28] ∧ Frame s t (fun _ => False) := by
+      RegsExcept s t [.x3,.x6,.x7,.x28] ∧ Frame s t (fun _ => False) := by
   refine ⟨_,symRun_sound read22230 hc s hp (by simp [read22230.res,rv_simp]),?_,?_,?_,?_,?_,?_⟩
   · simp [read22230.res,rv_simp,hrm,hcm,pcOf,BitVec.ult,toNat_ofNat_lt (show r<2^64 by omega),toNat_ofNat_lt (show c<2^64 by omega)]
   · simp [read22230.res,rv_simp,hrm]
@@ -8396,7 +8402,7 @@ theorem residual22230_steps {im : Image} (hc : Code22230 im)
     (s : MachineState) (hp : s.pc=pcOf 22230) (r c : Nat) (hr : r<2^32) (hc' : c<2^32)
     (hrm : s.getMem (0x66008#64)=BitVec.ofNat 64 r) (hcm : s.getMem (0x66018#64)=BitVec.ofNat 64 c) :
     ∃ t k, Steps im s k k t ∧ k≤8 ∧ t.pc=pcOf 22239 ∧ t.getMem (0x66008#64)=BitVec.ofNat 64 (r-c) ∧
-      RegsExcept s t [.x6,.x7,.x28] ∧ Frame s t (fun A => A=0x66008) := by
+      RegsExcept s t [.x3,.x6,.x7,.x28] ∧ Frame s t (fun A => A=0x66008) := by
   obtain ⟨a,sa,ap,a6,a7,a28,ar,af⟩ := read22230_steps hc.read s hp r c hr hc' hrm hcm
   by_cases hcr : c<r
   · obtain ⟨b,ab,bp,b6,br,bf⟩ := sub22230_steps hc.sub a (by simpa [hcr] using ap) r c hr (by omega) a6 a7
@@ -8426,7 +8432,7 @@ theorem read22448_steps {im : Image} (hc : CodeAt im (pcOf 22448) read22448Code)
     (hrm : s.getMem (0x66008#64)=BitVec.ofNat 64 r) (hcm : s.getMem (0x66018#64)=BitVec.ofNat 64 c) :
     ∃ t, Steps im s 5 5 t ∧ t.pc=(if c<r then pcOf 22455 else pcOf 22453) ∧
       t.getReg .x6=BitVec.ofNat 64 r ∧ t.getReg .x7=BitVec.ofNat 64 c ∧ t.getReg .x28=BitVec.ofNat 64 0x66000 ∧
-      RegsExcept s t [.x6,.x7,.x28] ∧ Frame s t (fun _ => False) := by
+      RegsExcept s t [.x3,.x6,.x7,.x28] ∧ Frame s t (fun _ => False) := by
   refine ⟨_,symRun_sound read22448 hc s hp (by simp [read22448.res,rv_simp]),?_,?_,?_,?_,?_,?_⟩
   · simp [read22448.res,rv_simp,hrm,hcm,pcOf,BitVec.ult,toNat_ofNat_lt (show r<2^64 by omega),toNat_ofNat_lt (show c<2^64 by omega)]
   · simp [read22448.res,rv_simp,hrm]
@@ -8474,7 +8480,7 @@ theorem residual22448_steps {im : Image} (hc : Code22448 im)
     (s : MachineState) (hp : s.pc=pcOf 22448) (r c : Nat) (hr : r<2^32) (hc' : c<2^32)
     (hrm : s.getMem (0x66008#64)=BitVec.ofNat 64 r) (hcm : s.getMem (0x66018#64)=BitVec.ofNat 64 c) :
     ∃ t k, Steps im s k k t ∧ k≤8 ∧ t.pc=pcOf 22457 ∧ t.getMem (0x66008#64)=BitVec.ofNat 64 (r-c) ∧
-      RegsExcept s t [.x6,.x7,.x28] ∧ Frame s t (fun A => A=0x66008) := by
+      RegsExcept s t [.x3,.x6,.x7,.x28] ∧ Frame s t (fun A => A=0x66008) := by
   obtain ⟨a,sa,ap,a6,a7,a28,ar,af⟩ := read22448_steps hc.read s hp r c hr hc' hrm hcm
   by_cases hcr : c<r
   · obtain ⟨b,ab,bp,b6,br,bf⟩ := sub22448_steps hc.sub a (by simpa [hcr] using ap) r c hr (by omega) a6 a7
@@ -8852,7 +8858,7 @@ theorem first_steps {im : Image} (hc : CodeAt im (pcOf 22363) firstCode)
     ∃ t,Steps im s 7 7 t ∧ t.pc=(if lay=1 then pcOf 22374 else pcOf 22370) ∧
       t.getReg .x6=BitVec.ofNat 64 h ∧ t.getReg .x7=484 ∧ t.getReg .x28=0x66000 ∧
       t.getMem (0x66010#64)=BitVec.ofNat 64 f ∧
-      RegsExcept s t [.x6,.x7,.x28,.x30] ∧ Frame s t (fun A => A=0x66010) := by
+      RegsExcept s t [.x3,.x6,.x7,.x28,.x30] ∧ Frame s t (fun A => A=0x66010) := by
   refine ⟨_,symRun_sound first hc s hp (by simp [first.res,rv_simp];try decide),?_,?_,?_,?_,?_,?_,?_⟩
   · rcases hl with ⟨hlo,hhi⟩;interval_cases lay <;> simp [first.res,rv_simp,h8]
   · simp [first.res,rv_simp,hm]
@@ -8923,10 +8929,10 @@ theorem steps {im : Image} (hc : Code im) (s : MachineState) (hp : s.pc=pcOf 223
     ∃ t k,Steps im s k (k+3) t ∧ k≤14 ∧ t.pc=pcOf 22377 ∧
       t.getMem (0x66000#64)=BitVec.ofNat 64 (h+hintWeight lay*f) ∧
       t.getMem (0x66010#64)=BitVec.ofNat 64 f ∧
-      RegsExcept s t [.x6,.x7,.x28,.x30] ∧ Frame s t (fun A => A=0x66000 ∨ A=0x66010) := by
+      RegsExcept s t [.x3,.x6,.x7,.x28,.x30] ∧ Frame s t (fun A => A=0x66000 ∨ A=0x66010) := by
   obtain ⟨a,sa,ap,a6,a7,a28,am,ar,af⟩ := first_steps hc.first s hp lay h f hl h8 h29 hm
-  have a8 := (ar.get (by decide : Reg.x8 ∉ [.x6,.x7,.x28,.x30])).trans h8
-  have a29 := (ar.get (by decide : Reg.x29 ∉ [.x6,.x7,.x28,.x30])).trans h29
+  have a8 := (ar.get (by decide : Reg.x8 ∉ [.x3,.x6,.x7,.x28,.x30])).trans h8
+  have a29 := (ar.get (by decide : Reg.x29 ∉ [.x3,.x6,.x7,.x28,.x30])).trans h29
   rcases hl with ⟨hlo,hhi⟩
   interval_cases lay
   · obtain ⟨t,aToT,tp,tm,tr,tf⟩ := add_steps hc.add a (by simpa using ap) h f 484 a6 a7 a29 a28
@@ -9322,7 +9328,7 @@ structure CallPost (lay index residual hints : Nat) (s t : MachineState) : Prop 
   floor : t.getMem (0x66010#64)=BitVec.ofNat 64 (ClaudeWCT.WCT9.CanonicalPolicy.threshold lay residual)
   hints : t.getMem (0x66000#64)=BitVec.ofNat 64 (hints+SharedHints.hintWeight lay*ClaudeWCT.WCT9.CanonicalPolicy.threshold lay residual)
   layer : t.getReg .x8=BitVec.ofNat 64 lay
-  regs : RegsExcept s t [.x1,.x6,.x7,.x9,.x14,.x15,.x17,.x18,.x20,.x26,.x27,.x28,.x29,.x30]
+  regs : RegsExcept s t [.x1,.x3,.x6,.x7,.x9,.x14,.x15,.x17,.x18,.x20,.x26,.x27,.x28,.x29,.x30]
   frame : Frame s t (fun A => A=0x66000 ∨ A=0x66010 ∨ A=ENC ∨ A=ENC+8 ∨ A=ENC+48 ∨ A=ENC+56)
 
 
@@ -9339,7 +9345,7 @@ theorem call_steps {im : Image} (hf : SharedFloor.DispatchCode im) (hh : SharedH
   have a8 := (ar.get (by decide : Reg.x8 ∉ [.x6,.x20,.x28,.x29])).trans h8
   obtain ⟨b,kb,ab,hkb,bp,bhints,bfloor,br,bf⟩ := SharedHints.steps hh a ap lay hints _ hl a8 a29
     ((af.get (A:=0x66000) (by decide) (by simp)).trans hhm)
-  have b8 := (br.get (by decide : Reg.x8 ∉ [.x6,.x7,.x28,.x30])).trans a8
+  have b8 := (br.get (by decide : Reg.x8 ∉ [.x3,.x6,.x7,.x28,.x30])).trans a8
   have bidx : b.getMem (0x20550#64)=BitVec.ofNat 64 index :=
     (bf.get (A:=0x20550) (by decide) (by decide)).trans ((af.get (by decide) (by simp)).trans hidx)
   obtain ⟨t,kc,bt,hkc,ht⟩ := setup hc b bp lay index hl hi b8 bidx
@@ -9377,7 +9383,7 @@ theorem prepared_steps {im : Image} (hc : CodeAt im (pcOf 22436) stepCode)
     ∃ t k,Steps im s k k t ∧ k≤576 ∧ t.pc=pcOf 22448 ∧
       DigsAt t (sigBase lay.val) (preparedPieces lay leaf p digits).1 ∧
       DigsAt t (sigBase lay.val+688) (preparedPieces lay leaf p digits).2 ∧
-      RegsExcept s t [.x6,.x7,.x21,.x22,.x23,.x24,.x28] ∧
+      RegsExcept s t [.x3,.x6,.x7,.x21,.x22,.x23,.x24,.x28] ∧
       Frame s t (fun A => sigBase lay.val≤A ∧ A<sigBase lay.val+688) := by
   have h0 : lay.val≠0 := fun h => hl (Fin.ext h)
   have hbound := lay.isLt
@@ -9768,7 +9774,7 @@ structure TopTailSteps (im : Image) : Prop where
     s.getMem (0x66008#64)=BitVec.ofNat 64 r → s.getMem (0x66018#64)=BitVec.ofNat 64 c →
     ∃ t k,Steps im s k k t ∧ k≤8 ∧ t.pc=pcOf 22239 ∧
       t.getMem (0x66008#64)=BitVec.ofNat 64 (r-c) ∧
-      RegsExcept s t [.x6,.x7,.x28] ∧ Frame s t (fun A => A=0x66008)
+      RegsExcept s t [.x3,.x6,.x7,.x28] ∧ Frame s t (fun A => A=0x66008)
   first : ∀ s : MachineState, s.pc=pcOf 22239 →
     ∃ t,Steps im s 1 1 t ∧ t.pc=pcOf 22240 ∧ t.getReg .x8=1 ∧
       RegsExcept s t [.x8] ∧ Frame s t (fun _ => False)
@@ -9785,7 +9791,7 @@ structure TopTailPost (low : Bool) (ds : List Nat) (s t : MachineState) : Prop w
   layer : t.getReg .x8=1
   residual : t.getMem (0x66008#64)=BitVec.ofNat 64 (CanonicalPolicy.nextResidual 67 0 low ds)
   saved : ∀ i,i<7 → t.getMem (BitVec.ofNat 64 (0x66100+8*i))=s.getMem (BitVec.ofNat 64 (DIGITS+8*i))
-  regs : RegsExcept s t [.x6,.x7,.x8,.x28,.x29]
+  regs : RegsExcept s t [.x3,.x6,.x7,.x8,.x28,.x29]
   frame : Frame s t TopTailWrites
 
 theorem top_tail {im : Image} (hc : TopTailSteps im)
@@ -9849,13 +9855,13 @@ structure LowerTailSteps (im : Image) : Prop where
     ∃ t k,Steps im s k k t ∧ k≤576 ∧ t.pc=pcOf 22448 ∧
       DigsAt t (SharedRootControl.sigBase lay.val) (preparedPieces lay leaf p ds).1 ∧
       DigsAt t (SharedRootControl.sigBase lay.val+688) (preparedPieces lay leaf p ds).2 ∧
-      RegsExcept s t [.x6,.x7,.x21,.x22,.x23,.x24,.x28] ∧
+      RegsExcept s t [.x3,.x6,.x7,.x21,.x22,.x23,.x24,.x28] ∧
       Frame s t (fun A => SharedRootControl.sigBase lay.val≤A ∧ A<SharedRootControl.sigBase lay.val+688)
   residual : ∀ s : MachineState, s.pc=pcOf 22448 → ∀ r c : Nat, r<2^32 → c<2^32 →
     s.getMem (0x66008#64)=BitVec.ofNat 64 r → s.getMem (0x66018#64)=BitVec.ofNat 64 c →
     ∃ t k,Steps im s k k t ∧ k≤8 ∧ t.pc=pcOf 22457 ∧
       t.getMem (0x66008#64)=BitVec.ofNat 64 (r-c) ∧
-      RegsExcept s t [.x6,.x7,.x28] ∧ Frame s t (fun A => A=0x66008)
+      RegsExcept s t [.x3,.x6,.x7,.x28] ∧ Frame s t (fun A => A=0x66008)
   next : ∀ s : MachineState, s.pc=pcOf 22457 → ∀ lay : Nat, (1≤lay ∧ lay≤3) →
     s.getReg .x8=BitVec.ofNat 64 lay →
     ∃ t,Steps im s 3 3 t ∧ t.pc=(if lay<3 then pcOf 22240 else pcOf 22460) ∧
@@ -9878,7 +9884,7 @@ structure LowerTailPost (lay : Layer) (leaf residual : Nat) (p : PreparedLower) 
   residual : t.getMem (0x66008#64)=BitVec.ofNat 64 (CanonicalPolicy.nextResidual residual lay low ds)
   values : DigsAt t (SharedRootControl.sigBase lay.val) (preparedPieces lay leaf p ds).1
   path : DigsAt t (SharedRootControl.sigBase lay.val+688) (preparedPieces lay leaf p ds).2
-  regs : RegsExcept s t [.x6,.x7,.x8,.x21,.x22,.x23,.x24,.x28]
+  regs : RegsExcept s t [.x3,.x6,.x7,.x8,.x21,.x22,.x23,.x24,.x28]
   frame : Frame s t (LowerTailWrites lay)
 
 theorem lower_tail {im : Image} (hc : LowerTailSteps im)
@@ -9896,7 +9902,7 @@ theorem lower_tail {im : Image} (hc : LowerTailSteps im)
   obtain ⟨a,ka,sa,hka,ap,av,aa,ar,af⟩ := hc.reveal lay hl leaf p ds hd s hp h8 hb hv ha
   obtain ⟨b,kb,ab,hkb,bp,brm,br,bf⟩ := hc.residual a ap residual (CanonicalPolicy.credit lay low ds) hr (credit_small _ _ _)
     ((af.get (by decide) (by omega)).trans hrm) ((af.get (by decide) (by omega)).trans hcm)
-  have b8 := (br.get (by decide : Reg.x8∉[.x6,.x7,.x28])).trans ((ar.get (by decide)).trans h8)
+  have b8 := (br.get (by decide : Reg.x8∉[.x3,.x6,.x7,.x28])).trans ((ar.get (by decide)).trans h8)
   obtain ⟨t,bt,tp,t8,tr,tf⟩ := hc.next b bp lay.val hln b8
   refine ⟨t,ka+kb+3,(sa.trans ab).trans bt,by omega,tp,t8,?_,?_,?_,?_,?_⟩
   · exact (tf.get (by decide) (by simp)).trans brm
@@ -10925,21 +10931,30 @@ theorem installed_grind : GrindCode Images.signImage := by
         SigGolfCandidate.FtsGrind.SIGN_STUB (hashPc c.val+1)):=by
     intro c;fin_cases c <;> sign_slice_fast
   exact h ⟨c,hc⟩
+theorem installed_labelStub (c : Fin 9) : CodeAt Images.signImage (pcOf (labelStubPc c.val)) (labelStub c.val) := by
+  fin_cases c <;> sign_slice_fast
 theorem installed_look (c : Nat) (hc : c<9) : LookOK Images.signImage (look c) := by
   intro n w hw
   unfold look at hw
   split at hw
-  · rename_i hle
-    have hb : entry c<2^30 := by
-      have h : ∀ c : Fin 9,entry c.val<2^30 := by decide +kernel
+  · rename_i hlabel
+    have hb : labelStubPc c < 2^30 := by
+      have h : ∀ c : Fin 9, labelStubPc c.val < 2^30 := by decide +kernel
       exact h ⟨c,hc⟩
-    have he := SharedReuse.codeAt_get_word hb (installed_code ⟨c,hc⟩) hw
-    simpa [Nat.add_sub_cancel' hle] using he
+    have he := SharedReuse.codeAt_get_word hb (installed_labelStub ⟨c,hc⟩) hw
+    simpa [Nat.add_sub_cancel' hlabel] using he
   · split at hw
-    · rename_i hstub
-      have he := SharedReuse.codeAt_get_word (by decide : c4StubPc < 2^30) installed_c4Stub hw
-      simpa [Nat.add_sub_cancel' hstub.2] using he
-    · cases hw
+    · rename_i hle
+      have hb : entry c<2^30 := by
+        have h : ∀ c : Fin 9,entry c.val<2^30 := by decide +kernel
+        exact h ⟨c,hc⟩
+      have he := SharedReuse.codeAt_get_word hb (installed_code ⟨c,hc⟩) hw
+      simpa [Nat.add_sub_cancel' hle] using he
+    · split at hw
+      · rename_i hstub
+        have he := SharedReuse.codeAt_get_word (by decide : c4StubPc < 2^30) installed_c4Stub hw
+        simpa [Nat.add_sub_cancel' hstub.2] using he
+      · cases hw
 end ClaudeWCT.W9.Machine.Sign.SharedNode
 
 namespace ClaudeWCT.W9.Machine.Sign.SharedNext
@@ -11163,6 +11178,21 @@ open SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64 SigGol
 set_option maxHeartbeats 4000000
 set_option maxRecDepth 100000
 set_option Elab.async false
+set_option debug.skipKernelTC false in
+instance digestLabelCode : DigestLabel.Code Images.signImage false where
+  hook_at := by
+    change CodeAt Images.signImage (pcOf 22614) [0x80306f]
+    sign_slice_fast
+  prefix_at := by
+    change CodeAt Images.signImage (pcOf 25688) DigestLabel.prefixWords
+    sign_slice_fast
+  hash_at := by
+    change CodeAt Images.signImage (pcOf 25694) [0x73]
+    sign_slice_fast
+  back_at := by
+    change CodeAt Images.signImage (pcOf 25695) [0xfe1fc06f]
+    sign_slice_fast
+
 theorem installed_sign_code : CodeAt Images.signImage (pcOf (base false)) (words false) := by
   sign_slice_fast
 theorem installed_sign_look : LookOK Images.signImage (look false) := look_of_code false installed_sign_code
@@ -11885,7 +11915,7 @@ theorem iter_steps {im : Image} (hc : LookOK im tailLook)
           else if A=SIG+16*d then s.getMem (BitVec.ofNat 64 (SIG+16*j))
           else s.getMem (BitVec.ofNat 64 A)
         else s.getMem (BitVec.ofNat 64 A)) ∧
-      RegsExcept s t [.x6,.x7,.x18,.x28,.x29] := by
+      RegsExcept s t [.x3,.x6,.x7,.x18,.x28,.x29] := by
   have ho : ∀o∈(iterResult kind (decide (j+1<328))).st.obl,o.holds s := by
     change ∀o∈(if kind.val=4 then iterObl else []),o.holds s
     split_ifs
@@ -12064,7 +12094,7 @@ theorem finish_steps {im : Image} (hc : CodeAt im (pcOf 22526) finishWords)
       t.getReg .x6=((s.getMem (BitVec.ofNat 64 (SIG+16*328+8))<<<27)>>>40) ||| (s.getMem 0x66000<<<24) ∧
       t.getMem (BitVec.ofNat 64 (SIG+16*324))=s.getMem (BitVec.ofNat 64 (SIG+16*328)) ∧
       t.getMem (BitVec.ofNat 64 (SIG+16*324+8))=(s.getMem (BitVec.ofNat 64 (SIG+16*328+8))<<<51)>>>51 ∧
-      RegsExcept s t [.x6,.x7,.x28,.x30] ∧
+      RegsExcept s t [.x3,.x6,.x7,.x28,.x30] ∧
       Frame s t (fun A=>A=SIG+16*324 ∨ A=SIG+16*324+8) := by
   refine ⟨_,symRun_sound finishRun hc s hp ?_,?_,?_,?_,?_,?_,?_⟩
   · simp [finishRun.res,rv_simp,h28,h29,SIG,accessValid_iff,MEMORY_BYTES]
@@ -13224,7 +13254,7 @@ theorem steps {im : Image} (hc : CodeAt im (pcOf 370) words) (s : MachineState) 
     ∃t,Steps im s 9 9 t ∧ t.pc=pcOf 24661 ∧
       t.getMem (BitVec.ofNat 64 enc)=s.getMem (BitVec.ofNat 64 FOUT) ∧
       t.getMem (BitVec.ofNat 64 (enc+8))=s.getMem (BitVec.ofNat 64 (FOUT+8)) ∧
-      RegsExcept s t [.x6,.x7,.x29,.x30] ∧ Frame s t (fun A=>A=enc ∨ A=enc+8) := by
+      RegsExcept s t [.x3,.x6,.x7,.x29,.x30] ∧ Frame s t (fun A=>A=enc ∨ A=enc+8) := by
   refine ⟨_,symRun_sound block hc s hp (by simp [block.res,rv_simp]),?_,?_,?_,?_,?_⟩
   · simp [block.res,rv_simp]
   · simp [block.res,rv_simp,enc,FOUT]
@@ -13475,7 +13505,7 @@ def JoinedPost (im : Image) (s : MachineState) : Option (BitVec 32×BitVec 256)�
       t.getMem 0x20550=BitVec.ofNat 64 (WCT9.digestIndex a) ∧ OutAt t NBUF a ∧
       Frame s t (fun A=>SharedDigest.writes A ∨ A=0x20550)
 
-theorem search_to_forest {im : Image} {sk : BitVec 256}
+theorem search_to_forest {im : Image} {sk : BitVec 256} [DigestLabel.Code im false]
     (hl : LookOK im (SharedDigest.look false))
     (hs : CodeAt im (pcOf 22754) signCode)
     (hj : CodeAt im (pcOf 22764) [0xcccea06f])

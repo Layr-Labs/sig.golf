@@ -543,18 +543,25 @@ theorem ne_nonce_words (n : Nat) (hn : n < 2 ^ 64) : wordsOf (nonceBytes n) = [B
     rfl
 theorem ne_topNodeInput_length (heap n : Nat) (l r : Digest) : (topNodeInput heap n l r).length = 64 := by
   simp [topNodeInput, nonceBytes, bytesLE_length]
+theorem ne_remapWord_nat (heap : Nat) (hh : heap < 2^64) :
+    KeygenLabel.remapWord (BitVec.ofNat 64 heap) = BitVec.ofNat 64 (if heap = 7 then 520192 else heap) := by
+  by_cases h7 : heap = 7
+  · simp [KeygenLabel.remapWord, h7]
+  · have hn : BitVec.ofNat 64 heap ≠ 7#64 := fun he => h7 ((ofNat_inj hh (by decide)).mp he)
+    simp [KeygenLabel.remapWord, h7, hn]
+
 theorem ne_wordsOf_topNodeInput (heap n : Nat) (h1 : 1 ≤ heap) (h2 : heap < 4096) (hn : n < 2 ^ 64) (l r : Digest) :
     wordsOf (topNodeInput heap n l r) =
-      [l.extractLsb' 0 64, l.extractLsb' 64 64, BitVec.ofNat 64 heap, 0, BitVec.ofNat 64 n, 0,
+      [l.extractLsb' 0 64, l.extractLsb' 64 64, BitVec.ofNat 64 (if heap = 7 then 520192 else heap), 0, BitVec.ofNat 64 n, 0,
         r.extractLsb' 0 64, r.extractLsb' 64 64] := by
   unfold topNodeInput
   rw [wordsOf_append _ _ (by simp [bytesLE_length, nonceBytes]), wordsOf_append _ _ (by simp [bytesLE_length]),
     wordsOf_append _ _ (by simp [bytesLE_length]), wordsOf_bytesLE16, wordsOf_bytesLE16, ne_nonce_words n hn,
     wordsOf_bytesLE16, Keygen.nodeTweak_3_top 0 heap h1 h2, T3.append64_low]
-  have hhi : (0#64 ++ BitVec.ofNat 64 (Keygen.nodeLo 0 0 + heap)).extractLsb' 64 64 = 0#64 :=
+  have hhi : (0#64 ++ KeygenLabel.remapWord (BitVec.ofNat 64 (Keygen.nodeLo 0 0 + heap))).extractLsb' 64 64 = 0#64 :=
     BitVec.extractLsb'_append_eq_left
   rw [hhi]
-  simp [Keygen.nodeLo]
+  simp [Keygen.nodeLo, ne_remapWord_nat heap (by omega : heap < 2^64)]
 theorem ne_topNodeInput_blocks (heap n : Nat) (l r : Digest) :
     (toQ (pad64 (topNodeInput heap n l r))).blocks = 1 := by
   rw [pad64_of_aligned _ (by rw [ne_topNodeInput_length]),
@@ -563,7 +570,7 @@ theorem ne_hashInput_topNode (t : MachineState) (heap n : Nat) (h1 : 1 ≤ heap)
     (l r : Digest) (h10 : t.getReg .x10 = BitVec.ofNat 64 NODE) (h11 : t.getReg .x11 = BitVec.ofNat 64 64)
     (w0 : t.getMem (BitVec.ofNat 64 NODE) = l.extractLsb' 0 64)
     (w8 : t.getMem (BitVec.ofNat 64 (NODE + 8)) = l.extractLsb' 64 64)
-    (w16 : t.getMem (BitVec.ofNat 64 (NODE + 16)) = BitVec.ofNat 64 heap)
+    (w16 : t.getMem (BitVec.ofNat 64 (NODE + 16)) = BitVec.ofNat 64 (if heap = 7 then 520192 else heap))
     (w24 : t.getMem (BitVec.ofNat 64 (NODE + 24)) = 0)
     (w32 : t.getMem (BitVec.ofNat 64 (NODE + 32)) = BitVec.ofNat 64 n)
     (w40 : t.getMem (BitVec.ofNat 64 (NODE + 40)) = 0)
@@ -694,7 +701,7 @@ structure NFacts (t2 : MachineState) (heap leaf j P M : Nat) (l r : Digest) : Pr
   x24 : t2.getReg .x24 = BitVec.ofNat 64 M
   w0 : t2.getMem (BitVec.ofNat 64 NODE) = l.extractLsb' 0 64
   w8 : t2.getMem (BitVec.ofNat 64 (NODE + 8)) = l.extractLsb' 64 64
-  w16 : t2.getMem (BitVec.ofNat 64 (NODE + 16)) = BitVec.ofNat 64 heap
+  w16 : t2.getMem (BitVec.ofNat 64 (NODE + 16)) = BitVec.ofNat 64 (if heap = 7 then 520192 else heap)
   w24 : t2.getMem (BitVec.ofNat 64 (NODE + 24)) = 0
   w32 : t2.getMem (BitVec.ofNat 64 (NODE + 32)) = 0
   w40 : t2.getMem (BitVec.ofNat 64 (NODE + 40)) = 0
@@ -1015,7 +1022,7 @@ def RlWit (lay : Layer) (leaf WC WM : Nat) (A : Nat) : Prop :=
   (∃ i < chainCount lay, A = WC - 64 * i + 48 ∨ A = WC - 64 * i + 56) ∨
   (∃ j < height lay, A = WM - 64 * j + sideOff leaf j ∨ A = WM - 64 * j + sideOff leaf j + 8)
 def rlRegs : List Reg :=
-  [.x6, .x7, .x10, .x11, .x12, .x13, .x14, .x17, .x19, .x20, .x21, .x22, .x23, .x24, .x28, .x29, .x30, .x31]
+  [.x3, .x6, .x7, .x10, .x11, .x12, .x13, .x14, .x17, .x19, .x20, .x21, .x22, .x23, .x24, .x28, .x29, .x30, .x31]
 structure RlPre (s : MachineState) (sig : Signature) (index : Nat) (lay : Layer) (digits : List Nat)
     (P WC WM ret : Nat) : Prop where
   pc : s.pc = pcOf 997
@@ -1105,7 +1112,7 @@ theorem wordsOf_block4 (l r : Digest) (T : BitVec 128) :
     wordsOf_append _ _ (by simp [bytesLE_length]), wordsOf_bytesLE16, wordsOf_bytesLE16, wordsOf_zero16,
     wordsOf_bytesLE16]
   rfl
-def mkRegs : List Reg := [.x6, .x7, .x10, .x11, .x12, .x13, .x14, .x17, .x20, .x22, .x24, .x28, .x29, .x30, .x31]
+def mkRegs : List Reg := [.x3, .x6, .x7, .x10, .x11, .x12, .x13, .x14, .x17, .x20, .x22, .x24, .x28, .x29, .x30, .x31]
 /-- U16b: the grind stub's record slots of lower layer `lay` (`0x700000 + 32 (lay - 1)`, 4 dwords, and (E11) the
 class 16..31 nonce at `+ 0x100`; none on the top). -/
 def RecW (lay : Layer) (A : Nat) : Prop :=
@@ -1241,7 +1248,7 @@ theorem rl1117_continue (s : MachineState) (hpc : s.pc = pcOf 1117)
         (ClaudeWCT.WCT9.merkleTweak lay tree (2 ^ (hh - j - 1) + leaf / 2 ^ (j + 1))).extractLsb' 64 64 ∧
       t.getReg .x10 = BitVec.ofNat 64 NODE ∧ t.getReg .x11 = BitVec.ofNat 64 64 ∧
       t.getReg .x12 = BitVec.ofNat 64 NOUT ∧
-      RegsExcept s t [.x6, .x7, .x10, .x11, .x12, .x13, .x28, .x30] ∧
+      RegsExcept s t [.x3, .x6, .x7, .x10, .x11, .x12, .x13, .x28, .x30] ∧
       Frame s t (fun A => A = NODE + 16 ∨ A = NODE + 24) := by
   have he := bc_remaining hj hh' h15 h20
   have hcont : BCBlocks.remaining s ≠ 0 ∨ s.getReg .x8 = 0 := by
@@ -1479,7 +1486,7 @@ theorem rl_mk_step {tc : MachineState} {sig : Signature} {lay : Layer} {tree lea
     exact hashInput_toQ t4 _ 0 NODE (block4_length _ _ _) h10 (by decide) (by decide) h11 (by decide) hblk4
   have hv : hashArgumentsValid t4 = true :=
     hashArgs_const t4 NODE 64 NOUT h10 h11 h12 (by decide) (by decide) (by decide) (by decide) (by decide)
-  have r34 : RegsExcept t2 t4 ([.x6, .x7, .x29, .x30] ++ [.x6, .x7, .x10, .x11, .x12, .x13, .x28, .x30]) := r3.trans r4
+  have r34 : RegsExcept t2 t4 ([.x6, .x7, .x29, .x30] ++ [.x3, .x6, .x7, .x10, .x11, .x12, .x13, .x28, .x30]) := r3.trans r4
   have h5 : t4.getReg .x5 = 0 := by rw [r34.get (by decide), ru2.get (by decide), g _ (by decide)]; exact c5
   have hprog : (let other := (sig.layers lay).path ⟨j, hj⟩
       let pair := if leaf / 2 ^ j % 2 = 0 then (value, other) else (other, value)
@@ -1506,9 +1513,9 @@ theorem rl_mk_step {tc : MachineState} {sig : Signature} {lay : Layer} {tree lea
     generalize leaf / 2 ^ (j + 1) = Y at hq ⊢
     omega
   obtain ⟨w16, -⟩ := merkleTweak_words_top tree heap hheap1 hheap2
-  have hT : t4.getMem (BitVec.ofNat 64 (NODE + 16)) = BitVec.ofNat 64 heap := by rw [h16, hl0]; exact w16
+  have hT : t4.getMem (BitVec.ofNat 64 (NODE + 16)) = BitVec.ofNat 64 (if heap = 7 then 520192 else heap) := by rw [h16, hl0]; exact w16
   refine (TBSim.steps (s1.trans (s2.trans (s3.trans s4))) (Grind.stub_pass (im := im) (sk := sk) _ p4 h5 h12 h10 h11
-    (block4_length _ _ _) hblk4 heap (by omega) hT (by omega) (W := 10) (fun a ws hws => ?_))).mono ?_ (fun _ _ h => h)
+    (block4_length _ _ _) hblk4 (if heap = 7 then 520192 else heap) (by split_ifs <;> omega) hT (by split_ifs <;> omega) (W := 10) (fun a ws hws => ?_))).mono ?_ (fun _ _ h => h)
   rotate_left
   · rw [pad64_of_aligned _ (by rw [block4_length]), blocks_toQ ⟨by rw [block4_length]; omega,
       by rw [block4_length]⟩, block4_length]; omega
@@ -1751,7 +1758,7 @@ theorem rl_mk_stepL {tc : MachineState} {sig : Signature} {lay : Layer} {tree le
     exact hashInput_toQ t4 _ 0 NODE (block4_length _ _ _) h10 (by decide) (by decide) h11 (by decide) hblk4
   have hv : hashArgumentsValid t4 = true :=
     hashArgs_const t4 NODE 64 NOUT h10 h11 h12 (by decide) (by decide) (by decide) (by decide) (by decide)
-  have r34 : RegsExcept t2 t4 ([.x6, .x7, .x29, .x30] ++ [.x6, .x7, .x10, .x11, .x12, .x13, .x28, .x30]) := r3.trans r4
+  have r34 : RegsExcept t2 t4 ([.x6, .x7, .x29, .x30] ++ [.x3, .x6, .x7, .x10, .x11, .x12, .x13, .x28, .x30]) := r3.trans r4
   have h5 : t4.getReg .x5 = 0 := by rw [r34.get (by decide), ru2.get (by decide), g _ (by decide)]; exact c5
   have hlow' : lay.val ≠ 0 := fun h => hlow (Fin.ext h)
   have hl1 : 1 ≤ lay.val := by omega
@@ -2052,7 +2059,7 @@ theorem rl_mk_stepN {tc : MachineState} {sig : Signature} {lay : Layer} {tree le
     exact hashInput_toQ t4 _ 0 NODE (block4_length _ _ _) h10 (by decide) (by decide) h11 (by decide) hblk4
   have hv : hashArgumentsValid t4 = true :=
     hashArgs_const t4 NODE 64 NOUT h10 h11 h12 (by decide) (by decide) (by decide) (by decide) (by decide)
-  have r34 : RegsExcept t2 t4 ([.x6, .x7, .x29, .x30] ++ [.x6, .x7, .x10, .x11, .x12, .x13, .x28, .x30]) := r3.trans r4
+  have r34 : RegsExcept t2 t4 ([.x6, .x7, .x29, .x30] ++ [.x3, .x6, .x7, .x10, .x11, .x12, .x13, .x28, .x30]) := r3.trans r4
   have h5 : t4.getReg .x5 = 0 := by rw [r34.get (by decide), ru2.get (by decide), g _ (by decide)]; exact c5
   have hl0 : lay.val = 0 := by rw [htop]; rfl
   have hH12 : height lay = 12 := by subst htop; rfl
@@ -2122,10 +2129,10 @@ theorem rl_mk_stepN {tc : MachineState} {sig : Signature} {lay : Layer} {tree le
     · (simp only [hL, hR, hb, ↓reduceIte, hheap]) <;> rfl
     · (simp only [hL, hR, hb, ↓reduceIte, hheap]) <;> rfl
   rw [hprog]
-  have hT : t4.getMem (BitVec.ofNat 64 (NODE + 16)) = BitVec.ofNat 64 heap := by rw [h16, hl0]; exact w16
+  have hT : t4.getMem (BitVec.ofNat 64 (NODE + 16)) = BitVec.ofNat 64 (if heap = 7 then 520192 else heap) := by rw [h16, hl0]; exact w16
   have hwN : t4.readWords (BitVec.ofNat 64 NODE) 8 = wordsOf (topNodeInput heap 0 L R) := by rw [hin]; exact hblk4
   refine (TBSim.steps (s1.trans (s2.trans (s3.trans s4))) (Grind.stub_pass_pub (im := im) (sk := sk) p4 h5 h12 h10 h11
-    (ne_topNodeInput_length _ _ _ _) hwN heap (by omega) hT (by omega)
+    (ne_topNodeInput_length _ _ _ _) hwN (if heap = 7 then 520192 else heap) (by split_ifs <;> omega) hT (by split_ifs <;> omega)
     (W := 38 + (22 * (topNonceCap (j + 1) - 1) + 20))
     (fun a ws hws => (nonce_run (im := im) sk F a ws hws).mono le_rfl (fun res w hw => ?_)))).mono
     (by rw [ne_topNodeInput_blocks] <;> unfold topNodeW <;> omega) (fun _ _ h => h)

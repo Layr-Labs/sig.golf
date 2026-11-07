@@ -554,9 +554,13 @@ theorem chainHeader_tweakMarker (lay : Layer) (tree leaf i step : Nat) :
 theorem chainHeader_ne_digestHeader (lay : Layer) (tree leaf i step : Nat) (counter : BitVec 32) :
     chainHeader lay tree leaf i step ≠ digestHeader counter := by
   intro h
-  have hc := chainHeader_tweakMarker lay tree leaf i step
-  rw [h, digestHeader_marker] at hc
+  have hc := chainHeader_marker lay tree leaf i step
+  have hd : (digestHeader counter).toNat / 2^56 % 256 = 0 := by
+    rw [digestHeader_toNat]
+    omega
+  rw [h, hd] at hc
   omega
+
 theorem chainHeader_ne_leafTweak (lay : Layer) (tree leaf i step : Nat) (lay' : Layer) (tree' leaf' : Nat) :
     chainHeader lay tree leaf i step ≠ leafTweak lay' tree' leaf' := by
   intro h
@@ -577,7 +581,7 @@ theorem chainHeader_ne_nodeTweak (lay : Layer) (tree leaf i step : Nat) (tag lay
     have hw := congrArg (fun x : BitVec 128 => (x.extractLsb' 0 64).toNat) h
     simp only [chainHeader_low, chainHeaderFlaggedLow_toNat, nodeTweak_ftsN h4 h13 _ hn, append64_low] at hw
     have hb := chainHeaderLow_band lay tree leaf i step
-    have := ftsNodeWordH_lt (lay' - 4) tree' heap
+    have := ftsNodeWordH_range (lay' - 4) tree' heap
     split_ifs at hw <;> omega
   · by_cases ht : tag = 3 ∧ lay' = 0
     · -- C4 (adapted from b3cc11b): the top label is the low word `topNodeWord heap < 4096`, a chain word is `≥ 193 * 2^56`.

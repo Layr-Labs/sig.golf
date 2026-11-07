@@ -7,6 +7,21 @@ import SigGolfCandidate.Merge042
 set_option debug.skipKernelTC true
 set_option linter.all false
 
+namespace SigGolfCandidate.T3.Security.BPB
+open OracleComp OracleSpec
+set_option debug.skipKernelTC false in
+theorem shortHash_ok_low {input : HashInput} {hdr : Digest}
+    (h : SigGolfCandidate.T3M.Extract.hdrBlock (pad64 input) = SphincsSecurity.bytesLE 16 hdr)
+    (hm : tweakLow hdr ≠ 25984) : AllQueriesSatisfy (shortHash input) NotDigestQ := by
+  unfold shortHash publicHash
+  apply SourceQueries.bind_allowed
+  · apply (allQueriesSatisfy_query_iff _ _).mpr
+    change hdrMarker (pad64 input) ≠ 25984
+    rw [hdrMarker_eq h]
+    exact hm
+  · intro _; exact SourceQueries.pure_allowed _ _
+end SigGolfCandidate.T3.Security.BPB
+
 -- ==== merged from ClaudeWCT_Numerics_N600Cap ====
 section
 
@@ -2495,7 +2510,7 @@ def NotDN : T3.Spec.Domain → Prop
   | .inr (.inr (.inl _)) => False
   | .inr (.inr (.inr _)) => True
 theorem not_digest_of_marker {x : HashInput} {h : Digest} (hx : Extract.hdrBlock x = bytesLE 16 h)
-    (hm : tweakMarker h ≠ 0) : x ∉ digestInputs := by
+    (hm : tweakMarker h ≠ 128) : x ∉ digestInputs := by
   intro hmem
   obtain ⟨rho, m, ctr, rfl⟩ := mem_digestInputs.mp hmem
   rw [Extract.hdrBlock_pad64 _ (by rw [digestInput_length]; omega)] at hx
@@ -2505,7 +2520,7 @@ theorem not_digest_of_marker {x : HashInput} {h : Digest} (hx : Extract.hdrBlock
   exact hm (by rw [← bytesLE_injective h2, digestHeader_marker])
 /-- C4: the digest is the only query with low header word 0 (top fold labels may have byte0 = 0). -/
 theorem not_digest_of_low {x : HashInput} {h : Digest} (hx : Extract.hdrBlock x = bytesLE 16 h)
-    (hm : tweakLow h ≠ 0) : x ∉ digestInputs := by
+    (hm : tweakLow h ≠ 25984) : x ∉ digestInputs := by
   intro hmem
   obtain ⟨rho, m, ctr, rfl⟩ := mem_digestInputs.mp hmem
   rw [Extract.hdrBlock_pad64 _ (by rw [digestInput_length]; omega)] at hx
@@ -2580,7 +2595,7 @@ theorem nodeHash_dn {tag : Nat} (lay tree heap : Nat) (left right : Digest) (_ht
   unfold projHash publicHash
   exact bind_allowed NotDN ((allQueriesSatisfy_query_iff _ _).mpr
     (not_digest_of_low (by rw [pad64_nodeInputP, nodeInputP]; exact Extract.hdrBlock_block4 _ _ _ _)
-      (nodeTweak_low_ne_zero _ _ _ _)))
+      (nodeTweak_low_ne_digest _ _ _ _)))
     fun _ => pure_allowed _ _
 theorem pairedMask_dn (level pair : Nat) : AllQueriesSatisfy (pairedMask level pair) NotDN := by
   unfold pairedMask
@@ -2673,7 +2688,7 @@ theorem topNodeHashN_dn (heap n : Nat) (left right : Digest) :
     AllQueriesSatisfy (topNodeHashN heap n left right) NotDN := by
   unfold topNodeHashN projHash publicHash
   refine bind_allowed NotDN ((allQueriesSatisfy_query_iff _ _).mpr
-    (not_digest_of_low (h := nodeTweak 3 0 0 heap) ?_ (nodeTweak_low_ne_zero _ _ _ _))) fun _ => pure_allowed _ _
+    (not_digest_of_low (h := nodeTweak 3 0 0 heap) ?_ (nodeTweak_low_ne_digest _ _ _ _))) fun _ => pure_allowed _ _
   rw [Extract.hdrBlock_pad64 _ (by simp [topNodeInput, nonceBytes, bytesLE_length])]
   unfold topNodeInput
   rw [List.append_assoc]
@@ -3763,8 +3778,8 @@ theorem shortHash_wct_ok (a rest : HashInput) (tag lay tree position index : Nat
   unfold shortHash publicHash
   apply SourceQueries.bind_allowed
   · apply (allQueriesSatisfy_query_iff _ _).mpr
-    show BPB.hdrMarker (pad64 (a ++ bytesLE 16 (wctHeader tag lay tree position index) ++ rest)) ≠ 0
-    apply BPB.hdrMarker_ne_zero_of_byte0
+    show BPB.hdrMarker (pad64 (a ++ bytesLE 16 (wctHeader tag lay tree position index) ++ rest)) ≠ 25984
+    apply BPB.hdrMarker_ne_digest_of_byte0
     unfold BPB.hdrByte0
     rw [hdrBlock_pad64_prefix _ _ _ ha (bytesLE_length _ _), wctHeader_byte0]
     decide
@@ -3775,17 +3790,18 @@ theorem chainInput_ok (index coord selected i step : Nat) (high : Bool) (value :
   unfold projHash publicHash
   apply SourceQueries.bind_allowed
   · apply (allQueriesSatisfy_query_iff _ _).mpr
-    show BPB.hdrMarker (pad64 (WCT9.ftsChainInputW index coord selected i step value)) ≠ 0
-    apply BPB.hdrMarker_ne_zero_of_byte0
-    unfold BPB.hdrByte0 WCT9.ftsChainInputW
-    split
-    · rw [List.append_assoc (bytesLE 16 value ++ _), hdrBlock_pad64_prefix _ _ _ (bytesLE_length _ _)
-        (bytesLE_length _ _), bytesLE16_first_toNat, WCT9.ftsChainHeader_toNat, WCT9.ftsChainLow_byte0]
-      omega
-    · unfold WCT9.chainInput
-      rw [List.append_assoc (zero16 ++ _), hdrBlock_pad64_prefix _ _ _ (by simp [zero16]) (bytesLE_length _ _),
-        bytesLE16_first_toNat, WCT9.ftsChainHeader_toNat, WCT9.ftsChainLow_byte0]
-      omega
+    show BPB.hdrMarker (pad64 (WCT9.ftsChainInputW index coord selected i step value)) ≠ 25984
+    have hx : T3M.Extract.hdrBlock (pad64 (WCT9.ftsChainInputW index coord selected i step value)) =
+        bytesLE 16 (WCT9.ftsChainHeader index coord selected i step) := by
+      unfold WCT9.ftsChainInputW
+      split
+      · rw [List.append_assoc (bytesLE 16 value ++ _), hdrBlock_pad64_prefix _ _ _ (bytesLE_length _ _) (bytesLE_length _ _)]
+      · unfold WCT9.chainInput
+        rw [List.append_assoc (zero16 ++ _), hdrBlock_pad64_prefix _ _ _ (by simp [zero16]) (bytesLE_length _ _)]
+    apply BPB.hdrMarker_ne_digest hx
+    unfold tweakMarker WCT9.ftsChainHeader
+    rw [WCT9.ftsChainHeaderP_firstByte]
+    omega
   · intro _; exact SourceQueries.pure_allowed _ _
 theorem chain_ok (index coord selected i start count : Nat) (value : Digest) :
     AllQueriesSatisfy (WCT9.chain index coord selected i start count value) BPB.NotDigestQ := by
@@ -3797,8 +3813,8 @@ theorem leafHash_ok (index coord selected : Nat) (ends : List Digest) :
   apply SourceQueries.bind_allowed
   · apply (allQueriesSatisfy_query_iff _ _).mpr
     show BPB.hdrMarker (pad64 (bytesLE 16 (ends.getD 0 0) ++ bytesLE 16 (WCT9.ftsLeafHeader index coord selected) ++
-      zero16 ++ (ends.drop 1).flatMap (bytesLE 16))) ≠ 0
-    apply BPB.hdrMarker_ne_zero_of_byte0
+      zero16 ++ (ends.drop 1).flatMap (bytesLE 16))) ≠ 25984
+    apply BPB.hdrMarker_ne_digest_of_byte0
     unfold BPB.hdrByte0
     rw [List.append_assoc (bytesLE 16 _ ++ bytesLE 16 _), hdrBlock_pad64_prefix _ _ _ (bytesLE_length _ _) (bytesLE_length _ _), bytesLE16_first_toNat,
       WCT9.ftsLeafHeader_firstByte]
@@ -3810,8 +3826,8 @@ theorem leafHashP_ok (index coord selected : Nat) (pad : Digest) (ends : List Di
   apply SourceQueries.bind_allowed
   · apply (allQueriesSatisfy_query_iff _ _).mpr
     show BPB.hdrMarker (pad64 (bytesLE 16 (ends.getD 0 0) ++ bytesLE 16 (WCT9.ftsLeafHeader index coord selected) ++
-      bytesLE 16 pad ++ (ends.drop 1).flatMap (bytesLE 16))) ≠ 0
-    apply BPB.hdrMarker_ne_zero_of_byte0
+      bytesLE 16 pad ++ (ends.drop 1).flatMap (bytesLE 16))) ≠ 25984
+    apply BPB.hdrMarker_ne_digest_of_byte0
     unfold BPB.hdrByte0
     rw [List.append_assoc (bytesLE 16 _ ++ bytesLE 16 _), hdrBlock_pad64_prefix _ _ _ (bytesLE_length _ _) (bytesLE_length _ _), bytesLE16_first_toNat,
       WCT9.ftsLeafHeader_firstByte]
@@ -3825,7 +3841,7 @@ theorem topHash_ok (coord index heap : Nat) (left pad right : Digest) :
       change T3M.Extract.hdrBlock (pad64 (T3M.SecurityInputs.nodeInputP 3 (WCT9.nodeLayer coord) index heap
         left pad right)) = _
       rw [T3M.SecurityInputs.pad64_nodeInputP]; exact BSuf.hdrBlock_nodeInputP _ _ _ _ _ _ _)
-    (nodeTweak_marker_ne_zero (by unfold WCT9.nodeLayer; omega) _ _))
+    (nodeTweak_marker_ne_digest (by unfold WCT9.nodeLayer; omega) _ _))
 theorem forest_header_plain (index : Nat) : header 15 0 index 0 0 = wctHeader 15 0 index 0 0 := by
   unfold wctHeader header
   rw [if_neg (by decide)]
@@ -3922,7 +3938,7 @@ theorem lowerNodeHash_notDigest (lay : Layer) (tree heap : Nat) (left right : Di
       ((Nat.pow_le_pow_right (by decide) (ClaudeWCT.W9.T3.Security.Signer.height_le_seven h0)).trans (by norm_num))
     unfold ClaudeWCT.WCT9.lowerNodeHash ClaudeWCT.WCT9.lowerHash
     refine ClaudeWCT.W9.T3.Security.Signer.halfHash_allowed_of_short _ _
-      (SigGolfCandidate.T3.Security.BPB.shortHash_ok_marker
+      (SigGolfCandidate.T3.Security.BPB.shortHash_ok_low
         (hdr := ClaudeWCT.WCT9.merkleTweak lay.val tree heap) ?_ ?_)
     · unfold ClaudeWCT.WCT9.merkleNodeInput
       rw [List.append_assoc (SphincsSecurity.bytesLE 16 left ++
@@ -3930,9 +3946,8 @@ theorem lowerNodeHash_notDigest (lay : Layer) (tree heap : Nat) (left right : Di
         SigGolfCandidate.T3M.Extract.hdrBlock_pad64 _ (by simp [SphincsSecurity.bytesLE_length, zero16]),
         SigGolfCandidate.T3M.Extract.hdrBlock_prefix]
     · rw [ClaudeWCT.WCT9.merkleTweak_lower h0]
-      unfold ClaudeWCT.WCT9.lowerTweak ClaudeWCT.WCT9.lowerNodeWord ClaudeWCT.WCT9.lowerK
-      rw [SigGolfCandidate.T3.append64_marker, BitVec.toNat_add, BitVec.toNat_ofNat,
-        SigGolfCandidate.T3.hyperWord_toNat]
+      have hg := ClaudeWCT.WCT9.lowerTweak_low_ge h7 lay.val tree
+      unfold SigGolfCandidate.T3.tweakLow
       omega
 /-- U16b: every trial of a lower node of the honest tree shape is no digest query (nonce `n` only below the top; the
 nonce bytes sit after the packed node word, whose marker is `128 + heap`). -/
@@ -3949,7 +3964,7 @@ theorem lowerNodeHashN_notDigest (lay : Layer) (tree heap n : Nat) (left right :
       ((Nat.pow_le_pow_right (by decide) (ClaudeWCT.W9.T3.Security.Signer.height_le_seven h0)).trans (by norm_num))
     unfold ClaudeWCT.WCT9.lowerNodeHashN ClaudeWCT.WCT9.lowerHash
     refine ClaudeWCT.W9.T3.Security.Signer.halfHash_allowed_of_short _ _
-      (SigGolfCandidate.T3.Security.BPB.shortHash_ok_marker
+      (SigGolfCandidate.T3.Security.BPB.shortHash_ok_low
         (hdr := ClaudeWCT.WCT9.merkleTweak lay.val tree heap) ?_ ?_)
     · unfold ClaudeWCT.WCT9.lowerNodeInputN
       rw [List.append_assoc (SphincsSecurity.bytesLE 16 left ++
@@ -3957,9 +3972,8 @@ theorem lowerNodeHashN_notDigest (lay : Layer) (tree heap n : Nat) (left right :
         SigGolfCandidate.T3M.Extract.hdrBlock_pad64 _ (by simp [SphincsSecurity.bytesLE_length, nonceBytes]),
         SigGolfCandidate.T3M.Extract.hdrBlock_prefix]
     · rw [ClaudeWCT.WCT9.merkleTweak_lower h0]
-      unfold ClaudeWCT.WCT9.lowerTweak ClaudeWCT.WCT9.lowerNodeWord ClaudeWCT.WCT9.lowerK
-      rw [SigGolfCandidate.T3.append64_marker, BitVec.toNat_add, BitVec.toNat_ofNat,
-        SigGolfCandidate.T3.hyperWord_toNat]
+      have hg := ClaudeWCT.WCT9.lowerTweak_low_ge h7 lay.val tree
+      unfold SigGolfCandidate.T3.tweakLow
       omega
 open SigGolfCandidate.T3.Security.BPB SigGolfCandidate.T3M SigGolfCandidate.T3M.SecurityInputs in
 /-- Pairing stage 1: a chain step of the current scheme (either format) is not a digest query. -/
@@ -3969,13 +3983,12 @@ theorem chainStepW_ok_rev3 (lay : SigGolfCandidate.T3.Layer) (tree leaf i step :
   unfold SigGolfCandidate.T3.shortHash SigGolfCandidate.T3.publicHash
   apply SourceQueries.bind_allowed
   · apply (allQueriesSatisfy_query_iff _ _).mpr
-    change hdrMarker (SigGolfCandidate.T3.pad64 (ClaudeWCT.WCT9.chainInputW lay tree leaf i step v)) ≠ 0
+    change hdrMarker (SigGolfCandidate.T3.pad64 (ClaudeWCT.WCT9.chainInputW lay tree leaf i step v)) ≠ 25984
     rw [ClaudeWCT.WCT9.chainInputW_padded]
-    apply hdrMarker_ne_zero_of_byte0
-    unfold hdrByte0 Extract.hdrBlock
-    rw [ClaudeWCT.WCT9.chainInputW_header, bytesLE16_first_toNat]
-    have := SigGolfCandidate.T3.chainHeader_firstByte lay tree leaf i step
-    omega
+    rw [hdrMarker_eq (show Extract.hdrBlock (ClaudeWCT.WCT9.chainInputW lay tree leaf i step v) =
+      SphincsSecurity.bytesLE 16 (SigGolfCandidate.T3.chainHeader lay tree leaf i step) from
+      ClaudeWCT.WCT9.chainInputW_header _ _ _ _ _ _)]
+    exact chainHeader_low_ne_digest _ _ _ _ _
   · intro _; exact SourceQueries.pure_allowed _ _
 theorem wct_payNotDigest : PayNotDigest payAfterDigest := by
   intro cache rho output
@@ -4687,13 +4700,11 @@ theorem tail_notDigest : SharedQueries.TailAllowed BPB.NotDigestQ where
     unfold shortHash publicHash
     apply SourceQueries.bind_allowed
     · apply (allQueriesSatisfy_query_iff _ _).mpr
-      change BPB.hdrMarker (pad64 (SigGolfCandidate.T3.chainInput lay tree leaf i step value)) ≠ 0
+      change BPB.hdrMarker (pad64 (SigGolfCandidate.T3.chainInput lay tree leaf i step value)) ≠ 25984
       rw [chainInput_padded]
-      apply BPB.hdrMarker_ne_zero_of_byte0
-      unfold BPB.hdrByte0 SigGolfCandidate.T3M.Extract.hdrBlock
-      rw [chainInput_header, bytesLE16_first_toNat]
-      have := chainHeader_firstByte lay tree leaf i step
-      omega
+      rw [BPB.hdrMarker_eq (show SigGolfCandidate.T3M.Extract.hdrBlock (SigGolfCandidate.T3.chainInput lay tree leaf i step value) =
+        SphincsSecurity.bytesLE 16 (chainHeader lay tree leaf i step) from chainInput_header _ _ _ _ _ _)]
+      exact BPB.chainHeader_low_ne_digest _ _ _ _ _
     · intro _; exact SourceQueries.pure_allowed _ _
   chainStepW := ClaudeWCT.Bank.WCT.chainStepW_ok_rev3
   leaf := BPB.leafHash_ok
@@ -4711,7 +4722,7 @@ theorem topInput_notDigest (coord index heap : Nat) (left pad right : Digest) :
         (pad64 (SigGolfCandidate.T3M.SecurityInputs.nodeInputP 3 (nodeLayer coord) index heap left pad right)) = _
       rw [SigGolfCandidate.T3M.SecurityInputs.pad64_nodeInputP]
       exact BSuf.hdrBlock_nodeInputP _ _ _ _ _ _ _)
-    (nodeTweak_marker_ne_zero (by simp [nodeLayer]) _ _)
+    (nodeTweak_marker_ne_digest (by simp [nodeLayer]) _ _)
 
 theorem forest_notDigest : ForestAllowed BPB.NotDigestQ where
   coefs := WCT.ftsCoefs_ok
@@ -5992,11 +6003,11 @@ theorem decodeProbe_eq_none {x : HashInput} :
     rintro ⟨q, hq⟩
     exact h q.1.1 q.1.2 q.2 hq
 theorem ftsChainHeader_byte0 (index coord selected i step : Nat) :
-    128 ≤ (ftsChainHeader index coord selected i step).toNat % 256 := by
+    (ftsChainHeader index coord selected i step).toNat % 256 < 4 := by
   rw [ftsChainHeader_toNat, ftsChainLow_byte0]
   omega
 theorem decodeProbe_of_hdrBlock {x : HashInput} {h : BitVec 128} (hx : hdrBlock x = bytesLE 16 h)
-    (ht : h.toNat % 256 < 128) : decodeProbe x = none := by
+    (ht : 4 ≤ h.toNat % 256) : decodeProbe x = none := by
   rw [decodeProbe_eq_none]
   intro a p c he
   rw [he, hdrBlock_probeInput] at hx
@@ -6004,25 +6015,22 @@ theorem decodeProbe_of_hdrBlock {x : HashInput} {h : BitVec 128} (hx : hdrBlock 
   have hb := ftsChainHeader_byte0 a.1.val a.2.1.val a.2.2.1.val a.2.2.2.val p.val
   rw [this] at hb
   omega
-theorem ftsChainHeader_byte1 (index coord selected i step : Nat) :
-    (ftsChainHeader index coord selected i step).toNat / 256 % 256 < 4 := by
-  rw [ftsChainHeader_toNat]
-  unfold ftsChainLow
-  have := Nat.mod_lt i (show 0 < 8 by decide)
-  have := Nat.mod_lt step (show 0 < 4 by decide)
-  have := Nat.mod_lt coord (show 0 < 16 by decide)
-  have := Nat.mod_lt selected (show 0 < 128 by decide)
+theorem ftsChainHeader_byte1 (index coord selected i step : Nat) (hi : i < 6) :
+    248 ≤ (ftsChainHeader index coord selected i step).toNat / 256 % 256 := by
+  rw [ftsChainHeader_toNat, ftsChainLow_tag, Nat.mod_eq_of_lt (by omega : i < 8)]
   omega
-/-- Headers whose tag byte is at least 4 are never chain probes (FTS chain headers carry the step `< 4` there). -/
+/-- Tags below 248 are outside the repacked FTS chain domain. -/
 theorem decodeProbe_of_hdrBlock_tag {x : HashInput} {h : BitVec 128} (hx : hdrBlock x = bytesLE 16 h)
-    (ht : 4 ≤ h.toNat / 256 % 256) : decodeProbe x = none := by
+    (ht : h.toNat / 256 % 256 < 248) : decodeProbe x = none := by
   rw [decodeProbe_eq_none]
   intro a p c he
   rw [he, hdrBlock_probeInput] at hx
   have := bytesLE_injective hx
-  have hb := ftsChainHeader_byte1 a.1.val a.2.1.val a.2.2.1.val a.2.2.2.val p.val
+  have hb := ftsChainHeader_byte1 a.1.val a.2.1.val a.2.2.1.val a.2.2.2.val p.val (by omega)
   rw [this] at hb
   omega
+
+
 /-- FTS seed of chain `a` (stage-A family seed; agrees with `WCT9.seed` by `rfl`). -/
 def seedOf (A : Correctness.Answers) (a : ChainAddr) : Digest :=
   ClaudeWCT.Arith.familyEval (List.ofFn (WCT9.ftsCoef A a.1.val a.2.1.val)) (WCT9.ftsPoint a.2.2.1.val a.2.2.2.val)

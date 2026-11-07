@@ -123,14 +123,21 @@ theorem wctChainInputP_block4 (step : Nat) (pa : Digest) (pb : BitVec 64) (pc v 
 theorem wctChainInput_block4' (step : Nat) (v : Digest) :
     WCT9.chainInput index coord child t step v = block4 0 (WCT9.ftsChainHeader index coord child t step) 0 v := by
   rw [← wctChainInputP_zero, wctChainInputP_block4]; rfl
-theorem canonicalHeader_ftsChainHeaderP (step : Nat) (pb : BitVec 64) :
+set_option debug.skipKernelTC false in
+theorem canonicalHeader_ftsChainHeaderP (step : Nat) (pb : BitVec 64) (ht : t < 6) :
     Extract.canonicalHeader (bytesLE 16 (WCT9.ftsChainHeaderP index coord child t step pb)) =
       Extract.canonicalHeader (bytesLE 16 (WCT9.ftsChainHeader index coord child t step)) := by
   unfold WCT9.ftsChainHeader WCT9.ftsChainHeaderP
-  apply SigGolfCandidate.T3M.Extract.canonicalHeader_high_irrelevant
-  rw [BitVec.toNat_ofNat, Nat.mod_eq_of_lt (lt_trans (WCT9.ftsChainLow_lt ..) (by decide)),
-    WCT9.ftsChainLow_byte0]
-  omega
+  have hm : (BitVec.ofNat 64 (WCT9.ftsChainLow index coord child t step)).toNat % 256 < 4 := by
+    rw [BitVec.toNat_ofNat, Nat.mod_eq_of_lt (WCT9.ftsChainLow_lt ..), WCT9.ftsChainLow_byte0]
+    omega
+  have htag : 250 ≤ (BitVec.ofNat 64 (WCT9.ftsChainLow index coord child t step)).toNat / 256 % 256 ∧
+      (BitVec.ofNat 64 (WCT9.ftsChainLow index coord child t step)).toNat / 256 % 256 < 256 := by
+    rw [BitVec.toNat_ofNat, Nat.mod_eq_of_lt (WCT9.ftsChainLow_lt ..), WCT9.ftsChainLow_tag,
+      Nat.mod_eq_of_lt (by omega : t < 8)]
+    omega
+  rw [SigGolfCandidate.T3M.Extract.canonicalHeader_fts_words _ _ hm htag,
+    SigGolfCandidate.T3M.Extract.canonicalHeader_fts_words _ _ hm htag]
 /-! Witness stack (charge 86): FTS chains 1, 3 are G chains (`value | header | padA | padC`, interior steps
 `< 3` keep the HIGH half). The chain walk is a half-aware path (`Extract.hashPathW` with `ftsChainHigh`). -/
 theorem wctChainInputPW_block4 (step : Nat) (pa : Digest) (pb : BitVec 64) (pc v : Digest) :
@@ -278,14 +285,14 @@ theorem chain_walk (d : Nat) (hd : d ≤ 4) (pa : Digest) (pb : BitVec 64) (pc v
     rw [honestInput_wctChain, ← WCT9.ftsChainInputW_padded]
     exact hhit
 /-- The SameHeader side of a chain hit (either format: header in bytes 16..32). -/
-theorem chain_sameHeader (s : Nat) (pa : Digest) (pb : BitVec 64) (pc v : Digest) :
+theorem chain_sameHeader (s : Nat) (pa : Digest) (pb : BitVec 64) (pc v : Digest) (ht : t < 6) :
     Extract.SameHeader (pad64 (wctChainInputPW index coord child t s pa pb pc v))
       (Extract.honestInput answers (.wctChain index coord child t s)) := by
   refine Extract.SameHeader.of_canonical ?_ (by rw [Extract.honestInput_length]; simp [Extract.Pos.len]) ?_
   · rw [Extract.honestInput_length, pad64_wctChainInputPW, wctChainInputPW_length]; rfl
   rw [Extract.hdrBlock_honestInput, pad64_wctChainInputPW, hdrBlock_wctChainInputPW]
   simp only [Extract.Pos.hdr]
-  exact canonicalHeader_ftsChainHeaderP index coord child t _ _
+  exact canonicalHeader_ftsChainHeaderP index coord child t _ _ ht
 theorem chain_extract (d : Nat) (hd : d ≤ 4) (pa : Digest) (pb : BitVec 64) (pc v : Digest)
     (hb : index < 2 ^ 31 ∧ coord < 9 ∧ child < 128 ∧ t < 6)
     (reaches : evalWithAnswerFn answers (wctChainP index coord child t (4 - d) d pa pb pc v) =
@@ -299,7 +306,7 @@ theorem chain_extract (d : Nat) (hd : d ≤ 4) (pa : Digest) (pb : BitVec 64) (p
   · right
     obtain ⟨hi, hc, hj, ht⟩ := hb
     exact ⟨.wctChain index coord child t (4 - d + step), _, ⟨hi, hc, hj, ht, by omega⟩, hq, hhit,
-      chain_sameHeader answers index coord child t _ pa pb pc _⟩
+      chain_sameHeader answers index coord child t _ pa pb pc _ ht⟩
 end chain
 theorem leafHash_eq_shortHash (index coord child : Nat) (ends : List Digest) :
     WCT9.leafHash index coord child ends = shortHash (Extract.wctLeafInput index coord child ends) := by
@@ -452,7 +459,9 @@ theorem hdrBlock_merkleInputH (path pads : Nat → Digest) (hpads : Nat → BitV
   unfold merkleInputH nodeInputPH
   dsimp only
   split <;> rw [pad64_block4, hdrBlock_block4W]
-theorem canonicalHeader_withHigh (t : BitVec 128) (hp : BitVec 64) :
+set_option debug.skipKernelTC false in
+theorem canonicalHeader_withHigh_of_ne (t : BitVec 128) (hp : BitVec 64)
+    (hne : t.extractLsb' 0 64 ≠ 25984#64) :
     Extract.canonicalHeader (bytesLE 16 (withHigh t hp)) = Extract.canonicalHeader (bytesLE 16 t) := by
   unfold withHigh
   split
@@ -462,13 +471,24 @@ theorem canonicalHeader_withHigh (t : BitVec 128) (hp : BitVec 64) :
       exact h
     conv_rhs => rw [ht]
     apply SigGolfCandidate.T3M.Extract.canonicalHeader_high_irrelevant
-    rw [BitVec.extractLsb'_toNat]
-    simp only [Nat.shiftRight_zero]
-    have : t.toNat % 2 ^ 64 % 256 = t.toNat % 256 := by
-      rw [Nat.mod_mod_of_dvd _ (by norm_num)]
-    rw [show (2 : Nat) ^ 64 = 2 ^ 64 from rfl]
-    omega
+    · rw [BitVec.extractLsb'_toNat]
+      simp only [Nat.shiftRight_zero]
+      have : t.toNat % 2 ^ 64 % 256 = t.toNat % 256 := by
+        rw [Nat.mod_mod_of_dvd _ (by norm_num)]
+      rw [show (2 : Nat) ^ 64 = 2 ^ 64 from rfl]
+      omega
+    · exact hne
   · rfl
+
+set_option debug.skipKernelTC false in
+theorem canonicalHeader_withHigh (tag lay tree heap : Nat) (hp : BitVec 64) :
+    Extract.canonicalHeader (bytesLE 16 (withHigh (nodeTweak tag lay tree heap) hp)) =
+      Extract.canonicalHeader (bytesLE 16 (nodeTweak tag lay tree heap)) := by
+  apply canonicalHeader_withHigh_of_ne
+  intro he
+  apply SigGolfCandidate.T3.nodeTweak_low_ne_digest tag lay tree heap
+  have h := congrArg BitVec.toNat he
+  simpa [SigGolfCandidate.T3.tweakLow, BitVec.extractLsb'_toNat] using h
 
 theorem merkle_extract (hidx : index < 2 ^ 31) (hj : j < 128) (path pads : Nat → Digest)
     (hpads : Nat → BitVec 64) (leaf : Digest)
@@ -1026,7 +1046,7 @@ theorem chain_extract (d : Nat) (hd : d ≤ 4) (pa : Digest) (pb : BitVec 64) (p
   · right
     obtain ⟨hi, hc, hj, ht⟩ := hb
     refine ⟨.wctChain index coord child t (4 - d + step), _, ⟨hi, hc, hj, ht, by omega⟩, hq, ?_,
-      WctExtract.chain_sameHeader answers index coord child t _ pa pb pc _⟩
+      WctExtract.chain_sameHeader answers index coord child t _ pa pb pc _ ht⟩
     refine ⟨hhit.1, ?_⟩
     rw [proj_wctChain]
     exact hhit.2
@@ -2502,6 +2522,7 @@ theorem posOf_sameHeader (answers : Answers) (p : Pos) (hp : p.Bounded) (input :
   rw [hs.2]
   exact hdrKey_of_hdrBlock hp (honestInput_length answers p) (hdrBlock_honestInput answers p)
 
+set_option debug.skipKernelTC false in
 theorem posOf_padded_chain (index coord raw t step : Nat)
     (pa : Digest) (pb : BitVec 64) (pc value : Digest)
     (hb : (Pos.wctChain index coord raw t step).Bounded) :
@@ -2515,14 +2536,17 @@ theorem posOf_padded_chain (index coord raw t step : Nat)
     rw [wctChainInputP_block4, pad64_block4, hdrBlock_block4W, topLow_bytesLE_iff]
     unfold SigGolfCandidate.T3.tweakLow
     rw [ClaudeWCT.WCT9.ftsChainHeaderP_toNat]
-    have hge := ClaudeWCT.WCT9.ftsChainLow_ge (coord := coord) (by have := hb.2.1; omega) index raw t step
+    have hge := ClaudeWCT.WCT9.ftsChainLow_ge (coord := coord) (by have := hb.2.1; omega) index raw t step hb.2.2.2.1
     have hlt := ClaudeWCT.WCT9.ftsChainLow_lt index coord raw t step
+    have htag := ClaudeWCT.WCT9.ftsChainLow_tag index coord raw t step
+    rw [Nat.mul_add_mod_self_right, Nat.mod_eq_of_lt hlt]
     omega
   rw [hdrKey_of_len64 hlen hT,wctChainInputP_block4,pad64_block4,hdrBlock_block4W,
-    canonicalHeader_ftsChainHeaderP]
+    canonicalHeader_ftsChainHeaderP _ _ _ _ _ _ hb.2.2.2.1]
   simpa only [Pos.hdr] using (Pos.canonicalHeader_eq hb)
 
-/-- Witness stack: the same position for the G/F FTS chain input (header in bytes `16..32` either way). -/
+/- Witness stack: the same position for the G/F FTS chain input (header in bytes `16..32` either way). -/
+set_option debug.skipKernelTC false in
 theorem posOf_padded_chainW (index coord raw t step : Nat)
     (pa : Digest) (pb : BitVec 64) (pc value : Digest)
     (hb : (Pos.wctChain index coord raw t step).Bounded) :
@@ -2535,11 +2559,13 @@ theorem posOf_padded_chainW (index coord raw t step : Nat)
     rw [pad64_wctChainInputPW, hdrBlock_wctChainInputPW, topLow_bytesLE_iff]
     unfold SigGolfCandidate.T3.tweakLow
     rw [ClaudeWCT.WCT9.ftsChainHeaderP_toNat]
-    have hge := ClaudeWCT.WCT9.ftsChainLow_ge (coord := coord) (by have := hb.2.1; omega) index raw t step
+    have hge := ClaudeWCT.WCT9.ftsChainLow_ge (coord := coord) (by have := hb.2.1; omega) index raw t step hb.2.2.2.1
     have hlt := ClaudeWCT.WCT9.ftsChainLow_lt index coord raw t step
+    have htag := ClaudeWCT.WCT9.ftsChainLow_tag index coord raw t step
+    rw [Nat.mul_add_mod_self_right, Nat.mod_eq_of_lt hlt]
     omega
   rw [hdrKey_of_len64 hlen hT, pad64_wctChainInputPW, hdrBlock_wctChainInputPW,
-    canonicalHeader_ftsChainHeaderP]
+    canonicalHeader_ftsChainHeaderP _ _ _ _ _ _ hb.2.2.2.1]
   simpa only [Pos.hdr] using (Pos.canonicalHeader_eq hb)
 
 theorem chainV3_ftsQueries (answers : Answers) (index coord raw t start count : Nat)
@@ -13428,7 +13454,7 @@ theorem chain_queries_pos (answers : Answers) (index coord child t d : Nat) (hd 
   refine ⟨_, rfl, .wctChain index coord child t (4 - d + s), hbd, ⟨hi, hc, hj, ht, by omega⟩, trivial, ?_, ?_⟩
   · simp only [Extract.pathInputW, pad64_wctChainInputPW, wctChainInputPW_length, Extract.Pos.len]
   simp only [Extract.pathInputW, pad64_wctChainInputPW, hdrBlock_wctChainInputPW, Extract.Pos.hdr]
-  rw [WctExtract.canonicalHeader_ftsChainHeaderP]
+  rw [WctExtract.canonicalHeader_ftsChainHeaderP _ _ _ _ _ _ ht]
   have hk := Extract.Pos.canonicalHeader_eq hbd
   simp only [Extract.Pos.hdr] at hk
   exact hk
@@ -13530,35 +13556,48 @@ theorem take8_bytesLE16 (a : BitVec 128) : (bytesLE 16 a).take 8 = bytesLE 8 (a.
     (BitVec.extractLsb'_append_extractLsb' (w := 64) (len := 64) (x := a)).symm
   conv_lhs => rw [ha]
   rw [SigGolfCandidate.T3M.Extract.bytesLE_header_words, List.take_left' (SphincsSecurity.bytesLE_length 8 _)]
-/-- C4: the header of an FTS position (chain, leaf or node; the FTS recompute never queries the forest) has its low
-word in `[2 ^ 16, 2 ^ 58)`: above every top label (coordinate nibble `coord + 1`) and below every WOTS leaf tweak
-(type byte 193). -/
+/- Every bounded FTS position has a low word above the top-label range. -/
+set_option debug.skipKernelTC false in
 theorem ftsPos_low {p : Extract.Pos} (hb : p.Bounded) (h : FtsPos p) :
-    2 ^ 16 ≤ tweakLow p.hdr ∧ tweakLow p.hdr < 2 ^ 58 := by
+    (tweakLow p.hdr = 0 ∨ 4096 ≤ tweakLow p.hdr) ∧ tweakLow p.hdr < 2 ^ 64 ∧ tweakLow p.hdr ≠ 520192 := by
   cases p with
   | wctChain index coord child t step =>
-      obtain ⟨-, hk, -, -, -⟩ := hb
-      have h1 := WCT9.ftsChainLow_ge (show coord < 15 by omega) index child t step
+      obtain ⟨-, hk, -, ht, -⟩ := hb
+      have h1 := WCT9.ftsChainLow_ge (show coord < 15 by omega) index child t step ht
       have h2 := WCT9.ftsChainLow_lt index coord child t step
       simp only [Extract.Pos.hdr, WCT9.ftsChainHeader]
       rw [Extract.tweakLow_eq_low, WCT9.ftsChainHeaderP_low, BitVec.toNat_ofNat,
-        Nat.mod_eq_of_lt (lt_trans h2 (by norm_num))]
-      exact ⟨h1, h2⟩
+        Nat.mod_eq_of_lt h2]
+      have ht := WCT9.ftsChainLow_tag index coord child t step
+      exact ⟨Or.inr h1, h2, by omega⟩
   | wctLeaf index coord child =>
       obtain ⟨-, hk, -⟩ := hb
-      have h1 := WCT9.ftsLeafLow_ge (show coord < 15 by omega) index child
+      have h1 := WCT9.ftsLeafLow_zero_or_ge (show coord < 15 by omega) index child
       have h2 := WCT9.ftsLeafLow_lt index coord child
       simp only [Extract.Pos.hdr, WCT9.ftsLeafHeader]
-      rw [append64_lowNat, BitVec.toNat_ofNat, Nat.mod_eq_of_lt (lt_trans h2 (by norm_num))]
-      exact ⟨h1, h2⟩
+      rw [append64_lowNat, BitVec.toNat_ofNat, Nat.mod_eq_of_lt h2]
+      have hn : WCT9.ftsLeafLow index coord child ≠ 520192 := by
+        unfold WCT9.ftsLeafLow SigGolfCandidate.T3.ftsBias
+        omega
+      exact ⟨h1, h2, hn⟩
   | wctNode index coord level nd =>
-      obtain ⟨-, hk, -, -⟩ := hb
+      obtain ⟨-, hk, hlev, hnd⟩ := hb
+      have hp : 2 ^ (7 - level - 1) ≤ 64 := by
+        change 2 ^ (7 - level - 1) ≤ 2 ^ 6
+        exact Nat.pow_le_pow_right (by decide) (by omega)
+      have hh : 2 ^ (7 - level - 1) + nd < 128 := by omega
       have hlow := WCT9.wctNodeHeader_toNat hk index (2 ^ (7 - level - 1) + nd)
-      have hge := WCT9.ftsLeafLow_ge (show coord < 15 by omega) index 0
+      have hge := WCT9.ftsLeafLow_zero_or_ge (show coord < 15 by omega) index 0
       have hlt := WCT9.ftsLeafLow_lt index coord 0
-      have hgeN : 2 ^ 16 ≤ WCT9.ftsNodeLowN index coord (2 ^ (7 - level - 1) + nd) := by
-        rw [WCT9.ftsNodeLowN_eq, Nat.mod_eq_of_lt (show coord + 1 < 16 by omega)]; omega
+      have hgeN : 4096 ≤ WCT9.ftsNodeLowN index coord (2 ^ (7 - level - 1) + nd) := by
+        rw [WCT9.ftsNodeLowN_eq, Nat.mod_eq_of_lt (show coord + 1 < 16 by omega)]; unfold SigGolfCandidate.T3.ftsBias; have := Nat.mod_lt index (by decide : 0 < 2^31); omega
       have hltN := WCT9.ftsNodeLowN_lt index coord (2 ^ (7 - level - 1) + nd)
+      have hneL : WCT9.ftsLeafLow index coord 0 ≠ 520192 := by
+        unfold WCT9.ftsLeafLow SigGolfCandidate.T3.ftsBias
+        omega
+      have hneN : WCT9.ftsNodeLowN index coord (2 ^ (7 - level - 1) + nd) ≠ 520192 := by
+        unfold WCT9.ftsNodeLowN SigGolfCandidate.T3.ftsBias
+        omega
       simp only [Extract.Pos.hdr]
       unfold tweakLow
       rw [hlow]
@@ -13578,8 +13617,9 @@ theorem structuralHitSrc_of_fts_hitIn (answers : Answers) (N : HashOutput) (w : 
   have h16 : 8 ≤ (Extract.hdrBlock actual).length := by
     have : 64 ≤ actual.length := by
       rw [hlen]; cases pos <;> simp only [Extract.Pos.len] <;> (try split) <;> omega
-    simp [Extract.hdrBlock]; omega
-  -- C4: the actual header's low word is the FTS position's, in `[2 ^ 16, 2 ^ 58)`.
+    simp only [Extract.hdrBlock, List.length_take, List.length_drop]
+    omega
+  -- The actual header keeps the FTS low word, which lies above every top label.
   have h8 : readLE ((Extract.hdrBlock actual).take 8) = tweakLow pos'.hdr := by
     rw [← canonicalHeader_take8 h16, hdr', Extract.readLE_take8]
   have hlo := ftsPos_low hb' hfts'
@@ -13819,8 +13859,9 @@ theorem hdrBlock_pairEncodingInputP (lay : Layer) (tree leaf : Nat) (left right 
   unfold WCT9.pairEncodingInputP
   rw [List.append_assoc, List.append_assoc]
   exact SigGolfCandidate.T3M.Extract.hdrBlock_prefix _ _ _
-/-- C2 (FULL): a lower node query of the honest tree shape (heap below `2 ^ height lay`) is no digest query: the
+/- C2 (FULL): a lower node query of the honest tree shape (heap below `2 ^ height lay`) is no digest query: the
 packed node word's marker is `128 + heap`. -/
+set_option debug.skipKernelTC false in
 theorem lowerNodeHash_notDigest (lay : Layer) (tree heap : Nat) (left right : Digest) (hh : heap < 2 ^ height lay) :
     AllQueriesSatisfy (ClaudeWCT.WCT9.lowerNodeHash lay.val tree heap left right)
       SigGolfCandidate.T3.Security.BPB.NotDigestQ := by
@@ -13831,7 +13872,7 @@ theorem lowerNodeHash_notDigest (lay : Layer) (tree heap : Nat) (left right : Di
       ((Nat.pow_le_pow_right (by decide) (ClaudeWCT.W9.T3.Security.Signer.height_le_seven h0)).trans (by norm_num))
     unfold ClaudeWCT.WCT9.lowerNodeHash ClaudeWCT.WCT9.lowerHash
     refine ClaudeWCT.W9.T3.Security.Signer.halfHash_allowed_of_short _ _
-      (SigGolfCandidate.T3.Security.BPB.shortHash_ok_marker
+      (SigGolfCandidate.T3.Security.BPB.shortHash_ok_low
         (hdr := ClaudeWCT.WCT9.merkleTweak lay.val tree heap) ?_ ?_)
     · unfold ClaudeWCT.WCT9.merkleNodeInput
       rw [List.append_assoc (SphincsSecurity.bytesLE 16 left ++
@@ -13839,11 +13880,10 @@ theorem lowerNodeHash_notDigest (lay : Layer) (tree heap : Nat) (left right : Di
         SigGolfCandidate.T3M.Extract.hdrBlock_pad64 _ (by simp [SphincsSecurity.bytesLE_length, zero16]),
         SigGolfCandidate.T3M.Extract.hdrBlock_prefix]
     · rw [ClaudeWCT.WCT9.merkleTweak_lower h0]
-      unfold ClaudeWCT.WCT9.lowerTweak ClaudeWCT.WCT9.lowerNodeWord ClaudeWCT.WCT9.lowerK
-      rw [SigGolfCandidate.T3.append64_marker, BitVec.toNat_add, BitVec.toNat_ofNat,
-        SigGolfCandidate.T3.hyperWord_toNat]
+      have hg := ClaudeWCT.WCT9.lowerTweak_low_ge h7 lay.val tree
+      unfold SigGolfCandidate.T3.tweakLow
       omega
-/-- U16b: every ground trial query of a lower node (nonce slot `n`) is no digest query (same node word marker). -/
+set_option debug.skipKernelTC false in
 theorem lowerNodeHashN_notDigest (lay : Layer) (tree heap n : Nat) (left right : Digest) (h0 : lay.val ≠ 0)
     (hh : heap < 2 ^ height lay) :
     AllQueriesSatisfy (ClaudeWCT.WCT9.lowerNodeHashN lay.val tree heap n left right)
@@ -13852,7 +13892,7 @@ theorem lowerNodeHashN_notDigest (lay : Layer) (tree heap n : Nat) (left right :
     ((Nat.pow_le_pow_right (by decide) (ClaudeWCT.W9.T3.Security.Signer.height_le_seven h0)).trans (by norm_num))
   unfold ClaudeWCT.WCT9.lowerNodeHashN ClaudeWCT.WCT9.lowerHash
   refine ClaudeWCT.W9.T3.Security.Signer.halfHash_allowed_of_short _ _
-    (SigGolfCandidate.T3.Security.BPB.shortHash_ok_marker
+    (SigGolfCandidate.T3.Security.BPB.shortHash_ok_low
       (hdr := ClaudeWCT.WCT9.merkleTweak lay.val tree heap) ?_ ?_)
   · unfold ClaudeWCT.WCT9.lowerNodeInputN
     rw [List.append_assoc (SphincsSecurity.bytesLE 16 left ++
@@ -13860,9 +13900,8 @@ theorem lowerNodeHashN_notDigest (lay : Layer) (tree heap n : Nat) (left right :
       SigGolfCandidate.T3M.Extract.hdrBlock_pad64 _ (by simp [SphincsSecurity.bytesLE_length, nonceBytes]),
       SigGolfCandidate.T3M.Extract.hdrBlock_prefix]
   · rw [ClaudeWCT.WCT9.merkleTweak_lower h0]
-    unfold ClaudeWCT.WCT9.lowerTweak ClaudeWCT.WCT9.lowerNodeWord ClaudeWCT.WCT9.lowerK
-    rw [SigGolfCandidate.T3.append64_marker, BitVec.toNat_add, BitVec.toNat_ofNat,
-      SigGolfCandidate.T3.hyperWord_toNat]
+    have hg := ClaudeWCT.WCT9.lowerTweak_low_ge h7 lay.val tree
+    unfold SigGolfCandidate.T3.tweakLow
     omega
 theorem layerEncoding_ok (lay : Layer) (tree leaf : Nat) (msg : WCT9.LayerMsg) (counter : BitVec 32) :
     AllQueriesSatisfy (ClaudeWCT.WCT9.encodingHash lay (WCT9.layerEncodingInput lay tree leaf msg counter))
@@ -13873,20 +13912,20 @@ theorem layerEncoding_ok (lay : Layer) (tree leaf : Nat) (msg : WCT9.LayerMsg) (
       exact SigGolfCandidate.T3.Security.BPB.shortHash_ok_marker
         (hdrBlock_pairEncodingInputP lay tree leaf left right counter 0) (by rw [rowTweak_marker]; decide)
 open SigGolfCandidate.T3.Security.BPB SigGolfCandidate.T3M SigGolfCandidate.T3M.SecurityInputs in
-/-- Pairing stage 1: a chain step of the current scheme (either format) is not a digest query. -/
+/- Pairing stage 1: a chain step of the current scheme (either format) is not a digest query. -/
+set_option debug.skipKernelTC false in
 theorem chainStepW_ok (lay : SigGolfCandidate.T3.Layer) (tree leaf i step : Nat) (v : SigGolfCandidate.T3.Digest) :
     AllQueriesSatisfy (SigGolfCandidate.T3.shortHash (ClaudeWCT.WCT9.chainInputW lay tree leaf i step v))
       SigGolfCandidate.T3.Security.BPB.NotDigestQ := by
   unfold SigGolfCandidate.T3.shortHash SigGolfCandidate.T3.publicHash
   apply SourceQueries.bind_allowed
   · apply (allQueriesSatisfy_query_iff _ _).mpr
-    change hdrMarker (SigGolfCandidate.T3.pad64 (ClaudeWCT.WCT9.chainInputW lay tree leaf i step v)) ≠ 0
+    change hdrMarker (SigGolfCandidate.T3.pad64 (ClaudeWCT.WCT9.chainInputW lay tree leaf i step v)) ≠ 25984
     rw [ClaudeWCT.WCT9.chainInputW_padded]
-    apply hdrMarker_ne_zero_of_byte0
-    unfold hdrByte0 Extract.hdrBlock
-    rw [ClaudeWCT.WCT9.chainInputW_header, bytesLE16_first_toNat]
-    have := SigGolfCandidate.T3.chainHeader_firstByte lay tree leaf i step
-    omega
+    rw [hdrMarker_eq (show Extract.hdrBlock (ClaudeWCT.WCT9.chainInputW lay tree leaf i step v) =
+      SphincsSecurity.bytesLE 16 (SigGolfCandidate.T3.chainHeader lay tree leaf i step) from
+      ClaudeWCT.WCT9.chainInputW_header _ _ _ _ _ _)]
+    exact chainHeader_low_ne_digest _ _ _ _ _
   · intro _; exact SourceQueries.pure_allowed _ _
 theorem afterDigest_ok (cache : SigGolfCandidate.T3.Cache) (rho : Digest) (output : HashOutput) :
     AllQueriesSatisfy (do

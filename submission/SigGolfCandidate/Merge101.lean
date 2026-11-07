@@ -11,6 +11,20 @@ import SigGolfCandidate.Merge100
 set_option debug.skipKernelTC true
 set_option linter.all false
 
+namespace SigGolfCandidate.T3M.Extract
+open SigGolfCandidate.T3 SphincsSecurity
+set_option debug.skipKernelTC false in
+theorem canonicalHeader_digest (counter : BitVec 32) :
+    canonicalHeader (bytesLE 16 (digestHeader counter)) = bytesLE 16 (digestHeader counter) := by
+  have hd : digestHeader counter = (digestHeader counter).extractLsb' 64 64 ++ (25984#64) := by
+    have h := (BitVec.extractLsb'_append_extractLsb' (w := 64) (len := 64) (x := digestHeader counter)).symm
+    simpa [digestHeader_low] using h
+  have ht : (bytesLE 16 (digestHeader counter)).take 8 = bytesLE 8 (25984#64) := by
+    rw [hd, bytesLE_header_words, List.take_left' (bytesLE_length 8 _)]
+  unfold canonicalHeader
+  rw [if_neg (by simp [headerMarked, ht])]
+end SigGolfCandidate.T3M.Extract
+
 -- ==== merged from ClaudeWCT_W9_T3_Secc_WotsStructuralHonest ====
 section
 
@@ -73,8 +87,9 @@ theorem posOf_eq_none {x : HashInput}
     (h : ∀ p : Extract.Pos, p.Bounded → x.length = p.len →
       Extract.hdrKey x ≠ bytesLE 16 p.hdr) : Extract.posOf x = none :=
   Extract.posOf_eq_none h
-/-- A 64-byte input whose header is an encoding row tweak with any high word (D6: the high word is a witness pad)
+/- A 64-byte input whose header is an encoding row tweak with any high word (D6: the high word is a witness pad)
 decodes to no position: every 64-byte position differs from the row tweak in the low word. -/
+set_option debug.skipKernelTC false in
 theorem posOf_row_none {x : HashInput} {lay : Layer} {tree leaf : Nat} {hi : BitVec 64} (hlen : x.length = 64)
     (hx' : Extract.hdrBlock x = bytesLE 16 (WCT9.rowTweakW lay tree leaf hi)) :
     Extract.posOf x = none := by
@@ -92,10 +107,20 @@ theorem posOf_row_none {x : HashInput} {lay : Layer} {tree leaf : Nat} {hi : Bit
     have : (rowTweak lay tree leaf).toNat % 2 ^ 64 % 256 = (rowTweak lay tree leaf).toNat % 256 :=
       Nat.mod_mod_of_dvd _ (by norm_num)
     omega
+  have ht : ¬ ((hi ++ (rowTweak lay tree leaf).extractLsb' 0 64).toNat % 256 < 4 ∧
+      250 ≤ (hi ++ (rowTweak lay tree leaf).extractLsb' 0 64).toNat / 256 % 256 ∧
+      (hi ++ (rowTweak lay tree leaf).extractLsb' 0 64).toNat / 256 % 256 < 256) := by
+    have htag := append64_tag hi ((rowTweak lay tree leaf).extractLsb' 0 64)
+    have hrow := rowTweak_tag lay tree leaf
+    unfold tweakTag at htag hrow
+    rw [BitVec.extractLsb'_toNat, Nat.shiftRight_zero] at htag
+    have hd : (rowTweak lay tree leaf).toNat % 2^64 / 256 % 256 =
+        (rowTweak lay tree leaf).toNat / 256 % 256 := by omega
+    omega
   -- C4: the row tweak's low word carries type byte 193, so it is no top label.
   have hT : ¬ Extract.TopLow (Extract.hdrBlock x) := by
     rw [hx, Extract.topLow_bytesLE_iff, append64_lowNat, hlow, hyperWord_toNat]; omega
-  rw [Extract.hdrKey_of_len64 hlen hT, hx, SigGolfCandidate.T3M.Extract.canonicalHeader_marker_ne _ hm] at he
+  rw [Extract.hdrKey_of_len64 hlen hT, hx, SigGolfCandidate.T3M.Extract.canonicalHeader_marker_ne _ hm ht] at he
   have hlo := congrArg (BitVec.extractLsb' 0 64) (bytesLE_injective he)
   rw [BitVec.extractLsb'_append_eq_right] at hlo
   exact Extract.rowTweak_low_ne_hdr lay tree leaf hb (by rw [← hl, hlen]) hlo
@@ -109,6 +134,7 @@ theorem posOf_layerEncodingP (lay : Layer) (tree leaf : Nat) (msg : WCT9.LayerMs
     Extract.posOf (pad64 (layerEncodingInputP lay tree leaf msg counter pad padR hi)) = none :=
   posOf_row_none (BC.layerEncodingRow_length lay tree leaf msg counter pad padR hi)
     (BC.hdrBlock_layerEncodingInputP lay tree leaf msg counter pad padR hi)
+set_option debug.skipKernelTC false in
 theorem posOf_digest (rho : Digest) (message : Message) (counter : BitVec 32) :
     Extract.posOf (pad64 (digestInput rho message counter)) = none := by
   unfold digestInput
@@ -124,15 +150,15 @@ theorem posOf_digest (rho : Digest) (message : Message) (counter : BitVec 32) :
   rw [Extract.hdrKey_of_len64 hlen hT,
     Extract.hdrBlock_pad64 _ (by simp only [List.length_append, bytesLE_length]; omega),
     Extract.hdrBlock_prefix,
-    SigGolfCandidate.T3M.Extract.canonicalHeader_marker_ne _
-      (by rw [digestHeader_firstByte]; decide)] at he
+    SigGolfCandidate.T3M.Extract.canonicalHeader_digest counter] at he
   have hh := bytesLE_injective he
   cases p with
   | chain lay tree leaf i step => exact (chainHeader_ne_digestHeader _ _ _ _ _ counter).symm hh
   | wctChain index coord child c step =>
-      have hn := congrArg (fun x : Digest => x.toNat % 256) hh
-      simp only [Extract.Pos.hdr, WCT9.ftsChainHeader, WCT9.ftsChainHeaderP_firstByte,
-        digestHeader_firstByte] at hn
+      have hn := congrArg tweakTag hh
+      simp only [Extract.Pos.hdr, WCT9.ftsChainHeader, digestHeader_tag] at hn
+      change 101 = (WCT9.ftsChainHeaderP index coord child c step 0).toNat / 2^8 % 256 at hn
+      rw [WCT9.ftsChainHeaderP_byte1] at hn
       omega
   | wctNode index coord level nd =>
       simp only [Extract.Pos.hdr, WCT9.wctNodeHeader] at hh
@@ -149,6 +175,7 @@ theorem posOf_digest (rho : Digest) (message : Message) (counter : BitVec 32) :
         have h7 : height lay ≤ 7 := by revert h0; fin_cases lay <;> decide
         have hhp := Extract.node_heap_lt128 hnd h7
         rw [Extract.merkleTweak_layer_lower h0] at hh
+        have hpos : 0 < 2 ^ (height lay - level - 1) := by positivity
         have hn := congrArg (fun x : Digest => x.toNat % 256) hh
         simp only [digestHeader_firstByte, WCT9.lowerTweak_firstByte hhp] at hn
         omega
@@ -890,8 +917,9 @@ theorem posOf_eq_none {x : HashInput}
     (h : ∀ p : Extract.Pos, p.Bounded → x.length = p.len →
       Extract.hdrKey x ≠ bytesLE 16 p.hdr) : Extract.posOf x = none :=
   Extract.posOf_eq_none h
-/-- A 64-byte input whose header is an encoding row tweak with any high word (D6: the high word is a witness pad)
+/- A 64-byte input whose header is an encoding row tweak with any high word (D6: the high word is a witness pad)
 decodes to no position: every 64-byte position differs from the row tweak in the low word. -/
+set_option debug.skipKernelTC false in
 theorem posOf_row_none {x : HashInput} {lay : Layer} {tree leaf : Nat} {hi : BitVec 64} (hlen : x.length = 64)
     (hx' : Extract.hdrBlock x = bytesLE 16 (WCT9.rowTweakW lay tree leaf hi)) :
     Extract.posOf x = none := by
@@ -909,10 +937,20 @@ theorem posOf_row_none {x : HashInput} {lay : Layer} {tree leaf : Nat} {hi : Bit
     have : (rowTweak lay tree leaf).toNat % 2 ^ 64 % 256 = (rowTweak lay tree leaf).toNat % 256 :=
       Nat.mod_mod_of_dvd _ (by norm_num)
     omega
+  have ht : ¬ ((hi ++ (rowTweak lay tree leaf).extractLsb' 0 64).toNat % 256 < 4 ∧
+      250 ≤ (hi ++ (rowTweak lay tree leaf).extractLsb' 0 64).toNat / 256 % 256 ∧
+      (hi ++ (rowTweak lay tree leaf).extractLsb' 0 64).toNat / 256 % 256 < 256) := by
+    have htag := append64_tag hi ((rowTweak lay tree leaf).extractLsb' 0 64)
+    have hrow := rowTweak_tag lay tree leaf
+    unfold tweakTag at htag hrow
+    rw [BitVec.extractLsb'_toNat, Nat.shiftRight_zero] at htag
+    have hd : (rowTweak lay tree leaf).toNat % 2^64 / 256 % 256 =
+        (rowTweak lay tree leaf).toNat / 256 % 256 := by omega
+    omega
   -- C4: the row tweak's low word carries type byte 193, so it is no top label.
   have hT : ¬ Extract.TopLow (Extract.hdrBlock x) := by
     rw [hx, Extract.topLow_bytesLE_iff, append64_lowNat, hlow, hyperWord_toNat]; omega
-  rw [Extract.hdrKey_of_len64 hlen hT, hx, SigGolfCandidate.T3M.Extract.canonicalHeader_marker_ne _ hm] at he
+  rw [Extract.hdrKey_of_len64 hlen hT, hx, SigGolfCandidate.T3M.Extract.canonicalHeader_marker_ne _ hm ht] at he
   have hlo := congrArg (BitVec.extractLsb' 0 64) (bytesLE_injective he)
   rw [BitVec.extractLsb'_append_eq_right] at hlo
   exact Extract.rowTweak_low_ne_hdr lay tree leaf hb (by rw [← hl, hlen]) hlo
@@ -926,6 +964,7 @@ theorem posOf_layerEncodingP (lay : Layer) (tree leaf : Nat) (msg : WCT9.LayerMs
     Extract.posOf (pad64 (layerEncodingInputP lay tree leaf msg counter pad padR hi)) = none :=
   posOf_row_none (BC.layerEncodingRow_length lay tree leaf msg counter pad padR hi)
     (BC.hdrBlock_layerEncodingInputP lay tree leaf msg counter pad padR hi)
+set_option debug.skipKernelTC false in
 theorem posOf_digest (rho : Digest) (message : Message) (counter : BitVec 32) :
     Extract.posOf (pad64 (digestInput rho message counter)) = none := by
   unfold digestInput
@@ -941,15 +980,15 @@ theorem posOf_digest (rho : Digest) (message : Message) (counter : BitVec 32) :
   rw [Extract.hdrKey_of_len64 hlen hT,
     Extract.hdrBlock_pad64 _ (by simp only [List.length_append, bytesLE_length]; omega),
     Extract.hdrBlock_prefix,
-    SigGolfCandidate.T3M.Extract.canonicalHeader_marker_ne _
-      (by rw [digestHeader_firstByte]; decide)] at he
+    SigGolfCandidate.T3M.Extract.canonicalHeader_digest counter] at he
   have hh := bytesLE_injective he
   cases p with
   | chain lay tree leaf i step => exact (chainHeader_ne_digestHeader _ _ _ _ _ counter).symm hh
   | wctChain index coord child c step =>
-      have hn := congrArg (fun x : Digest => x.toNat % 256) hh
-      simp only [Extract.Pos.hdr, WCT9.ftsChainHeader, WCT9.ftsChainHeaderP_firstByte,
-        digestHeader_firstByte] at hn
+      have hn := congrArg tweakTag hh
+      simp only [Extract.Pos.hdr, WCT9.ftsChainHeader, digestHeader_tag] at hn
+      change 101 = (WCT9.ftsChainHeaderP index coord child c step 0).toNat / 2^8 % 256 at hn
+      rw [WCT9.ftsChainHeaderP_byte1] at hn
       omega
   | wctNode index coord level nd =>
       simp only [Extract.Pos.hdr, WCT9.wctNodeHeader] at hh
@@ -966,6 +1005,7 @@ theorem posOf_digest (rho : Digest) (message : Message) (counter : BitVec 32) :
         have h7 : height lay ≤ 7 := by revert h0; fin_cases lay <;> decide
         have hhp := Extract.node_heap_lt128 hnd h7
         rw [Extract.merkleTweak_layer_lower h0] at hh
+        have hpos : 0 < 2 ^ (height lay - level - 1) := by positivity
         have hn := congrArg (fun x : Digest => x.toNat % 256) hh
         simp only [digestHeader_firstByte, WCT9.lowerTweak_firstByte hhp] at hn
         omega

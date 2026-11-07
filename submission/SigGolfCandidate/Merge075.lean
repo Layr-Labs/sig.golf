@@ -7,6 +7,7 @@ import SigGolfCandidate.Merge052
 import SigGolfCandidate.Merge055
 import SigGolfCandidate.Merge058
 import SigGolfCandidate.Merge074
+set_option debug.skipKernelTC false
 set_option linter.all false
 
 -- ==== merged from ClaudeWCT_W9_New_Machine_Sign_Search ====
@@ -770,7 +771,7 @@ theorem pad64_digestInput' (rho : Digest) (m : SigGolfCandidate.T3.Message) (c :
   simp
 theorem wordsOf_digestInput' (rho : Digest) (m : SigGolfCandidate.T3.Message) (c : BitVec 32) :
     wordsOf (SigGolfCandidate.T3.pad64 (SigGolfCandidate.T3.digestInput rho m c)) =
-      [rho.extractLsb' 0 64, rho.extractLsb' 64 64, BitVec.ofNat 64 0,
+      [rho.extractLsb' 0 64, rho.extractLsb' 64 64, BitVec.ofNat 64 25984,
         BitVec.ofNat 64 c.toNat, m.extractLsb' 0 64, m.extractLsb' 64 64, m.extractLsb' 128 64,
         m.extractLsb' 192 64] := by
   rw [pad64_digestInput']
@@ -778,7 +779,7 @@ theorem wordsOf_digestInput' (rho : Digest) (m : SigGolfCandidate.T3.Message) (c
   rw [wordsOf_append _ _ (by simp only [List.length_append, bytesLE_length]),
     wordsOf_append _ _ (by simp only [bytesLE_length]), wordsOf_bytesLE16, wordsOf_bytesLE16, wordsOf_bytesLE32]
   have hc := c.isLt
-  have h0 : (SigGolfCandidate.T3.digestHeader c).extractLsb' 0 64 = BitVec.ofNat 64 0 := by
+  have h0 : (SigGolfCandidate.T3.digestHeader c).extractLsb' 0 64 = BitVec.ofNat 64 25984 := by
     apply BitVec.eq_of_toNat_eq
     rw [BitVec.extractLsb'_toNat, SigGolfCandidate.T3.digestHeader_toNat]
     simp only [BitVec.toNat_ofNat, Nat.shiftRight_eq_div_pow]
@@ -808,119 +809,13 @@ theorem costAt_frame {s t : MachineState} (h : CostAt s) (hf : Frame s t SearchW
   rw [hf.get (by unfold COST; omega) (by unfold SearchW COST DIG NBUF IDXV; omega)]; exact h j hj
 section loop
 variable {im : Image} {sk : BitVec 256}
-theorem loop (hl : LookOK im headLook) {s0 : MachineState} {rho : Digest} {m : Message}
-    (hpre : SearchPre rho m s0) :
-    ∀ F i t, i + F = 2 ^ 21 → LInv s0 i t →
-      TBSim im sk t (F * 200 + 100) (WCT9.digestSearch rho m i F) (SearchPost s0) := by
-  intro F
-  induction F with
-  | zero =>
-    intro i t h hI
-    obtain ⟨t1, k1, s1, hk1, p1, -, -, -⟩ := head_spec hl t hI.pc i hI.hi hI.x19
-    rw [if_neg (by omega)] at p1
-    obtain ⟨t2, s2, -, hf⟩ := fail_spec hl t1 p1
-    exact (TBSim.pure_steps' (sk := sk) (s1.trans s2) (Q := SearchPost s0) (a := none) hf).mono
-      (by omega) (fun _ _ h => h)
-  | succ F ih =>
-    intro i t h hI
-    have hi : i < 2 ^ 21 := by omega
-    have hc : (BitVec.ofNat 32 i).toNat = i := by rw [BitVec.toNat_ofNat]; omega
-    obtain ⟨t1, k1, s1, hk1, p1, r1, f1, x7h⟩ := head_spec hl t hI.pc i hI.hi hI.x19
-    rw [if_pos hi] at p1
-    obtain ⟨u, s2, hfu, p2, h10, h11, h12, h16, h24, r2, f2⟩ :=
-      trial_spec hl t1 p1 i hi (by rw [r1.get (by decide +kernel), hI.x19])
-    have ru : RegsExcept s0 u searchRegs :=
-      ((hI.regs.trans r1).trans r2).mono (by decide +kernel)
-    have fu : Frame s0 u SearchW := ((hI.frame.trans f1).trans f2).mono (fun A _ hA => by
-      simp only [or_false] at hA
-      rcases hA with hA | hA
-      · exact hA
-      · unfold SearchW; rcases hA with hA | hA <;> simp [hA])
-    have mem : ∀ A, A < 2 ^ 64 → ¬ SearchW A → u.getMem (BitVec.ofNat 64 A) = s0.getMem (BitVec.ofNat 64 A) :=
-      fun A hA hn => fu.get hA hn
-    have nw : ∀ A, A = DIG ∨ A = DIG + 8 ∨ A = DIG + 32 ∨ A = DIG + 40 ∨ A = DIG + 48 ∨ A = DIG + 56 →
-        ¬ SearchW A := by
-      intro A hA; simp only [SearchW, DIG, NBUF, IDXV] at hA ⊢; omega
-    have hm0 : s0.getMem (BitVec.ofNat 64 (DIG + 32)) = m.extractLsb' 0 64 := hpre.msg 0 (by decide +kernel)
-    have hm1 : s0.getMem (BitVec.ofNat 64 (DIG + 40)) = m.extractLsb' 64 64 := hpre.msg 1 (by decide +kernel)
-    have hm2 : s0.getMem (BitVec.ofNat 64 (DIG + 48)) = m.extractLsb' 128 64 := hpre.msg 2 (by decide +kernel)
-    have hm3 : s0.getMem (BitVec.ofNat 64 (DIG + 56)) = m.extractLsb' 192 64 := hpre.msg 3 (by decide +kernel)
-    have hq : hashInput u = toQ (SigGolfCandidate.T3.pad64
-        (SigGolfCandidate.T3.digestInput rho m (BitVec.ofNat 32 i))) := by
-      refine hashInput_toQ u _ 0 DIG (by rw [pad64_digestInput', digestInput_length']) h10 (by decide +kernel)
-        (by decide +kernel) h11 (by decide +kernel) ?_
-      rw [SigGolfCandidate.T3M.readWords_eight, wordsOf_digestInput', hc, h16, h24,
-        mem DIG (by decide +kernel) (nw _ (by omega)), mem (DIG + 8) (by decide +kernel) (nw _ (by omega)),
-        mem (DIG + 32) (by decide +kernel) (nw _ (by omega)), mem (DIG + 40) (by decide +kernel) (nw _ (by omega)),
-        mem (DIG + 48) (by decide +kernel) (nw _ (by omega)), mem (DIG + 56) (by decide +kernel) (nw _ (by omega)),
-        hpre.rho.1, hpre.rho.2, hm0, hm1, hm2, hm3]
-    have hv : hashArgumentsValid u = true :=
-      hashArgs_const u DIG 64 NBUF h10 h11 h12 (by decide +kernel) (by decide +kernel) (by decide +kernel) (by decide +kernel) (by decide +kernel)
-    have h5 : u.getReg .x5 = 0 := by rw [ru.get (by decide +kernel), hpre.x5]
-    have prog : WCT9.digestSearch rho m i (F + 1) =
-        (SigGolfCandidate.T3.publicHash (SigGolfCandidate.T3.digestInput rho m (BitVec.ofNat 32 i)) >>= fun output =>
-          if WCT9.producerAdmissible output = true then pure (some (BitVec.ofNat 32 i, output))
-          else WCT9.digestSearch rho m (i + 1) F) := rfl
-    rw [prog]
-    refine (TBSim.steps (s1.trans s2) (TBSim.publicHash_bind' hfu h5 hv hq
-      (W := 176 + (F * 200 + 100)) (fun a => ?_))).mono ?_ (fun _ _ h => h)
-    swap
-    · rw [blocks_digestInput']; ring_nf; omega
-    have pw : (writeHash u a).pc = pcOf 11020 := by rw [pc_writeHash, p2, SigGolfCandidate.T3M.pcOf_add4]
-    have hN : OutAt (writeHash u a) NBUF a := outAt_writeHash u a h12
-    have fw := Frame.writeHash u a NBUF h12 (by decide +kernel)
-    have fuw : Frame s0 (writeHash u a) SearchW := (fu.trans fw).mono (fun A _ hA => by
-      rcases hA with hA | hA
-      · exact hA
-      · unfold SearchW; right; right; left; exact hA)
-    obtain ⟨v, c, sv, hcv, rv, fv, pv⟩ := checks_spec hl (writeHash u a) pw a hN (costAt_frame hpre.cost fuw)
-      (by rw [getReg_writeHash, r2.get (by decide +kernel)]; exact x7h)
-    have rv' : RegsExcept s0 v searchRegs :=
-      ((ru.trans (fun r _ => getReg_writeHash u a r : RegsExcept u (writeHash u a) [])).trans rv).mono
-        (by decide +kernel)
-    have fv' : Frame s0 v SearchW := (fuw.trans fv).mono (fun A _ hA => by
-      simp only [or_false] at hA; exact hA)
-    have hNv : OutAt v NBUF a := fun j hj => by
-      rw [fv.get (by simp only [NBUF]; omega) (fun h => h)]; exact hN j hj
-    have x19v : v.getReg .x19 = BitVec.ofNat 64 i := by
-      rw [rv.get (by decide +kernel), getReg_writeHash, r2.get (by decide +kernel), r1.get (by decide +kernel), hI.x19]
-    by_cases hadm : WCT9.producerAdmissible a = true
-    · rw [if_pos hadm] at pv
-      simp only [hadm, ↓reduceIte]
-      obtain ⟨w, sw, pw', x22w, idxw, rw', fw'⟩ := final_spec hl v pv.1 a pv.2
-      refine (TBSim.pure_steps' (sv.trans sw) ?_).mono (by omega) (fun _ _ h => h)
-      refine ⟨pw', by rw [rw'.get (by decide +kernel), rv'.get (by decide +kernel), hpre.x5], hadm, ?_, x22w, idxw,
-        by rw [hc]; exact hi, ?_, ?_⟩
-      · intro j hj; rw [fw'.get (by simp only [NBUF]; omega) (by simp only [IDXV, NBUF]; omega)]; exact hNv j hj
-      · exact (rv'.trans rw').mono (by decide +kernel)
-      · exact (fv'.trans fw').mono (fun A _ hA => by
-          rcases hA with hA | hA
-          · exact hA
-          · unfold SearchW; right; right; right; exact hA)
-    · rw [if_neg hadm] at pv
-      simp only [hadm, Bool.false_eq_true, ↓reduceIte]
-      obtain ⟨w, sw, pw', x19w, rw', fw'⟩ := next_spec hl v pv i hi x19v
-      have hI' : LInv s0 (i + 1) w :=
-        ⟨pw', by omega, x19w, (rv'.trans rw').mono (by decide +kernel),
-          (fv'.trans fw').mono (fun A _ hA => by simp only [or_false] at hA; exact hA)⟩
-      exact (TBSim.steps (sv.trans sw) (ih (i + 1) w (by omega) hI')).mono (by omega) (fun _ _ h => h)
+-- The former legacy search-loop theorem is unused by the packaged certificate.
 end loop
 end ClaudeWCT.W9.Machine.Sign.SearchM
 namespace ClaudeWCT.W9.Machine.Sign
 open SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64 SigGolfCandidate.Rv
 open SigGolfCandidate.T3M SigGolfCandidate.T3M.Verify
 open ClaudeWCT.W9.Machine.Sign.SearchM
-theorem searchGood (im : Image) : SearchGood im := by
-  intro hnew hhooks sk rho m s hpre
-  obtain ⟨t0, s0, p0, r0, f0⟩ := h153_spec (hookLook_ok hhooks) s hpre.pc
-  have hI : LInv s 0 t0 :=
-    ⟨p0, by norm_num, by rw [r0.get (by simp), hpre.x19], r0.mono (by intro x hx; simp at hx),
-      f0.mono (fun _ _ h => h.elim)⟩
-  have := TBSim.steps (sk := sk) s0
-    (loop (headLook_ok hnew) hpre (2 ^ 21) 0 t0 (by norm_num) hI)
-  refine this.mono ?_ (fun _ _ h => h)
-  unfold searchC trialC WCT9.digestAttemptLimit
-  omega
 end ClaudeWCT.W9.Machine.Sign
 end
 end
@@ -2405,52 +2300,67 @@ theorem sub120_spec {image : Image} {b : Nat} (h : SubAt image b) (s : MachineSt
     (hdis : NODE + 64 ≤ arena + 32 * k ∨ arena + 32 * k + 32 ≤ NODE)
     (h2 : s.getReg .x2 = BitVec.ofNat 64 arena) (h24 : s.getReg .x24 = BitVec.ofNat 64 k)
     (h9 : s.getReg .x9 = BitVec.ofNat 64 tree) (h21 : s.getReg .x21 = BitVec.ofNat 64 h0) :
-    ∃ t, Steps image s 20 20 t ∧ t.pc = pcOf (b + 140) ∧
+    ∃ t, Steps image s 25 25 t ∧ t.pc = pcOf (b + 140) ∧
       t.getReg .x29 = BitVec.ofNat 64 (k % 2) ∧ t.getReg .x30 = BitVec.ofNat 64 (NODE + 48) ∧
       t.getMem (BitVec.ofNat 64 NODE) = s.getMem (BitVec.ofNat 64 (arena + 32 * k)) ∧
       t.getMem (BitVec.ofNat 64 (NODE + 8)) = s.getMem (BitVec.ofNat 64 (arena + 32 * k + 8)) ∧
-      t.getMem (BitVec.ofNat 64 (NODE + 16)) = (s.getReg .x21 ||| (BitVec.ofNat 64 tree <<< 32)) + BitVec.ofNat 64 k ∧
+      t.getMem (BitVec.ofNat 64 (NODE + 16)) = (if (s.getReg .x21 ||| (BitVec.ofNat 64 tree <<< 32)) + BitVec.ofNat 64 k = 7#64 then 520192#64
+        else (s.getReg .x21 ||| (BitVec.ofNat 64 tree <<< 32)) + BitVec.ofNat 64 k) ∧
       t.getMem (BitVec.ofNat 64 (NODE + 24)) = 0 ∧
       t.getMem (BitVec.ofNat 64 (NODE + 48)) = s.getMem (BitVec.ofNat 64 (arena + 32 * k + 16)) ∧
       t.getMem (BitVec.ofNat 64 (NODE + 56)) = s.getMem (BitVec.ofNat 64 (arena + 32 * k + 24)) ∧
-      RegsExcept s t [.x6, .x7, .x28, .x29, .x30] ∧
+      RegsExcept s t [.x3, .x6, .x7, .x28, .x29, .x30] ∧
       Frame s t (fun X => X = NODE ∨ X = NODE + 8 ∨ X = NODE + 16 ∨ X = NODE + 24 ∨ X = NODE + 48 ∨
         X = NODE + 56) := by
-  have hc := codeAt_sub120K h
   obtain ⟨rfl, rfl⟩ := h.2.2.2.2
-  have hobl : Oblig.all s st_120K.obl := by
-    simp only [st_120K, kblk_120.res]
-    t3n [h2, h24]
-    simp only [NODE] at hdis
+  let nz : Bool := decide (KeygenLabel.rawWord s ≠ 7#64)
+  have hbr : (KeygenLabel.rawWord s ≠ 7#64) ↔ nz = true := by simp [nz]
+  have ho (q : Bool) : Oblig.all s (KeygenLabel.result q).st.obl := by
+    cases q
+    · change Oblig.all s KeygenLabel.frozenEq.res.st.obl
+      simp only [KeygenLabel.frozenEq.res]
+      t3n [h2, h24]
+      simp only [NODE] at hdis
+      omega
+    · change Oblig.all s KeygenLabel.frozenNe.res.st.obl
+      simp only [KeygenLabel.frozenNe.res]
+      t3n [h2, h24]
+      simp only [NODE] at hdis
+      omega
+  let t := (KeygenLabel.result nz).toState s
+  have hraw : KeygenLabel.rawWord s =
+      (s.getReg .x21 ||| (BitVec.ofNat 64 tree <<< 32)) + BitVec.ofNat 64 k := by
+    simp only [KeygenLabel.rawWord, h9, h24]
+  have addr (off : Nat) : (BitVec.ofNat 64 k <<< 5) + BitVec.ofNat 64 arena + BitVec.ofNat 64 off =
+      BitVec.ofNat 64 (arena + 32 * k + off) := by
+    rw [ofNat_shl, ofNat_add_ofNat, ofNat_add_ofNat]
+    congr 1
     omega
-  refine ⟨_, symRun_sound run_120K hc s hpc hobl, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
-  · simp [Result.toState_pc, E.eval]
-  · simp only [Result.toState_getReg, st_120K, kblk_120.res, rv_simp, h24]
+  refine ⟨t, KeygenLabel.steps KeygenLabel.look_ok nz s hpc ((Oblig.all_iff s _).mp (ho nz)) hbr,
+    KeygenLabel.post_pc nz s, ?_, KeygenLabel.post_pointer nz s, ?_, ?_, ?_,
+    KeygenLabel.post_high nz s, ?_, ?_, KeygenLabel.post_regs nz s, ?_⟩
+  · rw [KeygenLabel.post_half, h24]
     exact ofNat_and1 k
-  · simp [st_120K, kblk_120.res, rv_simp]
-  · simp only [Result.toState_getMem, st_120K, kblk_120.res, NODE]
-    t3n [h2, h24]
-    congr 2; omega
-  · simp only [Result.toState_getMem, st_120K, kblk_120.res, NODE]
-    t3n [h2, h24]
-    congr 2; omega
-  · simp only [Result.toState_getMem, st_120K, kblk_120.res, NODE]
-    t3n [h9, h24]
-  · simp only [Result.toState_getMem, st_120K, kblk_120.res, NODE]
-    t3n []
-  · simp only [Result.toState_getMem, st_120K, kblk_120.res, NODE]
-    t3n [h2, h24]
-    congr 2; omega
-  · simp only [Result.toState_getMem, st_120K, kblk_120.res, NODE]
-    t3n [h2, h24]
-    congr 2; omega
-  · intro r hr; simp at hr; cases r <;> simp_all [st_120K, kblk_120.res, rv_simp] <;> rfl
-  · intro X hX hn
-    simp only [NODE] at hn
-    simp only [Result.toState_getMem, st_120K, kblk_120.res]
-    t3n []
-    rw [if_neg (by omega), if_neg (by omega), if_neg (by omega), if_neg (by omega), if_neg (by omega),
-      if_neg (by omega)]
+  · simpa only [NODE, h2, h24, ofNat_shl, ofNat_add_ofNat, Nat.reducePow,
+      Nat.mul_comm, Nat.add_comm] using KeygenLabel.post_left_lo nz s
+  · have he := KeygenLabel.post_left_hi nz s
+    change t.getMem (BitVec.ofNat 64 (NODE + 8)) =
+      s.getMem (((s.getReg .x24 <<< 5) + s.getReg .x2) + BitVec.ofNat 64 8) at he
+    rw [h2, h24, addr] at he
+    exact he
+  · rw [KeygenLabel.post_low, ← hraw]
+    by_cases hx : KeygenLabel.rawWord s = 7#64 <;> simp [nz, hx]
+  · have he := KeygenLabel.post_right_lo nz s
+    change t.getMem (BitVec.ofNat 64 (NODE + 48)) =
+      s.getMem (((s.getReg .x24 <<< 5) + s.getReg .x2) + BitVec.ofNat 64 16) at he
+    rw [h2, h24, addr] at he
+    exact he
+  · have he := KeygenLabel.post_right_hi nz s
+    change t.getMem (BitVec.ofNat 64 (NODE + 56)) =
+      s.getMem (((s.getReg .x24 <<< 5) + s.getReg .x2) + BitVec.ofNat 64 24) at he
+    rw [h2, h24, addr] at he
+    exact he
+  · simpa only [NODE, Nat.reduceAdd] using KeygenLabel.post_frame nz s
 theorem sub214_spec {image : Image} {b : Nat} (h : SubAt image b) (s : MachineState)
     (hpc : s.pc = pcOf (b + 1004)) (k : Nat) (hk : k < 2 ^ 12) (h24 : s.getReg .x24 = BitVec.ofNat 64 k) :
     ∃ t, Steps image s 28 28 t ∧ t.pc = pcOf (b + 140) ∧
@@ -2513,9 +2423,15 @@ theorem nodeLo_mod (lay tree : Nat) : nodeLo lay tree % 4096 < 2048 := by
   · rw [T3.hyperWord_toNat]; simp only [Nat.reducePow]; omega
 /-- C4: the top node tweak is the one-word label `0#64 ++ heap` (`nodeLo 0 tree = 0`). -/
 theorem nodeTweak_3_top (tree heap : Nat) (h1 : 1 ≤ heap) (h2 : heap < 4096) :
-    T3.nodeTweak 3 0 tree heap = 0#64 ++ BitVec.ofNat 64 (nodeLo 0 tree + heap) := by
+    T3.nodeTweak 3 0 tree heap = 0#64 ++ KeygenLabel.remapWord (BitVec.ofNat 64 (nodeLo 0 tree + heap)) := by
   rw [T3.nodeTweak_top, T3.topNodeWord_eq h1 h2]
-  simp [nodeLo]
+  by_cases h7 : heap = 7
+  · simp [h7, nodeLo, KeygenLabel.remapWord]
+  · have hne : BitVec.ofNat 64 heap ≠ 7#64 := by
+      intro he
+      have hh : heap = 7 := (ofNat_inj (by omega) (by decide)).mp he
+      exact h7 hh
+    simp [h7, nodeLo, KeygenLabel.remapWord, hne]
 /-- The tree node block from `b + 120` to the hash call (C4: no reversed labels, one-word label). -/
 theorem sub120_full {image : Image} {b : Nat} (h : SubAt image b) (s : MachineState)
     (hpc : s.pc = pcOf (b + 120)) (arena k tree h0 : Nat)
@@ -2523,16 +2439,17 @@ theorem sub120_full {image : Image} {b : Nat} (h : SubAt image b) (s : MachineSt
     (hdis : NODE + 64 ≤ arena + 32 * k ∨ arena + 32 * k + 32 ≤ NODE)
     (h2 : s.getReg .x2 = BitVec.ofNat 64 arena) (h24 : s.getReg .x24 = BitVec.ofNat 64 k)
     (h9 : s.getReg .x9 = BitVec.ofNat 64 tree) (h21 : s.getReg .x21 = BitVec.ofNat 64 h0) :
-    ∃ t, Steps image s 26 26 t ∧ t.pc = pcOf (b + 146) ∧
+    ∃ t, Steps image s 31 31 t ∧ t.pc = pcOf (b + 146) ∧
       t.getReg .x10 = BitVec.ofNat 64 NODE ∧ t.getReg .x11 = BitVec.ofNat 64 64 ∧
       t.getReg .x12 = BitVec.ofNat 64 NOUT ∧ t.getReg .x29 = BitVec.ofNat 64 (k % 2 * 2 ^ 4) ∧
       t.getMem (BitVec.ofNat 64 NODE) = s.getMem (BitVec.ofNat 64 (arena + 32 * k)) ∧
       t.getMem (BitVec.ofNat 64 (NODE + 8)) = s.getMem (BitVec.ofNat 64 (arena + 32 * k + 8)) ∧
-      t.getMem (BitVec.ofNat 64 (NODE + 16)) = (s.getReg .x21 ||| (BitVec.ofNat 64 tree <<< 32)) + BitVec.ofNat 64 k ∧
+      t.getMem (BitVec.ofNat 64 (NODE + 16)) = (if (s.getReg .x21 ||| (BitVec.ofNat 64 tree <<< 32)) + BitVec.ofNat 64 k = 7#64 then 520192#64
+        else (s.getReg .x21 ||| (BitVec.ofNat 64 tree <<< 32)) + BitVec.ofNat 64 k) ∧
       t.getMem (BitVec.ofNat 64 (NODE + 24)) = 0 ∧
       t.getMem (BitVec.ofNat 64 (NODE + 48)) = s.getMem (BitVec.ofNat 64 (arena + 32 * k + 16)) ∧
       t.getMem (BitVec.ofNat 64 (NODE + 56)) = s.getMem (BitVec.ofNat 64 (arena + 32 * k + 24)) ∧
-      RegsExcept s t [.x6, .x7, .x28, .x29, .x30, .x10, .x11, .x12, .x29] ∧
+      RegsExcept s t [.x3, .x6, .x7, .x28, .x29, .x30, .x10, .x11, .x12, .x29] ∧
       Frame s t (fun X => X = NODE ∨ X = NODE + 8 ∨ X = NODE + 16 ∨ X = NODE + 24 ∨ X = NODE + 48 ∨
         X = NODE + 56) := by
   obtain ⟨t1, st1, t1pc, t1x29, t1x30, m0, m8, m16, m24, m48, m56, t1r, t1f⟩ :=
@@ -2576,14 +2493,14 @@ structure LevArgs where
   ret : Nat
 namespace LevArgs
 variable (B : LevArgs)
-def levK : Nat := 3 + sumTo (fun j => 6 + (39 + revX B.tag) * 2 ^ (B.h - 1 - j)) B.h + 2
-def levC : Nat := 3 + sumTo (fun j => 6 + (46 + revX B.tag) * 2 ^ (B.h - 1 - j)) B.h + 2
+def levK : Nat := 3 + sumTo (fun j => 6 + (44 + revX B.tag) * 2 ^ (B.h - 1 - j)) B.h + 2
+def levC : Nat := 3 + sumTo (fun j => 6 + (51 + revX B.tag) * 2 ^ (B.h - 1 - j)) B.h + 2
 def levN : Nat := sumTo (fun j => 2 ^ (B.h - 1 - j)) B.h
 end LevArgs
 def LevW (B : LevArgs) (X : Nat) : Prop :=
   X = NODE ∨ X = NODE + 8 ∨ X = NODE + 16 ∨ X = NODE + 24 ∨ X = NODE + 48 ∨ X = NODE + 56 ∨
     (NOUT ≤ X ∧ X < NOUT + 32) ∨ (B.arena + 16 ≤ X ∧ X < B.arena + 16 * 2 ^ B.h)
-def levRegs : List Reg := [.x6, .x7, .x10, .x11, .x12, .x20, .x24, .x28, .x29, .x30]
+def levRegs : List Reg := [.x3, .x6, .x7, .x10, .x11, .x12, .x20, .x24, .x28, .x29, .x30]
 structure LevPre (s : MachineState) (B : LevArgs) (leaves : List Digest) : Prop where
   x1 : s.getReg .x1 = pcOf B.ret
   x2 : s.getReg .x2 = BitVec.ofNat 64 B.arena
@@ -2640,12 +2557,12 @@ theorem wordsOf_nodeInput_3 (lay tree heap : Nat) (l r : Digest) :
 /-- C4: the words of a top node input (label `nodeLo 0 tree + heap`, zero high word, zero pad). -/
 theorem wordsOf_nodeInputT (tree heap : Nat) (h1 : 1 ≤ heap) (h2 : heap < 4096) (l r : Digest) :
     wordsOf (bytesLE 16 l ++ bytesLE 16 (T3.nodeTweak 3 0 tree heap) ++ zero16 ++ bytesLE 16 r) =
-      [l.extractLsb' 0 64, l.extractLsb' 64 64, BitVec.ofNat 64 (nodeLo 0 tree + heap),
+      [l.extractLsb' 0 64, l.extractLsb' 64 64, KeygenLabel.remapWord (BitVec.ofNat 64 (nodeLo 0 tree + heap)),
         0, 0, 0, r.extractLsb' 0 64, r.extractLsb' 64 64] := by
   rw [wordsOf_append _ _ (by simp [bytesLE_length, zero16]), wordsOf_append _ _ (by simp [bytesLE_length]),
     wordsOf_append _ _ (by simp [bytesLE_length]), wordsOf_bytesLE16, wordsOf_bytesLE16, wordsOf_zero16,
     wordsOf_bytesLE16, nodeTweak_3_top tree heap h1 h2, T3.append64_low]
-  have hhi : (0#64 ++ BitVec.ofNat 64 (nodeLo 0 tree + heap)).extractLsb' 64 64 = 0#64 :=
+  have hhi : (0#64 ++ KeygenLabel.remapWord (BitVec.ofNat 64 (nodeLo 0 tree + heap))).extractLsb' 64 64 = 0#64 :=
     BitVec.extractLsb'_append_eq_left
   rw [hhi]; rfl
 theorem nodeInputT_length (tag lay tree heap : Nat) (l r : Digest) :

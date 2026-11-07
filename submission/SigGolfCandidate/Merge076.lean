@@ -1,3 +1,4 @@
+import SigGolfCandidate.ExpandLabel
 import SigGolfCandidate.Merge011
 import SigGolfCandidate.Merge045
 import SigGolfCandidate.Merge051
@@ -7,6 +8,7 @@ import SigGolfCandidate.Merge059
 import SigGolfCandidate.Merge060
 import SigGolfCandidate.Merge070
 import SigGolfCandidate.Merge075
+set_option debug.skipKernelTC false
 set_option linter.all false
 
 -- ==== merged from T3M_Expand_LayerBlocks ====
@@ -57,7 +59,7 @@ def e_hdrB : List (BitVec 32) := [915,426771,33817187]
 sym_block eb_hdrB := symRun { noAlias := true } e_hdrB (pcOf 42765) 30
 def e_hdrC : List (BitVec 32) := [17077011,538141459,0xfff40f13,51322643,31679283,0xc100f13,59711251,756023407]
 sym_block eb_hdrC := symRun { noAlias := true } e_hdrC (pcOf 42768) 30
-def e_hdrD : List (BitVec 32) := [0xd44d706f]
+def e_hdrD : List (BitVec 32) := [0xd38d706f]
 sym_block eb_hdrD := symRun { noAlias := true } e_hdrD (pcOf 42776) 30
 def e_hdrE : List (BitVec 32) := [134711,537792019,7223331,8272931,132407,537199891,67110291,132663,604374547]
 sym_block eb_hdrE := symRun { noAlias := true } e_hdrE (pcOf 1129) 30
@@ -132,7 +134,7 @@ def hiOff (_lay : Nat) : Nat := 16
 def slotOff (_lay : T3.Layer) (c : Nat) : Nat := if c = 0 then 0 else 16 * c + 16
 def hpK (lay : T3.Layer) : Nat := if lay = 0 then 19 else 17
 def slK (_lay : T3.Layer) (i : Nat) : Nat := if i = 0 then 5 else 6
-def hdrK (lay : Nat) : Nat := if lay = 0 then 19 else 31
+def hdrK (lay : Nat) : Nat := if lay = 0 then 22 else 31
 section blocks
 variable (s : MachineState)
 theorem lbu_word1027 : decodeInstruction (0x000e4a03 : BitVec 32) = some (.base (.LBU .x20 .x28 0)) := rfl
@@ -159,7 +161,7 @@ theorem eb_hdrT_pc (t : MachineState) : (eb_hdrT.res.toState t).pc = pcOf 1129 :
   simp [Result.toState_pc, eb_hdrT.res, E.eval]
 /-- the node tweak words written at `NODE + 16` / `NODE + 24`: `WCT9.merkleTweak` (C2 packed word for lower layers). -/
 theorem merkleTweak_words_top (tree heap : Nat) (h1 : 1 ≤ heap) (hh : heap < 4096) :
-    (ClaudeWCT.WCT9.merkleTweak 0 tree heap).extractLsb' 0 64 = BitVec.ofNat 64 heap ∧
+    (ClaudeWCT.WCT9.merkleTweak 0 tree heap).extractLsb' 0 64 = BitVec.ofNat 64 (if heap = 7 then 520192 else heap) ∧
     (ClaudeWCT.WCT9.merkleTweak 0 tree heap).extractLsb' 64 64 = 0 := by
   rw [ClaudeWCT.WCT9.merkleTweak_top_low, ClaudeWCT.WCT9.merkleTweak_top_high, T3.topNodeWord_eq h1 hh]
   exact ⟨rfl, rfl⟩
@@ -348,6 +350,7 @@ class Code (im : Image) : Prop where
   e_hdrB_at : CodeAt im (pcOf 42765) e_hdrB
   e_hdrC_at : CodeAt im (pcOf 42768) e_hdrC
   e_hdrD_at : CodeAt im (pcOf 42776) e_hdrD
+  e_hdrWindow_at : CodeAt im (pcOf 1125) ExpandLabel.window
   e_hdrE_at : CodeAt im (pcOf 1129) e_hdrE
   e_hpA_at : CodeAt im (pcOf 42741) e_hpA
   e_hpZ_at : CodeAt im (pcOf 42755) e_hpZ
@@ -1490,7 +1493,7 @@ theorem rl1119_spec (hpc : s.pc = pcOf 1119) (lay tree leaf hh j : Nat) (hlay : 
         (ClaudeWCT.WCT9.merkleTweak lay tree (2 ^ (hh - j - 1) + leaf / 2 ^ (j + 1))).extractLsb' 64 64 ∧
       t.getReg .x10 = BitVec.ofNat 64 NODE ∧ t.getReg .x11 = BitVec.ofNat 64 64 ∧
       t.getReg .x12 = BitVec.ofNat 64 NOUT ∧
-      RegsExcept s t [.x6, .x7, .x10, .x11, .x12, .x13, .x28, .x30] ∧
+      RegsExcept s t [.x3, .x6, .x7, .x10, .x11, .x12, .x13, .x28, .x30] ∧
       Frame s t (fun A => A = NODE + 16 ∨ A = NODE + 24) := by
   set heap := 2 ^ (hh - j - 1) + leaf / 2 ^ (j + 1) with hheap
   have hheap' : heap < 2 ^ 64 := by
@@ -1528,10 +1531,10 @@ theorem rl1119_spec (hpc : s.pc = pcOf 1119) (lay tree leaf hh j : Nat) (hlay : 
     · ex_regs eb_hdrB.res
     · intro A _ _; simp [eb_hdrB.res, rv_simp]
   have g13 : t2.getReg .x13 = BitVec.ofNat 64 heap := by rw [r2.get (by decide), x13]
-  obtain ⟨t3, s3, p3, y6, y7, r3, f3⟩ : ∃ t, Steps im t2 (if lay = 0 then 1 else 13) (if lay = 0 then 1 else 13) t ∧
+  obtain ⟨t3, s3, p3, y6, y7, r3, f3⟩ : ∃ t, Steps im t2 (if lay = 0 then 4 else 13) (if lay = 0 then 4 else 13) t ∧
       t.pc = pcOf 1129 ∧ t.getReg .x6 = (ClaudeWCT.WCT9.merkleTweak lay tree heap).extractLsb' 0 64 ∧
       t.getReg .x7 = (ClaudeWCT.WCT9.merkleTweak lay tree heap).extractLsb' 64 64 ∧
-      RegsExcept t2 t [.x6, .x7, .x30] ∧ Frame t2 t (fun _ => False) := by
+      RegsExcept t2 t [.x3, .x6, .x7, .x30] ∧ Frame t2 t (fun _ => False) := by
     by_cases h0 : lay = 0
     · subst h0
       rw [if_pos rfl] at p2
@@ -1550,13 +1553,25 @@ theorem rl1119_spec (hpc : s.pc = pcOf 1119) (lay tree leaf hh j : Nat) (hlay : 
         generalize leaf / 2 ^ (j + 1) = Y at hq ⊢
         omega
       obtain ⟨wlo, whi⟩ := merkleTweak_words_top tree heap hheap1 hheap2
-      refine ⟨_, (symRun_sound eb_hdrD (Code.e_hdrD_at (im := im)) t2 p2 (by simp [eb_hdrD.res, rv_simp])).of_eq (by simp [eb_hdrD.res])
-        (by simp [eb_hdrD.res]), ?_, ?_, ?_, ?_, ?_⟩
-      · simp [Result.toState_pc, eb_hdrD.res, E.eval]
-      · rw [wlo]; simp only [Result.toState_getReg, eb_hdrD.res, rv_simp, x6]
-      · rw [whi]; simp only [Result.toState_getReg, eb_hdrD.res, rv_simp, x7]
-      · intro r hr; cases r <;> rfl
-      · intro A hA hn; rfl
+      let nz : Bool := decide (t2.getReg .x6 ≠ 7#64)
+      have hbr : (t2.getReg .x6 ≠ 7#64) ↔ nz = true := by simp [nz]
+      have hwin : ExpandLabel.window <+: im.code.drop 1125 := by
+        have h := (Code.e_hdrWindow_at (im := im)).2.2.2
+        change ExpandLabel.window <+: im.code.drop 1125 at h
+        exact h
+      have hjump : [ExpandLabel.jump] <+: im.code.drop 42776 := by
+        have h := (Code.e_hdrD_at (im := im)).2.2.2
+        change [ExpandLabel.jump] <+: im.code.drop 42776 at h
+        exact h
+      have ho : ∀ o ∈ (ExpandLabel.result nz).st.obl, o.holds t2 := by
+        cases nz <;> simp [ExpandLabel.result, ExpandLabel.frozenEq.res, ExpandLabel.frozenNe.res]
+      refine ⟨_, (ExpandLabel.steps (ExpandLabel.look_ok hwin hjump) nz t2 p2 ho hbr).of_eq
+        (by simp) (by simp), ExpandLabel.post_pc nz t2, ?_, ?_, ?_, ?_⟩
+      · rw [wlo]
+        exact ExpandLabel.post_word_ofNat t2 heap hheap' x6
+      · rw [whi, (ExpandLabel.post_regs nz t2).get (by decide), x7]
+      · exact (ExpandLabel.post_regs nz t2).mono (by decide)
+      · exact ExpandLabel.post_frame nz t2
     · rw [if_neg h0] at p2
       have g8' : t2.getReg .x8 = BitVec.ofNat 64 lay := by rw [r2.get (by decide), g8]
       have g9' : t2.getReg .x9 = BitVec.ofNat 64 tree := by rw [r2.get (by decide), g9]
@@ -1666,7 +1681,10 @@ theorem installed_bc : BCBlocks.Code Images.expandImage := by
 theorem installed_code : Code Images.expandImage := by
   constructor <;> first
     | (apply codeAt_e11_at <;> decide)
-    | (apply codeAt_expand_current_chunk <;> decide +kernel)
+    | (apply codeAt_expand_current_chunk
+       · decide
+       · decide
+       · decide +kernel)
     | (apply codeAt_t51_at <;> decide)
     | (apply codeAt_expand_lastR <;> decide +kernel)
 
@@ -4748,7 +4766,7 @@ theorem pad64_digestInput (rho : Digest) (m : T3.Message) (c : BitVec 32) :
   simp
 theorem wordsOf_digestInput (rho : Digest) (m : T3.Message) (c : BitVec 32) :
     wordsOf (T3.pad64 (T3.digestInput rho m c)) =
-      [rho.extractLsb' 0 64, rho.extractLsb' 64 64, BitVec.ofNat 64 0,
+      [rho.extractLsb' 0 64, rho.extractLsb' 64 64, BitVec.ofNat 64 25984,
         BitVec.ofNat 64 c.toNat, m.extractLsb' 0 64, m.extractLsb' 64 64, m.extractLsb' 128 64,
         m.extractLsb' 192 64] := by
   rw [pad64_digestInput]
@@ -4885,114 +4903,7 @@ structure DsInv (d : Nat) (s0 : MachineState) (i : Nat) (t : MachineState) : Pro
   x19 : t.getReg .x19 = BitVec.ofNat 64 i
   regs : RegsExcept s0 t dsRegs
   frame : Frame s0 t DsW
-theorem ds_loop (hD : DsAt image d b) (hK : KernAt image b) {s0 : MachineState} {rho : Digest}
-    {m : T3.Message} (hpre : DsPre d s0 rho m) :
-    ∀ F i t, i + F = 2 ^ 20 → DsInv d s0 i t →
-      TBSim image sk t (F * 672 + 670) (T3.digestSearch rho m i F) (DsPost b d s0) := by
-  intro F
-  induction F with
-  | zero =>
-    intro i t h hI
-    obtain ⟨t1, s1, p1, _, _⟩ := ds0_spec hD t hI.pc i hI.hi hI.x19
-    rw [if_pos (by omega)] at p1
-    obtain ⟨t2, s2, p2, h5, h10, _⟩ := cs0_spec hK t1 p1
-    have := TBSim.steps (sk := sk) (s1.trans s2)
-      (TBSim.pure (Q := DsPost b d s0) (a := none) ⟨p2, h5, h10⟩)
-    exact this.mono (by omega) (fun _ _ h => h)
-  | succ F ih =>
-    intro i t h hI
-    have hi : i < 2 ^ 20 := by omega
-    have hc : (BitVec.ofNat 32 i).toNat = i := by rw [BitVec.toNat_ofNat]; omega
-    obtain ⟨t1, s1, p1, r1, f1⟩ := ds0_spec hD t hI.pc i hI.hi hI.x19
-    rw [if_neg (by omega)] at p1
-    obtain ⟨u, s2, p2, h16, h24, h10, h11, h12, r2, f2⟩ :=
-      ds2_spec hD t1 p1 i hi (by rw [r1.get (by decide), hI.x19])
-    have ru : RegsExcept s0 u dsRegs := ((hI.regs.trans r1).trans r2).mono (by decide)
-    have u19 : u.getReg .x19 = BitVec.ofNat 64 i := by rw [r2.get (by decide), r1.get (by decide), hI.x19]
-    have fu : Frame s0 u DsW := ((hI.frame.trans f1).trans f2).mono (fun A _ h => by
-      simp only [or_false] at h
-      rcases h with h | h
-      · exact h
-      · rcases h with h | h
-        · exact Or.inl h
-        · exact Or.inr (Or.inl h))
-    have mem : ∀ A, A < 2 ^ 64 → ¬ DsW A → u.getMem (BitVec.ofNat 64 A) = s0.getMem (BitVec.ofNat 64 A) :=
-      fun A hA hn => fu.get hA hn
-    have nw : ∀ A, A = DIG ∨ A = DIG + 8 ∨ A = DIG + 32 ∨ A = DIG + 40 ∨ A = DIG + 48 ∨ A = DIG + 56 →
-        ¬ DsW A := by
-      intro A hA; simp only [DsW, DIG, NBUF, SEL] at hA ⊢; omega
-    have hm0 : s0.getMem (BitVec.ofNat 64 (DIG + 32)) = m.extractLsb' 0 64 := hpre.msg 0 (by decide)
-    have hm1 : s0.getMem (BitVec.ofNat 64 (DIG + 40)) = m.extractLsb' 64 64 := hpre.msg 1 (by decide)
-    have hm2 : s0.getMem (BitVec.ofNat 64 (DIG + 48)) = m.extractLsb' 128 64 := hpre.msg 2 (by decide)
-    have hm3 : s0.getMem (BitVec.ofNat 64 (DIG + 56)) = m.extractLsb' 192 64 := hpre.msg 3 (by decide)
-    have hq : hashInput u = toQ (T3.pad64 (T3.digestInput rho m (BitVec.ofNat 32 i))) := by
-      refine hashInput_toQ u _ 0 DIG (by rw [pad64_digestInput, digestInput_length]) h10 (by decide) (by decide)
-        h11 (by decide) ?_
-      rw [readWords_eight, wordsOf_digestInput, hc, h16, h24,
-        mem DIG (by decide) (nw _ (by omega)), mem (DIG + 8) (by decide) (nw _ (by omega)),
-        mem (DIG + 32) (by decide) (nw _ (by omega)), mem (DIG + 40) (by decide) (nw _ (by omega)),
-        mem (DIG + 48) (by decide) (nw _ (by omega)), mem (DIG + 56) (by decide) (nw _ (by omega)),
-        hpre.rho.1, hpre.rho.2, hm0, hm1, hm2, hm3]
-    have hv : hashArgumentsValid u = true :=
-      hashArgs_const u DIG 64 NBUF h10 h11 h12 (by decide) (by decide) (by decide) (by decide) (by decide)
-    have h5 : u.getReg .x5 = 0 := by rw [ru.get (by decide), hpre.x5]
-    have prog : T3.digestSearch rho m i (F + 1) =
-        (T3.publicHash (T3.digestInput rho m (BitVec.ofNat 32 i)) >>= fun output =>
-          if T3.digestAdmissible output then pure (some (BitVec.ofNat 32 i, output))
-          else T3.digestSearch rho m (i + 1) F) := rfl
-    rw [prog]
-    refine (TBSim.steps (s1.trans s2) (TBSim.publicHash_bind (ds14_fetch hD u p2) h5 hv hq
-      (W := 650 + (F * 672 + 670)) (fun a => ?_))).mono ?_ (fun _ _ h => h)
-    swap
-    · rw [blocks_digestInput]; ring_nf; omega
-    have pw : (writeHash u a).pc = pcOf (d + 15) := by rw [pc_writeHash, p2, pcOf_add4]
-    have hN : NAt (writeHash u a) a := NAt.writeHash u a h12
-    have fw := Frame.writeHash u a NBUF h12 (by decide)
-    obtain ⟨t15, s15, p15, h1, r15, f15⟩ := ds15_spec hD (writeHash u a) pw
-    obtain ⟨k, t16, s16, hk, p16, h13, hrows, r16, f16⟩ := gatedSelect_spec hK hD.1.2 t15 p15 (d + 16) h1 a
-      (NAt.frame hN (f15.mono (fun _ _ h => h.elim)))
-    obtain ⟨t17, s17, p17, r17, f17⟩ := ds16_spec hD t16 p16 _ h13
-    have r17' : RegsExcept s0 t17 dsRegs :=
-      ((((ru.trans (fun r _ => getReg_writeHash u a r : RegsExcept u (writeHash u a) [])).trans r15).trans
-        r16).trans r17).mono (by decide)
-    have x19' : t17.getReg .x19 = BitVec.ofNat 64 i := by
-      rw [r17.get (by decide), r16.get (by decide), r15.get (by decide), getReg_writeHash, u19]
-    have f17' : Frame s0 t17 DsW := ((((fu.trans fw).trans f15).trans f16).trans f17).mono (fun A _ h => by
-      simp only [or_false] at h
-      rcases h with (h | h) | h
-      · exact h
-      · exact Or.inr (Or.inr (Or.inl h))
-      · exact Or.inr (Or.inr (Or.inr h)))
-    have hN17 : NAt t17 a :=
-      NAt.frame (NAt.frame (NAt.frame hN (f15.mono (fun _ _ h => h.elim))) f16) (f17.mono (fun _ _ h => h.elim))
-    by_cases hadm : T3.digestAdmissible a = true
-    · simp only [hadm, ↓reduceIte] at p17 ⊢
-      refine (TBSim.steps (s15.trans (s16.trans s17)) (TBSim.pure ?_)).mono (by omega) (fun _ _ h => h)
-      refine ⟨p17, by rw [r17'.get (by decide), hpre.x5], (by have hh := hadm; simp only [T3.digestAdmissible, Bool.and_eq_true] at hh; exact hh.1), hN17, ?_, r17', f17', by rw [hc]; exact hi,
-        by rw [hc, x19']⟩
-      intro c hc7 j hj
-      rw [f17.get (by simp only [SEL]; omega) (fun h => h), hrows hadm c hc7 j hj, selEntry_eq a c j hc7]
-    · have hadm' : T3.digestAdmissible a = false := by simpa using hadm
-      simp only [hadm', Bool.false_eq_true, ↓reduceIte] at p17 ⊢
-      obtain ⟨t18, s18, p18, h19, r18, f18⟩ := ds17_spec hD t17 p17 i x19'
-      have hI' : DsInv d s0 (i + 1) t18 :=
-        ⟨p18, by omega, h19, (r17'.trans r18).mono (by decide),
-          (f17'.trans f18).mono (fun A _ h => by simp only [or_false] at h; exact h)⟩
-      refine (TBSim.steps (s15.trans (s16.trans (s17.trans s18))) (ih (i + 1) t18 (by omega) hI')).mono
-        (by omega) (fun _ _ h => h)
-theorem digestSearch_tbsim (hD : DsAt image d b) (hK : KernAt image b) {s0 : MachineState} {rho : Digest}
-    {m : T3.Message} (hpre : DsPre d s0 rho m) :
-    TBSim image sk s0 (2 ^ 20 * 672 + 670) (T3.digestSearch rho m 0 T3.attemptLimit) (DsPost b d s0) :=
-  ds_loop hD hK hpre (2 ^ 20) 0 s0 (by norm_num)
-    ⟨hpre.pc, by norm_num, hpre.x19, RegsExcept.refl _ _, Frame.refl _ _⟩
-theorem digestSearch_spec (hD : DsAt image d b) (hK : KernAt image b) (s : MachineState) (rho : Digest)
-    (m : T3.Message) (h : DsPre d s rho m) :
-    TBSim image sk s dsCostS (T3.digestSearch rho m 0 T3.attemptLimit) (DsPostS b d s) := by
-  refine (digestSearch_tbsim (sk := sk) hD hK h).mono (by unfold dsCostS T3.attemptLimit; omega)
-    (fun r t ht => ?_)
-  rcases r with _ | ⟨c, N⟩
-  · exact ht
-  · exact ⟨ht.1, ht.2.1, ht.2.2.1, ht.2.2.2.1, ht.2.2.2.2.1, ht.2.2.2.2.2.1, ht.2.2.2.2.2.2.1⟩
+-- Unused legacy digest-search simulation theorems removed.
 end loop
 end SigGolfCandidate.T3M.Search
 end

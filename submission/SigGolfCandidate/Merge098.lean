@@ -52,7 +52,7 @@ theorem claimedC_eq : claimedC=verifyCycleBound+witnessCycles (submission I).siz
   rw [witnessCycles_eq];decide
 
 theorem submission_verificationBound (E : EncodingFacts) (F : SourceQueries) (P : Pending I) :
-    (submission I).VerificationBound 6980 := by
+    (submission I).VerificationBound 6977 := by
   intro hash sk m
   dsimp only
   intro h
@@ -77,7 +77,7 @@ open ClaudeWCT.W9.T3M (Images)
 variable {I : Images}
 
 theorem certificate_of (E : EncodingFacts) (F : SourceQueries) (P : Pending I) (S : SourceFacts) :
-    Certificate (submission I) 6980 where
+    Certificate (submission I) 6977 where
   admissible := P.admissible
   termination := submission_terminates P
   completeness := submission_complete E F P S
@@ -1029,8 +1029,8 @@ def submissionNew (I : Images) : SigGolf.Submission := currentOf (submission I)
 theorem legacyOf_submissionNew (I : Images) : legacyOf (submissionNew I) = submission I :=
   legacyOf_currentOf (submission I)
 theorem certificateNew_of {I : Images} (E : EncodingFacts) (F : SourceQueries) (P : Pending I) (S : SourceFacts) :
-    SigGolf.Certificate (submissionNew I) 6980 := by
-  have hL : SigGolfCandidate.Legacy.Certificate (legacyOf (submissionNew I)) 6980 := by
+    SigGolf.Certificate (submissionNew I) 6977 := by
+  have hL : SigGolfCandidate.Legacy.Certificate (legacyOf (submissionNew I)) 6977 := by
     rw [legacyOf_submissionNew]
     exact certificate_of E F P S
   have hrun : RunAgrees (submissionNew I) := runAgrees_of_admissible (submissionNew I) hL.admissible
@@ -3412,13 +3412,13 @@ theorem topNodeInput_length (heap n : Nat) (l r : Digest) : (topNodeInput heap n
   simp [topNodeInput, nonceBytes, bytesLE_length]
 theorem wordsOf_topNodeInput (heap n : Nat) (h1 : 1 ≤ heap) (h2 : heap < 4096) (hn : n < 2 ^ 64) (l r : Digest) :
     wordsOf (topNodeInput heap n l r) =
-      [l.extractLsb' 0 64, l.extractLsb' 64 64, BitVec.ofNat 64 heap, 0, BitVec.ofNat 64 n, 0,
+      [l.extractLsb' 0 64, l.extractLsb' 64 64, KeygenLabel.remapWord (BitVec.ofNat 64 heap), 0, BitVec.ofNat 64 n, 0,
         r.extractLsb' 0 64, r.extractLsb' 64 64] := by
   unfold topNodeInput
   rw [wordsOf_append _ _ (by simp [bytesLE_length, nonceBytes]), wordsOf_append _ _ (by simp [bytesLE_length]),
     wordsOf_append _ _ (by simp [bytesLE_length]), wordsOf_bytesLE16, wordsOf_bytesLE16, nonce_words n hn,
     wordsOf_bytesLE16, nodeTweak_3_top 0 heap h1 h2, T3.append64_low]
-  have hhi : (0#64 ++ BitVec.ofNat 64 (nodeLo 0 0 + heap)).extractLsb' 64 64 = 0#64 :=
+  have hhi : (0#64 ++ KeygenLabel.remapWord (BitVec.ofNat 64 (nodeLo 0 0 + heap))).extractLsb' 64 64 = 0#64 :=
     BitVec.extractLsb'_append_eq_left
   rw [hhi]
   simp [nodeLo]
@@ -3431,7 +3431,7 @@ theorem hashInput_topNode (t : MachineState) (heap n : Nat) (h1 : 1 ≤ heap) (h
     (l r : Digest) (h10 : t.getReg .x10 = BitVec.ofNat 64 NODE) (h11 : t.getReg .x11 = BitVec.ofNat 64 64)
     (w0 : t.getMem (BitVec.ofNat 64 NODE) = l.extractLsb' 0 64)
     (w8 : t.getMem (BitVec.ofNat 64 (NODE + 8)) = l.extractLsb' 64 64)
-    (w16 : t.getMem (BitVec.ofNat 64 (NODE + 16)) = BitVec.ofNat 64 heap)
+    (w16 : t.getMem (BitVec.ofNat 64 (NODE + 16)) = KeygenLabel.remapWord (BitVec.ofNat 64 heap))
     (w24 : t.getMem (BitVec.ofNat 64 (NODE + 24)) = 0)
     (w32 : t.getMem (BitVec.ofNat 64 (NODE + 32)) = BitVec.ofNat 64 n)
     (w40 : t.getMem (BitVec.ofNat 64 (NODE + 40)) = 0)
@@ -3477,7 +3477,7 @@ structure T2Facts (t2 : MachineState) (arena heap : Nat) (l r : Digest) : Prop w
   x29 : t2.getReg .x29 = BitVec.ofNat 64 (heap % 2 * 2 ^ 4)
   w0 : t2.getMem (BitVec.ofNat 64 NODE) = l.extractLsb' 0 64
   w8 : t2.getMem (BitVec.ofNat 64 (NODE + 8)) = l.extractLsb' 64 64
-  w16 : t2.getMem (BitVec.ofNat 64 (NODE + 16)) = BitVec.ofNat 64 heap
+  w16 : t2.getMem (BitVec.ofNat 64 (NODE + 16)) = KeygenLabel.remapWord (BitVec.ofNat 64 heap)
   w24 : t2.getMem (BitVec.ofNat 64 (NODE + 24)) = 0
   w40 : t2.getMem (BitVec.ofNat 64 (NODE + 40)) = 0
   w48 : t2.getMem (BitVec.ofNat 64 (NODE + 48)) = r.extractLsb' 0 64
@@ -3667,7 +3667,7 @@ end loop
 
 /-! ## Nodes -/
 /-- Registers the top-tree routine may change (the lower-tree `levRegs` plus KCHK's `a3 a4 a6 a7`). -/
-def topLevRegs : List Reg := [.x6, .x7, .x10, .x11, .x12, .x13, .x14, .x16, .x17, .x20, .x24, .x28, .x29, .x30]
+def topLevRegs : List Reg := [.x3, .x6, .x7, .x10, .x11, .x12, .x13, .x14, .x16, .x17, .x20, .x24, .x28, .x29, .x30]
 
 structure TNodeInv (s0 : MachineState) (B : LevArgs) (ℓ : Nat) (levels : List (List Digest))
     (pre : List Digest) (t : MachineState) : Prop where
@@ -3692,7 +3692,7 @@ def topNodeProg (level heap : Nat) (l r : Digest) : T3.M Digest :=
   if level = 12 then nodeHash 3 0 0 heap l r else Prod.snd <$> topNodeAt level heap l r
 
 /-- Cycle bound of one node at height `h` (`h = 12`: the root, no nonce). -/
-def nodeW (h : Nat) : Nat := if h = 12 then 51 else 77 + 21 * (topNonceCap h - 1)
+def nodeW (h : Nat) : Nat := if h = 12 then 56 else 82 + 21 * (topNonceCap h - 1)
 
 theorem nonceBytes_zero : nonceBytes 0 = zero16 := by decide
 theorem nodeHash_top (heap : Nat) (l r : Digest) :
@@ -3724,12 +3724,12 @@ include hpre htop hh12
 theorem node_prefix {ℓ : Nat} (hl : ℓ < 12) {levels : List (List Digest)} {pre : List Digest}
     (hi : pre.length < 2 ^ (12 - ℓ - 1)) {t : MachineState} (ht : TNodeInv s0 B ℓ levels pre t)
     (hpc : t.pc = pcOf 235) :
-    ∃ t2, Steps image t 28 28 t2 ∧ t2.pc = pcOf 263 ∧
+    ∃ t2, Steps image t 33 33 t2 ∧ t2.pc = pcOf 263 ∧
       t2.getReg .x10 = BitVec.ofNat 64 NODE ∧ t2.getReg .x11 = BitVec.ofNat 64 64 ∧
       t2.getMem (BitVec.ofNat 64 (NODE + 32)) = 0 ∧
       T2Facts t2 B.arena (2 ^ (12 - ℓ - 1) + pre.length) ((levels.getD ℓ []).getD (2 * pre.length) 0)
         ((levels.getD ℓ []).getD (2 * pre.length + 1) 0) ∧
-      RegsExcept t t2 [.x6, .x6, .x7, .x28, .x29, .x30, .x10, .x11, .x12, .x29] ∧
+      RegsExcept t t2 [.x6, .x3, .x6, .x7, .x28, .x29, .x30, .x10, .x11, .x12, .x29] ∧
       Frame t t2 (fun X => X = NODE ∨ X = NODE + 8 ∨ X = NODE + 16 ∨ X = NODE + 24 ∨ X = NODE + 48 ∨
         X = NODE + 56) := by
   have ha := hpre.ha
@@ -3772,11 +3772,12 @@ theorem node_prefix {ℓ : Nat} (hl : ℓ < 12) {levels : List (List Digest)} {p
     have hX' : X < 2 ^ 64 := by rcases hX with h | h <;> (rw [h]; decide)
     rw [t2f.get hX' (by simp only [NODE] at hX ⊢; omega), t1f.get hX' (by simp),
       ht.frame.get hX' (by unfold LevW; rw [hh12]; simp only [NODE, NOUT] at hX has ⊢; omega)]
-  have e16 : t2.getMem (BitVec.ofNat 64 (NODE + 16)) = BitVec.ofNat 64 (lo + i) := by
+  have e16 : t2.getMem (BitVec.ofNat 64 (NODE + 16)) = KeygenLabel.remapWord (BitVec.ofNat 64 (lo + i)) := by
     rw [t2n16, t1r.get (by simp), r21, htop.1, htop.2]
     simp only [nodeLo, if_true, BitVec.ofNat_eq_ofNat, BitVec.zero_shiftLeft, BitVec.or_zero]
-    rw [BitVec.zero_add]
-  have hfr : ∀ r, r ∉ [Reg.x6] → r ∉ [Reg.x6, .x7, .x28, .x29, .x30, .x10, .x11, .x12, .x29] →
+    simp only [BitVec.zero_add]
+    rfl
+  have hfr : ∀ r, r ∉ [Reg.x6] → r ∉ [Reg.x3, .x6, .x7, .x28, .x29, .x30, .x10, .x11, .x12, .x29] →
       t2.getReg r = t.getReg r := fun r h1 h2 => by rw [t2r.get h2, t1r.get h1]
   refine ⟨t2, (st1.trans st2).of_eq (by omega) (by omega), t2pc, t2x10, t2x11, by rw [fr _ (by simp), hpre.z32],
     ⟨by rw [hfr _ (by simp) (by simp)]; exact r2, by rw [hfr _ (by simp) (by simp)]; exact r5, t2x12,
@@ -3786,7 +3787,7 @@ theorem node_prefix {ℓ : Nat} (hl : ℓ < 12) {levels : List (List Digest)} {p
     t1r.trans t2r, (t1f.trans t2f).mono (fun X _ hX => by rcases hX with hX | hX; exact hX.elim; exact hX)⟩
 theorem node_post {ℓ : Nat} (hl : ℓ < 12) {levels : List (List Digest)} {pre : List Digest}
     (hi : pre.length < 2 ^ (12 - ℓ - 1)) {t t2 w : MachineState} (ht : TNodeInv s0 B ℓ levels pre t)
-    (r02 : RegsExcept t t2 [.x6, .x6, .x7, .x28, .x29, .x30, .x10, .x11, .x12, .x29])
+    (r02 : RegsExcept t t2 [.x6, .x3, .x6, .x7, .x28, .x29, .x30, .x10, .x11, .x12, .x29])
     (f02 : Frame t t2 (fun X => X = NODE ∨ X = NODE + 8 ∨ X = NODE + 16 ∨ X = NODE + 24 ∨ X = NODE + 48 ∨
         X = NODE + 56)) {v : Digest} (hw : KokPost t2 B.arena (2 ^ (12 - ℓ - 1) + pre.length) v w) :
     w.pc = pcOf 235 ∧ TNodeInv s0 B ℓ levels (pre ++ [v]) w := by
@@ -3800,7 +3801,7 @@ theorem node_post {ℓ : Nat} (hl : ℓ < 12) {levels : List (List Digest)} {pre
   have hlo1 : 1 ≤ lo := Nat.one_le_two_pow
   have fall : Frame t w (fun X => (X = NODE ∨ X = NODE + 8 ∨ X = NODE + 16 ∨ X = NODE + 24 ∨ X = NODE + 48 ∨
       X = NODE + 56) ∨ KokW B.arena (lo + i) X) := f02.trans hw.frame
-  have gk : ∀ x, x ∉ kokRegs → x ∉ [Reg.x6, .x6, .x7, .x28, .x29, .x30, .x10, .x11, .x12, .x29] →
+  have gk : ∀ x, x ∉ kokRegs → x ∉ [Reg.x6, .x3, .x6, .x7, .x28, .x29, .x30, .x10, .x11, .x12, .x29] →
       w.getReg x = t.getReg x := fun x h1 h2 => by rw [hw.regs.get h1, r02.get h2]
   refine ⟨hw.pc, ⟨?_, ?_, ?_, ?_, ?_, ⟨ht.heap.1, fun l hl' => ?_⟩, ?_⟩⟩
   · rw [gk _ (by decide) (by decide)]; exact ht.x13
@@ -4057,7 +4058,7 @@ open SigGolfCandidate.T3 (Layer Digest buildLeafTopC topFamilyCoefs topTreeStep 
 def kgLeaf (j : Nat) : LeafArgs := ⟨0, 0, j, [], false, ZDIG, DUMMY, TOP + 16 * (4096 + j), 34⟩
 def kgLev : LevArgs := ⟨3, 0, 0, 12, TOP, 39⟩
 theorem kgLeaf_n (j : Nat) : (kgLeaf j).n = 51 := rfl
-theorem kgLev_costs : kgLev.levK = 159782 ∧ kgLev.levC = 188447 ∧ kgLev.levN = 4095 := by decide
+theorem kgLev_costs : kgLev.levK = 180257 ∧ kgLev.levC = 208922 ∧ kgLev.levN = 4095 := by decide
 def W1 (X : Nat) : Prop :=
   X = PRIV + 16 ∨ X = PRIV + 24 ∨ (SEEDS ≤ X ∧ X < SEEDS + 32) ∨ X = CHAIN + 16 ∨ X = CHAIN + 24 ∨
     (CHAIN + 32 ≤ X ∧ X < CHAIN + 112) ∨ (LEAFPK ≤ X ∧ X < LEAFPK + 896) ∨ (LOUT ≤ X ∧ X < LOUT + 32) ∨
@@ -5089,7 +5090,7 @@ theorem pending_of_machine {I : Images} (M : MachineFacts I) : Pending I where
 theorem certificate_of_security {I : Images}
     (expandV6 : SigGolfCandidate.Research.SharedExpansionClosure.ExpandV6Facts) (security : SecurityP)
     (keygenMoment : KeygenMoment) (M : MachineFacts I) :
-    SigGolf.Certificate (submissionNew I) 6980 :=
+    SigGolf.Certificate (submissionNew I) 6977 :=
   certificateNew_of encodingFacts sourceQueries_holds (pending_of_machine M) (sourceFacts_of_securityP expandV6 security keygenMoment)
 end ClaudeWCT.W9.T3M.Final.Paired
 end

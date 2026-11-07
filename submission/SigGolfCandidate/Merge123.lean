@@ -4,7 +4,7 @@ import SigGolfCandidate.Merge090
 import SigGolfCandidate.Merge091
 import SigGolfCandidate.Merge097
 import SigGolfCandidate.Merge122
-set_option debug.skipKernelTC true
+set_option debug.skipKernelTC false
 set_option linter.all false
 
 -- ==== merged from W9Fin_V7_Final ====
@@ -255,7 +255,7 @@ theorem wdc_eq_of_lt (w : WB) (h : (ClaudeWCT.W9.T3M.wdcWord w).toNat < 2 ^ 32) 
     Nat.mod_eq_of_lt h]
 theorem digest_words (rho : Digest) (m : SigGolfCandidate.T3.Message) (c : BitVec 32) :
     wordsOf (digestInput rho m c) =
-      [dlo rho, dhi rho, 0, BitVec.ofNat 64 c.toNat,
+      [dlo rho, dhi rho, 25984, BitVec.ofNat 64 c.toNat,
         m.extractLsb' 0 64, m.extractLsb' 64 64, m.extractLsb' 128 64, m.extractLsb' 192 64] :=
   wordsOf_digestInput rho m c
 abbrev cw (k : Nat) : E := .c (BitVec.ofNat 64 k)
@@ -308,7 +308,7 @@ def rejectPc : Nat := 33511
 def rejSpec (steps : Nat) (brs : List Br) : Spec :=
   ⟨[(.x5, cw 1), (.x10, cw 1)], [], rejectPc, true, steps, brs, none, steps⟩
 def proSpec : Spec :=
-  ⟨[(.x11, cw 64)], [(⟨none, BitVec.ofNat 64 26000⟩, cw 0)], 3, true, 2, [], none, 2⟩
+  ⟨[(.x11, cw 64)], [(⟨none, BitVec.ofNat 64 26000⟩, cw 25984)], 3, true, 2, [], none, 2⟩
 def proPost : List (Reg × Word) :=
   (kPro.filter fun p => p.1 ≠ .x3 ∧ p.1 ≠ .x4 ∧ p.1 ≠ .x11) ++ [(.x11, 64)]
 theorem proCheck : specB [26000] [] [] (runAt kPro [] 1 []) proSpec [] proPost [] = true := by
@@ -317,7 +317,7 @@ structure DgPre (m : SigGolfCandidate.T3.Message) (pk : Digest) (w : WB) (t : Ma
   pc : t.pc = pcOf 3
   known : KnownOK proPost t
   wit : Orig w (fun o => o ≠ 21744) t
-  zw : t.getMem (BitVec.ofNat 64 26000) = 0
+  zw : t.getMem (BitVec.ofNat 64 26000) = 25984
   msg : ∀ k, k < 4 → t.getMem (BitVec.ofNat 64 (MSGADDR + 8 * k)) = m.extractLsb' (64 * k) 64
   pk : PkOK pk t
   zero : ∀ A, A < WIT → (A < 0xA0 ∨ 0xB0 ≤ A) → t.getMem (BitVec.ofNat 64 A) = 0
@@ -361,7 +361,7 @@ theorem digest_tail (m : SigGolfCandidate.T3.Message) (pk : Digest) (w : WB) (s 
       simp only [proSpec, List.mem_singleton] at hp
       subst hp
       exact ⟨rfl, by simpa using fun h => h1 (by omega)⟩
-    have hz : t.getMem (BitVec.ofNat 64 26000) = 0 := by
+    have hz : t.getMem (BitVec.ofNat 64 26000) = 25984 := by
       rw [hm]; simp [proSpec, memEval, Addr.eval, E.eval]
     refine ⟨t, ht.steps, ht.ecall rfl, ?_, ?_, ?_⟩
     · exact hashArgs_of t 25984 64 0 h10 h11 h12 (by decide +kernel) (by decide +kernel) (by decide +kernel) (by decide +kernel) (by decide +kernel)
@@ -781,12 +781,12 @@ theorem verify_good
 
 theorem verify_good_6997
     (hprefix : W9Fin.V7.PrefixGood GatePre)
-    (fts : ∀ w : WB, FtsGoodByCost GatePre FtsOut ftsProgram (fun a => 861 + cost a) (P w))
+    (fts : ∀ w : WB, FtsGoodByCost GatePre FtsOut ftsProgram (fun a => 858 + cost a) (P w))
     (after : AfterGoodBudget FtsOut afterProgram 5246 P)
     (hnone : ∀ pk w i, afterProgram pk w i none = pure false)
     (m : SigGolfCandidate.Legacy.Message) (pk : PublicKey) (w : WB) (s : MachineState)
     (hs : initialState submission .verify (m,pk,w) = some s) :
-    GoodQP (Pre (P w) cost 777 m w) s 10083 15784 True 6895
+    GoodQP (Pre (P w) cost 777 m w) s 10083 15784 True 6892
       (ccM (verifyP ftsProgram afterProgram m pk w) Kb) :=
   verify_good hprefix fts after hnone m pk w s hs
 end
@@ -824,7 +824,7 @@ theorem goodQP_frozen {P : Hash → Prop} {s : MachineState} {N C A : Nat} {Q : 
 
 theorem fts_installed {P : Hash → Prop} :
     FtsGoodByCost W9Drv.SharedGate.Pre installedOut installedFts
-      (fun answer => 861 + SigGolfCandidate.Research.SharedForest.jointAccountingCost answer) P := by
+      (fun answer => 858 + SigGolfCandidate.Research.SharedForest.jointAccountingCost answer) P := by
   intro pk w answer state N C A Q K hstate hnone hnext
   have h := W9Drv.SharedCoord.fts_good (P := P) pk w answer state N C A Q K hstate hnone
     (fun top next hnextState => goodQP_frozen.mpr (hnext top next hnextState))
@@ -841,7 +841,7 @@ theorem installed_verify_good (floors : SigGolfCandidate.T3.Layer → Nat) (hcre
     (hstate : initialState submission .verify (message, pk, witness) = some state) :
     GoodQP (Pre (HashOkBy floors (ClaudeWCT.W9.T3M.wtopHigh witness))
       SigGolfCandidate.Research.SharedForest.jointAccountingCost 777 message witness)
-      state 10083 15784 True 6895
+      state 10083 15784 True 6892
       (ccM (verifyP installedFts SigGolfCandidate.T3M.Verify.afterFts message pk witness) Kb) :=
   verify_good_6997 (P := fun w => HashOkBy floors (ClaudeWCT.W9.T3M.wtopHigh w)) W9Fin.V7.prefixGood
     (fun _ => fts_installed) (after_installed floors hcredit)
@@ -903,7 +903,7 @@ abbrev pairedSubmission := ClaudeWCT.W9.T3M.Paired.submission
 def Inputs : Prop := ∀ (floors : SigGolfCandidate.T3.Layer→Nat), CreditFloors floors →
   ∀ (m : SigGolfCandidate.Legacy.Message) (pk : PublicKey) (w : Bytes 21756) (s : MachineState),
   initialState SigGolfCandidate.T3M.submission .verify (m,pk,w)=some s →
-  GoodQP (fun hash => HashOkBy floors (ClaudeWCT.W9.T3M.wtopHigh w) hash ∧ DigestCapOk hash m w) s 10083 15784 True 6895
+  GoodQP (fun hash => HashOkBy floors (ClaudeWCT.W9.T3M.wtopHigh w) hash ∧ DigestCapOk hash m w) s 10083 15784 True 6892
     (ccM (ClaudeWCT.W9.T3M.Paired.verifyP m pk w) Kb)
 
 theorem init_paired (I : ClaudeWCT.W9.T3M.Images) (hI : I.verify=Images.verifyImage)

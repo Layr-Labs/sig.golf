@@ -1642,7 +1642,7 @@ structure Searched (s0:MachineState) (b:SharedCodec.CBytes)
     | none => True
     | some _ => s.getReg .x17=BitVec.ofNat 64 SigGolfCandidate.T3M.Search.NBUF
 
-theorem search_prepared {im:Image} {sk:BitVec 256}
+theorem search_prepared {im:Image} {sk:BitVec 256} [DigestLabel.Code im true]
     (hl:SigGolfCandidate.T3M.Verify.LookOK im (SharedDigest.look true))
     {s0 s:MachineState} {message:SigGolfCandidate.T3.Message} {b:SharedCodec.CBytes}
     (hp:Prepared s0 message b s) :
@@ -1721,6 +1721,22 @@ set_option maxRecDepth 10000
 /-- T51: the expander's slots of layer `lay` (#938's lower-layer slots kept; the top path follows the 51 values):
 digest `layIdx lay + i` sits at slot `internalFullIndex (layIdx lay) + i`, and the forest code's move by 19 slots puts
 slot 118 at `lP 0 = 30864`. -/
+theorem internalFullIndex_after88 (k : Nat) (hk : 88 ≤ k) :
+    SharedCodec.internalFullIndex k = k + 4 + (if 177 ≤ k then 3 else 0) := by
+  unfold SharedCodec.internalFullIndex
+  rw [if_pos (by omega : 13 ≤ k), if_pos (by omega : 38 ≤ k),
+    if_pos (by omega : 63 ≤ k), if_pos hk]
+
+theorem internalFullIndex_add_after88 (k i : Nat) (hk : 88 ≤ k)
+    (hsegment : k + i < 177 ∨ 177 ≤ k) :
+    SharedCodec.internalFullIndex (k+i) = SharedCodec.internalFullIndex k + i := by
+  rw [internalFullIndex_after88 k hk, internalFullIndex_after88 (k+i) (by omega)]
+  rcases hsegment with h | h
+  · rw [if_neg (by omega : ¬177 ≤ k+i), if_neg (by omega : ¬177 ≤ k)]
+    omega
+  · rw [if_pos (by omega : 177 ≤ k+i), if_pos h]
+    omega
+
 theorem lP_shared (lay : Layer) :
     SigGolfCandidate.T3M.Expand.lP lay=30864+16*(SharedCodec.internalFullIndex (SharedCodec.layIdx lay)-118) ∧
     118 ≤ SharedCodec.internalFullIndex (SharedCodec.layIdx lay) ∧
@@ -1729,8 +1745,9 @@ theorem lP_shared (lay : Layer) :
       SharedCodec.internalFullIndex (SharedCodec.layIdx lay+i)=SharedCodec.internalFullIndex (SharedCodec.layIdx lay)+i := by
   fin_cases lay <;> refine ⟨rfl,by decide,by decide,?_⟩ <;> intro i hi <;>
     simp only [chainCount,height,SharedCodec.layIdx,Fin.zero_eta,Fin.mk_one,Fin.reduceFinMk,
-      Matrix.cons_val_zero,Matrix.cons_val_one,Matrix.head_cons,Matrix.cons_val] at hi ⊢ <;>
-    unfold SharedCodec.internalFullIndex <;> split_ifs <;> omega
+      Matrix.cons_val_zero,Matrix.cons_val_one,Matrix.head_cons,Matrix.cons_val] at hi ⊢
+  all_goals apply internalFullIndex_add_after88 <;> omega
+
 
 theorem inflated_main (b : SharedCodec.CBytes) (lay : Layer) (i : Nat) (hi : i<chainCount lay+height lay) :
     SharedCodec.inflatedRead (0 : Digest) (SharedCodec.digC b) (SharedCodec.internalFullIndex (SharedCodec.layIdx lay)+i)=
@@ -2697,7 +2714,7 @@ theorem submission_keygen_valid :
   rw [submission_keygen, submission_sizes, submission_layout]
   rw [Riscv.Image.Valid]
   rw [Riscv.Image.byteSize,
-    show Images.keygenImage.code.length = 1177 from Images.keygenCode_length,
+    show Images.keygenImage.code.length = 1184 from Images.keygenCode_length,
     show Images.keygenImage.data.length = 0 from Images.keygenData_length]
   rw [layoutValid_of_data_length _ _ _ 0 Images.keygenData_length]
   decide +kernel
@@ -2706,7 +2723,7 @@ theorem submission_sign_valid :
   rw [submission_sign, submission_sizes, submission_layout]
   rw [Riscv.Image.Valid]
   rw [Riscv.Image.byteSize,
-    show Images.signImage.code.length = 25562 from Images.signCode_length,
+    show Images.signImage.code.length = 25696 from Images.signCode_length,
     show Images.signImage.data.length = 86144 from Images.signData_length]
   rw [layoutValid_of_data_length _ _ _ 86144 Images.signData_length]
   decide +kernel
@@ -2768,7 +2785,7 @@ theorem submission_keygen_valid :
   rw [submission_keygen, submission_sizes, submission_layout]
   rw [Riscv.Image.Valid]
   rw [Riscv.Image.byteSize,
-    show Images.keygenImage.code.length = 1177 from Images.keygenCode_length,
+    show Images.keygenImage.code.length = 1184 from Images.keygenCode_length,
     show Images.keygenImage.data.length = 0 from Images.keygenData_length]
   rw [layoutValid_of_data_length _ _ _ 0 Images.keygenData_length]
   decide +kernel
@@ -2777,7 +2794,7 @@ theorem submission_sign_valid :
   rw [submission_sign, submission_sizes, submission_layout]
   rw [Riscv.Image.Valid]
   rw [Riscv.Image.byteSize,
-    show Images.signImage.code.length = 25562 from Images.signCode_length,
+    show Images.signImage.code.length = 25696 from Images.signCode_length,
     show Images.signImage.data.length = 86144 from Images.signData_length]
   rw [layoutValid_of_data_length _ _ _ 86144 Images.signData_length]
   decide +kernel

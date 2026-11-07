@@ -134,10 +134,10 @@ theorem lvl_coreC {im : Image} {j : Nat} (hj : j < 128) (hcode : CopyCodeAt im j
     · rw [Nat.add_assoc, tS _ (by omega) (by omega) (by omega)]
   have hx15 : s.getReg .x15 = BitVec.ofNat 64 (w0n k index) :=
     (hkeep .x15 (by decide) (by decide) (by decide) (by decide)).trans hu.w0
-  have hw0 : 1537 ≤ w0n k index ∧ w0n k index < 2 ^ 64 := by
+  have hw0 : 0 ≤ w0n k index ∧ w0n k index < 2 ^ 64 := by
     have := Nat.mod_lt index (show 0 < 2 ^ 31 by norm_num)
     have := Nat.mod_lt k (show 0 < 16 by norm_num)
-    unfold w0n V3.nodeLow ClaudeWCT.WCT9.ftsLeafLow
+    unfold w0n V3.nodeLow ClaudeWCT.WCT9.ftsLeafLow SigGolfCandidate.T3.ftsBias
     omega
   have hhdr : DigAt t (B + blkO j l + 16) (nodeHeader k index (heapOf l j) (hpOf j tws l)) := by
     by_cases h3 : l ≤ 3
@@ -149,7 +149,7 @@ theorem lvl_coreC {im : Image} {j : Nat} (hj : j < 128) (hcode : CopyCodeAt im j
         rw [addC_eval]
         simp only [E.eval]
         rw [hx15]
-        exact ofNat_add_neg _ _ (by omega) hw0.2 (by omega)
+        exact ofNat_add_neg_wrap _ _ (by omega)
       · rw [show B + blkO j l + 16 + 8 = B + blkO j l + 24 by omega, hdr11_hi, if_pos hpk]
         rw [hmem _ (by omega), if_neg (fun h => h.2 h3), if_neg (by omega),
           show B + blkO j l + 24 = B + (blkO j l + 24) by omega,
@@ -165,9 +165,10 @@ theorem lvl_coreC {im : Image} {j : Nat} (hj : j < 128) (hcode : CopyCodeAt im j
           if_neg hnp, hx15]
       · rw [show B + blkO j l + 16 + 8 = B + blkO j l + 24 by omega, hmem _ (by omega),
           if_pos ⟨rfl, h3⟩, hdr11_hi, if_neg hnp]
-        have hr := heapReg_eval (s := s) (l := l) hj (by omega) (by omega) (fun h h1 h7 => by
-          obtain ⟨n3, n10, n11, n12⟩ := heapReg_ne h
-          rw [hkeep _ n3 n10 n11 n12]; exact hu.heaps h h1 h7)
+        have hs64 : s.getReg .x11 = BitVec.ofNat 64 64 := hs.a1 (by omega)
+        have hr := heapReg_eval (s := s) (l := l) hj (by omega) (by omega) hs64 (fun h h1 h6 => by
+          obtain ⟨n3, n10, n11, n12⟩ := heapReg_ne h h6
+          rw [hkeep _ n3 n10 n11 n12]; exact hu.heaps h h1 h6)
         exact hr
   have hin : hashInput t = toQ (pad64 (nodeIn k index j pads (hpOf j tws) sibs v l)) := by
     unfold nodeIn

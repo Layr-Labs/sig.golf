@@ -1,7 +1,7 @@
 import SigGolfCandidate.Merge050
 import SigGolfCandidate.Merge058
 import SigGolfCandidate.Merge059
-set_option debug.skipKernelTC true
+set_option debug.skipKernelTC false
 set_option linter.all false
 
 -- ==== merged from T3M_Expand_Blocks ====
@@ -120,8 +120,35 @@ theorem codeAt_expand_last {b : Nat} {code : List (BitVec 32)}
   rw [← expandCodeTailLast_eq b hlo]
   exact hc
 
+universe u
+inductive AppendAssociationTree (α : Type u) where
+  | atom : List α → AppendAssociationTree α
+  | node : AppendAssociationTree α → AppendAssociationTree α → AppendAssociationTree α
+namespace AppendAssociationTree
+def eval {α : Type u} : AppendAssociationTree α → List α
+  | .atom xs => xs
+  | .node l r => eval l ++ eval r
+def right {α : Type u} : AppendAssociationTree α → Option (List α) → List α
+  | .atom xs, none => xs
+  | .atom xs, some ys => xs ++ ys
+  | .node l r, acc => right l (some (right r acc))
+theorem right_spec {α : Type u} (t : AppendAssociationTree α) (acc : Option (List α)) :
+    right t acc = match acc with | none => eval t | some xs => eval t ++ xs := by
+  induction t generalizing acc with
+  | atom xs => cases acc <;> rfl
+  | node l r ihl ihr =>
+    rw [right, ihl, ihr]
+    cases acc <;> simp only [eval, List.append_assoc]
+end AppendAssociationTree
+
 section RassocExpand172
-open Lean Elab Command
+open Lean Meta Elab Command
+
+partial def reflectAppend (e : Expr) : MetaM Expr := do
+  if e.isAppOfArity ``HAppend.hAppend 6 then
+    let a := e.getAppArgs
+    mkAppM ``AppendAssociationTree.node #[← reflectAppend a[4]!, ← reflectAppend a[5]!]
+  else mkAppM ``AppendAssociationTree.atom #[e]
 
 /-- Right-associate the `++` spine of `e` (leaves untouched); `mk l r` rebuilds `l ++ r`. -/
 partial def rassocSpine (mk : Expr → Expr → Expr) : Expr → Option Expr → Expr
@@ -139,11 +166,15 @@ elab "rassoc_def " n:ident " := " c:ident : command => do
   let cn ← liftCoreM <| realizeGlobalConstNoOverloadWithInfo c
   let info ← getConstInfo cn
   let v := info.value!
+  let tree ← liftTermElabM do instantiateMVars (← reflectAppend v)
+  let treeTy ← liftTermElabM do inferType tree
   let v' := if v.isAppOfArity ``HAppend.hAppend 6 then
       let args := v.getAppArgs
       rassocSpine (fun l r => mkAppN v.getAppFn #[args[0]!, args[1]!, args[2]!, args[3]!, l, r]) v none
     else v
   let name := (← getCurrNamespace) ++ n.getId
+  liftCoreM <| addDecl <| Declaration.defnDecl <|
+    mkDefinitionValEx (name ++ `tree) [] treeTy tree .abbrev .safe []
   liftCoreM <| addDecl <| Declaration.defnDecl <|
     mkDefinitionValEx name [] info.type v' .abbrev .safe [name]
 
@@ -155,8 +186,7 @@ set_option maxHeartbeats 0 in
 set_option maxRecDepth 1000000 in
 /-- The right-associated expand tail is the image's last chunk. -/
 theorem expandCode_172_eq_R : Images.expandCode_172 = expandCode172R := by
-  unfold Images.expandCode_172 expandCode172R
-  simp (config := { maxSteps := 10000000 }) only [List.append_assoc]
+  exact (AppendAssociationTree.right_spec expandCode172R.tree none).symm
 
 /-- `codeAt_expand_last`, reading the window from the right-associated tail (cheap for the kernel). -/
 theorem codeAt_expand_lastR {b : Nat} {code : List (BitVec 32)}

@@ -6565,7 +6565,7 @@ theorem hasTag_padded (front back : HashInput) (hfront : front.length=16)
 def RowHdr (hdr : BitVec 128) : Prop := tweakMarker hdr = 1 ∧ tweakTag hdr = 2 ∧ tweakHigh hdr = 1
 /-- Search headers: the digest header (C4: whole low word 0, since top labels `256 k` have marker byte 0) or a row
 header. -/
-def SearchHdr (hdr : BitVec 128) : Prop := (tweakMarker hdr = 0 ∧ tweakLow hdr = 0) ∨ RowHdr hdr
+def SearchHdr (hdr : BitVec 128) : Prop := (tweakMarker hdr = 128 ∧ tweakLow hdr = 25984) ∨ RowHdr hdr
 def RowQ (input : HashInput) : Prop := ∃ hdr, queryHeader input = bytesLE 16 hdr ∧ RowHdr hdr
 def SearchQ (input : HashInput) : Prop := ∃ hdr, queryHeader input = bytesLE 16 hdr ∧ SearchHdr hdr
 theorem RowQ.searchQ {input : HashInput} (h : RowQ input) : SearchQ input :=
@@ -6587,8 +6587,20 @@ theorem header_not_search (tag lay tree position index : Nat) (ht : tag % 256 �
  unfold SearchHdr RowHdr; rw [header_marker, header_tag]; omega
 theorem chainHeader_not_search (lay : Layer) (tree leaf i step : Nat) :
  ¬ SearchHdr (chainHeader lay tree leaf i step) := by
- have := chainHeader_tweakMarker lay tree leaf i step
- unfold SearchHdr RowHdr; omega
+ have hm := chainHeader_tweakMarker lay tree leaf i step
+ have hd := chainHeader_ne_digestHeader lay tree leaf i step
+ have hl : tweakLow (chainHeader lay tree leaf i step) ≠ 25984 := by
+   intro he
+   have hc := chainHeader_marker lay tree leaf i step
+   unfold tweakLow at he
+   have hx : (chainHeader lay tree leaf i step).toNat / 2^56 % 256 =
+       ((chainHeader lay tree leaf i step).toNat % 2^64) / 2^56 := by
+     rw [show (2:Nat)^64 = 2^56*256 by decide, Nat.mod_mul_right_div_self]
+   rw [hx, he] at hc
+   norm_num at hc
+ unfold SearchHdr RowHdr
+ omega
+
 theorem leafTweak_not_search (lay : Layer) (tree leaf : Nat) : ¬ SearchHdr (leafTweak lay tree leaf) := by
  unfold SearchHdr RowHdr; rw [leafTweak_marker, leafTweak_high]; omega
 theorem digestHeader_not_row (counter : BitVec 32) : ¬ RowHdr (digestHeader counter) := by
@@ -6599,7 +6611,8 @@ theorem nodeTweak_not_search (tag lay tree heap : Nat) (htag : tag % 256 ≠ 2)
  · obtain ⟨rfl, h4⟩ := h
    by_cases h0 : lay = 0
    · subst h0; unfold SearchHdr RowHdr; rw [nodeTweak_top_low, nodeTweak_top_high]
-     have := topNodeWord_pos heap
+     have := nodeTweak_low_ne_digest 3 0 tree heap
+     rw [nodeTweak_top_low] at this
      omega
    · have hh := hroot rfl (by omega) h4
      unfold SearchHdr RowHdr
@@ -11499,7 +11512,7 @@ theorem withHigh_nodeTweak_zero (tag lay tree heap : Nat) :
     · obtain ⟨rfl, h4, h13, hn⟩ := hf
       rw [nodeTweak_ftsN h4 h13 tree hn, append64_low]
       rfl
-    · omega
+    all_goals omega
   · rfl
 /-- FTS node input with a witness-supplied high tweak word (ignored for marked tweaks). -/
 def nodeInputPH (tag lay tree heap : Nat) (left : Digest) (hp : BitVec 64) (pad right : Digest) : HashInput :=
@@ -12018,32 +12031,55 @@ section
 
 namespace SigGolfCandidate.T3M.Extract
 open SigGolfCandidate.T3
+def ftsChainMark (hdr : HashInput) : Prop :=
+  (hdr.getD 0 0).toNat < 4 ∧ 250 ≤ (hdr.getD 1 0).toNat ∧ (hdr.getD 1 0).toNat < 256
+instance (hdr : HashInput) : Decidable (ftsChainMark hdr) := inferInstanceAs (Decidable (_ ∧ _ ∧ _))
+def headerMarked (hdr : HashInput) : Prop :=
+  (128 ≤ (hdr.getD 0 0).toNat ∨ ftsChainMark hdr) ∧
+    hdr.take 8 ≠ SphincsSecurity.bytesLE 8 (25984#64)
+instance (hdr : HashInput) : Decidable (headerMarked hdr) := inferInstanceAs (Decidable ((_ ∨ _) ∧ _))
 def canonicalHeader (hdr : HashInput) : HashInput :=
-  if 128 ≤ (hdr.getD 0 0).toNat then hdr.take 8 ++ List.replicate 8 0 else hdr
-@[simp] theorem canonicalHeader_unmarked (hdr : HashInput) (h : ¬128 ≤ (hdr.getD 0 0).toNat) :
-    canonicalHeader hdr = hdr := by
+  if headerMarked hdr then hdr.take 8 ++ List.replicate 8 0 else hdr
+@[simp] theorem canonicalHeader_unmarked (hdr : HashInput) (h : ¬128 ≤ (hdr.getD 0 0).toNat)
+    (hf : ¬ ftsChainMark hdr) : canonicalHeader hdr = hdr := by
   unfold canonicalHeader
-  rw [if_neg h]
+  rw [if_neg (by simp only [headerMarked]; tauto)]
 theorem canonicalHeader_marked (low pad : HashInput) (hlen : low.length = 8)
-    (hmark : 128 ≤ (low.getD 0 0).toNat) :
+    (hmark : 128 ≤ (low.getD 0 0).toNat)
+    (hne : low ≠ SphincsSecurity.bytesLE 8 (25984#64)) :
     canonicalHeader (low ++ pad) = low ++ List.replicate 8 0 := by
   have hm : 128 ≤ ((low ++ pad).getD 0 0).toNat := by
     simpa only [List.getD_eq_getElem?_getD,
       List.getElem?_append_left (show 0 < low.length by omega)] using hmark
   unfold canonicalHeader
-  rw [if_pos hm]
+  rw [if_pos (show headerMarked (low ++ pad) from ⟨Or.inl hm, by simpa [List.take_append, hlen] using hne⟩)]
+  simp [List.take_append, hlen]
+theorem canonicalHeader_fts_marked (low pad : HashInput) (hlen : low.length = 8)
+    (hmark : ftsChainMark low) :
+    canonicalHeader (low ++ pad) = low ++ List.replicate 8 0 := by
+  have hm : ftsChainMark (low ++ pad) := by
+    simpa only [ftsChainMark, List.getD_eq_getElem?_getD,
+      List.getElem?_append_left (show 0 < low.length by omega),
+      List.getElem?_append_left (show 1 < low.length by omega)] using hmark
+  have hne : low ≠ SphincsSecurity.bytesLE 8 (25984#64) := by
+    intro he
+    rw [he] at hmark
+    have hfirst := hmark.1
+    have hd : ((SphincsSecurity.bytesLE 8 (25984#64)).getD 0 0).toNat = 128 := by decide +kernel
+    rw [hd] at hfirst
+    omega
+  unfold canonicalHeader
+  rw [if_pos (show headerMarked (low ++ pad) from ⟨Or.inr hm, by simpa [List.take_append, hlen] using hne⟩)]
   simp [List.take_append, hlen]
 theorem canonicalHeader_pad_irrelevant (low pad pad' : HashInput) (hlen : low.length = 8)
-    (hmark : 128 ≤ (low.getD 0 0).toNat) :
+    (hmark : 128 ≤ (low.getD 0 0).toNat)
+    (hne : low ≠ SphincsSecurity.bytesLE 8 (25984#64)) :
     canonicalHeader (low ++ pad) = canonicalHeader (low ++ pad') := by
-  rw [canonicalHeader_marked low pad hlen hmark, canonicalHeader_marked low pad' hlen hmark]
+  rw [canonicalHeader_marked low pad hlen hmark hne, canonicalHeader_marked low pad' hlen hmark hne]
 theorem canonicalHeader_zero_pad (low : HashInput) (hlen : low.length = 8) :
     canonicalHeader (low ++ List.replicate 8 0) = low ++ List.replicate 8 0 := by
-  by_cases hm : 128 ≤ (low.getD 0 0).toNat
-  · exact canonicalHeader_marked low _ hlen hm
-  · apply canonicalHeader_unmarked
-    simpa only [List.getD_eq_getElem?_getD,
-      List.getElem?_append_left (show 0 < low.length by omega)] using hm
+  unfold canonicalHeader
+  split_ifs <;> simp [List.take_append, hlen]
 end SigGolfCandidate.T3M.Extract
 end
 -- ==== merged from T3M_Extract_Basic ====
