@@ -29,8 +29,8 @@ def heapOf (l j : Nat) : Nat := 2 ^ (6 - l) + j / 2 ^ (l + 1)
 def w0n (k index : Nat) : Nat := W9Machine.V3.nodeLow k index
 def heapReg (h : Nat) : Reg :=
   match h with
-  | 1 => .x9 | 2 => .x13 | 3 => .x19 | 4 => .x20 | 5 => .x21 | 6 => .x26 | _ => .x30
-def heapRegN (h : Nat) : Nat := [0,9,13,19,20,21,26,30].getD h 30
+  | 1 => .x9 | 2 => .x13 | 3 => .x19 | 4 => .x20 | 5 => .x21 | 6 => .x26 | 7 => .x11 | _ => .x30
+def heapRegN (h : Nat) : Nat := [0,9,13,19,20,21,26,11].getD h 30
 def encI (rd rs1 imm : Nat) : BitVec 32 := BitVec.ofNat 32 (imm % 4096 * 2 ^ 20 + rs1 * 2 ^ 15 + rd * 2 ^ 7 + 0x13)
 def encS (f3 rs2 off rs1 : Nat) : BitVec 32 :=
   BitVec.ofNat 32 (off / 32 * 2 ^ 25 + rs2 * 2 ^ 20 + rs1 * 2 ^ 15 + f3 * 2 ^ 12 + off % 32 * 2 ^ 7 + 0x23)
@@ -189,7 +189,7 @@ structure ChildPre (j B k index : Nat) (leaf pads sibs tws : Nat → Digest) (u 
   a0 : u.getReg .x10 = BitVec.ofNat 64 (B + leafO)
   a1 : u.getReg .x11 = BitVec.ofNat 64 128
   w0 : u.getReg .x15 = BitVec.ofNat 64 (w0n k index)
-  heaps : ∀ h, 2 ≤ h → h ≤ 7 → u.getReg (heapReg h) = BitVec.ofNat 64 h
+  heaps : ∀ h, 2 ≤ h → h ≤ 6 → u.getReg (heapReg h) = BitVec.ofNat 64 h
   leafAt : ∀ i, i < 8 → DigAt u (B + leafO + 16 * i) (leaf i)
   padAt : ∀ l, l < 6 → DigAt u (B + padO j l) (pads l)
   sibAt : ∀ l, l < 6 → DigAt u (B + sibO l j) (sibs l)
@@ -256,8 +256,8 @@ theorem lvlRegs_other (j l : Nat) (r : Reg) (h3 : r ≠ .x3) (h10 : r ≠ .x10) 
   simp only
   split_ifs <;> simp only [RegFile.get_set_ne _ _ h3, RegFile.get_set_ne _ _ h10, RegFile.get_set_ne _ _ h11,
     RegFile.get_set_ne _ _ h12]
-theorem heapReg_ne (h : Nat) : heapReg h ≠ .x3 ∧ heapReg h ≠ .x10 ∧ heapReg h ≠ .x11 ∧ heapReg h ≠ .x12 := by
-  unfold heapReg; split <;> decide
+theorem heapReg_ne (h : Nat) (hh : h ≤ 6) : heapReg h ≠ .x3 ∧ heapReg h ≠ .x10 ∧ heapReg h ≠ .x11 ∧ heapReg h ≠ .x12 := by
+  interval_cases h <;> decide
 theorem lvlMem_get {s : MachineState} {B : Nat} (hB : s.getReg .x8 = BitVec.ofNat 64 B)
     (hb : B + 1024 < 2 ^ 64) (j : Nat) (hj : j < 128) (l A : Nat) (hl : l < 6) (hA : A < 2 ^ 64) :
     memEval s (lvlMem j l) (BitVec.ofNat 64 A) =
@@ -281,10 +281,15 @@ theorem lvlMem_get {s : MachineState} {B : Nat} (hB : s.getReg .x8 = BitVec.ofNa
     rw [memEval_cons, memEval_cons, memEval_nil, aX8_eval hB, aX8_eval hB]
     simp only [← Nat.add_assoc, E.eval, e24, e16, h3, false_imp_iff, and_true]
 theorem heapReg_eval {s : MachineState} {j l : Nat} (hj : j < 128) (hl4 : 4 ≤ l) (hl : l ≤ 5)
-    (hheap : ∀ h, 2 ≤ h → h ≤ 7 → s.getReg (heapReg h) = BitVec.ofNat 64 h) :
-    s.getReg (heapReg (heapOf l j)) = BitVec.ofNat 64 (heapOf l j) := by
+    (h64 : s.getReg .x11 = BitVec.ofNat 64 64)
+    (hheap : ∀ h, 2 ≤ h → h ≤ 6 → s.getReg (heapReg h) = BitVec.ofNat 64 h) :
+    s.getReg (heapReg (heapOf l j)) = BitVec.ofNat 64 (SigGolfCandidate.T3.ftsHeapLabel (heapOf l j)) := by
   have hb := heapOf_low j l hj hl4 hl
-  exact hheap _ hb.1 hb.2
+  by_cases he : heapOf l j = 7
+  · simpa [he, heapReg, SigGolfCandidate.T3.ftsHeapLabel] using h64
+  · have h6 : heapOf l j ≤ 6 := by omega
+    rw [show SigGolfCandidate.T3.ftsHeapLabel (heapOf l j) = heapOf l j by simp [SigGolfCandidate.T3.ftsHeapLabel, he, show heapOf l j ≠ 64 by omega]]
+    exact hheap _ hb.1 h6
 theorem frame_writeHash4 (t : MachineState) (a : BitVec 256) (d : Nat)
     (h12 : t.getReg .x12 = BitVec.ofNat 64 d) (hd : d + 32 < 2 ^ 64) :
     Frame t (writeHash t a) (fun A => A = d ∨ A = d + 8 ∨ A = d + 16 ∨ A = d + 24) := by
@@ -353,7 +358,7 @@ theorem hdr11_lo (k index heap : Nat) (hp : BitVec 64) :
   unfold nodeHeader V3.nodeHdr w0n
   split <;> exact BitVec.extractLsb'_append_eq_right
 theorem hdr11_hi (k index heap : Nat) (hp : BitVec 64) :
-    (nodeHeader k index heap hp).extractLsb' 64 64 = if 8 ≤ heap ∧ heap < 128 then hp else BitVec.ofNat 64 heap := by
+    (nodeHeader k index heap hp).extractLsb' 64 64 = if 8 ≤ heap ∧ heap < 128 then hp else BitVec.ofNat 64 (SigGolfCandidate.T3.ftsHeapLabel heap) := by
   unfold nodeHeader V3.nodeHdr
   split <;> exact BitVec.extractLsb'_append_eq_left
 theorem ofNat_add_neg (a h : Nat) (hh : h ≤ a) (ha : a < 2 ^ 64) (hh0 : 0 < h) :
@@ -456,7 +461,7 @@ theorem lvl_core {im : Image} {j : Nat} (hj : j < 128) (hcode : ChildCodeAt im j
   have hw0 : 1537 ≤ w0n k index ∧ w0n k index < 2 ^ 64 := by
     have := Nat.mod_lt index (show 0 < 2 ^ 31 by norm_num)
     have := Nat.mod_lt k (show 0 < 16 by norm_num)
-    unfold w0n V3.nodeLow ClaudeWCT.WCT9.ftsLeafLow
+    unfold w0n V3.nodeLow ClaudeWCT.WCT9.ftsLeafLow SigGolfCandidate.T3.ftsBias
     omega
   have hhdr : DigAt t (B + blkO j l + 16) (nodeHeader k index (heapOf l j) (hpOf j tws l)) := by
     by_cases h3 : l ≤ 3
@@ -492,9 +497,10 @@ theorem lvl_core {im : Image} {j : Nat} (hj : j < 128) (hcode : ChildCodeAt im j
           if_neg hnp, hx15]
       · rw [show B + blkO j l + 16 + 8 = B + blkO j l + 24 by omega, hmem _ (by omega),
           if_pos ⟨rfl, fun h => absurd h h3⟩, if_neg h3, hdr11_hi, if_neg hnp]
-        have hr := heapReg_eval (s := s) (l := l) hj (by omega) (by omega) (fun h h1 h7 => by
-          obtain ⟨n3, n10, n11, n12⟩ := heapReg_ne h
-          rw [hkeep _ n3 n10 n11 n12]; exact hu.heaps h h1 h7)
+        have hs64 : s.getReg .x11 = BitVec.ofNat 64 64 := hs.a1 (by omega)
+        have hr := heapReg_eval (s := s) (l := l) hj (by omega) (by omega) hs64 (fun h h1 h6 => by
+          obtain ⟨n3, n10, n11, n12⟩ := heapReg_ne h h6
+          rw [hkeep _ n3 n10 n11 n12]; exact hu.heaps h h1 h6)
         exact hr
   have hin : hashInput t = toQ (pad64 (nodeIn k index j pads (hpOf j tws) sibs v l)) := by
     unfold nodeIn
@@ -927,8 +933,8 @@ def heapOf (l j : Nat) : Nat := 2 ^ (6 - l) + j / 2 ^ (l + 1)
 def w0n (k index : Nat) : Nat := W9Machine.V3.nodeLow k index
 def heapReg (h : Nat) : Reg :=
   match h with
-  | 1 => .x9 | 2 => .x13 | 3 => .x19 | 4 => .x20 | 5 => .x21 | 6 => .x26 | _ => .x30
-def heapRegN (h : Nat) : Nat := [0,9,13,19,20,21,26,30].getD h 30
+  | 1 => .x9 | 2 => .x13 | 3 => .x19 | 4 => .x20 | 5 => .x21 | 6 => .x26 | 7 => .x11 | _ => .x30
+def heapRegN (h : Nat) : Nat := [0,9,13,19,20,21,26,11].getD h 30
 def encI (rd rs1 imm : Nat) : BitVec 32 := BitVec.ofNat 32 (imm % 4096 * 2 ^ 20 + rs1 * 2 ^ 15 + rd * 2 ^ 7 + 0x13)
 def encS (f3 rs2 off rs1 : Nat) : BitVec 32 :=
   BitVec.ofNat 32 (off / 32 * 2 ^ 25 + rs2 * 2 ^ 20 + rs1 * 2 ^ 15 + f3 * 2 ^ 12 + off % 32 * 2 ^ 7 + 0x23)
@@ -1103,7 +1109,7 @@ structure ChildPre (j B k index : Nat) (leaf pads sibs tws : Nat → Digest) (u 
   a0 : u.getReg .x10 = BitVec.ofNat 64 (B + leafO)
   a1 : u.getReg .x11 = BitVec.ofNat 64 128
   w0 : u.getReg .x15 = BitVec.ofNat 64 (w0n k index)
-  heaps : ∀ h, 2 ≤ h → h ≤ 7 → u.getReg (heapReg h) = BitVec.ofNat 64 h
+  heaps : ∀ h, 2 ≤ h → h ≤ 6 → u.getReg (heapReg h) = BitVec.ofNat 64 h
   leafAt : ∀ i, i < 8 → DigAt u (B + leafO + 16 * i) (leaf i)
   padAt : ∀ l, l < 6 → DigAt u (B + padO j l) (pads l)
   sibAt : ∀ l, l < 6 → DigAt u (B + sibO l j) (sibs l)
@@ -1170,8 +1176,8 @@ theorem lvlRegs_other (j l : Nat) (r : Reg) (h3 : r ≠ .x3) (h10 : r ≠ .x10) 
   simp only
   split_ifs <;> simp only [RegFile.get_set_ne _ _ h3, RegFile.get_set_ne _ _ h10, RegFile.get_set_ne _ _ h11,
     RegFile.get_set_ne _ _ h12]
-theorem heapReg_ne (h : Nat) : heapReg h ≠ .x3 ∧ heapReg h ≠ .x10 ∧ heapReg h ≠ .x11 ∧ heapReg h ≠ .x12 := by
-  unfold heapReg; split <;> decide
+theorem heapReg_ne (h : Nat) (hh : h ≤ 6) : heapReg h ≠ .x3 ∧ heapReg h ≠ .x10 ∧ heapReg h ≠ .x11 ∧ heapReg h ≠ .x12 := by
+  interval_cases h <;> decide
 theorem lvlMem_get {s : MachineState} {B : Nat} (hB : s.getReg .x8 = BitVec.ofNat 64 B)
     (hb : B + 1024 < 2 ^ 64) (j : Nat) (hj : j < 128) (l A : Nat) (hl : l < 6) (hA : A < 2 ^ 64) :
     memEval s (lvlMem j l) (BitVec.ofNat 64 A) =
@@ -1190,10 +1196,15 @@ theorem lvlMem_get {s : MachineState} {B : Nat} (hB : s.getReg .x8 = BitVec.ofNa
     rw [memEval_cons, memEval_cons, memEval_nil, aX8_eval hB, aX8_eval hB]
     simp only [← Nat.add_assoc, E.eval, e24, e16, h3, not_false_eq_true, and_true]
 theorem heapReg_eval {s : MachineState} {j l : Nat} (hj : j < 128) (hl4 : 4 ≤ l) (hl : l ≤ 5)
-    (hheap : ∀ h, 2 ≤ h → h ≤ 7 → s.getReg (heapReg h) = BitVec.ofNat 64 h) :
-    s.getReg (heapReg (heapOf l j)) = BitVec.ofNat 64 (heapOf l j) := by
+    (h64 : s.getReg .x11 = BitVec.ofNat 64 64)
+    (hheap : ∀ h, 2 ≤ h → h ≤ 6 → s.getReg (heapReg h) = BitVec.ofNat 64 h) :
+    s.getReg (heapReg (heapOf l j)) = BitVec.ofNat 64 (SigGolfCandidate.T3.ftsHeapLabel (heapOf l j)) := by
   have hb := heapOf_low j l hj hl4 hl
-  exact hheap _ hb.1 hb.2
+  by_cases he : heapOf l j = 7
+  · simpa [he, heapReg, SigGolfCandidate.T3.ftsHeapLabel] using h64
+  · have h6 : heapOf l j ≤ 6 := by omega
+    rw [show SigGolfCandidate.T3.ftsHeapLabel (heapOf l j) = heapOf l j by simp [SigGolfCandidate.T3.ftsHeapLabel, he, show heapOf l j ≠ 64 by omega]]
+    exact hheap _ hb.1 h6
 theorem frame_writeHash4 (t : MachineState) (a : BitVec 256) (d : Nat)
     (h12 : t.getReg .x12 = BitVec.ofNat 64 d) (hd : d + 32 < 2 ^ 64) :
     Frame t (writeHash t a) (fun A => A = d ∨ A = d + 8 ∨ A = d + 16 ∨ A = d + 24) := by
@@ -1273,7 +1284,7 @@ theorem hdr11_lo (k index heap : Nat) (hp : BitVec 64) :
   unfold nodeHeader V3.nodeHdr w0n
   split <;> exact BitVec.extractLsb'_append_eq_right
 theorem hdr11_hi (k index heap : Nat) (hp : BitVec 64) :
-    (nodeHeader k index heap hp).extractLsb' 64 64 = if 8 ≤ heap ∧ heap < 128 then hp else BitVec.ofNat 64 heap := by
+    (nodeHeader k index heap hp).extractLsb' 64 64 = if 8 ≤ heap ∧ heap < 128 then hp else BitVec.ofNat 64 (SigGolfCandidate.T3.ftsHeapLabel heap) := by
   unfold nodeHeader V3.nodeHdr
   split <;> exact BitVec.extractLsb'_append_eq_left
 theorem ofNat_add_neg (a h : Nat) (hh : h ≤ a) (ha : a < 2 ^ 64) (hh0 : 0 < h) :
@@ -1402,7 +1413,7 @@ theorem lvl_core {im : Image} {j : Nat} (hj : j < 128) (hcode : ChildCodeAt im j
   have hw0 : 1537 ≤ w0n k index ∧ w0n k index < 2 ^ 64 := by
     have := Nat.mod_lt index (show 0 < 2 ^ 31 by norm_num)
     have := Nat.mod_lt k (show 0 < 16 by norm_num)
-    unfold w0n V3.nodeLow ClaudeWCT.WCT9.ftsLeafLow
+    unfold w0n V3.nodeLow ClaudeWCT.WCT9.ftsLeafLow SigGolfCandidate.T3.ftsBias
     omega
   have hhdr : DigAt t (B + blkO j l + 16) (nodeHeader k index (heapOf l j) (hpOf j tws l)) := by
     by_cases h3 : l ≤ 3
@@ -1430,9 +1441,10 @@ theorem lvl_core {im : Image} {j : Nat} (hj : j < 128) (hcode : ChildCodeAt im j
           if_neg hnp, hx15]
       · rw [show B + blkO j l + 16 + 8 = B + blkO j l + 24 by omega, hmem _ (by omega),
           if_pos ⟨rfl, h3⟩, hdr11_hi, if_neg hnp]
-        have hr := heapReg_eval (s := s) (l := l) hj (by omega) (by omega) (fun h h1 h7 => by
-          obtain ⟨n3, n10, n11, n12⟩ := heapReg_ne h
-          rw [hkeep _ n3 n10 n11 n12]; exact hu.heaps h h1 h7)
+        have hs64 : s.getReg .x11 = BitVec.ofNat 64 64 := hs.a1 (by omega)
+        have hr := heapReg_eval (s := s) (l := l) hj (by omega) (by omega) hs64 (fun h h1 h6 => by
+          obtain ⟨n3, n10, n11, n12⟩ := heapReg_ne h h6
+          rw [hkeep _ n3 n10 n11 n12]; exact hu.heaps h h1 h6)
         exact hr
   have hin : hashInput t = toQ (pad64 (nodeIn k index j pads (hpOf j tws) sibs v l)) := by
     unfold nodeIn
@@ -1821,8 +1833,8 @@ def heapOf (l j : Nat) : Nat := 2 ^ (6 - l) + j / 2 ^ (l + 1)
 def w0n (k index : Nat) : Nat := W9Machine.V3.nodeLow k index
 def heapReg (h : Nat) : Reg :=
   match h with
-  | 1 => .x9 | 2 => .x13 | 3 => .x19 | 4 => .x20 | 5 => .x21 | 6 => .x26 | _ => .x30
-def heapRegN (h : Nat) : Nat := [0,9,13,19,20,21,26,30].getD h 30
+  | 1 => .x9 | 2 => .x13 | 3 => .x19 | 4 => .x20 | 5 => .x21 | 6 => .x26 | 7 => .x11 | _ => .x30
+def heapRegN (h : Nat) : Nat := [0,9,13,19,20,21,26,11].getD h 30
 def encI (rd rs1 imm : Nat) : BitVec 32 := BitVec.ofNat 32 (imm % 4096 * 2 ^ 20 + rs1 * 2 ^ 15 + rd * 2 ^ 7 + 0x13)
 def encS (f3 rs2 off rs1 : Nat) : BitVec 32 :=
   BitVec.ofNat 32 (off / 32 * 2 ^ 25 + rs2 * 2 ^ 20 + rs1 * 2 ^ 15 + f3 * 2 ^ 12 + off % 32 * 2 ^ 7 + 0x23)
@@ -1994,7 +2006,7 @@ structure ChildPre (j B k index : Nat) (leaf pads sibs tws : Nat → Digest) (u 
   a0 : u.getReg .x10 = BitVec.ofNat 64 (B + leafO)
   a1 : u.getReg .x11 = BitVec.ofNat 64 128
   w0 : u.getReg .x15 = BitVec.ofNat 64 (w0n k index)
-  heaps : ∀ h, 2 ≤ h → h ≤ 7 → u.getReg (heapReg h) = BitVec.ofNat 64 h
+  heaps : ∀ h, 2 ≤ h → h ≤ 6 → u.getReg (heapReg h) = BitVec.ofNat 64 h
   leafAt : ∀ i, i < 8 → DigAt u (B + leafO + 16 * i) (leaf i)
   padAt : ∀ l, l < 6 → DigAt u (B + padO j l) (pads l)
   sibAt : ∀ l, l < 6 → DigAt u (B + sibO l j) (sibs l)
@@ -2061,8 +2073,8 @@ theorem lvlRegs_other (j l : Nat) (r : Reg) (h3 : r ≠ .x3) (h10 : r ≠ .x10) 
   simp only
   split_ifs <;> simp only [RegFile.get_set_ne _ _ h3, RegFile.get_set_ne _ _ h10, RegFile.get_set_ne _ _ h11,
     RegFile.get_set_ne _ _ h12]
-theorem heapReg_ne (h : Nat) : heapReg h ≠ .x3 ∧ heapReg h ≠ .x10 ∧ heapReg h ≠ .x11 ∧ heapReg h ≠ .x12 := by
-  unfold heapReg; split <;> decide
+theorem heapReg_ne (h : Nat) (hh : h ≤ 6) : heapReg h ≠ .x3 ∧ heapReg h ≠ .x10 ∧ heapReg h ≠ .x11 ∧ heapReg h ≠ .x12 := by
+  interval_cases h <;> decide
 theorem lvlMem_get {s : MachineState} {B : Nat} (hB : s.getReg .x8 = BitVec.ofNat 64 B)
     (hb : B + 1024 < 2 ^ 64) (j : Nat) (hj : j < 128) (l A : Nat) (hl : l < 6) (hA : A < 2 ^ 64) :
     memEval s (lvlMem j l) (BitVec.ofNat 64 A) =
@@ -2081,10 +2093,15 @@ theorem lvlMem_get {s : MachineState} {B : Nat} (hB : s.getReg .x8 = BitVec.ofNa
     rw [memEval_cons, memEval_cons, memEval_nil, aX8_eval hB, aX8_eval hB]
     simp only [← Nat.add_assoc, E.eval, e24, e16, h3, not_false_eq_true, and_true]
 theorem heapReg_eval {s : MachineState} {j l : Nat} (hj : j < 128) (hl4 : 4 ≤ l) (hl : l ≤ 5)
-    (hheap : ∀ h, 2 ≤ h → h ≤ 7 → s.getReg (heapReg h) = BitVec.ofNat 64 h) :
-    s.getReg (heapReg (heapOf l j)) = BitVec.ofNat 64 (heapOf l j) := by
+    (h64 : s.getReg .x11 = BitVec.ofNat 64 64)
+    (hheap : ∀ h, 2 ≤ h → h ≤ 6 → s.getReg (heapReg h) = BitVec.ofNat 64 h) :
+    s.getReg (heapReg (heapOf l j)) = BitVec.ofNat 64 (SigGolfCandidate.T3.ftsHeapLabel (heapOf l j)) := by
   have hb := heapOf_low j l hj hl4 hl
-  exact hheap _ hb.1 hb.2
+  by_cases he : heapOf l j = 7
+  · simpa [he, heapReg, SigGolfCandidate.T3.ftsHeapLabel] using h64
+  · have h6 : heapOf l j ≤ 6 := by omega
+    rw [show SigGolfCandidate.T3.ftsHeapLabel (heapOf l j) = heapOf l j by simp [SigGolfCandidate.T3.ftsHeapLabel, he, show heapOf l j ≠ 64 by omega]]
+    exact hheap _ hb.1 h6
 theorem frame_writeHash4 (t : MachineState) (a : BitVec 256) (d : Nat)
     (h12 : t.getReg .x12 = BitVec.ofNat 64 d) (hd : d + 32 < 2 ^ 64) :
     Frame t (writeHash t a) (fun A => A = d ∨ A = d + 8 ∨ A = d + 16 ∨ A = d + 24) := by
@@ -2164,7 +2181,7 @@ theorem hdr11_lo (k index heap : Nat) (hp : BitVec 64) :
   unfold nodeHeader V3.nodeHdr w0n
   split <;> exact BitVec.extractLsb'_append_eq_right
 theorem hdr11_hi (k index heap : Nat) (hp : BitVec 64) :
-    (nodeHeader k index heap hp).extractLsb' 64 64 = if 8 ≤ heap ∧ heap < 128 then hp else BitVec.ofNat 64 heap := by
+    (nodeHeader k index heap hp).extractLsb' 64 64 = if 8 ≤ heap ∧ heap < 128 then hp else BitVec.ofNat 64 (SigGolfCandidate.T3.ftsHeapLabel heap) := by
   unfold nodeHeader V3.nodeHdr
   split <;> exact BitVec.extractLsb'_append_eq_left
 theorem ofNat_add_neg (a h : Nat) (hh : h ≤ a) (ha : a < 2 ^ 64) (hh0 : 0 < h) :
@@ -2293,7 +2310,7 @@ theorem lvl_core {im : Image} {j : Nat} (hj : j < 128) (hcode : ChildCodeAt im j
   have hw0 : 1537 ≤ w0n k index ∧ w0n k index < 2 ^ 64 := by
     have := Nat.mod_lt index (show 0 < 2 ^ 31 by norm_num)
     have := Nat.mod_lt k (show 0 < 16 by norm_num)
-    unfold w0n V3.nodeLow ClaudeWCT.WCT9.ftsLeafLow
+    unfold w0n V3.nodeLow ClaudeWCT.WCT9.ftsLeafLow SigGolfCandidate.T3.ftsBias
     omega
   have hhdr : DigAt t (B + blkO j l + 16) (nodeHeader k index (heapOf l j) (hpOf j tws l)) := by
     by_cases h3 : l ≤ 3
@@ -2321,9 +2338,10 @@ theorem lvl_core {im : Image} {j : Nat} (hj : j < 128) (hcode : ChildCodeAt im j
           if_neg hnp, hx15]
       · rw [show B + blkO j l + 16 + 8 = B + blkO j l + 24 by omega, hmem _ (by omega),
           if_pos ⟨rfl, h3⟩, hdr11_hi, if_neg hnp]
-        have hr := heapReg_eval (s := s) (l := l) hj (by omega) (by omega) (fun h h1 h7 => by
-          obtain ⟨n3, n10, n11, n12⟩ := heapReg_ne h
-          rw [hkeep _ n3 n10 n11 n12]; exact hu.heaps h h1 h7)
+        have hs64 : s.getReg .x11 = BitVec.ofNat 64 64 := hs.a1 (by omega)
+        have hr := heapReg_eval (s := s) (l := l) hj (by omega) (by omega) hs64 (fun h h1 h6 => by
+          obtain ⟨n3, n10, n11, n12⟩ := heapReg_ne h h6
+          rw [hkeep _ n3 n10 n11 n12]; exact hu.heaps h h1 h6)
         exact hr
   have hin : hashInput t = toQ (pad64 (nodeIn k index j pads (hpOf j tws) sibs v l)) := by
     unfold nodeIn
@@ -2714,8 +2732,8 @@ def heapOf (l j : Nat) : Nat := 2 ^ (6 - l) + j / 2 ^ (l + 1)
 def w0n (k index : Nat) : Nat := W9Machine.V3.nodeLow k index
 def heapReg (h : Nat) : Reg :=
   match h with
-  | 1 => .x9 | 2 => .x13 | 3 => .x19 | 4 => .x20 | 5 => .x21 | 6 => .x26 | _ => .x30
-def heapRegN (h : Nat) : Nat := [0,9,13,19,20,21,26,30].getD h 30
+  | 1 => .x9 | 2 => .x13 | 3 => .x19 | 4 => .x20 | 5 => .x21 | 6 => .x26 | 7 => .x11 | _ => .x30
+def heapRegN (h : Nat) : Nat := [0,9,13,19,20,21,26,11].getD h 30
 def encI (rd rs1 imm : Nat) : BitVec 32 := BitVec.ofNat 32 (imm % 4096 * 2 ^ 20 + rs1 * 2 ^ 15 + rd * 2 ^ 7 + 0x13)
 def encS (f3 rs2 off rs1 : Nat) : BitVec 32 :=
   BitVec.ofNat 32 (off / 32 * 2 ^ 25 + rs2 * 2 ^ 20 + rs1 * 2 ^ 15 + f3 * 2 ^ 12 + off % 32 * 2 ^ 7 + 0x23)
@@ -2888,7 +2906,7 @@ structure ChildPre (j B k index : Nat) (leaf pads sibs tws : Nat → Digest) (u 
   a0 : u.getReg .x10 = BitVec.ofNat 64 (B + leafO)
   a1 : u.getReg .x11 = BitVec.ofNat 64 128
   w0 : u.getReg .x15 = BitVec.ofNat 64 (w0n k index)
-  heaps : ∀ h, 2 ≤ h → h ≤ 7 → u.getReg (heapReg h) = BitVec.ofNat 64 h
+  heaps : ∀ h, 2 ≤ h → h ≤ 6 → u.getReg (heapReg h) = BitVec.ofNat 64 h
   leafAt : ∀ i, i < 8 → DigAt u (B + leafO + 16 * i) (leaf i)
   padAt : ∀ l, l < 6 → DigAt u (B + padO j l) (pads l)
   sibAt : ∀ l, l < 6 → DigAt u (B + sibO l j) (sibs l)
@@ -2955,8 +2973,8 @@ theorem lvlRegs_other (j l : Nat) (r : Reg) (h3 : r ≠ .x3) (h10 : r ≠ .x10) 
   simp only
   split_ifs <;> simp only [RegFile.get_set_ne _ _ h3, RegFile.get_set_ne _ _ h10, RegFile.get_set_ne _ _ h11,
     RegFile.get_set_ne _ _ h12]
-theorem heapReg_ne (h : Nat) : heapReg h ≠ .x3 ∧ heapReg h ≠ .x10 ∧ heapReg h ≠ .x11 ∧ heapReg h ≠ .x12 := by
-  unfold heapReg; split <;> decide
+theorem heapReg_ne (h : Nat) (hh : h ≤ 6) : heapReg h ≠ .x3 ∧ heapReg h ≠ .x10 ∧ heapReg h ≠ .x11 ∧ heapReg h ≠ .x12 := by
+  interval_cases h <;> decide
 theorem lvlMem_get {s : MachineState} {B : Nat} (hB : s.getReg .x8 = BitVec.ofNat 64 B)
     (hb : B + 1024 < 2 ^ 64) (j : Nat) (hj : j < 128) (l A : Nat) (hl : l < 6) (hA : A < 2 ^ 64) :
     memEval s (lvlMem j l) (BitVec.ofNat 64 A) =
@@ -2975,10 +2993,15 @@ theorem lvlMem_get {s : MachineState} {B : Nat} (hB : s.getReg .x8 = BitVec.ofNa
     rw [memEval_cons, memEval_cons, memEval_nil, aX8_eval hB, aX8_eval hB]
     simp only [← Nat.add_assoc, E.eval, e24, e16, h3, not_false_eq_true, and_true]
 theorem heapReg_eval {s : MachineState} {j l : Nat} (hj : j < 128) (hl4 : 4 ≤ l) (hl : l ≤ 5)
-    (hheap : ∀ h, 2 ≤ h → h ≤ 7 → s.getReg (heapReg h) = BitVec.ofNat 64 h) :
-    s.getReg (heapReg (heapOf l j)) = BitVec.ofNat 64 (heapOf l j) := by
+    (h64 : s.getReg .x11 = BitVec.ofNat 64 64)
+    (hheap : ∀ h, 2 ≤ h → h ≤ 6 → s.getReg (heapReg h) = BitVec.ofNat 64 h) :
+    s.getReg (heapReg (heapOf l j)) = BitVec.ofNat 64 (SigGolfCandidate.T3.ftsHeapLabel (heapOf l j)) := by
   have hb := heapOf_low j l hj hl4 hl
-  exact hheap _ hb.1 hb.2
+  by_cases he : heapOf l j = 7
+  · simpa [he, heapReg, SigGolfCandidate.T3.ftsHeapLabel] using h64
+  · have h6 : heapOf l j ≤ 6 := by omega
+    rw [show SigGolfCandidate.T3.ftsHeapLabel (heapOf l j) = heapOf l j by simp [SigGolfCandidate.T3.ftsHeapLabel, he, show heapOf l j ≠ 64 by omega]]
+    exact hheap _ hb.1 h6
 theorem frame_writeHash4 (t : MachineState) (a : BitVec 256) (d : Nat)
     (h12 : t.getReg .x12 = BitVec.ofNat 64 d) (hd : d + 32 < 2 ^ 64) :
     Frame t (writeHash t a) (fun A => A = d ∨ A = d + 8 ∨ A = d + 16 ∨ A = d + 24) := by
@@ -3058,7 +3081,7 @@ theorem hdr11_lo (k index heap : Nat) (hp : BitVec 64) :
   unfold nodeHeader V3.nodeHdr w0n
   split <;> exact BitVec.extractLsb'_append_eq_right
 theorem hdr11_hi (k index heap : Nat) (hp : BitVec 64) :
-    (nodeHeader k index heap hp).extractLsb' 64 64 = if 8 ≤ heap ∧ heap < 128 then hp else BitVec.ofNat 64 heap := by
+    (nodeHeader k index heap hp).extractLsb' 64 64 = if 8 ≤ heap ∧ heap < 128 then hp else BitVec.ofNat 64 (SigGolfCandidate.T3.ftsHeapLabel heap) := by
   unfold nodeHeader V3.nodeHdr
   split <;> exact BitVec.extractLsb'_append_eq_left
 theorem ofNat_add_neg (a h : Nat) (hh : h ≤ a) (ha : a < 2 ^ 64) (hh0 : 0 < h) :
@@ -3187,7 +3210,7 @@ theorem lvl_core {im : Image} {j : Nat} (hj : j < 128) (hcode : ChildCodeAt im j
   have hw0 : 1537 ≤ w0n k index ∧ w0n k index < 2 ^ 64 := by
     have := Nat.mod_lt index (show 0 < 2 ^ 31 by norm_num)
     have := Nat.mod_lt k (show 0 < 16 by norm_num)
-    unfold w0n V3.nodeLow ClaudeWCT.WCT9.ftsLeafLow
+    unfold w0n V3.nodeLow ClaudeWCT.WCT9.ftsLeafLow SigGolfCandidate.T3.ftsBias
     omega
   have hhdr : DigAt t (B + blkO j l + 16) (nodeHeader k index (heapOf l j) (hpOf j tws l)) := by
     by_cases h3 : l ≤ 3
@@ -3215,9 +3238,10 @@ theorem lvl_core {im : Image} {j : Nat} (hj : j < 128) (hcode : ChildCodeAt im j
           if_neg hnp, hx15]
       · rw [show B + blkO j l + 16 + 8 = B + blkO j l + 24 by omega, hmem _ (by omega),
           if_pos ⟨rfl, h3⟩, hdr11_hi, if_neg hnp]
-        have hr := heapReg_eval (s := s) (l := l) hj (by omega) (by omega) (fun h h1 h7 => by
-          obtain ⟨n3, n10, n11, n12⟩ := heapReg_ne h
-          rw [hkeep _ n3 n10 n11 n12]; exact hu.heaps h h1 h7)
+        have hs64 : s.getReg .x11 = BitVec.ofNat 64 64 := hs.a1 (by omega)
+        have hr := heapReg_eval (s := s) (l := l) hj (by omega) (by omega) hs64 (fun h h1 h6 => by
+          obtain ⟨n3, n10, n11, n12⟩ := heapReg_ne h h6
+          rw [hkeep _ n3 n10 n11 n12]; exact hu.heaps h h1 h6)
         exact hr
   have hin : hashInput t = toQ (pad64 (nodeIn k index j pads (hpOf j tws) sibs v l)) := by
     unfold nodeIn

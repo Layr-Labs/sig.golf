@@ -3776,16 +3776,19 @@ theorem chainInput_ok (index coord selected i step : Nat) (high : Bool) (value :
   apply SourceQueries.bind_allowed
   · apply (allQueriesSatisfy_query_iff _ _).mpr
     show BPB.hdrMarker (pad64 (WCT9.ftsChainInputW index coord selected i step value)) ≠ 0
-    apply BPB.hdrMarker_ne_zero_of_byte0
-    unfold BPB.hdrByte0 WCT9.ftsChainInputW
-    split
-    · rw [List.append_assoc (bytesLE 16 value ++ _), hdrBlock_pad64_prefix _ _ _ (bytesLE_length _ _)
-        (bytesLE_length _ _), bytesLE16_first_toNat, WCT9.ftsChainHeader_toNat, WCT9.ftsChainLow_byte0]
-      omega
-    · unfold WCT9.chainInput
-      rw [List.append_assoc (zero16 ++ _), hdrBlock_pad64_prefix _ _ _ (by simp [zero16]) (bytesLE_length _ _),
-        bytesLE16_first_toNat, WCT9.ftsChainHeader_toNat, WCT9.ftsChainLow_byte0]
-      omega
+    have hx : T3M.Extract.hdrBlock (pad64 (WCT9.ftsChainInputW index coord selected i step value)) =
+        bytesLE 16 (WCT9.ftsChainHeader index coord selected i step) := by
+      unfold WCT9.ftsChainInputW
+      split
+      · rw [List.append_assoc (bytesLE 16 value ++ _), hdrBlock_pad64_prefix _ _ _ (bytesLE_length _ _) (bytesLE_length _ _)]
+      · unfold WCT9.chainInput
+        rw [List.append_assoc (zero16 ++ _), hdrBlock_pad64_prefix _ _ _ (by simp [zero16]) (bytesLE_length _ _)]
+    rw [BPB.hdrMarker_eq hx]
+    have ht := WCT9.ftsChainLow_tag index coord selected i step
+    have hl := WCT9.ftsChainLow_lt index coord selected i step
+    unfold tweakLow
+    rw [WCT9.ftsChainHeader_toNat, Nat.mod_eq_of_lt hl]
+    omega
   · intro _; exact SourceQueries.pure_allowed _ _
 theorem chain_ok (index coord selected i start count : Nat) (value : Digest) :
     AllQueriesSatisfy (WCT9.chain index coord selected i start count value) BPB.NotDigestQ := by
@@ -5992,11 +5995,11 @@ theorem decodeProbe_eq_none {x : HashInput} :
     rintro ⟨q, hq⟩
     exact h q.1.1 q.1.2 q.2 hq
 theorem ftsChainHeader_byte0 (index coord selected i step : Nat) :
-    128 ≤ (ftsChainHeader index coord selected i step).toNat % 256 := by
+    (ftsChainHeader index coord selected i step).toNat % 256 < 4 := by
   rw [ftsChainHeader_toNat, ftsChainLow_byte0]
   omega
 theorem decodeProbe_of_hdrBlock {x : HashInput} {h : BitVec 128} (hx : hdrBlock x = bytesLE 16 h)
-    (ht : h.toNat % 256 < 128) : decodeProbe x = none := by
+    (ht : 4 ≤ h.toNat % 256) : decodeProbe x = none := by
   rw [decodeProbe_eq_none]
   intro a p c he
   rw [he, hdrBlock_probeInput] at hx
@@ -6005,17 +6008,12 @@ theorem decodeProbe_of_hdrBlock {x : HashInput} {h : BitVec 128} (hx : hdrBlock 
   rw [this] at hb
   omega
 theorem ftsChainHeader_byte1 (index coord selected i step : Nat) :
-    (ftsChainHeader index coord selected i step).toNat / 256 % 256 < 4 := by
-  rw [ftsChainHeader_toNat]
-  unfold ftsChainLow
-  have := Nat.mod_lt i (show 0 < 8 by decide)
-  have := Nat.mod_lt step (show 0 < 4 by decide)
-  have := Nat.mod_lt coord (show 0 < 16 by decide)
-  have := Nat.mod_lt selected (show 0 < 128 by decide)
+    248 ≤ (ftsChainHeader index coord selected i step).toNat / 256 % 256 := by
+  rw [ftsChainHeader_toNat, ftsChainLow_tag]
   omega
-/-- Headers whose tag byte is at least 4 are never chain probes (FTS chain headers carry the step `< 4` there). -/
+/-- Tags below 248 are outside the repacked FTS chain domain. -/
 theorem decodeProbe_of_hdrBlock_tag {x : HashInput} {h : BitVec 128} (hx : hdrBlock x = bytesLE 16 h)
-    (ht : 4 ≤ h.toNat / 256 % 256) : decodeProbe x = none := by
+    (ht : h.toNat / 256 % 256 < 248) : decodeProbe x = none := by
   rw [decodeProbe_eq_none]
   intro a p c he
   rw [he, hdrBlock_probeInput] at hx
@@ -6023,6 +6021,8 @@ theorem decodeProbe_of_hdrBlock_tag {x : HashInput} {h : BitVec 128} (hx : hdrBl
   have hb := ftsChainHeader_byte1 a.1.val a.2.1.val a.2.2.1.val a.2.2.2.val p.val
   rw [this] at hb
   omega
+
+
 /-- FTS seed of chain `a` (stage-A family seed; agrees with `WCT9.seed` by `rfl`). -/
 def seedOf (A : Correctness.Answers) (a : ChainAddr) : Digest :=
   ClaudeWCT.Arith.familyEval (List.ofFn (WCT9.ftsCoef A a.1.val a.2.1.val)) (WCT9.ftsPoint a.2.2.1.val a.2.2.2.val)
