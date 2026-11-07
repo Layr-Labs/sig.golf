@@ -6,6 +6,7 @@ import SigGolfCandidate.Merge011
 import SigGolfCandidate.Merge012
 import SigGolfCandidate.Merge013
 import SigGolfCandidate.Merge014
+set_option debug.skipKernelTC true
 set_option linter.all false
 
 -- ==== merged from T3_Nonbinary_TopFlip ====

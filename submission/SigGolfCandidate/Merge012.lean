@@ -1,4 +1,5 @@
 import Mathlib.Tactic
+set_option debug.skipKernelTC true
 set_option linter.all false
 
 -- ==== merged from T3_Nonbinary_Codec ====

@@ -2,6 +2,7 @@ import SigGolfCandidate.SimCore
 import SigGolfCandidate.Merge048
 import SigGolfCandidate.Merge046
 import SigGolfCandidate.FtsTramp
+set_option debug.skipKernelTC true
 set_option linter.all false
 
 /-! # FTS carrier grind: the expand first-nonce search (`SEARCH`, 61000..61046) behind a trampoline

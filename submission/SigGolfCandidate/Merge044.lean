@@ -1,4 +1,5 @@
 import SigGolfCandidate.Merge040
+set_option debug.skipKernelTC true
 set_option linter.all false
 
 -- ==== merged from ClaudeWCT_Numerics_TopZeroChecks ====

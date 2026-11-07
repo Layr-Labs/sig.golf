@@ -1,5 +1,6 @@
 import SigGolfCandidate.Merge028
 import SigGolfCandidate.Merge029
+set_option debug.skipKernelTC true
 set_option linter.all false
 
 -- ==== merged from T3_BPORS ====

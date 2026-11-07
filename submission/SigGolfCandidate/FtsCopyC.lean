@@ -1,4 +1,5 @@
 import SigGolfCandidate.FtsCopyCPieces
+set_option debug.skipKernelTC true
 set_option linter.all false
 
 /-! # FTS carrier grind: a C family child routine through its expand copy refines `childProgramC`

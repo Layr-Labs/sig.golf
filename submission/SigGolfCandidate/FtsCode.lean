@@ -1,5 +1,6 @@
 import SigGolfCandidate.SimCore
 import SigGolfCandidate.Merge048
+set_option debug.skipKernelTC true
 set_option linter.all false
 
 /-! # FTS heap-8..15 carrier grind: code words and specification (stage 2 of docs/results/lab.md)

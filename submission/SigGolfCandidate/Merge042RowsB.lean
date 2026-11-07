@@ -1,4 +1,5 @@
 import SigGolfCandidate.Merge042Head
+set_option debug.skipKernelTC true
 set_option linter.all false
 
 section

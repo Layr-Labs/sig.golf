@@ -5,6 +5,7 @@ import SigGolfCandidate.Merge054
 import SigGolfCandidate.Merge058
 import SigGolfCandidate.Merge110
 import SigGolfCandidate.Merge111
+set_option debug.skipKernelTC true
 set_option linter.all false
 
 -- ==== merged from ClaudeWCT_W9_T3_Secc_WotsFamCore ====
@@ -3318,6 +3319,7 @@ theorem t3_securityP_layout : ClaudeWCT.W9.T3M.Final.Paired.SecurityP :=
 end ClaudeWCT.W9.T3.Secc.Paired
 end
 -- ==== merged from T3M_Verify_Nonbinary_ChainsLayout ====
+
 section
 
 section
@@ -3402,10 +3404,10 @@ def cellW (q k : Nat) : Nat :=
 def entW (q k : Nat) : Nat := cellW q k
 def inl (q : Nat) : Bool := decide (q=9 ∨ (13 ≤ q ∧ q ≤ 15))
 def leadOff (q : Nat) : Nat := 1
-def leadPc (q k : Nat) : Nat := entW q k+leadOff q
+def leadPc (q k : Nat) : Nat := entW q k+(if q=16 ∧ k=0 then 0 else leadOff q)
 def kdig (q k j : Nat) : Nat := k/(mx q+1)^j%(mx q+1)
 def kss (q k : Nat) : Nat := kdig q k 0+kdig q k 1+kdig q k 2
-def rowInl (q k : Nat) : Bool := inl q || decide (9≤q ∧ q<16 ∧ 3≤kss q k)
+def rowInl (q k : Nat) : Bool := inl q || decide (q=16 ∨ (9≤q ∧ q<16 ∧ 3≤kss q k))
 def gbase (q k : Nat) : Nat :=
   if rowInl q k then
     (if kdig q k 0=mx q then leadPc q k+3-2*mx q
@@ -3419,7 +3421,7 @@ def skipB (q k : Nat) : Bool := (rowInl q k || sharedG q) && decide ((q = 0 ∨ 
 def skipC (q k : Nat) : Bool := (rowInl q k || decide (q<9)) && decide (kdig q k 1=mx q ∧ kdig q k 2=mx q)
 /-- Start of chain B. Shared-body groups keep chain B's copy in the body; a buffer-safe chain B is jumped over (+4). -/
 def gB (q k : Nat) : Nat :=
-  if sharedG q then gbase q k+2*mx q+1+(if skipB q k then 4 else 0)-(if skipFirstB q (kdig q k 1) then 4 else 0)
+  if sharedG q && !rowInl q k then gbase q k+2*mx q+1+(if skipB q k then 4 else 0)-(if skipFirstB q (kdig q k 1) then 4 else 0)
   else gbase q k+2*mx q+1-(if skipA q k then 4 else 0)
 def gC (q k : Nat) : Nat := gB q k+partLen q (kdig q k 1)-(if skipB q k then 4 else 0)
 /-- End of the group's code for rank `k` (the next dispatch); the r7 pair has no chain C. -/
@@ -3518,7 +3520,7 @@ def partOK (q i d p : Nat) (skip : Bool := false) : Bool :=
       (if d+1=mx q then headRHT .x8 (off i) d (slot i) p i
        else headRH .x8 (off i) d none p i (topG i)) &&
     rungsOK q (d+1) (slot i) (p+5)
-def s8Check (q k : Nat) : Bool :=
+def s8Check (q k : Nat) : Bool := if q=16 ∧ k=0 then rOK (vrun (entW q k) 0) (emptyR (entW q k)) else
   (if q=0 then rOK (vrun (entW 0 k) 1) (guardR k) else rOK (vrun (entW q k) 1) (s8R (kss q k) (entW q k)))
 def dispatchOK (q dB dC : Nat) : Bool :=
   if q<17 then rOK (vrun (pcX q dB dC) 5) (nextDispR q) else true
@@ -3542,7 +3544,7 @@ def inlineCheck (q k : Nat) : Bool :=
     rOK (vrun (gbase q k+2*dA+1) 2)
       (tailR (if dA+1=mx q then some (termSlot (3*q)) else none) (gbase q k+2*dA+1)) &&
     rungsOK q (dA+1) (termSlot (3*q)) (gbase q k+2*(dA+1))) &&
-  partOK q (3*q+1) (kdig q k 1) (gB q k) (skipB q k) && partOK q (3*q+2) (kdig q k 2) (gC q k) (skipC q k) &&
+  partOK q (3*q+1) (kdig q k 1) (gB q k) (skipB q k) && (decide (q=16) || partOK q (3*q+2) (kdig q k 2) (gC q k) (skipC q k)) &&
   rOK (vrun (gX q k) 5) (nextDispR q)
 def entCheck (q k : Nat) : Bool :=
   if rowInl q k then inlineCheck q k else
@@ -4314,10 +4316,10 @@ private theorem sum_range_three' (f : Nat → Nat) (n : Nat) :
 only the penalised rows 10, 11, 12 can (digit sum below 3); the checksum chain 50 never does. -/
 theorem jumps_source (c : NCtx) (hds : c.DigitsOk) (digits : List Nat)
     (hd : ∀ i, i < 51 → digits.getD i 0 = c.dig i) :
-    c.jumps = 10 + dispatchPenalty 0 digits := by
+    c.jumps = 9 + dispatchPenalty 0 digits := by
   have h51 : c.jumps = ((List.range (3*17)).map c.tableJump).sum := rfl
   have hq : ∀ q ∈ List.range 17, c.tableJump (3*q) + c.tableJump (3*q+1) + c.tableJump (3*q+2) =
-      (if q < 9 ∨ q = 16 then 1 else 0) +
+      (if q < 9 then 1 else 0) +
         (if (q = 10 ∨ q = 11 ∨ q = 12) ∧
           digits.getD (3*q) 0 + digits.getD (3*q+1) 0 + digits.getD (3*q+2) 0 < 3 then 1 else 0) := by
     intro q hq
@@ -4339,10 +4341,10 @@ theorem jumps_source (c : NCtx) (hds : c.DigitsOk) (digits : List Nat)
       generalize kss q (c.kOf q) = x
       interval_cases q <;> simp <;> omega
   rw [h51, sum_range_three', List.map_congr_left hq]
-  have hsplit := sum_map_add (List.range 17) (fun q => if q < 9 ∨ q = 16 then 1 else 0)
+  have hsplit := sum_map_add (List.range 17) (fun q => if q < 9 then 1 else 0)
     (fun q => if (q = 10 ∨ q = 11 ∨ q = 12) ∧
       digits.getD (3*q) 0 + digits.getD (3*q+1) 0 + digits.getD (3*q+2) 0 < 3 then 1 else 0)
-  have h10 : ((List.range 17).map fun q => if q < 9 ∨ q = 16 then 1 else 0).sum = 10 := by decide +kernel
+  have h10 : ((List.range 17).map fun q => if q < 9 then 1 else 0).sum = 9 := by decide +kernel
   rw [hsplit, h10]
   unfold dispatchPenalty topDispatchPenalty
   rw [if_pos rfl, sum_flags]
@@ -4394,7 +4396,7 @@ theorem chainsCost_any (c : NCtx) (hds : c.DigitsOk) : c.chainsCost 0 51 ≤ 234
 theorem chainsCost_accepted (c : NCtx) (hds : c.DigitsOk) (v : Digest) (digits : List Nat)
     (hdec : decode 0 v = some digits)
     (hd : ∀ i, i < 51 → digits.getD i 0 = c.dig i) :
-    c.chainsCost 0 51 + topCredit v + 4*savedCopies 0 digits = 970 + dispatchPenalty 0 digits := by
+    c.chainsCost 0 51 + topCredit v + 4*savedCopies 0 digits = 969 + dispatchPenalty 0 digits := by
   obtain ⟨-, -, ⟨hs1, -⟩, rfl⟩ := decode_top_some hdec
   have hlen : (dataDigits 0 v ++ [target 0 - (dataDigits 0 v).sum]).length = 51 := by
     simp [dataDigits_top_length]

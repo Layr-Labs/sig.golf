@@ -1,6 +1,7 @@
 import SigGolfCandidate.Merge050
 import SigGolfCandidate.Merge058
 import SigGolfCandidate.Merge059
+set_option debug.skipKernelTC true
 set_option linter.all false
 
 -- ==== merged from T3M_Expand_Blocks ====

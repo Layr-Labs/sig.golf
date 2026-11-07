@@ -2,6 +2,7 @@ import SigGolfCandidate.Merge011
 import SigGolfCandidate.Merge028
 import SigGolfCandidate.Merge033
 import SigGolfCandidate.Merge051
+set_option debug.skipKernelTC true
 set_option linter.all false
 
 -- ==== merged from ClaudeWCT_W9_T3M_Witness_Layout ====

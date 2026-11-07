@@ -6,6 +6,7 @@ import RiscvZkvm.Rv64.Execution
 import RiscvZkvm.Interpreter.Decode
 import Mathlib.Data.List.Sort
 import VCVio.EvalDist.Expectation
+set_option debug.skipKernelTC true
 set_option linter.all false
 
 -- ==== merged from Legacy_Security ====

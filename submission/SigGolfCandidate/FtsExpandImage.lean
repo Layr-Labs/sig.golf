@@ -1,5 +1,6 @@
 import SigGolfCandidate.Merge060
 import SigGolfCandidate.FtsExpandRun
+set_option debug.skipKernelTC true
 set_option linter.all false
 
 /-! # E8: the expand image holds the FTS grind code

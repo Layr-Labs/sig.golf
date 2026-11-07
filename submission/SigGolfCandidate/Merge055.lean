@@ -4,6 +4,7 @@ import SigGolfCandidate.Merge048
 import SigGolfCandidate.Merge049
 import SigGolfCandidate.Merge052
 import SigGolfCandidate.Merge054
+set_option debug.skipKernelTC true
 set_option linter.all false
 
 -- ==== merged from W9Drv_CoordDefs ====

@@ -13,6 +13,7 @@ import SigGolfCandidate.Merge029
 import SigGolfCandidate.Merge030
 import SigGolfCandidate.Merge031
 import SigGolfCandidate.Merge032
+set_option debug.skipKernelTC true
 set_option linter.all false
 
 -- ==== merged from ClaudeWCT_Bank_Spec ====

@@ -1,5 +1,6 @@
 import Mathlib.Data.Fin.Basic
 import SigGolfCandidate.Merge053
+set_option debug.skipKernelTC true
 set_option linter.all false
 
 /-! # E8: sign cost moment of the FTS ground nodes

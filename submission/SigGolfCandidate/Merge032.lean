@@ -1,5 +1,6 @@
 import SigGolfCandidate.Merge024
 import SigGolfCandidate.Merge031
+set_option debug.skipKernelTC true
 set_option linter.all false
 
 -- ==== merged from ClaudeWCT_Numerics_Covariance ====

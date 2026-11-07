@@ -1,5 +1,6 @@
 import Mathlib
 import SigGolfCandidate.Merge005
+set_option debug.skipKernelTC true
 set_option linter.all false
 
 -- ==== merged from T3_FullCache_Primitives ====

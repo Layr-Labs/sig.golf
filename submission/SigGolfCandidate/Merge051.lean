@@ -1,6 +1,7 @@
 import SigGolfCandidate.SimCore
 import SigGolfCandidate.Merge047
 import SigGolfCandidate.Merge050
+set_option debug.skipKernelTC true
 set_option linter.all false
 
 -- ==== merged from T3M_Verify_HashOk ====

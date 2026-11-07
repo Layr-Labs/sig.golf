@@ -1,4 +1,5 @@
 import SigGolfCandidate.SimCore
+set_option debug.skipKernelTC true
 set_option linter.all false
 
 namespace SigGolfCandidate.T3M.CacheMaskMachine

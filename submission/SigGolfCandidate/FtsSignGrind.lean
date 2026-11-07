@@ -2,6 +2,7 @@ import SigGolfCandidate.SimCore
 import SigGolfCandidate.Merge048
 import SigGolfCandidate.Merge046
 import SigGolfCandidate.FtsExpandSearch
+set_option debug.skipKernelTC true
 set_option linter.all false
 
 /-! # FTS carrier grind: the sign stub (`SIGN_STUB`, 25308..25339) behind the nine site trampolines

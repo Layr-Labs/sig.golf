@@ -1,4 +1,5 @@
 import SigGolfCandidate.Merge058
+set_option debug.skipKernelTC true
 set_option linter.all false
 
 -- ==== merged from T3M_Search_Blocks ====

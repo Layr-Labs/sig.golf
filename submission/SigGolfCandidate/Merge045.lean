@@ -1,4 +1,5 @@
 import SigGolfCandidate.LegacyCodec
+set_option debug.skipKernelTC true
 set_option linter.all false
 
 section

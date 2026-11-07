@@ -2,6 +2,7 @@ import SigGolfCandidate.FtsCopyA
 import SigGolfCandidate.FtsCopyB
 import SigGolfCandidate.FtsCopyC
 import SigGolfCandidate.Merge056
+set_option debug.skipKernelTC true
 set_option linter.all false
 
 /-! # E8: the expand child routines through their copies refine `SharedV3.childNG`

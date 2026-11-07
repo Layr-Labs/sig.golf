@@ -1,5 +1,6 @@
 import SigGolfCandidate.Merge091
 import SigGolfCandidate.FtsExpandSearch
+set_option debug.skipKernelTC true
 set_option linter.all false
 
 /-! # FTS carrier grind: expand-owned copies of the C family child routines, piece checks

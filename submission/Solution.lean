@@ -15,7 +15,7 @@ theorem layout_offsets : submission.layout =
   { message := 26016, secretKey := 128, publicKey := 160,
     cache := 524288, signature := 28672, witness := 4256 } := rfl
 
-theorem certificate : SigGolf.Certificate submission 6981 := by
+theorem certificate : SigGolf.Certificate submission 6980 := by
   exact SigGolfCandidate.Packaging.certificate_ready
 
 end SigGolf.Challenge
@@ -29,5 +29,5 @@ end SigGolf.Challenge
 /- Extends the promoted E8 scheme with the top chain-1 copy omission.
    Chain 0 writes its terminal HIGH half without touching chain 1's endpoint.
    The producer credits this omission and uses total credit 67.
-   Claimed S = 5189, W = 21756, K = 131072, C = 6981;
+   Claimed S = 5189, W = 21756, K = 131072, C = 6980;
    product = 36,224,409. -/

@@ -3,6 +3,7 @@ import SigGolfCandidate.Merge054
 import SigGolfCandidate.Merge055
 import SigGolfCandidate.Merge112
 import SigGolfCandidate.Merge119
+set_option debug.skipKernelTC true
 set_option linter.all false
 
 -- ==== merged from T3M_Verify_Nonbinary_ChainsGoodChecks ====
@@ -91,6 +92,7 @@ theorem groupFactsK (q k : Nat) (hq : q<17) (hk : k<nRank q) : GroupFactsK q k :
     have hsA : q≠0 → skipA q k=false := by intro h0; simp [skipA,h0]
     have eB : gB q k=pcB q (kdig q k 1) (kdig q k 2)+(if skipB q k then 4 else 0)-(if skipFirstB q (kdig q k 1) then 4 else 0) := by
       unfold gB pcB
+      simp only [hn, Bool.not_false, Bool.and_true]
       by_cases hsh : sharedG q=true
       · rw [if_pos hsh, eb]
       · have h0 : q≠0 := by intro h0; subst h0; simp [sharedG] at hsh
@@ -141,9 +143,7 @@ theorem groupFactsK (q k : Nat) (hq : q<17) (hk : k<nRank q) : GroupFactsK q k :
         exact partOK_skip _ _ _ _ hm'.2.2
     · rw [eC,hsC]; simpa [h16] using hpC
     · rw [eX]; exact rOK_eq hdisp
-  · have hm4 := mx_rowInl q k hn
-    have hk125 : k<125 := by rw [nRank_rowInl q k hn] at hk; exact hk
-    have he := inlineCheck_at q k hn hk125
+  · have he := inlineCheck_at q k hn hk
     have hq9 := rowInl_ge q k hn
     simp only [inlineCheck] at he
     by_cases hd : kdig q k 0=mx q
@@ -154,14 +154,14 @@ theorem groupFactsK (q k : Nat) (hq : q<17) (hk : k<nRank q) : GroupFactsK q k :
         fun h => by simp [hn] at h,fun h => by simp [hn] at h,
         (fun _ hs _ => by simp only [hs,Bool.false_eq_true,if_false] at hcopy; exact rOK_eq hcopy),
         fun _ h => absurd h (by omega),fun _ h => absurd h (by omega),
-        fun h => absurd h (by omega),?_,hpB,fun _ => hpC,rOK_eq hdisp,hs8⟩
+        fun h => absurd h (by omega),?_,hpB,fun h16 => by simpa [h16] using hpC,rOK_eq hdisp,hs8⟩
       unfold rungsOK; rw [List.all_eq_true]; intro m hm'; rw [List.mem_range'_1] at hm'; omega
     · rw [if_neg hd] at he
       simp only [Bool.and_eq_true] at he
       obtain ⟨⟨⟨⟨hs8,⟨⟨hhead,htail⟩,hrungs⟩⟩,hpB⟩,hpC⟩,hdisp⟩ := he
       refine ⟨fun h => by simp [hn] at h,fun h0 _ => absurd h0 (by omega),
         fun h => by simp [hn] at h,fun h => by simp [hn] at h,
-        fun _ _ h => absurd h hd,fun _ h => ?_,fun _ h => ?_,fun _ => rOK_eq htail,hrungs,hpB,fun _ => hpC,
+        fun _ _ h => absurd h hd,fun _ h => ?_,fun _ h => ?_,fun _ => rOK_eq htail,hrungs,hpB,fun h16 => by simpa [h16] using hpC,
         rOK_eq hdisp,hs8⟩
       · rw [if_neg (by omega)] at hhead; simpa only [if_neg (show ¬ kdig q k 0+1=mx q by omega)] using rOK_eq hhead
       · rw [if_pos h] at hhead; simpa only [if_pos h] using rOK_eq hhead
@@ -1188,15 +1188,21 @@ theorem partLen_le (q d : Nat) : partLen q d≤18 := by
 theorem kdig_le (q k j : Nat) : kdig q k j ≤ mx q := by
   have := mx_bounds q
   unfold kdig; have := Nat.mod_lt (k/(mx q+1)^j) (show 0 < mx q+1 by omega); omega
-theorem inl_q (q k : Nat) (h : rowInl q k=true) : q<16 := rowInl_lt q k h
+theorem inl_q (q k : Nat) (h : rowInl q k=true) : q<17 := rowInl_lt q k h
 /-- Inline rows are #938's r5 rows (groups 9..15). -/
-theorem leadPc_top_bounds (q k : Nat) (h9 : 9 ≤ q) (hq : q<16) (hk : k<125) :
+theorem leadPc_top_bounds (q k : Nat) (h9 : 9 ≤ q) (hq : q<17) (hk : k<125) :
     leadPc q k ≤ 129600 ∧ 64 ≤ leadPc q k := by
   have hu := entOff_le q (by omega)
   have hl := entOff_ge q
   unfold leadPc leadOff entW cellW
-  rw [if_neg (by omega), if_pos hq]
-  omega
+  rw [if_neg (by omega)]
+  by_cases h16 : q=16
+  · subst q
+    simp only [show ¬(16:Nat)<16 by omega, if_false, if_true]
+    norm_num [entOff]
+    split_ifs <;> omega
+  · rw [if_pos (by omega)]
+    split_ifs <;> omega
 /-- T51: every group cell (r6 rank < 216, r5 rank < 125, r7 rank < 49) sits below word 226812 (the checksum chain 50
 starts at its arm `ckArm`, not at a group cell). -/
 theorem leadPc_le (q k : Nat) (hq : q<17) (hk : k<nRank q) : leadPc q k ≤ 226811 := by
@@ -1229,7 +1235,7 @@ theorem group_bounds (q k : Nat) (hq : q<17) (hk : k<nRank q) :
     refine ⟨by omega,by split_ifs <;> omega,by omega,fun h => absurd h (by simp)⟩
   · have hq' := inl_q q k hn
     have h9 := rowInl_ge q k hn
-    have hk5 : k<125 := by rw [nRank_rowInl q k hn] at hk; exact hk
+    have hk5 : k<125 := Nat.lt_of_lt_of_le hk (nRank_rowInl_le q k hn)
     have hl2 := leadPc_top_bounds q k h9 hq' hk5
     simp only [gbase,hn,if_true]
     refine ⟨?_,?_,by omega,fun _ => ?_⟩ <;> split_ifs <;> omega
@@ -1331,7 +1337,7 @@ theorem lead_max_end (c : NCtx) (hds : c.DigitsOk) (i : Nat) (hi : i<51) (h0 : i
   have h9 := rowInl_ge (i/3) (c.kOf (i/3)) hn
   have h16 := rowInl_lt (i/3) (c.kOf (i/3)) hn
   have hk := c.kOf_bounds hds (i/3) (by omega)
-  have hk5 : c.kOf (i/3)<125 := by rw [nRank_rowInl _ _ hn] at hk; exact hk
+  have hk5 : c.kOf (i/3)<125 := Nat.lt_of_lt_of_le hk (nRank_rowInl_le _ _ hn)
   have hs : c.startPc i=leadPc (i/3) (c.kOf (i/3)) := by simp [startPc,h0,h50]
   have he : c.endPc i=gB (i/3) (c.kOf (i/3)) := by simp [endPc,qB,h0,h50]
   have hdm : kdig (i/3) (c.kOf (i/3)) 0=mx (i/3) := by rw [k1,e0,hd,topMax_mx i h50]
@@ -1339,9 +1345,8 @@ theorem lead_max_end (c : NCtx) (hds : c.DigitsOk) (i : Nat) (hi : i<51) (h0 : i
   have hlo : 64 ≤ leadPc (i/3) (c.kOf (i/3)) := (leadPc_top_bounds _ _ h9 h16 hk5).2
   have hskip := c.skipA_eq hds (i/3) (by omega)
   rw [ei] at hskip
-  have hsh : sharedG (i/3)=false := by simp [sharedG]; omega
   rw [hs,he]
-  simp only [gB,hg,hskip,decide_eq_true_eq,hsh,Bool.false_eq_true,if_false]
+  simp only [gB,hg,hskip,decide_eq_true_eq,hn,Bool.not_true,Bool.and_false,Bool.false_eq_true,if_false]
   omega
 theorem lead_copy_end (c : NCtx) (hds : c.DigitsOk) (i : Nat) (hi : i<51) (h0 : i%3=0) (h50 : i<50)
     (hr : rowInl (i/3) (c.kOf (i/3))=true)
@@ -2258,12 +2263,38 @@ theorem kOf_nRank (c : NCtx) (hds : c.DigitsOk) (q : Nat) (hq : q < 17) : c.kOf 
   by_cases h16 : q = 16
   · subst h16; exact c.kOf16_lt hds
   · have := c.kOf_lt hds q (by omega); unfold nRank; rw [if_neg h16]; exact this
+theorem entry_zero (c : NCtx) (hds : c.DigitsOk) {b : MachineState}
+    (h24 : b.getReg .x24=c.s8v 15) (hz : c.kOf 16=0)
+    (acc : List Digest) (s : MachineState) (hs : c.GroupIn b 16 acc s) :
+    ∃t, Steps vimage s 0 0 t ∧ c.ChainIn (set24 b (c.s8v 16)) 48 acc t := by
+  obtain ⟨⟨hR,hF,hS⟩,hlen,hpc⟩ := hs
+  have he : c.s8v 15=c.s8v 16 := by
+    have h := c.s8v_succ hds 15 (by decide)
+    simpa [hz,kss,kdig] using h
+  refine ⟨s,Steps.refl s,⟨⟨?_,?_,hS⟩,hlen,?_⟩⟩
+  · intro x hx
+    by_cases hx24 : x=.x24
+    · subst x
+      rw [set24_24]
+      exact (hR .x24 hx).trans (h24.trans he)
+    · rw [set24_regs _ _ _ hx24]
+      exact hR x hx
+  · intro A hA hn
+    rw [set24_mem]
+    exact hF A hA hn
+  · simpa [startPc,leadPc,leadOff,hz,entPc] using hpc
 theorem entry_step (c : NCtx) (hc : c.ok) (hds : c.DigitsOk) {b : MachineState} (q : Nat) (hq : q<16)
     (h24 : b.getReg .x24=c.s8v q) (acc : List Digest) (s : MachineState) (hs : c.GroupIn b (q+1) acc s) :
-    ∃t,Steps vimage s 1 1 t ∧ c.ChainIn (set24 b (c.s8v (q+1))) (3*(q+1)) acc t := by
+    ∃e, e≤1 ∧ ∃t,Steps vimage s e e t ∧ c.ChainIn (set24 b (c.s8v (q+1))) (3*(q+1)) acc t := by
+  by_cases hz : q+1=16 ∧ c.kOf (q+1)=0
+  · have hq15 : q=15 := by omega
+    subst q
+    obtain ⟨t,st,ht⟩ := c.entry_zero hds h24 hz.2 acc s hs
+    exact ⟨0,by decide,t,st,ht⟩
   obtain ⟨⟨hR,hF,hS⟩,hlen,hpc⟩ := hs
   have hkq := c.kOf_nRank hds (q+1) (by omega)
   have hchk := s8Run_at (q+1) (c.kOf (q+1)) (by omega) hkq
+  rw [if_neg hz] at hchk
   rw [if_neg (show q+1≠0 by omega)] at hchk
   have hrun := rOK_eq hchk
   have hp : entW (q+1) (c.kOf (q+1))<257181 := by
@@ -2271,7 +2302,7 @@ theorem entry_step (c : NCtx) (hc : c.ok) (hds : c.DigitsOk) {b : MachineState} 
   have hst := piece_steps45 hrun hp s hpc (by simp [s8R])
   set r := s8R (kss (q+1) (c.kOf (q+1))) (entW (q+1) (c.kOf (q+1))) with hr
   have h24s : s.getReg .x24=c.s8v q := (hR .x24 (by decide +kernel)).trans h24
-  refine ⟨r.toState s,hst,⟨⟨fun x hx => ?_,fun A hA hn => ?_,fun j hj => ?_⟩,hlen,?_⟩⟩
+  refine ⟨1,le_rfl,r.toState s,hst,⟨⟨fun x hx => ?_,fun A hA hn => ?_,fun j hj => ?_⟩,hlen,?_⟩⟩
   · rw [Result.toState_getReg]
     by_cases hx : x=.x24
     · subst x
@@ -2292,7 +2323,7 @@ theorem entry_step (c : NCtx) (hc : c.ok) (hds : c.DigitsOk) {b : MachineState} 
   · rw [Result.toState_pc]
     simp only [hr,s8R,E.eval]
     unfold startPc leadPc leadOff
-    simp only [show 3*(q+1)<50 by omega,show 3*(q+1)%3=0 by omega,if_true,show 3*(q+1)/3=q+1 by omega]
+    simp only [if_neg hz,show 3*(q+1)<50 by omega,show 3*(q+1)%3=0 by omega,if_true,show 3*(q+1)/3=q+1 by omega]
 def s8w (c : NCtx) (n : Nat) : Word := BitVec.ofNat 64 s8T-BitVec.ofNat 64 (((List.range n).map c.dig).sum)
 theorem s8v_eq (c : NCtx) (q : Nat) : c.s8v q=c.s8w (3*q+nCh q) := rfl
 theorem sum_range_add (f : Nat → Nat) (n k : Nat) :
@@ -2742,6 +2773,7 @@ theorem g0_entry (c : NCtx) (hds : c.DigitsOk) {b : MachineState} (acc : List Di
   obtain ⟨⟨hR,hF,hS⟩,hlen,hpc⟩ := hs
   have hk := c.kOf_nRank hds 0 (by omega)
   have hchk := s8Run_at 0 (c.kOf 0) (by omega) hk
+  rw [if_neg (by omega)] at hchk
   rw [if_pos rfl] at hchk
   have hrun := rOK_eq hchk
   have hp : entW 0 (c.kOf 0)<257181 := by have := entW_lt 0 _ (by omega) hk; omega
@@ -2840,7 +2872,7 @@ theorem groups_from (c : NCtx) (hc : c.ok) (hds : c.DigitsOk) {S : MachineState}
     intro q hq1 hqk _ acc s hs
     have hq : q<16 := by omega
     obtain ⟨q',rfl⟩ : ∃q',q=q'+1 := ⟨q-1,by omega⟩
-    obtain ⟨t,hst,hin⟩ := c.entry_step hc hds q' (by omega) (set24_24 _ _) acc s (by simpa using hs)
+    obtain ⟨entryFuel,hEntryFuel,t,hst,hin⟩ := c.entry_step hc hds q' (by omega) (set24_24 _ _) acc s (by simpa using hs)
     rw [set24_set24] at hin
     have hkB := set24_known c (c.s8v (q'+1)) hk
     have h0B := set24_orig c (c.s8v (q'+1)) h0
@@ -2966,7 +2998,7 @@ theorem pair_ck_good (c : NCtx) (hc : c.ok) (hds : c.DigitsOk) (hck : c.CkOk) {s
   -- q15 -> the pair's cell (3 steps), the cell's s8 word (1 step)
   obtain ⟨u,st1,hu⟩ := c.end_dispatchR6_in hc hds he15 hf 15 (by omega) (by omega) hv16 acc s
     (by simpa using hs)
-  obtain ⟨w,st2,hw⟩ := c.entry_step hc hds 15 (by omega) (set24_24 _ _) acc u hu
+  obtain ⟨entryFuel,hEntryFuel,w,st2,hw⟩ := c.entry_step hc hds 15 (by omega) (set24_24 _ _) acc u hu
   rw [set24_set24] at hw
   have hd16 : dspR6 (15+1) = 3 := rfl
   rw [hd16] at st1
@@ -3103,7 +3135,7 @@ theorem top_bad_ck (c : NCtx) (hc : c.ok) (hds : c.DigitsOk) {s0 : MachineState}
       have he15 := set24_encoded6 (c.s8v 15) heS
       obtain ⟨u,st1,hu⟩ := c.end_dispatchR6_in hc hds he15 hf 15 (by omega) (by omega) (hval 16 (by omega)) acc t
         (by simpa using ht)
-      obtain ⟨w,st2,hw⟩ := c.entry_step hc hds 15 (by omega) (set24_24 _ _) acc u hu
+      obtain ⟨entryFuel,hEntryFuel,w,st2,hw⟩ := c.entry_step hc hds 15 (by omega) (set24_24 _ _) acc u hu
       rw [set24_set24] at hw
       have hd16 : dspR6 (15+1) = 3 := rfl
       rw [hd16] at st1

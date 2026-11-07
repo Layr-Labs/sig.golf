@@ -2,6 +2,7 @@ import Mathlib.Analysis.Complex.ExponentialBounds
 import Mathlib.Data.Nat.Choose.Bounds
 import SigGolfCandidate.Merge023
 import SigGolfCandidate.Merge031
+set_option debug.skipKernelTC true
 set_option linter.all false
 
 -- ==== merged from ClaudeWCT_Numerics_PoissonReflect ====

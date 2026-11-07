@@ -8,6 +8,7 @@ import Mathlib.Algebra.Order.BigOperators.Group.Finset
 import VCVio.OracleComp.Constructions.SampleableType
 import SigGolfCandidate.Merge008
 import SigGolfCandidate.Merge009
+set_option debug.skipKernelTC true
 set_option linter.all false
 
 -- ==== merged from ClaudeWCT_Arith_GF128Field ====

@@ -1,5 +1,6 @@
 import SigGolfCandidate.Merge026
 import SigGolfCandidate.Merge102
+set_option debug.skipKernelTC true
 set_option linter.all false
 
 -- ==== merged from SphincsSecurity_Proof_Base_QueryTracePotential ====

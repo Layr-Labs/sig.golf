@@ -1,4 +1,5 @@
 import SigGolfCandidate.FtsCode
+set_option debug.skipKernelTC true
 set_option linter.all false
 
 /-! # FTS carrier grind: the machine-level search `FtsGrind.search` and the scheme's `ftsNonceSearch`

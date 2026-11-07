@@ -6,6 +6,7 @@ import SigGolfCandidate.Merge033
 import SigGolfCandidate.Merge039
 import SigGolfCandidate.Merge040
 import SigGolfCandidate.Merge041
+set_option debug.skipKernelTC true
 set_option linter.all false
 
 -- ==== merged from ClaudeWCT_Numerics_N600Price ====

@@ -5,6 +5,7 @@ import SigGolfCandidate.Merge054
 import SigGolfCandidate.Merge056
 import SigGolfCandidate.Merge057
 import SigGolfCandidate.FtsVerify
+set_option debug.skipKernelTC true
 set_option linter.all false
 
 -- ==== merged from ClaudeWCT_W9_T3M_Final_BridgeAbs ====

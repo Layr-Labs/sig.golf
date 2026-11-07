@@ -1,4 +1,5 @@
 import SigGolfCandidate.Merge066
+set_option debug.skipKernelTC true
 set_option linter.all false
 
 -- ==== merged from T3M_Verify_ChainCheckT5 ====

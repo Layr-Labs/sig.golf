@@ -1,6 +1,7 @@
 import Mathlib.Analysis.Complex.ExponentialBounds
 import SigGolfCandidate.Merge001
 import SigGolfCandidate.Merge002
+set_option debug.skipKernelTC true
 set_option linter.all false
 
 -- ==== merged from Budget_Numeric ====

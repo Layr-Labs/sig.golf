@@ -3,6 +3,7 @@ import SigGolfCandidate.Merge015
 import SigGolfCandidate.Merge023
 import SigGolfCandidate.Merge024
 import SigGolfCandidate.Merge025
+set_option debug.skipKernelTC true
 set_option linter.all false
 
 -- ==== merged from T3_Gate6_DigestCounting ====

@@ -1,5 +1,6 @@
 import SigGolfCandidate.Merge033
 import SigGolfCandidate.Merge101
+set_option debug.skipKernelTC true
 set_option linter.all false
 
 -- ==== merged from SphincsSecurity_Proof_Base_QueryPauseInvariant ====

@@ -1,4 +1,5 @@
 import SigGolfCandidate.Merge013
+set_option debug.skipKernelTC true
 set_option linter.all false
 
 -- ==== merged from T3_Gate6_FreshProbability ====

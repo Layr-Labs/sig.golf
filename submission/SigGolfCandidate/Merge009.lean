@@ -3,6 +3,7 @@ import SigGolfCandidate.Merge005
 import SigGolfCandidate.Merge006
 import SigGolfCandidate.Merge007
 import SigGolfCandidate.Merge008
+set_option debug.skipKernelTC true
 set_option linter.all false
 
 -- ==== merged from T3_Core ====

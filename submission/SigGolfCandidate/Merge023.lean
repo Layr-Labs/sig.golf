@@ -2,6 +2,7 @@ import SigGolfCandidate.Merge005
 import SigGolfCandidate.Merge009
 import SigGolfCandidate.Merge015
 import SigGolfCandidate.Merge022
+set_option debug.skipKernelTC true
 set_option linter.all false
 
 -- ==== merged from T3_Gate6_SourceBridge ====

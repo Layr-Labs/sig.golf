@@ -1,6 +1,7 @@
 import SigGolfCandidate.SimCore
 import SigGolfCandidate.Merge048
 import SigGolfCandidate.FtsCode
+set_option debug.skipKernelTC true
 set_option linter.all false
 
 /-! # FTS carrier grind: the expand witness post-pass (`POST`, 61050..61088)

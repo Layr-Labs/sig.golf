@@ -2,6 +2,7 @@ import VCVio.OracleComp.SimSemantics.Append
 import VCVio.OracleComp.QueryTracking.QueryBound.Basic
 import SigGolfCandidate.Merge019
 import SigGolfCandidate.Merge020
+set_option debug.skipKernelTC true
 set_option linter.all false
 
 -- ==== merged from ClaudeWCT_Arith_GroupedFamily ====

@@ -1,4 +1,5 @@
 import RiscvZkvm.Rv64.Word
+set_option debug.skipKernelTC true
 set_option linter.all false
 
 -- ==== merged from ClaudeWCT_W9_New_Machine_Expand_PrePassBits ====

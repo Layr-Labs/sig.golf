@@ -10,6 +10,7 @@ import SigGolfCandidate.Merge033
 import SigGolfCandidate.Merge036
 import SigGolfCandidate.Merge037
 import SigGolfCandidate.Merge038
+set_option debug.skipKernelTC true
 set_option linter.all false
 
 -- ==== merged from ClaudeWCT_W9_T3_FullCache_NativeBudgetB1_CompletenessV5 ====

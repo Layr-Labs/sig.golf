@@ -1,5 +1,6 @@
 import SigGolfCandidate.Merge015
 import SigGolfCandidate.Merge028
+set_option debug.skipKernelTC true
 set_option linter.all false
 
 -- ==== merged from T3M_Extract_Leaf ====

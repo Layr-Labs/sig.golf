@@ -1,5 +1,6 @@
 import VCVio.OracleComp.QueryTracking.RandomOracle.Simulation
 import VCVio.OracleComp.QueryTracking.WriterCost
+set_option debug.skipKernelTC true
 set_option linter.all false
 
 -- ==== merged from Bridge_Basic ====

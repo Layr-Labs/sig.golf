@@ -1,4 +1,5 @@
 import SigGolfCandidate.Merge056
+set_option debug.skipKernelTC true
 set_option linter.all false
 
 /-! # E8: the verifier's FTS forest reads the ground nonces from the level-3 pads

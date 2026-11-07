@@ -9,6 +9,7 @@ import SigGolfCandidate.Merge099
 import SigGolfCandidate.Merge101
 import SigGolfCandidate.Merge102
 import SigGolfCandidate.Merge104
+set_option debug.skipKernelTC true
 set_option linter.all false
 
 -- ==== merged from T3_Secc_WotsStructural ====

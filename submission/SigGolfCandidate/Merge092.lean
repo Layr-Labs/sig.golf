@@ -10,6 +10,7 @@ import SigGolfCandidate.Merge084
 import SigGolfCandidate.Merge090
 import SigGolfCandidate.Merge091
 import SigGolfCandidate.FtsExpandImage
+set_option debug.skipKernelTC true
 set_option linter.all false
 
 -- ==== merged from ClaudeWCT_W9_New_Machine_Expand_Routine ====

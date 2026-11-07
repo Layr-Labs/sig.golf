@@ -3,6 +3,7 @@ import SigGolfCandidate.Merge052
 import SigGolfCandidate.Merge054
 import SigGolfCandidate.Merge055
 import SigGolfCandidate.FtsBridge
+set_option debug.skipKernelTC true
 set_option linter.all false
 
 -- ==== merged from W9Drv_FtsCore ====

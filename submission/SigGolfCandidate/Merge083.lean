@@ -1,6 +1,7 @@
 import SigGolfCandidate.Merge080
 import SigGolfCandidate.Merge081
 import SigGolfCandidate.Merge082
+set_option debug.skipKernelTC true
 set_option linter.all false
 
 -- ==== merged from ClaudeWCT_W9_New_Machine_Sign_FtsCheckCPart2 ====

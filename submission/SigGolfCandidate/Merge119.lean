@@ -312,7 +312,7 @@ theorem entCheck_at (q k : Nat) (hq : q<17) (hn : inl q=false) (hk : k<nRank q) 
 theorem static_false_of_row_false (q k : Nat) (h : rowInl q k=false) : inl q=false := by
   simp [rowInl, Bool.or_eq_false_iff] at h
   exact h.1
-theorem rowInl_lt (q k : Nat) (h : rowInl q k=true) : q<16 := by
+theorem rowInl_lt (q k : Nat) (h : rowInl q k=true) : q<17 := by
   simp [rowInl, inl] at h
   omega
 theorem rowInl_ge (q k : Nat) (h : rowInl q k=true) : 9≤q := by
@@ -320,19 +320,25 @@ theorem rowInl_ge (q k : Nat) (h : rowInl q k=true) : 9≤q := by
   omega
 theorem mx_inl (q : Nat) (hq : inl q=true) : mx q=4 := by
   simp [inl] at hq; unfold mx; rw [if_neg (by omega), if_pos (by omega)]
-theorem mx_rowInl (q k : Nat) (hq : rowInl q k=true) : mx q=4 := by
+theorem mx_rowInl (q k : Nat) (hq : rowInl q k=true) (h16 : q≠16) : mx q=4 := by
   have h1 := rowInl_lt q k hq
   have h2 := rowInl_ge q k hq
-  unfold mx; rw [if_neg (by omega), if_pos h1]
-theorem nRank_rowInl (q k : Nat) (hq : rowInl q k=true) : nRank q=125 := by
+  unfold mx; rw [if_neg (by omega), if_pos (by omega)]
+theorem nRank_rowInl (q k : Nat) (hq : rowInl q k=true) (h16 : q≠16) : nRank q=125 := by
   have h1 := rowInl_lt q k hq
-  unfold nRank; rw [if_neg (by omega), mx_rowInl q k hq]; norm_num
-theorem inlineCheck_at (q k : Nat) (hq : rowInl q k=true) (hk : k<125) : inlineCheck q k=true := by
+  unfold nRank; rw [if_neg h16, mx_rowInl q k hq h16]; norm_num
+theorem nRank_rowInl_le (q k : Nat) (hq : rowInl q k=true) : nRank q≤125 := by
+  by_cases h16 : q=16
+  · subst q; decide
+  · rw [nRank_rowInl q k hq h16]
+theorem inlineCheck_at (q k : Nat) (hq : rowInl q k=true) (hk : k<nRank q) : inlineCheck q k=true := by
   cases hn : inl q
   · have hq16 := rowInl_lt q k hq
-    have h := entCheck_at q k (by omega) hn (by rw [nRank_rowInl q k hq]; exact hk)
+    have h := entCheck_at q k hq16 hn hk
     simpa only [entCheck,hq,if_true] using h
-  · exact inlineCheck_static_at q k hn hk
+  · have h16 : q≠16 := by rintro rfl; simp [inl] at hn
+    have hk125 : k<125 := by rwa [nRank_rowInl q k hq h16] at hk
+    exact inlineCheck_static_at q k hn hk125
 theorem s8Check_at (q k : Nat) (hq : q<17) (hk : k<nRank q) : s8Check q k=true := by
   cases hn : inl q
   · have h := tripleCheck_at q hq hn
@@ -373,7 +379,8 @@ theorem pairBlockCheck_at (dB : Nat) (hB : dB ≤ 6) : blockCheck 16 dB 0=true :
   rw [if_pos rfl] at hb
   exact hb
 theorem s8Run_at (q k : Nat) (hq : q<17) (hk : k<nRank q) :
-    (if q=0 then rOK (vrun (entW 0 k) 1) (guardR k) else rOK (vrun (entW q k) 1) (s8R (kss q k) (entW q k)))=true := by
+    (if q=16 ∧ k=0 then rOK (vrun (entW q k) 0) (emptyR (entW q k)) else
+      if q=0 then rOK (vrun (entW 0 k) 1) (guardR k) else rOK (vrun (entW q k) 1) (s8R (kss q k) (entW q k)))=true := by
   exact s8Check_at q k hq hk
 /-! ### T51: guards, checksum landings and arms (Part5) -/
 theorem guard6Check_at (g raw : Nat) (hg : g<9) (hr : raw<256) : guard6Check g raw=true := by

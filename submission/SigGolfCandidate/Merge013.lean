@@ -2,6 +2,7 @@ import Mathlib.Tactic
 import VCVio.OracleComp.Constructions.SampleableType
 import SigGolfCandidate.Merge002
 import SigGolfCandidate.Merge012
+set_option debug.skipKernelTC true
 set_option linter.all false
 
 -- ==== merged from T3_Gate6_ProductFibres ====

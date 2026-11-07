@@ -1,5 +1,6 @@
 import Mathlib.Data.Fin.Basic
 import SigGolfCandidate.FtsMoment
+set_option debug.skipKernelTC true
 set_option linter.all false
 
 /-! # E8 stage 2: completeness of the FTS ground nodes

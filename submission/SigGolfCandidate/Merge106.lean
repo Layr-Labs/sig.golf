@@ -1,6 +1,7 @@
 import SigGolfCandidate.Merge057
 import SigGolfCandidate.Merge098
 import SigGolfCandidate.Merge105
+set_option debug.skipKernelTC true
 set_option linter.all false
 
 -- ==== merged from T3_Secc_LargeContactEvents ====

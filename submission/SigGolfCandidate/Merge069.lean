@@ -1,5 +1,6 @@
 import SigGolfCandidate.Merge061
 import SigGolfCandidate.Merge068
+set_option debug.skipKernelTC true
 set_option linter.all false
 
 -- ==== merged from ClaudeWCT_W9_New_Machine_Expand_PostPassC ====

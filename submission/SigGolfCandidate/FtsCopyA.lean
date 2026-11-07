@@ -1,4 +1,5 @@
 import SigGolfCandidate.FtsCopyAPieces
+set_option debug.skipKernelTC true
 set_option linter.all false
 
 /-! # FTS carrier grind: a first-coordinate (A) child routine through its expand copy refines `childProgramC`

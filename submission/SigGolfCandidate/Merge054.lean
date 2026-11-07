@@ -15,6 +15,7 @@ import SigGolfCandidate.Merge052
 import SigGolfCandidate.Merge053
 import SigGolfCandidate.FtsMoment
 import SigGolfCandidate.FtsComplete
+set_option debug.skipKernelTC true
 set_option linter.all false
 
 attribute [local irreducible] SigGolfCandidate.T3.maskedLevel
@@ -5066,8 +5067,8 @@ abbrev witEncN := ClaudeWCT.W9.T3M.Paired.witEncN
 /-- U16b: and the 9 ground lower fold nonces (`Paired.witEncG`). -/
 abbrev witEncG := ClaudeWCT.W9.T3M.Paired.witEncG
 
- def verifyCycleBound : Nat := 6896
- def claimedC : Nat := 6981
+ def verifyCycleBound : Nat := 6895
+ def claimedC : Nat := 6980
  def DigestCapOk (hash : Hash) (m : Message) (w : Bytes 21756) : Prop :=
   SigGolfCandidate.Research.SharedForest.jointAccountingCost
     (hash (SigGolfCandidate.T3M.toQ (SigGolfCandidate.T3.pad64

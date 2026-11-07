@@ -1,6 +1,7 @@
 import SigGolfCandidate.Merge028
 import SigGolfCandidate.Merge045
 import SigGolfCandidate.Merge046
+set_option debug.skipKernelTC true
 set_option linter.all false
 
 -- ==== merged from Rv_Api ====

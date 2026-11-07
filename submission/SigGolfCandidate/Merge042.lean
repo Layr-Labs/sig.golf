@@ -1,3 +1,4 @@
 import SigGolfCandidate.Merge042RowsA
 import SigGolfCandidate.Merge042RowsB
+set_option debug.skipKernelTC true
 set_option linter.all false

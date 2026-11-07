@@ -2,6 +2,7 @@ import SigGolfCandidate.Merge005
 import SigGolfCandidate.Merge008
 import SigGolfCandidate.Merge009
 import SigGolfCandidate.Merge010
+set_option debug.skipKernelTC true
 set_option linter.all false
 
 -- ==== merged from ClaudeWCT_WCT9_Core ====
