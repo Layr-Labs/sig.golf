@@ -702,8 +702,8 @@ Entries below the top floor 14 never matter. -/
 def topAcceptedHistogram : List (Nat × Nat) :=
   topCounts.flatMap fun e => [(e.1 + 2, e.2 * 2 ^ 128), (e.1, e.2 * topHighW)]
 
-/-- Exact upward-rounded initial bound for the revised top-copy law at pool 67. -/
-def initialBound : Nat := 366298044988855357192152889674866893185
+/-- Exact upward-rounded initial bound for the revised top-copy law at pool 67 (Z4: L3 bonus 3). -/
+def initialBound : Nat := 366163647202519042556000132654865001523
 
 /-- T51 fixed sign cost (PINNED P12, measured): 4 + 112142 + 16 top family pairs + 152 + 12 = 112326 compressions. -/
 def fixedSignCost : Nat := 112326
@@ -744,18 +744,18 @@ def groundM (b : Nat) : Nat :=
   else if b = 3 then 340296763633728263433442488925276359072
   else 340311161564765781666276742203532247926
 
-/-- E8 (P1): the 162 ground nodes: 88 with `b = 1`, 68 with `b = 2`, 6 with `b = 3` (lower (3,2,1,1) × 3: 72 / 12 / 6;
-FTS heap 8..15: 16 / 56). -/
+/-- Z3: the 162 ground nodes: 64 with `b = 1`, 80 with `b = 2`, 14 with `b = 3`, 4 with `b = 4` (lower E11 V29:
+48 / 24 / 14 / 4; FTS heap 8..15: 16 / 56). -/
 def groundBound : Nat :=
-  mulUp (powerUp (groundM 1) 88) (mulUp (powerUp (groundM 2) 68) (powerUp (groundM 3) 6))
+  mulUp (powerUp (groundM 1) 64) (mulUp (powerUp (groundM 2) 80) (mulUp (powerUp (groundM 3) 14) (powerUp (groundM 4) 4)))
 
 theorem fixed_power_checked_U16 :
     powerUp (ceilDiv (zNum * scale) zDen) fixedSignCostU16 ≤ fixedBoundU16 := by
   decide +kernel
 
-/-- Revised top-copy law at pool 67, gate 812, joint cost ≤ 777: signing moment below 1.99997. -/
+/-- Z4 (Z3 + P1' L3 bonus 3) on the revised top-copy law: pool 67, gate 826, joint cost ≤ 777, lower E11 V29 + 72 FTS ground nodes: signing moment 1.9997731 < 1.99978 (claim 199978). -/
 theorem full_moment_checked_U16 :
-    mulUp (mulUp (mulUp fixedBoundU16 groundBound) ftsBound) initialBound * 100000 < 199997 * scale := by
+    mulUp (mulUp (mulUp fixedBoundU16 groundBound) ftsBound) initialBound * 100000 < 199978 * scale := by
   decide +kernel
 
 end ClaudeWCT.Numerics.TopZero
@@ -830,14 +830,22 @@ theorem fixed_ratio_bound_U16 : ((zNum:ℝ)/zDen)^fixedSignCostU16≤(fixedBound
     _ ≤ _ := hp.trans (div_le_div_of_nonneg_right (by exact_mod_cast fixed_power_checked_U16) hs.le)
 
 theorem groundBound_ratio_ge :
-    ((groundM 1:ℝ)/scale)^88 * (((groundM 2:ℝ)/scale)^68 * ((groundM 3:ℝ)/scale)^6) ≤ (groundBound:ℝ)/scale := by
+    ((groundM 1:ℝ)/scale)^64 * (((groundM 2:ℝ)/scale)^80 * (((groundM 3:ℝ)/scale)^14 * ((groundM 4:ℝ)/scale)^4)) ≤
+      (groundBound:ℝ)/scale := by
   unfold groundBound
   calc
-    _ ≤ ((groundM 1:ℝ)/scale)^88 * ((powerUp (groundM 2) 68:ℝ)/scale * ((powerUp (groundM 3) 6:ℝ)/scale)) := by
+    _ ≤ ((groundM 1:ℝ)/scale)^64 * (((groundM 2:ℝ)/scale)^80 *
+          ((powerUp (groundM 3) 14:ℝ)/scale * ((powerUp (groundM 4) 4:ℝ)/scale))) := by
         gcongr
         · exact powerUp_ratio_ge _ _
         · exact powerUp_ratio_ge _ _
-    _ ≤ (powerUp (groundM 1) 88:ℝ)/scale * ((mulUp (powerUp (groundM 2) 68) (powerUp (groundM 3) 6):ℝ)/scale) := by
+    _ ≤ ((groundM 1:ℝ)/scale)^64 * ((powerUp (groundM 2) 80:ℝ)/scale *
+          ((mulUp (powerUp (groundM 3) 14) (powerUp (groundM 4) 4):ℝ)/scale)) := by
+        gcongr
+        · exact powerUp_ratio_ge _ _
+        · exact mulUp_ratio_ge _ _
+    _ ≤ (powerUp (groundM 1) 64:ℝ)/scale * ((mulUp (powerUp (groundM 2) 80)
+          (mulUp (powerUp (groundM 3) 14) (powerUp (groundM 4) 4)):ℝ)/scale) := by
         gcongr
         · exact powerUp_ratio_ge _ _
         · exact mulUp_ratio_ge _ _
@@ -847,7 +855,7 @@ theorem groundBound_ratio_ge :
 theorem envelope_ratio_le_two_U16 : (((fixedBoundU16:ℝ)/scale)*((groundBound:ℝ)/scale))*
     (((ftsBound:ℝ)/scale)*((initialBound:ℝ)/scale))≤2 := by
   have hm := mulUp_ratio_ge fixedBoundU16 groundBound
-  have he := envelope_ratio_le_two_of (mulUp fixedBoundU16 groundBound) 199997 (by norm_num)
+  have he := envelope_ratio_le_two_of (mulUp fixedBoundU16 groundBound) 199978 (by norm_num)
     full_moment_checked_U16
   have h0 : (0:ℝ) ≤ ((ftsBound:ℝ)/scale)*((initialBound:ℝ)/scale) :=
     mul_nonneg (div_nonneg (Nat.cast_nonneg _) (Nat.cast_nonneg _)) (div_nonneg (Nat.cast_nonneg _) (Nat.cast_nonneg _))

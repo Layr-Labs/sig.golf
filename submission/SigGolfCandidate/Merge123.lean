@@ -867,7 +867,7 @@ theorem paired_ftsP_eq (w : ClaudeWCT.W9.T3M.WBytes) (output : HashOutput) :
     funext (fun state => funext (fun coord => paired_ftsStep_eq w output state coord))
   rw [hs]
   unfold W9Drv.SharedCoord.ftsN
-  cases h : decide (output.toNat / 2^242 % 16384 < 812) <;>
+  cases h : decide (output.toNat / 2^242 % 16384 < 826) <;>
     try simp only [Bool.not_false,Bool.not_true,Bool.false_eq_true,↓reduceIte]
   rfl
 

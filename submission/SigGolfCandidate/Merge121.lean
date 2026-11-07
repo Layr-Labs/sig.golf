@@ -2770,7 +2770,7 @@ theorem selectedView_answer (lay : Layer) (hlay : lay ≠ 0) (a : BitVec 256) :
     exact highView_extract a 0 128
 
 /-- Path-aware lower encoding block (SGV1 split guard): LOW costs `bCy`, HIGH-a `bCy + hiA`, HIGH-b `bCy + hiX`; an
-earning path (`SigGolfCandidate.T3.lowerEarn`: LOW or HIGH-a) saves at least the bonus 2 (L3 LOW saves 3: under-credited). A
+earning path (`SigGolfCandidate.T3.lowerEarn`: LOW or HIGH-a) saves at least `lowerBonus lay` (Z4: 3 on layer 3). A
 non-canonical HIGH word enters its chains with the machine's checksum slot `ck`. -/
 theorem encB_step (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index : Nat) (lay : Layer) (hlay : lay ≠ 0) (c : Nat)
     (hc : c < nCopy lay.val) (hidx : index < 2 ^ 31) (t : MachineState) (ht : EncPre w pk index lay.val c t)
@@ -2783,7 +2783,8 @@ theorem encB_step (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index : Nat) (lay
         (lctxOfCk w index lay (selectedView a) ck).ChainIn s0 0 [] s0) ∧
     (ClaudeWCT.W9.T3M.lowerDataDecode (ansD (selectedView a)) ≠ none → ∃ s0 k cy, Steps image (writeHash t a) k cy s0 ∧
         k ≤ bSt lay.val+hiX lay.val ∧
-        cy + (if SigGolfCandidate.T3.lowerEarn (ansD a) then 2 else 0) ≤ bCy lay.val+hiX lay.val ∧
+        cy + (if SigGolfCandidate.T3.lowerEarn (ansD a) then ClaudeWCT.WCT9.CanonicalPolicy.lowerBonus lay else 0) ≤
+          bCy lay.val+hiX lay.val ∧
         (lctxOf w index lay (selectedView a)).ok ∧
         (∀ p ∈ (lctxOf w index lay (selectedView a)).known, s0.getReg p.1 = p.2) ∧
         (lctxOf w index lay (selectedView a)).Orig0 s0 ∧
@@ -2802,7 +2803,8 @@ theorem encB_step (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index : Nat) (lay
     · intro _
       obtain ⟨s0,hst,hrest⟩ := H
       exact ⟨s0,bSt lay.val,bCy lay.val,hst,by omega,
-        by rw [if_pos (SigGolfCandidate.T3.lowerEarn_of_spare hlo)]; unfold hiX; split_ifs <;> omega,hrest⟩
+        by rw [if_pos (SigGolfCandidate.T3.lowerEarn_of_spare hlo), ClaudeWCT.WCT9.CanonicalPolicy.lowerBonus_eq]
+           unfold hiX; split_ifs <;> omega,hrest⟩
   · simp only [selectedView, if_neg hlo]
     obtain ⟨ck, s0, hst, hspk, hLok, hkn, hO, hIn, hrest⟩ := encB_step_hi w pk index lay hlay c hc hidx t ht a hlo
     constructor
@@ -2814,7 +2816,8 @@ theorem encB_step (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index : Nat) (lay
         exact hn (by simp [ClaudeWCT.W9.T3M.lowerDataDecode, hh])
       obtain rfl := hspk hhi
       exact ⟨s0, _, _, hst, by have := hiPath_le lay a; omega,
-        by unfold hiPath hiA hiX; split_ifs <;> omega, hLok, hkn, hO, hIn, hrest⟩
+        by rw [ClaudeWCT.WCT9.CanonicalPolicy.lowerBonus_eq]; unfold hiPath hiA hiX; split_ifs <;> omega,
+        hLok, hkn, hO, hIn, hrest⟩
 
 theorem Verify.GoodQP.fetch_none {P : Hash → Prop} {s : MachineState} {Q : Prop} {A : Nat}
     (hf : fetch image s = none) : GoodQP P s 1 0 Q A (pure (false,0)) := by

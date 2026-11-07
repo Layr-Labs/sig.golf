@@ -39,9 +39,9 @@ theorem sigDigests_length (s : SharedSignature) : (sigDigests s).length = 325 :=
     singletonList_length, layerList_length]
   rfl
 
-/-- E8 (P1): the 5,189-byte compact signature (324 digests + a 5-byte tail; E11: 5,190 bytes, U16b: 5,192 bytes,
-T51: 5,195 bytes). -/
-abbrev CBytes := Bytes 5189
+/-- V45: the 5,188-byte compact signature (324 digests + a 4-byte tail; E8 P1: 5,189 bytes, E11: 5,190 bytes,
+U16b: 5,192 bytes, T51: 5,195 bytes). -/
+abbrev CBytes := Bytes 5188
 def cDig (b : CBytes) (k : Nat) : Digest := b.extractLsb' (128 * k) 128
 /-- Offset of the X field in the top `b_j = topZeroBits j` bits of the path node at height `j` (`j = 1..10`):
 `Σ_{h < j} b_h` = 0, 2, 4, 7, 11, 16, 22, 29 for `j = 3..10` (heights 1, 2 carry no bits). -/
@@ -53,45 +53,45 @@ def xOfB (b : CBytes) : Nat :=
   topBits 2 (cDig b 168) + topBits 2 (cDig b 169) * 2 ^ 2 + topBits 3 (cDig b 170) * 2 ^ 4 +
   topBits 4 (cDig b 171) * 2 ^ 7 + topBits 5 (cDig b 172) * 2 ^ 11 + topBits 6 (cDig b 173) * 2 ^ 16 +
   topBits 7 (cDig b 174) * 2 ^ 22 + topBits 8 (cDig b 175) * 2 ^ 29
-/-- E8 (P1, V37): zero bits `b` of the ground slot at compact index `k` (index after erasing digest 176). Lower
-path siblings: L1 heights 6/5/4/3 (225/224/223/222) and L2, L3 heights 5/4/3/2 (274..271, 323..320) carry 3/2/1/1
-bits; FTS level-4 auth siblings (heaps 8..15) of coordinates 0..8 (compact 11, 23, 36, 48, 61, 73, 86, 98, 111)
-carry 1, 1, 2, 2, 2, 2, 2, 2, 2 bits. -/
+/-- V45: zero bits `b` of the ground slot at compact index `k` (index after erasing digest 176). Lower path
+siblings (E11 widths, `lowerZeroBits`): L1 heights 6/5/4/3 (225/224/223/222) carry 3/3/2/1 bits, L2, L3 heights
+5/4/3/2 (274..271, 323..320) carry 4/3/2/1 bits; FTS level-4 auth siblings (heaps 8..15) of coordinates 0..8
+(compact 11, 23, 36, 48, 61, 73, 86, 98, 111) carry 1, 1, 2, 2, 2, 2, 2, 2, 2 bits. -/
 def gBits : Nat → Nat
-  | 225 => 3 | 224 => 2 | 223 => 1 | 222 => 1 | 274 => 3 | 273 => 2 | 272 => 1 | 271 => 1 | 323 => 3 | 322 => 2 | 321 => 1 | 320 => 1 | 11 => 1 | 23 => 1 | 36 => 2 | 48 => 2 | 61 => 2 | 73 => 2 | 86 => 2 | 98 => 2 | 111 => 2 | _ => 0
-/-- E8 (P1): offset of slot `k`'s bits in the 37-bit V field (top sibling bits 40..76). -/
+  | 225 => 3 | 224 => 3 | 223 => 2 | 222 => 1 | 274 => 4 | 273 => 3 | 272 => 2 | 271 => 1 | 323 => 4 | 322 => 3 | 321 => 2 | 320 => 1 | 11 => 1 | 23 => 1 | 36 => 2 | 48 => 2 | 61 => 2 | 73 => 2 | 86 => 2 | 98 => 2 | 111 => 2 | _ => 0
+/-- V45: offset of slot `k`'s bits in the 45-bit V field (top sibling bits 32..76). -/
 def gOff : Nat → Nat
-  | 225 => 0 | 224 => 3 | 223 => 5 | 222 => 6 | 274 => 7 | 273 => 10 | 272 => 12 | 271 => 13 | 323 => 14 | 322 => 17 | 321 => 19 | 320 => 20 | 11 => 21 | 23 => 22 | 36 => 23 | 48 => 25 | 61 => 27 | 73 => 29 | 86 => 31 | 98 => 33 | 111 => 35 | _ => 0
-/-- E8 (P1): the 37-bit V field read from the top `gBits k` bits of the ground slots. -/
+  | 225 => 0 | 224 => 3 | 223 => 6 | 222 => 8 | 274 => 9 | 273 => 13 | 272 => 16 | 271 => 18 | 323 => 19 | 322 => 23 | 321 => 26 | 320 => 28 | 11 => 29 | 23 => 30 | 36 => 31 | 48 => 33 | 61 => 35 | 73 => 37 | 86 => 39 | 98 => 41 | 111 => 43 | _ => 0
+/-- V45: the 45-bit V field read from the top `gBits k` bits of the ground slots. -/
 def vOfB (b : CBytes) : Nat :=
   topBits 3 (cDig b 225) * 2 ^ 0 +
-  topBits 2 (cDig b 224) * 2 ^ 3 +
-  topBits 1 (cDig b 223) * 2 ^ 5 +
-  topBits 1 (cDig b 222) * 2 ^ 6 +
-  topBits 3 (cDig b 274) * 2 ^ 7 +
-  topBits 2 (cDig b 273) * 2 ^ 10 +
-  topBits 1 (cDig b 272) * 2 ^ 12 +
-  topBits 1 (cDig b 271) * 2 ^ 13 +
-  topBits 3 (cDig b 323) * 2 ^ 14 +
-  topBits 2 (cDig b 322) * 2 ^ 17 +
-  topBits 1 (cDig b 321) * 2 ^ 19 +
-  topBits 1 (cDig b 320) * 2 ^ 20 +
-  topBits 1 (cDig b 11) * 2 ^ 21 +
-  topBits 1 (cDig b 23) * 2 ^ 22 +
-  topBits 2 (cDig b 36) * 2 ^ 23 +
-  topBits 2 (cDig b 48) * 2 ^ 25 +
-  topBits 2 (cDig b 61) * 2 ^ 27 +
-  topBits 2 (cDig b 73) * 2 ^ 29 +
-  topBits 2 (cDig b 86) * 2 ^ 31 +
-  topBits 2 (cDig b 98) * 2 ^ 33 +
-  topBits 2 (cDig b 111) * 2 ^ 35
+  topBits 3 (cDig b 224) * 2 ^ 3 +
+  topBits 2 (cDig b 223) * 2 ^ 6 +
+  topBits 1 (cDig b 222) * 2 ^ 8 +
+  topBits 4 (cDig b 274) * 2 ^ 9 +
+  topBits 3 (cDig b 273) * 2 ^ 13 +
+  topBits 2 (cDig b 272) * 2 ^ 16 +
+  topBits 1 (cDig b 271) * 2 ^ 18 +
+  topBits 4 (cDig b 323) * 2 ^ 19 +
+  topBits 3 (cDig b 322) * 2 ^ 23 +
+  topBits 2 (cDig b 321) * 2 ^ 26 +
+  topBits 1 (cDig b 320) * 2 ^ 28 +
+  topBits 1 (cDig b 11) * 2 ^ 29 +
+  topBits 1 (cDig b 23) * 2 ^ 30 +
+  topBits 2 (cDig b 36) * 2 ^ 31 +
+  topBits 2 (cDig b 48) * 2 ^ 33 +
+  topBits 2 (cDig b 61) * 2 ^ 35 +
+  topBits 2 (cDig b 73) * 2 ^ 37 +
+  topBits 2 (cDig b 86) * 2 ^ 39 +
+  topBits 2 (cDig b 98) * 2 ^ 41 +
+  topBits 2 (cDig b 111) * 2 ^ 43
 /-- Decoded digest `k`: the path nodes of heights 1..10 (digests 166..175) lose their top `b_j` bits, the ground
-slots their top `gBits` bits; index 176 (top sibling) = tail 40 bits + V (bits 40..76) + X bits 0..23 (bits 77..100;
+slots their top `gBits` bits; index 176 (top sibling) = tail 32 bits + V (bits 32..76) + X bits 0..23 (bits 77..100;
 bits 101..127 zero, 108..127 brute-forced by expand). -/
 def digC (b : CBytes) (k : Nat) : Digest :=
   if k < 176 then (if 166 ≤ k then clearTop (topZeroBits (k - 165)) (cDig b k)
     else if gBits k = 0 then cDig b k else clearTop (gBits k) (cDig b k))
-  else if k = 176 then BitVec.ofNat 128 (b.toNat / 2 ^ (128 * 324) % 2 ^ 40 + vOfB b * 2 ^ 40 + xOfB b % 2 ^ 24 * 2 ^ 77)
+  else if k = 176 then BitVec.ofNat 128 (b.toNat / 2 ^ (128 * 324) % 2 ^ 32 + vOfB b * 2 ^ 32 + xOfB b % 2 ^ 24 * 2 ^ 77)
   else if gBits (k - 1) = 0 then cDig b (k - 1) else clearTop (gBits (k - 1)) (cDig b (k - 1))
 def sigDecC (b : CBytes) : SharedSignature where
   rho := digC b 0
@@ -115,8 +115,8 @@ def xField (s : SharedSignature) : Nat :=
 def packD (j : Nat) (d : Digest) (x : Nat) : Digest :=
   BitVec.ofNat 128 (d.toNat % 2 ^ (128 - topZeroBits j) +
     x / 2 ^ xOff j % 2 ^ topZeroBits j * 2 ^ (128 - topZeroBits j))
-/-- E8 (P1): V = top sibling bits 40..76 (37). -/
-def vField (s : SharedSignature) : Nat := ((sigDigests s).getD 176 0).toNat / 2 ^ 40 % 2 ^ 37
+/-- V45: V = top sibling bits 32..76 (45). -/
+def vField (s : SharedSignature) : Nat := ((sigDigests s).getD 176 0).toNat / 2 ^ 32 % 2 ^ 45
 /-- U16b: the ground lower path sibling at compact index `k` with V bits `gOff k ..` OR-ed into its top `gBits k` bits
 (the sign pack routine only ORs; the bits are clear unless the ground search hit its cap). -/
 def packG (k : Nat) (d : Digest) (v : Nat) : Digest :=
@@ -129,8 +129,8 @@ def encList (s : SharedSignature) : List Digest :=
     (xField s) else if gBits k = 0 then ((sigDigests s).eraseIdx 176).getD k 0
     else packG k (((sigDigests s).eraseIdx 176).getD k 0) (vField s)
 def sigBC (s : SharedSignature) : CBytes :=
-  BitVec.ofNat _ (digNat (encList s) + 2 ^ (128 * 324) * (((sigDigests s).getD 176 0).toNat % 2 ^ 40))
-theorem compact_length : 324 * 16 + 5 = 5189 := by decide
+  BitVec.ofNat _ (digNat (encList s) + 2 ^ (128 * 324) * (((sigDigests s).getD 176 0).toNat % 2 ^ 32))
+theorem compact_length : 324 * 16 + 4 = 5188 := by decide
 /-- The normal form a decoded signature has (T51): path tops of heights 1..10 clear (`b_j` bits), top sibling below
 bit 101 (E11), hint 13 bits. -/
 def normD (k : Nat) (d : Digest) : Digest :=
@@ -313,13 +313,13 @@ theorem encList_getD (s : SharedSignature) (k : Nat) (hk : k < 324) :
   simp [encList, List.getD_eq_getElem?_getD, hk]
 
 theorem sigBC_toNat (s : SharedSignature) :
-    (sigBC s).toNat = digNat (encList s) + 2^(128*324)*(((sigDigests s).getD 176 0).toNat%2^40) := by
+    (sigBC s).toNat = digNat (encList s) + 2^(128*324)*(((sigDigests s).getD 176 0).toNat%2^32) := by
   unfold sigBC
   rw [BitVec.toNat_ofNat]
   apply Nat.mod_eq_of_lt
   have hD := digNat_lt (encList s)
   rw [encList_length] at hD
-  have hT := lt_split _ _ _ _ hD (Nat.mod_lt ((sigDigests s).getD 176 0).toNat (show 0<2^40 by positivity))
+  have hT := lt_split _ _ _ _ hD (Nat.mod_lt ((sigDigests s).getD 176 0).toNat (show 0<2^32 by positivity))
   simpa only [←pow_add] using hT
 
 theorem encoded_low (s : SharedSignature) : (sigBC s).toNat%2^(128*324)=digNat (encList s) := by
@@ -328,7 +328,7 @@ theorem encoded_low (s : SharedSignature) : (sigBC s).toNat%2^(128*324)=digNat (
   rw [sigBC_toNat, split_mod _ _ _ hD]
 
 theorem encoded_tail (s : SharedSignature) :
-    (sigBC s).toNat/2^(128*324)%2^40=((sigDigests s).getD 176 0).toNat%2^40 := by
+    (sigBC s).toNat/2^(128*324)%2^32=((sigDigests s).getD 176 0).toNat%2^32 := by
   have hD := digNat_lt (encList s)
   rw [encList_length] at hD
   rw [sigBC_toNat, split_div _ _ _ hD, Nat.mod_mod]
@@ -394,7 +394,7 @@ theorem xOfB_sigBC (s : SharedSignature) : xOfB (sigBC s) = xField s := by
   norm_num
   omega
 
-/-- E11: zero bits of the ground slots, at most 4 (P1: at most 3). -/
+/-- E11: zero bits of the ground slots, at most 4. -/
 theorem gBits_le (k : Nat) : gBits k ≤ 4 := by
   unfold gBits; split <;> omega
 
@@ -474,7 +474,7 @@ theorem packG_facts (k : Nat) (d : Digest) (v : Nat) :
     rw [packG_toNat, Nat.add_comm, Nat.add_mul_div_right _ _ (by positivity), Nat.div_eq_of_lt hl, Nat.zero_add]
     rfl
 
-theorem vField_lt (s : SharedSignature) : vField s < 2 ^ 37 := by
+theorem vField_lt (s : SharedSignature) : vField s < 2 ^ 45 := by
   unfold vField; exact Nat.mod_lt _ (by positivity)
 
 theorem vOfB_sigBC (s : SharedSignature) (hg : GroundClear s) : vOfB (sigBC s) = vField s := by
@@ -483,16 +483,16 @@ theorem vOfB_sigBC (s : SharedSignature) (hg : GroundClear s) : vOfB (sigBC s) =
   simp only [cDig_sigBC s _ (by norm_num : (225:Nat) < 324), cDig_sigBC s _ (by norm_num : (224:Nat) < 324), cDig_sigBC s _ (by norm_num : (223:Nat) < 324), cDig_sigBC s _ (by norm_num : (222:Nat) < 324), cDig_sigBC s _ (by norm_num : (274:Nat) < 324), cDig_sigBC s _ (by norm_num : (273:Nat) < 324), cDig_sigBC s _ (by norm_num : (272:Nat) < 324), cDig_sigBC s _ (by norm_num : (271:Nat) < 324), cDig_sigBC s _ (by norm_num : (323:Nat) < 324), cDig_sigBC s _ (by norm_num : (322:Nat) < 324), cDig_sigBC s _ (by norm_num : (321:Nat) < 324), cDig_sigBC s _ (by norm_num : (320:Nat) < 324), cDig_sigBC s _ (by norm_num : (11:Nat) < 324), cDig_sigBC s _ (by norm_num : (23:Nat) < 324), cDig_sigBC s _ (by norm_num : (36:Nat) < 324), cDig_sigBC s _ (by norm_num : (48:Nat) < 324), cDig_sigBC s _ (by norm_num : (61:Nat) < 324), cDig_sigBC s _ (by norm_num : (73:Nat) < 324), cDig_sigBC s _ (by norm_num : (86:Nat) < 324), cDig_sigBC s _ (by norm_num : (98:Nat) < 324), cDig_sigBC s _ (by norm_num : (111:Nat) < 324)]
   simp only [encList_getD s _ (by norm_num : (225:Nat) < 324), encList_getD s _ (by norm_num : (224:Nat) < 324), encList_getD s _ (by norm_num : (223:Nat) < 324), encList_getD s _ (by norm_num : (222:Nat) < 324), encList_getD s _ (by norm_num : (274:Nat) < 324), encList_getD s _ (by norm_num : (273:Nat) < 324), encList_getD s _ (by norm_num : (272:Nat) < 324), encList_getD s _ (by norm_num : (271:Nat) < 324), encList_getD s _ (by norm_num : (323:Nat) < 324), encList_getD s _ (by norm_num : (322:Nat) < 324), encList_getD s _ (by norm_num : (321:Nat) < 324), encList_getD s _ (by norm_num : (320:Nat) < 324), encList_getD s _ (by norm_num : (11:Nat) < 324), encList_getD s _ (by norm_num : (23:Nat) < 324), encList_getD s _ (by norm_num : (36:Nat) < 324), encList_getD s _ (by norm_num : (48:Nat) < 324), encList_getD s _ (by norm_num : (61:Nat) < 324), encList_getD s _ (by norm_num : (73:Nat) < 324), encList_getD s _ (by norm_num : (86:Nat) < 324), encList_getD s _ (by norm_num : (98:Nat) < 324), encList_getD s _ (by norm_num : (111:Nat) < 324)]
   have g225 : gBits 225 = 3 := rfl
-  have g224 : gBits 224 = 2 := rfl
-  have g223 : gBits 223 = 1 := rfl
+  have g224 : gBits 224 = 3 := rfl
+  have g223 : gBits 223 = 2 := rfl
   have g222 : gBits 222 = 1 := rfl
-  have g274 : gBits 274 = 3 := rfl
-  have g273 : gBits 273 = 2 := rfl
-  have g272 : gBits 272 = 1 := rfl
+  have g274 : gBits 274 = 4 := rfl
+  have g273 : gBits 273 = 3 := rfl
+  have g272 : gBits 272 = 2 := rfl
   have g271 : gBits 271 = 1 := rfl
-  have g323 : gBits 323 = 3 := rfl
-  have g322 : gBits 322 = 2 := rfl
-  have g321 : gBits 321 = 1 := rfl
+  have g323 : gBits 323 = 4 := rfl
+  have g322 : gBits 322 = 3 := rfl
+  have g321 : gBits 321 = 2 := rfl
   have g320 : gBits 320 = 1 := rfl
   have g11 : gBits 11 = 1 := rfl
   have g23 : gBits 23 = 1 := rfl
@@ -640,12 +640,12 @@ theorem packG_word1 (k : Nat) (d : Digest) (v : Nat) :
   rw [or_shift _ _ _ _ hl']
 
 /-- E11 (for the sign pack routine): 64-bit word `k < 650` of the compact bytes is the T1 word `k` with the V
-bits OR-ed into the top `gBits` bits of the high word of each ground slot; word 648 keeps only its low 5 bytes (the
-tail; E8 P1) and word 649 is empty (T1 bits 40..76 of the top sibling = V move into the ground slots). -/
+bits OR-ed into the top `gBits` bits of the high word of each ground slot; word 648 keeps only its low 4 bytes (the
+tail; V45) and word 649 is empty (T1 bits 32..76 of the top sibling = V move into the ground slots). -/
 theorem sigBC_word (s : SharedSignature) (k : Nat) (hk : k < 650) :
     (sigBC s).toNat / 2 ^ (64 * k) % 2 ^ 64 =
       if k = 649 then (sigBCT1 s).toNat / 2 ^ (64 * k) % 2 ^ 0
-      else if k = 648 then (sigBCT1 s).toNat / 2 ^ (64 * k) % 2 ^ 64 % 2 ^ 40
+      else if k = 648 then (sigBCT1 s).toNat / 2 ^ (64 * k) % 2 ^ 64 % 2 ^ 32
       else (sigBCT1 s).toNat / 2 ^ (64 * k) % 2 ^ 64 |||
         (if k % 2 = 1 ∧ gBits (k / 2) ≠ 0 then vField s / 2 ^ gOff (k / 2) % 2 ^ gBits (k / 2) * 2 ^ (64 - gBits (k / 2))
           else 0) := by
@@ -671,28 +671,28 @@ theorem sigBC_word (s : SharedSignature) (k : Nat) (hk : k < 650) :
     generalize hx : ((sigDigests s).getD 176 0).toNat = x
     by_cases h8 : k = 648
     · subst h8
-      have h0 := word_tail _ (x % 2 ^ 40) hD 0 (by decide)
+      have h0 := word_tail _ (x % 2 ^ 32) hD 0 (by decide)
       have h1 := word_tail _ (x % 2 ^ 77) hD1 0 (by decide)
       simp only [Nat.add_zero, Nat.mul_zero, pow_zero, Nat.div_one] at h0 h1
       rw [h0, h1, if_neg (by decide), if_pos rfl,
-        Nat.mod_mod_of_dvd _ (Nat.pow_dvd_pow 2 (by norm_num : 40 ≤ 64)),
-        Nat.mod_mod_of_dvd _ (Nat.pow_dvd_pow 2 (by norm_num : 40 ≤ 77))]
+        Nat.mod_mod_of_dvd _ (Nat.pow_dvd_pow 2 (by norm_num : 32 ≤ 64)),
+        Nat.mod_mod_of_dvd _ (Nat.pow_dvd_pow 2 (by norm_num : 32 ≤ 77))]
       exact Nat.mod_eq_of_lt (lt_of_lt_of_le (Nat.mod_lt _ (by positivity)) (Nat.pow_le_pow_right (by norm_num) (by norm_num)))
     · have h9 : k = 649 := by omega
       subst h9
-      have h0 := word_tail _ (x % 2 ^ 40) hD 1 (by decide)
+      have h0 := word_tail _ (x % 2 ^ 32) hD 1 (by decide)
       have h1 := word_tail _ (x % 2 ^ 77) hD1 1 (by decide)
       simp only [Nat.mul_one] at h0 h1
       rw [show 64 * 649 = 64 * (648 + 1) by rfl, h0, h1, if_pos rfl]
-      have : x % 2 ^ 40 / 2 ^ 64 = 0 :=
+      have : x % 2 ^ 32 / 2 ^ 64 = 0 :=
         Nat.div_eq_of_lt (lt_of_lt_of_le (Nat.mod_lt x (by positivity)) (Nat.pow_le_pow_right (by norm_num) (by norm_num)))
       simp only [pow_zero, Nat.mod_one, this, Nat.zero_mod]
 
-/-- E8 (P1): V = bits 40..63 of T1 word 648 and bits 0..12 of T1 word 649 (top sibling bits 40..76; the sign pack
-routine reads them with `ld 0x8440; srli 40` and `ld 0x8448; slli 24`). -/
+/-- V45: V = bits 32..63 of T1 word 648 and bits 0..12 of T1 word 649 (top sibling bits 32..76; the sign pack
+routine reads them with `ld 0x8440; srli 32` and `ld 0x8448; slli 32`). -/
 theorem vField_sigBCT1 (s : SharedSignature) :
-    vField s = ((sigBCT1 s).toNat / 2 ^ (64 * 648) % 2 ^ 64 / 2 ^ 40 +
-      (sigBCT1 s).toNat / 2 ^ (64 * 649) % 2 ^ 64 * 2 ^ 24) % 2 ^ 37 := by
+    vField s = ((sigBCT1 s).toNat / 2 ^ (64 * 648) % 2 ^ 64 / 2 ^ 32 +
+      (sigBCT1 s).toNat / 2 ^ (64 * 649) % 2 ^ 64 * 2 ^ 32) % 2 ^ 45 := by
   have hD1 := digNat_lt (encListT1 s)
   rw [encListT1_length] at hD1
   have h0 := word_tail _ (((sigDigests s).getD 176 0).toNat % 2 ^ 77) hD1 0 (by decide)
@@ -723,8 +723,8 @@ theorem digC_sigBC (s : SharedSignature) (k : Nat) (hk : k<325) (hg : k ≠ 176 
       congr 1
       unfold xField vField
       generalize ((sigDigests s).getD 176 0).toNat = x
-      have h72 : x % 2 ^ 77 = x % 2 ^ 40 + 2 ^ 40 * (x / 2 ^ 40 % 2 ^ 37) := by
-        rw [show (2:Nat) ^ 77 = 2 ^ 40 * 2 ^ 37 by norm_num, Nat.mod_mul]
+      have h72 : x % 2 ^ 77 = x % 2 ^ 32 + 2 ^ 32 * (x / 2 ^ 32 % 2 ^ 45) := by
+        rw [show (2:Nat) ^ 77 = 2 ^ 32 * 2 ^ 45 by norm_num, Nat.mod_mul]
       have hm : x % 2 ^ 101 = x % 2 ^ 77 + 2 ^ 77 * (x / 2 ^ 77 % 2 ^ 24) := by
         rw [show (2:Nat) ^ 101 = 2 ^ 77 * 2 ^ 24 by norm_num, Nat.mod_mul]
       have h88 := Nat.mod_lt (x / 2 ^ 77) (show 0 < 2 ^ 24 by positivity)
@@ -997,16 +997,16 @@ theorem gBits_ne_zero (k : Nat) (h : gBits k ≠ 0) :
 theorem vOfB_digit (b : CBytes) (k : Nat) (hk : gBits k ≠ 0) :
     vOfB b / 2 ^ gOff k % 2 ^ gBits k = topBits (gBits k) (cDig b k) := by
   have t0 := topBits_lt 3 (by norm_num) (cDig b 225)
-  have t1 := topBits_lt 2 (by norm_num) (cDig b 224)
-  have t2 := topBits_lt 1 (by norm_num) (cDig b 223)
+  have t1 := topBits_lt 3 (by norm_num) (cDig b 224)
+  have t2 := topBits_lt 2 (by norm_num) (cDig b 223)
   have t3 := topBits_lt 1 (by norm_num) (cDig b 222)
-  have t4 := topBits_lt 3 (by norm_num) (cDig b 274)
-  have t5 := topBits_lt 2 (by norm_num) (cDig b 273)
-  have t6 := topBits_lt 1 (by norm_num) (cDig b 272)
+  have t4 := topBits_lt 4 (by norm_num) (cDig b 274)
+  have t5 := topBits_lt 3 (by norm_num) (cDig b 273)
+  have t6 := topBits_lt 2 (by norm_num) (cDig b 272)
   have t7 := topBits_lt 1 (by norm_num) (cDig b 271)
-  have t8 := topBits_lt 3 (by norm_num) (cDig b 323)
-  have t9 := topBits_lt 2 (by norm_num) (cDig b 322)
-  have t10 := topBits_lt 1 (by norm_num) (cDig b 321)
+  have t8 := topBits_lt 4 (by norm_num) (cDig b 323)
+  have t9 := topBits_lt 3 (by norm_num) (cDig b 322)
+  have t10 := topBits_lt 2 (by norm_num) (cDig b 321)
   have t11 := topBits_lt 1 (by norm_num) (cDig b 320)
   have t12 := topBits_lt 1 (by norm_num) (cDig b 11)
   have t13 := topBits_lt 1 (by norm_num) (cDig b 23)
@@ -1021,18 +1021,18 @@ theorem vOfB_digit (b : CBytes) (k : Nat) (hk : gBits k ≠ 0) :
   rcases gBits_ne_zero k hk with h | h | h | h | h | h | h | h | h | h | h | h | h | h | h | h | h | h | h | h | h <;> subst h <;>
     simp only [gBits, gOff, Nat.reducePow] at * <;> omega
 
-theorem vOfB_lt (b : CBytes) : vOfB b < 2 ^ 37 := by
+theorem vOfB_lt (b : CBytes) : vOfB b < 2 ^ 45 := by
   have t0 := topBits_lt 3 (by norm_num) (cDig b 225)
-  have t1 := topBits_lt 2 (by norm_num) (cDig b 224)
-  have t2 := topBits_lt 1 (by norm_num) (cDig b 223)
+  have t1 := topBits_lt 3 (by norm_num) (cDig b 224)
+  have t2 := topBits_lt 2 (by norm_num) (cDig b 223)
   have t3 := topBits_lt 1 (by norm_num) (cDig b 222)
-  have t4 := topBits_lt 3 (by norm_num) (cDig b 274)
-  have t5 := topBits_lt 2 (by norm_num) (cDig b 273)
-  have t6 := topBits_lt 1 (by norm_num) (cDig b 272)
+  have t4 := topBits_lt 4 (by norm_num) (cDig b 274)
+  have t5 := topBits_lt 3 (by norm_num) (cDig b 273)
+  have t6 := topBits_lt 2 (by norm_num) (cDig b 272)
   have t7 := topBits_lt 1 (by norm_num) (cDig b 271)
-  have t8 := topBits_lt 3 (by norm_num) (cDig b 323)
-  have t9 := topBits_lt 2 (by norm_num) (cDig b 322)
-  have t10 := topBits_lt 1 (by norm_num) (cDig b 321)
+  have t8 := topBits_lt 4 (by norm_num) (cDig b 323)
+  have t9 := topBits_lt 3 (by norm_num) (cDig b 322)
+  have t10 := topBits_lt 2 (by norm_num) (cDig b 321)
   have t11 := topBits_lt 1 (by norm_num) (cDig b 320)
   have t12 := topBits_lt 1 (by norm_num) (cDig b 11)
   have t13 := topBits_lt 1 (by norm_num) (cDig b 23)
@@ -1047,15 +1047,15 @@ theorem vOfB_lt (b : CBytes) : vOfB b < 2 ^ 37 := by
   simp only [Nat.reducePow] at *
   omega
 
-/-- E8 (P1): the decoded top sibling: tail (40 bits) + V (bits 40..76) + X bits 0..23 (bits 77..100). -/
+/-- V45: the decoded top sibling: tail (32 bits) + V (bits 32..76) + X bits 0..23 (bits 77..100). -/
 theorem digC_176_toNat (b : CBytes) : (digC b 176).toNat =
-    b.toNat / 2 ^ (128 * 324) % 2 ^ 40 + vOfB b * 2 ^ 40 + xOfB b % 2 ^ 24 * 2 ^ 77 := by
+    b.toNat / 2 ^ (128 * 324) % 2 ^ 32 + vOfB b * 2 ^ 32 + xOfB b % 2 ^ 24 * 2 ^ 77 := by
   rw [digC, if_neg (by decide), if_pos rfl, BitVec.toNat_ofNat]
   apply Nat.mod_eq_of_lt
-  have h1 := Nat.mod_lt (b.toNat / 2 ^ (128 * 324)) (show 0 < 2 ^ 40 by positivity)
+  have h1 := Nat.mod_lt (b.toNat / 2 ^ (128 * 324)) (show 0 < 2 ^ 32 by positivity)
   have h2 := Nat.mod_lt (xOfB b) (show 0 < 2 ^ 24 by positivity)
   have h3 := vOfB_lt b
-  generalize b.toNat / 2 ^ (128 * 324) % 2 ^ 40 = t at *
+  generalize b.toNat / 2 ^ (128 * 324) % 2 ^ 32 = t at *
   generalize xOfB b % 2 ^ 24 = x at *
   generalize vOfB b = v at *
   simp only [Nat.reducePow] at *
@@ -1064,9 +1064,9 @@ theorem digC_176_toNat (b : CBytes) : (digC b 176).toNat =
 theorem vField_sigDecC (b : CBytes) : vField (sigDecC b) = vOfB b := by
   unfold vField
   rw [sigDigests_sigDecC b 176 (by decide), digC_176_toNat]
-  have h1 := Nat.mod_lt (b.toNat / 2 ^ (128 * 324)) (show 0 < 2 ^ 40 by positivity)
+  have h1 := Nat.mod_lt (b.toNat / 2 ^ (128 * 324)) (show 0 < 2 ^ 32 by positivity)
   have h3 := vOfB_lt b
-  generalize b.toNat / 2 ^ (128 * 324) % 2 ^ 40 = t at *
+  generalize b.toNat / 2 ^ (128 * 324) % 2 ^ 32 = t at *
   generalize xOfB b % 2 ^ 24 = x at *
   generalize vOfB b = v at *
   simp only [Nat.reducePow] at *
@@ -1078,9 +1078,9 @@ theorem xField_sigDecC (b : CBytes) : xField (sigDecC b) = xOfB b := by
   rw [sigDigests_sigDecC b 176 (by decide)]
   change (digC b 176).toNat / 2 ^ 77 % 2 ^ 24 + (BitVec.ofNat 16 (xOfB b / 2 ^ 24)).toNat % 2 ^ 13 * 2 ^ 24 = _
   rw [digC_176_toNat, BitVec.toNat_ofNat]
-  have ht := Nat.mod_lt (b.toNat / 2 ^ (128 * 324)) (show 0 < 2 ^ 40 by positivity)
+  have ht := Nat.mod_lt (b.toNat / 2 ^ (128 * 324)) (show 0 < 2 ^ 32 by positivity)
   have hv := vOfB_lt b
-  generalize b.toNat / 2 ^ (128 * 324) % 2 ^ 40 = t at *
+  generalize b.toNat / 2 ^ (128 * 324) % 2 ^ 32 = t at *
   generalize vOfB b = v at *
   norm_num at *
   omega
@@ -1157,13 +1157,13 @@ theorem sigBC_sigDecC (b : CBytes) : sigBC (sigDecC b)=b := by
               if_neg (show ¬ (k+1 < 176) by omega), if_neg (show ¬ (k+1 = 176) by omega), show k+1-1=k by omega,
               if_neg hg, vField_sigDecC, packG_clear k _ _ (vOfB_digit b k hg), cDig, BitVec.extractLsb'_toNat,
               Nat.shiftRight_eq_div_pow]
-  have hT : ((sigDigests (sigDecC b)).getD 176 0).toNat%2^40=b.toNat/2^(128*324)%2^40 := by
+  have hT : ((sigDigests (sigDecC b)).getD 176 0).toNat%2^32=b.toNat/2^(128*324)%2^32 := by
     rw [sigDigests_sigDecC b 176 (by decide), digC_176_toNat]
-    rw [show b.toNat / 2 ^ (128 * 324) % 2 ^ 40 + vOfB b * 2 ^ 40 + xOfB b % 2 ^ 24 * 2 ^ 77 =
-      b.toNat / 2 ^ (128 * 324) % 2 ^ 40 + (vOfB b + xOfB b % 2 ^ 24 * 2 ^ 37) * 2 ^ 40 by ring,
+    rw [show b.toNat / 2 ^ (128 * 324) % 2 ^ 32 + vOfB b * 2 ^ 32 + xOfB b % 2 ^ 24 * 2 ^ 77 =
+      b.toNat / 2 ^ (128 * 324) % 2 ^ 32 + (vOfB b + xOfB b % 2 ^ 24 * 2 ^ 45) * 2 ^ 32 by ring,
       Nat.add_mul_mod_self_right, Nat.mod_mod]
   rw [hD,hT]
-  have hb : b.toNat / 2 ^ (128 * 324) < 2 ^ 40 := by
+  have hb : b.toNat / 2 ^ (128 * 324) < 2 ^ 32 := by
     rw [Nat.div_lt_iff_lt_mul (by positivity), ← pow_add]
     exact b.isLt
   rw [Nat.mod_eq_of_lt hb]
@@ -1231,7 +1231,7 @@ theorem sigBC_fillTopSignature (sig : SharedSignature) (c : Nat) :
   have hv : vField (fillTopSignature sig c) = vField sig := by
     unfold vField
     rw [← Nat.mod_mul_right_div_self, ← Nat.mod_mul_right_div_self ((sigDigests sig).getD 176 0).toNat,
-      show (2:Nat) ^ 40 * 2 ^ 37 = 2 ^ 77 by norm_num,
+      show (2:Nat) ^ 32 * 2 ^ 45 = 2 ^ 77 by norm_num,
       ← Nat.mod_mod_of_dvd ((sigDigests (fillTopSignature sig c)).getD 176 0).toNat
         (Nat.pow_dvd_pow 2 (by norm_num : 77 ≤ 101)),
       ← Nat.mod_mod_of_dvd ((sigDigests sig).getD 176 0).toNat (Nat.pow_dvd_pow 2 (by norm_num : 77 ≤ 101)), hm]
@@ -1240,11 +1240,11 @@ theorem sigBC_fillTopSignature (sig : SharedSignature) (c : Nat) :
     rw [← Nat.mod_mul_right_div_self, ← Nat.mod_mul_right_div_self ((sigDigests sig).getD 176 0).toNat,
       show (2:Nat) ^ 77 * 2 ^ 24 = 2 ^ 101 by norm_num, hm]
     rfl
-  have ht : ((sigDigests (fillTopSignature sig c)).getD 176 0).toNat % 2 ^ 40 =
-      ((sigDigests sig).getD 176 0).toNat % 2 ^ 40 := by
+  have ht : ((sigDigests (fillTopSignature sig c)).getD 176 0).toNat % 2 ^ 32 =
+      ((sigDigests sig).getD 176 0).toNat % 2 ^ 32 := by
     rw [← Nat.mod_mod_of_dvd ((sigDigests (fillTopSignature sig c)).getD 176 0).toNat
-        (Nat.pow_dvd_pow 2 (by norm_num : 40 ≤ 101)),
-      ← Nat.mod_mod_of_dvd ((sigDigests sig).getD 176 0).toNat (Nat.pow_dvd_pow 2 (by norm_num : 40 ≤ 101)), hm]
+        (Nat.pow_dvd_pow 2 (by norm_num : 32 ≤ 101)),
+      ← Nat.mod_mod_of_dvd ((sigDigests sig).getD 176 0).toNat (Nat.pow_dvd_pow 2 (by norm_num : 32 ≤ 101)), hm]
   have he : (sigDigests (fillTopSignature sig c)).eraseIdx 176 = (sigDigests sig).eraseIdx 176 := by
     rw [sigDigests_fill, List.eraseIdx_set_eq]
   unfold sigBC encList
@@ -1420,10 +1420,10 @@ set_option exponentiation.threshold 50000
 /-- E11: the decoded top sibling (digest 176) is below `2^101` (bits 101..107 zero-test, 108..127 filled by expand). -/
 theorem digC_176_lt (b : CBytes) : (digC b 176).toNat < 2 ^ 101 := by
   rw [digC_176_toNat]
-  have h1 := Nat.mod_lt (b.toNat / 2 ^ (128 * 324)) (show 0 < 2 ^ 40 by positivity)
+  have h1 := Nat.mod_lt (b.toNat / 2 ^ (128 * 324)) (show 0 < 2 ^ 32 by positivity)
   have h2 := Nat.mod_lt (xOfB b) (show 0 < 2 ^ 24 by positivity)
   have h3 := vOfB_lt b
-  generalize b.toNat / 2 ^ (128 * 324) % 2 ^ 40 = t at *
+  generalize b.toNat / 2 ^ (128 * 324) % 2 ^ 32 = t at *
   generalize xOfB b % 2 ^ 24 = x at *
   generalize vOfB b = v at *
   simp only [Nat.reducePow] at *

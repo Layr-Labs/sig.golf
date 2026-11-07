@@ -886,7 +886,8 @@ theorem fav_buildTopTree : Avoids secret target buildTopTree := by
     fun st => fav_buildTopLevels secret target coord index heap ht hp _
 
 section
-attribute [local irreducible] SigGolfCandidate.T3.keygenPayload
+-- As in Merge054's `gav_keygen`: an opaque `maskedLevel` keeps the `refine` unification cheap (106 s → ~1 s).
+attribute [local irreducible] SigGolfCandidate.T3.keygenPayload SigGolfCandidate.T3.maskedLevel
 set_option backward.isDefEq.respectTransparency true in
 set_option maxHeartbeats 2000000 in
 theorem fav_keygen : Avoids secret target SigGolfCandidate.T3.keygen := by

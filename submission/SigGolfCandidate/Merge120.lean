@@ -3390,11 +3390,11 @@ def tgtHi (lay : Nat) : E := .bin .and (.bin .add (x14Hi lay) (kw 1992)) (.c (~~
 /-- M0 (A0, P2c): the lower heads lose `addi t4,s9,-194` and `bltu t5,t4,reject` (two steps, two cycles). -/
 def bSt (lay : Nat) : Nat := if lay = 3 then 27 else if lay = 1 ∨ lay = 2 then 19 else 33
 /-- The HIGH-b path's extra steps (and cycles): the failed `bge` and the two high loads on layers 1, 2 (SGV1 split
-guard: `ld a7; blt; ld a6; bge; ld a6hi; ld a7hi`), the two high loads and the `jal` back on layer 3. -/
+guard: `ld a7; blt; ld a6; bge; ld a6hi; ld a7hi`), the `jal` to the moved HIGH loads and the two loads on layer 3. -/
 def hiX (lay : Nat) : Nat := if lay = 3 then 3 else 2
-/-- SGV1: the HIGH-a path's extra steps (and cycles) over LOW: none on layers 1, 2 (`ld a7; blt; ld a6hi; ld a7hi`),
-the `jal` back on layer 3. -/
-def hiA (lay : Nat) : Nat := if lay = 3 then 1 else 0
+/-- SGV1: the HIGH-a path's extra steps (and cycles) over LOW: none (`ld a7; blt; ld a6hi; ld a7hi`; Z4: on layer 3
+the HIGH loads and the encoding SWAR sit at verify 1357..1381, so HIGH-a falls through instead of jumping back). -/
+def hiA (_lay : Nat) : Nat := 0
 def bCy (lay : Nat) : Nat := if lay = 3 then 30 else if lay = 1 ∨ lay = 2 then 22 else 36
 def prefixReturn (lay p : Nat) : Nat := p + (if lay = 3 then 37 else 38)
 def s7Sh (lay : Nat) : Nat := if lay = 1 then 12 else 9

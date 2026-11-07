@@ -1771,7 +1771,8 @@ private def layoutWins : List (Nat × List (BitVec 32)) :=
     (48112, Layout.cClr0), (48116, Layout.cClrL)] ++
   (layoutHd 0 :: (layoutZ.drop 0).take 43 ++ (layoutHd 1 :: (layoutZ.drop 43).take 43 ++
   (layoutHd 2 :: (layoutZ.drop 86).take 43 ++ (layoutHd 3 :: (layoutZ.drop 129).take 51 ++ [(49207, Layout.cRet)]))))
-private theorem layout_walk : LayoutWalk.walk Images.expandCode_172 44032 layoutWins = true := by decide +kernel
+private theorem layout_walk : LayoutWalk.walk Images.expandCode_172 44032 layoutWins = true := by
+  rw [SigGolfCandidate.T3M.expandCode_172_eq_R]; decide +kernel
 private theorem pre_mem {w : Nat × List (BitVec 32)}
     (hw : w ∈ [(48000, PairCopy.cPC0), (48001, PairCopy.cPCL), (48013, PairCopy.cPCT), (48100, Layout.cTop),
       (48112, Layout.cClr0), (48116, Layout.cClrL)]) : w ∈ layoutWins := List.mem_append_left _ hw

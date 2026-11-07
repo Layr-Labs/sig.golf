@@ -1389,7 +1389,7 @@ section
 
 /-! # T51 DEC from the real initial state
 
-E8 (P1): word 0 is `j 60734` (the pre-pass, 185 steps, then `j 54569` = DEC). From `w9init` with the 5,189-byte signature
+E8 (P1): word 0 is `j 60734` (the pre-pass, 185 steps, then `j 54569` = DEC). From `w9init` with the 5,188-byte signature
 `b`, the pre-pass rebuilds DEC's T1 layout (`unpackB b`) and DEC writes the expander's inflated slot layout
 `SharedCodec.inflatedRead 0 (SharedCodec.digC b)` (332 slots at `0x7000`) and the hint at `0x66000`, rejects a hint
 `≥ 7744` at `j 354`, zeroes its temporaries and jumps to word 1 (2,191 steps in all). -/
@@ -1514,7 +1514,7 @@ theorem bytes_getD {n : Nat} (x : Bytes n) (i : Nat) (hi : i < n) :
   simp only [bytes, List.getD_eq_getElem?_getD, List.getElem?_map, List.getElem?_range hi, Option.map_some,
     Option.getD_some]
 
-/-- E8 (P1): the expand entry memory of the real initial state holds the 5,189-byte signature. -/
+/-- V45: the expand entry memory of the real initial state holds the 5,188-byte signature. -/
 theorem w9_sigMemC (m : Message) (pk : PublicKey) (b : SharedCodec.CBytes) :
     SigMemC (w9init Images.expandImage m pk b).getMem b := by
   constructor

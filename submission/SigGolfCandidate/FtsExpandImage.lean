@@ -23,14 +23,9 @@ def ftsWin : List (BitVec 32) := Images.expandFtsSearch ++ (List.replicate 3 0x1
   (Images.expandFtsCopyK8 ++ Images.expandFtsCopyOdd)))))))
 
 theorem codeAt_ftsWin : CodeAt Images.expandImage (pcOf 61000) ftsWin := by
-  apply codeAt_expand_last
-  · decide +kernel
-  · decide +kernel
-  · -- Right-associate the image's appends first: the kernel's `drop` through the left-nested chains of small blocks
-    -- (words 4068..12012) is what costs time and memory (47 s / +7 GB → about 15 s / +0.7 GB).
-    unfold Images.expandCode_172
-    simp (config := { maxSteps := 10000000 }) only [List.append_assoc]
-    decide +kernel
+  -- The image's appends are right-associated once (`expandCode_172_eq_R`, Merge060): the kernel's `drop` through
+  -- the left-nested chains of small blocks (words 4068..12012) is what costs time and memory.
+  apply codeAt_expand_lastR <;> decide +kernel
 
 theorem codeAt_app {im : Image} {b : Nat} {l1 l2 : List (BitVec 32)} (h : CodeAt im (pcOf b) (l1 ++ l2)) :
     CodeAt im (pcOf b) l1 ∧ CodeAt im (pcOf (b + l1.length)) l2 := by

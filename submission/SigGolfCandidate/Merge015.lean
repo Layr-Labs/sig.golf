@@ -5317,6 +5317,8 @@ abbrev Encoding (lay : Layer) := MixedCode.Encoding (code lay)
 abbrev ChainIndex (lay : Layer) := Fin (chainCount lay)
 theorem chainCount_bound (lay : Layer) : chainCount lay ≤ 58 := by fin_cases lay <;> decide
 theorem chainCount_le_54 (lay : Layer) : chainCount lay ≤ 54 := by fin_cases lay <;> decide
+/-- Z3 (c51): every layer has at most 51 chains (top 51, lower 43). -/
+theorem chainCount_le_51 (lay : Layer) : chainCount lay ≤ 51 := by fin_cases lay <;> decide
 theorem unit_neighbors_bound (lay : Layer) (word : Encoding lay) (i : ChainIndex lay) :
     (MixedCode.unitNeighbors word i).card ≤ 57 :=
   (MixedCode.unitNeighbors_card_le word i).trans (Nat.sub_le_sub_right (chainCount_bound lay) 1)

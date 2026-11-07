@@ -120,6 +120,51 @@ theorem codeAt_expand_last {b : Nat} {code : List (BitVec 32)}
   rw [← expandCodeTailLast_eq b hlo]
   exact hc
 
+section RassocExpand172
+open Lean Elab Command
+
+/-- Right-associate the `++` spine of `e` (leaves untouched); `mk l r` rebuilds `l ++ r`. -/
+partial def rassocSpine (mk : Expr → Expr → Expr) : Expr → Option Expr → Expr
+  | e, acc =>
+    if e.isAppOfArity ``HAppend.hAppend 6 then
+      let args := e.getAppArgs
+      rassocSpine mk args[4]! (some (rassocSpine mk args[5]! acc))
+    else match acc with
+      | some a => mk e a
+      | none => e
+
+/-- `rassoc_def n := c` adds the definition `n` whose value is `c`'s value with its `++` spine
+right-associated. Only a faster term for the kernel: `n = c` is proved separately. -/
+elab "rassoc_def " n:ident " := " c:ident : command => do
+  let cn ← liftCoreM <| realizeGlobalConstNoOverloadWithInfo c
+  let info ← getConstInfo cn
+  let v := info.value!
+  let v' := if v.isAppOfArity ``HAppend.hAppend 6 then
+      let args := v.getAppArgs
+      rassocSpine (fun l r => mkAppN v.getAppFn #[args[0]!, args[1]!, args[2]!, args[3]!, l, r]) v none
+    else v
+  let name := (← getCurrNamespace) ++ n.getId
+  liftCoreM <| addDecl <| Declaration.defnDecl <|
+    mkDefinitionValEx name [] info.type v' .abbrev .safe [name]
+
+end RassocExpand172
+
+rassoc_def expandCode172R := Images.expandCode_172
+
+set_option maxHeartbeats 0 in
+set_option maxRecDepth 1000000 in
+/-- The right-associated expand tail is the image's last chunk. -/
+theorem expandCode_172_eq_R : Images.expandCode_172 = expandCode172R := by
+  unfold Images.expandCode_172 expandCode172R
+  simp (config := { maxSteps := 10000000 }) only [List.append_assoc]
+
+/-- `codeAt_expand_last`, reading the window from the right-associated tail (cheap for the kernel). -/
+theorem codeAt_expand_lastR {b : Nat} {code : List (BitVec 32)}
+    (hlo : 44032 ≤ b) (hb : 0x1000 + 4 * b + 4 * code.length < 2 ^ 64)
+    (hc : (expandCode172R.drop (b - 44032)).take code.length = code) :
+    CodeAt Images.expandImage (pcOf b) code :=
+  codeAt_expand_last hlo hb (by rw [expandCode_172_eq_R]; exact hc)
+
 /-- A sub-window of a checked code window (no new kernel check of the image). -/
 theorem codeAt_sub {image : Image} {b : Nat} {code seg : List (BitVec 32)} (o : Nat)
     (hc : CodeAt image (pcOf b) code) (hlen : o + seg.length ≤ code.length)
@@ -140,7 +185,7 @@ def t51Code : List (BitVec 32) := [0xa0537,0xa050513,0xa13,0xc00a93,0x231e13,0x3
 
 set_option maxRecDepth 100000 in
 theorem codeAt_t51 : CodeAt Images.expandImage (pcOf 54176) t51Code := by
-  apply codeAt_expand_last <;> decide +kernel
+  apply codeAt_expand_lastR <;> decide +kernel
 
 theorem codeAt_t51_sub {seg : List (BitVec 32)} (o : Nat) (hlen : o + seg.length ≤ t51Code.length)
     (h : (t51Code.drop o).take seg.length = seg) :
@@ -156,7 +201,7 @@ set_option maxRecDepth 100000 in
 /-- E11: the new expand code 60000..60733 (pre-pass, grind tiers, post-grind nonce slot, level-4 pad tables and
 post-pass), checked once against the image; every E11 block is a `codeAt_sub` of it. -/
 theorem codeAt_e11 : CodeAt Images.expandImage (pcOf 60000) Images.expandE11Code := by
-  apply codeAt_expand_last <;> decide +kernel
+  apply codeAt_expand_lastR <;> decide +kernel
 theorem codeAt_e11_at {seg : List (BitVec 32)} (b : Nat) (hb : 60000 ≤ b)
     (hlen : b - 60000 + seg.length ≤ Images.expandE11Code.length)
     (h : (Images.expandE11Code.drop (b - 60000)).take seg.length = seg) : CodeAt Images.expandImage (pcOf b) seg := by
@@ -166,7 +211,7 @@ theorem codeAt_e11_at {seg : List (BitVec 32)} (b : Nat) (hb : 60000 ≤ b)
 /-- The installed shared-forest driver is bound independently of the reference image. -/
 theorem codeAt_expand_shared_driver :
     CodeAt Images.expandImage (pcOf 45056) Images.expandSharedDriver := by
-  apply codeAt_expand_last <;> decide +kernel
+  apply codeAt_expand_lastR <;> decide +kernel
 
 end SigGolfCandidate.T3M
 end

@@ -1240,30 +1240,30 @@ theorem code_last {b : Nat} {code : List (BitVec 32)} (hlo : 44032 ≤ b)
     (hc : (Images.expandCode_172.drop (b - 44032)).take code.length = code) :
     CodeAt Images.expandImage (pcOf b) code := codeAt_expand_last hlo hb hc
 
-theorem code_pro1 : CodeAt Images.expandImage (pcOf 49400) cPro1 := code_last (by decide) (by decide) (by decide +kernel)
-theorem code_pro2 : CodeAt Images.expandImage (pcOf 49411) cPro2 := code_last (by decide) (by decide) (by decide +kernel)
-theorem code_f1 : CodeAt Images.expandImage (pcOf 49406) fBody := code_last (by decide) (by decide) (by decide +kernel)
-theorem code_f2 : CodeAt Images.expandImage (pcOf 49417) fBody := code_last (by decide) (by decide) (by decide +kernel)
-theorem code_sv : CodeAt Images.expandImage (pcOf 49422) cSv := code_last (by decide) (by decide) (by decide +kernel)
-theorem code_fsv : CodeAt Images.expandImage (pcOf 49428) fBody := code_last (by decide) (by decide) (by decide +kernel)
-theorem code_mvFG : CodeAt Images.expandImage (pcOf 49433) cMvFG := code_last (by decide) (by decide) (by decide +kernel)
-theorem code_mFG : CodeAt Images.expandImage (pcOf 49439) mBody := code_last (by decide) (by decide) (by decide +kernel)
-theorem code_jA : CodeAt Images.expandImage (pcOf 49444) cJA := code_last (by decide) (by decide) (by decide +kernel)
-theorem code_mvD : CodeAt Images.expandImage (pcOf 49226) cMvD := code_last (by decide) (by decide) (by decide +kernel)
-theorem code_mD : CodeAt Images.expandImage (pcOf 49231) mBody := code_last (by decide) (by decide) (by decide +kernel)
-theorem code_mvB : CodeAt Images.expandImage (pcOf 49236) cMvB := code_last (by decide) (by decide) (by decide +kernel)
-theorem code_mB : CodeAt Images.expandImage (pcOf 49241) mBody := code_last (by decide) (by decide) (by decide +kernel)
-theorem code_cpA : CodeAt Images.expandImage (pcOf 49246) cCpA := code_last (by decide) (by decide) (by decide +kernel)
-theorem code_fA : CodeAt Images.expandImage (pcOf 49252) fBody := code_last (by decide) (by decide) (by decide +kernel)
-theorem code_cpC : CodeAt Images.expandImage (pcOf 49257) cCpC := code_last (by decide) (by decide) (by decide +kernel)
-theorem code_fC : CodeAt Images.expandImage (pcOf 49263) fBody := code_last (by decide) (by decide) (by decide +kernel)
-theorem code_cpE : CodeAt Images.expandImage (pcOf 49268) cCpE := code_last (by decide) (by decide) (by decide +kernel)
-theorem code_fE : CodeAt Images.expandImage (pcOf 49274) fBody := code_last (by decide) (by decide) (by decide +kernel)
-theorem code_jB : CodeAt Images.expandImage (pcOf 49286) cJB := code_last (by decide) (by decide) (by decide +kernel)
-theorem code_mv4 : CodeAt Images.expandImage (pcOf 49452) cMv4 := code_last (by decide) (by decide) (by decide +kernel)
-theorem code_m4 : CodeAt Images.expandImage (pcOf 49457) mBody := code_last (by decide) (by decide) (by decide +kernel)
-theorem code_zpro : CodeAt Images.expandImage (pcOf 49462) cZPro := code_last (by decide) (by decide) (by decide +kernel)
-theorem code_z : CodeAt Images.expandImage (pcOf 49466) zBody := code_last (by decide) (by decide) (by decide +kernel)
+theorem code_pro1 : CodeAt Images.expandImage (pcOf 49400) cPro1 := (by apply SigGolfCandidate.T3M.codeAt_expand_lastR <;> decide +kernel)
+theorem code_pro2 : CodeAt Images.expandImage (pcOf 49411) cPro2 := (by apply SigGolfCandidate.T3M.codeAt_expand_lastR <;> decide +kernel)
+theorem code_f1 : CodeAt Images.expandImage (pcOf 49406) fBody := (by apply SigGolfCandidate.T3M.codeAt_expand_lastR <;> decide +kernel)
+theorem code_f2 : CodeAt Images.expandImage (pcOf 49417) fBody := (by apply SigGolfCandidate.T3M.codeAt_expand_lastR <;> decide +kernel)
+theorem code_sv : CodeAt Images.expandImage (pcOf 49422) cSv := (by apply SigGolfCandidate.T3M.codeAt_expand_lastR <;> decide +kernel)
+theorem code_fsv : CodeAt Images.expandImage (pcOf 49428) fBody := (by apply SigGolfCandidate.T3M.codeAt_expand_lastR <;> decide +kernel)
+theorem code_mvFG : CodeAt Images.expandImage (pcOf 49433) cMvFG := (by apply SigGolfCandidate.T3M.codeAt_expand_lastR <;> decide +kernel)
+theorem code_mFG : CodeAt Images.expandImage (pcOf 49439) mBody := (by apply SigGolfCandidate.T3M.codeAt_expand_lastR <;> decide +kernel)
+theorem code_jA : CodeAt Images.expandImage (pcOf 49444) cJA := (by apply SigGolfCandidate.T3M.codeAt_expand_lastR <;> decide +kernel)
+theorem code_mvD : CodeAt Images.expandImage (pcOf 49226) cMvD := (by apply SigGolfCandidate.T3M.codeAt_expand_lastR <;> decide +kernel)
+theorem code_mD : CodeAt Images.expandImage (pcOf 49231) mBody := (by apply SigGolfCandidate.T3M.codeAt_expand_lastR <;> decide +kernel)
+theorem code_mvB : CodeAt Images.expandImage (pcOf 49236) cMvB := (by apply SigGolfCandidate.T3M.codeAt_expand_lastR <;> decide +kernel)
+theorem code_mB : CodeAt Images.expandImage (pcOf 49241) mBody := (by apply SigGolfCandidate.T3M.codeAt_expand_lastR <;> decide +kernel)
+theorem code_cpA : CodeAt Images.expandImage (pcOf 49246) cCpA := (by apply SigGolfCandidate.T3M.codeAt_expand_lastR <;> decide +kernel)
+theorem code_fA : CodeAt Images.expandImage (pcOf 49252) fBody := (by apply SigGolfCandidate.T3M.codeAt_expand_lastR <;> decide +kernel)
+theorem code_cpC : CodeAt Images.expandImage (pcOf 49257) cCpC := (by apply SigGolfCandidate.T3M.codeAt_expand_lastR <;> decide +kernel)
+theorem code_fC : CodeAt Images.expandImage (pcOf 49263) fBody := (by apply SigGolfCandidate.T3M.codeAt_expand_lastR <;> decide +kernel)
+theorem code_cpE : CodeAt Images.expandImage (pcOf 49268) cCpE := (by apply SigGolfCandidate.T3M.codeAt_expand_lastR <;> decide +kernel)
+theorem code_fE : CodeAt Images.expandImage (pcOf 49274) fBody := (by apply SigGolfCandidate.T3M.codeAt_expand_lastR <;> decide +kernel)
+theorem code_jB : CodeAt Images.expandImage (pcOf 49286) cJB := (by apply SigGolfCandidate.T3M.codeAt_expand_lastR <;> decide +kernel)
+theorem code_mv4 : CodeAt Images.expandImage (pcOf 49452) cMv4 := (by apply SigGolfCandidate.T3M.codeAt_expand_lastR <;> decide +kernel)
+theorem code_m4 : CodeAt Images.expandImage (pcOf 49457) mBody := (by apply SigGolfCandidate.T3M.codeAt_expand_lastR <;> decide +kernel)
+theorem code_zpro : CodeAt Images.expandImage (pcOf 49462) cZPro := (by apply SigGolfCandidate.T3M.codeAt_expand_lastR <;> decide +kernel)
+theorem code_z : CodeAt Images.expandImage (pcOf 49466) zBody := (by apply SigGolfCandidate.T3M.codeAt_expand_lastR <;> decide +kernel)
 
 /-! ### Symbolic results -/
 /-- A prologue loading three constants into `t3`, `t4`/`t2` and `t5`. -/
@@ -1296,8 +1296,8 @@ theorem run_zpro : symRun cfgP cZPro (pcOf 49462) 40 = some zProRes := by kernel
 128 to `[25952, 26016)`. -/
 def cDg : List (BitVec 32) := [0x6e37,0x5d8e0f13,0x618e0e13]
 def dBody : List (BitVec 32) := [0xe3303,0xf86e3023,0xff8e0e13,0xffee1ae3]
-theorem code_dg : CodeAt Images.expandImage (pcOf 49279) cDg := code_last (by decide) (by decide) (by decide +kernel)
-theorem code_dgb : CodeAt Images.expandImage (pcOf 49282) dBody := code_last (by decide) (by decide) (by decide +kernel)
+theorem code_dg : CodeAt Images.expandImage (pcOf 49279) cDg := (by apply SigGolfCandidate.T3M.codeAt_expand_lastR <;> decide +kernel)
+theorem code_dgb : CodeAt Images.expandImage (pcOf 49282) dBody := (by apply SigGolfCandidate.T3M.codeAt_expand_lastR <;> decide +kernel)
 def dProRes : Result :=
   ⟨⟨(RegFile.init.set .x28 (.c (BitVec.ofNat 64 26136))).set .x30 (.c (BitVec.ofNat 64 26072)), [], []⟩,
     .c (pcOf 49282), .endOfCode, 3, 3⟩
@@ -1710,7 +1710,7 @@ def vWrites : SymMem := vTable.reverse.map vWrite
 def vRegs : RegFile := (((RegFile.init.set .x6 (.ld (.c (BitVec.ofNat 64 3149176)))).set .x7 (.c (BitVec.ofNat 64 3149176))).set .x28
   (.c (BitVec.ofNat 64 15184))).set .x29 (.c (BitVec.ofNat 64 0x300000))
 def vRes : Result := ⟨⟨vRegs, vWrites, []⟩, .c (pcOf 50055), .endOfCode, 586, 586⟩
-theorem code_vals : CodeAt Images.expandImage (pcOf 49469) cVals := code_last (by decide) (by decide) (by decide +kernel)
+theorem code_vals : CodeAt Images.expandImage (pcOf 49469) cVals := (by apply SigGolfCandidate.T3M.codeAt_expand_lastR <;> decide +kernel)
 theorem run_vals : symRun cfgP cVals (pcOf 49469) 700 = some vRes := by kernel_rfl
 
 /-! ### The sibling rows -/

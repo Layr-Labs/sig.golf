@@ -3137,13 +3137,13 @@ def chainAt (p : CanonGraph.LeafPos × Fin 58) : ChainAddr := ⟨leafOf p.1, p.2
 theorem uniform_unit_neighbors (lay : Layer) (W : Encoding lay) (i : ChainIndex lay) :
     Pr[fun ans => ∃ high : Bool, ClaudeWCT.WCT9.verificationAnswer lay high ans ∈
       EncodingTargets.targets lay (MixedCode.unitNeighbors W i) |
-      ($ᵗ HashOutput : ProbComp HashOutput)] ≤ (371 / 4) / (2 : ENNReal)^128 := by
+      ($ᵗ HashOutput : ProbComp HashOutput)] ≤ (175 / 2) / (2 : ENNReal)^128 := by
   classical
   let targets := EncodingTargets.targets lay (MixedCode.unitNeighbors W i)
   have hc : targets.card ≤ chainCount lay - 1 :=
     (EncodingTargets.targets_card _ _).trans (MixedCode.unitNeighbors_card_le W i)
-  have hn : targets.card ≤ 53 := by
-    have hmax : chainCount lay ≤ 54 := by fin_cases lay <;> decide +kernel
+  have hn : targets.card ≤ 50 := by
+    have hmax : chainCount lay ≤ 51 := by fin_cases lay <;> decide +kernel
     omega
   have hp : lay ≠ 0 → ∀ d, d ∈ targets → lowerSpare d := by
     intro hl d hd
@@ -3151,7 +3151,7 @@ theorem uniform_unit_neighbors (lay : Layer) (W : Encoding lay) (i : ChainIndex 
     exact decode_lowerSpare hl hword
   calc _ ≤ (targets.card : ENNReal) * (7 / ((4 : ENNReal) * 2^128)) :=
         ClaudeWCT.WCT9.probability_verification_exists_le lay targets hp
-    _ ≤ 53 * (7 / ((4 : ENNReal) * 2^128)) := mul_le_mul' (by exact_mod_cast hn) le_rfl
+    _ ≤ 50 * (7 / ((4 : ENNReal) * 2^128)) := mul_le_mul' (by exact_mod_cast hn) le_rfl
     _ = _ := by
       apply (ENNReal.toReal_eq_toReal_iff' (by finiteness) (by finiteness)).mp
       simp only [ENNReal.toReal_mul, ENNReal.toReal_div, ENNReal.toReal_pow, ENNReal.toReal_ofNat]
@@ -3264,7 +3264,7 @@ def UnitNeighborDecode (lay : Layer) (reference : List Nat) (chain : Nat) (outpu
 theorem marker_uniform_raw (lay : Layer) (reference : List Nat) (value : Digest)
     (href : CanonicalPolicy.decode lay value=some reference) (chain : Nat) :
     Pr[UnitNeighborDecode lay reference chain | ($ᵗ HashOutput : ProbComp HashOutput)] ≤
-      (371/4)/(2:ENNReal)^128 := by
+      (175/2)/(2:ENNReal)^128 := by
   classical
   let normal := CanonicalPolicy.normalLayer lay
   have href' : decode normal value=some reference := href
@@ -3324,10 +3324,10 @@ theorem probEvent_rejected_le (lay : Layer) (floor : Nat) (p : HashOutput→Prop
 
 theorem marker_rejected_le (lay : Layer) (floor : Nat) (reference : List Nat) (value : Digest)
     (href : CanonicalPolicy.decode lay value=some reference) (chain : Nat) :
-    Pr[UnitNeighborDecode lay reference chain | cell (rejectedAt lay floor)] ≤ 93/(2:ENNReal)^128 := by
+    Pr[UnitNeighborDecode lay reference chain | cell (rejectedAt lay floor)] ≤ 88/(2:ENNReal)^128 := by
   calc _ ≤ 1001/1000*Pr[UnitNeighborDecode lay reference chain | ($ᵗ HashOutput : ProbComp HashOutput)] :=
       probEvent_rejected_le _ _ _
-    _ ≤ 1001/1000*((371/4)/(2:ENNReal)^128) := mul_le_mul' le_rfl (marker_uniform_raw lay reference value href chain)
+    _ ≤ 1001/1000*((175/2)/(2:ENNReal)^128) := mul_le_mul' le_rfl (marker_uniform_raw lay reference value href chain)
     _ ≤ _ := by
       apply (ENNReal.toReal_le_toReal (by finiteness) (by finiteness)).mp
       simp only [ENNReal.toReal_mul,ENNReal.toReal_div,ENNReal.toReal_pow,ENNReal.toReal_ofNat]
@@ -3485,7 +3485,7 @@ theorem markerAt_iff (T : Answers) (messages : LeafAddr → WCT9.LayerMsg) (trac
 theorem markEntry_cell_le_raw (T : Answers) (messages : LeafAddr → WCT9.LayerMsg)
     (x : HashInput) (a : ChainAddr) :
     Pr[fun ans => MarkEntry T messages a (x,ans) | ($ᵗ HashOutput : ProbComp HashOutput)] ≤
-      (371/4)/(2:ENNReal)^128 := by
+      (175/2)/(2:ENNReal)^128 := by
   obtain ⟨value,hvalue⟩ := referenceDigits_decode T messages a.key
   apply le_trans (probEvent_mono ?_) (WCT9.CanonicalRates.marker_uniform_raw a.key.lay
     (referenceDigits T messages a.key) value hvalue a.chain)
@@ -3495,7 +3495,7 @@ theorem markEntry_cell_le_raw (T : Answers) (messages : LeafAddr → WCT9.LayerM
 theorem markEntry_cell_le (T : Answers) (messages : LeafAddr → WCT9.LayerMsg)
     (x : HashInput) (a : ChainAddr) :
     Pr[fun ans => MarkEntry T messages a (x,ans) | ($ᵗ HashOutput : ProbComp HashOutput)] ≤
-      93/(2:ENNReal)^128 := by
+      88/(2:ENNReal)^128 := by
   refine (markEntry_cell_le_raw T messages x a).trans (ENNReal.div_le_div_right ?_ _)
   apply (ENNReal.toReal_le_toReal (by finiteness) (by finiteness)).mp
   norm_num [ENNReal.toReal_div]
@@ -3503,7 +3503,7 @@ theorem markEntry_cell_le (T : Answers) (messages : LeafAddr → WCT9.LayerMsg)
 theorem markEntry_rejected_le (T : Answers) (messages : LeafAddr → WCT9.LayerMsg)
     (x : HashInput) (a : ChainAddr) (remaining : Nat) :
     Pr[fun ans => MarkEntry T messages a (x,ans) | cell (rejectedAnswers a.key.lay remaining)] ≤
-      93/(2:ENNReal)^128 := by
+      88/(2:ENNReal)^128 := by
   obtain ⟨value,hvalue⟩ := referenceDigits_decode T messages a.key
   apply le_trans (probEvent_mono ?_) (WCT9.CanonicalRates.marker_rejected_le a.key.lay
     (WCT9.CanonicalPolicy.threshold a.key.lay.val remaining)
@@ -3515,7 +3515,7 @@ theorem markEntry_init_le (T : Answers) (messages : LeafAddr → WCT9.LayerMsg)
     (k : CellKey) (e : k.cells) (p : CanonGraph.LeafPos × Fin 58) :
     Pr[fun ans => WotsExtract.SourceChain7 (Enc.chainAt p) ∧
       MarkEntry T messages (Enc.chainAt p) (Enc.encInput e.val,ans) | cell (cellInit k e)] ≤
-      93/(2:ENNReal)^128 := by
+      88/(2:ENNReal)^128 := by
   by_cases hp : p.1=e.val.1.1
   · refine (probEvent_mono fun ans _ h => h.2).trans ?_
     unfold cellInit
@@ -3538,19 +3538,19 @@ theorem markEntry_sum_init_le (T : Answers) (messages : LeafAddr → WCT9.LayerM
     ∑ p : CanonGraph.LeafPos × Fin 58,
       Pr[fun ans => WotsExtract.SourceChain7 (Enc.chainAt p) ∧
         MarkEntry T messages (Enc.chainAt p) (Enc.encInput e.val,ans) | cell (cellInit k e)] ≤
-      5022/(2:ENNReal)^128 := by
+      4488/(2:ENNReal)^128 := by
   classical
   have hb : ∀ p : CanonGraph.LeafPos × Fin 58,
       Pr[fun ans => WotsExtract.SourceChain7 (Enc.chainAt p) ∧
         MarkEntry T messages (Enc.chainAt p) (Enc.encInput e.val,ans) | cell (cellInit k e)] ≤
-      if p.1=e.val.1.1 then (if p.2.val<54 then 93/(2:ENNReal)^128 else 0) else 0 := by
+      if p.1=e.val.1.1 then (if p.2.val<51 then 88/(2:ENNReal)^128 else 0) else 0 := by
     intro p
     split_ifs with hp hc
     · exact markEntry_init_le T messages k e p
     · apply le_of_eq
       apply probEvent_eq_zero
       rintro ans - ⟨hsource,-⟩
-      have hcount := chainCount_le_54 p.1.lay
+      have hcount := chainCount_le_51 p.1.lay
       have hchain : p.2.val < chainCount p.1.lay := hsource.2
       omega
     · apply le_of_eq
@@ -3561,7 +3561,7 @@ theorem markEntry_sum_init_le (T : Answers) (messages : LeafAddr → WCT9.LayerM
   refine (Finset.sum_le_sum fun p _ => hb p).trans ?_
   rw [Fintype.sum_prod_type,Finset.sum_eq_single e.val.1.1 (fun L _ hL=>by simp [hL]) (by simp)]
   simp only [if_true]
-  have hn : (Finset.univ.filter (fun i : Fin 58 => i.val<54)).card=54 := by decide
+  have hn : (Finset.univ.filter (fun i : Fin 58 => i.val<51)).card=51 := by decide
   rw [←Finset.sum_filter,Finset.sum_const,hn,nsmul_eq_mul,←mul_div_assoc]
   gcongr
   apply (ENNReal.toReal_le_toReal (by finiteness) (by finiteness)).mp
@@ -3797,7 +3797,7 @@ theorem lazy_marker_le (T : Answers) (messages : LeafAddr → WCT9.LayerMsg)
     ∑' result, Pr[=result | (simulateQ (Lazy.lazyImpl Enc.encInput (cellKey T messages).cells T)
         (SphincsSecurity.QueryPause.traced Lazy.obs program)).run (cellInit (cellKey T messages))] *
         (markerCount T messages result.1.2.toList:ENNReal) ≤
-      (5022/(2:ENNReal)^128) *
+      (4488/(2:ENNReal)^128) *
         ∑' result, Pr[=result | (simulateQ (Lazy.lazyImpl Enc.encInput (cellKey T messages).cells T)
           (SphincsSecurity.QueryPause.traced Lazy.obs program)).run (cellInit (cellKey T messages))] *
           (((result.1.2.toList.filter fun entry => decide (EncodingInput entry.1)).length:Nat):ENNReal) := by
@@ -3973,7 +3973,7 @@ attribute [local instance] Classical.propDecidable
 theorem reference_markerCount_le (adversary : ClaudeWCT.W9.T3M.Final.Paired.AdversaryP) (q : Nat) :
     ∑' s, PairedReference.referenceExperiment adversary q s *
       (markerCount s.answers (sourceMessages s.answers) s.trace : ENNReal) ≤
-      (5022/(2:ENNReal)^128) * ∑' s, PairedReference.referenceExperiment adversary q s *
+      (4488/(2:ENNReal)^128) * ∑' s, PairedReference.referenceExperiment adversary q s *
         (encodingCount s : ENNReal) := by
   let _ : ∀ k : Set Enc.EncIndex, Fintype k := fun k => Fintype.ofFinite k
   let _ : ∀ k : Set Enc.EncIndex, DecidableEq k := fun k => Classical.decEq k
@@ -4028,7 +4028,7 @@ theorem reference_marker_sum_le (adversary : ClaudeWCT.W9.T3M.Final.Paired.Adver
       Pr[fun s => WotsExtract.SourceChain7 (Enc.chainAt p) ∧
         MarkerAt s.answers (sourceMessages s.answers) s.trace (Enc.chainAt p) |
           PairedReference.referenceExperiment adversary q] ≤
-      (5022/(2:ENNReal)^128) * ∑' s, PairedReference.referenceExperiment adversary q s *
+      (4488/(2:ENNReal)^128) * ∑' s, PairedReference.referenceExperiment adversary q s *
         (encodingCount s : ENNReal) := by
   refine le_trans (le_of_eq ?_) (reference_markerCount_le adversary q)
   simp only [probEvent_eq_tsum_ite,PMF.probOutput_eq_apply]
@@ -4119,9 +4119,9 @@ theorem contacts_mono (T : Answers) (messages : LeafAddr → WCT9.LayerMsg) {tra
 noncomputable def costL (T : Answers) (messages : LeafAddr → WCT9.LayerMsg) (F : Set ClaudeWCT.W9.T3.Security.Wots.Enc.EncIndex) : List Entry → List Entry → Nat
   | _, [] => 0
   | hist, e :: rest =>
-      (if Lazy.IsCell ClaudeWCT.W9.T3.Security.Wots.Enc.encInput F e.1 then 93 * contacts T messages hist else 0) + costL T messages F (hist ++ [e]) rest
+      (if Lazy.IsCell ClaudeWCT.W9.T3.Security.Wots.Enc.encInput F e.1 then 88 * contacts T messages hist else 0) + costL T messages F (hist ++ [e]) rest
 theorem costL_le (T : Answers) (messages : LeafAddr → WCT9.LayerMsg) (F : Set ClaudeWCT.W9.T3.Security.Wots.Enc.EncIndex) :
-    ∀ (trace hist : List Entry), costL T messages F hist trace ≤ 93 * trace.length * contacts T messages (hist ++ trace) := by
+    ∀ (trace hist : List Entry), costL T messages F hist trace ≤ 88 * trace.length * contacts T messages (hist ++ trace) := by
   intro trace
   induction trace with
   | nil => intro hist; simp [costL]
@@ -4132,7 +4132,7 @@ theorem costL_le (T : Answers) (messages : LeafAddr → WCT9.LayerMsg) (F : Set 
         contacts_mono T messages (fun x hx => List.mem_append_left _ hx)
       have h2 := ih (hist ++ [e])
       rw [List.append_assoc, List.singleton_append] at h2
-      have h3 : (if Lazy.IsCell ClaudeWCT.W9.T3.Security.Wots.Enc.encInput F e.1 then 93 * contacts T messages hist else 0) ≤ 93 * contacts T messages hist := by
+      have h3 : (if Lazy.IsCell ClaudeWCT.W9.T3.Security.Wots.Enc.encInput F e.1 then 88 * contacts T messages hist else 0) ≤ 88 * contacts T messages hist := by
         split_ifs <;> omega
       rw [List.length_cons]
       nlinarith
@@ -4152,7 +4152,7 @@ theorem cfk_new {T : Answers} {messages : LeafAddr → WCT9.LayerMsg} {h : List 
   · rw [List.take_of_length_le (by rw [List.length_append, List.length_singleton]; omega)] at hnm
     exact absurd hm hnm
 noncomputable def cfCharge (T : Answers) (messages : LeafAddr → WCT9.LayerMsg) (F : Set ClaudeWCT.W9.T3.Security.Wots.Enc.EncIndex) (h : FreeMonoid Entry) : RefWorld.Domain → Nat
-  | .inl (.inr x) => if Lazy.IsCell ClaudeWCT.W9.T3.Security.Wots.Enc.encInput F x then 93 * contacts T messages h.toList else 0
+  | .inl (.inr x) => if Lazy.IsCell ClaudeWCT.W9.T3.Security.Wots.Enc.encInput F x then 88 * contacts T messages h.toList else 0
   | _ => 0
 theorem costL_step (T : Answers) (messages : LeafAddr → WCT9.LayerMsg) (F : Set ClaudeWCT.W9.T3.Security.Wots.Enc.EncIndex) (h : FreeMonoid Entry) (input : RefWorld.Domain)
     (answer : RefWorld.Range input) (tail : FreeMonoid Entry) :
@@ -4171,7 +4171,7 @@ variable [∀ k : Set ClaudeWCT.W9.T3.Security.Wots.Enc.EncIndex, Fintype k] [�
 theorem cf_step (T : Answers) (messages : LeafAddr → WCT9.LayerMsg) (F : Set ClaudeWCT.W9.T3.Security.Wots.Enc.EncIndex) (init : F → Finset HashOutput)
     (hcell : ∀ (e : F) (p : CanonGraph.LeafPos × Fin 58),
       Pr[fun ans => WotsExtract.SourceChain7 (ClaudeWCT.W9.T3.Security.Wots.Enc.chainAt p) ∧ MarkEntry T messages (ClaudeWCT.W9.T3.Security.Wots.Enc.chainAt p) (ClaudeWCT.W9.T3.Security.Wots.Enc.encInput e.val, ans) |
-        cell (init e)] ≤ 93 / (2 : ENNReal) ^ 128)
+        cell (init e)] ≤ 88 / (2 : ENNReal) ^ 128)
     (hother : ∀ x, ¬ Lazy.IsCell ClaudeWCT.W9.T3.Security.Wots.Enc.encInput F x → ∀ p,
       ¬ (WotsExtract.SourceChain7 (ClaudeWCT.W9.T3.Security.Wots.Enc.chainAt p) ∧ MarkEntry T messages (ClaudeWCT.W9.T3.Security.Wots.Enc.chainAt p) (x, T (.inl (.inr x)))))
     (h : FreeMonoid Entry) (allowed : F → Finset HashOutput) (hc : Lazy.Consistent ClaudeWCT.W9.T3.Security.Wots.Enc.encInput F init h allowed)
@@ -4225,14 +4225,14 @@ theorem cf_step (T : Answers) (messages : LeafAddr → WCT9.LayerMsg) (F : Set C
               exact ⟨hs, hcon⟩
           _ ≤ ∑ p ∈ S, Pr[fun ans => MarkEntry T messages (ClaudeWCT.W9.T3.Security.Wots.Enc.chainAt p) (x, ans) | cell (init e₀)] :=
               probEvent_exists_finset_le_sum S _ _
-          _ ≤ ∑ p ∈ S, 93 / (2 : ENNReal) ^ 128 := by
+          _ ≤ ∑ p ∈ S, 88 / (2 : ENNReal) ^ 128 := by
               refine Finset.sum_le_sum fun p hp => ?_
               have hsrc : WotsExtract.SourceChain7 (ClaudeWCT.W9.T3.Security.Wots.Enc.chainAt p) := by
                 simp only [S, Finset.mem_filter, Finset.mem_univ, true_and] at hp
                 exact hp.1
               rw [← hx₀]
               exact (probEvent_mono fun ans _ h => ⟨hsrc, h⟩).trans (hcell e₀ p)
-          _ = (2 ^ 128 : ENNReal)⁻¹ * ((93 * contacts T messages h.toList : Nat) : ENNReal) := by
+          _ = (2 ^ 128 : ENNReal)⁻¹ * ((88 * contacts T messages h.toList : Nat) : ENNReal) := by
               rw [Finset.sum_const, nsmul_eq_mul]
               unfold contacts
               push_cast
@@ -4252,7 +4252,7 @@ theorem lazy_cf_le {α : Type} (T : Answers) (messages : LeafAddr → WCT9.Layer
     (hinit : ∀ e, (init e).Nonempty)
     (hcell : ∀ (e : F) (p : CanonGraph.LeafPos × Fin 58),
       Pr[fun ans => WotsExtract.SourceChain7 (ClaudeWCT.W9.T3.Security.Wots.Enc.chainAt p) ∧ MarkEntry T messages (ClaudeWCT.W9.T3.Security.Wots.Enc.chainAt p) (ClaudeWCT.W9.T3.Security.Wots.Enc.encInput e.val, ans) |
-        cell (init e)] ≤ 93 / (2 : ENNReal) ^ 128)
+        cell (init e)] ≤ 88 / (2 : ENNReal) ^ 128)
     (hother : ∀ x, ¬ Lazy.IsCell ClaudeWCT.W9.T3.Security.Wots.Enc.encInput F x → ∀ p,
       ¬ (WotsExtract.SourceChain7 (ClaudeWCT.W9.T3.Security.Wots.Enc.chainAt p) ∧ MarkEntry T messages (ClaudeWCT.W9.T3.Security.Wots.Enc.chainAt p) (x, T (.inl (.inr x)))))
     (C : OracleComp RefWorld α) :
@@ -4343,7 +4343,7 @@ end Congr
 
 noncomputable def cfInd (s : RefSample) : ENNReal := if CFK s.answers (sourceMessages s.answers) s.trace then 1 else 0
 noncomputable def cfCost (s : RefSample) : ENNReal :=
-  ((93*s.trace.length*contacts s.answers (sourceMessages s.answers) s.trace:Nat):ENNReal)
+  ((88*s.trace.length*contacts s.answers (sourceMessages s.answers) s.trace:Nat):ENNReal)
 
 end ClaudeWCT.W9.T3.Security.Wots.CanonicalRef.Contact93
 
@@ -4381,7 +4381,7 @@ theorem cells_cf_le [∀ k : Set Enc.EncIndex, Fintype k] [∀ k : Set Enc.EncIn
           (overwrite_decisions hU privateTable pub _ (fun leaf _ => sourceMessages_fit _ leaf) y hy)
           (overwrite_nonEnc privateTable pub _ y) _)])
   have hright := cell_transfer adversary q U hU privateTable pub cfCost
-      (fun tr => ((93*tr.length*contacts (eagerAnswers U privateTable pub) (sourceMessages (eagerAnswers U privateTable pub)) tr:Nat):ENNReal))
+      (fun tr => ((88*tr.length*contacts (eagerAnswers U privateTable pub) (sourceMessages (eagerAnswers U privateTable pub)) tr:Nat):ENNReal))
       (fun y hy r => by
         unfold cfCost mkSample
         rw [contacts_decisions (fun leaf _ => sourceMessages_overwrite privateTable pub _ y leaf)
@@ -4450,7 +4450,7 @@ theorem contacts_le_contactCount (s : RefSample) : contacts s.answers (sourceMes
   exact hp
 theorem cfCost_le (adversary : ClaudeWCT.W9.T3M.Final.Paired.AdversaryP) (q : Nat) :
     ∑' s, PairedReference.referenceExperiment adversary q s * cfCost s ≤
-      ((93 * q : Nat) : ENNReal) * ∑' s, PairedReference.referenceExperiment adversary q s * (Normalized.Contacts.contactCount s : ENNReal) := by
+      ((88 * q : Nat) : ENNReal) * ∑' s, PairedReference.referenceExperiment adversary q s * (Normalized.Contacts.contactCount s : ENNReal) := by
   rw [← ENNReal.tsum_mul_left]
   refine ENNReal.tsum_le_tsum fun s => ?_
   by_cases hs : PairedReference.referenceExperiment adversary q s = 0
@@ -4464,7 +4464,7 @@ theorem reference_contactFirst_le (adversary : ClaudeWCT.W9.T3M.Final.Paired.Adv
     Pr[fun s => ∃ a, WotsExtract.SourceChain7 a ∧
         ∃ k, CanonicalRef.ContactAt s.answers (sourceMessages s.answers) (s.trace.take k) a ∧ ¬CanonicalRef.MarkerAt s.answers (sourceMessages s.answers) (s.trace.take k) a ∧
           CanonicalRef.MarkerAt s.answers (sourceMessages s.answers) s.trace a | PairedReference.referenceExperiment adversary q] ≤
-      93 * ((q : ENNReal) / 2 ^ 128) * ∑' s, PairedReference.referenceExperiment adversary q s * (Normalized.Contacts.contactCount s : ENNReal) := by
+      88 * ((q : ENNReal) / 2 ^ 128) * ∑' s, PairedReference.referenceExperiment adversary q s * (Normalized.Contacts.contactCount s : ENNReal) := by
   calc _ ≤ ∑' s, PairedReference.referenceExperiment adversary q s * cfInd s := by
         rw [probEvent_eq_tsum_ite]
         refine ENNReal.tsum_le_tsum fun s => ?_
@@ -4474,7 +4474,7 @@ theorem reference_contactFirst_le (adversary : ClaudeWCT.W9.T3M.Final.Paired.Adv
           rw [cfInd, if_pos ⟨p, ha, hcf⟩, mul_one, PMF.probOutput_eq_apply]
         · exact zero_le
     _ ≤ (2 ^ 128 : ENNReal)⁻¹ * ∑' s, PairedReference.referenceExperiment adversary q s * cfCost s := reference_cfInd_le adversary q
-    _ ≤ (2 ^ 128 : ENNReal)⁻¹ * (((93 * q : Nat) : ENNReal) *
+    _ ≤ (2 ^ 128 : ENNReal)⁻¹ * (((88 * q : Nat) : ENNReal) *
           ∑' s, PairedReference.referenceExperiment adversary q s * (Normalized.Contacts.contactCount s : ENNReal)) :=
         mul_le_mul' le_rfl (cfCost_le adversary q)
     _ = _ := by
@@ -5816,7 +5816,7 @@ theorem verifyP_source_walk (answers : Answers) (message : Message) (pk : Digest
       evalWithAnswerFn answers (digest (wrho w) message (wdc w)) = output ∧
       (.inl (.inr (pad64 (digestInput (wrho w) message (wdc w)))) : Spec.Domain) ∈
         queried answers (Paired.verifyP message pk w) ∧
-      output.toNat / 2^242 % 16384 < 812 ∧
+      output.toNat / 2^242 % 16384 < 826 ∧
       (∀ coord : Fin 9, rawForestRank output coord.val < 563) ∧
       (WotsPrimitiveSrc answers (CanonicalRef.sourceMessages answers)
           (entriesOf answers (queried answers (Paired.verifyP message pk w))) ∨
@@ -6211,7 +6211,7 @@ theorem verifyP_canonical_or_collision (answers : Answers) (message : Message) (
       evalWithAnswerFn answers (digest (wrho wb) message (wdc wb)) = output ∧
       (.inl (.inr (pad64 (digestInput (wrho wb) message (wdc wb)))) : Spec.Domain) ∈
         queried answers (Paired.verifyP message pk wb) ∧
-      output.toNat / 2^242 % 16384 < 812 ∧
+      output.toNat / 2^242 % 16384 < 826 ∧
       (∀ coord : Fin 9, rawForestRank output coord.val < 563) ∧
       (WotsPrimitiveSrc answers (CanonicalRef.sourceMessages answers)
           (entriesOf answers (queried answers (Paired.verifyP message pk wb))) ∨
@@ -6429,7 +6429,7 @@ theorem checkForgery_canonical_or_collision (answers : Answers) (published : Sig
         evalWithAnswerFn answers (digest (wrho wb) message (wdc wb)) = output ∧
         (.inl (.inr (pad64 (digestInput (wrho wb) message (wdc wb)))) : Spec.Domain) ∈
           queried answers (Final.Paired.checkForgeryP pk log forgery) ∧
-        output.toNat / 2^242 % 16384 < 812 ∧
+        output.toNat / 2^242 % 16384 < 826 ∧
         (∀ coord : Fin 9, rawForestRank output coord.val < 563) ∧
         (∀ lay : Layer, Good answers (CanonicalRef.sourceMessages answers) wb (WCT9.digestIndex output) lay) ∧
         Extract.Paired.ForestOpenings answers wb (WCT9.digestIndex output)
@@ -6481,7 +6481,7 @@ def FreshForestAt (answers : Answers) (pk : Digest) (log : QueryLog Final.Paired
         evalWithAnswerFn answers (digest (wrho wb) message (wdc wb)) = output ∧
         (.inl (.inr (pad64 (digestInput (wrho wb) message (wdc wb)))) : Spec.Domain) ∈
           queried answers (Final.Paired.checkForgeryP pk log forgery) ∧
-        output.toNat / 2^242 % 16384 < 812 ∧
+        output.toNat / 2^242 % 16384 < 826 ∧
         (∀ coord : Fin 9, rawForestRank output coord.val < 563) ∧
         (∀ lay : Layer, Good answers (CanonicalRef.sourceMessages answers) wb (WCT9.digestIndex output) lay) ∧
         Extract.Paired.ForestOpenings answers wb (WCT9.digestIndex output)
@@ -6689,7 +6689,7 @@ def FullForestEvent (adversary : Final.Paired.AdversaryP) (q : Nat)
       evalWithAnswerFn A (digest (wrho w) message (wdc w))=output ∧
       (.inl (.inr (pad64 (digestInput (wrho w) message (wdc w)))) : SigGolfCandidate.T3.Spec.Domain) ∈
         queried A (Final.Paired.checkForgeryP generated.value.1 interaction.value.2 forgery) ∧
-      output.toNat/2^242%16384<812 ∧
+      output.toNat/2^242%16384<826 ∧
       (∀ k : Fin 9,rawForestRank output k.val<563) ∧
       ¬WPair.Paired.SignedDigest interaction.value.2 message (wrho w) ∧
       FullCovered A interaction.value.2 output
@@ -6890,7 +6890,7 @@ def PartialForestEvent
       evalWithAnswerFn A (digest (wrho w) message (wdc w))=output ∧
       (.inl (.inr (pad64 (digestInput (wrho w) message (wdc w)))) : SigGolfCandidate.T3.Spec.Domain) ∈
         queried A (Final.Paired.checkForgeryP generated.value.1 interaction.value.2 forgery) ∧
-      output.toNat/2^242%16384<812 ∧
+      output.toNat/2^242%16384<826 ∧
       (∀ k : Fin 9,rawForestRank output k.val<563) ∧
       ¬WPair.Paired.SignedDigest interaction.value.2 message (wrho w) ∧
       Q A interaction.value.2 output
@@ -7242,10 +7242,10 @@ noncomputable def prefixCoeff (q : Nat) (w v : ENNReal) : ENNReal :=
     (((3 / 2 : ENNReal) + 4 * ((q : ENNReal) / 2 ^ 128) + 2 * ((q : ENNReal) / 2 ^ 128) ^ 2) /
         (1 - (q : ENNReal) / 2 ^ 128) +
       4 * ((q : ENNReal) / 2 ^ 128) / (1 - (q : ENNReal) / 2 ^ 128) ^ 2 +
-      2 * 93 * ((q : ENNReal) / 2 ^ 128) / (1 - (q : ENNReal) / 2 ^ 128)) +
+      2 * 88 * ((q : ENNReal) / 2 ^ 128) / (1 - (q : ENNReal) / 2 ^ 128)) +
     v * 2 / (1 - (q : ENNReal) / 2 ^ 128)
 noncomputable def encodingCoeff (q : Nat) (w v : ENNReal) : ENNReal :=
-  7 / 4 + w * 2 * 5022 * ((q : ENNReal) / 2 ^ 128) / (1 - (q : ENNReal) / 2 ^ 128)
+  7 / 4 + w * 2 * 4488 * ((q : ENNReal) / 2 ^ 128) / (1 - (q : ENNReal) / 2 ^ 128)
 /-- Coefficient of the total seed-test error `Leaf.errTot` in the small-route primitive bound (campaign X1 B3). -/
 noncomputable def errCoeff (q : Nat) (w v : ENNReal) : ENNReal :=
   w *
@@ -7253,7 +7253,7 @@ noncomputable def errCoeff (q : Nat) (w v : ENNReal) : ENNReal :=
       (2 * ((q : ENNReal) / 2 ^ 128) * (1 + 2 * ((q : ENNReal) / 2 ^ 128)) / (1 - (q : ENNReal) / 2 ^ 128) ^ 2 +
         (1 + 2 * ((q : ENNReal) / 2 ^ 128)) / (1 - (q : ENNReal) / 2 ^ 128)) +
       (1 + 2 * ((q : ENNReal) / 2 ^ 128)) / (1 - (q : ENNReal) / 2 ^ 128) +
-      93 * ((q : ENNReal) / 2 ^ 128) * ((1 + (2 / 2 ^ 128) * q) / (1 - (q : ENNReal) / 2 ^ 128))) +
+      88 * ((q : ENNReal) / 2 ^ 128) * ((1 + (2 / 2 ^ 128) * q) / (1 - (q : ENNReal) / 2 ^ 128))) +
     v * ((1 + (2 / 2 ^ 128) * q) / (1 - (q : ENNReal) / 2 ^ 128))
 
 theorem weighted_union_le {α : Type} (law : PMF α)
@@ -7268,10 +7268,10 @@ theorem weighted_union_le {α : Type} (law : PMF α)
       (2*((q:ENNReal)/2^128)*(1+2*((q:ENNReal)/2^128))/(1-(q:ENNReal)/2^128)^2 +
         (1+2*((q:ENNReal)/2^128))/(1-(q:ENNReal)/2^128))*error)
     (hmarker : Pr[MarkerFirst | law] ≤
-      2*((q:ENNReal)/2^128)/(1-(q:ENNReal)/2^128)*((5022/2^128)*EE) +
+      2*((q:ENNReal)/2^128)/(1-(q:ENNReal)/2^128)*((4488/2^128)*EE) +
       (1+2*((q:ENNReal)/2^128))/(1-(q:ENNReal)/2^128)*error)
     (hcontact : Pr[ContactFirst | law] ≤
-      93*((q:ENNReal)/2^128)*(((2/2^128)*EP+(1+(2/2^128)*q)*error)/(1-(q:ENNReal)/2^128)))
+      88*((q:ENNReal)/2^128)*(((2/2^128)*EP+(1+(2/2^128)*q)*error)/(1-(q:ENNReal)/2^128)))
     (hany : Pr[fun s => TwoEdge s ∨ TwoContacts s ∨ MarkerFirst s ∨ ContactFirst s | law] ≤
       ((2/2^128)*EP+(1+(2/2^128)*q)*error)/(1-(q:ENNReal)/2^128)) :
     Pr[E | law] ≤ Pr[Failed | law] + prefixCoeff q w v/2^128*EP +
@@ -7289,9 +7289,9 @@ theorem weighted_union_le {α : Type} (law : PMF α)
       ((4*((q:ENNReal)/2^128)/2^128)*EP/(1-(q:ENNReal)/2^128)^2 +
       (2*((q:ENNReal)/2^128)*(1+2*((q:ENNReal)/2^128))/(1-(q:ENNReal)/2^128)^2 +
         (1+2*((q:ENNReal)/2^128))/(1-(q:ENNReal)/2^128))*error) +
-      (2*((q:ENNReal)/2^128)/(1-(q:ENNReal)/2^128)*((5022/2^128)*EE) +
+      (2*((q:ENNReal)/2^128)/(1-(q:ENNReal)/2^128)*((4488/2^128)*EE) +
       (1+2*((q:ENNReal)/2^128))/(1-(q:ENNReal)/2^128)*error) +
-      93*((q:ENNReal)/2^128)*(((2/2^128)*EP+(1+(2/2^128)*q)*error)/(1-(q:ENNReal)/2^128))) +
+      88*((q:ENNReal)/2^128)*(((2/2^128)*EP+(1+(2/2^128)*q)*error)/(1-(q:ENNReal)/2^128))) +
       v*(((2/2^128)*EP+(1+(2/2^128)*q)*error)/(1-(q:ENNReal)/2^128)))) := by
         gcongr
     _ = _ := by
@@ -7985,9 +7985,9 @@ theorem full_probability_real (theta rate : ENNReal) (htheta:theta≠⊤) (hrate
 
 theorem partial_probability_real (adversary : Final.Paired.AdversaryP) (q : Nat) (hq:q≤2^127)
     (h : Pr[PartialForestNoOverflow adversary q | PairedSeccLaw.completedExperiment adversary q hq] ≤
-      ((2^128-q:Nat):ENNReal)⁻¹*((q*(q-1):Nat):ENNReal)*((19399/50)+1/1024)/(2*2^128)+BPair.pairTerm q) :
+      ((2^128-q:Nat):ENNReal)⁻¹*((q*(q-1):Nat):ENNReal)*((19734/50)+1/1024)/(2*2^128)+BPair.pairTerm q) :
     (Pr[PartialForestNoOverflow adversary q | PairedSeccLaw.completedExperiment adversary q hq]).toReal ≤
-      (((19399/50)+1/1024)/(2*(1-(q:ℝ)/2^128))+1/(2*(1-(q:ℝ)/2^128)^2))*((q:ℝ)/2^128)^2 := by
+      (((19734/50)+1/1024)/(2*(1-(q:ℝ)/2^128))+1/(2*(1-(q:ℝ)/2^128)^2))*((q:ℝ)/2^128)^2 := by
   have hqN : q<2^128 := by omega
   have hN : (0:ℝ)<2^128 := by positivity
   have hqr : (q:ℝ)<2^128 := by exact_mod_cast hqN
@@ -8010,7 +8010,7 @@ theorem partial_probability_real (adversary : Final.Paired.AdversaryP) (q : Nat)
   rw [hsub] at hr
   refine hr.trans ?_
   calc
-    _ ≤ ((2:ℝ)^128-q)⁻¹*(q:ℝ)^2*((19399/50)+1/1024)/(2*2^128)+
+    _ ≤ ((2:ℝ)^128-q)⁻¹*(q:ℝ)^2*((19734/50)+1/1024)/(2*2^128)+
       ((q:ℝ)^2/2)*(((2:ℝ)^128-q)⁻¹)^2 := by
       apply add_le_add
       · apply div_le_div_of_nonneg_right _ (by positivity)
@@ -8331,10 +8331,10 @@ set_option backward.isDefEq.respectTransparency false
 attribute [local instance] Classical.propDecidable
 
 theorem large_clean_closing (adversary : Final.Paired.AdversaryP) (q : Nat) (hq:q≤2^127)
-    (hlow : (597:ℝ)/500000≤(q:ℝ)/2^128)
+    (hlow : (1251:ℝ)/1000000≤(q:ℝ)/2^128)
     (hclean : Pr[QueryRecorded.CleanWin q | PairedOuter.PaddedGame.tracedExperiment adversary q hq] ≤
       ENNReal.ofReal (2*((q:ℝ)/2^128)-((q:ℝ)/2^128)^2)+
-      (q:ENNReal)*ENNReal.ofReal ((24771/25000)*((q:ℝ)/2^128))/2^128+
+      (q:ENNReal)*ENNReal.ofReal ((99521/100000)*((q:ℝ)/2^128))/2^128+
       ((2 ^ 142 : ENNReal)⁻¹+(2 ^ 142 : ENNReal)⁻¹)+
       1/(2:ENNReal)^139+1/(2:ENNReal)^138+1/(2:ENNReal)^137) :
     Pr[QueryRecorded.CleanWin q | PairedOuter.PaddedGame.tracedExperiment adversary q hq]+
@@ -8351,18 +8351,18 @@ theorem large_clean_closing (adversary : Final.Paired.AdversaryP) (q : Nat) (hq:
       (q:ℝ) ≤ 2^127 := hqr
       _ = (1/2:ℝ)*2^128 := by norm_num
   have hpoly : 0≤2*y-y^2 := by nlinarith
-  have hrate : 0≤(24771/25000:ℝ)*y := mul_nonneg (by norm_num) hy
+  have hrate : 0≤(99521/100000:ℝ)*y := mul_nonneg (by norm_num) hy
   have hr := ENNReal.toReal_mono (by finiteness) hclean
   simp (disch:=finiteness) only [ENNReal.toReal_add,ENNReal.toReal_div,ENNReal.toReal_mul,
     ENNReal.toReal_pow,ENNReal.toReal_ofNat,ENNReal.toReal_natCast,ENNReal.toReal_one,ENNReal.toReal_inv] at hr
   -- top-nonce layer (r3-lean-nonsec): the large route carries 2·Pr[CapFail] ≤ 2·(2^142)⁻¹
   change _ ≤ ENNReal.toReal (ENNReal.ofReal (2*y-y^2))+
-    (q:ℝ)*ENNReal.toReal (ENNReal.ofReal ((24771/25000)*y))/2^128+(((2:ℝ)^142)⁻¹+((2:ℝ)^142)⁻¹)+
+    (q:ℝ)*ENNReal.toReal (ENNReal.ofReal ((99521/100000)*y))/2^128+(((2:ℝ)^142)⁻¹+((2:ℝ)^142)⁻¹)+
     1/2^139+1/2^138+1/2^137 at hr
   rw [ENNReal.toReal_ofReal hpoly,ENNReal.toReal_ofReal hrate] at hr
-  have hmul : (q:ℝ)*((24771/25000)*y)/2^128=y*((24771/25000)*y) := by dsimp [y];ring
+  have hmul : (q:ℝ)*((99521/100000)*y)/2^128=y*((99521/100000)*y) := by dsimp [y];ring
   rw [hmul] at hr
-  have hc := ContinuousPricing.large_closing_real_cap777 y ((24771/25000)*y) hlow le_rfl
+  have hc := ContinuousPricing.large_closing_real_cap777 y ((99521/100000)*y) hlow le_rfl
   have he : ((2:ℝ)^142)⁻¹+((2:ℝ)^142)⁻¹+1/2^139+1/2^138+1/2^137≤1/2^131 := by norm_num
   have hp1 : 0≤y*((1:ℝ)/2^25) := mul_nonneg hy (by positivity)
   have hp2 : 0≤y*((1:ℝ)/2^50) := mul_nonneg hy (by positivity)
@@ -8382,7 +8382,7 @@ set_option backward.isDefEq.respectTransparency false
 attribute [local instance] Classical.propDecidable
 
 theorem large_bound (adversary : Final.Paired.AdversaryP) (q : Nat) (hq:q≤2^127)
-    (hlow : (597:ℝ)/500000≤(q:ℝ)/2^128) :
+    (hlow : (1251:ℝ)/1000000≤(q:ℝ)/2^128) :
     Pr[QueryRecorded.CleanWin q | PairedOuter.PaddedGame.tracedExperiment adversary q hq]+
       q/(2:ENNReal)^146+(2:ENNReal)⁻¹^700+((2:ENNReal)^152)⁻¹+
       q/((2^256:Nat):ENNReal)≤(q:ENNReal)/2^127 := by
@@ -8395,7 +8395,7 @@ theorem large_bound (adversary : Final.Paired.AdversaryP) (q : Nat) (hq:q≤2^12
   have hexc := ClaudeWCT.Bank.Paired.excess_large_certified ((q:ℝ)/2^128) hlow hhalf
   have hexc' : ClaudeWCT.Numerics.Law.lawAvg ClaudeWCT.Bank.Paired.honestLaw (2^32)
       (fun W=>ClaudeWCT.Bank.Paired.price W-ENNReal.ofReal (Flexible.budgetRate q-1/1024))≤
-      ENNReal.ofReal ((24771/25000)*((q:ℝ)/2^128)) := by
+      ENNReal.ofReal ((99521/100000)*((q:ℝ)/2^128)) := by
     simpa only [Flexible.budgetRate,mul_div_assoc] using hexc
   apply large_clean_closing adversary q hq hlow
   exact (clean_le_contact_cert adversary q hq).trans
@@ -8432,11 +8432,11 @@ namespace ClaudeWCT.W9.T3.Security.Wots.CanonicalWeighted
 open ENNReal SigGolfCandidate.Research.V7Composed198Closing.CanonicalWindow
 /-- The seed-error hypothesis of the small route. -/
 def SeedErrorBound : Prop :=
-  ∀ (adversary : ClaudeWCT.W9.T3M.Final.Paired.AdversaryP) (q : Nat), q < 2 ^ 128 → (q : ℝ) / 2 ^ 128 ≤ 3 / 2500 →
-    (CanonicalRef.Normalized.Contacts.errTot adversary q).toReal ≤ (733 / 1000) * ((q : ℝ) / 2 ^ 128) ^ 2
+  ∀ (adversary : ClaudeWCT.W9.T3M.Final.Paired.AdversaryP) (q : Nat), q < 2 ^ 128 → (q : ℝ) / 2 ^ 128 ≤ 1251 / 1000000 →
+    (CanonicalRef.Normalized.Contacts.errTot adversary q).toReal ≤ (755 / 1000) * ((q : ℝ) / 2 ^ 128) ^ 2
 
 /-- Any per-test chain charge `C ≤ 305` with `errTot ≤ 2 C y³/(1-y)` gives the seed-error bound. -/
-theorem seedErrorBound_of_charge (C : ℝ) (hC0 : 0 ≤ C) (hC : C ≤ 305)
+theorem seedErrorBound_of_charge (C : ℝ) (hC0 : 0 ≤ C) (hC : C ≤ 301)
     (h : ∀ (adversary : ClaudeWCT.W9.T3M.Final.Paired.AdversaryP) (q : Nat), q < 2 ^ 128 →
       (CanonicalRef.Normalized.Contacts.errTot adversary q).toReal ≤
         2 * C * ((q : ℝ) / 2 ^ 128) ^ 3 / (1 - (q : ℝ) / 2 ^ 128)) : SeedErrorBound :=
@@ -8471,7 +8471,7 @@ theorem clean_probability_real_ofG (adversary : Final.Paired.AdversaryP) (q : Na
     (hprimitive : (Pr[fun s=>combinedEvent.holds s.answers s.trace |
       PairedReference.referenceExperiment adversary q]).toReal ≤
         theta.toReal*((prefixMass adversary q).toReal/2^128+(encodingMass adversary q).toReal/2^128)+
-        (otherMass adversary q).toReal/2^128+(778/1000)*((q:ℝ)/2^128)^2+(1/2^139+1/2^142))
+        (otherMass adversary q).toReal/2^128+(802/1000)*((q:ℝ)/2^128)^2+(1/2^139+1/2^142))
     (hincomplete : Pr[fun z=>IncompleteForestEvent adversary (z.1.1,z.1.2.2) z.2 |
       PairedSeccLaw.completedExperiment adversary q hq]≤1/(2:ENNReal)^138)
     (hoverflow : Pr[fun z=>QueryRecorded.CleanWin q z.1 ∧ ¬WPair.Paired.NoOverflow adversary z |
@@ -8480,7 +8480,7 @@ theorem clean_probability_real_ofG (adversary : Final.Paired.AdversaryP) (q : Na
       theta.toReal*((prefixMass adversary q).toReal/2^128+(encodingMass adversary q).toReal/2^128+
         (digestMass adversary q hq).toReal/2^128)+(otherMass adversary q).toReal/2^128+
       (Pr[PartialForestNoOverflow adversary q | PairedSeccLaw.completedExperiment adversary q hq]).toReal+
-      (q:ℝ)/2^128*rate.toReal+(778/1000)*((q:ℝ)/2^128)^2+1/2^136 := by
+      (q:ℝ)/2^128*rate.toReal+(802/1000)*((q:ℝ)/2^128)^2+1/2^136 := by
   have hf := full_probability_real theta rate htheta hratefin hmin adversary q hq hrate
   have hinc := ENNReal.toReal_mono (by finiteness) hincomplete
   have hov := ENNReal.toReal_mono (by finiteness) hoverflow
@@ -8513,15 +8513,15 @@ set_option backward.isDefEq.respectTransparency false
 attribute [local instance] Classical.propDecidable
 
 theorem middle_clean_closingG (adversary : Final.Paired.AdversaryP) (q : Nat) (hq:q≤2^127)
-    (hlow : 1/(2:ℝ)^28≤(q:ℝ)/2^128) (hhigh : (q:ℝ)/2^128≤597/500000)
-    (rate : ℝ) (hrate : rate≤1175/1000000)
+    (hlow : 1/(2:ℝ)^28≤(q:ℝ)/2^128) (hhigh : (q:ℝ)/2^128≤1251/1000000)
+    (rate : ℝ) (hrate : rate≤1245/1000000)
     (hclean : (Pr[QueryRecorded.CleanWin q | PairedOuter.PaddedGame.tracedExperiment adversary q hq]).toReal ≤
-      (499217/250000)*((prefixMass adversary q).toReal/2^128+(encodingMass adversary q).toReal/2^128+
+      (1996581/1000000)*((prefixMass adversary q).toReal/2^128+(encodingMass adversary q).toReal/2^128+
         (digestMass adversary q hq).toReal/2^128)+(otherMass adversary q).toReal/2^128+
       (Pr[PartialForestNoOverflow adversary q | PairedSeccLaw.completedExperiment adversary q hq]).toReal+
-      (q:ℝ)/2^128*rate+(778/1000)*((q:ℝ)/2^128)^2+1/2^136)
+      (q:ℝ)/2^128*rate+(802/1000)*((q:ℝ)/2^128)^2+1/2^136)
     (hpartial : Pr[PartialForestNoOverflow adversary q | PairedSeccLaw.completedExperiment adversary q hq] ≤
-      ((2^128-q:Nat):ENNReal)⁻¹*((q*(q-1):Nat):ENNReal)*((19399/50)+1/1024)/(2*2^128)+BPair.pairTerm q) :
+      ((2^128-q:Nat):ENNReal)⁻¹*((q*(q-1):Nat):ENNReal)*((19734/50)+1/1024)/(2*2^128)+BPair.pairTerm q) :
     (Pr[QueryRecorded.CleanWin q | PairedOuter.PaddedGame.tracedExperiment adversary q hq]).toReal+
       ((q:ℝ)/2^128/2^18+1/2^700+1/2^152+((q:ℝ)/2^128)/2^128)≤2*((q:ℝ)/2^128) := by
   have hquad := paired_partial_denominatorRC _ _ hhigh (partial_probability_real adversary q hq hpartial)
@@ -8540,12 +8540,12 @@ theorem tiny_clean_closingG (adversary : Final.Paired.AdversaryP) (q : Nat) (hq:
       (249/125)*((prefixMass adversary q).toReal/2^128+(encodingMass adversary q).toReal/2^128+
         (digestMass adversary q hq).toReal/2^128)+(otherMass adversary q).toReal/2^128+
       (Pr[PartialForestNoOverflow adversary q | PairedSeccLaw.completedExperiment adversary q hq]).toReal+
-      (q:ℝ)/2^128*rate+(778/1000)*((q:ℝ)/2^128)^2+1/2^136)
+      (q:ℝ)/2^128*rate+(802/1000)*((q:ℝ)/2^128)^2+1/2^136)
     (hpartial : Pr[PartialForestNoOverflow adversary q | PairedSeccLaw.completedExperiment adversary q hq] ≤
-      ((2^128-q:Nat):ENNReal)⁻¹*((q*(q-1):Nat):ENNReal)*((19399/50)+1/1024)/(2*2^128)+BPair.pairTerm q) :
+      ((2^128-q:Nat):ENNReal)⁻¹*((q*(q-1):Nat):ENNReal)*((19734/50)+1/1024)/(2*2^128)+BPair.pairTerm q) :
     (Pr[QueryRecorded.CleanWin q | PairedOuter.PaddedGame.tracedExperiment adversary q hq]).toReal+
       ((q:ℝ)/2^128/2^18+1/2^700+1/2^152+((q:ℝ)/2^128)/2^128)≤2*((q:ℝ)/2^128) := by
-  have hsmall : (q:ℝ)/2^128≤597/500000 := hhigh.trans (by norm_num)
+  have hsmall : (q:ℝ)/2^128≤1251/1000000 := hhigh.trans (by norm_num)
   have hlow : 1/(2:ℝ)^128≤(q:ℝ)/2^128 := div_le_div_of_nonneg_right (by exact_mod_cast hpositive) (by positivity)
   have hquad := paired_partial_denominatorRC _ _ hsmall (partial_probability_real adversary q hq hpartial)
   have hcost := completed_partial_normalized adversary q hq
@@ -8623,17 +8623,17 @@ attribute [local instance] Classical.propDecidable
 
 theorem completed_partial_certifiedG (adversary : Final.Paired.AdversaryP) (q : Nat) (hq:q≤2^127) :
     Pr[PartialForestNoOverflow adversary q | PairedSeccLaw.completedExperiment adversary q hq] ≤
-      ((2^128-q:Nat):ENNReal)⁻¹*((q*(q-1):Nat):ENNReal)*((19399/50)+1/1024)/(2*2^128)+BPair.pairTerm q := by
+      ((2^128-q:Nat):ENNReal)⁻¹*((q*(q-1):Nat):ENNReal)*((19734/50)+1/1024)/(2*2^128)+BPair.pairTerm q := by
   apply completed_partial_bound ClaudeWCT.Bank.Paired.nearLawSpec
     ClaudeWCT.Bank.Paired.nearLawSpec_producer rfl ClaudeWCT.Bank.Paired.nearCovered_mono
     (fun X N h => by
       obtain ⟨k,t,h⟩:=h
       exact WPair.Paired.nearCovered_bank X N k t h)
-    (19399/50) ClaudeWCT.Bank.Paired.nearLawSpec_mean adversary q hq
+    (19734/50) ClaudeWCT.Bank.Paired.nearLawSpec_mean adversary q hq
 
 theorem excess_middle_actualG :
     ClaudeWCT.Numerics.Law.lawAvg ClaudeWCT.Bank.Paired.honestLaw (2^32)
-      (fun W=>ClaudeWCT.Bank.Paired.price W-((499217:ENNReal)/250000-1/1024))≤1175/1000000 := by
+      (fun W=>ClaudeWCT.Bank.Paired.price W-((1996581:ENNReal)/1000000-1/1024))≤1245/1000000 := by
   have h:=ClaudeWCT.Bank.Paired.excess_middle_certified
   simpa (disch:=positivity) only [ENNReal.ofReal_sub,ENNReal.ofReal_div_of_pos,ENNReal.ofReal_ofNat,ENNReal.ofReal_one] using h
 

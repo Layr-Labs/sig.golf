@@ -1011,8 +1011,11 @@ attribute [local instance] Classical.propDecidable
   | some found =>
     rcases found with ⟨c,d,l⟩
     refine ⟨c,d,l,rfl,?_⟩
-    change (referenceContext T (sourceMessages T) (sourceLeaf index lay)).bind _ = _ at he
-    simpa only [hc,Option.bind_some] using he
+    -- Rewrite instead of `change`: the kernel otherwise unfolds `referenceSearch` against the
+    -- `bind` form the slow way (56 s → < 0.2 s).
+    rw [referenceSearch, selected, show context (searchOf T (sourceMessages T)) WCT9.CanonicalPolicy.credit
+      (sourceLeaf index lay) = some remaining from hc, Option.bind_some] at he
+    exact he
 
  theorem prepared_complete_of_route (T : Answers) (cache : SigGolfCandidate.T3.Cache)
     (index : Nat) (hi : index<2^31) (hok : RouteOk T index) :

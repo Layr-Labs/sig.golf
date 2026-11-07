@@ -241,12 +241,11 @@ Every lower-tree node (`lay ≠ 0`) with heap `2..15` (the three levels below th
 `n < lowerNonceCap lay heap` of `lowerNodeHashN lay tree heap n left right` whose used half has its top
 `lowerZeroBits lay heap` bits clear (`lowerZeroOk`); if no trial passes, the last one (`n = cap - 1`) is kept. The nonce
 is the 64-bit counter at bytes 32..39 of the node input (the Merkle pad; bytes 40..47 stay 0); `n = 0` gives
-`merkleNodeInput`. Zero bits (E8 P1, (3,2,1,1) × 3): heaps 16..31 -> 1, 8..15 -> 1, 4..7 -> 2, 2..3 -> 3 (E11 V29:
-1, 2, 3, 3 on layer 1 / 4); cap `128 · 2^b`. Every other node (the top tree, heaps 1 and ≥ 32) has `b = 0` and is the
-plain `lowerNodeHash`. -/
+`merkleNodeInput`. Zero bits (E11 V29): heaps 16..31 -> 1, 8..15 -> 2, 4..7 -> 3, 2..3 -> 3 on layer 1, else 4; cap `128 · 2^b`.
+Every other node (the top tree, heaps 1 and ≥ 16) has `b = 0` and is the plain `lowerNodeHash`. -/
 def lowerZeroBits (lay heap : Nat) : Nat :=
-  if lay = 0 ∨ heap < 2 ∨ 32 ≤ heap then 0 else if 16 ≤ heap then 1 else if 8 ≤ heap then 1 else if 4 ≤ heap then 2
-  else if lay = 1 then 3 else 3
+  if lay = 0 ∨ heap < 2 ∨ 32 ≤ heap then 0 else if 16 ≤ heap then 1 else if 8 ≤ heap then 2 else if 4 ≤ heap then 3
+  else if lay = 1 then 3 else 4
 def lowerNonceCap (lay heap : Nat) : Nat := 128 * 2 ^ lowerZeroBits lay heap
 def lowerZeroOk (lay heap : Nat) (value : Digest) : Bool :=
   value.toNat / 2 ^ (128 - lowerZeroBits lay heap) == 0
@@ -880,8 +879,9 @@ def decode (lay : Layer) (answer : Digest) : Option (List Nat) :=
 /-- Word reward (credited instructions) of a decoded word, independent of the selected half. -/
 def reward (lay : Layer) (digits : List Nat) : Nat :=
   wordCredit lay digits + 4 * savedCopies lay digits
-/-- SGV1: the earning-path bonus of a lower layer (2 cycles on every lower layer). -/
-def lowerBonus (_lay : Layer) : Nat := 2
+/-- Z4 (P1'): the earning-path bonus of a lower layer: 2 cycles on layers 1, 2; 3 on layer 3, whose HIGH-a path
+now falls through into the encoding SWAR like LOW (both 3 cycles under HIGH-b). -/
+def lowerBonus (lay : Layer) : Nat := if lay = 3 then 3 else 2
 /-- Path bonus: a lower layer whose LOW half was selected saves `lowerBonus` verify cycles, the top layer 2 (d6b
 head). -/
 def pathBonus (lay : Layer) (low : Bool) : Nat := if low = true then (if lay = 0 then 2 else lowerBonus lay) else 0
@@ -908,7 +908,9 @@ theorem pathBonus_lower {lay : Layer} (hl : lay ≠ 0) (low : Bool) :
   cases low <;> simp [pathBonus, hl]
 @[simp] theorem pathBonus_false (lay : Layer) : pathBonus lay false = 0 := by simp [pathBonus]
 theorem lowerBonus_le (lay : Layer) : lowerBonus lay ≤ 3 := by
-  unfold lowerBonus; omega
+  unfold lowerBonus; split_ifs <;> omega
+theorem lowerBonus_eq (lay : Layer) : lowerBonus lay = if lay.val = 3 then 3 else 2 := by
+  unfold lowerBonus; fin_cases lay <;> rfl
 theorem pathBonus_le (lay : Layer) (low : Bool) : pathBonus lay low ≤ 4 := by
   unfold pathBonus lowerBonus; split_ifs <;> omega
 theorem pathReward_top (low : Bool) (digits : List Nat) :

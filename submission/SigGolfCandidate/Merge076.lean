@@ -1668,7 +1668,7 @@ theorem installed_code : Code Images.expandImage := by
     | (apply codeAt_e11_at <;> decide)
     | (apply codeAt_expand_current_chunk <;> decide +kernel)
     | (apply codeAt_t51_at <;> decide)
-    | (apply codeAt_expand_last <;> decide +kernel)
+    | (apply codeAt_expand_lastR <;> decide +kernel)
 
 /-! ## U16b grind stub (expand words 54800..54885, entered by `1138: jal 54800`, back at 1139)
 Lower nodes (`lay ≥ 1`, heaps 2..15): first-nonce search on the pad (`stub_lower` refines `WCT9.lowerNodeAt`), nonce
@@ -1901,7 +1901,7 @@ theorem tB_spec (hpc : s.pc = pcOf 60112) :
 
 theorem tC_spec (hpc : s.pc = pcOf 60115) :
     ∃ t, Steps im s 3 3 t ∧ t.pc = (if (s.getReg .x7).ult 8#64 = true then pcOf 60118 else pcOf 60126) ∧
-      t.getReg .x29 = 1#64 ∧ RegsExcept s t [.x28, .x29] ∧ Frame s t (fun _ => False) := by
+      t.getReg .x29 = 2#64 ∧ RegsExcept s t [.x28, .x29] ∧ Frame s t (fun _ => False) := by
   have hc := code_slE (Code.codeAt_e11s (im := im)) 60115 60118 (by norm_num) (by norm_num) (by norm_num)
   refine ⟨_, symRun_sound tC hc s hpc (by simp [tC.res, rv_simp]), ?_, ?_, ?_, ?_⟩
   · rw [Result.toState_pc]
@@ -1912,7 +1912,7 @@ theorem tC_spec (hpc : s.pc = pcOf 60115) :
 
 theorem tD_spec (hpc : s.pc = pcOf 60118) :
     ∃ t, Steps im s 3 3 t ∧ t.pc = (if (s.getReg .x7).ult 4#64 = true then pcOf 60121 else pcOf 60126) ∧
-      t.getReg .x29 = 2#64 ∧ RegsExcept s t [.x28, .x29] ∧ Frame s t (fun _ => False) := by
+      t.getReg .x29 = 3#64 ∧ RegsExcept s t [.x28, .x29] ∧ Frame s t (fun _ => False) := by
   have hc := code_slE (Code.codeAt_e11s (im := im)) 60118 60121 (by norm_num) (by norm_num) (by norm_num)
   refine ⟨_, symRun_sound tD hc s hpc (by simp [tD.res, rv_simp]), ?_, ?_, ?_, ?_⟩
   · rw [Result.toState_pc]
@@ -1924,7 +1924,7 @@ theorem tD_spec (hpc : s.pc = pcOf 60118) :
 theorem tE_spec (hpc : s.pc = pcOf 60121) :
     ∃ t, Steps im s 4 4 t ∧
       t.pc = (if (s.getReg .x31 >>> 48 &&& 255#64) = 0#64 then pcOf 60125 else pcOf 60126) ∧
-      t.getReg .x29 = 3#64 ∧ RegsExcept s t [.x28, .x29] ∧ Frame s t (fun _ => False) := by
+      t.getReg .x29 = 4#64 ∧ RegsExcept s t [.x28, .x29] ∧ Frame s t (fun _ => False) := by
   have hc := code_slE (Code.codeAt_e11s (im := im)) 60121 60125 (by norm_num) (by norm_num) (by norm_num)
   refine ⟨_, symRun_sound tE hc s hpc (by simp [tE.res, rv_simp]), ?_, ?_, ?_, ?_⟩
   · rw [Result.toState_pc]

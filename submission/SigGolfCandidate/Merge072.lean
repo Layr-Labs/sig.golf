@@ -35,12 +35,12 @@ theorem code_last {b : Nat} {code : List (BitVec 32)} (hlo : 44032 ≤ b)
     (hb : 0x1000 + 4 * b + 4 * code.length < 2 ^ 64)
     (hc : (Images.expandCode_172.drop (b - 44032)).take code.length = code) :
     CodeAt Images.expandImage (pcOf b) code := codeAt_expand_last hlo hb hc
-theorem code_P1 : CodeAt Images.expandImage (pcOf 44961) cP1 := code_last (by decide) (by decide) (by decide +kernel)
-theorem code_S1 : CodeAt Images.expandImage (pcOf 44974) cS1 := code_last (by decide) (by decide) (by decide +kernel)
-theorem code_S2 : CodeAt Images.expandImage (pcOf 45000) cS2 := code_last (by decide) (by decide) (by decide +kernel)
-theorem code_J45015 : CodeAt Images.expandImage (pcOf 45015) cJ45015 := code_last (by decide) (by decide) (by decide +kernel)
-theorem code_hook : CodeAt Images.expandImage (pcOf 54174) cHook := code_last (by decide) (by decide) (by decide +kernel)
-theorem code_table : CodeAt Images.expandImage (pcOf 44193) cTable := code_last (by decide) (by decide) (by decide +kernel)
+theorem code_P1 : CodeAt Images.expandImage (pcOf 44961) cP1 := (by apply SigGolfCandidate.T3M.codeAt_expand_lastR <;> decide +kernel)
+theorem code_S1 : CodeAt Images.expandImage (pcOf 44974) cS1 := (by apply SigGolfCandidate.T3M.codeAt_expand_lastR <;> decide +kernel)
+theorem code_S2 : CodeAt Images.expandImage (pcOf 45000) cS2 := (by apply SigGolfCandidate.T3M.codeAt_expand_lastR <;> decide +kernel)
+theorem code_J45015 : CodeAt Images.expandImage (pcOf 45015) cJ45015 := (by apply SigGolfCandidate.T3M.codeAt_expand_lastR <;> decide +kernel)
+theorem code_hook : CodeAt Images.expandImage (pcOf 54174) cHook := (by apply SigGolfCandidate.T3M.codeAt_expand_lastR <;> decide +kernel)
+theorem code_table : CodeAt Images.expandImage (pcOf 44193) cTable := (by apply SigGolfCandidate.T3M.codeAt_expand_lastR <;> decide +kernel)
 
 sym_block eP1 := symRun cfgW cP1 (pcOf 44961) 40
 sym_block eS1 := symRun cfgW cS1 (pcOf 44974) 40
@@ -59,8 +59,7 @@ theorem offR_bounds : ∀ r < 128, ∀ i < 5, offR r i % 8 = 0 ∧ 32 ≤ offR r
 
 /-! ### Rows -/
 def rowCode (r : Nat) : List (BitVec 32) := (cTable.drop (6 * r)).take 6
-theorem rowCode_img : ∀ r < 128, (Images.expandCode_172.drop (44193 + 6 * r - 44032)).take 6 = rowCode r := by
-  decide +kernel
+theorem rowCode_img : ∀ r < 128, (Images.expandCode_172.drop (44193 + 6 * r - 44032)).take 6 = rowCode r := by rw [SigGolfCandidate.T3M.expandCode_172_eq_R]; decide +kernel
 theorem rowCode_length (r : Nat) (hr : r < 128) : (rowCode r).length = 6 := by
   unfold rowCode; rw [List.length_take, List.length_drop, show cTable.length = 768 from rfl]; omega
 theorem code_row (r : Nat) (hr : r < 128) : CodeAt Images.expandImage (pcOf (44193 + 6 * r)) (rowCode r) :=
@@ -187,8 +186,7 @@ def padTab : List (List Nat) := [[16296,16344,16472],[16376,16424,16472],[16376,
 def rowBase (lay : Nat) : Nat := if lay = 1 then 0 else if lay = 2 then 64 else 96
 
 /-- The post-pass and its table are one contiguous window (54970..56043), checked against the image once. -/
-theorem postTab_img : (Images.expandCode_172.drop (54970 - 44032)).take (cPostOld ++ cTab).length = cPostOld ++ cTab := by
-  decide +kernel
+theorem postTab_img : (Images.expandCode_172.drop (54970 - 44032)).take (cPostOld ++ cTab).length = cPostOld ++ cTab := by rw [SigGolfCandidate.T3M.expandCode_172_eq_R]; decide +kernel
 theorem code_postTab : CodeAt Images.expandImage (pcOf 54970) (cPostOld ++ cTab) :=
   codeAt_expand_last (by decide) (by decide) postTab_img
 theorem code_postOld : CodeAt Images.expandImage (pcOf 54970) cPostOld :=
