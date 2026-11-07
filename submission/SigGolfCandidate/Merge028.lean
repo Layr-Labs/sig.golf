@@ -12018,12 +12018,17 @@ section
 
 namespace SigGolfCandidate.T3M.Extract
 open SigGolfCandidate.T3
+def ftsChainMark (hdr : HashInput) : Prop :=
+  (hdr.getD 0 0).toNat < 4 ∧ 248 ≤ (hdr.getD 1 0).toNat ∧ (hdr.getD 1 0).toNat < 254
+instance (hdr : HashInput) : Decidable (ftsChainMark hdr) := inferInstanceAs (Decidable (_ ∧ _ ∧ _))
+def headerMarked (hdr : HashInput) : Prop := 128 ≤ (hdr.getD 0 0).toNat ∨ ftsChainMark hdr
+instance (hdr : HashInput) : Decidable (headerMarked hdr) := inferInstanceAs (Decidable (_ ∨ _))
 def canonicalHeader (hdr : HashInput) : HashInput :=
-  if 128 ≤ (hdr.getD 0 0).toNat then hdr.take 8 ++ List.replicate 8 0 else hdr
-@[simp] theorem canonicalHeader_unmarked (hdr : HashInput) (h : ¬128 ≤ (hdr.getD 0 0).toNat) :
-    canonicalHeader hdr = hdr := by
+  if headerMarked hdr then hdr.take 8 ++ List.replicate 8 0 else hdr
+@[simp] theorem canonicalHeader_unmarked (hdr : HashInput) (h : ¬128 ≤ (hdr.getD 0 0).toNat)
+    (hf : ¬ ftsChainMark hdr) : canonicalHeader hdr = hdr := by
   unfold canonicalHeader
-  rw [if_neg h]
+  rw [if_neg (by simp only [headerMarked]; tauto)]
 theorem canonicalHeader_marked (low pad : HashInput) (hlen : low.length = 8)
     (hmark : 128 ≤ (low.getD 0 0).toNat) :
     canonicalHeader (low ++ pad) = low ++ List.replicate 8 0 := by
@@ -12031,7 +12036,17 @@ theorem canonicalHeader_marked (low pad : HashInput) (hlen : low.length = 8)
     simpa only [List.getD_eq_getElem?_getD,
       List.getElem?_append_left (show 0 < low.length by omega)] using hmark
   unfold canonicalHeader
-  rw [if_pos hm]
+  rw [if_pos (show headerMarked (low ++ pad) from Or.inl hm)]
+  simp [List.take_append, hlen]
+theorem canonicalHeader_fts_marked (low pad : HashInput) (hlen : low.length = 8)
+    (hmark : ftsChainMark low) :
+    canonicalHeader (low ++ pad) = low ++ List.replicate 8 0 := by
+  have hm : ftsChainMark (low ++ pad) := by
+    simpa only [ftsChainMark, List.getD_eq_getElem?_getD,
+      List.getElem?_append_left (show 0 < low.length by omega),
+      List.getElem?_append_left (show 1 < low.length by omega)] using hmark
+  unfold canonicalHeader
+  rw [if_pos (show headerMarked (low ++ pad) from Or.inr hm)]
   simp [List.take_append, hlen]
 theorem canonicalHeader_pad_irrelevant (low pad pad' : HashInput) (hlen : low.length = 8)
     (hmark : 128 ≤ (low.getD 0 0).toNat) :
@@ -12039,11 +12054,8 @@ theorem canonicalHeader_pad_irrelevant (low pad pad' : HashInput) (hlen : low.le
   rw [canonicalHeader_marked low pad hlen hmark, canonicalHeader_marked low pad' hlen hmark]
 theorem canonicalHeader_zero_pad (low : HashInput) (hlen : low.length = 8) :
     canonicalHeader (low ++ List.replicate 8 0) = low ++ List.replicate 8 0 := by
-  by_cases hm : 128 ≤ (low.getD 0 0).toNat
-  · exact canonicalHeader_marked low _ hlen hm
-  · apply canonicalHeader_unmarked
-    simpa only [List.getD_eq_getElem?_getD,
-      List.getElem?_append_left (show 0 < low.length by omega)] using hm
+  unfold canonicalHeader
+  split_ifs <;> simp [List.take_append, hlen]
 end SigGolfCandidate.T3M.Extract
 end
 -- ==== merged from T3M_Extract_Basic ====

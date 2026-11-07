@@ -247,19 +247,19 @@ theorem nodeHdr_ne_cross (hS : GroundSet j S) (hi : i < 2 ^ 31) (hij : i ≠ j) 
     (by have := hp.2.2.2; omega) he
   exact hij e2
 
-theorem xF_chain (coord selected k start count : Nat) (value : Digest) :
+theorem xF_chain (coord selected k start count : Nat) (value : Digest) (hi : k < 6) :
     AllQueriesSatisfy (ClaudeWCT.WCT9.chain i coord selected k start count value) (NotF secret j S) := by
   unfold ClaudeWCT.WCT9.chain
   exact allQ_foldlM _ _ (fun v step => notF_projHash _
     (ftsChainInputW_header (S := fun _ _ => False) (fun _ _ h => h.elim) coord selected k step v)
-    (fun c x _ he => ClaudeWCT.WCT9.wctNodeHeader_ne_ftsChainHeaderP c j x _ _ _ _ _ _ he.symm)) _
+    (fun c x _ he => ClaudeWCT.WCT9.wctNodeHeader_ne_ftsChainHeaderP c j x _ _ _ _ _ _ hi he.symm)) _
 
 theorem xF_buildChildH (hS : GroundSet j S) (heap coord selected : Nat) (word : Rank) (coefs : List Digest)
     (pad : Digest) :
     AllQueriesSatisfy (ClaudeWCT.WCT9.buildChildH heap i coord selected word coefs pad) (NotF secret j S) := by
   unfold ClaudeWCT.WCT9.buildChildH
   refine allQ_bind (allQ_foldlM _ _ (fun st k => ?_) _) fun st => ?_
-  · exact allQ_bind (xF_chain _ _ _ _ _ _) fun _ => allQ_bind (xF_chain _ _ _ _ _ _) fun _ => allQ_pure _
+  · exact allQ_bind (xF_chain _ _ _ _ _ _ (by omega)) fun _ => allQ_bind (xF_chain _ _ _ _ _ _ (by omega)) fun _ => allQ_pure _
   · refine allQ_bind ?_ fun _ => allQ_pure _
     unfold ClaudeWCT.WCT9.leafHashH
     refine notF_ftsHash heap (hdr := ClaudeWCT.WCT9.ftsLeafHeader i coord selected) ?_

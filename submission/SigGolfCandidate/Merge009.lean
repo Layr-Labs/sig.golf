@@ -137,7 +137,11 @@ theorem leafHalfHigh_lower {lay : Layer} (h : lay ≠ 0) (leaf : Nat) : leafHalf
   exact fun h' => h (Fin.ext h'.1)
 /-- C4 top fold word: the heap itself for the real heaps `1..4095` (`topNodeWord_eq`); always in `[1, 4096)`, so it
 is never the digest word 0, never an FTS word (`≥ 2 ^ 16`) and never a lower word (type byte 193). -/
-def topNodeWord (heap : Nat) : Nat := (heap - 1) % 4095 + 1
+def topNodeWord (heap : Nat) : Nat :=
+  let n := (heap - 1) % 4095 + 1
+  if n = 7 then 520192 else n
+/-- Inverse of the special top-node label on the valid top-label image. -/
+def topNodeHeap (word : Nat) : Nat := if word = 520192 then 7 else word
 def privatePair (tag lay tree position index : Nat) : M (Digest × Digest) := do
   let output ← privateHash (.inl (header tag lay tree position index))
   pure (output.extractLsb' 0 128, output.extractLsb' 128 128)
@@ -187,14 +191,31 @@ def leafTweak (lay : Layer) (tree leaf : Nat) : BitVec 128 :=
   0#64 ++ hyperWord lay.val (tree * 2 ^ height lay + leaf)
 def rowTweak (lay : Layer) (tree leaf : Nat) : BitVec 128 :=
   1#64 ++ hyperWord lay.val (tree * 2 ^ height lay + leaf)
+/-- A bijective translation of the packed FTS word, modulo its 64-bit width. -/
+def ftsBias (n : Nat) : Nat := (n + 2^64 - 67584) % 2^64
+ theorem ftsBias_lt (n : Nat) : ftsBias n < 2^64 := Nat.mod_lt _ (by decide)
+theorem ftsBias_eq (n : Nat) (hn : n < 2^64) :
+    ftsBias n = if n < 67584 then n + 2^64 - 67584 else n - 67584 := by
+  unfold ftsBias
+  split_ifs <;> omega
+theorem ftsBias_injective {a b : Nat} (ha : a < 2^64) (hb : b < 2^64)
+    (h : ftsBias a = ftsBias b) : a = b := by
+  rw [ftsBias_eq a ha, ftsBias_eq b hb] at h
+  split_ifs at h <;> omega
+theorem ftsBias_range {n : Nat} (hn : n < 2^58) :
+    ftsBias n < 2^58 ∨ 2^64 - 67584 ≤ ftsBias n := by
+  rw [ftsBias_eq n (lt_trans hn (by decide))]
+  split_ifs <;> omega
 /-- FTS node word of the two-word labels. C4: coordinate nibble `coord + 1` (every FTS word is `≥ 2 ^ 16`). -/
+-- A label permutation that makes heap7 use the existing hash-length constant.
+def ftsHeapLabel (heap : Nat) : Nat := if heap = 7 then 64 else if heap = 64 then 7 else heap
 def ftsNodeWord (coord index : Nat) : BitVec 64 :=
-  BitVec.ofNat 64 (1 + 6 * 2 ^ 8 + (coord + 1) % 16 * 2 ^ 16 + index % 2 ^ 31 * 2 ^ 27)
+  BitVec.ofNat 64 (ftsBias (1 + 6 * 2 ^ 8 + (coord + 1) % 16 * 2 ^ 16 + index % 2 ^ 31 * 2 ^ 27))
 /-- Packed FTS node word (heaps `8..127`, the four lower child levels): the heap is folded into the low word
 (`ftsNodeWord - heap`, byte0 `257 - heap >= 130`, byte1 `5`), so the header is marked and its high word is
 ignored by `canonicalHeader` (honest value 0). C4: coordinate nibble `coord + 1`. -/
 def ftsNodeWordH (coord index heap : Nat) : BitVec 64 :=
-  BitVec.ofNat 64 (1537 - heap + (coord + 1) % 16 * 2 ^ 16 + index % 2 ^ 31 * 2 ^ 27)
+  BitVec.ofNat 64 (ftsBias (1537 - heap + (coord + 1) % 16 * 2 ^ 16 + index % 2 ^ 31 * 2 ^ 27))
 /-- Node tweaks. C4: the top tree (`lay = 0`) has the one-word label `topNodeWord heap` (= heap) whose high word is a
 witness pad (honest 0); the legacy lower branch (`lay` 1..3) keeps its text. -/
 def nodeTweak (tag lay tree heap : Nat) : BitVec 128 :=
@@ -202,7 +223,7 @@ def nodeTweak (tag lay tree heap : Nat) : BitVec 128 :=
     (if lay = 0 then 0#64 ++ BitVec.ofNat 64 (topNodeWord heap) else BitVec.ofNat 64 heap ++ hyperWord (lay - 1) tree)
   else if tag = 3 ∧ lay < 13 then
     (if 8 ≤ heap ∧ heap < 128 then 0#64 ++ ftsNodeWordH (lay - 4) tree heap
-     else BitVec.ofNat 64 heap ++ ftsNodeWord (lay - 4) tree)
+     else BitVec.ofNat 64 (ftsHeapLabel heap) ++ ftsNodeWord (lay - 4) tree)
   else header tag lay tree 0 heap
 /-- Leaf input. Campaign T51 ("endpad"): the top leaf is `end_0 | tweak | end_1..end_50` (832 bytes, 13 blocks), the
 same shape as a lower leaf (#938: `0^16 | tweak | end_0..end_53`, 896 bytes). -/

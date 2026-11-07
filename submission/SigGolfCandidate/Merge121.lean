@@ -2093,8 +2093,8 @@ theorem lctxOfCk_known (w : ClaudeWCT.W9.T3M.WBytes) (index : Nat) (lay : Layer)
   · exact knownOK_at _ s 12 (.x26, 6) hk rfl
   · exact h28
   · exact knownOK_at _ s 3 (.x9, 0x7fc00) hk rfl
-  · exact knownOK_at _ s 15 (.x27, 0x3fe00) hk rfl
-  · exact knownOK_at _ s 14 (.x5, 0) hk rfl
+  · exact knownOK_at _ s 14 (.x27, 0x3fe00) hk rfl
+  · exact knownOK_at _ s 13 (.x5, 0) hk rfl
   · exact h16
   · exact h17
   · exact h29
@@ -2103,7 +2103,7 @@ theorem lctxOfCk_known (w : ClaudeWCT.W9.T3M.WBytes) (index : Nat) (lay : Layer)
       · exact absurd rfl hlay
       all_goals rfl
     rw [e]
-    exact knownOK_at _ s 16 (.x4, BitVec.ofNat 64 (bufferBias lay.val)) hk rfl
+    exact knownOK_at _ s 15 (.x4, BitVec.ofNat 64 (bufferBias lay.val)) hk rfl
 theorem lctxOf_known (w : ClaudeWCT.W9.T3M.WBytes) (index : Nat) (lay : Layer) (hlay : lay ≠ 0) (a : BitVec 256) (p : Nat)
     (s : MachineState) (hk : KnownOK (postBl lay.val p) s)
     (h28 : s.getReg .x28 = BitVec.ofNat 64 (lctxOf w index lay a).x28v)
@@ -3056,7 +3056,7 @@ def lfSlot (lay j : Nat) : Nat := if lay = 0 then slotT j else bufferBias lay + 
 def stabBits (lay : Nat) : Nat := if lay = 1 then 7 else 6
 def lfKeepK (lay : Nat) : List (Reg × Word) :=
   [(.x9, 0x7fc00), (.x7, 1), (.x13, 2), (.x19, 3), (.x20, 4), (.x21, 5), (.x26, 6),
-   (.x30, 7), (if lay = 0 then (.x8, BitVec.ofNat 64 s3v) else (.x4, BitVec.ofNat 64 (bufferBias lay))),
+   (if lay = 0 then (.x8, BitVec.ofNat 64 s3v) else (.x4, BitVec.ofNat 64 (bufferBias lay))),
    (.x2, BitVec.ofNat 64 0xffbde0)] ++
   (if lay = 0 then [] else [(.x1, BitVec.ofNat 64 M1c), (.x24, BitVec.ofNat 64 M2c), (.x6, 0x10000), (.x27, 0x3fe00)])
 def lfK (lay : Nat) : List (Reg × Word) := postLf lay ++ lfKeepK lay
@@ -3736,7 +3736,7 @@ theorem nctx_known (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index c : Nat) (
     exact hyperWord_top_prefix w index _ _
   intro p hp
   simp only [NCtx.known, List.mem_cons, List.not_mem_nil, or_false] at hp
-  rcases hp with rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl
+  rcases hp with rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl
   all_goals try exact he.s3
   all_goals try exact he.ra
   all_goals try exact hprefix
@@ -4049,12 +4049,12 @@ def mkDst (lay leaf : Nat) : Nat := if lay = 0 then mkCur 0 leaf 11 (leaf / 2048
 def mkMove (lay level : Nat) : Nat := if lay = 0 ∧ level = 11 then 0 else 1
 def mkHeap (lay ci sh l : Nat) : Nat := (2 ^ hL lay + sh * 2 ^ mkLo lay ci) / 2 ^ (l + 1)
 def mkK (lay : Nat) : List (Reg × Word) :=
-  gkL lay ++ [(if lay = 0 then (.x8, BitVec.ofNat 64 s3v) else (.x4, BitVec.ofNat 64 (bufferBias lay))), (.x7, 1), (.x13, 2),
-    (.x19, 3), (.x20, 4), (.x21, 5), (.x26, 6), (.x30, 7), (.x5, 0)] ++
+  gkL lay ++ (if lay = 0 then [(.x6, 520192)] else []) ++ [(if lay = 0 then (.x8, BitVec.ofNat 64 s3v) else (.x4, BitVec.ofNat 64 (bufferBias lay))), (.x7, 1), (.x13, 2),
+    (.x19, 3), (.x20, 4), (.x21, 5), (.x26, 6), (.x5, 0)] ++
     (if lay = 0 then [] else [(.x2, BitVec.ofNat 64 0xffbde0)])
 def mkKc (lay : Nat) : List (Reg × Word) :=
-  gkL lay ++ [(if lay = 0 then (.x8, BitVec.ofNat 64 s3v) else (.x4, BitVec.ofNat 64 (bufferBias lay))), (.x7, 1), (.x13, 2),
-    (.x19, 3), (.x20, 4), (.x21, 5), (.x26, 6), (.x30, 7), (.x5, 0)]
+  gkL lay ++ (if lay = 0 then [(.x6, 520192)] else []) ++ [(if lay = 0 then (.x8, BitVec.ofNat 64 s3v) else (.x4, BitVec.ofNat 64 (bufferBias lay))), (.x7, 1), (.x13, 2),
+    (.x19, 3), (.x20, 4), (.x21, 5), (.x26, 6), (.x5, 0)]
 def mkKeep : List Reg := [.x4, .x1, .x2, .x16, .x17, .x8, .x9, .x24, .x23, .x6, .x25, .x27, .x29, .x31]
 def mkEntSpec (lay ci sh : Nat) : Spec := let st := if lay = 0 ∧ ci = 1 then 2 else 1; ⟨[], [], mkShp lay ci sh + 1, true, st, [], none, st⟩
 def mkEntPost (lay ci sh : Nat) : List (Reg × Word) :=
@@ -4073,7 +4073,7 @@ def mkK7 : Nat := 1407
 /-- C2: lower levels write only the packed tweak word `hyperWord + mkK7 + heap`; its high word is witness memory.
 C4: a top level writes only its one-word label, the heap. -/
 def mkLabE (lay ci sh l : Nat) : E :=
-  if lay = 0 then mkHeapE lay ci sh l else addC (mkHdrE lay l) (BitVec.ofNat 64 (mkK7 + mkHeap lay ci sh l))
+  if lay = 0 then (if mkHeap lay ci sh l = 7 then kw 520192 else mkHeapE lay ci sh l) else addC (mkHdrE lay l) (BitVec.ofNat 64 (mkK7 + mkHeap lay ci sh l))
 def mkLvlMem (lay ci sh l : Nat) : List (Addr × E) :=
   [(⟨none, BitVec.ofNat 64 (mkBlk lay (mkLeafOf lay ci sh) l + 16)⟩, mkLabE lay ci sh l)]
 def mkLvlRegs (lay l : Nat) : List (Reg × E) := if l = 0 ∧ lay ≠ 0 then [(.x28, t3E (lay - 1))] else []

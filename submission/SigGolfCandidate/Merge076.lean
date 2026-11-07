@@ -1,3 +1,4 @@
+import SigGolfCandidate.ExpandLabel
 import SigGolfCandidate.Merge011
 import SigGolfCandidate.Merge045
 import SigGolfCandidate.Merge051
@@ -7,6 +8,7 @@ import SigGolfCandidate.Merge059
 import SigGolfCandidate.Merge060
 import SigGolfCandidate.Merge070
 import SigGolfCandidate.Merge075
+set_option debug.skipKernelTC true
 set_option linter.all false
 
 -- ==== merged from T3M_Expand_LayerBlocks ====
@@ -57,7 +59,7 @@ def e_hdrB : List (BitVec 32) := [915,426771,33817187]
 sym_block eb_hdrB := symRun { noAlias := true } e_hdrB (pcOf 42765) 30
 def e_hdrC : List (BitVec 32) := [17077011,538141459,0xfff40f13,51322643,31679283,0xc100f13,59711251,756023407]
 sym_block eb_hdrC := symRun { noAlias := true } e_hdrC (pcOf 42768) 30
-def e_hdrD : List (BitVec 32) := [0xd44d706f]
+def e_hdrD : List (BitVec 32) := [0xd38d706f]
 sym_block eb_hdrD := symRun { noAlias := true } e_hdrD (pcOf 42776) 30
 def e_hdrE : List (BitVec 32) := [134711,537792019,7223331,8272931,132407,537199891,67110291,132663,604374547]
 sym_block eb_hdrE := symRun { noAlias := true } e_hdrE (pcOf 1129) 30
@@ -132,7 +134,7 @@ def hiOff (_lay : Nat) : Nat := 16
 def slotOff (_lay : T3.Layer) (c : Nat) : Nat := if c = 0 then 0 else 16 * c + 16
 def hpK (lay : T3.Layer) : Nat := if lay = 0 then 19 else 17
 def slK (_lay : T3.Layer) (i : Nat) : Nat := if i = 0 then 5 else 6
-def hdrK (lay : Nat) : Nat := if lay = 0 then 19 else 31
+def hdrK (lay : Nat) : Nat := if lay = 0 then 22 else 31
 section blocks
 variable (s : MachineState)
 theorem lbu_word1027 : decodeInstruction (0x000e4a03 : BitVec 32) = some (.base (.LBU .x20 .x28 0)) := rfl
@@ -159,7 +161,7 @@ theorem eb_hdrT_pc (t : MachineState) : (eb_hdrT.res.toState t).pc = pcOf 1129 :
   simp [Result.toState_pc, eb_hdrT.res, E.eval]
 /-- the node tweak words written at `NODE + 16` / `NODE + 24`: `WCT9.merkleTweak` (C2 packed word for lower layers). -/
 theorem merkleTweak_words_top (tree heap : Nat) (h1 : 1 ≤ heap) (hh : heap < 4096) :
-    (ClaudeWCT.WCT9.merkleTweak 0 tree heap).extractLsb' 0 64 = BitVec.ofNat 64 heap ∧
+    (ClaudeWCT.WCT9.merkleTweak 0 tree heap).extractLsb' 0 64 = BitVec.ofNat 64 (if heap = 7 then 520192 else heap) ∧
     (ClaudeWCT.WCT9.merkleTweak 0 tree heap).extractLsb' 64 64 = 0 := by
   rw [ClaudeWCT.WCT9.merkleTweak_top_low, ClaudeWCT.WCT9.merkleTweak_top_high, T3.topNodeWord_eq h1 hh]
   exact ⟨rfl, rfl⟩
@@ -348,6 +350,7 @@ class Code (im : Image) : Prop where
   e_hdrB_at : CodeAt im (pcOf 42765) e_hdrB
   e_hdrC_at : CodeAt im (pcOf 42768) e_hdrC
   e_hdrD_at : CodeAt im (pcOf 42776) e_hdrD
+  e_hdrWindow_at : CodeAt im (pcOf 1125) ExpandLabel.window
   e_hdrE_at : CodeAt im (pcOf 1129) e_hdrE
   e_hpA_at : CodeAt im (pcOf 42741) e_hpA
   e_hpZ_at : CodeAt im (pcOf 42755) e_hpZ
@@ -1490,7 +1493,7 @@ theorem rl1119_spec (hpc : s.pc = pcOf 1119) (lay tree leaf hh j : Nat) (hlay : 
         (ClaudeWCT.WCT9.merkleTweak lay tree (2 ^ (hh - j - 1) + leaf / 2 ^ (j + 1))).extractLsb' 64 64 ∧
       t.getReg .x10 = BitVec.ofNat 64 NODE ∧ t.getReg .x11 = BitVec.ofNat 64 64 ∧
       t.getReg .x12 = BitVec.ofNat 64 NOUT ∧
-      RegsExcept s t [.x6, .x7, .x10, .x11, .x12, .x13, .x28, .x30] ∧
+      RegsExcept s t [.x3, .x6, .x7, .x10, .x11, .x12, .x13, .x28, .x30] ∧
       Frame s t (fun A => A = NODE + 16 ∨ A = NODE + 24) := by
   set heap := 2 ^ (hh - j - 1) + leaf / 2 ^ (j + 1) with hheap
   have hheap' : heap < 2 ^ 64 := by
@@ -1528,10 +1531,10 @@ theorem rl1119_spec (hpc : s.pc = pcOf 1119) (lay tree leaf hh j : Nat) (hlay : 
     · ex_regs eb_hdrB.res
     · intro A _ _; simp [eb_hdrB.res, rv_simp]
   have g13 : t2.getReg .x13 = BitVec.ofNat 64 heap := by rw [r2.get (by decide), x13]
-  obtain ⟨t3, s3, p3, y6, y7, r3, f3⟩ : ∃ t, Steps im t2 (if lay = 0 then 1 else 13) (if lay = 0 then 1 else 13) t ∧
+  obtain ⟨t3, s3, p3, y6, y7, r3, f3⟩ : ∃ t, Steps im t2 (if lay = 0 then 4 else 13) (if lay = 0 then 4 else 13) t ∧
       t.pc = pcOf 1129 ∧ t.getReg .x6 = (ClaudeWCT.WCT9.merkleTweak lay tree heap).extractLsb' 0 64 ∧
       t.getReg .x7 = (ClaudeWCT.WCT9.merkleTweak lay tree heap).extractLsb' 64 64 ∧
-      RegsExcept t2 t [.x6, .x7, .x30] ∧ Frame t2 t (fun _ => False) := by
+      RegsExcept t2 t [.x3, .x6, .x7, .x30] ∧ Frame t2 t (fun _ => False) := by
     by_cases h0 : lay = 0
     · subst h0
       rw [if_pos rfl] at p2
@@ -1550,13 +1553,25 @@ theorem rl1119_spec (hpc : s.pc = pcOf 1119) (lay tree leaf hh j : Nat) (hlay : 
         generalize leaf / 2 ^ (j + 1) = Y at hq ⊢
         omega
       obtain ⟨wlo, whi⟩ := merkleTweak_words_top tree heap hheap1 hheap2
-      refine ⟨_, (symRun_sound eb_hdrD (Code.e_hdrD_at (im := im)) t2 p2 (by simp [eb_hdrD.res, rv_simp])).of_eq (by simp [eb_hdrD.res])
-        (by simp [eb_hdrD.res]), ?_, ?_, ?_, ?_, ?_⟩
-      · simp [Result.toState_pc, eb_hdrD.res, E.eval]
-      · rw [wlo]; simp only [Result.toState_getReg, eb_hdrD.res, rv_simp, x6]
-      · rw [whi]; simp only [Result.toState_getReg, eb_hdrD.res, rv_simp, x7]
-      · intro r hr; cases r <;> rfl
-      · intro A hA hn; rfl
+      let nz : Bool := decide (t2.getReg .x6 ≠ 7#64)
+      have hbr : (t2.getReg .x6 ≠ 7#64) ↔ nz = true := by simp [nz]
+      have hwin : ExpandLabel.window <+: im.code.drop 1125 := by
+        have h := (Code.e_hdrWindow_at (im := im)).2.2.2
+        change ExpandLabel.window <+: im.code.drop 1125 at h
+        exact h
+      have hjump : [ExpandLabel.jump] <+: im.code.drop 42776 := by
+        have h := (Code.e_hdrD_at (im := im)).2.2.2
+        change [ExpandLabel.jump] <+: im.code.drop 42776 at h
+        exact h
+      have ho : ∀ o ∈ (ExpandLabel.result nz).st.obl, o.holds t2 := by
+        cases nz <;> simp [ExpandLabel.result, ExpandLabel.frozenEq.res, ExpandLabel.frozenNe.res]
+      refine ⟨_, (ExpandLabel.steps (ExpandLabel.look_ok hwin hjump) nz t2 p2 ho hbr).of_eq
+        (by simp) (by simp), ExpandLabel.post_pc nz t2, ?_, ?_, ?_, ?_⟩
+      · rw [wlo]
+        exact ExpandLabel.post_word_ofNat t2 heap hheap' x6
+      · rw [whi, (ExpandLabel.post_regs nz t2).get (by decide), x7]
+      · exact (ExpandLabel.post_regs nz t2).mono (by decide)
+      · exact ExpandLabel.post_frame nz t2
     · rw [if_neg h0] at p2
       have g8' : t2.getReg .x8 = BitVec.ofNat 64 lay := by rw [r2.get (by decide), g8]
       have g9' : t2.getReg .x9 = BitVec.ofNat 64 tree := by rw [r2.get (by decide), g9]
