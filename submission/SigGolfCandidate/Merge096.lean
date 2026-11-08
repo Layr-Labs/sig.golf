@@ -4922,7 +4922,7 @@ theorem tree_step (hcode : NewCodeAt im) {c index : Nat} (hc : c < 9) (hidx : in
   have hpc : t.pc = pcOf (nodeI c) := by rw [h.pc, if_pos hk]
   have hRt : PadAt c 16 padR t := hR0.frame hc (by norm_num) h.frame (fun A h1 h2 hw => by unfold treeW at hw; aoh)
   obtain ⟨t1, s1, e1, p1, x10, x11, x12, n0, n8, n48, n56, n16, n24, r1, f1⟩ :=
-    step_N hcode hc (by omega : 1 ≤ 127 - k) (by omega) t hpc h.x18 h.x22 hidx
+    step_N hcode hc (by omega : 1 ≤ 127 - k) (by omega) (by omega) t hpc h.x18 h.x22 hidx
   have hL : DigAt t1 NODEW (nodes.getD (2 * (127 - k)) 0) := by
     have := h.heap (2 * (127 - k)) (by omega) (by omega)
     exact ⟨by rw [n0, show HEAPW + 32 * (127 - k) = HEAPW + 16 * (2 * (127 - k)) by ring]; exact this.1,
@@ -5743,7 +5743,7 @@ theorem readWords_node (t : MachineState) {c index h : Nat} {pad L R : Digest} (
   · exact hR.2
 
 theorem input_of_readout (s u : MachineState) {c index h : Nat} {pad L R : Digest}
-    (hc:c<9) (hi:index<2^31) (hh:h<128)
+    (hc:c<9) (hi:index<2^31) (hh:h<128) (hne:h≠1)
     (h18:s.getReg .x18=BitVec.ofNat 64 h) (h22:s.getReg .x22=BitVec.ofNat 64 index)
     (hL:DigAt s (HEAPW+16*(2*h)) L) (hR:DigAt s (HEAPW+16*(2*h+1)) R)
     (hp:PadAt c h pad s)
@@ -5764,7 +5764,7 @@ theorem input_of_readout (s u : MachineState) {c index h : Nat} {pad L R : Diges
     exact hdrLo_eval s h22 h18 hc hi hh
   · rw[show NODEW+24=NODEW+8*3 by omega,hm 3 (by decide)]
     simp only[value,↓reduceIte]
-    exact hdrHi_eval s h18
+    exact hdrHi_eval s h18 hne
   · rw[show NODEW+32=NODEW+8*4 by omega,hm 4 (by decide)]
     simp only[value,↓reduceIte]
     exact hP.1
@@ -5873,7 +5873,7 @@ def unitC : Nat := 71+(18*511+40)
 
 theorem hash_unit {im : Image} {sk : BitVec 256} {c index h : Nat} {pad L R : Digest}
     (hn:LookOK im (look c)) (ht:LookOK im (SharedTail.look c)) (hg:GrindCode im)
-    (hc:c<9) (hi:index<2^31) (hh1:1≤h) (hh:h<128)
+    (hc:c<9) (hi:index<2^31) (hh1:1≤h) (hh:h<128) (hne:h≠1)
     {s : MachineState} (hpc:s.pc=pcOf (entry c))
     (h5:s.getReg .x5=0) (h18:s.getReg .x18=BitVec.ofNat 64 h) (h22:s.getReg .x22=BitVec.ofNat 64 index)
     (hL:DigAt s (HEAPW+16*(2*h)) L) (hR:DigAt s (HEAPW+16*(2*h+1)) R) (hp:PadAt c h pad s) (hz:SaveZ s) :
@@ -5882,7 +5882,7 @@ theorem hash_unit {im : Image} {sk : BitVec 256} {c index h : Nat} {pad L R : Di
       t.getReg .x18=BitVec.ofNat 64 (h-1) ∧ DigAt t (HEAPW+16*h) root ∧
       RegsExcept s t [.x3,.x6,.x7,.x10,.x11,.x12,.x18,.x28,.x29] ∧ Frame s t (unitW h)) := by
   obtain ⟨u,su,upc,x10,x11,x12,um,ru,fu⟩:=step_node hn hc hh s hpc h18 h22
-  have hw:=input_of_readout s u hc hi hh h18 h22 hL hR hp um
+  have hw:=input_of_readout s u hc hi hh hne h18 h22 hL hR hp um
   obtain ⟨hpcb,hent⟩:=hashPc_lt c hc
   have hTv:SigGolfCandidate.FtsGrind.SIGN_TRAMP+5*c < 25390:=by
     simp only[SigGolfCandidate.FtsGrind.SIGN_TRAMP];omega
@@ -6064,7 +6064,7 @@ theorem step {c index : Nat} (hn:LookOK im (SharedNode.look c)) (ht:LookOK im (S
   have hp:SharedNode.PadAt c (127-k) (pads (127-k)) t:=
     pad_treeFrame (hpad _ hh) hc h.frame
   unfold stepProgram
-  refine (TBSim.bind (W₂:=0) (SharedNode.hash_unit hn ht hg hc hi hh1 hh hpc h.x5 h.x18 h.x22
+  refine (TBSim.bind (W₂:=0) (SharedNode.hash_unit hn ht hg hc hi hh1 hh (by unfold count at hk; omega) hpc h.x5 h.x18 h.x22
     (h.heap _ (by omega) (by omega)) (h.heap _ (by omega) (by omega)) hp
     (hz.frame h.frame (fun _ ha=>saveCell_treeW ha)))
     (fun value u hu=>TBSim.pure ?_)).mono (by omega) (fun _ _ h=>h)

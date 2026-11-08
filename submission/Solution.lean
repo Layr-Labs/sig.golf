@@ -15,7 +15,7 @@ theorem layout_offsets : submission.layout =
   { message := 26016, secretKey := 128, publicKey := 160,
     cache := 524288, signature := 28672, witness := 4256 } := rfl
 
-theorem certificate : SigGolf.Certificate submission 6973 := by
+theorem certificate : SigGolf.Certificate submission 6972 := by
   exact SigGolfCandidate.Packaging.certificate_ready
 
 end SigGolf.Challenge
@@ -26,9 +26,7 @@ end SigGolf.Challenge
 #print axioms SigGolf.Challenge.layout_offsets
 #print axioms SigGolf.Challenge.certificate
 
-/- Development candidate based on Z4 (f8127b2): use FTS node bias -67073
-   and the aligned chain-label translation, remap FTS heap 7 to 64 and
-   Top label 7 to 520192, and separate digest queries with low word 25984.
-   The target removes three verifier setup instructions.
-   Claimed S = 5188, W = 21756, K = 131072, C = 6973;
-   product = 36,175,924. Independent acceptance remains required. -/
+/- Combine Z5's pre/post-marker security split, gate 934, pool 70 and top floor 17
+   with removal of the dedicated constant-one verifier initializer. Signature,
+   witness and cache sizes are unchanged. Target C = 6972; independent full
+   verification of this combined source is required before claiming acceptance. -/

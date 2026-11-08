@@ -13559,7 +13559,7 @@ theorem take8_bytesLE16 (a : BitVec 128) : (bytesLE 16 a).take 8 = bytesLE 8 (a.
 /- Every bounded FTS position has a low word above the top-label range. -/
 set_option debug.skipKernelTC false in
 theorem ftsPos_low {p : Extract.Pos} (hb : p.Bounded) (h : FtsPos p) :
-    (tweakLow p.hdr = 0 ∨ 4096 ≤ tweakLow p.hdr) ∧ tweakLow p.hdr < 2 ^ 64 ∧ tweakLow p.hdr ≠ 520192 := by
+    (tweakLow p.hdr = 0 ∨ 4096 ≤ tweakLow p.hdr) ∧ tweakLow p.hdr < 2 ^ 64 ∧ tweakLow p.hdr ≠ 520192 ∧ tweakLow p.hdr ≠ 856064 := by
   cases p with
   | wctChain index coord child t step =>
       obtain ⟨-, hk, -, ht, -⟩ := hb
@@ -13569,7 +13569,7 @@ theorem ftsPos_low {p : Extract.Pos} (hb : p.Bounded) (h : FtsPos p) :
       rw [Extract.tweakLow_eq_low, WCT9.ftsChainHeaderP_low, BitVec.toNat_ofNat,
         Nat.mod_eq_of_lt h2]
       have ht := WCT9.ftsChainLow_tag index coord child t step
-      exact ⟨Or.inr h1, h2, by omega⟩
+      exact ⟨Or.inr h1, h2, by omega, by omega⟩
   | wctLeaf index coord child =>
       obtain ⟨-, hk, -⟩ := hb
       have h1 := WCT9.ftsLeafLow_zero_or_ge (show coord < 15 by omega) index child
@@ -13579,7 +13579,10 @@ theorem ftsPos_low {p : Extract.Pos} (hb : p.Bounded) (h : FtsPos p) :
       have hn : WCT9.ftsLeafLow index coord child ≠ 520192 := by
         unfold WCT9.ftsLeafLow SigGolfCandidate.T3.ftsBias
         omega
-      exact ⟨h1, h2, hn⟩
+      have hn1 : WCT9.ftsLeafLow index coord child ≠ 856064 := by
+        unfold WCT9.ftsLeafLow SigGolfCandidate.T3.ftsBias
+        omega
+      exact ⟨h1, h2, hn, hn1⟩
   | wctNode index coord level nd =>
       obtain ⟨-, hk, hlev, hnd⟩ := hb
       have hp : 2 ^ (7 - level - 1) ≤ 64 := by
@@ -13596,6 +13599,12 @@ theorem ftsPos_low {p : Extract.Pos} (hb : p.Bounded) (h : FtsPos p) :
         unfold WCT9.ftsLeafLow SigGolfCandidate.T3.ftsBias
         omega
       have hneN : WCT9.ftsNodeLowN index coord (2 ^ (7 - level - 1) + nd) ≠ 520192 := by
+        unfold WCT9.ftsNodeLowN SigGolfCandidate.T3.ftsBias
+        omega
+      have hneL1 : WCT9.ftsLeafLow index coord 0 ≠ 856064 := by
+        unfold WCT9.ftsLeafLow SigGolfCandidate.T3.ftsBias
+        omega
+      have hneN1 : WCT9.ftsNodeLowN index coord (2 ^ (7 - level - 1) + nd) ≠ 856064 := by
         unfold WCT9.ftsNodeLowN SigGolfCandidate.T3.ftsBias
         omega
       simp only [Extract.Pos.hdr]

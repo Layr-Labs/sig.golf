@@ -52,7 +52,7 @@ theorem claimedC_eq : claimedC=verifyCycleBound+witnessCycles (submission I).siz
   rw [witnessCycles_eq];decide
 
 theorem submission_verificationBound (E : EncodingFacts) (F : SourceQueries) (P : Pending I) :
-    (submission I).VerificationBound 6973 := by
+    (submission I).VerificationBound 6972 := by
   intro hash sk m
   dsimp only
   intro h
@@ -77,7 +77,7 @@ open ClaudeWCT.W9.T3M (Images)
 variable {I : Images}
 
 theorem certificate_of (E : EncodingFacts) (F : SourceQueries) (P : Pending I) (S : SourceFacts) :
-    Certificate (submission I) 6973 where
+    Certificate (submission I) 6972 where
   admissible := P.admissible
   termination := submission_terminates P
   completeness := submission_complete E F P S
@@ -1029,8 +1029,8 @@ def submissionNew (I : Images) : SigGolf.Submission := currentOf (submission I)
 theorem legacyOf_submissionNew (I : Images) : legacyOf (submissionNew I) = submission I :=
   legacyOf_currentOf (submission I)
 theorem certificateNew_of {I : Images} (E : EncodingFacts) (F : SourceQueries) (P : Pending I) (S : SourceFacts) :
-    SigGolf.Certificate (submissionNew I) 6973 := by
-  have hL : SigGolfCandidate.Legacy.Certificate (legacyOf (submissionNew I)) 6973 := by
+    SigGolf.Certificate (submissionNew I) 6972 := by
+  have hL : SigGolfCandidate.Legacy.Certificate (legacyOf (submissionNew I)) 6972 := by
     rw [legacyOf_submissionNew]
     exact certificate_of E F P S
   have hrun : RunAgrees (submissionNew I) := runAgrees_of_admissible (submissionNew I) hL.admissible
@@ -3692,7 +3692,7 @@ def topNodeProg (level heap : Nat) (l r : Digest) : T3.M Digest :=
   if level = 12 then nodeHash 3 0 0 heap l r else Prod.snd <$> topNodeAt level heap l r
 
 /-- Cycle bound of one node at height `h` (`h = 12`: the root, no nonce). -/
-def nodeW (h : Nat) : Nat := if h = 12 then 56 else 82 + 21 * (topNonceCap h - 1)
+def nodeW (h : Nat) : Nat := if h = 12 then 63 else 89 + 21 * (topNonceCap h - 1)
 
 theorem nonceBytes_zero : nonceBytes 0 = zero16 := by decide
 theorem nodeHash_top (heap : Nat) (l r : Digest) :
@@ -3724,7 +3724,7 @@ include hpre htop hh12
 theorem node_prefix {ℓ : Nat} (hl : ℓ < 12) {levels : List (List Digest)} {pre : List Digest}
     (hi : pre.length < 2 ^ (12 - ℓ - 1)) {t : MachineState} (ht : TNodeInv s0 B ℓ levels pre t)
     (hpc : t.pc = pcOf 235) :
-    ∃ t2, Steps image t 33 33 t2 ∧ t2.pc = pcOf 263 ∧
+    ∃ t2, Steps image t 40 40 t2 ∧ t2.pc = pcOf 263 ∧
       t2.getReg .x10 = BitVec.ofNat 64 NODE ∧ t2.getReg .x11 = BitVec.ofNat 64 64 ∧
       t2.getMem (BitVec.ofNat 64 (NODE + 32)) = 0 ∧
       T2Facts t2 B.arena (2 ^ (12 - ℓ - 1) + pre.length) ((levels.getD ℓ []).getD (2 * pre.length) 0)
@@ -3776,7 +3776,6 @@ theorem node_prefix {ℓ : Nat} (hl : ℓ < 12) {levels : List (List Digest)} {p
     rw [t2n16, t1r.get (by simp), r21, htop.1, htop.2]
     simp only [nodeLo, if_true, BitVec.ofNat_eq_ofNat, BitVec.zero_shiftLeft, BitVec.or_zero]
     simp only [BitVec.zero_add]
-    rfl
   have hfr : ∀ r, r ∉ [Reg.x6] → r ∉ [Reg.x3, .x6, .x7, .x28, .x29, .x30, .x10, .x11, .x12, .x29] →
       t2.getReg r = t.getReg r := fun r h1 h2 => by rw [t2r.get h2, t1r.get h1]
   refine ⟨t2, (st1.trans st2).of_eq (by omega) (by omega), t2pc, t2x10, t2x11, by rw [fr _ (by simp), hpre.z32],
@@ -5090,7 +5089,7 @@ theorem pending_of_machine {I : Images} (M : MachineFacts I) : Pending I where
 theorem certificate_of_security {I : Images}
     (expandV6 : SigGolfCandidate.Research.SharedExpansionClosure.ExpandV6Facts) (security : SecurityP)
     (keygenMoment : KeygenMoment) (M : MachineFacts I) :
-    SigGolf.Certificate (submissionNew I) 6973 :=
+    SigGolf.Certificate (submissionNew I) 6972 :=
   certificateNew_of encodingFacts sourceQueries_holds (pending_of_machine M) (sourceFacts_of_securityP expandV6 security keygenMoment)
 end ClaudeWCT.W9.T3M.Final.Paired
 end

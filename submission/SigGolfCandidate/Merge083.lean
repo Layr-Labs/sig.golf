@@ -566,16 +566,17 @@ theorem eval_nodeHiE (s : MachineState) {h : Nat} (h18 : s.getReg .x18 = BitVec.
   · have : 8 ≤ h := by omega
     simp [h8, this]
 theorem mappedHi_eval (s : MachineState) (src : E) {h : Nat}
-    (hsrc : src.eval s = BitVec.ofNat 64 h) (hh : h < 8) :
+    (hsrc : src.eval s = BitVec.ofNat 64 h) (hh : h < 8) (hne : h ≠ 1) :
     (mappedHi src).eval s = BitVec.ofNat 64 (SigGolfCandidate.T3.ftsHeapLabel h) := by
   simp only [mappedHi, eval_bin, eval_cE, hsrc]
-  interval_cases h <;> rfl
+  interval_cases h <;> (first | omega | rfl)
 
 theorem eval_mappedNodeHiE (s : MachineState) {h : Nat}
-    (h18 : s.getReg .x18 = BitVec.ofNat 64 h) (hh : h < 128) :
+    (h18 : s.getReg .x18 = BitVec.ofNat 64 h) (hh : h < 128) (hne : h ≠ 1) :
     (mappedHi nodeHiE).eval s = BitVec.ofNat 64 (if 8 ≤ h then 0 else SigGolfCandidate.T3.ftsHeapLabel h) := by
   have he := mappedHi_eval s nodeHiE (eval_nodeHiE s h18 hh)
     (show (if 8 ≤ h then 0 else h) < 8 by split_ifs <;> omega)
+    (by split_ifs <;> omega)
   by_cases h8 : 8 ≤ h <;> simpa [h8, SigGolfCandidate.T3.ftsHeapLabel] using he
 
 theorem eval_nodeLoE (s : MachineState) {c index : Nat} (h22 : s.getReg .x22 = BitVec.ofNat 64 index)
@@ -810,7 +811,7 @@ theorem hdrLo_eval (s : MachineState) {c index h : Nat}
     rw[hdrLo,if_neg hm,nodeLoN,if_neg h8]
     exact loE_eval s h22
 
-theorem hdrHi_eval (s : MachineState) {h : Nat} (h18:s.getReg .x18=BitVec.ofNat 64 h) :
+theorem hdrHi_eval (s : MachineState) {h : Nat} (h18:s.getReg .x18=BitVec.ofNat 64 h) (hne : h ≠ 1) :
     (hdrHi (mode h)).eval s=BitVec.ofNat 64 (if 8≤h then 0 else SigGolfCandidate.T3.ftsHeapLabel h) := by
   by_cases h8:8≤h
   · have hm:mode h=0:=by simp only[mode,if_pos h8]
@@ -818,7 +819,7 @@ theorem hdrHi_eval (s : MachineState) {h : Nat} (h18:s.getReg .x18=BitVec.ofNat 
     rfl
   · have hm:mode h≠0:=by unfold mode;split_ifs <;> omega
     rw[hdrHi,if_neg hm,if_neg h8]
-    exact mappedHi_eval s (.reg .x18) h18 (by omega)
+    exact mappedHi_eval s (.reg .x18) h18 (by omega) hne
 
 theorem padShift_eval (s : MachineState) {h : Nat} (h4:4≤h) (h8:h<8)
     (h18:s.getReg .x18=BitVec.ofNat 64 h) : padShift.eval s=BitVec.ofNat 64 (32*(h/2-2)) := by

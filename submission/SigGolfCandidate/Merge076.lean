@@ -59,7 +59,7 @@ def e_hdrB : List (BitVec 32) := [915,426771,33817187]
 sym_block eb_hdrB := symRun { noAlias := true } e_hdrB (pcOf 42765) 30
 def e_hdrC : List (BitVec 32) := [17077011,538141459,0xfff40f13,51322643,31679283,0xc100f13,59711251,756023407]
 sym_block eb_hdrC := symRun { noAlias := true } e_hdrC (pcOf 42768) 30
-def e_hdrD : List (BitVec 32) := [0xd38d706f]
+def e_hdrD : List (BitVec 32) := [ExpandLabel.jump]
 sym_block eb_hdrD := symRun { noAlias := true } e_hdrD (pcOf 42776) 30
 def e_hdrE : List (BitVec 32) := [134711,537792019,7223331,8272931,132407,537199891,67110291,132663,604374547]
 sym_block eb_hdrE := symRun { noAlias := true } e_hdrE (pcOf 1129) 30
@@ -134,7 +134,7 @@ def hiOff (_lay : Nat) : Nat := 16
 def slotOff (_lay : T3.Layer) (c : Nat) : Nat := if c = 0 then 0 else 16 * c + 16
 def hpK (lay : T3.Layer) : Nat := if lay = 0 then 19 else 17
 def slK (_lay : T3.Layer) (i : Nat) : Nat := if i = 0 then 5 else 6
-def hdrK (lay : Nat) : Nat := if lay = 0 then 22 else 31
+def hdrK (_lay : Nat) : Nat := 31
 section blocks
 variable (s : MachineState)
 theorem lbu_word1027 : decodeInstruction (0x000e4a03 : BitVec 32) = some (.base (.LBU .x20 .x28 0)) := rfl
@@ -161,7 +161,7 @@ theorem eb_hdrT_pc (t : MachineState) : (eb_hdrT.res.toState t).pc = pcOf 1129 :
   simp [Result.toState_pc, eb_hdrT.res, E.eval]
 /-- the node tweak words written at `NODE + 16` / `NODE + 24`: `WCT9.merkleTweak` (C2 packed word for lower layers). -/
 theorem merkleTweak_words_top (tree heap : Nat) (h1 : 1 ≤ heap) (hh : heap < 4096) :
-    (ClaudeWCT.WCT9.merkleTweak 0 tree heap).extractLsb' 0 64 = BitVec.ofNat 64 (if heap = 7 then 520192 else heap) ∧
+    (ClaudeWCT.WCT9.merkleTweak 0 tree heap).extractLsb' 0 64 = BitVec.ofNat 64 (if heap = 1 then 856064 else if heap = 7 then 520192 else heap) ∧
     (ClaudeWCT.WCT9.merkleTweak 0 tree heap).extractLsb' 64 64 = 0 := by
   rw [ClaudeWCT.WCT9.merkleTweak_top_low, ClaudeWCT.WCT9.merkleTweak_top_high, T3.topNodeWord_eq h1 hh]
   exact ⟨rfl, rfl⟩
@@ -440,6 +440,7 @@ class Code (im : Image) : Prop where
   e_lcB_at : CodeAt im (pcOf 43465) e_lcB
   e_lcC_at : CodeAt im (pcOf 43466) e_lcC
   e_lcD_at : CodeAt im (pcOf 1105) e_lcD
+  e_hdrRemap_at : CodeAt im (pcOf 231593) ExpandLabel.remapCode
 variable {im : Image} [Code im]
 variable [BCBlocks.Code im] [PackedBlocks.Code im]
 variable (s : MachineState)
@@ -1531,7 +1532,7 @@ theorem rl1119_spec (hpc : s.pc = pcOf 1119) (lay tree leaf hh j : Nat) (hlay : 
     · ex_regs eb_hdrB.res
     · intro A _ _; simp [eb_hdrB.res, rv_simp]
   have g13 : t2.getReg .x13 = BitVec.ofNat 64 heap := by rw [r2.get (by decide), x13]
-  obtain ⟨t3, s3, p3, y6, y7, r3, f3⟩ : ∃ t, Steps im t2 (if lay = 0 then 4 else 13) (if lay = 0 then 4 else 13) t ∧
+  obtain ⟨t3, s3, p3, y6, y7, r3, f3⟩ : ∃ t, Steps im t2 13 13 t ∧
       t.pc = pcOf 1129 ∧ t.getReg .x6 = (ClaudeWCT.WCT9.merkleTweak lay tree heap).extractLsb' 0 64 ∧
       t.getReg .x7 = (ClaudeWCT.WCT9.merkleTweak lay tree heap).extractLsb' 64 64 ∧
       RegsExcept t2 t [.x3, .x6, .x7, .x30] ∧ Frame t2 t (fun _ => False) := by
@@ -1563,13 +1564,16 @@ theorem rl1119_spec (hpc : s.pc = pcOf 1119) (lay tree leaf hh j : Nat) (hlay : 
         have h := (Code.e_hdrD_at (im := im)).2.2.2
         change [ExpandLabel.jump] <+: im.code.drop 42776 at h
         exact h
+      have hpad : ExpandLabel.remapCode <+: im.code.drop 231593 := by
+        exact (Code.e_hdrRemap_at (im := im)).2.2.2
       have ho : ∀ o ∈ (ExpandLabel.result nz).st.obl, o.holds t2 := by
         cases nz <;> simp [ExpandLabel.result, ExpandLabel.frozenEq.res, ExpandLabel.frozenNe.res]
-      refine ⟨_, (ExpandLabel.steps (ExpandLabel.look_ok hwin hjump) nz t2 p2 ho hbr).of_eq
+      refine ⟨_, (ExpandLabel.steps (ExpandLabel.look_ok hwin hjump hpad) nz t2 p2 ho hbr).of_eq
         (by simp) (by simp), ExpandLabel.post_pc nz t2, ?_, ?_, ?_, ?_⟩
       · rw [wlo]
         exact ExpandLabel.post_word_ofNat t2 heap hheap' x6
-      · rw [whi, (ExpandLabel.post_regs nz t2).get (by decide), x7]
+      · rw [whi, ExpandLabel.post_seven]
+        rfl
       · exact (ExpandLabel.post_regs nz t2).mono (by decide)
       · exact ExpandLabel.post_frame nz t2
     · rw [if_neg h0] at p2
@@ -1631,8 +1635,8 @@ theorem rl1119_spec (hpc : s.pc = pcOf 1119) (lay tree leaf hh j : Nat) (hlay : 
       simp only [Result.toState_getMem, eb_hdrE.res]
       t3n []
       rw [if_neg (by omega), if_neg (by omega)]
-  refine ⟨t4, (((s1.trans s2).trans s3).trans s4).of_eq (by unfold hdrK; split_ifs <;> simp_all)
-    (by unfold hdrK; split_ifs <;> simp_all), p4, m16, m24, x10, x11, x12,
+  refine ⟨t4, (((s1.trans s2).trans s3).trans s4).of_eq (by rfl)
+    (by rfl), p4, m16, m24, x10, x11, x12,
     (((r1.trans r2).trans r3).trans r4).mono (by decide),
     (((f1.trans f2).trans f3).trans f4).mono (fun A _ h => by simp_all)⟩
 
