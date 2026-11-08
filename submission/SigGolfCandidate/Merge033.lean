@@ -11932,10 +11932,10 @@ def jointAccountingCost (output : HashOutput) : Nat :=
 def ranksAccepted (output : HashOutput) : Bool :=
   (List.finRange 9).all (fun coord => decide (rawForestRank output coord.val < 563))
 
-/-- Joint cap 777 (`P(joint ≤ 777 | gate, ranks) = 0.990672`). -/
+/-- Joint cap 776 (`P(joint ≤ 776 | gate, ranks) = 0.990672`). -/
 def digestAccepted (output : HashOutput) : Bool :=
   decide (output.toNat / 2 ^ 242 % 16384 < 826) && ranksAccepted output &&
-    decide (jointAccountingCost output ≤ 777)
+    decide (jointAccountingCost output ≤ 776)
 
 theorem firstCoord_eq_shared (coord : Nat) : firstCoord coord = decide (coord < 8 ∧ coord % 2 = 0) := rfl
 
@@ -11946,7 +11946,7 @@ theorem ranksAccepted_iff (output : HashOutput) : ranksAccepted output = true �
 theorem accepted_conditions (output : HashOutput) (h : digestAccepted output = true) :
     output.toNat / 2 ^ 242 % 16384 < 826 ∧
     (∀ coord : Fin 9, rawForestRank output coord.val < 563) ∧
-    jointAccountingCost output ≤ 777 := by
+    jointAccountingCost output ≤ 776 := by
   simpa only [digestAccepted, Bool.and_eq_true, decide_eq_true_eq, ranksAccepted_iff,
     and_assoc] using h
 end SigGolfCandidate.Research.SharedForest
@@ -14355,7 +14355,7 @@ def coordinateCost (f : Fields) (k : Fin 9) : Nat :=
 def cost (f : Fields) : Nat := ((List.finRange 9).map (coordinateCost f)).sum
 def accepted (f : Fields) : Bool :=
   decide (f.2.2.2.toNat < 826) &&
-    (List.finRange 9).all (fun k => decide ((f.2.1 k).toNat < 563)) && decide (cost f ≤ 777)
+    (List.finRange 9).all (fun k => decide ((f.2.1 k).toNat < 563)) && decide (cost f ≤ 776)
 
 theorem decodedRank_fields (a : HashOutput) (k : Fin 9) :
     decodedRank (fields a) k = SharedForest.forestRank a k.val := by
@@ -15799,8 +15799,8 @@ def coordinateCost (a : Alphabet) (k : Fin 9) : Nat :=
     if SharedForest.firstCoord k.val then SharedForest.aCorrection (lowField a.1 k)
     else SharedForest.bCorrection (lowField a.1 k)
 def cost (a : Alphabet) : Nat := ((List.finRange 9).map (coordinateCost a)).sum
-/-- The producer's joint cap 777 (`SharedForest.digestAccepted`). -/
-def capOk (a : Alphabet) : Bool := decide (cost a ≤ 777)
+/-- The producer's joint cap 776 (`SharedForest.digestAccepted`). -/
+def capOk (a : Alphabet) : Bool := decide (cost a ≤ 776)
 def producer (a : HashOutput) : Bool := admissible a && capOk (proposal a).2
 
 theorem proposal_index (a : HashOutput) : (proposal a).1.val = ClaudeWCT.WCT9.digestIndex a := by

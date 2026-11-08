@@ -208,7 +208,7 @@ theorem grouped_seed_error_installed (C y : ℝ) (hC : 2 * C ≤ 540) (_hy0 : 0 
 theorem middle_coefficients_t (y : ℝ) (hy0 : 0≤y) (hy : y≤1251/1000000) :
     canonicalPrefix y (21931/1000000)≤1996581/1000000 ∧
     canonicalEncoding y (21931/1000000)≤1996581/1000000 ∧
-    canonicalError y (21931/1000000)≤1061/1000 :=
+    canonicalError y (21931/1000000)≤105025/100000 :=
   ⟨(middle_coefficients y hy0 hy).1, (middle_coefficients y hy0 hy).2.1,
     (canonicalError_mono hy0 hy (by norm_num) (by norm_num) (by norm_num)).trans
       (by norm_num [canonicalError])⟩
@@ -268,10 +268,10 @@ set_option maxRecDepth 10000
 set_option exponentiation.threshold 1024
 
 theorem paired_partial_denominatorRC (y pwin : ℝ) (hy : y≤1251/1000000)
-    (h : pwin≤(((19734/50)+1/1024)/(2*(1-y))+1/(2*(1-y)^2))*y^2) :
-    pwin≤(19809/100)*y^2 := by
+    (h : pwin≤(((40711/100)+1/1024)/(2*(1-y))+1/(2*(1-y)^2))*y^2) :
+    pwin≤(20432/100)*y^2 := by
   have hd : 0<2*(1-y) := by linarith
-  have hn : ((19734/50)+(1:ℝ)/1024)/(2*(1-y))≤1975877/10000 := by
+  have hn : ((40711/100)+(1:ℝ)/1024)/(2*(1-y))≤2038105/10000 := by
     apply (div_le_iff₀ hd).2
     linarith
   have hbase : (998749:ℝ)/1000000≤1-y := by linarith
@@ -283,8 +283,8 @@ theorem paired_partial_denominatorRC (y pwin : ℝ) (hy : y≤1251/1000000)
 
 theorem chargeRC (y z near : ℝ) (hy0 : 0 ≤ y) (hy1 : y ≤ 1251 / 1000000)
     (hn : 0 ≤ near) (hcost : near * (1 - y) ≤ z)
-    (hquad : near ≤ (19809 / 100) * y ^ 2) :
-    z + near - (1996581 / 1000000) * z ≤ (9243 / 10000) * y ^ 2 := by
+    (hquad : near ≤ (20432 / 100) * y ^ 2) :
+    z + near - (1996581 / 1000000) * z ≤ (9534 / 10000) * y ^ 2 := by
   have hny := mul_le_mul_of_nonneg_left hy1 hn
   have hz : z + near - (1996581 / 1000000) * z ≤ (4666 / 1000000) * near := by
     nlinarith
@@ -294,17 +294,17 @@ theorem class_budgetRC (p e o m y near : ℝ)
     (hp : 0 ≤ p) (he : 0 ≤ e) (ho : 0 ≤ o) (hm : 0 ≤ m)
     (hbudget : p + e + o + m ≤ y) (hy : y ≤ 1251 / 1000000)
     (hn : 0 ≤ near) (hcost : near * (1 - y) ≤ o)
-    (hquad : near ≤ (19809 / 100) * y ^ 2) :
+    (hquad : near ≤ (20432 / 100) * y ^ 2) :
     (1996581 / 1000000) * (p + e + m) + o + near ≤
-      (1996581 / 1000000) * y + (9243 / 10000) * y ^ 2 := by
+      (1996581 / 1000000) * y + (9534 / 10000) * y ^ 2 := by
   have hy0 : 0 ≤ y := by linarith
   have hc := chargeRC y o near hy0 hy hn hcost hquad
   nlinarith
 
 /-- Live middle window at gate 791: quadratic `8077/10000 + 778/1000 = 15857/10000`, excess `1153/10^6`. -/
 theorem grouped_middle_closingRC (y excess : ℝ) (hlow : 1 / 2 ^ 28 ≤ y)
-    (hhigh : y ≤ 1251 / 1000000) (hexcess : excess ≤ 1245 / 1000000) :
-    (1996581 / 1000000) * y + y * excess + (17263 / 10000) * y ^ 2 + 1 / 2 ^ 136 +
+    (hhigh : y ≤ 1251 / 1000000) (hexcess : excess ≤ 1230 / 1000000) :
+    (1996581 / 1000000) * y + y * excess + (17464 / 10000) * y ^ 2 + 1 / 2 ^ 136 +
       (y / 2 ^ 18 + 1 / 2 ^ 700 + 1 / 2 ^ 152 + y / 2 ^ 128) ≤ 2 * y := by
   have hn : 0 ≤ y := le_trans (by positivity) hlow
   have he := mul_le_mul_of_nonneg_left hexcess hn
@@ -326,8 +326,8 @@ theorem grouped_middle_closingRC (y excess : ℝ) (hlow : 1 / 2 ^ 28 ≤ y)
 
 theorem tiny_chargeRC (y z near : ℝ) (hy0 : 0 ≤ y) (hy1 : y ≤ 1 / 2 ^ 28)
     (hn : 0 ≤ near) (hcost : near * (1 - y) ≤ z)
-    (hquad : near ≤ (19809 / 100) * y ^ 2) :
-    z + near - (249 / 125) * z ≤ (19809 / 12000) * y ^ 2 := by
+    (hquad : near ≤ (20432 / 100) * y ^ 2) :
+    z + near - (249 / 125) * z ≤ (20432 / 12000) * y ^ 2 := by
   have hny := mul_le_mul_of_nonneg_left hy1 hn
   have hz : z + near - (249 / 125) * z ≤ (1 / 120) * near := by
     nlinarith
@@ -337,14 +337,14 @@ theorem tiny_class_budgetRC (p e o m y near : ℝ)
     (hp : 0 ≤ p) (he : 0 ≤ e) (ho : 0 ≤ o) (hm : 0 ≤ m)
     (hbudget : p + e + o + m ≤ y) (hy : y ≤ 1 / 2 ^ 28)
     (hn : 0 ≤ near) (hcost : near * (1 - y) ≤ o)
-    (hquad : near ≤ (19809 / 100) * y ^ 2) :
+    (hquad : near ≤ (20432 / 100) * y ^ 2) :
     (249 / 125) * (p + e + m) + o + near ≤
-      (249 / 125) * y + (19809 / 12000) * y ^ 2 := by
+      (249 / 125) * y + (20432 / 12000) * y ^ 2 := by
   have hy0 : 0 ≤ y := by linarith
   have hc := tiny_chargeRC y o near hy0 hy hn hcost hquad
   nlinarith
 
-theorem grouped_tiny_quadraticRC : (19809 / 12000 : ℝ) + 802 / 1000 ≤ 3 := by norm_num
+theorem grouped_tiny_quadraticRC : (20432 / 12000 : ℝ) + 802 / 1000 ≤ 3 := by norm_num
 
 end SigGolfCandidate.Research.V7Composed198Closing.CanonicalWindow
 end

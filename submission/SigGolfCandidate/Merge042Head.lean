@@ -4494,12 +4494,12 @@ theorem weighted_words : (∑ w : «Word», radix ^ weight w) = fieldForestPacke
 theorem word_card_small : Fintype.card «Word» < radix - 1 := by
   norm_num [«Word», Coordinate, Fintype.card_prod, Fintype.card_fun, radix]
 
-theorem accepted_card : (Finset.univ.filter fun w : «Word» => weight w ≤ 102).card = fieldRetained := by
-  rw [SigGolfResearch.Gate6.generic_capped_card weight radix 102
+theorem accepted_card : (Finset.univ.filter fun w : «Word» => weight w ≤ 101).card = fieldRetained := by
+  rw [SigGolfResearch.Gate6.generic_capped_card weight radix 101
     (by norm_num [radix]) word_card_small, weighted_words]
   rfl
 theorem accepted_card_exact :
-    (Finset.univ.filter fun w : «Word» => weight w ≤ 102).card * 4^9 = count := by
+    (Finset.univ.filter fun w : «Word» => weight w ≤ 101).card * 4^9 = count := by
   rw [accepted_card, field_retained_eq]
 
 end SigGolfCandidate.Research.SharedFtsModel
@@ -4590,7 +4590,7 @@ set_option maxHeartbeats 2000000
 attribute [local irreducible] SharedDigestFields.cost SharedDigestFields.coordinateCost ClaudeWCT.WCT9.routineCost
 
 theorem accepted_iff (f : Fields) : accepted f = true ↔
-    f.2.2.2.toNat < 826 ∧ (∀ k, (f.2.1 k).toNat < 563) ∧ cost f ≤ 777 := by
+    f.2.2.2.toNat < 826 ∧ (∀ k, (f.2.1 k).toNat < 563) ∧ cost f ≤ 776 := by
   simp only [accepted, Bool.and_eq_true, decide_eq_true_eq, List.all_eq_true]
   simp only [List.mem_finRange, forall_const]
   tauto
@@ -4620,7 +4620,7 @@ theorem encode_decode (f : Fields) (hg : f.2.2.2.toNat < 826)
         change f.2.2.2.toNat % 2^14 = f.2.2.2.toNat
         exact Nat.mod_eq_of_lt f.2.2.2.isLt
 
-theorem accepted_encode (w : «Word») (hw : weight w ≤ 102) (index : BitVec 31) (gate : Fin 826) :
+theorem accepted_encode (w : «Word») (hw : weight w ≤ 101) (index : BitVec 31) (gate : Fin 826) :
     accepted (encodeFields w index gate) = true := by
   apply (accepted_iff _).mpr
   refine ⟨?_, ?_, ?_⟩
@@ -4633,7 +4633,7 @@ theorem accepted_encode (w : «Word») (hw : weight w ≤ 102) (index : BitVec 3
   · rw [cost_encode]
     omega
 
-theorem weight_decode (f : Fields) (hf : accepted f = true) : weight (decodeFields f) ≤ 102 := by
+theorem weight_decode (f : Fields) (hf : accepted f = true) : weight (decodeFields f) ≤ 101 := by
   obtain ⟨hg,hr,hc⟩ := (accepted_iff f).mp hf
   have he := encode_decode f hg hr
   have hw := cost_encode (decodeFields f) f.2.2.1 ⟨f.2.2.2.toNat,hg⟩
@@ -4641,7 +4641,7 @@ theorem weight_decode (f : Fields) (hf : accepted f = true) : weight (decodeFiel
   omega
 
 def acceptedEquiv : {f : Fields // accepted f = true} ≃
-    {w : «Word» // weight w ≤ 102} × BitVec 31 × Fin 826 where
+    {w : «Word» // weight w ≤ 101} × BitVec 31 × Fin 826 where
   toFun f := (⟨decodeFields f.val, weight_decode f.val f.property⟩,
     f.val.2.2.1, ⟨f.val.2.2.2.toNat, ((accepted_iff _).mp f.property).1⟩)
   invFun v := ⟨encodeFields v.1.val v.2.1 v.2.2, accepted_encode _ v.1.property _ _⟩
@@ -4659,10 +4659,10 @@ def acceptedEquiv : {f : Fields // accepted f = true} ≃
         exact Nat.mod_eq_of_lt (by have h := v.2.2.isLt; omega)
 
 theorem accepted_fields_card : Fintype.card {f : Fields // accepted f = true} =
-    (Finset.univ.filter fun w : «Word» => weight w ≤ 102).card * 2^31 * 826 := by
+    (Finset.univ.filter fun w : «Word» => weight w ≤ 101).card * 2^31 * 826 := by
   rw [Fintype.card_congr acceptedEquiv]
   simp only [Fintype.card_prod, Fintype.card_bitVec, Fintype.card_fin,
-    Fintype.card_subtype (fun w : «Word» => weight w ≤ 102)]
+    Fintype.card_subtype (fun w : «Word» => weight w ≤ 101)]
   omega
 end SigGolfCandidate.Research.SharedFtsModel
 
@@ -5711,18 +5711,18 @@ set_option maxHeartbeats 2000000
 set_option maxRecDepth 100000
 
 theorem first_bound_of_rows (T : Nat) (rate : ENNReal) (hrate : rate ≤ 1)
-    (hu : (1-rate)^(T-80) ≤ ((13283369:ℕ):ENNReal)/((100000000:ℕ):ENNReal))
+    (hu : (1-rate)^(T-80) ≤ ((13167581:ℕ):ENNReal)/((100000000:ℕ):ENNReal))
     (κ : ENNReal) (hκ : 1 ≤ κ)
-    (hlam : (T : ENNReal) * rate * κ ≤ ((2018833:ℕ):ENNReal)/((1000000:ℕ):ENNReal))
+    (hlam : (T : ENNReal) * rate * κ ≤ ((2027792:ℕ):ENNReal)/((1000000:ℕ):ENNReal))
     (g : Nat → ENNReal)
     (hpay : ∀ r ≤ 80, g r ≤ κ^r *
       ((16^r*forestMoment r : Nat) : ENNReal) /
         ((alphabetSize*fieldSize^(9*r) : Nat) : ENNReal))
     (htail : ∀ r, 80<r → g r ≤ 1) :
-    (priceScaleTotal : ENNReal)*binomialAverage rate T g ≤ (955:ENNReal)/1000 := by
+    (priceScaleTotal : ENNReal)*binomialAverage rate T g ≤ (986:ENNReal)/1000 := by
   have h := poissonCheckQ_sound_tilt (Qv := fieldSize)
     (f := fun r => 16^r*forestMoment r) (dbase := alphabetSize)
-    (sn := priceScaleTotal) (sd := 1) (Mn := 955) (Md := 1000) (R := 80)
+    (sn := priceScaleTotal) (sd := 1) (Mn := 986) (Md := 1000) (R := 80)
     first_moment_checked (by norm_num [fieldSize]) (by norm_num) (by norm_num)
     (by norm_num [alphabetSize]) (by norm_num) (by norm_num)
     hrate κ hκ hlam hu g
@@ -5730,18 +5730,18 @@ theorem first_bound_of_rows (T : Nat) (rate : ENNReal) (hrate : rate ≤ 1)
   simpa only [Nat.cast_one, Nat.cast_ofNat, div_one] using h
 
 theorem near_bound_of_rows (T : Nat) (rate : ENNReal) (hrate : rate ≤ 1)
-    (hu : (1-rate)^(T-80) ≤ ((13283369:ℕ):ENNReal)/((100000000:ℕ):ENNReal))
+    (hu : (1-rate)^(T-80) ≤ ((13167581:ℕ):ENNReal)/((100000000:ℕ):ENNReal))
     (κ : ENNReal) (hκ : 1 ≤ κ)
-    (hlam : (T : ENNReal) * rate * κ ≤ ((2018833:ℕ):ENNReal)/((1000000:ℕ):ENNReal))
+    (hlam : (T : ENNReal) * rate * κ ≤ ((2027792:ℕ):ENNReal)/((1000000:ℕ):ENNReal))
     (g : Nat → ENNReal)
     (hpay : ∀ r ≤ 80, g r ≤ κ^r *
       ((16^r*forestNearMoment r : Nat) : ENNReal) /
         ((54*alphabetSize*fieldSize^(9*r) : Nat) : ENNReal))
     (htail : ∀ r, 80<r → g r ≤ 1) :
-    ((54*priceScaleTotal : Nat) : ENNReal)*binomialAverage rate T g ≤ 19734/50 := by
+    ((54*priceScaleTotal : Nat) : ENNReal)*binomialAverage rate T g ≤ 40711/100 := by
   have h := poissonCheckQ_sound_tilt (Qv := fieldSize)
     (f := fun r => 16^r*forestNearMoment r) (dbase := 54*alphabetSize)
-    (sn := 54*priceScaleTotal) (sd := 1) (Mn := 19734) (Md := 50) (R := 80)
+    (sn := 54*priceScaleTotal) (sd := 1) (Mn := 40711) (Md := 100) (R := 80)
     near_moment_checked (by norm_num [fieldSize]) (by norm_num) (by norm_num)
     (by norm_num [alphabetSize]) (by norm_num) (by norm_num)
     hrate κ hκ hlam hu g

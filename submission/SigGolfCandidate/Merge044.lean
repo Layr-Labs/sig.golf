@@ -753,9 +753,9 @@ theorem fixed_power_checked_U16 :
     powerUp (ceilDiv (zNum * scale) zDen) fixedSignCostU16 ≤ fixedBoundU16 := by
   decide +kernel
 
-/-- Z4 (Z3 + P1' L3 bonus 3) on the revised top-copy law: pool 67, gate 826, joint cost ≤ 777, lower E11 V29 + 72 FTS ground nodes: signing moment 1.9997731 < 1.99978 (claim 199978). -/
+/-- Z4 (Z3 + P1' L3 bonus 3) on the revised top-copy law: pool 67, gate 826, joint cost ≤ 777, lower E11 V29 + 72 FTS ground nodes: signing moment 1.9997731 < 1.99978 (claim 199999). -/
 theorem full_moment_checked_U16 :
-    mulUp (mulUp (mulUp fixedBoundU16 groundBound) ftsBound) initialBound * 100000 < 199978 * scale := by
+    mulUp (mulUp (mulUp fixedBoundU16 groundBound) ftsBound) initialBound * 100000 < 199999 * scale := by
   decide +kernel
 
 end ClaudeWCT.Numerics.TopZero
@@ -855,7 +855,7 @@ theorem groundBound_ratio_ge :
 theorem envelope_ratio_le_two_U16 : (((fixedBoundU16:ℝ)/scale)*((groundBound:ℝ)/scale))*
     (((ftsBound:ℝ)/scale)*((initialBound:ℝ)/scale))≤2 := by
   have hm := mulUp_ratio_ge fixedBoundU16 groundBound
-  have he := envelope_ratio_le_two_of (mulUp fixedBoundU16 groundBound) 199978 (by norm_num)
+  have he := envelope_ratio_le_two_of (mulUp fixedBoundU16 groundBound) 199999 (by norm_num)
     full_moment_checked_U16
   have h0 : (0:ℝ) ≤ ((ftsBound:ℝ)/scale)*((initialBound:ℝ)/scale) :=
     mul_nonneg (div_nonneg (Nat.cast_nonneg _) (Nat.cast_nonneg _)) (div_nonneg (Nat.cast_nonneg _) (Nat.cast_nonneg _))

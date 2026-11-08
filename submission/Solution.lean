@@ -15,7 +15,7 @@ theorem layout_offsets : submission.layout =
   { message := 26016, secretKey := 128, publicKey := 160,
     cache := 524288, signature := 28672, witness := 4256 } := rfl
 
-theorem certificate : SigGolf.Certificate submission 6977 := by
+theorem certificate : SigGolf.Certificate submission 6976 := by
   exact SigGolfCandidate.Packaging.certificate_ready
 
 end SigGolf.Challenge
@@ -26,9 +26,6 @@ end SigGolf.Challenge
 #print axioms SigGolf.Challenge.layout_offsets
 #print axioms SigGolf.Challenge.certificate
 
-/- Development candidate based on Z4 (f8127b2): use FTS node bias -67073
-   and the aligned chain-label translation, remap FTS heap 7 to 64 and
-   Top label 7 to 520192, and separate digest queries with low word 25984.
-   The target removes three verifier setup instructions.
-   Claimed S = 5188, W = 21756, K = 131072, C = 6977;
-   product = 36,196,676. Independent acceptance remains required. -/
+/- Cap 776 with affine Scarf rebates from count and first-moment histograms,
+   composed with the translated-label verifier frontier. The certificate uses
+   S = 5188, W = 21756, K = 131072, C = 6976. -/
