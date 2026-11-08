@@ -2714,7 +2714,7 @@ theorem submission_keygen_valid :
   rw [submission_keygen, submission_sizes, submission_layout]
   rw [Riscv.Image.Valid]
   rw [Riscv.Image.byteSize,
-    show Images.keygenImage.code.length = 1184 from Images.keygenCode_length,
+    show Images.keygenImage.code.length = 1191 from Images.keygenCode_length,
     show Images.keygenImage.data.length = 0 from Images.keygenData_length]
   rw [layoutValid_of_data_length _ _ _ 0 Images.keygenData_length]
   decide +kernel
@@ -2785,7 +2785,7 @@ theorem submission_keygen_valid :
   rw [submission_keygen, submission_sizes, submission_layout]
   rw [Riscv.Image.Valid]
   rw [Riscv.Image.byteSize,
-    show Images.keygenImage.code.length = 1184 from Images.keygenCode_length,
+    show Images.keygenImage.code.length = 1191 from Images.keygenCode_length,
     show Images.keygenImage.data.length = 0 from Images.keygenData_length]
   rw [layoutValid_of_data_length _ _ _ 0 Images.keygenData_length]
   decide +kernel

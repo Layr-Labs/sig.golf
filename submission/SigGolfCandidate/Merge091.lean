@@ -288,7 +288,7 @@ theorem heapReg_eval {s : MachineState} {j l : Nat} (hj : j < 128) (hl4 : 4 ≤ 
   by_cases he : heapOf l j = 7
   · simpa [he, heapReg, SigGolfCandidate.T3.ftsHeapLabel] using h64
   · have h6 : heapOf l j ≤ 6 := by omega
-    rw [show SigGolfCandidate.T3.ftsHeapLabel (heapOf l j) = heapOf l j by simp [SigGolfCandidate.T3.ftsHeapLabel, he, show heapOf l j ≠ 64 by omega]]
+    rw [show SigGolfCandidate.T3.ftsHeapLabel (heapOf l j) = heapOf l j by simp [SigGolfCandidate.T3.ftsHeapLabel, he, show heapOf l j ≠ 64 by omega, show heapOf l j ≠ 1 by omega, show heapOf l j ≠ 1048321 by omega]]
     exact hheap _ hb.1 h6
 theorem frame_writeHash4 (t : MachineState) (a : BitVec 256) (d : Nat)
     (h12 : t.getReg .x12 = BitVec.ofNat 64 d) (hd : d + 32 < 2 ^ 64) :
@@ -1210,7 +1210,7 @@ theorem heapReg_eval {s : MachineState} {j l : Nat} (hj : j < 128) (hl4 : 4 ≤ 
   by_cases he : heapOf l j = 7
   · simpa [he, heapReg, SigGolfCandidate.T3.ftsHeapLabel] using h64
   · have h6 : heapOf l j ≤ 6 := by omega
-    rw [show SigGolfCandidate.T3.ftsHeapLabel (heapOf l j) = heapOf l j by simp [SigGolfCandidate.T3.ftsHeapLabel, he, show heapOf l j ≠ 64 by omega]]
+    rw [show SigGolfCandidate.T3.ftsHeapLabel (heapOf l j) = heapOf l j by simp [SigGolfCandidate.T3.ftsHeapLabel, he, show heapOf l j ≠ 64 by omega, show heapOf l j ≠ 1 by omega, show heapOf l j ≠ 1048321 by omega]]
     exact hheap _ hb.1 h6
 theorem frame_writeHash4 (t : MachineState) (a : BitVec 256) (d : Nat)
     (h12 : t.getReg .x12 = BitVec.ofNat 64 d) (hd : d + 32 < 2 ^ 64) :
@@ -2114,7 +2114,7 @@ theorem heapReg_eval {s : MachineState} {j l : Nat} (hj : j < 128) (hl4 : 4 ≤ 
   by_cases he : heapOf l j = 7
   · simpa [he, heapReg, SigGolfCandidate.T3.ftsHeapLabel] using h64
   · have h6 : heapOf l j ≤ 6 := by omega
-    rw [show SigGolfCandidate.T3.ftsHeapLabel (heapOf l j) = heapOf l j by simp [SigGolfCandidate.T3.ftsHeapLabel, he, show heapOf l j ≠ 64 by omega]]
+    rw [show SigGolfCandidate.T3.ftsHeapLabel (heapOf l j) = heapOf l j by simp [SigGolfCandidate.T3.ftsHeapLabel, he, show heapOf l j ≠ 64 by omega, show heapOf l j ≠ 1 by omega, show heapOf l j ≠ 1048321 by omega]]
     exact hheap _ hb.1 h6
 theorem frame_writeHash4 (t : MachineState) (a : BitVec 256) (d : Nat)
     (h12 : t.getReg .x12 = BitVec.ofNat 64 d) (hd : d + 32 < 2 ^ 64) :
@@ -3021,7 +3021,7 @@ theorem heapReg_eval {s : MachineState} {j l : Nat} (hj : j < 128) (hl4 : 4 ≤ 
   by_cases he : heapOf l j = 7
   · simpa [he, heapReg, SigGolfCandidate.T3.ftsHeapLabel] using h64
   · have h6 : heapOf l j ≤ 6 := by omega
-    rw [show SigGolfCandidate.T3.ftsHeapLabel (heapOf l j) = heapOf l j by simp [SigGolfCandidate.T3.ftsHeapLabel, he, show heapOf l j ≠ 64 by omega]]
+    rw [show SigGolfCandidate.T3.ftsHeapLabel (heapOf l j) = heapOf l j by simp [SigGolfCandidate.T3.ftsHeapLabel, he, show heapOf l j ≠ 64 by omega, show heapOf l j ≠ 1 by omega, show heapOf l j ≠ 1048321 by omega]]
     exact hheap _ hb.1 h6
 theorem frame_writeHash4 (t : MachineState) (a : BitVec 256) (d : Nat)
     (h12 : t.getReg .x12 = BitVec.ofNat 64 d) (hd : d + 32 < 2 ^ 64) :

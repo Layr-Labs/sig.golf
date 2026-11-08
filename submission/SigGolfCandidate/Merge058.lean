@@ -10202,6 +10202,7 @@ theorem nodeTweak_probe_safeS (tag lay tree heap : Nat) (htag : tag % 256 < 250)
     dsimp only at hl
     split_ifs at hl
     · left; left; omega
+    · left; left; omega
     · right; right; omega
   · by_cases hlow : tag = 3 ∧ lay < 4
     · obtain ⟨rfl,h4⟩ := hlow

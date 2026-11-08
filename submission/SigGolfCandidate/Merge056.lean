@@ -3,6 +3,15 @@ import SigGolfCandidate.Merge052
 import SigGolfCandidate.Merge054
 import SigGolfCandidate.Merge055
 import SigGolfCandidate.FtsBridge
+namespace W9Drv
+open SigGolfCandidate.Rv
+ theorem mask_low_one (x : Word) :
+    (x &&& 0xfff01#64) &&& ~~~1#64 = (x &&& 0xfff00#64) &&& ~~~1#64 := by
+  apply BitVec.eq_of_getLsbD_eq
+  intro i hi
+  interval_cases i <;> simp
+end W9Drv
+
 set_option debug.skipKernelTC true
 set_option linter.all false
 
@@ -405,7 +414,7 @@ theorem dispatch_chain_pre (pk : Digest) (w : ClaudeWCT.W9.T3M.WBytes) (a : Hash
     leafWord := ?_
     nodeWord := hnode
     hashMode := (hr .x5 (by decide)).trans (hu.glob.1 (.x5, 0) (by simp))
-    stepOne := (hr .x7 (by decide)).trans hu.stepOne
+    stepOne := (congrArg (fun v : Word => v.truncate 8) (hr .x9 (by decide))).trans hu.stepOne
     stepTwo := (hr .x13 (by decide)).trans hu.stepTwo
     hashLen := (hr .x11 (by decide)).trans hu.hashLen
     childPC := ?_
@@ -511,6 +520,7 @@ theorem dispatch_pc (pk : Digest) (w : ClaudeWCT.W9.T3M.WBytes) (a : HashOutput)
     fin_cases k <;> rfl
   rw [he]
   simp only [mkBin_eval, E.eval, BinOp.eval, hu.mask]
+  rw [mask_low_one]
   rw [shiftE_eval, dispatchDig_eval pk w a k roots u hu]
   rw [shiftW_pad, dispatch_field]
   have hf : ClaudeWCT.WCT9.field a k < 1024 := by unfold ClaudeWCT.WCT9.field; omega
@@ -784,7 +794,7 @@ theorem coord_next (pk : Digest) (w : ClaudeWCT.W9.T3M.WBytes) (a : HashOutput) 
     forest := ?_
     index := (hr .x22 (by decide)).trans ((hd .x22 (by decide)).trans hu.index)
     heaps := ?_
-    stepOne := (hr .x7 (by decide)).trans hc.stepOne
+    stepOne := (congrArg (fun v : Word => v.truncate 8) (hr .x9 (by decide))).trans hc.stepOne
     stepTwo := (hr .x13 (by decide)).trans hc.stepTwo
     hashLen := ht.hashLen
     coordStep := (hr .x6 (by decide)).trans ((hd .x6 (by decide)).trans hu.coordStep)
@@ -1522,7 +1532,7 @@ theorem chain_pre (pk : Digest) (w : ClaudeWCT.W9.T3M.WBytes) (a : HashOutput) (
     leafWord := ?_
     nodeWord := hnode
     hashMode := (hr .x5 (by decide)).trans (hu.glob.1 (.x5, 0) (by simp [baseK]))
-    stepOne := (hr .x7 (by decide)).trans hu.stepOne
+    stepOne := (congrArg (fun v : Word => v.truncate 8) (hr .x9 (by decide))).trans hu.stepOne
     stepTwo := (hr .x13 (by decide)).trans hu.stepTwo
     hashLen := (hr .x11 (by decide)).trans hu.hashLen
     childPC := child_pc pk w a k pairs u hu
@@ -1624,7 +1634,7 @@ theorem pc_shift (k : Fin 9) (u : MachineState)
 theorem pc_eval (pk : Digest) (w : ClaudeWCT.W9.T3M.WBytes) (a : HashOutput) (k : Fin 9)
     (pairs : List (Digest × Digest)) (u : MachineState) (hu : SharedCoord.Pre pk w a k.val pairs u) :
     (result k.val).pc.eval u = pcOf (slotStart + 64 * SharedForest.rawForestRank a k.val) := by
-  rw [pc_shift k u, hu.mask, show BitVec.ofNat 64 0xfff00 = 0xfff00#64 from rfl, padded_low,
+  rw [pc_shift k u, hu.mask, show BitVec.ofNat 64 0xfff01 = 0xfff01#64 from rfl, mask_low_one, padded_low,
     rankDig_eval pk w a k pairs u hu,
     padded_field _ (by fin_cases k <;> decide)]
   change (rankOfWord k (a.extractLsb' (64 * rankWord k.val) 64) <<< 8) ||| 0xc0000#64 = _
@@ -1888,7 +1898,7 @@ theorem next (pk : Digest) (w : ClaudeWCT.W9.T3M.WBytes) (a : HashOutput) (k : F
     forest := ?_
     index := (hr .x22 (by decide)).trans ((hd .x22 (by decide)).trans hu.index)
     heaps := ?_
-    stepOne := (hr .x7 (by decide)).trans hc.stepOne
+    stepOne := (congrArg (fun v : Word => v.truncate 8) (hr .x9 (by decide))).trans hc.stepOne
     stepTwo := (hr .x13 (by decide)).trans hc.stepTwo
     hashLen := ht.hashLen
     coordStep := (hr .x6 (by decide)).trans ((hd .x6 (by decide)).trans hu.coordStep)
@@ -2238,13 +2248,13 @@ def FtsGoodByCost (acceptCost : HashOutput → Nat) (P : Hash → Prop := HashOk
     GoodQFor (P := P) Frozen.image u (N+2023) (C+2023) Q (A+acceptCost a)
       (ccM (if SharedGate.gateOk a then ftsN w a else pure none) K)
 
-/-- C1 (stage 1) + digest-field repack: 20 (gate and setup) + 85 (dispatch) + 4 x 77 + 5 x 89 (child fixed
-parts) = 858, plus the joint accounting cost (`≤ 777` on accepted digests). -/
-def ftsAcceptCost (a : HashOutput) : Nat := 858 + SharedForest.jointAccountingCost a
+/-- C1 (stage 1) + digest-field repack: 19 (gate and setup) + 85 (dispatch) + 4 x 77 + 5 x 89 (child fixed
+parts) = 857, plus the joint accounting cost (`≤ 777` on accepted digests). -/
+def ftsAcceptCost (a : HashOutput) : Nat := 857 + SharedForest.jointAccountingCost a
 
 theorem fts_good_of
     (checkLink : sliceChecked 4 SharedGate.gCheckWords = true)
-    (setupLink : sliceChecked 73 SharedGate.gSetupWords = true)
+    (setupLink : sliceChecked 74 SharedGate.gSetupWords = true)
     (links : ∀ k : Fin 9, sliceChecked (SharedDispatch.start k.val) (SharedDispatch.words k.val) = true)
     (chains : ∀ k : Fin 9, N600.AllGood (P := P) (SharedLayout.layout k))
     (childs : ∀ (k : Fin 9) (raw : Fin 128), SharedChild.Good (P := P) (SharedLayout.layout k) k raw) :
@@ -2267,8 +2277,8 @@ theorem fts_good_of
         (List.finRange 9).foldlM (stepN w a) (some []) >>= f)
       funext state
       cases state <;> rfl)
-  change GoodQFor (P := P) Frozen.image u (N + 1770) (C + 1770) Q
-    (A + (838 + SharedForest.jointAccountingCost a) + 20) (KG (SharedGate.gateOk a)) at hg
+  change GoodQFor (P := P) Frozen.image u (N + 1769) (C + 1769) Q
+    (A + (838 + SharedForest.jointAccountingCost a) + 19) (KG (SharedGate.gateOk a)) at hg
   apply (hg.mono (by omega) (by omega) (fun hq => ⟨hq, by simp only [ftsAcceptCost]; omega⟩)).congr
   cases SharedGate.gateOk a <;> simp [KG, ccM_pure]
 

@@ -2300,12 +2300,11 @@ theorem sub120_spec {image : Image} {b : Nat} (h : SubAt image b) (s : MachineSt
     (hdis : NODE + 64 ≤ arena + 32 * k ∨ arena + 32 * k + 32 ≤ NODE)
     (h2 : s.getReg .x2 = BitVec.ofNat 64 arena) (h24 : s.getReg .x24 = BitVec.ofNat 64 k)
     (h9 : s.getReg .x9 = BitVec.ofNat 64 tree) (h21 : s.getReg .x21 = BitVec.ofNat 64 h0) :
-    ∃ t, Steps image s 25 25 t ∧ t.pc = pcOf (b + 140) ∧
+    ∃ t, Steps image s 32 32 t ∧ t.pc = pcOf (b + 140) ∧
       t.getReg .x29 = BitVec.ofNat 64 (k % 2) ∧ t.getReg .x30 = BitVec.ofNat 64 (NODE + 48) ∧
       t.getMem (BitVec.ofNat 64 NODE) = s.getMem (BitVec.ofNat 64 (arena + 32 * k)) ∧
       t.getMem (BitVec.ofNat 64 (NODE + 8)) = s.getMem (BitVec.ofNat 64 (arena + 32 * k + 8)) ∧
-      t.getMem (BitVec.ofNat 64 (NODE + 16)) = (if (s.getReg .x21 ||| (BitVec.ofNat 64 tree <<< 32)) + BitVec.ofNat 64 k = 7#64 then 520192#64
-        else (s.getReg .x21 ||| (BitVec.ofNat 64 tree <<< 32)) + BitVec.ofNat 64 k) ∧
+      t.getMem (BitVec.ofNat 64 (NODE + 16)) = KeygenLabel.remapWord ((s.getReg .x21 ||| (BitVec.ofNat 64 tree <<< 32)) + BitVec.ofNat 64 k) ∧
       t.getMem (BitVec.ofNat 64 (NODE + 24)) = 0 ∧
       t.getMem (BitVec.ofNat 64 (NODE + 48)) = s.getMem (BitVec.ofNat 64 (arena + 32 * k + 16)) ∧
       t.getMem (BitVec.ofNat 64 (NODE + 56)) = s.getMem (BitVec.ofNat 64 (arena + 32 * k + 24)) ∧
@@ -2349,7 +2348,7 @@ theorem sub120_spec {image : Image} {b : Nat} (h : SubAt image b) (s : MachineSt
     rw [h2, h24, addr] at he
     exact he
   · rw [KeygenLabel.post_low, ← hraw]
-    by_cases hx : KeygenLabel.rawWord s = 7#64 <;> simp [nz, hx]
+    by_cases hx : KeygenLabel.rawWord s = 7#64 <;> simp [nz, hx, KeygenLabel.remapWord]
   · have he := KeygenLabel.post_right_lo nz s
     change t.getMem (BitVec.ofNat 64 (NODE + 48)) =
       s.getMem (((s.getReg .x24 <<< 5) + s.getReg .x2) + BitVec.ofNat 64 16) at he
@@ -2425,13 +2424,19 @@ theorem nodeLo_mod (lay tree : Nat) : nodeLo lay tree % 4096 < 2048 := by
 theorem nodeTweak_3_top (tree heap : Nat) (h1 : 1 ≤ heap) (h2 : heap < 4096) :
     T3.nodeTweak 3 0 tree heap = 0#64 ++ KeygenLabel.remapWord (BitVec.ofNat 64 (nodeLo 0 tree + heap)) := by
   rw [T3.nodeTweak_top, T3.topNodeWord_eq h1 h2]
-  by_cases h7 : heap = 7
-  · simp [h7, nodeLo, KeygenLabel.remapWord]
-  · have hne : BitVec.ofNat 64 heap ≠ 7#64 := by
-      intro he
-      have hh : heap = 7 := (ofNat_inj (by omega) (by decide)).mp he
-      exact h7 hh
-    simp [h7, nodeLo, KeygenLabel.remapWord, hne]
+  by_cases ho : heap = 1
+  · subst heap
+    simp [nodeLo, KeygenLabel.remapWord]
+  · by_cases h7 : heap = 7
+    · subst heap
+      simp [nodeLo, KeygenLabel.remapWord]
+    · have hn1 : BitVec.ofNat 64 heap ≠ 1#64 := by
+        intro he
+        exact ho ((ofNat_inj (by omega) (by decide)).mp he)
+      have hn7 : BitVec.ofNat 64 heap ≠ 7#64 := by
+        intro he
+        exact h7 ((ofNat_inj (by omega) (by decide)).mp he)
+      simp [ho, h7, nodeLo, KeygenLabel.remapWord, hn1, hn7]
 /-- The tree node block from `b + 120` to the hash call (C4: no reversed labels, one-word label). -/
 theorem sub120_full {image : Image} {b : Nat} (h : SubAt image b) (s : MachineState)
     (hpc : s.pc = pcOf (b + 120)) (arena k tree h0 : Nat)
@@ -2439,13 +2444,12 @@ theorem sub120_full {image : Image} {b : Nat} (h : SubAt image b) (s : MachineSt
     (hdis : NODE + 64 ≤ arena + 32 * k ∨ arena + 32 * k + 32 ≤ NODE)
     (h2 : s.getReg .x2 = BitVec.ofNat 64 arena) (h24 : s.getReg .x24 = BitVec.ofNat 64 k)
     (h9 : s.getReg .x9 = BitVec.ofNat 64 tree) (h21 : s.getReg .x21 = BitVec.ofNat 64 h0) :
-    ∃ t, Steps image s 31 31 t ∧ t.pc = pcOf (b + 146) ∧
+    ∃ t, Steps image s 38 38 t ∧ t.pc = pcOf (b + 146) ∧
       t.getReg .x10 = BitVec.ofNat 64 NODE ∧ t.getReg .x11 = BitVec.ofNat 64 64 ∧
       t.getReg .x12 = BitVec.ofNat 64 NOUT ∧ t.getReg .x29 = BitVec.ofNat 64 (k % 2 * 2 ^ 4) ∧
       t.getMem (BitVec.ofNat 64 NODE) = s.getMem (BitVec.ofNat 64 (arena + 32 * k)) ∧
       t.getMem (BitVec.ofNat 64 (NODE + 8)) = s.getMem (BitVec.ofNat 64 (arena + 32 * k + 8)) ∧
-      t.getMem (BitVec.ofNat 64 (NODE + 16)) = (if (s.getReg .x21 ||| (BitVec.ofNat 64 tree <<< 32)) + BitVec.ofNat 64 k = 7#64 then 520192#64
-        else (s.getReg .x21 ||| (BitVec.ofNat 64 tree <<< 32)) + BitVec.ofNat 64 k) ∧
+      t.getMem (BitVec.ofNat 64 (NODE + 16)) = KeygenLabel.remapWord ((s.getReg .x21 ||| (BitVec.ofNat 64 tree <<< 32)) + BitVec.ofNat 64 k) ∧
       t.getMem (BitVec.ofNat 64 (NODE + 24)) = 0 ∧
       t.getMem (BitVec.ofNat 64 (NODE + 48)) = s.getMem (BitVec.ofNat 64 (arena + 32 * k + 16)) ∧
       t.getMem (BitVec.ofNat 64 (NODE + 56)) = s.getMem (BitVec.ofNat 64 (arena + 32 * k + 24)) ∧

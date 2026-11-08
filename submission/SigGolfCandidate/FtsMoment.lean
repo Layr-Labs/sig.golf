@@ -741,8 +741,10 @@ theorem topTweak_ne_fts (heap' : Nat) {coord index heap : Nat} (hp : FP coord in
   have hn : FtsNew heap := ⟨hp.2.2.1, by have := hp.2.2.2; omega⟩
   have ht := congrArg tweakTag he
   rw [nodeTweak_top_tag, ClaudeWCT.WCT9.wctNodeHeader_tweakTag hp.1, if_pos hn] at ht
-  rcases topNodeWord_small_or_special heap' with hs | hs
+  rcases topNodeWord_small_or_special heap' with hs | hs | hs
   · omega
+  · rw [hs] at ht
+    norm_num at ht
   · rw [hs] at ht
     norm_num at ht
 

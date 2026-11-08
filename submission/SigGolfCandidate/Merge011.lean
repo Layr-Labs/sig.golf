@@ -1823,18 +1823,18 @@ theorem rowTweak_high (lay : Layer) (tree leaf : Nat) : tweakHigh (rowTweak lay 
   rw [rowTweak, append64_high]; rfl
 theorem topNodeWord_pos (heap : Nat) : 1 ≤ topNodeWord heap := by
   dsimp only [topNodeWord]
-  split <;> omega
-theorem topNodeWord_small_or_special (heap : Nat) : topNodeWord heap < 4096 ∨ topNodeWord heap = 520192 := by
+  split_ifs <;> omega
+theorem topNodeWord_small_or_special (heap : Nat) : topNodeWord heap < 4096 ∨ topNodeWord heap = 520192 ∨ topNodeWord heap = 856064 := by
   dsimp only [topNodeWord]
-  split <;> omega
+  split_ifs <;> omega
 theorem topNodeWord_ne_seven (heap : Nat) : topNodeWord heap ≠ 7 := by
   dsimp only [topNodeWord]
-  split <;> omega
-theorem topNodeWord_lt (heap : Nat) : topNodeWord heap < 520193 := by
+  split_ifs <;> omega
+theorem topNodeWord_lt (heap : Nat) : topNodeWord heap < 856065 := by
   have := topNodeWord_small_or_special heap
   omega
 theorem topNodeWord_eq {heap : Nat} (h1 : 1 ≤ heap) (h : heap < 4096) :
-    topNodeWord heap = if heap = 7 then 520192 else heap := by
+    topNodeWord heap = if heap = 1 then 856064 else if heap = 7 then 520192 else heap := by
   have he : (heap - 1) % 4095 + 1 = heap := by omega
   simp only [topNodeWord, he]
 theorem topNodeWord_inj {heap heap' : Nat} (h1 : 1 ≤ heap) (h : heap < 4096) (h1' : 1 ≤ heap') (h' : heap' < 4096)
@@ -1860,11 +1860,8 @@ theorem nodeTweak_lower {lay : Nat} (h0 : lay ≠ 0) (h4 : lay < 4) (tree heap :
     nodeTweak 3 lay tree heap = BitVec.ofNat 64 heap ++ hyperWord (lay - 1) tree := by
   simp [nodeTweak, h0, h4]
 theorem ftsHeapLabel_invol (heap : Nat) : ftsHeapLabel (ftsHeapLabel heap) = heap := by
-  by_cases h7 : heap = 7
-  · simp [ftsHeapLabel, h7]
-  by_cases h64 : heap = 64
-  · simp [ftsHeapLabel, h64]
-  simp [ftsHeapLabel, h7, h64]
+  unfold ftsHeapLabel
+  split_ifs <;> omega
 theorem ftsHeapLabel_inj {heap other : Nat} (he : ftsHeapLabel heap = ftsHeapLabel other) : heap = other := by
   have hh := congrArg ftsHeapLabel he
   simpa only [ftsHeapLabel_invol] using hh
@@ -1872,11 +1869,8 @@ theorem ftsHeapLabel_lt {heap : Nat} (hh : heap < 2^64) : ftsHeapLabel heap < 2^
   unfold ftsHeapLabel
   split_ifs <;> omega
 theorem ftsHeapLabel_mod_zero (heap : Nat) : ftsHeapLabel heap % 2^64 = 0 ↔ heap % 2^64 = 0 := by
-  by_cases h7 : heap = 7
-  · subst heap; norm_num [ftsHeapLabel]
-  by_cases h64 : heap = 64
-  · subst heap; norm_num [ftsHeapLabel]
-  simp only [ftsHeapLabel, if_neg h7, if_neg h64]
+  unfold ftsHeapLabel
+  split_ifs <;> norm_num [*]
 def FtsNew (heap : Nat) : Prop := 8 ≤ heap ∧ heap < 128
 instance (heap : Nat) : Decidable (FtsNew heap) := inferInstanceAs (Decidable (8 ≤ heap ∧ heap < 128))
 theorem nodeTweak_fts {lay : Nat} (h4 : 4 ≤ lay) (h13 : lay < 13) (tree : Nat) {heap : Nat} (hn : ¬ FtsNew heap) :
@@ -2247,7 +2241,7 @@ theorem nodeTweak_low_ne_digest (tag lay tree heap : Nat) : tweakLow (nodeTweak 
   · obtain ⟨rfl, rfl⟩ := htop
     rw [nodeTweak_top_low]
     have := topNodeWord_small_or_special heap
-    rcases this with h | h <;> omega
+    rcases this with h | h | h <;> omega
   · have hm := nodeTweak_marker_ne_digest htop tree heap
     unfold tweakMarker at hm; unfold tweakLow
     intro h0; apply hm; omega
@@ -2283,11 +2277,15 @@ theorem nodeTweak_fts_ne_hyper {lay lay' : Nat} (h4 : 4 ≤ lay) (h13 : lay < 13
     rw [nodeTweak_top_low] at hl
     rcases nodeTweak_fts_low_zero_or_ge h4 h13 tree heap with hz | hg
     · have := topNodeWord_pos heap'; omega
-    · rcases topNodeWord_small_or_special heap' with hs | hs
+    · rcases topNodeWord_small_or_special heap' with hs | hs | hs
       · omega
       · have ht := congrArg tweakTag he
         rw [nodeTweak_top_tag, hs] at ht
         have hn := nodeTweak_fts_tag_ne h4 h13 tree heap (t := 240) (by decide) (by decide)
+        exact hn (by simpa using ht)
+      · have ht := congrArg tweakTag he
+        rw [nodeTweak_top_tag, hs] at ht
+        have hn := nodeTweak_fts_tag_ne h4 h13 tree heap (t := 16) (by decide) (by decide)
         exact hn (by simpa using ht)
   · exact ne_of_tweakTag (by rw [nodeTweak_lower_tag h0 hl']; exact nodeTweak_fts_tag_ne h4 h13 _ _ (by decide) (by decide))
 

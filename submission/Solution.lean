@@ -15,7 +15,7 @@ theorem layout_offsets : submission.layout =
   { message := 26016, secretKey := 128, publicKey := 160,
     cache := 524288, signature := 28672, witness := 4256 } := rfl
 
-theorem certificate : SigGolf.Certificate submission 6976 := by
+theorem certificate : SigGolf.Certificate submission 6975 := by
   exact SigGolfCandidate.Packaging.certificate_ready
 
 end SigGolf.Challenge
@@ -27,5 +27,7 @@ end SigGolf.Challenge
 #print axioms SigGolf.Challenge.certificate
 
 /- Cap 776 with affine Scarf rebates from count and first-moment histograms,
-   composed with the translated-label verifier frontier. The certificate uses
-   S = 5188, W = 21756, K = 131072, C = 6976. -/
+   composed with the translated-label verifier frontier and removal of the
+   dedicated constant-one initializer using byte/control-word reuse and
+   consistent root-label translations. The certificate uses
+   S = 5188, W = 21756, K = 131072, C = 6975. -/

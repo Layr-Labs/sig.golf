@@ -544,15 +544,19 @@ theorem ne_nonce_words (n : Nat) (hn : n < 2 ^ 64) : wordsOf (nonceBytes n) = [B
 theorem ne_topNodeInput_length (heap n : Nat) (l r : Digest) : (topNodeInput heap n l r).length = 64 := by
   simp [topNodeInput, nonceBytes, bytesLE_length]
 theorem ne_remapWord_nat (heap : Nat) (hh : heap < 2^64) :
-    KeygenLabel.remapWord (BitVec.ofNat 64 heap) = BitVec.ofNat 64 (if heap = 7 then 520192 else heap) := by
-  by_cases h7 : heap = 7
-  · simp [KeygenLabel.remapWord, h7]
-  · have hn : BitVec.ofNat 64 heap ≠ 7#64 := fun he => h7 ((ofNat_inj hh (by decide)).mp he)
-    simp [KeygenLabel.remapWord, h7, hn]
+    KeygenLabel.remapWord (BitVec.ofNat 64 heap) =
+      BitVec.ofNat 64 (if heap = 1 then 856064 else if heap = 7 then 520192 else heap) := by
+  by_cases h1 : heap=1
+  · simp [KeygenLabel.remapWord,h1]
+  by_cases h7 : heap=7
+  · simp [KeygenLabel.remapWord,h7]
+  · have hn1 : BitVec.ofNat 64 heap ≠ 1#64 := fun he => h1 ((ofNat_inj hh (by decide)).mp he)
+    have hn7 : BitVec.ofNat 64 heap ≠ 7#64 := fun he => h7 ((ofNat_inj hh (by decide)).mp he)
+    simp [KeygenLabel.remapWord,h1,h7,hn1,hn7]
 
 theorem ne_wordsOf_topNodeInput (heap n : Nat) (h1 : 1 ≤ heap) (h2 : heap < 4096) (hn : n < 2 ^ 64) (l r : Digest) :
     wordsOf (topNodeInput heap n l r) =
-      [l.extractLsb' 0 64, l.extractLsb' 64 64, BitVec.ofNat 64 (if heap = 7 then 520192 else heap), 0, BitVec.ofNat 64 n, 0,
+      [l.extractLsb' 0 64, l.extractLsb' 64 64, BitVec.ofNat 64 (if heap = 1 then 856064 else if heap = 7 then 520192 else heap), 0, BitVec.ofNat 64 n, 0,
         r.extractLsb' 0 64, r.extractLsb' 64 64] := by
   unfold topNodeInput
   rw [wordsOf_append _ _ (by simp [bytesLE_length, nonceBytes]), wordsOf_append _ _ (by simp [bytesLE_length]),
@@ -570,7 +574,7 @@ theorem ne_hashInput_topNode (t : MachineState) (heap n : Nat) (h1 : 1 ≤ heap)
     (l r : Digest) (h10 : t.getReg .x10 = BitVec.ofNat 64 NODE) (h11 : t.getReg .x11 = BitVec.ofNat 64 64)
     (w0 : t.getMem (BitVec.ofNat 64 NODE) = l.extractLsb' 0 64)
     (w8 : t.getMem (BitVec.ofNat 64 (NODE + 8)) = l.extractLsb' 64 64)
-    (w16 : t.getMem (BitVec.ofNat 64 (NODE + 16)) = BitVec.ofNat 64 (if heap = 7 then 520192 else heap))
+    (w16 : t.getMem (BitVec.ofNat 64 (NODE + 16)) = BitVec.ofNat 64 (if heap = 1 then 856064 else if heap = 7 then 520192 else heap))
     (w24 : t.getMem (BitVec.ofNat 64 (NODE + 24)) = 0)
     (w32 : t.getMem (BitVec.ofNat 64 (NODE + 32)) = BitVec.ofNat 64 n)
     (w40 : t.getMem (BitVec.ofNat 64 (NODE + 40)) = 0)
@@ -701,7 +705,7 @@ structure NFacts (t2 : MachineState) (heap leaf j P M : Nat) (l r : Digest) : Pr
   x24 : t2.getReg .x24 = BitVec.ofNat 64 M
   w0 : t2.getMem (BitVec.ofNat 64 NODE) = l.extractLsb' 0 64
   w8 : t2.getMem (BitVec.ofNat 64 (NODE + 8)) = l.extractLsb' 64 64
-  w16 : t2.getMem (BitVec.ofNat 64 (NODE + 16)) = BitVec.ofNat 64 (if heap = 7 then 520192 else heap)
+  w16 : t2.getMem (BitVec.ofNat 64 (NODE + 16)) = BitVec.ofNat 64 (if heap = 1 then 856064 else if heap = 7 then 520192 else heap)
   w24 : t2.getMem (BitVec.ofNat 64 (NODE + 24)) = 0
   w32 : t2.getMem (BitVec.ofNat 64 (NODE + 32)) = 0
   w40 : t2.getMem (BitVec.ofNat 64 (NODE + 40)) = 0
@@ -1267,7 +1271,7 @@ theorem rl1117_continue (s : MachineState) (hpc : s.pc = pcOf 1117)
     (by rw [ur.get (by decide)]; exact h8) (by rw [ur.get (by decide)]; exact h9)
     (by rw [ur.get (by decide)]; exact h18) (by rw [ur.get (by decide)]; exact h15)
     (by rw [ur.get (by decide)]; exact h20) (u28.trans he)
-  refine ⟨t, k + hdrK lay, su.trans ut, by unfold hdrK; split_ifs <;> omega, tp, m16, m24, t10, t11, t12, ?_, ?_⟩
+  refine ⟨t, k + hdrK lay, su.trans ut, by unfold hdrK; omega, tp, m16, m24, t10, t11, t12, ?_, ?_⟩
   · exact (ur.trans tr).mono (by decide)
   · exact (uf.trans tf).mono (by intro A hA h; simpa using h)
 
@@ -1513,9 +1517,9 @@ theorem rl_mk_step {tc : MachineState} {sig : Signature} {lay : Layer} {tree lea
     generalize leaf / 2 ^ (j + 1) = Y at hq ⊢
     omega
   obtain ⟨w16, -⟩ := merkleTweak_words_top tree heap hheap1 hheap2
-  have hT : t4.getMem (BitVec.ofNat 64 (NODE + 16)) = BitVec.ofNat 64 (if heap = 7 then 520192 else heap) := by rw [h16, hl0]; exact w16
+  have hT : t4.getMem (BitVec.ofNat 64 (NODE + 16)) = BitVec.ofNat 64 (if heap = 1 then 856064 else if heap = 7 then 520192 else heap) := by rw [h16, hl0]; exact w16
   refine (TBSim.steps (s1.trans (s2.trans (s3.trans s4))) (Grind.stub_pass (im := im) (sk := sk) _ p4 h5 h12 h10 h11
-    (block4_length _ _ _) hblk4 (if heap = 7 then 520192 else heap) (by split_ifs <;> omega) hT (by split_ifs <;> omega) (W := 10) (fun a ws hws => ?_))).mono ?_ (fun _ _ h => h)
+    (block4_length _ _ _) hblk4 (if heap = 1 then 856064 else if heap = 7 then 520192 else heap) (by split_ifs <;> omega) hT (by split_ifs <;> omega) (W := 10) (fun a ws hws => ?_))).mono ?_ (fun _ _ h => h)
   rotate_left
   · rw [pad64_of_aligned _ (by rw [block4_length]), blocks_toQ ⟨by rw [block4_length]; omega,
       by rw [block4_length]⟩, block4_length]; omega
@@ -2129,10 +2133,10 @@ theorem rl_mk_stepN {tc : MachineState} {sig : Signature} {lay : Layer} {tree le
     · (simp only [hL, hR, hb, ↓reduceIte, hheap]) <;> rfl
     · (simp only [hL, hR, hb, ↓reduceIte, hheap]) <;> rfl
   rw [hprog]
-  have hT : t4.getMem (BitVec.ofNat 64 (NODE + 16)) = BitVec.ofNat 64 (if heap = 7 then 520192 else heap) := by rw [h16, hl0]; exact w16
+  have hT : t4.getMem (BitVec.ofNat 64 (NODE + 16)) = BitVec.ofNat 64 (if heap = 1 then 856064 else if heap = 7 then 520192 else heap) := by rw [h16, hl0]; exact w16
   have hwN : t4.readWords (BitVec.ofNat 64 NODE) 8 = wordsOf (topNodeInput heap 0 L R) := by rw [hin]; exact hblk4
   refine (TBSim.steps (s1.trans (s2.trans (s3.trans s4))) (Grind.stub_pass_pub (im := im) (sk := sk) p4 h5 h12 h10 h11
-    (ne_topNodeInput_length _ _ _ _) hwN (if heap = 7 then 520192 else heap) (by split_ifs <;> omega) hT (by split_ifs <;> omega)
+    (ne_topNodeInput_length _ _ _ _) hwN (if heap = 1 then 856064 else if heap = 7 then 520192 else heap) (by split_ifs <;> omega) hT (by split_ifs <;> omega)
     (W := 38 + (22 * (topNonceCap (j + 1) - 1) + 20))
     (fun a ws hws => (nonce_run (im := im) sk F a ws hws).mono le_rfl (fun res w hw => ?_)))).mono
     (by rw [ne_topNodeInput_blocks] <;> unfold topNodeW <;> omega) (fun _ _ h => h)

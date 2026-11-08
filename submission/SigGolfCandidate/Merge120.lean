@@ -586,7 +586,8 @@ theorem rung_piece (c : NCtx) (hc : c.ok) {s0 : MachineState} (hk : ∀ p ∈ c.
         rw [addC_eval]; simp only [E.eval, h10]
         rw [show (16 : Word) = BitVec.ofNat 64 16 from rfl, ofNat_add_ofNat]
       simp only [E.eval, BinOp.eval]
-      rw [e1, c.posE_eval hk hR i m hm]
+      rw [e1]
+      simp only [StoreKind.merge, c.posE_eval hk hR i m hm]
     · rfl
   refine ⟨r.toState s, hst, hec, fun x hx => hkeep.reg s (by simpa using hx), fun h2 => ?_, fun h2 => ?_, ?_,
     fun A hA hn => ?_, ?_⟩
@@ -3303,21 +3304,21 @@ def rowA (lay c : Nat) : Nat := 0x10A0 + mkBase (lay + 1) + 16 * plan (lay + 1) 
 def bufferBias (lay : Nat) : Nat := [14776,17984,21240,24496].getD lay 0
 def bufferBase (lay : Nat) : Nat := [15288,18752,22008,25264].getD lay 0
 def preK (lay : Nat) : List (Reg × Word) :=
-  if lay = 3 then [(.x5, 0)] ++ [(.x8, BitVec.ofNat 64 4336), (.x11, 64), (.x26, 6), (.x7, 1), (.x13, 2), 
+  if lay = 3 then [(.x5, 0)] ++ [(.x8, BitVec.ofNat 64 4336), (.x11, 64), (.x26, 6), (.x13, 2), 
     (.x2, BitVec.ofNat 64 0xffbde0), (.x19, 3), (.x20, 4), (.x21, 5), (.x6, 0x10000)]
-  else baseK ++ [(.x6, 0x10000), (.x9, 0x7fc00),
+  else baseK ++ [(.x6, 0x10000), (.x9, 0x7fc01),
     (.x1, BitVec.ofNat 64 M1c), (.x24, BitVec.ofNat 64 M2c), (.x11, 64),
-    (.x7, 1), (.x13, 2), (.x19, 3), (.x20, 4), (.x21, 5), (.x26, 6), 
+    (.x13, 2), (.x19, 3), (.x20, 4), (.x21, 5), (.x26, 6), 
     (.x5, 0), (.x2, BitVec.ofNat 64 0xffbde0), (.x27, 0x3fe00), (.x4, BitVec.ofNat 64 (bufferBias (lay+1)))]
 def layK (lay : Nat) : List (Reg × Word) :=
   baseK ++ [(.x6, 0x10000), (.x11, 64),
-    (.x7, 1), (.x13, 2), (.x19, 3), (.x20, 4), (.x21, 5), (.x26, 6), 
+    (.x13, 2), (.x19, 3), (.x20, 4), (.x21, 5), (.x26, 6), 
     (.x2, BitVec.ofNat 64 0xffbde0)] ++
-    (if lay = 3 then [] else [(.x9, 0x7fc00), (.x1, BitVec.ofNat 64 M1c), (.x24, BitVec.ofNat 64 M2c), (.x5, 0), (.x27, 0x3fe00), (.x4, BitVec.ofNat 64 (bufferBias lay))])
+    (if lay = 3 then [] else [(.x9, 0x7fc01), (.x1, BitVec.ofNat 64 M1c), (.x24, BitVec.ofNat 64 M2c), (.x5, 0), (.x27, 0x3fe00), (.x4, BitVec.ofNat 64 (bufferBias lay))])
 def chainK (lay : Nat) : List (Reg × Word) :=
-  baseK ++ [(.x6, 0x10000), (.x9, 0x7fc00),
+  baseK ++ [(.x6, 0x10000), (.x9, 0x7fc01),
     (.x1, BitVec.ofNat 64 M1c), (.x24, BitVec.ofNat 64 M2c), (.x11, 64),
-    (.x7, 1), (.x13, 2), (.x19, 3), (.x20, 4), (.x21, 5), (.x26, 6), 
+    (.x13, 2), (.x19, 3), (.x20, 4), (.x21, 5), (.x26, 6), 
     (.x5, 0), (.x27, 0x3fe00), (.x4, BitVec.ofNat 64 (bufferBias lay))]
 def bK (lay : Nat) : List (Reg × Word) := layK lay ++ [(.x10, 4256)]
 def rReg (lay : Nat) : Reg := if lay = 3 then .x22 else .x31
@@ -3352,7 +3353,7 @@ def a7E : E := .ld (.bin .add (.reg .x12) (kw 8))
 def b1E : E := .bin .sll a7E (kw 1)
 def M1E (lay : Nat) : E := if lay = 3 then .ld (kw (TOPLOAD + 8)) else kw M1c
 def M2E (lay : Nat) : E := if lay = 3 then .ld (kw TOPLOAD) else kw M2c
-def maskE (lay : Nat) : E := if lay = 3 then .ld (kw (TOPLOAD + 24)) else kw 0x7fc00
+def maskE (lay : Nat) : E := if lay = 3 then .ld (kw (TOPLOAD + 24)) else kw 0x7fc01
 def sw1RefE : E :=
   .bin .add (.bin .add (.bin .add (.bin .and (.bin .srl a6E (kw 3)) (kw M1c)) (.bin .and a6E (kw M1c)))
     (.bin .and (.bin .srl a7E (kw 3)) (kw M1c))) (.bin .and a7E (kw M1c))
@@ -3417,9 +3418,9 @@ def specBlHi (lay p : Nat) : Spec := specBlHiG lay p [a6Br false, a7Br false] (h
 /-- SGV1 HIGH-a (`w1 < 0`). -/
 def specBlHiA (lay p : Nat) : Spec := specBlHiG lay p [a7Br true] (hiA lay)
 def postBl (lay _p : Nat) : List (Reg × Word) :=
-  chainK lay ++ [(.x7, 1), (.x2, BitVec.ofNat 64 0xffbde0)]
+  chainK lay ++ [(.x2, BitVec.ofNat 64 0xffbde0)]
 def postBlC (lay p : Nat) : List (Reg × Word) :=
-  if lay = 3 then ((chainK lay).filter (fun q => q.1 != .x24 && q.1 != .x1 && q.1 != .x9 && q.1 != .x27 && q.1 != .x4)) ++ [(.x7, 1), (.x2, BitVec.ofNat 64 0xffbde0)] else postBl lay p
+  if lay = 3 then ((chainK lay).filter (fun q => q.1 != .x24 && q.1 != .x1 && q.1 != .x9 && q.1 != .x27 && q.1 != .x4)) ++ [(.x2, BitVec.ofNat 64 0xffbde0)] else postBl lay p
 def rejSpare (lay : Nat) : Spec := ⟨[(.x5, kw 1), (.x10, kw 1)], [], rejEcall, true, 7, [spareBr lay true], none, 7⟩
 def rejCk (lay : Nat) : Spec :=
   ⟨[(.x5, kw 1), (.x10, kw 1)], [], rejEcall, true, if lay = 3 then 23 else 20, [ckBr lay true, spareBr lay false], none, if lay = 3 then 26 else 23⟩
@@ -3433,10 +3434,10 @@ def lfAllowed (lay : Nat) : List Nat := [bufferBase lay+16,bufferBase lay+24]
 /-- Campaign T51: the global register facts kept through layer `lay`'s leaf and merkle code. The T51 g0 body loads
 `s2 = 856064` (the r6 table base), and nothing after it restores main's `s2 = 0xFFF` (the top leaf, merkle and root
 compare never read `s2`), so the top keeps only `t0 = 0`; lower layers keep `baseK`. -/
-def gkL (lay : Nat) : List (Reg × Word) := if lay = 0 then [(.x5, 0)] else baseK
+def gkL (lay : Nat) : List (Reg × Word) := if lay = 0 then [(.x5, 0), (.x18, 856064)] else baseK
 theorem gkL_low {lay : Nat} (h : lay ≠ 0) : gkL lay = baseK := if_neg h
 def leafK (lay : Nat) : List (Reg × Word) :=
-  gkL lay ++ (if lay = 0 then [(.x5, 0), (.x6, 520192)] else [(.x7, 1), (.x5, 0)]) ++ [(.x4,BitVec.ofNat 64 (bufferBias lay))]
+  gkL lay ++ (if lay = 0 then [(.x5, 0), (.x6, 520192)] else [(.x5, 0)]) ++ [(.x4,BitVec.ofNat 64 (bufferBias lay))]
 def x14lf (lay : Nat) : E :=
   if lay = 0 then .bin .sll (.bin .add (.bin .and (.reg .x31) (kw 63)) (kw 1117)) (kw 9)
   else if lay = 1 then .bin .sll (.reg .x23) (kw 12)

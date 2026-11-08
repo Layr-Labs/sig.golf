@@ -4111,9 +4111,9 @@ def hdrBlock (input : HashInput) : HashInput := (input.drop 16).take 16
 /-- C4: a header block whose low word `W` (its first 8 bytes) satisfies `1 ≤ W < 4096`. Among 64-byte positions
 only the top folds have such a label (`T3.topNodeWord`, in `[1, 4096)`): the digest has `W = 0`, every FTS word is
 `≥ 4096` (coordinate nibble `coord + 1`), WOTS chain and lower fold words carry type byte 193. -/
-def TopLow (b : HashInput) : Prop := (1 ≤ readLE (b.take 8) ∧ readLE (b.take 8) < 4096) ∨ readLE (b.take 8) = 520192
+def TopLow (b : HashInput) : Prop := (1 ≤ readLE (b.take 8) ∧ readLE (b.take 8) < 4096) ∨ readLE (b.take 8) = 520192 ∨ readLE (b.take 8) = 856064
 instance (b : HashInput) : Decidable (TopLow b) :=
-  inferInstanceAs (Decidable ((1 ≤ readLE (b.take 8) ∧ readLE (b.take 8) < 4096) ∨ readLE (b.take 8) = 520192))
+  inferInstanceAs (Decidable ((1 ≤ readLE (b.take 8) ∧ readLE (b.take 8) < 4096) ∨ readLE (b.take 8) = 520192 ∨ readLE (b.take 8) = 856064))
 /-- C3 (FULL, S2-2) + C4: the decoding key of an input's header block. Leaf-length inputs (704 or 832 bytes) and
 64-byte inputs with a top label (`TopLow`) are keyed by the low tweak word only (their high word is a witness pad);
 every other input by its canonical header. -/
@@ -4693,7 +4693,7 @@ theorem readLE_take8 (h : BitVec 128) : readLE ((bytesLE 16 h).take 8) = tweakLo
     (BitVec.extractLsb'_append_extractLsb' (w := 64) (len := 64) (x := h)).symm
   conv_lhs => rw [he, SigGolfCandidate.T3M.Extract.bytesLE_header_words, List.take_left' (bytesLE_length 8 _)]
   rw [SigGolfCandidate.T3M.readLE_bytesLE, tweakLow_eq_low]
-theorem topLow_bytesLE_iff (h : BitVec 128) : TopLow (bytesLE 16 h) ↔ (1 ≤ tweakLow h ∧ tweakLow h < 4096) ∨ tweakLow h = 520192 := by
+theorem topLow_bytesLE_iff (h : BitVec 128) : TopLow (bytesLE 16 h) ↔ (1 ≤ tweakLow h ∧ tweakLow h < 4096) ∨ tweakLow h = 520192 ∨ tweakLow h = 856064 := by
   unfold TopLow; rw [readLE_take8]
 end ClaudeWCT.W9.T3M.Extract
 end
@@ -5219,12 +5219,17 @@ theorem tweakTag_of_low_special {h : BitVec 128} (he : tweakLow h = 520192) : tw
   unfold tweakTag
   norm_num only [Nat.reducePow] at he ⊢
   omega
+theorem tweakTag_of_low_one {h : BitVec 128} (he : tweakLow h = 856064) : tweakTag h = 16 := by
+  unfold tweakLow at he
+  unfold tweakTag
+  norm_num only [Nat.reducePow] at he ⊢
+  omega
 
 def keyClass (len : Nat) (h : BitVec 128) : Nat :=
   if len = 832 ∨ len = 704 then 2
   else if len = 128 then 4
   else if len = 320 then 6
-  else if (1 ≤ tweakLow h ∧ tweakLow h < 4096) ∨ tweakLow h = 520192 then 1
+  else if (1 ≤ tweakLow h ∧ tweakLow h < 4096) ∨ tweakLow h = 520192 ∨ tweakLow h = 856064 then 1
   else if 128 ≤ tweakMarker h ∨ (tweakMarker h < 4 ∧ 250 ≤ tweakTag h ∧ tweakTag h < 256) then 0
   else 5
 def Pos.cls : Pos → Nat
@@ -5327,7 +5332,11 @@ theorem Pos.keyClass_eq {p : Pos} (hb : p.Bounded) : keyClass p.len p.hdr = p.cl
         intro he
         have := tweakTag_of_low_special he
         omega
-      simp only [keyClass, Pos.len, Pos.hdr, Pos.cls, WCT9.ftsChainHeader] at hm hL hT hspecial ⊢
+      have hspecialOne : tweakLow (WCT9.ftsChainHeader index coord child t step) ≠ 856064 := by
+        intro he
+        have := tweakTag_of_low_one he
+        omega
+      simp only [keyClass, Pos.len, Pos.hdr, Pos.cls, WCT9.ftsChainHeader] at hm hL hT hspecial hspecialOne ⊢
       split_ifs <;> omega
   | leaf lay tree lf =>
       simp only [keyClass, Pos.len, Pos.cls]
@@ -5377,7 +5386,11 @@ theorem Pos.keyClass_eq {p : Pos} (hb : p.Bounded) : keyClass p.len p.hdr = p.cl
           intro he
           have := tweakTag_of_low_special he
           omega
-        unfold tweakLow at hspecial
+        have hspecialOne : tweakLow (WCT9.wctNodeHeader coord index (2 ^ (7 - level - 1) + nd)) ≠ 856064 := by
+          intro he
+          have := tweakTag_of_low_one he
+          omega
+        unfold tweakLow at hspecial hspecialOne
         simp only [if_pos hl4]
         split_ifs <;> omega
       · have hn : ¬ FtsNew (2 ^ (7 - level - 1) + nd) := fun h => hl4 (hiff.mp h)
@@ -5387,7 +5400,11 @@ theorem Pos.keyClass_eq {p : Pos} (hb : p.Bounded) : keyClass p.len p.hdr = p.cl
           intro he
           have := tweakTag_of_low_special he
           omega
-        unfold tweakLow at hspecial
+        have hspecialOne : tweakLow (WCT9.wctNodeHeader coord index (2 ^ (7 - level - 1) + nd)) ≠ 856064 := by
+          intro he
+          have := tweakTag_of_low_one he
+          omega
+        unfold tweakLow at hspecial hspecialOne
         simp only [if_neg hl4]
         split_ifs <;> omega
   | forest index =>
@@ -13364,7 +13381,7 @@ theorem topQ_ne {input target : HashInput} {hdr : BitVec 128} {heap : Nat}
   exact hn (bytesLE_injective (h.symm.trans ht))
 
 theorem topNodeWord_eq {heap : Nat} (h1 : 1 ≤ heap) (h2 : heap < 4096) :
-    topNodeWord heap = if heap = 7 then 520192 else heap := SigGolfCandidate.T3.topNodeWord_eq h1 h2
+    topNodeWord heap = if heap = 1 then 856064 else if heap = 7 then 520192 else heap := SigGolfCandidate.T3.topNodeWord_eq h1 h2
 
 theorem tweakMarker_top {heap : Nat} (h1 : 1 ≤ heap) (h2 : heap < 4096) :
     tweakMarker (nodeTweak 3 0 0 heap) = topNodeWord heap % 256 := by

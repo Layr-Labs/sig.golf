@@ -3648,7 +3648,7 @@ def ok (c : NCtx) : Prop :=
   c.tree = 0 ∧ c.leaf < 4096 ∧ c.S3 % 8 = 0 ∧ Verify.WIT + 8208 + 1664 ≤ c.S3 ∧ c.S3 + 1144 ≤ 15272 ∧
     c.ret < 209920
 def known (c : NCtx) : List (Reg × Word) :=
-  [(.x5, 0), (.x11, 64), (.x7, 1), (.x13, 2), (.x19, 3), (.x20, 4), (.x21, 5), (.x26, 6),
+  [(.x5, 0), (.x11, 64), (.x9, 0x7fc01), (.x13, 2), (.x19, 3), (.x20, 4), (.x21, 5), (.x26, 6),
    (.x28, BitVec.ofNat 64 (c.prefix + 385)), (.x8, BitVec.ofNat 64 c.S3), (.x2, BitVec.ofNat 64 0xffbde0), (.x4, 14776)]
 /-- Rank of top group `q`: the digit triple in radix `mx q + 1`; group 16 (the r7 pair, chains 48 and 49) has only two
 digits, `d48 + 7 d49`. -/
@@ -4201,18 +4201,19 @@ theorem rungPc_end (c : NCtx) (hds : c.DigitsOk) (i : Nat) (hi : i < 51) (hd : c
     split_ifs <;> omega
 theorem posE_eval (c : NCtx) {s0 s : MachineState} (hk : ∀ p ∈ c.known, s0.getReg p.1 = p.2)
     (hR : ∀ x ∉ chainRegs, s.getReg x = s0.getReg x) (i m : Nat) (hm : m ≤ last i) :
-    (posE m).eval s = BitVec.ofNat 64 m := by
+    ((posE m).eval s).truncate 8 = (BitVec.ofNat 64 m).truncate 8 := by
   have kr : ∀ r v, (r, v) ∈ c.known → r ∉ chainRegs → s.getReg r = v := fun r v hm hn =>
     (hR r hn).trans (hk _ hm)
   have hm3 : m ≤ 6 := by have := last_bounds i; omega
   interval_cases m
   · rfl
-  · exact kr .x7 1 (by simp [known]) (by decide +kernel)
-  · exact kr .x13 2 (by simp [known]) (by decide +kernel)
-  · exact kr .x19 3 (by simp [known]) (by decide +kernel)
-  · exact kr .x20 4 (by simp [known]) (by decide +kernel)
-  · exact kr .x21 5 (by simp [known]) (by decide +kernel)
-  · exact kr .x26 6 (by simp [known]) (by decide +kernel)
+  · rw [show (posE 1).eval s=s.getReg .x9 from rfl, kr .x9 0x7fc01 (by simp [known]) (by decide)]
+    rfl
+  · exact congrArg (fun v : Word => v.truncate 8) (kr .x13 2 (by simp [known]) (by decide))
+  · exact congrArg (fun v : Word => v.truncate 8) (kr .x19 3 (by simp [known]) (by decide))
+  · exact congrArg (fun v : Word => v.truncate 8) (kr .x20 4 (by simp [known]) (by decide))
+  · exact congrArg (fun v : Word => v.truncate 8) (kr .x21 5 (by simp [known]) (by decide))
+  · exact congrArg (fun v : Word => v.truncate 8) (kr .x26 6 (by simp [known]) (by decide))
 theorem w0_low (c : NCtx) (i m : Nat) (hi : i < 51) (hm : m < 256) :
     (BitVec.ofNat 64 (c.w0 i + 2 ^ 8 * m)).toNat % 2 ^ 8 = 128 + i ∧
       (BitVec.ofNat 64 (c.w0 i + 2 ^ 8 * m)).toNat / 2 ^ 16 = c.prefix / 2 ^ 16 := by
