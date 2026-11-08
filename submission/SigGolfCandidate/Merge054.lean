@@ -5076,8 +5076,8 @@ abbrev witEncN := ClaudeWCT.W9.T3M.Paired.witEncN
 /-- U16b: and the 9 ground lower fold nonces (`Paired.witEncG`). -/
 abbrev witEncG := ClaudeWCT.W9.T3M.Paired.witEncG
 
- def verifyCycleBound : Nat := 6891
- def claimedC : Nat := 6976
+ def verifyCycleBound : Nat := 6888
+ def claimedC : Nat := 6973
  def DigestCapOk (hash : Hash) (m : Message) (w : Bytes 21756) : Prop :=
   SigGolfCandidate.Research.SharedForest.jointAccountingCost
     (hash (SigGolfCandidate.T3M.toQ (SigGolfCandidate.T3.pad64
@@ -11715,7 +11715,7 @@ structure SetupMask (u : MachineState) : Prop where
   child : u.getMem (BitVec.ofNat 64 (dataBase7 + 368)) = BitVec.ofNat 64 0xf1b00
   jt : u.getMem (BitVec.ofNat 64 (dataBase7 + 376)) = BitVec.ofNat 64 0xfff00
   coord : u.getMem (BitVec.ofNat 64 (dataBase7 + 464)) = BitVec.ofNat 64 11120
-  gate : u.getMem (BitVec.ofNat 64 (dataBase7 + 352)) = BitVec.ofNat 64 (826 * 2^50)
+  gate : u.getMem (BitVec.ofNat 64 (dataBase7 + 352)) = BitVec.ofNat 64 (934 * 2^50)
   d0 : u.getMem (BitVec.ofNat 64 dataBase7) = BitVec.ofNat 64 0xfff
   aTable : u.getMem (BitVec.ofNat 64 (dataBase7 + 56)) = BitVec.ofNat 64 0xe3300
   singleton : u.getMem (BitVec.ofNat 64 (dataBase7 + 64)) = BitVec.ofNat 64 0xe7400

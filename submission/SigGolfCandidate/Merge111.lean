@@ -5816,7 +5816,7 @@ theorem verifyP_source_walk (answers : Answers) (message : Message) (pk : Digest
       evalWithAnswerFn answers (digest (wrho w) message (wdc w)) = output ∧
       (.inl (.inr (pad64 (digestInput (wrho w) message (wdc w)))) : Spec.Domain) ∈
         queried answers (Paired.verifyP message pk w) ∧
-      output.toNat / 2^242 % 16384 < 826 ∧
+      output.toNat / 2^242 % 16384 < 934 ∧
       (∀ coord : Fin 9, rawForestRank output coord.val < 563) ∧
       (WotsPrimitiveSrc answers (CanonicalRef.sourceMessages answers)
           (entriesOf answers (queried answers (Paired.verifyP message pk w))) ∨
@@ -6211,7 +6211,7 @@ theorem verifyP_canonical_or_collision (answers : Answers) (message : Message) (
       evalWithAnswerFn answers (digest (wrho wb) message (wdc wb)) = output ∧
       (.inl (.inr (pad64 (digestInput (wrho wb) message (wdc wb)))) : Spec.Domain) ∈
         queried answers (Paired.verifyP message pk wb) ∧
-      output.toNat / 2^242 % 16384 < 826 ∧
+      output.toNat / 2^242 % 16384 < 934 ∧
       (∀ coord : Fin 9, rawForestRank output coord.val < 563) ∧
       (WotsPrimitiveSrc answers (CanonicalRef.sourceMessages answers)
           (entriesOf answers (queried answers (Paired.verifyP message pk wb))) ∨
@@ -6429,7 +6429,7 @@ theorem checkForgery_canonical_or_collision (answers : Answers) (published : Sig
         evalWithAnswerFn answers (digest (wrho wb) message (wdc wb)) = output ∧
         (.inl (.inr (pad64 (digestInput (wrho wb) message (wdc wb)))) : Spec.Domain) ∈
           queried answers (Final.Paired.checkForgeryP pk log forgery) ∧
-        output.toNat / 2^242 % 16384 < 826 ∧
+        output.toNat / 2^242 % 16384 < 934 ∧
         (∀ coord : Fin 9, rawForestRank output coord.val < 563) ∧
         (∀ lay : Layer, Good answers (CanonicalRef.sourceMessages answers) wb (WCT9.digestIndex output) lay) ∧
         Extract.Paired.ForestOpenings answers wb (WCT9.digestIndex output)
@@ -6481,7 +6481,7 @@ def FreshForestAt (answers : Answers) (pk : Digest) (log : QueryLog Final.Paired
         evalWithAnswerFn answers (digest (wrho wb) message (wdc wb)) = output ∧
         (.inl (.inr (pad64 (digestInput (wrho wb) message (wdc wb)))) : Spec.Domain) ∈
           queried answers (Final.Paired.checkForgeryP pk log forgery) ∧
-        output.toNat / 2^242 % 16384 < 826 ∧
+        output.toNat / 2^242 % 16384 < 934 ∧
         (∀ coord : Fin 9, rawForestRank output coord.val < 563) ∧
         (∀ lay : Layer, Good answers (CanonicalRef.sourceMessages answers) wb (WCT9.digestIndex output) lay) ∧
         Extract.Paired.ForestOpenings answers wb (WCT9.digestIndex output)
@@ -6689,7 +6689,7 @@ def FullForestEvent (adversary : Final.Paired.AdversaryP) (q : Nat)
       evalWithAnswerFn A (digest (wrho w) message (wdc w))=output ∧
       (.inl (.inr (pad64 (digestInput (wrho w) message (wdc w)))) : SigGolfCandidate.T3.Spec.Domain) ∈
         queried A (Final.Paired.checkForgeryP generated.value.1 interaction.value.2 forgery) ∧
-      output.toNat/2^242%16384<826 ∧
+      output.toNat/2^242%16384<934 ∧
       (∀ k : Fin 9,rawForestRank output k.val<563) ∧
       ¬WPair.Paired.SignedDigest interaction.value.2 message (wrho w) ∧
       FullCovered A interaction.value.2 output
@@ -6890,7 +6890,7 @@ def PartialForestEvent
       evalWithAnswerFn A (digest (wrho w) message (wdc w))=output ∧
       (.inl (.inr (pad64 (digestInput (wrho w) message (wdc w)))) : SigGolfCandidate.T3.Spec.Domain) ∈
         queried A (Final.Paired.checkForgeryP generated.value.1 interaction.value.2 forgery) ∧
-      output.toNat/2^242%16384<826 ∧
+      output.toNat/2^242%16384<934 ∧
       (∀ k : Fin 9,rawForestRank output k.val<563) ∧
       ¬WPair.Paired.SignedDigest interaction.value.2 message (wrho w) ∧
       Q A interaction.value.2 output
@@ -7985,9 +7985,9 @@ theorem full_probability_real (theta rate : ENNReal) (htheta:theta≠⊤) (hrate
 
 theorem partial_probability_real (adversary : Final.Paired.AdversaryP) (q : Nat) (hq:q≤2^127)
     (h : Pr[PartialForestNoOverflow adversary q | PairedSeccLaw.completedExperiment adversary q hq] ≤
-      ((2^128-q:Nat):ENNReal)⁻¹*((q*(q-1):Nat):ENNReal)*((40711/100)+1/1024)/(2*2^128)+BPair.pairTerm q) :
+      ((2^128-q:Nat):ENNReal)⁻¹*((q*(q-1):Nat):ENNReal)*((23017/50)+1/1024)/(2*2^128)+BPair.pairTerm q) :
     (Pr[PartialForestNoOverflow adversary q | PairedSeccLaw.completedExperiment adversary q hq]).toReal ≤
-      (((40711/100)+1/1024)/(2*(1-(q:ℝ)/2^128))+1/(2*(1-(q:ℝ)/2^128)^2))*((q:ℝ)/2^128)^2 := by
+      (((23017/50)+1/1024)/(2*(1-(q:ℝ)/2^128))+1/(2*(1-(q:ℝ)/2^128)^2))*((q:ℝ)/2^128)^2 := by
   have hqN : q<2^128 := by omega
   have hN : (0:ℝ)<2^128 := by positivity
   have hqr : (q:ℝ)<2^128 := by exact_mod_cast hqN
@@ -8010,7 +8010,7 @@ theorem partial_probability_real (adversary : Final.Paired.AdversaryP) (q : Nat)
   rw [hsub] at hr
   refine hr.trans ?_
   calc
-    _ ≤ ((2:ℝ)^128-q)⁻¹*(q:ℝ)^2*((40711/100)+1/1024)/(2*2^128)+
+    _ ≤ ((2:ℝ)^128-q)⁻¹*(q:ℝ)^2*((23017/50)+1/1024)/(2*2^128)+
       ((q:ℝ)^2/2)*(((2:ℝ)^128-q)⁻¹)^2 := by
       apply add_le_add
       · apply div_le_div_of_nonneg_right _ (by positivity)
@@ -8331,10 +8331,10 @@ set_option backward.isDefEq.respectTransparency false
 attribute [local instance] Classical.propDecidable
 
 theorem large_clean_closing (adversary : Final.Paired.AdversaryP) (q : Nat) (hq:q≤2^127)
-    (hlow : (1251:ℝ)/1000000≤(q:ℝ)/2^128)
+    (hlow : (2163:ℝ)/1000000≤(q:ℝ)/2^128)
     (hclean : Pr[QueryRecorded.CleanWin q | PairedOuter.PaddedGame.tracedExperiment adversary q hq] ≤
       ENNReal.ofReal (2*((q:ℝ)/2^128)-((q:ℝ)/2^128)^2)+
-      (q:ENNReal)*ENNReal.ofReal ((99521/100000)*((q:ℝ)/2^128))/2^128+
+      (q:ENNReal)*ENNReal.ofReal ((99631/100000)*((q:ℝ)/2^128))/2^128+
       ((2 ^ 142 : ENNReal)⁻¹+(2 ^ 142 : ENNReal)⁻¹)+
       1/(2:ENNReal)^139+1/(2:ENNReal)^138+1/(2:ENNReal)^137) :
     Pr[QueryRecorded.CleanWin q | PairedOuter.PaddedGame.tracedExperiment adversary q hq]+
@@ -8351,18 +8351,18 @@ theorem large_clean_closing (adversary : Final.Paired.AdversaryP) (q : Nat) (hq:
       (q:ℝ) ≤ 2^127 := hqr
       _ = (1/2:ℝ)*2^128 := by norm_num
   have hpoly : 0≤2*y-y^2 := by nlinarith
-  have hrate : 0≤(99521/100000:ℝ)*y := mul_nonneg (by norm_num) hy
+  have hrate : 0≤(99631/100000:ℝ)*y := mul_nonneg (by norm_num) hy
   have hr := ENNReal.toReal_mono (by finiteness) hclean
   simp (disch:=finiteness) only [ENNReal.toReal_add,ENNReal.toReal_div,ENNReal.toReal_mul,
     ENNReal.toReal_pow,ENNReal.toReal_ofNat,ENNReal.toReal_natCast,ENNReal.toReal_one,ENNReal.toReal_inv] at hr
   -- top-nonce layer (r3-lean-nonsec): the large route carries 2·Pr[CapFail] ≤ 2·(2^142)⁻¹
   change _ ≤ ENNReal.toReal (ENNReal.ofReal (2*y-y^2))+
-    (q:ℝ)*ENNReal.toReal (ENNReal.ofReal ((99521/100000)*y))/2^128+(((2:ℝ)^142)⁻¹+((2:ℝ)^142)⁻¹)+
+    (q:ℝ)*ENNReal.toReal (ENNReal.ofReal ((99631/100000)*y))/2^128+(((2:ℝ)^142)⁻¹+((2:ℝ)^142)⁻¹)+
     1/2^139+1/2^138+1/2^137 at hr
   rw [ENNReal.toReal_ofReal hpoly,ENNReal.toReal_ofReal hrate] at hr
-  have hmul : (q:ℝ)*((99521/100000)*y)/2^128=y*((99521/100000)*y) := by dsimp [y];ring
+  have hmul : (q:ℝ)*((99631/100000)*y)/2^128=y*((99631/100000)*y) := by dsimp [y];ring
   rw [hmul] at hr
-  have hc := ContinuousPricing.large_closing_real_cap777 y ((99521/100000)*y) hlow le_rfl
+  have hc := ContinuousPricing.large_closing_real_cap777 y ((99631/100000)*y) hlow le_rfl
   have he : ((2:ℝ)^142)⁻¹+((2:ℝ)^142)⁻¹+1/2^139+1/2^138+1/2^137≤1/2^131 := by norm_num
   have hp1 : 0≤y*((1:ℝ)/2^25) := mul_nonneg hy (by positivity)
   have hp2 : 0≤y*((1:ℝ)/2^50) := mul_nonneg hy (by positivity)
@@ -8382,7 +8382,7 @@ set_option backward.isDefEq.respectTransparency false
 attribute [local instance] Classical.propDecidable
 
 theorem large_bound (adversary : Final.Paired.AdversaryP) (q : Nat) (hq:q≤2^127)
-    (hlow : (1251:ℝ)/1000000≤(q:ℝ)/2^128) :
+    (hlow : (2163:ℝ)/1000000≤(q:ℝ)/2^128) :
     Pr[QueryRecorded.CleanWin q | PairedOuter.PaddedGame.tracedExperiment adversary q hq]+
       q/(2:ENNReal)^146+(2:ENNReal)⁻¹^700+((2:ENNReal)^152)⁻¹+
       q/((2^256:Nat):ENNReal)≤(q:ENNReal)/2^127 := by
@@ -8395,7 +8395,7 @@ theorem large_bound (adversary : Final.Paired.AdversaryP) (q : Nat) (hq:q≤2^12
   have hexc := ClaudeWCT.Bank.Paired.excess_large_certified ((q:ℝ)/2^128) hlow hhalf
   have hexc' : ClaudeWCT.Numerics.Law.lawAvg ClaudeWCT.Bank.Paired.honestLaw (2^32)
       (fun W=>ClaudeWCT.Bank.Paired.price W-ENNReal.ofReal (Flexible.budgetRate q-1/1024))≤
-      ENNReal.ofReal ((99521/100000)*((q:ℝ)/2^128)) := by
+      ENNReal.ofReal ((99631/100000)*((q:ℝ)/2^128)) := by
     simpa only [Flexible.budgetRate,mul_div_assoc] using hexc
   apply large_clean_closing adversary q hq hlow
   exact (clean_le_contact_cert adversary q hq).trans
@@ -8465,13 +8465,13 @@ attribute [local instance] Classical.propDecidable
 theorem clean_probability_real_ofG (adversary : Final.Paired.AdversaryP) (q : Nat) (hq:q≤2^127)
     (hsplit : ∀ z,z∈(PairedSeccLaw.completedExperiment adversary q hq).support →
       QueryRecorded.CleanWin q z.1 → CaseABEv combinedEvent adversary z ∨ FreshForestCase adversary z)
-    (theta rate : ENNReal) (htheta:theta≠⊤) (hratefin:rate≠⊤) (hmin:1/1024≤theta) (E : ℝ)
+    (theta rate : ENNReal) (htheta:theta≠⊤) (hratefin:rate≠⊤) (hmin:1/1024≤theta)
     (hrate : ClaudeWCT.Numerics.Law.lawAvg ClaudeWCT.Bank.Paired.honestLaw (2^32)
       (fun W=>ClaudeWCT.Bank.Paired.price W-(theta-1/1024))≤rate)
     (hprimitive : (Pr[fun s=>combinedEvent.holds s.answers s.trace |
       PairedReference.referenceExperiment adversary q]).toReal ≤
         theta.toReal*((prefixMass adversary q).toReal/2^128+(encodingMass adversary q).toReal/2^128)+
-        (otherMass adversary q).toReal/2^128+E*((q:ℝ)/2^128)^2+(1/2^139+1/2^142))
+        (otherMass adversary q).toReal/2^128+(802/1000)*((q:ℝ)/2^128)^2+(1/2^139+1/2^142))
     (hincomplete : Pr[fun z=>IncompleteForestEvent adversary (z.1.1,z.1.2.2) z.2 |
       PairedSeccLaw.completedExperiment adversary q hq]≤1/(2:ENNReal)^138)
     (hoverflow : Pr[fun z=>QueryRecorded.CleanWin q z.1 ∧ ¬WPair.Paired.NoOverflow adversary z |
@@ -8480,7 +8480,7 @@ theorem clean_probability_real_ofG (adversary : Final.Paired.AdversaryP) (q : Na
       theta.toReal*((prefixMass adversary q).toReal/2^128+(encodingMass adversary q).toReal/2^128+
         (digestMass adversary q hq).toReal/2^128)+(otherMass adversary q).toReal/2^128+
       (Pr[PartialForestNoOverflow adversary q | PairedSeccLaw.completedExperiment adversary q hq]).toReal+
-      (q:ℝ)/2^128*rate.toReal+E*((q:ℝ)/2^128)^2+1/2^136 := by
+      (q:ℝ)/2^128*rate.toReal+(802/1000)*((q:ℝ)/2^128)^2+1/2^136 := by
   have hf := full_probability_real theta rate htheta hratefin hmin adversary q hq hrate
   have hinc := ENNReal.toReal_mono (by finiteness) hincomplete
   have hov := ENNReal.toReal_mono (by finiteness) hoverflow
@@ -8513,15 +8513,15 @@ set_option backward.isDefEq.respectTransparency false
 attribute [local instance] Classical.propDecidable
 
 theorem middle_clean_closingG (adversary : Final.Paired.AdversaryP) (q : Nat) (hq:q≤2^127)
-    (hlow : 1/(2:ℝ)^28≤(q:ℝ)/2^128) (hhigh : (q:ℝ)/2^128≤1251/1000000)
-    (rate : ℝ) (hrate : rate≤1230/1000000)
+    (hlow : 1/(2:ℝ)^28≤(q:ℝ)/2^128) (hhigh : (q:ℝ)/2^128≤2163/1000000)
+    (rate : ℝ) (hrate : rate≤2155/1000000)
     (hclean : (Pr[QueryRecorded.CleanWin q | PairedOuter.PaddedGame.tracedExperiment adversary q hq]).toReal ≤
-      (1996581/1000000)*((prefixMass adversary q).toReal/2^128+(encodingMass adversary q).toReal/2^128+
+      (397071/200000)*((prefixMass adversary q).toReal/2^128+(encodingMass adversary q).toReal/2^128+
         (digestMass adversary q hq).toReal/2^128)+(otherMass adversary q).toReal/2^128+
       (Pr[PartialForestNoOverflow adversary q | PairedSeccLaw.completedExperiment adversary q hq]).toReal+
-      (q:ℝ)/2^128*rate+(793/1000)*((q:ℝ)/2^128)^2+1/2^136)
+      (q:ℝ)/2^128*rate+(1850/1000)*((q:ℝ)/2^128)^2+1/2^136)
     (hpartial : Pr[PartialForestNoOverflow adversary q | PairedSeccLaw.completedExperiment adversary q hq] ≤
-      ((2^128-q:Nat):ENNReal)⁻¹*((q*(q-1):Nat):ENNReal)*((40711/100)+1/1024)/(2*2^128)+BPair.pairTerm q) :
+      ((2^128-q:Nat):ENNReal)⁻¹*((q*(q-1):Nat):ENNReal)*((23017/50)+1/1024)/(2*2^128)+BPair.pairTerm q) :
     (Pr[QueryRecorded.CleanWin q | PairedOuter.PaddedGame.tracedExperiment adversary q hq]).toReal+
       ((q:ℝ)/2^128/2^18+1/2^700+1/2^152+((q:ℝ)/2^128)/2^128)≤2*((q:ℝ)/2^128) := by
   have hquad := paired_partial_denominatorRC _ _ hhigh (partial_probability_real adversary q hq hpartial)
@@ -8542,10 +8542,10 @@ theorem tiny_clean_closingG (adversary : Final.Paired.AdversaryP) (q : Nat) (hq:
       (Pr[PartialForestNoOverflow adversary q | PairedSeccLaw.completedExperiment adversary q hq]).toReal+
       (q:ℝ)/2^128*rate+(802/1000)*((q:ℝ)/2^128)^2+1/2^136)
     (hpartial : Pr[PartialForestNoOverflow adversary q | PairedSeccLaw.completedExperiment adversary q hq] ≤
-      ((2^128-q:Nat):ENNReal)⁻¹*((q*(q-1):Nat):ENNReal)*((40711/100)+1/1024)/(2*2^128)+BPair.pairTerm q) :
+      ((2^128-q:Nat):ENNReal)⁻¹*((q*(q-1):Nat):ENNReal)*((23017/50)+1/1024)/(2*2^128)+BPair.pairTerm q) :
     (Pr[QueryRecorded.CleanWin q | PairedOuter.PaddedGame.tracedExperiment adversary q hq]).toReal+
       ((q:ℝ)/2^128/2^18+1/2^700+1/2^152+((q:ℝ)/2^128)/2^128)≤2*((q:ℝ)/2^128) := by
-  have hsmall : (q:ℝ)/2^128≤1251/1000000 := hhigh.trans (by norm_num)
+  have hsmall : (q:ℝ)/2^128≤2163/1000000 := hhigh.trans (by norm_num)
   have hlow : 1/(2:ℝ)^128≤(q:ℝ)/2^128 := div_le_div_of_nonneg_right (by exact_mod_cast hpositive) (by positivity)
   have hquad := paired_partial_denominatorRC _ _ hsmall (partial_probability_real adversary q hq hpartial)
   have hcost := completed_partial_normalized adversary q hq
@@ -8623,17 +8623,17 @@ attribute [local instance] Classical.propDecidable
 
 theorem completed_partial_certifiedG (adversary : Final.Paired.AdversaryP) (q : Nat) (hq:q≤2^127) :
     Pr[PartialForestNoOverflow adversary q | PairedSeccLaw.completedExperiment adversary q hq] ≤
-      ((2^128-q:Nat):ENNReal)⁻¹*((q*(q-1):Nat):ENNReal)*((40711/100)+1/1024)/(2*2^128)+BPair.pairTerm q := by
+      ((2^128-q:Nat):ENNReal)⁻¹*((q*(q-1):Nat):ENNReal)*((23017/50)+1/1024)/(2*2^128)+BPair.pairTerm q := by
   apply completed_partial_bound ClaudeWCT.Bank.Paired.nearLawSpec
     ClaudeWCT.Bank.Paired.nearLawSpec_producer rfl ClaudeWCT.Bank.Paired.nearCovered_mono
     (fun X N h => by
       obtain ⟨k,t,h⟩:=h
       exact WPair.Paired.nearCovered_bank X N k t h)
-    (40711/100) ClaudeWCT.Bank.Paired.nearLawSpec_mean adversary q hq
+    (23017/50) ClaudeWCT.Bank.Paired.nearLawSpec_mean adversary q hq
 
 theorem excess_middle_actualG :
     ClaudeWCT.Numerics.Law.lawAvg ClaudeWCT.Bank.Paired.honestLaw (2^32)
-      (fun W=>ClaudeWCT.Bank.Paired.price W-((1996581:ENNReal)/1000000-1/1024))≤1230/1000000 := by
+      (fun W=>ClaudeWCT.Bank.Paired.price W-((397071:ENNReal)/200000-1/1024))≤2155/1000000 := by
   have h:=ClaudeWCT.Bank.Paired.excess_middle_certified
   simpa (disch:=positivity) only [ENNReal.ofReal_sub,ENNReal.ofReal_div_of_pos,ENNReal.ofReal_ofNat,ENNReal.ofReal_one] using h
 

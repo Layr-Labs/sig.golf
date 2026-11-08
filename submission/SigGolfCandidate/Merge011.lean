@@ -877,9 +877,9 @@ Defined before the encoding selector because the top producer choice uses the ca
   LOW costs 4 cycles, HIGH 6). -/
 namespace CanonicalPolicy
 /-- The credit pool every canonical path must reach. -/
-def totalCredit : Nat := 67
+def totalCredit : Nat := 70
 /-- The (fixed) top credit floor (on the path-aware credit). -/
-def topFloor : Nat := 14
+def topFloor : Nat := 17
 /-- All three lower layers use digit sum 201. Layer 1's existing broad decoder
 has the same lower digit layout and this exact target. -/
 def normalLayer (lay : Layer) : Layer := if lay = 0 then 0 else 1
@@ -1522,7 +1522,7 @@ theorem producerDecodeOut_credit {lay : Layer} {floor : Nat} {answer : HashOutpu
     {low : Bool} (h : producerDecodeOut lay floor answer = some (digits, low)) : floor ≤ credit lay low digits :=
   producerDecodeAt_credit (producerDecodeOut_spec h).2
 
-theorem threshold_top (residual : Nat) : threshold 0 residual = 14 := by
+theorem threshold_top (residual : Nat) : threshold 0 residual = 17 := by
   simp [threshold, topFloor]
 
 theorem nextResidual_le (residual : Nat) (lay : Layer) (low : Bool) (digits : List Nat) :
@@ -1560,7 +1560,7 @@ theorem lower_three_progress (r : Nat) (hr : r < 22) :
     threshold 3 r = r := by simp [threshold, show r ≤ 21 by omega]
 
 theorem accepted_top_residual {answer : Digest} {low : Bool} {digits : List Nat}
-    (h : producerDecodeAt 0 14 low answer = some digits) : nextResidual 67 0 low digits < 54 := by
+    (h : producerDecodeAt 0 17 low answer = some digits) : nextResidual 70 0 low digits < 54 := by
   have hc := producerDecodeAt_credit h
   unfold nextResidual
   omega

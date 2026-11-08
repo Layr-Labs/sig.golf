@@ -240,14 +240,14 @@ theorem large_closing_real (y excess : ℝ) (hlow : 1000 / 4194304 ≤ y)
   nlinarith
 
 /-- Cap-777 large-query closing: the thinned excess envelope `(993/1000)·y` on `y ≥ 3/2500`. -/
-theorem large_closing_real_cap777 (y excess : ℝ) (hlow : 1251 / 1000000 ≤ y)
-    (hexcess : excess ≤ (99521 / 100000) * y) :
+theorem large_closing_real_cap777 (y excess : ℝ) (hlow : 2163 / 1000000 ≤ y)
+    (hexcess : excess ≤ (99631 / 100000) * y) :
     (2 * y - y ^ 2) + y * excess + y * (1 / 2 ^ 25) +
       y * (1 / 2 ^ 50) + 1 / 2 ^ 131 +
       (y / 2 ^ 18 + 1 / 2 ^ 700 + 1 / 2 ^ 152 + y / 2 ^ 128) ≤ 2 * y := by
   have hn : 0 ≤ y := le_trans (by norm_num) hlow
   have he := mul_le_mul_of_nonneg_left hexcess hn
-  have hsq : y * (1251 / 1000000) ≤ y ^ 2 := by
+  have hsq : y * (2163 / 1000000) ≤ y ^ 2 := by
     nlinarith [mul_le_mul_of_nonneg_left hlow hn]
   have habs : (1 : ℝ) / 2 ^ 131 ≤ y / 2 ^ 121 := by
     have h := div_le_div_of_nonneg_right hlow (show (0 : ℝ) ≤ 2 ^ 121 by positivity)

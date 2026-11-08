@@ -3124,12 +3124,12 @@ theorem primitive_real_of_rawFam (S : FamScheme) {Cmax : Nat} (H : FamTot.FamHyp
       prefixCoeff q w v/2^128*prefixMass adversary q+
       encodingCoeff q w v/2^128*encodingMass adversary q+
       (2^128:ENNReal)⁻¹*otherMass+errCoeff q w v*FamTot.errTotF S adversary q)
-    (theta ec : ℝ) (hprefix:canonicalPrefix ((q:ℝ)/2^128) w.toReal≤theta)
+    (theta : ℝ) (hprefix:canonicalPrefix ((q:ℝ)/2^128) w.toReal≤theta)
     (hencoding:canonicalEncoding ((q:ℝ)/2^128) w.toReal≤theta)
-    (herror:canonicalError ((q:ℝ)/2^128) w.toReal*(755/1000)≤ec) :
+    (herror:canonicalError ((q:ℝ)/2^128) w.toReal≤1061/1000) :
     eventProbability.toReal ≤
       theta*((prefixMass adversary q).toReal/2^128+(encodingMass adversary q).toReal/2^128)+
-      otherMass.toReal/2^128+ec*((q:ℝ)/2^128)^2+(1/2^139+1/2^142) := by
+      otherMass.toReal/2^128+(802/1000)*((q:ℝ)/2^128)^2+(1/2^139+1/2^142) := by
   have hc1:=prefixCoeff_ne_top q hq w v hw hv
   have hc2:=encodingCoeff_ne_top q hq w v hw
   have hc3:=errCoeff_ne_top q hq w v hw hv
@@ -3143,11 +3143,8 @@ theorem primitive_real_of_rawFam (S : FamScheme) {Cmax : Nat} (H : FamTot.FamHyp
     rw [←errCoeff_toReal q hq w v hw hv hwv]
     exact ENNReal.toReal_nonneg
   have hseed := FamTot.seedErrorBoundF H hC adversary q hq hy
-  have herr : canonicalError ((q:ℝ)/2^128) w.toReal*(FamTot.errTotF S adversary q).toReal ≤
-      ec*((q:ℝ)/2^128)^2 := by
-    have h1 := mul_le_mul_of_nonneg_left hseed he0
-    have h2 := mul_le_mul_of_nonneg_right herror (sq_nonneg ((q:ℝ)/2^128))
-    nlinarith
+  have herr:=grouped_weighted_error ((q:ℝ)/2^128) (FamTot.errTotF S adversary q).toReal
+    (canonicalError ((q:ℝ)/2^128) w.toReal) he0 herror hseed
   have hp' := mul_le_mul_of_nonneg_right hprefix (show 0≤(prefixMass adversary q).toReal/2^128 by positivity)
   have he' := mul_le_mul_of_nonneg_right hencoding (show 0≤(encodingMass adversary q).toReal/2^128 by positivity)
   simp only [div_eq_mul_inv] at h hp' he' herr ⊢
@@ -3157,19 +3154,19 @@ theorem primitive_real_of_failureFam (S : FamScheme) {Cmax : Nat} (H : FamTot.Fa
     (adversary : Final.Paired.AdversaryP) (q : Nat) (hq:q≤2^127)
     (hy : (q:ℝ)/2^128≤1251/1000000) (w v : ENNReal) (hw:w≠⊤) (hv:v≠⊤) (hwv:w+v=1)
     (hfailed : Pr[ReferenceFailed | PairedReference.referenceExperiment adversary q] ≤ 1/(2:ENNReal)^139)
-    (theta ec : ℝ) (hprefix:canonicalPrefix ((q:ℝ)/2^128) w.toReal≤theta)
+    (theta : ℝ) (hprefix:canonicalPrefix ((q:ℝ)/2^128) w.toReal≤theta)
     (hencoding:canonicalEncoding ((q:ℝ)/2^128) w.toReal≤theta)
-    (herror:canonicalError ((q:ℝ)/2^128) w.toReal*(755/1000)≤ec) :
+    (herror:canonicalError ((q:ℝ)/2^128) w.toReal≤1061/1000) :
     (Pr[Combined | PairedReference.referenceExperiment adversary q]).toReal ≤
       theta*((PairedSmallT.prefixMass adversary q).toReal/2^128+
         (PairedSmallT.encodingMass adversary q).toReal/2^128)+
-      (PairedSmallT.otherMass adversary q).toReal/2^128+ec*((q:ℝ)/2^128)^2+(1/2^139+1/2^142) := by
+      (PairedSmallT.otherMass adversary q).toReal/2^128+(802/1000)*((q:ℝ)/2^128)^2+(1/2^139+1/2^142) := by
   have hqN : q<2^128 := by omega
   have hf := PairedSmallT.masses_finite adversary q hq
   have hraw := (reference_primitive_leFam S H adversary q hqN w v hwv).trans
     (add_le_add (add_le_add (add_le_add (add_le_add (add_le_add hfailed le_rfl) le_rfl) le_rfl) le_rfl) le_rfl)
   exact primitive_real_of_rawFam S H hC adversary q hqN hy w v hw hv hwv hf.1 hf.2.1
-    _ (PairedSmallT.otherMass adversary q) hf.2.2.1 hraw theta ec hprefix hencoding herror
+    _ (PairedSmallT.otherMass adversary q) hf.2.2.1 hraw theta hprefix hencoding herror
 
 theorem primitive_middle_real_of_failureFam (S : FamScheme) {Cmax : Nat} (H : FamTot.FamHyps S Cmax)
     (hC : Cmax ≤ 301) (adversary : Final.Paired.AdversaryP) (q : Nat) (hq:q≤2^127)
@@ -3178,16 +3175,13 @@ theorem primitive_middle_real_of_failureFam (S : FamScheme) {Cmax : Nat} (H : Fa
     (Pr[Combined | PairedReference.referenceExperiment adversary q]).toReal ≤
       (1996581/1000000)*((PairedSmallT.prefixMass adversary q).toReal/2^128+
         (PairedSmallT.encodingMass adversary q).toReal/2^128)+
-      (PairedSmallT.otherMass adversary q).toReal/2^128+(793/1000)*((q:ℝ)/2^128)^2+(1/2^139+1/2^142) := by
+      (PairedSmallT.otherMass adversary q).toReal/2^128+(802/1000)*((q:ℝ)/2^128)^2+(1/2^139+1/2^142) := by
   have hc := middle_coefficients_t ((q:ℝ)/2^128) (by positivity) hy
   apply primitive_real_of_failureFam S H hC adversary q hq (hy.trans (by norm_num)) (21931/1000000) (978069/1000000)
     (by finiteness) (by finiteness) (by norm_num [ENNReal.div_add_div_same]; exact ENNReal.div_self (by norm_num) (by finiteness)) hfailed
   · simpa only [ENNReal.toReal_div,ENNReal.toReal_ofNat] using hc.1
   · simpa only [ENNReal.toReal_div,ENNReal.toReal_ofNat] using hc.2.1
-  · have hE : canonicalError ((q:ℝ)/2^128) ((21931/1000000 : ENNReal).toReal)≤105025/100000 := by
-      simpa only [ENNReal.toReal_div,ENNReal.toReal_ofNat] using hc.2.2
-    norm_num [ENNReal.toReal_div,ENNReal.toReal_ofNat] at hE ⊢
-    nlinarith
+  · simpa only [ENNReal.toReal_div,ENNReal.toReal_ofNat] using hc.2.2
 
 theorem primitive_tiny_real_of_failureFam (S : FamScheme) {Cmax : Nat} (H : FamTot.FamHyps S Cmax)
     (hC : Cmax ≤ 301) (adversary : Final.Paired.AdversaryP) (q : Nat) (hq:q≤2^127)
@@ -3202,10 +3196,7 @@ theorem primitive_tiny_real_of_failureFam (S : FamScheme) {Cmax : Nat} (H : FamT
     (by finiteness) (by finiteness) (by norm_num [ENNReal.div_add_div_same]; exact ENNReal.div_self (by norm_num) (by finiteness)) hfailed
   · simpa only [ENNReal.toReal_div,ENNReal.toReal_ofNat] using hc.1
   · simpa only [ENNReal.toReal_div,ENNReal.toReal_ofNat] using hc.2.1
-  · have hE : canonicalError ((q:ℝ)/2^128) ((3/100 : ENNReal).toReal)≤1061/1000 := by
-      simpa only [ENNReal.toReal_div,ENNReal.toReal_ofNat] using hc.2.2
-    norm_num [ENNReal.toReal_div,ENNReal.toReal_ofNat] at hE ⊢
-    nlinarith
+  · simpa only [ENNReal.toReal_div,ENNReal.toReal_ofNat] using hc.2.2
 
 end ClaudeWCT.W9.T3.Security.Wots.CanonicalWeighted
 
@@ -3225,7 +3216,7 @@ theorem primitive_middle_realFam (S : FamScheme) {Cmax : Nat} (H : CanonicalRef.
     (Pr[Combined | PairedReference.referenceExperiment adversary q]).toReal ≤
       (1996581/1000000)*((PairedSmallT.prefixMass adversary q).toReal/2^128+
         (PairedSmallT.encodingMass adversary q).toReal/2^128)+
-      (PairedSmallT.otherMass adversary q).toReal/2^128+(793/1000)*((q:ℝ)/2^128)^2+(1/2^139+1/2^142) :=
+      (PairedSmallT.otherMass adversary q).toReal/2^128+(802/1000)*((q:ℝ)/2^128)^2+(1/2^139+1/2^142) :=
   primitive_middle_real_of_failureFam S H hC adversary q hq hy (reference_failed_le adversary q)
 
 theorem primitive_tiny_realFam (S : FamScheme) {Cmax : Nat} (H : CanonicalRef.Normalized.FamTot.FamHyps S Cmax)
@@ -3249,25 +3240,6 @@ set_option exponentiation.threshold 1024
 set_option backward.isDefEq.respectTransparency false
 attribute [local instance] Classical.propDecidable
 
-theorem middle_boundFam (S : FamScheme) {Cmax : Nat} (H : CanonicalRef.Normalized.FamTot.FamHyps S Cmax)
-    (hC : Cmax ≤ 301) (adversary : Final.Paired.AdversaryP) (q : Nat) (hq:q≤2^127)
-    (hlow:1/(2:ℝ)^28≤(q:ℝ)/2^128) (hhigh:(q:ℝ)/2^128≤1251/1000000) :
-    Pr[QueryRecorded.CleanWin q | PairedOuter.PaddedGame.tracedExperiment adversary q hq]+
-      q/(2:ENNReal)^146+(2:ENNReal)⁻¹^700+((2:ENNReal)^152)⁻¹+
-      q/((2^256:Nat):ENNReal)≤(q:ENNReal)/2^127 := by
-  apply clean_outer_ennrealG adversary q hq
-  apply middle_clean_closingG adversary q hq hlow hhigh (1230/1000000) le_rfl ?_
-    (completed_partial_certifiedG adversary q hq)
-  have hp:=CanonicalWeighted.primitive_middle_realFam S H hC adversary q hq hhigh
-  have h:=clean_probability_real_ofG adversary q hq (completed_split_canonical adversary q hq)
-    (1996581/1000000) (1230/1000000) (by finiteness) (by finiteness) (by
-      simpa (disch:=positivity) only [ENNReal.ofReal_div_of_pos,ENNReal.ofReal_ofNat,ENNReal.ofReal_one] using
-        ENNReal.ofReal_le_ofReal (by norm_num : (1:ℝ)/1024≤1996581/1000000))
-    (793/1000) excess_middle_actualG (by simpa only [ENNReal.toReal_div,ENNReal.toReal_ofNat] using! hp)
-    (completed_incomplete_bound adversary q hq)
-    (by simpa only [one_div] using FtsOverflow.Paired.cleanWin_noOverflow_le adversary q hq)
-  simpa only [ENNReal.toReal_div,ENNReal.toReal_ofNat] using h
-
 theorem tiny_boundFam (S : FamScheme) {Cmax : Nat} (H : CanonicalRef.Normalized.FamTot.FamHyps S Cmax)
     (hC : Cmax ≤ 301) (adversary : Final.Paired.AdversaryP) (q : Nat) (hq:q≤2^127)
     (hpositive:1≤q) (hhigh:(q:ℝ)/2^128≤1/2^28) :
@@ -3282,20 +3254,10 @@ theorem tiny_boundFam (S : FamScheme) {Cmax : Nat} (H : CanonicalRef.Normalized.
     (249/125) (18/5000) (by finiteness) (by finiteness) (by
       simpa (disch:=positivity) only [ENNReal.ofReal_div_of_pos,ENNReal.ofReal_ofNat,ENNReal.ofReal_one] using
         ENNReal.ofReal_le_ofReal (by norm_num : (1:ℝ)/1024≤249/125))
-    (802/1000) excess_tiny_actualG (by simpa only [ENNReal.toReal_div,ENNReal.toReal_ofNat] using! hp)
+    excess_tiny_actualG (by simpa only [ENNReal.toReal_div,ENNReal.toReal_ofNat] using! hp)
     (completed_incomplete_bound adversary q hq)
     (by simpa only [one_div] using FtsOverflow.Paired.cleanWin_noOverflow_le adversary q hq)
   simpa only [ENNReal.toReal_div,ENNReal.toReal_ofNat] using h
-
-theorem small_boundFam (S : FamScheme) {Cmax : Nat} (H : CanonicalRef.Normalized.FamTot.FamHyps S Cmax)
-    (hC : Cmax ≤ 301) (adversary : Final.Paired.AdversaryP) (q : Nat) (hq:q≤2^127)
-    (hpositive:1≤q) (hhigh:(q:ℝ)/2^128≤1251/1000000) :
-    Pr[QueryRecorded.CleanWin q | PairedOuter.PaddedGame.tracedExperiment adversary q hq]+
-      q/(2:ENNReal)^146+(2:ENNReal)⁻¹^700+((2:ENNReal)^152)⁻¹+
-      q/((2^256:Nat):ENNReal)≤(q:ENNReal)/2^127 := by
-  by_cases ht:(q:ℝ)/2^128≤1/2^28
-  · exact tiny_boundFam S H hC adversary q hq hpositive ht
-  · exact middle_boundFam S H hC adversary q hq (le_of_lt (lt_of_not_ge ht)) hhigh
 
 end ClaudeWCT.W9.T3.Security.Wots.PairedSmallT
 
@@ -3308,22 +3270,6 @@ open ClaudeWCT.W9.T3.Security.Wots.FamRestart (FamScheme layoutScheme)
 set_option maxHeartbeats 1000000
 set_option maxRecDepth 10000
 attribute [local instance] Classical.propDecidable
-
-/-- **The live security theorem through the family seed-error charge**: any family scheme with the family-restart
-hypotheses and per-test charge `Cmax ≤ 305`. -/
-theorem t3_securityP_fam (S : FamScheme) (Cmax : Nat)
-    (H : ClaudeWCT.W9.T3.Security.Wots.CanonicalRef.Normalized.FamTot.FamHyps S Cmax) (hC : Cmax ≤ 301) :
-    ClaudeWCT.W9.T3M.Final.Paired.SecurityP := by
-  apply PairedOuter.PaddedGame.securityP_of_clean_bound
-  intro adversary q hpositive hq
-  by_cases hsmall : (q:ℝ)/2^128 ≤ 1251/1000000
-  · exact Wots.PairedSmallT.small_boundFam S H hC adversary q hq hpositive hsmall
-  · exact LargeCoupling.Paired.large_bound adversary q hq (le_of_not_ge hsmall)
-
-/-- **The live security theorem of the v6 scheme** (the `Correctness` layout: lower 7-leaf families, charge 301). -/
-theorem t3_securityP_layout : ClaudeWCT.W9.T3M.Final.Paired.SecurityP :=
-  t3_securityP_fam layoutScheme 301 ClaudeWCT.W9.T3.Security.Wots.CanonicalRef.Normalized.FamTot.layoutHyps
-    (by norm_num)
 
 end ClaudeWCT.W9.T3.Secc.Paired
 end

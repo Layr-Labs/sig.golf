@@ -11932,9 +11932,9 @@ def jointAccountingCost (output : HashOutput) : Nat :=
 def ranksAccepted (output : HashOutput) : Bool :=
   (List.finRange 9).all (fun coord => decide (rawForestRank output coord.val < 563))
 
-/-- Joint cap 776 (`P(joint ≤ 776 | gate, ranks) = 0.990672`). -/
+/-- Joint cap 777 (`P(joint ≤ 777 | gate, ranks) = 0.990672`). -/
 def digestAccepted (output : HashOutput) : Bool :=
-  decide (output.toNat / 2 ^ 242 % 16384 < 826) && ranksAccepted output &&
+  decide (output.toNat / 2 ^ 242 % 16384 < 934) && ranksAccepted output &&
     decide (jointAccountingCost output ≤ 776)
 
 theorem firstCoord_eq_shared (coord : Nat) : firstCoord coord = decide (coord < 8 ∧ coord % 2 = 0) := rfl
@@ -11944,7 +11944,7 @@ theorem ranksAccepted_iff (output : HashOutput) : ranksAccepted output = true �
   simp [ranksAccepted, List.all_eq_true]
 
 theorem accepted_conditions (output : HashOutput) (h : digestAccepted output = true) :
-    output.toNat / 2 ^ 242 % 16384 < 826 ∧
+    output.toNat / 2 ^ 242 % 16384 < 934 ∧
     (∀ coord : Fin 9, rawForestRank output coord.val < 563) ∧
     jointAccountingCost output ≤ 776 := by
   simpa only [digestAccepted, Bool.and_eq_true, decide_eq_true_eq, ranksAccepted_iff,
@@ -12868,19 +12868,19 @@ theorem canonical_search_valid_credit (answers : Answers) (lay : Layer) (floor t
     CanonicalPolicy.producerDecodeAt_credit hd⟩
 
 theorem canonical_four_residual (d0 d1 d2 d3 : List Nat) (l0 l1 l2 l3 : Bool)
-    (h0 : 14 ≤ CanonicalPolicy.credit 0 l0 d0)
-    (h1 : CanonicalPolicy.threshold 1 (CanonicalPolicy.nextResidual 67 0 l0 d0) ≤
+    (h0 : 17 ≤ CanonicalPolicy.credit 0 l0 d0)
+    (h1 : CanonicalPolicy.threshold 1 (CanonicalPolicy.nextResidual 70 0 l0 d0) ≤
       CanonicalPolicy.credit 1 l1 d1)
     (h2 : CanonicalPolicy.threshold 2
-      (CanonicalPolicy.nextResidual (CanonicalPolicy.nextResidual 67 0 l0 d0) 1 l1 d1) ≤
+      (CanonicalPolicy.nextResidual (CanonicalPolicy.nextResidual 70 0 l0 d0) 1 l1 d1) ≤
       CanonicalPolicy.credit 2 l2 d2)
     (h3 : CanonicalPolicy.threshold 3
       (CanonicalPolicy.nextResidual
-        (CanonicalPolicy.nextResidual (CanonicalPolicy.nextResidual 67 0 l0 d0) 1 l1 d1) 2 l2 d2) ≤
+        (CanonicalPolicy.nextResidual (CanonicalPolicy.nextResidual 70 0 l0 d0) 1 l1 d1) 2 l2 d2) ≤
       CanonicalPolicy.credit 3 l3 d3) :
     CanonicalPolicy.nextResidual (CanonicalPolicy.nextResidual
-      (CanonicalPolicy.nextResidual (CanonicalPolicy.nextResidual 67 0 l0 d0) 1 l1 d1) 2 l2 d2) 3 l3 d3 = 0 := by
-  let r1 := CanonicalPolicy.nextResidual 67 0 l0 d0
+      (CanonicalPolicy.nextResidual (CanonicalPolicy.nextResidual 70 0 l0 d0) 1 l1 d1) 2 l2 d2) 3 l3 d3 = 0 := by
+  let r1 := CanonicalPolicy.nextResidual 70 0 l0 d0
   have hr1 : r1 < 54 := by dsimp [r1, CanonicalPolicy.nextResidual]; omega
   have hw1 := firstThreshold_window ⟨r1, hr1⟩
   change CanonicalPolicy.threshold 1 r1 < 16 ∧ r1 - CanonicalPolicy.threshold 1 r1 ≤ 39 at hw1
@@ -12905,7 +12905,7 @@ namespace SigGolfCandidate.Research.SharedForest
 open OracleComp OracleSpec SigGolfCandidate.T3 ClaudeWCT.WCT9
 
 def verifyDigestAccepted (output : HashOutput) : Bool :=
-  decide (output.toNat / 2 ^ 242 % 16384 < 826) && ranksAccepted output
+  decide (output.toNat / 2 ^ 242 % 16384 < 934) && ranksAccepted output
 
 theorem digestAccepted_implies_verify {output : HashOutput} (h : digestAccepted output = true) :
     verifyDigestAccepted output = true := by
@@ -14354,7 +14354,7 @@ def coordinateCost (f : Fields) (k : Fin 9) : Nat :=
      else SharedForest.bCorrection (f.1 k).toNat)
 def cost (f : Fields) : Nat := ((List.finRange 9).map (coordinateCost f)).sum
 def accepted (f : Fields) : Bool :=
-  decide (f.2.2.2.toNat < 826) &&
+  decide (f.2.2.2.toNat < 934) &&
     (List.finRange 9).all (fun k => decide ((f.2.1 k).toNat < 563)) && decide (cost f ≤ 776)
 
 theorem decodedRank_fields (a : HashOutput) (k : Fin 9) :
@@ -14474,10 +14474,10 @@ theorem policyHints_credit_sum (hints : BitVec 16) (digits : List (List Nat)) (l
     (hh : policyHintsValid hints digits lows = true)
     (hc : ∀ lay : Layer, hintFloor hints lay ≤
       CanonicalPolicy.credit lay (lows.getD lay.val true) (digits.getD lay.val [])) :
-    67 ≤ ((List.finRange 4).map fun lay =>
+    70 ≤ ((List.finRange 4).map fun lay =>
       CanonicalPolicy.credit lay (lows.getD lay.val true) (digits.getD lay.val [])).sum := by
   simp only [policyHintsValid, decide_eq_true_eq] at hh
-  have h0 : 14 ≤ CanonicalPolicy.credit 0 (lows.getD 0 true) (digits.getD 0 []) := by
+  have h0 : 17 ≤ CanonicalPolicy.credit 0 (lows.getD 0 true) (digits.getD 0 []) := by
     simpa [hintFloor, CanonicalPolicy.topFloor] using hc 0
   have h1 := hc 1
   have h2 := hc 2
@@ -14488,7 +14488,7 @@ theorem policyHints_credit_sum (hints : BitVec 16) (digits : List (List Nat)) (l
   have hz := canonical_four_residual (digits.getD 0 []) (digits.getD 1 []) (digits.getD 2 [])
     (digits.getD 3 []) (lows.getD 0 true) (lows.getD 1 true) (lows.getD 2 true) (lows.getD 3 true) h0 h1 h2 h3
   simp only [CanonicalPolicy.nextResidual] at hz
-  change 67 ≤ CanonicalPolicy.credit 0 (lows.getD 0 true) (digits.getD 0 []) +
+  change 70 ≤ CanonicalPolicy.credit 0 (lows.getD 0 true) (digits.getD 0 []) +
     (CanonicalPolicy.credit 1 (lows.getD 1 true) (digits.getD 1 []) +
       (CanonicalPolicy.credit 2 (lows.getD 2 true) (digits.getD 2 []) +
       (CanonicalPolicy.credit 3 (lows.getD 3 true) (digits.getD 3 []) + 0)))
@@ -15723,14 +15723,14 @@ def viewProposal (v : Coordinates) : Proposal :=
   (v.1.2.2.1, v.1.1, fun k => ⟨(v.1.2.1 k).val % 563, Nat.mod_lt _ (by decide)⟩)
 def proposal (a : HashOutput) : Proposal := viewProposal (coordinates a)
 def admissibleView (v : Coordinates) : Bool :=
-  decide (v.1.2.2.2.val < 826) && (List.finRange 9).all (fun k => decide ((v.1.2.1 k).val < 563))
+  decide (v.1.2.2.2.val < 934) && (List.finRange 9).all (fun k => decide ((v.1.2.1 k).val < 563))
 def admissible (a : HashOutput) : Bool := admissibleView (coordinates a)
 
 theorem admissibleView_iff (v : Coordinates) :
-    admissibleView v = true ↔ v.1.2.2.2.val < 826 ∧ ∀ k : Fin 9, (v.1.2.1 k).val < 563 := by
+    admissibleView v = true ↔ v.1.2.2.2.val < 934 ∧ ∀ k : Fin 9, (v.1.2.1 k).val < 563 := by
   simp only [admissibleView, Bool.and_eq_true, decide_eq_true_eq, List.all_eq_true,
     List.mem_finRange, forall_true_left]
-abbrev FibreData := Fin 826 × (Fin 62 → Bool)
+abbrev FibreData := Fin 934 × (Fin 62 → Bool)
 def fibreEquiv (p : Proposal) :
     {v : Coordinates // admissibleView v = true ∧ viewProposal v = p} ≃ FibreData where
   toFun v := (⟨v.1.1.2.2.2.val, ((admissibleView_iff v.1).1 v.2.1).1⟩, v.1.2)
@@ -15749,7 +15749,7 @@ def fibreEquiv (p : Proposal) :
 
 theorem card_fibre (p : Proposal) :
     (Finset.univ.filter (fun a : HashOutput => admissible a = true ∧ proposal a = p)).card =
-      826 * 2^62 := by
+      934 * 2^62 := by
   have e : {a : HashOutput // admissible a = true ∧ proposal a = p} ≃
       {v : Coordinates // admissibleView v = true ∧ viewProposal v = p} :=
     coordinatesEquiv.subtypeEquiv (fun _ => Iff.rfl)
@@ -15759,7 +15759,7 @@ theorem card_fibre (p : Proposal) :
 
 theorem sum_admissible (g : Proposal → ENNReal) :
     (∑ a : HashOutput, if admissible a = true then g (proposal a) else 0) =
-      ((826 * 2^62 : Nat) : ENNReal) * ∑ p, g p := by
+      ((934 * 2^62 : Nat) : ENNReal) * ∑ p, g p := by
   rw [← Finset.sum_filter, ← Finset.sum_fiberwise _ proposal, Finset.mul_sum]
   apply Finset.sum_congr rfl
   intro p _
@@ -15768,7 +15768,7 @@ theorem sum_admissible (g : Proposal → ENNReal) :
 
 theorem acceptance_eq :
     Pr[fun a : HashOutput => admissible a = true | ($ᵗ HashOutput : ProbComp HashOutput)] =
-      (826 * 563^9 : ENNReal) / 2^104 := by
+      (934 * 563^9 : ENNReal) / 2^104 := by
   rw [← expectedValue_ite_one, BPORS.expected_uniform_eq_finiteAverage]
   unfold SigGolfResearch.Gate6.Moments.finiteAverage
   rw [sum_admissible (fun _ => 1), Finset.sum_const, Finset.card_univ, nsmul_eq_mul, mul_one]
@@ -15799,7 +15799,7 @@ def coordinateCost (a : Alphabet) (k : Fin 9) : Nat :=
     if SharedForest.firstCoord k.val then SharedForest.aCorrection (lowField a.1 k)
     else SharedForest.bCorrection (lowField a.1 k)
 def cost (a : Alphabet) : Nat := ((List.finRange 9).map (coordinateCost a)).sum
-/-- The producer's joint cap 776 (`SharedForest.digestAccepted`). -/
+/-- The producer's joint cap 777 (`SharedForest.digestAccepted`). -/
 def capOk (a : Alphabet) : Bool := decide (cost a ≤ 776)
 def producer (a : HashOutput) : Bool := admissible a && capOk (proposal a).2
 
@@ -15836,7 +15836,7 @@ theorem cost_source (a : HashOutput) : cost (proposal a).2 = SharedForest.jointA
   simp only [cost, SharedForest.jointAccountingCost, h]
 
 theorem admissible_source (a : HashOutput) :
-    admissible a = (decide (a.toNat/2^242%16384 < 826) && SharedForest.ranksAccepted a) := by
+    admissible a = (decide (a.toNat/2^242%16384 < 934) && SharedForest.ranksAccepted a) := by
   simp only [admissible, admissibleView, coordinates, rawFields, BitVec.val_toFin,
     BitVec.extractLsb'_toNat, Nat.shiftRight_eq_div_pow]
   rfl
