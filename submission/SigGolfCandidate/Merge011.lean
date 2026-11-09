@@ -857,12 +857,11 @@ def producerDecode (lay : Layer) (answer : Digest) : Option (List Nat) :=
   | none => none
 /-- The smallest lower-layer window (L1, L2). -/
 def lowerSearchLimit : Nat := 2 ^ 21
-/-- Top counter window 2^20 (top-bytes layer). The legacy `T3.counterLimit` (2^22, the legacy T3 scheme and the
+/-- Enlarged top counter window 2^21 (top-bytes layer). The legacy `T3.counterLimit` (2^22, the legacy T3 scheme and the
 presampling key space) is unchanged; the canonical searches use `searchLimit`. -/
-def topSearchLimit : Nat := 2 ^ 20
-/-- Per-layer counter windows of the shipped images (opus-crumbs img-v4 check `t1 = ((s0 + 3) >> 1) << 20`, which also
-enforces the top limit): top 2^20, L1/L2 2^21, L3 3·2^20. -/
-def searchLimit (lay : Layer) : Nat := (lay.val + 3) / 2 * 2 ^ 20
+def topSearchLimit : Nat := 2 ^ 21
+/-- Per-layer counter windows: `((s0 < 3) xor 3) << 20`; top and L1/L2 use 2^21, L3 uses 3·2^20. -/
+def searchLimit (lay : Layer) : Nat := if lay = 3 then 3 * 2 ^ 20 else 2 ^ 21
 /-- The verifier accepts every 32-bit counter: its window is the whole `BitVec 32` range, so the layer check
 never rejects. The signer still searches `searchLimit`. -/
 def verifyWindow : Nat := 2 ^ 32
@@ -879,9 +878,9 @@ Defined before the encoding selector because the top producer choice uses the ca
   LOW costs 4 cycles, HIGH 6). -/
 namespace CanonicalPolicy
 /-- The credit pool every canonical path must reach. -/
-def totalCredit : Nat := 70
+def totalCredit : Nat := 71
 /-- The (fixed) top credit floor (on the path-aware credit). -/
-def topFloor : Nat := 17
+def topFloor : Nat := 18
 /-- All three lower layers use digit sum 201. Layer 1's existing broad decoder
 has the same lower digit layout and this exact target. -/
 def normalLayer (lay : Layer) : Layer := if lay = 0 then 0 else 1
@@ -1524,7 +1523,7 @@ theorem producerDecodeOut_credit {lay : Layer} {floor : Nat} {answer : HashOutpu
     {low : Bool} (h : producerDecodeOut lay floor answer = some (digits, low)) : floor ≤ credit lay low digits :=
   producerDecodeAt_credit (producerDecodeOut_spec h).2
 
-theorem threshold_top (residual : Nat) : threshold 0 residual = 17 := by
+theorem threshold_top (residual : Nat) : threshold 0 residual = 18 := by
   simp [threshold, topFloor]
 
 theorem nextResidual_le (residual : Nat) (lay : Layer) (low : Bool) (digits : List Nat) :
@@ -1562,7 +1561,7 @@ theorem lower_three_progress (r : Nat) (hr : r < 22) :
     threshold 3 r = r := by simp [threshold, show r ≤ 21 by omega]
 
 theorem accepted_top_residual {answer : Digest} {low : Bool} {digits : List Nat}
-    (h : producerDecodeAt 0 17 low answer = some digits) : nextResidual 70 0 low digits < 54 := by
+    (h : producerDecodeAt 0 18 low answer = some digits) : nextResidual 71 0 low digits < 54 := by
   have hc := producerDecodeAt_credit h
   unfold nextResidual
   omega

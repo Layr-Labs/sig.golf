@@ -782,11 +782,11 @@ theorem verify_good
 theorem verify_good_6997
     (hprefix : W9Fin.V7.PrefixGood GatePre)
     (fts : ∀ w : WB, FtsGoodByCost GatePre FtsOut ftsProgram (fun a => 858 + cost a) (P w))
-    (after : AfterGoodBudget FtsOut afterProgram 5237 P)
+    (after : AfterGoodBudget FtsOut afterProgram 5236 P)
     (hnone : ∀ pk w i, afterProgram pk w i none = pure false)
     (m : SigGolfCandidate.Legacy.Message) (pk : PublicKey) (w : WB) (s : MachineState)
     (hs : initialState submission .verify (m,pk,w) = some s) :
-    GoodQP (Pre (P w) cost 776 m w) s 10083 15784 True 6882
+    GoodQP (Pre (P w) cost 776 m w) s 10083 15784 True 6881
       (ccM (verifyP ftsProgram afterProgram m pk w) Kb) :=
   verify_good hprefix fts after hnone m pk w s hs
 end
@@ -831,7 +831,7 @@ theorem fts_installed {P : Hash → Prop} :
   exact goodQP_frozen.mp h
 
 theorem after_installed (floors : SigGolfCandidate.T3.Layer → Nat) (hcredit : CreditFloors floors) :
-    AfterGoodBudget installedOut SigGolfCandidate.T3M.Verify.afterFts 5237
+    AfterGoodBudget installedOut SigGolfCandidate.T3M.Verify.afterFts 5236
       (fun w => HashOkBy floors (ClaudeWCT.W9.T3M.wtopHigh w)) :=
   fun pk w Q hQ answer top state hstate =>
     SigGolfCandidate.T3M.after_good_budget floors hcredit pk w Q hQ answer top state hstate
@@ -841,7 +841,7 @@ theorem installed_verify_good (floors : SigGolfCandidate.T3.Layer → Nat) (hcre
     (hstate : initialState submission .verify (message, pk, witness) = some state) :
     GoodQP (Pre (HashOkBy floors (ClaudeWCT.W9.T3M.wtopHigh witness))
       SigGolfCandidate.Research.SharedForest.jointAccountingCost 776 message witness)
-      state 10083 15784 True 6882
+      state 10083 15784 True 6881
       (ccM (verifyP installedFts SigGolfCandidate.T3M.Verify.afterFts message pk witness) Kb) :=
   verify_good_6997 (P := fun w => HashOkBy floors (ClaudeWCT.W9.T3M.wtopHigh w)) W9Fin.V7.prefixGood
     (fun _ => fts_installed) (after_installed floors hcredit)
@@ -903,7 +903,7 @@ abbrev pairedSubmission := ClaudeWCT.W9.T3M.Paired.submission
 def Inputs : Prop := ∀ (floors : SigGolfCandidate.T3.Layer→Nat), CreditFloors floors →
   ∀ (m : SigGolfCandidate.Legacy.Message) (pk : PublicKey) (w : Bytes 21756) (s : MachineState),
   initialState SigGolfCandidate.T3M.submission .verify (m,pk,w)=some s →
-  GoodQP (fun hash => HashOkBy floors (ClaudeWCT.W9.T3M.wtopHigh w) hash ∧ DigestCapOk hash m w) s 10083 15784 True 6882
+  GoodQP (fun hash => HashOkBy floors (ClaudeWCT.W9.T3M.wtopHigh w) hash ∧ DigestCapOk hash m w) s 10083 15784 True 6881
     (ccM (ClaudeWCT.W9.T3M.Paired.verifyP m pk w) Kb)
 
 theorem init_paired (I : ClaudeWCT.W9.T3M.Images) (hI : I.verify=Images.verifyImage)
