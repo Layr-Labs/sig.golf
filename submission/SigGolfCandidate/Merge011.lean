@@ -253,8 +253,7 @@ is the 64-bit counter at bytes 32..39 of the node input (the Merkle pad; bytes 4
 `merkleNodeInput`. Zero bits (E11 V29): heaps 16..31 -> 1, 8..15 -> 2, 4..7 -> 3, 2..3 -> 3 on layer 1, else 4; cap `128 · 2^b`.
 Every other node (the top tree, heaps 1 and ≥ 16) has `b = 0` and is the plain `lowerNodeHash`. -/
 def lowerZeroBits (lay heap : Nat) : Nat :=
-  if lay = 0 ∨ heap < 2 ∨ 32 ≤ heap then 0 else if 16 ≤ heap then 1 else if 8 ≤ heap then 2 else if 4 ≤ heap then 3
-  else if lay = 1 then 3 else 4
+  if lay = 0 ∨ heap < 2 ∨ 32 ≤ heap then 0 else if 8 ≤ heap then 2 else if 4 ≤ heap then (if lay = 1 then 4 else 3) else 4
 def lowerNonceCap (lay heap : Nat) : Nat := 128 * 2 ^ lowerZeroBits lay heap
 def lowerZeroOk (lay heap : Nat) (value : Digest) : Bool :=
   value.toNat / 2 ^ (128 - lowerZeroBits lay heap) == 0
@@ -710,7 +709,7 @@ of `ftsNodeHashN coord index heap n left right` (the node input with the 64-bit 
 kept low half has its top `ftsZeroBits coord heap` bits clear; if no trial passes, the last one is kept. Coordinates
 0 and 1 demand 1 zero bit, coordinates 2..8 demand 2 (16 carrier bits); every other node has `b = 0` and is the
 plain `wctNodeHashH`. `n = 0` is the plain node input. -/
-def ftsZeroBits (coord heap : Nat) : Nat := if 8 ≤ heap ∧ heap < 16 then (if coord ≤ 1 then 1 else 2) else 0
+def ftsZeroBits (coord heap : Nat) : Nat := if 8 ≤ heap ∧ heap < 16 then 2 else 0
 def ftsNonceCap (coord heap : Nat) : Nat := 128 * 2 ^ ftsZeroBits coord heap
 def ftsZeroOk (coord heap : Nat) (value : Digest) : Bool :=
   value.toNat / 2 ^ (128 - ftsZeroBits coord heap) == 0
@@ -855,11 +854,12 @@ def producerDecode (lay : Layer) (answer : Digest) : Option (List Nat) :=
   | none => none
 /-- The smallest lower-layer window (L1, L2). -/
 def lowerSearchLimit : Nat := 2 ^ 21
-/-- Enlarged top counter window 2^21 (top-bytes layer). The legacy `T3.counterLimit` (2^22, the legacy T3 scheme and the
+/-- Top counter window 2^20 (top-bytes layer). The legacy `T3.counterLimit` (2^22, the legacy T3 scheme and the
 presampling key space) is unchanged; the canonical searches use `searchLimit`. -/
-def topSearchLimit : Nat := 2 ^ 21
-/-- Per-layer counter windows: `((s0 < 3) xor 3) << 20`; top and L1/L2 use 2^21, L3 uses 3·2^20. -/
-def searchLimit (lay : Layer) : Nat := if lay = 3 then 3 * 2 ^ 20 else 2 ^ 21
+def topSearchLimit : Nat := 2 ^ 20
+/-- Per-layer counter windows of the shipped images (opus-crumbs img-v4 check `t1 = ((s0 + 3) >> 1) << 20`, which also
+enforces the top limit): top 2^20, L1/L2 2^21, L3 3·2^20. -/
+def searchLimit (lay : Layer) : Nat := (lay.val + 3) / 2 * 2 ^ 20
 /-- The verifier accepts every 32-bit counter: its window is the whole `BitVec 32` range, so the layer check
 never rejects. The signer still searches `searchLimit`. -/
 def verifyWindow : Nat := 2 ^ 32
@@ -876,9 +876,9 @@ Defined before the encoding selector because the top producer choice uses the ca
   LOW costs 4 cycles, HIGH 6). -/
 namespace CanonicalPolicy
 /-- The credit pool every canonical path must reach. -/
-def totalCredit : Nat := 71
+def totalCredit : Nat := 70
 /-- The (fixed) top credit floor (on the path-aware credit). -/
-def topFloor : Nat := 18
+def topFloor : Nat := 17
 /-- All three lower layers use digit sum 201. Layer 1's existing broad decoder
 has the same lower digit layout and this exact target. -/
 def normalLayer (lay : Layer) : Layer := if lay = 0 then 0 else 1
@@ -1448,12 +1448,11 @@ def ftsSearchLimit : Nat := 2 ^ 21
 
 /-- Layer-1 floors by residual `r ≤ 53` (= 67 - 14; SGV1 credit law, bonus 2 on LOW or HIGH-a). -/
 def lowerOneThresholds : List Nat :=
-  [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
-   1,2,3,4,5,6,7,8,9,9,10,11,11,12,13,13,14]
+  [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 2, 4, 4, 6, 6, 6, 8, 8, 10, 10, 10, 12, 12, 14, 14]
 
 /-- Layer-2 floors by residual `r ≤ 39` (SGV1 credit law). -/
 def lowerTwoThresholds : List Nat :=
-  [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,2,3,4,5,6,7,8,9,10,10,11,12,13,14,14,15,16,16,17,18]
+  [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 10, 11, 12, 13, 14, 14, 15, 16, 17, 18]
 
 /-- Largest lower floor (L3 floors reach 21; policy hints use the mixed radix 484 / 22 / 1, bound 7744). -/
 def lowerFloorMax : Nat := 21
@@ -1521,7 +1520,7 @@ theorem producerDecodeOut_credit {lay : Layer} {floor : Nat} {answer : HashOutpu
     {low : Bool} (h : producerDecodeOut lay floor answer = some (digits, low)) : floor ≤ credit lay low digits :=
   producerDecodeAt_credit (producerDecodeOut_spec h).2
 
-theorem threshold_top (residual : Nat) : threshold 0 residual = 18 := by
+theorem threshold_top (residual : Nat) : threshold 0 residual = 17 := by
   simp [threshold, topFloor]
 
 theorem nextResidual_le (residual : Nat) (lay : Layer) (low : Bool) (digits : List Nat) :
@@ -1559,7 +1558,7 @@ theorem lower_three_progress (r : Nat) (hr : r < 22) :
     threshold 3 r = r := by simp [threshold, show r ≤ 21 by omega]
 
 theorem accepted_top_residual {answer : Digest} {low : Bool} {digits : List Nat}
-    (h : producerDecodeAt 0 18 low answer = some digits) : nextResidual 71 0 low digits < 54 := by
+    (h : producerDecodeAt 0 17 low answer = some digits) : nextResidual 70 0 low digits < 54 := by
   have hc := producerDecodeAt_credit h
   unfold nextResidual
   omega

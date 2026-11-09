@@ -50,7 +50,7 @@ theorem code_gw {im : Image} (hS : CodeAt im (pcOf SIGN_STUB) signStubWords) (a 
   rwa [show SIGN_STUB + (a - SIGN_STUB) = a by omega] at this
 
 /-- The width selector: `r = 1` iff the stub was entered from trampoline 0 or 1 (`a6 < pcOf (SIGN_TRAMP + 8)`). -/
-def signR (tb : Nat) : Nat := if tb + 2 < SIGN_TRAMP + 8 then 1 else 0
+def signR (tb : Nat) : Nat := if tb + 2 < SIGN_TRAMP then 1 else 0
 
 theorem signR_width (k : Nat) (hk : k < 9) : 2 - signR (SIGN_TRAMP + 5 * k) = ftsWidth k := by
   interval_cases k <;> decide
@@ -105,9 +105,9 @@ theorem g_spec (hpc : s.pc = pcOf 25314) (tb : Nat) (h16 : s.getReg .x16 = pcOf 
   refine ⟨_, symRun_sound sG hc s hpc (by simp [sG.res, rv_simp]), ?_, ?_, ?_, ?_, ?_, ?_⟩
   · simp [sG.res, Result.toState_pc, E.eval]
   · simp only [Result.toState_getReg, sG.res, rv_simp, h16]
-    rw [show (105488#64 : Word) = BitVec.ofNat 64 105488 from rfl, ult_ofNat' _ _ (by omega) (by decide)]
+    rw [show (105456#64 : Word) = BitVec.ofNat 64 105456 from rfl, ult_ofNat' _ _ (by omega) (by decide)]
     unfold signR SIGN_TRAMP
-    by_cases h : tb + 2 < 25340 + 8
+    by_cases h : tb + 2 < 25340
     · rw [if_pos h, if_pos (by simp; omega)]
     · rw [if_neg h, if_neg (by simp; omega)]
   · simp only [Result.toState_getReg, sG.res]; t3n []

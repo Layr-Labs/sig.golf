@@ -243,7 +243,7 @@ def tabRow4 (r : Nat) : List (BitVec 32) := (cTab4.drop (4 * r)).take 3
 theorem tabRow4_e11 (r : Nat) (hr : r < 128) :
     (Images.expandE11Code.drop (60150 + 4 * r - 60000)).take (tabRow4 r).length = tabRow4 r := by
   have hl : (tabRow4 r).length = 3 := by
-    unfold tabRow4 cTab4; simp only [List.length_take, List.length_drop, show Images.expandE11Code.length = 919 from rfl]
+    unfold tabRow4 cTab4; simp only [List.length_take, List.length_drop, show Images.expandE11Code.length = 1000 from rfl]
     omega
   rw [hl]
   unfold tabRow4 cTab4
@@ -252,7 +252,7 @@ theorem tabRow4_e11 (r : Nat) (hr : r < 128) :
 theorem code_prow4 (r : Nat) (hr : r < 128) : CodeAt Images.expandImage (pcOf (60150 + 4 * r)) (tabRow4 r) :=
   codeAt_e11_at (60150 + 4 * r) (by omega) (by
     have := tabRow4_e11 r hr
-    unfold tabRow4 cTab4; simp only [List.length_take, List.length_drop, show Images.expandE11Code.length = 919 from rfl]
+    unfold tabRow4 cTab4; simp only [List.length_take, List.length_drop, show Images.expandE11Code.length = 1000 from rfl]
     omega) (tabRow4_e11 r hr)
 def prow4Res (r : Nat) : Result :=
   ⟨⟨RegFile.init.set .x14 (.c (BitVec.ofNat 64 (pa4 r))), [], []⟩, .bin .and (.reg .x1) (.c 0xfffffffffffffffe#64), .jump, 3, 3⟩

@@ -52,7 +52,7 @@ theorem claimedC_eq : claimedC=verifyCycleBound+witnessCycles (submission I).siz
   rw [witnessCycles_eq];decide
 
 theorem submission_verificationBound (E : EncodingFacts) (F : SourceQueries) (P : Pending I) :
-    (submission I).VerificationBound 6971 := by
+    (submission I).VerificationBound 6972 := by
   intro hash sk m
   dsimp only
   intro h
@@ -77,7 +77,7 @@ open ClaudeWCT.W9.T3M (Images)
 variable {I : Images}
 
 theorem certificate_of (E : EncodingFacts) (F : SourceQueries) (P : Pending I) (S : SourceFacts) :
-    Certificate (submission I) 6971 where
+    Certificate (submission I) 6972 where
   admissible := P.admissible
   termination := submission_terminates P
   completeness := submission_complete E F P S
@@ -1029,8 +1029,8 @@ def submissionNew (I : Images) : SigGolf.Submission := currentOf (submission I)
 theorem legacyOf_submissionNew (I : Images) : legacyOf (submissionNew I) = submission I :=
   legacyOf_currentOf (submission I)
 theorem certificateNew_of {I : Images} (E : EncodingFacts) (F : SourceQueries) (P : Pending I) (S : SourceFacts) :
-    SigGolf.Certificate (submissionNew I) 6971 := by
-  have hL : SigGolfCandidate.Legacy.Certificate (legacyOf (submissionNew I)) 6971 := by
+    SigGolf.Certificate (submissionNew I) 6972 := by
+  have hL : SigGolfCandidate.Legacy.Certificate (legacyOf (submissionNew I)) 6972 := by
     rw [legacyOf_submissionNew]
     exact certificate_of E F P S
   have hrun : RunAgrees (submissionNew I) := runAgrees_of_admissible (submissionNew I) hL.admissible
@@ -4965,7 +4965,7 @@ open ClaudeWCT.W9.T3M (Images)
 variable (I : Images)
 theorem keygen_run_eq (hadm : (submission I).Admissible) (sk : SecretKey) :
     (submission I).run .keygen sk = SigGolfCandidate.T3M.submission.run .keygen sk := by
-  have hvA : ((submission I).image .keygen).Valid ⟨5188, 21756, 131072⟩ ⟨0x65A0, 0x80, 0xa0, 0x80000, 0x7000, 0x10A0⟩ :=
+  have hvA : ((submission I).image .keygen).Valid ⟨5187, 21756, 131072⟩ ⟨0x65A0, 0x80, 0xa0, 0x80000, 0x7000, 0x10A0⟩ :=
     hadm.2 .keygen
   have hvB : (SigGolfCandidate.T3M.submission.image .keygen).Valid
       ⟨SigGolfCandidate.T3M.submission.sizes.signature, SigGolfCandidate.T3M.submission.sizes.witness, 131072⟩
@@ -5089,7 +5089,7 @@ theorem pending_of_machine {I : Images} (M : MachineFacts I) : Pending I where
 theorem certificate_of_security {I : Images}
     (expandV6 : SigGolfCandidate.Research.SharedExpansionClosure.ExpandV6Facts) (security : SecurityP)
     (keygenMoment : KeygenMoment) (M : MachineFacts I) :
-    SigGolf.Certificate (submissionNew I) 6971 :=
+    SigGolf.Certificate (submissionNew I) 6972 :=
   certificateNew_of encodingFacts sourceQueries_holds (pending_of_machine M) (sourceFacts_of_securityP expandV6 security keygenMoment)
 end ClaudeWCT.W9.T3M.Final.Paired
 end

@@ -1592,7 +1592,7 @@ set_option maxRecDepth 100000
 set_option maxHeartbeats 1000000
 
 /-- img-v6: the expander reads the 5,239-byte signature (`SharedCodec.sigDecC`, 19-bit top field). -/
-abbrev PairedExpandSimulation : Prop := ∀(sk : SecretKey)(message : Message)(pk : PublicKey)(b : Bytes 5188),
+abbrev PairedExpandSimulation : Prop := ∀(sk : SecretKey)(message : Message)(pk : PublicKey)(b : Bytes 5187),
   TBSim Images.expandImage sk (w9init Images.expandImage message pk b) pairedExpandCost
     (ClaudeWCT.W9.T3M.Paired.expandN message pk (ClaudeWCT.W9.T3M.SharedCodec.sigDecC b)) PairedExpPost
 
@@ -1611,7 +1611,7 @@ theorem pairedExpandCost_lt : pairedExpandCost+1<CYCLE_LIMIT := by
   unfold pairedExpandCost ClaudeWCT.W9.Machine.Expand.SharedCompactMain.suffixW CYCLE_LIMIT
   omega
 
-theorem paired_expand_initial (message : Message) (pk : PublicKey) (b : Bytes 5188) :
+theorem paired_expand_initial (message : Message) (pk : PublicKey) (b : Bytes 5187) :
     initialState SigGolfCandidate.T3M.Paired.submission .expand (message,pk,b)=
       some (w9init Images.expandImage message pk b) := by
   unfold initialState

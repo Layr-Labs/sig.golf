@@ -2546,7 +2546,7 @@ theorem groundStep_canonical (k : Fin 9) (index heap : Nat) (hg : 8 ≤ heap ∧
   have hz : ftsZeroBits k.val heap = SigGolfCandidate.FtsGrind.ftsWidth k.val := by
     simp only [ftsZeroBits, SigGolfCandidate.FtsGrind.ftsWidth, if_pos hg]
   have hnz : ftsZeroBits k.val heap ≠ 0 := by
-    rw [hz]; unfold SigGolfCandidate.FtsGrind.ftsWidth; split <;> omega
+    rw [hz]; unfold SigGolfCandidate.FtsGrind.ftsWidth; norm_num
   have hcap : ftsNonceCap k.val heap - 1 = SigGolfCandidate.FtsGrind.FUEL (SigGolfCandidate.FtsGrind.ftsWidth k.val) := by
     unfold ftsNonceCap SigGolfCandidate.FtsGrind.FUEL; rw [hz]
   rw [hh]

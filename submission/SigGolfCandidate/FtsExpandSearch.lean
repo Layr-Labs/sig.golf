@@ -8,7 +8,7 @@ set_option linter.all false
 /-! # FTS carrier grind: the expand first-nonce search (`SEARCH`, 61000..61046) behind a trampoline
 
 A trampoline at word `b` (`trampWords b SEARCH ret`) saves `a6`, calls `SEARCH` with `jal a6`, restores `a6` and
-jumps to `ret`. `SEARCH` takes `r = s0 >> 13` (the coordinate's FTS frame base `s0` picks the width
+jumps to `ret`. `SEARCH` takes `r = s0 >> 63` (the coordinate's FTS frame base `s0` picks the width
 `b = 2 - r`), hashes the 64-byte trial block at `a0` into `SCR` for nonces `0, 1, ..` (nonce pad at `a0 + 32`),
 stops at the first answer whose kept low half has its top `b` bits 0 (or after nonce `128 * 2^b - 1`), copies the
 answer from `SCR` to the real destination `a2`, clears `SCR`, records (witness pad address `a0 + WADJ`, nonce)
@@ -29,7 +29,7 @@ attribute [local rv_simp] Result.toState_getReg Result.toState_getMem Result.toS
 /-- Witness pad address minus the FTS frame block (1384 under E4's witness relayout). -/
 def WADJ : Nat := 1384
 /-- Zero bits demanded by `SEARCH` for the coordinate with FTS frame base `s0`. -/
-def widthOf (s0 : Nat) : Nat := 2 - s0 / 2 ^ 13
+def widthOf (s0 : Nat) : Nat := 2 - s0 / 2 ^ 63
 /-- Cycles of one trampoline round trip into `SEARCH`. -/
 def W_SEARCH (b : Nat) : Nat := 19 * FUEL b + 57
 
@@ -73,12 +73,12 @@ section blocks
 variable {im : Image} (hS : CodeAt im (pcOf SEARCH) searchWords) (s : MachineState)
 include hS
 
-/-- 61000..61007: save `a4 a7 t4 t6`, `a4 := a2`, `a2 := SCR`, `t6 := s0 >> 13`, `a7 := 0`. -/
+/-- 61000..61007: save `a4 a7 t4 t6`, `a4 := a2`, `a2 := SCR`, `t6 := s0 >> 63`, `a7 := 0`. -/
 theorem h0_spec (hpc : s.pc = pcOf 61000) (S0 : Nat) (h8 : s.getReg .x8 = BitVec.ofNat 64 S0)
     (hS0 : S0 < 2 ^ 64) :
     ∃ t, Steps im s 8 8 t ∧ t.pc = pcOf 61008 ∧
       t.getReg .x12 = BitVec.ofNat 64 SCR ∧ t.getReg .x14 = s.getReg .x12 ∧ t.getReg .x17 = 0 ∧
-      t.getReg .x31 = BitVec.ofNat 64 (S0 / 2 ^ 13) ∧ RegsExcept s t [.x12, .x14, .x17, .x31] ∧
+      t.getReg .x31 = BitVec.ofNat 64 (S0 / 2 ^ 63) ∧ RegsExcept s t [.x12, .x14, .x17, .x31] ∧
       t.getMem (BitVec.ofNat 64 1104) = s.getReg .x14 ∧ t.getMem (BitVec.ofNat 64 1112) = s.getReg .x17 ∧
       t.getMem (BitVec.ofNat 64 1120) = s.getReg .x29 ∧ t.getMem (BitVec.ofNat 64 1128) = s.getReg .x31 ∧
       Frame s t (fun X => 1104 ≤ X ∧ X < 1136) := by
@@ -239,11 +239,11 @@ theorem zeroOk_iff (a : HashOutput) (r : Nat) (hr : r < 2) :
   rw [e, Nat.div_lt_iff_lt_mul (by positivity), ← Nat.pow_add,
     show 62 + r + 64 = 128 - (2 - r) by omega]
 
-theorem fuel_eq (S0 : Nat) (h : S0 < 2 ^ 14) : FUEL (widthOf S0) = 511 / 2 ^ (S0 / 2 ^ 13) := by
-  have : S0 / 2 ^ 13 = 0 ∨ S0 / 2 ^ 13 = 1 := by omega
+theorem fuel_eq (S0 : Nat) (h : S0 < 2 ^ 14) : FUEL (widthOf S0) = 511 / 2 ^ (S0 / 2 ^ 63) := by
+  have : S0 / 2 ^ 63 = 0 ∨ S0 / 2 ^ 63 = 1 := by omega
   unfold FUEL widthOf; rcases this with h | h <;> rw [h] <;> rfl
 
-theorem width_eq (S0 : Nat) : widthOf S0 = 2 - S0 / 2 ^ 13 := rfl
+theorem width_eq (S0 : Nat) : widthOf S0 = 2 - S0 / 2 ^ 63 := rfl
 
 /-- What follows the trial-`n` hash in `search` (fuel = trials left). -/
 def sTail (b : Nat) (pre right : List UInt8) : Nat → Nat → HashOutput → M (Nat × HashOutput)
@@ -311,7 +311,7 @@ structure AtS (s : MachineState) (b A D S0 pcw n : Nat) (u : MachineState) : Pro
   x14 : u.getReg .x14 = BitVec.ofNat 64 D
   x16 : u.getReg .x16 = pcOf (b + 2)
   x17 : u.getReg .x17 = BitVec.ofNat 64 n
-  x31 : u.getReg .x31 = BitVec.ofNat 64 (S0 / 2 ^ 13)
+  x31 : u.getReg .x31 = BitVec.ofNat 64 (S0 / 2 ^ 63)
   sv0 : u.getMem (BitVec.ofNat 64 1104) = s.getReg .x14
   sv1 : u.getMem (BitVec.ofNat 64 1112) = s.getReg .x17
   sv2 : u.getMem (BitVec.ofNat 64 1120) = s.getReg .x29
@@ -433,7 +433,7 @@ theorem trial_spec {β : Type} {n : Nat} {u : MachineState} (hu : AtS s b A D S0
   have hnF : n < 2 ^ 64 := by
     have h1 := hu.hn
     rw [fuel_eq S0 hS2] at h1
-    have := Nat.div_le_self 511 (2 ^ (S0 / 2 ^ 13))
+    have := Nat.div_le_self 511 (2 ^ (S0 / 2 ^ 63))
     omega
   have g10 : u.getReg .x10 = BitVec.ofNat 64 A := by rw [hu.regs.get (by decide)]; exact F.x10
   obtain ⟨u1, s1, p1, r1, m32, m40, f1, fe1⟩ := l_spec hS u hu.pc A g10 hA (by omega)
@@ -491,7 +491,7 @@ theorem trial_spec {β : Type} {n : Nat} {u : MachineState} (hu : AtS s b A D S0
 theorem loop_spec : ∀ fuel n u, AtS s b A D S0 61008 n u → n + fuel = FUEL (widthOf S0) →
     TBSim im sk u (19 * fuel + 47) (search (widthOf S0) pre right fuel n) (SearchOut s ret A D S0) := by
   have hS2 := F.hS2
-  have hr : S0 / 2 ^ 13 < 2 := by omega
+  have hr : S0 / 2 ^ 63 < 2 := by omega
   have hF := fuel_eq S0 hS2
   have hFl : FUEL (widthOf S0) < 2 ^ 64 := by rw [hF]; exact lt_of_le_of_lt (Nat.div_le_self _ _) (by norm_num)
   -- the zero test at 61011
@@ -499,7 +499,7 @@ theorem loop_spec : ∀ fuel n u, AtS s b A D S0 61008 n u → n + fuel = FUEL (
       AtS s b A D S0 (if zeroOk (widthOf S0) a = true then 61020 else 61015) n w1 ∧ Hashed w1 A n a := by
     intro n a w hw hh
     obtain ⟨w1, s1, p1, r1, f1⟩ := c_spec hS w hw.pc hw.x12 _ hw.x31 hr
-    have e : (w.getMem (BitVec.ofNat 64 (SCR + 8))).toNat < 2 ^ (62 + S0 / 2 ^ 13) ↔
+    have e : (w.getMem (BitVec.ofNat 64 (SCR + 8))).toNat < 2 ^ (62 + S0 / 2 ^ 63) ↔
         zeroOk (widthOf S0) a = true := by
       rw [width_eq, zeroOk_iff a _ hr]
       have := hh.scr 1 (by decide)

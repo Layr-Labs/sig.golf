@@ -203,9 +203,9 @@ open ClaudeWCT WCT9.CanonicalPolicy
 def creditAddr (lay : Layer) : Nat := 0x66040+8*lay.val
 def CreditW (lay : Layer) (A : Nat) : Prop := A=creditAddr lay ∧ 0x66040≤A ∧ A<0x66060
 /-- Floors read from the policy hints (img-v6 mixed radix `484·f1 + 22·f2 + f3`); the top floor is 14. Agrees with
-`Research.V7Composed198Gate.hintFloor` (`CanonicalPolicy.topFloor = 18`). -/
+`Research.V7Composed198Gate.hintFloor` (`CanonicalPolicy.topFloor = 17`). -/
 def hintFloor (hints : BitVec 16) (lay : Layer) : Nat :=
-  if lay=0 then 18 else hints.toNat/22^(3-lay.val)%22
+  if lay=0 then 17 else hints.toNat/22^(3-lay.val)%22
 theorem creditAddr_lt (lay : Layer) : creditAddr lay<2^64 := by
   have := lay.isLt;unfold creditAddr;omega
 theorem creditAddr_mem (lay : Layer) : CreditW lay (creditAddr lay) := by
@@ -219,7 +219,7 @@ theorem hintFloor_lt (hints : BitVec 16) (lay : Layer) : hintFloor hints lay<22 
   split_ifs
   · omega
   · exact Nat.mod_lt _ (by decide)
-theorem hintFloor_top (hints : BitVec 16) : hintFloor hints 0=18 := rfl
+theorem hintFloor_top (hints : BitVec 16) : hintFloor hints 0=17 := rfl
 theorem flag_not_credit (lay : Layer) : ¬ CreditW lay FLAG := by
   unfold CreditW FLAG; omega
 end SigGolfCandidate.T3M.Search.CanonicalExpandHooks
@@ -488,9 +488,9 @@ structure CsArgs where
   ret : Nat
   floor : Nat
   hints : BitVec 16
-def csT (lay : Layer) : Nat := if lay = 0 then 350 else 407
+def csT (lay : Layer) : Nat := if lay = 0 then 755 else 407
 def csOk (lay : Layer) : Nat := if lay = 0 then 4096 else 4096
-theorem capLimit_le (n : Nat) : capLimit n ≤ 2 ^ 22 := by unfold capLimit; split_ifs <;> omega
+theorem capLimit_le (n : Nat) : capLimit n ≤ 2 ^ 22 := by unfold capLimit; omega
 theorem capLimit_eq (lay : Layer) : capLimit lay.val = WCT9.searchLimit lay := by
   fin_cases lay <;> rfl
 theorem length_filter_range (n : Nat) (p : Nat → Prop) [DecidablePred p] :
@@ -523,10 +523,10 @@ theorem producerDecode_lower {lay : Layer} (hlz : lay≠0) (v : Digest) (floor c
     rewardOK,Rank.rankOK,Rank.rankFloor,WCT9.producerRankFloor,hlz,hds,filter_zero_count]
 /-! Producer output on a full 256-bit answer, split by the machine's trial order. -/
 theorem producerDecodeOut_top_low (a : BitVec 256) {ds : List Nat}
-    (h : WCT9.CanonicalPolicy.producerDecodeAt 0 18 true (a.extractLsb' 0 128) = some ds) :
-    WCT9.CanonicalPolicy.producerDecodeOut 0 18 a = some (ds, true) := by
+    (h : WCT9.CanonicalPolicy.producerDecodeAt 0 17 true (a.extractLsb' 0 128) = some ds) :
+    WCT9.CanonicalPolicy.producerDecodeOut 0 17 a = some (ds, true) := by
   have hg : WCT9.topGood (a.extractLsb' 0 128) := by
-    unfold WCT9.topGood; rw [show WCT9.CanonicalPolicy.topFloor = 18 from rfl, h]; rfl
+    unfold WCT9.topGood; rw [show WCT9.CanonicalPolicy.topFloor = 17 from rfl, h]; rfl
   have hl : WCT9.lowSelected 0 a = true := by
     simp [WCT9.lowSelected, WCT9.topChooseLow, hg]
   have he : WCT9.encodingAnswer 0 a = a.extractLsb' 0 128 := by
@@ -534,9 +534,9 @@ theorem producerDecodeOut_top_low (a : BitVec 256) {ds : List Nat}
   unfold WCT9.CanonicalPolicy.producerDecodeOut
   rw [he, hl, h]; rfl
 theorem producerDecodeOut_top_blocked (a : BitVec 256)
-    (h : WCT9.CanonicalPolicy.producerDecodeAt 0 18 true (a.extractLsb' 0 128) = none)
+    (h : WCT9.CanonicalPolicy.producerDecodeAt 0 17 true (a.extractLsb' 0 128) = none)
     (hb : T3.TopChoice.blocked (a.extractLsb' 0 128)) :
-    WCT9.CanonicalPolicy.producerDecodeOut 0 18 a = none := by
+    WCT9.CanonicalPolicy.producerDecodeOut 0 17 a = none := by
   have hl : WCT9.lowSelected 0 a = true := by
     simp [WCT9.lowSelected, WCT9.topChooseLow, hb]
   have he : WCT9.encodingAnswer 0 a = a.extractLsb' 0 128 := by
@@ -544,12 +544,12 @@ theorem producerDecodeOut_top_blocked (a : BitVec 256)
   unfold WCT9.CanonicalPolicy.producerDecodeOut
   rw [he, hl, h]; rfl
 theorem producerDecodeOut_top_high (a : BitVec 256)
-    (h : WCT9.CanonicalPolicy.producerDecodeAt 0 18 true (a.extractLsb' 0 128) = none)
+    (h : WCT9.CanonicalPolicy.producerDecodeAt 0 17 true (a.extractLsb' 0 128) = none)
     (hb : ¬ T3.TopChoice.blocked (a.extractLsb' 0 128)) :
-    WCT9.CanonicalPolicy.producerDecodeOut 0 18 a =
-      (WCT9.CanonicalPolicy.producerDecodeAt 0 18 false (a.extractLsb' 128 128)).map (·, false) := by
+    WCT9.CanonicalPolicy.producerDecodeOut 0 17 a =
+      (WCT9.CanonicalPolicy.producerDecodeAt 0 17 false (a.extractLsb' 128 128)).map (·, false) := by
   have hg : ¬ WCT9.topGood (a.extractLsb' 0 128) := by
-    unfold WCT9.topGood; rw [show WCT9.CanonicalPolicy.topFloor = 18 from rfl, h]; simp
+    unfold WCT9.topGood; rw [show WCT9.CanonicalPolicy.topFloor = 17 from rfl, h]; simp
   have hl : WCT9.lowSelected 0 a = false := by
     simp [WCT9.lowSelected, WCT9.topChooseLow, hg, hb]
   have he : WCT9.encodingAnswer 0 a = a.extractLsb' 128 128 := by
@@ -586,7 +586,7 @@ structure CsPre (b : Nat) (A : CsArgs) (s : MachineState) : Prop where
   reward : Reward.RewardTablesOK s
   zt : ZeroCap.ZtOK b s
   floorLt : A.floor<22
-  floorTop : A.lay=0 → A.floor=18
+  floorTop : A.lay=0 → A.floor=17
   hintsLt : A.hints.toNat<8000
   floorEq : A.floor=CanonicalExpandHooks.hintFloor A.hints A.lay
   floorMem : s.getMem (0x66000#64)=BitVec.ofNat 64 A.hints.toNat
@@ -927,8 +927,8 @@ theorem cs_loop {A : CsArgs} {s0 : MachineState} (hK : KernAt image 354 (Canonic
       intro w hw; rw [hw,f4.get (by unfold EOUT;omega) (by simp)]; exact hhi.2
     by_cases hlz : A.lay=0
     · rw [if_pos (hl0.2 hlz)] at p4
-      have hfl : A.floor = 18 := hpre.floorTop hlz
-      have e : WCT9.CanonicalPolicy.producerDecodeOut A.lay A.floor a = WCT9.CanonicalPolicy.producerDecodeOut 0 18 a := by
+      have hfl : A.floor = 17 := hpre.floorTop hlz
+      have e : WCT9.CanonicalPolicy.producerDecodeOut A.lay A.floor a = WCT9.CanonicalPolicy.producerDecodeOut 0 17 a := by
         rw [hlz,hfl]
       rw [e]
       -- T51: `tcEntry 354` (1272) jumps to the T51 kernel `K_ENTRY` (54176)
@@ -948,7 +948,7 @@ theorem cs_loop {A : CsArgs} {s0 : MachineState} (hK : KernAt image 354 (Canonic
         (by intro k hk; unfold CsW CanonicalExpandHooks.CreditW CanonicalExpandHooks.creditAddr DigW ENC EOUT DIGITS FLAG; omega)
       obtain ⟨hAcc,hRej⟩ := T51.trial hKT tg (by rw [pg]; rfl) a h6g h7g h12g
         (mH0 tg (fgE _ (by unfold EOUT;omega))) (mH8 tg (fgE _ (by unfold EOUT;omega))) h17g htg
-      cases hD : WCT9.CanonicalPolicy.producerDecodeOut 0 18 a with
+      cases hD : WCT9.CanonicalPolicy.producerDecodeOut 0 17 a with
       | some found =>
         obtain ⟨ds,low⟩ := found
         obtain ⟨k,t,st,kle,pt,t6,t7,hdec,t28,tcr,tfl,rt,ft⟩ := hAcc ds low hD

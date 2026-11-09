@@ -437,7 +437,7 @@ theorem V_fnode {β : Type} (secret : BitVec 256) (z f B : ℝ≥0∞) (coord in
     exact (QueryCache.cacheQuery_of_ne (cache := c) ans
       (fTrial_ne hp (hS x y hxy.1) hxy.2 k n left right l r)).trans (hc x y hxy n l r)
   have hb : ftsZeroBits coord heap ≠ 0 := by
-    simp only [ftsZeroBits, if_pos hg]; split <;> omega
+    simp only [ftsZeroBits, if_pos hg]; norm_num
   unfold ftsNodeG
   rw [bind_map_left]
   unfold ftsNodeAt

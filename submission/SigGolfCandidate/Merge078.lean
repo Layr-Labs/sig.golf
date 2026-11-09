@@ -1476,7 +1476,7 @@ theorem entry_step0 (s : MachineState) (hpc : s.pc = pcOf 0) :
 
 /-- E11: word 0 + the pre-pass: from word 0 to DEC's entry 54569 with the T1-layout signature `unpackB b`. -/
 theorem pre_entry (s0 : MachineState) (b : SharedCodec.CBytes) (hpc : s0.pc = pcOf 0) (hsig : SigMemC s0.getMem b) :
-    ∃ u, Steps Images.expandImage s0 186 186 u ∧ u.pc = pcOf 54569 ∧
+    ∃ u, Steps Images.expandImage s0 235 250 u ∧ u.pc = pcOf 54569 ∧
       (∀ r ∈ [Reg.x7, .x28, .x29, .x30, .x31], u.getReg r = 0) ∧ RegsExcept s0 u [.x7, .x28, .x29, .x30, .x31] ∧
       SigMem u.getMem (unpackB b) ∧ Frame s0 u (fun A => 0x70b0 ≤ A ∧ A < 0x84c0) := by
   have st0 := entry_step0 s0 hpc
@@ -1487,7 +1487,7 @@ theorem pre_entry (s0 : MachineState) (b : SharedCodec.CBytes) (hpc : s0.pc = pc
     fun A hA hn => ?_⟩
   rw [em]
   have hn' : A < 0x70b0 ∨ 0x84c0 ≤ A := by omega
-  apply preMem_other s0.getMem A hA (by omega) (by omega)
+  apply preMem_other s0.getMem A hA (by omega) (by omega) (by unfold hiA; omega) (by unfold hiA; omega)
   intro c hc he
   simp only [List.mem_cons, List.not_mem_nil, or_false] at hc
   unfold hiA at he
@@ -1503,7 +1503,13 @@ theorem inflated_unpack (b : SharedCodec.CBytes) (k : Nat) (hk : k < 332) :
   · rw [digC_unpack b _ (by unfold SharedCodec.externalFullIndex; split_ifs <;> omega)]
 
 theorem hints_unpack (b : SharedCodec.CBytes) : T1C.hints (unpackB b) = (SharedCodec.sigDecC b).policyHints := by
-  unfold T1C.hints; rw [xOfB_unpack]; rfl
+  unfold T1C.hints
+  rw [xOfB_unpack]
+  change BitVec.ofNat 16 (unpackX b/2^24)=BitVec.ofNat 16 (logicalH b)
+  apply congrArg (BitVec.ofNat 16)
+  change (SharedCodec.xOfB b%2^24+logicalH b*2^24)/2^24=logicalH b
+  have hx := Nat.mod_lt (SharedCodec.xOfB b) (by decide : 0<2^24)
+  omega
 
 theorem dropTake_getD {α : Type} (l : List α) (d : α) (a i : Nat) (hi : i < 8) :
     ((l.drop a).take 8).getD i d = l.getD (a + i) d := by
@@ -1525,7 +1531,7 @@ theorem w9_sigMemC (m : Message) (pk : PublicKey) (b : SharedCodec.CBytes) :
 /-- DEC, accepting, from any state at word 0 holding the signature (U16b: word 0 + the pre-pass + DEC). -/
 theorem dec_gen (s0 : MachineState) (b : SharedCodec.CBytes) (hpc : s0.pc = pcOf 0) (hsig : SigMemC s0.getMem b)
     (hh : (SharedCodec.sigDecC b).policyHints.toNat < 7744) :
-    ∃ u, Steps Images.expandImage s0 2191 2191 u ∧ u.pc = pcOf 1 ∧
+    ∃ u, Steps Images.expandImage s0 2240 2255 u ∧ u.pc = pcOf 1 ∧
       (∀ r ∈ [.x6, .x7, .x18, .x19, .x20, .x28, .x29, .x30, .x31], u.getReg r = 0) ∧
       RegsExcept s0 u [.x6, .x7, .x18, .x19, .x20, .x28, .x29, .x30, .x31] ∧
       (∀ k, k < 332 → DigAt u (0x7000 + 16 * k)
@@ -1555,7 +1561,7 @@ slot layout of the decoded signature at `0x7000`, the hint at `0x66000`; only th
 are written. -/
 theorem dec_init (m : Message) (pk : PublicKey) (b : SharedCodec.CBytes)
     (hh : (SharedCodec.sigDecC b).policyHints.toNat < 7744) :
-    ∃ u, Steps Images.expandImage (w9init Images.expandImage m pk b) 2191 2191 u ∧ u.pc = pcOf 1 ∧
+    ∃ u, Steps Images.expandImage (w9init Images.expandImage m pk b) 2240 2255 u ∧ u.pc = pcOf 1 ∧
       (∀ r, u.getReg r = (w9init Images.expandImage m pk b).getReg r) ∧
       (∀ k, k < 332 → DigAt u (0x7000 + 16 * k)
         (SharedCodec.inflatedRead (0 : SigGolfCandidate.T3.Digest) (SharedCodec.digC b) k)) ∧
@@ -1572,7 +1578,7 @@ theorem dec_init (m : Message) (pk : PublicKey) (b : SharedCodec.CBytes)
 the pre-pass, then DEC's 80). -/
 theorem dec_reject (m : Message) (pk : PublicKey) (b : SharedCodec.CBytes)
     (hh : 7744 ≤ (SharedCodec.sigDecC b).policyHints.toNat) :
-    ∃ u, Steps Images.expandImage (w9init Images.expandImage m pk b) 265 265 u ∧ u.pc = pcOf 354 := by
+    ∃ u, Steps Images.expandImage (w9init Images.expandImage m pk b) 314 329 u ∧ u.pc = pcOf 354 := by
   generalize hs0 : w9init Images.expandImage m pk b = s0
   have hpc : s0.pc = pcOf 0 := by rw [← hs0]; exact w9_pc Images.expandImage m pk b
   have hsig : SigMemC s0.getMem b := by rw [← hs0]; exact w9_sigMemC m pk b

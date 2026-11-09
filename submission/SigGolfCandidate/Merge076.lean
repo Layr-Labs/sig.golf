@@ -1894,7 +1894,7 @@ theorem b4b_spec (hpc : s.pc = pcOf 54826) :
   · intro r hr; cases r <;> simp_all [gB4b.res, rv_simp] <;> rfl
   · intro A _ _; simp [gB4b.res, rv_simp]
 
-/-! E11 grind tiers (60108..60127): `t4 = b` for heaps 16..31 (1), 8..15 (2), 4..7 (3), 2..3 (4; 3 on layer 1),
+/-! E11 grind tiers (60108..60127): `t4 = b` for heaps 16..31 (2), 8..15 (2), 4..7 (4 on layer 1, else 3), 2..3 (4),
 heaps `≥ 32` to 54875. -/
 theorem tA_spec (hpc : s.pc = pcOf 60108) :
     ∃ t, Steps im s 4 4 t ∧
@@ -1912,7 +1912,7 @@ theorem tA_spec (hpc : s.pc = pcOf 60108) :
 
 theorem tB_spec (hpc : s.pc = pcOf 60112) :
     ∃ t, Steps im s 3 3 t ∧ t.pc = (if (s.getReg .x7).ult 16#64 = true then pcOf 60115 else pcOf 60126) ∧
-      t.getReg .x29 = 1#64 ∧ RegsExcept s t [.x28, .x29] ∧ Frame s t (fun _ => False) := by
+      t.getReg .x29 = 2#64 ∧ RegsExcept s t [.x28, .x29] ∧ Frame s t (fun _ => False) := by
   have hc := code_slE (Code.codeAt_e11s (im := im)) 60112 60115 (by norm_num) (by norm_num) (by norm_num)
   refine ⟨_, symRun_sound tB hc s hpc (by simp [tB.res, rv_simp]), ?_, ?_, ?_, ?_⟩
   · rw [Result.toState_pc]
@@ -1933,8 +1933,8 @@ theorem tC_spec (hpc : s.pc = pcOf 60115) :
   · intro A _ _; simp [tC.res, rv_simp]
 
 theorem tD_spec (hpc : s.pc = pcOf 60118) :
-    ∃ t, Steps im s 3 3 t ∧ t.pc = (if (s.getReg .x7).ult 4#64 = true then pcOf 60121 else pcOf 60126) ∧
-      t.getReg .x29 = 3#64 ∧ RegsExcept s t [.x28, .x29] ∧ Frame s t (fun _ => False) := by
+    ∃ t, Steps im s 3 3 t ∧ t.pc = (if (s.getReg .x7).ult 4#64 = true then pcOf 60126 else pcOf 60121) ∧
+      t.getReg .x29 = 4#64 ∧ RegsExcept s t [.x28, .x29] ∧ Frame s t (fun _ => False) := by
   have hc := code_slE (Code.codeAt_e11s (im := im)) 60118 60121 (by norm_num) (by norm_num) (by norm_num)
   refine ⟨_, symRun_sound tD hc s hpc (by simp [tD.res, rv_simp]), ?_, ?_, ?_, ?_⟩
   · rw [Result.toState_pc]
@@ -1946,7 +1946,7 @@ theorem tD_spec (hpc : s.pc = pcOf 60118) :
 theorem tE_spec (hpc : s.pc = pcOf 60121) :
     ∃ t, Steps im s 4 4 t ∧
       t.pc = (if (s.getReg .x31 >>> 48 &&& 255#64) = 0#64 then pcOf 60125 else pcOf 60126) ∧
-      t.getReg .x29 = 4#64 ∧ RegsExcept s t [.x28, .x29] ∧ Frame s t (fun _ => False) := by
+      t.getReg .x29 = 3#64 ∧ RegsExcept s t [.x28, .x29] ∧ Frame s t (fun _ => False) := by
   have hc := code_slE (Code.codeAt_e11s (im := im)) 60121 60125 (by norm_num) (by norm_num) (by norm_num)
   refine ⟨_, symRun_sound tE hc s hpc (by simp [tE.res, rv_simp]), ?_, ?_, ?_, ?_⟩
   · rw [Result.toState_pc]
@@ -1956,7 +1956,7 @@ theorem tE_spec (hpc : s.pc = pcOf 60121) :
   · intro A _ _; simp [tE.res, rv_simp]
 
 theorem tF_spec (hpc : s.pc = pcOf 60125) :
-    ∃ t, Steps im s 2 2 t ∧ t.pc = pcOf 54838 ∧ t.getReg .x29 = 3#64 ∧ RegsExcept s t [.x29] ∧
+    ∃ t, Steps im s 2 2 t ∧ t.pc = pcOf 54838 ∧ t.getReg .x29 = 4#64 ∧ RegsExcept s t [.x29] ∧
       Frame s t (fun _ => False) := by
   have hc := code_slE (Code.codeAt_e11s (im := im)) 60125 60127 (by norm_num) (by norm_num) (by norm_num)
   refine ⟨_, symRun_sound tF hc s hpc (by simp [tF.res, rv_simp]), ?_, ?_, ?_, ?_⟩
@@ -2330,7 +2330,7 @@ theorem tiers_spec (u : MachineState) (hpc : u.pc = pcOf 60108) (lay tree heap :
       zb _ ?_, ((r1.trans r2).trans r3).mono (by decide),
       ((f1.trans f2).trans f3).mono (fun _ _ h => by rcases h with (h | h) | h <;> exact h)⟩
     rw [r3.get (by decide), x29a]; simp [ClaudeWCT.WCT9.lowerZeroBits, show ¬ heap < 2 by omega, h16, h32,
-      show lay ≠ 0 by omega]
+      show 8 ≤ heap by omega, show lay ≠ 0 by omega]
   rw [if_pos (by simp; omega)] at p2
   obtain ⟨v3, s3, p3, x29b, r3, f3⟩ := tC_spec (im := im) v2 p2
   rw [g7, ult_ofNat heap 8 (by omega) (by omega)] at p3
@@ -2349,6 +2349,33 @@ theorem tiers_spec (u : MachineState) (hpc : u.pc = pcOf 60108) (lay tree heap :
   have g7'' : v4.getReg .x7 = BitVec.ofNat 64 heap := by rw [r4.get (by decide)]; exact g7'
   by_cases h4 : 4 ≤ heap
   · rw [if_neg (by simp; omega)] at p4
+    obtain ⟨v5, s5, p5, x29d, r5, f5⟩ := tE_spec (im := im) v4 p4
+    have g31' : v4.getReg .x31 = BitVec.ofNat 64 (lowTw lay tree heap) := by
+      rw [r4.get (by decide), r3.get (by decide), r2.get (by decide)]; exact g31
+    rw [g31', lowTw_byte6 lay tree heap h1 h3 ht hh] at p5
+    have g7''' : v5.getReg .x7 = BitVec.ofNat 64 heap := by rw [r5.get (by decide)]; exact g7''
+    by_cases hl1 : lay = 1
+    · subst hl1
+      rw [if_pos rfl] at p5
+      obtain ⟨v6, s6, p6, x29e, r6, f6⟩ := tF_spec (im := im) v5 p5
+      refine ⟨v6, 19, ((((s1.trans s2).trans s3).trans s4).trans s5).trans s6, le_rfl, by rw [p6, if_neg h32],
+        by rw [r6.get (by decide)]; exact g7''', zb _ ?_,
+        (((((r1.trans r2).trans r3).trans r4).trans r5).trans r6).mono (by decide),
+        (((((f1.trans f2).trans f3).trans f4).trans f5).trans f6).mono (fun _ _ h => by
+          rcases h with ((((h | h) | h) | h) | h) | h <;> exact h)⟩
+      rw [x29e]; simp [ClaudeWCT.WCT9.lowerZeroBits, show ¬ heap < 2 by omega, h16, h32, h8, h4]
+    · have hne : BitVec.ofNat 64 (lay - 1) ≠ 0#64 := by
+        rw [Ne, show (0#64 : Word) = BitVec.ofNat 64 0 from rfl, ofNat_inj (by omega) (by omega)]; omega
+      rw [if_neg hne] at p5
+      obtain ⟨v6, s6, p6, r6, f6⟩ := tJ_spec (im := im) v5 p5
+      refine ⟨v6, 18, ((((s1.trans s2).trans s3).trans s4).trans s5).trans s6, by omega, by rw [p6, if_neg h32],
+        by rw [r6.get (by decide)]; exact g7''', zb _ ?_,
+        (((((r1.trans r2).trans r3).trans r4).trans r5).trans r6).mono (by decide),
+        (((((f1.trans f2).trans f3).trans f4).trans f5).trans f6).mono (fun _ _ h => by
+          rcases h with ((((h | h) | h) | h) | h) | h <;> exact h)⟩
+      rw [r6.get (by decide), x29d]; simp [ClaudeWCT.WCT9.lowerZeroBits, show ¬ heap < 2 by omega, h16, h32, h8, h4,
+        hl1, show lay ≠ 0 by omega]
+  · rw [if_pos (by simp; omega)] at p4
     obtain ⟨v5, s5, p5, r5, f5⟩ := tJ_spec (im := im) v4 p4
     refine ⟨v5, 14, (((s1.trans s2).trans s3).trans s4).trans s5, by omega, by rw [p5, if_neg h32],
       by rw [r5.get (by decide)]; exact g7'', zb _ ?_, ((((r1.trans r2).trans r3).trans r4).trans r5).mono (by decide),
@@ -2356,33 +2383,6 @@ theorem tiers_spec (u : MachineState) (hpc : u.pc = pcOf 60108) (lay tree heap :
         rcases h with (((h | h) | h) | h) | h <;> exact h)⟩
     rw [r5.get (by decide), x29c]; simp [ClaudeWCT.WCT9.lowerZeroBits, show ¬ heap < 2 by omega, h16, h32, h8, h4,
       show lay ≠ 0 by omega]
-  rw [if_pos (by simp; omega)] at p4
-  obtain ⟨v5, s5, p5, x29d, r5, f5⟩ := tE_spec (im := im) v4 p4
-  have g31' : v4.getReg .x31 = BitVec.ofNat 64 (lowTw lay tree heap) := by
-    rw [r4.get (by decide), r3.get (by decide), r2.get (by decide)]; exact g31
-  rw [g31', lowTw_byte6 lay tree heap h1 h3 ht hh] at p5
-  have g7''' : v5.getReg .x7 = BitVec.ofNat 64 heap := by rw [r5.get (by decide)]; exact g7''
-  by_cases hl1 : lay = 1
-  · subst hl1
-    rw [if_pos rfl] at p5
-    obtain ⟨v6, s6, p6, x29e, r6, f6⟩ := tF_spec (im := im) v5 p5
-    refine ⟨v6, 19, ((((s1.trans s2).trans s3).trans s4).trans s5).trans s6, le_rfl, by rw [p6, if_neg h32],
-      by rw [r6.get (by decide)]; exact g7''', zb _ ?_,
-      (((((r1.trans r2).trans r3).trans r4).trans r5).trans r6).mono (by decide),
-      (((((f1.trans f2).trans f3).trans f4).trans f5).trans f6).mono (fun _ _ h => by
-        rcases h with ((((h | h) | h) | h) | h) | h <;> exact h)⟩
-    rw [x29e]; simp [ClaudeWCT.WCT9.lowerZeroBits, show ¬ heap < 2 by omega, h16, h32, h8, h4]
-  · have hne : BitVec.ofNat 64 (lay - 1) ≠ 0#64 := by
-      rw [Ne, show (0#64 : Word) = BitVec.ofNat 64 0 from rfl, ofNat_inj (by omega) (by omega)]; omega
-    rw [if_neg hne] at p5
-    obtain ⟨v6, s6, p6, r6, f6⟩ := tJ_spec (im := im) v5 p5
-    refine ⟨v6, 18, ((((s1.trans s2).trans s3).trans s4).trans s5).trans s6, by omega, by rw [p6, if_neg h32],
-      by rw [r6.get (by decide)]; exact g7''', zb _ ?_,
-      (((((r1.trans r2).trans r3).trans r4).trans r5).trans r6).mono (by decide),
-      (((((f1.trans f2).trans f3).trans f4).trans f5).trans f6).mono (fun _ _ h => by
-        rcases h with ((((h | h) | h) | h) | h) | h <;> exact h)⟩
-    rw [r6.get (by decide), x29d]; simp [ClaudeWCT.WCT9.lowerZeroBits, show ¬ heap < 2 by omega, h16, h32, h8, h4,
-      hl1, show lay ≠ 0 by omega]
 
 /-- After the trial-0 hash: classification of a lower node (54806 -> 54875 for heaps `≥ 32`, else 54838 with
 `t4 = lowerZeroBits`), with the fold-0 heap record. -/

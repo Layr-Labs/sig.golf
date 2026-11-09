@@ -1,3 +1,6 @@
+import SigGolfCandidate.HintFinishCodec
+import SigGolfCandidate.HintSignFinish
+import SigGolfCandidate.HintCanonical
 import SigGolfCandidate.Merge042
 import SigGolfCandidate.Merge045
 import SigGolfCandidate.Merge058
@@ -1717,7 +1720,7 @@ theorem tail (hlevels : SharedTreeCode.Code im 1013) {sk : SecretKey} {cache : B
     {sb ret : Nat} {s s1 t : MachineState} (hs : BtPre (cfFlag := cfFlag) sk cache lay tree sel ds sb s1)
     (h4 : s1.getReg .x4 = pcOf ret) (hr0 : RegsExcept s s1 [.x4, .x13]) (hf0 : Frame s s1 (fun _ => False))
     {st : List Digest × List (List Digest) × List Digest} (ht : Inv s1 lay sb sel (2^height lay) st t) :
-    TBSim im sk t 280700 (do
+    TBSim im sk t 417100 (do
       let levels ← ClaudeWCT.WCT9.buildLevelsBelow 3 lay.val tree (height lay) st.1
       pure (levels, st.2.1)) (Post (cfFlag := cfFlag) sk cache lay tree sel sb ret s) := by
   have hlay := hs.hlay
@@ -1943,14 +1946,14 @@ theorem tree_tbsim {sk : SecretKey} {cache : Bytes 131072} {lay : Layer} {tree s
     (body lay tree sel) ([],[],[]) (Inv s1 lay sb sel)
     (lowLeafC + 18)
     (fun l hl st t ht => by simpa using body_step hc hsub hcopy hchain hpref hseed hhook hs1 hselection1 hl ht) h0
-  have hcost : 2 + (2 ^ height lay * (lowLeafC + 18) + 280700) ≤ btCost := by
+  have hcost : 2 + (2 ^ height lay * (lowLeafC + 18) + 417100) ≤ btCost := by
     fin_cases lay
     · exact absurd rfl hlay
     all_goals decide
   unfold treeProgram
   have heq : List.range' 0 (2 ^ height lay) = List.range (2 ^ height lay) := List.range_eq_range'.symm
   rw [heq] at hloop
-  exact TBSim.mono (TBSim.steps st1 (TBSim.bind (W₂ := 280700) hloop
+  exact TBSim.mono (TBSim.steps st1 (TBSim.bind (W₂ := 417100) hloop
     (fun st t ht => tail hc hlevels hs1 (by rw [s1x4, h1]) s1r s1f ht))) hcost (fun _ _ h => h)
 end SigGolfCandidate.T3M.Sign.SharedLowTree
 
@@ -5851,7 +5854,7 @@ theorem hashProgram_tramp (c index h : Nat) (pad L R : Digest) :
       simp only[WCT9.ftsZeroBits,SigGolfCandidate.FtsGrind.ftsWidth,if_pos hg]
     have hcap:WCT9.ftsNonceCap c h-1=SigGolfCandidate.FtsGrind.FUEL (SigGolfCandidate.FtsGrind.ftsWidth c):=by
       unfold WCT9.ftsNonceCap SigGolfCandidate.FtsGrind.FUEL;rw[hz]
-    have hnz:WCT9.ftsZeroBits c h≠0:=by rw[hz];unfold SigGolfCandidate.FtsGrind.ftsWidth;split <;> omega
+    have hnz:WCT9.ftsZeroBits c h≠0:=by rw[hz];unfold SigGolfCandidate.FtsGrind.ftsWidth;norm_num
     unfold WCT9.ftsNodeG WCT9.ftsNodeAt SigGolfCandidate.FtsGrind.groundFold
     rw[if_neg hnz,SigGolfCandidate.FtsGrind.ftsNonceSearch_eq,hcap,hz,hhi,Functor.map_map,map_eq_bind_pure_comp]
     rfl
@@ -8601,22 +8604,22 @@ set_option maxHeartbeats 2000000
 set_option maxRecDepth 100000
 def cst (n : Nat) : E := .c (BitVec.ofNat 64 n)
 def rfs (l : List (Reg × E)) : RegFile := l.foldl (fun rf p => rf.set p.1 p.2) RegFile.init
-def thCode : List (BitVec 32) := bv_list% 32 [0xfff40313,0x30e63,0xffe40313,0xc030663,0x1600313,0x1c6a7263,0xa0e93,0x1c00006f,0x3600313,0x1a6a7a63,0xe93,0x2500313,0x1a6a6663,0x100e93,0x2600313,0x1a6a6063,0x200e93,0x2700313,0x186a6a63,0x300e93,0x2800313,0x186a6463,0x400e93,0x2900313,0x166a6e63,0x500e93,0x2a00313,0x166a6863,0x600e93,0x2b00313,0x166a6263,0x700e93,0x2c00313,0x146a6c63,0x800e93,0x2d00313,0x146a6663,0x900e93,0x2f00313,0x146a6063,0xa00e93,0x3000313,0x126a6a63,0xb00e93,0x3200313,0x126a6463,0xc00e93,0x3300313,0x106a6e63,0xd00e93,0x3500313,0x106a6863,0xe00e93,0x1080006f,0x2800313,0xe6a7e63,0xe93,0x1300313,0xe6a6a63,0x100e93,0x1400313,0xe6a6463,0x200e93,0x1500313,0xc6a6e63,0x300e93,0x1600313,0xc6a6863,0x400e93,0x1700313,0xc6a6263,0x500e93,0x1800313,0xa6a6c63,0x600e93,0x1900313,0xa6a6663,0x700e93,0x1a00313,0xa6a6063,0x800e93,0x1b00313,0x86a6a63,0x900e93,0x1c00313,0x86a6463,0xa00e93,0x1e00313,0x66a6e63,0xb00e93,0x1f00313,0x66a6863,0xc00e93,0x2000313,0x66a6263,0xd00e93,0x2100313,0x46a6c63,0xe00e93,0x2300313,0x46a6663,0xf00e93,0x2400313,0x46a6063,0x1000e93,0x2600313,0x26a6a63,0x1100e93,0x2700313,0x26a6463,0x1200e93,0x200006f,0x13,0x13,0x13,0x13,0x13,0x13,0x945fd06f,0xf44fd06f]
+def thCode : List (BitVec 32) := bv_list% 32 [0xfff40313,0x30e63,0xffe40313,0xc030663,0x1600313,0x1c6a7263,0xa0e93,0x1c00006f,0x3600313,0x1a6a7a63,0xe93,0x2600313,0x1a6a6663,0x200e93,0x2800313,0x1a6a6063,0x400e93,0x2a00313,0x186a6a63,0x600e93,0x2d00313,0x186a6463,0x800e93,0x2f00313,0x166a6e63,0xa00e93,0x3200313,0x166a6863,0xc00e93,0x3400313,0x166a6263,0xe00e93,0x15c0006f,0x146a6c63,0x800e93,0x2d00313,0x146a6663,0x900e93,0x2f00313,0x146a6063,0xa00e93,0x3000313,0x126a6a63,0xb00e93,0x3200313,0x126a6463,0xc00e93,0x3300313,0x106a6e63,0xd00e93,0x3500313,0x106a6863,0xe00e93,0x1080006f,0x2800313,0xe6a7e63,0xe93,0x1400313,0xe6a6a63,0x100e93,0x1500313,0xe6a6463,0x200e93,0x1600313,0xc6a6e63,0x300e93,0x1700313,0xc6a6863,0x400e93,0x1800313,0xc6a6263,0x500e93,0x1900313,0xa6a6c63,0x600e93,0x1a00313,0xa6a6663,0x700e93,0x1b00313,0xa6a6063,0x800e93,0x1c00313,0x86a6a63,0x900e93,0x1d00313,0x86a6463,0xa00e93,0x1f00313,0x66a6e63,0xb00e93,0x2000313,0x66a6863,0xc00e93,0x2100313,0x66a6263,0xd00e93,0x2200313,0x46a6c63,0xe00e93,0x2400313,0x46a6663,0xf00e93,0x2500313,0x46a6063,0x1000e93,0x2600313,0x26a6a63,0x1100e93,0x2700313,0x26a6463,0x1200e93,0x200006f,0x13,0x13,0x13,0x13,0x13,0x13,0x945fd06f,0xf44fd06f]
 /-- The img-v6 threshold routine `th` (appended, 24851..24970): `t4 := threshold(s0, s4)`; L1 cascade at 24859
 (residual < 54), L2 at 24905 (residual < 40), L3 at 24855 (floor = residual < 22), failure 24969 (`jal 22490`),
 result 24970 (`jal 22363`). -/
 def lookT (n : Nat) : Option (BitVec 32) := if 24851 ≤ n then thCode[n-24851]? else none
-def ends1 : List Nat := [37, 38, 39, 40, 41, 42, 43, 44, 45, 47, 48, 50, 51, 53]
-def ends2 : List Nat := [19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 30, 31, 32, 33, 35, 36, 38, 39]
+def ends1 : List Nat := [38, 40, 42, 45, 47, 50, 52]
+def ends2 : List Nat := [20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 31, 32, 33, 34, 36, 37, 38, 39]
 def dirs (m v : Nat) : List Dir := [.br false] ++ List.replicate v (.br false) ++ (if v < m then [.br true] else [])
 def resL (ends : List Nat) (m bound v : Nat) : PRes :=
-  ⟨⟨rfs [(.x6,cst (ends.getD (if v < m then v else m-1) 0)),(.x29,cst v)],[],[]⟩,pcOf 22363,false,
+  ⟨⟨rfs [(.x6,cst (ends.getD (if v < m then v else m-1) 0)),(.x29,cst (if m=7 then 2*v else v))],[],[]⟩,pcOf 22363,false,
     (if v < m then 6+3*v else 5+3*m),(if v < m then 6+3*v else 5+3*m),
     (if v < m then [⟨.ltu,.reg .x20,cst (ends.getD v 0),true⟩] else []) ++
     ((List.range v).reverse.map (fun i => ⟨.ltu,.reg .x20,cst (ends.getD i 0),false⟩)) ++
     [⟨.geu,.reg .x20,cst bound,false⟩],none⟩
-theorem checked1 : (List.range 15).all (fun v =>
-    optBeq (run lookT [22363] 24859 (dirs 14 v)) (resL ends1 14 54 v)) = true := by decide +kernel
+theorem checked1 : (List.range 8).all (fun v =>
+    optBeq (run lookT [22363] 24859 (dirs 7 v)) (resL ends1 7 54 v)) = true := by decide +kernel
 theorem checked2 : (List.range 19).all (fun v =>
     optBeq (run lookT [22363] 24905 (dirs 18 v)) (resL ends2 18 40 v)) = true := by decide +kernel
 theorem code_lookT {im : Image} (hc : CodeAt im (pcOf 24851) thCode) : LookOK im lookT := by
@@ -8641,7 +8644,7 @@ theorem floorL_steps {im : Image} (hc : CodeAt im (pcOf 24851) thCode) (ends : L
     (hlower : ∀ i,i < v → ends.getD i 0≤r)
     (h20 : s.getReg .x20=BitVec.ofNat 64 r) :
     ∃ t k, Steps im s k k t ∧ k≤5+3*m ∧ t.pc=pcOf 22363 ∧
-      t.getReg .x29=BitVec.ofNat 64 v ∧ RegsExcept s t [.x6,.x29] ∧ Frame s t (fun _ => False) := by
+      t.getReg .x29=BitVec.ofNat 64 (if m=7 then 2*v else v) ∧ RegsExcept s t [.x6,.x29] ∧ Frame s t (fun _ => False) := by
   have hh := optBeq_eq (List.all_eq_true.mp hchk v (List.mem_range.mpr (by omega)))
   have hob : ∀ o∈(resL ends m bound v).st.obl,o.holds s := by simp [resL]
   have hbr : ∀ b∈(resL ends m bound v).brs,b.holds s := by
@@ -8780,12 +8783,13 @@ open ClaudeWCT.WCT9
 set_option maxHeartbeats 2000000
 set_option maxRecDepth 100000
 theorem threshold1_range : ∀ r,r<54 →
-    CanonicalPolicy.threshold 1 r≤14 ∧ (CanonicalPolicy.threshold 1 r<14 → r<ends1.getD (CanonicalPolicy.threshold 1 r) 0) ∧
-      ∀ i,i<CanonicalPolicy.threshold 1 r → ends1.getD i 0≤r := by decide +kernel
+    CanonicalPolicy.threshold 1 r/2≤7 ∧ (CanonicalPolicy.threshold 1 r/2<7 → r<ends1.getD (CanonicalPolicy.threshold 1 r/2) 0) ∧
+      (∀ i,i<CanonicalPolicy.threshold 1 r/2 → ends1.getD i 0≤r) ∧
+      2*(CanonicalPolicy.threshold 1 r/2)=CanonicalPolicy.threshold 1 r := by decide +kernel
 theorem threshold2_range : ∀ r,r<40 →
     CanonicalPolicy.threshold 2 r≤18 ∧ (CanonicalPolicy.threshold 2 r<18 → r<ends2.getD (CanonicalPolicy.threshold 2 r) 0) ∧
       ∀ i,i<CanonicalPolicy.threshold 2 r → ends2.getD i 0≤r := by decide +kernel
-theorem ends1_lt : ∀ i, i<14 → ends1.getD i 0<2^64 := by decide +kernel
+theorem ends1_lt : ∀ i, i<7 → ends1.getD i 0<2^64 := by decide +kernel
 theorem ends2_lt : ∀ i, i<18 → ends2.getD i 0<2^64 := by decide +kernel
 
 structure DispatchCode (im : Image) : Prop where
@@ -8813,8 +8817,9 @@ theorem threshold_steps {im : Image} (hc : DispatchCode im)
   rcases hl with ⟨hlo,hhi⟩
   interval_cases lay
   · have ht := threshold1_range r (by simpa using hr)
-    obtain ⟨t,k,bt,hk,tp,t29,tr,tf⟩ := floorL_steps hc.th ends1 14 54 24859 checked1 (by decide) rfl ends1_lt
-      (by decide) b (by simpa using bp) r _ ht.1 (by simpa using hr) ht.2.1 ht.2.2 b20
+    obtain ⟨t,k,bt,hk,tp,t29,tr,tf⟩ := floorL_steps hc.th ends1 7 54 24859 checked1 (by decide) rfl ends1_lt
+      (by decide) b (by simpa using bp) r _ ht.1 (by simpa using hr) ht.2.1 ht.2.2.1 b20
+    have t29 : t.getReg .x29=BitVec.ofNat 64 (CanonicalPolicy.threshold 1 r) := by simpa only [if_pos rfl,ite_true,ht.2.2.2] using t29
     exact ⟨t,4+2+k,(sa.trans ab).trans bt,by omega,tp,t29,((ar.trans br).trans tr).mono (by simp),
       ((af.trans bf).trans tf).mono (by tauto)⟩
   · obtain ⟨c,bc,cp,cr,cf⟩ := selectB_steps hc.selectB b (by simpa using bp) 2 (by simp) b8
@@ -8978,7 +8983,7 @@ open RiscvZkvm.Rv64 SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv SigGol
 open SigGolfCandidate.T3M.Keygen
 set_option maxHeartbeats 2000000
 set_option maxRecDepth 100000
-def initResidualCode : List (BitVec 32) := bv_list% 32 [0x66e37,0xe0e13,0x4700313,0x6e3423]
+def initResidualCode : List (BitVec 32) := bv_list% 32 [0x66e37,0xe0e13,0x4600313,0x6e3423]
 sym_block initResidual := symRun { noAlias := true } initResidualCode (pcOf 22226) 100
 def firstLayerCode : List (BitVec 32) := bv_list% 32 [0x100413]
 sym_block firstLayer := symRun { noAlias := true } firstLayerCode (pcOf 22239) 100
@@ -8989,7 +8994,7 @@ sym_block topProduce := symRun { noAlias := true } topProduceCode (pcOf 22478) 1
 
 theorem initResidual_steps {im : Image} (hc : CodeAt im (pcOf 22226) initResidualCode)
     (s : MachineState) (hp : s.pc=pcOf 22226) :
-    ∃ t,Steps im s 4 4 t ∧ t.pc=pcOf 22230 ∧ t.getMem (0x66008#64)=71 ∧
+    ∃ t,Steps im s 4 4 t ∧ t.pc=pcOf 22230 ∧ t.getMem (0x66008#64)=70 ∧
       RegsExcept s t [.x6,.x28] ∧ Frame s t (fun A => A=0x66008) := by
   refine ⟨_,symRun_sound initResidual hc s hp (by simp [initResidual.res,rv_simp];try decide),?_,?_,?_,?_⟩
   · simp [initResidual.res,rv_simp]
@@ -9581,7 +9586,7 @@ theorem Tables.frame {s t : MachineState} {W : Nat→Prop} {regs : List Reg}
   · exact h.t51.frame hf (by decide) (by decide) (fun k hk => hw _ (Or.inr (Or.inl (by unfold TOP_DATA;omega))))
 
 def topArgs (index : Nat) (pair : Digest×Digest) : Canonical.CsArgs :=
-  ⟨0,(route index 0).2,(route index 0).1,.pair pair.1 pair.2,22208,18⟩
+  ⟨0,(route index 0).2,(route index 0).1,.pair pair.1 pair.2,22208,17⟩
 
 theorem top_pre (index : Nat) (hi : index<2^31) (pair : Digest×Digest)
     (s t : MachineState) (h : SharedTopSetup.Post index pair.1 pair.2 s t)
@@ -9593,7 +9598,7 @@ theorem top_pre (index : Nat) (hi : index<2^31) (pair : Digest×Digest)
     exact Nat.mod_eq_of_lt (by omega)
   refine ⟨h.pc,h.ret,ht.x5,h.x8,?_,?_,h.x17,h.x26,h.x27,?_,?_,?_,Or.inl hr,
     h.left.1,h.left.2,hc,ht.z40,h.right.1,h.right.2,ht.table,ht.cf,ht.reward,ht.zt,
-    (show (18:Nat)<22 by decide),by intro; rfl,?_,fun _ => ht.t51⟩
+    (show (17:Nat)<22 by decide),by intro; rfl,?_,fun _ => ht.t51⟩
   · simpa [topArgs,hr] using h.x9
   · simpa only [topArgs,hl] using h.x18
   · change (route index 0).2<2^32;rw [hr];decide
@@ -9768,7 +9773,7 @@ structure TopTailSteps (im : Image) : Prop where
       (∀ i,i<7 → t.getMem (BitVec.ofNat 64 (0x66100+8*i))=s.getMem (BitVec.ofNat 64 (DIGITS+8*i))) ∧
       RegsExcept s t [.x6,.x28,.x29] ∧ Frame s t (fun A => 0x66100≤A ∧ A<0x66100+56)
   init : ∀ s : MachineState, s.pc=pcOf 22226 →
-    ∃ t,Steps im s 4 4 t ∧ t.pc=pcOf 22230 ∧ t.getMem (0x66008#64)=71 ∧
+    ∃ t,Steps im s 4 4 t ∧ t.pc=pcOf 22230 ∧ t.getMem (0x66008#64)=70 ∧
       RegsExcept s t [.x6,.x28] ∧ Frame s t (fun A => A=0x66008)
   residual : ∀ s : MachineState, s.pc=pcOf 22230 → ∀ r c : Nat, r<2^32 → c<2^32 →
     s.getMem (0x66008#64)=BitVec.ofNat 64 r → s.getMem (0x66018#64)=BitVec.ofNat 64 c →
@@ -9789,7 +9794,7 @@ theorem topTail_subset {A : Nat} (h : TopTailWrites A) : WorkWrites A := by
 structure TopTailPost (low : Bool) (ds : List Nat) (s t : MachineState) : Prop where
   pc : t.pc=pcOf 22240
   layer : t.getReg .x8=1
-  residual : t.getMem (0x66008#64)=BitVec.ofNat 64 (CanonicalPolicy.nextResidual 71 0 low ds)
+  residual : t.getMem (0x66008#64)=BitVec.ofNat 64 (CanonicalPolicy.nextResidual 70 0 low ds)
   saved : ∀ i,i<7 → t.getMem (BitVec.ofNat 64 (0x66100+8*i))=s.getMem (BitVec.ofNat 64 (DIGITS+8*i))
   regs : RegsExcept s t [.x3,.x6,.x7,.x8,.x28,.x29]
   frame : Frame s t TopTailWrites
@@ -9802,7 +9807,7 @@ theorem top_tail {im : Image} (hc : TopTailSteps im)
   obtain ⟨b,ab,bp,brm,br,bf⟩ := hc.init a ap
   have bcm : b.getMem (0x66018#64)=BitVec.ofNat 64 (CanonicalPolicy.credit 0 low ds) :=
     (bf.get (by decide) (by decide)).trans ((af.get (by decide) (by omega)).trans hcm)
-  obtain ⟨c,k,bc,hk,cp,crm,cr,cf⟩ := hc.residual b bp 71 (CanonicalPolicy.credit 0 low ds) (by decide) (credit_small _ _ _) brm bcm
+  obtain ⟨c,k,bc,hk,cp,crm,cr,cf⟩ := hc.residual b bp 70 (CanonicalPolicy.credit 0 low ds) (by decide) (credit_small _ _ _) brm bcm
   obtain ⟨t,ct,tp,t8,tr,tf⟩ := hc.first c cp
   refine ⟨t,18+4+k+1,((sa.trans ab).trans bc).trans ct,by omega,?_,t8,?_,?_,?_,?_⟩
   · exact tp
@@ -9818,8 +9823,8 @@ theorem top_tail {im : Image} (hc : TopTailSteps im)
       · exact Or.inr h
       · exact h.elim)
 
-theorem top_residual_small {low : Bool} {ds : List Nat} (h : 18≤CanonicalPolicy.credit 0 low ds) :
-    CanonicalPolicy.nextResidual 71 0 low ds<54 := by
+theorem top_residual_small {low : Bool} {ds : List Nat} (h : 17≤CanonicalPolicy.credit 0 low ds) :
+    CanonicalPolicy.nextResidual 70 0 low ds<54 := by
   unfold CanonicalPolicy.nextResidual;omega
 
 theorem words_bytes {s t : MachineState} (A B n : Nat) (hA : A%8=0) (hB : B%8=0)
@@ -10089,8 +10094,8 @@ structure TopReady (index : Nat) (p : PreparedRoots) (forest : Digest×Digest) (
     (s t : MachineState) : Prop where
   pc : t.pc=pcOf 22240
   layer : t.getReg .x8=1
-  residual : t.getMem (0x66008#64)=BitVec.ofNat 64 (CanonicalPolicy.nextResidual 71 0 low ds)
-  small : CanonicalPolicy.nextResidual 71 0 low ds<54
+  residual : t.getMem (0x66008#64)=BitVec.ofNat 64 (CanonicalPolicy.nextResidual 70 0 low ds)
+  small : CanonicalPolicy.nextResidual 70 0 low ds<54
   hints : t.getMem (0x66000#64)=0
   c32 : ∃ c<2^32,t.getMem (BitVec.ofNat 64 (ENC+32))=BitVec.ofNat 64 c
   stable : Stable index p forest t
@@ -10114,7 +10119,7 @@ theorem top_stage {im : Image} {sk : BitVec 256} (hs : SearchCalls im sk)
     (hh : s.getMem (0x66000#64)=0)
     (hc32 : ∃ c<2^32,s.getMem (BitVec.ofNat 64 (ENC+32))=BitVec.ofNat 64 c) :
     TBSim im sk s (Canonical.csCost 0+57)
-      (CanonicalPolicy.layerCounterSearchAt 0 18 (route index 0).2 (route index 0).1
+      (CanonicalPolicy.layerCounterSearchAt 0 17 (route index 0).2 (route index 0).1
         (.pair (topPair 1 p.one.levels).1 (topPair 1 p.one.levels).2) 0 (searchLimit 0))
       (TopStagePost im index p forest s) := by
   obtain ⟨a,sa,ha⟩ := ht.setup s hp index hi hstable.indexMem _ _ hstable.one.left hstable.one.right
@@ -10125,7 +10130,7 @@ theorem top_stage {im : Image} {sk : BitVec 256} (hs : SearchCalls im sk)
     exact ⟨c,hc,(ha.frame.get (by unfold ENC;omega) (by unfold ENC;omega)).trans hcv⟩
   have H := hs.call (topArgs index (topPair 1 p.one.levels)) a (top_pre index hi _ s a ha hsta.tables hac)
   have Htail : TBSim im sk a (Canonical.csCost 0+31)
-      (CanonicalPolicy.layerCounterSearchAt 0 18 (route index 0).2 (route index 0).1
+      (CanonicalPolicy.layerCounterSearchAt 0 17 (route index 0).2 (route index 0).1
         (.pair (topPair 1 p.one.levels).1 (topPair 1 p.one.levels).2) 0 (searchLimit 0))
       (TopStagePost im index p forest s) := by
     have hb := TBSim.bind H (f:=fun r=>pure r) (W₂:=31) (Q₂:=TopStagePost im index p forest s) (by
@@ -10432,16 +10437,16 @@ structure Choices where
   l2 : Bool
   l3 : Bool
 
-def Choices.r1 (a : Choices) := CanonicalPolicy.nextResidual 71 0 a.l0 a.d0
+def Choices.r1 (a : Choices) := CanonicalPolicy.nextResidual 70 0 a.l0 a.d0
 def Choices.r2 (a : Choices) := CanonicalPolicy.nextResidual a.r1 1 a.l1 a.d1
 def Choices.r3 (a : Choices) := CanonicalPolicy.nextResidual a.r2 2 a.l2 a.d2
 def Choices.hints (a : Choices) := 484*CanonicalPolicy.threshold 1 a.r1 +
   22*CanonicalPolicy.threshold 2 a.r2 + CanonicalPolicy.threshold 3 a.r3
 
 def prefixSearch (index : Nat) (p : PreparedRoots) (forest : Digest×Digest) : T3.M (Option Choices) := do
-  let some (c0,d0,l0) ← CanonicalPolicy.layerCounterSearchAt 0 18 (route index 0).2 (route index 0).1
+  let some (c0,d0,l0) ← CanonicalPolicy.layerCounterSearchAt 0 17 (route index 0).2 (route index 0).1
     (.pair (topPair 1 p.one.levels).1 (topPair 1 p.one.levels).2) 0 (searchLimit 0) | pure none
-  let r1 := CanonicalPolicy.nextResidual 71 0 l0 d0
+  let r1 := CanonicalPolicy.nextResidual 70 0 l0 d0
   let f1 := CanonicalPolicy.threshold 1 r1
   if f1≥16 then return none
   let some (c1,d1,l1) ← CanonicalPolicy.layerCounterSearchAt 1 f1 (route index 1).2 (route index 1).1
@@ -10479,6 +10484,7 @@ structure PrefixReady (index : Nat) (p : PreparedRoots) (forest : Digest×Digest
   hints : t.getMem (0x66000#64)=BitVec.ofNat 64 a.hints
   residual : t.getMem (0x66008#64)=0
   credit : CanonicalPolicy.nextResidual a.r3 3 a.l3 a.d3=0
+  hintEven : (a.hints % 2^16) / 484 % 2 = 0
   frame : Frame s t WorkWrites
 
 def PrefixPost (im : Image) (index : Nat) (p : PreparedRoots) (forest : Digest×Digest)
@@ -10505,7 +10511,7 @@ theorem prefix_good {im : Image} {sk : BitVec 256} (hs : SearchCalls im sk)
   | some a0 =>
     obtain ⟨c0,d0,l0⟩ := a0
     change TopReady index p forest l0 d0 s t0 at h0
-    let r1 := CanonicalPolicy.nextResidual 71 0 l0 d0
+    let r1 := CanonicalPolicy.nextResidual 70 0 l0 d0
     let f1 := CanonicalPolicy.threshold 1 r1
     have hf1 : f1<16 := (floor_small 1 (by decide) r1 h0.small).2 rfl
     dsimp only [f1,r1] at hf1
@@ -10568,7 +10574,7 @@ theorem prefix_good {im : Image} {sk : BitVec 256} (hs : SearchCalls im sk)
           obtain ⟨t,st,ht⟩ := finish_steps hfinish index hi p forest d0 t3 h3.pc h3.stable saved3 h3.sum
           refine (TBSim.steps st (TBSim.pure (s:=t) (a:=some ⟨c0,c1,c2,c3,d0,d1,d2,d3,l0,l1,l2,l3⟩) (Q:=PrefixPost im index p forest s) ?_)).mono (W':=30) (by omega) (fun _ _ h=>h)
           refine ⟨ht.pc,ht.layer,ht.tree,ht.height,ht.chains,ht.n4,ht.target,ht.leaf,ht.selected,ht.stable,
-            h0.decoded,ht.digits,ht.sum,?_,?_,?_,?_,?_,hz,?_⟩
+            h0.decoded,ht.digits,ht.sum,?_,?_,?_,?_,?_,hz,?_,?_⟩
           · exact one3.frame_finish (by decide) (prepared_length 1 (by decide) _ _ _).1 (prepared_length 1 (by decide) _ _ _).2 ht.frame
           · exact two3.frame_finish (by decide) (prepared_length 2 (by decide) _ _ _).1 (prepared_length 2 (by decide) _ _ _).2 ht.frame
           · exact three3.frame_finish (by decide) (prepared_length 3 (by decide) _ _ _).1 (prepared_length 3 (by decide) _ _ _).2 ht.frame
@@ -10578,6 +10584,9 @@ theorem prefix_good {im : Image} {sk : BitVec 256} (hs : SearchCalls im sk)
           · have hm := (ht.frame.get (A:=0x66008) (by decide) (by unfold DIGITS;omega)).trans h3.residualMem
             change t.getMem (0x66008#64)=BitVec.ofNat 64 0
             simpa only [hz] using hm
+          · apply SigGolfCandidate.HintSignFinish.floors_even f1 f2 f3 hf1 hf2 hf3
+            change HintPolicyResearch.one.getD r1 301 % 2 = 0
+            exact HintPolicyResearch.one_even r1 (by change f1<22; exact lt_trans hf1 (by decide))
           · have F1 := h1.frame.mono (fun _ _=>lowerWrites_subset 1 (by decide))
             have F2 := h2.frame.mono (fun _ _=>lowerWrites_subset 2 (by decide))
             have F3 := h3.frame.mono (fun _ _=>lowerWrites_subset 3 (by decide))
@@ -10714,6 +10723,7 @@ structure Completed (index : Nat) (p : PreparedRoots) (a : Choices) (top : T3.Pi
   hints : t.getMem (0x66000#64)=BitVec.ofNat 64 a.hints
   residual : t.getMem (0x66008#64)=0
   credit : CanonicalPolicy.nextResidual a.r3 3 a.l3 a.d3=0
+  hintEven : (a.hints % 2^16) / 484 % 2 = 0
 
 def LayersPost (im : Image) (index : Nat) (p : PreparedRoots) : Option CanonicalLayers→MachineState→Prop
   | none,t => SearchError im t
@@ -11266,7 +11276,7 @@ theorem searchPreparedLayers_framed {im : Image} {sk : SecretKey} {cache : Bytes
     intro top t ht
     rcases ht with ⟨htpc,htv,htp,htf,hth,htr⟩
     refine TBSim.pure (a:=some (layersValue index p a top)) (s:=t) (Q:=FramedLayersPost im index p s) ?_
-    refine ⟨⟨a,top,rfl,htpc,htv,htp,?_,?_,?_,hth.trans hu.hints,htr.trans hu.residual,hu.credit⟩,hu.frame.trans htf⟩
+    refine ⟨⟨a,top,rfl,htpc,htv,htp,?_,?_,?_,hth.trans hu.hints,htr.trans hu.residual,hu.credit,hu.hintEven⟩,hu.frame.trans htf⟩
     · exact hu.one.frame_top (by decide) (prepared_length 1 (by decide) _ _ _).1 (prepared_length 1 (by decide) _ _ _).2 htf
     · exact hu.two.frame_top (by decide) (prepared_length 2 (by decide) _ _ _).1 (prepared_length 2 (by decide) _ _ _).2 htf
     · exact hu.three.frame_top (by decide) (prepared_length 3 (by decide) _ _ _).1 (prepared_length 3 (by decide) _ _ _).2 htf
@@ -12069,10 +12079,9 @@ set_option maxRecDepth 10000
 def setupWords : List (BitVec 32) := bv_list% 32 [0x7e37,0xe0e13,0x7eb7,0xe8e93,0x913]
 /-- E11 (22526..22538): slot 324 = sibling bits 0..76 (the high word masked to 13 bits); `t1 = X` = sibling
 bits 77..100 | hint << 24; `jal 24971`. -/
-def finishWords : List (BitVec 32) := bv_list% 32 [0xe3303,0x8e3383,0x3339e13,0x33e5e13,0x6eb023,0x1ceb423,0x1b39393,0x283d393,0x66f37,0xf3f03,0x18f1f13,0x1e3e333,0x6040206f]
-
+def finishWords := SigGolfCandidate.HintSignFinish.hookWords
+def finishBodyWords := SigGolfCandidate.HintSignFinish.bodyWords
 sym_block setupRun := symRun {noAlias:=true} setupWords (pcOf 22504) 20
-sym_block finishRun := symRun {noAlias:=true} finishWords (pcOf 22526) 20
 
 theorem setup_steps {im : Image} (hc : CodeAt im (pcOf 22504) setupWords)
     (s : MachineState) (hp : s.pc=pcOf 22504) :
@@ -12087,28 +12096,19 @@ theorem setup_steps {im : Image} (hc : CodeAt im (pcOf 22504) setupWords)
   · intro A hA hn;rfl
 
 theorem finish_steps {im : Image} (hc : CodeAt im (pcOf 22526) finishWords)
+    (hb : CodeAt im (pcOf 22574) finishBodyWords)
     (s : MachineState) (hp : s.pc=pcOf 22526)
     (h28 : s.getReg .x28=BitVec.ofNat 64 (SIG+16*328))
     (h29 : s.getReg .x29=BitVec.ofNat 64 (SIG+16*324)) :
-    ∃t, Steps im s 13 13 t ∧ t.pc=pcOf 24971 ∧
-      t.getReg .x6=((s.getMem (BitVec.ofNat 64 (SIG+16*328+8))<<<27)>>>40) ||| (s.getMem 0x66000<<<24) ∧
+    ∃t, Steps im s 26 35 t ∧ t.pc=pcOf 24971 ∧
+      t.getReg .x6 = SigGolfCandidate.HintSignFinish.newX
+        (s.getMem (BitVec.ofNat 64 (SIG+16*328)))
+        (s.getMem (BitVec.ofNat 64 (SIG+16*328+8))) (s.getMem 0x66000) ∧
       t.getMem (BitVec.ofNat 64 (SIG+16*324))=s.getMem (BitVec.ofNat 64 (SIG+16*328)) ∧
-      t.getMem (BitVec.ofNat 64 (SIG+16*324+8))=(s.getMem (BitVec.ofNat 64 (SIG+16*328+8))<<<51)>>>51 ∧
+      t.getMem (BitVec.ofNat 64 (SIG+16*324+8))=(s.getMem (BitVec.ofNat 64 (SIG+16*328+8))<<<(51:Nat))>>>(51:Nat) ∧
       RegsExcept s t [.x3,.x6,.x7,.x28,.x30] ∧
-      Frame s t (fun A=>A=SIG+16*324 ∨ A=SIG+16*324+8) := by
-  refine ⟨_,symRun_sound finishRun hc s hp ?_,?_,?_,?_,?_,?_,?_⟩
-  · simp [finishRun.res,rv_simp,h28,h29,SIG,accessValid_iff,MEMORY_BYTES]
-  · rfl
-  · simp [finishRun.res,rv_simp,h28,h29,SIG]
-  · simp [finishRun.res,rv_simp,h28,h29,SIG]
-  · simp [finishRun.res,rv_simp,h28,h29,SIG]
-  · intro r hr; simp at hr; cases r <;> simp_all [finishRun.res,rv_simp] <;> rfl
-  · intro A hA hn
-    have h0 : A≠SIG+16*324 := by tauto
-    have h8 : A≠SIG+16*324+8 := by tauto
-    simp [finishRun.res,rv_simp,h28,h29,SIG,ofNat_inj hA (by decide : 33856<2^64),
-      ofNat_inj hA (by decide : 33864<2^64)]
-    simp_all [SIG]
+      Frame s t (fun A=>A=SIG+16*324 ∨ A=SIG+16*324+8) :=
+  SigGolfCandidate.HintSignFinish.finish_spec hc hb s hp h28 h29
 
 end ClaudeWCT.W9.Machine.Sign.SharedSerializer
 namespace ClaudeWCT.W9.Machine.Sign.SharedSerializer
@@ -12119,7 +12119,7 @@ set_option maxRecDepth 10000
 local macro "so" : tactic => `(tactic| ((try simp only [SIG, MEMORY_BYTES] at *) <;> omega))
 
 /-- X from the finish block: sibling high word bits 13..36 (sibling bits 77..100) | hint word << 24. -/
-def Xw (a h : Word) : Word := ((a <<< 27) >>> 40) ||| (h <<< 24)
+def Xw := SigGolfCandidate.HintSignFinish.newX
 def packedWord (read : Nat→Word) (k : Nat) : Word :=
   if k<648 then read (2*sourceIndex (k/2)+k%2)
   else if k=648 then read 656
@@ -12127,14 +12127,15 @@ def packedWord (read : Nat→Word) (k : Nat) : Word :=
 
 theorem tail_readout {im : Image} (hs : CodeAt im (pcOf 22504) setupWords)
     (hl : LookOK im tailLook) (hf : CodeAt im (pcOf 22526) finishWords)
+    (hb : CodeAt im (pcOf 22574) finishBodyWords)
     (s : MachineState) (hp : s.pc=pcOf 22504) :
-    ∃n≤5594,∃t,Steps im s n n t ∧ t.pc=pcOf 24971 ∧
-      t.getReg .x6=Xw (s.getMem (BitVec.ofNat 64 (SIG+8*657))) (s.getMem 0x66000) ∧
+    ∃n≤5607,∃t,Steps im s n (n+9) t ∧ t.pc=pcOf 24971 ∧
+      t.getReg .x6=Xw (s.getMem (BitVec.ofNat 64 (SIG+8*656))) (s.getMem (BitVec.ofNat 64 (SIG+8*657))) (s.getMem 0x66000) ∧
       (∀k,k<650 → t.getMem (BitVec.ofNat 64 (SIG+8*k))=packedWord (fun j=>s.getMem (BitVec.ofNat 64 (SIG+8*j))) k) ∧
       Frame s t (fun A=>SIG≤A ∧ A<SIG+5200) := by
   obtain ⟨u,su,hu⟩:=setup_steps hs s hp
   obtain ⟨n,hn,v,sv,hv⟩:=tail_loop hl hu 328 (by omega)
-  obtain ⟨t,st,pc,x6,lo,hi,regs,frame⟩:=finish_steps hf v
+  obtain ⟨t,st,pc,x6,lo,hi,regs,frame⟩:=finish_steps hf hb v
     (by simpa using hv.pc) hv.x28 (by simpa [kept] using hv.x29)
   have hframe : Frame s v (fun A=>SIG≤A ∧ A<SIG+5184) := by simpa [kept] using hv.frame
   have hh : v.getMem (0x66000 : Word)=s.getMem (0x66000 : Word) :=
@@ -12143,8 +12144,8 @@ theorem tail_readout {im : Image} (hs : CodeAt im (pcOf 22504) setupWords)
     hframe.get (by decide) (by simp [SIG])
   have r657 : v.getMem (BitVec.ofNat 64 (SIG+16*328+8))=s.getMem (BitVec.ofNat 64 (SIG+8*657)) :=
     hframe.get (by decide) (by simp [SIG])
-  refine ⟨5+n+13,by omega,t,(su.trans sv).trans st,pc,?_,?_,?_⟩
-  · rw [x6,r657,hh]; rfl
+  refine ⟨5+n+26,by omega,t,(su.trans sv).trans st,pc,?_,?_,?_⟩
+  · rw [x6,r656,r657,hh]; rfl
   · intro k hk
     unfold packedWord
     by_cases hk648 : k<648
@@ -12247,12 +12248,12 @@ The success HALT `20744` jumps to the pack routine (E11's routine at 25204..2530
 into the top `gBits k` bits of the ground slot `k` (byte 15 of `SIG + 16 k`, 21 slots: 12 lower path siblings and the
 9 FTS level-4 auth siblings); then `addi a0,zero,0; ecall` (25560, 25561). -/
 def packJalW : List (BitVec 32) := bv_list% 32 [0x850406f]
-def packWords : List (BitVec 32) := bv_list% 32 [0x8f37,0x440f0f13,0xf3383,0x203d393,0x8f3e03,0x20e1e13,0x1c3e3b3,0x8f37,0xe1ff0f13,0x3de13,0x7e7e13,0x5e1e13,0xf4e83,0x1ceeeb3,0x1df0023,0x8f37,0xe0ff0f13,0x33de13,0x7e7e13,0x5e1e13,0xf4e83,0x1ceeeb3,0x1df0023,0x8f37,0xdfff0f13,0x63de13,0x3e7e13,0x6e1e13,0xf4e83,0x1ceeeb3,0x1df0023,0x8f37,0xdeff0f13,0x83de13,0x1e7e13,0x7e1e13,0xf4e83,0x1ceeeb3,0x1df0023,0x8f37,0x12ff0f13,0x93de13,0xfe7e13,0x4e1e13,0xf4e83,0x1ceeeb3,0x1df0023,0x8f37,0x11ff0f13,0xd3de13,0x7e7e13,0x5e1e13,0xf4e83,0x1ceeeb3,0x1df0023,0x8f37,0x10ff0f13,0x103de13,0x3e7e13,0x6e1e13,0xf4e83,0x1ceeeb3,0x1df0023,0x8f37,0xfff0f13,0x123de13,0x1e7e13,0x7e1e13,0xf4e83,0x1ceeeb3,0x1df0023,0x8f37,0x43ff0f13,0x133de13,0xfe7e13,0x4e1e13,0xf4e83,0x1ceeeb3,0x1df0023,0x8f37,0x42ff0f13,0x173de13,0x7e7e13,0x5e1e13,0xf4e83,0x1ceeeb3,0x1df0023,0x8f37,0x41ff0f13,0x1a3de13,0x3e7e13,0x6e1e13,0xf4e83,0x1ceeeb3,0x1df0023,0x8f37,0x40ff0f13,0x1c3de13,0x1e7e13,0x7e1e13,0xf4e83,0x1ceeeb3,0x1df0023,0x7f37,0xbff0f13,0x1d3de13,0x1e7e13,0x7e1e13,0xf4e83,0x1ceeeb3,0x1df0023,0x7f37,0x17ff0f13,0x1e3de13,0x1e7e13,0x7e1e13,0xf4e83,0x1ceeeb3,0x1df0023,0x7f37,0x24ff0f13,0x1f3de13,0x3e7e13,0x6e1e13,0xf4e83,0x1ceeeb3,0x1df0023,0x7f37,0x30ff0f13,0x213de13,0x3e7e13,0x6e1e13,0xf4e83,0x1ceeeb3,0x1df0023,0x7f37,0x3dff0f13,0x233de13,0x3e7e13,0x6e1e13,0xf4e83,0x1ceeeb3,0x1df0023,0x7f37,0x49ff0f13,0x253de13,0x3e7e13,0x6e1e13,0xf4e83,0x1ceeeb3,0x1df0023,0x7f37,0x56ff0f13,0x273de13,0x3e7e13,0x6e1e13,0xf4e83,0x1ceeeb3,0x1df0023,0x7f37,0x62ff0f13,0x293de13,0x3e7e13,0x6e1e13,0xf4e83,0x1ceeeb3,0x1df0023,0x7f37,0x6fff0f13,0x2b3de13,0x3e7e13,0x6e1e13,0xf4e83,0x1ceeeb3,0x1df0023,0x513,0x73]
+def packWords : List (BitVec 32) := bv_list% 32 [0x8f37,0x440f0f13,0xf3383,0x193d393,0x8f3e03,0x27e1e13,0x1c3e3b3,0x8f37,0xe1ff0f13,0x3de13,0xfe7e13,0x4e1e13,0xf4e83,0x1ceeeb3,0x1df0023,0x8f37,0xe0ff0f13,0x43de13,0xfe7e13,0x4e1e13,0xf4e83,0x1ceeeb3,0x1df0023,0x8f37,0xdfff0f13,0x83de13,0x3e7e13,0x6e1e13,0xf4e83,0x1ceeeb3,0x1df0023,0x8f37,0xdeff0f13,0xa3de13,0x3e7e13,0x6e1e13,0xf4e83,0x1ceeeb3,0x1df0023,0x8f37,0x12ff0f13,0xc3de13,0xfe7e13,0x4e1e13,0xf4e83,0x1ceeeb3,0x1df0023,0x8f37,0x11ff0f13,0x103de13,0x7e7e13,0x5e1e13,0xf4e83,0x1ceeeb3,0x1df0023,0x8f37,0x10ff0f13,0x133de13,0x3e7e13,0x6e1e13,0xf4e83,0x1ceeeb3,0x1df0023,0x8f37,0xfff0f13,0x153de13,0x3e7e13,0x6e1e13,0xf4e83,0x1ceeeb3,0x1df0023,0x8f37,0x43ff0f13,0x173de13,0xfe7e13,0x4e1e13,0xf4e83,0x1ceeeb3,0x1df0023,0x8f37,0x42ff0f13,0x1b3de13,0x7e7e13,0x5e1e13,0xf4e83,0x1ceeeb3,0x1df0023,0x8f37,0x41ff0f13,0x1e3de13,0x3e7e13,0x6e1e13,0xf4e83,0x1ceeeb3,0x1df0023,0x8f37,0x40ff0f13,0x203de13,0x3e7e13,0x6e1e13,0xf4e83,0x1ceeeb3,0x1df0023,0x7f37,0xbff0f13,0x223de13,0x3e7e13,0x6e1e13,0xf4e83,0x1ceeeb3,0x1df0023,0x7f37,0x17ff0f13,0x243de13,0x3e7e13,0x6e1e13,0xf4e83,0x1ceeeb3,0x1df0023,0x7f37,0x24ff0f13,0x263de13,0x3e7e13,0x6e1e13,0xf4e83,0x1ceeeb3,0x1df0023,0x7f37,0x30ff0f13,0x283de13,0x3e7e13,0x6e1e13,0xf4e83,0x1ceeeb3,0x1df0023,0x7f37,0x3dff0f13,0x2a3de13,0x3e7e13,0x6e1e13,0xf4e83,0x1ceeeb3,0x1df0023,0x7f37,0x49ff0f13,0x2c3de13,0x3e7e13,0x6e1e13,0xf4e83,0x1ceeeb3,0x1df0023,0x7f37,0x56ff0f13,0x2e3de13,0x3e7e13,0x6e1e13,0xf4e83,0x1ceeeb3,0x1df0023,0x7f37,0x62ff0f13,0x303de13,0x3e7e13,0x6e1e13,0xf4e83,0x1ceeeb3,0x1df0023,0x7f37,0x6fff0f13,0x323de13,0x3e7e13,0x6e1e13,0xf4e83,0x1ceeeb3,0x1df0023,0x513,0x73]
 sym_block packJalRun := symRun { noAlias := true } packJalW (pcOf 20744) 100
 sym_block packRun := symRun { noAlias := true } packWords (pcOf 25385) 200
 /-- V45: the 45-bit V field read by `ld 0x8440; srli 32; ld 0x8448; slli 32; or` (bits 32..63 of word 648, bits
 0..31 of word 649 above them; only bits `< 45` are used). -/
-def vOfW2 (x y : Word) : Nat := x.toNat / 2 ^ 32 + y.toNat % 2 ^ 32 * 2 ^ 32
+def vOfW2 (x y : Word) : Nat := x.toNat / 2 ^ 25 + y.toNat % 2 ^ 25 * 2 ^ 39
 /-- Buffer word `k` after the pack routine. -/
 def packWord (r : Nat → Word) (k : Nat) : Word :=
   if k % 2 = 1 ∧ ClaudeWCT.W9.T3M.SharedCodec.gBits (k / 2) ≠ 0 then
@@ -12285,17 +12286,17 @@ theorem pack_merge (w y : BitVec 64) (b e : Nat) (hb : b ≤ 8) (he : e = 8 - b)
       show k < 64 by omega]
     rw [BitVec.getLsbD_eq_getElem hi]
 theorem vOfW2_testBit (x y : Word) (i : Nat) (hi : i < 64) :
-    (vOfW2 x y).testBit i = if i < 32 then x.getLsbD (32 + i) else y.getLsbD (i - 32) := by
+    (vOfW2 x y).testBit i = if i < 39 then x.getLsbD (25 + i) else y.getLsbD (i - 39) := by
   unfold vOfW2
-  have hx : x.toNat / 2 ^ 32 < 2 ^ 32 := by
+  have hx : x.toNat / 2 ^ 25 < 2 ^ 39 := by
     rw [Nat.div_lt_iff_lt_mul (by positivity)]; exact lt_of_lt_of_eq x.isLt (by norm_num)
-  rw [show x.toNat / 2 ^ 32 + y.toNat % 2 ^ 32 * 2 ^ 32 = 2 ^ 32 * (y.toNat % 2 ^ 32) + x.toNat / 2 ^ 32 by ring,
+  rw [show x.toNat / 2 ^ 25 + y.toNat % 2 ^ 25 * 2 ^ 39 = 2 ^ 39 * (y.toNat % 2 ^ 25) + x.toNat / 2 ^ 25 by ring,
     Nat.testBit_two_pow_mul_add _ hx]
   split
   · rw [Nat.testBit_div_two_pow, ← BitVec.testBit_toNat]; congr 1; omega
-  · rw [Nat.testBit_mod_two_pow, ← BitVec.testBit_toNat]; simp only [show i - 32 < 32 by omega, decide_true, Bool.true_and]
+  · rw [Nat.testBit_mod_two_pow, ← BitVec.testBit_toNat]; simp only [show i - 39 < 25 by omega, decide_true, Bool.true_and]
 theorem pack_v2 (x y : Word) (sh b m : Nat) (hb1 : 1 ≤ b) (hsh : sh + b ≤ 64) (hm : m = 2 ^ b - 1) :
-    BinOp.eval .and (BinOp.eval .srl (BinOp.eval .or (BinOp.eval .srl x 32#64) (BinOp.eval .sll y 32#64))
+    BinOp.eval .and (BinOp.eval .srl (BinOp.eval .or (BinOp.eval .srl x 25#64) (BinOp.eval .sll y 39#64))
       (BitVec.ofNat 64 sh)) (BitVec.ofNat 64 m) = BitVec.ofNat 64 (vOfW2 x y / 2 ^ sh % 2 ^ b) := by
   subst hm
   apply BitVec.eq_of_getLsbD_eq
@@ -12309,13 +12310,13 @@ theorem pack_v2 (x y : Word) (sh b m : Nat) (hb1 : 1 ≤ b) (hsh : sh + b ≤ 64
   by_cases hib : i < b
   · simp only [hib, decide_true, Bool.and_true, Bool.true_and, Nat.reduceMod, Nat.reducePow]
     rw [vOfW2_testBit x y (i + sh) (by omega)]
-    by_cases h24 : sh + i < 32
+    by_cases h24 : sh + i < 39
     · rw [if_pos (by omega)]
       simp only [h24, show sh + i < 64 by omega, decide_true, Bool.not_true, Bool.and_false, Bool.false_and,
         Bool.or_false, Bool.true_and]
       congr 1; omega
     · rw [if_neg (by omega)]
-      have hx : x.getLsbD (32 + (sh + i)) = false := BitVec.getLsbD_of_ge _ _ (by omega)
+      have hx : x.getLsbD (25 + (sh + i)) = false := BitVec.getLsbD_of_ge _ _ (by omega)
       simp only [hx, h24, show sh + i < 64 by omega, decide_true, decide_false, Bool.not_false, Bool.true_and,
         Bool.false_or]
       congr 1; omega
@@ -12331,7 +12332,7 @@ theorem pack_frame (s : MachineState) (A : Nat) (hA : A < 2 ^ 64)
 theorem pack_slot (w x y : Word) (sh b m e : Nat) (hb1 : 1 ≤ b) (hb : b ≤ 8) (hsh : sh + b ≤ 64) (hm : m = 2 ^ b - 1)
     (he : e = 8 - b) :
     BinOp.eval (.st .b 7) w (BinOp.eval .or (UnOp.eval (.ld .bu 7) w) (BinOp.eval .sll (BinOp.eval .and
-      (BinOp.eval .srl (BinOp.eval .or (BinOp.eval .srl x 32#64) (BinOp.eval .sll y 32#64))
+      (BinOp.eval .srl (BinOp.eval .or (BinOp.eval .srl x 25#64) (BinOp.eval .sll y 39#64))
         (BitVec.ofNat 64 sh)) (BitVec.ofNat 64 m)) (BitVec.ofNat 64 e))) =
       w ||| (BitVec.ofNat 64 (vOfW2 x y / 2 ^ sh % 2 ^ b) <<< (64 - b)) := by
   rw [pack_v2 x y sh b m hb1 hsh hm, pack_merge w _ b e hb he]
@@ -12345,152 +12346,152 @@ theorem pack_words (s : MachineState) (k : Nat) (hk : k < 650) :
       obtain ⟨h1, h2⟩ := h; unfold ClaudeWCT.W9.T3M.SharedCodec.gBits at h2; split at h2 <;> omega
     rcases hs with rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl
     · beta_reduce
-      rw [show ClaudeWCT.W9.T3M.SharedCodec.gBits (451 / 2) = 3 from rfl, show ClaudeWCT.W9.T3M.SharedCodec.gOff (451 / 2) = 0 from rfl,
+      rw [show ClaudeWCT.W9.T3M.SharedCodec.gBits (451 / 2) = 4 from rfl, show ClaudeWCT.W9.T3M.SharedCodec.gOff (451 / 2) = 0 from rfl,
         show SIG + 8 * 451 = 32280 from rfl, show SIG + 8 * 648 = 33856 from rfl, show SIG + 8 * 649 = 33864 from rfl]
       simp (config := { decide := true }) only [Result.toState_getMem, packRun.res, memEval_cons, memEval_nil,
         Addr.eval, if_true, if_false]
       simp only [E.eval]
-      exact pack_slot _ _ _ 0 3 _ _ (by norm_num) (by norm_num) (by norm_num) (by norm_num) (by norm_num)
+      exact pack_slot _ _ _ 0 4 _ _ (by norm_num) (by norm_num) (by norm_num) (by norm_num) (by norm_num)
     · beta_reduce
-      rw [show ClaudeWCT.W9.T3M.SharedCodec.gBits (449 / 2) = 3 from rfl, show ClaudeWCT.W9.T3M.SharedCodec.gOff (449 / 2) = 3 from rfl,
+      rw [show ClaudeWCT.W9.T3M.SharedCodec.gBits (449 / 2) = 4 from rfl, show ClaudeWCT.W9.T3M.SharedCodec.gOff (449 / 2) = 4 from rfl,
         show SIG + 8 * 449 = 32264 from rfl, show SIG + 8 * 648 = 33856 from rfl, show SIG + 8 * 649 = 33864 from rfl]
       simp (config := { decide := true }) only [Result.toState_getMem, packRun.res, memEval_cons, memEval_nil,
         Addr.eval, if_true, if_false]
       simp only [E.eval]
-      exact pack_slot _ _ _ 3 3 _ _ (by norm_num) (by norm_num) (by norm_num) (by norm_num) (by norm_num)
+      exact pack_slot _ _ _ 4 4 _ _ (by norm_num) (by norm_num) (by norm_num) (by norm_num) (by norm_num)
     · beta_reduce
-      rw [show ClaudeWCT.W9.T3M.SharedCodec.gBits (447 / 2) = 2 from rfl, show ClaudeWCT.W9.T3M.SharedCodec.gOff (447 / 2) = 6 from rfl,
+      rw [show ClaudeWCT.W9.T3M.SharedCodec.gBits (447 / 2) = 2 from rfl, show ClaudeWCT.W9.T3M.SharedCodec.gOff (447 / 2) = 8 from rfl,
         show SIG + 8 * 447 = 32248 from rfl, show SIG + 8 * 648 = 33856 from rfl, show SIG + 8 * 649 = 33864 from rfl]
       simp (config := { decide := true }) only [Result.toState_getMem, packRun.res, memEval_cons, memEval_nil,
         Addr.eval, if_true, if_false]
       simp only [E.eval]
-      exact pack_slot _ _ _ 6 2 _ _ (by norm_num) (by norm_num) (by norm_num) (by norm_num) (by norm_num)
+      exact pack_slot _ _ _ 8 2 _ _ (by norm_num) (by norm_num) (by norm_num) (by norm_num) (by norm_num)
     · beta_reduce
-      rw [show ClaudeWCT.W9.T3M.SharedCodec.gBits (445 / 2) = 1 from rfl, show ClaudeWCT.W9.T3M.SharedCodec.gOff (445 / 2) = 8 from rfl,
+      rw [show ClaudeWCT.W9.T3M.SharedCodec.gBits (445 / 2) = 2 from rfl, show ClaudeWCT.W9.T3M.SharedCodec.gOff (445 / 2) = 10 from rfl,
         show SIG + 8 * 445 = 32232 from rfl, show SIG + 8 * 648 = 33856 from rfl, show SIG + 8 * 649 = 33864 from rfl]
       simp (config := { decide := true }) only [Result.toState_getMem, packRun.res, memEval_cons, memEval_nil,
         Addr.eval, if_true, if_false]
       simp only [E.eval]
-      exact pack_slot _ _ _ 8 1 _ _ (by norm_num) (by norm_num) (by norm_num) (by norm_num) (by norm_num)
+      exact pack_slot _ _ _ 10 2 _ _ (by norm_num) (by norm_num) (by norm_num) (by norm_num) (by norm_num)
     · beta_reduce
-      rw [show ClaudeWCT.W9.T3M.SharedCodec.gBits (549 / 2) = 4 from rfl, show ClaudeWCT.W9.T3M.SharedCodec.gOff (549 / 2) = 9 from rfl,
+      rw [show ClaudeWCT.W9.T3M.SharedCodec.gBits (549 / 2) = 4 from rfl, show ClaudeWCT.W9.T3M.SharedCodec.gOff (549 / 2) = 12 from rfl,
         show SIG + 8 * 549 = 33064 from rfl, show SIG + 8 * 648 = 33856 from rfl, show SIG + 8 * 649 = 33864 from rfl]
       simp (config := { decide := true }) only [Result.toState_getMem, packRun.res, memEval_cons, memEval_nil,
         Addr.eval, if_true, if_false]
       simp only [E.eval]
-      exact pack_slot _ _ _ 9 4 _ _ (by norm_num) (by norm_num) (by norm_num) (by norm_num) (by norm_num)
+      exact pack_slot _ _ _ 12 4 _ _ (by norm_num) (by norm_num) (by norm_num) (by norm_num) (by norm_num)
     · beta_reduce
-      rw [show ClaudeWCT.W9.T3M.SharedCodec.gBits (547 / 2) = 3 from rfl, show ClaudeWCT.W9.T3M.SharedCodec.gOff (547 / 2) = 13 from rfl,
+      rw [show ClaudeWCT.W9.T3M.SharedCodec.gBits (547 / 2) = 3 from rfl, show ClaudeWCT.W9.T3M.SharedCodec.gOff (547 / 2) = 16 from rfl,
         show SIG + 8 * 547 = 33048 from rfl, show SIG + 8 * 648 = 33856 from rfl, show SIG + 8 * 649 = 33864 from rfl]
       simp (config := { decide := true }) only [Result.toState_getMem, packRun.res, memEval_cons, memEval_nil,
         Addr.eval, if_true, if_false]
       simp only [E.eval]
-      exact pack_slot _ _ _ 13 3 _ _ (by norm_num) (by norm_num) (by norm_num) (by norm_num) (by norm_num)
+      exact pack_slot _ _ _ 16 3 _ _ (by norm_num) (by norm_num) (by norm_num) (by norm_num) (by norm_num)
     · beta_reduce
-      rw [show ClaudeWCT.W9.T3M.SharedCodec.gBits (545 / 2) = 2 from rfl, show ClaudeWCT.W9.T3M.SharedCodec.gOff (545 / 2) = 16 from rfl,
+      rw [show ClaudeWCT.W9.T3M.SharedCodec.gBits (545 / 2) = 2 from rfl, show ClaudeWCT.W9.T3M.SharedCodec.gOff (545 / 2) = 19 from rfl,
         show SIG + 8 * 545 = 33032 from rfl, show SIG + 8 * 648 = 33856 from rfl, show SIG + 8 * 649 = 33864 from rfl]
       simp (config := { decide := true }) only [Result.toState_getMem, packRun.res, memEval_cons, memEval_nil,
         Addr.eval, if_true, if_false]
       simp only [E.eval]
-      exact pack_slot _ _ _ 16 2 _ _ (by norm_num) (by norm_num) (by norm_num) (by norm_num) (by norm_num)
+      exact pack_slot _ _ _ 19 2 _ _ (by norm_num) (by norm_num) (by norm_num) (by norm_num) (by norm_num)
     · beta_reduce
-      rw [show ClaudeWCT.W9.T3M.SharedCodec.gBits (543 / 2) = 1 from rfl, show ClaudeWCT.W9.T3M.SharedCodec.gOff (543 / 2) = 18 from rfl,
+      rw [show ClaudeWCT.W9.T3M.SharedCodec.gBits (543 / 2) = 2 from rfl, show ClaudeWCT.W9.T3M.SharedCodec.gOff (543 / 2) = 21 from rfl,
         show SIG + 8 * 543 = 33016 from rfl, show SIG + 8 * 648 = 33856 from rfl, show SIG + 8 * 649 = 33864 from rfl]
       simp (config := { decide := true }) only [Result.toState_getMem, packRun.res, memEval_cons, memEval_nil,
         Addr.eval, if_true, if_false]
       simp only [E.eval]
-      exact pack_slot _ _ _ 18 1 _ _ (by norm_num) (by norm_num) (by norm_num) (by norm_num) (by norm_num)
+      exact pack_slot _ _ _ 21 2 _ _ (by norm_num) (by norm_num) (by norm_num) (by norm_num) (by norm_num)
     · beta_reduce
-      rw [show ClaudeWCT.W9.T3M.SharedCodec.gBits (647 / 2) = 4 from rfl, show ClaudeWCT.W9.T3M.SharedCodec.gOff (647 / 2) = 19 from rfl,
+      rw [show ClaudeWCT.W9.T3M.SharedCodec.gBits (647 / 2) = 4 from rfl, show ClaudeWCT.W9.T3M.SharedCodec.gOff (647 / 2) = 23 from rfl,
         show SIG + 8 * 647 = 33848 from rfl, show SIG + 8 * 648 = 33856 from rfl, show SIG + 8 * 649 = 33864 from rfl]
       simp (config := { decide := true }) only [Result.toState_getMem, packRun.res, memEval_cons, memEval_nil,
         Addr.eval, if_true, if_false]
       simp only [E.eval]
-      exact pack_slot _ _ _ 19 4 _ _ (by norm_num) (by norm_num) (by norm_num) (by norm_num) (by norm_num)
+      exact pack_slot _ _ _ 23 4 _ _ (by norm_num) (by norm_num) (by norm_num) (by norm_num) (by norm_num)
     · beta_reduce
-      rw [show ClaudeWCT.W9.T3M.SharedCodec.gBits (645 / 2) = 3 from rfl, show ClaudeWCT.W9.T3M.SharedCodec.gOff (645 / 2) = 23 from rfl,
+      rw [show ClaudeWCT.W9.T3M.SharedCodec.gBits (645 / 2) = 3 from rfl, show ClaudeWCT.W9.T3M.SharedCodec.gOff (645 / 2) = 27 from rfl,
         show SIG + 8 * 645 = 33832 from rfl, show SIG + 8 * 648 = 33856 from rfl, show SIG + 8 * 649 = 33864 from rfl]
       simp (config := { decide := true }) only [Result.toState_getMem, packRun.res, memEval_cons, memEval_nil,
         Addr.eval, if_true, if_false]
       simp only [E.eval]
-      exact pack_slot _ _ _ 23 3 _ _ (by norm_num) (by norm_num) (by norm_num) (by norm_num) (by norm_num)
+      exact pack_slot _ _ _ 27 3 _ _ (by norm_num) (by norm_num) (by norm_num) (by norm_num) (by norm_num)
     · beta_reduce
-      rw [show ClaudeWCT.W9.T3M.SharedCodec.gBits (643 / 2) = 2 from rfl, show ClaudeWCT.W9.T3M.SharedCodec.gOff (643 / 2) = 26 from rfl,
+      rw [show ClaudeWCT.W9.T3M.SharedCodec.gBits (643 / 2) = 2 from rfl, show ClaudeWCT.W9.T3M.SharedCodec.gOff (643 / 2) = 30 from rfl,
         show SIG + 8 * 643 = 33816 from rfl, show SIG + 8 * 648 = 33856 from rfl, show SIG + 8 * 649 = 33864 from rfl]
       simp (config := { decide := true }) only [Result.toState_getMem, packRun.res, memEval_cons, memEval_nil,
         Addr.eval, if_true, if_false]
       simp only [E.eval]
-      exact pack_slot _ _ _ 26 2 _ _ (by norm_num) (by norm_num) (by norm_num) (by norm_num) (by norm_num)
+      exact pack_slot _ _ _ 30 2 _ _ (by norm_num) (by norm_num) (by norm_num) (by norm_num) (by norm_num)
     · beta_reduce
-      rw [show ClaudeWCT.W9.T3M.SharedCodec.gBits (641 / 2) = 1 from rfl, show ClaudeWCT.W9.T3M.SharedCodec.gOff (641 / 2) = 28 from rfl,
+      rw [show ClaudeWCT.W9.T3M.SharedCodec.gBits (641 / 2) = 2 from rfl, show ClaudeWCT.W9.T3M.SharedCodec.gOff (641 / 2) = 32 from rfl,
         show SIG + 8 * 641 = 33800 from rfl, show SIG + 8 * 648 = 33856 from rfl, show SIG + 8 * 649 = 33864 from rfl]
       simp (config := { decide := true }) only [Result.toState_getMem, packRun.res, memEval_cons, memEval_nil,
         Addr.eval, if_true, if_false]
       simp only [E.eval]
-      exact pack_slot _ _ _ 28 1 _ _ (by norm_num) (by norm_num) (by norm_num) (by norm_num) (by norm_num)
+      exact pack_slot _ _ _ 32 2 _ _ (by norm_num) (by norm_num) (by norm_num) (by norm_num) (by norm_num)
     · beta_reduce
-      rw [show ClaudeWCT.W9.T3M.SharedCodec.gBits (23 / 2) = 1 from rfl, show ClaudeWCT.W9.T3M.SharedCodec.gOff (23 / 2) = 29 from rfl,
+      rw [show ClaudeWCT.W9.T3M.SharedCodec.gBits (23 / 2) = 2 from rfl, show ClaudeWCT.W9.T3M.SharedCodec.gOff (23 / 2) = 34 from rfl,
         show SIG + 8 * 23 = 28856 from rfl, show SIG + 8 * 648 = 33856 from rfl, show SIG + 8 * 649 = 33864 from rfl]
       simp (config := { decide := true }) only [Result.toState_getMem, packRun.res, memEval_cons, memEval_nil,
         Addr.eval, if_true, if_false]
       simp only [E.eval]
-      exact pack_slot _ _ _ 29 1 _ _ (by norm_num) (by norm_num) (by norm_num) (by norm_num) (by norm_num)
+      exact pack_slot _ _ _ 34 2 _ _ (by norm_num) (by norm_num) (by norm_num) (by norm_num) (by norm_num)
     · beta_reduce
-      rw [show ClaudeWCT.W9.T3M.SharedCodec.gBits (47 / 2) = 1 from rfl, show ClaudeWCT.W9.T3M.SharedCodec.gOff (47 / 2) = 30 from rfl,
+      rw [show ClaudeWCT.W9.T3M.SharedCodec.gBits (47 / 2) = 2 from rfl, show ClaudeWCT.W9.T3M.SharedCodec.gOff (47 / 2) = 36 from rfl,
         show SIG + 8 * 47 = 29048 from rfl, show SIG + 8 * 648 = 33856 from rfl, show SIG + 8 * 649 = 33864 from rfl]
       simp (config := { decide := true }) only [Result.toState_getMem, packRun.res, memEval_cons, memEval_nil,
         Addr.eval, if_true, if_false]
       simp only [E.eval]
-      exact pack_slot _ _ _ 30 1 _ _ (by norm_num) (by norm_num) (by norm_num) (by norm_num) (by norm_num)
+      exact pack_slot _ _ _ 36 2 _ _ (by norm_num) (by norm_num) (by norm_num) (by norm_num) (by norm_num)
     · beta_reduce
-      rw [show ClaudeWCT.W9.T3M.SharedCodec.gBits (73 / 2) = 2 from rfl, show ClaudeWCT.W9.T3M.SharedCodec.gOff (73 / 2) = 31 from rfl,
+      rw [show ClaudeWCT.W9.T3M.SharedCodec.gBits (73 / 2) = 2 from rfl, show ClaudeWCT.W9.T3M.SharedCodec.gOff (73 / 2) = 38 from rfl,
         show SIG + 8 * 73 = 29256 from rfl, show SIG + 8 * 648 = 33856 from rfl, show SIG + 8 * 649 = 33864 from rfl]
       simp (config := { decide := true }) only [Result.toState_getMem, packRun.res, memEval_cons, memEval_nil,
         Addr.eval, if_true, if_false]
       simp only [E.eval]
-      exact pack_slot _ _ _ 31 2 _ _ (by norm_num) (by norm_num) (by norm_num) (by norm_num) (by norm_num)
+      exact pack_slot _ _ _ 38 2 _ _ (by norm_num) (by norm_num) (by norm_num) (by norm_num) (by norm_num)
     · beta_reduce
-      rw [show ClaudeWCT.W9.T3M.SharedCodec.gBits (97 / 2) = 2 from rfl, show ClaudeWCT.W9.T3M.SharedCodec.gOff (97 / 2) = 33 from rfl,
+      rw [show ClaudeWCT.W9.T3M.SharedCodec.gBits (97 / 2) = 2 from rfl, show ClaudeWCT.W9.T3M.SharedCodec.gOff (97 / 2) = 40 from rfl,
         show SIG + 8 * 97 = 29448 from rfl, show SIG + 8 * 648 = 33856 from rfl, show SIG + 8 * 649 = 33864 from rfl]
       simp (config := { decide := true }) only [Result.toState_getMem, packRun.res, memEval_cons, memEval_nil,
         Addr.eval, if_true, if_false]
       simp only [E.eval]
-      exact pack_slot _ _ _ 33 2 _ _ (by norm_num) (by norm_num) (by norm_num) (by norm_num) (by norm_num)
+      exact pack_slot _ _ _ 40 2 _ _ (by norm_num) (by norm_num) (by norm_num) (by norm_num) (by norm_num)
     · beta_reduce
-      rw [show ClaudeWCT.W9.T3M.SharedCodec.gBits (123 / 2) = 2 from rfl, show ClaudeWCT.W9.T3M.SharedCodec.gOff (123 / 2) = 35 from rfl,
+      rw [show ClaudeWCT.W9.T3M.SharedCodec.gBits (123 / 2) = 2 from rfl, show ClaudeWCT.W9.T3M.SharedCodec.gOff (123 / 2) = 42 from rfl,
         show SIG + 8 * 123 = 29656 from rfl, show SIG + 8 * 648 = 33856 from rfl, show SIG + 8 * 649 = 33864 from rfl]
       simp (config := { decide := true }) only [Result.toState_getMem, packRun.res, memEval_cons, memEval_nil,
         Addr.eval, if_true, if_false]
       simp only [E.eval]
-      exact pack_slot _ _ _ 35 2 _ _ (by norm_num) (by norm_num) (by norm_num) (by norm_num) (by norm_num)
+      exact pack_slot _ _ _ 42 2 _ _ (by norm_num) (by norm_num) (by norm_num) (by norm_num) (by norm_num)
     · beta_reduce
-      rw [show ClaudeWCT.W9.T3M.SharedCodec.gBits (147 / 2) = 2 from rfl, show ClaudeWCT.W9.T3M.SharedCodec.gOff (147 / 2) = 37 from rfl,
+      rw [show ClaudeWCT.W9.T3M.SharedCodec.gBits (147 / 2) = 2 from rfl, show ClaudeWCT.W9.T3M.SharedCodec.gOff (147 / 2) = 44 from rfl,
         show SIG + 8 * 147 = 29848 from rfl, show SIG + 8 * 648 = 33856 from rfl, show SIG + 8 * 649 = 33864 from rfl]
       simp (config := { decide := true }) only [Result.toState_getMem, packRun.res, memEval_cons, memEval_nil,
         Addr.eval, if_true, if_false]
       simp only [E.eval]
-      exact pack_slot _ _ _ 37 2 _ _ (by norm_num) (by norm_num) (by norm_num) (by norm_num) (by norm_num)
+      exact pack_slot _ _ _ 44 2 _ _ (by norm_num) (by norm_num) (by norm_num) (by norm_num) (by norm_num)
     · beta_reduce
-      rw [show ClaudeWCT.W9.T3M.SharedCodec.gBits (173 / 2) = 2 from rfl, show ClaudeWCT.W9.T3M.SharedCodec.gOff (173 / 2) = 39 from rfl,
+      rw [show ClaudeWCT.W9.T3M.SharedCodec.gBits (173 / 2) = 2 from rfl, show ClaudeWCT.W9.T3M.SharedCodec.gOff (173 / 2) = 46 from rfl,
         show SIG + 8 * 173 = 30056 from rfl, show SIG + 8 * 648 = 33856 from rfl, show SIG + 8 * 649 = 33864 from rfl]
       simp (config := { decide := true }) only [Result.toState_getMem, packRun.res, memEval_cons, memEval_nil,
         Addr.eval, if_true, if_false]
       simp only [E.eval]
-      exact pack_slot _ _ _ 39 2 _ _ (by norm_num) (by norm_num) (by norm_num) (by norm_num) (by norm_num)
+      exact pack_slot _ _ _ 46 2 _ _ (by norm_num) (by norm_num) (by norm_num) (by norm_num) (by norm_num)
     · beta_reduce
-      rw [show ClaudeWCT.W9.T3M.SharedCodec.gBits (197 / 2) = 2 from rfl, show ClaudeWCT.W9.T3M.SharedCodec.gOff (197 / 2) = 41 from rfl,
+      rw [show ClaudeWCT.W9.T3M.SharedCodec.gBits (197 / 2) = 2 from rfl, show ClaudeWCT.W9.T3M.SharedCodec.gOff (197 / 2) = 48 from rfl,
         show SIG + 8 * 197 = 30248 from rfl, show SIG + 8 * 648 = 33856 from rfl, show SIG + 8 * 649 = 33864 from rfl]
       simp (config := { decide := true }) only [Result.toState_getMem, packRun.res, memEval_cons, memEval_nil,
         Addr.eval, if_true, if_false]
       simp only [E.eval]
-      exact pack_slot _ _ _ 41 2 _ _ (by norm_num) (by norm_num) (by norm_num) (by norm_num) (by norm_num)
+      exact pack_slot _ _ _ 48 2 _ _ (by norm_num) (by norm_num) (by norm_num) (by norm_num) (by norm_num)
     · beta_reduce
-      rw [show ClaudeWCT.W9.T3M.SharedCodec.gBits (223 / 2) = 2 from rfl, show ClaudeWCT.W9.T3M.SharedCodec.gOff (223 / 2) = 43 from rfl,
+      rw [show ClaudeWCT.W9.T3M.SharedCodec.gBits (223 / 2) = 2 from rfl, show ClaudeWCT.W9.T3M.SharedCodec.gOff (223 / 2) = 50 from rfl,
         show SIG + 8 * 223 = 30456 from rfl, show SIG + 8 * 648 = 33856 from rfl, show SIG + 8 * 649 = 33864 from rfl]
       simp (config := { decide := true }) only [Result.toState_getMem, packRun.res, memEval_cons, memEval_nil,
         Addr.eval, if_true, if_false]
       simp only [E.eval]
-      exact pack_slot _ _ _ 43 2 _ _ (by norm_num) (by norm_num) (by norm_num) (by norm_num) (by norm_num)
+      exact pack_slot _ _ _ 50 2 _ _ (by norm_num) (by norm_num) (by norm_num) (by norm_num) (by norm_num)
   · rename_i h
     refine pack_frame s _ (by simp only [SIG]; omega) ?_
     have h' : ¬ (k = 451 ∨ k = 449 ∨ k = 447 ∨ k = 445 ∨ k = 549 ∨ k = 547 ∨ k = 545 ∨ k = 543 ∨ k = 647 ∨ k = 645 ∨ k = 643 ∨ k = 641 ∨ k = 23 ∨ k = 47 ∨ k = 73 ∨ k = 97 ∨ k = 123 ∨ k = 147 ∨ k = 173 ∨ k = 197 ∨ k = 223) := by
@@ -12527,6 +12528,7 @@ theorem packWord_congr {r r' : Nat → Word} (h : ∀ j, j < 650 → r j = r' j)
   unfold packWord
   rw [h k hk, h 648 (by omega), h 649 (by omega)]
 
+
 end ClaudeWCT.W9.Machine.Sign.SharedSerializer
 namespace ClaudeWCT.W9.Machine.Sign.SharedSerializer
 open SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64 SigGolfCandidate.Rv
@@ -12556,6 +12558,7 @@ structure Code (im : Image) : Prop where
   setup : CodeAt im (pcOf 22504) setupWords
   loop : CodeAt im (pcOf 22509) tailWords
   finish : CodeAt im (pcOf 22526) finishWords
+  finishBody : CodeAt im (pcOf 22574) finishBodyWords
   entry : CodeAt im (pcOf 24971) [0xb39ff06f]
   post : CodeAt im (pcOf 24665) postWords
   /-- U16b: the success HALT `20744` is `jal 25385` (E8 P1 pack routine, ends `addi a0,zero,0; ecall`). -/
@@ -12650,17 +12653,17 @@ theorem PrePost.read {s t : MachineState} (h : PrePost s t) (k : Nat) (hk : k<65
 sym_block jumpRun := symRun { noAlias := true } (bv_list% 32 [0x3850106f]) (pcOf 20743) 100
 
 theorem full_readout {im : Image} (hc : Code im) (s : MachineState) (hp : s.pc=pcOf 540) :
-    ∃n≤8457,∃t,Steps im s n n t ∧ t.pc=pcOf 25561 ∧ t.getReg .x5=1 ∧ t.getReg .x10=0 ∧
+    ∃n≤8470,∃t,Steps im s n (n+9) t ∧ t.pc=pcOf 25561 ∧ t.getReg .x5=1 ∧ t.getReg .x10=0 ∧
       fetch im t=some (.base .ECALL) ∧
       (∀k,k<650 → t.getMem (BitVec.ofNat 64 (SIG+8*k))=packWord (postWord
         (packedWord (preWord (fun j=>s.getMem (BitVec.ofNat 64 (SIG+8*j)))))
-        (Xw (preWord (fun j=>s.getMem (BitVec.ofNat 64 (SIG+8*j))) 657) (s.getMem 0x66000))) k) := by
+        (Xw (preWord (fun j=>s.getMem (BitVec.ofNat 64 (SIG+8*j))) 656) (preWord (fun j=>s.getMem (BitVec.ofNat 64 (SIG+8*j))) 657) (s.getMem 0x66000))) k) := by
   obtain ⟨a,sa,ha⟩:=pre_good hc.pre_tail_look hc.pre_hook_look hc.pre_c_look s hp
   let b:=jumpRun.res.toState a
   have ab : Steps im a 1 1 b := symRun_sound jumpRun hc.jump a ha.1 (by simp [jumpRun.res,rv_simp])
   have bp : b.pc=pcOf 22504 := by simp [b,jumpRun.res,rv_simp]
   have bm (A : Word) : b.getMem A=a.getMem A := rfl
-  obtain ⟨n,hn,u,bu,up,ux6,uw,uf⟩:=tail_readout hc.setup hc.tail_look hc.finish b bp
+  obtain ⟨n,hn,u,bu,up,ux6,uw,uf⟩:=tail_readout hc.setup hc.tail_look hc.finish hc.finishBody b bp
   have hh : b.getMem (0x66000 : Word)=s.getMem (0x66000 : Word) :=
     (bm _).trans (ha.2.2.get (A:=0x66000) (by decide) (by simp [SIG]))
   have huw : ∀k,k<650 → u.getMem (BitVec.ofNat 64 (SIG+8*k))=
@@ -12676,8 +12679,8 @@ theorem full_readout {im : Image} (hc : Code im) (s : MachineState) (hp : s.pc=p
       · exact (bm _).trans (ha.read _ (by omega))
       · dsimp only
         rw [bm,ha.read 657 (by omega)]
-  have hux6 : u.getReg .x6=Xw (preWord (fun j=>s.getMem (BitVec.ofNat 64 (SIG+8*j))) 657) (s.getMem 0x66000) := by
-    rw [ux6,hh,bm,ha.read 657 (by omega)]
+  have hux6 : u.getReg .x6=Xw (preWord (fun j=>s.getMem (BitVec.ofNat 64 (SIG+8*j))) 656) (preWord (fun j=>s.getMem (BitVec.ofNat 64 (SIG+8*j))) 657) (s.getMem 0x66000) := by
+    rw [ux6,hh,bm,bm,ha.read 656 (by omega),ha.read 657 (by omega)]
   obtain ⟨c,uc,cp,cr,cm⟩:=entry_steps hc.entry u up
   obtain ⟨v,cv,vp,vx5,vw⟩:=post_steps hc.post c cp
   obtain ⟨t,vt,tp,t10,tr,tf,tw⟩:=pack_steps hc.packJal hc.pack v vp
@@ -12757,12 +12760,15 @@ theorem packedWord_raw {s : MachineState} {sig : SharedSignature} (h : RawAt s s
       rw [show wordIndex 657=405 by decide,hm]
 
 theorem Xw_raw {s : MachineState} {sig : SharedSignature} (h : RawAt s sig) (hint : Word) :
-    Xw (preWord (fun j=>s.getMem (BitVec.ofNat 64 (SIG+8*j))) 657) hint=
-      Xw (((sigDigests sig).getD 176 0).extractLsb' 64 64) hint := by
-  rw [preWord_eq]
-  have hm:=h.word 176 1 (by omega) (by omega)
-  change s.getMem (BitVec.ofNat 64 (SIG+8*405))=_ at hm
-  rw [show wordIndex 657=405 by decide,hm]
+    Xw (preWord (fun j=>s.getMem (BitVec.ofNat 64 (SIG+8*j))) 656)
+      (preWord (fun j=>s.getMem (BitVec.ofNat 64 (SIG+8*j))) 657) hint=
+      Xw (((sigDigests sig).getD 176 0).extractLsb' 0 64)
+        (((sigDigests sig).getD 176 0).extractLsb' 64 64) hint := by
+  have h0:=h.word 176 0 (by omega) (by omega)
+  have h1:=h.word 176 1 (by omega) (by omega)
+  change s.getMem (BitVec.ofNat 64 (SIG+8*404))=_ at h0
+  change s.getMem (BitVec.ofNat 64 (SIG+8*405))=_ at h1
+  rw [preWord_eq,preWord_eq,show wordIndex 656=404 by decide,show wordIndex 657=405 by decide,h0,h1]
 
 end ClaudeWCT.W9.Machine.Sign.SharedSerializer
 namespace ClaudeWCT.W9.Machine.Sign.SharedSerializer
@@ -12775,15 +12781,6 @@ set_option exponentiation.threshold 50000
 
 /-! ## The post-pass output is the 5,194-byte `SharedCodec.sigBC` (T51) -/
 
-theorem xField_testBit (s : SharedSignature) (i : Nat) :
-    (xField s).testBit i = if i < 24 then ((sigDigests s).getD 176 0).toNat.testBit (i+77)
-      else decide (i - 24 < 13) && s.policyHints.toNat.testBit (i-24) := by
-  unfold xField
-  rw [show ∀ a b : Nat, a + b * 2^24 = 2^24 * b + a from fun a b => by ring,
-    Nat.testBit_two_pow_mul_add _ (Nat.mod_lt _ (by positivity))]
-  split
-  · rename_i h; rw [Nat.testBit_mod_two_pow, Nat.testBit_div_two_pow]; simp [h]
-  · rw [Nat.testBit_mod_two_pow]
 
 theorem packD_bit (j : Nat) (d : Digest) (x i : Nat) (hi : i < 128) (hj : topZeroBits j ≤ 128) :
     (packD j d x).getLsbD i = if i < 128 - topZeroBits j then d.getLsbD i
@@ -12839,14 +12836,14 @@ theorem packD_high (j : Nat) (hj : 3 ≤ j ∧ j ≤ 10) (d : Digest) (x : Nat) 
     simp [show ¬ (bT j + i < 64) by omega]
     intro _; omega
 
-theorem Xw_bit (sib : Digest) (h : Word) (p : Nat) (hp : p < 37) :
-    (Xw (sib.extractLsb' 64 64) h).getLsbD p = if p < 24 then sib.getLsbD (77 + p) else h.getLsbD (p - 24) := by
-  unfold Xw
-  simp only [BitVec.getLsbD_or, BitVec.getLsbD_ushiftRight, BitVec.getLsbD_shiftLeft, BitVec.getLsbD_extractLsb']
-  interval_cases p <;> simp
+theorem Xw_toNat (sig : SharedSignature) (hint : Word) (hh : hint.setWidth 16 = sig.policyHints)
+    (he : sig.policyHints.toNat / 484 % 2 = 0) :
+    (Xw (((sigDigests sig).getD 176 0).extractLsb' 0 64)
+      (((sigDigests sig).getD 176 0).extractLsb' 64 64) hint).toNat = xField sig :=
+  SigGolfCandidate.HintSignFinish.codec_x sig hint hh he
 
 theorem sigBC_tail_div (sig : SharedSignature) :
-    (sigBC sig).toNat / 2^(128*324) = ((sigDigests sig).getD 176 0).toNat % 2^32 := by
+    (sigBC sig).toNat / 2^(128*324) = ((sigDigests sig).getD 176 0).toNat % 2^24 := by
   have hD := SigGolfCandidate.T3M.digNat_lt (encList sig)
   rw [encList_length] at hD
   rw [sigBC_toNat, ClaudeWCT.W9.T3M.split_div _ _ _ hD]
@@ -12886,7 +12883,7 @@ theorem orPack_low (d : BitVec 128) (y b : Nat) (hb : b ≤ 64) (hy : y < 2 ^ b)
     Nat.mul_comm, Nat.testBit_two_pow_mul, decide_eq_false (show ¬ 128 - b ≤ i by omega)]
   simp
 theorem vOfW2_sigWord (top : Digest) :
-    vOfW2 (top.extractLsb' 0 64) (((top.extractLsb' 64 64) <<< 51) >>> 51) = top.toNat / 2 ^ 32 % 2 ^ 45 := by
+    vOfW2 (top.extractLsb' 0 64) (((top.extractLsb' 64 64) <<< 51) >>> 51) = top.toNat / 2 ^ 25 % 2 ^ 52 := by
   unfold vOfW2
   simp only [BitVec.toNat_ushiftRight, BitVec.toNat_shiftLeft, BitVec.extractLsb'_toNat, Nat.shiftRight_eq_div_pow,
     Nat.shiftLeft_eq]
@@ -12896,10 +12893,11 @@ theorem vOfW2_sigWord (top : Digest) :
 /-- E11: the packed buffer words `0..647` are the compact signature words (`packG` ORs the V bits into the raw
 ground sibling, as the pack routine does); word 648 is the tail (`enc_word_tail`). -/
 theorem enc_word_pack (sig : SharedSignature) (hint : Word) (hh : hint.setWidth 16 = sig.policyHints)
+    (he : sig.policyHints.toNat / 484 % 2 = 0)
     (k : Nat) (hk : k < 648) :
-    packWord (postWord (sigWord sig) (Xw (((sigDigests sig).getD 176 0).extractLsb' 64 64) hint)) k =
+    packWord (postWord (sigWord sig) (Xw (((sigDigests sig).getD 176 0).extractLsb' 0 64) (((sigDigests sig).getD 176 0).extractLsb' 64 64) hint)) k =
       (sigBC sig).extractLsb' (64*k) 64 := by
-  have hpw : ∀ j, (j < 337 ∨ 351 < j) → postWord (sigWord sig) (Xw (((sigDigests sig).getD 176 0).extractLsb' 64 64) hint) j =
+  have hpw : ∀ j, (j < 337 ∨ 351 < j) → postWord (sigWord sig) (Xw (((sigDigests sig).getD 176 0).extractLsb' 0 64) (((sigDigests sig).getD 176 0).extractLsb' 64 64) hint) j =
       sigWord sig j := fun j hj => by unfold postWord; rw [if_neg (by omega)]
   unfold packWord
   split
@@ -12940,15 +12938,7 @@ theorem enc_word_pack (sig : SharedSignature) (hint : Word) (hh : hint.setWidth 
       generalize (k-331)/2 = j at *
       intro i hi
       have hlt : oT j + i < 37 := by interval_cases j <;> simp only [bT, oT] at hi ⊢ <;> omega
-      rw [Xw_bit _ _ _ hlt, Nat.testBit_div_two_pow, xField_testBit, ← oT_eq j hj3 hj10]
-      generalize oT j = o at *
-      by_cases h16 : o + i < 24
-      · rw [if_pos h16, if_pos (by omega), ← BitVec.testBit_toNat]
-        congr 1; omega
-      · rw [if_neg h16, if_neg (by omega), ← hh]
-        simp only [show i + o - 24 < 13 by omega, decide_true, Bool.true_and, BitVec.testBit_toNat,
-          BitVec.getLsbD_setWidth, show i + o - 24 < 16 by omega]
-        congr 1; omega
+      rw [←BitVec.testBit_toNat,Xw_toNat sig hint hh he,Nat.testBit_div_two_pow,←oT_eq j hj3 hj10] <;> (congr 1 <;> omega)
     · rename_i hn
       have hk648 : k < 648 ∨ k = 648 := by omega
       rcases hk648 with hk648 | h648
@@ -12976,14 +12966,14 @@ theorem enc_word_pack (sig : SharedSignature) (hint : Word) (hh : hint.setWidth 
       · omega
 /-- E11: the tail word 648 of the buffer is the top sibling's low word; its low 4 bytes are the compact tail (V45). -/
 theorem enc_word_tail (sig : SharedSignature) (hint : Word) :
-    (packWord (postWord (sigWord sig) (Xw (((sigDigests sig).getD 176 0).extractLsb' 64 64) hint)) 648).toNat % 2 ^ 32 =
+    (packWord (postWord (sigWord sig) (Xw (((sigDigests sig).getD 176 0).extractLsb' 0 64) (((sigDigests sig).getD 176 0).extractLsb' 64 64) hint)) 648).toNat % 2 ^ 24 =
       (sigBC sig).toNat / 2 ^ (64 * 648) := by
-  have hp : packWord (postWord (sigWord sig) (Xw (((sigDigests sig).getD 176 0).extractLsb' 64 64) hint)) 648 =
+  have hp : packWord (postWord (sigWord sig) (Xw (((sigDigests sig).getD 176 0).extractLsb' 0 64) (((sigDigests sig).getD 176 0).extractLsb' 64 64) hint)) 648 =
       ((sigDigests sig).getD 176 0).extractLsb' 0 64 := by
     unfold packWord postWord sigWord
     simp
   rw [hp, show 64 * 648 = 128 * 324 by rfl, sigBC_tail_div, BitVec.extractLsb'_toNat, Nat.shiftRight_zero,
-    Nat.mod_mod_of_dvd _ (Nat.pow_dvd_pow 2 (by norm_num : 32 ≤ 64))]
+    Nat.mod_mod_of_dvd _ (Nat.pow_dvd_pow 2 (by norm_num : 24 ≤ 64))]
 theorem hint_shift (w : Word) : w<<<48=(w.setWidth 16).setWidth 64<<<48 := by
   apply BitVec.eq_of_getLsbD_eq
   intro j hj
@@ -13023,25 +13013,25 @@ theorem sl_readBuffer_snoc (t : MachineState) (A n : Nat) (b : BitVec (8 * (n + 
   have := Nat.mod_add_div b.toNat (2 ^ (8 * n))
   rw [Nat.mul_comm (b.toNat / 2 ^ (8 * n)), this, Nat.mod_eq_of_lt hb]
 /-- V45: the 5,188-byte final signature: 648 complete machine words and the low 4 bytes of word 648. -/
-theorem sl_readBuffer_5188 (t : MachineState) (b : BitVec (8 * 5188))
+theorem sl_readBuffer_5187 (t : MachineState) (b : BitVec (8 * 5187))
     (hw : ∀ k, k < 648 → t.getMem (BitVec.ofNat 64 (SIG + 8 * k)) = b.extractLsb' (64 * k) 64)
-    (h648 : (t.getMem (BitVec.ofNat 64 (SIG + 8 * 648))).toNat % 2 ^ 32 = b.toNat / 2 ^ (64 * 648)) :
-    readBuffer t SIG 5188 = b := by
+    (h648 : (t.getMem (BitVec.ofNat 64 (SIG + 8 * 648))).toNat % 2 ^ 24 = b.toNat / 2 ^ (64 * 648)) :
+    readBuffer t SIG 5187 = b := by
   set w := t.getMem (BitVec.ofNat 64 (SIG + 8 * 648)) with hwdef
   have hb := b.isLt
-  have hq : w.toNat / 2 ^ 32 < 2 ^ 32 := by
+  have hq : w.toNat / 2 ^ 24 < 2 ^ 40 := by
     rw [Nat.div_lt_iff_lt_mul (by positivity)]; exact w.isLt
-  have hBlt : 2 ^ (8 * 5188) * (w.toNat / 2 ^ 32) + b.toNat < 2 ^ (8 * 5192) := by
-    have h1 : 2 ^ (8 * 5188) * (w.toNat / 2 ^ 32) ≤ 2 ^ (8 * 5188) * (2 ^ 32 - 1) := Nat.mul_le_mul_left _ (by omega)
-    have h2 : (2 : Nat) ^ (8 * 5192) = 2 ^ (8 * 5188) * 2 ^ 32 := by rw [← pow_add]
-    have h3 : 2 ^ (8 * 5188) * (2 ^ 32 - 1) + 2 ^ (8 * 5188) = 2 ^ (8 * 5188) * 2 ^ 32 := by
-      rw [Nat.mul_sub, Nat.mul_one]; have : 2 ^ (8 * 5188) ≤ 2 ^ (8 * 5188) * 2 ^ 32 := Nat.le_mul_of_pos_right _ (by positivity)
+  have hBlt : 2 ^ (8 * 5187) * (w.toNat / 2 ^ 24) + b.toNat < 2 ^ (8 * 5192) := by
+    have h1 : 2 ^ (8 * 5187) * (w.toNat / 2 ^ 24) ≤ 2 ^ (8 * 5187) * (2 ^ 40 - 1) := Nat.mul_le_mul_left _ (by omega)
+    have h2 : (2 : Nat) ^ (8 * 5192) = 2 ^ (8 * 5187) * 2 ^ 40 := by rw [← pow_add]
+    have h3 : 2 ^ (8 * 5187) * (2 ^ 40 - 1) + 2 ^ (8 * 5187) = 2 ^ (8 * 5187) * 2 ^ 40 := by
+      rw [Nat.mul_sub, Nat.mul_one]; have : 2 ^ (8 * 5187) ≤ 2 ^ (8 * 5187) * 2 ^ 40 := Nat.le_mul_of_pos_right _ (by positivity)
       omega
     omega
-  let B : BitVec (8 * 5192) := BitVec.ofNat _ (2 ^ (8 * 5188) * (w.toNat / 2 ^ 32) + b.toNat)
-  have hBt : B.toNat = 2 ^ (8 * 5188) * (w.toNat / 2 ^ 32) + b.toNat := by
+  let B : BitVec (8 * 5192) := BitVec.ofNat _ (2 ^ (8 * 5187) * (w.toNat / 2 ^ 24) + b.toNat)
+  have hBt : B.toNat = 2 ^ (8 * 5187) * (w.toNat / 2 ^ 24) + b.toNat := by
     simp only [B, BitVec.toNat_ofNat]; exact Nat.mod_eq_of_lt hBlt
-  have hbit : ∀ i, B.getLsbD i = if i < 8 * 5188 then b.getLsbD i else (w.toNat / 2 ^ 32).testBit (i - 8 * 5188) := by
+  have hbit : ∀ i, B.getLsbD i = if i < 8 * 5187 then b.getLsbD i else (w.toNat / 2 ^ 24).testBit (i - 8 * 5187) := by
     intro i
     rw [← BitVec.testBit_toNat, hBt, Nat.testBit_two_pow_mul_add _ hb]
     split <;> simp [BitVec.testBit_toNat]
@@ -13061,34 +13051,35 @@ theorem sl_readBuffer_5188 (t : MachineState) (b : BitVec (8 * 5188))
       rw [BitVec.getLsbD_extractLsb', hbit]
       simp only [hj, decide_true, Bool.true_and]
       rw [← hwdef, ← BitVec.testBit_toNat]
-      by_cases hj48 : j < 32
+      by_cases hj48 : j < 24
       · rw [if_pos (by omega), ← BitVec.testBit_toNat,
-          show w.toNat.testBit j = (w.toNat % 2 ^ 32).testBit j by rw [Nat.testBit_mod_two_pow]; simp [hj48],
+          show w.toNat.testBit j = (w.toNat % 2 ^ 24).testBit j by rw [Nat.testBit_mod_two_pow]; simp [hj48],
           h648, Nat.testBit_div_two_pow]
         congr 1; omega
       · rw [if_neg (by omega), Nat.testBit_div_two_pow]
         congr 1; omega
-  rw [ClaudeWCT.W9.Machine.Expand.readBuffer_trunc t SIG 5188 5192 (by omega), hB]
+  rw [ClaudeWCT.W9.Machine.Expand.readBuffer_trunc t SIG 5187 5192 (by omega), hB]
   apply BitVec.eq_of_toNat_eq
-  rw [BitVec.toNat_ofNat, hBt, Nat.mul_comm (2 ^ (8 * 5188)), Nat.mul_add_mod_of_lt hb]
+  rw [BitVec.toNat_ofNat, hBt, Nat.mul_comm (2 ^ (8 * 5187)), Nat.mul_add_mod_of_lt hb]
 theorem serialize_good {im : Image} (hc : Code im) (s : MachineState) (hp : s.pc=pcOf 540)
     (sig : SharedSignature) (hraw : RawAt s sig)
-    (hh : (s.getMem 0x66000).setWidth 16=sig.policyHints) :
-    ∃n≤8457,∃t,Steps im s n n t ∧ t.pc=pcOf 25561 ∧ t.getReg .x5=1 ∧ t.getReg .x10=0 ∧
-      fetch im t=some (.base .ECALL) ∧ readBuffer t SIG 5188=sigBC sig := by
+    (hh : (s.getMem 0x66000).setWidth 16=sig.policyHints)
+    (he : sig.policyHints.toNat / 484 % 2 = 0) :
+    ∃n≤8470,∃t,Steps im s n (n+9) t ∧ t.pc=pcOf 25561 ∧ t.getReg .x5=1 ∧ t.getReg .x10=0 ∧
+      fetch im t=some (.base .ECALL) ∧ readBuffer t SIG 5187=sigBC sig := by
   obtain ⟨n,hn,t,st,tp,t5,t10,tf,tw⟩:=full_readout hc s hp
   refine ⟨n,hn,t,st,tp,t5,t10,tf,?_⟩
   have hw : ∀ k, k < 650 → t.getMem (BitVec.ofNat 64 (SIG+8*k)) =
-      packWord (postWord (sigWord sig) (Xw (((sigDigests sig).getD 176 0).extractLsb' 64 64) (s.getMem 0x66000))) k := by
+      packWord (postWord (sigWord sig) (Xw (((sigDigests sig).getD 176 0).extractLsb' 0 64) (((sigDigests sig).getD 176 0).extractLsb' 64 64) (s.getMem 0x66000))) k := by
     intro k hk
     rw [tw k hk, Xw_raw hraw]
     apply packWord_congr _ k hk
     intro j hj
     exact postWord_congr _ (fun i hi => packedWord_raw hraw i hi) j hj
-  apply sl_readBuffer_5188 t (sigBC sig)
+  apply sl_readBuffer_5187 t (sigBC sig)
   · intro k hk
     rw [hw k (by omega)]
-    exact enc_word_pack sig _ hh k hk
+    exact enc_word_pack sig _ hh he k hk
   · rw [hw 648 (by omega)]
     exact enc_word_tail sig _
 
@@ -13769,7 +13760,7 @@ theorem ForestFields.frame {rho : Digest} {forest : ForestOpening} {s t : Machin
 def FinalPost (im : Image) : Option SharedSignature→MachineState→Prop
   | none,t => SearchError im t
   | some sig,t => t.pc=pcOf 25561 ∧ t.getReg .x5=1 ∧ t.getReg .x10=0 ∧
-      readBuffer t SIG 5188=sigBC sig ∧ fetch im t=some (.base .ECALL)
+      readBuffer t SIG 5187=sigBC sig ∧ fetch im t=some (.base .ECALL)
 
 def assemble (rho : Digest) (forest : ForestOpening) (layers : CanonicalLayers) : SharedSignature :=
   ⟨rho,layers.policyHints,forest,fun lay=>piecesSignature lay (layers.pieces.getD lay.val ([],[]))⟩
@@ -13778,17 +13769,17 @@ theorem completed_serialize {im : Image} {sk : SecretKey} (hc : Code im)
     {rho : Digest} {forest : ForestOpening} {index : Nat} {p : PreparedRoots}
     {a : Choices} {top : SigGolfCandidate.T3.Pieces} {s : MachineState}
     (hs : Completed index p a top s) (hforest : ForestFields rho forest s) :
-    TBSim im sk s 8457 (pure (some (assemble rho forest (layersValue index p a top)))) (FinalPost im) := by
+    TBSim im sk s 8479 (pure (some (assemble rho forest (layersValue index p a top)))) (FinalPost im) := by
   have hr := assembled_raw s rho (layersValue index p a top).policyHints forest _
     hforest.rho hforest.values hforest.paths (completed_layer_fields hs)
   have hh : (s.getMem 0x66000).setWidth 16=(layersValue index p a top).policyHints := by
     rw [show (0x66000 : Word)=(0x66000#64) by decide,hs.hints]
     apply BitVec.eq_of_toNat_eq
     simp [layersValue,BitVec.toNat_setWidth,BitVec.toNat_ofNat,Nat.mod_mod_of_dvd _ (show 2^16 ∣ 2^64 by norm_num)]
-  obtain ⟨n,hn,t,st,pt,h5,h10,hf,hbytes⟩:=serialize_good hc s hs.pc _ hr hh
+  obtain ⟨n,hn,t,st,pt,h5,h10,hf,hbytes⟩:=serialize_good hc s hs.pc _ hr hh (by simpa [assemble,layersValue,BitVec.toNat_ofNat] using hs.hintEven)
   have hpost : FinalPost im (some (assemble rho forest (layersValue index p a top))) t :=
     ⟨pt,h5,h10,hbytes,hf⟩
-  exact (TBSim.pure_steps' st hpost).mono hn (fun _ _ h=>h)
+  exact (TBSim.pure_steps' st hpost).mono (by omega) (fun _ _ h=>h)
 end ClaudeWCT.W9.Machine.Sign.SharedSerializer
 namespace ClaudeWCT.W9.Machine.Sign.SharedSerializer
 open OracleComp SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64 SigGolfCandidate.Rv
@@ -13804,10 +13795,10 @@ theorem search_serialize {im : Image} {sk : SecretKey} {cache : Bytes 131072} {W
     {index : Nat} {p : PreparedRoots} {s : MachineState}
     (hsearch : TBSim im sk s W (searchPreparedLayers (cacheDec cache) index p pair) (FramedLayersPost im index p s))
     (hfields : ForestFields rho forest s) :
-    TBSim im sk s (W+8457) (do
+    TBSim im sk s (W+8479) (do
       let layers ← searchPreparedLayers (cacheDec cache) index p pair
       pure (layers.map (assemble rho forest))) (FinalPost im) := by
-  refine TBSim.bind hsearch (W₂:=8457) ?_
+  refine TBSim.bind hsearch (W₂:=8479) ?_
   intro layers t ht
   cases layers with
   | none => exact (TBSim.pure (a:=none) (s:=t) (Q:=FinalPost im) ht).mono (by omega) (fun _ _ h=>h)
@@ -13832,11 +13823,11 @@ theorem prepared_serialize {im : Image} {sk : SecretKey} {cache : Bytes 131072} 
       (FramedLayersPost im index p t))
     (hframe : ∀p t,P p t → Frame s t (fun A=>¬(SIG≤A ∧ A<SIG+2192)))
     (hfields : ForestFields rho forest s) :
-    TBSim im sk s (Wr+(Ws+8457)) (do
+    TBSim im sk s (Wr+(Ws+8479)) (do
       let prepared ← prepareRoots index
       let layers ← searchPreparedLayers (cacheDec cache) index prepared pair
       pure (layers.map (assemble rho forest))) (FinalPost im) := by
-  refine TBSim.bind hroot (W₂:=Ws+8457) ?_
+  refine TBSim.bind hroot (W₂:=Ws+8479) ?_
   intro p t hp
   exact search_serialize hc (hsearch p t hp) (hfields.frame (hframe p t hp))
 end ClaudeWCT.W9.Machine.Sign.SharedSerializer
@@ -13889,7 +13880,7 @@ theorem after_forest_with {im : Image} {sk : SecretKey} {cache : Bytes 131072} {
     (hcounter : ∃c<2^32,s.getMem (BitVec.ofNat 64 (ENC+32))=BitVec.ofNat 64 c)
     (hl : DigAt s FOUT forest.2.1) (hr : DigAt s (ENC+48) forest.2.2)
     (hfields : ForestFields rho forest.1 s) :
-    TBSim im sk s (13+(Wr+(Ws+8457))) (layersProgram cache rho index forest) (FinalPost im) := by
+    TBSim im sk s (13+(Wr+(Ws+8479))) (layersProgram cache rho index forest) (FinalPost im) := by
   obtain ⟨t,st,ht,ff⟩:=SharedRootBridge.bridge_steps hbridge hflag forest.2 s hp hb hi hcounter hl hr
   exact TBSim.steps st (prepared_serialize hcodec (hroot t ht) (hsearch t ht)
     (hframe t) (hfields.frame ff))
@@ -13955,7 +13946,7 @@ set_option maxRecDepth 100000
 /-- The paired submission's sizes and layout (witness stack: W 21756, witness at 4256 = 0x10A0, message at
 26016 = 0x65A0). -/
 def runtimeSub (imgs : Phase→Image) : Submission :=
-  ⟨⟨5188,21756,131072⟩,⟨0x65A0,0x80,0xa0,0x80000,0x7000,0x10A0⟩,imgs⟩
+  ⟨⟨5187,21756,131072⟩,⟨0x65A0,0x80,0xa0,0x80000,0x7000,0x10A0⟩,imgs⟩
 
 theorem initialState_of_wsub (imgs : Phase→Image)
     (hv : (imgs .sign).Valid (runtimeSub imgs).sizes (runtimeSub imgs).layout)
@@ -14014,7 +14005,7 @@ open SigGolfCandidate.T3M.Sign SigGolfCandidate.T3M.Sign.SharedSearches
 open SigGolfCandidate.Research.SharedForest
 open ClaudeWCT.W9.T3M.SharedCodec SharedSerializer
 
-def tailCost : Nat := 13+((28+3*(Packed.btCost+47))+((prefixCost+335006)+8457))
+def tailCost : Nat := 13+((28+3*(Packed.btCost+47))+((prefixCost+335006)+8479))
 
 theorem after_forest {sk : SecretKey} {cache : Bytes 131072} {cfFlag index : Nat}
     (hib : index<2^31) {rho : Digest} {forest : ForestOpening×(Digest×Digest)}

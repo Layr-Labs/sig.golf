@@ -1184,7 +1184,7 @@ set_option backward.isDefEq.respectTransparency false
 /-! E8: the FTS ground search (heaps `8..15`). -/
 theorem ftsZeroBits_ground {coord heap : Nat} (h8 : 8 ≤ heap) (h16 : heap < 16) :
     WCT9.ftsZeroBits coord heap ≠ 0 := by
-  unfold WCT9.ftsZeroBits; rw [if_pos ⟨h8, h16⟩]; split <;> omega
+  unfold WCT9.ftsZeroBits; rw [if_pos ⟨h8, h16⟩]; norm_num
 theorem ftsZeroBits_ground_eq {coord heap : Nat} (h8 : 8 ≤ heap) (h16 : heap < 16) :
     WCT9.ftsZeroBits coord heap = WCT9.ftsZeroBits coord 8 := by
   unfold WCT9.ftsZeroBits

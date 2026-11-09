@@ -549,7 +549,7 @@ theorem sign_eq (P : Pending I) (sk : SecretKey) (cache : Bytes 131072) (m : Mes
   rw [mrealize_eq_relabel] at h
   exact h
 set_option maxRecDepth 100000 in
-theorem expand_eq (P : Pending I) (m : Message) (pk : PublicKey) (s : Bytes 5188) :
+theorem expand_eq (P : Pending I) (m : Message) (pk : PublicKey) (s : Bytes 5187) :
     (fun r => (r.value, r.hashCalls)) <$> (submission I).run .expand (m, pk, s) =
       SigGolfCandidate.Bridge.countCalls (relabel toQ (hrealize 0 (expandB m pk (sigDecC s)))) := by
   have h := calls_of_counts
@@ -2868,7 +2868,8 @@ theorem honestB_eval (answers : Correctness.Answers) (m : Message)
     rw [ClaudeWCT.W9.T3M.SharedCodec.sigDecC_sigBC_normTop sig
       (ClaudeWCT.W9.T3M.SharedCodec.groundClear_of_lowerPathOK sig (sign_lowerPathOK answers hlower m sig hs)
         (ClaudeWCT.W9.T3M.SharedCodec.ftsSlotsClear_of_ftsPathOK sig
-          (SigGolfCandidate.Research.SharedExpansionClosure.sign_ftsPathOK_U16 answers hlower m sig hs)))]
+          (SigGolfCandidate.Research.SharedExpansionClosure.sign_ftsPathOK_U16 answers hlower m sig hs))
+        (ClaudeWCT.W9.T3M.SharedCodec.sign_hintNormal answers (evalWithAnswerFn answers keygen).2 m sig hs))]
     rw [expand_eq_expandN,evalWithAnswerFn_bind,evalWithAnswerFn_bind,evalWithAnswerFn_map,eval_expandB]
     cases hx : evalWithAnswerFn answers (expandN m (evalWithAnswerFn answers keygen).1 (SigGolfCandidate.Research.SharedForest.normTop sig)) with
     | none=>rfl
@@ -2930,7 +2931,7 @@ theorem sign_value (E : EncodingFacts) (F : SourceQueries) (P : Pending I) (sk :
       Option.map sigBC <$> mrealize sk (sign (cacheDec cache) m) :=
   value_of_counts (F := Option.map sigBC) (P.sign_refines sk cache m)
 set_option maxRecDepth 100000 in
-theorem expand_value (E : EncodingFacts) (F : SourceQueries) (P : Pending I) (m : Message) (pk : PublicKey) (s : Bytes 5188) :
+theorem expand_value (E : EncodingFacts) (F : SourceQueries) (P : Pending I) (m : Message) (pk : PublicKey) (s : Bytes 5187) :
     (fun r => r.value) <$> (submission I).run .expand (m, pk, s) = mrealize 0 (expandB m pk (sigDecC s)) := by
   rw [value_of_counts (F := Option.map (fun x : SigGolfCandidate.T3.HashOutput × Witness => ClaudeWCT.W9.T3M.Paired.witEncF x.1 x.2))
     (P.expand_refines m pk s), expandB, ClaudeWCT.W9.T3M.Paired.expandB, mrealize_map]
@@ -3088,7 +3089,7 @@ theorem abstract_sign_encoded_value (E : EncodingFacts) (F : SourceQueries) (P :
   rw [cacheDec_cacheB] at h
   exact h
 theorem abstract_expand_raw_cost (E : EncodingFacts) (F : SourceQueries) (P : Pending I) (m : Message) (pk : PublicKey)
-    (sig : Bytes 5188) (hash : Hash) :
+    (sig : Bytes 5187) (hash : Hash) :
     (evalWithAnswerFn hash ((submission I).run .expand (m,pk,sig))).hashCompressions =
       (evalWithAnswerFn hash (mrealize 0 (SigGolfCandidate.T3.Cost.countBlocks (expandN m pk (sigDecC sig))))).2 := by
   exact abstract_count_refinement 0 hash (expandN m pk (sigDecC sig))
@@ -4717,7 +4718,7 @@ theorem recovered_credit_floors (answers : SigGolfCandidate.T3.Correctness.Answe
     (msg : LayerMsg) (result : RecoveredLayers)
     (he : evalWithAnswerFn answers (recoverHintedLayers sig index other 4 msg) = some result)
     (hh : policyHintsValid sig.policyHints result.digits result.lows = true) :
-    CreditFloors (fun lay => min 71
+    CreditFloors (fun lay => min 70
       (CanonicalPolicy.credit lay (result.lows.getD lay.val true) (result.digits.getD lay.val []))) := by
   apply creditFloors_clip
   exact policyHints_credit_sum _ _ _ hh (fun lay =>
@@ -4742,7 +4743,7 @@ theorem agree_verify (hash : Hash) (message : SigGolfCandidate.T3.Message) (pk :
       Agree hash (okHashBy floors w.topHigh hash)
         (mrealize 0 (SigGolfCandidate.Research.SharedForest.verify message pk w)) := by
   let floors : Layer → Nat := fun lay =>
-    min 71 (CanonicalPolicy.credit lay (result.lows.getD lay.val true) (result.digits.getD lay.val []))
+    min 70 (CanonicalPolicy.credit lay (result.lows.getD lay.val true) (result.digits.getD lay.val []))
   refine ⟨floors, recovered_credit_floors _ _ _ _ _ result hr hh, ?_⟩
   unfold SigGolfCandidate.Research.SharedForest.verify
   split
@@ -4775,7 +4776,7 @@ set_option maxHeartbeats 1000000
 set_option backward.isDefEq.respectTransparency false
 
 theorem expand_witness (E : EncodingFacts) (F : SourceQueries) (P : Final.Paired.Pending I)
-    (hash : Hash) (m : Message) (pk : PublicKey) (s : Bytes 5188) (w : Bytes 21756)
+    (hash : Hash) (m : Message) (pk : PublicKey) (s : Bytes 5187) (w : Bytes 21756)
     (he : ((Final.Paired.submission I).runWith hash .expand (m,pk,s)).value=some w) :
     ∃sig output wt,evalWithAnswerFn (machineAnswers hash 0)
       (ClaudeWCT.W9.T3M.Paired.expandN m pk sig)=some (output,wt) ∧

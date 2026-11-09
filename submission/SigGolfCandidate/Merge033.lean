@@ -5818,7 +5818,7 @@ theorem searchLimit_lower {lay : Layer} (h : lay ≠ 0) : lowerSearchLimit ≤ s
 theorem searchLimit_le (lay : Layer) : searchLimit lay ≤ counterLimit := by
   unfold searchLimit counterLimit
   fin_cases lay <;> simp
-theorem searchLimit_values : searchLimit 0 = 2 ^ 21 ∧ searchLimit 1 = 2 ^ 21 ∧ searchLimit 2 = 2 ^ 21 ∧
+theorem searchLimit_values : searchLimit 0 = 2 ^ 20 ∧ searchLimit 1 = 2 ^ 21 ∧ searchLimit 2 = 2 ^ 21 ∧
     searchLimit 3 = 3 * 2 ^ 20 := by decide
 theorem lowerSearchLimit_eq : lowerSearchLimit = 2 ^ 21 := rfl
 theorem chainCount_top : chainCount 0 = 51 := rfl
@@ -9000,9 +9000,9 @@ theorem bound_lowerNodeG (lay tree heap : Nat) (left right : Digest) :
 def levelCost (lay h level : Nat) : Nat := ((List.range (2 ^ (h - level))).map fun i => nodeCost lay (2 ^ (h - level) + i)).sum
 /-- U16b: worst-case trials of levels `1..h-1` of a lower tree (`buildLevelsBelow`): `2^h - 2` off the ground. -/
 def belowCost (lay h : Nat) : Nat := ∑ i ∈ Finset.range (h - 1), levelCost lay h (1 + i)
-theorem belowCost_one : belowCost 1 7 = 14432 := by decide +kernel
-theorem belowCost_two : belowCost 2 6 = 16416 := by decide +kernel
-theorem belowCost_three : belowCost 3 6 = 16416 := by decide +kernel
+theorem belowCost_one : belowCost 1 7 = 24672 := by decide +kernel
+theorem belowCost_two : belowCost 2 6 = 20512 := by decide +kernel
+theorem belowCost_three : belowCost 3 6 = 20512 := by decide +kernel
 theorem bound_lowerLevel (lay tree h level : Nat) (nodes : List Digest) :
     CBound (fun result => result.length = nodes.length / 2)
       ((List.range (nodes.length / 2)).map fun i => nodeCost lay (2 ^ (h - level) + i)).sum
@@ -9195,24 +9195,24 @@ theorem leafCostP_lower {lay : Layer} (hlay : lay ≠ 0) (leaf : Nat) :
   rw [digitTotal_lower hlay]
   simp [leafHashCost, hlay]
 /-- v6 lower trees: L1 reads 349 pairs (18 families of 19 + a 7-pair remainder), L2/L3 175 (9 · 19 + 4). -/
-theorem treeCostP_one : treeCostP 1 = 54717 := by
+theorem treeCostP_one : treeCostP 1 = 64957 := by
   unfold treeCostP
   rw [Finset.sum_congr rfl (fun leaf _ => leafCostP_lower (by decide) leaf),
-    show belowCost ((1 : Layer)).val (height 1) = 14432 from belowCost_one]
+    show belowCost ((1 : Layer)).val (height 1) = 24672 from belowCost_one]
   decide
-theorem treeCostP_two : treeCostP 2 = 36559 := by
+theorem treeCostP_two : treeCostP 2 = 40655 := by
   unfold treeCostP
   rw [Finset.sum_congr rfl (fun leaf _ => leafCostP_lower (by decide) leaf),
-    show belowCost ((2 : Layer)).val (height 2) = 16416 from belowCost_two]
+    show belowCost ((2 : Layer)).val (height 2) = 20512 from belowCost_two]
   decide
-theorem treeCostP_three : treeCostP 3 = 36559 := by
+theorem treeCostP_three : treeCostP 3 = 40655 := by
   unfold treeCostP
   rw [Finset.sum_congr rfl (fun leaf _ => leafCostP_lower (by decide) leaf),
-    show belowCost ((3 : Layer)).val (height 3) = 16416 from belowCost_three]
+    show belowCost ((3 : Layer)).val (height 3) = 20512 from belowCost_three]
   decide
 /-- U16b: the ground searches add 6144 − 14 (L1) / 5120 − 14 (L2, L3) trials to the T1 lower trees. -/
 theorem treeCostP_lower :
-    treeCostP 1 = treeCost 1 + 11838 ∧ treeCostP 2 = treeCost 2 + 15120 ∧ treeCostP 3 = treeCost 3 + 15120 := by
+    treeCostP 1 = treeCost 1 + 22078 ∧ treeCostP 2 = treeCost 2 + 19216 ∧ treeCostP 3 = treeCost 3 + 19216 := by
   rw [treeCostP_one, treeCostP_two, treeCostP_three]
   decide
 def layerFixedCostP : Nat → Nat
@@ -9225,7 +9225,7 @@ theorem layerFixedCostP_succ_succ (n : Nat) :
     layerFixedCostP (n + 2) = treeCostP (Fin.ofNat 4 (n + 1)) + layerFixedCostP (n + 1) := rfl
 theorem layerFixedCost_succ_succ (n : Nat) :
     layerFixedCost (n + 2) = treeCost (Fin.ofNat 4 (n + 1)) + layerFixedCost (n + 1) := rfl
-theorem layerFixedCostP_four : layerFixedCostP 4 = layerFixedCost 4 + 42078 := by
+theorem layerFixedCostP_four : layerFixedCostP 4 = layerFixedCost 4 + 60510 := by
   obtain ⟨h1, h2, h3⟩ := treeCostP_lower
   have e3 : (Fin.ofNat 4 3 : Layer) = 3 := rfl
   have e2 : (Fin.ofNat 4 2 : Layer) = 2 := rfl
@@ -9291,9 +9291,9 @@ theorem nodeCost_heap_le (lay : Nat) {e : Nat} (he : 1 ≤ e) (x : Nat) : nodeCo
   nodeCost_anti lay (by have := Nat.pow_le_pow_right (show 0 < 2 by decide) he; simpa using this) (by omega)
 /-- U16b: worst-case trials of the `height lay - 1` path folds of a lower layer (heap class `2^(height lay - j - 1)`). -/
 def pathCost (lay : Layer) : Nat := ∑ j ∈ Finset.range (height lay - 1), nodeCost lay.val (2 ^ (height lay - j - 1))
-theorem pathCost_one : pathCost 1 = 2818 := by decide +kernel
-theorem pathCost_two : pathCost 2 = 3841 := by decide +kernel
-theorem pathCost_three : pathCost 3 = 3841 := by decide +kernel
+theorem pathCost_one : pathCost 1 = 5122 := by decide +kernel
+theorem pathCost_two : pathCost 2 = 4097 := by decide +kernel
+theorem pathCost_three : pathCost 3 = 4097 := by decide +kernel
 /-- U16b: the path folds use `lowerNodeG` (`pathCost` instead of the T1 `height lay - 1`). -/
 def recoverLayerPairCost (lay : Layer) : Nat := capacity lay - target lay + leafHashCost lay + pathCost lay
 theorem recoverLayerPairCost_succ (lay : Layer) :
@@ -9371,21 +9371,21 @@ def recoveryLayersCostBC : Nat → Nat
   | 0 => 0
   | n + 1 => (if n = 0 then recoverLayerCost (Fin.ofNat 4 n) else recoverLayerPairCost (Fin.ofNat 4 n)) +
       recoveryLayersCostBC n
-/-- U16b: the 9 ground path folds add `2818 + 2 · 3841 − 16 = 10484` trials to the T1 recovery. -/
-theorem recoveryLayersCostBC_add : recoveryLayersCostBC 4 + 3 = recoveryLayersCost 4 + 10484 := by
+/-- U16b: the 9 ground path folds add `5122 + 2 · 4097 − 16 = 13300` trials to the T1 recovery. -/
+theorem recoveryLayersCostBC_add : recoveryLayersCostBC 4 + 3 = recoveryLayersCost 4 + 13300 := by
   have h1 := recoverLayerPairCost_succ (Fin.ofNat 4 1)
   have h2 := recoverLayerPairCost_succ (Fin.ofNat 4 2)
   have h3 := recoverLayerPairCost_succ (Fin.ofNat 4 3)
-  have p1 : pathCost (Fin.ofNat 4 1) = 2818 := pathCost_one
-  have p2 : pathCost (Fin.ofNat 4 2) = 3841 := pathCost_two
-  have p3 : pathCost (Fin.ofNat 4 3) = 3841 := pathCost_three
+  have p1 : pathCost (Fin.ofNat 4 1) = 5122 := pathCost_one
+  have p2 : pathCost (Fin.ofNat 4 2) = 4097 := pathCost_two
+  have p3 : pathCost (Fin.ofNat 4 3) = 4097 := pathCost_three
   have e1 : height (Fin.ofNat 4 1) = 7 := rfl
   have e2 : height (Fin.ofNat 4 2) = 6 := rfl
   have e3 : height (Fin.ofNat 4 3) = 6 := rfl
   simp only [recoveryLayersCostBC, recoveryLayersCost, if_true, show (3 : Nat) ≠ 0 by decide,
     show (2 : Nat) ≠ 0 by decide, show (1 : Nat) ≠ 0 by decide, if_false]
   omega
-theorem recoveryLayersCostBC_four_le : recoveryLayersCostBC 4 ≤ 10965 := by
+theorem recoveryLayersCostBC_four_le : recoveryLayersCostBC 4 ≤ 13781 := by
   have h := recoveryLayersCostBC_add
   have h4 := recoveryLayersCost_four
   omega
@@ -9490,7 +9490,7 @@ theorem bound_expandLayersBC (sig : Signature) (index : Nat) :
             refine (ih _).bind' (l := 0) (fun result _ => ?_) (by omega)
             cases result <;> exact .pure _ 0 trivial
 def signPayloadFixed : Nat := 2 + 31334 + layerFixedCostP 4
-theorem signPayloadFixed_eq : signPayloadFixed = 2 + 31910 + layerFixedCost 4 + 41502 := by
+theorem signPayloadFixed_eq : signPayloadFixed = 2 + 31910 + layerFixedCost 4 + 59934 := by
   have h := layerFixedCostP_four
   unfold signPayloadFixed
   omega
@@ -9534,16 +9534,16 @@ theorem bound_verifyWith (limit : Nat) (message : Message) (pk : Digest) (w : Wi
         (by have := verifyLayersCostBC_four_le; omega)
       cases r <;> exact .pure _ 0 trivial
 theorem bound_expandWith (limit : Nat) (message : Message) (pk : Digest) (sig : Signature) :
-    CBound (fun _ => True) (limit + 4 * counterLimit + 11105) (expandWith limit message pk sig) := by
+    CBound (fun _ => True) (limit + 4 * counterLimit + 13921) (expandWith limit message pk sig) := by
   unfold expandWith
-  refine (bound_digestSearch sig.rho message limit 0).bind' (l := 4 * counterLimit + 11105)
+  refine (bound_digestSearch sig.rho message limit 0).bind' (l := 4 * counterLimit + 13921)
     (fun found _ => ?_) (by omega)
   cases found with
   | none => exact .pure _ _ trivial
   | some pair =>
       obtain ⟨counter, output⟩ := pair
       dsimp only
-      refine (bound_recoverFts sig _ output).bind' (l := 4 * counterLimit + 10965)
+      refine (bound_recoverFts sig _ output).bind' (l := 4 * counterLimit + 13781)
         (fun root _ => ?_) (by omega)
       refine (bound_expandLayersBC sig _ 4 (.pair root.1 root.2)).bind' (l := 0)
         (fun layers _ => ?_) (by have := recoveryLayersCostBC_four_le; omega)
@@ -9564,7 +9564,7 @@ theorem bound_verify (message : Message) (pk : Digest) (w : Witness) :
   bound_verifyWith digestAttemptLimit message pk w
 theorem sign_compression_ceiling (secret : BitVec 256) (cache : Cache) (message : Message) :
     ∀ result ∈ support (World.countBlocks (realize secret (Rev3.sign cache message))),
-      result.2 ≤ 19033721 := by
+      result.2 ≤ 19052153 := by
   intro result hr
   rw [World.countBlocks, ← realize_count] at hr
   have hc := (bound_sign cache message).count_support result
@@ -10316,16 +10316,16 @@ theorem bound_searchTop (index : Nat) (v sib pk : Digest) :
       · exact ih (c + 1)
 
 theorem bound_expandS (limit : Nat) (message : Message) (pk : Digest) (sig : Signature) :
-    CBound (fun _ => True) (limit + 4 * counterLimit + 11105 + searchFuel) (expandS limit message pk sig) := by
+    CBound (fun _ => True) (limit + 4 * counterLimit + 13921 + searchFuel) (expandS limit message pk sig) := by
   unfold expandS
-  refine (bound_digestSearch (proj sig).rho message limit 0).bind' (l := 4 * counterLimit + 11105 + searchFuel)
+  refine (bound_digestSearch (proj sig).rho message limit 0).bind' (l := 4 * counterLimit + 13921 + searchFuel)
     (fun found _ => ?_) (by omega)
   cases found with
   | none => exact .pure _ _ trivial
   | some pair =>
       obtain ⟨counter, output⟩ := pair
       dsimp only
-      refine (bound_recoverFts (proj sig) _ output).bind' (l := 4 * counterLimit + 10965 + searchFuel)
+      refine (bound_recoverFts (proj sig) _ output).bind' (l := 4 * counterLimit + 13781 + searchFuel)
         (fun root _ => ?_) (by omega)
       refine (bound_expandLayersT (proj sig) _ (topSib (proj sig)) 4 (.pair root.1 root.2)).bind' (l := searchFuel)
         (fun layers _ => ?_) (by have := recoveryLayersCostBC_four_le; omega)
@@ -10340,7 +10340,7 @@ theorem bound_expandS (limit : Nat) (message : Message) (pk : Digest) (sig : Sig
             cases c <;> exact .pure _ 0 trivial
 
 theorem bound_expand (message : Message) (pk : Digest) (sig : Signature) :
-    CBound (fun _ => True) (digestAttemptLimit + 4 * counterLimit + 11105 + searchFuel) (Rev3.expand message pk sig) := by
+    CBound (fun _ => True) (digestAttemptLimit + 4 * counterLimit + 13921 + searchFuel) (Rev3.expand message pk sig) := by
   unfold Rev3.expand
   exact Bound.map _ (bound_expandS digestAttemptLimit message pk sig) (fun _ _ => trivial)
 
@@ -12614,7 +12614,7 @@ theorem bound_prepareRoots (index : Nat) :
     (l := 0) (fun three _ => .pure (PreparedRoots.mk one two three) 0 trivial) (by omega)
 
 /-- v6 lower families: 81146 − 325 (L1 349 + L2/L3 175 family pairs instead of 4 per leaf). -/
-theorem prepared_roots_cost : treeCostP 1 + treeCostP 2 + treeCostP 3 = 127835 := by
+theorem prepared_roots_cost : treeCostP 1 + treeCostP 2 + treeCostP 3 = 146267 := by
   rw [treeCostP_one, treeCostP_two, treeCostP_three]
 
 end SigGolfCandidate.Research.SharedForest
@@ -12675,7 +12675,7 @@ theorem bound_sharedNode (first : Bool) (coord index heap : Nat) (pads : Nat →
       simp only [sharedNode, if_neg (show ¬ heap < 4 by omega), if_neg (show ¬ heap < 8 by omega)]
     rw [e]
     unfold ftsNodeG ftsNodeAt
-    rw [if_neg (by simp only [ftsZeroBits, if_pos hg]; split <;> omega)]
+    rw [if_neg (by simp only [ftsZeroBits, if_pos hg]; norm_num)]
     refine Bound.map _ ((bound_ftsNonceSearch coord index heap left right _ 0).mono_k ?_) (fun _ _ => trivial)
     have : 0 < 2 ^ ftsZeroBits coord heap := Nat.two_pow_pos _
     unfold ftsNonceCap; omega
@@ -12868,19 +12868,19 @@ theorem canonical_search_valid_credit (answers : Answers) (lay : Layer) (floor t
     CanonicalPolicy.producerDecodeAt_credit hd⟩
 
 theorem canonical_four_residual (d0 d1 d2 d3 : List Nat) (l0 l1 l2 l3 : Bool)
-    (h0 : 18 ≤ CanonicalPolicy.credit 0 l0 d0)
-    (h1 : CanonicalPolicy.threshold 1 (CanonicalPolicy.nextResidual 71 0 l0 d0) ≤
+    (h0 : 17 ≤ CanonicalPolicy.credit 0 l0 d0)
+    (h1 : CanonicalPolicy.threshold 1 (CanonicalPolicy.nextResidual 70 0 l0 d0) ≤
       CanonicalPolicy.credit 1 l1 d1)
     (h2 : CanonicalPolicy.threshold 2
-      (CanonicalPolicy.nextResidual (CanonicalPolicy.nextResidual 71 0 l0 d0) 1 l1 d1) ≤
+      (CanonicalPolicy.nextResidual (CanonicalPolicy.nextResidual 70 0 l0 d0) 1 l1 d1) ≤
       CanonicalPolicy.credit 2 l2 d2)
     (h3 : CanonicalPolicy.threshold 3
       (CanonicalPolicy.nextResidual
-        (CanonicalPolicy.nextResidual (CanonicalPolicy.nextResidual 71 0 l0 d0) 1 l1 d1) 2 l2 d2) ≤
+        (CanonicalPolicy.nextResidual (CanonicalPolicy.nextResidual 70 0 l0 d0) 1 l1 d1) 2 l2 d2) ≤
       CanonicalPolicy.credit 3 l3 d3) :
     CanonicalPolicy.nextResidual (CanonicalPolicy.nextResidual
-      (CanonicalPolicy.nextResidual (CanonicalPolicy.nextResidual 71 0 l0 d0) 1 l1 d1) 2 l2 d2) 3 l3 d3 = 0 := by
-  let r1 := CanonicalPolicy.nextResidual 71 0 l0 d0
+      (CanonicalPolicy.nextResidual (CanonicalPolicy.nextResidual 70 0 l0 d0) 1 l1 d1) 2 l2 d2) 3 l3 d3 = 0 := by
+  let r1 := CanonicalPolicy.nextResidual 70 0 l0 d0
   have hr1 : r1 < 54 := by dsimp [r1, CanonicalPolicy.nextResidual]; omega
   have hw1 := firstThreshold_window ⟨r1, hr1⟩
   change CanonicalPolicy.threshold 1 r1 < 16 ∧ r1 - CanonicalPolicy.threshold 1 r1 ≤ 39 at hw1
@@ -13187,7 +13187,7 @@ theorem eval_sharedNodeN_at (answers : Answers) (first : Bool) (coord index heap
     unfold sharedNodeAt
     rw [if_neg (by omega)]
     unfold ftsNodeAt
-    have hz : ftsZeroBits coord heap ≠ 0 := by simp only [ftsZeroBits, if_pos hg]; split <;> omega
+    have hz : ftsZeroBits coord heap ≠ 0 := by simp only [ftsZeroBits, if_pos hg]; norm_num
     rw [if_neg hz]
     exact eval_ftsNonceSearch_hash answers coord index heap left right _ 0
   · rw [if_neg hg]
@@ -14474,10 +14474,10 @@ theorem policyHints_credit_sum (hints : BitVec 16) (digits : List (List Nat)) (l
     (hh : policyHintsValid hints digits lows = true)
     (hc : ∀ lay : Layer, hintFloor hints lay ≤
       CanonicalPolicy.credit lay (lows.getD lay.val true) (digits.getD lay.val [])) :
-    71 ≤ ((List.finRange 4).map fun lay =>
+    70 ≤ ((List.finRange 4).map fun lay =>
       CanonicalPolicy.credit lay (lows.getD lay.val true) (digits.getD lay.val [])).sum := by
   simp only [policyHintsValid, decide_eq_true_eq] at hh
-  have h0 : 18 ≤ CanonicalPolicy.credit 0 (lows.getD 0 true) (digits.getD 0 []) := by
+  have h0 : 17 ≤ CanonicalPolicy.credit 0 (lows.getD 0 true) (digits.getD 0 []) := by
     simpa [hintFloor, CanonicalPolicy.topFloor] using hc 0
   have h1 := hc 1
   have h2 := hc 2
@@ -14488,7 +14488,7 @@ theorem policyHints_credit_sum (hints : BitVec 16) (digits : List (List Nat)) (l
   have hz := canonical_four_residual (digits.getD 0 []) (digits.getD 1 []) (digits.getD 2 [])
     (digits.getD 3 []) (lows.getD 0 true) (lows.getD 1 true) (lows.getD 2 true) (lows.getD 3 true) h0 h1 h2 h3
   simp only [CanonicalPolicy.nextResidual] at hz
-  change 71 ≤ CanonicalPolicy.credit 0 (lows.getD 0 true) (digits.getD 0 []) +
+  change 70 ≤ CanonicalPolicy.credit 0 (lows.getD 0 true) (digits.getD 0 []) +
     (CanonicalPolicy.credit 1 (lows.getD 1 true) (digits.getD 1 []) +
       (CanonicalPolicy.credit 2 (lows.getD 2 true) (digits.getD 2 []) +
       (CanonicalPolicy.credit 3 (lows.getD 3 true) (digits.getD 3 []) + 0)))
@@ -14573,7 +14573,7 @@ theorem bound_sharedNodeAt (first : Bool) (coord index heap : Nat) (pads : Nat �
   · exact Bound.map (Q := fun _ => True) _ (bound_sharedNode first coord index heap pads left right) (fun _ _ => trivial)
   · unfold ftsNodeAt sharedNodeCost
     by_cases hg : 8 ≤ heap ∧ heap < 16
-    · rw [if_pos hg, if_neg (by simp only [ftsZeroBits, if_pos hg]; split <;> omega)]
+    · rw [if_pos hg, if_neg (by simp only [ftsZeroBits, if_pos hg]; norm_num)]
       refine (bound_ftsNonceSearch coord index heap left right _ 0).mono_k ?_
       have : 0 < 2 ^ ftsZeroBits coord heap := Nat.two_pow_pos _
       unfold ftsNonceCap; omega
@@ -14620,7 +14620,7 @@ theorem bound_recoverSharedInner (first : Bool) (index coord : Nat) (hc : coord<
   · simp [Finset.sum_range_succ] <;> omega
 
 /-- E8: worst-case calls of the FTS recovery: 284 plus `cap - 1` per coordinate (2·255 + 7·511). -/
-def ftsRecoverWorst : Nat := 4371
+def ftsRecoverWorst : Nat := 4883
 
 theorem bound_recoverPair (index pair : Nat) (hp : pair<4) (selected : Selection)
     (aWord bWord : Rank) (opened : PairOpening) (prev : PairRoot) :
@@ -14693,7 +14693,7 @@ theorem recoverHintedLayers_cost_replay (answers : Answers) (sig : Signature) (i
       (recoverLayerPair (mainSignature sig) index lay (digits lay)) =
       builtPair answers lay (route index lay).2) :
     cost answers (recoverHintedLayers sig index other 4 (.pair forest.1 forest.2)) ≤
-      recoverySearchCost answers sig index forest + (12100 + 66757) := by
+      recoverySearchCost answers sig index forest + (14916 + 66757) := by
   have hs0 := hs 0
   have hs1 := hs 1
   have hs2 := hs 2
@@ -14704,9 +14704,9 @@ theorem recoverHintedLayers_cost_replay (answers : Answers) (sig : Signature) (i
   have hp1 := hpW 1 (by decide)
   have hp2 := hpW 2 (by decide)
   have hp3 := hpW 3 (by decide)
-  have hpc1 : ClaudeWCT.WCT9.Cost.pathCost 1 = 2818 := ClaudeWCT.WCT9.Cost.pathCost_one
-  have hpc2 : ClaudeWCT.WCT9.Cost.pathCost 2 = 3841 := ClaudeWCT.WCT9.Cost.pathCost_two
-  have hpc3 : ClaudeWCT.WCT9.Cost.pathCost 3 = 3841 := ClaudeWCT.WCT9.Cost.pathCost_three
+  have hpc1 : ClaudeWCT.WCT9.Cost.pathCost 1 = 5122 := ClaudeWCT.WCT9.Cost.pathCost_one
+  have hpc2 : ClaudeWCT.WCT9.Cost.pathCost 2 = 4097 := ClaudeWCT.WCT9.Cost.pathCost_two
+  have hpc3 : ClaudeWCT.WCT9.Cost.pathCost 3 = 4097 := ClaudeWCT.WCT9.Cost.pathCost_three
   have hcW : ∀ lay, cost answers (recoverLayerPairW (mainSignature sig) index lay (digits lay)) ≤
       404 - (height lay - 1) + ClaudeWCT.WCT9.Cost.pathCost lay := by
     intro lay
@@ -14815,7 +14815,7 @@ theorem PreparedSearchFacts.recovery_cost_le {answers : Answers} {cache : SigGol
       (recoverLayerPair (mainSignature sig) index lay (result.digits.getD lay.val [])) =
       builtPair answers lay (route index lay).2) :
     cost answers (recoverHintedLayers sig index other 4 (.pair forest.1 forest.2)) ≤
-      cost answers (searchPreparedLayers cache index prepared forest) + (12100 + 66757) := by
+      cost answers (searchPreparedLayers cache index prepared forest) + (14916 + 66757) := by
   have hs0 := h.search0
   have hs1 := h.search1
   have hs2 := h.search2
