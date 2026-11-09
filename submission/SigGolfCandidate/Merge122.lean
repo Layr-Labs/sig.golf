@@ -957,19 +957,46 @@ theorem count_range'_eq (f : Nat → Nat) (P : Nat → Prop) [DecidablePred P] (
     intro a
     rw [List.range'_succ, List.map_cons, List.sum_cons, List.filter_cons, ih (a + 1), hf a]
     by_cases h : P a <;> simp [h] <;> omega
+theorem sum_map_add' (f g : Nat → Nat) : ∀ l : List Nat,
+    (l.map fun j => f j + g j).sum = (l.map f).sum + (l.map g).sum
+  | [] => rfl
+  | a :: l => by simp only [List.map_cons, List.sum_cons, sum_map_add' f g l]; omega
+/-- N7g (R1): the credited cycles of a lower word are its word credit plus the chain-0 ladder reward. -/
 theorem zSum_eq_wordCredit (c : LCtx) (lay : Layer) (hlay : lay ≠ 0) (D : List Nat)
-    (hD : ∀ i < 43, c.dig i = D.getD i 0) : c.zSum 0 43 = ClaudeWCT.WCT9.wordCredit lay D := by
+    (hD : ∀ i < 43, c.dig i = D.getD i 0) :
+    c.zSum 0 43 = ClaudeWCT.WCT9.wordCredit lay D + ClaudeWCT.WCT9.CanonicalPolicy.ladderReward lay D := by
   have hn := LCtx.chainCount_lower lay hlay
   have hw : ∀ i, maxDigit lay i = 7 := fun i => by simp [maxDigit, hlay]
-  unfold LCtx.zSum ClaudeWCT.WCT9.wordCredit
-  rw [hn, List.range_eq_range', count_range'_eq _ (fun j => c.dig j = 6) (fun j => by simp [LCtx.zc])]
-  congr 1
-  apply List.filter_congr
-  intro j hj
-  have hj' := (List.mem_range'_1.mp hj).2
-  rw [hw j, hD j (by omega)]
-  simp only [decide_eq_decide]
-  omega
+  have hsum : c.zSum 0 43 = ((List.range' 0 43).map fun j => if c.dig j = 6 then 1 else 0).sum +
+      ((List.range' 0 43).map fun j => if j = 0 ∧ c.dig j < 6 then 1 else 0).sum := by
+    unfold LCtx.zSum LCtx.zc
+    exact sum_map_add' (fun j => if c.dig j = 6 then 1 else 0) (fun j => if j = 0 ∧ c.dig j < 6 then 1 else 0) _
+  have hlad : ((List.range' 0 43).map fun j => if j = 0 ∧ c.dig j < 6 then 1 else 0).sum =
+      ClaudeWCT.WCT9.CanonicalPolicy.ladderReward lay D := by
+    have hr : List.range' 0 43 = 0 :: List.range' 1 42 := rfl
+    have h0 : ((List.range' 1 42).map fun j => if j = 0 ∧ c.dig j < 6 then 1 else 0) =
+        (List.range' 1 42).map fun _ => 0 := by
+      apply List.map_congr_left
+      intro j hj
+      have := (List.mem_range'_1.mp hj).1
+      rw [if_neg (by omega)]
+    have hz : ((List.range' 1 42).map fun (_ : Nat) => (0 : Nat)).sum = 0 := by simp
+    rw [hr, List.map_cons, List.sum_cons, h0, hz, Nat.add_zero]
+    unfold ClaudeWCT.WCT9.CanonicalPolicy.ladderReward
+    rw [← hD 0 (by omega)]
+    by_cases h5 : c.dig 0 ≤ 5
+    · rw [if_pos ⟨rfl, by omega⟩, if_pos ⟨hlay, h5⟩]
+    · rw [if_neg (fun h => h5 (by omega)), if_neg (fun h => h5 h.2)]
+  have hwc : ((List.range' 0 43).map fun j => if c.dig j = 6 then 1 else 0).sum =
+      ClaudeWCT.WCT9.wordCredit lay D := by
+    unfold ClaudeWCT.WCT9.wordCredit
+    rw [hn, List.range_eq_range', count_range'_eq _ (fun j => c.dig j = 6) (fun j => rfl)]
+    refine congrArg List.length (List.filter_congr (fun j hj => ?_))
+    have hj' := (List.mem_range'_1.mp hj).2
+    rw [hw j, hD j (by omega)]
+    simp only [decide_eq_decide]
+    omega
+  rw [hsum, hlad, hwc]
 theorem savedCopies_eq (c : LCtx) (hlay : c.lay ≠ 0) (D : List Nat)
     (hD : ∀ i < 43, c.dig i = D.getD i 0) :
     c.savedCopies 0 43 = ClaudeWCT.WCT9.savedCopies c.lay D := by
@@ -1277,7 +1304,8 @@ theorem layer_good_low (floors : Layer → Nat) (hbound : ∀ lay, floors lay �
           have hck : L.ck < 8 := ckOf_lt lay hlay (selectedView a) dd hds
           have hacc := L.lowCost_accept hck dd hD hsum.1 (canonicalTarget lay) hsum.2
           rw [← tgtL_eq] at hacc
-          have hcr : L.zSum 0 43 = ClaudeWCT.WCT9.wordCredit lay dd := zSum_eq_wordCredit L lay hlay dd hD
+          have hcr : L.zSum 0 43 = ClaudeWCT.WCT9.wordCredit lay dd + ClaudeWCT.WCT9.CanonicalPolicy.ladderReward lay dd :=
+            zSum_eq_wordCredit L lay hlay dd hD
           have hsave : L.savedCopies 0 43 = ClaudeWCT.WCT9.savedCopies lay dd := savedCopies_eq L hlay dd hD
           have hP := L.lowP_eq hlay rfl dd hD (s6v_chainBlock lay hlay)
           by_cases hgood : ClaudeWCT.WCT9.lowerRankGood (ansD (selectedView a))
@@ -1298,6 +1326,7 @@ theorem layer_good_low (floors : Layer → Nat) (hbound : ∀ lay, floors lay �
                   (ccM L.lowP (fun ends => ccM (R ends) K)) := fun k hk =>
               GoodQP.stepsQ hst0 hG (by omega) (by omega) (fun hq => ⟨hq, by omega⟩)
             by_cases hcf : floors lay ≤ ClaudeWCT.WCT9.wordCredit lay dd + 4*ClaudeWCT.WCT9.savedCopies lay dd +
+                ClaudeWCT.WCT9.CanonicalPolicy.ladderReward lay dd +
                 (if T3.lowerEarn (ansD a) then ClaudeWCT.WCT9.CanonicalPolicy.lowerBonus lay else 0)
             · exact (body _ (by omega)).pre_mono (fun _ h => h.2)
             · refine GoodQP.of_false_pre (body 0 (Nat.zero_le _)) ?_
@@ -3292,7 +3321,11 @@ theorem top_after_hash (floors : T3.Layer → Nat) (hbound : ∀ lay, floors lay
     · refine GoodQP.of_false_pre body ?_
       rintro hash ⟨hea, hok⟩
       have h7 := hok 0 q hq (dataDigits 0 v ++ [T3.target 0 - (dataDigits 0 v).sum]) (by rw [hea]; exact hdec)
-      simp only [ClaudeWCT.WCT9.CanonicalPolicy.pathReward, ClaudeWCT.WCT9.CanonicalPolicy.reward, hea] at h7
+      have hlr0 : ClaudeWCT.WCT9.CanonicalPolicy.ladderReward 0
+          (dataDigits 0 v ++ [T3.target 0 - (dataDigits 0 v).sum]) = 0 := by
+        simp [ClaudeWCT.WCT9.CanonicalPolicy.ladderReward]
+      simp only [ClaudeWCT.WCT9.CanonicalPolicy.pathReward, ClaudeWCT.WCT9.CanonicalPolicy.reward, hea, hlr0,
+        Nat.add_zero] at h7
       rw [ClaudeWCT.WCT9.wordCredit_top hdec] at h7
       have hbalance := L.chainsCost_accepted hds v _ hdec (fun i hi => hdig i hi)
       exact hcr (by omega)
@@ -3457,7 +3490,7 @@ theorem layers_good (floors : T3.Layer → Nat) (hbound : ∀ lay, floors lay �
 theorem after_good (floors : T3.Layer → Nat) (hcredit : CreditFloors floors) (pk : Digest) (w : ClaudeWCT.W9.T3M.WBytes) (Q : Prop) (hQ : Q) (a : HashOutput)
     (top : Digest × Digest) (u : MachineState)
     (h : FtsOut ⟨pk, w, a⟩ top u) :
-    GoodQP (HashOkBy floors (ClaudeWCT.W9.T3M.wtopHigh w)) u 8050 13750 Q 5236
+    GoodQP (HashOkBy floors (ClaudeWCT.W9.T3M.wtopHigh w)) u 8050 13750 Q 5235
       (ccM (afterFts pk w (ClaudeWCT.WCT9.digestIndex a) (some top)) Kb) := by
   have hidx : ClaudeWCT.WCT9.digestIndex a < 2 ^ 31 := ClaudeWCT.WCT9.digestIndex_lt a
   obtain ⟨t, hst, hL3⟩ := layerIn_of_fts w pk _ top.1 top.2 u hidx h.glob h.idx h.pc h.left h.right h.wit h.base h.a1
@@ -3472,7 +3505,7 @@ theorem after_good (floors : T3.Layer → Nat) (hcredit : CreditFloors floors) (
   rw [lFuel_4, lCyc_4, lCycA_4 floors hcredit.1] at hg
   have htotal := hcredit.2
   exact GoodQP.stepsQ hst hg (by omega) (by omega) (fun q => ⟨q, by omega⟩)
-theorem after_good_budget : AfterGoodBudget 5236 :=
+theorem after_good_budget : AfterGoodBudget 5235 :=
   fun floors hcredit pk w Q hQ a top u h => after_good floors hcredit pk w Q hQ a top u h
 end SigGolfCandidate.T3M
 end

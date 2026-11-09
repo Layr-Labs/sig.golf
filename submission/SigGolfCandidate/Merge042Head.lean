@@ -4680,7 +4680,7 @@ theorem card_filter_congr_generic {α : Type} [Fintype α]
 theorem top_split (w s c : Nat) (hs : s ≤ 219) (hc : c < 244) :
     256*w+s = 256*146+c+12 ↔ w=146 ∧ s=c+12 := by omega
 
-theorem lower_split (z w s zeros c : Nat) (hs : s ≤ 117) (hw : w ≤ 301)
+theorem lower_split (z w s zeros c : Nat) (hs : s ≤ 118) (hw : w ≤ 301)
     (hc : c < 128) :
     65536*z+128*w+s = 65536*zeros+128*201+c ↔ z=zeros ∧ w=201 ∧ s=c := by omega
 

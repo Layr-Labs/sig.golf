@@ -423,9 +423,10 @@ theorem acc_encode_iff (c : Nat) (w : «Word») : acc c (encode w) ↔ accepts c
     have e1 : ind (chk + 1 = 5) = ind (SigGolfResearch.T51Top.weight w = 148) := ind_congr (by omega)
     have e2 : ind (chk = 0) = ind (SigGolfResearch.T51Top.weight w = 152) := ind_congr (by omega)
     have i1 := ind_le (SigGolfResearch.T51Top.weight w = 148)
+    have hlr : ∀ ds, CanonicalPolicy.ladderReward 0 ds = 0 := fun _ => by simp [CanonicalPolicy.ladderReward]
     simp only [CanonicalPolicy.pathReward, CanonicalPolicy.reward, CanonicalPolicy.pathBonus_false, Nat.add_zero,
       CanonicalPolicy.credit, dispatchPenalty, if_true, canonicalZeroBound, producerZeroCap, producerRankBound,
-      true_or, and_true]
+      true_or, and_true, hlr]
     rw [hz, hc, hp, hcp, e1, e2]
     constructor
     · rintro ⟨ds, hds, hcr⟩
@@ -702,8 +703,8 @@ Entries below the top floor 14 never matter. -/
 def topAcceptedHistogram : List (Nat × Nat) :=
   topCounts.flatMap fun e => [(e.1 + 2, e.2 * 2 ^ 128), (e.1, e.2 * topHighW)]
 
-/-- Exact upward-rounded initial bound for the revised top-copy law at pool 71, top floor 18. -/
-def initialBound : Nat := 367152155296792248503994563876638182706
+/-- Exact upward-rounded initial bound for the revised top-copy law at pool 72, top floor 18 (Z7: R1 law and f25ef952 L1/L2 floors). -/
+def initialBound : Nat := 366937082308633125163350058130355968859
 
 /-- T51 fixed sign cost (PINNED P12, measured): 4 + 112142 + 16 top family pairs + 152 + 12 = 112326 compressions. -/
 def fixedSignCost : Nat := 112326
@@ -712,7 +713,7 @@ def fixedSignCost : Nat := 112326
 def fixedBound : Nat := 616334705435489293055497825014826663607
 
 theorem initial_checked :
-    recurrenceCheck topDen topAcceptedHistogram 18 71 rowOne initialBound = true := by
+    recurrenceCheck topDen topAcceptedHistogram 18 72 rowOne initialBound = true := by
   decide +kernel
 
 theorem fixed_power_checked :
@@ -753,9 +754,9 @@ theorem fixed_power_checked_U16 :
     powerUp (ceilDiv (zNum * scale) zDen) fixedSignCostU16 ≤ fixedBoundU16 := by
   decide +kernel
 
-/-- Z4 (Z3 + P1' L3 bonus 3) on the revised top-copy law: pool 71, top floor 18, gate 934, joint cost ≤ 776, lower E11 V29 + 72 FTS ground nodes: signing moment < 1.99990 (claim 199990). -/
+/-- Z4 (Z3 + P1' L3 bonus 3) on the revised top-copy law: pool 72, top floor 18, gate 934, R1 law, joint cost ≤ 776, lower E11 V29 + 72 FTS ground nodes: signing moment < 1.99873 (claim 199873). -/
 theorem full_moment_checked_U16 :
-    mulUp (mulUp (mulUp fixedBoundU16 groundBound) ftsBound) initialBound * 100000 < 199990 * scale := by
+    mulUp (mulUp (mulUp fixedBoundU16 groundBound) ftsBound) initialBound * 100000 < 199873 * scale := by
   decide +kernel
 
 end ClaudeWCT.Numerics.TopZero
@@ -855,7 +856,7 @@ theorem groundBound_ratio_ge :
 theorem envelope_ratio_le_two_U16 : (((fixedBoundU16:ℝ)/scale)*((groundBound:ℝ)/scale))*
     (((ftsBound:ℝ)/scale)*((initialBound:ℝ)/scale))≤2 := by
   have hm := mulUp_ratio_ge fixedBoundU16 groundBound
-  have he := envelope_ratio_le_two_of (mulUp fixedBoundU16 groundBound) 199990 (by norm_num)
+  have he := envelope_ratio_le_two_of (mulUp fixedBoundU16 groundBound) 199873 (by norm_num)
     full_moment_checked_U16
   have h0 : (0:ℝ) ≤ ((ftsBound:ℝ)/scale)*((initialBound:ℝ)/scale) :=
     mul_nonneg (div_nonneg (Nat.cast_nonneg _) (Nat.cast_nonneg _)) (div_nonneg (Nat.cast_nonneg _) (Nat.cast_nonneg _))

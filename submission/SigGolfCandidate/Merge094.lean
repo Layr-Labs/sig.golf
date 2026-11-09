@@ -1292,7 +1292,7 @@ structure Stable (output : HashOutput) (b : SharedCodec.CBytes) (pk : Digest) (s
   scatterPlan : SharedScatter.PlanAt s
   pk : DigAt s 0xA0 pk
   index : s.getMem (0x20550#64)=BitVec.ofNat 64 (WCT9.digestIndex output)
-  threshold1 : ∀r,r<54 → s.getByte (BitVec.ofNat 64 (16749456+r))=BitVec.ofNat 8 (WCT9.CanonicalPolicy.threshold 1 r)
+  threshold1 : ∀r,r<55 → s.getByte (BitVec.ofNat 64 (16749456+r))=BitVec.ofNat 8 (WCT9.CanonicalPolicy.threshold 1 r)
   threshold2 : ∀r,r<40 → s.getByte (BitVec.ofNat 64 (16749520+r))=BitVec.ofNat 8 (WCT9.CanonicalPolicy.threshold 2 r)
   zt : SigGolfCandidate.T3M.Search.ZeroCap.ZtOK 354 s
   t51src : SigGolfCandidate.T3M.Search.T51.T51TableW 0xFF9E00 s
@@ -1926,7 +1926,7 @@ structure InitialMemory (b : SharedCodec.CBytes) (pk : Digest) (s : MachineState
   toptab : Compact2.TopTabAt s
   scatterPlan : SharedScatter.PlanAt s
   pk : DigAt s 0xA0 pk
-  threshold1 : ∀r,r<54 → s.getByte (BitVec.ofNat 64 (16749456+r))=
+  threshold1 : ∀r,r<55 → s.getByte (BitVec.ofNat 64 (16749456+r))=
     BitVec.ofNat 8 (ClaudeWCT.WCT9.CanonicalPolicy.threshold 1 r)
   threshold2 : ∀r,r<40 → s.getByte (BitVec.ofNat 64 (16749520+r))=
     BitVec.ofNat 8 (ClaudeWCT.WCT9.CanonicalPolicy.threshold 2 r)

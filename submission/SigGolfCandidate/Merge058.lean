@@ -2479,6 +2479,7 @@ private theorem bind_map_at_some {α β γ : Type} (o : Option α) (f : α → O
   subst o
   exact congrArg (Option.map (g a)) h
 
+set_option maxHeartbeats 4000000 in
 theorem context_parent_success {answers : Answers} {messages : LeafAddr → WCT9.LayerMsg}
     {leaf : LeafAddr} (hpositive : leaf.lay.val ≠ 0) {remaining : Nat}
     {counter : BitVec 32} {digits : List Nat} {low : Bool}
@@ -19250,6 +19251,8 @@ theorem reward_lanes {v : Digest} {ds : List Nat} (h : WCT9.CanonicalPolicy.deco
     WCT9.CanonicalPolicy.reward 0 ds = LS v + 4 * eD (gIdx v 0) + (if 152 - LW v = 4 then 1 else 0) := by
   obtain ⟨hv, _, _, _⟩ := (decode_some_iff v ds).1 h
   unfold WCT9.CanonicalPolicy.reward
+  have hlr0 : WCT9.CanonicalPolicy.ladderReward 0 ds = 0 := by simp [WCT9.CanonicalPolicy.ladderReward]
+  rw [hlr0, Nat.add_zero]
   rw [wordCredit_top, savedCopies_top, ds_getD_50' h]
   have hD := (group_lanes hv 0 (by norm_num)).2.2.2.2 rfl
   rw [hD, ds_getD_data h 0 (by norm_num), ds_getD_data h 1 (by norm_num)]
@@ -19952,7 +19955,8 @@ def tripleScore (m a b c : Nat) : Nat :=
   4*((if a=m ∧ b=m then 1 else 0)+(if b=m ∧ c=m then 1 else 0))
 def lowerLookup (first : Bool) (r : Nat) : Nat :=
   tripleScore 7 (r%8) (r/8%8) (r/64%8) +
-  (if first then 4*((if r%8=7 then 1 else 0)+(if r/8%8=7 ∧ r%8≠7 then 1 else 0)) else 0)
+  (if first then 4*((if r%8=7 then 1 else 0)+(if r/8%8=7 ∧ r%8≠7 then 1 else 0)) else 0) +
+  (if first ∧ r%8 ≤ 5 then 1 else 0)
 def topLookup (kind r : Nat) : Nat :=
   if r<125 then tripleScore 4 (r%5) (r/5%5) (r/25%5) +
     (if kind<2 then 1-(if r%5+r/5%5+r/25%5<3 then 1 else 0) else 0) +
@@ -26576,7 +26580,8 @@ def score (first : Bool) (r : Nat) : Nat :=
   (if r / 64 % 8 = 6 then 1 else 0) + 4 *
     ((if first && decide (r % 8 = 7) then 1 else 0) +
      (if r / 8 % 8 = 7 ∧ (first = true ∨ r % 8 = 7) then 1 else 0) +
-     (if r / 64 % 8 = 7 ∧ r / 8 % 8 = 7 then 1 else 0))
+     (if r / 64 % 8 = 7 ∧ r / 8 % 8 = 7 then 1 else 0)) +
+  (if first && decide (r % 8 ≤ 5) then 1 else 0)
 def shift (q : Nat) : Nat := if q < 7 then 9*q else 64+9*(q-7)
 def rank (v : Digest) (q : Nat) : Nat := v.toNat / 2 ^ shift q % 512
 
@@ -26610,7 +26615,8 @@ theorem group_reward (ds : List Nat) (q r : Nat) (hq : q < 14)
     (h1 : ds.getD (3*q+1) 0 = r/8%8)
     (h2 : ds.getD (3*q+2) 0 = r/64%8) :
     score (decide (q=0)) r = Reward.reward false ds (3*q) +
-      Reward.reward false ds (3*q+1) + Reward.reward false ds (3*q+2) := by
+      Reward.reward false ds (3*q+1) + Reward.reward false ds (3*q+2) +
+      (if q = 0 ∧ r % 8 ≤ 5 then 1 else 0) := by
   have hprev1 : 3*q+1-1=3*q := by omega
   have hprev2 : 3*q+2-1=3*q+1 := by omega
   simp only [Reward.reward, Reward.credit, Reward.saved, Reward.maximum, Reward.direct,
@@ -26624,7 +26630,7 @@ theorem group_reward (ds : List Nat) (q r : Nat) (hq : q < 14)
       Nat.zero_mod, not_true_eq_false, Nat.reduceSub]
     simp only [Bool.false_eq_true, if_false, Nat.reduceSub, decide_eq_true_eq, false_or, Nat.reduceEqDiff, not_false_eq_true, true_and]
     simp only [ne_eq, Nat.reduceEqDiff, not_false_eq_true, true_and]
-    omega
+    split_ifs <;> omega
   · have hq3 : 3*q≠0 := by omega
     have hq31 : 3*q≠1 := by omega
     have hq10 : 3*q+1≠0 := by omega
@@ -26634,7 +26640,7 @@ theorem group_reward (ds : List Nat) (q r : Nat) (hq : q < 14)
     have hm0 : 3*q%3=0 := by omega
     have hm1 : (3*q+1)%3=1 := by omega
     have hm2 : (3*q+2)%3=2 := by omega
-    simp only [score, hq0, hq3, hq31, hq10, hq11, hq20, hq21, hm0, hm1, hm2,
+    simp only [score, hq0, hq3, hq31, hq10, hq11, hq20, hq21, hm0, hm1, hm2, false_and, if_false,
       decide_false, Bool.false_and, Bool.false_or, Bool.false_eq_true, if_false,
       false_or, or_false, and_false, false_and, and_true, Nat.reduceEqDiff,
       not_false_eq_true, not_true_eq_false, Nat.zero_add, Nat.mul_zero]
@@ -26651,7 +26657,8 @@ theorem sum_groups (f : Nat → Nat) :
 theorem packed_reward (lay : Layer) (hl : lay ≠ 0) (v : Digest) (c : Nat) :
     ((List.range 14).map (fun q => score (decide (q=0)) (rank v q))).sum +
       (if c=6 then 1 else 0) =
-      wordCredit lay (lowDigits v ++ [c]) + 4 * savedCopies lay (lowDigits v ++ [c]) := by
+      wordCredit lay (lowDigits v ++ [c]) + 4 * savedCopies lay (lowDigits v ++ [c]) +
+        CanonicalPolicy.ladderReward lay (lowDigits v ++ [c]) := by
   have hcount : T3.chainCount lay=43 := by fin_cases lay <;> simp_all [T3.chainCount]
   have hrew := Reward.reward_sum_counts false (lowDigits v ++ [c]) (List.range 43)
   have heq : wordCredit lay (lowDigits v ++ [c]) + 4 * savedCopies lay (lowDigits v ++ [c]) =
@@ -26662,9 +26669,15 @@ theorem packed_reward (lay : Layer) (hl : lay ≠ 0) (v : Digest) (c : Nat) :
     have hsaved := Reward.saved_layer lay hl (lowDigits v ++ [c])
     simp only [hl, decide_false] at hcredit hsaved
     simp only [hcredit, hsaved]
-  rw [heq, sum_groups]
-  apply congrArg₂ Nat.add
-  · apply congrArg List.sum
+  have hlad : CanonicalPolicy.ladderReward lay (lowDigits v ++ [c]) = if rank v 0 % 8 ≤ 5 then 1 else 0 := by
+    have h := digits_field v c 0 0 (by decide) (by decide)
+    simp only [Nat.mul_zero, Nat.add_zero, pow_zero, Nat.div_one] at h
+    unfold CanonicalPolicy.ladderReward
+    rw [h]; simp [hl]
+  have hgr : (List.range 14).map (fun q => score (decide (q=0)) (rank v q)) =
+      (List.range 14).map (fun q => (Reward.reward false (lowDigits v ++ [c]) (3*q) +
+        Reward.reward false (lowDigits v ++ [c]) (3*q+1) + Reward.reward false (lowDigits v ++ [c]) (3*q+2)) +
+        (if q = 0 ∧ rank v q % 8 ≤ 5 then 1 else 0)) := by
     apply List.map_congr_left
     intro q hq
     have hq' : q < 14 := List.mem_range.mp hq
@@ -26672,9 +26685,16 @@ theorem packed_reward (lay : Layer) (hl : lay ≠ 0) (v : Digest) (c : Nat) :
       (by simpa using digits_field v c q 0 hq' (by omega))
       (by simpa using digits_field v c q 1 hq' (by omega))
       (by simpa using digits_field v c q 2 hq' (by omega))
-  · have hc : (lowDigits v ++ [c]).getD 42 0=c := by rw [List.getD_append_right _ _ _ _ (by simp [lowDigits_length])]; simp [lowDigits_length]
-    have hc' : (lowDigits v ++ [c])[42]?.getD 0=c := hc
+  have hz : ((List.range 14).map (fun q => if q = 0 ∧ rank v q % 8 ≤ 5 then 1 else 0)).sum =
+      if rank v 0 % 8 ≤ 5 then 1 else 0 := by
+    simp [List.range_succ]
+  have hc : (lowDigits v ++ [c]).getD 42 0=c := by
+    rw [List.getD_append_right _ _ _ _ (by simp [lowDigits_length])]; simp [lowDigits_length]
+  have hc' : (lowDigits v ++ [c])[42]?.getD 0=c := hc
+  have h42 : Reward.reward false (lowDigits v ++ [c]) 42 = if c=6 then 1 else 0 := by
     simp [Reward.reward,Reward.credit,Reward.saved,Reward.direct,Reward.maximum,hc']
+  rw [heq, sum_groups, hgr, List.sum_map_add, hz, hlad, h42]
+  omega
 
 end SigGolfCandidate.T3M.Search.LowerLUT
 namespace SigGolfCandidate.T3M.Search.LowerLUT
@@ -26743,8 +26763,8 @@ theorem prefix_spec {image : Image} {b : Nat} (hb : b=354 ∨ b=543) (hR : Rewar
 
 theorem score_lookup (first : Bool) (r : Nat) : score first r=Reward.lowerLookup first r := by
   cases first <;> unfold score Reward.lowerLookup Reward.tripleScore <;>
-    by_cases h0 : r%8=7 <;> by_cases h1 : r/8%8=7 <;> by_cases h2 : r/64%8=7 <;>
-    simp [h0,h1,h2] <;> omega
+    by_cases h0 : r%8=7 <;> by_cases h1 : r/8%8=7 <;> by_cases h2 : r/64%8=7 <;> by_cases h3 : r%8 ≤ 5 <;>
+    simp [h0,h1,h2,h3] <;> omega
 
 theorem lookup_table (s : MachineState) (ht : Reward.LowerTablesOK s) (q r : Nat) (hq : q<14) (hr : r<512) :
     s.getByte (BitVec.ofNat 64 ((if q=0 then 16774144 else 16774656)+r)) =
@@ -26974,7 +26994,8 @@ theorem lower_spec {image : Image} {b : Nat} (hb : b=354 ∨ b=543) (hR : Reward
       t.pc=(if ClaudeWCT.WCT9.producerFloor lay+
           ClaudeWCT.WCT9.dispatchPenalty lay (lowDigits v++[T3.target lay-(lowDigits v).sum])≤
           ClaudeWCT.WCT9.wordCredit lay (lowDigits v++[T3.target lay-(lowDigits v).sum])+
-          4*ClaudeWCT.WCT9.savedCopies lay (lowDigits v++[T3.target lay-(lowDigits v).sum])
+          4*ClaudeWCT.WCT9.savedCopies lay (lowDigits v++[T3.target lay-(lowDigits v).sum])+
+          ClaudeWCT.WCT9.CanonicalPolicy.ladderReward lay (lowDigits v++[T3.target lay-(lowDigits v).sum])
         then pcOf (b+433) else pcOf (b+468)) ∧
       RegsExcept s t [.x10,.x11,.x20,.x28,.x29] ∧ Frame s t (fun _=>False) := by
   obtain ⟨u,su,pu,ux11,ux20,ru,fu⟩ := init_spec hb hR s hp

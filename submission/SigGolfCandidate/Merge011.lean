@@ -878,7 +878,7 @@ Defined before the encoding selector because the top producer choice uses the ca
   LOW costs 4 cycles, HIGH 6). -/
 namespace CanonicalPolicy
 /-- The credit pool every canonical path must reach. -/
-def totalCredit : Nat := 71
+def totalCredit : Nat := 72
 /-- The (fixed) top credit floor (on the path-aware credit). -/
 def topFloor : Nat := 18
 /-- All three lower layers use digit sum 201. Layer 1's existing broad decoder
@@ -886,9 +886,15 @@ has the same lower digit layout and this exact target. -/
 def normalLayer (lay : Layer) : Layer := if lay = 0 then 0 else 1
 def decode (lay : Layer) (answer : Digest) : Option (List Nat) :=
   SigGolfCandidate.T3.decode (normalLayer lay) answer
-/-- Word reward (credited instructions) of a decoded word, independent of the selected half. -/
+/-- R1 (soispoke f25ef952, N7g): the chain-0 ladder reward of a lower layer. Verify no longer executes
+`addi a2,tp,752` in the 64 chain-0 ladder tails; a chain-0 walk passes that word exactly when it takes at least two
+steps, i.e. digit 0 is at most 5 (lower `maxDigit` 7). One cycle, lower layers only. -/
+def ladderReward (lay : Layer) (digits : List Nat) : Nat :=
+  if lay ≠ 0 ∧ digits.getD 0 0 ≤ 5 then 1 else 0
+/-- Word reward (credited instructions) of a decoded word, independent of the selected half
+(R1: plus `ladderReward`). -/
 def reward (lay : Layer) (digits : List Nat) : Nat :=
-  wordCredit lay digits + 4 * savedCopies lay digits
+  wordCredit lay digits + 4 * savedCopies lay digits + ladderReward lay digits
 /-- Z4 (P1'): the earning-path bonus of a lower layer: 2 cycles on layers 1, 2; 3 on layer 3, whose HIGH-a path
 now falls through into the encoding SWAR like LOW (both 3 cycles under HIGH-b). -/
 def lowerBonus (lay : Layer) : Nat := if lay = 3 then 3 else 2
@@ -1448,14 +1454,15 @@ open OracleComp OracleSpec SigGolfCandidate.T3
 completeness over every256-bit message. It does not change the moment model. -/
 def ftsSearchLimit : Nat := 2 ^ 21
 
-/-- Layer-1 floors by residual `r ≤ 53` (= 67 - 14; SGV1 credit law, bonus 2 on LOW or HIGH-a). -/
+/-- Layer-1 floors by residual `r ≤ 54` (= 72 - 18). Z7: soispoke's f25ef952 table (R1 law; floors 1 and 2
+never occur, the skip-2 alphabet `f1 ∈ {0, 3..15}`). -/
 def lowerOneThresholds : List Nat :=
-  [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
-   1,2,3,4,5,6,7,8,9,9,10,11,11,12,13,13,14]
+  [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+   3,3,4,5,6,7,8,9,10,10,11,12,13,14,15]
 
-/-- Layer-2 floors by residual `r ≤ 39` (SGV1 credit law). -/
+/-- Layer-2 floors by residual `r ≤ 39` (Z7: f25ef952's re-optimised table). -/
 def lowerTwoThresholds : List Nat :=
-  [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,2,3,4,5,6,7,8,9,10,10,11,12,13,14,14,15,16,16,17,18]
+  [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,2,3,3,4,5,6,7,8,9,10,11,12,13,13,14,15,16,17,18]
 
 /-- Largest lower floor (L3 floors reach 21; policy hints use the mixed radix 484 / 22 / 1, bound 7744). -/
 def lowerFloorMax : Nat := 21
@@ -1545,11 +1552,11 @@ open SigGolfCandidate.T3
 set_option maxRecDepth 10000
 set_option maxHeartbeats 1000000
 
-theorem lower_one_progress : ∀ r : Fin 54,
+theorem lower_one_progress : ∀ r : Fin 55,
     threshold 1 r.val ≤ 19 ∧ r.val - threshold 1 r.val < 40 := by decide +kernel
 
 /-- img-v6: every L1 floor is below 16 (the hint's leading digit `f1 ≤ 15`). -/
-theorem lower_one_floor_lt : ∀ r : Fin 54, threshold 1 r.val < 16 := by decide +kernel
+theorem lower_one_floor_lt : ∀ r : Fin 55, threshold 1 r.val < 16 := by decide +kernel
 
 theorem lower_two_progress : ∀ r : Fin 40,
     threshold 2 r.val ≤ 19 ∧ r.val - threshold 2 r.val < 22 := by decide +kernel
@@ -1561,12 +1568,12 @@ theorem lower_three_progress (r : Nat) (hr : r < 22) :
     threshold 3 r = r := by simp [threshold, show r ≤ 21 by omega]
 
 theorem accepted_top_residual {answer : Digest} {low : Bool} {digits : List Nat}
-    (h : producerDecodeAt 0 18 low answer = some digits) : nextResidual 71 0 low digits < 54 := by
+    (h : producerDecodeAt 0 18 low answer = some digits) : nextResidual 72 0 low digits < 55 := by
   have hc := producerDecodeAt_credit h
   unfold nextResidual
   omega
 
-theorem accepted_one_residual (r : Fin 54) {answer : Digest} {low : Bool} {digits : List Nat}
+theorem accepted_one_residual (r : Fin 55) {answer : Digest} {low : Bool} {digits : List Nat}
     (h : producerDecodeAt 1 (threshold 1 r.val) low answer = some digits) :
     nextResidual r.val 1 low digits < 40 := by
   have hc := producerDecodeAt_credit h

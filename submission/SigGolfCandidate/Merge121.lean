@@ -84,9 +84,9 @@ theorem blk_at (c : LCtx) (i : Nat) (hi : i < 42) :
     blkCheck (i / 3) (c.dig (3 * (i / 3) + 1)) (c.dig (3 * (i / 3) + 2)) = true :=
   blkCheck_at _ _ _ (by omega) (c.dig_lt8 _ (by omega)) (c.dig_lt8 _ (by omega))
 theorem chk_headJ (c : LCtx) (i : Nat) (hi : i < 42) (h0 : i % 3 = 0) (hd : c.dig i < 7) (hRank : c.headOK i) :
-    vrun (c.startPc i) 7 = some (headJHB .x4 (offL i) (c.rungPc i (c.dig i) + landOff (c.dig i)) i (c.dig i)
+    vrun (c.startPc i) 7 = some (headJHB .x4 (offL i) (c.rungPc i (c.dig i) + rLen i (c.dig i)) i (c.dig i)
       (hSlot i (c.dig i)) (lowerG i)) ∧
-    vrun (c.rungPc i (c.dig i) + landOff (c.dig i)) 1 = some (ecallR (c.rungPc i (c.dig i) + landOff (c.dig i))) := by
+    vrun (c.rungPc i (c.dig i) + rLen i (c.dig i)) 1 = some (ecallR (c.rungPc i (c.dig i) + rLen i (c.dig i))) := by
   obtain ⟨t, rfl⟩ : ∃ t, i = 3 * t := ⟨i / 3, by omega⟩
   have et : 3 * t / 3 = t := by omega
   have he := entCheck_at t (c.kOf t) (by omega) (c.kOf_lt t (by omega))
@@ -97,8 +97,9 @@ theorem chk_headJ (c : LCtx) (i : Nat) (hi : i < 42) (h0 : i % 3 = 0) (hd : c.di
   rw [k1, k2, k3, if_neg (by omega), Bool.and_eq_true] at he
   have hs : c.startPc (3 * t) = entW t (c.kOf t) := by
     unfold startPc; rw [if_neg (by omega), if_pos h0, et]
-  have hr : c.rungPc (3 * t) (c.dig (3 * t)) = triBase t (c.dig (3 * t + 1)) (c.dig (3 * t + 2)) + 2 * c.dig (3 * t) := by
-    unfold rungPc tb; rw [if_pos ⟨h0, by omega⟩, et]
+  have hr : c.rungPc (3 * t) (c.dig (3 * t)) = triBase t (c.dig (3 * t + 1)) (c.dig (3 * t + 2)) + 2 * c.dig (3 * t) +
+      (if t = 0 then 1 else 0) := by
+    unfold rungPc tb; rw [if_pos ⟨h0, by omega⟩, et]; split_ifs <;> omega
   rw [hs, hr]
   exact ⟨rOK_eq he.1, rOK_eq he.2⟩
 theorem chk_copyJ (c : LCtx) (i : Nat) (hi : i < 42) (h0 : i % 3 = 0) (hd : c.dig i = 7) (hRank : c.headOK i) (hiz : i ≠ 0) :
@@ -170,13 +171,13 @@ theorem chk_copyF (c : LCtx) (i : Nat) (hi : i ≤ 42) (hnl : i % 3 ≠ 0 ∨ i 
   rw [if_pos hd] at hp
   exact rOK_eq hp
 theorem rungPc_inline (c : LCtx) (i : Nat) (hnl : i % 3 ≠ 0 ∨ i = 42) :
-    c.rungPc i (c.dig i) + (if c.dig i = 6 then 2 else 1) = c.startPc i + 4 := by
-  unfold rungPc
+    c.rungPc i (c.dig i) + rLen i (c.dig i) = c.startPc i + 4 := by
+  unfold rungPc rLen
   rw [if_neg (by omega)]
   split_ifs <;> omega
 theorem chk_rung (c : LCtx) (i m : Nat) (hi : i ≤ 42) (hm : c.dig i ≤ m) (hm6 : m ≤ 6) (hm1 : 1 ≤ m)
     (hfirst : (i % 3 ≠ 0 ∨ i = 42) → c.dig i < m) (hck : i = 42 → c.ck < 8) :
-    vrun (c.rungPc i m) 3 = some (rungRB m (if m = 6 then some (outL i) else none) (c.rungPc i m)) := by
+    vrun (c.rungPc i m) 3 = some (rungRB m (if m = 6 ∧ i ≠ 0 then some (outL i) else none) (c.rungPc i m)) := by
   by_cases hl : i % 3 = 0 ∧ i ≠ 42
   · obtain ⟨h0, h42⟩ := hl
     obtain ⟨t, rfl⟩ : ∃ t, i = 3 * t := ⟨i / 3, by omega⟩
@@ -185,14 +186,33 @@ theorem chk_rung (c : LCtx) (i m : Nat) (hi : i ≤ 42) (hm : c.dig i ≤ m) (hm
     rw [et] at hb
     unfold blkCheck at hb
     simp only [Bool.and_eq_true] at hb
-    have := List.all_eq_true.mp hb.1.1.1 m (List.mem_range'_1.mpr ⟨by omega, by omega⟩)
-    have hr : c.rungPc (3 * t) m = triBase t (c.dig (3 * t + 1)) (c.dig (3 * t + 2)) + 2 * m := by
-      unfold rungPc tb; rw [if_pos ⟨h0, h42⟩, et]
-    have e : triBase t (c.dig (3 * t + 1)) (c.dig (3 * t + 2)) + 2 + 2 * (m - 1) =
-        triBase t (c.dig (3 * t + 1)) (c.dig (3 * t + 2)) + 2 * m := by omega
+    have hR := hb.1.1.1
+    have hr : c.rungPc (3 * t) m = triBase t (c.dig (3 * t + 1)) (c.dig (3 * t + 2)) + 2 * m +
+        (if t = 0 then 1 else 0) := by
+      unfold rungPc tb; rw [if_pos ⟨h0, h42⟩, et]; split_ifs <;> omega
     rw [hr]
-    rw [e] at this
-    simpa using rOK_eq this
+    by_cases ht : t = 0
+    · rw [if_pos ht] at hR
+      have := List.all_eq_true.mp hR m (List.mem_range'_1.mpr ⟨by omega, by omega⟩)
+      have e : triBase t (c.dig (3 * t + 1)) (c.dig (3 * t + 2)) + 3 + 2 * (m - 1) =
+          triBase t (c.dig (3 * t + 1)) (c.dig (3 * t + 2)) + 2 * m + (if t = 0 then 1 else 0) := by
+        rw [if_pos ht]; omega
+      rw [e] at this
+      rw [if_neg (show ¬ (m = 6 ∧ 3 * t ≠ 0) by omega)]
+      exact rOK_eq this
+    · rw [if_neg ht] at hR
+      have := List.all_eq_true.mp hR m (List.mem_range'_1.mpr ⟨by omega, by omega⟩)
+      have e : triBase t (c.dig (3 * t + 1)) (c.dig (3 * t + 2)) + 2 + 2 * (m - 1) =
+          triBase t (c.dig (3 * t + 1)) (c.dig (3 * t + 2)) + 2 * m + (if t = 0 then 1 else 0) := by
+        rw [if_neg ht]; omega
+      rw [e] at this
+      have hsl : (if m = 6 ∧ 3 * t ≠ 0 then some (outL (3 * t)) else none) =
+          (if m = 6 then some (outL (3 * t)) else none) := by
+        by_cases h6 : m = 6
+        · rw [if_pos ⟨h6, by omega⟩, if_pos h6]
+        · rw [if_neg (fun h => h6 h.1), if_neg h6]
+      rw [hsl]
+      exact rOK_eq this
   · have hnl : i % 3 ≠ 0 ∨ i = 42 := by omega
     have hd := hfirst hnl
     have hp := c.part_at i hi hnl hck (fun h => by have := h.1; omega)
@@ -205,7 +225,11 @@ theorem chk_rung (c : LCtx) (i m : Nat) (hi : i ≤ 42) (hm : c.dig i ≤ m) (hm
       rw [if_neg hl]
       split_ifs <;> omega
     have hw : outL i = slotL i := by unfold outL; rw [if_neg (by omega)]
-    rw [hr, hw]
+    have hsl : (if m = 6 ∧ i ≠ 0 then some (slotL i) else none) = (if m = 6 then some (slotL i) else none) := by
+      by_cases h6 : m = 6
+      · rw [if_pos ⟨h6, by omega⟩, if_pos h6]
+      · rw [if_neg (fun h => h6 h.1), if_neg h6]
+    rw [hr, hw, hsl]
     exact rOK_eq this
 end LCtx
 end SigGolfCandidate.T3M
@@ -217,7 +241,7 @@ namespace LCtx
 variable {P : SigGolfCandidate.Legacy.Hash → Prop}
 theorem chk_rung' (c : LCtx) (i m : Nat) (hi : i ≤ 42) (hm : c.dig i < m) (hm6 : m ≤ 6) (hm1 : 1 ≤ m)
     (hck : i = 42 → c.ck < 8) :
-    vrun (c.rungPc i m) 3 = some (rungRB m (if m = 6 then some (outL i) else none) (c.rungPc i m)) :=
+    vrun (c.rungPc i m) 3 = some (rungRB m (if m = 6 ∧ i ≠ 0 then some (outL i) else none) (c.rungPc i m)) :=
   c.chk_rung i m hi (by omega) hm6 hm1 (fun _ => hm) hck
 /-- The image's chain run from step `m` (C3: chain 0's last step keeps the high half, `stepHigh`). -/
 def rest (c : LCtx) (i m : Nat) (v : Digest) : M Digest :=
@@ -265,7 +289,7 @@ theorem startPc_lt (c : LCtx) (i : Nat) (hi : i ≤ 42) (hck : i = 42 → c.ck <
     unfold tB tC pcC
     split_ifs at * <;> omega
 theorem rungPc_land_lt (c : LCtx) (i m : Nat) (hi : i≤42) (hdm : c.dig i ≤ m)
-    (hm : m ≤ 6) (hck : i = 42 → c.ck < 8) : c.rungPc i m + landOff m < 257214 := by
+    (hm : m ≤ 6) (hck : i = 42 → c.ck < 8) : c.rungPc i m + rLen i m < 257214 := by
   have hd6 : c.dig i<7 := by omega
   have he : c.endPc i<257214 := by
     by_cases h42 : i=42
@@ -286,8 +310,8 @@ theorem rungPc_land_lt (c : LCtx) (i m : Nat) (hi : i≤42) (hdm : c.dig i ≤ m
       unfold tX pcX pcC at hx
       unfold tB tC tX pcX pcC
       split_ifs at * <;> omega
-  have hle : c.rungPc i m+landOff m ≤ c.rungPc i 6+3 := by
-    unfold rungPc landOff
+  have hle : c.rungPc i m+rLen i m ≤ c.rungPc i 6+rLen i 6+1 := by
+    unfold rungPc rLen
     split_ifs <;> omega
   rw [c.rungPc_end i hi hd6] at hle
   omega
@@ -359,7 +383,7 @@ theorem end_next (c : LCtx) (hc : c.ok) {s0 : MachineState} (hk : ∀ p ∈ c.kn
         rw [show (3 * t + 2) / 3 = t by omega] at hx
         unfold blkCheck xOK at hx
         simp only [Bool.and_eq_true] at hx
-        rw [if_neg (by omega)] at hx
+        rw [if_neg (show ¬ t = 13 by omega)] at hx
         by_cases hbf : t = 5 ∨ t = 12
         · rw [if_pos hbf] at hx
           have hrun := rOK_eq hx.2
@@ -407,13 +431,14 @@ open SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64 SigGol
 open SigGolfCandidate.T3
 namespace LCtx
 variable {P : SigGolfCandidate.Legacy.Hash → Prop}
-def preCost (m : Nat) : Nat := 8 + 9 * (6 - m) + (if m < 6 then 1 else 0)
+/-- N7g (R1): chain 0's rungs are one step each (no `addi` before its last hash). -/
+def preCost (i m : Nat) : Nat := 8 + 9 * (6 - m) + (if m < 6 ∧ i ≠ 0 then 1 else 0)
 theorem steps_good (c : LCtx) (hc : c.ok) {s0 : MachineState} (hk : ∀ p ∈ c.known, s0.getReg p.1 = p.2)
     (h0 : c.Orig0 s0) (i : Nat) (hi : c.i0 ≤ i ∧ i ≤ 42) (hck : i = 42 → c.ck < 8) (acc : List Digest)
     (K : List Digest → OracleComp Legacy.HashSpec Verify.Obs) (N C A : Nat) (Q : Prop)
     (hK : ∀ v t, c.ChainNext s0 (i + 1) (acc ++ [v]) t → Verify.GoodQP P t N C Q A (K (acc ++ [v]))) :
     ∀ k m, m + k = 6 → c.dig i ≤ m → ∀ v s, c.PreHash s0 i acc m v s →
-      Verify.GoodQP P s (N + 3 * (7 - m) + 4) (C + preCost m + xCost i) Q (A + preCost m + xCost i)
+      Verify.GoodQP P s (N + 3 * (7 - m) + 4) (C + preCost i m + xCost i) Q (A + preCost i m + xCost i)
         (Verify.ccM (c.rest i m v) (fun v => K (acc ++ [v]))) := by
   have hrc : ∀ m, c.dig i ≤ m → m ≤ 6 → c.rungPc i m < 257214 := fun m hd hm => c.rungPc_lt i m hi.2 hd hm hck
   have hx4 := xCost_le i
@@ -441,27 +466,21 @@ theorem steps_good (c : LCtx) (hc : c.ok) {s0 : MachineState} (hk : ∀ p ∈ c.
     rw [rest_succ c i m (by omega)]
     have hf := hs.2.2.2.2.2.2.2.2.2
     have H : ∀ a : BitVec 256, Verify.GoodQP P (writeHash s a) (N + 3 * (7 - (m + 1)) + 4 + 2)
-        (C + preCost (m + 1) + xCost i + (if m + 1 = 6 then 2 else 1)) Q
-        (A + preCost (m + 1) + xCost i + (if m + 1 = 6 then 2 else 1))
+        (C + preCost i (m + 1) + xCost i + rLen i (m + 1)) Q
+        (A + preCost i (m + 1) + xCost i + rLen i (m + 1))
         (Verify.ccM (c.rest i (m + 1) (Verify.vHalf (stepHigh i m) a)) (fun v => K (acc ++ [v]))) := by
       intro a
       have hrun := c.chk_rung' i (m + 1) hi.2 (by omega) (by omega) (by omega) hck
       obtain ⟨u, hu, hp⟩ := c.rung_step hc hk i (m + 1) hi (by omega) (hrc _ (by omega) (by omega)) hrun acc _ _
         ((hpost a).1 (by omega))
       have := ih (m + 1) (by omega) (by omega) _ _ hp
-      exact Verify.GoodQP.stepsQ hu this (by split <;> omega) (by omega) (fun hq => ⟨hq, by omega⟩)
+      exact Verify.GoodQP.stepsQ hu this (by unfold rLen; split <;> omega) (by omega) (fun hq => ⟨hq, by omega⟩)
     have h3 := Verify.GoodQP.vHash_bind (stepHigh i m) (f := c.rest i (m + 1)) (K := fun v => K (acc ++ [v])) hf h5 hv
       (by rw [chainInputP_pad]; exact hin) H
     rw [chainInputP_pad, chainInputP_blocks] at h3
     refine h3.mono (by omega) ?_ (fun hq => ⟨hq, ?_⟩)
-    · unfold preCost
-      by_cases h6 : m + 1 = 6
-      · rw [if_pos h6, if_neg (by omega), if_pos (by omega)]; omega
-      · rw [if_neg h6, if_pos (by omega), if_pos (by omega)]; omega
-    · unfold preCost
-      by_cases h6 : m + 1 = 6
-      · rw [if_pos h6, if_neg (by omega), if_pos (by omega)]; omega
-      · rw [if_neg h6, if_pos (by omega), if_pos (by omega)]; omega
+    · unfold preCost rLen; split_ifs <;> omega
+    · unfold preCost rLen; split_ifs <;> omega
 end LCtx
 end SigGolfCandidate.T3M
 namespace SigGolfCandidate.T3M
@@ -470,7 +489,9 @@ open SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64 SigGol
 open SigGolfCandidate.T3
 namespace LCtx
 variable {P : SigGolfCandidate.Legacy.Hash → Prop}
-def zc (_i d : Nat) : Nat := if d = 6 then 1 else 0
+/-- Credited cycles of chain `i` at digit `d`: the skipped `addi` of a top rung (`d = 6`), and (N7g R1) chain 0's
+ladder saving (`d ≤ 5`: its walk passes the removed `addi a2,tp,752`). -/
+def zc (i d : Nat) : Nat := (if d = 6 then 1 else 0) + (if i = 0 ∧ d < 6 then 1 else 0)
 def chainCost (i d : Nat) : Nat :=
   (if i % 3 = 0 ∧ i ≠ 42 then (if d = 7 then 5 else 68 - 9 * d)
    else (if d = 7 then 4 else 67 - 9 * d)) - zc i d + xCost i
@@ -635,7 +656,7 @@ theorem chain_good (c : LCtx) (hc : c.ok) {s0 : MachineState} (hk : ∀ p ∈ c.
     · have he := c.buffer_skip_inline hc h0 i hi hSafe (c.bufferSafe_pc i hi.2 hz hSafe) acc hs
       obtain ⟨u,hu,hn⟩ := c.end_next hc hk i hi hck _ _ he
       have hnmod : ¬(i%3=0 ∧ i≠42) := by rcases hSafe.2 with h|h|h <;> omega
-      have hcost : c.bufferCost i = xCost i := by simp only [bufferCost,if_pos hSafe,chainCost,if_neg hnmod,h7,if_true,zc,show (7:Nat)≠6 by decide,if_false,Nat.sub_zero]; omega
+      have hcost : c.bufferCost i = xCost i := by simp only [bufferCost,if_pos hSafe,chainCost,if_neg hnmod,h7,if_true,zc,show (7:Nat)≠6 by decide,show ¬ ((7:Nat) < 6) by decide,and_false,if_false,Nat.sub_zero]; omega
       exact Verify.GoodQP.stepsQ hu (hK _ _ hn) (by have:=xCost_le i; omega)
         (by rw [hcost]) (fun h=>⟨h,by rw [hcost]⟩)
   · simpa only [bufferCost,if_neg hSafe,Nat.sub_zero,bufferVal] using

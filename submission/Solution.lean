@@ -15,7 +15,7 @@ theorem layout_offsets : submission.layout =
   { message := 26016, secretKey := 128, publicKey := 160,
     cache := 524288, signature := 28672, witness := 4256 } := rfl
 
-theorem certificate : SigGolf.Certificate submission 6966 := by
+theorem certificate : SigGolf.Certificate submission 6965 := by
   exact SigGolfCandidate.Packaging.certificate_ready
 
 end SigGolf.Challenge
@@ -37,6 +37,8 @@ end SigGolf.Challenge
    Y4: L-hyper A' (marker label words; -2 per run).
    Z6: option F (marker-only label words; the FTS node and leaf low
    words move by -2048, so no `ori 0x201`; -3 per run).
-   Claimed S = 5188, W = 21756, K = 131072, C = 6966;
-   Pool-71/top-floor-18 retune from 199a9c8a composed with Z6.
-   product = 36,139,608. Independent acceptance remains required. -/
+   199a9c8 (mpjunior92): credit pool 71, top floor 18, top counter window 2^21.
+   Z7 (port of soispoke's f25ef952): R1 chain-0 ladder-tail reward and f25's L1/L2 floor tables,
+   credit pool 72.
+   Claimed S = 5188, W = 21756, K = 131072, C = 6965;
+   product = 36,134,420. Independent acceptance remains required. -/
