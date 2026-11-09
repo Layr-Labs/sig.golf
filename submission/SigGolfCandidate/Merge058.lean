@@ -16,66 +16,6 @@ import SigGolfCandidate.Merge057
 set_option debug.skipKernelTC true
 set_option linter.all false
 
-/-! L-hyper A: the producers' straight-line marker trampolines (`T |= 2 ^ (hyperW lay + 16)`, `s0` scaled to
-`6 s0` for the shift and restored) and the label word they complete. -/
-namespace SigGolfCandidate.T3M.LH
-open SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64 SigGolfCandidate.Rv
-/-- `6 s0` as the trampoline computes it (`s0 + (s0 << 1)`, doubled). -/
-def y6E : E := .bin .add (.bin .add (.reg .x8) (.bin .sll (.reg .x8) (.c 1#64)))
-  (.bin .add (.reg .x8) (.bin .sll (.reg .x8) (.c 1#64)))
-/-- `s0` restored from `6 s0`: `(6 s0 + 6) >> 3` (for `s0 = lay`) and `(6 s0 + 8) >> 3` (for `s0 = lay + 1`). -/
-def restE : E := .bin .srl (.bin .add y6E (.c 6#64)) (.c 3#64)
-def restNE : E := .bin .srl (.bin .add y6E (.c 8#64)) (.c 3#64)
-theorem y6E_fold : E.bin .add (E.bin .add (E.reg .x8) (E.bin .sll (E.reg .x8) (E.c 1#64)))
-    (E.bin .add (E.reg .x8) (E.bin .sll (E.reg .x8) (E.c 1#64))) = y6E := rfl
-theorem restE_fold : E.bin .srl (E.bin .add y6E (E.c 6#64)) (E.c 3#64) = restE := rfl
-theorem restNE_fold : E.bin .srl (E.bin .add y6E (E.c 8#64)) (E.c 3#64) = restNE := rfl
-theorem restE_eval (s : MachineState) (lay : Nat) (hl : lay < 4) (h8 : s.getReg .x8 = BitVec.ofNat 64 lay) :
-    restE.eval s = s.getReg .x8 := by
-  rw [h8]; interval_cases lay <;> simp only [restE, y6E, E.eval, BinOp.eval, h8] <;> decide
-theorem restNE_eval (s : MachineState) (lay : Nat) (hl : lay < 4) (h8 : s.getReg .x8 = BitVec.ofNat 64 (lay + 1)) :
-    restNE.eval s = s.getReg .x8 := by
-  rw [h8]; interval_cases lay <;> simp only [restNE, y6E, E.eval, BinOp.eval, h8] <;> decide
-/-- The marker the regular trampoline ORs in, in the normal form `t3n` leaves (`x = s0 = lay`). -/
-theorem mark_bv (lay : Nat) (hl : lay < 4) (x : Word) (hx : x = BitVec.ofNat 64 lay) :
-    ((if (0#64).ult (x + x <<< 1 + (x + x <<< 1)) = true then 1#64 else 0#64) + 1#64) <<< 28 <<<
-      ((x + x <<< 1 + (x + x <<< 1)).toNat % 64) = BitVec.ofNat 64 (2 ^ (T3.hyperW lay + 16)) := by
-  subst hx; interval_cases lay <;> decide
-/-- The node trampoline's marker (`x = s0 = lay + 1`). -/
-theorem markN_bv (lay : Nat) (hl : lay < 4) (x : Word) (hx : x = BitVec.ofNat 64 (lay + 1)) :
-    (((if (x + x <<< 1 + (x + x <<< 1)).ult 12#64 = true then 1#64 else 0#64) ^^^ 1#64) + 1#64) <<< 22 <<<
-      ((x + x <<< 1 + (x + x <<< 1)).toNat % 64) = BitVec.ofNat 64 (2 ^ (T3.hyperW lay + 16)) := by
-  subst hx; interval_cases lay <;> decide
-theorem hyperWord_eq_honest {lay r : Nat} (hl : lay < 4) (hr : r < 2 ^ T3.hyperW lay) :
-    T3.hyperWord lay r = BitVec.ofNat 64 (1 + 2 * 2 ^ 8 + r * 2 ^ 16 + 2 ^ (T3.hyperW lay + 16)) := by
-  apply BitVec.eq_of_toNat_eq
-  rw [T3.hyperWord_toNat_honest hl hr, BitVec.toNat_ofNat, Nat.mod_eq_of_lt]
-  have := T3.hyperWord_honest_lt hr
-  have : 2 ^ (T3.hyperW lay + 17) ≤ 2 ^ 48 :=
-    Nat.pow_le_pow_right (by norm_num) (by have := T3.hyperW_le lay; omega)
-  omega
-/-- The producers' label word: `(r << 16) | 0x201`, then the marker. -/
-theorem label_or (lay r : Nat) (hl : lay < 4) (hr : r < 2 ^ T3.hyperW lay) :
-    BitVec.ofNat 64 (r * 65536) ||| 513#64 ||| BitVec.ofNat 64 (2 ^ (T3.hyperW lay + 16)) = T3.hyperWord lay r := by
-  have h16 : r * 65536 + 513 < 2 ^ (T3.hyperW lay + 16) := by
-    have h1 : (r + 1) * 65536 ≤ 2 ^ T3.hyperW lay * 65536 := Nat.mul_le_mul_right _ hr
-    rw [pow_add, show (2 : Nat) ^ 16 = 65536 from rfl]; omega
-  rw [show (513#64 : BitVec 64) = BitVec.ofNat 64 513 from rfl,
-    ofNat_or_disjoint 513 (r * 65536) 16 (by norm_num) (by rw [show (2 : Nat) ^ 16 = 65536 from rfl, Nat.mul_mod_left]),
-    ofNat_or_disjoint' _ _ (T3.hyperW lay + 16) h16 (Nat.mod_self _), hyperWord_eq_honest hl hr]
-  have e : r * 65536 + 513 + 2 ^ (T3.hyperW lay + 16) = 1 + 2 * 2 ^ 8 + r * 2 ^ 16 + 2 ^ (T3.hyperW lay + 16) := by
-    rw [show (2 : Nat) ^ 16 = 65536 from rfl, show (2 : Nat) ^ 8 = 256 from rfl]; omega
-  rw [e]
-/-- A lower layer's routed tree fits the next layer's honest range. -/
-theorem route_tree_honest (index : Nat) (hindex : index < 2 ^ 31) (lay : T3.Layer) (h0 : lay.val ≠ 0) :
-    (T3.route index lay).2 < 2 ^ T3.hyperW (lay.val - 1) := by
-  fin_cases lay <;> simp_all [T3.route, T3.height, T3.hyperW] <;> omega
-/-- A routed position is in the label's honest range. -/
-theorem route_honest (index : Nat) (hindex : index < 2 ^ 31) (lay : T3.Layer) :
-    (T3.route index lay).2 * 2 ^ T3.height lay + (T3.route index lay).1 < 2 ^ T3.hyperW lay.val := by
-  fin_cases lay <;> simp [T3.route, T3.height, T3.hyperW] <;> omega
-end SigGolfCandidate.T3M.LH
-
 namespace ClaudeWCT.Guess
 open SigGolfCandidate.T3 ClaudeWCT.WCT9
 open SphincsSecurity (bytesLE bytesLE_injective)
@@ -933,9 +873,19 @@ theorem respects_chainW (lay : Layer) (tree leaf i start count : Nat) (v : Diges
 theorem respects_lowerLeafHash (lay : Layer) (tree leaf : Nat) (ends : List Digest) (hlen : 4 ≤ ends.length) :
     Respects Enc.NonEnc (WCT9.lowerLeafHash lay tree leaf ends) := by
   exact respects_lowerLeafHash' _ _ _ _ (nonEnc_pad64_long _ (leafInput_long lay tree leaf ends hlen))
+theorem lowerNodeWord_toNat (lay tree heap : Nat) (hh : heap < 128) :
+    (WCT9.lowerNodeWord lay tree heap).toNat = (hyperWord lay tree).toNat + 1407 + heap := by
+  unfold WCT9.lowerNodeWord WCT9.lowerK
+  have hw := hyperWord_toNat lay tree
+  have := Nat.mod_lt tree (show 0 < 2 ^ 32 by decide)
+  have := Nat.mod_lt lay (show 0 < 256 by decide)
+  rw [BitVec.toNat_add, BitVec.toNat_ofNat, Nat.mod_eq_of_lt (show 1407 + heap < 2 ^ 64 by omega),
+    Nat.mod_eq_of_lt (by omega)]
+  omega
 theorem lowerNodeWord_marker (lay tree heap : Nat) (hh : heap < 128) :
-    (WCT9.lowerNodeWord lay tree heap).toNat % 256 = 128 + heap :=
-  (WCT9.lowerNodeWord_band hh lay tree).1
+    (WCT9.lowerNodeWord lay tree heap).toNat % 256 = 128 + heap := by
+  rw [lowerNodeWord_toNat lay tree heap hh, hyperWord_toNat]
+  omega
 theorem merkleTweak_marker {lay : Nat} (h0 : lay ≠ 0) (tree heap : Nat) (hh : heap < 128) :
     tweakMarker (WCT9.merkleTweak lay tree heap) = 128 + heap := by
   unfold WCT9.merkleTweak
@@ -2469,6 +2419,7 @@ private theorem bind_map_at_some {α β γ : Type} (o : Option α) (f : α → O
   subst o
   exact congrArg (Option.map (g a)) h
 
+set_option maxHeartbeats 4000000 in
 theorem context_parent_success {answers : Answers} {messages : LeafAddr → WCT9.LayerMsg}
     {leaf : LeafAddr} (hpositive : leaf.lay.val ≠ 0) {remaining : Nat}
     {counter : BitVec 32} {digits : List Nat} {low : Bool}
@@ -5122,7 +5073,7 @@ open OracleComp OracleSpec OracleComp.EvalDist ENNReal
 open SigGolfCandidate.T3 SigGolfCandidate.T3.Security
 open ClaudeWCT.W9.T3M.Final (AdversaryP)
 open ClaudeWCT.Bank (FtsBankSpecL birthWeight)
-open ClaudeWCT.Bank.WCT (WProposal ExcessBound wctSpecL payAfterDigest)
+open ClaudeWCT.Bank.WCT (WProposal ExcessBound payAfterDigest)
 set_option maxHeartbeats 1000000
 set_option maxRecDepth 10000
 set_option backward.isDefEq.respectTransparency false
@@ -5172,19 +5123,6 @@ theorem expectedBirths_eq (hrecord : RecordMatches S pay) (adversary : Adversary
   exact BankLink.birthWeight_eq budget input state
 end generic
 variable (horizon : Nat) (rate : ENNReal) (hexc : ExcessBound horizon rate)
-theorem wct_recordMatches : RecordMatches (wctSpecL horizon rate hexc) payAfterDigest :=
-  fun published request => ClaudeWCT.Bank.WCT.wctL_record_erasure horizon rate hexc published request
-theorem wct_source (published : SigGolfCandidate.T3.Cache) :
-    (wctSpecL horizon rate hexc).source payAfterDigest published = MonitoredPrivate.interactionSource published :=
-  source_eq _ _ (wct_recordMatches horizon rate hexc) published
-theorem wct_recordedExperiment_eq (adversary : AdversaryP) (budget : Nat) (hbudget : budget ≤ 2 ^ 127) :
-    (fun r : PaddedGame.TraceResult => (r.1, r.2.2)) <$> PaddedGame.tracedExperiment adversary budget hbudget =
-      (wctSpecL horizon rate hexc).recordedExperiment payAfterDigest (CreationGame.rest adversary) :=
-  recordedExperiment_eq _ _ (wct_recordMatches horizon rate hexc) adversary budget hbudget
-theorem wct_expectedBirths_eq (adversary : AdversaryP) (budget : Nat) (hbudget : budget ≤ 2 ^ 127) :
-    (wctSpecL horizon rate hexc).expectedBirths payAfterDigest (CreationGame.rest adversary) budget =
-      CreationGame.expectedBirths CaseC.IsDigestInput adversary budget hbudget :=
-  expectedBirths_eq _ _ (wct_recordMatches horizon rate hexc) adversary budget hbudget
 end ClaudeWCT.W9.T3.Security.BankLinkL
 end
 section
@@ -5194,7 +5132,7 @@ open SigGolfCandidate.T3 SigGolfCandidate.T3.Security
 open SigGolfCandidate.T3.Security.CaseC (theta IsDigestInput countOf lazyOf)
 open ClaudeWCT.W9.T3M.Final (AdversaryP)
 open ClaudeWCT.Bank (FtsBankSpecL Ghost Interaction')
-open ClaudeWCT.Bank.WCT (WProposal ExcessBound wctSpecL payAfterDigest)
+open ClaudeWCT.Bank.WCT (WProposal ExcessBound payAfterDigest)
 set_option maxHeartbeats 1000000
 set_option maxRecDepth 10000
 set_option backward.isDefEq.respectTransparency false
@@ -5202,58 +5140,7 @@ attribute [local instance] Classical.propDecidable
 def horizon : Nat := 2 ^ 32
 theorem horizon_eq : horizon = 4294967296 := by norm_num [horizon]
 theorem excessBound_top : ExcessBound horizon ⊤ := le_top
-noncomputable def bankSpec : FtsBankSpecL WProposal := wctSpecL horizon ⊤ excessBound_top
-@[simp] theorem bankSpec_horizon : bankSpec.horizon = horizon := rfl
-@[simp] theorem bankSpec_limit : bankSpec.limit = WCT9.digestAttemptLimit := rfl
 abbrev BankState := ClaudeWCT.Bank.BankState Signature
-noncomputable def bankImpl (published : SigGolfCandidate.T3.Cache) (budget : Nat) :
-    QueryImpl (Interaction' Signature) (StateT BankState PMF) :=
-  bankSpec.bankImpl payAfterDigest published budget
-noncomputable def bankExperiment (adversary : AdversaryP) (budget : Nat) : PMF (Bool × BankState) :=
-  bankSpec.bankExperiment payAfterDigest (CreationGame.rest adversary) budget
-noncomputable def potential (budget : Nat) (st : BankState) : ENNReal := bankSpec.potential budget st
-def BankInv (published : SigGolfCandidate.T3.Cache) (budget : Nat) (kg : List FirstHit.QueryEvent)
-    (st : BankState) : Prop :=
-  bankSpec.BankInv payAfterDigest WCT9.Signature.rho published budget kg st
-theorem bankExperiment_eq (adversary : AdversaryP) (budget : Nat) :
-    bankExperiment adversary budget = (do
-      let generated ← (liftM (QueryRecorded.run keygen QueryRecorded.initial) : PMF _)
-      (simulateQ (bankImpl generated.1.2 budget) (CreationGame.rest adversary generated.1.1 generated.1.2)).run
-        (Ghost.empty, generated.2)) := rfl
-theorem source_eq (published : SigGolfCandidate.T3.Cache) :
-    bankSpec.source payAfterDigest published = MonitoredPrivate.interactionSource published :=
-  BankLinkL.wct_source horizon ⊤ excessBound_top published
-theorem bank_project {α : Type} (published : SigGolfCandidate.T3.Cache) (budget : Nat)
-    (program : OracleComp LazyPrivate.Interaction α) (st : BankState) :
-    Prod.map id Prod.snd <$> (simulateQ (bankImpl published budget) program).run st =
-      (liftM (QueryRecorded.run (simulateQ (MonitoredPrivate.interactionSource published) program) st.2) :
-        PMF (α × QueryRecorded.State)) := by
-  rw [← source_eq]
-  exact bankSpec.bank_project payAfterDigest published budget program st
-theorem bank_traced (adversary : AdversaryP) (budget : Nat) (hbudget : budget ≤ 2 ^ 127) :
-    (fun r : Bool × BankState => (r.1, r.2.2)) <$> bankExperiment adversary budget =
-      (fun r : PaddedGame.TraceResult => (r.1, r.2.2)) <$> PaddedGame.tracedExperiment adversary budget hbudget :=
-  (bankSpec.bank_experiment_project payAfterDigest (CreationGame.rest adversary) budget).trans
-    (BankLinkL.wct_recordedExperiment_eq horizon ⊤ excessBound_top adversary budget hbudget).symm
-theorem bankInv_run {α : Type} (published : SigGolfCandidate.T3.Cache) (budget : Nat) (kg : List FirstHit.QueryEvent)
-    (program : OracleComp LazyPrivate.Interaction α) (st : BankState) (hinv : BankInv published budget kg st)
-    (r : α × BankState) (hr : r ∈ ((simulateQ (bankImpl published budget) program).run st).support) :
-    BankInv published budget kg r.2 :=
-  bankSpec.bankInv_run payAfterDigest WCT9.Signature.rho ClaudeWCT.Bank.WCT.wct_payHashOnly
-    ClaudeWCT.Bank.WCT.wct_payRho ClaudeWCT.Bank.WCT.wct_payAvoids published budget kg program st hinv r hr
-theorem bankInv_initial (published : SigGolfCandidate.T3.Cache) (budget : Nat)
-    (generated : (Digest × SigGolfCandidate.T3.Cache) × QueryRecorded.State)
-    (hg : generated ∈ support (QueryRecorded.run keygen QueryRecorded.initial)) :
-    BankInv published budget generated.2.events (Ghost.empty, generated.2) :=
-  bankSpec.bankInv_initial payAfterDigest WCT9.Signature.rho published budget generated hg
-theorem bank_potential_le (rate : ENNReal) (hexc : ExcessBound horizon rate) (adversary : AdversaryP)
-    (budget : Nat) (hbudget : budget ≤ 2 ^ 127) :
-    expectedValue (bankExperiment adversary budget) (fun r => potential budget r.2) ≤
-      (theta + 1 / 64) / 2 ^ 128 * CreationGame.expectedBirths IsDigestInput adversary budget hbudget +
-        (budget : ENNReal) * rate / 2 ^ 128 := by
-  rw [← BankLinkL.wct_expectedBirths_eq horizon ⊤ excessBound_top adversary budget hbudget]
-  exact bankSpec.bank_potential_le_rate payAfterDigest ClaudeWCT.Bank.WCT.wct_payNotDigest
-    ClaudeWCT.Bank.WCT.wct_payAvoids (CreationGame.rest adversary) budget rate hexc
 end ClaudeWCT.W9.T3.Security.CaseC
 end
 
@@ -5624,82 +5511,6 @@ set_option backward.isDefEq.respectTransparency false
 attribute [local instance] Classical.propDecidable
 noncomputable local instance instDecidableEqCache_w9caseCLinkSplit : DecidableEq SigGolfCandidate.T3.Cache :=
   Classical.decEq _
-theorem bank_step_log (published : SigGolfCandidate.T3.Cache) (budget : Nat) (input : LazyPrivate.Interaction.Domain)
-    (st : BankState) (r : LazyPrivate.Interaction.Range input × BankState)
-    (hr : r ∈ ((bankImpl published budget input).run st).support) :
-    r.2.1.log = st.1.log ++ ProposalOverflow.logFragment input r.1 := by
-  cases input with
-  | inl input =>
-      obtain ⟨q, _, rfl⟩ := bankSpec.bank_support_world payAfterDigest published budget input st r hr
-      obtain ⟨_, hL, _⟩ := ClaudeWCT.Bank.FtsBankSpec.ghostWorld_fields budget input st.1 st.2 q.1
-      simp only [hL, ProposalOverflow.logFragment, List.append_nil]
-  | inr request =>
-      obtain ⟨q, _, rfl⟩ := bankSpec.bank_support_sign payAfterDigest published budget request st r hr
-      rw [bankSpec.ghostSign_log]
-      rfl
-theorem logged_ghost_log {α : Type} (published : SigGolfCandidate.T3.Cache) (budget : Nat)
-    (program : OracleComp LazyPrivate.Interaction α) (st : BankState)
-    (i : (α × QueryLog Requests) × BankState)
-    (hi : i ∈ ((simulateQ (bankImpl published budget) (ProposalOverflow.logged program)).run st).support) :
-    i.2.1.log = st.1.log ++ i.1.2 := by
-  induction program using OracleComp.inductionOn generalizing st i with
-  | pure value =>
-      rw [ProposalOverflow.logged_pure] at hi
-      simp only [simulateQ_pure, StateT.run_pure] at hi
-      change i ∈ (PMF.pure ((value, []), st)).support at hi
-      rw [PMF.support_pure, Set.mem_singleton_iff] at hi
-      subst hi
-      simp
-  | query_bind input next ih =>
-      rw [ProposalOverflow.logged_query_bind] at hi
-      simp only [simulateQ_bind, simulateQ_spec_query, simulateQ_pure, StateT.run_bind, StateT.run_pure] at hi
-      change i ∈ (PMF.bind _ _).support at hi
-      rw [PMF.mem_support_bind_iff] at hi
-      obtain ⟨middle, hm, hi⟩ := hi
-      change i ∈ (PMF.bind _ _).support at hi
-      rw [PMF.mem_support_bind_iff] at hi
-      obtain ⟨res, hres, hi⟩ := hi
-      change i ∈ (PMF.pure _).support at hi
-      rw [PMF.support_pure, Set.mem_singleton_iff] at hi
-      subst hi
-      have h1 := ih middle.1 middle.2 res hres
-      have h2 := bank_step_log published budget input st middle hm
-      simp only
-      rw [h1, h2, List.append_assoc]
-theorem public_ghost_log {β : Type} (published : SigGolfCandidate.T3.Cache) (budget : Nat) (program : M β)
-    (st : BankState) (v : β × BankState)
-    (hv : v ∈ ((simulateQ (bankImpl published budget) (CreationGame.publicProgram program)).run st).support) :
-    v.2.1.log = st.1.log := by
-  induction program using OracleComp.inductionOn generalizing st with
-  | pure value =>
-      rw [CreationGame.publicProgram_pure] at hv
-      simp only [simulateQ_pure, StateT.run_pure] at hv
-      change v ∈ (PMF.pure (value, st)).support at hv
-      rw [PMF.support_pure, Set.mem_singleton_iff] at hv
-      subst hv
-      rfl
-  | query_bind input next ih =>
-      unfold CreationGame.publicProgram at hv
-      rw [simulateQ_bind, simulateQ_spec_query] at hv
-      rcases input with (sample | x) | coordinate
-      · simp only [CreationGame.publicHandler, simulateQ_bind, simulateQ_spec_query, StateT.run_bind] at hv
-        change v ∈ (PMF.bind _ _).support at hv
-        rw [PMF.mem_support_bind_iff] at hv
-        obtain ⟨middle, hm, hv⟩ := hv
-        rw [ih middle.1 middle.2 hv]
-        have := bank_step_log published budget (.inl (.inl sample)) st middle hm
-        rw [this]
-        simp [ProposalOverflow.logFragment]
-      · simp only [CreationGame.publicHandler, simulateQ_bind, simulateQ_spec_query, StateT.run_bind] at hv
-        change v ∈ (PMF.bind _ _).support at hv
-        rw [PMF.mem_support_bind_iff] at hv
-        obtain ⟨middle, hm, hv⟩ := hv
-        rw [ih middle.1 middle.2 hv]
-        have := bank_step_log published budget (.inl (.inr x)) st middle hm
-        rw [this]
-        simp [ProposalOverflow.logFragment]
-      · simp only [CreationGame.publicHandler, pure_bind] at hv
-        exact ih _ st hv
 theorem split_unique (adversary : AdversaryP) (result : FirstHit.Recorded Bool)
     (gen0 : FirstHit.Recorded (Digest × SigGolfCandidate.T3.Cache))
     (hg0 : gen0 ∈ support (FirstHit.record keygen (∅, ∅)))
@@ -5719,56 +5530,6 @@ theorem split_unique (adversary : AdversaryP) (result : FirstHit.Recorded Bool)
   have hcut : interaction.events ++ checked.events = int0.events ++ rest :=
     List.append_cancel_left (hev'.symm.trans hev)
   exact ⟨rfl, record_prefix_unique _ _ interaction int0 hi hi0 _ _ hcut⟩
-theorem bank_actual (adversary : AdversaryP) (budget : Nat) (b : Bool × BankState)
-    (hb : b ∈ (bankExperiment adversary budget).support) :
-    ∃ generated ∈ support (QueryRecorded.run keygen QueryRecorded.initial),
-      ∃ int0 : FirstHit.Recorded (Option ForgeryP × QueryLog Requests),
-        int0 ∈ support (FirstHit.record (FullGame.loggedWith (FullGame.authenticatedSign generated.1.2)
-          (adversary generated.1.1 generated.1.2)) (lazyOf generated.2)) ∧
-        (∃ rest, b.2.2.events = generated.2.events ++ (int0.events ++ rest)) ∧
-        b.2.1.log = int0.value.2 ∧ BankInv generated.1.2 budget generated.2.events b.2 := by
-  rw [bankExperiment_eq] at hb
-  change b ∈ (PMF.bind _ _).support at hb
-  rw [PMF.mem_support_bind_iff] at hb
-  obtain ⟨generated, hg, hb⟩ := hb
-  rw [MonitoredPrivate.pmf_support] at hg
-  refine ⟨generated, hg, ?_⟩
-  have hinv := bankInv_run generated.1.2 budget generated.2.events _ (Ghost.empty, generated.2)
-    (bankInv_initial generated.1.2 budget generated hg) b hb
-  unfold CreationGame.rest at hb
-  rw [simulateQ_bind, StateT.run_bind] at hb
-  change b ∈ (PMF.bind _ _).support at hb
-  rw [PMF.mem_support_bind_iff] at hb
-  obtain ⟨i, hi, hb⟩ := hb
-  have hproj := bank_project generated.1.2 budget (ProposalOverflow.logged (adversary generated.1.1 generated.1.2))
-    (Ghost.empty, generated.2)
-  have hi' : (i.1, i.2.2) ∈ support (QueryRecorded.run (FullGame.loggedWith (FullGame.authenticatedSign generated.1.2)
-      (adversary generated.1.1 generated.1.2)) generated.2) := by
-    have hm : Prod.map id Prod.snd i ∈ (Prod.map id Prod.snd <$>
-        (simulateQ (bankImpl generated.1.2 budget)
-          (ProposalOverflow.logged (adversary generated.1.1 generated.1.2))).run (Ghost.empty, generated.2)).support := by
-      rw [PMF.monad_map_eq_map, PMF.mem_support_map_iff]
-      exact ⟨i, hi, rfl⟩
-    rw [hproj, MonitoredPrivate.pmf_support, MonitoredPrivate.logged_source] at hm
-    exact hm
-  obtain ⟨int0, hint0, hev0, hstate0, hvalue0⟩ := recorded_new_events _ generated.2 _ hi'
-  have hprojv := bank_project generated.1.2 budget
-    (CreationGame.publicProgram (GameWith.verdict PaddedGame.checker generated.1.1 i.1)) i.2
-  have hb' : (b.1, b.2.2) ∈ support (QueryRecorded.run (simulateQ (MonitoredPrivate.interactionSource generated.1.2)
-      (CreationGame.publicProgram (GameWith.verdict PaddedGame.checker generated.1.1 i.1))) i.2.2) := by
-    have hm : Prod.map id Prod.snd b ∈ (Prod.map id Prod.snd <$>
-        (simulateQ (bankImpl generated.1.2 budget)
-          (CreationGame.publicProgram (GameWith.verdict PaddedGame.checker generated.1.1 i.1))).run i.2).support := by
-      rw [PMF.monad_map_eq_map, PMF.mem_support_map_iff]
-      exact ⟨b, hb, rfl⟩
-    rw [hprojv, MonitoredPrivate.pmf_support] at hm
-    exact hm
-  obtain ⟨more, hmore⟩ := QueryRecorded.run_events_extend _ i.2.2 (b.1, b.2.2) hb'
-  refine ⟨int0, hint0, ⟨more, ?_⟩, ?_, hinv⟩
-  · rw [← hmore, hev0, List.append_assoc]
-  · rw [public_ghost_log generated.1.2 budget _ i.2 b hb,
-      logged_ghost_log generated.1.2 budget _ (Ghost.empty, generated.2) i hi, hvalue0]
-    simp [Ghost.empty]
 end ClaudeWCT.W9.T3.Security.CaseC
 end
 section
@@ -5823,96 +5584,6 @@ def PinnedC (X : CaseCExtraction) (adversary : AdversaryP)
       ¬SignedDigest interaction.value.2 message witness ∧
       X.CaseCAt z.2 message witness (QueryRecorded.recordedTrace z.1).events ∧
       Q z.2 interaction.value.2 message witness checked.events
-theorem bankSpec_search (rho : Digest) (m : Message) :
-    bankSpec.search rho m 0 bankSpec.limit = WCT9.digestSearch rho m 0 WCT9.digestAttemptLimit :=
-  ClaudeWCT.Bank.WCT.wctL_search horizon ⊤ excessBound_top rho m
-theorem full_potential (X : CaseCExtraction) (adversary : AdversaryP) (q : Nat) (hq : q ≤ 2 ^ 127)
-    (b : Bool × BankState) (hb : b ∈ (bankExperiment adversary q).support) (hist : MonitoredPrivate.History)
-    (A : Correctness.Answers) (hA : Agrees A (lazyOf b.2.2)) (hcount : countOf b.2.2 ≤ q)
-    (hfull : PinnedC X adversary FullQ ((b.1, (hist, b.2.2)), A)) : 1 ≤ potential q b.2 := by
-  obtain ⟨generated, hg, int0, hint0, ⟨rest, hrest⟩, hlog, hinv⟩ := bank_actual adversary q b hb
-  have hinv' : bankSpec.BankInv payAfterDigest WCT9.Signature.rho generated.1.2 q generated.2.events b.2 := hinv
-  obtain ⟨gen', int', chk', hsplit, -, hlen, forgery, -, -, m, w, -, hnsd, hCat, hQ⟩ := hfull
-  have hR : QueryRecorded.recordedTrace (b.1, (hist, b.2.2)) = ⟨b.1, b.2.2.events, lazyOf b.2.2⟩ := rfl
-  rw [hR] at hsplit hCat
-  obtain ⟨hgen, hint⟩ := split_unique adversary _ (genRecord generated) (genRecord_support generated hg) int0
-    hint0 rest hrest gen' int' chk' hsplit
-  subst hgen hint
-  have halive : b.2.1.dead = false := by
-    cases hd : b.2.1.dead
-    · rfl
-    · exfalso
-      have h1 := hinv'.dead hd
-      rw [hlog] at h1
-      have : bankSpec.horizon = 4294967296 := by rw [bankSpec_horizon, horizon_eq]
-      omega
-  obtain ⟨hadm, prior, hev⟩ := X.digest_event A m w _ hCat
-  set N := evalWithAnswerFn A (digest (wrho w) m (wdc w)) with hN
-  have hRsupp : (⟨b.1, b.2.2.events, lazyOf b.2.2⟩ : FirstHit.Recorded Bool) ∈
-      support (FirstHit.record (GameWith.idealGame PaddedGame.checker adversary) (∅, ∅)) := by
-    have hm : (b.1, b.2.2) ∈ ((fun r : PaddedGame.TraceResult => (r.1, r.2.2)) <$>
-        PaddedGame.tracedExperiment adversary q hq).support := by
-      rw [← bank_traced adversary q hq, PMF.monad_map_eq_map, PMF.mem_support_map_iff]
-      exact ⟨b, hb, rfl⟩
-    rw [PMF.monad_map_eq_map, PMF.mem_support_map_iff] at hm
-    obtain ⟨r, hr, hre⟩ := hm
-    have := traced_record_support adversary q hq r hr
-    have hrt : QueryRecorded.recordedTrace r = ⟨b.1, b.2.2.events, lazyOf b.2.2⟩ := by
-      unfold QueryRecorded.recordedTrace QueryRecorded.recorded
-      rw [hre]
-      rfl
-    rwa [hrt] at this
-  obtain ⟨first, hfirst, hfresh⟩ := FirstHit.first_public_occurrence _ _ hRsupp prior _ N hev
-  have hdig : IsDigestInput (pad64 (digestInput (wrho w) m (wdc w))) := ⟨wrho w, m, wdc w, rfl⟩
-  have htarget : N ∈ b.2.1.targets := by
-    rcases hinv'.events _ hfirst with hk | hp
-    · exfalso
-      have hkg := FirstHit.recorded_inputs keygen SourceReplay.keygen_hashOnly (∅, ∅) (genRecord generated)
-        (genRecord_support generated hg) (SourceReplay.answers (genRecord generated).state)
-        (fun input answer hk => SourceReplay.answers_known _ input answer hk)
-      have hmem : (.inl (.inr (pad64 (digestInput (wrho w) m (wdc w)))) : SigGolfCandidate.T3.Spec.Domain) ∈
-          SourceReplay.queried (SourceReplay.answers (genRecord generated).state) keygen := by
-        rw [← hkg]
-        exact List.mem_map_of_mem hk
-      have hnd := SigGolfCandidate.T3.Security.CaseC.queried_notDigest_keygen _ _ hmem
-      exact hnd (BPB.hdrMarker_digestInput (wrho w) m (wdc w))
-    · rcases hp _ N rfl hdig hfresh with ht | hb' | hs
-      · exact ht
-      · exfalso
-        change q < countOf b.2.2 at hb'
-        omega
-      · exfalso
-        obtain ⟨entry, hentry, hq'⟩ := hs
-        have hres := logged_resolves generated.1.2 (adversary generated.1.1 generated.1.2) (lazyOf generated.2)
-          (int'.value, int'.state) (FirstHit.recorded_support _ _ _ hint0)
-        have hext : SourceReplay.Extends int'.state (lazyOf b.2.2) := hsplit.extends
-        have hagree : ∀ input answer, SourceReplay.known int'.state input = some answer → A input = answer :=
-          (hA.mono hext)
-        have hnot := X.fresh_not_signer A generated.1.2 int'.value.2 int'.state hres hagree m w _ hCat hnsd
-        rw [hlog] at hentry
-        have hqA := hq' A hA
-        rw [source_eq] at hqA
-        exact hnot entry hentry hqA
-  have hcov : Covered b.2.1.exposures N := by
-    intro k t
-    obtain ⟨entry, hentry, σ, out, hσ, hout, h1, h2, h3⟩ := hQ k t
-    rw [← hlog] at hentry
-    unfold signedOutput at hout
-    cases hs : evalWithAnswerFn A (WCT9.digestSearch σ.rho entry.1.message 0 WCT9.digestAttemptLimit) with
-    | none => rw [hs] at hout; cases hout
-    | some found =>
-        rw [hs] at hout
-        simp only [Option.map_some, Option.some.injEq] at hout
-        rcases found with ⟨c', out'⟩
-        simp only at hout
-        subst hout
-        have hs' : evalWithAnswerFn A (bankSpec.search (WCT9.Signature.rho σ) entry.1.message 0 bankSpec.limit) =
-            some (c', out') := by
-          rw [bankSpec_search]
-          exact hs
-        exact ⟨out', ClaudeWCT.Bank.FtsBankSpecL.BankInv.logged_exposed bankSpec payAfterDigest WCT9.Signature.rho
-          hinv' halive entry hentry σ hσ A hA c' out' hs', h1, h2, h3⟩
-  exact bankSpec.potential_win q b.2 halive hcount (Or.inr ⟨N, htarget, hadm, hcov⟩)
 end ClaudeWCT.W9.T3.Security.CaseC
 end
 
@@ -6223,56 +5894,6 @@ noncomputable def fullWeight (X : CaseCExtraction) (adversary : AdversaryP) (q :
     (PMF.uniformOfFintype SeccLaw.CompletionTables)]
 theorem fullWeight_le_one (X : CaseCExtraction) (adversary : AdversaryP) (q : Nat) (y : Bool × QueryRecorded.State) :
     fullWeight X adversary q y ≤ 1 := probEvent_le_one
-theorem completed_full_eq (X : CaseCExtraction) (adversary : AdversaryP) (q : Nat) (hq : q ≤ 2 ^ 127) :
-    Pr[fun z => FullEvent X adversary q (z.1.1, z.1.2.2) z.2 | SeccLaw.completedExperiment adversary q hq] =
-      expectedValue (bankExperiment adversary q) (fun b => fullWeight X adversary q (b.1, b.2.2)) := by
-  unfold SeccLaw.completedExperiment
-  rw [pmf_probEvent_bind]
-  have hinner : ∀ r : PaddedGame.TraceResult,
-      Pr[fun z => FullEvent X adversary q (z.1.1, z.1.2.2) z.2 |
-        (PMF.uniformOfFintype SeccLaw.CompletionTables).map
-          (fun t => (r, SeccLaw.completeWith r.2.2.base.source.2 t))] = fullWeight X adversary q (r.1, r.2.2) := by
-    intro r
-    rw [pmf_probEvent_map]
-    rfl
-  simp_rw [hinner]
-  have h1 := expectedValue_pmf_map (PaddedGame.tracedExperiment adversary q hq)
-    (fun r : PaddedGame.TraceResult => (r.1, r.2.2)) (fullWeight X adversary q)
-  have h2 := expectedValue_pmf_map (bankExperiment adversary q)
-    (fun b : Bool × BankState => (b.1, b.2.2)) (fullWeight X adversary q)
-  rw [← h1, ← h2]
-  have ht := bank_traced adversary q hq
-  rw [PMF.monad_map_eq_map, PMF.monad_map_eq_map] at ht
-  rw [ht]
-theorem full_bound_births (X : CaseCExtraction) (rate : ENNReal) (hexc : ExcessBound horizon rate)
-    (adversary : AdversaryP) (q : Nat) (hq : q ≤ 2 ^ 127) :
-    Pr[fun z => QueryRecorded.CleanWin q z.1 ∧ PinnedC X adversary FullQ z |
-        SeccLaw.completedExperiment adversary q hq] ≤
-      (theta + 1 / 64) / 2 ^ 128 * CreationGame.expectedBirths IsDigestInput adversary q hq +
-        (q : ENNReal) * rate / 2 ^ 128 := by
-  calc
-    _ ≤ Pr[fun z => FullEvent X adversary q (z.1.1, z.1.2.2) z.2 | SeccLaw.completedExperiment adversary q hq] := by
-      apply pmf_probEvent_mono
-      intro z hz
-      exact ⟨hz.1.1, hz.1.2.1, hz.2⟩
-    _ = expectedValue (bankExperiment adversary q) (fun b => fullWeight X adversary q (b.1, b.2.2)) :=
-      completed_full_eq X adversary q hq
-    _ ≤ expectedValue (bankExperiment adversary q) (fun b => potential q b.2) := by
-      apply pmf_expectedValue_mono
-      intro b hb
-      by_cases hex : ∃ t, FullEvent X adversary q (b.1, b.2.2) (SeccLaw.completeWith (lazyOf b.2.2) t)
-      · obtain ⟨t, ht⟩ := hex
-        have hA : Agrees (SeccLaw.completeWith (lazyOf b.2.2) t) (lazyOf b.2.2) :=
-          fun input answer hk => SeccLaw.completeWith_agrees _ t input answer hk
-        exact (fullWeight_le_one X adversary q _).trans
-          (full_potential X adversary q hq b hb [] _ hA ht.2.1 ht.2.2)
-      · push Not at hex
-        have h0 : fullWeight X adversary q (b.1, b.2.2) = 0 := by
-          unfold fullWeight
-          exact pmf_probEvent_eq_zero _ hex
-        rw [h0]
-        exact bot_le
-    _ ≤ _ := bank_potential_le rate hexc adversary q hq
 end ClaudeWCT.W9.T3.Security.CaseC
 end
 section
@@ -6452,19 +6073,6 @@ set_option maxHeartbeats 1000000
 set_option maxRecDepth 10000
 set_option backward.isDefEq.respectTransparency false
 attribute [local instance] Classical.propDecidable
-theorem full_bound (X : CaseCExtraction) (hexc : ExcessBound horizon (247 / 100000))
-    (adversary : AdversaryP) (q : Nat) (hq : q ≤ 2 ^ 127) :
-    Pr[fun z => QueryRecorded.CleanWin q z.1 ∧ PinnedC X adversary FullQ z |
-        SeccLaw.completedExperiment adversary q hq] ≤
-      (1 + SeccClosingW9.cacheRate) / 2 ^ 128 * SeccLaw.expectedCharge adversary q hq Wots.digestClass +
-        (q : ENNReal) * SeccClosingW9.excessRate / 2 ^ 128 := by
-  refine (full_bound_births X _ hexc adversary q hq).trans (add_le_add ?_ ?_)
-  · apply mul_le_mul'
-    · apply ENNReal.div_le_div_right
-      exact theta_add_sixteenth_le_one.trans le_self_add
-    · rw [← publicClass_digest]
-      exact CreationGame.expectedBirths_le_shared IsDigestInput adversary q hq
-  · rw [SeccClosingW9.excessRate_def]
 /-- `NearBound` restricted to the runs satisfying `Good` (campaign X1: `Good` = no FTS overflow on the game split). -/
 def NearBoundOn (X : CaseCExtraction)
     (NearQ : Correctness.Answers → QueryLog Requests → Message → WBytes → List FirstHit.QueryEvent → Prop)
@@ -6495,37 +6103,6 @@ def CaseCSmallBound (CaseCFreshPinned Good : AdversaryP → PaddedGame.TraceResu
       (1 + SeccClosingW9.cacheRate) / 2 ^ 128 * SeccLaw.expectedCharge adversary q hq Wots.digestClass +
         (q : ENNReal) * SeccClosingW9.excessRate / 2 ^ 128 + nearTerm q + pairTerm q +
         (2 : ENNReal)⁻¹ ^ 700
-/-- The small case-C bound on `Good` runs from the full bound, the near bound and the pair bound on `Good` runs. -/
-theorem caseC_small_bound (X : CaseCExtraction) (Y : CaseCSplitInterface X)
-    (Good : AdversaryP → PaddedGame.TraceResult × Correctness.Answers → Prop) (nearTerm pairTerm : Nat → ENNReal)
-    (hexc : ExcessBound horizon (247 / 100000)) (hnear : NearBoundOn X Y.NearQ Good nearTerm)
-    (hpair : PairBoundOn Y.PairGuess Good pairTerm) :
-    CaseCSmallBound Y.CaseCFreshPinned Good nearTerm pairTerm := by
-  intro adversary q hq h1 hsplit
-  set P := SeccLaw.completedExperiment adversary q hq
-  calc
-    Pr[fun z => QueryRecorded.CleanWin q z.1 ∧ Y.CaseCFreshPinned adversary z ∧ Good adversary z | P] ≤
-        Pr[fun z => (QueryRecorded.CleanWin q z.1 ∧ PinnedC X adversary FullQ z) ∨
-          ((QueryRecorded.CleanWin q z.1 ∧ PinnedC X adversary Y.NearQ z ∧ Good adversary z) ∨
-            (QueryRecorded.CleanWin q z.1 ∧ Y.PairGuess adversary z ∧ Good adversary z)) | P] := by
-      apply pmf_probEvent_mono_support
-      intro z hz hzC
-      rcases Y.three_way adversary q hq z hz hzC.1 hzC.2.1 with h | h | h
-      · exact Or.inl ⟨hzC.1, h⟩
-      · exact Or.inr (Or.inl ⟨hzC.1, h, hzC.2.2⟩)
-      · exact Or.inr (Or.inr ⟨hzC.1, h, hzC.2.2⟩)
-    _ ≤ Pr[fun z => QueryRecorded.CleanWin q z.1 ∧ PinnedC X adversary FullQ z | P] +
-        (Pr[fun z => QueryRecorded.CleanWin q z.1 ∧ PinnedC X adversary Y.NearQ z ∧ Good adversary z | P] +
-          Pr[fun z => QueryRecorded.CleanWin q z.1 ∧ Y.PairGuess adversary z ∧ Good adversary z | P]) :=
-      (pmf_probEvent_or_le _ _ _).trans (add_le_add le_rfl (pmf_probEvent_or_le _ _ _))
-    _ ≤ ((1 + SeccClosingW9.cacheRate) / 2 ^ 128 * SeccLaw.expectedCharge adversary q hq Wots.digestClass +
-          (q : ENNReal) * SeccClosingW9.excessRate / 2 ^ 128) +
-        (nearTerm q + pairTerm q) :=
-      add_le_add (full_bound X hexc adversary q hq)
-        (add_le_add (hnear adversary q hq h1 hsplit) (hpair adversary q hq))
-    _ ≤ _ := by
-      rw [← add_assoc]
-      exact le_self_add
 end ClaudeWCT.W9.T3.Security.CaseC
 end
 
@@ -6566,40 +6143,6 @@ variable {P : Type} [Fintype P] [SampleableType P] (S : FtsBankSpecL P)
     PairedOuter.FullGame.authenticatedSign published request)
 include hrecord
 
-theorem completed_event_le_shared
-    (hNotDigest : ClaudeWCT.Bank.PayNotDigest pay) (hAvoids : ClaudeWCT.Bank.PayAvoids pay)
-    (F : (Bool × QueryRecorded.State) → Answers → Prop)
-    (adversary : Final.Paired.AdversaryP) (q : Nat) (hq : q ≤ 2^127)
-    (rate : ENNReal)
-    (hrate : ClaudeWCT.Numerics.Law.lawAvg S.law S.horizon (fun W => S.price W-S.specTheta) ≤ rate)
-    (hwin : ∀ b ∈ (S.bankExperiment pay (rest adversary) q).support, ∀ tables,
-      F (b.1,b.2.2) (SigGolfCandidate.T3.Security.SeccLaw.completeWith (lazyOf b.2.2) tables) →
-        1 ≤ S.potential q b.2) :
-    Pr[fun z => F (z.1.1,z.1.2.2) z.2 | PairedSeccLaw.completedExperiment adversary q hq] ≤
-      (theta+1/64)/2^128 * PairedSeccLaw.expectedCharge adversary q hq
-        (fun _ => SigGolfCandidate.T3.Security.CreationGame.publicClass CaseC.IsDigestInput) +
-      (q : ENNReal)*rate/2^128 := by
-  rw [completed_event_eq]
-  have he := congrArg (fun law : PMF (Bool × QueryRecorded.State) =>
-    expectedValue law (completedWeight F)) (recordedExperiment_eq S pay hrecord adversary q hq)
-  rw [PMF.monad_map_eq_map,CaseC.expectedValue_pmf_map] at he
-  rw [he]
-  refine (S.bank_event_le_rate pay hNotDigest hAvoids (rest adversary) q rate hrate
-    (completedWeight F) (fun _ => probEvent_le_one) ?_).trans ?_
-  · intro b hb hnonzero
-    by_cases hex : ∃ tables, F (b.1,b.2.2)
-        (SigGolfCandidate.T3.Security.SeccLaw.completeWith (lazyOf b.2.2) tables)
-    · obtain ⟨tables,ht⟩ := hex
-      exact hwin b hb tables ht
-    · exfalso
-      apply hnonzero
-      unfold completedWeight
-      simp only [probEvent_eq_tsum_ite]
-      have hfalse : ∀ tables, ¬F (b.1,b.2.2)
-          (SigGolfCandidate.T3.Security.SeccLaw.completeWith (lazyOf b.2.2) tables) :=
-        fun tables ht => hex ⟨tables,ht⟩
-      simp [hfalse]
-  · exact add_le_add (mul_le_mul' le_rfl (expectedBirths_le_shared S pay hrecord adversary q hq)) le_rfl
 end GenericBound
 end ClaudeWCT.W9.T3.Security.PairedBankLink
 end
@@ -6948,8 +6491,8 @@ section
 The overflow potential (campaign X1, stream A6) for one digest index is
 `G k c r a b = [X^k] (1+X)^c (1 + pIdx X)^r (1 + pNonce X)^a (1 + pQuery X)^b`, the expected value of
 `choose (c + S) k` when `S` is a sum of independent Bernoulli variables: `r` with mean `pIdx = 2^-31` (future fresh
-signings), `a` with mean `pNonce = 2^-128` (cached digest entries of unsigned messages, hit when the nonce equals
-their `rho`), `b` with mean `pQuery = 2^-159` (future charged queries that may create such an entry). Only the
+signings), `a` with mean `pNonce = ⌈2^256/R⌉/2^256` (cached digest entries of unsigned messages, hit when the nonce
+`rhoMod h` equals their `rho`; R6: a point-mass bound, not a uniform law), `b` with mean `pQuery = pIdx·pNonce` (future charged queries that may create such an entry). Only the
 recurrences below are used; the final bound is `G k 0 r 0 b · k! ≤ (r pIdx + b pQuery)^k`.
 -/
 
@@ -6958,8 +6501,10 @@ open Polynomial ENNReal
 
 /-- Probability that a fresh digest output carries a given 31-bit index. -/
 noncomputable def pIdx : ℝ≥0∞ := (2 ^ 31)⁻¹
-/-- Probability that a fresh 128-bit nonce equals a given value. -/
-noncomputable def pNonce : ℝ≥0∞ := (2 ^ 128)⁻¹
+/-- R6: bound on the probability that a fresh nonce `rhoMod h` (`h` a uniform 256-bit output) equals a given
+value: each residue below `R` has at most `⌈2^256/R⌉` preimages. -/
+noncomputable def pNonce : ℝ≥0∞ :=
+  (((2 ^ 256 + SigGolfCandidate.T3.R - 1) / SigGolfCandidate.T3.R : ℕ) : ℝ≥0∞) / 2 ^ 256
 /-- Per-query charge: a query creates an entry for a given index with probability `pIdx`, hit with `pNonce`. -/
 noncomputable def pQuery : ℝ≥0∞ := pIdx * pNonce
 
@@ -7135,21 +6680,25 @@ theorem G_initial_le (k r b : ℕ) :
 `2^127` charged queries. -/
 noncomputable def overflowConst : ℝ≥0∞ := 2 ^ 31 * G 51 0 (2 ^ 32) 0 (2 ^ 127)
 
-theorem overflowConst_le_real : overflowConst ≤ 2 ^ 31 * ((2 + (2 ^ 32)⁻¹) ^ 51 / (Nat.factorial 51 : ℝ≥0∞)) := by
+/-- R6: `2^127·pQuery = ⌈2^256/R⌉/2^160 ≤ 2^-26` (as `⌈2^256/R⌉ ≤ 2^134`), so the charge sum is `≤ 2 + 2^-26`. -/
+theorem overflowConst_le_real : overflowConst ≤ 2 ^ 31 * ((2 + (2 ^ 26)⁻¹) ^ 51 / (Nat.factorial 51 : ℝ≥0∞)) := by
   unfold overflowConst
   refine mul_le_mul' le_rfl ?_
-  have hS : (((2 ^ 32 : ℕ) : ℝ≥0∞) * pIdx + ((2 ^ 127 : ℕ) : ℝ≥0∞) * pQuery) = 2 + (2 ^ 32)⁻¹ := by
+  have hS : (((2 ^ 32 : ℕ) : ℝ≥0∞) * pIdx + ((2 ^ 127 : ℕ) : ℝ≥0∞) * pQuery) ≤ 2 + (2 ^ 26)⁻¹ := by
     have h1 : ((2 ^ 32 : ℕ) : ℝ≥0∞) * pIdx = 2 := by
       rw [pIdx, Nat.cast_pow, Nat.cast_ofNat, show (2 : ℝ≥0∞) ^ 32 = 2 * 2 ^ 31 by ring, mul_assoc,
         ENNReal.mul_inv_cancel (by positivity) (by finiteness), mul_one]
-    have h2 : ((2 ^ 127 : ℕ) : ℝ≥0∞) * pQuery = (2 ^ 32)⁻¹ := by
-      rw [pQuery, pIdx, pNonce, Nat.cast_pow, Nat.cast_ofNat, ← ENNReal.mul_inv (by left; positivity)
-        (by left; finiteness), ← pow_add, show 31 + 128 = 127 + 32 by rfl, pow_add,
-        ENNReal.mul_inv (by left; positivity) (by left; finiteness), ← mul_assoc,
-        ENNReal.mul_inv_cancel (by positivity) (by finiteness), one_mul]
-    rw [h1, h2]
-  have h := G_initial_le 51 (2 ^ 32) (2 ^ 127)
-  rw [hS] at h
+    have hc : (2 ^ 256 + SigGolfCandidate.T3.R - 1) / SigGolfCandidate.T3.R =
+        15557284462666655376466157833521152917877 := by
+      norm_num [SigGolfCandidate.T3.R]
+    have h2 : ((2 ^ 127 : ℕ) : ℝ≥0∞) * pQuery ≤ (2 ^ 26)⁻¹ := by
+      rw [pQuery, pIdx, pNonce, hc, ← ENNReal.toReal_le_toReal (by finiteness) (by finiteness)]
+      simp (disch := finiteness) only [ENNReal.toReal_mul, ENNReal.toReal_div, ENNReal.toReal_pow,
+        ENNReal.toReal_inv, ENNReal.toReal_natCast, ENNReal.toReal_ofNat]
+      norm_num
+    rw [h1]
+    exact add_le_add le_rfl h2
+  have h := (G_initial_le 51 (2 ^ 32) (2 ^ 127)).trans (pow_le_pow_left' hS 51)
   rw [ENNReal.le_div_iff_mul_le (by left; exact_mod_cast (Nat.factorial_pos 51).ne') (by left; finiteness),
     mul_comm]
   exact h
@@ -7395,8 +6944,8 @@ abbrev lim : ℕ := WCT9.digestAttemptLimit
 /-- The public-cache key of the digest query `(rho, m, c)`. -/
 def digestKey (rho : Digest) (m : Message) (c : ℕ) : HashInput := pad64 (digestInput rho m (BitVec.ofNat 32 c))
 
-/-- The nonce (`rho`) derived from a private nonce-table value. -/
-def rhoOf (h : HashOutput) : Digest := h.extractLsb' 0 128
+/-- The nonce (`rho`) derived from a private nonce-table value (R6: `rhoMod` of the full output). -/
+def rhoOf (h : HashOutput) : Digest := BitVec.ofNat 128 (rhoMod h)
 
 /-- The private coordinate of the nonce of `m`. -/
 def nonceCoord (m : Message) : Coordinate := .inr (.inl m)
@@ -8140,30 +7689,23 @@ theorem search_step (q r : ℕ) (m₀ : Message) (h₀ : HashOutput) :
 
 /-! ### Drawing a fresh nonce -/
 
-/-- The nonce of a fresh private value is uniform on `Digest`. -/
+/-- R6: the nonce `rhoOf h = rhoMod h` of a uniform 256-bit output has point masses at most `pNonce`
+(`uniform_hash_mod_le`, `κ·2^-128 = ⌈2^256/R⌉/2^256 = pNonce`): an inequality, not a uniform law. -/
 theorem expect_rho (f : Digest → ℝ≥0∞) :
-    expectedValue ($ᵗ HashOutput : ProbComp HashOutput) (fun h => f (rhoOf h)) = pNonce * ∑ rho, f rho := by
-  have h1 : expectedValue ($ᵗ HashOutput : ProbComp HashOutput) (fun h => f (rhoOf h)) =
-      expectedValue ((fun output => BitVec.extractLsb' 0 128 output) <$> ($ᵗ SphincsSecurity.HashOutput)) f := by
-    rw [expectedValue_map]; rfl
-  have hlaw := SphincsSecurity.evalDist_hashOutput_extract_uniform (width := 128) (by decide)
-  have hp : ∀ x, Pr[= x | (fun output => BitVec.extractLsb' 0 128 output) <$> ($ᵗ SphincsSecurity.HashOutput)] =
-      Pr[= x | ($ᵗ BitVec 128 : ProbComp (BitVec 128))] := fun x => by rw [probOutput_def, probOutput_def, hlaw]
-  rw [h1]
+    expectedValue ($ᵗ HashOutput : ProbComp HashOutput) (fun h => f (rhoOf h)) ≤ pNonce * ∑ rho, f rho := by
+  refine (SigGolfCandidate.T3.Security.LazyPrivate.uniform_hash_mod_le f).trans (le_of_eq ?_)
   unfold expectedValue
-  simp only [hp]
-  rw [tsum_fintype, Finset.mul_sum]
-  apply Finset.sum_congr rfl
-  intro rho _
-  rw [probOutput_uniformSample, Fintype.card_bitVec, Nat.cast_pow, Nat.cast_ofNat, pNonce]
+  rw [tsum_fintype, Finset.mul_sum, Finset.mul_sum]
+  refine Finset.sum_congr rfl fun rho _ => ?_
+  rw [probOutput_uniformSample, Fintype.card_bitVec, SigGolfCandidate.T3.Security.LazyPrivate.rhoKappa, pNonce,
+    Nat.cast_pow, Nat.cast_ofNat, div_eq_mul_inv, div_eq_mul_inv, show ((2 : ℝ≥0∞) ^ 256)⁻¹ = (2 ^ 128)⁻¹ * (2 ^ 128)⁻¹ by
+      rw [← ENNReal.mul_inv (by left; positivity) (by left; finiteness), ← pow_add]]
+  ring
 
 theorem nonceCoord_injective {m m' : Message} (h : nonceCoord m = nonceCoord m') : m = m' := by
   unfold nonceCoord at h
   exact Sum.inl.inj (Sum.inr.inj h)
 
-theorem sum_pNonce_const (x : ℝ≥0∞) : pNonce * ∑ _rho : Digest, x = x := by
-  rw [Finset.sum_const, Finset.card_univ, Fintype.card_bitVec, nsmul_eq_mul, ← mul_assoc, pNonce, Nat.cast_pow,
-    Nat.cast_ofNat, ENNReal.inv_mul_cancel (by positivity) (by finiteness), one_mul]
 
 /-- Drawing the nonce of a fresh message consumes one signing slot and the message's pending entries. -/
 theorem nonce_fresh_step (q r : ℕ) (m₀ : Message) (n : ℕ) (pc : LazyPrivate.PCache) (rc : Sampling.RCache)
@@ -8212,24 +7754,34 @@ theorem nonce_fresh_step (q r : ℕ) (m₀ : Message) (n : ℕ) (pc : LazyPrivat
     rw [hF]
     unfold mid
     simp only [hcnt h, hpend h]
-  rw [hmid, expect_rho, hF]
+  rw [hmid]
   by_cases hq : n + 1 ≤ q
-  · simp only [hq, if_true]
-    rw [Finset.sum_comm, Finset.mul_sum]
+  · -- R6: the constant part is exact; only the hit count goes through the point-mass bound `expect_rho`.
+    have hFg : (fun h : HashOutput => F (rhoOf h)) = fun h => (∑ i, (G 51 (cnt (pc, rc) i) r (A' i) (q - (n + 1)) +
+        pIdx * G 50 (cnt (pc, rc) i) r (A' i) (q - (n + 1)))) +
+          ∑ i, (hits rc (rhoOf h) m₀ 0 i : ℝ≥0∞) * G 50 (cnt (pc, rc) i) r (A' i) (q - (n + 1)) := by
+      funext h
+      rw [hF]
+      simp only [hq, if_true, add_mul, ← add_assoc, Finset.sum_add_distrib]
+    rw [hFg, expectedValue_add, expectedValue_const probFailure_eq_zero]
+    refine (add_le_add le_rfl (expect_rho (fun rho => ∑ i, (hits rc rho m₀ 0 i : ℝ≥0∞) *
+      G 50 (cnt (pc, rc) i) r (A' i) (q - (n + 1))))).trans ?_
+    rw [Finset.sum_comm, Finset.mul_sum, ← Finset.sum_add_distrib]
     unfold pot
     rw [if_pos (by omega)]
     apply Finset.sum_le_sum
     intro i _
-    simp only [Finset.sum_add_distrib, add_mul, mul_add, sum_pNonce_const]
-    calc G 51 (cnt (pc, rc) i) r (A' i) (q - (n + 1)) + (pIdx * G 50 (cnt (pc, rc) i) r (A' i) (q - (n + 1)) +
-          pNonce * ∑ rho : Digest, (hits rc rho m₀ 0 i : ℝ≥0∞) * G 50 (cnt (pc, rc) i) r (A' i) (q - (n + 1)))
+    calc G 51 (cnt (pc, rc) i) r (A' i) (q - (n + 1)) + pIdx * G 50 (cnt (pc, rc) i) r (A' i) (q - (n + 1)) +
+          pNonce * ∑ rho : Digest, (hits rc rho m₀ 0 i : ℝ≥0∞) * G 50 (cnt (pc, rc) i) r (A' i) (q - (n + 1))
         = G 51 (cnt (pc, rc) i) r (A' i) (q - (n + 1)) +
             (pIdx + (D i : ℝ≥0∞) * pNonce) * G 50 (cnt (pc, rc) i) r (A' i) (q - (n + 1)) := by
           rw [← Finset.sum_mul, hD]; push_cast; ring
       _ ≤ G 51 (cnt (pc, rc) i) (r + 1) (A' i + D i) (q - (n + 1)) := G_slot 50 _ r _ _ _
       _ ≤ G 51 (cnt (pc, rc) i) (r + 1) (pend (pc, rc) i) (q - n) := by
           rw [hpend0 i]; exact G_mono le_rfl le_rfl le_rfl (by omega)
-  · simp only [hq, if_false, Finset.sum_const_zero, mul_zero]
+  · refine (expect_rho F).trans ?_
+    rw [hF]
+    simp only [hq, if_false, Finset.sum_const_zero, mul_zero]
     exact bot_le
 
 /-! ### One signing request -/
@@ -8901,8 +8453,8 @@ abbrev lim : ℕ := WCT9.digestAttemptLimit
 /-- The public-cache key of the digest query `(rho, m, c)`. -/
 def digestKey (rho : Digest) (m : Message) (c : ℕ) : HashInput := pad64 (digestInput rho m (BitVec.ofNat 32 c))
 
-/-- The nonce (`rho`) derived from a private nonce-table value. -/
-def rhoOf (h : HashOutput) : Digest := h.extractLsb' 0 128
+/-- The nonce (`rho`) derived from a private nonce-table value (R6: `rhoMod` of the full output). -/
+def rhoOf (h : HashOutput) : Digest := BitVec.ofNat 128 (rhoMod h)
 
 /-- The private coordinate of the nonce of `m`. -/
 def nonceCoord (m : Message) : Coordinate := .inr (.inl m)
@@ -9646,30 +9198,23 @@ theorem search_step (q r : ℕ) (m₀ : Message) (h₀ : HashOutput) :
 
 /-! ### Drawing a fresh nonce -/
 
-/-- The nonce of a fresh private value is uniform on `Digest`. -/
+/-- R6: the nonce `rhoOf h = rhoMod h` of a uniform 256-bit output has point masses at most `pNonce`
+(`uniform_hash_mod_le`, `κ·2^-128 = ⌈2^256/R⌉/2^256 = pNonce`): an inequality, not a uniform law. -/
 theorem expect_rho (f : Digest → ℝ≥0∞) :
-    expectedValue ($ᵗ HashOutput : ProbComp HashOutput) (fun h => f (rhoOf h)) = pNonce * ∑ rho, f rho := by
-  have h1 : expectedValue ($ᵗ HashOutput : ProbComp HashOutput) (fun h => f (rhoOf h)) =
-      expectedValue ((fun output => BitVec.extractLsb' 0 128 output) <$> ($ᵗ SphincsSecurity.HashOutput)) f := by
-    rw [expectedValue_map]; rfl
-  have hlaw := SphincsSecurity.evalDist_hashOutput_extract_uniform (width := 128) (by decide)
-  have hp : ∀ x, Pr[= x | (fun output => BitVec.extractLsb' 0 128 output) <$> ($ᵗ SphincsSecurity.HashOutput)] =
-      Pr[= x | ($ᵗ BitVec 128 : ProbComp (BitVec 128))] := fun x => by rw [probOutput_def, probOutput_def, hlaw]
-  rw [h1]
+    expectedValue ($ᵗ HashOutput : ProbComp HashOutput) (fun h => f (rhoOf h)) ≤ pNonce * ∑ rho, f rho := by
+  refine (SigGolfCandidate.T3.Security.LazyPrivate.uniform_hash_mod_le f).trans (le_of_eq ?_)
   unfold expectedValue
-  simp only [hp]
-  rw [tsum_fintype, Finset.mul_sum]
-  apply Finset.sum_congr rfl
-  intro rho _
-  rw [probOutput_uniformSample, Fintype.card_bitVec, Nat.cast_pow, Nat.cast_ofNat, pNonce]
+  rw [tsum_fintype, Finset.mul_sum, Finset.mul_sum]
+  refine Finset.sum_congr rfl fun rho _ => ?_
+  rw [probOutput_uniformSample, Fintype.card_bitVec, SigGolfCandidate.T3.Security.LazyPrivate.rhoKappa, pNonce,
+    Nat.cast_pow, Nat.cast_ofNat, div_eq_mul_inv, div_eq_mul_inv, show ((2 : ℝ≥0∞) ^ 256)⁻¹ = (2 ^ 128)⁻¹ * (2 ^ 128)⁻¹ by
+      rw [← ENNReal.mul_inv (by left; positivity) (by left; finiteness), ← pow_add]]
+  ring
 
 theorem nonceCoord_injective {m m' : Message} (h : nonceCoord m = nonceCoord m') : m = m' := by
   unfold nonceCoord at h
   exact Sum.inl.inj (Sum.inr.inj h)
 
-theorem sum_pNonce_const (x : ℝ≥0∞) : pNonce * ∑ _rho : Digest, x = x := by
-  rw [Finset.sum_const, Finset.card_univ, Fintype.card_bitVec, nsmul_eq_mul, ← mul_assoc, pNonce, Nat.cast_pow,
-    Nat.cast_ofNat, ENNReal.inv_mul_cancel (by positivity) (by finiteness), one_mul]
 
 /-- Drawing the nonce of a fresh message consumes one signing slot and the message's pending entries. -/
 theorem nonce_fresh_step (q r : ℕ) (m₀ : Message) (n : ℕ) (pc : LazyPrivate.PCache) (rc : Sampling.RCache)
@@ -9718,24 +9263,34 @@ theorem nonce_fresh_step (q r : ℕ) (m₀ : Message) (n : ℕ) (pc : LazyPrivat
     rw [hF]
     unfold mid
     simp only [hcnt h, hpend h]
-  rw [hmid, expect_rho, hF]
+  rw [hmid]
   by_cases hq : n + 1 ≤ q
-  · simp only [hq, if_true]
-    rw [Finset.sum_comm, Finset.mul_sum]
+  · -- R6: the constant part is exact; only the hit count goes through the point-mass bound `expect_rho`.
+    have hFg : (fun h : HashOutput => F (rhoOf h)) = fun h => (∑ i, (G 51 (cnt (pc, rc) i) r (A' i) (q - (n + 1)) +
+        pIdx * G 50 (cnt (pc, rc) i) r (A' i) (q - (n + 1)))) +
+          ∑ i, (hits rc (rhoOf h) m₀ 0 i : ℝ≥0∞) * G 50 (cnt (pc, rc) i) r (A' i) (q - (n + 1)) := by
+      funext h
+      rw [hF]
+      simp only [hq, if_true, add_mul, ← add_assoc, Finset.sum_add_distrib]
+    rw [hFg, expectedValue_add, expectedValue_const probFailure_eq_zero]
+    refine (add_le_add le_rfl (expect_rho (fun rho => ∑ i, (hits rc rho m₀ 0 i : ℝ≥0∞) *
+      G 50 (cnt (pc, rc) i) r (A' i) (q - (n + 1))))).trans ?_
+    rw [Finset.sum_comm, Finset.mul_sum, ← Finset.sum_add_distrib]
     unfold pot
     rw [if_pos (by omega)]
     apply Finset.sum_le_sum
     intro i _
-    simp only [Finset.sum_add_distrib, add_mul, mul_add, sum_pNonce_const]
-    calc G 51 (cnt (pc, rc) i) r (A' i) (q - (n + 1)) + (pIdx * G 50 (cnt (pc, rc) i) r (A' i) (q - (n + 1)) +
-          pNonce * ∑ rho : Digest, (hits rc rho m₀ 0 i : ℝ≥0∞) * G 50 (cnt (pc, rc) i) r (A' i) (q - (n + 1)))
+    calc G 51 (cnt (pc, rc) i) r (A' i) (q - (n + 1)) + pIdx * G 50 (cnt (pc, rc) i) r (A' i) (q - (n + 1)) +
+          pNonce * ∑ rho : Digest, (hits rc rho m₀ 0 i : ℝ≥0∞) * G 50 (cnt (pc, rc) i) r (A' i) (q - (n + 1))
         = G 51 (cnt (pc, rc) i) r (A' i) (q - (n + 1)) +
             (pIdx + (D i : ℝ≥0∞) * pNonce) * G 50 (cnt (pc, rc) i) r (A' i) (q - (n + 1)) := by
           rw [← Finset.sum_mul, hD]; push_cast; ring
       _ ≤ G 51 (cnt (pc, rc) i) (r + 1) (A' i + D i) (q - (n + 1)) := G_slot 50 _ r _ _ _
       _ ≤ G 51 (cnt (pc, rc) i) (r + 1) (pend (pc, rc) i) (q - n) := by
           rw [hpend0 i]; exact G_mono le_rfl le_rfl le_rfl (by omega)
-  · simp only [hq, if_false, Finset.sum_const_zero, mul_zero]
+  · refine (expect_rho F).trans ?_
+    rw [hF]
+    simp only [hq, if_false, Finset.sum_const_zero, mul_zero]
     exact bot_le
 
 
@@ -14516,7 +14071,7 @@ noncomputable def envWith (rowSrc : HashInput → PMF HashOutput) (nonceSrc : Me
   trial mem _ _ _ := mem
   disclosure mem _ _ := mem
 noncomputable def envL : SecretGuessObservation.Environment AuxSpecL Guess.GCoord Digest LazyMem :=
-  envWith (fun _ => PMF.uniformOfFintype HashOutput) (fun _ => PMF.uniformOfFintype Digest)
+  envWith (fun _ => PMF.uniformOfFintype HashOutput) (fun _ => SigGolfCandidate.T3.Security.BPair.rhoLaw)
 noncomputable def envE (D : digestInputs → HashOutput) (Nn : Message → Digest) :
     SecretGuessObservation.Environment AuxSpecL Guess.GCoord Digest LazyMem :=
   envWith (fun x => pure (rowVal D x)) (fun m => pure (Nn m))
@@ -14813,7 +14368,7 @@ theorem lowerNodeHash_dn (lay : Layer) (tree heap : Nat) (left right : Digest) (
     · rw [WCT9.merkleTweak_lower h0]
       have h7 : height lay ≤ 7 := by fin_cases lay <;> simp_all [height]
       have h128 : heap < 128 := lt_of_lt_of_le hh (le_trans (Nat.pow_le_pow_right (by decide) h7) (by norm_num))
-      have := WCT9.lowerTweak_band h128 lay.val tree
+      rw [WCT9.lowerTweak_toNat h128]
       omega
 /- U16b: every trial of a lower node (nonce `n` in the pad) is no digest/nonce query. -/
 set_option debug.skipKernelTC false in
@@ -14840,7 +14395,7 @@ theorem lowerNodeHashN_dn (lay : Layer) (tree heap n : Nat) (left right : Digest
     · rw [WCT9.merkleTweak_lower h0]
       have h7 : height lay ≤ 7 := by fin_cases lay <;> simp_all [height]
       have h128 : heap < 128 := lt_of_lt_of_le hh (le_trans (Nat.pow_le_pow_right (by decide) h7) (by norm_num))
-      have := WCT9.lowerTweak_band h128 lay.val tree
+      rw [WCT9.lowerTweak_toNat h128]
       omega
 /-- Pairing stage 1: a step of the current scheme (F or G row) is no digest query. -/
 theorem chainStepW_dn (lay : Layer) (tree leaf i step : Nat) (value : Digest) :
@@ -14919,12 +14474,11 @@ theorem cell_not_digest (s : CanonGraph.Secrets) (node : CanonGraph.Node) (label
           have h0' : n.1.lay ≠ 0 := fun e => h0 (by rw [e]; rfl)
           revert h0'; generalize n.1.lay = lay; intro h0'; fin_cases lay <;> simp_all [height]
         have hh := ClaudeWCT.W9.T3M.Extract.node_heap_lt128 n.2.2.1 h7
-        rw [WCT9.merkleTweak_lower h0]
+        rw [WCT9.merkleTweak_lower h0, WCT9.lowerTweak_toNat hh]
         have hl := n.1.lay.isLt
         generalize 2 ^ (height n.1.lay - n.1.level.val - 1) + n.1.idx.val = heap at hh ⊢
         generalize n.1.tree.val = tr
         generalize n.1.lay.val = l at hl ⊢
-        have := WCT9.lowerTweak_band hh l tr
         omega
   | forest index =>
       simp only [CanonGraph.Node.toPos, ClaudeWCT.W9.T3M.Extract.Pos.hdr] at h
@@ -14944,11 +14498,50 @@ theorem nonceOther_injective : Function.Injective nonceOther := by
   have h1 := congrArg (fun o : CanonGraph.OtherHalf => o.1.1) h
   change (Sum.inr (Sum.inl m) : Coordinate) = Sum.inr (Sum.inl m') at h1
   exact Sum.inl.inj (Sum.inr.inj h1)
+/-- R6 world split: both halves of the nonce coordinate are free (non-secret) halves. -/
+theorem nonceHalfPair_not_secret (p : Message × Fin 2) :
+    ((.inr (.inl p.1), p.2) : ChainGraph.HalfCoordinate) ∉ Set.range CanonGraph.secretCoordinate := by
+  rintro ⟨i, hi⟩
+  have h1 := congrArg Prod.fst hi
+  cases i with
+  | inl a =>
+      simp only [CanonGraph.secretCoordinate, Sum.elim_inl, CanonGraph.seedCoordinateP] at h1
+      split_ifs at h1 <;> cases h1
+  | inr f => cases h1
+def nonceHalfHi (m : Message) : ChainGraph.HalfCoordinate := (.inr (.inl m), 1)
+theorem nonceHalfHi_not_secret (m : Message) : nonceHalfHi m ∉ Set.range CanonGraph.secretCoordinate :=
+  nonceHalfPair_not_secret (m, 1)
+def nonceOtherHi (m : Message) : CanonGraph.OtherHalf := ⟨nonceHalfHi m, nonceHalfHi_not_secret m⟩
+def nonceOtherPair (p : Message × Fin 2) : CanonGraph.OtherHalf := ⟨(.inr (.inl p.1), p.2), nonceHalfPair_not_secret p⟩
+theorem nonceOtherPair_injective : Function.Injective nonceOtherPair := by
+  rintro ⟨m, k⟩ ⟨m', k'⟩ h
+  have h1 := congrArg (fun o : CanonGraph.OtherHalf => o.1) h
+  simp only [nonceOtherPair, Prod.mk.injEq, Sum.inr.injEq, Sum.inl.injEq] at h1
+  rw [h1.1, h1.2]
+/-- The two 128-bit halves of a table of 256-bit nonce outputs. -/
+def nonceSplit (Nh : Message → HashOutput) (p : Message × Fin 2) : Digest :=
+  if p.2 = 0 then (Nh p.1).extractLsb' 0 128 else (Nh p.1).extractLsb' 128 128
+theorem nonceSplit_bijective : Function.Bijective nonceSplit := by
+  constructor
+  · intro N N' h
+    funext m
+    have h0 : (N m).extractLsb' 0 128 = (N' m).extractLsb' 0 128 := by simpa [nonceSplit] using congrFun h (m, 0)
+    have h1 : (N m).extractLsb' 128 128 = (N' m).extractLsb' 128 128 := by simpa [nonceSplit] using congrFun h (m, 1)
+    rw [← SigGolfCandidate.T3.Security.ChainGraph.joinOutput_parts (N m),
+      ← SigGolfCandidate.T3.Security.ChainGraph.joinOutput_parts (N' m), h0, h1]
+  · intro T
+    refine ⟨fun m => SigGolfCandidate.T3.Security.ChainGraph.joinOutput (T (m, 0)) (T (m, 1)), funext fun p => ?_⟩
+    rcases p with ⟨m, k⟩
+    fin_cases k
+    · simp [nonceSplit, SigGolfCandidate.T3.Security.ChainGraph.joinOutput_low]
+    · simp [nonceSplit, SigGolfCandidate.T3.Security.ChainGraph.joinOutput_high]
 section Table
 variable {U : Finset HashInput} (hU : CanonGraph.canonInputs ⊆ U)
 noncomputable def digestOf (ω : CanonTable.Omega U) : digestInputs → HashOutput :=
   fun x => finiteHashAnswer ∅ U ω.residual x.val
-def nonceOf (ω : CanonTable.Omega U) : Message → Digest := fun m => ω.other (nonceOther m)
+/-- R6 world split: the nonce is `rhoMod` of the full 256-bit private output (both free halves). -/
+noncomputable def nonceOf (ω : CanonTable.Omega U) : Message → Digest := fun m =>
+  BitVec.ofNat 128 (rhoMod (SigGolfCandidate.T3.Security.ChainGraph.joinOutput (ω.other (nonceOther m)) (ω.other (nonceOtherHi m))))
 theorem answers_digest (ω : CanonTable.Omega U) (g : CanonTable.HiddenF) (x : HashInput) (hx : x ∈ digestInputs) :
     wA hU ω g (.inl (.inr x)) = rowVal (digestOf ω) x := by
   rw [rowVal, dif_pos hx]
@@ -14964,10 +14557,14 @@ theorem eval_nonce (ω : CanonTable.Omega U) (g : CanonTable.HiddenF) (m : Messa
     evalWithAnswerFn (wA hU ω g) (privateNonce m) = nonceOf ω m := by
   unfold privateNonce privateHash
   simp only [evalWithAnswerFn_bind, evalWithAnswerFn_pure]
-  change (CanonGraph.privateEquiv.symm (CanonTable.worldSecrets ω.secrets g.1, ω.other) (.inr (.inl m))).extractLsb'
-    0 128 = _
-  rw [privateEquiv_symm_apply, ChainGraph.joinOutput_low]
-  exact splitEquiv_symm_other _ _ (nonceHalf m) (nonceHalf_not_secret m)
+  change BitVec.ofNat 128 (rhoMod (CanonGraph.privateEquiv.symm (CanonTable.worldSecrets ω.secrets g.1, ω.other)
+    (.inr (.inl m)))) = _
+  have h0 := splitEquiv_symm_other (CanonTable.worldSecrets ω.secrets g.1) ω.other (nonceHalf m) (nonceHalf_not_secret m)
+  have h1 := splitEquiv_symm_other (CanonTable.worldSecrets ω.secrets g.1) ω.other (nonceHalfHi m)
+    (nonceHalfHi_not_secret m)
+  simp only [nonceHalf, nonceHalfHi] at h0 h1
+  rw [privateEquiv_symm_apply, h0, h1]
+  rfl
 end Table
 section Rest
 variable {U : Finset HashInput} (hU : CanonGraph.canonInputs ⊆ U)
@@ -14976,7 +14573,7 @@ noncomputable local instance instDecidableEqCache_g6LazyFree : DecidableEq SigGo
 def SameRest (ω₁ ω₂ : CanonTable.Omega U) : Prop :=
   ω₁.secrets = ω₂.secrets ∧ ω₁.low = ω₂.low ∧ ω₁.high = ω₂.high ∧
     (∀ x : U, x.val ∉ digestInputs → ω₁.residual x = ω₂.residual x) ∧
-    (∀ h : CanonGraph.OtherHalf, (∀ m, h ≠ nonceOther m) → ω₁.other h = ω₂.other h)
+    (∀ h : CanonGraph.OtherHalf, (∀ m, h ≠ nonceOther m) → (∀ m, h ≠ nonceOtherHi m) → ω₁.other h = ω₂.other h)
 theorem programmed_sameRest {ω₁ ω₂ : CanonTable.Omega U} (h : SameRest ω₁ ω₂) (g : CanonTable.HiddenF) (x : U)
     (hx : x.val ∉ digestInputs) :
     CanonGraph.programmed U hU (CanonTable.worldSecrets ω₁.secrets g.1) (CanonTable.worldLabels ω₁ g.2) ω₁.residual x =
@@ -15007,10 +14604,8 @@ theorem private_sameRest {ω₁ ω₂ : CanonTable.Omega U} (h : SameRest ω₁ 
     · obtain ⟨i, hi⟩ := hr
       rw [← hi, splitEquiv_symm_secret, splitEquiv_symm_secret, h.1]
     · rw [splitEquiv_symm_other _ _ _ hr, splitEquiv_symm_other _ _ _ hr]
-      apply h.2.2.2.2
-      intro m he
-      have := congrArg (fun o : CanonGraph.OtherHalf => o.1.1) he
-      exact hc m this
+      exact h.2.2.2.2 _ (fun m he => hc m (congrArg (fun o : CanonGraph.OtherHalf => o.1.1) he))
+        (fun m he => hc m (congrArg (fun o : CanonGraph.OtherHalf => o.1.1) he))
   rw [privateEquiv_symm_apply, privateEquiv_symm_apply, hhalf 0, hhalf 1]
 theorem answers_sameRest {ω₁ ω₂ : CanonTable.Omega U} (h : SameRest ω₁ ω₂) (g : CanonTable.HiddenF)
     (q : SigGolfCandidate.T3.Spec.Domain) (hq : NotDN q) : wA hU ω₁ g q = wA hU ω₂ g q := by
@@ -15242,7 +14837,7 @@ theorem forced_nonce_cached (s : WStateL) (m : Message) (v : Digest) (h : s.memo
 theorem forced_nonce_fresh (s : WStateL) (m : Message) (h : s.memory.nonces m = none) :
     forcedRun envL slot (nonceReq m) s =
       (fun v => (v, { s with memory := s.memory.drawNonce m v })) <$>
-        (liftM (PMF.uniformOfFintype Digest) : SPMF Digest) := by
+        (liftM rhoLaw : SPMF Digest) := by
   rw [nonceReq, forcedRun_query, envL, step_nonce, nonceStep_none _ _ _ h, liftM_map, Functor.map_map]
 theorem forced_expose (s : WStateL) (o : Option HashOutput) :
     forcedRun envL slot (exposeReq o) s = pure ((), { s with memory := s.memory.expose o }) := by
@@ -17591,28 +17186,44 @@ set_option backward.isDefEq.respectTransparency false
 attribute [local instance] Classical.propDecidable
 section OmegaPatch
 variable {U : Finset HashInput} (hsub : digestInputs ⊆ U)
-noncomputable def patchOmega (ω : CanonTable.Omega U) (D : digestInputs → HashOutput) (Nn : Message → Digest) :
+/-- Patch both nonce halves with a split table `T : Message × Fin 2 → Digest`. -/
+noncomputable def patchOmegaP (ω : CanonTable.Omega U) (D : digestInputs → HashOutput) (T : Message × Fin 2 → Digest) :
     CanonTable.Omega U :=
-  ⟨ω.secrets, patch nonceOther ω.other Nn, ω.low, ω.high, patch (digestEmb hsub) ω.residual D⟩
-theorem digestOf_patch (ω : CanonTable.Omega U) (D : digestInputs → HashOutput) (Nn : Message → Digest) :
-    digestOf (patchOmega hsub ω D Nn) = D := by
+  ⟨ω.secrets, patch nonceOtherPair ω.other T, ω.low, ω.high, patch (digestEmb hsub) ω.residual D⟩
+/-- R6 world split: patch the full 256-bit nonce outputs `Nh`. -/
+noncomputable def patchOmega (ω : CanonTable.Omega U) (D : digestInputs → HashOutput) (Nh : Message → HashOutput) :
+    CanonTable.Omega U :=
+  patchOmegaP hsub ω D (nonceSplit Nh)
+theorem digestOf_patch (ω : CanonTable.Omega U) (D : digestInputs → HashOutput) (Nh : Message → HashOutput) :
+    digestOf (patchOmega hsub ω D Nh) = D := by
   funext x
   change finiteHashAnswer ∅ U (patch (digestEmb hsub) ω.residual D) x.1 = D x
   rw [finiteHashAnswer_none ∅ U _ _ (hsub x.2) rfl]
   exact patch_e (digestEmb_injective hsub) _ _ x
-theorem nonceOf_patch (ω : CanonTable.Omega U) (D : digestInputs → HashOutput) (Nn : Message → Digest) :
-    nonceOf (patchOmega hsub ω D Nn) = Nn :=
-  funext fun m => patch_e nonceOther_injective ω.other Nn m
-theorem sameRest_patch (ω : CanonTable.Omega U) (D : digestInputs → HashOutput) (Nn : Message → Digest) :
-    SameRest ω (patchOmega hsub ω D Nn) := by
+theorem nonceOf_patch (ω : CanonTable.Omega U) (D : digestInputs → HashOutput) (Nh : Message → HashOutput) :
+    nonceOf (patchOmega hsub ω D Nh) = fun m => BitVec.ofNat 128 (rhoMod (Nh m)) := by
+  funext m
+  have h0 := patch_e nonceOtherPair_injective ω.other (nonceSplit Nh) (m, 0)
+  have h1 := patch_e nonceOtherPair_injective ω.other (nonceSplit Nh) (m, 1)
+  change BitVec.ofNat 128 (rhoMod (SigGolfCandidate.T3.Security.ChainGraph.joinOutput
+    (patch nonceOtherPair ω.other (nonceSplit Nh) (nonceOtherPair (m, 0)))
+    (patch nonceOtherPair ω.other (nonceSplit Nh) (nonceOtherPair (m, 1))))) = _
+  rw [h0, h1]
+  have e0 : nonceSplit Nh (m, 0) = (Nh m).extractLsb' 0 128 := by simp [nonceSplit]
+  have e1 : nonceSplit Nh (m, 1) = (Nh m).extractLsb' 128 128 := by simp [nonceSplit]
+  rw [e0, e1, SigGolfCandidate.T3.Security.ChainGraph.joinOutput_parts]
+theorem sameRest_patch (ω : CanonTable.Omega U) (D : digestInputs → HashOutput) (Nh : Message → HashOutput) :
+    SameRest ω (patchOmega hsub ω D Nh) := by
   refine ⟨rfl, rfl, rfl, fun x hx => (patch_of (digestEmb hsub) ω.residual D x ?_).symm,
-    fun h hh => (patch_of nonceOther ω.other Nn h ?_).symm⟩
+    fun h hh hh' => (patch_of nonceOtherPair ω.other (nonceSplit Nh) h ?_).symm⟩
   · intro y hy
     apply hx
     rw [← hy]
     exact y.2
-  · intro m hm
-    exact hh m hm.symm
+  · rintro ⟨m, k⟩ hm
+    fin_cases k
+    · exact hh m hm.symm
+    · exact hh' m hm.symm
 end OmegaPatch
 section OmegaLaw
 attribute [local instance] instFintypeCoordinate_canonGraph instSampleableTypeFullTable_canonGraph
@@ -17620,6 +17231,14 @@ attribute [local instance] instFintypeCoordinate_canonGraph instSampleableTypeFu
   instSampleableTypeOtherHalves instFintypeSecrets_canonGraph instFintypeOtherHalves_canonGraph
   instSampleableTypeProdSecretsOtherHalves instSampleableTypeForallSubtypeHashInputMemFinsetHashOutput_canonGraph_1
   instSampleableTypeLowLabels instSampleableTypeProdLowLabels CanonTable.instSampleableTypeHidden
+/-- R6 world split: a uniform table of 256-bit nonce outputs, split into halves, is a uniform half table. -/
+theorem nonce_split_uniform {γ : Type} (I : SampleableType (Message → HashOutput))
+    (G : (Message × Fin 2 → Digest) → SPMF γ) :
+    (𝒮[(@uniformSample _ I : ProbComp (Message → HashOutput))] >>= fun Nh => G (nonceSplit Nh)) =
+      𝒮[($ᵗ (Message × Fin 2 → Digest) : ProbComp _)] >>= G := by
+  letI := I
+  rw [← evalSPMF_map_bijective_uniform_cross (α := Message → HashOutput) (β := Message × Fin 2 → Digest)
+    nonceSplit nonceSplit_bijective, evalSPMF_map, bind_map_left]
 theorem digest_subset (adversary : AdversaryP) : digestInputs ⊆ Wots.referenceInputs adversary :=
   digestInputs_subset_publicUniverse.trans (Wots.Ref.referenceInputs_universe adversary)
 noncomputable def omegaLaw (adversary : AdversaryP) : ProbComp (CanonTable.Omega (Wots.referenceInputs adversary)) :=
@@ -17648,10 +17267,10 @@ theorem pairExperiment_avg (adversary : AdversaryP) (E : Answers × QueryLog Req
   intro ω
   rw [← inner_fts_eq (canon_subset adversary) ω adversary _ E]
   rfl
-theorem omegaLaw_patch (adversary : AdversaryP) {γ : Type}
+theorem omegaLaw_patchP (adversary : AdversaryP) {γ : Type}
     (k : CanonTable.Omega (Wots.referenceInputs adversary) → SPMF γ) :
     (𝒮[omegaLaw adversary] >>= fun ω => 𝒮[($ᵗ (digestInputs → HashOutput) : ProbComp _)] >>= fun D =>
-      𝒮[($ᵗ (Message → Digest) : ProbComp _)] >>= fun Nn => k (patchOmega (digest_subset adversary) ω D Nn)) =
+      𝒮[($ᵗ (Message × Fin 2 → Digest) : ProbComp _)] >>= fun Nn => k (patchOmegaP (digest_subset adversary) ω D Nn)) =
       𝒮[omegaLaw adversary] >>= k := by
   unfold omegaLaw
   simp only [evalSPMF_bind, evalSPMF_pure, bind_assoc, pure_bind]
@@ -17659,42 +17278,54 @@ theorem omegaLaw_patch (adversary : AdversaryP) {γ : Type}
   have step1 : ∀ (other : OtherHalves) (low high : LowLabels),
       (𝒮[($ᵗ (Wots.referenceInputs adversary → HashOutput) : ProbComp _)] >>=
         fun residual => 𝒮[($ᵗ (digestInputs → HashOutput) : ProbComp _)] >>= fun D =>
-        𝒮[($ᵗ (Message → Digest) : ProbComp _)] >>= fun Nn =>
-          k (patchOmega (digest_subset adversary) ⟨secrets, other, low, high, residual⟩ D Nn)) =
+        𝒮[($ᵗ (Message × Fin 2 → Digest) : ProbComp _)] >>= fun Nn =>
+          k (patchOmegaP (digest_subset adversary) ⟨secrets, other, low, high, residual⟩ D Nn)) =
       (𝒮[($ᵗ (Wots.referenceInputs adversary → HashOutput) : ProbComp _)] >>=
-        fun residual => 𝒮[($ᵗ (Message → Digest) : ProbComp _)] >>= fun Nn =>
-          k ⟨secrets, patch nonceOther other Nn, low, high, residual⟩) := by
+        fun residual => 𝒮[($ᵗ (Message × Fin 2 → Digest) : ProbComp _)] >>= fun Nn =>
+          k ⟨secrets, patch nonceOtherPair other Nn, low, high, residual⟩) := by
     intro other low high
     exact patch_uniform (digestEmb_injective (digest_subset adversary)) _ _
-      (fun residual => 𝒮[($ᵗ (Message → Digest) : ProbComp _)] >>= fun Nn =>
-        k ⟨secrets, patch nonceOther other Nn, low, high, residual⟩)
+      (fun residual => 𝒮[($ᵗ (Message × Fin 2 → Digest) : ProbComp _)] >>= fun Nn =>
+        k ⟨secrets, patch nonceOtherPair other Nn, low, high, residual⟩)
   simp only [step1]
   have step2 : ∀ other : OtherHalves,
       (𝒮[($ᵗ LowLabels : ProbComp _)] >>= fun low => 𝒮[($ᵗ LowLabels : ProbComp _)] >>= fun high =>
         𝒮[($ᵗ (Wots.referenceInputs adversary → HashOutput) : ProbComp _)] >>=
-        fun residual => 𝒮[($ᵗ (Message → Digest) : ProbComp _)] >>= fun Nn =>
-          k ⟨secrets, patch nonceOther other Nn, low, high, residual⟩) =
-      (𝒮[($ᵗ (Message → Digest) : ProbComp _)] >>= fun Nn =>
+        fun residual => 𝒮[($ᵗ (Message × Fin 2 → Digest) : ProbComp _)] >>= fun Nn =>
+          k ⟨secrets, patch nonceOtherPair other Nn, low, high, residual⟩) =
+      (𝒮[($ᵗ (Message × Fin 2 → Digest) : ProbComp _)] >>= fun Nn =>
         𝒮[($ᵗ LowLabels : ProbComp _)] >>= fun low => 𝒮[($ᵗ LowLabels : ProbComp _)] >>= fun high =>
         𝒮[($ᵗ (Wots.referenceInputs adversary → HashOutput) : ProbComp _)] >>=
-        fun residual => k ⟨secrets, patch nonceOther other Nn, low, high, residual⟩) := by
+        fun residual => k ⟨secrets, patch nonceOtherPair other Nn, low, high, residual⟩) := by
     intro other
     calc _ = (𝒮[($ᵗ LowLabels : ProbComp _)] >>= fun low => 𝒮[($ᵗ LowLabels : ProbComp _)] >>= fun high =>
-          𝒮[($ᵗ (Message → Digest) : ProbComp _)] >>= fun Nn =>
+          𝒮[($ᵗ (Message × Fin 2 → Digest) : ProbComp _)] >>= fun Nn =>
           𝒮[($ᵗ (Wots.referenceInputs adversary → HashOutput) : ProbComp _)] >>=
-          fun residual => k ⟨secrets, patch nonceOther other Nn, low, high, residual⟩) :=
+          fun residual => k ⟨secrets, patch nonceOtherPair other Nn, low, high, residual⟩) :=
           bind_congr fun low => bind_congr fun high => RetainedObservation.bind_comm _ _ _
-      _ = (𝒮[($ᵗ LowLabels : ProbComp _)] >>= fun low => 𝒮[($ᵗ (Message → Digest) : ProbComp _)] >>= fun Nn =>
+      _ = (𝒮[($ᵗ LowLabels : ProbComp _)] >>= fun low => 𝒮[($ᵗ (Message × Fin 2 → Digest) : ProbComp _)] >>= fun Nn =>
           𝒮[($ᵗ LowLabels : ProbComp _)] >>= fun high =>
           𝒮[($ᵗ (Wots.referenceInputs adversary → HashOutput) : ProbComp _)] >>=
-          fun residual => k ⟨secrets, patch nonceOther other Nn, low, high, residual⟩) :=
+          fun residual => k ⟨secrets, patch nonceOtherPair other Nn, low, high, residual⟩) :=
           bind_congr fun low => RetainedObservation.bind_comm _ _ _
       _ = _ := RetainedObservation.bind_comm _ _ _
   simp only [step2]
-  exact patch_uniform nonceOther_injective _ _ (fun other =>
+  exact patch_uniform nonceOtherPair_injective _ _ (fun other =>
     𝒮[($ᵗ LowLabels : ProbComp _)] >>= fun low => 𝒮[($ᵗ LowLabels : ProbComp _)] >>= fun high =>
       𝒮[($ᵗ (Wots.referenceInputs adversary → HashOutput) : ProbComp _)] >>=
       fun residual => k ⟨secrets, other, low, high, residual⟩)
+theorem omegaLaw_patch (adversary : AdversaryP) {γ : Type} {I : SampleableType (Message → HashOutput)}
+    (k : CanonTable.Omega (Wots.referenceInputs adversary) → SPMF γ) :
+    (𝒮[omegaLaw adversary] >>= fun ω => 𝒮[($ᵗ (digestInputs → HashOutput) : ProbComp _)] >>= fun D =>
+      𝒮[(@uniformSample _ I : ProbComp (Message → HashOutput))] >>= fun Nh =>
+        k (patchOmega (digest_subset adversary) ω D Nh)) =
+      𝒮[omegaLaw adversary] >>= k := by
+  have h : ∀ ω D, (𝒮[(@uniformSample _ I : ProbComp (Message → HashOutput))] >>= fun Nh =>
+      k (patchOmega (digest_subset adversary) ω D Nh)) =
+      𝒮[($ᵗ (Message × Fin 2 → Digest) : ProbComp _)] >>= fun T => k (patchOmegaP (digest_subset adversary) ω D T) :=
+    fun ω D => nonce_split_uniform I (fun T => k (patchOmegaP (digest_subset adversary) ω D T))
+  simp only [h]
+  exact omegaLaw_patchP adversary k
 end OmegaLaw
 section Steps
 open SecretGuessObservation (forcedWithRun forcedWithImpl forcedTrialWith withImpl lazyImpl runWith afterTrial afterDisclosure)
@@ -17900,23 +17531,37 @@ theorem avg_fresh_nonce {α : Type} (slot : Nat) (m : Message) (s : WStateL)
       forcedWithRun envL samplerL slot (next u) s') :
     (rowsLaw >>= fun D => noncesLaw >>= fun Nn => forcedWithRun (envE D Nn) samplerL slot (next (Nn m))
         { s with memory := s.memory.drawNonce m (Nn m) }) =
-      ((liftM (PMF.uniformOfFintype Digest) : SPMF Digest) >>= fun v =>
+      ((liftM SigGolfCandidate.T3.Security.BPair.rhoLaw : SPMF Digest) >>= fun v =>
         forcedWithRun envL samplerL slot (next v) { s with memory := s.memory.drawNonce m v }) := by
-  have step : ∀ D : digestInputs → HashOutput,
-      (noncesLaw >>= fun Nn => forcedWithRun (envE D Nn) samplerL slot (next (Nn m))
-        { s with memory := s.memory.drawNonce m (Nn m) }) =
-      ((liftM (PMF.uniformOfFintype Digest) : SPMF Digest) >>= fun v => noncesLaw >>= fun Nn =>
-        forcedWithRun (envE D Nn) samplerL slot (next v) { s with memory := s.memory.drawNonce m v }) := by
-    intro D
-    rw [noncesLaw]
-    refine uniform_update m (fun v Nn => forcedWithRun (envE D Nn) samplerL slot (next v) { s with memory := s.memory.drawNonce m v })
-      fun v T c => forced_congr _ _ _ _ slot _ _ ⟨fun _ _ => rfl, fun m' hm' => ?_⟩
+  have hinv : ∀ (D : digestInputs → HashOutput) (v : Digest) (T : Message → Digest) (c : Digest),
+      forcedWithRun (envE D (Function.update T m c)) samplerL slot (next v) { s with memory := s.memory.drawNonce m v } =
+        forcedWithRun (envE D T) samplerL slot (next v) { s with memory := s.memory.drawNonce m v } := by
+    intro D v T c
+    refine forced_congr _ _ _ _ slot _ _ ⟨fun _ _ => rfl, fun m' hm' => ?_⟩
     have hmm : m' ≠ m := by
       rintro rfl
       change Function.update s.memory.nonces m' (some v) m' = none at hm'
       rw [Function.update_self] at hm'
       cases hm'
     exact Function.update_of_ne hmm _ _
+  have step : ∀ D : digestInputs → HashOutput,
+      (noncesLaw >>= fun Nn => forcedWithRun (envE D Nn) samplerL slot (next (Nn m)) { s with memory := s.memory.drawNonce m (Nn m) }) =
+      ((liftM SigGolfCandidate.T3.Security.BPair.rhoLaw : SPMF Digest) >>= fun v => noncesLaw >>= fun Nn =>
+        forcedWithRun (envE D Nn) samplerL slot (next v) { s with memory := s.memory.drawNonce m v }) := by
+    intro D
+    simp only [noncesLaw, bind_assoc, pure_bind]
+    refine (uniform_update m (fun a (Nh : Message → HashOutput) =>
+      forcedWithRun (envE D (fun m' => BitVec.ofNat 128 (rhoMod (Nh m')))) samplerL slot (next (BitVec.ofNat 128 (rhoMod a)))
+        { s with memory := s.memory.drawNonce m (BitVec.ofNat 128 (rhoMod a)) }) fun a T c => ?_).trans ?_
+    · have hfun : (fun m' => BitVec.ofNat 128 (rhoMod (Function.update T m c m'))) =
+          Function.update (fun m' => BitVec.ofNat 128 (rhoMod (T m'))) m (BitVec.ofNat 128 (rhoMod c)) := by
+        funext m'
+        by_cases h : m' = m
+        · subst h; simp
+        · simp [Function.update_of_ne h]
+      rw [hfun]
+      exact hinv D _ _ _
+    · rw [SigGolfCandidate.T3.Security.BPair.rhoLaw, ← PMF.monad_map_eq_map, liftM_map, bind_map_left]
   simp only [step]
   rw [RetainedObservation.bind_comm]
   exact bind_congr fun v => ih v _
@@ -17924,7 +17569,7 @@ theorem eager_lazy_core {α : Type} (slot : Nat) (W : OracleComp WSpecL α) (s :
     (rowsLaw >>= fun D => noncesLaw >>= fun Nn => forcedWithRun (envE D Nn) samplerL slot W s) = forcedWithRun envL samplerL slot W s := by
   induction W using OracleComp.inductionOn generalizing s with
   | pure a =>
-      simp only [forcedWithRun, SecretGuessObservation.runWith_pure, rowsLaw, noncesLaw,
+      simp only [forcedWithRun, SecretGuessObservation.runWith_pure, rowsLaw, noncesLaw, bind_assoc, pure_bind,
         RetainedObservation.lift_bind_const]
   | query_bind input next ih =>
       simp only [forcedWithRun, SecretGuessObservation.runWith_query_bind]
@@ -17988,7 +17633,7 @@ theorem eager_lazy_core {α : Type} (slot : Nat) (W : OracleComp WSpecL α) (s :
                   rw [envE, step_nonce, nonceStep_none _ _ _ hc, liftM_map, liftM_pure, map_pure, map_pure]
                 have hL : (forcedWithImpl envL samplerL slot (.inl (.nonce m))).run s =
                     (fun v => (v, { s with memory := s.memory.drawNonce m v })) <$>
-                      (liftM (PMF.uniformOfFintype Digest) : SPMF Digest) := by
+                      (liftM SigGolfCandidate.T3.Security.BPair.rhoLaw : SPMF Digest) := by
                   rw [envL, step_nonce, nonceStep_none _ _ _ hc, liftM_map, Functor.map_map]
                 simp only [hE, hL, pure_bind, bind_map_left]
                 exact avg_fresh_nonce slot m s next ih
@@ -17997,28 +17642,34 @@ theorem eager_lazy_core {α : Type} (slot : Nat) (W : OracleComp WSpecL α) (s :
         have hfun : (fun hit => (hit, { SecretGuessObservation.afterTrial
               (envWith (fun x => pure (rowVal D x)) (fun m => pure (Nn m))) s f c hit with memory := s.memory })) =
             (fun hit => (hit, { SecretGuessObservation.afterTrial
-              (envWith (fun _ => PMF.uniformOfFintype HashOutput) (fun _ => PMF.uniformOfFintype Digest)) s f c hit with
+              (envWith (fun _ => PMF.uniformOfFintype HashOutput) (fun _ => SigGolfCandidate.T3.Security.BPair.rhoLaw)) s f c hit with
                 memory := s.memory })) := by
           funext hit
           rw [afterTrial_sources (fun x => pure (rowVal D x)) (fun m => pure (Nn m))
-            (fun _ => PMF.uniformOfFintype HashOutput) (fun _ => PMF.uniformOfFintype Digest)]
+            (fun _ => PMF.uniformOfFintype HashOutput) (fun _ => SigGolfCandidate.T3.Security.BPair.rhoLaw)]
         rw [hfun]
       · refine avg_indep slot _ next s ih _ (fun D Nn => ?_) rfl
         rw [envE, envL, step_disclose, step_disclose]
         have hfun : (fun v => (v, { SecretGuessObservation.afterDisclosure
               (envWith (fun x => pure (rowVal D x)) (fun m => pure (Nn m))) s f v with memory := s.memory })) =
             (fun v => (v, { SecretGuessObservation.afterDisclosure
-              (envWith (fun _ => PMF.uniformOfFintype HashOutput) (fun _ => PMF.uniformOfFintype Digest)) s f v with
+              (envWith (fun _ => PMF.uniformOfFintype HashOutput) (fun _ => SigGolfCandidate.T3.Security.BPair.rhoLaw)) s f v with
                 memory := s.memory })) := by
           funext v
           rw [afterDisclosure_sources (fun x => pure (rowVal D x)) (fun m => pure (Nn m))
-            (fun _ => PMF.uniformOfFintype HashOutput) (fun _ => PMF.uniformOfFintype Digest)]
+            (fun _ => PMF.uniformOfFintype HashOutput) (fun _ => SigGolfCandidate.T3.Security.BPair.rhoLaw)]
         rw [hfun]
-theorem eager_lazy {α : Type} (W : OracleComp WSpecL α) (slot : Nat) (s : WStateL) :
-    (𝒮[($ᵗ (digestInputs → HashOutput) : ProbComp _)] >>= fun D => 𝒮[($ᵗ (Message → Digest) : ProbComp _)] >>= fun Nn =>
-      forcedWithRun (envE D Nn) samplerL slot W s) = forcedWithRun envL samplerL slot W s := by
+/-- R6 world split: eager nonces `rhoMod ∘ Nh` with `Nh` a uniform table of 256-bit outputs. -/
+theorem eager_lazy {α : Type} {I : SampleableType (Message → HashOutput)} (W : OracleComp WSpecL α) (slot : Nat)
+    (s : WStateL) :
+    (𝒮[($ᵗ (digestInputs → HashOutput) : ProbComp _)] >>= fun D =>
+      𝒮[(@uniformSample _ I : ProbComp (Message → HashOutput))] >>= fun Nh =>
+      forcedWithRun (envE D (fun m => BitVec.ofNat 128 (rhoMod (Nh m)))) samplerL slot W s) =
+      forcedWithRun envL samplerL slot W s := by
   rw [evalSPMF_uniform, evalSPMF_uniform]
-  exact eager_lazy_core slot W s
+  have h := eager_lazy_core slot W s
+  simp only [rowsLaw, noncesLaw, bind_assoc, pure_bind] at h
+  exact h
 end EagerLazy
 section Avg
 open SecretGuessObservation (forcedWithRun)
@@ -18031,11 +17682,11 @@ theorem forced_avg_law (adversary : AdversaryP) (slot : Nat) :
   calc (𝒮[omegaLaw adversary] >>= fun ω =>
         forcedWithRun envL samplerL slot (worldGameL (canon_subset adversary) ω adversary) initL)
       = (𝒮[omegaLaw adversary] >>= fun ω => 𝒮[($ᵗ (digestInputs → HashOutput) : ProbComp _)] >>= fun D =>
-          𝒮[($ᵗ (Message → Digest) : ProbComp _)] >>= fun Nn =>
-          forcedWithRun (envE D Nn) samplerL slot (worldGameL (canon_subset adversary) ω adversary) initL) :=
+          𝒮[($ᵗ (Message → HashOutput) : ProbComp _)] >>= fun Nn =>
+          forcedWithRun (envE D (fun m => BitVec.ofNat 128 (rhoMod (Nn m)))) samplerL slot (worldGameL (canon_subset adversary) ω adversary) initL) :=
         bind_congr fun ω => (eager_lazy _ slot initL).symm
     _ = (𝒮[omegaLaw adversary] >>= fun ω => 𝒮[($ᵗ (digestInputs → HashOutput) : ProbComp _)] >>= fun D =>
-          𝒮[($ᵗ (Message → Digest) : ProbComp _)] >>= fun Nn =>
+          𝒮[($ᵗ (Message → HashOutput) : ProbComp _)] >>= fun Nn =>
           (fun ω' : CanonTable.Omega (Wots.referenceInputs adversary) =>
             forcedWithRun (envE (digestOf ω') (nonceOf ω')) samplerL slot
               (worldGameL (canon_subset adversary) ω' adversary) initL)
@@ -18043,7 +17694,7 @@ theorem forced_avg_law (adversary : AdversaryP) (slot : Nat) :
         refine bind_congr fun ω => bind_congr fun D => bind_congr fun Nn => ?_
         dsimp only
         rw [digestOf_patch, nonceOf_patch]
-        exact congrArg (fun W => forcedWithRun (envE D Nn) samplerL slot W initL)
+        exact congrArg (fun W => forcedWithRun (envE D (fun m => BitVec.ofNat 128 (rhoMod (Nn m)))) samplerL slot W initL)
           (worldGameL_congr (canon_subset adversary) (sameRest_patch (digest_subset adversary) ω D Nn) adversary)
     _ = _ := omegaLaw_patch adversary (fun ω' => forcedWithRun (envE (digestOf ω') (nonceOf ω')) samplerL slot
           (worldGameL (canon_subset adversary) ω' adversary) initL)
@@ -18083,10 +17734,10 @@ noncomputable def omegaLaw (U : Finset HashInput) : ProbComp (CanonTable.Omega (
     ($ᵗ LowLabels : ProbComp _) >>= fun high =>
     ($ᵗ (U → HashOutput) : ProbComp _) >>= fun residual =>
       pure ⟨secrets, other, low, high, residual⟩
-theorem omegaLaw_patch (U : Finset HashInput) (hsub : digestInputs ⊆ U) {γ : Type}
+theorem omegaLaw_patchP (U : Finset HashInput) (hsub : digestInputs ⊆ U) {γ : Type}
     (k : CanonTable.Omega (U) → SPMF γ) :
     (𝒮[omegaLaw U] >>= fun ω => 𝒮[($ᵗ (digestInputs → HashOutput) : ProbComp _)] >>= fun D =>
-      𝒮[($ᵗ (Message → Digest) : ProbComp _)] >>= fun Nn => k (patchOmega hsub ω D Nn)) =
+      𝒮[($ᵗ (Message × Fin 2 → Digest) : ProbComp _)] >>= fun Nn => k (patchOmegaP hsub ω D Nn)) =
       𝒮[omegaLaw U] >>= k := by
   unfold omegaLaw
   simp only [evalSPMF_bind, evalSPMF_pure, bind_assoc, pure_bind]
@@ -18094,42 +17745,52 @@ theorem omegaLaw_patch (U : Finset HashInput) (hsub : digestInputs ⊆ U) {γ : 
   have step1 : ∀ (other : OtherHalves) (low high : LowLabels),
       (𝒮[($ᵗ (U → HashOutput) : ProbComp _)] >>=
         fun residual => 𝒮[($ᵗ (digestInputs → HashOutput) : ProbComp _)] >>= fun D =>
-        𝒮[($ᵗ (Message → Digest) : ProbComp _)] >>= fun Nn =>
-          k (patchOmega hsub ⟨secrets, other, low, high, residual⟩ D Nn)) =
+        𝒮[($ᵗ (Message × Fin 2 → Digest) : ProbComp _)] >>= fun Nn =>
+          k (patchOmegaP hsub ⟨secrets, other, low, high, residual⟩ D Nn)) =
       (𝒮[($ᵗ (U → HashOutput) : ProbComp _)] >>=
-        fun residual => 𝒮[($ᵗ (Message → Digest) : ProbComp _)] >>= fun Nn =>
-          k ⟨secrets, patch nonceOther other Nn, low, high, residual⟩) := by
+        fun residual => 𝒮[($ᵗ (Message × Fin 2 → Digest) : ProbComp _)] >>= fun Nn =>
+          k ⟨secrets, patch nonceOtherPair other Nn, low, high, residual⟩) := by
     intro other low high
     exact patch_uniform (digestEmb_injective hsub) _ _
-      (fun residual => 𝒮[($ᵗ (Message → Digest) : ProbComp _)] >>= fun Nn =>
-        k ⟨secrets, patch nonceOther other Nn, low, high, residual⟩)
+      (fun residual => 𝒮[($ᵗ (Message × Fin 2 → Digest) : ProbComp _)] >>= fun Nn =>
+        k ⟨secrets, patch nonceOtherPair other Nn, low, high, residual⟩)
   simp only [step1]
   have step2 : ∀ other : OtherHalves,
       (𝒮[($ᵗ LowLabels : ProbComp _)] >>= fun low => 𝒮[($ᵗ LowLabels : ProbComp _)] >>= fun high =>
         𝒮[($ᵗ (U → HashOutput) : ProbComp _)] >>=
-        fun residual => 𝒮[($ᵗ (Message → Digest) : ProbComp _)] >>= fun Nn =>
-          k ⟨secrets, patch nonceOther other Nn, low, high, residual⟩) =
-      (𝒮[($ᵗ (Message → Digest) : ProbComp _)] >>= fun Nn =>
+        fun residual => 𝒮[($ᵗ (Message × Fin 2 → Digest) : ProbComp _)] >>= fun Nn =>
+          k ⟨secrets, patch nonceOtherPair other Nn, low, high, residual⟩) =
+      (𝒮[($ᵗ (Message × Fin 2 → Digest) : ProbComp _)] >>= fun Nn =>
         𝒮[($ᵗ LowLabels : ProbComp _)] >>= fun low => 𝒮[($ᵗ LowLabels : ProbComp _)] >>= fun high =>
         𝒮[($ᵗ (U → HashOutput) : ProbComp _)] >>=
-        fun residual => k ⟨secrets, patch nonceOther other Nn, low, high, residual⟩) := by
+        fun residual => k ⟨secrets, patch nonceOtherPair other Nn, low, high, residual⟩) := by
     intro other
     calc _ = (𝒮[($ᵗ LowLabels : ProbComp _)] >>= fun low => 𝒮[($ᵗ LowLabels : ProbComp _)] >>= fun high =>
-          𝒮[($ᵗ (Message → Digest) : ProbComp _)] >>= fun Nn =>
+          𝒮[($ᵗ (Message × Fin 2 → Digest) : ProbComp _)] >>= fun Nn =>
           𝒮[($ᵗ (U → HashOutput) : ProbComp _)] >>=
-          fun residual => k ⟨secrets, patch nonceOther other Nn, low, high, residual⟩) :=
+          fun residual => k ⟨secrets, patch nonceOtherPair other Nn, low, high, residual⟩) :=
           bind_congr fun low => bind_congr fun high => RetainedObservation.bind_comm _ _ _
-      _ = (𝒮[($ᵗ LowLabels : ProbComp _)] >>= fun low => 𝒮[($ᵗ (Message → Digest) : ProbComp _)] >>= fun Nn =>
+      _ = (𝒮[($ᵗ LowLabels : ProbComp _)] >>= fun low => 𝒮[($ᵗ (Message × Fin 2 → Digest) : ProbComp _)] >>= fun Nn =>
           𝒮[($ᵗ LowLabels : ProbComp _)] >>= fun high =>
           𝒮[($ᵗ (U → HashOutput) : ProbComp _)] >>=
-          fun residual => k ⟨secrets, patch nonceOther other Nn, low, high, residual⟩) :=
+          fun residual => k ⟨secrets, patch nonceOtherPair other Nn, low, high, residual⟩) :=
           bind_congr fun low => RetainedObservation.bind_comm _ _ _
       _ = _ := RetainedObservation.bind_comm _ _ _
   simp only [step2]
-  exact patch_uniform nonceOther_injective _ _ (fun other =>
+  exact patch_uniform nonceOtherPair_injective _ _ (fun other =>
     𝒮[($ᵗ LowLabels : ProbComp _)] >>= fun low => 𝒮[($ᵗ LowLabels : ProbComp _)] >>= fun high =>
       𝒮[($ᵗ (U → HashOutput) : ProbComp _)] >>=
       fun residual => k ⟨secrets, other, low, high, residual⟩)
+theorem omegaLaw_patch (U : Finset HashInput) (hsub : digestInputs ⊆ U) {γ : Type}
+    {I : SampleableType (Message → HashOutput)} (k : CanonTable.Omega (U) → SPMF γ) :
+    (𝒮[omegaLaw U] >>= fun ω => 𝒮[($ᵗ (digestInputs → HashOutput) : ProbComp _)] >>= fun D =>
+      𝒮[(@uniformSample _ I : ProbComp (Message → HashOutput))] >>= fun Nh => k (patchOmega hsub ω D Nh)) =
+      𝒮[omegaLaw U] >>= k := by
+  have h : ∀ ω D, (𝒮[(@uniformSample _ I : ProbComp (Message → HashOutput))] >>= fun Nh => k (patchOmega hsub ω D Nh)) =
+      𝒮[($ᵗ (Message × Fin 2 → Digest) : ProbComp _)] >>= fun T => k (patchOmegaP hsub ω D T) :=
+    fun ω D => nonce_split_uniform I (fun T => k (patchOmegaP hsub ω D T))
+  simp only [h]
+  exact omegaLaw_patchP U hsub k
 theorem forced_avg_law (U : Finset HashInput) (hsub : digestInputs ⊆ U) {α : Type}
     (W : CanonTable.Omega U → OracleComp WSpecL α)
     (hW : ∀ omega1 omega2, SameRest omega1 omega2 → W omega1 = W omega2) (slot : Nat) :
@@ -18141,11 +17802,11 @@ theorem forced_avg_law (U : Finset HashInput) (hsub : digestInputs ⊆ U) {α : 
   calc (𝒮[omegaLaw U] >>= fun ω =>
         forcedWithRun envL samplerL slot (W ω) initL)
       = (𝒮[omegaLaw U] >>= fun ω => 𝒮[($ᵗ (digestInputs → HashOutput) : ProbComp _)] >>= fun D =>
-          𝒮[($ᵗ (Message → Digest) : ProbComp _)] >>= fun Nn =>
-          forcedWithRun (envE D Nn) samplerL slot (W ω) initL) :=
+          𝒮[($ᵗ (Message → HashOutput) : ProbComp _)] >>= fun Nn =>
+          forcedWithRun (envE D (fun m => BitVec.ofNat 128 (rhoMod (Nn m)))) samplerL slot (W ω) initL) :=
         bind_congr fun ω => (eager_lazy _ slot initL).symm
     _ = (𝒮[omegaLaw U] >>= fun ω => 𝒮[($ᵗ (digestInputs → HashOutput) : ProbComp _)] >>= fun D =>
-          𝒮[($ᵗ (Message → Digest) : ProbComp _)] >>= fun Nn =>
+          𝒮[($ᵗ (Message → HashOutput) : ProbComp _)] >>= fun Nn =>
           (fun ω' : CanonTable.Omega (U) =>
             forcedWithRun (envE (digestOf ω') (nonceOf ω')) samplerL slot
               (W ω') initL)
@@ -18153,7 +17814,7 @@ theorem forced_avg_law (U : Finset HashInput) (hsub : digestInputs ⊆ U) {α : 
         refine bind_congr fun ω => bind_congr fun D => bind_congr fun Nn => ?_
         dsimp only
         rw [digestOf_patch, nonceOf_patch]
-        exact congrArg (fun W => forcedWithRun (envE D Nn) samplerL slot W initL)
+        exact congrArg (fun W => forcedWithRun (envE D (fun m => BitVec.ofNat 128 (rhoMod (Nn m)))) samplerL slot W initL)
           (hW ω (patchOmega hsub ω D Nn) (sameRest_patch hsub ω D Nn))
     _ = _ := omegaLaw_patch U hsub (fun ω' => forcedWithRun (envE (digestOf ω') (nonceOf ω')) samplerL slot
           (W ω') initL)
@@ -19240,6 +18901,8 @@ theorem reward_lanes {v : Digest} {ds : List Nat} (h : WCT9.CanonicalPolicy.deco
     WCT9.CanonicalPolicy.reward 0 ds = LS v + 4 * eD (gIdx v 0) + (if 152 - LW v = 4 then 1 else 0) := by
   obtain ⟨hv, _, _, _⟩ := (decode_some_iff v ds).1 h
   unfold WCT9.CanonicalPolicy.reward
+  have hlr0 : WCT9.CanonicalPolicy.ladderReward 0 ds = 0 := by simp [WCT9.CanonicalPolicy.ladderReward]
+  rw [hlr0, Nat.add_zero]
   rw [wordCredit_top, savedCopies_top, ds_getD_50' h]
   have hD := (group_lanes hv 0 (by norm_num)).2.2.2.2 rfl
   rw [hD, ds_getD_data h 0 (by norm_num), ds_getD_data h 1 (by norm_num)]
@@ -19515,12 +19178,14 @@ theorem expandCode_drop_eq (b : Nat) (hb : b / 256 < 173) :
   exact (chunkTail_eq expandChunks 256 b expandChunks_ok
     (by rw [expandChunks_length]; exact hb)).symm
 
+/-- R6: the appended sign chunk `signCode_86` is merged into the (already partial) last chunk. -/
 def signChunks : List (List (BitVec 32)) :=
-  [signCode_0, signCode_1, signCode_2, signCode_3, signCode_4, signCode_5, signCode_6, signCode_7, signCode_8, signCode_9, signCode_10, signCode_11, signCode_12, signCode_13, signCode_14, signCode_15, signCode_16, signCode_17, signCode_18, signCode_19, signCode_20, signCode_21, signCode_22, signCode_23, signCode_24, signCode_25, signCode_26, signCode_27, signCode_28, signCode_29, signCode_30, signCode_31, signCode_32, signCode_33, signCode_34, signCode_35, signCode_36, signCode_37, signCode_38, signCode_39, signCode_40, signCode_41, signCode_42, signCode_43, signCode_44, signCode_45, signCode_46, signCode_47, signCode_48, signCode_49, signCode_50, signCode_51, signCode_52, signCode_53, signCode_54, signCode_55, signCode_56, signCode_57, signCode_58, signCode_59, signCode_60, signCode_61, signCode_62, signCode_63, signCode_64, signCode_65, signCode_66, signCode_67, signCode_68, signCode_69, signCode_70, signCode_71, signCode_72, signCode_73, signCode_74, signCode_75, signCode_76, signCode_77, signCode_78, signCode_79, signCode_80, signCode_81, signCode_82, signCode_83, signCode_84, signCode_85]
+  [signCode_0, signCode_1, signCode_2, signCode_3, signCode_4, signCode_5, signCode_6, signCode_7, signCode_8, signCode_9, signCode_10, signCode_11, signCode_12, signCode_13, signCode_14, signCode_15, signCode_16, signCode_17, signCode_18, signCode_19, signCode_20, signCode_21, signCode_22, signCode_23, signCode_24, signCode_25, signCode_26, signCode_27, signCode_28, signCode_29, signCode_30, signCode_31, signCode_32, signCode_33, signCode_34, signCode_35, signCode_36, signCode_37, signCode_38, signCode_39, signCode_40, signCode_41, signCode_42, signCode_43, signCode_44, signCode_45, signCode_46, signCode_47, signCode_48, signCode_49, signCode_50, signCode_51, signCode_52, signCode_53, signCode_54, signCode_55, signCode_56, signCode_57, signCode_58, signCode_59, signCode_60, signCode_61, signCode_62, signCode_63, signCode_64, signCode_65, signCode_66, signCode_67, signCode_68, signCode_69, signCode_70, signCode_71, signCode_72, signCode_73, signCode_74, signCode_75, signCode_76, signCode_77, signCode_78, signCode_79, signCode_80, signCode_81, signCode_82, signCode_83, signCode_84, signCode_85 ++ signCode_86]
 
 private theorem signCode_flatten : signCode = signChunks.flatten := by
-  change signChunks.foldl (· ++ ·) [] = signChunks.flatten
+  unfold signCode signChunks
   rw [foldl_chunks, List.nil_append]
+  simp only [List.flatten_cons, List.flatten_nil, List.append_nil, List.append_assoc]
 
 private theorem signChunks_ok :
     (signChunks.dropLast.all fun c => c.length == 256) = true := by
@@ -19942,7 +19607,8 @@ def tripleScore (m a b c : Nat) : Nat :=
   4*((if a=m ∧ b=m then 1 else 0)+(if b=m ∧ c=m then 1 else 0))
 def lowerLookup (first : Bool) (r : Nat) : Nat :=
   tripleScore 7 (r%8) (r/8%8) (r/64%8) +
-  (if first then 4*((if r%8=7 then 1 else 0)+(if r/8%8=7 ∧ r%8≠7 then 1 else 0)) else 0)
+  (if first then 4*((if r%8=7 then 1 else 0)+(if r/8%8=7 ∧ r%8≠7 then 1 else 0)) else 0) +
+  (if first ∧ r%8 ≤ 5 then 1 else 0)
 def topLookup (kind r : Nat) : Nat :=
   if r<125 then tripleScore 4 (r%5) (r/5%5) (r/25%5) +
     (if kind<2 then 1-(if r%5+r/5%5+r/25%5<3 then 1 else 0) else 0) +
@@ -20444,18 +20110,9 @@ def appCode (b : Nat) : List (BitVec 32) := layoutCode (appL b)
 theorem appL_ok {b : Nat} (hb : b = 354 ∨ b = 543) : layoutOk 0 (appL b) = true := by
   rcases hb with rfl | rfl <;> decide +kernel
 def prxBase (b : Nat) : Nat := if b = 354 then 42726 else 1508
-/-- L-hyper A: the row tweak block jumps (word 4) to its marker trampoline `rt_0`, which returns to word 9. -/
-def p_0s : List (BitVec 32) := [0xf49333,0x1230333,0x1031313,0x20136313,0x20d1706f,0x13,0x13,0x13,0x13,0x20e37,0x260e0e13,0x6e3823,0x100393,0x7e3c23,0xa74ff06f]
-def p_0e : List (BitVec 32) := [0xf49333,0x1230333,0x1031313,0x20136313,0x589c506f,0x13,0x13,0x13,0x13,0x20e37,0x260e0e13,0x6e3823,0x100393,0x7e3c23,0xb79d606f]
+def p_0s : List (BitVec 32) := [0xf49333,19071795,16978707,538141459,50601747,31679283,0xc100f13,59711251,31679283,134711,638455315,7223331,1049491,8272931,0xa74ff06f]
+def p_0e : List (BitVec 32) := [0xf49333,19071795,16978707,538141459,50601747,31679283,0xc100f13,59711251,31679283,134711,638455315,7223331,1049491,8272931,0xb79d606f]
 def p_0 (b : Nat) : List (BitVec 32) := if b = 354 then p_0e else p_0s
-/-- L-hyper A: the row tweak's straight-line marker trampoline: `t1 |= 2 ^ (hyperW lay + 16)` for `s0 = lay`
-(`t5` scratch, `s0` scaled to `6 lay` and restored), then back to the row block's word 9. -/
-def rt_0s : List (BitVec 32) := [0x141f13,0x1e40433,0x840433,0x803f33,0x1f0f13,0x1cf1f13,0x8f1f33,0x1e36333,0x640413,0x345413,0xde0e806f]
-def rt_0e : List (BitVec 32) := [0x141f13,0x1e40433,0x840433,0x803f33,0x1f0f13,0x1cf1f13,0x8f1f33,0x1e36333,0x640413,0x345413,0xa643a06f]
-def rt_0 (b : Nat) : List (BitVec 32) := if b = 354 then rt_0e else rt_0s
-def rtBase (b : Nat) : Nat := if b = 354 then 245324 else 25707
-def PrxCode (image : Image) (b : Nat) : Prop :=
-  CodeAt image (pcOf (prxBase b)) (p_0 b) ∧ CodeAt image (pcOf (rtBase b)) (rt_0 b)
 def tcEntry (b : Nat) : Nat := if b = 354 then 1272 else 1523
 def topSelectBase (b : Nat) : Nat := if b = 354 then 43032 else 21024
 def tcBase (b : Nat) : Nat := topSelectBase b + 3
@@ -20537,7 +20194,7 @@ theorem choiceL_ok {b : Nat} (hb : b=354 ∨ b=543) : layoutOk 0 (choiceL b)=tru
   rcases hb with rfl | rfl <;> decide +kernel
 def KernAt (image : Image) (b : Nat) (rewardCondition : Prop := Reward.RewardAt image b) : Prop :=
   (CodeAt image (pcOf b) (kernCode b) ∧ CodeAt image (pcOf (capBase b)) (appCode b)) ∧ (b = 354 ∨ b = 543) ∧
-    PrxCode image b ∧
+    CodeAt image (pcOf (prxBase b)) (p_0 b) ∧
     (CodeAt image (pcOf (tcBase b)) (c_0 b) ∧ CodeAt image (pcOf (tcEntry b)) (topEntryCode b) ∧
       CodeAt image (pcOf (stubBase b)) (stubCode b)) ∧
     CodeAt image (pcOf (zBase b)) (zeroCode b) ∧
@@ -20700,16 +20357,7 @@ theorem codeAt_a_41 {image : Image} {b : Nat} {rewardCondition : Prop} (h : Kern
     CodeAt image (pcOf (capBase b + 41)) (a_41 b) :=
   codeAt_sublayout h.1.2 (appL_ok h.2.1) (i := 8) rfl
 theorem codeAt_p_0 {image : Image} {b : Nat} {rewardCondition : Prop} (h : KernAt image b rewardCondition) : CodeAt image (pcOf (prxBase b)) (p_0 b) :=
-  h.2.2.1.1
-theorem codeAt_rt_0 {image : Image} {b : Nat} {rewardCondition : Prop} (h : KernAt image b rewardCondition) : CodeAt image (pcOf (rtBase b)) (rt_0 b) :=
-  h.2.2.1.2
-theorem codeAt_p_0b {image : Image} {b : Nat} {rewardCondition : Prop} (h : KernAt image b rewardCondition) :
-    CodeAt image (pcOf (prxBase b + 9)) ((p_0 b).drop 9) := by
-  have hc := codeAt_p_0 h
-  rw [show p_0 b = (p_0 b).take 9 ++ (p_0 b).drop 9 ++ [] by simp] at hc
-  have := CodeAt.drop_prefix hc
-  rwa [show ((p_0 b).take 9).length = 9 by unfold p_0; split <;> rfl, pcOf, ofNat_add_ofNat,
-    show 0x1000 + 4 * prxBase b + 4 * 9 = 0x1000 + 4 * (prxBase b + 9) by ring] at this
+  h.2.2.1
 theorem codeAt_c_0 {image : Image} {b : Nat} {rewardCondition : Prop} (h : KernAt image b rewardCondition) : CodeAt image (pcOf (tcBase b)) (c_0 b) :=
   h.2.2.2.1.1
 theorem codeAt_topEntry {image : Image} {b : Nat} {rewardCondition : Prop} (h : KernAt image b rewardCondition) :
@@ -21250,36 +20898,14 @@ theorem runa_41 {b : Nat} (hb : b = 354 ∨ b = 543) :
   · exact blkA543_41.trans (congrArg some (by kernel_rfl))
 sym_block blkP354_0 := symRun { noAlias := true } p_0e (pcOf 42726) 200
 sym_block blkP543_0 := symRun { noAlias := true } p_0s (pcOf 1508) 200
-sym_block blkR354_0 := symRunAux { noAlias := true } rt_0e (pcOf 245324) 200 blkP354_0.res.st
-sym_block blkR543_0 := symRunAux { noAlias := true } rt_0s (pcOf 25707) 200 blkP543_0.res.st
-sym_block blkQ354_0 := symRunAux { noAlias := true } (p_0e.drop 9) (pcOf 42735) 200 blkR354_0.res.st
-sym_block blkQ543_0 := symRunAux { noAlias := true } (p_0s.drop 9) (pcOf 1517) 200 blkR543_0.res.st
-def stpA_0 : SymState := blkP354_0.res.st
-def stpR_0 : SymState := blkR354_0.res.st
-def stp_0 : SymState := blkQ354_0.res.st
+def stp_0 : SymState := blkP354_0.res.st
 def pcEp_0 (b : Nat) : E := .c (pcOf (b + 112))
-theorem runpA_0 {b : Nat} (hb : b = 354 ∨ b = 543) :
+theorem runp_0 {b : Nat} (hb : b = 354 ∨ b = 543) :
     symRun { noAlias := true } (p_0 b) (pcOf (prxBase b)) 200 =
-      some ⟨stpA_0, .c (pcOf (rtBase b)), blkP354_0.res.stop, 5, 5⟩ := by
+      some ⟨stp_0, pcEp_0 b, blkP354_0.res.stop, blkP354_0.res.steps, blkP354_0.res.cycles⟩ := by
   rcases hb with rfl | rfl
   · exact blkP354_0.trans (congrArg some (by kernel_rfl))
   · exact blkP543_0.trans (congrArg some (by kernel_rfl))
-theorem runpR_0 {b : Nat} (hb : b = 354 ∨ b = 543) :
-    symRunAux { noAlias := true } (rt_0 b) (pcOf (rtBase b)) 200 stpA_0 =
-      some ⟨stpR_0, .c (pcOf (prxBase b + 9)), blkR354_0.res.stop, 11, 11⟩ := by
-  rcases hb with rfl | rfl
-  · exact blkR354_0.trans (congrArg some (by kernel_rfl))
-  · exact (show symRunAux { noAlias := true } rt_0s (pcOf 25707) 200 stpA_0 = _ from
-      (congrArg (symRunAux { noAlias := true } rt_0s (pcOf 25707) 200) (by kernel_rfl :
-        stpA_0 = blkP543_0.res.st)).trans blkR543_0).trans (congrArg some (by kernel_rfl))
-theorem runp_0 {b : Nat} (hb : b = 354 ∨ b = 543) :
-    symRunAux { noAlias := true } ((p_0 b).drop 9) (pcOf (prxBase b + 9)) 200 stpR_0 =
-      some ⟨stp_0, pcEp_0 b, blkQ354_0.res.stop, 6, 6⟩ := by
-  rcases hb with rfl | rfl
-  · exact blkQ354_0.trans (congrArg some (by kernel_rfl))
-  · exact (show symRunAux { noAlias := true } (p_0s.drop 9) (pcOf 1517) 200 stpR_0 = _ from
-      (congrArg (symRunAux { noAlias := true } (p_0s.drop 9) (pcOf 1517) 200) (by kernel_rfl :
-        stpR_0 = blkR543_0.res.st)).trans blkQ543_0).trans (congrArg some (by kernel_rfl))
 sym_block blkC354_0 := symRun { noAlias := true } c_0e (pcOf 43035) 200
 sym_block blkC543_0 := symRun { noAlias := true } c_0s (pcOf 21027) 200
 def stc_0 : SymState := blkC354_0.res.st
@@ -21345,46 +20971,40 @@ section blocks
 variable {image : Image} {b : Nat}
 def rowLo (lay : T3.Layer) (tree leaf : Nat) : BitVec 64 := T3.hyperWord lay.val (tree * 2 ^ T3.height lay + leaf)
 theorem prx_spec {rewardCondition : Prop} (hK : KernAt image b rewardCondition) (s : MachineState) (hpc : s.pc = pcOf (prxBase b))
-    (lay : T3.Layer) (tree leaf : Nat) (hr : tree * 2 ^ T3.height lay + leaf < 2 ^ T3.hyperW lay.val)
+    (lay : T3.Layer) (tree leaf : Nat) (hr : tree * 2 ^ T3.height lay + leaf < 2 ^ 32)
     (h8 : s.getReg .x8 = BitVec.ofNat 64 lay.val) (h9 : s.getReg .x9 = BitVec.ofNat 64 tree)
     (h18 : s.getReg .x18 = BitVec.ofNat 64 leaf)
     (h15 : tree = 0 ∨ s.getReg .x15 = BitVec.ofNat 64 (T3.height lay)) :
-    ∃ t, Steps image s 22 22 t ∧ t.pc = pcOf (b + 112) ∧
+    ∃ t, Steps image s 15 15 t ∧ t.pc = pcOf (b + 112) ∧
       t.getMem (BitVec.ofNat 64 (ENC + 16)) = rowLo lay tree leaf ∧
       t.getMem (BitVec.ofNat 64 (ENC + 24)) = BitVec.ofNat 64 1 ∧
       RegsExcept s t [.x6, .x7, .x28, .x30] ∧
       Frame s t (fun A => A = ENC + 16 ∨ A = ENC + 24) := by
-  have s1 := symRun_sound (runpA_0 hK.2.1) (codeAt_p_0 hK) s hpc (by simp [stpA_0, blkP354_0.res, rv_simp])
-  have s2 := (symRunAux_sound { noAlias := true } image s _ _ _ _ _ (runpR_0 hK.2.1) (codeAt_rt_0 hK)
-    (by simp [stpR_0, blkR354_0.res, rv_simp])).1
-  have s3 := (symRunAux_sound { noAlias := true } image s _ _ _ _ _ (runp_0 hK.2.1) (codeAt_p_0b hK)
-    (by simp [stp_0, blkQ354_0.res, rv_simp, accessValid_iff, MEMORY_BYTES])).1
-  rw [show SymState.toState stpA_0 s (pcOf (rtBase b)) = Result.toState ⟨stpA_0, .c (pcOf (rtBase b)),
-    blkP354_0.res.stop, 5, 5⟩ s by simp [Result.toState, E.eval]] at s2
-  rw [show SymState.toState stpR_0 s (pcOf (prxBase b + 9)) = Result.toState ⟨stpR_0, .c (pcOf (prxBase b + 9)),
-    blkR354_0.res.stop, 11, 11⟩ s by simp [Result.toState, E.eval]] at s3
-  refine ⟨_, (s1.trans s2).trans s3, ?_, ?_, ?_, ?_, ?_⟩
-  · simp [pcEp_0, Result.toState, E.eval]
-  · simp only [Result.toState_getMem, stp_0, blkQ354_0.res]
-    t3n [h9, h18, ENC]
-    rw [LH.mark_bv lay.val lay.isLt _ h8]
+  refine ⟨_, symRun_sound (runp_0 hK.2.1) (codeAt_p_0 hK) s hpc
+    (by simp [stp_0, blkP354_0.res, rv_simp, accessValid_iff, MEMORY_BYTES]), ?_, ?_, ?_, ?_, ?_⟩
+  · simp [pcEp_0, blkP354_0.res, E.eval]
+  · simp only [Result.toState_getMem, stp_0, blkP354_0.res]
+    t3n [h8, h9, h18, ENC]
     have hh : T3.height lay < 64 := by fin_cases lay <;> decide
     have hsh : tree * 2 ^ ((s.getReg .x15).toNat % 64) = tree * 2 ^ T3.height lay := by
       rcases h15 with h | h
       · simp [h]
       · rw [h, BitVec.toNat_ofNat, Nat.mod_eq_of_lt (by omega : T3.height lay < 2 ^ 64), Nat.mod_eq_of_lt hh]
-    rw [hsh]
-    exact LH.label_or lay.val _ lay.isLt hr
-  · simp only [Result.toState_getMem, stp_0, blkQ354_0.res]
+    have hl := lay.isLt
+    rw [hsh, show (513#64) = BitVec.ofNat 64 513 from rfl,
+      ofNat_or_disjoint 513 ((tree * 2 ^ T3.height lay + leaf) * 65536) 16 (by decide) (by omega),
+      ofNat_or_disjoint' _ (↑lay * 281474976710656) 48 (by omega) (by omega),
+      show (13907115649320091648#64) = BitVec.ofNat 64 (193 * 2 ^ 56) from rfl,
+      ofNat_or_disjoint' _ (193 * 2 ^ 56) 56 (by omega) (by omega)]
+    unfold rowLo T3.hyperWord
+    congr 1
+    rw [Nat.mod_eq_of_lt hr, Nat.mod_eq_of_lt (by omega : lay.val < 256)]
+    omega
+  · simp only [Result.toState_getMem, stp_0, blkP354_0.res]
     t3n [ENC]
-  · intro r hr
-    clear s1 s2 s3
-    by_cases h8r : r = .x8
-    · subst h8r; simp only [Result.toState_getReg, stp_0, blkQ354_0.res]
-      exact LH.restE_eval s lay.val lay.isLt h8
-    · simp at hr; cases r <;> simp_all [stp_0, blkQ354_0.res, rv_simp] <;> rfl
+  · intro r hr; simp at hr; cases r <;> simp_all [stp_0, blkP354_0.res, rv_simp] <;> rfl
   · intro A hA hn
-    simp only [Result.toState_getMem, stp_0, blkQ354_0.res]
+    simp only [Result.toState_getMem, stp_0, blkP354_0.res]
     t3n []
     simp only [ENC] at hn
     rw [if_neg (by omega), if_neg (by omega)]
@@ -21397,11 +21017,11 @@ theorem rowTweak_hi (lay : T3.Layer) (tree leaf : Nat) :
     (T3.rowTweak lay tree leaf).extractLsb' 64 64 = BitVec.ofNat 64 1 :=
   BitVec.extractLsb'_append_eq_left
 theorem cs103_spec {rewardCondition : Prop} (hK : KernAt image b rewardCondition) (s : MachineState) (hpc : s.pc = pcOf (b + 103))
-    (lay : T3.Layer) (tree leaf : Nat) (hr : tree * 2 ^ T3.height lay + leaf < 2 ^ T3.hyperW lay.val)
+    (lay : T3.Layer) (tree leaf : Nat) (hr : tree * 2 ^ T3.height lay + leaf < 2 ^ 32)
     (h8 : s.getReg .x8 = BitVec.ofNat 64 lay.val) (h9 : s.getReg .x9 = BitVec.ofNat 64 tree)
     (h18 : s.getReg .x18 = BitVec.ofNat 64 leaf)
     (h15 : tree = 0 ∨ s.getReg .x15 = BitVec.ofNat 64 (T3.height lay)) :
-    ∃ t, Steps image s 24 24 t ∧ t.pc = pcOf (b + 113) ∧
+    ∃ t, Steps image s 17 17 t ∧ t.pc = pcOf (b + 113) ∧
       t.getMem (BitVec.ofNat 64 (ENC + 16)) = rowLo lay tree leaf ∧
       t.getMem (BitVec.ofNat 64 (ENC + 24)) = BitVec.ofNat 64 1 ∧
       t.getReg .x19 = BitVec.ofNat 64 0 ∧
@@ -26566,7 +26186,8 @@ def score (first : Bool) (r : Nat) : Nat :=
   (if r / 64 % 8 = 6 then 1 else 0) + 4 *
     ((if first && decide (r % 8 = 7) then 1 else 0) +
      (if r / 8 % 8 = 7 ∧ (first = true ∨ r % 8 = 7) then 1 else 0) +
-     (if r / 64 % 8 = 7 ∧ r / 8 % 8 = 7 then 1 else 0))
+     (if r / 64 % 8 = 7 ∧ r / 8 % 8 = 7 then 1 else 0)) +
+  (if first && decide (r % 8 ≤ 5) then 1 else 0)
 def shift (q : Nat) : Nat := if q < 7 then 9*q else 64+9*(q-7)
 def rank (v : Digest) (q : Nat) : Nat := v.toNat / 2 ^ shift q % 512
 
@@ -26600,7 +26221,8 @@ theorem group_reward (ds : List Nat) (q r : Nat) (hq : q < 14)
     (h1 : ds.getD (3*q+1) 0 = r/8%8)
     (h2 : ds.getD (3*q+2) 0 = r/64%8) :
     score (decide (q=0)) r = Reward.reward false ds (3*q) +
-      Reward.reward false ds (3*q+1) + Reward.reward false ds (3*q+2) := by
+      Reward.reward false ds (3*q+1) + Reward.reward false ds (3*q+2) +
+      (if q = 0 ∧ r % 8 ≤ 5 then 1 else 0) := by
   have hprev1 : 3*q+1-1=3*q := by omega
   have hprev2 : 3*q+2-1=3*q+1 := by omega
   simp only [Reward.reward, Reward.credit, Reward.saved, Reward.maximum, Reward.direct,
@@ -26614,7 +26236,7 @@ theorem group_reward (ds : List Nat) (q r : Nat) (hq : q < 14)
       Nat.zero_mod, not_true_eq_false, Nat.reduceSub]
     simp only [Bool.false_eq_true, if_false, Nat.reduceSub, decide_eq_true_eq, false_or, Nat.reduceEqDiff, not_false_eq_true, true_and]
     simp only [ne_eq, Nat.reduceEqDiff, not_false_eq_true, true_and]
-    omega
+    split_ifs <;> omega
   · have hq3 : 3*q≠0 := by omega
     have hq31 : 3*q≠1 := by omega
     have hq10 : 3*q+1≠0 := by omega
@@ -26624,7 +26246,7 @@ theorem group_reward (ds : List Nat) (q r : Nat) (hq : q < 14)
     have hm0 : 3*q%3=0 := by omega
     have hm1 : (3*q+1)%3=1 := by omega
     have hm2 : (3*q+2)%3=2 := by omega
-    simp only [score, hq0, hq3, hq31, hq10, hq11, hq20, hq21, hm0, hm1, hm2,
+    simp only [score, hq0, hq3, hq31, hq10, hq11, hq20, hq21, hm0, hm1, hm2, false_and, if_false,
       decide_false, Bool.false_and, Bool.false_or, Bool.false_eq_true, if_false,
       false_or, or_false, and_false, false_and, and_true, Nat.reduceEqDiff,
       not_false_eq_true, not_true_eq_false, Nat.zero_add, Nat.mul_zero]
@@ -26641,7 +26263,8 @@ theorem sum_groups (f : Nat → Nat) :
 theorem packed_reward (lay : Layer) (hl : lay ≠ 0) (v : Digest) (c : Nat) :
     ((List.range 14).map (fun q => score (decide (q=0)) (rank v q))).sum +
       (if c=6 then 1 else 0) =
-      wordCredit lay (lowDigits v ++ [c]) + 4 * savedCopies lay (lowDigits v ++ [c]) := by
+      wordCredit lay (lowDigits v ++ [c]) + 4 * savedCopies lay (lowDigits v ++ [c]) +
+        CanonicalPolicy.ladderReward lay (lowDigits v ++ [c]) := by
   have hcount : T3.chainCount lay=43 := by fin_cases lay <;> simp_all [T3.chainCount]
   have hrew := Reward.reward_sum_counts false (lowDigits v ++ [c]) (List.range 43)
   have heq : wordCredit lay (lowDigits v ++ [c]) + 4 * savedCopies lay (lowDigits v ++ [c]) =
@@ -26652,9 +26275,15 @@ theorem packed_reward (lay : Layer) (hl : lay ≠ 0) (v : Digest) (c : Nat) :
     have hsaved := Reward.saved_layer lay hl (lowDigits v ++ [c])
     simp only [hl, decide_false] at hcredit hsaved
     simp only [hcredit, hsaved]
-  rw [heq, sum_groups]
-  apply congrArg₂ Nat.add
-  · apply congrArg List.sum
+  have hlad : CanonicalPolicy.ladderReward lay (lowDigits v ++ [c]) = if rank v 0 % 8 ≤ 5 then 1 else 0 := by
+    have h := digits_field v c 0 0 (by decide) (by decide)
+    simp only [Nat.mul_zero, Nat.add_zero, pow_zero, Nat.div_one] at h
+    unfold CanonicalPolicy.ladderReward
+    rw [h]; simp [hl]
+  have hgr : (List.range 14).map (fun q => score (decide (q=0)) (rank v q)) =
+      (List.range 14).map (fun q => (Reward.reward false (lowDigits v ++ [c]) (3*q) +
+        Reward.reward false (lowDigits v ++ [c]) (3*q+1) + Reward.reward false (lowDigits v ++ [c]) (3*q+2)) +
+        (if q = 0 ∧ rank v q % 8 ≤ 5 then 1 else 0)) := by
     apply List.map_congr_left
     intro q hq
     have hq' : q < 14 := List.mem_range.mp hq
@@ -26662,9 +26291,16 @@ theorem packed_reward (lay : Layer) (hl : lay ≠ 0) (v : Digest) (c : Nat) :
       (by simpa using digits_field v c q 0 hq' (by omega))
       (by simpa using digits_field v c q 1 hq' (by omega))
       (by simpa using digits_field v c q 2 hq' (by omega))
-  · have hc : (lowDigits v ++ [c]).getD 42 0=c := by rw [List.getD_append_right _ _ _ _ (by simp [lowDigits_length])]; simp [lowDigits_length]
-    have hc' : (lowDigits v ++ [c])[42]?.getD 0=c := hc
+  have hz : ((List.range 14).map (fun q => if q = 0 ∧ rank v q % 8 ≤ 5 then 1 else 0)).sum =
+      if rank v 0 % 8 ≤ 5 then 1 else 0 := by
+    simp [List.range_succ]
+  have hc : (lowDigits v ++ [c]).getD 42 0=c := by
+    rw [List.getD_append_right _ _ _ _ (by simp [lowDigits_length])]; simp [lowDigits_length]
+  have hc' : (lowDigits v ++ [c])[42]?.getD 0=c := hc
+  have h42 : Reward.reward false (lowDigits v ++ [c]) 42 = if c=6 then 1 else 0 := by
     simp [Reward.reward,Reward.credit,Reward.saved,Reward.direct,Reward.maximum,hc']
+  rw [heq, sum_groups, hgr, List.sum_map_add, hz, hlad, h42]
+  omega
 
 end SigGolfCandidate.T3M.Search.LowerLUT
 namespace SigGolfCandidate.T3M.Search.LowerLUT
@@ -26733,8 +26369,8 @@ theorem prefix_spec {image : Image} {b : Nat} (hb : b=354 ∨ b=543) (hR : Rewar
 
 theorem score_lookup (first : Bool) (r : Nat) : score first r=Reward.lowerLookup first r := by
   cases first <;> unfold score Reward.lowerLookup Reward.tripleScore <;>
-    by_cases h0 : r%8=7 <;> by_cases h1 : r/8%8=7 <;> by_cases h2 : r/64%8=7 <;>
-    simp [h0,h1,h2] <;> omega
+    by_cases h0 : r%8=7 <;> by_cases h1 : r/8%8=7 <;> by_cases h2 : r/64%8=7 <;> by_cases h3 : r%8 ≤ 5 <;>
+    simp [h0,h1,h2,h3] <;> omega
 
 theorem lookup_table (s : MachineState) (ht : Reward.LowerTablesOK s) (q r : Nat) (hq : q<14) (hr : r<512) :
     s.getByte (BitVec.ofNat 64 ((if q=0 then 16774144 else 16774656)+r)) =
@@ -26964,7 +26600,8 @@ theorem lower_spec {image : Image} {b : Nat} (hb : b=354 ∨ b=543) (hR : Reward
       t.pc=(if ClaudeWCT.WCT9.producerFloor lay+
           ClaudeWCT.WCT9.dispatchPenalty lay (lowDigits v++[T3.target lay-(lowDigits v).sum])≤
           ClaudeWCT.WCT9.wordCredit lay (lowDigits v++[T3.target lay-(lowDigits v).sum])+
-          4*ClaudeWCT.WCT9.savedCopies lay (lowDigits v++[T3.target lay-(lowDigits v).sum])
+          4*ClaudeWCT.WCT9.savedCopies lay (lowDigits v++[T3.target lay-(lowDigits v).sum])+
+          ClaudeWCT.WCT9.CanonicalPolicy.ladderReward lay (lowDigits v++[T3.target lay-(lowDigits v).sum])
         then pcOf (b+433) else pcOf (b+468)) ∧
       RegsExcept s t [.x10,.x11,.x20,.x28,.x29] ∧ Frame s t (fun _=>False) := by
   obtain ⟨u,su,pu,ux11,ux20,ru,fu⟩ := init_spec hb hR s hp
@@ -30798,7 +30435,7 @@ structure CsPre (b : Nat) (A : CsArgs) (s : MachineState) : Prop where
   x27 : s.getReg .x27 = BitVec.ofNat 64 (csN4 A.lay)
   htree : A.tree < 2 ^ 32
   hleaf : A.leaf < 2 ^ 32
-  hroute : A.tree * 2 ^ T3.height A.lay + A.leaf < 2 ^ T3.hyperW A.lay.val
+  hroute : A.tree * 2 ^ T3.height A.lay + A.leaf < 2 ^ 32
   x15 : A.tree = 0 ∨ s.getReg .x15 = BitVec.ofNat 64 (T3.height A.lay)
   m0 : s.getMem (BitVec.ofNat 64 ENC) = (left A.msg).extractLsb' 0 64
   m8 : s.getMem (BitVec.ofNat 64 (ENC + 8)) = (left A.msg).extractLsb' 64 64
@@ -30876,7 +30513,7 @@ structure CsPreS (b : Nat) (s : MachineState) (lay : Layer) (tree leaf : Nat) (m
   x27 : s.getReg .x27 = BitVec.ofNat 64 (csN4 lay)
   htree : tree < 2 ^ 32
   hleaf : leaf < 2 ^ 32
-  hroute : tree * 2 ^ T3.height lay + leaf < 2 ^ T3.hyperW lay.val
+  hroute : tree * 2 ^ T3.height lay + leaf < 2 ^ 32
   x15 : tree = 0 ∨ s.getReg .x15 = BitVec.ofNat 64 (T3.height lay)
   msg : DigAt s ENC (left message)
   c32 : (s.getMem (BitVec.ofNat 64 (ENC + 32))).toNat < 2 ^ 32
@@ -31332,7 +30969,7 @@ structure CsPre (b : Nat) (A : CsArgs) (s : MachineState) : Prop where
   x27 : s.getReg .x27 = BitVec.ofNat 64 (csN4 A.lay)
   htree : A.tree < 2 ^ 32
   hleaf : A.leaf < 2 ^ 32
-  hroute : A.tree * 2 ^ T3.height A.lay + A.leaf < 2 ^ T3.hyperW A.lay.val
+  hroute : A.tree * 2 ^ T3.height A.lay + A.leaf < 2 ^ 32
   x15 : A.tree = 0 ∨ s.getReg .x15 = BitVec.ofNat 64 (T3.height A.lay)
   m0 : s.getMem (BitVec.ofNat 64 ENC) = (left A.msg).extractLsb' 0 64
   m8 : s.getMem (BitVec.ofNat 64 (ENC + 8)) = (left A.msg).extractLsb' 64 64
@@ -31839,7 +31476,7 @@ set_option maxHeartbeats 1500000
 set_option maxRecDepth 32768
 variable {image : Image} {sk : BitVec 256}
 theorem counterSearch_tbsim {A : CsArgs} {s0 : MachineState} (hK : KernAt image 543 (CanonicalHooks.Code image)) (hpre : CsPre 543 A s0) :
-    TBSim image sk s0 (25 + capLimit A.lay.val * csT A.lay + csOk A.lay)
+    TBSim image sk s0 (18 + capLimit A.lay.val * csT A.lay + csOk A.lay)
       (WCT9.CanonicalPolicy.layerCounterSearchAt A.lay A.floor A.tree A.leaf A.msg 0 (WCT9.searchLimit A.lay)) (CsPost image 543 A s0) := by
   obtain ⟨t, st, pt, h16, h24, h19, rt, ft⟩ := cs103_spec hK s0 hpre.pc A.lay A.tree A.leaf hpre.hroute
     hpre.x8 hpre.x9 hpre.x18 hpre.x15

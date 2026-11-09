@@ -5,7 +5,7 @@ namespace SigGolf.Challenge
 
 def submission : SigGolf.Submission := SigGolfCandidate.Transfer.currentOf SigGolfCandidate.T3M.Paired.submission
 
-theorem signature_bytes : submission.sizes.signature = 5188 := rfl
+theorem signature_bytes : submission.sizes.signature = 5187 := rfl
 
 theorem witness_bytes : submission.sizes.witness = 21756 := rfl
 
@@ -15,7 +15,7 @@ theorem layout_offsets : submission.layout =
   { message := 26016, secretKey := 128, publicKey := 160,
     cache := 524288, signature := 28672, witness := 4256 } := rfl
 
-theorem certificate : SigGolf.Certificate submission 6970 := by
+theorem certificate : SigGolf.Certificate submission 6971 := by
   exact SigGolfCandidate.Packaging.certificate_ready
 
 end SigGolf.Challenge
@@ -26,14 +26,10 @@ end SigGolf.Challenge
 #print axioms SigGolf.Challenge.layout_offsets
 #print axioms SigGolf.Challenge.certificate
 
-/- Development candidate based on Z4 (f8127b2): use FTS node bias -67073
-   and the aligned chain-label translation, remap FTS heap 7 to 64 and
-   Top label 7 to 520192, and separate digest queries with low word 25984.
-   The target removes three verifier setup instructions.
-   Z6: mpjunior92's dedicated-one elimination (8cff05d) on dda3ccf1: the
-   verifier's `addi t2,zero,1` is removed (step-one stores use s1 with
-   control words 0xfff01/0x7fc01, top root label 856064, FTS root label
-   0xfff01).
-   Y4: L-hyper A' (marker label words; -2 per run).
-   Claimed S = 5188, W = 21756, K = 131072, C = 6970;
-   product = 36,160,360. Independent acceptance remains required. -/
+/- Z5R: C13R68 (R6 rho/hint codec, R1 ladder reward, skip-2 hint codec)
+   plus #993 levers: Z5 pre/post-marker WOTS split (Merge112S0/SA/SB/S/T),
+   cap 776, Route C gate 926, sign pool 71, top floor 17.
+   Claimed S = 5187, W = 21756, K = 131072, C = 6971;
+   product = 36,158,577. Independent acceptance remains required.
+   D1 (#992 port): dedicated constant-one initializer removed (verify word 77) using
+   byte/control-word reuse and consistent root-label translations (verify -1 cycle). -/

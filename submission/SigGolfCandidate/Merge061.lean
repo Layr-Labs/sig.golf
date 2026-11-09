@@ -457,10 +457,8 @@ set_option maxHeartbeats 2000000
 set_option maxRecDepth 100000
 set_option Elab.async false
 theorem installed_kernel (P : Prop) (hP : P) : KernAt Images.expandImage 354 P := by
-  refine ⟨⟨?_,?_⟩,Or.inl rfl,And.intro ?_ ?_,⟨?_,?_,?_⟩,?_,?_,?_,hP⟩
-  all_goals first
-    | (apply codeAt_expand_current_chunk <;> decide +kernel)
-    | (apply SigGolfCandidate.T3M.codeAt_lh_tramp_at <;> decide)
+  refine ⟨⟨?_,?_⟩,Or.inl rfl,?_,⟨?_,?_,?_⟩,?_,?_,?_,hP⟩
+  all_goals apply codeAt_expand_current_chunk <;> decide +kernel
 
 theorem reward_code_of_hooks (hH : SharedCounterHooks.Code Images.expandImage) :
     CanonicalExpandHooks.Code Images.expandImage := by
@@ -575,7 +573,7 @@ structure CsPre (b : Nat) (A : CsArgs) (s : MachineState) : Prop where
   x27 : s.getReg .x27 = BitVec.ofNat 64 (csN4 A.lay)
   htree : A.tree < 2 ^ 32
   hleaf : A.leaf < 2 ^ 32
-  hroute : A.tree * 2 ^ T3.height A.lay + A.leaf < 2 ^ T3.hyperW A.lay.val
+  hroute : A.tree * 2 ^ T3.height A.lay + A.leaf < 2 ^ 32
   x15 : A.tree = 0 ∨ s.getReg .x15 = BitVec.ofNat 64 (T3.height A.lay)
   m0 : s.getMem (BitVec.ofNat 64 ENC) = (left A.msg).extractLsb' 0 64
   m8 : s.getMem (BitVec.ofNat 64 (ENC + 8)) = (left A.msg).extractLsb' 64 64
@@ -1091,7 +1089,7 @@ set_option maxHeartbeats 1500000
 set_option maxRecDepth 32768
 variable {image : Image} {sk : BitVec 256}
 theorem counterSearch_tbsim {A : CsArgs} {s0 : MachineState} (hK : KernAt image 354 (CanonicalExpandHooks.Code image)) (hpre : CsPre 354 A s0) :
-    TBSim image sk s0 (25 + capLimit A.lay.val * csT A.lay + csOk A.lay)
+    TBSim image sk s0 (18 + capLimit A.lay.val * csT A.lay + csOk A.lay)
       (WCT9.CanonicalPolicy.layerCounterSearchAt A.lay A.floor A.tree A.leaf A.msg 0 (WCT9.searchLimit A.lay)) (CsPost image 354 A s0) := by
   obtain ⟨t, st, pt, h16, h24, h19, rt, ft⟩ := cs103_spec hK s0 hpre.pc A.lay A.tree A.leaf hpre.hroute
     hpre.x8 hpre.x9 hpre.x18 hpre.x15

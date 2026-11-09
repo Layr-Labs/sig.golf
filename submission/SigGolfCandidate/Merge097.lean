@@ -549,7 +549,7 @@ theorem sign_eq (P : Pending I) (sk : SecretKey) (cache : Bytes 131072) (m : Mes
   rw [mrealize_eq_relabel] at h
   exact h
 set_option maxRecDepth 100000 in
-theorem expand_eq (P : Pending I) (m : Message) (pk : PublicKey) (s : Bytes 5188) :
+theorem expand_eq (P : Pending I) (m : Message) (pk : PublicKey) (s : Bytes 5187) :
     (fun r => (r.value, r.hashCalls)) <$> (submission I).run .expand (m, pk, s) =
       SigGolfCandidate.Bridge.countCalls (relabel toQ (hrealize 0 (expandB m pk (sigDecC s)))) := by
   have h := calls_of_counts
@@ -2689,7 +2689,7 @@ set_option maxHeartbeats 1000000
 set_option maxRecDepth 10000
 
 theorem ftsP_accepted (w : WBytes) (output : HashOutput)
-    (hg : output.toNat/2^242%16384<934)
+    (hg : output.toNat/2^242%16384<926)
     (hr : ∀ k : Fin 9,rawForestRank output k.val<563) :
     ftsP w output = (do
       let p ← SharedV3.forest w (WCT9.digestIndex output) (rawChildFromOutput output)
@@ -2723,7 +2723,7 @@ theorem verifyP_source_of (answers : SigGolfCandidate.T3.Correctness.Answers)
     (hrho : wrho wb=w.signature.rho) (hdc : wdc wb=w.digestCounter)
     (hd : evalWithAnswerFn answers (digest w.signature.rho message w.digestCounter)=output)
     (hbound : w.digestCounter.toNat<WCT9.digestVerifyWindow)
-    (hg : output.toNat/2^242%16384<934)
+    (hg : output.toNat/2^242%16384<926)
     (hr : ∀ k : Fin 9,rawForestRank output k.val<563)
     (hf : SharedV3.forest wb (WCT9.digestIndex output) (rawChildFromOutput output)
       (fun k=>WCT9.embed (forestRank output k.val)) =
@@ -2868,7 +2868,8 @@ theorem honestB_eval (answers : Correctness.Answers) (m : Message)
     rw [ClaudeWCT.W9.T3M.SharedCodec.sigDecC_sigBC_normTop sig
       (ClaudeWCT.W9.T3M.SharedCodec.groundClear_of_lowerPathOK sig (sign_lowerPathOK answers hlower m sig hs)
         (ClaudeWCT.W9.T3M.SharedCodec.ftsSlotsClear_of_ftsPathOK sig
-          (SigGolfCandidate.Research.SharedExpansionClosure.sign_ftsPathOK_U16 answers hlower m sig hs)))]
+          (SigGolfCandidate.Research.SharedExpansionClosure.sign_ftsPathOK_U16 answers hlower m sig hs)))
+      (ClaudeWCT.W9.T3M.SharedCodec.rhoHintOK_sign answers _ m sig hs)]
     rw [expand_eq_expandN,evalWithAnswerFn_bind,evalWithAnswerFn_bind,evalWithAnswerFn_map,eval_expandB]
     cases hx : evalWithAnswerFn answers (expandN m (evalWithAnswerFn answers keygen).1 (SigGolfCandidate.Research.SharedForest.normTop sig)) with
     | none=>rfl
@@ -2890,6 +2891,7 @@ structure EncodingFactsData (p0 p1 p2 : Prop) : Prop where
 
 abbrev EncodingFacts : Prop := EncodingFactsData
   (∀sig : SigGolfCandidate.Research.SharedForest.Signature,ClaudeWCT.W9.T3M.SharedCodec.GroundClear sig →
+    ClaudeWCT.W9.T3M.SharedCodec.RhoHintOK sig →
     sigDecC (sigBC sig)=SigGolfCandidate.Research.SharedForest.normTop sig)
   (∀(m : Message)(pk : Digest)(sig : SigGolfCandidate.Research.SharedForest.Signature)(c : Nat),
     expandN m pk (fillTopSignature sig c)=expandN m pk sig)
@@ -2930,7 +2932,7 @@ theorem sign_value (E : EncodingFacts) (F : SourceQueries) (P : Pending I) (sk :
       Option.map sigBC <$> mrealize sk (sign (cacheDec cache) m) :=
   value_of_counts (F := Option.map sigBC) (P.sign_refines sk cache m)
 set_option maxRecDepth 100000 in
-theorem expand_value (E : EncodingFacts) (F : SourceQueries) (P : Pending I) (m : Message) (pk : PublicKey) (s : Bytes 5188) :
+theorem expand_value (E : EncodingFacts) (F : SourceQueries) (P : Pending I) (m : Message) (pk : PublicKey) (s : Bytes 5187) :
     (fun r => r.value) <$> (submission I).run .expand (m, pk, s) = mrealize 0 (expandB m pk (sigDecC s)) := by
   rw [value_of_counts (F := Option.map (fun x : SigGolfCandidate.T3.HashOutput × Witness => ClaudeWCT.W9.T3M.Paired.witEncF x.1 x.2))
     (P.expand_refines m pk s), expandB, ClaudeWCT.W9.T3M.Paired.expandB, mrealize_map]
@@ -3088,7 +3090,7 @@ theorem abstract_sign_encoded_value (E : EncodingFacts) (F : SourceQueries) (P :
   rw [cacheDec_cacheB] at h
   exact h
 theorem abstract_expand_raw_cost (E : EncodingFacts) (F : SourceQueries) (P : Pending I) (m : Message) (pk : PublicKey)
-    (sig : Bytes 5188) (hash : Hash) :
+    (sig : Bytes 5187) (hash : Hash) :
     (evalWithAnswerFn hash ((submission I).run .expand (m,pk,sig))).hashCompressions =
       (evalWithAnswerFn hash (mrealize 0 (SigGolfCandidate.T3.Cost.countBlocks (expandN m pk (sigDecC sig))))).2 := by
   exact abstract_count_refinement 0 hash (expandN m pk (sigDecC sig))
@@ -3096,11 +3098,12 @@ theorem abstract_expand_raw_cost (E : EncodingFacts) (F : SourceQueries) (P : Pe
     (Option.map (fun x : SigGolfCandidate.T3.HashOutput × Witness => ClaudeWCT.W9.T3M.Paired.witEncF x.1 x.2))
     (P.expand_refines m pk sig) (F.good_expandN _ _ _)
 theorem abstract_expand_encoded_cost (E : EncodingFacts) (F : SourceQueries) (P : Pending I) (m : Message) (pk : PublicKey)
-    (sig : Signature) (hg : ClaudeWCT.W9.T3M.SharedCodec.GroundClear sig) (hash : Hash) :
+    (sig : Signature) (hg : ClaudeWCT.W9.T3M.SharedCodec.GroundClear sig)
+    (hr : ClaudeWCT.W9.T3M.SharedCodec.RhoHintOK sig) (hash : Hash) :
     (evalWithAnswerFn hash ((submission I).run .expand (m,pk,sigBC sig))).hashCompressions =
       (evalWithAnswerFn hash (mrealize 0 (SigGolfCandidate.T3.Cost.countBlocks (expandN m pk (SigGolfCandidate.Research.SharedForest.normTop sig))))).2 := by
   have h := abstract_expand_raw_cost E F P m pk (sigBC sig) hash
-  rw [E.sig_roundtrip sig hg] at h
+  rw [E.sig_roundtrip sig hg hr] at h
   exact h
 theorem eval_expand_blocks (E : EncodingFacts) (F : SourceQueries) (answers : SigGolfCandidate.T3.Correctness.Answers) (m : SigGolfCandidate.T3.Message)
     (pk : Digest) (σ : Signature) :
@@ -3597,7 +3600,7 @@ theorem checked_prepared_failure_zero (P : M Bool) (hPh : HashOnly P)
     (hP : ∀ answers : Answers, SigningComplete answers (evalWithAnswerFn answers keygen).2 → TopTreeOK answers →
       LowerTreesOK answers → evalWithAnswerFn answers P = true) (secret : BitVec 256)
     (nonces : NonceSampling.NonceOutputs) (outputs : NonceSampling.SearchOutputs)
-    (hgood : TableGoodForNonces (fun message => (nonces message).extractLsb' 0 128) outputs) :
+    (hgood : TableGoodForNonces (fun message => BitVec.ofNat 128 (SigGolfCandidate.T3.rhoMod (nonces message))) outputs) :
     Pr[fun value => value=false |
       (simulateQ SphincsSecurity.romImpl (realize secret (checkedOK P))).run'
         (NonceSampling.preparedCache secret nonces outputs)]=0 := by
@@ -3608,12 +3611,12 @@ theorem checked_prepared_failure_zero (P : M Bool) (hPh : HashOnly P)
     change hash (searchQuery key)=outputs key
     exact hagree (NonceSampling.preparedCache_search secret nonces outputs key)
   have hnonce : ∀ message, evalWithAnswerFn (fixedAnswers secret hash) (privateNonce message)=
-      (nonces message).extractLsb' 0 128 := by
+      BitVec.ofNat 128 (SigGolfCandidate.T3.rhoMod (nonces message)) := by
     intro message
     have h := hagree (NonceSampling.preparedCache_nonce secret nonces outputs message)
-    exact congrArg (fun output : HashOutput => output.extractLsb' 0 128) h
+    exact congrArg (fun output : HashOutput => BitVec.ofNat 128 (SigGolfCandidate.T3.rhoMod output)) h
   have hcomplete := tableGoodForNonces_signing outputs (fixedAnswers secret hash)
-    (fun message => (nonces message).extractLsb' 0 128) hgood hsearch hnonce
+    (fun message => BitVec.ofNat 128 (SigGolfCandidate.T3.rhoMod (nonces message))) hgood hsearch hnonce
   exact (fixed_replay secret hash _ (hashOnly_checkedOK hPh)).trans
     (congrArg (pure : Bool → ProbComp Bool) (checkedOK_true_of_good P _ (hP _ hcomplete)))
 
@@ -3630,7 +3633,7 @@ theorem checked_failure_small (P : M Bool) (hPh : HashOnly P)
   apply probEvent_bind_le_of_forall_le
   intro nonces _
   refine (probEvent_bind_le_probEvent
-    (p:=fun outputs => ¬TableGoodForNonces (fun message => (nonces message).extractLsb' 0 128) outputs)
+    (p:=fun outputs => ¬TableGoodForNonces (fun message => BitVec.ofNat 128 (SigGolfCandidate.T3.rhoMod (nonces message))) outputs)
     (fun outputs _ hgood => checked_prepared_failure_zero P hPh hP secret nonces outputs (not_not.mp hgood))).trans ?_
   exact tableGoodForNonces_failure _
 
@@ -4079,7 +4082,8 @@ theorem notEnc_lowerLeafHash (lay : Layer) (tree leaf : Nat) (ends : List Digest
 theorem lowerTweak_notHyper (lay tree heap : Nat) (hh : heap < 128) :
     NotHyper (ClaudeWCT.WCT9.lowerTweak lay tree heap) := by
   apply notHyper_of_marker
-  rw [ClaudeWCT.WCT9.lowerTweak_marker hh]
+  unfold ClaudeWCT.WCT9.lowerTweak ClaudeWCT.WCT9.lowerNodeWord ClaudeWCT.WCT9.lowerK
+  rw [SigGolfCandidate.T3.append64_marker, BitVec.toNat_add, BitVec.toNat_ofNat, SigGolfCandidate.T3.hyperWord_toNat]
   omega
 theorem notEnc_lowerNodeHash (lay tree heap : Nat) (left right : Digest) (hh : lay ≠ 0 → heap < 128) :
     AllQueriesSatisfy (ClaudeWCT.WCT9.lowerNodeHash lay tree heap left right) NotEncS := by
@@ -4716,7 +4720,7 @@ theorem recovered_credit_floors (answers : SigGolfCandidate.T3.Correctness.Answe
     (msg : LayerMsg) (result : RecoveredLayers)
     (he : evalWithAnswerFn answers (recoverHintedLayers sig index other 4 msg) = some result)
     (hh : policyHintsValid sig.policyHints result.digits result.lows = true) :
-    CreditFloors (fun lay => min 70
+    CreditFloors (fun lay => min 71
       (CanonicalPolicy.credit lay (result.lows.getD lay.val true) (result.digits.getD lay.val []))) := by
   apply creditFloors_clip
   exact policyHints_credit_sum _ _ _ hh (fun lay =>
@@ -4741,7 +4745,7 @@ theorem agree_verify (hash : Hash) (message : SigGolfCandidate.T3.Message) (pk :
       Agree hash (okHashBy floors w.topHigh hash)
         (mrealize 0 (SigGolfCandidate.Research.SharedForest.verify message pk w)) := by
   let floors : Layer → Nat := fun lay =>
-    min 70 (CanonicalPolicy.credit lay (result.lows.getD lay.val true) (result.digits.getD lay.val []))
+    min 71 (CanonicalPolicy.credit lay (result.lows.getD lay.val true) (result.digits.getD lay.val []))
   refine ⟨floors, recovered_credit_floors _ _ _ _ _ result hr hh, ?_⟩
   unfold SigGolfCandidate.Research.SharedForest.verify
   split
@@ -4774,7 +4778,7 @@ set_option maxHeartbeats 1000000
 set_option backward.isDefEq.respectTransparency false
 
 theorem expand_witness (E : EncodingFacts) (F : SourceQueries) (P : Final.Paired.Pending I)
-    (hash : Hash) (m : Message) (pk : PublicKey) (s : Bytes 5188) (w : Bytes 21756)
+    (hash : Hash) (m : Message) (pk : PublicKey) (s : Bytes 5187) (w : Bytes 21756)
     (he : ((Final.Paired.submission I).runWith hash .expand (m,pk,s)).value=some w) :
     ∃sig output wt,evalWithAnswerFn (machineAnswers hash 0)
       (ClaudeWCT.W9.T3M.Paired.expandN m pk sig)=some (output,wt) ∧
@@ -4949,7 +4953,7 @@ theorem agree_verifyP_source_of (f g : Hash) (message : SigGolfCandidate.T3.Mess
     (hrho : wrho wb=w.signature.rho) (hdc : wdc wb=w.digestCounter)
     (hd : evalWithAnswerFn (machineAnswers f 0)
       (SigGolfCandidate.T3.digest w.signature.rho message w.digestCounter)=output)
-    (hg : output.toNat/2^242%16384<934)
+    (hg : output.toNat/2^242%16384<926)
     (hr : ∀ k : Fin 9,rawForestRank output k.val<563)
     (hf : SharedV3.forest wb (WCT9.digestIndex output) (rawChildFromOutput output)
       (fun k=>WCT9.embed (forestRank output k.val)) =
