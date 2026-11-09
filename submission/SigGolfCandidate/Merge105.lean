@@ -8329,8 +8329,7 @@ structure Coherent (U : Finset HashInput) (T : Answers) (vals : Coord → Digest
   priv : ∀ c : Coordinate, (∀ i : Fin 2, (c, i) ∉ Set.range secretCoordinate) → (∀ m : Message, c ≠ .inr (.inl m)) →
     T (.inr c) = a.priv c
   outside : ∀ X, X ∉ U → T (.inl (.inr X)) = (0 : HashOutput)
-  /-- R6: the nonce view is `rhoMod` of the full 256-bit private answer (Merge009 `privateNonce`). -/
-  nonce : ∀ m : Message, BitVec.ofNat 128 (rhoMod (T (.inr (.inr (.inl m))))) = nv m
+  nonce : ∀ m : Message, (T (.inr (.inr (.inl m)))).extractLsb' 0 128 = nv m
 section Coherent
 variable {U : Finset HashInput} {T : Answers} {vals : Coord → Digest} {nv : Message → Digest} {τ : Cell U → HashOutput} {a : AuxData}
 end Coherent
@@ -8428,7 +8427,7 @@ theorem encRow_ne_digest' (L : Wots.LeafAddr) (m : WCT9.LayerMsg) (c : BitVec 32
   have hm := congrArg tweakMarker (bytesLE_injective hb)
   unfold WCT9.rowTweakW at hm
   rw [append64_marker, hyperWord_marker, digestHeader_marker] at hm
-  exact absurd hm (by decide)
+  split_ifs at hm <;> exact absurd hm (by decide)
 section Coherent
 variable {U : Finset HashInput} {T : Answers} {vals : Coord → Digest} {nv : Message → Digest} {τ : Cell U → HashOutput} {a : AuxData}
 end Coherent
@@ -8571,7 +8570,7 @@ noncomputable def routerLabels (vals : Coord → Digest) (a : AuxData) : Labels 
 def HonestPrefix (vals : Coord → Digest) (a : AuxData) (X : HashInput) : Prop :=
   ∃(L : CanonEncoding.EncLeaf)(ctr : BitVec 32),X=Wots.encRow L.toWots (msgVals vals L) ctr 0 ∧ PrefixRow a L ctr
 
-structure Coherent (U : Finset HashInput) (T : Answers) (vals : Coord → Digest) (nv : Message × Fin 2 → Digest)
+structure Coherent (U : Finset HashInput) (T : Answers) (vals : Coord → Digest) (nv : Message → Digest)
     (τ : Cell U → HashOutput) (a : AuxData) : Prop where
   agrees : CanonGraph.Paired.Filtered.Agrees T (routerLabels vals a)
   secrets : seedView (secretsOf T)=fun s => vals (.inr s)
@@ -8587,8 +8586,7 @@ structure Coherent (U : Finset HashInput) (T : Answers) (vals : Coord → Digest
   priv : ∀c : Coordinate,(∀i : Fin 2,(c,i)∉Set.range secretCoordinate) → (∀m : Message,c≠.inr (.inl m)) →
     T (.inr c)=a.priv c
   outside : ∀X,X∉U → T (.inl (.inr X))=(0 : HashOutput)
-  /-- R6: the full 256-bit nonce answer is the join of the two nonce-half labels. -/
-  nonce : ∀m : Message,T (.inr (.inr (.inl m)))=SigGolfCandidate.T3.Security.ChainGraph.joinOutput (nv (m,0)) (nv (m,1))
+  nonce : ∀m : Message,(T (.inr (.inr (.inl m)))).extractLsb' 0 128=nv m
   selected : a.sel=CanonEncoding.Paired.selectionsOfRows a.rows
   /-- Top-nonce layer: no top position exhausted its trial cap (`CapFail`, probability ≤ 2^-142). -/
   capOk : ¬ CanonGraph.CapFail (routerLabels vals a)
@@ -9130,7 +9128,7 @@ theorem rowPresent_unparsed {X : HashInput} (hp : ¬Parsed X) (y : HashOutput) :
   rfl
 
 section Coherent
-variable {U : Finset HashInput} {T : Answers} {vals : Coord → Digest} {nv : Message × Fin 2 → Digest}
+variable {U : Finset HashInput} {T : Answers} {vals : Coord → Digest} {nv : Message → Digest}
   {τ : Cell U → HashOutput} {a : AuxData}
 
 theorem Coherent.coordVal (h : Coherent U T vals nv τ a) : coordVal (secretsOf T) (routerLabels vals a)=vals := by
@@ -9278,7 +9276,7 @@ theorem childSlots_used (N : CanonGraph.Node) (hu : CanonGraph.Paired.Filtered.U
     exact (by decide : (0 : Digest)≠1) hs
 
 theorem Coherent.honestValue_used {U : Finset HashInput} {T : Answers} {vals : Coord→Digest}
-    {nv : Message × Fin 2→Digest} {τ : SigGolfCandidate.T3.Security.LargeResidual.Cell U→HashOutput} {a : AuxData}
+    {nv : Message→Digest} {τ : SigGolfCandidate.T3.Security.LargeResidual.Cell U→HashOutput} {a : AuxData}
     (h : Coherent U T vals nv τ a) (c : Coord) (hc : UsedCoord c) : honestValue T c=vals (selCoordV vals c) := by
   cases c with
   | inl n => exact h.honestValue_node n hc
@@ -9310,7 +9308,7 @@ theorem ftsLabel_top (labels : Labels) (index : Fin (2^31)) (coord : Fin 9) (b :
   rw [wSelNode_of_cap_one (wTrialCap_off (by show (5:Nat) ≠ 3; decide)) rfl]
 
 section Coherent
-variable {U : Finset HashInput} {T : Answers} {vals : Coord→Digest} {nv : Message × Fin 2→Digest}
+variable {U : Finset HashInput} {T : Answers} {vals : Coord→Digest} {nv : Message→Digest}
   {τ : Cell U→HashOutput} {a : AuxData}
 
 theorem Coherent.cell (h : Coherent U T vals nv τ a) (N : CanonGraph.Node)
@@ -9405,7 +9403,7 @@ set_option maxRecDepth 10000
 set_option backward.isDefEq.respectTransparency false
 attribute [local instance] Classical.propDecidable
 section Coherent
-variable {U : Finset HashInput} {T : Answers} {vals : Coord→Digest} {nv : Message × Fin 2→Digest}
+variable {U : Finset HashInput} {T : Answers} {vals : Coord→Digest} {nv : Message→Digest}
   {τ : Cell U→HashOutput} {a : AuxData}
 
 theorem Coherent.sel_context (h : Coherent U T vals nv τ a) (L : EncLeaf)
@@ -9522,7 +9520,7 @@ set_option backward.isDefEq.respectTransparency false
 set_option synthInstance.maxSize 1024
 attribute [local instance] Classical.propDecidable
 open ClaudeWCT.W9.T3.Security.LargeResidual (WCoord Coord SeedIndex WFam wsplit_inr keygenDisclosed keygenCacheDisclosed encodingDisclosed_shape LowerLeaf msgVals msgSlots treeChild)
-structure Rel (U : Finset HashInput) (T : Answers) (vals : Coord → Digest) (nv : Message × Fin 2 → Digest)
+structure Rel (U : Finset HashInput) (T : Answers) (vals : Coord → Digest) (nv : Message → Digest)
     (τ : Cell U → HashOutput) (a : AuxData) (q : Nat) (mon : Monitor) (st : RouterState) (ws : LargeResidual.State WCoord (Cell U)) : Prop where
   disclosed : mon.disclosed = st.disclosed
   seen : mon.seen = st.seen
@@ -9540,7 +9538,7 @@ structure Rel (U : Finset HashInput) (T : Answers) (vals : Coord → Digest) (nv
   seenEnc : ∀ X ∈ st.seen, X ∈ U → ∀ (L : EncLeaf) (ctr : BitVec 32),
     X = Wots.encRow L.toWots (msgVals vals L) ctr 0 → ∀ cs ∈ msgSlots L, (LargeResidual.Paired.RouterState.known st) cs.1
 section Relation
-variable {U : Finset HashInput} {T : Answers} {vals : Coord → Digest} {nv : Message × Fin 2 → Digest} {τ : Cell U → HashOutput} {a : AuxData}
+variable {U : Finset HashInput} {T : Answers} {vals : Coord → Digest} {nv : Message → Digest} {τ : Cell U → HashOutput} {a : AuxData}
   {q : Nat} {mon : Monitor} {st : RouterState} {ws : LargeResidual.State WCoord (Cell U)}
 theorem Rel.known (h : Rel U T vals nv τ a q mon st ws) : mon.known = (LargeResidual.Paired.RouterState.known st) := by
   unfold Monitor.known LargeResidual.Paired.RouterState.known
@@ -9604,7 +9602,7 @@ theorem Rel.next (h : Rel U T vals nv τ a q mon st ws) (hlt : st.calls < q) (X 
     · exact henc hYU L ctr hL
     · exact h.seenEnc Y hY hYU L ctr hL
 end Relation
-def QueryOutcome (U : Finset HashInput) (T : Answers) (vals : Coord → Digest) (nv : Message × Fin 2 → Digest)
+def QueryOutcome (U : Finset HashInput) (T : Answers) (vals : Coord → Digest) (nv : Message → Digest)
     (τ : Cell U → HashOutput) (a : AuxData) (q : Nat) (mon : Monitor) (st : RouterState) (ws : LargeResidual.State WCoord (Cell U))
     (X : HashInput) (out : SPMF (Option (HashOutput × RouterState) × LargeResidual.State WCoord (Cell U))) : Prop :=
   ∃ ws' : LargeResidual.State WCoord (Cell U),
@@ -9614,7 +9612,7 @@ def QueryOutcome (U : Finset HashInput) (T : Answers) (vals : Coord → Digest) 
         out = pure (some (T (.inl (.inr X)), st.next U X (T (.inl (.inr X)))), ws') ∧
         Rel U T vals nv τ a q (mon.query U T q X (T (.inl (.inr X)))) (st.next U X (T (.inl (.inr X)))) ws')
 section Query
-variable {U : Finset HashInput} {T : Answers} {vals : Coord → Digest} {nv : Message × Fin 2 → Digest} {τ : Cell U → HashOutput} {a : AuxData}
+variable {U : Finset HashInput} {T : Answers} {vals : Coord → Digest} {nv : Message → Digest} {τ : Cell U → HashOutput} {a : AuxData}
   {q : Nat} {mon : Monitor} {st : RouterState} {ws : LargeResidual.State WCoord (Cell U)}
   (aux : (input : AuxSpec.Domain) → PMF (AuxSpec.Range input))
 theorem observed_map {β γ : Type} (f : β → γ) (c : OracleComp (RWorld U) β) (s : LargeResidual.State WCoord (Cell U)) :
@@ -9666,7 +9664,7 @@ theorem observed_testReqP (g : HashOutput → HashOutput) (st' : RouterState) (X
     · rw [map_pure]; rfl
 end Query
 section Cases
-variable {U : Finset HashInput} {T : Answers} {vals : Coord → Digest} {nv : Message × Fin 2 → Digest} {τ : Cell U → HashOutput} {a : AuxData}
+variable {U : Finset HashInput} {T : Answers} {vals : Coord → Digest} {nv : Message → Digest} {τ : Cell U → HashOutput} {a : AuxData}
   {q : Nat} {mon : Monitor} {st : RouterState} {ws : LargeResidual.State WCoord (Cell U)}
   (aux : (input : AuxSpec.Domain) → PMF (AuxSpec.Range input))
 theorem outcome_stop (hrel : Rel U T vals nv τ a q mon st ws) (hlt : st.calls < q) (X : HashInput)
@@ -10116,7 +10114,7 @@ theorem contactTest_other {A : Answers} {K : Coord→Prop} {X : HashInput} {y : 
   · exact he ⟨L,m,c,pad,hfit,hX⟩
 
 section Coherent
-variable {U : Finset HashInput} {T : Answers} {vals : Coord→Digest} {nv : Message × Fin 2→Digest}
+variable {U : Finset HashInput} {T : Answers} {vals : Coord→Digest} {nv : Message→Digest}
   {τ : Cell U→HashOutput} {a : AuxData}
 
 /-- A cell decoding to the position of `N` is the cell of a non-phantom node of that position. -/
@@ -10213,7 +10211,7 @@ set_option maxRecDepth 10000
 set_option backward.isDefEq.respectTransparency false
 attribute [local instance] Classical.propDecidable
 section Coherent
-variable {U : Finset HashInput} {T : Answers} {vals : Coord→Digest} {nv : Message × Fin 2→Digest}
+variable {U : Finset HashInput} {T : Answers} {vals : Coord→Digest} {nv : Message→Digest}
   {τ : Cell U→HashOutput} {a : AuxData}
 
 theorem honestPrefix_iff {L : EncLeaf} {m : WCT9.LayerMsg} {ctr : BitVec 32} {pad : Wots.RowPad} :
@@ -10277,7 +10275,7 @@ attribute [local instance] Classical.propDecidable
 open ClaudeWCT.W9.T3.Security.LargeResidual (WCoord Coord SeedIndex WFam wsplit_inr keygenDisclosed keygenCacheDisclosed encodingDisclosed_shape LowerLeaf msgVals msgSlots treeChild)
 open ClaudeWCT.W9.T3.Security.LargeResidual (lookupVal)
 section Cases
-variable {U : Finset HashInput} {T : Answers} {vals : Coord → Digest} {nv : Message × Fin 2 → Digest} {τ : Cell U → HashOutput} {a : AuxData}
+variable {U : Finset HashInput} {T : Answers} {vals : Coord → Digest} {nv : Message → Digest} {τ : Cell U → HashOutput} {a : AuxData}
   {q : Nat} {mon : Monitor} {st : RouterState} {ws : LargeResidual.State WCoord (Cell U)}
   (aux : (input : AuxSpec.Domain) → PMF (AuxSpec.Range input))
 theorem case_unknownChild (hcoh : LargeResidual.Paired.Coherent U T vals nv τ a) (hrel : Rel U T vals nv τ a q mon st ws)
@@ -10653,7 +10651,7 @@ attribute [local instance] Classical.propDecidable
 open ClaudeWCT.W9.T3.Security.LargeResidual (WCoord Coord SeedIndex WFam wsplit_inr keygenDisclosed keygenCacheDisclosed encodingDisclosed_shape LowerLeaf msgVals msgSlots treeChild)
 open ClaudeWCT.W9.T3.Security.LargeResidual (lookupVal encodingHit keep_encodingHit)
 section Cases
-variable {U : Finset HashInput} {T : Answers} {vals : Coord → Digest} {nv : Message × Fin 2 → Digest} {τ : Cell U → HashOutput} {a : AuxData}
+variable {U : Finset HashInput} {T : Answers} {vals : Coord → Digest} {nv : Message → Digest} {τ : Cell U → HashOutput} {a : AuxData}
   {q : Nat} {mon : Monitor} {st : RouterState} {ws : LargeResidual.State WCoord (Cell U)}
   (aux : (input : AuxSpec.Domain) → PMF (AuxSpec.Range input))
 theorem case_phantom (hcoh : LargeResidual.Paired.Coherent U T vals nv τ a) (hrel : Rel U T vals nv τ a q mon st ws)
@@ -11035,7 +11033,7 @@ attribute [local instance] Classical.propDecidable
 open ClaudeWCT.W9.T3.Security.LargeResidual (WCoord Coord SeedIndex WFam wsplit_inr keygenDisclosed keygenCacheDisclosed encodingDisclosed_shape LowerLeaf msgVals msgSlots treeChild)
 open ClaudeWCT.W9.T3.Security.LargeResidual (lookupVal EncRow)
 section Cases
-variable {U : Finset HashInput} {T : Answers} {vals : Coord → Digest} {nv : Message × Fin 2 → Digest} {τ : Cell U → HashOutput} {a : AuxData}
+variable {U : Finset HashInput} {T : Answers} {vals : Coord → Digest} {nv : Message → Digest} {τ : Cell U → HashOutput} {a : AuxData}
   {q : Nat} {mon : Monitor} {st : RouterState} {ws : LargeResidual.State WCoord (Cell U)}
   (aux : (input : AuxSpec.Domain) → PMF (AuxSpec.Range input))
 theorem case_digest (hcoh : LargeResidual.Paired.Coherent U T vals nv τ a) (hrel : Rel U T vals nv τ a q mon st ws)
@@ -11257,21 +11255,21 @@ variable {U : Finset HashInput} (aux : (input : AuxSpec.Domain) → PMF (AuxSpec
   (labels : WCoord → Digest) (τ : Cell U → HashOutput) (a : AuxData)
 end Search
 section Coherent
-variable {U : Finset HashInput} {T : Answers} {vals : Coord → Digest} {nv : Message × Fin 2 → Digest}
+variable {U : Finset HashInput} {T : Answers} {vals : Coord → Digest} {nv : Message → Digest}
   {τ : Cell U → HashOutput} {a : AuxData}
 end Coherent
 section Sign
-variable {U : Finset HashInput} {T : Answers} {vals : Coord → Digest} {nv : Message × Fin 2 → Digest}
+variable {U : Finset HashInput} {T : Answers} {vals : Coord → Digest} {nv : Message → Digest}
   {τ : Cell U → HashOutput} {a : AuxData} {q : Nat} {mon : Monitor} {st : RouterState}
   {ws : LargeResidual.State WCoord (Cell U)} (aux : (input : AuxSpec.Domain) → PMF (AuxSpec.Range input))
 end Sign
 section SignRel
-variable {U : Finset HashInput} {T : Answers} {vals : Coord → Digest} {nv : Message × Fin 2 → Digest}
+variable {U : Finset HashInput} {T : Answers} {vals : Coord → Digest} {nv : Message → Digest}
   {τ : Cell U → HashOutput} {a : AuxData} {q : Nat} {mon : Monitor} {st : RouterState}
   {ws : LargeResidual.State WCoord (Cell U)} (aux : (input : AuxSpec.Domain) → PMF (AuxSpec.Range input))
 end SignRel
 section SignMain
-variable {U : Finset HashInput} {T : Answers} {vals : Coord → Digest} {nv : Message × Fin 2 → Digest}
+variable {U : Finset HashInput} {T : Answers} {vals : Coord → Digest} {nv : Message → Digest}
   {τ : Cell U → HashOutput} {a : AuxData} {q : Nat} {mon : Monitor} {st : RouterState}
   {ws : LargeResidual.State WCoord (Cell U)} (aux : (input : AuxSpec.Domain) → PMF (AuxSpec.Range input))
 end SignMain
@@ -11315,7 +11313,7 @@ section Monitor
 variable (U : Finset HashInput) (A : Answers) (q : Nat)
 end Monitor
 section Verdict
-variable {U : Finset HashInput} {T : Answers} {vals : Coord → Digest} {nv : Message × Fin 2 → Digest}
+variable {U : Finset HashInput} {T : Answers} {vals : Coord → Digest} {nv : Message → Digest}
   {τ : Cell U → HashOutput} {a : AuxData} {q : Nat}
   (aux : (input : AuxSpec.Domain) → PMF (AuxSpec.Range input))
 end Verdict
@@ -11343,7 +11341,7 @@ section Steps
 variable (U : Finset HashInput) (A : Answers) (q : Nat) (published : SigGolfCandidate.T3.Cache)
 end Steps
 section Interaction
-variable {U : Finset HashInput} {T : Answers} {vals : Coord → Digest} {nv : Message × Fin 2 → Digest}
+variable {U : Finset HashInput} {T : Answers} {vals : Coord → Digest} {nv : Message → Digest}
   {τ : Cell U → HashOutput} {a : AuxData} {q : Nat} (initLaw : PMF AuxData)
 end Interaction
 end ClaudeWCT.W9.T3.Security.LargeCoupling
@@ -11433,7 +11431,7 @@ theorem observed_search (T : Answers) (rho : Digest) (m : Message)
         exact ⟨ws', h1, hrd.trans h2⟩
 end Search
 section Coherent
-variable {U : Finset HashInput} {T : Answers} {vals : Coord → Digest} {nv : Message × Fin 2 → Digest}
+variable {U : Finset HashInput} {T : Answers} {vals : Coord → Digest} {nv : Message → Digest}
   {τ : Cell U → HashOutput} {a : AuxData}
 theorem _root_.ClaudeWCT.W9.T3.Security.LargeResidual.Paired.Coherent.digestRow (hcoh : LargeResidual.Paired.Coherent U T vals nv τ a) (hUpub : SeccLaw.publicUniverse ⊆ U) (rho : Digest)
     (m : Message) (c : BitVec 32) :
@@ -11446,12 +11444,12 @@ theorem _root_.ClaudeWCT.W9.T3.Security.LargeResidual.Paired.Coherent.digestRow 
   rintro ⟨L, ctr, hX, -⟩
   exact encRow_not_digest L _ ctr 0 (hX ▸ hd)
 theorem _root_.ClaudeWCT.W9.T3.Security.LargeResidual.Paired.Coherent.privateNonce (hcoh : LargeResidual.Paired.Coherent U T vals nv τ a) (m : Message) :
-    evalWithAnswerFn T (SigGolfCandidate.T3.privateNonce m) = LargeResidual.nonceVal nv m := by
+    evalWithAnswerFn T (SigGolfCandidate.T3.privateNonce m) = nv m := by
   simp only [SigGolfCandidate.T3.privateNonce, privateHash, evalWithAnswerFn_bind, evalWithAnswerFn_pure]
-  exact congrArg (fun h => BitVec.ofNat 128 (rhoMod h)) (hcoh.nonce m)
+  exact hcoh.nonce m
 theorem _root_.ClaudeWCT.W9.T3.Security.LargeResidual.Paired.Coherent.signDigest (hcoh : LargeResidual.Paired.Coherent U T vals nv τ a) (m : Message) :
     LargeResidual.Paired.signDigest T m =
-      evalWithAnswerFn T (SigGolfCandidate.Research.SharedForest.sharedDigestSearch (LargeResidual.nonceVal nv m) m 0 WCT9.digestAttemptLimit) := by
+      evalWithAnswerFn T (SigGolfCandidate.Research.SharedForest.sharedDigestSearch (nv m) m 0 WCT9.digestAttemptLimit) := by
   unfold LargeResidual.Paired.signDigest
   rw [hcoh.privateNonce]
 
@@ -11472,7 +11470,7 @@ set_option maxRecDepth 10000
 set_option backward.isDefEq.respectTransparency false
 attribute [local instance] Classical.propDecidable
 section Coherent
-variable {U : Finset HashInput} {T : Answers} {vals : Coord→Digest} {nv : Message × Fin 2→Digest}
+variable {U : Finset HashInput} {T : Answers} {vals : Coord→Digest} {nv : Message→Digest}
   {τ : Cell U→HashOutput} {a : AuxData}
 
 theorem layerChains_congr (d d' : Wots.LeafAddr→List Nat) (index : Fin (2^31)) (lay : Layer)
@@ -11669,7 +11667,7 @@ theorem eval_authenticatedSign (T : Answers) (published : SigGolfCandidate.T3.Ca
   · rw [h1]
   · rfl
 section Sign
-variable {U : Finset HashInput} {T : Answers} {vals : Coord → Digest} {nv : Message × Fin 2 → Digest}
+variable {U : Finset HashInput} {T : Answers} {vals : Coord → Digest} {nv : Message → Digest}
   {τ : Cell U → HashOutput} {a : AuxData} {q : Nat} {mon : Monitor} {st : RouterState}
   {ws : LargeResidual.State WCoord (Cell U)} (aux : (input : AuxSpec.Domain) → PMF (AuxSpec.Range input))
 noncomputable def finishOut (T : Answers) (vals : Coord → Digest) (rho : Digest) (found : Option (BitVec 32 × HashOutput)) :
@@ -11748,7 +11746,7 @@ theorem signItems_wct_nonce (T : Answers) (N : HashOutput) :
         unfold ClaudeWCT.W9.T3.Security.LargeResidual.treeChild at hj
         split_ifs at hj <;> simp at hj
       · simp at hl
-theorem selVals_lookup_sign (vals : Coord → Digest) (nv : Message × Fin 2 → Digest) (items : List Coord)
+theorem selVals_lookup_sign (vals : Coord → Digest) (nv : Message → Digest) (items : List Coord)
     (hitems : ∀ c ∈ items, ∀ m : CanonGraph.TreeNode, c = .inl (.node m) → m.1.nonce.val = 0)
     (hwitems : ∀ c ∈ items, ∀ m : CanonGraph.WctNodePos, c = .inl (.wctNode m) → m.1.nonce.val = 0)
     (c : Coord) (hc : c ∈ items) :
@@ -11823,11 +11821,11 @@ theorem observed_signFinish (hcoh : LargeResidual.Paired.Coherent U T vals nv τ
         exact observed_pure aux q _ τ _ ws1
 end Sign
 section SignRel
-variable {U : Finset HashInput} {T : Answers} {vals : Coord → Digest} {nv : Message × Fin 2 → Digest}
+variable {U : Finset HashInput} {T : Answers} {vals : Coord → Digest} {nv : Message → Digest}
   {τ : Cell U → HashOutput} {a : AuxData} {q : Nat} {mon : Monitor} {st : RouterState}
   {ws : LargeResidual.State WCoord (Cell U)} (aux : (input : AuxSpec.Domain) → PMF (AuxSpec.Range input))
 theorem known_signed (published : SigGolfCandidate.T3.Cache) (request : Security.Request) (c : Coord) (hc : (LargeResidual.Paired.RouterState.known st) c) :
-    LargeResidual.Paired.RouterState.known (signedState T (LargeResidual.nonceVal nv) published st request) c := by
+    LargeResidual.Paired.RouterState.known (signedState T nv published st request) c := by
   unfold LargeResidual.Paired.RouterState.known at hc ⊢
   refine LargeResidual.Paired.Known.mono (fun d hd => ?_) hc
   rcases hd with hd | hd
@@ -11836,7 +11834,7 @@ theorem known_signed (published : SigGolfCandidate.T3.Cache) (request : Security
     rw [signedState_disclosed]
     exact List.mem_append_left _ hd
 theorem known_signed_new (published : SigGolfCandidate.T3.Cache) (request : Security.Request) (c : Coord)
-    (hc : c ∈ signDisclosed T published request) : LargeResidual.Paired.RouterState.known (signedState T (LargeResidual.nonceVal nv) published st request) c := by
+    (hc : c ∈ signDisclosed T published request) : LargeResidual.Paired.RouterState.known (signedState T nv published st request) c := by
   apply LargeResidual.Paired.Known.base
   right
   rw [signedState_disclosed]
@@ -11847,12 +11845,12 @@ theorem Rel.afterSign (hrel : Rel U T vals nv τ a q mon st ws) (published : Sig
       wsF.candidates (.inl c) = ws.candidates (.inl c))
     (hmemF : ∀ c, Sum.elim vals nv c ∈ wsF.candidates c) (hcnt : wsF.counters = ws.counters)
     (hrows : ∀ row v, wsF.rows row = some v → ws.rows row = some v ∨ (IsDigestRow row.val ∧ v = τ row)) :
-    Rel U T vals nv τ a q (mon.sign T published request) (signedState T (LargeResidual.nonceVal nv) published st request) wsF := by
+    Rel U T vals nv τ a q (mon.sign T published request) (signedState T nv published st request) wsF := by
   have hms : mon.sign T published request =
       ⟨mon.disclosed ++ signDisclosed T published request, mon.seen, mon.calls, mon.digests, false⟩ := by
     unfold Monitor.sign
     rw [if_neg (by rw [hrel.contact]; decide)]
-  obtain ⟨hseen, hcalls⟩ := signedState_seen T (LargeResidual.nonceVal nv) published st request
+  obtain ⟨hseen, hcalls⟩ := signedState_seen T nv published st request
   rw [hms]
   refine ⟨?_, ?_, ?_, ?_, ?_, rfl, ?_, ?_, hmemF, ?_, ?_, ?_, ?_, ?_⟩
   · rw [signedState_disclosed, hrel.disclosed]
@@ -11940,25 +11938,23 @@ noncomputable local instance instDecidableEqCache_w9largeCouplingSigning_sign : 
   Classical.decEq _
 open ClaudeWCT.W9.T3.Security.LargeResidual (WCoord Coord msgVals msgSlots layerChains layerItems layerPath lookupVal)
 section SignMain
-variable {U : Finset HashInput} {T : Answers} {vals : Coord → Digest} {nv : Message × Fin 2 → Digest}
+variable {U : Finset HashInput} {T : Answers} {vals : Coord → Digest} {nv : Message → Digest}
   {τ : Cell U → HashOutput} {a : AuxData} {q : Nat} {mon : Monitor} {st : RouterState}
   {ws : LargeResidual.State WCoord (Cell U)} (aux : (input : AuxSpec.Domain) → PMF (AuxSpec.Range input))
 theorem routeSign_observed (hcoh : LargeResidual.Paired.Coherent U T vals nv τ a) (hUpub : SeccLaw.publicUniverse ⊆ U)
     (published : SigGolfCandidate.T3.Cache)
     (hsource : ∀request : Security.Request,request.cache=published →
       evalWithAnswerFn T (PairedOuter.FullGame.authenticatedSign published request)=
-        finishOut T vals (LargeResidual.nonceVal nv request.message) (LargeResidual.Paired.signDigest T request.message))
+        finishOut T vals (nv request.message) (LargeResidual.Paired.signDigest T request.message))
     (hrel : Rel U T vals nv τ a q mon st ws) (hmemo : MemoOk T st) (request : Security.Request) :
     ∃ wsF, observedRun aux q (Sum.elim vals nv) τ (routeSign U a published st request) ws =
         pure (some (evalWithAnswerFn T (PairedOuter.FullGame.authenticatedSign published request),
-          signedState T (LargeResidual.nonceVal nv) published st request), wsF) ∧
-      Rel U T vals nv τ a q (mon.sign T published request) (signedState T (LargeResidual.nonceVal nv) published st request) wsF := by
+          signedState T nv published st request), wsF) ∧
+      Rel U T vals nv τ a q (mon.sign T published request) (signedState T nv published st request) wsF := by
   unfold routeSign
   by_cases hc : request.cache = published
-  · rw [if_pos hc, observed_discloseNonce]
+  · rw [if_pos hc, observed_discloseReq]
     simp only [Sum.elim_inr]
-    rw [show LargeResidual.nonceRho (nv (request.message, 0)) (nv (request.message, 1)) =
-      LargeResidual.nonceVal nv request.message from rfl]
     have hreal := hsource request hc
     have hsd : signDisclosed T published request = match LargeResidual.Paired.signDigest T request.message with
         | some (_, N) => if RouteOk T (WCT9.digestIndex N) then LargeResidual.Paired.signItems T N else []
@@ -11966,26 +11962,21 @@ theorem routeSign_observed (hcoh : LargeResidual.Paired.Coherent U T vals nv τ 
       unfold signDisclosed
       rw [if_pos hc]
       congr 1
-    set ws1 := nonceState U q ws request.message (nv (request.message, 0)) (nv (request.message, 1)) with hws1
-    have hws1c := nonceState_candidates U q ws request.message (nv (request.message, 0)) (nv (request.message, 1))
-    have hws1n := nonceState_counters U q ws request.message (nv (request.message, 0)) (nv (request.message, 1))
-    have hws1r := nonceState_rows U q ws request.message (nv (request.message, 0)) (nv (request.message, 1))
+    set ws1 := disclosedState q ws (.inr request.message) (nv request.message) .none with hws1
+    have hws1c := (disclosedState_props (q := q) ws (.inr request.message) (nv request.message)).1
+    have hws1n := (disclosedState_props (q := q) ws (.inr request.message) (nv request.message)).2.1
+    have hws1r := (disclosedState_props (q := q) ws (.inr request.message) (nv request.message)).2.2
     have hmem1 : ∀ c, Sum.elim vals nv c ∈ ws1.candidates c := by
       intro c
       rw [hws1c]
-      by_cases hc1 : c = .inr (request.message, 1)
-      · subst hc1
+      by_cases hcm : c = .inr request.message
+      · subst hcm
         rw [Function.update_self]
         exact Finset.mem_singleton_self _
-      · rw [Function.update_of_ne hc1]
-        by_cases hc0 : c = .inr (request.message, 0)
-        · subst hc0
-          rw [Function.update_self]
-          exact Finset.mem_singleton_self _
-        · rw [Function.update_of_ne hc0]
-          exact hrel.mem c
+      · rw [Function.update_of_ne hcm]
+        exact hrel.mem c
     have hfinal : ∀ ws2 : LargeResidual.State WCoord (Cell U), ReadsOnly τ ws1 ws2 →
-        Rel U T vals nv τ a q (mon.sign T published request) (signedState T (LargeResidual.nonceVal nv) published st request)
+        Rel U T vals nv τ a q (mon.sign T published request) (signedState T nv published st request)
           (finishWorld T U q (Sum.elim vals nv) ws2 (LargeResidual.Paired.signDigest T request.message)) := by
       intro ws2 hro
       obtain ⟨hfc, hfr, hfcand, hfold⟩ := finishWorld_props (T := T) (q := q) (vals := vals) (nv := nv) ws2
@@ -11994,7 +11985,7 @@ theorem routeSign_observed (hcoh : LargeResidual.Paired.Coherent U T vals nv τ 
       · intro c hcn hkg
         rw [hsd] at hcn
         rw [hfold c hcn (fun h => hkg (List.mem_append_right _ h)), hro.candidates, hws1c,
-          Function.update_of_ne (by simp), Function.update_of_ne (by simp)]
+          Function.update_of_ne (by simp)]
       · intro c
         rcases hfcand c with h | h
         · rw [h, hro.candidates]; exact hmem1 c
@@ -12009,7 +12000,7 @@ theorem routeSign_observed (hcoh : LargeResidual.Paired.Coherent U T vals nv τ 
     | some f =>
         have hf := hmemo _ f hm
         simp only
-        rw [observed_signFinish aux hcoh st (LargeResidual.nonceVal nv request.message) f ws1, hf]
+        rw [observed_signFinish aux hcoh st (nv request.message) f ws1, hf]
         refine ⟨_, ?_, hfinal ws1 (ReadsOnly.refl τ ws1)⟩
         rw [hreal, signedState_eq, if_pos hc]
         unfold startState
@@ -12017,11 +12008,11 @@ theorem routeSign_observed (hcoh : LargeResidual.Paired.Coherent U T vals nv τ 
         rfl
     | none =>
         simp only
-        obtain ⟨ws2, hs, hro⟩ := observed_search aux q (Sum.elim vals nv) τ a T (LargeResidual.nonceVal nv request.message)
+        obtain ⟨ws2, hs, hro⟩ := observed_search aux q (Sum.elim vals nv) τ a T (nv request.message)
           request.message (digestRow_mem hUpub _ _) (hcoh.digestRow hUpub _ _) WCT9.digestAttemptLimit 0 ws1
         rw [observedRun, runWith_bind, ← observedRun, hs, pure_bind]
         simp only [Option.elim_some]
-        rw [← observedRun, ← hcoh.signDigest, observed_signFinish aux hcoh _ (LargeResidual.nonceVal nv request.message) _ ws2]
+        rw [← observedRun, ← hcoh.signDigest, observed_signFinish aux hcoh _ (nv request.message) _ ws2]
         refine ⟨_, ?_, hfinal ws2 hro⟩
         rw [hreal, signedState_eq, if_pos hc]
         unfold startState
@@ -12030,7 +12021,7 @@ theorem routeSign_observed (hcoh : LargeResidual.Paired.Coherent U T vals nv τ 
   · rw [if_neg hc]
     have hnone : evalWithAnswerFn T (PairedOuter.FullGame.authenticatedSign published request) = none := by
       rw [eval_authenticatedSign, if_neg hc]
-    have hst : signedState T (LargeResidual.nonceVal nv) published st request = st := by rw [signedState_eq, if_neg hc]
+    have hst : signedState T nv published st request = st := by rw [signedState_eq, if_neg hc]
     refine ⟨ws, ?_, ?_⟩
     · rw [hnone, hst]
       exact observed_pure aux q _ τ _ ws
@@ -12098,14 +12089,14 @@ noncomputable def routerEvent (U : Finset HashInput) (st : RouterState) (e : Fir
   match e with
   | ⟨_, .inl (.inr X), y⟩ => st.next U X y
   | _ => st
-def PhaseOutcome (U : Finset HashInput) (T : Answers) (vals : Coord → Digest) (nv : Message × Fin 2 → Digest)
+def PhaseOutcome (U : Finset HashInput) (T : Answers) (vals : Coord → Digest) (nv : Message → Digest)
     (τ : Cell U → HashOutput) (a : AuxData) (q : Nat) {β : Type} (monF : Monitor) (value : β) (stF : RouterState)
     (out : Option (Option (β × RouterState))) (ws' : LargeResidual.State WCoord (Cell U)) : Prop :=
   (out = none ∧ monF.contact = true ∧ ws'.counters.calls ≤ q) ∨
     (out = some none ∧ monF.contact = false ∧ q < monF.calls) ∨
     (out = some (some (value, stF)) ∧ Rel U T vals nv τ a q monF stF ws')
 section Verdict
-variable {U : Finset HashInput} {T : Answers} {vals : Coord → Digest} {nv : Message × Fin 2 → Digest}
+variable {U : Finset HashInput} {T : Answers} {vals : Coord → Digest} {nv : Message → Digest}
   {τ : Cell U → HashOutput} {a : AuxData} {q : Nat}
   (aux : (input : AuxSpec.Domain) → PMF (AuxSpec.Range input))
 theorem routeVerdict_pure {β : Type} (v : β) (st : RouterState) :
@@ -12241,7 +12232,7 @@ theorem steps_disclosed_mono (U : Finset HashInput) (T : Answers) (nv : Message 
       rw [List.foldl_cons]
       exact ih _ x (routerStep_disclosed_mono U T nv published st s x hx)
 section Interaction
-variable {U : Finset HashInput} {T : Answers} {vals : Coord → Digest} {nv : Message × Fin 2 → Digest}
+variable {U : Finset HashInput} {T : Answers} {vals : Coord → Digest} {nv : Message → Digest}
   {τ : Cell U → HashOutput} {a : AuxData} {q : Nat} (initLaw : PMF AuxData)
 theorem routeInteraction_pure {α : Type} (published : SigGolfCandidate.T3.Cache) (v : α) (st : RouterState) :
     routeInteraction U a published q (pure v : OracleComp PairedOuter.LazyPrivate.Interaction α) st = pure (some ((v, []), st)) :=
@@ -12264,7 +12255,7 @@ theorem routeInteraction_request {α : Type} (published : SigGolfCandidate.T3.Ca
 theorem interaction_le (hcoh : LargeResidual.Paired.Coherent U T vals nv τ a) (hq : q ≤ 2 ^ 127) (hUpub : SeccLaw.publicUniverse ⊆ U)
     (published : SigGolfCandidate.T3.Cache) (hsource : ∀request : Security.Request,request.cache=published →
       evalWithAnswerFn T (PairedOuter.FullGame.authenticatedSign published request)=
-        finishOut T vals (LargeResidual.nonceVal nv request.message) (LargeResidual.Paired.signDigest T request.message))
+        finishOut T vals (nv request.message) (LargeResidual.Paired.signDigest T request.message))
     {α : Type} (program : OracleComp PairedOuter.LazyPrivate.Interaction α) :
     ∀ {β : Type} (Final : Monitor → RouterState → (α × QueryLog ClaudeWCT.W9.T3M.Final.Paired.Requests) → LazyPrivate.State → Prop)
       (K : Option ((α × QueryLog ClaudeWCT.W9.T3M.Final.Paired.Requests) × RouterState) → OracleComp (RWorld U) β)
@@ -12277,7 +12268,7 @@ theorem interaction_le (hcoh : LargeResidual.Paired.Coherent U T vals nv τ a) (
       ∀ (mon : Monitor) (st : RouterState) (ws : LargeResidual.State WCoord (Cell U)) (state : LazyPrivate.State),
         Rel U T vals nv τ a q mon st ws → MemoOk T st →
         Pr[fun t => Final (t.steps.foldl (Monitor.step U T q published) mon)
-              (t.steps.foldl (routerStep U T (LargeResidual.nonceVal nv) published) st) t.value t.state |
+              (t.steps.foldl (routerStep U T nv published) st) t.value t.state |
             taggedFixed T published program state] ≤
           Pr[F | observedRun (auxLaw initLaw) q (Sum.elim vals nv) τ
             (routeInteraction U a published q program st >>= K) ws] := by
@@ -12310,7 +12301,7 @@ theorem interaction_le (hcoh : LargeResidual.Paired.Coherent U T vals nv τ a) (
         ·
           rw [if_pos hb]
           have hzero : Pr[(fun t => Final (t.steps.foldl (Monitor.step U T q published) mon)
-                (t.steps.foldl (routerStep U T (LargeResidual.nonceVal nv) published) st) t.value t.state) ∘
+                (t.steps.foldl (routerStep U T nv published) st) t.value t.state) ∘
               (fun last => (⟨last.value, .world ⟨state, .inl (.inr X), T (.inl (.inr X))⟩ :: last.steps,
                 last.state⟩ : Tagged α)) |
               taggedFixed T published (next (T (.inl (.inr X))))
@@ -12333,14 +12324,14 @@ theorem interaction_le (hcoh : LargeResidual.Paired.Coherent U T vals nv τ a) (
         · by_cases hok : FamOK st
           swap
           · have hzero : Pr[(fun t => Final (t.steps.foldl (Monitor.step U T q published) mon)
-                  (t.steps.foldl (routerStep U T (LargeResidual.nonceVal nv) published) st) t.value t.state) ∘
+                  (t.steps.foldl (routerStep U T nv published) st) t.value t.state) ∘
                 (fun last => (⟨last.value, .world ⟨state, .inl (.inr X), T (.inl (.inr X))⟩ :: last.steps,
                   last.state⟩ : Tagged α)) |
                 taggedFixed T published (next (T (.inl (.inr X))))
                   (FirstHit.advance state (.inl (.inr X)) (T (.inl (.inr X))))] = 0 := by
               refine le_antisymm ((probEvent_mono'' (q := fun _ => False) ?_).trans (by simp)) (zero_le)
               intro t ht
-              exact hok (famOK_mono (steps_disclosed_mono U T (LargeResidual.nonceVal nv) published _ _) (hfin _ _ _ _ ht))
+              exact hok (famOK_mono (steps_disclosed_mono U T nv published _ _) (hfin _ _ _ _ ht))
             rw [hzero]
             exact zero_le
           rw [if_neg hb, bind_assoc]
@@ -12381,7 +12372,7 @@ theorem interaction_le (hcoh : LargeResidual.Paired.Coherent U T vals nv τ a) (
         have habort' : ∀ m s v σ, Final' m s v σ → m.contact = true ∨ m.calls ≤ q :=
           fun m s v σ hf => habort _ _ _ _ hf
         exact ih out Final' K' F hleaf' habort' hstop (fun m s v σ hf => hfin _ _ _ _ hf) _ _ wsF _ hrelF
-          (signedState_memo T (LargeResidual.nonceVal nv) published st request hmemo)
+          (signedState_memo T nv published st request hmemo)
 end Interaction
 end ClaudeWCT.W9.T3.Security.LargeCoupling.Paired
 end
@@ -12398,13 +12389,13 @@ set_option maxHeartbeats 1000000
 set_option maxRecDepth 10000
 set_option backward.isDefEq.respectTransparency false
 theorem _root_.ClaudeWCT.W9.T3.Security.LargeResidual.Paired.Coherent.source
-    {U : Finset HashInput} {T : Answers} {vals : Coord→Digest} {nv : Message × Fin 2→Digest}
+    {U : Finset HashInput} {T : Answers} {vals : Coord→Digest} {nv : Message→Digest}
     {τ : Cell U→HashOutput} {a : AuxData} (h : LargeResidual.Paired.Coherent U T vals nv τ a)
     (published : SigGolfCandidate.T3.Cache)
     (hpub : published.region=Correctness.cacheRegion (Correctness.maskedTop T))
     (request : Security.Request) (hc : request.cache=published) :
     evalWithAnswerFn T (PairedOuter.FullGame.authenticatedSign published request)=
-      finishOut T vals (LargeResidual.nonceVal nv request.message) (LargeResidual.Paired.signDigest T request.message) := by
+      finishOut T vals (nv request.message) (LargeResidual.Paired.signDigest T request.message) := by
   rw [authenticatedSign_disclosed h.agrees published hpub request,if_pos hc,h.privateNonce]
   unfold finishOut
   cases LargeResidual.Paired.signDigest T request.message with

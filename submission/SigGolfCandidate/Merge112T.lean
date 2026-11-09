@@ -304,9 +304,9 @@ attribute [local instance] Classical.propDecidable
 theorem clean_probability_real_ofGq (adversary : Final.Paired.AdversaryP) (q : Nat) (hq:q≤2^127)
     (hsplit : ∀ z,z∈(PairedSeccLaw.completedExperiment adversary q hq).support →
       QueryRecorded.CleanWin q z.1 → CaseABEv combinedEvent adversary z ∨ FreshForestCase adversary z)
-    (theta rate : ENNReal) (htheta:theta≠⊤) (hratefin:rate≠⊤) (hmin:29249/2500000≤theta)
+    (theta rate : ENNReal) (htheta:theta≠⊤) (hratefin:rate≠⊤) (hmin:1/1024≤theta)
     (hrate : ClaudeWCT.Numerics.Law.lawAvg ClaudeWCT.Bank.Paired.honestLaw (2^32)
-      (fun W=>ClaudeWCT.Bank.Paired.price W-(theta-29249/2500000))≤rate)
+      (fun W=>ClaudeWCT.Bank.Paired.price W-(theta-1/1024))≤rate)
     (errq : ℝ)
     (hprimitive : (Pr[fun s=>combinedEvent.holds s.answers s.trace |
       PairedReference.referenceExperiment adversary q]).toReal ≤
@@ -337,7 +337,7 @@ theorem clean_probability_real_ofGq (adversary : Final.Paired.AdversaryP) (q : N
   have habs : (1:ℝ)/2^139+1/2^142+1/2^138+1/2^137≤1/2^136 := by norm_num
   nlinarith
 
-/-- **The middle window through the split** (`2^-28 ≤ y ≤ 2163/10^6`, θ = 397071/200000, excess ≤ 2118/10^6). -/
+/-- **The middle window through the split** (`2^-28 ≤ y ≤ 2163/10^6`, θ = 397071/200000, excess ≤ 2155/10^6). -/
 theorem middle_boundSplit (S : FamScheme) {Cmax : Nat} (H : CanonicalRef.Normalized.FamTot.FamHyps S Cmax)
     (hC : Cmax ≤ 301) (adversary : Final.Paired.AdversaryP) (q : Nat) (hq:q≤2^127)
     (hlow:1/(2:ℝ)^28≤(q:ℝ)/2^128) (hhigh:(q:ℝ)/2^128≤2163/1000000) :
@@ -345,13 +345,13 @@ theorem middle_boundSplit (S : FamScheme) {Cmax : Nat} (H : CanonicalRef.Normali
       q/(2:ENNReal)^146+(2:ENNReal)⁻¹^700+((2:ENNReal)^152)⁻¹+
       q/((2^256:Nat):ENNReal)≤(q:ENNReal)/2^127 := by
   apply clean_outer_ennrealG adversary q hq
-  apply middle_clean_closingG adversary q hq hlow hhigh (2118/1000000) le_rfl ?_
+  apply middle_clean_closingG adversary q hq hlow hhigh (2155/1000000) le_rfl ?_
     (completed_partial_certifiedG adversary q hq)
   have hp:=Z5.primitive_middle_splitFam S H hC adversary q hq hhigh
   have h:=clean_probability_real_ofGq adversary q hq (completed_split_canonical adversary q hq)
-    (397071/200000) (2118/1000000) (by finiteness) (by finiteness) (by
+    (397071/200000) (2155/1000000) (by finiteness) (by finiteness) (by
       simpa (disch:=positivity) only [ENNReal.ofReal_div_of_pos,ENNReal.ofReal_ofNat,ENNReal.ofReal_one] using
-        ENNReal.ofReal_le_ofReal (by norm_num : (29249:ℝ)/2500000≤397071/200000))
+        ENNReal.ofReal_le_ofReal (by norm_num : (1:ℝ)/1024≤397071/200000))
     excess_middle_actualG (1850/1000)
     (by
       simp only [ENNReal.toReal_div,ENNReal.toReal_ofNat]

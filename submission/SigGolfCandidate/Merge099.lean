@@ -825,7 +825,7 @@ noncomputable def signFinish (a : AuxData) (st : RouterState) (rho : Digest)
 noncomputable def routeSign (a : AuxData) (published : SigGolfCandidate.T3.Cache) (st : RouterState)
     (request : SigGolfCandidate.T3.Security.Request) : OracleComp (RWorld U) (Option SigGolfCandidate.Research.SharedForest.Signature×RouterState) :=
   if request.cache=published then do
-    let rho ← discloseNonce U request.message
+    let rho ← discloseReq U (.inr request.message) .none
     match st.memo.lookup request.message with
     | some found => signFinish U a st rho found
     | none => do
@@ -999,12 +999,6 @@ attribute [local instance] Classical.propDecidable
     referenceLow T (sourceMessages T) L=low := by
   simp only [referenceLow,h,Option.map_some,Option.getD_some]
 
- /-- `referenceSearch` unfolded, stated over free variables (a cheap `rfl`). `route_search_of_context` uses it
-with `rw ... at he; exact he`: its former `change ... at he; simpa only [hc, Option.bind_some] using he` closing
-step cost ~85 s and ~8 GiB of kernel replay. -/
- theorem referenceSearch_eq_bind (T : Answers) (m : Wots.LeafAddr → WCT9.LayerMsg) (L : Wots.LeafAddr) :
-    referenceSearch T m L = (referenceContext T m L).bind (searchOf T m L) := rfl
-
  theorem route_search_of_context (T : Answers) (index : Nat) (hok : RouteOk T index)
     (lay : Layer) (remaining : Nat)
     (hc : referenceContext T (sourceMessages T) (sourceLeaf index lay)=some remaining) :
@@ -1017,7 +1011,10 @@ step cost ~85 s and ~8 GiB of kernel replay. -/
   | some found =>
     rcases found with ⟨c,d,l⟩
     refine ⟨c,d,l,rfl,?_⟩
-    rw [referenceSearch_eq_bind, hc, Option.bind_some] at he
+    -- Rewrite instead of `change`: the kernel otherwise unfolds `referenceSearch` against the
+    -- `bind` form the slow way (56 s → < 0.2 s).
+    rw [referenceSearch, selected, show context (searchOf T (sourceMessages T)) WCT9.CanonicalPolicy.credit
+      (sourceLeaf index lay) = some remaining from hc, Option.bind_some] at he
     exact he
 
  theorem prepared_complete_of_route (T : Answers) (cache : SigGolfCandidate.T3.Cache)
@@ -1033,7 +1030,7 @@ step cost ~85 s and ~8 GiB of kernel replay. -/
       (ClaudeWCT.WCT9.builtPair T 1 (route index 1).2).2)
     (WCT9.searchLimit 0) 0 c0 d0 l0 (ClaudeWCT.W9.T3.Security.Wots.searchLimit_fits _) hs0).2.2.2
   let r1 := WCT9.CanonicalPolicy.nextResidual WCT9.CanonicalPolicy.totalCredit 0 l0 d0
-  have hr1 : r1<55 := WCT9.CanonicalPolicy.accepted_top_residual
+  have hr1 : r1<54 := WCT9.CanonicalPolicy.accepted_top_residual
     (by rwa [WCT9.CanonicalPolicy.threshold_top] at hd0)
   have hf1 : WCT9.CanonicalPolicy.threshold 1 r1<16 := WCT9.CanonicalPolicy.lower_one_floor_lt ⟨r1,hr1⟩
   have hc1 : referenceContext T (sourceMessages T) (sourceLeaf index 1)=some r1 := by
@@ -1570,97 +1567,3 @@ noncomputable local instance : DecidableEq SigGolfCandidate.T3.Cache := Classica
 
 end ClaudeWCT.W9.T3.Security.LargeResidual.Paired
 end
-
-/-! ### R6: the nonce label is two plain halves; `rho = rhoMod (joinOutput lo hi)` -/
-namespace ClaudeWCT.W9.T3.Security.LargeResidual.Paired
-open OracleComp OracleSpec OracleComp.EvalDist ENNReal
-open SigGolfCandidate.T3 SigGolfCandidate.T3.Security
-open SigGolfCandidate.T3.Security.LargeResidual (State Cell disclosedState)
-open ClaudeWCT.W9.T3.Security.FamResidual (observedRun lazyRun discLaw lazy_disclose expectedValue_discLaw_le)
-open SphincsSecurity.Concrete.UniformTableCompletion (cell)
-attribute [local instance] Classical.propDecidable
-set_option backward.isDefEq.respectTransparency false
-section NonceR6
-variable (U : Finset HashInput) (aux : (input : AuxSpec.Domain) → PMF (AuxSpec.Range input)) (q : Nat)
-/-- R6: the world state after disclosing both nonce halves `(m, 0) ↦ lo`, `(m, 1) ↦ hi`. -/
-noncomputable def nonceState (s : State WCoord (Cell U)) (m : Message) (lo hi : Digest) : State WCoord (Cell U) :=
-  disclosedState q (disclosedState q s (.inr (m, 0)) lo .none) (.inr (m, 1)) hi .none
-theorem nonceState_candidates (s : State WCoord (Cell U)) (m : Message) (lo hi : Digest) :
-    (nonceState U q s m lo hi).candidates =
-      Function.update (Function.update s.candidates (.inr (m, 0)) {lo}) (.inr (m, 1)) {hi} := rfl
-theorem nonceState_counters (s : State WCoord (Cell U)) (m : Message) (lo hi : Digest) :
-    (nonceState U q s m lo hi).counters = s.counters := rfl
-theorem nonceState_rows (s : State WCoord (Cell U)) (m : Message) (lo hi : Digest) :
-    (nonceState U q s m lo hi).rows = s.rows := rfl
-theorem observed_discloseNonce {β : Type} (labels : WCoord → Digest) (table : Cell U → HashOutput) (m : Message)
-    (k : Digest → OracleComp (RWorld U) β) (s : State WCoord (Cell U)) :
-    observedRun aux q labels table (discloseNonce U m >>= k) s =
-      observedRun aux q labels table (k (nonceRho (labels (.inr (m, 0))) (labels (.inr (m, 1)))))
-        (nonceState U q s m (labels (.inr (m, 0))) (labels (.inr (m, 1)))) := by
-  simp only [discloseNonce, bind_assoc, pure_bind, observed_discloseReq]
-  rfl
-theorem lazy_discloseNonce {β : Type} (m : Message) (k : Digest → OracleComp (RWorld U) β) (s : State WCoord (Cell U)) :
-    lazyRun aux q (discloseNonce U m >>= k) s =
-      (discLaw s.candidates (.inr (m, 0)) >>= fun lo =>
-        discLaw (Function.update s.candidates (.inr (m, 0)) {lo}) (.inr (m, 1)) >>= fun hi =>
-          lazyRun aux q (k (nonceRho lo hi)) (nonceState U q s m lo hi)) := by
-  simp only [discloseNonce, bind_assoc, pure_bind]
-  refine (lazy_disclose aux q (.inr (m, 0) : WCoord) .none _ s).trans ?_
-  congr 1
-  funext lo
-  exact lazy_disclose aux q (.inr (m, 1) : WCoord) .none (fun hi => k (nonceRho lo hi)) _
-/-- Two independent uniform 128-bit halves are a uniform 256-bit output. -/
-theorem ev_cell_univ_pair (G : HashOutput → ℝ≥0∞) :
-    expectedValue (cell (Finset.univ : Finset Digest)) (fun lo =>
-      expectedValue (cell (Finset.univ : Finset Digest)) (fun hi =>
-        G (SigGolfCandidate.T3.Security.ChainGraph.joinOutput lo hi))) =
-      expectedValue ($ᵗ HashOutput : ProbComp HashOutput) G := by
-  have hc : ∀ x : Digest, Pr[= x | cell (Finset.univ : Finset Digest)] = (Fintype.card Digest : ℝ≥0∞)⁻¹ := by
-    intro x
-    rw [cell, dif_pos Finset.univ_nonempty, SPMF.probOutput_eq_apply, SPMF.liftM_apply,
-      PMF.uniformOfFinset_apply, if_pos (Finset.mem_univ _), Finset.card_univ]
-  have hcard : (Fintype.card HashOutput : ℝ≥0∞) = (Fintype.card Digest : ℝ≥0∞) * (Fintype.card Digest : ℝ≥0∞) := by
-    rw [Fintype.card_congr SigGolfCandidate.T3.Security.ChainGraph.outputEquiv, Fintype.card_prod, Nat.cast_mul]
-  simp only [expectedValue_def, hc, probOutput_uniformSample, tsum_fintype]
-  rw [← Equiv.sum_comp SigGolfCandidate.T3.Security.ChainGraph.outputEquiv.symm, Fintype.sum_prod_type, hcard,
-    ENNReal.mul_inv (Or.inl (by simp)) (Or.inl (by simp))]
-  refine Finset.sum_congr rfl fun lo _ => ?_
-  rw [Finset.mul_sum]
-  refine Finset.sum_congr rfl fun hi _ => ?_
-  rw [mul_assoc]
-  rfl
-/-- R6: with both nonce halves of `m` undisclosed, the disclosed nonce is distributed as `rhoLaw`. -/
-theorem ev_discloseNonce_le {β : Type} (m : Message) (k : Digest → OracleComp (RWorld U) β) (s : State WCoord (Cell U))
-    (hc : ∀ i : Fin 2, s.candidates (.inr (m, i)) = Finset.univ)
-    (g : Option β × State WCoord (Cell U) → ℝ≥0∞) (F : Digest → ℝ≥0∞)
-    (h : ∀ lo hi, expectedValue (lazyRun aux q (k (nonceRho lo hi)) (nonceState U q s m lo hi)) g ≤ F (nonceRho lo hi)) :
-    expectedValue (lazyRun aux q (discloseNonce U m >>= k) s) g ≤
-      expectedValue SigGolfCandidate.T3.Security.BPair.rhoLaw F := by
-  rw [lazy_discloseNonce, expectedValue_bind]
-  calc _ ≤ expectedValue (discLaw s.candidates (.inr (m, 0))) (fun lo =>
-          expectedValue (cell (Finset.univ : Finset Digest)) (fun hi => F (nonceRho lo hi))) := by
-        refine expectedValue_mono _ fun lo => ?_
-        rw [expectedValue_bind]
-        refine (expectedValue_mono _ fun hi => h lo hi).trans ?_
-        have h1 := expectedValue_discLaw_le (Function.update s.candidates (.inr (m, 0)) {lo})
-          (c := (.inr (m, 1) : WCoord)) (p := (.inr (m, 1) : WPlain)) rfl (fun hi => F (nonceRho lo hi))
-        rwa [Function.update_of_ne (by simp), hc 1] at h1
-    _ ≤ expectedValue (cell (Finset.univ : Finset Digest)) (fun lo =>
-          expectedValue (cell (Finset.univ : Finset Digest)) (fun hi => F (nonceRho lo hi))) := by
-        have h0 := expectedValue_discLaw_le s.candidates (c := (.inr (m, 0) : WCoord)) (p := (.inr (m, 0) : WPlain)) rfl
-          (fun lo => expectedValue (cell (Finset.univ : Finset Digest)) (fun hi => F (nonceRho lo hi)))
-        rwa [hc 0] at h0
-    _ = expectedValue ($ᵗ HashOutput : ProbComp HashOutput) (fun x => F (BitVec.ofNat 128 (rhoMod x))) :=
-        ev_cell_univ_pair (fun x => F (BitVec.ofNat 128 (rhoMod x)))
-    _ = _ := (SigGolfCandidate.T3.Security.BPair.expectedValue_rhoLaw F).symm
-/-- R6: a bound uniform in the two nonce halves. -/
-theorem ev_discloseNonce_le_const {β : Type} (m : Message) (k : Digest → OracleComp (RWorld U) β)
-    (s : State WCoord (Cell U)) (g : Option β × State WCoord (Cell U) → ℝ≥0∞) (B : ℝ≥0∞)
-    (h : ∀ lo hi, expectedValue (lazyRun aux q (k (nonceRho lo hi)) (nonceState U q s m lo hi)) g ≤ B) :
-    expectedValue (lazyRun aux q (discloseNonce U m >>= k) s) g ≤ B := by
-  rw [lazy_discloseNonce, expectedValue_bind]
-  refine expectedValue_le_of_le _ fun lo => ?_
-  rw [expectedValue_bind]
-  exact expectedValue_le_of_le _ fun hi => h lo hi
-end NonceR6
-end ClaudeWCT.W9.T3.Security.LargeResidual.Paired

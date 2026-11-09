@@ -681,14 +681,13 @@ theorem lAt_eval (c : NCtx) (hc : c.ok) {s : MachineState} (h19 : s.getReg .x8 =
   simp only [lAt, E.eval, addC_eval, h19]
   rw [c.base_off hc i hi k hk]
 theorem header_load (c : NCtx) {s : MachineState} (i d : Nat)
-    (h28 : s.getReg .x28 = BitVec.ofNat 64 (c.prefix + 385)) :
+    (h28 : s.getReg .x28 = BitVec.ofNat 64 c.pre0) :
     (hLoad i d).eval s = BitVec.ofNat 64 (c.w0 i + 2 ^ 8 * d) := by
-  simp only [hLoad, addC_eval, E.eval, h28]
-  have e : BitVec.ofNat 64 (c.prefix + 385) = BitVec.ofNat 64 c.prefix + BitVec.ofNat 64 385 := by
-    rw [ofNat_add_ofNat]
-  rw [e, show ∀ x y z : Word, x + z + (y - z) = x + y from fun x y z => by bv_omega, ofNat_add_ofNat]
-  congr 1
-  unfold w0
+  rewrite [hLoad, addC_eval]
+  show s.getReg .x28 + (BitVec.ofNat 64 (i + 256 * d) - BitVec.ofNat 64 18446744073709551488) = _
+  rewrite [h28, SigGolfCandidate.T3M.LCtx.bv385]
+  apply congrArg (BitVec.ofNat 64)
+  unfold w0 «prefix» pre0
   omega
 theorem padHeader_at {c : NCtx} {s0 s : MachineState} (hc : c.ok) (h0 : c.Orig0 s0)
     {i : Nat} (hi : i < 51) (hF : Frame s0 s (c.Wr i)) :
@@ -3190,29 +3189,29 @@ dispatch jumps to `g0Target V` = the g0 cell `512 (raw0 - 3) + 326` of the first
 `raw0 >= 3`; `raw0 < 3` lands below the code start). The `nop`s are never executed. -/
 def dProWordsOf (a : Nat) : List (BitVec 32) := [0x21813303, rowWordOf a]
 def dHint : List (BitVec 32) := [0x21020183,0x1d663]
-def dHead : List (BitVec 32) := [0xf64183,0xb1fe63]
+def dHead : List (BitVec 32) := [0xf64183,0x2b1f263]
 def dLow : List (BitVec 32) := [0x863883,0x63803,0x3881713,0x2d75713,0xd1870067,0x13]
 def dHigh : List (BitVec 32) := [0x1863883,0x1063803,0x3881713,0x2d75713,0xd1870067,0x13]
 /-- The bit of the witness choice byte (abs 15304) that requests HIGH. -/
 def selHintBit : Nat := 7
 def prefixWordsOf (a : Nat) : List (BitVec 32) :=
-  dProWordsOf a ++ dHint ++ dHead ++ dLow ++ dHigh
+  dProWordsOf a ++ dHint ++ dHead ++ dLow ++ [0x13, 0x13] ++ dHigh
 def aVals : List Nat := [16168,16184,16216,16232,16264,16280,16312,16328,16360]
-sym_block dProBase := symRun { noAlias := true } (dProWordsOf 16264) (BitVec.ofNat 64 (0x1000 + 4 * 1070)) 200
+sym_block dProBase := symRun { noAlias := true } (dProWordsOf 16264) (BitVec.ofNat 64 (0x1000 + 4 * 1068)) 200
 def dProRegs (a : Nat) : RegFile :=
   dProBase.res.st.regs.set .x8 (.bin .add (.reg .x4) (.c (BitVec.ofNat 64 (2 ^ 64 - 648))))
 def dProRes (a : Nat) (p : Word) : Result :=
   { dProBase.res with st := { dProBase.res.st with regs := dProRegs a }, pc := .c (p+4+4) }
-sym_block dHintBase := symRun { noAlias := true } dHint (BitVec.ofNat 64 (0x1000 + 4*1072)) 200
-sym_block dHeadBase := symRun { noAlias := true } dHead (BitVec.ofNat 64 (0x1000 + 4*1074)) 200
-sym_block dLowBase := symRun { noAlias := true } dLow (BitVec.ofNat 64 (0x1000 + 4*1076)) 200
+sym_block dHintBase := symRun { noAlias := true } dHint (BitVec.ofNat 64 (0x1000 + 4*1070)) 200
+sym_block dHeadBase := symRun { noAlias := true } dHead (BitVec.ofNat 64 (0x1000 + 4*1072)) 200
+sym_block dLowBase := symRun { noAlias := true } dLow (BitVec.ofNat 64 (0x1000 + 4*1074)) 200
 sym_block dHighBase := symRun { noAlias := true } dHigh (BitVec.ofNat 64 (0x1000 + 4*1082)) 200
 def hintByte : E := .un (.ld .b 0) (.ld (.bin .add (.reg .x4) (.c 528)))
 def headByte : E := .un (.ld .bu 7) (.ld (.bin .add (.reg .x12) (.c 8)))
 def dHintRes (p : Word) : Result :=
   {dHintBase.res with pc := (E.ite .ge hintByte (.c 0) (.c (p+4+12)) (.c (p+4+4)))}
 def dHeadRes (p : Word) : Result :=
-  {dHeadBase.res with pc := (E.ite .geu headByte (.reg .x11) (.c (p+4+28)) (.c (p+4+4)))}
+  {dHeadBase.res with pc := (E.ite .geu headByte (.reg .x11) (.c (p+4+36)) (.c (p+4+4)))}
 theorem dHint_run (p : Word) :
     symRun {noAlias := true} dHint p 200 = some (dHintRes p) := by rfl
 theorem dHead_run (p : Word) :
@@ -3261,14 +3260,14 @@ section
 namespace SigGolfCandidate.T3M
 open SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64 SigGolfCandidate.Rv
 open SigGolfCandidate.T3M.Verify
-def xtrTab : List (List Nat) :=[[1064,2088,3112,4136,5160,6184,7208,8232,9256,10280,11304,12328,13352,14376,15400,16424,17448,18472,19496,20520,21544,22568,23592,24616,25640,26664,27688,28712,29736,30760,31784,32808,33832,34856,35880,36904,37928,38952,39976,41000,42024,43048,44072,45096,46120,47144,48168,49192,50216,51240,52264,53288,54312,55336,56360,57384,58408,59432,60456,61480,62504,63528,64552,65576,66600,67624,68648,69672,70696,71720,72744,73768,74792,75816,76840,77864,78888,79912,80936,81960,82984,84008,85032,86056,87080,88104,89128,90152,91176,92200,93224,94248,95272,96296,97320,98344,99368,100392,101416,102440,103464,104488,105512,106536,107560,108584,109608,110632,111656,112680,113704,114728,115752,116776,117800,118824,119848,120872,121896,122920,123944,124968,125992,127016,128040,129064,130088,131112],[141987,142115,142243,142371,142499,142627,142755,142883,143011,143139,143267,143395,143523,143651,143779,143907,144035,144163,144291,144419,144547,144675,144803,144931,145059,145187,145315,145443,145571,145699,145827,145955,146083,146211,146339,146467,146595,146723,146851,146979,147107,147235,147363,147491,147619,147747,147875,148003,148131,148259,148387,148515,148643,148771,148899,149027,149155,149283,149411,149539,149667,149795,149923,150051],[133795,133923,134051,134179,134307,134435,134563,134691,134819,134947,135075,135203,135331,135459,135587,135715,135843,135971,136099,136227,136355,136483,136611,136739,136867,136995,137123,137251,137379,137507,137635,137763,137891,138019,138147,138275,138403,138531,138659,138787,138915,139043,139171,139299,139427,139555,139683,139811,139939,140067,140195,140323,140451,140579,140707,140835,140963,141091,141219,141347,141475,141603,141731,141859],[854]]
+def xtrTab : List (List Nat) :=[[1062,2086,3110,4134,5158,6182,7206,8230,9254,10278,11302,12326,13350,14374,15398,16422,17446,18470,19494,20518,21542,22566,23590,24614,25638,26662,27686,28710,29734,30758,31782,32806,33830,34854,35878,36902,37926,38950,39974,40998,42022,43046,44070,45094,46118,47142,48166,49190,50214,51238,52262,53286,54310,55334,56358,57382,58406,59430,60454,61478,62502,63526,64550,65574,66598,67622,68646,69670,70694,71718,72742,73766,74790,75814,76838,77862,78886,79910,80934,81958,82982,84006,85030,86054,87078,88102,89126,90150,91174,92198,93222,94246,95270,96294,97318,98342,99366,100390,101414,102438,103462,104486,105510,106534,107558,108582,109606,110630,111654,112678,113702,114726,115750,116774,117798,118822,119846,120870,121894,122918,123942,124966,125990,127014,128038,129062,130086,131110],[141985,142113,142241,142369,142497,142625,142753,142881,143009,143137,143265,143393,143521,143649,143777,143905,144033,144161,144289,144417,144545,144673,144801,144929,145057,145185,145313,145441,145569,145697,145825,145953,146081,146209,146337,146465,146593,146721,146849,146977,147105,147233,147361,147489,147617,147745,147873,148001,148129,148257,148385,148513,148641,148769,148897,149025,149153,149281,149409,149537,149665,149793,149921,150049],[133793,133921,134049,134177,134305,134433,134561,134689,134817,134945,135073,135201,135329,135457,135585,135713,135841,135969,136097,136225,136353,136481,136609,136737,136865,136993,137121,137249,137377,137505,137633,137761,137889,138017,138145,138273,138401,138529,138657,138785,138913,139041,139169,139297,139425,139553,139681,139809,139937,140065,140193,140321,140449,140577,140705,140833,140961,141089,141217,141345,141473,141601,141729,141857],[854]]
 def nCopy (lay : Nat) : Nat := (xtrTab.getD lay []).length
 def trPc (lay c : Nat) : Nat := (xtrTab.getD lay []).getD c 0
 def kw (k : Nat) : E := .c (BitVec.ofNat 64 k)
 def hL (lay : Nat) : Nat := [12,7,6,6].getD lay 0
 /-- Layer head steps before the encoding ecall (stage 2): L3 5 (C3: no row high-word store; the merged singleton
 leaves the right top value at `WIT + 48`, so no copy), top 5, L1/L2 6 (C2/C3, as #866; T1: the L1/L2 transition
-heads lose `addi tp,tp,720`, 7 -> 6). -/
+heads lose `addi tp,tp,720`, 7 -> 6). L-hyper (F): the L3 head ORs the marker `2^31` into `s6` (no `ori`), 6. -/
 def stepsA (lay : Nat) : Nat := if lay = 3 then 6 else if lay = 0 then 5 else 6
 def retOff (lay : Nat) : Nat := if lay = 0 then 10 else if lay = 3 then 38 else 41
 /-- T1 (tp-merge): lower frame bases `F` (tp = F + 960); index 0 is a placeholder satisfying the `LCtx` frame
@@ -3332,7 +3331,10 @@ def ctrBr (lay : Nat) (d : Bool) : Br := ⟨if lay = 3 then .ltu else .geu, ctrE
 def setupPc (_lay p : Nat) : Nat := p
 def setupAcceptDir (lay : Nat) : Bool := decide (lay = 3)
 def hdrA (lay : Nat) : Nat := if lay = 3 then TOPLOAD + 32 else HDATA + 8 * lay
-def t3E3 : E := .bin .or (.ld (kw (hdrA 3))) (.bin .sll (.reg .x22) (kw 16))
+/-- L-hyper (F): the L3 head ORs the layer marker (data word `hdrA 3` = `2^31`) into the routed register `s6`, so every
+lower layer's routed register (`treeE`, a right shift) carries its marker, and forms the label word with one shift. -/
+def x22E3 : E := .bin .or (.reg .x22) (.ld (kw (hdrA 3)))
+def t3E3 : E := .bin .sll x22E3 (kw 16)
 /-- The FTS leaves both roots directly in the layer-3 encoding row (left at `WIT`, right at `WIT + 48`). Entry
 writes the row tweak's low word at `WIT + 16` (C3: its high word `WIT + 24` is a witness pad) and retains the final
 hash destination in `a2`; for the lower layers only the tweak word. -/
@@ -3341,7 +3343,7 @@ def l3Writes (_lay : Nat) : List (Addr × E) :=
 /-- C4 (D7): the L3 block reloads `s2` from the stack word the prologue used to read (`TOPB9 - 304`, value 0xFFF). -/
 def x18E3 : E := .ld (kw (TOPB9 - 304))
 def specA (lay p : Nat) : Spec :=
-  ⟨if lay = 3 then [(.x28, t3E3), (.x12, .reg .x12), (.x18, x18E3)] else [(.x23, s7E lay), (.x31, treeE lay), (.x28, t3E3)],
+  ⟨if lay = 3 then [(.x28, t3E3), (.x22, x22E3), (.x12, .reg .x12), (.x18, x18E3)] else [(.x23, s7E lay), (.x31, treeE lay), (.x28, t3E3)],
    l3Writes lay,
    p + stepsA lay, true, stepsA lay, [], none, stepsA lay⟩
 def rejA (lay _p : Nat) : Spec :=
@@ -3491,7 +3493,7 @@ def rejA (lay c : Nat) : Spec :=
   if lay = 3 then T3M.rejA lay (trPc lay c) else
   ⟨[(.x5, kw 1), (.x10, kw 1)], headerWrites lay c,
    rejEcall, true, stepsA lay + 3, [ctrBr lay c true], none, stepsA lay + 3⟩
-def keepA (lay : Nat) : List Reg := if lay = 3 then [.x22] else if lay = 0 then [.x28, .x31] else [.x28]
+def keepA (lay : Nat) : List Reg := if lay = 3 then [] else if lay = 0 then [.x28, .x31] else [.x28]
 def bKB (lay c : Nat) : List (Reg × Word) := (bK lay c).filter (fun p => p.1 != .x12)
 /-- SGV1: the LOW path loads `w1` then `w0` (obligations newest first). -/
 def oblB : List Oblig := [.valid ⟨some (.reg .x12), 0⟩ 8, .valid ⟨some (.reg .x12), 8⟩ 8]

@@ -581,8 +581,8 @@ theorem eval_mappedNodeHiE (s : MachineState) {h : Nat}
 
 theorem eval_nodeLoE (s : MachineState) {c index : Nat} (h22 : s.getReg .x22 = BitVec.ofNat 64 index)
     (hc : c < 9) (_hidx : index < 2 ^ 31) :
-    (nodeLoE c).eval s = BitVec.ofNat 64 (nodeLo7 c index) := by
-  unfold nodeLoE nodeLo7
+    (nodeLoE c).eval s = BitVec.ofNat 64 (nodeLo7R c index) := by
+  unfold nodeLoE nodeLo7R
   rw [mkAdd_eval]
   show BinOp.eval .add (BinOp.eval .or (BinOp.eval .sll (s.getReg .x22) (BitVec.ofNat 64 27))
     (BitVec.ofNat 64 (65536 * c))) (BitVec.ofNat 64 (0)) = _
@@ -590,7 +590,7 @@ theorem eval_nodeLoE (s : MachineState) {c index : Nat} (h22 : s.getReg .x22 = B
   simp only [BinOp.eval]
   rw [ofNat_or_disjoint (65536*c) (index*2^27) 27 (by omega) (by omega), ofNat_add_ofNat]
   exact congrArg (BitVec.ofNat 64) (by ring)
-/- Packed FTS node low word: `nodeLo7 - h` for heaps `8..127`, `nodeLo7` below. -/
+/- Packed FTS node low word: `nodeLo7 - h` for heaps `8..127`, `nodeLo7` below (`nodeLoNR`: the reference image's). -/
 set_option debug.skipKernelTC false in
 theorem ofNat_sub_wrap64 (x h : Nat) (hh : h < 2^64) :
     BitVec.ofNat 64 x - BitVec.ofNat 64 h = BitVec.ofNat 64 (x + 2^64 - h) := by
@@ -598,13 +598,14 @@ theorem ofNat_sub_wrap64 (x h : Nat) (hh : h < 2^64) :
   congr 1
   omega
 def nodeLoN (c index h : Nat) : Nat := if 8 ≤ h then nodeLo7 c index + 2^64 - h else nodeLo7 c index
+def nodeLoNR (c index h : Nat) : Nat := if 8 ≤ h then nodeLo7R c index + 2^64 - h else nodeLo7R c index
 theorem eval_nodeLoNE (s : MachineState) {c index h : Nat} (h22 : s.getReg .x22 = BitVec.ofNat 64 index)
     (h18 : s.getReg .x18 = BitVec.ofNat 64 h) (hc : c < 9) (hidx : index < 2 ^ 31) (hh : h < 128) :
-    (nodeLoNE c).eval s = BitVec.ofNat 64 (nodeLoN c index h) := by
+    (nodeLoNE c).eval s = BitVec.ofNat 64 (nodeLoNR c index h) := by
   show BinOp.eval .add ((nodeLoE c).eval s) (BinOp.eval .sub (nodeHiE.eval s) (s.getReg .x18)) = _
   rw [eval_nodeLoE s h22 hc hidx, eval_nodeHiE s h18 hh, h18]
   simp only [BinOp.eval]
-  unfold nodeLoN
+  unfold nodeLoNR
   by_cases h8 : 8 ≤ h
   · rw [if_pos h8, if_pos h8, BitVec.zero_sub, ← BitVec.sub_eq_add_neg]
     exact ofNat_sub_wrap64 _ _ (by omega)
@@ -612,8 +613,8 @@ theorem eval_nodeLoNE (s : MachineState) {c index h : Nat} (h22 : s.getReg .x22 
     simp only [BitVec.sub_self, BitVec.add_zero]
 theorem eval_leafLoE (s : MachineState) {c index j : Nat} (h22 : s.getReg .x22 = BitVec.ofNat 64 index)
     (h18 : s.getReg .x18 = BitVec.ofNat 64 j) (hc : c < 9) (hj : j < 128) :
-    (leafLoE c).eval s = BitVec.ofNat 64 (leafLo7 c index j) := by
-  unfold leafLoE leafLo7
+    (leafLoE c).eval s = BitVec.ofNat 64 (leafLo7R c index j) := by
+  unfold leafLoE leafLo7R
   by_cases h0 : c = 0
   · subst h0
     rw [if_pos rfl, mkAdd_eval]
@@ -763,9 +764,9 @@ theorem headerE_eval (s : MachineState) {c j index : Nat}
     (headerE c).eval s = BitVec.ofNat 64 (leafLo7 c index j) := by
   unfold headerE
   rw [mkAdd_eval,eval_bin,eval_sll_reg s h22 27 (by decide),eval_sll_reg s h18 20 (by decide),eval_cE]
-  change (BitVec.ofNat 64 (index*2^27)+BitVec.ofNat 64 (j*2^20))+BitVec.ofNat 64 (0+65536*c) = _
+  change (BitVec.ofNat 64 (index*2^27)+BitVec.ofNat 64 (j*2^20))+BitVec.ofNat 64 ((2^64-2048)+65536*c) = _
   rw [ofNat_add_ofNat,ofNat_add_ofNat]
-  congr 1
+  apply congrArg (BitVec.ofNat 64)
   unfold leafLo7
   ring
 
@@ -791,9 +792,9 @@ theorem loE_eval (s : MachineState) {c index : Nat} (h22:s.getReg .x22=BitVec.of
     (loE c).eval s=BitVec.ofNat 64 (nodeLo7 c index) := by
   unfold loE
   rw[mkAdd_eval,eval_bin,eval_cE,binop_sll _ _ (by decide)]
-  change ((s.getReg .x22) <<< 27)+BitVec.ofNat 64 (0+65536*c)=_
+  change ((s.getReg .x22) <<< 27)+BitVec.ofNat 64 ((2^64-2048)+65536*c)=_
   rw[h22,ofNat_shl,ofNat_add_ofNat]
-  congr 1
+  apply congrArg (BitVec.ofNat 64)
   unfold nodeLo7
   ring
 

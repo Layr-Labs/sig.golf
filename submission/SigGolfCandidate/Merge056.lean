@@ -342,13 +342,13 @@ theorem dispatch_leaf (pk : Digest) (w : ClaudeWCT.W9.T3M.WBytes) (a : HashOutpu
     rw [hm (by decide), show BitVec.ofNat 64 0x7f00000 = 0x7f00000#64 from rfl, childSh20_eq]
 set_option debug.skipKernelTC false in
 theorem nodeLow_value (k index : Nat) (hk : k < 9) (hi : index < 2 ^ 31) :
-    V3.nodeLow k index = (index * 2 ^ 27 + 0 + 65536 * k) % 2^64 := by
-  unfold V3.nodeLow ClaudeWCT.WCT9.ftsLeafLow SigGolfCandidate.T3.ftsBias
+    V3.nodeLow k index = (index * 2 ^ 27 + (2^64 - 2048) + 65536 * k) % 2^64 := by
+  unfold V3.nodeLow ClaudeWCT.WCT9.ftsLeafLow SigGolfCandidate.T3.ftsBiasN
   rw [Nat.mod_eq_of_lt (by omega : k + 1 < 16), Nat.mod_eq_of_lt hi]
   omega
 theorem nodeLow_word (k index : Nat) (hk : k < 9) (hi : index < 2 ^ 31) :
     BitVec.ofNat 64 (V3.nodeLow k index) =
-      BitVec.ofNat 64 (index * 2^27 + 0 + 65536*k) := by
+      BitVec.ofNat 64 (index * 2^27 + (2^64 - 2048) + 65536*k) := by
   apply BitVec.eq_of_toNat_eq
   simp only [BitVec.toNat_ofNat, nodeLow_value _ _ hk hi, Nat.mod_mod]
 theorem dispatch_nodeWord (pk : Digest) (w : ClaudeWCT.W9.T3M.WBytes) (a : HashOutput) (k : Fin 9)
@@ -384,13 +384,13 @@ theorem leafLow_or (index k j : Nat) (hk : k < 9) (hj : j < 128) (hi : index < 2
     (BitVec.ofNat 64 j <<< 20) + BitVec.ofNat 64 (V3.nodeLow k index) =
       BitVec.ofNat 64 (V3.leafLow index k j) := by
   rw [nodeLow_word _ _ hk hi, W9Machine.leafLow_eq _ _ _ hi hk hj,
-    W9Machine.wordBias, W9Machine.chainPrefix_value _ _ _ hk hj, shl_ofNat]
+    W9Machine.wordBiasN, W9Machine.chainPrefix_value _ _ _ hk hj, shl_ofNat]
   simp only [Nat.shiftLeft_eq, BitVec.ofNat_add]
   have he : 65536 * (2048*index+16*j+(k+1)) = index*2^27+j*2^20+65536*k+65536 := by ring
   rw [he]
   simp only [BitVec.ofNat_add]
-  have hc : BitVec.ofNat 64 0 =
-      BitVec.ofNat 64 1537 + BitVec.ofNat 64 65536 + BitVec.ofNat 64 (2^64-67073) := by decide
+  have hc : BitVec.ofNat 64 (2^64 - 2048) =
+      BitVec.ofNat 64 1537 + BitVec.ofNat 64 65536 + BitVec.ofNat 64 (2^64-69121) := by decide
   rw [hc]
   abel
 theorem dispatch_x9 (k : Fin 9) (u : MachineState) :
@@ -1038,11 +1038,12 @@ open SigGolfCandidate.T3 (Digest HashOutput M shortHash header)
 open SphincsSecurity (bytesLE bytesLE_length)
 set_option debug.skipKernelTC false in
 theorem nodeLow_canonical (k index : Nat) (hk : k < 9) :
-    V3.nodeLow k index = index % 2^31 * 2^27 + 65536*k := by
-  have hi := Nat.mod_lt index (by decide : 0 < 2^31)
-  unfold V3.nodeLow ClaudeWCT.WCT9.ftsLeafLow SigGolfCandidate.T3.ftsBias
+    V3.nodeLow k index = SigGolfCandidate.T3.ftsBiasN (1537 + 65536 * (k + 1) + 2 ^ 27 * (index % 2 ^ 31)) := by
+  unfold V3.nodeLow ClaudeWCT.WCT9.ftsLeafLow
   rw [Nat.mod_eq_of_lt (by omega : k + 1 < 16)]
-  omega
+  congr 1
+  simp only [Nat.zero_mod, Nat.zero_mul, Nat.add_zero]
+  ring
 
 set_option debug.skipKernelTC false in
 theorem packed_nodeLow_word (k index heap : Nat) (hk : k < 9) (hh : heap < 128) :
@@ -1051,9 +1052,9 @@ theorem packed_nodeLow_word (k index heap : Nat) (hk : k < 9) (hh : heap < 128) 
   rw [nodeLow_canonical k index hk]
   apply BitVec.eq_of_toNat_eq
   rw [BitVec.toNat_ofNat, SigGolfCandidate.T3.ftsNodeWordH_toNat]
-  unfold SigGolfCandidate.T3.ftsBias
+  unfold SigGolfCandidate.T3.ftsBiasN
   rw [Nat.mod_eq_of_lt (by omega : k + 1 < 16)]
-  apply congrArg (fun n : Nat => n % 2^64)
+  have hi := Nat.mod_lt index (by decide : 0 < 2^31)
   omega
 
 set_option debug.skipKernelTC false in
@@ -1062,13 +1063,7 @@ theorem nodeHdr_canonical (k : Fin 9) (index heap : Nat) (hp : BitVec 64) :
       SigGolfCandidate.T3M.SecurityInputs.withHigh
         (SigGolfCandidate.T3.nodeTweak 3 (ClaudeWCT.WCT9.nodeLayer k.val) index heap) hp := by
   have hk := k.isLt
-  have hlow : V3.nodeLow k.val index = SigGolfCandidate.T3.ftsBias
-      (1537 + 65536 * (k.val + 1) + 2 ^ 27 * (index % 2 ^ 31)) := by
-    unfold V3.nodeLow ClaudeWCT.WCT9.ftsLeafLow
-    rw [Nat.mod_eq_of_lt (show k.val + 1 < 16 by omega)]
-    congr 1
-    simp only [Nat.zero_mod, Nat.zero_mul, Nat.add_zero]
-    ring
+  have hlow := nodeLow_canonical k.val index hk
   rw [show ClaudeWCT.WCT9.nodeLayer k.val = 4 + k.val from rfl]
   unfold V3.nodeHdr SigGolfCandidate.T3M.SecurityInputs.withHigh
   by_cases hn : SigGolfCandidate.T3.FtsNew heap
@@ -1092,7 +1087,8 @@ theorem nodeHdr_canonical (k : Fin 9) (index heap : Nat) (hp : BitVec 64) :
       apply BitVec.eq_of_toNat_eq
       rw [SigGolfCandidate.T3.ftsNodeWord_toNat, BitVec.toNat_ofNat, hlow,
         Nat.mod_eq_of_lt (show k.val + 1 < 16 by omega)]
-      unfold SigGolfCandidate.T3.ftsBias
+      unfold SigGolfCandidate.T3.ftsBiasN
+      have hi := Nat.mod_lt index (by decide : 0 < 2^31)
       omega
     rw [hw]
 theorem nodeInput_canonical (k : Fin 9) (index heap : Nat) (left : Digest) (hp : BitVec 64) (pad right : Digest) :
@@ -2248,13 +2244,13 @@ def FtsGoodByCost (acceptCost : HashOutput → Nat) (P : Hash → Prop := HashOk
     GoodQFor (P := P) Frozen.image u (N+2023) (C+2023) Q (A+acceptCost a)
       (ccM (if SharedGate.gateOk a then ftsN w a else pure none) K)
 
-/-- C1 (stage 1) + digest-field repack: 19 (gate and setup) + 85 (dispatch) + 4 x 77 + 5 x 89 (child fixed
-parts) = 857, plus the joint accounting cost (`≤ 777` on accepted digests). -/
-def ftsAcceptCost (a : HashOutput) : Nat := 857 + SharedForest.jointAccountingCost a
+/-- C1 (stage 1) + digest-field repack: 20 (gate and setup; Z6 option F: +1 for `addi a5,a5,-2048`) + 85 (dispatch)
++ 4 x 77 + 5 x 89 (child fixed parts) = 858, plus the joint accounting cost (`≤ 777` on accepted digests). -/
+def ftsAcceptCost (a : HashOutput) : Nat := 858 + SharedForest.jointAccountingCost a
 
 theorem fts_good_of
     (checkLink : sliceChecked 4 SharedGate.gCheckWords = true)
-    (setupLink : sliceChecked 74 SharedGate.gSetupWords = true)
+    (setupLink : sliceChecked 73 SharedGate.gSetupWords = true)
     (links : ∀ k : Fin 9, sliceChecked (SharedDispatch.start k.val) (SharedDispatch.words k.val) = true)
     (chains : ∀ k : Fin 9, N600.AllGood (P := P) (SharedLayout.layout k))
     (childs : ∀ (k : Fin 9) (raw : Fin 128), SharedChild.Good (P := P) (SharedLayout.layout k) k raw) :
@@ -2277,8 +2273,8 @@ theorem fts_good_of
         (List.finRange 9).foldlM (stepN w a) (some []) >>= f)
       funext state
       cases state <;> rfl)
-  change GoodQFor (P := P) Frozen.image u (N + 1769) (C + 1769) Q
-    (A + (838 + SharedForest.jointAccountingCost a) + 19) (KG (SharedGate.gateOk a)) at hg
+  change GoodQFor (P := P) Frozen.image u (N + 1770) (C + 1770) Q
+    (A + (838 + SharedForest.jointAccountingCost a) + 20) (KG (SharedGate.gateOk a)) at hg
   apply (hg.mono (by omega) (by omega) (fun hq => ⟨hq, by simp only [ftsAcceptCost]; omega⟩)).congr
   cases SharedGate.gateOk a <;> simp [KG, ccM_pure]
 

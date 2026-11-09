@@ -1292,7 +1292,7 @@ structure Stable (output : HashOutput) (b : SharedCodec.CBytes) (pk : Digest) (s
   scatterPlan : SharedScatter.PlanAt s
   pk : DigAt s 0xA0 pk
   index : s.getMem (0x20550#64)=BitVec.ofNat 64 (WCT9.digestIndex output)
-  threshold1 : ∀r,r<55 → s.getByte (BitVec.ofNat 64 (16749456+r))=BitVec.ofNat 8 (WCT9.CanonicalPolicy.threshold 1 r)
+  threshold1 : ∀r,r<54 → s.getByte (BitVec.ofNat 64 (16749456+r))=BitVec.ofNat 8 (WCT9.CanonicalPolicy.threshold 1 r)
   threshold2 : ∀r,r<40 → s.getByte (BitVec.ofNat 64 (16749520+r))=BitVec.ofNat 8 (WCT9.CanonicalPolicy.threshold 2 r)
   zt : SigGolfCandidate.T3M.Search.ZeroCap.ZtOK 354 s
   t51src : SigGolfCandidate.T3M.Search.T51.T51TableW 0xFF9E00 s
@@ -1592,7 +1592,7 @@ set_option maxRecDepth 100000
 set_option maxHeartbeats 1000000
 
 /-- img-v6: the expander reads the 5,239-byte signature (`SharedCodec.sigDecC`, 19-bit top field). -/
-abbrev PairedExpandSimulation : Prop := ∀(sk : SecretKey)(message : Message)(pk : PublicKey)(b : Bytes 5187),
+abbrev PairedExpandSimulation : Prop := ∀(sk : SecretKey)(message : Message)(pk : PublicKey)(b : Bytes 5188),
   TBSim Images.expandImage sk (w9init Images.expandImage message pk b) pairedExpandCost
     (ClaudeWCT.W9.T3M.Paired.expandN message pk (ClaudeWCT.W9.T3M.SharedCodec.sigDecC b)) PairedExpPost
 
@@ -1611,7 +1611,7 @@ theorem pairedExpandCost_lt : pairedExpandCost+1<CYCLE_LIMIT := by
   unfold pairedExpandCost ClaudeWCT.W9.Machine.Expand.SharedCompactMain.suffixW CYCLE_LIMIT
   omega
 
-theorem paired_expand_initial (message : Message) (pk : PublicKey) (b : Bytes 5187) :
+theorem paired_expand_initial (message : Message) (pk : PublicKey) (b : Bytes 5188) :
     initialState SigGolfCandidate.T3M.Paired.submission .expand (message,pk,b)=
       some (w9init Images.expandImage message pk b) := by
   unfold initialState
@@ -1926,7 +1926,7 @@ structure InitialMemory (b : SharedCodec.CBytes) (pk : Digest) (s : MachineState
   toptab : Compact2.TopTabAt s
   scatterPlan : SharedScatter.PlanAt s
   pk : DigAt s 0xA0 pk
-  threshold1 : ∀r,r<55 → s.getByte (BitVec.ofNat 64 (16749456+r))=
+  threshold1 : ∀r,r<54 → s.getByte (BitVec.ofNat 64 (16749456+r))=
     BitVec.ofNat 8 (ClaudeWCT.WCT9.CanonicalPolicy.threshold 1 r)
   threshold2 : ∀r,r<40 → s.getByte (BitVec.ofNat 64 (16749520+r))=
     BitVec.ofNat 8 (ClaudeWCT.WCT9.CanonicalPolicy.threshold 2 r)
@@ -2282,11 +2282,7 @@ theorem paired_expand_tbsim : PairedExpandSimulation := by
       (by unfold pairedExpandCost suffixW; omega) (fun _ _ h=>h)
   · rw [if_neg bad]
     have hh:(SharedCodec.sigDecC b).policyHints.toNat<7744:=by omega
-    -- N7g: a hint `< 7744` is exactly a canonical field `N < R * 5852` (`policyHints_sigDecC_ge_iff`)
-    have hc:SharedCodec.nOfB b<PrePass.nCanon:=by
-      have h1:=(SharedCodec.policyHints_sigDecC_ge_iff b).not.mp bad
-      rw [SharedCodec.R_mul_5852] at h1; unfold PrePass.nCanon; omega
-    obtain ⟨u,ku,cu,su,hcu,up,ureg,uin,uh,uf⟩:=PrePass.dec_init_r6 message pk b hc
+    obtain ⟨u,su,up,ureg,uin,uh,uf⟩:=PrePass.dec_init message pk b hh
     have hmsg : ∀ k, k<4 → u.getMem (BitVec.ofNat 64 (0x65A0+8*k))=message.extractLsb' (64*k) 64 := fun k hk =>
       (uf.get (by omega) (by omega)).trans
         (SharedInit.msgWord Images.expandData_length SharedInit.installed_dataBase message pk _ k hk)
@@ -5312,8 +5308,7 @@ theorem cmp_chain (t : MachineState) (hpc : t.pc = pcOf 47) (a tag : BitVec 256)
         exact ⟨t2, _, _, s1.trans s2, by norm_num, p2⟩
     · rw [if_neg (fun h => h0 (e0.1 h))] at p1
       exact ⟨t1, _, _, s1, by norm_num, p1⟩
-/-- R6 (F1): the last term is the mod-R routine `ModR.modC` (words 123 → 153; it was 30 for the plain copy). -/
-def frontC : Nat := 17 + 2489875 + 1 + 16 + 59 + 8 * 2 + 4159
+def frontC : Nat := 17 + 2489875 + 1 + 16 + 59 + 8 * 2 + 30
 theorem wordsOf_nonce (sk : BitVec 256) (m : T3.Message) :
     wordsOf (privateInput sk (.inr (.inl m))) =
       [sk.extractLsb' 0 64, sk.extractLsb' 64 64, BitVec.ofNat 64 1793, 0, sk.extractLsb' 128 64,
@@ -5327,8 +5322,159 @@ theorem wordsOf_nonce (sk : BitVec 256) (m : T3.Message) :
     wordsOf_bytesLE16, wordsOf_header, wordsOf_bytesLE16, wordsOf_zero16, wordsOf_bytesLE32,
     show List.replicate 32 (0 : UInt8) = List.replicate (8 * 4) 0 from rfl, wordsOf_replicate_zero, h1, h2, h3, h4]
   rfl
--- R6 (signm): the reference-image `sign_front` / `nonce_front` (no users; the reference image computes the pre-R6
--- truncated nonce, so they no longer hold) were removed; the generic `Generic.nonce_front` is the live front.
+section front
+variable {sk : SecretKey} {cache : Bytes 131072} {m : Message}
+theorem sign_front (hK : DigestSearchSpec sk) {W : Nat} {Q : Option Signature → MachineState → Prop}
+    (hfail : ∀ t, Failed t → Q none t)
+    (hrest : ∀ rho N t, AfterDs sk cache m rho N t →
+      TBSim image sk t W (payloadRest (cacheDec cache) rho N) Q) :
+    TBSim image sk (sinit sk cache m) (frontC + dsCost + W) (sign (cacheDec cache) m) Q := by
+  set s0 := sinit sk cache m with hs0
+  obtain ⟨t1, st1, p1, x5, g0, g8, g16, g24, r1, f1⟩ := blk0_spec s0 (sinit_pc sk cache m)
+  have e1 : ∀ X, X < 2 ^ 64 → ¬ ((TAG ≤ X ∧ X < TAG + 32) ∨ (MACBLK ≤ X ∧ X < MACBLK + 64)) →
+      t1.getMem (BitVec.ofNat 64 X) = s0.getMem (BitVec.ofNat 64 X) := fun X hX h => f1.get hX h
+  have hsk : FullCache.SkAt t1 sk := by
+    intro j
+    rw [e1 _ (by sg_omega) (by sg_omega)]
+    exact sinit_sk sk cache m j.val j.isLt
+  have hregion : t1.readWords (BitVec.ofNat 64 REGION) 16380 = wordsOf (List.ofFn (cacheDec cache).region) := by
+    rw [frame_readWords f1 REGION 16380 (by decide) (fun i _ h => by sg_omega)]
+    exact sinit_region sk cache m
+  rw [sign_eq]
+  refine TBSim.of_eq (W := 17 + (2489875 + (1 + (16 + (59 + (8 * 2 + (30 + (dsCost + W)))))))) ?_ rfl
+    (by unfold frontC; ring)
+  refine TBSim.steps st1 ?_
+  refine TBSim.bind ((FullCache.mac_tsim true sk (cacheDec cache).region t1 p1 x5 hsk hregion).toTBSim (by decide))
+    (fun a tm hm => ?_)
+  obtain ⟨t2, stm, pcm, rm, fm⟩ := blk1432_spec tm hm.pc
+  refine TBSim.steps stm ?_
+  have t2x5 : t2.getReg .x5 = 0 := by rw [rm.get (by simp),hm.x5]
+  have hwf : Frame t1 t2 (fun X => (PRIV ≤ X ∧ X < PRIV+64) ∨
+      (0x70000 ≤ X ∧ X < 0x70040) ∨ (MACOUT ≤ X ∧ X < MACOUT+32)) :=
+    (hm.frame.trans fm).mono (by
+      intro X hX h; rcases h with h | h
+      · exact h
+      · exact h.elim)
+  have ha : OutAt t2 MACOUT a := by
+    have hw : t2.readWords (BitVec.ofNat 64 MACOUT) 4 = wordsOf (bytesLE 32 a) := by
+      rw [frame_readWords fm MACOUT 4 (by decide) (by intro i hi h; exact h)]
+      exact hm.words
+    rw [show (4:Nat)=2+2 from rfl,readWords_add,readWords_two,readWords_two,wordsOf_bytesLE32] at hw
+    simp only [List.cons_append,List.nil_append,List.cons.injEq] at hw
+    intro k hk
+    interval_cases k
+    · exact hw.1
+    · exact hw.2.1
+    · exact hw.2.2.1
+    · exact hw.2.2.2.1
+  have ht : OutAt t2 TAG (cacheDec cache).tag := fun k hk => by
+    rw [hwf.get (by sg_omega) (by sg_omega)]
+    have := sinit_tag sk cache m k hk
+    interval_cases k
+    · rw [show TAG + 8 * 0 = TAG from rfl, g0]; exact this
+    · rw [show TAG + 8 * 1 = TAG + 8 from rfl, g8]; exact this
+    · rw [show TAG + 8 * 2 = TAG + 16 from rfl, g16]; exact this
+    · rw [show TAG + 8 * 3 = TAG + 24 from rfl, g24]; exact this
+  obtain ⟨heq, hne⟩ := cmp_chain t2 pcm a _ ha ht
+  by_cases hat : a = (cacheDec cache).tag
+  swap
+  ·
+    rw [if_pos hat]
+    obtain ⟨u, k, c, su, hc, upc⟩ := hne hat
+    obtain ⟨v, sv, hfv, -, -⟩ := fail_spec u upc
+    exact TBSim.mono (TBSim.pure_steps (su.trans sv) (hfail v hfv)) (by omega) (fun _ _ h => h)
+  rw [if_neg (not_not.2 hat)]
+  obtain ⟨t3, st3, p3, r3, f3⟩ := heq hat
+  refine TBSim.steps st3 ?_
+  obtain ⟨t4, st4, p4, y10, y11, y12, q0, q8, q32, q40, q48, q56, n0, n8, n16, n24, n32, n40, n48, n56, n64, n72,
+    n80, n88, r4, f4⟩ := blk63_spec t3 p3
+  have f04 : Frame s0 t4 (fun X => ((TAG ≤ X ∧ X < TAG + 32) ∨ (MACBLK ≤ X ∧ X < MACBLK + 64)) ∨
+      (MACOUT ≤ X ∧ X < MACOUT + 32) ∨ (PRIV ≤ X ∧ X < PRIV + 64) ∨ (NONCE ≤ X ∧ X < NONCE + 96) ∨ (0x70000 ≤ X ∧ X < 0x70040)) :=
+    (((f1.trans hwf).trans f3).trans f4).mono (fun X _ h => by
+      rcases h with ((h | h) | h) | h
+      · exact Or.inl h
+      · sg_omega
+      · exact h.elim
+      · sg_omega)
+  have k : ∀ j < 4, t3.getMem (BitVec.ofNat 64 (SK + 8 * j)) = sk.extractLsb' (64 * j) 64 := fun j hj => by
+    rw [f3.get (by sg_omega) (fun h => h), hwf.get (by sg_omega) (by sg_omega), e1 _ (by sg_omega) (by sg_omega)]
+    exact sinit_sk sk cache m j hj
+  have mm : ∀ j < 4, t3.getMem (BitVec.ofNat 64 (MSG + 8 * j)) = m.extractLsb' (64 * j) 64 := fun j hj => by
+    rw [f3.get (by sg_omega) (fun h => h), hwf.get (by sg_omega) (by sg_omega), e1 _ (by sg_omega) (by sg_omega)]
+    exact sinit_msg sk cache m j hj
+  have x5' : t4.getReg .x5 = 0 := by
+    rw [r4.get (by decide), r3.get (by decide), t2x5]
+  have hv4 : hashArgumentsValid t4 = true :=
+    hashArgs_const t4 NONCE 128 RHOOUT y10 y11 y12 (by decide) (by decide) (by decide) (by decide) (by decide)
+  have hq4 : hashInput t4 = toQ (privateInput sk (.inr (.inl m))) := by
+    refine hashInput_toQ t4 _ 1 NONCE (by
+      rw [privateInput_nonce_eq]; simp [bytesLE_length, SigGolfCandidate.T3.zero16]) y10 (by decide) (by decide)
+      y11 (by decide) ?_
+    rw [wordsOf_nonce, show 8 * (1 + 1) = 8 + 8 from rfl, readWords_add, readWords_eight, readWords_eight]
+    have z : ∀ X, NONCE + 96 ≤ X → X < NONCE + 128 → t4.getMem (BitVec.ofNat 64 X) = 0 := fun X h1 h2 => by
+      rw [f04.get (by sg_omega) (by sg_omega)]; exact sinit_zero sk cache m X (by unfold SIGN_DATA; sg_omega) (by sg_omega)
+    rw [n0, n8, n16, n24, n32, n40, n48, n56, n64, n72, n80, n88, z _ (by sg_omega) (by sg_omega),
+      z _ (by sg_omega) (by sg_omega), z _ (by sg_omega) (by sg_omega), z _ (by sg_omega) (by sg_omega),
+      show SK = SK + 8 * 0 from rfl, k 0 (by decide), k 1 (by decide), k 2 (by decide), k 3 (by decide),
+      show MSG = MSG + 8 * 0 from rfl, mm 0 (by decide), mm 1 (by decide), mm 2 (by decide), mm 3 (by decide)]
+    rfl
+  refine TBSim.steps st4 ?_
+  rw [signPayload_eq]
+  refine TBSim.privateNonce_bind (W := 30 + (dsCost + W)) (fetch_122 t4 p4) x5' hv4 hq4 (fun b => ?_)
+  set t5 := writeHash t4 b
+  have hwf5 := Frame.writeHash t4 b RHOOUT y12 (by decide)
+  have hrho : DigAt t5 RHOOUT (b.extractLsb' 0 128) := DigAt.writeHash_lo t4 b RHOOUT y12 (by decide)
+  obtain ⟨t6, st6, p6, x19, s0', s8', d0, d8, d32, d40, d48, d56, r6, f6⟩ :=
+    blk123_spec t5 (by rw [pc_writeHash, p4, pcOf_add4])
+  have mm5 : ∀ j < 4, t5.getMem (BitVec.ofNat 64 (MSG + 8 * j)) = m.extractLsb' (64 * j) 64 := fun j hj => by
+    rw [hwf5.get (by sg_omega) (by sg_omega), f4.get (by sg_omega) (by sg_omega)]; exact mm j hj
+  have hpre : DsPre t6 (b.extractLsb' 0 128) m :=
+    { pc := p6
+      x5 := by rw [r6.get (by decide), getReg_writeHash, x5']
+      x19 := x19
+      rho := ⟨by rw [d0]; exact hrho.1, by rw [d8]; exact hrho.2⟩
+      msg := fun k hk => by
+        interval_cases k
+        · rw [show DIG + 32 + 8 * 0 = DIG + 32 from rfl, d32]; exact mm5 0 (by decide)
+        · rw [show DIG + 32 + 8 * 1 = DIG + 40 from rfl, d40]; exact mm5 1 (by decide)
+        · rw [show DIG + 32 + 8 * 2 = DIG + 48 from rfl, d48]; exact mm5 2 (by decide)
+        · rw [show DIG + 32 + 8 * 3 = DIG + 56 from rfl, d56]; exact mm5 3 (by decide) }
+  refine TBSim.steps st6 (TBSim.bind (hK t6 _ m hpre) (fun r u hu => ?_))
+  rcases r with _ | ⟨ctr, N⟩
+  · exact TBSim.mono (TBSim.pure (hfail u hu)) (by omega) (fun _ _ h => h)
+  obtain ⟨upc, ux5, uadm, unb, usel, ur, uf⟩ := hu
+  refine hrest _ N u ?_
+  have f06 : Frame s0 t6 (fun X => (((TAG ≤ X ∧ X < TAG + 32) ∨ (MACBLK ≤ X ∧ X < MACBLK + 64)) ∨
+      (MACOUT ≤ X ∧ X < MACOUT + 32) ∨ (PRIV ≤ X ∧ X < PRIV + 64) ∨ (NONCE ≤ X ∧ X < NONCE + 96) ∨ (0x70000 ≤ X ∧ X < 0x70040)) ∨
+      (RHOOUT ≤ X ∧ X < RHOOUT + 32) ∨ (SIG ≤ X ∧ X < SIG + 16) ∨ (DIG ≤ X ∧ X < DIG + 64)) :=
+    ((f04.trans hwf5).trans f6).mono (fun X _ h => by
+      rcases h with (h | h) | h
+      · exact Or.inl h
+      · exact Or.inr (Or.inl h)
+      · sg_omega)
+  have g6 : ∀ X, X < 2 ^ 64 → ¬ DsW X → u.getMem (BitVec.ofNat 64 X) = t6.getMem (BitVec.ofNat 64 X) :=
+    fun X hX h => uf.get hX h
+  have nDs : ∀ X, (X < DIG + 16 ∨ (DIG + 32 ≤ X ∧ X < NBUF)) → ¬ DsW X := fun X hX h => by
+    unfold DsW at h; sg_omega
+  have pv : ∀ X, X < 2 ^ 64 → (PRIV ≤ X ∧ X < PRIV + 64) → u.getMem (BitVec.ofNat 64 X) =
+      t4.getMem (BitVec.ofNat 64 X) := fun X hX h => by
+    rw [g6 X hX (nDs X (by sg_omega)), f6.get hX (by sg_omega), hwf5.get hX (by sg_omega)]
+  exact
+    { pc := upc
+      x5 := ux5
+      adm := uadm
+      nbuf := unb
+      sel := usel
+      rho := ⟨by rw [g6 _ (by sg_omega) (nDs _ (by sg_omega)), s0']; exact hrho.1,
+        by rw [g6 _ (by sg_omega) (nDs _ (by sg_omega)), s8']; exact hrho.2⟩
+      p0 := by rw [pv _ (by sg_omega) (by sg_omega), q0, k 0 (by decide)]
+      p8 := by rw [pv _ (by sg_omega) (by sg_omega), q8]; exact k 1 (by decide)
+      p32 := by rw [pv _ (by sg_omega) (by sg_omega), q32]; exact k 2 (by decide)
+      p40 := by rw [pv _ (by sg_omega) (by sg_omega), q40]; exact k 3 (by decide)
+      p48 := by rw [pv _ (by sg_omega) (by sg_omega), q48]
+      p56 := by rw [pv _ (by sg_omega) (by sg_omega), q56]
+      frame := (f06.trans uf).mono (fun X _ h => by unfold FrontW; unfold DsW at h; sg_omega) }
+end front
 end SigGolfCandidate.T3M.Sign
 end
 section
@@ -5350,6 +5496,139 @@ structure NoncePost (sk : SecretKey) (cache : Bytes 131072) (m : Message) (rho :
   p48 : t.getMem (BitVec.ofNat 64 (PRIV + 48)) = 0
   p56 : t.getMem (BitVec.ofNat 64 (PRIV + 56)) = 0
   frame : Frame (sinit sk cache m) t FrontW
+theorem nonce_front {sk : SecretKey} {cache : Bytes 131072} {m : Message}
+    {α : Type} {W : Nat} {Q : Option α → MachineState → Prop}
+    (K : Digest → M (Option α))
+    (hfail : ∀ t, Failed t → Q none t)
+    (hrest : ∀ rho t, NoncePost sk cache m rho t → TBSim image sk t W (K rho) Q) :
+    TBSim image sk (sinit sk cache m) (frontC + W) (do
+      let tag ← privateMac (cacheDec cache).region
+      if tag ≠ (cacheDec cache).tag then pure none else privateNonce m >>= K) Q := by
+  set s0 := sinit sk cache m with hs0
+  obtain ⟨t1, st1, p1, x5, g0, g8, g16, g24, r1, f1⟩ := blk0_spec s0 (sinit_pc sk cache m)
+  have e1 : ∀ X, X < 2 ^ 64 → ¬ ((TAG ≤ X ∧ X < TAG + 32) ∨ (MACBLK ≤ X ∧ X < MACBLK + 64)) →
+      t1.getMem (BitVec.ofNat 64 X) = s0.getMem (BitVec.ofNat 64 X) := fun X hX h => f1.get hX h
+  have hsk : FullCache.SkAt t1 sk := by
+    intro j
+    rw [e1 _ (by sg_omega) (by sg_omega)]
+    exact sinit_sk sk cache m j.val j.isLt
+  have hregion : t1.readWords (BitVec.ofNat 64 REGION) 16380 = wordsOf (List.ofFn (cacheDec cache).region) := by
+    rw [frame_readWords f1 REGION 16380 (by decide) (fun i _ h => by sg_omega)]
+    exact sinit_region sk cache m
+  refine TBSim.of_eq (W := 17 + (2489875 + (1 + (16 + (59 + (8 * 2 + (30 + W))))))) ?_ rfl
+    (by unfold frontC; ring)
+  refine TBSim.steps st1 ?_
+  refine TBSim.bind ((FullCache.mac_tsim true sk (cacheDec cache).region t1 p1 x5 hsk hregion).toTBSim (by decide))
+    (fun a tm hm => ?_)
+  obtain ⟨t2, stm, pcm, rm, fm⟩ := blk1432_spec tm hm.pc
+  refine TBSim.steps stm ?_
+  have t2x5 : t2.getReg .x5 = 0 := by rw [rm.get (by simp),hm.x5]
+  have hwf : Frame t1 t2 (fun X => (PRIV ≤ X ∧ X < PRIV+64) ∨
+      (0x70000 ≤ X ∧ X < 0x70040) ∨ (MACOUT ≤ X ∧ X < MACOUT+32)) :=
+    (hm.frame.trans fm).mono (by
+      intro X hX h; rcases h with h | h
+      · exact h
+      · exact h.elim)
+  have ha : OutAt t2 MACOUT a := by
+    have hw : t2.readWords (BitVec.ofNat 64 MACOUT) 4 = wordsOf (bytesLE 32 a) := by
+      rw [frame_readWords fm MACOUT 4 (by decide) (by intro i hi h; exact h)]
+      exact hm.words
+    rw [show (4:Nat)=2+2 from rfl,readWords_add,readWords_two,readWords_two,wordsOf_bytesLE32] at hw
+    simp only [List.cons_append,List.nil_append,List.cons.injEq] at hw
+    intro k hk
+    interval_cases k
+    · exact hw.1
+    · exact hw.2.1
+    · exact hw.2.2.1
+    · exact hw.2.2.2.1
+  have ht : OutAt t2 TAG (cacheDec cache).tag := fun k hk => by
+    rw [hwf.get (by sg_omega) (by sg_omega)]
+    have := sinit_tag sk cache m k hk
+    interval_cases k
+    · rw [show TAG + 8 * 0 = TAG from rfl, g0]; exact this
+    · rw [show TAG + 8 * 1 = TAG + 8 from rfl, g8]; exact this
+    · rw [show TAG + 8 * 2 = TAG + 16 from rfl, g16]; exact this
+    · rw [show TAG + 8 * 3 = TAG + 24 from rfl, g24]; exact this
+  obtain ⟨heq, hne⟩ := cmp_chain t2 pcm a _ ha ht
+  by_cases hat : a = (cacheDec cache).tag
+  swap
+  ·
+    rw [if_pos hat]
+    obtain ⟨u, k, c, su, hc, upc⟩ := hne hat
+    obtain ⟨v, sv, hfv, -, -⟩ := fail_spec u upc
+    exact TBSim.mono (TBSim.pure_steps (su.trans sv) (hfail v hfv)) (by omega) (fun _ _ h => h)
+  rw [if_neg (not_not.2 hat)]
+  obtain ⟨t3, st3, p3, r3, f3⟩ := heq hat
+  refine TBSim.steps st3 ?_
+  obtain ⟨t4, st4, p4, y10, y11, y12, q0, q8, q32, q40, q48, q56, n0, n8, n16, n24, n32, n40, n48, n56, n64, n72,
+    n80, n88, r4, f4⟩ := blk63_spec t3 p3
+  have f04 : Frame s0 t4 (fun X => ((TAG ≤ X ∧ X < TAG + 32) ∨ (MACBLK ≤ X ∧ X < MACBLK + 64)) ∨
+      (MACOUT ≤ X ∧ X < MACOUT + 32) ∨ (PRIV ≤ X ∧ X < PRIV + 64) ∨ (NONCE ≤ X ∧ X < NONCE + 96) ∨ (0x70000 ≤ X ∧ X < 0x70040)) :=
+    (((f1.trans hwf).trans f3).trans f4).mono (fun X _ h => by
+      rcases h with ((h | h) | h) | h
+      · exact Or.inl h
+      · sg_omega
+      · exact h.elim
+      · sg_omega)
+  have k : ∀ j < 4, t3.getMem (BitVec.ofNat 64 (SK + 8 * j)) = sk.extractLsb' (64 * j) 64 := fun j hj => by
+    rw [f3.get (by sg_omega) (fun h => h), hwf.get (by sg_omega) (by sg_omega), e1 _ (by sg_omega) (by sg_omega)]
+    exact sinit_sk sk cache m j hj
+  have mm : ∀ j < 4, t3.getMem (BitVec.ofNat 64 (MSG + 8 * j)) = m.extractLsb' (64 * j) 64 := fun j hj => by
+    rw [f3.get (by sg_omega) (fun h => h), hwf.get (by sg_omega) (by sg_omega), e1 _ (by sg_omega) (by sg_omega)]
+    exact sinit_msg sk cache m j hj
+  have x5' : t4.getReg .x5 = 0 := by
+    rw [r4.get (by decide), r3.get (by decide), t2x5]
+  have hv4 : hashArgumentsValid t4 = true :=
+    hashArgs_const t4 NONCE 128 RHOOUT y10 y11 y12 (by decide) (by decide) (by decide) (by decide) (by decide)
+  have hq4 : hashInput t4 = toQ (privateInput sk (.inr (.inl m))) := by
+    refine hashInput_toQ t4 _ 1 NONCE (by
+      rw [privateInput_nonce_eq]; simp [bytesLE_length, SigGolfCandidate.T3.zero16]) y10 (by decide) (by decide)
+      y11 (by decide) ?_
+    rw [wordsOf_nonce, show 8 * (1 + 1) = 8 + 8 from rfl, readWords_add, readWords_eight, readWords_eight]
+    have z : ∀ X, NONCE + 96 ≤ X → X < NONCE + 128 → t4.getMem (BitVec.ofNat 64 X) = 0 := fun X h1 h2 => by
+      rw [f04.get (by sg_omega) (by sg_omega)]; exact sinit_zero sk cache m X (by unfold SIGN_DATA; sg_omega) (by sg_omega)
+    rw [n0, n8, n16, n24, n32, n40, n48, n56, n64, n72, n80, n88, z _ (by sg_omega) (by sg_omega),
+      z _ (by sg_omega) (by sg_omega), z _ (by sg_omega) (by sg_omega), z _ (by sg_omega) (by sg_omega),
+      show SK = SK + 8 * 0 from rfl, k 0 (by decide), k 1 (by decide), k 2 (by decide), k 3 (by decide),
+      show MSG = MSG + 8 * 0 from rfl, mm 0 (by decide), mm 1 (by decide), mm 2 (by decide), mm 3 (by decide)]
+    rfl
+  refine TBSim.steps st4 ?_
+  refine TBSim.privateNonce_bind (W := 30 + W) (fetch_122 t4 p4) x5' hv4 hq4 (fun b => ?_)
+  set t5 := writeHash t4 b
+  have hwf5 := Frame.writeHash t4 b RHOOUT y12 (by decide)
+  have hrho : DigAt t5 RHOOUT (b.extractLsb' 0 128) := DigAt.writeHash_lo t4 b RHOOUT y12 (by decide)
+  obtain ⟨t6, st6, p6, x19, s0', s8', d0, d8, d32, d40, d48, d56, r6, f6⟩ :=
+    blk123_spec t5 (by rw [pc_writeHash, p4, pcOf_add4])
+  have mm5 : ∀ j < 4, t5.getMem (BitVec.ofNat 64 (MSG + 8 * j)) = m.extractLsb' (64 * j) 64 := fun j hj => by
+    rw [hwf5.get (by sg_omega) (by sg_omega), f4.get (by sg_omega) (by sg_omega)]; exact mm j hj
+  have hpre : DsPre t6 (b.extractLsb' 0 128) m :=
+    { pc := p6
+      x5 := by rw [r6.get (by decide), getReg_writeHash, x5']
+      x19 := x19
+      rho := ⟨by rw [d0]; exact hrho.1, by rw [d8]; exact hrho.2⟩
+      msg := fun k hk => by
+        interval_cases k
+        · rw [show DIG + 32 + 8 * 0 = DIG + 32 from rfl, d32]; exact mm5 0 (by decide)
+        · rw [show DIG + 32 + 8 * 1 = DIG + 40 from rfl, d40]; exact mm5 1 (by decide)
+        · rw [show DIG + 32 + 8 * 2 = DIG + 48 from rfl, d48]; exact mm5 2 (by decide)
+        · rw [show DIG + 32 + 8 * 3 = DIG + 56 from rfl, d56]; exact mm5 3 (by decide) }
+  have f06 : Frame s0 t6 (fun X => (((TAG ≤ X ∧ X < TAG + 32) ∨ (MACBLK ≤ X ∧ X < MACBLK + 64)) ∨
+      (MACOUT ≤ X ∧ X < MACOUT + 32) ∨ (PRIV ≤ X ∧ X < PRIV + 64) ∨ (NONCE ≤ X ∧ X < NONCE + 96) ∨ (0x70000 ≤ X ∧ X < 0x70040)) ∨
+      (RHOOUT ≤ X ∧ X < RHOOUT + 32) ∨ (SIG ≤ X ∧ X < SIG + 16) ∨ (DIG ≤ X ∧ X < DIG + 64)) :=
+    ((f04.trans hwf5).trans f6).mono (fun X _ h => by
+      rcases h with (h | h) | h
+      · exact Or.inl h
+      · exact Or.inr (Or.inl h)
+      · sg_omega)
+  refine TBSim.steps st6 (hrest _ t6 ?_)
+  refine ⟨hpre, ⟨by rw [s0']; exact hrho.1, by rw [s8']; exact hrho.2⟩, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
+  · rw [f6.get (by sg_omega) (by sg_omega), hwf5.get (by sg_omega) (by sg_omega), q0, k 0 (by decide)]
+  · rw [f6.get (by sg_omega) (by sg_omega), hwf5.get (by sg_omega) (by sg_omega), q8]; exact k 1 (by decide)
+  · rw [f6.get (by sg_omega) (by sg_omega), hwf5.get (by sg_omega) (by sg_omega), q32]; exact k 2 (by decide)
+  · rw [f6.get (by sg_omega) (by sg_omega), hwf5.get (by sg_omega) (by sg_omega), q40]; exact k 3 (by decide)
+  · rw [f6.get (by sg_omega) (by sg_omega), hwf5.get (by sg_omega) (by sg_omega), q48]
+  · rw [f6.get (by sg_omega) (by sg_omega), hwf5.get (by sg_omega) (by sg_omega), q56]
+  · exact f06.mono (fun X _ h => by unfold FrontW; sg_omega)
 theorem NoncePost.base {sk : SecretKey} {cache : Bytes 131072} {m : Message} {rho : Digest}
     {t : MachineState} (h : NoncePost sk cache m rho t) : Base sk cache t := by
   refine ⟨h.search.x5, h.p0, h.p8, h.p32, h.p40, h.p48, h.p56, fun k hk => ?_, fun A hA hn => ?_, ?_, ?_, ?_, ?_, ?_⟩
@@ -5400,562 +5679,6 @@ theorem Inv.stable {sk : SecretKey} {cache : Bytes 131072} {t u : MachineState}
 end SigGolfCandidate.T3M.Sign.Boundary
 end
 
-/-! R6 (F1): the sign-side `rho = privateHash mod R` routine. Word 123 jumps to 25696, which reduces the 256-bit
-hash at `RHOOUT` modulo `R` by four 64-iteration shift-subtract loops (one per limb, most significant first), stores
-rho at `SIG` and `DIG` and jumps back to 138 (the message copy that ends at 153). -/
-namespace SigGolfCandidate.T3M.Sign.ModR
-open RiscvZkvm.Rv64 SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv SigGolfCandidate.Rv
-set_option maxHeartbeats 1000000
-abbrev RL : Nat := 630442381193081053
-abbrev RH : Nat := 403483123963571874
-theorem R_split : T3.R = RH * 2 ^ 64 + RL := by decide
-def jalW : List (BitVec 32) := [0x7951806f]
-def preW : List (BitVec 32) := [0x1c03023,0x1f03423,0x313,0x393,0x8c0e37,0xc80e0e1b,0xce1e13,0x166e0e13,0xce1e13,
-  0x5d7e0e13,0xce1e13,0xdde0e13,0x599eb7,0x75ce8e9b,0xce9e93,0x375e8e93,0xce9e93,0xb6be8e93,0xce9e93,0xea2e8e93,
-  0x202b7,0x1182bf03,0x4000f93]
-def bodyA : List (BitVec 32) := [0x139393,0x3f35293,0x53e3b3,0x131313,0x3ff5293,0x536333,0x1f1f13,0x1d3ee63]
-def bodyD : List (BitVec 32) := [0x1c332b3,0x41c30333,0x41d383b3,0x405383b3,0xffff8f93,0xfc0f92e3]
-def bodyW : List (BitVec 32) := bodyA ++ [0x1d39463] ++ [0x1c36a63] ++ bodyD
-def set1W : List (BitVec 32) := [0x202b7,0x1102bf03,0x4000f93]
-def set2W : List (BitVec 32) := [0x202b7,0x1082bf03,0x4000f93]
-def set3W : List (BitVec 32) := [0x202b7,0x1002bf03,0x4000f93]
-def postW : List (BitVec 32) := [0x7f37,0x6f3023,0x7f3423,0x20f37,0x120f0f13,0x6f3023,0x7f3423,0x20eb7,0x100e8e93,
-  0x293,0x3e03,0x803f83,0x3023,0x3423,0xef1e606f]
-def msgW : List (BitVec 32) := [0x6eb7,0x20f37,0x140f0f13,0x5a0eb303,0x5a8eb383,0x6f3023,0x7f3423,0x6eb7,0x20f37,
-  0x150f0f13,0x5b0eb303,0x5b8eb383,0x6f3023,0x7f3423,0x993]
-/-- The code of the routine (all in the appended tail of the sign image, except the jump at 123 and the copy at 138). -/
-structure Code (im : Image) : Prop where
-  jal : CodeAt im (pcOf 123) jalW
-  pre : CodeAt im (pcOf 25696) preW
-  l0 : CodeAt im (pcOf 25719) bodyW
-  s1 : CodeAt im (pcOf 25735) set1W
-  l1 : CodeAt im (pcOf 25738) bodyW
-  s2 : CodeAt im (pcOf 25754) set2W
-  l2 : CodeAt im (pcOf 25757) bodyW
-  s3 : CodeAt im (pcOf 25773) set3W
-  l3 : CodeAt im (pcOf 25776) bodyW
-  post : CodeAt im (pcOf 25792) postW
-  msg : CodeAt im (pcOf 138) msgW
-theorem pcOf_add_w (n k : Nat) : pcOf n + BitVec.ofNat 64 (4 * k) = pcOf (n + k) := by
-  unfold pcOf; rw [← BitVec.ofNat_add]; congr 1; omega
-theorem codeAt_sub {im : Image} {a : Nat} {code : List (BitVec 32)} (h : CodeAt im (pcOf a) code) (i : Nat)
-    (seg : List (BitVec 32)) (hi : i ≤ code.length) (hseg : (code.drop i).take seg.length = seg) :
-    CodeAt im (pcOf (a + i)) seg := by
-  have e : code = code.take i ++ seg ++ (code.drop i).drop seg.length := by
-    conv_lhs => rw [← List.take_append_drop i code, ← List.take_append_drop seg.length (code.drop i), hseg]
-    rw [List.append_assoc]
-  rw [e] at h
-  have := CodeAt.drop_prefix h
-  rwa [List.length_take, Nat.min_eq_left hi, pcOf_add_w] at this
-/-- Semantics of one copy of the 16-word loop body at word `a`: `A` shifts `(x7,x6,x30)` left by one and tests the
-high limb, `B`/`C` finish the comparison with `R = (x29,x28)`, `D` subtracts with borrow, `E` counts `x31` down. -/
-structure LoopSem (im : Image) (a : Nat) : Prop where
-  A : ∀ s, s.pc = pcOf a → ∃ t, Steps im s 8 8 t ∧
-    t.getReg .x7 = (s.getReg .x7 <<< 1 ||| s.getReg .x6 >>> 63) ∧
-    t.getReg .x6 = (s.getReg .x6 <<< 1 ||| s.getReg .x30 >>> 63) ∧
-    t.getReg .x30 = s.getReg .x30 <<< 1 ∧
-    t.pc = (if (s.getReg .x7 <<< 1 ||| s.getReg .x6 >>> 63).ult (s.getReg .x29) = true then pcOf (a + 14)
-      else pcOf (a + 8)) ∧
-    RegsExcept s t [.x5, .x6, .x7, .x30] ∧ ∀ A, t.getMem A = s.getMem A
-  B : ∀ s, s.pc = pcOf (a + 8) → ∃ t, Steps im s 1 1 t ∧
-    t.pc = (if s.getReg .x7 = s.getReg .x29 then pcOf (a + 9) else pcOf (a + 10)) ∧
-    RegsExcept s t [] ∧ ∀ A, t.getMem A = s.getMem A
-  C : ∀ s, s.pc = pcOf (a + 9) → ∃ t, Steps im s 1 1 t ∧
-    t.pc = (if (s.getReg .x6).ult (s.getReg .x28) = true then pcOf (a + 14) else pcOf (a + 10)) ∧
-    RegsExcept s t [] ∧ ∀ A, t.getMem A = s.getMem A
-  D : ∀ s, s.pc = pcOf (a + 10) → ∃ t, Steps im s 6 6 t ∧
-    t.getReg .x6 = s.getReg .x6 - s.getReg .x28 ∧
-    t.getReg .x7 = (s.getReg .x7 - s.getReg .x29 -
-      if (s.getReg .x6).ult (s.getReg .x28) = true then 1#64 else 0#64) ∧
-    t.getReg .x31 = s.getReg .x31 - 1#64 ∧
-    t.pc = (if s.getReg .x31 - 1#64 = 0#64 then pcOf (a + 16) else pcOf a) ∧
-    RegsExcept s t [.x5, .x6, .x7, .x31] ∧ ∀ A, t.getMem A = s.getMem A
-  E : ∀ s, s.pc = pcOf (a + 14) → ∃ t, Steps im s 2 2 t ∧
-    t.getReg .x31 = s.getReg .x31 - 1#64 ∧
-    t.pc = (if s.getReg .x31 - 1#64 = 0#64 then pcOf (a + 16) else pcOf a) ∧
-    RegsExcept s t [.x31] ∧ ∀ A, t.getMem A = s.getMem A
-sym_block lA0 := symRun { noAlias := true } bodyA (pcOf 25719) 100
-sym_block lB0 := symRun { noAlias := true } [0x1d39463] (pcOf 25727) 100
-sym_block lC0 := symRun { noAlias := true } [0x1c36a63] (pcOf 25728) 100
-sym_block lD0 := symRun { noAlias := true } bodyD (pcOf 25729) 100
-sym_block lE0 := symRun { noAlias := true } (bodyD.drop 4) (pcOf 25733) 100
-theorem loopSem0 {im : Image} (hc : CodeAt im (pcOf 25719) bodyW) : LoopSem im 25719 := by
-  refine ⟨fun s hpc => ?_, fun s hpc => ?_, fun s hpc => ?_, fun s hpc => ?_, fun s hpc => ?_⟩
-  · refine ⟨_, symRun_sound lA0 (codeAt_sub hc 0 bodyA (by decide) rfl) s hpc (by simp [lA0.res, rv_simp]),
-      by simp [lA0.res, rv_simp], by simp [lA0.res, rv_simp], by simp [lA0.res, rv_simp],
-      by simp [lA0.res, rv_simp], ?_, fun A => by simp [lA0.res, rv_simp]⟩
-    intro r hr; simp at hr; cases r <;> simp_all [lA0.res, rv_simp] <;> rfl
-  · refine ⟨_, symRun_sound lB0 (codeAt_sub hc 8 [0x1d39463] (by decide) rfl) s hpc (by simp [lB0.res, rv_simp]),
-      by simp [lB0.res, rv_simp], ?_, fun A => by simp [lB0.res, rv_simp]⟩
-    intro r _; cases r <;> simp [lB0.res, rv_simp] <;> rfl
-  · refine ⟨_, symRun_sound lC0 (codeAt_sub hc 9 [0x1c36a63] (by decide) rfl) s hpc (by simp [lC0.res, rv_simp]),
-      by simp [lC0.res, rv_simp] <;> exact if_congr Iff.rfl rfl rfl, ?_, fun A => by simp [lC0.res, rv_simp]⟩
-    intro r _; cases r <;> simp [lC0.res, rv_simp] <;> rfl
-  · refine ⟨_, symRun_sound lD0 (codeAt_sub hc 10 bodyD (by decide) rfl) s hpc (by simp [lD0.res, rv_simp]),
-      by simp [lD0.res, rv_simp],
-      by simp [lD0.res, rv_simp] <;> exact if_congr Iff.rfl rfl rfl, by simp [lD0.res, rv_simp],
-      by simp [lD0.res, rv_simp], ?_, fun A => by simp [lD0.res, rv_simp]⟩
-    intro r hr; simp at hr; cases r <;> simp_all [lD0.res, rv_simp] <;> rfl
-  · refine ⟨_, symRun_sound lE0 (codeAt_sub hc 14 (bodyD.drop 4) (by decide) rfl) s hpc (by simp [lE0.res, rv_simp]),
-      by simp [lE0.res, rv_simp], by simp [lE0.res, rv_simp], ?_, fun A => by simp [lE0.res, rv_simp]⟩
-    intro r hr; simp at hr; cases r <;> simp_all [lE0.res, rv_simp] <;> rfl
-sym_block lA1 := symRun { noAlias := true } bodyA (pcOf 25738) 100
-sym_block lB1 := symRun { noAlias := true } [0x1d39463] (pcOf 25746) 100
-sym_block lC1 := symRun { noAlias := true } [0x1c36a63] (pcOf 25747) 100
-sym_block lD1 := symRun { noAlias := true } bodyD (pcOf 25748) 100
-sym_block lE1 := symRun { noAlias := true } (bodyD.drop 4) (pcOf 25752) 100
-theorem loopSem1 {im : Image} (hc : CodeAt im (pcOf 25738) bodyW) : LoopSem im 25738 := by
-  refine ⟨fun s hpc => ?_, fun s hpc => ?_, fun s hpc => ?_, fun s hpc => ?_, fun s hpc => ?_⟩
-  · refine ⟨_, symRun_sound lA1 (codeAt_sub hc 0 bodyA (by decide) rfl) s hpc (by simp [lA1.res, rv_simp]),
-      by simp [lA1.res, rv_simp], by simp [lA1.res, rv_simp], by simp [lA1.res, rv_simp],
-      by simp [lA1.res, rv_simp], ?_, fun A => by simp [lA1.res, rv_simp]⟩
-    intro r hr; simp at hr; cases r <;> simp_all [lA1.res, rv_simp] <;> rfl
-  · refine ⟨_, symRun_sound lB1 (codeAt_sub hc 8 [0x1d39463] (by decide) rfl) s hpc (by simp [lB1.res, rv_simp]),
-      by simp [lB1.res, rv_simp], ?_, fun A => by simp [lB1.res, rv_simp]⟩
-    intro r _; cases r <;> simp [lB1.res, rv_simp] <;> rfl
-  · refine ⟨_, symRun_sound lC1 (codeAt_sub hc 9 [0x1c36a63] (by decide) rfl) s hpc (by simp [lC1.res, rv_simp]),
-      by simp [lC1.res, rv_simp] <;> exact if_congr Iff.rfl rfl rfl, ?_, fun A => by simp [lC1.res, rv_simp]⟩
-    intro r _; cases r <;> simp [lC1.res, rv_simp] <;> rfl
-  · refine ⟨_, symRun_sound lD1 (codeAt_sub hc 10 bodyD (by decide) rfl) s hpc (by simp [lD1.res, rv_simp]),
-      by simp [lD1.res, rv_simp],
-      by simp [lD1.res, rv_simp] <;> exact if_congr Iff.rfl rfl rfl, by simp [lD1.res, rv_simp],
-      by simp [lD1.res, rv_simp], ?_, fun A => by simp [lD1.res, rv_simp]⟩
-    intro r hr; simp at hr; cases r <;> simp_all [lD1.res, rv_simp] <;> rfl
-  · refine ⟨_, symRun_sound lE1 (codeAt_sub hc 14 (bodyD.drop 4) (by decide) rfl) s hpc (by simp [lE1.res, rv_simp]),
-      by simp [lE1.res, rv_simp], by simp [lE1.res, rv_simp], ?_, fun A => by simp [lE1.res, rv_simp]⟩
-    intro r hr; simp at hr; cases r <;> simp_all [lE1.res, rv_simp] <;> rfl
-sym_block lA2 := symRun { noAlias := true } bodyA (pcOf 25757) 100
-sym_block lB2 := symRun { noAlias := true } [0x1d39463] (pcOf 25765) 100
-sym_block lC2 := symRun { noAlias := true } [0x1c36a63] (pcOf 25766) 100
-sym_block lD2 := symRun { noAlias := true } bodyD (pcOf 25767) 100
-sym_block lE2 := symRun { noAlias := true } (bodyD.drop 4) (pcOf 25771) 100
-theorem loopSem2 {im : Image} (hc : CodeAt im (pcOf 25757) bodyW) : LoopSem im 25757 := by
-  refine ⟨fun s hpc => ?_, fun s hpc => ?_, fun s hpc => ?_, fun s hpc => ?_, fun s hpc => ?_⟩
-  · refine ⟨_, symRun_sound lA2 (codeAt_sub hc 0 bodyA (by decide) rfl) s hpc (by simp [lA2.res, rv_simp]),
-      by simp [lA2.res, rv_simp], by simp [lA2.res, rv_simp], by simp [lA2.res, rv_simp],
-      by simp [lA2.res, rv_simp], ?_, fun A => by simp [lA2.res, rv_simp]⟩
-    intro r hr; simp at hr; cases r <;> simp_all [lA2.res, rv_simp] <;> rfl
-  · refine ⟨_, symRun_sound lB2 (codeAt_sub hc 8 [0x1d39463] (by decide) rfl) s hpc (by simp [lB2.res, rv_simp]),
-      by simp [lB2.res, rv_simp], ?_, fun A => by simp [lB2.res, rv_simp]⟩
-    intro r _; cases r <;> simp [lB2.res, rv_simp] <;> rfl
-  · refine ⟨_, symRun_sound lC2 (codeAt_sub hc 9 [0x1c36a63] (by decide) rfl) s hpc (by simp [lC2.res, rv_simp]),
-      by simp [lC2.res, rv_simp] <;> exact if_congr Iff.rfl rfl rfl, ?_, fun A => by simp [lC2.res, rv_simp]⟩
-    intro r _; cases r <;> simp [lC2.res, rv_simp] <;> rfl
-  · refine ⟨_, symRun_sound lD2 (codeAt_sub hc 10 bodyD (by decide) rfl) s hpc (by simp [lD2.res, rv_simp]),
-      by simp [lD2.res, rv_simp],
-      by simp [lD2.res, rv_simp] <;> exact if_congr Iff.rfl rfl rfl, by simp [lD2.res, rv_simp],
-      by simp [lD2.res, rv_simp], ?_, fun A => by simp [lD2.res, rv_simp]⟩
-    intro r hr; simp at hr; cases r <;> simp_all [lD2.res, rv_simp] <;> rfl
-  · refine ⟨_, symRun_sound lE2 (codeAt_sub hc 14 (bodyD.drop 4) (by decide) rfl) s hpc (by simp [lE2.res, rv_simp]),
-      by simp [lE2.res, rv_simp], by simp [lE2.res, rv_simp], ?_, fun A => by simp [lE2.res, rv_simp]⟩
-    intro r hr; simp at hr; cases r <;> simp_all [lE2.res, rv_simp] <;> rfl
-sym_block lA3 := symRun { noAlias := true } bodyA (pcOf 25776) 100
-sym_block lB3 := symRun { noAlias := true } [0x1d39463] (pcOf 25784) 100
-sym_block lC3 := symRun { noAlias := true } [0x1c36a63] (pcOf 25785) 100
-sym_block lD3 := symRun { noAlias := true } bodyD (pcOf 25786) 100
-sym_block lE3 := symRun { noAlias := true } (bodyD.drop 4) (pcOf 25790) 100
-theorem loopSem3 {im : Image} (hc : CodeAt im (pcOf 25776) bodyW) : LoopSem im 25776 := by
-  refine ⟨fun s hpc => ?_, fun s hpc => ?_, fun s hpc => ?_, fun s hpc => ?_, fun s hpc => ?_⟩
-  · refine ⟨_, symRun_sound lA3 (codeAt_sub hc 0 bodyA (by decide) rfl) s hpc (by simp [lA3.res, rv_simp]),
-      by simp [lA3.res, rv_simp], by simp [lA3.res, rv_simp], by simp [lA3.res, rv_simp],
-      by simp [lA3.res, rv_simp], ?_, fun A => by simp [lA3.res, rv_simp]⟩
-    intro r hr; simp at hr; cases r <;> simp_all [lA3.res, rv_simp] <;> rfl
-  · refine ⟨_, symRun_sound lB3 (codeAt_sub hc 8 [0x1d39463] (by decide) rfl) s hpc (by simp [lB3.res, rv_simp]),
-      by simp [lB3.res, rv_simp], ?_, fun A => by simp [lB3.res, rv_simp]⟩
-    intro r _; cases r <;> simp [lB3.res, rv_simp] <;> rfl
-  · refine ⟨_, symRun_sound lC3 (codeAt_sub hc 9 [0x1c36a63] (by decide) rfl) s hpc (by simp [lC3.res, rv_simp]),
-      by simp [lC3.res, rv_simp] <;> exact if_congr Iff.rfl rfl rfl, ?_, fun A => by simp [lC3.res, rv_simp]⟩
-    intro r _; cases r <;> simp [lC3.res, rv_simp] <;> rfl
-  · refine ⟨_, symRun_sound lD3 (codeAt_sub hc 10 bodyD (by decide) rfl) s hpc (by simp [lD3.res, rv_simp]),
-      by simp [lD3.res, rv_simp],
-      by simp [lD3.res, rv_simp] <;> exact if_congr Iff.rfl rfl rfl, by simp [lD3.res, rv_simp],
-      by simp [lD3.res, rv_simp], ?_, fun A => by simp [lD3.res, rv_simp]⟩
-    intro r hr; simp at hr; cases r <;> simp_all [lD3.res, rv_simp] <;> rfl
-  · refine ⟨_, symRun_sound lE3 (codeAt_sub hc 14 (bodyD.drop 4) (by decide) rfl) s hpc (by simp [lE3.res, rv_simp]),
-      by simp [lE3.res, rv_simp], by simp [lE3.res, rv_simp], ?_, fun A => by simp [lE3.res, rv_simp]⟩
-    intro r hr; simp at hr; cases r <;> simp_all [lE3.res, rv_simp] <;> rfl
-theorem shl1_or_toNat (x y : BitVec 64) :
-    (x <<< 1 ||| y >>> 63).toNat = 2 * (x.toNat % 2 ^ 63) + y.toNat / 2 ^ 63 := by
-  have hy : y.toNat / 2 ^ 63 < 2 ^ 1 := by have := y.isLt; omega
-  rw [BitVec.toNat_or, BitVec.toNat_shiftLeft, BitVec.toNat_ushiftRight, Nat.shiftLeft_eq,
-    Nat.shiftRight_eq_div_pow, show x.toNat * 2 ^ 1 % 2 ^ 64 = 2 ^ 1 * (x.toNat % 2 ^ 63) by omega,
-    ← Nat.two_pow_add_eq_or_of_lt hy]
-theorem sub1_toNat (x : BitVec 64) (n : Nat) (hx : x.toNat = n + 1) (hn : n + 1 < 2 ^ 64) :
-    (x - 1#64).toNat = n := by
-  rw [BitVec.toNat_sub, hx, BitVec.toNat_ofNat]; omega
-theorem sub1_eq_zero (x : BitVec 64) (n : Nat) (hx : x.toNat = n + 1) (hn : n + 1 < 2 ^ 64) :
-    (x - 1#64 = 0#64) ↔ n = 0 := by
-  rw [BitVec.toNat_eq, sub1_toNat x n hx hn]; simp
-theorem ult_iff (x y : BitVec 64) : x.ult y = true ↔ x.toNat < y.toNat := by
-  simp [BitVec.ult]
-/-- One loop iteration on remainders: `r' = (2 r + b) mod R`, in at most 16 cycles. -/
-theorem iter {im : Image} {a : Nat} (hL : LoopSem im a) (s : MachineState) (hpc : s.pc = pcOf a) (r n : Nat)
-    (hr : r < T3.R) (h6 : (s.getReg .x6).toNat = r % 2 ^ 64) (h7 : (s.getReg .x7).toNat = r / 2 ^ 64)
-    (h28 : (s.getReg .x28).toNat = RL) (h29 : (s.getReg .x29).toNat = RH)
-    (h31 : (s.getReg .x31).toNat = n + 1) (hn : n < 64) :
-    ∃ t k, Steps im s k k t ∧ k ≤ 16 ∧ t.pc = (if n = 0 then pcOf (a + 16) else pcOf a) ∧
-      (t.getReg .x6).toNat = (2 * r + (s.getReg .x30).toNat / 2 ^ 63) % T3.R % 2 ^ 64 ∧
-      (t.getReg .x7).toNat = (2 * r + (s.getReg .x30).toNat / 2 ^ 63) % T3.R / 2 ^ 64 ∧
-      t.getReg .x30 = s.getReg .x30 <<< 1 ∧ (t.getReg .x31).toNat = n ∧
-      RegsExcept s t [.x5, .x6, .x7, .x30, .x31] ∧ ∀ A, t.getMem A = s.getMem A := by
-  rw [R_split] at hr ⊢
-  have hRH : RH = 403483123963571874 := rfl
-  have hRL : RL = 630442381193081053 := rfl
-  have hb : (s.getReg .x30).toNat / 2 ^ 63 < 2 := by have := (s.getReg .x30).isLt; omega
-  obtain ⟨t1, st1, a7, a6, a30, apc, ar, am⟩ := hL.A s hpc
-  have e7 : (t1.getReg .x7).toNat = 2 * (r / 2 ^ 64) + r % 2 ^ 64 / 2 ^ 63 := by
-    rw [a7, shl1_or_toNat, h7, h6]; omega
-  have e6 : (t1.getReg .x6).toNat = 2 * (r % 2 ^ 64 % 2 ^ 63) + (s.getReg .x30).toNat / 2 ^ 63 := by
-    rw [a6, shl1_or_toNat, h6]
-  have finE : ∀ u k0, Steps im s k0 k0 u → k0 ≤ 14 → u.pc = pcOf (a + 14) →
-      (u.getReg .x6).toNat = (t1.getReg .x6).toNat → (u.getReg .x7).toNat = (t1.getReg .x7).toNat →
-      RegsExcept t1 u [] → (∀ A, u.getMem A = s.getMem A) →
-      (t1.getReg .x7).toNat * 2 ^ 64 + (t1.getReg .x6).toNat < RH * 2 ^ 64 + RL →
-      ∃ t k, Steps im s k k t ∧ k ≤ 16 ∧ t.pc = (if n = 0 then pcOf (a + 16) else pcOf a) ∧
-        (t.getReg .x6).toNat = (2 * r + (s.getReg .x30).toNat / 2 ^ 63) % (RH * 2 ^ 64 + RL) % 2 ^ 64 ∧
-        (t.getReg .x7).toNat = (2 * r + (s.getReg .x30).toNat / 2 ^ 63) % (RH * 2 ^ 64 + RL) / 2 ^ 64 ∧
-        t.getReg .x30 = s.getReg .x30 <<< 1 ∧ (t.getReg .x31).toNat = n ∧
-        RegsExcept s t [.x5, .x6, .x7, .x30, .x31] ∧ ∀ A, t.getMem A = s.getMem A := by
-    intro u k0 su hk0 upc u6 u7 ur um hlt
-    have u31 : (u.getReg .x31).toNat = n + 1 := by rw [ur.get (by decide), ar.get (by decide), h31]
-    obtain ⟨t, st, e31, epc, er, em⟩ := hL.E u upc
-    have hV : 2 * r + (s.getReg .x30).toNat / 2 ^ 63 < RH * 2 ^ 64 + RL := by rw [e6, e7] at hlt; omega
-    refine ⟨t, k0 + 2, su.trans st, by omega, ?_, ?_, ?_, ?_, ?_, ?_, fun A => (em A).trans (um A)⟩
-    · rw [epc]; exact if_congr (sub1_eq_zero _ n u31 (by omega)) rfl rfl
-    · rw [er.get (by decide), u6, e6, Nat.mod_eq_of_lt hV]; omega
-    · rw [er.get (by decide), u7, e7, Nat.mod_eq_of_lt hV]; omega
-    · rw [er.get (by decide), ur.get (by decide), a30]
-    · rw [e31]; exact sub1_toNat _ n u31 (by omega)
-    · exact (ar.trans (ur.trans er)).mono (by decide)
-  have finD : ∀ u k0, Steps im s k0 k0 u → k0 ≤ 10 → u.pc = pcOf (a + 10) →
-      (u.getReg .x6).toNat = (t1.getReg .x6).toNat → (u.getReg .x7).toNat = (t1.getReg .x7).toNat →
-      RegsExcept t1 u [] → (∀ A, u.getMem A = s.getMem A) →
-      RH * 2 ^ 64 + RL ≤ (t1.getReg .x7).toNat * 2 ^ 64 + (t1.getReg .x6).toNat →
-      ∃ t k, Steps im s k k t ∧ k ≤ 16 ∧ t.pc = (if n = 0 then pcOf (a + 16) else pcOf a) ∧
-        (t.getReg .x6).toNat = (2 * r + (s.getReg .x30).toNat / 2 ^ 63) % (RH * 2 ^ 64 + RL) % 2 ^ 64 ∧
-        (t.getReg .x7).toNat = (2 * r + (s.getReg .x30).toNat / 2 ^ 63) % (RH * 2 ^ 64 + RL) / 2 ^ 64 ∧
-        t.getReg .x30 = s.getReg .x30 <<< 1 ∧ (t.getReg .x31).toNat = n ∧
-        RegsExcept s t [.x5, .x6, .x7, .x30, .x31] ∧ ∀ A, t.getMem A = s.getMem A := by
-    intro u k0 su hk0 upc u6 u7 ur um hge
-    have u31 : (u.getReg .x31).toNat = n + 1 := by rw [ur.get (by decide), ar.get (by decide), h31]
-    have u28 : (u.getReg .x28).toNat = RL := by rw [ur.get (by decide), ar.get (by decide), h28]
-    have u29 : (u.getReg .x29).toNat = RH := by rw [ur.get (by decide), ar.get (by decide), h29]
-    obtain ⟨t, st, d6, d7, d31, dpc, dr, dm⟩ := hL.D u upc
-    have hV : RH * 2 ^ 64 + RL ≤ 2 * r + (s.getReg .x30).toNat / 2 ^ 63 := by rw [e6, e7] at hge; omega
-    have hm : (2 * r + (s.getReg .x30).toNat / 2 ^ 63) % (RH * 2 ^ 64 + RL) =
-        2 * r + (s.getReg .x30).toNat / 2 ^ 63 - (RH * 2 ^ 64 + RL) := by
-      rw [Nat.mod_eq_sub_mod hV, Nat.mod_eq_of_lt (by omega)]
-    refine ⟨t, k0 + 6, su.trans st, by omega, ?_, ?_, ?_, ?_, ?_, ?_, fun A => (dm A).trans (um A)⟩
-    · rw [dpc]; exact if_congr (sub1_eq_zero _ n u31 (by omega)) rfl rfl
-    · rw [d6, BitVec.toNat_sub, u6, u28, e6, hm]; omega
-    · rw [d7, hm]
-      by_cases hc : (u.getReg .x6).toNat < (u.getReg .x28).toNat
-      · rw [if_pos ((ult_iff _ _).2 hc), BitVec.toNat_sub, BitVec.toNat_sub, u7, u29]
-        rw [u6, u28, e6] at hc
-        simp only [BitVec.toNat_ofNat]
-        rw [e7]; omega
-      · rw [if_neg (fun h => hc ((ult_iff _ _).1 h)), BitVec.toNat_sub, BitVec.toNat_sub, u7, u29]
-        rw [u6, u28, e6] at hc
-        simp only [BitVec.toNat_ofNat]
-        rw [e7]; omega
-    · rw [dr.get (by decide), ur.get (by decide), a30]
-    · rw [d31]; exact sub1_toNat _ n u31 (by omega)
-    · exact (ar.trans (ur.trans dr)).mono (by decide)
-  by_cases c1 : 2 * (r / 2 ^ 64) + r % 2 ^ 64 / 2 ^ 63 < RH
-  · rw [if_pos (by rw [ult_iff, ← a7, e7, h29]; exact c1)] at apc
-    exact finE t1 8 st1 (by omega) apc rfl rfl (RegsExcept.refl _ _) am (by rw [e7, e6]; omega)
-  rw [if_neg (by rw [ult_iff, ← a7, e7, h29]; exact c1)] at apc
-  obtain ⟨t2, st2, bpc, br, bm⟩ := hL.B t1 apc
-  have b29 : (t1.getReg .x29).toNat = RH := by rw [ar.get (by decide), h29]
-  by_cases c2 : 2 * (r / 2 ^ 64) + r % 2 ^ 64 / 2 ^ 63 = RH
-  · rw [if_pos (BitVec.eq_of_toNat_eq (by rw [e7, b29, c2]))] at bpc
-    obtain ⟨t3, st3, cpc, cr, cm⟩ := hL.C t2 bpc
-    have s3 := (st1.trans st2).trans st3
-    have r3 : RegsExcept t1 t3 [] := (br.trans cr).mono (by decide)
-    have m3 : ∀ A, t3.getMem A = s.getMem A := fun A => (cm A).trans ((bm A).trans (am A))
-    have cc : (t2.getReg .x6).ult (t2.getReg .x28) = true ↔
-        2 * (r % 2 ^ 64 % 2 ^ 63) + (s.getReg .x30).toNat / 2 ^ 63 < RL := by
-      rw [ult_iff, br.get (r := .x6) (by decide), br.get (r := .x28) (by decide), ar.get (r := .x28) (by decide),
-        e6, h28]
-    by_cases c3 : 2 * (r % 2 ^ 64 % 2 ^ 63) + (s.getReg .x30).toNat / 2 ^ 63 < RL
-    · rw [if_pos (cc.2 c3)] at cpc
-      exact finE t3 _ s3 (by omega) cpc (by rw [r3.get (by decide)]) (by rw [r3.get (by decide)]) r3 m3
-        (by rw [e7, e6]; omega)
-    · rw [if_neg (fun h => c3 (cc.1 h))] at cpc
-      exact finD t3 _ s3 (by omega) cpc (by rw [r3.get (by decide)]) (by rw [r3.get (by decide)]) r3 m3
-        (by rw [e7, e6]; omega)
-  · rw [if_neg (fun h => c2 (by have := congrArg BitVec.toNat h; rw [e7, b29] at this; exact this))] at bpc
-    exact finD t2 _ (st1.trans st2) (by omega) bpc (by rw [br.get (by decide)]) (by rw [br.get (by decide)]) br
-      (fun A => (bm A).trans (am A)) (by rw [e7, e6]; omega)
-theorem bit_shift (v : BitVec 64) (j : Nat) (hj : j < 64) : (v <<< j).toNat / 2 ^ 63 = v.toNat / 2 ^ (63 - j) % 2 := by
-  rw [BitVec.toNat_shiftLeft, Nat.shiftLeft_eq, show (2 : Nat) ^ 64 = 2 ^ 63 * 2 by norm_num,
-    Nat.mod_mul_right_div_self,
-    show (2 : Nat) ^ 63 = 2 ^ (63 - j) * 2 ^ j by rw [← Nat.pow_add]; congr 1; omega,
-    Nat.mul_div_mul_right _ _ (Nat.two_pow_pos j)]
-theorem q_succ (x j : Nat) (hj : j < 64) : x / 2 ^ (64 - (j + 1)) = 2 * (x / 2 ^ (64 - j)) + x / 2 ^ (63 - j) % 2 := by
-  rw [show 64 - (j + 1) = 63 - j by omega, show (2 : Nat) ^ (64 - j) = 2 ^ (63 - j) * 2 by
-    rw [← Nat.pow_succ]; congr 1; omega, ← Nat.div_div_eq_div_mul]
-  omega
-theorem step_mod (X b n : Nat) : (2 * (X % n) + b) % n = (2 * X + b) % n :=
-  ((Nat.mod_modEq X n).mul_left 2).add_right b
-theorem limb_mod (X w n : Nat) : (X % n * 2 ^ 64 + w) % n = (X * 2 ^ 64 + w) % n :=
-  ((Nat.mod_modEq X n).mul_right _).add_right w
-theorem loop {im : Image} {a : Nat} (hL : LoopSem im a) (v : BitVec 64) (r0 : Nat) :
-    ∀ m j (s : MachineState), j + m = 64 → 0 < m → s.pc = pcOf a →
-      (s.getReg .x6).toNat = (r0 * 2 ^ j + v.toNat / 2 ^ (64 - j)) % T3.R % 2 ^ 64 →
-      (s.getReg .x7).toNat = (r0 * 2 ^ j + v.toNat / 2 ^ (64 - j)) % T3.R / 2 ^ 64 →
-      (s.getReg .x28).toNat = RL → (s.getReg .x29).toNat = RH → s.getReg .x30 = v <<< j →
-      (s.getReg .x31).toNat = m →
-      ∃ t k, Steps im s k k t ∧ k ≤ 16 * m ∧ t.pc = pcOf (a + 16) ∧
-        (t.getReg .x6).toNat = (r0 * 2 ^ 64 + v.toNat) % T3.R % 2 ^ 64 ∧
-        (t.getReg .x7).toNat = (r0 * 2 ^ 64 + v.toNat) % T3.R / 2 ^ 64 ∧
-        RegsExcept s t [.x5, .x6, .x7, .x30, .x31] ∧ ∀ A, t.getMem A = s.getMem A := by
-  intro m
-  induction m with
-  | zero => intro _ _ _ h; omega
-  | succ m ih =>
-    intro j s hj _ hpc h6 h7 h28 h29 h30 h31
-    have hrj := Nat.mod_lt (r0 * 2 ^ j + v.toNat / 2 ^ (64 - j)) T3.R_pos
-    obtain ⟨t, k, st, hk, tpc, t6, t7, t30, t31, tr, tm⟩ := iter hL s hpc _ m hrj h6 h7 h28 h29 h31 (by omega)
-    have key : (2 * ((r0 * 2 ^ j + v.toNat / 2 ^ (64 - j)) % T3.R) + (s.getReg .x30).toNat / 2 ^ 63) % T3.R =
-        (r0 * 2 ^ (j + 1) + v.toNat / 2 ^ (64 - (j + 1))) % T3.R := by
-      rw [h30, bit_shift v j (by omega), step_mod, q_succ _ j (by omega), pow_succ]
-      congr 1; ring
-    rw [key] at t6 t7
-    by_cases hm : m = 0
-    · subst hm
-      rw [if_pos rfl] at tpc
-      rw [show j + 1 = 64 by omega, show 64 - 64 = 0 from rfl, pow_zero, Nat.div_one] at t6 t7
-      exact ⟨t, k, st, by omega, tpc, t6, t7, tr, tm⟩
-    · rw [if_neg hm] at tpc
-      obtain ⟨u, k', su, hk', upc, u6, u7, ur, um⟩ := ih (j + 1) t (by omega) (by omega) tpc t6 t7
-        (by rw [tr.get (r := .x28) (by decide), h28]) (by rw [tr.get (r := .x29) (by decide), h29])
-        (by rw [t30, h30, ← BitVec.shiftLeft_add]) t31
-      exact ⟨u, k + k', st.trans su, by omega, upc, u6, u7, (tr.trans ur).mono (by decide),
-        fun A => (um A).trans (tm A)⟩
-/-- A full 64-iteration loop: `r ↦ (r * 2^64 + x30) mod R` in at most 1024 cycles. -/
-theorem loop64 {im : Image} {a : Nat} (hL : LoopSem im a) (s : MachineState) (hpc : s.pc = pcOf a) (r0 : Nat)
-    (hr0 : r0 < T3.R) (h6 : (s.getReg .x6).toNat = r0 % 2 ^ 64) (h7 : (s.getReg .x7).toNat = r0 / 2 ^ 64)
-    (h28 : (s.getReg .x28).toNat = RL) (h29 : (s.getReg .x29).toNat = RH) (h31 : (s.getReg .x31).toNat = 64) :
-    ∃ t k, Steps im s k k t ∧ k ≤ 1024 ∧ t.pc = pcOf (a + 16) ∧
-      (t.getReg .x6).toNat = (r0 * 2 ^ 64 + (s.getReg .x30).toNat) % T3.R % 2 ^ 64 ∧
-      (t.getReg .x7).toNat = (r0 * 2 ^ 64 + (s.getReg .x30).toNat) % T3.R / 2 ^ 64 ∧
-      RegsExcept s t [.x5, .x6, .x7, .x30, .x31] ∧ ∀ A, t.getMem A = s.getMem A := by
-  have e : (r0 * 2 ^ 0 + (s.getReg .x30).toNat / 2 ^ (64 - 0)) % T3.R = r0 := by
-    rw [pow_zero, Nat.mul_one, Nat.div_eq_of_lt (s.getReg .x30).isLt, Nat.add_zero, Nat.mod_eq_of_lt hr0]
-  exact loop hL (s.getReg .x30) r0 64 0 s rfl (by decide) hpc (by rw [e, h6]) (by rw [e, h7]) h28 h29
-    (BitVec.shiftLeft_zero _).symm h31
-sym_block mJ := symRun { noAlias := true } jalW (pcOf 123) 100
-sym_block mP := symRun { noAlias := true } preW (pcOf 25696) 100
-sym_block mS1 := symRun { noAlias := true } set1W (pcOf 25735) 100
-sym_block mS2 := symRun { noAlias := true } set2W (pcOf 25754) 100
-sym_block mS3 := symRun { noAlias := true } set3W (pcOf 25773) 100
-sym_block mQ := symRun { noAlias := true } postW (pcOf 25792) 100
-sym_block mM := symRun { noAlias := true } msgW (pcOf 138) 100
-theorem jal_spec {im : Image} (hc : Code im) (s : MachineState) (hpc : s.pc = pcOf 123) :
-    ∃ t, Steps im s 1 1 t ∧ t.pc = pcOf 25696 ∧ RegsExcept s t [] ∧ ∀ A, t.getMem A = s.getMem A := by
-  refine ⟨_, symRun_sound mJ hc.jal s hpc (by simp [mJ.res, rv_simp]), by simp [mJ.res, rv_simp], ?_,
-    fun A => by simp [mJ.res, rv_simp]⟩
-  intro r _; cases r <;> simp [mJ.res, rv_simp] <;> rfl
-theorem pre_spec {im : Image} (hc : Code im) (s : MachineState) (hpc : s.pc = pcOf 25696) :
-    ∃ t, Steps im s 23 23 t ∧ t.pc = pcOf 25719 ∧ t.getReg .x6 = 0#64 ∧ t.getReg .x7 = 0#64 ∧
-      t.getReg .x28 = BitVec.ofNat 64 RL ∧ t.getReg .x29 = BitVec.ofNat 64 RH ∧
-      t.getReg .x30 = s.getMem (BitVec.ofNat 64 (RHOOUT + 24)) ∧ t.getReg .x31 = 64#64 ∧
-      t.getMem (BitVec.ofNat 64 0) = s.getReg .x28 ∧ t.getMem (BitVec.ofNat 64 8) = s.getReg .x31 ∧
-      RegsExcept s t [.x5, .x6, .x7, .x28, .x29, .x30, .x31] ∧ Frame s t (fun A => A = 0 ∨ A = 8) := by
-  refine ⟨_, symRun_sound mP hc.pre s hpc (by simp [mP.res, rv_simp]), by simp [mP.res, rv_simp],
-    by simp [mP.res, rv_simp], by simp [mP.res, rv_simp], by simp [mP.res, rv_simp], by simp [mP.res, rv_simp],
-    by simp [mP.res, rv_simp], by simp [mP.res, rv_simp], by simp [mP.res, rv_simp], by simp [mP.res, rv_simp],
-    ?_, ?_⟩
-  · intro r hr; simp at hr; cases r <;> simp_all [mP.res, rv_simp] <;> rfl
-  · intro A hA hn
-    simp only [Result.toState_getMem, mP.res]
-    t3n []
-    repeat rw [if_neg (by omega)]
-theorem set_spec {im : Image} {b o : Nat} {w : List (BitVec 32)} {r : Result}
-    (hcode : CodeAt im (pcOf b) w) (hrun : symRun { noAlias := true } w (pcOf b) 100 = some r)
-    (s : MachineState) (hpc : s.pc = pcOf b) (hobl : r.obligs s) (hrpc : (r.toState s).pc = pcOf (b + 3))
-    (h30 : (r.toState s).getReg .x30 = s.getMem (BitVec.ofNat 64 o)) (h31 : (r.toState s).getReg .x31 = 64#64)
-    (hreg : RegsExcept s (r.toState s) [.x5, .x30, .x31]) (hmem : ∀ A, (r.toState s).getMem A = s.getMem A)
-    (hk : r.steps = 3) (hcy : r.cycles = 3) :
-    ∃ t, Steps im s 3 3 t ∧ t.pc = pcOf (b + 3) ∧ t.getReg .x30 = s.getMem (BitVec.ofNat 64 o) ∧
-      t.getReg .x31 = 64#64 ∧ RegsExcept s t [.x5, .x30, .x31] ∧ ∀ A, t.getMem A = s.getMem A :=
-  ⟨_, (symRun_sound hrun hcode s hpc hobl).of_eq hk hcy, hrpc, h30, h31, hreg, hmem⟩
-theorem set1_spec {im : Image} (hc : Code im) (s : MachineState) (hpc : s.pc = pcOf 25735) :
-    ∃ t, Steps im s 3 3 t ∧ t.pc = pcOf (25735 + 3) ∧ t.getReg .x30 = s.getMem (BitVec.ofNat 64 (RHOOUT + 16)) ∧
-      t.getReg .x31 = 64#64 ∧ RegsExcept s t [.x5, .x30, .x31] ∧ ∀ A, t.getMem A = s.getMem A :=
-  set_spec hc.s1 mS1 s hpc (by simp [mS1.res, rv_simp]) (by simp [mS1.res, rv_simp]) (by simp [mS1.res, rv_simp])
-    (by simp [mS1.res, rv_simp]) (by intro r hr; simp at hr; cases r <;> simp_all [mS1.res, rv_simp] <;> rfl)
-    (fun A => by simp [mS1.res, rv_simp]) rfl rfl
-theorem set2_spec {im : Image} (hc : Code im) (s : MachineState) (hpc : s.pc = pcOf 25754) :
-    ∃ t, Steps im s 3 3 t ∧ t.pc = pcOf (25754 + 3) ∧ t.getReg .x30 = s.getMem (BitVec.ofNat 64 (RHOOUT + 8)) ∧
-      t.getReg .x31 = 64#64 ∧ RegsExcept s t [.x5, .x30, .x31] ∧ ∀ A, t.getMem A = s.getMem A :=
-  set_spec hc.s2 mS2 s hpc (by simp [mS2.res, rv_simp]) (by simp [mS2.res, rv_simp]) (by simp [mS2.res, rv_simp])
-    (by simp [mS2.res, rv_simp]) (by intro r hr; simp at hr; cases r <;> simp_all [mS2.res, rv_simp] <;> rfl)
-    (fun A => by simp [mS2.res, rv_simp]) rfl rfl
-theorem set3_spec {im : Image} (hc : Code im) (s : MachineState) (hpc : s.pc = pcOf 25773) :
-    ∃ t, Steps im s 3 3 t ∧ t.pc = pcOf (25773 + 3) ∧ t.getReg .x30 = s.getMem (BitVec.ofNat 64 RHOOUT) ∧
-      t.getReg .x31 = 64#64 ∧ RegsExcept s t [.x5, .x30, .x31] ∧ ∀ A, t.getMem A = s.getMem A :=
-  set_spec hc.s3 mS3 s hpc (by simp [mS3.res, rv_simp]) (by simp [mS3.res, rv_simp]) (by simp [mS3.res, rv_simp])
-    (by simp [mS3.res, rv_simp]) (by intro r hr; simp at hr; cases r <;> simp_all [mS3.res, rv_simp] <;> rfl)
-    (fun A => by simp [mS3.res, rv_simp]) rfl rfl
-theorem post_spec {im : Image} (hc : Code im) (s : MachineState) (hpc : s.pc = pcOf 25792) :
-    ∃ t, Steps im s 15 15 t ∧ t.pc = pcOf 138 ∧ t.getReg .x5 = 0 ∧
-      t.getReg .x28 = s.getMem (BitVec.ofNat 64 0) ∧ t.getReg .x31 = s.getMem (BitVec.ofNat 64 8) ∧
-      t.getMem (BitVec.ofNat 64 SIG) = s.getReg .x6 ∧ t.getMem (BitVec.ofNat 64 (SIG + 8)) = s.getReg .x7 ∧
-      t.getMem (BitVec.ofNat 64 DIG) = s.getReg .x6 ∧ t.getMem (BitVec.ofNat 64 (DIG + 8)) = s.getReg .x7 ∧
-      t.getMem (BitVec.ofNat 64 0) = 0 ∧ t.getMem (BitVec.ofNat 64 8) = 0 ∧
-      RegsExcept s t [.x5, .x28, .x29, .x30, .x31] ∧
-      Frame s t (fun A => A = 0 ∨ A = 8 ∨ A = SIG ∨ A = SIG + 8 ∨ A = DIG ∨ A = DIG + 8) := by
-  refine ⟨_, symRun_sound mQ hc.post s hpc (by simp [mQ.res, rv_simp]), by simp [mQ.res, rv_simp],
-    by simp [mQ.res, rv_simp], by simp [mQ.res, rv_simp], by simp [mQ.res, rv_simp], ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
-  all_goals first
-    | (simp only [Result.toState_getMem, mQ.res, SIG, DIG]; t3n [])
-    | skip
-  · intro r hr; simp at hr; cases r <;> simp_all [mQ.res, rv_simp] <;> rfl
-  · intro A hA hn
-    simp only [SIG, DIG] at hn
-    simp only [Result.toState_getMem, mQ.res]
-    t3n []
-    repeat rw [if_neg (by omega)]
-theorem msg_spec {im : Image} (hc : Code im) (s : MachineState) (hpc : s.pc = pcOf 138) :
-    ∃ t, Steps im s 15 15 t ∧ t.pc = pcOf 153 ∧ t.getReg .x19 = BitVec.ofNat 64 0 ∧
-      t.getMem (BitVec.ofNat 64 (DIG + 32)) = s.getMem (BitVec.ofNat 64 MSG) ∧
-      t.getMem (BitVec.ofNat 64 (DIG + 40)) = s.getMem (BitVec.ofNat 64 (MSG + 8)) ∧
-      t.getMem (BitVec.ofNat 64 (DIG + 48)) = s.getMem (BitVec.ofNat 64 (MSG + 16)) ∧
-      t.getMem (BitVec.ofNat 64 (DIG + 56)) = s.getMem (BitVec.ofNat 64 (MSG + 24)) ∧
-      RegsExcept s t [.x6, .x7, .x19, .x29, .x30] ∧
-      Frame s t (fun A => A = DIG + 32 ∨ A = DIG + 40 ∨ A = DIG + 48 ∨ A = DIG + 56) := by
-  refine ⟨_, symRun_sound mM hc.msg s hpc (by simp [mM.res, rv_simp]), by simp [mM.res, rv_simp],
-    by simp [mM.res, rv_simp], ?_, ?_, ?_, ?_, ?_, ?_⟩
-  all_goals first
-    | (simp only [Result.toState_getMem, mM.res, DIG, MSG]; t3n [])
-    | skip
-  · intro r hr; simp at hr; cases r <;> simp_all [mM.res, rv_simp] <;> rfl
-  · intro A hA hn
-    simp only [DIG] at hn
-    simp only [Result.toState_getMem, mM.res]
-    t3n []
-    repeat rw [if_neg (by omega)]
-/-- Cycle bound of the routine from word 123 to word 153. -/
-abbrev modC : Nat := 1 + 23 + 4 * 1024 + 3 * 3 + 15 + 15
-theorem hash_limbs (a : BitVec 256) :
-    a.toNat = (((((a.extractLsb' 192 64).toNat * 2 ^ 64 + (a.extractLsb' 128 64).toNat) * 2 ^ 64 +
-      (a.extractLsb' 64 64).toNat) * 2 ^ 64) + (a.extractLsb' 0 64).toNat) := by
-  simp only [BitVec.extractLsb'_toNat, Nat.shiftRight_eq_div_pow]
-  have := a.isLt
-  omega
-/-- R6 (F1): words 123 → 153 compute `rho = privateHash mod R` from the hash at `RHOOUT` (limbs `a`), store it at
-`SIG` and `DIG`, and copy the message to `DIG + 32`. -/
-theorem run {im : Image} (hc : Code im) (s : MachineState) (hpc : s.pc = pcOf 123) (hx5 : s.getReg .x5 = 0)
-    (hm0 : s.getMem (BitVec.ofNat 64 0) = 0) (hm8 : s.getMem (BitVec.ofNat 64 8) = 0) (a : BitVec 256)
-    (ha : ∀ j < 4, s.getMem (BitVec.ofNat 64 (RHOOUT + 8 * j)) = a.extractLsb' (64 * j) 64) :
-    ∃ t k, Steps im s k k t ∧ k ≤ modC ∧ t.pc = pcOf 153 ∧ t.getReg .x19 = BitVec.ofNat 64 0 ∧
-      DigAt t SIG (BitVec.ofNat 128 (T3.rhoMod a)) ∧ DigAt t DIG (BitVec.ofNat 128 (T3.rhoMod a)) ∧
-      t.getMem (BitVec.ofNat 64 (DIG + 32)) = s.getMem (BitVec.ofNat 64 MSG) ∧
-      t.getMem (BitVec.ofNat 64 (DIG + 40)) = s.getMem (BitVec.ofNat 64 (MSG + 8)) ∧
-      t.getMem (BitVec.ofNat 64 (DIG + 48)) = s.getMem (BitVec.ofNat 64 (MSG + 16)) ∧
-      t.getMem (BitVec.ofNat 64 (DIG + 56)) = s.getMem (BitVec.ofNat 64 (MSG + 24)) ∧
-      RegsExcept s t [.x6, .x7, .x19, .x29, .x30] ∧
-      Frame s t (fun A => A = SIG ∨ A = SIG + 8 ∨ A = DIG ∨ A = DIG + 8 ∨ A = DIG + 32 ∨ A = DIG + 40 ∨
-        A = DIG + 48 ∨ A = DIG + 56) := by
-  obtain ⟨s1, st1, p1, r1, m1⟩ := jal_spec hc s hpc
-  obtain ⟨s2, st2, p2, q6, q7, q28, q29, q30, q31, q0, q8, r2, f2⟩ := pre_spec hc s1 p1
-  have w : ∀ j < 4, s2.getMem (BitVec.ofNat 64 (RHOOUT + 8 * j)) = a.extractLsb' (64 * j) 64 := fun j hj => by
-    rw [f2.get (by sg_omega) (by sg_omega), m1]; exact ha j hj
-  have tl : ∀ x : BitVec 64, x = 0#64 → x.toNat = 0 := fun x h => by rw [h]; rfl
-  have hRL : (BitVec.ofNat 64 RL).toNat = RL := by rw [BitVec.toNat_ofNat]; decide
-  have hRH : (BitVec.ofNat 64 RH).toNat = RH := by rw [BitVec.toNat_ofNat]; decide
-  have h64 : (64#64).toNat = 64 := rfl
-  -- limb 3
-  obtain ⟨u0, k0, sl0, hk0, pu0, e60, e70, ru0, mu0⟩ := loop64 (loopSem0 hc.l0) s2 p2 0 T3.R_pos
-    (by rw [tl _ q6]; simp) (by rw [tl _ q7]; simp) (by rw [q28, hRL]) (by rw [q29, hRH]) (by rw [q31, h64])
-  rw [q30, show RHOOUT + 24 = RHOOUT + 8 * 3 from rfl, ← f2.get (by sg_omega) (by sg_omega), w 3 (by decide)] at e60 e70
-  set rr1 := (0 * 2 ^ 64 + (a.extractLsb' (64 * 3) 64).toNat) % T3.R with hrr1
-  obtain ⟨v1, st3, pv1, v130, v131, rv1, mv1⟩ := set1_spec hc u0 pu0
-  rw [mu0, show RHOOUT + 16 = RHOOUT + 8 * 2 from rfl, w 2 (by decide)] at v130
-  obtain ⟨u1, k1, sl1, hk1, pu1, e61, e71, ru1, mu1⟩ := loop64 (loopSem1 hc.l1) v1 pv1 rr1 (Nat.mod_lt _ T3.R_pos)
-    (by rw [rv1.get (r := .x6) (by decide), e60]) (by rw [rv1.get (r := .x7) (by decide), e70])
-    (by rw [rv1.get (r := .x28) (by decide), ru0.get (r := .x28) (by decide), q28, hRL])
-    (by rw [rv1.get (r := .x29) (by decide), ru0.get (r := .x29) (by decide), q29, hRH]) (by rw [v131, h64])
-  rw [v130] at e61 e71
-  set rr2 := (rr1 * 2 ^ 64 + (a.extractLsb' (64 * 2) 64).toNat) % T3.R with hrr2
-  obtain ⟨v2, st4, pv2, v230, v231, rv2, mv2⟩ := set2_spec hc u1 pu1
-  rw [mu1, mv1, mu0, show RHOOUT + 8 = RHOOUT + 8 * 1 from rfl, w 1 (by decide)] at v230
-  obtain ⟨u2, k2, sl2, hk2, pu2, e62, e72, ru2, mu2⟩ := loop64 (loopSem2 hc.l2) v2 pv2 rr2 (Nat.mod_lt _ T3.R_pos)
-    (by rw [rv2.get (r := .x6) (by decide), e61]) (by rw [rv2.get (r := .x7) (by decide), e71])
-    (by rw [rv2.get (r := .x28) (by decide), ru1.get (r := .x28) (by decide), rv1.get (r := .x28) (by decide),
-      ru0.get (r := .x28) (by decide), q28, hRL])
-    (by rw [rv2.get (r := .x29) (by decide), ru1.get (r := .x29) (by decide), rv1.get (r := .x29) (by decide),
-      ru0.get (r := .x29) (by decide), q29, hRH]) (by rw [v231, h64])
-  rw [v230] at e62 e72
-  set rr3 := (rr2 * 2 ^ 64 + (a.extractLsb' (64 * 1) 64).toNat) % T3.R with hrr3
-  obtain ⟨v3, st5, pv3, v330, v331, rv3, mv3⟩ := set3_spec hc u2 pu2
-  rw [mu2, mv2, mu1, mv1, mu0, show RHOOUT = RHOOUT + 8 * 0 from rfl, w 0 (by decide)] at v330
-  obtain ⟨u3, k3, sl3, hk3, pu3, e63, e73, ru3, mu3⟩ := loop64 (loopSem3 hc.l3) v3 pv3 rr3 (Nat.mod_lt _ T3.R_pos)
-    (by rw [rv3.get (r := .x6) (by decide), e62]) (by rw [rv3.get (r := .x7) (by decide), e72])
-    (by rw [rv3.get (r := .x28) (by decide), ru2.get (r := .x28) (by decide), rv2.get (r := .x28) (by decide),
-      ru1.get (r := .x28) (by decide), rv1.get (r := .x28) (by decide), ru0.get (r := .x28) (by decide), q28, hRL])
-    (by rw [rv3.get (r := .x29) (by decide), ru2.get (r := .x29) (by decide), rv2.get (r := .x29) (by decide),
-      ru1.get (r := .x29) (by decide), rv1.get (r := .x29) (by decide), ru0.get (r := .x29) (by decide), q29, hRH])
-    (by rw [v331, h64])
-  rw [v330] at e63 e73
-  have hrho : (rr3 * 2 ^ 64 + (a.extractLsb' (64 * 0) 64).toNat) % T3.R = T3.rhoMod a := by
-    have c1 : rr1 ≡ (a.extractLsb' (64 * 3) 64).toNat [MOD T3.R] := by
-      rw [hrr1, Nat.zero_mul, Nat.zero_add]; exact Nat.mod_modEq _ _
-    have c2 : rr2 ≡ (a.extractLsb' (64 * 3) 64).toNat * 2 ^ 64 + (a.extractLsb' (64 * 2) 64).toNat [MOD T3.R] := by
-      rw [hrr2]; exact (Nat.mod_modEq _ _).trans ((c1.mul_right _).add_right _)
-    have c3 : rr3 ≡ ((a.extractLsb' (64 * 3) 64).toNat * 2 ^ 64 + (a.extractLsb' (64 * 2) 64).toNat) * 2 ^ 64 +
-        (a.extractLsb' (64 * 1) 64).toNat [MOD T3.R] := by
-      rw [hrr3]; exact (Nat.mod_modEq _ _).trans ((c2.mul_right _).add_right _)
-    unfold T3.rhoMod
-    rw [hash_limbs a]
-    exact (c3.mul_right _).add_right _
-  rw [hrho] at e63 e73
-  have mu : ∀ A, u3.getMem A = s2.getMem A := fun A => by rw [mu3, mv3, mu2, mv2, mu1, mv1, mu0]
-  obtain ⟨t1, st6, pt1, t5, t28, t31, g0, g8, g16, g24, z0, z8, rt1, ft1⟩ := post_spec hc u3 pu3
-  obtain ⟨t, st7, pt, t19, d32, d40, d48, d56, rt, ft⟩ := msg_spec hc t1 pt1
-  have hlt := T3.rhoMod_lt a
-  have hRlt := T3.R_lt
-  have dig : ∀ B, t1.getMem (BitVec.ofNat 64 B) = u3.getReg .x6 → t1.getMem (BitVec.ofNat 64 (B + 8)) = u3.getReg .x7 →
-      B + 8 < DIG + 32 → DigAt t B (BitVec.ofNat 128 (T3.rhoMod a)) := by
-    intro B h0 h8 hB
-    constructor
-    · rw [ft.get (by sg_omega) (by sg_omega), h0]
-      apply BitVec.eq_of_toNat_eq
-      rw [e63, BitVec.extractLsb'_toNat, BitVec.toNat_ofNat, Nat.mod_eq_of_lt (T3.rhoMod_lt_pow a), Nat.shiftRight_zero]
-    · rw [ft.get (by sg_omega) (by sg_omega), h8]
-      apply BitVec.eq_of_toNat_eq
-      rw [e73, BitVec.extractLsb'_toNat, BitVec.toNat_ofNat, Nat.mod_eq_of_lt (T3.rhoMod_lt_pow a),
-        Nat.shiftRight_eq_div_pow, Nat.mod_eq_of_lt (by omega)]
-  refine ⟨t, _, ((((((((((st1.trans st2).trans sl0).trans st3).trans sl1).trans st4).trans sl2).trans st5).trans
-    sl3).trans st6).trans st7), by unfold modC; omega, pt, t19, dig SIG g0 g8 (by sg_omega), dig DIG g16 g24 (by sg_omega), ?_, ?_, ?_, ?_, ?_, ?_⟩
-  · rw [d32, ft1.get (by sg_omega) (by sg_omega), mu, f2.get (by sg_omega) (by sg_omega), m1]
-  · rw [d40, ft1.get (by sg_omega) (by sg_omega), mu, f2.get (by sg_omega) (by sg_omega), m1]
-  · rw [d48, ft1.get (by sg_omega) (by sg_omega), mu, f2.get (by sg_omega) (by sg_omega), m1]
-  · rw [d56, ft1.get (by sg_omega) (by sg_omega), mu, f2.get (by sg_omega) (by sg_omega), m1]
-  · have rall := ((((((((((r1.trans r2).trans ru0).trans rv1).trans ru1).trans rv2).trans ru2).trans rv3).trans
-      ru3).trans rt1).trans rt)
-    intro x hx
-    by_cases x5 : x = .x5
-    · subst x5; rw [rt.get (by decide), t5, hx5]
-    by_cases x28 : x = .x28
-    · subst x28; rw [rt.get (by decide), t28, mu, q0, r1.get (by decide)]
-    by_cases x31 : x = .x31
-    · subst x31; rw [rt.get (by decide), t31, mu, q8, r1.get (by decide)]
-    refine rall x (fun hm => hx ?_)
-    simp only [List.mem_append, List.mem_cons, List.not_mem_nil, or_false, List.nil_append] at hm ⊢
-    rcases hm with ((((((((((hm | hm) | hm) | hm) | hm) | hm) | hm) | hm) | hm) | hm) | hm) <;>
-      first | exact hm.elim | (rcases hm with hm | hm | hm | hm | hm | hm | hm <;> simp_all)
-  · intro A hA hn
-    rw [ft.get hA (by sg_omega)]
-    by_cases h0 : A = 0
-    · subst h0; rw [z0, hm0]
-    by_cases h8 : A = 8
-    · subst h8; rw [z8, hm8]
-    rw [ft1.get hA (by sg_omega), mu, f2.get hA (by sg_omega), m1]
-end SigGolfCandidate.T3M.Sign.ModR
-
 namespace SigGolfCandidate.T3M.Sign.Boundary.Generic
 open RiscvZkvm.Rv64 SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv SigGolfCandidate.Rv OracleComp
 open SigGolfCandidate.T3 (M Digest HashOutput Cache Region Signature Selection sign signPayload signLayers privateMac privateNonce privateInput header digestSearch selections admissible attemptLimit buildFts frontier forestPk piecesSignature zero16)
@@ -5972,7 +5695,7 @@ structure FrontCodeAt (im : Image) : Prop where
   seg60 : CodeAt im (pcOf 60) seg_60
   seg63 : CodeAt im (pcOf 63) seg_63
   seg122 : CodeAt im (pcOf 122) seg_122
-  modR : ModR.Code im
+  seg123 : CodeAt im (pcOf 123) seg_123
   seg543 : CodeAt im (pcOf 543) seg_543
 theorem blk0_spec (im : Image) (hc : FrontCodeAt im) (s : MachineState) (hpc : s.pc = pcOf 0) :
     ∃ t, Steps im s 17 17 t ∧ t.pc = pcOf 1227 ∧ t.getReg .x5 = 0 ∧
@@ -6102,6 +5825,32 @@ theorem blk63_spec (im : Image) (hc : FrontCodeAt im) (s : MachineState) (hpc : 
     repeat rw [if_neg (by omega)]
 theorem fetch_122 (im : Image) (hc : FrontCodeAt im) (s : MachineState) (hpc : s.pc = pcOf 122) : fetch im s = some (.base .ECALL) :=
   (hc.seg122.fetch s hpc).trans rfl
+theorem blk123_spec (im : Image) (hc : FrontCodeAt im) (s : MachineState) (hpc : s.pc = pcOf 123) :
+    ∃ t, Steps im s 30 30 t ∧ t.pc = pcOf 153 ∧ t.getReg .x19 = BitVec.ofNat 64 0 ∧
+      t.getMem (BitVec.ofNat 64 SIG) = s.getMem (BitVec.ofNat 64 RHOOUT) ∧
+      t.getMem (BitVec.ofNat 64 (SIG + 8)) = s.getMem (BitVec.ofNat 64 (RHOOUT + 8)) ∧
+      t.getMem (BitVec.ofNat 64 DIG) = s.getMem (BitVec.ofNat 64 RHOOUT) ∧
+      t.getMem (BitVec.ofNat 64 (DIG + 8)) = s.getMem (BitVec.ofNat 64 (RHOOUT + 8)) ∧
+      t.getMem (BitVec.ofNat 64 (DIG + 32)) = s.getMem (BitVec.ofNat 64 MSG) ∧
+      t.getMem (BitVec.ofNat 64 (DIG + 40)) = s.getMem (BitVec.ofNat 64 (MSG + 8)) ∧
+      t.getMem (BitVec.ofNat 64 (DIG + 48)) = s.getMem (BitVec.ofNat 64 (MSG + 16)) ∧
+      t.getMem (BitVec.ofNat 64 (DIG + 56)) = s.getMem (BitVec.ofNat 64 (MSG + 24)) ∧
+      RegsExcept s t [.x6, .x7, .x19, .x29, .x30] ∧
+      Frame s t (fun A => A = SIG ∨ A = SIG + 8 ∨ A = DIG ∨ A = DIG + 8 ∨ A = DIG + 32 ∨ A = DIG + 40 ∨
+        A = DIG + 48 ∨ A = DIG + 56) := by
+  refine ⟨_, symRun_sound blk_123 hc.seg123 s hpc (by simp [blk_123.res, rv_simp]),
+    ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
+  · simp [blk_123.res, E.eval]
+  · simp [blk_123.res, rv_simp]
+  all_goals first
+    | (simp only [Result.toState_getMem, blk_123.res, SIG, DIG, RHOOUT, MSG]; t3n [])
+    | skip
+  · intro r hr; simp at hr; cases r <;> simp_all [blk_123.res, rv_simp] <;> rfl
+  · intro A hA hn
+    simp only [SIG, DIG] at hn
+    simp only [Result.toState_getMem, blk_123.res]
+    t3n []
+    repeat rw [if_neg (by omega)]
 theorem cmp_chain (im : Image) (hc : FrontCodeAt im) (t : MachineState) (hpc : t.pc = pcOf 47) (a tag : BitVec 256)
     (ha : OutAt t MACOUT a) (ht : OutAt t TAG tag) :
     (a = tag → ∃ u, Steps im t 16 16 u ∧ u.pc = pcOf 63 ∧ RegsExcept t u [.x6, .x7, .x28, .x29] ∧
@@ -6187,7 +5936,7 @@ theorem nonce_front (im : Image) (hc : FrontCodeAt im) (hmcode : FullCache.Gener
   have hregion : t1.readWords (BitVec.ofNat 64 REGION) 16380 = wordsOf (List.ofFn (cacheDec cache).region) := by
     rw [frame_readWords f1 REGION 16380 (by decide) (fun i _ h => by sg_omega)]
     exact sinit_region sk cache m
-  refine TBSim.of_eq (W := 17 + (2489875 + (1 + (16 + (59 + (8 * 2 + (4159 + W))))))) ?_ rfl
+  refine TBSim.of_eq (W := 17 + (2489875 + (1 + (16 + (59 + (8 * 2 + (30 + W))))))) ?_ rfl
     (by unfold frontC; ring)
   refine TBSim.steps st1 ?_
   refine TBSim.bind ((FullCache.Generic.mac_tsim true im hmcode sk (cacheDec cache).region t1 p1 x5 hsk hregion).toTBSim (by decide))
@@ -6265,26 +6014,19 @@ theorem nonce_front (im : Image) (hc : FrontCodeAt im) (hmcode : FullCache.Gener
       show MSG = MSG + 8 * 0 from rfl, mm 0 (by decide), mm 1 (by decide), mm 2 (by decide), mm 3 (by decide)]
     rfl
   refine TBSim.steps st4 ?_
-  refine TBSim.privateNonce_bind (W := 4159 + W) (fetch_122 im hc t4 p4) x5' hv4 hq4 (fun b => ?_)
+  refine TBSim.privateNonce_bind (W := 30 + W) (fetch_122 im hc t4 p4) x5' hv4 hq4 (fun b => ?_)
   set t5 := writeHash t4 b
   have hwf5 := Frame.writeHash t4 b RHOOUT y12 (by decide)
-  -- R6 (F1): word 123 jumps to the mod-R routine, which reduces the hash limbs at `RHOOUT` modulo `R`.
-  have hout : ∀ j < 4, t5.getMem (BitVec.ofNat 64 (RHOOUT + 8 * j)) = b.extractLsb' (64 * j) 64 := fun j hj => by
-    rw [getMem_writeHash t4 b RHOOUT _ y12 (by decide +kernel) (by sg_omega)]
-    interval_cases j <;> simp
-  have z : ∀ X, X < 0x80 → t5.getMem (BitVec.ofNat 64 X) = 0 := fun X hX => by
-    rw [hwf5.get (by sg_omega) (by sg_omega), f04.get (by sg_omega) (by sg_omega)]
-    exact sinit_zero sk cache m X (by unfold SIGN_DATA; sg_omega) (by sg_omega)
-  obtain ⟨t6, k6, st6, hk6, p6, x19, s0', d0', d32, d40, d48, d56, r6, f6⟩ :=
-    ModR.run hc.modR t5 (by rw [pc_writeHash, p4, pcOf_add4]) (by rw [getReg_writeHash, x5'])
-      (z 0 (by decide)) (z 8 (by decide)) b hout
+  have hrho : DigAt t5 RHOOUT (b.extractLsb' 0 128) := DigAt.writeHash_lo t4 b RHOOUT y12 (by decide)
+  obtain ⟨t6, st6, p6, x19, s0', s8', d0, d8, d32, d40, d48, d56, r6, f6⟩ :=
+    blk123_spec im hc t5 (by rw [pc_writeHash, p4, pcOf_add4])
   have mm5 : ∀ j < 4, t5.getMem (BitVec.ofNat 64 (MSG + 8 * j)) = m.extractLsb' (64 * j) 64 := fun j hj => by
     rw [hwf5.get (by sg_omega) (by sg_omega), f4.get (by sg_omega) (by sg_omega)]; exact mm j hj
-  have hpre : DsPre t6 (BitVec.ofNat 128 (T3.rhoMod b)) m :=
+  have hpre : DsPre t6 (b.extractLsb' 0 128) m :=
     { pc := p6
       x5 := by rw [r6.get (by decide), getReg_writeHash, x5']
       x19 := x19
-      rho := d0'
+      rho := ⟨by rw [d0]; exact hrho.1, by rw [d8]; exact hrho.2⟩
       msg := fun k hk => by
         interval_cases k
         · rw [show DIG + 32 + 8 * 0 = DIG + 32 from rfl, d32]; exact mm5 0 (by decide)
@@ -6299,8 +6041,8 @@ theorem nonce_front (im : Image) (hc : FrontCodeAt im) (hmcode : FullCache.Gener
       · exact Or.inl h
       · exact Or.inr (Or.inl h)
       · sg_omega)
-  refine (TBSim.steps st6 (hrest _ t6 ?_)).mono (by unfold ModR.modC at hk6; omega) (fun _ _ h => h)
-  refine ⟨hpre, s0', ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
+  refine TBSim.steps st6 (hrest _ t6 ?_)
+  refine ⟨hpre, ⟨by rw [s0']; exact hrho.1, by rw [s8']; exact hrho.2⟩, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
   · rw [f6.get (by sg_omega) (by sg_omega), hwf5.get (by sg_omega) (by sg_omega), q0, k 0 (by decide)]
   · rw [f6.get (by sg_omega) (by sg_omega), hwf5.get (by sg_omega) (by sg_omega), q8]; exact k 1 (by decide)
   · rw [f6.get (by sg_omega) (by sg_omega), hwf5.get (by sg_omega) (by sg_omega), q32]; exact k 2 (by decide)
@@ -6316,7 +6058,6 @@ open RiscvZkvm.Rv64 SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv SigGol
 open SigGolfCandidate.T3 (M Digest privateMac privateNonce)
 set_option maxRecDepth 100000
 set_option maxHeartbeats 1000000
-set_option debug.skipKernelTC false in
 theorem sign_frontCodeAt : FrontCodeAt Images.signImage := by
   constructor
   · apply codeAt_sign_current_slice <;> decide +kernel
@@ -6327,14 +6068,7 @@ theorem sign_frontCodeAt : FrontCodeAt Images.signImage := by
   · apply codeAt_sign_current_slice <;> decide +kernel
   · apply codeAt_sign_current_slice <;> decide +kernel
   · apply codeAt_sign_current_slice <;> decide +kernel
-  · -- R6 (F1): the mod-R routine (word 123 jump, the tail words 25696..25806, the message copy at 138).
-    -- kfix: lemma chosen by address. A `first | (… decide +kernel) | …` never falls through under
-    -- `debug.skipKernelTC` (a false kernel side goal is accepted unchecked), so `jal` (123) and `msg` (138)
-    -- used to take `codeAt_sign_last` (needs `21760 ≤ b`); the kernel now checks this theorem.
-    constructor
-    case jal => apply codeAt_sign_current_slice <;> decide +kernel
-    case msg => apply codeAt_sign_current_slice <;> decide +kernel
-    all_goals (apply codeAt_sign_last <;> decide +kernel)
+  · apply codeAt_sign_current_slice <;> decide +kernel
   · apply codeAt_sign_current_slice <;> decide +kernel
 theorem sign_nonce_front {sk : SecretKey} {cache : Bytes 131072} {m : Message}
     {α : Type} {W : Nat} {Q : Option α → MachineState → Prop}

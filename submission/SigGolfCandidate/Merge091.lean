@@ -468,7 +468,7 @@ theorem lvl_core {im : Image} {j : Nat} (hj : j < 128) (hcode : ChildCodeAt im j
   have hw0 : 0 ≤ w0n k index ∧ w0n k index < 2 ^ 64 := by
     have := Nat.mod_lt index (show 0 < 2 ^ 31 by norm_num)
     have := Nat.mod_lt k (show 0 < 16 by norm_num)
-    unfold w0n V3.nodeLow ClaudeWCT.WCT9.ftsLeafLow SigGolfCandidate.T3.ftsBias
+    unfold w0n V3.nodeLow ClaudeWCT.WCT9.ftsLeafLow SigGolfCandidate.T3.ftsBiasN
     omega
   have hhdr : DigAt t (B + blkO j l + 16) (nodeHeader k index (heapOf l j) (hpOf j tws l)) := by
     by_cases h3 : l ≤ 3
@@ -1427,7 +1427,7 @@ theorem lvl_core {im : Image} {j : Nat} (hj : j < 128) (hcode : ChildCodeAt im j
   have hw0 : 0 ≤ w0n k index ∧ w0n k index < 2 ^ 64 := by
     have := Nat.mod_lt index (show 0 < 2 ^ 31 by norm_num)
     have := Nat.mod_lt k (show 0 < 16 by norm_num)
-    unfold w0n V3.nodeLow ClaudeWCT.WCT9.ftsLeafLow SigGolfCandidate.T3.ftsBias
+    unfold w0n V3.nodeLow ClaudeWCT.WCT9.ftsLeafLow SigGolfCandidate.T3.ftsBiasN
     omega
   have hhdr : DigAt t (B + blkO j l + 16) (nodeHeader k index (heapOf l j) (hpOf j tws l)) := by
     by_cases h3 : l ≤ 3
@@ -2331,7 +2331,7 @@ theorem lvl_core {im : Image} {j : Nat} (hj : j < 128) (hcode : ChildCodeAt im j
   have hw0 : 0 ≤ w0n k index ∧ w0n k index < 2 ^ 64 := by
     have := Nat.mod_lt index (show 0 < 2 ^ 31 by norm_num)
     have := Nat.mod_lt k (show 0 < 16 by norm_num)
-    unfold w0n V3.nodeLow ClaudeWCT.WCT9.ftsLeafLow SigGolfCandidate.T3.ftsBias
+    unfold w0n V3.nodeLow ClaudeWCT.WCT9.ftsLeafLow SigGolfCandidate.T3.ftsBiasN
     omega
   have hhdr : DigAt t (B + blkO j l + 16) (nodeHeader k index (heapOf l j) (hpOf j tws l)) := by
     by_cases h3 : l ≤ 3
@@ -3238,7 +3238,7 @@ theorem lvl_core {im : Image} {j : Nat} (hj : j < 128) (hcode : ChildCodeAt im j
   have hw0 : 0 ≤ w0n k index ∧ w0n k index < 2 ^ 64 := by
     have := Nat.mod_lt index (show 0 < 2 ^ 31 by norm_num)
     have := Nat.mod_lt k (show 0 < 16 by norm_num)
-    unfold w0n V3.nodeLow ClaudeWCT.WCT9.ftsLeafLow SigGolfCandidate.T3.ftsBias
+    unfold w0n V3.nodeLow ClaudeWCT.WCT9.ftsLeafLow SigGolfCandidate.T3.ftsBiasN
     omega
   have hhdr : DigAt t (B + blkO j l + 16) (nodeHeader k index (heapOf l j) (hpOf j tws l)) := by
     by_cases h3 : l ≤ 3

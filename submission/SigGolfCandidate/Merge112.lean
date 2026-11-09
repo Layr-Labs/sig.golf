@@ -3253,7 +3253,7 @@ theorem tiny_boundFam (S : FamScheme) {Cmax : Nat} (H : CanonicalRef.Normalized.
   have h:=clean_probability_real_ofG adversary q hq (completed_split_canonical adversary q hq)
     (249/125) (18/5000) (by finiteness) (by finiteness) (by
       simpa (disch:=positivity) only [ENNReal.ofReal_div_of_pos,ENNReal.ofReal_ofNat,ENNReal.ofReal_one] using
-        ENNReal.ofReal_le_ofReal (by norm_num : (29249:ℝ)/2500000≤249/125))
+        ENNReal.ofReal_le_ofReal (by norm_num : (1:ℝ)/1024≤249/125))
     excess_tiny_actualG (by simpa only [ENNReal.toReal_div,ENNReal.toReal_ofNat] using! hp)
     (completed_incomplete_bound adversary q hq)
     (by simpa only [one_div] using FtsOverflow.Paired.cleanWin_noOverflow_le adversary q hq)
@@ -3583,7 +3583,9 @@ def last (i : Nat) : Nat := topMax i - 1
 /-- The half of the step-`m` answer the image keeps (`= WCT9.chainHigh 0 i m`): G chains keep the high half on
 interior steps; campaign T51 (PIN v1): chain 0 keeps it on its terminal step too (answer at `slot 0 - 16`). -/
 def topHigh (i m : Nat) : Bool := topG i && (decide (m + 1 < topMax i) || decide (i = 0))
-def «prefix» (c : NCtx) : Nat := 128 + 193 * 2 ^ 56 + ((c.tree * 2 ^ 12 + c.leaf) % 2 ^ 32) * 2 ^ 16
+def «prefix» (c : NCtx) : Nat := 128 + ((c.tree * 2 ^ 12 + c.leaf) % 2 ^ 32 + 2 ^ 12) * 2 ^ 16
+/-- Z6 option F: the top label word `t3` (`prefix - 128`). -/
+def pre0 (c : NCtx) : Nat := ((c.tree * 2 ^ 12 + c.leaf) % 2 ^ 32 + 2 ^ 12) * 2 ^ 16
 def w0 (c : NCtx) (i : Nat) : Nat := c.prefix + i
 def w1 (c : NCtx) : Nat := hdr1 c.tree c.leaf
 def pad0 (c : NCtx) (i : Nat) : Digest := ClaudeWCT.W9.T3M.wdig c.w (c.pad0At i - Verify.WIT)
@@ -3595,7 +3597,7 @@ def ok (c : NCtx) : Prop :=
     c.ret < 209920
 def known (c : NCtx) : List (Reg × Word) :=
   [(.x5, 0), (.x11, 64), (.x9, 0x7fc01), (.x13, 2), (.x19, 3), (.x20, 4), (.x21, 5), (.x26, 6),
-   (.x28, BitVec.ofNat 64 (c.prefix + 385)), (.x8, BitVec.ofNat 64 c.S3), (.x2, BitVec.ofNat 64 0xffbde0), (.x4, 14776)]
+   (.x28, BitVec.ofNat 64 c.pre0), (.x8, BitVec.ofNat 64 c.S3), (.x2, BitVec.ofNat 64 0xffbde0), (.x4, 14776)]
 /-- Rank of top group `q`: the digit triple in radix `mx q + 1`; group 16 (the r7 pair, chains 48 and 49) has only two
 digits, `d48 + 7 d49`. -/
 def kOf (c : NCtx) (q : Nat) : Nat :=
@@ -3778,7 +3780,7 @@ theorem w0_header (c : NCtx) (hc : c.ok) (i m : Nat) (hi : i < 51) (hm : m < 8) 
     (by rw [hc.1]; decide +kernel) hc.2.1]
   congr 1
   simp only [w0, «prefix», packedPrefix, packedHi, show height 0 = 12 from rfl, Fin.val_zero,
-    Nat.zero_mul, Nat.add_zero]
+    Nat.zero_mul, Nat.add_zero, show hyperW 0 = 12 from rfl]
   ring
 set_option maxRecDepth 20000 in
 theorem chain_hashInput (c : NCtx) (hc : c.ok) (i m : Nat) (hi : i < 51) (hm : m < 8) (v : Digest)

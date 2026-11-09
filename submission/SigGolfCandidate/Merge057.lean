@@ -5562,9 +5562,8 @@ noncomputable local instance : SampleableType FullGame.FullTable := Derivation.o
 attribute [local instance] FiniteRowSplit.instSampleableTypeForallSubtypeHashInputMemFinsetHashOutput
 noncomputable local instance : SampleableType (SearchKey → HashOutput) := ClaudeWCT.W9.T3.Presampling.tableSampler
 
-/-- R6 (F1): the nonce is `rhoMod` of the private answer. -/
 def privateNonces (table : FullGame.FullTable) (message : Message) : Digest :=
-  BitVec.ofNat 128 (SigGolfCandidate.T3.rhoMod (table (.inr (.inl message))))
+  (table (.inr (.inl message))).extractLsb' 0 128
 
 theorem completed_signer_failure (adversary : ClaudeWCT.W9.T3M.Final.Paired.AdversaryP)
     (q : Nat) (hq:q≤2^127) :
@@ -10933,17 +10932,13 @@ set_option backward.isDefEq.respectTransparency false
 attribute [local instance] Classical.propDecidable
 section Table
 variable {U : Finset HashInput} (hU : CanonGraph.canonInputs ⊆ U)
-/-- R6 world split: the BPair world nonce is `rhoMod` of the full 256-bit nonce answer. -/
 theorem eval_nonce (ω : Omega U) (fts : FtsCoord → Digest) (m : Message) :
     evalWithAnswerFn (Omega.answers hU ω fts) (privateNonce m) = nonceOf ω m := by
   unfold privateNonce privateHash
   simp only [evalWithAnswerFn_bind, evalWithAnswerFn_pure]
-  change BitVec.ofNat 128 (rhoMod (CanonGraph.privateEquiv.symm (ω.secrets fts, ω.other) (.inr (.inl m)))) = _
-  have h0 := splitEquiv_symm_other (ω.secrets fts) ω.other (nonceHalf m) (nonceHalf_not_secret m)
-  have h1 := splitEquiv_symm_other (ω.secrets fts) ω.other (nonceHalfHi m) (nonceHalfHi_not_secret m)
-  simp only [nonceHalf, nonceHalfHi] at h0 h1
-  rw [privateEquiv_symm_apply, h0, h1]
-  rfl
+  change (CanonGraph.privateEquiv.symm (ω.secrets fts, ω.other) (.inr (.inl m))).extractLsb' 0 128 = _
+  rw [privateEquiv_symm_apply, ChainGraph.joinOutput_low]
+  exact splitEquiv_symm_other _ _ (nonceHalf m) (nonceHalf_not_secret m)
 end Table
 section Inline
 variable {U : Finset HashInput} (hU : CanonGraph.canonInputs ⊆ U)
@@ -11532,10 +11527,7 @@ end Congr
 section EagerLazy
 open SecretGuessObservation (forcedRun forcedImpl runWith)
 noncomputable def rowsLaw : SPMF (digestInputs → HashOutput) := liftM (PMF.uniformOfFintype (digestInputs → HashOutput))
-/-- R6 world split: eager nonces are `rhoMod` of a uniform table of 256-bit outputs (i.i.d. `rhoLaw`). -/
-noncomputable def noncesLaw : SPMF (Message → Digest) :=
-  (liftM (PMF.uniformOfFintype (Message → HashOutput)) : SPMF (Message → HashOutput)) >>= fun Nh =>
-    pure (fun m => BitVec.ofNat 128 (rhoMod (Nh m)))
+noncomputable def noncesLaw : SPMF (Message → Digest) := liftM (PMF.uniformOfFintype (Message → Digest))
 theorem avg_indep {α : Type} (slot : Nat) (input : WSpecL.Domain) (next : WSpecL.Range input → OracleComp WSpecL α)
     (s : WStateL)
     (ih : ∀ u s', (rowsLaw >>= fun D => noncesLaw >>= fun Nn => forcedRun (envE D Nn) slot (next u) s') =
@@ -11586,37 +11578,22 @@ theorem avg_fresh_nonce {α : Type} (slot : Nat) (m : Message) (s : WStateL)
       forcedRun envL slot (next u) s') :
     (rowsLaw >>= fun D => noncesLaw >>= fun Nn => forcedRun (envE D Nn) slot (next (Nn m))
         { s with memory := s.memory.drawNonce m (Nn m) }) =
-      ((liftM rhoLaw : SPMF Digest) >>= fun v =>
+      ((liftM (PMF.uniformOfFintype Digest) : SPMF Digest) >>= fun v =>
         forcedRun envL slot (next v) { s with memory := s.memory.drawNonce m v }) := by
-  have hinv : ∀ (D : digestInputs → HashOutput) (v : Digest) (T : Message → Digest) (c : Digest),
-      forcedRun (envE D (Function.update T m c)) slot (next v) { s with memory := s.memory.drawNonce m v } =
-        forcedRun (envE D T) slot (next v) { s with memory := s.memory.drawNonce m v } := by
-    intro D v T c
-    refine forced_congr _ _ _ _ slot _ _ ⟨fun _ _ => rfl, fun m' hm' => ?_⟩
+  have step : ∀ D : digestInputs → HashOutput,
+      (noncesLaw >>= fun Nn => forcedRun (envE D Nn) slot (next (Nn m)) { s with memory := s.memory.drawNonce m (Nn m) }) =
+      ((liftM (PMF.uniformOfFintype Digest) : SPMF Digest) >>= fun v => noncesLaw >>= fun Nn =>
+        forcedRun (envE D Nn) slot (next v) { s with memory := s.memory.drawNonce m v }) := by
+    intro D
+    rw [noncesLaw]
+    refine uniform_update m (fun v Nn => forcedRun (envE D Nn) slot (next v) { s with memory := s.memory.drawNonce m v })
+      fun v T c => forced_congr _ _ _ _ slot _ _ ⟨fun _ _ => rfl, fun m' hm' => ?_⟩
     have hmm : m' ≠ m := by
       rintro rfl
       change Function.update s.memory.nonces m' (some v) m' = none at hm'
       rw [Function.update_self] at hm'
       cases hm'
     exact Function.update_of_ne hmm _ _
-  have step : ∀ D : digestInputs → HashOutput,
-      (noncesLaw >>= fun Nn => forcedRun (envE D Nn) slot (next (Nn m)) { s with memory := s.memory.drawNonce m (Nn m) }) =
-      ((liftM rhoLaw : SPMF Digest) >>= fun v => noncesLaw >>= fun Nn =>
-        forcedRun (envE D Nn) slot (next v) { s with memory := s.memory.drawNonce m v }) := by
-    intro D
-    simp only [noncesLaw, bind_assoc, pure_bind]
-    refine (uniform_update m (fun a (Nh : Message → HashOutput) =>
-      forcedRun (envE D (fun m' => BitVec.ofNat 128 (rhoMod (Nh m')))) slot (next (BitVec.ofNat 128 (rhoMod a)))
-        { s with memory := s.memory.drawNonce m (BitVec.ofNat 128 (rhoMod a)) }) fun a T c => ?_).trans ?_
-    · have hfun : (fun m' => BitVec.ofNat 128 (rhoMod (Function.update T m c m'))) =
-          Function.update (fun m' => BitVec.ofNat 128 (rhoMod (T m'))) m (BitVec.ofNat 128 (rhoMod c)) := by
-        funext m'
-        by_cases h : m' = m
-        · subst h; simp
-        · simp [Function.update_of_ne h]
-      rw [hfun]
-      exact hinv D _ _ _
-    · rw [rhoLaw, ← PMF.monad_map_eq_map, liftM_map, bind_map_left]
   simp only [step]
   rw [RetainedObservation.bind_comm]
   exact bind_congr fun v => ih v _
@@ -11624,8 +11601,7 @@ theorem eager_lazy_core {α : Type} (slot : Nat) (W : OracleComp WSpecL α) (s :
     (rowsLaw >>= fun D => noncesLaw >>= fun Nn => forcedRun (envE D Nn) slot W s) = forcedRun envL slot W s := by
   induction W using OracleComp.inductionOn generalizing s with
   | pure a =>
-      simp only [forcedRun, SecretGuessObservation.runWith_pure, rowsLaw, noncesLaw, bind_assoc, pure_bind,
-        RetainedObservation.lift_bind_const]
+      simp only [forcedRun, SecretGuessObservation.runWith_pure, rowsLaw, noncesLaw, RetainedObservation.lift_bind_const]
   | query_bind input next ih =>
       simp only [forcedRun, SecretGuessObservation.runWith_query_bind]
       rcases input with input | (⟨f, c⟩ | f)
@@ -11686,7 +11662,7 @@ theorem eager_lazy_core {α : Type} (slot : Nat) (W : OracleComp WSpecL α) (s :
                   rw [envE, step_nonce, nonceStep_none _ _ _ hc, liftM_map, liftM_pure, map_pure, map_pure]
                 have hL : (forcedImpl envL slot (.inl (.nonce m))).run s =
                     (fun v => (v, { s with memory := s.memory.drawNonce m v })) <$>
-                      (liftM rhoLaw : SPMF Digest) := by
+                      (liftM (PMF.uniformOfFintype Digest) : SPMF Digest) := by
                   rw [envL, step_nonce, nonceStep_none _ _ _ hc, liftM_map, Functor.map_map]
                 simp only [hE, hL, pure_bind, bind_map_left]
                 exact avg_fresh_nonce slot m s next ih
@@ -11695,32 +11671,28 @@ theorem eager_lazy_core {α : Type} (slot : Nat) (W : OracleComp WSpecL α) (s :
         have hfun : (fun hit => (hit, { SecretGuessObservation.afterTrial
               (envWith (fun x => pure (rowVal D x)) (fun m => pure (Nn m))) s f c hit with memory := s.memory })) =
             (fun hit => (hit, { SecretGuessObservation.afterTrial
-              (envWith (fun _ => PMF.uniformOfFintype HashOutput) (fun _ => rhoLaw)) s f c hit with
+              (envWith (fun _ => PMF.uniformOfFintype HashOutput) (fun _ => PMF.uniformOfFintype Digest)) s f c hit with
                 memory := s.memory })) := by
           funext hit
           rw [afterTrial_sources (fun x => pure (rowVal D x)) (fun m => pure (Nn m))
-            (fun _ => PMF.uniformOfFintype HashOutput) (fun _ => rhoLaw)]
+            (fun _ => PMF.uniformOfFintype HashOutput) (fun _ => PMF.uniformOfFintype Digest)]
         rw [hfun]
       · refine avg_indep slot _ next s ih _ (fun D Nn => ?_) rfl
         rw [envE, envL, step_disclose, step_disclose]
         have hfun : (fun v => (v, { SecretGuessObservation.afterDisclosure
               (envWith (fun x => pure (rowVal D x)) (fun m => pure (Nn m))) s f v with memory := s.memory })) =
             (fun v => (v, { SecretGuessObservation.afterDisclosure
-              (envWith (fun _ => PMF.uniformOfFintype HashOutput) (fun _ => rhoLaw)) s f v with
+              (envWith (fun _ => PMF.uniformOfFintype HashOutput) (fun _ => PMF.uniformOfFintype Digest)) s f v with
                 memory := s.memory })) := by
           funext v
           rw [afterDisclosure_sources (fun x => pure (rowVal D x)) (fun m => pure (Nn m))
-            (fun _ => PMF.uniformOfFintype HashOutput) (fun _ => rhoLaw)]
+            (fun _ => PMF.uniformOfFintype HashOutput) (fun _ => PMF.uniformOfFintype Digest)]
         rw [hfun]
-/-- R6 world split: eager nonces `rhoMod ∘ Nh` with `Nh` a uniform table of 256-bit outputs. -/
 theorem eager_lazy {α : Type} (W : OracleComp WSpecL α) (slot : Nat) (s : WStateL) :
-    (𝒮[($ᵗ (digestInputs → HashOutput) : ProbComp _)] >>= fun D =>
-      𝒮[($ᵗ (Message → HashOutput) : ProbComp _)] >>= fun Nh =>
-      forcedRun (envE D (fun m => BitVec.ofNat 128 (rhoMod (Nh m)))) slot W s) = forcedRun envL slot W s := by
+    (𝒮[($ᵗ (digestInputs → HashOutput) : ProbComp _)] >>= fun D => 𝒮[($ᵗ (Message → Digest) : ProbComp _)] >>= fun Nn =>
+      forcedRun (envE D Nn) slot W s) = forcedRun envL slot W s := by
   rw [evalSPMF_uniform, evalSPMF_uniform]
-  have h := eager_lazy_core slot W s
-  simp only [rowsLaw, noncesLaw, bind_assoc, pure_bind] at h
-  exact h
+  exact eager_lazy_core slot W s
 end EagerLazy
 end SigGolfCandidate.T3.Security.BPair
 end
@@ -13605,10 +13577,10 @@ theorem ftsPos_low {p : Extract.Pos} (hb : p.Bounded) (h : FtsPos p) :
       simp only [Extract.Pos.hdr, WCT9.ftsLeafHeader]
       rw [append64_lowNat, BitVec.toNat_ofNat, Nat.mod_eq_of_lt h2]
       have hn : WCT9.ftsLeafLow index coord child ≠ 520192 := by
-        unfold WCT9.ftsLeafLow SigGolfCandidate.T3.ftsBias
+        unfold WCT9.ftsLeafLow SigGolfCandidate.T3.ftsBiasN
         omega
       have hn1 : WCT9.ftsLeafLow index coord child ≠ 856064 := by
-        unfold WCT9.ftsLeafLow SigGolfCandidate.T3.ftsBias
+        unfold WCT9.ftsLeafLow SigGolfCandidate.T3.ftsBiasN
         omega
       exact ⟨h1, h2, hn, hn1⟩
   | wctNode index coord level nd =>
@@ -13621,19 +13593,19 @@ theorem ftsPos_low {p : Extract.Pos} (hb : p.Bounded) (h : FtsPos p) :
       have hge := WCT9.ftsLeafLow_zero_or_ge (show coord < 15 by omega) index 0
       have hlt := WCT9.ftsLeafLow_lt index coord 0
       have hgeN : 4096 ≤ WCT9.ftsNodeLowN index coord (2 ^ (7 - level - 1) + nd) := by
-        rw [WCT9.ftsNodeLowN_eq, Nat.mod_eq_of_lt (show coord + 1 < 16 by omega)]; unfold SigGolfCandidate.T3.ftsBias; have := Nat.mod_lt index (by decide : 0 < 2^31); omega
+        rw [WCT9.ftsNodeLowN_eq, Nat.mod_eq_of_lt (show coord + 1 < 16 by omega)]; unfold SigGolfCandidate.T3.ftsBiasN; have := Nat.mod_lt index (by decide : 0 < 2^31); omega
       have hltN := WCT9.ftsNodeLowN_lt index coord (2 ^ (7 - level - 1) + nd)
       have hneL : WCT9.ftsLeafLow index coord 0 ≠ 520192 := by
-        unfold WCT9.ftsLeafLow SigGolfCandidate.T3.ftsBias
+        unfold WCT9.ftsLeafLow SigGolfCandidate.T3.ftsBiasN
         omega
       have hneN : WCT9.ftsNodeLowN index coord (2 ^ (7 - level - 1) + nd) ≠ 520192 := by
-        unfold WCT9.ftsNodeLowN SigGolfCandidate.T3.ftsBias
+        unfold WCT9.ftsNodeLowN SigGolfCandidate.T3.ftsBiasN
         omega
       have hneL1 : WCT9.ftsLeafLow index coord 0 ≠ 856064 := by
-        unfold WCT9.ftsLeafLow SigGolfCandidate.T3.ftsBias
+        unfold WCT9.ftsLeafLow SigGolfCandidate.T3.ftsBiasN
         omega
       have hneN1 : WCT9.ftsNodeLowN index coord (2 ^ (7 - level - 1) + nd) ≠ 856064 := by
-        unfold WCT9.ftsNodeLowN SigGolfCandidate.T3.ftsBias
+        unfold WCT9.ftsNodeLowN SigGolfCandidate.T3.ftsBiasN
         omega
       simp only [Extract.Pos.hdr]
       unfold tweakLow
@@ -13947,7 +13919,7 @@ theorem layerEncoding_ok (lay : Layer) (tree leaf : Nat) (msg : WCT9.LayerMsg) (
   | forest root => exact SigGolfCandidate.T3.Security.BPB.encoding_ok lay tree leaf root counter
   | pair left right =>
       exact SigGolfCandidate.T3.Security.BPB.shortHash_ok_marker
-        (hdrBlock_pairEncodingInputP lay tree leaf left right counter 0) (by rw [rowTweak_marker]; decide)
+        (hdrBlock_pairEncodingInputP lay tree leaf left right counter 0) (by have := rowTweak_marker lay tree leaf; omega)
 open SigGolfCandidate.T3.Security.BPB SigGolfCandidate.T3M SigGolfCandidate.T3M.SecurityInputs in
 /- Pairing stage 1: a chain step of the current scheme (either format) is not a digest query. -/
 set_option debug.skipKernelTC false in
@@ -15085,52 +15057,4 @@ theorem frontierValue_maskAt_bounded (answers : Answers) (messages : LeafAddr �
   rw [this]
 
 end ClaudeWCT.W9.T3.Security.Wots.CanonicalRef
-end
--- ==== R6 world split interface (sec lane, WS-INTERFACE) ====
-section
-namespace SigGolfCandidate.T3.Security.BPair
-open OracleComp OracleSpec OracleComp.EvalDist ENNReal
-open SigGolfCandidate.T3
-/-- R6 world split: a `rhoLaw` expectation is the expectation of `rhoMod` of a uniform 256-bit output. -/
-theorem expectedValue_rhoLaw (f : Digest → ℝ≥0∞) :
-    expectedValue rhoLaw f =
-      expectedValue ($ᵗ HashOutput : ProbComp HashOutput) (fun h => f (BitVec.ofNat 128 (rhoMod h))) := by
-  rw [rhoLaw, ← PMF.monad_map_eq_map, expectedValue_map, BPORS.expected_uniform_eq_finiteAverage]
-  unfold expectedValue BPORS.finiteAverage
-  simp only [PMF.probOutput_eq_apply, PMF.uniformOfFintype_apply, tsum_fintype]
-  rw [div_eq_mul_inv, Finset.sum_mul]
-  exact Finset.sum_congr rfl fun _ _ => mul_comm _ _
-/-- R6 world split: `E_{rhoLaw} f ≤ κ · E_{$Digest} f` (`uniform_hash_mod_le`). -/
-theorem rhoLaw_expect_le (f : Digest → ℝ≥0∞) :
-    expectedValue rhoLaw f ≤
-      SigGolfCandidate.T3.Security.LazyPrivate.rhoKappa * expectedValue ($ᵗ Digest : ProbComp Digest) f := by
-  rw [expectedValue_rhoLaw]
-  exact SigGolfCandidate.T3.Security.LazyPrivate.uniform_hash_mod_le f
-end SigGolfCandidate.T3.Security.BPair
-namespace ClaudeWCT.Bank.FtsBankSpec
-open OracleComp OracleSpec OracleComp.EvalDist ENNReal
-open SigGolfCandidate.T3 SigGolfCandidate.T3.Security
-attribute [local instance] Classical.propDecidable
-variable {P : Type} [Fintype P] [SampleableType P] (S : FtsBankSpec P)
-/-- R6 world split (S3): the `κ`-weighted reuse mass. -/
-noncomputable def reuseMassK (cache : Sampling.RCache) (m : Message) : ENNReal :=
-  LazyPrivate.rhoKappa * S.reuseMass cache m
-/-- R6 world split (S3): a `rhoLaw` nonce reuses a cached admissible trial with probability `≤ reuseMassK`. -/
-theorem reuse_probability_le_rho (cache : Sampling.RCache) (m : Message) :
-    expectedValue BPair.rhoLaw (fun rho => if S.Reuse cache rho m then (1 : ℝ≥0∞) else 0) ≤ S.reuseMassK cache m :=
-  (BPair.rhoLaw_expect_le _).trans (mul_le_mul' le_rfl (S.reuse_probability_le cache m))
-/-- R6 world split (S3): one fresh cache entry raises `reuseMassK` by at most `κ · admInd / 2^128`. -/
-theorem reuseMassK_cacheQuery_le (cache : Sampling.RCache) (x : HashInput) (a : HashOutput)
-    (hx : cache x = none) (m : Message) :
-    S.reuseMassK (cache.cacheQuery x a) m ≤
-      S.reuseMassK cache m + (if CaseC.DigestRowOf x m then LazyPrivate.rhoKappa * S.admInd a else 0) / 2 ^ 128 := by
-  unfold reuseMassK
-  refine (mul_le_mul' le_rfl (S.reuseMass_cacheQuery_le cache x a hx m)).trans (le_of_eq ?_)
-  rw [mul_add, ← mul_div_assoc, mul_ite, mul_zero]
-/-- R6 world split (S3): `κ · E admInd ≤ admBound` (F3 `acceptance_le`). -/
-theorem expected_kappa_admInd :
-    LazyPrivate.rhoKappa * expectedValue ($ᵗ HashOutput : ProbComp HashOutput) S.admInd ≤ S.admBound := by
-  rw [S.expected_admInd]
-  exact S.acceptance_le
-end ClaudeWCT.Bank.FtsBankSpec
 end

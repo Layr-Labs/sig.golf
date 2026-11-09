@@ -9221,27 +9221,27 @@ theorem chainInput_eq (index coord selected chain step : Nat) (value : Digest) :
       zero16 ++ bytesLE 16 (ftsChainHeader index coord selected chain step) ++
         zero16 ++ bytesLE 16 value := rfl
 theorem ftsLeafLow_lt (index coord selected : Nat) : ftsLeafLow index coord selected < 2 ^ 64 := by
-  unfold ftsLeafLow SigGolfCandidate.T3.ftsBias
+  unfold ftsLeafLow SigGolfCandidate.T3.ftsBiasN
   have := Nat.mod_lt (coord + 1) (show 0 < 16 by decide)
   have := Nat.mod_lt selected (show 0 < 128 by decide)
   have := Nat.mod_lt index (show 0 < 2 ^ 31 by decide)
   norm_num only at *
   omega
 theorem ftsLeafLow_range (index coord selected : Nat) :
-    ftsLeafLow index coord selected < 2^58 ∨ 2^64 - 67073 ≤ ftsLeafLow index coord selected := by
+    ftsLeafLow index coord selected < 2^58 ∨ 2^64 - 69121 ≤ ftsLeafLow index coord selected := by
   unfold ftsLeafLow
-  apply SigGolfCandidate.T3.ftsBias_range
+  apply SigGolfCandidate.T3.ftsBiasN_range
   omega
 theorem ftsLeafLow_byte0 (index coord selected : Nat) : ftsLeafLow index coord selected % 256 = 0 := by
-  unfold ftsLeafLow SigGolfCandidate.T3.ftsBias
+  unfold ftsLeafLow SigGolfCandidate.T3.ftsBiasN
   omega
-theorem ftsLeafLow_byte1 (index coord selected : Nat) : ftsLeafLow index coord selected / 2 ^ 8 % 256 = 0 := by
-  unfold ftsLeafLow SigGolfCandidate.T3.ftsBias
+theorem ftsLeafLow_byte1 (index coord selected : Nat) : ftsLeafLow index coord selected / 2 ^ 8 % 256 = 248 := by
+  unfold ftsLeafLow SigGolfCandidate.T3.ftsBiasN
   omega
 theorem ftsLeafLow_injective {i k j i' k' j' : Nat}
     (hi : i < 2 ^ 31) (hk : k < 16) (hj : j < 128) (hi' : i' < 2 ^ 31) (hk' : k' < 16) (hj' : j' < 128)
     (h : ftsLeafLow i k j = ftsLeafLow i' k' j') : i = i' ∧ k = k' ∧ j = j' := by
-  unfold ftsLeafLow SigGolfCandidate.T3.ftsBias at h
+  unfold ftsLeafLow SigGolfCandidate.T3.ftsBiasN at h
   rw [Nat.mod_eq_of_lt hi, Nat.mod_eq_of_lt hj, Nat.mod_eq_of_lt hi',
     Nat.mod_eq_of_lt hj'] at h
   norm_num only at h hi hi'
@@ -9262,7 +9262,7 @@ theorem ftsLeafHeader_firstByte (index coord selected : Nat) :
     (ftsLeafHeader index coord selected).toNat % 256 = 0 := by
   rw [ftsLeafHeader_toNat, ftsLeafLow_byte0]
 theorem ftsLeafHeader_byte1 (index coord selected : Nat) :
-    (ftsLeafHeader index coord selected).toNat / 2 ^ 8 % 256 = 0 := by
+    (ftsLeafHeader index coord selected).toNat / 2 ^ 8 % 256 = 248 := by
   rw [ftsLeafHeader_toNat, ftsLeafLow_byte1]
 theorem ftsLeafHeader_injective {i k j i' k' j' : Nat}
     (hi : i < 2 ^ 31) (hk : k < 16) (hj : j < 128) (hi' : i' < 2 ^ 31) (hk' : k' < 16) (hj' : j' < 128)
@@ -9276,18 +9276,18 @@ theorem wctNodeHeader_eq {coord : Nat} (hk : coord < 9) (index : Nat) {heap : Na
   rw [nodeTweak_fts (by omega) (by omega) _ hn, show 4 + coord - 4 = coord by omega]
   rfl
 /-- Packed FTS node low word (heaps `8..127`): `ftsLeafLow index coord 0 - heap`. -/
-def ftsNodeLowN (index coord heap : Nat) : Nat := SigGolfCandidate.T3.ftsBias (1537 - heap + (coord + 1) % 16 * 2 ^ 16 + index % 2 ^ 31 * 2 ^ 27)
+def ftsNodeLowN (index coord heap : Nat) : Nat := SigGolfCandidate.T3.ftsBiasN (1537 - heap + (coord + 1) % 16 * 2 ^ 16 + index % 2 ^ 31 * 2 ^ 27)
 theorem ftsNodeLowN_eq (index coord heap : Nat) :
-    ftsNodeLowN index coord heap = SigGolfCandidate.T3.ftsBias (1537 - heap + (coord + 1) % 16 * 2 ^ 16 + index % 2 ^ 31 * 2 ^ 27) := rfl
+    ftsNodeLowN index coord heap = SigGolfCandidate.T3.ftsBiasN (1537 - heap + (coord + 1) % 16 * 2 ^ 16 + index % 2 ^ 31 * 2 ^ 27) := rfl
 theorem ftsNodeLowN_lt (index coord heap : Nat) : ftsNodeLowN index coord heap < 2 ^ 64 := by
-  rw [ftsNodeLowN_eq]; unfold SigGolfCandidate.T3.ftsBias
+  rw [ftsNodeLowN_eq]; unfold SigGolfCandidate.T3.ftsBiasN
   have := Nat.mod_lt (coord + 1) (show 0 < 16 by decide)
   have := Nat.mod_lt index (show 0 < 2 ^ 31 by decide)
   omega
 theorem ftsNodeLowN_range (index coord heap : Nat) :
-    ftsNodeLowN index coord heap < 2^58 ∨ 2^64 - 67073 ≤ ftsNodeLowN index coord heap := by
+    ftsNodeLowN index coord heap < 2^58 ∨ 2^64 - 69121 ≤ ftsNodeLowN index coord heap := by
   rw [ftsNodeLowN_eq]
-  apply SigGolfCandidate.T3.ftsBias_range
+  apply SigGolfCandidate.T3.ftsBiasN_range
   omega
 theorem wctNodeHeader_eqN {coord : Nat} (hk : coord < 9) (index : Nat) {heap : Nat} (hn : FtsNew heap) :
     wctNodeHeader coord index heap = 0#64 ++ BitVec.ofNat 64 (ftsNodeLowN index coord heap) := by
@@ -9352,10 +9352,10 @@ theorem wctNodeHeader_firstByteN {coord : Nat} (hk : coord < 9) (index : Nat) {h
   rw [wctNodeHeader_firstByte, if_pos hk, if_pos hn]
 
 theorem wctNodeHeader_byte1 {coord : Nat} (hk : coord < 9) (index heap : Nat) :
-    (wctNodeHeader coord index heap).toNat / 2 ^ 8 % 256 = if FtsNew heap then 255 else 0 := by
+    (wctNodeHeader coord index heap).toNat / 2 ^ 8 % 256 = if FtsNew heap then 247 else 248 := by
   rw [wctNodeHeader_toNat hk]
   by_cases hn : FtsNew heap
-  · rw [if_pos hn, if_pos hn, ftsNodeLowN_eq]; unfold SigGolfCandidate.T3.ftsBias; obtain ⟨h8, h128⟩ := hn; omega
+  · rw [if_pos hn, if_pos hn, ftsNodeLowN_eq]; unfold SigGolfCandidate.T3.ftsBiasN; obtain ⟨h8, h128⟩ := hn; omega
   · rw [if_neg hn, if_neg hn]
     have := ftsLeafLow_byte1 index coord 0
     omega

@@ -79,7 +79,7 @@ theorem header0_ne_top (lay tree position index : Nat) {heap : Nat} (h1 : 2 ≤ 
 
 theorem chainHeader_low_ge (lay : Layer) (tree leaf i step : Nat) :
     856065 ≤ tweakLow (chainHeader lay tree leaf i step) := by
-  have hb := (chainHeaderLow_band lay tree leaf i step).1
+  have hb := chainHeaderLow_band lay tree leaf i step
   have hf := chainHeaderFlaggedLow_toNat lay tree leaf i step
   have hl : tweakLow (chainHeader lay tree leaf i step) = (chainHeaderFlaggedLow lay tree leaf i step).toNat := by
     unfold tweakLow
@@ -93,8 +93,8 @@ theorem leafTweak_low_ge (lay : Layer) (tree leaf : Nat) : 856065 ≤ tweakLow (
   unfold leafTweak tweakLow
   rw [BitVec.toNat_append]
   simp only [BitVec.toNat_ofNat, Nat.zero_mod, Nat.zero_shiftLeft, Nat.zero_or]
-  rw [Nat.mod_eq_of_lt (BitVec.isLt _), hyperWord_toNat]
-  have : (856065 : Nat) ≤ 193 * 2 ^ 56 := by norm_num
+  rw [Nat.mod_eq_of_lt (BitVec.isLt _)]
+  have := hyperWord_ge lay.val (tree * 2 ^ height lay + leaf)
   omega
 
 theorem topTrial_ne_heap {a b : Nat} (n m : Nat) (l r l' r' : Digest) (ha1 : 1 ≤ a) (ha2 : a < 4096)
@@ -232,8 +232,8 @@ theorem V_node {β : Type} (secret : BitVec 256) (z m B : ℝ≥0∞) (h heap : 
   unfold topNodeAt
   have hcap : topNonceCap h - 1 < 2 ^ 64 := by
     unfold topNonceCap
-    have : (2 : Nat) ^ topZeroBits h ≤ 2 ^ 9 := Nat.pow_le_pow_right (by norm_num) (topZeroBits_le h h11)
-    have : (104 : Nat) * 2 ^ 9 < 2 ^ 64 := by norm_num
+    have : (2 : Nat) ^ topZeroBits h ≤ 2 ^ 8 := Nat.pow_le_pow_right (by norm_num) (topZeroBits_le h h11)
+    have : (104 : Nat) * 2 ^ 8 < 2 ^ 64 := by norm_num
     omega
   refine V_topNonceSearch_bind secret z h heap left right _ (FreshS (fun x => S x ∧ x ≠ heap)) B (m * B)
     ?_ ?_ ?_ ?_ (topNonceCap h - 1) 0 (by omega) cache (hfresh.mono (fun x hx => hx.1))
@@ -674,8 +674,8 @@ theorem E_node {β : Type} (secret : BitVec 256) (h heap : Nat) (h1 : 1 ≤ h) (
   unfold topNodeAt
   have hcap : topNonceCap h - 1 < 2 ^ 64 := by
     unfold topNonceCap
-    have : (2 : Nat) ^ topZeroBits h ≤ 2 ^ 9 := Nat.pow_le_pow_right (by norm_num) (topZeroBits_le h h11)
-    have : (104 : Nat) * 2 ^ 9 < 2 ^ 64 := by norm_num
+    have : (2 : Nat) ^ topZeroBits h ≤ 2 ^ 8 := Nat.pow_le_pow_right (by norm_num) (topZeroBits_le h h11)
+    have : (104 : Nat) * 2 ^ 8 < 2 ^ 64 := by norm_num
     omega
   have hcap1 : topNonceCap h - 1 + 1 = topNonceCap h := by
     unfold topNonceCap; have : 0 < 2 ^ topZeroBits h := by positivity
@@ -919,13 +919,13 @@ section
 set_option maxRecDepth 16384
 namespace SigGolfCandidate.T3M.Images
 open SigGolfCandidate.Legacy
-def keygenCode_0 : List (BitVec 32) := bv_list% 32 [0x293,0x8000e93,0x20f37,0xeb303,0x8eb383,0x6f3023,0x7f3423,0x9000e93,0x20f37,0x20f0f13,0xeb303,0x8eb383,0x6f3023,0x7f3423,0x20f37,0x20f3823,0x20f3c23,0x413,0x493,0x3300d13,0x3300d93,0xf93,0x20b37,0x460b0b13,0x50137,0x913,0x1337,0x2695263,0x21bb7,0xa00b8b93,0x6903b3,0x439393,0x238cb3,0x1bc000ef,0x190913,0xfddff06f,0xc00793,0xa93,0x300000ef,0x3b80006f,0x1013303,0x1813383,0x6f3023,0x7f3423,0x9c37,0x20c0c13,0x40000a13,0x200693,0x100313,0x86a0663,0x993,0x749dc63,0x1337,0xd0130313,0x2069f13,0x1e36333,0x2099393,0x20e37,0x6e3823,0x7e3c23,0x20537,0x4000593,0x20637,0x6060613,0x73,0x13a0e33,0x4e1e13,0x2e0e33,0xe3303,0x8e3383,0x20eb7,0x60e8e93,0xebe03,0x8ebe83,0x1c34333,0x1d3c3b3,0x6c3023,0x7c3423,0x10c0c13,0x198993,0xf8dff06f,0x1a5a13,0x168693,0xf75ff06f,0x8000e93,0x9f37,0xfe0f0f13,0xeb303,0x8eb383,0x6f3023,0x7f3423,0x9000e93,0x9f37,0xeb303,0x8eb383,0x6f3023,0x7f3423,0x9f37,0xfe0f0f13,0x20f3823,0x20f3c23,0x1337,0xe0130313,0x393,0x9e37,0xfe0e0e13,0x6e3823,0x7e3c23,0x9537,0xfe050513,0x85b7,0x4058593,0x9637,0x73,0x100293,0x513,0x73,0xa13,0x11a1e63,0x20eb7,0x1d0e8e93,0xeb303,0x8eb383,0x6bb023,0x7bb423,0x55a0463,0x7340006f,0x14383b3,0x2039313,0x1041f13,0x1e36333,0x10136313,0x20e37,0x1a0e0e13,0x6e3823,0xa90006f,0x1a050513,0x4000593,0x20637,0x1d060613,0x73,0x1a0a13,0xfa1ff06f,0x8067,0x8193,0x1091313,0x20136313,0x3041f13,0x1e36333,0xc100f13,0x38f1f13,0x1e36333,0x20e37,0x600e0e13,0x6e3823,0xe3c23,0x13,0x71c000ef,0xda9dc63,0x198693,0x788000ef,0x6c0006f,0x1041313,0x20e1f13,0x1e36333,0x136313,0x48393,0x2091f13,0x1e3e3b3,0x20e37,0x6e3823,0x7e3c23,0x20537,0x4000593,0x20637,0x4060613,0x73,0x19fe13,0x4e1e13,0x20eb7,0x40e8e93,0x1de0e33,0x20f37,0x1d0f0f13,0xe3303,0x8e3383,0x6f3023,0x7f3423,0x13b0e33,0xe4883,0x700a93,0x41463,0x7b00006f,0xf8463,0x88a93,0xec9ff0ef,0x20f9a63,0x1303f33,0x1e98e33,0x4e1e13,0x20eb7,0x600e8e93,0x1de0e33,0x20eb7,0x1d0e8e93,0xeb303,0x8eb383,0x6e3023,0x7e3423,0x10b8b93,0x198993,0xf2dff06f,0x40f9263,0x1d0593,0x459593,0x3f58593,0xfc05f593,0x20537,0x60050513,0x20637,0x3c060613,0x197e93,0x73,0x4e9e93,0x41d60eb3,0x10eb303,0x18eb383,0x6cb023,0x7cb423,0x18067,0x7ac0006f,0xfff78313,0x6a1a33,0xa0a0663,0xa0c13,0x1a1313,0x86c5c63,0x5c1e13,0x2e0e33,0x20f37,0x200f0f13,0xe3303,0x8e3383,0x6f3023,0x7f3423,0x20f37,0x230f0f13,0x10e3303,0x18e3383,0x6f3023,0x7f3423,0x2049e13,0x1cae333,0x6710006f,0xfe6f3023,0xfe0f3423]
+def keygenCode_0 : List (BitVec 32) := bv_list% 32 [0x293,0x8000e93,0x20f37,0xeb303,0x8eb383,0x6f3023,0x7f3423,0x9000e93,0x20f37,0x20f0f13,0xeb303,0x8eb383,0x6f3023,0x7f3423,0x20f37,0x20f3823,0x20f3c23,0x413,0x493,0x3300d13,0x3300d93,0xf93,0x20b37,0x460b0b13,0x50137,0x913,0x1337,0x2695263,0x21bb7,0xa00b8b93,0x6903b3,0x439393,0x238cb3,0x1bc000ef,0x190913,0xfddff06f,0xc00793,0xa93,0x300000ef,0x3b80006f,0x1013303,0x1813383,0x6f3023,0x7f3423,0x9c37,0x20c0c13,0x40000a13,0x200693,0x100313,0x86a0663,0x993,0x749dc63,0x1337,0xd0130313,0x2069f13,0x1e36333,0x2099393,0x20e37,0x6e3823,0x7e3c23,0x20537,0x4000593,0x20637,0x6060613,0x73,0x13a0e33,0x4e1e13,0x2e0e33,0xe3303,0x8e3383,0x20eb7,0x60e8e93,0xebe03,0x8ebe83,0x1c34333,0x1d3c3b3,0x6c3023,0x7c3423,0x10c0c13,0x198993,0xf8dff06f,0x1a5a13,0x168693,0xf75ff06f,0x8000e93,0x9f37,0xfe0f0f13,0xeb303,0x8eb383,0x6f3023,0x7f3423,0x9000e93,0x9f37,0xeb303,0x8eb383,0x6f3023,0x7f3423,0x9f37,0xfe0f0f13,0x20f3823,0x20f3c23,0x1337,0xe0130313,0x393,0x9e37,0xfe0e0e13,0x6e3823,0x7e3c23,0x9537,0xfe050513,0x85b7,0x4058593,0x9637,0x73,0x100293,0x513,0x73,0xa13,0x11a1e63,0x20eb7,0x1d0e8e93,0xeb303,0x8eb383,0x6bb023,0x7bb423,0x55a0463,0x7340006f,0x14383b3,0x2039313,0x1041f13,0x1e36333,0x10136313,0x20e37,0x1a0e0e13,0x6e3823,0xa90006f,0x1a050513,0x4000593,0x20637,0x1d060613,0x73,0x1a0a13,0xfa1ff06f,0x8067,0x8193,0x1091313,0x13,0x1e50006f,0x13,0x13,0x13,0x13,0x20e37,0x600e0e13,0x6e3823,0xe3c23,0x13,0x71c000ef,0xda9dc63,0x198693,0x788000ef,0x6c0006f,0x1041313,0x20e1f13,0x1e36333,0x136313,0x48393,0x2091f13,0x1e3e3b3,0x20e37,0x6e3823,0x7e3c23,0x20537,0x4000593,0x20637,0x4060613,0x73,0x19fe13,0x4e1e13,0x20eb7,0x40e8e93,0x1de0e33,0x20f37,0x1d0f0f13,0xe3303,0x8e3383,0x6f3023,0x7f3423,0x13b0e33,0xe4883,0x700a93,0x41463,0x7b00006f,0xf8463,0x88a93,0xec9ff0ef,0x20f9a63,0x1303f33,0x1e98e33,0x4e1e13,0x20eb7,0x600e8e93,0x1de0e33,0x20eb7,0x1d0e8e93,0xeb303,0x8eb383,0x6e3023,0x7e3423,0x10b8b93,0x198993,0xf2dff06f,0x40f9263,0x1d0593,0x459593,0x3f58593,0xfc05f593,0x20537,0x60050513,0x20637,0x3c060613,0x197e93,0x73,0x4e9e93,0x41d60eb3,0x10eb303,0x18eb383,0x6cb023,0x7cb423,0x18067,0x7ac0006f,0xfff78313,0x6a1a33,0xa0a0663,0xa0c13,0x1a1313,0x86c5c63,0x5c1e13,0x2e0e33,0x20f37,0x200f0f13,0xe3303,0x8e3383,0x6f3023,0x7f3423,0x20f37,0x230f0f13,0x10e3303,0x18e3383,0x6f3023,0x7f3423,0x2049e13,0x1cae333,0x6710006f,0xfe6f3023,0xfe0f3423]
 
 def keygenCode_1 : List (BitVec 32) := bv_list% 32 [0x1c7e93,0x4e9e93,0x20537,0x20050513,0x4000593,0x20637,0x24060613,0x73,0x73c0006f,0x2e0e33,0x41d60eb3,0x10eb303,0x18eb383,0x6e3023,0x7e3423,0x13,0x1c0c13,0xf69ff06f,0x7080006f,0xf59ff06f,0x8067,0x50137,0x10113,0xa000f13,0x1013303,0x1813383,0x6f3023,0x7f3423,0x80c37,0x20c0c13,0x1a37,0xa0a13,0xb13,0xb93,0x1a5d13,0x4a1a93,0x50137,0x10113,0x2a8ab3,0x1337,0xd0130313,0x20b1393,0x736333,0x20b9393,0x20e37,0xe0e13,0x6e3823,0x7e3c23,0x20537,0x50513,0x4000593,0x20637,0x6060613,0x3310006f,0xab303,0x63383,0x734333,0x6c3023,0x8ab303,0x863383,0x734333,0x6c3423,0x10ab303,0x1063383,0x734333,0x6c3823,0x18ab303,0x1863383,0x734333,0x6c3c23,0x20a8a93,0x20c0c13,0x1b8b93,0xf7abece3,0x1a5a13,0x1b0b13,0xc00313,0xf46b68e3,0x20e37,0xe0e13,0xeb7,0x80e8e93,0xeb303,0x6e3023,0x8eb303,0x6e3423,0x10eb303,0x26e3023,0x18eb303,0x26e3423,0x20e3823,0x20e3c23,0x1337,0xe0130313,0x6e3823,0xe3c23,0x20537,0x50513,0x4000593,0x70637,0x60613,0x73,0x100313,0x2031313,0x6e3c23,0x70637,0x2060613,0x73,0xfff00913,0x395913,0xa09b7,0x98993,0x70b37,0xb0b13,0x80cb7,0xc8c93,0xb3b83,0x12bfbb3,0x8b3c03,0x806b7,0x2068693,0x713,0x6e783,0xe787b3,0x377b833,0x37787b3,0x381813,0x3d7d893,0x1180833,0x127f7b3,0xf80833,0x3d85713,0x1287833,0x1070733,0x46e783,0xe787b3,0x377b833,0x37787b3,0x381813,0x3d7d893,0x1180833,0x127f7b3,0xf80833,0x3d85713,0x1287833,0x1070733,0x868693,0xf9369ee3,0x3d75793,0x1277733,0xf70733,0x12747b3,0x17b793,0xfff78793,0xf77733,0x1870733,0xecb023,0x10b0b13,0xb3b83,0x12bfbb3,0x8b3c03,0x806b7,0x2068693,0x713,0x6e783,0xe787b3,0x377b833,0x37787b3,0x381813,0x3d7d893,0x1180833,0x127f7b3,0xf80833,0x3d85713,0x1287833,0x1070733,0x46e783,0xe787b3,0x377b833,0x37787b3,0x381813,0x3d7d893,0x1180833,0x127f7b3,0xf80833,0x3d85713,0x1287833,0x1070733,0x868693,0xf9369ee3,0x3d75793,0x1277733,0xf70733,0x12747b3,0x17b793,0xfff78793,0xf77733,0x1870733,0xecb423,0x10b0b13,0xb3b83,0x12bfbb3,0x8b3c03,0x806b7,0x2068693,0x713,0x6e783,0xe787b3,0x377b833,0x37787b3,0x381813,0x3d7d893,0x1180833,0x127f7b3,0xf80833,0x3d85713,0x1287833,0x1070733,0x46e783,0xe787b3,0x377b833,0x37787b3,0x381813,0x3d7d893,0x1180833,0x127f7b3,0xf80833,0x3d85713,0x1287833,0x1070733,0x868693,0xf9369ee3,0x3d75793,0x1277733,0xf70733,0x12747b3,0x17b793,0xfff78793,0xf77733,0x1870733,0xecb823,0x10b0b13,0xb3b83,0x12bfbb3,0x8b3c03,0x806b7,0x2068693,0x713,0x6e783,0xe787b3,0x377b833,0x37787b3,0x381813,0x3d7d893,0x1180833,0x127f7b3]
 
-def keygenCode_2 : List (BitVec 32) := bv_list% 32 [16255027,64509715,19429427,17237811,4646787,15173555,58177587,58165171,3676179,64477331,18352179,19396531,16255027,64509715,19429427,17237811,8816275,0xf9369ee3,64444307,19363635,16189235,19351475,1554323,0xfff78793,16217907,25626419,15514659,1049235,1299,115]++List.replicate 45 19++bv_list% 32 [12583827,264803,1049491,7603299,915,6521747,7639859,19071795,134711,437128723,33772435,8272931,33755923,16995091,50598803,7562035,202379027,59711251,31679283,268071827,8622995,7562035,134865811,7562035,0x885ff06f,0x650006f,0x600f13,65603379,34019091,1533715,3731,132407,15022115,343075,67110291,67438099,115,67449347,4993059,75837955,4994083,84226563,4995107,92615171,4996131,34343955,1052435,34545427,31917875,2002579,0x1000f13,0xfbee98e3,2451,32871,19,0x3d0006f,1939,136503,0xc050513,136631,0xff050513,2067,3091,531,1555,429715,2031379,985187,15222835,16534579,12730931,66576147,1447443,31876659,66543379,1546131,31975347,1513235,2023059,0xfc0e96e3,1187603,32000051,2236179,32000051,7479059,32000051,4737075,343811,31999795,8732419,32262067,0xf8b512e3,134967,485439523,486489123,32871,19,5245587,28315411,0x85e9c6e3,4197011,0x1480006f]++bv_list% 32 [0x6041263,0x19f313,0x393,0x4731c63,0x3400393,0x533c863,0x10e3303,0x46e3023,0x18e3303,0x46e3423,0x40e3823,0x40e3c23,0x60e3023,0x60e3423,0x30e0513,0x4000593,0x20e0613,0xfffa8313,0x3300393,0x99463,0xa8313,0x6a1463,0x30e0613,0x73,0xf10ff06f,0x20e3023,0x20e3423,0xe0513,0x4000593,0x30e0613,0x73,0xef4ff06f] ++ bv_list% 32 [0x100a13,0x100693,0x851ff06f,0x1a5a13,0x168693,0x84dff06f,0xc00e13,0x9c68063,0xffd68713,0x300e13,0x7c6ca63,0x71663,0x100713,0x80006f,0x170713,0x4000e13,0x40ee0e33,0xfff00813,0x1c81833,0xb00e13,0x1c69663,0x1ff00813,0x4840006f,0x6800893,0xe898b3,0x41d60f33,0x18f3f03,0x10f7f33,0x20f0663,0x20e37,0x220e3f03,0x1f0f13,0x11f7e63,0x23ee3023,0x20537,0x20050513,0x4000593,0x73,0xfcdff06f,0x20e37,0x220e3023,0x4c1e13,0x2e0e33,0x41d60eb3,0x10eb303,0x18eb383,0x6e3023]
-def keygenCode_3 : List (BitVec 32) := bv_list% 32 [0x7e3423,0x83dff06f] ++ bv_list% 32 [0x3000f13,0xefe9cc63,0x600a93,0x3200f13,0xefe9c663,0x500a93,0xee4ff06f] ++ List.replicate 247 19
-def keygenCode_4 : List (BitVec 32) := bv_list% 32 [0xb1c63,0x63023,0x63423,0x63823,0x63c23,0xcc4ff06f,0x73,0xcbcff06f] ++ bv_list% 32 [0x900713,0x2381813,0xb79ff06f] ++ List.replicate 82 19 ++ bv_list% 32 [3148435,2579093091,4197011,2555375727,787347,267645715,8590099,8639379,6546355,7735,4043181587,29618995,4395795,4445075,29619123,6546355,15927,859704851,29618995,2298643,2347923,29619123,6546355,24119,1432227347,29618995,1250067,1299347,29619123,6546355,50566035,2706370671] ++ bv_list% 32 [0x397f13,0x40f1263,0x21c37,0x295f13,0x1f7e93,0x1f00713,0x2ef0733,0x1d70733,0x175713,0x2071713,0x176713,0xe8c63,0x1f0c3203,0x4c3023,0x1f8c3203,0x4c3423,0x10c0c13,0xf70ff06f,0x993,0x8067,0x397f13,0x6f1f13,0x1e686b3,0x713,0x793,0x215b7,0x1f058513,0xfbcff06f]
+def keygenCode_2 : List (BitVec 32) := bv_list% 32 [16255027,64509715,19429427,17237811,4646787,15173555,58177587,58165171,3676179,64477331,18352179,19396531,16255027,64509715,19429427,17237811,8816275,0xf9369ee3,64444307,19363635,16189235,19351475,1554323,0xfff78793,16217907,25626419,15514659,1049235,1299,115]++List.replicate 45 19++bv_list% 32 [12583827,264803,1049491,7603299,915,6521747,7639859,19071795,134711,437128723,33772435,8272931,33755923,16995091,0x2f80006f,0x13,0x13,0x13,0x13,268071827,8622995,7562035,134865811,7562035,0x885ff06f,0x650006f,0x600f13,65603379,34019091,1533715,3731,132407,15022115,343075,67110291,67438099,115,67449347,4993059,75837955,4994083,84226563,4995107,92615171,4996131,34343955,1052435,34545427,31917875,2002579,0x1000f13,0xfbee98e3,2451,32871,19,0x3d0006f,1939,136503,0xc050513,136631,0xff050513,2067,3091,531,1555,429715,2031379,985187,15222835,16534579,12730931,66576147,1447443,31876659,66543379,1546131,31975347,1513235,2023059,0xfc0e96e3,1187603,32000051,2236179,32000051,7479059,32000051,4737075,343811,31999795,8732419,32262067,0xf8b512e3,134967,485439523,486489123,32871,19,5245587,28315411,0x85e9c6e3,4197011,0x1480006f]++bv_list% 32 [0x6041263,0x19f313,0x393,0x4731c63,0x3400393,0x533c863,0x10e3303,0x46e3023,0x18e3303,0x46e3423,0x40e3823,0x40e3c23,0x60e3023,0x60e3423,0x30e0513,0x4000593,0x20e0613,0xfffa8313,0x3300393,0x99463,0xa8313,0x6a1463,0x30e0613,0x73,0xf10ff06f,0x20e3023,0x20e3423,0xe0513,0x4000593,0x30e0613,0x73,0xef4ff06f] ++ bv_list% 32 [0x100a13,0x100693,0x851ff06f,0x1a5a13,0x168693,0x84dff06f,0xc00e13,0x9c68063,0xffd68713,0x300e13,0x7c6ca63,0x71663,0x200713,0x80006f,0x170713,0x4000e13,0x40ee0e33,0xfff00813,0x1c81833,0xb00e13,0x1c69663,0x7f00813,0x4840006f,0x6800893,0xe898b3,0x41d60f33,0x18f3f03,0x10f7f33,0x20f0663,0x20e37,0x220e3f03,0x1f0f13,0x11f7e63,0x23ee3023,0x20537,0x20050513,0x4000593,0x73,0xfcdff06f,0x20e37,0x220e3023,0x4c1e13,0x2e0e33,0x41d60eb3,0x10eb303,0x18eb383,0x6e3023]
+def keygenCode_3 : List (BitVec 32) := bv_list% 32 [0x7e3423,0x83dff06f] ++ bv_list% 32 [0x3000f13,0xefe9cc63,0x600a93,0x3200f13,0xefe9c663,0x500a93,0xee4ff06f] ++ List.replicate 3 19 ++ bv_list% 32 [0x141f13,0x1e40433,0x840433,0x803f33,0x1f0f13,0x1cf1f13,0x8f1f33,0x1e36333,0x640413,0x345413,0xe08ff06f,0x141f13,0x1e40433,0x840433,0x803f33,0x1f0f13,0x1cf1f13,0x8f1f33,0x1e36333,0x640413,0x345413,0xcf5ff06f] ++ List.replicate 222 19
+def keygenCode_4 : List (BitVec 32) := bv_list% 32 [0xb1c63,0x63023,0x63423,0x63823,0x63c23,0xcc4ff06f,0x73,0xcbcff06f] ++ bv_list% 32 [0x700713,0x2581813,0xb79ff06f] ++ List.replicate 82 19 ++ bv_list% 32 [3148435,2579093091,4197011,2555375727,787347,267645715,8590099,8639379,6546355,7735,4043181587,29618995,4395795,4445075,29619123,6546355,15927,859704851,29618995,2298643,2347923,29619123,6546355,24119,1432227347,29618995,1250067,1299347,29619123,6546355,50566035,2706370671] ++ bv_list% 32 [0x397f13,0x40f1263,0x21c37,0x295f13,0x1f7e93,0x1f00713,0x2ef0733,0x1d70733,0x175713,0x2071713,0x176713,0xe8c63,0x1f0c3203,0x4c3023,0x1f8c3203,0x4c3423,0x10c0c13,0xf70ff06f,0x993,0x8067,0x397f13,0x6f1f13,0x1e686b3,0x713,0x793,0x215b7,0x1f058513,0xfbcff06f]
 def keygenCode : List (BitVec 32) :=
   [keygenCode_0, keygenCode_1, keygenCode_2, keygenCode_3, keygenCode_4].foldl (· ++ ·) [] ++ bv_list% 32 [0x1830333,0xfff30193,0x11b193,0xd13b7,0xfff38393,0x403001b3,0x71f1b3,0x330333,0xff930193,0x19663,0x7f337,0x968ff06f,0x13,0x960ff06f]
 def keygenData : List (BitVec 8) := [
@@ -966,12 +966,12 @@ namespace ClaudeWCT.W9.T3M.Paired
 open SigGolfCandidate.Legacy
 
 def submission (I : Images) : Submission where
-  sizes := ⟨5187, 21756, 131072⟩
+  sizes := ⟨5188, 21756, 131072⟩
   layout := ⟨0x65A0, 0x80, 0xa0, 0x80000, 0x7000, 0x10A0⟩
   image := (ClaudeWCT.W9.T3M.submission I).image
 
 variable (I : Images)
-@[simp] theorem submission_sizes : (submission I).sizes = ⟨5187, 21756, 131072⟩ := rfl
+@[simp] theorem submission_sizes : (submission I).sizes = ⟨5188, 21756, 131072⟩ := rfl
 @[simp] theorem submission_layout : (submission I).layout = ⟨0x65A0, 0x80, 0xa0, 0x80000, 0x7000, 0x10A0⟩ := rfl
 @[simp] theorem submission_image : (submission I).image = (ClaudeWCT.W9.T3M.submission I).image := rfl
 @[simp] theorem submission_keygen : (submission I).image .keygen = SigGolfCandidate.T3M.Images.keygenImage := rfl
@@ -1588,7 +1588,11 @@ set_option linter.unusedSimpArgs false
 theorem ftsChain_not_search (index coord selected t step : Nat) :
     ¬ SearchHdr (ClaudeWCT.WCT9.ftsChainHeader index coord selected t step) := by
   have := ClaudeWCT.WCT9.ftsChainHeaderP_byte1 index coord selected t step 0
-  unfold SearchHdr RowHdr tweakMarker tweakLow tweakTag ClaudeWCT.WCT9.ftsChainHeader
+  have hlt := ClaudeWCT.WCT9.ftsChainLow_lt index coord selected t step
+  have hn := ClaudeWCT.WCT9.ftsChainHeader_toNat index coord selected t step
+  unfold ClaudeWCT.WCT9.ftsChainHeader at hn
+  unfold SearchHdr RowHdr tweakMarker tweakLow tweakTag tweakHigh ClaudeWCT.WCT9.ftsChainHeader
+  rw [hn] at this ⊢
   omega
 theorem ftsLeaf_not_search (index coord selected : Nat) :
     ¬ SearchHdr (ClaudeWCT.WCT9.ftsLeafHeader index coord selected) := by
@@ -1607,7 +1611,7 @@ theorem avoidsQuery_of_fts (secret : BitVec 256) (target : HashInput)
   rcases q with (coin | input) | (tweak | other)
   · exact hq.elim
   · rcases ClaudeWCT.WCT9.FtsInput.hdrBlock (show FtsInput index input from hq) with
-      ⟨coord, selected, t, step, hblock⟩ | ⟨coord, selected, -, -, hblock⟩ | ⟨coord, heap, hk, -, -, hblock⟩ | hblock
+      ⟨coord, selected, t, step, -, hblock⟩ | ⟨coord, selected, -, -, hblock⟩ | ⟨coord, heap, hk, -, -, hblock⟩ | hblock
     · exact searchQ_ne hblock (ftsChain_not_search index coord selected t step) ht
     · exact searchQ_ne hblock (ftsLeaf_not_search index coord selected) ht
     · exact searchQ_ne hblock (ftsNode_not_search hk index heap) ht
@@ -2019,10 +2023,8 @@ theorem gq_ne {input target : HashInput} {hdr : BitVec 128} {lay tree heap : Nat
   exact hn (bytesLE_injective (h.symm.trans ht))
 
 theorem lowerTweak_marker' {heap : Nat} (hh : heap < 128) (lay tree : Nat) :
-    tweakMarker (ClaudeWCT.WCT9.lowerTweak lay tree heap) = 128 + heap := by
-  unfold ClaudeWCT.WCT9.lowerTweak ClaudeWCT.WCT9.lowerNodeWord ClaudeWCT.WCT9.lowerK
-  rw [append64_marker, BitVec.toNat_add, BitVec.toNat_ofNat, hyperWord_toNat]
-  omega
+    tweakMarker (ClaudeWCT.WCT9.lowerTweak lay tree heap) = 128 + heap :=
+  ClaudeWCT.WCT9.lowerTweak_marker hh lay tree
 
 theorem ne_ground_of_marker {hdr : BitVec 128} {lay tree heap : Nat} (hh : heap < 128)
     (hm : tweakMarker hdr < 128) : hdr ≠ ClaudeWCT.WCT9.lowerTweak lay tree heap := by
@@ -2041,7 +2043,7 @@ theorem hasTag_ne_ground {tag : Nat} {input target : HashInput} (hi : HasTag tag
 
 theorem leafTweak_ne_ground (l : Layer) (t lf : Nat) {lay tree heap : Nat} (hh : heap < 128) :
     leafTweak l t lf ≠ ClaudeWCT.WCT9.lowerTweak lay tree heap :=
-  ne_ground_of_marker hh (by rw [leafTweak_marker]; omega)
+  ne_ground_of_marker hh (by have := leafTweak_marker l t lf; omega)
 
 theorem topTweak_ne_ground (heap' : Nat) {lay tree heap : Nat} (hh : heap < 128) :
     nodeTweak 3 0 0 heap' ≠ ClaudeWCT.WCT9.lowerTweak lay tree heap := by
@@ -2067,7 +2069,7 @@ theorem digestHeader_ne_ground (c : BitVec 32) {lay tree heap : Nat} (hh : heap 
   intro he
   have hl := ClaudeWCT.WCT9.lowerTweak_low_ge hh lay tree
   rw [← he] at hl
-  change 193 * 2^56 ≤ tweakLow (digestHeader c) at hl
+  change 2 ^ 28 ≤ tweakLow (digestHeader c) at hl
   rw [digestHeader_lowNat] at hl
   norm_num at hl
 
@@ -2280,7 +2282,7 @@ theorem gav_ftsQuery (index : Nat) (q : Spec.Domain)
   · rcases q with (coin | input) | (tweak | other)
     · exact hlegacy.elim
     · rcases ClaudeWCT.WCT9.FtsInput.hdrBlock (show ClaudeWCT.WCT9.FtsInput index input from hlegacy) with
-        ⟨coord, selected, t, step, hblock⟩ | ⟨coord, selected, -, -, hblock⟩ | ⟨coord, heap', hk, -, -, hblock⟩ | hblock
+        ⟨coord, selected, t, step, -, hblock⟩ | ⟨coord, selected, -, -, hblock⟩ | ⟨coord, heap', hk, -, -, hblock⟩ | hblock
       · exact gq_ne hblock (fun he => ClaudeWCT.WCT9.lowerTweak_ne_ftsChainHeaderP hh lay tree index coord selected
           t step 0 he.symm) ht
       · exact gq_ne hblock (ne_ground_of_marker hh (by
@@ -2983,7 +2985,7 @@ theorem levFac_const (fac : Nat → ℝ≥0∞) (h a : Nat) (c : ℝ≥0∞) (hc
 
 theorem lzb_eq (lay heap : Nat) : ClaudeWCT.WCT9.lowerZeroBits lay heap =
     if lay = 0 ∨ heap < 2 ∨ 32 ≤ heap then 0 else if 16 ≤ heap then 1 else if 8 ≤ heap then 2
-    else if 4 ≤ heap then 3 else 4 := rfl
+    else if 4 ≤ heap then 3 else if lay = 1 then 3 else 4 := rfl
 
 theorem facS_of (lay heap k : Nat) (hk : ClaudeWCT.WCT9.lowerZeroBits lay heap = k) :
     facS lay heap = if k = 0 then SigGolfCandidate.T3.Budgets.signingZ else mG k := by
@@ -2995,7 +2997,7 @@ theorem levFac_of (lay h a k : Nat) (hk : ∀ i < 2 ^ (h - a), ClaudeWCT.WCT9.lo
 
 theorem levFac_one :
     ((List.range' 1 (height 1 - 1)).map (levFac (facS 1) (height 1))).prod =
-      SigGolfCandidate.T3.Budgets.signingZ ^ 96 * (mG 1 ^ 16 * mG 2 ^ 8 * mG 3 ^ 4 * mG 4 ^ 2) := by
+      SigGolfCandidate.T3.Budgets.signingZ ^ 96 * (mG 1 ^ 16 * mG 2 ^ 8 * mG 3 ^ 6) := by
   have hh : height (1 : Layer) = 7 := rfl
   rw [hh, show 7 - 1 = 6 from rfl]
   simp only [List.range'_succ, List.range'_zero, List.map_cons, List.map_nil, List.prod_cons, List.prod_nil]
@@ -3004,7 +3006,7 @@ theorem levFac_one :
     levFac_of 1 7 3 1 (fun i hi => by simp only [Nat.reduceSub, Nat.reducePow] at hi ⊢; interval_cases i <;> rfl),
     levFac_of 1 7 4 2 (fun i hi => by simp only [Nat.reduceSub, Nat.reducePow] at hi ⊢; interval_cases i <;> rfl),
     levFac_of 1 7 5 3 (fun i hi => by simp only [Nat.reduceSub, Nat.reducePow] at hi ⊢; interval_cases i <;> rfl),
-    levFac_of 1 7 6 4 (fun i hi => by simp only [Nat.reduceSub, Nat.reducePow] at hi ⊢; interval_cases i <;> rfl)]
+    levFac_of 1 7 6 3 (fun i hi => by simp only [Nat.reduceSub, Nat.reducePow] at hi ⊢; interval_cases i <;> rfl)]
   norm_num
   ring
 
@@ -3040,9 +3042,8 @@ theorem leafSum_three : ∑ leaf ∈ Finset.range (2 ^ height 3), ClaudeWCT.WCT9
   rw [Finset.sum_congr rfl (fun leaf _ => ClaudeWCT.WCT9.Cost.leafCostP_lower (by decide) leaf)]
   decide
 
-/-- The 90 ground node factors of the three signing trees (N7g B widths (4,3,2,1) × 3): 48 with `b = 1`, 24 with
-`b = 2`, 12 with `b = 3`, 6 with `b = 4` (with `ftsE`: 64/80/12/6). -/
-noncomputable def groundE : ℝ≥0∞ := mG 1 ^ 48 * mG 2 ^ 24 * mG 3 ^ 12 * mG 4 ^ 6
+/-- The 90 ground node factors of the three signing trees (E11 V29). -/
+noncomputable def groundE : ℝ≥0∞ := mG 1 ^ 48 * mG 2 ^ 24 * mG 3 ^ 14 * mG 4 ^ 4
 
 /-- **E11 prepared-roots moment**: `V prepareRoots ≤ z^80731 · Π m_b` (80731 = 80821 − 90). -/
 theorem V_prepareRoots_U16 (secret : BitVec 256) (index : Nat) (hidx : index < 2 ^ 31) (cache : RCache)
@@ -3617,12 +3618,12 @@ theorem treeCap_one_le : treeCap 1 ≤ 30 * cG := by
       levCap_of 1 7 3 1 (fun i hi => by simp only [Nat.reduceSub, Nat.reducePow] at hi ⊢; interval_cases i <;> rfl),
       levCap_of 1 7 4 2 (fun i hi => by simp only [Nat.reduceSub, Nat.reducePow] at hi ⊢; interval_cases i <;> rfl),
       levCap_of 1 7 5 3 (fun i hi => by simp only [Nat.reduceSub, Nat.reducePow] at hi ⊢; interval_cases i <;> rfl),
-      levCap_of 1 7 6 4 (fun i hi => by simp only [Nat.reduceSub, Nat.reducePow] at hi ⊢; interval_cases i <;> rfl)]
+      levCap_of 1 7 6 3 (fun i hi => by simp only [Nat.reduceSub, Nat.reducePow] at hi ⊢; interval_cases i <;> rfl)]
   simp only [Nat.reduceSub, Nat.reducePow, Nat.cast_ofNat, if_true, one_ne_zero, if_false,
     OfNat.ofNat_ne_zero, mul_zero, zero_add, add_zero]
-  have hle : ∀ x : ℝ≥0∞, x = 16 * capFailG 1 + 8 * capFailG 2 + 4 * capFailG 3 + 2 * capFailG 4 → x ≤ 30 * cG := by
+  have hle : ∀ x : ℝ≥0∞, x = 16 * capFailG 1 + 8 * capFailG 2 + 4 * capFailG 3 + 2 * capFailG 3 → x ≤ 30 * cG := by
     intro x hx; rw [hx]
-    calc 16 * capFailG 1 + 8 * capFailG 2 + 4 * capFailG 3 + 2 * capFailG 4 ≤ 16 * cG + 8 * cG + 4 * cG + 2 * cG := by gcongr
+    calc 16 * capFailG 1 + 8 * capFailG 2 + 4 * capFailG 3 + 2 * capFailG 3 ≤ 16 * cG + 8 * cG + 4 * cG + 2 * cG := by gcongr
       _ = 30 * cG := by ring
   exact hle _ (by ring)
 
@@ -3955,7 +3956,7 @@ noncomputable def excessGB (levels : List (List Digest)) (b : Bool) : ℝ≥0∞
 
 theorem excessWeight_searchFuel_le : excessWeight ClaudeWCT.WCT9.searchFuel ≤ ENNReal.ofReal 4 := by
   unfold excessWeight expandReplayExtra ClaudeWCT.WCT9.searchFuel
-  calc (2 : ℝ≥0∞) ^ ((8 / 7 : ℝ) * ((13408 + 4087 + 106485 + 1048575 : ℕ) : ℝ) / 1048576)
+  calc (2 : ℝ≥0∞) ^ ((8 / 7 : ℝ) * ((12384 + 4087 + 66757 + 1048575 : ℕ) : ℝ) / 1048576)
       ≤ (2 : ℝ≥0∞) ^ ((2 : ℕ) : ℝ) :=
         ENNReal.rpow_le_rpow_of_exponent_le (by norm_num) (by push_cast; norm_num)
     _ = ENNReal.ofReal 4 := by rw [ENNReal.rpow_natCast]; norm_num
@@ -3963,7 +3964,7 @@ theorem excessWeight_searchFuel_le : excessWeight ClaudeWCT.WCT9.searchFuel ≤ 
 theorem excessWeight_worst_le :
     excessWeight SigGolfCandidate.Research.SharedForest.expandWorstCost ≤ ENNReal.ofReal (2 ^ 19) := by
   unfold excessWeight expandReplayExtra SigGolfCandidate.Research.SharedForest.expandWorstCost
-  calc (2 : ℝ≥0∞) ^ ((8 / 7 : ℝ) * ((13408 + 4087 + 106485 + 2 ^ 24 : ℕ) : ℝ) / 1048576)
+  calc (2 : ℝ≥0∞) ^ ((8 / 7 : ℝ) * ((12384 + 4087 + 66757 + 2 ^ 24 : ℕ) : ℝ) / 1048576)
       ≤ (2 : ℝ≥0∞) ^ ((19 : ℕ) : ℝ) :=
         ENNReal.rpow_le_rpow_of_exponent_le (by norm_num) (by push_cast; norm_num)
     _ = ENNReal.ofReal (2 ^ 19) := by
@@ -3987,7 +3988,7 @@ theorem hashOnly_jointLB {ω : Type} (message : Message) (ex : Digest → Signat
 /-- `E[excessG]` over the top tree (img-v6, unchanged). -/
 theorem Ev_excessG_le (secret : BitVec 256) (hpre : TopPrefixOK secret) (hnum : ExpandExcessNumeric19) :
     Ev secret buildTopTree ∅ (fun r => excessG r.1) ≤
-      ENNReal.ofReal (191 / 100) + ENNReal.ofReal (1 / 2 ^ 135) * ENNReal.ofReal 4 := by
+      ENNReal.ofReal (19 / 10) + ENNReal.ofReal (1 / 2 ^ 135) * ENNReal.ofReal 4 := by
   classical
   have hsplitG : ∀ r : List (List Digest) × RCache, excessG r.1 ≤
       excessWeight (max (topFieldV ((r.1.getD 11 []).getD 0 0)) (topFieldV ((r.1.getD 11 []).getD 1 0))) +
@@ -4010,7 +4011,7 @@ theorem Ev_excessG_le (secret : BitVec 256) (hpre : TopPrefixOK secret) (hnum : 
   rw [hadd]
   have h1 : Ev secret buildTopTree ∅ (fun r =>
       excessWeight (max (topFieldV ((r.1.getD 11 []).getD 0 0)) (topFieldV ((r.1.getD 11 []).getD 1 0)))) ≤
-      ENNReal.ofReal (191 / 100) := by
+      ENNReal.ofReal (19 / 10) := by
     obtain ⟨γ, pre, sel, k, hsplit, hbound⟩ := hpre
     rw [hsplit]
     exact (Ev_buildTop_rootChildren secret pre sel k hbound excessWeight).trans hnum
@@ -4139,11 +4140,11 @@ theorem expand_excess_moment_of {ω : Type} (secret : BitVec 256) (message : Mes
   change Ev secret buildTopTree ∅ (fun r => excessG r.1 + ENNReal.ofReal (1 / 2 ^ 150) *
         excessWeight SigGolfCandidate.Research.SharedForest.expandWorstCost) ≤ 2
   rw [hadd]
-  calc _ ≤ (ENNReal.ofReal (191 / 100) + ENNReal.ofReal (1 / 2 ^ 135) * ENNReal.ofReal 4) +
+  calc _ ≤ (ENNReal.ofReal (19 / 10) + ENNReal.ofReal (1 / 2 ^ 135) * ENNReal.ofReal 4) +
         ENNReal.ofReal (1 / 2 ^ 150) * ENNReal.ofReal (2 ^ 19) :=
         add_le_add (Ev_excessG_le secret hpre hnum)
           ((Ev_const_le secret _ _ _).trans (mul_le_mul' le_rfl excessWeight_worst_le))
-    _ = ENNReal.ofReal (191 / 100 + 1 / 2 ^ 135 * 4 + 1 / 2 ^ 150 * 2 ^ 19) := by
+    _ = ENNReal.ofReal (19 / 10 + 1 / 2 ^ 135 * 4 + 1 / 2 ^ 150 * 2 ^ 19) := by
         rw [← ENNReal.ofReal_mul (by positivity), ← ENNReal.ofReal_mul (by positivity),
           ← ENNReal.ofReal_add (by norm_num) (by positivity),
           ← ENNReal.ofReal_add (by positivity) (by positivity)]
@@ -4646,7 +4647,7 @@ theorem groundE_ge_one : 1 ≤ ClaudeWCT.W9.T3.Freshness.Paired.GroundFresh.grou
   unfold ClaudeWCT.W9.T3.Freshness.Paired.GroundFresh.groundE
   exact one_le_mul (one_le_mul (one_le_mul (one_le_pow₀ (mG_ge_one 1 le_rfl (by norm_num)))
     (one_le_pow₀ (mG_ge_one 2 (by norm_num) (by norm_num)))) (one_le_pow₀ (mG_ge_one 3 (by norm_num) (by norm_num))))
-    (one_le_pow₀ (mG_ge_one 4 (by norm_num) (by norm_num)))
+    (one_le_pow₀ (mG_ge_one 4 (by norm_num) le_rfl))
 
 theorem ftsE_ge_one : 1 ≤ ClaudeWCT.W9.T3.Freshness.Paired.GroundFresh.ftsE := by
   unfold ClaudeWCT.W9.T3.Freshness.Paired.GroundFresh.ftsE
@@ -4778,8 +4779,8 @@ theorem signingMoment_le_two (hfix : SchemeFixedCostV6) : signingMoment ≤ 2 :=
     have h := ClaudeWCT.Numerics.TopZero.groundBound_ratio_ge
     calc _ = ((ClaudeWCT.Numerics.TopZero.groundM 1:ℝ)/scale)^64 *
           (((ClaudeWCT.Numerics.TopZero.groundM 2:ℝ)/scale)^80 *
-            (((ClaudeWCT.Numerics.TopZero.groundM 3:ℝ)/scale)^12 *
-              ((ClaudeWCT.Numerics.TopZero.groundM 4:ℝ)/scale)^6)) := by ring
+            (((ClaudeWCT.Numerics.TopZero.groundM 3:ℝ)/scale)^14 *
+              ((ClaudeWCT.Numerics.TopZero.groundM 4:ℝ)/scale)^4)) := by ring
       _ ≤ _ := h
   have he := ClaudeWCT.Numerics.TopZero.envelope_ratio_le_two_U16
   have h0 : (0:ℝ) ≤ (ftsBound:ℝ)/scale := div_nonneg (Nat.cast_nonneg _) (Nat.cast_nonneg _)
@@ -4996,7 +4997,6 @@ theorem sigDecC_sigBC_sign (answers : SigGolfCandidate.T3.Correctness.Answers) (
   exact ClaudeWCT.W9.T3M.SharedCodec.sigDecC_sigBC_normTop sig
     (ClaudeWCT.W9.T3M.SharedCodec.groundClear_of_lowerPathOK sig hp
       (ClaudeWCT.W9.T3M.SharedCodec.ftsSlotsClear_of_ftsPathOK sig (sign_ftsPathOK_U16 answers hlower message sig hs)))
-    (ClaudeWCT.W9.T3M.SharedCodec.rhoHintOK_sign answers _ message sig hs)
 
 theorem cost_expandN_normTop (answers : SigGolfCandidate.T3.Correctness.Answers) (message : Message) (pk : Digest)
     (sig : Signature) :
@@ -5079,8 +5079,8 @@ abbrev witEncN := ClaudeWCT.W9.T3M.Paired.witEncN
 /-- U16b: and the 9 ground lower fold nonces (`Paired.witEncG`). -/
 abbrev witEncG := ClaudeWCT.W9.T3M.Paired.witEncG
 
- def verifyCycleBound : Nat := 6886
- def claimedC : Nat := 6971
+def verifyCycleBound : Nat := 6882
+def claimedC : Nat := 6967
  def DigestCapOk (hash : Hash) (m : Message) (w : Bytes 21756) : Prop :=
   SigGolfCandidate.Research.SharedForest.jointAccountingCost
     (hash (SigGolfCandidate.T3M.toQ (SigGolfCandidate.T3.pad64
@@ -5104,11 +5104,11 @@ def KeygenRunWith : Prop := ∀ (hash : Hash) (sk : SecretKey),
  def SignTerminates : Prop := ∀ (hash : Hash) (sk : SecretKey) (cache : Bytes 131072) (m : Message),
   ((submission I).runWith hash .sign (sk,cache,m)).finished=true ∧
     ((submission I).runWith hash .sign (sk,cache,m)).cycles<CYCLE_LIMIT
- def ExpandRefines : Prop := ∀ (m : Message) (pk : PublicKey) (s : Bytes 5187),
+ def ExpandRefines : Prop := ∀ (m : Message) (pk : PublicKey) (s : Bytes 5188),
   (fun r => (r.value,r.hashCalls,r.hashCompressions)) <$> (submission I).run .expand (m,pk,s)=
     (fun p => (p.1.map (fun x => witEncF x.1 x.2),p.2.1,p.2.2)) <$>
       countBoth (mrealize 0 (expandN m pk (sigDecC s)))
- def ExpandTerminates : Prop := ∀ (hash : Hash) (m : Message) (pk : PublicKey) (s : Bytes 5187),
+ def ExpandTerminates : Prop := ∀ (hash : Hash) (m : Message) (pk : PublicKey) (s : Bytes 5188),
   ((submission I).runWith hash .expand (m,pk,s)).finished=true ∧
     ((submission I).runWith hash .expand (m,pk,s)).cycles<CYCLE_LIMIT
  def VerifyRefines : Prop := ∀ (m : Message) (pk : PublicKey) (w : Bytes 21756),
@@ -5290,13 +5290,13 @@ theorem merkleInputW_sameHeader {lay tree h leaf step : Nat} (hh : 2 ^ (h - step
   · subst h0; exact merkleInputW_sameHeader_top _ _ _ _ _ _ _ _
   refine ⟨by rw [merkleInputW_length, merkleInputW_length], ?_⟩
   have hm : ∀ heap, heap < 128 → 128 ≤ (WCT9.merkleWord lay tree heap).toNat % 256 := by
-    intro heap hh'; rw [WCT9.merkleWord_lower h0, WCT9.lowerNodeWord_toNat hh']; omega
+    intro heap hh'; rw [WCT9.merkleWord_lower h0, (WCT9.lowerNodeWord_band hh' _ _).1]; omega
   have hn : ∀ (hp : BitVec 64), ¬ TopLow (bytesLE 16 (hp ++ WCT9.merkleWord lay tree
       (2 ^ (h - step - 1) + leaf / 2 ^ (step + 1)))) := by
     intro hp ht
     generalize 2 ^ (h - step - 1) + leaf / 2 ^ (step + 1) = heap at hh ht
-    rw [topLow_bytesLE_iff, tweakLow_eq_low, BitVec.extractLsb'_append_eq_right, WCT9.merkleWord_lower h0,
-      WCT9.lowerNodeWord_toNat hh] at ht
+    rw [topLow_bytesLE_iff, tweakLow_eq_low, BitVec.extractLsb'_append_eq_right, WCT9.merkleWord_lower h0] at ht
+    have := (WCT9.lowerNodeWord_band hh (lay - 1) tree).2.2.1
     omega
   rw [hdrKey_of_len64 (merkleInputW_length ..) (by rw [hdrBlock_merkleInputW]; exact hn _),
     hdrKey_of_len64 (merkleInputW_length ..) (by rw [hdrBlock_merkleInputW]; exact hn _),
@@ -6499,7 +6499,8 @@ def copyN (rb : Reg) (off : Word) (slot : Nat) (tgt : Nat) : Result :=
   ⟨⟨copyRegs rb off, copyMem rb off slot, copyObl rb off⟩, .c (pcOf tgt), .jump, 5, 5⟩
 def hOff (i d : Nat) : Word := BitVec.ofNat 64 (64 * i + 8 * d) - 2048
 def hKey (i d : Nat) : Addr := ⟨some (.reg .x28), hOff i d⟩
-def hLoad (i d : Nat) : E := addC (.reg .x28) (BitVec.ofNat 64 (i + 256 * d) - BitVec.ofNat 64 385)
+/-- Z6 option F: the chain label word `t3` is the label word (low half 0), so the chain immediate is `128 + i + 256 d`. -/
+def hLoad (i d : Nat) : E := addC (.reg .x28) (BitVec.ofNat 64 (i + 256 * d) - BitVec.ofNat 64 18446744073709551488)
 def headJH (rb : Reg) (off : Word) (tgt i d : Nat) (slot : Option Nat) : Result :=
   ⟨⟨((RegFile.init.set .x10 (addC (.reg rb) off)).set .x12
       (match slot with
@@ -6508,9 +6509,7 @@ def headJH (rb : Reg) (off : Word) (tgt i d : Nat) (slot : Option Nat) : Result 
     [(kAt rb off 16, hLoad i d)], [.valid (kAt rb off 16) 8]⟩,
     .c (pcOf tgt), .jump, 5, 5⟩
 def ecallR (p : Nat) : Result := ⟨SymState.init, .c (pcOf p), .ecall, 0, 0⟩
-/-- N7g (R1): the length (steps and cycles) of rung `m` of chain `i` before its ecall. Chain 0's rung 6 is a single
-`sb` (the `addi a2,tp,752` is gone: `x12` already holds chain 0's output slot); every other rung 6 is two words. -/
-def rLen (i m : Nat) : Nat := if m = 6 ∧ i ≠ 0 then 2 else 1
+def landOff (d : Nat) : Nat := if d = 6 then 2 else 1
 def headRH (rb : Reg) (off : Word) (d : Nat) (slot : Option Nat) (p i : Nat) : Result :=
   let n := if slot.isSome then 5 else 4
   ⟨⟨((RegFile.init.set .x10 (addC (.reg rb) off)).set .x12
@@ -6625,9 +6624,6 @@ def entW (t k : Nat) : Nat :=
 def rungsOK (d0 slot p : Nat) : Bool :=
   (List.range' d0 (7 - d0)).all fun m =>
     rOK (vrun (p + 2 * (m - d0)) 3) (rungRB m (if m = 6 then some slot else none) (p + 2 * (m - d0)))
-/-- N7g (R1): chain 0's ladder; no rung sets `x12`. -/
-def rungsOKz (d0 p : Nat) : Bool :=
-  (List.range' d0 (7 - d0)).all fun m => rOK (vrun (p + 2 * (m - d0)) 3) (rungRB m none (p + 2 * (m - d0)))
 def partOK (i d p : Nat) (skip : Bool := false) : Bool :=
   if skip then true else if d = 7 then rOK (vrun p 4) (copyFHB .x4 (offL i) (slotL i) p (lowerG i))
   else rOK (vrun p 8) (headRVB .x4 (offL i) d (if d = 6 then some (slotL i) else none) p i (lowerG i)) &&
@@ -6638,10 +6634,10 @@ def entCheck (t k : Nat) : Bool :=
     else rOK (vrun (entW t k) 7) (copyNB .x4 (offL (3 * t)) (slotL (3 * t))
       (pcB t (k / 8 % 8) (k / 64) + (if k / 8 % 8 = 7 then 4 else 0)) (lowerG (3 * t)))
   else rOK (vrun (entW t k) 7) (headJHB .x4 (offL (3 * t))
-      (triBase t (k / 8 % 8) (k / 64) + 2 * (k % 8) + (if t = 0 then 1 else 0) + rLen (3 * t) (k % 8)) (3 * t) (k % 8) (hSlot (3 * t) (k % 8))
+      (triBase t (k / 8 % 8) (k / 64) + 2 * (k % 8) + landOff (k % 8)) (3 * t) (k % 8) (hSlot (3 * t) (k % 8))
       (lowerG (3 * t))) &&
-    rOK (vrun (triBase t (k / 8 % 8) (k / 64) + 2 * (k % 8) + (if t = 0 then 1 else 0) + rLen (3 * t) (k % 8)) 1)
-      (ecallR (triBase t (k / 8 % 8) (k / 64) + 2 * (k % 8) + (if t = 0 then 1 else 0) + rLen (3 * t) (k % 8)))
+    rOK (vrun (triBase t (k / 8 % 8) (k / 64) + 2 * (k % 8) + landOff (k % 8)) 1)
+      (ecallR (triBase t (k / 8 % 8) (k / 64) + 2 * (k % 8) + landOff (k % 8)))
 def xOK (t dB dC : Nat) : Bool :=
   if t = 13 then rOK (vrun (pcX t dB dC) 4) ctabX
   else if t = 5 ∨ t = 12 then rOK (vrun (pcX t dB dC) 4)
@@ -6649,10 +6645,10 @@ def xOK (t dB dC : Nat) : Bool :=
   else rOK (vrun (pcX t dB dC) 5)
     (xJ (if t + 1 < 7 then .x16 else .x17) (9 * ((t + 1) % 7)) (if t = 0 ∨ t = 7 then .x27 else .x9)
       (BitVec.ofNat 64 (lowerImm (t+1))))
-/-- M0 (A0, landing fix): the head jumps into rung `d` past its first word (`rLen`; N7g R1: chain 0's rungs start one word later), so rung 0's first word is
+/-- M0 (A0, landing fix): the head jumps into rung `d` past its first word (`landOff`), so rung 0's first word is
 never executed; the image zeroes it where it is a P2c landing word. Only rungs 1..6 are checked from their start. -/
 def blkCheck (t dB dC : Nat) : Bool :=
-  (if t = 0 then rungsOKz 1 (triBase t dB dC + 3) else rungsOK 1 (outL (3 * t)) (triBase t dB dC + 2)) &&
+  rungsOK 1 (outL (3 * t)) (triBase t dB dC + 2) &&
     partOK (3 * t + 1) dB (pcB t dB dC) (decide (t=0 ∧ dB=7)) &&
     partOK (3 * t + 2) dC (pcC t dB dC) (decide (dB=7 ∧ dC=7)) && xOK t dB dC
 def triCheck (t lo n : Nat) : Bool :=
@@ -6669,8 +6665,10 @@ section
 set_option autoImplicit false
 namespace W9Machine
 open SigGolfCandidate.T3M SigGolfCandidate.Rv RiscvZkvm.Rv64
+/-- Z6 option F: `t6` (x31) holds the leaf word `ftsBiasN ..`, 2048 below the chain translation, so the chain word is
+`t6 + 256 chain + digit + 512` (the old `- 1536` plus 2048). -/
 def packedHeader (chain digit : Nat) : E :=
-  addC (.reg .x31) (BitVec.ofNat 64 (256 * chain + digit) - BitVec.ofNat 64 1536)
+  addC (.reg .x31) (BitVec.ofNat 64 (256 * chain + digit) - BitVec.ofNat 64 18446744073709551104)
 def packedPos (digit : Nat) : E :=
   if digit = 1 then .reg .x9 else if digit = 2 then .reg .x13 else if digit = 3 then .reg .x19 else .c 0
 def headRHRel (rb : Reg) (off dst : Word) (p chain digit : Nat) : Result :=
@@ -6700,12 +6698,13 @@ section
 namespace SigGolfCandidate.T3M
 open SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64 SigGolfCandidate.Rv
 open SigGolfCandidate.T3
+/-- L-hyper A′: the label's routed field above the layer's marker bit (formerly layer byte and type byte 193). -/
 def packedHi (lay : Layer) (tree leaf : Nat) : Nat :=
-  (tree * 2 ^ height lay + leaf) % 2 ^ 32 + lay.val * 2 ^ 32 + 193 * 2 ^ 40
+  (tree * 2 ^ height lay + leaf) % 2 ^ 32 + 2 ^ T3.hyperW lay.val
 def packedPrefix (lay : Layer) (tree leaf : Nat) : Nat := 128 + 2 ^ 16 * packedHi lay tree leaf
 theorem packedHi_lt (lay : Layer) (tree leaf : Nat) : packedHi lay tree leaf < 2 ^ 48 := by
   have hr := Nat.mod_lt (tree * 2 ^ height lay + leaf) (by norm_num : 0 < 2 ^ 32)
-  have hl := lay.isLt
+  have hw : 2 ^ T3.hyperW lay.val ≤ 2 ^ 31 := Nat.pow_le_pow_right (by norm_num) (T3.hyperW_le _)
   unfold packedHi
   omega
 theorem packedWord_lt (lay : Layer) (tree leaf i m : Nat) (hi : i < 128) (hm : m < 256) :
@@ -6721,11 +6720,12 @@ theorem extract64_of_eq (x : BitVec 128) (n : Nat) (h : x = BitVec.ofNat 128 n) 
     Nat.pow_zero, Nat.div_one]
   exact Nat.mod_mod_of_dvd _ (by norm_num)
 theorem chainHeader_low_bounded (lay : Layer) (tree leaf i m : Nat) (hi : i < 64) (hm : m < 8)
-    (ht : tree < 2 ^ (31 - height lay)) (hl : leaf < 2 ^ height lay) :
+    (ht : tree < 2 ^ (T3.hyperW lay.val - height lay)) (hl : leaf < 2 ^ height lay) :
     (chainHeader lay tree leaf i m).extractLsb' 0 64 =
       BitVec.ofNat 64 (i + 256 * m + packedPrefix lay tree leaf) := by
-  have hr : tree * 2 ^ height lay + leaf < 2 ^ 31 := by
-    fin_cases lay <;> norm_num [height] at ht hl ⊢ <;> omega
+  have hr : tree * 2 ^ height lay + leaf < 2 ^ T3.hyperW lay.val := by
+    fin_cases lay <;> norm_num [height, T3.hyperW] at ht hl ⊢ <;> omega
+  have hw : 2 ^ T3.hyperW lay.val ≤ 2 ^ 31 := Nat.pow_le_pow_right (by norm_num) (T3.hyperW_le _)
   apply extract64_of_eq
   exact (chainHeader_actual lay tree leaf i m hr hl hi hm).trans
     (congrArg (BitVec.ofNat 128) (by
@@ -7115,12 +7115,14 @@ def TOPLOAD : Nat := 0xffbf68
 def TOPBASE : Nat := 0xffc000
 def TOPB9 : Nat := 0xffbf10
 def topWords : List Nat :=
-  [17311559823019733055, 8198552921648689607, 0x30401, 0x7fc01, 0x201 + 193 * 2 ^ 56 + 3 * 2 ^ 48]
+  [17311559823019733055, 8198552921648689607, 0x30401, 0x7fc01, 2 ^ 31]
 def DATA : Nat := 16777120
 def TAB : Nat := 16709632
 def HDATA : Nat := 0xffbf90
 def headerBank (lay koff : Nat) : Nat := TOPBASE + 4096 * lay + 64 * koff
-def hyperBase (lay : Nat) : Nat := 0x201 + lay * 2 ^ 48 + 193 * 2 ^ 56
+/-- Verify data words `hdrAddr lay`. L-hyper A′: the L3 word (`TOPLOAD + 32`) is the L3 marker `2^31` that the head ORs
+into the routed register; the other three are no longer read. -/
+def hyperBase (lay : Nat) : Nat := if lay = 3 then 2 ^ 31 else 0x201 + lay * 2 ^ 48 + 193 * 2 ^ 56
 def hdrAddr (lay : Nat) : Nat := TOPBASE - 120 + 8 * ((lay + 1) % 4)
 structure DataOK (s : MachineState) : Prop where
   mask : s.getMem (BitVec.ofNat 64 (TOPBASE - 8)) = 520192#64
@@ -7840,17 +7842,17 @@ def bufferVal (c : LCtx) (i : Nat) : Digest :=
 def ok (c : LCtx) : Prop :=
   c.tree < 2 ^ 32 ∧ c.leaf < 2 ^ 32 ∧ c.koff ≤ 16 ∧ c.S6 % 8 = 0 ∧ Verify.WIT + 7664 + 520 ≤ c.S6 ∧
     c.S6 + 1744 ≤ 0x7000 ∧ c.ck < 2 ^ 64 ∧ c.ret = ckSlot c.ck + partLen c.ck ∧ c.i0 ≤ 42 ∧
-    c.tree < 2 ^ (31 - height c.lay) ∧ c.leaf < 2 ^ height c.lay ∧
+    c.tree < 2 ^ (T3.hyperW c.lay.val - height c.lay) ∧ c.leaf < 2 ^ height c.lay ∧
     True ∧ True
 /-- P0: the top-field dispatches at the exits of chains 17 (`d0`) and 38 (`d1`) need the fixed bit clear. -/
 def msbOK (c : LCtx) (i : Nat) : Prop := (i = 17 → c.d0.toNat < 2 ^ 63) ∧ (i = 38 → c.d1.toNat < 2 ^ 63)
 instance (c : LCtx) (i : Nat) : Decidable (c.msbOK i) := by unfold msbOK; infer_instance
 theorem msbOK_of_ne (c : LCtx) {i : Nat} (h17 : i ≠ 17) (h38 : i ≠ 38) : c.msbOK i :=
   ⟨fun h => absurd h h17, fun h => absurd h h38⟩
-def x28v (c : LCtx) : Nat := packedPrefix c.lay c.tree c.leaf + c.koff + 385
-theorem x28v_eq (c : LCtx) (h0 : c.koff = 0) : c.x28v = packedPrefix c.lay c.tree c.leaf + 385 := by
-  generalize hp : packedPrefix c.lay c.tree c.leaf = q
-  unfold x28v; rw [hp]; omega
+/-- Z6 option F: the chain label word `t3` is `packedPrefix - 128` (the label word, low half 0). -/
+def x28v (c : LCtx) : Nat := 2 ^ 16 * packedHi c.lay c.tree c.leaf + c.koff
+theorem x28v_eq (c : LCtx) (h0 : c.koff = 0) : c.x28v = 2 ^ 16 * packedHi c.lay c.tree c.leaf := by
+  unfold x28v; omega
 def known (c : LCtx) : List (Reg × Word) :=
   [(.x5, 0), (.x11, 64), (.x13, 2), (.x19, 3), (.x20, 4), (.x21, 5), (.x26, 6),
    (.x28, BitVec.ofNat 64 c.x28v), (.x9, 0x7fc01), (.x27, 0x3fe00), (.x5, 0),
@@ -7866,7 +7868,7 @@ def startPc (c : LCtx) (i : Nat) : Nat :=
   else if i % 3 = 0 then entW (i / 3) (c.kOf (i / 3))
   else if i % 3 = 1 then c.tB i + (if 1 < i ∧ c.dig (i-1) = 7 ∧ c.dig i = 7 then 4 else 0) else c.tC i
 def rungPc (c : LCtx) (i m : Nat) : Nat :=
-  if i % 3 = 0 ∧ i ≠ 42 then c.tb i + 2 * m + (if i = 0 then 1 else 0)
+  if i % 3 = 0 ∧ i ≠ 42 then c.tb i + 2 * m
   else c.startPc i + 3 + 2 * (m - c.dig i) - (if c.dig i = 6 then 1 else 0)
 def endPc (c : LCtx) (i : Nat) : Nat :=
   if i = 42 then ckSlot c.ck + partLen c.ck
@@ -7899,7 +7901,7 @@ def PreHash (c : LCtx) (s0 : MachineState) (i : Nat) (acc : List Digest) (m : Na
     t.getMem (BitVec.ofNat 64 (c.blk i + 24)) = c.padHeader i ∧ DigAt t (c.vAt i) v ∧
     t.getReg .x10 = BitVec.ofNat 64 (c.blk i) ∧
     t.getReg .x12 = BitVec.ofNat 64 (if m = 6 then c.outSlot i else c.oAt i) ∧
-    t.pc = pcOf (c.rungPc i m + rLen i m) ∧ fetch vimage t = some (.base .ECALL)
+    t.pc = pcOf (c.rungPc i m + (if m = 6 then 2 else 1)) ∧ fetch vimage t = some (.base .ECALL)
 def EndInv (c : LCtx) (s0 : MachineState) (i : Nat) (acc : List Digest) (s : MachineState) : Prop :=
   c.Base s0 (c.Wr (i + 1)) acc s ∧ acc.length = i + 1 - c.i0 ∧
     Verify.DataOK s0 ∧ s.pc = pcOf (c.endPc i)
@@ -8390,15 +8392,12 @@ theorem dig_lt (c : LCtx) (hc : c.ok) (i : Nat) (hi : i < 42) : c.dig i < 8 := b
   unfold dig; split_ifs <;> omega
 theorem dig42 (c : LCtx) : c.dig 42 = c.ck := by unfold dig; simp
 set_option maxHeartbeats 1000000 in
-theorem rungPc_end (c : LCtx) (i : Nat) (hi : i ≤ 42) (hd : c.dig i < 7) : c.rungPc i 6 + rLen i 6 + 1 = c.endPc i := by
-  have hl : rLen i 6 = if i = 0 then 1 else 2 := by unfold rLen; by_cases h : i = 0 <;> simp [h]
-  rw [hl]
+theorem rungPc_end (c : LCtx) (i : Nat) (hi : i ≤ 42) (hd : c.dig i < 7) : c.rungPc i 6 + 3 = c.endPc i := by
   by_cases h42 : i = 42
   · subst h42
     have e := c.dig42
     unfold rungPc endPc startPc partLen
-    simp only [show ¬ (42 % 3 = 0 ∧ (42 : Nat) ≠ 42) by decide +kernel, if_false, if_true, e,
-      if_neg (show (42 : Nat) ≠ 0 by decide)] at hd ⊢
+    simp only [show ¬ (42 % 3 = 0 ∧ (42 : Nat) ≠ 42) by decide +kernel, if_false, if_true, e] at hd ⊢
     split_ifs <;> omega
   · have e1 : i % 3 = 1 → c.dig (3 * (i / 3) + 1) = c.dig i := fun h => by rw [show 3 * (i / 3) + 1 = i by omega]
     have e2 : i % 3 = 2 → c.dig (3 * (i / 3) + 2) = c.dig i := fun h => by rw [show 3 * (i / 3) + 2 = i by omega]
@@ -8472,7 +8471,7 @@ theorem prehash_step (c : LCtx) (hc : c.ok) (s0 : MachineState) (hk : ∀ p ∈ 
       · rw [fget _ (by omega) (by omega), h16, BitVec.toNat_ofNat, Nat.mod_eq_of_lt (c.w0_lt hc i m hi.2 (by omega))]
         unfold w0 packedPrefix; have := hc.2.2.1; omega
       · rw [fget _ (by omega) (by omega)]; exact h24
-      · rw [pc_writeHash, hpc, show rLen i m = 1 from if_neg (by omega), c.rungPc_succ i m hd, show (4 : Word) = BitVec.ofNat 64 4 from rfl,
+      · rw [pc_writeHash, hpc, if_neg (by omega), c.rungPc_succ i m hd, show (4 : Word) = BitVec.ofNat 64 4 from rfl,
           ofNat_add_ofNat]
         congr 1
     ·
@@ -8481,7 +8480,7 @@ theorem prehash_step (c : LCtx) (hc : c.ok) (s0 : MachineState) (hk : ∀ p ∈ 
       have fr := hdst _ d12 (by omega)
       have hpcE : (writeHash t a).pc = pcOf (c.endPc i) := by
         have hd7 : c.dig i < 7 := by omega
-        rw [pc_writeHash, hpc, ← c.rungPc_end i hi.2 hd7, show (4 : Word) = BitVec.ofNat 64 4 from rfl,
+        rw [pc_writeHash, hpc, if_pos rfl, ← c.rungPc_end i hi.2 hd7, show (4 : Word) = BitVec.ofNat 64 4 from rfl,
           ofNat_add_ofNat]
         congr 1
       by_cases hi0 : i = 0
@@ -8553,26 +8552,18 @@ theorem w0_low (c : LCtx) (hc : c.ok) (i m : Nat) (hi : i ≤ 42) (hm : m < 256)
   rw [BitVec.toNat_ofNat, Nat.mod_eq_of_lt (c.w0_lt hc i m hi hm)]
   have := hc.2.2.1
   unfold w0 packedPrefix; constructor <;> omega
-/-- N7g (R1): chain 0's working pointer `x12` already is its output slot, so its last rung needs no `addi`. -/
-theorem oAt_zero (c : LCtx) (hc : c.ok) : c.oAt 0 = c.outSlot 0 := by
-  obtain ⟨-, -, -, -, hlo, -⟩ := hc
-  have e := c.bufferOffset_eq
-  unfold oAt outSlot blk lowerG lowerSlot outL
-  simp only [show (0 : Nat) % 2 = 1 ↔ False by decide, decide_false, if_true, Bool.false_eq_true, if_false]
-  omega
 theorem rung_piece (c : LCtx) (hc : c.ok) {s0 : MachineState} (hk : ∀ p ∈ c.known, s0.getReg p.1 = p.2)
     (i m p : Nat) (hi : i ≤ 42) (hm : m ≤ 6) (hp : p < 257214)
-    (hrun : vrun p 3 = some (rungRB m (if m = 6 ∧ i ≠ 0 then some (outL i) else none) p)) (s : MachineState)
+    (hrun : vrun p 3 = some (rungRB m (if m = 6 then some (outL i) else none) p)) (s : MachineState)
     (hpc : s.pc = pcOf p) (hR : ∀ x ∉ chainRegs, s.getReg x = s0.getReg x)
     (h10 : s.getReg .x10 = BitVec.ofNat 64 (c.blk i)) (hH : c.HdrOk i s) :
-    ∃ t, Steps vimage s (rLen i m) (rLen i m) t ∧ fetch vimage t = some (.base .ECALL) ∧
+    ∃ t, Steps vimage s (if m = 6 then 2 else 1) (if m = 6 then 2 else 1) t ∧ fetch vimage t = some (.base .ECALL) ∧
       (∀ x, x ≠ .x12 → t.getReg x = s.getReg x) ∧
-      (m = 6 ∧ i ≠ 0 → t.getReg .x12 = BitVec.ofNat 64 (c.outSlot i)) ∧
-      (¬ (m = 6 ∧ i ≠ 0) → t.getReg .x12 = s.getReg .x12) ∧
+      (m = 6 → t.getReg .x12 = BitVec.ofNat 64 (c.outSlot i)) ∧ (m < 6 → t.getReg .x12 = s.getReg .x12) ∧
       t.getMem (BitVec.ofNat 64 (c.blk i + 16)) = BitVec.ofNat 64 (c.w0 i + 256 * m) ∧
-      Frame s t (fun A => A = c.blk i + 16) ∧ t.pc = pcOf (p + rLen i m) := by
+      Frame s t (fun A => A = c.blk i + 16) ∧ t.pc = pcOf (p + (if m = 6 then 2 else 1)) := by
   have hb := c.blk_props hc i hi
-  set r := rungRB m (if m = 6 ∧ i ≠ 0 then some (outL i) else none) p with hr
+  set r := rungRB m (if m = 6 then some (outL i) else none) p with hr
   have hobl : ∀ o ∈ r.st.obl, o.holds s := by
     simp only [hr, rungRB, List.mem_cons, List.not_mem_nil, or_false]
     rintro o (rfl | rfl)
@@ -8584,10 +8575,10 @@ theorem rung_piece (c : LCtx) (hc : c.ok) {s0 : MachineState} (hk : ∀ p ∈ c.
       exact valid_ofNat _ _ (by omega) (by omega)
   have hst := piece_steps hrun hp s hpc hobl
   have hec := piece_ecall hrun hp s hobl (by simp [hr, rungRB])
-  have hn : r.steps = rLen i m ∧ r.cycles = rLen i m := by
-    simp only [hr, rungRB, rLen]; split <;> simp_all
+  have hn : r.steps = (if m = 6 then 2 else 1) ∧ r.cycles = (if m = 6 then 2 else 1) := by
+    simp only [hr, rungRB]; split <;> simp_all
   rw [hn.1, hn.2] at hst
-  have hkeep := rungRB_keeps m (if m = 6 ∧ i ≠ 0 then some (outL i) else none) p
+  have hkeep := rungRB_keeps m (if m = 6 then some (outL i) else none) p
   have key : (⟨some (.reg .x10), 16⟩ : Addr).eval s = BitVec.ofNat 64 (c.blk i + 16) := by
     simp only [Addr.eval, E.eval, h10]
     rw [show (16 : Word) = BitVec.ofNat 64 16 from rfl, ofNat_add_ofNat]
@@ -8614,7 +8605,7 @@ theorem rung_piece (c : LCtx) (hc : c.ok) {s0 : MachineState} (hk : ∀ p ∈ c.
     rw [RegFile.get_set_self _ _ (by decide +kernel)]
     exact c.bufferE_eval' ((hR .x4 (by decide +kernel)).trans (hk (.x4, BitVec.ofNat 64 c.bufferOffset) (by simp [known]))) (outL i)
   · rw [Result.toState_getReg]
-    simp only [hr, rungRB, if_neg h6]
+    simp only [hr, rungRB, if_neg (show m ≠ 6 by omega)]
     rw [RegFile.init_get_eval]
   · rw [tmem _ (by omega), if_pos rfl]
     obtain ⟨hl, hj, -⟩ := hH
@@ -8623,8 +8614,8 @@ theorem rung_piece (c : LCtx) (hc : c.ok) {s0 : MachineState} (hk : ∀ p ∈ c.
     rw [stepByte _ _ _ _ (by omega) (by omega) (packedHi_lt _ _ _) hl hj]
     congr 1; unfold w0 packedPrefix; ring
   · rw [tmem _ hA, if_neg hn]
-  · rw [Result.toState_pc]; simp only [hr, rungRB, rLen]
-    by_cases h6 : m = 6 ∧ i ≠ 0 <;> simp [h6, E.eval]
+  · rw [Result.toState_pc]; simp only [hr, rungRB]
+    by_cases h6 : m = 6 <;> simp [h6, E.eval]
 end LCtx
 end SigGolfCandidate.T3M
 namespace SigGolfCandidate.T3M
@@ -8640,9 +8631,9 @@ theorem w0_low0 (c : LCtx) (hc : c.ok) (i : Nat) (hi : i ≤ 42) :
   rwa [Nat.mul_zero, Nat.add_zero] at this
 theorem rung_step (c : LCtx) (hc : c.ok) {s0 : MachineState} (hk : ∀ p ∈ c.known, s0.getReg p.1 = p.2)
     (i m : Nat) (hi : c.i0 ≤ i ∧ i ≤ 42) (hm : m ≤ 6) (hp : c.rungPc i m < 257214)
-    (hrun : vrun (c.rungPc i m) 3 = some (rungRB m (if m = 6 ∧ i ≠ 0 then some (outL i) else none) (c.rungPc i m)))
+    (hrun : vrun (c.rungPc i m) 3 = some (rungRB m (if m = 6 then some (outL i) else none) (c.rungPc i m)))
     (acc : List Digest) (v : Digest) (s : MachineState) (hs : c.StepInv s0 i acc m v s) :
-    ∃ t, Steps vimage s (rLen i m) (rLen i m) t ∧ c.PreHash s0 i acc m v t := by
+    ∃ t, Steps vimage s (if m = 6 then 2 else 1) (if m = 6 then 2 else 1) t ∧ c.PreHash s0 i acc m v t := by
   obtain ⟨⟨hR, hF, hS⟩, hlen, h25, hH, hv, h10, h12, hpc⟩ := hs
   have hb := c.blk_props hc i hi.2
   have hbb := c.block_before_buffer i c.i0 hi.2
@@ -8662,12 +8653,9 @@ theorem rung_step (c : LCtx) (hc : c.ok) {s0 : MachineState} (hk : ∀ p ∈ c.k
   · rw [hfr _ (by omega) (by omega)]; exact hH.2.2
   · exact hv.frame hfr (by omega) (by omega) (by omega)
   · rw [hreg _ (by decide +kernel)]; exact h10
-  · by_cases h6 : m = 6 ∧ i ≠ 0
-    · rw [h12a h6, if_pos h6.1]
-    · rw [h12b h6, h12]
-      by_cases hm6 : m = 6
-      · rw [if_pos hm6, show i = 0 by omega, c.oAt_zero hc]
-      · rw [if_neg hm6]
+  · by_cases h6 : m = 6
+    · rw [h12a h6, if_pos h6]
+    · rw [h12b (by omega), h12, if_neg h6]
   · rw [hpc']
 theorem val_at {c : LCtx} {s0 t : MachineState} (hc : c.ok) (h0 : c.Orig0 s0) {i : Nat} (hi : c.i0 ≤ i ∧ i ≤ 42)
     (hF : Frame s0 t (c.Wr i)) : DigAt t (c.vAt i) (c.val i) := by
@@ -8678,18 +8666,19 @@ theorem val_at {c : LCtx} {s0 t : MachineState} (hc : c.ok) (h0 : c.Orig0 s0) {i
       (c.notWr_block hc hi (by omega) (by omega))
 theorem Wr_mono (c : LCtx) (i : Nat) (A : Nat) (h : c.Wr i A) : c.WrIn i A := Or.inl h
 theorem bv385 (a b : Nat) :
-    BitVec.ofNat 64 (a + 385) + (BitVec.ofNat 64 b - BitVec.ofNat 64 385) = BitVec.ofNat 64 (a + b) := by
-  apply BitVec.eq_of_toNat_eq
-  simp only [BitVec.toNat_add, BitVec.toNat_sub, BitVec.toNat_ofNat]
+    BitVec.ofNat 64 a + (BitVec.ofNat 64 b - BitVec.ofNat 64 18446744073709551488) = BitVec.ofNat 64 (a + 128 + b) := by
+  rewrite [BitVec.sub_eq_add_neg, show -(BitVec.ofNat 64 18446744073709551488) = BitVec.ofNat 64 128 by decide,
+    ofNat_add_ofNat, ofNat_add_ofNat]
+  apply congrArg (BitVec.ofNat 64)
   omega
 theorem header_load (c : LCtx) {s : MachineState} (i d : Nat)
     (h28 : s.getReg .x28 = BitVec.ofNat 64 c.x28v) :
     (hLoad i d).eval s = BitVec.ofNat 64 (c.w0 i + 256 * d) := by
-  rw [hLoad, addC_eval]
-  show s.getReg .x28 + (BitVec.ofNat 64 (i + 256 * d) - BitVec.ofNat 64 385) = _
-  rw [h28, LCtx.x28v, bv385]
-  congr 1
-  unfold w0
+  rewrite [hLoad, addC_eval]
+  show s.getReg .x28 + (BitVec.ofNat 64 (i + 256 * d) - BitVec.ofNat 64 18446744073709551488) = _
+  rewrite [h28, bv385]
+  apply congrArg (BitVec.ofNat 64)
+  unfold w0 LCtx.x28v packedPrefix
   omega
 theorem padHeader_at {c : LCtx} {s0 t : MachineState} (hc : c.ok) (h0 : c.Orig0 s0)
     {i : Nat} (hi : c.i0 ≤ i ∧ i ≤ 42) (hF : Frame s0 t (c.Wr i)) :
@@ -8702,11 +8691,11 @@ theorem fetch_pc_congr {u v : MachineState} (h : u.pc = v.pc) : fetch vimage u =
   unfold fetch; rw [h]
 theorem headJ_step (c : LCtx) (hc : c.ok) {s0 : MachineState} (hk : ∀ p ∈ c.known, s0.getReg p.1 = p.2)
     (h0 : c.Orig0 s0) (i : Nat) (hi : c.i0 ≤ i ∧ i ≤ 42) (hd : c.dig i < 7)
-    (hp0 : c.startPc i < 257214) (hp1 : c.rungPc i (c.dig i) + rLen i (c.dig i) < 257214)
-    (hrun1 : vrun (c.startPc i) 7 = some (headJHB .x4 (offL i) (c.rungPc i (c.dig i) + rLen i (c.dig i)) i
+    (hp0 : c.startPc i < 257214) (hp1 : c.rungPc i (c.dig i) + landOff (c.dig i) < 257214)
+    (hrun1 : vrun (c.startPc i) 7 = some (headJHB .x4 (offL i) (c.rungPc i (c.dig i) + landOff (c.dig i)) i
       (c.dig i) (hSlot i (c.dig i)) (lowerG i)))
-    (hrun2 : vrun (c.rungPc i (c.dig i) + rLen i (c.dig i)) 1 =
-      some (ecallR (c.rungPc i (c.dig i) + rLen i (c.dig i))))
+    (hrun2 : vrun (c.rungPc i (c.dig i) + landOff (c.dig i)) 1 =
+      some (ecallR (c.rungPc i (c.dig i) + landOff (c.dig i))))
     (acc : List Digest) (s : MachineState) (hs : c.ChainIn s0 i acc s) :
     ∃ t, Steps vimage s 5 5 t ∧ c.PreHash s0 i acc (c.dig i) (c.val i) t := by
   obtain ⟨⟨hR, hF, hS⟩, hlen, h25, hpc⟩ := hs
@@ -8721,7 +8710,7 @@ theorem headJ_step (c : LCtx) (hc : c.ok) {s0 : MachineState} (hk : ∀ p ∈ c.
     intro k hk'
     simp only [kAt, Addr.eval, E.eval, h22]
     exact c.base_off hc i hi.2 k hk'
-  set r := headJHB .x4 (offL i) (c.rungPc i (c.dig i) + rLen i (c.dig i)) i (c.dig i) (hSlot i (c.dig i))
+  set r := headJHB .x4 (offL i) (c.rungPc i (c.dig i) + landOff (c.dig i)) i (c.dig i) (hSlot i (c.dig i))
     (lowerG i) with hr
   have htable := c.header_load i (c.dig i)
     (kr _ _ (by simp [known]) (by decide +kernel))
@@ -8733,7 +8722,7 @@ theorem headJ_step (c : LCtx) (hc : c.ok) {s0 : MachineState} (hk : ∀ p ∈ c.
   have hst := piece_steps hrun1 hp0 s hpc hobl
   have hn : r.steps = 5 ∧ r.cycles = 5 := ⟨rfl, rfl⟩
   rw [hn.1, hn.2] at hst
-  have hkeep := headJHB_keeps .x4 (offL i) (c.rungPc i (c.dig i) + rLen i (c.dig i)) i (c.dig i) (hSlot i (c.dig i))
+  have hkeep := headJHB_keeps .x4 (offL i) (c.rungPc i (c.dig i) + landOff (c.dig i)) i (c.dig i) (hSlot i (c.dig i))
     (lowerG i)
   have a0e : (addC (E.reg .x4) (offL i)).eval s = BitVec.ofNat 64 (c.blk i) := by
     rw [addC_eval]; simp only [E.eval, h22]; exact c.base_off0 hc i hi.2
@@ -8750,7 +8739,7 @@ theorem headJ_step (c : LCtx) (hc : c.ok) {s0 : MachineState} (hk : ∀ p ∈ c.
   have hp24 := padHeader_at hc h0 hi hF
   have hv0 : DigAt s (c.vAt i) (c.val i) := val_at hc h0 hi hF
   have hvb := c.vAt_bound i
-  have hpcT : (r.toState s).pc = pcOf (c.rungPc i (c.dig i) + rLen i (c.dig i)) := by
+  have hpcT : (r.toState s).pc = pcOf (c.rungPc i (c.dig i) + landOff (c.dig i)) := by
     rw [Result.toState_pc]; simp only [hr, headJHB, E.eval]
   have hec : fetch vimage (r.toState s) = some (.base .ECALL) := by
     have hE := piece_ecall hrun2 hp1 (r.toState s) (by simp [ecallR, SymState.init]) rfl
@@ -8780,7 +8769,7 @@ theorem headJ_step (c : LCtx) (hc : c.ok) {s0 : MachineState} (hk : ∀ p ∈ c.
       exact c.bufferE_eval' h4 (outL i)
     · simp only [hSlot, h6, if_false]
       rw [addC_eval]; exact c.oAt_eval hc i hi.2 _ a0e
-  · exact hpcT
+  · rw [hpcT]; simp only [landOff]
 end LCtx
 end SigGolfCandidate.T3M
 namespace SigGolfCandidate.T3M
@@ -8917,7 +8906,7 @@ namespace LCtx
 theorem headR_step (c : LCtx) (hc : c.ok) {s0 : MachineState} (hk : ∀ p ∈ c.known, s0.getReg p.1 = p.2)
     (h0 : c.Orig0 s0) (i : Nat) (hi : c.i0 ≤ i ∧ i ≤ 42) (hi0 : i ≠ 0) (hd : c.dig i < 7)
     (hp0 : c.startPc i < 257214)
-    (hrp : c.rungPc i (c.dig i) + rLen i (c.dig i) = c.startPc i + 4)
+    (hrp : c.rungPc i (c.dig i) + (if c.dig i = 6 then 2 else 1) = c.startPc i + 4)
     (hrun : vrun (c.startPc i) 8 =
       some (headRVB .x4 (offL i) (c.dig i) (if c.dig i = 6 then some (slotL i) else none) (c.startPc i) i (lowerG i)))
     (acc : List Digest) (s : MachineState) (hs : c.ChainIn s0 i acc s) :
@@ -9382,11 +9371,11 @@ theorem chainLow_add (index coord child chain digit : Nat) (hc : chain < 6) (hd 
   rw [hlo, Nat.or_comm (256 * chain + digit), chainPrefix_shift,
     ← Nat.shiftLeft_add_eq_or_of_lt (by omega : 256 * chain + digit < 2 ^ 16)]
 theorem leafLow_eq (index coord child : Nat) (hi : index < 2 ^ 31) (hk : coord < 9) (hj : child < 128) :
-    V3.leafLow index coord child = SigGolfCandidate.T3.ftsBias (1537 + V3.chainPrefix index coord child) := by
+    V3.leafLow index coord child = SigGolfCandidate.T3.ftsBiasN (1537 + V3.chainPrefix index coord child) := by
   rw [chainPrefix_value _ _ _ hk hj]
   unfold V3.leafLow ClaudeWCT.WCT9.ftsLeafLow
   rw [Nat.mod_eq_of_lt (by omega : coord + 1 < 16), Nat.mod_eq_of_lt hj, Nat.mod_eq_of_lt hi]
-  congr 1
+  apply congrArg SigGolfCandidate.T3.ftsBiasN
   omega
 theorem wordBias (n : Nat) :
     BitVec.ofNat 64 (SigGolfCandidate.T3.ftsBias n) =
@@ -9397,6 +9386,15 @@ theorem wordBias (n : Nat) :
       simp only [SigGolfCandidate.T3.ftsBias, BitVec.toNat_ofNat, Nat.mod_mod]
       rw [Nat.add_sub_assoc (by norm_num : 67073 ≤ 2^64)]
     _ = _ := BitVec.ofNat_add _ _
+theorem wordBiasN (n : Nat) :
+    BitVec.ofNat 64 (SigGolfCandidate.T3.ftsBiasN n) =
+      BitVec.ofNat 64 n + BitVec.ofNat 64 (2^64-69121) := by
+  calc
+    BitVec.ofNat 64 (SigGolfCandidate.T3.ftsBiasN n) = BitVec.ofNat 64 (n+(2^64-69121)) := by
+      apply BitVec.eq_of_toNat_eq
+      simp only [SigGolfCandidate.T3.ftsBiasN, BitVec.toNat_ofNat, Nat.mod_mod]
+      rw [Nat.add_sub_assoc (by norm_num : 69121 ≤ 2^64)]
+    _ = _ := BitVec.ofNat_add _ _
 set_option maxRecDepth 100000 in
 theorem packedHeader_eval (s : MachineState) (index coord child chain digit : Nat)
     (hp : s.getReg .x31 = BitVec.ofNat 64 (V3.leafLow index coord child))
@@ -9405,9 +9403,11 @@ theorem packedHeader_eval (s : MachineState) (index coord child chain digit : Na
     (packedHeader chain digit).eval s = BitVec.ofNat 64 (V3.chainLow index coord child chain digit) := by
   simp only [packedHeader, addC_eval, E.eval, hp]
   rw [leafLow_eq _ _ _ hi hk hj, chainLow_add _ _ _ _ _ hc hd]
-  rw [wordBias,wordBias]
+  rw [wordBiasN, wordBias]
   simp only [BitVec.ofNat_add]
-  rw [show (1537#64) = 1536#64 + 1#64 by decide]
+  rw [show (BitVec.ofNat 64 (2^64-69121)) =
+      BitVec.ofNat 64 (2^64-67073) + BitVec.ofNat 64 18446744073709551104 - 1536#64 by decide,
+    show (1537#64) = 1536#64 + 1#64 by decide]
   abel
 theorem packedPos_eval (s : MachineState) (digit : Nat) (hd : digit < 4)
     (h9 : (s.getReg .x9).truncate 8 = 1#8) (h13 : s.getReg .x13 = 2) (h19 : s.getReg .x19 = 3) :
@@ -9758,7 +9758,7 @@ theorem head_trace_mem (value : ChainWord → Word) (tr : ChainTrace) (s : Machi
   intro x hx
   rw [headRHRel_mem s .x8 B off dst p chain digit (B + x) hbase (by omega) (by omega)]
   simp only [ChainTrace.read_put]
-  split_ifs <;> first | exact hh | exact ht x hx | omega
+  split_ifs <;> first | exact hh | exact ht x hx | (exfalso; omega)
 end W9Machine
 end
 -- ==== merged from W9Machine_WctTraceInvariant ====
@@ -11748,7 +11748,7 @@ structure SetupMask (u : MachineState) : Prop where
   child : u.getMem (BitVec.ofNat 64 (dataBase7 + 368)) = BitVec.ofNat 64 0xf1b00
   jt : u.getMem (BitVec.ofNat 64 (dataBase7 + 376)) = BitVec.ofNat 64 0xfff01
   coord : u.getMem (BitVec.ofNat 64 (dataBase7 + 464)) = BitVec.ofNat 64 11120
-  gate : u.getMem (BitVec.ofNat 64 (dataBase7 + 352)) = BitVec.ofNat 64 (926 * 2^50)
+  gate : u.getMem (BitVec.ofNat 64 (dataBase7 + 352)) = BitVec.ofNat 64 (934 * 2^50)
   d0 : u.getMem (BitVec.ofNat 64 dataBase7) = BitVec.ofNat 64 0xfff
   aTable : u.getMem (BitVec.ofNat 64 (dataBase7 + 56)) = BitVec.ofNat 64 0xe3300
   singleton : u.getMem (BitVec.ofNat 64 (dataBase7 + 64)) = BitVec.ofNat 64 0xe7400
