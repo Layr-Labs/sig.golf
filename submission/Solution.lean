@@ -15,7 +15,7 @@ theorem layout_offsets : submission.layout =
   { message := 26016, secretKey := 128, publicKey := 160,
     cache := 524288, signature := 28672, witness := 4256 } := rfl
 
-theorem certificate : SigGolf.Certificate submission 6972 := by
+theorem certificate : SigGolf.Certificate submission 6971 := by
   exact SigGolfCandidate.Packaging.certificate_ready
 
 end SigGolf.Challenge
@@ -26,7 +26,10 @@ end SigGolf.Challenge
 #print axioms SigGolf.Challenge.layout_offsets
 #print axioms SigGolf.Challenge.certificate
 
-/- Combine Z5's pre/post-marker security split, gate 934, pool 70 and top floor 17
-   with removal of the dedicated constant-one verifier initializer. Signature,
-   witness and cache sizes are unchanged. Target C = 6972; independent full
-   verification of this combined source is required before claiming acceptance. -/
+/- Proposed pool-71 / top-floor-18 retuning of the inherited Z5 scheme.
+   The exact signing-envelope numerator is
+   680529817020207430736995740672230147091 over 2^128 (< 1.99990).
+   The top counter window is enlarged to 2^21, restoring the inherited
+   433-bit tail and 139-bit security context bound. The top per-trial
+   termination allowance is tightened from 755 to 350 using the T51 kernel.
+   Claim C = 6971 requires independent accepting verification. -/

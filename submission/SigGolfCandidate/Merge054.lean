@@ -5077,8 +5077,8 @@ abbrev witEncN := ClaudeWCT.W9.T3M.Paired.witEncN
 /-- U16b: and the 9 ground lower fold nonces (`Paired.witEncG`). -/
 abbrev witEncG := ClaudeWCT.W9.T3M.Paired.witEncG
 
- def verifyCycleBound : Nat := 6887
- def claimedC : Nat := 6972
+ def verifyCycleBound : Nat := 6886
+ def claimedC : Nat := 6971
  def DigestCapOk (hash : Hash) (m : Message) (w : Bytes 21756) : Prop :=
   SigGolfCandidate.Research.SharedForest.jointAccountingCost
     (hash (SigGolfCandidate.T3M.toQ (SigGolfCandidate.T3.pad64

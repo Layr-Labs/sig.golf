@@ -5818,7 +5818,7 @@ theorem searchLimit_lower {lay : Layer} (h : lay ≠ 0) : lowerSearchLimit ≤ s
 theorem searchLimit_le (lay : Layer) : searchLimit lay ≤ counterLimit := by
   unfold searchLimit counterLimit
   fin_cases lay <;> simp
-theorem searchLimit_values : searchLimit 0 = 2 ^ 20 ∧ searchLimit 1 = 2 ^ 21 ∧ searchLimit 2 = 2 ^ 21 ∧
+theorem searchLimit_values : searchLimit 0 = 2 ^ 21 ∧ searchLimit 1 = 2 ^ 21 ∧ searchLimit 2 = 2 ^ 21 ∧
     searchLimit 3 = 3 * 2 ^ 20 := by decide
 theorem lowerSearchLimit_eq : lowerSearchLimit = 2 ^ 21 := rfl
 theorem chainCount_top : chainCount 0 = 51 := rfl
@@ -12868,19 +12868,19 @@ theorem canonical_search_valid_credit (answers : Answers) (lay : Layer) (floor t
     CanonicalPolicy.producerDecodeAt_credit hd⟩
 
 theorem canonical_four_residual (d0 d1 d2 d3 : List Nat) (l0 l1 l2 l3 : Bool)
-    (h0 : 17 ≤ CanonicalPolicy.credit 0 l0 d0)
-    (h1 : CanonicalPolicy.threshold 1 (CanonicalPolicy.nextResidual 70 0 l0 d0) ≤
+    (h0 : 18 ≤ CanonicalPolicy.credit 0 l0 d0)
+    (h1 : CanonicalPolicy.threshold 1 (CanonicalPolicy.nextResidual 71 0 l0 d0) ≤
       CanonicalPolicy.credit 1 l1 d1)
     (h2 : CanonicalPolicy.threshold 2
-      (CanonicalPolicy.nextResidual (CanonicalPolicy.nextResidual 70 0 l0 d0) 1 l1 d1) ≤
+      (CanonicalPolicy.nextResidual (CanonicalPolicy.nextResidual 71 0 l0 d0) 1 l1 d1) ≤
       CanonicalPolicy.credit 2 l2 d2)
     (h3 : CanonicalPolicy.threshold 3
       (CanonicalPolicy.nextResidual
-        (CanonicalPolicy.nextResidual (CanonicalPolicy.nextResidual 70 0 l0 d0) 1 l1 d1) 2 l2 d2) ≤
+        (CanonicalPolicy.nextResidual (CanonicalPolicy.nextResidual 71 0 l0 d0) 1 l1 d1) 2 l2 d2) ≤
       CanonicalPolicy.credit 3 l3 d3) :
     CanonicalPolicy.nextResidual (CanonicalPolicy.nextResidual
-      (CanonicalPolicy.nextResidual (CanonicalPolicy.nextResidual 70 0 l0 d0) 1 l1 d1) 2 l2 d2) 3 l3 d3 = 0 := by
-  let r1 := CanonicalPolicy.nextResidual 70 0 l0 d0
+      (CanonicalPolicy.nextResidual (CanonicalPolicy.nextResidual 71 0 l0 d0) 1 l1 d1) 2 l2 d2) 3 l3 d3 = 0 := by
+  let r1 := CanonicalPolicy.nextResidual 71 0 l0 d0
   have hr1 : r1 < 54 := by dsimp [r1, CanonicalPolicy.nextResidual]; omega
   have hw1 := firstThreshold_window ⟨r1, hr1⟩
   change CanonicalPolicy.threshold 1 r1 < 16 ∧ r1 - CanonicalPolicy.threshold 1 r1 ≤ 39 at hw1
@@ -14474,10 +14474,10 @@ theorem policyHints_credit_sum (hints : BitVec 16) (digits : List (List Nat)) (l
     (hh : policyHintsValid hints digits lows = true)
     (hc : ∀ lay : Layer, hintFloor hints lay ≤
       CanonicalPolicy.credit lay (lows.getD lay.val true) (digits.getD lay.val [])) :
-    70 ≤ ((List.finRange 4).map fun lay =>
+    71 ≤ ((List.finRange 4).map fun lay =>
       CanonicalPolicy.credit lay (lows.getD lay.val true) (digits.getD lay.val [])).sum := by
   simp only [policyHintsValid, decide_eq_true_eq] at hh
-  have h0 : 17 ≤ CanonicalPolicy.credit 0 (lows.getD 0 true) (digits.getD 0 []) := by
+  have h0 : 18 ≤ CanonicalPolicy.credit 0 (lows.getD 0 true) (digits.getD 0 []) := by
     simpa [hintFloor, CanonicalPolicy.topFloor] using hc 0
   have h1 := hc 1
   have h2 := hc 2
@@ -14488,7 +14488,7 @@ theorem policyHints_credit_sum (hints : BitVec 16) (digits : List (List Nat)) (l
   have hz := canonical_four_residual (digits.getD 0 []) (digits.getD 1 []) (digits.getD 2 [])
     (digits.getD 3 []) (lows.getD 0 true) (lows.getD 1 true) (lows.getD 2 true) (lows.getD 3 true) h0 h1 h2 h3
   simp only [CanonicalPolicy.nextResidual] at hz
-  change 70 ≤ CanonicalPolicy.credit 0 (lows.getD 0 true) (digits.getD 0 []) +
+  change 71 ≤ CanonicalPolicy.credit 0 (lows.getD 0 true) (digits.getD 0 []) +
     (CanonicalPolicy.credit 1 (lows.getD 1 true) (digits.getD 1 []) +
       (CanonicalPolicy.credit 2 (lows.getD 2 true) (digits.getD 2 []) +
       (CanonicalPolicy.credit 3 (lows.getD 3 true) (digits.getD 3 []) + 0)))
