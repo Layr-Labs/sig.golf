@@ -318,7 +318,7 @@ theorem chainExtra_bound (lay : Layer) (tree leaf : Nat) :
     tree % 2^31 / 2^(32-height lay) +
       (leaf % 4096 / 2^height lay) * 2^(height lay-1) < 2048 := by
   fin_cases lay <;> norm_num [height] <;> omega
-theorem chainHeaderLow_toNat (lay : Layer) (tree leaf i step : Nat) :
+theorem chainHeaderLow_toNat_old {lay : Layer} {tree leaf : Nat} (h : ¬ chainHonest lay tree leaf) (i step : Nat) :
     (chainHeaderLow lay tree leaf i step).toNat =
       128 + i % 64 + step % 8 * 2^8 +
       (tree % 2^31 * 2^height lay + leaf % 4096) % 2^32 * 2^16 +
@@ -328,21 +328,56 @@ theorem chainHeaderLow_toNat (lay : Layer) (tree leaf i step : Nat) :
       (tree % 2^31 / 2^(32-height lay) + (leaf % 4096 / 2^height lay) * 2^(height lay-1)) / 64 * 2^50 := by
   have hb := chainExtra_bound lay tree leaf
   have hl := lay.isLt
-  unfold chainHeaderLow
-  rw [BitVec.toNat_ofNat]
+  unfold chainHeaderLow chainHeaderLowOld
+  rw [if_neg h, BitVec.toNat_ofNat]
   apply Nat.mod_eq_of_lt
+  omega
+/-- L-hyper: an honest chain header's low word: the routed field above the layer's marker bit. -/
+theorem chainHeaderLow_toNat_honest {lay : Layer} {tree leaf : Nat} (h : chainHonest lay tree leaf) (i step : Nat) :
+    (chainHeaderLow lay tree leaf i step).toNat =
+      128 + i % 64 + step % 8 * 2^8 + (tree % 2^31 * 2^height lay + leaf % 4096 + 2^hyperW lay.val) * 2^16 := by
+  have h31 : 2 ^ hyperW lay.val ≤ 2 ^ 31 := Nat.pow_le_pow_right (by norm_num) (hyperW_le _)
+  have hR := h.2
+  have := Nat.mod_lt i (show 0 < 64 by decide)
+  have := Nat.mod_lt step (show 0 < 8 by decide)
+  unfold chainHeaderLow
+  rw [if_pos h, BitVec.toNat_ofNat, pow_add 2 (hyperW lay.val) 16]
+  generalize tree % 2^31 * 2^height lay + leaf % 4096 = R at hR ⊢
+  generalize 2 ^ hyperW lay.val = Q at hR h31 ⊢
+  have hlt : 128 + i % 64 + step % 8 * 2^8 + R * 2^16 + Q * 2^16 < 2^64 := by omega
+  rw [Nat.mod_eq_of_lt hlt]
+  ring
+theorem chainHeaderLow_honest_range {lay : Layer} {tree leaf : Nat} (h : chainHonest lay tree leaf) (i step : Nat) :
+    2^28 ≤ (chainHeaderLow lay tree leaf i step).toNat ∧ (chainHeaderLow lay tree leaf i step).toNat < 2^48 := by
+  rw [chainHeaderLow_toNat_honest h]
+  have hR := h.2
+  have h31 : 2 ^ hyperW lay.val ≤ 2 ^ 31 := Nat.pow_le_pow_right (by norm_num) (hyperW_le _)
+  have h12 : 2 ^ 12 ≤ 2 ^ hyperW lay.val := Nat.pow_le_pow_right (by norm_num) (hyperW_ge lay.isLt)
+  have := Nat.mod_lt i (show 0 < 64 by decide)
+  have := Nat.mod_lt step (show 0 < 8 by decide)
+  generalize tree % 2^31 * 2^height lay + leaf % 4096 = R at hR ⊢
+  generalize 2 ^ hyperW lay.val = Q at hR h31 h12 ⊢
+  omega
+theorem chainHeaderLow_old_range {lay : Layer} {tree leaf : Nat} (h : ¬ chainHonest lay tree leaf) (i step : Nat) :
+    193 * 2^56 ≤ (chainHeaderLow lay tree leaf i step).toNat ∧
+      (chainHeaderLow lay tree leaf i step).toNat < 193 * 2^56 + 2^55 := by
+  rw [chainHeaderLow_toNat_old h]
+  have hb := chainExtra_bound lay tree leaf
+  have hl := lay.isLt
   omega
 theorem chainHeaderSpill_bound (tree leaf i step : Nat) :
     chainHeaderSpill tree leaf i step < 2^52 := by
   unfold chainHeaderSpill
   omega
+/-- L-hyper: a chain header's low word is an honest marker word (below `2^48`) or a legacy word (type byte 193);
+either way it is at least `2^28` and bit 55 is clear. -/
 theorem chainHeaderLow_band (lay : Layer) (tree leaf i step : Nat) :
-    193 * 2^56 ≤ (chainHeaderLow lay tree leaf i step).toNat ∧
-      (chainHeaderLow lay tree leaf i step).toNat < 193 * 2^56 + 2^55 := by
-  rw [chainHeaderLow_toNat]
-  have hb := chainExtra_bound lay tree leaf
-  have hl := lay.isLt
-  omega
+    (2^28 ≤ (chainHeaderLow lay tree leaf i step).toNat ∧ (chainHeaderLow lay tree leaf i step).toNat < 2^48) ∨
+    (193 * 2^56 ≤ (chainHeaderLow lay tree leaf i step).toNat ∧
+      (chainHeaderLow lay tree leaf i step).toNat < 193 * 2^56 + 2^55) := by
+  by_cases h : chainHonest lay tree leaf
+  · exact Or.inl (chainHeaderLow_honest_range h i step)
+  · exact Or.inr (chainHeaderLow_old_range h i step)
 theorem chainHeaderFlaggedLow_toNat (lay : Layer) (tree leaf i step : Nat) :
     (chainHeaderFlaggedLow lay tree leaf i step).toNat =
       (chainHeaderLow lay tree leaf i step).toNat +
@@ -353,8 +388,8 @@ theorem chainHeaderFlaggedLow_toNat (lay : Layer) (tree leaf i step : Nat) :
   apply Nat.mod_eq_of_lt
   split_ifs <;> omega
 private theorem flaggedLow_base_eq (a b : BitVec 64) (f g : Nat)
-    (ha : 193 * 2^56 ≤ a.toNat ∧ a.toNat < 193 * 2^56 + 2^55)
-    (hb : 193 * 2^56 ≤ b.toNat ∧ b.toNat < 193 * 2^56 + 2^55)
+    (ha : (2^28 ≤ a.toNat ∧ a.toNat < 2^48) ∨ (193 * 2^56 ≤ a.toNat ∧ a.toNat < 193 * 2^56 + 2^55))
+    (hb : (2^28 ≤ b.toNat ∧ b.toNat < 2^48) ∨ (193 * 2^56 ≤ b.toNat ∧ b.toNat < 193 * 2^56 + 2^55))
     (hf : f ≤ 1) (hg : g ≤ 1)
     (he : a.toNat + f * 2^55 = b.toNat + g * 2^55) : a = b := by
   apply BitVec.eq_of_toNat_eq
@@ -405,37 +440,75 @@ theorem chainHeaderLow_fields {lay lay' : Layer} {tree leaf i step tree' leaf' i
     (h : chainHeaderLow lay tree leaf i step = chainHeaderLow lay' tree' leaf' i' step') :
     lay = lay' ∧ tree % 2^31 = tree' % 2^31 ∧ leaf % 4096 = leaf' % 4096 ∧
       i % 64 = i' % 64 ∧ step % 8 = step' % 8 := by
-  have he := congrArg BitVec.toNat h
-  rw [chainHeaderLow_toNat, chainHeaderLow_toNat] at he
-  have hl := lay.isLt
-  have hl' := lay'.isLt
-  have hb := chainExtra_bound lay tree leaf
-  have hb' := chainExtra_bound lay' tree' leaf'
-  generalize hx : (tree % 2^31 / 2^(32-height lay) +
-    (leaf % 4096 / 2^height lay) * 2^(height lay-1)) = extra at he hb
-  generalize hx' : (tree' % 2^31 / 2^(32-height lay') +
-    (leaf' % 4096 / 2^height lay') * 2^(height lay'-1)) = extra' at he hb'
-  have hparts : lay.val = lay'.val ∧ i % 64 = i' % 64 ∧ step % 8 = step' % 8 ∧
-      (tree % 2^31 * 2^height lay + leaf % 4096) % 2^32 =
-        (tree' % 2^31 * 2^height lay' + leaf' % 4096) % 2^32 ∧ extra = extra' := by omega
-  have heq := Fin.ext hparts.1
-  subst lay'
-  have hmeta := hx.trans (hparts.2.2.2.2.trans hx'.symm)
-  have hquot : tree % 2^31 / 2^(32-height lay) = tree' % 2^31 / 2^(32-height lay) ∧
-      leaf % 4096 / 2^height lay = leaf' % 4096 / 2^height lay := by
-    fin_cases lay <;> norm_num [height] at hmeta ⊢ <;> omega
-  have hrem : leaf % 4096 % 2^height lay = leaf' % 4096 % 2^height lay := by
-    have hm := congrArg (fun n => n % 2^height lay) hparts.2.2.2.1
-    fin_cases lay <;> norm_num [height, Nat.add_mod, Nat.mul_mod, Nat.mod_mod_of_dvd] at hm ⊢ <;> omega
-  refine ⟨rfl, ?_⟩
-  clear he hx hx'
-  fin_cases lay <;> norm_num [height] at hparts hquot hrem ⊢ <;> omega
+  by_cases hA : chainHonest lay tree leaf <;> by_cases hB : chainHonest lay' tree' leaf'
+  · have he := congrArg BitVec.toNat h
+    rw [chainHeaderLow_toNat_honest hA, chainHeaderLow_toNat_honest hB] at he
+    have hR := hA.2
+    have hR' := hB.2
+    have hf := hA.1
+    have hf' := hB.1
+    have := Nat.mod_lt i (show 0 < 64 by decide)
+    have := Nat.mod_lt i' (show 0 < 64 by decide)
+    have := Nat.mod_lt step (show 0 < 8 by decide)
+    have := Nat.mod_lt step' (show 0 < 8 by decide)
+    have hlow : i % 64 = i' % 64 ∧ step % 8 = step' % 8 ∧
+        tree % 2^31 * 2^height lay + leaf % 4096 + 2^hyperW lay.val =
+          tree' % 2^31 * 2^height lay' + leaf' % 4096 + 2^hyperW lay'.val := by omega
+    have hQ : hyperW lay.val = hyperW lay'.val := by
+      rcases Nat.lt_trichotomy (hyperW lay.val) (hyperW lay'.val) with hlt | heq | hgt
+      · exfalso
+        have : 2 ^ (hyperW lay.val + 1) ≤ 2 ^ hyperW lay'.val := Nat.pow_le_pow_right (by norm_num) hlt
+        rw [pow_succ] at this; omega
+      · exact heq
+      · exfalso
+        have : 2 ^ (hyperW lay'.val + 1) ≤ 2 ^ hyperW lay.val := Nat.pow_le_pow_right (by norm_num) hgt
+        rw [pow_succ] at this; omega
+    have hlay : lay = lay' := (by decide : ∀ a b : Layer, hyperW a.val = hyperW b.val → a = b) lay lay' hQ
+    subst hlay
+    have hp := pack_nat_injective hf hf'
+      (show leaf % 4096 + 2^height lay * (tree % 2^31) = leaf' % 4096 + 2^height lay * (tree' % 2^31) by
+        rw [Nat.mul_comm (2^height lay) (tree % 2^31), Nat.mul_comm (2^height lay) (tree' % 2^31)]; omega)
+    exact ⟨rfl, hp.2, hp.1, hlow.1, hlow.2.1⟩
+  · exfalso
+    have a := chainHeaderLow_honest_range hA i step
+    have b := chainHeaderLow_old_range hB i' step'
+    rw [h] at a; omega
+  · exfalso
+    have a := chainHeaderLow_old_range hA i step
+    have b := chainHeaderLow_honest_range hB i' step'
+    rw [h] at a; omega
+  · have he := congrArg BitVec.toNat h
+    have he := congrArg BitVec.toNat h
+    rw [chainHeaderLow_toNat_old hA, chainHeaderLow_toNat_old hB] at he
+    have hl := lay.isLt
+    have hl' := lay'.isLt
+    have hb := chainExtra_bound lay tree leaf
+    have hb' := chainExtra_bound lay' tree' leaf'
+    generalize hx : (tree % 2^31 / 2^(32-height lay) +
+      (leaf % 4096 / 2^height lay) * 2^(height lay-1)) = extra at he hb
+    generalize hx' : (tree' % 2^31 / 2^(32-height lay') +
+      (leaf' % 4096 / 2^height lay') * 2^(height lay'-1)) = extra' at he hb'
+    have hparts : lay.val = lay'.val ∧ i % 64 = i' % 64 ∧ step % 8 = step' % 8 ∧
+        (tree % 2^31 * 2^height lay + leaf % 4096) % 2^32 =
+          (tree' % 2^31 * 2^height lay' + leaf' % 4096) % 2^32 ∧ extra = extra' := by omega
+    have heq := Fin.ext hparts.1
+    subst lay'
+    have hmeta := hx.trans (hparts.2.2.2.2.trans hx'.symm)
+    have hquot : tree % 2^31 / 2^(32-height lay) = tree' % 2^31 / 2^(32-height lay) ∧
+        leaf % 4096 / 2^height lay = leaf' % 4096 / 2^height lay := by
+      fin_cases lay <;> norm_num [height] at hmeta ⊢ <;> omega
+    have hrem : leaf % 4096 % 2^height lay = leaf' % 4096 % 2^height lay := by
+      have hm := congrArg (fun n => n % 2^height lay) hparts.2.2.2.1
+      fin_cases lay <;> norm_num [height, Nat.add_mod, Nat.mul_mod, Nat.mod_mod_of_dvd] at hm ⊢ <;> omega
+    refine ⟨rfl, ?_⟩
+    clear he hx hx'
+    fin_cases lay <;> norm_num [height] at hparts hquot hrem ⊢ <;> omega
 theorem chainHeaderLow_congr {lay lay' : Layer} {tree leaf i step tree' leaf' i' step' : Nat}
     (hl : lay = lay') (ht : tree % 2^31 = tree' % 2^31)
     (hf : leaf % 4096 = leaf' % 4096) (hi : i % 64 = i' % 64)
     (hs : step % 8 = step' % 8) :
     chainHeaderLow lay tree leaf i step = chainHeaderLow lay' tree' leaf' i' step' := by
-  simp only [chainHeaderLow, hl, ht, hf, hi, hs]
+  simp only [chainHeaderLow, chainHeaderLowOld, chainHonest, hl, ht, hf, hi, hs]
 theorem chainHeader_fields {lay lay' : Layer} {tree leaf i step tree' leaf' i' step' : Nat}
     (h : chainHeader lay tree leaf i step = chainHeader lay' tree' leaf' i' step') :
     lay = lay' ∧ tree % 2^40 = tree' % 2^40 ∧ leaf % 2^32 = leaf' % 2^32 ∧
@@ -484,17 +557,11 @@ theorem chainHeader_injective {lay lay' : Layer} {tree leaf i step tree' leaf' i
     lay = lay' ∧ tree = tree' ∧ leaf = leaf' ∧ i = i' ∧ step = step' := by
   obtain ⟨hlay, htree, hleaf, hindex, hstep⟩ := chainHeader_fields h
   exact ⟨hlay, by omega, by omega, by omega, by omega⟩
-theorem chainHeader_marker (lay : Layer) (tree leaf i step : Nat) :
-    (chainHeader lay tree leaf i step).toNat / 2^56 % 256 = 193 := by
-  have hdiv : (chainHeaderLow lay tree leaf i step).toNat / 2^56 = 193 := by
-    rw [chainHeaderLow_toNat]
-    have := lay.isLt
-    have hb := chainExtra_bound lay tree leaf
-    generalize (tree % 2^31 / 2^(32-height lay) +
-      (leaf % 4096 / 2^height lay) * 2^(height lay-1)) = extra at hb ⊢
-    omega
-  have hb := chainHeaderLow_band lay tree leaf i step
+/-- L-hyper: a chain header's low word is at least `2^28` (it replaces the old type-byte-193 marker). -/
+theorem chainHeader_low_ge28 (lay : Layer) (tree leaf i step : Nat) :
+    2^28 ≤ (chainHeader lay tree leaf i step).toNat % 2^64 := by
   rw [chainHeader_toNat, chainHeaderFlaggedLow_toNat]
+  have hb := chainHeaderLow_band lay tree leaf i step
   split_ifs <;> omega
 theorem header_marker_lt (tag lay tree position index : Nat)
     (ht : tree < 2^31) (hp : position < 2^31) :
@@ -523,18 +590,16 @@ theorem header_marker_lt (tag lay tree position index : Nat)
     rw [show (2 : Nat)^64 = 2^56 * 256 by decide, Nat.mod_mul_right_div_self]
   rw [he]
   omega
-theorem chainHeader_ne_header_bounded (lay : Layer) (tree leaf i step tag roleLay roleTree position index : Nat)
-    (ht : roleTree < 2^31) (hp : position < 2^31) :
-    chainHeader lay tree leaf i step ≠ header tag roleLay roleTree position index := by
-  intro h
-  have hc := chainHeader_marker lay tree leaf i step
-  have hr := header_marker_lt tag roleLay roleTree position index ht hp
-  rw [h] at hc
-  omega
 theorem chainHeader_firstByte (lay : Layer) (tree leaf i step : Nat) :
     128 ≤ (chainHeader lay tree leaf i step).toNat % 256 := by
-  rw [chainHeader_toNat, chainHeaderFlaggedLow_toNat, chainHeaderLow_toNat]
-  split_ifs <;> omega
+  rw [chainHeader_toNat, chainHeaderFlaggedLow_toNat]
+  by_cases hA : chainHonest lay tree leaf
+  · rw [chainHeaderLow_toNat_honest hA]
+    have := Nat.mod_lt i (show 0 < 64 by decide)
+    generalize tree % 2^31 * 2^height lay + leaf % 4096 + 2^hyperW lay.val = X
+    split_ifs <;> omega
+  · rw [chainHeaderLow_toNat_old hA]
+    split_ifs <;> omega
 theorem header_firstByte (tag lay tree position index : Nat) :
     (header tag lay tree position index).toNat % 256 = 1 := by
   rw [header_toNat]
@@ -549,29 +614,32 @@ theorem chainHeader_ne_header (lay : Layer) (tree leaf i step tag roleLay roleTr
   have hc := chainHeader_firstByte lay tree leaf i step
   rw [h, header_firstByte] at hc
   omega
+theorem chainHeader_ne_header_bounded (lay : Layer) (tree leaf i step tag roleLay roleTree position index : Nat)
+    (ht : roleTree < 2^31) (hp : position < 2^31) :
+    chainHeader lay tree leaf i step ≠ header tag roleLay roleTree position index := by
+  exact chainHeader_ne_header lay tree leaf i step tag roleLay roleTree position index
 theorem chainHeader_tweakMarker (lay : Layer) (tree leaf i step : Nat) :
     128 ≤ tweakMarker (chainHeader lay tree leaf i step) := chainHeader_firstByte lay tree leaf i step
 theorem chainHeader_ne_digestHeader (lay : Layer) (tree leaf i step : Nat) (counter : BitVec 32) :
     chainHeader lay tree leaf i step ≠ digestHeader counter := by
   intro h
-  have hc := chainHeader_marker lay tree leaf i step
-  have hd : (digestHeader counter).toNat / 2^56 % 256 = 0 := by
-    rw [digestHeader_toNat]
-    omega
-  rw [h, hd] at hc
+  have hc := chainHeader_low_ge28 lay tree leaf i step
+  rw [h, digestHeader_toNat] at hc
   omega
 
 theorem chainHeader_ne_leafTweak (lay : Layer) (tree leaf i step : Nat) (lay' : Layer) (tree' leaf' : Nat) :
     chainHeader lay tree leaf i step ≠ leafTweak lay' tree' leaf' := by
   intro h
   have hc := chainHeader_tweakMarker lay tree leaf i step
-  rw [h, leafTweak_marker] at hc
+  rw [h] at hc
+  have := leafTweak_marker lay' tree' leaf'
   omega
 theorem chainHeader_ne_rowTweak (lay : Layer) (tree leaf i step : Nat) (lay' : Layer) (tree' leaf' : Nat) :
     chainHeader lay tree leaf i step ≠ rowTweak lay' tree' leaf' := by
   intro h
   have hc := chainHeader_tweakMarker lay tree leaf i step
-  rw [h, rowTweak_marker] at hc
+  rw [h] at hc
+  have := rowTweak_marker lay' tree' leaf'
   omega
 theorem chainHeader_ne_nodeTweak (lay : Layer) (tree leaf i step : Nat) (tag lay' tree' heap : Nat) :
     chainHeader lay tree leaf i step ≠ nodeTweak tag lay' tree' heap := by
@@ -580,9 +648,17 @@ theorem chainHeader_ne_nodeTweak (lay : Layer) (tree leaf i step : Nat) (tag lay
   · obtain ⟨rfl, h4, h13, hn⟩ := hf
     have hw := congrArg (fun x : BitVec 128 => (x.extractLsb' 0 64).toNat) h
     simp only [chainHeader_low, chainHeaderFlaggedLow_toNat, nodeTweak_ftsN h4 h13 _ hn, append64_low] at hw
-    have hb := chainHeaderLow_band lay tree leaf i step
-    have := ftsNodeWordH_range (lay' - 4) tree' heap
-    split_ifs at hw <;> omega
+    by_cases hA : chainHonest lay tree leaf
+    · -- L-hyper: an honest chain word has byte1 = step < 8, a packed FTS word byte1 = 255.
+      rw [chainHeaderLow_toNat_honest hA] at hw
+      have := ftsNodeWordH_tag hn (lay' - 4) tree'
+      have := Nat.mod_lt i (show 0 < 64 by decide)
+      have := Nat.mod_lt step (show 0 < 8 by decide)
+      generalize tree % 2^31 * 2^height lay + leaf % 4096 + 2^hyperW lay.val = X at hw
+      split_ifs at hw <;> omega
+    · have hb := chainHeaderLow_old_range hA i step
+      have := ftsNodeWordH_range (lay' - 4) tree' heap
+      split_ifs at hw <;> omega
   · by_cases ht : tag = 3 ∧ lay' = 0
     · -- C4 (adapted from b3cc11b): the top label is the low word `topNodeWord heap < 4096`, a chain word is `≥ 193 * 2^56`.
       obtain ⟨rfl, rfl⟩ := ht
@@ -618,29 +694,36 @@ theorem header_marker_lt_nonpacked (tag lay tree position index : Nat)
 theorem chainHeader_ne_nonpacked (lay : Layer) (tree leaf i step tag roleLay roleTree position index : Nat)
     (hn : packedNodeTag tag = false) (hp : position < 2^31) :
     chainHeader lay tree leaf i step ≠ header tag roleLay roleTree position index := by
-  intro h
-  have hc := chainHeader_marker lay tree leaf i step
-  have hr := header_marker_lt_nonpacked tag roleLay roleTree position index hn hp
-  rw [h] at hc
-  omega
+  exact chainHeader_ne_header lay tree leaf i step tag roleLay roleTree position index
 theorem chainHeader_congr_old {lay lay' : Layer} {tree leaf i step tree' leaf' i' step' : Nat}
     (hl : lay = lay') (ht : tree % 2^40 = tree' % 2^40)
     (hf : leaf % 2^32 = leaf' % 2^32) (hi : i % 2^24 = i' % 2^24)
     (hs : step % 256 = step' % 256) :
     chainHeader lay tree leaf i step = chainHeader lay' tree' leaf' i' step' := by
   exact chainHeader_congr hl ht hf hi hs
+/-- L-hyper: the honest chain header (the verifier's range): the routed field above the layer's marker bit. -/
 theorem chainHeader_actual (lay : Layer) (tree leaf i step : Nat)
-    (hr : tree * 2^height lay + leaf < 2^31) (hf : leaf < 2^height lay)
+    (hr : tree * 2^height lay + leaf < 2^hyperW lay.val) (hf : leaf < 2^height lay)
     (hi : i < 64) (hs : step < 8) :
     chainHeader lay tree leaf i step = BitVec.ofNat 128
-      (128 + i + step * 2^8 + (tree * 2^height lay + leaf) * 2^16 + lay.val * 2^48 + 193 * 2^56) := by
+      (128 + i + step * 2^8 + (tree * 2^height lay + leaf + 2^hyperW lay.val) * 2^16) := by
+  have h31 : 2 ^ hyperW lay.val ≤ 2 ^ 31 := Nat.pow_le_pow_right (by norm_num) (hyperW_le _)
+  have hlf : leaf < 4096 := by fin_cases lay <;> simp [height] at hf ⊢ <;> omega
+  have htr : tree < 2 ^ 31 := by
+    have : tree ≤ tree * 2 ^ height lay := Nat.le_mul_of_pos_right _ (by positivity)
+    omega
+  have hA : chainHonest lay tree leaf := by
+    unfold chainHonest; rw [Nat.mod_eq_of_lt hlf, Nat.mod_eq_of_lt htr]; exact ⟨hf, hr⟩
   apply BitVec.eq_of_toNat_eq
-  have hz : chainHeaderSpill tree leaf i step = 0 := by
-    unfold chainHeaderSpill
-    fin_cases lay <;> norm_num [height] at hr hf ⊢ <;> omega
-  rw [chainHeader_toNat, chainHeaderFlaggedLow_toNat, hz, if_pos rfl,
-    chainHeaderLow_toNat, BitVec.toNat_ofNat]
-  fin_cases lay <;> norm_num [height] at hr hf ⊢ <;> omega
+  rw [chainHeader_toNat, chainHeaderFlaggedLow_toNat, chainHeaderSpill_zero tree leaf i step htr hlf hi hs, if_pos rfl,
+    chainHeaderLow_toNat_honest hA, Nat.mod_eq_of_lt hlf, Nat.mod_eq_of_lt htr,
+    Nat.mod_eq_of_lt hi, Nat.mod_eq_of_lt hs, BitVec.toNat_ofNat]
+  have hlt : 128 + i + step * 2 ^ 8 + (tree * 2 ^ height lay + leaf + 2 ^ hyperW lay.val) * 2 ^ 16 < 2 ^ 128 := by
+    have := Nat.mul_lt_mul_of_pos_right
+      (show tree * 2 ^ height lay + leaf + 2 ^ hyperW lay.val < 2 ^ 32 by omega) (show 0 < 2 ^ 16 by positivity)
+    omega
+  rw [Nat.mod_eq_of_lt hlt]
+  simp
 theorem chainHeader_high_zero (lay : Layer) (tree leaf i step : Nat)
     (ht : tree < 2^31) (hl : leaf < 4096) (hi : i < 64) (hs : step < 8) :
     (chainHeader lay tree leaf i step).toNat / 2^64 = 0 := by

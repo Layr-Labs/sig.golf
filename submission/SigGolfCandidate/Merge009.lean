@@ -164,7 +164,7 @@ def realHandler (secret : BitVec 256) : QueryImpl Spec (OracleComp SphincsSecuri
   | .inr coordinate => liftM (SphincsSecurity.OracleWorld.query (.inr (privateInput secret coordinate)))
 def realize {α : Type} (secret : BitVec 256) (program : M α) :
     OracleComp SphincsSecurity.OracleWorld α := simulateQ (realHandler secret) program
-def chainHeaderLow (lay : Layer) (tree leaf i step : Nat) : BitVec 64 :=
+def chainHeaderLowOld (lay : Layer) (tree leaf i step : Nat) : BitVec 64 :=
   let tr := tree % 2^31
   let lf := leaf % 4096
   let routed := (tr * 2 ^ height lay + lf) % 2^32
@@ -172,6 +172,20 @@ def chainHeaderLow (lay : Layer) (tree leaf i step : Nat) : BitVec 64 :=
   BitVec.ofNat 64 (128 + i % 64 + step % 8 * 2^8 + routed * 2^16 +
     lay.val * 2^48 + 193 * 2^56 +
     extra % 2 * 2^6 + extra / 2 % 32 * 2^11 + extra / 64 * 2^50)
+/-- L-hyper: routed width of layer `lay` in the marker format (top 12, L1 19, L2 25, L3 31 bits). -/
+def hyperW (lay : Nat) : Nat := [12, 19, 25, 31].getD lay 0
+/-- L-hyper: the honest chain positions (the verifier's range, on the truncated fields), where the header carries
+the layer as the marker bit `2 ^ (hyperW lay + 16)` above the routed field. Every other position keeps the legacy
+header. -/
+def chainHonest (lay : Layer) (tree leaf : Nat) : Prop :=
+  leaf % 4096 < 2 ^ height lay ∧ tree % 2 ^ 31 * 2 ^ height lay + leaf % 4096 < 2 ^ hyperW lay.val
+instance (lay : Layer) (tree leaf : Nat) : Decidable (chainHonest lay tree leaf) :=
+  inferInstanceAs (Decidable (_ ∧ _))
+def chainHeaderLow (lay : Layer) (tree leaf i step : Nat) : BitVec 64 :=
+  if chainHonest lay tree leaf then
+    BitVec.ofNat 64 (128 + i % 64 + step % 8 * 2 ^ 8 + (tree % 2 ^ 31 * 2 ^ height lay + leaf % 4096) * 2 ^ 16 +
+      2 ^ (hyperW lay.val + 16))
+  else chainHeaderLowOld lay tree leaf i step
 def chainHeaderSpill (tree leaf i step : Nat) : Nat :=
   tree % 2^40 / 2^31 + (leaf % 2^32 / 4096) * 2^9 +
     (i % 2^24 / 64) * 2^29 + (step % 256 / 8) * 2^47
@@ -185,8 +199,18 @@ def chainInput (lay : Layer) (tree leaf i step : Nat) (value : Digest) : HashInp
 def chain (lay : Layer) (tree leaf i start count : Nat) (value : Digest) : M Digest :=
   (List.range' start count).foldlM
     (fun value step => shortHash (chainInput lay tree leaf i step value)) value
-def hyperWord (lay routed : Nat) : BitVec 64 :=
+def hyperWordOld (lay routed : Nat) : BitVec 64 :=
   BitVec.ofNat 64 (1 + 2 * 2 ^ 8 + routed % 2 ^ 32 * 2 ^ 16 + lay % 256 * 2 ^ 48 + 193 * 2 ^ 56)
+/-- L-hyper: the verifier's range of label words (on the truncated fields `lay % 256`, `routed % 2 ^ 32`). -/
+def hyperHonest (lay routed : Nat) : Prop := lay % 256 < 4 ∧ routed % 2 ^ 32 < 2 ^ hyperW (lay % 256)
+instance (lay routed : Nat) : Decidable (hyperHonest lay routed) := inferInstanceAs (Decidable (_ ∧ _))
+/-- L-hyper: the layer label word. In the verifier's range it is the routed index above a marker bit,
+`0x0201 + (routed + 2 ^ hyperW lay) * 2 ^ 16`, which the verifier forms with one shift of its routed register and an
+`ori`; elsewhere it keeps the legacy word (type byte 193, layer byte). Both keep the low half `0x0201`. -/
+def hyperWord (lay routed : Nat) : BitVec 64 :=
+  if hyperHonest lay routed then
+    BitVec.ofNat 64 (1 + 2 * 2 ^ 8 + routed % 2 ^ 32 * 2 ^ 16 + 2 ^ (hyperW (lay % 256) + 16))
+  else hyperWordOld lay routed
 def leafTweak (lay : Layer) (tree leaf : Nat) : BitVec 128 :=
   0#64 ++ hyperWord lay.val (tree * 2 ^ height lay + leaf)
 def rowTweak (lay : Layer) (tree leaf : Nat) : BitVec 128 :=
@@ -220,7 +244,7 @@ def ftsNodeWordH (coord index heap : Nat) : BitVec 64 :=
 witness pad (honest 0); the legacy lower branch (`lay` 1..3) keeps its text. -/
 def nodeTweak (tag lay tree heap : Nat) : BitVec 128 :=
   if tag = 3 ∧ lay < 4 then
-    (if lay = 0 then 0#64 ++ BitVec.ofNat 64 (topNodeWord heap) else BitVec.ofNat 64 heap ++ hyperWord (lay - 1) tree)
+    (if lay = 0 then 0#64 ++ BitVec.ofNat 64 (topNodeWord heap) else BitVec.ofNat 64 heap ++ hyperWordOld (lay - 1) tree)
   else if tag = 3 ∧ lay < 13 then
     (if 8 ≤ heap ∧ heap < 128 then 0#64 ++ ftsNodeWordH (lay - 4) tree heap
      else BitVec.ofNat 64 (ftsHeapLabel heap) ++ ftsNodeWord (lay - 4) tree)

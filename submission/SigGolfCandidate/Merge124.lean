@@ -42,8 +42,8 @@ theorem paired_machineFacts : MachineFacts I0 where
   verify_accept_cycles := paired_verify_inputs.2.2
 
 theorem certificate_ready :
-    SigGolf.Certificate (SigGolfCandidate.Transfer.currentOf SigGolfCandidate.T3M.Paired.submission) 6971 := by
-  change SigGolf.Certificate (submissionNew I0) 6971
+    SigGolf.Certificate (SigGolfCandidate.Transfer.currentOf SigGolfCandidate.T3M.Paired.submission) 6970 := by
+  change SigGolf.Certificate (submissionNew I0) 6970
   exact certificate_of_security (SigGolfCandidate.Research.SharedExpansionClosure.expandV6_facts
       SigGolfCandidate.Research.SharedExpansionV6.expandExcessNumeric19_holds)
     ClaudeWCT.W9.T3.Secc.Paired.t3_securityP_layout_split (fun secret => ClaudeWCT.W9.T3.TopMoment.keygen_moment_v6 secret)

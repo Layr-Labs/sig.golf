@@ -13,6 +13,42 @@ import SigGolfCandidate.Merge073
 set_option debug.skipKernelTC true
 set_option linter.all false
 
+namespace SigGolfCandidate.T3M.LH
+open SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64 SigGolfCandidate.Rv
+/-- Three chained symbolic blocks (a block ending in a jump to a trampoline, the trampoline, the block's tail). -/
+theorem chain3_sound {cfg : Config} {image : Image} {s : MachineState} {code1 code2 code3 : List (BitVec 32)}
+    {pc1 pc2 pc3 : Word} {f1 f2 f3 : Nat} {r1 r2 r3 : Result}
+    (h1 : symRun cfg code1 pc1 f1 = some r1) (c1 : CodeAt image pc1 code1) (hpc : s.pc = pc1)
+    (e1 : r1.pc = .c pc2) (h2 : symRunAux cfg code2 pc2 f2 r1.st = some r2) (c2 : CodeAt image pc2 code2)
+    (e2 : r2.pc = .c pc3) (h3 : symRunAux cfg code3 pc3 f3 r2.st = some r3) (c3 : CodeAt image pc3 code3)
+    (ho : ∀ o ∈ r3.st.obl, o.holds s) :
+    Steps image s (r1.steps + r2.steps + r3.steps) (r1.cycles + r2.cycles + r3.cycles) (r3.toState s) := by
+  obtain ⟨s3, o3, -⟩ := symRunAux_sound cfg image s code3 pc3 f3 r2.st r3 h3 c3 ho
+  obtain ⟨s2, o2, -⟩ := symRunAux_sound cfg image s code2 pc2 f2 r1.st r2 h2 c2 (fun o h => ho o (o3 h))
+  obtain ⟨s1, -, -⟩ := symRunAux_sound cfg image s code1 pc1 f1 SymState.init r1 h1 c1
+    (fun o h => ho o (o3 (o2 h)))
+  rw [← hpc, SymState.init_toState] at s1
+  have t1 : r1.toState s = r1.st.toState s pc2 := by simp [Result.toState, e1, E.eval]
+  have t2 : r2.toState s = r2.st.toState s pc3 := by simp [Result.toState, e2, E.eval]
+  rw [← t1] at s2
+  rw [← t2] at s3
+  exact (s1.trans s2).trans s3
+/-- Two chained blocks (a jump into a trampoline that ends the block). -/
+theorem chain2_sound {cfg : Config} {image : Image} {s : MachineState} {code1 code2 : List (BitVec 32)}
+    {pc1 pc2 : Word} {f1 f2 : Nat} {r1 r2 : Result}
+    (h1 : symRun cfg code1 pc1 f1 = some r1) (c1 : CodeAt image pc1 code1) (hpc : s.pc = pc1)
+    (e1 : r1.pc = .c pc2) (h2 : symRunAux cfg code2 pc2 f2 r1.st = some r2) (c2 : CodeAt image pc2 code2)
+    (ho : ∀ o ∈ r2.st.obl, o.holds s) :
+    Steps image s (r1.steps + r2.steps) (r1.cycles + r2.cycles) (r2.toState s) := by
+  obtain ⟨s2, o2, -⟩ := symRunAux_sound cfg image s code2 pc2 f2 r1.st r2 h2 c2 ho
+  obtain ⟨s1, -, -⟩ := symRunAux_sound cfg image s code1 pc1 f1 SymState.init r1 h1 c1 (fun o h => ho o (o2 h))
+  rw [← hpc, SymState.init_toState] at s1
+  have t1 : r1.toState s = r1.st.toState s pc2 := by simp [Result.toState, e1, E.eval]
+  rw [← t1] at s2
+  exact s1.trans s2
+end SigGolfCandidate.T3M.LH
+
+
 -- ==== merged from ClaudeWCT_W9_New_Machine_Expand_PrePass ====
 section
 
@@ -2178,8 +2214,13 @@ def keygen_layer23 : List (BitVec 32) := [915,6521747]
 sym_block run_keygen_layer23 := symRun { noAlias := true } keygen_layer23 (pcOf 591) 100
 def keygen_inc : List (BitVec 32) := [6521747]
 sym_block run_keygen_inc := symRun { noAlias := true } keygen_inc (pcOf 592) 100
-def keygen_body : List (BitVec 32) := [7639859,19071795,134711,437128723,33772435,8272931,33755923,16995091,50598803,7562035,0xc100f13,59711251,31679283,0xffa7393,8622995,7562035,0x809e393,7562035,0x885ff06f]
-sym_block run_keygen_body := symRun { noAlias := true } keygen_body (pcOf 593) 100
+/-- L-hyper A: word 8 jumps to the marker trampoline `keygen_hdrT` (791), which returns to word 13 (606). -/
+def keygen_body : List (BitVec 32) := [0x749333,0x1230333,0x20e37,0x1a0e0e13,0x2035393,0x7e3c23,0x2031313,0x1035313,0x2f80006f,0x13,0x13,0x13,0x13,0xffa7393,0x839393,0x736333,0x809e393,0x736333,0x885ff06f]
+def keygen_hdrT : List (BitVec 32) := [0x141f13,0x1e40433,0x840433,0x803f33,0x1f0f13,0x1cf1f13,0x8f1f33,0x1e36333,0x640413,0x345413,0xcf5ff06f]
+sym_block run_keygen_body0 := symRun { noAlias := true } keygen_body (pcOf 593) 100
+sym_block run_keygen_hdrT := symRunAux { noAlias := true } keygen_hdrT (pcOf 791) 100 run_keygen_body0.res.st
+-- The whole header body (593 .. 601, the trampoline, 606 .. 611) as one symbolic result.
+sym_block run_keygen_body := symRunAux { noAlias := true } (keygen_body.drop 13) (pcOf 606) 100 run_keygen_hdrT.res.st
 /-- Witness stack: the keygen header store ends at 134 (`lui t3; addi t3; sd t1,16(t3)`); 135 jumps to the G/F step
 block at 689. -/
 def keygen_store : List (BitVec 32) := [134711,437128723,7223331]
@@ -2248,9 +2289,20 @@ theorem steps_keygen_inc (s : MachineState) (hpc : s.pc = pcOf 592) :
     Steps Images.keygenImage s 1 1 (run_keygen_inc.res.toState s) := by
   exact symRun_sound run_keygen_inc codeAt_keygen_inc s hpc (by simp [run_keygen_inc.res, rv_simp])
 theorem codeAt_keygen_body : CodeAt Images.keygenImage (pcOf 593) keygen_body := by decide +kernel
+theorem codeAt_keygen_hdrT : CodeAt Images.keygenImage (pcOf 791) keygen_hdrT := by decide +kernel
+theorem codeAt_keygen_body2 : CodeAt Images.keygenImage (pcOf 606) (keygen_body.drop 13) := by decide +kernel
 theorem steps_keygen_body (s : MachineState) (hpc : s.pc = pcOf 593) :
-    Steps Images.keygenImage s 19 19 (run_keygen_body.res.toState s) := by
-  exact symRun_sound run_keygen_body codeAt_keygen_body s hpc (by simp [run_keygen_body.res, rv_simp])
+    Steps Images.keygenImage s 26 26 (run_keygen_body.res.toState s) := by
+  have s1 := symRun_sound run_keygen_body0 codeAt_keygen_body s hpc (by simp [run_keygen_body0.res, rv_simp])
+  have s2 := (symRunAux_sound { noAlias := true } Images.keygenImage s _ _ _ _ _ run_keygen_hdrT codeAt_keygen_hdrT
+    (by simp [run_keygen_hdrT.res, rv_simp])).1
+  have s3 := (symRunAux_sound { noAlias := true } Images.keygenImage s _ _ _ _ _ run_keygen_body codeAt_keygen_body2
+    (by simp [run_keygen_body.res, rv_simp])).1
+  rw [show run_keygen_body0.res.st.toState s (pcOf 791) = run_keygen_body0.res.toState s by
+    simp [Result.toState, run_keygen_body0.res, E.eval]] at s2
+  rw [show run_keygen_hdrT.res.st.toState s (pcOf 606) = run_keygen_hdrT.res.toState s by
+    simp [Result.toState, run_keygen_hdrT.res, E.eval]] at s3
+  exact (s1.trans s2).trans s3
 theorem codeAt_keygen_store : CodeAt Images.keygenImage (pcOf 132) keygen_store := by decide +kernel
 theorem steps_keygen_store (s : MachineState) (hpc : s.pc = pcOf 132) :
     Steps Images.keygenImage s 3 3 (run_keygen_store.res.toState s) := by
@@ -2329,31 +2381,6 @@ structure BodyPost (s t : MachineState) : Prop where
   high : t.getMem (BitVec.ofNat 64 (0x201A0 + 24)) = routed s >>> 32
   regs : RegsExcept s t [.x6, .x7, .x28, .x30]
   frame : Frame s t (fun A => A = 0x201A0 + 24)
-theorem keygen_body_post (s : MachineState) : BodyPost s (run_keygen_body.res.toState s) := by
-  constructor
-  · simp [run_keygen_body.res, rv_simp, packedWord, routed]
-  · simp [run_keygen_body.res, rv_simp, routed]
-  · intro r hr
-    cases r <;> simp_all [run_keygen_body.res, rv_simp] <;> rfl
-  · intro A hA hn
-    simp only [Result.toState_getMem, run_keygen_body.res]
-    t3n []
-    rw [if_neg (by omega)]
-theorem keygen_body_spec (s : MachineState) (hpc : s.pc = pcOf 593) :
-    ∃ t, Steps Images.keygenImage s 19 19 t ∧ t.pc = pcOf 132 ∧ BodyPost s t := by
-  exact ⟨_, steps_keygen_body s hpc, by simp [run_keygen_body.res, rv_simp], keygen_body_post s⟩
-theorem sign_body_post (s : MachineState) : BodyPost s (run_sign_body.res.toState s) := by
-  have h := keygen_body_post s
-  exact ⟨h.low, h.high, h.regs, h.frame⟩
-theorem sign_body_spec (s : MachineState) (hpc : s.pc = pcOf 1489) :
-    ∃ t, Steps Images.signReferenceImage s 19 19 t ∧ t.pc = pcOf 1028 ∧ BodyPost s t := by
-  exact ⟨_, steps_sign_body s hpc, by simp [run_sign_body.res, rv_simp], sign_body_post s⟩
-theorem expand_body_post (s : MachineState) : BodyPost s (run_expand_body.res.toState s) := by
-  have h := keygen_body_post s
-  exact ⟨h.low, h.high, h.regs, h.frame⟩
-theorem expand_body_spec (s : MachineState) (hpc : s.pc = pcOf 1253) :
-    ∃ t, Steps Images.expandReferenceImage s 19 19 t ∧ t.pc = pcOf 1038 ∧ BodyPost s t := by
-  exact ⟨_, steps_expand_body s hpc, by simp [run_expand_body.res, rv_simp], expand_body_post s⟩
 end SigGolfCandidate.T3M.Keygen.PackedBlocks
 end
 section
@@ -2361,8 +2388,9 @@ namespace SigGolfCandidate.T3M.Keygen.PackedBlocks
 open RiscvZkvm.Rv64 SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv SigGolfCandidate.Rv
 def routedAt (s : MachineState) (height : Nat) : Word :=
   (s.getReg .x9 <<< height) + s.getReg .x18
+/-- L-hyper A: the chain header's low word; the marker `2 ^ (hyperW lay + 16)` replaces the layer and type bytes. -/
 def packedAt (s : MachineState) (height : Nat) : Word :=
-  ((routedAt s height <<< 32) >>> 16) ||| (s.getReg .x8 <<< 48) ||| (193#64 <<< 56) |||
+  ((routedAt s height <<< 32) >>> 16) ||| BitVec.ofNat 64 (2 ^ (T3.hyperW (s.getReg .x8).toNat + 16)) |||
     ((s.getReg .x20 &&& 255#64) <<< 8) ||| (s.getReg .x19 ||| 128#64)
 /-- Witness stack: the keygen header ends at 135 (`jal 689`, the G/F step block) with `t3 = CHAIN` and no HASH
 arguments set. -/
@@ -2374,7 +2402,7 @@ structure HeaderPost (s t : MachineState) (height : Nat) : Prop where
   frame : Frame s t (fun A => A = 0x201A0 + 16 ∨ A = 0x201A0 + 24)
 theorem keygen_header_0 (s : MachineState) (hpc : s.pc = pcOf 126)
     (h8 : s.getReg .x8 = 0#64) :
-    ∃ t, Steps Images.keygenImage s 25 25 t ∧ t.pc = pcOf 135 ∧ HeaderPost s t 12 := by
+    ∃ t, Steps Images.keygenImage s 32 32 t ∧ t.pc = pcOf 135 ∧ HeaderPost s t 12 := by
   let s0 := run_keygen_entry.res.toState s
   have h0 := steps_keygen_entry s hpc
   let s1 := run_keygen_layer0.res.toState s0
@@ -2386,7 +2414,7 @@ theorem keygen_header_0 (s : MachineState) (hpc : s.pc = pcOf 126)
   refine ⟨s3, ((h0.trans h1).trans h2).trans h3, ?_, ?_⟩
   · simp [s3, s2, s1, s0, run_keygen_entry.res, run_keygen_layer0.res, run_keygen_body.res, run_keygen_store.res, rv_simp]
   · constructor
-    · simp [s3, s2, s1, s0, run_keygen_entry.res, run_keygen_layer0.res, run_keygen_body.res, run_keygen_store.res, rv_simp, packedAt, routedAt]
+    · simp [s3, s2, s1, s0, run_keygen_entry.res, run_keygen_layer0.res, run_keygen_body.res, run_keygen_store.res, rv_simp, packedAt, routedAt, h8, T3.hyperW]
     · simp [s3, s2, s1, s0, run_keygen_entry.res, run_keygen_layer0.res, run_keygen_body.res, run_keygen_store.res, rv_simp, routedAt]
     · simp [s3, s2, s1, s0, run_keygen_entry.res, run_keygen_layer0.res, run_keygen_body.res, run_keygen_store.res, rv_simp]
     · intro r hr
@@ -2484,7 +2512,9 @@ def packedHelper : List (BitVec 32) :=
 leaf code, used by the sign proofs) at offsets 27 (leaf entry, now ending in `jal ra, COEFGEN`), 42 (`addi a3,s3,1;
 jal ra, HORN`), 44 (`j 188`, the rest of the old seed-pair block is dead) and 75 (`j CAP`). The new routines COEFGEN
 (612..640), HORN (642..682) and the per-chain cap table CAP (684..688) sit in the NOP run after the packed helper. -/
-def sub27K : List (BitVec 32) := [33171,17371923,538141459,50601747,31679283,202379027,59711251,31679283,134711,1611533843,7223331,932899,19,1908408559]
+/-- L-hyper A: keygen's leaf entry; word 3 jumps to the marker trampoline `kt147` (780), which returns to word 8. -/
+def sub27K : List (BitVec 32) := [0x8193,0x1091313,0x20136313,0x1e50006f,0x13,0x13,0x13,0x13,0x20e37,0x600e0e13,0x6e3823,0xe3c23,0x13,0x71c000ef]
+def kt147 : List (BitVec 32) := [0x141f13,0x1e40433,0x840433,0x803f33,0x1f0f13,0x1cf1f13,0x8f1f33,0x1e36333,0x640413,0x345413,0xe08ff06f]
 def sub42K : List (BitVec 32) := [1672851,2021654767]
 def sub44K : List (BitVec 32) := [113246319,17044243,34479891,31679283,1270547,295827,34152211,31712179,134711,7223331,8272931,132407,67110291,132663,67503635]
 def sub75K : List (BitVec 32) := [2063597679]
@@ -2541,7 +2571,8 @@ def kgMaskStub : List (BitVec 32) :=
 def kgAllocStub : List (BitVec 32) := [0x700713,0x2581813,0xb79ff06f]
 def seg_542 : List (BitVec 32) :=
   List.replicate 45 0x00000013 ++ packedHelper ++ coefgenCode ++ [0x00000013] ++ hornCode ++ [0x00000013] ++
-    capCode ++ kgStepCode ++ kchkCode ++ capCont ++ List.replicate 247 0x00000013 ++ kgMaskStub ++ kgAllocStub ++ List.replicate 82 0x00000013
+    capCode ++ kgStepCode ++ kchkCode ++ capCont ++ List.replicate 3 0x00000013 ++ kt147 ++ PackedBlocks.keygen_hdrT ++
+    List.replicate 222 0x00000013 ++ kgMaskStub ++ kgAllocStub ++ List.replicate 82 0x00000013
 def mainL : Rv.Layout := [(0, seg_0), (26, seg_26), (28, seg_28), (34, seg_34), (36, seg_36), (39, seg_39), (48, seg_48), (50, seg_50), (51, seg_51), (52, seg_52), (64, seg_64), (65, seg_65), (81, seg_81), (84, seg_84), (113, seg_113), (114, seg_114), (116, seg_116), (117, layoutCode kSubL), (277, seg_277), (289, seg_289), (295, seg_295), (309, seg_309), (310, seg_310), (330, seg_330), (334, seg_334), (542, seg_542), (1117, maxDigitCode), (1121, revCode), (1149, ktopCode), (1177, KeygenLabel.stub)]
 theorem mainL_ok : layoutOk 0 mainL = true := by decide +kernel
 abbrev image : Image := Images.keygenImage
@@ -3185,110 +3216,7 @@ structure SignHeaderPost (s t : MachineState) (height : Nat) : Prop where
   x28 : t.getReg .x28 = BitVec.ofNat 64 0x201A0
   regs : RegsExcept s t [.x6, .x7, .x28, .x30]
   frame : Frame s t (fun A => A = 0x201A0 + 16 ∨ A = 0x201A0 + 24)
-theorem sign_header_0 (s : MachineState) (hpc : s.pc = pcOf 1022)
-    (h8 : s.getReg .x8 = 0#64) :
-    ∃ t, Steps Images.signReferenceImage s 25 25 t ∧ t.pc = pcOf 1031 ∧ SignHeaderPost s t 12 := by
-  let s0 := run_sign_entry.res.toState s
-  have h0 := steps_sign_entry s hpc
-  let s1 := run_sign_layer0.res.toState s0
-  have h1 := steps_sign_layer0 s0 (by simp [s0, run_sign_entry.res, rv_simp, h8])
-  let s2 := run_sign_body.res.toState s1
-  have h2 := steps_sign_body s1 (by simp [s0, s1, run_sign_entry.res, run_sign_layer0.res, rv_simp, h8])
-  let s3 := run_sign_store.res.toState s2
-  have h3 := steps_sign_store s2 (by simp [s0, s1, s2, run_sign_entry.res, run_sign_layer0.res, run_sign_body.res, rv_simp, h8])
-  refine ⟨s3, (((h0.trans h1).trans h2).trans h3), ?_, ?_⟩
-  · simp [s3, s2, s1, s0, run_sign_entry.res, run_sign_layer0.res, run_sign_body.res, run_sign_store.res, rv_simp]
-  · constructor
-    · simp [s3, s2, s1, s0, run_sign_entry.res, run_sign_layer0.res, run_sign_body.res, run_sign_store.res, rv_simp, packedAt, routedAt]
-    · simp [s3, s2, s1, s0, run_sign_entry.res, run_sign_layer0.res, run_sign_body.res, run_sign_store.res, rv_simp, routedAt]
-    · simp [s3, s2, s1, s0, run_sign_entry.res, run_sign_layer0.res, run_sign_body.res, run_sign_store.res, rv_simp]
-    · intro r hr
-      cases r <;> simp_all [s3, s2, s1, s0, run_sign_entry.res, run_sign_layer0.res, run_sign_body.res, run_sign_store.res, rv_simp] <;> rfl
-    · intro A hA hn
-      simp only [Result.toState_getMem, s3, s2, s1, s0, run_sign_entry.res, run_sign_layer0.res, run_sign_body.res, run_sign_store.res]
-      t3n []
-      rw [if_neg (by omega), if_neg (by omega)]
-theorem sign_header_1 (s : MachineState) (hpc : s.pc = pcOf 1022)
-    (h8 : s.getReg .x8 = 1#64) :
-    ∃ t, Steps Images.signReferenceImage s 28 28 t ∧ t.pc = pcOf 1031 ∧ SignHeaderPost s t 7 := by
-  let s0 := run_sign_entry.res.toState s
-  have h0 := steps_sign_entry s hpc
-  let s1 := run_sign_layer0.res.toState s0
-  have h1 := steps_sign_layer0 s0 (by simp [s0, run_sign_entry.res, rv_simp, h8])
-  let s2 := run_sign_layer1.res.toState s1
-  have h2 := steps_sign_layer1 s1 (by simp [s0, s1, run_sign_entry.res, run_sign_layer0.res, rv_simp, h8])
-  let s3 := run_sign_inc.res.toState s2
-  have h3 := steps_sign_inc s2 (by simp [s0, s1, s2, run_sign_entry.res, run_sign_layer0.res, run_sign_layer1.res, rv_simp, h8])
-  let s4 := run_sign_body.res.toState s3
-  have h4 := steps_sign_body s3 (by simp [s0, s1, s2, s3, run_sign_entry.res, run_sign_layer0.res, run_sign_layer1.res, run_sign_inc.res, rv_simp, h8])
-  let s5 := run_sign_store.res.toState s4
-  have h5 := steps_sign_store s4 (by simp [s0, s1, s2, s3, s4, run_sign_entry.res, run_sign_layer0.res, run_sign_layer1.res, run_sign_inc.res, run_sign_body.res, rv_simp, h8])
-  refine ⟨s5, (((((h0.trans h1).trans h2).trans h3).trans h4).trans h5), ?_, ?_⟩
-  · simp [s5, s4, s3, s2, s1, s0, run_sign_entry.res, run_sign_layer0.res, run_sign_layer1.res, run_sign_inc.res, run_sign_body.res, run_sign_store.res, rv_simp]
-  · constructor
-    · simp [s5, s4, s3, s2, s1, s0, run_sign_entry.res, run_sign_layer0.res, run_sign_layer1.res, run_sign_inc.res, run_sign_body.res, run_sign_store.res, rv_simp, packedAt, routedAt]
-    · simp [s5, s4, s3, s2, s1, s0, run_sign_entry.res, run_sign_layer0.res, run_sign_layer1.res, run_sign_inc.res, run_sign_body.res, run_sign_store.res, rv_simp, routedAt]
-    · simp [s5, s4, s3, s2, s1, s0, run_sign_entry.res, run_sign_layer0.res, run_sign_layer1.res, run_sign_inc.res, run_sign_body.res, run_sign_store.res, rv_simp]
-    · intro r hr
-      cases r <;> simp_all [s5, s4, s3, s2, s1, s0, run_sign_entry.res, run_sign_layer0.res, run_sign_layer1.res, run_sign_inc.res, run_sign_body.res, run_sign_store.res, rv_simp] <;> rfl
-    · intro A hA hn
-      simp only [Result.toState_getMem, s5, s4, s3, s2, s1, s0, run_sign_entry.res, run_sign_layer0.res, run_sign_layer1.res, run_sign_inc.res, run_sign_body.res, run_sign_store.res]
-      t3n []
-      rw [if_neg (by omega), if_neg (by omega)]
-theorem sign_header_2 (s : MachineState) (hpc : s.pc = pcOf 1022)
-    (h8 : s.getReg .x8 = 2#64) :
-    ∃ t, Steps Images.signReferenceImage s 29 29 t ∧ t.pc = pcOf 1031 ∧ SignHeaderPost s t 6 := by
-  let s0 := run_sign_entry.res.toState s
-  have h0 := steps_sign_entry s hpc
-  let s1 := run_sign_layer0.res.toState s0
-  have h1 := steps_sign_layer0 s0 (by simp [s0, run_sign_entry.res, rv_simp, h8])
-  let s2 := run_sign_layer1.res.toState s1
-  have h2 := steps_sign_layer1 s1 (by simp [s0, s1, run_sign_entry.res, run_sign_layer0.res, rv_simp, h8])
-  let s3 := run_sign_layer23.res.toState s2
-  have h3 := steps_sign_layer23 s2 (by simp [s0, s1, s2, run_sign_entry.res, run_sign_layer0.res, run_sign_layer1.res, rv_simp, h8])
-  let s4 := run_sign_body.res.toState s3
-  have h4 := steps_sign_body s3 (by simp [s0, s1, s2, s3, run_sign_entry.res, run_sign_layer0.res, run_sign_layer1.res, run_sign_layer23.res, rv_simp, h8])
-  let s5 := run_sign_store.res.toState s4
-  have h5 := steps_sign_store s4 (by simp [s0, s1, s2, s3, s4, run_sign_entry.res, run_sign_layer0.res, run_sign_layer1.res, run_sign_layer23.res, run_sign_body.res, rv_simp, h8])
-  refine ⟨s5, (((((h0.trans h1).trans h2).trans h3).trans h4).trans h5), ?_, ?_⟩
-  · simp [s5, s4, s3, s2, s1, s0, run_sign_entry.res, run_sign_layer0.res, run_sign_layer1.res, run_sign_layer23.res, run_sign_body.res, run_sign_store.res, rv_simp]
-  · constructor
-    · simp [s5, s4, s3, s2, s1, s0, run_sign_entry.res, run_sign_layer0.res, run_sign_layer1.res, run_sign_layer23.res, run_sign_body.res, run_sign_store.res, rv_simp, packedAt, routedAt]
-    · simp [s5, s4, s3, s2, s1, s0, run_sign_entry.res, run_sign_layer0.res, run_sign_layer1.res, run_sign_layer23.res, run_sign_body.res, run_sign_store.res, rv_simp, routedAt]
-    · simp [s5, s4, s3, s2, s1, s0, run_sign_entry.res, run_sign_layer0.res, run_sign_layer1.res, run_sign_layer23.res, run_sign_body.res, run_sign_store.res, rv_simp]
-    · intro r hr
-      cases r <;> simp_all [s5, s4, s3, s2, s1, s0, run_sign_entry.res, run_sign_layer0.res, run_sign_layer1.res, run_sign_layer23.res, run_sign_body.res, run_sign_store.res, rv_simp] <;> rfl
-    · intro A hA hn
-      simp only [Result.toState_getMem, s5, s4, s3, s2, s1, s0, run_sign_entry.res, run_sign_layer0.res, run_sign_layer1.res, run_sign_layer23.res, run_sign_body.res, run_sign_store.res]
-      t3n []
-      rw [if_neg (by omega), if_neg (by omega)]
-theorem sign_header_3 (s : MachineState) (hpc : s.pc = pcOf 1022)
-    (h8 : s.getReg .x8 = 3#64) :
-    ∃ t, Steps Images.signReferenceImage s 29 29 t ∧ t.pc = pcOf 1031 ∧ SignHeaderPost s t 6 := by
-  let s0 := run_sign_entry.res.toState s
-  have h0 := steps_sign_entry s hpc
-  let s1 := run_sign_layer0.res.toState s0
-  have h1 := steps_sign_layer0 s0 (by simp [s0, run_sign_entry.res, rv_simp, h8])
-  let s2 := run_sign_layer1.res.toState s1
-  have h2 := steps_sign_layer1 s1 (by simp [s0, s1, run_sign_entry.res, run_sign_layer0.res, rv_simp, h8])
-  let s3 := run_sign_layer23.res.toState s2
-  have h3 := steps_sign_layer23 s2 (by simp [s0, s1, s2, run_sign_entry.res, run_sign_layer0.res, run_sign_layer1.res, rv_simp, h8])
-  let s4 := run_sign_body.res.toState s3
-  have h4 := steps_sign_body s3 (by simp [s0, s1, s2, s3, run_sign_entry.res, run_sign_layer0.res, run_sign_layer1.res, run_sign_layer23.res, rv_simp, h8])
-  let s5 := run_sign_store.res.toState s4
-  have h5 := steps_sign_store s4 (by simp [s0, s1, s2, s3, s4, run_sign_entry.res, run_sign_layer0.res, run_sign_layer1.res, run_sign_layer23.res, run_sign_body.res, rv_simp, h8])
-  refine ⟨s5, (((((h0.trans h1).trans h2).trans h3).trans h4).trans h5), ?_, ?_⟩
-  · simp [s5, s4, s3, s2, s1, s0, run_sign_entry.res, run_sign_layer0.res, run_sign_layer1.res, run_sign_layer23.res, run_sign_body.res, run_sign_store.res, rv_simp]
-  · constructor
-    · simp [s5, s4, s3, s2, s1, s0, run_sign_entry.res, run_sign_layer0.res, run_sign_layer1.res, run_sign_layer23.res, run_sign_body.res, run_sign_store.res, rv_simp, packedAt, routedAt]
-    · simp [s5, s4, s3, s2, s1, s0, run_sign_entry.res, run_sign_layer0.res, run_sign_layer1.res, run_sign_layer23.res, run_sign_body.res, run_sign_store.res, rv_simp, routedAt]
-    · simp [s5, s4, s3, s2, s1, s0, run_sign_entry.res, run_sign_layer0.res, run_sign_layer1.res, run_sign_layer23.res, run_sign_body.res, run_sign_store.res, rv_simp]
-    · intro r hr
-      cases r <;> simp_all [s5, s4, s3, s2, s1, s0, run_sign_entry.res, run_sign_layer0.res, run_sign_layer1.res, run_sign_layer23.res, run_sign_body.res, run_sign_store.res, rv_simp] <;> rfl
-    · intro A hA hn
-      simp only [Result.toState_getMem, s5, s4, s3, s2, s1, s0, run_sign_entry.res, run_sign_layer0.res, run_sign_layer1.res, run_sign_layer23.res, run_sign_body.res, run_sign_store.res]
-      t3n []
-      rw [if_neg (by omega), if_neg (by omega)]
+-- L-hyper A: the reference-image sign headers (old label format, not used by the certificate) were removed.
 end SigGolfCandidate.T3M.Keygen.PackedBlocks
 end
 section
@@ -3296,7 +3224,7 @@ namespace SigGolfCandidate.T3M.Keygen.PackedBlocks
 open RiscvZkvm.Rv64 SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv SigGolfCandidate.Rv
 theorem keygen_header_1 (s : MachineState) (hpc : s.pc = pcOf 126)
     (h8 : s.getReg .x8 = 1#64) :
-    ∃ t, Steps Images.keygenImage s 28 28 t ∧ t.pc = pcOf 135 ∧ HeaderPost s t 7 := by
+    ∃ t, Steps Images.keygenImage s 35 35 t ∧ t.pc = pcOf 135 ∧ HeaderPost s t 7 := by
   let s0 := run_keygen_entry.res.toState s
   have h0 := steps_keygen_entry s hpc
   let s1 := run_keygen_layer0.res.toState s0
@@ -3312,7 +3240,7 @@ theorem keygen_header_1 (s : MachineState) (hpc : s.pc = pcOf 126)
   refine ⟨s5, (((((h0.trans h1).trans h2).trans h3).trans h4).trans h5), ?_, ?_⟩
   · simp [s5, s4, s3, s2, s1, s0, run_keygen_entry.res, run_keygen_layer0.res, run_keygen_layer1.res, run_keygen_inc.res, run_keygen_body.res, run_keygen_store.res, rv_simp]
   · constructor
-    · simp [s5, s4, s3, s2, s1, s0, run_keygen_entry.res, run_keygen_layer0.res, run_keygen_layer1.res, run_keygen_inc.res, run_keygen_body.res, run_keygen_store.res, rv_simp, packedAt, routedAt]
+    · simp [s5, s4, s3, s2, s1, s0, run_keygen_entry.res, run_keygen_layer0.res, run_keygen_layer1.res, run_keygen_inc.res, run_keygen_body.res, run_keygen_store.res, rv_simp, packedAt, routedAt, h8, T3.hyperW]
     · simp [s5, s4, s3, s2, s1, s0, run_keygen_entry.res, run_keygen_layer0.res, run_keygen_layer1.res, run_keygen_inc.res, run_keygen_body.res, run_keygen_store.res, rv_simp, routedAt]
     · simp [s5, s4, s3, s2, s1, s0, run_keygen_entry.res, run_keygen_layer0.res, run_keygen_layer1.res, run_keygen_inc.res, run_keygen_body.res, run_keygen_store.res, rv_simp]
     · intro r hr
@@ -3323,7 +3251,7 @@ theorem keygen_header_1 (s : MachineState) (hpc : s.pc = pcOf 126)
       rw [if_neg (by omega), if_neg (by omega)]
 theorem keygen_header_2 (s : MachineState) (hpc : s.pc = pcOf 126)
     (h8 : s.getReg .x8 = 2#64) :
-    ∃ t, Steps Images.keygenImage s 29 29 t ∧ t.pc = pcOf 135 ∧ HeaderPost s t 6 := by
+    ∃ t, Steps Images.keygenImage s 36 36 t ∧ t.pc = pcOf 135 ∧ HeaderPost s t 6 := by
   let s0 := run_keygen_entry.res.toState s
   have h0 := steps_keygen_entry s hpc
   let s1 := run_keygen_layer0.res.toState s0
@@ -3339,7 +3267,7 @@ theorem keygen_header_2 (s : MachineState) (hpc : s.pc = pcOf 126)
   refine ⟨s5, (((((h0.trans h1).trans h2).trans h3).trans h4).trans h5), ?_, ?_⟩
   · simp [s5, s4, s3, s2, s1, s0, run_keygen_entry.res, run_keygen_layer0.res, run_keygen_layer1.res, run_keygen_layer23.res, run_keygen_body.res, run_keygen_store.res, rv_simp]
   · constructor
-    · simp [s5, s4, s3, s2, s1, s0, run_keygen_entry.res, run_keygen_layer0.res, run_keygen_layer1.res, run_keygen_layer23.res, run_keygen_body.res, run_keygen_store.res, rv_simp, packedAt, routedAt]
+    · simp [s5, s4, s3, s2, s1, s0, run_keygen_entry.res, run_keygen_layer0.res, run_keygen_layer1.res, run_keygen_layer23.res, run_keygen_body.res, run_keygen_store.res, rv_simp, packedAt, routedAt, h8, T3.hyperW]
     · simp [s5, s4, s3, s2, s1, s0, run_keygen_entry.res, run_keygen_layer0.res, run_keygen_layer1.res, run_keygen_layer23.res, run_keygen_body.res, run_keygen_store.res, rv_simp, routedAt]
     · simp [s5, s4, s3, s2, s1, s0, run_keygen_entry.res, run_keygen_layer0.res, run_keygen_layer1.res, run_keygen_layer23.res, run_keygen_body.res, run_keygen_store.res, rv_simp]
     · intro r hr
@@ -3350,7 +3278,7 @@ theorem keygen_header_2 (s : MachineState) (hpc : s.pc = pcOf 126)
       rw [if_neg (by omega), if_neg (by omega)]
 theorem keygen_header_3 (s : MachineState) (hpc : s.pc = pcOf 126)
     (h8 : s.getReg .x8 = 3#64) :
-    ∃ t, Steps Images.keygenImage s 29 29 t ∧ t.pc = pcOf 135 ∧ HeaderPost s t 6 := by
+    ∃ t, Steps Images.keygenImage s 36 36 t ∧ t.pc = pcOf 135 ∧ HeaderPost s t 6 := by
   let s0 := run_keygen_entry.res.toState s
   have h0 := steps_keygen_entry s hpc
   let s1 := run_keygen_layer0.res.toState s0
@@ -3366,7 +3294,7 @@ theorem keygen_header_3 (s : MachineState) (hpc : s.pc = pcOf 126)
   refine ⟨s5, (((((h0.trans h1).trans h2).trans h3).trans h4).trans h5), ?_, ?_⟩
   · simp [s5, s4, s3, s2, s1, s0, run_keygen_entry.res, run_keygen_layer0.res, run_keygen_layer1.res, run_keygen_layer23.res, run_keygen_body.res, run_keygen_store.res, rv_simp]
   · constructor
-    · simp [s5, s4, s3, s2, s1, s0, run_keygen_entry.res, run_keygen_layer0.res, run_keygen_layer1.res, run_keygen_layer23.res, run_keygen_body.res, run_keygen_store.res, rv_simp, packedAt, routedAt]
+    · simp [s5, s4, s3, s2, s1, s0, run_keygen_entry.res, run_keygen_layer0.res, run_keygen_layer1.res, run_keygen_layer23.res, run_keygen_body.res, run_keygen_store.res, rv_simp, packedAt, routedAt, h8, T3.hyperW]
     · simp [s5, s4, s3, s2, s1, s0, run_keygen_entry.res, run_keygen_layer0.res, run_keygen_layer1.res, run_keygen_layer23.res, run_keygen_body.res, run_keygen_store.res, rv_simp, routedAt]
     · simp [s5, s4, s3, s2, s1, s0, run_keygen_entry.res, run_keygen_layer0.res, run_keygen_layer1.res, run_keygen_layer23.res, run_keygen_body.res, run_keygen_store.res, rv_simp]
     · intro r hr
@@ -3396,15 +3324,16 @@ theorem routedAt_high_zero (s : MachineState) (lay : Layer) (tree leaf : Nat)
     Nat.div_eq_of_lt (by omega)]
   rfl
 theorem packedAt_nat (s : MachineState) (lay : Layer) (tree leaf i step : Nat)
-    (hr : tree * 2 ^ height lay + leaf < 2 ^ 31) (hi : i < 64) (hs : step < 8)
+    (hr : tree * 2 ^ height lay + leaf < 2 ^ T3.hyperW lay.val) (hi : i < 64) (hs : step < 8)
     (h8 : s.getReg .x8 = BitVec.ofNat 64 lay.val)
     (h9 : s.getReg .x9 = BitVec.ofNat 64 tree)
     (h18 : s.getReg .x18 = BitVec.ofNat 64 leaf)
     (h19 : s.getReg .x19 = BitVec.ofNat 64 i)
     (h20 : s.getReg .x20 = BitVec.ofNat 64 step) :
     packedAt s (height lay) = BitVec.ofNat 64
-      (128 + i + step * 2^8 + (tree * 2^height lay + leaf) * 2^16 + lay.val * 2^48 + 193 * 2^56) := by
+      (128 + i + step * 2^8 + (tree * 2^height lay + leaf + 2 ^ T3.hyperW lay.val) * 2^16) := by
   have hl := lay.isLt
+  have hW31 : 2 ^ T3.hyperW lay.val ≤ 2 ^ 31 := Nat.pow_le_pow_right (by norm_num) (T3.hyperW_le _)
   have hm : BitVec.ofNat 64 step &&& 255#64 = BitVec.ofNat 64 step := by
     interval_cases step <;> rfl
   have hroute : ((BitVec.ofNat 64 (tree * 2^height lay + leaf) <<< 32) >>> 16) =
@@ -3412,22 +3341,37 @@ theorem packedAt_nat (s : MachineState) (lay : Layer) (tree leaf i step : Nat)
     rw [ofNat_shl, ofNat_shr _ _ (by omega)]
     congr 1
     omega
-  rw [packedAt, routedAt_nat s lay tree leaf h9 h18, hroute, h8, h19, h20, hm,
-    ofNat_shl, ofNat_shl, ofNat_shl]
+  have h8n : (s.getReg .x8).toNat = lay.val := by rw [h8, BitVec.toNat_ofNat]; omega
+  have hM : 2 ^ (T3.hyperW lay.val + 16) = 2 ^ T3.hyperW lay.val * 2 ^ 16 := pow_add _ _ _
+  rw [packedAt, routedAt_nat s lay tree leaf h9 h18, hroute, h8n, h19, h20, hm, ofNat_shl]
   rw [ofNat_or_disjoint' i 128 7 (by omega) (by decide)]
-  rw [ofNat_or_disjoint' _ _ 48 (by omega) (by omega)]
-  rw [ofNat_or_disjoint' _ _ 56 (by omega) (by omega)]
-  rw [ofNat_or_disjoint _ _ 16 (by omega) (by omega)]
-  rw [ofNat_or_disjoint _ _ 8 (by omega) (by omega)]
-  congr 1
-  omega
+  have hA : (tree * 2 ^ height lay + leaf) * 2 ^ 16 < 2 ^ (T3.hyperW lay.val + 16) := by
+    rw [hM]; exact Nat.mul_lt_mul_of_pos_right hr (by norm_num)
+  rw [ofNat_or_disjoint' _ _ (T3.hyperW lay.val + 16) hA (Nat.mod_self _)]
+  have hs8 : step * 2 ^ 8 < 2 ^ 16 := by
+    have : step * 2 ^ 8 < 8 * 2 ^ 8 := Nat.mul_lt_mul_of_pos_right hs (by norm_num)
+    exact lt_of_lt_of_le this (by norm_num)
+  have hB : ((tree * 2 ^ height lay + leaf) * 2 ^ 16 + 2 ^ (T3.hyperW lay.val + 16)) % 2 ^ 16 = 0 := by
+    rw [hM, ← Nat.add_mul, Nat.mul_mod_left]
+  rw [ofNat_or_disjoint (step * 2 ^ 8) _ 16 hs8 hB]
+  have hi8 : i + 128 < 2 ^ 8 := by
+    have : i + 128 < 64 + 128 := by omega
+    exact lt_of_lt_of_le this (by norm_num)
+  have hC : ((tree * 2 ^ height lay + leaf) * 2 ^ 16 + 2 ^ (T3.hyperW lay.val + 16) + step * 2 ^ 8) % 2 ^ 8 = 0 := by
+    rw [hM, show (2:Nat) ^ 16 = 2 ^ 8 * 2 ^ 8 by norm_num, ← Nat.mul_assoc, ← Nat.mul_assoc, ← Nat.add_mul,
+      ← Nat.add_mul, Nat.mul_mod_left]
+  rw [ofNat_or_disjoint (i + 128) _ 8 hi8 hC]
+  have e : (tree * 2 ^ height lay + leaf) * 2 ^ 16 + 2 ^ (T3.hyperW lay.val + 16) + step * 2 ^ 8 + (i + 128) =
+      128 + i + step * 2 ^ 8 + (tree * 2 ^ height lay + leaf + 2 ^ T3.hyperW lay.val) * 2 ^ 16 := by
+    rw [hM]; ring
+  rw [e]
 private theorem low_ofNat (n : Nat) :
     (BitVec.ofNat 128 n).extractLsb' 0 64 = BitVec.ofNat 64 n := by
   apply BitVec.eq_of_toNat_eq
   simp only [BitVec.extractLsb'_toNat, Nat.shiftRight_zero, BitVec.toNat_ofNat]
   omega
 theorem packedAt_source (s : MachineState) (lay : Layer) (tree leaf i step : Nat)
-    (hr : tree * 2 ^ height lay + leaf < 2 ^ 31) (hf : leaf < 2 ^ height lay)
+    (hr : tree * 2 ^ height lay + leaf < 2 ^ T3.hyperW lay.val) (hf : leaf < 2 ^ height lay)
     (hi : i < 64) (hs : step < 8)
     (h8 : s.getReg .x8 = BitVec.ofNat 64 lay.val)
     (h9 : s.getReg .x9 = BitVec.ofNat 64 tree)
@@ -3445,10 +3389,11 @@ private theorem high_ofNat (n : Nat) (hn : n < 2 ^ 64) :
   change _ = 0
   omega
 theorem source_high_actual (lay : Layer) (tree leaf i step : Nat)
-    (hr : tree * 2 ^ height lay + leaf < 2 ^ 31) (hf : leaf < 2 ^ height lay)
+    (hr : tree * 2 ^ height lay + leaf < 2 ^ T3.hyperW lay.val) (hf : leaf < 2 ^ height lay)
     (hi : i < 64) (hs : step < 8) :
     (chainHeader lay tree leaf i step).extractLsb' 64 64 = 0#64 := by
   have hl := lay.isLt
+  have hW31 : 2 ^ T3.hyperW lay.val ≤ 2 ^ 31 := Nat.pow_le_pow_right (by norm_num) (T3.hyperW_le _)
   exact (congrArg (fun x : BitVec 128 => x.extractLsb' 64 64)
     (chainHeader_actual lay tree leaf i step hr hf hi hs)).trans (high_ofNat _ (by omega))
 end SigGolfCandidate.T3M.Keygen.PackedBlocks
@@ -3459,7 +3404,7 @@ open RiscvZkvm.Rv64 SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv SigGol
 open SigGolfCandidate.T3
 open PackedBlocks
 set_option backward.isDefEq.respectTransparency false
-def headerK (lay : Layer) : Nat := if lay.val = 0 then 30 else if lay.val = 1 then 33 else 34
+def headerK (lay : Layer) : Nat := if lay.val = 0 then 37 else if lay.val = 1 then 40 else 41
 def rungK (lay : Layer) : Nat := headerK lay + 5
 def rungC (lay : Layer) : Nat := headerK lay + 12
 theorem shared_header {image : Image} {b : Nat} (h : SubAt image b)
@@ -3475,7 +3420,7 @@ theorem shared_header {image : Image} {b : Nat} (h : SubAt image b)
   · exact keygen_header_3 s hpc h8
 theorem shared_header_source {image : Image} {b : Nat} (h : SubAt image b)
     (s : MachineState) (hpc : s.pc = pcOf (b + 9)) (lay : Layer) (tree leaf i step : Nat)
-    (hr : tree * 2 ^ height lay + leaf < 2 ^ 31) (hf : leaf < 2 ^ height lay)
+    (hr : tree * 2 ^ height lay + leaf < 2 ^ T3.hyperW lay.val) (hf : leaf < 2 ^ height lay)
     (hi : i < 64) (hs : step < 8)
     (h8 : s.getReg .x8 = BitVec.ofNat 64 lay.val)
     (h9 : s.getReg .x9 = BitVec.ofNat 64 tree)
@@ -3492,7 +3437,9 @@ theorem shared_header_source {image : Image} {b : Nat} (h : SubAt image b)
   refine ⟨t, st, pc, post.x28,
     post.low.trans (packedAt_source s lay tree leaf i step hr hf hi hs h8 h9 h18 h19 h20),
     ?_, post.regs, post.frame⟩
-  exact (post.high.trans (routedAt_high_zero s lay tree leaf hr h9 h18)).trans
+  have hr31 : tree * 2 ^ height lay + leaf < 2 ^ 31 :=
+    lt_of_lt_of_le hr (Nat.pow_le_pow_right (by norm_num) (T3.hyperW_le _))
+  exact (post.high.trans (routedAt_high_zero s lay tree leaf hr31 h9 h18)).trans
     (source_high_actual lay tree leaf i step hr hf hi hs).symm
 end SigGolfCandidate.T3M.Keygen
 end
@@ -4171,8 +4118,8 @@ theorem ksumTo_split (F : Nat → Nat) (a : Nat) : ∀ n, sumTo F (a + 1 + n) = 
     rw [show a + 1 + (n + 1) = (a + 1 + n) + 1 by omega, sumTo, ksumTo_split F a n, sumTo]; omega
 /-- Witness stack: steps of one keygen chain rung (loop head 118 back to 118): `sub1; sub8`, the header (25) and the
 step block (`3 + kgX`). -/
-def kRungK (i m : Nat) : Nat := 30 + kgX i m
-def kRungC (i m : Nat) : Nat := 37 + kgX i m
+def kRungK (i m : Nat) : Nat := 37 + kgX i m
+def kRungC (i m : Nat) : Nat := 44 + kgX i m
 /-- Steps of one keygen chain run of `e` hashes (entry 1, per step `kRungK`, exit and value copy 9). -/
 def kChainK (i e : Nat) : Nat := sumTo (fun m => kRungK i m) e + 10
 def kChainCy (i e : Nat) : Nat := sumTo (fun m => kRungC i m) e + 10
@@ -4191,7 +4138,7 @@ chain head `t` outside the header words and `valp`. -/
 theorem kchain_rung {m : Nat} (hm : m < e) {v : Digest} {t t2 : MachineState}
     (ht : ChainHead b s0 valp m v t) (ht2 : t2.pc = pcOf (b + 9))
     (hr2 : RegsExcept t t2 [.x6, .x7, .x29]) (hf2 : Frame t t2 (fun A => valp ≤ A ∧ A < valp + 16)) :
-    TSim image sk t2 (25 + (3 + kgX i m)) (25 + (10 + kgX i m)) 1 1
+    TSim image sk t2 (32 + (3 + kgX i m)) (32 + (10 + kgX i m)) 1 1
       (T3.projHash (topChainHigh i m) (topChainInput leaf i m v))
       (fun v' u => ChainHead b s0 valp (m + 1) v' u ∧
         Frame t2 u (fun A => (A = CHAIN + 16 ∨ A = CHAIN + 24) ∨ (CHAIN + 32 ≤ A ∧ A < CHAIN + 112))) := by
@@ -4206,7 +4153,8 @@ theorem kchain_rung {m : Nat} (hm : m < e) {v : Digest} {t t2 : MachineState}
     (hr2.get hr').trans (ht.regs.get hr)
   have hmd : maxDigit 0 i ≤ 7 := by rw [kmd]; split_ifs <;> omega
   obtain ⟨t3, st3, t3pc, t3x28, t3w, t3w24, t3r, t3f⟩ :=
-    sub9_spec hsub t2 ht2 0 0 leaf i m hpre.hroute hpre.hleaf (by omega) (by omega)
+    sub9_spec hsub t2 ht2 0 0 leaf i m (by have h := hpre.hleaf; revert h; simp [T3.hyperW, T3.height])
+      hpre.hleaf (by omega) (by omega)
     (by rw [g _ (by simp [chainRegs]) (by simp)]; exact hpre.x8)
     (by rw [g _ (by simp [chainRegs]) (by simp)]; exact hpre.x9)
     (by rw [g _ (by simp [chainRegs]) (by simp)]; exact hpre.x18)

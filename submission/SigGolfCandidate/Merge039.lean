@@ -1050,7 +1050,7 @@ theorem accepted_lowerSpare (lay : Layer) (hl : lay ≠ 0) (floor : Nat)
 
 /-- The canonical top predicate (T51: floor 14 with the d6b LOW bonus 2) holds for every word whose reward reaches a
 floor `≥ 12`. -/
-theorem accepted_topGood {floor : Nat} (hf : 16 ≤ floor) {P : List Nat → Prop} {value : Digest}
+theorem accepted_topGood {floor : Nat} (hf : 15 ≤ floor) {P : List Nat → Prop} {value : Digest}
     (h : accepted 0 floor P value) : topGood value := by
   obtain ⟨ds, hd, _⟩ := (accepted_iff 0 floor P value).mp h
   have hs := CanonicalPolicy.producerDecodeAt_spec hd
@@ -1073,7 +1073,7 @@ noncomputable def topFreeCount : Nat :=
 
 /-- The restricted choice: a producer-accepted top word is selected with weight `2^128 + 3*2^126 - topFreeCount`
 (over `2^256`). -/
-theorem selected_top_card (floor : Nat) (hf : 16 ≤ floor) (P : List Nat → Prop) [DecidablePred P]
+theorem selected_top_card (floor : Nat) (hf : 15 ≤ floor) (P : List Nat → Prop) [DecidablePred P]
     (n : Nat) (hn : (univ.filter (accepted 0 floor P)).card = n) :
     (univ.filter fun answer : HashOutput => accepted 0 floor P (encodingAnswer 0 answer)).card =
       n * (2^128 + 3*2^126 - topFreeCount) := by

@@ -855,11 +855,12 @@ def producerDecode (lay : Layer) (answer : Digest) : Option (List Nat) :=
   | none => none
 /-- The smallest lower-layer window (L1, L2). -/
 def lowerSearchLimit : Nat := 2 ^ 21
-/-- Enlarged top counter window 2^21 (top-bytes layer). The legacy `T3.counterLimit` (2^22, the legacy T3 scheme and the
+/-- Top counter window 2^20 (top-bytes layer). The legacy `T3.counterLimit` (2^22, the legacy T3 scheme and the
 presampling key space) is unchanged; the canonical searches use `searchLimit`. -/
-def topSearchLimit : Nat := 2 ^ 21
-/-- Per-layer counter windows: `((s0 < 3) xor 3) << 20`; top and L1/L2 use 2^21, L3 uses 3·2^20. -/
-def searchLimit (lay : Layer) : Nat := if lay = 3 then 3 * 2 ^ 20 else 2 ^ 21
+def topSearchLimit : Nat := 2 ^ 20
+/-- Per-layer counter windows of the shipped images (opus-crumbs img-v4 check `t1 = ((s0 + 3) >> 1) << 20`, which also
+enforces the top limit): top 2^20, L1/L2 2^21, L3 3·2^20. -/
+def searchLimit (lay : Layer) : Nat := (lay.val + 3) / 2 * 2 ^ 20
 /-- The verifier accepts every 32-bit counter: its window is the whole `BitVec 32` range, so the layer check
 never rejects. The signer still searches `searchLimit`. -/
 def verifyWindow : Nat := 2 ^ 32
@@ -876,9 +877,9 @@ Defined before the encoding selector because the top producer choice uses the ca
   LOW costs 4 cycles, HIGH 6). -/
 namespace CanonicalPolicy
 /-- The credit pool every canonical path must reach. -/
-def totalCredit : Nat := 71
+def totalCredit : Nat := 70
 /-- The (fixed) top credit floor (on the path-aware credit). -/
-def topFloor : Nat := 18
+def topFloor : Nat := 17
 /-- All three lower layers use digit sum 201. Layer 1's existing broad decoder
 has the same lower digit layout and this exact target. -/
 def normalLayer (lay : Layer) : Layer := if lay = 0 then 0 else 1
@@ -1521,7 +1522,7 @@ theorem producerDecodeOut_credit {lay : Layer} {floor : Nat} {answer : HashOutpu
     {low : Bool} (h : producerDecodeOut lay floor answer = some (digits, low)) : floor ≤ credit lay low digits :=
   producerDecodeAt_credit (producerDecodeOut_spec h).2
 
-theorem threshold_top (residual : Nat) : threshold 0 residual = 18 := by
+theorem threshold_top (residual : Nat) : threshold 0 residual = 17 := by
   simp [threshold, topFloor]
 
 theorem nextResidual_le (residual : Nat) (lay : Layer) (low : Bool) (digits : List Nat) :
@@ -1559,7 +1560,7 @@ theorem lower_three_progress (r : Nat) (hr : r < 22) :
     threshold 3 r = r := by simp [threshold, show r ≤ 21 by omega]
 
 theorem accepted_top_residual {answer : Digest} {low : Bool} {digits : List Nat}
-    (h : producerDecodeAt 0 18 low answer = some digits) : nextResidual 71 0 low digits < 54 := by
+    (h : producerDecodeAt 0 17 low answer = some digits) : nextResidual 70 0 low digits < 54 := by
   have hc := producerDecodeAt_credit h
   unfold nextResidual
   omega
@@ -1760,22 +1761,108 @@ def tweakTag (h : BitVec 128) : Nat := h.toNat / 256 % 256
 def tweakHigh (h : BitVec 128) : Nat := h.toNat / 2 ^ 64
 /-- C4: the low (verifier-written) label word of a tweak, bytes 16..24 of a 64-byte input. -/
 def tweakLow (h : BitVec 128) : Nat := h.toNat % 2 ^ 64
-theorem hyperWord_toNat (lay routed : Nat) :
-    (hyperWord lay routed).toNat =
+theorem hyperWordOld_toNat (lay routed : Nat) :
+    (hyperWordOld lay routed).toNat =
       1 + 2 * 2 ^ 8 + routed % 2 ^ 32 * 2 ^ 16 + lay % 256 * 2 ^ 48 + 193 * 2 ^ 56 := by
-  unfold hyperWord
+  unfold hyperWordOld
   rw [BitVec.toNat_ofNat]
   apply Nat.mod_eq_of_lt
   have := Nat.mod_lt routed (show 0 < 2 ^ 32 by decide)
   have := Nat.mod_lt lay (show 0 < 256 by decide)
   omega
+theorem hyperWordOld_injective {lay routed lay' routed' : Nat} (hl : lay < 256) (hl' : lay' < 256)
+    (hr : routed < 2 ^ 32) (hr' : routed' < 2 ^ 32) (h : hyperWordOld lay routed = hyperWordOld lay' routed') :
+    lay = lay' ∧ routed = routed' := by
+  have hh := congrArg BitVec.toNat h
+  rw [hyperWordOld_toNat, hyperWordOld_toNat, Nat.mod_eq_of_lt hr, Nat.mod_eq_of_lt hr', Nat.mod_eq_of_lt hl,
+    Nat.mod_eq_of_lt hl'] at hh
+  omega
+theorem hyperW_le (lay : Nat) : hyperW lay ≤ 31 := by
+  unfold hyperW
+  rcases lay with _ | _ | _ | _ | lay <;> simp
+theorem hyperWord_honest_lt {lay routed : Nat} (hr : routed < 2 ^ hyperW lay) :
+    1 + 2 * 2 ^ 8 + routed * 2 ^ 16 + 2 ^ (hyperW lay + 16) < 2 ^ (hyperW lay + 17) := by
+  have h1 : (routed + 1) * 2 ^ 16 ≤ 2 ^ hyperW lay * 2 ^ 16 := Nat.mul_le_mul_right _ hr
+  rw [pow_add, pow_add]
+  omega
+theorem hyperHonest_of {lay routed : Nat} (hl : lay < 4) (hr : routed < 2 ^ hyperW lay) : hyperHonest lay routed := by
+  have : 2 ^ hyperW lay ≤ 2 ^ 32 := Nat.pow_le_pow_right (by norm_num) (by have := hyperW_le lay; omega)
+  unfold hyperHonest
+  rw [Nat.mod_eq_of_lt (show lay < 256 by omega), Nat.mod_eq_of_lt (show routed < 2 ^ 32 by omega)]
+  exact ⟨hl, hr⟩
+theorem hyperHonest_iff {lay routed : Nat} (hl : lay < 256) (hr : routed < 2 ^ 32) :
+    hyperHonest lay routed ↔ lay < 4 ∧ routed < 2 ^ hyperW lay := by
+  unfold hyperHonest; rw [Nat.mod_eq_of_lt hl, Nat.mod_eq_of_lt hr]
+theorem hyperWord_toNat_of {lay routed : Nat} (h : hyperHonest lay routed) :
+    (hyperWord lay routed).toNat = 1 + 2 * 2 ^ 8 + routed % 2 ^ 32 * 2 ^ 16 + 2 ^ (hyperW (lay % 256) + 16) := by
+  unfold hyperWord
+  rw [if_pos h, BitVec.toNat_ofNat]
+  exact Nat.mod_eq_of_lt (lt_of_lt_of_le (hyperWord_honest_lt h.2)
+    (Nat.pow_le_pow_right (by norm_num) (by have := hyperW_le (lay % 256); omega)))
+/-- L-hyper: the label word in the verifier's range. -/
+theorem hyperWord_toNat_honest {lay routed : Nat} (hl : lay < 4) (hr : routed < 2 ^ hyperW lay) :
+    (hyperWord lay routed).toNat = 1 + 2 * 2 ^ 8 + routed * 2 ^ 16 + 2 ^ (hyperW lay + 16) := by
+  have : 2 ^ hyperW lay ≤ 2 ^ 32 := Nat.pow_le_pow_right (by norm_num) (by have := hyperW_le lay; omega)
+  rw [hyperWord_toNat_of (hyperHonest_of hl hr), Nat.mod_eq_of_lt (show lay < 256 by omega),
+    Nat.mod_eq_of_lt (show routed < 2 ^ 32 by omega)]
+theorem hyperWord_toNat_old {lay routed : Nat} (h : ¬ hyperHonest lay routed) :
+    (hyperWord lay routed).toNat =
+      1 + 2 * 2 ^ 8 + routed % 2 ^ 32 * 2 ^ 16 + lay % 256 * 2 ^ 48 + 193 * 2 ^ 56 := by
+  unfold hyperWord; rw [if_neg h, hyperWordOld_toNat]
+theorem hyperWord_toNat_lt_of {lay routed : Nat} (h : hyperHonest lay routed) :
+    (hyperWord lay routed).toNat < 2 ^ 48 := by
+  rw [hyperWord_toNat_of h]
+  exact lt_of_lt_of_le (hyperWord_honest_lt h.2)
+    (Nat.pow_le_pow_right (by norm_num) (by have := hyperW_le (lay % 256); omega))
+theorem hyperWord_toNat_lt_honest {lay routed : Nat} (hl : lay < 4) (hr : routed < 2 ^ hyperW lay) :
+    (hyperWord lay routed).toNat < 2 ^ 48 := hyperWord_toNat_lt_of (hyperHonest_of hl hr)
+theorem hyperW_ge {lay : Nat} (hl : lay < 4) : 12 ≤ hyperW lay := by
+  interval_cases lay <;> decide
+/-- L-hyper: every label word is at least `2 ^ 28` (marker bit `≥ 28`, or the legacy type byte). -/
+theorem hyperWord_ge (lay routed : Nat) : 2 ^ 28 ≤ (hyperWord lay routed).toNat := by
+  by_cases hA : hyperHonest lay routed
+  · rw [hyperWord_toNat_of hA]
+    have := hyperW_ge hA.1
+    have : 2 ^ 28 ≤ 2 ^ (hyperW (lay % 256) + 16) := Nat.pow_le_pow_right (by decide) (by omega)
+    omega
+  · rw [hyperWord_toNat_old hA]; omega
+/-- L-hyper: a label word depends only on `lay % 256` and `routed % 2 ^ 32`. -/
+theorem hyperWord_mod (lay routed : Nat) : hyperWord lay routed = hyperWord (lay % 256) (routed % 2 ^ 32) := by
+  have h' : hyperHonest (lay % 256) (routed % 2 ^ 32) ↔ hyperHonest lay routed := by
+    simp only [hyperHonest, Nat.mod_mod]
+  unfold hyperWord
+  by_cases h : hyperHonest lay routed
+  · rw [if_pos h, if_pos (h'.2 h)]; simp only [Nat.mod_mod]
+  · rw [if_neg h, if_neg (fun e => h (h'.1 e))]; simp only [hyperWordOld, Nat.mod_mod]
 theorem hyperWord_injective {lay routed lay' routed' : Nat} (hl : lay < 256) (hl' : lay' < 256)
     (hr : routed < 2 ^ 32) (hr' : routed' < 2 ^ 32) (h : hyperWord lay routed = hyperWord lay' routed') :
     lay = lay' ∧ routed = routed' := by
   have hh := congrArg BitVec.toNat h
-  rw [hyperWord_toNat, hyperWord_toNat, Nat.mod_eq_of_lt hr, Nat.mod_eq_of_lt hr', Nat.mod_eq_of_lt hl,
-    Nat.mod_eq_of_lt hl'] at hh
-  omega
+  by_cases hA : lay < 4 ∧ routed < 2 ^ hyperW lay <;> by_cases hB : lay' < 4 ∧ routed' < 2 ^ hyperW lay'
+  · rw [hyperWord_toNat_honest hA.1 hA.2, hyperWord_toNat_honest hB.1 hB.2, pow_add, pow_add] at hh
+    have he : routed + 2 ^ hyperW lay = routed' + 2 ^ hyperW lay' := by omega
+    obtain ⟨h4, hra⟩ := hA
+    obtain ⟨h4', hrb⟩ := hB
+    have hw : hyperW lay = hyperW lay' := by
+      rcases Nat.lt_trichotomy (hyperW lay) (hyperW lay') with hlt | heq | hgt
+      · exfalso
+        have : 2 ^ (hyperW lay + 1) ≤ 2 ^ hyperW lay' := Nat.pow_le_pow_right (by norm_num) hlt
+        rw [pow_succ] at this; omega
+      · exact heq
+      · exfalso
+        have : 2 ^ (hyperW lay' + 1) ≤ 2 ^ hyperW lay := Nat.pow_le_pow_right (by norm_num) hgt
+        rw [pow_succ] at this; omega
+    have hinj : ∀ a, a < 4 → ∀ b, b < 4 → hyperW a = hyperW b → a = b := by decide
+    have hlay := hinj lay h4 lay' h4' hw
+    subst hlay
+    exact ⟨rfl, by omega⟩
+  · have a := hyperWord_toNat_lt_honest hA.1 hA.2
+    rw [hh, hyperWord_toNat_old (by rwa [hyperHonest_iff hl' hr'])] at a; omega
+  · have a := hyperWord_toNat_lt_honest hB.1 hB.2
+    rw [← hh, hyperWord_toNat_old (by rwa [hyperHonest_iff hl hr])] at a; omega
+  · rw [hyperWord_toNat_old (by rwa [hyperHonest_iff hl hr]), hyperWord_toNat_old (by rwa [hyperHonest_iff hl' hr']),
+      Nat.mod_eq_of_lt hr, Nat.mod_eq_of_lt hr', Nat.mod_eq_of_lt hl, Nat.mod_eq_of_lt hl'] at hh
+    omega
 theorem append64_toNat (hi lo : BitVec 64) : (hi ++ lo).toNat = hi.toNat * 2 ^ 64 + lo.toNat := by
   rw [BitVec.toNat_append, ← Nat.shiftLeft_add_eq_or_of_lt lo.isLt, Nat.shiftLeft_eq]
 theorem append64_marker (hi lo : BitVec 64) : tweakMarker (hi ++ lo) = lo.toNat % 256 := by
@@ -1804,10 +1891,15 @@ theorem append64_inj {hi lo hi' lo' : BitVec 64} (h : hi ++ lo = hi' ++ lo') : h
   have h2 := congrArg (fun x : BitVec 128 => x.extractLsb' 0 64) h
   simp only [BitVec.extractLsb'_append_eq_left, BitVec.extractLsb'_append_eq_right] at h1 h2
   exact ⟨h1, h2⟩
+/-- L-hyper: the low 16 bits of a label word are `0x0201` in both formats. -/
+theorem hyperWord_low16 (lay routed : Nat) : (hyperWord lay routed).toNat % 2 ^ 16 = 0x201 := by
+  by_cases hA : hyperHonest lay routed
+  · rw [hyperWord_toNat_of hA, pow_add]; omega
+  · rw [hyperWord_toNat_old hA]; omega
 theorem hyperWord_marker (lay routed : Nat) : (hyperWord lay routed).toNat % 256 = 1 := by
-  rw [hyperWord_toNat]; omega
+  have := hyperWord_low16 lay routed; omega
 theorem hyperWord_tag (lay routed : Nat) : (hyperWord lay routed).toNat / 256 % 256 = 2 := by
-  rw [hyperWord_toNat]; omega
+  have := hyperWord_low16 lay routed; omega
 theorem leafTweak_marker (lay : Layer) (tree leaf : Nat) : tweakMarker (leafTweak lay tree leaf) = 1 := by
   rw [leafTweak, append64_marker, hyperWord_marker]
 theorem leafTweak_tag (lay : Layer) (tree leaf : Nat) : tweakTag (leafTweak lay tree leaf) = 2 := by
@@ -1856,7 +1948,7 @@ theorem nodeTweak_top_low (tree heap : Nat) : tweakLow (nodeTweak 3 0 tree heap)
 theorem nodeTweak_top_high (tree heap : Nat) : tweakHigh (nodeTweak 3 0 tree heap) = 0 := by
   rw [nodeTweak_top, append64_high]; rfl
 theorem nodeTweak_lower {lay : Nat} (h0 : lay ≠ 0) (h4 : lay < 4) (tree heap : Nat) :
-    nodeTweak 3 lay tree heap = BitVec.ofNat 64 heap ++ hyperWord (lay - 1) tree := by
+    nodeTweak 3 lay tree heap = BitVec.ofNat 64 heap ++ hyperWordOld (lay - 1) tree := by
   simp [nodeTweak, h0, h4]
 theorem ftsHeapLabel_invol (heap : Nat) : ftsHeapLabel (ftsHeapLabel heap) = heap := by
   unfold ftsHeapLabel
@@ -2011,10 +2103,10 @@ theorem nodeTweak_top_tag (tree heap : Nat) : tweakTag (nodeTweak 3 0 tree heap)
   rw [nodeTweak_top, append64_tag, topNodeWord_toNat64]
 theorem nodeTweak_lower_marker {lay : Nat} (h0 : lay ≠ 0) (h4 : lay < 4) (tree heap : Nat) :
     tweakMarker (nodeTweak 3 lay tree heap) = 1 := by
-  rw [nodeTweak_lower h0 h4, append64_marker, hyperWord_marker]
+  rw [nodeTweak_lower h0 h4, append64_marker, hyperWordOld_toNat]; omega
 theorem nodeTweak_lower_tag {lay : Nat} (h0 : lay ≠ 0) (h4 : lay < 4) (tree heap : Nat) :
     tweakTag (nodeTweak 3 lay tree heap) = 2 := by
-  rw [nodeTweak_lower h0 h4, append64_tag, hyperWord_tag]
+  rw [nodeTweak_lower h0 h4, append64_tag, hyperWordOld_toNat]; omega
 /-- C4: the high word of a top node tweak is 0, of a legacy lower node tweak the heap. -/
 theorem nodeTweak_hyper_high' {lay : Nat} (h4 : lay < 4) (tree heap : Nat) :
     tweakHigh (nodeTweak 3 lay tree heap) = if lay = 0 then 0 else heap % 2 ^ 64 := by
@@ -2027,7 +2119,7 @@ theorem nodeTweak_lower_high {lay : Nat} (h0 : lay ≠ 0) (h4 : lay < 4) (tree h
     tweakHigh (nodeTweak 3 lay tree heap) = heap % 2 ^ 64 := by
   rw [nodeTweak_hyper_high h4, if_neg h0]
 theorem nodeTweak_lower_low {lay : Nat} (h0 : lay ≠ 0) (h4 : lay < 4) (tree heap : Nat) :
-    tweakLow (nodeTweak 3 lay tree heap) = (hyperWord (lay - 1) tree).toNat := by
+    tweakLow (nodeTweak 3 lay tree heap) = (hyperWordOld (lay - 1) tree).toNat := by
   rw [nodeTweak_lower h0 h4, append64_lowNat]
 theorem header_toNat' (tag lay tree position index : Nat) :
     (header tag lay tree position index).toNat =
@@ -2135,15 +2227,15 @@ theorem nodeTweak_hyper_injective {lay lay' tree tree' heap heap' : Nat} (hl : l
       obtain ⟨a1, a2⟩ := htop rfl
       obtain ⟨b1, b2⟩ := htop' rfl
       exact ⟨rfl, by rw [h0 rfl, h0' rfl], topNodeWord_inj a1 a2 b1 b2 hL⟩
-    · rw [nodeTweak_lower_low hz' hl', hyperWord_toNat] at hL; omega
-  · rw [nodeTweak_lower_low hz hl, hyperWord_toNat] at hL
+    · rw [nodeTweak_lower_low hz' hl', hyperWordOld_toNat] at hL; omega
+  · rw [nodeTweak_lower_low hz hl, hyperWordOld_toNat] at hL
     by_cases hz' : lay' = 0
     · subst hz'; rw [nodeTweak_top_low] at hL; have := topNodeWord_lt heap'; omega
     · have hH := congrArg tweakHigh h
       rw [nodeTweak_lower_high hz hl, nodeTweak_lower_high hz' hl', Nat.mod_eq_of_lt hh, Nat.mod_eq_of_lt hh'] at hH
       rw [nodeTweak_lower hz hl, nodeTweak_lower hz' hl'] at h
       obtain ⟨-, hw⟩ := append64_inj h
-      obtain ⟨hlay, htree⟩ := hyperWord_injective (by omega) (by omega) ht ht' hw
+      obtain ⟨hlay, htree⟩ := hyperWordOld_injective (by omega) (by omega) ht ht' hw
       exact ⟨by omega, htree, hH⟩
 theorem ne_of_tweakMarker {a b : BitVec 128} (h : tweakMarker a ≠ tweakMarker b) : a ≠ b :=
   fun e => h (congrArg tweakMarker e)
@@ -2165,7 +2257,7 @@ theorem leafTweak_ne_nodeTweak (lay : Layer) (tree leaf : Nat) {lay' : Nat} (h4 
   · subst h0
     intro he
     have hL := congrArg tweakLow he
-    rw [leafTweak_low, hyperWord_toNat, nodeTweak_top_low] at hL
+    have := hyperWord_ge lay.val (tree * 2 ^ height lay + leaf); rw [leafTweak_low, nodeTweak_top_low] at hL
     have := topNodeWord_lt heap
     omega
   · exact ne_of_tweakHigh (by rw [leafTweak_high, nodeTweak_lower_high h0 h4]; exact (hh.resolve_left h0).symm)
@@ -2312,22 +2404,29 @@ theorem leafInput_length (lay : Layer) (tree leaf : Nat) (ends : List Digest) :
     omega
   · simp [SphincsSecurity.bytesLE_length, List.length_flatMap, List.map_const', List.sum_replicate]
     omega
+/-- L-hyper: in the verifier's range a chain header's low word is the label word minus `0x181` (the label's
+`0x0201` replaced by the chain marker `0x80`; the verifier adds `128 + i + 256 * step - 0x201` per chain head). -/
 theorem hyperWord_chainHeaderLow (lay : Layer) (tree leaf : Nat) (hf : leaf < 2 ^ height lay)
-    (hr : tree * 2 ^ height lay + leaf < 2 ^ 31) :
+    (hr : tree * 2 ^ height lay + leaf < 2 ^ hyperW lay.val) :
     hyperWord lay.val (tree * 2 ^ height lay + leaf) = chainHeaderLow lay tree leaf 0 0 + 0x181#64 := by
-  have htr : tree < 2 ^ 31 := by fin_cases lay <;> simp [height] at hr ⊢ <;> omega
-  have hlf : leaf < 4096 := by fin_cases lay <;> simp [height] at hf ⊢ <;> omega
-  have he1 : tree / 2 ^ (32 - height lay) = 0 := by
-    apply Nat.div_eq_of_lt; fin_cases lay <;> simp [height] at hr ⊢ <;> omega
-  have he2 : leaf / 2 ^ height lay = 0 := Nat.div_eq_of_lt hf
-  have hR : tree * 2 ^ height lay + leaf < 2 ^ 32 := by omega
   have hl := lay.isLt
+  have hw := hyperW_le lay.val
+  have h31 : 2 ^ hyperW lay.val ≤ 2 ^ 31 := Nat.pow_le_pow_right (by norm_num) hw
+  have hlf : leaf < 4096 := by fin_cases lay <;> simp [height] at hf ⊢ <;> omega
+  have htr : tree < 2 ^ 31 := by
+    have : tree ≤ tree * 2 ^ height lay := Nat.le_mul_of_pos_right _ (by positivity)
+    omega
+  have hH : chainHonest lay tree leaf := by
+    unfold chainHonest; rw [Nat.mod_eq_of_lt hlf, Nat.mod_eq_of_lt htr]; exact ⟨hf, hr⟩
   apply BitVec.eq_of_toNat_eq
-  rw [hyperWord_toNat, BitVec.toNat_add]
+  rw [hyperWord_toNat_honest hl hr, BitVec.toNat_add]
   unfold chainHeaderLow
-  simp only [BitVec.toNat_ofNat, Nat.mod_eq_of_lt htr, Nat.mod_eq_of_lt hlf, he1, he2, Nat.zero_mod,
-    Nat.zero_mul, Nat.add_zero, Nat.zero_div, Nat.zero_add, Nat.mod_eq_of_lt hR,
-    Nat.mod_eq_of_lt (show lay.val < 256 by omega)]
+  rw [if_pos hH, BitVec.toNat_ofNat, BitVec.toNat_ofNat, Nat.mod_eq_of_lt hlf, Nat.mod_eq_of_lt htr]
+  have hP : 2 ^ (hyperW lay.val + 16) ≤ 2 ^ 47 := Nat.pow_le_pow_right (by norm_num) (by omega)
+  have hR := lt_of_lt_of_le hr h31
+  generalize tree * 2 ^ height lay + leaf = R at hR ⊢
+  generalize 2 ^ (hyperW lay.val + 16) = P at hP ⊢
+  simp only [Nat.zero_mod, Nat.zero_mul, Nat.add_zero]
   omega
 /-- C4: the top node hash (half by heap parity; one-word label `topNodeWord heap`, honest high word 0). -/
 theorem nodeHash_top (tree heap : Nat) (left right : Digest) :

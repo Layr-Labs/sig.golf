@@ -3583,7 +3583,7 @@ def last (i : Nat) : Nat := topMax i - 1
 /-- The half of the step-`m` answer the image keeps (`= WCT9.chainHigh 0 i m`): G chains keep the high half on
 interior steps; campaign T51 (PIN v1): chain 0 keeps it on its terminal step too (answer at `slot 0 - 16`). -/
 def topHigh (i m : Nat) : Bool := topG i && (decide (m + 1 < topMax i) || decide (i = 0))
-def «prefix» (c : NCtx) : Nat := 128 + 193 * 2 ^ 56 + ((c.tree * 2 ^ 12 + c.leaf) % 2 ^ 32) * 2 ^ 16
+def «prefix» (c : NCtx) : Nat := 128 + ((c.tree * 2 ^ 12 + c.leaf) % 2 ^ 32 + 2 ^ 12) * 2 ^ 16
 def w0 (c : NCtx) (i : Nat) : Nat := c.prefix + i
 def w1 (c : NCtx) : Nat := hdr1 c.tree c.leaf
 def pad0 (c : NCtx) (i : Nat) : Digest := ClaudeWCT.W9.T3M.wdig c.w (c.pad0At i - Verify.WIT)
@@ -3778,7 +3778,7 @@ theorem w0_header (c : NCtx) (hc : c.ok) (i m : Nat) (hi : i < 51) (hm : m < 8) 
     (by rw [hc.1]; decide +kernel) hc.2.1]
   congr 1
   simp only [w0, «prefix», packedPrefix, packedHi, show height 0 = 12 from rfl, Fin.val_zero,
-    Nat.zero_mul, Nat.add_zero]
+    Nat.zero_mul, Nat.add_zero, show hyperW 0 = 12 from rfl]
   ring
 set_option maxRecDepth 20000 in
 theorem chain_hashInput (c : NCtx) (hc : c.ok) (i m : Nat) (hi : i < 51) (hm : m < 8) (v : Digest)

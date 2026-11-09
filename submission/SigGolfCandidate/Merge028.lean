@@ -6591,12 +6591,9 @@ theorem chainHeader_not_search (lay : Layer) (tree leaf i step : Nat) :
  have hd := chainHeader_ne_digestHeader lay tree leaf i step
  have hl : tweakLow (chainHeader lay tree leaf i step) ≠ 25984 := by
    intro he
-   have hc := chainHeader_marker lay tree leaf i step
+   have hc := chainHeader_low_ge28 lay tree leaf i step
    unfold tweakLow at he
-   have hx : (chainHeader lay tree leaf i step).toNat / 2^56 % 256 =
-       ((chainHeader lay tree leaf i step).toNat % 2^64) / 2^56 := by
-     rw [show (2:Nat)^64 = 2^56*256 by decide, Nat.mod_mul_right_div_self]
-   rw [hx, he] at hc
+   rw [he] at hc
    norm_num at hc
  unfold SearchHdr RowHdr
  omega
@@ -6824,11 +6821,12 @@ set_option backward.isDefEq.respectTransparency true in
 @[aesop safe apply] theorem avoids_keygen : Avoids secret target keygen := by
  unfold keygen; avoids_search
 end NonSearch
-theorem hyperWord_layer (lay routed : Nat) : (hyperWord lay routed).toNat / 2 ^ 48 % 256 = lay % 256 := by
- rw [hyperWord_toNat]
- have := Nat.mod_lt routed (show 0 < 2 ^ 32 by decide)
- have := Nat.mod_lt lay (show 0 < 256 by decide)
- omega
+/-- L-hyper: equal label words have equal layers (mod 256), through `hyperWord_injective` on the truncated fields. -/
+theorem hyperWord_layer {lay routed lay' routed' : Nat} (h : hyperWord lay routed = hyperWord lay' routed') :
+    lay % 256 = lay' % 256 := by
+ rw [hyperWord_mod lay, hyperWord_mod lay'] at h
+ exact (hyperWord_injective (Nat.mod_lt _ (by decide)) (Nat.mod_lt _ (by decide)) (Nat.mod_lt _ (by decide))
+   (Nat.mod_lt _ (by decide)) h).1
 theorem encodingTrial_ne_of_layer (lay other : Layer) (hne : lay ≠ other)
  (tree leaf : Nat) (message : Digest) (counter : Nat)
  (tree' leaf' : Nat) (message' : Digest) (counter' : Nat) :
@@ -6837,8 +6835,7 @@ theorem encodingTrial_ne_of_layer (lay other : Layer) (hne : lay ≠ other)
  have hh := congrArg queryHeader he
  simp only [queryHeader_encoding] at hh
  have hw := (append64_inj (bytesLE_injective hh)).2
- have hl := congrArg (fun w : BitVec 64 => w.toNat / 2 ^ 48 % 256) hw
- simp only [hyperWord_layer] at hl
+ have hl := hyperWord_layer hw
  have h1 : lay.val < 256 := by have := lay.isLt; omega
  have h2 : other.val < 256 := by have := other.isLt; omega
  rw [Nat.mod_eq_of_lt h1,Nat.mod_eq_of_lt h2] at hl
@@ -11607,10 +11604,6 @@ private theorem firstByte_of_low64_eq (x y : Digest)
     x.toNat % 256 = y.toNat % 256 := by
   have := low64_toNat_eq x y h
   omega
-theorem chainHeaderP_marker (lay : Layer) (tree leaf i step : Nat) (headerPad : BitVec 64) :
-    (chainHeaderP lay tree leaf i step headerPad).toNat / 2^56 % 256 = 193 :=
-  (marker_of_low64_eq _ _ BitVec.extractLsb'_append_eq_right).trans
-    (T3.chainHeader_marker lay tree leaf i step)
 theorem chainHeaderP_firstByte (lay : Layer) (tree leaf i step : Nat) (headerPad : BitVec 64) :
     128 ≤ (chainHeaderP lay tree leaf i step headerPad).toNat % 256 := by
   rw [firstByte_of_low64_eq (chainHeaderP lay tree leaf i step headerPad)

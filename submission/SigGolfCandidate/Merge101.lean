@@ -119,7 +119,8 @@ theorem posOf_row_none {x : HashInput} {lay : Layer} {tree leaf : Nat} {hi : Bit
     omega
   -- C4: the row tweak's low word carries type byte 193, so it is no top label.
   have hT : ¬ Extract.TopLow (Extract.hdrBlock x) := by
-    rw [hx, Extract.topLow_bytesLE_iff, append64_lowNat, hlow, hyperWord_toNat]; omega
+    rw [hx, Extract.topLow_bytesLE_iff, append64_lowNat, hlow]
+    have := hyperWord_ge lay.val (tree * 2 ^ height lay + leaf); omega
   rw [Extract.hdrKey_of_len64 hlen hT, hx, SigGolfCandidate.T3M.Extract.canonicalHeader_marker_ne _ hm ht] at he
   have hlo := congrArg (BitVec.extractLsb' 0 64) (bytesLE_injective he)
   rw [BitVec.extractLsb'_append_eq_right] at hlo
@@ -257,11 +258,18 @@ theorem posOf_chain_offgraph (lay : Layer) (tree leaf i step : Nat) (value : Dig
         have hh := Extract.node_heap_lt128 hnd h7
         rw [hlo] at hbit
         simp only [Extract.Pos.hdr] at hbit
-        rw [Extract.merkleTweak_layer_lower h0, BitVec.extractLsb'_toNat, Nat.shiftRight_zero,
-          WCT9.lowerTweak_toNat hh] at hbit
+        rw [Extract.merkleTweak_layer_lower h0, BitVec.extractLsb'_toNat, Nat.shiftRight_zero] at hbit
         have h1 := Nat.mod_lt tree' (show 0 < 2 ^ 32 by decide)
         have h2 : (lay'.val - 1) % 256 ≤ 2 := by have := lay'.isLt; omega
-        omega
+        by_cases hA : hyperHonest (lay'.val - 1) tree'
+        · rw [WCT9.lowerTweak_toNat_honest hh hA] at hbit
+          have hr := hA.2
+          have h31 : 2 ^ hyperW ((lay'.val - 1) % 256) ≤ 2 ^ 31 := Nat.pow_le_pow_right (by norm_num) (hyperW_le _)
+          generalize tree' % 2 ^ 32 = R at hr hbit
+          generalize 2 ^ hyperW ((lay'.val - 1) % 256) = Q at hr h31 hbit
+          omega
+        · rw [WCT9.lowerTweak_toNat_old hh hA] at hbit
+          omega
   | _ =>
       exact low_ne_of_firstByte _ _ (chainHeader_firstByte lay tree leaf i step)
         (Extract.Pos.hdr_marker_lt hb (by simp only [Extract.Pos.cls]; (try split) <;> omega)
@@ -949,7 +957,8 @@ theorem posOf_row_none {x : HashInput} {lay : Layer} {tree leaf : Nat} {hi : Bit
     omega
   -- C4: the row tweak's low word carries type byte 193, so it is no top label.
   have hT : ¬ Extract.TopLow (Extract.hdrBlock x) := by
-    rw [hx, Extract.topLow_bytesLE_iff, append64_lowNat, hlow, hyperWord_toNat]; omega
+    rw [hx, Extract.topLow_bytesLE_iff, append64_lowNat, hlow]
+    have := hyperWord_ge lay.val (tree * 2 ^ height lay + leaf); omega
   rw [Extract.hdrKey_of_len64 hlen hT, hx, SigGolfCandidate.T3M.Extract.canonicalHeader_marker_ne _ hm ht] at he
   have hlo := congrArg (BitVec.extractLsb' 0 64) (bytesLE_injective he)
   rw [BitVec.extractLsb'_append_eq_right] at hlo
@@ -1087,11 +1096,18 @@ theorem posOf_chain_offgraph (lay : Layer) (tree leaf i step : Nat) (value : Dig
         have hh := Extract.node_heap_lt128 hnd h7
         rw [hlo] at hbit
         simp only [Extract.Pos.hdr] at hbit
-        rw [Extract.merkleTweak_layer_lower h0, BitVec.extractLsb'_toNat, Nat.shiftRight_zero,
-          WCT9.lowerTweak_toNat hh] at hbit
+        rw [Extract.merkleTweak_layer_lower h0, BitVec.extractLsb'_toNat, Nat.shiftRight_zero] at hbit
         have h1 := Nat.mod_lt tree' (show 0 < 2 ^ 32 by decide)
         have h2 : (lay'.val - 1) % 256 ≤ 2 := by have := lay'.isLt; omega
-        omega
+        by_cases hA : hyperHonest (lay'.val - 1) tree'
+        · rw [WCT9.lowerTweak_toNat_honest hh hA] at hbit
+          have hr := hA.2
+          have h31 : 2 ^ hyperW ((lay'.val - 1) % 256) ≤ 2 ^ 31 := Nat.pow_le_pow_right (by norm_num) (hyperW_le _)
+          generalize tree' % 2 ^ 32 = R at hr hbit
+          generalize 2 ^ hyperW ((lay'.val - 1) % 256) = Q at hr h31 hbit
+          omega
+        · rw [WCT9.lowerTweak_toNat_old hh hA] at hbit
+          omega
   | _ =>
       exact low_ne_of_firstByte _ _ (chainHeader_firstByte lay tree leaf i step)
         (Extract.Pos.hdr_marker_lt hb (by simp only [Extract.Pos.cls]; (try split) <;> omega)

@@ -15,7 +15,7 @@ theorem layout_offsets : submission.layout =
   { message := 26016, secretKey := 128, publicKey := 160,
     cache := 524288, signature := 28672, witness := 4256 } := rfl
 
-theorem certificate : SigGolf.Certificate submission 6971 := by
+theorem certificate : SigGolf.Certificate submission 6970 := by
   exact SigGolfCandidate.Packaging.certificate_ready
 
 end SigGolf.Challenge
@@ -26,10 +26,14 @@ end SigGolf.Challenge
 #print axioms SigGolf.Challenge.layout_offsets
 #print axioms SigGolf.Challenge.certificate
 
-/- Proposed pool-71 / top-floor-18 retuning of the inherited Z5 scheme.
-   The exact signing-envelope numerator is
-   680529817020207430736995740672230147091 over 2^128 (< 1.99990).
-   The top counter window is enlarged to 2^21, restoring the inherited
-   433-bit tail and 139-bit security context bound. The top per-trial
-   termination allowance is tightened from 755 to 350 using the T51 kernel.
-   Claim C = 6971 requires independent accepting verification. -/
+/- Development candidate based on Z4 (f8127b2): use FTS node bias -67073
+   and the aligned chain-label translation, remap FTS heap 7 to 64 and
+   Top label 7 to 520192, and separate digest queries with low word 25984.
+   The target removes three verifier setup instructions.
+   Z6: mpjunior92's dedicated-one elimination (8cff05d) on dda3ccf1: the
+   verifier's `addi t2,zero,1` is removed (step-one stores use s1 with
+   control words 0xfff01/0x7fc01, top root label 856064, FTS root label
+   0xfff01).
+   Y4: L-hyper A' (marker label words; -2 per run).
+   Claimed S = 5188, W = 21756, K = 131072, C = 6970;
+   product = 36,160,360. Independent acceptance remains required. -/

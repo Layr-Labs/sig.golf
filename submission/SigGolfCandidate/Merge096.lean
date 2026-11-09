@@ -249,7 +249,7 @@ theorem lower_sel {lay : Layer} (h : lay ≠ 0) (j : Nat) : SigGolfCandidate.T3M
   unfold SigGolfCandidate.T3M.Keygen.selectorExtra; rw [if_neg h]
 theorem lower_e {A : LeafArgs} (hlay : A.lay ≠ 0) (hso : A.so = false) (j : Nat) : A.e j = 7 := by
   unfold LeafArgs.e; rw [hso]; simp only [Bool.false_eq_true, if_false]; unfold maxDigit; rw [if_neg hlay]
-theorem lower_rungC {lay : Layer} (h : lay ≠ 0) : rungC lay = if lay = 1 then 45 else 46 := by
+theorem lower_rungC {lay : Layer} (h : lay ≠ 0) : rungC lay = if lay = 1 then 52 else 53 := by
   fin_cases lay
   · exact absurd rfl h
   all_goals decide
@@ -498,7 +498,7 @@ theorem chain_cont {im : Image}
     (t : MachineState) (seed carry : Digest)
     (hp : t.pc=pcOf (1013+61)) (ht : LeafInv s A j st t) (hs : HybOf s0 s t)
     (h28 : t.getReg .x28=0) (hseed : DigAt t SEEDS seed) (hcarry : DigAt t (SEEDS+16) carry) :
-    TBSim im sk t 679 (chainPrefixes A.lay A.tree A.leaf j 0 7 seed)
+    TBSim im sk t 728 (chainPrefixes A.lay A.tree A.leaf j 0 7 seed)
       (fun vs w => vs.length=8 ∧ w.pc=pcOf (1013+41) ∧
         ∃ base values, HybOf s0 base w ∧
           LeafInv base A (j+1) (st.1++[vs.getD 7 0],values) w ∧
@@ -871,7 +871,7 @@ def prefixStep (A : LeafArgs) (coefs : List Digest) (prefixes : List (List Diges
   let vs ← chainPrefixes A.lay A.tree A.leaf j 0 7 (WCT9.lowerFamilySeed coefs A.lay A.leaf j)
   pure (prefixes++[vs])
 
-def chainC : Nat := 5+lowerSeedC+679
+def chainC : Nat := 5+lowerSeedC+728
 
 end ClaudeWCT.W9.Machine.Sign.SharedLeafMemory
 
@@ -926,7 +926,7 @@ theorem chain_cont_unselected {im : Image}
     (hp : t.pc=pcOf (1013+61)) (ht : LeafInv s A j st t) (hs : HybOf s0 s t)
     (h28 : t.getReg .x28=0) (hseed : DigAt t SEEDS seed) (hcarry : DigAt t (SEEDS+16) carry)
     (hmiss : SharedPrefixes.selectionWord (t.getMem 0x20550) A.lay.val ≠ t.getReg .x18) :
-    TBSim im sk t 679 (chainPrefixes A.lay A.tree A.leaf j 0 7 seed)
+    TBSim im sk t 728 (chainPrefixes A.lay A.tree A.leaf j 0 7 seed)
       (fun vs w => vs.length=8 ∧ w.pc=pcOf (1013+41) ∧
         ∃ base values, HybOf s0 base w ∧
           LeafInv base A (j+1) (st.1++[vs.getD 7 0],values) w ∧
@@ -1138,7 +1138,7 @@ theorem chain_cont_guarded {im : Image}
     (t : MachineState) (seed carry : Digest)
     (hp : t.pc=pcOf (1013+61)) (ht : LeafInv s A j st t) (hs : HybOf s0 s t)
     (h28 : t.getReg .x28=0) (hseed : DigAt t SEEDS seed) (hcarry : DigAt t (SEEDS+16) carry) :
-    TBSim im sk t 679 (chainPrefixes A.lay A.tree A.leaf j 0 7 seed)
+    TBSim im sk t 728 (chainPrefixes A.lay A.tree A.leaf j 0 7 seed)
       (fun vs w => vs.length=8 ∧ w.pc=pcOf (1013+41) ∧
         ∃ base values, HybOf s0 base w ∧
           LeafInv base A (j+1) (st.1++[vs.getD 7 0],values) w ∧
@@ -1336,7 +1336,7 @@ theorem buildLeafPrefixes_precise {im : Image} (hsub : Sign.SharedLeafCode.Code 
   have hC : CHAIN = 131488 := rfl
   have hLO : LOUT = 132032 := rfl
   obtain ⟨t1, st1, t1pc, t1x3, t1x19, t1l16, t1l24, t1r, t1f⟩ :=
-    Sign.SharedLeaf.sub27_spec hsub s0 hpc A.lay A.tree A.leaf (by have := hpre.hroute; omega) hpre.x8 hpre.x9 hpre.x18
+    Sign.SharedLeaf.sub27_spec hsub s0 hpc A.lay A.tree A.leaf hpre.hroute hpre.x8 hpre.x9 hpre.x18
       (Or.inr h15) hlay
   have h0 : LeafInv s0 A 0 ([], []) t1 := by
     refine ⟨t1x19, ?_, by rw [t1x3, hpre.x1], t1r.mono (by decide), t1f.mono (fun X _ h => ?_), t1l16,
@@ -1731,8 +1731,10 @@ theorem tail (hlevels : SharedTreeCode.Code im 1013) {sk : SecretKey} {cache : B
   obtain ⟨t1, st1, t1pc, -, t1r, t1f⟩ := blk1175_spec hc t ht.pc (2 ^ height lay) (height lay) (by omega)
     (by omega) ht.x13 (by rw [g _ (by decide), hs.x15])
   rw [if_neg (lt_irrefl _)] at t1pc
+  have hHon : tree < 2 ^ SigGolfCandidate.T3.hyperW (lay.val - 1) :=
+    SigGolfCandidate.T3M.LH.tree_honest_of_route lay (fun h => hlay (Fin.ext h)) (hs.hroute 0 (by positivity))
   obtain ⟨t2, st2, t2pc, t2x1, t2x21, t2r, t2f⟩ := blk1193_spec hc t1 t1pc lay.val tree
-    (by have : lay.val ≠ 0 := fun h => hlay (Fin.ext h); omega) (by have := lay.isLt; omega) hs.htree
+    (by have : lay.val ≠ 0 := fun h => hlay (Fin.ext h); omega) (by have := lay.isLt; omega) hHon
     (by rw [t1r.get (by simp), g _ (by decide), hs.x8]) (by rw [t1r.get (by simp), g _ (by decide), hs.x9])
   have g2 : ∀ r, r ∉ btRegs ++ [.x6] ++ [.x1, .x6, .x21] → t2.getReg r = s1.getReg r := fun r hr =>
     ((ht.regs.trans t1r).trans t2r).get hr
@@ -1770,7 +1772,7 @@ theorem tail (hlevels : SharedTreeCode.Code im 1013) {sk : SecretKey} {cache : B
         exact ht.roots.frame (t1f.trans t2f) (by rw [ht.len]; shared_tree_sgo) (fun _ _ _ h => by
           rcases h with h | h <;> exact h) }
   have hlev := SharedTree.buildLevelsBelow_tbsim hlevels sk hlp (by show 1040 ≤ LOW; decide)
-    (by show height lay ≤ 7; exact hH7)
+    (by show height lay ≤ 7; exact hH7) hHon
     (by show 1 ≤ lay.val; exact Nat.pos_of_ne_zero (fun h => hlay (Fin.ext h)))
     (by show 2 ≤ height lay; rcases hH with h | h <;> omega) t2pc
   have hlc := btLev_costs lay hlay tree
@@ -2913,7 +2915,7 @@ theorem leafPreS_of {s : MachineState} {A : LeafArgs} (hb : SharedTopPath.StateB
     (hvs : A.valp + 16 * 51 ≤ PRIV ∨ LEAFPK + 960 ≤ A.valp) (hd8 : A.so = false → A.dest % 8 = 0)
     (hd : A.dest + 16 ≤ 2 ^ 24) (hds : A.dest + 16 ≤ PRIV ∨ LEAFPK + 960 ≤ A.dest ∨ (CHAIN + 80 ≤ A.dest ∧ A.dest + 16 ≤ LOUT))
     (hdv : A.dest + 16 ≤ A.valp ∨ A.valp + 16 * 51 ≤ A.dest)
-    (hroute : A.tree * 2 ^ height A.lay + A.leaf < 2 ^ 31)
+    (hroute : A.tree * 2 ^ height A.lay + A.leaf < 2 ^ T3.hyperW A.lay.val)
     (hleafHeight : A.leaf < 2 ^ height A.lay)
     (hsteps : ∀ i < A.n, A.e i ≤ 8) : LeafPreS sk s A := by
   have hn : A.n = 51 := by show chainCount A.lay = 51; rw [hlay]; rfl
@@ -3019,7 +3021,7 @@ theorem top_only (hcode : SharedTopBlocks.Code im) (hTop : LeafSpec im)
       (Or.inl (by show SIG + 2240 + 16 * 51 ≤ PRIV; packed_sgo)) (fun h => by simp [tl0] at h)
       (by show dest0 + 16 ≤ 2 ^ 24; omega) (Or.inl (by show dest0 + 16 ≤ PRIV; packed_sgo))
       (Or.inl (by show dest0 + 16 ≤ SIG + 2240; packed_sgo))
-      (by change 0 * 2 ^ 12 + leaf < 2 ^ 31; omega)
+      (by change 0 * 2 ^ 12 + leaf < 2 ^ 12; omega)
       (by change leaf < 4096; omega)
       (fun i hi => by have := hd7 i hi; change ds.getD i 0 ≤ 8; omega)
   have hL0 := hTop sk (tl0 leaf ds dest0) u1 rfl rfl rfl hdm (by show SIG + 2240 + 16 * 51 ≤ 0x60000; packed_sgo)
@@ -4239,13 +4241,13 @@ theorem leaf_iter71 (hsub : Sign.SharedLeafCode.Code im 1013) (hchain : SharedCh
 Stage 2 (C3, #866): every rung also runs the chain-0 trampoline, so 350 -> 365.
 Pairing stage 1: every rung also runs the F step block (3 more steps), so 365 -> 386.
 Witness stack: the top step block 1760.. (G chains even `j ≤ 52`; `e ≤ maxDigit 0 j`), so 386 -> 469
-(`topChain_cost`). -/
-def topChainC : Nat := 5 + hornCT + 1 + 469
+(`topChain_cost`). L-hyper A: the top header runs the marker trampoline (`headerK 0` 30 -> 37), so 469 -> 473. -/
+def topChainC : Nat := 5 + hornCT + 1 + 473
 
 omit hpre in
 /-- Witness stack: the cycle bound of one top chain from `b + 71` (`e ≤ maxDigit 0 j`, at most 7 rungs). -/
 theorem topChain_cost : ∀ j, j < 51 → ∀ e, e ≤ maxDigit 0 j →
-    24 + selectorExtra 0 j + sumTo (SharedChain.topRungC j) e ≤ 469 := by
+    24 + selectorExtra 0 j + sumTo (SharedChain.topRungC j) e ≤ 473 := by
   decide +kernel
 
 structure FStT (s0 : MachineState) (A : LeafArgs) (coefs : List Digest) (j : Nat)
@@ -4316,7 +4318,7 @@ theorem top_chain_step (hcode : SharedTopSeed.Code im) (hsub : Sign.SharedLeafCo
       SigGolfCandidate.T3M.Sign.Packed.sumTo_le_sumTo _ _ _
         (fun m _ => by unfold SharedChain.topRungK SharedChain.topRungC; omega)
     omega
-  have hc : 24 + selectorExtra A.lay j + sumTo (SharedChain.topRungC j) (A.e j) ≤ 469 := by
+  have hc : 24 + selectorExtra A.lay j + sumTo (SharedChain.topRungC j) (A.e j) ≤ 473 := by
     rw [hlay]; exact topChain_cost j hj (A.e j) hdj
   rw [topStep_eq hlay hso htree]
   refine TBSim.mono (TBSim.steps (((((st1.trans st2).trans st3).trans st4).trans sw).trans sw2)
@@ -4363,7 +4365,7 @@ theorem topLeafSpec (hcode : SharedTopSeed.Code im) (hsub : Sign.SharedLeafCode.
   have hC : CHAIN = 131488 := rfl
   have hleaf : A.leaf < 4096 := by have := hpre.hleafHeight; rw [hlay] at this; exact this
   obtain ⟨t1, st1, t1pc, t1x3, t1l16, t1l24, t1r, t1f⟩ :=
-    Sign.SharedLeaf.sub27_pre_spec hsub s0 hpc A.lay A.tree A.leaf (by have := hpre.hroute; omega) hpre.x8 hpre.x9
+    Sign.SharedLeaf.sub27_pre_spec hsub s0 hpc A.lay A.tree A.leaf hpre.hroute hpre.x8 hpre.x9
       hpre.x18 (Or.inl htree)
   obtain ⟨t2, st2, t2pc, t2r, t2f⟩ := pre0_spec hcode t1 t1pc (by rw [t1r.get (by decide), hpre.x8, hlay]; rfl)
   obtain ⟨t3, st3, t3pc, t3x1, t3r, t3f⟩ := jal_spec hcode t2 t2pc
@@ -7394,7 +7396,7 @@ theorem Post.btPre {sk : SecretKey} {cache : Bytes 131072} {s t : MachineState}
       base := hb.frame h.frame h.regs (by decide) (fun _ _ _ he => he)
       hlay := hlay
       htree := by fin_cases lay <;> simp_all [route,SigGolfCandidate.T3.height] <;> omega
-      hroute := by intro l hl; fin_cases lay <;> simp_all [route,SigGolfCandidate.T3.height] <;> omega
+      hroute := by intro l hl; fin_cases lay <;> simp_all [route,SigGolfCandidate.T3.height,SigGolfCandidate.T3.hyperW] <;> omega
       hsel := by fin_cases lay <;> simp_all [route,SigGolfCandidate.T3.height] <;> omega
       hdb := by simp
       digits := by intro i hi; rw [h.frame.getByte (by unfold DIGITS; omega) (fun he => he)]; simpa using hz i hi
@@ -8978,7 +8980,7 @@ open RiscvZkvm.Rv64 SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv SigGol
 open SigGolfCandidate.T3M.Keygen
 set_option maxHeartbeats 2000000
 set_option maxRecDepth 100000
-def initResidualCode : List (BitVec 32) := bv_list% 32 [0x66e37,0xe0e13,0x4700313,0x6e3423]
+def initResidualCode : List (BitVec 32) := bv_list% 32 [0x66e37,0xe0e13,0x4600313,0x6e3423]
 sym_block initResidual := symRun { noAlias := true } initResidualCode (pcOf 22226) 100
 def firstLayerCode : List (BitVec 32) := bv_list% 32 [0x100413]
 sym_block firstLayer := symRun { noAlias := true } firstLayerCode (pcOf 22239) 100
@@ -8989,7 +8991,7 @@ sym_block topProduce := symRun { noAlias := true } topProduceCode (pcOf 22478) 1
 
 theorem initResidual_steps {im : Image} (hc : CodeAt im (pcOf 22226) initResidualCode)
     (s : MachineState) (hp : s.pc=pcOf 22226) :
-    ∃ t,Steps im s 4 4 t ∧ t.pc=pcOf 22230 ∧ t.getMem (0x66008#64)=71 ∧
+    ∃ t,Steps im s 4 4 t ∧ t.pc=pcOf 22230 ∧ t.getMem (0x66008#64)=70 ∧
       RegsExcept s t [.x6,.x28] ∧ Frame s t (fun A => A=0x66008) := by
   refine ⟨_,symRun_sound initResidual hc s hp (by simp [initResidual.res,rv_simp];try decide),?_,?_,?_,?_⟩
   · simp [initResidual.res,rv_simp]
@@ -9536,7 +9538,7 @@ set_option maxHeartbeats 2000000
 set_option maxRecDepth 100000
 set_option Elab.async false
 theorem installed_kernel (P : Prop) (hP : P) : KernAt Images.signImage 543 P := by
-  refine ⟨⟨?_,?_⟩,Or.inr rfl,?_,⟨?_,?_,?_⟩,?_,?_,?_,hP⟩
+  refine ⟨⟨?_,?_⟩,Or.inr rfl,And.intro ?_ ?_,⟨?_,?_,?_⟩,?_,?_,?_,hP⟩
   all_goals sign_slice_fast
 
 
@@ -9581,7 +9583,7 @@ theorem Tables.frame {s t : MachineState} {W : Nat→Prop} {regs : List Reg}
   · exact h.t51.frame hf (by decide) (by decide) (fun k hk => hw _ (Or.inr (Or.inl (by unfold TOP_DATA;omega))))
 
 def topArgs (index : Nat) (pair : Digest×Digest) : Canonical.CsArgs :=
-  ⟨0,(route index 0).2,(route index 0).1,.pair pair.1 pair.2,22208,18⟩
+  ⟨0,(route index 0).2,(route index 0).1,.pair pair.1 pair.2,22208,17⟩
 
 theorem top_pre (index : Nat) (hi : index<2^31) (pair : Digest×Digest)
     (s t : MachineState) (h : SharedTopSetup.Post index pair.1 pair.2 s t)
@@ -9593,12 +9595,12 @@ theorem top_pre (index : Nat) (hi : index<2^31) (pair : Digest×Digest)
     exact Nat.mod_eq_of_lt (by omega)
   refine ⟨h.pc,h.ret,ht.x5,h.x8,?_,?_,h.x17,h.x26,h.x27,?_,?_,?_,Or.inl hr,
     h.left.1,h.left.2,hc,ht.z40,h.right.1,h.right.2,ht.table,ht.cf,ht.reward,ht.zt,
-    (show (18:Nat)<22 by decide),by intro; rfl,?_,fun _ => ht.t51⟩
+    (show (17:Nat)<22 by decide),by intro; rfl,?_,fun _ => ht.t51⟩
   · simpa [topArgs,hr] using h.x9
   · simpa only [topArgs,hl] using h.x18
   · change (route index 0).2<2^32;rw [hr];decide
   · change (route index 0).1<2^32;rw [hl];omega
-  · change (route index 0).2*2^12+(route index 0).1<2^32;rw [hr,hl];omega
+  · change (route index 0).2*2^12+(route index 0).1<2^12;rw [hr,hl];omega
   · intro hn;exact (hn rfl).elim
 
 def lowerArgs (lay : Layer) (index floor : Nat) (pair : Digest×Digest) : Canonical.CsArgs :=
@@ -9613,8 +9615,8 @@ theorem lower_pre (lay : Layer) (hl : lay≠0) (index residual hints : Nat) (hi 
     Canonical.CsPre 543 (lowerArgs lay index (CanonicalPolicy.threshold lay.val residual) pair) t := by
   have htree : (route index lay).2<2^32 := by fin_cases lay <;> simp_all [T3.route,T3.height] <;> omega
   have hleaf : (route index lay).1<2^32 := by fin_cases lay <;> simp_all [T3.route,T3.height] <;> omega
-  have hroute : (route index lay).2*2^height lay+(route index lay).1<2^32 := by
-    fin_cases lay <;> simp_all [T3.route,T3.height] <;> omega
+  have hroute : (route index lay).2*2^height lay+(route index lay).1<2^T3.hyperW lay.val := by
+    fin_cases lay <;> simp_all [T3.route,T3.height,T3.hyperW] <;> omega
   refine ⟨h.pc,h.ret,ht.x5,h.layer,?_,?_,?_,?_,?_,htree,hleaf,hroute,Or.inr ?_,
     h.leftLo.trans hp0.1,?_,hc,ht.z40,h.rightLo.trans hp1.1,?_,ht.table,ht.cf,ht.reward,ht.zt,hf,?_,?_,?_⟩
   · fin_cases lay <;> (try exact (hl rfl).elim) <;> simpa [lowerArgs,T3.route,T3.height,T3.chainCount,T3.target,CanonicalPolicy.normalLayer,Search.csN4] using h.tree
@@ -9768,7 +9770,7 @@ structure TopTailSteps (im : Image) : Prop where
       (∀ i,i<7 → t.getMem (BitVec.ofNat 64 (0x66100+8*i))=s.getMem (BitVec.ofNat 64 (DIGITS+8*i))) ∧
       RegsExcept s t [.x6,.x28,.x29] ∧ Frame s t (fun A => 0x66100≤A ∧ A<0x66100+56)
   init : ∀ s : MachineState, s.pc=pcOf 22226 →
-    ∃ t,Steps im s 4 4 t ∧ t.pc=pcOf 22230 ∧ t.getMem (0x66008#64)=71 ∧
+    ∃ t,Steps im s 4 4 t ∧ t.pc=pcOf 22230 ∧ t.getMem (0x66008#64)=70 ∧
       RegsExcept s t [.x6,.x28] ∧ Frame s t (fun A => A=0x66008)
   residual : ∀ s : MachineState, s.pc=pcOf 22230 → ∀ r c : Nat, r<2^32 → c<2^32 →
     s.getMem (0x66008#64)=BitVec.ofNat 64 r → s.getMem (0x66018#64)=BitVec.ofNat 64 c →
@@ -9789,7 +9791,7 @@ theorem topTail_subset {A : Nat} (h : TopTailWrites A) : WorkWrites A := by
 structure TopTailPost (low : Bool) (ds : List Nat) (s t : MachineState) : Prop where
   pc : t.pc=pcOf 22240
   layer : t.getReg .x8=1
-  residual : t.getMem (0x66008#64)=BitVec.ofNat 64 (CanonicalPolicy.nextResidual 71 0 low ds)
+  residual : t.getMem (0x66008#64)=BitVec.ofNat 64 (CanonicalPolicy.nextResidual 70 0 low ds)
   saved : ∀ i,i<7 → t.getMem (BitVec.ofNat 64 (0x66100+8*i))=s.getMem (BitVec.ofNat 64 (DIGITS+8*i))
   regs : RegsExcept s t [.x3,.x6,.x7,.x8,.x28,.x29]
   frame : Frame s t TopTailWrites
@@ -9802,7 +9804,7 @@ theorem top_tail {im : Image} (hc : TopTailSteps im)
   obtain ⟨b,ab,bp,brm,br,bf⟩ := hc.init a ap
   have bcm : b.getMem (0x66018#64)=BitVec.ofNat 64 (CanonicalPolicy.credit 0 low ds) :=
     (bf.get (by decide) (by decide)).trans ((af.get (by decide) (by omega)).trans hcm)
-  obtain ⟨c,k,bc,hk,cp,crm,cr,cf⟩ := hc.residual b bp 71 (CanonicalPolicy.credit 0 low ds) (by decide) (credit_small _ _ _) brm bcm
+  obtain ⟨c,k,bc,hk,cp,crm,cr,cf⟩ := hc.residual b bp 70 (CanonicalPolicy.credit 0 low ds) (by decide) (credit_small _ _ _) brm bcm
   obtain ⟨t,ct,tp,t8,tr,tf⟩ := hc.first c cp
   refine ⟨t,18+4+k+1,((sa.trans ab).trans bc).trans ct,by omega,?_,t8,?_,?_,?_,?_⟩
   · exact tp
@@ -9818,8 +9820,8 @@ theorem top_tail {im : Image} (hc : TopTailSteps im)
       · exact Or.inr h
       · exact h.elim)
 
-theorem top_residual_small {low : Bool} {ds : List Nat} (h : 18≤CanonicalPolicy.credit 0 low ds) :
-    CanonicalPolicy.nextResidual 71 0 low ds<54 := by
+theorem top_residual_small {low : Bool} {ds : List Nat} (h : 17≤CanonicalPolicy.credit 0 low ds) :
+    CanonicalPolicy.nextResidual 70 0 low ds<54 := by
   unfold CanonicalPolicy.nextResidual;omega
 
 theorem words_bytes {s t : MachineState} (A B n : Nat) (hA : A%8=0) (hB : B%8=0)
@@ -10089,8 +10091,8 @@ structure TopReady (index : Nat) (p : PreparedRoots) (forest : Digest×Digest) (
     (s t : MachineState) : Prop where
   pc : t.pc=pcOf 22240
   layer : t.getReg .x8=1
-  residual : t.getMem (0x66008#64)=BitVec.ofNat 64 (CanonicalPolicy.nextResidual 71 0 low ds)
-  small : CanonicalPolicy.nextResidual 71 0 low ds<54
+  residual : t.getMem (0x66008#64)=BitVec.ofNat 64 (CanonicalPolicy.nextResidual 70 0 low ds)
+  small : CanonicalPolicy.nextResidual 70 0 low ds<54
   hints : t.getMem (0x66000#64)=0
   c32 : ∃ c<2^32,t.getMem (BitVec.ofNat 64 (ENC+32))=BitVec.ofNat 64 c
   stable : Stable index p forest t
@@ -10114,7 +10116,7 @@ theorem top_stage {im : Image} {sk : BitVec 256} (hs : SearchCalls im sk)
     (hh : s.getMem (0x66000#64)=0)
     (hc32 : ∃ c<2^32,s.getMem (BitVec.ofNat 64 (ENC+32))=BitVec.ofNat 64 c) :
     TBSim im sk s (Canonical.csCost 0+57)
-      (CanonicalPolicy.layerCounterSearchAt 0 18 (route index 0).2 (route index 0).1
+      (CanonicalPolicy.layerCounterSearchAt 0 17 (route index 0).2 (route index 0).1
         (.pair (topPair 1 p.one.levels).1 (topPair 1 p.one.levels).2) 0 (searchLimit 0))
       (TopStagePost im index p forest s) := by
   obtain ⟨a,sa,ha⟩ := ht.setup s hp index hi hstable.indexMem _ _ hstable.one.left hstable.one.right
@@ -10125,7 +10127,7 @@ theorem top_stage {im : Image} {sk : BitVec 256} (hs : SearchCalls im sk)
     exact ⟨c,hc,(ha.frame.get (by unfold ENC;omega) (by unfold ENC;omega)).trans hcv⟩
   have H := hs.call (topArgs index (topPair 1 p.one.levels)) a (top_pre index hi _ s a ha hsta.tables hac)
   have Htail : TBSim im sk a (Canonical.csCost 0+31)
-      (CanonicalPolicy.layerCounterSearchAt 0 18 (route index 0).2 (route index 0).1
+      (CanonicalPolicy.layerCounterSearchAt 0 17 (route index 0).2 (route index 0).1
         (.pair (topPair 1 p.one.levels).1 (topPair 1 p.one.levels).2) 0 (searchLimit 0))
       (TopStagePost im index p forest s) := by
     have hb := TBSim.bind H (f:=fun r=>pure r) (W₂:=31) (Q₂:=TopStagePost im index p forest s) (by
@@ -10432,16 +10434,16 @@ structure Choices where
   l2 : Bool
   l3 : Bool
 
-def Choices.r1 (a : Choices) := CanonicalPolicy.nextResidual 71 0 a.l0 a.d0
+def Choices.r1 (a : Choices) := CanonicalPolicy.nextResidual 70 0 a.l0 a.d0
 def Choices.r2 (a : Choices) := CanonicalPolicy.nextResidual a.r1 1 a.l1 a.d1
 def Choices.r3 (a : Choices) := CanonicalPolicy.nextResidual a.r2 2 a.l2 a.d2
 def Choices.hints (a : Choices) := 484*CanonicalPolicy.threshold 1 a.r1 +
   22*CanonicalPolicy.threshold 2 a.r2 + CanonicalPolicy.threshold 3 a.r3
 
 def prefixSearch (index : Nat) (p : PreparedRoots) (forest : Digest×Digest) : T3.M (Option Choices) := do
-  let some (c0,d0,l0) ← CanonicalPolicy.layerCounterSearchAt 0 18 (route index 0).2 (route index 0).1
+  let some (c0,d0,l0) ← CanonicalPolicy.layerCounterSearchAt 0 17 (route index 0).2 (route index 0).1
     (.pair (topPair 1 p.one.levels).1 (topPair 1 p.one.levels).2) 0 (searchLimit 0) | pure none
-  let r1 := CanonicalPolicy.nextResidual 71 0 l0 d0
+  let r1 := CanonicalPolicy.nextResidual 70 0 l0 d0
   let f1 := CanonicalPolicy.threshold 1 r1
   if f1≥16 then return none
   let some (c1,d1,l1) ← CanonicalPolicy.layerCounterSearchAt 1 f1 (route index 1).2 (route index 1).1
@@ -10505,7 +10507,7 @@ theorem prefix_good {im : Image} {sk : BitVec 256} (hs : SearchCalls im sk)
   | some a0 =>
     obtain ⟨c0,d0,l0⟩ := a0
     change TopReady index p forest l0 d0 s t0 at h0
-    let r1 := CanonicalPolicy.nextResidual 71 0 l0 d0
+    let r1 := CanonicalPolicy.nextResidual 70 0 l0 d0
     let f1 := CanonicalPolicy.threshold 1 r1
     have hf1 : f1<16 := (floor_small 1 (by decide) r1 h0.small).2 rfl
     dsimp only [f1,r1] at hf1

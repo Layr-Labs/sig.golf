@@ -52,7 +52,7 @@ theorem claimedC_eq : claimedC=verifyCycleBound+witnessCycles (submission I).siz
   rw [witnessCycles_eq];decide
 
 theorem submission_verificationBound (E : EncodingFacts) (F : SourceQueries) (P : Pending I) :
-    (submission I).VerificationBound 6971 := by
+    (submission I).VerificationBound 6970 := by
   intro hash sk m
   dsimp only
   intro h
@@ -77,7 +77,7 @@ open ClaudeWCT.W9.T3M (Images)
 variable {I : Images}
 
 theorem certificate_of (E : EncodingFacts) (F : SourceQueries) (P : Pending I) (S : SourceFacts) :
-    Certificate (submission I) 6971 where
+    Certificate (submission I) 6970 where
   admissible := P.admissible
   termination := submission_terminates P
   completeness := submission_complete E F P S
@@ -1029,8 +1029,8 @@ def submissionNew (I : Images) : SigGolf.Submission := currentOf (submission I)
 theorem legacyOf_submissionNew (I : Images) : legacyOf (submissionNew I) = submission I :=
   legacyOf_currentOf (submission I)
 theorem certificateNew_of {I : Images} (E : EncodingFacts) (F : SourceQueries) (P : Pending I) (S : SourceFacts) :
-    SigGolf.Certificate (submissionNew I) 6971 := by
-  have hL : SigGolfCandidate.Legacy.Certificate (legacyOf (submissionNew I)) 6971 := by
+    SigGolf.Certificate (submissionNew I) 6970 := by
+  have hL : SigGolfCandidate.Legacy.Certificate (legacyOf (submissionNew I)) 6970 := by
     rw [legacyOf_submissionNew]
     exact certificate_of E F P S
   have hrun : RunAgrees (submissionNew I) := runAgrees_of_admissible (submissionNew I) hL.admissible
@@ -1101,6 +1101,8 @@ def kfF : List (BitVec 32) := (ktopCode.drop 18).take 2
 def khA : List (BitVec 32) := (ktopCode.drop 20).take 8
 
 theorem codeAt_kg27 : CodeAt image (pcOf 144) kg27 := by decide +kernel
+theorem codeAt_kt147 : CodeAt image (pcOf 780) kt147 := by decide +kernel
+theorem codeAt_kg27B : CodeAt image (pcOf 152) (kg27.drop 8) := by decide +kernel
 theorem codeAt_kg159 : CodeAt image (pcOf 159) kg159 := by decide +kernel
 theorem codeAt_kg161 : CodeAt image (pcOf 161) kg161 := by decide +kernel
 theorem codeAt_kg188 : CodeAt image (pcOf 188) kg188 := by decide +kernel
@@ -1130,6 +1132,8 @@ theorem codeAt_kfF : CodeAt image (pcOf 1167) kfF := by decide +kernel
 theorem codeAt_khA : CodeAt image (pcOf 1169) khA := by decide +kernel
 
 sym_block bk27 := symRun { noAlias := true } kg27 (pcOf 144) 100
+sym_block bk27T := symRunAux { noAlias := true } kt147 (pcOf 780) 100 bk27.res.st
+sym_block bk27B := symRunAux { noAlias := true } (kg27.drop 8) (pcOf 152) 100 bk27T.res.st
 sym_block bk159 := symRun { noAlias := true } kg159 (pcOf 159) 100
 sym_block bk161 := symRun { noAlias := true } kg161 (pcOf 161) 100
 sym_block bk188 := symRun { noAlias := true } kg188 (pcOf 188) 100
@@ -1165,35 +1169,32 @@ theorem kshr (x : Word) (k : Nat) (hk : k < 64) : BinOp.eval .srl x (BitVec.ofNa
   rw [Nat.mod_eq_of_lt (show k < 2 ^ 64 by omega), Nat.mod_eq_of_lt hk]
 
 /-- Leaf entry (144..157): leaf header words, `gp = ra`, then `jal ra, COEFGEN`. -/
-theorem kg27_spec (s : MachineState) (hpc : s.pc = pcOf 144) (lay leaf : Nat) (hlay : lay < 256)
-    (hleaf : leaf < 2 ^ 32) (h8 : s.getReg .x8 = BitVec.ofNat 64 lay) (h18 : s.getReg .x18 = BitVec.ofNat 64 leaf) :
-    ∃ t, Steps image s 14 14 t ∧ t.pc = pcOf 612 ∧ t.getReg .x1 = pcOf 158 ∧ t.getReg .x3 = s.getReg .x1 ∧
+theorem kg27_spec (s : MachineState) (hpc : s.pc = pcOf 144) (lay leaf : Nat) (hlay : lay < 4)
+    (hleaf : leaf < 2 ^ T3.hyperW lay) (h8 : s.getReg .x8 = BitVec.ofNat 64 lay) (h18 : s.getReg .x18 = BitVec.ofNat 64 leaf) :
+    ∃ t, Steps image s 21 21 t ∧ t.pc = pcOf 612 ∧ t.getReg .x1 = pcOf 158 ∧ t.getReg .x3 = s.getReg .x1 ∧
       t.getMem (BitVec.ofNat 64 (LEAFPK + 16)) = T3.hyperWord lay leaf ∧
       t.getMem (BitVec.ofNat 64 (LEAFPK + 24)) = 0 ∧
       RegsExcept s t [.x1, .x3, .x6, .x28, .x30] ∧
       Frame s t (fun A => A = LEAFPK + 16 ∨ A = LEAFPK + 24) := by
-  refine ⟨_, symRun_sound bk27 codeAt_kg27 s hpc
-    (by simp [bk27.res, rv_simp]), ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
-  · simp [bk27.res, Result.toState_pc, E.eval]
-  · simp [bk27.res, rv_simp]
-  · simp [bk27.res, rv_simp]
-  · simp only [Result.toState_getMem, bk27.res, LEAFPK]
-    t3n [h8, h18]
-    rw [show (513#64) = BitVec.ofNat 64 513 from rfl,
-      ofNat_or_disjoint 513 (leaf * 65536) 16 (by decide) (by omega),
-      ofNat_or_disjoint' _ (lay * 281474976710656) 48 (by omega) (by omega),
-      show (13907115649320091648#64) = BitVec.ofNat 64 (193 * 2 ^ 56) from rfl,
-      ofNat_or_disjoint' _ (193 * 2 ^ 56) 56 (by omega) (by omega)]
-    unfold T3.hyperWord
-    congr 1
-    rw [Nat.mod_eq_of_lt hleaf, Nat.mod_eq_of_lt hlay]
-    omega
-  · simp only [Result.toState_getMem, bk27.res, LEAFPK]
+  refine ⟨_, LH.chain3_sound bk27 codeAt_kg27 hpc (by rfl) bk27T codeAt_kt147 (by rfl) bk27B codeAt_kg27B
+    (by simp [bk27B.res, rv_simp]), ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
+  · simp [bk27B.res, Result.toState_pc, E.eval]
+  · simp [bk27B.res, rv_simp]
+  · simp [bk27B.res, rv_simp]
+  · simp only [Result.toState_getMem, bk27B.res, LEAFPK]
+    t3n [h18]
+    rw [LH.mark_bv lay hlay _ h8]
+    exact LH.label_or lay leaf hlay hleaf
+  · simp only [Result.toState_getMem, bk27B.res, LEAFPK]
     t3n []
-  · intro r hr; simp at hr; cases r <;> simp_all [bk27.res, rv_simp] <;> rfl
+  · intro r hr
+    by_cases h8r : r = .x8
+    · subst h8r; simp only [Result.toState_getReg, bk27B.res]
+      exact LH.restE_eval s lay hlay h8
+    · simp at hr; cases r <;> simp_all [bk27B.res, rv_simp] <;> rfl
   · intro A hA hn
     simp only [LEAFPK] at hn
-    simp only [Result.toState_getMem, bk27.res]
+    simp only [Result.toState_getMem, bk27B.res]
     t3n []
     rw [if_neg (by omega), if_neg (by omega)]
 
@@ -2615,9 +2616,9 @@ theorem buildLeafTopC_eq' (leaf : Nat) (coefs : List Digest) : buildLeafTopC lea
     leafHash 0 0 leaf state.1 >>= fun root => pure (root, state.2)) := rfl
 
 /-- Steps of a keygen top leaf (`r = leaf % 4`, `o = leaf / 4 % 2`). -/
-def topLeafK (r o : Nat) : Nat := 14 + ((if r = 0 then kfK o else 5) + (sumTo (titerK r) 51 + 19))
+def topLeafK (r o : Nat) : Nat := 21 + ((if r = 0 then kfK o else 5) + (sumTo (titerK r) 51 + 19))
 /-- Cycles of a keygen top leaf. -/
-def topLeafC (r o : Nat) : Nat := 14 + ((if r = 0 then kfC o else 5) + (sumTo (titerC r) 51 + (18 + 8 * 13)))
+def topLeafC (r o : Nat) : Nat := 21 + ((if r = 0 then kfC o else 5) + (sumTo (titerC r) 51 + (18 + 8 * 13)))
 /-- Hash calls of a keygen top leaf. -/
 def topLeafN (r o : Nat) : Nat := (if r = 0 then 16 - o else 0) + (sumTo (fun j => maxDigit 0 j) 51 + 1)
 /-- Compression blocks of a keygen top leaf. -/
@@ -2639,9 +2640,9 @@ theorem topLeaf_tsim (hpc : s0.pc = pcOf 144) {cc : List Digest × Digest} (hk :
   have h0 := hpre.top0
   have hlay : A.lay.val < 256 := by have := A.lay.isLt; omega
   have hnb : leafBlocks A.lay = 13 := by unfold leafBlocks; rw [show chainCount A.lay = A.n from rfl, hn]
-  obtain ⟨t1, st1, t1pc, t1x1, t1x3, t1l16, t1l24, t1r, t1f⟩ :=
-    kg27_spec s0 hpc A.lay.val A.leaf hlay hpre.hleaf hpre.x8 hpre.x18
   have hleaf : A.leaf < 4096 := by have := hpre.hleafHeight; rw [h0.1] at this; exact this
+  obtain ⟨t1, st1, t1pc, t1x1, t1x3, t1l16, t1l24, t1r, t1f⟩ :=
+    kg27_spec s0 hpc A.lay.val A.leaf A.lay.isLt (by rw [h0.1]; show A.leaf < 2 ^ 12; omega) hpre.x8 hpre.x18
   have fp : ∀ X, X < PRIV + 64 → t1.getMem (BitVec.ofNat 64 X) = s0.getMem (BitVec.ofNat 64 X) := fun X hX =>
     t1f.get (by simp only [PRIV] at hX; omega) (by simp only [PRIV, LEAFPK] at hX ⊢; omega)
   have hp : KPriv sk t1 :=
@@ -2696,7 +2697,7 @@ end top
 
 /-- Cycle bound of one keygen top leaf (COMPUTED by `decide` over the 8 leaf classes; campaign T51: max 205,853 at
 `leaf % 4 = 3`). -/
-def topLeafW : Nat := 205853
+def topLeafW : Nat := 207512
 theorem topLeaf_bound (r o : Nat) (hr : r < 4) (ho : o < 2) :
     topLeafK r o ≤ topLeafC r o ∧ topLeafC r o ≤ topLeafW := by
   interval_cases r <;> interval_cases o <;> decide
@@ -5089,7 +5090,7 @@ theorem pending_of_machine {I : Images} (M : MachineFacts I) : Pending I where
 theorem certificate_of_security {I : Images}
     (expandV6 : SigGolfCandidate.Research.SharedExpansionClosure.ExpandV6Facts) (security : SecurityP)
     (keygenMoment : KeygenMoment) (M : MachineFacts I) :
-    SigGolf.Certificate (submissionNew I) 6971 :=
+    SigGolf.Certificate (submissionNew I) 6970 :=
   certificateNew_of encodingFacts sourceQueries_holds (pending_of_machine M) (sourceFacts_of_securityP expandV6 security keygenMoment)
 end ClaudeWCT.W9.T3M.Final.Paired
 end

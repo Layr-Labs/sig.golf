@@ -2013,13 +2013,21 @@ end SigGolfCandidate.T3M.Keygen.PackedBlocks
 namespace SigGolfCandidate.T3M.Expand.SharedRecover.PackedBlocks
 open RiscvZkvm.Rv64 SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv SigGolfCandidate.Rv
 open SigGolfCandidate.T3M.Keygen.PackedBlocks
+/-- L-hyper A: expand's chain header body (word 8 jumps to the marker trampoline at 245313, back at word 13). -/
+def expand_bodyA : List (BitVec 32) := [0x749333,0x1230333,0x20e37,0x1a0e0e13,0x2035393,0x7e3c23,0x2031313,0x1035313,0x550ee06f,0x13,0x13,0x13,0x13,0xffa7393,0x839393,0x736333,0x809e393,0x736333,0xc5dff06f]
+def expand_hdrT : List (BitVec 32) := [0x141f13,0x1e40433,0x840433,0x803f33,0x1f0f13,0x1cf1f13,0x8f1f33,0x1e36333,0x640413,0x345413,0xa9d1106f]
+sym_block run_expand_bodyA0 := symRun { noAlias := true } expand_bodyA (pcOf 1253) 100
+sym_block run_expand_hdrT := symRunAux { noAlias := true } expand_hdrT (pcOf 245313) 100 run_expand_bodyA0.res.st
+sym_block run_expand_bodyA := symRunAux { noAlias := true } (expand_bodyA.drop 13) (pcOf 1266) 100 run_expand_hdrT.res.st
 class Code (im : Image) : Prop where
   entry : CodeAt im (pcOf 1032) expand_entry
   layer0 : CodeAt im (pcOf 1247) expand_layer0
   layer1 : CodeAt im (pcOf 1249) expand_layer1
   layer23 : CodeAt im (pcOf 1251) expand_layer23
   inc : CodeAt im (pcOf 1252) expand_inc
-  body : CodeAt im (pcOf 1253) expand_body
+  body : CodeAt im (pcOf 1253) expand_bodyA
+  hdrT : CodeAt im (pcOf 245313) expand_hdrT
+  body2 : CodeAt im (pcOf 1266) (expand_bodyA.drop 13)
   store : CodeAt im (pcOf 1038) expand_store
 variable {im : Image} [Code im]
 theorem steps_expand_entry (s : MachineState) (hpc : s.pc = pcOf 1032) :
@@ -2043,8 +2051,9 @@ theorem steps_expand_inc (s : MachineState) (hpc : s.pc = pcOf 1252) :
   exact symRun_sound run_expand_inc (Code.inc (im := im)) s hpc (by simp [run_expand_inc.res, rv_simp])
 
 theorem steps_expand_body (s : MachineState) (hpc : s.pc = pcOf 1253) :
-    Steps im s 19 19 (run_expand_body.res.toState s) := by
-  exact symRun_sound run_expand_body (Code.body (im := im)) s hpc (by simp [run_expand_body.res, rv_simp])
+    Steps im s 26 26 (run_expand_bodyA.res.toState s) :=
+  LH.chain3_sound run_expand_bodyA0 (Code.body (im := im)) hpc (by rfl) run_expand_hdrT (Code.hdrT (im := im))
+    (by rfl) run_expand_bodyA (Code.body2 (im := im)) (by simp [run_expand_bodyA.res, rv_simp])
 
 theorem steps_expand_store (s : MachineState) (hpc : s.pc = pcOf 1038) :
     Steps im s 3 3 (run_expand_store.res.toState s) := by
@@ -2065,30 +2074,30 @@ structure ExpHeaderPost (s t : MachineState) (height : Nat) : Prop where
   frame : Frame s t (fun A => A = 0x201A0 + 16 ∨ A = 0x201A0 + 24)
 theorem expand_header_0 (s : MachineState) (hpc : s.pc = pcOf 1032)
     (h8 : s.getReg .x8 = 0#64) :
-    ∃ t, Steps im s 25 25 t ∧ t.pc = pcOf 1041 ∧ ExpHeaderPost s t 12 := by
+    ∃ t, Steps im s 32 32 t ∧ t.pc = pcOf 1041 ∧ ExpHeaderPost s t 12 := by
   let s0 := run_expand_entry.res.toState s
   have h0 := steps_expand_entry (im := im) s hpc
   let s1 := run_expand_layer0.res.toState s0
   have h1 := steps_expand_layer0 (im := im) s0 (by simp [s0, run_expand_entry.res, rv_simp, h8])
-  let s2 := run_expand_body.res.toState s1
+  let s2 := run_expand_bodyA.res.toState s1
   have h2 := steps_expand_body (im := im) s1 (by simp [s0, s1, run_expand_entry.res, run_expand_layer0.res, rv_simp, h8])
   let s3 := run_expand_store.res.toState s2
-  have h3 := steps_expand_store (im := im) s2 (by simp [s0, s1, s2, run_expand_entry.res, run_expand_layer0.res, run_expand_body.res, rv_simp, h8])
+  have h3 := steps_expand_store (im := im) s2 (by simp [s0, s1, s2, run_expand_entry.res, run_expand_layer0.res, run_expand_bodyA.res, rv_simp, h8])
   refine ⟨s3, (((h0.trans h1).trans h2).trans h3), ?_, ?_⟩
-  · simp [s3, s2, s1, s0, run_expand_entry.res, run_expand_layer0.res, run_expand_body.res, run_expand_store.res, rv_simp]
+  · simp [s3, s2, s1, s0, run_expand_entry.res, run_expand_layer0.res, run_expand_bodyA.res, run_expand_store.res, rv_simp]
   · constructor
-    · simp [s3, s2, s1, s0, run_expand_entry.res, run_expand_layer0.res, run_expand_body.res, run_expand_store.res, rv_simp, packedAt, routedAt]
-    · simp [s3, s2, s1, s0, run_expand_entry.res, run_expand_layer0.res, run_expand_body.res, run_expand_store.res, rv_simp, routedAt]
-    · simp [s3, s2, s1, s0, run_expand_entry.res, run_expand_layer0.res, run_expand_body.res, run_expand_store.res, rv_simp]
+    · simp [s3, s2, s1, s0, run_expand_entry.res, run_expand_layer0.res, run_expand_bodyA.res, run_expand_store.res, rv_simp, packedAt, routedAt, h8, T3.hyperW]
+    · simp [s3, s2, s1, s0, run_expand_entry.res, run_expand_layer0.res, run_expand_bodyA.res, run_expand_store.res, rv_simp, routedAt]
+    · simp [s3, s2, s1, s0, run_expand_entry.res, run_expand_layer0.res, run_expand_bodyA.res, run_expand_store.res, rv_simp]
     · intro r hr
-      cases r <;> simp_all [s3, s2, s1, s0, run_expand_entry.res, run_expand_layer0.res, run_expand_body.res, run_expand_store.res, rv_simp] <;> rfl
+      cases r <;> simp_all [s3, s2, s1, s0, run_expand_entry.res, run_expand_layer0.res, run_expand_bodyA.res, run_expand_store.res, rv_simp] <;> rfl
     · intro A hA hn
-      simp only [Result.toState_getMem, s3, s2, s1, s0, run_expand_entry.res, run_expand_layer0.res, run_expand_body.res, run_expand_store.res]
+      simp only [Result.toState_getMem, s3, s2, s1, s0, run_expand_entry.res, run_expand_layer0.res, run_expand_bodyA.res, run_expand_store.res]
       t3n []
       rw [if_neg (by omega), if_neg (by omega)]
 theorem expand_header_1 (s : MachineState) (hpc : s.pc = pcOf 1032)
     (h8 : s.getReg .x8 = 1#64) :
-    ∃ t, Steps im s 28 28 t ∧ t.pc = pcOf 1041 ∧ ExpHeaderPost s t 7 := by
+    ∃ t, Steps im s 35 35 t ∧ t.pc = pcOf 1041 ∧ ExpHeaderPost s t 7 := by
   let s0 := run_expand_entry.res.toState s
   have h0 := steps_expand_entry (im := im) s hpc
   let s1 := run_expand_layer0.res.toState s0
@@ -2097,25 +2106,25 @@ theorem expand_header_1 (s : MachineState) (hpc : s.pc = pcOf 1032)
   have h2 := steps_expand_layer1 (im := im) s1 (by simp [s0, s1, run_expand_entry.res, run_expand_layer0.res, rv_simp, h8])
   let s3 := run_expand_inc.res.toState s2
   have h3 := steps_expand_inc (im := im) s2 (by simp [s0, s1, s2, run_expand_entry.res, run_expand_layer0.res, run_expand_layer1.res, rv_simp, h8])
-  let s4 := run_expand_body.res.toState s3
+  let s4 := run_expand_bodyA.res.toState s3
   have h4 := steps_expand_body (im := im) s3 (by simp [s0, s1, s2, s3, run_expand_entry.res, run_expand_layer0.res, run_expand_layer1.res, run_expand_inc.res, rv_simp, h8])
   let s5 := run_expand_store.res.toState s4
-  have h5 := steps_expand_store (im := im) s4 (by simp [s0, s1, s2, s3, s4, run_expand_entry.res, run_expand_layer0.res, run_expand_layer1.res, run_expand_inc.res, run_expand_body.res, rv_simp, h8])
+  have h5 := steps_expand_store (im := im) s4 (by simp [s0, s1, s2, s3, s4, run_expand_entry.res, run_expand_layer0.res, run_expand_layer1.res, run_expand_inc.res, run_expand_bodyA.res, rv_simp, h8])
   refine ⟨s5, (((((h0.trans h1).trans h2).trans h3).trans h4).trans h5), ?_, ?_⟩
-  · simp [s5, s4, s3, s2, s1, s0, run_expand_entry.res, run_expand_layer0.res, run_expand_layer1.res, run_expand_inc.res, run_expand_body.res, run_expand_store.res, rv_simp]
+  · simp [s5, s4, s3, s2, s1, s0, run_expand_entry.res, run_expand_layer0.res, run_expand_layer1.res, run_expand_inc.res, run_expand_bodyA.res, run_expand_store.res, rv_simp]
   · constructor
-    · simp [s5, s4, s3, s2, s1, s0, run_expand_entry.res, run_expand_layer0.res, run_expand_layer1.res, run_expand_inc.res, run_expand_body.res, run_expand_store.res, rv_simp, packedAt, routedAt]
-    · simp [s5, s4, s3, s2, s1, s0, run_expand_entry.res, run_expand_layer0.res, run_expand_layer1.res, run_expand_inc.res, run_expand_body.res, run_expand_store.res, rv_simp, routedAt]
-    · simp [s5, s4, s3, s2, s1, s0, run_expand_entry.res, run_expand_layer0.res, run_expand_layer1.res, run_expand_inc.res, run_expand_body.res, run_expand_store.res, rv_simp]
+    · simp [s5, s4, s3, s2, s1, s0, run_expand_entry.res, run_expand_layer0.res, run_expand_layer1.res, run_expand_inc.res, run_expand_bodyA.res, run_expand_store.res, rv_simp, packedAt, routedAt, h8, T3.hyperW]
+    · simp [s5, s4, s3, s2, s1, s0, run_expand_entry.res, run_expand_layer0.res, run_expand_layer1.res, run_expand_inc.res, run_expand_bodyA.res, run_expand_store.res, rv_simp, routedAt]
+    · simp [s5, s4, s3, s2, s1, s0, run_expand_entry.res, run_expand_layer0.res, run_expand_layer1.res, run_expand_inc.res, run_expand_bodyA.res, run_expand_store.res, rv_simp]
     · intro r hr
-      cases r <;> simp_all [s5, s4, s3, s2, s1, s0, run_expand_entry.res, run_expand_layer0.res, run_expand_layer1.res, run_expand_inc.res, run_expand_body.res, run_expand_store.res, rv_simp] <;> rfl
+      cases r <;> simp_all [s5, s4, s3, s2, s1, s0, run_expand_entry.res, run_expand_layer0.res, run_expand_layer1.res, run_expand_inc.res, run_expand_bodyA.res, run_expand_store.res, rv_simp] <;> rfl
     · intro A hA hn
-      simp only [Result.toState_getMem, s5, s4, s3, s2, s1, s0, run_expand_entry.res, run_expand_layer0.res, run_expand_layer1.res, run_expand_inc.res, run_expand_body.res, run_expand_store.res]
+      simp only [Result.toState_getMem, s5, s4, s3, s2, s1, s0, run_expand_entry.res, run_expand_layer0.res, run_expand_layer1.res, run_expand_inc.res, run_expand_bodyA.res, run_expand_store.res]
       t3n []
       rw [if_neg (by omega), if_neg (by omega)]
 theorem expand_header_2 (s : MachineState) (hpc : s.pc = pcOf 1032)
     (h8 : s.getReg .x8 = 2#64) :
-    ∃ t, Steps im s 29 29 t ∧ t.pc = pcOf 1041 ∧ ExpHeaderPost s t 6 := by
+    ∃ t, Steps im s 36 36 t ∧ t.pc = pcOf 1041 ∧ ExpHeaderPost s t 6 := by
   let s0 := run_expand_entry.res.toState s
   have h0 := steps_expand_entry (im := im) s hpc
   let s1 := run_expand_layer0.res.toState s0
@@ -2124,25 +2133,25 @@ theorem expand_header_2 (s : MachineState) (hpc : s.pc = pcOf 1032)
   have h2 := steps_expand_layer1 (im := im) s1 (by simp [s0, s1, run_expand_entry.res, run_expand_layer0.res, rv_simp, h8])
   let s3 := run_expand_layer23.res.toState s2
   have h3 := steps_expand_layer23 (im := im) s2 (by simp [s0, s1, s2, run_expand_entry.res, run_expand_layer0.res, run_expand_layer1.res, rv_simp, h8])
-  let s4 := run_expand_body.res.toState s3
+  let s4 := run_expand_bodyA.res.toState s3
   have h4 := steps_expand_body (im := im) s3 (by simp [s0, s1, s2, s3, run_expand_entry.res, run_expand_layer0.res, run_expand_layer1.res, run_expand_layer23.res, rv_simp, h8])
   let s5 := run_expand_store.res.toState s4
-  have h5 := steps_expand_store (im := im) s4 (by simp [s0, s1, s2, s3, s4, run_expand_entry.res, run_expand_layer0.res, run_expand_layer1.res, run_expand_layer23.res, run_expand_body.res, rv_simp, h8])
+  have h5 := steps_expand_store (im := im) s4 (by simp [s0, s1, s2, s3, s4, run_expand_entry.res, run_expand_layer0.res, run_expand_layer1.res, run_expand_layer23.res, run_expand_bodyA.res, rv_simp, h8])
   refine ⟨s5, (((((h0.trans h1).trans h2).trans h3).trans h4).trans h5), ?_, ?_⟩
-  · simp [s5, s4, s3, s2, s1, s0, run_expand_entry.res, run_expand_layer0.res, run_expand_layer1.res, run_expand_layer23.res, run_expand_body.res, run_expand_store.res, rv_simp]
+  · simp [s5, s4, s3, s2, s1, s0, run_expand_entry.res, run_expand_layer0.res, run_expand_layer1.res, run_expand_layer23.res, run_expand_bodyA.res, run_expand_store.res, rv_simp]
   · constructor
-    · simp [s5, s4, s3, s2, s1, s0, run_expand_entry.res, run_expand_layer0.res, run_expand_layer1.res, run_expand_layer23.res, run_expand_body.res, run_expand_store.res, rv_simp, packedAt, routedAt]
-    · simp [s5, s4, s3, s2, s1, s0, run_expand_entry.res, run_expand_layer0.res, run_expand_layer1.res, run_expand_layer23.res, run_expand_body.res, run_expand_store.res, rv_simp, routedAt]
-    · simp [s5, s4, s3, s2, s1, s0, run_expand_entry.res, run_expand_layer0.res, run_expand_layer1.res, run_expand_layer23.res, run_expand_body.res, run_expand_store.res, rv_simp]
+    · simp [s5, s4, s3, s2, s1, s0, run_expand_entry.res, run_expand_layer0.res, run_expand_layer1.res, run_expand_layer23.res, run_expand_bodyA.res, run_expand_store.res, rv_simp, packedAt, routedAt, h8, T3.hyperW]
+    · simp [s5, s4, s3, s2, s1, s0, run_expand_entry.res, run_expand_layer0.res, run_expand_layer1.res, run_expand_layer23.res, run_expand_bodyA.res, run_expand_store.res, rv_simp, routedAt]
+    · simp [s5, s4, s3, s2, s1, s0, run_expand_entry.res, run_expand_layer0.res, run_expand_layer1.res, run_expand_layer23.res, run_expand_bodyA.res, run_expand_store.res, rv_simp]
     · intro r hr
-      cases r <;> simp_all [s5, s4, s3, s2, s1, s0, run_expand_entry.res, run_expand_layer0.res, run_expand_layer1.res, run_expand_layer23.res, run_expand_body.res, run_expand_store.res, rv_simp] <;> rfl
+      cases r <;> simp_all [s5, s4, s3, s2, s1, s0, run_expand_entry.res, run_expand_layer0.res, run_expand_layer1.res, run_expand_layer23.res, run_expand_bodyA.res, run_expand_store.res, rv_simp] <;> rfl
     · intro A hA hn
-      simp only [Result.toState_getMem, s5, s4, s3, s2, s1, s0, run_expand_entry.res, run_expand_layer0.res, run_expand_layer1.res, run_expand_layer23.res, run_expand_body.res, run_expand_store.res]
+      simp only [Result.toState_getMem, s5, s4, s3, s2, s1, s0, run_expand_entry.res, run_expand_layer0.res, run_expand_layer1.res, run_expand_layer23.res, run_expand_bodyA.res, run_expand_store.res]
       t3n []
       rw [if_neg (by omega), if_neg (by omega)]
 theorem expand_header_3 (s : MachineState) (hpc : s.pc = pcOf 1032)
     (h8 : s.getReg .x8 = 3#64) :
-    ∃ t, Steps im s 29 29 t ∧ t.pc = pcOf 1041 ∧ ExpHeaderPost s t 6 := by
+    ∃ t, Steps im s 36 36 t ∧ t.pc = pcOf 1041 ∧ ExpHeaderPost s t 6 := by
   let s0 := run_expand_entry.res.toState s
   have h0 := steps_expand_entry (im := im) s hpc
   let s1 := run_expand_layer0.res.toState s0
@@ -2151,20 +2160,20 @@ theorem expand_header_3 (s : MachineState) (hpc : s.pc = pcOf 1032)
   have h2 := steps_expand_layer1 (im := im) s1 (by simp [s0, s1, run_expand_entry.res, run_expand_layer0.res, rv_simp, h8])
   let s3 := run_expand_layer23.res.toState s2
   have h3 := steps_expand_layer23 (im := im) s2 (by simp [s0, s1, s2, run_expand_entry.res, run_expand_layer0.res, run_expand_layer1.res, rv_simp, h8])
-  let s4 := run_expand_body.res.toState s3
+  let s4 := run_expand_bodyA.res.toState s3
   have h4 := steps_expand_body (im := im) s3 (by simp [s0, s1, s2, s3, run_expand_entry.res, run_expand_layer0.res, run_expand_layer1.res, run_expand_layer23.res, rv_simp, h8])
   let s5 := run_expand_store.res.toState s4
-  have h5 := steps_expand_store (im := im) s4 (by simp [s0, s1, s2, s3, s4, run_expand_entry.res, run_expand_layer0.res, run_expand_layer1.res, run_expand_layer23.res, run_expand_body.res, rv_simp, h8])
+  have h5 := steps_expand_store (im := im) s4 (by simp [s0, s1, s2, s3, s4, run_expand_entry.res, run_expand_layer0.res, run_expand_layer1.res, run_expand_layer23.res, run_expand_bodyA.res, rv_simp, h8])
   refine ⟨s5, (((((h0.trans h1).trans h2).trans h3).trans h4).trans h5), ?_, ?_⟩
-  · simp [s5, s4, s3, s2, s1, s0, run_expand_entry.res, run_expand_layer0.res, run_expand_layer1.res, run_expand_layer23.res, run_expand_body.res, run_expand_store.res, rv_simp]
+  · simp [s5, s4, s3, s2, s1, s0, run_expand_entry.res, run_expand_layer0.res, run_expand_layer1.res, run_expand_layer23.res, run_expand_bodyA.res, run_expand_store.res, rv_simp]
   · constructor
-    · simp [s5, s4, s3, s2, s1, s0, run_expand_entry.res, run_expand_layer0.res, run_expand_layer1.res, run_expand_layer23.res, run_expand_body.res, run_expand_store.res, rv_simp, packedAt, routedAt]
-    · simp [s5, s4, s3, s2, s1, s0, run_expand_entry.res, run_expand_layer0.res, run_expand_layer1.res, run_expand_layer23.res, run_expand_body.res, run_expand_store.res, rv_simp, routedAt]
-    · simp [s5, s4, s3, s2, s1, s0, run_expand_entry.res, run_expand_layer0.res, run_expand_layer1.res, run_expand_layer23.res, run_expand_body.res, run_expand_store.res, rv_simp]
+    · simp [s5, s4, s3, s2, s1, s0, run_expand_entry.res, run_expand_layer0.res, run_expand_layer1.res, run_expand_layer23.res, run_expand_bodyA.res, run_expand_store.res, rv_simp, packedAt, routedAt, h8, T3.hyperW]
+    · simp [s5, s4, s3, s2, s1, s0, run_expand_entry.res, run_expand_layer0.res, run_expand_layer1.res, run_expand_layer23.res, run_expand_bodyA.res, run_expand_store.res, rv_simp, routedAt]
+    · simp [s5, s4, s3, s2, s1, s0, run_expand_entry.res, run_expand_layer0.res, run_expand_layer1.res, run_expand_layer23.res, run_expand_bodyA.res, run_expand_store.res, rv_simp]
     · intro r hr
-      cases r <;> simp_all [s5, s4, s3, s2, s1, s0, run_expand_entry.res, run_expand_layer0.res, run_expand_layer1.res, run_expand_layer23.res, run_expand_body.res, run_expand_store.res, rv_simp] <;> rfl
+      cases r <;> simp_all [s5, s4, s3, s2, s1, s0, run_expand_entry.res, run_expand_layer0.res, run_expand_layer1.res, run_expand_layer23.res, run_expand_bodyA.res, run_expand_store.res, rv_simp] <;> rfl
     · intro A hA hn
-      simp only [Result.toState_getMem, s5, s4, s3, s2, s1, s0, run_expand_entry.res, run_expand_layer0.res, run_expand_layer1.res, run_expand_layer23.res, run_expand_body.res, run_expand_store.res]
+      simp only [Result.toState_getMem, s5, s4, s3, s2, s1, s0, run_expand_entry.res, run_expand_layer0.res, run_expand_layer1.res, run_expand_layer23.res, run_expand_bodyA.res, run_expand_store.res]
       t3n []
       rw [if_neg (by omega), if_neg (by omega)]
 end SigGolfCandidate.T3M.Expand.SharedRecover.PackedBlocks
@@ -2419,7 +2428,7 @@ def nodeLo (lay tree : Nat) : Nat := if lay = 0 then 0 else (T3.hyperWord (lay -
 theorem nodeLo_mod (lay tree : Nat) : nodeLo lay tree % 4096 < 2048 := by
   unfold nodeLo; split
   · decide
-  · rw [T3.hyperWord_toNat]; simp only [Nat.reducePow]; omega
+  · have := T3.hyperWord_low16 (lay - 1) tree; omega
 /-- C4: the top node tweak is the one-word label `0#64 ++ heap` (`nodeLo 0 tree = 0`). -/
 theorem nodeTweak_3_top (tree heap : Nat) (h1 : 1 ≤ heap) (h2 : heap < 4096) :
     T3.nodeTweak 3 0 tree heap = 0#64 ++ KeygenLabel.remapWord (BitVec.ofNat 64 (nodeLo 0 tree + heap)) := by

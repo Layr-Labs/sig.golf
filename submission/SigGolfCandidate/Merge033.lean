@@ -1976,12 +1976,9 @@ theorem hdrMarker_ne_digest {input : HashInput} {hdr : Digest}
 theorem chainHeader_low_ne_digest (lay : Layer) (tree leaf i step : Nat) :
     tweakLow (chainHeader lay tree leaf i step) ≠ 25984 := by
   intro he
-  have hc := chainHeader_marker lay tree leaf i step
+  have hc := chainHeader_low_ge28 lay tree leaf i step
   unfold tweakLow at he
-  have hx : (chainHeader lay tree leaf i step).toNat / 2^56 % 256 =
-      ((chainHeader lay tree leaf i step).toNat % 2^64) / 2^56 := by
-    rw [show (2:Nat)^64 = 2^56*256 by decide, Nat.mod_mul_right_div_self]
-  rw [hx, he] at hc
+  rw [he] at hc
   norm_num at hc
 theorem hdrMarker_digestInput (rho : Digest) (m : Message) (c : BitVec 32) :
     hdrMarker (pad64 (digestInput rho m c)) = 25984 := by
@@ -5818,7 +5815,7 @@ theorem searchLimit_lower {lay : Layer} (h : lay ≠ 0) : lowerSearchLimit ≤ s
 theorem searchLimit_le (lay : Layer) : searchLimit lay ≤ counterLimit := by
   unfold searchLimit counterLimit
   fin_cases lay <;> simp
-theorem searchLimit_values : searchLimit 0 = 2 ^ 21 ∧ searchLimit 1 = 2 ^ 21 ∧ searchLimit 2 = 2 ^ 21 ∧
+theorem searchLimit_values : searchLimit 0 = 2 ^ 20 ∧ searchLimit 1 = 2 ^ 21 ∧ searchLimit 2 = 2 ^ 21 ∧
     searchLimit 3 = 3 * 2 ^ 20 := by decide
 theorem lowerSearchLimit_eq : lowerSearchLimit = 2 ^ 21 := rfl
 theorem chainCount_top : chainCount 0 = 51 := rfl
@@ -8065,12 +8062,26 @@ theorem ftsChainHeaderP_ne_header (index coord selected chain step : Nat) (high 
   rw [Nat.mod_eq_of_lt (by omega : chain < 8)] at hc
   omega
 
+/-- L-hyper: a chain header's low word is an honest marker word (at least `2^28`, below `2^56`, byte0 `≥ 128`,
+byte1 = step `< 8`) or a legacy word (type byte 193). -/
 theorem chainHeader_low_band (lay : Layer) (tree leaf i step : Nat) :
-    193 * 2 ^ 56 ≤ ((chainHeader lay tree leaf i step).extractLsb' 0 64).toNat ∧
-      ((chainHeader lay tree leaf i step).extractLsb' 0 64).toNat < 194 * 2 ^ 56 := by
+    (2 ^ 28 ≤ ((chainHeader lay tree leaf i step).extractLsb' 0 64).toNat ∧
+      ((chainHeader lay tree leaf i step).extractLsb' 0 64).toNat < 2 ^ 56 ∧
+      128 ≤ ((chainHeader lay tree leaf i step).extractLsb' 0 64).toNat % 256 ∧
+      ((chainHeader lay tree leaf i step).extractLsb' 0 64).toNat / 256 % 256 < 8) ∨
+    (193 * 2 ^ 56 ≤ ((chainHeader lay tree leaf i step).extractLsb' 0 64).toNat ∧
+      ((chainHeader lay tree leaf i step).extractLsb' 0 64).toNat < 194 * 2 ^ 56) := by
   rw [chainHeader_low, chainHeaderFlaggedLow_toNat]
-  have hb := chainHeaderLow_band lay tree leaf i step
-  split_ifs <;> omega
+  by_cases hA : chainHonest lay tree leaf
+  · rw [chainHeaderLow_toNat_honest hA]
+    have hr := chainHeaderLow_honest_range hA i step
+    rw [chainHeaderLow_toNat_honest hA] at hr
+    have := Nat.mod_lt i (show 0 < 64 by decide)
+    have := Nat.mod_lt step (show 0 < 8 by decide)
+    generalize tree % 2^31 * 2^height lay + leaf % 4096 + 2^hyperW lay.val = X at hr ⊢
+    split_ifs <;> omega
+  · have hb := chainHeaderLow_old_range hA i step
+    split_ifs <;> omega
 theorem ftsChainHeaderP_low_ne_chainHeader (index coord selected chain step : Nat) (high : BitVec 64)
     (lay : Layer) (tree leaf i st : Nat) :
     (ftsChainHeaderP index coord selected chain step high).extractLsb' 0 64 ≠
@@ -8080,6 +8091,8 @@ theorem ftsChainHeaderP_low_ne_chainHeader (index coord selected chain step : Na
   rw [← h, ftsChainHeaderP_low, BitVec.toNat_ofNat,
     Nat.mod_eq_of_lt (ftsChainLow_lt ..)] at hw
   have := ftsChainLow_range index coord selected chain step
+  have : ftsChainLow index coord selected chain step % 256 < 4 := by
+    unfold ftsChainLow SigGolfCandidate.T3.ftsBias; omega
   omega
 theorem ftsChainHeaderP_ne_chainHeader (index coord selected chain step : Nat) (high : BitVec 64)
     (lay : Layer) (tree leaf i st : Nat) :
@@ -8115,6 +8128,9 @@ theorem wctNodeHeader_ne_chainHeader (coord index heap : Nat) (lay : Layer) (tre
     rw [← h, wctNodeHeader_low hn.1, if_pos hn.2, BitVec.toNat_ofNat,
       Nat.mod_eq_of_lt (ftsNodeLowN_lt ..)] at hw
     have := ftsNodeLowN_range index coord heap
+    have : ftsNodeLowN index coord heap / 256 % 256 = 255 := by
+      obtain ⟨h8, h128⟩ := hn.2
+      rw [ftsNodeLowN_eq]; unfold SigGolfCandidate.T3.ftsBias; omega
     omega
   · have hc := chainHeader_firstByte lay tree leaf i st
     rw [← h, wctNodeHeader_firstByte] at hc
@@ -8134,7 +8150,14 @@ theorem wctNodeHeader_low_ne_chainHeader {coord : Nat} (hk : coord < 9) (index h
   have h2 := ftsLeafLow_range index coord 0
   have h1lt := ftsNodeLowN_lt index coord heap
   have h2lt := ftsLeafLow_lt index coord 0
-  split at hw <;> omega
+  have h3 : ftsLeafLow index coord 0 % 256 = 0 := by unfold ftsLeafLow SigGolfCandidate.T3.ftsBias; omega
+  split at hw
+  · have : ftsNodeLowN index coord heap / 256 % 256 = 255 := by
+      rename_i hn
+      obtain ⟨h8, h128⟩ := hn
+      rw [ftsNodeLowN_eq]; unfold SigGolfCandidate.T3.ftsBias; omega
+    omega
+  · omega
 theorem wctNodeHeader_ne_header {coord : Nat} (hk : coord < 9) (index heap tag lay tree position idx : Nat)
     (_ht : tag % 256 ≠ 254) : wctNodeHeader coord index heap ≠ header tag lay tree position idx := by
   intro h
@@ -8311,18 +8334,15 @@ theorem pairEncoding_separation (up : Layer) (tree leaf : Nat) :
     unfold tweakMarker at hm
     rw [← h] at hc
     norm_num only [Nat.reducePow] at hc
-    rw [hm] at hc
     omega
   · have hc := ftsChainHeaderP_byte1 i k j t s high
     have hm := rowTweak_tag up tree leaf
     unfold tweakTag at hm
     rw [← h] at hc
     norm_num only [Nat.reducePow] at hc
-    rw [hm] at hc
     omega
   · obtain ⟨-, hw⟩ := append64_inj h
-    have hb := congrArg (fun x : BitVec 64 => x.toNat / 2 ^ 48 % 256) hw
-    simp only [hyperWord_toNat] at hb
+    have hb := SigGolfCandidate.T3.Freshness.hyperWord_layer hw
     have := up.isLt
     omega
 theorem ordinal_slot_injective {q q' : Nat} (h1 : q / 2 = q' / 2) (h2 : q % 2 = q' % 2) : q = q' := by
@@ -8411,29 +8431,69 @@ theorem ftsSeedHeader_ne_lowerSeedHeader (coord index pair : Nat) (lay : Layer) 
     ftsSeedHeader coord index pair ≠ lowerSeedHeader lay tree pair' :=
   ftsSeedHeader_ne_tag coord index pair 0 lay.val tree pair' 0 (by decide)
 /-! ### C2 (FULL): the packed lower node tweak -/
-theorem lowerNodeWord_toNat {heap : Nat} (hh : heap < 128) (lay tree : Nat) :
+theorem lowerNodeWord_toNat_honest {heap : Nat} (hh : heap < 128) {lay tree : Nat} (h : hyperHonest lay tree) :
+    (lowerNodeWord lay tree heap).toNat = 1920 + heap + (tree % 2 ^ 32 + 2 ^ hyperW (lay % 256)) * 2 ^ 16 := by
+  have h31 : 2 ^ hyperW (lay % 256) ≤ 2 ^ 31 := Nat.pow_le_pow_right (by norm_num) (hyperW_le _)
+  have hr := h.2
+  unfold lowerNodeWord lowerK
+  rw [BitVec.toNat_add, hyperWord_toNat_of h, BitVec.toNat_ofNat, pow_add 2 (hyperW (lay % 256)) 16]
+  generalize tree % 2 ^ 32 = R at hr ⊢
+  generalize 2 ^ hyperW (lay % 256) = Q at hr h31 ⊢
+  omega
+theorem lowerNodeWord_toNat_old {heap : Nat} (hh : heap < 128) {lay tree : Nat} (h : ¬ hyperHonest lay tree) :
     (lowerNodeWord lay tree heap).toNat = 1920 + heap + tree % 2 ^ 32 * 2 ^ 16 + lay % 256 * 2 ^ 48 + 193 * 2 ^ 56 := by
   unfold lowerNodeWord lowerK
-  rw [BitVec.toNat_add, hyperWord_toNat, BitVec.toNat_ofNat]
+  rw [BitVec.toNat_add, hyperWord_toNat_old h, BitVec.toNat_ofNat]
   have h1 := Nat.mod_lt tree (show 0 < 2 ^ 32 by decide)
   have h2 := Nat.mod_lt lay (show 0 < 256 by decide)
   rw [Nat.mod_eq_of_lt (show 1407 + heap < 2 ^ 64 by omega)]
   apply (Nat.mod_eq_of_lt _).trans
   · omega
   · omega
-theorem lowerTweak_toNat {heap : Nat} (hh : heap < 128) (lay tree : Nat) :
-    (lowerTweak lay tree heap).toNat = 1920 + heap + tree % 2 ^ 32 * 2 ^ 16 + (lay - 1) % 256 * 2 ^ 48 + 193 * 2 ^ 56 := by
+/-- L-hyper: a lower node word has byte0 `128 + heap`, byte1 7, and is at least `2^28`: an honest marker word
+(below `2^48`) or a legacy word (type byte 193). -/
+theorem lowerNodeWord_band {heap : Nat} (hh : heap < 128) (lay tree : Nat) :
+    (lowerNodeWord lay tree heap).toNat % 256 = 128 + heap ∧ (lowerNodeWord lay tree heap).toNat / 256 % 256 = 7 ∧
+    2 ^ 28 ≤ (lowerNodeWord lay tree heap).toNat ∧
+    ((lowerNodeWord lay tree heap).toNat < 2 ^ 48 ∨
+      (193 * 2 ^ 56 ≤ (lowerNodeWord lay tree heap).toNat ∧ (lowerNodeWord lay tree heap).toNat < 194 * 2 ^ 56)) := by
+  by_cases h : hyperHonest lay tree
+  · rw [lowerNodeWord_toNat_honest hh h]
+    have hr := h.2
+    have h31 : 2 ^ hyperW (lay % 256) ≤ 2 ^ 31 := Nat.pow_le_pow_right (by norm_num) (hyperW_le _)
+    have h12 : 2 ^ 12 ≤ 2 ^ hyperW (lay % 256) := Nat.pow_le_pow_right (by norm_num) (hyperW_ge h.1)
+    generalize tree % 2 ^ 32 = R at hr ⊢
+    generalize 2 ^ hyperW (lay % 256) = Q at hr h31 h12 ⊢
+    omega
+  · rw [lowerNodeWord_toNat_old hh h]
+    have h1 := Nat.mod_lt tree (show 0 < 2 ^ 32 by decide)
+    have h2 := Nat.mod_lt lay (show 0 < 256 by decide)
+    omega
+theorem lowerTweak_toNat_eq (lay tree heap : Nat) :
+    (lowerTweak lay tree heap).toNat = (lowerNodeWord (lay - 1) tree heap).toNat := by
   unfold lowerTweak
-  rw [append64_toNat, lowerNodeWord_toNat hh]
+  rw [append64_toNat]
   simp
+theorem lowerTweak_toNat_honest {heap : Nat} (hh : heap < 128) {lay tree : Nat} (h : hyperHonest (lay - 1) tree) :
+    (lowerTweak lay tree heap).toNat = 1920 + heap + (tree % 2 ^ 32 + 2 ^ hyperW ((lay - 1) % 256)) * 2 ^ 16 := by
+  rw [lowerTweak_toNat_eq, lowerNodeWord_toNat_honest hh h]
+theorem lowerTweak_toNat_old {heap : Nat} (hh : heap < 128) {lay tree : Nat} (h : ¬ hyperHonest (lay - 1) tree) :
+    (lowerTweak lay tree heap).toNat = 1920 + heap + tree % 2 ^ 32 * 2 ^ 16 + (lay - 1) % 256 * 2 ^ 48 + 193 * 2 ^ 56 := by
+  rw [lowerTweak_toNat_eq, lowerNodeWord_toNat_old hh h]
+theorem lowerTweak_band {heap : Nat} (hh : heap < 128) (lay tree : Nat) :
+    (lowerTweak lay tree heap).toNat % 256 = 128 + heap ∧ (lowerTweak lay tree heap).toNat / 256 % 256 = 7 ∧
+    2 ^ 28 ≤ (lowerTweak lay tree heap).toNat ∧
+    ((lowerTweak lay tree heap).toNat < 2 ^ 48 ∨
+      (193 * 2 ^ 56 ≤ (lowerTweak lay tree heap).toNat ∧ (lowerTweak lay tree heap).toNat < 194 * 2 ^ 56)) := by
+  rw [lowerTweak_toNat_eq]; exact lowerNodeWord_band hh _ _
 theorem lowerTweak_marker {heap : Nat} (hh : heap < 128) (lay tree : Nat) :
     tweakMarker (lowerTweak lay tree heap) = 128 + heap := by
-  unfold tweakMarker; rw [lowerTweak_toNat hh]; omega
+  unfold tweakMarker; exact (lowerTweak_band hh lay tree).1
 theorem lowerTweak_firstByte {heap : Nat} (hh : heap < 128) (lay tree : Nat) :
     (lowerTweak lay tree heap).toNat % 256 = 128 + heap := lowerTweak_marker hh lay tree
 theorem lowerTweak_tag {heap : Nat} (hh : heap < 128) (lay tree : Nat) :
     tweakTag (lowerTweak lay tree heap) = 7 := by
-  unfold tweakTag; rw [lowerTweak_toNat hh]; omega
+  unfold tweakTag; exact (lowerTweak_band hh lay tree).2.1
 theorem lowerTweak_high' (lay tree heap : Nat) : tweakHigh (lowerTweak lay tree heap) = 0 := by
   unfold lowerTweak; rw [append64_high]; rfl
 theorem lowerTweak_injective {lay lay' tree tree' heap heap' : Nat} (h1 : 1 ≤ lay) (h4 : lay < 4)
@@ -8441,14 +8501,61 @@ theorem lowerTweak_injective {lay lay' tree tree' heap heap' : Nat} (h1 : 1 ≤ 
     (hh' : heap' < 128) (h : lowerTweak lay tree heap = lowerTweak lay' tree' heap') :
     lay = lay' ∧ tree = tree' ∧ heap = heap' := by
   have e := congrArg BitVec.toNat h
-  rw [lowerTweak_toNat hh, lowerTweak_toNat hh', Nat.mod_eq_of_lt ht, Nat.mod_eq_of_lt ht',
-    Nat.mod_eq_of_lt (show lay - 1 < 256 by omega), Nat.mod_eq_of_lt (show lay' - 1 < 256 by omega)] at e
-  omega
+  rw [lowerTweak_toNat_eq, lowerTweak_toNat_eq] at e
+  have hl : (lay - 1) % 256 = lay - 1 := Nat.mod_eq_of_lt (by omega)
+  have hl' : (lay' - 1) % 256 = lay' - 1 := Nat.mod_eq_of_lt (by omega)
+  by_cases hA : hyperHonest (lay - 1) tree <;> by_cases hB : hyperHonest (lay' - 1) tree'
+  · rw [lowerNodeWord_toNat_honest hh hA, lowerNodeWord_toNat_honest hh' hB, Nat.mod_eq_of_lt ht,
+      Nat.mod_eq_of_lt ht', hl, hl'] at e
+    have hr := hA.2
+    have hr' := hB.2
+    rw [Nat.mod_eq_of_lt ht, hl] at hr
+    rw [Nat.mod_eq_of_lt ht', hl'] at hr'
+    have hS : tree + 2 ^ hyperW (lay - 1) = tree' + 2 ^ hyperW (lay' - 1) ∧ heap = heap' := by omega
+    have hQ : hyperW (lay - 1) = hyperW (lay' - 1) := by
+      rcases Nat.lt_trichotomy (hyperW (lay - 1)) (hyperW (lay' - 1)) with hlt | heq | hgt
+      · exfalso
+        have : 2 ^ (hyperW (lay - 1) + 1) ≤ 2 ^ hyperW (lay' - 1) := Nat.pow_le_pow_right (by norm_num) hlt
+        rw [pow_succ] at this; omega
+      · exact heq
+      · exfalso
+        have : 2 ^ (hyperW (lay' - 1) + 1) ≤ 2 ^ hyperW (lay - 1) := Nat.pow_le_pow_right (by norm_num) hgt
+        rw [pow_succ] at this; omega
+    have hinj : ∀ a, a < 4 → ∀ b, b < 4 → hyperW a = hyperW b → a = b := by decide
+    have := hinj (lay - 1) (by omega) (lay' - 1) (by omega) hQ
+    rw [hQ] at hS
+    exact ⟨by omega, by omega, hS.2⟩
+  · exfalso
+    have a := lowerNodeWord_band hh (lay - 1) tree
+    have b := lowerNodeWord_band hh' (lay' - 1) tree'
+    rw [lowerNodeWord_toNat_honest hh hA] at e a
+    rw [lowerNodeWord_toNat_old hh' hB] at e b
+    have hr := hA.2
+    have h31 : 2 ^ hyperW ((lay - 1) % 256) ≤ 2 ^ 31 := Nat.pow_le_pow_right (by norm_num) (hyperW_le _)
+    generalize tree % 2 ^ 32 = R at hr e
+    generalize 2 ^ hyperW ((lay - 1) % 256) = Q at hr h31 e
+    omega
+  · exfalso
+    rw [lowerNodeWord_toNat_old hh hA] at e
+    rw [lowerNodeWord_toNat_honest hh' hB] at e
+    have hr := hB.2
+    have h31 : 2 ^ hyperW ((lay' - 1) % 256) ≤ 2 ^ 31 := Nat.pow_le_pow_right (by norm_num) (hyperW_le _)
+    generalize tree' % 2 ^ 32 = R at hr e
+    generalize 2 ^ hyperW ((lay' - 1) % 256) = Q at hr h31 e
+    omega
+  · rw [lowerNodeWord_toNat_old hh hA, lowerNodeWord_toNat_old hh' hB, Nat.mod_eq_of_lt ht, Nat.mod_eq_of_lt ht',
+      hl, hl'] at e
+    omega
 theorem chainHeader_byte1_low (lay : Layer) (tree leaf i step : Nat) :
     (chainHeader lay tree leaf i step).toNat / 256 % 8 = step % 8 := by
-  rw [chainHeader_toNat, chainHeaderFlaggedLow_toNat, chainHeaderLow_toNat]
+  rw [chainHeader_toNat, chainHeaderFlaggedLow_toNat]
   have := Nat.mod_lt i (show 0 < 64 by decide)
   have := Nat.mod_lt step (show 0 < 8 by decide)
+  by_cases hA : chainHonest lay tree leaf
+  · rw [chainHeaderLow_toNat_honest hA]
+    generalize tree % 2^31 * 2^height lay + leaf % 4096 + 2^hyperW lay.val = X
+    split_ifs <;> omega
+  rw [chainHeaderLow_toNat_old hA]
   generalize (tree % 2 ^ 31 / 2 ^ (32 - height lay) + leaf % 4096 / 2 ^ height lay * 2 ^ (height lay - 1)) = x
   generalize (tree % 2 ^ 31 * 2 ^ height lay + leaf % 4096) % 2 ^ 32 = r
   have := Nat.mod_lt x (show 0 < 2 by decide)
@@ -8458,56 +8565,54 @@ theorem lowerTweak_ne_chainHeader {heap : Nat} (hh : heap < 128) (lay tree : Nat
     (tree' leaf i step : Nat) (hs : step % 8 ≠ 7) : lowerTweak lay tree heap ≠ chainHeader lay' tree' leaf i step := by
   intro h
   have e := chainHeader_byte1_low lay' tree' leaf i step
-  rw [← h, lowerTweak_toNat hh] at e
+  rw [← h] at e
+  have := (lowerTweak_band hh lay tree).2.1
   omega
 theorem lowerTweak_low_ge {heap : Nat} (hh : heap < 128) (lay tree : Nat) :
-    193 * 2 ^ 56 ≤ (lowerTweak lay tree heap).toNat % 2 ^ 64 := by
-  rw [lowerTweak_toNat hh]
-  have h1 := Nat.mod_lt tree (show 0 < 2 ^ 32 by decide)
-  have h2 := Nat.mod_lt (lay - 1) (show 0 < 256 by decide)
-  rw [Nat.mod_eq_of_lt (by omega)]; omega
+    2 ^ 28 ≤ (lowerTweak lay tree heap).toNat % 2 ^ 64 := by
+  have := lowerTweak_band hh lay tree
+  omega
 theorem lowerTweak_ne_of_low_lt {heap : Nat} (hh : heap < 128) (lay tree : Nat) {x : BitVec 128}
-    (hx : x.toNat % 2 ^ 64 < 2 ^ 58) : lowerTweak lay tree heap ≠ x := by
+    (hx : x.toNat % 2 ^ 64 < 2 ^ 28) : lowerTweak lay tree heap ≠ x := by
   intro h
   have := lowerTweak_low_ge hh lay tree
   rw [h] at this
   omega
 theorem lowerTweak_low_lt {heap : Nat} (hh : heap < 128) (lay tree : Nat) :
     (lowerTweak lay tree heap).toNat % 2^64 < 194 * 2^56 := by
-  rw [lowerTweak_toNat hh]
-  have h1 := Nat.mod_lt tree (show 0 < 2^32 by decide)
-  have h2 := Nat.mod_lt (lay-1) (show 0 < 256 by decide)
-  rw [Nat.mod_eq_of_lt (by omega)]
+  have := (lowerTweak_band hh lay tree).2.2.2
+  have := (lowerTweak lay tree heap).isLt
   omega
-theorem lowerTweak_ne_of_low_range {heap : Nat} (hh : heap < 128) (lay tree : Nat) {x : BitVec 128}
-    (hx : x.toNat % 2^64 < 2^58 ∨ 2^64-67073 ≤ x.toNat % 2^64) :
+/-- L-hyper: lower node tweaks are separated from the FTS words by byte1 (7 against 250..255, 0, 1). -/
+theorem lowerTweak_ne_of_tag {heap : Nat} (hh : heap < 128) (lay tree : Nat) {x : BitVec 128}
+    (hx : x.toNat % 2 ^ 64 / 256 % 256 ≠ 7) :
     lowerTweak lay tree heap ≠ x := by
   intro h
-  have h1 := lowerTweak_low_ge hh lay tree
-  have h2 := lowerTweak_low_lt hh lay tree
-  rw [h] at h1 h2
-  rcases hx with hlow | hhigh <;> omega
+  have h1 := lowerTweak_band hh lay tree
+  rw [h] at h1
+  omega
 theorem lowerTweak_ne_ftsChainHeaderP {heap : Nat} (hh : heap < 128) (lay tree : Nat)
     (index coord selected chain step : Nat) (high : BitVec 64) :
     lowerTweak lay tree heap ≠ ftsChainHeaderP index coord selected chain step high := by
-  apply lowerTweak_ne_of_low_range hh
+  apply lowerTweak_ne_of_tag hh
   have e : (ftsChainHeaderP index coord selected chain step high).toNat % 2 ^ 64 =
       ((ftsChainHeaderP index coord selected chain step high).extractLsb' 0 64).toNat := by
     rw [BitVec.extractLsb'_toNat]; simp
   rw [e, ftsChainHeaderP_low, BitVec.toNat_ofNat]
   have hlt := ftsChainLow_lt index coord selected chain step
-  have := ftsChainLow_range index coord selected chain step
-  rw [Nat.mod_eq_of_lt (by omega)]; exact this
+  rw [Nat.mod_eq_of_lt hlt]
+  unfold ftsChainLow SigGolfCandidate.T3.ftsBias; omega
 theorem lowerTweak_ne_wctNodeHeader {heap : Nat} (hh : heap < 128) (lay tree : Nat) {coord : Nat} (hk : coord < 9)
     (index heap' : Nat) : lowerTweak lay tree heap ≠ wctNodeHeader coord index heap' := by
-  apply lowerTweak_ne_of_low_range hh
+  apply lowerTweak_ne_of_tag hh
   rw [wctNodeHeader_toNat hk]
   split_ifs
   · have hlt := ftsNodeLowN_lt index coord heap'
-    have := ftsNodeLowN_range index coord heap'
+    have : ftsNodeLowN index coord heap' / 256 % 256 ≠ 7 := by
+      rw [ftsNodeLowN_eq]; unfold SigGolfCandidate.T3.ftsBias; omega
     omega
   · have hlt := ftsLeafLow_lt index coord 0
-    have := ftsLeafLow_range index coord 0
+    have : ftsLeafLow index coord 0 / 256 % 256 ≠ 7 := by unfold ftsLeafLow SigGolfCandidate.T3.ftsBias; omega
     omega
 end ClaudeWCT.WCT9
 end
@@ -12868,19 +12973,19 @@ theorem canonical_search_valid_credit (answers : Answers) (lay : Layer) (floor t
     CanonicalPolicy.producerDecodeAt_credit hd⟩
 
 theorem canonical_four_residual (d0 d1 d2 d3 : List Nat) (l0 l1 l2 l3 : Bool)
-    (h0 : 18 ≤ CanonicalPolicy.credit 0 l0 d0)
-    (h1 : CanonicalPolicy.threshold 1 (CanonicalPolicy.nextResidual 71 0 l0 d0) ≤
+    (h0 : 17 ≤ CanonicalPolicy.credit 0 l0 d0)
+    (h1 : CanonicalPolicy.threshold 1 (CanonicalPolicy.nextResidual 70 0 l0 d0) ≤
       CanonicalPolicy.credit 1 l1 d1)
     (h2 : CanonicalPolicy.threshold 2
-      (CanonicalPolicy.nextResidual (CanonicalPolicy.nextResidual 71 0 l0 d0) 1 l1 d1) ≤
+      (CanonicalPolicy.nextResidual (CanonicalPolicy.nextResidual 70 0 l0 d0) 1 l1 d1) ≤
       CanonicalPolicy.credit 2 l2 d2)
     (h3 : CanonicalPolicy.threshold 3
       (CanonicalPolicy.nextResidual
-        (CanonicalPolicy.nextResidual (CanonicalPolicy.nextResidual 71 0 l0 d0) 1 l1 d1) 2 l2 d2) ≤
+        (CanonicalPolicy.nextResidual (CanonicalPolicy.nextResidual 70 0 l0 d0) 1 l1 d1) 2 l2 d2) ≤
       CanonicalPolicy.credit 3 l3 d3) :
     CanonicalPolicy.nextResidual (CanonicalPolicy.nextResidual
-      (CanonicalPolicy.nextResidual (CanonicalPolicy.nextResidual 71 0 l0 d0) 1 l1 d1) 2 l2 d2) 3 l3 d3 = 0 := by
-  let r1 := CanonicalPolicy.nextResidual 71 0 l0 d0
+      (CanonicalPolicy.nextResidual (CanonicalPolicy.nextResidual 70 0 l0 d0) 1 l1 d1) 2 l2 d2) 3 l3 d3 = 0 := by
+  let r1 := CanonicalPolicy.nextResidual 70 0 l0 d0
   have hr1 : r1 < 54 := by dsimp [r1, CanonicalPolicy.nextResidual]; omega
   have hw1 := firstThreshold_window ⟨r1, hr1⟩
   change CanonicalPolicy.threshold 1 r1 < 16 ∧ r1 - CanonicalPolicy.threshold 1 r1 ≤ 39 at hw1
@@ -14474,10 +14579,10 @@ theorem policyHints_credit_sum (hints : BitVec 16) (digits : List (List Nat)) (l
     (hh : policyHintsValid hints digits lows = true)
     (hc : ∀ lay : Layer, hintFloor hints lay ≤
       CanonicalPolicy.credit lay (lows.getD lay.val true) (digits.getD lay.val [])) :
-    71 ≤ ((List.finRange 4).map fun lay =>
+    70 ≤ ((List.finRange 4).map fun lay =>
       CanonicalPolicy.credit lay (lows.getD lay.val true) (digits.getD lay.val [])).sum := by
   simp only [policyHintsValid, decide_eq_true_eq] at hh
-  have h0 : 18 ≤ CanonicalPolicy.credit 0 (lows.getD 0 true) (digits.getD 0 []) := by
+  have h0 : 17 ≤ CanonicalPolicy.credit 0 (lows.getD 0 true) (digits.getD 0 []) := by
     simpa [hintFloor, CanonicalPolicy.topFloor] using hc 0
   have h1 := hc 1
   have h2 := hc 2
@@ -14488,7 +14593,7 @@ theorem policyHints_credit_sum (hints : BitVec 16) (digits : List (List Nat)) (l
   have hz := canonical_four_residual (digits.getD 0 []) (digits.getD 1 []) (digits.getD 2 [])
     (digits.getD 3 []) (lows.getD 0 true) (lows.getD 1 true) (lows.getD 2 true) (lows.getD 3 true) h0 h1 h2 h3
   simp only [CanonicalPolicy.nextResidual] at hz
-  change 71 ≤ CanonicalPolicy.credit 0 (lows.getD 0 true) (digits.getD 0 []) +
+  change 70 ≤ CanonicalPolicy.credit 0 (lows.getD 0 true) (digits.getD 0 []) +
     (CanonicalPolicy.credit 1 (lows.getD 1 true) (digits.getD 1 []) +
       (CanonicalPolicy.credit 2 (lows.getD 2 true) (digits.getD 2 []) +
       (CanonicalPolicy.credit 3 (lows.getD 3 true) (digits.getD 3 []) + 0)))

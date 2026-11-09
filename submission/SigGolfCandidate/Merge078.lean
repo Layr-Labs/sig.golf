@@ -419,6 +419,7 @@ theorem recoverLayerPair_tbsim {sk : BitVec 256} {s0 : MachineState} {wsig : WCT
   set tree := (route index lay).2 with htree_def
   set leaf := (route index lay).1 with hleaf_def
   have htree : tree < 2 ^ 32 := route_tree_lt index lay hpre.hidx
+  have htrH : lay.val ≠ 0 → tree < 2 ^ T3.hyperW (lay.val - 1) := fun h0 => LH.route_tree_honest index hpre.hidx lay h0
   have hleaf : leaf < 2 ^ height lay := route_lt index lay
   have hH := height_le lay
   have hleaf32 : leaf < 2 ^ 32 := lt_of_lt_of_le hleaf (Nat.pow_le_pow_right (by norm_num) (by omega))
@@ -430,7 +431,7 @@ theorem recoverLayerPair_tbsim {sk : BitVec 256} {s0 : MachineState} {wsig : WCT
   have hWM := hpre.hWM
   have hP0 := hpre.hP
   obtain ⟨t1, st1, p1, x19, l16, l24, -, r1, f1⟩ := rl997_spec (im := im) s0 hpre.pc lay tree leaf
-    (by have hidx := hpre.hidx; dsimp [tree, leaf]; fin_cases lay <;> norm_num [route, height] at * <;> omega)
+    (by have := SigGolfCandidate.T3M.LH.route_honest index hpre.hidx lay; dsimp [tree, leaf]; exact this)
     hpre.x8 hpre.x9 hpre.x18 hpre.x15
   have f1g : ∀ A, A < 2 ^ 64 → A ≠ LEAFPK → A ≠ LEAFPK + 8 → A ≠ LEAFPK + 16 → A ≠ LEAFPK + 24 →
       t1.getMem (BitVec.ofNat 64 A) = s0.getMem (BitVec.ofNat 64 A) :=
@@ -577,7 +578,7 @@ theorem recoverLayerPair_tbsim {sk : BitVec 256} {s0 : MachineState} {wsig : WCT
       pure (r.2, st.2 ++ [r.1])) (lowFoldW lay) (LowInv tc sig lay leaf P WM) (height lay - 1)
     (fun i acc w hi hw => by
       obtain ⟨hI, hlen, hrec, h24⟩ := hw
-      refine TBSim.bind (W₂ := 0) ((rl_mk_stepL (im := im) (sk := sk) (by omega) (Or.inl (by omega)) htree hleaf
+      refine TBSim.bind (W₂ := 0) ((rl_mk_stepL (im := im) (sk := sk) (by omega) (Or.inl (by omega)) htree htrH hleaf
         hpre.hP hpre.hP' hpre.hP8 hpre.hWM8 hpre.hWM (by omega) c5 c8 c9 c18 c15 (cpath i.val (by omega)) cn32 cn40 hI
         (Or.inl hlow) hlow (by omega)).mono le_rfl (fun _ _ h => h)) (fun r w' h => TBSim.pure ⟨h.1, ?_, ?_, ?_⟩)
         |>.mono (by omega) (fun _ _ h => h)
