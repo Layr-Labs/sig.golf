@@ -8,22 +8,6 @@ import SigGolfCandidate.Merge053
 import SigGolfCandidate.Merge057
 import SigGolfCandidate.Merge058
 import SigGolfCandidate.Merge100
-set_option debug.skipKernelTC true
-set_option linter.all false
-
-namespace SigGolfCandidate.T3M.Extract
-open SigGolfCandidate.T3 SphincsSecurity
-set_option debug.skipKernelTC false in
-theorem canonicalHeader_digest (counter : BitVec 32) :
-    canonicalHeader (bytesLE 16 (digestHeader counter)) = bytesLE 16 (digestHeader counter) := by
-  have hd : digestHeader counter = (digestHeader counter).extractLsb' 64 64 ++ (25984#64) := by
-    have h := (BitVec.extractLsb'_append_extractLsb' (w := 64) (len := 64) (x := digestHeader counter)).symm
-    simpa [digestHeader_low] using h
-  have ht : (bytesLE 16 (digestHeader counter)).take 8 = bytesLE 8 (25984#64) := by
-    rw [hd, bytesLE_header_words, List.take_left' (bytesLE_length 8 _)]
-  unfold canonicalHeader
-  rw [if_neg (by simp [headerMarked, ht])]
-end SigGolfCandidate.T3M.Extract
 
 -- ==== merged from ClaudeWCT_W9_T3_Secc_WotsStructuralHonest ====
 section
@@ -45,11 +29,9 @@ attribute [local irreducible] SigGolfCandidate.T3.buildTree SigGolfCandidate.T3.
 /-- Top-nonce layer (r3-lean-nonsec): a rejected keygen trial (nonce below the selected one) of a top node, with honest
 children. -/
 def TopTrial (T : Answers) (x : HashInput) : Prop :=
-  ∃ (lay : Layer) (tree level c k : Nat), tree < 2 ^ Extract.treeBits lay ∧ level < height lay ∧
-    (lay = 0 ∨ level + 1 < height lay) ∧ c < 2 ^ (height lay - level - 1) ∧
-    k < WCT9.honestNonce T lay tree level c ∧
-    x = pad64 (WCT9.merkleNodeInputN lay.val tree (2 ^ (height lay - level - 1) + c) k
-      (treeValue (WCT9.wotsTree T lay tree) level (2 * c)) (treeValue (WCT9.wotsTree T lay tree) level (2 * c + 1)))
+  ∃ level c k, level < 11 ∧ c < 2 ^ (11 - level) ∧ k < WCT9.honestNonce T 0 0 level c ∧
+    x = pad64 (WCT9.merkleNodeInputN 0 0 (2 ^ (11 - level) + c) k
+      (treeValue (WCT9.wotsTree T 0 0) level (2 * c)) (treeValue (WCT9.wotsTree T 0 0) level (2 * c + 1)))
 def HonestQuery (T : Answers) : SigGolfCandidate.T3.Spec.Domain → Prop
   | .inl (.inr x) => Extract.posOf x = none ∨ (∃ p : Extract.Pos, p.Bounded ∧ x = Extract.honestInput T p) ∨ TopTrial T x
   | _ => True
@@ -63,22 +45,18 @@ theorem sat_privatePair (T : Answers) (tag lay tree position index : Nat) :
     QueriesSat T (HonestQuery T) (SigGolfCandidate.T3.privatePair tag lay tree position index) := by
   unfold SigGolfCandidate.T3.privatePair
   exact QueriesSat.bind (sat_privateHash T _) (QueriesSat.pure' _)
-theorem sat_pairedMask (T : Answers) (level pair : Nat) :
-    QueriesSat T (HonestQuery T) (SigGolfCandidate.T3.pairedMask level pair) := by
-  unfold SigGolfCandidate.T3.pairedMask
-  exact QueriesSat.pure' _
 theorem sat_mask (T : Answers) (level index : Nat) : QueriesSat T (HonestQuery T) (SigGolfCandidate.T3.mask level index) := by
-  unfold SigGolfCandidate.T3.mask
-  exact QueriesSat.bind (sat_pairedMask T _ _) (QueriesSat.pure' _)
+  unfold SigGolfCandidate.T3.mask SigGolfCandidate.T3.pairedMask
+  exact QueriesSat.bind (sat_privatePair T _ _ _ _ _) (QueriesSat.pure' _)
 theorem sat_privateMac (T : Answers) (region : Region) : QueriesSat T (HonestQuery T) (SigGolfCandidate.T3.privateMac region) := by
   unfold SigGolfCandidate.T3.privateMac SigGolfCandidate.T3.privateMacKey
   exact QueriesSat.bind (QueriesSat.bind (sat_privateHash T _) (QueriesSat.bind
     (sat_privateHash T _) (QueriesSat.pure' _))) (QueriesSat.pure' _)
 theorem sat_maskedLevel (T : Answers) (nodes : List Digest) (level : Nat) :
     QueriesSat T (HonestQuery T) (SigGolfCandidate.T3.maskedLevel nodes level) := by
-  unfold SigGolfCandidate.T3.maskedLevel
+  unfold SigGolfCandidate.T3.maskedLevel SigGolfCandidate.T3.pairedMask
   exact QueriesSat.bind (QueriesSat.mapM _ _ fun _ _ =>
-    QueriesSat.bind (sat_pairedMask T _ _) (QueriesSat.pure' _)) (QueriesSat.pure' _)
+    QueriesSat.bind (sat_privatePair T _ _ _ _ _) (QueriesSat.pure' _)) (QueriesSat.pure' _)
 theorem sat_privateNonce (T : Answers) (message : Message) :
     QueriesSat T (HonestQuery T) (SigGolfCandidate.T3.privateNonce message) := by
   unfold SigGolfCandidate.T3.privateNonce
@@ -87,9 +65,8 @@ theorem posOf_eq_none {x : HashInput}
     (h : ∀ p : Extract.Pos, p.Bounded → x.length = p.len →
       Extract.hdrKey x ≠ bytesLE 16 p.hdr) : Extract.posOf x = none :=
   Extract.posOf_eq_none h
-/- A 64-byte input whose header is an encoding row tweak with any high word (D6: the high word is a witness pad)
+/-- A 64-byte input whose header is an encoding row tweak with any high word (D6: the high word is a witness pad)
 decodes to no position: every 64-byte position differs from the row tweak in the low word. -/
-set_option debug.skipKernelTC false in
 theorem posOf_row_none {x : HashInput} {lay : Layer} {tree leaf : Nat} {hi : BitVec 64} (hlen : x.length = 64)
     (hx' : Extract.hdrBlock x = bytesLE 16 (WCT9.rowTweakW lay tree leaf hi)) :
     Extract.posOf x = none := by
@@ -107,21 +84,10 @@ theorem posOf_row_none {x : HashInput} {lay : Layer} {tree leaf : Nat} {hi : Bit
     have : (rowTweak lay tree leaf).toNat % 2 ^ 64 % 256 = (rowTweak lay tree leaf).toNat % 256 :=
       Nat.mod_mod_of_dvd _ (by norm_num)
     omega
-  have ht : ¬ ((hi ++ (rowTweak lay tree leaf).extractLsb' 0 64).toNat % 256 < 4 ∧
-      250 ≤ (hi ++ (rowTweak lay tree leaf).extractLsb' 0 64).toNat / 256 % 256 ∧
-      (hi ++ (rowTweak lay tree leaf).extractLsb' 0 64).toNat / 256 % 256 < 256) := by
-    have htag := append64_tag hi ((rowTweak lay tree leaf).extractLsb' 0 64)
-    have hrow := rowTweak_tag lay tree leaf
-    unfold tweakTag at htag hrow
-    rw [BitVec.extractLsb'_toNat, Nat.shiftRight_zero] at htag
-    have hd : (rowTweak lay tree leaf).toNat % 2^64 / 256 % 256 =
-        (rowTweak lay tree leaf).toNat / 256 % 256 := by omega
-    omega
   -- C4: the row tweak's low word carries type byte 193, so it is no top label.
   have hT : ¬ Extract.TopLow (Extract.hdrBlock x) := by
-    rw [hx, Extract.topLow_bytesLE_iff, append64_lowNat, hlow]
-    have := hyperWord_ge lay.val (tree * 2 ^ height lay + leaf); omega
-  rw [Extract.hdrKey_of_len64 hlen hT, hx, SigGolfCandidate.T3M.Extract.canonicalHeader_marker_ne _ hm ht] at he
+    rw [hx, Extract.topLow_bytesLE_iff, append64_lowNat, hlow, hyperWord_toNat]; omega
+  rw [Extract.hdrKey_of_len64 hlen hT, hx, SigGolfCandidate.T3M.Extract.canonicalHeader_marker_ne _ hm] at he
   have hlo := congrArg (BitVec.extractLsb' 0 64) (bytesLE_injective he)
   rw [BitVec.extractLsb'_append_eq_right] at hlo
   exact Extract.rowTweak_low_ne_hdr lay tree leaf hb (by rw [← hl, hlen]) hlo
@@ -135,7 +101,6 @@ theorem posOf_layerEncodingP (lay : Layer) (tree leaf : Nat) (msg : WCT9.LayerMs
     Extract.posOf (pad64 (layerEncodingInputP lay tree leaf msg counter pad padR hi)) = none :=
   posOf_row_none (BC.layerEncodingRow_length lay tree leaf msg counter pad padR hi)
     (BC.hdrBlock_layerEncodingInputP lay tree leaf msg counter pad padR hi)
-set_option debug.skipKernelTC false in
 theorem posOf_digest (rho : Digest) (message : Message) (counter : BitVec 32) :
     Extract.posOf (pad64 (digestInput rho message counter)) = none := by
   unfold digestInput
@@ -151,15 +116,15 @@ theorem posOf_digest (rho : Digest) (message : Message) (counter : BitVec 32) :
   rw [Extract.hdrKey_of_len64 hlen hT,
     Extract.hdrBlock_pad64 _ (by simp only [List.length_append, bytesLE_length]; omega),
     Extract.hdrBlock_prefix,
-    SigGolfCandidate.T3M.Extract.canonicalHeader_digest counter] at he
+    SigGolfCandidate.T3M.Extract.canonicalHeader_marker_ne _
+      (by rw [digestHeader_firstByte]; decide)] at he
   have hh := bytesLE_injective he
   cases p with
   | chain lay tree leaf i step => exact (chainHeader_ne_digestHeader _ _ _ _ _ counter).symm hh
   | wctChain index coord child c step =>
-      have hn := congrArg tweakTag hh
-      simp only [Extract.Pos.hdr, WCT9.ftsChainHeader, digestHeader_tag] at hn
-      change 101 = (WCT9.ftsChainHeaderP index coord child c step 0).toNat / 2^8 % 256 at hn
-      rw [WCT9.ftsChainHeaderP_byte1] at hn
+      have hn := congrArg (fun x : Digest => x.toNat % 256) hh
+      simp only [Extract.Pos.hdr, WCT9.ftsChainHeader, WCT9.ftsChainHeaderP_firstByte,
+        digestHeader_firstByte] at hn
       omega
   | wctNode index coord level nd =>
       simp only [Extract.Pos.hdr, WCT9.wctNodeHeader] at hh
@@ -176,7 +141,6 @@ theorem posOf_digest (rho : Digest) (message : Message) (counter : BitVec 32) :
         have h7 : height lay ≤ 7 := by revert h0; fin_cases lay <;> decide
         have hhp := Extract.node_heap_lt128 hnd h7
         rw [Extract.merkleTweak_layer_lower h0] at hh
-        have hpos : 0 < 2 ^ (height lay - level - 1) := by positivity
         have hn := congrArg (fun x : Digest => x.toNat % 256) hh
         simp only [digestHeader_firstByte, WCT9.lowerTweak_firstByte hhp] at hn
         omega
@@ -258,18 +222,11 @@ theorem posOf_chain_offgraph (lay : Layer) (tree leaf i step : Nat) (value : Dig
         have hh := Extract.node_heap_lt128 hnd h7
         rw [hlo] at hbit
         simp only [Extract.Pos.hdr] at hbit
-        rw [Extract.merkleTweak_layer_lower h0, BitVec.extractLsb'_toNat, Nat.shiftRight_zero] at hbit
+        rw [Extract.merkleTweak_layer_lower h0, BitVec.extractLsb'_toNat, Nat.shiftRight_zero,
+          WCT9.lowerTweak_toNat hh] at hbit
         have h1 := Nat.mod_lt tree' (show 0 < 2 ^ 32 by decide)
         have h2 : (lay'.val - 1) % 256 ≤ 2 := by have := lay'.isLt; omega
-        by_cases hA : hyperHonest (lay'.val - 1) tree'
-        · rw [WCT9.lowerTweak_toNat_honest hh hA] at hbit
-          have hr := hA.2
-          have h31 : 2 ^ hyperW ((lay'.val - 1) % 256) ≤ 2 ^ 31 := Nat.pow_le_pow_right (by norm_num) (hyperW_le _)
-          generalize tree' % 2 ^ 32 = R at hr hbit
-          generalize 2 ^ hyperW ((lay'.val - 1) % 256) = Q at hr h31 hbit
-          omega
-        · rw [WCT9.lowerTweak_toNat_old hh hA] at hbit
-          omega
+        omega
   | _ =>
       exact low_ne_of_firstByte _ _ (chainHeader_firstByte lay tree leaf i step)
         (Extract.Pos.hdr_marker_lt hb (by simp only [Extract.Pos.cls]; (try split) <;> omega)
@@ -418,11 +375,7 @@ theorem honestQuery_topTrial (T : Answers) (level c k : Nat) (hl : level < 11) (
       (treeValue (WCT9.wotsTree T 0 0) level (2 * c)) (treeValue (WCT9.wotsTree T 0 0) level (2 * c + 1)))))) := by
   rw [← WCT9.merkleNodeInputN_top 0]
   rcases Nat.lt_or_ge k (WCT9.honestNonce T 0 0 level c) with hlt | hge
-  · have hh0 : height (0 : Layer) - level - 1 = 11 - level := by simp [height]; omega
-    refine Or.inr (Or.inr ⟨0, 0, level, c, k, by simp [Extract.treeBits], by simp [height]; omega, Or.inl rfl,
-      by rw [hh0]; exact hc, hlt, ?_⟩)
-    rw [hh0]
-    rfl
+  · exact Or.inr (Or.inr ⟨level, c, k, hl, hc, hlt, rfl⟩)
   · have heq : k = WCT9.honestNonce T 0 0 level c := le_antisymm hk hge
     subst heq
     have hh : height (0 : Layer) - level - 1 = 11 - level := by simp [height]; omega
@@ -547,84 +500,13 @@ theorem sat_lowerNodeHash {T : Answers} {Q : SigGolfCandidate.T3.Spec.Domain →
     QueriesSat T Q (WCT9.lowerNodeHash lay tree heap left right) := by
   unfold WCT9.lowerNodeHash WCT9.lowerHash
   exact sat_halfHash _ _ h
-/-! U16b: a lower node is the first-nonce search `lowerNodeAt` (ground heaps 2..15); its queries are the trials up to
-the found nonce. -/
-def merkleQueryN (lay tree heap k : Nat) (left right : Digest) : SigGolfCandidate.T3.Spec.Domain :=
-  .inl (.inr (pad64 (WCT9.merkleNodeInputN lay tree heap k left right)))
-theorem lowerNonceSearch_fst_ge (T : Answers) (lay tree heap : Nat) (left right : Digest) :
-    ∀ fuel n, n ≤ (evalWithAnswerFn T (WCT9.lowerNonceSearch lay tree heap left right fuel n)).1
-  | 0, n => by
-      simp [WCT9.lowerNonceSearch]
-  | fuel + 1, n => by
-      simp only [WCT9.lowerNonceSearch, evalWithAnswerFn_bind]
-      split
-      · simp [evalWithAnswerFn_pure]
-      · exact Nat.le_of_succ_le (lowerNonceSearch_fst_ge T lay tree heap left right fuel (n + 1))
-theorem eval_lowerNonceSearch_succ_of_not (T : Answers) (lay tree heap : Nat) (left right : Digest) (fuel n : Nat)
-    (hz : ¬ WCT9.lowerZeroOk lay heap (evalWithAnswerFn T (WCT9.lowerNodeHashN lay tree heap n left right)) = true) :
-    evalWithAnswerFn T (WCT9.lowerNonceSearch lay tree heap left right (fuel + 1) n) =
-      evalWithAnswerFn T (WCT9.lowerNonceSearch lay tree heap left right fuel (n + 1)) := by
-  simp only [WCT9.lowerNonceSearch, evalWithAnswerFn_bind]
-  rw [if_neg hz]
-theorem sat_lowerNodeHashN {T : Answers} {Q : SigGolfCandidate.T3.Spec.Domain → Prop} (lay tree heap k : Nat)
-    (left right : Digest) (h : Q (merkleQueryN lay tree heap k left right)) :
-    QueriesSat T Q (WCT9.lowerNodeHashN lay tree heap k left right) := by
-  unfold WCT9.lowerNodeHashN WCT9.lowerHash
-  exact sat_halfHash _ _ h
-theorem sat_lowerNonceSearch {T : Answers} {Q : SigGolfCandidate.T3.Spec.Domain → Prop} (lay tree heap : Nat)
-    (left right : Digest) :
-    ∀ fuel n, (∀ k, n ≤ k → k ≤ (evalWithAnswerFn T (WCT9.lowerNonceSearch lay tree heap left right fuel n)).1 →
-        Q (merkleQueryN lay tree heap k left right)) →
-      QueriesSat T Q (WCT9.lowerNonceSearch lay tree heap left right fuel n)
-  | 0, n, hk => by
-      have h1 := hk n le_rfl (lowerNonceSearch_fst_ge T lay tree heap left right 0 n)
-      unfold WCT9.lowerNonceSearch
-      exact QueriesSat.bind (sat_lowerNodeHashN _ _ _ _ _ _ h1) (QueriesSat.pure' _)
-  | fuel + 1, n, hk => by
-      have h1 := hk n le_rfl (lowerNonceSearch_fst_ge T lay tree heap left right (fuel + 1) n)
-      have hrec : ¬ WCT9.lowerZeroOk lay heap (evalWithAnswerFn T (WCT9.lowerNodeHashN lay tree heap n left right)) =
-            true → QueriesSat T Q (WCT9.lowerNonceSearch lay tree heap left right fuel (n + 1)) := fun hz =>
-        sat_lowerNonceSearch lay tree heap left right fuel (n + 1) (fun k hk1 hk2 => hk k (by omega) (by
-          rw [eval_lowerNonceSearch_succ_of_not T lay tree heap left right fuel n hz]
-          exact hk2))
-      unfold WCT9.lowerNonceSearch
-      refine QueriesSat.bind (sat_lowerNodeHashN _ _ _ _ _ _ h1) ?_
-      split
-      · exact QueriesSat.pure' _
-      · next hz => exact hrec hz
-theorem sat_lowerNodeAt {T : Answers} {Q : SigGolfCandidate.T3.Spec.Domain → Prop} (lay tree heap : Nat)
-    (left right : Digest)
-    (hk : ∀ k, k ≤ (evalWithAnswerFn T (WCT9.lowerNodeAt lay tree heap left right)).1 →
-      Q (merkleQueryN lay tree heap k left right)) :
-    QueriesSat T Q (WCT9.lowerNodeAt lay tree heap left right) := by
-  by_cases hb : WCT9.lowerZeroBits lay heap = 0
-  · rw [WCT9.lowerNodeAt_of_zero hb] at hk ⊢
-    have h0 := hk 0 (Nat.zero_le _)
-    refine QueriesSat.map _ (sat_lowerNodeHash _ _ _ _ _ ?_)
-    unfold merkleQueryN at h0
-    rw [WCT9.merkleNodeInputN_zero] at h0
-    exact h0
-  · have he : WCT9.lowerNodeAt lay tree heap left right =
-        WCT9.lowerNonceSearch lay tree heap left right (WCT9.lowerNonceCap lay heap - 1) 0 := by
-      unfold WCT9.lowerNodeAt; rw [if_neg hb]
-    rw [he] at hk ⊢
-    exact sat_lowerNonceSearch lay tree heap left right _ 0 (fun k _ hk2 => hk k hk2)
-theorem sat_lowerNodeG {T : Answers} {Q : SigGolfCandidate.T3.Spec.Domain → Prop} (lay tree heap : Nat)
-    (left right : Digest)
-    (hk : ∀ k, k ≤ (evalWithAnswerFn T (WCT9.lowerNodeAt lay tree heap left right)).1 →
-      Q (merkleQueryN lay tree heap k left right)) :
-    QueriesSat T Q (WCT9.lowerNodeG lay tree heap left right) := by
-  unfold WCT9.lowerNodeG
-  exact QueriesSat.map _ (sat_lowerNodeAt lay tree heap left right hk)
 theorem sat_lowerLevel {T : Answers} {Q : SigGolfCandidate.T3.Spec.Domain → Prop} (lay tree h level : Nat)
     (nodes : List Digest)
-    (hq : ∀ i, i < nodes.length / 2 → ∀ k,
-      k ≤ (evalWithAnswerFn T (WCT9.lowerNodeAt lay tree (2 ^ (h - level) + i) (nodes.getD (2 * i) 0)
-        (nodes.getD (2 * i + 1) 0))).1 →
-      Q (merkleQueryN lay tree (2 ^ (h - level) + i) k (nodes.getD (2 * i) 0) (nodes.getD (2 * i + 1) 0))) :
+    (hq : ∀ i, i < nodes.length / 2 →
+      Q (merkleQuery lay tree (2 ^ (h - level) + i) (nodes.getD (2 * i) 0) (nodes.getD (2 * i + 1) 0))) :
     QueriesSat T Q (WCT9.lowerLevel lay tree h level nodes) := by
   unfold WCT9.lowerLevel
-  exact QueriesSat.mapM _ _ (fun i hi => sat_lowerNodeG _ _ _ _ _ (hq i (List.mem_range.mp hi)))
+  exact QueriesSat.mapM _ _ (fun i hi => sat_lowerNodeHash _ _ _ _ _ (hq i (List.mem_range.mp hi)))
 def lowerStep (lay tree h : Nat) (levels : List (List Digest)) (level : Nat) : M (List (List Digest)) := do
   let nodes ← WCT9.lowerLevel lay tree h level (levels.getD (level - 1) [])
   pure (levels ++ [nodes])
@@ -668,11 +550,8 @@ theorem lowerFold_prefix (T : Answers) (lay tree h : Nat) (leaves : List Digest)
 theorem sat_lowerFold {T : Answers} {Q : SigGolfCandidate.T3.Spec.Domain → Prop} (lay tree h : Nat)
     (leaves : List Digest) (n : Nat) (hn : n ≤ h)
     (hq : ∀ level, level < n → ∀ node,
-      node < ((evalWithAnswerFn T (lowerFold lay tree h leaves n)).getD level []).length / 2 → ∀ k,
-      k ≤ (evalWithAnswerFn T (WCT9.lowerNodeAt lay tree (2 ^ (h - (level + 1)) + node)
-        (treeValue (evalWithAnswerFn T (lowerFold lay tree h leaves n)) level (2 * node))
-        (treeValue (evalWithAnswerFn T (lowerFold lay tree h leaves n)) level (2 * node + 1)))).1 →
-      Q (merkleQueryN lay tree (2 ^ (h - (level + 1)) + node) k
+      node < ((evalWithAnswerFn T (lowerFold lay tree h leaves n)).getD level []).length / 2 →
+      Q (merkleQuery lay tree (2 ^ (h - (level + 1)) + node)
         (treeValue (evalWithAnswerFn T (lowerFold lay tree h leaves n)) level (2 * node))
         (treeValue (evalWithAnswerFn T (lowerFold lay tree h leaves n)) level (2 * node + 1)))) :
     QueriesSat T Q (lowerFold lay tree h leaves n) := by
@@ -700,28 +579,19 @@ theorem sat_lowerFold {T : Answers} {Q : SigGolfCandidate.T3.Spec.Domain → Pro
 theorem honestQuery_lowerNode (T : Answers) (lay : Layer) (tree : Nat) (ht : tree < 2 ^ Extract.treeBits lay)
     (level node : Nat) (hlevel : level < height lay) (hroot : lay = 0 ∨ level + 1 < height lay) (hlay : lay ≠ 0)
     (hnode : node < ((WCT9.wotsTree T lay tree).getD level []).length / 2) :
-    ∀ k, k ≤ (evalWithAnswerFn T (WCT9.lowerNodeAt lay.val tree (2 ^ (height lay - (level + 1)) + node)
-        (treeValue (WCT9.wotsTree T lay tree) level (2 * node))
-        (treeValue (WCT9.wotsTree T lay tree) level (2 * node + 1)))).1 →
-      HonestQuery T (merkleQueryN lay.val tree (2 ^ (height lay - (level + 1)) + node) k
-        (treeValue (WCT9.wotsTree T lay tree) level (2 * node))
-        (treeValue (WCT9.wotsTree T lay tree) level (2 * node + 1))) := by
+    HonestQuery T (merkleQuery lay.val tree (2 ^ (height lay - (level + 1)) + node)
+      (treeValue (WCT9.wotsTree T lay tree) level (2 * node)) (treeValue (WCT9.wotsTree T lay tree) level (2 * node + 1))) := by
   have hshape := (WCT9.wotsTree_correct T hlay tree).1
   have hw := hshape.2 level (by omega)
   have hpow : 2 ^ (height lay - level) = 2 * 2 ^ (height lay - level - 1) := by
     rw [← pow_succ']; congr 1; omega
-  have hc : node < 2 ^ (height lay - level - 1) := by rw [hw, hpow] at hnode; omega
-  intro k hk
-  rw [← Nat.sub_sub] at hk ⊢
-  rw [← WCT9.honestNonce_lowerAt T hlay tree level node hlevel hc] at hk
-  rcases Nat.lt_or_ge k (WCT9.honestNonce T lay tree level node) with hlt | hge
-  · exact Or.inr (Or.inr ⟨lay, tree, level, node, k, ht, hlevel, hroot, hc, hlt, rfl⟩)
-  · have heq : k = WCT9.honestNonce T lay tree level node := le_antisymm hk hge
-    subst heq
-    refine Or.inr (Or.inl ⟨.node lay tree level node, ⟨by
-      have h31 := lt_of_le_of_lt (Nat.le_add_right _ _) (Extract.routed_lt_of_treeBits ht (Nat.one_le_two_pow))
-      have hle : tree ≤ tree * 2 ^ height lay := Nat.le_mul_of_pos_right _ (Nat.one_le_two_pow)
-      omega, hlevel, hroot, Extract.tree_zero_of_treeBits ht, hc⟩, rfl⟩)
+  refine Or.inr (Or.inl ⟨.node lay tree level node, ⟨by
+    have h31 := lt_of_le_of_lt (Nat.le_add_right _ _) (Extract.routed_lt_of_treeBits ht (Nat.one_le_two_pow))
+    have hle : tree ≤ tree * 2 ^ height lay := Nat.le_mul_of_pos_right _ (Nat.one_le_two_pow)
+    omega, hlevel, hroot, Extract.tree_zero_of_treeBits ht, by rw [hw, hpow] at hnode; omega⟩, ?_⟩)
+  show pad64 (WCT9.merkleNodeInput lay.val tree (2 ^ (height lay - (level + 1)) + node) _ _) =
+    pad64 (WCT9.merkleNodeInputN lay.val tree (2 ^ (height lay - level - 1) + node) (WCT9.honestNonce T lay tree level node) _ _)
+  rw [WCT9.honestInputN_lower T hlay, Nat.sub_sub]
 theorem buildLevelsBelow_eq_fold (tag lay tree h : Nat) (leaves : List Digest) :
     WCT9.buildLevelsBelow tag lay tree h leaves = lowerFold lay tree h leaves (h - 1) := rfl
 theorem lowerLevels_eq_fold (lay tree h : Nat) (leaves : List Digest) :
@@ -875,21 +745,12 @@ attribute [local irreducible] SigGolfCandidate.T3.buildTree SigGolfCandidate.T3.
 /-- Top-nonce layer (r3-lean-nonsec): a rejected keygen trial (nonce below the selected one) of a top node, with honest
 children. -/
 def TopTrial (T : Answers) (x : HashInput) : Prop :=
-  ∃ (lay : Layer) (tree level c k : Nat), tree < 2 ^ Extract.treeBits lay ∧ level < height lay ∧
-    (lay = 0 ∨ level + 1 < height lay) ∧ c < 2 ^ (height lay - level - 1) ∧
-    k < WCT9.honestNonce T lay tree level c ∧
-    x = pad64 (WCT9.merkleNodeInputN lay.val tree (2 ^ (height lay - level - 1) + c) k
-      (treeValue (WCT9.wotsTree T lay tree) level (2 * c)) (treeValue (WCT9.wotsTree T lay tree) level (2 * c + 1)))
-/-- E8: a rejected FTS ground trial (nonce below the honest one) of a level-3 (heap `8 + c`) node, with honest
-children. -/
-def FtsTrial (T : Answers) (x : HashInput) : Prop :=
-  ∃ (index coord c k : Nat), index < 2 ^ 31 ∧ coord < 9 ∧ c < 8 ∧
-    k < Extract.Paired.honestFtsNonce T index coord (8 + c) ∧
-    x = pad64 (WCT9.wctTopInput coord index (8 + c) ((Extract.Paired.nodes T index coord).getD (2 * (8 + c)) 0)
-      (BitVec.ofNat 128 (k % 2 ^ 64)) ((Extract.Paired.nodes T index coord).getD (2 * (8 + c) + 1) 0))
+  ∃ level c k, level < 11 ∧ c < 2 ^ (11 - level) ∧ k < WCT9.honestNonce T 0 0 level c ∧
+    x = pad64 (WCT9.merkleNodeInputN 0 0 (2 ^ (11 - level) + c) k
+      (treeValue (WCT9.wotsTree T 0 0) level (2 * c)) (treeValue (WCT9.wotsTree T 0 0) level (2 * c + 1)))
 def HonestQuery (T : Answers) : SigGolfCandidate.T3.Spec.Domain → Prop
   | .inl (.inr x) => Extract.posOf x = none ∨ (∃ p : Extract.Pos, Extract.Paired.Bounded p ∧ x = Extract.Paired.honestInput T p) ∨
-      TopTrial T x ∨ FtsTrial T x
+      TopTrial T x
   | _ => True
 theorem honestQuery_private (T : Answers) (c : Coordinate) : HonestQuery T (.inr c) := trivial
 theorem honestQuery_honest (T : Answers) (p : Extract.Pos) (hp : Extract.Paired.Bounded p) :
@@ -901,22 +762,18 @@ theorem sat_privatePair (T : Answers) (tag lay tree position index : Nat) :
     QueriesSat T (HonestQuery T) (SigGolfCandidate.T3.privatePair tag lay tree position index) := by
   unfold SigGolfCandidate.T3.privatePair
   exact QueriesSat.bind (sat_privateHash T _) (QueriesSat.pure' _)
-theorem sat_pairedMask (T : Answers) (level pair : Nat) :
-    QueriesSat T (HonestQuery T) (SigGolfCandidate.T3.pairedMask level pair) := by
-  unfold SigGolfCandidate.T3.pairedMask
-  exact QueriesSat.pure' _
 theorem sat_mask (T : Answers) (level index : Nat) : QueriesSat T (HonestQuery T) (SigGolfCandidate.T3.mask level index) := by
-  unfold SigGolfCandidate.T3.mask
-  exact QueriesSat.bind (sat_pairedMask T _ _) (QueriesSat.pure' _)
+  unfold SigGolfCandidate.T3.mask SigGolfCandidate.T3.pairedMask
+  exact QueriesSat.bind (sat_privatePair T _ _ _ _ _) (QueriesSat.pure' _)
 theorem sat_privateMac (T : Answers) (region : Region) : QueriesSat T (HonestQuery T) (SigGolfCandidate.T3.privateMac region) := by
   unfold SigGolfCandidate.T3.privateMac SigGolfCandidate.T3.privateMacKey
   exact QueriesSat.bind (QueriesSat.bind (sat_privateHash T _) (QueriesSat.bind
     (sat_privateHash T _) (QueriesSat.pure' _))) (QueriesSat.pure' _)
 theorem sat_maskedLevel (T : Answers) (nodes : List Digest) (level : Nat) :
     QueriesSat T (HonestQuery T) (SigGolfCandidate.T3.maskedLevel nodes level) := by
-  unfold SigGolfCandidate.T3.maskedLevel
+  unfold SigGolfCandidate.T3.maskedLevel SigGolfCandidate.T3.pairedMask
   exact QueriesSat.bind (QueriesSat.mapM _ _ fun _ _ =>
-    QueriesSat.bind (sat_pairedMask T _ _) (QueriesSat.pure' _)) (QueriesSat.pure' _)
+    QueriesSat.bind (sat_privatePair T _ _ _ _ _) (QueriesSat.pure' _)) (QueriesSat.pure' _)
 theorem sat_privateNonce (T : Answers) (message : Message) :
     QueriesSat T (HonestQuery T) (SigGolfCandidate.T3.privateNonce message) := by
   unfold SigGolfCandidate.T3.privateNonce
@@ -925,9 +782,8 @@ theorem posOf_eq_none {x : HashInput}
     (h : ∀ p : Extract.Pos, p.Bounded → x.length = p.len →
       Extract.hdrKey x ≠ bytesLE 16 p.hdr) : Extract.posOf x = none :=
   Extract.posOf_eq_none h
-/- A 64-byte input whose header is an encoding row tweak with any high word (D6: the high word is a witness pad)
+/-- A 64-byte input whose header is an encoding row tweak with any high word (D6: the high word is a witness pad)
 decodes to no position: every 64-byte position differs from the row tweak in the low word. -/
-set_option debug.skipKernelTC false in
 theorem posOf_row_none {x : HashInput} {lay : Layer} {tree leaf : Nat} {hi : BitVec 64} (hlen : x.length = 64)
     (hx' : Extract.hdrBlock x = bytesLE 16 (WCT9.rowTweakW lay tree leaf hi)) :
     Extract.posOf x = none := by
@@ -945,21 +801,10 @@ theorem posOf_row_none {x : HashInput} {lay : Layer} {tree leaf : Nat} {hi : Bit
     have : (rowTweak lay tree leaf).toNat % 2 ^ 64 % 256 = (rowTweak lay tree leaf).toNat % 256 :=
       Nat.mod_mod_of_dvd _ (by norm_num)
     omega
-  have ht : ¬ ((hi ++ (rowTweak lay tree leaf).extractLsb' 0 64).toNat % 256 < 4 ∧
-      250 ≤ (hi ++ (rowTweak lay tree leaf).extractLsb' 0 64).toNat / 256 % 256 ∧
-      (hi ++ (rowTweak lay tree leaf).extractLsb' 0 64).toNat / 256 % 256 < 256) := by
-    have htag := append64_tag hi ((rowTweak lay tree leaf).extractLsb' 0 64)
-    have hrow := rowTweak_tag lay tree leaf
-    unfold tweakTag at htag hrow
-    rw [BitVec.extractLsb'_toNat, Nat.shiftRight_zero] at htag
-    have hd : (rowTweak lay tree leaf).toNat % 2^64 / 256 % 256 =
-        (rowTweak lay tree leaf).toNat / 256 % 256 := by omega
-    omega
   -- C4: the row tweak's low word carries type byte 193, so it is no top label.
   have hT : ¬ Extract.TopLow (Extract.hdrBlock x) := by
-    rw [hx, Extract.topLow_bytesLE_iff, append64_lowNat, hlow]
-    have := hyperWord_ge lay.val (tree * 2 ^ height lay + leaf); omega
-  rw [Extract.hdrKey_of_len64 hlen hT, hx, SigGolfCandidate.T3M.Extract.canonicalHeader_marker_ne _ hm ht] at he
+    rw [hx, Extract.topLow_bytesLE_iff, append64_lowNat, hlow, hyperWord_toNat]; omega
+  rw [Extract.hdrKey_of_len64 hlen hT, hx, SigGolfCandidate.T3M.Extract.canonicalHeader_marker_ne _ hm] at he
   have hlo := congrArg (BitVec.extractLsb' 0 64) (bytesLE_injective he)
   rw [BitVec.extractLsb'_append_eq_right] at hlo
   exact Extract.rowTweak_low_ne_hdr lay tree leaf hb (by rw [← hl, hlen]) hlo
@@ -973,7 +818,6 @@ theorem posOf_layerEncodingP (lay : Layer) (tree leaf : Nat) (msg : WCT9.LayerMs
     Extract.posOf (pad64 (layerEncodingInputP lay tree leaf msg counter pad padR hi)) = none :=
   posOf_row_none (BC.layerEncodingRow_length lay tree leaf msg counter pad padR hi)
     (BC.hdrBlock_layerEncodingInputP lay tree leaf msg counter pad padR hi)
-set_option debug.skipKernelTC false in
 theorem posOf_digest (rho : Digest) (message : Message) (counter : BitVec 32) :
     Extract.posOf (pad64 (digestInput rho message counter)) = none := by
   unfold digestInput
@@ -989,15 +833,15 @@ theorem posOf_digest (rho : Digest) (message : Message) (counter : BitVec 32) :
   rw [Extract.hdrKey_of_len64 hlen hT,
     Extract.hdrBlock_pad64 _ (by simp only [List.length_append, bytesLE_length]; omega),
     Extract.hdrBlock_prefix,
-    SigGolfCandidate.T3M.Extract.canonicalHeader_digest counter] at he
+    SigGolfCandidate.T3M.Extract.canonicalHeader_marker_ne _
+      (by rw [digestHeader_firstByte]; decide)] at he
   have hh := bytesLE_injective he
   cases p with
   | chain lay tree leaf i step => exact (chainHeader_ne_digestHeader _ _ _ _ _ counter).symm hh
   | wctChain index coord child c step =>
-      have hn := congrArg tweakTag hh
-      simp only [Extract.Pos.hdr, WCT9.ftsChainHeader, digestHeader_tag] at hn
-      change 101 = (WCT9.ftsChainHeaderP index coord child c step 0).toNat / 2^8 % 256 at hn
-      rw [WCT9.ftsChainHeaderP_byte1] at hn
+      have hn := congrArg (fun x : Digest => x.toNat % 256) hh
+      simp only [Extract.Pos.hdr, WCT9.ftsChainHeader, WCT9.ftsChainHeaderP_firstByte,
+        digestHeader_firstByte] at hn
       omega
   | wctNode index coord level nd =>
       simp only [Extract.Pos.hdr, WCT9.wctNodeHeader] at hh
@@ -1014,7 +858,6 @@ theorem posOf_digest (rho : Digest) (message : Message) (counter : BitVec 32) :
         have h7 : height lay ≤ 7 := by revert h0; fin_cases lay <;> decide
         have hhp := Extract.node_heap_lt128 hnd h7
         rw [Extract.merkleTweak_layer_lower h0] at hh
-        have hpos : 0 < 2 ^ (height lay - level - 1) := by positivity
         have hn := congrArg (fun x : Digest => x.toNat % 256) hh
         simp only [digestHeader_firstByte, WCT9.lowerTweak_firstByte hhp] at hn
         omega
@@ -1096,18 +939,11 @@ theorem posOf_chain_offgraph (lay : Layer) (tree leaf i step : Nat) (value : Dig
         have hh := Extract.node_heap_lt128 hnd h7
         rw [hlo] at hbit
         simp only [Extract.Pos.hdr] at hbit
-        rw [Extract.merkleTweak_layer_lower h0, BitVec.extractLsb'_toNat, Nat.shiftRight_zero] at hbit
+        rw [Extract.merkleTweak_layer_lower h0, BitVec.extractLsb'_toNat, Nat.shiftRight_zero,
+          WCT9.lowerTweak_toNat hh] at hbit
         have h1 := Nat.mod_lt tree' (show 0 < 2 ^ 32 by decide)
         have h2 : (lay'.val - 1) % 256 ≤ 2 := by have := lay'.isLt; omega
-        by_cases hA : hyperHonest (lay'.val - 1) tree'
-        · rw [WCT9.lowerTweak_toNat_honest hh hA] at hbit
-          have hr := hA.2
-          have h31 : 2 ^ hyperW ((lay'.val - 1) % 256) ≤ 2 ^ 31 := Nat.pow_le_pow_right (by norm_num) (hyperW_le _)
-          generalize tree' % 2 ^ 32 = R at hr hbit
-          generalize 2 ^ hyperW ((lay'.val - 1) % 256) = Q at hr h31 hbit
-          omega
-        · rw [WCT9.lowerTweak_toNat_old hh hA] at hbit
-          omega
+        omega
   | _ =>
       exact low_ne_of_firstByte _ _ (chainHeader_firstByte lay tree leaf i step)
         (Extract.Pos.hdr_marker_lt hb (by simp only [Extract.Pos.cls]; (try split) <;> omega)
@@ -1256,11 +1092,7 @@ theorem honestQuery_topTrial (T : Answers) (level c k : Nat) (hl : level < 11) (
       (treeValue (WCT9.wotsTree T 0 0) level (2 * c)) (treeValue (WCT9.wotsTree T 0 0) level (2 * c + 1)))))) := by
   rw [← WCT9.merkleNodeInputN_top 0]
   rcases Nat.lt_or_ge k (WCT9.honestNonce T 0 0 level c) with hlt | hge
-  · have hh0 : height (0 : Layer) - level - 1 = 11 - level := by simp [height]; omega
-    refine Or.inr (Or.inr (Or.inl ⟨0, 0, level, c, k, by simp [Extract.treeBits], by simp [height]; omega, Or.inl rfl,
-      by rw [hh0]; exact hc, hlt, ?_⟩))
-    rw [hh0]
-    rfl
+  · exact Or.inr (Or.inr ⟨level, c, k, hl, hc, hlt, rfl⟩)
   · have heq : k = WCT9.honestNonce T 0 0 level c := le_antisymm hk hge
     subst heq
     have hh : height (0 : Layer) - level - 1 = 11 - level := by simp [height]; omega
@@ -1385,84 +1217,13 @@ theorem sat_lowerNodeHash {T : Answers} {Q : SigGolfCandidate.T3.Spec.Domain →
     QueriesSat T Q (WCT9.lowerNodeHash lay tree heap left right) := by
   unfold WCT9.lowerNodeHash WCT9.lowerHash
   exact sat_halfHash _ _ h
-/-! U16b: a lower node is the first-nonce search `lowerNodeAt` (ground heaps 2..15); its queries are the trials up to
-the found nonce. -/
-def merkleQueryN (lay tree heap k : Nat) (left right : Digest) : SigGolfCandidate.T3.Spec.Domain :=
-  .inl (.inr (pad64 (WCT9.merkleNodeInputN lay tree heap k left right)))
-theorem lowerNonceSearch_fst_ge (T : Answers) (lay tree heap : Nat) (left right : Digest) :
-    ∀ fuel n, n ≤ (evalWithAnswerFn T (WCT9.lowerNonceSearch lay tree heap left right fuel n)).1
-  | 0, n => by
-      simp [WCT9.lowerNonceSearch]
-  | fuel + 1, n => by
-      simp only [WCT9.lowerNonceSearch, evalWithAnswerFn_bind]
-      split
-      · simp [evalWithAnswerFn_pure]
-      · exact Nat.le_of_succ_le (lowerNonceSearch_fst_ge T lay tree heap left right fuel (n + 1))
-theorem eval_lowerNonceSearch_succ_of_not (T : Answers) (lay tree heap : Nat) (left right : Digest) (fuel n : Nat)
-    (hz : ¬ WCT9.lowerZeroOk lay heap (evalWithAnswerFn T (WCT9.lowerNodeHashN lay tree heap n left right)) = true) :
-    evalWithAnswerFn T (WCT9.lowerNonceSearch lay tree heap left right (fuel + 1) n) =
-      evalWithAnswerFn T (WCT9.lowerNonceSearch lay tree heap left right fuel (n + 1)) := by
-  simp only [WCT9.lowerNonceSearch, evalWithAnswerFn_bind]
-  rw [if_neg hz]
-theorem sat_lowerNodeHashN {T : Answers} {Q : SigGolfCandidate.T3.Spec.Domain → Prop} (lay tree heap k : Nat)
-    (left right : Digest) (h : Q (merkleQueryN lay tree heap k left right)) :
-    QueriesSat T Q (WCT9.lowerNodeHashN lay tree heap k left right) := by
-  unfold WCT9.lowerNodeHashN WCT9.lowerHash
-  exact sat_halfHash _ _ h
-theorem sat_lowerNonceSearch {T : Answers} {Q : SigGolfCandidate.T3.Spec.Domain → Prop} (lay tree heap : Nat)
-    (left right : Digest) :
-    ∀ fuel n, (∀ k, n ≤ k → k ≤ (evalWithAnswerFn T (WCT9.lowerNonceSearch lay tree heap left right fuel n)).1 →
-        Q (merkleQueryN lay tree heap k left right)) →
-      QueriesSat T Q (WCT9.lowerNonceSearch lay tree heap left right fuel n)
-  | 0, n, hk => by
-      have h1 := hk n le_rfl (lowerNonceSearch_fst_ge T lay tree heap left right 0 n)
-      unfold WCT9.lowerNonceSearch
-      exact QueriesSat.bind (sat_lowerNodeHashN _ _ _ _ _ _ h1) (QueriesSat.pure' _)
-  | fuel + 1, n, hk => by
-      have h1 := hk n le_rfl (lowerNonceSearch_fst_ge T lay tree heap left right (fuel + 1) n)
-      have hrec : ¬ WCT9.lowerZeroOk lay heap (evalWithAnswerFn T (WCT9.lowerNodeHashN lay tree heap n left right)) =
-            true → QueriesSat T Q (WCT9.lowerNonceSearch lay tree heap left right fuel (n + 1)) := fun hz =>
-        sat_lowerNonceSearch lay tree heap left right fuel (n + 1) (fun k hk1 hk2 => hk k (by omega) (by
-          rw [eval_lowerNonceSearch_succ_of_not T lay tree heap left right fuel n hz]
-          exact hk2))
-      unfold WCT9.lowerNonceSearch
-      refine QueriesSat.bind (sat_lowerNodeHashN _ _ _ _ _ _ h1) ?_
-      split
-      · exact QueriesSat.pure' _
-      · next hz => exact hrec hz
-theorem sat_lowerNodeAt {T : Answers} {Q : SigGolfCandidate.T3.Spec.Domain → Prop} (lay tree heap : Nat)
-    (left right : Digest)
-    (hk : ∀ k, k ≤ (evalWithAnswerFn T (WCT9.lowerNodeAt lay tree heap left right)).1 →
-      Q (merkleQueryN lay tree heap k left right)) :
-    QueriesSat T Q (WCT9.lowerNodeAt lay tree heap left right) := by
-  by_cases hb : WCT9.lowerZeroBits lay heap = 0
-  · rw [WCT9.lowerNodeAt_of_zero hb] at hk ⊢
-    have h0 := hk 0 (Nat.zero_le _)
-    refine QueriesSat.map _ (sat_lowerNodeHash _ _ _ _ _ ?_)
-    unfold merkleQueryN at h0
-    rw [WCT9.merkleNodeInputN_zero] at h0
-    exact h0
-  · have he : WCT9.lowerNodeAt lay tree heap left right =
-        WCT9.lowerNonceSearch lay tree heap left right (WCT9.lowerNonceCap lay heap - 1) 0 := by
-      unfold WCT9.lowerNodeAt; rw [if_neg hb]
-    rw [he] at hk ⊢
-    exact sat_lowerNonceSearch lay tree heap left right _ 0 (fun k _ hk2 => hk k hk2)
-theorem sat_lowerNodeG {T : Answers} {Q : SigGolfCandidate.T3.Spec.Domain → Prop} (lay tree heap : Nat)
-    (left right : Digest)
-    (hk : ∀ k, k ≤ (evalWithAnswerFn T (WCT9.lowerNodeAt lay tree heap left right)).1 →
-      Q (merkleQueryN lay tree heap k left right)) :
-    QueriesSat T Q (WCT9.lowerNodeG lay tree heap left right) := by
-  unfold WCT9.lowerNodeG
-  exact QueriesSat.map _ (sat_lowerNodeAt lay tree heap left right hk)
 theorem sat_lowerLevel {T : Answers} {Q : SigGolfCandidate.T3.Spec.Domain → Prop} (lay tree h level : Nat)
     (nodes : List Digest)
-    (hq : ∀ i, i < nodes.length / 2 → ∀ k,
-      k ≤ (evalWithAnswerFn T (WCT9.lowerNodeAt lay tree (2 ^ (h - level) + i) (nodes.getD (2 * i) 0)
-        (nodes.getD (2 * i + 1) 0))).1 →
-      Q (merkleQueryN lay tree (2 ^ (h - level) + i) k (nodes.getD (2 * i) 0) (nodes.getD (2 * i + 1) 0))) :
+    (hq : ∀ i, i < nodes.length / 2 →
+      Q (merkleQuery lay tree (2 ^ (h - level) + i) (nodes.getD (2 * i) 0) (nodes.getD (2 * i + 1) 0))) :
     QueriesSat T Q (WCT9.lowerLevel lay tree h level nodes) := by
   unfold WCT9.lowerLevel
-  exact QueriesSat.mapM _ _ (fun i hi => sat_lowerNodeG _ _ _ _ _ (hq i (List.mem_range.mp hi)))
+  exact QueriesSat.mapM _ _ (fun i hi => sat_lowerNodeHash _ _ _ _ _ (hq i (List.mem_range.mp hi)))
 def lowerStep (lay tree h : Nat) (levels : List (List Digest)) (level : Nat) : M (List (List Digest)) := do
   let nodes ← WCT9.lowerLevel lay tree h level (levels.getD (level - 1) [])
   pure (levels ++ [nodes])
@@ -1506,11 +1267,8 @@ theorem lowerFold_prefix (T : Answers) (lay tree h : Nat) (leaves : List Digest)
 theorem sat_lowerFold {T : Answers} {Q : SigGolfCandidate.T3.Spec.Domain → Prop} (lay tree h : Nat)
     (leaves : List Digest) (n : Nat) (hn : n ≤ h)
     (hq : ∀ level, level < n → ∀ node,
-      node < ((evalWithAnswerFn T (lowerFold lay tree h leaves n)).getD level []).length / 2 → ∀ k,
-      k ≤ (evalWithAnswerFn T (WCT9.lowerNodeAt lay tree (2 ^ (h - (level + 1)) + node)
-        (treeValue (evalWithAnswerFn T (lowerFold lay tree h leaves n)) level (2 * node))
-        (treeValue (evalWithAnswerFn T (lowerFold lay tree h leaves n)) level (2 * node + 1)))).1 →
-      Q (merkleQueryN lay tree (2 ^ (h - (level + 1)) + node) k
+      node < ((evalWithAnswerFn T (lowerFold lay tree h leaves n)).getD level []).length / 2 →
+      Q (merkleQuery lay tree (2 ^ (h - (level + 1)) + node)
         (treeValue (evalWithAnswerFn T (lowerFold lay tree h leaves n)) level (2 * node))
         (treeValue (evalWithAnswerFn T (lowerFold lay tree h leaves n)) level (2 * node + 1)))) :
     QueriesSat T Q (lowerFold lay tree h leaves n) := by
@@ -1538,28 +1296,19 @@ theorem sat_lowerFold {T : Answers} {Q : SigGolfCandidate.T3.Spec.Domain → Pro
 theorem honestQuery_lowerNode (T : Answers) (lay : Layer) (tree : Nat) (ht : tree < 2 ^ Extract.treeBits lay)
     (level node : Nat) (hlevel : level < height lay) (hroot : lay = 0 ∨ level + 1 < height lay) (hlay : lay ≠ 0)
     (hnode : node < ((WCT9.wotsTree T lay tree).getD level []).length / 2) :
-    ∀ k, k ≤ (evalWithAnswerFn T (WCT9.lowerNodeAt lay.val tree (2 ^ (height lay - (level + 1)) + node)
-        (treeValue (WCT9.wotsTree T lay tree) level (2 * node))
-        (treeValue (WCT9.wotsTree T lay tree) level (2 * node + 1)))).1 →
-      HonestQuery T (merkleQueryN lay.val tree (2 ^ (height lay - (level + 1)) + node) k
-        (treeValue (WCT9.wotsTree T lay tree) level (2 * node))
-        (treeValue (WCT9.wotsTree T lay tree) level (2 * node + 1))) := by
+    HonestQuery T (merkleQuery lay.val tree (2 ^ (height lay - (level + 1)) + node)
+      (treeValue (WCT9.wotsTree T lay tree) level (2 * node)) (treeValue (WCT9.wotsTree T lay tree) level (2 * node + 1))) := by
   have hshape := (WCT9.wotsTree_correct T hlay tree).1
   have hw := hshape.2 level (by omega)
   have hpow : 2 ^ (height lay - level) = 2 * 2 ^ (height lay - level - 1) := by
     rw [← pow_succ']; congr 1; omega
-  have hc : node < 2 ^ (height lay - level - 1) := by rw [hw, hpow] at hnode; omega
-  intro k hk
-  rw [← Nat.sub_sub] at hk ⊢
-  rw [← WCT9.honestNonce_lowerAt T hlay tree level node hlevel hc] at hk
-  rcases Nat.lt_or_ge k (WCT9.honestNonce T lay tree level node) with hlt | hge
-  · exact Or.inr (Or.inr (Or.inl ⟨lay, tree, level, node, k, ht, hlevel, hroot, hc, hlt, rfl⟩))
-  · have heq : k = WCT9.honestNonce T lay tree level node := le_antisymm hk hge
-    subst heq
-    refine Or.inr (Or.inl ⟨.node lay tree level node, ⟨by
-      have h31 := lt_of_le_of_lt (Nat.le_add_right _ _) (Extract.routed_lt_of_treeBits ht (Nat.one_le_two_pow))
-      have hle : tree ≤ tree * 2 ^ height lay := Nat.le_mul_of_pos_right _ (Nat.one_le_two_pow)
-      omega, hlevel, hroot, Extract.tree_zero_of_treeBits ht, hc⟩, rfl⟩)
+  refine Or.inr (Or.inl ⟨.node lay tree level node, ⟨by
+    have h31 := lt_of_le_of_lt (Nat.le_add_right _ _) (Extract.routed_lt_of_treeBits ht (Nat.one_le_two_pow))
+    have hle : tree ≤ tree * 2 ^ height lay := Nat.le_mul_of_pos_right _ (Nat.one_le_two_pow)
+    omega, hlevel, hroot, Extract.tree_zero_of_treeBits ht, by rw [hw, hpow] at hnode; omega⟩, ?_⟩)
+  show pad64 (WCT9.merkleNodeInput lay.val tree (2 ^ (height lay - (level + 1)) + node) _ _) =
+    pad64 (WCT9.merkleNodeInputN lay.val tree (2 ^ (height lay - level - 1) + node) (WCT9.honestNonce T lay tree level node) _ _)
+  rw [WCT9.honestInputN_lower T hlay, Nat.sub_sub]
 theorem buildLevelsBelow_eq_fold (tag lay tree h : Nat) (leaves : List Digest) :
     WCT9.buildLevelsBelow tag lay tree h leaves = lowerFold lay tree h leaves (h - 1) := rfl
 theorem lowerLevels_eq_fold (lay tree h : Nat) (leaves : List Digest) :
@@ -1968,40 +1717,9 @@ attribute [local irreducible] SharedForest.sharedNodes SharedForest.firstNodes S
 attribute [local irreducible] Extract.Paired.pads Extract.Paired.pairPrev Extract.Paired.nodes
 variable (T : Answers) (index : Nat) (hidx : index < 2^31)
 
-/-! E8: the FTS ground search queries its trials up to the found nonce. -/
-def ftsQueryN (coord index heap k : Nat) (left right : Digest) : SigGolfCandidate.T3.Spec.Domain :=
-  .inl (.inr (pad64 (WCT9.ftsNodeInputN coord index heap k left right)))
-theorem eval_ftsNonceSearch_succ_of_not (coord index heap : Nat) (left right : Digest) (fuel n : Nat)
-    (hz : ¬ WCT9.ftsZeroOk coord heap (evalWithAnswerFn T (WCT9.ftsNodeHashN coord index heap n left right)) = true) :
-    evalWithAnswerFn T (WCT9.ftsNonceSearch coord index heap left right (fuel + 1) n) =
-      evalWithAnswerFn T (WCT9.ftsNonceSearch coord index heap left right fuel (n + 1)) := by
-  simp only [WCT9.ftsNonceSearch, evalWithAnswerFn_bind]
-  rw [if_neg hz]
-theorem sat_ftsNonceSearch {Q : SigGolfCandidate.T3.Spec.Domain → Prop} (coord index heap : Nat)
-    (left right : Digest) :
-    ∀ fuel n, (∀ k, n ≤ k → k ≤ (evalWithAnswerFn T (WCT9.ftsNonceSearch coord index heap left right fuel n)).1 →
-        Q (ftsQueryN coord index heap k left right)) →
-      QueriesSat T Q (WCT9.ftsNonceSearch coord index heap left right fuel n)
-  | 0, n, hk => by
-      have h1 := hk n le_rfl (Extract.Paired.ftsNonceSearch_fst_le T coord index heap left right 0 n).1
-      unfold WCT9.ftsNonceSearch
-      exact QueriesSat.bind (SigGolfCandidate.T3.Security.Wots.Structural.sat_shortHash _ h1) (QueriesSat.pure' _)
-  | fuel + 1, n, hk => by
-      have h1 := hk n le_rfl (Extract.Paired.ftsNonceSearch_fst_le T coord index heap left right (fuel + 1) n).1
-      have hrec : ¬ WCT9.ftsZeroOk coord heap (evalWithAnswerFn T (WCT9.ftsNodeHashN coord index heap n left right)) =
-            true → QueriesSat T Q (WCT9.ftsNonceSearch coord index heap left right fuel (n + 1)) := fun hz =>
-        sat_ftsNonceSearch coord index heap left right fuel (n + 1) (fun k hk1 hk2 => hk k (by omega) (by
-          rw [eval_ftsNonceSearch_succ_of_not T coord index heap left right fuel n hz]
-          exact hk2))
-      unfold WCT9.ftsNonceSearch
-      refine QueriesSat.bind (SigGolfCandidate.T3.Security.Wots.Structural.sat_shortHash _ h1) ?_
-      split
-      · exact QueriesSat.pure' _
-      · next hz => exact hrec hz
-
  include hidx in
 theorem honest_sharedNode_input (coord : Coord) (heap : Nat)
-    (hcut:SharedForest.heapCut (Extract.Paired.first coord.val) ≤ heap) (hh:heap<128) (hg : ¬(8 ≤ heap ∧ heap < 16)) :
+    (hcut:SharedForest.heapCut (Extract.Paired.first coord.val) ≤ heap) (hh:heap<128) :
     HonestQuery T (.inl (.inr (pad64 (wctTopInput coord.val index heap
       ((Extract.Paired.nodes T index coord.val).getD (2*heap) 0)
       (if 4≤heap ∧ heap<8 then (Extract.Paired.pads T index coord.val (heap/2-2)).2 else 0)
@@ -2022,14 +1740,7 @@ theorem honest_sharedNode_input (coord : Coord) (heap : Nat)
     have hhi:heap<2*2^(6-Extract.heapLevel heap) := by omega
     generalize Extract.heapLevel heap=L at hL hlo hhi ⊢
     interval_cases L <;> norm_num at hlo hhi ⊢ <;> omega
-  have h3 : Extract.heapLevel heap≠3 := by
-    have hlo:2^(6-Extract.heapLevel heap)≤heap := by omega
-    have hhi:heap<2*2^(6-Extract.heapLevel heap) := by omega
-    intro h3
-    rw [h3] at hlo hhi
-    norm_num at hlo hhi
-    omega
-  simp only [Extract.Paired.honestInput,hH,he,if_neg h3]
+  simp only [Extract.Paired.honestInput,hH,he]
 
  include hidx in
 theorem sat_sharedNode (coord : Coord) (heap : Nat)
@@ -2039,27 +1750,7 @@ theorem sat_sharedNode (coord : Coord) (heap : Nat)
         (Extract.Paired.pads T index coord.val)
         ((Extract.Paired.nodes T index coord.val).getD (2*heap) 0)
         ((Extract.Paired.nodes T index coord.val).getD (2*heap+1) 0)) := by
-  by_cases hg : 8 ≤ heap ∧ heap < 16
-  · -- E8: the FTS ground trials are honest queries: the found one is the honest input, the earlier ones `FtsTrial`s.
-    obtain ⟨c, rfl⟩ : ∃ c, heap = 8 + c := ⟨heap - 8, by omega⟩
-    rw [Extract.Paired.sharedNode_ground _ _ _ _ _ hg.1 hg.2]
-    unfold ftsNodeG
-    refine QueriesSat.map _ ?_
-    rw [Extract.Paired.ftsNodeAt_ground hg.1 hg.2]
-    refine sat_ftsNonceSearch T coord.val index (8 + c) _ _ _ 0 (fun k _ hk => ?_)
-    rw [← Extract.Paired.ftsNodeAt_ground hg.1 hg.2] at hk
-    change k ≤ Extract.Paired.honestFtsNonce T index coord.val (8 + c) at hk
-    unfold ftsQueryN
-    rw [ftsNodeInputN_eq_top]
-    rcases Nat.lt_or_ge k (Extract.Paired.honestFtsNonce T index coord.val (8 + c)) with hlt | hge
-    · exact Or.inr (Or.inr (Or.inr ⟨index, coord.val, c, k, hidx, coord.isLt, by omega, hlt, rfl⟩))
-    · have heq : k = Extract.Paired.honestFtsNonce T index coord.val (8 + c) := le_antisymm hk hge
-      subst heq
-      refine Or.inr (Or.inl ⟨.wctNode index coord.val 3 c, ⟨⟨hidx, coord.isLt, by decide, by norm_num; omega⟩,
-        fun _ => by decide⟩, ?_⟩)
-      simp only [Extract.Paired.honestInput, if_neg (show (3:Nat) ≠ 4 by decide), if_pos (rfl : (3:Nat) = 3),
-        show 2 ^ (6 - 3) + c = 8 + c by norm_num, if_true]
-  have hq:=honest_sharedNode_input T index hidx coord heap hcut hh hg
+  have hq:=honest_sharedNode_input T index hidx coord heap hcut hh
   unfold SharedForest.sharedNode
   split_ifs with h4 h8 hf
   · unfold SharedForest.sharedOuterHash
@@ -2072,7 +1763,7 @@ theorem sat_sharedNode (coord : Coord) (heap : Nat)
   · rw [if_pos (show 4≤heap ∧ heap<8 by omega)] at hq
     exact SigGolfCandidate.T3.Security.Wots.Structural.sat_shortHash _ hq
   · rw [if_neg (by omega : ¬(4≤heap ∧ heap<8)),wctTopInput_zero] at hq
-    rw [ftsNodeG_of_zero (ftsZeroBits_off hg), nodeHashH_eq]
+    rw [nodeHashH_eq]
     exact ClaudeWCT.WCT9.Wots.Structural.sat_ftsHash T _ _ hq
 
 end ClaudeWCT.W9.T3.Security.Wots.PairedStructural

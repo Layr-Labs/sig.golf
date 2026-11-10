@@ -1,9 +1,6 @@
-import SigGolfCandidate.MaskMachine
 import SigGolfCandidate.Merge054
 import SigGolfCandidate.Merge075
 import SigGolfCandidate.Merge083
-set_option debug.skipKernelTC false
-set_option linter.all false
 
 -- ==== merged from ClaudeWCT_W9_New_Machine_Sign_FtsTableCheck ====
 section
@@ -330,16 +327,15 @@ theorem step_Q (hcode : NewCodeAt im) {c i j : Nat} (hc : c < 9) (hi : i < 6) (s
   obtain ⟨hst, -⟩ := run_pres (coordLook_ok hcode hc) (runQ_eq hc hi) s hpc (no_obl s) (no_br s)
   exact ⟨_, hst, rfl, by rw [pres_getReg]; rfl, by rw [pres_getReg]; exact eval_ptE s h18 (by omega) i,
     pres_regsExcept _ _ _ _ _ _ _ s, fun A _ _ => rfl⟩
-def chainW0 (c i j index p : Nat) : Nat := index * 2 ^ 27 + j * 2 ^ 20 + chainK c i + p
+def chainW0 (c i j index p : Nat) : Nat := index * 2 ^ 27 + j * 2 ^ 20 + chainK c i + 256 * p
 theorem chainW0_merge (c i j index p q : Nat) (hc : c < 9) (hi : i < 6) (hp : p < 4) (hq : q < 4) :
-    StoreKind.merge .b (BitVec.ofNat 64 (chainW0 c i j index p)) 0 (BitVec.ofNat 64 q) =
+    StoreKind.merge .b (BitVec.ofNat 64 (chainW0 c i j index p)) 1 (BitVec.ofNat 64 q) =
       BitVec.ofNat 64 (chainW0 c i j index q) := by
-  apply SigGolfCandidate.T3M.mergeByteZero
-  · unfold chainK
-    omega
-  · omega
-  · omega
-
+  apply BitVec.eq_of_toNat_eq
+  simp only [StoreKind.merge]
+  rw [replaceByte_toNat8 _ _ (by omega)]
+  simp only [chainW0, chainK, BitVec.truncate_eq_setWidth, BitVec.toNat_setWidth, BitVec.toNat_ofNat]
+  omega
 theorem step_S (hcode : NewCodeAt im) {c i j index w : Nat} (hc : c < 9) (hi : i < 6) (s : MachineState)
     (hpc : s.pc = pcOf (qI c i + 5)) (h18 : s.getReg .x18 = BitVec.ofNat 64 j)
     (h22 : s.getReg .x22 = BitVec.ofNat 64 index) (hj : j < 128)
@@ -411,7 +407,7 @@ theorem step_Stp (hcode : NewCodeAt im) {c i st j index : Nat} (hc : c < 9) (hi 
   obtain ⟨hst', hec⟩ := run_pres (coordLook_ok hcode hc) (runStp_eq hc hi h1 h4) s hpc (no_obl s) (no_br s)
   refine ⟨_, hst', hec rfl, rfl, rfl, rfl, rfl, ?_, pres_regsExcept _ _ _ _ _ _ _ s, ?_⟩
   · rw [pres_getMem, memEval_mwc_self _ _ _ _ (by ao)]
-    show StoreKind.merge .b (s.getMem (BitVec.ofNat 64 (CHAINW + 16))) 0 (BitVec.ofNat 64 (st - 1)) = _
+    show StoreKind.merge .b (s.getMem (BitVec.ofNat 64 (CHAINW + 16))) 1 (BitVec.ofNat 64 (st - 1)) = _
     rw [h16, chainW0_merge c i j index pv (st - 1) hc hi hpv (by omega)]
   · refine frame_of_memEval (fun a => rfl) _ (fun q hq => ?_)
     simp only [expStp, pres, List.mem_cons, List.not_mem_nil, or_false] at hq
@@ -440,7 +436,7 @@ theorem step_L (hcode : NewCodeAt im) {c j index : Nat} (hc : c < 9) (s : Machin
     ∃ t, Steps im s (if c = 0 then 21 else 23) (if c = 0 then 21 else 23) t ∧ fetch im t = some (.base .ECALL) ∧
       t.pc = pcOf (tI c - 1) ∧ t.getReg .x10 = BitVec.ofNat 64 LEAFW ∧ t.getReg .x11 = BitVec.ofNat 64 128 ∧
       t.getReg .x12 = BitVec.ofNat 64 (HEAPW + 16 * (j + 128)) ∧
-      t.getMem (BitVec.ofNat 64 (LEAFW + 16)) = BitVec.ofNat 64 (leafLo7R c index j) ∧
+      t.getMem (BitVec.ofNat 64 (LEAFW + 16)) = BitVec.ofNat 64 (leafLo7 c index j) ∧
       t.getMem (BitVec.ofNat 64 (LEAFW + 24)) = 0 ∧ t.getMem (BitVec.ofNat 64 (LEAFW + 32)) = (padE c 0).eval s ∧
       t.getMem (BitVec.ofNat 64 (LEAFW + 40)) = (padE c 8).eval s ∧
       RegsExcept s t [.x6, .x7, .x10, .x11, .x12] ∧
@@ -517,10 +513,10 @@ theorem eval_nodeLd (s : MachineState) {h : Nat} (h18 : s.getReg .x18 = BitVec.o
     (nodeLd off).eval s = s.getMem (BitVec.ofNat 64 (HEAPW + 32 * h + off)) := by
   show s.getMem (sh5.eval s + BitVec.ofNat 64 (HEAPW + off)) = _
   rw [eval_sh5 s h18, ofNat_add_ofNat]; congr 2; ring
-theorem step_N (hcode : NewCodeAt im) {c h index : Nat} (hc : c < 9) (hh1 : 1 ≤ h) (hh : h < 128) (hne : h ≠ 1)
+theorem step_N (hcode : NewCodeAt im) {c h index : Nat} (hc : c < 9) (hh1 : 1 ≤ h) (hh : h < 128)
     (s : MachineState) (hpc : s.pc = pcOf (nodeI c)) (h18 : s.getReg .x18 = BitVec.ofNat 64 h)
     (h22 : s.getReg .x22 = BitVec.ofNat 64 index) (hidx : index < 2 ^ 31) :
-    ∃ t, Steps im s (if c = 0 then 36 else 32) (if c = 0 then 42 else 38) t ∧ fetch im t = some (.base .ECALL) ∧
+    ∃ t, Steps im s (if c = 0 then 29 else 25) (if c = 0 then 32 else 28) t ∧ fetch im t = some (.base .ECALL) ∧
       t.pc = pcOf (ntI c - 1) ∧
       t.getReg .x10 = BitVec.ofNat 64 NODEW ∧ t.getReg .x11 = BitVec.ofNat 64 64 ∧
       t.getReg .x12 = BitVec.ofNat 64 NOUTW ∧
@@ -528,9 +524,9 @@ theorem step_N (hcode : NewCodeAt im) {c h index : Nat} (hc : c < 9) (hh1 : 1 �
       t.getMem (BitVec.ofNat 64 (NODEW + 8)) = s.getMem (BitVec.ofNat 64 (HEAPW + 32 * h + 8)) ∧
       t.getMem (BitVec.ofNat 64 (NODEW + 48)) = s.getMem (BitVec.ofNat 64 (HEAPW + 32 * h + 16)) ∧
       t.getMem (BitVec.ofNat 64 (NODEW + 56)) = s.getMem (BitVec.ofNat 64 (HEAPW + 32 * h + 24)) ∧
-      t.getMem (BitVec.ofNat 64 (NODEW + 16)) = BitVec.ofNat 64 (nodeLoNR c index h) ∧
-      t.getMem (BitVec.ofNat 64 (NODEW + 24)) = BitVec.ofNat 64 (if 8 ≤ h then 0 else SigGolfCandidate.T3.ftsHeapLabel h) ∧
-      RegsExcept s t [.x3, .x6, .x7, .x10, .x11, .x12, .x28, .x29] ∧
+      t.getMem (BitVec.ofNat 64 (NODEW + 16)) = BitVec.ofNat 64 (nodeLoN c index h) ∧
+      t.getMem (BitVec.ofNat 64 (NODEW + 24)) = BitVec.ofNat 64 (if 8 ≤ h then 0 else h) ∧
+      RegsExcept s t [.x6, .x7, .x10, .x11, .x12, .x28, .x29] ∧
       Frame s t (fun A => A = NODEW + 24 ∨ A = NODEW + 16 ∨ A = NODEW + 56 ∨ A = NODEW + 48 ∨ A = NODEW + 8 ∨
         A = NODEW) := by
   have hb := eval_sh5 s h18
@@ -567,7 +563,7 @@ theorem step_N (hcode : NewCodeAt im) {c h index : Nat} (hc : c < 9) (hh1 : 1 �
       memEval_mwc_self _ _ _ _ (by ao), eval_nodeLd s h18]
   · rw [pres2_getMem, memEval_mwc_ne _ _ _ (by ao) (by ao) (by ao), memEval_mwc_self _ _ _ _ (by ao)]
     exact eval_nodeLoNE s h22 h18 hc hidx hh
-  · rw [pres2_getMem, memEval_mwc_self _ _ _ _ (by ao)]; exact eval_mappedNodeHiE s h18 hh hne
+  · rw [pres2_getMem, memEval_mwc_self _ _ _ _ (by ao)]; exact eval_nodeHiE s h18 hh
   · refine frame_of_memEval (fun a => rfl) _ (fun q hq => ?_)
     simp only [expN, pres2, List.mem_cons, List.not_mem_nil, or_false] at hq
     rcases hq with rfl | rfl | rfl | rfl | rfl | rfl <;> refine ⟨rfl, ?_⟩ <;> rw [off_mwc _ _ (by ao)] <;> ao
@@ -893,16 +889,12 @@ theorem wordsOf_priv (sk : BitVec 256) (c index q : Nat) (hc : c < 256) (hidx : 
   simp only [hdr8]; congr 3
 theorem chainInput_len (index c j i st : Nat) (v : Digest) : (WCT9.chainInput index c j i st v).length = 64 := by
   simp only [WCT9.chainInput, zero16, List.length_append, bytesLE_length, List.length_replicate]
-theorem ofNat_mod64 (n : Nat) : BitVec.ofNat 64 (n % 2^64) = BitVec.ofNat 64 n := by
-  apply BitVec.eq_of_toNat_eq
-  simp only [BitVec.toNat_ofNat, Nat.mod_mod]
 theorem ftsChainLow_eq (index c j i st : Nat) (hc : c < 9) (hidx : index < 2 ^ 31) (hst : st < 4) (hi : i < 6)
-    (hj : j < 128) : WCT9.ftsChainLow index c j i st = chainW0 c i j index st % 2^64 := by
-  unfold WCT9.ftsChainLow chainW0 chainK SigGolfCandidate.T3.ftsBias
+    (hj : j < 128) : WCT9.ftsChainLow index c j i st = chainW0 c i j index st := by
+  unfold WCT9.ftsChainLow chainW0 chainK
   rw [Nat.mod_eq_of_lt (show i < 8 by omega), Nat.mod_eq_of_lt hst, Nat.mod_eq_of_lt (show c + 1 < 16 by omega),
     Nat.mod_eq_of_lt hj, Nat.mod_eq_of_lt hidx]
-  apply congrArg (fun n : Nat => n % 2^64)
-  omega
+  ring
 theorem wordsOf_chain (index c j i st : Nat) (v : Digest) (hc : c < 9) (hidx : index < 2 ^ 31) (hst : st < 4)
     (hi : i < 6) (hj : j < 128) :
     wordsOf (pad64 (WCT9.chainInput index c j i st v)) =
@@ -911,7 +903,7 @@ theorem wordsOf_chain (index c j i st : Nat) (v : Digest) (hc : c < 9) (hidx : i
     wordsOf_append _ _ (by simp [zero16, bytesLE_length]), wordsOf_append _ _ (by simp [zero16, bytesLE_length]),
     wordsOf_append _ _ (by simp [zero16, bytesLE_length]), wordsOf_zero16, wordsOf_bytesLE16, wordsOf_bytesLE16]
   unfold WCT9.ftsChainHeader
-  rw [WCT9.ftsChainHeaderP_low, WCT9.ftsChainHeaderP_high, ftsChainLow_eq index c j i st hc hidx hst hi hj, ofNat_mod64]
+  rw [WCT9.ftsChainHeaderP_low, WCT9.ftsChainHeaderP_high, ftsChainLow_eq index c j i st hc hidx hst hi hj]
   rfl
 /-- Witness stack: the G input `value | header | 0 | 0` of FTS chains 1, 3. -/
 theorem wordsOf_chainG (index c j i st : Nat) (v : Digest) (hG : WCT9.ftsIsG i = true) (hc : c < 9)
@@ -922,7 +914,7 @@ theorem wordsOf_chainG (index c j i st : Nat) (v : Digest) (hG : WCT9.ftsIsG i =
     wordsOf_append _ _ (by simp [zero16, bytesLE_length]), wordsOf_append _ _ (by simp [zero16, bytesLE_length]),
     wordsOf_append _ _ (by simp [zero16, bytesLE_length]), wordsOf_zero16, wordsOf_bytesLE16, wordsOf_bytesLE16]
   unfold WCT9.ftsChainHeader
-  rw [WCT9.ftsChainHeaderP_low, WCT9.ftsChainHeaderP_high, ftsChainLow_eq index c j i st hc hidx hst hi hj, ofNat_mod64]
+  rw [WCT9.ftsChainHeaderP_low, WCT9.ftsChainHeaderP_high, ftsChainLow_eq index c j i st hc hidx hst hi hj]
   rfl
 /-- FTS leaf input with the pad slot (nested FTS r1-1: `L_{c-1}`, zero for coordinate 0). -/
 def leafIn (index c j : Nat) (pad : Digest) (ends : List Digest) : List UInt8 :=
@@ -940,14 +932,21 @@ theorem leafIn_len (index c j : Nat) (pad : Digest) (ends : List Digest) (h : en
   simp only [leafIn, List.length_append, bytesLE_length, this]
 theorem ftsLeafHeader_words (index c j : Nat) (hc : c < 9) (hidx : index < 2 ^ 31) (hj : j < 128) :
     wordsOf (bytesLE 16 (WCT9.ftsLeafHeader index c j)) = [BitVec.ofNat 64 (leafLo7 c index j), 0] := by
-  have hw : BitVec.ofNat 64 (WCT9.ftsLeafLow index c j) = BitVec.ofNat 64 (leafLo7 c index j) := by
+  rw [wordsOf_bytesLE16]
+  unfold WCT9.ftsLeafHeader
+  rw [SigGolfCandidate.T3.append64_low]
+  congr 1
+  · unfold WCT9.ftsLeafLow leafLo7
+    congr 1
+    rw [Nat.mod_eq_of_lt (show c + 1 < 16 by omega), Nat.mod_eq_of_lt (show j < 128 from hj), Nat.mod_eq_of_lt hidx]
+    ring
+  · congr 1
     apply BitVec.eq_of_toNat_eq
-    simp only [BitVec.toNat_ofNat]
-    unfold WCT9.ftsLeafLow SigGolfCandidate.T3.ftsBiasN leafLo7
-    rw [Nat.mod_eq_of_lt (show c+1<16 by omega), Nat.mod_eq_of_lt hj, Nat.mod_eq_of_lt hidx]
-    simp only [Nat.mod_mod]
+    rw [BitVec.extractLsb'_toNat, SigGolfCandidate.T3.append64_toNat]
+    have := (BitVec.ofNat 64 (WCT9.ftsLeafLow index c j)).isLt
+    have h0' : (0 : BitVec 64).toNat = 0 := rfl
+    simp only [BitVec.toNat_ofNat, Nat.shiftRight_eq_div_pow, h0']
     omega
-  rw [wordsOf_bytesLE16, WCT9.ftsLeafHeader_low, WCT9.ftsLeafHeader_high, hw]
 theorem wordsOf_leaf (index c j : Nat) (pad : Digest) (ends : List Digest) (h : ends.length = 6) (hc : c < 9)
     (hidx : index < 2 ^ 31) (hj : j < 128) :
     wordsOf (pad64 (leafIn index c j pad ends)) =
@@ -982,7 +981,7 @@ theorem hdr0_node (c index : Nat) (hc : c < 9) (hidx : index < 2 ^ 32) :
 theorem wordsOf_node (c index h : Nat) (pad L R : Digest) (hc : c < 9) (hidx : index < 2 ^ 31) (hh : h < 128) :
     wordsOf (pad64 (nodeIn c index h pad L R)) =
       [L.extractLsb' 0 64, L.extractLsb' 64 64, BitVec.ofNat 64 (nodeLoN c index h),
-        BitVec.ofNat 64 (if 8 ≤ h then 0 else SigGolfCandidate.T3.ftsHeapLabel h), pad.extractLsb' 0 64, pad.extractLsb' 64 64,
+        BitVec.ofNat 64 (if 8 ≤ h then 0 else h), pad.extractLsb' 0 64, pad.extractLsb' 64 64,
         R.extractLsb' 0 64, R.extractLsb' 64 64] := by
   have hlo : (WCT9.wctNodeHeader c index h).extractLsb' 0 64 = BitVec.ofNat 64 (nodeLoN c index h) := by
     rw [WCT9.wctNodeHeader_low hc]
@@ -991,20 +990,12 @@ theorem wordsOf_node (c index h : Nat) (pad L R : Digest) (hc : c < 9) (hidx : i
     · rw [if_pos (show SigGolfCandidate.T3.FtsNew h from ⟨h8, hh⟩), if_pos h8]
       unfold nodeLo7 WCT9.ftsNodeLowN
       rw [Nat.mod_eq_of_lt (show c + 1 < 16 by omega), Nat.mod_eq_of_lt hidx]
-      apply BitVec.eq_of_toNat_eq
-      simp only [BitVec.toNat_ofNat]
-      unfold SigGolfCandidate.T3.ftsBiasN
-      simp only [Nat.mod_mod]
-      omega
+      congr 1; omega
     · rw [if_neg (show ¬ SigGolfCandidate.T3.FtsNew h from fun h' => h8 h'.1), if_neg h8]
       unfold nodeLo7 WCT9.ftsLeafLow
       rw [Nat.mod_eq_of_lt (show c + 1 < 16 by omega), Nat.mod_eq_of_lt hidx]
-      apply BitVec.eq_of_toNat_eq
-      simp only [BitVec.toNat_ofNat]
-      unfold SigGolfCandidate.T3.ftsBiasN
-      simp only [Nat.mod_mod]
-      omega
-  have hhi : (WCT9.wctNodeHeader c index h).extractLsb' 64 64 = BitVec.ofNat 64 (if 8 ≤ h then 0 else SigGolfCandidate.T3.ftsHeapLabel h) := by
+      congr 1; omega
+  have hhi : (WCT9.wctNodeHeader c index h).extractLsb' 64 64 = BitVec.ofNat 64 (if 8 ≤ h then 0 else h) := by
     rw [WCT9.wctNodeHeader_high hc]
     by_cases h8 : 8 ≤ h
     · rw [if_pos (show SigGolfCandidate.T3.FtsNew h from ⟨h8, hh⟩), if_pos h8]
@@ -1268,16 +1259,15 @@ theorem step_Q (hcode : Fetch im) {c i j : Nat} (hc : c < 9) (hi : i < 6) (s : M
   obtain ⟨hst, -⟩ := run_pres (coordLook_ok hcode hc) (runQ_eq hc hi) s hpc (no_obl s) (no_br s)
   exact ⟨_, hst, rfl, by rw [pres_getReg]; rfl, by rw [pres_getReg]; exact eval_ptE s h18 (by omega) i,
     pres_regsExcept _ _ _ _ _ _ _ s, fun A _ _ => rfl⟩
-def chainW0 (c i j index p : Nat) : Nat := index * 2 ^ 27 + j * 2 ^ 20 + chainK c i + p
+def chainW0 (c i j index p : Nat) : Nat := index * 2 ^ 27 + j * 2 ^ 20 + chainK c i + 256 * p
 theorem chainW0_merge (c i j index p q : Nat) (hc : c < 9) (hi : i < 6) (hp : p < 4) (hq : q < 4) :
-    StoreKind.merge .b (BitVec.ofNat 64 (chainW0 c i j index p)) 0 (BitVec.ofNat 64 q) =
+    StoreKind.merge .b (BitVec.ofNat 64 (chainW0 c i j index p)) 1 (BitVec.ofNat 64 q) =
       BitVec.ofNat 64 (chainW0 c i j index q) := by
-  apply SigGolfCandidate.T3M.mergeByteZero
-  · unfold chainK
-    omega
-  · omega
-  · omega
-
+  apply BitVec.eq_of_toNat_eq
+  simp only [StoreKind.merge]
+  rw [replaceByte_toNat8 _ _ (by omega)]
+  simp only [chainW0, chainK, BitVec.truncate_eq_setWidth, BitVec.toNat_setWidth, BitVec.toNat_ofNat]
+  omega
 theorem step_S (hcode : Fetch im) {c i j index w : Nat} (hc : c < 9) (hi : i < 6) (s : MachineState)
     (hpc : s.pc = pcOf (qI c i + 5)) (h18 : s.getReg .x18 = BitVec.ofNat 64 j)
     (h22 : s.getReg .x22 = BitVec.ofNat 64 index) (hj : j < 128)
@@ -1350,7 +1340,7 @@ theorem step_Stp (hcode : Fetch im) {c i st j index : Nat} (hc : c < 9) (hi : i 
   obtain ⟨hst', hec⟩ := run_pres (coordLook_ok hcode hc) (runStp_eq hc hi hG h1 h4) s hpc (no_obl s) (no_br s)
   refine ⟨_, hst', hec rfl, rfl, rfl, rfl, rfl, ?_, pres_regsExcept _ _ _ _ _ _ _ s, ?_⟩
   · rw [pres_getMem, memEval_mwc_self _ _ _ _ (by ao)]
-    show StoreKind.merge .b (s.getMem (BitVec.ofNat 64 (CHAINW + 16))) 0 (BitVec.ofNat 64 (st - 1)) = _
+    show StoreKind.merge .b (s.getMem (BitVec.ofNat 64 (CHAINW + 16))) 1 (BitVec.ofNat 64 (st - 1)) = _
     rw [h16, chainW0_merge c i j index pv (st - 1) hc hi hpv (by omega)]
   · refine frame_of_memEval (fun a => rfl) _ (fun q hq => ?_)
     simp only [expStp, pres, List.mem_cons, List.not_mem_nil, or_false] at hq
@@ -1373,7 +1363,7 @@ theorem step_StpG (hcode : Fetch im) {c i p j index : Nat} (hc : c < 9) (hi : i 
   obtain ⟨hst', hec⟩ := run_pres (coordLook_ok hcode hc)
     (runStpG_eq hc hi hG (by omega : 1 ≤ p + 1) (by omega : p + 1 < 5)).1 s
     (by rw [hpc, Nat.add_sub_cancel]) (no_obl s) (no_br s)
-  have hm : StoreKind.merge .b (s.getMem (BitVec.ofNat 64 (CHAINW + 16))) 0 (BitVec.ofNat 64 (p + 1 - 1)) =
+  have hm : StoreKind.merge .b (s.getMem (BitVec.ofNat 64 (CHAINW + 16))) 1 (BitVec.ofNat 64 (p + 1 - 1)) =
       BitVec.ofNat 64 (chainW0 c i j index p) := by
     rw [h16, Nat.add_sub_cancel, chainW0_merge c i j index pv p hc hi hpv hp]
   refine ⟨_, hst', hec rfl, rfl, rfl, rfl, rfl, rfl, rfl, ?_, ?_, ?_, ?_, ?_, ?_, ?_,
@@ -1382,12 +1372,12 @@ theorem step_StpG (hcode : Fetch im) {c i p j index : Nat} (hc : c < 9) (hi : i 
       memEval_mwc_ne _ _ _ (by ao) (by ao) (by ao), memEval_mwc_ne _ _ _ (by ao) (by ao) (by ao),
       memEval_mwc_ne _ _ _ (by ao) (by ao) (by ao), memEval_mwc_ne _ _ _ (by ao) (by ao) (by ao),
       memEval_mwc_self _ _ _ _ (by ao)]
-    show StoreKind.merge .b (s.getMem (BitVec.ofNat 64 (CHAINW + 16))) 0 (BitVec.ofNat 64 (p + 1 - 1)) = _
+    show StoreKind.merge .b (s.getMem (BitVec.ofNat 64 (CHAINW + 16))) 1 (BitVec.ofNat 64 (p + 1 - 1)) = _
     exact hm
   · rw [pres_getMem, memEval_mwc_ne _ _ _ (by ao) (by ao) (by ao), memEval_mwc_ne _ _ _ (by ao) (by ao) (by ao),
       memEval_mwc_ne _ _ _ (by ao) (by ao) (by ao), memEval_mwc_ne _ _ _ (by ao) (by ao) (by ao),
       memEval_mwc_ne _ _ _ (by ao) (by ao) (by ao), memEval_mwc_self _ _ _ _ (by ao)]
-    show StoreKind.merge .b (s.getMem (BitVec.ofNat 64 (CHAINW + 16))) 0 (BitVec.ofNat 64 (p + 1 - 1)) = _
+    show StoreKind.merge .b (s.getMem (BitVec.ofNat 64 (CHAINW + 16))) 1 (BitVec.ofNat 64 (p + 1 - 1)) = _
     exact hm
   · rw [pres_getMem, memEval_mwc_ne _ _ _ (by ao) (by ao) (by ao), memEval_mwc_ne _ _ _ (by ao) (by ao) (by ao),
       memEval_mwc_ne _ _ _ (by ao) (by ao) (by ao), memEval_mwc_ne _ _ _ (by ao) (by ao) (by ao),
@@ -1791,26 +1781,18 @@ theorem step_node {im : Image} {c h index : Nat}
     (hlook:LookOK im (look c)) (hc:c<9) (hh:h<128)
     (s : MachineState) (hpc:s.pc=pcOf (entry c)) (h18:s.getReg .x18=BitVec.ofNat 64 h)
     (h22:s.getReg .x22=BitVec.ofNat 64 index) :
-    ∃t,Steps im s (cycles c (mode h) - (if mode h=0 then 0 else 3)) (cycles c (mode h)) t ∧ t.pc=pcOf (hashPc c) ∧
+    ∃t,Steps im s (cycles c (mode h)) (cycles c (mode h)) t ∧
+      fetch im t=some (.base .ECALL) ∧ t.pc=pcOf (hashPc c) ∧
       t.getReg .x10=BitVec.ofNat 64 NODEW ∧ t.getReg .x11=BitVec.ofNat 64 64 ∧
       t.getReg .x12=BitVec.ofNat 64 NOUTW ∧
       (∀k,k<8 → t.getMem (BitVec.ofNat 64 (NODEW+8*k))=(value c (mode h) (8*k)).eval s) ∧
-      RegsExcept s t [.x3,.x6,.x7,.x10,.x11,.x12,.x28] ∧ Frame s t writes := by
-  obtain ⟨hs,-⟩:=runA_pres2 hlook (node_run hc (mode_lt h)) s hpc
+      RegsExcept s t [.x6,.x7,.x10,.x11,.x12,.x28] ∧ Frame s t writes := by
+  obtain ⟨hs,he⟩:=runA_pres hlook (node_run hc (mode_lt h)) s hpc
     (obligations_hold s hc hh h18) (branches_hold s hh h18)
-  have hargs : ((expected c (mode h)).toState s).getReg .x10 = BitVec.ofNat 64 NODEW ∧
-      ((expected c (mode h)).toState s).getReg .x11 = BitVec.ofNat 64 64 ∧
-      ((expected c (mode h)).toState s).getReg .x12 = BitVec.ofNat 64 NOUTW := by
-    have hm := mode_lt h
-    have hcases : mode h = 0 ∨ mode h = 1 ∨ mode h = 2 := by omega
-    rcases hcases with hm | hm | hm <;> rw [hm] <;> exact ⟨rfl, rfl, rfl⟩
-  refine ⟨(expected c (mode h)).toState s,hs,rfl,hargs.1,hargs.2.1,hargs.2.2,?_,?_,?_⟩
+  refine ⟨(expected c (mode h)).toState s,hs,he rfl,rfl,rfl,rfl,rfl,?_,?_,?_⟩
   · intro k hk
-    rw[expected,pres2_getMem,mem_read s c (mode h) hk]
-  · exact (pres2_regsExcept (regs c (mode h)) _ _ _ _ _ _ _ s).mono (by
-      intro r hr
-      simp [regs] at hr ⊢
-      tauto)
+    rw[expected,pres_getMem,mem_read s c (mode h) hk]
+  · exact (pres_regsExcept (regs c (mode h)) _ _ _ _ _ _ s).mono (by simp[regs])
   · refine frame_of_memEval (ws:=mem c (mode h)) (fun _=>rfl) _ (fun p hm=>?_)
     simp only[mem,List.mem_cons,List.not_mem_nil,or_false]at hm
     rcases hm with rfl|rfl|rfl|rfl|rfl|rfl|rfl|rfl <;> refine ⟨rfl,?_⟩ <;> rw[off_mwc _ _ (by ao)]
@@ -2542,7 +2524,7 @@ theorem head_run (m d : Bool) : run (look m) [trial m+3,fail m] (trial m) [.br d
   have h:=global_checked m
   simp only[globalCheck,Bool.and_eq_true] at h
   cases d <;> apply optBeq_eq <;> tauto
-theorem trial_run (m : Bool) : run (look m) [base m+14] (trial m+3) []=some (expectedTrial m) := by
+theorem trial_run (m : Bool) : run (look m) [] (trial m+3) []=some (expectedTrial m) := by
   have h:=global_checked m
   simp only[globalCheck,Bool.and_eq_true] at h
   apply optBeq_eq;tauto
@@ -2628,15 +2610,15 @@ theorem head_spec (m : Bool) (hl:LookOK im (look m)) (s : MachineState) (hpc:s.p
     split_ifs <;> first | rfl | omega
   · exact (pres_regsExcept _ _ _ _ _ _ _ s).mono (by simp)
 
-theorem trial_raw_spec (m : Bool) (hl:LookOK im (look m)) (s : MachineState) (hpc:s.pc=pcOf (trial m+3))
+theorem trial_spec (m : Bool) (hl:LookOK im (look m)) (s : MachineState) (hpc:s.pc=pcOf (trial m+3))
     (i : Nat) (h19:s.getReg .x19=BitVec.ofNat 64 i) :
-    ∃t,Steps im s 9 9 t ∧ t.pc=pcOf (base m+14) ∧
+    ∃t,Steps im s 9 9 t ∧ fetch im t=some (.base .ECALL) ∧ t.pc=pcOf (base m+14) ∧
       t.getReg .x10=BitVec.ofNat 64 DIG ∧ t.getReg .x11=BitVec.ofNat 64 64 ∧
       t.getReg .x12=BitVec.ofNat 64 NBUF ∧
       t.getMem (BitVec.ofNat 64 (DIG+16))=0 ∧ t.getMem (BitVec.ofNat 64 (DIG+24))=BitVec.ofNat 64 i ∧
       RegsExcept s t [.x10,.x11,.x12,.x28] ∧ Frame s t (fun A=>A=DIG+24 ∨ A=DIG+16) := by
   obtain ⟨hs,hp,he,hr,hm⟩:=SearchM.piece hl (trial_run m) s hpc rfl (no_br s) rfl
-  refine ⟨_,hs,hp,by rw[hr];rfl,by rw[hr];rfl,by rw[hr];rfl,?_,?_,?_,?_⟩
+  refine ⟨_,hs,he rfl,hp,by rw[hr];rfl,by rw[hr];rfl,by rw[hr];rfl,?_,?_,?_,?_⟩
   · rw[hm]
     change memEval s [mwc (DIG+24) (.reg .x19),mwc (DIG+16) (cE 0)] _=0
     rw[memEval_mwc_ne _ _ _ (by ao) (by ao) (by ao),memEval_mwc_self _ _ _ _ (by ao)]
@@ -2649,37 +2631,6 @@ theorem trial_raw_spec (m : Bool) (hl:LookOK im (look m)) (s : MachineState) (hp
   · refine frame_of_memEval (fun a=>rfl) _ (fun q hq=>?_)
     simp only[expectedTrial,pres,pres2,List.mem_cons,List.not_mem_nil,or_false] at hq
     rcases hq with rfl|rfl <;> refine ⟨rfl,?_⟩ <;> rw[off_mwc _ _ (by ao)] <;> ao
-
-
-theorem trial_spec (m : Bool) [DigestLabel.Code im m] (hl:LookOK im (look m))
-    (s : MachineState) (hpc:s.pc=pcOf (trial m+3))
-    (i : Nat) (h19:s.getReg .x19=BitVec.ofNat 64 i) :
-    ∃t,Steps im s 16 16 t ∧ fetch im t=some (.base .ECALL) ∧
-      t.pc=DigestLabel.pcAddr (DigestLabel.start m+6) ∧
-      t.getReg .x10=BitVec.ofNat 64 DIG ∧ t.getReg .x11=BitVec.ofNat 64 64 ∧
-      t.getReg .x12=BitVec.ofNat 64 NBUF ∧
-      t.getMem (BitVec.ofNat 64 (DIG+16))=25984 ∧
-      t.getMem (BitVec.ofNat 64 (DIG+24))=BitVec.ofNat 64 i ∧
-      RegsExcept s t [.x10,.x11,.x12,.x28] ∧ Frame s t (fun A=>A=DIG+24 ∨ A=DIG+16) := by
-  obtain ⟨u,hs,hp,h10,h11,h12,h16,h24,hr,hf⟩ := trial_raw_spec m hl s hpc i h19
-  have hph : u.pc = DigestLabel.pcAddr (DigestLabel.hookPc m) := by
-    cases m <;> simpa [base, DigestLabel.hookPc, DigestLabel.pcAddr, pcOf] using hp
-  have hv : accessValid (u.getReg .x10 + 16) 8 = true := by
-    rw [h10]
-    decide
-  have ss := DigestLabel.prepare_steps (im := im) m u hph hv
-  have rr := DigestLabel.prepared_regs m u h11
-  have ff := DigestLabel.prepared_frame_at m u DIG h10 (by decide)
-  refine ⟨DigestLabel.prepared m u, hs.trans ss, ?_, rfl, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
-  · exact (DigestLabel.Code.hash_at (im := im) (expand := m)).fetch _ rfl |>.trans rfl
-  · exact (rr.get (by simp)).trans h10
-  · exact (rr.get (by simp)).trans h11
-  · exact (rr.get (by simp)).trans h12
-  · have hh := DigestLabel.prepared_stored m u
-    simpa [h10, BitVec.ofNat_add] using hh
-  · exact (ff.get (by decide) (by decide)).trans h24
-  · exact (hr.trans rr).mono (by simp)
-  · exact (hf.trans ff).mono (fun A _ h => h.elim id Or.inr)
 
 theorem next_spec (m : Bool) (hl:LookOK im (look m)) (s : MachineState) (hpc:s.pc=pcOf (next m))
     (i : Nat) (h19:s.getReg .x19=BitVec.ofNat 64 i) :
@@ -2793,14 +2744,14 @@ theorem gate_eval (s : MachineState) (a : BitVec 256) (ha:OutAt s NBUF a) :
 
 theorem gate_spec (m : Bool) (hl:LookOK im (look m)) (s : MachineState) (hpc:s.pc=pcOf (base m+15))
     (a : BitVec 256) (ha:OutAt s NBUF a) :
-    ∃t,Steps im s 6 6 t ∧ t.pc=(if gateN a < 926 then pcOf (base m+21) else pcOf (next m)) ∧
+    ∃t,Steps im s 6 6 t ∧ t.pc=(if gateN a < 791 then pcOf (base m+21) else pcOf (next m)) ∧
       (m=true → t.getReg .x17=BitVec.ofNat 64 NBUF) ∧
       RegsExcept s t [.x6,.x7,.x17,.x28] ∧ Frame s t (fun _=>False) := by
-  have hbr:∀b∈(expectedGate m (decide (¬gateN a < 926))).brs,b.holds s:=by
+  have hbr:∀b∈(expectedGate m (decide (¬gateN a < 791))).brs,b.holds s:=by
     intro b hb
     simp only[expectedGate,pres,pres2,List.mem_singleton]at hb
     subst hb
-    exact geu_holds s gateE (gateN a) 926 (by unfold gateN;omega) (by decide) (gate_eval s a ha)
+    exact geu_holds s gateE (gateN a) 791 (by unfold gateN;omega) (by decide) (gate_eval s a ha)
   obtain ⟨hs,hp,-,hr,hm⟩:=SearchM.piece hl (gate_run m _) s hpc rfl hbr rfl
   refine ⟨_,hs,?_,?_,?_,fun A _ _=>by rw[hm];rfl⟩
   · rw[hp];simp only[expectedGate,pres,pres2,decide_eq_true_eq]
@@ -3118,10 +3069,10 @@ set_option linter.unusedSimpArgs false
 attribute [local instance] Classical.propDecidable
 variable {im : Image}
 
-def acceptedTest (a : BitVec 256) : Bool := decide (gateN a < 926) &&
+def acceptedTest (a : BitVec 256) : Bool := decide (gateN a < 791) &&
   (List.range 9).all (fun k=>decide (rankN a k < 563)) && decide (psum a 9 ≤ 776)
 theorem acceptedTest_iff (a : BitVec 256) : acceptedTest a=true ↔
-    gateN a < 926 ∧ (∀k,k < 9 → rankN a k < 563) ∧ psum a 9 ≤ 776 := by
+    gateN a < 791 ∧ (∀k,k < 9 → rankN a k < 563) ∧ psum a 9 ≤ 776 := by
   simp only[acceptedTest,Bool.and_eq_true,decide_eq_true_eq,List.all_eq_true,List.mem_range,and_assoc]
 
 theorem checks_spec (m : Bool) (hl:LookOK im (look m)) (s : MachineState)
@@ -3130,7 +3081,7 @@ theorem checks_spec (m : Bool) (hl:LookOK im (look m)) (s : MachineState)
       Frame s t (fun _=>False) ∧ t.pc=(if acceptedTest a then pcOf (accepted m) else pcOf (next m)) ∧
       (acceptedTest a=true → t.getReg .x17=BitVec.ofNat 64 NBUF) := by
   obtain ⟨t1,s1,p1,r17,r1,f1⟩:=gate_spec m hl s hpc a ha
-  by_cases hg:gateN a < 926
+  by_cases hg:gateN a < 791
   · rw[if_pos hg]at p1
     obtain ⟨t2,s2,p2,sm2,tb2,r172,r2,f2⟩:=init_spec m hl t1 p1 r17
     obtain ⟨t3,c3,s3,b3,r3,f3,p3⟩:=fields_from m hl a 9 0 rfl t2 p2
@@ -3253,7 +3204,7 @@ structure Post (m : Bool) (s0 : MachineState) (r : Option (BitVec 32 × BitVec 2
     | some _ => t.getReg .x17=BitVec.ofNat 64 NBUF
 
 variable {im : Image} {sk : BitVec 256}
-theorem loop (m : Bool) [DigestLabel.Code im m] (hl : LookOK im (look m)) {s0 : MachineState} {rho : BitVec 128} {msg : SigGolfCandidate.T3.Message}
+theorem loop (m : Bool) (hl : LookOK im (look m)) {s0 : MachineState} {rho : BitVec 128} {msg : SigGolfCandidate.T3.Message}
     (hpre : Pre m rho msg s0) :
     ∀F i t,i+F=2^21 → LoopInv m s0 i t →
       TBSim im sk t (F*200+10) (SharedForest.sharedDigestSearch rho msg i F) (Post m s0) := by
@@ -3309,26 +3260,25 @@ theorem loop (m : Bool) [DigestLabel.Code im m] (hl : LookOK im (look m)) {s0 : 
           if SharedForest.digestAccepted output=true then pure (some (BitVec.ofNat 32 i,output))
           else SharedForest.sharedDigestSearch rho msg (i+1) F):=rfl
     rw[prog]
-    refine (TBSim.steps (s1.trans s2) (DigestLabel.publicHash_return_bind m p2 hfu h5 hv hq
+    refine (TBSim.steps (s1.trans s2) (TBSim.publicHash_bind' hfu h5 hv hq
       (W:=159+(F*200+10)) (fun a=>?_))).mono ?_ (fun _ _ hh=>hh)
     swap
     · rw[SearchM.blocks_digestInput'];omega
-    have pw:(DigestLabel.returned m u a).pc=pcOf (base m+15):=by
-      cases m <;> rfl
-    have hN:OutAt (DigestLabel.returned m u a) NBUF a:=SearchM.outAt_writeHash u a h12
+    have pw:(writeHash u a).pc=pcOf (base m+15):=by rw[pc_writeHash,p2,SigGolfCandidate.T3M.pcOf_add4]
+    have hN:OutAt (writeHash u a) NBUF a:=SearchM.outAt_writeHash u a h12
     have fw:=Frame.writeHash u a NBUF h12 (by decide)
-    have fuw:Frame s0 (DigestLabel.returned m u a) writes:=(fu.trans fw).mono (fun A _ hA=>by
+    have fuw:Frame s0 (writeHash u a) writes:=(fu.trans fw).mono (fun A _ hA=>by
       rcases hA with hA|hA
       · exact hA
       · exact Or.inr (Or.inr hA))
-    obtain ⟨v,c,sv,hcv,rv,fv,pv,vr17⟩:=checks_spec m hl (DigestLabel.returned m u a) pw a hN (hpre.tables.frame fuw)
+    obtain ⟨v,c,sv,hcv,rv,fv,pv,vr17⟩:=checks_spec m hl (writeHash u a) pw a hN (hpre.tables.frame fuw)
     rw[acceptedTest_source]at pv vr17
     have rv':RegsExcept s0 v regs:=
-      ((ru.trans (fun r _=>DigestLabel.returned_getReg m u a r : RegsExcept u (DigestLabel.returned m u a) [])).trans rv).mono (by decide)
+      ((ru.trans (fun r _=>getReg_writeHash u a r : RegsExcept u (writeHash u a) [])).trans rv).mono (by decide)
     have fv':Frame s0 v writes:=(fuw.trans fv).mono (fun A _ hA=>hA.elim id False.elim)
     have hNv:OutAt v NBUF a:=out_frame hN fv
     have x19v:v.getReg .x19=BitVec.ofNat 64 i:=by
-      rw[rv.get (by decide),DigestLabel.returned_getReg,r2.get (by decide),r1.get (by decide),hI.x19]
+      rw[rv.get (by decide),getReg_writeHash,r2.get (by decide),r1.get (by decide),hI.x19]
     by_cases hadm:SharedForest.digestAccepted a=true
     · rw[if_pos hadm]at pv
       simp only[hadm,↓reduceIte]
@@ -3368,7 +3318,7 @@ theorem entry_spec (m : Bool) (hl:LookOK im (look m)) (s : MachineState)
     rfl
   · exact rr r (by simpa[h]using hx)
 
-theorem search_good (m : Bool) [DigestLabel.Code im m] (hl:LookOK im (look m)) {s0 : MachineState}
+theorem search_good (m : Bool) (hl:LookOK im (look m)) {s0 : MachineState}
     {rho : BitVec 128} {msg : SigGolfCandidate.T3.Message} (hpre:Pre m rho msg s0)
     (hpc:s0.pc=pcOf (base m)) :
     TBSim im sk s0 (2^21*200+12) (SharedForest.sharedDigestSearch rho msg 0 (2^21)) (Post m s0) := by
@@ -3577,10 +3527,8 @@ theorem blk1438_spec (s : MachineState) (hpc : s.pc = pcOf 1438) (leaf lv : Nat)
     simp only [Result.toState_getMem,blk_1438.res]
     t3n []
     rw [if_neg (by omega),if_neg (by omega)]
-theorem cacheMaskCode : CacheMaskMachine.Code image true where
-  jump := codeAt_sign_slice (by decide +kernel) (by decide +kernel)
-  zero := codeAt_sign_slice (by decide +kernel) (by decide +kernel)
-theorem cacheMaskRunner : MaskSelectRunner image 1456 := CacheMaskMachine.runner cacheMaskCode
+theorem fetch_1456 (s : MachineState) (hpc : s.pc = pcOf 1456) :
+    fetch image s = some (.base .ECALL) := (codeAt_1456.fetch s hpc).trans rfl
 theorem blk1457_spec (s : MachineState) (hpc : s.pc = pcOf 1457) (sib lo lv out : Nat)
     (hlo2 : 2≤lo) (hlo : lo≤4096) (hsib : sib<lo) (hlv : lv<12)
     (hout0 : SIG+3056≤out) (hout : out+16≤SIG+3248) (hout8 : out%8=0)
@@ -3668,7 +3616,7 @@ structure Code (im : Image) : Prop where
   codeAt_447 : CodeAt im (pcOf 447) seg_447
   codeAt_1433 : CodeAt im (pcOf 1433) seg_1433
   codeAt_1438 : CodeAt im (pcOf 1438) seg_1438
-  cacheMaskCode : CacheMaskMachine.Code im true
+  codeAt_1456 : CodeAt im (pcOf 1456) seg_1456
   codeAt_1457 : CodeAt im (pcOf 1457) seg_1457
   codeAt_1482 : CodeAt im (pcOf 1482) seg_1482
 variable {im : Image}
@@ -3743,8 +3691,8 @@ theorem blk1438_spec (hcode : Code im) (s : MachineState) (hpc : s.pc = pcOf 143
     simp only [Result.toState_getMem,blk_1438.res]
     t3n []
     rw [if_neg (by omega),if_neg (by omega)]
-theorem cacheMaskRunner (hcode : Code im) : MaskSelectRunner im 1456 :=
-  CacheMaskMachine.runner hcode.cacheMaskCode
+theorem fetch_1456 (hcode : Code im) (s : MachineState) (hpc : s.pc = pcOf 1456) :
+    fetch im s = some (.base .ECALL) := (hcode.codeAt_1456.fetch s hpc).trans rfl
 theorem blk1457_spec (hcode : Code im) (s : MachineState) (hpc : s.pc = pcOf 1457) (sib lo lv out : Nat)
     (hlo2 : 2≤lo) (hlo : lo≤4096) (hsib : sib<lo) (hlv : lv<12)
     (hout0 : SIG+3056≤out) (hout : out+16≤SIG+3248) (hout8 : out%8=0)
@@ -3824,11 +3772,7 @@ open SigGolfCandidate.T3M
 set_option maxHeartbeats 0
 set_option maxRecDepth 100000
 theorem installed_code : Code Images.signImage := by
-  constructor
-  all_goals first
-    | exact codeAt_sign_current_slice (by decide +kernel) (by decide +kernel)
-    | exact ⟨codeAt_sign_current_slice (by decide +kernel) (by decide +kernel),
-        codeAt_sign_current_slice (by decide +kernel) (by decide +kernel)⟩
+  constructor <;> exact codeAt_sign_current_slice (by decide +kernel) (by decide +kernel)
 
 end SigGolfCandidate.T3M.Sign.SharedTopBlocks
 end
@@ -3899,14 +3843,14 @@ section
 namespace W9Machine.N600.Checks
 set_option maxRecDepth 100000
 set_option maxHeartbeats 0
-def routine0 : ChainRoutine := ⟨0, [0, 0, 0, 0, 3, 4], [⟨195584, [0x1a840513, 0x1d840613, 0x601f8c93, 0x1953823, 0x73], .head 424 472 4 1⟩, ⟨195589, [0xd50823, 0x73], .rung 2 none⟩, ⟨195591, [0x1350823, 0x2e040613, 0x73], .rung 3 (some 736)⟩, ⟨195594, [0x14040513, 0x17040613, 0x700f8c93, 0x1953823, 0x73], .head 320 368 5 0⟩, ⟨195599, [0x950823, 0x73], .rung 1 none⟩, ⟨195601, [0xd50823, 0x73], .rung 2 none⟩, ⟨195603, [0x1350823, 0x2f040613, 0x73], .rung 3 (some 752)⟩, ⟨195606, [0x29f43823, 0x28043c23, 0x28040513, 0x8000593, 0x4b8067], .leaf⟩]⟩
-def routine1 : ChainRoutine := ⟨1, [0, 0, 0, 0, 4, 3], [⟨195648, [0x1a840513, 0x1d840613, 0x600f8c93, 0x1953823, 0x73], .head 424 472 4 0⟩, ⟨195653, [0x950823, 0x73], .rung 1 none⟩, ⟨195655, [0xd50823, 0x73], .rung 2 none⟩, ⟨195657, [0x1350823, 0x2e040613, 0x73], .rung 3 (some 736)⟩, ⟨195660, [0x14040513, 0x17040613, 0x701f8c93, 0x1953823, 0x73], .head 320 368 5 1⟩, ⟨195665, [0xd50823, 0x73], .rung 2 none⟩, ⟨195667, [0x1350823, 0x2f040613, 0x73], .rung 3 (some 752)⟩, ⟨195670, [0x29f43823, 0x28043c23, 0x28040513, 0x8000593, 0x4b8067], .leaf⟩]⟩
-def routine2 : ChainRoutine := ⟨2, [0, 0, 0, 1, 2, 4], [⟨195712, [0x19040513, 0x2d040613, 0x503f8c93, 0x1953823, 0x73], .head 400 720 3 3⟩, ⟨195717, [0x1a840513, 0x1d840613, 0x602f8c93, 0x1953823, 0x73], .head 424 472 4 2⟩, ⟨195722, [0x1350823, 0x2e040613, 0x73], .rung 3 (some 736)⟩, ⟨195725, [0x14040513, 0x17040613, 0x700f8c93, 0x1953823, 0x73], .head 320 368 5 0⟩, ⟨195730, [0x950823, 0x73], .rung 1 none⟩, ⟨195732, [0xd50823, 0x73], .rung 2 none⟩, ⟨195734, [0x1350823, 0x2f040613, 0x73], .rung 3 (some 752)⟩, ⟨195737, [0x29f43823, 0x28043c23, 0x28040513, 0x8000593, 0x4b8067], .leaf⟩]⟩
-def routine3 : ChainRoutine := ⟨3, [0, 0, 0, 1, 3, 3], [⟨195776, [0x19040513, 0x2d040613, 0x503f8c93, 0x1953823, 0x73], .head 400 720 3 3⟩, ⟨195781, [0x1a840513, 0x1d840613, 0x601f8c93, 0x1953823, 0x73], .head 424 472 4 1⟩, ⟨195786, [0xd50823, 0x73], .rung 2 none⟩, ⟨195788, [0x1350823, 0x2e040613, 0x73], .rung 3 (some 736)⟩, ⟨195791, [0x14040513, 0x17040613, 0x701f8c93, 0x1953823, 0x73], .head 320 368 5 1⟩, ⟨195796, [0xd50823, 0x73], .rung 2 none⟩, ⟨195798, [0x1350823, 0x2f040613, 0x73], .rung 3 (some 752)⟩, ⟨195801, [0x29f43823, 0x28043c23, 0x28040513, 0x8000593, 0x4b8067], .leaf⟩]⟩
-def routine4 : ChainRoutine := ⟨4, [0, 0, 0, 1, 4, 2], [⟨195840, [0x19040513, 0x2d040613, 0x503f8c93, 0x1953823, 0x73], .head 400 720 3 3⟩, ⟨195845, [0x1a840513, 0x1d840613, 0x600f8c93, 0x1953823, 0x73], .head 424 472 4 0⟩, ⟨195850, [0x950823, 0x73], .rung 1 none⟩, ⟨195852, [0xd50823, 0x73], .rung 2 none⟩, ⟨195854, [0x1350823, 0x2e040613, 0x73], .rung 3 (some 736)⟩, ⟨195857, [0x14040513, 0x17040613, 0x702f8c93, 0x1953823, 0x73], .head 320 368 5 2⟩, ⟨195862, [0x1350823, 0x2f040613, 0x73], .rung 3 (some 752)⟩, ⟨195865, [0x29f43823, 0x28043c23, 0x28040513, 0x8000593, 0x4b8067], .leaf⟩]⟩
-def routine5 : ChainRoutine := ⟨5, [0, 0, 0, 2, 1, 4], [⟨195904, [0x19040513, 0x18040613, 0x502f8c93, 0x1953823, 0x73], .head 400 384 3 2⟩, ⟨195909, [0x1350823, 0x2d040613, 0x73], .rung 3 (some 720)⟩, ⟨195912, [0x1a840513, 0x2e040613, 0x603f8c93, 0x1953823, 0x73], .head 424 736 4 3⟩, ⟨195917, [0x14040513, 0x17040613, 0x700f8c93, 0x1953823, 0x73], .head 320 368 5 0⟩, ⟨195922, [0x950823, 0x73], .rung 1 none⟩, ⟨195924, [0xd50823, 0x73], .rung 2 none⟩, ⟨195926, [0x1350823, 0x2f040613, 0x73], .rung 3 (some 752)⟩, ⟨195929, [0x29f43823, 0x28043c23, 0x28040513, 0x8000593, 0x4b8067], .leaf⟩]⟩
-def routine6 : ChainRoutine := ⟨6, [0, 0, 0, 2, 2, 3], [⟨195968, [0x19040513, 0x18040613, 0x502f8c93, 0x1953823, 0x73], .head 400 384 3 2⟩, ⟨195973, [0x1350823, 0x2d040613, 0x73], .rung 3 (some 720)⟩, ⟨195976, [0x1a840513, 0x1d840613, 0x602f8c93, 0x1953823, 0x73], .head 424 472 4 2⟩, ⟨195981, [0x1350823, 0x2e040613, 0x73], .rung 3 (some 736)⟩, ⟨195984, [0x14040513, 0x17040613, 0x701f8c93, 0x1953823, 0x73], .head 320 368 5 1⟩, ⟨195989, [0xd50823, 0x73], .rung 2 none⟩, ⟨195991, [0x1350823, 0x2f040613, 0x73], .rung 3 (some 752)⟩, ⟨195994, [0x29f43823, 0x28043c23, 0x28040513, 0x8000593, 0x4b8067], .leaf⟩]⟩
-def routine7 : ChainRoutine := ⟨7, [0, 0, 0, 2, 3, 2], [⟨196032, [0x19040513, 0x18040613, 0x502f8c93, 0x1953823, 0x73], .head 400 384 3 2⟩, ⟨196037, [0x1350823, 0x2d040613, 0x73], .rung 3 (some 720)⟩, ⟨196040, [0x1a840513, 0x1d840613, 0x601f8c93, 0x1953823, 0x73], .head 424 472 4 1⟩, ⟨196045, [0xd50823, 0x73], .rung 2 none⟩, ⟨196047, [0x1350823, 0x2e040613, 0x73], .rung 3 (some 736)⟩, ⟨196050, [0x14040513, 0x17040613, 0x702f8c93, 0x1953823, 0x73], .head 320 368 5 2⟩, ⟨196055, [0x1350823, 0x2f040613, 0x73], .rung 3 (some 752)⟩, ⟨196058, [0x29f43823, 0x28043c23, 0x28040513, 0x8000593, 0x4b8067], .leaf⟩]⟩
+def routine0 : ChainRoutine := ⟨0, [0, 0, 0, 0, 3, 4], [⟨195584, [0x1a840513, 0x1d840613, 0xb8ff8c93, 0x1953823, 0x73], .head 424 472 4 1⟩, ⟨195589, [0xd508a3, 0x73], .rung 2 none⟩, ⟨195591, [0x13508a3, 0x2e040613, 0x73], .rung 3 (some 736)⟩, ⟨195594, [0x14040513, 0x17040613, 0xa93f8c93, 0x1953823, 0x73], .head 320 368 5 0⟩, ⟨195599, [0x7508a3, 0x73], .rung 1 none⟩, ⟨195601, [0xd508a3, 0x73], .rung 2 none⟩, ⟨195603, [0x13508a3, 0x2f040613, 0x73], .rung 3 (some 752)⟩, ⟨195606, [0x29f43823, 0x28043c23, 0x28040513, 0x8000593, 0x4b8067], .leaf⟩]⟩
+def routine1 : ChainRoutine := ⟨1, [0, 0, 0, 0, 4, 3], [⟨195648, [0x1a840513, 0x1d840613, 0xa8ff8c93, 0x1953823, 0x73], .head 424 472 4 0⟩, ⟨195653, [0x7508a3, 0x73], .rung 1 none⟩, ⟨195655, [0xd508a3, 0x73], .rung 2 none⟩, ⟨195657, [0x13508a3, 0x2e040613, 0x73], .rung 3 (some 736)⟩, ⟨195660, [0x14040513, 0x17040613, 0xb93f8c93, 0x1953823, 0x73], .head 320 368 5 1⟩, ⟨195665, [0xd508a3, 0x73], .rung 2 none⟩, ⟨195667, [0x13508a3, 0x2f040613, 0x73], .rung 3 (some 752)⟩, ⟨195670, [0x29f43823, 0x28043c23, 0x28040513, 0x8000593, 0x4b8067], .leaf⟩]⟩
+def routine2 : ChainRoutine := ⟨2, [0, 0, 0, 1, 2, 4], [⟨195712, [0x19040513, 0x2d040613, 0xd8bf8c93, 0x1953823, 0x73], .head 400 720 3 3⟩, ⟨195717, [0x1a840513, 0x1d840613, 0xc8ff8c93, 0x1953823, 0x73], .head 424 472 4 2⟩, ⟨195722, [0x13508a3, 0x2e040613, 0x73], .rung 3 (some 736)⟩, ⟨195725, [0x14040513, 0x17040613, 0xa93f8c93, 0x1953823, 0x73], .head 320 368 5 0⟩, ⟨195730, [0x7508a3, 0x73], .rung 1 none⟩, ⟨195732, [0xd508a3, 0x73], .rung 2 none⟩, ⟨195734, [0x13508a3, 0x2f040613, 0x73], .rung 3 (some 752)⟩, ⟨195737, [0x29f43823, 0x28043c23, 0x28040513, 0x8000593, 0x4b8067], .leaf⟩]⟩
+def routine3 : ChainRoutine := ⟨3, [0, 0, 0, 1, 3, 3], [⟨195776, [0x19040513, 0x2d040613, 0xd8bf8c93, 0x1953823, 0x73], .head 400 720 3 3⟩, ⟨195781, [0x1a840513, 0x1d840613, 0xb8ff8c93, 0x1953823, 0x73], .head 424 472 4 1⟩, ⟨195786, [0xd508a3, 0x73], .rung 2 none⟩, ⟨195788, [0x13508a3, 0x2e040613, 0x73], .rung 3 (some 736)⟩, ⟨195791, [0x14040513, 0x17040613, 0xb93f8c93, 0x1953823, 0x73], .head 320 368 5 1⟩, ⟨195796, [0xd508a3, 0x73], .rung 2 none⟩, ⟨195798, [0x13508a3, 0x2f040613, 0x73], .rung 3 (some 752)⟩, ⟨195801, [0x29f43823, 0x28043c23, 0x28040513, 0x8000593, 0x4b8067], .leaf⟩]⟩
+def routine4 : ChainRoutine := ⟨4, [0, 0, 0, 1, 4, 2], [⟨195840, [0x19040513, 0x2d040613, 0xd8bf8c93, 0x1953823, 0x73], .head 400 720 3 3⟩, ⟨195845, [0x1a840513, 0x1d840613, 0xa8ff8c93, 0x1953823, 0x73], .head 424 472 4 0⟩, ⟨195850, [0x7508a3, 0x73], .rung 1 none⟩, ⟨195852, [0xd508a3, 0x73], .rung 2 none⟩, ⟨195854, [0x13508a3, 0x2e040613, 0x73], .rung 3 (some 736)⟩, ⟨195857, [0x14040513, 0x17040613, 0xc93f8c93, 0x1953823, 0x73], .head 320 368 5 2⟩, ⟨195862, [0x13508a3, 0x2f040613, 0x73], .rung 3 (some 752)⟩, ⟨195865, [0x29f43823, 0x28043c23, 0x28040513, 0x8000593, 0x4b8067], .leaf⟩]⟩
+def routine5 : ChainRoutine := ⟨5, [0, 0, 0, 2, 1, 4], [⟨195904, [0x19040513, 0x18040613, 0xc8bf8c93, 0x1953823, 0x73], .head 400 384 3 2⟩, ⟨195909, [0x13508a3, 0x2d040613, 0x73], .rung 3 (some 720)⟩, ⟨195912, [0x1a840513, 0x2e040613, 0xd8ff8c93, 0x1953823, 0x73], .head 424 736 4 3⟩, ⟨195917, [0x14040513, 0x17040613, 0xa93f8c93, 0x1953823, 0x73], .head 320 368 5 0⟩, ⟨195922, [0x7508a3, 0x73], .rung 1 none⟩, ⟨195924, [0xd508a3, 0x73], .rung 2 none⟩, ⟨195926, [0x13508a3, 0x2f040613, 0x73], .rung 3 (some 752)⟩, ⟨195929, [0x29f43823, 0x28043c23, 0x28040513, 0x8000593, 0x4b8067], .leaf⟩]⟩
+def routine6 : ChainRoutine := ⟨6, [0, 0, 0, 2, 2, 3], [⟨195968, [0x19040513, 0x18040613, 0xc8bf8c93, 0x1953823, 0x73], .head 400 384 3 2⟩, ⟨195973, [0x13508a3, 0x2d040613, 0x73], .rung 3 (some 720)⟩, ⟨195976, [0x1a840513, 0x1d840613, 0xc8ff8c93, 0x1953823, 0x73], .head 424 472 4 2⟩, ⟨195981, [0x13508a3, 0x2e040613, 0x73], .rung 3 (some 736)⟩, ⟨195984, [0x14040513, 0x17040613, 0xb93f8c93, 0x1953823, 0x73], .head 320 368 5 1⟩, ⟨195989, [0xd508a3, 0x73], .rung 2 none⟩, ⟨195991, [0x13508a3, 0x2f040613, 0x73], .rung 3 (some 752)⟩, ⟨195994, [0x29f43823, 0x28043c23, 0x28040513, 0x8000593, 0x4b8067], .leaf⟩]⟩
+def routine7 : ChainRoutine := ⟨7, [0, 0, 0, 2, 3, 2], [⟨196032, [0x19040513, 0x18040613, 0xc8bf8c93, 0x1953823, 0x73], .head 400 384 3 2⟩, ⟨196037, [0x13508a3, 0x2d040613, 0x73], .rung 3 (some 720)⟩, ⟨196040, [0x1a840513, 0x1d840613, 0xb8ff8c93, 0x1953823, 0x73], .head 424 472 4 1⟩, ⟨196045, [0xd508a3, 0x73], .rung 2 none⟩, ⟨196047, [0x13508a3, 0x2e040613, 0x73], .rung 3 (some 736)⟩, ⟨196050, [0x14040513, 0x17040613, 0xc93f8c93, 0x1953823, 0x73], .head 320 368 5 2⟩, ⟨196055, [0x13508a3, 0x2f040613, 0x73], .rung 3 (some 752)⟩, ⟨196058, [0x29f43823, 0x28043c23, 0x28040513, 0x8000593, 0x4b8067], .leaf⟩]⟩
 def batch0 : List (ChainRoutine × Nat) := [(routine0, 76), (routine1, 76), (routine2, 79), (routine3, 79), (routine4, 79), (routine5, 79), (routine6, 80), (routine7, 80)]
 theorem batch0_checked : (batch0.all fun rc => exactChecked rc.1 rc.2) = true := by decide +kernel
 theorem ready0 : Chain.RoutineReady (embed ⟨0, by decide⟩) routine0 ∧ planCycles routine0.pieces ≤ rankCost ⟨0, by decide⟩ := by
@@ -3941,14 +3885,14 @@ section
 namespace W9Machine.N600.Checks
 set_option maxRecDepth 100000
 set_option maxHeartbeats 0
-def routine8 : ChainRoutine := ⟨8, [0, 0, 0, 2, 4, 1], [⟨196096, [0x19040513, 0x18040613, 0x502f8c93, 0x1953823, 0x73], .head 400 384 3 2⟩, ⟨196101, [0x1350823, 0x2d040613, 0x73], .rung 3 (some 720)⟩, ⟨196104, [0x1a840513, 0x1d840613, 0x600f8c93, 0x1953823, 0x73], .head 424 472 4 0⟩, ⟨196109, [0x950823, 0x73], .rung 1 none⟩, ⟨196111, [0xd50823, 0x73], .rung 2 none⟩, ⟨196113, [0x1350823, 0x2e040613, 0x73], .rung 3 (some 736)⟩, ⟨196116, [0x14040513, 0x2f040613, 0x703f8c93, 0x1953823, 0x73], .head 320 752 5 3⟩, ⟨196121, [0x29f43823, 0x28043c23, 0x28040513, 0x8000593, 0x4b8067], .leaf⟩]⟩
-def routine9 : ChainRoutine := ⟨9, [0, 0, 0, 3, 0, 4], [⟨196160, [0x19040513, 0x18040613, 0x501f8c93, 0x1953823, 0x73], .head 400 384 3 1⟩, ⟨196165, [0xd50823, 0x73], .rung 2 none⟩, ⟨196167, [0x1350823, 0x73], .rung 3 none⟩, ⟨196169, [0x18043183, 0x18843703, 0x2c343823, 0x2ce43c23], .copy 336 720⟩, ⟨196173, [0x14040513, 0x17040613, 0x700f8c93, 0x1953823, 0x73], .head 320 368 5 0⟩, ⟨196178, [0x950823, 0x73], .rung 1 none⟩, ⟨196180, [0xd50823, 0x73], .rung 2 none⟩, ⟨196182, [0x1350823, 0x2f040613, 0x73], .rung 3 (some 752)⟩, ⟨196185, [0x29f43823, 0x28043c23, 0x28040513, 0x8000593, 0x4b8067], .leaf⟩]⟩
-def routine10 : ChainRoutine := ⟨10, [0, 0, 0, 3, 1, 3], [⟨196224, [0x19040513, 0x18040613, 0x501f8c93, 0x1953823, 0x73], .head 400 384 3 1⟩, ⟨196229, [0xd50823, 0x73], .rung 2 none⟩, ⟨196231, [0x1350823, 0x2d040613, 0x73], .rung 3 (some 720)⟩, ⟨196234, [0x1a840513, 0x2e040613, 0x603f8c93, 0x1953823, 0x73], .head 424 736 4 3⟩, ⟨196239, [0x14040513, 0x17040613, 0x701f8c93, 0x1953823, 0x73], .head 320 368 5 1⟩, ⟨196244, [0xd50823, 0x73], .rung 2 none⟩, ⟨196246, [0x1350823, 0x2f040613, 0x73], .rung 3 (some 752)⟩, ⟨196249, [0x29f43823, 0x28043c23, 0x28040513, 0x8000593, 0x4b8067], .leaf⟩]⟩
-def routine11 : ChainRoutine := ⟨11, [0, 0, 0, 3, 2, 2], [⟨196288, [0x19040513, 0x18040613, 0x501f8c93, 0x1953823, 0x73], .head 400 384 3 1⟩, ⟨196293, [0xd50823, 0x73], .rung 2 none⟩, ⟨196295, [0x1350823, 0x2d040613, 0x73], .rung 3 (some 720)⟩, ⟨196298, [0x1a840513, 0x1d840613, 0x602f8c93, 0x1953823, 0x73], .head 424 472 4 2⟩, ⟨196303, [0x1350823, 0x2e040613, 0x73], .rung 3 (some 736)⟩, ⟨196306, [0x14040513, 0x17040613, 0x702f8c93, 0x1953823, 0x73], .head 320 368 5 2⟩, ⟨196311, [0x1350823, 0x2f040613, 0x73], .rung 3 (some 752)⟩, ⟨196314, [0x29f43823, 0x28043c23, 0x28040513, 0x8000593, 0x4b8067], .leaf⟩]⟩
-def routine12 : ChainRoutine := ⟨12, [0, 0, 0, 3, 3, 1], [⟨196352, [0x19040513, 0x18040613, 0x501f8c93, 0x1953823, 0x73], .head 400 384 3 1⟩, ⟨196357, [0xd50823, 0x73], .rung 2 none⟩, ⟨196359, [0x1350823, 0x2d040613, 0x73], .rung 3 (some 720)⟩, ⟨196362, [0x1a840513, 0x1d840613, 0x601f8c93, 0x1953823, 0x73], .head 424 472 4 1⟩, ⟨196367, [0xd50823, 0x73], .rung 2 none⟩, ⟨196369, [0x1350823, 0x2e040613, 0x73], .rung 3 (some 736)⟩, ⟨196372, [0x14040513, 0x2f040613, 0x703f8c93, 0x1953823, 0x73], .head 320 752 5 3⟩, ⟨196377, [0x29f43823, 0x28043c23, 0x28040513, 0x8000593, 0x4b8067], .leaf⟩]⟩
-def routine13 : ChainRoutine := ⟨13, [0, 0, 0, 3, 4, 0], [⟨196416, [0x19040513, 0x18040613, 0x501f8c93, 0x1953823, 0x73], .head 400 384 3 1⟩, ⟨196421, [0xd50823, 0x73], .rung 2 none⟩, ⟨196423, [0x1350823, 0x2d040613, 0x73], .rung 3 (some 720)⟩, ⟨196426, [0x1a840513, 0x1d840613, 0x600f8c93, 0x1953823, 0x73], .head 424 472 4 0⟩, ⟨196431, [0x950823, 0x73], .rung 1 none⟩, ⟨196433, [0xd50823, 0x73], .rung 2 none⟩, ⟨196435, [0x1350823, 0x73], .rung 3 none⟩, ⟨196437, [0x1d843183, 0x1e043703, 0x2e343023, 0x2ee43423], .copy 424 736⟩, ⟨196441, [0x29f43823, 0x28043c23, 0x28040513, 0x8000593, 0x4b8067], .leaf⟩]⟩
-def routine14 : ChainRoutine := ⟨14, [0, 0, 0, 4, 0, 3], [⟨196480, [0x19040513, 0x18040613, 0x500f8c93, 0x1953823, 0x73], .head 400 384 3 0⟩, ⟨196485, [0x950823, 0x73], .rung 1 none⟩, ⟨196487, [0xd50823, 0x73], .rung 2 none⟩, ⟨196489, [0x1350823, 0x73], .rung 3 none⟩, ⟨196491, [0x18043183, 0x18843703, 0x2c343823, 0x2ce43c23], .copy 336 720⟩, ⟨196495, [0x14040513, 0x17040613, 0x701f8c93, 0x1953823, 0x73], .head 320 368 5 1⟩, ⟨196500, [0xd50823, 0x73], .rung 2 none⟩, ⟨196502, [0x1350823, 0x2f040613, 0x73], .rung 3 (some 752)⟩, ⟨196505, [0x29f43823, 0x28043c23, 0x28040513, 0x8000593, 0x4b8067], .leaf⟩]⟩
-def routine15 : ChainRoutine := ⟨15, [0, 0, 0, 4, 1, 2], [⟨196544, [0x19040513, 0x18040613, 0x500f8c93, 0x1953823, 0x73], .head 400 384 3 0⟩, ⟨196549, [0x950823, 0x73], .rung 1 none⟩, ⟨196551, [0xd50823, 0x73], .rung 2 none⟩, ⟨196553, [0x1350823, 0x2d040613, 0x73], .rung 3 (some 720)⟩, ⟨196556, [0x1a840513, 0x2e040613, 0x603f8c93, 0x1953823, 0x73], .head 424 736 4 3⟩, ⟨196561, [0x14040513, 0x17040613, 0x702f8c93, 0x1953823, 0x73], .head 320 368 5 2⟩, ⟨196566, [0x1350823, 0x2f040613, 0x73], .rung 3 (some 752)⟩, ⟨196569, [0x29f43823, 0x28043c23, 0x28040513, 0x8000593, 0x4b8067], .leaf⟩]⟩
+def routine8 : ChainRoutine := ⟨8, [0, 0, 0, 2, 4, 1], [⟨196096, [0x19040513, 0x18040613, 0xc8bf8c93, 0x1953823, 0x73], .head 400 384 3 2⟩, ⟨196101, [0x13508a3, 0x2d040613, 0x73], .rung 3 (some 720)⟩, ⟨196104, [0x1a840513, 0x1d840613, 0xa8ff8c93, 0x1953823, 0x73], .head 424 472 4 0⟩, ⟨196109, [0x7508a3, 0x73], .rung 1 none⟩, ⟨196111, [0xd508a3, 0x73], .rung 2 none⟩, ⟨196113, [0x13508a3, 0x2e040613, 0x73], .rung 3 (some 736)⟩, ⟨196116, [0x14040513, 0x2f040613, 0xd93f8c93, 0x1953823, 0x73], .head 320 752 5 3⟩, ⟨196121, [0x29f43823, 0x28043c23, 0x28040513, 0x8000593, 0x4b8067], .leaf⟩]⟩
+def routine9 : ChainRoutine := ⟨9, [0, 0, 0, 3, 0, 4], [⟨196160, [0x19040513, 0x18040613, 0xb8bf8c93, 0x1953823, 0x73], .head 400 384 3 1⟩, ⟨196165, [0xd508a3, 0x73], .rung 2 none⟩, ⟨196167, [0x13508a3, 0x73], .rung 3 none⟩, ⟨196169, [0x18043183, 0x18843703, 0x2c343823, 0x2ce43c23], .copy 336 720⟩, ⟨196173, [0x14040513, 0x17040613, 0xa93f8c93, 0x1953823, 0x73], .head 320 368 5 0⟩, ⟨196178, [0x7508a3, 0x73], .rung 1 none⟩, ⟨196180, [0xd508a3, 0x73], .rung 2 none⟩, ⟨196182, [0x13508a3, 0x2f040613, 0x73], .rung 3 (some 752)⟩, ⟨196185, [0x29f43823, 0x28043c23, 0x28040513, 0x8000593, 0x4b8067], .leaf⟩]⟩
+def routine10 : ChainRoutine := ⟨10, [0, 0, 0, 3, 1, 3], [⟨196224, [0x19040513, 0x18040613, 0xb8bf8c93, 0x1953823, 0x73], .head 400 384 3 1⟩, ⟨196229, [0xd508a3, 0x73], .rung 2 none⟩, ⟨196231, [0x13508a3, 0x2d040613, 0x73], .rung 3 (some 720)⟩, ⟨196234, [0x1a840513, 0x2e040613, 0xd8ff8c93, 0x1953823, 0x73], .head 424 736 4 3⟩, ⟨196239, [0x14040513, 0x17040613, 0xb93f8c93, 0x1953823, 0x73], .head 320 368 5 1⟩, ⟨196244, [0xd508a3, 0x73], .rung 2 none⟩, ⟨196246, [0x13508a3, 0x2f040613, 0x73], .rung 3 (some 752)⟩, ⟨196249, [0x29f43823, 0x28043c23, 0x28040513, 0x8000593, 0x4b8067], .leaf⟩]⟩
+def routine11 : ChainRoutine := ⟨11, [0, 0, 0, 3, 2, 2], [⟨196288, [0x19040513, 0x18040613, 0xb8bf8c93, 0x1953823, 0x73], .head 400 384 3 1⟩, ⟨196293, [0xd508a3, 0x73], .rung 2 none⟩, ⟨196295, [0x13508a3, 0x2d040613, 0x73], .rung 3 (some 720)⟩, ⟨196298, [0x1a840513, 0x1d840613, 0xc8ff8c93, 0x1953823, 0x73], .head 424 472 4 2⟩, ⟨196303, [0x13508a3, 0x2e040613, 0x73], .rung 3 (some 736)⟩, ⟨196306, [0x14040513, 0x17040613, 0xc93f8c93, 0x1953823, 0x73], .head 320 368 5 2⟩, ⟨196311, [0x13508a3, 0x2f040613, 0x73], .rung 3 (some 752)⟩, ⟨196314, [0x29f43823, 0x28043c23, 0x28040513, 0x8000593, 0x4b8067], .leaf⟩]⟩
+def routine12 : ChainRoutine := ⟨12, [0, 0, 0, 3, 3, 1], [⟨196352, [0x19040513, 0x18040613, 0xb8bf8c93, 0x1953823, 0x73], .head 400 384 3 1⟩, ⟨196357, [0xd508a3, 0x73], .rung 2 none⟩, ⟨196359, [0x13508a3, 0x2d040613, 0x73], .rung 3 (some 720)⟩, ⟨196362, [0x1a840513, 0x1d840613, 0xb8ff8c93, 0x1953823, 0x73], .head 424 472 4 1⟩, ⟨196367, [0xd508a3, 0x73], .rung 2 none⟩, ⟨196369, [0x13508a3, 0x2e040613, 0x73], .rung 3 (some 736)⟩, ⟨196372, [0x14040513, 0x2f040613, 0xd93f8c93, 0x1953823, 0x73], .head 320 752 5 3⟩, ⟨196377, [0x29f43823, 0x28043c23, 0x28040513, 0x8000593, 0x4b8067], .leaf⟩]⟩
+def routine13 : ChainRoutine := ⟨13, [0, 0, 0, 3, 4, 0], [⟨196416, [0x19040513, 0x18040613, 0xb8bf8c93, 0x1953823, 0x73], .head 400 384 3 1⟩, ⟨196421, [0xd508a3, 0x73], .rung 2 none⟩, ⟨196423, [0x13508a3, 0x2d040613, 0x73], .rung 3 (some 720)⟩, ⟨196426, [0x1a840513, 0x1d840613, 0xa8ff8c93, 0x1953823, 0x73], .head 424 472 4 0⟩, ⟨196431, [0x7508a3, 0x73], .rung 1 none⟩, ⟨196433, [0xd508a3, 0x73], .rung 2 none⟩, ⟨196435, [0x13508a3, 0x73], .rung 3 none⟩, ⟨196437, [0x1d843183, 0x1e043703, 0x2e343023, 0x2ee43423], .copy 424 736⟩, ⟨196441, [0x29f43823, 0x28043c23, 0x28040513, 0x8000593, 0x4b8067], .leaf⟩]⟩
+def routine14 : ChainRoutine := ⟨14, [0, 0, 0, 4, 0, 3], [⟨196480, [0x19040513, 0x18040613, 0xa8bf8c93, 0x1953823, 0x73], .head 400 384 3 0⟩, ⟨196485, [0x7508a3, 0x73], .rung 1 none⟩, ⟨196487, [0xd508a3, 0x73], .rung 2 none⟩, ⟨196489, [0x13508a3, 0x73], .rung 3 none⟩, ⟨196491, [0x18043183, 0x18843703, 0x2c343823, 0x2ce43c23], .copy 336 720⟩, ⟨196495, [0x14040513, 0x17040613, 0xb93f8c93, 0x1953823, 0x73], .head 320 368 5 1⟩, ⟨196500, [0xd508a3, 0x73], .rung 2 none⟩, ⟨196502, [0x13508a3, 0x2f040613, 0x73], .rung 3 (some 752)⟩, ⟨196505, [0x29f43823, 0x28043c23, 0x28040513, 0x8000593, 0x4b8067], .leaf⟩]⟩
+def routine15 : ChainRoutine := ⟨15, [0, 0, 0, 4, 1, 2], [⟨196544, [0x19040513, 0x18040613, 0xa8bf8c93, 0x1953823, 0x73], .head 400 384 3 0⟩, ⟨196549, [0x7508a3, 0x73], .rung 1 none⟩, ⟨196551, [0xd508a3, 0x73], .rung 2 none⟩, ⟨196553, [0x13508a3, 0x2d040613, 0x73], .rung 3 (some 720)⟩, ⟨196556, [0x1a840513, 0x2e040613, 0xd8ff8c93, 0x1953823, 0x73], .head 424 736 4 3⟩, ⟨196561, [0x14040513, 0x17040613, 0xc93f8c93, 0x1953823, 0x73], .head 320 368 5 2⟩, ⟨196566, [0x13508a3, 0x2f040613, 0x73], .rung 3 (some 752)⟩, ⟨196569, [0x29f43823, 0x28043c23, 0x28040513, 0x8000593, 0x4b8067], .leaf⟩]⟩
 def batch1 : List (ChainRoutine × Nat) := [(routine8, 79), (routine9, 79), (routine10, 79), (routine11, 80), (routine12, 79), (routine13, 79), (routine14, 79), (routine15, 79)]
 theorem batch1_checked : (batch1.all fun rc => exactChecked rc.1 rc.2) = true := by decide +kernel
 theorem ready8 : Chain.RoutineReady (embed ⟨8, by decide⟩) routine8 ∧ planCycles routine8.pieces ≤ rankCost ⟨8, by decide⟩ := by
@@ -3983,14 +3927,14 @@ section
 namespace W9Machine.N600.Checks
 set_option maxRecDepth 100000
 set_option maxHeartbeats 0
-def routine16 : ChainRoutine := ⟨16, [0, 0, 0, 4, 2, 1], [⟨196608, [0x19040513, 0x18040613, 0x500f8c93, 0x1953823, 0x73], .head 400 384 3 0⟩, ⟨196613, [0x950823, 0x73], .rung 1 none⟩, ⟨196615, [0xd50823, 0x73], .rung 2 none⟩, ⟨196617, [0x1350823, 0x2d040613, 0x73], .rung 3 (some 720)⟩, ⟨196620, [0x1a840513, 0x1d840613, 0x602f8c93, 0x1953823, 0x73], .head 424 472 4 2⟩, ⟨196625, [0x1350823, 0x2e040613, 0x73], .rung 3 (some 736)⟩, ⟨196628, [0x14040513, 0x2f040613, 0x703f8c93, 0x1953823, 0x73], .head 320 752 5 3⟩, ⟨196633, [0x29f43823, 0x28043c23, 0x28040513, 0x8000593, 0x4b8067], .leaf⟩]⟩
-def routine17 : ChainRoutine := ⟨17, [0, 0, 0, 4, 3, 0], [⟨196672, [0x19040513, 0x18040613, 0x500f8c93, 0x1953823, 0x73], .head 400 384 3 0⟩, ⟨196677, [0x950823, 0x73], .rung 1 none⟩, ⟨196679, [0xd50823, 0x73], .rung 2 none⟩, ⟨196681, [0x1350823, 0x2d040613, 0x73], .rung 3 (some 720)⟩, ⟨196684, [0x1a840513, 0x1d840613, 0x601f8c93, 0x1953823, 0x73], .head 424 472 4 1⟩, ⟨196689, [0xd50823, 0x73], .rung 2 none⟩, ⟨196691, [0x1350823, 0x73], .rung 3 none⟩, ⟨196693, [0x1d843183, 0x1e043703, 0x2e343023, 0x2ee43423], .copy 424 736⟩, ⟨196697, [0x29f43823, 0x28043c23, 0x28040513, 0x8000593, 0x4b8067], .leaf⟩]⟩
-def routine18 : ChainRoutine := ⟨18, [0, 0, 1, 0, 2, 4], [⟨196736, [0x21040513, 0x24040613, 0x403f8c93, 0x1953823, 0x73], .head 528 576 2 3⟩, ⟨196741, [0x24043183, 0x24843703, 0x2c343023, 0x2ce43423], .copy 528 704⟩, ⟨196745, [0x1a840513, 0x1d840613, 0x602f8c93, 0x1953823, 0x73], .head 424 472 4 2⟩, ⟨196750, [0x1350823, 0x2e040613, 0x73], .rung 3 (some 736)⟩, ⟨196753, [0x14040513, 0x17040613, 0x700f8c93, 0x1953823, 0x73], .head 320 368 5 0⟩, ⟨196758, [0x950823, 0x73], .rung 1 none⟩, ⟨196760, [0xd50823, 0x73], .rung 2 none⟩, ⟨196762, [0x1350823, 0x2f040613, 0x73], .rung 3 (some 752)⟩, ⟨196765, [0x29f43823, 0x28043c23, 0x28040513, 0x8000593, 0x4b8067], .leaf⟩]⟩
-def routine19 : ChainRoutine := ⟨19, [0, 0, 1, 0, 3, 3], [⟨196800, [0x21040513, 0x24040613, 0x403f8c93, 0x1953823, 0x73], .head 528 576 2 3⟩, ⟨196805, [0x24043183, 0x24843703, 0x2c343023, 0x2ce43423], .copy 528 704⟩, ⟨196809, [0x1a840513, 0x1d840613, 0x601f8c93, 0x1953823, 0x73], .head 424 472 4 1⟩, ⟨196814, [0xd50823, 0x73], .rung 2 none⟩, ⟨196816, [0x1350823, 0x2e040613, 0x73], .rung 3 (some 736)⟩, ⟨196819, [0x14040513, 0x17040613, 0x701f8c93, 0x1953823, 0x73], .head 320 368 5 1⟩, ⟨196824, [0xd50823, 0x73], .rung 2 none⟩, ⟨196826, [0x1350823, 0x2f040613, 0x73], .rung 3 (some 752)⟩, ⟨196829, [0x29f43823, 0x28043c23, 0x28040513, 0x8000593, 0x4b8067], .leaf⟩]⟩
-def routine20 : ChainRoutine := ⟨20, [0, 0, 1, 0, 4, 2], [⟨196864, [0x21040513, 0x24040613, 0x403f8c93, 0x1953823, 0x73], .head 528 576 2 3⟩, ⟨196869, [0x24043183, 0x24843703, 0x2c343023, 0x2ce43423], .copy 528 704⟩, ⟨196873, [0x1a840513, 0x1d840613, 0x600f8c93, 0x1953823, 0x73], .head 424 472 4 0⟩, ⟨196878, [0x950823, 0x73], .rung 1 none⟩, ⟨196880, [0xd50823, 0x73], .rung 2 none⟩, ⟨196882, [0x1350823, 0x2e040613, 0x73], .rung 3 (some 736)⟩, ⟨196885, [0x14040513, 0x17040613, 0x702f8c93, 0x1953823, 0x73], .head 320 368 5 2⟩, ⟨196890, [0x1350823, 0x2f040613, 0x73], .rung 3 (some 752)⟩, ⟨196893, [0x29f43823, 0x28043c23, 0x28040513, 0x8000593, 0x4b8067], .leaf⟩]⟩
-def routine21 : ChainRoutine := ⟨21, [0, 0, 1, 1, 1, 4], [⟨196928, [0x21040513, 0x2c040613, 0x403f8c93, 0x1953823, 0x73], .head 528 704 2 3⟩, ⟨196933, [0x19040513, 0x2d040613, 0x503f8c93, 0x1953823, 0x73], .head 400 720 3 3⟩, ⟨196938, [0x1a840513, 0x2e040613, 0x603f8c93, 0x1953823, 0x73], .head 424 736 4 3⟩, ⟨196943, [0x14040513, 0x17040613, 0x700f8c93, 0x1953823, 0x73], .head 320 368 5 0⟩, ⟨196948, [0x950823, 0x73], .rung 1 none⟩, ⟨196950, [0xd50823, 0x73], .rung 2 none⟩, ⟨196952, [0x1350823, 0x2f040613, 0x73], .rung 3 (some 752)⟩, ⟨196955, [0x29f43823, 0x28043c23, 0x28040513, 0x8000593, 0x4b8067], .leaf⟩]⟩
-def routine22 : ChainRoutine := ⟨22, [0, 0, 1, 1, 2, 3], [⟨196992, [0x21040513, 0x2c040613, 0x403f8c93, 0x1953823, 0x73], .head 528 704 2 3⟩, ⟨196997, [0x19040513, 0x2d040613, 0x503f8c93, 0x1953823, 0x73], .head 400 720 3 3⟩, ⟨197002, [0x1a840513, 0x1d840613, 0x602f8c93, 0x1953823, 0x73], .head 424 472 4 2⟩, ⟨197007, [0x1350823, 0x2e040613, 0x73], .rung 3 (some 736)⟩, ⟨197010, [0x14040513, 0x17040613, 0x701f8c93, 0x1953823, 0x73], .head 320 368 5 1⟩, ⟨197015, [0xd50823, 0x73], .rung 2 none⟩, ⟨197017, [0x1350823, 0x2f040613, 0x73], .rung 3 (some 752)⟩, ⟨197020, [0x29f43823, 0x28043c23, 0x28040513, 0x8000593, 0x4b8067], .leaf⟩]⟩
-def routine23 : ChainRoutine := ⟨23, [0, 0, 1, 1, 3, 2], [⟨197056, [0x21040513, 0x2c040613, 0x403f8c93, 0x1953823, 0x73], .head 528 704 2 3⟩, ⟨197061, [0x19040513, 0x2d040613, 0x503f8c93, 0x1953823, 0x73], .head 400 720 3 3⟩, ⟨197066, [0x1a840513, 0x1d840613, 0x601f8c93, 0x1953823, 0x73], .head 424 472 4 1⟩, ⟨197071, [0xd50823, 0x73], .rung 2 none⟩, ⟨197073, [0x1350823, 0x2e040613, 0x73], .rung 3 (some 736)⟩, ⟨197076, [0x14040513, 0x17040613, 0x702f8c93, 0x1953823, 0x73], .head 320 368 5 2⟩, ⟨197081, [0x1350823, 0x2f040613, 0x73], .rung 3 (some 752)⟩, ⟨197084, [0x29f43823, 0x28043c23, 0x28040513, 0x8000593, 0x4b8067], .leaf⟩]⟩
+def routine16 : ChainRoutine := ⟨16, [0, 0, 0, 4, 2, 1], [⟨196608, [0x19040513, 0x18040613, 0xa8bf8c93, 0x1953823, 0x73], .head 400 384 3 0⟩, ⟨196613, [0x7508a3, 0x73], .rung 1 none⟩, ⟨196615, [0xd508a3, 0x73], .rung 2 none⟩, ⟨196617, [0x13508a3, 0x2d040613, 0x73], .rung 3 (some 720)⟩, ⟨196620, [0x1a840513, 0x1d840613, 0xc8ff8c93, 0x1953823, 0x73], .head 424 472 4 2⟩, ⟨196625, [0x13508a3, 0x2e040613, 0x73], .rung 3 (some 736)⟩, ⟨196628, [0x14040513, 0x2f040613, 0xd93f8c93, 0x1953823, 0x73], .head 320 752 5 3⟩, ⟨196633, [0x29f43823, 0x28043c23, 0x28040513, 0x8000593, 0x4b8067], .leaf⟩]⟩
+def routine17 : ChainRoutine := ⟨17, [0, 0, 0, 4, 3, 0], [⟨196672, [0x19040513, 0x18040613, 0xa8bf8c93, 0x1953823, 0x73], .head 400 384 3 0⟩, ⟨196677, [0x7508a3, 0x73], .rung 1 none⟩, ⟨196679, [0xd508a3, 0x73], .rung 2 none⟩, ⟨196681, [0x13508a3, 0x2d040613, 0x73], .rung 3 (some 720)⟩, ⟨196684, [0x1a840513, 0x1d840613, 0xb8ff8c93, 0x1953823, 0x73], .head 424 472 4 1⟩, ⟨196689, [0xd508a3, 0x73], .rung 2 none⟩, ⟨196691, [0x13508a3, 0x73], .rung 3 none⟩, ⟨196693, [0x1d843183, 0x1e043703, 0x2e343023, 0x2ee43423], .copy 424 736⟩, ⟨196697, [0x29f43823, 0x28043c23, 0x28040513, 0x8000593, 0x4b8067], .leaf⟩]⟩
+def routine18 : ChainRoutine := ⟨18, [0, 0, 1, 0, 2, 4], [⟨196736, [0x21040513, 0x24040613, 0xd87f8c93, 0x1953823, 0x73], .head 528 576 2 3⟩, ⟨196741, [0x24043183, 0x24843703, 0x2c343023, 0x2ce43423], .copy 528 704⟩, ⟨196745, [0x1a840513, 0x1d840613, 0xc8ff8c93, 0x1953823, 0x73], .head 424 472 4 2⟩, ⟨196750, [0x13508a3, 0x2e040613, 0x73], .rung 3 (some 736)⟩, ⟨196753, [0x14040513, 0x17040613, 0xa93f8c93, 0x1953823, 0x73], .head 320 368 5 0⟩, ⟨196758, [0x7508a3, 0x73], .rung 1 none⟩, ⟨196760, [0xd508a3, 0x73], .rung 2 none⟩, ⟨196762, [0x13508a3, 0x2f040613, 0x73], .rung 3 (some 752)⟩, ⟨196765, [0x29f43823, 0x28043c23, 0x28040513, 0x8000593, 0x4b8067], .leaf⟩]⟩
+def routine19 : ChainRoutine := ⟨19, [0, 0, 1, 0, 3, 3], [⟨196800, [0x21040513, 0x24040613, 0xd87f8c93, 0x1953823, 0x73], .head 528 576 2 3⟩, ⟨196805, [0x24043183, 0x24843703, 0x2c343023, 0x2ce43423], .copy 528 704⟩, ⟨196809, [0x1a840513, 0x1d840613, 0xb8ff8c93, 0x1953823, 0x73], .head 424 472 4 1⟩, ⟨196814, [0xd508a3, 0x73], .rung 2 none⟩, ⟨196816, [0x13508a3, 0x2e040613, 0x73], .rung 3 (some 736)⟩, ⟨196819, [0x14040513, 0x17040613, 0xb93f8c93, 0x1953823, 0x73], .head 320 368 5 1⟩, ⟨196824, [0xd508a3, 0x73], .rung 2 none⟩, ⟨196826, [0x13508a3, 0x2f040613, 0x73], .rung 3 (some 752)⟩, ⟨196829, [0x29f43823, 0x28043c23, 0x28040513, 0x8000593, 0x4b8067], .leaf⟩]⟩
+def routine20 : ChainRoutine := ⟨20, [0, 0, 1, 0, 4, 2], [⟨196864, [0x21040513, 0x24040613, 0xd87f8c93, 0x1953823, 0x73], .head 528 576 2 3⟩, ⟨196869, [0x24043183, 0x24843703, 0x2c343023, 0x2ce43423], .copy 528 704⟩, ⟨196873, [0x1a840513, 0x1d840613, 0xa8ff8c93, 0x1953823, 0x73], .head 424 472 4 0⟩, ⟨196878, [0x7508a3, 0x73], .rung 1 none⟩, ⟨196880, [0xd508a3, 0x73], .rung 2 none⟩, ⟨196882, [0x13508a3, 0x2e040613, 0x73], .rung 3 (some 736)⟩, ⟨196885, [0x14040513, 0x17040613, 0xc93f8c93, 0x1953823, 0x73], .head 320 368 5 2⟩, ⟨196890, [0x13508a3, 0x2f040613, 0x73], .rung 3 (some 752)⟩, ⟨196893, [0x29f43823, 0x28043c23, 0x28040513, 0x8000593, 0x4b8067], .leaf⟩]⟩
+def routine21 : ChainRoutine := ⟨21, [0, 0, 1, 1, 1, 4], [⟨196928, [0x21040513, 0x2c040613, 0xd87f8c93, 0x1953823, 0x73], .head 528 704 2 3⟩, ⟨196933, [0x19040513, 0x2d040613, 0xd8bf8c93, 0x1953823, 0x73], .head 400 720 3 3⟩, ⟨196938, [0x1a840513, 0x2e040613, 0xd8ff8c93, 0x1953823, 0x73], .head 424 736 4 3⟩, ⟨196943, [0x14040513, 0x17040613, 0xa93f8c93, 0x1953823, 0x73], .head 320 368 5 0⟩, ⟨196948, [0x7508a3, 0x73], .rung 1 none⟩, ⟨196950, [0xd508a3, 0x73], .rung 2 none⟩, ⟨196952, [0x13508a3, 0x2f040613, 0x73], .rung 3 (some 752)⟩, ⟨196955, [0x29f43823, 0x28043c23, 0x28040513, 0x8000593, 0x4b8067], .leaf⟩]⟩
+def routine22 : ChainRoutine := ⟨22, [0, 0, 1, 1, 2, 3], [⟨196992, [0x21040513, 0x2c040613, 0xd87f8c93, 0x1953823, 0x73], .head 528 704 2 3⟩, ⟨196997, [0x19040513, 0x2d040613, 0xd8bf8c93, 0x1953823, 0x73], .head 400 720 3 3⟩, ⟨197002, [0x1a840513, 0x1d840613, 0xc8ff8c93, 0x1953823, 0x73], .head 424 472 4 2⟩, ⟨197007, [0x13508a3, 0x2e040613, 0x73], .rung 3 (some 736)⟩, ⟨197010, [0x14040513, 0x17040613, 0xb93f8c93, 0x1953823, 0x73], .head 320 368 5 1⟩, ⟨197015, [0xd508a3, 0x73], .rung 2 none⟩, ⟨197017, [0x13508a3, 0x2f040613, 0x73], .rung 3 (some 752)⟩, ⟨197020, [0x29f43823, 0x28043c23, 0x28040513, 0x8000593, 0x4b8067], .leaf⟩]⟩
+def routine23 : ChainRoutine := ⟨23, [0, 0, 1, 1, 3, 2], [⟨197056, [0x21040513, 0x2c040613, 0xd87f8c93, 0x1953823, 0x73], .head 528 704 2 3⟩, ⟨197061, [0x19040513, 0x2d040613, 0xd8bf8c93, 0x1953823, 0x73], .head 400 720 3 3⟩, ⟨197066, [0x1a840513, 0x1d840613, 0xb8ff8c93, 0x1953823, 0x73], .head 424 472 4 1⟩, ⟨197071, [0xd508a3, 0x73], .rung 2 none⟩, ⟨197073, [0x13508a3, 0x2e040613, 0x73], .rung 3 (some 736)⟩, ⟨197076, [0x14040513, 0x17040613, 0xc93f8c93, 0x1953823, 0x73], .head 320 368 5 2⟩, ⟨197081, [0x13508a3, 0x2f040613, 0x73], .rung 3 (some 752)⟩, ⟨197084, [0x29f43823, 0x28043c23, 0x28040513, 0x8000593, 0x4b8067], .leaf⟩]⟩
 def batch2 : List (ChainRoutine × Nat) := [(routine16, 79), (routine17, 79), (routine18, 83), (routine19, 83), (routine20, 83), (routine21, 81), (routine22, 82), (routine23, 82)]
 theorem batch2_checked : (batch2.all fun rc => exactChecked rc.1 rc.2) = true := by decide +kernel
 theorem ready16 : Chain.RoutineReady (embed ⟨16, by decide⟩) routine16 ∧ planCycles routine16.pieces ≤ rankCost ⟨16, by decide⟩ := by
@@ -4025,14 +3969,14 @@ section
 namespace W9Machine.N600.Checks
 set_option maxRecDepth 100000
 set_option maxHeartbeats 0
-def routine24 : ChainRoutine := ⟨24, [0, 0, 1, 1, 4, 1], [⟨197120, [0x21040513, 0x2c040613, 0x403f8c93, 0x1953823, 0x73], .head 528 704 2 3⟩, ⟨197125, [0x19040513, 0x2d040613, 0x503f8c93, 0x1953823, 0x73], .head 400 720 3 3⟩, ⟨197130, [0x1a840513, 0x1d840613, 0x600f8c93, 0x1953823, 0x73], .head 424 472 4 0⟩, ⟨197135, [0x950823, 0x73], .rung 1 none⟩, ⟨197137, [0xd50823, 0x73], .rung 2 none⟩, ⟨197139, [0x1350823, 0x2e040613, 0x73], .rung 3 (some 736)⟩, ⟨197142, [0x14040513, 0x2f040613, 0x703f8c93, 0x1953823, 0x73], .head 320 752 5 3⟩, ⟨197147, [0x29f43823, 0x28043c23, 0x28040513, 0x8000593, 0x4b8067], .leaf⟩]⟩
-def routine25 : ChainRoutine := ⟨25, [0, 0, 1, 2, 0, 4], [⟨197184, [0x21040513, 0x2c040613, 0x403f8c93, 0x1953823, 0x73], .head 528 704 2 3⟩, ⟨197189, [0x19040513, 0x18040613, 0x502f8c93, 0x1953823, 0x73], .head 400 384 3 2⟩, ⟨197194, [0x1350823, 0x73], .rung 3 none⟩, ⟨197196, [0x18043183, 0x18843703, 0x2c343823, 0x2ce43c23], .copy 336 720⟩, ⟨197200, [0x14040513, 0x17040613, 0x700f8c93, 0x1953823, 0x73], .head 320 368 5 0⟩, ⟨197205, [0x950823, 0x73], .rung 1 none⟩, ⟨197207, [0xd50823, 0x73], .rung 2 none⟩, ⟨197209, [0x1350823, 0x2f040613, 0x73], .rung 3 (some 752)⟩, ⟨197212, [0x29f43823, 0x28043c23, 0x28040513, 0x8000593, 0x4b8067], .leaf⟩]⟩
-def routine26 : ChainRoutine := ⟨26, [0, 0, 1, 2, 1, 3], [⟨197248, [0x21040513, 0x2c040613, 0x403f8c93, 0x1953823, 0x73], .head 528 704 2 3⟩, ⟨197253, [0x19040513, 0x18040613, 0x502f8c93, 0x1953823, 0x73], .head 400 384 3 2⟩, ⟨197258, [0x1350823, 0x2d040613, 0x73], .rung 3 (some 720)⟩, ⟨197261, [0x1a840513, 0x2e040613, 0x603f8c93, 0x1953823, 0x73], .head 424 736 4 3⟩, ⟨197266, [0x14040513, 0x17040613, 0x701f8c93, 0x1953823, 0x73], .head 320 368 5 1⟩, ⟨197271, [0xd50823, 0x73], .rung 2 none⟩, ⟨197273, [0x1350823, 0x2f040613, 0x73], .rung 3 (some 752)⟩, ⟨197276, [0x29f43823, 0x28043c23, 0x28040513, 0x8000593, 0x4b8067], .leaf⟩]⟩
-def routine27 : ChainRoutine := ⟨27, [0, 0, 1, 2, 2, 2], [⟨197312, [0x21040513, 0x2c040613, 0x403f8c93, 0x1953823, 0x73], .head 528 704 2 3⟩, ⟨197317, [0x19040513, 0x18040613, 0x502f8c93, 0x1953823, 0x73], .head 400 384 3 2⟩, ⟨197322, [0x1350823, 0x2d040613, 0x73], .rung 3 (some 720)⟩, ⟨197325, [0x1a840513, 0x1d840613, 0x602f8c93, 0x1953823, 0x73], .head 424 472 4 2⟩, ⟨197330, [0x1350823, 0x2e040613, 0x73], .rung 3 (some 736)⟩, ⟨197333, [0x14040513, 0x17040613, 0x702f8c93, 0x1953823, 0x73], .head 320 368 5 2⟩, ⟨197338, [0x1350823, 0x2f040613, 0x73], .rung 3 (some 752)⟩, ⟨197341, [0x29f43823, 0x28043c23, 0x28040513, 0x8000593, 0x4b8067], .leaf⟩]⟩
-def routine28 : ChainRoutine := ⟨28, [0, 0, 1, 2, 3, 1], [⟨197376, [0x21040513, 0x2c040613, 0x403f8c93, 0x1953823, 0x73], .head 528 704 2 3⟩, ⟨197381, [0x19040513, 0x18040613, 0x502f8c93, 0x1953823, 0x73], .head 400 384 3 2⟩, ⟨197386, [0x1350823, 0x2d040613, 0x73], .rung 3 (some 720)⟩, ⟨197389, [0x1a840513, 0x1d840613, 0x601f8c93, 0x1953823, 0x73], .head 424 472 4 1⟩, ⟨197394, [0xd50823, 0x73], .rung 2 none⟩, ⟨197396, [0x1350823, 0x2e040613, 0x73], .rung 3 (some 736)⟩, ⟨197399, [0x14040513, 0x2f040613, 0x703f8c93, 0x1953823, 0x73], .head 320 752 5 3⟩, ⟨197404, [0x29f43823, 0x28043c23, 0x28040513, 0x8000593, 0x4b8067], .leaf⟩]⟩
-def routine29 : ChainRoutine := ⟨29, [0, 0, 1, 2, 4, 0], [⟨197440, [0x21040513, 0x2c040613, 0x403f8c93, 0x1953823, 0x73], .head 528 704 2 3⟩, ⟨197445, [0x19040513, 0x18040613, 0x502f8c93, 0x1953823, 0x73], .head 400 384 3 2⟩, ⟨197450, [0x1350823, 0x2d040613, 0x73], .rung 3 (some 720)⟩, ⟨197453, [0x1a840513, 0x1d840613, 0x600f8c93, 0x1953823, 0x73], .head 424 472 4 0⟩, ⟨197458, [0x950823, 0x73], .rung 1 none⟩, ⟨197460, [0xd50823, 0x73], .rung 2 none⟩, ⟨197462, [0x1350823, 0x73], .rung 3 none⟩, ⟨197464, [0x1d843183, 0x1e043703, 0x2e343023, 0x2ee43423], .copy 424 736⟩, ⟨197468, [0x29f43823, 0x28043c23, 0x28040513, 0x8000593, 0x4b8067], .leaf⟩]⟩
-def routine30 : ChainRoutine := ⟨30, [0, 0, 1, 3, 0, 3], [⟨197504, [0x21040513, 0x2c040613, 0x403f8c93, 0x1953823, 0x73], .head 528 704 2 3⟩, ⟨197509, [0x19040513, 0x18040613, 0x501f8c93, 0x1953823, 0x73], .head 400 384 3 1⟩, ⟨197514, [0xd50823, 0x73], .rung 2 none⟩, ⟨197516, [0x1350823, 0x73], .rung 3 none⟩, ⟨197518, [0x18043183, 0x18843703, 0x2c343823, 0x2ce43c23], .copy 336 720⟩, ⟨197522, [0x14040513, 0x17040613, 0x701f8c93, 0x1953823, 0x73], .head 320 368 5 1⟩, ⟨197527, [0xd50823, 0x73], .rung 2 none⟩, ⟨197529, [0x1350823, 0x2f040613, 0x73], .rung 3 (some 752)⟩, ⟨197532, [0x29f43823, 0x28043c23, 0x28040513, 0x8000593, 0x4b8067], .leaf⟩]⟩
-def routine31 : ChainRoutine := ⟨31, [0, 0, 1, 3, 1, 2], [⟨197568, [0x21040513, 0x2c040613, 0x403f8c93, 0x1953823, 0x73], .head 528 704 2 3⟩, ⟨197573, [0x19040513, 0x18040613, 0x501f8c93, 0x1953823, 0x73], .head 400 384 3 1⟩, ⟨197578, [0xd50823, 0x73], .rung 2 none⟩, ⟨197580, [0x1350823, 0x2d040613, 0x73], .rung 3 (some 720)⟩, ⟨197583, [0x1a840513, 0x2e040613, 0x603f8c93, 0x1953823, 0x73], .head 424 736 4 3⟩, ⟨197588, [0x14040513, 0x17040613, 0x702f8c93, 0x1953823, 0x73], .head 320 368 5 2⟩, ⟨197593, [0x1350823, 0x2f040613, 0x73], .rung 3 (some 752)⟩, ⟨197596, [0x29f43823, 0x28043c23, 0x28040513, 0x8000593, 0x4b8067], .leaf⟩]⟩
+def routine24 : ChainRoutine := ⟨24, [0, 0, 1, 1, 4, 1], [⟨197120, [0x21040513, 0x2c040613, 0xd87f8c93, 0x1953823, 0x73], .head 528 704 2 3⟩, ⟨197125, [0x19040513, 0x2d040613, 0xd8bf8c93, 0x1953823, 0x73], .head 400 720 3 3⟩, ⟨197130, [0x1a840513, 0x1d840613, 0xa8ff8c93, 0x1953823, 0x73], .head 424 472 4 0⟩, ⟨197135, [0x7508a3, 0x73], .rung 1 none⟩, ⟨197137, [0xd508a3, 0x73], .rung 2 none⟩, ⟨197139, [0x13508a3, 0x2e040613, 0x73], .rung 3 (some 736)⟩, ⟨197142, [0x14040513, 0x2f040613, 0xd93f8c93, 0x1953823, 0x73], .head 320 752 5 3⟩, ⟨197147, [0x29f43823, 0x28043c23, 0x28040513, 0x8000593, 0x4b8067], .leaf⟩]⟩
+def routine25 : ChainRoutine := ⟨25, [0, 0, 1, 2, 0, 4], [⟨197184, [0x21040513, 0x2c040613, 0xd87f8c93, 0x1953823, 0x73], .head 528 704 2 3⟩, ⟨197189, [0x19040513, 0x18040613, 0xc8bf8c93, 0x1953823, 0x73], .head 400 384 3 2⟩, ⟨197194, [0x13508a3, 0x73], .rung 3 none⟩, ⟨197196, [0x18043183, 0x18843703, 0x2c343823, 0x2ce43c23], .copy 336 720⟩, ⟨197200, [0x14040513, 0x17040613, 0xa93f8c93, 0x1953823, 0x73], .head 320 368 5 0⟩, ⟨197205, [0x7508a3, 0x73], .rung 1 none⟩, ⟨197207, [0xd508a3, 0x73], .rung 2 none⟩, ⟨197209, [0x13508a3, 0x2f040613, 0x73], .rung 3 (some 752)⟩, ⟨197212, [0x29f43823, 0x28043c23, 0x28040513, 0x8000593, 0x4b8067], .leaf⟩]⟩
+def routine26 : ChainRoutine := ⟨26, [0, 0, 1, 2, 1, 3], [⟨197248, [0x21040513, 0x2c040613, 0xd87f8c93, 0x1953823, 0x73], .head 528 704 2 3⟩, ⟨197253, [0x19040513, 0x18040613, 0xc8bf8c93, 0x1953823, 0x73], .head 400 384 3 2⟩, ⟨197258, [0x13508a3, 0x2d040613, 0x73], .rung 3 (some 720)⟩, ⟨197261, [0x1a840513, 0x2e040613, 0xd8ff8c93, 0x1953823, 0x73], .head 424 736 4 3⟩, ⟨197266, [0x14040513, 0x17040613, 0xb93f8c93, 0x1953823, 0x73], .head 320 368 5 1⟩, ⟨197271, [0xd508a3, 0x73], .rung 2 none⟩, ⟨197273, [0x13508a3, 0x2f040613, 0x73], .rung 3 (some 752)⟩, ⟨197276, [0x29f43823, 0x28043c23, 0x28040513, 0x8000593, 0x4b8067], .leaf⟩]⟩
+def routine27 : ChainRoutine := ⟨27, [0, 0, 1, 2, 2, 2], [⟨197312, [0x21040513, 0x2c040613, 0xd87f8c93, 0x1953823, 0x73], .head 528 704 2 3⟩, ⟨197317, [0x19040513, 0x18040613, 0xc8bf8c93, 0x1953823, 0x73], .head 400 384 3 2⟩, ⟨197322, [0x13508a3, 0x2d040613, 0x73], .rung 3 (some 720)⟩, ⟨197325, [0x1a840513, 0x1d840613, 0xc8ff8c93, 0x1953823, 0x73], .head 424 472 4 2⟩, ⟨197330, [0x13508a3, 0x2e040613, 0x73], .rung 3 (some 736)⟩, ⟨197333, [0x14040513, 0x17040613, 0xc93f8c93, 0x1953823, 0x73], .head 320 368 5 2⟩, ⟨197338, [0x13508a3, 0x2f040613, 0x73], .rung 3 (some 752)⟩, ⟨197341, [0x29f43823, 0x28043c23, 0x28040513, 0x8000593, 0x4b8067], .leaf⟩]⟩
+def routine28 : ChainRoutine := ⟨28, [0, 0, 1, 2, 3, 1], [⟨197376, [0x21040513, 0x2c040613, 0xd87f8c93, 0x1953823, 0x73], .head 528 704 2 3⟩, ⟨197381, [0x19040513, 0x18040613, 0xc8bf8c93, 0x1953823, 0x73], .head 400 384 3 2⟩, ⟨197386, [0x13508a3, 0x2d040613, 0x73], .rung 3 (some 720)⟩, ⟨197389, [0x1a840513, 0x1d840613, 0xb8ff8c93, 0x1953823, 0x73], .head 424 472 4 1⟩, ⟨197394, [0xd508a3, 0x73], .rung 2 none⟩, ⟨197396, [0x13508a3, 0x2e040613, 0x73], .rung 3 (some 736)⟩, ⟨197399, [0x14040513, 0x2f040613, 0xd93f8c93, 0x1953823, 0x73], .head 320 752 5 3⟩, ⟨197404, [0x29f43823, 0x28043c23, 0x28040513, 0x8000593, 0x4b8067], .leaf⟩]⟩
+def routine29 : ChainRoutine := ⟨29, [0, 0, 1, 2, 4, 0], [⟨197440, [0x21040513, 0x2c040613, 0xd87f8c93, 0x1953823, 0x73], .head 528 704 2 3⟩, ⟨197445, [0x19040513, 0x18040613, 0xc8bf8c93, 0x1953823, 0x73], .head 400 384 3 2⟩, ⟨197450, [0x13508a3, 0x2d040613, 0x73], .rung 3 (some 720)⟩, ⟨197453, [0x1a840513, 0x1d840613, 0xa8ff8c93, 0x1953823, 0x73], .head 424 472 4 0⟩, ⟨197458, [0x7508a3, 0x73], .rung 1 none⟩, ⟨197460, [0xd508a3, 0x73], .rung 2 none⟩, ⟨197462, [0x13508a3, 0x73], .rung 3 none⟩, ⟨197464, [0x1d843183, 0x1e043703, 0x2e343023, 0x2ee43423], .copy 424 736⟩, ⟨197468, [0x29f43823, 0x28043c23, 0x28040513, 0x8000593, 0x4b8067], .leaf⟩]⟩
+def routine30 : ChainRoutine := ⟨30, [0, 0, 1, 3, 0, 3], [⟨197504, [0x21040513, 0x2c040613, 0xd87f8c93, 0x1953823, 0x73], .head 528 704 2 3⟩, ⟨197509, [0x19040513, 0x18040613, 0xb8bf8c93, 0x1953823, 0x73], .head 400 384 3 1⟩, ⟨197514, [0xd508a3, 0x73], .rung 2 none⟩, ⟨197516, [0x13508a3, 0x73], .rung 3 none⟩, ⟨197518, [0x18043183, 0x18843703, 0x2c343823, 0x2ce43c23], .copy 336 720⟩, ⟨197522, [0x14040513, 0x17040613, 0xb93f8c93, 0x1953823, 0x73], .head 320 368 5 1⟩, ⟨197527, [0xd508a3, 0x73], .rung 2 none⟩, ⟨197529, [0x13508a3, 0x2f040613, 0x73], .rung 3 (some 752)⟩, ⟨197532, [0x29f43823, 0x28043c23, 0x28040513, 0x8000593, 0x4b8067], .leaf⟩]⟩
+def routine31 : ChainRoutine := ⟨31, [0, 0, 1, 3, 1, 2], [⟨197568, [0x21040513, 0x2c040613, 0xd87f8c93, 0x1953823, 0x73], .head 528 704 2 3⟩, ⟨197573, [0x19040513, 0x18040613, 0xb8bf8c93, 0x1953823, 0x73], .head 400 384 3 1⟩, ⟨197578, [0xd508a3, 0x73], .rung 2 none⟩, ⟨197580, [0x13508a3, 0x2d040613, 0x73], .rung 3 (some 720)⟩, ⟨197583, [0x1a840513, 0x2e040613, 0xd8ff8c93, 0x1953823, 0x73], .head 424 736 4 3⟩, ⟨197588, [0x14040513, 0x17040613, 0xc93f8c93, 0x1953823, 0x73], .head 320 368 5 2⟩, ⟨197593, [0x13508a3, 0x2f040613, 0x73], .rung 3 (some 752)⟩, ⟨197596, [0x29f43823, 0x28043c23, 0x28040513, 0x8000593, 0x4b8067], .leaf⟩]⟩
 def batch3 : List (ChainRoutine × Nat) := [(routine24, 81), (routine25, 82), (routine26, 82), (routine27, 83), (routine28, 82), (routine29, 82), (routine30, 82), (routine31, 82)]
 theorem batch3_checked : (batch3.all fun rc => exactChecked rc.1 rc.2) = true := by decide +kernel
 theorem ready24 : Chain.RoutineReady (embed ⟨24, by decide⟩) routine24 ∧ planCycles routine24.pieces ≤ rankCost ⟨24, by decide⟩ := by
@@ -4067,14 +4011,14 @@ section
 namespace W9Machine.N600.Checks
 set_option maxRecDepth 100000
 set_option maxHeartbeats 0
-def routine32 : ChainRoutine := ⟨32, [0, 0, 1, 3, 2, 1], [⟨197632, [0x21040513, 0x2c040613, 0x403f8c93, 0x1953823, 0x73], .head 528 704 2 3⟩, ⟨197637, [0x19040513, 0x18040613, 0x501f8c93, 0x1953823, 0x73], .head 400 384 3 1⟩, ⟨197642, [0xd50823, 0x73], .rung 2 none⟩, ⟨197644, [0x1350823, 0x2d040613, 0x73], .rung 3 (some 720)⟩, ⟨197647, [0x1a840513, 0x1d840613, 0x602f8c93, 0x1953823, 0x73], .head 424 472 4 2⟩, ⟨197652, [0x1350823, 0x2e040613, 0x73], .rung 3 (some 736)⟩, ⟨197655, [0x14040513, 0x2f040613, 0x703f8c93, 0x1953823, 0x73], .head 320 752 5 3⟩, ⟨197660, [0x29f43823, 0x28043c23, 0x28040513, 0x8000593, 0x4b8067], .leaf⟩]⟩
-def routine33 : ChainRoutine := ⟨33, [0, 0, 1, 3, 3, 0], [⟨197696, [0x21040513, 0x2c040613, 0x403f8c93, 0x1953823, 0x73], .head 528 704 2 3⟩, ⟨197701, [0x19040513, 0x18040613, 0x501f8c93, 0x1953823, 0x73], .head 400 384 3 1⟩, ⟨197706, [0xd50823, 0x73], .rung 2 none⟩, ⟨197708, [0x1350823, 0x2d040613, 0x73], .rung 3 (some 720)⟩, ⟨197711, [0x1a840513, 0x1d840613, 0x601f8c93, 0x1953823, 0x73], .head 424 472 4 1⟩, ⟨197716, [0xd50823, 0x73], .rung 2 none⟩, ⟨197718, [0x1350823, 0x73], .rung 3 none⟩, ⟨197720, [0x1d843183, 0x1e043703, 0x2e343023, 0x2ee43423], .copy 424 736⟩, ⟨197724, [0x29f43823, 0x28043c23, 0x28040513, 0x8000593, 0x4b8067], .leaf⟩]⟩
-def routine34 : ChainRoutine := ⟨34, [0, 0, 1, 4, 0, 2], [⟨197760, [0x21040513, 0x2c040613, 0x403f8c93, 0x1953823, 0x73], .head 528 704 2 3⟩, ⟨197765, [0x19040513, 0x18040613, 0x500f8c93, 0x1953823, 0x73], .head 400 384 3 0⟩, ⟨197770, [0x950823, 0x73], .rung 1 none⟩, ⟨197772, [0xd50823, 0x73], .rung 2 none⟩, ⟨197774, [0x1350823, 0x73], .rung 3 none⟩, ⟨197776, [0x18043183, 0x18843703, 0x2c343823, 0x2ce43c23], .copy 336 720⟩, ⟨197780, [0x14040513, 0x17040613, 0x702f8c93, 0x1953823, 0x73], .head 320 368 5 2⟩, ⟨197785, [0x1350823, 0x2f040613, 0x73], .rung 3 (some 752)⟩, ⟨197788, [0x29f43823, 0x28043c23, 0x28040513, 0x8000593, 0x4b8067], .leaf⟩]⟩
-def routine35 : ChainRoutine := ⟨35, [0, 0, 1, 4, 1, 1], [⟨197824, [0x21040513, 0x2c040613, 0x403f8c93, 0x1953823, 0x73], .head 528 704 2 3⟩, ⟨197829, [0x19040513, 0x18040613, 0x500f8c93, 0x1953823, 0x73], .head 400 384 3 0⟩, ⟨197834, [0x950823, 0x73], .rung 1 none⟩, ⟨197836, [0xd50823, 0x73], .rung 2 none⟩, ⟨197838, [0x1350823, 0x2d040613, 0x73], .rung 3 (some 720)⟩, ⟨197841, [0x1a840513, 0x2e040613, 0x603f8c93, 0x1953823, 0x73], .head 424 736 4 3⟩, ⟨197846, [0x14040513, 0x2f040613, 0x703f8c93, 0x1953823, 0x73], .head 320 752 5 3⟩, ⟨197851, [0x29f43823, 0x28043c23, 0x28040513, 0x8000593, 0x4b8067], .leaf⟩]⟩
-def routine36 : ChainRoutine := ⟨36, [0, 0, 1, 4, 2, 0], [⟨197888, [0x21040513, 0x2c040613, 0x403f8c93, 0x1953823, 0x73], .head 528 704 2 3⟩, ⟨197893, [0x19040513, 0x18040613, 0x500f8c93, 0x1953823, 0x73], .head 400 384 3 0⟩, ⟨197898, [0x950823, 0x73], .rung 1 none⟩, ⟨197900, [0xd50823, 0x73], .rung 2 none⟩, ⟨197902, [0x1350823, 0x2d040613, 0x73], .rung 3 (some 720)⟩, ⟨197905, [0x1a840513, 0x1d840613, 0x602f8c93, 0x1953823, 0x73], .head 424 472 4 2⟩, ⟨197910, [0x1350823, 0x73], .rung 3 none⟩, ⟨197912, [0x1d843183, 0x1e043703, 0x2e343023, 0x2ee43423], .copy 424 736⟩, ⟨197916, [0x29f43823, 0x28043c23, 0x28040513, 0x8000593, 0x4b8067], .leaf⟩]⟩
-def routine37 : ChainRoutine := ⟨37, [0, 0, 2, 0, 1, 4], [⟨197952, [0x21040513, 0x24040613, 0x402f8c93, 0x1953823, 0x73], .head 528 576 2 2⟩, ⟨197957, [0x1350823, 0x73], .rung 3 none⟩, ⟨197959, [0x24043183, 0x24843703, 0x2c343023, 0x2ce43423], .copy 528 704⟩, ⟨197963, [0x1a840513, 0x2e040613, 0x603f8c93, 0x1953823, 0x73], .head 424 736 4 3⟩, ⟨197968, [0x14040513, 0x17040613, 0x700f8c93, 0x1953823, 0x73], .head 320 368 5 0⟩, ⟨197973, [0x950823, 0x73], .rung 1 none⟩, ⟨197975, [0xd50823, 0x73], .rung 2 none⟩, ⟨197977, [0x1350823, 0x2f040613, 0x73], .rung 3 (some 752)⟩, ⟨197980, [0x29f43823, 0x28043c23, 0x28040513, 0x8000593, 0x4b8067], .leaf⟩]⟩
-def routine38 : ChainRoutine := ⟨38, [0, 0, 2, 0, 2, 3], [⟨198016, [0x21040513, 0x24040613, 0x402f8c93, 0x1953823, 0x73], .head 528 576 2 2⟩, ⟨198021, [0x1350823, 0x73], .rung 3 none⟩, ⟨198023, [0x24043183, 0x24843703, 0x2c343023, 0x2ce43423], .copy 528 704⟩, ⟨198027, [0x1a840513, 0x1d840613, 0x602f8c93, 0x1953823, 0x73], .head 424 472 4 2⟩, ⟨198032, [0x1350823, 0x2e040613, 0x73], .rung 3 (some 736)⟩, ⟨198035, [0x14040513, 0x17040613, 0x701f8c93, 0x1953823, 0x73], .head 320 368 5 1⟩, ⟨198040, [0xd50823, 0x73], .rung 2 none⟩, ⟨198042, [0x1350823, 0x2f040613, 0x73], .rung 3 (some 752)⟩, ⟨198045, [0x29f43823, 0x28043c23, 0x28040513, 0x8000593, 0x4b8067], .leaf⟩]⟩
-def routine39 : ChainRoutine := ⟨39, [0, 0, 2, 0, 3, 2], [⟨198080, [0x21040513, 0x24040613, 0x402f8c93, 0x1953823, 0x73], .head 528 576 2 2⟩, ⟨198085, [0x1350823, 0x73], .rung 3 none⟩, ⟨198087, [0x24043183, 0x24843703, 0x2c343023, 0x2ce43423], .copy 528 704⟩, ⟨198091, [0x1a840513, 0x1d840613, 0x601f8c93, 0x1953823, 0x73], .head 424 472 4 1⟩, ⟨198096, [0xd50823, 0x73], .rung 2 none⟩, ⟨198098, [0x1350823, 0x2e040613, 0x73], .rung 3 (some 736)⟩, ⟨198101, [0x14040513, 0x17040613, 0x702f8c93, 0x1953823, 0x73], .head 320 368 5 2⟩, ⟨198106, [0x1350823, 0x2f040613, 0x73], .rung 3 (some 752)⟩, ⟨198109, [0x29f43823, 0x28043c23, 0x28040513, 0x8000593, 0x4b8067], .leaf⟩]⟩
+def routine32 : ChainRoutine := ⟨32, [0, 0, 1, 3, 2, 1], [⟨197632, [0x21040513, 0x2c040613, 0xd87f8c93, 0x1953823, 0x73], .head 528 704 2 3⟩, ⟨197637, [0x19040513, 0x18040613, 0xb8bf8c93, 0x1953823, 0x73], .head 400 384 3 1⟩, ⟨197642, [0xd508a3, 0x73], .rung 2 none⟩, ⟨197644, [0x13508a3, 0x2d040613, 0x73], .rung 3 (some 720)⟩, ⟨197647, [0x1a840513, 0x1d840613, 0xc8ff8c93, 0x1953823, 0x73], .head 424 472 4 2⟩, ⟨197652, [0x13508a3, 0x2e040613, 0x73], .rung 3 (some 736)⟩, ⟨197655, [0x14040513, 0x2f040613, 0xd93f8c93, 0x1953823, 0x73], .head 320 752 5 3⟩, ⟨197660, [0x29f43823, 0x28043c23, 0x28040513, 0x8000593, 0x4b8067], .leaf⟩]⟩
+def routine33 : ChainRoutine := ⟨33, [0, 0, 1, 3, 3, 0], [⟨197696, [0x21040513, 0x2c040613, 0xd87f8c93, 0x1953823, 0x73], .head 528 704 2 3⟩, ⟨197701, [0x19040513, 0x18040613, 0xb8bf8c93, 0x1953823, 0x73], .head 400 384 3 1⟩, ⟨197706, [0xd508a3, 0x73], .rung 2 none⟩, ⟨197708, [0x13508a3, 0x2d040613, 0x73], .rung 3 (some 720)⟩, ⟨197711, [0x1a840513, 0x1d840613, 0xb8ff8c93, 0x1953823, 0x73], .head 424 472 4 1⟩, ⟨197716, [0xd508a3, 0x73], .rung 2 none⟩, ⟨197718, [0x13508a3, 0x73], .rung 3 none⟩, ⟨197720, [0x1d843183, 0x1e043703, 0x2e343023, 0x2ee43423], .copy 424 736⟩, ⟨197724, [0x29f43823, 0x28043c23, 0x28040513, 0x8000593, 0x4b8067], .leaf⟩]⟩
+def routine34 : ChainRoutine := ⟨34, [0, 0, 1, 4, 0, 2], [⟨197760, [0x21040513, 0x2c040613, 0xd87f8c93, 0x1953823, 0x73], .head 528 704 2 3⟩, ⟨197765, [0x19040513, 0x18040613, 0xa8bf8c93, 0x1953823, 0x73], .head 400 384 3 0⟩, ⟨197770, [0x7508a3, 0x73], .rung 1 none⟩, ⟨197772, [0xd508a3, 0x73], .rung 2 none⟩, ⟨197774, [0x13508a3, 0x73], .rung 3 none⟩, ⟨197776, [0x18043183, 0x18843703, 0x2c343823, 0x2ce43c23], .copy 336 720⟩, ⟨197780, [0x14040513, 0x17040613, 0xc93f8c93, 0x1953823, 0x73], .head 320 368 5 2⟩, ⟨197785, [0x13508a3, 0x2f040613, 0x73], .rung 3 (some 752)⟩, ⟨197788, [0x29f43823, 0x28043c23, 0x28040513, 0x8000593, 0x4b8067], .leaf⟩]⟩
+def routine35 : ChainRoutine := ⟨35, [0, 0, 1, 4, 1, 1], [⟨197824, [0x21040513, 0x2c040613, 0xd87f8c93, 0x1953823, 0x73], .head 528 704 2 3⟩, ⟨197829, [0x19040513, 0x18040613, 0xa8bf8c93, 0x1953823, 0x73], .head 400 384 3 0⟩, ⟨197834, [0x7508a3, 0x73], .rung 1 none⟩, ⟨197836, [0xd508a3, 0x73], .rung 2 none⟩, ⟨197838, [0x13508a3, 0x2d040613, 0x73], .rung 3 (some 720)⟩, ⟨197841, [0x1a840513, 0x2e040613, 0xd8ff8c93, 0x1953823, 0x73], .head 424 736 4 3⟩, ⟨197846, [0x14040513, 0x2f040613, 0xd93f8c93, 0x1953823, 0x73], .head 320 752 5 3⟩, ⟨197851, [0x29f43823, 0x28043c23, 0x28040513, 0x8000593, 0x4b8067], .leaf⟩]⟩
+def routine36 : ChainRoutine := ⟨36, [0, 0, 1, 4, 2, 0], [⟨197888, [0x21040513, 0x2c040613, 0xd87f8c93, 0x1953823, 0x73], .head 528 704 2 3⟩, ⟨197893, [0x19040513, 0x18040613, 0xa8bf8c93, 0x1953823, 0x73], .head 400 384 3 0⟩, ⟨197898, [0x7508a3, 0x73], .rung 1 none⟩, ⟨197900, [0xd508a3, 0x73], .rung 2 none⟩, ⟨197902, [0x13508a3, 0x2d040613, 0x73], .rung 3 (some 720)⟩, ⟨197905, [0x1a840513, 0x1d840613, 0xc8ff8c93, 0x1953823, 0x73], .head 424 472 4 2⟩, ⟨197910, [0x13508a3, 0x73], .rung 3 none⟩, ⟨197912, [0x1d843183, 0x1e043703, 0x2e343023, 0x2ee43423], .copy 424 736⟩, ⟨197916, [0x29f43823, 0x28043c23, 0x28040513, 0x8000593, 0x4b8067], .leaf⟩]⟩
+def routine37 : ChainRoutine := ⟨37, [0, 0, 2, 0, 1, 4], [⟨197952, [0x21040513, 0x24040613, 0xc87f8c93, 0x1953823, 0x73], .head 528 576 2 2⟩, ⟨197957, [0x13508a3, 0x73], .rung 3 none⟩, ⟨197959, [0x24043183, 0x24843703, 0x2c343023, 0x2ce43423], .copy 528 704⟩, ⟨197963, [0x1a840513, 0x2e040613, 0xd8ff8c93, 0x1953823, 0x73], .head 424 736 4 3⟩, ⟨197968, [0x14040513, 0x17040613, 0xa93f8c93, 0x1953823, 0x73], .head 320 368 5 0⟩, ⟨197973, [0x7508a3, 0x73], .rung 1 none⟩, ⟨197975, [0xd508a3, 0x73], .rung 2 none⟩, ⟨197977, [0x13508a3, 0x2f040613, 0x73], .rung 3 (some 752)⟩, ⟨197980, [0x29f43823, 0x28043c23, 0x28040513, 0x8000593, 0x4b8067], .leaf⟩]⟩
+def routine38 : ChainRoutine := ⟨38, [0, 0, 2, 0, 2, 3], [⟨198016, [0x21040513, 0x24040613, 0xc87f8c93, 0x1953823, 0x73], .head 528 576 2 2⟩, ⟨198021, [0x13508a3, 0x73], .rung 3 none⟩, ⟨198023, [0x24043183, 0x24843703, 0x2c343023, 0x2ce43423], .copy 528 704⟩, ⟨198027, [0x1a840513, 0x1d840613, 0xc8ff8c93, 0x1953823, 0x73], .head 424 472 4 2⟩, ⟨198032, [0x13508a3, 0x2e040613, 0x73], .rung 3 (some 736)⟩, ⟨198035, [0x14040513, 0x17040613, 0xb93f8c93, 0x1953823, 0x73], .head 320 368 5 1⟩, ⟨198040, [0xd508a3, 0x73], .rung 2 none⟩, ⟨198042, [0x13508a3, 0x2f040613, 0x73], .rung 3 (some 752)⟩, ⟨198045, [0x29f43823, 0x28043c23, 0x28040513, 0x8000593, 0x4b8067], .leaf⟩]⟩
+def routine39 : ChainRoutine := ⟨39, [0, 0, 2, 0, 3, 2], [⟨198080, [0x21040513, 0x24040613, 0xc87f8c93, 0x1953823, 0x73], .head 528 576 2 2⟩, ⟨198085, [0x13508a3, 0x73], .rung 3 none⟩, ⟨198087, [0x24043183, 0x24843703, 0x2c343023, 0x2ce43423], .copy 528 704⟩, ⟨198091, [0x1a840513, 0x1d840613, 0xb8ff8c93, 0x1953823, 0x73], .head 424 472 4 1⟩, ⟨198096, [0xd508a3, 0x73], .rung 2 none⟩, ⟨198098, [0x13508a3, 0x2e040613, 0x73], .rung 3 (some 736)⟩, ⟨198101, [0x14040513, 0x17040613, 0xc93f8c93, 0x1953823, 0x73], .head 320 368 5 2⟩, ⟨198106, [0x13508a3, 0x2f040613, 0x73], .rung 3 (some 752)⟩, ⟨198109, [0x29f43823, 0x28043c23, 0x28040513, 0x8000593, 0x4b8067], .leaf⟩]⟩
 def batch4 : List (ChainRoutine × Nat) := [(routine32, 82), (routine33, 82), (routine34, 82), (routine35, 81), (routine36, 82), (routine37, 82), (routine38, 83), (routine39, 83)]
 theorem batch4_checked : (batch4.all fun rc => exactChecked rc.1 rc.2) = true := by decide +kernel
 theorem ready32 : Chain.RoutineReady (embed ⟨32, by decide⟩) routine32 ∧ planCycles routine32.pieces ≤ rankCost ⟨32, by decide⟩ := by

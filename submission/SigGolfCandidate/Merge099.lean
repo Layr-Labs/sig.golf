@@ -2,8 +2,6 @@ import SigGolfCandidate.Merge053
 import SigGolfCandidate.Merge057
 import SigGolfCandidate.Merge058
 import SigGolfCandidate.Merge098
-set_option debug.skipKernelTC true
-set_option linter.all false
 
 -- ==== merged from ClaudeWCT_W9_T3_Secc_LargeCouplingSign ====
 section
@@ -394,7 +392,7 @@ def coordVal (s : Secrets) (L : Labels) : Coord → Digest
 theorem trialFailsV_coordVal (s : Secrets) (L : Labels) (n : TreeNode) (j : Nat) :
     trialFailsV (coordVal s L) n j ↔ trialFails L n j := by
   unfold trialFailsV trialFails trialCoord
-  show trialZeroOk _ _ (Extract.Paired.proj (Node.node (withNonce n j)).toPos (L (.node (withNonce n j)))) = false ↔ _
+  show topZeroOk _ (Extract.Paired.proj (Node.node (withNonce n j)).toPos (L (.node (withNonce n j)))) = false ↔ _
   rw [CanonGraph.Paired.pairedProj_node]
   rfl
 theorem selNonceV_coordVal (s : Secrets) (L : Labels) (n : TreeNode) : selNonceV (coordVal s L) n = selNonce L n := by
@@ -413,39 +411,6 @@ theorem coordVal_selCoordV_node (s : Secrets) (L : Labels) (n : TreeNode) :
   show Extract.Paired.proj (Node.node (withNonce n (selNonceV (coordVal s L) n))).toPos _ = _
   rw [CanonGraph.Paired.pairedProj_node, selNonceV_coordVal]
   rfl
-/-- E8: a level-3 FTS trial coordinate's value is the low half of its label. -/
-theorem coordVal_wTrial3 (s : Secrets) (L : Labels) (n : WctNodePos) (h3 : n.1.level.val = 3) (j : Nat) :
-    coordVal s L (wTrialCoord n j) = (L (.wctNode (wWithNonce n j))).extractLsb' 0 128 := by
-  show Extract.Paired.proj (.wctNode n.1.index.val n.1.coord.val n.1.level.val n.1.idx.val) _ = _
-  rw [h3, Extract.Paired.proj_level3]
-theorem wSelNonceV_coordVal (s : Secrets) (L : Labels) (n : WctNodePos) :
-    wSelNonceV (coordVal s L) n = wSelNonce L n := by
-  by_cases h3 : n.1.level.val = 3
-  · unfold wSelNonceV wSelNonce
-    congr 1
-    apply find?_congr'
-    intro j _
-    have hiff : wTrialFailsV (coordVal s L) n j ↔ wTrialFails L n j := by
-      unfold wTrialFailsV wTrialFails; rw [coordVal_wTrial3 s L n h3]
-    simp only [decide_eq_decide.mpr hiff]
-  · rw [wSelNonceV_cap_one (wTrialCap_off h3), wSelNonce_of_cap_one (wTrialCap_off h3)]
-theorem wActiveV_coordVal (s : Secrets) (L : Labels) (n : WctNodePos) :
-    WActiveV (coordVal s L) n ↔ WActive L n := by
-  by_cases h3 : n.1.level.val = 3
-  · unfold WActiveV WActive
-    have hiff : ∀ j, wTrialFailsV (coordVal s L) n j ↔ wTrialFails L n j := fun j => by
-      unfold wTrialFailsV wTrialFails; rw [coordVal_wTrial3 s L n h3]
-    simp only [hiff]
-  · unfold WActiveV WActive
-    rw [wTrialCap_off h3]
-    exact ⟨fun h => ⟨h.1, fun j hj => by omega⟩, fun h => ⟨h.1, fun j hj => by omega⟩⟩
-/-- E8: the value of an FTS-node coordinate's selected trial is the label of the selected trial node. -/
-theorem coordVal_selCoordV_wct (s : Secrets) (L : Labels) (n : WctNodePos) :
-    coordVal s L (selCoordV (coordVal s L) (.inl (.wctNode n))) =
-      Extract.Paired.proj (Node.wctNode n).toPos (L (.wctNode (wSelNode L n))) := by
-  show Extract.Paired.proj (Node.wctNode (wWithNonce n (wSelNonceV (coordVal s L) n))).toPos _ = _
-  rw [wSelNonceV_coordVal]
-  rfl
 theorem treeLabel_eq (s : Secrets) (L : Labels) (lay : Layer) (tree : Fin (2^31)) (level c : Nat) :
     treeLabel L lay tree level c=treeVal (coordVal s L) lay tree level c := by
   unfold treeLabel treeVal treeChild
@@ -462,8 +427,8 @@ theorem treeLabel_eq (s : Secrets) (L : Labels) (lay : Layer) (tree : Fin (2^31)
     | some n => exact (coordVal_selCoordV_node s L n).symm
 
 theorem ftsLabel_eq (s : Secrets) (L : Labels) (index : Fin (2^31)) (coord : Fin 9) (level c : Nat) :
-    CanonGraph.Paired.ftsLabel L index coord level c=ftsChildVal (coordVal s L) index coord level c := by
-  unfold CanonGraph.Paired.ftsLabel ftsChildVal ftsChild
+    CanonGraph.Paired.ftsLabel L index coord level c=((ftsChild index coord level c).map (coordVal s L)).getD 0 := by
+  unfold CanonGraph.Paired.ftsLabel ftsChild
   by_cases h0 : level=0
   · rw [if_pos h0,if_pos h0]
     split_ifs <;> rfl
@@ -471,9 +436,8 @@ theorem ftsLabel_eq (s : Secrets) (L : Labels) (index : Fin (2^31)) (coord : Fin
     cases hn : ftsNodeAt index coord (level-1) c with
     | none => rfl
     | some n =>
-      simp only [Option.map_some,Option.getD_some]
-      rw [coordVal_selCoordV_wct]
-      simp only [CanonGraph.Node.toPos, ftsNodeAt_coord hn,ftsNodeAt_level hn]
+      simp only [Option.map_some,Option.getD_some,coordVal,CanonGraph.Node.toPos,
+        ftsNodeAt_coord hn,ftsNodeAt_level hn]
       have hi : n.1.index=index := by
         unfold ftsNodeAt at hn
         split_ifs at hn
@@ -488,26 +452,6 @@ theorem ftsLabel_eq (s : Secrets) (L : Labels) (index : Fin (2^31)) (coord : Fin
         rfl
       rw [hi,hc]
 
-/-- E8: off the ground children (level `≠ 4`) an FTS child is its own selected trial. -/
-theorem selCoordV_ftsChild {v : Coord → Digest} {index : Fin (2^31)} {coord : Fin 9} {level c : Nat} {x : Coord}
-    (hx : ftsChild index coord level c = some x) (h4 : level ≠ 4) : selCoordV v x = x := by
-  unfold ftsChild at hx
-  split_ifs at hx with h0 hr
-  · cases hx; rfl
-  · obtain ⟨m, hm, rfl⟩ := Option.map_eq_some_iff.mp hx
-    have hl := ftsNodeAt_level hm
-    have h1 : wTrialCap m.1.coord.val m.1.level.val = 1 := wTrialCap_off (by omega)
-    show Sum.inl (CanonGraph.Node.wctNode (wWithNonce m (wSelNonceV v m))) = _
-    rw [wSelNonceV_cap_one h1]
-    have hw := wWithNonce_self m
-    rw [ftsNodeAt_nonce hm] at hw
-    rw [hw]
-theorem ftsChildVal_plain {v : Coord → Digest} {index : Fin (2^31)} {coord : Fin 9} {level c : Nat}
-    (h4 : level ≠ 4) : ftsChildVal v index coord level c = ((ftsChild index coord level c).map v).getD 0 := by
-  unfold ftsChildVal
-  cases hx : ftsChild index coord level c with
-  | none => rfl
-  | some x => simp only [Option.map_some, Option.getD_some, selCoordV_ftsChild hx h4]
 theorem pads_eq (s : Secrets) (L : Labels) (index : Fin (2^31)) (coord : Fin 9) (branch : Nat) :
     CanonGraph.Paired.pads L index coord branch=padVals (coordVal s L) index coord branch := by
   unfold CanonGraph.Paired.pads padVals padCoord
@@ -516,8 +460,7 @@ theorem pads_eq (s : Secrets) (L : Labels) (index : Fin (2^31)) (coord : Fin 9) 
   all_goals
     dsimp only
     rw [ftsLabel_eq s,ftsLabel_eq s]
-    simp only [ftsChildVal_plain (show (5:Nat) ≠ 4 by decide), ftsChildVal_plain (show (6:Nat) ≠ 4 by decide),
-      Fin.val_zero,Fin.val_one,Nat.add_zero]
+    simp only [Fin.val_zero,Fin.val_one,Nat.add_zero]
 
 theorem coordVal_wctItem (s : Secrets) (L : Labels) (a : WctAddr) (p : Nat) :
     coordVal s L (wctItem a p)=wctValueL s L a p := by
@@ -568,43 +511,13 @@ theorem cell_eq_cellValues (s : Secrets) (L : Labels) (N : CanonGraph.Node)
       rw [pads_eq s L]
       simp only [cellValues,coordVal_wctItem,wctValueL_three]
   | wctNode n =>
-      by_cases hav : WActive L n
-      · rw [CanonGraph.Paired.cell_wctNode_active hav]
-        simp only [cellValues, if_pos ((wActiveV_coordVal s L n).mpr hav)]
-        rw [ftsLabel_eq s,ftsLabel_eq s,pads_eq s L]
-      · rw [CanonGraph.Paired.cell_wctNode_inactive hav]
-        simp only [cellValues, if_neg (fun h => hav ((wActiveV_coordVal s L n).mp h))]
+      change pad64 (nodeInputP 3 _ _ _ (CanonGraph.Paired.ftsLabel L _ _ _ _)
+        (if n.1.level.val=4 then (CanonGraph.Paired.pads L n.1.index n.1.coord (n.1.idx.val/2)).2 else 0)
+        (CanonGraph.Paired.ftsLabel L _ _ _ _))=_
+      rw [ftsLabel_eq s,ftsLabel_eq s,pads_eq s L]
+      rfl
   | forest i => exact hu.elim
 
-/-- E8: an FTS child reads its selected trial: agreement on the child slot and on the child position's trials. -/
-theorem ftsChildVal_congr {v w : Coord → Digest} {index : Fin (2^31)} {coord : Fin 9} {level c : Nat} {x : Coord}
-    (hx : ftsChild index coord level c = some x) (h0 : v x = w x)
-    (hd : ∀ y ∈ childWTrialDeps index coord level c, v y = w y) :
-    ftsChildVal v index coord level c = ftsChildVal w index coord level c := by
-  have hx' := hx
-  unfold ftsChildVal
-  rw [hx]
-  simp only [Option.map_some, Option.getD_some]
-  unfold ftsChild at hx
-  split_ifs at hx with h0' hr
-  · cases hx; exact h0
-  · obtain ⟨m, hm, rfl⟩ := Option.map_eq_some_iff.mp hx
-    have hsel : selCoordV v (.inl (.wctNode m)) = selCoordV w (.inl (.wctNode m)) := by
-      simp only [selCoordV]
-      by_cases h1 : wTrialCap m.1.coord.val m.1.level.val = 1
-      · rw [wSelNonceV_cap_one h1, wSelNonceV_cap_one h1]
-      · rw [wSelNonceV_congr (fun j hj => hd _ (by unfold childWTrialDeps; rw [hx']; exact mem_wTrialDeps h1 hj))]
-    rw [← hsel]
-    simp only [selCoordV]
-    by_cases h1 : wTrialCap m.1.coord.val m.1.level.val = 1
-    · rw [wSelNonceV_cap_one h1]
-      have hw := wWithNonce_self m
-      rw [ftsNodeAt_nonce hm] at hw
-      rw [hw]; exact h0
-    · apply hd
-      unfold childWTrialDeps
-      rw [hx']
-      exact mem_wTrialDeps h1 (wSelNonceV_lt v m)
 theorem cellValues_congr (N : CanonGraph.Node) (v v' : Coord → Digest)
     (hdep : ∀ c ∈ cellDepsP N, v c = v' c) : cellValues N v = cellValues N v' := by
   have h : ∀ cs ∈ childSlots N, v cs.1 = v' cs.1 := by
@@ -612,8 +525,6 @@ theorem cellValues_congr (N : CanonGraph.Node) (v v' : Coord → Digest)
     apply hdep
     cases N with
     | node n => exact LargeResidual.mem_cellDeps_of_slot (N := .node n) hcs
-    | wctNode n => exact List.mem_append_left _ (List.mem_append_left _ (List.mem_append_left _
-        (List.mem_map.mpr ⟨cs, hcs, rfl⟩)))
     | _ => exact List.mem_map.mpr ⟨cs, hcs, rfl⟩
   cases N with
   | chain p => exact LargeResidual.cellValues_congr (.chain p) v v' hdep
@@ -640,50 +551,38 @@ theorem cellValues_congr (N : CanonGraph.Node) (v v' : Coord → Digest)
       simp only [cellValues, padVals]
       rw [hfg, hp]
   | wctNode n =>
-      have hdw : ∀ c ∈ wTrialDeps n, v c = v' c := fun c hc =>
-        hdep c (List.mem_append_left _ (List.mem_append_left _ (List.mem_append_right _ hc)))
-      have hdl : ∀ c ∈ childWTrialDeps n.1.index n.1.coord n.1.level.val (2 * n.1.idx.val), v c = v' c :=
-        fun c hc => hdep c (List.mem_append_left _ (List.mem_append_right _ hc))
-      have hdr : ∀ c ∈ childWTrialDeps n.1.index n.1.coord n.1.level.val (2 * n.1.idx.val + 1), v c = v' c :=
-        fun c hc => hdep c (List.mem_append_right _ hc)
-      have ha : WActiveV v n ↔ WActiveV v' n := wActiveV_congr (fun h1 j hj => hdw _ (mem_wTrialDeps h1 hj))
       simp only [cellValues]
-      by_cases hav : WActiveV v n
-      swap
-      · rw [if_neg hav, if_neg (fun h' => hav (ha.mpr h'))]
-      have hlt : ¬ wTrialCap n.1.coord.val n.1.level.val ≤ n.1.nonce.val := by have := hav.1; omega
-      have h1 : ftsChildVal v n.1.index n.1.coord n.1.level.val (2 * n.1.idx.val) =
-          ftsChildVal v' n.1.index n.1.coord n.1.level.val (2 * n.1.idx.val) := by
+      have h1 : ((ftsChild n.1.index n.1.coord n.1.level.val (2 * n.1.idx.val)).map v).getD 0 =
+          ((ftsChild n.1.index n.1.coord n.1.level.val (2 * n.1.idx.val)).map v').getD 0 := by
         cases hc : ftsChild n.1.index n.1.coord n.1.level.val (2 * n.1.idx.val) with
-        | none => unfold ftsChildVal; rw [hc]; rfl
-        | some c => exact ftsChildVal_congr hc (h (c, 0) (by simp [childSlots, hc, hlt])) hdl
-      have h2 : ftsChildVal v n.1.index n.1.coord n.1.level.val (2 * n.1.idx.val + 1) =
-          ftsChildVal v' n.1.index n.1.coord n.1.level.val (2 * n.1.idx.val + 1) := by
+        | none => rfl
+        | some c =>
+            have := h (c, 0) (by simp [childSlots, hc])
+            simp [this]
+      have h2 : ((ftsChild n.1.index n.1.coord n.1.level.val (2 * n.1.idx.val + 1)).map v).getD 0 =
+          ((ftsChild n.1.index n.1.coord n.1.level.val (2 * n.1.idx.val + 1)).map v').getD 0 := by
         cases hc : ftsChild n.1.index n.1.coord n.1.level.val (2 * n.1.idx.val + 1) with
-        | none => unfold ftsChildVal; rw [hc]; rfl
-        | some c => exact ftsChildVal_congr hc (h (c, 3) (by simp [childSlots, hc, hlt])) hdr
-      have h3 : (if n.1.level.val = 4 then (padVals v n.1.index n.1.coord (n.1.idx.val/2)).2
-            else if n.1.level.val = 3 then BitVec.ofNat 128 (n.1.nonce.val % 2 ^ 64) else 0) =
-          (if n.1.level.val = 4 then (padVals v' n.1.index n.1.coord (n.1.idx.val/2)).2
-            else if n.1.level.val = 3 then BitVec.ofNat 128 (n.1.nonce.val % 2 ^ 64) else 0) := by
+        | none => rfl
+        | some c =>
+            have := h (c, 3) (by simp [childSlots, hc])
+            simp [this]
+      have h3 : (if n.1.level.val = 4 then (padVals v n.1.index n.1.coord (n.1.idx.val/2)).2 else 0) =
+          (if n.1.level.val = 4 then (padVals v' n.1.index n.1.coord (n.1.idx.val/2)).2 else 0) := by
         split_ifs with hl
         · unfold padVals
           cases hc : padCoord n.1.index n.1.coord (n.1.idx.val/2) 1 with
           | none => rfl
           | some c =>
-              have := h (c, 2) (by simp only [childSlots, if_neg hlt]; simp [hc, hl])
+              have := h (c, 2) (by simp [childSlots, hc, hl])
               simp [this]
         · rfl
-        · rfl
-      rw [if_pos hav, if_pos (ha.mp hav), h1, h2, h3]
+      rw [h1, h2, h3]
   | forest index => exact LargeResidual.cellValues_congr (.forest index) v v' hdep
 
 theorem slot_cellValues (N : CanonGraph.Node) (v : Coord → Digest)
-    (hN : ∀ n, N = .node n → ActiveV v n ∧ ∀ cs ∈ childSlots N, v (selCoordV v cs.1) = v cs.1)
-    (hW : ∀ n, N = .wctNode n → WActiveV v n) :
-    ∀ cs ∈ childSlots N, (∀ n, N = .wctNode n → v (selCoordV v cs.1) = v cs.1) →
-      slotValue (cellValues N v) cs.2 = v cs.1 := by
-  intro cs hcs hsel
+    (hN : ∀ n, N = .node n → ActiveV v n ∧ ∀ cs ∈ childSlots N, v (selCoordV v cs.1) = v cs.1) :
+    ∀ cs ∈ childSlots N, slotValue (cellValues N v) cs.2 = v cs.1 := by
+  intro cs hcs
   cases N with
   | chain p => exact LargeResidual.slot_cellValues (.chain p) v (fun _ h => by cases h) cs hcs
 
@@ -706,25 +605,22 @@ theorem slot_cellValues (N : CanonGraph.Node) (v : Coord → Digest)
         rw [LargeResidual.slotValue_ftsLeaf_pad]
         unfold padVals; rw [hc]; rfl
   | wctNode n =>
-      have ha := hW n rfl
-      have hsel := hsel n rfl
-      have hlt : ¬ wTrialCap n.1.coord.val n.1.level.val ≤ n.1.nonce.val := by have := ha.1; omega
-      simp only [childSlots, if_neg hlt, List.mem_append] at hcs
+      simp only [childSlots, List.mem_append] at hcs
       rcases hcs with (hcs | hcs) | hcs
       · simp only [Option.mem_toList, Option.map_eq_some_iff] at hcs
         obtain ⟨c, hc, rfl⟩ := hcs
-        simp only [cellValues, if_pos ha, nodeInputP, pad64_block4]
+        simp only [cellValues, nodeInputP, pad64_block4]
         refine ((slotValue_block4 _ _ _ _).1).trans ?_
-        unfold ftsChildVal; rw [hc]; exact hsel
+        rw [hc]; rfl
       · simp only [Option.mem_toList, Option.map_eq_some_iff] at hcs
         obtain ⟨c, hc, rfl⟩ := hcs
-        simp only [cellValues, if_pos ha, nodeInputP, pad64_block4]
+        simp only [cellValues, nodeInputP, pad64_block4]
         refine ((slotValue_block4 _ _ _ _).2.2).trans ?_
-        unfold ftsChildVal; rw [hc]; exact hsel
+        rw [hc]; rfl
       · split_ifs at hcs with hl
         · simp only [Option.mem_toList, Option.map_eq_some_iff] at hcs
           obtain ⟨c, hc, rfl⟩ := hcs
-          simp only [cellValues, if_pos ha, nodeInputP, pad64_block4, if_pos hl]
+          simp only [cellValues, nodeInputP, pad64_block4, if_pos hl]
           refine ((slotValue_block4 _ _ _ _).2.1).trans ?_
           unfold padVals; rw [hc]; rfl
         · simp at hcs
@@ -825,7 +721,7 @@ noncomputable def signFinish (a : AuxData) (st : RouterState) (rho : Digest)
 noncomputable def routeSign (a : AuxData) (published : SigGolfCandidate.T3.Cache) (st : RouterState)
     (request : SigGolfCandidate.T3.Security.Request) : OracleComp (RWorld U) (Option SigGolfCandidate.Research.SharedForest.Signature×RouterState) :=
   if request.cache=published then do
-    let rho ← discloseNonce U request.message
+    let rho ← discloseReq U (.inr request.message) .none
     match st.memo.lookup request.message with
     | some found => signFinish U a st rho found
     | none => do
@@ -999,12 +895,6 @@ attribute [local instance] Classical.propDecidable
     referenceLow T (sourceMessages T) L=low := by
   simp only [referenceLow,h,Option.map_some,Option.getD_some]
 
- /-- `referenceSearch` unfolded, stated over free variables (a cheap `rfl`). `route_search_of_context` uses it
-with `rw ... at he; exact he`: its former `change ... at he; simpa only [hc, Option.bind_some] using he` closing
-step cost ~85 s and ~8 GiB of kernel replay. -/
- theorem referenceSearch_eq_bind (T : Answers) (m : Wots.LeafAddr → WCT9.LayerMsg) (L : Wots.LeafAddr) :
-    referenceSearch T m L = (referenceContext T m L).bind (searchOf T m L) := rfl
-
  theorem route_search_of_context (T : Answers) (index : Nat) (hok : RouteOk T index)
     (lay : Layer) (remaining : Nat)
     (hc : referenceContext T (sourceMessages T) (sourceLeaf index lay)=some remaining) :
@@ -1017,8 +907,8 @@ step cost ~85 s and ~8 GiB of kernel replay. -/
   | some found =>
     rcases found with ⟨c,d,l⟩
     refine ⟨c,d,l,rfl,?_⟩
-    rw [referenceSearch_eq_bind, hc, Option.bind_some] at he
-    exact he
+    change (referenceContext T (sourceMessages T) (sourceLeaf index lay)).bind _ = _ at he
+    simpa only [hc,Option.bind_some] using he
 
  theorem prepared_complete_of_route (T : Answers) (cache : SigGolfCandidate.T3.Cache)
     (index : Nat) (hi : index<2^31) (hok : RouteOk T index) :
@@ -1033,7 +923,7 @@ step cost ~85 s and ~8 GiB of kernel replay. -/
       (ClaudeWCT.WCT9.builtPair T 1 (route index 1).2).2)
     (WCT9.searchLimit 0) 0 c0 d0 l0 (ClaudeWCT.W9.T3.Security.Wots.searchLimit_fits _) hs0).2.2.2
   let r1 := WCT9.CanonicalPolicy.nextResidual WCT9.CanonicalPolicy.totalCredit 0 l0 d0
-  have hr1 : r1<55 := WCT9.CanonicalPolicy.accepted_top_residual
+  have hr1 : r1<54 := WCT9.CanonicalPolicy.accepted_top_residual
     (by rwa [WCT9.CanonicalPolicy.threshold_top] at hd0)
   have hf1 : WCT9.CanonicalPolicy.threshold 1 r1<16 := WCT9.CanonicalPolicy.lower_one_floor_lt ⟨r1,hr1⟩
   have hc1 : referenceContext T (sourceMessages T) (sourceLeaf index 1)=some r1 := by
@@ -1161,10 +1051,9 @@ set_option backward.isDefEq.respectTransparency false
 attribute [local instance] Classical.propDecidable
 attribute [local irreducible] sharedNodes ClaudeWCT.WCT9.heapBuild
 
-theorem selCoordV_eq_self {v : Coord → Digest} {c : Coord} (h : ∀ n, c ≠ .inl (.node n))
-    (hw : ∀ n, c ≠ .inl (.wctNode n)) : selCoordV v c = c := by
-  rcases c with (_ | _ | n | _ | _ | m | _) | s
-  all_goals first | rfl | exact absurd rfl (h n) | exact absurd rfl (hw m)
+theorem selCoordV_eq_self {v : Coord → Digest} {c : Coord} (h : ∀ n, c ≠ .inl (.node n)) : selCoordV v c = c := by
+  rcases c with (_ | _ | n | _ | _ | _ | _) | s
+  all_goals first | rfl | exact absurd rfl (h n)
 theorem ftsChild_not_node {index : Fin (2^31)} {coord : Fin 9} {level physical : Nat} {c : Coord}
     (h : ftsChild index coord level physical = some c) : ∀ n, c ≠ .inl (.node n) := by
   intro n hn; subst hn
@@ -1172,11 +1061,7 @@ theorem ftsChild_not_node {index : Fin (2^31)} {coord : Fin 9} {level physical :
   split_ifs at h <;> simp at h
 theorem wctItem_not_node (a : WctAddr) (p : Nat) : ∀ n, wctItem a p ≠ .inl (.node n) := by
   intro n; unfold wctItem; split_ifs <;> simp
-theorem wctItem_not_wct (a : WctAddr) (p : Nat) : ∀ n, wctItem a p ≠ .inl (.wctNode n) := by
-  intro n; unfold wctItem; split_ifs <;> simp
 theorem chainItem_not_node (L : CanonGraph.LeafPos) (i d : Nat) : ∀ n, chainItem L i d ≠ .inl (.node n) := by
-  intro n; unfold chainItem; split_ifs <;> simp
-theorem chainItem_not_wct (L : CanonGraph.LeafPos) (i d : Nat) : ∀ n, chainItem L i d ≠ .inl (.wctNode n) := by
   intro n; unfold chainItem; split_ifs <;> simp
 /-- Honest values of used coordinates (top-nonce layer: a tree-node coordinate has the value of its position's
 selected trial). -/
@@ -1191,13 +1076,12 @@ theorem honestValue_used_eq {T : Answers} {labels : CanonGraph.Labels} (h : Cano
     | node m =>
       rw [coordVal_selCoordV_node, CanonGraph.Paired.pairedProj_node]
       rfl
-    | wctNode m => rw [coordVal_selCoordV_wct]; rfl
     | _ => rfl
   | inr s => rfl
 theorem honestValue_used_eq_plain {T : Answers} {labels : CanonGraph.Labels} (h : CanonGraph.Paired.Agrees T labels)
-    (c : Coord) (hc : UsedCoord c) (hn : ∀ n, c ≠ .inl (.node n)) (hw : ∀ n, c ≠ .inl (.wctNode n)) :
+    (c : Coord) (hc : UsedCoord c) (hn : ∀ n, c ≠ .inl (.node n)) :
     honestValue T c=coordVal (secretsOf T) labels c := by
-  rw [honestValue_used_eq h c hc, selCoordV_eq_self hn hw]
+  rw [honestValue_used_eq h c hc, selCoordV_eq_self hn]
 
  theorem buildForest_pairs (T : Answers) (index : Nat) (selected : ForestSelection) (words : ForestWords)
     (p : Fin 4) : (evalWithAnswerFn T (buildForest index selected words)).1.pairs p=
@@ -1296,19 +1180,18 @@ theorem honestValue_used_eq_plain {T : Answers} {labels : CanonGraph.Labels} (h 
   rw [wctPath_map, List.getD_eq_getElem _ _ (by simpa using hl)]
   simp only [List.getElem_map,List.getElem_range]
   rw [ftsLabel_eq (secretsOf T)]
-  unfold ftsChildVal
   cases hc : ftsChild (digestIndex N) k l ((physicalChildFromOutput N k).val/2^l ^^^ 1) with
   | none => rfl
   | some c =>
     simp only [Option.map_some,Option.getD_some]
-    exact honestValue_used_eq h c (ftsChild_used _ _ _ _ hl c hc)
+    exact honestValue_used_eq_plain h c (ftsChild_used _ _ _ _ hl c hc) (ftsChild_not_node hc)
 
  theorem openingValues_chain {T : Answers} {labels : CanonGraph.Labels} (h : CanonGraph.Paired.Agrees T labels)
     (N : HashOutput) (k : Fin 9) (t : Fin 6) :
     openingValues N (honestValue T) k t=
       WCT9.chainValue T (WCT9.digestIndex N) k.val (rawChildFromOutput N k).val (forestRank N k.val) t := by
   unfold openingValues
-  rw [honestValue_used_eq_plain h _ (wctItem_used _ _) (wctItem_not_node _ _) (wctItem_not_wct _ _),coordVal_wctItem]
+  rw [honestValue_used_eq_plain h _ (wctItem_used _ _) (wctItem_not_node _ _),coordVal_wctItem]
   rw [←CanonGraph.Paired.wctValue_eq h _ _ (Nat.sub_le _ _)]
   rfl
 
@@ -1416,8 +1299,7 @@ attribute [local instance] Classical.propDecidable
  theorem chainItem_value {T : Answers} {labels : CanonGraph.Labels} (h : CanonGraph.Paired.Agrees T labels)
     (L : CanonGraph.LeafPos) (digits : List Nat) (i : Nat) (hi : i<58) (hd : digits.getD i 0≤7) :
     WCT9.wotsValue T L.lay L.tree.val L.leaf.val digits i=honestValue T (chainItem L i (digits.getD i 0)) := by
-  rw [CanonGraph.Paired.leafValue_eq h L digits i hi hd,honestValue_used_eq_plain h _ (chainItem_used _ _ _) (chainItem_not_node _ _ _)
-    (chainItem_not_wct _ _ _)]
+  rw [CanonGraph.Paired.leafValue_eq h L digits i hi hd,honestValue_used_eq_plain h _ (chainItem_used _ _ _) (chainItem_not_node _ _ _)]
   -- C3 (#866): `leafValue_eq` states a revealed value through `Pos.proj` of its last step's label.
   unfold chainItem
   by_cases hz : digits.getD i 0=0
@@ -1570,97 +1452,3 @@ noncomputable local instance : DecidableEq SigGolfCandidate.T3.Cache := Classica
 
 end ClaudeWCT.W9.T3.Security.LargeResidual.Paired
 end
-
-/-! ### R6: the nonce label is two plain halves; `rho = rhoMod (joinOutput lo hi)` -/
-namespace ClaudeWCT.W9.T3.Security.LargeResidual.Paired
-open OracleComp OracleSpec OracleComp.EvalDist ENNReal
-open SigGolfCandidate.T3 SigGolfCandidate.T3.Security
-open SigGolfCandidate.T3.Security.LargeResidual (State Cell disclosedState)
-open ClaudeWCT.W9.T3.Security.FamResidual (observedRun lazyRun discLaw lazy_disclose expectedValue_discLaw_le)
-open SphincsSecurity.Concrete.UniformTableCompletion (cell)
-attribute [local instance] Classical.propDecidable
-set_option backward.isDefEq.respectTransparency false
-section NonceR6
-variable (U : Finset HashInput) (aux : (input : AuxSpec.Domain) → PMF (AuxSpec.Range input)) (q : Nat)
-/-- R6: the world state after disclosing both nonce halves `(m, 0) ↦ lo`, `(m, 1) ↦ hi`. -/
-noncomputable def nonceState (s : State WCoord (Cell U)) (m : Message) (lo hi : Digest) : State WCoord (Cell U) :=
-  disclosedState q (disclosedState q s (.inr (m, 0)) lo .none) (.inr (m, 1)) hi .none
-theorem nonceState_candidates (s : State WCoord (Cell U)) (m : Message) (lo hi : Digest) :
-    (nonceState U q s m lo hi).candidates =
-      Function.update (Function.update s.candidates (.inr (m, 0)) {lo}) (.inr (m, 1)) {hi} := rfl
-theorem nonceState_counters (s : State WCoord (Cell U)) (m : Message) (lo hi : Digest) :
-    (nonceState U q s m lo hi).counters = s.counters := rfl
-theorem nonceState_rows (s : State WCoord (Cell U)) (m : Message) (lo hi : Digest) :
-    (nonceState U q s m lo hi).rows = s.rows := rfl
-theorem observed_discloseNonce {β : Type} (labels : WCoord → Digest) (table : Cell U → HashOutput) (m : Message)
-    (k : Digest → OracleComp (RWorld U) β) (s : State WCoord (Cell U)) :
-    observedRun aux q labels table (discloseNonce U m >>= k) s =
-      observedRun aux q labels table (k (nonceRho (labels (.inr (m, 0))) (labels (.inr (m, 1)))))
-        (nonceState U q s m (labels (.inr (m, 0))) (labels (.inr (m, 1)))) := by
-  simp only [discloseNonce, bind_assoc, pure_bind, observed_discloseReq]
-  rfl
-theorem lazy_discloseNonce {β : Type} (m : Message) (k : Digest → OracleComp (RWorld U) β) (s : State WCoord (Cell U)) :
-    lazyRun aux q (discloseNonce U m >>= k) s =
-      (discLaw s.candidates (.inr (m, 0)) >>= fun lo =>
-        discLaw (Function.update s.candidates (.inr (m, 0)) {lo}) (.inr (m, 1)) >>= fun hi =>
-          lazyRun aux q (k (nonceRho lo hi)) (nonceState U q s m lo hi)) := by
-  simp only [discloseNonce, bind_assoc, pure_bind]
-  refine (lazy_disclose aux q (.inr (m, 0) : WCoord) .none _ s).trans ?_
-  congr 1
-  funext lo
-  exact lazy_disclose aux q (.inr (m, 1) : WCoord) .none (fun hi => k (nonceRho lo hi)) _
-/-- Two independent uniform 128-bit halves are a uniform 256-bit output. -/
-theorem ev_cell_univ_pair (G : HashOutput → ℝ≥0∞) :
-    expectedValue (cell (Finset.univ : Finset Digest)) (fun lo =>
-      expectedValue (cell (Finset.univ : Finset Digest)) (fun hi =>
-        G (SigGolfCandidate.T3.Security.ChainGraph.joinOutput lo hi))) =
-      expectedValue ($ᵗ HashOutput : ProbComp HashOutput) G := by
-  have hc : ∀ x : Digest, Pr[= x | cell (Finset.univ : Finset Digest)] = (Fintype.card Digest : ℝ≥0∞)⁻¹ := by
-    intro x
-    rw [cell, dif_pos Finset.univ_nonempty, SPMF.probOutput_eq_apply, SPMF.liftM_apply,
-      PMF.uniformOfFinset_apply, if_pos (Finset.mem_univ _), Finset.card_univ]
-  have hcard : (Fintype.card HashOutput : ℝ≥0∞) = (Fintype.card Digest : ℝ≥0∞) * (Fintype.card Digest : ℝ≥0∞) := by
-    rw [Fintype.card_congr SigGolfCandidate.T3.Security.ChainGraph.outputEquiv, Fintype.card_prod, Nat.cast_mul]
-  simp only [expectedValue_def, hc, probOutput_uniformSample, tsum_fintype]
-  rw [← Equiv.sum_comp SigGolfCandidate.T3.Security.ChainGraph.outputEquiv.symm, Fintype.sum_prod_type, hcard,
-    ENNReal.mul_inv (Or.inl (by simp)) (Or.inl (by simp))]
-  refine Finset.sum_congr rfl fun lo _ => ?_
-  rw [Finset.mul_sum]
-  refine Finset.sum_congr rfl fun hi _ => ?_
-  rw [mul_assoc]
-  rfl
-/-- R6: with both nonce halves of `m` undisclosed, the disclosed nonce is distributed as `rhoLaw`. -/
-theorem ev_discloseNonce_le {β : Type} (m : Message) (k : Digest → OracleComp (RWorld U) β) (s : State WCoord (Cell U))
-    (hc : ∀ i : Fin 2, s.candidates (.inr (m, i)) = Finset.univ)
-    (g : Option β × State WCoord (Cell U) → ℝ≥0∞) (F : Digest → ℝ≥0∞)
-    (h : ∀ lo hi, expectedValue (lazyRun aux q (k (nonceRho lo hi)) (nonceState U q s m lo hi)) g ≤ F (nonceRho lo hi)) :
-    expectedValue (lazyRun aux q (discloseNonce U m >>= k) s) g ≤
-      expectedValue SigGolfCandidate.T3.Security.BPair.rhoLaw F := by
-  rw [lazy_discloseNonce, expectedValue_bind]
-  calc _ ≤ expectedValue (discLaw s.candidates (.inr (m, 0))) (fun lo =>
-          expectedValue (cell (Finset.univ : Finset Digest)) (fun hi => F (nonceRho lo hi))) := by
-        refine expectedValue_mono _ fun lo => ?_
-        rw [expectedValue_bind]
-        refine (expectedValue_mono _ fun hi => h lo hi).trans ?_
-        have h1 := expectedValue_discLaw_le (Function.update s.candidates (.inr (m, 0)) {lo})
-          (c := (.inr (m, 1) : WCoord)) (p := (.inr (m, 1) : WPlain)) rfl (fun hi => F (nonceRho lo hi))
-        rwa [Function.update_of_ne (by simp), hc 1] at h1
-    _ ≤ expectedValue (cell (Finset.univ : Finset Digest)) (fun lo =>
-          expectedValue (cell (Finset.univ : Finset Digest)) (fun hi => F (nonceRho lo hi))) := by
-        have h0 := expectedValue_discLaw_le s.candidates (c := (.inr (m, 0) : WCoord)) (p := (.inr (m, 0) : WPlain)) rfl
-          (fun lo => expectedValue (cell (Finset.univ : Finset Digest)) (fun hi => F (nonceRho lo hi)))
-        rwa [hc 0] at h0
-    _ = expectedValue ($ᵗ HashOutput : ProbComp HashOutput) (fun x => F (BitVec.ofNat 128 (rhoMod x))) :=
-        ev_cell_univ_pair (fun x => F (BitVec.ofNat 128 (rhoMod x)))
-    _ = _ := (SigGolfCandidate.T3.Security.BPair.expectedValue_rhoLaw F).symm
-/-- R6: a bound uniform in the two nonce halves. -/
-theorem ev_discloseNonce_le_const {β : Type} (m : Message) (k : Digest → OracleComp (RWorld U) β)
-    (s : State WCoord (Cell U)) (g : Option β × State WCoord (Cell U) → ℝ≥0∞) (B : ℝ≥0∞)
-    (h : ∀ lo hi, expectedValue (lazyRun aux q (k (nonceRho lo hi)) (nonceState U q s m lo hi)) g ≤ B) :
-    expectedValue (lazyRun aux q (discloseNonce U m >>= k) s) g ≤ B := by
-  rw [lazy_discloseNonce, expectedValue_bind]
-  refine expectedValue_le_of_le _ fun lo => ?_
-  rw [expectedValue_bind]
-  exact expectedValue_le_of_le _ fun hi => h lo hi
-end NonceR6
-end ClaudeWCT.W9.T3.Security.LargeResidual.Paired

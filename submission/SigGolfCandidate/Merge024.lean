@@ -12,8 +12,6 @@ import SigGolfCandidate.Merge005
 import SigGolfCandidate.Merge015
 import SigGolfCandidate.Merge022
 import SigGolfCandidate.Merge023
-set_option debug.skipKernelTC true
-set_option linter.all false
 
 -- ==== merged from SphincsSecurity_Proof_Fts_FewTimeSignerView ====
 section

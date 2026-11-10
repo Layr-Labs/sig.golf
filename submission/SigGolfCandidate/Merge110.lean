@@ -1,8 +1,6 @@
 import SigGolfCandidate.Merge057
 import SigGolfCandidate.Merge105
 import SigGolfCandidate.Merge109
-set_option debug.skipKernelTC true
-set_option linter.all false
 
 -- ==== merged from ClaudeWCT_W9_T3_Secc_WotsLeafSum ====
 section

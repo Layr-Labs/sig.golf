@@ -4,8 +4,6 @@ import Mathlib.Algebra.BigOperators.Group.Finset.Basic
 import Mathlib.Algebra.BigOperators.Intervals
 import SigGolfCandidate.Merge034
 import SigGolfCandidate.Merge035
-set_option debug.skipKernelTC true
-set_option linter.all false
 
 -- ==== merged from ClaudeWCT_Numerics_LowerZeroCreditCount ====
 section

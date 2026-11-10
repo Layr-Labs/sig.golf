@@ -5,8 +5,6 @@ import SigGolfCandidate.Merge054
 import SigGolfCandidate.Merge058
 import SigGolfCandidate.Merge110
 import SigGolfCandidate.Merge111
-set_option debug.skipKernelTC true
-set_option linter.all false
 
 -- ==== merged from ClaudeWCT_W9_T3_Secc_WotsFamCore ====
 section
@@ -2371,9 +2369,9 @@ theorem errTotF_toReal {S : FamScheme} {Cmax : Nat} (H : FamHyps S Cmax) (advers
     _ = _ := by ring
 
 /-- The family seed-error hypothesis of the small route (`errTotF ≤ (733/1000) y²` on `y ≤ 3/2500`) for `Cmax ≤ 305`. -/
-theorem seedErrorBoundF {S : FamScheme} {Cmax : Nat} (H : FamHyps S Cmax) (hC : Cmax ≤ 301)
-    (adversary : Final.Paired.AdversaryP) (q : Nat) (hq : q < 2 ^ 128) (hy : (q : ℝ) / 2 ^ 128 ≤ 1251 / 1000000) :
-    (errTotF S adversary q).toReal ≤ (755 / 1000) * ((q : ℝ) / 2 ^ 128) ^ 2 :=
+theorem seedErrorBoundF {S : FamScheme} {Cmax : Nat} (H : FamHyps S Cmax) (hC : Cmax ≤ 305)
+    (adversary : Final.Paired.AdversaryP) (q : Nat) (hq : q < 2 ^ 128) (hy : (q : ℝ) / 2 ^ 128 ≤ 3 / 2500) :
+    (errTotF S adversary q).toReal ≤ (733 / 1000) * ((q : ℝ) / 2 ^ 128) ^ 2 :=
   (errTotF_toReal H adversary q hq).trans
     (grouped_seed_error Cmax _ (Nat.cast_nonneg _) (by exact_mod_cast hC) (by positivity) hy)
 
@@ -2786,8 +2784,8 @@ def v6Hyps (hs : V6.V6SeedSpec) (hz : V6.V6ZeroSpec) : FamHyps (V6.v6Scheme hs) 
 
 /-- v6 small-route seed error: `errTotF ≤ (733/1000) y²` on `y ≤ 3/2500` (via `602 y³/(1-y)`). -/
 theorem v6_seedError (hs : V6.V6SeedSpec) (hz : V6.V6ZeroSpec) (adversary : ClaudeWCT.W9.T3M.Final.Paired.AdversaryP)
-    (q : Nat) (hq : q < 2 ^ 128) (hy : (q : ℝ) / 2 ^ 128 ≤ 1251 / 1000000) :
-    (errTotF (V6.v6Scheme hs) adversary q).toReal ≤ (755 / 1000) * ((q : ℝ) / 2 ^ 128) ^ 2 :=
+    (q : Nat) (hq : q < 2 ^ 128) (hy : (q : ℝ) / 2 ^ 128 ≤ 3 / 2500) :
+    (errTotF (V6.v6Scheme hs) adversary q).toReal ≤ (733 / 1000) * ((q : ℝ) / 2 ^ 128) ^ 2 :=
   seedErrorBoundF (v6Hyps hs hz) (by norm_num) adversary q hq hy
 
 end ClaudeWCT.W9.T3.Security.Wots.CanonicalRef.Normalized.FamTot
@@ -2976,11 +2974,11 @@ theorem reference_markerFirst_sum_le_ofFam (S : FamScheme) {Cmax : Nat} (H : Fam
     (hMS : ∑ p : CanonGraph.LeafPos × Fin 58,
       Pr[fun s => WotsExtract.SourceChain7 (Enc.chainAt p) ∧
         MarkerAt s.answers s.trace (Enc.chainAt p) | PairedReference.referenceExperiment adversary q] ≤
-      (4488/(2:ENNReal)^128) * ∑' s, PairedReference.referenceExperiment adversary q s *
+      (5022/(2:ENNReal)^128) * ∑' s, PairedReference.referenceExperiment adversary q s *
         (ClaudeWCT.W9.T3.Security.Wots.encodingCount s : ENNReal)) :
     Pr[fun s => ∃ a, WotsExtract.SourceChain7 a ∧ MarkerFirst s.answers s.trace a | PairedReference.referenceExperiment adversary q] ≤
       2 * ((q : ENNReal) / 2 ^ 128) / (1 - (q : ENNReal) / 2 ^ 128) *
-        ((4488 / 2 ^ 128 : ENNReal) * (∑' s, PairedReference.referenceExperiment adversary q s * (ClaudeWCT.W9.T3.Security.Wots.encodingCount s : ENNReal))) +
+        ((5022 / 2 ^ 128 : ENNReal) * (∑' s, PairedReference.referenceExperiment adversary q s * (ClaudeWCT.W9.T3.Security.Wots.encodingCount s : ENNReal))) +
       (1 + 2 * ((q : ENNReal) / 2 ^ 128)) / (1 - (q : ENNReal) / 2 ^ 128) * FamTot.errTotF S adversary q := by
   have hu0 : (1 - (q : ENNReal) / 2 ^ 128) ≠ 0 := by
     apply ne_of_gt
@@ -3115,9 +3113,9 @@ theorem errTotF_ne_topFam (S : FamScheme) {Cmax : Nat} (H : FamTot.FamHyps S Cma
     FamTot.errTotF S adversary q≠⊤ :=
   ne_top_of_le_ne_top (by finiteness) (FamTot.errTotF_le H adversary q hq)
 
-theorem primitive_real_of_rawFam (S : FamScheme) {Cmax : Nat} (H : FamTot.FamHyps S Cmax) (hC : Cmax ≤ 301)
+theorem primitive_real_of_rawFam (S : FamScheme) {Cmax : Nat} (H : FamTot.FamHyps S Cmax) (hC : Cmax ≤ 305)
     (adversary : Final.Paired.AdversaryP) (q : Nat) (hq:q<2^128)
-    (hy : (q:ℝ)/2^128≤1251/1000000) (w v : ENNReal) (hw:w≠⊤) (hv:v≠⊤) (hwv:w+v=1)
+    (hy : (q:ℝ)/2^128≤3/2500) (w v : ENNReal) (hw:w≠⊤) (hv:v≠⊤) (hwv:w+v=1)
     (hp:prefixMass adversary q≠⊤) (he:encodingMass adversary q≠⊤)
     (eventProbability otherMass : ENNReal) (ho:otherMass≠⊤)
     (hraw : eventProbability ≤ 1/(2:ENNReal)^139+(2^142:ENNReal)⁻¹+
@@ -3129,7 +3127,7 @@ theorem primitive_real_of_rawFam (S : FamScheme) {Cmax : Nat} (H : FamTot.FamHyp
     (herror:canonicalError ((q:ℝ)/2^128) w.toReal≤1061/1000) :
     eventProbability.toReal ≤
       theta*((prefixMass adversary q).toReal/2^128+(encodingMass adversary q).toReal/2^128)+
-      otherMass.toReal/2^128+(802/1000)*((q:ℝ)/2^128)^2+(1/2^139+1/2^142) := by
+      otherMass.toReal/2^128+(778/1000)*((q:ℝ)/2^128)^2+(1/2^139+1/2^142) := by
   have hc1:=prefixCoeff_ne_top q hq w v hw hv
   have hc2:=encodingCoeff_ne_top q hq w v hw
   have hc3:=errCoeff_ne_top q hq w v hw hv
@@ -3150,9 +3148,9 @@ theorem primitive_real_of_rawFam (S : FamScheme) {Cmax : Nat} (H : FamTot.FamHyp
   simp only [div_eq_mul_inv] at h hp' he' herr ⊢
   nlinarith
 
-theorem primitive_real_of_failureFam (S : FamScheme) {Cmax : Nat} (H : FamTot.FamHyps S Cmax) (hC : Cmax ≤ 301)
+theorem primitive_real_of_failureFam (S : FamScheme) {Cmax : Nat} (H : FamTot.FamHyps S Cmax) (hC : Cmax ≤ 305)
     (adversary : Final.Paired.AdversaryP) (q : Nat) (hq:q≤2^127)
-    (hy : (q:ℝ)/2^128≤1251/1000000) (w v : ENNReal) (hw:w≠⊤) (hv:v≠⊤) (hwv:w+v=1)
+    (hy : (q:ℝ)/2^128≤3/2500) (w v : ENNReal) (hw:w≠⊤) (hv:v≠⊤) (hwv:w+v=1)
     (hfailed : Pr[ReferenceFailed | PairedReference.referenceExperiment adversary q] ≤ 1/(2:ENNReal)^139)
     (theta : ℝ) (hprefix:canonicalPrefix ((q:ℝ)/2^128) w.toReal≤theta)
     (hencoding:canonicalEncoding ((q:ℝ)/2^128) w.toReal≤theta)
@@ -3160,7 +3158,7 @@ theorem primitive_real_of_failureFam (S : FamScheme) {Cmax : Nat} (H : FamTot.Fa
     (Pr[Combined | PairedReference.referenceExperiment adversary q]).toReal ≤
       theta*((PairedSmallT.prefixMass adversary q).toReal/2^128+
         (PairedSmallT.encodingMass adversary q).toReal/2^128)+
-      (PairedSmallT.otherMass adversary q).toReal/2^128+(802/1000)*((q:ℝ)/2^128)^2+(1/2^139+1/2^142) := by
+      (PairedSmallT.otherMass adversary q).toReal/2^128+(778/1000)*((q:ℝ)/2^128)^2+(1/2^139+1/2^142) := by
   have hqN : q<2^128 := by omega
   have hf := PairedSmallT.masses_finite adversary q hq
   have hraw := (reference_primitive_leFam S H adversary q hqN w v hwv).trans
@@ -3169,28 +3167,28 @@ theorem primitive_real_of_failureFam (S : FamScheme) {Cmax : Nat} (H : FamTot.Fa
     _ (PairedSmallT.otherMass adversary q) hf.2.2.1 hraw theta hprefix hencoding herror
 
 theorem primitive_middle_real_of_failureFam (S : FamScheme) {Cmax : Nat} (H : FamTot.FamHyps S Cmax)
-    (hC : Cmax ≤ 301) (adversary : Final.Paired.AdversaryP) (q : Nat) (hq:q≤2^127)
-    (hy : (q:ℝ)/2^128≤1251/1000000)
+    (hC : Cmax ≤ 305) (adversary : Final.Paired.AdversaryP) (q : Nat) (hq:q≤2^127)
+    (hy : (q:ℝ)/2^128≤149/125000)
     (hfailed : Pr[ReferenceFailed | PairedReference.referenceExperiment adversary q] ≤ 1/(2:ENNReal)^139) :
     (Pr[Combined | PairedReference.referenceExperiment adversary q]).toReal ≤
-      (1996581/1000000)*((PairedSmallT.prefixMass adversary q).toReal/2^128+
+      (99843/50000)*((PairedSmallT.prefixMass adversary q).toReal/2^128+
         (PairedSmallT.encodingMass adversary q).toReal/2^128)+
-      (PairedSmallT.otherMass adversary q).toReal/2^128+(802/1000)*((q:ℝ)/2^128)^2+(1/2^139+1/2^142) := by
+      (PairedSmallT.otherMass adversary q).toReal/2^128+(778/1000)*((q:ℝ)/2^128)^2+(1/2^139+1/2^142) := by
   have hc := middle_coefficients_t ((q:ℝ)/2^128) (by positivity) hy
-  apply primitive_real_of_failureFam S H hC adversary q hq (hy.trans (by norm_num)) (21931/1000000) (978069/1000000)
+  apply primitive_real_of_failureFam S H hC adversary q hq (hy.trans (by norm_num)) (10297/500000) (489703/500000)
     (by finiteness) (by finiteness) (by norm_num [ENNReal.div_add_div_same]; exact ENNReal.div_self (by norm_num) (by finiteness)) hfailed
   · simpa only [ENNReal.toReal_div,ENNReal.toReal_ofNat] using hc.1
   · simpa only [ENNReal.toReal_div,ENNReal.toReal_ofNat] using hc.2.1
   · simpa only [ENNReal.toReal_div,ENNReal.toReal_ofNat] using hc.2.2
 
 theorem primitive_tiny_real_of_failureFam (S : FamScheme) {Cmax : Nat} (H : FamTot.FamHyps S Cmax)
-    (hC : Cmax ≤ 301) (adversary : Final.Paired.AdversaryP) (q : Nat) (hq:q≤2^127)
+    (hC : Cmax ≤ 305) (adversary : Final.Paired.AdversaryP) (q : Nat) (hq:q≤2^127)
     (hy : (q:ℝ)/2^128≤1/2^28)
     (hfailed : Pr[ReferenceFailed | PairedReference.referenceExperiment adversary q] ≤ 1/(2:ENNReal)^139) :
     (Pr[Combined | PairedReference.referenceExperiment adversary q]).toReal ≤
       (249/125)*((PairedSmallT.prefixMass adversary q).toReal/2^128+
         (PairedSmallT.encodingMass adversary q).toReal/2^128)+
-      (PairedSmallT.otherMass adversary q).toReal/2^128+(802/1000)*((q:ℝ)/2^128)^2+(1/2^139+1/2^142) := by
+      (PairedSmallT.otherMass adversary q).toReal/2^128+(778/1000)*((q:ℝ)/2^128)^2+(1/2^139+1/2^142) := by
   have hc := tiny_coefficients_t ((q:ℝ)/2^128) (by positivity) hy
   apply primitive_real_of_failureFam S H hC adversary q hq (hy.trans (by norm_num)) (3/100) (97/100)
     (by finiteness) (by finiteness) (by norm_num [ENNReal.div_add_div_same]; exact ENNReal.div_self (by norm_num) (by finiteness)) hfailed
@@ -3211,21 +3209,21 @@ set_option exponentiation.threshold 1024
 set_option backward.isDefEq.respectTransparency false
 
 theorem primitive_middle_realFam (S : FamScheme) {Cmax : Nat} (H : CanonicalRef.Normalized.FamTot.FamHyps S Cmax)
-    (hC : Cmax ≤ 301) (adversary : Final.Paired.AdversaryP) (q : Nat) (hq:q≤2^127)
-    (hy : (q:ℝ)/2^128≤1251/1000000) :
+    (hC : Cmax ≤ 305) (adversary : Final.Paired.AdversaryP) (q : Nat) (hq:q≤2^127)
+    (hy : (q:ℝ)/2^128≤149/125000) :
     (Pr[Combined | PairedReference.referenceExperiment adversary q]).toReal ≤
-      (1996581/1000000)*((PairedSmallT.prefixMass adversary q).toReal/2^128+
+      (99843/50000)*((PairedSmallT.prefixMass adversary q).toReal/2^128+
         (PairedSmallT.encodingMass adversary q).toReal/2^128)+
-      (PairedSmallT.otherMass adversary q).toReal/2^128+(802/1000)*((q:ℝ)/2^128)^2+(1/2^139+1/2^142) :=
+      (PairedSmallT.otherMass adversary q).toReal/2^128+(778/1000)*((q:ℝ)/2^128)^2+(1/2^139+1/2^142) :=
   primitive_middle_real_of_failureFam S H hC adversary q hq hy (reference_failed_le adversary q)
 
 theorem primitive_tiny_realFam (S : FamScheme) {Cmax : Nat} (H : CanonicalRef.Normalized.FamTot.FamHyps S Cmax)
-    (hC : Cmax ≤ 301) (adversary : Final.Paired.AdversaryP) (q : Nat) (hq:q≤2^127)
+    (hC : Cmax ≤ 305) (adversary : Final.Paired.AdversaryP) (q : Nat) (hq:q≤2^127)
     (hy : (q:ℝ)/2^128≤1/2^28) :
     (Pr[Combined | PairedReference.referenceExperiment adversary q]).toReal ≤
       (249/125)*((PairedSmallT.prefixMass adversary q).toReal/2^128+
         (PairedSmallT.encodingMass adversary q).toReal/2^128)+
-      (PairedSmallT.otherMass adversary q).toReal/2^128+(802/1000)*((q:ℝ)/2^128)^2+(1/2^139+1/2^142) :=
+      (PairedSmallT.otherMass adversary q).toReal/2^128+(778/1000)*((q:ℝ)/2^128)^2+(1/2^139+1/2^142) :=
   primitive_tiny_real_of_failureFam S H hC adversary q hq hy (reference_failed_le adversary q)
 end ClaudeWCT.W9.T3.Security.Wots.CanonicalWeighted
 
@@ -3240,8 +3238,27 @@ set_option exponentiation.threshold 1024
 set_option backward.isDefEq.respectTransparency false
 attribute [local instance] Classical.propDecidable
 
+theorem middle_boundFam (S : FamScheme) {Cmax : Nat} (H : CanonicalRef.Normalized.FamTot.FamHyps S Cmax)
+    (hC : Cmax ≤ 305) (adversary : Final.Paired.AdversaryP) (q : Nat) (hq:q≤2^127)
+    (hlow:1/(2:ℝ)^28≤(q:ℝ)/2^128) (hhigh:(q:ℝ)/2^128≤149/125000) :
+    Pr[QueryRecorded.CleanWin q | PairedOuter.PaddedGame.tracedExperiment adversary q hq]+
+      q/(2:ENNReal)^146+(2:ENNReal)⁻¹^700+((2:ENNReal)^152)⁻¹+
+      q/((2^256:Nat):ENNReal)≤(q:ENNReal)/2^127 := by
+  apply clean_outer_ennrealG adversary q hq
+  apply middle_clean_closingG adversary q hq hlow hhigh (1174/1000000) le_rfl ?_
+    (completed_partial_certifiedG adversary q hq)
+  have hp:=CanonicalWeighted.primitive_middle_realFam S H hC adversary q hq hhigh
+  have h:=clean_probability_real_ofG adversary q hq (completed_split_canonical adversary q hq)
+    (99843/50000) (1174/1000000) (by finiteness) (by finiteness) (by
+      simpa (disch:=positivity) only [ENNReal.ofReal_div_of_pos,ENNReal.ofReal_ofNat,ENNReal.ofReal_one] using
+        ENNReal.ofReal_le_ofReal (by norm_num : (1:ℝ)/1024≤99843/50000))
+    excess_middle_actualG (by simpa only [ENNReal.toReal_div,ENNReal.toReal_ofNat] using! hp)
+    (completed_incomplete_bound adversary q hq)
+    (by simpa only [one_div] using FtsOverflow.Paired.cleanWin_noOverflow_le adversary q hq)
+  simpa only [ENNReal.toReal_div,ENNReal.toReal_ofNat] using h
+
 theorem tiny_boundFam (S : FamScheme) {Cmax : Nat} (H : CanonicalRef.Normalized.FamTot.FamHyps S Cmax)
-    (hC : Cmax ≤ 301) (adversary : Final.Paired.AdversaryP) (q : Nat) (hq:q≤2^127)
+    (hC : Cmax ≤ 305) (adversary : Final.Paired.AdversaryP) (q : Nat) (hq:q≤2^127)
     (hpositive:1≤q) (hhigh:(q:ℝ)/2^128≤1/2^28) :
     Pr[QueryRecorded.CleanWin q | PairedOuter.PaddedGame.tracedExperiment adversary q hq]+
       q/(2:ENNReal)^146+(2:ENNReal)⁻¹^700+((2:ENNReal)^152)⁻¹+
@@ -3253,11 +3270,21 @@ theorem tiny_boundFam (S : FamScheme) {Cmax : Nat} (H : CanonicalRef.Normalized.
   have h:=clean_probability_real_ofG adversary q hq (completed_split_canonical adversary q hq)
     (249/125) (18/5000) (by finiteness) (by finiteness) (by
       simpa (disch:=positivity) only [ENNReal.ofReal_div_of_pos,ENNReal.ofReal_ofNat,ENNReal.ofReal_one] using
-        ENNReal.ofReal_le_ofReal (by norm_num : (29249:ℝ)/2500000≤249/125))
+        ENNReal.ofReal_le_ofReal (by norm_num : (1:ℝ)/1024≤249/125))
     excess_tiny_actualG (by simpa only [ENNReal.toReal_div,ENNReal.toReal_ofNat] using! hp)
     (completed_incomplete_bound adversary q hq)
     (by simpa only [one_div] using FtsOverflow.Paired.cleanWin_noOverflow_le adversary q hq)
   simpa only [ENNReal.toReal_div,ENNReal.toReal_ofNat] using h
+
+theorem small_boundFam (S : FamScheme) {Cmax : Nat} (H : CanonicalRef.Normalized.FamTot.FamHyps S Cmax)
+    (hC : Cmax ≤ 305) (adversary : Final.Paired.AdversaryP) (q : Nat) (hq:q≤2^127)
+    (hpositive:1≤q) (hhigh:(q:ℝ)/2^128≤149/125000) :
+    Pr[QueryRecorded.CleanWin q | PairedOuter.PaddedGame.tracedExperiment adversary q hq]+
+      q/(2:ENNReal)^146+(2:ENNReal)⁻¹^700+((2:ENNReal)^152)⁻¹+
+      q/((2^256:Nat):ENNReal)≤(q:ENNReal)/2^127 := by
+  by_cases ht:(q:ℝ)/2^128≤1/2^28
+  · exact tiny_boundFam S H hC adversary q hq hpositive ht
+  · exact middle_boundFam S H hC adversary q hq (le_of_lt (lt_of_not_ge ht)) hhigh
 
 end ClaudeWCT.W9.T3.Security.Wots.PairedSmallT
 
@@ -3271,10 +3298,25 @@ set_option maxHeartbeats 1000000
 set_option maxRecDepth 10000
 attribute [local instance] Classical.propDecidable
 
+/-- **The live security theorem through the family seed-error charge**: any family scheme with the family-restart
+hypotheses and per-test charge `Cmax ≤ 305`. -/
+theorem t3_securityP_fam (S : FamScheme) (Cmax : Nat)
+    (H : ClaudeWCT.W9.T3.Security.Wots.CanonicalRef.Normalized.FamTot.FamHyps S Cmax) (hC : Cmax ≤ 305) :
+    ClaudeWCT.W9.T3M.Final.Paired.SecurityP := by
+  apply PairedOuter.PaddedGame.securityP_of_clean_bound
+  intro adversary q hpositive hq
+  by_cases hsmall : (q:ℝ)/2^128 ≤ 149/125000
+  · exact Wots.PairedSmallT.small_boundFam S H hC adversary q hq hpositive hsmall
+  · exact LargeCoupling.Paired.large_bound adversary q hq (le_of_not_ge hsmall)
+
+/-- **The live security theorem of the v6 scheme** (the `Correctness` layout: lower 7-leaf families, charge 301). -/
+theorem t3_securityP_layout : ClaudeWCT.W9.T3M.Final.Paired.SecurityP :=
+  t3_securityP_fam layoutScheme 301 ClaudeWCT.W9.T3.Security.Wots.CanonicalRef.Normalized.FamTot.layoutHyps
+    (by norm_num)
+
 end ClaudeWCT.W9.T3.Secc.Paired
 end
 -- ==== merged from T3M_Verify_Nonbinary_ChainsLayout ====
-
 section
 
 section
@@ -3297,7 +3339,7 @@ checksum chain (group 17) 5. -/
 def mx (q : Nat) : Nat := if q<9 then 5 else if q<16 then 4 else if q=16 then 6 else 5
 /-- Top chain `i`'s block in the top chain area (even pairing, charge 86: pair `p = (2p, 2p+1)` at `104 (26 - p)`,
 G chain at `+16`, F chain at `+40`; `= W9.T3M.chainSlot 0 i`). -/
-def topSlot (i : Nat) : Nat := if i = 50 then 144 else if i % 2 = 0 then 224 + 104 * (24 - i / 2) else 248 + 104 * (24 - i / 2)
+def topSlot (i : Nat) : Nat := 104*(26-i/2)+16+24*(i%2)
 /-- Top chain format (T51): chain `i` is G (value first) iff it is even and `i ≤ 50` (`= T3.topIsG`). -/
 def topG (i : Nat) : Bool := decide (i%2=0 ∧ i ≤ 50)
 def off (i : Nat) : Word := BitVec.ofNat 64 (topSlot i)-BitVec.ofNat 64 1664
@@ -3339,8 +3381,7 @@ def base (q dB dC : Nat) : Nat :=
 def partLen (q d : Nat) : Nat :=
   if d=mx q then 4 else if d+1=mx q then 5 else 4+2*(mx q-d)
 def pcB (q dB dC : Nat) : Nat := base q dB dC+2*mx q+1
-def skipFirstB (q dB : Nat) : Bool := decide (q = 0 ∧ dB = mx q)
-def pcC (q dB dC : Nat) : Nat := pcB q dB dC+partLen q dB-(if skipFirstB q dB then 4 else 0)
+def pcC (q dB dC : Nat) : Nat := pcB q dB dC+partLen q dB
 /-- r6 bodies omit chain C's copy when chains B and C both have the largest digit (C is buffer-safe). -/
 def skipBody (q dB dC : Nat) : Bool := decide (q<9 ∧ dB=mx q ∧ dC=mx q)
 /-- End of the body (next dispatch). The r7 pair (q = 16) has no chain C: its checksum dispatch is at `pcC`. -/
@@ -3359,10 +3400,10 @@ def cellW (q k : Nat) : Nat :=
 def entW (q k : Nat) : Nat := cellW q k
 def inl (q : Nat) : Bool := decide (q=9 ∨ (13 ≤ q ∧ q ≤ 15))
 def leadOff (q : Nat) : Nat := 1
-def leadPc (q k : Nat) : Nat := entW q k+(if q=16 ∧ k=0 then 0 else leadOff q)
+def leadPc (q k : Nat) : Nat := entW q k+leadOff q
 def kdig (q k j : Nat) : Nat := k/(mx q+1)^j%(mx q+1)
 def kss (q k : Nat) : Nat := kdig q k 0+kdig q k 1+kdig q k 2
-def rowInl (q k : Nat) : Bool := inl q || decide (q=16 ∨ (9≤q ∧ q<16 ∧ 3≤kss q k))
+def rowInl (q k : Nat) : Bool := inl q || decide (9≤q ∧ q<16 ∧ 3≤kss q k)
 def gbase (q k : Nat) : Nat :=
   if rowInl q k then
     (if kdig q k 0=mx q then leadPc q k+3-2*mx q
@@ -3372,11 +3413,11 @@ def gbase (q k : Nat) : Nat :=
 /-- Shared-body groups: the r6 groups and the r7 pair. -/
 def sharedG (q : Nat) : Bool := decide (q<9 ∨ q=16)
 def skipA (q k : Nat) : Bool := decide (q=0 ∧ kdig q k 0=mx q)
-def skipB (q k : Nat) : Bool := (rowInl q k || sharedG q) && decide ((q = 0 ∨ kdig q k 0=mx q) ∧ kdig q k 1=mx q)
+def skipB (q k : Nat) : Bool := (rowInl q k || sharedG q) && decide (kdig q k 0=mx q ∧ kdig q k 1=mx q)
 def skipC (q k : Nat) : Bool := (rowInl q k || decide (q<9)) && decide (kdig q k 1=mx q ∧ kdig q k 2=mx q)
 /-- Start of chain B. Shared-body groups keep chain B's copy in the body; a buffer-safe chain B is jumped over (+4). -/
 def gB (q k : Nat) : Nat :=
-  if sharedG q && !rowInl q k then gbase q k+2*mx q+1+(if skipB q k then 4 else 0)-(if skipFirstB q (kdig q k 1) then 4 else 0)
+  if sharedG q then gbase q k+2*mx q+1+(if skipB q k then 4 else 0)
   else gbase q k+2*mx q+1-(if skipA q k then 4 else 0)
 def gC (q k : Nat) : Nat := gB q k+partLen q (kdig q k 1)-(if skipB q k then 4 else 0)
 /-- End of the group's code for rank `k` (the next dispatch); the r7 pair has no chain C. -/
@@ -3475,7 +3516,7 @@ def partOK (q i d p : Nat) (skip : Bool := false) : Bool :=
       (if d+1=mx q then headRHT .x8 (off i) d (slot i) p i
        else headRH .x8 (off i) d none p i (topG i)) &&
     rungsOK q (d+1) (slot i) (p+5)
-def s8Check (q k : Nat) : Bool := if q=16 ∧ k=0 then rOK (vrun (entW q k) 0) (emptyR (entW q k)) else
+def s8Check (q k : Nat) : Bool :=
   (if q=0 then rOK (vrun (entW 0 k) 1) (guardR k) else rOK (vrun (entW q k) 1) (s8R (kss q k) (entW q k)))
 def dispatchOK (q dB dC : Nat) : Bool :=
   if q<17 then rOK (vrun (pcX q dB dC) 5) (nextDispR q) else true
@@ -3484,7 +3525,7 @@ def dispatchOK (q dB dC : Nat) : Bool :=
 def blockCheck (q dB dC : Nat) : Bool :=
   tailsOK q (termSlot (3*q)) (base q dB dC) &&
   rungsOK q 1 (termSlot (3*q)) (base q dB dC + 2) &&
-  partOK q (3*q+1) dB (pcB q dB dC) (skipFirstB q dB) &&
+  partOK q (3*q+1) dB (pcB q dB dC) &&
   (decide (q=16) || partOK q (3*q+2) dC (pcC q dB dC) (skipBody q dB dC)) && dispatchOK q dB dC
 def inlineCheck (q k : Nat) : Bool :=
   let dA := kdig q k 0
@@ -3499,7 +3540,7 @@ def inlineCheck (q k : Nat) : Bool :=
     rOK (vrun (gbase q k+2*dA+1) 2)
       (tailR (if dA+1=mx q then some (termSlot (3*q)) else none) (gbase q k+2*dA+1)) &&
     rungsOK q (dA+1) (termSlot (3*q)) (gbase q k+2*(dA+1))) &&
-  partOK q (3*q+1) (kdig q k 1) (gB q k) (skipB q k) && (decide (q=16) || partOK q (3*q+2) (kdig q k 2) (gC q k) (skipC q k)) &&
+  partOK q (3*q+1) (kdig q k 1) (gB q k) (skipB q k) && partOK q (3*q+2) (kdig q k 2) (gC q k) (skipC q k) &&
   rOK (vrun (gX q k) 5) (nextDispR q)
 def entCheck (q k : Nat) : Bool :=
   if rowInl q k then inlineCheck q k else
@@ -3566,7 +3607,7 @@ structure NCtx where
   digits : Nat → Nat
   ret : Nat
 namespace NCtx
-/-- Charge 85: chain `i`'s block (`= WIT + chainBlock 0 i` for `S3 = 14128`). -/
+/-- Charge 86: chain `i`'s block (`= WIT + chainBlock 0 i` for `S3 = 14128`). -/
 def blk (c : NCtx) (i : Nat) : Nat := c.S3 - 1664 + topSlot i
 /-- Address of the supplied value (G: block start, F: block + 48). -/
 def vAt (c : NCtx) (i : Nat) : Nat := c.blk i + 48 * (i % 2)
@@ -3583,9 +3624,7 @@ def last (i : Nat) : Nat := topMax i - 1
 /-- The half of the step-`m` answer the image keeps (`= WCT9.chainHigh 0 i m`): G chains keep the high half on
 interior steps; campaign T51 (PIN v1): chain 0 keeps it on its terminal step too (answer at `slot 0 - 16`). -/
 def topHigh (i m : Nat) : Bool := topG i && (decide (m + 1 < topMax i) || decide (i = 0))
-def «prefix» (c : NCtx) : Nat := 128 + ((c.tree * 2 ^ 12 + c.leaf) % 2 ^ 32 + 2 ^ 12) * 2 ^ 16
-/-- Z6 option F: the top label word `t3` (`prefix - 128`). -/
-def pre0 (c : NCtx) : Nat := ((c.tree * 2 ^ 12 + c.leaf) % 2 ^ 32 + 2 ^ 12) * 2 ^ 16
+def «prefix» (c : NCtx) : Nat := 128 + 193 * 2 ^ 56 + ((c.tree * 2 ^ 12 + c.leaf) % 2 ^ 32) * 2 ^ 16
 def w0 (c : NCtx) (i : Nat) : Nat := c.prefix + i
 def w1 (c : NCtx) : Nat := hdr1 c.tree c.leaf
 def pad0 (c : NCtx) (i : Nat) : Digest := ClaudeWCT.W9.T3M.wdig c.w (c.pad0At i - Verify.WIT)
@@ -3593,11 +3632,11 @@ def pad1 (c : NCtx) (i : Nat) : Digest := ClaudeWCT.W9.T3M.wdig c.w (c.pad1At i 
 def padHeader (c : NCtx) (i : Nat) : Word := (ClaudeWCT.W9.T3M.wdig c.w (c.blk i - Verify.WIT + 16)).extractLsb' 64 64
 def val (c : NCtx) (i : Nat) : Digest := ClaudeWCT.W9.T3M.wdig c.w (c.vAt i - Verify.WIT)
 def ok (c : NCtx) : Prop :=
-  c.tree = 0 ∧ c.leaf < 4096 ∧ c.S3 % 8 = 0 ∧ Verify.WIT + 8208 + 1664 ≤ c.S3 ∧ c.S3 + 1144 ≤ 15272 ∧
+  c.tree = 0 ∧ c.leaf < 4096 ∧ c.S3 % 8 = 0 ∧ Verify.WIT + 8336 + 1664 ≤ c.S3 ∧ c.S3 + 1144 ≤ 15272 ∧
     c.ret < 209920
 def known (c : NCtx) : List (Reg × Word) :=
-  [(.x5, 0), (.x11, 64), (.x9, 0x7fc01), (.x13, 2), (.x19, 3), (.x20, 4), (.x21, 5), (.x26, 6),
-   (.x28, BitVec.ofNat 64 c.pre0), (.x8, BitVec.ofNat 64 c.S3), (.x2, BitVec.ofNat 64 0xffbde0), (.x4, 14776)]
+  [(.x5, 0), (.x11, 64), (.x7, 1), (.x13, 2), (.x19, 3), (.x20, 4), (.x21, 5), (.x26, 6),
+   (.x30, 7), (.x28, BitVec.ofNat 64 (c.prefix + 385)), (.x8, BitVec.ofNat 64 c.S3), (.x2, BitVec.ofNat 64 0xffbde0), (.x4, 14776)]
 /-- Rank of top group `q`: the digit triple in radix `mx q + 1`; group 16 (the r7 pair, chains 48 and 49) has only two
 digits, `d48 + 7 d49`. -/
 def kOf (c : NCtx) (q : Nat) : Nat :=
@@ -3612,7 +3651,7 @@ def entPc (c : NCtx) (q : Nat) : Nat := entW q (c.kOf q)
 never buffer-safe (its arm always copies). -/
 def bufferSafe (c : NCtx) (i : Nat) : Prop :=
   c.dig i = topMax i ∧
-    (i = 0 ∨ i = 1 ∨ (0 < i ∧ i % 3 ≠ 0 ∧ i ≠ 50 ∧ c.dig (i-1) = topMax (i-1)))
+    (i = 0 ∨ (0 < i ∧ i % 3 ≠ 0 ∧ i ≠ 50 ∧ c.dig (i-1) = topMax (i-1)))
 instance (c : NCtx) (i : Nat) : Decidable (c.bufferSafe i) := by
   unfold bufferSafe; infer_instance
 /-- End of the leaf-buffer bytes written by chains `1 .. i-1` (endpad leaf: chain `j >= 1` writes `[slot j, slot j +
@@ -3645,8 +3684,7 @@ when `i` is odd. -/
 def Wr (c : NCtx) (i : Nat) (A : Nat) : Prop :=
   (slot 1 ≤ A ∧ A < c.bufferEnd i) ∨ (0 < i ∧ slot 0 - 16 ≤ A ∧ A < slot 0 + 16) ∨
     (c.S3 + 104 * (27 - i / 2) ≤ A + 1664 ∧ A < c.S3 + 1160) ∨
-    (i % 2 = 1 ∧ c.S3 + 104 * (26 - i / 2) + 24 * (i / 51 % 2) ≤ A + 1664 ∧
-      A + 1664 < c.S3 + 104 * (26 - i / 2) + 40 + 24 * (i / 51 % 2))
+    (i % 2 = 1 ∧ c.S3 + 104 * (26 - i / 2) ≤ A + 1664 ∧ A + 1664 < c.S3 + 104 * (26 - i / 2) + 40)
 /-- Chain `i`'s own writes: its header word and the 32-byte destination of its interior steps. -/
 def WrIn (c : NCtx) (i : Nat) (A : Nat) : Prop :=
   c.Wr i A ∨ (c.blk i + 16 ≤ A ∧ A < c.blk i + 24) ∨ (c.oAt i ≤ A ∧ A < c.oAt i + 32)
@@ -3676,24 +3714,23 @@ def PreHash (c : NCtx) (s0 : MachineState) (i : Nat) (acc : List Digest) (m : Na
     t.pc = pcOf (c.rungPc i m + (if m = last i then 2 else 1)) ∧ fetch vimage t = some (.base .ECALL)
 def EndInv (c : NCtx) (s0 : MachineState) (i : Nat) (acc : List Digest) (s : MachineState) : Prop :=
   c.Base s0 (c.Wr (i + 1)) acc s ∧ acc.length = i + 1 ∧ s.pc = pcOf (c.endPc i)
-theorem topSlot_props (i : Nat) (hi : i < 51) : topSlot i % 8 = 0 ∧ 144 ≤ topSlot i ∧ topSlot i + 64 ≤ 2808 := by
-  unfold topSlot; split_ifs <;> omega
+theorem topSlot_props (i : Nat) (hi : i < 51) : topSlot i % 8 = 0 ∧ 16 ≤ topSlot i ∧ topSlot i + 64 ≤ 2808 := by
+  unfold topSlot; omega
 theorem topG_eq (i : Nat) : topG i = T3.topIsG i := by simp [topG, T3.topIsG]
 theorem topG_isG (i : Nat) : topG i = ClaudeWCT.WCT9.isG 0 i := by rw [ClaudeWCT.WCT9.isG_top_eq, topG_eq]
 theorem topG_lt (i : Nat) (hi : i < 51) : topG i = decide (i % 2 = 0) := by
   unfold topG; by_cases h : i % 2 = 0 <;> simp [h] <;> omega
-theorem topSlot_eq (i : Nat) : topSlot i = ClaudeWCT.W9.T3M.chainSlot 0 i + 128 := by
-  unfold topSlot ClaudeWCT.W9.T3M.chainSlot; simp only [Fin.val_zero, if_true]; split_ifs <;> omega
+theorem topSlot_eq (i : Nat) : topSlot i = ClaudeWCT.W9.T3M.chainSlot 0 i := by
+  unfold topSlot ClaudeWCT.W9.T3M.chainSlot; simp only [Fin.val_zero, if_true]; split <;> omega
 theorem blk_props (c : NCtx) (hc : c.ok) (i : Nat) (hi : i < 51) :
     c.blk i % 8 = 0 ∧ Verify.WIT + 8352 ≤ c.blk i ∧ c.blk i + 80 ≤ 15288 := by
   obtain ⟨-, -, h64, hlo, hhi, -⟩ := hc
   have := topSlot_props i hi
   unfold blk Verify.WIT at *; refine ⟨?_, ?_, ?_⟩ <;> omega
-/-- Chain `i`'s block lies in pair `i / 2` (`[pair, pair + 104)` with `pair = S3 - 1664 + 104 (26 - i / 2)`;
-the checksum chain 50 sits 24 bytes higher in pair 25, so it starts on the old top path's last word). -/
+/-- Chain `i`'s block lies in pair `i / 2` (`[pair, pair + 104)` with `pair = S3 - 1664 + 104 (26 - i / 2)`). -/
 theorem blk_eq (c : NCtx) (i : Nat) (hi : i < 51) :
-    c.blk i = c.S3 - 1664 + 104 * (26 - i / 2) + 16 + 24 * (i % 2) + 24 * (i / 50) := by
-  unfold blk topSlot; split_ifs <;> omega
+    c.blk i = c.S3 - 1664 + 104 * (26 - i / 2) + 16 + 24 * (i % 2) := by
+  unfold blk topSlot; omega
 theorem vAt_props (c : NCtx) (hc : c.ok) (i : Nat) (hi : i < 51) :
     c.vAt i % 8 = 0 ∧ c.vAt i = c.blk i + 48 * (i % 2) := by
   have hb := c.blk_props hc i hi
@@ -3780,7 +3817,7 @@ theorem w0_header (c : NCtx) (hc : c.ok) (i m : Nat) (hi : i < 51) (hm : m < 8) 
     (by rw [hc.1]; decide +kernel) hc.2.1]
   congr 1
   simp only [w0, «prefix», packedPrefix, packedHi, show height 0 = 12 from rfl, Fin.val_zero,
-    Nat.zero_mul, Nat.add_zero, show hyperW 0 = 12 from rfl]
+    Nat.zero_mul, Nat.add_zero]
   ring
 set_option maxRecDepth 20000 in
 theorem chain_hashInput (c : NCtx) (hc : c.ok) (i m : Nat) (hi : i < 51) (hm : m < 8) (v : Digest)
@@ -3840,11 +3877,7 @@ theorem notWr_block (c : NCtx) (hc : c.ok) {i A : Nat} (hi : i < 51) (h1 : c.blk
   have hhi := hc.2.2.2.2.1
   unfold Wr
   rw [slot0, slot1]
-  by_cases h50 : i = 50
-  · subst h50; omega
-  · have : i / 50 = 0 := by omega
-    have : i / 51 = 0 := by omega
-    omega
+  omega
 theorem dig_at {c : NCtx} {s0 t : MachineState} {W : Nat → Prop} (hF : Frame s0 t W) (h0 : c.Orig0 s0)
     (hc : c.ok) {i A : Nat} (hi : i < 51) (hA1 : c.blk i ≤ A) (hA2 : A + 16 ≤ c.blk i + 64)
     (hA8 : (A - c.blk i) % 8 = 0) (hW0 : ¬ W A) (hW1 : ¬ W (A + 8)) :
@@ -3979,20 +4012,12 @@ theorem WrIn_next (c : NCtx) (hc : c.ok) (i A : Nat) (hi : i < 51) (h : c.WrIn i
   · exact c.Wr_mono i A h
   · have he := c.blk_eq i hi
     unfold Wr; right; right
-    by_cases h50 : i = 50
-    · subst h50; right; omega
-    have : i / 50 = 0 := by omega
-    have : (i + 1) / 51 = 0 := by omega
     by_cases h2 : i % 2 = 0
     · right; omega
     · left; omega
   · have he := c.blk_eq i hi
     unfold oAt at h
     unfold Wr; right; right
-    by_cases h50 : i = 50
-    · subst h50; right; omega
-    have : i / 50 = 0 := by omega
-    have : (i + 1) / 51 = 0 := by omega
     by_cases h2 : i % 2 = 0
     · right; omega
     · left; omega
@@ -4019,8 +4044,7 @@ theorem Wr_hash (c : NCtx) (i A : Nat) (hn : c.dig i ≠ topMax i)
 
 theorem bufferSafe_end (c : NCtx) (i : Nat) (hs : c.bufferSafe i) :
     c.bufferEnd i = slot i := by
-  rcases hs.2 with h | h | h
-  · simp [bufferEnd, h]
+  rcases hs.2 with h | h
   · simp [bufferEnd, h]
   · simp [bufferEnd, h.2.2.2]
 
@@ -4077,7 +4101,7 @@ theorem bufferVal_source (c : NCtx) (digits : List Nat)
       by_cases h : i % 2 = 0 <;> simp [h] <;> omega
     rw [hv]
     simp only [vAt, blk, hS, ClaudeWCT.W9.T3M.chainBlock, ClaudeWCT.W9.T3M.layerBase,
-      ClaudeWCT.W9.T3M.pathSlots, Matrix.cons_val_zero, Verify.WIT, topSlot_eq]
+      ClaudeWCT.W9.T3M.pathSlots, Matrix.cons_val_zero, Verify.WIT, ← topSlot_eq]
     omega
 
 theorem bufferVal_nonmax (c : NCtx) (i : Nat) (h : c.dig i ≠ topMax i) :
@@ -4110,10 +4134,7 @@ theorem rungPc_end (c : NCtx) (hds : c.DigitsOk) (i : Nat) (hi : i < 51) (hd : c
     by_cases h0 : i%3=0
     · rw [h0] at hk
       have hskipA : skipA (i/3) (c.kOf (i/3))=false := by simp [skipA, hk, Nat.ne_of_lt hdq]
-      have hskipB : skipB (i/3) (c.kOf (i/3))=skipFirstB (i/3) (kdig (i/3) (c.kOf (i/3)) 1) := by
-        by_cases hq0 : i/3=0
-        · simp [skipB,skipFirstB,hq0,sharedG]
-        · simp [skipB,skipFirstB,hq0,hk,Nat.ne_of_lt hdq]
+      have hskipB : skipB (i/3) (c.kOf (i/3))=false := by simp [skipB, hk, Nat.ne_of_lt hdq]
       simp only [rungPc,endPc,qb,qB,h0,h50,and_self,if_true,gB,hskipA,hskipB,Bool.false_eq_true,if_false,
         Nat.sub_zero,Nat.add_zero]
       split_ifs <;> omega
@@ -4149,19 +4170,18 @@ theorem rungPc_end (c : NCtx) (hds : c.DigitsOk) (i : Nat) (hi : i < 51) (hd : c
     split_ifs <;> omega
 theorem posE_eval (c : NCtx) {s0 s : MachineState} (hk : ∀ p ∈ c.known, s0.getReg p.1 = p.2)
     (hR : ∀ x ∉ chainRegs, s.getReg x = s0.getReg x) (i m : Nat) (hm : m ≤ last i) :
-    ((posE m).eval s).truncate 8 = (BitVec.ofNat 64 m).truncate 8 := by
+    (posE m).eval s = BitVec.ofNat 64 m := by
   have kr : ∀ r v, (r, v) ∈ c.known → r ∉ chainRegs → s.getReg r = v := fun r v hm hn =>
     (hR r hn).trans (hk _ hm)
   have hm3 : m ≤ 6 := by have := last_bounds i; omega
   interval_cases m
   · rfl
-  · rw [show (posE 1).eval s=s.getReg .x9 from rfl, kr .x9 0x7fc01 (by simp [known]) (by decide)]
-    rfl
-  · exact congrArg (fun v : Word => v.truncate 8) (kr .x13 2 (by simp [known]) (by decide))
-  · exact congrArg (fun v : Word => v.truncate 8) (kr .x19 3 (by simp [known]) (by decide))
-  · exact congrArg (fun v : Word => v.truncate 8) (kr .x20 4 (by simp [known]) (by decide))
-  · exact congrArg (fun v : Word => v.truncate 8) (kr .x21 5 (by simp [known]) (by decide))
-  · exact congrArg (fun v : Word => v.truncate 8) (kr .x26 6 (by simp [known]) (by decide))
+  · exact kr .x7 1 (by simp [known]) (by decide +kernel)
+  · exact kr .x13 2 (by simp [known]) (by decide +kernel)
+  · exact kr .x19 3 (by simp [known]) (by decide +kernel)
+  · exact kr .x20 4 (by simp [known]) (by decide +kernel)
+  · exact kr .x21 5 (by simp [known]) (by decide +kernel)
+  · exact kr .x26 6 (by simp [known]) (by decide +kernel)
 theorem w0_low (c : NCtx) (i m : Nat) (hi : i < 51) (hm : m < 256) :
     (BitVec.ofNat 64 (c.w0 i + 2 ^ 8 * m)).toNat % 2 ^ 8 = 128 + i ∧
       (BitVec.ofNat 64 (c.w0 i + 2 ^ 8 * m)).toNat / 2 ^ 16 = c.prefix / 2 ^ 16 := by
@@ -4274,10 +4294,10 @@ private theorem sum_range_three' (f : Nat → Nat) (n : Nat) :
 only the penalised rows 10, 11, 12 can (digit sum below 3); the checksum chain 50 never does. -/
 theorem jumps_source (c : NCtx) (hds : c.DigitsOk) (digits : List Nat)
     (hd : ∀ i, i < 51 → digits.getD i 0 = c.dig i) :
-    c.jumps = 9 + dispatchPenalty 0 digits := by
+    c.jumps = 10 + dispatchPenalty 0 digits := by
   have h51 : c.jumps = ((List.range (3*17)).map c.tableJump).sum := rfl
   have hq : ∀ q ∈ List.range 17, c.tableJump (3*q) + c.tableJump (3*q+1) + c.tableJump (3*q+2) =
-      (if q < 9 then 1 else 0) +
+      (if q < 9 ∨ q = 16 then 1 else 0) +
         (if (q = 10 ∨ q = 11 ∨ q = 12) ∧
           digits.getD (3*q) 0 + digits.getD (3*q+1) 0 + digits.getD (3*q+2) 0 < 3 then 1 else 0) := by
     intro q hq
@@ -4299,10 +4319,10 @@ theorem jumps_source (c : NCtx) (hds : c.DigitsOk) (digits : List Nat)
       generalize kss q (c.kOf q) = x
       interval_cases q <;> simp <;> omega
   rw [h51, sum_range_three', List.map_congr_left hq]
-  have hsplit := sum_map_add (List.range 17) (fun q => if q < 9 then 1 else 0)
+  have hsplit := sum_map_add (List.range 17) (fun q => if q < 9 ∨ q = 16 then 1 else 0)
     (fun q => if (q = 10 ∨ q = 11 ∨ q = 12) ∧
       digits.getD (3*q) 0 + digits.getD (3*q+1) 0 + digits.getD (3*q+2) 0 < 3 then 1 else 0)
-  have h10 : ((List.range 17).map fun q => if q < 9 then 1 else 0).sum = 9 := by decide +kernel
+  have h10 : ((List.range 17).map fun q => if q < 9 ∨ q = 16 then 1 else 0).sum = 10 := by decide +kernel
   rw [hsplit, h10]
   unfold dispatchPenalty topDispatchPenalty
   rw [if_pos rfl, sum_flags]
@@ -4354,7 +4374,7 @@ theorem chainsCost_any (c : NCtx) (hds : c.DigitsOk) : c.chainsCost 0 51 ≤ 234
 theorem chainsCost_accepted (c : NCtx) (hds : c.DigitsOk) (v : Digest) (digits : List Nat)
     (hdec : decode 0 v = some digits)
     (hd : ∀ i, i < 51 → digits.getD i 0 = c.dig i) :
-    c.chainsCost 0 51 + topCredit v + 4*savedCopies 0 digits = 969 + dispatchPenalty 0 digits := by
+    c.chainsCost 0 51 + topCredit v + 4*savedCopies 0 digits = 970 + dispatchPenalty 0 digits := by
   obtain ⟨-, -, ⟨hs1, -⟩, rfl⟩ := decode_top_some hdec
   have hlen : (dataDigits 0 v ++ [target 0 - (dataDigits 0 v).sum]).length = 51 := by
     simp [dataDigits_top_length]

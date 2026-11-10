@@ -9,9 +9,6 @@ import SigGolfCandidate.Merge080
 import SigGolfCandidate.Merge084
 import SigGolfCandidate.Merge090
 import SigGolfCandidate.Merge091
-import SigGolfCandidate.FtsExpandImage
-set_option debug.skipKernelTC true
-set_option linter.all false
 
 -- ==== merged from ClaudeWCT_W9_New_Machine_Expand_Routine ====
 section
@@ -71,43 +68,39 @@ open SigGolfCandidate.T3 (Digest M)
 set_option maxHeartbeats 1000000
 set_option maxRecDepth 100000
 
-/-- E8: after the chain and the child's copy routine (the record, the zeroed scratch). -/
 def Post (L : W9Machine.Layout) (w : W9Machine.WBytes) (index : Nat) (k : Fin 9) (raw : Fin 128)
-    (entry : MachineState) (res : Digest × Nat) (result : MachineState) : Prop :=
+    (entry : MachineState) (computed : Digest) (result : MachineState) : Prop :=
   ∃ ends childEntry,Chain.Post L w index k raw entry ends childEntry ∧
-    SharedChild.PostC L k raw childEntry res result
+    SharedChild.Post L k raw childEntry computed result
 
 theorem core_tbsim (L : W9Machine.Layout) (sk : BitVec 256)
     (hwindow : (Frozen.image.code.drop 195584).take 59072=(L.image.code.drop 195584).take 59072)
-    (hcodes : W9Drv.SharedBank.CopyCodes L.image)
     (k : Fin 9) (raw : Fin 128) (rank : Fin 563)
-    (hchild : L.childWord raw=W9Drv.SharedBank.copyWord k.val raw.val)
-    (hbase : Chain.base L k=9768-848*k.val)
+    (hchild : ∀j,L.childWord j=(SharedLayout.layout k).childWord j)
     (hchain : ∀w index u,N600.Pre L w index k raw rank u→
       TBSim L.image sk u 89 (N600.program w index k raw rank) (N600.Post L w index k raw u))
     (w : W9Machine.WBytes) (index : Nat) (snapshot u : MachineState) (padL padR : Digest)
     (hu : N600.Pre L (SharedV3.viewWB 2904 w k.val snapshot) index k raw rank u)
     (hL : DigAt snapshot (2904+V3.regionOffset k.val+672) padL)
     (hR : DigAt snapshot (2904+V3.regionOffset k.val+160) padR) :
-    TBSim L.image sk u (89+W9Drv.SharedBank.costG k)
-      (N600.program w index k raw rank >>=fun ends=>SharedV3.childNG w index k raw ends padL padR)
+    TBSim L.image sk u (89+SharedChild.cost k raw)
+      (N600.program w index k raw rank >>=fun ends=>SharedV3.childN w index k raw ends padL padR)
       (Post L (SharedV3.viewWB 2904 w k.val snapshot) index k raw u) := by
-  have hspec : (N600.program w index k raw rank >>= fun ends=>SharedV3.childNG w index k raw ends padL padR)=
+  have hspec : (N600.program w index k raw rank >>= fun ends=>SharedV3.childN w index k raw ends padL padR)=
       (N600.program (SharedV3.viewWB 2904 w k.val snapshot) index k raw rank >>=fun ends=>
-        SharedChild.childProgramG (SharedV3.viewWB 2904 w k.val snapshot) index k raw ends) := by
+        SharedV3.childProgram (SharedV3.viewWB 2904 w k.val snapshot) index k raw ends) := by
     unfold N600.program
     rw [SharedV3.chainProgram_viewB]
-    simp only [fun ends=>SharedV3.childNG_viewB 2904 w index k snapshot raw ends padL padR hL hR]
+    simp only [fun ends=>SharedV3.childProgram_viewB 2904 w index k snapshot raw ends padL padR hL hR]
   rw [hspec]
   refine TBSim.bind (hchain _ _ _ hu) ?_
   intro ends childEntry hp
-  exact (W9Drv.SharedBank.childG_tbsim L sk k raw hwindow hcodes hchild hbase _ index ends childEntry
-    (hp.sharedChild hu)).mono le_rfl (fun res t ht=>⟨ends,childEntry,hp,ht⟩)
+  exact (W9Drv.SharedBank.child_tbsim L sk k raw hwindow hchild _ index ends childEntry
+    (hp.sharedChild hu)).mono le_rfl (fun computed t ht=>⟨ends,childEntry,hp,ht⟩)
 
 end ClaudeWCT.W9.Machine.Expand.SharedCore
 
 namespace ClaudeWCT.W9.Machine.Expand.SharedDispatch
-set_option debug.skipKernelTC false
 open OracleComp SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64
 open SigGolfCandidate.Rv SigGolfCandidate.T3M SigGolfCandidate.T3M.Verify W9Machine
 open SigGolfCandidate.T3 (Digest HashOutput)
@@ -120,15 +113,15 @@ def length (k : Nat) : Nat := endWord k-start k
 `ra = pcOf (endWord 8 - 78)` (`addi ra,ra,-284`, was `-280`), since the merged singleton returns with
 `jalr zero,312(ra)` (was 308) to the same word 46862. -/
 def words (k : Nat) : List (BitVec 32) := [
-[0x208b7,0x16088893,0x8b203,0x1425213,0x7f27213,0x8b703,0x875713,0x3ff77713,0x2437,0x62840413,0x66e37,0x337,0x10e3783,0x1b79793,0x80030313,0x6787b3,0x1421f93,0xff8fb3,0x721b93,0x3f337,0x30313,0x6b8bb3,0x293,0x100493,0x200693,0x300993,0x400a13,0x500a93,0x600d13,0x700f13,0x4000593,0x97,0xef008093,0x871713,0xc0337,0x30313,0x670733,0x70067],
-[0x208b7,0x16088893,0x8b203,0x1a25213,0x7f27213,0x88b703,0x2175713,0x3ff77713,0x2437,0x2d840413,0x66e37,0xe0e13,0x10e3783,0x1b79793,0x10337,0x80030313,0x6787b3,0x1421f93,0xff8fb3,0x821b93,0x4b337,0x30313,0x6b8bb3,0x293,0x100493,0x200693,0x300993,0x400a13,0x500a93,0x600d13,0x700f13,0x4000593,0x97,0xef008093,0x871713,0xc0337,0x30313,0x670733,0x70067],
-[0x208b7,0x16088893,0x88b203,0x1425213,0x7f27213,0x88b703,0x875713,0x3ff77713,0x2437,0xf8840413,0x66e37,0xe0e13,0x10e3783,0x1b79793,0x20337,0x80030313,0x6787b3,0x1421f93,0xff8fb3,0x721b93,0x3f337,0x30313,0x6b8bb3,0x293,0x100493,0x200693,0x300993,0x400a13,0x500a93,0x600d13,0x700f13,0x4000593,0x97,0xef008093,0x871713,0xc0337,0x30313,0x670733,0x70067],
-[0x208b7,0x16088893,0x88b203,0x1a25213,0x7f27213,0x88b703,0x2d75713,0x3ff77713,0x2437,0xc3840413,0x66e37,0xe0e13,0x10e3783,0x1b79793,0x30337,0x80030313,0x6787b3,0x1421f93,0xff8fb3,0x821b93,0x4b337,0x30313,0x6b8bb3,0x293,0x100493,0x200693,0x300993,0x400a13,0x500a93,0x600d13,0x700f13,0x4000593,0x97,0xef008093,0x871713,0xc0337,0x30313,0x670733,0x70067],
-[0x208b7,0x16088893,0x108b203,0x1425213,0x7f27213,0x108b703,0x875713,0x3ff77713,0x2437,0x8e840413,0x66e37,0xe0e13,0x10e3783,0x1b79793,0x40337,0x80030313,0x6787b3,0x1421f93,0xff8fb3,0x721b93,0x3f337,0x30313,0x6b8bb3,0x293,0x100493,0x200693,0x300993,0x400a13,0x500a93,0x600d13,0x700f13,0x4000593,0x97,0xef008093,0x871713,0xc0337,0x30313,0x670733,0x70067],
-[0x208b7,0x16088893,0x108b203,0x1a25213,0x7f27213,0x108b703,0x2175713,0x3ff77713,0x1437,0x59840413,0x66e37,0xe0e13,0x10e3783,0x1b79793,0x50337,0x80030313,0x6787b3,0x1421f93,0xff8fb3,0x821b93,0x4b337,0x30313,0x6b8bb3,0x293,0x100493,0x200693,0x300993,0x400a13,0x500a93,0x600d13,0x700f13,0x4000593,0x97,0xef008093,0x871713,0xc0337,0x30313,0x670733,0x70067],
-[0x208b7,0x16088893,0x188b203,0x1425213,0x7f27213,0x188b703,0x875713,0x3ff77713,0x1437,0x24840413,0x66e37,0xe0e13,0x10e3783,0x1b79793,0x60337,0x80030313,0x6787b3,0x1421f93,0xff8fb3,0x721b93,0x3f337,0x30313,0x6b8bb3,0x293,0x100493,0x200693,0x300993,0x400a13,0x500a93,0x600d13,0x700f13,0x4000593,0x97,0xef008093,0x871713,0xc0337,0x30313,0x670733,0x70067],
-[0x208b7,0x16088893,0x188b203,0x1a25213,0x7f27213,0x188b703,0x2175713,0x3ff77713,0x1437,0xef840413,0x66e37,0xe0e13,0x10e3783,0x1b79793,0x70337,0x80030313,0x6787b3,0x1421f93,0xff8fb3,0x821b93,0x4b337,0x30313,0x6b8bb3,0x293,0x100493,0x200693,0x300993,0x400a13,0x500a93,0x600d13,0x700f13,0x4000593,0x97,0xef008093,0x871713,0xc0337,0x30313,0x670733,0x70067],
-[0x208b7,0x16088893,0x108b203,0x3925213,0x7f27213,0x108b703,0x2d75713,0x3ff77713,0xcb040413,0x66e37,0xe0e13,0x10e3783,0x1b79793,0x80337,0x80030313,0x6787b3,0x1421f93,0xff8fb3,0x821b93,0x43337,0x30313,0x6b8bb3,0x293,0x100493,0x200693,0x300993,0x400a13,0x500a93,0x600d13,0x700f13,0x4000593,0x97,0xee008093,0x871713,0xc0337,0x30313,0x670733,0x70067]].getD k []
+[0x208b7,0x16088893,0x8b203,0x1425213,0x7f27213,0x8b703,0x875713,0x3ff77713,0x2437,0x62840413,0x66e37,0x10337,0x10e3783,0x1b79793,0x60130313,0x6787b3,0x1421f93,0xff8fb3,0x721b93,0xe3337,0x30030313,0x6b8bb3,0x293,0x100393,0x200693,0x300993,0x400a13,0x500a93,0x600d13,0x700f13,0x4000593,0x97,0xef008093,0x871713,0xc0337,0x30313,0x670733,0x70067],
+[0x208b7,0x16088893,0x8b203,0x1a25213,0x7f27213,0x88b703,0x2175713,0x3ff77713,0x2437,0x2d840413,0x66e37,0xe0e13,0x10e3783,0x1b79793,0x20337,0x60130313,0x6787b3,0x1421f93,0xff8fb3,0x821b93,0xf2337,0xb0030313,0x6b8bb3,0x293,0x100393,0x200693,0x300993,0x400a13,0x500a93,0x600d13,0x700f13,0x4000593,0x97,0xef008093,0x871713,0xc0337,0x30313,0x670733,0x70067],
+[0x208b7,0x16088893,0x88b203,0x1425213,0x7f27213,0x88b703,0x875713,0x3ff77713,0x2437,0xf8840413,0x66e37,0xe0e13,0x10e3783,0x1b79793,0x30337,0x60130313,0x6787b3,0x1421f93,0xff8fb3,0x721b93,0xe3337,0x30030313,0x6b8bb3,0x293,0x100393,0x200693,0x300993,0x400a13,0x500a93,0x600d13,0x700f13,0x4000593,0x97,0xef008093,0x871713,0xc0337,0x30313,0x670733,0x70067],
+[0x208b7,0x16088893,0x88b203,0x1a25213,0x7f27213,0x88b703,0x2d75713,0x3ff77713,0x2437,0xc3840413,0x66e37,0xe0e13,0x10e3783,0x1b79793,0x40337,0x60130313,0x6787b3,0x1421f93,0xff8fb3,0x821b93,0xf2337,0xb0030313,0x6b8bb3,0x293,0x100393,0x200693,0x300993,0x400a13,0x500a93,0x600d13,0x700f13,0x4000593,0x97,0xef008093,0x871713,0xc0337,0x30313,0x670733,0x70067],
+[0x208b7,0x16088893,0x108b203,0x1425213,0x7f27213,0x108b703,0x875713,0x3ff77713,0x2437,0x8e840413,0x66e37,0xe0e13,0x10e3783,0x1b79793,0x50337,0x60130313,0x6787b3,0x1421f93,0xff8fb3,0x721b93,0xe3337,0x30030313,0x6b8bb3,0x293,0x100393,0x200693,0x300993,0x400a13,0x500a93,0x600d13,0x700f13,0x4000593,0x97,0xef008093,0x871713,0xc0337,0x30313,0x670733,0x70067],
+[0x208b7,0x16088893,0x108b203,0x1a25213,0x7f27213,0x108b703,0x2175713,0x3ff77713,0x1437,0x59840413,0x66e37,0xe0e13,0x10e3783,0x1b79793,0x60337,0x60130313,0x6787b3,0x1421f93,0xff8fb3,0x821b93,0xf2337,0xb0030313,0x6b8bb3,0x293,0x100393,0x200693,0x300993,0x400a13,0x500a93,0x600d13,0x700f13,0x4000593,0x97,0xef008093,0x871713,0xc0337,0x30313,0x670733,0x70067],
+[0x208b7,0x16088893,0x188b203,0x1425213,0x7f27213,0x188b703,0x875713,0x3ff77713,0x1437,0x24840413,0x66e37,0xe0e13,0x10e3783,0x1b79793,0x70337,0x60130313,0x6787b3,0x1421f93,0xff8fb3,0x721b93,0xe3337,0x30030313,0x6b8bb3,0x293,0x100393,0x200693,0x300993,0x400a13,0x500a93,0x600d13,0x700f13,0x4000593,0x97,0xef008093,0x871713,0xc0337,0x30313,0x670733,0x70067],
+[0x208b7,0x16088893,0x188b203,0x1a25213,0x7f27213,0x188b703,0x2175713,0x3ff77713,0x1437,0xef840413,0x66e37,0xe0e13,0x10e3783,0x1b79793,0x80337,0x60130313,0x6787b3,0x1421f93,0xff8fb3,0x821b93,0xf2337,0xb0030313,0x6b8bb3,0x293,0x100393,0x200693,0x300993,0x400a13,0x500a93,0x600d13,0x700f13,0x4000593,0x97,0xef008093,0x871713,0xc0337,0x30313,0x670733,0x70067],
+[0x208b7,0x16088893,0x108b203,0x3925213,0x7f27213,0x108b703,0x2d75713,0x3ff77713,0xcb040413,0x66e37,0xe0e13,0x10e3783,0x1b79793,0x90337,0x60130313,0x6787b3,0x1421f93,0xff8fb3,0x821b93,0xe7337,0x40030313,0x6b8bb3,0x293,0x100393,0x200693,0x300993,0x400a13,0x500a93,0x600d13,0x700f13,0x4000593,0x97,0xee008093,0x871713,0xc0337,0x30313,0x670733,0x70067]].getD k []
 def rawPosition (k : Nat) : Nat := [20,26,20,26,20,26,20,26,57].getD k 0
 def rawWord (k : Nat) : Nat := [0,0,1,1,2,2,3,3,2].getD k 0
 def rankPosition (k : Nat) : Nat := [8,33,8,45,8,33,8,33,45].getD k 0
@@ -142,19 +135,19 @@ def result (k : Nat) : Result :=
   -- Repack: every raw read shifts (coordinate 0 now `srli tp,tp,20`; `lui t1,0x10` reuses the redundant `addi t3,t3,0` slot).
   let raw := mkBin .and (mkBin .srl (.ld (.c (BitVec.ofNat 64 (0x20160+8*rawWord k)))) (.c (BitVec.ofNat 64 (rawPosition k)))) (.c 127)
   let rank := mkBin .and (mkBin .srl (.ld (.c (BitVec.ofNat 64 (0x20160+8*rankWord k)))) (.c (BitVec.ofNat 64 (rankPosition k)))) (.c 1023)
-  let node := mkAdd (mkBin .sll (.ld (.c 0x66010)) (.c 27)) (.c (BitVec.ofNat 64 ((2^64-2048)+65536*k)))
+  let node := mkAdd (mkBin .sll (.ld (.c 0x66010)) (.c 27)) (.c (BitVec.ofNat 64 (1537+65536*(k+1))))
   let chainPC := mkAdd (mkBin .sll rank (.c 8)) (.c 0xc0000)
   let childPC := mkAdd (mkBin .sll raw (.c (if k<8 ∧ k%2=0 then 7 else 8)))
-    (.c (BitVec.ofNat 64 (4096+4*(if k<8 ∧ k%2=0 then 63488 else if k=8 then 67584 else 75776))))
+    (.c (BitVec.ofNat 64 (4096+4*(if k<8 ∧ k%2=0 then 231616 else if k=8 then 235776 else 246464))))
   let regs := RegFile.init.set .x17 (.c 0x20160)
   let regs := (regs.set .x4 raw).set .x14 chainPC
   -- Pairing stage 1: coordinate 8 derives its base from the incoming `s0` (r3w: `addi s0,s0,-848`; the banks run at
-  -- `coordinateBase k - 1352`, the expand FTS frame).
+  -- `coordinateBase k - 1224`, the expand FTS frame).
   let regs := (regs.set .x8 (if k = 8 then .bin .add (.reg .x8) (.c (BitVec.ofNat 64 (2^64-848)))
     else .c (BitVec.ofNat 64 (9768-848*k)))).set .x28 (.c 0x66000)
   let regs := (regs.set .x15 node).set .x6 (.c 0xc0000)
   let regs := (regs.set .x31 (mkAdd (mkBin .sll raw (.c 20)) node)).set .x23 childPC
-  let regs := (regs.set .x5 (.c 0)).set .x9 (.c 1)
+  let regs := (regs.set .x5 (.c 0)).set .x7 (.c 1)
   let regs := (regs.set .x13 (.c 2)).set .x19 (.c 3)
   let regs := (regs.set .x20 (.c 4)).set .x21 (.c 5)
   let regs := (regs.set .x26 (.c 6)).set .x30 (.c 7)
@@ -190,8 +183,7 @@ theorem result_raw (k : Fin 9) (u : MachineState) :
 
 theorem result_node (k : Fin 9) (u : MachineState) :
     ((result k.val).toState u).getReg .x15=
-      (u.getMem 0x66010 <<< 27)+BitVec.ofNat 64 ((2^64-2048)+65536*k.val) := by
-  fin_cases k <;> rfl
+      (u.getMem 0x66010 <<< 27)+BitVec.ofNat 64 (1537+65536*(k.val+1)) := by fin_cases k <;> rfl
 
 theorem result_leaf (k : Fin 9) (u : MachineState) :
     ((result k.val).toState u).getReg .x31=
@@ -199,7 +191,7 @@ theorem result_leaf (k : Fin 9) (u : MachineState) :
 
 theorem result_base (k : Fin 9) (u : MachineState)
     (h8 : k.val = 8 → u.getReg .x8 = BitVec.ofNat 64 3832) :
-    ((result k.val).toState u).getReg .x8=BitVec.ofNat 64 (coordinateBase k - 1352) := by
+    ((result k.val).toState u).getReg .x8=BitVec.ofNat 64 (coordinateBase k - 1224) := by
   by_cases hk : k.val = 8
   · obtain rfl : k = 8 := Fin.ext hk
     rw [Result.toState_getReg, show (result (8 : Fin 9).val).st.regs.get .x8 =
@@ -223,12 +215,12 @@ open SigGolfCandidate.T3 (Digest M)
 set_option maxRecDepth 100000
 set_option maxHeartbeats 1000000
 
-/-- r3w: the expander runs the shared banks 1352 bytes below verify (`delta8 = 169`). -/
+/-- r3w: the expander runs the shared banks 1224 bytes below verify (`delta8 = 153`). -/
 noncomputable def layout (image : Image) (k : Fin 9) : W9Machine.Layout :=
-  ⟨image,Frozen.layout.chainWord,fun raw=>W9Drv.SharedBank.copyWord k.val raw.val,
-    fun _=>endWord k.val-(if k.val=8 then 79 else 75),169⟩
-theorem layout_shift (image : Image) (k : Fin 9) : (layout image k).shift = 1352 := rfl
-theorem layout_base (image : Image) (k k' : Fin 9) : Chain.base (layout image k) k' = coordinateBase k' - 1352 := by
+  ⟨image,Frozen.layout.chainWord,(SharedLayout.layout k).childWord,
+    fun _=>endWord k.val-(if k.val=8 then 79 else 75),153⟩
+theorem layout_shift (image : Image) (k : Fin 9) : (layout image k).shift = 1224 := rfl
+theorem layout_base (image : Image) (k k' : Fin 9) : Chain.base (layout image k) k' = coordinateBase k' - 1224 := by
   unfold Chain.base; rw [layout_shift]
 
 theorem steps (image : Image) (k : Fin 9) (u : MachineState)
@@ -240,32 +232,34 @@ theorem steps (image : Image) (k : Fin 9) (u : MachineState)
 
 theorem result_child_raw (k : Fin 9) (u : MachineState) : ((result k.val).toState u).getReg .x23=
       (rawRead k.val u <<< (if k.val<8 ∧ k.val%2=0 then 7 else 8))+
-        BitVec.ofNat 64 (4096+4*(if k.val<8 ∧ k.val%2=0 then 63488 else if k.val=8 then 67584 else 75776)) := by
+        BitVec.ofNat 64 (4096+4*(if k.val<8 ∧ k.val%2=0 then 231616 else if k.val=8 then 235776 else 246464)) := by
   fin_cases k <;> rfl
 
 
 theorem result_child (k : Fin 9) (u : MachineState) (raw : Fin 128)
     (hraw : rawRead k.val u=BitVec.ofNat 64 raw.val) :
-    ((result k.val).toState u).getReg .x23=pcOf (W9Drv.SharedBank.copyWord k.val raw.val) := by
+    ((result k.val).toState u).getReg .x23=pcOf ((SharedLayout.layout k).childWord raw) := by
+  change _=pcOf (SharedLayout.childWord k.val raw.val)
   rw [result_child_raw,hraw]
-  unfold W9Drv.SharedBank.copyWord SigGolfCandidate.FtsGrind.COPY_FIRST SigGolfCandidate.FtsGrind.COPY_K8
-    SigGolfCandidate.FtsGrind.COPY_ODD
+  unfold SharedLayout.childWord
   split_ifs <;> rw [BitVec.shiftLeft_eq_mul_twoPow]
   all_goals change BitVec.ofNat 64 raw.val * BitVec.ofNat 64 _ + BitVec.ofNat 64 _ = BitVec.ofNat 64 _
   all_goals rw [← BitVec.ofNat_mul, ← BitVec.ofNat_add]; congr 1 <;> norm_num [Nat.shiftLeft_eq] <;> omega
 
 theorem result_node_value (k : Fin 9) (u : MachineState) (index : Nat)
   (hi : index<2^31) (hindex : u.getMem 0x66010=BitVec.ofNat 64 index) : ((result k.val).toState u).getReg .x15=BitVec.ofNat 64 (V3.nodeLow k.val index) := by
-  rw [result_node,hindex,W9Drv.nodeLow_word _ _ k.isLt hi,
-    W9Drv.shl_ofNat,Nat.shiftLeft_eq,← BitVec.ofNat_add]
-  apply congrArg (BitVec.ofNat 64)
+  rw [result_node,hindex]
+  apply BitVec.eq_of_toNat_eq
+  simp only [V3.nodeLow,ClaudeWCT.WCT9.ftsLeafLow,Nat.mod_eq_of_lt hi,
+    Nat.mod_eq_of_lt (show k.val<16 by have := k.isLt; omega)]
+  simp [BitVec.toNat_add,BitVec.toNat_shiftLeft,BitVec.toNat_ofNat,Nat.shiftLeft_eq]
   omega
 
 theorem result_hashMode (k : Fin 9) (u : MachineState) : ((result k.val).toState u).getReg .x5=0 := by fin_cases k <;> rfl
-theorem result_stepOne (k : Fin 9) (u : MachineState) : (((result k.val).toState u).getReg .x9).truncate 8=1#8 := by fin_cases k <;> rfl
+theorem result_stepOne (k : Fin 9) (u : MachineState) : ((result k.val).toState u).getReg .x7=1 := by fin_cases k <;> rfl
 theorem result_stepTwo (k : Fin 9) (u : MachineState) : ((result k.val).toState u).getReg .x13=2 := by fin_cases k <;> rfl
 theorem result_hashLen (k : Fin 9) (u : MachineState) : ((result k.val).toState u).getReg .x11=64 := by fin_cases k <;> rfl
-theorem result_heaps (k : Fin 9) (u : MachineState) (h : Nat) (h2 : 2≤h) (h7 : h≤6) :
+theorem result_heaps (k : Fin 9) (u : MachineState) (h : Nat) (h2 : 2≤h) (h7 : h≤7) :
     ((result k.val).toState u).getReg (Child.heapReg h)=BitVec.ofNat 64 h := by
   interval_cases h <;> fin_cases k <;> rfl
 
@@ -285,7 +279,15 @@ theorem result_leaf_value (k : Fin 9) (u : MachineState) (index : Nat) (raw : Fi
     (hi : index<2^31) (hindex : u.getMem 0x66010=BitVec.ofNat 64 index)
     (hraw : rawRead k.val u=BitVec.ofNat 64 raw.val) :
     ((result k.val).toState u).getReg .x31=BitVec.ofNat 64 (V3.leafLow index k.val raw.val) := by
-  have hp := W9Drv.leafLow_or index k.val raw.val k.isLt raw.isLt hi
+  have hp : (BitVec.ofNat 64 raw.val <<< 20)+BitVec.ofNat 64 (V3.nodeLow k.val index)=
+      BitVec.ofNat 64 (V3.leafLow index k.val raw.val) := by
+    rw [BitVec.shiftLeft_eq_mul_twoPow]
+    change BitVec.ofNat 64 raw.val * BitVec.ofNat 64 1048576 + BitVec.ofNat 64 _ = BitVec.ofNat 64 _
+    rw [← BitVec.ofNat_mul, ← BitVec.ofNat_add]
+    congr 1
+    simp only [V3.leafLow,V3.nodeLow,ClaudeWCT.WCT9.ftsLeafLow,Nat.zero_mod,Nat.zero_mul,Nat.add_zero,
+      Nat.mod_eq_of_lt raw.isLt]
+    omega
   exact (result_leaf k u).trans ((congrArg₂ (fun a b : Word=>(a <<< 20)+b) hraw
     (result_node_value k u index hi hindex)).trans hp)
 
@@ -296,7 +298,7 @@ theorem chain_pre (image : Image) (k : Fin 9) (u : MachineState)
     (hraw : rawRead k.val u=BitVec.ofNat 64 raw.val)
     (hrank : rankRead k.val u=BitVec.ofNat 64 rank.val)
     (hslot : Frozen.layout.chainWord (N600.embed rank)=195584+64*rank.val)
-    (hW : ∀off,off<848 → off%8=0 → u.getMem (BitVec.ofNat 64 (coordinateBase k - 1352+off))=
+    (hW : ∀off,off<848 → off%8=0 → u.getMem (BitVec.ofNat 64 (coordinateBase k - 1224+off))=
       w.extractLsb' (8*(V3.regionOffset k.val+off)) 64)
     (h8 : k.val = 8 → u.getReg .x8 = BitVec.ofNat 64 3832) :
     N600.Pre (layout image k) w index k raw rank ((result k.val).toState u) := by
@@ -332,23 +334,10 @@ open SigGolfCandidate.T3 (Digest M)
 set_option maxRecDepth 100000
 set_option maxHeartbeats 1000000
 
-/-- E8: the forest pass writes its frame, the search scratch (saves, `SCR`) and the nonce records. -/
-def writes (addr : Nat) : Prop := (1152≤addr ∧ addr<11000) ∨ SharedChild.scratchW addr ∨
-  (SigGolfCandidate.FtsGrind.SCR≤addr ∧ addr<SigGolfCandidate.FtsGrind.SCR+0x5000)
-/-- E8: the nonce records of the coordinates already run, and the re-zeroed search scratch. -/
-structure RecInv (raw : Fin 9 → Fin 128) (n : Nat) (ns : List Nat) (u : MachineState) : Prop where
-  len : ns.length=n
-  slot0 : ∀m:Fin 9,m.val<n → u.getMem (BitVec.ofNat 64 (SigGolfCandidate.FtsGrind.slotA (9768-848*m.val)))=
-    BitVec.ofNat 64 (9768-848*m.val+SharedV3.blkOff (SharedV3.physical m.val (raw m).val) 3+
-      SigGolfCandidate.FtsGrind.WADJ)
-  slot1 : ∀m:Fin 9,m.val<n → u.getMem (BitVec.ofNat 64 (SigGolfCandidate.FtsGrind.slotA (9768-848*m.val)+8))=
-    BitVec.ofNat 64 (ns.getD m.val 0)
-  nle : ∀m:Fin 9,m.val<n → ns.getD m.val 0≤SigGolfCandidate.FtsGrind.FUEL (SigGolfCandidate.FtsGrind.ftsWidth m.val)
-  saves : 0<n → ∀i<5,u.getMem (BitVec.ofNat 64 (1104+8*i))=0
-  scr : 0<n → ∀i<4,u.getMem (BitVec.ofNat 64 (SigGolfCandidate.FtsGrind.SCR+8*i))=0
+def writes (addr : Nat) : Prop := 1152≤addr ∧ addr<11000
 def isHand (n off : Nat) : Prop :=
   if n=9 then (752≤off ∧ off<784) ∨ (816≤off ∧ off<848) else SharedV3.isHand off
-/-- r3w: absolute base of FTS region `n` in the expander (the verify region `regionAddr n` moved down 1352 bytes). -/
+/-- r3w: absolute base of FTS region `n` in the expander (the verify region `regionAddr n` moved down 1224 bytes). -/
 def eRegion (n : Nat) : Nat := 9768-848*n
 def pcWord (n : Nat) : Nat := if n<9 then SharedDispatch.start n else 46862
 structure Fields (index : Nat) (raw : Fin 9 → Fin 128) (ranks : Fin 9 → Fin 563) (u : MachineState) : Prop where
@@ -368,39 +357,26 @@ structure Inv (w : W9Machine.WBytes) (index : Nat) (raw : Fin 9 → Fin 128) (ra
   there (the final pass restores it, `SharedScatter.finishCode`). -/
   coords : ∀ (m : Nat), n ≤ m → m ≤ 9 → ∀ (off : Nat), off < 848 → off % 8 = 0 →
     (m = 9 → 768 ≤ off ∧ off ≠ 792) → (m = n → ¬ isHand n off) →
-    W9Machine.OrigWD 1352 w u (eRegion m + off)
+    W9Machine.OrigWD 1224 w u (eRegion m + off)
   frame : Frame initial u writes
   /-- Pairing stage 1: `s0` holds the previous coordinate's base (coordinate 8's dispatch derives its base from it;
   after coordinate 8 it is `coordinateBase 8 = 2984`, read by the hand-off). -/
   x8 : 0 < n → u.getReg .x8 = BitVec.ofNat 64 (2984 + 848 * (9 - n))
 
-/-- E8: what a coordinate's chain and copy routine write. -/
-def childW (L : W9Machine.Layout) (k : Fin 9) (raw : Fin 128) (A : Nat) : Prop :=
-  SharedChild.writes L k raw A ∨ SharedChild.recW (Chain.base L k) A ∨ SharedChild.scratchW A
-
 theorem child_writes_bounds {image : Image} (k : Fin 9) (raw : Fin 128) (addr : Nat)
-    (h : childW (SharedDispatch.layout image k) k raw addr) : writes addr := by
+    (h : SharedChild.writes (SharedDispatch.layout image k) k raw addr) : writes addr := by
   have hk:=k.isLt
-  rcases h with h|h|h
-  · simp only [SharedChild.writes, SharedChild.outputAddr, SharedChild.handAddr, SharedDispatch.layout_base] at h
-    unfold coordinateBase at h
-    unfold writes
-    left
-    split_ifs at h <;> omega
-  · unfold SharedChild.recW SigGolfCandidate.FtsGrind.slotA at h
-    rw [SharedDispatch.layout_base] at h
-    unfold coordinateBase at h
-    unfold writes SigGolfCandidate.FtsGrind.SCR at *
-    right; right
-    omega
-  · unfold writes; right; left; exact h
+  simp only [SharedChild.writes, SharedChild.outputAddr, SharedChild.handAddr, SharedDispatch.layout_base] at h
+  unfold coordinateBase at h
+  unfold writes
+  split_ifs at h <;> omega
 
 theorem fields_frame {index : Nat} {raw : Fin 9 → Fin 128} {ranks : Fin 9 → Fin 563}
     {u t : MachineState} (hf : Frame u t writes) (hu : Fields index raw ranks u) :
     Fields index raw ranks t := by
-  have hm (addr : Nat) (ha : 11000≤addr) (hb : addr<0x7e0000) :
+  have hm (addr : Nat) (ha : 11000≤addr) (hb : addr<2^64) :
       t.getMem (BitVec.ofNat 64 addr)=u.getMem (BitVec.ofNat 64 addr) :=
-    hf addr (by omega) (by unfold writes SharedChild.scratchW SigGolfCandidate.FtsGrind.SCR;omega)
+    hf addr hb (by unfold writes;omega)
   refine ⟨(hm 0x66010 (by decide) (by decide)).trans hu.index,?_,?_⟩
   · intro k
     rw [SharedDispatch.rawRead,hm _ (by fin_cases k <;> decide) (by fin_cases k <;> decide)]
@@ -412,7 +388,7 @@ theorem fields_frame {index : Nat} {raw : Fin 9 → Fin 128} {ranks : Fin 9 → 
 theorem witness_view {w : W9Machine.WBytes} {index : Nat} {raw : Fin 9 → Fin 128}
     {ranks : Fin 9 → Fin 563} {initial u : MachineState} {k : Fin 9} {prev : Digest×Digest}
     (hu : Inv w index raw ranks initial k.val prev u) :
-    ∀off,off<848 → off%8=0 → u.getMem (BitVec.ofNat 64 (coordinateBase k - 1352+off))=
+    ∀off,off<848 → off%8=0 → u.getMem (BitVec.ofNat 64 (coordinateBase k - 1224+off))=
       (SharedV3.viewWB 2904 w k.val u).extractLsb' (8*(V3.regionOffset k.val+off)) 64 := by
   intro off ho h8
   have hk:=k.isLt
@@ -426,31 +402,30 @@ theorem witness_view {w : W9Machine.WBytes} {index : Nat} {raw : Fin 9 → Fin 1
   · rw [if_neg (fun h=>hh (by simpa only [Nat.add_sub_cancel_left] using h.2))]
     have hw:=hu.coords k.val (by omega) (by omega) off ho h8 (by omega)
       (fun _=>by simpa only [isHand,if_neg (by omega : k.val≠9)] using hh)
-    have he:eRegion k.val+off+1352-0x10A0=V3.regionOffset k.val+off := by
+    have he:eRegion k.val+off+1224-0x1020=V3.regionOffset k.val+off := by
       unfold eRegion V3.regionOffset;omega
-    have hb:coordinateBase k - 1352+off=eRegion k.val+off := by unfold coordinateBase eRegion;omega
+    have hb:coordinateBase k - 1224+off=eRegion k.val+off := by unfold coordinateBase eRegion;omega
     rw [hb]
     simpa only [W9Machine.OrigWD,he] using hw
 
 theorem core_frame {L : W9Machine.Layout} {w : W9Machine.WBytes} {index : Nat} {k : Fin 9}
-    {raw : Fin 128} {u entry t : MachineState} {ends : List Digest} {computed : Digest × Nat}
-    (hp : Chain.Post L w index k raw u ends entry) (ht : SharedChild.PostC L k raw entry computed t) :
-    Frame u t (childW L k raw) := by
+    {raw : Fin 128} {u entry t : MachineState} {ends : List Digest} {computed : Digest}
+    (hp : Chain.Post L w index k raw u ends entry) (ht : SharedChild.Post L k raw entry computed t) :
+    Frame u t (SharedChild.writes L k raw) := by
   intro addr ha hn
   rw [ht.frame addr ha hn]
   apply hp.frame addr ha
   intro h
   apply hn
   left
-  left
   unfold Chain.writes at h
   simp only [Chain.base] at h ⊢
   split <;> omega
 
 theorem core_frame_dispatch {L : W9Machine.Layout} {w : W9Machine.WBytes} {index : Nat} {k : Fin 9}
-    {raw : Fin 128} {u entry t : MachineState} {ends : List Digest} {computed : Digest × Nat}
+    {raw : Fin 128} {u entry t : MachineState} {ends : List Digest} {computed : Digest}
     (hp : Chain.Post L w index k raw ((SharedDispatch.result k.val).toState u) ends entry)
-    (ht : SharedChild.PostC L k raw entry computed t) : Frame u t (childW L k raw) := by
+    (ht : SharedChild.Post L k raw entry computed t) : Frame u t (SharedChild.writes L k raw) := by
   intro addr ha hn
   exact (core_frame hp ht addr ha hn).trans (SharedDispatch.result_mem k u _)
 
@@ -463,22 +438,22 @@ theorem hand_address (image : Image) (k : Fin 9) (raw : Fin 128) :
   split_ifs <;> omega
 
 theorem next_other {image : Image} (w : W9Machine.WBytes) (k : Fin 9) (raw : Fin 128)
-    (u t : MachineState) (hf : Frame u t (childW (SharedDispatch.layout image k) k raw)) (off : Nat)
+    (u t : MachineState) (hf : Frame u t (SharedChild.writes (SharedDispatch.layout image k) k raw)) (off : Nat)
     (hoff : off=SharedV3.handL (k.val+1) ∨ off=SharedV3.handR (k.val+1))
     (hsel : if SharedV3.direction k.val (SharedV3.physical k.val raw.val)=0
       then off=SharedV3.handR (k.val+1) else off=SharedV3.handL (k.val+1))
-    (h0 : W9Machine.OrigWD 1352 w u (eRegion (k.val+1)+off))
-    (h1 : W9Machine.OrigWD 1352 w u (eRegion (k.val+1)+(off+8))) :
+    (h0 : W9Machine.OrigWD 1224 w u (eRegion (k.val+1)+off))
+    (h1 : W9Machine.OrigWD 1224 w u (eRegion (k.val+1)+(off+8))) :
     DigAt t (eRegion (k.val+1)+off)
       (SharedV3.topOther w k.val (SharedV3.physical k.val raw.val)) := by
   have hk:=k.isLt
-  have h1':W9Machine.OrigWD 1352 w u (eRegion (k.val+1)+off+8) := by rw [Nat.add_assoc];exact h1
-  have hlo:0x10A0≤eRegion (k.val+1)+off+1352 := by
+  have h1':W9Machine.OrigWD 1224 w u (eRegion (k.val+1)+off+8) := by rw [Nat.add_assoc];exact h1
+  have hlo:0x1020≤eRegion (k.val+1)+off+1224 := by
     unfold SharedV3.handR SharedV3.handL at hoff
     unfold eRegion
     split_ifs at hoff <;> omega
   have hd:=W9Machine.DigAt_origWD h0 h1' hlo
-  have he:eRegion (k.val+1)+off+1352-0x10A0=SharedV3.topOtherOff k.val (SharedV3.physical k.val raw.val) := by
+  have he:eRegion (k.val+1)+off+1224-0x1020=SharedV3.topOtherOff k.val (SharedV3.physical k.val raw.val) := by
     unfold SharedV3.topOtherOff V3.regionOffset eRegion
     unfold SharedV3.handR SharedV3.handL at hsel ⊢
     split_ifs at hsel ⊢ <;> omega
@@ -486,22 +461,11 @@ theorem next_other {image : Image} (w : W9Machine.WBytes) (k : Fin 9) (raw : Fin
   refine hd.frame hf (by unfold SharedV3.handR SharedV3.handL at hoff;unfold eRegion;split_ifs at hoff <;> omega) ?_ ?_
   all_goals
     intro hw
-    rcases hw with hw|hw|hw
-    · simp only [SharedChild.writes, SharedChild.outputAddr, SharedChild.handAddr, SharedDispatch.layout_base] at hw
-      unfold coordinateBase at hw
-      unfold SharedV3.handR SharedV3.handL at hoff hsel
-      unfold eRegion at hw
-      split_ifs at hsel hw <;> omega
-    · unfold SharedChild.recW SigGolfCandidate.FtsGrind.slotA SigGolfCandidate.FtsGrind.SCR at hw
-      rw [SharedDispatch.layout_base] at hw
-      unfold coordinateBase at hw
-      unfold SharedV3.handR SharedV3.handL at hoff
-      unfold eRegion at hw
-      split_ifs at hoff <;> omega
-    · unfold SharedChild.scratchW SigGolfCandidate.FtsGrind.SCR at hw
-      unfold SharedV3.handR SharedV3.handL at hoff
-      unfold eRegion at hw
-      split_ifs at hoff <;> omega
+    simp only [SharedChild.writes, SharedChild.outputAddr, SharedChild.handAddr, SharedDispatch.layout_base] at hw
+    unfold coordinateBase at hw
+    unfold SharedV3.handR SharedV3.handL at hoff hsel
+    unfold eRegion at hw
+    split_ifs at hsel hw <;> omega
 
 end ClaudeWCT.W9.Machine.Expand.SharedForestRun
 
@@ -514,12 +478,12 @@ set_option maxHeartbeats 1000000
 
 theorem next {image : Image} {w : W9Machine.WBytes} {index : Nat} {raw : Fin 9 → Fin 128}
     {ranks : Fin 9 → Fin 563} {initial u entry t : MachineState} {k : Fin 9} {prev : Digest×Digest}
-    {ends : List Digest} {computed : Digest × Nat} (hu : Inv w index raw ranks initial k.val prev u)
+    {ends : List Digest} {computed : Digest} (hu : Inv w index raw ranks initial k.val prev u)
     (hp : Chain.Post (SharedDispatch.layout image k) (SharedV3.viewWB 2904 w k.val u) index k (raw k)
       ((SharedDispatch.result k.val).toState u) ends entry)
-    (ht : SharedChild.PostC (SharedDispatch.layout image k) k (raw k) entry computed t) :
+    (ht : SharedChild.Post (SharedDispatch.layout image k) k (raw k) entry computed t) :
     Inv w index raw ranks initial (k.val+1)
-      (SharedV3.orderPair k.val (SharedV3.physical k.val (raw k).val) computed.1
+      (SharedV3.orderPair k.val (SharedV3.physical k.val (raw k).val) computed
         (SharedV3.topOther w k.val (SharedV3.physical k.val (raw k).val))) t := by
   have hk:=k.isLt
   have hf:=core_frame_dispatch hp ht
@@ -562,15 +526,6 @@ theorem next {image : Image} {w : W9Machine.WBytes} {index : Nat} {raw : Fin 9 �
     rw [←h0]
     apply hf _ (by unfold eRegion;omega)
     intro hw
-    rcases hw with hw|hw|hw
-    rotate_left
-    · unfold SharedChild.recW SigGolfCandidate.FtsGrind.slotA SigGolfCandidate.FtsGrind.SCR at hw
-      rw [SharedDispatch.layout_base] at hw
-      unfold coordinateBase eRegion at *
-      omega
-    · unfold SharedChild.scratchW SigGolfCandidate.FtsGrind.SCR at hw
-      unfold eRegion at *
-      omega
     simp only [SharedChild.writes, SharedChild.outputAddr, SharedChild.handAddr, SharedDispatch.layout_base] at hw
     unfold coordinateBase at hw
     have hmk:eRegion m+848≤eRegion k.val:=by unfold eRegion;omega
@@ -620,149 +575,73 @@ open SigGolfCandidate.T3 (Digest M)
 set_option maxRecDepth 100000
 set_option maxHeartbeats 1000000
 
-/-- E8: one coordinate step's records. -/
-theorem rec_next {image : Image} {w : W9Machine.WBytes} {index : Nat} {raw : Fin 9 → Fin 128}
-    {u entry t : MachineState} {k : Fin 9} {ns : List Nat}
-    {ends : List Digest} {res : Digest × Nat} (hr : RecInv raw k.val ns u)
-    (hp : Chain.Post (SharedDispatch.layout image k) (SharedV3.viewWB 2904 w k.val u) index k (raw k)
-      ((SharedDispatch.result k.val).toState u) ends entry)
-    (ht : SharedChild.PostC (SharedDispatch.layout image k) k (raw k) entry res t) :
-    RecInv raw (k.val+1) (ns++[res.2]) t := by
-  have hk:=k.isLt
-  have hf:=core_frame_dispatch hp ht
-  have hb:Chain.base (SharedDispatch.layout image k) k=9768-848*k.val := by
-    rw [SharedDispatch.layout_base]; unfold coordinateBase; omega
-  have hlen:=hr.len
-  have keep (m : Fin 9) (hm : m.val<k.val) (o : Nat) (ho : o<16) :
-      t.getMem (BitVec.ofNat 64 (SigGolfCandidate.FtsGrind.slotA (9768-848*m.val)+o))=
-        u.getMem (BitVec.ofNat 64 (SigGolfCandidate.FtsGrind.slotA (9768-848*m.val)+o)) := by
-    apply hf _ (by unfold SigGolfCandidate.FtsGrind.slotA SigGolfCandidate.FtsGrind.SCR; omega)
-    intro hw
-    rcases hw with hw|hw|hw
-    · simp only [SharedChild.writes, SharedChild.outputAddr, SharedChild.handAddr, SharedDispatch.layout_base] at hw
-      unfold coordinateBase SigGolfCandidate.FtsGrind.slotA SigGolfCandidate.FtsGrind.SCR at hw
-      split_ifs at hw <;> omega
-    · unfold SharedChild.recW SigGolfCandidate.FtsGrind.slotA at hw
-      rw [hb] at hw
-      have := m.isLt
-      unfold SigGolfCandidate.FtsGrind.slotA at *
-      omega
-    · unfold SharedChild.scratchW SigGolfCandidate.FtsGrind.slotA SigGolfCandidate.FtsGrind.SCR at hw
-      omega
-  have gd_old (m : Nat) (hm : m<k.val) : (ns++[res.2]).getD m 0=ns.getD m 0 := by
-    simp only [List.getD_eq_getElem?_getD, List.getElem?_append_left (show m<ns.length by omega)]
-  have gd_new : (ns++[res.2]).getD k.val 0=res.2 := by
-    simp only [List.getD_eq_getElem?_getD, List.getElem?_append_right (show ns.length≤k.val by omega), hlen,
-      Nat.sub_self, List.getElem?_cons_zero, Option.getD_some]
-  refine ⟨by simp [hlen],?_,?_,?_,fun _=>ht.saves,fun _=>ht.scr⟩
-  · intro m hm
-    rcases Nat.lt_or_ge m.val k.val with h|h
-    · have := keep m h 0 (by decide)
-      rw [Nat.add_zero] at this
-      rw [this]; exact hr.slot0 m h
-    · obtain rfl : m=k := Fin.ext (by omega)
-      have := ht.slot0
-      rw [hb] at this
-      exact this
-  · intro m hm
-    rcases Nat.lt_or_ge m.val k.val with h|h
-    · rw [keep m h 8 (by decide), gd_old _ h]; exact hr.slot1 m h
-    · obtain rfl : m=k := Fin.ext (by omega)
-      have := ht.slot1
-      rw [hb] at this
-      rw [gd_new]; exact this
-  · intro m hm
-    rcases Nat.lt_or_ge m.val k.val with h|h
-    · rw [gd_old _ h]; exact hr.nle m h
-    · obtain rfl : m=k := Fin.ext (by omega)
-      rw [gd_new]; exact ht.nle
-
-/-- E8: per-coordinate cycle bound (dispatch, chain, copy routine and its search). -/
-def stepW : Nat := 39+89+110+SigGolfCandidate.FtsGrind.W_SEARCH 2
-
 theorem step_tbsim (image : Image) (sk : BitVec 256)
     (hwindow : (Frozen.image.code.drop 195584).take 59072=(image.code.drop 195584).take 59072)
     (hchecked : ∀k:Fin 9,symRun {} (SharedDispatch.words k.val) (pcOf (SharedDispatch.start k.val))
       (SharedDispatch.length k.val)=some (SharedDispatch.result k.val))
     (hcode : ∀k:Fin 9,CodeAt image (pcOf (SharedDispatch.start k.val)) (SharedDispatch.words k.val))
     (hslot : ∀rank:Fin 563,Frozen.layout.chainWord (N600.embed rank)=195584+64*rank.val)
-    (hcodes : W9Drv.SharedBank.CopyCodes image)
     (hcore : ∀ (L:W9Machine.Layout) (k:Fin 9) (j:Fin 128) (rank:Fin 563),
       (Frozen.image.code.drop 195584).take 59072=(L.image.code.drop 195584).take 59072 → 
-      W9Drv.SharedBank.CopyCodes L.image →
-      L.childWord j=W9Drv.SharedBank.copyWord k.val j.val → Chain.base L k=9768-848*k.val →
+      (∀i,L.childWord i=(SharedLayout.layout k).childWord i) → 
       (∀r,L.chainWord r=Frozen.layout.chainWord r) → 
       ∀w index snapshot u padL padR,
       N600.Pre L (SharedV3.viewWB 2904 w k.val snapshot) index k j rank u → 
       DigAt snapshot (2904+V3.regionOffset k.val+672) padL → 
       DigAt snapshot (2904+V3.regionOffset k.val+160) padR → 
-      TBSim L.image sk u (89+W9Drv.SharedBank.costG k)
-        (N600.program w index k j rank >>=fun ends=>SharedV3.childNG w index k j ends padL padR)
+      TBSim L.image sk u (89+SharedChild.cost k j)
+        (N600.program w index k j rank >>=fun ends=>SharedV3.childN w index k j ends padL padR)
         (SharedCore.Post L (SharedV3.viewWB 2904 w k.val snapshot) index k j u))
     (w : W9Machine.WBytes) (index : Nat) (hi : index<2^31) (raw : Fin 9 → Fin 128)
-    (ranks : Fin 9 → Fin 563) (initial : MachineState) (k : Fin 9) (prev : (Digest×Digest)×List Nat)
-    (u : MachineState) (hu : Inv w index raw ranks initial k.val prev.1 u ∧ RecInv raw k.val prev.2 u) :
-    TBSim image sk u stepW
-      (SharedV3.coordinateG w index k (raw k) (N600.embed (ranks k)) prev.1 >>= fun r=>pure (r.1,prev.2++[r.2]))
-      (fun acc t=>Inv w index raw ranks initial (k.val+1) acc.1 t ∧ RecInv raw (k.val+1) acc.2 t) := by
+    (ranks : Fin 9 → Fin 563) (initial : MachineState) (k : Fin 9) (prev : Digest×Digest)
+    (u : MachineState) (hu : Inv w index raw ranks initial k.val prev u) :
+    TBSim image sk u 224 (SharedV3.coordinate w index k (raw k) (N600.embed (ranks k)) prev)
+      (Inv w index raw ranks initial (k.val+1)) := by
   let L:=SharedDispatch.layout image k
   let v:=(SharedDispatch.result k.val).toState u
   have hs:=SharedDispatch.steps image k u (hchecked k) (hcode k)
-    (by simpa only [pcWord,if_pos k.isLt] using hu.1.pc)
+    (by simpa only [pcWord,if_pos k.isLt] using hu.pc)
   have hc:=SharedDispatch.chain_pre image k u (SharedV3.viewWB 2904 w k.val u) index (raw k) (ranks k)
-    hi hu.1.fields.index (hu.1.fields.raw k) (hu.1.fields.rank k) (hslot _) (witness_view hu.1)
-    (fun h => by rw [hu.1.x8 (by omega), h])
-  have hL:DigAt u (2904+V3.regionOffset k.val+672) prev.1.1 := by
-    convert hu.1.prevL using 1 <;> unfold V3.regionOffset eRegion SharedV3.handL <;>
+    hi hu.fields.index (hu.fields.raw k) (hu.fields.rank k) (hslot _) (witness_view hu) (fun h => by rw [hu.x8 (by omega), h])
+  have hL:DigAt u (2904+V3.regionOffset k.val+672) prev.1 := by
+    convert hu.prevL using 1 <;> unfold V3.regionOffset eRegion SharedV3.handL <;>
       have:=k.isLt <;> simp only [if_neg (by omega : k.val≠9)] <;> omega
-  have hR:DigAt u (2904+V3.regionOffset k.val+160) prev.1.2 := by
-    convert hu.1.prevR using 1 <;> unfold V3.regionOffset eRegion SharedV3.handR <;>
+  have hR:DigAt u (2904+V3.regionOffset k.val+160) prev.2 := by
+    convert hu.prevR using 1 <;> unfold V3.regionOffset eRegion SharedV3.handR <;>
       have:=k.isLt <;> simp only [if_neg (by omega : k.val≠9)] <;> omega
-  have hbase:Chain.base L k=9768-848*k.val := by
-    rw [SharedDispatch.layout_base]; unfold coordinateBase; have:=k.isLt; omega
-  have hb:=hcore L k (raw k) (ranks k) hwindow hcodes rfl hbase (fun _=>rfl)
-    w index u v prev.1.1 prev.1.2 hc hL hR
-  have hj' : TBSim image sk v ((89+W9Drv.SharedBank.costG k)+0)
+  have hb:=hcore L k (raw k) (ranks k) hwindow (fun _=>rfl) (fun _=>rfl)
+    w index u v prev.1 prev.2 hc hL hR
+  -- Use the explicit existential postcondition to attach the hand-off pair.
+  have hj' : TBSim image sk v ((89+SharedChild.cost k (raw k))+0)
       ((N600.program w index k (raw k) (ranks k) >>=fun ends=>
-        SharedV3.childNG w index k (raw k) ends prev.1.1 prev.1.2) >>=fun computed=>
-        pure ((SharedV3.orderPair k.val (SharedV3.physical k.val (raw k).val) computed.1
-          (SharedV3.topOther w k.val (SharedV3.physical k.val (raw k).val))),prev.2++[computed.2]))
-      (fun acc t=>Inv w index raw ranks initial (k.val+1) acc.1 t ∧ RecInv raw (k.val+1) acc.2 t) := by
+        SharedV3.childN w index k (raw k) ends prev.1 prev.2) >>=fun computed=>
+        pure (SharedV3.orderPair k.val (SharedV3.physical k.val (raw k).val) computed
+          (SharedV3.topOther w k.val (SharedV3.physical k.val (raw k).val))))
+      (Inv w index raw ranks initial (k.val+1)) := by
     refine TBSim.bind hb ?_
     intro computed t ht
     obtain ⟨ends,entry,hp,ht⟩:=ht
-    exact TBSim.pure ⟨next hu.1 hp ht,rec_next hu.2 hp ht⟩
+    exact TBSim.pure (next hu hp ht)
   have hh:=TBSim.steps hs hj'
   have hlen:SharedDispatch.length k.val≤39:=by fin_cases k <;> decide
-  have hcost:W9Drv.SharedBank.costG k≤110+SigGolfCandidate.FtsGrind.W_SEARCH 2:=by
-    unfold W9Drv.SharedBank.costG SigGolfCandidate.FtsGrind.W_SEARCH SigGolfCandidate.FtsGrind.FUEL
-      SigGolfCandidate.FtsGrind.ftsWidth
+  have hcost:SharedChild.cost k (raw k)≤96:=by
+    unfold SharedChild.cost SharedChild.spill
     split_ifs <;> omega
-  simpa only [SharedV3.coordinateG,N600.program,bind_assoc,pure_bind] using
-    hh.mono (show SharedDispatch.length k.val+((89+W9Drv.SharedBank.costG k)+0)≤ stepW by unfold stepW; omega)
+  simpa only [SharedV3.coordinate,N600.program,bind_assoc] using
+    hh.mono (show SharedDispatch.length k.val+((89+SharedChild.cost k (raw k))+0)≤224 by omega)
       (fun _ _ h=>h)
 
-/-- E8: the expand forest pass, with the 9 ground nonces and their records. -/
-def forestW : Nat := 9*stepW
-theorem forestW_val : forestW=90036 := by decide
-
-/-- The forest pass's end: the hand-off pair, the frame, the fields, and the 9 nonce records. -/
-def ForestPost (initial : MachineState) (index : Nat) (raw : Fin 9 → Fin 128) (ranks : Fin 9 → Fin 563)
-    (res : (Digest×Digest)×List Nat) (t : MachineState) : Prop :=
-  t.pc=pcOf 46862 ∧ DigAt t 2904 res.1.1 ∧ DigAt t 2952 res.1.2 ∧
-    Frame initial t writes ∧ Fields index raw ranks t ∧ t.getReg .x8=BitVec.ofNat 64 2984 ∧ RecInv raw 9 res.2 t
 
  theorem forest_tbsim (image : Image) (sk : BitVec 256)
     (w : W9Machine.WBytes) (index : Nat) (raw : Fin 9 → Fin 128) (ranks : Fin 9 → Fin 563)
     (initial : MachineState)
-    (hstep : ∀k:Fin 9,∀(prev:(Digest×Digest)×List Nat) u,
-      Inv w index raw ranks initial k.val prev.1 u ∧ RecInv raw k.val prev.2 u → 
-      TBSim image sk u stepW
-        (SharedV3.coordinateG w index k (raw k) (N600.embed (ranks k)) prev.1 >>= fun r=>pure (r.1,prev.2++[r.2]))
-        (fun acc t=>Inv w index raw ranks initial (k.val+1) acc.1 t ∧ RecInv raw (k.val+1) acc.2 t))
+    (hstep : ∀k:Fin 9,∀prev u,Inv w index raw ranks initial k.val prev u → 
+      TBSim image sk u 224 (SharedV3.coordinate w index k (raw k) (N600.embed (ranks k)) prev)
+        (Inv w index raw ranks initial (k.val+1)))
     (h0 : Inv w index raw ranks initial 0 (SharedV3.initialPair w) initial) :
-    TBSim image sk initial forestW (SharedV3.forestG w index raw (fun k=>N600.embed (ranks k)))
-      (ForestPost initial index raw ranks) := by
+    TBSim image sk initial 2016 (SharedV3.forest w index raw (fun k=>N600.embed (ranks k)))
+      (fun pair t=>t.pc=pcOf 46862 ∧ DigAt t 2904 pair.1 ∧ DigAt t 2952 pair.2 ∧
+        Frame initial t writes ∧ Fields index raw ranks t ∧ t.getReg .x8=BitVec.ofNat 64 2984) := by
   have he {α:Type} (f:α → Fin 9 → M α) (init:α) :
       (List.finRange 9).foldlM f init=(List.range' 0 9).foldlM
         (fun st n=>if h:n<9 then f st ⟨n,h⟩ else pure st) init := by
@@ -770,20 +649,15 @@ def ForestPost (initial : MachineState) (index : Nat) (raw : Fin 9 → Fin 128) 
       show List.range' 0 9=[0,1,2,3,4,5,6,7,8] from rfl]
     simp only [List.foldlM_cons,List.foldlM_nil]
     rfl
-  unfold SharedV3.forestG
+  unfold SharedV3.forest
   rw [he]
-  have r0 : RecInv raw 0 [] initial :=
-    ⟨rfl,fun m h=>absurd h (by omega),fun m h=>absurd h (by omega),fun m h=>absurd h (by omega),
-      fun h=>absurd h (by omega),fun h=>absurd h (by omega)⟩
   have hs:=TBSim.foldlM_range' (image:=image) (sk:=sk) 0 9
-    (fun (prev:(Digest×Digest)×List Nat) (n:Nat)=>if h:n<9 then
-      (SharedV3.coordinateG w index ⟨n,h⟩ (raw ⟨n,h⟩) (N600.embed (ranks ⟨n,h⟩)) prev.1 >>= fun r=>
-        pure (r.1,prev.2++[r.2])) else pure prev)
-    (SharedV3.initialPair w,[])
-    (fun n prev u=>Inv w index raw ranks initial n prev.1 u ∧ RecInv raw n prev.2 u) stepW
-    (fun n hn prev u hu=>by simpa only [Nat.zero_add,dif_pos hn] using hstep ⟨n,hn⟩ prev u hu) ⟨h0,r0⟩
-  exact hs.mono (by unfold forestW; omega)
-    (fun pair t ht=>⟨ht.1.pc,ht.1.prevL,ht.1.prevR,ht.1.frame,ht.1.fields,ht.1.x8 (by decide),ht.2⟩)
+    (fun (prev:Digest×Digest) (n:Nat)=>if h:n<9 then
+      SharedV3.coordinate w index ⟨n,h⟩ (raw ⟨n,h⟩) (N600.embed (ranks ⟨n,h⟩)) prev else pure prev)
+    (SharedV3.initialPair w)
+    (fun n prev u=>Inv w index raw ranks initial n prev u) 224
+    (fun n hn prev u hu=>by simpa only [Nat.zero_add,dif_pos hn] using hstep ⟨n,hn⟩ prev u hu) h0
+  exact hs.mono (by decide) (fun pair t ht=>⟨ht.pc,ht.prevL,ht.prevR,ht.frame,ht.fields,ht.x8 (by decide)⟩)
 
 end ClaudeWCT.W9.Machine.Expand.SharedForestRun
 
@@ -794,9 +668,8 @@ open SigGolfCandidate.T3 (Digest M)
 set_option maxRecDepth 100000
 set_option maxHeartbeats 1000000
 
-theorem forest_tbsim_of_copies (image : Image) (sk : BitVec 256)
+theorem forest_tbsim_of_bank (image : Image) (sk : BitVec 256)
     (hwindow : (Frozen.image.code.drop 195584).take 59072=(image.code.drop 195584).take 59072)
-    (hcodes : W9Drv.SharedBank.CopyCodes image)
     (hcode : ∀k:Fin 9,CodeAt image (pcOf (SharedDispatch.start k.val)) (SharedDispatch.words k.val))
     (hslot : ∀rank:Fin 563,Frozen.layout.chainWord (N600.embed rank)=195584+64*rank.val)
     (hchain : ∀ (L : W9Machine.Layout),
@@ -808,13 +681,14 @@ theorem forest_tbsim_of_copies (image : Image) (sk : BitVec 256)
     (w : W9Machine.WBytes) (index : Nat) (hi:index<2^31) (raw : Fin 9 → Fin 128)
     (ranks : Fin 9 → Fin 563) (initial : MachineState)
     (h0 : Inv w index raw ranks initial 0 (SharedV3.initialPair w) initial) :
-    TBSim image sk initial forestW (SharedV3.forestG w index raw (fun k=>N600.embed (ranks k)))
-      (ForestPost initial index raw ranks) := by
+    TBSim image sk initial 2016 (SharedV3.forest w index raw (fun k=>N600.embed (ranks k)))
+      (fun pair t=>t.pc=pcOf 46862 ∧ DigAt t 2904 pair.1 ∧ DigAt t 2952 pair.2 ∧
+        Frame initial t writes ∧ Fields index raw ranks t ∧ t.getReg .x8=BitVec.ofNat 64 2984) := by
   apply forest_tbsim image sk w index raw ranks initial ?_ h0
   intro k prev u hu
-  apply step_tbsim image sk hwindow SharedDispatch.checked hcode hslot hcodes ?_ w index hi raw ranks initial k prev u hu
-  intro L k j rank hw hcodes' hc hb hcw w index snapshot u padL padR hpre hL hR
-  exact SharedCore.core_tbsim L sk hw hcodes' k j rank hc hb
+  apply step_tbsim image sk hwindow SharedDispatch.checked hcode hslot ?_ w index hi raw ranks initial k prev u hu
+  intro L k j rank hw hc hcw w index snapshot u padL padR hpre hL hR
+  exact SharedCore.core_tbsim L sk hw k j rank hc
     (fun w index u hu=>hchain L hw hcw rank w index k j u hu) w index snapshot u padL padR hpre hL hR
 end ClaudeWCT.W9.Machine.Expand.SharedForestRun
 
@@ -855,8 +729,7 @@ def StagePost (im : Image) (s : MachineState) (sig : WCT9.Signature) (hints : Bi
     LInv sig hints index n msg t ∧
     (∀ i<chainCount lay,DigAt t (lWC lay-64*i+48) (lval (WCT9.toT3Signature sig) lay i)) ∧
     (∀ j<height lay,DigAt t (lWM lay-64*j+sideOff (route index lay).1 j) (lpath (WCT9.toT3Signature sig) lay j)) ∧
-    Frame s t (fun A=>CsW lay A ∨ A=lD lay ∨ BC.RlScratch A ∨ RlWit lay (route index lay).1 (lWC lay) (lWM lay) A ∨
-      RecW lay A) ∧
+    Frame s t (fun A=>CsW lay A ∨ A=lD lay ∨ BC.RlScratch A ∨ RlWit lay (route index lay).1 (lWC lay) (lWM lay) A) ∧
     RegsExcept s t lRegs ∧
     t.getMem (BitVec.ofNat 64 (creditAddr lay))=BitVec.ofNat 64 (WCT9.CanonicalPolicy.credit lay low ds) ∧
     ds.length=chainCount lay ∧ (∃ a,WCT9.CanonicalPolicy.decode lay a=some ds) ∧
@@ -864,8 +737,7 @@ def StagePost (im : Image) (s : MachineState) (sig : WCT9.Signature) (hints : Bi
     t.getMem (BitVec.ofNat 64 (lD lay))=replaceWord32 (s.getMem (BitVec.ofNat 64 (lD lay))) (lk lay) (BitVec.ofNat 32 c.toNat) ∧
     hintFloor hints lay ≤ WCT9.CanonicalPolicy.credit lay low ds ∧
     (lay=0 → t.getMem (BitVec.ofNat 64 Search.FLAG)=BitVec.ofNat 64 (if low then 0 else 128)) ∧
-    (lay=0 → NoncesAt t nn (route index lay).1) ∧
-    (lay≠0 → RecAt t lay (route index lay).1 nn)
+    (lay=0 → NoncesAt t nn (route index lay).1)
 
 theorem decode_digit_le {lay : Layer} {v : Digest} {ds : List Nat} (h : WCT9.CanonicalPolicy.decode lay v = some ds) :
     ∀ i<chainCount lay,ds.getD i 0 ≤ maxDigit lay i := by
@@ -929,7 +801,7 @@ theorem stage_good {sig : WCT9.Signature} {hints : BitVec 16} {index n : Nat} {v
   have hcs : CsPre 354 ⟨lay, tree, leaf, value, lR1 lay, hintFloor hints lay, hints⟩ t1 :=
     { pc := p1, x1 := x1, x5 := by rw [r1.get (by decide)]; exact hI.x5, x8 := x8, x9 := x9, x18 := x18,
       x17 := by convert x17 using 2; clear_value lay; fin_cases lay <;> rfl,
-      x26 := x26, x27 := x27, htree := htree, hleaf := hleaf32, hroute := SigGolfCandidate.T3M.LH.route_honest index hI.hidx lay,
+      x26 := x26, x27 := x27, htree := htree, hleaf := hleaf32, hroute := route_routed index lay hI.hidx,
       x15 := Or.inr x15,
       m0 := by rw [g1 _ (by decide)]; exact hI.enc.1,
       m8 := by rw [g1 _ (by decide)]; exact hI.enc.2,
@@ -943,7 +815,7 @@ theorem stage_good {sig : WCT9.Signature} {hints : BitVec 16} {index n : Nat} {v
       zt := hI.zt.frame f1 (by
         intro r hr h; rw [show SigGolfCandidate.T3M.Search.ZeroCap.ZT 354 = 16747280 from rfl] at h; omega),
       floorLt := hintFloor_lt hints lay,
-      floorTop := fun he => by change lay = 0 at he; change hintFloor hints lay = 18; rw [he]; rfl,
+      floorTop := fun he => by change lay = 0 at he; change hintFloor hints lay = 14; rw [he]; rfl,
       hintsLt := hI.hintsLt, floorEq := rfl,
       floorMem := by rw [g1 _ (by decide)]; exact hI.hintsMem,
       t51table := tab1 }
@@ -997,15 +869,14 @@ theorem stage_good {sig : WCT9.Signature} {hints : BitVec 16} {index n : Nat} {v
                exact hI.z.n40)
     refine (TBSim.steps s3 (TBSim.bind (W₂ := 0) (SharedRecover.recoverMsg_tbsim (im := im) (sk := sk) hrl)
       (fun mv t4 h4 => ?_))).mono (by omega) (fun _ _ h => h)
-    obtain ⟨p4, e4, er4, form4, cv4, pv4, r4, f4, blk4, non4, rec4⟩ := h4
+    obtain ⟨p4, e4, er4, form4, cv4, pv4, r4, f4, blk4, non4⟩ := h4
     have hfar4 : ∀ A, A < 0xA0000 → ¬ CsW lay A → A ≠ lD lay → (A < 0x2c48 ∨ 0x7000 ≤ A) → ¬ BC.RlScratch A →
         t4.getMem (BitVec.ofNat 64 A) = s.getMem (BitVec.ofNat 64 A) := by
       intro A hA h1 h2 h3 h4
-      have hw : ¬ ((BC.RlScratch A ∨ RlWit lay (route index lay).1 (lWC lay) (lWM lay) A) ∨ RecW lay A) := by
-        rintro ((h | h) | h)
+      have hw : ¬ (BC.RlScratch A ∨ RlWit lay (route index lay).1 (lWC lay) (lWM lay) A) := by
+        rintro (h | h)
         · exact h4 h
         · have := rlWit_range h; have := ltable_lo lay; omega
-        · unfold RecW at h; omega
       rw [f4.get (by omega) hw, m3 A hA h1 h2]
     have hd8 := htab.2.2.2.2.2.2.2.2.1
     have hd0 := htab.2.2.2.2.2.2.2.2.2.1
@@ -1013,7 +884,7 @@ theorem stage_good {sig : WCT9.Signature} {hints : BitVec 16} {index n : Nat} {v
       intro A hA h; unfold CsW Search.DigW CreditW creditAddr at h; simp only [ENC, EOUT, DIGITS, Search.FLAG] at h hA; omega
     have nrl : ∀ A, ((A < CHAIN + 16 ∨ CHAIN + 112 ≤ A) ∧
         (A < NODE ∨ (NODE + 32 ≤ A ∧ A < NODE + 48) ∨ NOUT + 32 ≤ A) ∧ (A < LEAFPK ∨ LEAFPK + 896 ≤ A) ∧
-        A ≠ ENC ∧ A ≠ ENC + 8 ∧ A ≠ ENC + 48 ∧ A ≠ ENC + 56 ∧ (A % 8 = 0) ∧ A < 0x66700 ∧ 1040 ≤ A) → ¬ BC.RlScratch A := by
+        A ≠ ENC ∧ A ≠ ENC + 8 ∧ A ≠ ENC + 48 ∧ A ≠ ENC + 56 ∧ (A % 8 = 0) ∧ A < 0x66700) → ¬ BC.RlScratch A := by
       intro A hA h; unfold BC.RlScratch Expand.RlScratch at h; simp only [CHAIN, NODE, NOUT, LEAFPK, ENC] at h hA; omega
     have hI4base : BC.LInv sig index n mv.1 t4 := by
       have hx5 : t4.getReg .x5 = 0 := by
@@ -1026,13 +897,11 @@ theorem stage_good {sig : WCT9.Signature} {hints : BitVec 16} {index n : Nat} {v
       · intro hn0
         exact form4 (Fin.ext (by simpa only [Fin.val_zero] using hlv.trans hn0))
       · refine ⟨c.toNat, by omega, ?_⟩
-        have hw : ¬ ((BC.RlScratch (ENC + 32) ∨ RlWit lay (route index lay).1 (lWC lay) (lWM lay) (ENC + 32)) ∨
-            RecW lay (ENC + 32)) := by
-          rintro ((h | h) | h)
+        have hw : ¬ (BC.RlScratch (ENC + 32) ∨ RlWit lay (route index lay).1 (lWC lay) (lWM lay) (ENC + 32)) := by
+          rintro (h | h)
           · exact nrl _ (by decide) h
           · have h1 := rlWit_range h; have := ltable_lo lay; have := htab.2.2.2.2.2.2.2.1
             simp only [ENC] at h1; omega
-          · unfold RecW at h; simp only [ENC] at h; omega
         rw [f4.get (by decide) hw, f3.get (by decide) (by simp only [ENC]; omega), e32]
       · intro lay'
         have htab' := ltable lay'
@@ -1073,16 +942,13 @@ theorem stage_good {sig : WCT9.Signature} {hints : BitVec 16} {index n : Nat} {v
         · have := htab.2.2.2.2.2.2.2.2.1
           simp only [Search.TOP_DATA] at h
           omega
-        · rcases h with (h | h) | h
+        · rcases h with h | h
           · unfold BC.RlScratch Expand.RlScratch at h
             simp only [Search.TOP_DATA, CHAIN, NODE, NOUT, LEAFPK, ENC] at h
             omega
           · have hh := rlWit_range h
             have hb := htab.2.2.2.2.2.2.2.1
             simp only [Search.TOP_DATA] at hh
-            omega
-          · unfold RecW at h
-            simp only [Search.TOP_DATA] at h
             omega
       · apply hI.cf.frame (((f1.trans f2).trans f3).trans f4)
         intro i hi hi' h
@@ -1094,16 +960,13 @@ theorem stage_good {sig : WCT9.Signature} {hints : BitVec 16} {index n : Nat} {v
         · have := htab.2.2.2.2.2.2.2.2.1
           simp only [Search.TOP_DATA] at h
           omega
-        · rcases h with (h | h) | h
+        · rcases h with h | h
           · unfold BC.RlScratch Expand.RlScratch at h
             simp only [Search.TOP_DATA, CHAIN, NODE, NOUT, LEAFPK, ENC] at h
             omega
           · have hh := rlWit_range h
             have hb := htab.2.2.2.2.2.2.2.1
             simp only [Search.TOP_DATA] at hh
-            omega
-          · unfold RecW at h
-            simp only [Search.TOP_DATA] at h
             omega
       · apply hI.reward.frame (((f1.trans f2).trans f3).trans f4)
         intro i hi hi' h
@@ -1115,7 +978,7 @@ theorem stage_good {sig : WCT9.Signature} {hints : BitVec 16} {index n : Nat} {v
         · have := htab.2.2.2.2.2.2.2.2.1
           simp only [Search.TOP_DATA] at h
           omega
-        · rcases h with (h | h) | h
+        · rcases h with h | h
           · unfold BC.RlScratch Expand.RlScratch at h
             simp only [Search.TOP_DATA, CHAIN, NODE, NOUT, LEAFPK, ENC] at h
             omega
@@ -1123,26 +986,21 @@ theorem stage_good {sig : WCT9.Signature} {hints : BitVec 16} {index n : Nat} {v
             have hb := htab.2.2.2.2.2.2.2.1
             simp only [Search.TOP_DATA] at hh
             omega
-          · unfold RecW at h
-            simp only [Search.TOP_DATA] at h
-            omega
-    have frame4 : Frame s t4 (fun A => CsW lay A ∨ A=lD lay ∨ BC.RlScratch A ∨ RlWit lay (route index lay).1 (lWC lay) (lWM lay) A ∨
-        RecW lay A) :=
+    have frame4 : Frame s t4 (fun A => CsW lay A ∨ A=lD lay ∨ BC.RlScratch A ∨ RlWit lay (route index lay).1 (lWC lay) (lWM lay) A) :=
       (((f1.trans f2).trans f3).trans f4).mono (fun A _ h=>by
-        rcases h with ((h|h)|h)|(h|h)|h
+        rcases h with ((h|h)|h)|h|h
         · -- T51: KCOPY's window is part of `Expand.RlScratch`
           exact Or.inr (Or.inr (Or.inl (Or.inl (by
             unfold Expand.RlScratch; simp only [CHAIN, NODE, NOUT, LEAFPK, ENC]; omega))))
         · exact Or.inl h
         · exact Or.inr (Or.inl h)
         · exact Or.inr (Or.inr (Or.inl h))
-        · exact Or.inr (Or.inr (Or.inr (Or.inl h)))
-        · exact Or.inr (Or.inr (Or.inr (Or.inr h))))
+        · exact Or.inr (Or.inr (Or.inr h)))
     have hint4 : t4.getMem (0x66000#64)=BitVec.ofNat 64 hints.toNat := by
       rw [frame4.get (by decide) ?_]
       · exact hI.hintsMem
       · intro h
-        rcases h with h|h|h|h|h
+        rcases h with h|h|h|h
         · unfold CsW Search.DigW CreditW creditAddr at h
           have := lay.isLt
           simp only [ENC,EOUT,DIGITS,Search.FLAG] at h
@@ -1152,35 +1010,32 @@ theorem stage_good {sig : WCT9.Signature} {hints : BitVec 16} {index n : Nat} {v
           simp only [ENC,NODE,NOUT,CHAIN,LEAFPK] at h
           omega
         · have := rlWit_range h; have := ltable lay; omega
-        · unfold RecW at h; omega
     have credit4 : t4.getMem (BitVec.ofNat 64 (creditAddr lay))=BitVec.ofNat 64 (WCT9.CanonicalPolicy.credit lay low ds) := by
       have ha := creditAddr_lt lay
       have hr : 0x66040≤creditAddr lay ∧ creditAddr lay<0x66060 := by unfold creditAddr;have:=lay.isLt;omega
       rw [f4.get ha ?_, f3.get ha ?_]
       · exact credit2
       · have := ltable lay; omega
-      · rintro ((h|h)|h)
+      · rintro (h|h)
         · unfold BC.RlScratch Expand.RlScratch at h
           simp only [ENC,NODE,NOUT,CHAIN,LEAFPK] at h
           omega
         · have := rlWit_range h;have:=ltable lay;omega
-        · unfold RecW at h; omega
     have flag4 : lay=0 → t4.getMem (BitVec.ofNat 64 Search.FLAG)=BitVec.ofNat 64 (if low then 0 else 128) := by
       intro hl0
       rw [f4.get (by decide) ?_, f3.get (by decide) ?_]
       · exact flag2 hl0
       · have := ltable lay; simp only [Search.FLAG]; omega
-      · rintro ((h|h)|h)
+      · rintro (h|h)
         · unfold BC.RlScratch Expand.RlScratch at h
           simp only [ENC,NODE,NOUT,CHAIN,LEAFPK,Search.FLAG] at h
           omega
         · have hr := rlWit_range h;have:=ltable lay;simp only [Search.FLAG] at hr;omega
-        · unfold RecW at h; simp only [Search.FLAG] at h; omega
     have zt4 : SigGolfCandidate.T3M.Search.ZeroCap.ZtOK 354 t4 := by
       refine hI.zt.frame frame4 ?_
       intro r hr h
       rw [show SigGolfCandidate.T3M.Search.ZeroCap.ZT 354=16747280 from rfl] at h
-      rcases h with h|h|h|h|h
+      rcases h with h|h|h|h
       · unfold CsW Search.DigW CreditW creditAddr at h
         have := lay.isLt
         simp only [ENC,EOUT,DIGITS,Search.FLAG] at h
@@ -1190,11 +1045,10 @@ theorem stage_good {sig : WCT9.Signature} {hints : BitVec 16} {index n : Nat} {v
         simp only [ENC,NODE,NOUT,CHAIN,LEAFPK] at h
         omega
       · have := rlWit_range h; have := ltable lay; omega
-      · unfold RecW at h; omega
     have t51src4 : Search.T51.T51TableW 0xFF9E00 t4 := by
       refine hI.t51src.frame frame4 (by decide) (by decide) ?_
       intro k hk h
-      rcases h with h|h|h|h|h
+      rcases h with h|h|h|h
       · unfold CsW Search.DigW CreditW creditAddr at h
         have := lay.isLt
         simp only [ENC,EOUT,DIGITS,Search.FLAG] at h
@@ -1204,16 +1058,12 @@ theorem stage_good {sig : WCT9.Signature} {hints : BitVec 16} {index n : Nat} {v
         simp only [ENC,NODE,NOUT,CHAIN,LEAFPK] at h
         omega
       · have := rlWit_range h; have := ltable lay; omega
-      · unfold RecW at h; omega
-    refine TBSim.pure ⟨⟨hI4base,hI.hintsLt,hint4,zt4,t51src4⟩,cv4,pv4,frame4,?_,credit4,hlen,⟨v,hdec⟩,blk4,?_,creditFloor2,flag4,non4,
-      rec4⟩
+    refine TBSim.pure ⟨⟨hI4base,hI.hintsLt,hint4,zt4,t51src4⟩,cv4,pv4,frame4,?_,credit4,hlen,⟨v,hdec⟩,blk4,?_,creditFloor2,flag4,non4⟩
     · exact (((r1.trans r2).trans r3).trans r4).mono (by decide)
-    · have hw : ¬ ((BC.RlScratch (lD lay) ∨ RlWit lay (route index lay).1 (lWC lay) (lWM lay) (lD lay)) ∨
-          RecW lay (lD lay)) := by
-        rintro ((h|h)|h)
+    · have hw : ¬ (BC.RlScratch (lD lay) ∨ RlWit lay (route index lay).1 (lWC lay) (lWM lay) (lD lay)) := by
+        rintro (h|h)
         · unfold BC.RlScratch Expand.RlScratch at h; simp only [CHAIN,NODE,NOUT,LEAFPK,ENC] at h;omega
         · exact counter_ne_wit lay lay _ h
-        · unfold RecW at h; omega
       rw [f4.get (by omega) hw,hD,f2.get (by omega) (ncs _ (by omega)),g1 _ (by omega)]
       congr 1
       apply BitVec.eq_of_toNat_eq
@@ -1235,19 +1085,19 @@ set_option maxRecDepth 20000
 abbrev Recovered := SigGolfCandidate.Research.SharedForest.RecoveredLayers
 def run (sig : WCT9.Signature) (hints : BitVec 16) (index : Nat) :
     Nat → WCT9.LayerMsg → Digest → List Nat → SigGolfCandidate.T3.M (Option Recovered)
-  | 0,.forest root,v,nn => pure (some ⟨v,root,[],[],[],nn,[[]]⟩)
+  | 0,.forest root,v,nn => pure (some ⟨v,root,[],[],[],nn⟩)
   | 0,.pair _ _,_,_ => pure none
   | n+1,msg,_,_ => do
     let some (c,ds,low,msg',v',nn') ← stage sig hints index n msg | pure none
     let some previous ← run sig hints index n msg' v' nn' | pure none
-    pure (some {previous with counters:=previous.counters++[c],digits:=previous.digits++[ds],lows:=previous.lows++[low],lowerNonces:=if n=0 then previous.lowerNonces else previous.lowerNonces++[nn']})
+    pure (some {previous with counters:=previous.counters++[c],digits:=previous.digits++[ds],lows:=previous.lows++[low]})
 def cost : Nat → Nat
   | 0 => 0
   | n+1 => stageCost (Fin.ofNat 4 n)+cost n
 
 def LW (index n : Nat) (A : Nat) : Prop :=
   Search.CsW A ∨ BC.RlScratch A ∨ ∃ lay : Layer,lay.val<n ∧
-    (A=lD lay ∨ RlWit lay (route index lay).1 (lWC lay) (lWM lay) A ∨ (CreditW lay A ∨ A=Search.FLAG) ∨ RecW lay A)
+    (A=lD lay ∨ RlWit lay (route index lay).1 (lWC lay) (lWM lay) A ∨ (CreditW lay A ∨ A=Search.FLAG))
 def Post (im : Image) (s : MachineState) (sig : WCT9.Signature) (hints : BitVec 16) (index n : Nat) (vin : Digest)
     (nin : List Nat) :
     Option Recovered → MachineState → Prop
@@ -1266,9 +1116,7 @@ def Post (im : Image) (s : MachineState) (sig : WCT9.Signature) (hints : BitVec 
     r.lows.length=n ∧
     (n≠0 → t.getMem (BitVec.ofNat 64 Search.FLAG)=BitVec.ofNat 64 (if r.lows.getD 0 true then 0 else 128)) ∧
     (n=0 → r.nonces=nin) ∧
-    (n≠0 → NoncesAt t r.nonces (route index 0).1) ∧
-    r.lowerNonces.length=max n 1 ∧
-    (∀ lay : Layer,lay≠0 → lay.val<n → RecAt t lay (route index lay).1 (r.lowerNonces.getD lay.val []))
+    (n≠0 → NoncesAt t r.nonces (route index 0).1)
 
 theorem scoped_write {lay : Layer} {A : Nat} :
     CsW lay A ↔ Search.CsW A ∨ (CreditW lay A ∨ A=Search.FLAG) := by
@@ -1288,7 +1136,7 @@ theorem stage_half {im : Image} {s t : MachineState} {sig : WCT9.Signature} {hin
   by_cases he : D=lD lay
   · rw [he,ctr,replaceWord32_other _ _ _ ht.2.2.2.2.2.2.2.2.2.2 hk (fun h=>hn ⟨he.symm,h⟩)]
   · rw [ff.get (by omega) ?_]
-    rintro (hs|hd|hs|hw|hr)
+    rintro (hs|hd|hs|hw)
     · unfold CsW Search.DigW CreditW creditAddr at hs
       simp only [ENC,EOUT,DIGITS,Search.FLAG] at hs
       omega
@@ -1303,14 +1151,13 @@ theorem stage_half {im : Image} {s t : MachineState} {sig : WCT9.Signature} {hin
       · exact counter_ne_wit 3 lay _ hw
       · have:=rlWit_range hw;have:=ltable_lo (Fin.ofNat 4 n);omega
       · have:=rlWit_range hw;have:=ltable_lo (Fin.ofNat 4 n);omega
-    · unfold RecW at hr; rcases hD with rfl|rfl|rfl|rfl|rfl|rfl <;> omega
 
 theorem old_wit_preserved {index n : Nat} {lay : Layer} (hn : n≤lay.val) {A : Nat}
     (hw : RlWit lay (route index lay).1 (lWC lay) (lWM lay) A) : ¬LW index n A := by
   have hr:=rlWit_range hw
   have ht:=ltable lay
   intro h
-  rcases h with h|h|⟨lay',hl,h|h|h|h⟩
+  rcases h with h|h|⟨lay',hl,h|h|h⟩
   · unfold Search.CsW Search.DigW at h; simp only [ENC,EOUT,DIGITS] at h;omega
   · unfold BC.RlScratch Expand.RlScratch at h;simp only [CHAIN,NODE,NOUT,LEAFPK,ENC] at h
     have:=ltable_lo lay;omega
@@ -1319,46 +1166,16 @@ theorem old_wit_preserved {index n : Nat} {lay : Layer} (hn : n≤lay.val) {A : 
     have hr':=rlWit_range h
     rcases ltable_disj lay' lay hne with hd|hd <;> omega
   · unfold CreditW creditAddr at h;simp only [Search.FLAG] at h;omega
-  · unfold RecW at h;omega
 
 theorem old_credit_preserved {index n : Nat} {lay : Layer} (hn : n≤lay.val) : ¬LW index n (creditAddr lay) := by
   have ha : 0x66040≤creditAddr lay ∧ creditAddr lay<0x66060 := by unfold creditAddr;have:=lay.isLt;omega
   intro h
-  rcases h with h|h|⟨lay',hl,h|h|h|h⟩
+  rcases h with h|h|⟨lay',hl,h|h|h⟩
   · unfold Search.CsW Search.DigW at h;simp only [ENC,EOUT,DIGITS] at h;omega
   · unfold BC.RlScratch Expand.RlScratch at h;simp only [CHAIN,NODE,NOUT,LEAFPK,ENC] at h;omega
   · have:=ltable lay';omega
   · have:=rlWit_range h;have:=ltable lay';omega
   · unfold CreditW creditAddr at h;unfold creditAddr at ha;simp only [Search.FLAG] at h;omega
-  · unfold RecW at h;omega
-
-/-- U16b: a later (lower-numbered) layer never writes the record slots of layer `lay`. -/
-theorem recW_not_LW {index n : Nat} {lay : Layer} (hn : n≤lay.val) {A : Nat} (hr : RecW lay A) : ¬LW index n A := by
-  unfold RecW at hr
-  intro h
-  rcases h with h|h|⟨lay',hl,h|h|h|h⟩
-  · unfold Search.CsW Search.DigW at h;simp only [ENC,EOUT,DIGITS] at h;omega
-  · unfold BC.RlScratch Expand.RlScratch at h;simp only [CHAIN,NODE,NOUT,LEAFPK,ENC] at h;omega
-  · have:=ltable lay';omega
-  · have:=rlWit_range h;have:=ltable lay';omega
-  · unfold CreditW creditAddr at h;simp only [Search.FLAG] at h;have:=lay'.isLt;omega
-  · unfold RecW at h;omega
-
-theorem recAt_frame {t u : MachineState} {lay : Layer} {leaf : Nat} {ns : List Nat} {W : Nat → Prop}
-    (h : RecAt t lay leaf ns) (hl : lay≠0) (hf : Frame t u W) (hW : ∀ A,RecW lay A → ¬W A) : RecAt u lay leaf ns := by
-  obtain ⟨hlen,hm,hh,h4⟩:=h
-  have hv : lay.val≠0 := fun e=>hl (Fin.ext e)
-  have hlt:=lay.isLt
-  refine ⟨hlen,fun m hm'=>?_,?_,?_⟩
-  · rw [hf.get (by unfold SharedRecover.Grind.recB;omega)
-      (hW _ ⟨hv,Or.inl ⟨by unfold SharedRecover.Grind.recB;omega,by unfold SharedRecover.Grind.recB;omega⟩⟩)]
-    exact hm m hm'
-  · rw [hf.get (by unfold SharedRecover.Grind.recB;omega)
-      (hW _ ⟨hv,Or.inl ⟨by unfold SharedRecover.Grind.recB;omega,by unfold SharedRecover.Grind.recB;omega⟩⟩)]
-    exact hh
-  · rw [hf.get (by unfold SharedRecover.Grind.recB;omega)
-      (hW _ ⟨hv,Or.inr (by unfold SharedRecover.Grind.recB;omega)⟩)]
-    exact h4
 end SigGolfCandidate.T3M.Expand.SharedLayers
 
 namespace SigGolfCandidate.T3M.Expand.SharedLayers
@@ -1388,7 +1205,7 @@ theorem run_good {sig : WCT9.Signature} {hints : BitVec 16} {index : Nat} :
       (fun lay h=>False.elim (by omega)),(fun lay h=>False.elim (by omega)),
       (fun _ _ _ _ _=>rfl),RegsExcept.refl _ _,Frame.refl _ _,
       (fun _=>⟨rfl,rfl⟩),(fun h=>False.elim (h rfl)),hI.hintsMem,(fun lay h=>False.elim (by omega)),rfl,
-      (fun h=>False.elim (h rfl)),(fun _=>rfl),(fun h=>False.elim (h rfl)),rfl,(fun lay _ h=>False.elim (by omega))⟩
+      (fun h=>False.elim (h rfl)),(fun _=>rfl),(fun h=>False.elim (h rfl))⟩
   | n+1,value,vin,nin,s,hI => by
     have hn : n<4 := by have:=hI.hn;omega
     set lay : Layer:=Fin.ofNat 4 n with hlay
@@ -1400,19 +1217,19 @@ theorem run_good {sig : WCT9.Signature} {hints : BitVec 16} {index : Nat} :
     · exact (TBSim.pure (Q:=Post im s sig hints index (n+1) vin nin) (a:=none) hstage).mono (Nat.zero_le _) (fun _ _ h=>h)
     · have hs:=hstage
       simp only [StagePost,←hlay] at hstage
-      obtain ⟨hIt,cv,pv,ff,rr,credit,len,dec,blk,ctr,floor,flagS,nonS,recS⟩:=hstage
+      obtain ⟨hIt,cv,pv,ff,rr,credit,len,dec,blk,ctr,floor,flagS,nonS⟩:=hstage
       refine (TBSim.bind (W₂:=0) (run_good n msg v nn t hIt) (fun r' u hpost=>?_)).mono (by omega) (fun _ _ h=>h)
       cases r' with
       | none => exact TBSim.pure hpost
       | some out =>
-        obtain ⟨pc,x5,enc,clen,dlen,outs,credits,half,regs,frame,base,top,hintsEq,floors,llen,flagP,nbase,ntop,lnlen,recP⟩:=hpost
+        obtain ⟨pc,x5,enc,clen,dlen,outs,credits,half,regs,frame,base,top,hintsEq,floors,llen,flagP,nbase,ntop⟩:=hpost
         have hD : lD lay=0x3ce8 ∨ lD lay=0x4968 ∨ lD lay=0x55a8 ∨ lD lay=0x820 ∨ lD lay=0x810 ∨ lD lay=0x818 := by
           clear_value lay;fin_cases lay <;> simp [lD]
         have hk:=ht.2.2.2.2.2.2.2.2.2.2
         refine TBSim.pure ⟨pc,x5,enc,by simpa using clen,
           by simpa using dlen,?_,?_,?_,(rr.trans regs).mono (by decide),?_,
           (fun h=>False.elim (by omega)),?_,hintsEq,?_,by simpa using llen,fun _=>?_,
-          (fun h=>False.elim (by omega)),fun _=>?_,?_,?_⟩
+          (fun h=>False.elim (by omega)),fun _=>?_⟩
         · intro lay' hl
           by_cases hlt : lay'.val<n
           · rw [List.getD_append _ _ _ _ (by omega)]
@@ -1452,14 +1269,13 @@ theorem run_good {sig : WCT9.Signature} {hints : BitVec 16} {index : Nat} :
           exact stage_half hs D k hD' hk' (hnot lay (by omega))
         · refine (ff.trans frame).mono (fun A hA h=>?_)
           rcases h with h|h
-          · rcases h with h|h|h|h|h
+          · rcases h with h|h|h|h
             · rcases scoped_write.mp h with h|h
               · exact Or.inl h
-              · exact Or.inr (Or.inr ⟨lay,by omega,Or.inr (Or.inr (Or.inl h))⟩)
+              · exact Or.inr (Or.inr ⟨lay,by omega,Or.inr (Or.inr h)⟩)
             · exact Or.inr (Or.inr ⟨lay,by omega,Or.inl h⟩)
             · exact Or.inr (Or.inl h)
             · exact Or.inr (Or.inr ⟨lay,by omega,Or.inr (Or.inl h)⟩)
-            · exact Or.inr (Or.inr ⟨lay,by omega,Or.inr (Or.inr (Or.inr h))⟩)
           · rcases h with h|h|⟨other,ho,h⟩
             · exact Or.inl h
             · exact Or.inr (Or.inl h)
@@ -1496,20 +1312,6 @@ theorem run_good {sig : WCT9.Signature} {hints : BitVec 16} {index : Nat} :
             rw [nbase hn0]
             simpa only [hl0] using nonS hl0
           · exact ntop hn0
-        · by_cases hn0 : n=0
-          · subst hn0; simp only [↓reduceIte]; omega
-          · rw [if_neg hn0, List.length_append, List.length_singleton]; omega
-        · intro lay' hl0 hl
-          by_cases hlt : lay'.val<n
-          · have hn0 : n≠0 := by omega
-            rw [if_neg hn0, List.getD_append _ _ _ _ (by omega)]
-            exact recP lay' hl0 hlt
-          · have he : lay'=lay := Fin.ext (by omega)
-            subst lay'
-            have hn0 : n≠0 := fun h=>hl0 (Fin.ext (by omega))
-            rw [if_neg hn0, List.getD_append_right _ _ _ _ (by omega),show lay.val-out.lowerNonces.length=0 by omega]
-            simp only [List.getD_cons_zero]
-            exact recAt_frame (recS hl0) hl0 frame (fun A hA=>recW_not_LW (by omega) hA)
 end SigGolfCandidate.T3M.Expand.SharedLayers
 
 namespace SigGolfCandidate.T3M.Expand.SharedLayers
@@ -1552,8 +1354,7 @@ theorem run_eq_recover (sig : SharedForest.Signature) (index : Nat) :
     · rfl
     · simp only [BC.recoverMsg,if_neg hl,Nat.succ_ne_zero,ite_false,bind_assoc,pure_bind]
       congr 1
-      funext pn
-      rcases pn with ⟨pair,ns⟩
+      funext pair
       rw [ih (by omega)]
       rfl
 
@@ -1566,18 +1367,18 @@ open SigGolfCandidate.Research
 set_option maxHeartbeats 1000000
 set_option maxRecDepth 10000
 
-/-- img-v6 machine policy check: pool 72, hints `484·f1 + 22·f2 + f3`; L1 residual < 55, L2 < 40, L3 < 22. -/
+/-- img-v6 machine policy check: pool 67, hints `484·f1 + 22·f2 + f3`; L1 residual < 54, L2 < 40, L3 < 22. -/
 def policyCondition (hints : BitVec 16) (digits : List (List Nat)) (lows : List Bool) : Prop :=
-  let r1:=72-CanonicalPolicy.credit 0 (lows.getD 0 true) (digits.getD 0 [])
+  let r1:=67-CanonicalPolicy.credit 0 (lows.getD 0 true) (digits.getD 0 [])
   let r2:=r1-CanonicalPolicy.credit 1 (lows.getD 1 true) (digits.getD 1 [])
   let r3:=r2-CanonicalPolicy.credit 2 (lows.getD 2 true) (digits.getD 2 [])
-  r1<55 ∧ r2<40 ∧ r3<22 ∧
+  r1<54 ∧ r2<40 ∧ r3<22 ∧
     hints.toNat/484=CanonicalPolicy.threshold 1 r1 ∧
     hints.toNat/22%22=CanonicalPolicy.threshold 2 r2 ∧ hints.toNat%22=r3
 
 theorem policyCondition_iff (hints : BitVec 16) (digits : List (List Nat)) (lows : List Bool)
     (hh : hints.toNat<8000) (hlen : digits.length=4)
-    (hc0 : 18≤CanonicalPolicy.credit 0 (lows.getD 0 true) (digits.getD 0 []))
+    (hc0 : 14≤CanonicalPolicy.credit 0 (lows.getD 0 true) (digits.getD 0 []))
     (hc1 : SharedForest.hintFloor hints 1≤CanonicalPolicy.credit 1 (lows.getD 1 true) (digits.getD 1 []))
     (hc2 : SharedForest.hintFloor hints 2≤CanonicalPolicy.credit 2 (lows.getD 2 true) (digits.getD 2 [])) :
     policyCondition hints digits lows ↔ SharedForest.policyHintsValid hints digits lows=true := by
@@ -1602,16 +1403,16 @@ theorem policyCondition_iff (hints : BitVec 16) (digits : List (List Nat)) (lows
     rw [CanonicalPolicy.lower_three_progress _ hR3]
     exact he3
   · rintro ⟨hH,he1,he2,he3⟩
-    have hr1 : 72-CanonicalPolicy.credit 0 (lows.getD 0 true) (digits.getD 0 [])<55 := by omega
+    have hr1 : 67-CanonicalPolicy.credit 0 (lows.getD 0 true) (digits.getD 0 [])<54 := by omega
     have ht1 := (CanonicalPolicy.lower_one_progress ⟨_,hr1⟩).2
     simp only [Fin.val_mk] at ht1
-    have hr2 : 72-CanonicalPolicy.credit 0 (lows.getD 0 true) (digits.getD 0 [])-
+    have hr2 : 67-CanonicalPolicy.credit 0 (lows.getD 0 true) (digits.getD 0 [])-
         CanonicalPolicy.credit 1 (lows.getD 1 true) (digits.getD 1 [])<40 := by
       rw [←he1] at ht1
       omega
     have ht2 := (CanonicalPolicy.lower_two_progress ⟨_,hr2⟩).2
     simp only [Fin.val_mk] at ht2
-    have hr3 : 72-CanonicalPolicy.credit 0 (lows.getD 0 true) (digits.getD 0 [])-
+    have hr3 : 67-CanonicalPolicy.credit 0 (lows.getD 0 true) (digits.getD 0 [])-
         CanonicalPolicy.credit 1 (lows.getD 1 true) (digits.getD 1 [])-
         CanonicalPolicy.credit 2 (lows.getD 2 true) (digits.getD 2 [])<22 := by
       rw [←he2] at ht2
@@ -1654,19 +1455,19 @@ set_option Elab.async false
 def Tables (s : MachineState) : Prop :=
   ∀i,i<2160 → s.getByte (BitVec.ofNat 64 (16747408+i))=Images.expandSharedData.getD i 0
 
-theorem data1 (r : Fin 55) : Images.expandSharedData.getD (2048+r.val) 0=
+theorem data1 (r : Fin 54) : Images.expandSharedData.getD (2048+r.val) 0=
     BitVec.ofNat 8 (CanonicalPolicy.threshold 1 r.val) := by
   fin_cases r <;> decide +kernel
 theorem data2 (r : Fin 40) : Images.expandSharedData.getD (2112+r.val) 0=
     BitVec.ofNat 8 (CanonicalPolicy.threshold 2 r.val) := by
   fin_cases r <;> decide +kernel
-theorem threshold1_lt (r : Nat) (hr : r<55) : CanonicalPolicy.threshold 1 r<22 := by
-  have h : ∀r:Fin 55,CanonicalPolicy.threshold 1 r.val<22 := by decide +kernel
+theorem threshold1_lt (r : Nat) (hr : r<54) : CanonicalPolicy.threshold 1 r<22 := by
+  have h : ∀r:Fin 54,CanonicalPolicy.threshold 1 r.val<22 := by decide +kernel
   exact h ⟨r,hr⟩
 theorem threshold2_lt (r : Nat) (hr : r<40) : CanonicalPolicy.threshold 2 r<22 := by
   have h : ∀r:Fin 40,CanonicalPolicy.threshold 2 r.val<22 := by decide +kernel
   exact h ⟨r,hr⟩
-theorem Tables.first {s : MachineState} (h : Tables s) (r : Nat) (hr : r<55) :
+theorem Tables.first {s : MachineState} (h : Tables s) (r : Nat) (hr : r<54) :
     s.getByte (BitVec.ofNat 64 (16749456+r))=BitVec.ofNat 8 (CanonicalPolicy.threshold 1 r) := by
   have he:=h (2048+r) (by omega)
   rw [data1 ⟨r,hr⟩] at he
@@ -1763,8 +1564,7 @@ private def layoutWins : List (Nat × List (BitVec 32)) :=
     (48112, Layout.cClr0), (48116, Layout.cClrL)] ++
   (layoutHd 0 :: (layoutZ.drop 0).take 43 ++ (layoutHd 1 :: (layoutZ.drop 43).take 43 ++
   (layoutHd 2 :: (layoutZ.drop 86).take 43 ++ (layoutHd 3 :: (layoutZ.drop 129).take 51 ++ [(49207, Layout.cRet)]))))
-private theorem layout_walk : LayoutWalk.walk Images.expandCode_172 44032 layoutWins = true := by
-  rw [SigGolfCandidate.T3M.expandCode_172_eq_R]; decide +kernel
+private theorem layout_walk : LayoutWalk.walk Images.expandCode_172 44032 layoutWins = true := by decide +kernel
 private theorem pre_mem {w : Nat × List (BitVec 32)}
     (hw : w ∈ [(48000, PairCopy.cPC0), (48001, PairCopy.cPCL), (48013, PairCopy.cPCT), (48100, Layout.cTop),
       (48112, Layout.cClr0), (48116, Layout.cClrL)]) : w ∈ layoutWins := List.mem_append_left _ hw
@@ -1836,21 +1636,6 @@ open SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64 SigGol
 open ClaudeWCT.W9.Machine.Sign.SharedDigest
 set_option maxHeartbeats 4000000
 set_option maxRecDepth 100000
-set_option debug.skipKernelTC false in
-instance digestLabelCode : DigestLabel.Code Images.expandImage true where
-  hook_at := by
-    change CodeAt Images.expandImage (pcOf 45070) [0x7552506f]
-    apply SigGolfCandidate.T3M.codeAt_expand_last <;> decide +kernel
-  prefix_at := by
-    change CodeAt Images.expandImage (pcOf 83939) DigestLabel.prefixWords
-    apply SigGolfCandidate.T3M.codeAt_expand_last <;> decide +kernel
-  hash_at := by
-    change CodeAt Images.expandImage (pcOf 83945) [0x73]
-    apply SigGolfCandidate.T3M.codeAt_expand_last <;> decide +kernel
-  back_at := by
-    change CodeAt Images.expandImage (pcOf 83946) [0x894da06f]
-    apply SigGolfCandidate.T3M.codeAt_expand_last <;> decide +kernel
-
 theorem of_driver {im : Image} (hc : CodeAt im (pcOf 45056) Images.expandSharedDriver) :
     CodeAt im (pcOf (base true)) (words true) := by
   exact SharedCounterHooks.code_slice (off:=0) hc (by decide +kernel) (by decide +kernel)
@@ -1867,13 +1652,13 @@ set_option maxRecDepth 100000
 theorem initial_of_original (w : W9Machine.WBytes) (index : Nat)
     (raw : Fin 9→Fin 128) (ranks : Fin 9→Fin 563) (s : MachineState)
     (hp:s.pc=pcOf 46513) (hf:Fields index raw ranks s)
-    (hw:∀A,2904≤A→A+8≤10616→A%8=0→A≠2928→W9Machine.OrigWD 1352 w s A) :
+    (hw:∀A,2904≤A→A+8≤10616→A%8=0→A≠2928→W9Machine.OrigWD 1224 w s A) :
     Inv w index raw ranks s 0 (SharedV3.initialPair w) s := by
   refine ⟨by decide,hp,hf,?_,?_,?_,Frame.refl _ _,fun h=>absurd h (by decide)⟩
   · have h:=W9Machine.DigAt_origWD (A:=10440) (hw 10440 (by decide) (by decide) (by decide) (by decide))
       (hw 10448 (by decide) (by decide) (by decide) (by decide)) (by decide)
     have e1:eRegion 0+SharedV3.handL 0=10440:=by unfold eRegion SharedV3.handL; rfl
-    have e2:10440+1352-0x10A0=V3.regionOffset 0+672:=by unfold V3.regionOffset; rfl
+    have e2:10440+1224-0x1020=V3.regionOffset 0+672:=by unfold V3.regionOffset; rfl
     rw [e2] at h
     show DigAt s (eRegion 0+SharedV3.handL 0) (SharedV3.leafPad w 0)
     unfold SharedV3.leafPad V3.leafPad
@@ -1881,7 +1666,7 @@ theorem initial_of_original (w : W9Machine.WBytes) (index : Nat)
   · have h:=W9Machine.DigAt_origWD (A:=9928) (hw 9928 (by decide) (by decide) (by decide) (by decide))
       (hw 9936 (by decide) (by decide) (by decide) (by decide)) (by decide)
     have e1:eRegion 0+SharedV3.handR 0=9928:=by unfold eRegion SharedV3.handR; rfl
-    have e2:9928+1352-0x10A0=V3.regionOffset 0+160:=by unfold V3.regionOffset; rfl
+    have e2:9928+1224-0x1020=V3.regionOffset 0+160:=by unfold V3.regionOffset; rfl
     rw [e2] at h
     show DigAt s (eRegion 0+SharedV3.handR 0) (W9Machine.wdig w (V3.regionOffset 0+160))
     rw [e1]; exact h
@@ -1944,19 +1729,21 @@ theorem installed_forest_good (sk : BitVec 256) (output : HashOutput)
     (s : MachineState)
     (h0 : Inv (Paired.witEnc output witness) index (rawChildFromOutput output)
       (fun k=>forestRank output k.val) s 0 (SharedV3.initialPair (Paired.witEnc output witness)) s) :
-    TBSim Images.expandImage sk s forestW
+    TBSim Images.expandImage sk s 2016
       (recoverForest index (forestSelectionFromOutput output) (forestWordsFromOutput output) witness.signature.forest)
-      (ForestPost s index (rawChildFromOutput output) (fun k=>forestRank output k.val)) := by
+      (fun pair t=>t.pc=pcOf 46862 ∧ DigAt t 2904 pair.1 ∧ DigAt t 2952 pair.2 ∧
+        Frame s t writes ∧ Fields index (rawChildFromOutput output) (fun k=>forestRank output k.val) t ∧
+        t.getReg .x8=BitVec.ofNat 64 2984) := by
   have hwin : (Frozen.image.code.drop 195584).take 59072=(Images.expandImage.code.drop 195584).take 59072 := by
     rw [W9Machine.Frozen.image_eq]
     exact Images.expand_banks_eq_verify.symm
-  have hm:=forest_tbsim_of_copies Images.expandImage sk hwin W9Drv.SharedBank.installed_copies
+  have hm:=forest_tbsim_of_bank Images.expandImage sk hwin
     SharedDispatch.installed_code W9Drv.slot_entry
     (fun L hw hc rank w index k j u hu=>N600.tbsim_sharedBank L sk hw hc rank w index k j u hu)
     (Paired.witEnc output witness) index hi (rawChildFromOutput output)
     (fun k=>forestRank output k.val) s h0
   rw[show N600.embed=ClaudeWCT.WCT9.embed from N600.embed_eq_c1] at hm
-  rw[W9Drv.SharedCanonical.forest_witEncG' output witness index hi] at hm
+  rw[W9Drv.SharedCanonical.forest_witEnc output witness index hi] at hm
   exact hm
 end ClaudeWCT.W9.Machine.Expand.SharedForestRun
 end
@@ -5385,8 +5172,8 @@ section
 
 /-! # img-v6 expand final policy check (canon-v6 porter)
 
-Machine proof of the expand policy check at 46929..46979 for the img-v6 image: credit pool 72, policy hints in
-the mixed radix `484·f1 + 22·f2 + f3`, L1 floors by residual `< 55`, L2 `< 40`, L3 floor = residual `< 22`.
+Machine proof of the expand policy check at 46929..46979 for the img-v6 image: credit pool 67, policy hints in
+the mixed radix `484·f1 + 22·f2 + f3`, L1 floors by residual `< 54`, L2 `< 40`, L3 floor = residual `< 22`.
 Adapted from `SharedValidate` in `Expand/H2Front.lean` (e7b: pool 72, radix 20); new namespace
 `SharedValidateV6`, result `validate_source_steps` against `SharedForest.policyHintsValid` (bound 7744). -/
 
@@ -5402,7 +5189,7 @@ sym_block zero0Run := symRun {noAlias:=true} zero0Code (pcOf 46937) 20
 def sub0Code : List (BitVec 32) := [0x406a8ab3]
 sym_block sub0Run := symRun {noAlias:=true} sub0Code (pcOf 46939) 20
 theorem first0_steps {im : Image} (hc : CodeAt im (pcOf 46933) first0Code)
-    (s : MachineState) (hp : s.pc=pcOf 46933) (R C : Nat) (hR : R≤72) (hC : C<2^64)
+    (s : MachineState) (hp : s.pc=pcOf 46933) (R C : Nat) (hR : R≤69) (hC : C<2^64)
     (h21 : s.getReg .x21=BitVec.ofNat 64 R) (hm : s.getMem 417856=BitVec.ofNat 64 C) :
     ∃t,Steps im s 4 4 t ∧ t.pc=(if C<R then pcOf 46939 else pcOf 46937) ∧
       t.getReg .x6=BitVec.ofNat 64 C ∧ RegsExcept s t [.x6,.x28] ∧ Frame s t (fun _=>False) := by
@@ -5428,7 +5215,7 @@ theorem zero0_steps {im : Image} (hc : CodeAt im (pcOf 46937) zero0Code)
   · intro A hA hn;rfl
 
 theorem sub0_steps {im : Image} (hc : CodeAt im (pcOf 46939) sub0Code)
-    (s : MachineState) (hp : s.pc=pcOf 46939) (R C : Nat) (hR : R≤72) (hC : C<R)
+    (s : MachineState) (hp : s.pc=pcOf 46939) (R C : Nat) (hR : R≤69) (hC : C<R)
     (h21 : s.getReg .x21=BitVec.ofNat 64 R) (h6 : s.getReg .x6=BitVec.ofNat 64 C) :
     ∃t,Steps im s 1 1 t ∧ t.pc=pcOf 46940 ∧ t.getReg .x21=BitVec.ofNat 64 (R-C) ∧
       RegsExcept s t [.x21] ∧ Frame s t (fun _=>False) := by
@@ -5446,7 +5233,7 @@ class Residual0Code (im : Image) : Prop where
   sub : CodeAt im (pcOf 46939) sub0Code
 
 theorem residual0_steps {im : Image} [hc : Residual0Code im]
-    (s : MachineState) (hp : s.pc=pcOf 46933) (R C : Nat) (hR : R≤72) (hC : C<2^64)
+    (s : MachineState) (hp : s.pc=pcOf 46933) (R C : Nat) (hR : R≤69) (hC : C<2^64)
     (h21 : s.getReg .x21=BitVec.ofNat 64 R) (hm : s.getMem 417856=BitVec.ofNat 64 C) :
     ∃t n,n≤6 ∧ Steps im s n n t ∧ t.pc=pcOf 46940 ∧ t.getReg .x21=BitVec.ofNat 64 (R-C) ∧
       RegsExcept s t [.x6,.x21,.x28] ∧ Frame s t (fun _=>False) := by
@@ -5466,7 +5253,7 @@ sym_block zero1Run := symRun {noAlias:=true} zero1Code (pcOf 46953) 20
 def sub1Code : List (BitVec 32) := [0x406a8ab3]
 sym_block sub1Run := symRun {noAlias:=true} sub1Code (pcOf 46955) 20
 theorem first1_steps {im : Image} (hc : CodeAt im (pcOf 46949) first1Code)
-    (s : MachineState) (hp : s.pc=pcOf 46949) (R C : Nat) (hR : R≤72) (hC : C<2^64)
+    (s : MachineState) (hp : s.pc=pcOf 46949) (R C : Nat) (hR : R≤69) (hC : C<2^64)
     (h21 : s.getReg .x21=BitVec.ofNat 64 R) (hm : s.getMem 417864=BitVec.ofNat 64 C) :
     ∃t,Steps im s 4 4 t ∧ t.pc=(if C<R then pcOf 46955 else pcOf 46953) ∧
       t.getReg .x6=BitVec.ofNat 64 C ∧ RegsExcept s t [.x6,.x28] ∧ Frame s t (fun _=>False) := by
@@ -5492,7 +5279,7 @@ theorem zero1_steps {im : Image} (hc : CodeAt im (pcOf 46953) zero1Code)
   · intro A hA hn;rfl
 
 theorem sub1_steps {im : Image} (hc : CodeAt im (pcOf 46955) sub1Code)
-    (s : MachineState) (hp : s.pc=pcOf 46955) (R C : Nat) (hR : R≤72) (hC : C<R)
+    (s : MachineState) (hp : s.pc=pcOf 46955) (R C : Nat) (hR : R≤69) (hC : C<R)
     (h21 : s.getReg .x21=BitVec.ofNat 64 R) (h6 : s.getReg .x6=BitVec.ofNat 64 C) :
     ∃t,Steps im s 1 1 t ∧ t.pc=pcOf 46956 ∧ t.getReg .x21=BitVec.ofNat 64 (R-C) ∧
       RegsExcept s t [.x21] ∧ Frame s t (fun _=>False) := by
@@ -5510,7 +5297,7 @@ class Residual1Code (im : Image) : Prop where
   sub : CodeAt im (pcOf 46955) sub1Code
 
 theorem residual1_steps {im : Image} [hc : Residual1Code im]
-    (s : MachineState) (hp : s.pc=pcOf 46949) (R C : Nat) (hR : R≤72) (hC : C<2^64)
+    (s : MachineState) (hp : s.pc=pcOf 46949) (R C : Nat) (hR : R≤69) (hC : C<2^64)
     (h21 : s.getReg .x21=BitVec.ofNat 64 R) (hm : s.getMem 417864=BitVec.ofNat 64 C) :
     ∃t n,n≤6 ∧ Steps im s n n t ∧ t.pc=pcOf 46956 ∧ t.getReg .x21=BitVec.ofNat 64 (R-C) ∧
       RegsExcept s t [.x6,.x21,.x28] ∧ Frame s t (fun _=>False) := by
@@ -5530,7 +5317,7 @@ sym_block zero2Run := symRun {noAlias:=true} zero2Code (pcOf 46970) 20
 def sub2Code : List (BitVec 32) := [0x406a8ab3]
 sym_block sub2Run := symRun {noAlias:=true} sub2Code (pcOf 46972) 20
 theorem first2_steps {im : Image} (hc : CodeAt im (pcOf 46966) first2Code)
-    (s : MachineState) (hp : s.pc=pcOf 46966) (R C : Nat) (hR : R≤72) (hC : C<2^64)
+    (s : MachineState) (hp : s.pc=pcOf 46966) (R C : Nat) (hR : R≤69) (hC : C<2^64)
     (h21 : s.getReg .x21=BitVec.ofNat 64 R) (hm : s.getMem 417872=BitVec.ofNat 64 C) :
     ∃t,Steps im s 4 4 t ∧ t.pc=(if C<R then pcOf 46972 else pcOf 46970) ∧
       t.getReg .x6=BitVec.ofNat 64 C ∧ RegsExcept s t [.x6,.x28] ∧ Frame s t (fun _=>False) := by
@@ -5556,7 +5343,7 @@ theorem zero2_steps {im : Image} (hc : CodeAt im (pcOf 46970) zero2Code)
   · intro A hA hn;rfl
 
 theorem sub2_steps {im : Image} (hc : CodeAt im (pcOf 46972) sub2Code)
-    (s : MachineState) (hp : s.pc=pcOf 46972) (R C : Nat) (hR : R≤72) (hC : C<R)
+    (s : MachineState) (hp : s.pc=pcOf 46972) (R C : Nat) (hR : R≤69) (hC : C<R)
     (h21 : s.getReg .x21=BitVec.ofNat 64 R) (h6 : s.getReg .x6=BitVec.ofNat 64 C) :
     ∃t,Steps im s 1 1 t ∧ t.pc=pcOf 46973 ∧ t.getReg .x21=BitVec.ofNat 64 (R-C) ∧
       RegsExcept s t [.x21] ∧ Frame s t (fun _=>False) := by
@@ -5574,7 +5361,7 @@ class Residual2Code (im : Image) : Prop where
   sub : CodeAt im (pcOf 46972) sub2Code
 
 theorem residual2_steps {im : Image} [hc : Residual2Code im]
-    (s : MachineState) (hp : s.pc=pcOf 46966) (R C : Nat) (hR : R≤72) (hC : C<2^64)
+    (s : MachineState) (hp : s.pc=pcOf 46966) (R C : Nat) (hR : R≤69) (hC : C<2^64)
     (h21 : s.getReg .x21=BitVec.ofNat 64 R) (hm : s.getMem 417872=BitVec.ofNat 64 C) :
     ∃t n,n≤6 ∧ Steps im s n n t ∧ t.pc=pcOf 46973 ∧ t.getReg .x21=BitVec.ofNat 64 (R-C) ∧
       RegsExcept s t [.x6,.x21,.x28] ∧ Frame s t (fun _=>False) := by
@@ -5594,9 +5381,9 @@ open SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64 SigGol
 set_option autoImplicit false
 set_option maxHeartbeats 1500000
 set_option maxRecDepth 10000
-def initCode : List (BitVec 32) := [0x66e37,0xe0e13,0xe3a03,0x4800a93]
+def initCode : List (BitVec 32) := [0x66e37,0xe0e13,0xe3a03,0x4300a93]
 sym_block initRun := symRun {noAlias:=true} initCode (pcOf 46929) 100
-def range1Code : List (BitVec 32) := [0x3700393,0x87afc63]
+def range1Code : List (BitVec 32) := [0x3600393,0x87afc63]
 sym_block range1Run := symRun {noAlias:=true} range1Code (pcOf 46940) 100
 def range2Code : List (BitVec 32) := [0x2800393,0x47afc63]
 sym_block range2Run := symRun {noAlias:=true} range2Code (pcOf 46956) 100
@@ -5609,19 +5396,19 @@ sym_block goodRun := symRun {noAlias:=true} goodCode (pcOf 46978) 100
 def badCode : List (BitVec 32) := [0xf7cd206f]
 sym_block badRun := symRun {noAlias:=true} badCode (pcOf 46979) 100
 theorem range1_steps {im : Image} (hc : CodeAt im (pcOf 46940) range1Code)
-    (s : MachineState) (hp : s.pc=pcOf 46940) (R : Nat) (hR : R≤72)
+    (s : MachineState) (hp : s.pc=pcOf 46940) (R : Nat) (hR : R≤69)
     (h21 : s.getReg .x21=BitVec.ofNat 64 R) :
-    ∃t,Steps im s 2 2 t ∧ t.pc=(if R<55 then pcOf 46942 else pcOf 46979) ∧
+    ∃t,Steps im s 2 2 t ∧ t.pc=(if R<54 then pcOf 46942 else pcOf 46979) ∧
       RegsExcept s t [.x7] ∧ Frame s t (fun _=>False) := by
   refine ⟨_,symRun_sound range1Run hc s hp (by simp [range1Run.res,rv_simp]),?_,?_,?_⟩
   · simp only [Result.toState_pc,range1Run.res]
     t3n [h21]
     simp only [BitVec.ult,BitVec.toNat_ofNat,Nat.mod_eq_of_lt (show R<2^64 by omega),decide_eq_true_eq]
-    by_cases h : R<55 <;> simp [h]
+    by_cases h : R<54 <;> simp [h]
   · intro r hr;cases r <;> first | exact (hr (by decide)).elim | rfl
   · intro A hA hn;rfl
 theorem range2_steps {im : Image} (hc : CodeAt im (pcOf 46956) range2Code)
-    (s : MachineState) (hp : s.pc=pcOf 46956) (R : Nat) (hR : R≤72)
+    (s : MachineState) (hp : s.pc=pcOf 46956) (R : Nat) (hR : R≤69)
     (h21 : s.getReg .x21=BitVec.ofNat 64 R) :
     ∃t,Steps im s 2 2 t ∧ t.pc=(if R<40 then pcOf 46958 else pcOf 46979) ∧
       RegsExcept s t [.x7] ∧ Frame s t (fun _=>False) := by
@@ -5633,7 +5420,7 @@ theorem range2_steps {im : Image} (hc : CodeAt im (pcOf 46956) range2Code)
   · intro r hr;cases r <;> first | exact (hr (by decide)).elim | rfl
   · intro A hA hn;rfl
 theorem range3_steps {im : Image} (hc : CodeAt im (pcOf 46973) range3Code)
-    (s : MachineState) (hp : s.pc=pcOf 46973) (R : Nat) (hR : R≤72)
+    (s : MachineState) (hp : s.pc=pcOf 46973) (R : Nat) (hR : R≤69)
     (h21 : s.getReg .x21=BitVec.ofNat 64 R) :
     ∃t,Steps im s 2 2 t ∧ t.pc=(if R<22 then pcOf 46975 else pcOf 46979) ∧
       RegsExcept s t [.x7] ∧ Frame s t (fun _=>False) := by
@@ -5648,7 +5435,7 @@ theorem init_steps {im : Image} (hc : CodeAt im (pcOf 46929) initCode)
     (s : MachineState) (hp : s.pc=pcOf 46929) (hints : Nat)
     (hm : s.getMem (0x66000#64)=BitVec.ofNat 64 hints) :
     ∃t,Steps im s 4 4 t ∧ t.pc=pcOf 46933 ∧ t.getReg .x20=BitVec.ofNat 64 hints ∧
-      t.getReg .x21=72 ∧ RegsExcept s t [.x20,.x21,.x28] ∧ Frame s t (fun _=>False) := by
+      t.getReg .x21=67 ∧ RegsExcept s t [.x20,.x21,.x28] ∧ Frame s t (fun _=>False) := by
   refine ⟨_,symRun_sound initRun hc s hp (by simp [initRun.res,rv_simp]),rfl,?_,rfl,?_,?_⟩
   · simp [initRun.res,rv_simp,hm]
   · intro r hr;cases r <;> first | exact (hr (by decide)).elim | rfl
@@ -5792,7 +5579,7 @@ theorem lookup1_steps {im : Image}
     (hpre : CodeAt im (pcOf 46942) lookup1PreCode)
     (hload : CodeAt im (pcOf 46945) lookup1LoadCode)
     (hpost : CodeAt im (pcOf 46946) lookup1PostCode)
-    (s : MachineState) (hp : s.pc=pcOf 46942) (R H F : Nat) (hR : R<55) (hH : H<8000) (hF : F<22)
+    (s : MachineState) (hp : s.pc=pcOf 46942) (R H F : Nat) (hR : R<54) (hH : H<8000) (hF : F<22)
     (h21 : s.getReg .x21=BitVec.ofNat 64 R) (h20 : s.getReg .x20=BitVec.ofNat 64 H)
     (hm : s.getByte (BitVec.ofNat 64 (16749456+R))=BitVec.ofNat 8 F) :
     ∃t,Steps im s 7 10 t ∧ t.pc=(if F=H/484 then pcOf 46949 else pcOf 46979) ∧
@@ -5821,7 +5608,7 @@ theorem lookup2_steps {im : Image}
   exact ⟨t,(su.trans sv).trans st,pt,((ru.trans rv).trans rt).mono (by decide),
     ((fu.trans fv).trans ft).mono (by simp)⟩
 theorem last_steps {im : Image} (hc : CodeAt im (pcOf 46975) lastCode)
-    (s : MachineState) (hp : s.pc=pcOf 46975) (R H : Nat) (hR : R≤72) (hH : H<8000)
+    (s : MachineState) (hp : s.pc=pcOf 46975) (R H : Nat) (hR : R≤69) (hH : H<8000)
     (h21 : s.getReg .x21=BitVec.ofNat 64 R) (h20 : s.getReg .x20=BitVec.ofNat 64 H) :
     ∃t,Steps im s 3 6 t ∧ t.pc=(if H%22=R then pcOf 46978 else pcOf 46979) ∧
       RegsExcept s t [.x7,.x29] ∧ Frame s t (fun _=>False) := by
@@ -5871,18 +5658,18 @@ structure Code (im : Image) : Prop where
 
 def regs : List Reg := [.x6,.x7,.x21,.x28,.x29]
 theorem phase1_steps {im : Image} (hc : Code im)
-    (s : MachineState) (hp : s.pc=pcOf 46933) (R C H : Nat) (hR : R≤72) (hC : C<2^64) (hH : H<8000)
+    (s : MachineState) (hp : s.pc=pcOf 46933) (R C H : Nat) (hR : R≤69) (hC : C<2^64) (hH : H<8000)
     (h21 : s.getReg .x21=BitVec.ofNat 64 R) (h20 : s.getReg .x20=BitVec.ofNat 64 H)
     (hm : s.getMem (417856#64)=BitVec.ofNat 64 C)
-    (T : Nat→Nat) (hT : ∀ r,r<55 → T r<22)
-    (hbytes : ∀ r,r<55 → s.getByte (BitVec.ofNat 64 (16749456+r))=BitVec.ofNat 8 (T r)) :
+    (T : Nat→Nat) (hT : ∀ r,r<54 → T r<22)
+    (hbytes : ∀ r,r<54 → s.getByte (BitVec.ofNat 64 (16749456+r))=BitVec.ofNat 8 (T r)) :
     ∃t n c,n≤15 ∧ c≤18 ∧ Steps im s n c t ∧
-      t.pc=(if R-C<55 ∧ H/484=T (R-C) then pcOf 46949 else pcOf 46979) ∧
+      t.pc=(if R-C<54 ∧ H/484=T (R-C) then pcOf 46949 else pcOf 46979) ∧
       t.getReg .x21=BitVec.ofNat 64 (R-C) ∧ RegsExcept s t regs ∧ Frame s t (fun _=>False) := by
   letI:=hc.r0
   obtain ⟨u,n,hn,su,pu,u21,ru,fu⟩:=residual0_steps (im:=im) s hp R C hR hC h21 hm
   obtain ⟨v,sv,pv,rv,fv⟩:=range1_steps hc.range1 u pu (R-C) (by omega) u21
-  by_cases hlt : R-C<55
+  by_cases hlt : R-C<54
   · rw [if_pos hlt] at pv
     obtain ⟨t,st,pt,rt,ft⟩:=lookup1_steps hc.lookup1Pre hc.lookup1Load hc.lookup1Post v pv
       (R-C) H (T (R-C)) hlt hH (hT _ hlt)
@@ -5901,7 +5688,7 @@ theorem phase1_steps {im : Image} (hc : Code im)
     · exact (ru.trans rv).mono (by decide)
     · exact (fu.trans fv).mono (by simp)
 theorem phase2_steps {im : Image} (hc : Code im)
-    (s : MachineState) (hp : s.pc=pcOf 46949) (R C H : Nat) (hR : R≤72) (hC : C<2^64) (hH : H<8000)
+    (s : MachineState) (hp : s.pc=pcOf 46949) (R C H : Nat) (hR : R≤69) (hC : C<2^64) (hH : H<8000)
     (h21 : s.getReg .x21=BitVec.ofNat 64 R) (h20 : s.getReg .x20=BitVec.ofNat 64 H)
     (hm : s.getMem (417864#64)=BitVec.ofNat 64 C)
     (T : Nat→Nat) (hT : ∀ r,r<40 → T r<22)
@@ -5931,7 +5718,7 @@ theorem phase2_steps {im : Image} (hc : Code im)
     · exact (ru.trans rv).mono (by decide)
     · exact (fu.trans fv).mono (by simp)
 theorem phase3_steps {im : Image} (hc : Code im)
-    (s : MachineState) (hp : s.pc=pcOf 46966) (R C H : Nat) (hR : R≤72) (hC : C<2^64) (hH : H<8000)
+    (s : MachineState) (hp : s.pc=pcOf 46966) (R C H : Nat) (hR : R≤69) (hC : C<2^64) (hH : H<8000)
     (h21 : s.getReg .x21=BitVec.ofNat 64 R) (h20 : s.getReg .x20=BitVec.ofNat 64 H)
     (hm : s.getMem (417872#64)=BitVec.ofNat 64 C) :
     ∃t n c,n≤11 ∧ c≤14 ∧ Steps im s n c t ∧
@@ -5965,10 +5752,10 @@ set_option maxHeartbeats 2500000
 set_option maxRecDepth 20000
 
 abbrev Condition (H C0 C1 C2 : Nat) (T1 T2 : Nat→Nat) : Prop :=
-  let R1:=72-C0
+  let R1:=67-C0
   let R2:=R1-C1
   let R3:=R2-C2
-  R1<55 ∧ R2<40 ∧ R3<22 ∧ H/484=T1 R1 ∧ H/22%22=T2 R2 ∧ H%22=R3
+  R1<54 ∧ R2<40 ∧ R3<22 ∧ H/484=T1 R1 ∧ H/22%22=T2 R2 ∧ H%22=R3
 
 theorem validate_steps {im : Image} (hc : Code im)
     (s : MachineState) (hp : s.pc=pcOf 46929) (H C0 C1 C2 : Nat)
@@ -5977,28 +5764,28 @@ theorem validate_steps {im : Image} (hc : Code im)
     (hm0 : s.getMem (417856#64)=BitVec.ofNat 64 C0)
     (hm1 : s.getMem (417864#64)=BitVec.ofNat 64 C1)
     (hm2 : s.getMem (417872#64)=BitVec.ofNat 64 C2)
-    (T1 T2 : Nat→Nat) (ht1 : ∀r,r<55→T1 r<22) (ht2 : ∀r,r<40→T2 r<22)
-    (hb1 : ∀r,r<55→s.getByte (BitVec.ofNat 64 (16749456+r))=BitVec.ofNat 8 (T1 r))
+    (T1 T2 : Nat→Nat) (ht1 : ∀r,r<54→T1 r<22) (ht2 : ∀r,r<40→T2 r<22)
+    (hb1 : ∀r,r<54→s.getByte (BitVec.ofNat 64 (16749456+r))=BitVec.ofNat 8 (T1 r))
     (hb2 : ∀r,r<40→s.getByte (BitVec.ofNat 64 (16749520+r))=BitVec.ofNat 8 (T2 r)) :
     ∃t n c,n≤47 ∧ c≤59 ∧ Steps im s n c t ∧
       t.pc=(if Condition H C0 C1 C2 T1 T2 then pcOf 42795 else pcOf 354) ∧
       RegsExcept s t [.x6,.x7,.x20,.x21,.x28,.x29] ∧ Frame s t (fun _=>False) := by
   obtain ⟨u,su,pu,u20,u21,ru,fu⟩:=init_steps hc.init s hp H hm
-  obtain ⟨v,n1,c1,hn1,hc1,sv,pv,v21,rv,fv⟩:=phase1_steps hc u pu 72 C0 H (by omega) hC0 hH u21 u20
+  obtain ⟨v,n1,c1,hn1,hc1,sv,pv,v21,rv,fv⟩:=phase1_steps hc u pu 67 C0 H (by omega) hC0 hH u21 u20
     (by rw [fu.get (by decide) (by simp)];exact hm0) T1 ht1
     (fun r hr=>by rw [fu.getByte (by omega) (by simp)];exact hb1 r hr)
-  by_cases h1 : 72-C0<55 ∧ H/484=T1 (72-C0)
+  by_cases h1 : 67-C0<54 ∧ H/484=T1 (67-C0)
   · rw [if_pos h1] at pv
-    obtain ⟨w,n2,c2,hn2,hc2,sw,pw,w21,rw_,fw⟩:=phase2_steps hc v pv (72-C0) C1 H (by omega) hC1 hH v21
+    obtain ⟨w,n2,c2,hn2,hc2,sw,pw,w21,rw_,fw⟩:=phase2_steps hc v pv (67-C0) C1 H (by omega) hC1 hH v21
       (by rw [rv.get (by decide)];exact u20)
       (by rw [fv.get (by decide) (by simp),fu.get (by decide) (by simp)];exact hm1) T2 ht2
       (fun r hr=>by rw [fv.getByte (by omega) (by simp),fu.getByte (by omega) (by simp)];exact hb2 r hr)
-    by_cases h2 : 72-C0-C1<40 ∧ H/22%22=T2 (72-C0-C1)
+    by_cases h2 : 67-C0-C1<40 ∧ H/22%22=T2 (67-C0-C1)
     · rw [if_pos h2] at pw
-      obtain ⟨x,n3,c3,hn3,hc3,sx,px,x21,rx,fx⟩:=phase3_steps hc w pw (72-C0-C1) C2 H (by omega) hC2 hH w21
+      obtain ⟨x,n3,c3,hn3,hc3,sx,px,x21,rx,fx⟩:=phase3_steps hc w pw (67-C0-C1) C2 H (by omega) hC2 hH w21
         (by rw [rw_.get (by decide),rv.get (by decide)];exact u20)
         (by rw [fw.get (by decide) (by simp),fv.get (by decide) (by simp),fu.get (by decide) (by simp)];exact hm2)
-      by_cases h3 : 72-C0-C1-C2<22 ∧ H%22=72-C0-C1-C2
+      by_cases h3 : 67-C0-C1-C2<22 ∧ H%22=67-C0-C1-C2
       · rw [if_pos h3] at px
         obtain ⟨t,st,pt,rt,ft⟩:=good_steps hc.good x px
         refine ⟨t,4+n1+n2+n3+1,4+c1+c2+c3+1,by omega,by omega,(((su.trans sv).trans sw).trans sx).trans st,?_,?_,?_⟩
@@ -6081,8 +5868,6 @@ theorem credit_lt (lay : SigGolfCandidate.T3.Layer) (low : Bool) (digits : List 
     exact (List.length_filter_le _ _).trans_eq (List.length_range)
   have hc : SigGolfCandidate.T3.chainCount lay≤54 := by fin_cases lay <;> decide +kernel
   have hb := CanonicalPolicy.pathBonus_le lay low
-  have hl : CanonicalPolicy.ladderReward lay digits ≤ 1 := by
-    unfold CanonicalPolicy.ladderReward; split <;> omega
   unfold CanonicalPolicy.credit CanonicalPolicy.pathReward CanonicalPolicy.reward
   omega
 
@@ -6094,9 +5879,9 @@ theorem validate_source_steps {im : Image} (hc : Code im)
     (hm : s.getMem (0x66000#64)=BitVec.ofNat 64 hints.toNat)
     (hcredits : ∀lay:SigGolfCandidate.T3.Layer,s.getMem (BitVec.ofNat 64 (417856+8*lay.val))=
       BitVec.ofNat 64 (CanonicalPolicy.credit lay (lows.getD lay.val true) (digits.getD lay.val [])))
-    (ht1 : ∀r,r<55→CanonicalPolicy.threshold 1 r<22)
+    (ht1 : ∀r,r<54→CanonicalPolicy.threshold 1 r<22)
     (ht2 : ∀r,r<40→CanonicalPolicy.threshold 2 r<22)
-    (hb1 : ∀r,r<55→s.getByte (BitVec.ofNat 64 (16749456+r))=BitVec.ofNat 8 (CanonicalPolicy.threshold 1 r))
+    (hb1 : ∀r,r<54→s.getByte (BitVec.ofNat 64 (16749456+r))=BitVec.ofNat 8 (CanonicalPolicy.threshold 1 r))
     (hb2 : ∀r,r<40→s.getByte (BitVec.ofNat 64 (16749520+r))=BitVec.ofNat 8 (CanonicalPolicy.threshold 2 r)) :
     ∃t n c,n≤47 ∧ c≤59 ∧ Steps im s n c t ∧
       t.pc=(if SharedForest.policyHintsValid hints digits lows then pcOf 42795 else pcOf 354) ∧

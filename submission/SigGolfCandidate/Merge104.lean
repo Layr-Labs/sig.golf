@@ -1,7 +1,5 @@
 import SigGolfCandidate.Merge101
 import SigGolfCandidate.Merge103
-set_option debug.skipKernelTC true
-set_option linter.all false
 
 -- ==== merged from SphincsSecurity_Proof_Ots_EncodingMarkerAccumulation ====
 section

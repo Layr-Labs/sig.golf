@@ -14,8 +14,6 @@ import Mathlib.Algebra.Order.Antidiag.Pi
 import Mathlib.Algebra.Polynomial.Coeff
 import Mathlib.Algebra.BigOperators.Pi
 import Mathlib.Data.Fintype.Pi
-set_option debug.skipKernelTC true
-set_option linter.all false
 
 -- ==== merged from ClaudeWCT_Numerics_Kernel ====
 section

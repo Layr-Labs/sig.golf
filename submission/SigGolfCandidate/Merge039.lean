@@ -10,8 +10,6 @@ import SigGolfCandidate.Merge033
 import SigGolfCandidate.Merge036
 import SigGolfCandidate.Merge037
 import SigGolfCandidate.Merge038
-set_option debug.skipKernelTC true
-set_option linter.all false
 
 -- ==== merged from ClaudeWCT_W9_T3_FullCache_NativeBudgetB1_CompletenessV5 ====
 section
@@ -437,10 +435,8 @@ def copies (first : Bool) (d : Triple8) : Nat :=
   (if first && decide ((d 0).val = 7) then 1 else 0) +
   (if (d 1).val = 7 ∧ (first = true ∨ (d 0).val = 7) then 1 else 0) +
   (if (d 1).val = 7 ∧ (d 2).val = 7 then 1 else 0)
-/-- N7g (R1): the first rank field (digits 0..2) also earns the chain-0 ladder reward `[d0 ≤ 5]`
-(`CanonicalPolicy.ladderReward`). -/
 def score3 (first : Bool) (d : Triple8) : Nat :=
-  NonbinaryTop.CreditCounting.credit8 d + 4 * copies first d + (if first && decide ((d 0).val ≤ 5) then 1 else 0)
+  NonbinaryTop.CreditCounting.credit8 d + 4 * copies first d
 def zeros3 (d : Triple8) : Nat := ∑ i : Fin 3, if (d i).val = 0 then 1 else 0
 def weight (w : «Word») : Nat := (∑ q : Fin 14, tripleSum8 (w.1 q).val) + w.2.val
 def score (w : «Word») : Nat :=
@@ -459,17 +455,17 @@ theorem stat_eq (w : «Word») : stat w = 65536 * zeros w + 128 * weight w + sco
   ring
 
 theorem score3_le (first : Bool) (d : Triple8) :
-    score3 first d ≤ 8 + if first then 5 else 0 := by
+    score3 first d ≤ 8 + if first then 4 else 0 := by
   revert first d
   decide +kernel
 
-theorem score_le (w : «Word») : score w ≤ 118 := by
+theorem score_le (w : «Word») : score w ≤ 117 := by
   have hs : (∑ q : Fin 14, score3 (decide (q.val = 0)) (w.1 q).val) ≤
-      ∑ q : Fin 14, (8 + if q.val = 0 then 5 else 0) := by
+      ∑ q : Fin 14, (8 + if q.val = 0 then 4 else 0) := by
     apply Finset.sum_le_sum
     intro q _
     simpa using score3_le (decide (q.val = 0)) (w.1 q).val
-  have hb : (∑ q : Fin 14, (8 + if q.val = 0 then 5 else 0)) = 117 := by decide +kernel
+  have hb : (∑ q : Fin 14, (8 + if q.val = 0 then 4 else 0)) = 116 := by decide +kernel
   rw [hb] at hs
   unfold score
   split_ifs <;> omega
@@ -601,8 +597,8 @@ set_option maxRecDepth 1000000
 set_option exponentiation.threshold 10000000
 set_option Elab.async false
 
-def count201 : Nat := 55570472570810960414576583030880241
-def count202 : Nat := 45032610889299281552886727350208003
+def count201 : Nat := 54408112790925688753987891000775297
+def count202 : Nat := 44444210514614632453013305786840214
 
 theorem exact_201 : count 201 10 = count201 := by decide +kernel
 theorem card_201 :
@@ -884,18 +880,11 @@ theorem savedCopies_digits (lay : Layer) (hl : lay ≠ 0) (w : «Word») :
   rw [ht, Nat.add_zero, List.map_flatten, List.sum_flatten]
   simp only [List.map_map, List.map_ofFn, Function.comp_def, copyFlag_block lay hl, List.sum_ofFn]
 
-/-- N7g (R1): the lower score carries the ladder term `[d0 ≤ 5]` (digit 0 = `(w.1 0).val 0`). -/
 theorem digits_effectiveScore (lay : Layer) (hl : lay ≠ 0) (w : «Word») :
-    (digits w).count 6 + 4 * ClaudeWCT.WCT9.savedCopies lay (digits w) +
-      (if ((w.1 0).val 0).val ≤ 5 then 1 else 0) = score w := by
+    (digits w).count 6 + 4 * ClaudeWCT.WCT9.savedCopies lay (digits w) = score w := by
   rw [digits_count, savedCopies_digits lay hl]
   unfold score score3 NonbinaryTop.CreditCounting.credit8
   simp only [Finset.sum_add_distrib, ← Finset.mul_sum]
-  have hlad : (∑ q : Fin 14, (if (decide (q.val = 0) && decide (((w.1 q).val 0).val ≤ 5)) = true then 1 else 0)) =
-      if ((w.1 0).val 0).val ≤ 5 then 1 else 0 := by
-    rw [Fin.sum_univ_succ]
-    simp
-  rw [hlad]
   omega
 
 end SigGolfResearch.LowerEffectiveCounting
@@ -963,11 +952,10 @@ theorem lowerDigitsS1_encode (w : «Word») :
 
 theorem lowerProducerAccept_encode_aux (lay : Layer) (w : «Word»)
     (hw : weight w = target lay) (hz : zeros w ≤ 5)
-    (hc : ClaudeWCT.WCT9.producerFloor lay + 1 ≤ score w)
+    (hc : ClaudeWCT.WCT9.producerFloor lay ≤ score w)
     (hsum : (digits w).sum = weight w)
     (hzero : (digits w).count 0 = zeros w)
-    (hscore : (digits w).count 6 + 4 * ClaudeWCT.WCT9.savedCopies lay (digits w) +
-      (if ((w.1 0).val 0).val ≤ 5 then 1 else 0) = score w) :
+    (hscore : (digits w).count 6 + 4 * ClaudeWCT.WCT9.savedCopies lay (digits w) = score w) :
     lowerProducerAccept lay (encode w).toNat := by
   have hsum' : (List.ofFn (fun i : Fin 42 => (dataDigit w i).val)).sum + w.2.val = target lay := by
     simpa only [digits, List.sum_append, List.sum_cons, List.sum_nil, Nat.add_zero] using hsum.trans hw
@@ -990,24 +978,23 @@ theorem lowerProducerAccept_encode_aux (lay : Layer) (w : «Word»)
       change (digits w).count 0 ≤ 5
       rw [hzero]
       exact hz
-  · rw [hd]
-    have hle : (if ((w.1 0).val 0).val ≤ 5 then 1 else 0) ≤ 1 := by split <;> omega
-    omega
+  · rw [hd, hscore]
+    exact hc
 
 theorem lowerProducerAccept_encode (lay : Layer) (hl : lay ≠ 0) (w : «Word»)
     (hw : weight w = target lay) (hz : zeros w ≤ 5)
-    (hc : ClaudeWCT.WCT9.producerFloor lay + 1 ≤ score w) :
+    (hc : ClaudeWCT.WCT9.producerFloor lay ≤ score w) :
     lowerProducerAccept lay (encode w).toNat :=
   lowerProducerAccept_encode_aux lay w hw hz hc (digits_sum w) (digits_zeros w)
     (digits_effectiveScore lay hl w)
 
 theorem card_lowerProducerAccept_model (lay : Layer) (hl : lay ≠ 0) :
-    count (target lay) (ClaudeWCT.WCT9.producerFloor lay + 1) ≤
+    count (target lay) (ClaudeWCT.WCT9.producerFloor lay) ≤
       (Finset.univ.filter fun v : BitVec 128 => lowerProducerAccept lay v.toNat).card := by
   classical
   have hT : 0 < target lay ∧ target lay ≤ 301 := by fin_cases lay <;> decide +kernel
-  have hf : ClaudeWCT.WCT9.producerFloor lay + 1 ≤ 128 := by fin_cases lay <;> decide
-  rw [← card_model (target lay) (ClaudeWCT.WCT9.producerFloor lay + 1) hT hf]
+  have hf : ClaudeWCT.WCT9.producerFloor lay ≤ 128 := by fin_cases lay <;> decide +kernel
+  rw [← card_model (target lay) (ClaudeWCT.WCT9.producerFloor lay) hT hf]
   apply Finset.card_le_card_of_injOn encode
   · intro w hw
     simp only [Finset.mem_coe, mem_filter, mem_univ, true_and] at hw ⊢
@@ -1061,7 +1048,7 @@ theorem accepted_lowerSpare (lay : Layer) (hl : lay ≠ 0) (floor : Nat)
 
 /-- The canonical top predicate (T51: floor 14 with the d6b LOW bonus 2) holds for every word whose reward reaches a
 floor `≥ 12`. -/
-theorem accepted_topGood {floor : Nat} (hf : 16 ≤ floor) {P : List Nat → Prop} {value : Digest}
+theorem accepted_topGood {floor : Nat} (hf : 12 ≤ floor) {P : List Nat → Prop} {value : Digest}
     (h : accepted 0 floor P value) : topGood value := by
   obtain ⟨ds, hd, _⟩ := (accepted_iff 0 floor P value).mp h
   have hs := CanonicalPolicy.producerDecodeAt_spec hd
@@ -1084,7 +1071,7 @@ noncomputable def topFreeCount : Nat :=
 
 /-- The restricted choice: a producer-accepted top word is selected with weight `2^128 + 3*2^126 - topFreeCount`
 (over `2^256`). -/
-theorem selected_top_card (floor : Nat) (hf : 16 ≤ floor) (P : List Nat → Prop) [DecidablePred P]
+theorem selected_top_card (floor : Nat) (hf : 12 ≤ floor) (P : List Nat → Prop) [DecidablePred P]
     (n : Nat) (hn : (univ.filter (accepted 0 floor P)).card = n) :
     (univ.filter fun answer : HashOutput => accepted 0 floor P (encodingAnswer 0 answer)).card =
       n * (2^128 + 3*2^126 - topFreeCount) := by
@@ -1137,7 +1124,7 @@ theorem accepted_lower_eq_one (lay : Layer) (hl : lay ≠ 0) (floor : Nat)
     accepted lay floor P value ↔ accepted 1 floor P value := by
   simp only [accepted_decode_iff]
   fin_cases lay <;>
-    simp_all [CanonicalPolicy.decode, CanonicalPolicy.normalLayer, CanonicalPolicy.reward, CanonicalPolicy.ladderReward,
+    simp_all [CanonicalPolicy.decode, CanonicalPolicy.normalLayer, CanonicalPolicy.reward,
       dispatchPenalty, wordCredit, savedCopies, safeZeroCopy, canonicalZeroBound, producerZeroCap, producerRankBound,
       chainCount, maxDigit]
 end ClaudeWCT.W9.T3.ProducerV5.Canonical
@@ -1302,15 +1289,8 @@ set_option maxRecDepth 100000
 
 theorem reward_lower_model (w : SigGolfResearch.LowerEffectiveCounting.«Word») :
     CanonicalPolicy.reward 1 (digits w) = score w := by
-  have h := digits_getD w 0 (by decide)
-  simp only [show (0:Nat) < 42 from by decide, dite_true] at h
-  have hlad : CanonicalPolicy.ladderReward 1 (digits w) = if ((w.1 0).val 0).val ≤ 5 then 1 else 0 := by
-    unfold CanonicalPolicy.ladderReward
-    rw [h]
-    simp only [ne_eq, one_ne_zero, not_false_eq_true, true_and]
-    rfl
   unfold CanonicalPolicy.reward
-  rw [wordCredit_lower _ (by decide) _ (digits_length w), hlad]
+  rw [wordCredit_lower _ (by decide) _ (digits_length w)]
   exact digits_effectiveScore _ (by decide) w
 
 theorem credit_lower_model (w : SigGolfResearch.LowerEffectiveCounting.«Word») :
@@ -1402,7 +1382,7 @@ set_option maxRecDepth 100000
 theorem credit_lower_eq_one (lay : Layer) (hl : lay ≠ 0) (ds : List Nat) :
     CanonicalPolicy.credit lay false ds = CanonicalPolicy.credit 1 false ds := by
   fin_cases lay <;> simp_all [CanonicalPolicy.credit, CanonicalPolicy.pathReward, CanonicalPolicy.pathBonus_false,
-    CanonicalPolicy.reward, CanonicalPolicy.ladderReward,
+    CanonicalPolicy.reward,
     dispatchPenalty, wordCredit, savedCopies, safeZeroCopy, chainCount, maxDigit]
 
 theorem accepted_lower_credit_eq_one (lay : Layer) (hl : lay ≠ 0) (floor credit : Nat) (v : Digest) :
@@ -1430,14 +1410,14 @@ theorem selected_lower_credit_card (lay : Layer) (hl : lay ≠ 0) (floor credit 
   exact selected_lower_card lay hl floor _ _ (accepted_lower_credit_card_all lay hl floor credit hf)
 
 theorem accepted_lower_credit_le (lay : Layer) (hl : lay ≠ 0) {floor credit : Nat} {v : Digest}
-    (h : accepted lay floor (fun ds => CanonicalPolicy.credit lay false ds = credit) v) : credit ≤ 118 := by
+    (h : accepted lay floor (fun ds => CanonicalPolicy.credit lay false ds = credit) v) : credit ≤ 117 := by
   have h1 := (accepted_lower_credit_eq_one lay hl floor credit v).mp h
   obtain ⟨w, _, _, _, _, hc⟩ := (accepted_lower_model floor _ v).mp h1
   rw [credit_lower_model] at hc
   exact hc ▸ SigGolfResearch.LowerEffectiveCounting.score_le w
 
 theorem selected_lower_credit_card_zero_of_gt (lay : Layer) (hl : lay ≠ 0)
-    (floor credit : Nat) (hc : 118 < credit) :
+    (floor credit : Nat) (hc : 117 < credit) :
     (univ.filter fun answer : HashOutput => accepted lay floor
       (fun ds => CanonicalPolicy.credit lay false ds = credit) (encodingAnswer lay answer)).card = 0 := by
   apply Finset.card_eq_zero.mpr

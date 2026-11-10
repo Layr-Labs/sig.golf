@@ -7,8 +7,6 @@ import SigGolfCandidate.Merge058
 import SigGolfCandidate.Merge105
 import SigGolfCandidate.Merge107
 import SigGolfCandidate.Merge108
-set_option debug.skipKernelTC true
-set_option linter.all false
 
 -- ==== merged from T3_Secc_LargeCouplingKeygen ====
 section
@@ -81,7 +79,11 @@ theorem Coherent.private_header (hcoh : Coherent U T vals nv τ a)
     cases h
 theorem Coherent.mask_eq (hcoh : Coherent U T vals nv τ a) (level node : Nat) :
     maskOf a level node = evalWithAnswerFn T (T3.mask level node) := by
-  simp [maskOf, SigGolfCandidate.T3.mask, pairedMask, evalWithAnswerFn_bind, evalWithAnswerFn_pure, SphincsSecurity.digestBits]
+  have hp := hcoh.private_header 13 level (node/2) (by decide) (by decide)
+  unfold maskOf T3.mask pairedMask privatePair privateHash
+  simp only [evalWithAnswerFn_bind, evalWithAnswerFn_pure]
+  rw [← hp]
+  rfl
 theorem Coherent.mac_eq (hcoh : Coherent U T vals nv τ a) (region : Region) :
     macOf a region = evalWithAnswerFn T (T3.privateMac region) := by
   have hk : (fun i : Fin 2 => a.priv (.inl (header 14 0 0 0 i.val))) =
@@ -230,9 +232,8 @@ theorem honestInput_short_all {A T : Answers} (hAT : Wots.Ref.ShortAgree A T)
       rw [Wots.PairedReference.pads_short hAT index coord _ hc,Wots.Ref.wctEnds_short hAT index coord child hc hch]
   | wctNode index coord level node =>
       have hc := hb.2.1
-      simp only [Extract.Paired.honestInput, Extract.Paired.honestFtsNonce]
-      rw [Wots.PairedReference.nodes_short hAT index coord hc,Wots.PairedReference.pads_short hAT index coord _ hc,
-        Wots.CanonicalRef.ftsNodeAt_short _ _ _ _ _ A T hAT]
+      simp only [Extract.Paired.honestInput]
+      rw [Wots.PairedReference.nodes_short hAT index coord hc,Wots.PairedReference.pads_short hAT index coord _ hc]
 section Short
 variable {A T : Answers} (hAT : Wots.Ref.ShortAgree A T)
 include hAT
@@ -285,7 +286,7 @@ theorem signDigest_short (m : Message) : LargeResidual.Paired.signDigest A m = L
   unfold LargeResidual.Paired.signDigest
   have hn : evalWithAnswerFn A (SigGolfCandidate.T3.privateNonce m) = evalWithAnswerFn T (SigGolfCandidate.T3.privateNonce m) := by
     simp only [SigGolfCandidate.T3.privateNonce, privateHash, evalWithAnswerFn_bind, evalWithAnswerFn_pure]
-    change BitVec.ofNat 128 (rhoMod (A (.inr (.inr (.inl m))))) = BitVec.ofNat 128 (rhoMod (T (.inr (.inr (.inl m)))))
+    change (A (.inr (.inr (.inl m)))).extractLsb' 0 128 = (T (.inr (.inr (.inl m)))).extractLsb' 0 128
     rw [hAT.priv]
   rw [hn]
   exact digestSearch_short hAT _ _ _ _
@@ -368,7 +369,7 @@ attribute [local irreducible] buildFts buildTree keygen
 noncomputable local instance instDecidableEqCache_w9largeCouplingKeygen : DecidableEq SigGolfCandidate.T3.Cache :=
   Classical.decEq _
 section Keygen
-variable {U : Finset HashInput} {T : Answers} {vals : Coord → Digest} {nv : Message × Fin 2 → Digest}
+variable {U : Finset HashInput} {T : Answers} {vals : Coord → Digest} {nv : Message → Digest}
   {τ : Cell U → HashOutput} {a : AuxData}
 theorem _root_.ClaudeWCT.W9.T3.Security.LargeResidual.Paired.Coherent.topValue_eq (hcoh : LargeResidual.Paired.Coherent U T vals nv τ a) (level node : Nat) (hl : 0 ≤ level) (hl' : level < 12)
     (hn : node < 2 ^ (12 - level)) : topValue (keyValues vals) level node = treeValue (builtTree T 0 0) level node := by
@@ -410,7 +411,11 @@ theorem _root_.ClaudeWCT.W9.T3.Security.LargeResidual.Paired.Coherent.private_he
     cases h
 theorem _root_.ClaudeWCT.W9.T3.Security.LargeResidual.Paired.Coherent.mask_eq (hcoh : LargeResidual.Paired.Coherent U T vals nv τ a) (level node : Nat) :
     maskOf a level node = evalWithAnswerFn T (SigGolfCandidate.T3.mask level node) := by
-  simp [maskOf, SigGolfCandidate.T3.mask, pairedMask, evalWithAnswerFn_bind, evalWithAnswerFn_pure, SphincsSecurity.digestBits]
+  have hp := hcoh.private_header 13 level (node/2) (by decide) (by decide)
+  unfold maskOf SigGolfCandidate.T3.mask pairedMask privatePair privateHash
+  simp only [evalWithAnswerFn_bind, evalWithAnswerFn_pure]
+  rw [← hp]
+  rfl
 theorem _root_.ClaudeWCT.W9.T3.Security.LargeResidual.Paired.Coherent.mac_eq (hcoh : LargeResidual.Paired.Coherent U T vals nv τ a) (region : Region) :
     macOf a region = evalWithAnswerFn T (SigGolfCandidate.T3.privateMac region) := by
   have hk : (fun i : Fin 2 => a.priv (.inl (header 14 0 0 0 i.val))) =
@@ -578,11 +583,11 @@ attribute [local irreducible] keygen
 noncomputable local instance instDecidableEqCache_w9largeCouplingTable : DecidableEq SigGolfCandidate.T3.Cache :=
   Classical.decEq _
 section Table
-variable {U : Finset HashInput} {T : Answers} {vals : Coord → Digest} {nv : Message × Fin 2 → Digest}
+variable {U : Finset HashInput} {T : Answers} {vals : Coord → Digest} {nv : Message → Digest}
   {τ : Cell U → HashOutput} {a : AuxData} {q : Nat}
 end Table
 section Overflow
-variable {U : Finset HashInput} {T : Answers} {vals : Coord → Digest} {nv : Message × Fin 2 → Digest}
+variable {U : Finset HashInput} {T : Answers} {vals : Coord → Digest} {nv : Message → Digest}
   {τ : Cell U → HashOutput} {a : AuxData}
 theorem idx_zero_card (l : List ℕ) :
     ((Finset.range l.length).filter fun i => l.getD i 0 = 0).card = (l.filter (· = 0)).length := by
@@ -622,9 +627,9 @@ attribute [local irreducible] keygen
 noncomputable local instance instDecidableEqCache_w9largeCouplingTable_initial : DecidableEq SigGolfCandidate.T3.Cache :=
   Classical.decEq _
 section Table
-variable {U : Finset HashInput} {T : Answers} {vals : Coord → Digest} {nv : Message × Fin 2 → Digest}
+variable {U : Finset HashInput} {T : Answers} {vals : Coord → Digest} {nv : Message → Digest}
   {τ : Cell U → HashOutput} {a : AuxData} {q : Nat}
-noncomputable def keyState (U : Finset HashInput) (q : Nat) (vals : Coord → Digest) (nv : Message × Fin 2 → Digest) :
+noncomputable def keyState (U : Finset HashInput) (q : Nat) (vals : Coord → Digest) (nv : Message → Digest) :
     LargeResidual.State WCoord (Cell U) :=
   discloseStates U q (Sum.elim vals nv) LargeResidual.initial keygenDisclosed
 theorem rel_initial :
@@ -759,13 +764,13 @@ theorem logSeeds_card (T : Answers) (log : QueryLog ClaudeWCT.W9.T3M.Final.Paire
   calc _ ≤ ∑ N ∈ S, 1 := Finset.sum_le_sum fun N _ => Finset.card_image_le.trans (digitThree_card _)
     _ = 1 * S.card := by rw [Finset.sum_const, smul_eq_mul, mul_comm]
     _ ≤ 1 * 50 := Nat.mul_le_mul_left _ (hno f.1)
-variable {U : Finset HashInput} {T : Answers} {vals : Coord → Digest} {nv : Message × Fin 2 → Digest}
+variable {U : Finset HashInput} {T : Answers} {vals : Coord → Digest} {nv : Message → Digest}
   {τ : Cell U → HashOutput} {a : AuxData}
 /-- The seeds a sign step discloses are opened by the logged signature of that step. -/
 theorem signDisclosed_logSeeds (hcoh : LargeResidual.Paired.Coherent U T vals nv τ a) (published : SigGolfCandidate.T3.Cache)
     (hsource : ∀request : Security.Request,request.cache=published →
       evalWithAnswerFn T (PairedOuter.FullGame.authenticatedSign published request)=
-        finishOut T vals (LargeResidual.nonceVal nv request.message) (LargeResidual.Paired.signDigest T request.message)) (request : Security.Request)
+        finishOut T vals (nv request.message) (LargeResidual.Paired.signDigest T request.message)) (request : Security.Request)
     (w : CanonGraph.WctAddr) (hw : (.inr (.inr w) : Coord) ∈ signDisclosed T published request) :
     w ∈ logSeeds T [⟨request, evalWithAnswerFn T (PairedOuter.FullGame.authenticatedSign published request)⟩] (w.1, w.2.1) := by
   unfold signDisclosed at hw
@@ -787,14 +792,14 @@ theorem signDisclosed_logSeeds (hcoh : LargeResidual.Paired.Coherent U T vals nv
         omega
       refine (mem_logSeeds T _ _ w).mpr ⟨rfl, N, ?_, h1.symm, h2.symm, hdig⟩
       rw [WPair.Paired.mem_loggedOutputs]
-      refine ⟨_, List.mem_singleton_self _, assembleSig (LargeResidual.nonceVal nv request.message) N (ClaudeWCT.W9.T3.Security.LargeResidual.selVals vals) (Wots.CanonicalRef.referenceDigits T (Wots.CanonicalRef.sourceMessages T)) (Wots.CanonicalRef.referenceLow T (Wots.CanonicalRef.sourceMessages T)), ?_, ?_⟩
+      refine ⟨_, List.mem_singleton_self _, assembleSig (nv request.message) N (ClaudeWCT.W9.T3.Security.LargeResidual.selVals vals) (Wots.CanonicalRef.referenceDigits T (Wots.CanonicalRef.sourceMessages T)) (Wots.CanonicalRef.referenceLow T (Wots.CanonicalRef.sourceMessages T)), ?_, ?_⟩
       · change evalWithAnswerFn T (PairedOuter.FullGame.authenticatedSign published request) = _
         rw [hsource request hc, hsd]
         unfold finishOut
         dsimp only
         rw [if_pos hok]
       · unfold WPair.Paired.signedOutput
-        have hrho : (assembleSig (LargeResidual.nonceVal nv request.message) N (ClaudeWCT.W9.T3.Security.LargeResidual.selVals vals) (Wots.CanonicalRef.referenceDigits T (Wots.CanonicalRef.sourceMessages T)) (Wots.CanonicalRef.referenceLow T (Wots.CanonicalRef.sourceMessages T))).rho = LargeResidual.nonceVal nv request.message := rfl
+        have hrho : (assembleSig (nv request.message) N (ClaudeWCT.W9.T3.Security.LargeResidual.selVals vals) (Wots.CanonicalRef.referenceDigits T (Wots.CanonicalRef.sourceMessages T)) (Wots.CanonicalRef.referenceLow T (Wots.CanonicalRef.sourceMessages T))).rho = nv request.message := rfl
         rw [hrho, ← hcoh.privateNonce]
         unfold LargeResidual.Paired.signDigest at hsd
         rw [hsd]
@@ -803,11 +808,11 @@ theorem signDisclosed_logSeeds (hcoh : LargeResidual.Paired.Coherent U T vals nv
 theorem discSeeds_steps (hcoh : LargeResidual.Paired.Coherent U T vals nv τ a) (published : SigGolfCandidate.T3.Cache)
     (hsource : ∀request : Security.Request,request.cache=published →
       evalWithAnswerFn T (PairedOuter.FullGame.authenticatedSign published request)=
-        finishOut T vals (LargeResidual.nonceVal nv request.message) (LargeResidual.Paired.signDigest T request.message)) {α : Type}
+        finishOut T vals (nv request.message) (LargeResidual.Paired.signDigest T request.message)) {α : Type}
     (program : OracleComp PairedOuter.LazyPrivate.Interaction α) :
     ∀ (state : LazyPrivate.State) (t : Tagged α), t ∈ support (taggedFixed T published program state) →
       ∀ (st : RouterState) (f : Fin (2 ^ 31) × Fin 9),
-        DiscSeeds (t.steps.foldl (routerStep U T (LargeResidual.nonceVal nv) published) st) f ⊆ DiscSeeds st f ∪ logSeeds T t.value.2 f := by
+        DiscSeeds (t.steps.foldl (routerStep U T nv published) st) f ⊆ DiscSeeds st f ∪ logSeeds T t.value.2 f := by
   induction program using OracleComp.inductionOn with
   | pure v =>
       intro state t ht st f
@@ -822,15 +827,15 @@ theorem discSeeds_steps (hcoh : LargeResidual.Paired.Coherent U T vals nv τ a) 
         rw [support_map] at ht
         obtain ⟨last, hl, rfl⟩ := ht
         simp only [List.foldl_cons]
-        have hst : DiscSeeds (routerStep U T (LargeResidual.nonceVal nv) published st (.world ⟨state, .inl world, answer⟩)) f =
+        have hst : DiscSeeds (routerStep U T nv published st (.world ⟨state, .inl world, answer⟩)) f =
             DiscSeeds st f := by
-          have hd : (routerStep U T (LargeResidual.nonceVal nv) published st (.world ⟨state, .inl world, answer⟩)).disclosed = st.disclosed := by
+          have hd : (routerStep U T nv published st (.world ⟨state, .inl world, answer⟩)).disclosed = st.disclosed := by
             rcases world with n | X
             · rfl
             · exact LargeResidual.RouterState.next_disclosed U st X answer
           unfold DiscSeeds
           rw [hd]
-        have := ih answer _ last hl (routerStep U T (LargeResidual.nonceVal nv) published st (.world ⟨state, .inl world, answer⟩)) f
+        have := ih answer _ last hl (routerStep U T nv published st (.world ⟨state, .inl world, answer⟩)) f
         rw [hst] at this
         exact this
       · rw [taggedFixed_request, mem_support_bind_iff] at ht
@@ -839,11 +844,11 @@ theorem discSeeds_steps (hcoh : LargeResidual.Paired.Coherent U T vals nv τ a) 
         obtain ⟨last, hl, rfl⟩ := ht
         rw [Wots.Ref.fixedRecord_hashOnly T _ (Wots.PairedReference.Ref.authenticatedSign_hashOnly _ _), mem_support_pure_iff] at hb
         simp only [List.foldl_cons]
-        have hih := ih block.value _ last hl (routerStep U T (LargeResidual.nonceVal nv) published st (.sign request block.value block.events)) f
+        have hih := ih block.value _ last hl (routerStep U T nv published st (.sign request block.value block.events)) f
         intro w hw
         rcases Finset.mem_union.mp (hih hw) with h | h
-        · have hd : (routerStep U T (LargeResidual.nonceVal nv) published st (.sign request block.value block.events)).disclosed =
-              st.disclosed ++ signDisclosed T published request := signedState_disclosed T (LargeResidual.nonceVal nv) published st request
+        · have hd : (routerStep U T nv published st (.sign request block.value block.events)).disclosed =
+              st.disclosed ++ signDisclosed T published request := signedState_disclosed T nv published st request
           rw [mem_DiscSeeds, hd, List.mem_append] at h
           rcases h.2 with h2 | h2
           · exact Finset.mem_union_left _ ((mem_DiscSeeds st f w).mpr ⟨h.1, h2⟩)
@@ -1079,12 +1084,12 @@ noncomputable local instance instDecidableEqCache_w9largeCouplingTable_contact :
 def NoOvR (adversary : ClaudeWCT.W9.T3M.Final.Paired.AdversaryP) (rec : FirstHit.Recorded Bool) (A : Answers) : Prop :=
   ∀ g i c, Wots.PairedReference.GameSplit adversary rec g i c → LogNoOverflow A i.value.2
 theorem table_contact_le (adversary : ClaudeWCT.W9.T3M.Final.Paired.AdversaryP) (q : Nat) (hq : q ≤ 2 ^ 127) (initLaw : PMF AuxData)
-    {T : Answers} {vals : Coord → Digest} {nv : Message × Fin 2 → Digest}
+    {T : Answers} {vals : Coord → Digest} {nv : Message → Digest}
     {τ : Cell (Wots.PairedReference.referenceInputs adversary) → HashOutput} {a : AuxData}
     (hcoh : LargeResidual.Paired.Coherent (Wots.PairedReference.referenceInputs adversary) T vals nv τ a)
     (hsource : ∀request : Security.Request,request.cache=(evalWithAnswerFn T keygen).2 →
       evalWithAnswerFn T (PairedOuter.FullGame.authenticatedSign (evalWithAnswerFn T keygen).2 request)=
-        finishOut T vals (LargeResidual.nonceVal nv request.message) (LargeResidual.Paired.signDigest T request.message)) :
+        finishOut T vals (nv request.message) (LargeResidual.Paired.signDigest T request.message)) :
     Pr[fun rec => ContactR adversary q rec T ∧ NoOvR adversary rec T |
         Wots.Ref.fixedRecord T (PairedOuter.GameWith.idealGame PairedOuter.PaddedGame.checker adversary) (∅, ∅)] ≤
       Pr[fun r => r.1 = none ∧ r.2.counters.calls ≤ q |
@@ -1111,7 +1116,7 @@ theorem table_contact_le (adversary : ClaudeWCT.W9.T3M.Final.Paired.AdversaryP) 
       have hsub := discSeeds_steps hcoh (evalWithAnswerFn T keygen).2 hsource _ _ t ht LargeResidual.RouterState.initial f
       rw [discSeeds_initial, Finset.empty_union] at hsub
       exact (Finset.card_le_card hsub).trans ((logSeeds_card T _ hno f).trans (by norm_num))
-    · have hsub := discLower_steps (Wots.PairedReference.referenceInputs adversary) T (LargeResidual.nonceVal nv) (evalWithAnswerFn T keygen).2 t.steps
+    · have hsub := discLower_steps (Wots.PairedReference.referenceInputs adversary) T nv (evalWithAnswerFn T keygen).2 t.steps
         LargeResidual.RouterState.initial L
       rw [discLower_initial, Finset.empty_union] at hsub
       have := lowerZeros_card T L
@@ -1422,8 +1427,8 @@ set_option maxRecDepth 10000
 set_option backward.isDefEq.respectTransparency false
 set_option synthInstance.maxSize 1024
 attribute [local instance] Classical.propDecidable
-theorem nonce_not_secret (m : Message) (i : Fin 2) :
-    (((.inr (.inl m) : Coordinate), i) : ChainGraph.HalfCoordinate) ∉ Set.range secretCoordinate := by
+theorem nonce_not_secret (m : Message) :
+    (((.inr (.inl m) : Coordinate), (0 : Fin 2)) : ChainGraph.HalfCoordinate) ∉ Set.range secretCoordinate := by
   rintro ⟨s, hs⟩
   have hp := congrArg Prod.fst hs
   cases s with
@@ -1431,25 +1436,24 @@ theorem nonce_not_secret (m : Message) (i : Fin 2) :
       simp only [secretCoordinate, Sum.elim_inl, seedCoordinateP] at hp
       split_ifs at hp <;> cases hp
   | inr f => cases hp
-/-- R6: both 128-bit halves of the nonce output of `m` (the nonce is `rhoMod` of the full output). -/
-def nonceHalf (p : Message × Fin 2) : OtherHalf := ⟨((.inr (.inl p.1) : Coordinate), p.2), nonce_not_secret p.1 p.2⟩
+def nonceHalf (m : Message) : OtherHalf := ⟨((.inr (.inl m) : Coordinate), 0), nonce_not_secret m⟩
 theorem nonceHalf_injective : Function.Injective nonceHalf := by
-  intro p p' h
-  have h1 := congrArg (fun x : OtherHalf => x.val) h
-  simp only [nonceHalf, Prod.mk.injEq] at h1
-  exact Prod.ext (Sum.inl.inj (Sum.inr.inj h1.1)) h1.2
-noncomputable def nonceOver (o : OtherHalves) (nvv : Message × Fin 2 → Digest) : OtherHalves :=
+  intro m m' h
+  have h1 := congrArg (fun x : OtherHalf => x.val.1) h
+  simp only [nonceHalf] at h1
+  exact Sum.inl.inj (Sum.inr.inj h1)
+noncomputable def nonceOver (o : OtherHalves) (nvv : Message → Digest) : OtherHalves :=
   SphincsSecurity.Concrete.UniformTableSplit.overwrite nonceHalf nonceHalf_injective nvv o
-noncomputable def privPsi (s : Secrets) (nvv : Message × Fin 2 → Digest) (priv : FullGame.FullTable) : FullGame.FullTable :=
+noncomputable def privPsi (s : Secrets) (nvv : Message → Digest) (priv : FullGame.FullTable) : FullGame.FullTable :=
   privateEquiv.symm (s, nonceOver (privateEquiv priv).2 nvv)
 theorem privateEquiv_snd (t : FullGame.FullTable) (h : OtherHalf) : (privateEquiv t).2 h = ChainGraph.halves t h.val := by
   change (splitEquiv (ChainGraph.halves t)).2 h = _
   simp [splitEquiv, Equiv.sumArrowEquivProdArrow]
   rfl
-theorem halves_privPsi (s : Secrets) (nvv : Message × Fin 2 → Digest) (priv : FullGame.FullTable)
+theorem halves_privPsi (s : Secrets) (nvv : Message → Digest) (priv : FullGame.FullTable)
     (h : ChainGraph.HalfCoordinate) (hs : h ∉ Set.range secretCoordinate) :
     ChainGraph.halves (privPsi s nvv priv) h =
-      if hn : ∃ p : Message × Fin 2, h = ((.inr (.inl p.1) : Coordinate), p.2) then nvv (Classical.choose hn)
+      if hn : ∃ m, h = ((.inr (.inl m) : Coordinate), 0) then nvv (Classical.choose hn)
       else ChainGraph.halves priv h := by
   have h1 := privateEquiv_snd (privPsi s nvv priv) ⟨h, hs⟩
   unfold privPsi at h1
@@ -1465,38 +1469,31 @@ theorem halves_privPsi (s : Secrets) (nvv : Message × Fin 2 → Digest) (priv :
   · rw [nonceOver, SphincsSecurity.Concrete.UniformTableSplit.overwrite_outside _ _ _ _ _ (by
       rintro ⟨m, hm⟩
       exact hn ⟨m, (congrArg Subtype.val hm).symm⟩), privateEquiv_snd]
-theorem privPsi_other (s : Secrets) (nvv : Message × Fin 2 → Digest) (priv : FullGame.FullTable) (c : Coordinate)
+theorem privPsi_other (s : Secrets) (nvv : Message → Digest) (priv : FullGame.FullTable) (c : Coordinate)
     (hc : ∀ i : Fin 2, (c, i) ∉ Set.range secretCoordinate) (hn : ∀ m : Message, c ≠ .inr (.inl m)) :
     privPsi s nvv priv c = priv c := by
   have hh : ∀ i : Fin 2, ChainGraph.halves (privPsi s nvv priv) (c, i) = ChainGraph.halves priv (c, i) := by
     intro i
     rw [halves_privPsi s nvv priv (c, i) (hc i), dif_neg]
-    rintro ⟨p, hm⟩
-    exact hn p.1 (congrArg Prod.fst hm)
+    rintro ⟨m, hm⟩
+    exact hn m (congrArg Prod.fst hm)
   have h0 := hh 0
   have h1 := hh 1
   simp only [ChainGraph.halves] at h0 h1
   simp only [Fin.isValue, Fin.val_zero, if_true, Fin.val_one, one_ne_zero, if_false] at h0 h1
   rw [← ChainGraph.joinOutput_parts (privPsi s nvv priv c), ← ChainGraph.joinOutput_parts (priv c), h0, h1]
-theorem privPsi_half (s : Secrets) (nvv : Message × Fin 2 → Digest) (priv : FullGame.FullTable) (p : Message × Fin 2) :
-    ChainGraph.halves (privPsi s nvv priv) (((.inr (.inl p.1) : Coordinate), p.2) : ChainGraph.HalfCoordinate) = nvv p := by
-  have h := halves_privPsi s nvv priv _ (nonce_not_secret p.1 p.2)
-  rw [dif_pos ⟨p, rfl⟩] at h
-  have hm : Classical.choose (⟨p, rfl⟩ : ∃ p' : Message × Fin 2, (((.inr (.inl p.1) : Coordinate), p.2) :
-      ChainGraph.HalfCoordinate) = ((.inr (.inl p'.1) : Coordinate), p'.2)) = p := by
-    have := Classical.choose_spec (⟨p, rfl⟩ : ∃ p' : Message × Fin 2, (((.inr (.inl p.1) : Coordinate), p.2) :
-      ChainGraph.HalfCoordinate) = ((.inr (.inl p'.1) : Coordinate), p'.2))
-    exact Prod.ext (Sum.inl.inj (Sum.inr.inj (congrArg Prod.fst this))).symm (congrArg Prod.snd this).symm
+theorem privPsi_nonce (s : Secrets) (nvv : Message → Digest) (priv : FullGame.FullTable) (m : Message) :
+    (privPsi s nvv priv (.inr (.inl m))).extractLsb' 0 128 = nvv m := by
+  have h := halves_privPsi s nvv priv _ (nonce_not_secret m)
+  rw [dif_pos ⟨m, rfl⟩] at h
+  have hm : Classical.choose (⟨m, rfl⟩ : ∃ m', (((.inr (.inl m) : Coordinate), (0 : Fin 2)) : ChainGraph.HalfCoordinate) =
+      ((.inr (.inl m') : Coordinate), 0)) = m := by
+    have := Classical.choose_spec (⟨m, rfl⟩ : ∃ m', (((.inr (.inl m) : Coordinate), (0 : Fin 2)) :
+      ChainGraph.HalfCoordinate) = ((.inr (.inl m') : Coordinate), 0))
+    have h1 := congrArg Prod.fst this
+    exact (Sum.inl.inj (Sum.inr.inj h1)).symm
   rw [hm] at h
-  exact h
-/-- R6: `privPsi` writes the full 256-bit nonce output `joinOutput (nvv (m,0)) (nvv (m,1))`. -/
-theorem privPsi_nonce (s : Secrets) (nvv : Message × Fin 2 → Digest) (priv : FullGame.FullTable) (m : Message) :
-    privPsi s nvv priv (.inr (.inl m)) = ChainGraph.joinOutput (nvv (m, 0)) (nvv (m, 1)) := by
-  have h0 : (privPsi s nvv priv (.inr (.inl m))).extractLsb' 0 128 = nvv (m, 0) := by
-    simpa [ChainGraph.halves] using privPsi_half s nvv priv (m, 0)
-  have h1 : (privPsi s nvv priv (.inr (.inl m))).extractLsb' 128 128 = nvv (m, 1) := by
-    simpa [ChainGraph.halves] using privPsi_half s nvv priv (m, 1)
-  rw [← ChainGraph.joinOutput_parts (privPsi s nvv priv (.inr (.inl m))), h0, h1]
+  simpa [ChainGraph.halves] using h
 section Public
 variable (U : Finset HashInput) (hU : canonInputs ⊆ U) (hE : encInputs ⊆ U)
 theorem eagerAnswers_eq (priv : FullGame.FullTable) (pub : U → HashOutput) :
@@ -1531,9 +1528,6 @@ noncomputable scoped instance (priority := high) samplerOthers : SampleableType 
 noncomputable scoped instance (priority := high) samplerLow : SampleableType LowLabels :=
   CanonGraph.instSampleableTypeLowLabels
 noncomputable scoped instance (priority := high) samplerVals : SampleableType (Coord → Digest) :=
-  SampleableType.ofFintype _
-/-- R6: the nonce-half labels `(m, i)`. -/
-noncomputable scoped instance (priority := high) samplerNonceHalves : SampleableType (Message × Fin 2 → Digest) :=
   SampleableType.ofFintype _
 noncomputable scoped instance (priority := high) samplerWorld : SampleableType (WCoord → LargeResidual.Digest) :=
   SampleableType.ofFintype _
@@ -1578,9 +1572,9 @@ attribute [local instance] Classical.propDecidable
 open ClaudeWCT.W9.T3.Security.LargeCoupling.Samplers SigGolfCandidate.T3.Security.LargeCoupling.Samplers
 theorem others_bind {R : Type} (next : OtherHalves → ProbComp R) :
     𝒮[($ᵗ OtherHalves : ProbComp _) >>= next] =
-      𝒮[($ᵗ FullGame.FullTable : ProbComp _) >>= fun priv => ($ᵗ (Message × Fin 2 → Digest) : ProbComp _) >>= fun nv =>
+      𝒮[($ᵗ FullGame.FullTable : ProbComp _) >>= fun priv => ($ᵗ (Message → Digest) : ProbComp _) >>= fun nv =>
         next (nonceOver (privateEquiv priv).2 nv)] := by
-  rw [private_bind (fun priv => ($ᵗ (Message × Fin 2 → Digest) : ProbComp _) >>= fun nv =>
+  rw [private_bind (fun priv => ($ᵗ (Message → Digest) : ProbComp _) >>= fun nv =>
     next (nonceOver (privateEquiv priv).2 nv))]
   simp only [Equiv.apply_symm_apply]
   rw [evalSPMF_unused Secrets]
@@ -1666,7 +1660,7 @@ def famOfSec (sec : Secrets) : (f : WFam) → ClaudeWCT.W9.T3.Security.FamResidu
         have := WCT9.famSize_lt_58 L.1.1 L.1.2.2.val
         omega⟩⟩)
   | .inr f => fun j => sec (.inr (f.1, f.2, j))
-noncomputable def worldEquiv : Secrets × ((Message × Fin 2 → Digest) × LowLabels) ≃
+noncomputable def worldEquiv : Secrets × ((Message → Digest) × LowLabels) ≃
     ClaudeWCT.W9.T3.Security.FamResidual.Hid WCoord × (WJunk → LargeResidual.Digest) where
   toFun p := (((Sum.elim (Sum.elim p.2.2 (fun t => p.1 (.inl t.1))) p.2.1 : WPlain → LargeResidual.Digest),
     famOfSec p.1), fun jk => p.1 (.inl jk.1))
@@ -1705,22 +1699,22 @@ noncomputable def worldEquiv : Secrets × ((Message × Fin 2 → Digest) × LowL
       unfold secOf
       simp only [Sum.elim_inl]
       rw [dif_neg (by omega)]
-theorem world_split {R : Type} (K : Secrets → (Message × Fin 2 → Digest) → LowLabels → ProbComp R) :
-    𝒮[($ᵗ Secrets : ProbComp _) >>= fun sec => ($ᵗ (Message × Fin 2 → Digest) : ProbComp _) >>= fun nv =>
+theorem world_split {R : Type} (K : Secrets → (Message → Digest) → LowLabels → ProbComp R) :
+    𝒮[($ᵗ Secrets : ProbComp _) >>= fun sec => ($ᵗ (Message → Digest) : ProbComp _) >>= fun nv =>
         ($ᵗ LowLabels : ProbComp _) >>= fun low => K sec nv low] =
       𝒮[($ᵗ (ClaudeWCT.W9.T3.Security.FamResidual.Hid WCoord) : ProbComp _) >>= fun x =>
         ($ᵗ (WJunk → LargeResidual.Digest) : ProbComp _) >>= fun jk =>
-        K (secOf x jk) (fun p => x.1 (.inr p)) (fun N => x.1 (.inl (.inl N)))] := by
-  let _ : SampleableType ((Message × Fin 2 → Digest) × LowLabels) := SampleableType.ofFintype _
-  let _ : SampleableType (Secrets × ((Message × Fin 2 → Digest) × LowLabels)) := SampleableType.ofFintype _
+        K (secOf x jk) (fun m => x.1 (.inr m)) (fun N => x.1 (.inl (.inl N)))] := by
+  let _ : SampleableType ((Message → Digest) × LowLabels) := SampleableType.ofFintype _
+  let _ : SampleableType (Secrets × ((Message → Digest) × LowLabels)) := SampleableType.ofFintype _
   let _ : SampleableType (ClaudeWCT.W9.T3.Security.FamResidual.Hid WCoord × (WJunk → LargeResidual.Digest)) :=
     SampleableType.ofFintype _
-  calc _ = 𝒮[($ᵗ (Secrets × ((Message × Fin 2 → Digest) × LowLabels)) : ProbComp _) >>= fun p => K p.1 p.2.1 p.2.2] := by
+  calc _ = 𝒮[($ᵗ (Secrets × ((Message → Digest) × LowLabels)) : ProbComp _) >>= fun p => K p.1 p.2.1 p.2.2] := by
         rw [uniform_prod_bind]
         refine evalSPMF_bind_congr' _ fun sec => ?_
         rw [uniform_prod_bind]
     _ = 𝒮[($ᵗ (ClaudeWCT.W9.T3.Security.FamResidual.Hid WCoord × (WJunk → LargeResidual.Digest)) : ProbComp _) >>=
-          fun y => K (secOf y.1 y.2) (fun p => y.1.1 (.inr p)) (fun N => y.1.1 (.inl (.inl N)))] :=
+          fun y => K (secOf y.1 y.2) (fun m => y.1.1 (.inr m)) (fun N => y.1.1 (.inl (.inl N)))] :=
         uniform_equiv_bind worldEquiv.symm _
     _ = _ := uniform_prod_bind _
 theorem ofFn_congr_len {n m : Nat} (h : n = m) (f : Fin n → Digest) (g : Fin m → Digest)
@@ -2022,7 +2016,7 @@ noncomputable def presentTableEquiv : (U → HashOutput) ≃ (U → HashOutput) 
   Equiv.piCongrRight fun x : U => LargeResidual.Paired.rowPresent x.val
 noncomputable def residualPsi (labels : Labels) (rows : Rows) (τ : U → HashOutput) : U → HashOutput :=
   CanonEncoding.Paired.residualPsi0 U hE labels rows (presentTable U τ)
-noncomputable def tablePsi (sec : Secrets) (vals : LargeResidual.Coord → Digest) (nv : Message × Fin 2 → Digest)
+noncomputable def tablePsi (sec : Secrets) (vals : LargeResidual.Coord → Digest) (nv : Message → Digest)
     (τ : U → HashOutput) (a : AuxData) : Answers :=
   Wots.eagerAnswers U (privPsi sec nv a.priv)
     (CanonGraph.Paired.Filtered.programmed U hU sec (LargeResidual.Paired.routerLabels vals a)
@@ -2041,9 +2035,7 @@ theorem paired_ftsLabel_top (labels : Labels) (index : Fin (2^31)) (coord : Fin 
   rw [if_neg (by omega)]
   unfold ftsNodeAt
   rw [dif_pos (show 6-1<6 ∧ b.val<2^(7-(6-1)-1) by have := b.isLt;omega)]
-  change Extract.Paired.proj (CanonGraph.Node.wctNode (ftsTopNode index coord b)).toPos
-    (labels (.wctNode (wSelNode labels (ftsTopNode index coord b)))) = _
-  rw [wSelNode_of_cap_one (wTrialCap_off (by show (5:Nat) ≠ 3; decide)) rfl]
+  rfl
 
 theorem msgLabel_router (vals : LargeResidual.Coord → Digest) (a : AuxData) (L : EncLeaf) :
     msgLabel (LargeResidual.Paired.routerLabels vals a) L = LargeResidual.msgVals vals L := by
@@ -2052,9 +2044,11 @@ theorem msgLabel_router (vals : LargeResidual.Coord → Digest) (a : AuxData) (L
   · rw [dif_pos hl,dif_pos hl]
     congr 1
     · refine (treeLabel_top _ _ _ (childIndex_treeBits L hl) 0).trans ?_
-      exact LargeResidual.Paired.proj_sel_router vals a _
+      rw [selNode_of_cap_one (trialCap_lower (fun h => absurd (congrArg Fin.val h) (by simp [topNode])) _) rfl]
+      exact CanonGraph.Paired.joinLabels_node _ _ _
     · refine (treeLabel_top _ _ _ (childIndex_treeBits L hl) 1).trans ?_
-      exact LargeResidual.Paired.proj_sel_router vals a _
+      rw [selNode_of_cap_one (trialCap_lower (fun h => absurd (congrArg Fin.val h) (by simp [topNode])) _) rfl]
+      exact CanonGraph.Paired.joinLabels_node _ _ _
   · rw [dif_neg hl,dif_neg hl]
     congr 1
     · exact (paired_ftsLabel_top _ _ _ 0).trans (CanonGraph.Paired.joinLabels_val _ _ _)
@@ -2114,7 +2108,7 @@ attribute [local irreducible] CanonEncoding.Paired.rowsContext CanonEncoding.Pai
 
 section Coherence
 variable (U : Finset HashInput) (hU : CanonGraph.Paired.canonInputs ⊆ U) (hE : encInputs ⊆ U)
-theorem coherent_psi (sec : Secrets) (vals : Coord → Digest) (nv : Message × Fin 2 → Digest) (τ : U → HashOutput)
+theorem coherent_psi (sec : Secrets) (vals : Coord → Digest) (nv : Message → Digest) (τ : U → HashOutput)
     (a : AuxData) (ha : AuxConsistent a) (hv : seedView sec = fun x => vals (.inr x))
     (hcap : ¬ CanonGraph.CapFail (LargeResidual.Paired.routerLabels vals a)) :
     LargeResidual.Paired.Coherent U (tablePsi U hU hE sec vals nv τ a) vals nv τ a := by
@@ -2252,7 +2246,7 @@ attribute [local irreducible] CanonEncoding.Paired.rowsContext CanonEncoding.Pai
 
 open SigGolfCandidate.T3.Security.LargeCoupling (evalSPMF_bind_comm)
 noncomputable local instance : SampleableType FullGame.FullTable := CanonGraph.instSampleableTypeFullTable_canonGraph
-noncomputable local instance : SampleableType (Message × Fin 2 → Digest) := ClaudeWCT.W9.T3.Security.LargeCoupling.Samplers.samplerNonceHalves
+noncomputable local instance : SampleableType (Message → Digest) := SigGolfCandidate.T3.Security.LargeCoupling.Samplers.samplerNonces
 noncomputable local instance : SampleableType Rows := SampleableType.ofFintype _
 noncomputable local instance : SampleableType LowLabels := CanonGraph.instSampleableTypeLowLabels
 noncomputable local instance : SampleableType Labels := CanonGraph.instSampleableTypeLabels_1
@@ -2292,7 +2286,7 @@ theorem law_derived (U : Finset HashInput) (hU : CanonGraph.Paired.canonInputs �
     𝒮[($ᵗ FullGame.FullTable : ProbComp _) >>= fun priv => ($ᵗ (U → HashOutput) : ProbComp _) >>= fun pub =>
         next (Wots.eagerAnswers U priv pub)] =
       𝒮[($ᵗ Secrets : ProbComp _) >>= fun sec => ($ᵗ FullGame.FullTable : ProbComp _) >>= fun priv' =>
-        ($ᵗ (Message × Fin 2 → Digest) : ProbComp _) >>= fun nv => ($ᵗ LowLabels : ProbComp _) >>= fun low =>
+        ($ᵗ (Message → Digest) : ProbComp _) >>= fun nv => ($ᵗ LowLabels : ProbComp _) >>= fun low =>
         ($ᵗ LowLabels : ProbComp _) >>= fun high =>
         ($ᵗ (EncLeaf → Fin (2 ^ 22) → HashOutput) : ProbComp _) >>= fun rows =>
         ($ᵗ (U → HashOutput) : ProbComp _) >>= fun τ =>
@@ -2303,7 +2297,7 @@ theorem law_derived (U : Finset HashInput) (hU : CanonGraph.Paired.canonInputs �
   refine (evalSPMF_bind_congr' ($ᵗ Secrets : ProbComp _) fun (sec : Secrets) => others_bind _).trans ?_
   refine evalSPMF_bind_congr' ($ᵗ Secrets : ProbComp _) fun sec => ?_
   refine evalSPMF_bind_congr' ($ᵗ FullGame.FullTable : ProbComp _) fun priv' => ?_
-  refine evalSPMF_bind_congr' ($ᵗ (Message × Fin 2 → Digest) : ProbComp _) fun nv => ?_
+  refine evalSPMF_bind_congr' ($ᵗ (Message → Digest) : ProbComp _) fun nv => ?_
   rw [CanonGraph.Paired.labels_bind]
   refine evalSPMF_bind_congr' _ fun low => evalSPMF_bind_congr' _ fun high => ?_
   exact residual_bind U hE (CanonGraph.Paired.joinLabels low high) _
@@ -2314,7 +2308,7 @@ theorem law_target (U : Finset HashInput) (hU : CanonGraph.Paired.canonInputs �
       𝒮[($ᵗ LowLabels : ProbComp _) >>= fun high =>
         ($ᵗ (EncLeaf → Fin (2 ^ 22) → HashOutput) : ProbComp _) >>= fun rows =>
         ($ᵗ FullGame.FullTable : ProbComp _) >>= fun priv' =>
-        ($ᵗ Secrets : ProbComp _) >>= fun sec => ($ᵗ (Message × Fin 2 → Digest) : ProbComp _) >>= fun nv =>
+        ($ᵗ Secrets : ProbComp _) >>= fun sec => ($ᵗ (Message → Digest) : ProbComp _) >>= fun nv =>
         ($ᵗ LowLabels : ProbComp _) >>= fun low => ($ᵗ (U → HashOutput) : ProbComp _) >>= fun τ =>
         next (CanonGraph.eagerAnswers (privateEquiv.symm (sec, nonceOver (privateEquiv priv').2 nv)) U
           (CanonGraph.Paired.Filtered.programmed U hU sec (CanonGraph.Paired.joinLabels low high) (residualPsi U hE (CanonGraph.Paired.joinLabels low high) rows τ)))] := by
@@ -2523,9 +2517,9 @@ theorem capErr_le :
       Pr[fun l => CanonGraph.CapFail l | ($ᵗ LowLabels : ProbComp _) >>= fun low =>
         (pure (CanonGraph.Paired.joinLabels low high) : ProbComp Labels)] := by
     intro high
-    have hw := world_split (fun (_ : Secrets) (_ : Message × Fin 2 → Digest) low =>
+    have hw := world_split (fun (_ : Secrets) (_ : Message → Digest) low =>
       (pure (CanonGraph.Paired.joinLabels low high) : ProbComp Labels))
-    have h1 : 𝒮[($ᵗ Secrets : ProbComp _) >>= fun _ => ($ᵗ (Message × Fin 2 → Digest) : ProbComp _) >>= fun _ =>
+    have h1 : 𝒮[($ᵗ Secrets : ProbComp _) >>= fun _ => ($ᵗ (Message → Digest) : ProbComp _) >>= fun _ =>
         ($ᵗ LowLabels : ProbComp _) >>= fun low => (pure (CanonGraph.Paired.joinLabels low high) : ProbComp Labels)] =
         𝒮[($ᵗ LowLabels : ProbComp _) >>= fun low => (pure (CanonGraph.Paired.joinLabels low high) : ProbComp Labels)] := by
       rw [OracleComp.DeferredSampling.evalSPMF_bind_const_neverFails _ (by simp) _,
@@ -2588,7 +2582,7 @@ theorem contact_le_lazy (adversary : ClaudeWCT.W9.T3M.Final.Paired.AdversaryP) (
   rw [probEvent_congr' (fun _ _ => Iff.rfl) (hτ _)]
   refine probEvent_bind_le_of _ _ _ _ _ _ (weight_self _) fun τ => ?_
   · have hT : CanonGraph.eagerAnswers (privateEquiv.symm (secOf x jk,
-          nonceOver (privateEquiv priv).2 (fun p => x.1 (.inr p)))) (Wots.PairedReference.referenceInputs adversary)
+          nonceOver (privateEquiv priv).2 (fun m => x.1 (.inr m)))) (Wots.PairedReference.referenceInputs adversary)
           (CanonGraph.Paired.Filtered.programmed (Wots.PairedReference.referenceInputs adversary) hU (secOf x jk)
             (CanonGraph.Paired.joinLabels (fun N => x.1 (.inl (.inl N))) high)
             (residualPsi (Wots.PairedReference.referenceInputs adversary) hE (CanonGraph.Paired.joinLabels (fun N => x.1 (.inl (.inl N))) high) rows τ)) =
@@ -2896,182 +2890,6 @@ theorem expectedValue_cell_univ (f : LargeResidual.Digest → ENNReal) :
 end Sign
 end SigGolfCandidate.T3.Security.LargeCoupling
 end
-section
-namespace ClaudeWCT.Bank.FtsBankSpec
-open OracleComp OracleSpec OracleComp.EvalDist ENNReal
-open SigGolfCandidate.T3 SigGolfCandidate.T3.Security
-open CaseC (BankCore BankCore.expose theta)
-set_option maxHeartbeats 1000000
-set_option maxRecDepth 10000
-set_option backward.isDefEq.respectTransparency false
-attribute [local instance] Classical.propDecidable
-/-- R6 world split (S4a): `E[f + c] ≤ E f + c` for any law (used with `BPair.rhoLaw`). -/
-theorem ev_add_const_le_law {n : Type → Type _} [MonadLiftT n SPMF] {α : Type} (mx : n α) (f : α → ENNReal)
-    (c : ENNReal) : expectedValue mx (fun x => f x + c) ≤ expectedValue mx f + c := by
-  rw [expectedValue_add]
-  exact add_le_add le_rfl (expectedValue_le_of_le mx fun _ => le_rfl)
-/-- R6 world split (S4a): `κ = ⌈2^256 / R⌉ / 2^128 ≥ 1`. -/
-theorem one_le_rhoKappa : (1 : ENNReal) ≤ SigGolfCandidate.T3.Security.LazyPrivate.rhoKappa := by
-  unfold LazyPrivate.rhoKappa
-  rw [ENNReal.le_div_iff_mul_le (Or.inl (by simp)) (Or.inl (by simp)), one_mul,
-    show (2 : ENNReal) ^ 128 = ((2 ^ 128 : ℕ) : ENNReal) by norm_num, Nat.cast_le,
-    Nat.le_div_iff_mul_le (by decide)]
-  decide
-variable {P : Type} [Fintype P] [SampleableType P] (S : FtsBankSpec P)
-theorem reuseMass_le_reuseMassK (cache : Sampling.RCache) (m : Message) : S.reuseMass cache m ≤ S.reuseMassK cache m :=
-  by unfold reuseMassK; exact le_mul_of_one_le_left' one_le_rhoKappa
-/-- R6 world split (S4a), Rule B births: `E[κ · admInd / 2^128] ≤ admBound / 2^128` (`expected_kappa_admInd`). -/
-theorem expected_kappa_admInd_div :
-    expectedValue ($ᵗ HashOutput : ProbComp HashOutput) (fun N => SigGolfCandidate.T3.Security.LazyPrivate.rhoKappa * S.admInd N / 2 ^ 128) ≤
-      S.admBound / 2 ^ 128 := by
-  simp only [div_eq_mul_inv]
-  rw [show (fun N => SigGolfCandidate.T3.Security.LazyPrivate.rhoKappa * S.admInd N * (2 ^ 128 : ENNReal)⁻¹) =
-      fun N => S.admInd N * (SigGolfCandidate.T3.Security.LazyPrivate.rhoKappa * (2 ^ 128 : ENNReal)⁻¹) from funext fun N => by ring,
-    expectedValue_mul_const]
-  calc
-    _ = SigGolfCandidate.T3.Security.LazyPrivate.rhoKappa * expectedValue ($ᵗ HashOutput : ProbComp HashOutput) S.admInd * (2 ^ 128 : ENNReal)⁻¹ := by ring
-    _ ≤ _ := mul_le_mul' S.expected_kappa_admInd le_rfl
-/-- R6 world split (S4a), Rule B: `core_birth` with the `κ`-weighted admissibility increment. -/
-theorem core_birth_rho (b : BankCore) (s : Nat) (hs : b.slack = s + 1) (C' : HashOutput → ENNReal)
-    (hC : ∀ N, C' N ≤ b.reuse + SigGolfCandidate.T3.Security.LazyPrivate.rhoKappa * S.admInd N / 2 ^ 128) :
-    expectedValue ($ᵗ HashOutput : ProbComp HashOutput)
-        (fun N => S.corePotential { b with targets := b.targets ++ [N], slack := s, reuse := C' N }) ≤
-      S.corePotential b + (theta + 1 / 64) / 2 ^ 128 := by
-  have hadm : expectedValue ($ᵗ HashOutput : ProbComp HashOutput) (fun N => SigGolfCandidate.T3.Security.LazyPrivate.rhoKappa * S.admInd N / 2 ^ 128) ≤
-      S.admBound / 2 ^ 128 := by
-    exact S.expected_kappa_admInd_div
-  unfold corePotential
-  simp only
-  by_cases hd : S.horizon < b.exposures.length
-  · simp only [hd, if_true]
-    exact (expectedValue_le_of_le _ fun _ => le_rfl).trans bot_le
-  simp only [hd, if_false]
-  by_cases hr : b.reused = true
-  · simp only [hr, if_true]
-    calc
-      _ ≤ expectedValue ($ᵗ HashOutput : ProbComp HashOutput) (fun N => SigGolfCandidate.T3.Security.LazyPrivate.rhoKappa * S.admInd N / 2 ^ 128 + (1 + b.reuse)) :=
-        expectedValue_mono _ fun N => (add_le_add le_rfl (hC N)).trans (le_of_eq (by ring))
-      _ ≤ S.admBound / 2 ^ 128 + (1 + b.reuse) :=
-        (CaseC.expectedValue_add_const_le _ _ _).trans (add_le_add hadm le_rfl)
-      _ ≤ _ := by
-        rw [add_comm, ← S.theta_add_admBound]
-        apply add_le_add le_rfl
-        apply ENNReal.div_le_div_right
-        exact le_add_self
-  · simp only [hr, Bool.false_eq_true, if_false]
-    set R := S.horizon - b.exposures.length
-    calc
-      _ ≤ expectedValue ($ᵗ HashOutput : ProbComp HashOutput)
-          (fun N => (S.ledger R (b.targets ++ [N]) b.exposures s + SigGolfCandidate.T3.Security.LazyPrivate.rhoKappa * S.admInd N / 2 ^ 128) + b.reuse) :=
-        expectedValue_mono _ fun N => (add_le_add le_rfl (hC N)).trans (le_of_eq (by ring))
-      _ ≤ expectedValue ($ᵗ HashOutput : ProbComp HashOutput)
-          (fun N => S.ledger R (b.targets ++ [N]) b.exposures s + SigGolfCandidate.T3.Security.LazyPrivate.rhoKappa * S.admInd N / 2 ^ 128) + b.reuse :=
-        CaseC.expectedValue_add_const_le _ _ _
-      _ ≤ (S.ledger R b.targets b.exposures (s + 1) + S.specTheta / 2 ^ 128 + S.admBound / 2 ^ 128) + b.reuse := by
-        rw [expectedValue_add]
-        exact add_le_add (add_le_add (S.ledger_birth R b.targets b.exposures s) hadm) le_rfl
-      _ = _ := by
-        rw [hs, ← S.theta_add_admBound, ENNReal.add_div]
-        ring
-/-- R6 world split (S4a), Rule B: `core_sign` for a `rhoLaw` nonce against the `κ`-weighted reuse mass. -/
-theorem core_sign_rho (b : BankCore) (cache : Sampling.RCache) (m : Message) (C' : ENNReal)
-    (hC : C' + S.reuseMassK cache m ≤ b.reuse) (secret : BitVec 256) (fuel : Nat) (hfuel : fuel ≤ 2 ^ 32) :
-    expectedValue SigGolfCandidate.T3.Security.BPair.rhoLaw (fun rho =>
-      if S.Reuse cache rho m then S.corePotential { b with reused := true, reuse := C' }
-      else expectedValue (Sampling.roRun secret (S.search rho m 0 fuel) cache)
-        (fun result => S.corePotential (b.expose C' (result.1.map Prod.snd)))) ≤ S.corePotential b := by
-  have hlenA : ∀ (o : Option HashOutput), b.exposures.length ≤ (b.exposures ++ o.toList).length := by
-    intro o; simp
-  by_cases hd : S.horizon < b.exposures.length
-  · apply expectedValue_le_of_le
-    intro rho
-    have h0 : ∀ (o : Option HashOutput), S.corePotential (b.expose C' o) = 0 := by
-      intro o
-      unfold corePotential BankCore.expose
-      simp only
-      rw [if_pos (lt_of_lt_of_le hd (hlenA o))]
-    split_ifs
-    · unfold corePotential; simp only; rw [if_pos hd]; exact bot_le
-    · exact (expectedValue_le_of_le _ fun result => (h0 _).le).trans bot_le
-  by_cases hr : b.reused = true
-  · have hb : S.corePotential b = 1 + b.reuse := by unfold corePotential; simp [hd, hr]
-    rw [hb]
-    apply expectedValue_le_of_le
-    intro rho
-    have hle : ∀ (o : Option HashOutput), S.corePotential (b.expose C' o) ≤ 1 + b.reuse := by
-      intro o
-      unfold corePotential BankCore.expose
-      simp only [hr, if_true]
-      split_ifs
-      · exact bot_le
-      · exact add_le_add le_rfl (le_of_add_le_left hC)
-    split_ifs
-    · unfold corePotential; simp only [hd, if_false, if_true]; exact add_le_add le_rfl (le_of_add_le_left hC)
-    · exact expectedValue_le_of_le _ fun result => hle _
-  have hr' : b.reused = false := by simpa using hr
-  set R0 := S.horizon - b.exposures.length with hR0
-  have hb : S.corePotential b = S.ledger R0 b.targets b.exposures b.slack + b.reuse := by
-    unfold corePotential; simp only [hd, hr', if_false, Bool.false_eq_true]; rfl
-  have hsearch : ∀ rho, ¬S.Reuse cache rho m →
-      expectedValue (Sampling.roRun secret (S.search rho m 0 fuel) cache)
-        (fun result => S.corePotential (b.expose C' (result.1.map Prod.snd))) ≤
-          S.ledger R0 b.targets b.exposures b.slack + C' := by
-    intro rho hnr
-    have hrej : Sampling.CachedTrialsReject (Sampling.digestTrial rho m) S.decode 0 (2 ^ 32) cache := by
-      unfold Reuse at hnr; push Not at hnr; exact hnr
-    by_cases hlen : b.exposures.length < S.horizon
-    · obtain ⟨R, hR⟩ : ∃ R, R0 = R + 1 := ⟨R0 - 1, by omega⟩
-      calc
-        _ ≤ expectedValue (Sampling.roRun secret (S.search rho m 0 fuel) cache)
-            (fun result => result.1.elim (S.ledger (R + 1) b.targets b.exposures b.slack)
-              (fun found => S.ledger R b.targets (b.exposures ++ [found.2]) b.slack) + C') := by
-          apply expectedValue_mono
-          intro result
-          rcases result with ⟨_ | found, cache'⟩
-          · unfold corePotential BankCore.expose
-            simp only [Option.map_none, Option.toList_none, List.append_nil, hd, if_false, hr',
-              Bool.false_eq_true, Option.elim_none]
-            rw [← hR]
-          · unfold corePotential BankCore.expose
-            have hl1 : (b.exposures ++ [found.2]).length = b.exposures.length + 1 := by simp
-            have hnd : ¬S.horizon < (b.exposures ++ [found.2]).length := by omega
-            simp only [Option.map_some, Option.toList_some, hnd, if_false, hr', Bool.false_eq_true,
-              Option.elim_some]
-            rw [show S.horizon - (b.exposures ++ [found.2]).length = R by omega]
-        _ ≤ S.ledger (R + 1) b.targets b.exposures b.slack + C' :=
-          (CaseC.expectedValue_add_const_le _ _ _).trans
-            (add_le_add (S.ledger_search secret rho m fuel hfuel cache hrej R b.targets b.exposures b.slack) le_rfl)
-        _ = _ := by rw [hR]
-    · apply expectedValue_le_of_le
-      intro result
-      rcases result with ⟨_ | found, cache'⟩
-      · unfold corePotential BankCore.expose
-        simp only [Option.map_none, Option.toList_none, List.append_nil, hd, if_false, hr', Bool.false_eq_true]
-        exact le_rfl
-      · unfold corePotential BankCore.expose
-        have hnd : S.horizon < (b.exposures ++ [found.2]).length := by simp; omega
-        simp only [Option.map_some, Option.toList_some, hnd, if_true]
-        exact bot_le
-  rw [hb]
-  calc
-    _ ≤ expectedValue SigGolfCandidate.T3.Security.BPair.rhoLaw
-        (fun rho => (if S.Reuse cache rho m then 1 else 0) + (S.ledger R0 b.targets b.exposures b.slack + C')) := by
-      apply expectedValue_mono
-      intro rho
-      by_cases hre : S.Reuse cache rho m
-      · rw [if_pos hre, if_pos hre]
-        unfold corePotential
-        simp only [hd, if_false, if_true]
-        exact add_le_add le_rfl le_add_self
-      · rw [if_neg hre, if_neg hre, zero_add]
-        exact hsearch rho hre
-    _ ≤ S.reuseMassK cache m + (S.ledger R0 b.targets b.exposures b.slack + C') :=
-      (ev_add_const_le_law _ _ _).trans (add_le_add (S.reuse_probability_le_rho cache m) le_rfl)
-    _ ≤ _ := by
-      rw [add_comm (S.ledger _ _ _ _), ← add_assoc, add_comm (S.reuseMassK cache m), add_comm _ (S.ledger _ _ _ _)]
-      exact add_le_add le_rfl hC
-end ClaudeWCT.Bank.FtsBankSpec
-end
 -- ==== merged from ClaudeWCT_W9_T3_Secc_LargeCouplingBankSign ====
 section
 
@@ -3096,7 +2914,7 @@ attribute [local instance] Classical.propDecidable
 section Router
 variable (U : Finset HashInput) (aux : (input : AuxSpec.Domain) → PMF (AuxSpec.Range input)) (q : Nat)
 def DiscFrame (s s' : State WCoord (Cell U)) : Prop :=
-  s'.rows = s.rows ∧ s'.counters = s.counters ∧ ∀ m : Message × Fin 2, s'.candidates (.inr m) = s.candidates (.inr m)
+  s'.rows = s.rows ∧ s'.counters = s.counters ∧ ∀ m : Message, s'.candidates (.inr m) = s.candidates (.inr m)
 theorem DiscFrame.refl (s : State WCoord (Cell U)) : DiscFrame U s s := ⟨rfl, rfl, fun _ => rfl⟩
 theorem DiscFrame.trans {s1 s2 s3 : State WCoord (Cell U)} (h1 : DiscFrame U s1 s2) (h2 : DiscFrame U s2 s3) :
     DiscFrame U s1 s3 :=
@@ -3120,6 +2938,305 @@ set_option maxRecDepth 10000
 set_option backward.isDefEq.respectTransparency false
 attribute [local instance] Classical.propDecidable
 variable (horizon : Nat) (rate : ENNReal) (hexc : ExcessBound horizon rate)
+theorem wct_corePotential_rate (rate' : ENNReal) (hexc' : ExcessBound horizon rate') :
+    (wctSpecL horizon rate hexc).corePotential = (wctSpecL horizon rate' hexc').corePotential := rfl
+theorem wct_core_birth (b : BankCore) (s : Nat) (hs : b.slack = s + 1) (C' : HashOutput → ENNReal)
+    (hC : ∀ N, C' N ≤ b.reuse + (wctSpecL horizon rate hexc).admInd N / 2 ^ 128) :
+    expectedValue ($ᵗ HashOutput : ProbComp HashOutput)
+        (fun N => (wctSpecL horizon rate hexc).corePotential
+          { b with targets := b.targets ++ [N], slack := s, reuse := C' N }) ≤
+      (wctSpecL horizon rate hexc).corePotential b + (theta + 1 / 64) / 2 ^ 128 :=
+  (wctSpecL horizon rate hexc).core_birth b s hs C' hC
+theorem wct_core_sign (b : BankCore) (cache : Sampling.RCache) (m : Message) (C' : ENNReal)
+    (hC : C' + (wctSpecL horizon rate hexc).reuseMass cache m ≤ b.reuse) (secret : BitVec 256) (fuel : Nat)
+    (hfuel : fuel ≤ 2 ^ 32) :
+    expectedValue ($ᵗ Digest : ProbComp Digest) (fun rho =>
+      if (wctSpecL horizon rate hexc).Reuse cache rho m then
+        (wctSpecL horizon rate hexc).corePotential { b with reused := true, reuse := C' }
+      else expectedValue (Sampling.roRun secret (WCT9.digestSearch rho m 0 fuel) cache)
+        (fun result => (wctSpecL horizon rate hexc).corePotential (b.expose C' (result.1.map Prod.snd)))) ≤
+      (wctSpecL horizon rate hexc).corePotential b := by
+  have h := (wctSpecL horizon rate hexc).core_sign b cache m C' hC secret fuel hfuel
+  simp only [← wct_digestSearch_public (wctSpecL horizon rate hexc).toFtsBankSpec rfl] at h
+  exact h
+theorem wct_core_win (b : BankCore) (halive : ¬horizon < b.exposures.length)
+    (h : b.reused = true ∨ ∃ N ∈ b.targets, WCT9.admissible N = true ∧ Covered b.exposures N) :
+    1 ≤ (wctSpecL horizon rate hexc).corePotential b :=
+  (wctSpecL horizon rate hexc).core_win b halive h
+theorem wct_core_initial (budget : Nat) :
+    (wctSpecL horizon rate hexc).corePotential ⟨[], [], false, 0, budget⟩ ≤ (budget : ENNReal) * rate / 2 ^ 128 :=
+  (wctSpecL horizon rate hexc).core_initial budget
+noncomputable abbrev S0 : FtsBankSpec WProposal :=
+  (wctSpecL horizon ⊤ (by unfold ExcessBound; exact le_top)).toFtsBankSpec
+noncomputable def excessForecast54 (R : Nat) (X : List HashOutput) : ENNReal :=
+  ClaudeWCT.Numerics.Law.lawAvg (S0 horizon).law R
+    (fun W => (S0 horizon).price ((S0 horizon).proposals X ++ W) - 2031 / 1024)
+theorem excessForecast54_step (R : Nat) (X : List HashOutput) :
+    expectedValue (S0 horizon).accepted (fun A => excessForecast54 horizon R (X ++ [A])) =
+      excessForecast54 horizon (R + 1) X := by
+  unfold excessForecast54
+  rw [ClaudeWCT.Numerics.Law.lawAvg_succ]
+  have hA (A : HashOutput) : ClaudeWCT.Numerics.Law.lawAvg (S0 horizon).law R
+      (fun W => (S0 horizon).price ((S0 horizon).proposals (X ++ [A]) ++ W) - 2031 / 1024) =
+      (fun p : WProposal => ClaudeWCT.Numerics.Law.lawAvg (S0 horizon).law R
+        (fun W => (S0 horizon).price ((S0 horizon).proposals X ++ p :: W) - 2031 / 1024))
+        ((S0 horizon).proposal A) := by
+    simp [FtsBankSpec.proposals, List.map_append, List.append_assoc]
+  simp_rw [hA]
+  exact (S0 horizon).expected_accepted_proposal (fun p => ClaudeWCT.Numerics.Law.lawAvg (S0 horizon).law R
+    (fun W => (S0 horizon).price ((S0 horizon).proposals X ++ p :: W) - 2031 / 1024))
+theorem average_forecast_le_54 (R : Nat) (X : List HashOutput) :
+    BPORS.finiteAverage (fun N : HashOutput => (S0 horizon).forecast R X N) ≤
+      ((2031 / 1024 : ENNReal) + excessForecast54 horizon R X) / 2 ^ 128 := by
+  rw [(S0 horizon).average_forecast]
+  apply ENNReal.div_le_div_right
+  unfold excessForecast54
+  calc
+    _ ≤ ClaudeWCT.Numerics.Law.lawAvg (S0 horizon).law R
+          (fun W => (2031 / 1024 : ENNReal) + ((S0 horizon).price ((S0 horizon).proposals X ++ W) - 2031 / 1024)) :=
+      ClaudeWCT.Numerics.Law.lawAvg_mono (S0 horizon).law R fun W => le_add_tsub
+    _ = _ := by
+      rw [ClaudeWCT.Numerics.Law.lawAvg_add, ClaudeWCT.Numerics.Law.lawAvg_const (S0 horizon).law (S0 horizon).law_sum]
+noncomputable def ledger54 (R : Nat) (targets X : List HashOutput) (slack : Nat) : ENNReal :=
+  (targets.map fun N => (S0 horizon).forecast R X N).sum + (slack : ENNReal) * excessForecast54 horizon R X / 2 ^ 128
+theorem ledger54_slack_succ (R : Nat) (targets X : List HashOutput) (slack : Nat) :
+    ledger54 horizon R targets X (slack + 1) =
+      ledger54 horizon R targets X slack + excessForecast54 horizon R X / 2 ^ 128 := by
+  unfold ledger54
+  rw [Nat.cast_add, Nat.cast_one, add_mul, one_mul, ENNReal.add_div, add_assoc]
+theorem ledger54_birth (R : Nat) (targets X : List HashOutput) (slack : Nat) :
+    expectedValue ($ᵗ HashOutput : ProbComp HashOutput) (fun a => ledger54 horizon R (targets ++ [a]) X slack) ≤
+      ledger54 horizon R targets X (slack + 1) + (2031 / 1024 : ENNReal) / 2 ^ 128 := by
+  have hfa : expectedValue ($ᵗ HashOutput : ProbComp HashOutput) (fun a => (S0 horizon).forecast R X a) ≤
+      ((2031 / 1024 : ENNReal) + excessForecast54 horizon R X) / 2 ^ 128 := by
+    rw [BPORS.expected_uniform_eq_finiteAverage]
+    exact average_forecast_le_54 horizon R X
+  have hsplit : ∀ a, ledger54 horizon R (targets ++ [a]) X slack =
+      ledger54 horizon R targets X slack + (S0 horizon).forecast R X a := by
+    intro a
+    simp only [ledger54, List.map_append, List.map_cons, List.map_nil, List.sum_append, List.sum_cons,
+      List.sum_nil, add_zero]
+    ring
+  simp_rw [hsplit]
+  rw [expectedValue_add, expectedValue_const (by simp : Pr[⊥ | ($ᵗ HashOutput : ProbComp HashOutput)] = 0),
+    ledger54_slack_succ, add_assoc]
+  exact add_le_add le_rfl (hfa.trans (by rw [ENNReal.add_div, add_comm]))
+theorem ledger54_expose (R : Nat) (targets X : List HashOutput) (slack : Nat) :
+    expectedValue (S0 horizon).accepted (fun A => ledger54 horizon R targets (X ++ [A]) slack) =
+      ledger54 horizon (R + 1) targets X slack := by
+  unfold ledger54
+  rw [expectedValue_add, CaseC.expectedValue_list_sum']
+  refine congrArg₂ (· + ·) (congrArg List.sum ?_) ?_
+  · apply List.map_congr_left
+    intro N _
+    exact (S0 horizon).forecast_step R X N
+  · simp only [div_eq_mul_inv]
+    rw [show (fun A : HashOutput => (slack : ENNReal) * excessForecast54 horizon R (X ++ [A]) * (2 ^ 128 : ENNReal)⁻¹) =
+        fun A => (slack : ENNReal) * (2 ^ 128 : ENNReal)⁻¹ * excessForecast54 horizon R (X ++ [A]) by
+      funext A; ring]
+    rw [CaseC.pmf_expectedValue_left_mul, excessForecast54_step]
+    ring
+theorem ledger54_freshPrice (R : Nat) (targets X : List HashOutput) (slack : Nat) :
+    (S0 horizon).freshPrice (fun A => ledger54 horizon R targets (X ++ [A]) slack) =
+      ledger54 horizon (R + 1) targets X slack := by
+  rw [← (S0 horizon).expected_accepted, ledger54_expose]
+theorem ledger54_search (secret : BitVec 256) (rho : Digest) (message : Message) (fuel : Nat)
+    (hlimit : fuel ≤ 2 ^ 32) (cache : Sampling.RCache)
+    (hreject : Sampling.CachedTrialsReject (Sampling.digestTrial rho message) (S0 horizon).decode 0 (2 ^ 32) cache)
+    (R : Nat) (targets X : List HashOutput) (slack : Nat) :
+    expectedValue (Sampling.roRun secret ((S0 horizon).search rho message 0 fuel) cache)
+      (fun result => result.1.elim (ledger54 horizon (R + 1) targets X slack)
+        (fun found => ledger54 horizon R targets (X ++ [found.2]) slack)) ≤
+      ledger54 horizon (R + 1) targets X slack :=
+  (S0 horizon).search_le_price secret rho message fuel hlimit cache hreject _ _ _ le_rfl
+    (ledger54_freshPrice horizon R targets X slack).le
+theorem ledger54_win (R : Nat) (targets X : List HashOutput) (slack : Nat) (N : HashOutput) (hN : N ∈ targets)
+    (hadm : WCT9.admissible N = true) (hcov : Covered X N) :
+    1 ≤ ledger54 horizon R targets X slack :=
+  calc
+    (1 : ENNReal) ≤ (S0 horizon).score X N := (S0 horizon).one_le_score X N hadm hcov
+    _ ≤ (S0 horizon).forecast R X N := (S0 horizon).score_le_forecast R X N
+    _ ≤ (targets.map fun N => (S0 horizon).forecast R X N).sum := List.le_sum_of_mem (List.mem_map_of_mem hN)
+    _ ≤ _ := le_self_add
+noncomputable def corePotential54 (b : BankCore) : ENNReal :=
+  if horizon < b.exposures.length then 0
+  else if b.reused = true then 1 + b.reuse
+  else ledger54 horizon (horizon - b.exposures.length) b.targets b.exposures b.slack + b.reuse
+theorem wct_core_birth_54 (b : BankCore) (s : Nat) (hs : b.slack = s + 1) (C' : HashOutput → ENNReal)
+    (hC : ∀ N, C' N ≤ b.reuse + (S0 horizon).admInd N / 2 ^ 128) :
+    expectedValue ($ᵗ HashOutput : ProbComp HashOutput)
+        (fun N => corePotential54 horizon { b with targets := b.targets ++ [N], slack := s, reuse := C' N }) ≤
+      corePotential54 horizon b + (127 / 64 : ENNReal) / 2 ^ 128 := by
+  have hadm : expectedValue ($ᵗ HashOutput : ProbComp HashOutput) (fun N => (S0 horizon).admInd N / 2 ^ 128) ≤
+      (S0 horizon).admBound / 2 ^ 128 := by
+    simp only [div_eq_mul_inv]
+    rw [expectedValue_mul_const]
+    exact mul_le_mul' (by simpa [div_eq_mul_inv] using (S0 horizon).expected_admInd_tight) le_rfl
+  have h54_adm : (S0 horizon).admBound ≤ 127 / 64 := by
+    change (1 / 1024 : ENNReal) ≤ 127 / 64
+    apply (ENNReal.toReal_le_toReal (by finiteness) (by finiteness)).mp
+    norm_num [ENNReal.toReal_div]
+  have h54_sum : (2031 / 1024 : ENNReal) + (S0 horizon).admBound ≤ 127 / 64 := by
+    change (2031 / 1024 : ENNReal) + 1 / 1024 ≤ 127 / 64
+    apply (ENNReal.toReal_le_toReal (by finiteness) (by finiteness)).mp
+    simp (disch := finiteness) only [ENNReal.toReal_add, ENNReal.toReal_div, ENNReal.toReal_inv,
+      ENNReal.toReal_ofNat, ENNReal.toReal_one]
+    norm_num
+  unfold corePotential54
+  simp only
+  by_cases hd : horizon < b.exposures.length
+  · simp only [hd, if_true]
+    exact (expectedValue_le_of_le _ fun _ => le_rfl).trans bot_le
+  simp only [hd, if_false]
+  by_cases hr : b.reused = true
+  · simp only [hr, if_true]
+    calc
+      _ ≤ expectedValue ($ᵗ HashOutput : ProbComp HashOutput)
+            (fun N => (S0 horizon).admInd N / 2 ^ 128 + (1 + b.reuse)) :=
+        expectedValue_mono _ fun N => (add_le_add le_rfl (hC N)).trans (le_of_eq (by ring))
+      _ ≤ (S0 horizon).admBound / 2 ^ 128 + (1 + b.reuse) :=
+        (CaseC.expectedValue_add_const_le _ _ _).trans (add_le_add hadm le_rfl)
+      _ ≤ _ := by
+        rw [add_comm]
+        exact add_le_add le_rfl (ENNReal.div_le_div_right h54_adm _)
+  · simp only [hr, Bool.false_eq_true, if_false]
+    set R := horizon - b.exposures.length
+    calc
+      _ ≤ expectedValue ($ᵗ HashOutput : ProbComp HashOutput)
+          (fun N => (ledger54 horizon R (b.targets ++ [N]) b.exposures s + (S0 horizon).admInd N / 2 ^ 128) + b.reuse) :=
+        expectedValue_mono _ fun N => (add_le_add le_rfl (hC N)).trans (le_of_eq (by ring))
+      _ ≤ expectedValue ($ᵗ HashOutput : ProbComp HashOutput)
+          (fun N => ledger54 horizon R (b.targets ++ [N]) b.exposures s + (S0 horizon).admInd N / 2 ^ 128) + b.reuse :=
+        CaseC.expectedValue_add_const_le _ _ _
+      _ ≤ (ledger54 horizon R b.targets b.exposures (s + 1) + (2031 / 1024 : ENNReal) / 2 ^ 128 +
+            (S0 horizon).admBound / 2 ^ 128) + b.reuse := by
+        rw [expectedValue_add]
+        exact add_le_add (add_le_add (ledger54_birth horizon R b.targets b.exposures s) hadm) le_rfl
+      _ ≤ _ := by
+        rw [← hs, add_assoc (ledger54 _ _ _ _ _), ← ENNReal.add_div,
+          show ledger54 horizon R b.targets b.exposures b.slack +
+            ((2031 / 1024 : ENNReal) + (S0 horizon).admBound) / 2 ^ 128 + b.reuse =
+            (ledger54 horizon R b.targets b.exposures b.slack + b.reuse) +
+            ((2031 / 1024 : ENNReal) + (S0 horizon).admBound) / 2 ^ 128 by ring]
+        exact add_le_add le_rfl (ENNReal.div_le_div_right h54_sum _)
+theorem wct_core_sign_54 (b : BankCore) (cache : Sampling.RCache) (m : Message) (C' : ENNReal)
+    (hC : C' + (S0 horizon).reuseMass cache m ≤ b.reuse) (secret : BitVec 256) (fuel : Nat)
+    (hfuel : fuel ≤ 2 ^ 32) :
+    expectedValue ($ᵗ Digest : ProbComp Digest) (fun rho =>
+      if (S0 horizon).Reuse cache rho m then
+        corePotential54 horizon { b with reused := true, reuse := C' }
+      else expectedValue (Sampling.roRun secret (WCT9.digestSearch rho m 0 fuel) cache)
+        (fun result => corePotential54 horizon (b.expose C' (result.1.map Prod.snd)))) ≤
+      corePotential54 horizon b := by
+  have h : expectedValue ($ᵗ Digest : ProbComp Digest) (fun rho =>
+      if (S0 horizon).Reuse cache rho m then corePotential54 horizon { b with reused := true, reuse := C' }
+      else expectedValue (Sampling.roRun secret ((S0 horizon).search rho m 0 fuel) cache)
+        (fun result => corePotential54 horizon (b.expose C' (result.1.map Prod.snd)))) ≤
+      corePotential54 horizon b := by
+    have hlenA : ∀ (o : Option HashOutput), b.exposures.length ≤ (b.exposures ++ o.toList).length := by
+      intro o; simp
+    by_cases hd : horizon < b.exposures.length
+    · apply expectedValue_le_of_le
+      intro rho
+      have h0 : ∀ (o : Option HashOutput), corePotential54 horizon (b.expose C' o) = 0 := by
+        intro o
+        unfold corePotential54 BankCore.expose
+        simp only
+        rw [if_pos (lt_of_lt_of_le hd (hlenA o))]
+      split_ifs
+      · unfold corePotential54; simp only; rw [if_pos hd]; exact bot_le
+      · exact (expectedValue_le_of_le _ fun result => (h0 _).le).trans bot_le
+    by_cases hr : b.reused = true
+    · have hb : corePotential54 horizon b = 1 + b.reuse := by unfold corePotential54; simp [hd, hr]
+      rw [hb]
+      apply expectedValue_le_of_le
+      intro rho
+      have hle : ∀ (o : Option HashOutput), corePotential54 horizon (b.expose C' o) ≤ 1 + b.reuse := by
+        intro o
+        unfold corePotential54 BankCore.expose
+        simp only [hr, if_true]
+        split_ifs
+        · exact bot_le
+        · exact add_le_add le_rfl (le_of_add_le_left hC)
+      split_ifs
+      · unfold corePotential54; simp only [hd, if_false, if_true]; exact add_le_add le_rfl (le_of_add_le_left hC)
+      · exact expectedValue_le_of_le _ fun result => hle _
+    have hr' : b.reused = false := by simpa using hr
+    set R0 := horizon - b.exposures.length with hR0
+    have hb : corePotential54 horizon b = ledger54 horizon R0 b.targets b.exposures b.slack + b.reuse := by
+      unfold corePotential54; simp only [hd, hr', if_false, Bool.false_eq_true]; rfl
+    have hsearch : ∀ rho, ¬(S0 horizon).Reuse cache rho m →
+        expectedValue (Sampling.roRun secret ((S0 horizon).search rho m 0 fuel) cache)
+          (fun result => corePotential54 horizon (b.expose C' (result.1.map Prod.snd))) ≤
+            ledger54 horizon R0 b.targets b.exposures b.slack + C' := by
+      intro rho hnr
+      have hrej : Sampling.CachedTrialsReject (Sampling.digestTrial rho m) (S0 horizon).decode 0 (2 ^ 32) cache := by
+        unfold FtsBankSpec.Reuse at hnr; push Not at hnr; exact hnr
+      by_cases hlen : b.exposures.length < horizon
+      · obtain ⟨R, hR⟩ : ∃ R, R0 = R + 1 := ⟨R0 - 1, by omega⟩
+        calc
+          _ ≤ expectedValue (Sampling.roRun secret ((S0 horizon).search rho m 0 fuel) cache)
+              (fun result => result.1.elim (ledger54 horizon (R + 1) b.targets b.exposures b.slack)
+                (fun found => ledger54 horizon R b.targets (b.exposures ++ [found.2]) b.slack) + C') := by
+            apply expectedValue_mono
+            intro result
+            rcases result with ⟨_ | found, cache'⟩
+            · unfold corePotential54 BankCore.expose
+              simp only [Option.map_none, Option.toList_none, List.append_nil, hd, if_false, hr',
+                Bool.false_eq_true, Option.elim_none]
+              rw [← hR]
+            · unfold corePotential54 BankCore.expose
+              have hl1 : (b.exposures ++ [found.2]).length = b.exposures.length + 1 := by simp
+              have hnd : ¬horizon < (b.exposures ++ [found.2]).length := by omega
+              simp only [Option.map_some, Option.toList_some, hnd, if_false, hr', Bool.false_eq_true,
+                Option.elim_some]
+              rw [show horizon - (b.exposures ++ [found.2]).length = R by omega]
+          _ ≤ ledger54 horizon (R + 1) b.targets b.exposures b.slack + C' :=
+            (CaseC.expectedValue_add_const_le _ _ _).trans
+              (add_le_add (ledger54_search horizon secret rho m fuel hfuel cache hrej R b.targets b.exposures b.slack) le_rfl)
+          _ = _ := by rw [hR]
+      · apply expectedValue_le_of_le
+        intro result
+        rcases result with ⟨_ | found, cache'⟩
+        · unfold corePotential54 BankCore.expose
+          simp only [Option.map_none, Option.toList_none, List.append_nil, hd, if_false, hr', Bool.false_eq_true]
+          exact le_rfl
+        · unfold corePotential54 BankCore.expose
+          have hnd : horizon < (b.exposures ++ [found.2]).length := by simp; omega
+          simp only [Option.map_some, Option.toList_some, hnd, if_true]
+          exact bot_le
+    rw [hb]
+    calc
+      _ ≤ expectedValue ($ᵗ Digest : ProbComp Digest)
+          (fun rho => (if (S0 horizon).Reuse cache rho m then 1 else 0) +
+            (ledger54 horizon R0 b.targets b.exposures b.slack + C')) := by
+        apply expectedValue_mono
+        intro rho
+        by_cases hre : (S0 horizon).Reuse cache rho m
+        · rw [if_pos hre, if_pos hre]
+          unfold corePotential54
+          simp only [hd, if_false, if_true]
+          exact add_le_add le_rfl le_add_self
+        · rw [if_neg hre, if_neg hre, zero_add]
+          exact hsearch rho hre
+      _ ≤ (S0 horizon).reuseMass cache m + (ledger54 horizon R0 b.targets b.exposures b.slack + C') :=
+        (CaseC.expectedValue_add_const_le _ _ _).trans (add_le_add ((S0 horizon).reuse_probability_le cache m) le_rfl)
+      _ ≤ _ := by
+        rw [add_comm (ledger54 _ _ _ _ _), ← add_assoc, add_comm ((S0 horizon).reuseMass cache m),
+          add_comm _ (ledger54 _ _ _ _ _)]
+        exact add_le_add le_rfl hC
+  simp only [← wct_digestSearch_public (S0 horizon) rfl] at h
+  exact h
+theorem wct_core_win_54 (b : BankCore) (halive : ¬horizon < b.exposures.length)
+    (h : b.reused = true ∨ ∃ N ∈ b.targets, WCT9.admissible N = true ∧ Covered b.exposures N) :
+    1 ≤ corePotential54 horizon b := by
+  unfold corePotential54
+  rw [if_neg halive]
+  by_cases hr : b.reused = true
+  · rw [if_pos hr]; exact le_self_add
+  · rw [if_neg hr]
+    obtain ⟨N, hN, hadm, hcov⟩ := h.resolve_left hr
+    exact (ledger54_win horizon _ _ _ _ N hN hadm hcov).trans le_self_add
 end ClaudeWCT.Bank.WCT
 end
 section
@@ -3141,7 +3258,7 @@ structure BankInv (U : Finset HashInput) (ws : LargeResidual.State WCoord (Cell 
   calls : ws.counters.calls = st.calls
   mass : ws.counters.mass ≤ ws.counters.calls
   births : st.births.length ≤ st.calls
-  nonce : ∀ m, st.memo.lookup m = none → ∀ i : Fin 2, ws.candidates (.inr (m, i)) = Finset.univ
+  nonce : ∀ m, st.memo.lookup m = none → ws.candidates (.inr m) = Finset.univ
   fresh : ∀ (X : HashInput) (hX : X ∈ U), IsDigestRow X → X ∉ st.seen → X ∉ st.trials → ws.rows ⟨X, hX⟩ = none
   seenRows : ∀ (X : HashInput) (hX : X ∈ U), IsDigestRow X → X ∈ st.seen → X ∉ st.trials →
     ∃ y, st.cache X = some y ∧ ws.rows ⟨X, hX⟩ = some y
@@ -3183,7 +3300,7 @@ section Frame
 variable (U : Finset HashInput)
 def QFrame (X : HashInput) (s s' : LargeResidual.State WCoord (Cell U)) : Prop :=
   (∀ row : Cell U, row.1 ≠ X → s'.rows row = s.rows row) ∧ s'.counters.calls = s.counters.calls + 1 ∧
-    s'.counters.mass = s.counters.mass ∧ ∀ m : Message × Fin 2, s'.candidates (.inr m) = s.candidates (.inr m)
+    s'.counters.mass = s.counters.mass ∧ ∀ m : Message, s'.candidates (.inr m) = s.candidates (.inr m)
 theorem QFrame.of_disc {X : HashInput} {s1 s2 s3 : LargeResidual.State WCoord (Cell U)} (h1 : DiscFrame U s1 s2)
     (h2 : QFrame U X s2 s3) : QFrame U X s1 s3 :=
   ⟨fun row hr => (h2.1 row hr).trans (by rw [h1.1]), by rw [h2.2.1, h1.2.1], by rw [h2.2.2.1, h1.2.1],
@@ -3191,7 +3308,7 @@ theorem QFrame.of_disc {X : HashInput} {s1 s2 s3 : LargeResidual.State WCoord (C
 def InlTest (test : Probe WCoord) : Prop :=
   (∀ g ∈ test.guess, ∃ c : Coord, g.1 = Sum.inl c) ∧ ∀ p, test.hit = .label p → ∃ c : Coord, p = Sum.inl c
 theorem restrict_inr (test : Probe WCoord) (htest : InlTest test) (cand : WCoord → Finset Digest)
-    (y : LargeResidual.HashOutput) (m : Message × Fin 2) :
+    (y : LargeResidual.HashOutput) (m : Message) :
     (test.effF cand).restrict cand y (.inr m) = cand (.inr m) := by
   have hg : (test.effF cand).guessRestrict cand (.inr m) = cand (.inr m) := by
     unfold LargeResidual.Probe.guessRestrict
@@ -3241,7 +3358,7 @@ theorem BankInv.after {ws ws' : LargeResidual.State WCoord (Cell U)} {st : Route
     (X : HashInput) (hX : ¬(X ∈ U ∧ IsDigestRow X)) (hf : QFrame U X ws ws') : BankInv U ws' (st.after X) := by
   have hne : ∀ X' (hX' : X' ∈ U), IsDigestRow X' → X' ≠ X := fun X' hX' hd he => hX ⟨he ▸ hX', he ▸ hd⟩
   refine ⟨by rw [hf.2.1, h.calls]; rfl, by rw [hf.2.2.1, hf.2.1]; exact (h.mass).trans (Nat.le_succ _),
-    (h.births).trans (Nat.le_succ _), fun m hm i => by rw [hf.2.2.2 (m, i)]; exact h.nonce m hm i, ?_, ?_, ?_, h.trials⟩
+    (h.births).trans (Nat.le_succ _), fun m hm => by rw [hf.2.2.2 m]; exact h.nonce m hm, ?_, ?_, ?_, h.trials⟩
   · intro X' hX' hd hs ht
     rw [hf.1 ⟨X', hX'⟩ (hne X' hX' hd)]
     exact h.fresh X' hX' hd (fun hm => hs (List.mem_cons_of_mem _ hm)) ht
@@ -3324,9 +3441,9 @@ theorem BankInv.after' {ws ws' : LargeResidual.State WCoord (Cell U)} {st : Rout
     (X : HashInput) (hrows : ∀ row : Cell U, row.1 ≠ X → ws'.rows row = ws.rows row)
     (hX : ∀ hX : X ∈ U, IsDigestRow X → X ∉ st.trials → ∃ y, st.cache X = some y ∧ ws'.rows ⟨X, hX⟩ = some y)
     (hcalls : ws'.counters.calls = ws.counters.calls + 1) (hmass : ws'.counters.mass ≤ ws'.counters.calls)
-    (hcand : ∀ m : Message × Fin 2, ws'.candidates (.inr m) = ws.candidates (.inr m)) : BankInv U ws' (st.after X) := by
+    (hcand : ∀ m : Message, ws'.candidates (.inr m) = ws.candidates (.inr m)) : BankInv U ws' (st.after X) := by
   refine ⟨by rw [hcalls, h.calls]; rfl, hmass, (h.births).trans (Nat.le_succ _),
-    fun m hm i => by rw [hcand (m, i)]; exact h.nonce m hm i, ?_, ?_, ?_, h.trials⟩
+    fun m hm => by rw [hcand m]; exact h.nonce m hm, ?_, ?_, ?_, h.trials⟩
   · intro X' hX' hd hs ht
     have hne : X' ≠ X := fun he => hs (by rw [he]; exact List.mem_cons_self)
     rw [hrows ⟨X', hX'⟩ hne]
@@ -3415,19 +3532,18 @@ variable {U : Finset HashInput}
 theorem BankInv.disc {ws ws' : LargeResidual.State WCoord (Cell U)} {st : RouterState} (h : BankInv U ws st)
     (hd : DiscFrame U ws ws') (d : List Coord) : BankInv U ws' { st with disclosed := d } := by
   obtain ⟨hr, hc, hn⟩ := hd
-  refine ⟨by rw [hc]; exact h.calls, by rw [hc]; exact h.mass, h.births, fun m hm i => by rw [hn (m, i)]; exact h.nonce m hm i,
+  refine ⟨by rw [hc]; exact h.calls, by rw [hc]; exact h.mass, h.births, fun m hm => by rw [hn m]; exact h.nonce m hm,
     fun X hX hd hs ht => by rw [hr]; exact h.fresh X hX hd hs ht,
     fun X hX hd hs ht => by rw [hr]; exact h.seenRows X hX hd hs ht, h.bornSeen, h.trials⟩
-/-- R6 (S5): disclosing both nonce halves of an already-signed message keeps the invariant. -/
 theorem BankInv.discloseSigned {ws : LargeResidual.State WCoord (Cell U)} {st : RouterState} (h : BankInv U ws st)
-    (q : Nat) (m : Message) (hm : (st.memo.lookup m).isSome) (lo hi : Digest) :
-    BankInv U (LargeResidual.Paired.nonceState U q ws m lo hi) st := by
-  refine ⟨h.calls, h.mass, h.births, fun m' hm' i => ?_, h.fresh, h.seenRows, h.bornSeen, h.trials⟩
+    (q : Nat) (m : Message) (hm : (st.memo.lookup m).isSome) (rho : Digest) :
+    BankInv U (disclosedState q ws (.inr m) rho .none) st := by
+  refine ⟨h.calls, h.mass, h.births, fun m' hm' => ?_, h.fresh, h.seenRows, h.bornSeen, h.trials⟩
   have hne : m' ≠ m := by
     intro he; subst he; rw [hm'] at hm; cases hm
-  rw [LargeResidual.Paired.nonceState_candidates, Function.update_of_ne (by simp [hne]),
-    Function.update_of_ne (by simp [hne])]
-  exact h.nonce m' hm' i
+  simp only [disclosedState, discloseTableValue]
+  rw [Function.update_of_ne (by simpa using hne)]
+  exact h.nonce m' hm'
 theorem mem_trialRows (rho : Digest) (m : Message) (found : Option (BitVec 32 × LargeResidual.HashOutput)) (k : Nat)
     (hk : k < WCT9.digestAttemptLimit) (hf : ∀ k' out, found = some (k', out) → k ≤ k'.toNat) :
     pad64 (digestInput rho m (BitVec.ofNat 32 k)) ∈ trialRows rho m found := by
@@ -3567,13 +3683,15 @@ noncomputable def corePotential (b : BankCore) : ENNReal :=
   else if b.reused = true then 1 + b.reuse
   else ledger S θ horizon (horizon - b.exposures.length) b.targets b.exposures b.slack + b.reuse
 theorem core_birth (b : BankCore) (s : Nat) (hs : b.slack = s + 1) (C' : HashOutput → ENNReal)
-    (hC : ∀ N, C' N ≤ b.reuse + SigGolfCandidate.T3.Security.LazyPrivate.rhoKappa * S.admInd N / 2 ^ 128) :
+    (hC : ∀ N, C' N ≤ b.reuse + S.admInd N / 2 ^ 128) :
     expectedValue ($ᵗ HashOutput : ProbComp HashOutput)
         (fun N => corePotential S θ horizon { b with targets := b.targets ++ [N], slack := s, reuse := C' N }) ≤
       corePotential S θ horizon b + (θ + S.admBound) / 2 ^ 128 := by
-  have hadm : expectedValue ($ᵗ HashOutput : ProbComp HashOutput) (fun N => SigGolfCandidate.T3.Security.LazyPrivate.rhoKappa * S.admInd N / 2 ^ 128) ≤
+  have hadm : expectedValue ($ᵗ HashOutput : ProbComp HashOutput) (fun N => S.admInd N / 2 ^ 128) ≤
       S.admBound / 2 ^ 128 := by
-    exact ClaudeWCT.Bank.FtsBankSpec.expected_kappa_admInd_div S
+    simp only [div_eq_mul_inv]
+    rw [expectedValue_mul_const]
+    exact mul_le_mul' (by simpa [div_eq_mul_inv] using S.expected_admInd_tight) le_rfl
   have h54_adm : S.admBound ≤ θ + S.admBound := le_add_self
   have h54_sum : θ + S.admBound ≤ θ + S.admBound := le_rfl
   unfold corePotential
@@ -3586,7 +3704,7 @@ theorem core_birth (b : BankCore) (s : Nat) (hs : b.slack = s + 1) (C' : HashOut
   · simp only [hr, if_true]
     calc
       _ ≤ expectedValue ($ᵗ HashOutput : ProbComp HashOutput)
-            (fun N => SigGolfCandidate.T3.Security.LazyPrivate.rhoKappa * S.admInd N / 2 ^ 128 + (1 + b.reuse)) :=
+            (fun N => S.admInd N / 2 ^ 128 + (1 + b.reuse)) :=
         expectedValue_mono _ fun N => (add_le_add le_rfl (hC N)).trans (le_of_eq (by ring))
       _ ≤ S.admBound / 2 ^ 128 + (1 + b.reuse) :=
         (CaseC.expectedValue_add_const_le _ _ _).trans (add_le_add hadm le_rfl)
@@ -3597,10 +3715,10 @@ theorem core_birth (b : BankCore) (s : Nat) (hs : b.slack = s + 1) (C' : HashOut
     set R := horizon - b.exposures.length
     calc
       _ ≤ expectedValue ($ᵗ HashOutput : ProbComp HashOutput)
-          (fun N => (ledger S θ horizon R (b.targets ++ [N]) b.exposures s + SigGolfCandidate.T3.Security.LazyPrivate.rhoKappa * S.admInd N / 2 ^ 128) + b.reuse) :=
+          (fun N => (ledger S θ horizon R (b.targets ++ [N]) b.exposures s + S.admInd N / 2 ^ 128) + b.reuse) :=
         expectedValue_mono _ fun N => (add_le_add le_rfl (hC N)).trans (le_of_eq (by ring))
       _ ≤ expectedValue ($ᵗ HashOutput : ProbComp HashOutput)
-          (fun N => ledger S θ horizon R (b.targets ++ [N]) b.exposures s + SigGolfCandidate.T3.Security.LazyPrivate.rhoKappa * S.admInd N / 2 ^ 128) + b.reuse :=
+          (fun N => ledger S θ horizon R (b.targets ++ [N]) b.exposures s + S.admInd N / 2 ^ 128) + b.reuse :=
         CaseC.expectedValue_add_const_le _ _ _
       _ ≤ (ledger S θ horizon R b.targets b.exposures (s + 1) + θ / 2 ^ 128 +
             S.admBound / 2 ^ 128) + b.reuse := by
@@ -3612,17 +3730,16 @@ theorem core_birth (b : BankCore) (s : Nat) (hs : b.slack = s + 1) (C' : HashOut
             (θ + S.admBound) / 2 ^ 128 + b.reuse =
             (ledger S θ horizon R b.targets b.exposures b.slack + b.reuse) +
             (θ + S.admBound) / 2 ^ 128 by ring]
-theorem core_sign_law {n : Type → Type _} [MonadLiftT n SPMF] (μ : n Digest) (b : BankCore)
-    (cache : Sampling.RCache) (m : Message) (C' M : ENNReal)
-    (hμ : expectedValue μ (fun rho => if S.Reuse cache rho m then 1 else 0) ≤ M) (hC : C' + M ≤ b.reuse)
-    (secret : BitVec 256) (fuel : Nat) (hfuel : fuel ≤ 2 ^ 32) :
-    expectedValue μ (fun rho =>
+theorem core_sign (b : BankCore) (cache : Sampling.RCache) (m : Message) (C' : ENNReal)
+    (hC : C' + S.reuseMass cache m ≤ b.reuse) (secret : BitVec 256) (fuel : Nat)
+    (hfuel : fuel ≤ 2 ^ 32) :
+    expectedValue ($ᵗ Digest : ProbComp Digest) (fun rho =>
       if S.Reuse cache rho m then
         corePotential S θ horizon { b with reused := true, reuse := C' }
       else expectedValue (Sampling.roRun secret (S.search rho m 0 fuel) cache)
         (fun result => corePotential S θ horizon (b.expose C' (result.1.map Prod.snd)))) ≤
       corePotential S θ horizon b := by
-  have h : expectedValue μ (fun rho =>
+  have h : expectedValue ($ᵗ Digest : ProbComp Digest) (fun rho =>
       if S.Reuse cache rho m then corePotential S θ horizon { b with reused := true, reuse := C' }
       else expectedValue (Sampling.roRun secret (S.search rho m 0 fuel) cache)
         (fun result => corePotential S θ horizon (b.expose C' (result.1.map Prod.snd)))) ≤
@@ -3701,7 +3818,7 @@ theorem core_sign_law {n : Type → Type _} [MonadLiftT n SPMF] (μ : n Digest) 
           exact bot_le
     rw [hb]
     calc
-      _ ≤ expectedValue μ
+      _ ≤ expectedValue ($ᵗ Digest : ProbComp Digest)
           (fun rho => (if S.Reuse cache rho m then 1 else 0) +
             (ledger S θ horizon R0 b.targets b.exposures b.slack + C')) := by
         apply expectedValue_mono
@@ -3713,35 +3830,13 @@ theorem core_sign_law {n : Type → Type _} [MonadLiftT n SPMF] (μ : n Digest) 
           exact add_le_add le_rfl le_add_self
         · rw [if_neg hre, if_neg hre, zero_add]
           exact hsearch rho hre
-      _ ≤ M + (ledger S θ horizon R0 b.targets b.exposures b.slack + C') :=
-        (ClaudeWCT.Bank.FtsBankSpec.ev_add_const_le_law _ _ _).trans (add_le_add hμ le_rfl)
+      _ ≤ S.reuseMass cache m + (ledger S θ horizon R0 b.targets b.exposures b.slack + C') :=
+        (CaseC.expectedValue_add_const_le _ _ _).trans (add_le_add (S.reuse_probability_le cache m) le_rfl)
       _ ≤ _ := by
-        rw [add_comm (ledger S θ _ _ _ _ _), ← add_assoc, add_comm (M),
+        rw [add_comm (ledger S θ _ _ _ _ _), ← add_assoc, add_comm (S.reuseMass cache m),
           add_comm _ (ledger S θ _ _ _ _ _)]
         exact add_le_add le_rfl hC
   exact h
-/-- R6 world split (S4a), Rule B: a `rhoLaw` nonce draw against the `κ`-weighted reuse mass. -/
-theorem core_sign (b : BankCore) (cache : Sampling.RCache) (m : Message) (C' : ENNReal)
-    (hC : C' + S.reuseMassK cache m ≤ b.reuse) (secret : BitVec 256) (fuel : Nat)
-    (hfuel : fuel ≤ 2 ^ 32) :
-    expectedValue SigGolfCandidate.T3.Security.BPair.rhoLaw (fun rho =>
-      if S.Reuse cache rho m then
-        corePotential S θ horizon { b with reused := true, reuse := C' }
-      else expectedValue (Sampling.roRun secret (S.search rho m 0 fuel) cache)
-        (fun result => corePotential S θ horizon (b.expose C' (result.1.map Prod.snd)))) ≤
-      corePotential S θ horizon b :=
-  core_sign_law S θ horizon _ b cache m C' _ (S.reuse_probability_le_rho cache m) hC secret fuel hfuel
-/-- R6 world split (S4a): the same bound for a uniform nonce (used until S5 moves the router label). -/
-theorem core_sign_unif (b : BankCore) (cache : Sampling.RCache) (m : Message) (C' : ENNReal)
-    (hC : C' + S.reuseMassK cache m ≤ b.reuse) (secret : BitVec 256) (fuel : Nat)
-    (hfuel : fuel ≤ 2 ^ 32) :
-    expectedValue ($ᵗ Digest : ProbComp Digest) (fun rho =>
-      if S.Reuse cache rho m then
-        corePotential S θ horizon { b with reused := true, reuse := C' }
-      else expectedValue (Sampling.roRun secret (S.search rho m 0 fuel) cache)
-        (fun result => corePotential S θ horizon (b.expose C' (result.1.map Prod.snd)))) ≤
-      corePotential S θ horizon b :=
-  core_sign_law S θ horizon _ b cache m C' _ ((S.reuse_probability_le cache m).trans (S.reuseMass_le_reuseMassK cache m)) hC secret fuel hfuel
 theorem core_win (b : BankCore) (halive : ¬horizon < b.exposures.length)
     (h : b.reused = true ∨ ∃ N ∈ b.targets, S.admissible N = true ∧ S.covered b.exposures N) :
     1 ≤ corePotential S θ horizon b := by
@@ -3776,7 +3871,7 @@ set_option maxRecDepth 10000
 set_option backward.isDefEq.respectTransparency false
 attribute [local instance] Classical.propDecidable
 noncomputable def reuseC (st : RouterState) : ENNReal :=
-  ∑' m : Message, if (st.memo.lookup m).isSome then 0 else ClaudeWCT.Bank.Paired.lawSpec.reuseMassK st.cache m
+  ∑' m : Message, if (st.memo.lookup m).isSome then 0 else ClaudeWCT.Bank.Paired.lawSpec.reuseMass st.cache m
 noncomputable def bankOf (q : Nat) (st : RouterState) : CaseC.BankCore :=
   ⟨(st.births.map Prod.snd).reverse, st.exposures, st.reused, reuseC st, q - st.births.length⟩
 noncomputable def coeffQ (θ : ENNReal) (_q : Nat) : ENNReal := θ + ClaudeWCT.Bank.Paired.lawSpec.admBound
@@ -3800,53 +3895,41 @@ theorem admissibleEntry_birth (st : RouterState) (X Z : HashInput) (y : LargeRes
   · simp only [h, if_false, add_zero]
     exact le_rfl
 theorem reuseC_birth (st : RouterState) (X : HashInput) (y : LargeResidual.HashOutput) (hX : st.cache X = none) :
-    reuseC (st.born X y) ≤ reuseC st + SigGolfCandidate.T3.Security.LazyPrivate.rhoKappa * ClaudeWCT.Bank.Paired.lawSpec.admInd y / 2 ^ 128 := by
-  have hK : ∀ st' : RouterState, reuseC st' = SigGolfCandidate.T3.Security.LazyPrivate.rhoKappa *
-      ∑' m : Message, if (st'.memo.lookup m).isSome then 0 else ClaudeWCT.Bank.Paired.lawSpec.reuseMass st'.cache m := by
-    intro st'
-    unfold reuseC ClaudeWCT.Bank.FtsBankSpec.reuseMassK
-    rw [← ENNReal.tsum_mul_left]
-    exact tsum_congr fun m => by split_ifs <;> simp
-  have h0 : (∑' m : Message, if ((st.born X y).memo.lookup m).isSome then 0 else
-        ClaudeWCT.Bank.Paired.lawSpec.reuseMass (st.born X y).cache m) ≤
-      (∑' m : Message, if (st.memo.lookup m).isSome then 0 else ClaudeWCT.Bank.Paired.lawSpec.reuseMass st.cache m) +
-        ClaudeWCT.Bank.Paired.lawSpec.admInd y / 2 ^ 128 := by
-    unfold ClaudeWCT.Bank.FtsBankSpec.reuseMass
-    have hmemo : (st.born X y).memo = st.memo := rfl
-    rw [hmemo]
-    calc
-      _ ≤ ∑' m : Message, ((if (st.memo.lookup m).isSome then 0 else
-            (∑' p : Digest × Fin (2 ^ 32),
-              ClaudeWCT.Bank.Paired.lawSpec.admissibleEntry st.cache (Sampling.digestTrial p.1 m p.2.val)) / 2 ^ 128) +
-            (∑' p : Digest × Fin (2 ^ 32),
-              if Sampling.digestTrial p.1 m p.2.val = X then ClaudeWCT.Bank.Paired.lawSpec.admInd y else 0) / 2 ^ 128) := by
+    reuseC (st.born X y) ≤ reuseC st + ClaudeWCT.Bank.Paired.lawSpec.admInd y / 2 ^ 128 := by
+  unfold reuseC ClaudeWCT.Bank.FtsBankSpec.reuseMass
+  have hmemo : (st.born X y).memo = st.memo := rfl
+  rw [hmemo]
+  calc
+    _ ≤ ∑' m : Message, ((if (st.memo.lookup m).isSome then 0 else
+          (∑' p : Digest × Fin (2 ^ 32),
+            ClaudeWCT.Bank.Paired.lawSpec.admissibleEntry st.cache (Sampling.digestTrial p.1 m p.2.val)) / 2 ^ 128) +
+          (∑' p : Digest × Fin (2 ^ 32),
+            if Sampling.digestTrial p.1 m p.2.val = X then ClaudeWCT.Bank.Paired.lawSpec.admInd y else 0) / 2 ^ 128) := by
+      apply ENNReal.tsum_le_tsum
+      intro m
+      split_ifs
+      · exact zero_le
+      · rw [← ENNReal.add_div, ← ENNReal.tsum_add]
+        apply ENNReal.div_le_div_right
         apply ENNReal.tsum_le_tsum
-        intro m
-        split_ifs
-        · exact zero_le
-        · rw [← ENNReal.add_div, ← ENNReal.tsum_add]
-          apply ENNReal.div_le_div_right
-          apply ENNReal.tsum_le_tsum
-          intro p
-          exact admissibleEntry_birth st X _ y hX
-      _ = _ + _ := ENNReal.tsum_add
-      _ ≤ _ := by
-        apply add_le_add le_rfl
-        simp only [div_eq_mul_inv]
-        rw [ENNReal.tsum_mul_right]
-        exact mul_le_mul' (tsum_trial_indicator_le X _) le_rfl
-  rw [hK, hK, mul_div_assoc, ← mul_add]
-  exact mul_le_mul' le_rfl h0
+        intro p
+        exact admissibleEntry_birth st X _ y hX
+    _ = _ + _ := ENNReal.tsum_add
+    _ ≤ _ := by
+      apply add_le_add le_rfl
+      simp only [div_eq_mul_inv]
+      rw [ENNReal.tsum_mul_right]
+      exact mul_le_mul' (tsum_trial_indicator_le X _) le_rfl
 theorem reuseC_signed (st : RouterState) (rho : Digest) (m : Message)
     (found : Option (BitVec 32 × LargeResidual.HashOutput))
     (hm : st.memo.lookup m = none) :
-    reuseC (LargeResidual.Paired.RouterState.signed st rho m found) + ClaudeWCT.Bank.Paired.lawSpec.reuseMassK st.cache m = reuseC st := by
+    reuseC (LargeResidual.Paired.RouterState.signed st rho m found) + ClaudeWCT.Bank.Paired.lawSpec.reuseMass st.cache m = reuseC st := by
   obtain ⟨-, -, -, hb, -, hmemo⟩ := LargeResidual.Paired.RouterState.signed_fields st rho m found
   have hcache : (LargeResidual.Paired.RouterState.signed st rho m found).cache = st.cache := by
     funext X; simp only [RouterState.cache, hb]
   unfold reuseC
   rw [hmemo, hcache, ENNReal.tsum_eq_add_tsum_ite m (f := fun m' => if (st.memo.lookup m').isSome then 0 else
-    ClaudeWCT.Bank.Paired.lawSpec.reuseMassK st.cache m')]
+    ClaudeWCT.Bank.Paired.lawSpec.reuseMass st.cache m')]
   simp only [hm, Option.isSome_none, Bool.false_eq_true, if_false]
   rw [add_comm]
   congr 1
@@ -3897,8 +3980,8 @@ theorem psi_initial (q : Nat) (rate : ENNReal)
     have hc : ∀Z,RouterState.initial.cache Z=none := fun _=>rfl
     have hm : RouterState.initial.memo.lookup m=none := rfl
     simp only [hm,Option.isSome_none,Bool.false_eq_true,if_false,
-      ClaudeWCT.Bank.FtsBankSpec.reuseMassK,ClaudeWCT.Bank.FtsBankSpec.reuseMass,ClaudeWCT.Bank.FtsBankSpec.admissibleEntry,hc,
-      Option.elim_none,tsum_zero,ENNReal.zero_div,mul_zero]
+      ClaudeWCT.Bank.FtsBankSpec.reuseMass,ClaudeWCT.Bank.FtsBankSpec.admissibleEntry,hc,
+      Option.elim_none,tsum_zero,ENNReal.zero_div]
   unfold psi bankOf
   rw [h0]
   exact ClaudeWCT.Bank.Flexible.core_initial ClaudeWCT.Bank.Paired.lawSpec θ rate hexc q
@@ -4108,29 +4191,6 @@ theorem bank_routeQuerySelected (a : AuxData) (st : RouterState) (ws : LargeResi
           simp only [discloseTableValue]
           rw [Function.update_of_ne (by simp)]
       rw [dif_neg hph]
-      by_cases hwp : ∃ n : ClaudeWCT.W9.T3.Security.CanonGraph.WctNodePos, X = ClaudeWCT.W9.T3.Security.CanonGraph.wphantom n ∧
-          ClaudeWCT.W9.T3.Security.CanonGraph.Paired.Filtered.Used (.wctNode n)
-      · rw [dif_pos hwp]
-        have hndX : ¬(X ∈ U ∧ IsDigestRow X) := by
-          rintro ⟨-, ρ, m, c, hd⟩
-          obtain ⟨n, hn, -⟩ := hwp
-          have := congrArg List.length (hn.symm.trans hd)
-          rw [ClaudeWCT.W9.T3.Security.CanonGraph.wphantom_length, Cost.pad64_length] at this
-          simp [digestInput, SphincsSecurity.bytesLE_length] at this
-        apply ev_discloseAll_le
-        intro pairs s1 hd
-        split
-        · rw [ev_lazy_map]
-          exact ev_readReq_call_le U aux q ⟨X,hX⟩ s1 _ _ (((hnd hndX).of_disc U hd).map U _)
-        · rw [lazy_discloseReq]
-          apply ev_bind_le
-          intro v
-          rw [lazy_pure, expectedValue_pure]
-          apply ((hnd hndX).of_disc U hd).1
-          refine ⟨fun row hr => rfl, rfl, rfl, fun m => ?_⟩
-          simp only [discloseTableValue]
-          rw [Function.update_of_ne (by simp)]
-      rw [dif_neg hwp]
       by_cases he : EncRow X
       · rw [dif_pos he]
         have hndX : ¬(X ∈ U ∧ IsDigestRow X) := by
@@ -4417,26 +4477,14 @@ theorem psi_eq_corePotentialQ (q : Nat) (st : RouterState) :
     psi θ q st = corePotentialQ θ q (bankOf q st) := rfl
 
 theorem wct_core_sign_q (q : Nat) (b : CaseC.BankCore) (cache : Sampling.RCache) (m : Message) (C' : ENNReal)
-    (hC : C'+ClaudeWCT.Bank.Paired.lawSpec.reuseMassK cache m≤b.reuse) (secret : BitVec 256) (fuel : Nat)
-    (hfuel : fuel≤2^32) :
-    expectedValue SigGolfCandidate.T3.Security.BPair.rhoLaw (fun rho=>
-      if ClaudeWCT.Bank.Paired.lawSpec.Reuse cache rho m then
-        corePotentialQ θ q {b with reused:=true,reuse:=C'}
-      else expectedValue (Sampling.roRun secret (SigGolfCandidate.Research.SharedForest.sharedDigestSearch rho m 0 fuel) cache)
-        (fun result=>corePotentialQ θ q (b.expose C' (result.1.map Prod.snd))))≤corePotentialQ θ q b := by
-  have h:=ClaudeWCT.Bank.Flexible.core_sign ClaudeWCT.Bank.Paired.lawSpec θ CaseC.horizon b cache m C' hC secret fuel hfuel
-  simpa only [corePotentialQ,←ClaudeWCT.Bank.Paired.digestSearch_public] using h
-/-- R6 world split (S4a): uniform-nonce variant (still κ-weighted), used by `bank_routeSign` until the
-    LargeResidual nonce label carries `rhoLaw` (S5). -/
-theorem wct_core_sign_q_unif (q : Nat) (b : CaseC.BankCore) (cache : Sampling.RCache) (m : Message) (C' : ENNReal)
-    (hC : C'+ClaudeWCT.Bank.Paired.lawSpec.reuseMassK cache m≤b.reuse) (secret : BitVec 256) (fuel : Nat)
+    (hC : C'+ClaudeWCT.Bank.Paired.lawSpec.reuseMass cache m≤b.reuse) (secret : BitVec 256) (fuel : Nat)
     (hfuel : fuel≤2^32) :
     expectedValue ($ᵗ Digest : ProbComp Digest) (fun rho=>
       if ClaudeWCT.Bank.Paired.lawSpec.Reuse cache rho m then
         corePotentialQ θ q {b with reused:=true,reuse:=C'}
       else expectedValue (Sampling.roRun secret (SigGolfCandidate.Research.SharedForest.sharedDigestSearch rho m 0 fuel) cache)
         (fun result=>corePotentialQ θ q (b.expose C' (result.1.map Prod.snd))))≤corePotentialQ θ q b := by
-  have h:=ClaudeWCT.Bank.Flexible.core_sign_unif ClaudeWCT.Bank.Paired.lawSpec θ CaseC.horizon b cache m C' hC secret fuel hfuel
+  have h:=ClaudeWCT.Bank.Flexible.core_sign ClaudeWCT.Bank.Paired.lawSpec θ CaseC.horizon b cache m C' hC secret fuel hfuel
   simpa only [corePotentialQ,←ClaudeWCT.Bank.Paired.digestSearch_public] using h
 theorem psi_signed (q : Nat) (st : RouterState) (rho : Digest) (m : Message)
     (found : Option (BitVec 32 × LargeResidual.HashOutput)) :
@@ -4455,9 +4503,9 @@ theorem psi_signed (q : Nat) (st : RouterState) (rho : Digest) (m : Message)
     unfold bankOf CaseC.BankCore.expose LargeResidual.Paired.RouterState.signed
     rw [reuse_eq,if_neg hr]
 theorem BankInv.signed {ws s' : LargeResidual.State WCoord (Cell U)} {st : RouterState} (h : BankInv U ws st)
-    (q : Nat) (m : Message) (hm : st.memo.lookup m = none) (rho lo hi : Digest)
+    (q : Nat) (m : Message) (hm : st.memo.lookup m = none) (rho : Digest)
     (found : Option (BitVec 32 × LargeResidual.HashOutput))
-    (hf : SearchFrame rho m 0 WCT9.digestAttemptLimit found (LargeResidual.Paired.nonceState U q ws m lo hi) s') :
+    (hf : SearchFrame rho m 0 WCT9.digestAttemptLimit found (disclosedState q ws (.inr m) rho .none) s') :
     BankInv U s' (LargeResidual.Paired.RouterState.signed st rho m found) := by
   obtain ⟨hdisc, hseen, hcalls, hbirths, htrials, hmemo⟩ := LargeResidual.Paired.RouterState.signed_fields st rho m found
   obtain ⟨hcand, hcount, -, hrows⟩ := hf
@@ -4468,7 +4516,7 @@ theorem BankInv.signed {ws s' : LargeResidual.State WCoord (Cell U)} {st : Route
     by_contra hne
     obtain ⟨k, -, hk2, hk3, hk4⟩ := hrows ⟨X, hX⟩ hne
     exact hnt (by rw [show X = _ from hk3]; exact mem_trialRows rho m found k (by simpa using hk2) hk4)
-  refine ⟨?_, ?_, ?_, fun m' hm' i => ?_, fun X hX hd hs ht => ?_, fun X hX hd hs ht => ?_, ?_, ?_⟩
+  refine ⟨?_, ?_, ?_, fun m' hm' => ?_, fun X hX hd hs ht => ?_, fun X hX hd hs ht => ?_, ?_, ?_⟩
   · rw [hcount, hcalls]; exact h.calls
   · rw [hcount]; exact h.mass
   · rw [hbirths, hcalls]; exact h.births
@@ -4480,9 +4528,10 @@ theorem BankInv.signed {ws s' : LargeResidual.State WCoord (Cell U)} {st : Route
       rw [hmemo] at hm'
       have hb : (m' == m) = false := by simpa using hne
       simpa only [List.lookup_cons, hb] using hm'
-    rw [hcand, LargeResidual.Paired.nonceState_candidates, Function.update_of_ne (by simp [hne]),
-      Function.update_of_ne (by simp [hne])]
-    exact h.nonce m' hm'' i
+    rw [hcand]
+    simp only [disclosedState, discloseTableValue]
+    rw [Function.update_of_ne (by simpa using hne)]
+    exact h.nonce m' hm''
   · rw [htrials] at ht
     rw [hseen] at hs
     rw [hkeep X hX (fun hm2 => ht (List.mem_append_right _ hm2))]
@@ -4537,34 +4586,39 @@ theorem bank_routeSign (hUpub : SeccLaw.publicUniverse ⊆ U) (a : AuxData) (pub
   swap
   · rw [lazy_pure, expectedValue_pure]
     exact hcont none st ws hinv rfl
+  rw [lazy_discloseReq]
   cases hm : st.memo.lookup request.message with
   | some found =>
-      refine LargeResidual.Paired.ev_discloseNonce_le_const U aux q request.message _ ws g _ fun lo hi => ?_
-      apply ev_signFinish_le aux q a st (LargeResidual.nonceRho lo hi) found _ g
+      apply ev_bind_le
+      intro rho
+      apply ev_signFinish_le aux q a st rho found _ g
       intro sig d s' hd
-      have hinv1 := hinv.discloseSigned q request.message (by rw [hm]; rfl) lo hi
+      have hinv1 := hinv.discloseSigned q request.message (by rw [hm]; rfl) rho
       refine (hcont sig _ s' (hinv1.disc hd d) rfl).trans (le_of_eq ?_)
       rw [slackT_eq_of_mass θ q (show s'.counters.mass = ws.counters.mass by rw [hd.2.1] <;> rfl)]
       rfl
   | none =>
       set m := request.message with hmdef
+      rw [expectedValue_bind]
+      refine (expectedValue_discLaw_le ws.candidates (c := (.inr m : WCoord)) (p := (.inr m : WPlain)) rfl _).trans ?_
+      rw [hinv.nonce m hm, expectedValue_cell_univ]
       set C0 := reuseC (LargeResidual.Paired.RouterState.signed st 0 m none) with hC0
-      have hC : C0 + ClaudeWCT.Bank.Paired.lawSpec.reuseMassK st.cache m ≤ (bankOf q st).reuse := by
+      have hC : C0 + ClaudeWCT.Bank.Paired.lawSpec.reuseMass st.cache m ≤ (bankOf q st).reuse := by
         rw [hC0, reuseC_signed st 0 m none hm]; exact le_rfl
       have hcore := wct_core_sign_q θ q (bankOf q st) st.cache m C0 hC 0
         WCT9.digestAttemptLimit WCT9.digestAttemptLimit_le
-      have hrho : ∀ rho lo hi : Digest,
+      have hrho : ∀ rho : Digest,
           expectedValue (lazyRun aux q (simulateQ (readImpl U a) (SigGolfCandidate.Research.SharedForest.sharedDigestSearch rho m 0 WCT9.digestAttemptLimit) >>= fun found =>
-              signFinish U a (LargeResidual.Paired.RouterState.signed st rho m found) rho found) (LargeResidual.Paired.nonceState U q ws m lo hi)) g ≤
+              signFinish U a (LargeResidual.Paired.RouterState.signed st rho m found) rho found) (disclosedState q ws (.inr m) rho .none)) g ≤
             (if ClaudeWCT.Bank.Paired.lawSpec.Reuse st.cache rho m then corePotentialQ θ q { bankOf q st with reused := true, reuse := C0 }
               else expectedValue (Sampling.roRun 0 (SigGolfCandidate.Research.SharedForest.sharedDigestSearch rho m 0 WCT9.digestAttemptLimit) st.cache)
                 (fun result => corePotentialQ θ q ((bankOf q st).expose C0 (result.1.map Prod.snd)))) +
               slackT θ q ws := by
-        intro rho lo hi
+        intro rho
         rw [lazyRun, ev_runWith_bind, ← lazyRun]
         have hsearch := bank_search aux q a rho m (digestRow_mem hUpub rho m) 0 WCT9.digestAttemptLimit 0
           (by rw [Nat.zero_add]; exact WCT9.digestAttemptLimit_le)
-          (LargeResidual.Paired.nonceState U q ws m lo hi) st.cache
+          (disclosedState q ws (.inr m) rho .none) st.cache
           (fun k _ _ => hinv.agree hUpub m hm rho k)
           (fun r => r.1.elim (g (none, r.2)) (fun found =>
             expectedValue (lazyRun aux q (signFinish U a (LargeResidual.Paired.RouterState.signed st rho m found) rho found) r.2) g))
@@ -4573,7 +4627,7 @@ theorem bank_routeSign (hUpub : SeccLaw.publicUniverse ⊆ U) (a : AuxData) (pub
             intro found s' hf
             apply ev_signFinish_le aux q a _ rho found s' g
             intro sig d s'' hd
-            have hinv' := (ClaudeWCT.W9.T3.Security.LargeCoupling.Paired.BankInv.signed hinv q m hm rho lo hi found hf).disc hd d
+            have hinv' := (ClaudeWCT.W9.T3.Security.LargeCoupling.Paired.BankInv.signed hinv q m hm rho found hf).disc hd d
             refine (hcont sig _ s'' hinv' ?_).trans (le_of_eq ?_)
             · exact (LargeResidual.Paired.RouterState.signed_fields st rho m found).2.2.1
             · have hmass : s''.counters.mass = ws.counters.mass := by
@@ -4594,13 +4648,11 @@ theorem bank_routeSign (hUpub : SeccLaw.publicUniverse ⊆ U) (a : AuxData) (pub
           funext result
           rw [psi_signed, if_neg hr]
       calc
-        _ ≤ expectedValue SigGolfCandidate.T3.Security.BPair.rhoLaw (fun rho =>
+        _ ≤ expectedValue ($ᵗ Digest : ProbComp Digest) (fun rho =>
             (if ClaudeWCT.Bank.Paired.lawSpec.Reuse st.cache rho m then corePotentialQ θ q { bankOf q st with reused := true, reuse := C0 }
               else expectedValue (Sampling.roRun 0 (SigGolfCandidate.Research.SharedForest.sharedDigestSearch rho m 0 WCT9.digestAttemptLimit) st.cache)
                 (fun result => corePotentialQ θ q ((bankOf q st).expose C0 (result.1.map Prod.snd)))) +
-              slackT θ q ws) := by
-          apply LargeResidual.Paired.ev_discloseNonce_le U aux q m _ ws (hinv.nonce m hm) g
-          exact fun lo hi => hrho (LargeResidual.nonceRho lo hi) lo hi
+              slackT θ q ws) := expectedValue_mono _ hrho
         _ ≤ corePotentialQ θ q (bankOf q st) + slackT θ q ws := by
           rw [expectedValue_add]
           exact add_le_add hcore (expectedValue_le_of_le _ fun _ => le_rfl)
@@ -4632,7 +4684,7 @@ theorem honestNonce_short : honestNonce A = honestNonce T := by
   funext m
   unfold honestNonce
   simp only [T3.privateNonce, privateHash, evalWithAnswerFn_bind, evalWithAnswerFn_pure]
-  change BitVec.ofNat 128 (rhoMod (A (.inr (.inr (.inl m))))) = BitVec.ofNat 128 (rhoMod (T (.inr (.inr (.inl m)))))
+  change (A (.inr (.inr (.inl m)))).extractLsb' 0 128 = (T (.inr (.inr (.inl m)))).extractLsb' 0 128
   rw [hAT.priv]
 end Short
 end SigGolfCandidate.T3.Security.LargeCoupling
@@ -4743,7 +4795,7 @@ attribute [local instance] Classical.propDecidable
 noncomputable local instance instDecidableEqCache_w9largeCouplingCertInteraction : DecidableEq SigGolfCandidate.T3.Cache :=
   Classical.decEq _
 section Interaction
-variable {U : Finset HashInput} {T : Answers} {vals : Coord → Digest} {nv : Message × Fin 2 → Digest}
+variable {U : Finset HashInput} {T : Answers} {vals : Coord → Digest} {nv : Message → Digest}
   {τ : Cell U → HashOutput} {a : AuxData} {q : Nat} (initLaw : PMF AuxData)
 end Interaction
 end ClaudeWCT.W9.T3.Security.LargeCoupling
@@ -5248,6 +5300,275 @@ set_option maxRecDepth 10000
 set_option backward.isDefEq.respectTransparency false
 attribute [local instance] Classical.propDecidable
 variable (θ : ENNReal) (horizon : Nat)
+noncomputable def excessForecast (R : Nat) (X : List HashOutput) : ENNReal :=
+  ClaudeWCT.Numerics.Law.lawAvg (S0 horizon).law R
+    (fun W => (S0 horizon).price ((S0 horizon).proposals X ++ W) - θ)
+theorem excessForecast_step (R : Nat) (X : List HashOutput) :
+    expectedValue (S0 horizon).accepted (fun A => excessForecast θ horizon R (X ++ [A])) =
+      excessForecast θ horizon (R + 1) X := by
+  unfold excessForecast
+  rw [ClaudeWCT.Numerics.Law.lawAvg_succ]
+  have hA (A : HashOutput) : ClaudeWCT.Numerics.Law.lawAvg (S0 horizon).law R
+      (fun W => (S0 horizon).price ((S0 horizon).proposals (X ++ [A]) ++ W) - θ) =
+      (fun p : WProposal => ClaudeWCT.Numerics.Law.lawAvg (S0 horizon).law R
+        (fun W => (S0 horizon).price ((S0 horizon).proposals X ++ p :: W) - θ))
+        ((S0 horizon).proposal A) := by
+    simp [FtsBankSpec.proposals, List.map_append, List.append_assoc]
+  simp_rw [hA]
+  exact (S0 horizon).expected_accepted_proposal (fun p => ClaudeWCT.Numerics.Law.lawAvg (S0 horizon).law R
+    (fun W => (S0 horizon).price ((S0 horizon).proposals X ++ p :: W) - θ))
+theorem average_forecast_le (R : Nat) (X : List HashOutput) :
+    BPORS.finiteAverage (fun N : HashOutput => (S0 horizon).forecast R X N) ≤
+      (θ + excessForecast θ horizon R X) / 2 ^ 128 := by
+  rw [(S0 horizon).average_forecast]
+  apply ENNReal.div_le_div_right
+  unfold excessForecast
+  calc
+    _ ≤ ClaudeWCT.Numerics.Law.lawAvg (S0 horizon).law R
+          (fun W => θ + ((S0 horizon).price ((S0 horizon).proposals X ++ W) - θ)) :=
+      ClaudeWCT.Numerics.Law.lawAvg_mono (S0 horizon).law R fun W => le_add_tsub
+    _ = _ := by
+      rw [ClaudeWCT.Numerics.Law.lawAvg_add, ClaudeWCT.Numerics.Law.lawAvg_const (S0 horizon).law (S0 horizon).law_sum]
+noncomputable def ledger (R : Nat) (targets X : List HashOutput) (slack : Nat) : ENNReal :=
+  (targets.map fun N => (S0 horizon).forecast R X N).sum + (slack : ENNReal) * excessForecast θ horizon R X / 2 ^ 128
+theorem ledger_slack_succ (R : Nat) (targets X : List HashOutput) (slack : Nat) :
+    ledger θ horizon R targets X (slack + 1) =
+      ledger θ horizon R targets X slack + excessForecast θ horizon R X / 2 ^ 128 := by
+  unfold ledger
+  rw [Nat.cast_add, Nat.cast_one, add_mul, one_mul, ENNReal.add_div, add_assoc]
+theorem ledger_birth (R : Nat) (targets X : List HashOutput) (slack : Nat) :
+    expectedValue ($ᵗ HashOutput : ProbComp HashOutput) (fun a => ledger θ horizon R (targets ++ [a]) X slack) ≤
+      ledger θ horizon R targets X (slack + 1) + θ / 2 ^ 128 := by
+  have hfa : expectedValue ($ᵗ HashOutput : ProbComp HashOutput) (fun a => (S0 horizon).forecast R X a) ≤
+      (θ + excessForecast θ horizon R X) / 2 ^ 128 := by
+    rw [BPORS.expected_uniform_eq_finiteAverage]
+    exact average_forecast_le θ horizon R X
+  have hsplit : ∀ a, ledger θ horizon R (targets ++ [a]) X slack =
+      ledger θ horizon R targets X slack + (S0 horizon).forecast R X a := by
+    intro a
+    simp only [ledger, List.map_append, List.map_cons, List.map_nil, List.sum_append, List.sum_cons,
+      List.sum_nil, add_zero]
+    ring
+  simp_rw [hsplit]
+  rw [expectedValue_add, expectedValue_const (by simp : Pr[⊥ | ($ᵗ HashOutput : ProbComp HashOutput)] = 0),
+    ledger_slack_succ θ, add_assoc]
+  exact add_le_add le_rfl (hfa.trans (by rw [ENNReal.add_div, add_comm]))
+theorem ledger_expose (R : Nat) (targets X : List HashOutput) (slack : Nat) :
+    expectedValue (S0 horizon).accepted (fun A => ledger θ horizon R targets (X ++ [A]) slack) =
+      ledger θ horizon (R + 1) targets X slack := by
+  unfold ledger
+  rw [expectedValue_add, CaseC.expectedValue_list_sum']
+  refine congrArg₂ (· + ·) (congrArg List.sum ?_) ?_
+  · apply List.map_congr_left
+    intro N _
+    exact (S0 horizon).forecast_step R X N
+  · simp only [div_eq_mul_inv]
+    rw [show (fun A : HashOutput => (slack : ENNReal) * excessForecast θ horizon R (X ++ [A]) * (2 ^ 128 : ENNReal)⁻¹) =
+        fun A => (slack : ENNReal) * (2 ^ 128 : ENNReal)⁻¹ * excessForecast θ horizon R (X ++ [A]) by
+      funext A; ring]
+    rw [CaseC.pmf_expectedValue_left_mul, excessForecast_step θ]
+    ring
+theorem ledger_freshPrice (R : Nat) (targets X : List HashOutput) (slack : Nat) :
+    (S0 horizon).freshPrice (fun A => ledger θ horizon R targets (X ++ [A]) slack) =
+      ledger θ horizon (R + 1) targets X slack := by
+  rw [← (S0 horizon).expected_accepted, ledger_expose θ]
+theorem ledger_search (secret : BitVec 256) (rho : Digest) (message : Message) (fuel : Nat)
+    (hlimit : fuel ≤ 2 ^ 32) (cache : Sampling.RCache)
+    (hreject : Sampling.CachedTrialsReject (Sampling.digestTrial rho message) (S0 horizon).decode 0 (2 ^ 32) cache)
+    (R : Nat) (targets X : List HashOutput) (slack : Nat) :
+    expectedValue (Sampling.roRun secret ((S0 horizon).search rho message 0 fuel) cache)
+      (fun result => result.1.elim (ledger θ horizon (R + 1) targets X slack)
+        (fun found => ledger θ horizon R targets (X ++ [found.2]) slack)) ≤
+      ledger θ horizon (R + 1) targets X slack :=
+  (S0 horizon).search_le_price secret rho message fuel hlimit cache hreject _ _ _ le_rfl
+    (ledger_freshPrice θ horizon R targets X slack).le
+theorem ledger_win (R : Nat) (targets X : List HashOutput) (slack : Nat) (N : HashOutput) (hN : N ∈ targets)
+    (hadm : WCT9.admissible N = true) (hcov : Covered X N) :
+    1 ≤ ledger θ horizon R targets X slack :=
+  calc
+    (1 : ENNReal) ≤ (S0 horizon).score X N := (S0 horizon).one_le_score X N hadm hcov
+    _ ≤ (S0 horizon).forecast R X N := (S0 horizon).score_le_forecast R X N
+    _ ≤ (targets.map fun N => (S0 horizon).forecast R X N).sum := List.le_sum_of_mem (List.mem_map_of_mem hN)
+    _ ≤ _ := le_self_add
+noncomputable def corePotential (b : BankCore) : ENNReal :=
+  if horizon < b.exposures.length then 0
+  else if b.reused = true then 1 + b.reuse
+  else ledger θ horizon (horizon - b.exposures.length) b.targets b.exposures b.slack + b.reuse
+theorem core_birth (b : BankCore) (s : Nat) (hs : b.slack = s + 1) (C' : HashOutput → ENNReal)
+    (hC : ∀ N, C' N ≤ b.reuse + (S0 horizon).admInd N / 2 ^ 128) :
+    expectedValue ($ᵗ HashOutput : ProbComp HashOutput)
+        (fun N => corePotential θ horizon { b with targets := b.targets ++ [N], slack := s, reuse := C' N }) ≤
+      corePotential θ horizon b + (θ + (S0 horizon).admBound) / 2 ^ 128 := by
+  have hadm : expectedValue ($ᵗ HashOutput : ProbComp HashOutput) (fun N => (S0 horizon).admInd N / 2 ^ 128) ≤
+      (S0 horizon).admBound / 2 ^ 128 := by
+    simp only [div_eq_mul_inv]
+    rw [expectedValue_mul_const]
+    exact mul_le_mul' (by simpa [div_eq_mul_inv] using (S0 horizon).expected_admInd_tight) le_rfl
+  have h54_adm : (S0 horizon).admBound ≤ θ + (S0 horizon).admBound := le_add_self
+  have h54_sum : θ + (S0 horizon).admBound ≤ θ + (S0 horizon).admBound := le_rfl
+  unfold corePotential
+  simp only
+  by_cases hd : horizon < b.exposures.length
+  · simp only [hd, if_true]
+    exact (expectedValue_le_of_le _ fun _ => le_rfl).trans bot_le
+  simp only [hd, if_false]
+  by_cases hr : b.reused = true
+  · simp only [hr, if_true]
+    calc
+      _ ≤ expectedValue ($ᵗ HashOutput : ProbComp HashOutput)
+            (fun N => (S0 horizon).admInd N / 2 ^ 128 + (1 + b.reuse)) :=
+        expectedValue_mono _ fun N => (add_le_add le_rfl (hC N)).trans (le_of_eq (by ring))
+      _ ≤ (S0 horizon).admBound / 2 ^ 128 + (1 + b.reuse) :=
+        (CaseC.expectedValue_add_const_le _ _ _).trans (add_le_add hadm le_rfl)
+      _ ≤ _ := by
+        rw [add_comm]
+        exact add_le_add le_rfl (ENNReal.div_le_div_right h54_adm _)
+  · simp only [hr, Bool.false_eq_true, if_false]
+    set R := horizon - b.exposures.length
+    calc
+      _ ≤ expectedValue ($ᵗ HashOutput : ProbComp HashOutput)
+          (fun N => (ledger θ horizon R (b.targets ++ [N]) b.exposures s + (S0 horizon).admInd N / 2 ^ 128) + b.reuse) :=
+        expectedValue_mono _ fun N => (add_le_add le_rfl (hC N)).trans (le_of_eq (by ring))
+      _ ≤ expectedValue ($ᵗ HashOutput : ProbComp HashOutput)
+          (fun N => ledger θ horizon R (b.targets ++ [N]) b.exposures s + (S0 horizon).admInd N / 2 ^ 128) + b.reuse :=
+        CaseC.expectedValue_add_const_le _ _ _
+      _ ≤ (ledger θ horizon R b.targets b.exposures (s + 1) + θ / 2 ^ 128 +
+            (S0 horizon).admBound / 2 ^ 128) + b.reuse := by
+        rw [expectedValue_add]
+        exact add_le_add (add_le_add (ledger_birth θ horizon R b.targets b.exposures s) hadm) le_rfl
+      _ ≤ _ := by
+        rw [← hs, add_assoc (ledger θ _ _ _ _ _), ← ENNReal.add_div,
+          show ledger θ horizon R b.targets b.exposures b.slack +
+            (θ + (S0 horizon).admBound) / 2 ^ 128 + b.reuse =
+            (ledger θ horizon R b.targets b.exposures b.slack + b.reuse) +
+            (θ + (S0 horizon).admBound) / 2 ^ 128 by ring]
+theorem core_sign (b : BankCore) (cache : Sampling.RCache) (m : Message) (C' : ENNReal)
+    (hC : C' + (S0 horizon).reuseMass cache m ≤ b.reuse) (secret : BitVec 256) (fuel : Nat)
+    (hfuel : fuel ≤ 2 ^ 32) :
+    expectedValue ($ᵗ Digest : ProbComp Digest) (fun rho =>
+      if (S0 horizon).Reuse cache rho m then
+        corePotential θ horizon { b with reused := true, reuse := C' }
+      else expectedValue (Sampling.roRun secret (WCT9.digestSearch rho m 0 fuel) cache)
+        (fun result => corePotential θ horizon (b.expose C' (result.1.map Prod.snd)))) ≤
+      corePotential θ horizon b := by
+  have h : expectedValue ($ᵗ Digest : ProbComp Digest) (fun rho =>
+      if (S0 horizon).Reuse cache rho m then corePotential θ horizon { b with reused := true, reuse := C' }
+      else expectedValue (Sampling.roRun secret ((S0 horizon).search rho m 0 fuel) cache)
+        (fun result => corePotential θ horizon (b.expose C' (result.1.map Prod.snd)))) ≤
+      corePotential θ horizon b := by
+    have hlenA : ∀ (o : Option HashOutput), b.exposures.length ≤ (b.exposures ++ o.toList).length := by
+      intro o; simp
+    by_cases hd : horizon < b.exposures.length
+    · apply expectedValue_le_of_le
+      intro rho
+      have h0 : ∀ (o : Option HashOutput), corePotential θ horizon (b.expose C' o) = 0 := by
+        intro o
+        unfold corePotential BankCore.expose
+        simp only
+        rw [if_pos (lt_of_lt_of_le hd (hlenA o))]
+      split_ifs
+      · unfold corePotential; simp only; rw [if_pos hd]; exact bot_le
+      · exact (expectedValue_le_of_le _ fun result => (h0 _).le).trans bot_le
+    by_cases hr : b.reused = true
+    · have hb : corePotential θ horizon b = 1 + b.reuse := by unfold corePotential; simp [hd, hr]
+      rw [hb]
+      apply expectedValue_le_of_le
+      intro rho
+      have hle : ∀ (o : Option HashOutput), corePotential θ horizon (b.expose C' o) ≤ 1 + b.reuse := by
+        intro o
+        unfold corePotential BankCore.expose
+        simp only [hr, if_true]
+        split_ifs
+        · exact bot_le
+        · exact add_le_add le_rfl (le_of_add_le_left hC)
+      split_ifs
+      · unfold corePotential; simp only [hd, if_false, if_true]; exact add_le_add le_rfl (le_of_add_le_left hC)
+      · exact expectedValue_le_of_le _ fun result => hle _
+    have hr' : b.reused = false := by simpa using hr
+    set R0 := horizon - b.exposures.length with hR0
+    have hb : corePotential θ horizon b = ledger θ horizon R0 b.targets b.exposures b.slack + b.reuse := by
+      unfold corePotential; simp only [hd, hr', if_false, Bool.false_eq_true]; rfl
+    have hsearch : ∀ rho, ¬(S0 horizon).Reuse cache rho m →
+        expectedValue (Sampling.roRun secret ((S0 horizon).search rho m 0 fuel) cache)
+          (fun result => corePotential θ horizon (b.expose C' (result.1.map Prod.snd))) ≤
+            ledger θ horizon R0 b.targets b.exposures b.slack + C' := by
+      intro rho hnr
+      have hrej : Sampling.CachedTrialsReject (Sampling.digestTrial rho m) (S0 horizon).decode 0 (2 ^ 32) cache := by
+        unfold FtsBankSpec.Reuse at hnr; push Not at hnr; exact hnr
+      by_cases hlen : b.exposures.length < horizon
+      · obtain ⟨R, hR⟩ : ∃ R, R0 = R + 1 := ⟨R0 - 1, by omega⟩
+        calc
+          _ ≤ expectedValue (Sampling.roRun secret ((S0 horizon).search rho m 0 fuel) cache)
+              (fun result => result.1.elim (ledger θ horizon (R + 1) b.targets b.exposures b.slack)
+                (fun found => ledger θ horizon R b.targets (b.exposures ++ [found.2]) b.slack) + C') := by
+            apply expectedValue_mono
+            intro result
+            rcases result with ⟨_ | found, cache'⟩
+            · unfold corePotential BankCore.expose
+              simp only [Option.map_none, Option.toList_none, List.append_nil, hd, if_false, hr',
+                Bool.false_eq_true, Option.elim_none]
+              rw [← hR]
+            · unfold corePotential BankCore.expose
+              have hl1 : (b.exposures ++ [found.2]).length = b.exposures.length + 1 := by simp
+              have hnd : ¬horizon < (b.exposures ++ [found.2]).length := by omega
+              simp only [Option.map_some, Option.toList_some, hnd, if_false, hr', Bool.false_eq_true,
+                Option.elim_some]
+              rw [show horizon - (b.exposures ++ [found.2]).length = R by omega]
+          _ ≤ ledger θ horizon (R + 1) b.targets b.exposures b.slack + C' :=
+            (CaseC.expectedValue_add_const_le _ _ _).trans
+              (add_le_add (ledger_search θ horizon secret rho m fuel hfuel cache hrej R b.targets b.exposures b.slack) le_rfl)
+          _ = _ := by rw [hR]
+      · apply expectedValue_le_of_le
+        intro result
+        rcases result with ⟨_ | found, cache'⟩
+        · unfold corePotential BankCore.expose
+          simp only [Option.map_none, Option.toList_none, List.append_nil, hd, if_false, hr', Bool.false_eq_true]
+          exact le_rfl
+        · unfold corePotential BankCore.expose
+          have hnd : horizon < (b.exposures ++ [found.2]).length := by simp; omega
+          simp only [Option.map_some, Option.toList_some, hnd, if_true]
+          exact bot_le
+    rw [hb]
+    calc
+      _ ≤ expectedValue ($ᵗ Digest : ProbComp Digest)
+          (fun rho => (if (S0 horizon).Reuse cache rho m then 1 else 0) +
+            (ledger θ horizon R0 b.targets b.exposures b.slack + C')) := by
+        apply expectedValue_mono
+        intro rho
+        by_cases hre : (S0 horizon).Reuse cache rho m
+        · rw [if_pos hre, if_pos hre]
+          unfold corePotential
+          simp only [hd, if_false, if_true]
+          exact add_le_add le_rfl le_add_self
+        · rw [if_neg hre, if_neg hre, zero_add]
+          exact hsearch rho hre
+      _ ≤ (S0 horizon).reuseMass cache m + (ledger θ horizon R0 b.targets b.exposures b.slack + C') :=
+        (CaseC.expectedValue_add_const_le _ _ _).trans (add_le_add ((S0 horizon).reuse_probability_le cache m) le_rfl)
+      _ ≤ _ := by
+        rw [add_comm (ledger θ _ _ _ _ _), ← add_assoc, add_comm ((S0 horizon).reuseMass cache m),
+          add_comm _ (ledger θ _ _ _ _ _)]
+        exact add_le_add le_rfl hC
+  simp only [← wct_digestSearch_public (S0 horizon) rfl] at h
+  exact h
+theorem core_win (b : BankCore) (halive : ¬horizon < b.exposures.length)
+    (h : b.reused = true ∨ ∃ N ∈ b.targets, WCT9.admissible N = true ∧ Covered b.exposures N) :
+    1 ≤ corePotential θ horizon b := by
+  unfold corePotential
+  rw [if_neg halive]
+  by_cases hr : b.reused = true
+  · rw [if_pos hr]; exact le_self_add
+  · rw [if_neg hr]
+    obtain ⟨N, hN, hadm, hcov⟩ := h.resolve_left hr
+    exact (ledger_win θ horizon _ _ _ _ N hN hadm hcov).trans le_self_add
+theorem core_initial (rate : ENNReal) (hexc : ExcessBoundAt (2 ^ 32) θ rate) (budget : Nat) :
+    corePotential θ (2 ^ 32) ⟨[], [], false, 0, budget⟩ ≤
+      (budget : ENNReal) * rate / 2 ^ 128 := by
+  unfold corePotential ledger excessForecast
+  simp only [List.length_nil, Nat.not_lt_zero, if_false, Bool.false_eq_true, Nat.sub_zero, add_zero,
+    List.map_nil, List.sum_nil, zero_add]
+  apply ENNReal.div_le_div_right
+  apply mul_le_mul' le_rfl
+  exact hexc
 end ClaudeWCT.Bank.WCT.Flexible
 end
 
@@ -5289,8 +5610,8 @@ noncomputable def excessTerm (budget count : Nat) (g : Ghost Sig) : ENNReal :=
   ((budget - count : Nat) : ENNReal) * (excessForecast S θ) (S.horizon - g.exposures.length) g.exposures / 2 ^ 128
 noncomputable def livePotential (budget count : Nat) (g : Ghost Sig) (lazy : LazyPrivate.State) : ENNReal :=
   if g.dead = true ∨ budget < count then 0
-  else if g.reused = true then 1 + SigGolfCandidate.T3.Security.LazyPrivate.rhoKappa * S.reusePotential lazy
-  else S.bankValue g + SigGolfCandidate.T3.Security.LazyPrivate.rhoKappa * S.reusePotential lazy + (excessTerm S θ) budget count g
+  else if g.reused = true then 1 + S.reusePotential lazy
+  else S.bankValue g + S.reusePotential lazy + (excessTerm S θ) budget count g
 noncomputable def potential (budget : Nat) (st : BankState Sig) : ENNReal :=
   (livePotential S θ) budget (countOf st.2) st.1 (lazyOf st.2)
 theorem livePotential_count_anti (budget : Nat) {count count' : Nat} (h : count ≤ count') (g : Ghost Sig)
@@ -5313,11 +5634,11 @@ theorem livePotential_count_anti (budget : Nat) {count count' : Nat} (h : count 
     exact_mod_cast Nat.sub_le_sub_left h budget
 theorem livePotential_alive (budget count : Nat) (g : Ghost Sig) (lazy : LazyPrivate.State)
     (hd : g.dead = false) (hb : ¬budget < count) (hr : g.reused = false) :
-    (livePotential S θ) budget count g lazy = S.bankValue g + SigGolfCandidate.T3.Security.LazyPrivate.rhoKappa * S.reusePotential lazy + (excessTerm S θ) budget count g := by
+    (livePotential S θ) budget count g lazy = S.bankValue g + S.reusePotential lazy + (excessTerm S θ) budget count g := by
   simp [livePotential, hd, hb, hr]
 theorem livePotential_reused (budget count : Nat) (g : Ghost Sig) (lazy : LazyPrivate.State)
     (hd : g.dead = false) (hb : ¬budget < count) (hr : g.reused = true) :
-    (livePotential S θ) budget count g lazy = 1 + SigGolfCandidate.T3.Security.LazyPrivate.rhoKappa * S.reusePotential lazy := by
+    (livePotential S θ) budget count g lazy = 1 + S.reusePotential lazy := by
   simp [livePotential, hd, hb, hr]
 theorem livePotential_reuse_mono (budget count : Nat) (g : Ghost Sig) {lazy lazy' : LazyPrivate.State}
     (h : S.reusePotential lazy' ≤ S.reusePotential lazy) :
@@ -5325,8 +5646,8 @@ theorem livePotential_reuse_mono (budget count : Nat) (g : Ghost Sig) {lazy lazy
   unfold livePotential
   split_ifs
   · exact le_rfl
-  · exact add_le_add le_rfl (mul_le_mul' le_rfl h)
-  · exact add_le_add (add_le_add le_rfl (mul_le_mul' le_rfl h)) le_rfl
+  · exact add_le_add le_rfl h
+  · exact add_le_add (add_le_add le_rfl h) le_rfl
 theorem excessTerm_succ (budget count : Nat) (g : Ghost Sig) (hc : count < budget) :
     (excessTerm S θ) budget count g = (excessTerm S θ) budget (count + 1) g +
       (excessForecast S θ) (S.horizon - g.exposures.length) g.exposures / 2 ^ 128 := by
@@ -5336,14 +5657,6 @@ theorem excessTerm_succ (budget count : Nat) (g : Ghost Sig) (hc : count < budge
 theorem livePotential_log (budget count : Nat) (g : Ghost Sig) (l : QueryLog (Requests' Sig))
     (lazy : LazyPrivate.State) :
     (livePotential S θ) budget count { g with log := l } lazy = (livePotential S θ) budget count g lazy := rfl
-/-- R6 world split, Rule B: the `κ`-weighted reuse potential grows by `κ · admInd / 2^128` on a fresh public query. -/
-theorem kreuse_public_le (s : LazyPrivate.State) (x : HashInput) (a : HashOutput) (hx : s.2 x = none) :
-    SigGolfCandidate.T3.Security.LazyPrivate.rhoKappa * S.reusePotential (s.1, s.2.cacheQuery x a) ≤
-      SigGolfCandidate.T3.Security.LazyPrivate.rhoKappa * S.reusePotential s + SigGolfCandidate.T3.Security.LazyPrivate.rhoKappa * S.admInd a / 2 ^ 128 := by
-  calc
-    _ ≤ SigGolfCandidate.T3.Security.LazyPrivate.rhoKappa * (S.reusePotential s + S.admInd a / 2 ^ 128) :=
-      mul_le_mul' le_rfl (S.reusePotential_public_le s x a hx)
-    _ = _ := by rw [mul_add, mul_div_assoc]
 noncomputable def signWeight (budget count : Nat) (g : Ghost Sig) (A : HashOutput) : ENNReal :=
   S.bankValue { g with exposures := g.exposures ++ [A] } +
     (excessTerm S θ) budget count { g with exposures := g.exposures ++ [A] }
@@ -5383,7 +5696,7 @@ theorem potential_initial_le_rate (budget : Nat) (rate : ENNReal)
   split_ifs with h1 h2
   · exact bot_le
   · simp [Ghost.empty] at h2
-  · simp only [hreuse, mul_zero, add_zero]
+  · simp only [hreuse, add_zero]
     have hbank : S.bankValue (Ghost.empty : Ghost Sig) = 0 := by simp [FtsBankSpec.bankValue, Ghost.empty]
     rw [hbank, zero_add]
     unfold excessTerm
@@ -5457,29 +5770,31 @@ theorem world_step (published : T3.Cache) (budget : Nat) (input : SphincsSecurit
                 ($ᵗ HashOutput : ProbComp HashOutput)] = 0), zero_le]
             have hd' : g.dead = false := by simpa using hd
             by_cases hr : g.reused = true
-            · have hpt : (potential S θ) budget st = 1 + SigGolfCandidate.T3.Security.LazyPrivate.rhoKappa * S.reusePotential lz :=
+            · have hpt : (potential S θ) budget st = 1 + S.reusePotential lz :=
                 (livePotential_reused S θ) budget c g lz hd' hnot0 hr
               rw [hpt]
               calc
                 _ ≤ expectedValue ($ᵗ HashOutput : ProbComp HashOutput)
-                    (fun a => 1 + SigGolfCandidate.T3.Security.LazyPrivate.rhoKappa * S.reusePotential lz + SigGolfCandidate.T3.Security.LazyPrivate.rhoKappa * S.admInd a / 2 ^ 128) := by
+                    (fun a => 1 + S.reusePotential lz + S.admInd a / 2 ^ 128) := by
                   apply expectedValue_mono
                   intro a
                   rw [(livePotential_reused S θ) budget (c + 1) { g with targets := g.targets ++ [a] } _ hd' hnot hr,
                     add_assoc]
-                  exact add_le_add le_rfl ((kreuse_public_le S) lz x a hx)
-                _ = 1 + SigGolfCandidate.T3.Security.LazyPrivate.rhoKappa * S.reusePotential lz +
-                    expectedValue ($ᵗ HashOutput : ProbComp HashOutput)
-                      (fun a => SigGolfCandidate.T3.Security.LazyPrivate.rhoKappa * S.admInd a / 2 ^ 128) := by
+                  exact add_le_add le_rfl (S.reusePotential_public_le lz x a hx)
+                _ = 1 + S.reusePotential lz +
+                    expectedValue ($ᵗ HashOutput : ProbComp HashOutput) S.admInd / 2 ^ 128 := by
                   rw [expectedValue_add, expectedValue_const (by simp)]
-                _ ≤ 1 + SigGolfCandidate.T3.Security.LazyPrivate.rhoKappa * S.reusePotential lz + S.admBound / 2 ^ 128 :=
-                  add_le_add le_rfl S.expected_kappa_admInd_div
+                  congr 1
+                  simp only [div_eq_mul_inv]
+                  rw [expectedValue_mul_const]
+                _ ≤ 1 + S.reusePotential lz + S.admBound / 2 ^ 128 :=
+                  add_le_add le_rfl (ENNReal.div_le_div_right S.expected_admInd_tight _)
                 _ ≤ _ := by
                   apply add_le_add le_rfl
                   apply ENNReal.div_le_div_right
                   exact le_add_self
             · have hr' : g.reused = false := by simpa using hr
-              have hpt : (potential S θ) budget st = S.bankValue g + SigGolfCandidate.T3.Security.LazyPrivate.rhoKappa * S.reusePotential lz + (excessTerm S θ) budget c g :=
+              have hpt : (potential S θ) budget st = S.bankValue g + S.reusePotential lz + (excessTerm S θ) budget c g :=
                 (livePotential_alive S θ) budget c g lz hd' hnot0 hr'
               rw [hpt]
               set R := S.horizon - g.exposures.length
@@ -5489,25 +5804,24 @@ theorem world_step (published : T3.Cache) (budget : Nat) (input : SphincsSecurit
                 exact (average_forecast_le S θ) R g.exposures
               calc
                 _ ≤ expectedValue ($ᵗ HashOutput : ProbComp HashOutput) (fun a =>
-                    S.bankValue g + S.forecast R g.exposures a + (SigGolfCandidate.T3.Security.LazyPrivate.rhoKappa * S.reusePotential lz +
-                      SigGolfCandidate.T3.Security.LazyPrivate.rhoKappa * S.admInd a / 2 ^ 128) + (excessTerm S θ) budget (c + 1) g) := by
+                    S.bankValue g + S.forecast R g.exposures a + (S.reusePotential lz + S.admInd a / 2 ^ 128) +
+                      (excessTerm S θ) budget (c + 1) g) := by
                   apply expectedValue_mono
                   intro a
                   rw [(livePotential_alive S θ) budget (c + 1) { g with targets := g.targets ++ [a] } _ hd' hnot hr',
                     S.bankValue_birth]
-                  exact add_le_add (add_le_add le_rfl ((kreuse_public_le S) lz x a hx)) le_rfl
+                  exact add_le_add (add_le_add le_rfl (S.reusePotential_public_le lz x a hx)) le_rfl
                 _ = S.bankValue g + expectedValue ($ᵗ HashOutput : ProbComp HashOutput)
                       (fun a => S.forecast R g.exposures a) +
-                    (SigGolfCandidate.T3.Security.LazyPrivate.rhoKappa * S.reusePotential lz + expectedValue ($ᵗ HashOutput : ProbComp HashOutput)
-                      (fun a => SigGolfCandidate.T3.Security.LazyPrivate.rhoKappa * S.admInd a / 2 ^ 128)) +
+                    (S.reusePotential lz + expectedValue ($ᵗ HashOutput : ProbComp HashOutput) S.admInd / 2 ^ 128) +
                     (excessTerm S θ) budget (c + 1) g := by
                   simp only [expectedValue_add, expectedValue_const (by simp : Pr[⊥ |
-                    ($ᵗ HashOutput : ProbComp HashOutput)] = 0)]
+                    ($ᵗ HashOutput : ProbComp HashOutput)] = 0), div_eq_mul_inv, expectedValue_mul_const]
                 _ ≤ S.bankValue g + (θ + (excessForecast S θ) R g.exposures) / 2 ^ 128 +
-                    (SigGolfCandidate.T3.Security.LazyPrivate.rhoKappa * S.reusePotential lz + S.admBound / 2 ^ 128) + (excessTerm S θ) budget (c + 1) g := by
+                    (S.reusePotential lz + S.admBound / 2 ^ 128) + (excessTerm S θ) budget (c + 1) g := by
                   gcongr
-                  exact S.expected_kappa_admInd_div
-                _ = S.bankValue g + SigGolfCandidate.T3.Security.LazyPrivate.rhoKappa * S.reusePotential lz +
+                  exact S.expected_admInd_tight
+                _ = S.bankValue g + S.reusePotential lz +
                     ((excessTerm S θ) budget (c + 1) g + (excessForecast S θ) R g.exposures / 2 ^ 128) +
                     (θ + S.admBound) / 2 ^ 128 := by
                   rw [ENNReal.add_div, ENNReal.add_div]
@@ -5615,13 +5929,13 @@ theorem sign_step (hNotDigest : PayNotDigest pay) (hAvoids : PayAvoids pay) (pub
     rw [(livePotential_reused S θ) budget c (S.ghostSign cache ⟨m, cache⟩ g st.2 r) r.2 (hdead r) hb
         (by rw [hreu r, hr, Bool.true_or]),
       (livePotential_reused S θ) budget c g lz hd' hb hr]
-    exact add_le_add le_rfl (mul_le_mul' le_rfl (le_trans le_self_add (hsign r hrs)))
+    exact add_le_add le_rfl (le_trans le_self_add (hsign r hrs))
   have hr' : g.reused = false := by simpa using hr
   set P' := S.bankValue g + (excessTerm S θ) budget c g with hP
   let Fmain : (Option Sig × Option HashOutput) × LazyPrivate.State → ENNReal := fun r =>
     if S.Reuse lz.2 (CaseC.nonceOf r.2 m) m then 1 else r.1.2.elim P' ((signWeight S θ) budget c g)
   have hpoint : ∀ r, (livePotential S θ) budget c (S.ghostSign cache ⟨m, cache⟩ g st.2 r) r.2 ≤
-      Fmain r + SigGolfCandidate.T3.Security.LazyPrivate.rhoKappa * S.reusePotential r.2 := by
+      Fmain r + S.reusePotential r.2 := by
     intro r
     by_cases hre : S.Reuse lz.2 (CaseC.nonceOf r.2 m) m
     · have hru : (S.ghostSign cache ⟨m, cache⟩ g st.2 r).reused = true := by
@@ -5652,24 +5966,23 @@ theorem sign_step (hNotDigest : PayNotDigest pay) (hAvoids : PayAvoids pay) (pub
           ring
   calc
     _ ≤ expectedValue (LazyPrivate.run (S.authenticatedRecord pay cache ⟨m, cache⟩) lz)
-        (fun r => Fmain r + SigGolfCandidate.T3.Security.LazyPrivate.rhoKappa * S.reusePotential r.2) := expectedValue_mono _ hpoint
+        (fun r => Fmain r + S.reusePotential r.2) := expectedValue_mono _ hpoint
     _ = expectedValue (LazyPrivate.run (S.authenticatedRecord pay cache ⟨m, cache⟩) lz) Fmain +
         expectedValue (LazyPrivate.run (S.authenticatedRecord pay cache ⟨m, cache⟩) lz)
-          (fun r => SigGolfCandidate.T3.Security.LazyPrivate.rhoKappa * S.reusePotential r.2) := expectedValue_add _ _ _
-    _ ≤ (P' + SigGolfCandidate.T3.Security.LazyPrivate.rhoKappa * S.reuseMass lz.2 m) +
+          (fun r => S.reusePotential r.2) := expectedValue_add _ _ _
+    _ ≤ (P' + S.reuseMass lz.2 m) +
         expectedValue (LazyPrivate.run (S.authenticatedRecord pay cache ⟨m, cache⟩) lz)
-          (fun r => SigGolfCandidate.T3.Security.LazyPrivate.rhoKappa * S.reusePotential r.2) := by
+          (fun r => S.reusePotential r.2) := by
       apply add_le_add _ le_rfl
-      apply S.fresh_signing_kernel_rho pay cache m lz hnonce Fmain ((signWeight S θ) budget c g) P'
+      apply S.fresh_signing_kernel pay cache m lz hnonce Fmain ((signWeight S θ) budget c g) P'
         (le_of_eq ((freshPrice_signWeight S θ) budget c g hlen))
       intro r _
       exact le_rfl
     _ = P' + (expectedValue (LazyPrivate.run (S.authenticatedRecord pay cache ⟨m, cache⟩) lz)
-          (fun r => SigGolfCandidate.T3.Security.LazyPrivate.rhoKappa * S.reusePotential r.2 + SigGolfCandidate.T3.Security.LazyPrivate.rhoKappa * S.reuseMass lz.2 m)) := by
+          (fun r => S.reusePotential r.2 + S.reuseMass lz.2 m)) := by
       rw [expectedValue_add, expectedValue_const (by simp)]
       ring
-    _ ≤ P' + SigGolfCandidate.T3.Security.LazyPrivate.rhoKappa * S.reusePotential lz := add_le_add le_rfl (expectedValue_le_of_support fun r hr => by
-      rw [← mul_add]; exact mul_le_mul' le_rfl (hsign r hr))
+    _ ≤ P' + S.reusePotential lz := add_le_add le_rfl (expectedValue_le_of_support hsign)
     _ = (livePotential S θ) budget c g lz := by
       rw [(livePotential_alive S θ) budget c g lz hd' hb hr', hP]
       ring
@@ -5802,7 +6115,7 @@ theorem flexible_event_le (θ rate : ENNReal)
     (hwin : ∀ b∈(bankSpec.bankExperiment payAfterDigest rest budget).support,
       weight (b.1,b.2.2)≠0 → 1≤flexiblePotential θ budget b.2) :
     expectedValue (bankSpec.recordedExperiment payAfterDigest rest) weight ≤
-      (θ+29249/2500000)/2^128*bankSpec.expectedBirths payAfterDigest rest budget+
+      (θ+1/1024)/2^128*bankSpec.expectedBirths payAfterDigest rest budget+
       (budget:ENNReal)*rate/2^128 :=
   FlexibleGame.bank_event_le_rate bankSpec θ payAfterDigest payNotDigest payAvoids
     rest budget rate hexc weight hw hwin
@@ -5838,15 +6151,15 @@ attribute [local instance] Classical.propDecidable
 variable {P : Type} [Fintype P] [SampleableType P] (S : FtsBankSpec P)
 noncomputable abbrev nearPotential : BankCore → ENNReal := Flexible.corePotential S 0 (2^32)
 theorem near_birth (b : BankCore) (s : Nat) (hs : b.slack=s+1) (C' : HashOutput → ENNReal)
-    (hC : ∀ N,C' N≤b.reuse+SigGolfCandidate.T3.Security.LazyPrivate.rhoKappa*S.admInd N/2^128) :
+    (hC : ∀ N,C' N≤b.reuse+S.admInd N/2^128) :
     expectedValue ($ᵗ HashOutput : ProbComp HashOutput)
       (fun N => nearPotential S {b with targets:=b.targets++[N],slack:=s,reuse:=C' N}) ≤
       nearPotential S b+S.admBound/2^128 := by
   simpa only [zero_add] using Flexible.core_birth S 0 (2^32) b s hs C' hC
 
 theorem near_sign (b : BankCore) (cache : Sampling.RCache) (m : Message) (C' : ENNReal)
-    (hC : C'+S.reuseMassK cache m≤b.reuse) (secret : BitVec 256) (fuel : Nat) (hfuel : fuel≤2^32) :
-    expectedValue SigGolfCandidate.T3.Security.BPair.rhoLaw (fun rho =>
+    (hC : C'+S.reuseMass cache m≤b.reuse) (secret : BitVec 256) (fuel : Nat) (hfuel : fuel≤2^32) :
+    expectedValue ($ᵗ Digest : ProbComp Digest) (fun rho =>
       if S.Reuse cache rho m then nearPotential S {b with reused:=true,reuse:=C'}
       else expectedValue (Sampling.roRun secret (S.search rho m 0 fuel) cache)
         (fun r => nearPotential S (b.expose C' (r.1.map Prod.snd)))) ≤ nearPotential S b :=
@@ -5971,54 +6284,10 @@ theorem digestSearch_reuseMass (secret : BitVec 256) (rho : Digest) (m : Message
   intro p
   rw [(digestSearch_cache_frame S) secret rho m fuel cache r hr _
     (fun k => digestTrial_ne_of_message hm k p.2.val p.2.isLt)]
-/-- R6 world split (S4b): the `κ`-weighted reuse ledger (`reuseMassK` per unsigned message). -/
-noncomputable def reuseCK (rows : Sampling.RCache) (nonces : Message → Option Digest) : ENNReal :=
-  ∑' m : Message, if nonces m = none then S.reuseMassK rows m else 0
-theorem reuseCK_birth_le (rows : Sampling.RCache) (nonces : Message → Option Digest) (x : HashInput) (a : HashOutput)
-    (hx : rows x = none) :
-    (reuseCK S) (rows.cacheQuery x a) nonces ≤ (reuseCK S) rows nonces + SigGolfCandidate.T3.Security.LazyPrivate.rhoKappa * S.admInd a / 2 ^ 128 := by
-  unfold reuseCK
-  calc
-    (∑' m : Message, if nonces m = none then S.reuseMassK (rows.cacheQuery x a) m else 0) ≤
-        ∑' m : Message, ((if nonces m = none then S.reuseMassK rows m else 0) +
-          (if DigestRowOf x m then SigGolfCandidate.T3.Security.LazyPrivate.rhoKappa * S.admInd a / 2 ^ 128 else 0)) := by
-      apply ENNReal.tsum_le_tsum
-      intro m
-      split_ifs with h1 h2
-      · simpa [h2] using S.reuseMassK_cacheQuery_le rows x a hx m
-      · simpa [h2] using S.reuseMassK_cacheQuery_le rows x a hx m
-      · exact bot_le
-      · exact bot_le
-    _ = _ + _ := ENNReal.tsum_add
-    _ ≤ _ := add_le_add le_rfl (tsum_indicator_le_of_subsingleton _ (fun _ _ h h' => digestRowOf_unique h h') _)
-theorem reuseCK_sign_le (rows rows' : Sampling.RCache) (nonces : Message → Option Digest) (m : Message) (v : Digest)
-    (hm : nonces m = none) (hrows : ∀ m', m' ≠ m → S.reuseMass rows' m' = S.reuseMass rows m') :
-    (reuseCK S) rows' (Function.update nonces m (some v)) + S.reuseMassK rows m ≤ (reuseCK S) rows nonces := by
-  unfold reuseCK
-  rw [ENNReal.tsum_eq_add_tsum_ite m, ENNReal.tsum_eq_add_tsum_ite m (f := fun m' =>
-    if nonces m' = none then S.reuseMassK rows m' else 0)]
-  simp only [Function.update_self, reduceCtorEq, if_false, zero_add, hm, if_true]
-  rw [add_comm]
-  apply add_le_add le_rfl
-  apply le_of_eq
-  apply tsum_congr
-  intro m'
-  by_cases he : m' = m
-  · simp [he]
-  · simp only [he, if_false, Function.update_of_ne he, ClaudeWCT.Bank.FtsBankSpec.reuseMassK, hrows m' he]
-theorem reuseCK_signed_eq (rows rows' : Sampling.RCache) (nonces : Message → Option Digest) (m : Message)
-    (hm : nonces m ≠ none) (hrows : ∀ m', m' ≠ m → S.reuseMass rows' m' = S.reuseMass rows m') :
-    (reuseCK S) rows' nonces = (reuseCK S) rows nonces := by
-  unfold reuseCK
-  apply tsum_congr
-  intro m'
-  by_cases he : m' = m
-  · subst he; simp [hm]
-  · simp only [ClaudeWCT.Bank.FtsBankSpec.reuseMassK, hrows m' he]
 noncomputable def nearMemPotential (q : Nat) (births exposures : List HashOutput) (reused : Bool)
     (rows : Sampling.RCache) (nonces : Message → Option Digest) : ENNReal :=
   if q < births.length then 0
-  else (nearPotential S) ⟨births, exposures, reused, (reuseCK S) rows nonces, q - births.length⟩ +
+  else (nearPotential S) ⟨births, exposures, reused, (reuseC S) rows nonces, q - births.length⟩ +
     ((q - births.length : Nat) : ENNReal) * (S.admBound / 2 ^ 128)
 theorem mem_birth (q : Nat) (births exposures : List HashOutput) (reused : Bool) (rows : Sampling.RCache)
     (nonces : Message → Option Digest) (x : HashInput) (hx : rows x = none) :
@@ -6028,13 +6297,13 @@ theorem mem_birth (q : Nat) (births exposures : List HashOutput) (reused : Bool)
   by_cases hq : births.length < q
   · obtain ⟨s, hs⟩ : ∃ s, q - births.length = s + 1 := ⟨q - births.length - 1, by omega⟩
     have hb : (nearMemPotential S) q births exposures reused rows nonces =
-        (nearPotential S) ⟨births, exposures, reused, (reuseCK S) rows nonces, s + 1⟩ + ((s + 1 : Nat) : ENNReal) *
+        (nearPotential S) ⟨births, exposures, reused, (reuseC S) rows nonces, s + 1⟩ + ((s + 1 : Nat) : ENNReal) *
           (S.admBound / 2 ^ 128) := by
       unfold nearMemPotential
       rw [if_neg (by omega), hs]
     have ha : ∀ a : HashOutput, (nearMemPotential S) q (births ++ [a]) exposures reused (rows.cacheQuery x a) nonces =
-        (nearPotential S) { (⟨births, exposures, reused, (reuseCK S) rows nonces, s + 1⟩ : BankCore) with
-          targets := births ++ [a], slack := s, reuse := (reuseCK S) (rows.cacheQuery x a) nonces } +
+        (nearPotential S) { (⟨births, exposures, reused, (reuseC S) rows nonces, s + 1⟩ : BankCore) with
+          targets := births ++ [a], slack := s, reuse := (reuseC S) (rows.cacheQuery x a) nonces } +
           (s : ENNReal) * (S.admBound / 2 ^ 128) := by
       intro a
       unfold nearMemPotential
@@ -6044,14 +6313,14 @@ theorem mem_birth (q : Nat) (births exposures : List HashOutput) (reused : Bool)
     rw [hb]
     calc
       _ ≤ expectedValue ($ᵗ HashOutput : ProbComp HashOutput) (fun a =>
-            (nearPotential S) { (⟨births, exposures, reused, (reuseCK S) rows nonces, s + 1⟩ : BankCore) with
-              targets := births ++ [a], slack := s, reuse := (reuseCK S) (rows.cacheQuery x a) nonces }) +
+            (nearPotential S) { (⟨births, exposures, reused, (reuseC S) rows nonces, s + 1⟩ : BankCore) with
+              targets := births ++ [a], slack := s, reuse := (reuseC S) (rows.cacheQuery x a) nonces }) +
           (s : ENNReal) * (S.admBound / 2 ^ 128) := expectedValue_add_const_le _ _ _
-      _ ≤ ((nearPotential S) ⟨births, exposures, reused, (reuseCK S) rows nonces, s + 1⟩ + S.admBound / 2 ^ 128) +
+      _ ≤ ((nearPotential S) ⟨births, exposures, reused, (reuseC S) rows nonces, s + 1⟩ + S.admBound / 2 ^ 128) +
           (s : ENNReal) * (S.admBound / 2 ^ 128) := by
         apply add_le_add _ le_rfl
-        exact (near_birth S) ⟨births, exposures, reused, (reuseCK S) rows nonces, s + 1⟩ s rfl _
-          (fun a => (reuseCK_birth_le S) rows nonces x a hx)
+        exact (near_birth S) ⟨births, exposures, reused, (reuseC S) rows nonces, s + 1⟩ s rfl _
+          (fun a => (reuseC_birth_le S) rows nonces x a hx)
       _ = _ := by
         push_cast
         ring
@@ -6063,7 +6332,7 @@ theorem mem_birth (q : Nat) (births exposures : List HashOutput) (reused : Bool)
 theorem mem_sign_fresh (q : Nat) (births exposures : List HashOutput) (reused : Bool) (rows : Sampling.RCache)
     (nonces : Message → Option Digest) (m : Message) (hm : nonces m = none) (secret : BitVec 256) (fuel : Nat)
     (hfuel : fuel ≤ 2 ^ 32) :
-    expectedValue SigGolfCandidate.T3.Security.BPair.rhoLaw (fun v =>
+    expectedValue ($ᵗ Digest : ProbComp Digest) (fun v =>
       expectedValue (Sampling.roRun secret (S.search v m 0 fuel) rows) (fun r =>
         (nearMemPotential S) q births (exposures ++ (r.1.map Prod.snd).toList)
           (reused || decide (S.Reuse rows v m)) r.2 (Function.update nonces m (some v)))) ≤
@@ -6077,23 +6346,23 @@ theorem mem_sign_fresh (q : Nat) (births exposures : List HashOutput) (reused : 
     rw [if_pos hq]
     exact bot_le
   push Not at hq
-  set C0 := (reuseCK S) rows (Function.update nonces m (some 0)) with hC0
-  have hupd : ∀ v : Digest, (reuseCK S) rows (Function.update nonces m (some v)) = C0 := by
+  set C0 := (reuseC S) rows (Function.update nonces m (some 0)) with hC0
+  have hupd : ∀ v : Digest, (reuseC S) rows (Function.update nonces m (some v)) = C0 := by
     intro v
-    unfold reuseCK
+    unfold reuseC
     apply tsum_congr
     intro m'
     by_cases he : m' = m
     · subst he; simp
     · simp only [Function.update_of_ne he]
   have hafter : ∀ v r, r ∈ support (Sampling.roRun secret (S.search v m 0 fuel) rows) →
-      (reuseCK S) r.2 (Function.update nonces m (some v)) = C0 := by
+      (reuseC S) r.2 (Function.update nonces m (some v)) = C0 := by
     intro v r hr
-    rw [(reuseCK_signed_eq S) rows r.2 _ m (by simp) ((digestSearch_reuseMass S) secret v m fuel rows r hr), hupd]
-  have hC : C0 + S.reuseMassK rows m ≤ (reuseCK S) rows nonces := by
+    rw [(reuseC_signed_eq S) rows r.2 _ m (by simp) ((digestSearch_reuseMass S) secret v m fuel rows r hr), hupd]
+  have hC : C0 + S.reuseMass rows m ≤ (reuseC S) rows nonces := by
     rw [← hupd 0]
-    exact (reuseCK_sign_le S) rows rows nonces m 0 hm (fun _ _ => rfl)
-  set b : BankCore := ⟨births, exposures, reused, (reuseCK S) rows nonces, q - births.length⟩ with hb
+    exact (reuseC_sign_le S) rows rows nonces m 0 hm (fun _ _ => rfl)
+  set b : BankCore := ⟨births, exposures, reused, (reuseC S) rows nonces, q - births.length⟩ with hb
   set extra : ENNReal := ((q - births.length : Nat) : ENNReal) * (S.admBound / 2 ^ 128) with hextra
   have hbefore : (nearMemPotential S) q births exposures reused rows nonces = (nearPotential S) b + extra := by
     unfold nearMemPotential
@@ -6120,7 +6389,7 @@ theorem mem_sign_fresh (q : Nat) (births exposures : List HashOutput) (reused : 
       · rw [if_neg h1, if_neg h2]
   rw [hbefore]
   calc
-    _ ≤ expectedValue SigGolfCandidate.T3.Security.BPair.rhoLaw (fun v =>
+    _ ≤ expectedValue ($ᵗ Digest : ProbComp Digest) (fun v =>
         (if S.Reuse rows v m then (nearPotential S) { b with reused := true, reuse := C0 }
           else expectedValue (Sampling.roRun secret (S.search v m 0 fuel) rows)
             (fun r => (nearPotential S) (b.expose C0 (r.1.map Prod.snd)))) + extra) := by
@@ -6149,22 +6418,21 @@ theorem mem_sign_fresh (q : Nat) (births exposures : List HashOutput) (reused : 
             exact expectedValue_le_of_le _ fun _ => le_rfl
           · simp only [hre, if_false]
             exact le_rfl
-    _ ≤ expectedValue SigGolfCandidate.T3.Security.BPair.rhoLaw (fun v =>
+    _ ≤ expectedValue ($ᵗ Digest : ProbComp Digest) (fun v =>
         (if S.Reuse rows v m then (nearPotential S) { b with reused := true, reuse := C0 }
           else expectedValue (Sampling.roRun secret (S.search v m 0 fuel) rows)
-            (fun r => (nearPotential S) (b.expose C0 (r.1.map Prod.snd))))) + extra := ClaudeWCT.Bank.FtsBankSpec.ev_add_const_le_law _ _ _
+            (fun r => (nearPotential S) (b.expose C0 (r.1.map Prod.snd))))) + extra := expectedValue_add_const_le _ _ _
     _ ≤ _ := add_le_add ((near_sign S) b rows m C0 hC secret fuel hfuel) le_rfl
 theorem mem_initial (rate : ENNReal)
     (hrate : ClaudeWCT.Numerics.Law.lawAvg S.law (2^32) S.price≤rate) (q : Nat) :
     (nearMemPotential S) q [] [] false ∅ (fun _ => none) ≤ (q:ENNReal)*(rate+S.admBound)/2^128 := by
   unfold nearMemPotential
   simp only [List.length_nil,Nat.not_lt_zero,if_false,Nat.sub_zero]
-  have hC : (reuseCK S) ∅ (fun _ => none)=0 := by
-    unfold reuseCK ClaudeWCT.Bank.FtsBankSpec.reuseMassK ClaudeWCT.Bank.FtsBankSpec.reuseMass
-      ClaudeWCT.Bank.FtsBankSpec.admissibleEntry
+  have hC : (reuseC S) ∅ (fun _ => none)=0 := by
+    unfold reuseC ClaudeWCT.Bank.FtsBankSpec.reuseMass ClaudeWCT.Bank.FtsBankSpec.admissibleEntry
     simp
   have hn := (near_initial S) rate hrate q
-  rw [show (⟨[],[],false,(reuseCK S) ∅ (fun _ => none),q⟩:BankCore)=⟨[],[],false,0,q⟩ by rw [hC]]
+  rw [show (⟨[],[],false,(reuseC S) ∅ (fun _ => none),q⟩:BankCore)=⟨[],[],false,0,q⟩ by rw [hC]]
   calc
     _ ≤ (q:ENNReal)*rate/2^128+(q:ENNReal)*(S.admBound/2^128) := add_le_add hn le_rfl
     _ = _ := by simp only [div_eq_mul_inv];ring
@@ -6174,7 +6442,7 @@ theorem mem_win (q : Nat) (births exposures : List HashOutput) (reused : Bool) (
     1 ≤ (nearMemPotential S) q births exposures reused rows nonces := by
   unfold nearMemPotential
   rw [if_neg (by omega)]
-  exact ((near_win S) ⟨births, exposures, reused, (reuseCK S) rows nonces, q - births.length⟩ (by simp only; omega) h).trans
+  exact ((near_win S) ⟨births, exposures, reused, (reuseC S) rows nonces, q - births.length⟩ (by simp only; omega) h).trans
     le_self_add
 end ClaudeWCT.Bank.NearMemory
 
@@ -6281,12 +6549,12 @@ attribute [local instance] Classical.propDecidable
 noncomputable local instance instDecidableEqCache_w9largeCouplingCert_pairedInteraction : DecidableEq SigGolfCandidate.T3.Cache :=
   Classical.decEq _
 section Interaction
-variable {U : Finset HashInput} {T : Answers} {vals : Coord → Digest} {nv : Message × Fin 2 → Digest}
+variable {U : Finset HashInput} {T : Answers} {vals : Coord → Digest} {nv : Message → Digest}
   {τ : Cell U → HashOutput} {a : AuxData} {q : Nat} (initLaw : PMF AuxData)
 theorem interaction_le' (hcoh : LargeResidual.Paired.Coherent U T vals nv τ a) (hq : q ≤ 2 ^ 127) (hUpub : SeccLaw.publicUniverse ⊆ U)
     (published : SigGolfCandidate.T3.Cache) (hsource : ∀request : Security.Request,request.cache=published →
       evalWithAnswerFn T (PairedOuter.FullGame.authenticatedSign published request)=
-        finishOut T vals (LargeResidual.nonceVal nv request.message) (LargeResidual.Paired.signDigest T request.message))
+        finishOut T vals (nv request.message) (LargeResidual.Paired.signDigest T request.message))
     {α : Type} (program : OracleComp PairedOuter.LazyPrivate.Interaction α) :
     ∀ {β : Type} (Final : Monitor → RouterState → (α × QueryLog ClaudeWCT.W9.T3M.Final.Paired.Requests) → LazyPrivate.State → Prop)
       (K : Option ((α × QueryLog ClaudeWCT.W9.T3M.Final.Paired.Requests) × RouterState) → OracleComp (RWorld U) β)
@@ -6300,7 +6568,7 @@ theorem interaction_le' (hcoh : LargeResidual.Paired.Coherent U T vals nv τ a) 
       ∀ (mon : Monitor) (st : RouterState) (ws : LargeResidual.State WCoord (Cell U)) (state : LazyPrivate.State),
         Rel U T vals nv τ a q mon st ws → MemoOk T st →
         Pr[fun t => Final (t.steps.foldl (Monitor.step U T q published) mon)
-              (t.steps.foldl (routerStep U T (LargeResidual.nonceVal nv) published) st) t.value t.state |
+              (t.steps.foldl (routerStep U T nv published) st) t.value t.state |
             taggedFixed T published program state] ≤
           Pr[F | observedRun (auxLaw initLaw) q (Sum.elim vals nv) τ
             (routeInteraction U a published q program st >>= K) ws] := by
@@ -6333,7 +6601,7 @@ theorem interaction_le' (hcoh : LargeResidual.Paired.Coherent U T vals nv τ a) 
         ·
           rw [if_pos hb]
           have hzero : Pr[(fun t => Final (t.steps.foldl (Monitor.step U T q published) mon)
-                (t.steps.foldl (routerStep U T (LargeResidual.nonceVal nv) published) st) t.value t.state) ∘
+                (t.steps.foldl (routerStep U T nv published) st) t.value t.state) ∘
               (fun last => (⟨last.value, .world ⟨state, .inl (.inr X), T (.inl (.inr X))⟩ :: last.steps,
                 last.state⟩ : Tagged α)) |
               taggedFixed T published (next (T (.inl (.inr X))))
@@ -6356,14 +6624,14 @@ theorem interaction_le' (hcoh : LargeResidual.Paired.Coherent U T vals nv τ a) 
         · by_cases hok : FamOK st
           swap
           · have hzero : Pr[(fun t => Final (t.steps.foldl (Monitor.step U T q published) mon)
-                  (t.steps.foldl (routerStep U T (LargeResidual.nonceVal nv) published) st) t.value t.state) ∘
+                  (t.steps.foldl (routerStep U T nv published) st) t.value t.state) ∘
                 (fun last => (⟨last.value, .world ⟨state, .inl (.inr X), T (.inl (.inr X))⟩ :: last.steps,
                   last.state⟩ : Tagged α)) |
                 taggedFixed T published (next (T (.inl (.inr X))))
                   (FirstHit.advance state (.inl (.inr X)) (T (.inl (.inr X))))] = 0 := by
               refine le_antisymm ((probEvent_mono'' (q := fun _ => False) ?_).trans (by simp)) (zero_le)
               intro t ht
-              exact hok (famOK_mono (steps_disclosed_mono U T (LargeResidual.nonceVal nv) published _ _) (hfin _ _ _ _ ht))
+              exact hok (famOK_mono (steps_disclosed_mono U T nv published _ _) (hfin _ _ _ _ ht))
             rw [hzero]
             exact zero_le
           rw [if_neg hb, bind_assoc]
@@ -6377,7 +6645,7 @@ theorem interaction_le' (hcoh : LargeResidual.Paired.Coherent U T vals nv τ a) 
             · rw [probEvent_pure, if_pos hF]
               exact probEvent_le_one
             · have hzero : Pr[(fun t => Final (t.steps.foldl (Monitor.step U T q published) mon)
-                    (t.steps.foldl (routerStep U T (LargeResidual.nonceVal nv) published) st) t.value t.state) ∘
+                    (t.steps.foldl (routerStep U T nv published) st) t.value t.state) ∘
                   (fun last => (⟨last.value, .world ⟨state, .inl (.inr X), T (.inl (.inr X))⟩ :: last.steps,
                     last.state⟩ : Tagged α)) |
                   taggedFixed T published (next (T (.inl (.inr X))))
@@ -6428,7 +6696,7 @@ theorem interaction_le' (hcoh : LargeResidual.Paired.Coherent U T vals nv τ a) 
           · exact Or.inl h
           · exact Or.inr fun m s v σ hf => h _ _ _ _ hf
         exact ih out Final' K' F hleaf' habort' hstop' (fun m s v σ hf => hfin _ _ _ _ hf) _ _ wsF _ hrelF
-          (signedState_memo T (LargeResidual.nonceVal nv) published st request hmemo)
+          (signedState_memo T nv published st request hmemo)
 end Interaction
 end ClaudeWCT.W9.T3.Security.LargeCoupling.Paired
 end
@@ -6463,13 +6731,12 @@ noncomputable def verdictCert (U : Finset HashInput) (T : Answers) (q : Nat) (pk
     (Monitor.event U T q) mon).calls ≤ q ∧
   CertGhost ((Wots.Ref.pureRecord T (PairedOuter.GameWith.verdict PairedOuter.PaddedGame.checker pk value) state).events.foldl
     (routerEvent U) st)
-theorem honestNonce_coherent {U : Finset HashInput} {T : Answers} {vals : Coord → Digest} {nv : Message × Fin 2 → Digest}
-    {τ : Cell U → HashOutput} {a : AuxData} (hcoh : LargeResidual.Paired.Coherent U T vals nv τ a) :
-    LargeResidual.nonceVal nv = honestNonce T := by
+theorem honestNonce_coherent {U : Finset HashInput} {T : Answers} {vals : Coord → Digest} {nv : Message → Digest}
+    {τ : Cell U → HashOutput} {a : AuxData} (hcoh : LargeResidual.Paired.Coherent U T vals nv τ a) : nv = honestNonce T := by
   funext m
   exact (hcoh.privateNonce m).symm
 theorem table_cert_le (adversary : ClaudeWCT.W9.T3M.Final.Paired.AdversaryP) (q : Nat) (hq : q ≤ 2 ^ 127) (initLaw : PMF AuxData)
-    {T : Answers} {vals : Coord → Digest} {nv : Message × Fin 2 → Digest}
+    {T : Answers} {vals : Coord → Digest} {nv : Message → Digest}
     {τ : Cell (Wots.PairedReference.referenceInputs adversary) → HashOutput} {a : AuxData}
     (hcoh : LargeResidual.Paired.Coherent (Wots.PairedReference.referenceInputs adversary) T vals nv τ a) :
     Pr[fun rec => CertR adversary q rec T ∧ NoOvR adversary rec T |
@@ -6506,7 +6773,7 @@ theorem table_cert_le (adversary : ClaudeWCT.W9.T3M.Final.Paired.AdversaryP) (q 
       have hsub := discSeeds_steps hcoh (evalWithAnswerFn T keygen).2 (hcoh.source _ hpub) _ _ t ht LargeResidual.RouterState.initial f
       rw [discSeeds_initial, Finset.empty_union] at hsub
       exact (Finset.card_le_card hsub).trans ((logSeeds_card T _ hno f).trans (by norm_num))
-    · have hsub := discLower_steps (Wots.PairedReference.referenceInputs adversary) T (LargeResidual.nonceVal nv) (evalWithAnswerFn T keygen).2 t.steps
+    · have hsub := discLower_steps (Wots.PairedReference.referenceInputs adversary) T nv (evalWithAnswerFn T keygen).2 t.steps
         LargeResidual.RouterState.initial L
       rw [discLower_initial, Finset.empty_union] at hsub
       have := lowerZeros_card T L
@@ -6572,7 +6839,7 @@ theorem honestNonce_short : honestNonce A=honestNonce T := by
   funext m
   unfold honestNonce
   simp only [SigGolfCandidate.T3.privateNonce,privateHash,evalWithAnswerFn_bind,evalWithAnswerFn_pure]
-  change BitVec.ofNat 128 (rhoMod (A (.inr (.inr (.inl m)))))=BitVec.ofNat 128 (rhoMod (T (.inr (.inr (.inl m)))))
+  change (A (.inr (.inr (.inl m)))).extractLsb' 0 128=(T (.inr (.inr (.inl m)))).extractLsb' 0 128
   rw [hAT.priv]
 theorem routeOk_short : RouteOk A = RouteOk T := by
   funext index
@@ -6790,7 +7057,7 @@ theorem cert_le_lazy (adversary : ClaudeWCT.W9.T3M.Final.Paired.AdversaryP) (q :
   rw [probEvent_congr' (fun _ _ => Iff.rfl) (hτ _)]
   refine probEvent_bind_le_of _ _ _ _ _ _ (weight_self _) fun τ => ?_
   · have hT : CanonGraph.eagerAnswers (privateEquiv.symm (secOf x jk,
-          nonceOver (privateEquiv priv).2 (fun p => x.1 (.inr p)))) (Wots.PairedReference.referenceInputs adversary)
+          nonceOver (privateEquiv priv).2 (fun m => x.1 (.inr m)))) (Wots.PairedReference.referenceInputs adversary)
           (CanonGraph.Paired.Filtered.programmed (Wots.PairedReference.referenceInputs adversary) hU (secOf x jk)
             (CanonGraph.Paired.joinLabels (fun N => x.1 (.inl (.inl N))) high)
             (residualPsi (Wots.PairedReference.referenceInputs adversary) hE (CanonGraph.Paired.joinLabels (fun N => x.1 (.inl (.inl N))) high) rows τ)) =
@@ -6915,7 +7182,7 @@ theorem bank_verdict (a : AuxData) {β : Type} (V : M β) :
 theorem bankInv_initial (s : LargeResidual.State WCoord (Cell U)) (hd : DiscFrame U LargeResidual.initial s) :
     BankInv U s LargeResidual.RouterState.initial := by
   obtain ⟨hr, hc, hn⟩ := hd
-  refine ⟨by rw [hc]; rfl, by rw [hc]; exact le_rfl, le_rfl, fun m _ i => by rw [hn (m, i)]; rfl,
+  refine ⟨by rw [hc]; rfl, by rw [hc]; exact le_rfl, le_rfl, fun m _ => by rw [hn m]; rfl,
     fun X hX _ _ _ => by rw [hr]; rfl, fun X hX _ hs _ => absurd hs (by simp [LargeResidual.RouterState.initial]),
     fun p hp => absurd hp (by simp [LargeResidual.RouterState.initial]), fun X hX => absurd hX (by simp [LargeResidual.RouterState.initial])⟩
 theorem bank_router (hUpub : SeccLaw.publicUniverse ⊆ U) (initLaw : PMF AuxData) (adversary : Final.Paired.AdversaryP) :
@@ -7028,7 +7295,7 @@ theorem bank_cert_le (hUpub : SeccLaw.publicUniverse ⊆ U) (initLaw : PMF AuxDa
     apply ENNReal.div_le_div_right
     apply mul_le_mul' le_rfl
     exact_mod_cast (show q ≤ q - r.2.counters.mass + r.2.counters.mass by omega)
-  have hcoeff_fin : coeffQ θ q ≠ ⊤ := by unfold coeffQ; exact ENNReal.add_ne_top.mpr ⟨htheta,by change (29249/2500000:ENNReal)≠⊤; finiteness⟩
+  have hcoeff_fin : coeffQ θ q ≠ ⊤ := by unfold coeffQ; exact ENNReal.add_ne_top.mpr ⟨htheta,by change (1/1024:ENNReal)≠⊤; finiteness⟩
   have hSfin : S ≠ ⊤ := by
     apply ne_top_of_le_ne_top (b := coeffQ θ q * (q : ENNReal) / 2 ^ 128)
     · exact ENNReal.div_ne_top (ENNReal.mul_ne_top hcoeff_fin (ENNReal.natCast_ne_top q)) (by positivity)
@@ -7048,7 +7315,6 @@ theorem bank_cert_le (hUpub : SeccLaw.publicUniverse ⊆ U) (initLaw : PMF AuxDa
     _ ≤ expectedValue L (psiOut θ q) := hcert
     _ ≤ psi θ q LargeResidual.RouterState.initial + coeffQ θ q * Mass / 2 ^ 128 := hpsi
     _ ≤ _ := add_le_add (psi_initial θ q rate hexc) le_rfl
-
 
 end ClaudeWCT.W9.T3.Security.LargeCoupling.Paired
 
@@ -7075,26 +7341,26 @@ theorem budgetRate_ge_one (q : Nat) (hq : q≤2^127) : 1≤Flexible.budgetRate q
   linarith
 
 theorem coeffQ_budgetRate (q : Nat) (hq:q≤2^127) :
-    coeffQ (ENNReal.ofReal (Flexible.budgetRate q-29249/2500000)) q = ENNReal.ofReal (Flexible.budgetRate q) := by
+    coeffQ (ENNReal.ofReal (Flexible.budgetRate q-1/1024)) q = ENNReal.ofReal (Flexible.budgetRate q) := by
   have h:=budgetRate_ge_one q hq
   unfold coeffQ
-  change ENNReal.ofReal (Flexible.budgetRate q-29249/2500000)+(29249/2500000:ENNReal)=_
-  rw [show (29249/2500000:ENNReal)=ENNReal.ofReal (29249/2500000:ℝ) by rw [ENNReal.ofReal_div_of_pos (by norm_num)]; norm_num,
-    ←ENNReal.ofReal_add (by linarith : 0≤Flexible.budgetRate q-29249/2500000) (by positivity)]
+  change ENNReal.ofReal (Flexible.budgetRate q-1/1024)+(1/1024:ENNReal)=_
+  rw [show (1/1024:ENNReal)=ENNReal.ofReal (1/1024:ℝ) by rw [ENNReal.ofReal_div_of_pos (by norm_num)]; norm_num,
+    ←ENNReal.ofReal_add (by linarith : 0≤Flexible.budgetRate q-1/1024) (by positivity)]
   congr 1
   ring
 
 theorem contact_cert_bound_of_excess (adversary : Final.Paired.AdversaryP) (q : Nat) (hq:q≤2^127)
     (rate : ENNReal)
     (hexc : ClaudeWCT.Numerics.Law.lawAvg ClaudeWCT.Bank.Paired.honestLaw (2^32)
-      (fun W=>ClaudeWCT.Bank.Paired.price W-ENNReal.ofReal (Flexible.budgetRate q-29249/2500000))≤rate) :
+      (fun W=>ClaudeWCT.Bank.Paired.price W-ENNReal.ofReal (Flexible.budgetRate q-1/1024))≤rate) :
     Pr[ContactNO adversary q | PairedSeccLaw.completedExperiment adversary q hq] +
       Pr[fun z=>CertR adversary q (QueryRecorded.recordedTrace z.1) z.2 ∧
         NoOvR adversary (QueryRecorded.recordedTrace z.1) z.2 |
         PairedSeccLaw.completedExperiment adversary q hq] ≤
       ENNReal.ofReal (2*((q:ℝ)/2^128)-((q:ℝ)/2^128)^2)+(q:ENNReal)*rate/2^128+
         ((2 ^ 142 : ℝ≥0∞)⁻¹+(2 ^ 142 : ℝ≥0∞)⁻¹) := by
-  have hb := bank_cert_le (ENNReal.ofReal (Flexible.budgetRate q-29249/2500000))
+  have hb := bank_cert_le (ENNReal.ofReal (Flexible.budgetRate q-1/1024))
     (Wots.PairedReference.Ref.referenceInputs_universe adversary) initLaw adversary q (by finiteness) rate hexc
   rw [coeffQ_budgetRate q hq] at hb
   have hp := Flexible.residual_potential_rate (Flexible.budgetRate q) (auxLaw initLaw) q hq
@@ -7211,6 +7477,280 @@ set_option maxHeartbeats 1000000
 set_option maxRecDepth 10000
 set_option backward.isDefEq.respectTransparency false
 attribute [local instance] Classical.propDecidable
+noncomputable abbrev nearSpec : ClaudeWCT.Bank.FtsBankSpec WProposal := bankSpec.toFtsBankSpec
+theorem nearSpec_law : nearSpec.law = ClaudeWCT.Bank.WCT.honestLaw := rfl
+theorem nearPrice_proposals (X : List HashOutput) :
+    Guess.nearPrice X = nearPriceP (nearSpec.proposals X) :=
+  nearPrice_eq_nearPriceP X
+noncomputable def nearForecast (R : Nat) (X : List HashOutput) (N : HashOutput) : ENNReal :=
+  expectedValue (independentProposalWord nearSpec.accepted R) (fun F => Guess.nearScore (X ++ F) N)
+theorem nearForecast_step (R : Nat) (X : List HashOutput) (N : HashOutput) :
+    expectedValue nearSpec.accepted (fun A => nearForecast R (X ++ [A]) N) = nearForecast (R + 1) X N := by
+  unfold nearForecast
+  rw [independentProposalWord, ← PMF.monad_bind_eq_bind, expectedValue_bind]
+  apply congrArg
+  funext A
+  rw [← PMF.monad_map_eq_map, expectedValue_map]
+  apply congrArg
+  funext F
+  simp only [List.append_assoc, List.singleton_append]
+theorem nearScore_le_forecast (R : Nat) (X : List HashOutput) (N : HashOutput) :
+    Guess.nearScore X N ≤ nearForecast R X N := by
+  unfold nearForecast
+  calc
+    Guess.nearScore X N = expectedValue (independentProposalWord nearSpec.accepted R) (fun _ => Guess.nearScore X N) :=
+      (expectedValue_const (by simp) _).symm
+    _ ≤ _ := expectedValue_mono _ fun F => Guess.nearScore_append_mono X F N
+noncomputable def nearPriceForecast (R : Nat) (X : List HashOutput) : ENNReal :=
+  ClaudeWCT.Numerics.Law.lawAvg nearSpec.law R (fun W => nearPriceP (nearSpec.proposals X ++ W))
+theorem average_nearForecast (R : Nat) (X : List HashOutput) :
+    BPORS.finiteAverage (fun N : HashOutput => nearForecast R X N) = nearPriceForecast R X / 2 ^ 128 := by
+  unfold nearForecast nearPriceForecast
+  rw [finiteAverage_expectedValue]
+  have hav : ∀ F : List HashOutput, BPORS.finiteAverage (fun N : HashOutput => Guess.nearScore (X ++ F) N) =
+      nearPriceP (nearSpec.proposals X ++ nearSpec.proposals F) / 2 ^ 128 := by
+    intro F
+    rw [Guess.average_nearScore, nearPrice_proposals, nearSpec.proposals_append]
+  simp_rw [hav]
+  refine (nearSpec.expected_word_proposals R
+    (fun W => nearPriceP (nearSpec.proposals X ++ W) / 2 ^ 128)).trans ?_
+  simp only [div_eq_mul_inv]
+  rw [show (fun W => nearPriceP (nearSpec.proposals X ++ W) * (2 ^ 128 : ENNReal)⁻¹) =
+      fun W => (2 ^ 128 : ENNReal)⁻¹ * nearPriceP (nearSpec.proposals X ++ W) by
+    funext W; exact mul_comm _ _, ClaudeWCT.Numerics.Law.lawAvg_mul_left, mul_comm]
+theorem nearPriceForecast_step (R : Nat) (X : List HashOutput) :
+    expectedValue nearSpec.accepted (fun A => nearPriceForecast R (X ++ [A])) = nearPriceForecast (R + 1) X := by
+  unfold nearPriceForecast
+  rw [ClaudeWCT.Numerics.Law.lawAvg_succ]
+  have hA (A : HashOutput) : ClaudeWCT.Numerics.Law.lawAvg nearSpec.law R
+      (fun W => nearPriceP (nearSpec.proposals (X ++ [A]) ++ W)) =
+      (fun p : WProposal => ClaudeWCT.Numerics.Law.lawAvg nearSpec.law R
+        (fun W => nearPriceP (nearSpec.proposals X ++ p :: W))) (nearSpec.proposal A) := by
+    simp [ClaudeWCT.Bank.FtsBankSpec.proposals, List.map_append, List.append_assoc]
+  simp_rw [hA]
+  exact nearSpec.expected_accepted_proposal (fun p => ClaudeWCT.Numerics.Law.lawAvg nearSpec.law R
+    (fun W => nearPriceP (nearSpec.proposals X ++ p :: W)))
+noncomputable def nearLedger (R : Nat) (targets X : List HashOutput) (slack : Nat) : ENNReal :=
+  (targets.map fun N => nearForecast R X N).sum + (slack : ENNReal) * nearPriceForecast R X / 2 ^ 128
+theorem nearLedger_slack_succ (R : Nat) (targets X : List HashOutput) (slack : Nat) :
+    nearLedger R targets X (slack + 1) = nearLedger R targets X slack + nearPriceForecast R X / 2 ^ 128 := by
+  unfold nearLedger
+  rw [Nat.cast_add, Nat.cast_one, add_mul, one_mul, ENNReal.add_div, add_assoc]
+theorem nearLedger_birth (R : Nat) (targets X : List HashOutput) (slack : Nat) :
+    expectedValue ($ᵗ HashOutput : ProbComp HashOutput) (fun a => nearLedger R (targets ++ [a]) X slack) =
+      nearLedger R targets X (slack + 1) := by
+  have hfa : expectedValue ($ᵗ HashOutput : ProbComp HashOutput) (fun a => nearForecast R X a) =
+      nearPriceForecast R X / 2 ^ 128 := by
+    rw [BPORS.expected_uniform_eq_finiteAverage]
+    exact average_nearForecast R X
+  have hsplit : ∀ a, nearLedger R (targets ++ [a]) X slack = nearLedger R targets X slack + nearForecast R X a := by
+    intro a
+    simp only [nearLedger, List.map_append, List.map_cons, List.map_nil, List.sum_append, List.sum_cons,
+      List.sum_nil, add_zero]
+    ring
+  simp_rw [hsplit]
+  rw [expectedValue_add, expectedValue_const (by simp : Pr[⊥ | ($ᵗ HashOutput : ProbComp HashOutput)] = 0), hfa,
+    nearLedger_slack_succ]
+theorem nearLedger_expose (R : Nat) (targets X : List HashOutput) (slack : Nat) :
+    expectedValue nearSpec.accepted (fun A => nearLedger R targets (X ++ [A]) slack) =
+      nearLedger (R + 1) targets X slack := by
+  unfold nearLedger
+  rw [expectedValue_add, expectedValue_list_sum']
+  refine congrArg₂ (· + ·) ?_ ?_
+  · refine congrArg List.sum ?_
+    apply List.map_congr_left
+    intro N _
+    exact nearForecast_step R X N
+  · simp only [div_eq_mul_inv]
+    rw [show (fun A : HashOutput => (slack : ENNReal) * nearPriceForecast R (X ++ [A]) * (2 ^ 128 : ENNReal)⁻¹) =
+        fun A => (slack : ENNReal) * (2 ^ 128 : ENNReal)⁻¹ * nearPriceForecast R (X ++ [A]) by
+      funext A; ring]
+    rw [pmf_expectedValue_left_mul, nearPriceForecast_step]
+    ring
+theorem nearLedger_freshPrice (R : Nat) (targets X : List HashOutput) (slack : Nat) :
+    nearSpec.freshPrice (fun A => nearLedger R targets (X ++ [A]) slack) = nearLedger (R + 1) targets X slack := by
+  rw [← nearSpec.expected_accepted, nearLedger_expose]
+theorem nearLedger_search (secret : BitVec 256) (rho : Digest) (message : Message) (fuel : Nat)
+    (hlimit : fuel ≤ 2 ^ 32) (cache : Sampling.RCache)
+    (hreject : Sampling.CachedTrialsReject (Sampling.digestTrial rho message) nearSpec.decode 0 (2 ^ 32) cache)
+    (R : Nat) (targets X : List HashOutput) (slack : Nat) :
+    expectedValue (Sampling.roRun secret (nearSpec.search rho message 0 fuel) cache)
+      (fun result => result.1.elim (nearLedger (R + 1) targets X slack)
+        (fun found => nearLedger R targets (X ++ [found.2]) slack)) ≤ nearLedger (R + 1) targets X slack :=
+  nearSpec.search_le_price secret rho message fuel hlimit cache hreject _ _ _ le_rfl
+    (nearLedger_freshPrice R targets X slack).le
+theorem nearLedger_win (R : Nat) (targets X : List HashOutput) (slack : Nat) (N : HashOutput) (hN : N ∈ targets)
+    (hadm : WCT9.admissible N = true) (hcov : Guess.NearCoveredBy X N) : 1 ≤ nearLedger R targets X slack :=
+  calc
+    (1 : ENNReal) ≤ Guess.nearScore X N := Guess.one_le_nearScore hadm hcov
+    _ ≤ nearForecast R X N := nearScore_le_forecast R X N
+    _ ≤ (targets.map fun N => nearForecast R X N).sum := List.le_sum_of_mem (List.mem_map_of_mem hN)
+    _ ≤ _ := le_self_add
+theorem nearLedger_initial (budget : Nat) :
+    nearLedger horizon [] [] budget ≤ (budget : ENNReal) * (4799 / 16) / 2 ^ 128 := by
+  unfold nearLedger nearPriceForecast
+  simp only [List.map_nil, List.sum_nil, zero_add]
+  apply ENNReal.div_le_div_right
+  apply mul_le_mul' le_rfl
+  rw [nearSpec_law]
+  exact wct_near_bound_2_32
+noncomputable def nearPotential (b : BankCore) : ENNReal :=
+  if horizon < b.exposures.length then 0
+  else if b.reused = true then 1 + b.reuse
+  else nearLedger (horizon - b.exposures.length) b.targets b.exposures b.slack + b.reuse
+theorem expected_admInd_sixteenth :
+    expectedValue ($ᵗ HashOutput : ProbComp HashOutput) nearSpec.admInd ≤ 1 / 16 :=
+  nearSpec.expected_admInd_tight.trans (ENNReal.div_le_div_left (by norm_num) 1)
+theorem near_birth (b : BankCore) (s : Nat) (hs : b.slack = s + 1) (C' : HashOutput → ENNReal)
+    (hC : ∀ N, C' N ≤ b.reuse + nearSpec.admInd N / 2 ^ 128) :
+    expectedValue ($ᵗ HashOutput : ProbComp HashOutput)
+        (fun N => nearPotential { b with targets := b.targets ++ [N], slack := s, reuse := C' N }) ≤
+      nearPotential b + (1 / 16) / 2 ^ 128 := by
+  have hadm : expectedValue ($ᵗ HashOutput : ProbComp HashOutput) (fun N => nearSpec.admInd N / 2 ^ 128) ≤
+      (1 / 16) / 2 ^ 128 := by
+    simp only [div_eq_mul_inv]
+    rw [expectedValue_mul_const]
+    exact mul_le_mul' (by simpa [div_eq_mul_inv] using expected_admInd_sixteenth) le_rfl
+  unfold nearPotential
+  simp only
+  by_cases hd : horizon < b.exposures.length
+  · simp only [hd, if_true]
+    exact (expectedValue_le_of_le _ fun _ => le_rfl).trans bot_le
+  simp only [hd, if_false]
+  by_cases hr : b.reused = true
+  · simp only [hr, if_true]
+    calc
+      _ ≤ expectedValue ($ᵗ HashOutput : ProbComp HashOutput)
+          (fun N => nearSpec.admInd N / 2 ^ 128 + (1 + b.reuse)) :=
+        expectedValue_mono _ fun N => (add_le_add le_rfl (hC N)).trans (le_of_eq (by ring))
+      _ ≤ (1 / 16) / 2 ^ 128 + (1 + b.reuse) := (expectedValue_add_const_le _ _ _).trans (add_le_add hadm le_rfl)
+      _ = _ := add_comm _ _
+  · simp only [hr, Bool.false_eq_true, if_false]
+    set R := horizon - b.exposures.length
+    calc
+      _ ≤ expectedValue ($ᵗ HashOutput : ProbComp HashOutput)
+          (fun N => (nearLedger R (b.targets ++ [N]) b.exposures s + nearSpec.admInd N / 2 ^ 128) + b.reuse) :=
+        expectedValue_mono _ fun N => (add_le_add le_rfl (hC N)).trans (le_of_eq (by ring))
+      _ ≤ expectedValue ($ᵗ HashOutput : ProbComp HashOutput)
+          (fun N => nearLedger R (b.targets ++ [N]) b.exposures s + nearSpec.admInd N / 2 ^ 128) + b.reuse :=
+        expectedValue_add_const_le _ _ _
+      _ ≤ (nearLedger R b.targets b.exposures (s + 1) + (1 / 16) / 2 ^ 128) + b.reuse := by
+        rw [expectedValue_add, nearLedger_birth]
+        exact add_le_add (add_le_add le_rfl hadm) le_rfl
+      _ = _ := by
+        rw [hs]
+        ring
+theorem near_sign (b : BankCore) (cache : Sampling.RCache) (m : Message) (C' : ENNReal)
+    (hC : C' + nearSpec.reuseMass cache m ≤ b.reuse) (secret : BitVec 256) (fuel : Nat) (hfuel : fuel ≤ 2 ^ 32) :
+    expectedValue ($ᵗ Digest : ProbComp Digest) (fun rho =>
+      if nearSpec.Reuse cache rho m then nearPotential { b with reused := true, reuse := C' }
+      else expectedValue (Sampling.roRun secret (nearSpec.search rho m 0 fuel) cache)
+        (fun result => nearPotential (b.expose C' (result.1.map Prod.snd)))) ≤ nearPotential b := by
+  have hlenA : ∀ (o : Option HashOutput), b.exposures.length ≤ (b.exposures ++ o.toList).length := by
+    intro o; simp
+  by_cases hd : horizon < b.exposures.length
+  · apply expectedValue_le_of_le
+    intro rho
+    have h0 : ∀ (o : Option HashOutput), nearPotential (b.expose C' o) = 0 := by
+      intro o
+      unfold nearPotential BankCore.expose
+      simp only
+      rw [if_pos (lt_of_lt_of_le hd (hlenA o))]
+    split_ifs
+    · unfold nearPotential; simp only; rw [if_pos hd]; exact bot_le
+    · exact (expectedValue_le_of_le _ fun result => (h0 _).le).trans bot_le
+  by_cases hr : b.reused = true
+  · have hb : nearPotential b = 1 + b.reuse := by unfold nearPotential; simp [hd, hr]
+    rw [hb]
+    apply expectedValue_le_of_le
+    intro rho
+    have hle : ∀ (o : Option HashOutput), nearPotential (b.expose C' o) ≤ 1 + b.reuse := by
+      intro o
+      unfold nearPotential BankCore.expose
+      simp only [hr, if_true]
+      split_ifs
+      · exact bot_le
+      · exact add_le_add le_rfl (le_of_add_le_left hC)
+    split_ifs
+    · unfold nearPotential; simp only [hd, if_false, if_true]; exact add_le_add le_rfl (le_of_add_le_left hC)
+    · exact expectedValue_le_of_le _ fun result => hle _
+  have hr' : b.reused = false := by simpa using hr
+  set R0 := horizon - b.exposures.length with hR0
+  have hb : nearPotential b = nearLedger R0 b.targets b.exposures b.slack + b.reuse := by
+    unfold nearPotential; simp only [hd, hr', if_false, Bool.false_eq_true]; rfl
+  have hsearch : ∀ rho, ¬nearSpec.Reuse cache rho m →
+      expectedValue (Sampling.roRun secret (nearSpec.search rho m 0 fuel) cache)
+        (fun result => nearPotential (b.expose C' (result.1.map Prod.snd))) ≤
+          nearLedger R0 b.targets b.exposures b.slack + C' := by
+    intro rho hnr
+    have hrej : Sampling.CachedTrialsReject (Sampling.digestTrial rho m) nearSpec.decode 0 (2 ^ 32) cache := by
+      unfold ClaudeWCT.Bank.FtsBankSpec.Reuse at hnr; push Not at hnr; exact hnr
+    by_cases hlen : b.exposures.length < horizon
+    · obtain ⟨R, hR⟩ : ∃ R, R0 = R + 1 := ⟨R0 - 1, by omega⟩
+      calc
+        _ ≤ expectedValue (Sampling.roRun secret (nearSpec.search rho m 0 fuel) cache)
+            (fun result => result.1.elim (nearLedger (R + 1) b.targets b.exposures b.slack)
+              (fun found => nearLedger R b.targets (b.exposures ++ [found.2]) b.slack) + C') := by
+          apply expectedValue_mono
+          intro result
+          rcases result with ⟨_ | found, cache'⟩
+          · unfold nearPotential BankCore.expose
+            simp only [Option.map_none, Option.toList_none, List.append_nil, hd, if_false, hr',
+              Bool.false_eq_true, Option.elim_none]
+            rw [← hR]
+          · unfold nearPotential BankCore.expose
+            have hnd : ¬horizon < (b.exposures ++ [found.2]).length := by simp; omega
+            simp only [Option.map_some, Option.toList_some, hnd, if_false, hr', Bool.false_eq_true,
+              Option.elim_some]
+            rw [show horizon - (b.exposures ++ [found.2]).length = R by simp; omega]
+        _ ≤ nearLedger (R + 1) b.targets b.exposures b.slack + C' :=
+          (expectedValue_add_const_le _ _ _).trans
+            (add_le_add (nearLedger_search secret rho m fuel hfuel cache hrej R b.targets b.exposures b.slack) le_rfl)
+        _ = _ := by rw [hR]
+    · apply expectedValue_le_of_le
+      intro result
+      rcases result with ⟨_ | found, cache'⟩
+      · unfold nearPotential BankCore.expose
+        simp only [Option.map_none, Option.toList_none, List.append_nil, hd, if_false, hr', Bool.false_eq_true]
+        exact le_rfl
+      · unfold nearPotential BankCore.expose
+        have hnd : horizon < (b.exposures ++ [found.2]).length := by simp; omega
+        simp only [Option.map_some, Option.toList_some, hnd, if_true]
+        exact bot_le
+  rw [hb]
+  calc
+    _ ≤ expectedValue ($ᵗ Digest : ProbComp Digest)
+        (fun rho => (if nearSpec.Reuse cache rho m then 1 else 0) + (nearLedger R0 b.targets b.exposures b.slack + C')) := by
+      apply expectedValue_mono
+      intro rho
+      by_cases hre : nearSpec.Reuse cache rho m
+      · rw [if_pos hre, if_pos hre]
+        unfold nearPotential
+        simp only [hd, if_false, if_true]
+        exact add_le_add le_rfl le_add_self
+      · rw [if_neg hre, if_neg hre, zero_add]
+        exact hsearch rho hre
+    _ ≤ nearSpec.reuseMass cache m + (nearLedger R0 b.targets b.exposures b.slack + C') :=
+      (expectedValue_add_const_le _ _ _).trans (add_le_add (nearSpec.reuse_probability_le cache m) le_rfl)
+    _ ≤ _ := by
+      rw [add_comm (nearLedger _ _ _ _), ← add_assoc, add_comm (nearSpec.reuseMass cache m),
+        add_comm _ (nearLedger _ _ _ _)]
+      exact add_le_add le_rfl hC
+theorem near_win (b : BankCore) (halive : ¬horizon < b.exposures.length)
+    (h : b.reused = true ∨ ∃ N ∈ b.targets, WCT9.admissible N = true ∧ Guess.NearCoveredBy b.exposures N) :
+    1 ≤ nearPotential b := by
+  unfold nearPotential
+  rw [if_neg halive]
+  by_cases hr : b.reused = true
+  · rw [if_pos hr]; exact le_self_add
+  · rw [if_neg hr]
+    obtain ⟨N, hN, hadm, hcov⟩ := h.resolve_left hr
+    exact (nearLedger_win _ _ _ _ N hN hadm hcov).trans le_self_add
+theorem near_initial (budget : Nat) :
+    nearPotential ⟨[], [], false, 0, budget⟩ ≤ (budget : ENNReal) * (4799 / 16) / 2 ^ 128 := by
+  unfold nearPotential
+  simp only [List.length_nil, Nat.not_lt_zero, if_false, Bool.false_eq_true, Nat.sub_zero, add_zero]
+  exact nearLedger_initial budget
 end ClaudeWCT.W9.T3.Security.CaseC
 end
 end
@@ -7229,6 +7769,48 @@ set_option maxHeartbeats 1000000
 set_option maxRecDepth 10000
 set_option backward.isDefEq.respectTransparency false
 attribute [local instance] Classical.propDecidable
+noncomputable def reuseC (rows : Sampling.RCache) (nonces : Message → Option Digest) : ENNReal :=
+  ∑' m : Message, if nonces m = none then nearSpec.reuseMass rows m else 0
+theorem reuseC_birth_le (rows : Sampling.RCache) (nonces : Message → Option Digest) (x : HashInput) (a : HashOutput)
+    (hx : rows x = none) : reuseC (rows.cacheQuery x a) nonces ≤ reuseC rows nonces + nearSpec.admInd a / 2 ^ 128 := by
+  unfold reuseC
+  calc
+    (∑' m : Message, if nonces m = none then nearSpec.reuseMass (rows.cacheQuery x a) m else 0) ≤
+        ∑' m : Message, ((if nonces m = none then nearSpec.reuseMass rows m else 0) +
+          (if DigestRowOf x m then nearSpec.admInd a / 2 ^ 128 else 0)) := by
+      apply ENNReal.tsum_le_tsum
+      intro m
+      split_ifs with h1 h2
+      · simpa [ENNReal.div_eq_inv_mul, h2] using nearSpec.reuseMass_cacheQuery_le rows x a hx m
+      · simpa [h2] using nearSpec.reuseMass_cacheQuery_le rows x a hx m
+      · exact bot_le
+      · exact bot_le
+    _ = _ + _ := ENNReal.tsum_add
+    _ ≤ _ := add_le_add le_rfl (tsum_indicator_le_of_subsingleton _ (fun _ _ h h' => digestRowOf_unique h h') _)
+theorem reuseC_sign_le (rows rows' : Sampling.RCache) (nonces : Message → Option Digest) (m : Message) (v : Digest)
+    (hm : nonces m = none) (hrows : ∀ m', m' ≠ m → nearSpec.reuseMass rows' m' = nearSpec.reuseMass rows m') :
+    reuseC rows' (Function.update nonces m (some v)) + nearSpec.reuseMass rows m ≤ reuseC rows nonces := by
+  unfold reuseC
+  rw [ENNReal.tsum_eq_add_tsum_ite m, ENNReal.tsum_eq_add_tsum_ite m (f := fun m' =>
+    if nonces m' = none then nearSpec.reuseMass rows m' else 0)]
+  simp only [Function.update_self, reduceCtorEq, if_false, zero_add, hm, if_true]
+  rw [add_comm]
+  apply add_le_add le_rfl
+  apply le_of_eq
+  apply tsum_congr
+  intro m'
+  by_cases he : m' = m
+  · simp [he]
+  · simp only [he, if_false, Function.update_of_ne he, hrows m' he]
+theorem reuseC_signed_eq (rows rows' : Sampling.RCache) (nonces : Message → Option Digest) (m : Message)
+    (hm : nonces m ≠ none) (hrows : ∀ m', m' ≠ m → nearSpec.reuseMass rows' m' = nearSpec.reuseMass rows m') :
+    reuseC rows' nonces = reuseC rows nonces := by
+  unfold reuseC
+  apply tsum_congr
+  intro m'
+  by_cases he : m' = m
+  · subst he; simp [hm]
+  · simp only [hrows m' he]
 theorem search_cache_frame {β γ : Type} (secret : BitVec 256) (inputs : Nat → HashInput)
     (decoder : HashOutput → Option β) (result : Nat → β → γ) :
     ∀ fuel counter (cache : Sampling.RCache) r,
@@ -7269,6 +7851,11 @@ theorem search_cache_frame {β γ : Type} (secret : BitVec 256) (inputs : Nat �
           rw [Sampling.roRun_pure, support_pure, Set.mem_singleton_iff] at hr
           rw [hr]
           exact hfc
+theorem digestSearch_cache_frame (secret : BitVec 256) (rho : Digest) (m : Message) (fuel : Nat)
+    (cache : Sampling.RCache) (r) (hr : r ∈ support (Sampling.roRun secret (nearSpec.search rho m 0 fuel) cache)) :
+    ∀ y, (∀ k, y ≠ Sampling.digestTrial rho m k) → r.2 y = cache y := by
+  unfold ClaudeWCT.Bank.FtsBankSpec.search at hr
+  exact search_cache_frame secret (Sampling.digestTrial rho m) nearSpec.decode _ fuel 0 cache r hr
 theorem digestTrial_ne_of_message {rho rho' : Digest} {m m' : Message} (hm : m' ≠ m) (c c' : Nat)
     (hc' : c' < 2 ^ 32) : Sampling.digestTrial rho' m' c' ≠ Sampling.digestTrial rho m c := by
   intro he
@@ -7282,6 +7869,178 @@ theorem digestTrial_ne_of_message {rho rho' : Digest} {m m' : Message} (hm : m' 
     simp [BitVec.toNat_ofNat]
   rw [h3, ← he] at h2
   exact hm (digestRowOf_unique h1 h2)
+theorem digestSearch_reuseMass (secret : BitVec 256) (rho : Digest) (m : Message) (fuel : Nat)
+    (cache : Sampling.RCache) (r) (hr : r ∈ support (Sampling.roRun secret (nearSpec.search rho m 0 fuel) cache)) :
+    ∀ m', m' ≠ m → nearSpec.reuseMass r.2 m' = nearSpec.reuseMass cache m' := by
+  intro m' hm
+  unfold ClaudeWCT.Bank.FtsBankSpec.reuseMass ClaudeWCT.Bank.FtsBankSpec.admissibleEntry
+  congr 1
+  apply tsum_congr
+  intro p
+  rw [digestSearch_cache_frame secret rho m fuel cache r hr _
+    (fun k => digestTrial_ne_of_message hm k p.2.val p.2.isLt)]
+noncomputable def nearMemPotential (q : Nat) (births exposures : List HashOutput) (reused : Bool)
+    (rows : Sampling.RCache) (nonces : Message → Option Digest) : ENNReal :=
+  if q < births.length then 0
+  else nearPotential ⟨births, exposures, reused, reuseC rows nonces, q - births.length⟩ +
+    ((q - births.length : Nat) : ENNReal) * ((1 / 16) / 2 ^ 128)
+theorem mem_birth (q : Nat) (births exposures : List HashOutput) (reused : Bool) (rows : Sampling.RCache)
+    (nonces : Message → Option Digest) (x : HashInput) (hx : rows x = none) :
+    expectedValue ($ᵗ HashOutput : ProbComp HashOutput)
+        (fun a : HashOutput => nearMemPotential q (births ++ [a]) exposures reused (rows.cacheQuery x a) nonces) ≤
+      nearMemPotential q births exposures reused rows nonces := by
+  by_cases hq : births.length < q
+  · obtain ⟨s, hs⟩ : ∃ s, q - births.length = s + 1 := ⟨q - births.length - 1, by omega⟩
+    have hb : nearMemPotential q births exposures reused rows nonces =
+        nearPotential ⟨births, exposures, reused, reuseC rows nonces, s + 1⟩ + ((s + 1 : Nat) : ENNReal) *
+          ((1 / 16) / 2 ^ 128) := by
+      unfold nearMemPotential
+      rw [if_neg (by omega), hs]
+    have ha : ∀ a : HashOutput, nearMemPotential q (births ++ [a]) exposures reused (rows.cacheQuery x a) nonces =
+        nearPotential { (⟨births, exposures, reused, reuseC rows nonces, s + 1⟩ : BankCore) with
+          targets := births ++ [a], slack := s, reuse := reuseC (rows.cacheQuery x a) nonces } +
+          (s : ENNReal) * ((1 / 16) / 2 ^ 128) := by
+      intro a
+      unfold nearMemPotential
+      have hl : (births ++ [a]).length = births.length + 1 := by simp
+      rw [if_neg (by omega), show q - (births ++ [a]).length = s by omega]
+    simp_rw [ha]
+    rw [hb]
+    calc
+      _ ≤ expectedValue ($ᵗ HashOutput : ProbComp HashOutput) (fun a =>
+            nearPotential { (⟨births, exposures, reused, reuseC rows nonces, s + 1⟩ : BankCore) with
+              targets := births ++ [a], slack := s, reuse := reuseC (rows.cacheQuery x a) nonces }) +
+          (s : ENNReal) * ((1 / 16) / 2 ^ 128) := expectedValue_add_const_le _ _ _
+      _ ≤ (nearPotential ⟨births, exposures, reused, reuseC rows nonces, s + 1⟩ + (1 / 16) / 2 ^ 128) +
+          (s : ENNReal) * ((1 / 16) / 2 ^ 128) := by
+        apply add_le_add _ le_rfl
+        exact near_birth ⟨births, exposures, reused, reuseC rows nonces, s + 1⟩ s rfl _
+          (fun a => reuseC_birth_le rows nonces x a hx)
+      _ = _ := by
+        push_cast
+        ring
+  · apply expectedValue_le_of_le
+    intro a
+    unfold nearMemPotential
+    rw [if_pos (by simp; omega)]
+    exact bot_le
+theorem mem_sign_fresh (q : Nat) (births exposures : List HashOutput) (reused : Bool) (rows : Sampling.RCache)
+    (nonces : Message → Option Digest) (m : Message) (hm : nonces m = none) (secret : BitVec 256) (fuel : Nat)
+    (hfuel : fuel ≤ 2 ^ 32) :
+    expectedValue ($ᵗ Digest : ProbComp Digest) (fun v =>
+      expectedValue (Sampling.roRun secret (nearSpec.search v m 0 fuel) rows) (fun r =>
+        nearMemPotential q births (exposures ++ (r.1.map Prod.snd).toList)
+          (reused || decide (nearSpec.Reuse rows v m)) r.2 (Function.update nonces m (some v)))) ≤
+      nearMemPotential q births exposures reused rows nonces := by
+  by_cases hq : q < births.length
+  · apply expectedValue_le_of_le
+    intro v
+    apply expectedValue_le_of_le
+    intro r
+    unfold nearMemPotential
+    rw [if_pos hq]
+    exact bot_le
+  push Not at hq
+  set C0 := reuseC rows (Function.update nonces m (some 0)) with hC0
+  have hupd : ∀ v : Digest, reuseC rows (Function.update nonces m (some v)) = C0 := by
+    intro v
+    unfold reuseC
+    apply tsum_congr
+    intro m'
+    by_cases he : m' = m
+    · subst he; simp
+    · simp only [Function.update_of_ne he]
+  have hafter : ∀ v r, r ∈ support (Sampling.roRun secret (nearSpec.search v m 0 fuel) rows) →
+      reuseC r.2 (Function.update nonces m (some v)) = C0 := by
+    intro v r hr
+    rw [reuseC_signed_eq rows r.2 _ m (by simp) (digestSearch_reuseMass secret v m fuel rows r hr), hupd]
+  have hC : C0 + nearSpec.reuseMass rows m ≤ reuseC rows nonces := by
+    rw [← hupd 0]
+    exact reuseC_sign_le rows rows nonces m 0 hm (fun _ _ => rfl)
+  set b : BankCore := ⟨births, exposures, reused, reuseC rows nonces, q - births.length⟩ with hb
+  set extra : ENNReal := ((q - births.length : Nat) : ENNReal) * ((1 / 16) / 2 ^ 128) with hextra
+  have hbefore : nearMemPotential q births exposures reused rows nonces = nearPotential b + extra := by
+    unfold nearMemPotential
+    rw [if_neg (by omega)]
+  have hpoint : ∀ v r, r ∈ support (Sampling.roRun secret (nearSpec.search v m 0 fuel) rows) →
+      nearMemPotential q births (exposures ++ (r.1.map Prod.snd).toList)
+          (reused || decide (nearSpec.Reuse rows v m)) r.2 (Function.update nonces m (some v)) =
+        nearPotential ⟨births, exposures ++ (r.1.map Prod.snd).toList,
+          reused || decide (nearSpec.Reuse rows v m), C0, q - births.length⟩ + extra := by
+    intro v r hr
+    unfold nearMemPotential
+    rw [if_neg (by omega), hafter v r hr]
+  have hreuse : ∀ (o : Option HashOutput), nearPotential ⟨births, exposures ++ o.toList, true, C0,
+      q - births.length⟩ ≤ nearPotential { b with reused := true, reuse := C0 } := by
+    intro o
+    have hl : exposures.length ≤ (exposures ++ o.toList).length := by simp
+    unfold nearPotential
+    rw [hb]
+    simp only [if_true]
+    by_cases h2 : horizon < exposures.length
+    · rw [if_pos (lt_of_lt_of_le h2 hl)]; exact bot_le
+    · by_cases h1 : horizon < (exposures ++ o.toList).length
+      · rw [if_pos h1]; exact bot_le
+      · rw [if_neg h1, if_neg h2]
+  rw [hbefore]
+  calc
+    _ ≤ expectedValue ($ᵗ Digest : ProbComp Digest) (fun v =>
+        (if nearSpec.Reuse rows v m then nearPotential { b with reused := true, reuse := C0 }
+          else expectedValue (Sampling.roRun secret (nearSpec.search v m 0 fuel) rows)
+            (fun r => nearPotential (b.expose C0 (r.1.map Prod.snd)))) + extra) := by
+      apply expectedValue_mono
+      intro v
+      calc
+        _ ≤ expectedValue (Sampling.roRun secret (nearSpec.search v m 0 fuel) rows) (fun r =>
+            (if nearSpec.Reuse rows v m then nearPotential { b with reused := true, reuse := C0 }
+              else nearPotential (b.expose C0 (r.1.map Prod.snd))) + extra) := by
+          apply expectedValue_mono_of_support
+          intro r hr
+          rw [hpoint v r hr]
+          apply add_le_add _ le_rfl
+          by_cases hre : nearSpec.Reuse rows v m
+          · simp only [hre, decide_true, Bool.or_true, if_true]
+            exact hreuse _
+          · simp only [hre, decide_false, Bool.or_false, if_false]
+            exact le_of_eq rfl
+        _ ≤ expectedValue (Sampling.roRun secret (nearSpec.search v m 0 fuel) rows) (fun r =>
+            (if nearSpec.Reuse rows v m then nearPotential { b with reused := true, reuse := C0 }
+              else nearPotential (b.expose C0 (r.1.map Prod.snd)))) + extra := expectedValue_add_const_le _ _ _
+        _ ≤ _ := by
+          apply add_le_add _ le_rfl
+          by_cases hre : nearSpec.Reuse rows v m
+          · simp only [hre, if_true]
+            exact expectedValue_le_of_le _ fun _ => le_rfl
+          · simp only [hre, if_false]
+            exact le_rfl
+    _ ≤ expectedValue ($ᵗ Digest : ProbComp Digest) (fun v =>
+        (if nearSpec.Reuse rows v m then nearPotential { b with reused := true, reuse := C0 }
+          else expectedValue (Sampling.roRun secret (nearSpec.search v m 0 fuel) rows)
+            (fun r => nearPotential (b.expose C0 (r.1.map Prod.snd))))) + extra := expectedValue_add_const_le _ _ _
+    _ ≤ _ := add_le_add (near_sign b rows m C0 hC secret fuel hfuel) le_rfl
+theorem mem_initial (q : Nat) :
+    nearMemPotential q [] [] false ∅ (fun _ => none) ≤ (q : ENNReal) * 300 / 2 ^ 128 := by
+  unfold nearMemPotential
+  simp only [List.length_nil, Nat.not_lt_zero, if_false, Nat.sub_zero]
+  have hC : reuseC ∅ (fun _ => none) = 0 := by
+    unfold reuseC ClaudeWCT.Bank.FtsBankSpec.reuseMass ClaudeWCT.Bank.FtsBankSpec.admissibleEntry
+    simp
+  have hn := near_initial q
+  rw [show (⟨[], [], false, reuseC ∅ (fun _ => none), q⟩ : BankCore) = ⟨[], [], false, 0, q⟩ by rw [hC]]
+  calc
+    _ ≤ (q : ENNReal) * (4799 / 16) / 2 ^ 128 + (q : ENNReal) * ((1 / 16) / 2 ^ 128) := add_le_add hn le_rfl
+    _ = (q : ENNReal) * ((4799 / 16) + 1 / 16) / 2 ^ 128 := by
+      simp only [div_eq_mul_inv]
+      ring
+    _ = _ := by rw [ClaudeWCT.W9.T3.Security.CaseC.near_bound_add_charge]
+theorem mem_win (q : Nat) (births exposures : List HashOutput) (reused : Bool) (rows : Sampling.RCache)
+    (nonces : Message → Option Digest) (hq : births.length ≤ q) (hlen : exposures.length ≤ horizon)
+    (h : reused = true ∨ ∃ N ∈ births, WCT9.admissible N = true ∧ Guess.NearCoveredBy exposures N) :
+    1 ≤ nearMemPotential q births exposures reused rows nonces := by
+  unfold nearMemPotential
+  rw [if_neg (by omega)]
+  exact (near_win ⟨births, exposures, reused, reuseC rows nonces, q - births.length⟩ (by simp only; omega) h).trans
+    le_self_add
 end ClaudeWCT.W9.T3.Security.CaseC
 end
 section
@@ -7424,8 +8183,19 @@ structure NearGhost where
   lastFresh : Bool
   fresh : List HashOutput
 def NearGhost.empty : NearGhost := ⟨false, false, []⟩
+noncomputable def ghostStep (mem : LazyMem) : (i : AuxL) → AuxSpecL.Range i → NearGhost → NearGhost
+  | .nonce m, v, g =>
+      { g with lastFresh := decide (mem.nonces m = none),
+               reused := g.reused || (decide (mem.nonces m = none) && decide (nearSpec.Reuse mem.rows v m)) }
+  | .expose o, _, g => if g.lastFresh then { g with fresh := g.fresh ++ o.toList } else g
+  | _, _, g => g
 def projS (s : SecretGuessObservation.State Guess.GCoord Digest (LazyMem × NearGhost)) : WPair.WStateL :=
   ⟨s.allowed, s.retired, s.guesses, s.probes, s.memory.1⟩
+noncomputable def envG (env : SecretGuessObservation.Environment AuxSpecL Guess.GCoord Digest LazyMem) :
+    SecretGuessObservation.Environment AuxSpecL Guess.GCoord Digest (LazyMem × NearGhost) where
+  auxiliary st i := (fun r => (r.1, (r.2, ghostStep st.memory.1 i r.1 st.memory.2))) <$> env.auxiliary (projS st) i
+  trial mem c v hit := (env.trial mem.1 c v hit, mem.2)
+  disclosure mem c v := (env.disclosure mem.1 c v, mem.2)
 abbrev GState := SecretGuessObservation.State Guess.GCoord Digest (LazyMem × NearGhost)
 /-- The family sampler on the ghost-extended memory (it reads only the allowed sets). -/
 noncomputable abbrev samplerG : SecretGuessObservation.Sampler Guess.GCoord Digest (LazyMem × NearGhost) :=
@@ -7437,6 +8207,42 @@ variable (env : SecretGuessObservation.Environment AuxSpecL Guess.GCoord Digest 
 theorem liftM_map_pmf {α β : Type} (f : α → β) (p : PMF α) :
     (liftM (f <$> p) : SPMF β) = f <$> (liftM p : SPMF α) :=
   evalSPMF_map p f
+theorem step_project (q : WPair.WSpecL.Domain) (s : GState) :
+    (fun r => (r.1, projS r.2)) <$> (SecretGuessObservation.forcedWithImpl (envG env) samplerG slot q).run s =
+      (SecretGuessObservation.forcedWithImpl env WPair.samplerL slot q).run (projS s) := by
+  rcases q with i | (⟨c, v⟩ | c)
+  · simp only [SecretGuessObservation.forcedWithImpl, SecretGuessObservation.withImpl, SecretGuessObservation.lazyImpl,
+    StateT.run_mk]
+    change (fun r => (r.1, projS r.2)) <$> ((fun result => (result.1, { s with memory := result.2 })) <$>
+      (liftM ((fun r => (r.1, (r.2, ghostStep s.memory.1 i r.1 s.memory.2))) <$> env.auxiliary (projS s) i) :
+        SPMF _)) =
+      (fun result => (result.1, { projS s with memory := result.2 })) <$> (liftM (env.auxiliary (projS s) i) : SPMF _)
+    rw [liftM_map_pmf, Functor.map_map, Functor.map_map]
+    rfl
+  · simp only [SecretGuessObservation.forcedWithImpl, StateT.run_mk]
+    rw [Functor.map_map]
+    rfl
+  · simp only [SecretGuessObservation.forcedWithImpl, SecretGuessObservation.withImpl, SecretGuessObservation.lazyImpl,
+    StateT.run_mk]
+    rw [Functor.map_map]
+    rfl
+theorem run_project {β : Type} (W : OracleComp WPair.WSpecL β) (s : GState) :
+    (fun r => (r.1, projS r.2)) <$>
+        SecretGuessObservation.runWith (SecretGuessObservation.forcedWithImpl (envG env) samplerG slot) W s =
+      SecretGuessObservation.runWith (SecretGuessObservation.forcedWithImpl env WPair.samplerL slot) W (projS s) := by
+  induction W using OracleComp.inductionOn generalizing s with
+  | pure b =>
+      simp only [SecretGuessObservation.runWith, simulateQ_pure, StateT.run_pure, map_pure]
+  | query_bind q next ih =>
+      rw [SecretGuessObservation.runWith_query_bind, SecretGuessObservation.runWith_query_bind, map_bind]
+      simp_rw [ih]
+      rw [← step_project env slot q s, bind_map_left]
+theorem expectedValue_project {β : Type} (W : OracleComp WPair.WSpecL β) (s : GState)
+    (payoff : β × WPair.WStateL → ENNReal) :
+    expectedValue (SecretGuessObservation.runWith (SecretGuessObservation.forcedWithImpl env WPair.samplerL slot) W (projS s)) payoff =
+      expectedValue (SecretGuessObservation.runWith (SecretGuessObservation.forcedWithImpl (envG env) samplerG slot) W s)
+        (fun r => payoff (r.1, projS r.2)) := by
+  rw [← run_project env slot W s, expectedValue_map]
 end Project
 end ClaudeWCT.W9.T3.Security.CaseC
 end
@@ -7451,6 +8257,20 @@ set_option maxHeartbeats 1000000
 set_option maxRecDepth 10000
 set_option backward.isDefEq.respectTransparency false
 attribute [local instance] Classical.propDecidable
+noncomputable abbrev implG (slot : Nat) := SecretGuessObservation.forcedWithImpl (envG WPair.envL) samplerG slot
+theorem ev_aux_bind {β : Type} (slot : Nat) (i : AuxL) (k : AuxSpecL.Range i → OracleComp WPair.WSpecL β)
+    (s : GState) (G : β × GState → ENNReal) :
+    expectedValue (SecretGuessObservation.runWith (implG slot) (liftM (WPair.WSpecL.query (.inl i)) >>= k) s) G =
+      expectedValue (WPair.envL.auxiliary (projS s) i) (fun r =>
+        expectedValue (SecretGuessObservation.runWith (implG slot) (k r.1)
+          { s with memory := (r.2, ghostStep s.memory.1 i r.1 s.memory.2) }) G) := by
+  rw [SecretGuessObservation.runWith_query_bind, expectedValue_bind]
+  simp only [SecretGuessObservation.forcedWithImpl, SecretGuessObservation.withImpl, SecretGuessObservation.lazyImpl,
+    StateT.run_mk]
+  change expectedValue ((fun result => (result.1, { s with memory := result.2 })) <$>
+    (liftM ((fun r => (r.1, (r.2, ghostStep s.memory.1 i r.1 s.memory.2))) <$> WPair.envL.auxiliary (projS s) i) :
+      SPMF _)) _ = _
+  rw [expectedValue_map, expectedValue_liftM_pmf, expectedValue_map]
 theorem searchL_succ (rho : Digest) (m : Message) (c fuel : Nat) :
     WPair.searchL rho m c (fuel + 1) =
       (liftM (WPair.WSpecL.query (.inl (.trial (Sampling.digestTrial rho m c)))) >>= fun output =>
@@ -7459,6 +8279,64 @@ theorem searchL_succ (rho : Digest) (m : Message) (c fuel : Nat) :
 theorem ev_uniform_eq (g : HashOutput → ENNReal) :
     expectedValue (PMF.uniformOfFintype HashOutput) g = expectedValue ($ᵗ HashOutput : ProbComp HashOutput) g := by
   rw [expectedValue_uniformOfFintype, BPORS.expected_uniform_eq_finiteAverage]
+theorem nearSpec_producer : nearSpec.producer = WCT9.producerAdmissible := rfl
+theorem nearSpec_decode_some {a : HashOutput} (h : WCT9.producerAdmissible a = true) :
+    nearSpec.decode a = some a := by
+  simp [ClaudeWCT.Bank.FtsBankSpec.decode, nearSpec_producer, h]
+theorem nearSpec_decode_none {a : HashOutput} (h : ¬WCT9.producerAdmissible a = true) :
+    nearSpec.decode a = none := by
+  simp [ClaudeWCT.Bank.FtsBankSpec.decode, nearSpec_producer, h]
+theorem search_law (slot : Nat) (rho : Digest) (m : Message)
+    (F : Option (BitVec 32 × HashOutput) → Sampling.RCache → ENNReal) :
+    ∀ fuel c (s : GState),
+      expectedValue (SecretGuessObservation.runWith (implG slot) (WPair.searchL rho m c fuel) s)
+          (fun r => F r.1 r.2.memory.1.rows) =
+        expectedValue (Sampling.roRun 0 (nearSpec.search rho m c fuel) s.memory.1.rows) (fun r => F r.1 r.2) := by
+  intro fuel
+  induction fuel with
+  | zero =>
+      intro c s
+      change expectedValue (SecretGuessObservation.runWith (implG slot) (pure none) s) _ =
+        expectedValue (Sampling.roRun 0 (pure none) s.memory.1.rows) _
+      simp only [SecretGuessObservation.runWith, simulateQ_pure, StateT.run_pure, Sampling.roRun_pure,
+        expectedValue_pure]
+  | succ fuel ih =>
+      intro c s
+      rw [searchL_succ, ev_aux_bind]
+      unfold ClaudeWCT.Bank.FtsBankSpec.search
+      rw [Sampling.publicSearch_succ, Sampling.roRun_bind, Sampling.roRun_publicQuery, expectedValue_bind,
+        randomOracle.run_eq]
+      change expectedValue (BPair.rowStep s.memory.1 (Sampling.digestTrial rho m c) false
+        (PMF.uniformOfFintype HashOutput)) _ = _
+      cases hx : s.memory.1.rows (Sampling.digestTrial rho m c) with
+      | some a =>
+          simp only [BPair.rowStep, hx]
+          rw [expectedValue_pure, expectedValue_pure]
+          dsimp only
+          by_cases had : WCT9.producerAdmissible a = true
+          · simp only [nearSpec_decode_some had, had, if_true]
+            simp only [SecretGuessObservation.runWith, simulateQ_pure, StateT.run_pure, Sampling.roRun_pure,
+              expectedValue_pure]
+            rfl
+          · simp only [nearSpec_decode_none had, had, Bool.false_eq_true, if_false]
+            rw [ih (c + 1)]
+            rfl
+      | none =>
+          have hdi : Sampling.digestTrial rho m c ∈ BPair.digestInputs := BPair.digestInput_mem _ _ _
+          simp only [BPair.rowStep, hx, hdi, if_true]
+          rw [expectedValue_map, expectedValue_bind, ev_uniform_eq]
+          apply congrArg
+          funext a
+          rw [expectedValue_pure]
+          dsimp only
+          by_cases had : WCT9.producerAdmissible a = true
+          · simp only [nearSpec_decode_some had, had, if_true]
+            simp only [SecretGuessObservation.runWith, simulateQ_pure, StateT.run_pure, Sampling.roRun_pure,
+              expectedValue_pure]
+            rfl
+          · simp only [nearSpec_decode_none had, had, Bool.false_eq_true, if_false]
+            rw [ih (c + 1)]
+            rfl
 def RowsFrame (s s' : GState) : Prop :=
   s'.allowed = s.allowed ∧ s'.retired = s.retired ∧ s'.guesses = s.guesses ∧ s'.probes = s.probes ∧
     s'.memory.2 = s.memory.2 ∧ s'.memory.1.nonces = s.memory.1.nonces ∧ s'.memory.1.births = s.memory.1.births ∧
@@ -7468,6 +8346,71 @@ theorem RowsFrame.trans {s s' s'' : GState} (h : RowsFrame s s') (h' : RowsFrame
   ⟨h'.1.trans h.1, h'.2.1.trans h.2.1, h'.2.2.1.trans h.2.2.1, h'.2.2.2.1.trans h.2.2.2.1,
     h'.2.2.2.2.1.trans h.2.2.2.2.1, h'.2.2.2.2.2.1.trans h.2.2.2.2.2.1, h'.2.2.2.2.2.2.1.trans h.2.2.2.2.2.2.1,
     h'.2.2.2.2.2.2.2.trans h.2.2.2.2.2.2.2⟩
+theorem runWith_bind_nonzero {β γ : Type} (slot : Nat) (W : OracleComp WPair.WSpecL β)
+    (K : β → OracleComp WPair.WSpecL γ) (s : GState) (r : γ × GState)
+    (hr : SecretGuessObservation.runWith (implG slot) (W >>= K) s r ≠ 0) :
+    ∃ mid, SecretGuessObservation.runWith (implG slot) W s mid ≠ 0 ∧
+      SecretGuessObservation.runWith (implG slot) (K mid.1) mid.2 r ≠ 0 := by
+  rw [runWith_bind', RetainedObservation.bind_nonzero] at hr
+  exact hr
+theorem runWith_pure_nonzero {β : Type} (slot : Nat) (b : β) (s : GState) (r : β × GState)
+    (hr : SecretGuessObservation.runWith (implG slot) (pure b) s r ≠ 0) : r = (b, s) := by
+  rw [runWith_pure'] at hr
+  simpa only [ne_eq, SPMF.pure_apply_eq_zero_iff, not_not] using hr
+theorem aux_nonzero (slot : Nat) (i : AuxL) (s : GState) (r : AuxSpecL.Range i × GState)
+    (hr : SecretGuessObservation.runWith (implG slot) (liftM (WPair.WSpecL.query (.inl i))) s r ≠ 0) :
+    ∃ res, WPair.envL.auxiliary (projS s) i res ≠ 0 ∧
+      r = (res.1, { s with memory := (res.2, ghostStep s.memory.1 i res.1 s.memory.2) }) := by
+  unfold SecretGuessObservation.runWith at hr
+  rw [simulateQ_spec_query] at hr
+  simp only [SecretGuessObservation.forcedWithImpl, SecretGuessObservation.withImpl, SecretGuessObservation.lazyImpl,
+    StateT.run_mk] at hr
+  change ((fun result => (result.1, { s with memory := result.2 })) <$>
+    (liftM ((fun r => (r.1, (r.2, ghostStep s.memory.1 i r.1 s.memory.2))) <$> WPair.envL.auxiliary (projS s) i) :
+      SPMF _)) r ≠ 0 at hr
+  rw [liftM_map_pmf, Functor.map_map, map_eq_bind_pure_comp, RetainedObservation.bind_nonzero] at hr
+  obtain ⟨res, hres, hr⟩ := hr
+  simp only [Function.comp_def, ne_eq, SPMF.pure_apply_eq_zero_iff, not_not] at hr
+  refine ⟨res, ?_, hr⟩
+  simpa [SPMF.liftM_apply] using hres
+theorem search_frame (slot : Nat) (rho : Digest) (m : Message) :
+    ∀ fuel c (s : GState) r, SecretGuessObservation.runWith (implG slot) (WPair.searchL rho m c fuel) s r ≠ 0 →
+      RowsFrame s r.2 := by
+  intro fuel
+  induction fuel with
+  | zero =>
+      intro c s r hr
+      rw [runWith_pure_nonzero slot none s r hr]
+      exact RowsFrame.refl s
+  | succ fuel ih =>
+      intro c s r hr
+      rw [searchL_succ] at hr
+      obtain ⟨mid, hmid, hr⟩ := runWith_bind_nonzero slot _ _ s r hr
+      obtain ⟨res, hres, rfl⟩ := aux_nonzero slot (.trial (Sampling.digestTrial rho m c)) s mid hmid
+      have hf : RowsFrame s { s with memory := (res.2, ghostStep s.memory.1 (.trial (Sampling.digestTrial rho m c))
+          res.1 s.memory.2) } := by
+        have hres' : res ∈ (BPair.rowStep s.memory.1 (Sampling.digestTrial rho m c) false
+            (PMF.uniformOfFintype HashOutput)).support := (PMF.mem_support_iff _ _).mpr hres
+        refine ⟨rfl, rfl, rfl, rfl, rfl, ?_⟩
+        unfold BPair.rowStep at hres'
+        cases hx : s.memory.1.rows (Sampling.digestTrial rho m c) with
+        | some a =>
+            simp only [hx] at hres'
+            rw [PMF.monad_pure_eq_pure, PMF.mem_support_pure_iff] at hres'
+            subst hres'
+            exact ⟨rfl, rfl, rfl⟩
+        | none =>
+            simp only [hx] at hres'
+            have hdi : Sampling.digestTrial rho m c ∈ BPair.digestInputs := BPair.digestInput_mem _ _ _
+            rw [if_pos hdi] at hres'
+            rw [PMF.monad_map_eq_map, PMF.mem_support_map_iff] at hres'
+            obtain ⟨a, -, rfl⟩ := hres'
+            exact ⟨rfl, rfl, rfl⟩
+      dsimp only at hr
+      split_ifs at hr
+      · rw [runWith_pure_nonzero slot _ _ r hr]
+        exact hf
+      · exact hf.trans (ih (c + 1) _ r hr)
 end ClaudeWCT.W9.T3.Security.CaseC
 end
 end
@@ -7799,10 +8742,49 @@ theorem search_replays_gen {β γ : Type} (secret : BitVec 256) (inputs : Nat �
           simp only [hd] at hr'
           rw [Sampling.roRun_pure, support_pure, Set.mem_singleton_iff] at hr'
           exact hr'
+def Replays (rows : Sampling.RCache) (rho : Digest) (m : Message) (found : Option (BitVec 32 × HashOutput)) : Prop :=
+  ∀ cache', Extends rows cache' →
+    ∀ r' ∈ support (Sampling.roRun 0 (nearSpec.search rho m 0 WCT9.digestAttemptLimit) cache'), r' = (found, cache')
+theorem Replays.mono {rows rows' : Sampling.RCache} {rho : Digest} {m : Message} {found}
+    (h : Replays rows rho m found) (hext : Extends rows rows') : Replays rows' rho m found :=
+  fun cache' hc => h cache' (hext.trans hc)
+theorem replays_of_search (rho : Digest) (m : Message) (rows : Sampling.RCache) (r)
+    (hr : r ∈ support (Sampling.roRun 0 (nearSpec.search rho m 0 WCT9.digestAttemptLimit) rows)) :
+    Extends rows r.2 ∧ Replays r.2 rho m r.1 := by
+  unfold ClaudeWCT.Bank.FtsBankSpec.search at hr
+  obtain ⟨h1, h2⟩ := search_replays_gen 0 (Sampling.digestTrial rho m) nearSpec.decode _ _ 0 rows r hr
+  refine ⟨h1, fun cache' hc r' hr' => ?_⟩
+  unfold ClaudeWCT.Bank.FtsBankSpec.search at hr'
+  exact h2 cache' hc r' hr'
+def InvM (M : LazyMem × NearGhost) : Prop :=
+  (∀ v ∈ M.1.exposures, v ∈ M.2.fresh) ∧ M.2.fresh.length ≤ M.1.exposures.length ∧
+    ∀ m rho, M.1.nonces m = some rho → ∃ found, Replays M.1.rows rho m found ∧
+      ∀ v ∈ (found.map Prod.snd).toList, v ∈ M.2.fresh
+theorem invM_empty : InvM (LazyMem.empty, NearGhost.empty) := by
+  refine ⟨fun v hv => by simp [LazyMem.empty] at hv, by simp [LazyMem.empty, NearGhost.empty], ?_⟩
+  intro m rho h
+  simp [LazyMem.empty] at h
+noncomputable def ghostPot (q : Nat) (M : LazyMem × NearGhost) : ENNReal :=
+  nearMemPotential q M.1.births M.2.fresh M.2.reused M.1.rows M.1.nonces
+noncomputable def ΦI (q : Nat) (s : GState) : ENNReal := if InvM s.memory then ghostPot q s.memory else ⊤
+theorem ΦI_initial (q : Nat) : ΦI q initG ≤ (q : ENNReal) * 300 / 2 ^ 128 := by
+  unfold ΦI
+  rw [if_pos (show InvM initG.memory from invM_empty)]
+  exact mem_initial q
 theorem nearCoveredBy_mono {X Y : List HashOutput} (h : ∀ v ∈ X, v ∈ Y) {N : HashOutput}
     (hN : Guess.NearCoveredBy X N) : Guess.NearCoveredBy Y N := by
   obtain ⟨k, t, hkt⟩ := hN
   exact ⟨k, t, hkt.mono_log h⟩
+theorem payoff_le_ΦI (q : Nat) (r : (Bool × QueryLog Requests × List Wots.Entry) × GState) :
+    WPair.nearPayoff q (r.1, projS r.2) ≤ ΦI q r.2 := by
+  unfold ΦI
+  split_ifs with hinv
+  · unfold WPair.nearPayoff
+    split_ifs with hp
+    · obtain ⟨hb, hl, N, hN, hadm, hcov⟩ := hp
+      exact mem_win q _ _ _ _ _ hb (hinv.2.1.trans hl) (Or.inr ⟨N, hN, hadm, nearCoveredBy_mono hinv.1 hcov⟩)
+    · exact bot_le
+  · exact le_top
 end ClaudeWCT.W9.T3.Security.CaseC
 end
 section
@@ -7827,9 +8809,146 @@ theorem spmf_ev_mono {α : Type} (p : SPMF α) {f g : α → ENNReal} (h : ∀ x
 theorem spmf_ev_le {α : Type} (p : SPMF α) {f : α → ENNReal} {c : ENNReal} (h : ∀ x, p x ≠ 0 → f x ≤ c) :
     expectedValue p f ≤ c :=
   (spmf_ev_mono p h).trans (expectedValue_le_of_le p fun _ => le_rfl)
+theorem superProg_of_memory {β : Type} (slot q : Nat) (W : OracleComp WPair.WSpecL β)
+    (h : ∀ s r, SecretGuessObservation.runWith (implG slot) W s r ≠ 0 → r.2.memory = s.memory) :
+    SuperProg (implG slot) (ΦI q) W := by
+  intro s
+  apply spmf_ev_le
+  intro r hr
+  unfold ΦI
+  rw [h s r hr]
+theorem coin_memory (slot n : Nat) (s : GState) (r : Fin (n + 1) × GState)
+    (hr : SecretGuessObservation.runWith (implG slot) (WPair.coinReqL n) s r ≠ 0) : r.2.memory = s.memory := by
+  obtain ⟨res, hres, rfl⟩ := aux_nonzero slot (.coin n) s r hr
+  have hres' : res ∈ (WPair.envL.auxiliary (projS s) (.coin n)).support := (PMF.mem_support_iff _ _).mpr hres
+  change res ∈ ((fun c => (c, (projS s).memory)) <$> PMF.uniformOfFintype (Fin (n + 1))).support at hres'
+  rw [PMF.monad_map_eq_map, PMF.mem_support_map_iff] at hres'
+  obtain ⟨c, -, rfl⟩ := hres'
+  rfl
+theorem secret_memory {β : Type} (slot : Nat) (p : (Guess.GCoord × Digest) ⊕ Guess.GCoord)
+    (s : GState) (r : (WPair.WSpecL.Range (.inr p)) × GState)
+    (hr : SecretGuessObservation.runWith (implG slot) (liftM (WPair.WSpecL.query (.inr p))) s r ≠ 0) :
+    r.2.memory = s.memory := by
+  unfold SecretGuessObservation.runWith at hr
+  rw [simulateQ_spec_query] at hr
+  rcases p with ⟨c, v⟩ | c
+  · change ((fun hit => (hit, SecretGuessObservation.afterTrial (envG WPair.envL) s c v hit)) <$>
+      SecretGuessObservation.forcedTrialWith samplerG slot s c v) r ≠ 0 at hr
+    simp only [map_eq_bind_pure_comp, RetainedObservation.bind_nonzero, Function.comp_def, ne_eq,
+      SPMF.pure_apply_eq_zero_iff, not_not] at hr
+    obtain ⟨hit, -, rfl⟩ := hr
+    rfl
+  · change ((fun value => (value, SecretGuessObservation.afterDisclosure (envG WPair.envL) s c value)) <$>
+      samplerG.discloseLaw s c) r ≠ 0 at hr
+    simp only [map_eq_bind_pure_comp, RetainedObservation.bind_nonzero, Function.comp_def, ne_eq,
+      SPMF.pure_apply_eq_zero_iff, not_not] at hr
+    obtain ⟨value, -, rfl⟩ := hr
+    rfl
+theorem coin_ΦI (slot q n : Nat) : SuperProg (implG slot) (ΦI q) (WPair.coinReqL n) :=
+  superProg_of_memory slot q _ fun s r hr => coin_memory slot n s r hr
+theorem guess_ΦI (slot q : Nat) (c : Guess.GCoord) (v : Digest) :
+    SuperProg (implG slot) (ΦI q) (Guess.trialQ (auxSpec := AuxSpecL) c v) :=
+  superProg_of_memory slot q _ fun s r hr => secret_memory (β := Bool) slot (.inl (c, v)) s r hr
+theorem disclose_ΦI (slot q : Nat) (c : Guess.GCoord) :
+    SuperProg (implG slot) (ΦI q) (Guess.discloseQ (auxSpec := AuxSpecL) (V := Digest) c) :=
+  superProg_of_memory slot q _ fun s r hr => secret_memory (β := Digest) slot (.inr c) s r hr
+theorem mapM_ΦI {α β : Type} (slot q : Nat) (f : α → OracleComp WPair.WSpecL β)
+    (hf : ∀ a, SuperProg (implG slot) (ΦI q) (f a)) :
+    ∀ l : List α, SuperProg (implG slot) (ΦI q) (l.mapM f)
+  | [] => superProg_pure _ _ _
+  | a :: l => by
+      rw [List.mapM_cons]
+      exact superProg_bind _ _ (hf a) fun _ => superProg_bind _ _ (mapM_ΦI slot q f hf l) fun _ => superProg_pure _ _ _
+theorem discloseAll_ΦI (slot q : Nat) (cs : List Guess.GCoord) :
+    SuperProg (implG slot) (ΦI q) (Guess.discloseAll (auxSpec := AuxSpecL) (V := Digest) cs) :=
+  mapM_ΦI slot q _ (fun c => disclose_ΦI slot q c) cs
+theorem probeW_ΦI (slot q : Nat) {R : Type} (step : Guess.ChainAddr → Fin 4 → Digest → R)
+    (top : Guess.ChainAddr → R) (miss : R) (a : Guess.ChainAddr) (p : Fin 4) (v : Digest) :
+    SuperProg (implG slot) (ΦI q) (Guess.probeW (auxSpec := AuxSpecL) step top miss a p v) := by
+  unfold Guess.probeW
+  refine superProg_bind _ _ (guess_ΦI slot q (a, p) v) fun hit => ?_
+  split
+  · split
+    · exact superProg_bind _ _ (disclose_ΦI slot q _) fun _ => superProg_pure _ _ _
+    · exact superProg_pure _ _ _
+  · exact superProg_pure _ _ _
+theorem finishL_ΦI {U : Finset HashInput} (hU : CanonGraph.canonInputs ⊆ U) (slot q : Nat) (ω : CanonTable.Omega U)
+    (request : Request) (rho : Digest) (found : Option (BitVec 32 × HashOutput)) :
+    SuperProg (implG slot) (ΦI q) (WPair.finishL hU ω request rho found) := by
+  rcases found with _ | ⟨c, output⟩
+  · exact superProg_pure _ _ _
+  · simp only [WPair.finishL]
+    generalize WPair.signerLayersW hU ω request output = g
+    cases g with
+    | none => exact superProg_pure _ _ _
+    | some pieces =>
+        refine superProg_bind _ _ (discloseAll_ΦI slot q _) ?_
+        intro values
+        exact superProg_pure _ _ _
 theorem ev_uniform_digest (g : Digest → ENNReal) :
     expectedValue (PMF.uniformOfFintype Digest) g = expectedValue ($ᵗ Digest : ProbComp Digest) g := by
   rw [expectedValue_uniformOfFintype, BPORS.expected_uniform_eq_finiteAverage]
+theorem ev_single_aux (slot : Nat) (i : AuxL) (s : GState) (G : AuxSpecL.Range i × GState → ENNReal) :
+    expectedValue (SecretGuessObservation.runWith (implG slot) (liftM (WPair.WSpecL.query (.inl i))) s) G =
+      expectedValue (WPair.envL.auxiliary (projS s) i) (fun r =>
+        G (r.1, { s with memory := (r.2, ghostStep s.memory.1 i r.1 s.memory.2) })) := by
+  have h := ev_aux_bind slot i pure s G
+  rw [bind_pure] at h
+  rw [h]
+  apply congrArg
+  funext r
+  rw [runWith_pure', expectedValue_pure]
+theorem birth_ΦI (slot q : Nat) (x : HashInput) : SuperProg (implG slot) (ΦI q) (WPair.birthReq x) := by
+  intro s
+  by_cases hinv : InvM s.memory
+  swap
+  · unfold ΦI; rw [if_neg hinv]; exact le_top
+  unfold WPair.birthReq
+  rw [ev_single_aux]
+  change expectedValue (BPair.rowStep s.memory.1 x true (PMF.uniformOfFintype HashOutput)) _ ≤ _
+  unfold BPair.rowStep
+  cases hx : s.memory.1.rows x with
+  | some a =>
+      simp only
+      rw [expectedValue_pure]
+      exact le_of_eq rfl
+  | none =>
+      simp only
+      split_ifs with hd
+      · rw [expectedValue_map, ev_uniform_eq]
+        have hpt : ∀ a : HashOutput, ΦI q { s with memory := (s.memory.1.readRow x a true,
+            ghostStep s.memory.1 (.birth x) a s.memory.2) } =
+            nearMemPotential q (s.memory.1.births ++ [a]) s.memory.2.fresh s.memory.2.reused
+              (s.memory.1.rows.cacheQuery x a) s.memory.1.nonces := by
+          intro a
+          have hext : Extends s.memory.1.rows (s.memory.1.rows.cacheQuery x a) := by
+            intro y b hy
+            have hne : y ≠ x := fun he => by rw [he, hx] at hy; cases hy
+            exact (QueryCache.cacheQuery_of_ne s.memory.1.rows a hne).trans hy
+          have hinv' : InvM (s.memory.1.readRow x a true, ghostStep s.memory.1 (.birth x) a s.memory.2) := by
+            obtain ⟨h1, h2, h3⟩ := hinv
+            refine ⟨h1, h2, fun m rho hm => ?_⟩
+            obtain ⟨found, hrep, hf⟩ := h3 m rho hm
+            exact ⟨found, hrep.mono hext, hf⟩
+          unfold ΦI
+          rw [if_pos hinv']
+          rfl
+        simp_rw [hpt]
+        unfold ΦI
+        rw [if_pos hinv]
+        exact mem_birth q _ _ _ _ _ x hx
+      · rw [expectedValue_pure]
+        exact le_of_eq rfl
+theorem hashL_ΦI {U : Finset HashInput} (hU : CanonGraph.canonInputs ⊆ U) (slot q : Nat) (ω : CanonTable.Omega U)
+    (x : HashInput) : SuperProg (implG slot) (ΦI q) (WPair.hashL hU ω x) := by
+  unfold WPair.hashL
+  cases Guess.decodeProbe x with
+  | some p => exact probeW_ΦI slot q _ _ _ _ _ _
+  | none =>
+      simp only
+      split_ifs
+      · exact birth_ΦI slot q x
+      · exact superProg_pure _ _ _
 end ClaudeWCT.W9.T3.Security.CaseC
 end
 section
@@ -7859,6 +8978,174 @@ theorem pc_ev_offsupport {α : Type} (p : ProbComp α) :
   by_cases hr : r ∈ support p
   · simp [hr]
   · simp [hr, probOutput_eq_zero_of_not_mem_support hr]
+theorem search_support (slot : Nat) (rho : Digest) (m : Message) (s : GState) (r)
+    (hr : SecretGuessObservation.runWith (implG slot) (WPair.searchL rho m 0 WCT9.digestAttemptLimit) s r ≠ 0) :
+    (r.1, r.2.memory.1.rows) ∈
+      support (Sampling.roRun 0 (nearSpec.search rho m 0 WCT9.digestAttemptLimit) s.memory.1.rows) := by
+  have hlaw := search_law slot rho m (fun f rows =>
+    if (f, rows) ∈ support (Sampling.roRun 0 (nearSpec.search rho m 0 WCT9.digestAttemptLimit) s.memory.1.rows)
+    then 0 else 1) WCT9.digestAttemptLimit 0 s
+  simp only [Prod.mk.eta] at hlaw
+  rw [pc_ev_offsupport] at hlaw
+  have h0 := spmf_ev_zero _ hlaw r hr
+  by_contra hc
+  rw [if_neg hc] at h0
+  exact one_ne_zero h0
+theorem ev_nonce_cached {β : Type} (slot : Nat) (m : Message) (rho : Digest)
+    (k : Digest → OracleComp WPair.WSpecL β) (s : GState) (hn : s.memory.1.nonces m = some rho)
+    (G : β × GState → ENNReal) :
+    expectedValue (SecretGuessObservation.runWith (implG slot) (WPair.nonceReq m >>= k) s) G =
+      expectedValue (SecretGuessObservation.runWith (implG slot) (k rho)
+        ⟨s.allowed, s.retired, s.guesses, s.probes, (s.memory.1, ghostStep s.memory.1 (.nonce m) rho s.memory.2)⟩) G := by
+  unfold WPair.nonceReq
+  rw [ev_aux_bind]
+  change expectedValue (BPair.nonceStep s.memory.1 m (PMF.uniformOfFintype Digest)) _ = _
+  unfold BPair.nonceStep
+  rw [hn]
+  simp only
+  rw [expectedValue_pure]
+theorem ev_nonce_fresh {β : Type} (slot : Nat) (m : Message) (k : Digest → OracleComp WPair.WSpecL β)
+    (s : GState) (hn : s.memory.1.nonces m = none) (G : β × GState → ENNReal) :
+    expectedValue (SecretGuessObservation.runWith (implG slot) (WPair.nonceReq m >>= k) s) G =
+      expectedValue ($ᵗ Digest : ProbComp Digest) (fun v =>
+        expectedValue (SecretGuessObservation.runWith (implG slot) (k v)
+          ⟨s.allowed, s.retired, s.guesses, s.probes,
+            (s.memory.1.drawNonce m v, ghostStep s.memory.1 (.nonce m) v s.memory.2)⟩) G) := by
+  unfold WPair.nonceReq
+  rw [ev_aux_bind]
+  change expectedValue (BPair.nonceStep s.memory.1 m (PMF.uniformOfFintype Digest)) _ = _
+  unfold BPair.nonceStep
+  rw [hn]
+  simp only
+  rw [expectedValue_map, ev_uniform_digest]
+theorem ev_expose_finish_le {U : Finset HashInput} (hU : CanonGraph.canonInputs ⊆ U) (slot q : Nat)
+    (ω : CanonTable.Omega U) (request : Request) (rho : Digest) (found : Option (BitVec 32 × HashOutput))
+    (s2 : GState) :
+    expectedValue (SecretGuessObservation.runWith (implG slot)
+      (WPair.exposeReq (found.map Prod.snd) >>= fun _ => WPair.finishL hU ω request rho found) s2)
+      (fun r => ΦI q r.2) ≤
+    ΦI q ⟨s2.allowed, s2.retired, s2.guesses, s2.probes, (s2.memory.1.expose (found.map Prod.snd),
+      ghostStep s2.memory.1 (.expose (found.map Prod.snd)) () s2.memory.2)⟩ := by
+  unfold WPair.exposeReq
+  rw [ev_aux_bind]
+  change expectedValue (pure ((), s2.memory.1.expose (found.map Prod.snd)) : PMF _) _ ≤ _
+  rw [expectedValue_pure]
+  exact finishL_ΦI hU slot q ω request rho found _
+theorem signL_ΦI {U : Finset HashInput} (hU : CanonGraph.canonInputs ⊆ U) (slot q : Nat) (ω : CanonTable.Omega U)
+    (published : SigGolfCandidate.T3.Cache) (request : Request) :
+    SuperProg (implG slot) (ΦI q) (WPair.signL hU ω published request) := by
+  unfold WPair.signL
+  rcases Classical.em (request.cache = published) with hc | hc
+  swap
+  · simp only [hc, ↓reduceIte]
+    exact superProg_pure _ _ _
+  simp only [hc, ↓reduceIte]
+  intro s
+  by_cases hinv : InvM s.memory
+  swap
+  · unfold ΦI; rw [if_neg hinv]; exact le_top
+  set m := request.message with hm
+  obtain ⟨hI1, hI2, hI3⟩ := hinv
+  have hΦs : ΦI q s = ghostPot q s.memory := by unfold ΦI; rw [if_pos ⟨hI1, hI2, hI3⟩]
+  cases hn : s.memory.1.nonces m with
+  | some rho =>
+      rw [ev_nonce_cached slot m rho _ s hn, runWith_bind', expectedValue_bind]
+      apply spmf_ev_le
+      intro r hr
+      refine (ev_expose_finish_le hU slot q ω request rho r.1 r.2).trans ?_
+      obtain ⟨found0, hrep, hf0⟩ := hI3 m rho hn
+      have hsupp := search_support slot rho m _ r hr
+      obtain ⟨-, -, -, -, hg, hnon, hbir, hexp⟩ := search_frame slot rho m WCT9.digestAttemptLimit 0 _ r hr
+      have hrr := hrep s.memory.1.rows (Extends.refl _) _ hsupp
+      simp only [Prod.mk.injEq] at hrr
+      obtain ⟨hfound, hrows⟩ := hrr
+      have hg' : r.2.memory.2 = ⟨s.memory.2.reused, false, s.memory.2.fresh⟩ := by
+        rw [hg]
+        simp only [ghostStep, hn, reduceCtorEq, decide_false, Bool.false_and, Bool.or_false]
+      have hnon' : r.2.memory.1.nonces = s.memory.1.nonces := hnon
+      have hbir' : r.2.memory.1.births = s.memory.1.births := hbir
+      have hexp' : r.2.memory.1.exposures = s.memory.1.exposures := hexp
+      have hinv' : InvM (r.2.memory.1.expose (r.1.map Prod.snd),
+          ghostStep r.2.memory.1 (.expose (r.1.map Prod.snd)) () r.2.memory.2) := by
+        rw [hg']
+        simp only [ghostStep, Bool.false_eq_true, if_false]
+        refine ⟨fun v hv => ?_, ?_, fun m' rho' hm' => ?_⟩
+        · simp only [LazyMem.expose, List.mem_append] at hv
+          rcases hv with hv | hv
+          · rw [hexp'] at hv; exact hI1 v hv
+          · rw [hfound] at hv; exact hf0 v hv
+        · simp only [LazyMem.expose, List.length_append]
+          rw [hexp']
+          exact hI2.trans (Nat.le_add_right _ _)
+        · simp only [LazyMem.expose] at hm' ⊢
+          rw [hnon'] at hm'
+          rw [hrows]
+          exact hI3 m' rho' hm'
+      rw [hΦs]
+      unfold ΦI
+      dsimp only
+      rw [if_pos hinv']
+      apply le_of_eq
+      unfold ghostPot
+      rw [hg']
+      simp only [ghostStep, Bool.false_eq_true, if_false, LazyMem.expose]
+      rw [hbir', hrows, hnon']
+  | none =>
+      rw [ev_nonce_fresh slot m _ s hn, hΦs]
+      refine le_trans ?_ (mem_sign_fresh q _ _ _ _ _ m hn 0 WCT9.digestAttemptLimit WCT9.digestAttemptLimit_le)
+      apply expectedValue_mono
+      intro v
+      rw [runWith_bind', expectedValue_bind]
+      set s1 : GState := ⟨s.allowed, s.retired, s.guesses, s.probes, (s.memory.1.drawNonce m v,
+        ghostStep s.memory.1 (.nonce m) v s.memory.2)⟩ with hs1
+      have hg1 : s1.memory.2 = ⟨(s.memory.2.reused || decide (nearSpec.Reuse s.memory.1.rows v m)), true,
+          s.memory.2.fresh⟩ := by
+        simp only [hs1, ghostStep, hn, decide_true, Bool.true_and]
+      refine le_of_le_of_eq ?_ (search_law slot v m (fun found rows' =>
+        nearMemPotential q s.memory.1.births (s.memory.2.fresh ++ (found.map Prod.snd).toList)
+          (s.memory.2.reused || decide (nearSpec.Reuse s.memory.1.rows v m)) rows'
+          (Function.update s.memory.1.nonces m (some v))) WCT9.digestAttemptLimit 0 s1)
+      apply spmf_ev_mono
+      intro r hr
+      refine (ev_expose_finish_le hU slot q ω request v r.1 r.2).trans (le_of_eq ?_)
+      have hsupp := search_support slot v m s1 r hr
+      obtain ⟨hext, hrep⟩ := replays_of_search v m _ _ hsupp
+      obtain ⟨-, -, -, -, hg, hnon, hbir, hexp⟩ := search_frame slot v m WCT9.digestAttemptLimit 0 s1 r hr
+      have hnon1 : r.2.memory.1.nonces = Function.update s.memory.1.nonces m (some v) := hnon
+      have hbir1 : r.2.memory.1.births = s.memory.1.births := hbir
+      have hexp1 : r.2.memory.1.exposures = s.memory.1.exposures := hexp
+      have hext1 : Extends s.memory.1.rows r.2.memory.1.rows := hext
+      have hgr : r.2.memory.2 = ⟨(s.memory.2.reused || decide (nearSpec.Reuse s.memory.1.rows v m)), true,
+          s.memory.2.fresh⟩ := hg.trans hg1
+      have hinv' : InvM (r.2.memory.1.expose (r.1.map Prod.snd),
+          ghostStep r.2.memory.1 (.expose (r.1.map Prod.snd)) () r.2.memory.2) := by
+        rw [hgr]
+        simp only [ghostStep, if_true]
+        refine ⟨fun x hx => ?_, ?_, fun m' rho' hm' => ?_⟩
+        · simp only [LazyMem.expose, List.mem_append] at hx ⊢
+          rcases hx with hx | hx
+          · rw [hexp1] at hx; exact Or.inl (hI1 x hx)
+          · exact Or.inr hx
+        · simp only [LazyMem.expose, List.length_append]
+          rw [hexp1]
+          exact Nat.add_le_add_right hI2 _
+        · simp only [LazyMem.expose] at hm' ⊢
+          rw [hnon1] at hm'
+          by_cases he : m' = m
+          · subst he
+            simp only [Function.update_self, Option.some.injEq] at hm'
+            subst hm'
+            exact ⟨r.1, hrep, fun x hx => List.mem_append_right _ hx⟩
+          · rw [Function.update_of_ne he] at hm'
+            obtain ⟨f', hrep', hf'⟩ := hI3 m' rho' hm'
+            exact ⟨f', hrep'.mono hext1, fun x hx => List.mem_append_left _ (hf' x hx)⟩
+      unfold ΦI
+      dsimp only
+      rw [if_pos hinv']
+      unfold ghostPot
+      rw [hgr]
+      simp only [ghostStep, if_true, LazyMem.expose]
+      rw [hbir1, hnon1]
 end ClaudeWCT.W9.T3.Security.CaseC
 end
 section
@@ -8188,6 +9475,27 @@ set_option maxHeartbeats 1000000
 set_option maxRecDepth 10000
 set_option backward.isDefEq.respectTransparency false
 attribute [local instance] Classical.propDecidable
+theorem worldGame_ΦI {U : Finset HashInput} (hU : CanonGraph.canonInputs ⊆ U) (ω : CanonTable.Omega U)
+    (adversary : AdversaryP) (slot q : Nat) :
+    SuperProg (implG slot) (ΦI q) (WPair.worldGameCore hU ω adversary) :=
+  worldGameCore_super hU (implG slot) (ΦI q) ω adversary (coin_ΦI slot q) (hashL_ΦI hU slot q ω)
+    (fun published request => signL_ΦI hU slot q ω published request)
+theorem forced_payoff_le {U : Finset HashInput} (hU : CanonGraph.canonInputs ⊆ U) (ω : CanonTable.Omega U)
+    (adversary : AdversaryP) (slot q : Nat) :
+    expectedValue (SecretGuessObservation.forcedWithRun WPair.envL WPair.samplerL slot
+      (WPair.worldGameCore hU ω adversary) WPair.initL) (WPair.nearPayoff q) ≤ (q : ENNReal) * 300 / 2 ^ 128 := by
+  unfold SecretGuessObservation.forcedWithRun
+  rw [← projS_initG, expectedValue_project WPair.envL slot _ initG (WPair.nearPayoff q)]
+  calc
+    _ ≤ expectedValue (SecretGuessObservation.runWith (implG slot) (WPair.worldGameCore hU ω adversary) initG)
+        (fun r => ΦI q r.2) := expectedValue_mono _ fun r => payoff_le_ΦI q r
+    _ ≤ ΦI q initG := worldGame_ΦI hU ω adversary slot q initG
+    _ ≤ _ := ΦI_initial q
+theorem forced_payoff_sum_le {U : Finset HashInput} (hU : CanonGraph.canonInputs ⊆ U) (ω : CanonTable.Omega U)
+    (adversary : AdversaryP) (slot q : Nat) :
+    ∑' r, Pr[= r | SecretGuessObservation.forcedWithRun WPair.envL WPair.samplerL slot
+      (WPair.worldGameCore hU ω adversary) WPair.initL] * WPair.nearPayoff q r ≤ (q : ENNReal) * 300 / 2 ^ 128 :=
+  forced_payoff_le hU ω adversary slot q
 end ClaudeWCT.W9.T3.Security.CaseC
 end
 section
@@ -8266,11 +9574,45 @@ theorem sum_range_sub_succ_mul_le (q coefficient : Nat) :
     _ = _ := by ring
 noncomputable def nearTermTight (q : Nat) : ENNReal :=
   (q : ENNReal) * ((2 ^ 128 - q : Nat) : ENNReal)⁻¹ * (150 * q / 2 ^ 128)
+theorem nearBoundTight : NearBoundNO nearTermTight := by
+  intro adversary q hq _ _
+  have hchain := WPair.near_chain_slot adversary q hq
+    (fun A log entries => NearIn A log entries ∧ ¬WPair.OverflowIn A log)
+    (fun A T log entries h hP => ⟨nearIn_short A T log entries h hP.1,
+      fun ho => hP.2 (WPair.overflowIn_short h.symm log ho)⟩)
+    (fun A log entries entries' hsub hP => ⟨nearIn_mono A log entries entries' hsub hP.1, hP.2⟩)
+    (fun _ _ _ hP => hP.2) (fun slot => WPair.nearPayoff (q - (slot + 1)))
+    (fun ω g r hr hlen hP => near_event_slot adversary q ω g r hr hlen hP.1)
+  have hslot : ∀ slot, (∑' ω, Pr[= ω | WPair.omegaLaw adversary] *
+      ∑' r, Pr[= r | SphincsSecurity.Concrete.SecretGuessObservation.forcedWithRun WPair.envL WPair.samplerL slot
+        (WPair.worldGameL (WPair.canon_subset adversary) ω adversary) WPair.initL] * WPair.nearPayoff (q - (slot + 1)) r) ≤
+      ((q - (slot + 1) : Nat) : ENNReal) * 300 / 2 ^ 128 :=
+    fun slot => omega_avg_le _ _ _ fun ω => forced_payoff_sum_le (WPair.canon_subset adversary) ω adversary slot (q - (slot + 1))
+  calc
+    _ ≤ Pr[NearAll adversary q | SeccLaw.completedExperiment adversary q hq] := near_le_all adversary q hq
+    _ ≤ _ := hchain
+    _ ≤ ((2 ^ 128 - q : Nat) : ENNReal)⁻¹ * ∑ slot ∈ Finset.range q, ((q - (slot + 1) : Nat) : ENNReal) * 300 / 2 ^ 128 :=
+      mul_le_mul' le_rfl (Finset.sum_le_sum fun slot _ => hslot slot)
+    _ = ((2 ^ 128 - q : Nat) : ENNReal)⁻¹ *
+          ((((∑ slot ∈ Finset.range q, (q - (slot + 1))) * 300 : Nat) : ENNReal) / 2 ^ 128) := by
+      congr 1
+      push_cast
+      simp only [div_eq_mul_inv, ← Finset.sum_mul]
+    _ ≤ ((2 ^ 128 - q : Nat) : ENNReal)⁻¹ * (((150 * q * q : Nat) : ENNReal) / 2 ^ 128) :=
+      mul_le_mul' le_rfl (ENNReal.div_le_div_right (Nat.cast_le.mpr (by simpa using sum_range_sub_succ_mul_le q 150)) _)
+    _ = nearTermTight q := by
+      unfold nearTermTight
+      push_cast
+      simp only [div_eq_mul_inv]
+      ring
 theorem nearTermTight_le (q : Nat) : nearTermTight q ≤ Wots.nearTerm q := by
   unfold nearTermTight Wots.nearTerm
   apply mul_le_mul' le_rfl
   refine le_trans (le_of_eq ?_) (le_self_add.trans le_self_add)
   rfl
+/-- The near bound of case C for FTS seed families: unchanged right-hand side, given no FTS overflow. -/
+theorem nearBound : NearBoundNO Wots.nearTerm :=
+  fun adversary q hq h1 h2 => (nearBoundTight adversary q hq h1 h2).trans (nearTermTight_le q)
 end ClaudeWCT.W9.T3.Security.CaseC
 end
 
@@ -10188,119 +11530,64 @@ set_option maxRecDepth 10000
 set_option backward.isDefEq.respectTransparency false
 noncomputable local instance : DecidableEq SigGolfCandidate.T3.Cache := Classical.decEq _
 
--- E8: the exact forest query counts (`queried_length_sharedNode` .. `queried_length_buildForest`) no longer hold:
--- the FTS ground nodes (heaps 8..15) make a data-dependent number of trial queries. The count is still
--- world-independent: the rows and coefficients have fixed counts, the heaps' queries are `WFree` and their leaves agree.
+theorem queried_length_sharedNode (answers : Answers) (first : Bool) (coord index heap : Nat)
+    (pads : Nat → PairRoot) (left right : Digest) :
+    (SourceReplay.queried answers (sharedNode first coord index heap pads left right)).length = 1 := by
+  unfold sharedNode sharedOuterHash
+  split
+  · split <;> rfl
+  · split
+    · split <;> rfl
+    · unfold wctNodeHashH ftsHash
+      split <;> rfl
 
-/-- A fold whose steps have equal query counts and related results on related states. -/
-theorem queried_length_foldlM_rel {A B : Answers} {α β : Type} (R : β → β → Prop) (f : β → α → M β)
-    (hf : ∀ x s s', R s s' → (SourceReplay.queried A (f s x)).length = (SourceReplay.queried B (f s' x)).length ∧
-      R (evalWithAnswerFn A (f s x)) (evalWithAnswerFn B (f s' x))) :
-    ∀ (items : List α) s s', R s s' →
-      (SourceReplay.queried A (items.foldlM f s)).length = (SourceReplay.queried B (items.foldlM f s')).length ∧
-      R (evalWithAnswerFn A (items.foldlM f s)) (evalWithAnswerFn B (items.foldlM f s'))
-  | [], s, s', h => ⟨rfl, h⟩
-  | x :: items, s, s', h => by
-      obtain ⟨h1, h2⟩ := hf x s s' h
-      obtain ⟨h3, h4⟩ := queried_length_foldlM_rel R f hf items _ _ h2
-      simp only [List.foldlM_cons, queried_length_bind, evalWithAnswerFn_bind]
-      exact ⟨by rw [h1, h3], h4⟩
+theorem queried_length_sharedHeap (answers : Answers) (first : Bool) (index coord : Nat)
+    (pads : Nat → PairRoot) (leaves : List Digest) :
+    (SourceReplay.queried answers (sharedHeap first index coord pads leaves)).length =
+      if first then 124 else 126 := by
+  unfold sharedHeap
+  rw [queried_length_foldlM answers _ _ (fun _ => 1) (fun _ _ _ => by
+    rw [queried_length_bind, queried_length_sharedNode, queried_length_pure]), sum_map_one,
+    List.length_reverse, List.length_range']
 
-theorem buildSharedCoordinate_rows (first : Bool) (index coord : Nat) (selected : Child) (word : Rank)
-    (pads : Nat → PairRoot) :
-    buildSharedCoordinate first index coord selected word pads =
-      ftsCoefs index coord >>= fun coefs => sharedRows first index coord selected word coefs pads >>= fun state =>
-        sharedHeap first index coord pads state.1 >>= fun nodes => pure (nodes, state.2) := rfl
+theorem queried_length_buildSharedCoordinate (answers : Answers) (first : Bool) (index coord : Nat)
+    (selected : Child) (word : Rank) (pads : Nat → PairRoot) :
+    (SourceReplay.queried answers (buildSharedCoordinate first index coord selected word pads)).length =
+      3227 + (if first then 124 else 126) := by
+  unfold buildSharedCoordinate
+  rw [queried_length_bind, queried_length_ftsCoefs, queried_length_bind,
+    queried_length_foldlM answers _ _ (fun _ => 25) (fun _ _ _ => by
+      rw [queried_length_bind, queried_length_buildChildH, queried_length_pure]),
+    queried_length_bind, queried_length_sharedHeap, queried_length_pure]
+  have : ((List.range 128).map (fun _ => (25 : Nat))).sum = 3200 := by decide
+  simp only [this]
+  omega
 
-theorem queried_length_sharedRows (A : Answers) (first : Bool) (index coord : Nat) (selected : Child)
-    (word : Rank) (coefs : List Digest) (pads : Nat → PairRoot) :
-    (SourceReplay.queried A (sharedRows first index coord selected word coefs pads)).length = 3200 := by
-  unfold sharedRows
-  rw [queried_length_foldlM A _ _ (fun _ => 25) (fun _ _ _ => by
-      rw [queried_length_bind, queried_length_buildChildH, queried_length_pure])]
+theorem queried_length_buildPair (answers : Answers) (index pair : Nat)
+    (selected : SigGolfCandidate.Research.SharedForest.Selection) (aWord bWord : Rank) (prev : PairRoot) :
+    (SourceReplay.queried answers (buildPair index pair selected aWord bWord prev)).length = 6704 := by
+  unfold buildPair
+  rw [queried_length_bind, queried_length_buildSharedCoordinate, queried_length_bind,
+    queried_length_buildSharedCoordinate, queried_length_pure]
   decide
 
-theorem sharedRows_roots_eq (A : Answers) (first : Bool) (index coord : Nat) (selected : Child) (word : Rank)
-    (pads : Nat → PairRoot) :
-    (evalWithAnswerFn A (sharedRows first index coord selected word (List.ofFn (ftsCoef A index coord)) pads)).1 =
-      sharedLeaves A first index coord pads := by
-  obtain ⟨hlen, hroot, -⟩ := eval_sharedRows A first index coord selected word pads
-  apply List.ext_getElem (by simpa only [sharedLeaves, List.length_ofFn] using hlen)
-  intro j hj hk
-  simpa only [sharedLeaves, List.getD_eq_getElem _ _ hj, List.getElem_ofFn] using hroot j (by omega)
+theorem queried_length_buildSingleton (answers : Answers) (index : Nat)
+    (selected : Child) (word : Rank) (prev : PairRoot) :
+    (SourceReplay.queried answers (buildSingleton index selected word prev)).length = 3353 := by
+  unfold buildSingleton
+  rw [queried_length_bind, queried_length_buildSharedCoordinate, queried_length_pure]
+  decide
 
-theorem queried_length_buildSharedCoordinate_eq (A : Answers) (first : Bool) (index coord : Nat)
-    (selected : Child) (word : Rank) (pads : Nat → PairRoot) :
-    (SourceReplay.queried A (buildSharedCoordinate first index coord selected word pads)).length =
-      27 + (3200 + ((SourceReplay.queried A (sharedHeap first index coord pads
-        (sharedLeaves A first index coord pads))).length + 0)) := by
-  rw [buildSharedCoordinate_rows, queried_length_bind, queried_length_ftsCoefs, queried_length_bind,
-    queried_length_sharedRows, eval_ftsCoefs, sharedRows_roots_eq, queried_length_bind, queried_length_pure]
+theorem queried_length_buildForest (answers : Answers) (index : Nat)
+    (selected : ForestSelection) (words : ForestWords) :
+    (SourceReplay.queried answers (buildForest index selected words)).length = 30169 := by
+  unfold buildForest
+  rw [queried_length_bind, queried_length_foldlM answers _ _ (fun _ => 6704) (fun _ _ _ => by
+    rw [queried_length_bind, queried_length_buildPair, queried_length_pure]),
+    queried_length_bind, queried_length_buildSingleton, queried_length_pure]
+  decide
 
 variable {U : Finset HashInput} (hU : CanonGraph.canonInputs ⊆ U) (omega : CanonTable.Omega U)
-
-theorem queried_length_buildSharedCoordinate_world (hidden hidden' : CanonTable.HiddenF) (first : Bool)
-    (index : Nat) (hindex : index < 2 ^ 31) (coord : Nat) (hcoord : coord < 9) (selected : Child) (word : Rank)
-    (pads : Nat → PairRoot) :
-    (SourceReplay.queried (wA hU omega hidden) (buildSharedCoordinate first index coord selected word pads)).length =
-      (SourceReplay.queried (wA hU omega hidden') (buildSharedCoordinate first index coord selected word pads)).length := by
-  have hl := sharedLeaves_world hU omega hidden hidden' first index hindex ⟨coord, hcoord⟩ pads
-  simp only at hl
-  rw [queried_length_buildSharedCoordinate_eq, queried_length_buildSharedCoordinate_eq, hl,
-    queried_length_free hU omega hidden hidden' (sharedHeap_free _ _ _ _ _)]
-
-/-- A bind has world-independent query count when its head does and the continuation does on related results. -/
-theorem queried_length_bind_rel {A B : Answers} {α β : Type} (R : α → α → Prop) (x : M α) (g : α → M β)
-    (hx : (SourceReplay.queried A x).length = (SourceReplay.queried B x).length)
-    (hr : R (evalWithAnswerFn A x) (evalWithAnswerFn B x))
-    (hg : ∀ s s', R s s' → (SourceReplay.queried A (g s)).length = (SourceReplay.queried B (g s')).length) :
-    (SourceReplay.queried A (x >>= g)).length = (SourceReplay.queried B (x >>= g)).length := by
-  rw [queried_length_bind, queried_length_bind, hx, hg _ _ hr]
-
-theorem queried_length_buildPair_world (hidden hidden' : CanonTable.HiddenF) (index : Nat) (hindex : index < 2 ^ 31)
-    (pair : Fin 4) (s : SigGolfCandidate.Research.SharedForest.Selection) (aWord bWord : Rank) (prev : PairRoot) :
-    (SourceReplay.queried (wA hU omega hidden) (buildPair index pair.val s aWord bWord prev)).length =
-      (SourceReplay.queried (wA hU omega hidden') (buildPair index pair.val s aWord bWord prev)).length := by
-  have hp := pair.isLt
-  unfold buildPair
-  refine queried_length_bind_rel (fun x y => x.1 = y.1) _ _
-    (queried_length_buildSharedCoordinate_world hU omega hidden hidden' true index hindex (2 * pair.val) (by omega) _ _ _)
-    ?_ (fun a a' ha => ?_)
-  · beta_reduce
-    rw [buildSharedCoordinate_result, buildSharedCoordinate_result]
-    dsimp only
-    exact sharedNodes_world hU omega hidden hidden' true index hindex ⟨2 * pair.val, by omega⟩ (fun _ => prev)
-  · beta_reduce at ha ⊢
-    rw [queried_length_bind, queried_length_bind, queried_length_pure, queried_length_pure, ha]
-    exact congrArg (· + 0) (queried_length_buildSharedCoordinate_world hU omega hidden hidden' false index hindex
-      (2 * pair.val + 1) (by omega) _ _ _)
-
-theorem queried_length_buildForest_world (hidden hidden' : CanonTable.HiddenF) (index : Nat) (hindex : index < 2 ^ 31)
-    (selected : ForestSelection) (words : ForestWords) :
-    (SourceReplay.queried (wA hU omega hidden) (buildForest index selected words)).length =
-      (SourceReplay.queried (wA hU omega hidden') (buildForest index selected words)).length := by
-  have hfold := queried_length_foldlM_rel (A := wA hU omega hidden) (B := wA hU omega hidden')
-    (fun (x y : List PairOpening × PairRoot) => x.2 = y.2)
-    (fun (state : List PairOpening × PairRoot) pair => do
-      let built ← buildPair index pair.val (selected.pairs pair) (words.first pair) (words.second pair) state.2
-      pure (state.1 ++ [built.1], built.2))
-    (fun pair st st' hst => by
-      beta_reduce at hst ⊢
-      rw [queried_length_bind, queried_length_bind, queried_length_pure, queried_length_pure, hst]
-      refine ⟨congrArg (· + 0) (queried_length_buildPair_world hU omega hidden hidden' index hindex pair _ _ _ _), ?_⟩
-      simp only [evalWithAnswerFn_bind, evalWithAnswerFn_pure, buildPair_result]
-      exact expectedPairRoot_world hU omega hidden hidden' index hindex pair _)
-    (List.finRange 4) ([], ftsStart) ([], ftsStart) rfl
-  unfold buildForest
-  refine queried_length_bind_rel (fun x y : List PairOpening × PairRoot => x.2 = y.2) _ _ hfold.1 hfold.2
-    (fun st st' hst => ?_)
-  beta_reduce at hst ⊢
-  rw [queried_length_bind, queried_length_bind, queried_length_pure, queried_length_pure, hst]
-  refine congrArg (· + 0) ?_
-  unfold buildSingleton
-  exact queried_length_bind_rel (fun _ _ => True) _ _
-    (queried_length_buildSharedCoordinate_world hU omega hidden hidden' false index hindex 8 (by decide) _ _ _) trivial
-    (fun _ _ _ => by rw [queried_length_pure, queried_length_pure])
 
 attribute [local irreducible] searchPreparedLayers prepareRoots buildForest
   sharedDigestSearch forestCommitment
@@ -10310,11 +11597,8 @@ theorem signFromOutput_charge_eq (hidden hidden' : CanonTable.HiddenF) (cache : 
     (SourceReplay.queried (wA hU omega hidden) (signFromOutput cache rho counter output)).length =
       (SourceReplay.queried (wA hU omega hidden') (signFromOutput cache rho counter output)).length := by
   unfold signFromOutput
-  have hforest := queried_length_buildForest_world hU omega hidden hidden' (digestIndex output)
-    (digestIndex_lt output) (forestSelectionFromOutput output) (forestWordsFromOutput output)
-  conv_lhs => rw [queried_length_bind]
-  conv_rhs => rw [queried_length_bind]
-  rw [hforest]
+  conv_lhs => rw [queried_length_bind, queried_length_buildForest]
+  conv_rhs => rw [queried_length_bind, queried_length_buildForest]
   apply congrArg (Nat.add _)
   conv_lhs => rw [queried_length_bind]
   conv_rhs => rw [queried_length_bind]
@@ -11148,7 +12432,7 @@ theorem ev_nonce_cached (S : FtsBankSpec P) {β : Type} (slot : Nat) (m : Messag
         ⟨s.allowed, s.retired, s.guesses, s.probes, (s.memory.1, (ghostStep S) s.memory.1 (.nonce m) rho s.memory.2)⟩) G := by
   unfold WPair.nonceReq
   rw [(ev_aux_bind S)]
-  change expectedValue (BPair.nonceStep s.memory.1 m SigGolfCandidate.T3.Security.BPair.rhoLaw) _ = _
+  change expectedValue (BPair.nonceStep s.memory.1 m (PMF.uniformOfFintype Digest)) _ = _
   unfold BPair.nonceStep
   rw [hn]
   simp only
@@ -11156,17 +12440,17 @@ theorem ev_nonce_cached (S : FtsBankSpec P) {β : Type} (slot : Nat) (m : Messag
 theorem ev_nonce_fresh (S : FtsBankSpec P) {β : Type} (slot : Nat) (m : Message) (k : Digest → OracleComp WPair.WSpecL β)
     (s : GState) (hn : s.memory.1.nonces m = none) (G : β × GState → ENNReal) :
     expectedValue (SecretGuessObservation.runWith ((implG S) slot) (WPair.nonceReq m >>= k) s) G =
-      expectedValue SigGolfCandidate.T3.Security.BPair.rhoLaw (fun v =>
+      expectedValue ($ᵗ Digest : ProbComp Digest) (fun v =>
         expectedValue (SecretGuessObservation.runWith ((implG S) slot) (k v)
           ⟨s.allowed, s.retired, s.guesses, s.probes,
             (s.memory.1.drawNonce m v, (ghostStep S) s.memory.1 (.nonce m) v s.memory.2)⟩) G) := by
   unfold WPair.nonceReq
   rw [(ev_aux_bind S)]
-  change expectedValue (BPair.nonceStep s.memory.1 m SigGolfCandidate.T3.Security.BPair.rhoLaw) _ = _
+  change expectedValue (BPair.nonceStep s.memory.1 m (PMF.uniformOfFintype Digest)) _ = _
   unfold BPair.nonceStep
   rw [hn]
   simp only
-  rw [expectedValue_map]
+  rw [expectedValue_map, ev_uniform_digest]
 theorem ev_expose_finish_le (S : FtsBankSpec P) {β : Type} (slot q : Nat)
     (finish : Digest → Option (BitVec 32 × HashOutput) → OracleComp WPair.WSpecL β)
     (hfinish : ∀ rho found, SuperProg ((implG S) slot) ((ΦI S) q) (finish rho found))
@@ -11473,7 +12757,7 @@ theorem nearLawSpec_producer : nearLawSpec.producer=SigGolfCandidate.Research.Sh
   change producer = _
   exact funext producer_source
 
-theorem nearLawSpec_mean : ClaudeWCT.Numerics.Law.lawAvg nearLawSpec.law (2^32) nearLawSpec.price≤(22820/50) :=
+theorem nearLawSpec_mean : ClaudeWCT.Numerics.Law.lawAvg nearLawSpec.law (2^32) nearLawSpec.price≤(19493/50) :=
   law_nearPrice_mean_bound
 
 theorem forced_near_payoff_le {β : Type} (slot q : Nat)
@@ -11481,8 +12765,8 @@ theorem forced_near_payoff_le {β : Type} (slot q : Nat)
     (hW : CaseC.SuperProg (NearWorld.implG nearLawSpec slot) (NearWorld.ΦI nearLawSpec q) W) :
     expectedValue (SecretGuessObservation.forcedWithRun WPair.envL WPair.samplerL slot W WPair.initL)
       (fun r => NearWorld.nearPayoff nearLawSpec q r.2)≤
-      (q:ENNReal)*((22820/50)+29249/2500000)/2^128 :=
-  NearWorld.forced_payoff_le nearLawSpec nearCovered_mono (22820/50) nearLawSpec_mean slot q W hW
+      (q:ENNReal)*((19493/50)+1/1024)/2^128 :=
+  NearWorld.forced_payoff_le nearLawSpec nearCovered_mono (19493/50) nearLawSpec_mean slot q W hW
 
 end ClaudeWCT.Bank.Paired
 

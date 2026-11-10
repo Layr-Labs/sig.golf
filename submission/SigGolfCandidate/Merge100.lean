@@ -1,8 +1,6 @@
 import SigGolfCandidate.Merge015
 import SigGolfCandidate.Merge033
 import SigGolfCandidate.Merge053
-set_option debug.skipKernelTC true
-set_option linter.all false
 
 -- ==== merged from ClaudeWCT_W9_T3_Secc_WotsTopLevelsSat ====
 section

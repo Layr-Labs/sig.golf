@@ -6,8 +6,6 @@ import SigGolfCandidate.Merge011
 import SigGolfCandidate.Merge012
 import SigGolfCandidate.Merge013
 import SigGolfCandidate.Merge014
-set_option debug.skipKernelTC true
-set_option linter.all false
 
 -- ==== merged from T3_Nonbinary_TopFlip ====
 section
@@ -5317,8 +5315,6 @@ abbrev Encoding (lay : Layer) := MixedCode.Encoding (code lay)
 abbrev ChainIndex (lay : Layer) := Fin (chainCount lay)
 theorem chainCount_bound (lay : Layer) : chainCount lay ≤ 58 := by fin_cases lay <;> decide
 theorem chainCount_le_54 (lay : Layer) : chainCount lay ≤ 54 := by fin_cases lay <;> decide
-/-- Z3 (c51): every layer has at most 51 chains (top 51, lower 43). -/
-theorem chainCount_le_51 (lay : Layer) : chainCount lay ≤ 51 := by fin_cases lay <;> decide
 theorem unit_neighbors_bound (lay : Layer) (word : Encoding lay) (i : ChainIndex lay) :
     (MixedCode.unitNeighbors word i).card ≤ 57 :=
   (MixedCode.unitNeighbors_card_le word i).trans (Nat.sub_le_sub_right (chainCount_bound lay) 1)
@@ -5807,9 +5803,8 @@ theorem bound_privateMacKey : CBound (fun _ => True) 2 privateMacKey := by
 theorem bound_privateMac (region : Region) : CBound (fun _ => True) 2 (privateMac region) := by
   unfold privateMac
   exact bound_privateMacKey.bind' (l := 0) (fun _ _ => .pure _ 0 trivial) (by decide)
-theorem bound_pairedMask (level pair : Nat) : CBound (fun _ => True) 1 (pairedMask level pair) := by
-  unfold pairedMask
-  exact .pure _ 1 trivial
+theorem bound_pairedMask (level pair : Nat) : CBound (fun _ => True) 1 (pairedMask level pair) :=
+  bound_privatePair 13 0 0 level pair
 theorem bound_mask (level index : Nat) : CBound (fun _ => True) 1 (mask level index) := by
   unfold mask
   exact (bound_pairedMask level (index/2)).bind' (l := 0) (fun _ _ => .pure _ 0 trivial) (by decide)
@@ -5982,7 +5977,7 @@ theorem bound_buildTopLevel (level : Nat) (nodes : List Digest) :
   simpa [List.map_const', List.sum_replicate, Nat.mul_comm] using hc
 /-- Σ over levels 1..12 of (nodes at the level) × (worst trials per node `104·2^b_h`): T51
 (`b_h = 0,0,1,1,2,3,4,5,6,7,8`) 851,969 (#938, `b_h = h`: 4,685,825). -/
-def topTreeNodeCost : Nat := 1304577
+def topTreeNodeCost : Nat := 851969
 theorem bound_buildTopLevels (leaves : List Digest) (hlen : leaves.length=2^12) :
     CBound (LevelShape 12 12) topTreeNodeCost (buildTopLevels leaves) := by
   unfold buildTopLevels
@@ -8635,11 +8630,6 @@ theorem cacheRegion_read (f : Nat → Nat → Digest) (level node : Nat)
     cacheWordList_getD f level node hlo hhi hnode]
 def maskedTop (answers : Answers) (level node : Nat) : Digest :=
   treeValue (builtTree answers 0 0) level node ^^^ evalWithAnswerFn answers (mask level node)
-/-- The bottom cache level is the already public top-leaf table. -/
-theorem maskedTop_leaf (answers : Answers) (node : Nat) :
-    maskedTop answers 0 node = treeValue (builtTree answers 0 0) 0 node := by
-  simp [maskedTop, mask, pairedMask, evalWithAnswerFn_bind, evalWithAnswerFn_pure]
-
 theorem eval_mask_even (A : Answers) (level pair : Nat) :
     evalWithAnswerFn A (mask level (2*pair))=(evalWithAnswerFn A (pairedMask level pair)).1 := by
   simp [mask,evalWithAnswerFn_bind,evalWithAnswerFn_pure,Nat.mul_div_cancel_left]
@@ -9149,8 +9139,8 @@ theorem forest_header_plain (index : Nat) :
   (wctHeader_eq_header 15 0 index 0 0 (by decide)).symm
 theorem wct_tags_plain : ¬ packedNodeTag 6 ∧ ¬ packedNodeTag 15 ∧ packedNodeTag 3 := by decide
 theorem ftsChainLow_lt (index coord selected chain step : Nat) :
-    ftsChainLow index coord selected chain step < 2 ^ 64 := by
-  unfold ftsChainLow SigGolfCandidate.T3.ftsBias
+    ftsChainLow index coord selected chain step < 2 ^ 58 := by
+  unfold ftsChainLow
   have := Nat.mod_lt chain (show 0 < 8 by decide)
   have := Nat.mod_lt step (show 0 < 4 by decide)
   have := Nat.mod_lt (coord + 1) (show 0 < 16 by decide)
@@ -9158,26 +9148,17 @@ theorem ftsChainLow_lt (index coord selected chain step : Nat) :
   have := Nat.mod_lt index (show 0 < 2 ^ 31 by decide)
   norm_num only at *
   omega
-theorem ftsChainLow_range (index coord selected chain step : Nat) :
-    ftsChainLow index coord selected chain step < 2^58 ∨ 2^64 - 67073 ≤ ftsChainLow index coord selected chain step := by
-  unfold ftsChainLow
-  apply SigGolfCandidate.T3.ftsBias_range
-  omega
 theorem ftsChainLow_byte0 (index coord selected chain step : Nat) :
-    ftsChainLow index coord selected chain step % 256 = step % 4 := by
-  unfold ftsChainLow SigGolfCandidate.T3.ftsBias
+    ftsChainLow index coord selected chain step % 256 = 128 + 4 * (chain % 8) := by
+  unfold ftsChainLow
   have := Nat.mod_lt chain (show 0 < 8 by decide)
-  omega
-theorem ftsChainLow_tag (index coord selected chain step : Nat) :
-    ftsChainLow index coord selected chain step / 256 % 256 = (250 + chain % 8) % 256 := by
-  unfold ftsChainLow SigGolfCandidate.T3.ftsBias
   omega
 theorem ftsChainLow_injective {i k j t s i' k' j' t' s' : Nat}
     (hi : i < 2 ^ 31) (hk : k < 16) (hj : j < 128) (ht : t < 8) (hs : s < 4)
     (hi' : i' < 2 ^ 31) (hk' : k' < 16) (hj' : j' < 128) (ht' : t' < 8) (hs' : s' < 4)
     (h : ftsChainLow i k j t s = ftsChainLow i' k' j' t' s') :
     i = i' ∧ k = k' ∧ j = j' ∧ t = t' ∧ s = s' := by
-  unfold ftsChainLow SigGolfCandidate.T3.ftsBias at h
+  unfold ftsChainLow at h
   rw [Nat.mod_eq_of_lt hi, Nat.mod_eq_of_lt hj, Nat.mod_eq_of_lt ht,
     Nat.mod_eq_of_lt hs, Nat.mod_eq_of_lt hi', Nat.mod_eq_of_lt hj',
     Nat.mod_eq_of_lt ht', Nat.mod_eq_of_lt hs'] at h
@@ -9212,36 +9193,31 @@ theorem ftsChainHeaderP_injective {i k j t s i' k' j' t' s' : Nat} {high high' :
   have hhi := congrArg (fun x : BitVec 128 => x.extractLsb' 64 64) h
   simp only [ftsChainHeaderP_low, ftsChainHeaderP_high] at hlo hhi
   have hq := congrArg BitVec.toNat hlo
-  rw [BitVec.toNat_ofNat, BitVec.toNat_ofNat, Nat.mod_eq_of_lt (ftsChainLow_lt ..),
-    Nat.mod_eq_of_lt (ftsChainLow_lt ..)] at hq
+  rw [BitVec.toNat_ofNat, BitVec.toNat_ofNat, Nat.mod_eq_of_lt (lt_trans (ftsChainLow_lt ..) (by decide)),
+    Nat.mod_eq_of_lt (lt_trans (ftsChainLow_lt ..) (by decide))] at hq
   obtain ⟨e1, e2, e3, e4, e5⟩ := ftsChainLow_injective hi hk hj ht hs hi' hk' hj' ht' hs' hq
   exact ⟨e1, e2, e3, e4, e5, hhi⟩
 theorem chainInput_eq (index coord selected chain step : Nat) (value : Digest) :
     chainInput index coord selected chain step value =
       zero16 ++ bytesLE 16 (ftsChainHeader index coord selected chain step) ++
         zero16 ++ bytesLE 16 value := rfl
-theorem ftsLeafLow_lt (index coord selected : Nat) : ftsLeafLow index coord selected < 2 ^ 64 := by
-  unfold ftsLeafLow SigGolfCandidate.T3.ftsBiasN
+theorem ftsLeafLow_lt (index coord selected : Nat) : ftsLeafLow index coord selected < 2 ^ 58 := by
+  unfold ftsLeafLow
   have := Nat.mod_lt (coord + 1) (show 0 < 16 by decide)
   have := Nat.mod_lt selected (show 0 < 128 by decide)
   have := Nat.mod_lt index (show 0 < 2 ^ 31 by decide)
   norm_num only at *
   omega
-theorem ftsLeafLow_range (index coord selected : Nat) :
-    ftsLeafLow index coord selected < 2^58 ∨ 2^64 - 69121 ≤ ftsLeafLow index coord selected := by
+theorem ftsLeafLow_byte0 (index coord selected : Nat) : ftsLeafLow index coord selected % 256 = 1 := by
   unfold ftsLeafLow
-  apply SigGolfCandidate.T3.ftsBiasN_range
   omega
-theorem ftsLeafLow_byte0 (index coord selected : Nat) : ftsLeafLow index coord selected % 256 = 0 := by
-  unfold ftsLeafLow SigGolfCandidate.T3.ftsBiasN
-  omega
-theorem ftsLeafLow_byte1 (index coord selected : Nat) : ftsLeafLow index coord selected / 2 ^ 8 % 256 = 248 := by
-  unfold ftsLeafLow SigGolfCandidate.T3.ftsBiasN
+theorem ftsLeafLow_byte1 (index coord selected : Nat) : ftsLeafLow index coord selected / 2 ^ 8 % 256 = 6 := by
+  unfold ftsLeafLow
   omega
 theorem ftsLeafLow_injective {i k j i' k' j' : Nat}
     (hi : i < 2 ^ 31) (hk : k < 16) (hj : j < 128) (hi' : i' < 2 ^ 31) (hk' : k' < 16) (hj' : j' < 128)
     (h : ftsLeafLow i k j = ftsLeafLow i' k' j') : i = i' ∧ k = k' ∧ j = j' := by
-  unfold ftsLeafLow SigGolfCandidate.T3.ftsBiasN at h
+  unfold ftsLeafLow at h
   rw [Nat.mod_eq_of_lt hi, Nat.mod_eq_of_lt hj, Nat.mod_eq_of_lt hi',
     Nat.mod_eq_of_lt hj'] at h
   norm_num only at h hi hi'
@@ -9250,7 +9226,7 @@ theorem ftsLeafHeader_toNat (index coord selected : Nat) :
     (ftsLeafHeader index coord selected).toNat = ftsLeafLow index coord selected := by
   have hq := ftsLeafLow_lt index coord selected
   unfold ftsLeafHeader
-  rw [BitVec.toNat_append, BitVec.toNat_ofNat, BitVec.toNat_ofNat, Nat.mod_eq_of_lt hq]
+  rw [BitVec.toNat_append, BitVec.toNat_ofNat, BitVec.toNat_ofNat, Nat.mod_eq_of_lt (lt_trans hq (by decide))]
   simp
 theorem ftsLeafHeader_low (index coord selected : Nat) :
     (ftsLeafHeader index coord selected).extractLsb' 0 64 = BitVec.ofNat 64 (ftsLeafLow index coord selected) :=
@@ -9259,10 +9235,10 @@ theorem ftsLeafHeader_high (index coord selected : Nat) :
     (ftsLeafHeader index coord selected).extractLsb' 64 64 = 0 :=
   BitVec.extractLsb'_append_eq_left
 theorem ftsLeafHeader_firstByte (index coord selected : Nat) :
-    (ftsLeafHeader index coord selected).toNat % 256 = 0 := by
+    (ftsLeafHeader index coord selected).toNat % 256 = 1 := by
   rw [ftsLeafHeader_toNat, ftsLeafLow_byte0]
 theorem ftsLeafHeader_byte1 (index coord selected : Nat) :
-    (ftsLeafHeader index coord selected).toNat / 2 ^ 8 % 256 = 248 := by
+    (ftsLeafHeader index coord selected).toNat / 2 ^ 8 % 256 = 6 := by
   rw [ftsLeafHeader_toNat, ftsLeafLow_byte1]
 theorem ftsLeafHeader_injective {i k j i' k' j' : Nat}
     (hi : i < 2 ^ 31) (hk : k < 16) (hj : j < 128) (hi' : i' < 2 ^ 31) (hk' : k' < 16) (hj' : j' < 128)
@@ -9271,23 +9247,18 @@ theorem ftsLeafHeader_injective {i k j i' k' j' : Nat}
   rw [ftsLeafHeader_toNat, ftsLeafHeader_toNat] at hq
   exact ftsLeafLow_injective hi hk hj hi' hk' hj' hq
 theorem wctNodeHeader_eq {coord : Nat} (hk : coord < 9) (index : Nat) {heap : Nat} (hn : ¬ FtsNew heap) :
-    wctNodeHeader coord index heap = BitVec.ofNat 64 (ftsHeapLabel heap) ++ BitVec.ofNat 64 (ftsLeafLow index coord 0) := by
+    wctNodeHeader coord index heap = BitVec.ofNat 64 heap ++ BitVec.ofNat 64 (ftsLeafLow index coord 0) := by
   unfold wctNodeHeader nodeLayer
   rw [nodeTweak_fts (by omega) (by omega) _ hn, show 4 + coord - 4 = coord by omega]
   rfl
 /-- Packed FTS node low word (heaps `8..127`): `ftsLeafLow index coord 0 - heap`. -/
-def ftsNodeLowN (index coord heap : Nat) : Nat := SigGolfCandidate.T3.ftsBiasN (1537 - heap + (coord + 1) % 16 * 2 ^ 16 + index % 2 ^ 31 * 2 ^ 27)
+def ftsNodeLowN (index coord heap : Nat) : Nat := 1537 - heap + (coord + 1) % 16 * 2 ^ 16 + index % 2 ^ 31 * 2 ^ 27
 theorem ftsNodeLowN_eq (index coord heap : Nat) :
-    ftsNodeLowN index coord heap = SigGolfCandidate.T3.ftsBiasN (1537 - heap + (coord + 1) % 16 * 2 ^ 16 + index % 2 ^ 31 * 2 ^ 27) := rfl
-theorem ftsNodeLowN_lt (index coord heap : Nat) : ftsNodeLowN index coord heap < 2 ^ 64 := by
-  rw [ftsNodeLowN_eq]; unfold SigGolfCandidate.T3.ftsBiasN
+    ftsNodeLowN index coord heap = 1537 - heap + (coord + 1) % 16 * 2 ^ 16 + index % 2 ^ 31 * 2 ^ 27 := rfl
+theorem ftsNodeLowN_lt (index coord heap : Nat) : ftsNodeLowN index coord heap < 2 ^ 58 := by
+  rw [ftsNodeLowN_eq]
   have := Nat.mod_lt (coord + 1) (show 0 < 16 by decide)
   have := Nat.mod_lt index (show 0 < 2 ^ 31 by decide)
-  omega
-theorem ftsNodeLowN_range (index coord heap : Nat) :
-    ftsNodeLowN index coord heap < 2^58 ∨ 2^64 - 69121 ≤ ftsNodeLowN index coord heap := by
-  rw [ftsNodeLowN_eq]
-  apply SigGolfCandidate.T3.ftsBiasN_range
   omega
 theorem wctNodeHeader_eqN {coord : Nat} (hk : coord < 9) (index : Nat) {heap : Nat} (hn : FtsNew heap) :
     wctNodeHeader coord index heap = 0#64 ++ BitVec.ofNat 64 (ftsNodeLowN index coord heap) := by
@@ -9296,13 +9267,13 @@ theorem wctNodeHeader_eqN {coord : Nat} (hk : coord < 9) (index : Nat) {heap : N
   rfl
 theorem wctNodeHeader_toNat {coord : Nat} (hk : coord < 9) (index heap : Nat) :
     (wctNodeHeader coord index heap).toNat =
-      if FtsNew heap then ftsNodeLowN index coord heap else ftsHeapLabel heap % 2 ^ 64 * 2 ^ 64 + ftsLeafLow index coord 0 := by
+      if FtsNew heap then ftsNodeLowN index coord heap else heap % 2 ^ 64 * 2 ^ 64 + ftsLeafLow index coord 0 := by
   by_cases hn : FtsNew heap
   · rw [if_pos hn, wctNodeHeader_eqN hk index hn, append64_toNat]
     have := ftsNodeLowN_lt index coord heap
     simp only [BitVec.toNat_ofNat]; omega
   · rw [if_neg hn, wctNodeHeader_eq hk index hn, append64_toNat, BitVec.toNat_ofNat, BitVec.toNat_ofNat,
-      Nat.mod_eq_of_lt (ftsLeafLow_lt _ _ _)]
+      Nat.mod_eq_of_lt (lt_trans (ftsLeafLow_lt _ _ _) (by decide))]
 theorem wctNodeHeader_low {coord : Nat} (hk : coord < 9) (index heap : Nat) :
     (wctNodeHeader coord index heap).extractLsb' 0 64 =
       BitVec.ofNat 64 (if FtsNew heap then ftsNodeLowN index coord heap else ftsLeafLow index coord 0) := by
@@ -9310,52 +9281,33 @@ theorem wctNodeHeader_low {coord : Nat} (hk : coord < 9) (index heap : Nat) :
   · rw [if_pos hn, wctNodeHeader_eqN hk index hn]; exact BitVec.extractLsb'_append_eq_right
   · rw [if_neg hn, wctNodeHeader_eq hk index hn]; exact BitVec.extractLsb'_append_eq_right
 theorem wctNodeHeader_high {coord : Nat} (hk : coord < 9) (index heap : Nat) :
-    (wctNodeHeader coord index heap).extractLsb' 64 64 = BitVec.ofNat 64 (if FtsNew heap then 0 else ftsHeapLabel heap) := by
+    (wctNodeHeader coord index heap).extractLsb' 64 64 = BitVec.ofNat 64 (if FtsNew heap then 0 else heap) := by
   by_cases hn : FtsNew heap
   · rw [if_pos hn, wctNodeHeader_eqN hk index hn]; exact BitVec.extractLsb'_append_eq_left
   · rw [if_neg hn, wctNodeHeader_eq hk index hn]; exact BitVec.extractLsb'_append_eq_left
 theorem wctNodeHeader_firstByte (coord index heap : Nat) :
-    (wctNodeHeader coord index heap).toNat % 256 =
-      if coord < 9 then (if FtsNew heap then 256 - heap else 0) else 1 := by
+    (wctNodeHeader coord index heap).toNat % 256 = if coord < 9 ∧ FtsNew heap then 257 - heap else 1 := by
   have h := nodeTweak_marker 3 (nodeLayer coord) index heap
   unfold tweakMarker at h
   unfold wctNodeHeader
   rw [h, if_neg (by unfold nodeLayer; omega)]
   unfold nodeLayer
-  by_cases hk : coord < 9
-  · have h13 : 4 + coord < 13 := by omega
-    simp [hk, h13]
-  · have h13 : ¬ 4 + coord < 13 := by omega
-    simp [hk, h13]
-
-theorem wctNodeHeader_firstByte_ne_digest (coord index heap : Nat) :
-    (wctNodeHeader coord index heap).toNat % 256 ≠ 128 := by
-  intro he
-  rw [wctNodeHeader_firstByte] at he
-  by_cases hk : coord < 9
-  · rw [if_pos hk] at he
-    by_cases hn : FtsNew heap
-    · rw [if_pos hn] at he
-      obtain ⟨h8, h128⟩ := hn
-      omega
-    · rw [if_neg hn] at he
-      omega
-  · rw [if_neg hk] at he
-    omega
-
+  by_cases hn : coord < 9 ∧ FtsNew heap
+  · rw [if_pos ⟨rfl, by omega, by omega, hn.2⟩, if_pos hn]
+  · rw [if_neg (fun h' => hn ⟨by omega, h'.2.2.2⟩), if_neg hn]
+theorem wctNodeHeader_firstByte_ne_zero (coord index heap : Nat) : (wctNodeHeader coord index heap).toNat % 256 ≠ 0 := by
+  rw [wctNodeHeader_firstByte]; unfold FtsNew; split <;> omega
 theorem wctNodeHeader_firstByte_lt (coord index heap : Nat) (hn : ¬ FtsNew heap) :
-    (wctNodeHeader coord index heap).toNat % 256 = if coord < 9 then 0 else 1 := by
-  rw [wctNodeHeader_firstByte]; split_ifs <;> simp_all
-
+    (wctNodeHeader coord index heap).toNat % 256 = 1 := by
+  rw [wctNodeHeader_firstByte, if_neg (fun h => hn h.2)]
 theorem wctNodeHeader_firstByteN {coord : Nat} (hk : coord < 9) (index : Nat) {heap : Nat} (hn : FtsNew heap) :
-    (wctNodeHeader coord index heap).toNat % 256 = 256 - heap := by
-  rw [wctNodeHeader_firstByte, if_pos hk, if_pos hn]
-
+    (wctNodeHeader coord index heap).toNat % 256 = 257 - heap := by
+  rw [wctNodeHeader_firstByte, if_pos ⟨hk, hn⟩]
 theorem wctNodeHeader_byte1 {coord : Nat} (hk : coord < 9) (index heap : Nat) :
-    (wctNodeHeader coord index heap).toNat / 2 ^ 8 % 256 = if FtsNew heap then 247 else 248 := by
+    (wctNodeHeader coord index heap).toNat / 2 ^ 8 % 256 = if FtsNew heap then 5 else 6 := by
   rw [wctNodeHeader_toNat hk]
   by_cases hn : FtsNew heap
-  · rw [if_pos hn, if_pos hn, ftsNodeLowN_eq]; unfold SigGolfCandidate.T3.ftsBiasN; obtain ⟨h8, h128⟩ := hn; omega
+  · rw [if_pos hn, if_pos hn, ftsNodeLowN_eq]; obtain ⟨h8, h128⟩ := hn; omega
   · rw [if_neg hn, if_neg hn]
     have := ftsLeafLow_byte1 index coord 0
     omega
@@ -9375,7 +9327,7 @@ theorem ftsLeafHeader_ne_wctNodeHeader (index coord selected : Nat) {coord' : Na
     obtain ⟨h8, h128⟩ := hn; omega
   · have hhi := congrArg BitVec.toNat (congrArg (fun x : BitVec 128 => x.extractLsb' 64 64) h)
     simp only [ftsLeafHeader_high, wctNodeHeader_high hk, if_neg hn, BitVec.toNat_ofNat] at hhi
-    exact hh ((ftsHeapLabel_mod_zero heap).mp hhi.symm)
+    exact hh hhi.symm
 theorem radix_inj {B a a' m m' : Nat} (h : a + B * m = a' + B * m') (ha : a < B) (ha' : a' < B) :
     a = a' ∧ m = m' := by
   have hB : 0 < B := by omega

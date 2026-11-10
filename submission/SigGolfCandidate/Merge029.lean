@@ -1,7 +1,5 @@
 import SigGolfCandidate.Merge015
 import SigGolfCandidate.Merge028
-set_option debug.skipKernelTC true
-set_option linter.all false
 
 -- ==== merged from T3M_Extract_Leaf ====
 section
@@ -155,19 +153,16 @@ theorem bytesLE16_marker (hdr : BitVec 128) :
     ((bytesLE 16 hdr).getD 0 0).toNat = hdr.toNat % 256 := by
   simp [bytesLE, List.getD_eq_getElem?_getD, BitVec.extractLsb'_toNat, Nat.shiftRight_eq_div_pow]
 theorem canonicalHeader_words (high low : BitVec 64)
-    (hm : 128 ≤ low.toNat % 256) (hne : low ≠ 25984#64) :
+    (hm : 128 ≤ low.toNat % 256) :
     canonicalHeader (bytesLE 16 (high ++ low)) = bytesLE 8 low ++ List.replicate 8 0 := by
   rw [bytesLE_header_words]
   apply canonicalHeader_marked _ _ (bytesLE_length _ _)
-  · simpa only [bytesLE8_marker] using hm
-  · intro he
-    apply hne
-    exact SphincsSecurity.bytesLE_injective he
+  simpa only [bytesLE8_marker] using hm
 theorem canonicalHeader_high_irrelevant (high high' low : BitVec 64)
-    (hm : 128 ≤ low.toNat % 256) (hne : low ≠ 25984#64) :
+    (hm : 128 ≤ low.toNat % 256) :
     canonicalHeader (bytesLE 16 (high ++ low)) =
       canonicalHeader (bytesLE 16 (high' ++ low)) := by
-  rw [canonicalHeader_words high low hm hne, canonicalHeader_words high' low hm hne]
+  rw [canonicalHeader_words high low hm, canonicalHeader_words high' low hm]
 theorem canonicalHeader_high_zero (hdr : BitVec 128) (hz : hdr.extractLsb' 64 64 = 0) :
     canonicalHeader (bytesLE 16 hdr) = bytesLE 16 hdr := by
   have he : hdr = (0#64 ++ hdr.extractLsb' 0 64) := by
@@ -178,26 +173,12 @@ theorem canonicalHeader_high_zero (hdr : BitVec 128) (hz : hdr.extractLsb' 64 64
   have hzero : bytesLE 8 (0#64) = List.replicate 8 0 := by decide +kernel
   rw [hzero]
   exact canonicalHeader_zero_pad _ (bytesLE_length _ _)
-theorem bytesLE16_tag (hdr : BitVec 128) :
-    ((bytesLE 16 hdr).getD 1 0).toNat = hdr.toNat / 256 % 256 := by
-  simp [bytesLE, List.getD_eq_getElem?_getD, BitVec.extractLsb'_toNat, Nat.shiftRight_eq_div_pow]
-theorem canonicalHeader_fts_words (high low : BitVec 64)
-    (hm : low.toNat % 256 < 4) (ht : 250 ≤ low.toNat / 256 % 256 ∧ low.toNat / 256 % 256 < 256) :
-    canonicalHeader (bytesLE 16 (high ++ low)) = bytesLE 8 low ++ List.replicate 8 0 := by
-  rw [bytesLE_header_words]
-  apply canonicalHeader_fts_marked _ _ (bytesLE_length _ _)
-  unfold ftsChainMark
-  have htag : ((bytesLE 8 low).getD 1 0).toNat = low.toNat / 256 % 256 := by
-    simp [bytesLE, List.getD_eq_getElem?_getD, BitVec.extractLsb'_toNat, Nat.shiftRight_eq_div_pow]
-  rw [bytesLE8_marker, htag]
-  exact ⟨hm,ht⟩
 theorem canonicalHeader_marker_ne (hdr : BitVec 128)
-    (hm : hdr.toNat % 256 < 128)
-    (ht : ¬ (hdr.toNat % 256 < 4 ∧ 250 ≤ hdr.toNat / 256 % 256 ∧ hdr.toNat / 256 % 256 < 256)) :
+    (hm : hdr.toNat % 256 < 128) :
     canonicalHeader (bytesLE 16 hdr) = bytesLE 16 hdr := by
   apply canonicalHeader_unmarked
-  · rw [bytesLE16_marker]; omega
-  · simpa only [ftsChainMark, bytesLE16_marker, bytesLE16_tag] using ht
+  rw [bytesLE16_marker]
+  omega
 end SigGolfCandidate.T3M.Extract
 end
 -- ==== merged from T3M_Final_SecurityP ====

@@ -1,6 +1,4 @@
 import SigGolfCandidate.Merge040
-set_option debug.skipKernelTC true
-set_option linter.all false
 
 -- ==== merged from ClaudeWCT_Numerics_TopZeroChecks ====
 section
@@ -191,9 +189,9 @@ set_option maxHeartbeats 4000000
 
 /-- Accepted top words (digit sum 152, zeros `≤ 7`, the checksum included) by credit `c ≥ 12` (reward - penalty, no
 path bonus). -/
-def topCountsT51 : List (Nat × Nat) := [(12,229422744315677625956884431363989),(13,373366367435532868890245256619134),(14,571404616176976902492946760976038),(15,827875674929964943170650834997466),(16,1141940228531676081371408376597889),(17,1506523563371124109799061161322526),(18,1907727235961469130025537497156057),(19,2325535011954626580529728614872844),(20,2735913589629744625320672412046241),(21,3113171115363979385189631461277700),(22,3432202122673243400133284652025820),(23,3671364839078079014874733412270921),(24,3815377843816683370556200596322877),(25,3856585583036085048495769070475836),(26,3794936799484314271168484023760576),(27,3637975477467931621099726287822997),(28,3400068260618406898007183078472438),(29,3099991948884401435690821601623982),(30,2758412008329867120888836165375163),(31,2396313082796977183848344384807205),(32,2033289136405986506513393542580628),(33,1685609305370973455474183424109288),(34,1365427434225287595723527662872892),(35,1080958313386102206506022835823683),(36,836533048095671822543380546117000),(37,632864332563931540389394191953677),(38,468008750652997035448087631818200),(39,338338494618364229065773984682952),(40,239135054784264584145770717610936),(41,165210225149556536123984617115001),(42,111543924009957793029367870261741),(43,73605433266289080037909317231236),(44,47465460953688051482011338307925),(45,29897738180599907058173548666906),(46,18391888820399473829225224451065),(47,11050693105675549422198287427184),(48,6481915884724992691065219346554),(49,3709174024993528191980077512133),(50,2070989439452237600396416282338),(51,1128143137028504336506195334225),(52,598857243672947826876794991063),(53,309654803468988607389588692044),(54,156063782726181304681957340501),(55,76583700498038393019644329415),(56,36526969213690294513566352471),(57,16948380970302682667304325152),(58,7653380181945929901245644479),(59,3352309430364175787975898645),(60,1423386779480332522149740288),(61,587748873098241691425146591),(62,235270643075359560708796428),(63,90804137878969951146188189),(64,33978940839565761240307626),(65,12352629946696959651851362),(66,4306401022394068480534451),(67,1442538940095881445340952),(68,471659779247495719668423),(69,147852036155870763691004),(70,43672393731101486059523),(71,12609482021494900948039),(72,3545641609240553733692),(73,911321134588956528971),(74,224614503792540313007),(75,56540318889174244403),(76,12619647507582436930),(77,2479819028486668782),(78,546120549135174746),(79,109620685285910004),(80,16000249651839764),(81,2904149570095592),(82,544373267134158),(83,44340455540268),(84,4767115931634),(85,1367670346336),(86,121038590736),(87,875923776),(88,322545216)]
+def topCountsT51 : List (Nat × Nat) := [(12,315267888952829519964878148817408),(13,502581346701182045522268145774137),(14,752511626605814064391474231634097),(15,1065558889020304945675904928167367),(16,1435173543730904921684088400733665),(17,1847358414495983032061822829906264),(18,2281059026126517901177221012090047),(19,2710088137917419774744565183673440),(20,3106381285222563864679340438895972),(21,3443101210383762587339493452981998),(22,3697164833100889464932241878451900),(23,3851950020861338549606416396512391),(24,3899466402443270255183300791298816),(25,3840497083895266749755782060534290),(26,3683438290245130298421569470678936),(27,3443246811490046271672743583069683),(28,3139756159292829995297839335681433),(29,2794787539114124815693836628274285),(30,2429665578785143309544744767521438),(31,2063911680114308962796572867575890),(32,1713979195232822763579746142893595),(33,1392034529852189954508107526852456),(34,1105873428300327158397997185708580),(35,859565447621140307361943490363595),(36,653882477690401234607090421926351),(37,486856173817396099173657622031378),(38,354782414252248455204523845017178),(39,253070632192734928840467446199840),(40,176719187273282712210967289445601),(41,120779088503944530431991335270023),(42,80776907135688649363243261396168),(43,52870350636583016492232039516898),(44,33860738089922211619787018377115),(45,21208781064250528632644276779374),(46,12989906571273476445322356097518),(47,7780272589154649898193776372287),(48,4554308446783618596549660812911),(49,2603689645505090258870517889338),(50,1453957434519794999076766650058),(51,792910168967510598376785179942),(52,421760455281535110174513103031),(53,218725672809233917248828043613),(54,110652438871872713032333839247),(55,54543565521105730781452342433),(56,26150796855825835062166991600),(57,12205435648988997694899471032),(58,5547018465369871787926613938),(59,2446663600613089231928625868),(60,1046684360751594765503422443),(61,435598336819529787498090077),(62,175805023853601196223333167),(63,68449619613514022562097299),(64,25841717283341691968204252),(65,9478773374051756905910165),(66,3336656681249301760085315),(67,1128696760071200189970841),(68,372452471932842146413249),(69,117949362025534644968846),(70,35221179476225672079433),(71,10260006775364160419227),(72,2913115076880581317101),(73,758493754933562958424),(74,188769225925145507859),(75,47894625739629217091),(76,10845676719716212822),(77,2151833132882470252),(78,474642317931986090),(79,97255931088472544),(80,14591562005458974),(81,2630076595352220),(82,492925440180390),(83,40324945858980),(84,4360291116622),(85,1324310968456),(86,121038590736),(87,875923776),(88,287165088)]
 /-- The same restricted to words whose LOW half is not forced (r6 group 8 rank `≥ 64`). -/
-def topFreeCountsT51 : List (Nat × Nat) := [(12,206051117236290189800657820964677),(13,334669146661090045356207018415321),(14,511138686870962503299896499289791),(15,739003683971550323971938155678961),(16,1017141848315034090559985043555720),(17,1338872759690824052810807481522903),(18,1691505029841364445212136264739329),(19,2057037691028690685753361246361202),(20,2414082257701522771393351323782430),(21,2739994877905090766877833695107336),(22,3012888702087810748639455268547969),(23,3214161344206829691399368432665270),(24,3330988174223641211810318955046816),(25,3357361436545912591368540190842131),(26,3293995039006593149122970571129612),(27,3148218322123029941633270182480627),(28,2933198810438599758027466652563699),(29,2665776767292851264025398620163392),(30,2364240876302167912904198814898974),(31,2046939223572419458136910862390230),(32,1730799956006520016530783683713402),(33,1429706268744178580083771872357581),(34,1153867744603645196437108582278035),(35,910013883961171928334518446736906),(36,701496137927464344124206168038016),(37,528573805911149379702367209378670),(38,389270149057886368704873667167468),(39,280218992978702288942440652641871),(40,197188536928652229106288554225283),(41,135615575038341893741574714477992),(42,91136822905297923475375432767414),(43,59850766577915533648788047675413),(44,38404463637560605400670384456365),(45,24066810188027216766985225972092),(46,14726922549368705219857695120612),(47,8800394594835526870693952040936),(48,5132881347242300796291438061393),(49,2920109826031398381000705648405),(50,1620596491713352091147002575488),(51,877276456987077751761599109024),(52,462670961137781274687677259115),(53,237630955260255418650684145393),(54,118928223790710698195586399682),(55,57936209056641634747692034770),(56,27424580085168422745076584143),(57,12625052161510473759577601466),(58,5654229004836592911078589483),(59,2455417156925132059012585861),(60,1033281638558677399785335342),(61,422673840093110708572765483),(62,167525387295921539462234188),(63,63994832454096132096022926),(64,23690205953529432100156183),(65,8513996478078424654508626),(66,2932573263382319575163619),(67,970149740177609976534338),(68,313012187110758074325616),(69,96723988966074131388912),(70,28150853209084020281919),(71,8004076900418413917509),(72,2212580212178782106422),(73,558473262409158315504),(74,135238239896804464259),(75,33381773235471115559),(76,7279911844055941103),(77,1399573793077619274),(78,301832852472499518),(79,58865038531768714),(80,8356603624638797),(81,1488790351163318),(82,267950092831904),(83,20493660124272),(84,2243469038454),(85,619210072495),(86,50925893655),(87,329325360),(88,125007120)]
+def topFreeCountsT51 : List (Nat × Nat) := [(12,282559939817465342628440835330478),(13,449531826473941812198654424498336),(14,671679536679118155878398264670365),(15,949057367256986544053436168665683),(16,1275426698651883430286602707781017),(17,1637974563793195715116183500128883),(18,2017746308622482177055320174126433),(19,2391428081759058874794028308265531),(20,2734273530578908023550395197329282),(21,3022865586093975226088057177011379),(22,3237339642185944724382107443046154),(23,3363715886763297140030052612232182),(24,3395714150629552737366614323529813),(25,3334783194955924198019678398722140),(26,3188999364365112193419670485694138),(27,2972052559251269626688486169073355),(28,2701696952482902936298571014698086),(29,2397206605668107613542592052829741),(30,2077218548921436478696536057990486),(31,1758604203314945787643422806975417),(32,1455405459748317766481802777336458),(33,1177845305972739623289320776378780),(34,932311767924861340017826228798971),(35,721951883754901994367106738366398),(36,547085919166208939675385961604751),(37,405727266483366872683046760520036),(38,294458183401020090678486524487479),(39,209160020741517175284617157422083),(40,145425112359276469462165621902767),(41,98948296698660984995805535996470),(42,65872682151013422232937140888836),(43,42910875740502999387981667569020),(44,27347650257872154980318498794920),(45,17042716743870458778912047755059),(46,10383797773248711267716064175854),(47,6185739861010776354509842024312),(48,3600666351570151960274832520261),(49,2046588482550212720390308249196),(50,1136010319426713325811546594119),(51,615661961726518426056776402538),(52,325366048026888809860727947349),(53,167606751600724338628670539398),(54,84200995815721530265899996678),(55,41203774548537734283675193327),(56,19606321244714397760341317705),(57,9079157552056602903276001467),(58,4092313872661107374797735123),(59,1789563098014996372126636777),(60,758757584155293036256466929),(61,312816715263099117499892103),(62,125007309410924000394275131),(63,48172731806094265959772715),(64,17991480177433442045135942),(65,6523968894065580486182764),(66,2268997670619973617082938),(67,758003385439166096761128),(68,246821159731968159030052),(69,77053382146070805879863),(70,22671091355759130442382),(71,6503108629079711373764),(72,1815242636058569509472),(73,464174467719285920610),(74,113491077189466389625),(75,28237502074863276668),(76,6248281254779921656),(77,1212323783156267194),(78,261840165059759183),(79,52179972917130331),(80,7618366411112909),(81,1345792409546788),(82,242026514474962),(83,18571403401158),(84,2050132798658),(85,599959642891),(86,50925893655),(87,329325360),(88,110625732)]
 
 theorem histCheck_all : histCheck topCountsT51 false = true := by decide +kernel
 theorem histCheck_free : histCheck topFreeCountsT51 true = true := by decide +kernel
@@ -201,8 +199,8 @@ theorem histCheck_free : histCheck topFreeCountsT51 true = true := by decide +ke
 
 /-- `|C_L∖B|`: canonical top words that are LOW-good (credit ≥ 12, i.e. floor 14 with the LOW bonus 2) and whose LOW
 half is not forced. -/
-def freeCountT51 : Nat := 48331618305674191902401536030000308
-theorem freeCountT51_hist : ((List.range' 16 122).map (histW topFreeCountsT51)).sum = freeCountT51 := by
+def freeCountT51 : Nat := 50025990371737199867992306903047594
+theorem freeCountT51_hist : ((List.range' 12 126).map (histW topFreeCountsT51)).sum = freeCountT51 := by
   decide +kernel
 theorem topCountsT51_lt : ∀ e ∈ topCountsT51, e.1 < 138 := by decide
 theorem histW_eq_zero (h : List (Nat × Nat)) (c : Nat) (hc : ∀ e ∈ h, e.1 ≠ c) : histW h c = 0 := by
@@ -253,9 +251,9 @@ theorem savedCopies_encode (w : «Word») (chk : Nat) :
     rw [getD49, show 49 - 1 = 48 from rfl, getD48, show maxDigit 0 49 = 6 from rfl,
       show maxDigit 0 48 = 6 from rfl]
     constructor
-    · rintro ⟨h1, h2 | h2 | ⟨_, _, _, h3⟩⟩
+    · rintro ⟨h1, h2 | ⟨h2, _⟩ | ⟨_, _, _, h3⟩⟩
       · omega
-      · omega
+      · exact absurd rfl h2
       · exact ⟨h1, h3⟩
     · rintro ⟨h1, h2⟩; exact ⟨h1, Or.inr (Or.inr ⟨by omega, by omega, by omega, h2⟩)⟩
   rw [h50, h48, h49, Nat.add_zero, Nat.zero_add]
@@ -269,28 +267,25 @@ theorem savedCopies_encode (w : «Word») (chk : Nat) :
     congr 1; congr 1
     · apply ind_congr; unfold safeZeroCopy; rw [a0, m0]
       constructor
-      · rintro ⟨h1, h2 | h2 | ⟨_, h2, _⟩⟩
+      · rintro ⟨h1, h2 | ⟨h2, _⟩ | ⟨_, h2, _⟩⟩
         · exact ⟨by simp; omega, h1⟩
-        · omega
+        · exact absurd rfl h2
         · omega
       · rintro ⟨h1, h2⟩; exact ⟨h2, Or.inl (by simp at h1; omega)⟩
     · apply ind_congr; unfold safeZeroCopy
       rw [a1, m1, show 3 * g.val + 1 - 1 = 3 * g.val by omega, a0, m0]
-      simp only [decide_eq_true_eq]
       constructor
-      · rintro ⟨h1, h2 | h2 | ⟨_, _, _, h3⟩⟩
+      · rintro ⟨h1, h2 | ⟨h2, _⟩ | ⟨_, _, _, h3⟩⟩
         · omega
-        · exact ⟨h1, Or.inl (by omega)⟩
-        · exact ⟨h1, Or.inr h3⟩
-      · rintro ⟨h1, h2 | h2⟩
-        · exact ⟨h1, Or.inr (Or.inl (by omega))⟩
-        · exact ⟨h1, Or.inr (Or.inr ⟨by omega, by omega, by omega, h2⟩)⟩
+        · exact absurd rfl h2
+        · exact ⟨h1, h3⟩
+      · rintro ⟨h1, h2⟩; exact ⟨h1, Or.inr (Or.inr ⟨by omega, by omega, by omega, h2⟩)⟩
     · apply ind_congr; unfold safeZeroCopy
       rw [a2, m2, show 3 * g.val + 2 - 1 = 3 * g.val + 1 by omega, a1, m1]
       constructor
-      · rintro ⟨h1, h2 | h2 | ⟨_, _, _, h3⟩⟩
+      · rintro ⟨h1, h2 | ⟨h2, _⟩ | ⟨_, _, _, h3⟩⟩
         · omega
-        · omega
+        · exact absurd rfl h2
         · exact ⟨h1, h3⟩
       · rintro ⟨h1, h2⟩; exact ⟨h1, Or.inr (Or.inr ⟨by omega, by omega, by omega, h2⟩)⟩
   · apply Finset.sum_congr rfl; intro j _
@@ -300,26 +295,25 @@ theorem savedCopies_encode (w : «Word») (chk : Nat) :
     congr 1; congr 1
     · apply ind_congr; unfold safeZeroCopy; rw [a0, m0]
       constructor
-      · rintro ⟨h1, h2 | h2 | ⟨_, h2, _⟩⟩
+      · rintro ⟨h1, h2 | ⟨h2, _⟩ | ⟨_, h2, _⟩⟩
         · omega
-        · omega
+        · exact absurd rfl h2
         · omega
       · rintro ⟨h1, _⟩; exact absurd h1 (by simp)
     · apply ind_congr; unfold safeZeroCopy
       rw [a1, m1, show 3 * (9 + j.val) + 1 - 1 = 3 * (9 + j.val) by omega, a0, m0]
-      simp only [Bool.false_eq_true, false_or]
       constructor
-      · rintro ⟨h1, h2 | h2 | ⟨_, _, _, h3⟩⟩
+      · rintro ⟨h1, h2 | ⟨h2, _⟩ | ⟨_, _, _, h3⟩⟩
         · omega
-        · omega
+        · exact absurd rfl h2
         · exact ⟨h1, h3⟩
       · rintro ⟨h1, h2⟩; exact ⟨h1, Or.inr (Or.inr ⟨by omega, by omega, by omega, h2⟩)⟩
     · apply ind_congr; unfold safeZeroCopy
       rw [a2, m2, show 3 * (9 + j.val) + 2 - 1 = 3 * (9 + j.val) + 1 by omega, a1, m1]
       constructor
-      · rintro ⟨h1, h2 | h2 | ⟨_, _, _, h3⟩⟩
+      · rintro ⟨h1, h2 | ⟨h2, _⟩ | ⟨_, _, _, h3⟩⟩
         · omega
-        · omega
+        · exact absurd rfl h2
         · exact ⟨h1, h3⟩
       · rintro ⟨h1, h2⟩; exact ⟨h1, Or.inr (Or.inr ⟨by omega, by omega, by omega, h2⟩)⟩
 
@@ -423,10 +417,9 @@ theorem acc_encode_iff (c : Nat) (w : «Word») : acc c (encode w) ↔ accepts c
     have e1 : ind (chk + 1 = 5) = ind (SigGolfResearch.T51Top.weight w = 148) := ind_congr (by omega)
     have e2 : ind (chk = 0) = ind (SigGolfResearch.T51Top.weight w = 152) := ind_congr (by omega)
     have i1 := ind_le (SigGolfResearch.T51Top.weight w = 148)
-    have hlr : ∀ ds, CanonicalPolicy.ladderReward 0 ds = 0 := fun _ => by simp [CanonicalPolicy.ladderReward]
     simp only [CanonicalPolicy.pathReward, CanonicalPolicy.reward, CanonicalPolicy.pathBonus_false, Nat.add_zero,
       CanonicalPolicy.credit, dispatchPenalty, if_true, canonicalZeroBound, producerZeroCap, producerRankBound,
-      true_or, and_true, hlr]
+      true_or, and_true]
     rw [hz, hc, hp, hcp, e1, e2]
     constructor
     · rintro ⟨ds, hds, hcr⟩
@@ -554,9 +547,9 @@ theorem topWordCount_eq (c : Nat) (hc : 12 ≤ c) :
       (fun e he => by have := SigGolfResearch.T51Top.topCountsT51_lt e he; omega)]
 
 /-- Campaign T51 (top floor 14, LOW bonus 2): the LOW-good predicate is acceptance at 12 without the bonus. -/
-theorem topGood_iff (v : Digest) : topGood v ↔ accepted 0 16 (fun _ => True) v := by
+theorem topGood_iff (v : Digest) : topGood v ↔ accepted 0 12 (fun _ => True) v := by
   unfold topGood
-  rw [show CanonicalPolicy.topFloor = 18 from rfl, producerDecodeAt_top_true 18 (by decide), accepted_iff]
+  rw [show CanonicalPolicy.topFloor = 14 from rfl, producerDecodeAt_top_true 14 (by decide), accepted_iff]
   simp only [and_true]
   exact Option.isSome_iff_exists
 
@@ -571,19 +564,19 @@ theorem creditOf_of_acc {c : Nat} {v : Digest} (h : SigGolfResearch.T51Top.acc c
   unfold creditOf; rw [hd]; exact hc
 
 theorem accepted12_iff (v : Digest) :
-    accepted 0 16 (fun _ => True) v ↔ ∃ c, 16 ≤ c ∧ SigGolfResearch.T51Top.acc c v := by
+    accepted 0 12 (fun _ => True) v ↔ ∃ c, 12 ≤ c ∧ SigGolfResearch.T51Top.acc c v := by
   rw [accepted_iff]
   constructor
   · rintro ⟨ds, hd, -⟩
     have hc := CanonicalPolicy.producerDecodeAt_credit hd
     exact ⟨_, hc, (SigGolfResearch.T51Top.acc_iff _ v).mpr ⟨ds, pda_zero_of hd, rfl⟩⟩
   · rintro ⟨c, hc, ha⟩
-    have h := (accepted_credit_floor_iff 16 c hc v).mpr ((accepted_credit_acc c v).mpr ha)
+    have h := (accepted_credit_floor_iff 12 c hc v).mpr ((accepted_credit_acc c v).mpr ha)
     obtain ⟨ds, hd, -⟩ := (accepted_iff _ _ _ v).mp h
     exact ⟨ds, hd, trivial⟩
 
-theorem fiber_free (c : Nat) (hc : 16 ≤ c) (v : Digest) :
-    ((accepted 0 16 (fun _ => True) v ∧ ¬ TopChoice.blocked v) ∧ creditOf v = c) ↔
+theorem fiber_free (c : Nat) (hc : 12 ≤ c) (v : Digest) :
+    ((accepted 0 12 (fun _ => True) v ∧ ¬ TopChoice.blocked v) ∧ creditOf v = c) ↔
       (SigGolfResearch.T51Top.acc c v ∧ ¬ TopChoice.blocked v) := by
   constructor
   · rintro ⟨⟨ha, hb⟩, he⟩
@@ -597,10 +590,10 @@ theorem fiber_free (c : Nat) (hc : 16 ≤ c) (v : Digest) :
 /-- Campaign T51: the exact number of LOW-good top words whose LOW is not forced. -/
 theorem topFreeCount_eq : topFreeCount = SigGolfResearch.T51Top.freeCountT51 := by
   unfold topFreeCount
-  rw [card_filter_congr' _ (fun v => accepted 0 16 (fun _ => True) v ∧ ¬ TopChoice.blocked v)
+  rw [card_filter_congr' _ (fun v => accepted 0 12 (fun _ => True) v ∧ ¬ TopChoice.blocked v)
     (fun v => and_congr_left' (topGood_iff v))]
-  rw [SigGolfResearch.T51Top.fiber_card_filter (fun v => accepted 0 16 (fun _ => True) v ∧ ¬ TopChoice.blocked v)
-    creditOf (List.range' 16 122).toFinset (fun v hv => by
+  rw [SigGolfResearch.T51Top.fiber_card_filter (fun v => accepted 0 12 (fun _ => True) v ∧ ¬ TopChoice.blocked v)
+    creditOf (List.range' 12 126).toFinset (fun v hv => by
       obtain ⟨c, hc, ha⟩ := (accepted12_iff v).mp hv.1
       rw [creditOf_of_acc ha, List.mem_toFinset, List.mem_range'_1]
       have := SigGolfResearch.T51Top.acc_le c v ha
@@ -611,7 +604,7 @@ theorem topFreeCount_eq : topFreeCount = SigGolfResearch.T51Top.freeCountT51 := 
   have hc' := List.mem_range'_1.mp (List.mem_toFinset.mp hc)
   rw [Finset.filter_filter, card_filter_congr' _ (fun v => SigGolfResearch.T51Top.acc c v ∧ ¬ TopChoice.blocked v)
     (fun v => fiber_free c hc'.1 v)]
-  exact SigGolfResearch.T51Top.card_acc_free c (by omega) (by omega)
+  exact SigGolfResearch.T51Top.card_acc_free c hc'.1 (by omega)
 
 /-- Campaign T51: the HIGH half is selected with weight `3*2^126 - freeCount` per accepted HIGH word. -/
 def topHighWeight : Nat := 3*2^126 - SigGolfResearch.T51Top.freeCountT51
@@ -637,7 +630,7 @@ theorem freeCount_eq_compl : TopChoice.freeCount topGood = topHighWeight :=
 
 /-- The d6b top selection count at credit `c ≥ floor ≥ 14`: weight `2^128` through LOW (credit `c - 2`),
 `topHighWeight` through HIGH (credit `c`). -/
-theorem selected_top_path_card (floor c : Nat) (hf : 18 ≤ floor) (hc : floor ≤ c) :
+theorem selected_top_path_card (floor c : Nat) (hf : 14 ≤ floor) (hc : floor ≤ c) :
     (univ.filter fun answer : HashOutput => ∃ dl, CanonicalPolicy.producerDecodeOut 0 floor answer = some dl ∧
         CanonicalPolicy.credit 0 dl.2 dl.1 = c).card =
       topWordCount (c - 2) * 2^128 + topHighWeight * topWordCount c := by
@@ -703,8 +696,7 @@ Entries below the top floor 14 never matter. -/
 def topAcceptedHistogram : List (Nat × Nat) :=
   topCounts.flatMap fun e => [(e.1 + 2, e.2 * 2 ^ 128), (e.1, e.2 * topHighW)]
 
-/-- Exact upward-rounded initial bound for the revised top-copy law at pool 72, top floor 18 (Z7: R1 law and f25ef952 L1/L2 floors). -/
-def initialBound : Nat := 366937082308633125163350058130355968859
+def initialBound : Nat := 366456120528192306738282144921825420507
 
 /-- T51 fixed sign cost (PINNED P12, measured): 4 + 112142 + 16 top family pairs + 152 + 12 = 112326 compressions. -/
 def fixedSignCost : Nat := 112326
@@ -713,51 +705,24 @@ def fixedSignCost : Nat := 112326
 def fixedBound : Nat := 616334705435489293055497825014826663607
 
 theorem initial_checked :
-    recurrenceCheck topDen topAcceptedHistogram 18 72 rowOne initialBound = true := by
+    recurrenceCheck topDen topAcceptedHistogram 14 67 rowOne initialBound = true := by
   decide +kernel
 
 theorem fixed_power_checked :
     powerUp (ceilDiv (zNum * scale) zDen) fixedSignCost ≤ fixedBound := by
   decide +kernel
 
-/-- Revised top-copy law at pool 67: a conservative legacy signing-moment bound. -/
+/-- SGV1 (pool 67, bonus 2 on LOW or HIGH-a): the signing moment 1.998920 < 1.99893 (claim 199893, the least integer claim that
+passes). -/
 theorem full_moment_checked :
-    mulUp (mulUp fixedBound ftsBound) initialBound * 100000 < 199999 * scale := by
+    mulUp (mulUp fixedBound ftsBound) initialBound * 100000 < 199893 * scale := by
   decide +kernel
 
 /-- Top tail at the 2^20 top counter window (block 256 = 2^20 / 4096), floor 14. -/
-theorem top_tail_checked : tailCheck (acceptedMass topAcceptedHistogram 18) topDen 256 = true := by
+theorem top_tail_checked : tailCheck (acceptedMass topAcceptedHistogram 14) topDen 256 = true := by
   decide +kernel
 
 theorem initialBound_ge_scale : scale ≤ initialBound := by norm_num [scale, initialBound]
-
-/-- E8 (P1) fixed sign cost: the T51 cost 112326 minus the first trial of each of the 90 lower and 72 FTS ground nodes. -/
-def fixedSignCostU16 : Nat := 112152
-
-/-- Fixed power for the E8 fixed sign cost 112152. -/
-def fixedBoundU16 : Nat := 615767836368813827408773448307090014445
-
-/-- Ground node factors `m_b` (over `2^128`, `b = 1, 2, 3, 4`): rounded-up `z p / (1 - z (1 - p))`, `p = 2^-b`,
-for the sign `z = zNum/zDen` (equal to `keygenM 3, 4, 5`). -/
-def groundM (b : Nat) : Nat :=
-  if b = 1 then 340285965984933645675468342432275971788
-  else if b = 2 then 340289565125062062546873124227847124433
-  else if b = 3 then 340296763633728263433442488925276359072
-  else 340311161564765781666276742203532247926
-
-/-- Z3: the 162 ground nodes (N7g-B, soispoke f25ef952): 64 with `b = 1`, 80 with `b = 2`, 12 with `b = 3`, 6 with
-`b = 4` (lower (4,3,2,1) × 3: 48 / 24 / 12 / 6; FTS heap 8..15: 16 / 56). -/
-def groundBound : Nat :=
-  mulUp (powerUp (groundM 1) 64) (mulUp (powerUp (groundM 2) 80) (mulUp (powerUp (groundM 3) 12) (powerUp (groundM 4) 6)))
-
-theorem fixed_power_checked_U16 :
-    powerUp (ceilDiv (zNum * scale) zDen) fixedSignCostU16 ≤ fixedBoundU16 := by
-  decide +kernel
-
-/-- Z4 (Z3 + P1' L3 bonus 3) on the revised top-copy law: pool 72, top floor 18, gate 926, R1 law, joint cost ≤ 776, lower E11 V29 + 72 FTS ground nodes: signing moment < 1.99926 (claim 199926). -/
-theorem full_moment_checked_U16 :
-    mulUp (mulUp (mulUp fixedBoundU16 groundBound) ftsBound) initialBound * 100000 < 199926 * scale := by
-  decide +kernel
 
 end ClaudeWCT.Numerics.TopZero
 
@@ -801,67 +766,7 @@ theorem envelope_ratio_le_two_of (F X : Nat) (hX : X ≤ 200000)
 /-- Full moment ≤ 2 (1.99976) for the T51 fixed sign cost 112326 (cap 777, pool 69, floor 14, d6b). -/
 theorem envelope_ratio_le_two : ((fixedBound:ℝ)/scale)*
     (((ftsBound:ℝ)/scale)*((initialBound:ℝ)/scale))≤2 :=
-  envelope_ratio_le_two_of fixedBound 199999 (by norm_num) full_moment_checked
-
-/-- Geometric retry step for a ground node with `b ∈ {1,2,3}` zero bits, at the sign `z = zNum/zDen`. -/
-theorem groundM_step_z (b : Nat) (hb1 : 1 ≤ b) (hb3 : b ≤ 4) :
-    (zNum:ℝ)/zDen * (1/2^b + (1 - 1/2^b) * ((groundM b:ℝ)/scale)) ≤ (groundM b:ℝ)/scale ∧
-      (zNum:ℝ)/zDen ≤ (groundM b:ℝ)/scale := by
-  interval_cases b <;> norm_num [groundM, zNum, zDen, scale]
-
-theorem groundM_step (b : Nat) (hb1 : 1 ≤ b) (hb3 : b ≤ 4) (z : ℝ) (hz : z ≤ (zNum:ℝ)/zDen) :
-    z * (1/2^b + (1 - 1/2^b) * ((groundM b:ℝ)/scale)) ≤ (groundM b:ℝ)/scale ∧ z ≤ (groundM b:ℝ)/scale := by
-  obtain ⟨h1, h2⟩ := groundM_step_z b hb1 hb3
-  have hq : (1:ℝ)/2^b ≤ 1 := by
-    rw [div_le_one (by positivity)]; exact one_le_pow₀ (by norm_num)
-  have hp : 0 ≤ (1:ℝ)/2^b + (1 - 1/2^b) * ((groundM b:ℝ)/scale) := by
-    have : 0 ≤ 1 - (1:ℝ)/2^b := by linarith
-    positivity
-  exact ⟨(mul_le_mul_of_nonneg_right hz hp).trans h1, hz.trans h2⟩
-
-theorem fixed_ratio_bound_U16 : ((zNum:ℝ)/zDen)^fixedSignCostU16≤(fixedBoundU16:ℝ)/scale := by
-  have hs : (0:ℝ)<scale := by norm_num [scale]
-  have hceil := ceilDiv_ratio_le (zNum*scale) zDen (by norm_num [zDen])
-  have hc : ((zNum:ℝ)/zDen)≤(ceilDiv (zNum*scale) zDen:ℝ)/scale := by
-    apply (le_div_iff₀ hs).mpr
-    simpa only [Nat.cast_mul,mul_div_assoc,div_mul_eq_mul_div] using hceil
-  have hp := powerUp_ratio_ge (ceilDiv (zNum*scale) zDen) fixedSignCostU16
-  calc
-    _ ≤ ((ceilDiv (zNum*scale) zDen:ℝ)/scale)^fixedSignCostU16 := by gcongr
-    _ ≤ _ := hp.trans (div_le_div_of_nonneg_right (by exact_mod_cast fixed_power_checked_U16) hs.le)
-
-/-- N7g (B): the ground factor with widths 64 / 80 / 12 / 6 (b = 1, 2, 3, 4). -/
-theorem groundBound_ratio_ge :
-    ((groundM 1:ℝ)/scale)^64 * (((groundM 2:ℝ)/scale)^80 * (((groundM 3:ℝ)/scale)^12 * ((groundM 4:ℝ)/scale)^6)) ≤
-      (groundBound:ℝ)/scale := by
-  unfold groundBound
-  calc
-    _ ≤ ((groundM 1:ℝ)/scale)^64 * ((powerUp (groundM 2) 80:ℝ)/scale * ((powerUp (groundM 3) 12:ℝ)/scale *
-          ((powerUp (groundM 4) 6:ℝ)/scale))) := by
-        gcongr
-        · exact powerUp_ratio_ge _ _
-        · exact powerUp_ratio_ge _ _
-        · exact powerUp_ratio_ge _ _
-    _ ≤ ((groundM 1:ℝ)/scale)^64 * ((powerUp (groundM 2) 80:ℝ)/scale *
-          ((mulUp (powerUp (groundM 3) 12) (powerUp (groundM 4) 6):ℝ)/scale)) := by
-        gcongr
-        exact mulUp_ratio_ge _ _
-    _ ≤ (powerUp (groundM 1) 64:ℝ)/scale *
-          ((mulUp (powerUp (groundM 2) 80) (mulUp (powerUp (groundM 3) 12) (powerUp (groundM 4) 6)):ℝ)/scale) := by
-        gcongr
-        · exact powerUp_ratio_ge _ _
-        · exact mulUp_ratio_ge _ _
-    _ ≤ _ := mulUp_ratio_ge _ _
-
-/-- U16b full moment ≤ 2 (1.99931): fixed `z^112236`, the 90 ground node factors, FTS and the initial bound. -/
-theorem envelope_ratio_le_two_U16 : (((fixedBoundU16:ℝ)/scale)*((groundBound:ℝ)/scale))*
-    (((ftsBound:ℝ)/scale)*((initialBound:ℝ)/scale))≤2 := by
-  have hm := mulUp_ratio_ge fixedBoundU16 groundBound
-  have he := envelope_ratio_le_two_of (mulUp fixedBoundU16 groundBound) 199926 (by norm_num)
-    full_moment_checked_U16
-  have h0 : (0:ℝ) ≤ ((ftsBound:ℝ)/scale)*((initialBound:ℝ)/scale) :=
-    mul_nonneg (div_nonneg (Nat.cast_nonneg _) (Nat.cast_nonneg _)) (div_nonneg (Nat.cast_nonneg _) (Nat.cast_nonneg _))
-  exact (mul_le_mul_of_nonneg_right hm h0).trans he
+  envelope_ratio_le_two_of fixedBound 199893 (by norm_num) full_moment_checked
 
 end ClaudeWCT.Numerics.TopZero
 end

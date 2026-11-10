@@ -8,8 +8,6 @@ import SigGolfCandidate.Merge051
 import SigGolfCandidate.Merge053
 import SigGolfCandidate.Merge054
 import SigGolfCandidate.Merge056
-set_option debug.skipKernelTC true
-set_option linter.all false
 
 -- ==== merged from ClaudeWCT_W9_T3M_Extract_Wct ====
 section
@@ -123,21 +121,14 @@ theorem wctChainInputP_block4 (step : Nat) (pa : Digest) (pb : BitVec 64) (pc v 
 theorem wctChainInput_block4' (step : Nat) (v : Digest) :
     WCT9.chainInput index coord child t step v = block4 0 (WCT9.ftsChainHeader index coord child t step) 0 v := by
   rw [← wctChainInputP_zero, wctChainInputP_block4]; rfl
-set_option debug.skipKernelTC false in
-theorem canonicalHeader_ftsChainHeaderP (step : Nat) (pb : BitVec 64) (ht : t < 6) :
+theorem canonicalHeader_ftsChainHeaderP (step : Nat) (pb : BitVec 64) :
     Extract.canonicalHeader (bytesLE 16 (WCT9.ftsChainHeaderP index coord child t step pb)) =
       Extract.canonicalHeader (bytesLE 16 (WCT9.ftsChainHeader index coord child t step)) := by
   unfold WCT9.ftsChainHeader WCT9.ftsChainHeaderP
-  have hm : (BitVec.ofNat 64 (WCT9.ftsChainLow index coord child t step)).toNat % 256 < 4 := by
-    rw [BitVec.toNat_ofNat, Nat.mod_eq_of_lt (WCT9.ftsChainLow_lt ..), WCT9.ftsChainLow_byte0]
-    omega
-  have htag : 250 ≤ (BitVec.ofNat 64 (WCT9.ftsChainLow index coord child t step)).toNat / 256 % 256 ∧
-      (BitVec.ofNat 64 (WCT9.ftsChainLow index coord child t step)).toNat / 256 % 256 < 256 := by
-    rw [BitVec.toNat_ofNat, Nat.mod_eq_of_lt (WCT9.ftsChainLow_lt ..), WCT9.ftsChainLow_tag,
-      Nat.mod_eq_of_lt (by omega : t < 8)]
-    omega
-  rw [SigGolfCandidate.T3M.Extract.canonicalHeader_fts_words _ _ hm htag,
-    SigGolfCandidate.T3M.Extract.canonicalHeader_fts_words _ _ hm htag]
+  apply SigGolfCandidate.T3M.Extract.canonicalHeader_high_irrelevant
+  rw [BitVec.toNat_ofNat, Nat.mod_eq_of_lt (lt_trans (WCT9.ftsChainLow_lt ..) (by decide)),
+    WCT9.ftsChainLow_byte0]
+  omega
 /-! Witness stack (charge 86): FTS chains 1, 3 are G chains (`value | header | padA | padC`, interior steps
 `< 3` keep the HIGH half). The chain walk is a half-aware path (`Extract.hashPathW` with `ftsChainHigh`). -/
 theorem wctChainInputPW_block4 (step : Nat) (pa : Digest) (pb : BitVec 64) (pc v : Digest) :
@@ -285,14 +276,14 @@ theorem chain_walk (d : Nat) (hd : d ≤ 4) (pa : Digest) (pb : BitVec 64) (pc v
     rw [honestInput_wctChain, ← WCT9.ftsChainInputW_padded]
     exact hhit
 /-- The SameHeader side of a chain hit (either format: header in bytes 16..32). -/
-theorem chain_sameHeader (s : Nat) (pa : Digest) (pb : BitVec 64) (pc v : Digest) (ht : t < 6) :
+theorem chain_sameHeader (s : Nat) (pa : Digest) (pb : BitVec 64) (pc v : Digest) :
     Extract.SameHeader (pad64 (wctChainInputPW index coord child t s pa pb pc v))
       (Extract.honestInput answers (.wctChain index coord child t s)) := by
   refine Extract.SameHeader.of_canonical ?_ (by rw [Extract.honestInput_length]; simp [Extract.Pos.len]) ?_
   · rw [Extract.honestInput_length, pad64_wctChainInputPW, wctChainInputPW_length]; rfl
   rw [Extract.hdrBlock_honestInput, pad64_wctChainInputPW, hdrBlock_wctChainInputPW]
   simp only [Extract.Pos.hdr]
-  exact canonicalHeader_ftsChainHeaderP index coord child t _ _ ht
+  exact canonicalHeader_ftsChainHeaderP index coord child t _ _
 theorem chain_extract (d : Nat) (hd : d ≤ 4) (pa : Digest) (pb : BitVec 64) (pc v : Digest)
     (hb : index < 2 ^ 31 ∧ coord < 9 ∧ child < 128 ∧ t < 6)
     (reaches : evalWithAnswerFn answers (wctChainP index coord child t (4 - d) d pa pb pc v) =
@@ -306,7 +297,7 @@ theorem chain_extract (d : Nat) (hd : d ≤ 4) (pa : Digest) (pb : BitVec 64) (p
   · right
     obtain ⟨hi, hc, hj, ht⟩ := hb
     exact ⟨.wctChain index coord child t (4 - d + step), _, ⟨hi, hc, hj, ht, by omega⟩, hq, hhit,
-      chain_sameHeader answers index coord child t _ pa pb pc _ ht⟩
+      chain_sameHeader answers index coord child t _ pa pb pc _⟩
 end chain
 theorem leafHash_eq_shortHash (index coord child : Nat) (ends : List Digest) :
     WCT9.leafHash index coord child ends = shortHash (Extract.wctLeafInput index coord child ends) := by
@@ -459,9 +450,7 @@ theorem hdrBlock_merkleInputH (path pads : Nat → Digest) (hpads : Nat → BitV
   unfold merkleInputH nodeInputPH
   dsimp only
   split <;> rw [pad64_block4, hdrBlock_block4W]
-set_option debug.skipKernelTC false in
-theorem canonicalHeader_withHigh_of_ne (t : BitVec 128) (hp : BitVec 64)
-    (hne : t.extractLsb' 0 64 ≠ 25984#64) :
+theorem canonicalHeader_withHigh (t : BitVec 128) (hp : BitVec 64) :
     Extract.canonicalHeader (bytesLE 16 (withHigh t hp)) = Extract.canonicalHeader (bytesLE 16 t) := by
   unfold withHigh
   split
@@ -471,24 +460,13 @@ theorem canonicalHeader_withHigh_of_ne (t : BitVec 128) (hp : BitVec 64)
       exact h
     conv_rhs => rw [ht]
     apply SigGolfCandidate.T3M.Extract.canonicalHeader_high_irrelevant
-    · rw [BitVec.extractLsb'_toNat]
-      simp only [Nat.shiftRight_zero]
-      have : t.toNat % 2 ^ 64 % 256 = t.toNat % 256 := by
-        rw [Nat.mod_mod_of_dvd _ (by norm_num)]
-      rw [show (2 : Nat) ^ 64 = 2 ^ 64 from rfl]
-      omega
-    · exact hne
+    rw [BitVec.extractLsb'_toNat]
+    simp only [Nat.shiftRight_zero]
+    have : t.toNat % 2 ^ 64 % 256 = t.toNat % 256 := by
+      rw [Nat.mod_mod_of_dvd _ (by norm_num)]
+    rw [show (2 : Nat) ^ 64 = 2 ^ 64 from rfl]
+    omega
   · rfl
-
-set_option debug.skipKernelTC false in
-theorem canonicalHeader_withHigh (tag lay tree heap : Nat) (hp : BitVec 64) :
-    Extract.canonicalHeader (bytesLE 16 (withHigh (nodeTweak tag lay tree heap) hp)) =
-      Extract.canonicalHeader (bytesLE 16 (nodeTweak tag lay tree heap)) := by
-  apply canonicalHeader_withHigh_of_ne
-  intro he
-  apply SigGolfCandidate.T3.nodeTweak_low_ne_digest tag lay tree heap
-  have h := congrArg BitVec.toNat he
-  simpa [SigGolfCandidate.T3.tweakLow, BitVec.extractLsb'_toNat] using h
 
 theorem merkle_extract (hidx : index < 2 ^ 31) (hj : j < 128) (path pads : Nat → Digest)
     (hpads : Nat → BitVec 64) (leaf : Digest)
@@ -1046,7 +1024,7 @@ theorem chain_extract (d : Nat) (hd : d ≤ 4) (pa : Digest) (pb : BitVec 64) (p
   · right
     obtain ⟨hi, hc, hj, ht⟩ := hb
     refine ⟨.wctChain index coord child t (4 - d + step), _, ⟨hi, hc, hj, ht, by omega⟩, hq, ?_,
-      WctExtract.chain_sameHeader answers index coord child t _ pa pb pc _ ht⟩
+      WctExtract.chain_sameHeader answers index coord child t _ pa pb pc _⟩
     refine ⟨hhit.1, ?_⟩
     rw [proj_wctChain]
     exact hhit.2
@@ -1115,9 +1093,7 @@ theorem node_block_extract (answers : Answers) (index coord level node : Nat)
       proj (.wctNode index coord level node)
         (answers (.inl (.inr (honestInput answers (.wctNode index coord level node)))))) :
     (left = (nodes answers index coord).getD (2*(2^(6-level)+node)) 0 ∧
-      pad = (if level=4 then (pads answers index coord ((2^(6-level)+node)/2-2)).2
-        else if level = 3 then BitVec.ofNat 128 (honestFtsNonce answers index coord (2^(6-level)+node) % 2 ^ 64)
-        else 0) ∧
+      pad = (if level=4 then (pads answers index coord ((2^(6-level)+node)/2-2)).2 else 0) ∧
       right = (nodes answers index coord).getD (2*(2^(6-level)+node)+1) 0 ∧
       hdr = Pos.hdr (.wctNode index coord level node)) ∨
     HitIn answers [.inl (.inr (block4 left hdr pad right))] := by
@@ -1181,121 +1157,24 @@ set_option maxHeartbeats 1000000
 set_option maxRecDepth 10000
 set_option backward.isDefEq.respectTransparency false
 
-/-! E8: the FTS ground search (heaps `8..15`). -/
-theorem ftsZeroBits_ground {coord heap : Nat} (h8 : 8 ≤ heap) (h16 : heap < 16) :
-    WCT9.ftsZeroBits coord heap ≠ 0 := by
-  unfold WCT9.ftsZeroBits; rw [if_pos ⟨h8, h16⟩]; split <;> omega
-theorem ftsZeroBits_ground_eq {coord heap : Nat} (h8 : 8 ≤ heap) (h16 : heap < 16) :
-    WCT9.ftsZeroBits coord heap = WCT9.ftsZeroBits coord 8 := by
-  unfold WCT9.ftsZeroBits
-  rw [if_pos (⟨h8, h16⟩ : 8 ≤ heap ∧ heap < 16), if_pos (⟨le_rfl, by decide⟩ : 8 ≤ 8 ∧ 8 < 16)]
-theorem ftsNonceCap_ground {coord heap : Nat} (h8 : 8 ≤ heap) (h16 : heap < 16) :
-    WCT9.ftsNonceCap coord heap = WCT9.ftsNonceCap coord 8 := by
-  unfold WCT9.ftsNonceCap; rw [ftsZeroBits_ground_eq h8 h16]
-theorem ftsZeroOk_ground {coord heap : Nat} (h8 : 8 ≤ heap) (h16 : heap < 16) (v : Digest) :
-    WCT9.ftsZeroOk coord heap v = WCT9.ftsZeroOk coord 8 v := by
-  unfold WCT9.ftsZeroOk; rw [ftsZeroBits_ground_eq h8 h16]
-theorem ftsNonceCap_pos (coord heap : Nat) : 0 < WCT9.ftsNonceCap coord heap := by
-  unfold WCT9.ftsNonceCap; positivity
-theorem ftsNonceCap_le (coord heap : Nat) : WCT9.ftsNonceCap coord heap ≤ 512 := by
-  unfold WCT9.ftsNonceCap WCT9.ftsZeroBits
-  split_ifs <;> norm_num
-theorem ftsNodeAt_ground {coord index heap : Nat} (h8 : 8 ≤ heap) (h16 : heap < 16) (left right : Digest) :
-    WCT9.ftsNodeAt coord index heap left right =
-      WCT9.ftsNonceSearch coord index heap left right (WCT9.ftsNonceCap coord heap - 1) 0 := by
-  unfold WCT9.ftsNodeAt; rw [if_neg (ftsZeroBits_ground h8 h16)]
-/-- The ground search returns the hash of its returned nonce. -/
-theorem eval_ftsNonceSearch_snd (answers : Answers) (coord index heap : Nat) (left right : Digest) :
-    ∀ fuel n, (evalWithAnswerFn answers (WCT9.ftsNonceSearch coord index heap left right fuel n)).2 =
-      evalWithAnswerFn answers (WCT9.ftsNodeHashN coord index heap
-        (evalWithAnswerFn answers (WCT9.ftsNonceSearch coord index heap left right fuel n)).1 left right)
-  | 0, n => by simp only [WCT9.ftsNonceSearch, evalWithAnswerFn_bind, evalWithAnswerFn_pure]
-  | fuel + 1, n => by
-      simp only [WCT9.ftsNonceSearch, evalWithAnswerFn_bind]
-      split
-      · simp only [evalWithAnswerFn_pure]
-      · exact eval_ftsNonceSearch_snd answers coord index heap left right fuel (n + 1)
-/-- The ground search returns a nonce in `[n, n + fuel]`. -/
-theorem ftsNonceSearch_fst_le (answers : Answers) (coord index heap : Nat) (left right : Digest) :
-    ∀ fuel n, n ≤ (evalWithAnswerFn answers (WCT9.ftsNonceSearch coord index heap left right fuel n)).1 ∧
-      (evalWithAnswerFn answers (WCT9.ftsNonceSearch coord index heap left right fuel n)).1 ≤ n + fuel
-  | 0, n => by simp only [WCT9.ftsNonceSearch, evalWithAnswerFn_bind, evalWithAnswerFn_pure]; omega
-  | fuel + 1, n => by
-      simp only [WCT9.ftsNonceSearch, evalWithAnswerFn_bind]
-      split
-      · simp only [evalWithAnswerFn_pure]; omega
-      · have := ftsNonceSearch_fst_le answers coord index heap left right fuel (n + 1)
-        omega
-/-- The ground search returns the first passing trial `s` (or the last one) once its values are known up to `s`. -/
-theorem eval_ftsNonceSearch_eq (answers : Answers) (coord index heap : Nat) (left right : Digest) (v : Nat → Digest)
-    (hv : ∀ k, evalWithAnswerFn answers (WCT9.ftsNodeHashN coord index heap k left right) = v k) :
-    ∀ fuel n s, n ≤ s → s ≤ n + fuel → (∀ k, n ≤ k → k < s → WCT9.ftsZeroOk coord heap (v k) = false) →
-      (WCT9.ftsZeroOk coord heap (v s) = true ∨ s = n + fuel) →
-      evalWithAnswerFn answers (WCT9.ftsNonceSearch coord index heap left right fuel n) = (s, v s) := by
-  intro fuel
-  induction fuel with
-  | zero =>
-      intro n s h1 h2 _ _
-      have : s = n := by omega
-      subst this
-      simp only [WCT9.ftsNonceSearch, evalWithAnswerFn_bind, evalWithAnswerFn_pure, hv]
-  | succ fuel ih =>
-      intro n s h1 h2 hfail hend
-      simp only [WCT9.ftsNonceSearch, evalWithAnswerFn_bind, hv]
-      by_cases hs : s = n
-      · subst hs
-        have hok : WCT9.ftsZeroOk coord heap (v s) = true := by
-          rcases hend with h' | h'
-          · exact h'
-          · omega
-        rw [if_pos hok, evalWithAnswerFn_pure]
-      · have hf : WCT9.ftsZeroOk coord heap (v n) = false := hfail n le_rfl (by omega)
-        rw [if_neg (by rw [hf]; decide)]
-        exact ih (n + 1) s (by omega) (by omega) (fun k hk1 hk2 => hfail k (by omega) hk2)
-          (by rcases hend with h' | h'
-              · exact Or.inl h'
-              · right; omega)
-/-- A ground node's value is the low-half hash of its found nonce. -/
-theorem eval_ftsNodeAt_ground (answers : Answers) {coord index heap : Nat} (h8 : 8 ≤ heap) (h16 : heap < 16)
-    (left right : Digest) :
-    (evalWithAnswerFn answers (WCT9.ftsNodeAt coord index heap left right)).2 =
-      (answers (.inl (.inr (pad64 (WCT9.wctTopInput coord index heap left
-        (BitVec.ofNat 128 ((evalWithAnswerFn answers (WCT9.ftsNodeAt coord index heap left right)).1 % 2 ^ 64))
-        right))))).extractLsb' 0 128 := by
-  rw [ftsNodeAt_ground h8 h16, eval_ftsNonceSearch_snd]
-  rfl
-
 theorem sharedNode_eq_nodeProgram (answers : Answers) (index coord level node : Nat)
-    (hb : Bounded (.wctNode index coord level node)) (h3 : level ≠ 3) (left right : Digest) :
+    (hb : Bounded (.wctNode index coord level node)) (left right : Digest) :
     SharedForest.sharedNode (first coord) coord index (2^(6-level)+node)
       (pads answers index coord) left right =
     nodeProgram coord level node (WCT9.wctTopInput coord index (2^(6-level)+node) left
       (if level=4 then (pads answers index coord ((2^(6-level)+node)/2-2)).2 else 0) right) := by
   obtain ⟨⟨hi,hc,hl,hn⟩,hu⟩ := hb
   exact sharedNode_eq_nodeProgramP index coord level node hc hl
-    (by simpa only [show 7-level-1=6-level by omega] using hn) hu (pads answers index coord) left right h3
+    (by simpa only [show 7-level-1=6-level by omega] using hn) hu (pads answers index coord) left right
 
 theorem node_eval (answers : Answers) (index coord level node : Nat)
-    (hb : Bounded (.wctNode index coord level node)) (h3 : level ≠ 3) (left right : Digest) :
+    (hb : Bounded (.wctNode index coord level node)) (left right : Digest) :
     evalWithAnswerFn answers (SharedForest.sharedNode (first coord) coord index
       (2^(6-level)+node) (pads answers index coord) left right) =
       proj (.wctNode index coord level node) (answers (.inl (.inr
         (pad64 (WCT9.wctTopInput coord index (2^(6-level)+node) left
           (if level=4 then (pads answers index coord ((2^(6-level)+node)/2-2)).2 else 0) right))))) := by
-  rw [sharedNode_eq_nodeProgram answers index coord level node hb h3, eval_nodeProgram]
-
-/-- E8: a level-3 (heap `8..15`) shared node is the ground search. -/
-theorem sharedNode_ground (f : Bool) (coord index heap : Nat) (ps : Nat → SharedForest.PairRoot)
-    (h8 : 8 ≤ heap) (h16 : heap < 16) (left right : Digest) :
-    SharedForest.sharedNode f coord index heap ps left right = WCT9.ftsNodeG coord index heap left right := by
-  unfold SharedForest.sharedNode
-  rw [if_neg (by omega), if_neg (by omega)]
-
-/-- E8: the level-3 node position projects onto the low half. -/
-theorem proj_level3 (index coord node : Nat) (y : HashOutput) :
-    proj (.wctNode index coord 3 node) y = y.extractLsb' 0 128 := by
-  have hp : ¬highNodeAt coord 3 node := by unfold highNodeAt highPosition singletonHigh; omega
-  simp only [proj, if_neg hp]
+  rw [sharedNode_eq_nodeProgram answers index coord level node hb, eval_nodeProgram]
 
 theorem node_reference (answers : Answers) (index coord level node : Nat)
     (hb : Bounded (.wctNode index coord level node)) :
@@ -1315,30 +1194,8 @@ theorem node_reference (answers : Answers) (index coord level node : Nat)
       simp only [SharedForest.heapCut, hff, Bool.false_eq_true, if_false]
       interval_cases level <;> norm_num at hn ⊢ <;> omega
   have href := hg.2.2 (2^(6-level)+node) hheap.1 hheap.2 (by omega)
-  by_cases h3 : level = 3
-  · subst h3
-    have hn8 : node < 8 := by simpa using hn
-    rw [sharedNode_ground (first coord) coord index (2^(6-3)+node) (pads answers index coord) (by norm_num)
-      (by norm_num; omega)] at href
-    unfold WCT9.ftsNodeG at href
-    rw [evalWithAnswerFn_map, eval_ftsNodeAt_ground answers (by norm_num) (by norm_num; omega)] at href
-    rw [href, proj_level3]
-    have hin : honestInput answers (.wctNode index coord 3 node) = pad64 (WCT9.wctTopInput coord index (2^(6-3)+node)
-        ((nodes answers index coord).getD (2*(2^(6-3)+node)) 0)
-        (BitVec.ofNat 128 ((evalWithAnswerFn answers (WCT9.ftsNodeAt coord index (2^(6-3)+node)
-          ((nodes answers index coord).getD (2*(2^(6-3)+node)) 0)
-          ((nodes answers index coord).getD (2*(2^(6-3)+node)+1) 0))).1 % 2^64))
-        ((nodes answers index coord).getD (2*(2^(6-3)+node)+1) 0)) := rfl
-    rw [hin]
-  rw [node_eval answers index coord level node hb h3] at href
-  rw [href]
-  have hin : honestInput answers (.wctNode index coord level node) = pad64 (WCT9.wctTopInput coord index
-      (2^(6-level)+node) ((nodes answers index coord).getD (2*(2^(6-level)+node)) 0)
-      (if level=4 then (pads answers index coord ((2^(6-level)+node)/2-2)).2 else 0)
-      ((nodes answers index coord).getD (2*(2^(6-level)+node)+1) 0)) := by
-    simp only [honestInput]
-    rw [if_neg h3]
-  rw [hin]
+  rw [node_eval answers index coord level node hb] at href
+  exact href.symm
 
 theorem leaf_reference (answers : Answers) (index coord raw : Nat)
     (hc : coord<9) (hr : raw<128) :
@@ -1442,9 +1299,7 @@ theorem nodeV3_block_extract (answers : Answers) (index : Nat) (coord : Fin 9)
         (2^(6-level)+node) left hp pad right))))) =
       (nodes answers index coord.val).getD (2^(6-level)+node) 0) :
     (left = (nodes answers index coord.val).getD (2*(2^(6-level)+node)) 0 ∧
-      pad = (if level=4 then (pads answers index coord.val ((2^(6-level)+node)/2-2)).2
-        else if level = 3 then BitVec.ofNat 128 (honestFtsNonce answers index coord.val (2^(6-level)+node) % 2 ^ 64)
-        else 0) ∧
+      pad = (if level=4 then (pads answers index coord.val ((2^(6-level)+node)/2-2)).2 else 0) ∧
       right = (nodes answers index coord.val).getD (2*(2^(6-level)+node)+1) 0 ∧
       W9Machine.V3.nodeHdr coord.val index (2^(6-level)+node) hp =
         Pos.hdr (.wctNode index coord.val level node)) ∨
@@ -2522,7 +2377,6 @@ theorem posOf_sameHeader (answers : Answers) (p : Pos) (hp : p.Bounded) (input :
   rw [hs.2]
   exact hdrKey_of_hdrBlock hp (honestInput_length answers p) (hdrBlock_honestInput answers p)
 
-set_option debug.skipKernelTC false in
 theorem posOf_padded_chain (index coord raw t step : Nat)
     (pa : Digest) (pb : BitVec 64) (pc value : Digest)
     (hb : (Pos.wctChain index coord raw t step).Bounded) :
@@ -2536,17 +2390,14 @@ theorem posOf_padded_chain (index coord raw t step : Nat)
     rw [wctChainInputP_block4, pad64_block4, hdrBlock_block4W, topLow_bytesLE_iff]
     unfold SigGolfCandidate.T3.tweakLow
     rw [ClaudeWCT.WCT9.ftsChainHeaderP_toNat]
-    have hge := ClaudeWCT.WCT9.ftsChainLow_ge (coord := coord) (by have := hb.2.1; omega) index raw t step hb.2.2.2.1
+    have hge := ClaudeWCT.WCT9.ftsChainLow_ge (coord := coord) (by have := hb.2.1; omega) index raw t step
     have hlt := ClaudeWCT.WCT9.ftsChainLow_lt index coord raw t step
-    have htag := ClaudeWCT.WCT9.ftsChainLow_tag index coord raw t step
-    rw [Nat.mul_add_mod_self_right, Nat.mod_eq_of_lt hlt]
     omega
   rw [hdrKey_of_len64 hlen hT,wctChainInputP_block4,pad64_block4,hdrBlock_block4W,
-    canonicalHeader_ftsChainHeaderP _ _ _ _ _ _ hb.2.2.2.1]
+    canonicalHeader_ftsChainHeaderP]
   simpa only [Pos.hdr] using (Pos.canonicalHeader_eq hb)
 
-/- Witness stack: the same position for the G/F FTS chain input (header in bytes `16..32` either way). -/
-set_option debug.skipKernelTC false in
+/-- Witness stack: the same position for the G/F FTS chain input (header in bytes `16..32` either way). -/
 theorem posOf_padded_chainW (index coord raw t step : Nat)
     (pa : Digest) (pb : BitVec 64) (pc value : Digest)
     (hb : (Pos.wctChain index coord raw t step).Bounded) :
@@ -2559,13 +2410,11 @@ theorem posOf_padded_chainW (index coord raw t step : Nat)
     rw [pad64_wctChainInputPW, hdrBlock_wctChainInputPW, topLow_bytesLE_iff]
     unfold SigGolfCandidate.T3.tweakLow
     rw [ClaudeWCT.WCT9.ftsChainHeaderP_toNat]
-    have hge := ClaudeWCT.WCT9.ftsChainLow_ge (coord := coord) (by have := hb.2.1; omega) index raw t step hb.2.2.2.1
+    have hge := ClaudeWCT.WCT9.ftsChainLow_ge (coord := coord) (by have := hb.2.1; omega) index raw t step
     have hlt := ClaudeWCT.WCT9.ftsChainLow_lt index coord raw t step
-    have htag := ClaudeWCT.WCT9.ftsChainLow_tag index coord raw t step
-    rw [Nat.mul_add_mod_self_right, Nat.mod_eq_of_lt hlt]
     omega
   rw [hdrKey_of_len64 hlen hT, pad64_wctChainInputPW, hdrBlock_wctChainInputPW,
-    canonicalHeader_ftsChainHeaderP _ _ _ _ _ _ hb.2.2.2.1]
+    canonicalHeader_ftsChainHeaderP]
   simpa only [Pos.hdr] using (Pos.canonicalHeader_eq hb)
 
 theorem chainV3_ftsQueries (answers : Answers) (index coord raw t start count : Nat)
@@ -4680,39 +4529,11 @@ theorem lowerNodeHash_respects (lay tree heap : Nat) (left right : Digest) :
   apply halfHash_respects
   apply short_of_le
   simp [WCT9.merkleNodeInput, zero16, bytesLE_length]
-/-! U16b: the lower ground search (`lowerNodeAt`, trials `lowerNodeHashN`) respects short agreement. -/
-theorem lowerNodeHashN_respects (lay tree heap n : Nat) (left right : Digest) :
-    ShortRespects (WCT9.lowerNodeHashN lay tree heap n left right) := by
-  unfold WCT9.lowerNodeHashN WCT9.lowerHash
-  apply halfHash_respects
-  apply short_of_le
-  simp [WCT9.lowerNodeInputN, nonceBytes, bytesLE_length]
-theorem lowerNonceSearch_respects (lay tree heap : Nat) (left right : Digest) :
-    ∀ fuel n, ShortRespects (WCT9.lowerNonceSearch lay tree heap left right fuel n)
-  | 0, n => by
-      unfold WCT9.lowerNonceSearch
-      exact ShortRespects.bind (lowerNodeHashN_respects _ _ _ _ _ _) fun _ => ShortRespects.pure' _
-  | fuel + 1, n => by
-      unfold WCT9.lowerNonceSearch
-      refine ShortRespects.bind (lowerNodeHashN_respects _ _ _ _ _ _) fun _ => ?_
-      split
-      · exact ShortRespects.pure' _
-      · exact lowerNonceSearch_respects lay tree heap left right fuel (n + 1)
-theorem lowerNodeAt_respects (lay tree heap : Nat) (left right : Digest) :
-    ShortRespects (WCT9.lowerNodeAt lay tree heap left right) := by
-  unfold WCT9.lowerNodeAt
-  split
-  · exact ShortRespects.map _ (lowerNodeHash_respects _ _ _ _ _)
-  · exact lowerNonceSearch_respects _ _ _ _ _ _ _
-theorem lowerNodeG_respects (lay tree heap : Nat) (left right : Digest) :
-    ShortRespects (WCT9.lowerNodeG lay tree heap left right) := by
-  unfold WCT9.lowerNodeG
-  exact ShortRespects.map _ (lowerNodeAt_respects _ _ _ _ _)
 theorem lowerLevels_respects (lay tree h : Nat) (leaves : List Digest) :
     ShortRespects (WCT9.lowerLevels lay tree h leaves) := by
-  unfold WCT9.lowerLevels WCT9.lowerLevel
+  unfold WCT9.lowerLevels
   exact ShortRespects.foldlM _ _ (fun level _ levels =>
-    ShortRespects.bind (ShortRespects.mapM _ _ fun i _ => lowerNodeG_respects _ _ _ _ _) fun _ =>
+    ShortRespects.bind (ShortRespects.mapM _ _ fun i _ => lowerNodeHash_respects _ _ _ _ _) fun _ =>
       ShortRespects.pure' _) _
 /-! Top-nonce layer (r3-lean-nonsec): the img-v6 top tree (nonce-searched node levels) respects short agreement. -/
 theorem topNodeHashN_respects (heap n : Nat) (left right : Digest) : ShortRespects (topNodeHashN heap n left right) := by
@@ -4783,8 +4604,6 @@ theorem honestNonce_short (lay : Layer) (tree level c : Nat) :
   · rw [wotsTree_short hAT]
     unfold topNodeAt
     exact congrArg Prod.fst (topNonceSearch_respects _ _ _ _ _ _ A T hAT)
-  · rw [wotsTree_short hAT]
-    exact congrArg Prod.fst (lowerNodeAt_respects _ _ _ _ _ A T hAT)
   · rfl
 theorem ftsLevels_short (index coord : Nat) (hc : coord < 9) :
     Extract.ftsLevels A index coord = Extract.ftsLevels T index coord := by
@@ -5562,9 +5381,8 @@ noncomputable local instance : SampleableType FullGame.FullTable := Derivation.o
 attribute [local instance] FiniteRowSplit.instSampleableTypeForallSubtypeHashInputMemFinsetHashOutput
 noncomputable local instance : SampleableType (SearchKey → HashOutput) := ClaudeWCT.W9.T3.Presampling.tableSampler
 
-/-- R6 (F1): the nonce is `rhoMod` of the private answer. -/
 def privateNonces (table : FullGame.FullTable) (message : Message) : Digest :=
-  BitVec.ofNat 128 (SigGolfCandidate.T3.rhoMod (table (.inr (.inl message))))
+  (table (.inr (.inl message))).extractLsb' 0 128
 
 theorem completed_signer_failure (adversary : ClaudeWCT.W9.T3M.Final.Paired.AdversaryP)
     (q : Nat) (hq:q≤2^127) :
@@ -5759,14 +5577,11 @@ structure WctLeafPos where
   coord : Fin 9
   child : Fin 128
   deriving DecidableEq, Fintype
-/-- An FTS node. E8: `nonce` indexes the ground trials of a level-3 (heap `8..15`) node; every other position uses
-only `nonce = 0`, and every other `(position, nonce)` is a phantom node (`wphantom`). -/
 structure WctNodeRaw where
   index : Fin (2^31)
   coord : Fin 9
   level : Fin 6
   idx : Fin 64
-  nonce : Fin 512
   deriving DecidableEq, Fintype
 def WctNodeRaw.Valid (n : WctNodeRaw) : Prop := n.idx.val < 2 ^ (7 - n.level.val - 1)
 instance instDecidablePredWctNodeRawValid : DecidablePred WctNodeRaw.Valid := fun n => by unfold WctNodeRaw.Valid; infer_instance
@@ -5786,9 +5601,9 @@ def Node.depth : Node → Nat
   | .leaf _ => 7
   | .node n => 8 + n.1.level.val * 2 ^ 18 + n.1.nonce.val
   | .wctChain p => p.2.val
-  | .wctLeaf L => 512 * (4 + 7 * L.coord.val)
-  | .wctNode n => 512 * (5 + 7 * n.1.coord.val + n.1.level.val) + n.1.nonce.val
-  | .forest _ => 512 * 70
+  | .wctLeaf L => 4 + 7 * L.coord.val
+  | .wctNode n => 5 + 7 * n.1.coord.val + n.1.level.val
+  | .forest _ => 70
 /-- Coefficient index of the FTS seed families (campaign X1, stage A): `(index, coord, j)`, `j < 54`. -/
 abbrev WctCoef := Fin (2 ^ 31) × Fin 9 × Fin 54
 /-- Hidden secrets: leaf-family coefficients (by address: an address with chain `j < famCount layer` is coefficient
@@ -5941,43 +5756,16 @@ The nodes `(position, nonce)` of a top node at children level `level < 11` are i
 and every earlier trial failed. The selected trial `sel` is the first passing one (the last one when none passes),
 and the tree value of the position is the used half of the selected trial's label. Every other position has only the
 active trial `nonce = 0`. -/
-/-- U16b: the ground zero bits of a lower heap depend only on its level (`2^k ≤ heap < 2^(k+1)`). -/
-theorem lowerZeroBits_level (lay k c : Nat) (hc : c < 2 ^ k) :
-    WCT9.lowerZeroBits lay (2 ^ k + c) = WCT9.lowerZeroBits lay (2 ^ k) := by
-  unfold WCT9.lowerZeroBits
-  rcases Nat.lt_or_ge k 5 with hk | hk
-  · interval_cases k <;> simp at hc ⊢ <;> split_ifs <;> omega
-  · have : 32 ≤ 2 ^ k := le_trans (by norm_num) (Nat.pow_le_pow_right (by norm_num) hk)
-    rw [if_pos (Or.inr (Or.inr (by omega))), if_pos (Or.inr (Or.inr this))]
-/-- Trials of position `(lay, level)`: `cap_(level+1) = 104 · 2^(level+1)` on the top tree below the root; U16b: the
-ground search cap `lowerNonceCap = 128 · 2^b` on the lower ground positions (heaps 2..15, `b = lowerZeroBits ≠ 0`);
-else 1. -/
-def trialCap (lay : Layer) (level : Nat) : Nat :=
-  if lay = 0 ∧ level < 11 then topNonceCap (level + 1)
-  else if lay ≠ 0 ∧ WCT9.lowerZeroBits lay.val (2 ^ (height lay - level - 1)) ≠ 0 then
-    WCT9.lowerNonceCap lay.val (2 ^ (height lay - level - 1))
-  else 1
+/-- Trials of position `(lay, level)`: `cap_(level+1) = 104 · 2^(level+1)` on the top tree below the root, else 1. -/
+def trialCap (lay : Layer) (level : Nat) : Nat := if lay = 0 ∧ level < 11 then topNonceCap (level + 1) else 1
 theorem trialCap_pos (lay : Layer) (level : Nat) : 0 < trialCap lay level := by
-  unfold trialCap topNonceCap WCT9.lowerNonceCap; split_ifs <;> positivity
+  unfold trialCap topNonceCap; split_ifs <;> positivity
 theorem trialCap_le (lay : Layer) (level : Nat) : trialCap lay level ≤ 212992 := by
-  unfold trialCap
-  split_ifs with h h'
-  · unfold topNonceCap topZeroBits topZeroAlloc
-    obtain ⟨-, hl⟩ := h
+  unfold trialCap topNonceCap topZeroBits topZeroAlloc
+  split_ifs with h
+  · obtain ⟨-, hl⟩ := h
     interval_cases level <;> simp
-  · unfold WCT9.lowerNonceCap WCT9.lowerZeroBits
-    split_ifs <;> norm_num
   · omega
-/-- The zero test of the trials of position `(lay, level)`: `topZeroOk (level + 1)` on the top tree, the U16b ground
-test `lowerZeroOk` of the level's heaps on the lower trees. -/
-def trialZeroOk (lay : Layer) (level : Nat) (v : Digest) : Bool :=
-  if lay = 0 then topZeroOk (level + 1) v else WCT9.lowerZeroOk lay.val (2 ^ (height lay - level - 1)) v
-theorem trialZeroOk_top (level : Nat) (v : Digest) : trialZeroOk 0 level v = topZeroOk (level + 1) v := by
-  unfold trialZeroOk; rw [if_pos rfl]
-theorem trialZeroOk_lower {lay : Layer} (h : lay ≠ 0) (level c : Nat) (hc : c < 2 ^ (height lay - level - 1))
-    (v : Digest) : trialZeroOk lay level v = WCT9.lowerZeroOk lay.val (2 ^ (height lay - level - 1) + c) v := by
-  unfold trialZeroOk WCT9.lowerZeroOk
-  rw [if_neg h, lowerZeroBits_level _ _ _ hc]
 /-- The trial `j` of the position of `n` (nonce `j % 212992`). -/
 def withNonce (n : TreeNode) (j : Nat) : TreeNode :=
   ⟨{ n.1 with nonce := ⟨j % 212992, Nat.mod_lt _ (by decide)⟩ }, n.2⟩
@@ -5991,9 +5779,9 @@ theorem withNonce_withNonce (n : TreeNode) (i j : Nat) : withNonce (withNonce n 
 theorem withNonce_self (n : TreeNode) : withNonce n n.1.nonce.val = n := by
   obtain ⟨⟨lay, tree, level, idx, nonce⟩, hv⟩ := n
   simp [withNonce, Nat.mod_eq_of_lt nonce.isLt]
-/-- Trial `j` of the position of `n` fails the zero test of its position (`trialZeroOk`). -/
+/-- Trial `j` of the position of `n` fails the zero test of height `level + 1`. -/
 def trialFails (labels : Labels) (n : TreeNode) (j : Nat) : Prop :=
-  trialZeroOk n.1.lay n.1.level.val ((Node.node n).toPos.proj (labels (.node (withNonce n j)))) = false
+  topZeroOk (n.1.level.val + 1) ((Node.node n).toPos.proj (labels (.node (withNonce n j)))) = false
 instance (labels : Labels) (n : TreeNode) (j : Nat) : Decidable (trialFails labels n j) := by
   unfold trialFails; infer_instance
 /-- Node `n` is an active trial: inside the cap, and every earlier trial of its position failed. -/
@@ -6011,55 +5799,6 @@ def phantomCode (n : TreeNode) : Nat :=
   n.1.lay.val + 4 * (n.1.level.val + 12 * (n.1.idx.val + 2048 * (n.1.nonce.val + 212992 * n.1.tree.val)))
 def phantom (n : TreeNode) : HashInput :=
   List.replicate 16 255 ++ bytesLE 16 (BitVec.ofNat 128 (phantomCode n)) ++ List.replicate 160 0
-/-! ### E8: FTS ground trials (heaps `8..15`, node level 3)
-The nodes `(position, nonce)` of a level-3 FTS position are its ground-search trials (cap `ftsNonceCap coord 8 =
-128 · 2^b ≤ 512`); every other FTS position has only the trial `nonce = 0`. A trial *fails* when the low half of its
-label misses the zero test `ftsZeroOk coord 8`; it is *active* when it is inside the cap and every earlier trial
-failed. The value of the position is the low half of its selected trial (the first passing one, the last one when
-none passes). Inactive trials are 192-byte phantoms (`wphantom`). -/
-def wTrialCap (coord level : Nat) : Nat := if level = 3 then WCT9.ftsNonceCap coord 8 else 1
-theorem wTrialCap_pos (coord level : Nat) : 0 < wTrialCap coord level := by
-  unfold wTrialCap WCT9.ftsNonceCap; split_ifs <;> positivity
-theorem wTrialCap_le (coord level : Nat) : wTrialCap coord level ≤ 512 := by
-  unfold wTrialCap WCT9.ftsNonceCap WCT9.ftsZeroBits
-  split_ifs <;> norm_num
-/-- Trial `j` of the position of `n` (nonce `j % 512`). -/
-def wWithNonce (n : WctNodePos) (j : Nat) : WctNodePos :=
-  ⟨{ n.1 with nonce := ⟨j % 512, Nat.mod_lt _ (by decide)⟩ }, n.2⟩
-theorem wWithNonce_nonce (n : WctNodePos) {j : Nat} (hj : j < 512) : (wWithNonce n j).1.nonce.val = j := by
-  simp [wWithNonce, Nat.mod_eq_of_lt hj]
-@[simp] theorem wWithNonce_index (n : WctNodePos) (j : Nat) : (wWithNonce n j).1.index = n.1.index := rfl
-@[simp] theorem wWithNonce_coord (n : WctNodePos) (j : Nat) : (wWithNonce n j).1.coord = n.1.coord := rfl
-@[simp] theorem wWithNonce_level (n : WctNodePos) (j : Nat) : (wWithNonce n j).1.level = n.1.level := rfl
-@[simp] theorem wWithNonce_idx (n : WctNodePos) (j : Nat) : (wWithNonce n j).1.idx = n.1.idx := rfl
-theorem wWithNonce_wWithNonce (n : WctNodePos) (i j : Nat) : wWithNonce (wWithNonce n i) j = wWithNonce n j := rfl
-theorem wWithNonce_self (n : WctNodePos) : wWithNonce n n.1.nonce.val = n := by
-  obtain ⟨⟨index, coord, level, idx, nonce⟩, hv⟩ := n
-  simp [wWithNonce, Nat.mod_eq_of_lt nonce.isLt]
-/-- Two FTS nodes of one position with the same nonce coincide. -/
-theorem wctNode_eq_of {n m : WctNodePos} (hb : wWithNonce n 0 = wWithNonce m 0)
-    (hk : n.1.nonce.val = m.1.nonce.val) : n = m := by
-  rw [← wWithNonce_self n, ← wWithNonce_self m, ← wWithNonce_wWithNonce n 0, ← wWithNonce_wWithNonce m 0, hb, hk]
-/-- Trial `j` of the position of `n` fails the ground zero test (on the low half of its label). -/
-def wTrialFails (labels : Labels) (n : WctNodePos) (j : Nat) : Prop :=
-  WCT9.ftsZeroOk n.1.coord.val 8 ((labels (.wctNode (wWithNonce n j))).extractLsb' 0 128) = false
-instance (labels : Labels) (n : WctNodePos) (j : Nat) : Decidable (wTrialFails labels n j) := by
-  unfold wTrialFails; infer_instance
-/-- FTS node `n` is an active trial: inside the cap, and every earlier trial of its position failed. -/
-def WActive (labels : Labels) (n : WctNodePos) : Prop :=
-  n.1.nonce.val < wTrialCap n.1.coord.val n.1.level.val ∧ ∀ j < n.1.nonce.val, wTrialFails labels n j
-instance (labels : Labels) (n : WctNodePos) : Decidable (WActive labels n) := by unfold WActive; infer_instance
-/-- The selected nonce of the position of `n`: the first passing trial, the last trial when none passes. -/
-def wSelNonce (labels : Labels) (n : WctNodePos) : Nat :=
-  ((List.range (wTrialCap n.1.coord.val n.1.level.val)).find? fun j => !decide (wTrialFails labels n j)).getD
-    (wTrialCap n.1.coord.val n.1.level.val - 1)
-/-- The selected trial of the position of `n`. -/
-def wSelNode (labels : Labels) (n : WctNodePos) : WctNodePos := wWithNonce n (wSelNonce labels n)
-/-- The 192-byte phantom cell of an inactive FTS node (first block `254`, distinct from the tree phantoms). -/
-def wPhantomCode (n : WctNodePos) : Nat :=
-  n.1.coord.val + 9 * (n.1.level.val + 6 * (n.1.idx.val + 64 * (n.1.nonce.val + 512 * n.1.index.val)))
-def wphantom (n : WctNodePos) : HashInput :=
-  List.replicate 16 254 ++ bytesLE 16 (BitVec.ofNat 128 (wPhantomCode n)) ++ List.replicate 160 0
 def treeLabel (labels : Labels) (lay : Layer) (tree : Fin (2^31)) (level c : Nat) : Digest :=
   if level = 0 then
     (match leafAt lay tree c with
@@ -6073,7 +5812,7 @@ def ftsNodeAt (index : Fin (2^31)) (coord : Fin 9) (level c : Nat) : Option WctN
   if h : level < 6 ∧ c < 2 ^ (7 - level - 1) then
     some ⟨⟨index, coord, ⟨level, h.1⟩, ⟨c, lt_of_lt_of_le h.2 (by
       calc 2 ^ (7 - level - 1) ≤ 2 ^ 6 := Nat.pow_le_pow_right (by decide) (by omega)
-        _ = 64 := by norm_num)⟩, 0⟩, h.2⟩
+        _ = 64 := by norm_num)⟩⟩, h.2⟩
   else none
 /-- FTS tree value from labels. The top values (level 6, nested FTS r1-1) are the high half of their label. -/
 def ftsLabel (labels : Labels) (index : Fin (2^31)) (coord : Fin 9) (level c : Nat) : Digest :=
@@ -6100,12 +5839,11 @@ def cell (secrets : Secrets) : Node → Labels → HashInput
   | .wctLeaf L, labels => pad64 (Extract.wctLeafInputP L.index.val L.coord.val L.child.val
       (ftsPrevLabel labels L.index L.coord).1
       (List.ofFn fun t : Fin 6 => wctEndLabel labels (L.index, L.coord, L.child, t)))
-  | .wctNode n, labels => if WActive labels n then pad64 (nodeInputP 3 (WCT9.nodeLayer n.1.coord.val) n.1.index.val
+  | .wctNode n, labels => pad64 (nodeInputP 3 (WCT9.nodeLayer n.1.coord.val) n.1.index.val
       (2 ^ (7 - n.1.level.val - 1) + n.1.idx.val)
       (ftsLabel labels n.1.index n.1.coord n.1.level.val (2 * n.1.idx.val))
-      (if n.1.level.val = 5 then (ftsPrevLabel labels n.1.index n.1.coord).2
-        else if n.1.level.val = 3 then BitVec.ofNat 128 (n.1.nonce.val % 2 ^ 64) else 0)
-      (ftsLabel labels n.1.index n.1.coord n.1.level.val (2 * n.1.idx.val + 1))) else wphantom n
+      (if n.1.level.val = 5 then (ftsPrevLabel labels n.1.index n.1.coord).2 else 0)
+      (ftsLabel labels n.1.index n.1.coord n.1.level.val (2 * n.1.idx.val + 1)))
   | .forest index, labels => pad64 (Extract.forestInput index.val
       ((List.range 9).map fun coord => (ftsLabel labels index (fin9 coord) 6 0, ftsLabel labels index (fin9 coord) 6 1)))
 def SourcePos : Extract.Pos → Prop
@@ -6142,7 +5880,6 @@ theorem toPos_bounded (node : Node) : node.toPos.Bounded := by
 /-- The position representative of a node (top-nonce layer: the trial index set to 0). -/
 def Node.base : Node → Node
   | .node n => .node (withNonce n 0)
-  | .wctNode n => .wctNode (wWithNonce n 0)
   | x => x
 theorem toPos_base (node : Node) : node.base.toPos = node.toPos := by
   cases node <;> rfl
@@ -6201,8 +5938,8 @@ theorem toPos_injective_base {left right : Node} (h : left.toPos = right.toPos) 
       rename_i m
       simp only [Extract.Pos.wctNode.injEq] at h
       obtain ⟨h1, h2, h3, h4⟩ := h
-      obtain ⟨⟨index, coord, level, idx, k⟩, hn⟩ := n
-      obtain ⟨⟨index', coord', level', idx', k'⟩, hm⟩ := m
+      obtain ⟨⟨index, coord, level, idx⟩, hn⟩ := n
+      obtain ⟨⟨index', coord', level', idx'⟩, hm⟩ := m
       simp only at h1 h2 h3 h4
       have e1 := Fin.ext h1; have e2 := Fin.ext h2; have e3 := Fin.ext h3; have e4 := Fin.ext h4
       subst e1 e2 e3 e4
@@ -6241,21 +5978,15 @@ theorem exists_toPos {p : Extract.Pos} (hp : SourcePos p) : ∃ node : Node, nod
       have hn : nd < 64 := lt_of_lt_of_le h4 (by
         calc 2 ^ (7 - level - 1) ≤ 2 ^ 6 := Nat.pow_le_pow_right (by decide) (by omega)
           _ = 64 := by norm_num)
-      exact ⟨.wctNode ⟨⟨⟨index, h1⟩, ⟨coord, h2⟩, ⟨level, h3⟩, ⟨nd, hn⟩, 0⟩, h4⟩, rfl⟩
+      exact ⟨.wctNode ⟨⟨⟨index, h1⟩, ⟨coord, h2⟩, ⟨level, h3⟩, ⟨nd, hn⟩⟩, h4⟩, rfl⟩
 theorem merkleNodeInput_length (lay tree heap : Nat) (left right : Digest) :
     (WCT9.merkleNodeInput lay tree heap left right).length = 64 := by
   simp only [WCT9.merkleNodeInput, zero16, List.length_append, List.length_replicate, bytesLE_length]
 theorem pad64_merkleNodeInput (lay tree heap : Nat) (left right : Digest) :
     pad64 (WCT9.merkleNodeInput lay tree heap left right) = WCT9.merkleNodeInput lay tree heap left right := by
   unfold pad64; rw [merkleNodeInput_length]; simp
-/-- Top-nonce layer: the cell of `node` is a phantom (an inactive tree node; E8: or an inactive FTS trial). -/
-def PhantomAt (node : Node) (labels : Labels) : Prop :=
-  (∃ n, node = .node n ∧ ¬ Active labels n) ∨ (∃ m, node = .wctNode m ∧ ¬ WActive labels m)
-/-- The phantom cell of a tree or FTS node. -/
-def phantomOf : Node → HashInput
-  | .node n => phantom n
-  | .wctNode m => wphantom m
-  | _ => []
+/-- Top-nonce layer: the cell of `node` is a phantom (an inactive tree node). -/
+def PhantomAt (node : Node) (labels : Labels) : Prop := ∃ n, node = .node n ∧ ¬ Active labels n
 theorem phantomCode_lt (n : TreeNode) : phantomCode n < 2 ^ 128 := by
   unfold phantomCode
   have := n.1.lay.isLt; have := n.1.level.isLt; have := n.1.idx.isLt; have := n.1.nonce.isLt; have := n.1.tree.isLt
@@ -6293,62 +6024,6 @@ theorem Pos.len_ne_192 (p : Extract.Pos) : p.len ≠ 192 := by
   cases p <;> simp only [Extract.Pos.len] <;> (try split_ifs) <;> omega
 theorem posOf_phantom (n : TreeNode) : Extract.posOf (phantom n) = none :=
   Extract.posOf_eq_none fun p _ hl _ => Pos.len_ne_192 p (by rw [← hl, phantom_length])
-theorem wPhantomCode_lt (n : WctNodePos) : wPhantomCode n < 2 ^ 128 := by
-  unfold wPhantomCode
-  have := n.1.coord.isLt; have := n.1.level.isLt; have := n.1.idx.isLt; have := n.1.nonce.isLt; have := n.1.index.isLt
-  have h1 : n.1.coord.val + 9 * (n.1.level.val + 6 * (n.1.idx.val + 64 * (n.1.nonce.val + 512 * n.1.index.val)))
-      < 9 * 6 * 64 * 512 * 2 ^ 31 := by nlinarith
-  calc _ < 9 * 6 * 64 * 512 * 2 ^ 31 := h1
-    _ ≤ 2 ^ 128 := by norm_num
-theorem wPhantomCode_injective : Function.Injective wPhantomCode := by
-  intro a b h
-  obtain ⟨⟨index, coord, level, idx, k⟩, ha⟩ := a
-  obtain ⟨⟨index', coord', level', idx', k'⟩, hb⟩ := b
-  unfold wPhantomCode at h
-  simp only at h
-  have := coord.isLt; have := coord'.isLt; have := level.isLt; have := level'.isLt; have := idx.isLt
-  have := idx'.isLt; have := k.isLt; have := k'.isLt
-  have e1 : coord.val = coord'.val := by omega
-  have e2 : level.val = level'.val := by omega
-  have e3 : idx.val = idx'.val := by omega
-  have e4 : k.val = k'.val := by omega
-  have e5 : index.val = index'.val := by omega
-  have f1 := Fin.ext e1; have f2 := Fin.ext e2; have f3 := Fin.ext e3; have f4 := Fin.ext e4; have f5 := Fin.ext e5
-  subst f1 f2 f3 f4 f5
-  rfl
-theorem wphantom_length (n : WctNodePos) : (wphantom n).length = 192 := by
-  simp [wphantom, bytesLE_length]
-theorem wphantom_injective : Function.Injective wphantom := by
-  intro a b h
-  unfold wphantom at h
-  have h1 := List.append_cancel_left (List.append_cancel_right h)
-  have h2 := congrArg BitVec.toNat (bytesLE_injective h1)
-  rw [BitVec.toNat_ofNat, BitVec.toNat_ofNat, Nat.mod_eq_of_lt (wPhantomCode_lt a),
-    Nat.mod_eq_of_lt (wPhantomCode_lt b)] at h2
-  exact wPhantomCode_injective h2
-theorem posOf_wphantom (n : WctNodePos) : Extract.posOf (wphantom n) = none :=
-  Extract.posOf_eq_none fun p _ hl _ => Pos.len_ne_192 p (by rw [← hl, wphantom_length])
-theorem phantom_ne_wphantom (n : TreeNode) (m : WctNodePos) : phantom n ≠ wphantom m := by
-  intro h
-  have := congrArg List.head? h
-  simp [phantom, wphantom] at this
-theorem phantomOf_length {node : Node} {labels : Labels} (h : PhantomAt node labels) :
-    (phantomOf node).length = 192 := by
-  rcases h with ⟨n, rfl, -⟩ | ⟨m, rfl, -⟩
-  · exact phantom_length n
-  · exact wphantom_length m
-theorem posOf_phantomOf {node : Node} {labels : Labels} (h : PhantomAt node labels) :
-    Extract.posOf (phantomOf node) = none := by
-  rcases h with ⟨n, rfl, -⟩ | ⟨m, rfl, -⟩
-  · exact posOf_phantom n
-  · exact posOf_wphantom m
-theorem phantomOf_inj {left right : Node} {before after : Labels} (hl : PhantomAt left before)
-    (hr : PhantomAt right after) (h : phantomOf left = phantomOf right) : left = right := by
-  rcases hl with ⟨n, rfl, -⟩ | ⟨m, rfl, -⟩ <;> rcases hr with ⟨n', rfl, -⟩ | ⟨m', rfl, -⟩
-  · exact congrArg Node.node (phantom_injective h)
-  · exact absurd h (phantom_ne_wphantom n m')
-  · exact absurd h.symm (phantom_ne_wphantom n' m)
-  · exact congrArg Node.wctNode (wphantom_injective h)
 theorem cell_node_active {secrets : Secrets} {n : TreeNode} {labels : Labels} (h : Active labels n) :
     cell secrets (.node n) labels = pad64 (WCT9.merkleNodeInputN n.1.lay.val n.1.tree.val
       (2 ^ (height n.1.lay - n.1.level.val - 1) + n.1.idx.val) n.1.nonce.val
@@ -6358,39 +6033,14 @@ theorem cell_node_active {secrets : Secrets} {n : TreeNode} {labels : Labels} (h
 theorem cell_node_inactive {secrets : Secrets} {n : TreeNode} {labels : Labels} (h : ¬ Active labels n) :
     cell secrets (.node n) labels = phantom n := by
   simp only [cell, if_neg h]
-theorem cell_wctNode_active {secrets : Secrets} {n : WctNodePos} {labels : Labels} (h : WActive labels n) :
-    cell secrets (.wctNode n) labels = pad64 (nodeInputP 3 (WCT9.nodeLayer n.1.coord.val) n.1.index.val
-      (2 ^ (7 - n.1.level.val - 1) + n.1.idx.val)
-      (ftsLabel labels n.1.index n.1.coord n.1.level.val (2 * n.1.idx.val))
-      (if n.1.level.val = 5 then (ftsPrevLabel labels n.1.index n.1.coord).2
-        else if n.1.level.val = 3 then BitVec.ofNat 128 (n.1.nonce.val % 2 ^ 64) else 0)
-      (ftsLabel labels n.1.index n.1.coord n.1.level.val (2 * n.1.idx.val + 1))) := by
-  simp only [cell, if_pos h]
-theorem cell_wctNode_inactive {secrets : Secrets} {n : WctNodePos} {labels : Labels} (h : ¬ WActive labels n) :
-    cell secrets (.wctNode n) labels = wphantom n := by
-  simp only [cell, if_neg h]
 theorem cell_of_phantomAt {secrets : Secrets} {node : Node} {labels : Labels} (h : PhantomAt node labels) :
-    cell secrets node labels = phantomOf node := by
-  rcases h with ⟨n, rfl, hn⟩ | ⟨m, rfl, hm⟩
-  · exact cell_node_inactive hn
-  · exact cell_wctNode_inactive hm
+    ∃ n, node = .node n ∧ cell secrets node labels = phantom n := by
+  obtain ⟨n, rfl, hn⟩ := h
+  exact ⟨n, rfl, cell_node_inactive hn⟩
 theorem not_phantomAt_node {n : TreeNode} {labels : Labels} (h : Active labels n) : ¬ PhantomAt (.node n) labels := by
-  rintro (⟨m, hm, hn⟩ | ⟨m, hm, -⟩)
-  · cases hm
-    exact hn h
-  · cases hm
-theorem not_phantomAt_wctNode {n : WctNodePos} {labels : Labels} (h : WActive labels n) :
-    ¬ PhantomAt (.wctNode n) labels := by
-  rintro (⟨m, hm, -⟩ | ⟨m, hm, hn⟩)
-  · cases hm
-  · cases hm
-    exact hn h
-theorem active_of_not_phantomAt {n : TreeNode} {labels : Labels} (h : ¬ PhantomAt (.node n) labels) :
-    Active labels n := by
-  by_contra ha; exact h (Or.inl ⟨n, rfl, ha⟩)
-theorem wActive_of_not_phantomAt {n : WctNodePos} {labels : Labels} (h : ¬ PhantomAt (.wctNode n) labels) :
-    WActive labels n := by
-  by_contra ha; exact h (Or.inr ⟨n, rfl, ha⟩)
+  rintro ⟨m, hm, hn⟩
+  cases hm
+  exact hn h
 /-- Every non-phantom cell has its position's honest length (length-aware decoding, C3). -/
 theorem cell_length (secrets : Secrets) (node : Node) (labels : Labels) (hp : ¬ PhantomAt node labels) :
     (cell secrets node labels).length = node.toPos.len := by
@@ -6406,7 +6056,8 @@ theorem cell_length (secrets : Secrets) (node : Node) (labels : Labels) (hp : ¬
       · rw [if_pos h0, if_pos h0, h0]; decide
       · rw [if_neg h0, if_neg h0, chainCount_lower h0]
   | node n =>
-      have ha := active_of_not_phantomAt hp
+      have ha : Active labels n := by
+        by_contra ha; exact hp ⟨n, rfl, ha⟩
       rw [cell_node_active ha]
       simp only [Node.toPos, Extract.Pos.len]
       rw [WCT9.pad64_merkleNodeInputN, WCT9.merkleNodeInputN_length]
@@ -6417,8 +6068,7 @@ theorem cell_length (secrets : Secrets) (node : Node) (labels : Labels) (hp : ¬
       rw [Cost.pad64_length, Extract.listInput_length']
       simp only [List.length_cons, List.length_drop, List.length_ofFn]
   | wctNode n =>
-      rw [cell_wctNode_active (wActive_of_not_phantomAt hp)]
-      simp only [Node.toPos, Extract.Pos.len]
+      simp only [cell, Node.toPos, Extract.Pos.len]
       rw [pad64_nodeInputP, nodeInputP, block4]
       simp only [List.length_append, bytesLE_length]
   | forest index =>
@@ -6436,7 +6086,8 @@ theorem hdrBlock_cell (secrets : Secrets) (node : Node) (labels : Labels) (hp : 
       rw [Extract.hdrBlock_leafInput]
       rfl
   | node n =>
-      have ha := active_of_not_phantomAt hp
+      have ha : Active labels n := by
+        by_contra ha; exact hp ⟨n, rfl, ha⟩
       rw [cell_node_active ha, Extract.hdrBlock_merkleNodeInputN]
       rfl
   | wctChain p =>
@@ -6448,7 +6099,8 @@ theorem hdrBlock_cell (secrets : Secrets) (node : Node) (labels : Labels) (hp : 
       rw [Extract.hdrBlock_wctLeafInputP]
       rfl
   | wctNode n =>
-      rw [cell_wctNode_active (wActive_of_not_phantomAt hp), Extract.hdrBlock_nodeInputP]
+      simp only [cell]
+      rw [Extract.hdrBlock_nodeInputP]
       rfl
   | forest index =>
       simp only [cell]
@@ -6464,52 +6116,22 @@ theorem merkleNodeInputN_nonce_inj {lay tree heap k k' : Nat} {l r l' r' : Diges
   have h1 := List.append_inj_left' h (by simp [bytesLE_length])
   have h2 := List.append_inj_right' h1 (by simp [bytesLE_length])
   exact WCT9.nonceDigest_inj hk hk' (bytesLE_injective h2)
-/-- E8: two inputs `nodeInputP` with equal pads agree on the pad slot. -/
-theorem nodeInputP_pad_eq {t l x h t' l' x' h' : Nat} {a p b a' p' b' : Digest}
-    (e : nodeInputP t l x h a p b = nodeInputP t' l' x' h' a' p' b') : p = p' := by
-  unfold nodeInputP at e
-  exact (block4_injective e).2.2.1
-/-- E8: the nonce pad of a trial determines its nonce. -/
-theorem ofNat_nonce_inj {j j' : Nat} (hj : j < 512) (hj' : j' < 512)
-    (h : BitVec.ofNat 128 (j % 2 ^ 64) = BitVec.ofNat 128 (j' % 2 ^ 64)) : j = j' := by
-  have e := congrArg BitVec.toNat h
-  have h1 : j % 2 ^ 64 = j := Nat.mod_eq_of_lt (lt_of_lt_of_le hj (by norm_num))
-  have h2 : j' % 2 ^ 64 = j' := Nat.mod_eq_of_lt (lt_of_lt_of_le hj' (by norm_num))
-  rw [BitVec.toNat_ofNat, BitVec.toNat_ofNat, h1, h2, Nat.mod_eq_of_lt (lt_of_lt_of_le hj (by norm_num)),
-    Nat.mod_eq_of_lt (lt_of_lt_of_le hj' (by norm_num))] at e
-  exact e
-/-- E8: an active trial off the ground level has nonce 0. -/
-theorem wActive_nonce_zero {labels : Labels} {n : WctNodePos} (h : WActive labels n) (h3 : n.1.level.val ≠ 3) :
-    n.1.nonce.val = 0 := by
-  have := h.1; unfold wTrialCap at this; rw [if_neg h3] at this; omega
-/-- E8: two active FTS trials of one position whose cells have equal pad slots coincide. -/
-theorem wctNode_eq_of_pad {n m : WctNodePos} {before after : Labels} (ha : WActive before n) (hb : WActive after m)
-    (hw : wWithNonce n 0 = wWithNonce m 0)
-    (hp : n.1.level.val = 3 →
-      BitVec.ofNat 128 (n.1.nonce.val % 2 ^ 64) = BitVec.ofNat 128 (m.1.nonce.val % 2 ^ 64)) : n = m := by
-  apply wctNode_eq_of hw
-  have hl : n.1.level = m.1.level := by
-    have := congrArg (fun x : WctNodePos => x.1.level) hw
-    exact this
-  by_cases h3 : n.1.level.val = 3
-  · exact ofNat_nonce_inj n.1.nonce.isLt m.1.nonce.isLt (hp h3)
-  · rw [wActive_nonce_zero ha h3, wActive_nonce_zero hb (by rw [← hl]; exact h3)]
 /-- Separation of the trial-node graph (phantoms included). -/
 theorem cell_separated (secrets : Secrets) : Separated (cell secrets) := by
   intro left right hne before after heq
   by_cases hl : PhantomAt left before
-  · have hn := cell_of_phantomAt (secrets := secrets) hl
+  · obtain ⟨n, rfl, hn⟩ := cell_of_phantomAt (secrets := secrets) hl
     by_cases hr : PhantomAt right after
-    · have hm := cell_of_phantomAt (secrets := secrets) hr
+    · obtain ⟨m, rfl, hm⟩ := cell_of_phantomAt (secrets := secrets) hr
       rw [hn, hm] at heq
-      exact hne (phantomOf_inj hl hr heq)
+      exact hne (congrArg Node.node (phantom_injective heq))
     · have h1 := cell_length secrets right after hr
-      rw [← heq, hn, phantomOf_length hl] at h1
+      rw [← heq, hn, phantom_length] at h1
       exact Pos.len_ne_192 _ h1.symm
   · by_cases hr : PhantomAt right after
-    · have hm := cell_of_phantomAt (secrets := secrets) hr
+    · obtain ⟨m, rfl, hm⟩ := cell_of_phantomAt (secrets := secrets) hr
       have h1 := cell_length secrets left before hl
-      rw [heq, hm, phantomOf_length hr] at h1
+      rw [heq, hm, phantom_length] at h1
       exact Pos.len_ne_192 _ h1.symm
     · have h1 := hdrBlock_cell secrets left before hl
       have h2 := hdrBlock_cell secrets right after hr
@@ -6523,8 +6145,8 @@ theorem cell_separated (secrets : Secrets) : Separated (cell secrets) := by
       | node n =>
           cases right with
           | node m =>
-              have ha := active_of_not_phantomAt hl
-              have hb' := active_of_not_phantomAt hr
+              have ha : Active before n := by by_contra ha; exact hl ⟨n, rfl, ha⟩
+              have hb' : Active after m := by by_contra hb'; exact hr ⟨m, rfl, hb'⟩
               rw [cell_node_active ha, cell_node_active hb'] at heq
               have hk := merkleNodeInputN_nonce_inj (lt_trans n.1.nonce.isLt (by norm_num))
                 (lt_trans m.1.nonce.isLt (by norm_num)) (by
@@ -6539,23 +6161,6 @@ theorem cell_separated (secrets : Secrets) : Separated (cell secrets) := by
                 rw [← withNonce_self n, ← withNonce_self m, ← withNonce_withNonce n 0,
                   ← withNonce_withNonce m 0, hw, hk]
               rw [hnm]
-          | _ => simp [Node.base] at hb
-      | wctNode n =>
-          cases right with
-          | wctNode m =>
-              have ha := wActive_of_not_phantomAt hl
-              have hb' := wActive_of_not_phantomAt hr
-              have hw : wWithNonce n 0 = wWithNonce m 0 := Node.wctNode.inj hb
-              have hlv : n.1.level = m.1.level := by
-                have := congrArg (fun x : WctNodePos => x.1.level) hw
-                exact this
-              rw [cell_wctNode_active ha, cell_wctNode_active hb', pad64_nodeInputP, pad64_nodeInputP] at heq
-              apply hne
-              rw [wctNode_eq_of_pad ha hb' hw (fun h3 => by
-                have hp := nodeInputP_pad_eq heq
-                rwa [if_neg (show n.1.level.val ≠ 5 by omega), if_pos h3,
-                  if_neg (show m.1.level.val ≠ 5 by rw [← hlv]; omega),
-                  if_pos (show m.1.level.val = 3 by rw [← hlv]; exact h3)] at hp)]
           | _ => simp [Node.base] at hb
       | _ =>
           cases right <;> first
@@ -6632,133 +6237,10 @@ theorem selNode_of_cap_one {labels : Labels} {n : TreeNode} (h : trialCap n.1.la
     (h0 : n.1.nonce.val = 0) : selNode labels n = n := by
   unfold selNode
   rw [selNonce_of_cap_one h, ← h0, withNonce_self]
-/-- U16b: a lower position off the ground (`lowerZeroBits = 0`) is a single-trial position. -/
-theorem trialCap_lower_off {lay : Layer} (h : lay ≠ 0) {level : Nat}
-    (hb : WCT9.lowerZeroBits lay.val (2 ^ (height lay - level - 1)) = 0) : trialCap lay level = 1 := by
-  unfold trialCap; rw [if_neg (fun h' => h h'.1), if_neg (fun h' => h'.2 hb)]
-/-- U16b: a lower ground position has the ground search cap. -/
-theorem trialCap_lowerG {lay : Layer} (h : lay ≠ 0) {level : Nat}
-    (hb : WCT9.lowerZeroBits lay.val (2 ^ (height lay - level - 1)) ≠ 0) :
-    trialCap lay level = WCT9.lowerNonceCap lay.val (2 ^ (height lay - level - 1)) := by
-  unfold trialCap; rw [if_neg (fun h' => h h'.1), if_pos ⟨h, hb⟩]
-/-- A multi-trial position is a top position below the root or a lower ground position. -/
-theorem trialCap_ne_one {lay : Layer} {level : Nat} (h : trialCap lay level ≠ 1) :
-    (lay = 0 ∧ level < 11) ∨ (lay ≠ 0 ∧ WCT9.lowerZeroBits lay.val (2 ^ (height lay - level - 1)) ≠ 0) := by
-  unfold trialCap at h
-  split_ifs at h with h1 h2
-  · exact Or.inl h1
-  · exact Or.inr h2
-  · exact absurd rfl h
+theorem trialCap_lower {lay : Layer} (h : lay ≠ 0) (level : Nat) : trialCap lay level = 1 := by
+  unfold trialCap; rw [if_neg (fun h' => h h'.1)]
 theorem trialCap_root (lay : Layer) : trialCap lay 11 = 1 := by
-  unfold trialCap
-  rw [if_neg (fun h' => by omega)]
-  by_cases h : lay = 0
-  · rw [if_neg (fun h' => h'.1 h)]
-  · have hh : height lay - 11 - 1 = 0 := by fin_cases lay <;> simp [height] at h ⊢
-    rw [hh, if_neg (fun h' => h'.2 (by simp [WCT9.lowerZeroBits]))]
-/-! E8: FTS trial selection (the FTS mirror of the tree-trial lemmas above). -/
-theorem wTrialCap_off {coord level : Nat} (h : level ≠ 3) : wTrialCap coord level = 1 := by
-  unfold wTrialCap; rw [if_neg h]
-theorem wTrialFails_congr {left right : Labels} {n : WctNodePos} {j : Nat}
-    (h : left (.wctNode (wWithNonce n j)) = right (.wctNode (wWithNonce n j))) :
-    wTrialFails left n j ↔ wTrialFails right n j := by
-  unfold wTrialFails; rw [h]
-theorem wSelNonce_congr {left right : Labels} {n : WctNodePos}
-    (h : ∀ j < wTrialCap n.1.coord.val n.1.level.val,
-      left (.wctNode (wWithNonce n j)) = right (.wctNode (wWithNonce n j))) :
-    wSelNonce left n = wSelNonce right n := by
-  unfold wSelNonce
-  congr 1
-  apply find?_congr'
-  intro j hj
-  rw [List.mem_range] at hj
-  simp only [decide_eq_decide.mpr (wTrialFails_congr (h j hj))]
-theorem wSelNonce_lt (labels : Labels) (n : WctNodePos) :
-    wSelNonce labels n < wTrialCap n.1.coord.val n.1.level.val := by
-  have hc := wTrialCap_pos n.1.coord.val n.1.level.val
-  unfold wSelNonce
-  cases hf : (List.range (wTrialCap n.1.coord.val n.1.level.val)).find? fun j => !decide (wTrialFails labels n j) with
-  | none => simp only [Option.getD_none]; omega
-  | some j =>
-      simp only [Option.getD_some]
-      exact List.mem_range.mp (List.mem_of_find?_eq_some hf)
-theorem wSelNode_congr {left right : Labels} {n : WctNodePos}
-    (h : ∀ j < wTrialCap n.1.coord.val n.1.level.val,
-      left (.wctNode (wWithNonce n j)) = right (.wctNode (wWithNonce n j))) :
-    wSelNode left n = wSelNode right n := by
-  unfold wSelNode; rw [wSelNonce_congr h]
-theorem wSelNode_label_congr {left right : Labels} {n : WctNodePos}
-    (h : ∀ j < wTrialCap n.1.coord.val n.1.level.val,
-      left (.wctNode (wWithNonce n j)) = right (.wctNode (wWithNonce n j))) :
-    left (.wctNode (wSelNode left n)) = right (.wctNode (wSelNode right n)) := by
-  rw [wSelNode_congr h]
-  exact h _ (wSelNonce_lt right n)
-theorem wSelNonce_of_cap_one {labels : Labels} {n : WctNodePos} (h : wTrialCap n.1.coord.val n.1.level.val = 1) :
-    wSelNonce labels n = 0 := by
-  have := wSelNonce_lt labels n; omega
-theorem wSelNode_of_cap_one {labels : Labels} {n : WctNodePos} (h : wTrialCap n.1.coord.val n.1.level.val = 1)
-    (h0 : n.1.nonce.val = 0) : wSelNode labels n = n := by
-  unfold wSelNode
-  rw [wSelNonce_of_cap_one h, ← h0, wWithNonce_self]
-theorem wSelNonce_withNonce (labels : Labels) (n : WctNodePos) (k : Nat) :
-    wSelNonce labels (wWithNonce n k) = wSelNonce labels n := rfl
-theorem wTrialFails_withNonce (labels : Labels) (n : WctNodePos) (k j : Nat) :
-    wTrialFails labels (wWithNonce n k) j ↔ wTrialFails labels n j := Iff.rfl
-theorem wSelNonce_spec (labels : Labels) (n : WctNodePos) :
-    (∀ j < wSelNonce labels n, wTrialFails labels n j) ∧
-      (¬ wTrialFails labels n (wSelNonce labels n) ∨
-        wSelNonce labels n = wTrialCap n.1.coord.val n.1.level.val - 1) := by
-  unfold wSelNonce
-  cases hf : (List.range (wTrialCap n.1.coord.val n.1.level.val)).find?
-      (fun j => !decide (wTrialFails labels n j)) with
-  | none =>
-      have hall : ∀ i, i < wTrialCap n.1.coord.val n.1.level.val → wTrialFails labels n i := by
-        intro i hi
-        have := List.find?_eq_none.mp hf i (List.mem_range.mpr hi)
-        simpa using this
-      have hpos := wTrialCap_pos n.1.coord.val n.1.level.val
-      refine ⟨fun j hj => hall j ?_, Or.inr rfl⟩
-      simp only [Option.getD_none] at hj
-      omega
-  | some i =>
-      rw [List.find?_range_eq_some] at hf
-      obtain ⟨hp, -, hlt⟩ := hf
-      simp only [Option.getD_some]
-      exact ⟨fun j hj => by simpa using hlt j hj, Or.inl (by simpa using hp)⟩
-/-- Every FTS trial up to the selected one is active. -/
-theorem wActive_trial_of_le {labels : Labels} {n : WctNodePos} {k : Nat} (hk : k ≤ wSelNonce labels n) :
-    WActive labels (wWithNonce n k) := by
-  have hs := wSelNonce_lt labels n
-  have hc := wTrialCap_le n.1.coord.val n.1.level.val
-  refine ⟨?_, fun j hj => ?_⟩
-  · rw [wWithNonce_nonce n (by omega)]; exact lt_of_le_of_lt hk hs
-  · rw [wWithNonce_nonce n (by omega)] at hj
-    exact (wTrialFails_withNonce labels n k j).2 ((wSelNonce_spec labels n).1 j (by omega))
-/-- A nonce-0 FTS trial is active. -/
-theorem wActive_zero (labels : Labels) (n : WctNodePos) (h0 : n.1.nonce.val = 0) : WActive labels n :=
-  ⟨by rw [h0]; exact wTrialCap_pos _ _, fun j hj => by rw [h0] at hj; omega⟩
-theorem nonce_pad_zero : BitVec.ofNat 128 (0 % 2 ^ 64) = (0 : Digest) := rfl
-theorem wActiveCongr (left right : Labels) (n : WctNodePos)
-    (h : ∀ j < n.1.nonce.val, left (.wctNode (wWithNonce n j)) = right (.wctNode (wWithNonce n j))) :
-    WActive left n ↔ WActive right n := by
-  unfold WActive
-  exact and_congr_right fun _ => forall_congr' fun j => imp_congr_right fun hj => wTrialFails_congr (h j hj)
-theorem depth_wctNode (n : WctNodePos) :
-    (Node.wctNode n).depth = 512 * (5 + 7 * n.1.coord.val + n.1.level.val) + n.1.nonce.val := rfl
-/-- An earlier FTS trial is shallower. -/
-theorem depth_wtrial_lt (n : WctNodePos) {j : Nat} (hj : j < n.1.nonce.val) :
-    (Node.wctNode (wWithNonce n j)).depth < (Node.wctNode n).depth := by
-  have hk := n.1.nonce.isLt
-  rw [depth_wctNode, depth_wctNode, wWithNonce_nonce n (by omega)]
-  simp only [wWithNonce_coord, wWithNonce_level]
-  omega
-/-- Every trial of an FTS position lies below the next level. -/
-theorem depth_wWithNonce_lt (n : WctNodePos) (j : Nat) {d : Nat}
-    (hl : 5 + 7 * n.1.coord.val + n.1.level.val + 1 ≤ d) : (Node.wctNode (wWithNonce n j)).depth < 512 * d := by
-  have hk := (wWithNonce n j).1.nonce.isLt
-  rw [depth_wctNode]
-  simp only [wWithNonce_coord, wWithNonce_level]
-  omega
+  unfold trialCap; rw [if_neg (fun h' => by omega)]
 theorem treeNodeAt_nonce {lay : Layer} {tree : Fin (2^31)} {level c : Nat} {n : TreeNode}
     (h : treeNodeAt lay tree level c = some n) : n.1.nonce.val = 0 := by
   unfold treeNodeAt at h
@@ -6796,30 +6278,25 @@ theorem ftsNodeAt_coord {index : Fin (2^31)} {coord : Fin 9} {level c : Nat} {n 
   split_ifs at h with hv
   cases h
   rfl
-theorem ftsNodeAt_nonce {index : Fin (2^31)} {coord : Fin 9} {level c : Nat} {n : WctNodePos}
-    (h : ftsNodeAt index coord level c = some n) : n.1.nonce.val = 0 := by
-  unfold ftsNodeAt at h
-  split_ifs at h with hv
-  cases h
-  rfl
 theorem ftsLabel_congr (left right : Labels) (index : Fin (2^31)) (coord : Fin 9) (level c : Nat)
-    (h : ∀ other : Node, other.depth < 512 * (5 + 7 * coord.val + level) → left other = right other) :
+    (h : ∀ other : Node, other.depth < 5 + 7 * coord.val + level → left other = right other) :
     ftsLabel left index coord level c = ftsLabel right index coord level c := by
   unfold ftsLabel
   split_ifs with hzero hc
-  · have hd : (Node.wctLeaf ⟨index, coord, ⟨c, hc⟩⟩).depth < 512 * (5 + 7 * coord.val + level) := by
-      show 512 * (4 + 7 * coord.val) < _; omega
+  · have hd : (Node.wctLeaf ⟨index, coord, ⟨c, hc⟩⟩).depth < 5 + 7 * coord.val + level := by
+      show 4 + 7 * coord.val < _; omega
     rw [h _ hd]
   · rfl
   all_goals
     cases hn : ftsNodeAt index coord (level - 1) c with
     | none => rfl
     | some n =>
-        have hd : (Node.wctNode n).depth < 512 * (5 + 7 * coord.val + level) := by
-          rw [depth_wctNode, ftsNodeAt_level hn, ftsNodeAt_coord hn, ftsNodeAt_nonce hn]; omega
+        have hd : (Node.wctNode n).depth < 5 + 7 * coord.val + level := by
+          show 5 + 7 * n.1.coord.val + n.1.level.val < _
+          rw [ftsNodeAt_level hn, ftsNodeAt_coord hn]; omega
         simp only [h _ hd]
 theorem ftsPrevLabel_congr (left right : Labels) (index : Fin (2^31)) (coord : Fin 9)
-    (h : ∀ other : Node, other.depth < 512 * (4 + 7 * coord.val) → left other = right other) :
+    (h : ∀ other : Node, other.depth < 4 + 7 * coord.val → left other = right other) :
     ftsPrevLabel left index coord = ftsPrevLabel right index coord := by
   unfold ftsPrevLabel
   split_ifs with hz
@@ -6881,20 +6358,18 @@ theorem cell_congr (secrets : Secrets) (node : Node) (left right : Labels)
         congr 1
         funext t
         unfold wctEndLabel
-        rw [h _ (by show 3 < 512 * (4 + 7 * L.coord.val); omega)]
+        rw [h _ (by show 3 < 4 + 7 * L.coord.val; omega)]
       have hpad := ftsPrevLabel_congr left right L.index L.coord
-        (fun other ho => h other (by show other.depth < 512 * (4 + 7 * L.coord.val); omega))
+        (fun other ho => h other (by show other.depth < 4 + 7 * L.coord.val; omega))
       simp only [cell, hends, hpad]
   | wctNode n =>
       have hl := ftsLabel_congr left right n.1.index n.1.coord n.1.level.val (2 * n.1.idx.val)
-        (fun other ho => h other (by rw [depth_wctNode]; omega))
+        (fun other ho => h other (by simpa only [Node.depth] using ho))
       have hr := ftsLabel_congr left right n.1.index n.1.coord n.1.level.val (2 * n.1.idx.val + 1)
-        (fun other ho => h other (by rw [depth_wctNode]; omega))
+        (fun other ho => h other (by simpa only [Node.depth] using ho))
       have hpad := ftsPrevLabel_congr left right n.1.index n.1.coord
-        (fun other ho => h other (by rw [depth_wctNode]; omega))
-      have ha : WActive left n ↔ WActive right n :=
-        wActiveCongr left right n (fun j hj => h _ (depth_wtrial_lt n hj))
-      simp only [cell, hl, hr, hpad, ha]
+        (fun other ho => h other (by show other.depth < 5 + 7 * n.1.coord.val + n.1.level.val; omega))
+      simp only [cell, hl, hr, hpad]
   | forest index =>
       have hroots : ((List.range 9).map fun coord =>
             (ftsLabel left index (fin9 coord) 6 0, ftsLabel left index (fin9 coord) 6 1)) =
@@ -6904,16 +6379,17 @@ theorem cell_congr (secrets : Secrets) (node : Node) (left right : Labels)
         intro coord _
         have hc := (fin9 coord).isLt
         rw [ftsLabel_congr left right index (fin9 coord) 6 0
-            (fun other ho => h other (show other.depth < 512 * 70 by omega)),
+            (fun other ho => h other (show other.depth < 70 by omega)),
           ftsLabel_congr left right index (fin9 coord) 6 1
-            (fun other ho => h other (show other.depth < 512 * 70 by omega))]
+            (fun other ho => h other (show other.depth < 70 by omega))]
       simp only [cell, hroots]
 theorem posOf_cell (secrets : Secrets) (node : Node) (labels : Labels) (hp : ¬ PhantomAt node labels) :
     Extract.posOf (cell secrets node labels) = some node.toPos :=
   Extract.posOf_eq (toPos_bounded node) (cell_length secrets node labels hp) (hdrBlock_cell secrets node labels hp)
 theorem posOf_cell_phantom (secrets : Secrets) (node : Node) (labels : Labels) (hp : PhantomAt node labels) :
     Extract.posOf (cell secrets node labels) = none := by
-  rw [cell_of_phantomAt (secrets := secrets) hp, posOf_phantomOf hp]
+  obtain ⟨n, -, hc⟩ := cell_of_phantomAt (secrets := secrets) hp
+  rw [hc, posOf_phantom]
 /-- A cell decoding to a position belongs to a non-phantom node of that position. -/
 theorem cell_eq_of_posOf {input : HashInput} {node node' : Node} (secrets : Secrets) (labels : Labels)
     (hpos : Extract.posOf input = some node.toPos) (h : input = cell secrets node' labels) :
@@ -6927,7 +6403,7 @@ theorem height_pos (lay : Layer) : 0 < height lay := by fin_cases lay <;> decide
 def rootNode : TreeNode :=
   ⟨⟨0, 0, ⟨height 0 - 1, by decide⟩, ⟨0, by decide⟩, 0⟩, by decide⟩
 def ftsTopNode (index : Fin (2^31)) (coord : Fin 9) (b : Fin 2) : WctNodePos :=
-  ⟨⟨index, coord, ⟨5, by decide⟩, ⟨b.val, by have := b.isLt; omega⟩, 0⟩, show b.val < 2 ^ (7 - 5 - 1) by
+  ⟨⟨index, coord, ⟨5, by decide⟩, ⟨b.val, by have := b.isLt; omega⟩⟩, show b.val < 2 ^ (7 - 5 - 1) by
     have := b.isLt; omega⟩
 theorem height_ge_two (lay : Layer) : 2 ≤ height lay := by fin_cases lay <;> decide
 def topNode (lay : Layer) (tree : Fin (2^31)) (ht : tree.val < 2 ^ treeBits lay) (b : Fin 2) : TreeNode :=
@@ -7004,10 +6480,9 @@ theorem cell_length_le (secrets : Secrets) (node : Node) (labels : Labels) :
       simp only [List.length_cons, List.length_drop, List.length_ofFn]
       omega
   | wctNode n =>
-      by_cases ha : WActive labels n
-      · rw [cell_wctNode_active ha, pad64_nodeInputP, nodeInputP, block4]
-        simp only [List.length_append, bytesLE_length]; omega
-      · rw [cell_wctNode_inactive ha, wphantom_length]; omega
+      simp only [cell]
+      rw [pad64_nodeInputP, nodeInputP, block4]
+      simp only [List.length_append, bytesLE_length]; omega
   | forest index =>
       simp only [cell, Extract.forestInput]
       rw [Cost.pad64_length, WCT9.forestInput_length _ _ (by simp)]
@@ -7534,8 +7009,7 @@ def ftsLabel (labels : Labels) (index : Fin (2^31)) (coord : Fin 9) (level physi
     else 0
   else
     match ftsNodeAt index coord (level-1) physical with
-    | some n=>Extract.Paired.proj (.wctNode index.val coord.val (level-1) physical)
-        (labels (.wctNode (wSelNode labels n)))
+    | some n=>Extract.Paired.proj (.wctNode index.val coord.val (level-1) physical) (labels (.wctNode n))
     | none=>0
 
 /-- A and C bind the preceding pair; B binds the selected A branch. -/
@@ -7550,31 +7024,12 @@ def cell (secrets : Secrets) : Node→Labels→HashInput
   | .wctLeaf L,labels=>pad64 (Extract.wctLeafInputP L.index.val L.coord.val L.child.val
       (pads labels L.index L.coord (L.child.val%2)).1
       (List.ofFn fun t:Fin 6=>wctEndLabel labels (L.index,L.coord,L.child,t)))
-  | .wctNode n,labels=>if WActive labels n then pad64 (nodeInputP 3 (WCT9.nodeLayer n.1.coord.val) n.1.index.val
+  | .wctNode n,labels=>pad64 (nodeInputP 3 (WCT9.nodeLayer n.1.coord.val) n.1.index.val
       (2^(7-n.1.level.val-1)+n.1.idx.val)
       (ftsLabel labels n.1.index n.1.coord n.1.level.val (2*n.1.idx.val))
-      (if n.1.level.val=4 then (pads labels n.1.index n.1.coord (n.1.idx.val/2)).2
-        else if n.1.level.val=3 then BitVec.ofNat 128 (n.1.nonce.val % 2 ^ 64) else 0)
-      (ftsLabel labels n.1.index n.1.coord n.1.level.val (2*n.1.idx.val+1))) else wphantom n
+      (if n.1.level.val=4 then (pads labels n.1.index n.1.coord (n.1.idx.val/2)).2 else 0)
+      (ftsLabel labels n.1.index n.1.coord n.1.level.val (2*n.1.idx.val+1)))
   | node,labels=>CanonGraph.cell secrets node labels
-
-theorem cell_wctNode_active {secrets : Secrets} {n : WctNodePos} {labels : Labels} (h : WActive labels n) :
-    cell secrets (.wctNode n) labels = pad64 (nodeInputP 3 (WCT9.nodeLayer n.1.coord.val) n.1.index.val
-      (2^(7-n.1.level.val-1)+n.1.idx.val)
-      (ftsLabel labels n.1.index n.1.coord n.1.level.val (2*n.1.idx.val))
-      (if n.1.level.val=4 then (pads labels n.1.index n.1.coord (n.1.idx.val/2)).2
-        else if n.1.level.val=3 then BitVec.ofNat 128 (n.1.nonce.val % 2 ^ 64) else 0)
-      (ftsLabel labels n.1.index n.1.coord n.1.level.val (2*n.1.idx.val+1))) := by
-  simp only [cell, if_pos h]
-theorem cell_wctNode_inactive {secrets : Secrets} {n : WctNodePos} {labels : Labels} (h : ¬ WActive labels n) :
-    cell secrets (.wctNode n) labels = wphantom n := by
-  simp only [cell, if_neg h]
-/-- The Paired cell of a phantom node is its phantom cell. -/
-theorem cell_of_phantomAt {secrets : Secrets} {node : Node} {labels : Labels} (h : PhantomAt node labels) :
-    cell secrets node labels = phantomOf node := by
-  rcases h with ⟨n, rfl, hn⟩ | ⟨m, rfl, hm⟩
-  · exact CanonGraph.cell_node_inactive (secrets := secrets) hn
-  · exact cell_wctNode_inactive hm
 
 theorem hdrBlock_cell (secrets : Secrets) (node : Node) (labels : Labels) (hp : ¬ PhantomAt node labels) :
     Extract.hdrBlock (cell secrets node labels)=bytesLE 16 node.toPos.hdr := by
@@ -7584,7 +7039,8 @@ theorem hdrBlock_cell (secrets : Secrets) (node : Node) (labels : Labels) (hp : 
     rw [Extract.hdrBlock_wctLeafInputP]
     rfl
   | wctNode n=>
-    rw [cell_wctNode_active (wActive_of_not_phantomAt hp), Extract.hdrBlock_nodeInputP]
+    simp only [cell]
+    rw [Extract.hdrBlock_nodeInputP]
     rfl
   | chain v=>exact CanonGraph.hdrBlock_cell secrets (.chain v) labels hp
   | leaf v=>exact CanonGraph.hdrBlock_cell secrets (.leaf v) labels hp
@@ -7600,8 +7056,7 @@ theorem cell_length (secrets : Secrets) (node : Node) (labels : Labels) (hp : ¬
     rw [Cost.pad64_length,Extract.listInput_length']
     simp only [List.length_cons,List.length_drop,List.length_ofFn]
   | wctNode n=>
-    rw [cell_wctNode_active (wActive_of_not_phantomAt hp)]
-    simp only [Node.toPos,Extract.Pos.len]
+    simp only [cell,Node.toPos,Extract.Pos.len]
     rw [pad64_nodeInputP,nodeInputP,block4]
     simp only [List.length_append,bytesLE_length]
   | chain v=>exact CanonGraph.cell_length secrets (.chain v) labels hp
@@ -7618,18 +7073,17 @@ theorem cell_separated (secrets : Secrets) : Separated (cell secrets) := by
   -- A tree node with the same cell: both are tree nodes (phantoms only collide with phantoms; a non-phantom
   -- tree-node cell decodes to a tree position). Reduce to the base separation there.
   by_cases hl : PhantomAt left before
-  · have hn := cell_of_phantomAt (secrets := secrets) hl
+  · obtain ⟨n, rfl, hn⟩ := cell_of_phantomAt (secrets := secrets) hl
     by_cases hr : PhantomAt right after
-    · have hm := cell_of_phantomAt (secrets := secrets) hr
-      rw [hn, hm] at heq
-      exact hne (phantomOf_inj hl hr heq)
+    · obtain ⟨m, rfl, hm⟩ := cell_of_phantomAt (secrets := secrets) hr
+      exact CanonGraph.cell_separated secrets _ _ hne before after heq
     · have h1 := cell_length secrets right after hr
-      rw [← heq, hn, phantomOf_length hl] at h1
+      rw [← heq, cell_node, hn, phantom_length] at h1
       exact Pos.len_ne_192 _ h1.symm
   · by_cases hr : PhantomAt right after
-    · have hm := cell_of_phantomAt (secrets := secrets) hr
+    · obtain ⟨m, rfl, hm⟩ := cell_of_phantomAt (secrets := secrets) hr
       have h1 := cell_length secrets left before hl
-      rw [heq, hm, phantomOf_length hr] at h1
+      rw [heq, cell_node, hm, phantom_length] at h1
       exact Pos.len_ne_192 _ h1.symm
     · have h1 := hdrBlock_cell secrets left before hl
       have h2 := hdrBlock_cell secrets right after hr
@@ -7644,30 +7098,13 @@ theorem cell_separated (secrets : Secrets) : Separated (cell secrets) := by
           cases right with
           | node m => exact CanonGraph.cell_separated secrets _ _ hne before after heq
           | _ => simp [Node.base] at hb
-      | wctNode n =>
-          cases right with
-          | wctNode m =>
-              have ha := wActive_of_not_phantomAt hl
-              have hb' := wActive_of_not_phantomAt hr
-              have hw : wWithNonce n 0 = wWithNonce m 0 := Node.wctNode.inj hb
-              have hlv : n.1.level = m.1.level := by
-                have := congrArg (fun x : WctNodePos => x.1.level) hw
-                exact this
-              rw [cell_wctNode_active ha, cell_wctNode_active hb', pad64_nodeInputP, pad64_nodeInputP] at heq
-              apply hne
-              rw [wctNode_eq_of_pad ha hb' hw (fun h3 => by
-                have hp := nodeInputP_pad_eq heq
-                rwa [if_neg (show n.1.level.val ≠ 4 by omega), if_pos h3,
-                  if_neg (show m.1.level.val ≠ 4 by rw [← hlv]; omega),
-                  if_pos (show m.1.level.val = 3 by rw [← hlv]; exact h3)] at hp)]
-          | _ => simp [Node.base] at hb
       | _ =>
           cases right <;> first
             | exact hne hb
             | (simp [Node.base] at hb)
 
 theorem ftsLabel_congr (left right : Labels) (index : Fin (2^31)) (coord : Fin 9) (level c : Nat)
-    (h : ∀other:Node,other.depth<512*(5+7*coord.val+level)→left other=right other) :
+    (h : ∀other:Node,other.depth<5+7*coord.val+level→left other=right other) :
     ftsLabel left index coord level c=ftsLabel right index coord level c := by
   unfold ftsLabel
   split_ifs with hzero hc
@@ -7677,13 +7114,14 @@ theorem ftsLabel_congr (left right : Labels) (index : Fin (2^31)) (coord : Fin 9
     cases hn:ftsNodeAt index coord (level-1) c with
     | none=>rfl
     | some n=>
-      have hd : ∀ j < wTrialCap n.1.coord.val n.1.level.val,
-          left (.wctNode (wWithNonce n j)) = right (.wctNode (wWithNonce n j)) := fun j _ =>
-        h _ (depth_wWithNonce_lt n j (by rw [ftsNodeAt_level hn,ftsNodeAt_coord hn]; omega))
-      simp only [wSelNode_label_congr hd]
+      have hd:(Node.wctNode n).depth<5+7*coord.val+level := by
+        show 5+7*n.1.coord.val+n.1.level.val<_
+        rw [ftsNodeAt_level hn,ftsNodeAt_coord hn]
+        omega
+      simp only [h _ hd]
 
 theorem pads_congr (left right : Labels) (index : Fin (2^31)) (coord : Fin 9) (branch : Nat)
-    (h : ∀other:Node,other.depth<512*(4+7*coord.val)→left other=right other) :
+    (h : ∀other:Node,other.depth<4+7*coord.val→left other=right other) :
     pads left index coord branch=pads right index coord branch := by
   unfold pads
   split_ifs with hz hodd
@@ -7703,20 +7141,18 @@ theorem cell_congr (secrets : Secrets) (node : Node) (left right : Labels)
       congr 1
       funext t
       unfold wctEndLabel
-      rw [h _ (by show 3<512*(4+7*L.coord.val);omega)]
+      rw [h _ (by show 3<4+7*L.coord.val;omega)]
     have hpad:=pads_congr left right L.index L.coord (L.child.val%2)
       (fun other ho=>h other ho)
     simp only [cell,hends,hpad]
   | wctNode n=>
     have hl:=ftsLabel_congr left right n.1.index n.1.coord n.1.level.val (2*n.1.idx.val)
-      (fun other ho=>h other (by rw [depth_wctNode]; omega))
+      (fun other ho=>h other ho)
     have hr:=ftsLabel_congr left right n.1.index n.1.coord n.1.level.val (2*n.1.idx.val+1)
-      (fun other ho=>h other (by rw [depth_wctNode]; omega))
+      (fun other ho=>h other ho)
     have hpad:=pads_congr left right n.1.index n.1.coord (n.1.idx.val/2)
-      (fun other ho=>h other (by rw [depth_wctNode]; omega))
-    have ha : WActive left n ↔ WActive right n :=
-      wActiveCongr left right n (fun j hj => h _ (depth_wtrial_lt n hj))
-    simp only [cell,hl,hr,hpad,ha]
+      (fun other ho=>h other (by show other.depth<5+7*n.1.coord.val+n.1.level.val;omega))
+    simp only [cell,hl,hr,hpad]
   | _=>exact CanonGraph.cell_congr secrets _ left right h
 
 /-- Every paired cell has its position's honest length (length-aware decoding, C3). -/
@@ -7729,7 +7165,8 @@ theorem cell_eq_of_posOf {input : HashInput} {node node' : Node} (secrets : Secr
     node'.toPos = node.toPos ∧ ¬ PhantomAt node' labels := by
   subst h
   by_cases hp : PhantomAt node' labels
-  · rw [cell_of_phantomAt (secrets := secrets) hp, posOf_phantomOf hp] at hpos; cases hpos
+  · obtain ⟨n, rfl, hc⟩ := cell_of_phantomAt (secrets := secrets) hp
+    rw [cell_node, hc, posOf_phantom] at hpos; cases hpos
   · rw [posOf_cell secrets node' labels hp] at hpos
     exact ⟨Option.some.inj hpos, hp⟩
 
@@ -7745,11 +7182,10 @@ theorem cell_length_le (secrets : Secrets) (node : Node) (labels : Labels) :
     simp only [List.length_cons,List.length_drop,List.length_ofFn]
     omega
   | wctNode n=>
-    by_cases ha : WActive labels n
-    · rw [cell_wctNode_active ha,pad64_nodeInputP,nodeInputP,block4]
-      simp only [List.length_append,bytesLE_length]
-      omega
-    · rw [cell_wctNode_inactive ha, wphantom_length]; omega
+    simp only [cell]
+    rw [pad64_nodeInputP,nodeInputP,block4]
+    simp only [List.length_append,bytesLE_length]
+    omega
   | chain v=>exact CanonGraph.cell_length_le secrets (.chain v) labels
   | leaf v=>exact CanonGraph.cell_length_le secrets (.leaf v) labels
   | node v=>exact CanonGraph.cell_length_le secrets (.node v) labels
@@ -7932,7 +7368,7 @@ theorem treeLabel_congr (left right : Labels) (lay : Layer) (tree : Fin (2^31)) 
 
 theorem ftsLabel_congr (left right : Labels) (index : Fin (2^31)) (coord : Fin 9) (level c : Nat)
     (hl : first coord.val → level ≤ 5)
-    (h : ∀ other : Node, Used other → other.depth < 512 * (5 + 7 * coord.val + level) → left other = right other) :
+    (h : ∀ other : Node, Used other → other.depth < 5 + 7 * coord.val + level → left other = right other) :
     Paired.ftsLabel left index coord level c = Paired.ftsLabel right index coord level c := by
   unfold Paired.ftsLabel
   split_ifs with hzero hc
@@ -7942,20 +7378,20 @@ theorem ftsLabel_congr (left right : Labels) (index : Fin (2^31)) (coord : Fin 9
     cases hn : ftsNodeAt index coord (level-1) c with
     | none => rfl
     | some n =>
-      have hu : ∀ j, Used (.wctNode (wWithNonce n j)) := by
-        intro j
+      have hu : Used (.wctNode n) := by
         change first n.1.coord.val → n.1.level.val < 5
         rw [ftsNodeAt_level hn, ftsNodeAt_coord hn]
         intro hf
         have := hl hf
         omega
-      have hd : ∀ j < wTrialCap n.1.coord.val n.1.level.val,
-          left (.wctNode (wWithNonce n j)) = right (.wctNode (wWithNonce n j)) := fun j _ =>
-        h _ (hu j) (depth_wWithNonce_lt n j (by rw [ftsNodeAt_level hn,ftsNodeAt_coord hn]; omega))
-      simp only [wSelNode_label_congr hd]
+      have hd : (Node.wctNode n).depth < 5+7*coord.val+level := by
+        simp only [Node.depth]
+        rw [ftsNodeAt_level hn,ftsNodeAt_coord hn]
+        omega
+      simp only [h _ hu hd]
 
 theorem pads_congr (left right : Labels) (index : Fin (2^31)) (coord : Fin 9) (branch : Nat)
-    (h : ∀other : Node, Used other → other.depth<512*(4+7*coord.val) → left other=right other) :
+    (h : ∀other : Node, Used other → other.depth<4+7*coord.val → left other=right other) :
     Paired.pads left index coord branch = Paired.pads right index coord branch := by
   unfold Paired.pads
   split_ifs with hz hodd
@@ -8022,26 +7458,19 @@ theorem cell_congr_nonforest (secrets : Secrets) (node : Node)
         congr 1
         funext t
         unfold wctEndLabel
-        rw [h (.wctChain ((L.index,L.coord,L.child,t),3)) trivial (by show 3<512*(4+7*L.coord.val); omega)]
+        rw [h (.wctChain ((L.index,L.coord,L.child,t),3)) trivial (by show 3<4+7*L.coord.val; omega)]
       have hpad := pads_congr left right L.index L.coord (L.child.val%2)
         (fun other ho hd => h other ho hd)
       simp only [Paired.cell,hends,hpad]
   | wctNode n =>
       have hh : first n.1.coord.val → n.1.level.val ≤ 5 := fun _ => Nat.le_of_lt_succ n.1.level.isLt
       have hl := ftsLabel_congr left right n.1.index n.1.coord n.1.level.val (2*n.1.idx.val) hh
-        (fun other ho hd => h other ho (by rw [depth_wctNode]; omega))
+        (fun other ho hd => h other ho hd)
       have hr := ftsLabel_congr left right n.1.index n.1.coord n.1.level.val (2*n.1.idx.val+1) hh
-        (fun other ho hd => h other ho (by rw [depth_wctNode]; omega))
+        (fun other ho hd => h other ho hd)
       have hpad := pads_congr left right n.1.index n.1.coord (n.1.idx.val/2)
-        (fun other ho hd => h other ho (by rw [depth_wctNode]; omega))
-      have ha : WActive left n ↔ WActive right n := by
-        by_cases hu : Used (.wctNode n)
-        · exact wActiveCongr left right n (fun j hj => h _ hu (depth_wtrial_lt n hj))
-        · have h3 : n.1.level.val ≠ 3 := fun h3 => hu (fun _ => by rw [h3]; decide)
-          unfold WActive
-          rw [wTrialCap_off h3]
-          exact ⟨fun hx => ⟨hx.1, fun j hj => by omega⟩, fun hx => ⟨hx.1, fun j hj => by omega⟩⟩
-      simp only [Paired.cell,hl,hr,hpad,ha]
+        (fun other ho hd => h other ho (by change other.depth<5+7*n.1.coord.val+n.1.level.val; omega))
+      simp only [Paired.cell,hl,hr,hpad]
   | forest i => exact (hnf i rfl).elim
 
 theorem cell_congr (secrets : Secrets) (node : Node) (hu : Used node) (left right : Labels)
@@ -8363,91 +7792,6 @@ theorem eval_topNonceSearch_eq (answers : Answers) (h heap : Nat) (left right : 
               · exact Or.inl h'
               · right; omega)
 
-/-- U16b: the lower ground search returns the first passing trial `s` (or the last one) once its values are known up
-to `s`. -/
-theorem eval_lowerNonceSearch_eq (answers : Answers) (lay tree heap : Nat) (left right : Digest) (v : Nat → Digest)
-    (hv : ∀ k, evalWithAnswerFn answers (WCT9.lowerNodeHashN lay tree heap k left right) = v k) :
-    ∀ fuel n s, n ≤ s → s ≤ n + fuel → (∀ k, n ≤ k → k < s → WCT9.lowerZeroOk lay heap (v k) = false) →
-      (WCT9.lowerZeroOk lay heap (v s) = true ∨ s = n + fuel) →
-      evalWithAnswerFn answers (WCT9.lowerNonceSearch lay tree heap left right fuel n) = (s, v s) := by
-  intro fuel
-  induction fuel with
-  | zero =>
-      intro n s h1 h2 _ _
-      have : s = n := by omega
-      subst this
-      simp only [WCT9.lowerNonceSearch, evalWithAnswerFn_bind, evalWithAnswerFn_pure, hv]
-  | succ fuel ih =>
-      intro n s h1 h2 hfail hend
-      simp only [WCT9.lowerNonceSearch, evalWithAnswerFn_bind, hv]
-      by_cases hs : s = n
-      · subst hs
-        have hok : WCT9.lowerZeroOk lay heap (v s) = true := by
-          rcases hend with h' | h'
-          · exact h'
-          · omega
-        rw [if_pos hok, evalWithAnswerFn_pure]
-      · have hf : WCT9.lowerZeroOk lay heap (v n) = false := hfail n le_rfl (by omega)
-        rw [if_neg (by rw [hf]; decide)]
-        exact ih (n + 1) s (by omega) (by omega) (fun k hk1 hk2 => hfail k (by omega) hk2)
-          (by rcases hend with h' | h'
-              · exact Or.inl h'
-              · right; omega)
-
-/-- U16b, lower branch of `tree_step`: once the trial values up to the selected one are the trial labels, the honest
-lower nonce (`lowerNodeAt`) is the selected trial. -/
-theorem honestNonce_lower_sel {answers : Answers} {labels : Labels} {lay : Layer} (hlay0 : lay ≠ 0)
-    (tree : Fin (2^31)) (level c : Nat) (n : TreeNode) (hlay : n.1.lay = lay) (hlev : n.1.level.val = level)
-    (hc : c < 2 ^ (height lay - level - 1)) (hroot : level + 1 < height lay) (L R : Digest)
-    (hl : treeValue (WCT9.wotsTree answers lay tree.val) level (2 * c) = L)
-    (hr : treeValue (WCT9.wotsTree answers lay tree.val) level (2 * c + 1) = R)
-    (htrial : ∀ k ≤ selNonce labels n,
-      evalWithAnswerFn answers (WCT9.halfHash (WCT9.lowerHigh lay.val (2 ^ (height lay - level - 1) + c))
-        (WCT9.merkleNodeInputN lay.val tree.val (2 ^ (height lay - level - 1) + c) k L R)) =
-        (Node.node n).toPos.proj (labels (.node (withNonce n k)))) :
-    WCT9.honestNonce answers lay tree.val level c = selNonce labels n := by
-  unfold WCT9.honestNonce
-  rw [if_neg (fun h' => hlay0 h'.1), if_pos ⟨hlay0, hroot⟩, hl, hr]
-  by_cases hb : WCT9.lowerZeroBits lay.val (2 ^ (height lay - level - 1)) = 0
-  · have hcap1 : trialCap n.1.lay n.1.level.val = 1 := by rw [hlay, hlev]; exact trialCap_lower_off hlay0 hb
-    have := selNonce_lt labels n
-    rw [WCT9.lowerNodeAt_of_zero (by rw [lowerZeroBits_level _ _ _ hc]; exact hb)]
-    simp only [evalWithAnswerFn_map]
-    omega
-  · have hcapeq : trialCap n.1.lay n.1.level.val = WCT9.lowerNonceCap lay.val (2 ^ (height lay - level - 1) + c) := by
-      rw [hlay, hlev, trialCap_lowerG hlay0 hb]
-      unfold WCT9.lowerNonceCap; rw [lowerZeroBits_level _ _ _ hc]
-    have hb' : WCT9.lowerZeroBits lay.val (2 ^ (height lay - level - 1) + c) ≠ 0 := by
-      rw [lowerZeroBits_level _ _ _ hc]; exact hb
-    unfold WCT9.lowerNodeAt
-    rw [if_neg hb']
-    have hspec := selNonce_spec labels n
-    have hslt := selNonce_lt labels n
-    rw [hcapeq] at hspec hslt
-    have hpos : 0 < WCT9.lowerNonceCap lay.val (2 ^ (height lay - level - 1) + c) := by
-      unfold WCT9.lowerNonceCap; positivity
-    have hvals : ∀ k ≤ selNonce labels n, evalWithAnswerFn answers
-        (WCT9.lowerNodeHashN lay.val tree.val (2 ^ (height lay - level - 1) + c) k L R) =
-          (Node.node n).toPos.proj (labels (.node (withNonce n k))) := fun k hk => htrial k hk
-    have hz : ∀ k, trialFails labels n k ↔ WCT9.lowerZeroOk lay.val (2 ^ (height lay - level - 1) + c)
-        ((Node.node n).toPos.proj (labels (.node (withNonce n k)))) = false := by
-      intro k
-      unfold trialFails
-      rw [hlay, hlev, trialZeroOk_lower hlay0 level c hc]
-    have hres := eval_lowerNonceSearch_eq answers lay.val tree.val (2 ^ (height lay - level - 1) + c) L R
-      (fun k => evalWithAnswerFn answers (WCT9.lowerNodeHashN lay.val tree.val (2 ^ (height lay - level - 1) + c) k L R))
-      (fun _ => rfl) (WCT9.lowerNonceCap lay.val (2 ^ (height lay - level - 1) + c) - 1) 0 (selNonce labels n)
-      (Nat.zero_le _) (by omega)
-      (fun k _ hk => by rw [hvals k (by omega)]; exact (hz k).1 (hspec.1 k hk))
-      (by
-        rcases hspec.2 with h' | h'
-        · left
-          rw [hvals _ le_rfl]
-          have := mt (hz _).2 h'
-          simpa using this
-        · right; omega)
-    exact congrArg Prod.fst hres
-
 /-- Agreement on tree nodes (implied by `Agrees`, `Paired.Agrees` and `Filtered.Agrees`). -/
 def NodeAgrees (answers : Answers) (labels : Labels) : Prop :=
   ∀ m : TreeNode, answers (.inl (.inr (cell (secretsOf answers) (.node m) labels))) = labels (.node m)
@@ -8531,37 +7875,22 @@ theorem tree_step {answers : Answers} {labels : Labels} (hag : NodeAgrees answer
           rw [hvals k (by omega)]
           have := hspec.1 k hk
           unfold trialFails at this
-          rw [hlay, hlev, h0, trialZeroOk_top] at this
+          rw [hlev] at this
           exact this)
         (by
           rcases hspec.2 with h' | h'
           · left
             rw [hvals _ le_rfl]
             unfold trialFails at h'
-            rw [hlay, hlev, h0, trialZeroOk_top] at h'
+            rw [hlev] at h'
             simpa using h'
           · right; omega)
       exact congrArg Prod.fst hres
-    · by_cases hlow : lay ≠ 0 ∧ level + 1 < height lay
-      · exact honestNonce_lower_sel hlow.1 tree level c n hlay hlev hv.2 hlow.2 L R hl hr
-          (fun k hk => htrial k hk)
-      · have hcap1 : trialCap n.1.lay n.1.level.val = 1 := by
-          unfold trialCap
-          rw [hlay, hlev, if_neg htop]
-          split_ifs with h2
-          · exfalso
-            have hh : height lay - level - 1 = 0 := by
-              by_cases hl0 : lay = 0
-              · exact absurd hl0 h2.1
-              · have : ¬ (level + 1 < height lay) := fun h' => hlow ⟨hl0, h'⟩
-                have := hv.1
-                omega
-            rw [hh] at h2
-            exact h2.2 (by simp [WCT9.lowerZeroBits])
-          · rfl
-        rw [selNonce_of_cap_one hcap1]
-        unfold WCT9.honestNonce
-        rw [if_neg htop, if_neg hlow]
+    · have hcap1 : trialCap n.1.lay n.1.level.val = 1 := by
+        unfold trialCap; rw [hlay, hlev, if_neg htop]
+      rw [selNonce_of_cap_one hcap1]
+      unfold WCT9.honestNonce
+      rw [if_neg htop]
   refine ⟨hsel, ?_⟩
   rw [WCT9.wotsTree_node_any answers lay tree.val level c hv.1 hv.2, hsel, hl, hr]
   exact htrial _ le_rfl
@@ -8573,7 +7902,7 @@ def Node.sel (labels : Labels) : Node → Node
   | .node n => .node (selNode labels n)
   | .wctChain p => .wctChain p
   | .wctLeaf L => .wctLeaf L
-  | .wctNode n => .wctNode (wSelNode labels n)
+  | .wctNode n => .wctNode n
   | .forest i => .forest i
 theorem toPos_sel (labels : Labels) (node : Node) : (node.sel labels).toPos = node.toPos := by
   cases node <;> rfl
@@ -8584,13 +7913,6 @@ theorem treeNodeAt_of_node (n : TreeNode) :
       n.1.tree.val < 2 ^ treeBits n.1.lay ∧ (n.1.lay = 0 ∨ n.1.level.val + 1 < height n.1.lay) := n.2
   unfold treeNodeAt
   rw [dif_pos hv]
-  rfl
-
-/-- E8: the FTS position of a node (nonce-0 representative). -/
-theorem ftsNodeAt_of_node (n : WctNodePos) :
-    ftsNodeAt n.1.index n.1.coord n.1.level.val n.1.idx.val = some (wWithNonce n 0) := by
-  unfold ftsNodeAt
-  rw [dif_pos ⟨n.1.level.isLt, n.2⟩]
   rfl
 
 theorem selNonce_withNonce (labels : Labels) (n : TreeNode) (k : Nat) :
@@ -8899,12 +8221,10 @@ theorem ftsTree_eqP (h : Agrees answers labels) (index : Fin (2^31)) (coord : Fi
             (ftsLabel labels index coord level (2 * c))
             (if level = 5 then (ftsPrevLabel labels index coord).2 else 0)
             (ftsLabel labels index coord level (2 * c + 1))) := by
-        rw [cell_wctNode_active (wActive_zero labels n (ftsNodeAt_nonce hn)), ftsNodeAt_nonce hn, nonce_pad_zero,
-          ite_self]
-        obtain ⟨⟨nindex, ncoord, nlevel, nidx, nk⟩, hv⟩ := n
+        obtain ⟨⟨nindex, ncoord, nlevel, nidx⟩, hv⟩ := n
         simp only at hindex hcoord hlev hidx
         subst hindex hcoord
-        dsimp only
+        simp only [cell]
         rw [hlev, hidx]
       rw [hrhs, WCT9.heapLevels_value X (level + 1) c (by omega) hc, hsub]
       have hl := WCT9.heapLevels_value X level (2 * c) (by omega) (by omega)
@@ -8969,8 +8289,49 @@ theorem ftsPairs_eq (h : Agrees answers labels) (index : Fin (2^31)) :
 theorem honestTop_eq (h : Agrees answers labels) (index : Fin (2^31)) :
     Extract.honestTop answers index.val = (ftsLabel labels index 8 6 0, ftsLabel labels index 8 6 1) :=
   ftsPair_eq h index 8
--- E8: the legacy (unpaired) `honestInput_eq`/`honest_answer` are dropped: a selected FTS ground trial is not the
--- legacy (zero-pad) input. The paired forms (`Paired.honestInput_eq`) are the ones used downstream.
+theorem honestInput_eq (h : Agrees answers labels) (node : Node) :
+    Extract.honestInput answers node.toPos = cell (secretsOf answers) (node.sel labels) labels := by
+  cases node with
+  | chain p =>
+      simp only [Node.sel, Node.toPos, Extract.honestInput]
+      change pad64 (rowW p (Wots.honestChainValueW answers _ _ _ _ (WCT9.wotsSeed answers _ _ _ _) _)) =
+        rowW p (priorW _ p _)
+      rw [chainValue_eq h p.1 p.2.val (by have := p.2.isLt; omega), rowW_pad64, priorW_eq_valueW]
+  | leaf L =>
+      simp only [Node.sel, Node.toPos, Extract.honestInput, cell]
+      rw [leafEnds_eq h L.1]
+  | node n =>
+      have hv1 : n.1.level.val < height n.1.lay := n.2.1
+      have hv2 : n.1.idx.val < 2 ^ (height n.1.lay - n.1.level.val - 1) := n.2.2.1
+      have hv3 : n.1.tree.val < 2 ^ treeBits n.1.lay := n.2.2.2.1
+      have hpow : 2 ^ (height n.1.lay - n.1.level.val) = 2 * 2 ^ (height n.1.lay - n.1.level.val - 1) := by
+        rw [← pow_succ']; congr 1; omega
+      exact honestInput_node_sel (fun m => h (.node m)) n
+        (builtTree_eq h _ _ _ _ (by omega) (by omega) hv3 (by omega))
+        (builtTree_eq h _ _ _ _ (by omega) (by omega) hv3 (by omega))
+  | wctChain p =>
+      simp only [Node.sel, Node.toPos, Extract.honestInput, cell]
+      rw [wctValue_eq h p.1 p.2.val (by have := p.2.isLt; omega), WCT9.ftsChainInputW_padded]
+  | wctLeaf L =>
+      simp only [Node.sel, Node.toPos, Extract.honestInput, cell]
+      rw [wctEnds_eq h L, ftsPrev_eq h L.index L.coord.val L.coord.isLt]
+  | wctNode n =>
+      obtain ⟨⟨index, coord, level, idx⟩, hv⟩ := n
+      have hv' : idx.val < 2 ^ (7 - level.val - 1) := hv
+      simp only [Node.sel, Node.toPos, Extract.honestInput, cell]
+      have hpow : 2 ^ (7 - level.val) = 2 * 2 ^ (7 - level.val - 1) := by
+        have := level.isLt
+        rw [← pow_succ']; congr 1; omega
+      rw [ftsTree_eq h index coord level.val (2 * idx.val) (by have := level.isLt; omega) (by omega),
+        ftsTree_eq h index coord level.val (2 * idx.val + 1) (by have := level.isLt; omega) (by omega),
+        ftsPrev_eq h index coord.val coord.isLt]
+  | forest index =>
+      simp only [Node.sel, Node.toPos, Extract.honestInput, cell]
+      rw [ftsPairs_eq h index]
+theorem honest_answer (h : Agrees answers labels) (node : Node) :
+    answers (.inl (.inr (Extract.honestInput answers node.toPos))) = labels (node.sel labels) := by
+  rw [honestInput_eq h node]
+  exact h (node.sel labels)
 end Honest
 end ClaudeWCT.W9.T3.Security.CanonGraph
 
@@ -9229,65 +8590,11 @@ def NodesRec (answers : Answers) (labels : Labels) (index : Fin (2^31)) (coord :
     (nodes : Array Digest) : Prop :=
   ∀ level, level<topLevel coord → ∀ c,c<2^(6-level) →
     nodes.getD (2^(6-level)+c) 0 =
-      if level=3 then (evalWithAnswerFn answers (WCT9.ftsNodeAt coord.val index.val (2^(6-level)+c)
-          (nodes.getD (2*(2^(6-level)+c)) 0) (nodes.getD (2*(2^(6-level)+c)+1) 0))).2
-      else Extract.Paired.proj (.wctNode index.val coord.val level c)
+      Extract.Paired.proj (.wctNode index.val coord.val level c)
         (answers (.inl (.inr (pad64 (nodeInputP 3 (WCT9.nodeLayer coord.val) index.val
           (2^(6-level)+c) (nodes.getD (2*(2^(6-level)+c)) 0)
           (if level=4 then (pads labels index coord (c/2)).2 else 0)
           (nodes.getD (2*(2^(6-level)+c)+1) 0))))))
-
-/-- E8: under agreement, the honest ground search of a level-3 FTS position (with label children) returns the
-selected trial and its value. -/
-theorem fts_step (answers : Answers) (labels : Labels) (ha : Agrees answers labels)
-    (index : Fin (2^31)) (coord : Fin 9) (c : Nat) (hc : c < 8) (n : WctNodePos)
-    (hn : ftsNodeAt index coord 3 c = some n) :
-    evalWithAnswerFn answers (WCT9.ftsNodeAt coord.val index.val (8+c)
-      (ftsLabel labels index coord 3 (2*c)) (ftsLabel labels index coord 3 (2*c+1))) =
-      (wSelNonce labels n, (labels (.wctNode (wSelNode labels n))).extractLsb' 0 128) := by
-  obtain ⟨m, hm, hmi, hmc, hml, hmx⟩ := CanonGraph.ftsNodeAt_some index coord 3 c (by decide) (by norm_num; omega)
-  rw [hm] at hn
-  obtain rfl := Option.some.inj hn
-  have hcap : WCT9.ftsNonceCap coord.val (8+c) = wTrialCap m.1.coord.val m.1.level.val := by
-    rw [Extract.Paired.ftsNonceCap_ground (by omega) (by omega), hml, hmc]; rfl
-  have htrial : ∀ k ≤ wSelNonce labels m, evalWithAnswerFn answers (WCT9.ftsNodeHashN coord.val index.val (8+c) k
-      (ftsLabel labels index coord 3 (2*c)) (ftsLabel labels index coord 3 (2*c+1))) =
-      (labels (.wctNode (wWithNonce m k))).extractLsb' 0 128 := by
-    intro k hk
-    have hact := wActive_trial_of_le (labels := labels) (n := m) hk
-    have hs := wSelNonce_lt labels m
-    have hcl := wTrialCap_le m.1.coord.val m.1.level.val
-    have hx : cell (secretsOf answers) (.wctNode (wWithNonce m k)) labels =
-        pad64 (WCT9.ftsNodeInputN coord.val index.val (8+c) k
-          (ftsLabel labels index coord 3 (2*c)) (ftsLabel labels index coord 3 (2*c+1))) := by
-      rw [cell_wctNode_active hact, wWithNonce_nonce m (by omega)]
-      simp only [wWithNonce_index, wWithNonce_coord, wWithNonce_level, wWithNonce_idx, hmi, hmc, hml, hmx]
-      all_goals rfl
-    have he := ha (.wctNode (wWithNonce m k))
-    rw [hx] at he
-    rw [← he]
-    rfl
-  rw [Extract.Paired.ftsNodeAt_ground (by omega) (by omega)]
-  have hs := wSelNonce_lt labels m
-  have hspec := wSelNonce_spec labels m
-  have hres := Extract.Paired.eval_ftsNonceSearch_eq answers coord.val index.val (8+c)
-    (ftsLabel labels index coord 3 (2*c)) (ftsLabel labels index coord 3 (2*c+1))
-    (fun k => evalWithAnswerFn answers (WCT9.ftsNodeHashN coord.val index.val (8+c) k
-      (ftsLabel labels index coord 3 (2*c)) (ftsLabel labels index coord 3 (2*c+1)))) (fun _ => rfl)
-    (WCT9.ftsNonceCap coord.val (8+c) - 1) 0 (wSelNonce labels m) (Nat.zero_le _) (by omega)
-    (fun k _ hk => by
-      rw [htrial k (by omega), Extract.Paired.ftsZeroOk_ground (by omega) (by omega)]
-      have := hspec.1 k hk
-      unfold wTrialFails at this; rw [hmc] at this; exact this)
-    (by
-      rcases hspec.2 with h' | h'
-      · left
-        rw [htrial _ le_rfl, Extract.Paired.ftsZeroOk_ground (by omega) (by omega)]
-        unfold wTrialFails at h'; rw [hmc] at h'
-        simpa using h'
-      · right; omega)
-  rw [hres, htrial _ le_rfl]
-  rfl
 
 theorem nodes_label (answers : Answers) (labels : Labels) (ha : Agrees answers labels)
     (index : Fin (2^31)) (coord : Fin 9) (nodes : Array Digest)
@@ -9314,30 +8621,18 @@ theorem nodes_label (answers : Answers) (labels : Labels) (ha : Agrees answers l
     rw [show 2^(7-level)+2*c+1=2^(7-level)+(2*c+1) by omega,hright] at hrec
     obtain ⟨n,hn,hindex,hcoord,hlevel,hidx⟩:=CanonGraph.ftsNodeAt_some index coord level c hl6
       (by simpa only [show 7-level-1=6-level by omega] using hc')
-    by_cases h3 : level=3
-    · rw [if_pos h3] at hrec
-      subst h3
-      rw [show 2^(6-3)+c=8+c by norm_num, fts_step answers labels ha index coord c (by simpa using hc') n hn] at hrec
-      rw [hsub, show 2^(6-3)+c=8+c by norm_num, hrec]
-      unfold ftsLabel
-      rw [if_neg (by omega : 3+1≠0),show 3+1-1=3 by omega,hn]
-      exact (Extract.Paired.proj_level3 _ _ _ _).symm
-    rw [if_neg h3] at hrec
     have hcell:cell (secretsOf answers) (.wctNode n) labels =
         pad64 (nodeInputP 3 (WCT9.nodeLayer coord.val) index.val (2^(6-level)+c)
           (ftsLabel labels index coord level (2*c))
           (if level=4 then (pads labels index coord (c/2)).2 else 0)
           (ftsLabel labels index coord level (2*c+1))) := by
-      rw [cell_wctNode_active (wActive_zero labels n (CanonGraph.ftsNodeAt_nonce hn))]
-      simp only [hindex,hcoord,hlevel,hidx,show 7-level-1=6-level by omega, if_neg h3]
+      simp only [cell,hindex,hcoord,hlevel,hidx,show 7-level-1=6-level by omega]
     have he:=ha (.wctNode n)
     rw [hcell] at he
     rw [he] at hrec
     rw [hsub,hrec]
     unfold ftsLabel
     rw [if_neg (by omega : level+1≠0),show level+1-1=level by omega,hn]
-    simp only [wSelNode_of_cap_one (labels := labels) (n := n) (by rw [hlevel]; exact wTrialCap_off h3)
-      (CanonGraph.ftsNodeAt_nonce hn)]
 
 end ClaudeWCT.W9.T3.Security.CanonGraph.Paired
 
@@ -9353,7 +8648,7 @@ attribute [local instance] Classical.propDecidable
 
  theorem sharedNode_eval (answers : Answers) (index : Fin (2^31)) (coord : Fin 9)
     (ps : Nat → Digest×Digest) (left right : Digest) (level c : Nat)
-    (hl : level<topLevel coord) (hc : c<2^(6-level)) (h3 : level≠3) :
+    (hl : level<topLevel coord) (hc : c<2^(6-level)) :
     evalWithAnswerFn answers (Research.SharedForest.sharedNode (decide (first coord.val)) coord.val index.val
       (2^(6-level)+c) ps left right) =
       Extract.Paired.proj (.wctNode index.val coord.val level c)
@@ -9366,8 +8661,8 @@ attribute [local instance] Classical.propDecidable
     simp only [topLevel, if_pos hf'] at hl
     exact hl
   have hd : decide (first coord.val) = Extract.Paired.first coord.val := rfl
-  rw [hd, Extract.Paired.sharedNode_eq_nodeProgramP index.val coord.val level c coord.isLt hl6 hc hu ps left right
-    h3, Extract.Paired.eval_nodeProgram]
+  rw [hd, Extract.Paired.sharedNode_eq_nodeProgramP index.val coord.val level c coord.isLt hl6 hc hu ps left right,
+    Extract.Paired.eval_nodeProgram]
   have hpad : (if level=4 then (ps ((2^(6-level)+c)/2-2)).2 else (0:Digest)) =
       (if level=4 then (ps (c/2)).2 else 0) := by
     by_cases h4 : level=4
@@ -9452,13 +8747,6 @@ theorem source_nodes_rec (answers : Answers) (labels : Labels)
     all_goals omega
   have hg:=Research.SharedForest.sharedNodes_graph answers (decide (first coord.val)) index.val coord.val ps
   have he:=hg.2.2 (2^(6-level)+c) hr.1 hr.2 (by have:=Research.SharedForest.heapCut_bounds (decide (first coord.val));omega)
-  by_cases h3 : level=3
-  · subst h3
-    rw [if_pos rfl, he, Extract.Paired.sharedNode_ground (decide (first coord.val)) coord.val index.val (2^(6-3)+c) ps
-      (by norm_num) (by norm_num at hc ⊢; omega)]
-    unfold WCT9.ftsNodeG
-    rw [evalWithAnswerFn_map]
-  rw [if_neg h3]
   have hpad : (if level=4 then (ps (c/2)).2 else (0:Digest))=
       (if level=4 then (pads labels index coord (c/2)).2 else 0) := by
     by_cases h4:level=4
@@ -9466,7 +8754,7 @@ theorem source_nodes_rec (answers : Answers) (labels : Labels)
       have hc4:c<4 := by simpa using hc
       rw [if_pos rfl,hps _ (by omega),if_pos rfl]
     · rw [if_neg h4,if_neg h4]
-  exact he.trans ((sharedNode_eval answers index coord ps _ _ level c hl hc h3).trans
+  exact he.trans ((sharedNode_eval answers index coord ps _ _ level c hl hc).trans
     (congrArg (fun pad:Digest=>Extract.Paired.proj (.wctNode index.val coord.val level c)
       (answers (.inl (.inr (pad64 (nodeInputP 3 (WCT9.nodeLayer coord.val) index.val (2^(6-level)+c)
         ((Research.SharedForest.sharedNodes answers (decide (first coord.val)) index.val coord.val ps).getD (2*(2^(6-level)+c)) 0)
@@ -9688,49 +8976,34 @@ theorem honestInput_eq (answers : Answers) (labels : Labels) (h : Agrees answers
       simp only [Node.sel,Node.toPos,Extract.Paired.honestInput,cell]
       rw [wctEnds_eq h L,actual_leaf_pad answers labels h L.index L.coord L.child]
   | wctNode n=>
-      have hl6:=n.1.level.isLt
-      have hv':n.1.idx.val<2^(6-n.1.level.val) := by
-        have := n.2
-        unfold WctNodeRaw.Valid at this
-        rwa [show 7-n.1.level.val-1=6-n.1.level.val by omega] at this
-      have ht:n.1.level.val≤topLevel n.1.coord := by
+      obtain ⟨⟨index,coord,level,idx⟩,hv⟩:=n
+      have hv':idx.val<2^(7-level.val-1):=hv
+      have hl6:=level.isLt
+      have ht:level.val≤topLevel coord := by
         unfold topLevel
         split_ifs with hf
-        · have hused:=hb.2 (by change decide (first n.1.coord.val)=true;exact decide_eq_true hf)
+        · have hused:=hb.2 (by change decide (first coord.val)=true;exact decide_eq_true hf)
           omega
         · omega
-      have hpow:2^(7-n.1.level.val)=2*2^(6-n.1.level.val) := by
+      have hpow:2^(7-level.val)=2*2^(6-level.val) := by
         rw [←pow_succ'];congr 1;omega
-      have hsub:7-n.1.level.val-1=6-n.1.level.val := by omega
-      have hs := wSelNonce_lt labels n
-      have hcl := wTrialCap_le n.1.coord.val n.1.level.val
-      have ha := wActive_trial_of_le (labels := labels) (n := n) le_rfl
-      change Extract.Paired.honestInput answers (Node.wctNode n).toPos =
-        cell (secretsOf answers) (.wctNode (wWithNonce n (wSelNonce labels n))) labels
-      rw [cell_wctNode_active ha]
-      simp only [Node.toPos, Extract.Paired.honestInput, Extract.Paired.honestFtsNonce, wWithNonce_index,
-        wWithNonce_coord, wWithNonce_level, wWithNonce_idx, wWithNonce_nonce n (show wSelNonce labels n < 512 by omega),
-        hsub]
-      change pad64 (nodeInputP 3 (WCT9.nodeLayer n.1.coord.val) n.1.index.val (2^(6-n.1.level.val)+n.1.idx.val) _ _ _) = _
-      rw [show 2*(2^(6-n.1.level.val)+n.1.idx.val)=2^(7-n.1.level.val)+2*n.1.idx.val by omega,
-        show 2^(7-n.1.level.val)+2*n.1.idx.val+1=2^(7-n.1.level.val)+(2*n.1.idx.val+1) by omega,
-        actual_nodes_label answers labels h n.1.index n.1.coord n.1.level.val (2*n.1.idx.val) ht (by omega),
-        actual_nodes_label answers labels h n.1.index n.1.coord n.1.level.val (2*n.1.idx.val+1) ht (by omega)]
-      by_cases h4:n.1.level.val=4
+      have hsub:7-level.val-1=6-level.val := by omega
+      rw [hsub] at hv'
+      simp only [Node.sel,Node.toPos,Extract.Paired.honestInput,cell,hsub]
+      change pad64 (nodeInputP 3 (WCT9.nodeLayer coord.val) index.val (2^(6-level.val)+idx.val)
+        ((Extract.Paired.nodes answers index.val coord.val).getD (2*(2^(6-level.val)+idx.val)) 0)
+        (if level.val=4 then (Extract.Paired.pads answers index.val coord.val ((2^(6-level.val)+idx.val)/2-2)).2 else 0)
+        ((Extract.Paired.nodes answers index.val coord.val).getD (2*(2^(6-level.val)+idx.val)+1) 0))= _
+      rw [show 2*(2^(6-level.val)+idx.val)=2^(7-level.val)+2*idx.val by omega,
+        show 2^(7-level.val)+2*idx.val+1=2^(7-level.val)+(2*idx.val+1) by omega,
+        actual_nodes_label answers labels h index coord level.val (2*idx.val) ht (by omega),
+        actual_nodes_label answers labels h index coord level.val (2*idx.val+1) ht (by omega)]
+      by_cases h4:level.val=4
       · rw [if_pos h4,h4]
-        have hi:n.1.idx.val<4 := by simpa [h4] using hv'
-        rw [show (2^(6-4)+n.1.idx.val)/2-2=n.1.idx.val/2 by norm_num;omega,
-          source_pads_label answers labels h n.1.index n.1.coord _ (by omega),if_pos rfl]
+        have hi:idx.val<4 := by simpa [h4] using hv'
+        rw [show (2^(6-4)+idx.val)/2-2=idx.val/2 by norm_num;omega,
+          source_pads_label answers labels h index coord _ (by omega),if_pos rfl]
       · rw [if_neg h4,if_neg h4]
-        by_cases h3:n.1.level.val=3
-        · rw [if_pos h3,if_pos h3]
-          have hn0 := ftsNodeAt_of_node n
-          rw [h3] at hn0
-          have hfs := fts_step answers labels h n.1.index n.1.coord n.1.idx.val (by rw [h3] at hv'; simpa using hv')
-            (wWithNonce n 0) hn0
-          rw [h3, show 2^(6-3)+n.1.idx.val=8+n.1.idx.val by norm_num, hfs]
-          rfl
-        · rw [if_neg h3,if_neg h3]
   | forest index=>exact hb.elim
 
 theorem honest_answer (answers : Answers) (labels : Labels) (h : Agrees answers labels)
@@ -9794,12 +9067,10 @@ theorem completeLabels_agrees {answers : Answers} {labels : Labels} (h : Agrees 
     change answers (.inl (.inr (Paired.cell _ _ _))) = answers (.inl (.inr (Paired.cell _ _ _)))
     rw [hc]
 
-theorem sel_congr {left right : Labels} (h : ∀ m : Node, Used m → left m = right m) (node : Node) (hu : Used node) :
+theorem sel_congr {left right : Labels} (h : ∀ m : TreeNode, left (.node m) = right (.node m)) (node : Node) :
     node.sel left = node.sel right := by
-  cases node with
-  | node n => exact congrArg Node.node (selNode_congr (fun j _ => h _ trivial))
-  | wctNode n => exact congrArg Node.wctNode (wSelNode_congr (fun j _ => h _ hu))
-  | _ => rfl
+  cases node <;> try rfl
+  exact congrArg Node.node (selNode_congr (fun j _ => h _))
 
 theorem used_sel (labels : Labels) (node : Node) (hb : Extract.Paired.Bounded node.toPos) : Used (node.sel labels) :=
   (used_iff_bounded _).2 (by rw [toPos_sel]; exact hb)
@@ -9808,7 +9079,7 @@ theorem honestInput_eq (answers : Answers) (labels : Labels) (h : Agrees answers
     (node : Node) (hb : Extract.Paired.Bounded node.toPos) :
     Extract.Paired.honestInput answers node.toPos=Paired.cell (secretsOf answers) (node.sel labels) labels := by
   rw [Paired.honestInput_eq answers (completeLabels answers labels) (completeLabels_agrees h) node hb,
-    sel_congr (fun m hu => completeLabels_used answers labels m hu) node ((used_iff_bounded node).2 hb)]
+    sel_congr (fun m => completeLabels_used answers labels (.node m) trivial) node]
   exact cell_congr _ (node.sel labels) (used_sel labels node hb) _ _
     (fun other hu _ => completeLabels_used answers labels other hu)
 
@@ -9910,8 +9181,9 @@ theorem cell_ne_probe (secrets : Secrets) (labels : Labels) (node : Node) (hnode
     (a : WctAddr) (p : Fin 4) (c : Digest) : cell secrets node labels ≠ Guess.probeInput a p c := by
   intro he
   by_cases hp : PhantomAt node labels
-  · have hl := congrArg List.length he
-    rw [cell_of_phantomAt (secrets := secrets) hp, phantomOf_length hp, Guess.probeInput_length] at hl
+  · obtain ⟨n, rfl, hc⟩ := cell_of_phantomAt (secrets := secrets) hp
+    have hl := congrArg List.length he
+    rw [hc, phantom_length, Guess.probeInput_length] at hl
     exact absurd hl (by decide)
   have h1 := hdrBlock_cell secrets node labels hp
   have hl : node.toPos.len = (Node.wctChain (a, p)).toPos.len := by
@@ -9996,9 +9268,7 @@ theorem cell_outer (secrets secrets' : Secrets) (labels labels' : Labels)
           exact absurd hq (by decide))]
       simp only [cell, hends, ftsPrevLabel_outer labels labels' hl]
   | wctNode n =>
-      have ha : WActive labels n ↔ WActive labels' n :=
-        wActiveCongr labels labels' n (fun j _ => hl _ (fun ⟨a, q, _, he⟩ => Node.noConfusion he))
-      simp only [cell, ftsLabel_outer labels labels' hl, ftsPrevLabel_outer labels labels' hl, ha]
+      simp only [cell, ftsLabel_outer labels labels' hl, ftsPrevLabel_outer labels labels' hl]
   | forest index =>
       simp only [cell, ftsLabel_outer labels labels' hl]
 def stepNode (c : WctAddr × Fin 3) : Node := .wctChain (c.1, ⟨c.2.val, by omega⟩)
@@ -10933,17 +10203,13 @@ set_option backward.isDefEq.respectTransparency false
 attribute [local instance] Classical.propDecidable
 section Table
 variable {U : Finset HashInput} (hU : CanonGraph.canonInputs ⊆ U)
-/-- R6 world split: the BPair world nonce is `rhoMod` of the full 256-bit nonce answer. -/
 theorem eval_nonce (ω : Omega U) (fts : FtsCoord → Digest) (m : Message) :
     evalWithAnswerFn (Omega.answers hU ω fts) (privateNonce m) = nonceOf ω m := by
   unfold privateNonce privateHash
   simp only [evalWithAnswerFn_bind, evalWithAnswerFn_pure]
-  change BitVec.ofNat 128 (rhoMod (CanonGraph.privateEquiv.symm (ω.secrets fts, ω.other) (.inr (.inl m)))) = _
-  have h0 := splitEquiv_symm_other (ω.secrets fts) ω.other (nonceHalf m) (nonceHalf_not_secret m)
-  have h1 := splitEquiv_symm_other (ω.secrets fts) ω.other (nonceHalfHi m) (nonceHalfHi_not_secret m)
-  simp only [nonceHalf, nonceHalfHi] at h0 h1
-  rw [privateEquiv_symm_apply, h0, h1]
-  rfl
+  change (CanonGraph.privateEquiv.symm (ω.secrets fts, ω.other) (.inr (.inl m))).extractLsb' 0 128 = _
+  rw [privateEquiv_symm_apply, ChainGraph.joinOutput_low]
+  exact splitEquiv_symm_other _ _ (nonceHalf m) (nonceHalf_not_secret m)
 end Table
 section Inline
 variable {U : Finset HashInput} (hU : CanonGraph.canonInputs ⊆ U)
@@ -11532,10 +10798,7 @@ end Congr
 section EagerLazy
 open SecretGuessObservation (forcedRun forcedImpl runWith)
 noncomputable def rowsLaw : SPMF (digestInputs → HashOutput) := liftM (PMF.uniformOfFintype (digestInputs → HashOutput))
-/-- R6 world split: eager nonces are `rhoMod` of a uniform table of 256-bit outputs (i.i.d. `rhoLaw`). -/
-noncomputable def noncesLaw : SPMF (Message → Digest) :=
-  (liftM (PMF.uniformOfFintype (Message → HashOutput)) : SPMF (Message → HashOutput)) >>= fun Nh =>
-    pure (fun m => BitVec.ofNat 128 (rhoMod (Nh m)))
+noncomputable def noncesLaw : SPMF (Message → Digest) := liftM (PMF.uniformOfFintype (Message → Digest))
 theorem avg_indep {α : Type} (slot : Nat) (input : WSpecL.Domain) (next : WSpecL.Range input → OracleComp WSpecL α)
     (s : WStateL)
     (ih : ∀ u s', (rowsLaw >>= fun D => noncesLaw >>= fun Nn => forcedRun (envE D Nn) slot (next u) s') =
@@ -11586,37 +10849,22 @@ theorem avg_fresh_nonce {α : Type} (slot : Nat) (m : Message) (s : WStateL)
       forcedRun envL slot (next u) s') :
     (rowsLaw >>= fun D => noncesLaw >>= fun Nn => forcedRun (envE D Nn) slot (next (Nn m))
         { s with memory := s.memory.drawNonce m (Nn m) }) =
-      ((liftM rhoLaw : SPMF Digest) >>= fun v =>
+      ((liftM (PMF.uniformOfFintype Digest) : SPMF Digest) >>= fun v =>
         forcedRun envL slot (next v) { s with memory := s.memory.drawNonce m v }) := by
-  have hinv : ∀ (D : digestInputs → HashOutput) (v : Digest) (T : Message → Digest) (c : Digest),
-      forcedRun (envE D (Function.update T m c)) slot (next v) { s with memory := s.memory.drawNonce m v } =
-        forcedRun (envE D T) slot (next v) { s with memory := s.memory.drawNonce m v } := by
-    intro D v T c
-    refine forced_congr _ _ _ _ slot _ _ ⟨fun _ _ => rfl, fun m' hm' => ?_⟩
+  have step : ∀ D : digestInputs → HashOutput,
+      (noncesLaw >>= fun Nn => forcedRun (envE D Nn) slot (next (Nn m)) { s with memory := s.memory.drawNonce m (Nn m) }) =
+      ((liftM (PMF.uniformOfFintype Digest) : SPMF Digest) >>= fun v => noncesLaw >>= fun Nn =>
+        forcedRun (envE D Nn) slot (next v) { s with memory := s.memory.drawNonce m v }) := by
+    intro D
+    rw [noncesLaw]
+    refine uniform_update m (fun v Nn => forcedRun (envE D Nn) slot (next v) { s with memory := s.memory.drawNonce m v })
+      fun v T c => forced_congr _ _ _ _ slot _ _ ⟨fun _ _ => rfl, fun m' hm' => ?_⟩
     have hmm : m' ≠ m := by
       rintro rfl
       change Function.update s.memory.nonces m' (some v) m' = none at hm'
       rw [Function.update_self] at hm'
       cases hm'
     exact Function.update_of_ne hmm _ _
-  have step : ∀ D : digestInputs → HashOutput,
-      (noncesLaw >>= fun Nn => forcedRun (envE D Nn) slot (next (Nn m)) { s with memory := s.memory.drawNonce m (Nn m) }) =
-      ((liftM rhoLaw : SPMF Digest) >>= fun v => noncesLaw >>= fun Nn =>
-        forcedRun (envE D Nn) slot (next v) { s with memory := s.memory.drawNonce m v }) := by
-    intro D
-    simp only [noncesLaw, bind_assoc, pure_bind]
-    refine (uniform_update m (fun a (Nh : Message → HashOutput) =>
-      forcedRun (envE D (fun m' => BitVec.ofNat 128 (rhoMod (Nh m')))) slot (next (BitVec.ofNat 128 (rhoMod a)))
-        { s with memory := s.memory.drawNonce m (BitVec.ofNat 128 (rhoMod a)) }) fun a T c => ?_).trans ?_
-    · have hfun : (fun m' => BitVec.ofNat 128 (rhoMod (Function.update T m c m'))) =
-          Function.update (fun m' => BitVec.ofNat 128 (rhoMod (T m'))) m (BitVec.ofNat 128 (rhoMod c)) := by
-        funext m'
-        by_cases h : m' = m
-        · subst h; simp
-        · simp [Function.update_of_ne h]
-      rw [hfun]
-      exact hinv D _ _ _
-    · rw [rhoLaw, ← PMF.monad_map_eq_map, liftM_map, bind_map_left]
   simp only [step]
   rw [RetainedObservation.bind_comm]
   exact bind_congr fun v => ih v _
@@ -11624,8 +10872,7 @@ theorem eager_lazy_core {α : Type} (slot : Nat) (W : OracleComp WSpecL α) (s :
     (rowsLaw >>= fun D => noncesLaw >>= fun Nn => forcedRun (envE D Nn) slot W s) = forcedRun envL slot W s := by
   induction W using OracleComp.inductionOn generalizing s with
   | pure a =>
-      simp only [forcedRun, SecretGuessObservation.runWith_pure, rowsLaw, noncesLaw, bind_assoc, pure_bind,
-        RetainedObservation.lift_bind_const]
+      simp only [forcedRun, SecretGuessObservation.runWith_pure, rowsLaw, noncesLaw, RetainedObservation.lift_bind_const]
   | query_bind input next ih =>
       simp only [forcedRun, SecretGuessObservation.runWith_query_bind]
       rcases input with input | (⟨f, c⟩ | f)
@@ -11686,7 +10933,7 @@ theorem eager_lazy_core {α : Type} (slot : Nat) (W : OracleComp WSpecL α) (s :
                   rw [envE, step_nonce, nonceStep_none _ _ _ hc, liftM_map, liftM_pure, map_pure, map_pure]
                 have hL : (forcedImpl envL slot (.inl (.nonce m))).run s =
                     (fun v => (v, { s with memory := s.memory.drawNonce m v })) <$>
-                      (liftM rhoLaw : SPMF Digest) := by
+                      (liftM (PMF.uniformOfFintype Digest) : SPMF Digest) := by
                   rw [envL, step_nonce, nonceStep_none _ _ _ hc, liftM_map, Functor.map_map]
                 simp only [hE, hL, pure_bind, bind_map_left]
                 exact avg_fresh_nonce slot m s next ih
@@ -11695,32 +10942,28 @@ theorem eager_lazy_core {α : Type} (slot : Nat) (W : OracleComp WSpecL α) (s :
         have hfun : (fun hit => (hit, { SecretGuessObservation.afterTrial
               (envWith (fun x => pure (rowVal D x)) (fun m => pure (Nn m))) s f c hit with memory := s.memory })) =
             (fun hit => (hit, { SecretGuessObservation.afterTrial
-              (envWith (fun _ => PMF.uniformOfFintype HashOutput) (fun _ => rhoLaw)) s f c hit with
+              (envWith (fun _ => PMF.uniformOfFintype HashOutput) (fun _ => PMF.uniformOfFintype Digest)) s f c hit with
                 memory := s.memory })) := by
           funext hit
           rw [afterTrial_sources (fun x => pure (rowVal D x)) (fun m => pure (Nn m))
-            (fun _ => PMF.uniformOfFintype HashOutput) (fun _ => rhoLaw)]
+            (fun _ => PMF.uniformOfFintype HashOutput) (fun _ => PMF.uniformOfFintype Digest)]
         rw [hfun]
       · refine avg_indep slot _ next s ih _ (fun D Nn => ?_) rfl
         rw [envE, envL, step_disclose, step_disclose]
         have hfun : (fun v => (v, { SecretGuessObservation.afterDisclosure
               (envWith (fun x => pure (rowVal D x)) (fun m => pure (Nn m))) s f v with memory := s.memory })) =
             (fun v => (v, { SecretGuessObservation.afterDisclosure
-              (envWith (fun _ => PMF.uniformOfFintype HashOutput) (fun _ => rhoLaw)) s f v with
+              (envWith (fun _ => PMF.uniformOfFintype HashOutput) (fun _ => PMF.uniformOfFintype Digest)) s f v with
                 memory := s.memory })) := by
           funext v
           rw [afterDisclosure_sources (fun x => pure (rowVal D x)) (fun m => pure (Nn m))
-            (fun _ => PMF.uniformOfFintype HashOutput) (fun _ => rhoLaw)]
+            (fun _ => PMF.uniformOfFintype HashOutput) (fun _ => PMF.uniformOfFintype Digest)]
         rw [hfun]
-/-- R6 world split: eager nonces `rhoMod ∘ Nh` with `Nh` a uniform table of 256-bit outputs. -/
 theorem eager_lazy {α : Type} (W : OracleComp WSpecL α) (slot : Nat) (s : WStateL) :
-    (𝒮[($ᵗ (digestInputs → HashOutput) : ProbComp _)] >>= fun D =>
-      𝒮[($ᵗ (Message → HashOutput) : ProbComp _)] >>= fun Nh =>
-      forcedRun (envE D (fun m => BitVec.ofNat 128 (rhoMod (Nh m)))) slot W s) = forcedRun envL slot W s := by
+    (𝒮[($ᵗ (digestInputs → HashOutput) : ProbComp _)] >>= fun D => 𝒮[($ᵗ (Message → Digest) : ProbComp _)] >>= fun Nn =>
+      forcedRun (envE D Nn) slot W s) = forcedRun envL slot W s := by
   rw [evalSPMF_uniform, evalSPMF_uniform]
-  have h := eager_lazy_core slot W s
-  simp only [rowsLaw, noncesLaw, bind_assoc, pure_bind] at h
-  exact h
+  exact eager_lazy_core slot W s
 end EagerLazy
 end SigGolfCandidate.T3.Security.BPair
 end
@@ -12610,9 +11853,7 @@ theorem layerPairP_wots (answers : Answers) (w : WBytes) (index : Nat) (lay : La
     ((∀ j, j < height lay →
         wpath w lay (route index lay).1 j =
           treeValue (WCT9.wotsTree answers lay (route index lay).2) j ((route index lay).1 / 2 ^ j ^^^ 1) ∧
-        (j + 1 < height lay → wmerklePad w lay (route index lay).1 j =
-            WCT9.nonceDigest (WCT9.honestNonce answers lay (route index lay).2 j ((route index lay).1 / 2 ^ (j + 1))) ∧
-          wmerkleHigh w lay (route index lay).1 j = 0)) ∧
+        (j + 1 < height lay → wmerklePad w lay (route index lay).1 j = 0 ∧ wmerkleHigh w lay (route index lay).1 j = 0)) ∧
       (∀ i, i < chainCount lay →
         (depth answers ⟨routeLeaf index lay, i⟩ ≤ digits.getD i 0 →
           wvalueFor w lay digits i = WCT9.wotsValue answers lay (route index lay).2 (route index lay).1 digits i ∧
@@ -12702,7 +11943,9 @@ theorem layerPairP_wots (answers : Answers) (w : WBytes) (index : Nat) (lay : La
   · exact (hS hS').elim
   refine ⟨fun j hj => ?_, hchains, hhi⟩
   by_cases hjt : j < height lay - 1
-  · exact ⟨(hpath j hjt).1, fun _ => ⟨(hpath j hjt).2.2, (hpath j hjt).2.1⟩⟩
+  · have hl' : lay ≠ 0 := fun h => hlay (by rw [h]; rfl)
+    exact ⟨(hpath j hjt).1, fun _ => ⟨(hpath j hjt).2.2.trans
+      (congrFun (Extract.honestPads_lower answers hl' _ _) j), (hpath j hjt).2.1⟩⟩
   · have hj1 : j = height lay - 1 := by omega
     subst hj1
     exact ⟨hpair.2, fun h => by omega⟩
@@ -12829,7 +12072,9 @@ theorem layerPair_wots (answers : Answers) (w : WBytes) (index : Nat) (lay : Lay
   rcases layerPairP_wots answers w index lay digits hidx hvalid hlay reaches with hS | ⟨hmerkle, hchains, hleaf⟩
   · exact Or.inl (Or.inr (Or.inl (structuralHitSrc_mono hS hmono)))
   exact frame_wots answers w index lay msg digits hidx hfit hframe qs henc
-    (fun j hj => ⟨(hmerkle j hj).1, fun h => ((hmerkle j hj).2 (h.resolve_right hlay)).1,
+    (fun j hj => ⟨(hmerkle j hj).1, fun h => by
+        rw [WCT9.honestNonce_lower answers (fun h0 => hlay (by rw [h0]; rfl)), WCT9.nonceDigest_zero]
+        exact ((hmerkle j hj).2 (h.resolve_right hlay)).1,
       fun h => ((hmerkle j hj).2 (h.resolve_right hlay)).2⟩) hleaf
     (fun i hi => ⟨(hchains i hi).1, fun hlt => ⟨contactAt_mono ((hchains i hi).2 hlt).1 hmono,
       fun h2 => twoEdgeAt_mono (((hchains i hi).2 hlt).2 h2) hmono⟩⟩)
@@ -13040,9 +12285,7 @@ theorem layerPairP_wots (answers : Answers) (w : WBytes) (index : Nat) (lay : La
     ((∀ j, j < height lay →
         wpath w lay (route index lay).1 j =
           treeValue (WCT9.wotsTree answers lay (route index lay).2) j ((route index lay).1 / 2 ^ j ^^^ 1) ∧
-        (j + 1 < height lay → wmerklePad w lay (route index lay).1 j =
-            WCT9.nonceDigest (WCT9.honestNonce answers lay (route index lay).2 j ((route index lay).1 / 2 ^ (j + 1))) ∧
-          wmerkleHigh w lay (route index lay).1 j = 0)) ∧
+        (j + 1 < height lay → wmerklePad w lay (route index lay).1 j = 0 ∧ wmerkleHigh w lay (route index lay).1 j = 0)) ∧
       (∀ i, i < chainCount lay →
         (CanonicalRef.depth answers messages ⟨routeLeaf index lay, i⟩ ≤ digits.getD i 0 →
           wvalueFor w lay digits i = WCT9.wotsValue answers lay (route index lay).2 (route index lay).1 digits i ∧
@@ -13132,7 +12375,9 @@ theorem layerPairP_wots (answers : Answers) (w : WBytes) (index : Nat) (lay : La
   · exact (hS hS').elim
   refine ⟨fun j hj => ?_, hchains, hhi⟩
   by_cases hjt : j < height lay - 1
-  · exact ⟨(hpath j hjt).1, fun _ => ⟨(hpath j hjt).2.2, (hpath j hjt).2.1⟩⟩
+  · have hl' : lay ≠ 0 := fun h => hlay (by rw [h]; rfl)
+    exact ⟨(hpath j hjt).1, fun _ => ⟨(hpath j hjt).2.2.trans
+      (congrFun (Extract.honestPads_lower answers hl' _ _) j), (hpath j hjt).2.1⟩⟩
   · have hj1 : j = height lay - 1 := by omega
     subst hj1
     exact ⟨hpair.2, fun h => by omega⟩
@@ -13354,7 +12599,9 @@ theorem layerPair_wots (answers : Answers) (w : WBytes) (index : Nat) (lay : Lay
   rcases layerPairP_wots (messages := messages) answers w index lay digits hidx hvalid hlay reaches with hS | ⟨hmerkle, hchains, hleaf⟩
   · exact Or.inl (Or.inr (Or.inl (structuralHitSrc_mono hS hmono)))
   exact frame_wots (messages := messages) answers w index lay msg digits hidx hfit hfitRef hframe qs henc
-    (fun j hj => ⟨(hmerkle j hj).1, fun h => ((hmerkle j hj).2 (h.resolve_right hlay)).1,
+    (fun j hj => ⟨(hmerkle j hj).1, fun h => by
+        rw [WCT9.honestNonce_lower answers (fun h0 => hlay (by rw [h0]; rfl)), WCT9.nonceDigest_zero]
+        exact ((hmerkle j hj).2 (h.resolve_right hlay)).1,
       fun h => ((hmerkle j hj).2 (h.resolve_right hlay)).2⟩) hleaf
     (fun i hi => ⟨(hchains i hi).1, fun hlt => ⟨contactAt_mono ((hchains i hi).2 hlt).1 hmono,
       fun h2 => twoEdgeAt_mono (((hchains i hi).2 hlt).2 h2) hmono⟩⟩)
@@ -13482,7 +12729,7 @@ theorem chain_queries_pos (answers : Answers) (index coord child t d : Nat) (hd 
   refine ⟨_, rfl, .wctChain index coord child t (4 - d + s), hbd, ⟨hi, hc, hj, ht, by omega⟩, trivial, ?_, ?_⟩
   · simp only [Extract.pathInputW, pad64_wctChainInputPW, wctChainInputPW_length, Extract.Pos.len]
   simp only [Extract.pathInputW, pad64_wctChainInputPW, hdrBlock_wctChainInputPW, Extract.Pos.hdr]
-  rw [WctExtract.canonicalHeader_ftsChainHeaderP _ _ _ _ _ _ ht]
+  rw [WctExtract.canonicalHeader_ftsChainHeaderP]
   have hk := Extract.Pos.canonicalHeader_eq hbd
   simp only [Extract.Pos.hdr] at hk
   exact hk
@@ -13584,57 +12831,35 @@ theorem take8_bytesLE16 (a : BitVec 128) : (bytesLE 16 a).take 8 = bytesLE 8 (a.
     (BitVec.extractLsb'_append_extractLsb' (w := 64) (len := 64) (x := a)).symm
   conv_lhs => rw [ha]
   rw [SigGolfCandidate.T3M.Extract.bytesLE_header_words, List.take_left' (SphincsSecurity.bytesLE_length 8 _)]
-/- Every bounded FTS position has a low word above the top-label range. -/
-set_option debug.skipKernelTC false in
+/-- C4: the header of an FTS position (chain, leaf or node; the FTS recompute never queries the forest) has its low
+word in `[2 ^ 16, 2 ^ 58)`: above every top label (coordinate nibble `coord + 1`) and below every WOTS leaf tweak
+(type byte 193). -/
 theorem ftsPos_low {p : Extract.Pos} (hb : p.Bounded) (h : FtsPos p) :
-    (tweakLow p.hdr = 0 ∨ 4096 ≤ tweakLow p.hdr) ∧ tweakLow p.hdr < 2 ^ 64 ∧ tweakLow p.hdr ≠ 520192 ∧ tweakLow p.hdr ≠ 856064 := by
+    2 ^ 16 ≤ tweakLow p.hdr ∧ tweakLow p.hdr < 2 ^ 58 := by
   cases p with
   | wctChain index coord child t step =>
-      obtain ⟨-, hk, -, ht, -⟩ := hb
-      have h1 := WCT9.ftsChainLow_ge (show coord < 15 by omega) index child t step ht
+      obtain ⟨-, hk, -, -, -⟩ := hb
+      have h1 := WCT9.ftsChainLow_ge (show coord < 15 by omega) index child t step
       have h2 := WCT9.ftsChainLow_lt index coord child t step
       simp only [Extract.Pos.hdr, WCT9.ftsChainHeader]
       rw [Extract.tweakLow_eq_low, WCT9.ftsChainHeaderP_low, BitVec.toNat_ofNat,
-        Nat.mod_eq_of_lt h2]
-      have ht := WCT9.ftsChainLow_tag index coord child t step
-      exact ⟨Or.inr h1, h2, by omega, by omega⟩
+        Nat.mod_eq_of_lt (lt_trans h2 (by norm_num))]
+      exact ⟨h1, h2⟩
   | wctLeaf index coord child =>
       obtain ⟨-, hk, -⟩ := hb
-      have h1 := WCT9.ftsLeafLow_zero_or_ge (show coord < 15 by omega) index child
+      have h1 := WCT9.ftsLeafLow_ge (show coord < 15 by omega) index child
       have h2 := WCT9.ftsLeafLow_lt index coord child
       simp only [Extract.Pos.hdr, WCT9.ftsLeafHeader]
-      rw [append64_lowNat, BitVec.toNat_ofNat, Nat.mod_eq_of_lt h2]
-      have hn : WCT9.ftsLeafLow index coord child ≠ 520192 := by
-        unfold WCT9.ftsLeafLow SigGolfCandidate.T3.ftsBiasN
-        omega
-      have hn1 : WCT9.ftsLeafLow index coord child ≠ 856064 := by
-        unfold WCT9.ftsLeafLow SigGolfCandidate.T3.ftsBiasN
-        omega
-      exact ⟨h1, h2, hn, hn1⟩
+      rw [append64_lowNat, BitVec.toNat_ofNat, Nat.mod_eq_of_lt (lt_trans h2 (by norm_num))]
+      exact ⟨h1, h2⟩
   | wctNode index coord level nd =>
-      obtain ⟨-, hk, hlev, hnd⟩ := hb
-      have hp : 2 ^ (7 - level - 1) ≤ 64 := by
-        change 2 ^ (7 - level - 1) ≤ 2 ^ 6
-        exact Nat.pow_le_pow_right (by decide) (by omega)
-      have hh : 2 ^ (7 - level - 1) + nd < 128 := by omega
+      obtain ⟨-, hk, -, -⟩ := hb
       have hlow := WCT9.wctNodeHeader_toNat hk index (2 ^ (7 - level - 1) + nd)
-      have hge := WCT9.ftsLeafLow_zero_or_ge (show coord < 15 by omega) index 0
+      have hge := WCT9.ftsLeafLow_ge (show coord < 15 by omega) index 0
       have hlt := WCT9.ftsLeafLow_lt index coord 0
-      have hgeN : 4096 ≤ WCT9.ftsNodeLowN index coord (2 ^ (7 - level - 1) + nd) := by
-        rw [WCT9.ftsNodeLowN_eq, Nat.mod_eq_of_lt (show coord + 1 < 16 by omega)]; unfold SigGolfCandidate.T3.ftsBiasN; have := Nat.mod_lt index (by decide : 0 < 2^31); omega
+      have hgeN : 2 ^ 16 ≤ WCT9.ftsNodeLowN index coord (2 ^ (7 - level - 1) + nd) := by
+        rw [WCT9.ftsNodeLowN_eq, Nat.mod_eq_of_lt (show coord + 1 < 16 by omega)]; omega
       have hltN := WCT9.ftsNodeLowN_lt index coord (2 ^ (7 - level - 1) + nd)
-      have hneL : WCT9.ftsLeafLow index coord 0 ≠ 520192 := by
-        unfold WCT9.ftsLeafLow SigGolfCandidate.T3.ftsBiasN
-        omega
-      have hneN : WCT9.ftsNodeLowN index coord (2 ^ (7 - level - 1) + nd) ≠ 520192 := by
-        unfold WCT9.ftsNodeLowN SigGolfCandidate.T3.ftsBiasN
-        omega
-      have hneL1 : WCT9.ftsLeafLow index coord 0 ≠ 856064 := by
-        unfold WCT9.ftsLeafLow SigGolfCandidate.T3.ftsBiasN
-        omega
-      have hneN1 : WCT9.ftsNodeLowN index coord (2 ^ (7 - level - 1) + nd) ≠ 856064 := by
-        unfold WCT9.ftsNodeLowN SigGolfCandidate.T3.ftsBiasN
-        omega
       simp only [Extract.Pos.hdr]
       unfold tweakLow
       rw [hlow]
@@ -13654,9 +12879,8 @@ theorem structuralHitSrc_of_fts_hitIn (answers : Answers) (N : HashOutput) (w : 
   have h16 : 8 ≤ (Extract.hdrBlock actual).length := by
     have : 64 ≤ actual.length := by
       rw [hlen]; cases pos <;> simp only [Extract.Pos.len] <;> (try split) <;> omega
-    simp only [Extract.hdrBlock, List.length_take, List.length_drop]
-    omega
-  -- The actual header keeps the FTS low word, which lies above every top label.
+    simp [Extract.hdrBlock]; omega
+  -- C4: the actual header's low word is the FTS position's, in `[2 ^ 16, 2 ^ 58)`.
   have h8 : readLE ((Extract.hdrBlock actual).take 8) = tweakLow pos'.hdr := by
     rw [← canonicalHeader_take8 h16, hdr', Extract.readLE_take8]
   have hlo := ftsPos_low hb' hfts'
@@ -13896,9 +13120,8 @@ theorem hdrBlock_pairEncodingInputP (lay : Layer) (tree leaf : Nat) (left right 
   unfold WCT9.pairEncodingInputP
   rw [List.append_assoc, List.append_assoc]
   exact SigGolfCandidate.T3M.Extract.hdrBlock_prefix _ _ _
-/- C2 (FULL): a lower node query of the honest tree shape (heap below `2 ^ height lay`) is no digest query: the
+/-- C2 (FULL): a lower node query of the honest tree shape (heap below `2 ^ height lay`) is no digest query: the
 packed node word's marker is `128 + heap`. -/
-set_option debug.skipKernelTC false in
 theorem lowerNodeHash_notDigest (lay : Layer) (tree heap : Nat) (left right : Digest) (hh : heap < 2 ^ height lay) :
     AllQueriesSatisfy (ClaudeWCT.WCT9.lowerNodeHash lay.val tree heap left right)
       SigGolfCandidate.T3.Security.BPB.NotDigestQ := by
@@ -13909,7 +13132,7 @@ theorem lowerNodeHash_notDigest (lay : Layer) (tree heap : Nat) (left right : Di
       ((Nat.pow_le_pow_right (by decide) (ClaudeWCT.W9.T3.Security.Signer.height_le_seven h0)).trans (by norm_num))
     unfold ClaudeWCT.WCT9.lowerNodeHash ClaudeWCT.WCT9.lowerHash
     refine ClaudeWCT.W9.T3.Security.Signer.halfHash_allowed_of_short _ _
-      (SigGolfCandidate.T3.Security.BPB.shortHash_ok_low
+      (SigGolfCandidate.T3.Security.BPB.shortHash_ok_marker
         (hdr := ClaudeWCT.WCT9.merkleTweak lay.val tree heap) ?_ ?_)
     · unfold ClaudeWCT.WCT9.merkleNodeInput
       rw [List.append_assoc (SphincsSecurity.bytesLE 16 left ++
@@ -13917,29 +13140,10 @@ theorem lowerNodeHash_notDigest (lay : Layer) (tree heap : Nat) (left right : Di
         SigGolfCandidate.T3M.Extract.hdrBlock_pad64 _ (by simp [SphincsSecurity.bytesLE_length, zero16]),
         SigGolfCandidate.T3M.Extract.hdrBlock_prefix]
     · rw [ClaudeWCT.WCT9.merkleTweak_lower h0]
-      have hg := ClaudeWCT.WCT9.lowerTweak_low_ge h7 lay.val tree
-      unfold SigGolfCandidate.T3.tweakLow
+      unfold ClaudeWCT.WCT9.lowerTweak ClaudeWCT.WCT9.lowerNodeWord ClaudeWCT.WCT9.lowerK
+      rw [SigGolfCandidate.T3.append64_marker, BitVec.toNat_add, BitVec.toNat_ofNat,
+        SigGolfCandidate.T3.hyperWord_toNat]
       omega
-set_option debug.skipKernelTC false in
-theorem lowerNodeHashN_notDigest (lay : Layer) (tree heap n : Nat) (left right : Digest) (h0 : lay.val ≠ 0)
-    (hh : heap < 2 ^ height lay) :
-    AllQueriesSatisfy (ClaudeWCT.WCT9.lowerNodeHashN lay.val tree heap n left right)
-      SigGolfCandidate.T3.Security.BPB.NotDigestQ := by
-  have h7 : heap < 128 := lt_of_lt_of_le hh
-    ((Nat.pow_le_pow_right (by decide) (ClaudeWCT.W9.T3.Security.Signer.height_le_seven h0)).trans (by norm_num))
-  unfold ClaudeWCT.WCT9.lowerNodeHashN ClaudeWCT.WCT9.lowerHash
-  refine ClaudeWCT.W9.T3.Security.Signer.halfHash_allowed_of_short _ _
-    (SigGolfCandidate.T3.Security.BPB.shortHash_ok_low
-      (hdr := ClaudeWCT.WCT9.merkleTweak lay.val tree heap) ?_ ?_)
-  · unfold ClaudeWCT.WCT9.lowerNodeInputN
-    rw [List.append_assoc (SphincsSecurity.bytesLE 16 left ++
-        SphincsSecurity.bytesLE 16 (ClaudeWCT.WCT9.merkleTweak lay.val tree heap)),
-      SigGolfCandidate.T3M.Extract.hdrBlock_pad64 _ (by simp [SphincsSecurity.bytesLE_length, nonceBytes]),
-      SigGolfCandidate.T3M.Extract.hdrBlock_prefix]
-  · rw [ClaudeWCT.WCT9.merkleTweak_lower h0]
-    have hg := ClaudeWCT.WCT9.lowerTweak_low_ge h7 lay.val tree
-    unfold SigGolfCandidate.T3.tweakLow
-    omega
 theorem layerEncoding_ok (lay : Layer) (tree leaf : Nat) (msg : WCT9.LayerMsg) (counter : BitVec 32) :
     AllQueriesSatisfy (ClaudeWCT.WCT9.encodingHash lay (WCT9.layerEncodingInput lay tree leaf msg counter))
       SigGolfCandidate.T3.Security.BPB.NotDigestQ := by
@@ -13947,22 +13151,22 @@ theorem layerEncoding_ok (lay : Layer) (tree leaf : Nat) (msg : WCT9.LayerMsg) (
   | forest root => exact SigGolfCandidate.T3.Security.BPB.encoding_ok lay tree leaf root counter
   | pair left right =>
       exact SigGolfCandidate.T3.Security.BPB.shortHash_ok_marker
-        (hdrBlock_pairEncodingInputP lay tree leaf left right counter 0) (by have := rowTweak_marker lay tree leaf; omega)
+        (hdrBlock_pairEncodingInputP lay tree leaf left right counter 0) (by rw [rowTweak_marker]; decide)
 open SigGolfCandidate.T3.Security.BPB SigGolfCandidate.T3M SigGolfCandidate.T3M.SecurityInputs in
-/- Pairing stage 1: a chain step of the current scheme (either format) is not a digest query. -/
-set_option debug.skipKernelTC false in
+/-- Pairing stage 1: a chain step of the current scheme (either format) is not a digest query. -/
 theorem chainStepW_ok (lay : SigGolfCandidate.T3.Layer) (tree leaf i step : Nat) (v : SigGolfCandidate.T3.Digest) :
     AllQueriesSatisfy (SigGolfCandidate.T3.shortHash (ClaudeWCT.WCT9.chainInputW lay tree leaf i step v))
       SigGolfCandidate.T3.Security.BPB.NotDigestQ := by
   unfold SigGolfCandidate.T3.shortHash SigGolfCandidate.T3.publicHash
   apply SourceQueries.bind_allowed
   · apply (allQueriesSatisfy_query_iff _ _).mpr
-    change hdrMarker (SigGolfCandidate.T3.pad64 (ClaudeWCT.WCT9.chainInputW lay tree leaf i step v)) ≠ 25984
+    change hdrMarker (SigGolfCandidate.T3.pad64 (ClaudeWCT.WCT9.chainInputW lay tree leaf i step v)) ≠ 0
     rw [ClaudeWCT.WCT9.chainInputW_padded]
-    rw [hdrMarker_eq (show Extract.hdrBlock (ClaudeWCT.WCT9.chainInputW lay tree leaf i step v) =
-      SphincsSecurity.bytesLE 16 (SigGolfCandidate.T3.chainHeader lay tree leaf i step) from
-      ClaudeWCT.WCT9.chainInputW_header _ _ _ _ _ _)]
-    exact chainHeader_low_ne_digest _ _ _ _ _
+    apply hdrMarker_ne_zero_of_byte0
+    unfold hdrByte0 Extract.hdrBlock
+    rw [ClaudeWCT.WCT9.chainInputW_header, bytesLE16_first_toNat]
+    have := SigGolfCandidate.T3.chainHeader_firstByte lay tree leaf i step
+    omega
   · intro _; exact SourceQueries.pure_allowed _ _
 theorem afterDigest_ok (cache : SigGolfCandidate.T3.Cache) (rho : Digest) (output : HashOutput) :
     AllQueriesSatisfy (do
@@ -13975,11 +13179,7 @@ theorem afterDigest_ok (cache : SigGolfCandidate.T3.Cache) (rho : Digest) (outpu
   apply SourceQueries.bind_allowed _ (ClaudeWCT.W9.T3.Security.Signer.signLayersBC_allowed' _ _ layerEncoding_ok
     (ClaudeWCT.W9.T3.Security.Signer.buildTreeP_allowed' _ chainStepW_ok
       SigGolfCandidate.T3.Security.BPB.leafHash_ok
-      (fun lay tree heap n left right hh hn => by
-        rcases hn with rfl | h0
-        · rw [ClaudeWCT.WCT9.lowerNodeHashN_zero]
-          exact lowerNodeHash_notDigest lay tree heap left right hh
-        · exact lowerNodeHashN_notDigest lay tree heap n left right h0 hh)
+      (fun lay _ _ _ _ hh => lowerNodeHash_notDigest lay _ _ _ _ hh)
       (fun _ _ _ => SigGolfCandidate.T3.Security.BPB.privatePair_ok _ _ _ _ _))
     (SigGolfCandidate.T3.Security.BPB.signTop_ok _) _ _ _)
   intro layers
@@ -15085,52 +14285,4 @@ theorem frontierValue_maskAt_bounded (answers : Answers) (messages : LeafAddr �
   rw [this]
 
 end ClaudeWCT.W9.T3.Security.Wots.CanonicalRef
-end
--- ==== R6 world split interface (sec lane, WS-INTERFACE) ====
-section
-namespace SigGolfCandidate.T3.Security.BPair
-open OracleComp OracleSpec OracleComp.EvalDist ENNReal
-open SigGolfCandidate.T3
-/-- R6 world split: a `rhoLaw` expectation is the expectation of `rhoMod` of a uniform 256-bit output. -/
-theorem expectedValue_rhoLaw (f : Digest → ℝ≥0∞) :
-    expectedValue rhoLaw f =
-      expectedValue ($ᵗ HashOutput : ProbComp HashOutput) (fun h => f (BitVec.ofNat 128 (rhoMod h))) := by
-  rw [rhoLaw, ← PMF.monad_map_eq_map, expectedValue_map, BPORS.expected_uniform_eq_finiteAverage]
-  unfold expectedValue BPORS.finiteAverage
-  simp only [PMF.probOutput_eq_apply, PMF.uniformOfFintype_apply, tsum_fintype]
-  rw [div_eq_mul_inv, Finset.sum_mul]
-  exact Finset.sum_congr rfl fun _ _ => mul_comm _ _
-/-- R6 world split: `E_{rhoLaw} f ≤ κ · E_{$Digest} f` (`uniform_hash_mod_le`). -/
-theorem rhoLaw_expect_le (f : Digest → ℝ≥0∞) :
-    expectedValue rhoLaw f ≤
-      SigGolfCandidate.T3.Security.LazyPrivate.rhoKappa * expectedValue ($ᵗ Digest : ProbComp Digest) f := by
-  rw [expectedValue_rhoLaw]
-  exact SigGolfCandidate.T3.Security.LazyPrivate.uniform_hash_mod_le f
-end SigGolfCandidate.T3.Security.BPair
-namespace ClaudeWCT.Bank.FtsBankSpec
-open OracleComp OracleSpec OracleComp.EvalDist ENNReal
-open SigGolfCandidate.T3 SigGolfCandidate.T3.Security
-attribute [local instance] Classical.propDecidable
-variable {P : Type} [Fintype P] [SampleableType P] (S : FtsBankSpec P)
-/-- R6 world split (S3): the `κ`-weighted reuse mass. -/
-noncomputable def reuseMassK (cache : Sampling.RCache) (m : Message) : ENNReal :=
-  LazyPrivate.rhoKappa * S.reuseMass cache m
-/-- R6 world split (S3): a `rhoLaw` nonce reuses a cached admissible trial with probability `≤ reuseMassK`. -/
-theorem reuse_probability_le_rho (cache : Sampling.RCache) (m : Message) :
-    expectedValue BPair.rhoLaw (fun rho => if S.Reuse cache rho m then (1 : ℝ≥0∞) else 0) ≤ S.reuseMassK cache m :=
-  (BPair.rhoLaw_expect_le _).trans (mul_le_mul' le_rfl (S.reuse_probability_le cache m))
-/-- R6 world split (S3): one fresh cache entry raises `reuseMassK` by at most `κ · admInd / 2^128`. -/
-theorem reuseMassK_cacheQuery_le (cache : Sampling.RCache) (x : HashInput) (a : HashOutput)
-    (hx : cache x = none) (m : Message) :
-    S.reuseMassK (cache.cacheQuery x a) m ≤
-      S.reuseMassK cache m + (if CaseC.DigestRowOf x m then LazyPrivate.rhoKappa * S.admInd a else 0) / 2 ^ 128 := by
-  unfold reuseMassK
-  refine (mul_le_mul' le_rfl (S.reuseMass_cacheQuery_le cache x a hx m)).trans (le_of_eq ?_)
-  rw [mul_add, ← mul_div_assoc, mul_ite, mul_zero]
-/-- R6 world split (S3): `κ · E admInd ≤ admBound` (F3 `acceptance_le`). -/
-theorem expected_kappa_admInd :
-    LazyPrivate.rhoKappa * expectedValue ($ᵗ HashOutput : ProbComp HashOutput) S.admInd ≤ S.admBound := by
-  rw [S.expected_admInd]
-  exact S.acceptance_le
-end ClaudeWCT.Bank.FtsBankSpec
 end

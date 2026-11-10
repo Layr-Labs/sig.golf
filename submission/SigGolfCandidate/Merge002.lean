@@ -7,8 +7,6 @@ import Mathlib.Algebra.BigOperators.ModEq
 import Mathlib.Data.Nat.Choose.Bounds
 import Mathlib.Algebra.BigOperators.Fin
 import Mathlib.Data.Fintype.Perm
-set_option debug.skipKernelTC true
-set_option linter.all false
 
 -- ==== merged from Budget_Octopus_Tuples ====
 section

@@ -2,8 +2,6 @@ import VCVio.OracleComp.SimSemantics.Append
 import VCVio.OracleComp.QueryTracking.QueryBound.Basic
 import SigGolfCandidate.Merge019
 import SigGolfCandidate.Merge020
-set_option debug.skipKernelTC true
-set_option linter.all false
 
 -- ==== merged from ClaudeWCT_Arith_GroupedFamily ====
 section
@@ -189,11 +187,11 @@ set_option maxRecDepth 10000
 set_option exponentiation.threshold 1024
 
 /-- Seed error of a `g`-leaf family charge `C ≤ 305` (`43 g ≤ 305`) on the live small window. -/
-theorem grouped_seed_error (C y : ℝ) (hC0 : 0 ≤ C) (hC : C ≤ 301) (hy0 : 0 ≤ y) (hy : y ≤ 1251 / 1000000) :
-    2 * C * y ^ 3 / (1 - y) ≤ (755 / 1000) * y ^ 2 := by
+theorem grouped_seed_error (C y : ℝ) (hC0 : 0 ≤ C) (hC : C ≤ 305) (hy0 : 0 ≤ y) (hy : y ≤ 3 / 2500) :
+    2 * C * y ^ 3 / (1 - y) ≤ (733 / 1000) * y ^ 2 := by
   have hd : 0 < 1 - y := by linarith
   apply (div_le_iff₀ hd).2
-  have hcoef : 2 * C * y ≤ (755 / 1000) * (1 - y) := by nlinarith
+  have hcoef : 2 * C * y ≤ (733 / 1000) * (1 - y) := by nlinarith
   nlinarith [mul_le_mul_of_nonneg_right hcoef (sq_nonneg y)]
 
 /-- At `2 C ≤ 540` (`g ≤ 6`) the installed seed-error chain (`canonical_seed_error`) applies unchanged. -/
@@ -205,10 +203,10 @@ theorem grouped_seed_error_installed (C y : ℝ) (hC : 2 * C ≤ 540) (_hy0 : 0 
 
 /-- The weighting coefficients on the two small windows, with the error weight tightened to `1061/1000`
 (exact values: middle `1.0470…` at `w = 1023/50000`, tiny `1.0600…` at `w = 3/100`). -/
-theorem middle_coefficients_t (y : ℝ) (hy0 : 0≤y) (hy : y≤1251/1000000) :
-    canonicalPrefix y (21931/1000000)≤1996581/1000000 ∧
-    canonicalEncoding y (21931/1000000)≤1996581/1000000 ∧
-    canonicalError y (21931/1000000)≤1061/1000 :=
+theorem middle_coefficients_t (y : ℝ) (hy0 : 0≤y) (hy : y≤149/125000) :
+    canonicalPrefix y (10297/500000)≤99843/50000 ∧
+    canonicalEncoding y (10297/500000)≤99843/50000 ∧
+    canonicalError y (10297/500000)≤1061/1000 :=
   ⟨(middle_coefficients y hy0 hy).1, (middle_coefficients y hy0 hy).2.1,
     (canonicalError_mono hy0 hy (by norm_num) (by norm_num) (by norm_num)).trans
       (by norm_num [canonicalError])⟩
@@ -220,9 +218,9 @@ theorem tiny_coefficients_t (y : ℝ) (hy0 : 0≤y) (hy : y≤1/2^28) :
       (by norm_num [canonicalError])⟩
 theorem grouped_weighted_error (y err coefficient : ℝ)
     (hc0 : 0 ≤ coefficient) (hc : coefficient ≤ 1061 / 1000)
-    (he : err ≤ (755 / 1000) * y ^ 2) : coefficient * err ≤ (802 / 1000) * y ^ 2 := by
-  calc coefficient * err ≤ coefficient * ((755 / 1000) * y ^ 2) := mul_le_mul_of_nonneg_left he hc0
-    _ ≤ (1061 / 1000) * ((755 / 1000) * y ^ 2) := mul_le_mul_of_nonneg_right hc (by positivity)
+    (he : err ≤ (733 / 1000) * y ^ 2) : coefficient * err ≤ (778 / 1000) * y ^ 2 := by
+  calc coefficient * err ≤ coefficient * ((733 / 1000) * y ^ 2) := mul_le_mul_of_nonneg_left he hc0
+    _ ≤ (1061 / 1000) * ((733 / 1000) * y ^ 2) := mul_le_mul_of_nonneg_right hc (by positivity)
     _ ≤ _ := by nlinarith [sq_nonneg y]
 
 /-- Live middle window with the `g ≤ 7` family error: quadratic `767/1000 + 778/1000 = 1545/1000` (r3x: excess `149/125000`). -/
@@ -267,48 +265,48 @@ set_option maxHeartbeats 1000000
 set_option maxRecDepth 10000
 set_option exponentiation.threshold 1024
 
-theorem paired_partial_denominatorRC (y pwin : ℝ) (hy : y≤2163/1000000)
-    (h : pwin≤(((22820/50)+29249/2500000)/(2*(1-y))+1/(2*(1-y)^2))*y^2) :
-    pwin≤(22921/100)*y^2 := by
+theorem paired_partial_denominatorRC (y pwin : ℝ) (hy : y≤149/125000)
+    (h : pwin≤(((19493/50)+1/1024)/(2*(1-y))+1/(2*(1-y)^2))*y^2) :
+    pwin≤(19567/100)*y^2 := by
   have hd : 0<2*(1-y) := by linarith
-  have hn : ((22820/50)+(29249:ℝ)/2500000)/(2*(1-y))≤2287006/10000 := by
+  have hn : ((19493/50)+(1:ℝ)/1024)/(2*(1-y))≤1951632/10000 := by
     apply (div_le_iff₀ hd).2
     linarith
-  have hbase : (997837:ℝ)/1000000≤1-y := by linarith
+  have hbase : (124851:ℝ)/125000≤1-y := by linarith
   have hs : 0<2*(1-y)^2 := by positivity
-  have hp : (1:ℝ)/(2*(1-y)^2)≤5022/10000 := by
+  have hp : (1:ℝ)/(2*(1-y)^2)≤5012/10000 := by
     apply (div_le_iff₀ hs).2
-    nlinarith [sq_nonneg (1-y-(997837:ℝ)/1000000)]
+    nlinarith [sq_nonneg (1-y-(124851:ℝ)/125000)]
   exact h.trans (mul_le_mul_of_nonneg_right (by linarith) (sq_nonneg y))
 
-theorem chargeRC (y z near : ℝ) (hy0 : 0 ≤ y) (hy1 : y ≤ 2163 / 1000000)
+theorem chargeRC (y z near : ℝ) (hy0 : 0 ≤ y) (hy1 : y ≤ 149 / 125000)
     (hn : 0 ≤ near) (hcost : near * (1 - y) ≤ z)
-    (hquad : near ≤ (22921 / 100) * y ^ 2) :
-    z + near - (397071 / 200000) * z ≤ (38455 / 10000) * y ^ 2 := by
+    (hquad : near ≤ (19567 / 100) * y ^ 2) :
+    z + near - (99843 / 50000) * z ≤ (8471 / 10000) * y ^ 2 := by
   have hny := mul_le_mul_of_nonneg_left hy1 hn
-  have hz : z + near - (397071 / 200000) * z ≤ (16777 / 1000000) * near := by
+  have hz : z + near - (99843 / 50000) * z ≤ (4329 / 1000000) * near := by
     nlinarith
   nlinarith [sq_nonneg y]
 
 theorem class_budgetRC (p e o m y near : ℝ)
     (hp : 0 ≤ p) (he : 0 ≤ e) (ho : 0 ≤ o) (hm : 0 ≤ m)
-    (hbudget : p + e + o + m ≤ y) (hy : y ≤ 2163 / 1000000)
+    (hbudget : p + e + o + m ≤ y) (hy : y ≤ 149 / 125000)
     (hn : 0 ≤ near) (hcost : near * (1 - y) ≤ o)
-    (hquad : near ≤ (22921 / 100) * y ^ 2) :
-    (397071 / 200000) * (p + e + m) + o + near ≤
-      (397071 / 200000) * y + (38455 / 10000) * y ^ 2 := by
+    (hquad : near ≤ (19567 / 100) * y ^ 2) :
+    (99843 / 50000) * (p + e + m) + o + near ≤
+      (99843 / 50000) * y + (8471 / 10000) * y ^ 2 := by
   have hy0 : 0 ≤ y := by linarith
   have hc := chargeRC y o near hy0 hy hn hcost hquad
   nlinarith
 
 /-- Live middle window at gate 791: quadratic `8077/10000 + 778/1000 = 15857/10000`, excess `1153/10^6`. -/
 theorem grouped_middle_closingRC (y excess : ℝ) (hlow : 1 / 2 ^ 28 ≤ y)
-    (hhigh : y ≤ 2163 / 1000000) (hexcess : excess ≤ 2118 / 1000000) :
-    (397071 / 200000) * y + y * excess + (11391 / 2000) * y ^ 2 + 1 / 2 ^ 136 +
+    (hhigh : y ≤ 149 / 125000) (hexcess : excess ≤ 1174 / 1000000) :
+    (99843 / 50000) * y + y * excess + (16251 / 10000) * y ^ 2 + 1 / 2 ^ 136 +
       (y / 2 ^ 18 + 1 / 2 ^ 700 + 1 / 2 ^ 152 + y / 2 ^ 128) ≤ 2 * y := by
   have hn : 0 ≤ y := le_trans (by positivity) hlow
   have he := mul_le_mul_of_nonneg_left hexcess hn
-  have hsq : y ^ 2 ≤ (2163 / 1000000) * y := by
+  have hsq : y ^ 2 ≤ (149 / 125000) * y := by
     nlinarith [mul_le_mul_of_nonneg_left hhigh hn]
   have habs : (1 : ℝ) / 2 ^ 136 ≤ y / 2 ^ 108 := by
     have h := div_le_div_of_nonneg_right hlow (show (0 : ℝ) ≤ 2 ^ 108 by positivity)
@@ -326,8 +324,8 @@ theorem grouped_middle_closingRC (y excess : ℝ) (hlow : 1 / 2 ^ 28 ≤ y)
 
 theorem tiny_chargeRC (y z near : ℝ) (hy0 : 0 ≤ y) (hy1 : y ≤ 1 / 2 ^ 28)
     (hn : 0 ≤ near) (hcost : near * (1 - y) ≤ z)
-    (hquad : near ≤ (22921 / 100) * y ^ 2) :
-    z + near - (249 / 125) * z ≤ (22921 / 12000) * y ^ 2 := by
+    (hquad : near ≤ (19567 / 100) * y ^ 2) :
+    z + near - (249 / 125) * z ≤ (19567 / 12000) * y ^ 2 := by
   have hny := mul_le_mul_of_nonneg_left hy1 hn
   have hz : z + near - (249 / 125) * z ≤ (1 / 120) * near := by
     nlinarith
@@ -337,14 +335,14 @@ theorem tiny_class_budgetRC (p e o m y near : ℝ)
     (hp : 0 ≤ p) (he : 0 ≤ e) (ho : 0 ≤ o) (hm : 0 ≤ m)
     (hbudget : p + e + o + m ≤ y) (hy : y ≤ 1 / 2 ^ 28)
     (hn : 0 ≤ near) (hcost : near * (1 - y) ≤ o)
-    (hquad : near ≤ (22921 / 100) * y ^ 2) :
+    (hquad : near ≤ (19567 / 100) * y ^ 2) :
     (249 / 125) * (p + e + m) + o + near ≤
-      (249 / 125) * y + (22921 / 12000) * y ^ 2 := by
+      (249 / 125) * y + (19567 / 12000) * y ^ 2 := by
   have hy0 : 0 ≤ y := by linarith
   have hc := tiny_chargeRC y o near hy0 hy hn hcost hquad
   nlinarith
 
-theorem grouped_tiny_quadraticRC : (22921 / 12000 : ℝ) + 802 / 1000 ≤ 3 := by norm_num
+theorem grouped_tiny_quadraticRC : (19567 / 12000 : ℝ) + 778 / 1000 ≤ 3 := by norm_num
 
 end SigGolfCandidate.Research.V7Composed198Closing.CanonicalWindow
 end

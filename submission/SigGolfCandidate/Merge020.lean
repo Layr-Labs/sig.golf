@@ -4,8 +4,6 @@ import Mathlib.Tactic.NormNum
 import Mathlib.Tactic.Linarith
 import Mathlib.Tactic.Ring
 import Mathlib.Tactic.Positivity
-set_option debug.skipKernelTC true
-set_option linter.all false
 
 -- ==== merged from Research_V7Composed198Closing ====
 section
@@ -239,15 +237,15 @@ theorem large_closing_real (y excess : ℝ) (hlow : 1000 / 4194304 ≤ y)
     linarith
   nlinarith
 
-/-- Cap-777 large-query closing: the thinned excess envelope `(98000/100000)·y` on `y ≥ 3/2500`. -/
-theorem large_closing_real_cap777 (y excess : ℝ) (hlow : 2163 / 1000000 ≤ y)
-    (hexcess : excess ≤ (98000 / 100000) * y) :
+/-- Cap-777 large-query closing: the thinned excess envelope `(993/1000)·y` on `y ≥ 3/2500`. -/
+theorem large_closing_real_cap777 (y excess : ℝ) (hlow : 149 / 125000 ≤ y)
+    (hexcess : excess ≤ (24771 / 25000) * y) :
     (2 * y - y ^ 2) + y * excess + y * (1 / 2 ^ 25) +
       y * (1 / 2 ^ 50) + 1 / 2 ^ 131 +
       (y / 2 ^ 18 + 1 / 2 ^ 700 + 1 / 2 ^ 152 + y / 2 ^ 128) ≤ 2 * y := by
   have hn : 0 ≤ y := le_trans (by norm_num) hlow
   have he := mul_le_mul_of_nonneg_left hexcess hn
-  have hsq : y * (2163 / 1000000) ≤ y ^ 2 := by
+  have hsq : y * (149 / 125000) ≤ y ^ 2 := by
     nlinarith [mul_le_mul_of_nonneg_left hlow hn]
   have habs : (1 : ℝ) / 2 ^ 131 ≤ y / 2 ^ 121 := by
     have h := div_le_div_of_nonneg_right hlow (show (0 : ℝ) ≤ 2 ^ 121 by positivity)
@@ -538,11 +536,11 @@ set_option maxRecDepth 10000
 set_option exponentiation.threshold 1024
 
 noncomputable def canonicalPrefix (y w : ℝ) : ℝ :=
-  w*((3/2+4*y+2*y^2)/(1-y)+4*y/(1-y)^2+176*y/(1-y))+(1-w)*2/(1-y)
-noncomputable def canonicalEncoding (y w : ℝ) : ℝ := 7/4+w*8976*y/(1-y)
+  w*((3/2+4*y+2*y^2)/(1-y)+4*y/(1-y)^2+186*y/(1-y))+(1-w)*2/(1-y)
+noncomputable def canonicalEncoding (y w : ℝ) : ℝ := 7/4+w*10044*y/(1-y)
 noncomputable def canonicalError (y w : ℝ) : ℝ :=
   w*((1+(3/2+4*y+2*y^2)*y)/(1-y)+2*y*(1+2*y)/(1-y)^2+
-    2*(1+2*y)/(1-y)+88*y*(1+2*y)/(1-y))+(1-w)*(1+2*y)/(1-y)
+    2*(1+2*y)/(1-y)+93*y*(1+2*y)/(1-y))+(1-w)*(1+2*y)/(1-y)
 
 theorem canonicalPrefix_mono {x y w : ℝ} (hx : 0≤x) (hxy : x≤y) (hy : y<1)
     (hw : 0≤w) (hw1 : w≤1) : canonicalPrefix x w≤canonicalPrefix y w := by
@@ -570,10 +568,10 @@ theorem canonicalError_mono {x y w : ℝ} (hx : 0≤x) (hxy : x≤y) (hy : y<1)
   have hv : 0≤1-w := by linarith
   gcongr <;> first | positivity | linarith
 
-theorem middle_coefficients (y : ℝ) (hy0 : 0≤y) (hy : y≤1251/1000000) :
-    canonicalPrefix y (21931/1000000)≤1996581/1000000 ∧
-    canonicalEncoding y (21931/1000000)≤1996581/1000000 ∧
-    canonicalError y (21931/1000000)≤109/100 := by
+theorem middle_coefficients (y : ℝ) (hy0 : 0≤y) (hy : y≤149/125000) :
+    canonicalPrefix y (10297/500000)≤99843/50000 ∧
+    canonicalEncoding y (10297/500000)≤99843/50000 ∧
+    canonicalError y (10297/500000)≤109/100 := by
   refine ⟨(canonicalPrefix_mono hy0 hy (by norm_num) (by norm_num) (by norm_num)).trans ?_,
     (canonicalEncoding_mono hy0 hy (by norm_num) (by norm_num)).trans ?_,
     (canonicalError_mono hy0 hy (by norm_num) (by norm_num) (by norm_num)).trans ?_⟩ <;>

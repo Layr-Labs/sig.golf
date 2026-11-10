@@ -1,7 +1,5 @@
 import Mathlib.Data.Fintype.Card
 import Mathlib.Tactic
-set_option debug.skipKernelTC true
-set_option linter.all false
 
 -- ==== merged from Choice_Gated ====
 section

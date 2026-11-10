@@ -4,23 +4,6 @@ import SigGolfCandidate.Merge028
 import SigGolfCandidate.Merge030
 import SigGolfCandidate.Merge033
 import SigGolfCandidate.Merge042
-set_option debug.skipKernelTC true
-set_option linter.all false
-
-namespace SigGolfCandidate.T3.Security.BPB
-open OracleComp OracleSpec
-set_option debug.skipKernelTC false in
-theorem shortHash_ok_low {input : HashInput} {hdr : Digest}
-    (h : SigGolfCandidate.T3M.Extract.hdrBlock (pad64 input) = SphincsSecurity.bytesLE 16 hdr)
-    (hm : tweakLow hdr ≠ 25984) : AllQueriesSatisfy (shortHash input) NotDigestQ := by
-  unfold shortHash publicHash
-  apply SourceQueries.bind_allowed
-  · apply (allQueriesSatisfy_query_iff _ _).mpr
-    change hdrMarker (pad64 input) ≠ 25984
-    rw [hdrMarker_eq h]
-    exact hm
-  · intro _; exact SourceQueries.pure_allowed _ _
-end SigGolfCandidate.T3.Security.BPB
 
 -- ==== merged from ClaudeWCT_Numerics_N600Cap ====
 section
@@ -162,6 +145,12 @@ theorem producerAdmissible_zero : WCT9.producerAdmissible 0 = true := by
   rw [hz]
   exact capOkC_zero
 theorem exists_producer : ∃ x, WCT9.producerAdmissible x = true := ⟨0, producerAdmissible_zero⟩
+noncomputable def wctSpec' (horizon : Nat) (rate : ENNReal) (hexc : ExcessBound horizon rate) :
+    FtsBankSpec WProposal :=
+  wctSpec honestLawSum acceptedProposalHonest producerAcceptanceBound exists_producer horizon rate hexc
+theorem wctSpec'_eq (horizon : Nat) (rate : ENNReal) (hexc : ExcessBound horizon rate) :
+    wctSpec' horizon rate hexc =
+      wctSpec honestLawSum acceptedProposalHonest producerAcceptanceBound exists_producer horizon rate hexc := rfl
 set_option linter.constructorNameAsVariable false in
 theorem honestCoordLaw_eq_n4 : honestCoordLaw = ClaudeWCT.Numerics.N600Cap.honestLaw := by
   funext c
@@ -203,7 +192,7 @@ noncomputable def honestLaw : Proposal → ENNReal :=
 
 theorem sum_producer (g : Proposal → ENNReal) :
     (∑ a : HashOutput, if producer a = true then g (proposal a) else 0) =
-      ((926*2^62 : Nat) : ENNReal) * ∑ p : Proposal, if capOk p.2 = true then g p else 0 := by
+      ((791*2^62 : Nat) : ENNReal) * ∑ p : Proposal, if capOk p.2 = true then g p else 0 := by
   rw [← sum_admissible (fun p => if capOk p.2 = true then g p else 0)]
   apply Finset.sum_congr rfl
   intro a _
@@ -267,7 +256,7 @@ theorem sum_capOk_prod_one :
 
 theorem producer_acceptance_eq :
     Pr[fun a : HashOutput => producer a = true | ($ᵗ HashOutput : ProbComp HashOutput)] =
-      ((926*2^62 : Nat) : ENNReal) * (((2^31 : Nat) : ENNReal) * (capSet.card : ENNReal)) /
+      ((791*2^62 : Nat) : ENNReal) * (((2^31 : Nat) : ENNReal) * (capSet.card : ENNReal)) /
         (Fintype.card HashOutput : ENNReal) := by
   rw [← expectedValue_ite_one, BPORS.expected_uniform_eq_finiteAverage]
   unfold SigGolfResearch.Gate6.Moments.finiteAverage
@@ -288,8 +277,8 @@ theorem acceptedProposalHonest (g : Proposal → ENNReal) :
   set K := ((2^31 : Nat) : ENNReal)*(capSet.card : ENNReal)
   set S := ∑ p : Proposal, if capOk p.2 = true then g p else 0
   simp only [div_eq_mul_inv]
-  calc ((926*2^62 : Nat) : ENNReal)*S*(Fintype.card HashOutput : ENNReal)⁻¹
-      = ((926*2^62 : Nat) : ENNReal)*S*(Fintype.card HashOutput : ENNReal)⁻¹*(K⁻¹*K) := by
+  calc ((791*2^62 : Nat) : ENNReal)*S*(Fintype.card HashOutput : ENNReal)⁻¹
+      = ((791*2^62 : Nat) : ENNReal)*S*(Fintype.card HashOutput : ENNReal)⁻¹*(K⁻¹*K) := by
         rw [ENNReal.inv_mul_cancel hK hK', mul_one]
     _ = _ := by ring
 
@@ -311,7 +300,7 @@ theorem producer_zero : producer 0 = true := by
     · funext k; fin_cases k <;> rfl
   rw [producer, ha, Bool.true_and, hp, capOk_zero]
 
-theorem producerAcceptanceBound_e8 :
+theorem producerAcceptanceBound :
     Pr[fun a : HashOutput => producer a = true | ($ᵗ HashOutput : ProbComp HashOutput)] ≤ 1/1024 := by
   calc _ ≤ Pr[fun a : HashOutput => admissible a = true | ($ᵗ HashOutput : ProbComp HashOutput)] :=
         probEvent_mono (fun a _ h => (Bool.and_eq_true_iff.mp h).1)
@@ -470,6 +459,40 @@ theorem average_score (X : List HashOutput) :
   unfold price score
   rw [mul_comm, ENNReal.mul_div_cancel_right (by positivity) (by finiteness)]
 
+/-- The law-only bank packages the actual producer and exact proposal law.
+Its infinite excess bound is never a security certificate: it is used only
+for generic accepted-output and cached-search expectation identities. -/
+noncomputable def lawSpec : FtsBankSpec Proposal where
+  specTheta := 1023/1024
+  admBound := 1/1024
+  theta_add_admBound := by
+    apply (ENNReal.toReal_eq_toReal_iff' (by finiteness)
+      (by unfold SigGolfCandidate.T3.Security.CaseC.theta; finiteness)).mp
+    unfold SigGolfCandidate.T3.Security.CaseC.theta
+    simp (disch := finiteness) only [ENNReal.toReal_add, ENNReal.toReal_div, ENNReal.toReal_inv,
+      ENNReal.toReal_ofNat, ENNReal.toReal_one]
+    norm_num
+  admissible := admissible
+  producer := producer
+  exists_producer := ⟨0,producer_zero⟩
+  acceptance_le := producerAcceptanceBound
+  proposal := proposal
+  law := honestLaw
+  law_sum := honestLaw_sum
+  accepted_proposal := acceptedProposalHonest
+  score := score
+  covered := Covered
+  one_le_score := one_le_score
+  score_append_mono := score_append_mono
+  price := price
+  average_score := average_score
+  horizon := 2^32
+  excessRate := ⊤
+  excess_le := le_top
+
+theorem selected_proposal (g : Proposal → ENNReal) :
+    expectedValue lawSpec.accepted (fun a => g (proposal a)) = ∑ p, honestLaw p*g p :=
+  lawSpec.expected_accepted_proposal g
 
 end ClaudeWCT.Bank.Paired
 
@@ -522,7 +545,7 @@ theorem predicate_card_nat (p : SharedDigestFields.Fields → Prop) [DecidablePr
   simpa only [Nat.card_eq_fintype_card] using SharedDigestFields.predicate_card p
 
 theorem producer_card_fields : Nat.card {a : HashOutput // producer a = true} =
-    fieldRetained*2^31*926*2^76 := by
+    fieldRetained*2^31*791*2^76 := by
   have he := congrArg (fun p : HashOutput → Bool => Nat.card {a : HashOutput // p a = true}) producer_fields_eq
   calc _ = Nat.card {a : HashOutput // SharedDigestFields.accepted (SharedDigestFields.fields a) = true} := he
        _ = Nat.card {f : SharedDigestFields.Fields // SharedDigestFields.accepted f = true} * 2^76 := predicate_card_nat (fun f => SharedDigestFields.accepted f = true)
@@ -533,7 +556,7 @@ theorem uniform_card_bool {α : Type} [Fintype α] [SampleableType α] (p : α �
   rw [probEvent_uniformSample, ← Fintype.card_subtype, Nat.card_eq_fintype_card]
 
 theorem producer_card : Nat.card {a : HashOutput // producer a = true} =
-    926*2^62*(2^31*capSet.card) := by
+    791*2^62*(2^31*capSet.card) := by
   have he := producer_acceptance_eq
   rw [uniform_card_bool producer] at he
   have hn : (Fintype.card HashOutput : ENNReal) ≠ 0 := by
@@ -547,12 +570,12 @@ theorem producer_card : Nat.card {a : HashOutput // producer a = true} =
 theorem capSet_card_fields : capSet.card = fieldRetained*2^14 := by
   have h := producer_card_fields
   rw [producer_card] at h
-  have he : (926*2^93)*capSet.card = (926*2^93)*(fieldRetained*2^14) := by
+  have he : (791*2^93)*capSet.card = (791*2^93)*(fieldRetained*2^14) := by
     calc
-      _ = 926*2^62*(2^31*capSet.card) := by ring
-      _ = fieldRetained*2^31*926*2^76 := h
+      _ = 791*2^62*(2^31*capSet.card) := by ring
+      _ = fieldRetained*2^31*791*2^76 := h
       _ = _ := by ring
-  exact Nat.eq_of_mul_eq_mul_left (by norm_num : 0<926*2^93) he
+  exact Nat.eq_of_mul_eq_mul_left (by norm_num : 0<791*2^93) he
 
 theorem capSet_card_scaled : capSet.card*16 = count := by
   rw [capSet_card_fields]
@@ -623,61 +646,6 @@ theorem digestAccepted_acceptance_lower :
   have he : producer = SigGolfCandidate.Research.SharedForest.digestAccepted := funext producer_source
   rw [← he]
   exact producer_acceptance_lower
-end ClaudeWCT.Bank.Paired
-
-namespace ClaudeWCT.Bank.Paired
-open OracleComp OracleSpec OracleComp.EvalDist ENNReal
-open SigGolfCandidate.T3 ClaudeWCT.Numerics.CanonicalCompression
-set_option maxHeartbeats 0
-set_option maxRecDepth 100000
-set_option backward.isDefEq.respectTransparency false
-attribute [local instance] Classical.propDecidable
-attribute [local irreducible] Finset.univ
-
-/-- R6 (F3): `κ · Pr[producer] ≤ 29249/2500000` (Route C admBound), from the exact acceptance
-`ftsNum/ftsDen` and `κ = 15557284462666655376466157833521152917877/2^128` (relative slack: Z5R referee). -/
-theorem producerAcceptanceBound :
-    SigGolfCandidate.T3.Security.LazyPrivate.rhoKappa *
-      Pr[fun a : HashOutput => producer a = true | ($ᵗ HashOutput : ProbComp HashOutput)] ≤ 29249/2500000 := by
-  rw [producer_acceptance_exact, SigGolfCandidate.T3.Security.LazyPrivate.rhoKappa_eq]
-  apply (ENNReal.toReal_le_toReal (by unfold ftsDen; finiteness) (by finiteness)).mp
-  norm_num [ftsNum, ftsDen, ENNReal.toReal_div, ENNReal.toReal_mul]
-
-/-- The law-only bank packages the actual producer and exact proposal law.
-Its infinite excess bound is never a security certificate: it is used only
-for generic accepted-output and cached-search expectation identities. -/
-noncomputable def lawSpec : FtsBankSpec Proposal where
-  specTheta := 2470751/2500000
-  admBound := 29249/2500000
-  theta_add_admBound := by
-    apply (ENNReal.toReal_eq_toReal_iff' (by finiteness)
-      (by unfold SigGolfCandidate.T3.Security.CaseC.theta; finiteness)).mp
-    unfold SigGolfCandidate.T3.Security.CaseC.theta
-    simp (disch := finiteness) only [ENNReal.toReal_add, ENNReal.toReal_div, ENNReal.toReal_inv,
-      ENNReal.toReal_ofNat, ENNReal.toReal_one]
-    norm_num
-  admissible := admissible
-  producer := producer
-  exists_producer := ⟨0,producer_zero⟩
-  acceptance_le := producerAcceptanceBound
-  proposal := proposal
-  law := honestLaw
-  law_sum := honestLaw_sum
-  accepted_proposal := acceptedProposalHonest
-  score := score
-  covered := Covered
-  one_le_score := one_le_score
-  score_append_mono := score_append_mono
-  price := price
-  average_score := average_score
-  horizon := 2^32
-  excessRate := ⊤
-  excess_le := le_top
-
-theorem selected_proposal (g : Proposal → ENNReal) :
-    expectedValue lawSpec.accepted (fun a => g (proposal a)) = ∑ p, honestLaw p*g p :=
-  lawSpec.expected_accepted_proposal g
-
 end ClaudeWCT.Bank.Paired
 end
 -- ==== merged from T3_Secc_WotsTransportBase ====
@@ -2452,11 +2420,8 @@ noncomputable def envWith (rowSrc : HashInput → PMF HashOutput) (nonceSrc : Me
   auxiliary := auxWith rowSrc nonceSrc
   trial mem _ _ _ := mem
   disclosure mem _ _ := mem
-/-- R6 world split: the law of a nonce, `rhoMod` of a uniform 256-bit output (point masses `≤ κ / 2^128`). -/
-noncomputable def rhoLaw : PMF Digest :=
-  PMF.map (fun h : HashOutput => BitVec.ofNat 128 (rhoMod h)) (PMF.uniformOfFintype HashOutput)
 noncomputable def envL : SecretGuessObservation.Environment AuxSpecL FtsCoord Digest LazyMem :=
-  envWith (fun _ => PMF.uniformOfFintype HashOutput) (fun _ => rhoLaw)
+  envWith (fun _ => PMF.uniformOfFintype HashOutput) (fun _ => PMF.uniformOfFintype Digest)
 noncomputable def envE (D : digestInputs → HashOutput) (Nn : Message → Digest) :
     SecretGuessObservation.Environment AuxSpecL FtsCoord Digest LazyMem :=
   envWith (fun x => pure (rowVal D x)) (fun m => pure (Nn m))
@@ -2528,7 +2493,7 @@ def NotDN : T3.Spec.Domain → Prop
   | .inr (.inr (.inl _)) => False
   | .inr (.inr (.inr _)) => True
 theorem not_digest_of_marker {x : HashInput} {h : Digest} (hx : Extract.hdrBlock x = bytesLE 16 h)
-    (hm : tweakMarker h ≠ 128) : x ∉ digestInputs := by
+    (hm : tweakMarker h ≠ 0) : x ∉ digestInputs := by
   intro hmem
   obtain ⟨rho, m, ctr, rfl⟩ := mem_digestInputs.mp hmem
   rw [Extract.hdrBlock_pad64 _ (by rw [digestInput_length]; omega)] at hx
@@ -2538,7 +2503,7 @@ theorem not_digest_of_marker {x : HashInput} {h : Digest} (hx : Extract.hdrBlock
   exact hm (by rw [← bytesLE_injective h2, digestHeader_marker])
 /-- C4: the digest is the only query with low header word 0 (top fold labels may have byte0 = 0). -/
 theorem not_digest_of_low {x : HashInput} {h : Digest} (hx : Extract.hdrBlock x = bytesLE 16 h)
-    (hm : tweakLow h ≠ 25984) : x ∉ digestInputs := by
+    (hm : tweakLow h ≠ 0) : x ∉ digestInputs := by
   intro hmem
   obtain ⟨rho, m, ctr, rfl⟩ := mem_digestInputs.mp hmem
   rw [Extract.hdrBlock_pad64 _ (by rw [digestInput_length]; omega)] at hx
@@ -2605,7 +2570,7 @@ theorem leafHash_dn (lay : Layer) (tree leaf : Nat) (ends : List Digest) :
     AllQueriesSatisfy (leafHash lay tree leaf ends) NotDN := by
   unfold leafHash projHash publicHash
   exact bind_allowed NotDN ((allQueriesSatisfy_query_iff _ _).mpr
-    (not_digest_of_marker (Extract.hdrBlock_leafInput lay tree leaf ends) (by have := leafTweak_marker lay tree leaf; omega)))
+    (not_digest_of_marker (Extract.hdrBlock_leafInput lay tree leaf ends) (by rw [leafTweak_marker]; decide)))
     fun _ => pure_allowed _ _
 theorem nodeHash_dn {tag : Nat} (lay tree heap : Nat) (left right : Digest) (_ht : tag % 256 ≠ 12) :
     AllQueriesSatisfy (nodeHash tag lay tree heap left right) NotDN := by
@@ -2613,14 +2578,11 @@ theorem nodeHash_dn {tag : Nat} (lay tree heap : Nat) (left right : Digest) (_ht
   unfold projHash publicHash
   exact bind_allowed NotDN ((allQueriesSatisfy_query_iff _ _).mpr
     (not_digest_of_low (by rw [pad64_nodeInputP, nodeInputP]; exact Extract.hdrBlock_block4 _ _ _ _)
-      (nodeTweak_low_ne_digest _ _ _ _)))
+      (nodeTweak_low_ne_zero _ _ _ _)))
     fun _ => pure_allowed _ _
-theorem pairedMask_dn (level pair : Nat) : AllQueriesSatisfy (pairedMask level pair) NotDN := by
-  unfold pairedMask
-  exact pure_allowed _ _
 theorem mask_dn (level index : Nat) : AllQueriesSatisfy (mask level index) NotDN := by
-  unfold mask
-  exact bind_allowed NotDN (pairedMask_dn _ _) fun _ => pure_allowed _ _
+  unfold mask pairedMask
+  exact bind_allowed NotDN (privatePair_dn _ _ _ _ _) fun _ => pure_allowed _ _
 theorem buildLeaf_dn (lay : Layer) (tree leaf : Nat) (digits : List Nat) (signatureOnly : Bool) :
     AllQueriesSatisfy (buildLeaf lay tree leaf digits signatureOnly) NotDN := by
   unfold buildLeaf
@@ -2662,9 +2624,9 @@ theorem buildTree_dn (lay : Layer) (tree selected : Nat) (digits : List Nat) :
     exact bind_allowed NotDN (buildLevels_dn _ _ _ _ (by decide)) fun _ => pure_allowed _ _
 theorem maskedLevel_dn (nodes : List Digest) (level : Nat) :
     AllQueriesSatisfy (maskedLevel nodes level) NotDN := by
-  unfold maskedLevel
+  unfold maskedLevel pairedMask
   apply bind_allowed NotDN
-  · exact mapM_allowed NotDN _ _ (fun pair => bind_allowed NotDN (pairedMask_dn _ _) (fun _ => pure_allowed _ _))
+  · exact mapM_allowed NotDN _ _ (fun pair => bind_allowed NotDN (privatePair_dn _ _ _ _ _) (fun _ => pure_allowed _ _))
   · intro _; exact pure_allowed _ _
 theorem topPairsFrom_dn (first start : Nat) (init : List Digest) :
     AllQueriesSatisfy (topPairsFrom first start init) NotDN := by
@@ -2706,7 +2668,7 @@ theorem topNodeHashN_dn (heap n : Nat) (left right : Digest) :
     AllQueriesSatisfy (topNodeHashN heap n left right) NotDN := by
   unfold topNodeHashN projHash publicHash
   refine bind_allowed NotDN ((allQueriesSatisfy_query_iff _ _).mpr
-    (not_digest_of_low (h := nodeTweak 3 0 0 heap) ?_ (nodeTweak_low_ne_digest _ _ _ _))) fun _ => pure_allowed _ _
+    (not_digest_of_low (h := nodeTweak 3 0 0 heap) ?_ (nodeTweak_low_ne_zero _ _ _ _))) fun _ => pure_allowed _ _
   rw [Extract.hdrBlock_pad64 _ (by simp [topNodeInput, nonceBytes, bytesLE_length])]
   unfold topNodeInput
   rw [List.append_assoc]
@@ -2734,21 +2696,19 @@ theorem buildTopLevels_dn (leaves : List Digest) : AllQueriesSatisfy (buildTopLe
 theorem buildTopTree_dn : AllQueriesSatisfy buildTopTree NotDN := by
   unfold buildTopTree
   exact bind_allowed NotDN (foldlM_allowed NotDN _ _ topTreeStep_dn _) fun _ => buildTopLevels_dn _
-section keygenSafety
-attribute [local irreducible] maskedLevel keygenPayload
-set_option backward.isDefEq.respectTransparency true in
 theorem keygenPayload_dn : AllQueriesSatisfy keygenPayload NotDN := by
   unfold keygenPayload
-  exact bind_allowed NotDN buildTopTree_dn fun built =>
-    bind_allowed NotDN (mapM_allowed NotDN _ _ (fun level => maskedLevel_dn _ _))
-      fun _ => pure_allowed _ _
-set_option backward.isDefEq.respectTransparency true in
+  apply bind_allowed NotDN buildTopTree_dn
+  intro built
+  apply bind_allowed NotDN
+  · exact mapM_allowed NotDN _ _ (fun level => maskedLevel_dn _ _)
+  · intro _
+    exact pure_allowed _ _
 theorem keygen_dn : AllQueriesSatisfy keygen NotDN := by
   unfold keygen
   apply bind_allowed NotDN keygenPayload_dn
   intro generated
   exact bind_allowed NotDN (privateMac_dn _) fun _ => pure_allowed _ _
-end keygenSafety
 theorem topPath_dn (cache : T3.Cache) (leaf : Nat) : AllQueriesSatisfy (topPath cache leaf) NotDN := by
   unfold topPath
   exact mapM_allowed NotDN _ _ fun level =>
@@ -2767,22 +2727,11 @@ theorem nonceHalf_not_secret (m : Message) : nonceHalf m ∉ Set.range CanonGrap
   | inl a => cases h1
   | inr f => cases h1
 def nonceOther (m : Message) : CanonGraph.OtherHalf := ⟨nonceHalf m, nonceHalf_not_secret m⟩
-/-- R6 world split: the high half of the nonce coordinate (also not secret). -/
-def nonceHalfHi (m : Message) : ChainGraph.HalfCoordinate := (.inr (.inl m), 1)
-theorem nonceHalfHi_not_secret (m : Message) : nonceHalfHi m ∉ Set.range CanonGraph.secretCoordinate := by
-  rintro ⟨i, hi⟩
-  have h1 := congrArg Prod.fst hi
-  cases i with
-  | inl a => cases h1
-  | inr f => cases h1
-def nonceOtherHi (m : Message) : CanonGraph.OtherHalf := ⟨nonceHalfHi m, nonceHalfHi_not_secret m⟩
 section Rest
 variable {U : Finset HashInput} (hU : CanonGraph.canonInputs ⊆ U)
 noncomputable local instance instDecidableEqCache_pairGuessLazyFree : DecidableEq T3.Cache := Classical.decEq _
 noncomputable def digestOf (ω : Omega U) : digestInputs → HashOutput := fun x => finiteHashAnswer ∅ U ω.residual x.val
-/-- R6 world split: the world nonce is `rhoMod` of the full 256-bit nonce answer (both halves). -/
-noncomputable def nonceOf (ω : Omega U) : Message → Digest := fun m =>
-  BitVec.ofNat 128 (rhoMod (ChainGraph.joinOutput (ω.other (nonceOther m)) (ω.other (nonceOtherHi m))))
+def nonceOf (ω : Omega U) : Message → Digest := fun m => ω.other (nonceOther m)
 end Rest
 end SigGolfCandidate.T3.Security.BPair
 end
@@ -2802,64 +2751,6 @@ def LowerSeedQ (lay : Layer) (tree : Nat) : SigGolfCandidate.T3.Spec.Domain → 
   | _ => False
 def LowerQuery (lay : Layer) (tree : Nat) (q : SigGolfCandidate.T3.Spec.Domain) : Prop :=
   PubGood q ∨ LowerSeedQ lay tree q
-/-- U16b: the nonce search queries only node hashes `lowerNodeHashN` (one per trial). -/
-theorem allQ_lowerNonceSearch {P : SigGolfCandidate.T3.Spec.Domain → Prop} (lay tree heap : Nat) (left right : Digest)
-    (h : ∀ n, AllQueriesSatisfy (lowerNodeHashN lay tree heap n left right) P) :
-    ∀ fuel n, AllQueriesSatisfy (lowerNonceSearch lay tree heap left right fuel n) P
-  | 0, n => by
-      unfold lowerNonceSearch
-      exact allQ_bind (h n) fun _ => allQ_pure _
-  | fuel + 1, n => by
-      unfold lowerNonceSearch
-      refine allQ_bind (h n) fun _ => ?_
-      split
-      · exact allQ_pure _
-      · exact allQ_lowerNonceSearch lay tree heap left right h fuel (n + 1)
-theorem lowerZeroBits_ne_zero_lay {lay heap : Nat} (h : lowerZeroBits lay heap ≠ 0) : lay ≠ 0 :=
-  fun h0 => h (by simp [lowerZeroBits, h0])
-/-- U16b: a canonical node (`lowerNodeG`) queries only `lowerNodeHashN` trials (nonce 0 = `lowerNodeHash`; nonzero
-nonces only on the lower layers). -/
-theorem allQ_lowerNodeG {P : SigGolfCandidate.T3.Spec.Domain → Prop} (lay tree heap : Nat) (left right : Digest)
-    (h : ∀ n, (n = 0 ∨ lay ≠ 0) → AllQueriesSatisfy (lowerNodeHashN lay tree heap n left right) P) :
-    AllQueriesSatisfy (lowerNodeG lay tree heap left right) P := by
-  unfold lowerNodeG lowerNodeAt
-  refine SigGolfCandidate.T3M.allQ_map _ ?_
-  split
-  · refine SigGolfCandidate.T3M.allQ_map _ ?_
-    rw [← lowerNodeHashN_zero]
-    exact h 0 (Or.inl rfl)
-  · rename_i hb
-    exact allQ_lowerNonceSearch lay tree heap left right
-      (fun n => h n (Or.inr (lowerZeroBits_ne_zero_lay hb))) _ 0
-/-- E8: the FTS nonce search queries only `ftsNodeHashN` trials. -/
-theorem allQ_ftsNonceSearch {P : SigGolfCandidate.T3.Spec.Domain → Prop} (coord index heap : Nat) (left right : Digest)
-    (h : ∀ n, AllQueriesSatisfy (ftsNodeHashN coord index heap n left right) P) :
-    ∀ fuel n, AllQueriesSatisfy (ftsNonceSearch coord index heap left right fuel n) P
-  | 0, n => by
-      unfold ftsNonceSearch
-      exact allQ_bind (h n) fun _ => allQ_pure _
-  | fuel + 1, n => by
-      unfold ftsNonceSearch
-      refine allQ_bind (h n) fun _ => ?_
-      split
-      · exact allQ_pure _
-      · exact allQ_ftsNonceSearch coord index heap left right h fuel (n + 1)
-/-- E8: a canonical FTS node (`ftsNodeG`) is the plain node or (heaps `8..15`) `ftsNodeHashN` trials. -/
-theorem allQ_ftsNodeG {P : SigGolfCandidate.T3.Spec.Domain → Prop} (coord index heap : Nat) (left right : Digest)
-    (h0 : AllQueriesSatisfy (wctNodeHashH coord index heap left right) P)
-    (h : ∀ n, 8 ≤ heap ∧ heap < 16 → AllQueriesSatisfy (ftsNodeHashN coord index heap n left right) P) :
-    AllQueriesSatisfy (ftsNodeG coord index heap left right) P := by
-  unfold ftsNodeG ftsNodeAt
-  refine SigGolfCandidate.T3M.allQ_map _ ?_
-  split
-  · exact SigGolfCandidate.T3M.allQ_map _ h0
-  · rename_i hb
-    have hg : 8 ≤ heap ∧ heap < 16 := by
-      by_contra hn; exact hb (ftsZeroBits_off hn)
-    exact allQ_ftsNonceSearch coord index heap left right (fun n => h n hg) _ 0
-theorem ftsNodeInputN_eq_top (coord index heap n : Nat) (left right : Digest) :
-    ftsNodeInputN coord index heap n left right =
-      wctTopInput coord index heap left (BitVec.ofNat 128 (n % 2 ^ 64)) right := rfl
 section
 variable (lay : Layer) (tree : Nat)
 theorem lowerQuery_chain (leaf i start count : Nat) (value : Digest) :
@@ -2888,9 +2779,9 @@ theorem lowerQuery_lowerLeafHash (leaf : Nat) (ends : List Digest) :
 theorem lowerQuery_lowerLevel (h level : Nat) (nodes : List Digest) :
     AllQueriesSatisfy (lowerLevel lay.val tree h level nodes) (LowerQuery lay tree) := by
   unfold lowerLevel
-  refine allQ_mono (allQ_mapM _ _ fun _ => allQ_lowerNodeG _ _ _ _ _ fun n _ => ?_) (fun _ h => Or.inl h)
-  unfold lowerNodeHashN lowerHash
-  exact pubGood_halfHash _ _ (by simp [lowerNodeInputN, nonceBytes, bytesLE_length])
+  refine allQ_mono (allQ_mapM _ _ fun _ => ?_) (fun _ h => Or.inl h)
+  unfold lowerNodeHash lowerHash
+  exact pubGood_halfHash _ _ (by simp [merkleNodeInput, bytesLE_length, zero16])
 theorem lowerQuery_buildLevels (h : Nat) (leaves : List Digest) :
     AllQueriesSatisfy (buildLevels 3 lay.val tree h leaves) (LowerQuery lay tree) := by
   unfold buildLevels
@@ -3081,8 +2972,7 @@ theorem sharedNode_allowed (first : Bool) (coord index heap : Nat)
     · split
       · exact highHash_allowed P hpublic _
       · exact shortHash_allowed P hpublic _
-    · exact WCT9.allQ_ftsNodeG _ _ _ _ _ (nodeHashH_allowed P hpublic _ _ _ _ _)
-        (fun _ _ => by unfold WCT9.ftsNodeHashN; exact shortHash_allowed P hpublic _)
+    · exact nodeHashH_allowed P hpublic _ _ _ _ _
 include hpublic in
 theorem heapBuild_allowed (index coord : Nat) (padR : Digest) (leaves : List Digest) :
     AllQueriesSatisfy (WCT9.heapBuild index coord padR leaves) P := by
@@ -3229,11 +3119,6 @@ theorem lowerNodeHash_allowed_of_public (P : SigGolfCandidate.T3.Spec.Domain →
     AllQueriesSatisfy (WCT9.lowerNodeHash lay tree heap left right) P := by
   unfold WCT9.lowerNodeHash WCT9.lowerHash
   exact halfHash_allowed_of_short P _ (shortHash_allowed P hpublic _)
-theorem lowerNodeHashN_allowed_of_public (P : SigGolfCandidate.T3.Spec.Domain → Prop)
-    (hpublic : ∀ input, P (.inl (.inr input))) (lay tree heap n : Nat) (left right : Digest) :
-    AllQueriesSatisfy (WCT9.lowerNodeHashN lay tree heap n left right) P := by
-  unfold WCT9.lowerNodeHashN WCT9.lowerHash
-  exact halfHash_allowed_of_short P _ (shortHash_allowed P hpublic _)
 theorem allQ_bind_supp {α β : Type} {P : SigGolfCandidate.T3.Spec.Domain → Prop} {p : M α} {f : α → M β}
     (hp : AllQueriesSatisfy p P) (hf : ∀ a ∈ support p, AllQueriesSatisfy (f a) P) :
     AllQueriesSatisfy (p >>= f) P := by
@@ -3301,21 +3186,21 @@ theorem foldlM_support_fst_length {α β γ : Type} (items : List β) (f : List 
 theorem height_le_seven {lay : Layer} (h0 : lay.val ≠ 0) : height lay ≤ 7 := by
   fin_cases lay <;> simp_all [height]
 theorem lowerLevel_allowed (P : SigGolfCandidate.T3.Spec.Domain → Prop)
-    (hnode : ∀ (lay : Layer) tree heap n left right, heap < 2 ^ height lay → (n = 0 ∨ lay.val ≠ 0) →
-      AllQueriesSatisfy (WCT9.lowerNodeHashN lay.val tree heap n left right) P)
+    (hnode : ∀ (lay : Layer) tree heap left right, heap < 2 ^ height lay →
+      AllQueriesSatisfy (WCT9.lowerNodeHash lay.val tree heap left right) P)
     (lay : Layer) (tree level : Nat) (nodes : List Digest) (h1 : 1 ≤ level) (h2 : level < height lay)
     (hn : nodes.length = 2 ^ (height lay - (level - 1))) :
     AllQueriesSatisfy (WCT9.lowerLevel lay.val tree (height lay) level nodes) P := by
   unfold WCT9.lowerLevel
-  refine mapM_allowed_mem _ _ fun i hi => WCT9.allQ_lowerNodeG _ _ _ _ _ fun n hn0 => hnode lay tree _ n _ _ ?_ hn0
+  refine mapM_allowed_mem _ _ fun i hi => hnode lay tree _ _ _ ?_
   rw [List.mem_range, hn, show height lay - (level - 1) = (height lay - level) + 1 by omega, pow_succ,
     Nat.mul_div_cancel _ (by decide)] at hi
   have hle : 2 ^ (height lay - level) * 2 ≤ 2 ^ height lay := by
     rw [← pow_succ]; exact Nat.pow_le_pow_right (by decide) (by omega)
   omega
 theorem buildLevelsBelow_allowed (P : SigGolfCandidate.T3.Spec.Domain → Prop)
-    (hnode : ∀ (lay : Layer) tree heap n left right, heap < 2 ^ height lay → (n = 0 ∨ lay.val ≠ 0) →
-      AllQueriesSatisfy (WCT9.lowerNodeHashN lay.val tree heap n left right) P)
+    (hnode : ∀ (lay : Layer) tree heap left right, heap < 2 ^ height lay →
+      AllQueriesSatisfy (WCT9.lowerNodeHash lay.val tree heap left right) P)
     (lay : Layer) (tree : Nat) (leaves : List Digest) (hlen : leaves.length = 2 ^ height lay) :
     AllQueriesSatisfy (WCT9.buildLevelsBelow 3 lay.val tree (height lay) leaves) P := by
   unfold WCT9.buildLevelsBelow
@@ -3341,8 +3226,8 @@ theorem buildTreeP_allowed' (P : SigGolfCandidate.T3.Spec.Domain → Prop)
     (hchain : ∀ (lay : Layer) tree leaf i step value,
       AllQueriesSatisfy (shortHash (WCT9.chainInputW lay tree leaf i step value)) P)
     (hleaf : ∀ (lay : Layer) tree leaf ends, AllQueriesSatisfy (SigGolfCandidate.T3.leafHash lay tree leaf ends) P)
-    (hnode : ∀ (lay : Layer) tree heap n left right, heap < 2 ^ height lay → (n = 0 ∨ lay.val ≠ 0) →
-      AllQueriesSatisfy (WCT9.lowerNodeHashN lay.val tree heap n left right) P)
+    (hnode : ∀ (lay : Layer) tree heap left right, heap < 2 ^ height lay →
+      AllQueriesSatisfy (WCT9.lowerNodeHash lay.val tree heap left right) P)
     (hseed : ∀ (lay : Layer) tree pair, AllQueriesSatisfy (WCT9.lowerSeedPair lay tree pair) P)
     (lay : Layer) (tree selected : Nat) (digits : List Nat) :
     AllQueriesSatisfy (WCT9.buildTreeP lay tree selected digits) P := by
@@ -3470,9 +3355,8 @@ structure TailAllowed (Q : SigGolfCandidate.T3.Spec.Domain → Prop) : Prop wher
   chainStepW : ∀ lay tree leaf i step value,
     AllQueriesSatisfy (shortHash (WCT9.chainInputW lay tree leaf i step value)) Q
   leaf : ∀ lay tree leaf ends, AllQueriesSatisfy (SigGolfCandidate.T3.leafHash lay tree leaf ends) Q
-  /-- U16b: every trial of a lower node (`lowerNodeHashN`, nonce `n`; nonzero nonces only below the top). -/
-  node : ∀ (lay : Layer) tree heap n left right, heap < 2 ^ height lay → (n = 0 ∨ lay.val ≠ 0) →
-    AllQueriesSatisfy (lowerNodeHashN lay.val tree heap n left right) Q
+  node : ∀ (lay : Layer) tree heap left right, heap < 2 ^ height lay →
+    AllQueriesSatisfy (lowerNodeHash lay.val tree heap left right) Q
   seed : ∀ lay tree pair, AllQueriesSatisfy (lowerSeedPair lay tree pair) Q
   encoding : ∀ lay tree leaf msg counter,
     AllQueriesSatisfy (encodingHash lay (layerEncodingInput lay tree leaf msg counter)) Q
@@ -3807,8 +3691,8 @@ theorem shortHash_wct_ok (a rest : HashInput) (tag lay tree position index : Nat
   unfold shortHash publicHash
   apply SourceQueries.bind_allowed
   · apply (allQueriesSatisfy_query_iff _ _).mpr
-    show BPB.hdrMarker (pad64 (a ++ bytesLE 16 (wctHeader tag lay tree position index) ++ rest)) ≠ 25984
-    apply BPB.hdrMarker_ne_digest_of_byte0
+    show BPB.hdrMarker (pad64 (a ++ bytesLE 16 (wctHeader tag lay tree position index) ++ rest)) ≠ 0
+    apply BPB.hdrMarker_ne_zero_of_byte0
     unfold BPB.hdrByte0
     rw [hdrBlock_pad64_prefix _ _ _ ha (bytesLE_length _ _), wctHeader_byte0]
     decide
@@ -3819,18 +3703,17 @@ theorem chainInput_ok (index coord selected i step : Nat) (high : Bool) (value :
   unfold projHash publicHash
   apply SourceQueries.bind_allowed
   · apply (allQueriesSatisfy_query_iff _ _).mpr
-    show BPB.hdrMarker (pad64 (WCT9.ftsChainInputW index coord selected i step value)) ≠ 25984
-    have hx : T3M.Extract.hdrBlock (pad64 (WCT9.ftsChainInputW index coord selected i step value)) =
-        bytesLE 16 (WCT9.ftsChainHeader index coord selected i step) := by
-      unfold WCT9.ftsChainInputW
-      split
-      · rw [List.append_assoc (bytesLE 16 value ++ _), hdrBlock_pad64_prefix _ _ _ (bytesLE_length _ _) (bytesLE_length _ _)]
-      · unfold WCT9.chainInput
-        rw [List.append_assoc (zero16 ++ _), hdrBlock_pad64_prefix _ _ _ (by simp [zero16]) (bytesLE_length _ _)]
-    apply BPB.hdrMarker_ne_digest hx
-    unfold tweakMarker WCT9.ftsChainHeader
-    rw [WCT9.ftsChainHeaderP_firstByte]
-    omega
+    show BPB.hdrMarker (pad64 (WCT9.ftsChainInputW index coord selected i step value)) ≠ 0
+    apply BPB.hdrMarker_ne_zero_of_byte0
+    unfold BPB.hdrByte0 WCT9.ftsChainInputW
+    split
+    · rw [List.append_assoc (bytesLE 16 value ++ _), hdrBlock_pad64_prefix _ _ _ (bytesLE_length _ _)
+        (bytesLE_length _ _), bytesLE16_first_toNat, WCT9.ftsChainHeader_toNat, WCT9.ftsChainLow_byte0]
+      omega
+    · unfold WCT9.chainInput
+      rw [List.append_assoc (zero16 ++ _), hdrBlock_pad64_prefix _ _ _ (by simp [zero16]) (bytesLE_length _ _),
+        bytesLE16_first_toNat, WCT9.ftsChainHeader_toNat, WCT9.ftsChainLow_byte0]
+      omega
   · intro _; exact SourceQueries.pure_allowed _ _
 theorem chain_ok (index coord selected i start count : Nat) (value : Digest) :
     AllQueriesSatisfy (WCT9.chain index coord selected i start count value) BPB.NotDigestQ := by
@@ -3842,8 +3725,8 @@ theorem leafHash_ok (index coord selected : Nat) (ends : List Digest) :
   apply SourceQueries.bind_allowed
   · apply (allQueriesSatisfy_query_iff _ _).mpr
     show BPB.hdrMarker (pad64 (bytesLE 16 (ends.getD 0 0) ++ bytesLE 16 (WCT9.ftsLeafHeader index coord selected) ++
-      zero16 ++ (ends.drop 1).flatMap (bytesLE 16))) ≠ 25984
-    apply BPB.hdrMarker_ne_digest_of_byte0
+      zero16 ++ (ends.drop 1).flatMap (bytesLE 16))) ≠ 0
+    apply BPB.hdrMarker_ne_zero_of_byte0
     unfold BPB.hdrByte0
     rw [List.append_assoc (bytesLE 16 _ ++ bytesLE 16 _), hdrBlock_pad64_prefix _ _ _ (bytesLE_length _ _) (bytesLE_length _ _), bytesLE16_first_toNat,
       WCT9.ftsLeafHeader_firstByte]
@@ -3855,8 +3738,8 @@ theorem leafHashP_ok (index coord selected : Nat) (pad : Digest) (ends : List Di
   apply SourceQueries.bind_allowed
   · apply (allQueriesSatisfy_query_iff _ _).mpr
     show BPB.hdrMarker (pad64 (bytesLE 16 (ends.getD 0 0) ++ bytesLE 16 (WCT9.ftsLeafHeader index coord selected) ++
-      bytesLE 16 pad ++ (ends.drop 1).flatMap (bytesLE 16))) ≠ 25984
-    apply BPB.hdrMarker_ne_digest_of_byte0
+      bytesLE 16 pad ++ (ends.drop 1).flatMap (bytesLE 16))) ≠ 0
+    apply BPB.hdrMarker_ne_zero_of_byte0
     unfold BPB.hdrByte0
     rw [List.append_assoc (bytesLE 16 _ ++ bytesLE 16 _), hdrBlock_pad64_prefix _ _ _ (bytesLE_length _ _) (bytesLE_length _ _), bytesLE16_first_toNat,
       WCT9.ftsLeafHeader_firstByte]
@@ -3870,7 +3753,7 @@ theorem topHash_ok (coord index heap : Nat) (left pad right : Digest) :
       change T3M.Extract.hdrBlock (pad64 (T3M.SecurityInputs.nodeInputP 3 (WCT9.nodeLayer coord) index heap
         left pad right)) = _
       rw [T3M.SecurityInputs.pad64_nodeInputP]; exact BSuf.hdrBlock_nodeInputP _ _ _ _ _ _ _)
-    (nodeTweak_marker_ne_digest (by unfold WCT9.nodeLayer; omega) _ _))
+    (nodeTweak_marker_ne_zero (by unfold WCT9.nodeLayer; omega) _ _))
 theorem forest_header_plain (index : Nat) : header 15 0 index 0 0 = wctHeader 15 0 index 0 0 := by
   unfold wctHeader header
   rw [if_neg (by decide)]
@@ -3896,7 +3779,7 @@ theorem layerEncoding_ok (lay : Layer) (tree leaf : Nat) (msg : WCT9.LayerMsg) (
   | forest root => exact BPB.encoding_ok lay tree leaf root counter
   | pair left right =>
       exact BPB.shortHash_ok_marker (hdrBlock_pairEncodingInputP lay tree leaf left right counter 0)
-        (by have := rowTweak_marker lay tree leaf; omega)
+        (by rw [rowTweak_marker]; decide)
 theorem buildChildF_ok (index coord selected : Nat) (word : Rank) (coefs : List Digest) (pad : Digest) :
     AllQueriesSatisfy (buildChildF index coord selected word coefs pad) BPB.NotDigestQ := by
   unfold buildChildF
@@ -3967,7 +3850,7 @@ theorem lowerNodeHash_notDigest (lay : Layer) (tree heap : Nat) (left right : Di
       ((Nat.pow_le_pow_right (by decide) (ClaudeWCT.W9.T3.Security.Signer.height_le_seven h0)).trans (by norm_num))
     unfold ClaudeWCT.WCT9.lowerNodeHash ClaudeWCT.WCT9.lowerHash
     refine ClaudeWCT.W9.T3.Security.Signer.halfHash_allowed_of_short _ _
-      (SigGolfCandidate.T3.Security.BPB.shortHash_ok_low
+      (SigGolfCandidate.T3.Security.BPB.shortHash_ok_marker
         (hdr := ClaudeWCT.WCT9.merkleTweak lay.val tree heap) ?_ ?_)
     · unfold ClaudeWCT.WCT9.merkleNodeInput
       rw [List.append_assoc (SphincsSecurity.bytesLE 16 left ++
@@ -3975,34 +3858,9 @@ theorem lowerNodeHash_notDigest (lay : Layer) (tree heap : Nat) (left right : Di
         SigGolfCandidate.T3M.Extract.hdrBlock_pad64 _ (by simp [SphincsSecurity.bytesLE_length, zero16]),
         SigGolfCandidate.T3M.Extract.hdrBlock_prefix]
     · rw [ClaudeWCT.WCT9.merkleTweak_lower h0]
-      have hg := ClaudeWCT.WCT9.lowerTweak_low_ge h7 lay.val tree
-      unfold SigGolfCandidate.T3.tweakLow
-      omega
-/-- U16b: every trial of a lower node of the honest tree shape is no digest query (nonce `n` only below the top; the
-nonce bytes sit after the packed node word, whose marker is `128 + heap`). -/
-theorem lowerNodeHashN_notDigest (lay : Layer) (tree heap n : Nat) (left right : Digest) (hh : heap < 2 ^ height lay)
-    (hn : n = 0 ∨ lay.val ≠ 0) :
-    AllQueriesSatisfy (ClaudeWCT.WCT9.lowerNodeHashN lay.val tree heap n left right)
-      SigGolfCandidate.T3.Security.BPB.NotDigestQ := by
-  by_cases h0 : lay.val = 0
-  · have hn0 : n = 0 := hn.resolve_right (fun h => h h0)
-    subst hn0
-    rw [ClaudeWCT.WCT9.lowerNodeHashN_zero]
-    exact lowerNodeHash_notDigest lay tree heap left right hh
-  · have h7 : heap < 128 := lt_of_lt_of_le hh
-      ((Nat.pow_le_pow_right (by decide) (ClaudeWCT.W9.T3.Security.Signer.height_le_seven h0)).trans (by norm_num))
-    unfold ClaudeWCT.WCT9.lowerNodeHashN ClaudeWCT.WCT9.lowerHash
-    refine ClaudeWCT.W9.T3.Security.Signer.halfHash_allowed_of_short _ _
-      (SigGolfCandidate.T3.Security.BPB.shortHash_ok_low
-        (hdr := ClaudeWCT.WCT9.merkleTweak lay.val tree heap) ?_ ?_)
-    · unfold ClaudeWCT.WCT9.lowerNodeInputN
-      rw [List.append_assoc (SphincsSecurity.bytesLE 16 left ++
-          SphincsSecurity.bytesLE 16 (ClaudeWCT.WCT9.merkleTweak lay.val tree heap)),
-        SigGolfCandidate.T3M.Extract.hdrBlock_pad64 _ (by simp [SphincsSecurity.bytesLE_length, nonceBytes]),
-        SigGolfCandidate.T3M.Extract.hdrBlock_prefix]
-    · rw [ClaudeWCT.WCT9.merkleTweak_lower h0]
-      have hg := ClaudeWCT.WCT9.lowerTweak_low_ge h7 lay.val tree
-      unfold SigGolfCandidate.T3.tweakLow
+      unfold ClaudeWCT.WCT9.lowerTweak ClaudeWCT.WCT9.lowerNodeWord ClaudeWCT.WCT9.lowerK
+      rw [SigGolfCandidate.T3.append64_marker, BitVec.toNat_add, BitVec.toNat_ofNat,
+        SigGolfCandidate.T3.hyperWord_toNat]
       omega
 open SigGolfCandidate.T3.Security.BPB SigGolfCandidate.T3M SigGolfCandidate.T3M.SecurityInputs in
 /-- Pairing stage 1: a chain step of the current scheme (either format) is not a digest query. -/
@@ -4012,12 +3870,13 @@ theorem chainStepW_ok_rev3 (lay : SigGolfCandidate.T3.Layer) (tree leaf i step :
   unfold SigGolfCandidate.T3.shortHash SigGolfCandidate.T3.publicHash
   apply SourceQueries.bind_allowed
   · apply (allQueriesSatisfy_query_iff _ _).mpr
-    change hdrMarker (SigGolfCandidate.T3.pad64 (ClaudeWCT.WCT9.chainInputW lay tree leaf i step v)) ≠ 25984
+    change hdrMarker (SigGolfCandidate.T3.pad64 (ClaudeWCT.WCT9.chainInputW lay tree leaf i step v)) ≠ 0
     rw [ClaudeWCT.WCT9.chainInputW_padded]
-    rw [hdrMarker_eq (show Extract.hdrBlock (ClaudeWCT.WCT9.chainInputW lay tree leaf i step v) =
-      SphincsSecurity.bytesLE 16 (SigGolfCandidate.T3.chainHeader lay tree leaf i step) from
-      ClaudeWCT.WCT9.chainInputW_header _ _ _ _ _ _)]
-    exact chainHeader_low_ne_digest _ _ _ _ _
+    apply hdrMarker_ne_zero_of_byte0
+    unfold hdrByte0 Extract.hdrBlock
+    rw [ClaudeWCT.WCT9.chainInputW_header, bytesLE16_first_toNat]
+    have := SigGolfCandidate.T3.chainHeader_firstByte lay tree leaf i step
+    omega
   · intro _; exact SourceQueries.pure_allowed _ _
 theorem wct_payNotDigest : PayNotDigest payAfterDigest := by
   intro cache rho output
@@ -4029,7 +3888,7 @@ theorem wct_payNotDigest : PayNotDigest payAfterDigest := by
   · intro state
     apply SourceQueries.bind_allowed _ (W9.T3.Security.Signer.signLayersBC_allowed' _ _ layerEncoding_ok
       (W9.T3.Security.Signer.buildTreeP_allowed' _ chainStepW_ok_rev3 BPB.leafHash_ok
-        (fun lay _ _ _ _ _ hh hn => lowerNodeHashN_notDigest lay _ _ _ _ _ hh hn)
+        (fun lay _ _ _ _ hh => lowerNodeHash_notDigest lay _ _ _ _ hh)
         (fun _ _ _ => BPB.privatePair_ok _ _ _ _ _)) (BPB.signTop_ok _) _ _ _)
     intro layers
     split
@@ -4068,7 +3927,150 @@ theorem bpors_finiteAverage (g : BPORS.History.Proposal → ENNReal) :
 theorem bpors_law_sum : ∑ _p : BPORS.History.Proposal, (Fintype.card BPORS.History.Proposal : ENNReal)⁻¹ = 1 := by
   rw [Finset.sum_const, Finset.card_univ, nsmul_eq_mul,
     ENNReal.mul_inv_cancel (by exact_mod_cast Fintype.card_ne_zero) (ENNReal.natCast_ne_top _)]
+noncomputable def bporsSpec : FtsBankSpec BPORS.History.Proposal where
+  admissible := digestAdmissible
+  producer := digestAdmissible
+  exists_producer := bpors_exists_admissible
+  acceptance_le := bpors_acceptance_eq ▸ CaseC.expected_admInd_tight
+  proposal := CaseC.label
+  law := fun _ => (Fintype.card BPORS.History.Proposal : ENNReal)⁻¹
+  law_sum := bpors_law_sum
+  accepted_proposal g := by
+    rw [Sampling.digest_acceptanceProbability, ← bpors_finiteAverage]
+    exact accepted_samplingData g
+  score := CaseC.score
+  covered X N := ∀ c, CaseC.CoordCovered X N c
+  one_le_score := bpors_one_le_score
+  score_append_mono := CaseC.score_append_mono
+  price := BPORS.History.fullPrice
+  average_score := CaseC.average_score
+  horizon := BPORS.Numeric.proposalLength
+  excessRate := 11324 / 100000000
+  excess_le := (ClaudeWCT.Numerics.Law.lawAvg_uniform _ _).le.trans CaseC.excess_three_quarters
+theorem bpors_decode : bporsSpec.decode = Sampling.digestDecode := rfl
+theorem bpors_acceptance : bporsSpec.acceptance = acceptanceProbability := Sampling.digest_acceptanceProbability
+theorem bpors_freshPrice (w : HashOutput → ENNReal) :
+    bporsSpec.freshPrice w = Sampling.WeightedSelection.freshPrice w := by
+  unfold FtsBankSpec.freshPrice Sampling.WeightedSelection.freshPrice
+  rw [bpors_acceptance]
+  rfl
+theorem bpors_search (rho : Digest) (m : Message) (counter fuel : Nat) :
+    bporsSpec.search rho m counter fuel = digestSearch rho m counter fuel :=
+  (Sampling.digestSearch_public rho m fuel counter).symm
+theorem bpors_admissibleSet : bporsSpec.admissibleSet = CaseC.admissibleSet := by
+  ext x
+  simp [FtsBankSpec.admissibleSet, CaseC.admissibleSet, bporsSpec]
+theorem bpors_accepted : bporsSpec.accepted = CaseC.accepted := by
+  unfold FtsBankSpec.accepted CaseC.accepted
+  congr 1
+theorem bpors_forecast : bporsSpec.forecast = CaseC.forecast := by
+  funext R X N
+  unfold FtsBankSpec.forecast CaseC.forecast
+  rw [bpors_accepted]
+  rfl
+theorem bpors_excessForecast : bporsSpec.excessForecast = CaseC.excessForecast := by
+  funext R X
+  unfold FtsBankSpec.excessForecast CaseC.excessForecast
+  exact ClaudeWCT.Numerics.Law.lawAvg_uniform _ _
+theorem bpors_ledger : bporsSpec.ledger = CaseC.ledger := by
+  funext R targets X slack
+  unfold FtsBankSpec.ledger CaseC.ledger
+  rw [bpors_forecast, bpors_excessForecast]
+theorem bpors_corePotential : bporsSpec.corePotential = CaseC.corePotential := by
+  funext b
+  unfold FtsBankSpec.corePotential CaseC.corePotential
+  rw [bpors_ledger]
+  rfl
+theorem bpors_Reuse : bporsSpec.Reuse = CaseC.Reuse := rfl
+theorem bpors_admissibleEntry : bporsSpec.admissibleEntry = CaseC.admissibleEntry := by
+  funext cache input
+  unfold FtsBankSpec.admissibleEntry CaseC.admissibleEntry
+  cases cache input <;> simp [bporsSpec]
+theorem bpors_reuseMass : bporsSpec.reuseMass = CaseC.reuseMass := by
+  funext cache m
+  unfold FtsBankSpec.reuseMass CaseC.reuseMass
+  rw [bpors_admissibleEntry]
+theorem bpors_admInd : bporsSpec.admInd = CaseC.admInd := by
+  funext a
+  simp [FtsBankSpec.admInd, CaseC.admInd, bporsSpec]
+theorem bpors_recordForNonce (cache : T3.Cache) (rho : Digest) (m : Message) :
+    bporsSpec.recordForNonce payloadAfterDigest cache rho m = payloadRecordForNonce cache rho m := by
+  unfold FtsBankSpec.recordForNonce payloadRecordForNonce
+  rw [bpors_search]
+  apply bind_congr
+  intro found
+  rcases found with _ | ⟨_, output⟩ <;> rfl
+theorem bpors_record (published : T3.Cache) (request : Request) :
+    bporsSpec.authenticatedRecord payloadAfterDigest published request =
+      FullGame.authenticatedRecord published request := by
+  unfold FtsBankSpec.authenticatedRecord FullGame.authenticatedRecord
+  apply bind_congr
+  intro tag
+  by_cases h : request.cache = published
+  · simp only [h, if_true]
+    unfold FtsBankSpec.payloadRecord payloadRecord
+    apply bind_congr
+    intro rho
+    exact bpors_recordForNonce _ rho _
+  · simp only [h, if_false]
+theorem t3_core_sign (b : CaseC.BankCore) (cache : Sampling.RCache) (m : Message) (C' : ENNReal)
+    (hC : C' + CaseC.reuseMass cache m ≤ b.reuse) (secret : BitVec 256) (fuel : Nat) (hfuel : fuel ≤ 2 ^ 32) :
+    expectedValue ($ᵗ Digest : ProbComp Digest) (fun rho =>
+      if CaseC.Reuse cache rho m then CaseC.corePotential { b with reused := true, reuse := C' }
+      else expectedValue (Sampling.roRun secret (digestSearch rho m 0 fuel) cache)
+        (fun result => CaseC.corePotential (b.expose C' (result.1.map Prod.snd)))) ≤ CaseC.corePotential b := by
+  have h := bporsSpec.core_sign b cache m C' (by rw [bpors_reuseMass]; exact hC) secret fuel hfuel
+  simp only [bpors_corePotential, bpors_Reuse, bpors_search] at h
+  exact h
+theorem t3_core_birth (b : CaseC.BankCore) (s : Nat) (hs : b.slack = s + 1) (C' : HashOutput → ENNReal)
+    (hC : ∀ N, C' N ≤ b.reuse + CaseC.admInd N / 2 ^ 128) :
+    expectedValue ($ᵗ HashOutput : ProbComp HashOutput)
+        (fun N => CaseC.corePotential { b with targets := b.targets ++ [N], slack := s, reuse := C' N }) ≤
+      CaseC.corePotential b + (CaseC.theta + 1 / 64) / 2 ^ 128 := by
+  have h := bporsSpec.core_birth b s hs C' (by rw [bpors_admInd]; exact hC)
+  simp only [bpors_corePotential] at h
+  exact h
+theorem t3_core_initial (budget : Nat) :
+    CaseC.corePotential ⟨[], [], false, 0, budget⟩ ≤ (budget : ENNReal) * (11324 / 100000000) / 2 ^ 128 := by
+  have h := bporsSpec.core_initial budget
+  rw [bpors_corePotential] at h
+  exact h
+theorem t3_core_win (b : CaseC.BankCore) (halive : ¬BPORS.Numeric.proposalLength < b.exposures.length)
+    (h : b.reused = true ∨ ∃ N ∈ b.targets, admissible (selections N) = true ∧ digestGate N = true ∧
+      CaseC.CoveredBy b.exposures N) :
+    1 ≤ CaseC.corePotential b := by
+  rw [← bpors_corePotential]
+  apply bporsSpec.core_win b halive
+  rcases h with h | ⟨N, hN, hadm, hgate, hcov⟩
+  · exact Or.inl h
+  · refine Or.inr ⟨N, hN, ?_, ?_⟩
+    · change digestAdmissible N = true
+      unfold digestAdmissible
+      rw [Bool.and_eq_true]
+      exact ⟨hadm, hgate⟩
+    · exact fun c => CaseC.coordCovered_of_opened b.exposures N c fun j => hcov _ (CaseC.opened_mem N c j)
+theorem t3_fresh_signing_kernel (published : T3.Cache) (m : Message) (state : LazyPrivate.State)
+    (hfresh : state.1 (.inr (.inl m)) = none)
+    (F : (Option Signature × Option HashOutput) × LazyPrivate.State → ENNReal)
+    (w : HashOutput → ENNReal) (P : ENNReal) (hP : Sampling.WeightedSelection.freshPrice w ≤ P)
+    (hF : ∀ result ∈ support (LazyPrivate.run (FullGame.authenticatedRecord published ⟨m, published⟩) state),
+      F result ≤ if CaseC.Reuse state.2 (CaseC.nonceOf result.2 m) m then 1 else result.1.2.elim P w) :
+    expectedValue (LazyPrivate.run (FullGame.authenticatedRecord published ⟨m, published⟩) state) F ≤
+      P + CaseC.reuseMass state.2 m := by
+  have h := bporsSpec.fresh_signing_kernel payloadAfterDigest published m state hfresh F w P
+    (by rw [bpors_freshPrice]; exact hP) (by rw [bpors_record]; exact hF)
+  rw [bpors_record, bpors_reuseMass] at h
+  exact h
 theorem bpors_payNotDigest : PayNotDigest payloadAfterDigest := BPB.payloadAfterDigest_ok
+theorem bpors_source (published : T3.Cache) :
+    bporsSpec.source payloadAfterDigest published = MonitoredPrivate.interactionSource published := by
+  funext input
+  cases input with
+  | inl input => rfl
+  | inr request =>
+      change Prod.fst <$> bporsSpec.authenticatedRecord payloadAfterDigest published request =
+        FullGame.authenticatedSign published request
+      rw [bpors_record, FullGame.authenticatedRecord_erasure]
 end ClaudeWCT.Bank.BPORSRegression
 namespace ClaudeWCT.Bank.BPORSRegression
 open OracleComp OracleSpec OracleComp.EvalDist ENNReal
@@ -4085,6 +4087,17 @@ theorem bpors_payAvoids : PayAvoids payloadAfterDigest := by
     (add safe apply [(NonceFreshness.avoids_pure m), (NonceFreshness.avoids_bind m), (NonceFreshness.avoids_map m),
       (NonceFreshness.avoids_foldlM m), (NonceFreshness.avoids_mapM m), (NonceFreshness.avoids_buildFts m),
       (NonceFreshness.avoids_forestPk m), (NonceFreshness.avoids_signLayers m)])
+theorem bpors_recordedExperiment (adversary : SigGolfCandidate.T3M.Final.AdversaryP) (budget : Nat) (hbudget : budget ≤ 2 ^ 127) :
+    (fun r : PaddedGame.TraceResult => (r.1, r.2.2)) <$> PaddedGame.tracedExperiment adversary budget hbudget =
+      bporsSpec.recordedExperiment payloadAfterDigest (CreationGame.rest adversary) := by
+  rw [CreationGame.padded_trace_eq, FtsBankSpec.recordedExperiment, map_bind]
+  apply bind_congr
+  intro generated
+  have ht := (QueryRecorded.proposalModel generated.1.2 budget hbudget).traced_erasure
+    (CreationGame.rest adversary generated.1.1 generated.1.2) ([], generated.2)
+  rw [QueryRecorded.proposal_execution_erasure] at ht
+  rw [bpors_source]
+  exact ht
 theorem bpors_birthWeight (budget : Nat) (input : LazyPrivate.Interaction.Domain)
     (state : MonitoredPrivate.History × QueryRecorded.State) :
     birthWeight (Sig := Signature) budget input state.2 =
@@ -4100,6 +4113,32 @@ theorem bpors_birthWeight (budget : Nat) (input : LazyPrivate.Interaction.Domain
         fun h' => h ⟨h'.2.1, h'.2.2, h'.1⟩
       rw [if_neg h, if_neg h', Nat.cast_zero]
   · simp [birthWeight, CreationGame.classWeight]
+theorem bpors_expectedBirths (adversary : SigGolfCandidate.T3M.Final.AdversaryP) (budget : Nat) (hbudget : budget ≤ 2 ^ 127) :
+    bporsSpec.expectedBirths payloadAfterDigest (CreationGame.rest adversary) budget =
+      CreationGame.expectedBirths CaseC.IsDigestInput adversary budget hbudget := by
+  unfold FtsBankSpec.expectedBirths CreationGame.expectedBirths
+  congr 1
+  funext generated
+  have ht := BPORS.Adaptive.Creation.expectedCharges_project
+    (QueryRecorded.proposalModel generated.1.2 budget hbudget).traced
+    (bporsSpec.recordedImpl payloadAfterDigest generated.1.2) Prod.snd
+    (fun input st => by
+      rw [(QueryRecorded.proposalModel generated.1.2 budget hbudget).traced_query_erasure,
+        QueryRecorded.proposal_query_erasure, ← bpors_source]
+      rfl)
+    (birthWeight budget) (CreationGame.rest adversary generated.1.1 generated.1.2) ([], generated.2)
+  rw [← ht]
+  congr 1
+  funext input state
+  exact bpors_birthWeight budget input state
+theorem t3_bank_potential_le (adversary : SigGolfCandidate.T3M.Final.AdversaryP) (budget : Nat) (hbudget : budget ≤ 2 ^ 127) :
+    expectedValue (bporsSpec.bankExperiment payloadAfterDigest (CreationGame.rest adversary) budget)
+        (fun r => bporsSpec.potential budget r.2) ≤
+      (CaseC.theta + 1 / 64) / 2 ^ 128 * CreationGame.expectedBirths CaseC.IsDigestInput adversary budget hbudget +
+        (budget : ENNReal) * (11324 / 100000000) / 2 ^ 128 := by
+  rw [← bpors_expectedBirths adversary budget hbudget]
+  exact bporsSpec.bank_potential_le payloadAfterDigest bpors_payNotDigest bpors_payAvoids
+    (CreationGame.rest adversary) budget
 end ClaudeWCT.Bank.BPORSRegression
 end
 section
@@ -4116,9 +4155,57 @@ variable (horizon : Nat) (rate : ENNReal)
 noncomputable def authenticatedSign (published : T3.Cache) (request : Request) : M (Option WCT9.Signature) := do
   let _ ← privateMac request.cache.region
   if request.cache = published then WCT9.signPayload request.cache request.message else pure none
+theorem wct_record_erasure (published : T3.Cache) (request : Request) :
+    Prod.fst <$> (wctSpec' horizon rate hexc).authenticatedRecord payAfterDigest published request =
+      authenticatedSign published request := by
+  unfold FtsBankSpec.authenticatedRecord authenticatedSign
+  rw [map_bind]
+  apply bind_congr
+  intro tag
+  split_ifs
+  · exact payloadRecord_erasure _ rfl _ _
+  · rfl
+theorem wct_source_sign (published : T3.Cache) (request : Request) :
+    (wctSpec' horizon rate hexc).source payAfterDigest published (.inr request) =
+      authenticatedSign published request :=
+  wct_record_erasure horizon rate hexc published request
 noncomputable def interactionSource (published : T3.Cache) : QueryImpl (Interaction' WCT9.Signature) M
   | .inl input => forwardWorld input
   | .inr request => authenticatedSign published request
+theorem wct_source (published : T3.Cache) :
+    (wctSpec' horizon rate hexc).source payAfterDigest published = interactionSource published := by
+  funext input
+  cases input with
+  | inl input => rfl
+  | inr request => exact wct_source_sign horizon rate hexc published request
+theorem wct_recordedExperiment (rest : Digest → T3.Cache → OracleComp (Interaction' WCT9.Signature) Bool) :
+    (wctSpec' horizon rate hexc).recordedExperiment payAfterDigest rest = (do
+      let generated ← (liftM (QueryRecorded.run keygen QueryRecorded.initial) : PMF _)
+      (liftM (QueryRecorded.run (simulateQ (interactionSource generated.1.2) (rest generated.1.1 generated.1.2))
+        generated.2) : PMF _)) := by
+  unfold FtsBankSpec.recordedExperiment
+  simp only [wct_source]
+theorem wct_bank_potential_le (rest : Digest → T3.Cache → OracleComp (Interaction' WCT9.Signature) Bool)
+    (budget : Nat) :
+    expectedValue ((wctSpec' horizon rate hexc).bankExperiment payAfterDigest rest budget)
+        (fun r => (wctSpec' horizon rate hexc).potential budget r.2) ≤
+      (CaseC.theta + 1 / 64) / 2 ^ 128 * (wctSpec' horizon rate hexc).expectedBirths payAfterDigest rest budget +
+        (budget : ENNReal) * rate / 2 ^ 128 :=
+  (wctSpec' horizon rate hexc).bank_potential_le payAfterDigest wct_payNotDigest wct_payAvoids rest budget
+theorem wct_potential_win (budget : Nat) (st : BankState WCT9.Signature) (halive : st.1.dead = false)
+    (hcount : CaseC.countOf st.2 ≤ budget)
+    (h : st.1.reused = true ∨ ∃ N ∈ st.1.targets, WCT9.admissible N = true ∧ Covered st.1.exposures N) :
+    1 ≤ (wctSpec' horizon rate hexc).potential budget st :=
+  (wctSpec' horizon rate hexc).potential_win budget st halive hcount h
+theorem wct_event_le (rest : Digest → T3.Cache → OracleComp (Interaction' WCT9.Signature) Bool) (budget : Nat)
+    (weight : Bool × QueryRecorded.State → ENNReal) (hw : ∀ y, weight y ≤ 1)
+    (hwin : ∀ b ∈ ((wctSpec' horizon rate hexc).bankExperiment payAfterDigest rest budget).support,
+      weight (b.1, b.2.2) ≠ 0 → 1 ≤ (wctSpec' horizon rate hexc).potential budget b.2) :
+    expectedValue ((wctSpec' horizon rate hexc).recordedExperiment payAfterDigest rest) weight ≤
+      (CaseC.theta + 1 / 64) / 2 ^ 128 * (wctSpec' horizon rate hexc).expectedBirths payAfterDigest rest budget +
+        (budget : ENNReal) * rate / 2 ^ 128 :=
+  (wctSpec' horizon rate hexc).bank_event_le payAfterDigest wct_payNotDigest wct_payAvoids rest budget
+    weight hw hwin
 end ClaudeWCT.Bank.WCT
 end
 section
@@ -4176,6 +4263,14 @@ theorem wct_payRho : PayRho payAfterDigest WCT9.Signature.rho := by
   all_goals rfl
 variable (horizon : Nat) (rate : ENNReal)
   (hexc : ExcessBound horizon rate)
+theorem wct_bankInv_experiment (rest : Digest → T3.Cache → OracleComp (Interaction' WCT9.Signature) Bool)
+    (budget : Nat) (b : Bool × BankState WCT9.Signature)
+    (hb : b ∈ ((wctSpec' horizon rate hexc).bankExperiment payAfterDigest rest budget).support) :
+    ∃ generated ∈ support (QueryRecorded.run keygen QueryRecorded.initial),
+      (wctSpec' horizon rate hexc).BankInv payAfterDigest WCT9.Signature.rho generated.1.2 budget
+        generated.2.events b.2 :=
+  (wctSpec' horizon rate hexc).bankInv_experiment payAfterDigest WCT9.Signature.rho wct_payHashOnly
+    wct_payRho wct_payAvoids rest budget b hb
 end ClaudeWCT.Bank.WCT
 namespace ClaudeWCT.Bank.BPORSRegression
 open OracleComp OracleSpec OracleComp.EvalDist ENNReal
@@ -4247,10 +4342,64 @@ theorem payloadRecordL_erasure {P : Type} [Fintype P] [SampleableType P] (S : Ft
   · simp
   · simp only [map_bind, map_pure]
     exact bind_pure _
+noncomputable def wctSpecL (horizon : Nat) (rate : ENNReal) (hexc : ExcessBound horizon rate) :
+    FtsBankSpecL WProposal :=
+  (wctSpec' horizon rate hexc).atLimit WCT9.digestAttemptLimit WCT9.digestAttemptLimit_le
 variable (horizon : Nat) (rate : ENNReal) (hexc : ExcessBound horizon rate)
+@[simp] theorem wctSpecL_limit : (wctSpecL horizon rate hexc).limit = WCT9.digestAttemptLimit := rfl
+theorem wctSpecL_admissible : (wctSpecL horizon rate hexc).admissible = WCT9.admissible := rfl
+theorem wctSpecL_producer : (wctSpecL horizon rate hexc).producer = WCT9.producerAdmissible := rfl
+theorem wctSpecL_law : (wctSpecL horizon rate hexc).law = honestLaw := rfl
+@[simp] theorem wctSpecL_horizon : (wctSpecL horizon rate hexc).horizon = horizon := rfl
 noncomputable def rev3AuthenticatedSign (published : T3.Cache) (request : Request) : M (Option WCT9.Signature) := do
   let _ ← privateMac request.cache.region
   if request.cache = published then WCT9.Rev3.signPayload request.cache request.message else pure none
+theorem wctL_record_erasure (published : T3.Cache) (request : Request) :
+    Prod.fst <$> (wctSpecL horizon rate hexc).authenticatedRecord payAfterDigest published request =
+      rev3AuthenticatedSign published request := by
+  unfold FtsBankSpecL.authenticatedRecord rev3AuthenticatedSign
+  rw [map_bind]
+  apply bind_congr
+  intro tag
+  split_ifs
+  · exact payloadRecordL_erasure _ rfl _ _
+  · rfl
+theorem excess_of_excessBound (h : ExcessBound horizon rate) :
+    ClaudeWCT.Numerics.Law.lawAvg (wctSpecL horizon rate hexc).law (wctSpecL horizon rate hexc).horizon
+      (fun W : List WProposal => (wctSpecL horizon rate hexc).price W - 1023 / 1024) ≤ rate := h
+theorem wctL_bank_potential_le (rest : Digest → T3.Cache → OracleComp (Interaction' WCT9.Signature) Bool)
+    (budget : Nat) :
+    expectedValue ((wctSpecL horizon rate hexc).bankExperiment payAfterDigest rest budget)
+        (fun r => (wctSpecL horizon rate hexc).potential budget r.2) ≤
+      (CaseC.theta + 1 / 64) / 2 ^ 128 * (wctSpecL horizon rate hexc).expectedBirths payAfterDigest rest budget +
+        (budget : ENNReal) * rate / 2 ^ 128 :=
+  (wctSpecL horizon rate hexc).bank_potential_le payAfterDigest wct_payNotDigest wct_payAvoids rest budget
+theorem wctL_potential_win (budget : Nat) (st : BankState WCT9.Signature) (halive : st.1.dead = false)
+    (hcount : CaseC.countOf st.2 ≤ budget)
+    (h : st.1.reused = true ∨ ∃ N ∈ st.1.targets, WCT9.admissible N = true ∧ Covered st.1.exposures N) :
+    1 ≤ (wctSpecL horizon rate hexc).potential budget st :=
+  (wctSpecL horizon rate hexc).potential_win budget st halive hcount h
+theorem wctL_event_le (rest : Digest → T3.Cache → OracleComp (Interaction' WCT9.Signature) Bool) (budget : Nat)
+    (weight : Bool × QueryRecorded.State → ENNReal) (hw : ∀ y, weight y ≤ 1)
+    (hwin : ∀ b ∈ ((wctSpecL horizon rate hexc).bankExperiment payAfterDigest rest budget).support,
+      weight (b.1, b.2.2) ≠ 0 → 1 ≤ (wctSpecL horizon rate hexc).potential budget b.2) :
+    expectedValue ((wctSpecL horizon rate hexc).recordedExperiment payAfterDigest rest) weight ≤
+      (CaseC.theta + 1 / 64) / 2 ^ 128 * (wctSpecL horizon rate hexc).expectedBirths payAfterDigest rest budget +
+        (budget : ENNReal) * rate / 2 ^ 128 :=
+  (wctSpecL horizon rate hexc).bank_event_le payAfterDigest wct_payNotDigest wct_payAvoids rest budget
+    weight hw hwin
+theorem wctL_bankInv_experiment (rest : Digest → T3.Cache → OracleComp (Interaction' WCT9.Signature) Bool)
+    (budget : Nat) (b : Bool × BankState WCT9.Signature)
+    (hb : b ∈ ((wctSpecL horizon rate hexc).bankExperiment payAfterDigest rest budget).support) :
+    ∃ generated ∈ support (QueryRecorded.run keygen QueryRecorded.initial),
+      (wctSpecL horizon rate hexc).BankInv payAfterDigest WCT9.Signature.rho generated.1.2 budget
+        generated.2.events b.2 :=
+  (wctSpecL horizon rate hexc).bankInv_experiment payAfterDigest WCT9.Signature.rho wct_payHashOnly
+    wct_payRho wct_payAvoids rest budget b hb
+theorem wctL_search (rho : Digest) (m : Message) :
+    (wctSpecL horizon rate hexc).search rho m 0 (wctSpecL horizon rate hexc).limit =
+      WCT9.digestSearch rho m 0 WCT9.digestAttemptLimit :=
+  (wct_digestSearch_public (wctSpecL horizon rate hexc).toFtsBankSpec rfl rho m _ 0).symm
 end ClaudeWCT.Bank.WCT
 end
 
@@ -4401,7 +4550,7 @@ theorem tail_public : SharedQueries.TailAllowed Q where
   chainStep := fun _ _ _ _ _ _ => SourceQueries.shortHash_allowed Q hpublic _
   chainStepW := fun _ _ _ _ _ _ => SourceQueries.shortHash_allowed Q hpublic _
   leaf := fun _ _ _ _ => SourceQueries.shortHash_allowed Q hpublic _
-  node := fun _ _ _ _ _ _ _ _ => W9.T3.Security.Signer.lowerNodeHashN_allowed_of_public Q hpublic _ _ _ _ _ _
+  node := fun _ _ _ _ _ _ => W9.T3.Security.Signer.lowerNodeHash_allowed_of_public Q hpublic _ _ _ _ _
   seed := fun _ _ _ => SourceQueries.privatePair_allowed Q hpair _ _ _ _ _
   encoding := fun lay _ _ msg _ => by
     cases msg <;> exact SourceQueries.shortHash_allowed Q hpublic _
@@ -4439,15 +4588,17 @@ theorem tail_notDigest : SharedQueries.TailAllowed BPB.NotDigestQ where
     unfold shortHash publicHash
     apply SourceQueries.bind_allowed
     · apply (allQueriesSatisfy_query_iff _ _).mpr
-      change BPB.hdrMarker (pad64 (SigGolfCandidate.T3.chainInput lay tree leaf i step value)) ≠ 25984
+      change BPB.hdrMarker (pad64 (SigGolfCandidate.T3.chainInput lay tree leaf i step value)) ≠ 0
       rw [chainInput_padded]
-      rw [BPB.hdrMarker_eq (show SigGolfCandidate.T3M.Extract.hdrBlock (SigGolfCandidate.T3.chainInput lay tree leaf i step value) =
-        SphincsSecurity.bytesLE 16 (chainHeader lay tree leaf i step) from chainInput_header _ _ _ _ _ _)]
-      exact BPB.chainHeader_low_ne_digest _ _ _ _ _
+      apply BPB.hdrMarker_ne_zero_of_byte0
+      unfold BPB.hdrByte0 SigGolfCandidate.T3M.Extract.hdrBlock
+      rw [chainInput_header, bytesLE16_first_toNat]
+      have := chainHeader_firstByte lay tree leaf i step
+      omega
     · intro _; exact SourceQueries.pure_allowed _ _
   chainStepW := ClaudeWCT.Bank.WCT.chainStepW_ok_rev3
   leaf := BPB.leafHash_ok
-  node := fun lay _ _ _ _ _ hh hn => ClaudeWCT.Bank.WCT.lowerNodeHashN_notDigest lay _ _ _ _ _ hh hn
+  node := fun lay _ _ _ _ hh => ClaudeWCT.Bank.WCT.lowerNodeHash_notDigest lay _ _ _ _ hh
   seed := fun _ _ _ => BPB.privatePair_ok _ _ _ _ _
   encoding := WCT.layerEncoding_ok
   top := BPB.signTop_ok
@@ -4461,7 +4612,7 @@ theorem topInput_notDigest (coord index heap : Nat) (left pad right : Digest) :
         (pad64 (SigGolfCandidate.T3M.SecurityInputs.nodeInputP 3 (nodeLayer coord) index heap left pad right)) = _
       rw [SigGolfCandidate.T3M.SecurityInputs.pad64_nodeInputP]
       exact BSuf.hdrBlock_nodeInputP _ _ _ _ _ _ _)
-    (nodeTweak_marker_ne_digest (by simp [nodeLayer]) _ _)
+    (nodeTweak_marker_ne_zero (by simp [nodeLayer]) _ _)
 
 theorem forest_notDigest : ForestAllowed BPB.NotDigestQ where
   coefs := WCT.ftsCoefs_ok
@@ -4476,10 +4627,8 @@ theorem forest_notDigest : ForestAllowed BPB.NotDigestQ where
       · split
         · exact allQ_highHash_of_shortHash _ (topInput_notDigest ..)
         · exact topInput_notDigest ..
-      · exact ClaudeWCT.WCT9.allQ_ftsNodeG _ _ _ _ _
-          (ClaudeWCT.WCT9.allQ_ftsHash_of_shortHash heap (ClaudeWCT.WCT9.nodeInput coord index heap left right)
-            (BPB.nodeHash_ok 3 (ClaudeWCT.WCT9.nodeLayer coord) index heap left right (by decide)))
-          (fun n _ => topInput_notDigest coord index heap left (BitVec.ofNat 128 (n % 2 ^ 64)) right)
+      · exact ClaudeWCT.WCT9.allQ_ftsHash_of_shortHash heap (ClaudeWCT.WCT9.nodeInput coord index heap left right)
+          (BPB.nodeHash_ok 3 (ClaudeWCT.WCT9.nodeLayer coord) index heap left right (by decide))
 
 theorem payNotDigest : PayNotDigest payAfterDigest :=
   pay_allowed _ tail_notDigest forest_notDigest
@@ -5742,11 +5891,11 @@ theorem decodeProbe_eq_none {x : HashInput} :
     rintro ⟨q, hq⟩
     exact h q.1.1 q.1.2 q.2 hq
 theorem ftsChainHeader_byte0 (index coord selected i step : Nat) :
-    (ftsChainHeader index coord selected i step).toNat % 256 < 4 := by
+    128 ≤ (ftsChainHeader index coord selected i step).toNat % 256 := by
   rw [ftsChainHeader_toNat, ftsChainLow_byte0]
   omega
 theorem decodeProbe_of_hdrBlock {x : HashInput} {h : BitVec 128} (hx : hdrBlock x = bytesLE 16 h)
-    (ht : 4 ≤ h.toNat % 256) : decodeProbe x = none := by
+    (ht : h.toNat % 256 < 128) : decodeProbe x = none := by
   rw [decodeProbe_eq_none]
   intro a p c he
   rw [he, hdrBlock_probeInput] at hx
@@ -5754,22 +5903,25 @@ theorem decodeProbe_of_hdrBlock {x : HashInput} {h : BitVec 128} (hx : hdrBlock 
   have hb := ftsChainHeader_byte0 a.1.val a.2.1.val a.2.2.1.val a.2.2.2.val p.val
   rw [this] at hb
   omega
-theorem ftsChainHeader_byte1 (index coord selected i step : Nat) (hi : i < 6) :
-    248 ≤ (ftsChainHeader index coord selected i step).toNat / 256 % 256 := by
-  rw [ftsChainHeader_toNat, ftsChainLow_tag, Nat.mod_eq_of_lt (by omega : i < 8)]
+theorem ftsChainHeader_byte1 (index coord selected i step : Nat) :
+    (ftsChainHeader index coord selected i step).toNat / 256 % 256 < 4 := by
+  rw [ftsChainHeader_toNat]
+  unfold ftsChainLow
+  have := Nat.mod_lt i (show 0 < 8 by decide)
+  have := Nat.mod_lt step (show 0 < 4 by decide)
+  have := Nat.mod_lt coord (show 0 < 16 by decide)
+  have := Nat.mod_lt selected (show 0 < 128 by decide)
   omega
-/-- Tags below 248 are outside the repacked FTS chain domain. -/
+/-- Headers whose tag byte is at least 4 are never chain probes (FTS chain headers carry the step `< 4` there). -/
 theorem decodeProbe_of_hdrBlock_tag {x : HashInput} {h : BitVec 128} (hx : hdrBlock x = bytesLE 16 h)
-    (ht : h.toNat / 256 % 256 < 248) : decodeProbe x = none := by
+    (ht : 4 ≤ h.toNat / 256 % 256) : decodeProbe x = none := by
   rw [decodeProbe_eq_none]
   intro a p c he
   rw [he, hdrBlock_probeInput] at hx
   have := bytesLE_injective hx
-  have hb := ftsChainHeader_byte1 a.1.val a.2.1.val a.2.2.1.val a.2.2.2.val p.val (by omega)
+  have hb := ftsChainHeader_byte1 a.1.val a.2.1.val a.2.2.1.val a.2.2.2.val p.val
   rw [this] at hb
   omega
-
-
 /-- FTS seed of chain `a` (stage-A family seed; agrees with `WCT9.seed` by `rfl`). -/
 def seedOf (A : Correctness.Answers) (a : ChainAddr) : Digest :=
   ClaudeWCT.Arith.familyEval (List.ofFn (WCT9.ftsCoef A a.1.val a.2.1.val)) (WCT9.ftsPoint a.2.2.1.val a.2.2.2.val)

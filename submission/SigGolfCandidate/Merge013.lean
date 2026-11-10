@@ -2,8 +2,6 @@ import Mathlib.Tactic
 import VCVio.OracleComp.Constructions.SampleableType
 import SigGolfCandidate.Merge002
 import SigGolfCandidate.Merge012
-set_option debug.skipKernelTC true
-set_option linter.all false
 
 -- ==== merged from T3_Gate6_ProductFibres ====
 section
@@ -309,7 +307,7 @@ def tsum (b r : Nat) : Nat := dg b r 0 + dg b r 1 + dg b r 2
 def tzeros (b r : Nat) : Nat := ind (dg b r 0 = 0) + ind (dg b r 1 = 0) + ind (dg b r 2 = 0)
 def tcredit (b r : Nat) : Nat := ind (dg b r 0 + 1 = b - 1) + ind (dg b r 1 + 1 = b - 1) + ind (dg b r 2 + 1 = b - 1)
 def tcopies (b : Nat) (first : Bool) (r : Nat) : Nat :=
-  ind (first = true ∧ dg b r 0 = b - 1) + ind (dg b r 1 = b - 1 ∧ (first = true ∨ dg b r 0 = b - 1)) +
+  ind (first = true ∧ dg b r 0 = b - 1) + ind (dg b r 1 = b - 1 ∧ dg b r 0 = b - 1) +
     ind (dg b r 2 = b - 1 ∧ dg b r 1 = b - 1)
 /-- Score of a triple: credit, 4 per safe copy, and on a penalised group 1 when its digit sum is at least 3. -/
 def tscore (b : Nat) (first pen : Bool) (r : Nat) : Nat :=

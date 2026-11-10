@@ -1,4 +1,3 @@
-import SigGolfCandidate.MaskMachine
 import SigGolf
 import VCVio.EvalDist.Expectation
 import SigGolfCandidate.Merge001
@@ -16,8 +15,6 @@ import SigGolfCandidate.Merge075
 import SigGolfCandidate.Merge093
 import SigGolfCandidate.Merge094
 import SigGolfCandidate.Merge097
-set_option debug.skipKernelTC true
-set_option linter.all false
 
 -- ==== merged from ClaudeWCT_W9_T3M_Final_Main ====
 section
@@ -44,15 +41,15 @@ theorem submission_terminates (P : Pending I) : (submission I).Terminates := by
   | expand => obtain ⟨m,pk,s⟩:=input;exact P.expand_terminates hash m pk s
   | verify => obtain ⟨m,pk,w⟩:=input;exact P.verify_terminates hash m pk w
 
-theorem witnessCycles_eq : witnessCycles (submission I).sizes.witness=85 := by
-  change witnessCycles 21756=85
+theorem witnessCycles_eq : witnessCycles (submission I).sizes.witness=86 := by
+  change witnessCycles 22012=86
   decide
 
 theorem claimedC_eq : claimedC=verifyCycleBound+witnessCycles (submission I).sizes.witness := by
   rw [witnessCycles_eq];decide
 
 theorem submission_verificationBound (E : EncodingFacts) (F : SourceQueries) (P : Pending I) :
-    (submission I).VerificationBound 6965 := by
+    (submission I).VerificationBound 6981 := by
   intro hash sk m
   dsimp only
   intro h
@@ -62,9 +59,9 @@ theorem submission_verificationBound (E : EncodingFacts) (F : SourceQueries) (P 
   have heq:=Credit.Paired.verify_run_agree E F P hash (okHashBy floors wt.topHigh hash) m pk _ hagree
   rw [hcyc,witnessCycles_eq,heq]
   rw [heq] at hacc
-  have hok : HashOkBy floors (ClaudeWCT.W9.T3M.wtopHigh (ClaudeWCT.W9.T3M.Paired.witEncF output wt))
+  have hok : HashOkBy floors (ClaudeWCT.W9.T3M.wtopHigh (ClaudeWCT.W9.T3M.Paired.witEncN output wt))
       (okHashBy floors wt.topHigh hash) := by
-    rw [ClaudeWCT.W9.T3M.Paired.wtopHigh_witEncF]; exact hashOkBy_okHashBy floors wt.topHigh hash
+    rw [ClaudeWCT.W9.T3M.Paired.wtopHigh_witEncN]; exact hashOkBy_okHashBy floors wt.topHigh hash
   have hc:=P.verify_accept_cycles floors hfloors (okHashBy floors wt.topHigh hash) m pk _
     hok (Credit.Paired.digestCap_okHashBy floors wt.topHigh hash m pk sig output wt hx) hacc
   unfold verifyCycleBound at hc
@@ -77,7 +74,7 @@ open ClaudeWCT.W9.T3M (Images)
 variable {I : Images}
 
 theorem certificate_of (E : EncodingFacts) (F : SourceQueries) (P : Pending I) (S : SourceFacts) :
-    Certificate (submission I) 6965 where
+    Certificate (submission I) 6981 where
   admissible := P.admissible
   termination := submission_terminates P
   completeness := submission_complete E F P S
@@ -1029,8 +1026,8 @@ def submissionNew (I : Images) : SigGolf.Submission := currentOf (submission I)
 theorem legacyOf_submissionNew (I : Images) : legacyOf (submissionNew I) = submission I :=
   legacyOf_currentOf (submission I)
 theorem certificateNew_of {I : Images} (E : EncodingFacts) (F : SourceQueries) (P : Pending I) (S : SourceFacts) :
-    SigGolf.Certificate (submissionNew I) 6965 := by
-  have hL : SigGolfCandidate.Legacy.Certificate (legacyOf (submissionNew I)) 6965 := by
+    SigGolf.Certificate (submissionNew I) 6981 := by
+  have hL : SigGolfCandidate.Legacy.Certificate (legacyOf (submissionNew I)) 6981 := by
     rw [legacyOf_submissionNew]
     exact certificate_of E F P S
   have hrun : RunAgrees (submissionNew I) := runAgrees_of_admissible (submissionNew I) hL.admissible
@@ -1101,8 +1098,6 @@ def kfF : List (BitVec 32) := (ktopCode.drop 18).take 2
 def khA : List (BitVec 32) := (ktopCode.drop 20).take 8
 
 theorem codeAt_kg27 : CodeAt image (pcOf 144) kg27 := by decide +kernel
-theorem codeAt_kt147 : CodeAt image (pcOf 780) kt147 := by decide +kernel
-theorem codeAt_kg27B : CodeAt image (pcOf 152) (kg27.drop 8) := by decide +kernel
 theorem codeAt_kg159 : CodeAt image (pcOf 159) kg159 := by decide +kernel
 theorem codeAt_kg161 : CodeAt image (pcOf 161) kg161 := by decide +kernel
 theorem codeAt_kg188 : CodeAt image (pcOf 188) kg188 := by decide +kernel
@@ -1132,8 +1127,6 @@ theorem codeAt_kfF : CodeAt image (pcOf 1167) kfF := by decide +kernel
 theorem codeAt_khA : CodeAt image (pcOf 1169) khA := by decide +kernel
 
 sym_block bk27 := symRun { noAlias := true } kg27 (pcOf 144) 100
-sym_block bk27T := symRunAux { noAlias := true } kt147 (pcOf 780) 100 bk27.res.st
-sym_block bk27B := symRunAux { noAlias := true } (kg27.drop 8) (pcOf 152) 100 bk27T.res.st
 sym_block bk159 := symRun { noAlias := true } kg159 (pcOf 159) 100
 sym_block bk161 := symRun { noAlias := true } kg161 (pcOf 161) 100
 sym_block bk188 := symRun { noAlias := true } kg188 (pcOf 188) 100
@@ -1169,32 +1162,35 @@ theorem kshr (x : Word) (k : Nat) (hk : k < 64) : BinOp.eval .srl x (BitVec.ofNa
   rw [Nat.mod_eq_of_lt (show k < 2 ^ 64 by omega), Nat.mod_eq_of_lt hk]
 
 /-- Leaf entry (144..157): leaf header words, `gp = ra`, then `jal ra, COEFGEN`. -/
-theorem kg27_spec (s : MachineState) (hpc : s.pc = pcOf 144) (lay leaf : Nat) (hlay : lay < 4)
-    (hleaf : leaf < 2 ^ T3.hyperW lay) (h8 : s.getReg .x8 = BitVec.ofNat 64 lay) (h18 : s.getReg .x18 = BitVec.ofNat 64 leaf) :
-    ∃ t, Steps image s 21 21 t ∧ t.pc = pcOf 612 ∧ t.getReg .x1 = pcOf 158 ∧ t.getReg .x3 = s.getReg .x1 ∧
+theorem kg27_spec (s : MachineState) (hpc : s.pc = pcOf 144) (lay leaf : Nat) (hlay : lay < 256)
+    (hleaf : leaf < 2 ^ 32) (h8 : s.getReg .x8 = BitVec.ofNat 64 lay) (h18 : s.getReg .x18 = BitVec.ofNat 64 leaf) :
+    ∃ t, Steps image s 14 14 t ∧ t.pc = pcOf 612 ∧ t.getReg .x1 = pcOf 158 ∧ t.getReg .x3 = s.getReg .x1 ∧
       t.getMem (BitVec.ofNat 64 (LEAFPK + 16)) = T3.hyperWord lay leaf ∧
       t.getMem (BitVec.ofNat 64 (LEAFPK + 24)) = 0 ∧
       RegsExcept s t [.x1, .x3, .x6, .x28, .x30] ∧
       Frame s t (fun A => A = LEAFPK + 16 ∨ A = LEAFPK + 24) := by
-  refine ⟨_, LH.chain3_sound bk27 codeAt_kg27 hpc (by rfl) bk27T codeAt_kt147 (by rfl) bk27B codeAt_kg27B
-    (by simp [bk27B.res, rv_simp]), ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
-  · simp [bk27B.res, Result.toState_pc, E.eval]
-  · simp [bk27B.res, rv_simp]
-  · simp [bk27B.res, rv_simp]
-  · simp only [Result.toState_getMem, bk27B.res, LEAFPK]
-    t3n [h18]
-    rw [LH.mark_bv lay hlay _ h8]
-    exact LH.label_or0 lay leaf hlay hleaf
-  · simp only [Result.toState_getMem, bk27B.res, LEAFPK]
+  refine ⟨_, symRun_sound bk27 codeAt_kg27 s hpc
+    (by simp [bk27.res, rv_simp]), ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
+  · simp [bk27.res, Result.toState_pc, E.eval]
+  · simp [bk27.res, rv_simp]
+  · simp [bk27.res, rv_simp]
+  · simp only [Result.toState_getMem, bk27.res, LEAFPK]
+    t3n [h8, h18]
+    rw [show (513#64) = BitVec.ofNat 64 513 from rfl,
+      ofNat_or_disjoint 513 (leaf * 65536) 16 (by decide) (by omega),
+      ofNat_or_disjoint' _ (lay * 281474976710656) 48 (by omega) (by omega),
+      show (13907115649320091648#64) = BitVec.ofNat 64 (193 * 2 ^ 56) from rfl,
+      ofNat_or_disjoint' _ (193 * 2 ^ 56) 56 (by omega) (by omega)]
+    unfold T3.hyperWord
+    congr 1
+    rw [Nat.mod_eq_of_lt hleaf, Nat.mod_eq_of_lt hlay]
+    omega
+  · simp only [Result.toState_getMem, bk27.res, LEAFPK]
     t3n []
-  · intro r hr
-    by_cases h8r : r = .x8
-    · subst h8r; simp only [Result.toState_getReg, bk27B.res]
-      exact LH.restE_eval s lay hlay h8
-    · simp at hr; cases r <;> simp_all [bk27B.res, rv_simp] <;> rfl
+  · intro r hr; simp at hr; cases r <;> simp_all [bk27.res, rv_simp] <;> rfl
   · intro A hA hn
     simp only [LEAFPK] at hn
-    simp only [Result.toState_getMem, bk27B.res]
+    simp only [Result.toState_getMem, bk27.res]
     t3n []
     rw [if_neg (by omega), if_neg (by omega)]
 
@@ -2616,9 +2612,9 @@ theorem buildLeafTopC_eq' (leaf : Nat) (coefs : List Digest) : buildLeafTopC lea
     leafHash 0 0 leaf state.1 >>= fun root => pure (root, state.2)) := rfl
 
 /-- Steps of a keygen top leaf (`r = leaf % 4`, `o = leaf / 4 % 2`). -/
-def topLeafK (r o : Nat) : Nat := 21 + ((if r = 0 then kfK o else 5) + (sumTo (titerK r) 51 + 19))
+def topLeafK (r o : Nat) : Nat := 14 + ((if r = 0 then kfK o else 5) + (sumTo (titerK r) 51 + 19))
 /-- Cycles of a keygen top leaf. -/
-def topLeafC (r o : Nat) : Nat := 21 + ((if r = 0 then kfC o else 5) + (sumTo (titerC r) 51 + (18 + 8 * 13)))
+def topLeafC (r o : Nat) : Nat := 14 + ((if r = 0 then kfC o else 5) + (sumTo (titerC r) 51 + (18 + 8 * 13)))
 /-- Hash calls of a keygen top leaf. -/
 def topLeafN (r o : Nat) : Nat := (if r = 0 then 16 - o else 0) + (sumTo (fun j => maxDigit 0 j) 51 + 1)
 /-- Compression blocks of a keygen top leaf. -/
@@ -2640,9 +2636,9 @@ theorem topLeaf_tsim (hpc : s0.pc = pcOf 144) {cc : List Digest × Digest} (hk :
   have h0 := hpre.top0
   have hlay : A.lay.val < 256 := by have := A.lay.isLt; omega
   have hnb : leafBlocks A.lay = 13 := by unfold leafBlocks; rw [show chainCount A.lay = A.n from rfl, hn]
-  have hleaf : A.leaf < 4096 := by have := hpre.hleafHeight; rw [h0.1] at this; exact this
   obtain ⟨t1, st1, t1pc, t1x1, t1x3, t1l16, t1l24, t1r, t1f⟩ :=
-    kg27_spec s0 hpc A.lay.val A.leaf A.lay.isLt (by rw [h0.1]; show A.leaf < 2 ^ 12; omega) hpre.x8 hpre.x18
+    kg27_spec s0 hpc A.lay.val A.leaf hlay hpre.hleaf hpre.x8 hpre.x18
+  have hleaf : A.leaf < 4096 := by have := hpre.hleafHeight; rw [h0.1] at this; exact this
   have fp : ∀ X, X < PRIV + 64 → t1.getMem (BitVec.ofNat 64 X) = s0.getMem (BitVec.ofNat 64 X) := fun X hX =>
     t1f.get (by simp only [PRIV] at hX; omega) (by simp only [PRIV, LEAFPK] at hX ⊢; omega)
   have hp : KPriv sk t1 :=
@@ -2697,7 +2693,7 @@ end top
 
 /-- Cycle bound of one keygen top leaf (COMPUTED by `decide` over the 8 leaf classes; campaign T51: max 205,853 at
 `leaf % 4 = 3`). -/
-def topLeafW : Nat := 207512
+def topLeafW : Nat := 205853
 theorem topLeaf_bound (r o : Nat) (hr : r < 4) (ho : o < 2) :
     topLeafK r o ≤ topLeafC r o ∧ topLeafC r o ≤ topLeafW := by
   interval_cases r <;> interval_cases o <;> decide
@@ -2888,8 +2884,6 @@ def ktC0 : List (BitVec 32) := (kchkCode.drop 6).take 2
 def ktC1 : List (BitVec 32) := (kchkCode.drop 8).take 3
 def ktC2 : List (BitVec 32) := (kchkCode.drop 11).take 1
 def ktC3 : List (BitVec 32) := (kchkCode.drop 12).take 2
-def ktC4 : List (BitVec 32) := (kchkCode.drop 14).take 1
-def ktCA : List (BitVec 32) := kgAllocStub
 def ktC5 : List (BitVec 32) := (kchkCode.drop 15).take 6
 def ktC6 : List (BitVec 32) := (kchkCode.drop 21).take 2
 def ktC7 : List (BitVec 32) := (kchkCode.drop 23).take 2
@@ -2910,8 +2904,6 @@ theorem codeAt_ktC0 : CodeAt image (pcOf 727) ktC0 := by decide +kernel
 theorem codeAt_ktC1 : CodeAt image (pcOf 729) ktC1 := by decide +kernel
 theorem codeAt_ktC2 : CodeAt image (pcOf 732) ktC2 := by decide +kernel
 theorem codeAt_ktC3 : CodeAt image (pcOf 733) ktC3 := by decide +kernel
-theorem codeAt_ktC4 : CodeAt image (pcOf 735) ktC4 := by decide +kernel
-theorem codeAt_ktCA : CodeAt image (pcOf 1032) ktCA := by decide +kernel
 theorem codeAt_ktC5 : CodeAt image (pcOf 736) ktC5 := by decide +kernel
 theorem codeAt_ktC6 : CodeAt image (pcOf 742) ktC6 := by decide +kernel
 theorem codeAt_ktC7 : CodeAt image (pcOf 744) ktC7 := by decide +kernel
@@ -2933,8 +2925,6 @@ sym_block btC0 := symRun { noAlias := true } ktC0 (pcOf 727) 100
 sym_block btC1 := symRun { noAlias := true } ktC1 (pcOf 729) 100
 sym_block btC2 := symRun { noAlias := true } ktC2 (pcOf 732) 100
 sym_block btC3 := symRun { noAlias := true } ktC3 (pcOf 733) 100
-sym_block btC4 := symRun {noAlias := true} ktC4 (pcOf 735) 100
-sym_block btCA := symRun {noAlias := true} ktCA (pcOf 1032) 100
 sym_block btC5 := symRun { noAlias := true } ktC5 (pcOf 736) 100
 sym_block btC6 := symRun { noAlias := true } ktC6 (pcOf 742) 100
 sym_block btC7 := symRun { noAlias := true } ktC7 (pcOf 744) 100
@@ -2947,7 +2937,7 @@ sym_block btOK := symRun { noAlias := true } ktOK (pcOf 760) 100
 /-- Mask of the zero test on the high word of a top node of height `h` (`1 ≤ h ≤ 11`). Campaign T51: `h = 11` tests
 node bits 104..111 (high-word mask `0xFF << 40`). -/
 def maskN (h : Nat) : Nat :=
-  if h = 11 then (2 ^ 9 - 1) * 2 ^ 35 else (2 ^ topZeroBits h - 1) * 2 ^ (64 - topZeroBits h)
+  if h = 11 then (2 ^ 8 - 1) * 2 ^ 40 else (2 ^ topZeroBits h - 1) * 2 ^ (64 - topZeroBits h)
 
 /-! ### Jumps -/
 theorem kt230_spec (s : MachineState) (hpc : s.pc = pcOf 230) :
@@ -3026,7 +3016,6 @@ theorem kult (a b : Nat) (ha : a < 2 ^ 64) (hb : b < 2 ^ 64) :
     (BitVec.ofNat 64 a).ult (BitVec.ofNat 64 b) = decide (a < b) := by
   simp only [BitVec.ult, BitVec.toNat_ofNat]
   rw [Nat.mod_eq_of_lt ha, Nat.mod_eq_of_lt hb]
-def midBits (h : Nat) : Nat := if h = 3 then 1 else h - 2
 theorem ktC0_spec (s : MachineState) (hpc : s.pc = pcOf 727) (h : Nat) (hh : h < 2 ^ 64)
     (h13 : s.getReg .x13 = BitVec.ofNat 64 h) :
     ∃ t, Steps image s 2 2 t ∧ t.pc = (if h = 12 then pcOf 760 else pcOf 729) ∧ RegsExcept s t [.x28] ∧
@@ -3060,7 +3049,7 @@ theorem ktC1_spec (s : MachineState) (hpc : s.pc = pcOf 729) (h : Nat) (hh : h <
 /-- 732 (campaign T51): `bne a4, zero, 736` (`h = 3` falls through to 733). -/
 theorem ktC2_spec (s : MachineState) (hpc : s.pc = pcOf 732) (b : Nat) (hb : b < 2 ^ 64)
     (h14 : s.getReg .x14 = BitVec.ofNat 64 b) :
-    ∃ t, Steps image s 1 1 t ∧ t.pc = (if b = 0 then pcOf 733 else pcOf 735) ∧ RegsExcept s t [] ∧
+    ∃ t, Steps image s 1 1 t ∧ t.pc = (if b = 0 then pcOf 733 else pcOf 736) ∧ RegsExcept s t [] ∧
       Frame s t (fun _ => False) := by
   refine ⟨_, symRun_sound btC2 codeAt_ktC2 s hpc (by simp [btC2.res, rv_simp]), ?_, ?_, ?_⟩
   · simp only [Result.toState_pc, btC2.res, E.eval, CmpOp.eval, RegFile.get, h14]
@@ -3095,12 +3084,12 @@ theorem ktC5_spec (s : MachineState) (hpc : s.pc = pcOf 736) (b h : Nat) (hb : 1
     interval_cases b <;> decide
   · intro r hr; simp at hr; cases r <;> simp_all [btC5.res, rv_simp] <;> rfl
   · intro A _ _; simp [btC5.res, rv_simp]
-theorem ktC6_head_spec (s : MachineState) (hpc : s.pc = pcOf 742) :
-    ∃ t, Steps image s 2 2 t ∧ t.pc = pcOf 1032 ∧ t.getReg .x16 = BitVec.ofNat 64 511 ∧
+theorem ktC6_spec (s : MachineState) (hpc : s.pc = pcOf 742) :
+    ∃ t, Steps image s 2 2 t ∧ t.pc = pcOf 744 ∧ t.getReg .x16 = BitVec.ofNat 64 ((2 ^ 8 - 1) * 2 ^ 40) ∧
       RegsExcept s t [.x16] ∧ Frame s t (fun _ => False) := by
   refine ⟨_, symRun_sound btC6 codeAt_ktC6 s hpc (by simp [btC6.res, rv_simp]), ?_, ?_, ?_, ?_⟩
   · simp [btC6.res, Result.toState_pc, E.eval]
-  · simp only [Result.toState_getReg, btC6.res, rv_simp]<;> decide
+  · simp only [Result.toState_getReg, btC6.res, rv_simp]; decide
   · intro r hr; simp at hr; cases r <;> simp_all [btC6.res, rv_simp] <;> rfl
   · intro A _ _; simp [btC6.res, rv_simp]
 theorem ktC7_spec (s : MachineState) (hpc : s.pc = pcOf 744) (b : Nat) (hb' : b ≤ 11)
@@ -3113,38 +3102,6 @@ theorem ktC7_spec (s : MachineState) (hpc : s.pc = pcOf 744) (b : Nat) (hb' : b 
     interval_cases b <;> decide
   · intro r hr; simp at hr; cases r <;> simp_all [btC7.res, rv_simp] <;> rfl
   · intro A _ _; simp [btC7.res, rv_simp]
-
-theorem ktC4_spec (s : MachineState) (hpc : s.pc = pcOf 735) (h : Nat)
-    (h3 : 3 ≤ h) (h11 : h ≤ 11) (hn : h ≠ 3)
-    (h14 : s.getReg .x14 = BitVec.ofNat 64 (h - 3)) :
-    ∃ t, Steps image s 1 1 t ∧ t.pc = pcOf 736 ∧ t.getReg .x14 = BitVec.ofNat 64 (midBits h) ∧
-      RegsExcept s t [.x14] ∧ Frame s t (fun _ => False) := by
-  refine ⟨_, symRun_sound btC4 codeAt_ktC4 s hpc (by simp [btC4.res, rv_simp]), ?_, ?_, ?_, ?_⟩
-  · rfl
-  · simp only [Result.toState_getReg, btC4.res, rv_simp, h14]
-    interval_cases h <;> simp_all [midBits] <;> decide
-  · intro r hr; simp at hr; cases r <;> simp_all [btC4.res, rv_simp] <;> rfl
-  · intro A _ _; rfl
-
-theorem ktCA_spec (s : MachineState) (hpc : s.pc = pcOf 1032) (h16 : s.getReg .x16 = 511) :
-    ∃ t, Steps image s 3 3 t ∧ t.pc = pcOf 744 ∧ t.getReg .x14 = 9 ∧
-      t.getReg .x16 = BitVec.ofNat 64 ((2 ^ 9 - 1) * 2 ^ 35) ∧
-      RegsExcept s t [.x14, .x16] ∧ Frame s t (fun _ => False) := by
-  refine ⟨_, symRun_sound btCA codeAt_ktCA s hpc (by simp [btCA.res, rv_simp]), ?_, ?_, ?_, ?_, ?_⟩
-  · rfl
-  · rfl
-  · simp only [Result.toState_getReg, btCA.res, rv_simp, h16] <;> decide
-  · intro r hr; simp at hr; cases r <;> simp_all [btCA.res, rv_simp] <;> rfl
-  · intro A _ _; rfl
-
-theorem ktC6_spec (s : MachineState) (hpc : s.pc = pcOf 742) :
-    ∃ t, Steps image s 5 5 t ∧ t.pc = pcOf 744 ∧ t.getReg .x14 = 9 ∧
-      t.getReg .x16 = BitVec.ofNat 64 ((2 ^ 9 - 1) * 2 ^ 35) ∧
-      RegsExcept s t [.x14, .x16] ∧ Frame s t (fun _ => False) := by
-  obtain ⟨u, su, pu, xu, ru, fu⟩ := ktC6_head_spec s hpc
-  obtain ⟨v, sv, pv, x14, x16, rv, fv⟩ := ktCA_spec u pu xu
-  refine ⟨v, (su.trans sv).of_eq rfl rfl, pv, x14, x16, (ru.trans rv).mono (by simp), ?_⟩
-  exact (fu.trans fv).mono (fun A _ hh => by simp_all)
 
 /-! ### Trial loop (746..759), KOK (760..769) and 272..273 -/
 theorem nout_sub (p : Nat) (hp : p < 2) :
@@ -3316,17 +3273,17 @@ theorem zero_test_hi (v : BitVec 128) (b : Nat) (hb : b ≤ 64) :
     rw [Nat.div_lt_iff_lt_mul (Nat.two_pow_pos _), ← Nat.pow_add, show b + (128 - b) = 128 by omega]
     exact v.isLt
   rw [Nat.mod_eq_of_lt hv]
-/-- R6 (F5): the `h = 11` zero test, high-word mask `0x1FF << 35` = node bits 99..107. -/
-theorem zero_test_bits99 (v : BitVec 128) :
-    (v.extractLsb' 64 64 &&& BitVec.ofNat 64 ((2 ^ 9 - 1) * 2 ^ 35) = 0#64) ↔
-      v.toNat / 2 ^ 99 % 2 ^ 9 = 0 := by
+/-- Campaign T51: the `h = 11` zero test, high-word mask `0xFF << 40` = node bits 104..111. -/
+theorem zero_test_bits104 (v : BitVec 128) :
+    (v.extractLsb' 64 64 &&& BitVec.ofNat 64 ((2 ^ 8 - 1) * 2 ^ 40) = 0#64) ↔
+      v.toNat / 2 ^ 104 % 2 ^ 8 = 0 := by
   rw [← BitVec.toNat_inj, BitVec.toNat_and, BitVec.toNat_ofNat, Nat.mod_eq_of_lt (by norm_num), hiword_toNat,
     BitVec.toNat_zero, land_mask_eq_zero, Nat.div_div_eq_div_mul, ← Nat.pow_add]
 /-- Campaign T51: `b_h = 0,0,1,1,2,3,4,5,6,7,8` (#938: `b_h = h`). -/
 theorem topZeroBits_eq (h : Nat) (h1 : 1 ≤ h) (h11 : h ≤ 11) : topZeroBits h = SigGolfCandidate.T3.topZeroAlloc.getD h 0 := rfl
-theorem topZeroBits_ge3 (h : Nat) (h3 : 3 ≤ h) (h11 : h ≤ 11) : topZeroBits h = if h = 3 then 1 else if h = 11 then 9 else h - 2 := by
+theorem topZeroBits_ge3 (h : Nat) (h3 : 3 ≤ h) (h11 : h ≤ 11) : topZeroBits h = if h = 3 then 1 else h - 3 := by
   interval_cases h <;> rfl
-theorem ktopZeroBits_le (h : Nat) : topZeroBits h ≤ 9 := by
+theorem ktopZeroBits_le (h : Nat) : topZeroBits h ≤ 8 := by
   unfold topZeroBits T3.topZeroAlloc
   rcases h with _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | h <;> simp
 /-- The machine's zero test (KCHK 746..749) is `topZeroOk`. -/
@@ -3334,14 +3291,13 @@ theorem zero_test (v : Digest) (h : Nat) (h1 : 1 ≤ h) (h11 : h ≤ 11) :
     (v.extractLsb' 64 64 &&& BitVec.ofNat 64 (maskN h) = 0#64) ↔ topZeroOk h v = true := by
   unfold maskN topZeroOk
   by_cases hc : h = 11
-  · rw [if_pos hc, if_pos hc, zero_test_bits99, beq_iff_eq]
+  · rw [if_pos hc, if_pos hc, zero_test_bits104, beq_iff_eq]
   · rw [if_neg hc, if_neg hc, zero_test_hi v _ (by have := ktopZeroBits_le h; omega), beq_iff_eq]
 /-- Steps (= cycles) of the KCHK setup 727..745 at height `h ∈ 3..11` (campaign T51: `b = h - 3`, `h = 3` sets
 `b = 1` at 733..734). -/
 def setupK (h : Nat) : Nat :=
-  14 + (if h = 3 then 2 else 1) + (if h = 11 then 5 else 0)
-theorem setupK_le (h : Nat) : setupK h ≤ 20 := by unfold setupK; split_ifs <;> omega
-
+  14 + (if h = 3 then 2 else 0) + (if h = 11 then 2 else 0)
+theorem setupK_le (h : Nat) : setupK h ≤ 18 := by unfold setupK; split_ifs <;> omega
 theorem ksetup_spec (s : MachineState) (hpc : s.pc = pcOf 727) (h : Nat) (h3 : 3 ≤ h) (h11 : h ≤ 11)
     (h13 : s.getReg .x13 = BitVec.ofNat 64 h) :
     ∃ t, Steps image s (setupK h) (setupK h) t ∧ t.pc = pcOf 746 ∧
@@ -3349,53 +3305,44 @@ theorem ksetup_spec (s : MachineState) (hpc : s.pc = pcOf 727) (h : Nat) (h3 : 3
       RegsExcept s t [.x14, .x16, .x17, .x28] ∧ Frame s t (fun _ => False) := by
   obtain ⟨t1, st1, p1, r1, f1⟩ := ktC0_spec s hpc h (by omega) h13
   rw [if_neg (by omega)] at p1
-  obtain ⟨t2, st2, p2, x14_2, r2, f2⟩ := ktC1_spec t1 p1 h (by omega)
-    (by rw [r1.get (by simp)]; exact h13)
+  obtain ⟨t2, st2, p2, x14_2, r2, f2⟩ := ktC1_spec t1 p1 h (by omega) (by rw [r1.get (by simp)]; exact h13)
   rw [if_neg (by omega)] at p2
   obtain ⟨t3, st3, p3, r3, f3⟩ := ktC2_spec t2 p2 (h - 3) (by omega) (x14_2 h3)
-  obtain ⟨t4, st4, p4, x14_4, r4, f4⟩ : ∃ t4,
-      Steps image t3 (if h = 3 then 2 else 1) (if h = 3 then 2 else 1) t4 ∧
-      t4.pc = pcOf 736 ∧ t4.getReg .x14 = BitVec.ofNat 64 (midBits h) ∧
-      RegsExcept t3 t4 [.x14] ∧ Frame t3 t4 (fun _ => False) := by
+  have hb := topZeroBits_ge3 h h3 h11
+  obtain ⟨t4, st4, p4, x14_4, r4, f4⟩ : ∃ t4, Steps image t3 (if h = 3 then 2 else 0) (if h = 3 then 2 else 0) t4 ∧
+      t4.pc = pcOf 736 ∧ t4.getReg .x14 = BitVec.ofNat 64 (topZeroBits h) ∧ RegsExcept t3 t4 [.x14] ∧
+      Frame t3 t4 (fun _ => False) := by
     by_cases hc : h = 3
     · rw [if_pos (show h - 3 = 0 by omega)] at p3
       obtain ⟨u, su, pu, xu, ru, fu⟩ := ktC3_spec t3 p3
-      refine ⟨u, by simpa [hc] using su, pu, ?_, ru, fu⟩
-      simpa [midBits, hc] using xu
+      exact ⟨u, by rw [if_pos hc]; exact su, pu, by rw [xu, hb, if_pos hc], ru, fu⟩
     · rw [if_neg (show h - 3 ≠ 0 by omega)] at p3
-      obtain ⟨u, su, pu, xu, ru, fu⟩ := ktC4_spec t3 p3 h h3 h11 hc
-        (by rw [r3.get (by simp)]; exact x14_2 h3)
-      exact ⟨u, by simpa [hc] using su, pu, xu, ru, fu⟩
-  have r14 := ((r1.trans r2).trans r3).trans r4
-  have hb1 : 1 ≤ midBits h := by unfold midBits; split_ifs <;> omega
-  have hb11 : midBits h ≤ 11 := by unfold midBits; split_ifs <;> omega
-  obtain ⟨t6, st6, p6, x16_6, r6, f6⟩ := ktC5_spec t4 p4 (midBits h) h hb1 hb11
-    (by omega) x14_4 (by rw [r14.get (by simp)]; exact h13)
-  obtain ⟨t7, st7, p7, x14_7, x16_7, r7, f7⟩ : ∃ t7,
-      Steps image t6 (if h = 11 then 5 else 0) (if h = 11 then 5 else 0) t7 ∧
-      t7.pc = pcOf 744 ∧ t7.getReg .x14 = BitVec.ofNat 64 (topZeroBits h) ∧
-      t7.getReg .x16 = BitVec.ofNat 64 (maskN h) ∧
-      RegsExcept t6 t7 [.x14, .x16] ∧ Frame t6 t7 (fun _ => False) := by
+      refine ⟨t3, by rw [if_neg hc]; exact Steps.refl _, p3, ?_, RegsExcept.refl _ _, Frame.refl _ _⟩
+      rw [r3.get (by simp), x14_2 h3, hb, if_neg hc]
+  have r14 : RegsExcept s t4 ([.x28] ++ [.x14, .x28] ++ [] ++ [.x14]) := ((r1.trans r2).trans r3).trans r4
+  have hb1 : 1 ≤ topZeroBits h := by rw [hb]; split_ifs <;> omega
+  have hb8 : topZeroBits h ≤ 11 := by have := ktopZeroBits_le h; omega
+  obtain ⟨t6, st6, p6, x16_6, r6, f6⟩ := ktC5_spec t4 p4 (topZeroBits h) h hb1 hb8 (by omega)
+    x14_4 (by rw [r14.get (by simp)]; exact h13)
+  obtain ⟨t7, st7, p7, x16_7, r7, f7⟩ : ∃ t7, Steps image t6 (if h = 11 then 2 else 0) (if h = 11 then 2 else 0) t7 ∧
+      t7.pc = pcOf 744 ∧ t7.getReg .x16 = BitVec.ofNat 64 (maskN h) ∧ RegsExcept t6 t7 [.x16] ∧
+      Frame t6 t7 (fun _ => False) := by
     by_cases hc : h = 11
     · rw [if_pos hc] at p6
-      obtain ⟨u, su, pu, xu14, xu16, ru, fu⟩ := ktC6_spec t6 p6
-      refine ⟨u, by simpa [hc] using su, pu, ?_, ?_, ru, fu⟩
-      · rw [xu14, hc]; rfl
-      · simpa [maskN, hc] using xu16
+      obtain ⟨u, su, pu, xu, ru, fu⟩ := ktC6_spec t6 p6
+      exact ⟨u, by rw [if_pos hc]; exact su, pu, by rw [xu]; unfold maskN; rw [if_pos hc], ru, fu⟩
     · rw [if_neg hc] at p6
-      have hb : topZeroBits h = midBits h := by interval_cases h <;> simp_all [topZeroBits, T3.topZeroAlloc, midBits]
-      refine ⟨t6, by simpa [hc] using Steps.refl t6, p6, ?_, ?_, RegsExcept.refl _ _, Frame.refl _ _⟩
-      · rw [r6.get (by simp), x14_4, hb]
-      · rw [x16_6, maskN, if_neg hc, hb]
-  have hb8 : topZeroBits h ≤ 11 := by interval_cases h <;> decide
-  obtain ⟨t8, st8, p8, x17_8, r8, f8⟩ := ktC7_spec t7 p7 (topZeroBits h) hb8 x14_7
+      refine ⟨t6, by rw [if_neg hc]; exact Steps.refl _, p6, ?_, RegsExcept.refl _ _, Frame.refl _ _⟩
+      rw [x16_6]; unfold maskN; rw [if_neg hc]
+  obtain ⟨t8, st8, p8, x17_8, r8, f8⟩ := ktC7_spec t7 p7 (topZeroBits h) hb8
+    (by rw [r7.get (by simp), r6.get (by simp)]; exact x14_4)
   refine ⟨t8, Steps.of_eq (st1.trans (st2.trans (st3.trans (st4.trans (st6.trans (st7.trans st8))))))
     ?_ ?_, p8, by rw [r8.get (by simp)]; exact x16_7, by rw [x17_8]; rfl, ?_, ?_⟩
   · unfold setupK; split_ifs <;> omega
   · unfold setupK; split_ifs <;> omega
   · exact (((r14.trans r6).trans r7).trans r8).mono (by simp)
   · exact ((((((f1.trans f2).trans f3).trans f4).trans f6).trans f7).trans f8).mono
-      (fun A _ hh => by simp_all)
+      (fun _ _ h => by simp_all)
 
 theorem nonce_words (n : Nat) (hn : n < 2 ^ 64) : wordsOf (nonceBytes n) = [BitVec.ofNat 64 n, 0] := by
   unfold nonceBytes
@@ -3413,13 +3360,13 @@ theorem topNodeInput_length (heap n : Nat) (l r : Digest) : (topNodeInput heap n
   simp [topNodeInput, nonceBytes, bytesLE_length]
 theorem wordsOf_topNodeInput (heap n : Nat) (h1 : 1 ≤ heap) (h2 : heap < 4096) (hn : n < 2 ^ 64) (l r : Digest) :
     wordsOf (topNodeInput heap n l r) =
-      [l.extractLsb' 0 64, l.extractLsb' 64 64, KeygenLabel.remapWord (BitVec.ofNat 64 heap), 0, BitVec.ofNat 64 n, 0,
+      [l.extractLsb' 0 64, l.extractLsb' 64 64, BitVec.ofNat 64 heap, 0, BitVec.ofNat 64 n, 0,
         r.extractLsb' 0 64, r.extractLsb' 64 64] := by
   unfold topNodeInput
   rw [wordsOf_append _ _ (by simp [bytesLE_length, nonceBytes]), wordsOf_append _ _ (by simp [bytesLE_length]),
     wordsOf_append _ _ (by simp [bytesLE_length]), wordsOf_bytesLE16, wordsOf_bytesLE16, nonce_words n hn,
     wordsOf_bytesLE16, nodeTweak_3_top 0 heap h1 h2, T3.append64_low]
-  have hhi : (0#64 ++ KeygenLabel.remapWord (BitVec.ofNat 64 (nodeLo 0 0 + heap))).extractLsb' 64 64 = 0#64 :=
+  have hhi : (0#64 ++ BitVec.ofNat 64 (nodeLo 0 0 + heap)).extractLsb' 64 64 = 0#64 :=
     BitVec.extractLsb'_append_eq_left
   rw [hhi]
   simp [nodeLo]
@@ -3432,7 +3379,7 @@ theorem hashInput_topNode (t : MachineState) (heap n : Nat) (h1 : 1 ≤ heap) (h
     (l r : Digest) (h10 : t.getReg .x10 = BitVec.ofNat 64 NODE) (h11 : t.getReg .x11 = BitVec.ofNat 64 64)
     (w0 : t.getMem (BitVec.ofNat 64 NODE) = l.extractLsb' 0 64)
     (w8 : t.getMem (BitVec.ofNat 64 (NODE + 8)) = l.extractLsb' 64 64)
-    (w16 : t.getMem (BitVec.ofNat 64 (NODE + 16)) = KeygenLabel.remapWord (BitVec.ofNat 64 heap))
+    (w16 : t.getMem (BitVec.ofNat 64 (NODE + 16)) = BitVec.ofNat 64 heap)
     (w24 : t.getMem (BitVec.ofNat 64 (NODE + 24)) = 0)
     (w32 : t.getMem (BitVec.ofNat 64 (NODE + 32)) = BitVec.ofNat 64 n)
     (w40 : t.getMem (BitVec.ofNat 64 (NODE + 40)) = 0)
@@ -3478,7 +3425,7 @@ structure T2Facts (t2 : MachineState) (arena heap : Nat) (l r : Digest) : Prop w
   x29 : t2.getReg .x29 = BitVec.ofNat 64 (heap % 2 * 2 ^ 4)
   w0 : t2.getMem (BitVec.ofNat 64 NODE) = l.extractLsb' 0 64
   w8 : t2.getMem (BitVec.ofNat 64 (NODE + 8)) = l.extractLsb' 64 64
-  w16 : t2.getMem (BitVec.ofNat 64 (NODE + 16)) = KeygenLabel.remapWord (BitVec.ofNat 64 heap)
+  w16 : t2.getMem (BitVec.ofNat 64 (NODE + 16)) = BitVec.ofNat 64 heap
   w24 : t2.getMem (BitVec.ofNat 64 (NODE + 24)) = 0
   w40 : t2.getMem (BitVec.ofNat 64 (NODE + 40)) = 0
   w48 : t2.getMem (BitVec.ofNat 64 (NODE + 48)) = r.extractLsb' 0 64
@@ -3668,7 +3615,7 @@ end loop
 
 /-! ## Nodes -/
 /-- Registers the top-tree routine may change (the lower-tree `levRegs` plus KCHK's `a3 a4 a6 a7`). -/
-def topLevRegs : List Reg := [.x3, .x6, .x7, .x10, .x11, .x12, .x13, .x14, .x16, .x17, .x20, .x24, .x28, .x29, .x30]
+def topLevRegs : List Reg := [.x6, .x7, .x10, .x11, .x12, .x13, .x14, .x16, .x17, .x20, .x24, .x28, .x29, .x30]
 
 structure TNodeInv (s0 : MachineState) (B : LevArgs) (ℓ : Nat) (levels : List (List Digest))
     (pre : List Digest) (t : MachineState) : Prop where
@@ -3693,7 +3640,7 @@ def topNodeProg (level heap : Nat) (l r : Digest) : T3.M Digest :=
   if level = 12 then nodeHash 3 0 0 heap l r else Prod.snd <$> topNodeAt level heap l r
 
 /-- Cycle bound of one node at height `h` (`h = 12`: the root, no nonce). -/
-def nodeW (h : Nat) : Nat := if h = 12 then 63 else 89 + 21 * (topNonceCap h - 1)
+def nodeW (h : Nat) : Nat := if h = 12 then 51 else 75 + 21 * (topNonceCap h - 1)
 
 theorem nonceBytes_zero : nonceBytes 0 = zero16 := by decide
 theorem nodeHash_top (heap : Nat) (l r : Digest) :
@@ -3725,12 +3672,12 @@ include hpre htop hh12
 theorem node_prefix {ℓ : Nat} (hl : ℓ < 12) {levels : List (List Digest)} {pre : List Digest}
     (hi : pre.length < 2 ^ (12 - ℓ - 1)) {t : MachineState} (ht : TNodeInv s0 B ℓ levels pre t)
     (hpc : t.pc = pcOf 235) :
-    ∃ t2, Steps image t 40 40 t2 ∧ t2.pc = pcOf 263 ∧
+    ∃ t2, Steps image t 28 28 t2 ∧ t2.pc = pcOf 263 ∧
       t2.getReg .x10 = BitVec.ofNat 64 NODE ∧ t2.getReg .x11 = BitVec.ofNat 64 64 ∧
       t2.getMem (BitVec.ofNat 64 (NODE + 32)) = 0 ∧
       T2Facts t2 B.arena (2 ^ (12 - ℓ - 1) + pre.length) ((levels.getD ℓ []).getD (2 * pre.length) 0)
         ((levels.getD ℓ []).getD (2 * pre.length + 1) 0) ∧
-      RegsExcept t t2 [.x6, .x3, .x6, .x7, .x28, .x29, .x30, .x10, .x11, .x12, .x29] ∧
+      RegsExcept t t2 [.x6, .x6, .x7, .x28, .x29, .x30, .x10, .x11, .x12, .x29] ∧
       Frame t t2 (fun X => X = NODE ∨ X = NODE + 8 ∨ X = NODE + 16 ∨ X = NODE + 24 ∨ X = NODE + 48 ∨
         X = NODE + 56) := by
   have ha := hpre.ha
@@ -3773,11 +3720,11 @@ theorem node_prefix {ℓ : Nat} (hl : ℓ < 12) {levels : List (List Digest)} {p
     have hX' : X < 2 ^ 64 := by rcases hX with h | h <;> (rw [h]; decide)
     rw [t2f.get hX' (by simp only [NODE] at hX ⊢; omega), t1f.get hX' (by simp),
       ht.frame.get hX' (by unfold LevW; rw [hh12]; simp only [NODE, NOUT] at hX has ⊢; omega)]
-  have e16 : t2.getMem (BitVec.ofNat 64 (NODE + 16)) = KeygenLabel.remapWord (BitVec.ofNat 64 (lo + i)) := by
+  have e16 : t2.getMem (BitVec.ofNat 64 (NODE + 16)) = BitVec.ofNat 64 (lo + i) := by
     rw [t2n16, t1r.get (by simp), r21, htop.1, htop.2]
     simp only [nodeLo, if_true, BitVec.ofNat_eq_ofNat, BitVec.zero_shiftLeft, BitVec.or_zero]
-    simp only [BitVec.zero_add]
-  have hfr : ∀ r, r ∉ [Reg.x6] → r ∉ [Reg.x3, .x6, .x7, .x28, .x29, .x30, .x10, .x11, .x12, .x29] →
+    rw [BitVec.zero_add]
+  have hfr : ∀ r, r ∉ [Reg.x6] → r ∉ [Reg.x6, .x7, .x28, .x29, .x30, .x10, .x11, .x12, .x29] →
       t2.getReg r = t.getReg r := fun r h1 h2 => by rw [t2r.get h2, t1r.get h1]
   refine ⟨t2, (st1.trans st2).of_eq (by omega) (by omega), t2pc, t2x10, t2x11, by rw [fr _ (by simp), hpre.z32],
     ⟨by rw [hfr _ (by simp) (by simp)]; exact r2, by rw [hfr _ (by simp) (by simp)]; exact r5, t2x12,
@@ -3787,7 +3734,7 @@ theorem node_prefix {ℓ : Nat} (hl : ℓ < 12) {levels : List (List Digest)} {p
     t1r.trans t2r, (t1f.trans t2f).mono (fun X _ hX => by rcases hX with hX | hX; exact hX.elim; exact hX)⟩
 theorem node_post {ℓ : Nat} (hl : ℓ < 12) {levels : List (List Digest)} {pre : List Digest}
     (hi : pre.length < 2 ^ (12 - ℓ - 1)) {t t2 w : MachineState} (ht : TNodeInv s0 B ℓ levels pre t)
-    (r02 : RegsExcept t t2 [.x6, .x3, .x6, .x7, .x28, .x29, .x30, .x10, .x11, .x12, .x29])
+    (r02 : RegsExcept t t2 [.x6, .x6, .x7, .x28, .x29, .x30, .x10, .x11, .x12, .x29])
     (f02 : Frame t t2 (fun X => X = NODE ∨ X = NODE + 8 ∨ X = NODE + 16 ∨ X = NODE + 24 ∨ X = NODE + 48 ∨
         X = NODE + 56)) {v : Digest} (hw : KokPost t2 B.arena (2 ^ (12 - ℓ - 1) + pre.length) v w) :
     w.pc = pcOf 235 ∧ TNodeInv s0 B ℓ levels (pre ++ [v]) w := by
@@ -3801,7 +3748,7 @@ theorem node_post {ℓ : Nat} (hl : ℓ < 12) {levels : List (List Digest)} {pre
   have hlo1 : 1 ≤ lo := Nat.one_le_two_pow
   have fall : Frame t w (fun X => (X = NODE ∨ X = NODE + 8 ∨ X = NODE + 16 ∨ X = NODE + 24 ∨ X = NODE + 48 ∨
       X = NODE + 56) ∨ KokW B.arena (lo + i) X) := f02.trans hw.frame
-  have gk : ∀ x, x ∉ kokRegs → x ∉ [Reg.x6, .x3, .x6, .x7, .x28, .x29, .x30, .x10, .x11, .x12, .x29] →
+  have gk : ∀ x, x ∉ kokRegs → x ∉ [Reg.x6, .x6, .x7, .x28, .x29, .x30, .x10, .x11, .x12, .x29] →
       w.getReg x = t.getReg x := fun x h1 h2 => by rw [hw.regs.get h1, r02.get h2]
   refine ⟨hw.pc, ⟨?_, ?_, ?_, ?_, ?_, ⟨ht.heap.1, fun l hl' => ?_⟩, ?_⟩⟩
   · rw [gk _ (by decide) (by decide)]; exact ht.x13
@@ -4058,7 +4005,7 @@ open SigGolfCandidate.T3 (Layer Digest buildLeafTopC topFamilyCoefs topTreeStep 
 def kgLeaf (j : Nat) : LeafArgs := ⟨0, 0, j, [], false, ZDIG, DUMMY, TOP + 16 * (4096 + j), 34⟩
 def kgLev : LevArgs := ⟨3, 0, 0, 12, TOP, 39⟩
 theorem kgLeaf_n (j : Nat) : (kgLeaf j).n = 51 := rfl
-theorem kgLev_costs : kgLev.levK = 180257 ∧ kgLev.levC = 208922 ∧ kgLev.levN = 4095 := by decide
+theorem kgLev_costs : kgLev.levK = 159782 ∧ kgLev.levC = 188447 ∧ kgLev.levN = 4095 := by decide
 def W1 (X : Nat) : Prop :=
   X = PRIV + 16 ∨ X = PRIV + 24 ∨ (SEEDS ≤ X ∧ X < SEEDS + 32) ∨ X = CHAIN + 16 ∨ X = CHAIN + 24 ∨
     (CHAIN + 32 ≤ X ∧ X < CHAIN + 112) ∨ (LEAFPK ≤ X ∧ X < LEAFPK + 896) ∨ (LOUT ≤ X ∧ X < LOUT + 32) ∨
@@ -4349,18 +4296,8 @@ theorem blk295_spec (s : MachineState) (hpc : s.pc = pcOf 295) (level i : Nat)
     simp only [Result.toState_getMem,blk_295.res]
     t3n []
     rw [if_neg (by omega),if_neg (by omega)]
-theorem cacheMaskCode : CacheMaskMachine.Code image false where
-  jump := by
-    change CodeAt Images.keygenImage (pcOf 309) [0x3310006f]
-    unfold CodeAt
-    decide +kernel
-  zero := by
-    change CodeAt Images.keygenImage (pcOf 1025) [0x63023,0x63423,0x63823,0x63c23,0xcc4ff06f]
-    unfold CodeAt
-    decide +kernel
-
-theorem cacheMaskRunner : MaskSelectRunner image 309 :=
-  CacheMaskMachine.runner cacheMaskCode
+theorem fetch_309 (s : MachineState) (hpc : s.pc = pcOf 309) :
+    fetch image s = some (.base .ECALL) := (codeAt_309.fetch s hpc).trans rfl
 theorem blk330_spec (s : MachineState) (hpc : s.pc = pcOf 330) (lo level : Nat)
     (hlo : lo ≤ 4096) (hl : level < 12)
     (h20 : s.getReg .x20 = BitVec.ofNat 64 lo)
@@ -4502,8 +4439,7 @@ theorem mask_one {pre : List (List Digest)} (hpl : pre.length < 12) {cur : List 
     (hcl : cur.length < 2 ^ (11 - pre.length))
     (hfl : pre.flatten.length + 2 ^ (13 - pre.length) = 8192) {t : MachineState}
     (ht : MaskInv s4 pre cur t) :
-    TSim image sk t (34 + maskSelectSteps pre.length) (34 + maskSelectCycles pre.length)
-      (maskSelectQueries pre.length) (maskSelectQueries pre.length)
+    TSim image sk t 35 42 1 1
       (do
         let values ← pairedMask pre.length cur.length
         pure [(levels.getD pre.length []).getD (2*cur.length) 0 ^^^ values.1,
@@ -4530,8 +4466,9 @@ theorem mask_one {pre : List (List Digest)} (hpl : pre.length < 12) {cur : List 
     hashArgs_const t2 PRIV 64 MOUT t2x10 t2x11 t2x12 (by decide) (by decide) (by decide) (by decide)
       (by decide)
   have h5 : t2.getReg .x5 = 0 := by rw [t2r.get (by decide), g _ (by decide), hm.x5]
-  refine (TSim.steps st2 (TSim.pairedMask_select cacheMaskRunner (k := 20) (c := 20) (n := 0) (b := 0)
-    t2pc t2x12 (fun a => ?_))).of_eq rfl (by rfl) (by rfl) (by rfl) (by rfl)
+  unfold pairedMask
+  refine (TSim.steps st2 (TSim.privatePair_bind (k := 20) (c := 20) (n := 0) (b := 0)
+    (fetch_309 t2 t2pc) h5 hv hq (fun a => ?_))).of_eq rfl rfl rfl rfl rfl
   have hwf := Frame.writeHash t2 a MOUT t2x12 (by decide)
   have upc : (writeHash t2 a).pc = pcOf 310 := by rw [pc_writeHash, t2pc, pcOf_add4]
   have hmo0 := DigAt.writeHash_lo t2 a MOUT t2x12 (by decide)
@@ -4606,9 +4543,8 @@ theorem levelInv_zero : LevelInv s4 [] s4 :=
   ⟨hm.pc, hm.x20, hm.x22, hm.x24, rfl, RegsExcept.refl _ _, Frame.refl _ _, DigsAt.nil _ _⟩
 theorem mask_level {pre : List (List Digest)} (hpl : pre.length < 12) {t : MachineState}
     (ht : LevelInv s4 pre t) :
-    TSim image sk t (10+(34+maskSelectSteps pre.length)*2^(11-pre.length))
-      (10+(34+maskSelectCycles pre.length)*2^(11-pre.length))
-      (maskSelectQueries pre.length*2^(11-pre.length)) (maskSelectQueries pre.length*2^(11-pre.length))
+    TSim image sk t (10+35*2^(11-pre.length)) (10+42*2^(11-pre.length))
+      (2^(11-pre.length)) (2^(11-pre.length))
       (maskedLevel (levels.getD pre.length []) pre.length)
       (fun ds u => LevelInv s4 (pre ++ [ds]) u) := by
   obtain ⟨hl2, hl4096, hp1, hpair, h13, h12', h13'⟩ := two_pow_twelve_sub hpl
@@ -4631,13 +4567,12 @@ theorem mask_level {pre : List (List Digest)} (hpl : pre.length < 12) {t : Machi
       let values ← pairedMask pre.length i
       pure [(levels.getD pre.length []).getD (2*i) 0 ^^^ values.1,
         (levels.getD pre.length []).getD (2*i+1) 0 ^^^ values.2])
-    (fun _ => 34+maskSelectSteps pre.length) (fun _ => 34+maskSelectCycles pre.length)
-    (fun _ => maskSelectQueries pre.length) (fun _ => maskSelectQueries pre.length) (MaskInv s4 pre)
+    (fun _ => 35) (fun _ => 42) (fun _ => 1) (fun _ => 1) (MaskInv s4 pre)
     (fun cur u hc hu => mask_one hm hpl hc ht.flen hu) h0
   simp only [sumTo_const] at hin
   refine (TSim.steps st2 (TSim.map List.flatten
     (TSim.post_steps (k' := 4) (c' := 4) hin (fun ds u hu => ?_)))).of_eq ?_
-      (by ring) (by ring) (by simp [maskSelectQueries]) (by simp [maskSelectQueries])
+      (by ring) (by ring) (by simp) (by simp)
   · obtain ⟨hdl, hu⟩ := hu
     obtain ⟨u2, su2, u2pc, u2x20, u2x22, u2r, u2f⟩ :=
       blk330_spec u (by simpa only [hdl, if_neg (Nat.lt_irrefl _)] using hu.pc)
@@ -4657,13 +4592,13 @@ theorem mask_level {pre : List (List Digest)} (hpl : pre.length < 12) {t : Machi
   · simp only [maskedLevel, map_eq_bind_pure_comp]
     rfl
 theorem masks_tsim :
-    TSim image sk s4 163920 163920 0 0
+    TSim image sk s4 143445 172110 4095 4095
       ((List.range' 0 12).mapM fun level => maskedLevel (levels.getD level []) level)
       (fun masked u => masked.length = 12 ∧ LevelInv s4 masked u) := by
   rw [List.range'_eq_map_range, List.mapM_map]
   simp only [Nat.zero_add]
-  exact (TSim.mapM_range 12 _ (fun j => 10+(34+maskSelectSteps j)*2^(11-j)) (fun j => 10+(34+maskSelectCycles j)*2^(11-j))
-    (fun j => maskSelectQueries j*2^(11-j)) (fun j => maskSelectQueries j*2^(11-j)) (LevelInv s4)
+  exact (TSim.mapM_range 12 _ (fun j => 10+35*2^(11-j)) (fun j => 10+42*2^(11-j))
+    (fun j => 2^(11-j)) (fun j => 2^(11-j)) (LevelInv s4)
     (fun pre t hl ht => mask_level hm hl ht) (levelInv_zero hm)).of_eq rfl
       (by decide) (by decide) (by decide) (by decide)
 end masks
@@ -4712,10 +4647,10 @@ variable {sk : SecretKey} {s1 : MachineState} (hs : KStart sk s1)
 include hs
 /-- Top-bytes layer: the payload has a cycle bound (the top-tree node nonces are data dependent). -/
 theorem payload_tbsim :
-    TBSim image sk s1 (topTreeW + 163933) keygenPayload (PayloadPost sk) := by
+    TBSim image sk s1 (topTreeW + 172123) keygenPayload (PayloadPost sk) := by
   unfold keygenPayload
   refine TBSim.bind (buildTopTree_tbsim hs) (fun levels t ht => ?_)
-  refine TSim.toTBSim (k := 163933) (n := 0) (b := 0) ?_ (by norm_num)
+  refine TSim.toTBSim (k := 143458) (n := 4095) (b := 4095) ?_ (by norm_num)
   obtain ⟨tpc, theap, tregs, tframe⟩ := ht
   obtain ⟨t3, st3, t3pc, t3r, t3f⟩ := blk39_spec t tpc
   obtain ⟨t4, st4', t4pc, t4x2, t4x20, t4x22, t4x24, t4a', t4b', t4r', t4f'⟩ :=
@@ -4836,7 +4771,7 @@ structure KDone (r : Digest × Cache) (t : MachineState) : Prop where
 section main
 variable {sk : SecretKey} {s1 : MachineState} (hs : KStart sk s1)
 include hs
-theorem keygen_from_start : TBSim image sk s1 (topTreeW + 163933 + 2489877) keygen KDone := by
+theorem keygen_from_start : TBSim image sk s1 (topTreeW + 172123 + 2489877) keygen KDone := by
   unfold keygen
   refine TBSim.bind (payload_tbsim hs) (fun r t ht => ?_)
   refine TSim.toTBSim (k := 1703623) (n := 2) (b := 2) ?_ (by norm_num)
@@ -4866,7 +4801,7 @@ theorem keygen_from_start : TBSim image sk s1 (topTreeW + 163933 + 2489877) keyg
 end main
 /-- Cycle bound of a keygen run (img-v6): every hash function finishes within it.
 `= 26 + 4096 · leafLoopW + 5 + treeW + 172123 + 2489877`. -/
-def keygenCycleBound : Nat := 26 + (topTreeW + 163933 + 2489877)
+def keygenCycleBound : Nat := 26 + (topTreeW + 172123 + 2489877)
 theorem keygenCycleBound_lt : keygenCycleBound + 1 < CYCLE_LIMIT := by
   unfold keygenCycleBound topTreeW leafLoopW topLeafW CYCLE_LIMIT; decide
 theorem keygen_tbsim (sk : SecretKey) : TBSim image sk (kinit sk) keygenCycleBound keygen KDone := by
@@ -4941,7 +4876,7 @@ theorem run_keygen_congr {sA wA sB wB c : Nat} {lA lB : Layout} {iA iB : Phase �
   rfl
 theorem keygen_run_eq (hadm : (submission I).Admissible) (sk : SecretKey) :
     (submission I).run .keygen sk = SigGolfCandidate.T3M.submission.run .keygen sk := by
-  have hvA : ((submission I).image .keygen).Valid ⟨5310, 21756, 131072⟩ ⟨0x65A0, 0x80, 0xa0, 0x80000, 0x7000, 0x10A0⟩ :=
+  have hvA : ((submission I).image .keygen).Valid ⟨5310, 22012, 131072⟩ ⟨0x6620, 0x80, 0xa0, 0x80000, 0x7000, 0x1020⟩ :=
     hadm.2 .keygen
   have hvB : (SigGolfCandidate.T3M.submission.image .keygen).Valid
       ⟨SigGolfCandidate.T3M.submission.sizes.signature, SigGolfCandidate.T3M.submission.sizes.witness, 131072⟩
@@ -4966,7 +4901,7 @@ open ClaudeWCT.W9.T3M (Images)
 variable (I : Images)
 theorem keygen_run_eq (hadm : (submission I).Admissible) (sk : SecretKey) :
     (submission I).run .keygen sk = SigGolfCandidate.T3M.submission.run .keygen sk := by
-  have hvA : ((submission I).image .keygen).Valid ⟨5187, 21756, 131072⟩ ⟨0x65A0, 0x80, 0xa0, 0x80000, 0x7000, 0x10A0⟩ :=
+  have hvA : ((submission I).image .keygen).Valid ⟨5195, 22012, 131072⟩ ⟨0x6620, 0x80, 0xa0, 0x80000, 0x7000, 0x1020⟩ :=
     hadm.2 .keygen
   have hvB : (SigGolfCandidate.T3M.submission.image .keygen).Valid
       ⟨SigGolfCandidate.T3M.submission.sizes.signature, SigGolfCandidate.T3M.submission.sizes.witness, 131072⟩
@@ -5090,7 +5025,7 @@ theorem pending_of_machine {I : Images} (M : MachineFacts I) : Pending I where
 theorem certificate_of_security {I : Images}
     (expandV6 : SigGolfCandidate.Research.SharedExpansionClosure.ExpandV6Facts) (security : SecurityP)
     (keygenMoment : KeygenMoment) (M : MachineFacts I) :
-    SigGolf.Certificate (submissionNew I) 6965 :=
+    SigGolf.Certificate (submissionNew I) 6981 :=
   certificateNew_of encodingFacts sourceQueries_holds (pending_of_machine M) (sourceFacts_of_securityP expandV6 security keygenMoment)
 end ClaudeWCT.W9.T3M.Final.Paired
 end
@@ -5113,18 +5048,10 @@ set_option maxRecDepth 10000
 set_option linter.constructorNameAsVariable false
 attribute [local instance low] Classical.propDecidable
 
-/-- Some multi-trial position exhausts its nonce cap: every trial inside the cap fails the zero test. The positions are
-the top positions below the root and (U16b) the lower ground positions (heaps 2..15, `lowerZeroBits ≠ 0`). -/
-def CapFailT (labels : Labels) : Prop :=
-  ∃ n : TreeNode, ((n.1.lay = 0 ∧ n.1.level.val < 11) ∨
-      (n.1.lay ≠ 0 ∧ WCT9.lowerZeroBits n.1.lay.val (2 ^ (height n.1.lay - n.1.level.val - 1)) ≠ 0)) ∧
-    n.1.nonce.val = 0 ∧ ∀ j < trialCap n.1.lay n.1.level.val, trialFails labels n j
-/-- E8: some FTS ground position (node level 3, nonce-0 representative) exhausts its cap. -/
-def CapFailW (labels : Labels) : Prop :=
-  ∃ m : WctNodePos, m.1.level.val = 3 ∧ m.1.nonce.val = 0 ∧
-    ∀ j < wTrialCap m.1.coord.val m.1.level.val, wTrialFails labels m j
-/-- Some multi-trial position (tree or, E8, FTS ground) exhausts its nonce cap. -/
-def CapFail (labels : Labels) : Prop := CapFailT labels ∨ CapFailW labels
+/-- Some top position exhausts its nonce cap: every trial inside the cap fails the zero test. -/
+def CapFail (labels : Labels) : Prop :=
+  ∃ n : TreeNode, n.1.lay = 0 ∧ n.1.level.val < 11 ∧ n.1.nonce.val = 0 ∧
+    ∀ j < trialCap n.1.lay n.1.level.val, trialFails labels n j
 
 noncomputable local instance instSampleableTypeLabels_capFail : SampleableType Labels :=
   SampleableType.ofFintype _
@@ -5179,7 +5106,7 @@ theorem prob_forall_mem {α β : Type} [Fintype α] [DecidableEq α] [Fintype β
 /-- Campaign T51: the top zero bits are `b_h = 0,0,1,1,2,3,4,5,6,7,8` (#938: `b_h = h`; restated). -/
 theorem topZeroBits_eq {h : Nat} (hh : h ≤ 11) : topZeroBits h = topZeroAlloc.getD h 0 := rfl
 
-theorem topZeroBits_le_eight (h : Nat) : topZeroBits h ≤ 9 := by
+theorem topZeroBits_le_eight (h : Nat) : topZeroBits h ≤ 8 := by
   unfold topZeroBits
   by_cases hh : h < 12
   · interval_cases h <;> decide
@@ -5191,12 +5118,12 @@ theorem card_pass_digest {h : Nat} (h11 : h ≤ 11) :
       (Finset.univ.filter (fun d : BitVec 128 => topZeroOk h d = true)).card := by
   by_cases he : h = 11
   · subst he
-    have hb : topZeroBits 11 = 9 := rfl
+    have hb : topZeroBits 11 = 8 := rfl
     rw [hb]
-    have hc : ((Finset.range (2 ^ 20)) ×ˢ (Finset.range (2 ^ 99))).card = 2 ^ (128 - 9) := by
+    have hc : ((Finset.range (2 ^ 16)) ×ˢ (Finset.range (2 ^ 104))).card = 2 ^ (128 - 8) := by
       rw [Finset.card_product, Finset.card_range, Finset.card_range]; norm_num
     rw [← hc]
-    apply Finset.card_le_card_of_injOn (fun p : Nat × Nat => (BitVec.ofNat 128 (p.1 * 2 ^ 108 + p.2) :
+    apply Finset.card_le_card_of_injOn (fun p : Nat × Nat => (BitVec.ofNat 128 (p.1 * 2 ^ 112 + p.2) :
       BitVec 128))
     · intro p hp
       simp only [Finset.coe_product, Finset.coe_range, Set.mem_prod, Set.mem_Iio] at hp
@@ -5307,81 +5234,6 @@ theorem ratio_le {Q h : Nat} (hQ : Q + 2 ^ (256 - h) ≤ 2 ^ 256) (hh : h ≤ 25
     rw [one_div_pow]; field_simp
   rw [this]; linarith
 
-/-! ### U16b: the lower ground zero test passes with probability at least `2^-b` -/
-
-theorem lowerZeroBits_le_three (lay heap : Nat) : WCT9.lowerZeroBits lay heap ≤ 4 := by
-  unfold WCT9.lowerZeroBits; split_ifs <;> omega
-
-theorem card_pass_digest_low (lay heap : Nat) :
-    2 ^ (128 - WCT9.lowerZeroBits lay heap) ≤
-      (Finset.univ.filter (fun d : BitVec 128 => WCT9.lowerZeroOk lay heap d = true)).card := by
-  have hb3 := lowerZeroBits_le_three lay heap
-  have hlt : 2 ^ (128 - WCT9.lowerZeroBits lay heap) ≤ 2 ^ 128 := Nat.pow_le_pow_right (by decide) (by omega)
-  have hc : (Finset.range (2 ^ (128 - WCT9.lowerZeroBits lay heap))).card = 2 ^ (128 - WCT9.lowerZeroBits lay heap) :=
-    Finset.card_range _
-  rw [← hc]
-  apply Finset.card_le_card_of_injOn (fun x : Nat => (BitVec.ofNat 128 x : BitVec 128))
-  · intro x hx
-    simp only [Finset.coe_range, Set.mem_Iio] at hx
-    refine Finset.mem_coe.mpr (Finset.mem_filter.mpr ⟨Finset.mem_univ _, ?_⟩)
-    unfold WCT9.lowerZeroOk
-    simp only [BitVec.toNat_ofNat, beq_iff_eq]
-    rw [Nat.mod_eq_of_lt (by omega)]
-    exact Nat.div_eq_of_lt hx
-  · intro x hx y hy heq
-    simp only [Finset.coe_range, Set.mem_Iio] at hx hy
-    have := congrArg BitVec.toNat heq
-    simp only [BitVec.toNat_ofNat] at this
-    rwa [Nat.mod_eq_of_lt (by omega), Nat.mod_eq_of_lt (by omega)] at this
-
-theorem card_pass_hash_of (p : Extract.Pos) (ok : BitVec 128 → Bool) {b : Nat} (hb : b ≤ 128)
-    (hP : 2 ^ (128 - b) ≤ (Finset.univ.filter (fun d : BitVec 128 => ok d = true)).card) :
-    2 ^ (256 - b) ≤ (Finset.univ.filter (fun v : BitVec 256 => ¬ (ok (p.proj v) = false))).card := by
-  set P := Finset.univ.filter (fun d : BitVec 128 => ok d = true)
-  have hcard : (P ×ˢ (Finset.univ : Finset (BitVec 128))).card = P.card * 2 ^ 128 := by
-    rw [Finset.card_product, Finset.card_univ, Fintype.card_bitVec]
-  have h256 : 2 ^ (256 - b) ≤ P.card * 2 ^ 128 := by
-    calc 2 ^ (256 - b) = 2 ^ (128 - b) * 2 ^ 128 := by
-          rw [← pow_add, show 128 - b + 128 = 256 - b by omega]
-      _ ≤ P.card * 2 ^ 128 := Nat.mul_le_mul_right _ hP
-  refine h256.trans ?_
-  rw [← hcard]
-  apply Finset.card_le_card_of_injOn
-    (fun x : BitVec 128 × BitVec 128 =>
-      if p.high then joinHalves x.2 x.1 else joinHalves x.1 x.2)
-  · intro x hx
-    simp only [Finset.coe_product, Finset.coe_univ, Set.prod_univ, Set.mem_preimage, Finset.mem_coe, P,
-      Finset.mem_filter, Finset.mem_univ, true_and] at hx
-    refine Finset.mem_coe.mpr (Finset.mem_filter.mpr ⟨Finset.mem_univ _, ?_⟩)
-    rw [Extract.Pos.proj_eq]
-    cases p.high
-    · simp only [Bool.false_eq_true, ite_false, joinHalves_low, hx]; decide
-    · simp only [ite_true, joinHalves_high, hx]; decide
-  · intro x _ y _ heq
-    by_cases hp : p.high = true
-    · simp only [hp, ite_true] at heq
-      have h1 := congrArg (fun v : BitVec 256 => v.extractLsb' 0 128) heq
-      have h2 := congrArg (fun v : BitVec 256 => v.extractLsb' 128 128) heq
-      simp only [joinHalves_low, joinHalves_high] at h1 h2
-      exact Prod.ext h2 h1
-    · simp only [Bool.not_eq_true] at hp
-      simp only [hp, Bool.false_eq_true, ite_false] at heq
-      have h1 := congrArg (fun v : BitVec 256 => v.extractLsb' 0 128) heq
-      have h2 := congrArg (fun v : BitVec 256 => v.extractLsb' 128 128) heq
-      simp only [joinHalves_low, joinHalves_high] at h1 h2
-      exact Prod.ext h1 h2
-
-theorem card_fail_hash_low (p : Extract.Pos) (lay heap : Nat) :
-    (Finset.univ.filter (fun v : BitVec 256 => WCT9.lowerZeroOk lay heap (p.proj v) = false)).card +
-      2 ^ (256 - WCT9.lowerZeroBits lay heap) ≤ 2 ^ 256 := by
-  have hsum := Finset.card_filter_add_card_filter_not
-    (s := (Finset.univ : Finset (BitVec 256))) (fun v => WCT9.lowerZeroOk lay heap (p.proj v) = false)
-  rw [Finset.card_univ, Fintype.card_bitVec] at hsum
-  have := card_pass_hash_of p (WCT9.lowerZeroOk lay heap) (by have := lowerZeroBits_le_three lay heap; omega)
-    (card_pass_digest_low lay heap)
-  change _ = 2 ^ 256 at hsum
-  omega
-
 /-! ### One position -/
 
 /-- The cap trials of the position of `n`. -/
@@ -5399,7 +5251,7 @@ theorem trialSet_card (n : TreeNode) : (trialSet n).card = trialCap n.1.lay n.1.
 
 theorem allFail_iff (labels : Labels) (n : TreeNode) :
     (∀ j < trialCap n.1.lay n.1.level.val, trialFails labels n j) ↔
-      ∀ a ∈ trialSet n, trialZeroOk n.1.lay n.1.level.val ((Node.node n).toPos.proj (labels a)) = false := by
+      ∀ a ∈ trialSet n, topZeroOk (n.1.level.val + 1) ((Node.node n).toPos.proj (labels a)) = false := by
   unfold trialSet
   constructor
   · intro h a ha
@@ -5425,11 +5277,7 @@ theorem prob_allFail_le (n : TreeNode) (hl : n.1.lay = 0) (hlev : n.1.level.val 
   have hev : (fun labels : Labels => ∀ j < trialCap n.1.lay n.1.level.val, trialFails labels n j) =
       (fun labels : Labels => ∀ a ∈ trialSet n,
         (fun v => topZeroOk (n.1.level.val + 1) ((Node.node n).toPos.proj v) = false) (labels a)) := by
-    funext labels
-    have h := allFail_iff labels n
-    unfold trialZeroOk at h
-    simp only [if_pos hl] at h
-    exact propext h
+    funext labels; exact propext (allFail_iff labels n)
   rw [hev]
   refine (le_of_eq (prob_forall_mem (α := Node) (β := HashOutput) (inst := instSampleableTypeLabels_capFail)
     (trialSet n) (fun v => topZeroOk (n.1.level.val + 1) ((Node.node n).toPos.proj v) = false))).trans ?_
@@ -5482,116 +5330,19 @@ theorem card_fiber_le (l : Nat) :
     subst e1 e2 e3 e4
     rfl
 
-/-- U16b: the nonce-0 representatives of the lower ground positions. -/
-def lowReps : Finset TreeNode :=
-  Finset.univ.filter (fun n : TreeNode => n.1.lay ≠ 0 ∧
-    WCT9.lowerZeroBits n.1.lay.val (2 ^ (height n.1.lay - n.1.level.val - 1)) ≠ 0 ∧ n.1.nonce.val = 0)
-
-theorem card_lowReps_le : lowReps.card ≤ 3 * 2 ^ 34 := by
-  have hU : (Finset.univ : Finset (Fin 4 × Fin (2 ^ 25) × Fin 12 × Fin 32)).card = 3 * 2 ^ 34 := by
-    simp [Finset.card_univ, Fintype.card_prod, Fintype.card_fin]
-  rw [← hU]
-  apply Finset.card_le_card_of_injOn (fun n : TreeNode =>
-    ((⟨n.1.lay.val, n.1.lay.isLt⟩ : Fin 4), (⟨n.1.tree.val % 2 ^ 25, Nat.mod_lt _ (by positivity)⟩ : Fin (2 ^ 25)),
-      n.1.level, (⟨n.1.idx.val % 32, Nat.mod_lt _ (by norm_num)⟩ : Fin 32)))
-  · intro n _; simp
-  · have key : ∀ n : TreeNode, (n.1.lay ≠ 0 ∧
-        WCT9.lowerZeroBits n.1.lay.val (2 ^ (height n.1.lay - n.1.level.val - 1)) ≠ 0 ∧ n.1.nonce.val = 0) →
-        n.1.tree.val < 2 ^ 25 ∧ n.1.idx.val < 32 ∧ n.1.nonce.val = 0 := by
-      intro n hn
-      obtain ⟨-, hb, h0⟩ := hn
-      have hv : n.1.level.val < height n.1.lay ∧ n.1.idx.val < 2 ^ (height n.1.lay - n.1.level.val - 1) ∧
-          n.1.tree.val < 2 ^ treeBits n.1.lay ∧ (n.1.lay = 0 ∨ n.1.level.val + 1 < height n.1.lay) := n.2
-      refine ⟨lt_of_lt_of_le hv.2.2.1 (Nat.pow_le_pow_right (by norm_num)
-        (ClaudeWCT.W9.T3M.Extract.treeBits_le _)), ?_, h0⟩
-      have h16 : 2 ^ (height n.1.lay - n.1.level.val - 1) < 32 := by
-        by_contra hc
-        apply hb
-        unfold WCT9.lowerZeroBits
-        rw [if_pos (Or.inr (Or.inr (by omega)))]
-      exact lt_trans hv.2.1 h16
-    intro n hn m hm heq
-    simp only [lowReps, Finset.coe_filter, Finset.mem_univ, true_and, Set.mem_ofPred_eq] at hn hm
-    obtain ⟨hnt, hni, hn0⟩ := key n hn
-    obtain ⟨hmt, hmi, hm0⟩ := key m hm
-    simp only [Prod.mk.injEq, Fin.mk.injEq] at heq
-    obtain ⟨h1, h2, h3, h4⟩ := heq
-    rw [Nat.mod_eq_of_lt hnt, Nat.mod_eq_of_lt hmt] at h2
-    rw [Nat.mod_eq_of_lt hni, Nat.mod_eq_of_lt hmi] at h4
-    obtain ⟨⟨lay, tree, level, idx, nonce⟩, hv⟩ := n
-    obtain ⟨⟨lay', tree', level', idx', nonce'⟩, hv'⟩ := m
-    simp only at h1 h2 h3 h4 hn0 hm0
-    have e0 : lay = lay' := Fin.ext h1
-    have e1 : tree = tree' := Fin.ext h2
-    have e3 : idx = idx' := Fin.ext h4
-    have e4 : nonce = nonce' := Fin.ext (by omega)
-    subst e0 e1 h3 e3 e4
-    rfl
-
-theorem sum_low_arith : ((3 * 2 ^ 34 : Nat) : ℝ) * (36788 / 100000 : ℝ) ^ 128 ≤ 1 / 2 ^ 144 := by
-  norm_num
-
-theorem sum_lowReps_le (f : TreeNode → ℝ≥0∞)
-    (hf : ∀ n ∈ lowReps, f n ≤ ENNReal.ofReal ((36788 / 100000 : ℝ) ^ 128)) :
-    ∑ n ∈ lowReps, f n ≤ (2 ^ 144 : ℝ≥0∞)⁻¹ := by
-  calc ∑ n ∈ lowReps, f n ≤ ∑ n ∈ lowReps, ENNReal.ofReal ((36788 / 100000 : ℝ) ^ 128) := Finset.sum_le_sum hf
-    _ = (lowReps.card : ℝ≥0∞) * ENNReal.ofReal ((36788 / 100000 : ℝ) ^ 128) := by
-        rw [Finset.sum_const, nsmul_eq_mul]
-    _ ≤ ((3 * 2 ^ 34 : Nat) : ℝ≥0∞) * ENNReal.ofReal ((36788 / 100000 : ℝ) ^ 128) := by
-        gcongr; exact_mod_cast card_lowReps_le
-    _ = ENNReal.ofReal (((3 * 2 ^ 34 : Nat) : ℝ) * (36788 / 100000 : ℝ) ^ 128) := by
-        rw [ENNReal.ofReal_mul (by positivity), ENNReal.ofReal_natCast]
-    _ ≤ ENNReal.ofReal (1 / 2 ^ 144) := ENNReal.ofReal_le_ofReal sum_low_arith
-    _ = (2 ^ 144 : ℝ≥0∞)⁻¹ := by
-        rw [one_div, ENNReal.ofReal_inv_of_pos (by positivity), ENNReal.ofReal_pow (by norm_num),
-          ENNReal.ofReal_ofNat]
-
-theorem half_add_half : (2 ^ 144 : ℝ≥0∞)⁻¹ + (2 ^ 144 : ℝ≥0∞)⁻¹ ≤ (2 ^ 142 : ℝ≥0∞)⁻¹ := by
-  have e : ∀ k : ℕ, (2 ^ k : ℝ≥0∞)⁻¹ = ENNReal.ofReal (1 / 2 ^ k) := fun k => by
-    rw [one_div, ENNReal.ofReal_inv_of_pos (by positivity), ENNReal.ofReal_pow (by norm_num), ENNReal.ofReal_ofNat]
-  rw [e, e, ← ENNReal.ofReal_add (by positivity) (by positivity)]
-  exact ENNReal.ofReal_le_ofReal (by norm_num)
-
-theorem disjoint_reps : Disjoint topReps lowReps := by
-  rw [Finset.disjoint_left]
-  intro n hn hn'
-  simp only [topReps, lowReps, Finset.mem_filter, Finset.mem_univ, true_and] at hn hn'
-  exact hn'.1 hn.1
-
-theorem mem_topReps (n : TreeNode) :
-    n ∈ topReps ↔ n.1.lay = 0 ∧ n.1.level.val < 11 ∧ n.1.nonce.val = 0 := by
-  simp only [topReps, Finset.mem_filter, Finset.mem_univ, true_and]
-
-theorem mem_lowReps (n : TreeNode) :
-    n ∈ lowReps ↔ n.1.lay ≠ 0 ∧
-      WCT9.lowerZeroBits n.1.lay.val (2 ^ (height n.1.lay - n.1.level.val - 1)) ≠ 0 ∧ n.1.nonce.val = 0 := by
-  simp only [lowReps, Finset.mem_filter, Finset.mem_univ, true_and]
-
 theorem capFail_eq :
-    CapFailT = fun labels : Labels =>
-      ∃ n ∈ topReps ∪ lowReps, ∀ j < trialCap n.1.lay n.1.level.val, trialFails labels n j := by
+    CapFail = fun labels : Labels =>
+      ∃ n ∈ topReps, ∀ j < trialCap n.1.lay n.1.level.val, trialFails labels n j := by
   funext labels
-  apply propext
-  unfold CapFailT
-  simp only [Finset.mem_union, mem_topReps, mem_lowReps]
-  constructor
-  · rintro ⟨n, hpos, h0, hall⟩
-    refine ⟨n, ?_, hall⟩
-    rcases hpos with h | h
-    · exact Or.inl ⟨h.1, h.2, h0⟩
-    · exact Or.inr ⟨h.1, h.2, h0⟩
-  · rintro ⟨n, hn, hall⟩
-    rcases hn with h | h
-    · exact ⟨n, Or.inl ⟨h.1, h.2.1⟩, h.2.2, hall⟩
-    · exact ⟨n, Or.inr ⟨h.1, h.2.1⟩, h.2.2, hall⟩
+  simp only [CapFail, topReps, Finset.mem_filter, Finset.mem_univ, true_and, and_assoc]
 
 /-! ### Arithmetic -/
 
 /-- Rational bounds on `(1 - 2^-b)^(2^b)`, `b = topZeroBits (l + 1)` (T51: `b = 0,0,1,1,2,3,4,5,6,7,8` for
 `l = 0..10`; `b = 0` gives `0`). -/
 noncomputable def capR (l : Nat) : ℝ :=
-  if l ≤ 1 then 0 else if l ≤ 3 then 3165 / 10000 else if l = 4 then 3437 / 10000 else
-    if l = 5 then 3561 / 10000 else if l = 6 then 3622 / 10000 else 36788 / 100000
+  if l ≤ 1 then 0 else if l ≤ 3 then 1 / 4 else if l = 4 then 3165 / 10000 else if l = 5 then 3437 / 10000 else
+    if l = 6 then 3561 / 10000 else if l = 7 then 3622 / 10000 else 36788 / 100000
 
 theorem base_le_exp (h : Nat) : (1 - (1 / 2 : ℝ) ^ h) ^ (2 ^ h) ≤ 36788 / 100000 := by
   have hx0 : 0 ≤ 1 - (1 / 2 : ℝ) ^ h := by
@@ -5627,248 +5378,32 @@ theorem failR_nonneg (l : Nat) : 0 ≤ failR l := by
   linarith
 
 theorem sum_capR :
-    ∑ l ∈ Finset.range 11, ((2 ^ (11 - l) : Nat) : ℝ) * capR l ^ 104 ≤ 1 / 2 ^ 144 := by
+    ∑ l ∈ Finset.range 11, ((2 ^ (11 - l) : Nat) : ℝ) * capR l ^ 104 ≤ 1 / 2 ^ 142 := by
   simp only [Finset.sum_range_succ, Finset.sum_range_zero, capR]
   norm_num
 
 theorem sum_failR :
-    ∑ l ∈ Finset.range 11, ((2 ^ (11 - l) : Nat) : ℝ) * failR l ≤ 1 / 2 ^ 144 := by
+    ∑ l ∈ Finset.range 11, ((2 ^ (11 - l) : Nat) : ℝ) * failR l ≤ 1 / 2 ^ 142 := by
   refine le_trans (Finset.sum_le_sum fun l hl => ?_) sum_capR
   simp only [Finset.mem_range] at hl
   apply mul_le_mul_of_nonneg_left _ (by positivity)
   apply failR_le
-  by_cases h8 : 7 ≤ l
+  by_cases h8 : 8 ≤ l
   · have : capR l = 36788 / 100000 := by
       unfold capR; rw [if_neg (by omega), if_neg (by omega), if_neg (by omega), if_neg (by omega),
-        if_neg (by omega)]
+        if_neg (by omega), if_neg (by omega)]
     rw [this]; exact base_le_exp _
   · interval_cases l <;> norm_num [capR, topZeroBits, topZeroAlloc]
-
-/-- U16b: the real cap-failure bound of a lower ground position, `(1 - 2^-b)^(128 · 2^b) ≤ 0.36788^128`. -/
-theorem lowFail_le (b : Nat) : (1 - (1 / 2 : ℝ) ^ b) ^ (128 * 2 ^ b) ≤ (36788 / 100000 : ℝ) ^ 128 := by
-  have hx0 : 0 ≤ 1 - (1 / 2 : ℝ) ^ b := by
-    have : (1 / 2 : ℝ) ^ b ≤ 1 := pow_le_one₀ (by norm_num) (by norm_num)
-    linarith
-  rw [mul_comm, pow_mul]
-  exact pow_le_pow_left₀ (pow_nonneg hx0 _) (base_le_exp b) _
-
-theorem prob_lowFail_le (p : Extract.Pos) (lay heap : Nat) (S : Finset Node)
-    (hS : S.card = 128 * 2 ^ WCT9.lowerZeroBits lay heap) :
-    Pr[fun labels : Labels => ∀ a ∈ S,
-        (fun v => WCT9.lowerZeroOk lay heap (p.proj v) = false) (labels a) |
-      ($ᵗ Labels : ProbComp Labels)] ≤ ENNReal.ofReal ((36788 / 100000 : ℝ) ^ 128) := by
-  classical
-  refine (le_of_eq (prob_forall_mem (α := Node) (β := HashOutput) (inst := instSampleableTypeLabels_capFail)
-    S (fun v => WCT9.lowerZeroOk lay heap (p.proj v) = false))).trans ?_
-  rw [hS, Fintype.card_bitVec]
-  have hb3 := lowerZeroBits_le_three lay heap
-  refine le_trans ?_ (ENNReal.ofReal_le_ofReal (lowFail_le (WCT9.lowerZeroBits lay heap)))
-  rw [ENNReal.ofReal_pow (by
-    have : (1 / 2 : ℝ) ^ WCT9.lowerZeroBits lay heap ≤ 1 := pow_le_one₀ (by norm_num) (by norm_num)
-    linarith)]
-  gcongr
-  have hf := card_fail_hash_low p lay heap
-  have := ratio_le hf (by omega)
-  convert this using 2
-
-/-- U16b: one lower ground position exhausts its `128 · 2^b` trials with probability at most `0.36788^128`. -/
-theorem prob_allFail_le_low (n : TreeNode) (hl : n.1.lay ≠ 0)
-    (hb : WCT9.lowerZeroBits n.1.lay.val (2 ^ (height n.1.lay - n.1.level.val - 1)) ≠ 0) :
-    Pr[fun labels : Labels => ∀ j < trialCap n.1.lay n.1.level.val, trialFails labels n j |
-      ($ᵗ Labels : ProbComp Labels)] ≤ ENNReal.ofReal ((36788 / 100000 : ℝ) ^ 128) := by
-  classical
-  have hev : (fun labels : Labels => ∀ j < trialCap n.1.lay n.1.level.val, trialFails labels n j) =
-      (fun labels : Labels => ∀ a ∈ trialSet n,
-        (fun v => WCT9.lowerZeroOk n.1.lay.val (2 ^ (height n.1.lay - n.1.level.val - 1))
-          ((Node.node n).toPos.proj v) = false) (labels a)) := by
-    funext labels
-    have h := allFail_iff labels n
-    unfold trialZeroOk at h
-    simp only [if_neg hl] at h
-    exact propext h
-  rw [hev]
-  apply prob_lowFail_le
-  rw [trialSet_card, trialCap_lowerG hl hb]
-  rfl
-
-/-! ### E8: the FTS ground positions (`b = ftsZeroBits coord 8 ∈ {1, 2}`, cap `128 · 2^b`) -/
-
-theorem ftsZeroBits_le_two (coord heap : Nat) : WCT9.ftsZeroBits coord heap ≤ 2 := by
-  unfold WCT9.ftsZeroBits; split_ifs <;> omega
-
-theorem card_pass_digest_fts (coord : Nat) :
-    2 ^ (128 - WCT9.ftsZeroBits coord 8) ≤
-      (Finset.univ.filter (fun d : BitVec 128 => WCT9.ftsZeroOk coord 8 d = true)).card := by
-  have hb := ftsZeroBits_le_two coord 8
-  have hlt : 2 ^ (128 - WCT9.ftsZeroBits coord 8) ≤ 2 ^ 128 := Nat.pow_le_pow_right (by decide) (by omega)
-  have hc : (Finset.range (2 ^ (128 - WCT9.ftsZeroBits coord 8))).card = 2 ^ (128 - WCT9.ftsZeroBits coord 8) :=
-    Finset.card_range _
-  rw [← hc]
-  apply Finset.card_le_card_of_injOn (fun x : Nat => (BitVec.ofNat 128 x : BitVec 128))
-  · intro x hx
-    simp only [Finset.coe_range, Set.mem_Iio] at hx
-    refine Finset.mem_coe.mpr (Finset.mem_filter.mpr ⟨Finset.mem_univ _, ?_⟩)
-    unfold WCT9.ftsZeroOk
-    simp only [BitVec.toNat_ofNat, beq_iff_eq]
-    rw [Nat.mod_eq_of_lt (by omega)]
-    exact Nat.div_eq_of_lt hx
-  · intro x hx y hy heq
-    simp only [Finset.coe_range, Set.mem_Iio] at hx hy
-    have := congrArg BitVec.toNat heq
-    simp only [BitVec.toNat_ofNat] at this
-    rwa [Nat.mod_eq_of_lt (by omega), Nat.mod_eq_of_lt (by omega)] at this
-
-theorem card_fail_hash_fts (coord : Nat) :
-    (Finset.univ.filter (fun v : BitVec 256 =>
-        WCT9.ftsZeroOk coord 8 ((Extract.Pos.forest 0).proj v) = false)).card +
-      2 ^ (256 - WCT9.ftsZeroBits coord 8) ≤ 2 ^ 256 := by
-  have hsum := Finset.card_filter_add_card_filter_not
-    (s := (Finset.univ : Finset (BitVec 256))) (fun v => WCT9.ftsZeroOk coord 8 ((Extract.Pos.forest 0).proj v) = false)
-  rw [Finset.card_univ, Fintype.card_bitVec] at hsum
-  have := card_pass_hash_of (Extract.Pos.forest 0) (WCT9.ftsZeroOk coord 8)
-    (by have := ftsZeroBits_le_two coord 8; omega) (card_pass_digest_fts coord)
-  change _ = 2 ^ 256 at hsum
-  omega
-
-theorem prob_ftsFail_le (coord : Nat) (S : Finset Node) (hS : S.card = 128 * 2 ^ WCT9.ftsZeroBits coord 8) :
-    Pr[fun labels : Labels => ∀ a ∈ S,
-        (fun v => WCT9.ftsZeroOk coord 8 ((Extract.Pos.forest 0).proj v) = false) (labels a) |
-      ($ᵗ Labels : ProbComp Labels)] ≤ ENNReal.ofReal ((36788 / 100000 : ℝ) ^ 128) := by
-  classical
-  refine (le_of_eq (prob_forall_mem (α := Node) (β := HashOutput) (inst := instSampleableTypeLabels_capFail)
-    S (fun v => WCT9.ftsZeroOk coord 8 ((Extract.Pos.forest 0).proj v) = false))).trans ?_
-  rw [hS, Fintype.card_bitVec]
-  have hb := ftsZeroBits_le_two coord 8
-  refine le_trans ?_ (ENNReal.ofReal_le_ofReal (lowFail_le (WCT9.ftsZeroBits coord 8)))
-  rw [ENNReal.ofReal_pow (by
-    have : (1 / 2 : ℝ) ^ WCT9.ftsZeroBits coord 8 ≤ 1 := pow_le_one₀ (by norm_num) (by norm_num)
-    linarith)]
-  gcongr
-  have hf := card_fail_hash_fts coord
-  have := ratio_le hf (by omega)
-  convert this using 2
-
-/-- The cap trials of the FTS position of `m`. -/
-def wTrialSet (m : WctNodePos) : Finset Node :=
-  (Finset.range (wTrialCap m.1.coord.val m.1.level.val)).image (fun j => Node.wctNode (wWithNonce m j))
-
-theorem wTrialSet_card (m : WctNodePos) : (wTrialSet m).card = wTrialCap m.1.coord.val m.1.level.val := by
-  unfold wTrialSet
-  rw [Finset.card_image_of_injOn, Finset.card_range]
-  intro i hi j hj hij
-  simp only [Finset.coe_range, Set.mem_Iio] at hi hj
-  have hc := wTrialCap_le m.1.coord.val m.1.level.val
-  have h := congrArg (fun x : WctNodePos => x.1.nonce.val) (Node.wctNode.inj hij)
-  rwa [wWithNonce_nonce m (by omega), wWithNonce_nonce m (by omega)] at h
-
-/-- E8: one FTS ground position exhausts its `128 · 2^b` trials with probability at most `0.36788^128`. -/
-theorem prob_wAllFail_le (m : WctNodePos) (h3 : m.1.level.val = 3) :
-    Pr[fun labels : Labels => ∀ j < wTrialCap m.1.coord.val m.1.level.val, wTrialFails labels m j |
-      ($ᵗ Labels : ProbComp Labels)] ≤ ENNReal.ofReal ((36788 / 100000 : ℝ) ^ 128) := by
-  classical
-  have hev : (fun labels : Labels => ∀ j < wTrialCap m.1.coord.val m.1.level.val, wTrialFails labels m j) =
-      (fun labels : Labels => ∀ a ∈ wTrialSet m,
-        (fun v => WCT9.ftsZeroOk m.1.coord.val 8 ((Extract.Pos.forest 0).proj v) = false) (labels a)) := by
-    funext labels
-    apply propext
-    unfold wTrialSet
-    constructor
-    · intro h a ha
-      obtain ⟨j, hj, rfl⟩ := Finset.mem_image.mp ha
-      exact h j (Finset.mem_range.mp hj)
-    · intro h j hj
-      exact h _ (Finset.mem_image.mpr ⟨j, Finset.mem_range.mpr hj, rfl⟩)
-  rw [hev]
-  apply prob_ftsFail_le
-  rw [wTrialSet_card]
-  unfold wTrialCap WCT9.ftsNonceCap
-  rw [if_pos h3]
-
-/-- E8: the nonce-0 representatives of the FTS ground positions. -/
-def wctReps : Finset WctNodePos :=
-  Finset.univ.filter (fun m : WctNodePos => m.1.level.val = 3 ∧ m.1.nonce.val = 0)
-
-theorem card_wctReps_le : wctReps.card ≤ 72 * 2 ^ 31 := by
-  have hU : (Finset.univ : Finset (Fin (2 ^ 31) × Fin 9 × Fin 8)).card = 72 * 2 ^ 31 := by
-    simp [Finset.card_univ, Fintype.card_prod, Fintype.card_fin]
-  rw [← hU]
-  apply Finset.card_le_card_of_injOn (fun m : WctNodePos =>
-    (m.1.index, m.1.coord, (⟨m.1.idx.val % 8, Nat.mod_lt _ (by norm_num)⟩ : Fin 8)))
-  · intro m _; simp
-  · intro n hn m hm heq
-    simp only [wctReps, Finset.coe_filter, Finset.mem_univ, true_and, Set.mem_setOf_eq] at hn hm
-    have hvn : n.1.idx.val < 2 ^ (7 - n.1.level.val - 1) := n.2
-    have hvm : m.1.idx.val < 2 ^ (7 - m.1.level.val - 1) := m.2
-    rw [hn.1] at hvn
-    rw [hm.1] at hvm
-    norm_num at hvn hvm
-    simp only [Prod.mk.injEq, Fin.mk.injEq] at heq
-    obtain ⟨h1, h2, h4⟩ := heq
-    rw [Nat.mod_eq_of_lt hvn, Nat.mod_eq_of_lt hvm] at h4
-    obtain ⟨⟨index, coord, level, idx, nonce⟩, hv⟩ := n
-    obtain ⟨⟨index', coord', level', idx', nonce'⟩, hv'⟩ := m
-    simp only at h1 h2 h4 hn hm
-    have e2 : level = level' := Fin.ext (by omega)
-    have e3 : idx = idx' := Fin.ext h4
-    have e4 : nonce = nonce' := Fin.ext (by omega)
-    subst h1 h2 e2 e3 e4
-    rfl
-
-theorem sum_wct_arith : ((72 * 2 ^ 31 : Nat) : ℝ) * (36788 / 100000 : ℝ) ^ 128 ≤ 1 / 2 ^ 145 := by
-  norm_num
-
-theorem sum_wctReps_le (f : WctNodePos → ℝ≥0∞)
-    (hf : ∀ m ∈ wctReps, f m ≤ ENNReal.ofReal ((36788 / 100000 : ℝ) ^ 128)) :
-    ∑ m ∈ wctReps, f m ≤ (2 ^ 145 : ℝ≥0∞)⁻¹ := by
-  calc ∑ m ∈ wctReps, f m ≤ ∑ m ∈ wctReps, ENNReal.ofReal ((36788 / 100000 : ℝ) ^ 128) := Finset.sum_le_sum hf
-    _ = (wctReps.card : ℝ≥0∞) * ENNReal.ofReal ((36788 / 100000 : ℝ) ^ 128) := by
-        rw [Finset.sum_const, nsmul_eq_mul]
-    _ ≤ ((72 * 2 ^ 31 : Nat) : ℝ≥0∞) * ENNReal.ofReal ((36788 / 100000 : ℝ) ^ 128) := by
-        gcongr; exact_mod_cast card_wctReps_le
-    _ = ENNReal.ofReal (((72 * 2 ^ 31 : Nat) : ℝ) * (36788 / 100000 : ℝ) ^ 128) := by
-        rw [ENNReal.ofReal_mul (by positivity), ENNReal.ofReal_natCast]
-    _ ≤ ENNReal.ofReal (1 / 2 ^ 145) := ENNReal.ofReal_le_ofReal sum_wct_arith
-    _ = (2 ^ 145 : ℝ≥0∞)⁻¹ := by
-        rw [one_div, ENNReal.ofReal_inv_of_pos (by positivity), ENNReal.ofReal_pow (by norm_num),
-          ENNReal.ofReal_ofNat]
-
-theorem capFailW_eq :
-    CapFailW = fun labels : Labels =>
-      ∃ m ∈ wctReps, ∀ j < wTrialCap m.1.coord.val m.1.level.val, wTrialFails labels m j := by
-  funext labels
-  apply propext
-  unfold CapFailW
-  simp only [wctReps, Finset.mem_filter, Finset.mem_univ, true_and]
-  exact ⟨fun ⟨m, h3, h0, h⟩ => ⟨m, ⟨h3, h0⟩, h⟩, fun ⟨m, ⟨h3, h0⟩, h⟩ => ⟨m, h3, h0, h⟩⟩
-
-theorem three_quarters : (2 ^ 145 : ℝ≥0∞)⁻¹ + ((2 ^ 144 : ℝ≥0∞)⁻¹ + (2 ^ 144 : ℝ≥0∞)⁻¹) ≤ (2 ^ 142 : ℝ≥0∞)⁻¹ := by
-  have e : ∀ k : ℕ, (2 ^ k : ℝ≥0∞)⁻¹ = ENNReal.ofReal (1 / 2 ^ k) := fun k => by
-    rw [one_div, ENNReal.ofReal_inv_of_pos (by positivity), ENNReal.ofReal_pow (by norm_num), ENNReal.ofReal_ofNat]
-  rw [e, e, e, ← ENNReal.ofReal_add (by positivity) (by positivity),
-    ← ENNReal.ofReal_add (by positivity) (by positivity)]
-  exact ENNReal.ofReal_le_ofReal (by norm_num)
 
 end CapFailBound
 
 open CapFailBound in
-/-- E8: an FTS ground position exhausts its cap with probability at most `2^-145`. -/
-theorem prob_capFailW_le :
-    Pr[CapFailW | ($ᵗ Labels : ProbComp Labels)] ≤ (2 ^ 145 : ℝ≥0∞)⁻¹ := by
-  rw [capFailW_eq]
-  refine (probEvent_exists_finset_le_sum wctReps _ _).trans ?_
-  exact sum_wctReps_le _ fun m hm => by
-    simp only [wctReps, Finset.mem_filter, Finset.mem_univ, true_and] at hm
-    exact prob_wAllFail_le m hm.1
-
-open CapFailBound in
-theorem prob_capFailT_le :
-    Pr[CapFailT | ($ᵗ Labels : ProbComp Labels)] ≤ (2 ^ 144 : ℝ≥0∞)⁻¹ + (2 ^ 144 : ℝ≥0∞)⁻¹ := by
+/-- **Cap failure is negligible**: under uniformly random labels, some top position exhausts its nonce cap with
+probability at most `2^-142`. -/
+theorem prob_capFail_le :
+    Pr[CapFail | ($ᵗ Labels : ProbComp Labels)] ≤ (2 ^ 142 : ℝ≥0∞)⁻¹ := by
   rw [capFail_eq]
-  refine (probEvent_exists_finset_le_sum (topReps ∪ lowReps) _ _).trans ?_
-  rw [Finset.sum_union disjoint_reps]
-  refine add_le_add ?_ (sum_lowReps_le _ fun n hn => by
-    simp only [lowReps, Finset.mem_filter, Finset.mem_univ, true_and] at hn
-    exact prob_allFail_le_low n hn.1 hn.2.1)
+  refine (probEvent_exists_finset_le_sum topReps _ _).trans ?_
   calc ∑ n ∈ topReps, Pr[fun labels : Labels =>
           ∀ j < trialCap n.1.lay n.1.level.val, trialFails labels n j | ($ᵗ Labels : ProbComp Labels)]
       ≤ ∑ n ∈ topReps, ENNReal.ofReal (failR n.1.level.val) := by
@@ -5897,36 +5432,11 @@ theorem prob_capFailT_le :
         apply Finset.sum_congr rfl
         intro l _
         rw [ENNReal.ofReal_mul (by positivity), ENNReal.ofReal_natCast]
-    _ ≤ ENNReal.ofReal (1 / 2 ^ 144) := ENNReal.ofReal_le_ofReal sum_failR
-    _ = (2 ^ 144 : ℝ≥0∞)⁻¹ := by
+    _ ≤ ENNReal.ofReal (1 / 2 ^ 142) := ENNReal.ofReal_le_ofReal sum_failR
+    _ = (2 ^ 142 : ℝ≥0∞)⁻¹ := by
         rw [one_div, ENNReal.ofReal_inv_of_pos (by positivity), ENNReal.ofReal_pow (by norm_num),
           ENNReal.ofReal_ofNat]
 
-
-open CapFailBound in
-/-- **Cap failure is negligible**: under uniformly random labels, some multi-trial position exhausts its nonce cap
-with probability at most `2^-142` (top and lower ground positions `≤ 2 · 2^-144`, E8: FTS ground positions
-`≤ 2^-145`). -/
-theorem prob_capFail_le :
-    Pr[CapFail | ($ᵗ Labels : ProbComp Labels)] ≤ (2 ^ 142 : ℝ≥0∞)⁻¹ := by
-  have hsplit : CapFail = fun labels : Labels =>
-      ∃ b ∈ (Finset.univ : Finset Bool), (if b then CapFailW labels else CapFailT labels) := by
-    funext labels
-    apply propext
-    unfold CapFail
-    constructor
-    · rintro (h | h)
-      · exact ⟨false, Finset.mem_univ _, by simpa using h⟩
-      · exact ⟨true, Finset.mem_univ _, by simpa using h⟩
-    · rintro ⟨b, -, h⟩
-      cases b
-      · exact Or.inl (by simpa using h)
-      · exact Or.inr (by simpa using h)
-  rw [hsplit]
-  refine (probEvent_exists_finset_le_sum (Finset.univ : Finset Bool) _ _).trans ?_
-  rw [Fintype.sum_bool]
-  simp only [↓reduceIte, Bool.false_eq_true]
-  exact le_trans (add_le_add prob_capFailW_le prob_capFailT_le) three_quarters
 
 end ClaudeWCT.W9.T3.Security.CanonGraph
 end
@@ -7167,7 +6677,7 @@ of a trial replaced by its coordinate value (the used half). -/
 def trialCoord (n : TreeNode) (j : Nat) : Coord := .inl (.node (withNonce n j))
 /-- Value-level `trialFails`. -/
 def trialFailsV (v : Coord → Digest) (n : TreeNode) (j : Nat) : Prop :=
-  trialZeroOk n.1.lay n.1.level.val (v (trialCoord n j)) = false
+  topZeroOk (n.1.level.val + 1) (v (trialCoord n j)) = false
 instance (v : Coord → Digest) (n : TreeNode) (j : Nat) : Decidable (trialFailsV v n j) := by
   unfold trialFailsV; infer_instance
 /-- Value-level `Active`. -/
@@ -7178,31 +6688,10 @@ instance (v : Coord → Digest) (n : TreeNode) : Decidable (ActiveV v n) := by u
 def selNonceV (v : Coord → Digest) (n : TreeNode) : Nat :=
   ((List.range (trialCap n.1.lay n.1.level.val)).find? fun j => !decide (trialFailsV v n j)).getD
     (trialCap n.1.lay n.1.level.val - 1)
-/-! E8: the FTS ground trials at the value level (the mirror of `CanonGraph.wSelNonce`). -/
-/-- Coordinate of FTS trial `j` of the position of `n`. -/
-def wTrialCoord (n : WctNodePos) (j : Nat) : Coord := .inl (.wctNode (wWithNonce n j))
-/-- Value-level `wTrialFails`. -/
-def wTrialFailsV (v : Coord → Digest) (n : WctNodePos) (j : Nat) : Prop :=
-  WCT9.ftsZeroOk n.1.coord.val 8 (v (wTrialCoord n j)) = false
-instance (v : Coord → Digest) (n : WctNodePos) (j : Nat) : Decidable (wTrialFailsV v n j) := by
-  unfold wTrialFailsV; infer_instance
-/-- Value-level `WActive`. -/
-def WActiveV (v : Coord → Digest) (n : WctNodePos) : Prop :=
-  n.1.nonce.val < wTrialCap n.1.coord.val n.1.level.val ∧ ∀ j < n.1.nonce.val, wTrialFailsV v n j
-instance (v : Coord → Digest) (n : WctNodePos) : Decidable (WActiveV v n) := by unfold WActiveV; infer_instance
-/-- Value-level `wSelNonce`. -/
-def wSelNonceV (v : Coord → Digest) (n : WctNodePos) : Nat :=
-  ((List.range (wTrialCap n.1.coord.val n.1.level.val)).find? fun j => !decide (wTrialFailsV v n j)).getD
-    (wTrialCap n.1.coord.val n.1.level.val - 1)
-/-- The selected trial coordinate of a tree-node or FTS-node coordinate (identity on other coordinates). -/
+/-- The selected trial coordinate of a tree-node coordinate (identity on other coordinates). -/
 def selCoordV (v : Coord → Digest) : Coord → Coord
   | .inl (.node n) => .inl (.node (withNonce n (selNonceV v n)))
-  | .inl (.wctNode n) => .inl (.wctNode (wWithNonce n (wSelNonceV v n)))
   | c => c
-/-- E8: trials read by the cell of an FTS node of this position (none for single-trial positions). -/
-def wTrialDeps (n : WctNodePos) : List Coord :=
-  if wTrialCap n.1.coord.val n.1.level.val = 1 then [] else
-    (List.range (wTrialCap n.1.coord.val n.1.level.val)).map (wTrialCoord n)
 /-- Tree value from coordinate values: the value of the selected trial of the child position. -/
 def treeVal (v : Coord → Digest) (lay : Layer) (tree : Fin (2^31)) (level c : Nat) : Digest :=
   ((treeChild lay tree level c).map fun x => v (selCoordV v x)).getD 0
@@ -7243,44 +6732,6 @@ theorem selNonceV_congr {v w : Coord → Digest} {n : TreeNode}
 theorem selNonceV_cap_one {v : Coord → Digest} {n : TreeNode} (h : trialCap n.1.lay n.1.level.val = 1) :
     selNonceV v n = 0 := by
   have := selNonceV_lt v n; omega
-theorem wSelNonceV_lt (v : Coord → Digest) (n : WctNodePos) :
-    wSelNonceV v n < wTrialCap n.1.coord.val n.1.level.val := by
-  have hc := wTrialCap_pos n.1.coord.val n.1.level.val
-  unfold wSelNonceV
-  cases hf : (List.range (wTrialCap n.1.coord.val n.1.level.val)).find? fun j => !decide (wTrialFailsV v n j) with
-  | none => simp only [Option.getD_none]; omega
-  | some j =>
-      simp only [Option.getD_some]
-      exact List.mem_range.mp (List.mem_of_find?_eq_some hf)
-theorem wSelNonceV_congr {v w : Coord → Digest} {n : WctNodePos}
-    (h : ∀ j < wTrialCap n.1.coord.val n.1.level.val, v (wTrialCoord n j) = w (wTrialCoord n j)) :
-    wSelNonceV v n = wSelNonceV w n := by
-  unfold wSelNonceV
-  congr 1
-  apply find?_congr'
-  intro j hj
-  rw [List.mem_range] at hj
-  have hiff : wTrialFailsV v n j ↔ wTrialFailsV w n j := by unfold wTrialFailsV; rw [h j hj]
-  simp only [decide_eq_decide.mpr hiff]
-theorem wSelNonceV_cap_one {v : Coord → Digest} {n : WctNodePos} (h : wTrialCap n.1.coord.val n.1.level.val = 1) :
-    wSelNonceV v n = 0 := by
-  have := wSelNonceV_lt v n; omega
-theorem wActiveV_congr {v w : Coord → Digest} {n : WctNodePos}
-    (h : wTrialCap n.1.coord.val n.1.level.val ≠ 1 →
-      ∀ j < wTrialCap n.1.coord.val n.1.level.val, v (wTrialCoord n j) = w (wTrialCoord n j)) :
-    WActiveV v n ↔ WActiveV w n := by
-  unfold WActiveV wTrialFailsV
-  by_cases h1 : wTrialCap n.1.coord.val n.1.level.val = 1
-  · rw [h1]
-    constructor <;> rintro ⟨hn, -⟩ <;> exact ⟨hn, fun j hj => by omega⟩
-  · constructor <;> rintro ⟨hn, hj⟩ <;> refine ⟨hn, fun j hjn => ?_⟩
-    · rw [← h h1 j (by omega)]; exact hj j hjn
-    · rw [h h1 j (by omega)]; exact hj j hjn
-theorem mem_wTrialDeps {n : WctNodePos} (h : wTrialCap n.1.coord.val n.1.level.val ≠ 1) {j : Nat}
-    (hj : j < wTrialCap n.1.coord.val n.1.level.val) : wTrialCoord n j ∈ wTrialDeps n := by
-  unfold wTrialDeps
-  rw [if_neg h]
-  exact List.mem_map.mpr ⟨j, List.mem_range.mpr hj, rfl⟩
 theorem activeV_congr {v w : Coord → Digest} {n : TreeNode}
     (h : trialCap n.1.lay n.1.level.val ≠ 1 → ∀ j < trialCap n.1.lay n.1.level.val, v (trialCoord n j) = w (trialCoord n j)) :
     ActiveV v n ↔ ActiveV w n := by
@@ -7299,27 +6750,14 @@ theorem mem_trialDeps {n : TreeNode} (h : trialCap n.1.lay n.1.level.val ≠ 1) 
 /-- Selection of a coordinate only reads the trials of its position. -/
 theorem selCoordV_congr {v w : Coord → Digest} (c : Coord)
     (h : ∀ n : TreeNode, c = .inl (.node n) → trialCap n.1.lay n.1.level.val ≠ 1 →
-      ∀ j < trialCap n.1.lay n.1.level.val, v (trialCoord n j) = w (trialCoord n j))
-    (hw : ∀ n : WctNodePos, c = .inl (.wctNode n) → wTrialCap n.1.coord.val n.1.level.val ≠ 1 →
-      ∀ j < wTrialCap n.1.coord.val n.1.level.val, v (wTrialCoord n j) = w (wTrialCoord n j)) :
+      ∀ j < trialCap n.1.lay n.1.level.val, v (trialCoord n j) = w (trialCoord n j)) :
     selCoordV v c = selCoordV w c := by
-  rcases c with (_ | _ | n | _ | _ | n | _) | s
+  rcases c with (_ | _ | n | _ | _ | _ | _) | s
   all_goals try rfl
-  · simp only [selCoordV]
-    by_cases h1 : trialCap n.1.lay n.1.level.val = 1
-    · rw [selNonceV_cap_one h1, selNonceV_cap_one h1]
-    · rw [selNonceV_congr (h n rfl h1)]
-  · simp only [selCoordV]
-    by_cases h1 : wTrialCap n.1.coord.val n.1.level.val = 1
-    · rw [wSelNonceV_cap_one h1, wSelNonceV_cap_one h1]
-    · rw [wSelNonceV_congr (hw n rfl h1)]
-/-- A tree child is no FTS node. -/
-theorem treeChild_not_wct {lay : Layer} {tree : Fin (2^31)} {level c : Nat} {x : Coord}
-    (hx : treeChild lay tree level c = some x) : ∀ n : WctNodePos, x ≠ .inl (.wctNode n) := by
-  intro n hn
-  subst hn
-  unfold treeChild at hx
-  split_ifs at hx <;> simp at hx
+  simp only [selCoordV]
+  by_cases h1 : trialCap n.1.lay n.1.level.val = 1
+  · rw [selNonceV_cap_one h1, selNonceV_cap_one h1]
+  · rw [selNonceV_congr (h n rfl h1)]
 theorem treeVal_congr {v w : Coord → Digest} (lay : Layer) (tree : Fin (2^31)) (level c : Nat)
     (h : ∀ x ∈ (treeChild lay tree level c).toList, v (selCoordV v x) = w (selCoordV v x))
     (hd : ∀ x ∈ childTrialDeps lay tree level c, v x = w x) :
@@ -7334,12 +6772,11 @@ theorem treeVal_congr {v w : Coord → Digest} (lay : Layer) (tree : Fin (2^31))
       rw [hx]
       congr 1
       apply selCoordV_congr
-      · intro n hn h1 j hj
-        apply hd
-        unfold childTrialDeps
-        rw [ht, hn]
-        exact mem_trialDeps h1 hj
-      · intro n hn; exact absurd hn (treeChild_not_wct ht n)
+      intro n hn h1 j hj
+      apply hd
+      unfold childTrialDeps
+      rw [ht, hn]
+      exact mem_trialDeps h1 hj
 
 noncomputable def honestValue (A : Answers) : Coord → Digest
   | .inl N => N.toPos.proj (A (.inl (.inr (Extract.honestInput A N.toPos))))
@@ -7395,39 +6832,17 @@ def msgSlots (L : EncLeaf) : List (Coord × Nat) :=
     [(.inl (.node (topNode ⟨L.1.lay.val + 1, by omega⟩ (childIndex L) (childIndex_treeBits L h) 0)), 0),
       (.inl (.node (topNode ⟨L.1.lay.val + 1, by omega⟩ (childIndex L) (childIndex_treeBits L h) 1)), 3)]
   else [(.inl (.wctNode (ftsTopNode (childIndex L) 8 0)), 0), (.inl (.wctNode (ftsTopNode (childIndex L) 8 1)), 3)]
-/-- Trials read through a coordinate (tree nodes: the trials of its position). -/
-def coordTrialDeps : Coord → List Coord
-  | .inl (.node m) => trialDeps m
-  | _ => []
-/-- U16b: every coordinate `msgVals` reads: the message slots and their trials. -/
-def msgDeps (L : EncLeaf) : List Coord :=
-  (msgSlots L).map Prod.fst ++ (msgSlots L).flatMap fun cs => coordTrialDeps cs.1
 /-- The large-game simulator may reveal internal message roots for free. These
 coordinates contain neither WOTS chain values nor FTS chain values or seeds. -/
 noncomputable def encodingDisclosed : List Coord :=
   (Finset.univ : Finset EncLeaf).toList.flatMap fun L => (msgSlots L).map Prod.fst
 
 /-- Top-nonce layer: every keygen nonce trial of a top position is a disclosed keygen coordinate (its input is
-public: children are cache values, the nonce is the trial index; no secret value). U16b: the trials of every lower
-ground position (heaps 2..15) are disclosed at keygen too (trial coordinates hold no secret value; the simulator may
-reveal them for free), so every multi-trial coordinate is a keygen coordinate. -/
-noncomputable def trialsDisclosed : List Coord :=
+public: children are cache values, the nonce is the trial index; no secret value). -/
+noncomputable def topTrialsDisclosed : List Coord :=
   ((Finset.univ : Finset TreeNode).filter fun n =>
-    trialCap n.1.lay n.1.level.val ≠ 1 ∧ n.1.nonce.val < trialCap n.1.lay n.1.level.val).toList.map
+    n.1.lay = 0 ∧ trialCap n.1.lay n.1.level.val ≠ 1 ∧ n.1.nonce.val < trialCap n.1.lay n.1.level.val).toList.map
     fun n => .inl (.node n)
-/-- U16b: the child coordinates of the lower ground positions (tree nodes two to five levels below a lower root; no
-secret value), disclosed at keygen so that every multi-trial position has known children (as on the top tree). -/
-noncomputable def groundChildren : List Coord :=
-  ((Finset.univ : Finset TreeNode).filter fun n =>
-    n.1.lay ≠ 0 ∧ trialCap n.1.lay n.1.level.val ≠ 1 ∧ n.1.nonce.val = 0).toList.flatMap
-    fun n => (childSlots (.node n)).map Prod.fst
-/-- E8: the trials and the child coordinates of every FTS ground position (level 3, heaps 8..15; no secret value),
-disclosed at keygen as for the lower ground positions. -/
-noncomputable def wGroundDisclosed : List Coord :=
-  ((Finset.univ : Finset WctNodePos).filter fun n =>
-    wTrialCap n.1.coord.val n.1.level.val ≠ 1 ∧ n.1.nonce.val = 0).toList.flatMap
-    fun n => wTrialDeps n ++ (childSlots (.wctNode n)).map Prod.fst
-noncomputable def topTrialsDisclosed : List Coord := trialsDisclosed ++ (groundChildren ++ wGroundDisclosed)
 
 noncomputable def keygenDisclosed : List Coord :=
   keygenCacheDisclosed ++ encodingDisclosed ++ topTrialsDisclosed
@@ -7453,143 +6868,40 @@ theorem encodingDisclosed_shape {c : Coord} (hc : c ∈ encodingDisclosed) :
   · simp only [List.mem_cons, List.not_mem_nil, or_false] at hcs
     rcases hcs with rfl | rfl <;> exact Or.inr ⟨_, rfl⟩
 
-theorem mem_trialsDisclosed {c : Coord} :
-    c ∈ trialsDisclosed ↔ ∃ n : TreeNode, c = .inl (.node n) ∧
-      trialCap n.1.lay n.1.level.val ≠ 1 ∧ n.1.nonce.val < trialCap n.1.lay n.1.level.val := by
-  unfold trialsDisclosed
+theorem mem_topTrialsDisclosed {c : Coord} :
+    c ∈ topTrialsDisclosed ↔ ∃ n : TreeNode, c = .inl (.node n) ∧
+      n.1.lay = 0 ∧ trialCap n.1.lay n.1.level.val ≠ 1 ∧ n.1.nonce.val < trialCap n.1.lay n.1.level.val := by
+  unfold topTrialsDisclosed
   simp only [List.mem_map, Finset.mem_toList, Finset.mem_filter, Finset.mem_univ, true_and]
   constructor
   · rintro ⟨n, hn, rfl⟩; exact ⟨n, rfl, hn⟩
   · rintro ⟨n, rfl, hn⟩; exact ⟨n, hn, rfl⟩
-theorem mem_topTrialsDisclosed {c : Coord} (h : ∃ n : TreeNode, c = .inl (.node n) ∧
-      trialCap n.1.lay n.1.level.val ≠ 1 ∧ n.1.nonce.val < trialCap n.1.lay n.1.level.val) :
-    c ∈ topTrialsDisclosed :=
-  List.mem_append_left _ (mem_trialsDisclosed.mpr h)
-/-- U16b: a lower ground position is at least two levels above the leaves (`height ≥ 6`, heap `< 16`). -/
-theorem level_pos_of_ground {lay : Layer} {level : Nat} (hl : lay ≠ 0)
-    (hb : WCT9.lowerZeroBits lay.val (2 ^ (height lay - level - 1)) ≠ 0) : level ≠ 0 := by
-  intro h0
-  subst h0
-  apply hb
-  have h6 : 6 ≤ height lay := by fin_cases lay <;> simp [height] at hl ⊢
-  have : 32 ≤ 2 ^ (height lay - 0 - 1) :=
-    le_trans (by norm_num) (Nat.pow_le_pow_right (by norm_num) (show 5 ≤ height lay - 0 - 1 by omega))
-  unfold WCT9.lowerZeroBits
-  rw [if_pos (Or.inr (Or.inr this))]
-theorem groundChildren_shape {c : Coord} (hc : c ∈ groundChildren) : ∃ n, c = .inl (.node n) := by
-  unfold groundChildren at hc
-  obtain ⟨n, hn, hc⟩ := List.mem_flatMap.mp hc
-  simp only [Finset.mem_toList, Finset.mem_filter, Finset.mem_univ, true_and] at hn
-  obtain ⟨hl, h1, -⟩ := hn
-  have hlev : n.1.level.val ≠ 0 := by
-    rcases trialCap_ne_one h1 with h | h
-    · exact absurd h.1 hl
-    · exact level_pos_of_ground hl h.2
-  obtain ⟨⟨c', b⟩, hcs, rfl⟩ := List.mem_map.mp hc
-  simp only [childSlots] at hcs
-  split_ifs at hcs
-  · cases hcs
-  simp only [List.mem_append, Option.mem_toList, Option.map_eq_some_iff, Prod.mk.injEq] at hcs
-  rcases hcs with ⟨x, hx, hxe, -⟩ | ⟨x, hx, hxe, -⟩ <;> subst hxe <;>
-  · unfold treeChild at hx
-    rw [if_neg hlev] at hx
-    obtain ⟨m, -, rfl⟩ := Option.map_eq_some_iff.mp hx
-    exact ⟨m, rfl⟩
-theorem wGroundDisclosed_shape {c : Coord} (hc : c ∈ wGroundDisclosed) : ∃ n, c = .inl (.wctNode n) := by
-  unfold wGroundDisclosed at hc
-  obtain ⟨n, hn, hc⟩ := List.mem_flatMap.mp hc
-  have h3 : n.1.level.val = 3 := by
-    simp only [Finset.mem_toList, Finset.mem_filter, Finset.mem_univ, true_and] at hn
-    by_contra h; exact hn.1 (by unfold wTrialCap; rw [if_neg h])
-  rcases List.mem_append.mp hc with hc | hc
-  · unfold wTrialDeps at hc
-    split_ifs at hc
-    · cases hc
-    · obtain ⟨j, -, rfl⟩ := List.mem_map.mp hc
-      exact ⟨_, rfl⟩
-  · obtain ⟨⟨c', b⟩, hcs, rfl⟩ := List.mem_map.mp hc
-    simp only [childSlots] at hcs
-    have hf : ∀ k x, ftsChild n.1.index n.1.coord 3 k = some x → ∃ m, x = .inl (.wctNode m) := by
-      intro k x hx
-      unfold ftsChild at hx
-      rw [if_neg (by decide)] at hx
-      obtain ⟨m, -, rfl⟩ := Option.map_eq_some_iff.mp hx
-      exact ⟨m, rfl⟩
-    simp only [h3, List.mem_append, Option.mem_toList, Option.map_eq_some_iff, Prod.mk.injEq] at hcs
-    rcases hcs with (⟨x, hx, hxe, -⟩ | ⟨x, hx, hxe, -⟩) | hcs
-    · subst hxe; exact hf _ _ hx
-    · subst hxe; exact hf _ _ hx
-    · simp at hcs
-theorem topTrialsDisclosed_shape {c : Coord} (hc : c ∈ topTrialsDisclosed) :
-    (∃ n, c = .inl (.node n)) ∨ ∃ n, c = .inl (.wctNode n) := by
-  rcases List.mem_append.mp hc with hc | hc
-  · obtain ⟨n, rfl, -⟩ := mem_trialsDisclosed.mp hc
-    exact Or.inl ⟨n, rfl⟩
-  · rcases List.mem_append.mp hc with hc | hc
-    · exact Or.inl (groundChildren_shape hc)
-    · exact Or.inr (wGroundDisclosed_shape hc)
-/-- U16b: the child slots of a lower ground node are keygen coordinates. -/
-theorem groundChild_mem_keygen {n : TreeNode} (hl : n.1.lay ≠ 0) (h1 : trialCap n.1.lay n.1.level.val ≠ 1)
-    {cs : Coord × Nat} (hc : cs ∈ childSlots (.node n)) : cs.1 ∈ keygenDisclosed := by
-  apply List.mem_append_right
-  apply List.mem_append_right
-  apply List.mem_append_left
-  unfold groundChildren
-  refine List.mem_flatMap.mpr ⟨withNonce n 0, ?_, ?_⟩
-  · simp only [Finset.mem_toList, Finset.mem_filter, Finset.mem_univ, true_and]
-    exact ⟨hl, h1, withNonce_nonce n (by norm_num)⟩
-  · refine List.mem_map.mpr ⟨cs, ?_, rfl⟩
-    have hpos := trialCap_pos n.1.lay n.1.level.val
-    simp only [childSlots] at hc ⊢
-    split_ifs at hc with hcap
-    · cases hc
-    have hcond : ¬ (trialCap (withNonce n 0).1.lay (withNonce n 0).1.level.val ≤ (withNonce n 0).1.nonce.val) := by
-      rw [withNonce_lay, withNonce_level, withNonce_nonce n (by norm_num)]; omega
-    rw [if_neg hcond]
-    exact hc
-theorem trialCoord_mem_topTrials {n : TreeNode} (hc : trialCap n.1.lay n.1.level.val ≠ 1) {j : Nat}
+theorem topTrialsDisclosed_shape {c : Coord} (hc : c ∈ topTrialsDisclosed) : ∃ n, c = .inl (.node n) := by
+  obtain ⟨n, rfl, -⟩ := mem_topTrialsDisclosed.mp hc
+  exact ⟨n, rfl⟩
+theorem trialCoord_mem_topTrials {n : TreeNode} (hl : n.1.lay = 0) (hc : trialCap n.1.lay n.1.level.val ≠ 1) {j : Nat}
     (hj : j < trialCap n.1.lay n.1.level.val) : trialCoord n j ∈ topTrialsDisclosed := by
-  refine mem_topTrialsDisclosed ⟨withNonce n j, rfl, hc, ?_⟩
+  refine mem_topTrialsDisclosed.mpr ⟨withNonce n j, rfl, hl, hc, ?_⟩
   have := trialCap_le n.1.lay n.1.level.val
   rw [withNonce_nonce n (by omega)]
   exact hj
-theorem trialCoord_mem_keygen {n : TreeNode} (hc : trialCap n.1.lay n.1.level.val ≠ 1) {j : Nat}
+theorem trialCoord_mem_keygen {n : TreeNode} (hl : n.1.lay = 0) (hc : trialCap n.1.lay n.1.level.val ≠ 1) {j : Nat}
     (hj : j < trialCap n.1.lay n.1.level.val) : trialCoord n j ∈ keygenDisclosed := by
   apply List.mem_append_right
-  refine mem_topTrialsDisclosed ⟨withNonce n j, rfl, hc, ?_⟩
+  refine mem_topTrialsDisclosed.mpr ⟨withNonce n j, rfl, hl, hc, ?_⟩
   have := trialCap_le n.1.lay n.1.level.val
   rw [withNonce_nonce n (by omega)]
   exact hj
-/-- E8: the trials and the children of an FTS ground position are keygen coordinates. -/
-theorem wGround_mem_keygen {n : WctNodePos} (h1 : wTrialCap n.1.coord.val n.1.level.val ≠ 1) {c : Coord}
-    (hc : c ∈ wTrialDeps n ++ (childSlots (.wctNode n)).map Prod.fst) : c ∈ keygenDisclosed := by
-  apply List.mem_append_right
-  apply List.mem_append_right
-  apply List.mem_append_right
-  unfold wGroundDisclosed
-  refine List.mem_flatMap.mpr ⟨wWithNonce n 0, ?_, hc⟩
-  simp only [Finset.mem_toList, Finset.mem_filter, Finset.mem_univ, true_and]
-  exact ⟨h1, wWithNonce_nonce n (by norm_num)⟩
-theorem wTrialCoord_mem_topTrials {n : WctNodePos} (h1 : wTrialCap n.1.coord.val n.1.level.val ≠ 1) {j : Nat}
-    (hj : j < wTrialCap n.1.coord.val n.1.level.val) : wTrialCoord n j ∈ topTrialsDisclosed := by
-  apply List.mem_append_right
-  apply List.mem_append_right
-  unfold wGroundDisclosed
-  refine List.mem_flatMap.mpr ⟨wWithNonce n 0, ?_, List.mem_append_left _ (mem_wTrialDeps h1 hj)⟩
-  simp only [Finset.mem_toList, Finset.mem_filter, Finset.mem_univ, true_and]
-  exact ⟨h1, wWithNonce_nonce n (by norm_num)⟩
 /-- Membership in the keygen disclosure by its three parts. -/
 theorem mem_keygenDisclosed {c : Coord} :
     c ∈ keygenDisclosed ↔ c ∈ keygenCacheDisclosed ∨ c ∈ encodingDisclosed ∨ c ∈ topTrialsDisclosed := by
   unfold keygenDisclosed
   simp only [List.mem_append, or_assoc]
 
-/-- The message of encoding leaf `L` from coordinate values. U16b: the root children of a lower tree (heaps 2, 3) are
-ground positions, so their values are read through the selected trial (`selVals`). -/
 def msgVals (vals : Coord → Digest) (L : EncLeaf) : WCT9.LayerMsg :=
   if h : L.1.lay.val < 3 then
-    .pair (selVals vals (.inl (.node (topNode ⟨L.1.lay.val + 1, by omega⟩ (childIndex L) (childIndex_treeBits L h) 0))))
-      (selVals vals (.inl (.node (topNode ⟨L.1.lay.val + 1, by omega⟩ (childIndex L) (childIndex_treeBits L h) 1))))
+    .pair (vals (.inl (.node (topNode ⟨L.1.lay.val + 1, by omega⟩ (childIndex L) (childIndex_treeBits L h) 0))))
+      (vals (.inl (.node (topNode ⟨L.1.lay.val + 1, by omega⟩ (childIndex L) (childIndex_treeBits L h) 1))))
   else .pair (vals (.inl (.wctNode (ftsTopNode (childIndex L) 8 0))))
     (vals (.inl (.wctNode (ftsTopNode (childIndex L) 8 1))))
 noncomputable def firstUnknownMsg (K : Coord → Prop) (L : EncLeaf) : Option (Coord × Nat) :=
@@ -7639,8 +6951,7 @@ def padCoord (index : Fin (2^31)) (coord : Fin 9) (branch : Nat) (side : Fin 2) 
 def childSlots : CanonGraph.Node → List (Coord×Nat)
  | .wctLeaf L => (List.ofFn fun t:Fin 6 => (wctItem (L.index,L.coord,L.child,t) 4,ftsLeafSlot t.val)) ++
    ((padCoord L.index L.coord (L.child.val%2) 0).map (·,2)).toList
- | .wctNode n => if wTrialCap n.1.coord.val n.1.level.val ≤ n.1.nonce.val then [] else
-   ((ftsChild n.1.index n.1.coord n.1.level.val (2*n.1.idx.val)).map (·,0)).toList ++
+ | .wctNode n => ((ftsChild n.1.index n.1.coord n.1.level.val (2*n.1.idx.val)).map (·,0)).toList ++
    ((ftsChild n.1.index n.1.coord n.1.level.val (2*n.1.idx.val+1)).map (·,3)).toList ++
    (if n.1.level.val=4 then ((padCoord n.1.index n.1.coord (n.1.idx.val/2) 1).map (·,2)).toList else [])
  | n => LargeResidual.childSlots n
@@ -9009,7 +8320,9 @@ def PrefixRow (a : AuxData) (L : EncLeaf) (ctr : BitVec 32) : Prop :=
   ctr.toNat < 2 ^ 22 ∧ ∀ r, a.sel L = some r → ctr.toNat ≤ r.1.val
 def prefixValue (a : AuxData) (L : EncLeaf) (ctr : BitVec 32) : HashOutput :=
   if h : ctr.toNat < 2 ^ 22 then a.rows L ⟨ctr.toNat, h⟩ else 0
-def maskOf (_a : AuxData) (_level _node : Nat) : Digest := 0
+def maskOf (a : AuxData) (level node : Nat) : Digest :=
+  let answer := a.priv (.inl (header 13 0 0 level (node/2)))
+  if node%2=0 then answer.extractLsb' 0 128 else answer.extractLsb' 128 128
 def macOf (a : AuxData) (region : Region) : HashOutput :=
   SiggolfT3Mac4.encodeTag (SiggolfT3Mac4.macTag
     (fun i => a.priv (.inl (header 14 0 0 0 i.val))) (List.ofFn region))
@@ -10679,11 +9992,7 @@ abbrev AuxSpec : OracleSpec AuxQuery
 noncomputable def auxLaw (initLaw : PMF AuxData) : (input : AuxSpec.Domain) → PMF (AuxSpec.Range input)
   | .coin n => PMF.uniformOfFintype (Fin (n + 1))
   | .init => initLaw
-abbrev WCoord := Coord ⊕ (Message × Fin 2)
-/-- R6: explicit equality on the world coordinates (with the two-half nonce labels the default instance search
-costs seconds per use and can time out). -/
-instance instDecidableEqWCoord : DecidableEq WCoord :=
-  @instDecidableEqSum Coord (Message × Fin 2) inferInstance (@instDecidableEqProd Message (Fin 2) inferInstance inferInstance)
+abbrev WCoord := Coord ⊕ Message
 /-- Top-layer WOTS seed addresses as plain secrets: none since campaign T8D (top seeds are leaf-family evaluations);
 the empty type keeps the shape of the plain coordinates. -/
 abbrev WTopAddr := {_a : ChainGraph.Address // False}
@@ -10694,7 +10003,7 @@ abbrev LowerLeaf := {_L : Layer × Fin (2 ^ 31) × Fin 4096 // True}
 observable. -/
 abbrev WJunk := {a : ChainGraph.Address // WCT9.famSize a.layer a.leaf.val ≤ a.chain.val}
 /-- Plain (independently uniform) world coordinates: nodes, (no) top WOTS seeds, nonces. -/
-abbrev WPlain := (CanonGraph.Node ⊕ WTopAddr) ⊕ (Message × Fin 2)
+abbrev WPlain := (CanonGraph.Node ⊕ WTopAddr) ⊕ Message
 /-- Seed families: WOTS leaves (`famCount` coefficients) and FTS coordinates `(index, coord)` (54 coefficients). -/
 abbrev WFam := LowerLeaf ⊕ (Fin (2 ^ 31) × Fin 9)
 /-- Split of the world coordinates: WOTS seeds are their family `(layer, tree, famOf leaf)` at `famPoint layer leaf chain`
@@ -10830,11 +10139,6 @@ theorem keep_encodingHit (labels : WCoord → Digest) (lay : Layer) (target : Di
   simp [Probe.guessMiss, encodingHit, Hit.miss]
 
 abbrev RWorld (U : Finset HashInput) := World AuxSpec WCoord (Cell U)
-/-- R6: the signing nonce from the two halves of the nonce label. -/
-noncomputable def nonceRho (lo hi : Digest) : Digest :=
-  BitVec.ofNat 128 (rhoMod (SigGolfCandidate.T3.Security.ChainGraph.joinOutput lo hi))
-/-- R6: the nonce of `m` read from the nonce-half labels `nv (m, 0)`, `nv (m, 1)`. -/
-noncomputable def nonceVal (nv : Message × Fin 2 → Digest) (m : Message) : Digest := nonceRho (nv (m, 0)) (nv (m, 1))
 section Requests
 variable (U : Finset HashInput)
 def coinReq (n : Nat) : OracleComp (RWorld U) (Fin (n + 1)) := liftM ((RWorld U).query (.inl (.coin n)))
@@ -10846,11 +10150,6 @@ def probeReq (row : Cell U) (test : Probe WCoord) : OracleComp (RWorld U) HashOu
 def discloseReq (c : WCoord) (charge : Charge) : OracleComp (RWorld U) Digest :=
   liftM ((RWorld U).query (.inr (.disclose c charge)))
 def tickReq (charge : Charge) : OracleComp (RWorld U) Unit := liftM ((RWorld U).query (.inr (.tick charge)))
-/-- R6: the nonce of `m` is `rhoMod` of the full 256-bit label, disclosed as its two 128-bit halves `(m, 0)`, `(m, 1)`. -/
-noncomputable def discloseNonce (m : Message) : OracleComp (RWorld U) Digest := do
-  let lo ← discloseReq U (.inr (m, 0)) .none
-  let hi ← discloseReq U (.inr (m, 1)) .none
-  pure (nonceRho lo hi)
 def discloseAll : List Coord → OracleComp (RWorld U) (List (Coord × Digest))
   | [] => pure []
   | c :: rest => do
@@ -10929,7 +10228,9 @@ noncomputable def routerDigits (a : AuxData) (L : Wots.LeafAddr) : List Nat :=
 def RouteOkR (a : AuxData) (index : Nat) : Prop :=
   ∀ lay : Layer, lay ≠ 0 → ∃ (L : EncLeaf) (r : Fin (2 ^ 22) × Digest),
     L.toWots = routeAddr index lay ∧ a.sel L = some r ∧ (decode lay r.2).isSome
-def maskOf (_a : AuxData) (_level _node : Nat) : Digest := 0
+def maskOf (a : AuxData) (level node : Nat) : Digest :=
+  let answer := a.priv (.inl (header 13 0 0 level (node/2)))
+  if node%2=0 then answer.extractLsb' 0 128 else answer.extractLsb' 128 128
 def macOf (a : AuxData) (region : Region) : HashOutput :=
   SiggolfT3Mac4.encodeTag (SiggolfT3Mac4.macTag
     (fun i => a.priv (.inl (header 14 0 0 0 i.val))) (List.ofFn region))
@@ -10970,7 +10271,7 @@ noncomputable def routeQuery (a : AuxData) (st : RouterState) (X : HashInput) :
       | some cs => (fun y => (y, st')) <$>
           testReq U first ⟨X, h⟩ ⟨some (.inl cs.1, slotValue X cs.2), .target (refDigest a L)⟩
       | none => do
-          let pairs ← discloseAll U (msgDeps L)
+          let pairs ← discloseAll U ((msgSlots L).map Prod.fst)
           if X = Wots.encRow L.toWots (msgVals (lookupVal pairs) L) ctr 0 ∧ PrefixRow a L ctr then do
             tickReq U .call
             pure (prefixValue a L ctr, st')
@@ -10996,6 +10297,26 @@ def trialRows (rho : Digest) (m : Message) (found : Option (BitVec 32 × HashOut
   (List.range (match found with | some (c, _) => c.toNat + 1 | none => WCT9.digestAttemptLimit)).map fun c =>
     pad64 (digestInput rho m (BitVec.ofNat 32 c))
 def RouterState.cache (st : RouterState) : Sampling.RCache := fun X => st.births.lookup X
+noncomputable def RouterState.signed (st : RouterState) (rho : Digest) (m : Message) (found : Option (BitVec 32 × HashOutput)) :
+    RouterState :=
+  if CaseC.bankSpec.Reuse st.cache rho m then
+    { st with
+      trials := st.trials ++ trialRows rho m found
+      memo := (m, found) :: st.memo
+      reused := true }
+  else
+    { st with
+      trials := st.trials ++ trialRows rho m found
+      memo := (m, found) :: st.memo
+      exposures := st.exposures ++ (found.map Prod.snd).toList }
+theorem RouterState.signed_fields (st : RouterState) (rho : Digest) (m : Message)
+    (found : Option (BitVec 32 × HashOutput)) :
+    (st.signed rho m found).disclosed = st.disclosed ∧ (st.signed rho m found).seen = st.seen ∧
+      (st.signed rho m found).calls = st.calls ∧ (st.signed rho m found).births = st.births ∧
+      (st.signed rho m found).trials = st.trials ++ trialRows rho m found ∧
+      (st.signed rho m found).memo = (m, found) :: st.memo := by
+  unfold RouterState.signed
+  split_ifs <;> exact ⟨rfl, rfl, rfl, rfl, rfl, rfl⟩
 noncomputable def signFinish (a : AuxData) (st : RouterState) (rho : Digest)
     (found : Option (BitVec 32 × HashOutput)) : OracleComp (RWorld U) (Option Signature × RouterState) :=
   match found with
@@ -11007,6 +10328,34 @@ noncomputable def signFinish (a : AuxData) (st : RouterState) (rho : Digest)
         pure (some (assembleSig rho N (lookupVal pairs) (routerDigits a)),
           { st with disclosed := st.disclosed ++ items })
       else pure (none, st)
+noncomputable def routeSign (a : AuxData) (published : SigGolfCandidate.T3.Cache) (st : RouterState)
+    (request : SigGolfCandidate.T3.Security.Request) : OracleComp (RWorld U) (Option Signature × RouterState) :=
+  if request.cache = published then do
+    let rho ← discloseReq U (.inr request.message) .none
+    match st.memo.lookup request.message with
+    | some found => signFinish U a st rho found
+    | none => do
+        let found ← simulateQ (readImpl U a) (WCT9.digestSearch rho request.message 0 WCT9.digestAttemptLimit)
+        signFinish U a (st.signed rho request.message found) rho found
+  else pure (none, st)
+noncomputable def routeInteraction (a : AuxData) (published : SigGolfCandidate.T3.Cache) (q : Nat) {α : Type}
+    (program : OracleComp LazyPrivate.Interaction α) :
+    RouterState → OracleComp (RWorld U) (Option ((α × QueryLog Requests) × RouterState)) :=
+  OracleComp.construct
+    (fun value st => pure (some ((value, []), st)))
+    (fun input _ next st => match input, next with
+      | .inl (.inl n), next => do
+          let c ← coinReq U n
+          next c st
+      | .inl (.inr X), next =>
+          if q ≤ st.calls then pure none else do
+            let r ← routeQuery U a st X
+            next r.1 r.2
+      | .inr request, next => do
+          let s ← routeSign U a published st request
+          let rest ← next s.1 s.2
+          pure (rest.map fun res => ((res.1.1, ⟨request, s.1⟩ :: res.1.2), res.2)))
+    program
 noncomputable def routeVerdict (a : AuxData) (q : Nat) {β : Type} (program : M β) :
     RouterState → OracleComp (RWorld U) (Option (β × RouterState)) :=
   OracleComp.construct
@@ -11021,6 +10370,19 @@ noncomputable def routeVerdict (a : AuxData) (q : Nat) {β : Type} (program : M 
             next r.1 r.2
       | .inr c, next => next (a.priv c) st)
     program
+noncomputable def routerWith (adversary : Final.AdversaryP) (q : Nat) (a : AuxData) :
+    OracleComp (RWorld U) (Option (Bool × RouterState)) := do
+  let pairs ← discloseAll U keygenDisclosed
+  let v := lookupVal pairs
+  let pk := v (.inl (.node rootNode))
+  let region := Correctness.cacheRegion fun level node => topValue v level node ^^^ maskOf a level node
+  let published : SigGolfCandidate.T3.Cache := ⟨macOf a region, region⟩
+  let r ← routeInteraction U a published q (adversary pk published) RouterState.initial
+  match r with
+  | none => pure none
+  | some (result, st) => routeVerdict U a q (GameWith.verdict PaddedGame.checker pk result) st
+noncomputable def router (adversary : Final.AdversaryP) (q : Nat) : OracleComp (RWorld U) (Option (Bool × RouterState)) :=
+  initReq U >>= routerWith U adversary q
 end Route
 end ClaudeWCT.W9.T3.Security.LargeResidual
 
@@ -11044,9 +10406,7 @@ attribute [local instance] Classical.propDecidable
 /-- Distinct type: never silently replace the installed WCoord instance. -/
 structure PairedCoord where
   value : WCoord
-  deriving Fintype
-/-- R6: classical equality (deriving it over the two-half nonce `WCoord` times out in instance search). -/
-noncomputable instance instDecidableEqPairedCoord : DecidableEq PairedCoord := Classical.decEq _
+  deriving DecidableEq, Fintype
 
 /-- The top family keeps its original identity; lower families share
 identity between adjacent leaves. -/
@@ -11186,11 +10546,6 @@ def probeReq (row : Cell U) (test : Probe WCoord) : OracleComp (RWorld U) HashOu
 def discloseReq (c : WCoord) (charge : Charge) : OracleComp (RWorld U) Digest :=
   liftM ((RWorld U).query (.inr (.disclose c charge)))
 def tickReq (charge : Charge) : OracleComp (RWorld U) Unit := liftM ((RWorld U).query (.inr (.tick charge)))
-/-- R6: the nonce of `m` is `rhoMod` of the full 256-bit label, disclosed as its two 128-bit halves `(m, 0)`, `(m, 1)`. -/
-noncomputable def discloseNonce (m : Message) : OracleComp (RWorld U) Digest := do
-  let lo ← discloseReq U (.inr (m, 0)) .none
-  let hi ← discloseReq U (.inr (m, 1)) .none
-  pure (nonceRho lo hi)
 def discloseAll : List Coord → OracleComp (RWorld U) (List (Coord × Digest))
   | [] => pure []
   | c::rest => do
@@ -11206,25 +10561,15 @@ def RouterState.known (st : RouterState) : Coord → Prop :=
 def padVals (v : Coord → Digest) (index : Fin (2^31)) (coord : Fin 9) (branch : Nat) : Digest×Digest :=
   (((padCoord index coord branch 0).map v).getD 0,((padCoord index coord branch 1).map v).getD 0)
 
-/-- E8: an FTS child value, read through the selected trial of the child position. -/
-def ftsChildVal (v : Coord → Digest) (index : Fin (2^31)) (coord : Fin 9) (level physical : Nat) : Digest :=
-  ((ftsChild index coord level physical).map fun x => v (selCoordV v x)).getD 0
-/-- E8: the trials of an FTS child position. -/
-def childWTrialDeps (index : Fin (2^31)) (coord : Fin 9) (level physical : Nat) : List Coord :=
-  match ftsChild index coord level physical with
-  | some (.inl (.wctNode m)) => wTrialDeps m
-  | _ => []
-
 noncomputable def cellValues : CanonGraph.Node → (Coord → Digest) → HashInput
   | .wctLeaf L,v => pad64 (Extract.wctLeafInputP L.index.val L.coord.val L.child.val
       (padVals v L.index L.coord (L.child.val%2)).1
       (List.ofFn fun t : Fin 6 => v (wctItem (L.index,L.coord,L.child,t) 4)))
-  | .wctNode n,v => if WActiveV v n then pad64 (nodeInputP 3 (WCT9.nodeLayer n.1.coord.val) n.1.index.val
+  | .wctNode n,v => pad64 (nodeInputP 3 (WCT9.nodeLayer n.1.coord.val) n.1.index.val
       (2^(7-n.1.level.val-1)+n.1.idx.val)
-      (ftsChildVal v n.1.index n.1.coord n.1.level.val (2*n.1.idx.val))
-      (if n.1.level.val=4 then (padVals v n.1.index n.1.coord (n.1.idx.val/2)).2
-        else if n.1.level.val=3 then BitVec.ofNat 128 (n.1.nonce.val % 2 ^ 64) else 0)
-      (ftsChildVal v n.1.index n.1.coord n.1.level.val (2*n.1.idx.val+1))) else wphantom n
+      (((ftsChild n.1.index n.1.coord n.1.level.val (2*n.1.idx.val)).map v).getD 0)
+      (if n.1.level.val=4 then (padVals v n.1.index n.1.coord (n.1.idx.val/2)).2 else 0)
+      (((ftsChild n.1.index n.1.coord n.1.level.val (2*n.1.idx.val+1)).map v).getD 0))
   | n,v => LargeResidual.cellValues n v
 noncomputable def cellFrom (N : CanonGraph.Node) (v : Coord → Digest) : HashInput := cellValues N v
 /-- Top-nonce layer: the node of the queried position whose cell is `X` (unique by `cell_separated`), else `N`. -/
@@ -11234,9 +10579,6 @@ noncomputable def cellNode (N : CanonGraph.Node) (v : Coord → Digest) (X : Has
 /-- Every coordinate a cell reads (slots plus, on the top tree, the trials of the own and child positions). -/
 def cellDepsP : CanonGraph.Node → List Coord
   | .node n => LargeResidual.cellDeps (.node n)
-  | .wctNode n => (childSlots (.wctNode n)).map Prod.fst ++ wTrialDeps n ++
-      childWTrialDeps n.1.index n.1.coord n.1.level.val (2 * n.1.idx.val) ++
-      childWTrialDeps n.1.index n.1.coord n.1.level.val (2 * n.1.idx.val + 1)
   | N => (childSlots N).map Prod.fst
 noncomputable def refDigest (a : AuxData) (L : CanonEncoding.EncLeaf) : Digest :=
   match a.sel L with
@@ -11265,7 +10607,9 @@ def RouteOkR (a : AuxData) (index : Nat) : Prop :=
   ∀lay : Layer,∃(L : CanonEncoding.EncLeaf)(r : Fin (2^22)×Digest),
     L.toWots=routeAddr index lay ∧ a.sel L=some r ∧ (WCT9.CanonicalPolicy.decode lay r.2).isSome
 
-def maskOf (_a : AuxData) (_level _node : Nat) : Digest := 0
+def maskOf (a : AuxData) (level node : Nat) : Digest :=
+  let answer := a.priv (.inl (header 13 0 0 level (node/2)))
+  if node%2=0 then answer.extractLsb' 0 128 else answer.extractLsb' 128 128
 
 def macOf (a : AuxData) (region : Region) : HashOutput :=
   SiggolfT3Mac4.encodeTag (SiggolfT3Mac4.macTag
@@ -11308,19 +10652,11 @@ noncomputable def routeQuery (a : AuxData) (st : RouterState) (X : HashInput) :
         else do
           let v ← discloseReq U (.inl (.inl (.node n))) .call
           pure (CanonGraph.Paired.presentEquiv (.node n) (ChainGraph.joinOutput v (a.high (.node n))),st')
-    else if hwp : ∃ n : WctNodePos, X = wphantom n ∧ CanonGraph.Paired.Filtered.Used (.wctNode n) then
-      let n := Classical.choose hwp
-      do
-        let pairs ← discloseAll U (wTrialDeps n)
-        if WActiveV (lookupVal pairs) n then (fun y => (y,st')) <$> readReq U ⟨X,h⟩ .call
-        else do
-          let v ← discloseReq U (.inl (.inl (.wctNode n))) .call
-          pure (CanonGraph.Paired.presentEquiv (.wctNode n) (ChainGraph.joinOutput v (a.high (.wctNode n))),st')
     else if he : EncRow X then
       let L := Classical.choose he
       let ctr := Classical.choose (Classical.choose_spec (Classical.choose_spec he))
       do
-        let pairs ← discloseAll U (msgDeps L)
+        let pairs ← discloseAll U ((msgSlots L).map Prod.fst)
         if X=Wots.encRow L.toWots (msgVals (lookupVal pairs) L) ctr 0 ∧ PrefixRow a L ctr then do
           tickReq U .call
           pure (prefixValue a L ctr,st')
@@ -11380,19 +10716,11 @@ noncomputable def routeQuerySelected (a : AuxData) (st : RouterState) (X : HashI
         else do
           let v ← discloseReq U (.inl (.inl (.node n))) .call
           pure (CanonGraph.Paired.presentEquiv (.node n) (ChainGraph.joinOutput v (a.high (.node n))),st')
-    else if hwp : ∃ n : WctNodePos, X = wphantom n ∧ CanonGraph.Paired.Filtered.Used (.wctNode n) then
-      let n := Classical.choose hwp
-      do
-        let pairs ← discloseAll U (wTrialDeps n)
-        if WActiveV (lookupVal pairs) n then (fun y => (y,st')) <$> readReq U ⟨X,h⟩ .call
-        else do
-          let v ← discloseReq U (.inl (.inl (.wctNode n))) .call
-          pure (CanonGraph.Paired.presentEquiv (.wctNode n) (ChainGraph.joinOutput v (a.high (.wctNode n))),st')
     else if he : EncRow X then
       let L := Classical.choose he
       let ctr := Classical.choose (Classical.choose_spec (Classical.choose_spec he))
       do
-        let pairs ← discloseAll U (msgDeps L)
+        let pairs ← discloseAll U ((msgSlots L).map Prod.fst)
         if X=Wots.encRow L.toWots (msgVals (lookupVal pairs) L) ctr 0 ∧ PrefixRow a L ctr then do
           tickReq U .call
           pure (prefixValue a L ctr,st')

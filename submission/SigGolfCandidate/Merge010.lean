@@ -1,7 +1,5 @@
 import Mathlib.Tactic
 import Mathlib.Data.List.GetD
-set_option debug.skipKernelTC true
-set_option linter.all false
 
 -- ==== merged from ClaudeWCT_WCT9_Codebook ====
 section

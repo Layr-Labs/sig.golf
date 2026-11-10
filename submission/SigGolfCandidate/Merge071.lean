@@ -1,7 +1,5 @@
 import SigGolfCandidate.Merge069
 import SigGolfCandidate.Merge070
-set_option debug.skipKernelTC true
-set_option linter.all false
 
 -- ==== merged from ClaudeWCT_W9_New_Machine_Expand_PostEnc ====
 section
@@ -11,7 +9,7 @@ section
 `PostPass.pp_spec` describes the post-pass (words 49400..54175) as the memory map `ppMem`. Here: if, at its entry,
 the FTS block `[2904, 10568)` holds the bytes `[0, 7664)` of `Paired.witEnc` and `[11000, 26144)` holds the bytes
 `[8096, 23240)` of the pre-witness-stack encoding `OldW.witList` (with the choice byte at 25216), then afterwards
-`[4256, 26016)` holds `Paired.witEnc` word by word. -/
+`[4128, 26144)` holds `Paired.witEnc` word by word. -/
 
 set_option autoImplicit false
 
@@ -27,16 +25,16 @@ def rowSrc (pairs : List (Nat × Nat)) (q : Nat) : Option Nat :=
 def vSrc (A : Nat) : Option Nat := (vTable.reverse.find? (fun e => decide (e.1 = A))).map Prod.snd
 
 theorem rowFun_eq (pairs : List (Nat × Nat)) (M : Nat → Word) (q : Nat) :
-    rowFun pairs M (11920 + q) = match rowSrc pairs q with
+    rowFun pairs M (11792 + q) = match rowSrc pairs q with
       | some s => M (0x301000 + s)
-      | none => M (11920 + q) := by
+      | none => M (11792 + q) := by
   unfold rowFun rowSrc
-  have h : (fun e : Nat × Nat => decide (11920 + e.2 = 11920 + q)) = (fun e => decide (e.2 = q)) := by
+  have h : (fun e : Nat × Nat => decide (11792 + e.2 = 11792 + q)) = (fun e => decide (e.2 = q)) := by
     funext e; simp
   rw [h]
   cases pairs.reverse.find? (fun e => decide (e.2 = q)) <;> rfl
 
-theorem rowFun_miss (pairs : List (Nat × Nat)) (M : Nat → Word) (A : Nat) (h : ∀ e ∈ pairs, 11920 + e.2 ≠ A) :
+theorem rowFun_miss (pairs : List (Nat × Nat)) (M : Nat → Word) (A : Nat) (h : ∀ e ∈ pairs, 11792 + e.2 ≠ A) :
     rowFun pairs M A = M A := by
   unfold rowFun
   rw [List.find?_eq_none.mpr (fun e he => by simpa using h e (List.mem_reverse.mp he))]
@@ -48,27 +46,24 @@ theorem vFun_eq (M : Nat → Word) (A : Nat) :
   unfold vFun vSrc
   cases vTable.reverse.find? (fun e => decide (e.1 = A)) <;> rfl
 
-theorem vTable_dst : ∀ e ∈ vTable, (4128 ≤ e.1 ∧ e.1 < 4176) ∨ (12608 ≤ e.1 ∧ e.1 < 15272) := by decide
+theorem vTable_dst : ∀ e ∈ vTable, 12464 ≤ e.1 ∧ e.1 < 15272 := by decide
 
-theorem vSrc_miss (A : Nat) (h : A < 4128 ∨ (4176 ≤ A ∧ A < 12608) ∨ 15272 ≤ A) : vSrc A = none := by
+theorem vSrc_miss (A : Nat) (h : A < 12464 ∨ 15272 ≤ A) : vSrc A = none := by
   unfold vSrc
   rw [List.find?_eq_none.mpr (fun e he => by
     have := vTable_dst e (List.mem_reverse.mp he)
     simp only [decide_eq_true_eq]; omega)]
   rfl
 
-theorem vFun_miss (M : Nat → Word) (A : Nat) (h : A < 4128 ∨ (4176 ≤ A ∧ A < 12608) ∨ 15272 ≤ A) : vFun M A = M A := by
+theorem vFun_miss (M : Nat → Word) (A : Nat) (h : A < 12464 ∨ 15272 ≤ A) : vFun M A = M A := by
   rw [vFun_eq, vSrc_miss A h]
 
-/-- Expected value-table source of the word at `12672 + 104 m + 8 t` (top pair `24 - m` of the new layout). -/
+/-- Expected value-table source of the word at `12464 + 104 m + 8 t` (top pair `26 - m` of the new layout). -/
 def vExp (m t : Nat) : Option Nat :=
-  if 2 ≤ t ∧ t < 4 then some (64 * (53 - 2 * (24 - m)) + 48 + 8 * (t - 2))
-  else if 11 ≤ t then some (64 * (53 - (2 * (24 - m) + 1)) + 48 + 8 * (t - 11)) else none
+  if 2 ≤ t ∧ t < 4 then some (64 * (53 - 2 * (26 - m)) + 48 + 8 * (t - 2))
+  else if 11 ≤ t then some (64 * (53 - (2 * (26 - m) + 1)) + 48 + 8 * (t - 11)) else none
 
-theorem vSrc_table : ∀ m < 25, ∀ t < 13, vSrc (12672 + 104 * m + 8 * t) = vExp m t := by decide +kernel
-/-- E4: chain 50's G block (the first 80 bytes of the top chain area, at 12592). -/
-theorem vSrc_table50 : ∀ t < 10, vSrc (12592 + 8 * t) = if 2 ≤ t ∧ t < 4 then some (240 + 8 * (t - 2)) else none := by
-  decide +kernel
+theorem vSrc_table : ∀ m < 27, ∀ t < 13, vSrc (12464 + 104 * m + 8 * t) = vExp m t := by decide +kernel
 
 theorem rowsA_dst : ∀ r < 64, ∀ e ∈ rowsA.getD r [], e.2 < 672 := by decide +kernel
 theorem rowsB_dst : ∀ r < 64, ∀ e ∈ rowsB.getD r [], e.2 < 672 := by decide +kernel
@@ -108,10 +103,6 @@ theorem zfill_hit (M : Nat → Word) (a i A : Nat) (h1 : a ≤ A) (h2 : A < a + 
     zfill M a i A = 0 := if_pos ⟨h1, h2, h3⟩
 theorem zfill_miss (M : Nat → Word) (a i A : Nat) (h : A < a ∨ a + 8 * i ≤ A) : zfill M a i A = M A :=
   if_neg (by omega)
-theorem dmv_hit (M : Nat → Word) (T i A : Nat) (h1 : T + 8 ≤ A + 128 + 8 * i) (h2 : A + 128 ≤ T)
-    (h3 : (T - (A + 128)) % 8 = 0) : dmv M T i A = M (A + 128) := if_pos ⟨h1, h2, h3⟩
-theorem dmv_miss (M : Nat → Word) (T i A : Nat) (h : A + 128 + 8 * i < T + 8 ∨ T < A + 128) : dmv M T i A = M A :=
-  if_neg (by omega)
 
 theorem ppMem_eq (leaf : Nat) (M : Nat → Word) :
     ppMem leaf M = rowFun (rowsB.getD (leaf / 64 % 64) []) (rowFun (rowsA.getD (leaf % 64) []) (vFun (stage7 M))) :=
@@ -119,13 +110,13 @@ theorem ppMem_eq (leaf : Nat) (M : Nat → Word) :
 
 /-- `stage7` as one nested map (outermost stage first). -/
 theorem stage7_unfold (M : Nat → Word) : stage7 M =
-    zfill (bmv (dmv (fcp (fcp (fcp (bmv (bmv (bmv (fcp (fcp (fcp M 11768 0x300000 432) 11000 0x301000 96)
+    zfill (bmv (zfill (fcp (fcp (fcp (bmv (bmv (bmv (fcp (fcp (fcp M 11768 0x300000 432) 11000 0x301000 96)
       23744 0x302000 284) 23688 2256 407) 20432 1568 321) 17864 880 331) (0x302000 + 1456) 15288 102)
-      (0x302000 + 736) 18752 86) 0x302000 22008 86) 26136 8) 10560 1352 958) 11920 421 := rfl
+      (0x302000 + 736) 18752 86) 0x302000 22008 86) 25952 20) 10560 1224 958) 11792 437 := rfl
 
 theorem stage7_path (M : Nat → Word) (s : Nat) (hs : s < 768) (h8 : s % 8 = 0) :
     stage7 M (0x301000 + s) = M (11000 + s) := by
-  rw [stage7_unfold, zfill_miss _ _ _ _ (by omega), bmv_miss _ _ _ _ _ (by omega), dmv_miss _ _ _ _ (by omega),
+  rw [stage7_unfold, zfill_miss _ _ _ _ (by omega), bmv_miss _ _ _ _ _ (by omega), zfill_miss _ _ _ _ (by omega),
     fcp_miss _ _ _ _ _ (by omega), fcp_miss _ _ _ _ _ (by omega), fcp_miss _ _ _ _ _ (by omega),
     bmv_miss _ _ _ _ _ (by omega), bmv_miss _ _ _ _ _ (by omega), bmv_miss _ _ _ _ _ (by omega),
     fcp_miss _ _ _ _ _ (by omega), fcp_hit _ _ _ _ _ (by omega) (by omega) (by omega),
@@ -133,20 +124,20 @@ theorem stage7_path (M : Nat → Word) (s : Nat) (hs : s < 768) (h8 : s % 8 = 0)
 
 theorem stage7_chain (M : Nat → Word) (s : Nat) (hs : s < 3456) (h8 : s % 8 = 0) :
     stage7 M (0x300000 + s) = M (11768 + s) := by
-  rw [stage7_unfold, zfill_miss _ _ _ _ (by omega), bmv_miss _ _ _ _ _ (by omega), dmv_miss _ _ _ _ (by omega),
+  rw [stage7_unfold, zfill_miss _ _ _ _ (by omega), bmv_miss _ _ _ _ _ (by omega), zfill_miss _ _ _ _ (by omega),
     fcp_miss _ _ _ _ _ (by omega), fcp_miss _ _ _ _ _ (by omega), fcp_miss _ _ _ _ _ (by omega),
     bmv_miss _ _ _ _ _ (by omega), bmv_miss _ _ _ _ _ (by omega), bmv_miss _ _ _ _ _ (by omega),
     fcp_miss _ _ _ _ _ (by omega), fcp_miss _ _ _ _ _ (by omega),
     fcp_hit _ _ _ _ _ (by omega) (by omega) (by omega), show 0x300000 + s - 0x300000 = s by omega]
 
-theorem stage7_top (M : Nat → Word) (q : Nat) (hq : q < 3368) (h8 : q % 8 = 0) : stage7 M (11920 + q) = 0 := by
+theorem stage7_top (M : Nat → Word) (q : Nat) (hq : q < 3496) (h8 : q % 8 = 0) : stage7 M (11792 + q) = 0 := by
   rw [stage7_unfold]
   exact zfill_hit _ _ _ _ (by omega) (by omega) (by omega)
 
 theorem stage7_fts (M : Nat → Word) (o : Nat) (ho : o < 7664) (h8 : o % 8 = 0) :
-    stage7 M (4256 + o) = M (2904 + o) := by
+    stage7 M (4128 + o) = M (2904 + o) := by
   rw [stage7_unfold, zfill_miss _ _ _ _ (by omega), bmv_hit _ _ _ _ _ (by omega) (by omega) (by omega),
-    show 4256 + o - 1352 = 2904 + o by omega, dmv_miss _ _ _ _ (by omega),
+    show 4128 + o - 1224 = 2904 + o by omega, zfill_miss _ _ _ _ (by omega),
     fcp_miss _ _ _ _ _ (by omega), fcp_miss _ _ _ _ _ (by omega), fcp_miss _ _ _ _ _ (by omega),
     bmv_miss _ _ _ _ _ (by omega), bmv_miss _ _ _ _ _ (by omega), bmv_miss _ _ _ _ _ (by omega),
     fcp_miss _ _ _ _ _ (by omega), fcp_miss _ _ _ _ _ (by omega), fcp_miss _ _ _ _ _ (by omega)]
@@ -154,71 +145,75 @@ theorem stage7_fts (M : Nat → Word) (o : Nat) (ho : o < 7664) (h8 : o % 8 = 0)
 /-- T1 direct relayout: new lower byte `o` (outside the two zero bands) comes from old (pre-witness-stack) byte
 `lowSrc o`: buf0 | region1 | buf1 | region2 | buf2 | region3 ++ buf3 | tail. -/
 def lowSrc (o : Nat) : Nat :=
-  if o < 11848 then o + 11264 else if o < 14496 then o + 472 else if o < 15184 then o + 7080
-  else if o < 17752 then o - 216 else if o < 18440 then o + 3088 else if o < 21696 then o - 904 else o + 1480
+  if o < 11976 then o + 11136 else if o < 14624 then o + 344 else if o < 15312 then o + 6952
+  else if o < 17880 then o - 344 else if o < 18568 then o + 2960 else if o < 21824 then o - 1032 else o + 1224
 
-theorem stage7_low (M : Nat → Word) (o : Nat) (h1 : 11032 ≤ o) (h2 : o < 21760) (h8 : o % 8 = 0) :
-    stage7 M (4256 + o) = M (2904 + lowSrc o) := by
+theorem stage7_low (M : Nat → Word) (o : Nat) (h1 : 11160 ≤ o) (h2 : o < 22016) (h8 : o % 8 = 0)
+    (hg : o < 21824 ∨ 21984 ≤ o) : stage7 M (4128 + o) = M (2904 + lowSrc o) := by
   unfold lowSrc
   rw [stage7_unfold, zfill_miss _ _ _ _ (by omega), bmv_miss _ _ _ _ _ (by omega)]
-  by_cases ha : o < 11848
-  · rw [if_pos ha, dmv_miss _ _ _ _ (by omega), fcp_miss _ _ _ _ _ (by omega), fcp_miss _ _ _ _ _ (by omega),
+  by_cases ha : o < 11976
+  · rw [if_pos ha, zfill_miss _ _ _ _ (by omega), fcp_miss _ _ _ _ _ (by omega), fcp_miss _ _ _ _ _ (by omega),
       fcp_hit _ _ _ _ _ (by omega) (by omega) (by omega), bmv_miss _ _ _ _ _ (by omega),
       bmv_miss _ _ _ _ _ (by omega), bmv_miss _ _ _ _ _ (by omega),
       fcp_hit _ _ _ _ _ (by omega) (by omega) (by omega), fcp_miss _ _ _ _ _ (by omega),
       fcp_miss _ _ _ _ _ (by omega)]
     exact congrArg M (by omega)
   rw [if_neg ha]
-  by_cases hb : o < 14496
-  · rw [if_pos hb, dmv_miss _ _ _ _ (by omega), fcp_miss _ _ _ _ _ (by omega), fcp_miss _ _ _ _ _ (by omega),
+  by_cases hb : o < 14624
+  · rw [if_pos hb, zfill_miss _ _ _ _ (by omega), fcp_miss _ _ _ _ _ (by omega), fcp_miss _ _ _ _ _ (by omega),
       fcp_miss _ _ _ _ _ (by omega), bmv_hit _ _ _ _ _ (by omega) (by omega) (by omega),
       bmv_miss _ _ _ _ _ (by omega), bmv_miss _ _ _ _ _ (by omega),
       fcp_miss _ _ _ _ _ (by omega), fcp_miss _ _ _ _ _ (by omega), fcp_miss _ _ _ _ _ (by omega)]
     exact congrArg M (by omega)
   rw [if_neg hb]
-  by_cases hc : o < 15184
-  · rw [if_pos hc, dmv_miss _ _ _ _ (by omega), fcp_miss _ _ _ _ _ (by omega),
+  by_cases hc : o < 15312
+  · rw [if_pos hc, zfill_miss _ _ _ _ (by omega), fcp_miss _ _ _ _ _ (by omega),
       fcp_hit _ _ _ _ _ (by omega) (by omega) (by omega), fcp_miss _ _ _ _ _ (by omega),
       bmv_miss _ _ _ _ _ (by omega), bmv_miss _ _ _ _ _ (by omega), bmv_miss _ _ _ _ _ (by omega),
       fcp_hit _ _ _ _ _ (by omega) (by omega) (by omega), fcp_miss _ _ _ _ _ (by omega),
       fcp_miss _ _ _ _ _ (by omega)]
     exact congrArg M (by omega)
   rw [if_neg hc]
-  by_cases hd : o < 17752
-  · rw [if_pos hd, dmv_miss _ _ _ _ (by omega), fcp_miss _ _ _ _ _ (by omega), fcp_miss _ _ _ _ _ (by omega),
+  by_cases hd : o < 17880
+  · rw [if_pos hd, zfill_miss _ _ _ _ (by omega), fcp_miss _ _ _ _ _ (by omega), fcp_miss _ _ _ _ _ (by omega),
       fcp_miss _ _ _ _ _ (by omega), bmv_miss _ _ _ _ _ (by omega),
       bmv_hit _ _ _ _ _ (by omega) (by omega) (by omega), bmv_miss _ _ _ _ _ (by omega),
       fcp_miss _ _ _ _ _ (by omega), fcp_miss _ _ _ _ _ (by omega), fcp_miss _ _ _ _ _ (by omega)]
     exact congrArg M (by omega)
   rw [if_neg hd]
-  by_cases he : o < 18440
-  · rw [if_pos he, dmv_miss _ _ _ _ (by omega), fcp_hit _ _ _ _ _ (by omega) (by omega) (by omega),
+  by_cases he : o < 18568
+  · rw [if_pos he, zfill_miss _ _ _ _ (by omega), fcp_hit _ _ _ _ _ (by omega) (by omega) (by omega),
       fcp_miss _ _ _ _ _ (by omega), fcp_miss _ _ _ _ _ (by omega),
       bmv_miss _ _ _ _ _ (by omega), bmv_miss _ _ _ _ _ (by omega), bmv_miss _ _ _ _ _ (by omega),
       fcp_hit _ _ _ _ _ (by omega) (by omega) (by omega), fcp_miss _ _ _ _ _ (by omega),
       fcp_miss _ _ _ _ _ (by omega)]
     exact congrArg M (by omega)
   rw [if_neg he]
-  by_cases hf : o < 21696
-  · rw [if_pos hf, dmv_miss _ _ _ _ (by omega), fcp_miss _ _ _ _ _ (by omega), fcp_miss _ _ _ _ _ (by omega),
+  by_cases hf : o < 21824
+  · rw [if_pos hf, zfill_miss _ _ _ _ (by omega), fcp_miss _ _ _ _ _ (by omega), fcp_miss _ _ _ _ _ (by omega),
       fcp_miss _ _ _ _ _ (by omega), bmv_miss _ _ _ _ _ (by omega), bmv_miss _ _ _ _ _ (by omega),
       bmv_hit _ _ _ _ _ (by omega) (by omega) (by omega),
       fcp_miss _ _ _ _ _ (by omega), fcp_miss _ _ _ _ _ (by omega), fcp_miss _ _ _ _ _ (by omega)]
     exact congrArg M (by omega)
-  rw [if_neg hf, dmv_hit _ _ _ _ (by omega) (by omega) (by omega), fcp_miss _ _ _ _ _ (by omega),
-    fcp_miss _ _ _ _ _ (by omega), fcp_miss _ _ _ _ _ (by omega), bmv_miss _ _ _ _ _ (by omega),
-    bmv_miss _ _ _ _ _ (by omega), bmv_miss _ _ _ _ _ (by omega), fcp_miss _ _ _ _ _ (by omega),
-    fcp_miss _ _ _ _ _ (by omega), fcp_miss _ _ _ _ _ (by omega)]
+  rw [if_neg hf, zfill_miss _ _ _ _ (by omega), fcp_miss _ _ _ _ _ (by omega), fcp_miss _ _ _ _ _ (by omega),
+    fcp_miss _ _ _ _ _ (by omega), bmv_miss _ _ _ _ _ (by omega), bmv_miss _ _ _ _ _ (by omega),
+    bmv_miss _ _ _ _ _ (by omega), fcp_miss _ _ _ _ _ (by omega), fcp_miss _ _ _ _ _ (by omega),
+    fcp_miss _ _ _ _ _ (by omega)]
   exact congrArg M (by omega)
 
-/-- T1: the zero band before the top leaf buffer (E4: the tail band now comes from the down copy). -/
-theorem stage7_gap0 (M : Nat → Word) (o : Nat) (h1 : 11016 ≤ o) (h2 : o < 11032) (h8 : o % 8 = 0) :
-    stage7 M (4256 + o) = 0 := by
-  rw [show 4256 + o = 11920 + (o - 7664) by omega]
+/-- T1: the two zero bands. -/
+theorem stage7_gap0 (M : Nat → Word) (o : Nat) (h1 : 11144 ≤ o) (h2 : o < 11160) (h8 : o % 8 = 0) :
+    stage7 M (4128 + o) = 0 := by
+  rw [show 4128 + o = 11792 + (o - 7664) by omega]
   exact stage7_top M _ (by omega) (by omega)
+theorem stage7_gap1 (M : Nat → Word) (o : Nat) (h1 : 21824 ≤ o) (h2 : o < 21984) (h8 : o % 8 = 0) :
+    stage7 M (4128 + o) = 0 := by
+  rw [stage7_unfold, zfill_miss _ _ _ _ (by omega), bmv_miss _ _ _ _ _ (by omega)]
+  exact zfill_hit _ _ _ _ (by omega) (by omega) (by omega)
 
 /-- Away from the top region the value copies and row blocks do not write. -/
-theorem ppMem_out (leaf : Nat) (M : Nat → Word) (A : Nat) (h : (4176 ≤ A ∧ A < 11920) ∨ 15272 ≤ A) :
+theorem ppMem_out (leaf : Nat) (M : Nat → Word) (A : Nat) (h : A < 11792 ∨ 15272 ≤ A) :
     ppMem leaf M A = stage7 M A := by
   rw [ppMem_eq, rowFun_miss _ _ _ (fun e he => by
       have := rowsB_dst _ (Nat.mod_lt _ (by decide)) e he; omega),
@@ -290,8 +285,8 @@ theorem leafBuffer_win (sig : WCT9.Signature) (lay : Layer) (j : Nat)
   rw [hZ, window_append_left _ _ _ _ (by
     rw [ClaudeWCT.W9.T3M.leafBufferBytes_length]; have := ClaudeWCT.W9.T3M.leafBufferLen_le lay; omega)]
 
-theorem lower_window (N : HashOutput) (w : WCT9.Witness) (o : Nat) (h1 : 11032 ≤ o) (h2 : o < 21760)
-    (h8 : o % 8 = 0) :
+theorem lower_window (N : HashOutput) (w : WCT9.Witness) (o : Nat) (h1 : 11160 ≤ o) (h2 : o < 22016)
+    (h8 : o % 8 = 0) (hg : o < 21824 ∨ 21984 ≤ o) :
     window (ClaudeWCT.W9.T3M.witList N w) o 8 = window (OldW.witList N w) (lowSrc o) 8 := by
   have hlay : ∀ lay : Layer, lay.val ≠ 0 → ClaudeWCT.W9.T3M.layerBase lay ≤ o →
       o + 8 ≤ ClaudeWCT.W9.T3M.layerBase lay + (16 * ClaudeWCT.W9.T3M.pathSlots lay + ClaudeWCT.W9.T3M.chainArea lay) →
@@ -314,57 +309,44 @@ theorem lower_window (N : HashOutput) (w : WCT9.Witness) (o : Nat) (h1 : 11032 �
     rw [hob, show ClaudeWCT.W9.T3M.leafBufferBase lay + j - ClaudeWCT.W9.T3M.leafBufferBase lay = j by omega,
       OldW.win_leafBuffer _ _ _ _ _ (by omega), leafBuffer_win _ _ _ (by omega),
       ClaudeWCT.W9.T3M.win_leafBuffer _ _ _ _ _ (by omega)]
-  have ls : ∀ o, lowSrc o = if o < 11848 then o + 11264 else if o < 14496 then o + 472 else if o < 15184 then o + 7080
-      else if o < 17752 then o - 216 else if o < 18440 then o + 3088 else if o < 21696 then o - 904 else o + 1480 :=
+  have ls : ∀ o, lowSrc o = if o < 11976 then o + 11136 else if o < 14624 then o + 344 else if o < 15312 then o + 6952
+      else if o < 17880 then o - 344 else if o < 18568 then o + 2960 else if o < 21824 then o - 1032 else o + 1224 :=
     fun _ => rfl
-  by_cases ha : o < 11848
-  · exact hbuf 0 (show 11032 ≤ o by omega) (show o + 8 ≤ 11032 + 816 by omega)
-      (by rw [ls, if_pos ha]; show o + 11264 = 22296 + (o - 11032); omega) (by decide)
-  by_cases hb : o < 14496
-  · exact hlay 1 (by decide) (show 11848 ≤ o by omega) (show o + 8 ≤ 11848 + (16 * 25 + 2248) by omega)
-      (by rw [ls, if_neg ha, if_pos hb]; show o + 472 = 12320 + (o - 11848); omega) rfl rfl
-  by_cases hc : o < 15184
-  · exact hbuf 1 (show 14496 ≤ o by omega) (show o + 8 ≤ 14496 + 688 by omega)
-      (by rw [ls, if_neg ha, if_neg hb, if_pos hc]; show o + 7080 = 21576 + (o - 14496); omega) (by decide)
-  by_cases hd : o < 17752
-  · exact hlay 2 (by decide) (show 15184 ≤ o by omega) (show o + 8 ≤ 15184 + (16 * 20 + 2248) by omega)
-      (by rw [ls, if_neg ha, if_neg hb, if_neg hc, if_pos hd]; show o - 216 = 14968 + (o - 15184); omega) rfl rfl
-  by_cases he : o < 18440
-  · exact hbuf 2 (show 17752 ≤ o by omega) (show o + 8 ≤ 17752 + 688 by omega)
-      (by rw [ls, if_neg ha, if_neg hb, if_neg hc, if_neg hd, if_pos he]; show o + 3088 = 20840 + (o - 17752); omega) (by decide)
-  by_cases hf : o < 21008
-  · exact hlay 3 (by decide) (show 18440 ≤ o by omega) (show o + 8 ≤ 18440 + (16 * 20 + 2248) by omega)
-      (by rw [ls, if_neg ha, if_neg hb, if_neg hc, if_neg hd, if_neg he, if_pos (by omega)]; show o - 904 = 17536 + (o - 18440); omega)
+  by_cases ha : o < 11976
+  · exact hbuf 0 (show 11160 ≤ o by omega) (show o + 8 ≤ 11160 + 816 by omega)
+      (by rw [ls, if_pos ha]; show o + 11136 = 22296 + (o - 11160); omega) (by decide)
+  by_cases hb : o < 14624
+  · exact hlay 1 (by decide) (show 11976 ≤ o by omega) (show o + 8 ≤ 11976 + (16 * 25 + 2248) by omega)
+      (by rw [ls, if_neg ha, if_pos hb]; show o + 344 = 12320 + (o - 11976); omega) rfl rfl
+  by_cases hc : o < 15312
+  · exact hbuf 1 (show 14624 ≤ o by omega) (show o + 8 ≤ 14624 + 688 by omega)
+      (by rw [ls, if_neg ha, if_neg hb, if_pos hc]; show o + 6952 = 21576 + (o - 14624); omega) (by decide)
+  by_cases hd : o < 17880
+  · exact hlay 2 (by decide) (show 15312 ≤ o by omega) (show o + 8 ≤ 15312 + (16 * 20 + 2248) by omega)
+      (by rw [ls, if_neg ha, if_neg hb, if_neg hc, if_pos hd]; show o - 344 = 14968 + (o - 15312); omega) rfl rfl
+  by_cases he : o < 18568
+  · exact hbuf 2 (show 17880 ≤ o by omega) (show o + 8 ≤ 17880 + 688 by omega)
+      (by rw [ls, if_neg ha, if_neg hb, if_neg hc, if_neg hd, if_pos he]; show o + 2960 = 20840 + (o - 17880); omega) (by decide)
+  by_cases hf : o < 21136
+  · exact hlay 3 (by decide) (show 18568 ≤ o by omega) (show o + 8 ≤ 18568 + (16 * 20 + 2248) by omega)
+      (by rw [ls, if_neg ha, if_neg hb, if_neg hc, if_neg hd, if_neg he, if_pos (by omega)]; show o - 1032 = 17536 + (o - 18568); omega)
       rfl rfl
-  by_cases hg' : o < 21696
-  · exact hbuf 3 (show 21008 ≤ o by omega) (show o + 8 ≤ 21008 + 688 by omega)
-      (by rw [ls, if_neg ha, if_neg hb, if_neg hc, if_neg hd, if_neg he, if_pos hg']; show o - 904 = 20104 + (o - 21008); omega)
+  by_cases hg' : o < 21824
+  · exact hbuf 3 (show 21136 ≤ o by omega) (show o + 8 ≤ 21136 + 688 by omega)
+      (by rw [ls, if_neg ha, if_neg hb, if_neg hc, if_neg hd, if_neg he, if_pos hg']; show o - 1032 = 20104 + (o - 21136); omega)
       (by decide)
-  have hl : lowSrc o = o + 1480 := by
-    rw [ls, if_neg ha, if_neg hb, if_neg hc, if_neg hd, if_neg he, if_neg hg']
-  rw [hl]
-  by_cases hband : o < 21728
-  · -- E4: the 32-byte band: zeros in the new layout, the zero tail of the old top leaf buffer
-    have hLB : OldW.leafBufferBase 0 = 22296 := rfl
-    have hLL : OldW.leafBufferLen 0 = 912 := rfl
-    rw [ClaudeWCT.W9.T3M.win_gap1 _ _ _ _ (by omega) (by omega),
-      show o + 1480 = OldW.leafBufferBase 0 + (o - 20816) by rw [hLB]; omega,
-      OldW.win_leafBuffer _ _ _ _ _ (by rw [hLL]; omega)]
-    unfold OldW.leafBufferBytes
-    rw [if_pos rfl, window_append_right _ _ _ _ (by
-        simp [OldW.endpointBytes, List.length_flatMap, bytesLE_length, chainCount, zeros_length]; omega)]
-    simp [OldW.endpointBytes, List.length_flatMap, bytesLE_length, chainCount, zeros_length]
-    rw [window_zeros _ _ _ (by omega)]
-  obtain ⟨j, rfl⟩ : ∃ j, o = 21728 + j := ⟨o - 21728, by omega⟩
-  rw [show 21728 + j + 1480 = 23208 + j by omega, OldW.win_tail _ _ _ _ (by omega),
+  have hl : lowSrc o = 23208 + (o - 21984) := by
+    rw [ls, if_neg ha, if_neg hb, if_neg hc, if_neg hd, if_neg he, if_neg hg']; omega
+  obtain ⟨j, rfl⟩ : ∃ j, o = 21984 + j := ⟨o - 21984, by omega⟩
+  rw [hl, show 21984 + j - 21984 = j by omega, OldW.win_tail _ _ _ _ (by omega),
     ClaudeWCT.W9.T3M.win_tail _ _ _ _ (by omega)]
   rfl
 
 /-! ### Top region -/
 theorem rowFun_some {pairs : List (Nat × Nat)} {q s : Nat} (M : Nat → Word) (h : rowSrc pairs q = some s) :
-    rowFun pairs M (11920 + q) = M (0x301000 + s) := by rw [rowFun_eq, h]
+    rowFun pairs M (11792 + q) = M (0x301000 + s) := by rw [rowFun_eq, h]
 theorem rowFun_none {pairs : List (Nat × Nat)} {q : Nat} (M : Nat → Word) (h : rowSrc pairs q = none) :
-    rowFun pairs M (11920 + q) = M (11920 + q) := by rw [rowFun_eq, h]
+    rowFun pairs M (11792 + q) = M (11792 + q) := by rw [rowFun_eq, h]
 
 theorem win_sub (L : List UInt8) (a h : Nat) (hh : h < 2) : window L (a + 8 * h) 8 = window (window L a 16) (8 * h) 8 :=
   (window_window L a 16 (8 * h) 8 (by omega)).symm
@@ -387,29 +369,19 @@ theorem topPair_win {lay : Layer} (ls : LayerSignature lay) (p t : Nat) (ht : t 
       window_append_right _ _ _ _ (by rw [zeros_length]; omega), zeros_length]
     congr 1 <;> omega
 
-theorem topChain_win (ls : LayerSignature 0) (m t : Nat) (hm : m < 25) (ht : t < 13) :
-    window (ClaudeWCT.W9.T3M.topChainBytes ls) (80 + (104 * m + 8 * t)) 8 =
-      window (ClaudeWCT.W9.T3M.topPairBytes ls (24 - m)) (8 * t) 8 := by
+theorem topChain_win (ls : LayerSignature 0) (m t : Nat) (hm : m < 27) (ht : t < 13) :
+    window (ClaudeWCT.W9.T3M.topChainBytes ls) (104 * m + 8 * t) 8 =
+      window (ClaudeWCT.W9.T3M.topPairBytes ls (26 - m)) (8 * t) 8 := by
   unfold ClaudeWCT.W9.T3M.topChainBytes
-  rw [window_append_right _ _ _ _ (by simp [ClaudeWCT.W9.T3M.topPairBytes_length]),
-    show 80 + (104 * m + 8 * t) - ((ClaudeWCT.W9.T3M.topPairBytes ls 25).take 80).length = 104 * m + 8 * t by
-      simp [ClaudeWCT.W9.T3M.topPairBytes_length],
-    window_flatMap_const _ _ 104 (ClaudeWCT.W9.T3M.topPairBytes_length ls) m (by simp; omega) _ _ (by omega)]
-  have hidx : ((List.range 25).reverse)[m]'(by simp <;> omega) = 24 - m := by simp <;> omega
+  rw [window_flatMap_const _ _ 104 (ClaudeWCT.W9.T3M.topPairBytes_length ls) m (by simp; omega) _ _ (by omega)]
+  have hidx : ((List.range 27).reverse)[m]'(by simp <;> omega) = 26 - m := by simp <;> omega
   rw [hidx]
 
-/-- E4: chain 50's G block is the first 80 bytes of top pair 25. -/
-theorem topChain_win50 (ls : LayerSignature 0) (t : Nat) (ht : t < 10) :
-    window (ClaudeWCT.W9.T3M.topChainBytes ls) (8 * t) 8 = window (ClaudeWCT.W9.T3M.topPairBytes ls 25) (8 * t) 8 := by
-  unfold ClaudeWCT.W9.T3M.topChainBytes
-  rw [window_append_left _ _ _ _ (by simp [ClaudeWCT.W9.T3M.topPairBytes_length]; omega),
-    SigGolfCandidate.T3M.window_take _ _ _ _ (by omega)]
-
-theorem win_topChain (N : HashOutput) (w : WCT9.Witness) (c : Nat) (hc : c + 8 ≤ 2680) :
+theorem win_topChain (N : HashOutput) (w : WCT9.Witness) (c : Nat) (hc : c + 8 ≤ 2808) :
     window (ClaudeWCT.W9.T3M.witList N w) (7664 + (672 + c)) 8 =
       window (ClaudeWCT.W9.T3M.topChainBytes (w.signature.layers 0)) c 8 := by
   rw [show 7664 + (672 + c) = ClaudeWCT.W9.T3M.layerBase 0 + (672 + c) from rfl,
-    ClaudeWCT.W9.T3M.win_layerRegion _ _ _ _ _ (show 672 + c + 8 ≤ 3352 by omega)]
+    ClaudeWCT.W9.T3M.win_layerRegion _ _ _ _ _ (show 672 + c + 8 ≤ 3480 by omega)]
   unfold ClaudeWCT.W9.T3M.layerRegion
   rw [if_pos (show (0 : Layer).val = 0 from rfl),
     window_append_right _ _ _ _ (by rw [ClaudeWCT.W9.T3M.topPathBytes_length]; show 672 ≤ 672 + c; omega),
@@ -454,8 +426,8 @@ theorem old_value_win (N : HashOutput) (w : WCT9.Witness) (i h : Nat) (hi : i < 
 theorem top_word (N : HashOutput) (w : WCT9.Witness) (M : Nat → Word)
     (hO : ∀ o, 8096 ≤ o → o < 12320 → o % 8 = 0 →
       M (2904 + o) = BitVec.ofNat 64 (readLE (window (OldW.witList N w) o 8)))
-    (q : Nat) (hq : q < 3352) (h8 : q % 8 = 0) :
-    ppMem (route (WCT9.digestIndex N) 0).1 M (11920 + q) =
+    (q : Nat) (hq : q < 3480) (h8 : q % 8 = 0) :
+    ppMem (route (WCT9.digestIndex N) 0).1 M (11792 + q) =
       BitVec.ofNat 64 (readLE (window (ClaudeWCT.W9.T3M.witList N w) (7664 + q) 8)) := by
   set leaf := (route (WCT9.digestIndex N) 0).1 with hleaf
   set ls := w.signature.layers 0 with hls
@@ -544,41 +516,13 @@ theorem top_word (N : HashOutput) (w : WCT9.Witness) (M : Nat → Word)
       rfl
   · -- chain area
     obtain ⟨c, rfl⟩ : ∃ c, q = 672 + c := ⟨q - 672, by omega⟩
-    by_cases h50 : c < 80
-    · -- E4: chain 50's block
-      have ht : c / 8 < 10 := by omega
-      have hc : c = 8 * (c / 8) := by omega
-      rw [ppMem_eq, rowFun_miss _ _ _ (fun e he => by have := rowsB_dst _ hr' e he; omega),
-        rowFun_miss _ _ _ (fun e he => by have := rowsA_dst _ hr e he; omega), vFun_eq,
-        show 11920 + (672 + c) = 12592 + 8 * (c / 8) by omega,
-        vSrc_table50 _ ht, win_topChain N w c (by omega), hc, topChain_win50 ls _ ht, topPair_win ls _ _ (by omega)]
-      rw [← hc]
-      generalize htt : c / 8 = t at ht hc
-      by_cases t1 : t < 2
-      · rw [if_neg (by omega), if_pos t1]
-        dsimp only
-        rw [show 12592 + 8 * t = 11920 + (672 + 8 * t) by omega,
-          stage7_top _ _ (by omega) (by omega), readLE_zeros8] <;> rfl
-      by_cases t2 : t < 4
-      · rw [if_pos (by omega), if_neg t1, if_pos t2]
-        dsimp only
-        rw [stage7_chain _ _ (by omega) (by omega),
-          show 11768 + (240 + 8 * (t - 2)) = 2904 + (8864 + 64 * (53 - 50) + 48 + 8 * (t - 2)) by omega,
-          hO _ (by omega) (by omega) (by omega), old_value_win N w 50 (t - 2) (by omega) (by omega),
-          show 8 * (t - 2) = 8 * t - 16 by omega, show 2 * 25 = 50 from rfl]
-        rw [hc, hls]
-      · rw [if_neg (by omega), if_neg t1, if_neg t2, if_pos (by omega)]
-        dsimp only
-        rw [show 12592 + 8 * t = 11920 + (672 + 8 * t) by omega,
-          stage7_top _ _ (by omega) (by omega), readLE_zeros8] <;> rfl
-    obtain ⟨c, rfl⟩ : ∃ c', c = 80 + c' := ⟨c - 80, by omega⟩
-    have hm : c / 104 < 25 := by omega
+    have hm : c / 104 < 27 := by omega
     have ht : c % 104 / 8 < 13 := by omega
     have hc : c = 104 * (c / 104) + 8 * (c % 104 / 8) := by omega
     rw [ppMem_eq, rowFun_miss _ _ _ (fun e he => by have := rowsB_dst _ hr' e he; omega),
       rowFun_miss _ _ _ (fun e he => by have := rowsA_dst _ hr e he; omega), vFun_eq,
-      show 11920 + (672 + (80 + c)) = 12672 + 104 * (c / 104) + 8 * (c % 104 / 8) by omega,
-      vSrc_table _ hm _ ht, win_topChain N w (80 + c) (by omega), hc, topChain_win ls _ _ hm ht, topPair_win ls _ _ ht]
+      show 11792 + (672 + c) = 12464 + 104 * (c / 104) + 8 * (c % 104 / 8) by omega,
+      vSrc_table _ hm _ ht, win_topChain N w c (by omega), hc, topChain_win ls _ _ hm ht, topPair_win ls _ _ ht]
     rw [← hc]
     generalize hmm : c / 104 = m at hm hc
     generalize htt : c % 104 / 8 = t at ht hc
@@ -586,26 +530,26 @@ theorem top_word (N : HashOutput) (w : WCT9.Witness) (M : Nat → Word)
     by_cases t1 : t < 2
     · rw [if_neg (by omega), if_neg (by omega), if_pos t1]
       dsimp only
-      rw [show 12672 + 104 * m + 8 * t = 11920 + (672 + (80 + (104 * m + 8 * t))) by omega,
+      rw [show 12464 + 104 * m + 8 * t = 11792 + (672 + 104 * m + 8 * t) by omega,
         stage7_top _ _ (by omega) (by omega), readLE_zeros8] <;> rfl
     by_cases t2 : t < 4
     · rw [if_pos (by omega), if_neg t1, if_pos t2]
       dsimp only
       rw [stage7_chain _ _ (by omega) (by omega),
-        show 11768 + (64 * (53 - 2 * (24 - m)) + 48 + 8 * (t - 2)) =
-          2904 + (8864 + 64 * (53 - 2 * (24 - m)) + 48 + 8 * (t - 2)) by omega,
+        show 11768 + (64 * (53 - 2 * (26 - m)) + 48 + 8 * (t - 2)) =
+          2904 + (8864 + 64 * (53 - 2 * (26 - m)) + 48 + 8 * (t - 2)) by omega,
         hO _ (by omega) (by omega) (by omega), old_value_win N w _ _ (by omega) (by omega),
         show 8 * (t - 2) = 8 * t - 16 by omega]
     by_cases t3 : t < 11
     · rw [if_neg (by omega), if_neg (by omega), if_neg t1, if_neg t2, if_pos t3]
       dsimp only
-      rw [show 12672 + 104 * m + 8 * t = 11920 + (672 + (80 + (104 * m + 8 * t))) by omega,
+      rw [show 12464 + 104 * m + 8 * t = 11792 + (672 + 104 * m + 8 * t) by omega,
         stage7_top _ _ (by omega) (by omega), readLE_zeros8] <;> rfl
     · rw [if_neg (by omega), if_pos (by omega), if_neg t1, if_neg t2, if_neg t3]
       dsimp only
       rw [stage7_chain _ _ (by omega) (by omega),
-        show 11768 + (64 * (53 - (2 * (24 - m) + 1)) + 48 + 8 * (t - 11)) =
-          2904 + (8864 + 64 * (53 - (2 * (24 - m) + 1)) + 48 + 8 * (t - 11)) by omega,
+        show 11768 + (64 * (53 - (2 * (26 - m) + 1)) + 48 + 8 * (t - 11)) =
+          2904 + (8864 + 64 * (53 - (2 * (26 - m) + 1)) + 48 + 8 * (t - 11)) by omega,
         hO _ (by omega) (by omega) (by omega), old_value_win N w _ _ (by omega) (by omega),
         show 8 * (t - 11) = 8 * t - 88 by omega]
 end ClaudeWCT.W9.Machine.Expand.PostEnc
@@ -622,7 +566,7 @@ Main result `ppMem_witEnc`: if, at the post-pass entry (pc 49400), the memory `M
 * (choice) at `2904 + 8 · 2789 = 25216` that old word with its low byte replaced by `choiceByte w.topHigh`
   (the `end` routine's `sb`),
 * (leaf) `leafOf (M 0x20160) ≡ route leaf of digestIndex output (mod 4096)`,
-then `ppMem (leafOf (M 0x20160)) M` holds the 2720 words of `Paired.witEnc output w` at `4256 + 8 k` — exactly the
+then `ppMem (leafOf (M 0x20160)) M` holds the 2752 words of `Paired.witEnc output w` at `4128 + 8 k` — exactly the
 `hbuf` hypothesis of `PadWit.padMem_witEncN` / `pad_hook_witEncN`. -/
 
 set_option autoImplicit false
@@ -650,25 +594,25 @@ theorem witEnc_word (N : HashOutput) (w : WCT9.Witness) (o : Nat) :
     (ClaudeWCT.W9.T3M.witEnc N w).extractLsb' (8 * o) 64 =
       BitVec.ofNat 64 (readLE (window (ClaudeWCT.W9.T3M.witList N w) o 8)) := by
   unfold ClaudeWCT.W9.T3M.witEnc
-  exact ClaudeWCT.W9.T3M.extract_readLE_lt _ 21756 (ClaudeWCT.W9.T3M.witList_readLE_lt N w) o 8
+  exact ClaudeWCT.W9.T3M.extract_readLE_lt _ 22012 (ClaudeWCT.W9.T3M.witList_readLE_lt N w) o 8
 
 /-- Paired words at offsets `≥ 7664`: the non-paired encoding of the main witness (choice word aside). -/
 theorem paired_word_tail (output : HashOutput) (w : SigGolfCandidate.Research.SharedForest.Witness) (o : Nat)
-    (h1 : 7664 ≤ o) (hc : o + 8 ≤ 11048 ∨ 11048 < o) :
+    (h1 : 7664 ≤ o) (hc : o + 8 ≤ 11176 ∨ 11176 < o) :
     (ClaudeWCT.W9.T3M.Paired.witEnc output w).extractLsb' (8 * o) 64 =
       BitVec.ofNat 64 (readLE (window (ClaudeWCT.W9.T3M.witList output (ClaudeWCT.W9.T3M.Paired.mainWitness w)) o 8)) := by
   rw [ClaudeWCT.W9.T3M.Paired.word_witEnc_tail output w o h1 hc, witEnc_word]
 
 theorem paired_word_choice (output : HashOutput) (w : SigGolfCandidate.Research.SharedForest.Witness) :
-    (ClaudeWCT.W9.T3M.Paired.witEnc output w).extractLsb' (8 * 11048) 64 =
-      replaceByte (BitVec.ofNat 64 (readLE (window (ClaudeWCT.W9.T3M.witList output (ClaudeWCT.W9.T3M.Paired.mainWitness w)) 11048 8)))
+    (ClaudeWCT.W9.T3M.Paired.witEnc output w).extractLsb' (8 * 11176) 64 =
+      replaceByte (BitVec.ofNat 64 (readLE (window (ClaudeWCT.W9.T3M.witList output (ClaudeWCT.W9.T3M.Paired.mainWitness w)) 11176 8)))
         0 (choiceByte w.topHigh).toBitVec := by
   have e := ClaudeWCT.W9.T3M.PairedReadout.choiceWord_witEnc output w
-  rw [show 8 * (8 * 1381) = 8 * 11048 by norm_num] at e
+  rw [show 8 * (8 * 1397) = 8 * 11176 by norm_num] at e
   rw [e, witEnc_word]
 
-theorem lowSrc_old (o : Nat) (h1 : 11032 ≤ o) (h2 : o < 21760) (h8 : o % 8 = 0) :
-    8096 ≤ lowSrc o ∧ lowSrc o < 23240 ∧ lowSrc o % 8 = 0 ∧ (lowSrc o = 22312 ↔ o = 11048) := by
+theorem lowSrc_old (o : Nat) (h1 : 11160 ≤ o) (h2 : o < 22016) (h8 : o % 8 = 0) (hg : o < 21824 ∨ 21984 ≤ o) :
+    8096 ≤ lowSrc o ∧ lowSrc o < 23240 ∧ lowSrc o % 8 = 0 ∧ (lowSrc o = 22312 ↔ o = 11176) := by
   unfold lowSrc; split_ifs <;> omega
 
 /-- **The encoding theorem.** -/
@@ -679,7 +623,7 @@ theorem ppMem_witEnc (output : HashOutput) (w : SigGolfCandidate.Research.Shared
     (hC : M (2904 + 8 * 2789) =
       replaceByte (oldWord output (ClaudeWCT.W9.T3M.Paired.mainWitness w) (8 * 2789)) 0 (choiceByte w.topHigh).toBitVec)
     (hleaf : leafOf (M 0x20160) % 4096 = (route (WCT9.digestIndex output) 0).1 % 4096) :
-    ∀ k, k < 2720 → ppMem (leafOf (M 0x20160)) M (4256 + 8 * k) = (ClaudeWCT.W9.T3M.Paired.witEnc output w).extractLsb' (64 * k) 64 := by
+    ∀ k, k < 2752 → ppMem (leafOf (M 0x20160)) M (4128 + 8 * k) = (ClaudeWCT.W9.T3M.Paired.witEnc output w).extractLsb' (64 * k) 64 := by
   intro k hk
   rw [ppMem_leaf_congr _ _ hleaf]
   by_cases hfts : k < 958
@@ -690,32 +634,39 @@ theorem ppMem_witEnc (output : HashOutput) (w : SigGolfCandidate.Research.Shared
     have := hO (o / 8) (by omega) (by omega) (by omega)
     rwa [show 8 * (o / 8) = o by omega] at this
   rw [show 64 * k = 8 * (8 * k) by ring]
-  by_cases htop : k < 1377
-  · -- top layer (new bytes [7664, 11016))
+  by_cases htop : k < 1393
+  · -- top layer (new bytes [7664, 11144))
     have e := top_word output (ClaudeWCT.W9.T3M.Paired.mainWitness w) M hO' (8 * k - 7664) (by omega) (by omega)
-    rw [show 11920 + (8 * k - 7664) = 4256 + 8 * k by omega, show 7664 + (8 * k - 7664) = 8 * k by omega] at e
+    rw [show 11792 + (8 * k - 7664) = 4128 + 8 * k by omega, show 7664 + (8 * k - 7664) = 8 * k by omega] at e
     rw [e, paired_word_tail output w (8 * k) (by omega) (by omega)]
-  by_cases hz0 : k < 1379
-  · -- T1 zero band [11016, 11032)
+  by_cases hz0 : k < 1395
+  · -- T1 zero band [11144, 11160)
     rw [ppMem_out _ _ _ (by omega), stage7_gap0 _ _ (by omega) (by omega) (by omega),
       paired_word_tail output w (8 * k) (by omega) (by omega),
       ClaudeWCT.W9.T3M.win_gap0 _ _ _ _ (by omega) (by omega), readLE_zeros8] <;> rfl
-  · -- lower layers, leaf buffers, band and tail (new bytes [11032, 21760))
-    obtain ⟨b1, b2, b3, b4⟩ := lowSrc_old (8 * k) (by omega) (by omega) (by omega)
-    rw [ppMem_out _ _ _ (by omega), stage7_low _ _ (by omega) (by omega) (by omega)]
-    by_cases hch : k = 1381
+  by_cases hz1 : 2728 ≤ k ∧ k < 2748
+  · -- T1 zero band [21824, 21984)
+    rw [ppMem_out _ _ _ (by omega), stage7_gap1 _ _ (by omega) (by omega) (by omega),
+      paired_word_tail output w (8 * k) (by omega) (by omega),
+      ClaudeWCT.W9.T3M.win_gap1 _ _ _ _ (by omega) (by omega), readLE_zeros8] <;> rfl
+  · -- lower layers, leaf buffers, tail (new bytes [11160, 21824) and [21984, 22016))
+    have hg : 8 * k < 21824 ∨ 21984 ≤ 8 * k := by omega
+    obtain ⟨b1, b2, b3, b4⟩ := lowSrc_old (8 * k) (by omega) (by omega) (by omega) hg
+    rw [ppMem_out _ _ _ (by omega), stage7_low _ _ (by omega) (by omega) (by omega) hg]
+    by_cases hch : k = 1397
     · subst hch
-      have hd : lowSrc (8 * 1381) = 2904 + 8 * 2789 - 2904 := by
+      have hd : lowSrc (8 * 1397) = 2904 + 8 * 2789 - 2904 := by
         unfold lowSrc; norm_num
       rw [hd, show 2904 + (2904 + 8 * 2789 - 2904) = 2904 + 8 * 2789 by norm_num, hC, oldWord,
-        show 8 * 2789 = lowSrc (8 * 1381) from hd.symm,
-        ← lower_window output (ClaudeWCT.W9.T3M.Paired.mainWitness w) (8 * 1381) (by norm_num) (by norm_num) (by norm_num),
-        show 8 * 1381 = 11048 by norm_num, paired_word_choice]
+        show 8 * 2789 = lowSrc (8 * 1397) from hd.symm,
+        ← lower_window output (ClaudeWCT.W9.T3M.Paired.mainWitness w) (8 * 1397) (by norm_num) (by norm_num) (by norm_num)
+          (by norm_num),
+        show 8 * 1397 = 11176 by norm_num, paired_word_choice]
     · have hne : lowSrc (8 * k) ≠ 22312 := fun h => hch (by have := b4.mp h; omega)
       have := hO (lowSrc (8 * k) / 8) (by omega) (by omega) (by omega)
       rw [show 8 * (lowSrc (8 * k) / 8) = lowSrc (8 * k) by omega] at this
       rw [this, oldWord, ← lower_window output (ClaudeWCT.W9.T3M.Paired.mainWitness w) (8 * k) (by omega) (by omega)
-          (by omega),
+          (by omega) hg,
         paired_word_tail output w (8 * k) (by omega) (by omega)]
 
 /-- FTS hypothesis in window style (bytes `[0, 7664)` of `Paired.witList`). -/
@@ -725,11 +676,11 @@ theorem fts_word_window (output : HashOutput) (w : SigGolfCandidate.Research.Sha
       (ClaudeWCT.W9.T3M.Paired.witEnc output w).extractLsb' (64 * j) 64 := by
   unfold ClaudeWCT.W9.T3M.Paired.witEnc
   rw [show 64 * j = 8 * (8 * j) by ring, show (64 : Nat) = 8 * 8 from rfl,
-    ClaudeWCT.W9.T3M.PairedReadout.extract_readLE _ 21756 (8 * j) 8 (by omega)]
+    ClaudeWCT.W9.T3M.PairedReadout.extract_readLE _ 22012 (8 * j) 8 (by omega)]
   rfl
 
 /-- **Machine form.** Run the post-pass from pc 49400 to the pad-writer hook (pc 54174): the 2752 witness dwords at
-`0x10A0` hold `Paired.witEnc output w`. -/
+`0x1020` hold `Paired.witEnc output w`. -/
 theorem pp_witEnc (s : MachineState) (hpc : s.pc = pcOf 49400) (output : HashOutput)
     (w : SigGolfCandidate.Research.SharedForest.Witness)
     (hF : ∀ j, j < 958 → s.getMem (BitVec.ofNat 64 (2904 + 8 * j)) = (ClaudeWCT.W9.T3M.Paired.witEnc output w).extractLsb' (64 * j) 64)
@@ -738,21 +689,21 @@ theorem pp_witEnc (s : MachineState) (hpc : s.pc = pcOf 49400) (output : HashOut
     (hC : s.getMem (BitVec.ofNat 64 (2904 + 8 * 2789)) =
       replaceByte (oldWord output (ClaudeWCT.W9.T3M.Paired.mainWitness w) (8 * 2789)) 0 (choiceByte w.topHigh).toBitVec)
     (hleaf : leafOf (s.getMem (BitVec.ofNat 64 0x20160)) % 4096 = (route (WCT9.digestIndex output) 0).1 % 4096) :
-    ∃ t, Steps SigGolfCandidate.T3M.Images.expandImage s 17535 ppCycles t ∧ t.pc = pcOf 54174 ∧
+    ∃ t, Steps SigGolfCandidate.T3M.Images.expandImage s 17612 ppCycles t ∧ t.pc = pcOf 54174 ∧
       RegsExcept s t [.x6, .x7, .x10, .x28, .x29, .x30] ∧
-      (∀ k, k < 2720 → t.getMem (BitVec.ofNat 64 (4256 + 8 * k)) = (ClaudeWCT.W9.T3M.Paired.witEnc output w).extractLsb' (64 * k) 64) ∧
+      (∀ k, k < 2752 → t.getMem (BitVec.ofNat 64 (4128 + 8 * k)) = (ClaudeWCT.W9.T3M.Paired.witEnc output w).extractLsb' (64 * k) 64) ∧
       ∀ A < 2 ^ 64, t.getMem (BitVec.ofNat 64 A) =
         ppMem (leafOf (s.getMem (BitVec.ofNat 64 0x20160))) (fun B => s.getMem (BitVec.ofNat 64 B)) A := by
   obtain ⟨t, st, tp, tr, tm⟩ := pp_spec s hpc
   refine ⟨t, st, tp, tr, fun k hk => ?_, tm⟩
-  rw [tm (4256 + 8 * k) (by omega)]
+  rw [tm (4128 + 8 * k) (by omega)]
   exact ppMem_witEnc output w (fun B => s.getMem (BitVec.ofNat 64 B)) hF hO hC hleaf k hk
 
 /-- The post-pass leaves the nonce / saved-leaf scratch `[0x66700, 0x66760)` untouched. -/
 theorem ppMem_scratch (leaf : Nat) (M : Nat → Word) (A : Nat) (h1 : 0x66700 ≤ A) (h2 : A < 0x66760) :
     ppMem leaf M A = M A := by
   rw [ppMem_out _ _ _ (by omega), stage7_unfold, zfill_miss _ _ _ _ (by omega), bmv_miss _ _ _ _ _ (by omega),
-    dmv_miss _ _ _ _ (by omega), fcp_miss _ _ _ _ _ (by omega), fcp_miss _ _ _ _ _ (by omega),
+    zfill_miss _ _ _ _ (by omega), fcp_miss _ _ _ _ _ (by omega), fcp_miss _ _ _ _ _ (by omega),
     fcp_miss _ _ _ _ _ (by omega), bmv_miss _ _ _ _ _ (by omega), bmv_miss _ _ _ _ _ (by omega),
     bmv_miss _ _ _ _ _ (by omega), fcp_miss _ _ _ _ _ (by omega), fcp_miss _ _ _ _ _ (by omega),
     fcp_miss _ _ _ _ _ (by omega)]

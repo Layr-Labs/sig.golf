@@ -1,7 +1,5 @@
 import VCVio.EvalDist.Defs.Basic
 import Mathlib.MeasureTheory.Integral.MeanInequalities
-set_option debug.skipKernelTC true
-set_option linter.all false
 
 -- ==== merged from ClaudeWCT_Arith_ExpectHolder ====
 section

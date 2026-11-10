@@ -1,8 +1,6 @@
 import SigGolfCandidate.Merge050
 import SigGolfCandidate.Merge058
 import SigGolfCandidate.Merge059
-set_option debug.skipKernelTC false
-set_option linter.all false
 
 -- ==== merged from T3M_Expand_Blocks ====
 section
@@ -120,81 +118,6 @@ theorem codeAt_expand_last {b : Nat} {code : List (BitVec 32)}
   rw [← expandCodeTailLast_eq b hlo]
   exact hc
 
-universe u
-inductive AppendAssociationTree (α : Type u) where
-  | atom : List α → AppendAssociationTree α
-  | node : AppendAssociationTree α → AppendAssociationTree α → AppendAssociationTree α
-namespace AppendAssociationTree
-def eval {α : Type u} : AppendAssociationTree α → List α
-  | .atom xs => xs
-  | .node l r => eval l ++ eval r
-def right {α : Type u} : AppendAssociationTree α → Option (List α) → List α
-  | .atom xs, none => xs
-  | .atom xs, some ys => xs ++ ys
-  | .node l r, acc => right l (some (right r acc))
-theorem right_spec {α : Type u} (t : AppendAssociationTree α) (acc : Option (List α)) :
-    right t acc = match acc with | none => eval t | some xs => eval t ++ xs := by
-  induction t generalizing acc with
-  | atom xs => cases acc <;> rfl
-  | node l r ihl ihr =>
-    rw [right, ihl, ihr]
-    cases acc <;> simp only [eval, List.append_assoc]
-end AppendAssociationTree
-
-section RassocExpand172
-open Lean Meta Elab Command
-
-partial def reflectAppend (e : Expr) : MetaM Expr := do
-  if e.isAppOfArity ``HAppend.hAppend 6 then
-    let a := e.getAppArgs
-    mkAppM ``AppendAssociationTree.node #[← reflectAppend a[4]!, ← reflectAppend a[5]!]
-  else mkAppM ``AppendAssociationTree.atom #[e]
-
-/-- Right-associate the `++` spine of `e` (leaves untouched); `mk l r` rebuilds `l ++ r`. -/
-partial def rassocSpine (mk : Expr → Expr → Expr) : Expr → Option Expr → Expr
-  | e, acc =>
-    if e.isAppOfArity ``HAppend.hAppend 6 then
-      let args := e.getAppArgs
-      rassocSpine mk args[4]! (some (rassocSpine mk args[5]! acc))
-    else match acc with
-      | some a => mk e a
-      | none => e
-
-/-- `rassoc_def n := c` adds the definition `n` whose value is `c`'s value with its `++` spine
-right-associated. Only a faster term for the kernel: `n = c` is proved separately. -/
-elab "rassoc_def " n:ident " := " c:ident : command => do
-  let cn ← liftCoreM <| realizeGlobalConstNoOverloadWithInfo c
-  let info ← getConstInfo cn
-  let v := info.value!
-  let tree ← liftTermElabM do instantiateMVars (← reflectAppend v)
-  let treeTy ← liftTermElabM do inferType tree
-  let v' := if v.isAppOfArity ``HAppend.hAppend 6 then
-      let args := v.getAppArgs
-      rassocSpine (fun l r => mkAppN v.getAppFn #[args[0]!, args[1]!, args[2]!, args[3]!, l, r]) v none
-    else v
-  let name := (← getCurrNamespace) ++ n.getId
-  liftCoreM <| addDecl <| Declaration.defnDecl <|
-    mkDefinitionValEx (name ++ `tree) [] treeTy tree .abbrev .safe []
-  liftCoreM <| addDecl <| Declaration.defnDecl <|
-    mkDefinitionValEx name [] info.type v' .abbrev .safe [name]
-
-end RassocExpand172
-
-rassoc_def expandCode172R := Images.expandCode_172
-
-set_option maxHeartbeats 0 in
-set_option maxRecDepth 1000000 in
-/-- The right-associated expand tail is the image's last chunk. -/
-theorem expandCode_172_eq_R : Images.expandCode_172 = expandCode172R := by
-  exact (AppendAssociationTree.right_spec expandCode172R.tree none).symm
-
-/-- `codeAt_expand_last`, reading the window from the right-associated tail (cheap for the kernel). -/
-theorem codeAt_expand_lastR {b : Nat} {code : List (BitVec 32)}
-    (hlo : 44032 ≤ b) (hb : 0x1000 + 4 * b + 4 * code.length < 2 ^ 64)
-    (hc : (expandCode172R.drop (b - 44032)).take code.length = code) :
-    CodeAt Images.expandImage (pcOf b) code :=
-  codeAt_expand_last hlo hb (by rw [expandCode_172_eq_R]; exact hc)
-
 /-- A sub-window of a checked code window (no new kernel check of the image). -/
 theorem codeAt_sub {image : Image} {b : Nat} {code seg : List (BitVec 32)} (o : Nat)
     (hc : CodeAt image (pcOf b) code) (hlen : o + seg.length ≤ code.length)
@@ -211,11 +134,82 @@ theorem codeAt_sub {image : Image} {b : Nat} {code seg : List (BitVec 32)} (o : 
 
 /-- Campaign T51: the new expand code 54176..54738 (shared top kernel 54176, unpacker 54356, KCOPY 54522, KMAX
 54532, GT 54543, ZB 54553, DEC 54569), checked once against the image; every T51 block is a `codeAt_sub` of it. -/
-def t51Code : List (BitVec 32) := [0xa0537,0xa050513,0xa13,0x1000a93,0x231e13,0x3fce7e13,0xae0e33,0xf60e6c83,0xccde93,0x4efe93,0x1dc8cb3,0x635e13,0x3fce7e13,0xae0e33,0xe6e83,0x1dc8cb3,0xe35e13,0x3fce7e13,0xae0e33,0xe6e83,0x1dc8cb3,0x1635e13,0x3fce7e13,0xae0e33,0xe6e83,0x1dc8cb3,0x1e35e13,0x3fce7e13,0xae0e33,0xe6e83,0x1dc8cb3,0x2635e13,0x3fce7e13,0xae0e33,0xe6e83,0x1dc8cb3,0x2e35e13,0x3fce7e13,0xae0e33,0xe6e83,0x1dc8cb3,0x2f3de13,0x1fce7e13,0x13ce3e93,0x120e9863,0xae0e33,0x4c4e6e83,0x1dc8cb3,0x138f13,0x7ff7f13,0x13,0x2f1e13,0x1fce7e13,0xae0e33,0x400e6e83,0x1dc8cb3,0x53de13,0x1fce7e13,0xae0e33,0x400e6583,0xc3de13,0x1fce7e13,0xae0e33,0x400e6e83,0x1d585b3,0x133de13,0x1fce7e13,0xae0e33,0x400e6e83,0x1d585b3,0x1a3de13,0x1fce7e13,0xae0e33,0x400e6e83,0x1dc8cb3,0x213de13,0x1fce7e13,0xae0e33,0x400e6e83,0x1dc8cb3,0x283de13,0x1fce7e13,0xae0e33,0x400e6e83,0x1dc8cb3,0x3635e13,0x3fce7e13,0xae0e33,0xe6e83,0x1dc8cb3,0x363de13,0x3fce7e13,0xae0e33,0xe6e83,0x1dc8cb3,0xbc8cb3,0x125d593,0xf5f593,0x16cde13,0x41c88e33,0x6e3e93,0x40e8663,0x8cde93,0x3fefe93,0x1e3f13,0x1ee8eb3,0x8ebe93,0x20e8a63,0xffcfe93,0x40be8eb3,0xffce0f13,0x1f3f13,0x1ee8eb3,0x15ece63,0xa1463,0x2e8e93,0x66f37,0x5df3023,0x7f4f3c23,0xf40006f,0x20a1063,0x3e3de93,0xe8c63,0x8000a13,0x1200a93,0x1063303,0x1863383,0xe15ff06f,0xc59cb06f,0x13,0x13,0x13,0x13,0x13,0x13,0x13,0x13,0x13,0x13,0x13,0x13,0x13,0x13,0x13,0x13,0x13,0x13,0x13,0x13,0x13,0x13,0x13,0x13,0x13,0x13,0x13,0x13,0x13,0x13,0x13,0x13,0x13,0x13,0x13,0x13,0x13,0x13,0x13,0x13,0x13,0x13,0x13,0x13,0x13,0x13,0x13,0x13,0x13,0x13,0x13,0x20537,0x42050513,0x3c50923,0x600f13,0x500593,0x138c93,0x7fcfc93,0x13,0xff37e13,0xfd8e0e13,0x3ee7eb3,0x1d50023,0x3ee5e33,0x3ee7eb3,0x1d500a3,0x3ee5eb3,0x1d50123,0x835e13,0xffe7e13,0x3ee7eb3,0x1d501a3,0x3ee5e33,0x3ee7eb3,0x1d50223,0x3ee5eb3,0x1d502a3,0x1035e13,0xffe7e13,0x3ee7eb3,0x1d50323,0x3ee5e33,0x3ee7eb3,0x1d503a3,0x3ee5eb3,0x1d50423,0x1835e13,0xffe7e13,0x3ee7eb3,0x1d504a3,0x3ee5e33,0x3ee7eb3,0x1d50523,0x3ee5eb3,0x1d505a3,0x2035e13,0xffe7e13,0x3ee7eb3,0x1d50623,0x3ee5e33,0x3ee7eb3,0x1d506a3,0x3ee5eb3,0x1d50723,0x2835e13,0xffe7e13,0x3ee7eb3,0x1d507a3,0x3ee5e33,0x3ee7eb3,0x1d50823,0x3ee5eb3,0x1d508a3,0x3035e13,0xffe7e13,0x3ee7eb3,0x1d50923,0x3ee5e33,0x3ee7eb3,0x1d509a3,0x3ee5eb3,0x1d50a23,0x3835e13,0xffe7e13,0x3ee7eb3,0x1d50aa3,0x3ee5e33,0x3ee7eb3,0x1d50b23,0x3ee5eb3,0x1d50ba3,0x383de13,0x3ee7eb3,0x1d50c23,0x3ee5e33,0x3ee7eb3,0x1d50ca3,0x3ee5eb3,0x1d50d23,0x7fcfe13,0x7fe4e13,0x2be7eb3,0x1d50da3,0x2be5e33,0x2be7eb3,0x1d50e23,0x2be5eb3,0x1d50ea3,0x73de13,0x7fe7e13,0x7fe4e13,0x2be7eb3,0x1d50f23,0x2be5e33,0x2be7eb3,0x1d50fa3,0x2be5eb3,0x3d50023,0xe3de13,0x7fe7e13,0x7fe4e13,0x2be7eb3,0x3d500a3,0x2be5e33,0x2be7eb3,0x3d50123,0x2be5eb3,0x3d501a3,0x153de13,0x7fe7e13,0x7fe4e13,0x2be7eb3,0x3d50223,0x2be5e33,0x2be7eb3,0x3d502a3,0x2be5eb3,0x3d50323,0x1c3de13,0x7fe7e13,0x7fe4e13,0x2be7eb3,0x3d503a3,0x2be5e33,0x2be7eb3,0x3d50423,0x2be5eb3,0x3d504a3,0x233de13,0x7fe7e13,0x7fe4e13,0x2be7eb3,0x3d50523,0x2be5e33,0x2be7eb3,0x3d505a3,0x2be5eb3,0x3d50623,0x2a3de13,0x7fe7e13,0x7fe4e13,0x2be7eb3,0x3d506a3,0x2be5e33,0x2be7eb3,0x3d50723,0x2be5eb3,0x3d507a3,0x313de13,0x7fe7e13,0x7fe4e13,0x700f13,0x3ee7eb3,0x3d50823,0x3ee5eb3,0x3d508a3,0x8067,0xa0eb7,0xffae37,0xe00e0e13,0x768e0f13,0xe3303,0x6eb023,0x8e0e13,0x8e8e93,0xffee68e3,0xb18cb06f,0x500a93,0x1b00e13,0x3c9c063,0x400a93,0x3000e13,0x1c9ca63,0x600a93,0x3200e13,0x1c9c463,0x500a93,0xbe5cb06f,0x400313,0xfe598393,0x153b393,0x40730333,0xfd098393,0x13b393,0x730333,0x99463,0x700313,0xe2dfa06f,0x713,0xf93,0x300e13,0x3c6c863,0xffd68713,0x2d80006f,0x100713,0x4000e13,0x40ee0e33,0xfff00f93,0x1cf9fb3,0xb00e13,0x1c69663,0x1ff00f93,0x2c80006f,0xe9df406f,0x913,0x8e37,0xa88e0e13,0xe3303,0x3f35393,0x796933,0x131313,0x135313,0x6e3023,0x8e37,0xa98e0e13,0xe3303,0x3e35393,0x139393,0x796933,0x231313,0x235313,0x6e3023,0x8e37,0xaa8e0e13,0xe3303,0x3d35393,0x339393,0x796933,0x331313,0x335313,0x6e3023,0x8e37,0xab8e0e13,0xe3303,0x3c35393,0x639393,0x796933,0x431313,0x435313,0x6e3023,0x8e37,0xac8e0e13,0xe3303,0x3b35393,0xa39393,0x796933,0x531313,0x535313,0x6e3023,0x8e37,0xad8e0e13,0xe3303,0x3a35393,0xf39393,0x796933,0x631313,0x635313,0x6e3023,0x8e37,0xae8e0e13,0xe3303,0x3935393,0x1539393,0x796933,0x731313,0x735313,0x6e3023,0x8e37,0xaf8e0e13,0xe3303,0x3835393,0x1c39393,0x796933,0x831313,0x835313,0x6e3023,0x2180606f,0x66e37,0x6e3023,0x23b7,0xe4038393,0x736463,0xfadca06f,0x8e37,0x440e0e13,0xe3983,0x8e4383,0x9e4e83,0xf13,0x8e9e93,0x1d3e3b3,0x10f1f13,0x1e3ea33,0x2391e93,0x23ede93,0x6e9e93,0x1da6a33,0x8e37,0x430e0e13,0x8f37,0xb00f0f13,0xe3303,0x8e3383,0x86e3023,0x87e3423,0xff0e0e13,0xffee56e3,0x8e37,0xaf0e0e13,0x7f37,0x580f0f13,0xe3303,0x8e3383,0x46e3023,0x47e3423,0xff0e0e13,0xffee56e3,0x7e37,0x570e0e13,0x7f37,0x3f0f0f13,0xe3303,0x8e3383,0x26e3823,0x27e3c23,0xff0e0e13,0xffee56e3,0x7e37,0x3e0e0e13,0x7f37,0x260f0f13,0xe3303,0x8e3383,0x26e3023,0x27e3423,0xff0e0e13,0xffee56e3,0x7e37,0x250e0e13,0x7f37,0xd0f0f13,0xe3303,0x8e3383,0x6e3823,0x7e3c23,0xff0e0e13,0xffee56e3,0x7e37,0x7f0e0e93,0xc0e3823,0xc0e3c23,0x260e3823,0x260e3c23,0x400e3823,0x400e3c23,0x5a0e3823,0x5a0e3c23,0x360eb023,0x360eb423,0x360eb823,0x360ebc23,0x380eb023,0x380eb423,0x353eb823,0x354ebc23,0x313,0x393,0xe13,0xe93,0xf13,0x913,0x993,0xa13,0x8bdca06f]
+def t51Code : List (BitVec 32) := [
+  0xa0537,0xa050513,0xa13,0xc00a93,0x231e13,0x3fce7e13,0xae0e33,0xf60e6c83,
+  0xccde93,0x4efe93,0x1dc8cb3,0x635e13,0x3fce7e13,0xae0e33,0xe6e83,0x1dc8cb3,
+  0xe35e13,0x3fce7e13,0xae0e33,0xe6e83,0x1dc8cb3,0x1635e13,0x3fce7e13,0xae0e33,
+  0xe6e83,0x1dc8cb3,0x1e35e13,0x3fce7e13,0xae0e33,0xe6e83,0x1dc8cb3,0x2635e13,
+  0x3fce7e13,0xae0e33,0xe6e83,0x1dc8cb3,0x2e35e13,0x3fce7e13,0xae0e33,0xe6e83,
+  0x1dc8cb3,0x2f3de13,0x1fce7e13,0x13ce3e93,0x120e9863,0xae0e33,0x4c4e6e83,0x1dc8cb3,
+  0x138f13,0x7ff7f13,0x13,0x2f1e13,0x1fce7e13,0xae0e33,0x400e6e83,0x1dc8cb3,
+  0x53de13,0x1fce7e13,0xae0e33,0x400e6583,0xc3de13,0x1fce7e13,0xae0e33,0x400e6e83,
+  0x1d585b3,0x133de13,0x1fce7e13,0xae0e33,0x400e6e83,0x1d585b3,0x1a3de13,0x1fce7e13,
+  0xae0e33,0x400e6e83,0x1dc8cb3,0x213de13,0x1fce7e13,0xae0e33,0x400e6e83,0x1dc8cb3,
+  0x283de13,0x1fce7e13,0xae0e33,0x400e6e83,0x1dc8cb3,0x3635e13,0x3fce7e13,0xae0e33,
+  0xe6e83,0x1dc8cb3,0x363de13,0x3fce7e13,0xae0e33,0xe6e83,0x1dc8cb3,0xbc8cb3,
+  0x125d593,0xf5f593,0x16cde13,0x41c88e33,0x6e3e93,0x40e8663,0x8cde93,0x3fefe93,
+  0x1e3f13,0x1ee8eb3,0x8ebe93,0x20e8a63,0xffcfe93,0x40be8eb3,0xffce0f13,0x1f3f13,
+  0x1ee8eb3,0x15ece63,0xa1463,0x2e8e93,0x66f37,0x5df3023,0x7f4f3c23,0xf40006f,
+  0x20a1063,0x3e3de93,0xe8c63,0x8000a13,0xe00a93,0x1063303,0x1863383,0xe15ff06f,
+  0xc59cb06f,0x13,0x13,0x13,0x13,0x13,0x13,0x13,
+  0x13,0x13,0x13,0x13,0x13,0x13,0x13,0x13,
+  0x13,0x13,0x13,0x13,0x13,0x13,0x13,0x13,
+  0x13,0x13,0x13,0x13,0x13,0x13,0x13,0x13,
+  0x13,0x13,0x13,0x13,0x13,0x13,0x13,0x13,
+  0x13,0x13,0x13,0x13,0x13,0x13,0x13,0x13,
+  0x13,0x13,0x13,0x13,0x20537,0x42050513,0x3c50923,0x600f13,
+  0x500593,0x138c93,0x7fcfc93,0x13,0xff37e13,0xfd8e0e13,0x3ee7eb3,0x1d50023,
+  0x3ee5e33,0x3ee7eb3,0x1d500a3,0x3ee5eb3,0x1d50123,0x835e13,0xffe7e13,0x3ee7eb3,
+  0x1d501a3,0x3ee5e33,0x3ee7eb3,0x1d50223,0x3ee5eb3,0x1d502a3,0x1035e13,0xffe7e13,
+  0x3ee7eb3,0x1d50323,0x3ee5e33,0x3ee7eb3,0x1d503a3,0x3ee5eb3,0x1d50423,0x1835e13,
+  0xffe7e13,0x3ee7eb3,0x1d504a3,0x3ee5e33,0x3ee7eb3,0x1d50523,0x3ee5eb3,0x1d505a3,
+  0x2035e13,0xffe7e13,0x3ee7eb3,0x1d50623,0x3ee5e33,0x3ee7eb3,0x1d506a3,0x3ee5eb3,
+  0x1d50723,0x2835e13,0xffe7e13,0x3ee7eb3,0x1d507a3,0x3ee5e33,0x3ee7eb3,0x1d50823,
+  0x3ee5eb3,0x1d508a3,0x3035e13,0xffe7e13,0x3ee7eb3,0x1d50923,0x3ee5e33,0x3ee7eb3,
+  0x1d509a3,0x3ee5eb3,0x1d50a23,0x3835e13,0xffe7e13,0x3ee7eb3,0x1d50aa3,0x3ee5e33,
+  0x3ee7eb3,0x1d50b23,0x3ee5eb3,0x1d50ba3,0x383de13,0x3ee7eb3,0x1d50c23,0x3ee5e33,
+  0x3ee7eb3,0x1d50ca3,0x3ee5eb3,0x1d50d23,0x7fcfe13,0x7fe4e13,0x2be7eb3,0x1d50da3,
+  0x2be5e33,0x2be7eb3,0x1d50e23,0x2be5eb3,0x1d50ea3,0x73de13,0x7fe7e13,0x7fe4e13,
+  0x2be7eb3,0x1d50f23,0x2be5e33,0x2be7eb3,0x1d50fa3,0x2be5eb3,0x3d50023,0xe3de13,
+  0x7fe7e13,0x7fe4e13,0x2be7eb3,0x3d500a3,0x2be5e33,0x2be7eb3,0x3d50123,0x2be5eb3,
+  0x3d501a3,0x153de13,0x7fe7e13,0x7fe4e13,0x2be7eb3,0x3d50223,0x2be5e33,0x2be7eb3,
+  0x3d502a3,0x2be5eb3,0x3d50323,0x1c3de13,0x7fe7e13,0x7fe4e13,0x2be7eb3,0x3d503a3,
+  0x2be5e33,0x2be7eb3,0x3d50423,0x2be5eb3,0x3d504a3,0x233de13,0x7fe7e13,0x7fe4e13,
+  0x2be7eb3,0x3d50523,0x2be5e33,0x2be7eb3,0x3d505a3,0x2be5eb3,0x3d50623,0x2a3de13,
+  0x7fe7e13,0x7fe4e13,0x2be7eb3,0x3d506a3,0x2be5e33,0x2be7eb3,0x3d50723,0x2be5eb3,
+  0x3d507a3,0x313de13,0x7fe7e13,0x7fe4e13,0x700f13,0x3ee7eb3,0x3d50823,0x3ee5eb3,
+  0x3d508a3,0x8067,0xa0eb7,0xffae37,0xe00e0e13,0x768e0f13,0xe3303,0x6eb023,
+  0x8e0e13,0x8e8e93,0xffee68e3,0xb18cb06f,0x500a93,0x1b00e13,0x3c9c063,0x400a93,
+  0x3000e13,0x1c9ca63,0x600a93,0x3200e13,0x1c9c463,0x500a93,0xbe5cb06f,0x400313,
+  0xfe598393,0x153b393,0x40730333,0xfd098393,0x13b393,0x730333,0x99463,0x700313,
+  0xe2dfa06f,0x713,0xf93,0x300e13,0x3c6c863,0xffd68713,0x71463,0x100713,
+  0x4000e13,0x40ee0e33,0xfff00f93,0x1cf9fb3,0xb00e13,0x1c69663,0xff00f93,0x28f9f93,
+  0xe9df406f,0x913,0x8e37,0xa88e0e13,0xe3303,0x3f35393,0x796933,0x131313,
+  0x135313,0x6e3023,0x8e37,0xa98e0e13,0xe3303,0x3f35393,0x139393,0x796933,
+  0x131313,0x135313,0x6e3023,0x8e37,0xaa8e0e13,0xe3303,0x3e35393,0x239393,
+  0x796933,0x231313,0x235313,0x6e3023,0x8e37,0xab8e0e13,0xe3303,0x3d35393,
+  0x439393,0x796933,0x331313,0x335313,0x6e3023,0x8e37,0xac8e0e13,0xe3303,
+  0x3c35393,0x739393,0x796933,0x431313,0x435313,0x6e3023,0x8e37,0xad8e0e13,
+  0xe3303,0x3b35393,0xb39393,0x796933,0x531313,0x535313,0x6e3023,0x8e37,
+  0xae8e0e13,0xe3303,0x3a35393,0x1039393,0x796933,0x631313,0x635313,0x6e3023,
+  0x8e37,0xaf8e0e13,0xe3303,0x3935393,0x1639393,0x796933,0x731313,0x735313,
+  0x6e3023,0x1095313,0x66e37,0x6e3023,0x23b7,0xe4038393,0x736463,0xfadca06f,
+  0x8e37,0x440e0e13,0xe3983,0x8e4383,0x9e4e83,0xae4f03,0x8e9e93,0x1d3e3b3,
+  0x10f1f13,0x1e3ea33,0x3091e93,0x30ede93,0x18e9e93,0x1da6a33,0x8e37,0x430e0e13,
+  0x8f37,0xb00f0f13,0xe3303,0x8e3383,0x86e3023,0x87e3423,0xff0e0e13,0xffee56e3,
+  0x8e37,0xaf0e0e13,0x7f37,0x580f0f13,0xe3303,0x8e3383,0x46e3023,0x47e3423,
+  0xff0e0e13,0xffee56e3,0x7e37,0x570e0e13,0x7f37,0x3f0f0f13,0xe3303,0x8e3383,
+  0x26e3823,0x27e3c23,0xff0e0e13,0xffee56e3,0x7e37,0x3e0e0e13,0x7f37,0x260f0f13,
+  0xe3303,0x8e3383,0x26e3023,0x27e3423,0xff0e0e13,0xffee56e3,0x7e37,0x250e0e13,
+  0x7f37,0xd0f0f13,0xe3303,0x8e3383,0x6e3823,0x7e3c23,0xff0e0e13,0xffee56e3,
+  0x7e37,0x7f0e0e93,0xc0e3823,0xc0e3c23,0x260e3823,0x260e3c23,0x400e3823,0x400e3c23,
+  0x5a0e3823,0x5a0e3c23,0x360eb023,0x360eb423,0x360eb823,0x360ebc23,0x380eb023,0x380eb423,
+  0x353eb823,0x354ebc23,0x313,0x393,0xe13,0xe93,0xf13,0x913,
+  0x993,0xa13,0x8bdca06f]
 
 set_option maxRecDepth 100000 in
 theorem codeAt_t51 : CodeAt Images.expandImage (pcOf 54176) t51Code := by
-  apply codeAt_expand_lastR <;> decide +kernel
+  apply codeAt_expand_last <;> decide +kernel
 
 theorem codeAt_t51_sub {seg : List (BitVec 32)} (o : Nat) (hlen : o + seg.length ≤ t51Code.length)
     (h : (t51Code.drop o).take seg.length = seg) :
@@ -227,21 +221,10 @@ theorem codeAt_t51_at {seg : List (BitVec 32)} (b : Nat) (hb : 54176 ≤ b)
   have := codeAt_t51_sub (b - 54176) hlen h
   rwa [show 54176 + (b - 54176) = b by omega] at this
 
-set_option maxRecDepth 100000 in
-/-- E11: the new expand code 60000..60733 (pre-pass, grind tiers, post-grind nonce slot, level-4 pad tables and
-post-pass), checked once against the image; every E11 block is a `codeAt_sub` of it. -/
-theorem codeAt_e11 : CodeAt Images.expandImage (pcOf 60000) Images.expandE11Code := by
-  apply codeAt_expand_lastR <;> decide +kernel
-theorem codeAt_e11_at {seg : List (BitVec 32)} (b : Nat) (hb : 60000 ≤ b)
-    (hlen : b - 60000 + seg.length ≤ Images.expandE11Code.length)
-    (h : (Images.expandE11Code.drop (b - 60000)).take seg.length = seg) : CodeAt Images.expandImage (pcOf b) seg := by
-  have := codeAt_sub (b - 60000) codeAt_e11 hlen h
-  rwa [show 60000 + (b - 60000) = b by omega] at this
-
 /-- The installed shared-forest driver is bound independently of the reference image. -/
 theorem codeAt_expand_shared_driver :
     CodeAt Images.expandImage (pcOf 45056) Images.expandSharedDriver := by
-  apply codeAt_expand_lastR <;> decide +kernel
+  apply codeAt_expand_last <;> decide +kernel
 
 end SigGolfCandidate.T3M
 end
@@ -249,7 +232,7 @@ section
 namespace SigGolfCandidate.T3M.Expand
 open RiscvZkvm.Rv64 SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv SigGolfCandidate.Rv
 set_option linter.unusedVariables false
-def seg_0 : List (BitVec 32) := [1179816047,32439,7991,2148470547,963331,9352067,7286819,8336419,32439,134967,302976787,963331,9352067,7286819,8336419,28343,134967,336531219,1510912771,1519301507,7286819,8336419,28343,134967,353308435,1527689987,1536078723,7286819,8336419,814911599]
+def seg_0 : List (BitVec 32) := [1179816047,32439,7991,2148470547,963331,9352067,7286819,8336419,32439,134967,302976787,963331,9352067,7286819,8336419,28343,134967,336531219,1645130499,1653519235,7286819,8336419,28343,134967,353308435,1661907715,1670296451,7286819,8336419,814911599]
 def seg_68 : List (BitVec 32) := [3146515,74045539]
 def seg_104 : List (BitVec 32) := [4789907,32311,370019859,29787827,1640723,4462355,3415571,29820723,134711,1242435091,29820723,472835,7821075,20405811,1998355,101581411]
 def seg_203 : List (BitVec 32) := [17698323]
@@ -426,67 +409,9 @@ theorem expand_banks_eq_verify :
     rw [hdp, ← hp, List.drop_left]
   rw [he, hv, ← hpre, List.drop_left]
   rw [← hbank, List.take_left, List.take_length]
-set_option maxHeartbeats 4000000 in
-/-- The expand image's bank region (from word 195584) is the shared bank chunk list. -/
-theorem expand_drop_banks : expandCode.drop 195584 = expandSharedBanks := by
-  rw [expandCode, shared_foldl_chunks, List.nil_append]
-  let front : List (List (BitVec 32)) := [expandCode_0, expandCode_1, expandCode_2, expandCode_3, expandCode_4, expandCode_5, expandCode_6, expandCode_7, expandCode_8, expandCode_9, expandCode_10, expandCode_11, expandCode_12, expandCode_13, expandCode_14, expandCode_15, expandCode_16, expandCode_17, expandCode_18, expandCode_19, expandCode_20, expandCode_21, expandCode_22, expandCode_23, expandCode_24, expandCode_25, expandCode_26, expandCode_27, expandCode_28, expandCode_29, expandCode_30, expandCode_31, expandCode_32, expandCode_33, expandCode_34, expandCode_35, expandCode_36, expandCode_37, expandCode_38, expandCode_39, expandCode_40, expandCode_41, expandCode_42, expandCode_43, expandCode_44, expandCode_45, expandCode_46, expandCode_47, expandCode_48, expandCode_49, expandCode_50, expandCode_51, expandCode_52, expandCode_53, expandCode_54, expandCode_55, expandCode_56, expandCode_57, expandCode_58, expandCode_59, expandCode_60, expandCode_61, expandCode_62, expandCode_63, expandCode_64, expandCode_65, expandCode_66, expandCode_67, expandCode_68, expandCode_69, expandCode_70, expandCode_71, expandCode_72, expandCode_73, expandCode_74, expandCode_75, expandCode_76, expandCode_77, expandCode_78, expandCode_79, expandCode_80, expandCode_81, expandCode_82, expandCode_83, expandCode_84, expandCode_85, expandCode_86, expandCode_87, expandCode_88, expandCode_89, expandCode_90, expandCode_91, expandCode_92, expandCode_93, expandCode_94, expandCode_95, expandCode_96, expandCode_97, expandCode_98, expandCode_99, expandCode_100, expandCode_101, expandCode_102, expandCode_103, expandCode_104, expandCode_105, expandCode_106, expandCode_107, expandCode_108, expandCode_109, expandCode_110, expandCode_111, expandCode_112, expandCode_113, expandCode_114, expandCode_115, expandCode_116, expandCode_117, expandCode_118, expandCode_119, expandCode_120, expandCode_121, expandCode_122, expandCode_123, expandCode_124, expandCode_125, expandCode_126, expandCode_127, expandCode_128, expandCode_129, expandCode_130, expandCode_131, expandCode_132, expandCode_133, expandCode_134, expandCode_135, expandCode_136, expandCode_137, expandCode_138, expandCode_139, expandCode_140, expandCode_141, expandCode_142, expandCode_143, expandCode_144, expandCode_145, expandCode_146, expandCode_147, expandCode_148, expandCode_149, expandCode_150, expandCode_151, expandCode_152, expandCode_153, expandCode_154, expandCode_155, expandCode_156, expandCode_157, expandCode_158, expandCode_159, expandCode_160, expandCode_161, expandCode_162, expandCode_163, expandCode_164, expandCode_165, expandCode_166, expandCode_167, expandCode_168, expandCode_169, expandCode_170, expandCode_171]
-  have hf : front.flatten.length = 44032 := by
-    rw [List.length_flatten]
-    decide +kernel
-  change (front ++ [expandCode_172]).flatten.drop 195584 = _
-  rw [List.flatten_append, show [expandCode_172].flatten = expandCode_172 by
-    simp only [List.flatten_cons, List.flatten_nil, List.append_nil]]
-  have hh : 195584 = front.flatten.length + 151552 := by omega
-  rw [hh, ← List.drop_drop, List.drop_left]
-  -- Pairing stage 1: the driver prefix now also holds the constructor/layout blocks (48000..49738).
-  obtain ⟨driverPrefix, hdp, hp⟩ : ∃ P, expandCode_172 = P ++ expandSharedBanks ∧ P.length = 151552 :=
-    ⟨_, rfl, by decide +kernel⟩
-  rw [hdp, ← hp, List.drop_left]
 end SigGolfCandidate.T3M.Images
 
 namespace SigGolfCandidate.T3M.Expand
 open SigGolfCandidate.Legacy.Riscv SigGolfCandidate.Rv
 end SigGolfCandidate.T3M.Expand
 end
-
-namespace SigGolfCandidate.T3M
-open RiscvZkvm.Rv64 SigGolfCandidate.Legacy.Riscv SigGolfCandidate.Rv
-/-- L-hyper A: the expand marker and layer-decode trampolines 245313..245373 (bank chunk 194, `verifyCode_958`
-words 65..125), checked against that chunk; every trampoline is a `codeAt_sub` of it. -/
-def expandLhTramp : List (BitVec 32) := [0x141f13,0x1e40433,0x840433,0x803f33,0x1f0f13,0x1cf1f13,0x8f1f33,0x1e36333,0x640413,0x345413,0xa9d1106f,0x141f13,0x1e40433,0x840433,0x803f33,0x1f0f13,0x1cf1f13,0x8f1f33,0x1e36333,0x640413,0x345413,0xa643a06f,0x141f13,0x1e40433,0x840433,0x803f33,0x1f0f13,0x1cf1f13,0x8f1f33,0x1e36333,0x640413,0x345413,0xa743a06f,0x141f13,0x1e40433,0x840433,0xc43f13,0x1f4f13,0x1f0f13,0x16f1f13,0x8f1f33,0x1e36333,0x840413,0x345413,0xd793a06f,0x23fde13,0x1c03e33,0x29fdf13,0x1e03f33,0x1ee0e33,0x2ffdf13,0x1ee0e33,0xeb54506f,0x23fde13,0x1c03e33,0x29fdf13,0x1e03f33,0x1ee0e33,0x2ffdf13,0x1ee0e33,0xf394506f]
-set_option maxHeartbeats 0 in
-/-- Code in expand's shared bank region (words 195584..254655, equal to verify's) read from verify's copy: one
-super-chunk via `Verify.codeFrom`, transferred through `expand_banks_eq_verify`. Much cheaper for the kernel than
-re-deciding the bank chunk lengths or dropping into the expand literal. -/
-theorem codeAt_expand_bank {code : List (BitVec 32)} (b : Nat) (hb : 195584 ≤ b)
-    (hl : b - 195584 + code.length ≤ 59072) (hi : b / 256 < 1005)
-    (hp : code.isPrefixOf (Verify.codeFrom b) = true) : CodeAt Images.expandImage (pcOf b) code := by
-  have hpc : (pcOf b).toNat = 0x1000 + 4 * b := by
-    unfold pcOf; simp only [BitVec.toNat_ofNat]; omega
-  refine ⟨by rw [hpc]; omega, by rw [hpc]; omega, by rw [hpc]; omega, ?_⟩
-  rw [hpc, show (0x1000 + 4 * b - 0x1000) / 4 = b by omega]
-  change code <+: Images.expandCode.drop b
-  have hv : code <+: Images.verifyCode.drop b := by
-    rw [← Verify.codeFrom_eq b hi]; exact List.isPrefixOf_iff_prefix.mp hp
-  have hl' : code.length ≤ 59072 - (b - 195584) := by omega
-  have e := Images.expand_banks_eq_verify
-  have ev : ((Images.verifyCode.drop 195584).take 59072).drop (b - 195584) =
-      (Images.verifyCode.drop b).take (59072 - (b - 195584)) := by
-    rw [List.drop_take, List.drop_drop, show 195584 + (b - 195584) = b by omega]
-  have ee : ((Images.expandCode.drop 195584).take 59072).drop (b - 195584) =
-      (Images.expandCode.drop b).take (59072 - (b - 195584)) := by
-    rw [List.drop_take, List.drop_drop, show 195584 + (b - 195584) = b by omega]
-  have h1 : code <+: (Images.verifyCode.drop b).take (59072 - (b - 195584)) :=
-    List.prefix_take_iff.mpr ⟨hv, hl'⟩
-  rw [← ev, ← e, ee] at h1
-  exact (List.prefix_take_iff.mp h1).1
-set_option maxHeartbeats 0 in
-theorem codeAt_lh_tramp : CodeAt Images.expandImage (pcOf 245313) expandLhTramp :=
-  codeAt_expand_bank 245313 (by decide) (by decide) (by decide) (by decide +kernel)
-theorem codeAt_lh_tramp_at {seg : List (BitVec 32)} (b : Nat) (hb : 245313 ≤ b)
-    (hlen : b - 245313 + seg.length ≤ expandLhTramp.length)
-    (h : (expandLhTramp.drop (b - 245313)).take seg.length = seg) : CodeAt Images.expandImage (pcOf b) seg := by
-  have := codeAt_sub (b - 245313) codeAt_lh_tramp hlen h
-  rwa [show 245313 + (b - 245313) = b by omega] at this
-end SigGolfCandidate.T3M

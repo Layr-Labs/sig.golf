@@ -2,8 +2,6 @@ import SigGolfCandidate.Merge015
 import SigGolfCandidate.Merge023
 import SigGolfCandidate.Merge024
 import SigGolfCandidate.Merge026
-set_option debug.skipKernelTC true
-set_option linter.all false
 
 -- ==== merged from SphincsSecurity_Proof_Ots_SecretProbe ====
 section

@@ -7,8 +7,6 @@ import SigGolfCandidate.Merge052
 import SigGolfCandidate.Merge055
 import SigGolfCandidate.Merge058
 import SigGolfCandidate.Merge074
-set_option debug.skipKernelTC false
-set_option linter.all false
 
 -- ==== merged from ClaudeWCT_W9_New_Machine_Sign_Search ====
 section
@@ -771,7 +769,7 @@ theorem pad64_digestInput' (rho : Digest) (m : SigGolfCandidate.T3.Message) (c :
   simp
 theorem wordsOf_digestInput' (rho : Digest) (m : SigGolfCandidate.T3.Message) (c : BitVec 32) :
     wordsOf (SigGolfCandidate.T3.pad64 (SigGolfCandidate.T3.digestInput rho m c)) =
-      [rho.extractLsb' 0 64, rho.extractLsb' 64 64, BitVec.ofNat 64 25984,
+      [rho.extractLsb' 0 64, rho.extractLsb' 64 64, BitVec.ofNat 64 0,
         BitVec.ofNat 64 c.toNat, m.extractLsb' 0 64, m.extractLsb' 64 64, m.extractLsb' 128 64,
         m.extractLsb' 192 64] := by
   rw [pad64_digestInput']
@@ -779,7 +777,7 @@ theorem wordsOf_digestInput' (rho : Digest) (m : SigGolfCandidate.T3.Message) (c
   rw [wordsOf_append _ _ (by simp only [List.length_append, bytesLE_length]),
     wordsOf_append _ _ (by simp only [bytesLE_length]), wordsOf_bytesLE16, wordsOf_bytesLE16, wordsOf_bytesLE32]
   have hc := c.isLt
-  have h0 : (SigGolfCandidate.T3.digestHeader c).extractLsb' 0 64 = BitVec.ofNat 64 25984 := by
+  have h0 : (SigGolfCandidate.T3.digestHeader c).extractLsb' 0 64 = BitVec.ofNat 64 0 := by
     apply BitVec.eq_of_toNat_eq
     rw [BitVec.extractLsb'_toNat, SigGolfCandidate.T3.digestHeader_toNat]
     simp only [BitVec.toNat_ofNat, Nat.shiftRight_eq_div_pow]
@@ -809,13 +807,119 @@ theorem costAt_frame {s t : MachineState} (h : CostAt s) (hf : Frame s t SearchW
   rw [hf.get (by unfold COST; omega) (by unfold SearchW COST DIG NBUF IDXV; omega)]; exact h j hj
 section loop
 variable {im : Image} {sk : BitVec 256}
--- The former legacy search-loop theorem is unused by the packaged certificate.
+theorem loop (hl : LookOK im headLook) {s0 : MachineState} {rho : Digest} {m : Message}
+    (hpre : SearchPre rho m s0) :
+    ∀ F i t, i + F = 2 ^ 21 → LInv s0 i t →
+      TBSim im sk t (F * 200 + 100) (WCT9.digestSearch rho m i F) (SearchPost s0) := by
+  intro F
+  induction F with
+  | zero =>
+    intro i t h hI
+    obtain ⟨t1, k1, s1, hk1, p1, -, -, -⟩ := head_spec hl t hI.pc i hI.hi hI.x19
+    rw [if_neg (by omega)] at p1
+    obtain ⟨t2, s2, -, hf⟩ := fail_spec hl t1 p1
+    exact (TBSim.pure_steps' (sk := sk) (s1.trans s2) (Q := SearchPost s0) (a := none) hf).mono
+      (by omega) (fun _ _ h => h)
+  | succ F ih =>
+    intro i t h hI
+    have hi : i < 2 ^ 21 := by omega
+    have hc : (BitVec.ofNat 32 i).toNat = i := by rw [BitVec.toNat_ofNat]; omega
+    obtain ⟨t1, k1, s1, hk1, p1, r1, f1, x7h⟩ := head_spec hl t hI.pc i hI.hi hI.x19
+    rw [if_pos hi] at p1
+    obtain ⟨u, s2, hfu, p2, h10, h11, h12, h16, h24, r2, f2⟩ :=
+      trial_spec hl t1 p1 i hi (by rw [r1.get (by decide +kernel), hI.x19])
+    have ru : RegsExcept s0 u searchRegs :=
+      ((hI.regs.trans r1).trans r2).mono (by decide +kernel)
+    have fu : Frame s0 u SearchW := ((hI.frame.trans f1).trans f2).mono (fun A _ hA => by
+      simp only [or_false] at hA
+      rcases hA with hA | hA
+      · exact hA
+      · unfold SearchW; rcases hA with hA | hA <;> simp [hA])
+    have mem : ∀ A, A < 2 ^ 64 → ¬ SearchW A → u.getMem (BitVec.ofNat 64 A) = s0.getMem (BitVec.ofNat 64 A) :=
+      fun A hA hn => fu.get hA hn
+    have nw : ∀ A, A = DIG ∨ A = DIG + 8 ∨ A = DIG + 32 ∨ A = DIG + 40 ∨ A = DIG + 48 ∨ A = DIG + 56 →
+        ¬ SearchW A := by
+      intro A hA; simp only [SearchW, DIG, NBUF, IDXV] at hA ⊢; omega
+    have hm0 : s0.getMem (BitVec.ofNat 64 (DIG + 32)) = m.extractLsb' 0 64 := hpre.msg 0 (by decide +kernel)
+    have hm1 : s0.getMem (BitVec.ofNat 64 (DIG + 40)) = m.extractLsb' 64 64 := hpre.msg 1 (by decide +kernel)
+    have hm2 : s0.getMem (BitVec.ofNat 64 (DIG + 48)) = m.extractLsb' 128 64 := hpre.msg 2 (by decide +kernel)
+    have hm3 : s0.getMem (BitVec.ofNat 64 (DIG + 56)) = m.extractLsb' 192 64 := hpre.msg 3 (by decide +kernel)
+    have hq : hashInput u = toQ (SigGolfCandidate.T3.pad64
+        (SigGolfCandidate.T3.digestInput rho m (BitVec.ofNat 32 i))) := by
+      refine hashInput_toQ u _ 0 DIG (by rw [pad64_digestInput', digestInput_length']) h10 (by decide +kernel)
+        (by decide +kernel) h11 (by decide +kernel) ?_
+      rw [SigGolfCandidate.T3M.readWords_eight, wordsOf_digestInput', hc, h16, h24,
+        mem DIG (by decide +kernel) (nw _ (by omega)), mem (DIG + 8) (by decide +kernel) (nw _ (by omega)),
+        mem (DIG + 32) (by decide +kernel) (nw _ (by omega)), mem (DIG + 40) (by decide +kernel) (nw _ (by omega)),
+        mem (DIG + 48) (by decide +kernel) (nw _ (by omega)), mem (DIG + 56) (by decide +kernel) (nw _ (by omega)),
+        hpre.rho.1, hpre.rho.2, hm0, hm1, hm2, hm3]
+    have hv : hashArgumentsValid u = true :=
+      hashArgs_const u DIG 64 NBUF h10 h11 h12 (by decide +kernel) (by decide +kernel) (by decide +kernel) (by decide +kernel) (by decide +kernel)
+    have h5 : u.getReg .x5 = 0 := by rw [ru.get (by decide +kernel), hpre.x5]
+    have prog : WCT9.digestSearch rho m i (F + 1) =
+        (SigGolfCandidate.T3.publicHash (SigGolfCandidate.T3.digestInput rho m (BitVec.ofNat 32 i)) >>= fun output =>
+          if WCT9.producerAdmissible output = true then pure (some (BitVec.ofNat 32 i, output))
+          else WCT9.digestSearch rho m (i + 1) F) := rfl
+    rw [prog]
+    refine (TBSim.steps (s1.trans s2) (TBSim.publicHash_bind' hfu h5 hv hq
+      (W := 176 + (F * 200 + 100)) (fun a => ?_))).mono ?_ (fun _ _ h => h)
+    swap
+    · rw [blocks_digestInput']; ring_nf; omega
+    have pw : (writeHash u a).pc = pcOf 11020 := by rw [pc_writeHash, p2, SigGolfCandidate.T3M.pcOf_add4]
+    have hN : OutAt (writeHash u a) NBUF a := outAt_writeHash u a h12
+    have fw := Frame.writeHash u a NBUF h12 (by decide +kernel)
+    have fuw : Frame s0 (writeHash u a) SearchW := (fu.trans fw).mono (fun A _ hA => by
+      rcases hA with hA | hA
+      · exact hA
+      · unfold SearchW; right; right; left; exact hA)
+    obtain ⟨v, c, sv, hcv, rv, fv, pv⟩ := checks_spec hl (writeHash u a) pw a hN (costAt_frame hpre.cost fuw)
+      (by rw [getReg_writeHash, r2.get (by decide +kernel)]; exact x7h)
+    have rv' : RegsExcept s0 v searchRegs :=
+      ((ru.trans (fun r _ => getReg_writeHash u a r : RegsExcept u (writeHash u a) [])).trans rv).mono
+        (by decide +kernel)
+    have fv' : Frame s0 v SearchW := (fuw.trans fv).mono (fun A _ hA => by
+      simp only [or_false] at hA; exact hA)
+    have hNv : OutAt v NBUF a := fun j hj => by
+      rw [fv.get (by simp only [NBUF]; omega) (fun h => h)]; exact hN j hj
+    have x19v : v.getReg .x19 = BitVec.ofNat 64 i := by
+      rw [rv.get (by decide +kernel), getReg_writeHash, r2.get (by decide +kernel), r1.get (by decide +kernel), hI.x19]
+    by_cases hadm : WCT9.producerAdmissible a = true
+    · rw [if_pos hadm] at pv
+      simp only [hadm, ↓reduceIte]
+      obtain ⟨w, sw, pw', x22w, idxw, rw', fw'⟩ := final_spec hl v pv.1 a pv.2
+      refine (TBSim.pure_steps' (sv.trans sw) ?_).mono (by omega) (fun _ _ h => h)
+      refine ⟨pw', by rw [rw'.get (by decide +kernel), rv'.get (by decide +kernel), hpre.x5], hadm, ?_, x22w, idxw,
+        by rw [hc]; exact hi, ?_, ?_⟩
+      · intro j hj; rw [fw'.get (by simp only [NBUF]; omega) (by simp only [IDXV, NBUF]; omega)]; exact hNv j hj
+      · exact (rv'.trans rw').mono (by decide +kernel)
+      · exact (fv'.trans fw').mono (fun A _ hA => by
+          rcases hA with hA | hA
+          · exact hA
+          · unfold SearchW; right; right; right; exact hA)
+    · rw [if_neg hadm] at pv
+      simp only [hadm, Bool.false_eq_true, ↓reduceIte]
+      obtain ⟨w, sw, pw', x19w, rw', fw'⟩ := next_spec hl v pv i hi x19v
+      have hI' : LInv s0 (i + 1) w :=
+        ⟨pw', by omega, x19w, (rv'.trans rw').mono (by decide +kernel),
+          (fv'.trans fw').mono (fun A _ hA => by simp only [or_false] at hA; exact hA)⟩
+      exact (TBSim.steps (sv.trans sw) (ih (i + 1) w (by omega) hI')).mono (by omega) (fun _ _ h => h)
 end loop
 end ClaudeWCT.W9.Machine.Sign.SearchM
 namespace ClaudeWCT.W9.Machine.Sign
 open SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64 SigGolfCandidate.Rv
 open SigGolfCandidate.T3M SigGolfCandidate.T3M.Verify
 open ClaudeWCT.W9.Machine.Sign.SearchM
+theorem searchGood (im : Image) : SearchGood im := by
+  intro hnew hhooks sk rho m s hpre
+  obtain ⟨t0, s0, p0, r0, f0⟩ := h153_spec (hookLook_ok hhooks) s hpre.pc
+  have hI : LInv s 0 t0 :=
+    ⟨p0, by norm_num, by rw [r0.get (by simp), hpre.x19], r0.mono (by intro x hx; simp at hx),
+      f0.mono (fun _ _ h => h.elim)⟩
+  have := TBSim.steps (sk := sk) s0
+    (loop (headLook_ok hnew) hpre (2 ^ 21) 0 t0 (by norm_num) hI)
+  refine this.mono ?_ (fun _ _ h => h)
+  unfold searchC trialC WCT9.digestAttemptLimit
+  omega
 end ClaudeWCT.W9.Machine.Sign
 end
 end
@@ -1399,8 +1503,7 @@ section
 section
 namespace SigGolfCandidate.T3M
 open RiscvZkvm.Rv64 SigGolfCandidate.Legacy.Riscv SigGolfCandidate.Rv
-/-- R6: chunk 86 (`signCode_86`, the appended mod/hint routine) follows the partial chunk 85. -/
-def signCurrentCodeChunks : List (List (BitVec 32)) := [Images.signCode_0, Images.signCode_1, Images.signCode_2, Images.signCode_3, Images.signCode_4, Images.signCode_5, Images.signCode_6, Images.signCode_7, Images.signCode_8, Images.signCode_9, Images.signCode_10, Images.signCode_11, Images.signCode_12, Images.signCode_13, Images.signCode_14, Images.signCode_15, Images.signCode_16, Images.signCode_17, Images.signCode_18, Images.signCode_19, Images.signCode_20, Images.signCode_21, Images.signCode_22, Images.signCode_23, Images.signCode_24, Images.signCode_25, Images.signCode_26, Images.signCode_27, Images.signCode_28, Images.signCode_29, Images.signCode_30, Images.signCode_31, Images.signCode_32, Images.signCode_33, Images.signCode_34, Images.signCode_35, Images.signCode_36, Images.signCode_37, Images.signCode_38, Images.signCode_39, Images.signCode_40, Images.signCode_41, Images.signCode_42, Images.signCode_43, Images.signCode_44, Images.signCode_45, Images.signCode_46, Images.signCode_47, Images.signCode_48, Images.signCode_49, Images.signCode_50, Images.signCode_51, Images.signCode_52, Images.signCode_53, Images.signCode_54, Images.signCode_55, Images.signCode_56, Images.signCode_57, Images.signCode_58, Images.signCode_59, Images.signCode_60, Images.signCode_61, Images.signCode_62, Images.signCode_63, Images.signCode_64, Images.signCode_65, Images.signCode_66, Images.signCode_67, Images.signCode_68, Images.signCode_69, Images.signCode_70, Images.signCode_71, Images.signCode_72, Images.signCode_73, Images.signCode_74, Images.signCode_75, Images.signCode_76, Images.signCode_77, Images.signCode_78, Images.signCode_79, Images.signCode_80, Images.signCode_81, Images.signCode_82, Images.signCode_83, Images.signCode_84, Images.signCode_85, Images.signCode_86]
+def signCurrentCodeChunks : List (List (BitVec 32)) := [Images.signCode_0, Images.signCode_1, Images.signCode_2, Images.signCode_3, Images.signCode_4, Images.signCode_5, Images.signCode_6, Images.signCode_7, Images.signCode_8, Images.signCode_9, Images.signCode_10, Images.signCode_11, Images.signCode_12, Images.signCode_13, Images.signCode_14, Images.signCode_15, Images.signCode_16, Images.signCode_17, Images.signCode_18, Images.signCode_19, Images.signCode_20, Images.signCode_21, Images.signCode_22, Images.signCode_23, Images.signCode_24, Images.signCode_25, Images.signCode_26, Images.signCode_27, Images.signCode_28, Images.signCode_29, Images.signCode_30, Images.signCode_31, Images.signCode_32, Images.signCode_33, Images.signCode_34, Images.signCode_35, Images.signCode_36, Images.signCode_37, Images.signCode_38, Images.signCode_39, Images.signCode_40, Images.signCode_41, Images.signCode_42, Images.signCode_43, Images.signCode_44, Images.signCode_45, Images.signCode_46, Images.signCode_47, Images.signCode_48, Images.signCode_49, Images.signCode_50, Images.signCode_51, Images.signCode_52, Images.signCode_53, Images.signCode_54, Images.signCode_55, Images.signCode_56, Images.signCode_57, Images.signCode_58, Images.signCode_59, Images.signCode_60, Images.signCode_61, Images.signCode_62, Images.signCode_63, Images.signCode_64, Images.signCode_65, Images.signCode_66, Images.signCode_67, Images.signCode_68, Images.signCode_69, Images.signCode_70, Images.signCode_71, Images.signCode_72, Images.signCode_73, Images.signCode_74, Images.signCode_75, Images.signCode_76, Images.signCode_77, Images.signCode_78, Images.signCode_79, Images.signCode_80, Images.signCode_81, Images.signCode_82, Images.signCode_83, Images.signCode_84, Images.signCode_85]
 private theorem foldl_chunks (cs : List (List (BitVec 32))) (acc : List (BitVec 32)) :
     cs.foldl (· ++ ·) acc = acc ++ cs.flatten := by
   induction cs generalizing acc with
@@ -1423,18 +1526,18 @@ private theorem signCurrentCodeChunks_prefix_length :
   set_option maxRecDepth 100000 in decide +kernel
 
 theorem signCodeTailLast_eq (b : Nat) (hlo : 21760 ≤ b) :
-    (Images.signCode_85 ++ Images.signCode_86).drop (b - 21760) = signCurrentCodeChunks.flatten.drop b := by
-  have hs : signCurrentCodeChunks = signCurrentCodeChunks.take 85 ++ [Images.signCode_85, Images.signCode_86] := by rfl
-  have he : signCurrentCodeChunks.flatten.drop 21760 = Images.signCode_85 ++ Images.signCode_86 := by
+    Images.signCode_85.drop (b - 21760) = signCurrentCodeChunks.flatten.drop b := by
+  have hs : signCurrentCodeChunks = signCurrentCodeChunks.take 85 ++ [Images.signCode_85] := by rfl
+  have he : signCurrentCodeChunks.flatten.drop 21760 = Images.signCode_85 := by
     conv_lhs => rw [hs]
-    rw [List.flatten_append, List.flatten_cons, List.flatten_cons, List.flatten_nil, List.append_nil,
+    rw [List.flatten_append, List.flatten_cons, List.flatten_nil, List.append_nil,
       ← signCurrentCodeChunks_prefix_length, List.drop_left]
   rw [show b = 21760 + (b - 21760) by omega, ← List.drop_drop, he]
   simp only [Nat.add_sub_cancel_left]
 
 theorem codeAt_sign_last {b : Nat} {code : List (BitVec 32)}
     (hlo : 21760 ≤ b) (hb : 0x1000 + 4 * b + 4 * code.length < 2 ^ 64)
-    (hc : ((Images.signCode_85 ++ Images.signCode_86).drop (b - 21760)).take code.length = code) :
+    (hc : (Images.signCode_85.drop (b - 21760)).take code.length = code) :
     CodeAt Images.signImage (pcOf b) code := by
   apply codeAt_sign_current_slice hb
   rw [← signCodeTailLast_eq b hlo]
@@ -1475,9 +1578,9 @@ def seg_47 : List (BitVec 32) := [134711,1041108499,134839,1074695827,930563,963
 def seg_54 : List (BitVec 32) := [9319171,9352067,2020810339]
 def seg_57 : List (BitVec 32) := [17707779,17740675,2020808803]
 def seg_60 : List (BitVec 32) := [26096387,26129283,2020807267]
-def seg_63 : List (BitVec 32) := [134221459,134967,963331,9352067,7286819,8336419,150998675,134967,34541331,963331,9352067,7286819,8336419,134967,34551843,34552867,134221459,134967,135204627,963331,9352067,7286819,8336419,150998675,134967,168759059,963331,9352067,7286819,8336419,134967,135204627,34551843,34552867,1880097555,915,134711,135138835,7223331,8272931,28343,134967,202313491,1510912771,1519301507,7286819,8336419,28343,134967,219090707,1527689987,1536078723,7286819,8336419,132407,134546707,134219155,132663,268830227]
+def seg_63 : List (BitVec 32) := [134221459,134967,963331,9352067,7286819,8336419,150998675,134967,34541331,963331,9352067,7286819,8336419,134967,34551843,34552867,134221459,134967,135204627,963331,9352067,7286819,8336419,150998675,134967,168759059,963331,9352067,7286819,8336419,134967,135204627,34551843,34552867,1880097555,915,134711,135138835,7223331,8272931,28343,134967,202313491,1645130499,1653519235,7286819,8336419,28343,134967,219090707,1661907715,1670296451,7286819,8336419,132407,134546707,134219155,132663,268830227]
 def seg_122 : List (BitVec 32) := [115]
-def seg_123 : List (BitVec 32) := [134839,269389459,32567,963331,9352067,7286819,8336419,134839,269389459,134967,302976787,963331,9352067,7286819,8336419,28343,134967,336531219,1510912771,1519301507,7286819,8336419,28343,134967,353308435,1527689987,1536078723,7286819,8336419,2451]
+def seg_123 : List (BitVec 32) := [134839,269389459,32567,963331,9352067,7286819,8336419,134839,269389459,134967,302976787,963331,9352067,7286819,8336419,28343,134967,336531219,1645130499,1653519235,7286819,8336419,28343,134967,353308435,1661907715,1670296451,7286819,8336419,2451]
 def seg_153 : List (BitVec 32) := [412131439,1617529443]
 def seg_155 : List (BitVec 32) := [4919,787,627603,134711,302910995,7223331,8272931,132407,302318867,67110291,132663,369493523]
 def seg_167 : List (BitVec 32) := [115]
@@ -1563,9 +1666,7 @@ def seg_1227 : List (BitVec 32) := [134711,921107,3767,135171731,963331,7221283,
 def seg_1432 : List (BitVec 32) := [2782912623]
 def seg_1433 : List (BitVec 32) := [2835,35895,3205237779,6711,657939]
 def seg_1438 : List (BitVec 32) := [23551539,1986067,920467,4919,3490906899,34280339,7562035,1823635,33788819,134711,921107,7223331,8272931,132407,328979,67110291,132663,101058067]
-def seg_1456 : List (BitVec 32) := [0x7fd1306f]
-def sgMaskStub : List (BitVec 32) :=
-  [0xb1c63,0x63023,0x63423,0x63823,0x63c23,0xff9eb06f,0x73,0xff1eb06f]
+def seg_1456 : List (BitVec 32) := [115]
 def seg_1457 : List (BitVec 32) := [11831,921107,1711763,1105071667,25038387,5119507,528055,34508435,31329843,1834643,5152403,13536947,930563,963459,7553843,7090211,9319171,9352067,7553843,7091235,17566739,1726995,1772307,12583699,4100680419]
 def seg_1482 : List (BitVec 32) := [2492461167]
 def kerCode : List (BitVec 32) := seg_543 ++ seg_545 ++ ker_546
@@ -1864,7 +1965,7 @@ open SigGolfCandidate.T3 (M Spec publicHash shortHash privateHash privatePair pr
   privateInput header pad64 Coordinate HashOutput Digest Region)
 open SigGolfCandidate.T3M.Keygen (PRIV SEEDS CHAIN NODE NOUT LOUT LEAFPK MOUT ZDIG DUMMY TOP MACBLK REGION)
 open SphincsSecurity (bytesLE bytesLE_length)
-abbrev MSG : Nat := 0x65A0
+abbrev MSG : Nat := 0x6620
 abbrev SK : Nat := 0x80
 abbrev SIG : Nat := 0x7000
 abbrev CACHE : Nat := 0x80000
@@ -1934,12 +2035,12 @@ theorem TBSim.privateNonce_bind {s : MachineState} {m : T3.Message} {W : Nat}
     {f : Digest → M β} {Q : β → MachineState → Prop}
     (hf : fetch image s = some (.base .ECALL)) (ht0 : s.getReg .x5 = 0)
     (hv : hashArgumentsValid s = true) (hq : hashInput s = toQ (privateInput sk (.inr (.inl m))))
-    (h : ∀ a : BitVec 256, TBSim image sk (writeHash s a) W (f (BitVec.ofNat 128 (T3.rhoMod a))) Q) :
+    (h : ∀ a : BitVec 256, TBSim image sk (writeHash s a) W (f (a.extractLsb' 0 128)) Q) :
     TBSim image sk s (8 * 2 + W) (privateNonce m >>= f) Q := by
   have hb : (toQ (privateInput sk (.inr (.inl m)))).blocks = 2 := by
     rw [blocks_toQ (privateInput_aligned _ _), privateInput_nonce_eq]
     simp [bytesLE_length, SigGolfCandidate.T3.zero16]
-  have : privateNonce m >>= f = privateHash (.inr (.inl m)) >>= fun a => f (BitVec.ofNat 128 (T3.rhoMod a)) := by
+  have : privateNonce m >>= f = privateHash (.inr (.inl m)) >>= fun a => f (a.extractLsb' 0 128) := by
     unfold privateNonce; rw [bind_assoc]; simp only [pure_bind]
   rw [this]
   exact TBSim.of_eq (TBSim.privateHash_bind hf ht0 hv hq h) rfl (by rw [hb])
@@ -1959,7 +2060,19 @@ theorem TBSim.privatePair_bind {s : MachineState} {tag lay tree position index :
     unfold privatePair; rw [bind_assoc]; simp only [pure_bind]
   rw [this]
   exact TBSim.of_eq (TBSim.privateHash_bind hf ht0 hv hq h) rfl (by rw [hb])
-
+theorem TBSim.mask_bind {s : MachineState} {level index : Nat} {W : Nat}
+    {f : Digest → M β} {Q : β → MachineState → Prop}
+    (hf : fetch image s = some (.base .ECALL)) (ht0 : s.getReg .x5 = 0)
+    (hv : hashArgumentsValid s = true)
+    (hq : hashInput s = toQ (privateInput sk (.inl (header 13 0 0 level (index/2)))))
+    (h : ∀ a : BitVec 256, TBSim image sk (writeHash s a) W
+      (f (if index % 2 = 0 then a.extractLsb' 0 128 else a.extractLsb' 128 128)) Q) :
+    TBSim image sk s (8 + W) (mask level index >>= f) Q := by
+  have : mask level index >>= f = privatePair 13 0 0 level (index/2) >>=
+      fun x => f (if index % 2 = 0 then x.1 else x.2) := by
+    unfold mask T3.pairedMask; rw [bind_assoc]; simp only [pure_bind]
+  rw [this]
+  exact TBSim.privatePair_bind hf ht0 hv hq h
 end tb
 structure Failed (t : MachineState) : Prop where
   pc : t.pc = pcOf 545
@@ -2014,21 +2127,13 @@ end SigGolfCandidate.T3M.Keygen.PackedBlocks
 namespace SigGolfCandidate.T3M.Expand.SharedRecover.PackedBlocks
 open RiscvZkvm.Rv64 SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv SigGolfCandidate.Rv
 open SigGolfCandidate.T3M.Keygen.PackedBlocks
-/-- L-hyper A: expand's chain header body (word 8 jumps to the marker trampoline at 245313, back at word 13). -/
-def expand_bodyA : List (BitVec 32) := [0x749333,0x1230333,0x20e37,0x1a0e0e13,0x2035393,0x7e3c23,0x2031313,0x1035313,0x550ee06f,0x13,0x13,0x13,0x13,0xffa7393,0x839393,0x736333,0x809e393,0x736333,0xc5dff06f]
-def expand_hdrT : List (BitVec 32) := [0x141f13,0x1e40433,0x840433,0x803f33,0x1f0f13,0x1cf1f13,0x8f1f33,0x1e36333,0x640413,0x345413,0xa9d1106f]
-sym_block run_expand_bodyA0 := symRun { noAlias := true } expand_bodyA (pcOf 1253) 100
-sym_block run_expand_hdrT := symRunAux { noAlias := true } expand_hdrT (pcOf 245313) 100 run_expand_bodyA0.res.st
-sym_block run_expand_bodyA := symRunAux { noAlias := true } (expand_bodyA.drop 13) (pcOf 1266) 100 run_expand_hdrT.res.st
 class Code (im : Image) : Prop where
   entry : CodeAt im (pcOf 1032) expand_entry
   layer0 : CodeAt im (pcOf 1247) expand_layer0
   layer1 : CodeAt im (pcOf 1249) expand_layer1
   layer23 : CodeAt im (pcOf 1251) expand_layer23
   inc : CodeAt im (pcOf 1252) expand_inc
-  body : CodeAt im (pcOf 1253) expand_bodyA
-  hdrT : CodeAt im (pcOf 245313) expand_hdrT
-  body2 : CodeAt im (pcOf 1266) (expand_bodyA.drop 13)
+  body : CodeAt im (pcOf 1253) expand_body
   store : CodeAt im (pcOf 1038) expand_store
 variable {im : Image} [Code im]
 theorem steps_expand_entry (s : MachineState) (hpc : s.pc = pcOf 1032) :
@@ -2052,9 +2157,8 @@ theorem steps_expand_inc (s : MachineState) (hpc : s.pc = pcOf 1252) :
   exact symRun_sound run_expand_inc (Code.inc (im := im)) s hpc (by simp [run_expand_inc.res, rv_simp])
 
 theorem steps_expand_body (s : MachineState) (hpc : s.pc = pcOf 1253) :
-    Steps im s 26 26 (run_expand_bodyA.res.toState s) :=
-  LH.chain3_sound run_expand_bodyA0 (Code.body (im := im)) hpc (by rfl) run_expand_hdrT (Code.hdrT (im := im))
-    (by rfl) run_expand_bodyA (Code.body2 (im := im)) (by simp [run_expand_bodyA.res, rv_simp])
+    Steps im s 19 19 (run_expand_body.res.toState s) := by
+  exact symRun_sound run_expand_body (Code.body (im := im)) s hpc (by simp [run_expand_body.res, rv_simp])
 
 theorem steps_expand_store (s : MachineState) (hpc : s.pc = pcOf 1038) :
     Steps im s 3 3 (run_expand_store.res.toState s) := by
@@ -2075,30 +2179,30 @@ structure ExpHeaderPost (s t : MachineState) (height : Nat) : Prop where
   frame : Frame s t (fun A => A = 0x201A0 + 16 ∨ A = 0x201A0 + 24)
 theorem expand_header_0 (s : MachineState) (hpc : s.pc = pcOf 1032)
     (h8 : s.getReg .x8 = 0#64) :
-    ∃ t, Steps im s 32 32 t ∧ t.pc = pcOf 1041 ∧ ExpHeaderPost s t 12 := by
+    ∃ t, Steps im s 25 25 t ∧ t.pc = pcOf 1041 ∧ ExpHeaderPost s t 12 := by
   let s0 := run_expand_entry.res.toState s
   have h0 := steps_expand_entry (im := im) s hpc
   let s1 := run_expand_layer0.res.toState s0
   have h1 := steps_expand_layer0 (im := im) s0 (by simp [s0, run_expand_entry.res, rv_simp, h8])
-  let s2 := run_expand_bodyA.res.toState s1
+  let s2 := run_expand_body.res.toState s1
   have h2 := steps_expand_body (im := im) s1 (by simp [s0, s1, run_expand_entry.res, run_expand_layer0.res, rv_simp, h8])
   let s3 := run_expand_store.res.toState s2
-  have h3 := steps_expand_store (im := im) s2 (by simp [s0, s1, s2, run_expand_entry.res, run_expand_layer0.res, run_expand_bodyA.res, rv_simp, h8])
+  have h3 := steps_expand_store (im := im) s2 (by simp [s0, s1, s2, run_expand_entry.res, run_expand_layer0.res, run_expand_body.res, rv_simp, h8])
   refine ⟨s3, (((h0.trans h1).trans h2).trans h3), ?_, ?_⟩
-  · simp [s3, s2, s1, s0, run_expand_entry.res, run_expand_layer0.res, run_expand_bodyA.res, run_expand_store.res, rv_simp]
+  · simp [s3, s2, s1, s0, run_expand_entry.res, run_expand_layer0.res, run_expand_body.res, run_expand_store.res, rv_simp]
   · constructor
-    · simp [s3, s2, s1, s0, run_expand_entry.res, run_expand_layer0.res, run_expand_bodyA.res, run_expand_store.res, rv_simp, packedAt, routedAt, h8, T3.hyperW]
-    · simp [s3, s2, s1, s0, run_expand_entry.res, run_expand_layer0.res, run_expand_bodyA.res, run_expand_store.res, rv_simp, routedAt]
-    · simp [s3, s2, s1, s0, run_expand_entry.res, run_expand_layer0.res, run_expand_bodyA.res, run_expand_store.res, rv_simp]
+    · simp [s3, s2, s1, s0, run_expand_entry.res, run_expand_layer0.res, run_expand_body.res, run_expand_store.res, rv_simp, packedAt, routedAt]
+    · simp [s3, s2, s1, s0, run_expand_entry.res, run_expand_layer0.res, run_expand_body.res, run_expand_store.res, rv_simp, routedAt]
+    · simp [s3, s2, s1, s0, run_expand_entry.res, run_expand_layer0.res, run_expand_body.res, run_expand_store.res, rv_simp]
     · intro r hr
-      cases r <;> simp_all [s3, s2, s1, s0, run_expand_entry.res, run_expand_layer0.res, run_expand_bodyA.res, run_expand_store.res, rv_simp] <;> rfl
+      cases r <;> simp_all [s3, s2, s1, s0, run_expand_entry.res, run_expand_layer0.res, run_expand_body.res, run_expand_store.res, rv_simp] <;> rfl
     · intro A hA hn
-      simp only [Result.toState_getMem, s3, s2, s1, s0, run_expand_entry.res, run_expand_layer0.res, run_expand_bodyA.res, run_expand_store.res]
+      simp only [Result.toState_getMem, s3, s2, s1, s0, run_expand_entry.res, run_expand_layer0.res, run_expand_body.res, run_expand_store.res]
       t3n []
       rw [if_neg (by omega), if_neg (by omega)]
 theorem expand_header_1 (s : MachineState) (hpc : s.pc = pcOf 1032)
     (h8 : s.getReg .x8 = 1#64) :
-    ∃ t, Steps im s 35 35 t ∧ t.pc = pcOf 1041 ∧ ExpHeaderPost s t 7 := by
+    ∃ t, Steps im s 28 28 t ∧ t.pc = pcOf 1041 ∧ ExpHeaderPost s t 7 := by
   let s0 := run_expand_entry.res.toState s
   have h0 := steps_expand_entry (im := im) s hpc
   let s1 := run_expand_layer0.res.toState s0
@@ -2107,25 +2211,25 @@ theorem expand_header_1 (s : MachineState) (hpc : s.pc = pcOf 1032)
   have h2 := steps_expand_layer1 (im := im) s1 (by simp [s0, s1, run_expand_entry.res, run_expand_layer0.res, rv_simp, h8])
   let s3 := run_expand_inc.res.toState s2
   have h3 := steps_expand_inc (im := im) s2 (by simp [s0, s1, s2, run_expand_entry.res, run_expand_layer0.res, run_expand_layer1.res, rv_simp, h8])
-  let s4 := run_expand_bodyA.res.toState s3
+  let s4 := run_expand_body.res.toState s3
   have h4 := steps_expand_body (im := im) s3 (by simp [s0, s1, s2, s3, run_expand_entry.res, run_expand_layer0.res, run_expand_layer1.res, run_expand_inc.res, rv_simp, h8])
   let s5 := run_expand_store.res.toState s4
-  have h5 := steps_expand_store (im := im) s4 (by simp [s0, s1, s2, s3, s4, run_expand_entry.res, run_expand_layer0.res, run_expand_layer1.res, run_expand_inc.res, run_expand_bodyA.res, rv_simp, h8])
+  have h5 := steps_expand_store (im := im) s4 (by simp [s0, s1, s2, s3, s4, run_expand_entry.res, run_expand_layer0.res, run_expand_layer1.res, run_expand_inc.res, run_expand_body.res, rv_simp, h8])
   refine ⟨s5, (((((h0.trans h1).trans h2).trans h3).trans h4).trans h5), ?_, ?_⟩
-  · simp [s5, s4, s3, s2, s1, s0, run_expand_entry.res, run_expand_layer0.res, run_expand_layer1.res, run_expand_inc.res, run_expand_bodyA.res, run_expand_store.res, rv_simp]
+  · simp [s5, s4, s3, s2, s1, s0, run_expand_entry.res, run_expand_layer0.res, run_expand_layer1.res, run_expand_inc.res, run_expand_body.res, run_expand_store.res, rv_simp]
   · constructor
-    · simp [s5, s4, s3, s2, s1, s0, run_expand_entry.res, run_expand_layer0.res, run_expand_layer1.res, run_expand_inc.res, run_expand_bodyA.res, run_expand_store.res, rv_simp, packedAt, routedAt, h8, T3.hyperW]
-    · simp [s5, s4, s3, s2, s1, s0, run_expand_entry.res, run_expand_layer0.res, run_expand_layer1.res, run_expand_inc.res, run_expand_bodyA.res, run_expand_store.res, rv_simp, routedAt]
-    · simp [s5, s4, s3, s2, s1, s0, run_expand_entry.res, run_expand_layer0.res, run_expand_layer1.res, run_expand_inc.res, run_expand_bodyA.res, run_expand_store.res, rv_simp]
+    · simp [s5, s4, s3, s2, s1, s0, run_expand_entry.res, run_expand_layer0.res, run_expand_layer1.res, run_expand_inc.res, run_expand_body.res, run_expand_store.res, rv_simp, packedAt, routedAt]
+    · simp [s5, s4, s3, s2, s1, s0, run_expand_entry.res, run_expand_layer0.res, run_expand_layer1.res, run_expand_inc.res, run_expand_body.res, run_expand_store.res, rv_simp, routedAt]
+    · simp [s5, s4, s3, s2, s1, s0, run_expand_entry.res, run_expand_layer0.res, run_expand_layer1.res, run_expand_inc.res, run_expand_body.res, run_expand_store.res, rv_simp]
     · intro r hr
-      cases r <;> simp_all [s5, s4, s3, s2, s1, s0, run_expand_entry.res, run_expand_layer0.res, run_expand_layer1.res, run_expand_inc.res, run_expand_bodyA.res, run_expand_store.res, rv_simp] <;> rfl
+      cases r <;> simp_all [s5, s4, s3, s2, s1, s0, run_expand_entry.res, run_expand_layer0.res, run_expand_layer1.res, run_expand_inc.res, run_expand_body.res, run_expand_store.res, rv_simp] <;> rfl
     · intro A hA hn
-      simp only [Result.toState_getMem, s5, s4, s3, s2, s1, s0, run_expand_entry.res, run_expand_layer0.res, run_expand_layer1.res, run_expand_inc.res, run_expand_bodyA.res, run_expand_store.res]
+      simp only [Result.toState_getMem, s5, s4, s3, s2, s1, s0, run_expand_entry.res, run_expand_layer0.res, run_expand_layer1.res, run_expand_inc.res, run_expand_body.res, run_expand_store.res]
       t3n []
       rw [if_neg (by omega), if_neg (by omega)]
 theorem expand_header_2 (s : MachineState) (hpc : s.pc = pcOf 1032)
     (h8 : s.getReg .x8 = 2#64) :
-    ∃ t, Steps im s 36 36 t ∧ t.pc = pcOf 1041 ∧ ExpHeaderPost s t 6 := by
+    ∃ t, Steps im s 29 29 t ∧ t.pc = pcOf 1041 ∧ ExpHeaderPost s t 6 := by
   let s0 := run_expand_entry.res.toState s
   have h0 := steps_expand_entry (im := im) s hpc
   let s1 := run_expand_layer0.res.toState s0
@@ -2134,25 +2238,25 @@ theorem expand_header_2 (s : MachineState) (hpc : s.pc = pcOf 1032)
   have h2 := steps_expand_layer1 (im := im) s1 (by simp [s0, s1, run_expand_entry.res, run_expand_layer0.res, rv_simp, h8])
   let s3 := run_expand_layer23.res.toState s2
   have h3 := steps_expand_layer23 (im := im) s2 (by simp [s0, s1, s2, run_expand_entry.res, run_expand_layer0.res, run_expand_layer1.res, rv_simp, h8])
-  let s4 := run_expand_bodyA.res.toState s3
+  let s4 := run_expand_body.res.toState s3
   have h4 := steps_expand_body (im := im) s3 (by simp [s0, s1, s2, s3, run_expand_entry.res, run_expand_layer0.res, run_expand_layer1.res, run_expand_layer23.res, rv_simp, h8])
   let s5 := run_expand_store.res.toState s4
-  have h5 := steps_expand_store (im := im) s4 (by simp [s0, s1, s2, s3, s4, run_expand_entry.res, run_expand_layer0.res, run_expand_layer1.res, run_expand_layer23.res, run_expand_bodyA.res, rv_simp, h8])
+  have h5 := steps_expand_store (im := im) s4 (by simp [s0, s1, s2, s3, s4, run_expand_entry.res, run_expand_layer0.res, run_expand_layer1.res, run_expand_layer23.res, run_expand_body.res, rv_simp, h8])
   refine ⟨s5, (((((h0.trans h1).trans h2).trans h3).trans h4).trans h5), ?_, ?_⟩
-  · simp [s5, s4, s3, s2, s1, s0, run_expand_entry.res, run_expand_layer0.res, run_expand_layer1.res, run_expand_layer23.res, run_expand_bodyA.res, run_expand_store.res, rv_simp]
+  · simp [s5, s4, s3, s2, s1, s0, run_expand_entry.res, run_expand_layer0.res, run_expand_layer1.res, run_expand_layer23.res, run_expand_body.res, run_expand_store.res, rv_simp]
   · constructor
-    · simp [s5, s4, s3, s2, s1, s0, run_expand_entry.res, run_expand_layer0.res, run_expand_layer1.res, run_expand_layer23.res, run_expand_bodyA.res, run_expand_store.res, rv_simp, packedAt, routedAt, h8, T3.hyperW]
-    · simp [s5, s4, s3, s2, s1, s0, run_expand_entry.res, run_expand_layer0.res, run_expand_layer1.res, run_expand_layer23.res, run_expand_bodyA.res, run_expand_store.res, rv_simp, routedAt]
-    · simp [s5, s4, s3, s2, s1, s0, run_expand_entry.res, run_expand_layer0.res, run_expand_layer1.res, run_expand_layer23.res, run_expand_bodyA.res, run_expand_store.res, rv_simp]
+    · simp [s5, s4, s3, s2, s1, s0, run_expand_entry.res, run_expand_layer0.res, run_expand_layer1.res, run_expand_layer23.res, run_expand_body.res, run_expand_store.res, rv_simp, packedAt, routedAt]
+    · simp [s5, s4, s3, s2, s1, s0, run_expand_entry.res, run_expand_layer0.res, run_expand_layer1.res, run_expand_layer23.res, run_expand_body.res, run_expand_store.res, rv_simp, routedAt]
+    · simp [s5, s4, s3, s2, s1, s0, run_expand_entry.res, run_expand_layer0.res, run_expand_layer1.res, run_expand_layer23.res, run_expand_body.res, run_expand_store.res, rv_simp]
     · intro r hr
-      cases r <;> simp_all [s5, s4, s3, s2, s1, s0, run_expand_entry.res, run_expand_layer0.res, run_expand_layer1.res, run_expand_layer23.res, run_expand_bodyA.res, run_expand_store.res, rv_simp] <;> rfl
+      cases r <;> simp_all [s5, s4, s3, s2, s1, s0, run_expand_entry.res, run_expand_layer0.res, run_expand_layer1.res, run_expand_layer23.res, run_expand_body.res, run_expand_store.res, rv_simp] <;> rfl
     · intro A hA hn
-      simp only [Result.toState_getMem, s5, s4, s3, s2, s1, s0, run_expand_entry.res, run_expand_layer0.res, run_expand_layer1.res, run_expand_layer23.res, run_expand_bodyA.res, run_expand_store.res]
+      simp only [Result.toState_getMem, s5, s4, s3, s2, s1, s0, run_expand_entry.res, run_expand_layer0.res, run_expand_layer1.res, run_expand_layer23.res, run_expand_body.res, run_expand_store.res]
       t3n []
       rw [if_neg (by omega), if_neg (by omega)]
 theorem expand_header_3 (s : MachineState) (hpc : s.pc = pcOf 1032)
     (h8 : s.getReg .x8 = 3#64) :
-    ∃ t, Steps im s 36 36 t ∧ t.pc = pcOf 1041 ∧ ExpHeaderPost s t 6 := by
+    ∃ t, Steps im s 29 29 t ∧ t.pc = pcOf 1041 ∧ ExpHeaderPost s t 6 := by
   let s0 := run_expand_entry.res.toState s
   have h0 := steps_expand_entry (im := im) s hpc
   let s1 := run_expand_layer0.res.toState s0
@@ -2161,20 +2265,20 @@ theorem expand_header_3 (s : MachineState) (hpc : s.pc = pcOf 1032)
   have h2 := steps_expand_layer1 (im := im) s1 (by simp [s0, s1, run_expand_entry.res, run_expand_layer0.res, rv_simp, h8])
   let s3 := run_expand_layer23.res.toState s2
   have h3 := steps_expand_layer23 (im := im) s2 (by simp [s0, s1, s2, run_expand_entry.res, run_expand_layer0.res, run_expand_layer1.res, rv_simp, h8])
-  let s4 := run_expand_bodyA.res.toState s3
+  let s4 := run_expand_body.res.toState s3
   have h4 := steps_expand_body (im := im) s3 (by simp [s0, s1, s2, s3, run_expand_entry.res, run_expand_layer0.res, run_expand_layer1.res, run_expand_layer23.res, rv_simp, h8])
   let s5 := run_expand_store.res.toState s4
-  have h5 := steps_expand_store (im := im) s4 (by simp [s0, s1, s2, s3, s4, run_expand_entry.res, run_expand_layer0.res, run_expand_layer1.res, run_expand_layer23.res, run_expand_bodyA.res, rv_simp, h8])
+  have h5 := steps_expand_store (im := im) s4 (by simp [s0, s1, s2, s3, s4, run_expand_entry.res, run_expand_layer0.res, run_expand_layer1.res, run_expand_layer23.res, run_expand_body.res, rv_simp, h8])
   refine ⟨s5, (((((h0.trans h1).trans h2).trans h3).trans h4).trans h5), ?_, ?_⟩
-  · simp [s5, s4, s3, s2, s1, s0, run_expand_entry.res, run_expand_layer0.res, run_expand_layer1.res, run_expand_layer23.res, run_expand_bodyA.res, run_expand_store.res, rv_simp]
+  · simp [s5, s4, s3, s2, s1, s0, run_expand_entry.res, run_expand_layer0.res, run_expand_layer1.res, run_expand_layer23.res, run_expand_body.res, run_expand_store.res, rv_simp]
   · constructor
-    · simp [s5, s4, s3, s2, s1, s0, run_expand_entry.res, run_expand_layer0.res, run_expand_layer1.res, run_expand_layer23.res, run_expand_bodyA.res, run_expand_store.res, rv_simp, packedAt, routedAt, h8, T3.hyperW]
-    · simp [s5, s4, s3, s2, s1, s0, run_expand_entry.res, run_expand_layer0.res, run_expand_layer1.res, run_expand_layer23.res, run_expand_bodyA.res, run_expand_store.res, rv_simp, routedAt]
-    · simp [s5, s4, s3, s2, s1, s0, run_expand_entry.res, run_expand_layer0.res, run_expand_layer1.res, run_expand_layer23.res, run_expand_bodyA.res, run_expand_store.res, rv_simp]
+    · simp [s5, s4, s3, s2, s1, s0, run_expand_entry.res, run_expand_layer0.res, run_expand_layer1.res, run_expand_layer23.res, run_expand_body.res, run_expand_store.res, rv_simp, packedAt, routedAt]
+    · simp [s5, s4, s3, s2, s1, s0, run_expand_entry.res, run_expand_layer0.res, run_expand_layer1.res, run_expand_layer23.res, run_expand_body.res, run_expand_store.res, rv_simp, routedAt]
+    · simp [s5, s4, s3, s2, s1, s0, run_expand_entry.res, run_expand_layer0.res, run_expand_layer1.res, run_expand_layer23.res, run_expand_body.res, run_expand_store.res, rv_simp]
     · intro r hr
-      cases r <;> simp_all [s5, s4, s3, s2, s1, s0, run_expand_entry.res, run_expand_layer0.res, run_expand_layer1.res, run_expand_layer23.res, run_expand_bodyA.res, run_expand_store.res, rv_simp] <;> rfl
+      cases r <;> simp_all [s5, s4, s3, s2, s1, s0, run_expand_entry.res, run_expand_layer0.res, run_expand_layer1.res, run_expand_layer23.res, run_expand_body.res, run_expand_store.res, rv_simp] <;> rfl
     · intro A hA hn
-      simp only [Result.toState_getMem, s5, s4, s3, s2, s1, s0, run_expand_entry.res, run_expand_layer0.res, run_expand_layer1.res, run_expand_layer23.res, run_expand_bodyA.res, run_expand_store.res]
+      simp only [Result.toState_getMem, s5, s4, s3, s2, s1, s0, run_expand_entry.res, run_expand_layer0.res, run_expand_layer1.res, run_expand_layer23.res, run_expand_body.res, run_expand_store.res]
       t3n []
       rw [if_neg (by omega), if_neg (by omega)]
 end SigGolfCandidate.T3M.Expand.SharedRecover.PackedBlocks
@@ -2310,66 +2414,52 @@ theorem sub120_spec {image : Image} {b : Nat} (h : SubAt image b) (s : MachineSt
     (hdis : NODE + 64 ≤ arena + 32 * k ∨ arena + 32 * k + 32 ≤ NODE)
     (h2 : s.getReg .x2 = BitVec.ofNat 64 arena) (h24 : s.getReg .x24 = BitVec.ofNat 64 k)
     (h9 : s.getReg .x9 = BitVec.ofNat 64 tree) (h21 : s.getReg .x21 = BitVec.ofNat 64 h0) :
-    ∃ t, Steps image s 32 32 t ∧ t.pc = pcOf (b + 140) ∧
+    ∃ t, Steps image s 20 20 t ∧ t.pc = pcOf (b + 140) ∧
       t.getReg .x29 = BitVec.ofNat 64 (k % 2) ∧ t.getReg .x30 = BitVec.ofNat 64 (NODE + 48) ∧
       t.getMem (BitVec.ofNat 64 NODE) = s.getMem (BitVec.ofNat 64 (arena + 32 * k)) ∧
       t.getMem (BitVec.ofNat 64 (NODE + 8)) = s.getMem (BitVec.ofNat 64 (arena + 32 * k + 8)) ∧
-      t.getMem (BitVec.ofNat 64 (NODE + 16)) = KeygenLabel.remapWord ((s.getReg .x21 ||| (BitVec.ofNat 64 tree <<< 32)) + BitVec.ofNat 64 k) ∧
+      t.getMem (BitVec.ofNat 64 (NODE + 16)) = (s.getReg .x21 ||| (BitVec.ofNat 64 tree <<< 32)) + BitVec.ofNat 64 k ∧
       t.getMem (BitVec.ofNat 64 (NODE + 24)) = 0 ∧
       t.getMem (BitVec.ofNat 64 (NODE + 48)) = s.getMem (BitVec.ofNat 64 (arena + 32 * k + 16)) ∧
       t.getMem (BitVec.ofNat 64 (NODE + 56)) = s.getMem (BitVec.ofNat 64 (arena + 32 * k + 24)) ∧
-      RegsExcept s t [.x3, .x6, .x7, .x28, .x29, .x30] ∧
+      RegsExcept s t [.x6, .x7, .x28, .x29, .x30] ∧
       Frame s t (fun X => X = NODE ∨ X = NODE + 8 ∨ X = NODE + 16 ∨ X = NODE + 24 ∨ X = NODE + 48 ∨
         X = NODE + 56) := by
+  have hc := codeAt_sub120K h
   obtain ⟨rfl, rfl⟩ := h.2.2.2.2
-  let nz : Bool := decide (KeygenLabel.rawWord s ≠ 7#64)
-  have hbr : (KeygenLabel.rawWord s ≠ 7#64) ↔ nz = true := by simp [nz]
-  have ho (q : Bool) : Oblig.all s (KeygenLabel.result q).st.obl := by
-    cases q
-    · change Oblig.all s KeygenLabel.frozenEq.res.st.obl
-      simp only [KeygenLabel.frozenEq.res]
-      t3n [h2, h24]
-      simp only [NODE] at hdis
-      omega
-    · change Oblig.all s KeygenLabel.frozenNe.res.st.obl
-      simp only [KeygenLabel.frozenNe.res]
-      t3n [h2, h24]
-      simp only [NODE] at hdis
-      omega
-  let t := (KeygenLabel.result nz).toState s
-  have hraw : KeygenLabel.rawWord s =
-      (s.getReg .x21 ||| (BitVec.ofNat 64 tree <<< 32)) + BitVec.ofNat 64 k := by
-    simp only [KeygenLabel.rawWord, h9, h24]
-  have addr (off : Nat) : (BitVec.ofNat 64 k <<< 5) + BitVec.ofNat 64 arena + BitVec.ofNat 64 off =
-      BitVec.ofNat 64 (arena + 32 * k + off) := by
-    rw [ofNat_shl, ofNat_add_ofNat, ofNat_add_ofNat]
-    congr 1
+  have hobl : Oblig.all s st_120K.obl := by
+    simp only [st_120K, kblk_120.res]
+    t3n [h2, h24]
+    simp only [NODE] at hdis
     omega
-  refine ⟨t, KeygenLabel.steps KeygenLabel.look_ok nz s hpc ((Oblig.all_iff s _).mp (ho nz)) hbr,
-    KeygenLabel.post_pc nz s, ?_, KeygenLabel.post_pointer nz s, ?_, ?_, ?_,
-    KeygenLabel.post_high nz s, ?_, ?_, KeygenLabel.post_regs nz s, ?_⟩
-  · rw [KeygenLabel.post_half, h24]
+  refine ⟨_, symRun_sound run_120K hc s hpc hobl, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
+  · simp [Result.toState_pc, E.eval]
+  · simp only [Result.toState_getReg, st_120K, kblk_120.res, rv_simp, h24]
     exact ofNat_and1 k
-  · simpa only [NODE, h2, h24, ofNat_shl, ofNat_add_ofNat, Nat.reducePow,
-      Nat.mul_comm, Nat.add_comm] using KeygenLabel.post_left_lo nz s
-  · have he := KeygenLabel.post_left_hi nz s
-    change t.getMem (BitVec.ofNat 64 (NODE + 8)) =
-      s.getMem (((s.getReg .x24 <<< 5) + s.getReg .x2) + BitVec.ofNat 64 8) at he
-    rw [h2, h24, addr] at he
-    exact he
-  · rw [KeygenLabel.post_low, ← hraw]
-    by_cases hx : KeygenLabel.rawWord s = 7#64 <;> simp [nz, hx, KeygenLabel.remapWord]
-  · have he := KeygenLabel.post_right_lo nz s
-    change t.getMem (BitVec.ofNat 64 (NODE + 48)) =
-      s.getMem (((s.getReg .x24 <<< 5) + s.getReg .x2) + BitVec.ofNat 64 16) at he
-    rw [h2, h24, addr] at he
-    exact he
-  · have he := KeygenLabel.post_right_hi nz s
-    change t.getMem (BitVec.ofNat 64 (NODE + 56)) =
-      s.getMem (((s.getReg .x24 <<< 5) + s.getReg .x2) + BitVec.ofNat 64 24) at he
-    rw [h2, h24, addr] at he
-    exact he
-  · simpa only [NODE, Nat.reduceAdd] using KeygenLabel.post_frame nz s
+  · simp [st_120K, kblk_120.res, rv_simp]
+  · simp only [Result.toState_getMem, st_120K, kblk_120.res, NODE]
+    t3n [h2, h24]
+    congr 2; omega
+  · simp only [Result.toState_getMem, st_120K, kblk_120.res, NODE]
+    t3n [h2, h24]
+    congr 2; omega
+  · simp only [Result.toState_getMem, st_120K, kblk_120.res, NODE]
+    t3n [h9, h24]
+  · simp only [Result.toState_getMem, st_120K, kblk_120.res, NODE]
+    t3n []
+  · simp only [Result.toState_getMem, st_120K, kblk_120.res, NODE]
+    t3n [h2, h24]
+    congr 2; omega
+  · simp only [Result.toState_getMem, st_120K, kblk_120.res, NODE]
+    t3n [h2, h24]
+    congr 2; omega
+  · intro r hr; simp at hr; cases r <;> simp_all [st_120K, kblk_120.res, rv_simp] <;> rfl
+  · intro X hX hn
+    simp only [NODE] at hn
+    simp only [Result.toState_getMem, st_120K, kblk_120.res]
+    t3n []
+    rw [if_neg (by omega), if_neg (by omega), if_neg (by omega), if_neg (by omega), if_neg (by omega),
+      if_neg (by omega)]
 theorem sub214_spec {image : Image} {b : Nat} (h : SubAt image b) (s : MachineState)
     (hpc : s.pc = pcOf (b + 1004)) (k : Nat) (hk : k < 2 ^ 12) (h24 : s.getReg .x24 = BitVec.ofNat 64 k) :
     ∃ t, Steps image s 28 28 t ∧ t.pc = pcOf (b + 140) ∧
@@ -2424,48 +2514,17 @@ theorem sub140_spec {image : Image} {b : Nat} (h : SubAt image b) (s : MachineSt
   · intro A _ _; simp [st_140K, kblk_140.res, rv_simp]
 def revX (tag : Nat) : Nat := if tag = 10 then 28 else 0
 /-- Base of the node label word in the `s5` register: the C4 top label is the heap itself (base 0; it was 64); the
-lower trees (the sign's) keep `hyperWord (lay - 1) tree`, Z6 option F: plus `lowerAdd - lowerK` (0x201 on the marker
-format, whose label words have low half 0; the producers' node base keeps its `ori 0x201`). -/
-def nodeLo (lay tree : Nat) : Nat :=
-  if lay = 0 then 0
-  else (T3.hyperWord (lay - 1) tree).toNat + (if T3.hyperHonest (lay - 1) tree then 513 else 0)
+lower trees (the sign's) keep `hyperWord (lay - 1) tree`. -/
+def nodeLo (lay tree : Nat) : Nat := if lay = 0 then 0 else (T3.hyperWord (lay - 1) tree).toNat
 theorem nodeLo_mod (lay tree : Nat) : nodeLo lay tree % 4096 < 2048 := by
   unfold nodeLo; split
   · decide
-  · have := T3.hyperWord_low16 (lay - 1) tree; split_ifs at this ⊢ <;> omega
-/-- Z6 option F: `nodeLo + lowerK = hyperWord + lowerAdd` (the lower node word base). -/
-theorem nodeLo_add {lay : Nat} (h0 : lay ≠ 0) (tree : Nat) :
-    nodeLo lay tree + ClaudeWCT.WCT9.lowerK =
-      (T3.hyperWord (lay - 1) tree).toNat + ClaudeWCT.WCT9.lowerAdd (lay - 1) tree := by
-  unfold nodeLo ClaudeWCT.WCT9.lowerAdd ClaudeWCT.WCT9.lowerK; rw [if_neg h0]; split_ifs <;> omega
-theorem nodeLo_honest {lay tree : Nat} (h0 : lay ≠ 0) (h : T3.hyperHonest (lay - 1) tree) :
-    nodeLo lay tree = (T3.hyperWord (lay - 1) tree).toNat + 513 := by
-  unfold nodeLo; rw [if_neg h0, if_pos h]
-theorem lowerNodeWord_nodeLo {lay : Nat} (h0 : lay ≠ 0) (tree heap : Nat) :
-    ClaudeWCT.WCT9.lowerNodeWord (lay - 1) tree heap =
-      BitVec.ofNat 64 (nodeLo lay tree + (ClaudeWCT.WCT9.lowerK + heap)) := by
-  unfold ClaudeWCT.WCT9.lowerNodeWord
-  apply BitVec.eq_of_toNat_eq
-  rw [BitVec.toNat_add, BitVec.toNat_ofNat, BitVec.toNat_ofNat]
-  have := nodeLo_add h0 tree
-  omega
+  · rw [T3.hyperWord_toNat]; simp only [Nat.reducePow]; omega
 /-- C4: the top node tweak is the one-word label `0#64 ++ heap` (`nodeLo 0 tree = 0`). -/
 theorem nodeTweak_3_top (tree heap : Nat) (h1 : 1 ≤ heap) (h2 : heap < 4096) :
-    T3.nodeTweak 3 0 tree heap = 0#64 ++ KeygenLabel.remapWord (BitVec.ofNat 64 (nodeLo 0 tree + heap)) := by
+    T3.nodeTweak 3 0 tree heap = 0#64 ++ BitVec.ofNat 64 (nodeLo 0 tree + heap) := by
   rw [T3.nodeTweak_top, T3.topNodeWord_eq h1 h2]
-  by_cases ho : heap = 1
-  · subst heap
-    simp [nodeLo, KeygenLabel.remapWord]
-  · by_cases h7 : heap = 7
-    · subst heap
-      simp [nodeLo, KeygenLabel.remapWord]
-    · have hn1 : BitVec.ofNat 64 heap ≠ 1#64 := by
-        intro he
-        exact ho ((ofNat_inj (by omega) (by decide)).mp he)
-      have hn7 : BitVec.ofNat 64 heap ≠ 7#64 := by
-        intro he
-        exact h7 ((ofNat_inj (by omega) (by decide)).mp he)
-      simp [ho, h7, nodeLo, KeygenLabel.remapWord, hn1, hn7]
+  simp [nodeLo]
 /-- The tree node block from `b + 120` to the hash call (C4: no reversed labels, one-word label). -/
 theorem sub120_full {image : Image} {b : Nat} (h : SubAt image b) (s : MachineState)
     (hpc : s.pc = pcOf (b + 120)) (arena k tree h0 : Nat)
@@ -2473,16 +2532,16 @@ theorem sub120_full {image : Image} {b : Nat} (h : SubAt image b) (s : MachineSt
     (hdis : NODE + 64 ≤ arena + 32 * k ∨ arena + 32 * k + 32 ≤ NODE)
     (h2 : s.getReg .x2 = BitVec.ofNat 64 arena) (h24 : s.getReg .x24 = BitVec.ofNat 64 k)
     (h9 : s.getReg .x9 = BitVec.ofNat 64 tree) (h21 : s.getReg .x21 = BitVec.ofNat 64 h0) :
-    ∃ t, Steps image s 38 38 t ∧ t.pc = pcOf (b + 146) ∧
+    ∃ t, Steps image s 26 26 t ∧ t.pc = pcOf (b + 146) ∧
       t.getReg .x10 = BitVec.ofNat 64 NODE ∧ t.getReg .x11 = BitVec.ofNat 64 64 ∧
       t.getReg .x12 = BitVec.ofNat 64 NOUT ∧ t.getReg .x29 = BitVec.ofNat 64 (k % 2 * 2 ^ 4) ∧
       t.getMem (BitVec.ofNat 64 NODE) = s.getMem (BitVec.ofNat 64 (arena + 32 * k)) ∧
       t.getMem (BitVec.ofNat 64 (NODE + 8)) = s.getMem (BitVec.ofNat 64 (arena + 32 * k + 8)) ∧
-      t.getMem (BitVec.ofNat 64 (NODE + 16)) = KeygenLabel.remapWord ((s.getReg .x21 ||| (BitVec.ofNat 64 tree <<< 32)) + BitVec.ofNat 64 k) ∧
+      t.getMem (BitVec.ofNat 64 (NODE + 16)) = (s.getReg .x21 ||| (BitVec.ofNat 64 tree <<< 32)) + BitVec.ofNat 64 k ∧
       t.getMem (BitVec.ofNat 64 (NODE + 24)) = 0 ∧
       t.getMem (BitVec.ofNat 64 (NODE + 48)) = s.getMem (BitVec.ofNat 64 (arena + 32 * k + 16)) ∧
       t.getMem (BitVec.ofNat 64 (NODE + 56)) = s.getMem (BitVec.ofNat 64 (arena + 32 * k + 24)) ∧
-      RegsExcept s t [.x3, .x6, .x7, .x28, .x29, .x30, .x10, .x11, .x12, .x29] ∧
+      RegsExcept s t [.x6, .x7, .x28, .x29, .x30, .x10, .x11, .x12, .x29] ∧
       Frame s t (fun X => X = NODE ∨ X = NODE + 8 ∨ X = NODE + 16 ∨ X = NODE + 24 ∨ X = NODE + 48 ∨
         X = NODE + 56) := by
   obtain ⟨t1, st1, t1pc, t1x29, t1x30, m0, m8, m16, m24, m48, m56, t1r, t1f⟩ :=
@@ -2526,14 +2585,14 @@ structure LevArgs where
   ret : Nat
 namespace LevArgs
 variable (B : LevArgs)
-def levK : Nat := 3 + sumTo (fun j => 6 + (44 + revX B.tag) * 2 ^ (B.h - 1 - j)) B.h + 2
-def levC : Nat := 3 + sumTo (fun j => 6 + (51 + revX B.tag) * 2 ^ (B.h - 1 - j)) B.h + 2
+def levK : Nat := 3 + sumTo (fun j => 6 + (39 + revX B.tag) * 2 ^ (B.h - 1 - j)) B.h + 2
+def levC : Nat := 3 + sumTo (fun j => 6 + (46 + revX B.tag) * 2 ^ (B.h - 1 - j)) B.h + 2
 def levN : Nat := sumTo (fun j => 2 ^ (B.h - 1 - j)) B.h
 end LevArgs
 def LevW (B : LevArgs) (X : Nat) : Prop :=
   X = NODE ∨ X = NODE + 8 ∨ X = NODE + 16 ∨ X = NODE + 24 ∨ X = NODE + 48 ∨ X = NODE + 56 ∨
     (NOUT ≤ X ∧ X < NOUT + 32) ∨ (B.arena + 16 ≤ X ∧ X < B.arena + 16 * 2 ^ B.h)
-def levRegs : List Reg := [.x3, .x6, .x7, .x10, .x11, .x12, .x20, .x24, .x28, .x29, .x30]
+def levRegs : List Reg := [.x6, .x7, .x10, .x11, .x12, .x20, .x24, .x28, .x29, .x30]
 structure LevPre (s : MachineState) (B : LevArgs) (leaves : List Digest) : Prop where
   x1 : s.getReg .x1 = pcOf B.ret
   x2 : s.getReg .x2 = BitVec.ofNat 64 B.arena
@@ -2590,12 +2649,12 @@ theorem wordsOf_nodeInput_3 (lay tree heap : Nat) (l r : Digest) :
 /-- C4: the words of a top node input (label `nodeLo 0 tree + heap`, zero high word, zero pad). -/
 theorem wordsOf_nodeInputT (tree heap : Nat) (h1 : 1 ≤ heap) (h2 : heap < 4096) (l r : Digest) :
     wordsOf (bytesLE 16 l ++ bytesLE 16 (T3.nodeTweak 3 0 tree heap) ++ zero16 ++ bytesLE 16 r) =
-      [l.extractLsb' 0 64, l.extractLsb' 64 64, KeygenLabel.remapWord (BitVec.ofNat 64 (nodeLo 0 tree + heap)),
+      [l.extractLsb' 0 64, l.extractLsb' 64 64, BitVec.ofNat 64 (nodeLo 0 tree + heap),
         0, 0, 0, r.extractLsb' 0 64, r.extractLsb' 64 64] := by
   rw [wordsOf_append _ _ (by simp [bytesLE_length, zero16]), wordsOf_append _ _ (by simp [bytesLE_length]),
     wordsOf_append _ _ (by simp [bytesLE_length]), wordsOf_bytesLE16, wordsOf_bytesLE16, wordsOf_zero16,
     wordsOf_bytesLE16, nodeTweak_3_top tree heap h1 h2, T3.append64_low]
-  have hhi : (0#64 ++ KeygenLabel.remapWord (BitVec.ofNat 64 (nodeLo 0 tree + heap))).extractLsb' 64 64 = 0#64 :=
+  have hhi : (0#64 ++ BitVec.ofNat 64 (nodeLo 0 tree + heap)).extractLsb' 64 64 = 0#64 :=
     BitVec.extractLsb'_append_eq_left
   rw [hhi]; rfl
 theorem nodeInputT_length (tag lay tree heap : Nat) (l r : Digest) :
