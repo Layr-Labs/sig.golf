@@ -3364,7 +3364,7 @@ theorem producerDecodeAt_true_of_false {lay : Layer} {floor : Nat} {word : Diges
 through some half, with digits `digits`. A rejected answer that still decodes to `digits` for some witness hint has
 HIGH half `word`: if its LOW half were `word`, LOW would pass the producer predicate through the (better) LOW path
 and the producer would have selected it (top: the producer prefers a good LOW; lower: the decodable LOW is spare). -/
-theorem rejected_canDecode {lay : Layer} {floor : Nat} (hfloor : lay = 0 → floor = CanonicalPolicy.topFloor)
+theorem rejected_canDecode {lay : Layer} {floor : Nat} (hfloor : lay = 0 → CanonicalPolicy.topFloor ≤ floor)
     {word : Digest} {low : Bool} {digits : List Nat}
     (href : CanonicalPolicy.producerDecodeAt lay floor low word = some digits) {a : HashOutput}
     (hrej : CanonicalPolicy.producerDecodeOut lay floor a = none)
@@ -3386,10 +3386,13 @@ theorem rejected_canDecode {lay : Layer} {floor : Nat} (hfloor : lay = 0 → flo
       by_cases hl : lay = 0
       · subst hl
         have hf := hfloor rfl
-        subst hf
+        have hs := CanonicalPolicy.producerDecodeAt_spec htrue
+        have hbase : CanonicalPolicy.producerDecodeAt 0 CanonicalPolicy.topFloor true word = some digits := by
+          simp only [CanonicalPolicy.producerDecodeAt, hs.1]
+          rw [if_pos ⟨(Nat.add_le_add_right hf _).trans hs.2.1, hs.2.2⟩]
         have hg : topGood (a.extractLsb' 0 128) := by
           unfold topGood
-          rw [hlw, htrue]
+          rw [hlw, hbase]
           rfl
         have h1 : lowSelected 0 a = true := by
           simp only [lowSelected, if_true, topChooseLow, decide_eq_true_eq]
@@ -3417,7 +3420,7 @@ theorem rejected_canDecode {lay : Layer} {floor : Nat} (hfloor : lay = 0 → flo
     · exact hword
 
 /-- Rejected-cell match bound (path-aware floors): `(1001/1000)/2^128 ≤ (7/4)/2^128`. -/
-theorem canDecode_rejected_le {lay : Layer} {floor : Nat} (hfloor : lay = 0 → floor = CanonicalPolicy.topFloor)
+theorem canDecode_rejected_le {lay : Layer} {floor : Nat} (hfloor : lay = 0 → CanonicalPolicy.topFloor ≤ floor)
     {word : Digest} {low : Bool} {digits : List Nat}
     (href : CanonicalPolicy.producerDecodeAt lay floor low word = some digits) :
     Pr[fun a => encodingCanDecode lay a digits | cell (rejectedAt lay floor)] ≤ 7/((4:ENNReal)*2^128) := by
@@ -3734,8 +3737,8 @@ theorem reference_accepted (T : Answers) (messages : LeafAddr → WCT9.LayerMsg)
   rw [href]
   exact ⟨_,_,(WCT9.CanonicalPolicy.producerDecodeOut_spec (referenceSearch_producerDecode T messages L hctx hfound)).2⟩
 
-theorem threshold_top_floor (lay : Layer) (remaining : Nat) :
-    lay = 0 → WCT9.CanonicalPolicy.threshold lay.val remaining = WCT9.CanonicalPolicy.topFloor := by
+theorem threshold_top_floor_le (lay : Layer) (remaining : Nat) :
+    lay = 0 → WCT9.CanonicalPolicy.topFloor ≤ WCT9.CanonicalPolicy.threshold lay.val remaining := by
   rintro rfl
   simp [WCT9.CanonicalPolicy.threshold]
 
@@ -3759,7 +3762,7 @@ theorem matchEntry_init_le (T : Answers) (messages : LeafAddr → WCT9.LayerMsg)
         exact hs' hs
       · obtain ⟨word,low,hword⟩ := reference_accepted T messages (Enc.leafOf e.val.1.1) hctx hs
         refine le_trans (probEvent_mono ?_) (WCT9.CanonicalRates.canDecode_rejected_le
-          (threshold_top_floor e.val.1.1.lay _) hword)
+          (threshold_top_floor_le e.val.1.1.lay _) hword)
         rintro ans - ⟨L,message,counter,pad,hsource,hfit,he,hne,hs',hd⟩
         have hL := Enc.encInput_leaf hsource he
         subst hL
@@ -6013,7 +6016,7 @@ theorem recoveredMessage_top_source (answers : Answers) (sig : SigGolfCandidate.
       .pair (WCT9.builtPair answers (Fin.ofNat 4 (n+1)) (route index (Fin.ofNat 4 (n+1))).2).1
         (WCT9.builtPair answers (Fin.ofNat 4 (n+1)) (route index (Fin.ofNat 4 (n+1))).2).2)
     (hselections : ∀ lay : Layer, evalWithAnswerFn answers
-      (WCT9.CanonicalPolicy.layerCounterSearchAt lay (hintFloor sig.policyHints lay)
+      (WCT9.CanonicalPolicy.layerCounterSearchAt lay (hintFloor index sig.policyHints lay)
         (route index lay).2 (route index lay).1
         (recoveredMessage answers sig index 4 input result.digits lay) 0 (WCT9.searchLimit lay)) =
           some (result.counters.getD lay.val 0, result.digits.getD lay.val [], result.lows.getD lay.val true))
@@ -6032,7 +6035,7 @@ theorem recoveredMessage_top_source (answers : Answers) (sig : SigGolfCandidate.
     have hs := hselections lay
     rw [hm] at hs
     have hlim := WCT9.searchLimit_le lay
-    have hp := (canonical_search_some' answers lay (hintFloor sig.policyHints lay)
+    have hp := (canonical_search_some' answers lay (hintFloor index sig.policyHints lay)
       (route index lay).2 (route index lay).1 (messages lay) (WCT9.searchLimit lay) 0
       (result.counters.getD lay.val 0) (result.digits.getD lay.val []) (result.lows.getD lay.val true)
       (by unfold counterLimit at hlim; omega) hs).2.2.2
@@ -6079,9 +6082,9 @@ theorem expanded_canonical_selections (answers : Answers) (message : Message) (p
       (forestSelectionFromOutput output) (forestWordsFromOutput output) sig.forest)).1 =
         forestCommitment answers (WCT9.digestIndex output)) :
     ∃ (digits : List (List Nat)) (lows : List Bool),
-      policyHintsValid w.signature.policyHints digits lows = true ∧
+      policyHintsValid (WCT9.digestIndex output) w.signature.policyHints digits lows = true ∧
       (∀ lay, evalWithAnswerFn answers (WCT9.CanonicalPolicy.layerCounterSearchAt lay
-        (hintFloor w.signature.policyHints lay) (route (WCT9.digestIndex output) lay).2
+        (hintFloor (WCT9.digestIndex output) w.signature.policyHints lay) (route (WCT9.digestIndex output) lay).2
         (route (WCT9.digestIndex output) lay).1
         (CanonicalRef.sourceMessages answers (routeLeaf (WCT9.digestIndex output) lay))
         0 (WCT9.searchLimit lay)) = some (w.counters lay, digits.getD lay.val [], lows.getD lay.val true)) ∧
@@ -6097,7 +6100,7 @@ theorem expanded_canonical_selections (answers : Answers) (message : Message) (p
     (evalWithAnswerFn answers (recoverForest (WCT9.digestIndex output)
       (forestSelectionFromOutput output) (forestWordsFromOutput output) sig.forest)).1.2
   have hsel : ∀ lay, evalWithAnswerFn answers
-      (WCT9.CanonicalPolicy.layerCounterSearchAt lay (hintFloor w.signature.policyHints lay)
+      (WCT9.CanonicalPolicy.layerCounterSearchAt lay (hintFloor (WCT9.digestIndex output) w.signature.policyHints lay)
         (route (WCT9.digestIndex output) lay).2 (route (WCT9.digestIndex output) lay).1
         (recoveredMessage answers w.signature (WCT9.digestIndex output) 4 input result.digits lay)
         0 (WCT9.searchLimit lay)) = some (result.counters.getD lay.val 0, result.digits.getD lay.val [],
@@ -6105,7 +6108,7 @@ theorem expanded_canonical_selections (answers : Answers) (message : Message) (p
     intro lay
     have hx := hs.2.2.2 lay lay.isLt
     change evalWithAnswerFn answers
-      (WCT9.CanonicalPolicy.layerCounterSearchAt lay (hintFloor sig.policyHints lay)
+      (WCT9.CanonicalPolicy.layerCounterSearchAt lay (hintFloor (WCT9.digestIndex output) sig.policyHints lay)
         (route (WCT9.digestIndex output) lay).2 (route (WCT9.digestIndex output) lay).1
         (recoveredMessage answers (fillTopSignature sig 0) (WCT9.digestIndex output) 4 input result.digits lay)
         0 (WCT9.searchLimit lay)) = _ at hx
@@ -6141,7 +6144,7 @@ theorem expanded_canonical_selections (answers : Answers) (message : Message) (p
     have hs0 := hsel 0
     rw [htop] at hs0
     have hlim := WCT9.searchLimit_le 0
-    have hlow := (canonical_search_some' answers 0 (hintFloor w.signature.policyHints 0)
+    have hlow := (canonical_search_some' answers 0 (hintFloor (WCT9.digestIndex output) w.signature.policyHints 0)
       (route (WCT9.digestIndex output) 0).2 (route (WCT9.digestIndex output) 0).1
       (CanonicalRef.sourceMessages answers (routeLeaf (WCT9.digestIndex output) 0)) (WCT9.searchLimit 0) 0
       (result.counters.getD 0 0) (result.digits.getD 0 []) (result.lows.getD 0 true)
@@ -6236,9 +6239,9 @@ theorem signFromOutput_canonical_selections (answers : Answers) (cache : SigGolf
     (counter : BitVec 32) (output : HashOutput) (w : SigGolfCandidate.Research.SharedForest.Witness)
     (he : evalWithAnswerFn answers (signFromOutput cache rho counter output) = some w) :
     ∃ (digits : List (List Nat)) (lows : List Bool),
-      policyHintsValid w.signature.policyHints digits lows = true ∧
+      policyHintsValid (WCT9.digestIndex output) w.signature.policyHints digits lows = true ∧
       (∀ lay, evalWithAnswerFn answers (WCT9.CanonicalPolicy.layerCounterSearchAt lay
-        (hintFloor w.signature.policyHints lay) (route (WCT9.digestIndex output) lay).2
+        (hintFloor (WCT9.digestIndex output) w.signature.policyHints lay) (route (WCT9.digestIndex output) lay).2
         (route (WCT9.digestIndex output) lay).1
         (CanonicalRef.sourceMessages answers (routeLeaf (WCT9.digestIndex output) lay))
         0 (WCT9.searchLimit lay)) = some (w.counters lay,digits.getD lay.val [],lows.getD lay.val true)) ∧
@@ -10191,12 +10194,12 @@ theorem searchPreparedLayers_famEq (hC : FamCongr S (sourceMessages T) F T T') (
     dsimp only [messages]
     rw [fixedPrepared_pair, sourceMessages_route_lower T index 2 (by decide)]; rfl
   have h3 : LayerMsg.pair forest.1 forest.2 = messages (sourceLeaf index 3) := hforest
-  have hc0 : referenceContext T messages (sourceLeaf index 0) = some WCT9.CanonicalPolicy.totalCredit := rfl
+  have hc0 : referenceContext T messages (sourceLeaf index 0) = some (SigGolfCandidate.Research.SharedForest.requiredCredit index) := rfl
   dsimp only
   unfold searchPreparedLayers
   dsimp only
   rw [hlevels 1, hlevels 2, hlevels 3, h0, h1, h2, h3]
-  refine ExecEq.bind (hs 0 WCT9.CanonicalPolicy.totalCredit hc0) ?_
+  refine ExecEq.bind (hs 0 (SigGolfCandidate.Research.SharedForest.requiredCredit index) hc0) ?_
   intro found0 hr0
   cases found0 with
   | none => exact ExecEq.pure' _ _ _
@@ -10204,7 +10207,7 @@ theorem searchPreparedLayers_famEq (hC : FamCongr S (sourceMessages T) F T T') (
     rcases found0 with ⟨counter0, digits0, low0⟩
     have href0 := referenceSearch_of_run hc0 hr0
     have hc1 : referenceContext T messages (sourceLeaf index 1) =
-        some (CanonicalPolicy.nextResidual WCT9.CanonicalPolicy.totalCredit 0 low0 digits0) := by
+        some (CanonicalPolicy.nextResidual (SigGolfCandidate.Research.SharedForest.requiredCredit index) 0 low0 digits0) := by
       apply context_parent_success (leaf := sourceLeaf index 1) (by change 1 ≠ 0; decide)
       · rw [sourceLeaf_parent index 1 (by decide)]; exact hc0
       · rw [sourceLeaf_parent index 1 (by decide)]; exact href0
@@ -10219,7 +10222,7 @@ theorem searchPreparedLayers_famEq (hC : FamCongr S (sourceMessages T) F T T') (
         rcases found1 with ⟨counter1, digits1, low1⟩
         have href1 := referenceSearch_of_run hc1 hr1
         have hc2 : referenceContext T messages (sourceLeaf index 2) =
-            some (CanonicalPolicy.nextResidual (CanonicalPolicy.nextResidual WCT9.CanonicalPolicy.totalCredit 0 low0
+            some (CanonicalPolicy.nextResidual (CanonicalPolicy.nextResidual (SigGolfCandidate.Research.SharedForest.requiredCredit index) 0 low0
               digits0) 1 low1 digits1) := by
           apply context_parent_success (leaf := sourceLeaf index 2) (by change 2 ≠ 0; decide)
           · rw [sourceLeaf_parent index 2 (by decide)]; exact hc1
@@ -10236,7 +10239,7 @@ theorem searchPreparedLayers_famEq (hC : FamCongr S (sourceMessages T) F T T') (
             have href2 := referenceSearch_of_run hc2 hr2
             have hc3 : referenceContext T messages (sourceLeaf index 3) =
                 some (CanonicalPolicy.nextResidual
-                  (CanonicalPolicy.nextResidual (CanonicalPolicy.nextResidual WCT9.CanonicalPolicy.totalCredit 0 low0
+                  (CanonicalPolicy.nextResidual (CanonicalPolicy.nextResidual (SigGolfCandidate.Research.SharedForest.requiredCredit index) 0 low0
                     digits0) 1 low1 digits1) 2 low2 digits2) := by
               apply context_parent_success (leaf := sourceLeaf index 3) (by change 3 ≠ 0; decide)
               · rw [sourceLeaf_parent index 3 (by decide)]; exact hc2

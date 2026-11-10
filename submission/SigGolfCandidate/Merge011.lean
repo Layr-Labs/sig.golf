@@ -903,6 +903,12 @@ Defined before the encoding selector because the top producer choice uses the ca
   2 on the top layer (the d6b head reads the hint first: honest
   LOW costs 4 cycles, HIGH 6). -/
 namespace CanonicalPolicy
+/-- One address setup saved by the first two path windows when their side bits differ. -/
+def topPairSave (leaf : Nat) : Nat := if leaf % 4 = 1 ∨ leaf % 4 = 2 then 1 else 0
+/-- Savings of the two six-level chunks of the top authentication path. -/
+def topPathSave (leaf : Nat) : Nat := topPairSave leaf + topPairSave (leaf / 64)
+/-- Root credit determined by the canonical top WOTS address. -/
+def routePool (leaf : Nat) : Nat := max 72 (73 - topPathSave leaf)
 /-- The credit pool every canonical path must reach. -/
 def totalCredit : Nat := 72
 /-- The (fixed) top credit floor (on the path-aware credit). -/
@@ -1495,7 +1501,7 @@ def lowerFloorMax : Nat := 21
 
 /-- Out-of-range lower residuals deliberately have an impossible threshold. -/
 def threshold (stage residual : Nat) : Nat :=
-  if stage = 0 then topFloor
+  if stage = 0 then max topFloor (residual - 54)
   else if stage = 1 then lowerOneThresholds.getD residual 301
   else if stage = 2 then lowerTwoThresholds.getD residual 301
   else if stage = 3 ∧ residual ≤ 21 then residual
@@ -1556,7 +1562,7 @@ theorem producerDecodeOut_credit {lay : Layer} {floor : Nat} {answer : HashOutpu
     {low : Bool} (h : producerDecodeOut lay floor answer = some (digits, low)) : floor ≤ credit lay low digits :=
   producerDecodeAt_credit (producerDecodeOut_spec h).2
 
-theorem threshold_top (residual : Nat) : threshold 0 residual = 18 := by
+theorem threshold_top (residual : Nat) : threshold 0 residual = max 18 (residual - 54) := by
   simp [threshold, topFloor]
 
 theorem nextResidual_le (residual : Nat) (lay : Layer) (low : Bool) (digits : List Nat) :
@@ -1592,6 +1598,14 @@ theorem lower_two_floor_le : ∀ r : Fin 40, threshold 2 r.val ≤ 18 := by deci
 
 theorem lower_three_progress (r : Nat) (hr : r < 22) :
     threshold 3 r = r := by simp [threshold, show r ≤ 21 by omega]
+
+theorem accepted_top_residual_pool (pool : Nat) {low : Bool} {answer : Digest} {digits : List Nat}
+    (h : producerDecodeAt 0 (max 18 (pool - 54)) low answer = some digits) :
+    nextResidual pool 0 low digits < 55 := by
+  have hc := producerDecodeAt_credit h
+  have hm := Nat.le_max_right 18 (pool - 54)
+  unfold nextResidual
+  omega
 
 theorem accepted_top_residual {answer : Digest} {low : Bool} {digits : List Nat}
     (h : producerDecodeAt 0 18 low answer = some digits) : nextResidual 72 0 low digits < 55 := by

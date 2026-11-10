@@ -15,7 +15,7 @@ theorem layout_offsets : submission.layout =
   { message := 26016, secretKey := 128, publicKey := 160,
     cache := 524288, signature := 28672, witness := 4256 } := rfl
 
-theorem certificate : SigGolf.Certificate submission 6962 := by
+theorem certificate : SigGolf.Certificate submission 6961 := by
   exact SigGolfCandidate.Packaging.certificate_ready
 
 end SigGolf.Challenge
@@ -44,5 +44,5 @@ end SigGolf.Challenge
    codec, N7g-B ground widths, top zero-bit reallocation, Route C gate 926 (adm 29249/2500000).
    Y6 R-odd: odd FTS coordinates mask their child in place (child weight 2^26, instance field at
    bit 33; -3 per run).
-   Claimed S = 5187, W = 21756, K = 131072, C = 6962;
+   Claimed S = 5187, W = 21756, K = 131072, C = 6961;
    product = 36,111,894. Independent acceptance remains required. -/

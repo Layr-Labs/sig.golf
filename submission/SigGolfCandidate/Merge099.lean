@@ -762,7 +762,7 @@ def assembleForest (output : HashOutput) (v : Coord→Digest) : SigGolfCandidate
 
 /-- Policy hints (radix 20) from the path-aware residual chain (`lowsOf` = selected halves). -/
 def hintsOf (index : Nat) (digitsOf : Wots.LeafAddr→List Nat) (lowsOf : Wots.LeafAddr→Bool) : BitVec 16 :=
-  let r1 := WCT9.CanonicalPolicy.nextResidual WCT9.CanonicalPolicy.totalCredit 0 (lowsOf (routeAddr index 0))
+  let r1 := WCT9.CanonicalPolicy.nextResidual (SigGolfCandidate.Research.SharedForest.requiredCredit index) 0 (lowsOf (routeAddr index 0))
     (digitsOf (routeAddr index 0))
   let r2 := WCT9.CanonicalPolicy.nextResidual r1 1 (lowsOf (routeAddr index 1)) (digitsOf (routeAddr index 1))
   let r3 := WCT9.CanonicalPolicy.nextResidual r2 2 (lowsOf (routeAddr index 2)) (digitsOf (routeAddr index 2))
@@ -1024,16 +1024,16 @@ step cost ~85 s and ~8 GiB of kernel replay. -/
     (index : Nat) (hi : index<2^31) (hok : RouteOk T index) :
     ∃ result, evalWithAnswerFn T (searchPreparedLayers cache index
       (evalWithAnswerFn T (prepareRoots index)) (SigGolfCandidate.Research.SharedForest.forestCommitment T index))=some result := by
-  have hc0 : referenceContext T (sourceMessages T) (sourceLeaf index 0)=some WCT9.CanonicalPolicy.totalCredit := rfl
-  obtain ⟨c0,d0,l0,href0,hs0⟩ := route_search_of_context T index hok 0 WCT9.CanonicalPolicy.totalCredit hc0
+  have hc0 : referenceContext T (sourceMessages T) (sourceLeaf index 0)=some (SigGolfCandidate.Research.SharedForest.requiredCredit index) := rfl
+  obtain ⟨c0,d0,l0,href0,hs0⟩ := route_search_of_context T index hok 0 (SigGolfCandidate.Research.SharedForest.requiredCredit index) hc0
   rw [searchOf_route_lower T index 0 (by decide)] at hs0
-  have hd0 := (canonical_search_some' T 0 (WCT9.CanonicalPolicy.threshold 0 WCT9.CanonicalPolicy.totalCredit)
+  have hd0 := (canonical_search_some' T 0 (WCT9.CanonicalPolicy.threshold 0 (SigGolfCandidate.Research.SharedForest.requiredCredit index))
     (route index 0).2 (route index 0).1
     (.pair (ClaudeWCT.WCT9.builtPair T 1 (route index 1).2).1
       (ClaudeWCT.WCT9.builtPair T 1 (route index 1).2).2)
     (WCT9.searchLimit 0) 0 c0 d0 l0 (ClaudeWCT.W9.T3.Security.Wots.searchLimit_fits _) hs0).2.2.2
-  let r1 := WCT9.CanonicalPolicy.nextResidual WCT9.CanonicalPolicy.totalCredit 0 l0 d0
-  have hr1 : r1<55 := WCT9.CanonicalPolicy.accepted_top_residual
+  let r1 := WCT9.CanonicalPolicy.nextResidual (SigGolfCandidate.Research.SharedForest.requiredCredit index) 0 l0 d0
+  have hr1 : r1<55 := WCT9.CanonicalPolicy.accepted_top_residual_pool (SigGolfCandidate.Research.SharedForest.requiredCredit index)
     (by rwa [WCT9.CanonicalPolicy.threshold_top] at hd0)
   have hf1 : WCT9.CanonicalPolicy.threshold 1 r1<16 := WCT9.CanonicalPolicy.lower_one_floor_lt ⟨r1,hr1⟩
   have hc1 : referenceContext T (sourceMessages T) (sourceLeaf index 1)=some r1 := by
@@ -1075,7 +1075,7 @@ step cost ~85 s and ~8 GiB of kernel replay. -/
   obtain ⟨c3,d3,l3,href3,hs3⟩ := route_search_of_context T index hok 3 r3 hc3
   rw [searchOf_route_bottom T index hi] at hs3
   have hs0' : evalWithAnswerFn T (WCT9.CanonicalPolicy.layerCounterSearchAt 0
-      (WCT9.CanonicalPolicy.threshold 0 WCT9.CanonicalPolicy.totalCredit) (route index 0).2 (route index 0).1
+      (WCT9.CanonicalPolicy.threshold 0 (SigGolfCandidate.Research.SharedForest.requiredCredit index)) (route index 0).2 (route index 0).1
       (.pair (ClaudeWCT.WCT9.builtPair T 1 (route index 1).2).1 (ClaudeWCT.WCT9.builtPair T 1 (route index 1).2).2) 0 (WCT9.searchLimit 0))=some (c0,d0,l0) := hs0
   have hs1' : evalWithAnswerFn T (WCT9.CanonicalPolicy.layerCounterSearchAt 1
       (WCT9.CanonicalPolicy.threshold 1 r1) (route index 1).2 (route index 1).1

@@ -1415,7 +1415,7 @@ theorem top_good {im : Image} {sk : BitVec 256} (hsearch : SrchCoreAt im)
     (hentry : CodeAt im (pcOf 351) [0x4d52706f])
     {output : HashOutput} {w : SharedForest.Witness} {b : SharedCodec.CBytes} {folded root pk : Digest} {s : MachineState}
     (h : TopReady output w b folded root pk s) :
-    TBSim im sk s 31600000 (topProgram output w folded root pk) Done := by
+    TBSim im sk s 31530000 (topProgram output w folded root pk) Done := by
   have hsib : WCT9.setTop (WCT9.topSib (SharedForest.mainSignature w.signature)) 0=
       WCT9.topSib (SharedForest.mainSignature w.signature) := by
     rw [←WCT9.topSib_fillTop,h.proj]
@@ -1423,7 +1423,7 @@ theorem top_good {im : Image} {sk : BitVec 256} (hsearch : SrchCoreAt im)
     (WCT9.topSib (SharedForest.mainSignature w.signature)) root pk hsib s h.pc h.x5 h.root
     h.stable.pk.1 h.stable.pk.2 h.stable.index h.top
   unfold topProgram
-  refine (TBSim.bind (W₂:=71150) call (fun result t ht=>?_)).mono (W':=31600000) (by norm_num) (fun _ _ h=>h)
+  refine (TBSim.bind (W₂:=71150) call (fun result t ht=>?_)).mono (W':=31530000) (by norm_num) (fun _ _ h=>h)
   cases result with
   | none => exact (TBSim.pure (Q:=Done) (a:=none) ht).mono (by omega) (fun _ _ h=>h)
   | some c =>
@@ -1684,7 +1684,7 @@ def recoverProgram (output : HashOutput) (sig : SharedForest.Signature) (counter
     4 (.pair forest.1 forest.2) >>= fun result=>
   match result with
   | none => pure none
-  | some r => if SharedForest.policyHintsValid sig.policyHints r.digits r.lows then
+  | some r => if SharedForest.policyHintsValid (WCT9.digestIndex output) sig.policyHints r.digits r.lows then
       topProgram output ⟨sig,counter,fun lay=>r.counters.getD lay.val 0,!(r.lows.getD 0 true),r.nonces,
         fun lay=>r.lowerNonces.getD lay.val [],ftsN⟩ r.foldedTop r.root pk
     else pure none
@@ -1715,11 +1715,13 @@ theorem layers_good {sk : BitVec 256} {output : HashOutput} {sig : SharedForest.
     have jump:=SharedControl.validate_step t tp
     let u:=t.setPC (pcOf 46929)
     obtain ⟨v,n,c,hn,hc,uv,vp,vr,vf⟩:=SharedValidateV6.validate_source_steps SharedValidateV6.installed_code
-      u rfl sig.policyHints r.digits r.lows h.inv.hintsLt dlen (fun lay=>floors lay lay.isLt) hints
+      u rfl (WCT9.digestIndex output) h.inv.hidx (by simpa [u] using stable.index)
+      sig.policyHints r.digits r.lows h.inv.hintsLt dlen (fun lay=>by
+        simpa only [SigGolfCandidate.T3M.Search.CanonicalExpandHooks.hintFloor_source] using floors lay lay.isLt) hints
       (fun lay=>credits lay lay.isLt) SharedValidate.threshold1_lt SharedValidate.threshold2_lt
       stable.threshold1 stable.threshold2
     have tf : Frame t v (fun _=>False):=vf
-    by_cases valid:SharedForest.policyHintsValid sig.policyHints r.digits r.lows=true
+    by_cases valid:SharedForest.policyHintsValid (WCT9.digestIndex output) sig.policyHints r.digits r.lows=true
     · rw [if_pos valid] at vp ⊢
       have v5:v.getReg .x5=0 := (vr.get (by decide)).trans t5
       have ready:TopReady output ⟨sig,counter,fun lay=>r.counters.getD lay.val 0,!(r.lows.getD 0 true),r.nonces,
@@ -1898,7 +1900,7 @@ theorem expandN_source (message : Message) (pk : Digest) (b : SharedCodec.CBytes
     | none => rfl
     | some layers =>
       dsimp only
-      by_cases valid:SharedForest.policyHintsValid (SharedCodec.sigDecC b).policyHints layers.digits layers.lows=true
+      by_cases valid:SharedForest.policyHintsValid (WCT9.digestIndex output) (SharedCodec.sigDecC b).policyHints layers.digits layers.lows=true
       · simp only [valid,Bool.not_true,Bool.false_eq_true,ite_false,ite_true]
         unfold topProgram
         by_cases root:layers.root=pk
@@ -1908,7 +1910,7 @@ theorem expandN_source (message : Message) (pk : Digest) (b : SharedCodec.CBytes
             (WCT9.topSib (SharedForest.mainSignature (SharedCodec.sigDecC b))) pk WCT9.searchFuel 1 >>= k)
           funext c
           cases c <;> rfl
-      · have vf : SharedForest.policyHintsValid (SharedCodec.sigDecC b).policyHints layers.digits layers.lows=false :=
+      · have vf : SharedForest.policyHintsValid (WCT9.digestIndex output) (SharedCodec.sigDecC b).policyHints layers.digits layers.lows=false :=
           Bool.eq_false_iff.mpr valid
         simp only [vf,Bool.not_false,Bool.false_eq_true,ite_true,ite_false]
 end ClaudeWCT.W9.Machine.Expand.SharedCompactMain

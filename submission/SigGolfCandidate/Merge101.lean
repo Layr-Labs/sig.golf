@@ -1731,7 +1731,7 @@ theorem sat_searchPreparedLayers (T : Answers) (cache : SigGolfCandidate.T3.Cach
   unfold searchPreparedLayers
   refine QueriesSat.bind (sat_canonical_search T _ _ _ _ _ _ _) ?_
   cases hs : evalWithAnswerFn T (CanonicalPolicy.layerCounterSearchAt 0
-      (CanonicalPolicy.threshold 0 CanonicalPolicy.totalCredit) (route index 0).2
+      (CanonicalPolicy.threshold 0 (requiredCredit index)) (route index 0).2
       (route index 0).1 (.pair (topPair 1 prepared.one.levels).1 (topPair 1 prepared.one.levels).2)
       0 (searchLimit 0)) with
   | none => exact QueriesSat.pure' _

@@ -1748,7 +1748,7 @@ def expandN (message : Message) (pk : Digest) (sig : SigGolfCandidate.Research.S
   let forest ← recoverForest index (forestSelectionFromOutput output) (forestWordsFromOutput output) sig0.forest
   let some layers ← recoverHintedLayers sig0 index ((sig0.layers 0).path WCT9.topJ)
     4 (.pair forest.1.1 forest.1.2) | pure none
-  if !policyHintsValid sig0.policyHints layers.digits layers.lows then return none
+  if !policyHintsValid index sig0.policyHints layers.digits layers.lows then return none
   if layers.root = pk then
     return some (output, ⟨sig0, counter, fun lay => layers.counters.getD lay.val 0, !(layers.lows.getD 0 true), layers.nonces,
       fun lay => layers.lowerNonces.getD lay.val [], forest.2⟩)
@@ -1998,7 +1998,7 @@ theorem expandN_selections (answers : Answers) (message : Message) (pk : Digest)
           (forestSelectionFromOutput output) (forestWordsFromOutput output) sig.forest)).1.1
           (evalWithAnswerFn answers (recoverForest (WCT9.digestIndex output)
           (forestSelectionFromOutput output) (forestWordsFromOutput output) sig.forest)).1.2)) = some result ∧
-      policyHintsValid sig.policyHints result.digits result.lows = true ∧
+      policyHintsValid (WCT9.digestIndex output) sig.policyHints result.digits result.lows = true ∧
       w.signature = fillTopSignature sig c ∧ w.digestCounter = counter ∧
       (∀ lay, w.counters lay = result.counters.getD lay.val 0) ∧ w.topHigh = !(result.lows.getD 0 true) := by
   unfold expandN at he
@@ -2024,7 +2024,7 @@ theorem expandN_selections (answers : Answers) (message : Message) (pk : Digest)
         | some result =>
             dsimp only [forest] at hr
             simp only [hr] at he
-            by_cases hp : policyHintsValid sig.policyHints result.digits result.lows = true
+            by_cases hp : policyHintsValid (WCT9.digestIndex N) sig.policyHints result.digits result.lows = true
             · simp only [hp, Bool.not_true, Bool.false_eq_true, if_false] at he
               by_cases hk : result.root = pk
               · simp only [hk, if_true, evalWithAnswerFn_pure, Option.some.injEq, Prod.mk.injEq] at he

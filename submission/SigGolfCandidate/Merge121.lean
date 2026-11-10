@@ -4095,6 +4095,11 @@ def mkWords (lay l : Nat) : Nat :=
 def mkOff (lay ci : Nat) : Nat → Nat
   | 0 => 0
   | kk + 1 => mkOff lay ci kk + mkWords lay (mkLo lay ci + kk)
+/-- Compact a top chunk after omitting its redundant first-node destination setup. -/
+def mkPairSkip (lay sh kk : Nat) : Nat :=
+  if lay = 0 ∧ kk = 0 then ClaudeWCT.WCT9.CanonicalPolicy.topPairSave sh else 0
+def mkOffOpt (lay ci sh kk : Nat) : Nat :=
+  mkOff lay ci kk - (if lay = 0 ∧ 0 < kk then ClaudeWCT.WCT9.CanonicalPolicy.topPairSave sh else 0)
 /-- C4: every layer (the top included) places its windows by the plan (`plan 0` = the two-line top plan). -/
 def mkBo (lay leaf l : Nat) : Nat := mkBase lay + 16 * plan lay leaf l
 def mkBlk (lay leaf l : Nat) : Nat := 0x10A0 + mkBo lay leaf l
@@ -4152,9 +4157,9 @@ def mkNextA2 (lay ci sh kk : Nat) : Nat :=
   else if lay = 0 then mkCur lay (mkLeafOf lay ci sh) (mkLo lay ci + kk) (sh / 2 ^ kk % 2) else 256
 def mkLvlSpecN (lay ci sh kk : Nat) : Spec :=
   ⟨mkLvlRegs lay (mkLo lay ci + kk), mkLvlMem lay ci sh (mkLo lay ci + kk),
-    mkShp lay ci sh + mkOff lay ci (kk + 1) + mkMove lay (mkLo lay ci + kk), true,
-    mkBody lay (mkLo lay ci + kk) + mkMove lay (mkLo lay ci + kk), [], none,
-    mkBody lay (mkLo lay ci + kk) + mkMove lay (mkLo lay ci + kk)⟩
+    mkShp lay ci sh + mkOffOpt lay ci sh (kk + 1) + mkMove lay (mkLo lay ci + kk), true,
+    mkBody lay (mkLo lay ci + kk) + mkMove lay (mkLo lay ci + kk) - mkPairSkip lay sh kk, [], none,
+    mkBody lay (mkLo lay ci + kk) + mkMove lay (mkLo lay ci + kk) - mkPairSkip lay sh kk⟩
 def mkLvlSpecD (lay ci sh kk : Nat) : Spec :=
   ⟨mkLvlRegs lay (mkLo lay ci + kk), mkLvlMem lay ci sh (mkLo lay ci + kk), 0, false,
     mkBody lay (mkLo lay ci + kk) + 1, [], some (mkDispTgt sh),
@@ -4171,11 +4176,11 @@ def mkLvlKN (lay ci sh kk : Nat) : List (Reg × Word) :=
       [(.x12, BitVec.ofNat 64 (mkCur lay (mkLeafOf lay ci sh) (mkLo lay ci + kk) (sh / 2 ^ kk % 2)))] else [])
 def mkLvlCheckN (lay ci sh kk : Nat) : Bool :=
   mkSpecB (mkLvlAllow lay (mkLeafOf lay ci sh) (mkLo lay ci + kk)) [] (gkL lay)
-    (mkLvlKN lay ci sh kk) [] (mkShp lay ci sh + mkOff lay ci kk + 2) []
+    (mkLvlKN lay ci sh kk) [] (mkShp lay ci sh + mkOffOpt lay ci sh kk + 2) []
     (mkLvlSpecN lay ci sh kk) [] (mkLvlPostN lay ci sh kk) (mkKeep ++ (.x14 :: mkLvlKeep lay (mkLo lay ci + kk)))
 def mkLvlCheckD (lay ci sh kk : Nat) : Bool :=
   mkSpecB (mkLvlAllow lay (mkLeafOf lay ci sh) (mkLo lay ci + kk)) [] (gkL lay)
-    (mkLvlKN lay ci sh kk) [] (mkShp lay ci sh + mkOff lay ci kk + 2) [.jmp]
+    (mkLvlKN lay ci sh kk) [] (mkShp lay ci sh + mkOffOpt lay ci sh kk + 2) [.jmp]
     (mkLvlSpecD lay ci sh kk) [] (mkLvlPostD lay ci sh kk) (mkKeep ++ mkLvlKeep lay (mkLo lay ci + kk))
 def mkLvlCheck (lay ci sh kk : Nat) : Bool :=
   if mkIsDisp lay ci kk then mkLvlCheckD lay ci sh kk else mkLvlCheckN lay ci sh kk
@@ -4183,7 +4188,7 @@ def mkBlockCheck (lay ci sh : Nat) : Bool :=
   mkEntCheck lay ci sh && (List.range (mkBits lay ci)).all (mkLvlCheck lay ci sh)
 def mkChunkCheck (lay ci lo n : Nat) : Bool := (List.range' lo n).all (mkBlockCheck lay ci)
 /-- C4: the root compare moved up 6 words (`133868 + 128 c`) and reads the root where upper copy `c` wrote it. -/
-def cmpPc (c : Nat) : Nat := 133868 + 128 * c
+def cmpPc (c : Nat) : Nat := 133868 + 128 * c - ClaudeWCT.WCT9.CanonicalPolicy.topPairSave c
 def cmpDst (c : Nat) : Nat := 11920 + 16 * topRootSlot.getD c 0
 def cmpK (c : Nat) : List (Reg × Word) := gkL 0 ++ [(.x12, BitVec.ofNat 64 (cmpDst c))]
 def cmpBr1 (c : Nat) (d : Bool) : Br := ⟨.ne, .ld (kw (cmpDst c)), .ld (kw 160), d⟩
@@ -4217,10 +4222,10 @@ def mkEntCheck (lay ci sh : Nat) : Bool :=
     (mkEntSpec lay ci sh) [] (mkEntPost lay ci sh) mkEntKeep
 def mkLvlSpecN (lay ci sh kk : Nat) : Spec :=
   { T3M.mkLvlSpecN lay ci sh kk with
-    pc := mkShp lay ci sh + mkOff lay ci (kk + 1) + mkMove lay (mkLo lay ci + kk) }
+    pc := mkShp lay ci sh + mkOffOpt lay ci sh (kk + 1) + mkMove lay (mkLo lay ci + kk) }
 def mkLvlCheckN (lay ci sh kk : Nat) : Bool :=
   mkSpecB (mkLvlAllow lay (mkLeafOf lay ci sh) (mkLo lay ci + kk)) [] (gkL lay)
-    (mkLvlKN lay ci sh kk) [] (mkShp lay ci sh + mkOff lay ci kk + 2) []
+    (mkLvlKN lay ci sh kk) [] (mkShp lay ci sh + mkOffOpt lay ci sh kk + 2) []
     (mkLvlSpecN lay ci sh kk) [] (mkLvlPostN lay ci sh kk)
     (mkKeep ++ (.x14 :: mkLvlKeep lay (mkLo lay ci + kk)))
 def mkLvlCheck (lay ci sh kk : Nat) : Bool :=
