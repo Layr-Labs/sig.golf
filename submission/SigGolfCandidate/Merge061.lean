@@ -10,7 +10,7 @@ section
 
 Split out of `Expand/Routine.lean` so that it builds independently of the forest/FTS modules.
 Expand kernel base `b = 354`; choice block at 43040 (`choiceBase 354`), `pa` at 43057, `topcr` at 43064..43070,
-floor hooks at 46905 (policy hints, img-v6 radix 484/22/1), lower credit hook at 46918 (credit words `0x66040 + 8 lay`).
+floor hooks at 46905 (policy hints, Y5 radix 529/23/1), lower credit hook at 46918 (credit words `0x66040 + 8 lay`).
 Campaign T51: the top layer runs the shared T51 kernel at its expand instance (`1272: j 54176`, `K_ENTRY` 54176, unpacker
 54356..54521, RAM table 0xA0000 from KCOPY): `T51.trial` / `T51.unpack` in `CanonicalExpand.cs_loop`. -/
 
@@ -20,8 +20,8 @@ open SigGolfCandidate.T3M
 set_option maxHeartbeats 2000000
 set_option maxRecDepth 100000
 set_option linter.unusedSimpArgs false
-/-- `46905`: `t3 := mem[0x66000]` (policy hints), `t4 := 22` (radix), branch on the layer (v6: `s0-3`). -/
-def firstCode : List (BitVec 32) := bv_list% 32 [0x66e37,0xe0e13,0xe3e03,0x1600e93,0xffd40f13,0xf0c63]
+/-- `46905`: `t3 := mem[0x66000]` (policy hints), `t4 := 23` (radix; Y5), branch on the layer (v6: `s0-3`). -/
+def firstCode : List (BitVec 32) := bv_list% 32 [0x66e37,0xe0e13,0xe3e03,0x1700e93,0xffd40f13,0xf0c63]
 sym_block first := symRun {noAlias:=true} firstCode (pcOf 46905) 20
 def middleCode : List (BitVec 32) := bv_list% 32 [0x3de5e33,0xffe40f13,0xf0663]
 sym_block middle := symRun {noAlias:=true} middleCode (pcOf 46911) 20
@@ -40,21 +40,21 @@ structure Code (im : Image) : Prop where
   remainder : CodeAt im (pcOf 46916) remainderCode
   lowerCredit : CodeAt im (pcOf 46918) lowerCreditCode
   topCredit : CodeAt im (pcOf 46924) topCreditCode
-theorem rem22 (n : Nat) (hn : n<2^64) : rv64_remu (BitVec.ofNat 64 n) 22#64=BitVec.ofNat 64 (n%22) := by
+theorem rem23 (n : Nat) (hn : n<2^64) : rv64_remu (BitVec.ofNat 64 n) 23#64=BitVec.ofNat 64 (n%23) := by
   apply BitVec.eq_of_toNat_eq
   simp [rv64_remu,BitVec.toNat_umod,BitVec.toNat_ofNat,Nat.mod_eq_of_lt hn,
-    Nat.mod_eq_of_lt (show n%22<2^64 by omega)]
+    Nat.mod_eq_of_lt (show n%23<2^64 by omega)]
   omega
-theorem div22 (n : Nat) (hn : n<2^64) : rv64_divu (BitVec.ofNat 64 n) 22#64=BitVec.ofNat 64 (n/22) := by
+theorem div23 (n : Nat) (hn : n<2^64) : rv64_divu (BitVec.ofNat 64 n) 23#64=BitVec.ofNat 64 (n/23) := by
   apply BitVec.eq_of_toNat_eq
   simp [rv64_divu,BitVec.toNat_udiv,BitVec.toNat_ofNat,Nat.mod_eq_of_lt hn,
-    Nat.mod_eq_of_lt (show n/22<2^64 by omega)]
+    Nat.mod_eq_of_lt (show n/23<2^64 by omega)]
   omega
 theorem floor1_steps {im : Image} (hc : Code im) (s : MachineState) (hp : s.pc=pcOf 46905)
     (hints : Nat) (hh : hints<8000) (h8 : s.getReg .x8=1)
     (hm : s.getMem (0x66000#64)=BitVec.ofNat 64 hints) :
     ∃ t,Steps im s 11 17 t ∧ t.pc=pcOf 43027 ∧
-      t.getReg .x28=BitVec.ofNat 64 (hints/484%22) ∧
+      t.getReg .x28=BitVec.ofNat 64 (hints/529%23) ∧
       RegsExcept s t [.x28,.x29,.x30] ∧ Frame s t (fun _=>False) := by
   let s1:=first.res.toState s
   have st1 : Steps im s 6 6 s1 := symRun_sound first hc.first s hp (by simp [first.res,rv_simp])
@@ -65,7 +65,7 @@ theorem floor1_steps {im : Image} (hc : Code im) (s : MachineState) (hp : s.pc=p
   refine ⟨s3,st1.trans (st2.trans (st3)),?_,?_,?_,?_⟩
   · simp [s1, first.res, s2, middle.res, s3, last.res,rv_simp,h8]
   · simp [s1, first.res, s2, middle.res, s3, last.res,rv_simp,hm]
-    simp only [div22 hints (by omega),div22 (hints/22) (by omega),rem22 hints (by omega),rem22 (hints/22) (by omega)]
+    simp only [div23 hints (by omega),div23 (hints/23) (by omega),rem23 hints (by omega),rem23 (hints/23) (by omega)]
     try (congr 1; omega)
   · intro r hr; cases r <;> simp at hr <;> rfl
   · intro A ha hn;rfl
@@ -73,7 +73,7 @@ theorem floor2_steps {im : Image} (hc : Code im) (s : MachineState) (hp : s.pc=p
     (hints : Nat) (hh : hints<8000) (h8 : s.getReg .x8=2)
     (hm : s.getMem (0x66000#64)=BitVec.ofNat 64 hints) :
     ∃ t,Steps im s 11 17 t ∧ t.pc=pcOf 43027 ∧
-      t.getReg .x28=BitVec.ofNat 64 (hints/22%22) ∧
+      t.getReg .x28=BitVec.ofNat 64 (hints/23%23) ∧
       RegsExcept s t [.x28,.x29,.x30] ∧ Frame s t (fun _=>False) := by
   let s1:=first.res.toState s
   have st1 : Steps im s 6 6 s1 := symRun_sound first hc.first s hp (by simp [first.res,rv_simp])
@@ -84,14 +84,14 @@ theorem floor2_steps {im : Image} (hc : Code im) (s : MachineState) (hp : s.pc=p
   refine ⟨s3,st1.trans (st2.trans (st3)),?_,?_,?_,?_⟩
   · simp [s1, first.res, s2, middle.res, s3, remainder.res,rv_simp,h8]
   · simp [s1, first.res, s2, middle.res, s3, remainder.res,rv_simp,hm]
-    simp only [div22 hints (by omega),div22 (hints/22) (by omega),rem22 hints (by omega),rem22 (hints/22) (by omega)]
+    simp only [div23 hints (by omega),div23 (hints/23) (by omega),rem23 hints (by omega),rem23 (hints/23) (by omega)]
   · intro r hr; cases r <;> simp at hr <;> rfl
   · intro A ha hn;rfl
 theorem floor3_steps {im : Image} (hc : Code im) (s : MachineState) (hp : s.pc=pcOf 46905)
     (hints : Nat) (hh : hints<8000) (h8 : s.getReg .x8=3)
     (hm : s.getMem (0x66000#64)=BitVec.ofNat 64 hints) :
     ∃ t,Steps im s 8 11 t ∧ t.pc=pcOf 43027 ∧
-      t.getReg .x28=BitVec.ofNat 64 (hints%22) ∧
+      t.getReg .x28=BitVec.ofNat 64 (hints%23) ∧
       RegsExcept s t [.x28,.x29,.x30] ∧ Frame s t (fun _=>False) := by
   let s1:=first.res.toState s
   have st1 : Steps im s 6 6 s1 := symRun_sound first hc.first s hp (by simp [first.res,rv_simp])
@@ -100,7 +100,7 @@ theorem floor3_steps {im : Image} (hc : Code im) (s : MachineState) (hp : s.pc=p
   refine ⟨s2,st1.trans (st2),?_,?_,?_,?_⟩
   · simp [s1, first.res, s2, remainder.res,rv_simp,h8]
   · simp [s1, first.res, s2, remainder.res,rv_simp,hm]
-    simp only [div22 hints (by omega),div22 (hints/22) (by omega),rem22 hints (by omega),rem22 (hints/22) (by omega)]
+    simp only [div23 hints (by omega),div23 (hints/23) (by omega),rem23 hints (by omega),rem23 (hints/23) (by omega)]
   · intro r hr; cases r <;> simp at hr <;> rfl
   · intro A ha hn;rfl
 def lowerPrepCode : List (BitVec 32) := bv_list% 32 [0x66e37,0xe0e13,0x341e93,0x1de0e33]
@@ -202,10 +202,10 @@ open SigGolfCandidate.T3 (Digest Layer)
 open ClaudeWCT WCT9.CanonicalPolicy
 def creditAddr (lay : Layer) : Nat := 0x66040+8*lay.val
 def CreditW (lay : Layer) (A : Nat) : Prop := A=creditAddr lay ∧ 0x66040≤A ∧ A<0x66060
-/-- Floors read from the policy hints (img-v6 mixed radix `484·f1 + 22·f2 + f3`); the top floor is 14. Agrees with
+/-- Floors read from the policy hints (Y5 mixed radix `529·f1 + 23·f2 + f3`); the top floor is 18. Agrees with
 `Research.V7Composed198Gate.hintFloor` (`CanonicalPolicy.topFloor = 18`). -/
 def hintFloor (hints : BitVec 16) (lay : Layer) : Nat :=
-  if lay=0 then 18 else hints.toNat/22^(3-lay.val)%22
+  if lay=0 then 18 else hints.toNat/23^(3-lay.val)%23
 theorem creditAddr_lt (lay : Layer) : creditAddr lay<2^64 := by
   have := lay.isLt;unfold creditAddr;omega
 theorem creditAddr_mem (lay : Layer) : CreditW lay (creditAddr lay) := by
@@ -214,7 +214,7 @@ theorem creditAddr_mem (lay : Layer) : CreditW lay (creditAddr lay) := by
   omega
 theorem creditW_zero {X : Nat} (h : CreditW 0 X) : X=0x66040 := by
   rcases h with ⟨h,_⟩; rw [h]; rfl
-theorem hintFloor_lt (hints : BitVec 16) (lay : Layer) : hintFloor hints lay<22 := by
+theorem hintFloor_lt (hints : BitVec 16) (lay : Layer) : hintFloor hints lay<23 := by
   unfold hintFloor
   split_ifs
   · omega
@@ -587,7 +587,7 @@ structure CsPre (b : Nat) (A : CsArgs) (s : MachineState) : Prop where
   cf : CfTableOK (cfFlag b) s
   reward : Reward.RewardTablesOK s
   zt : ZeroCap.ZtOK b s
-  floorLt : A.floor<22
+  floorLt : A.floor<23
   floorTop : A.lay=0 → A.floor=18
   hintsLt : A.hints.toNat<8000
   floorEq : A.floor=CanonicalExpandHooks.hintFloor A.hints A.lay

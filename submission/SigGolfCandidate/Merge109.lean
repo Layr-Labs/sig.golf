@@ -2043,7 +2043,7 @@ theorem paired_ftsLabel_top (labels : Labels) (index : Fin (2^31)) (coord : Fin 
   rw [dif_pos (show 6-1<6 ∧ b.val<2^(7-(6-1)-1) by have := b.isLt;omega)]
   change Extract.Paired.proj (CanonGraph.Node.wctNode (ftsTopNode index coord b)).toPos
     (labels (.wctNode (wSelNode labels (ftsTopNode index coord b)))) = _
-  rw [wSelNode_of_cap_one (wTrialCap_off (by show (5:Nat) ≠ 3; decide)) rfl]
+  rw [wSelNode_of_cap_one (wTrialCap_off (by show ¬ Extract.Paired.ftsNonceLevel _ 5; unfold Extract.Paired.ftsNonceLevel; omega)) rfl]
 
 theorem msgLabel_router (vals : LargeResidual.Coord → Digest) (a : AuxData) (L : EncLeaf) :
     msgLabel (LargeResidual.Paired.routerLabels vals a) L = LargeResidual.msgVals vals L := by
@@ -5802,7 +5802,7 @@ theorem flexible_event_le (θ rate : ENNReal)
     (hwin : ∀ b∈(bankSpec.bankExperiment payAfterDigest rest budget).support,
       weight (b.1,b.2.2)≠0 → 1≤flexiblePotential θ budget b.2) :
     expectedValue (bankSpec.recordedExperiment payAfterDigest rest) weight ≤
-      (θ+29249/2500000)/2^128*bankSpec.expectedBirths payAfterDigest rest budget+
+      (θ+28883/2500000)/2^128*bankSpec.expectedBirths payAfterDigest rest budget+
       (budget:ENNReal)*rate/2^128 :=
   FlexibleGame.bank_event_le_rate bankSpec θ payAfterDigest payNotDigest payAvoids
     rest budget rate hexc weight hw hwin
@@ -7028,7 +7028,7 @@ theorem bank_cert_le (hUpub : SeccLaw.publicUniverse ⊆ U) (initLaw : PMF AuxDa
     apply ENNReal.div_le_div_right
     apply mul_le_mul' le_rfl
     exact_mod_cast (show q ≤ q - r.2.counters.mass + r.2.counters.mass by omega)
-  have hcoeff_fin : coeffQ θ q ≠ ⊤ := by unfold coeffQ; exact ENNReal.add_ne_top.mpr ⟨htheta,by change (29249/2500000:ENNReal)≠⊤; finiteness⟩
+  have hcoeff_fin : coeffQ θ q ≠ ⊤ := by unfold coeffQ; exact ENNReal.add_ne_top.mpr ⟨htheta,by change (28883/2500000:ENNReal)≠⊤; finiteness⟩
   have hSfin : S ≠ ⊤ := by
     apply ne_top_of_le_ne_top (b := coeffQ θ q * (q : ENNReal) / 2 ^ 128)
     · exact ENNReal.div_ne_top (ENNReal.mul_ne_top hcoeff_fin (ENNReal.natCast_ne_top q)) (by positivity)
@@ -7075,26 +7075,26 @@ theorem budgetRate_ge_one (q : Nat) (hq : q≤2^127) : 1≤Flexible.budgetRate q
   linarith
 
 theorem coeffQ_budgetRate (q : Nat) (hq:q≤2^127) :
-    coeffQ (ENNReal.ofReal (Flexible.budgetRate q-29249/2500000)) q = ENNReal.ofReal (Flexible.budgetRate q) := by
+    coeffQ (ENNReal.ofReal (Flexible.budgetRate q-28883/2500000)) q = ENNReal.ofReal (Flexible.budgetRate q) := by
   have h:=budgetRate_ge_one q hq
   unfold coeffQ
-  change ENNReal.ofReal (Flexible.budgetRate q-29249/2500000)+(29249/2500000:ENNReal)=_
-  rw [show (29249/2500000:ENNReal)=ENNReal.ofReal (29249/2500000:ℝ) by rw [ENNReal.ofReal_div_of_pos (by norm_num)]; norm_num,
-    ←ENNReal.ofReal_add (by linarith : 0≤Flexible.budgetRate q-29249/2500000) (by positivity)]
+  change ENNReal.ofReal (Flexible.budgetRate q-28883/2500000)+(28883/2500000:ENNReal)=_
+  rw [show (28883/2500000:ENNReal)=ENNReal.ofReal (28883/2500000:ℝ) by rw [ENNReal.ofReal_div_of_pos (by norm_num)]; norm_num,
+    ←ENNReal.ofReal_add (by linarith : 0≤Flexible.budgetRate q-28883/2500000) (by positivity)]
   congr 1
   ring
 
 theorem contact_cert_bound_of_excess (adversary : Final.Paired.AdversaryP) (q : Nat) (hq:q≤2^127)
     (rate : ENNReal)
     (hexc : ClaudeWCT.Numerics.Law.lawAvg ClaudeWCT.Bank.Paired.honestLaw (2^32)
-      (fun W=>ClaudeWCT.Bank.Paired.price W-ENNReal.ofReal (Flexible.budgetRate q-29249/2500000))≤rate) :
+      (fun W=>ClaudeWCT.Bank.Paired.price W-ENNReal.ofReal (Flexible.budgetRate q-28883/2500000))≤rate) :
     Pr[ContactNO adversary q | PairedSeccLaw.completedExperiment adversary q hq] +
       Pr[fun z=>CertR adversary q (QueryRecorded.recordedTrace z.1) z.2 ∧
         NoOvR adversary (QueryRecorded.recordedTrace z.1) z.2 |
         PairedSeccLaw.completedExperiment adversary q hq] ≤
       ENNReal.ofReal (2*((q:ℝ)/2^128)-((q:ℝ)/2^128)^2)+(q:ENNReal)*rate/2^128+
         ((2 ^ 142 : ℝ≥0∞)⁻¹+(2 ^ 142 : ℝ≥0∞)⁻¹) := by
-  have hb := bank_cert_le (ENNReal.ofReal (Flexible.budgetRate q-29249/2500000))
+  have hb := bank_cert_le (ENNReal.ofReal (Flexible.budgetRate q-28883/2500000))
     (Wots.PairedReference.Ref.referenceInputs_universe adversary) initLaw adversary q (by finiteness) rate hexc
   rw [coeffQ_budgetRate q hq] at hb
   have hp := Flexible.residual_potential_rate (Flexible.budgetRate q) (auxLaw initLaw) q hq
@@ -11473,7 +11473,7 @@ theorem nearLawSpec_producer : nearLawSpec.producer=SigGolfCandidate.Research.Sh
   change producer = _
   exact funext producer_source
 
-theorem nearLawSpec_mean : ClaudeWCT.Numerics.Law.lawAvg nearLawSpec.law (2^32) nearLawSpec.price≤(22820/50) :=
+theorem nearLawSpec_mean : ClaudeWCT.Numerics.Law.lawAvg nearLawSpec.law (2^32) nearLawSpec.price≤(22894/50) :=
   law_nearPrice_mean_bound
 
 theorem forced_near_payoff_le {β : Type} (slot q : Nat)
@@ -11481,8 +11481,8 @@ theorem forced_near_payoff_le {β : Type} (slot q : Nat)
     (hW : CaseC.SuperProg (NearWorld.implG nearLawSpec slot) (NearWorld.ΦI nearLawSpec q) W) :
     expectedValue (SecretGuessObservation.forcedWithRun WPair.envL WPair.samplerL slot W WPair.initL)
       (fun r => NearWorld.nearPayoff nearLawSpec q r.2)≤
-      (q:ENNReal)*((22820/50)+29249/2500000)/2^128 :=
-  NearWorld.forced_payoff_le nearLawSpec nearCovered_mono (22820/50) nearLawSpec_mean slot q W hW
+      (q:ENNReal)*((22894/50)+28883/2500000)/2^128 :=
+  NearWorld.forced_payoff_le nearLawSpec nearCovered_mono (22894/50) nearLawSpec_mean slot q W hW
 
 end ClaudeWCT.Bank.Paired
 

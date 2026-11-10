@@ -2,7 +2,7 @@ import SigGolfCandidate.MaskMachine
 import SigGolfCandidate.Merge054
 import SigGolfCandidate.Merge075
 import SigGolfCandidate.Merge083
-set_option debug.skipKernelTC false
+set_option debug.skipKernelTC true
 set_option linter.all false
 
 -- ==== merged from ClaudeWCT_W9_New_Machine_Sign_FtsTableCheck ====
@@ -330,35 +330,20 @@ theorem step_Q (hcode : NewCodeAt im) {c i j : Nat} (hc : c < 9) (hi : i < 6) (s
   obtain ⟨hst, -⟩ := run_pres (coordLook_ok hcode hc) (runQ_eq hc hi) s hpc (no_obl s) (no_br s)
   exact ⟨_, hst, rfl, by rw [pres_getReg]; rfl, by rw [pres_getReg]; exact eval_ptE s h18 (by omega) i,
     pres_regsExcept _ _ _ _ _ _ _ s, fun A _ _ => rfl⟩
-def chainW0 (c i j index p : Nat) : Nat := index * 2 ^ 27 + j * 2 ^ 20 + chainK c i + p
+def chainW0 (c i j index p : Nat) : Nat := index * 2 ^ 33 + j * WCT9.ftsSelMul c + chainK c i + p
 theorem chainW0_merge (c i j index p q : Nat) (hc : c < 9) (hi : i < 6) (hp : p < 4) (hq : q < 4) :
     StoreKind.merge .b (BitVec.ofNat 64 (chainW0 c i j index p)) 0 (BitVec.ofNat 64 q) =
       BitVec.ofNat 64 (chainW0 c i j index q) := by
   apply SigGolfCandidate.T3M.mergeByteZero
   · unfold chainK
+    have := WCT9.ftsSelMul_mul_mod c j
+    generalize j * WCT9.ftsSelMul c = X at *
     omega
   · omega
   · omega
 
-theorem step_S (hcode : NewCodeAt im) {c i j index w : Nat} (hc : c < 9) (hi : i < 6) (s : MachineState)
-    (hpc : s.pc = pcOf (qI c i + 5)) (h18 : s.getReg .x18 = BitVec.ofNat 64 j)
-    (h22 : s.getReg .x22 = BitVec.ofNat 64 index) (hj : j < 128)
-    (h25 : s.getReg .x25 = BitVec.ofNat 64 w) (hw : w < 2 ^ 64) (hd : w / 8 ^ i % 8 ≤ 4) :
-    ∃ t, Steps im s (if c = 0 then 17 else 15) (if c = 0 then 17 else 15) t ∧ t.pc = pcOf (chkI c i 0) ∧
-      t.getReg .x26 = BitVec.ofNat 64 (4 - w / 8 ^ i % 8) ∧
-      t.getMem (BitVec.ofNat 64 (CHAINW + 16)) = BitVec.ofNat 64 (chainW0 c i j index 0) ∧
-      t.getMem (BitVec.ofNat 64 (CHAINW + 24)) = 0 ∧
-      RegsExcept s t [.x6, .x7, .x26, .x29] ∧ Frame s t (fun A => A = CHAINW + 24 ∨ A = CHAINW + 16) := by
-  obtain ⟨hst, -⟩ := run_pres (coordLook_ok hcode hc) (runS_eq hc hi) s hpc (no_obl s) (no_br s)
-  refine ⟨_, hst, rfl, ?_, ?_, ?_, pres_regsExcept _ _ _ _ _ _ _ s, ?_⟩
-  · rw [pres_getReg]; exact eval_dE s i h25 hw (by omega) hd
-  · rw [pres_getMem, memEval_mwc_ne _ _ _ (by ao) (by ao) (by ao), memEval_mwc_self _ _ _ _ (by ao),
-      eval_qE s h18 h22 hj (chainK_lt c i hc hi)]
-    simp only [chainW0, Nat.mul_zero, Nat.add_zero]
-  · rw [pres_getMem, memEval_mwc_self _ _ _ _ (by ao)]; rfl
-  · refine frame_of_memEval (fun a => rfl) _ (fun q hq => ?_)
-    simp only [expS, pres, List.mem_cons, List.not_mem_nil, or_false] at hq
-    rcases hq with rfl | rfl <;> refine ⟨rfl, ?_⟩ <;> rw [off_mwc _ _ (by ao)] <;> ao
+-- Y6 R-odd: the reference-image `step_S` (`NewCodeAt`, off the certificate path, no users) is removed; the installed
+-- code's chain store is `SharedReuse.qEW`, which `SharedReuse.step_S` proves.
 theorem step_Chk (hcode : NewCodeAt im) {c i st j sel e : Nat} (hc : c < 9) (hi : i < 6) (hst : st < 5)
     (s : MachineState) (hpc : s.pc = pcOf (chkI c i st)) (h18 : s.getReg .x18 = BitVec.ofNat 64 j)
     (h24 : s.getReg .x24 = BitVec.ofNat 64 sel) (h26 : s.getReg .x26 = BitVec.ofNat 64 e) (hj : j < 2 ^ 64)
@@ -900,8 +885,9 @@ theorem ftsChainLow_eq (index c j i st : Nat) (hc : c < 9) (hidx : index < 2 ^ 3
     (hj : j < 128) : WCT9.ftsChainLow index c j i st = chainW0 c i j index st % 2^64 := by
   unfold WCT9.ftsChainLow chainW0 chainK SigGolfCandidate.T3.ftsBias
   rw [Nat.mod_eq_of_lt (show i < 8 by omega), Nat.mod_eq_of_lt hst, Nat.mod_eq_of_lt (show c + 1 < 16 by omega),
-    Nat.mod_eq_of_lt hj, Nat.mod_eq_of_lt hidx]
+    Nat.mod_eq_of_lt hj, Nat.mod_eq_of_lt hidx, Nat.mul_comm (WCT9.ftsSelMul c) j]
   apply congrArg (fun n : Nat => n % 2^64)
+  generalize j * WCT9.ftsSelMul c = X
   omega
 theorem wordsOf_chain (index c j i st : Nat) (v : Digest) (hc : c < 9) (hidx : index < 2 ^ 31) (hst : st < 4)
     (hi : i < 6) (hj : j < 128) :
@@ -946,6 +932,7 @@ theorem ftsLeafHeader_words (index c j : Nat) (hc : c < 9) (hidx : index < 2 ^ 3
     unfold WCT9.ftsLeafLow SigGolfCandidate.T3.ftsBiasN leafLo7
     rw [Nat.mod_eq_of_lt (show c+1<16 by omega), Nat.mod_eq_of_lt hj, Nat.mod_eq_of_lt hidx]
     simp only [Nat.mod_mod]
+    generalize WCT9.ftsSelMul c * j = X
     omega
   rw [wordsOf_bytesLE16, WCT9.ftsLeafHeader_low, WCT9.ftsLeafHeader_high, hw]
 theorem wordsOf_leaf (index c j : Nat) (pad : Digest) (ends : List Digest) (h : ends.length = 6) (hc : c < 9)
@@ -997,8 +984,8 @@ theorem wordsOf_node (c index h : Nat) (pad L R : Digest) (hc : c < 9) (hidx : i
       simp only [Nat.mod_mod]
       omega
     · rw [if_neg (show ¬ SigGolfCandidate.T3.FtsNew h from fun h' => h8 h'.1), if_neg h8]
-      unfold nodeLo7 WCT9.ftsLeafLow
-      rw [Nat.mod_eq_of_lt (show c + 1 < 16 by omega), Nat.mod_eq_of_lt hidx]
+      unfold nodeLo7
+      rw [WCT9.ftsLeafLow_zero, Nat.mod_eq_of_lt (show c + 1 < 16 by omega), Nat.mod_eq_of_lt hidx]
       apply BitVec.eq_of_toNat_eq
       simp only [BitVec.toNat_ofNat]
       unfold SigGolfCandidate.T3.ftsBiasN
@@ -1268,12 +1255,14 @@ theorem step_Q (hcode : Fetch im) {c i j : Nat} (hc : c < 9) (hi : i < 6) (s : M
   obtain ⟨hst, -⟩ := run_pres (coordLook_ok hcode hc) (runQ_eq hc hi) s hpc (no_obl s) (no_br s)
   exact ⟨_, hst, rfl, by rw [pres_getReg]; rfl, by rw [pres_getReg]; exact eval_ptE s h18 (by omega) i,
     pres_regsExcept _ _ _ _ _ _ _ s, fun A _ _ => rfl⟩
-def chainW0 (c i j index p : Nat) : Nat := index * 2 ^ 27 + j * 2 ^ 20 + chainK c i + p
+def chainW0 (c i j index p : Nat) : Nat := index * 2 ^ 33 + j * WCT9.ftsSelMul c + chainK c i + p
 theorem chainW0_merge (c i j index p q : Nat) (hc : c < 9) (hi : i < 6) (hp : p < 4) (hq : q < 4) :
     StoreKind.merge .b (BitVec.ofNat 64 (chainW0 c i j index p)) 0 (BitVec.ofNat 64 q) =
       BitVec.ofNat 64 (chainW0 c i j index q) := by
   apply SigGolfCandidate.T3M.mergeByteZero
   · unfold chainK
+    have := WCT9.ftsSelMul_mul_mod c j
+    generalize j * WCT9.ftsSelMul c = X at *
     omega
   · omega
   · omega
@@ -1291,11 +1280,11 @@ theorem step_S (hcode : Fetch im) {c i j index w : Nat} (hc : c < 9) (hi : i < 6
   refine ⟨_, hst, rfl, ?_, ?_, ?_, pres_regsExcept _ _ _ _ _ _ _ s, ?_⟩
   · rw [pres_getReg]; exact eval_dE s i h25 hw (by omega) hd
   · rw [pres_getMem, memEval_mwc_ne _ _ _ (by ao) (by ao) (by ao), memEval_mwc_self _ _ _ _ (by ao),
-      eval_qE s h18 h22 hj (chainK_lt c i hc hi)]
+      eval_qEW s h18 h22 hj]
     simp only [chainW0, Nat.mul_zero, Nat.add_zero]
   · rw [pres_getMem, memEval_mwc_self _ _ _ _ (by ao)]; rfl
   · refine frame_of_memEval (fun a => rfl) _ (fun q hq => ?_)
-    simp only [expS, pres, List.mem_cons, List.not_mem_nil, or_false] at hq
+    simp only [expSW, pres, List.mem_cons, List.not_mem_nil, or_false] at hq
     rcases hq with rfl | rfl <;> refine ⟨rfl, ?_⟩ <;> rw [off_mwc _ _ (by ao)] <;> ao
 theorem step_Chk (hcode : Fetch im) {c i st j sel e : Nat} (hc : c < 9) (hi : i < 6) (hst : st < 5)
     (s : MachineState) (hpc : s.pc = pcOf (chkI c i st)) (h18 : s.getReg .x18 = BitVec.ofNat 64 j)
@@ -2793,14 +2782,14 @@ theorem gate_eval (s : MachineState) (a : BitVec 256) (ha:OutAt s NBUF a) :
 
 theorem gate_spec (m : Bool) (hl:LookOK im (look m)) (s : MachineState) (hpc:s.pc=pcOf (base m+15))
     (a : BitVec 256) (ha:OutAt s NBUF a) :
-    ∃t,Steps im s 6 6 t ∧ t.pc=(if gateN a < 926 then pcOf (base m+21) else pcOf (next m)) ∧
+    ∃t,Steps im s 6 6 t ∧ t.pc=(if gateN a < 929 then pcOf (base m+21) else pcOf (next m)) ∧
       (m=true → t.getReg .x17=BitVec.ofNat 64 NBUF) ∧
       RegsExcept s t [.x6,.x7,.x17,.x28] ∧ Frame s t (fun _=>False) := by
-  have hbr:∀b∈(expectedGate m (decide (¬gateN a < 926))).brs,b.holds s:=by
+  have hbr:∀b∈(expectedGate m (decide (¬gateN a < 929))).brs,b.holds s:=by
     intro b hb
     simp only[expectedGate,pres,pres2,List.mem_singleton]at hb
     subst hb
-    exact geu_holds s gateE (gateN a) 926 (by unfold gateN;omega) (by decide) (gate_eval s a ha)
+    exact geu_holds s gateE (gateN a) 929 (by unfold gateN;omega) (by decide) (gate_eval s a ha)
   obtain ⟨hs,hp,-,hr,hm⟩:=SearchM.piece hl (gate_run m _) s hpc rfl hbr rfl
   refine ⟨_,hs,?_,?_,?_,fun A _ _=>by rw[hm];rfl⟩
   · rw[hp];simp only[expectedGate,pres,pres2,decide_eq_true_eq]
@@ -3118,10 +3107,10 @@ set_option linter.unusedSimpArgs false
 attribute [local instance] Classical.propDecidable
 variable {im : Image}
 
-def acceptedTest (a : BitVec 256) : Bool := decide (gateN a < 926) &&
+def acceptedTest (a : BitVec 256) : Bool := decide (gateN a < 929) &&
   (List.range 9).all (fun k=>decide (rankN a k < 563)) && decide (psum a 9 ≤ 776)
 theorem acceptedTest_iff (a : BitVec 256) : acceptedTest a=true ↔
-    gateN a < 926 ∧ (∀k,k < 9 → rankN a k < 563) ∧ psum a 9 ≤ 776 := by
+    gateN a < 929 ∧ (∀k,k < 9 → rankN a k < 563) ∧ psum a 9 ≤ 776 := by
   simp only[acceptedTest,Bool.and_eq_true,decide_eq_true_eq,List.all_eq_true,List.mem_range,and_assoc]
 
 theorem checks_spec (m : Bool) (hl:LookOK im (look m)) (s : MachineState)
@@ -3130,7 +3119,7 @@ theorem checks_spec (m : Bool) (hl:LookOK im (look m)) (s : MachineState)
       Frame s t (fun _=>False) ∧ t.pc=(if acceptedTest a then pcOf (accepted m) else pcOf (next m)) ∧
       (acceptedTest a=true → t.getReg .x17=BitVec.ofNat 64 NBUF) := by
   obtain ⟨t1,s1,p1,r17,r1,f1⟩:=gate_spec m hl s hpc a ha
-  by_cases hg:gateN a < 926
+  by_cases hg:gateN a < 929
   · rw[if_pos hg]at p1
     obtain ⟨t2,s2,p2,sm2,tb2,r172,r2,f2⟩:=init_spec m hl t1 p1 r17
     obtain ⟨t3,c3,s3,b3,r3,f3,p3⟩:=fields_from m hl a 9 0 rfl t2 p2

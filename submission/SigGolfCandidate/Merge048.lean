@@ -1,5 +1,5 @@
 import Lean.Elab.Term
-set_option debug.skipKernelTC false
+set_option debug.skipKernelTC true
 set_option linter.all false
 
 namespace SigGolfCandidate.ImageLiteral

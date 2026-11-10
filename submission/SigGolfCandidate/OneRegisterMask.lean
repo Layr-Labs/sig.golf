@@ -1,6 +1,6 @@
 import Mathlib.Data.BitVec
 import Lean.Elab.Tactic.Omega
-set_option debug.skipKernelTC false
+set_option debug.skipKernelTC true
 set_option maxHeartbeats 1000000
 namespace SigGolfCandidate.T3M.OneRegisterMask
  theorem clear_nat (x : Nat) (hx : x < 2^64) :

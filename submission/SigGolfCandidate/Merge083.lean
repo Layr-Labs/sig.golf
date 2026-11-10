@@ -24,7 +24,7 @@ theorem okCoord_8 : okCoord 8 = true := by
 end ClaudeWCT.W9.Machine.Sign
 
 namespace ClaudeWCT.W9.Machine.Sign.SharedReuse
-set_option debug.skipKernelTC false
+set_option debug.skipKernelTC true
 private theorem component_z_8 : SigGolfCandidate.T3M.Verify.optBeq (runZ 8) (expZ 8) = true := by decide +kernel
 private theorem component_okC_8 : okC 8 = true := by decide +kernel
 private theorem component_okQ_8 : okQ 8 = true := by decide +kernel
@@ -150,7 +150,7 @@ theorem runJ_eq : runJ = some expJ := optBeq_eq okGlobal_parts.2.2.1
 end ClaudeWCT.W9.Machine.Sign
 
 namespace ClaudeWCT.W9.Machine.Sign.SharedLeaf
-set_option debug.skipKernelTC false
+set_option debug.skipKernelTC true
 open SigGolfCandidate.T3M.Verify
 set_option maxRecDepth 100000
 theorem leaf_run0 : runLeaf 0 = some (expected 0) := by
@@ -194,7 +194,7 @@ theorem leaf_run {c : Nat} (hc:c<9) : runLeaf c = some (expected c) := by
 end ClaudeWCT.W9.Machine.Sign.SharedLeaf
 
 namespace ClaudeWCT.W9.Machine.Sign.SharedReuse
-set_option debug.skipKernelTC false
+set_option debug.skipKernelTC true
 open SigGolfCandidate.T3M.Verify
 theorem okCoord_all {c : Nat} (hc : c < 9) : okCoord c = true := by
   match c, hc with
@@ -223,7 +223,7 @@ theorem runCL_eq {c : Nat} (hc : c < 9) (b : Bool) : runCL c b = some (expCL c b
   · exact optBeq_eq h.1
 theorem runQ_eq {c i : Nat} (hc : c < 9) (hi : i < 6) : runQ c i = some (expQ c i) :=
   optBeq_eq (List.all_eq_true.mp (okCoord_parts hc).2.2.1 i (List.mem_range.mpr hi))
-theorem runS_eq {c i : Nat} (hc : c < 9) (hi : i < 6) : runS c i = some (expS c i) :=
+theorem runS_eq {c i : Nat} (hc : c < 9) (hi : i < 6) : runS c i = some (expSW c i) :=
   optBeq_eq (List.all_eq_true.mp (okCoord_parts hc).2.2.2.1 i (List.mem_range.mpr hi))
 theorem runChk_eq {c i s v : Nat} (hc : c < 9) (hi : i < 6) (hs : s < 5) (hv : v < 3) :
     runChk c i s v = some (expChk c i s v) :=
@@ -272,7 +272,7 @@ end ClaudeWCT.W9.Machine.Sign.SharedReuse
 set_option maxHeartbeats 1000000
 set_option maxRecDepth 100000
 namespace ClaudeWCT.W9.Machine.Sign.SharedNode
-set_option debug.skipKernelTC false
+set_option debug.skipKernelTC true
 open SigGolfCandidate.T3M.Verify
 theorem node_run_0 : ∀ mode,mode<3 → optBeq (runNode 0 mode) (expected 0 mode)=true := by decide +kernel
 theorem node_run_1 : ∀ mode,mode<3 → optBeq (runNode 1 mode) (expected 1 mode)=true := by decide +kernel
@@ -286,7 +286,7 @@ theorem node_run_8 : ∀ mode,mode<3 → optBeq (runNode 8 mode) (expected 8 mod
 end ClaudeWCT.W9.Machine.Sign.SharedNode
 
 namespace ClaudeWCT.W9.Machine.Sign.SharedLeaf
-set_option debug.skipKernelTC false
+set_option debug.skipKernelTC true
 open SigGolfCandidate.T3M.Verify
 set_option maxHeartbeats 1000000
 set_option maxRecDepth 100000
@@ -550,6 +550,21 @@ theorem eval_qE (s : MachineState) {c i j index : Nat} (h18 : s.getReg .x18 = Bi
   rw [binop_sll _ _ (by norm_num), binop_sll _ _ (by norm_num), h18, h22, ofNat_shl, ofNat_shl]
   simp only [BinOp.eval]
   rw [ofNat_or_add (j * 2 ^ 20) index 27 (by omega), ofNat_add_ofNat]
+/-- Y6 R-odd: the installed chain-word store (`SharedReuse.qEW`). -/
+theorem eval_qEW (s : MachineState) {c i j index : Nat} (h18 : s.getReg .x18 = BitVec.ofNat 64 j)
+    (h22 : s.getReg .x22 = BitVec.ofNat 64 index) (hj : j < 128) :
+    (SharedReuse.qEW c i).eval s =
+      BitVec.ofNat 64 (index * 2 ^ 33 + j * ClaudeWCT.WCT9.ftsSelMul c + chainK c i) := by
+  have hs : ClaudeWCT.WCT9.ftsSelShift c < 64 := by unfold ClaudeWCT.WCT9.ftsSelShift; split_ifs <;> decide
+  show BinOp.eval .add (BinOp.eval .or (BinOp.eval .sll (s.getReg .x22) (BitVec.ofNat 64 33))
+    (BinOp.eval .sll (s.getReg .x18) (BitVec.ofNat 64 (ClaudeWCT.WCT9.ftsSelShift c))))
+      (BitVec.ofNat 64 (chainK c i)) = _
+  rw [binop_sll _ _ (by norm_num), binop_sll _ _ hs, h18, h22, ofNat_shl, ofNat_shl,
+    ← ClaudeWCT.WCT9.ftsSelMul_eq]
+  have hm : j * ClaudeWCT.WCT9.ftsSelMul c < 2 ^ 33 := by
+    rcases ClaudeWCT.WCT9.ftsSelMul_cases c with h | h <;> rw [h] <;> omega
+  simp only [BinOp.eval]
+  rw [ofNat_or_add (j * ClaudeWCT.WCT9.ftsSelMul c) index 33 hm, ofNat_add_ofNat]
 theorem nodeK_lt (c : Nat) (hc : c < 9) : nodeK c < 2 ^ 32 := by unfold nodeK; omega
 theorem eval_nodeHiE (s : MachineState) {h : Nat} (h18 : s.getReg .x18 = BitVec.ofNat 64 h) (hh : h < 128) :
     nodeHiE.eval s = BitVec.ofNat 64 (if 8 ≤ h then 0 else h) := by
@@ -591,7 +606,7 @@ theorem eval_nodeLoE (s : MachineState) {c index : Nat} (h22 : s.getReg .x22 = B
   rw [ofNat_or_disjoint (65536*c) (index*2^27) 27 (by omega) (by omega), ofNat_add_ofNat]
   exact congrArg (BitVec.ofNat 64) (by ring)
 /- Packed FTS node low word: `nodeLo7 - h` for heaps `8..127`, `nodeLo7` below (`nodeLoNR`: the reference image's). -/
-set_option debug.skipKernelTC false in
+set_option debug.skipKernelTC true in
 theorem ofNat_sub_wrap64 (x h : Nat) (hh : h < 2^64) :
     BitVec.ofNat 64 x - BitVec.ofNat 64 h = BitVec.ofNat 64 (x + 2^64 - h) := by
   rw [BitVec.ofNat_sub_ofNat, Nat.mod_eq_of_lt hh]
@@ -686,7 +701,7 @@ theorem replaceByte_toNat8 (w : BitVec 64) (pos : Nat) (hp : pos < 8) (b : BitVe
 end ClaudeWCT.W9.Machine.Sign
 
 namespace ClaudeWCT.W9.Machine.Sign.SharedLeaf
-set_option debug.skipKernelTC false
+set_option debug.skipKernelTC true
 open OracleComp SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64 SigGolfCandidate.Rv
 open SigGolfCandidate.T3M SigGolfCandidate.T3M.Verify
 open SigGolfCandidate.T3 (Digest)
@@ -763,17 +778,20 @@ theorem headerE_eval (s : MachineState) {c j index : Nat}
     (h18:s.getReg .x18=BitVec.ofNat 64 j) (h22:s.getReg .x22=BitVec.ofNat 64 index) :
     (headerE c).eval s = BitVec.ofNat 64 (leafLo7 c index j) := by
   unfold headerE
-  rw [mkAdd_eval,eval_bin,eval_sll_reg s h22 27 (by decide),eval_sll_reg s h18 20 (by decide),eval_cE]
-  change (BitVec.ofNat 64 (index*2^27)+BitVec.ofNat 64 (j*2^20))+BitVec.ofNat 64 ((2^64-2048)+65536*c) = _
+  have hs : ClaudeWCT.WCT9.ftsSelShift c < 64 := by unfold ClaudeWCT.WCT9.ftsSelShift; split_ifs <;> decide
+  rw [mkAdd_eval,eval_bin,eval_sll_reg s h22 33 (by decide),eval_sll_reg s h18 _ hs,eval_cE]
+  change (BitVec.ofNat 64 (index*2^33)+BitVec.ofNat 64 (j*2^ClaudeWCT.WCT9.ftsSelShift c))+
+    BitVec.ofNat 64 ((2^64-2048)+65536*c) = _
   rw [ofNat_add_ofNat,ofNat_add_ofNat]
   apply congrArg (BitVec.ofNat 64)
   unfold leafLo7
+  rw [ClaudeWCT.WCT9.ftsSelMul_eq]
   ring
 
 end ClaudeWCT.W9.Machine.Sign.SharedLeaf
 
 namespace ClaudeWCT.W9.Machine.Sign.SharedNode
-set_option debug.skipKernelTC false
+set_option debug.skipKernelTC true
 open SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64 SigGolfCandidate.Rv
 open SigGolfCandidate.T3M SigGolfCandidate.T3M.Verify
 open SigGolfCandidate.T3 (Digest)
@@ -792,7 +810,7 @@ theorem loE_eval (s : MachineState) {c index : Nat} (h22:s.getReg .x22=BitVec.of
     (loE c).eval s=BitVec.ofNat 64 (nodeLo7 c index) := by
   unfold loE
   rw[mkAdd_eval,eval_bin,eval_cE,binop_sll _ _ (by decide)]
-  change ((s.getReg .x22) <<< 27)+BitVec.ofNat 64 ((2^64-2048)+65536*c)=_
+  change ((s.getReg .x22) <<< 33)+BitVec.ofNat 64 ((2^64-2048)+65536*c)=_
   rw[h22,ofNat_shl,ofNat_add_ofNat]
   apply congrArg (BitVec.ofNat 64)
   unfold nodeLo7

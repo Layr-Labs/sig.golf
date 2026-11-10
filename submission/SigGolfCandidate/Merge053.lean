@@ -60,15 +60,17 @@ theorem pubGood_wctNodeHashH (coord index heap : Nat) (l r : Digest) :
 /-- E8: a canonical FTS node (`ftsNodeAt`) is the plain node or (heaps `8..15`) `ftsNodeHashN` trials. -/
 theorem allQ_ftsNodeAt {P : SigGolfCandidate.T3.Spec.Domain → Prop} (coord index heap : Nat) (left right : Digest)
     (h0 : AllQueriesSatisfy (WCT9.wctNodeHashH coord index heap left right) P)
-    (h : ∀ n, 8 ≤ heap ∧ heap < 16 → AllQueriesSatisfy (WCT9.ftsNodeHashN coord index heap n left right) P) :
+    (h : ∀ n, WCT9.ftsGround coord heap →
+      AllQueriesSatisfy (shortHash (WCT9.ftsNodeInputN coord index heap n left right)) P) :
     AllQueriesSatisfy (WCT9.ftsNodeAt coord index heap left right) P := by
   unfold WCT9.ftsNodeAt
   split
   · exact allQ_map _ h0
   · rename_i hb
-    have hg : 8 ≤ heap ∧ heap < 16 := by
+    have hg : WCT9.ftsGround coord heap := by
       by_contra hn; exact hb (WCT9.ftsZeroBits_off hn)
-    exact WCT9.allQ_ftsNonceSearch coord index heap left right (fun n => h n hg) _ 0
+    exact WCT9.allQ_ftsNonceSearch coord index heap left right
+      (fun n => by unfold WCT9.ftsNodeHashN; exact WCT9.allQ_ftsHash_of_shortHash heap _ (h n hg)) _ 0
 /-- E8: an FTS ground node's trials are public, well-formed queries. -/
 theorem pubGood_ftsNodeAt (coord index heap : Nat) (l r : Digest) :
     AllQueriesSatisfy (WCT9.ftsNodeAt coord index heap l r) PubGood :=
@@ -849,31 +851,43 @@ theorem good_recoverForest (index : Nat) (selected : ForestSelection) (words : F
   unfold recoverForest
   exact good_bind (good_foldlM _ _ (fun _ _ => good_bind (good_recoverPair _ _ _ _ _ _ _) fun _ => good_pure _) _)
     fun _ => good_bind (good_recoverSingleton _ _ _ _ _) fun _ => good_pure _
+theorem good_ftsNodeHashN (coord index heap n : Nat) (left right : Digest) :
+    Good (ClaudeWCT.WCT9.ftsNodeHashN coord index heap n left right) := by
+  have hl : 0 < (ClaudeWCT.WCT9.ftsNodeInputN coord index heap n left right).length := by
+    simp [ClaudeWCT.WCT9.ftsNodeInputN, SphincsSecurity.bytesLE_length]
+  unfold ClaudeWCT.WCT9.ftsNodeHashN
+  rw [ClaudeWCT.WCT9.ftsHash_eq]
+  split
+  · exact good_projHash true _ hl
+  · exact good_shortHash _ hl
 theorem good_sharedNodeN (first : Bool) (coord index heap : Nat)
-    (pads : Nat → PairRoot) (n : Nat) (left right : Digest) :
-    Good (sharedNodeN first coord index heap pads n left right) := by
+    (pads : Nat → PairRoot) (n n16 : Nat) (left right : Digest) :
+    Good (sharedNodeN first coord index heap pads n n16 left right) := by
   unfold sharedNodeN
   split
-  · exact good_shortHash _ (by simp [ClaudeWCT.WCT9.ftsNodeInputN, SphincsSecurity.bytesLE_length])
-  · exact good_sharedNode _ _ _ _ _ _ _
+  · exact good_ftsNodeHashN _ _ _ _ _ _
+  · split
+    · exact good_ftsNodeHashN _ _ _ _ _ _
+    · exact good_sharedNode _ _ _ _ _ _ _
 theorem good_recoverSharedInnerN (first : Bool) (index coord : Nat) (selected : Child)
-    (word : Rank) (values : Fin 6 → Digest) (path : Nat → Digest) (nonce : Nat) (prev : PairRoot) :
-    Good (recoverSharedInnerN first index coord selected word values path nonce prev) := by
+    (word : Rank) (values : Fin 6 → Digest) (path : Nat → Digest) (nonce nonce16 : Nat) (prev : PairRoot) :
+    Good (recoverSharedInnerN first index coord selected word values path nonce nonce16 prev) := by
   unfold recoverSharedInnerN
   refine good_bind (good_mapM _ _ (fun _ => good_chain _ _ _ _ _ _ _)) fun _ => ?_
   refine good_bind (good_leafHashH _ _ _ _ _ _) fun _ => ?_
-  exact good_foldlM _ _ (fun _ _ => good_sharedNodeN _ _ _ _ _ _ _ _) _
+  exact good_foldlM _ _ (fun _ _ => good_sharedNodeN _ _ _ _ _ _ _ _ _) _
 theorem good_recoverForestN (index : Nat) (selected : ForestSelection) (words : ForestWords)
-    (opened : ForestOpening) (nonces : List Nat) : Good (recoverForestN index selected words opened nonces) := by
+    (opened : ForestOpening) (nonces nonces16 : List Nat) :
+    Good (recoverForestN index selected words opened nonces nonces16) := by
   unfold recoverForestN
   refine good_bind (good_foldlM _ _ (fun _ _ => ?_) _) fun _ => ?_
   · unfold recoverPairN
-    refine good_bind (good_recoverSharedInnerN _ _ _ _ _ _ _ _ _) fun _ => ?_
+    refine good_bind (good_recoverSharedInnerN _ _ _ _ _ _ _ _ _ _) fun _ => ?_
     unfold recoverSharedOuterN
-    refine good_bind (good_recoverSharedInnerN _ _ _ _ _ _ _ _ _) fun _ => ?_
+    refine good_bind (good_recoverSharedInnerN _ _ _ _ _ _ _ _ _ _) fun _ => ?_
     exact good_bind (good_sharedOuterHash _ _ _ _ _) fun _ => good_pure _
   · unfold recoverSingletonN
-    refine good_bind (good_recoverSharedInnerN _ _ _ _ _ _ _ _ _) fun _ => ?_
+    refine good_bind (good_recoverSharedInnerN _ _ _ _ _ _ _ _ _ _) fun _ => ?_
     exact good_bind (good_sharedOuterHash _ _ _ _ _) fun _ => good_pure _
 theorem good_layerCounterSearchAt (lay : Layer) (floor tree leaf : Nat)
     (msg : LayerMsg) (counter fuel : Nat) :
@@ -3604,7 +3618,7 @@ theorem chainRowG_header (a : ChainAddr) (step : Nat) (value : Digest) :
 /-- Queries that are no row of chain `a` (F format `chainRow`, nor, pairing stage 1, G format `chainRowG`) and do
 not read `a`'s seed cell. -/
 def Untouched (a : ChainAddr) : Spec.Domain → Prop
-  | .inl (.inr input) => ∀ step value, step < 256 → input ≠ chainRow a step value ∧ input ≠ chainRowG a step value
+  | .inl (.inr input) => ∀ step value, step < 7 → input ≠ chainRow a step value ∧ input ≠ chainRowG a step value
   | .inr (.inl tweak) => tweak ≠ seedTweak a
   | _ => True
 theorem prefixStep_spec {answers : Answers} {a : ChainAddr} {input : HashInput} {step : Nat}
@@ -3658,6 +3672,24 @@ theorem untouched_of_hdr (a : ChainAddr) (input : HashInput) (h : BitVec 128)
   · intro heq
     rw [heq, chainRowG_header] at hblock
     exact htag _ _ _ _ _ (bytesLE_injective hblock).symm
+/-- Y6 R-odd: `untouched_of_hdr` for headers that differ from every chain header of a bounded step (`step < 7`, the
+range `Untouched` quantifies over). Packed FTS node headers need the bound: byte 1 separates them from legacy chain
+words only when the step is not 7 mod 8. -/
+theorem untouched_of_hdr7 (a : ChainAddr) (input : HashInput) (h : BitVec 128)
+    (hblock : Extract.hdrBlock input = bytesLE 16 h)
+    (htag : ∀ (l : Layer) tr leaf i step, step < 7 → h ≠ chainHeader l tr leaf i step) :
+    Untouched a (.inl (.inr input)) := by
+  intro step value hs
+  have hb : Extract.hdrBlock (chainRow a step value) =
+      bytesLE 16 (chainHeader a.key.lay a.key.tree a.key.leaf a.chain step) :=
+    chainInput_header _ _ _ _ _ _
+  constructor
+  · intro heq
+    rw [heq, hb] at hblock
+    exact htag _ _ _ _ _ hs (bytesLE_injective hblock).symm
+  · intro heq
+    rw [heq, chainRowG_header] at hblock
+    exact htag _ _ _ _ _ hs (bytesLE_injective hblock).symm
 theorem untouched_prefixed (a : ChainAddr) (x : Digest) (rest : HashInput) {t : Nat} (ht : t % 256 ≠ 1)
     (l tr p ix : Nat) :
     Untouched a (.inl (.inr (pad64 (bytesLE 16 x ++ bytesLE 16 (header t l tr p ix) ++ rest)))) := by
@@ -3675,8 +3707,8 @@ theorem respects_nodeHash (tag lay tree heap : Nat) (left right : Digest) (ht : 
   rw [nodeHash_eq_projHash]
   apply Respects.projHash
   rw [pad64_nodeInputP]
-  exact untouched_of_hdr a _ (nodeTweak tag lay tree heap) (Extract.hdrBlock_block4 left _ 0 right)
-    (fun _ _ _ _ _ => Ne.symm (chainHeader_ne_nodeTweak _ _ _ _ _ _ _ _ _))
+  exact untouched_of_hdr7 a _ (nodeTweak tag lay tree heap) (Extract.hdrBlock_block4 left _ 0 right)
+    (fun _ _ _ _ _ hs => Ne.symm (chainHeader_ne_nodeTweak _ _ _ _ _ hs _ _ _ _))
 theorem respects_buildLevel (tag lay tree h level : Nat) (nodes : List Digest) (ht : tag % 256 ≠ 1) :
     Respects (Untouched a) (buildLevel tag lay tree h level nodes) :=
   Respects.mapM _ _ fun _ _ => respects_nodeHash a _ _ _ _ _ _ ht
@@ -4364,11 +4396,19 @@ theorem sharedOuterHash_of_low {coord heap : Nat} (h : coord = 8 ∧ heap = 3) (
   simp only [if_pos h]
 
 set_option backward.isDefEq.respectTransparency false in
+/-- Y5: the FTS node levels whose pad slot carries a ground nonce: level 3 (heaps `8..15`) of every coordinate and
+level 2 (heaps `16..31`) of coordinates `0..3`. On level `L` (heap `2^(6-L) + node`) this is `ftsGround`. -/
+def ftsNonceLevel (coord level : Nat) : Prop := level = 3 ∨ (level = 2 ∧ coord < 4)
+instance (coord level : Nat) : Decidable (ftsNonceLevel coord level) := inferInstanceAs (Decidable (_ ∨ _))
+theorem ftsNonceLevel_iff {coord level heap : Nat} (hl : level < 7) (hlo : 2 ^ (6 - level) ≤ heap)
+    (hhi : heap < 2 * 2 ^ (6 - level)) : ftsNonceLevel coord level ↔ ClaudeWCT.WCT9.ftsGround coord heap := by
+  unfold ftsNonceLevel ClaudeWCT.WCT9.ftsGround
+  interval_cases level <;> norm_num at hlo hhi ⊢ <;> omega
 /-- C1: the paired node at heap `2^(6-level)+node`, for any branch pads `ps`, is the fixed-projection hash of its
 `wctTopInput`. -/
 theorem sharedNode_eq_nodeProgramP (index coord level node : Nat) (hc : coord < 9) (hl : level < 6)
     (hn : node < 2^(6-level)) (hu : first coord = true → level < 5) (ps : Nat → SharedForest.PairRoot)
-    (left right : Digest) (h3 : level ≠ 3) :
+    (left right : Digest) (h3 : ¬ ftsNonceLevel coord level) :
     SharedForest.sharedNode (first coord) coord index (2^(6-level)+node) ps left right =
     nodeProgram coord level node (ClaudeWCT.WCT9.wctTopInput coord index (2^(6-level)+node) left
       (if level=4 then (ps ((2^(6-level)+node)/2-2)).2 else 0) right) := by
@@ -4421,13 +4461,14 @@ theorem sharedNode_eq_nodeProgramP (index coord level node : Nat) (hc : coord < 
           · omega
         simp only [hf, if_false, nodeProgram, if_neg hp, ↓reduceIte]
         rfl
-    · have hlt : level<3 := by omega
+    · have h3x : level ≠ 3 := fun h => h3 (Or.inl h)
+      have hlt : level<3 := by omega
       simp only [if_neg (show ¬4≤level by omega), if_neg hlev, ↓reduceIte]
       have h16 : 16 ≤ 2^(6-level)+node := by
         have : 2^4 ≤ 2^(6-level) := Nat.pow_le_pow_right (by norm_num) (by omega)
         norm_num at this
         omega
-      rw [ClaudeWCT.WCT9.ftsNodeG_of_zero (ClaudeWCT.WCT9.ftsZeroBits_off (by omega))]
+      rw [ClaudeWCT.WCT9.ftsNodeG_of_zero (ClaudeWCT.WCT9.ftsZeroBits_off (by unfold ClaudeWCT.WCT9.ftsGround; unfold ftsNonceLevel at h3; interval_cases level <;> norm_num at hn ⊢ <;> omega))]
       have hnode : ClaudeWCT.WCT9.wctNodeHashH coord index (2^(6-level)+node) left right =
           ClaudeWCT.WCT9.ftsHash (2^(6-level)+node) (ClaudeWCT.WCT9.wctTopInput coord index (2^(6-level)+node) left 0 right) := by
         unfold ClaudeWCT.WCT9.wctNodeHashH ClaudeWCT.WCT9.wctTopInput
@@ -4443,12 +4484,14 @@ theorem sharedNode_eq_nodeProgramP (index coord level node : Nat) (hc : coord < 
         simp only [nodeProgram, if_neg hh]
 
 
-/-- E8: the honest nonce of the FTS node at heap `heap` (the found ground trial on heaps `8..15`; `0` elsewhere). -/
+/-- E8: the honest nonce of the FTS node at heap `heap` (the found ground trial on the ground heaps `ftsGround`:
+`8..15`, Y5 and `16..31` of coordinates `0..3`; `0` elsewhere). -/
 noncomputable def honestFtsNonce (answers : Answers) (index coord heap : Nat) : Nat :=
   (evalWithAnswerFn answers (ClaudeWCT.WCT9.ftsNodeAt coord index heap
     ((nodes answers index coord).getD (2*heap) 0) ((nodes answers index coord).getD (2*heap+1) 0))).1
 
-/-- E8: the honest input of a level-3 (heap `8..15`) FTS node carries its honest (found) nonce in the pad slot. -/
+/-- E8: the honest input of a level-3 (heap `8..15`) FTS node carries its honest (found) nonce in the pad slot; Y5:
+so does a level-2 (heap `16..31`) node of coordinates `0..3` (`ftsNonceLevel`). -/
 noncomputable def honestInput (answers : Answers) : Pos → HashInput
   | .wctLeaf index coord child => pad64 (wctLeafInputP index coord child
       (pads answers index coord (physical coord child/64)).1 (wctEnds answers index coord child))
@@ -4457,7 +4500,8 @@ noncomputable def honestInput (answers : Answers) : Pos → HashInput
       pad64 (ClaudeWCT.WCT9.wctTopInput coord index heap
         ((nodes answers index coord).getD (2*heap) 0)
         (if level = 4 then (pads answers index coord (heap/2-2)).2
-          else if level = 3 then BitVec.ofNat 128 (honestFtsNonce answers index coord heap % 2 ^ 64) else 0)
+          else if ftsNonceLevel coord level then
+            BitVec.ofNat 128 (honestFtsNonce answers index coord heap % 2 ^ 64) else 0)
         ((nodes answers index coord).getD (2*heap+1) 0))
   | position => Extract.honestInput answers position
 
@@ -5449,7 +5493,7 @@ theorem Pos.hdr_injective {p p' : Pos} (hb : p.Bounded) (hb' : p'.Bounded) (hlen
       exact False.elim (WCT9.ftsChainHeaderP_low_ne_chainHeader _ _ _ _ _ _ _ _ _ _ _
         (congrArg (BitVec.extractLsb' 0 64) h.symm))
     case wctNode index coord level nd =>
-      exact False.elim (WCT9.wctNodeHeader_ne_chainHeader _ _ _ _ _ _ _ _ h.symm)
+      exact False.elim (WCT9.wctNodeHeader_ne_chainHeader _ _ _ _ _ _ _ _ (by omega) h.symm)
     case node lay' tree' level' nd' =>
       obtain ⟨-, -, -, -, hnd'⟩ := hb'
       by_cases hz' : lay' = 0
@@ -5574,7 +5618,7 @@ theorem Pos.hdr_injective {p p' : Pos} (hb : p.Bounded) (hb' : p'.Bounded) (hlen
       subst this x
       rfl
     case chain lay tree lf i step =>
-      exact False.elim (WCT9.wctNodeHeader_ne_chainHeader _ _ _ _ _ _ _ _ h)
+      exact False.elim (WCT9.wctNodeHeader_ne_chainHeader _ _ _ _ _ _ _ _ hb'.2.2.2 h)
     case wctChain index' coord' child t step =>
       exact False.elim (WCT9.wctNodeHeader_ne_ftsChainHeaderP _ _ _ _ _ _ _ _ 0 hb'.2.2.2.1 h)
     case node lay' tree' level' nd' =>
@@ -6924,8 +6968,8 @@ theorem respects_topNodeHashN (a : ChainAddr) (heap n : Nat) (left right : Diges
     Respects (Untouched a) (topNodeHashN heap n left right) := by
   unfold topNodeHashN
   apply Respects.projHash
-  refine untouched_of_hdr a _ (nodeTweak 3 0 0 heap) ?_
-    (fun _ _ _ _ _ => Ne.symm (chainHeader_ne_nodeTweak _ _ _ _ _ _ _ _ _))
+  refine untouched_of_hdr7 a _ (nodeTweak 3 0 0 heap) ?_
+    (fun _ _ _ _ _ hs => Ne.symm (chainHeader_ne_nodeTweak _ _ _ _ _ hs _ _ _ _))
   rw [Extract.hdrBlock_pad64 _ (by simp [topNodeInput, nonceBytes, bytesLE_length])]
   unfold topNodeInput
   rw [List.append_assoc]
@@ -8215,7 +8259,7 @@ theorem ftsQuery_untouched {index : Nat} (a : ChainAddr) {q : Query} (h : FtsQue
       ⟨coord, selected, t, step, ht6, hblock⟩ | ⟨coord, selected, -, -, hblock⟩ | ⟨coord, heap, -, -, -, hblock⟩ | hblock
     · exact Mask.untouched_of_hdr a input _ hblock (ftsChainHeader_ne_wots _ _ _ _ _)
     · exact Mask.untouched_of_hdr a input _ hblock (fun _ _ _ _ _ => ftsLeafHeader_ne_chainHeader _ _ _ _ _ _ _ _)
-    · exact Mask.untouched_of_hdr a input _ hblock (fun _ _ _ _ _ => wctNodeHeader_ne_chainHeader _ _ _ _ _ _ _ _)
+    · exact Mask.untouched_of_hdr7 a input _ hblock (fun _ _ _ _ _ hs => wctNodeHeader_ne_chainHeader _ _ _ _ _ _ _ _ hs)
     · exact Mask.untouched_of_hdr a input _ hblock
         (fun _ _ _ _ _ => Ne.symm (chainHeader_ne_header _ _ _ _ _ _ _ _ _ _))
   · obtain ⟨coord, selected, pair, -, -, -, rfl⟩ := (show FtsSeed index tweak from h)
@@ -11267,17 +11311,17 @@ structure SearchEnvelope (z : ENNReal) where
   three : Nat → ENNReal
   initial_ge : 1 ≤ initial
   one_ge : ∀ r, r < 55 → 1 ≤ one r
-  two_ge : ∀ r, r < 40 → 1 ≤ two r
-  three_ge : ∀ r, r < 22 → 1 ≤ three r
+  two_ge : ∀ r, r < 41 → 1 ≤ two r
+  three_ge : ∀ r, r < 23 → 1 ≤ three r
   initial_step : z * (acceptedWeight (decoder 0 18) (fun dl => one (nextResidual 72 0 dl.2 dl.1)) +
     SphincsSecurity.Completeness.failMass (decoder 0 18) * initial) ≤ initial
   one_step : ∀ r, r < 55 → z *
     (acceptedWeight (decoder 1 (threshold 1 r)) (fun dl => two (nextResidual r 1 dl.2 dl.1)) +
      SphincsSecurity.Completeness.failMass (decoder 1 (threshold 1 r)) * one r) ≤ one r
-  two_step : ∀ r, r < 40 → z *
+  two_step : ∀ r, r < 41 → z *
     (acceptedWeight (decoder 2 (threshold 2 r)) (fun dl => three (nextResidual r 2 dl.2 dl.1)) +
      SphincsSecurity.Completeness.failMass (decoder 2 (threshold 2 r)) * two r) ≤ two r
-  three_step : ∀ r, r < 22 → z *
+  three_step : ∀ r, r < 23 → z *
     (acceptedWeight (decoder 3 (threshold 3 r)) (fun _ => 1) +
      SphincsSecurity.Completeness.failMass (decoder 3 (threshold 3 r)) * three r) ≤ three r
 
@@ -11314,6 +11358,9 @@ theorem bound_signTop_e1 (cache : SigGolfCandidate.T3.Cache) (leaf : Nat) (digit
   refine (bound_topPath_e1 cache leaf).bind' (l := 0) (fun path hp => ?_) (by decide)
   exact .pure (result.2,path) 0 ⟨hr,hp⟩
 
+/-- Y5: every L1 floor is at most 14 (the structural table `T1`). -/
+theorem lower_one_floor_lt15 : ∀ r : Fin 55, threshold 1 r.val < 15 := by decide +kernel
+
 /-- The actual four searches follow canonical ancestors. Their continuation
 weights depend on the remaining path-aware credit, and the retained lower reveals cost no HASH calls. -/
 theorem V_searchPreparedLayers (secret : BitVec 256) (z : ENNReal) (hz : 1 ≤ z)
@@ -11332,9 +11379,9 @@ theorem V_searchPreparedLayers (secret : BitVec 256) (z : ENNReal) (hz : 1 ≤ z
     obtain ⟨ds0, l0⟩ := dl0
     have hd0' := decoder_spec hd0
     have hres1 := accepted_top_residual hd0'
-    have hp1 : threshold 1 (nextResidual 72 0 l0 ds0) < 16 :=
-      lower_one_floor_lt ⟨nextResidual 72 0 l0 ds0, hres1⟩
-    simp only [show ¬ (threshold 1 (nextResidual 72 0 l0 ds0) ≥ 16) by omega, ↓reduceIte]
+    have hp1 : threshold 1 (nextResidual 72 0 l0 ds0) < 15 :=
+      lower_one_floor_lt15 ⟨nextResidual 72 0 l0 ds0, hres1⟩
+    simp only [show ¬ (threshold 1 (nextResidual 72 0 l0 ds0) ≥ 15) by omega, ↓reduceIte]
     apply V_layerSearch_bind (secret := secret) (z := z) (lay := 1)
       (weight := fun dl => z^168 * E.two (nextResidual (nextResidual 72 0 l0 ds0) 1 dl.2 dl.1))
     · intro rc _
@@ -11342,11 +11389,11 @@ theorem V_searchPreparedLayers (secret : BitVec 256) (z : ENNReal) (hz : 1 ≤ z
     · intro rc hr counter1 hc1 answer1 dl1 hd1
       obtain ⟨ds1, l1⟩ := dl1
       have hd1' := decoder_spec hd1
-      have hres2 : nextResidual (nextResidual 72 0 l0 ds0) 1 l1 ds1 < 40 :=
+      have hres2 : nextResidual (nextResidual 72 0 l0 ds0) 1 l1 ds1 < 41 :=
         accepted_one_residual ⟨nextResidual 72 0 l0 ds0, hres1⟩ hd1'
       have hp2 : threshold 2 (nextResidual (nextResidual 72 0 l0 ds0) 1 l1 ds1) ≤ 19 :=
         (lower_two_progress ⟨nextResidual (nextResidual 72 0 l0 ds0) 1 l1 ds1, hres2⟩).1
-      simp only [show ¬ (threshold 2 (nextResidual (nextResidual 72 0 l0 ds0) 1 l1 ds1) ≥ 22) by omega,
+      simp only [show ¬ (threshold 2 (nextResidual (nextResidual 72 0 l0 ds0) 1 l1 ds1) ≥ 23) by omega,
         ↓reduceIte]
       apply V_layerSearch_bind (secret := secret) (z := z) (lay := 2)
         (weight := fun dl => z^168 * E.three
@@ -11356,11 +11403,12 @@ theorem V_searchPreparedLayers (secret : BitVec 256) (z : ENNReal) (hz : 1 ≤ z
       · intro rc hr counter2 hc2 answer2 dl2 hd2
         obtain ⟨ds2, l2⟩ := dl2
         have hd2' := decoder_spec hd2
-        have hres3 : nextResidual (nextResidual (nextResidual 72 0 l0 ds0) 1 l1 ds1) 2 l2 ds2 < 22 :=
+        have hres3 : nextResidual (nextResidual (nextResidual 72 0 l0 ds0) 1 l1 ds1) 2 l2 ds2 < 23 :=
           accepted_two_residual ⟨nextResidual (nextResidual 72 0 l0 ds0) 1 l1 ds1, hres2⟩ hd2'
         have hp3 := lower_three_progress _ hres3
+        have hp3' := lowerThreeFloor_le _ hres3
         simp only [show ¬ (threshold 3
-            (nextResidual (nextResidual (nextResidual 72 0 l0 ds0) 1 l1 ds1) 2 l2 ds2) ≥ 22) by omega,
+            (nextResidual (nextResidual (nextResidual 72 0 l0 ds0) 1 l1 ds1) 2 l2 ds2) ≥ 23) by omega,
           ↓reduceIte]
         apply V_layerSearch_bind (secret := secret) (z := z) (lay := 3) (weight := fun _ => z^168)
         · intro rc _
@@ -11436,19 +11484,19 @@ noncomputable def envelope_of_rows
     (hinitial : recurrenceCheck topDen topHist 18 72 one initial = true)
     (hone : ∀ r, r < 55 → recurrenceCheck lowerDen (lowerHist 1) (threshold 1 r) r two
       (one[r]?.getD 0) = true)
-    (htwo : ∀ r, r < 40 → recurrenceCheck lowerDen (lowerHist 2) (threshold 2 r) r three
+    (htwo : ∀ r, r < 41 → recurrenceCheck lowerDen (lowerHist 2) (threshold 2 r) r three
       (two[r]?.getD 0) = true)
-    (hthree : ∀ r, r < 22 → recurrenceCheck lowerDen (lowerHist 3) (threshold 3 r) r #[scale]
+    (hthree : ∀ r, r < 23 → recurrenceCheck lowerDen (lowerHist 3) (threshold 3 r) r #[scale]
       (three[r]?.getD 0) = true) : SearchEnvelope ((zNum : ENNReal)/zDen) := by
   have h0 := decoder_recurrence 220 (decoder 0 18) (dcredit 0) topHist 18 72 topDen one initial
     htopDen htopBound htopHist htopLaw hinitial
   have h1 (r : Nat) (hr : r < 55) := decoder_recurrence 128 (decoder 1 (threshold 1 r))
     (dcredit 1) (lowerHist 1) (threshold 1 r) r lowerDen two (one[r]?.getD 0) hlowerDen
     (hlowerBound 1 (by decide) _) (hlowerHist 1) (hlowerLaw 1 (by decide) _) (hone r hr)
-  have h2 (r : Nat) (hr : r < 40) := decoder_recurrence 128 (decoder 2 (threshold 2 r))
+  have h2 (r : Nat) (hr : r < 41) := decoder_recurrence 128 (decoder 2 (threshold 2 r))
     (dcredit 2) (lowerHist 2) (threshold 2 r) r lowerDen three (two[r]?.getD 0) hlowerDen
     (hlowerBound 2 (by decide) _) (hlowerHist 2) (hlowerLaw 2 (by decide) _) (htwo r hr)
-  have h3 (r : Nat) (hr : r < 22) := decoder_recurrence 128 (decoder 3 (threshold 3 r))
+  have h3 (r : Nat) (hr : r < 23) := decoder_recurrence 128 (decoder 3 (threshold 3 r))
     (dcredit 3) (lowerHist 3) (threshold 3 r) r lowerDen #[scale] (three[r]?.getD 0) hlowerDen
     (hlowerBound 3 (by decide) _) (hlowerHist 3) (hlowerLaw 3 (by decide) _) (hthree r hr)
   refine ⟨(initial : ENNReal)/scale,
@@ -11466,7 +11514,7 @@ noncomputable def envelope_of_rows
     intro answer dl hd
     have hf := decoder_credit hd
     rw [lower_three_progress r hr] at hf
-    rw [Nat.sub_eq_zero_of_le hf]
+    rw [Nat.sub_eq_zero_of_le (le_trans (lowerThreeFloor_ge r) hf)]
     change (scale : ENNReal)/scale = 1
     exact ENNReal.div_self (by norm_num [scale]) (by finiteness)
   have h := (h3 r hr).2
@@ -11595,8 +11643,8 @@ theorem ofReal_nat_ratio (n d : Nat) (hd : 0<d) :
 def topFailureRate : ℚ := (acceptedMass ClaudeWCT.Numerics.TopZero.topAcceptedHistogram 18 : ℚ)/topDen
 /-- P0: L1/L2 (LOW bonus 2), floors up to 18. -/
 def lowerFailureRate : ℚ := (acceptedMass lowerHistogram 18 : ℚ)/lowerDen
-/-- L3 (img-v6 floors up to 21, window `3·2^20`; P0: LOW bonus 3). -/
-def lowerThreeFailureRate : ℚ := (acceptedMass lowerHistogramThree 21 : ℚ)/lowerDen
+/-- L3 (Y5: floors up to 22, window `3·2^20`; P0: LOW bonus 3). -/
+def lowerThreeFailureRate : ℚ := (acceptedMass lowerHistogramThree 22 : ℚ)/lowerDen
 
 /-- The top counter window is the single parameter `topSearchLimit` (2^21, enlarged top window). -/
 theorem top_failure_rate_440_checked : 0≤topFailureRate ∧ topFailureRate≤1 ∧
@@ -11629,8 +11677,8 @@ theorem lower_failure_power_440 (lay : Layer) (hl : lay≠0) (h3 : lay≠3) (flo
   gcongr
   exact_mod_cast acceptedMass_antitone lowerHistogram hf
 
-/-- L3: floors up to 21 within the `3·2^20` window. -/
-theorem lower_three_failure_power_440 (floor : Nat) (hf : floor≤21) :
+/-- L3: floors up to 22 within the `3·2^20` window. -/
+theorem lower_three_failure_power_440 (floor : Nat) (hf : floor≤22) :
     failMass (decoder 3 floor)^(3*2^20)≤1/(2:ENNReal)^440 := by
   apply ClaudeWCT.W9.T3.Budgets.V5.failure_power_of_rate _ lowerThreeFailureRate
     (3*2^20) 440 lower_three_failure_rate_440_checked.1 lower_three_failure_rate_440_checked.2.1 _
@@ -11655,7 +11703,7 @@ noncomputable local instance : SampleableType (SearchKey → HashOutput) := Pres
 
 /-- A canonical encoding context: the routed family and the floor (img-v6: the top floor is fixed at 14; P0: L1/L2
 floors are below 19 (clipped at 18), L3 floors below 22). -/
-abbrev EncodingContext := EncodingFamilyBC × Fin 22
+abbrev EncodingContext := EncodingFamilyBC × Fin 23
 
 def contextFloor (context : EncodingContext) : Nat :=
   if context.1.1=0 then 18 else if context.1.1=3 then context.2.val else min context.2.val 18
@@ -11666,17 +11714,17 @@ def ContextFailed (context : EncodingContext) (answers : Correctness.Answers) : 
     (.pair context.1.2.2.1 context.1.2.2.2) 0 (searchLimit context.1.1))=none
 
 theorem encodingContext_card_le : Fintype.card EncodingContext ≤ 2^301 := by
-  change Fintype.card (EncodingFamilyBC × Fin 22) ≤ 2^301
+  change Fintype.card (EncodingFamilyBC × Fin 23) ≤ 2^301
   rw [Fintype.card_prod,encodingFamilyBC_card,Fintype.card_fin]
-  exact (Nat.mul_le_mul_left _ (show 22≤2^11 by norm_num)).trans_eq (by rw [←pow_add])
+  exact (Nat.mul_le_mul_left _ (show 23≤2^11 by norm_num)).trans_eq (by rw [←pow_add])
 
 /-- Z5: the per-context failure bound: `2^-433` for the top search (top floor 18), `2^-440` for the lower layers. -/
 noncomputable def ctxBound (context : EncodingContext) : ENNReal :=
   if context.1.1 = 0 then 1/(2:ENNReal)^433 else 1/(2:ENNReal)^440
 
 theorem ctx_sum_layer (f : Layer → ENNReal) :
-    ∑ c : EncodingContext, f c.1.1 = ∑ lay : Layer, (22 * 2 ^ 288 : ENNReal) * f lay := by
-  change ∑ c : (Layer × Fin (2 ^ 32) × Digest × Digest) × Fin 22, f c.1.1 = _
+    ∑ c : EncodingContext, f c.1.1 = ∑ lay : Layer, (23 * 2 ^ 288 : ENNReal) * f lay := by
+  change ∑ c : (Layer × Fin (2 ^ 32) × Digest × Digest) × Fin 23, f c.1.1 = _
   rw [Fintype.sum_prod_type, Fintype.sum_prod_type]
   simp only [Finset.sum_const, Finset.card_univ, Fintype.card_fin, Fintype.card_prod, Fintype.card_bitVec,
     nsmul_eq_mul]
@@ -11685,14 +11733,14 @@ theorem ctx_sum_layer (f : Layer → ENNReal) :
   set_option exponentiation.threshold 1024 in ring
 
 theorem ctxBound_sum : ∑ context : EncodingContext, ctxBound context =
-    (22 * 2 ^ 288 : ENNReal) * (1/(2:ENNReal)^433 + 3 * (1/(2:ENNReal)^440)) := by
+    (23 * 2 ^ 288 : ENNReal) * (1/(2:ENNReal)^433 + 3 * (1/(2:ENNReal)^440)) := by
   refine (ctx_sum_layer (fun lay : Layer => if lay = 0 then 1/(2:ENNReal)^433 else 1/(2:ENNReal)^440)).trans ?_
   rw [Fin.sum_univ_four]
   simp only [Fin.isValue, if_true, show ((1 : Layer) = 0) = False by decide,
     show ((2 : Layer) = 0) = False by decide, show ((3 : Layer) = 0) = False by decide, if_false]
   set_option exponentiation.threshold 1024 in ring
 
-theorem ctx_sum_le_family : (22 * 2 ^ 288 : ENNReal) * (1/(2:ENNReal)^433 + 3 * (1/(2:ENNReal)^440)) ≤
+theorem ctx_sum_le_family : (23 * 2 ^ 288 : ENNReal) * (1/(2:ENNReal)^433 + 3 * (1/(2:ENNReal)^440)) ≤
     (2:ENNReal)^301*(1/(2:ENNReal)^440) := by
   apply (ENNReal.toReal_le_toReal (by finiteness) (by finiteness)).mp
   simp (disch:=finiteness) only [ENNReal.toReal_add, ENNReal.toReal_mul, ENNReal.toReal_div, ENNReal.toReal_pow,
@@ -11702,7 +11750,7 @@ theorem ctx_sum_le_family : (22 * 2 ^ 288 : ENNReal) * (1/(2:ENNReal)^433 + 3 * 
 theorem ctx_union_le {α : Type} (law : ProbComp α) (event : EncodingContext → α → Prop)
     (h : ∀ c, Pr[event c | law] ≤ ctxBound c) :
     Pr[fun value => ∃ c, event c value | law] ≤
-      (22 * 2 ^ 288 : ENNReal) * (1/(2:ENNReal)^433 + 3 * (1/(2:ENNReal)^440)) := by
+      (23 * 2 ^ 288 : ENNReal) * (1/(2:ENNReal)^433 + 3 * (1/(2:ENNReal)^440)) := by
   classical
   have hu := probEvent_exists_finset_le_sum (Finset.univ : Finset EncodingContext) law event
   have hu' : Pr[fun value => ∃ c, event c value | law] ≤ ∑ c : EncodingContext, Pr[event c | law] := by
@@ -11718,7 +11766,7 @@ theorem context_table_failure (context : EncodingContext) :
   · simpa only [ctxBound,contextFloor,hl,if_pos,searchLimit_top] using top_failure_power_440
   · rw [ctxBound, if_neg hl]
     by_cases h3 : context.1.1=3
-    · have hf : context.2.val≤21 := by omega
+    · have hf : context.2.val≤22 := by omega
       have hlow := lower_three_failure_power_440 context.2.val hf
       simp only [contextFloor,hl,h3,if_false,if_true]
       have hs : searchLimit (3 : Layer) = 3*2^20 := searchLimit_values.2.2.2
@@ -11739,7 +11787,7 @@ theorem context_family_failure :
   (ctx_union_le _ _ context_table_failure).trans ctx_sum_le_family
 
 theorem completeness_union_arithmetic :
-    (2:ENNReal)^256*(1/(2:ENNReal)^400)+(22 * 2 ^ 288 : ENNReal) * (1/(2:ENNReal)^433 + 3 * (1/(2:ENNReal)^440))
+    (2:ENNReal)^256*(1/(2:ENNReal)^400)+(23 * 2 ^ 288 : ENNReal) * (1/(2:ENNReal)^433 + 3 * (1/(2:ENNReal)^440))
       ≤ 1/(2:ENNReal)^138 := by
   apply (ENNReal.toReal_le_toReal (by finiteness) (by finiteness)).mp
   simp (disch:=finiteness) only [ENNReal.toReal_add, ENNReal.toReal_mul, ENNReal.toReal_div, ENNReal.toReal_pow,
@@ -11774,7 +11822,7 @@ def ContextGood (answers : Answers) : Prop := ∀ context, ¬ContextFailed conte
 
 theorem context_good_at_route (answers : Answers) (hgood : ContextGood answers)
     (index : Nat) (hi : index<2^31) (lay : Layer) (floor : Nat)
-    (hf : if lay=0 then floor=18 else if lay=3 then floor<22 else floor<19) (left right : Digest) :
+    (hf : if lay=0 then floor=18 else if lay=3 then floor<23 else floor<19) (left right : Digest) :
     ∃ found, evalWithAnswerFn answers (CanonicalPolicy.layerCounterSearchAt lay floor
       (route index lay).2 (route index lay).1 (.pair left right) 0 (searchLimit lay))=some found := by
   let routed : Fin (2^32) := ⟨(route index lay).2*2^height lay+(route index lay).1,
@@ -11821,7 +11869,7 @@ theorem searchPreparedLayers_complete (answers : Answers) (hgood : ContextGood a
     (searchLimit 0) 0 c0 d0 l0 (by decide) hs0).2.2.2
   let r1 := CanonicalPolicy.nextResidual 72 0 l0 d0
   have hr1 : r1<55 := CanonicalPolicy.accepted_top_residual hd0
-  have hf1' : CanonicalPolicy.threshold 1 r1<16 := CanonicalPolicy.lower_one_floor_lt ⟨r1,hr1⟩
+  have hf1' : CanonicalPolicy.threshold 1 r1<15 := ClaudeWCT.W9.T3.CanonicalSearch.lower_one_floor_lt15 ⟨r1,hr1⟩
   have hf1 : CanonicalPolicy.threshold 1 r1<19 := by omega
   obtain ⟨⟨c1,d1,l1⟩,hs1⟩ := context_good_at_route answers hgood index hi 1
     (CanonicalPolicy.threshold 1 r1) (by simpa only [show (1:Layer)≠0 by decide, show (1:Layer)≠3 by decide, if_false] using hf1)
@@ -11831,7 +11879,7 @@ theorem searchPreparedLayers_complete (answers : Answers) (hgood : ContextGood a
     (.pair (topPair 2 prepared.two.levels).1 (topPair 2 prepared.two.levels).2)
     (searchLimit 1) 0 c1 d1 l1 (by decide) hs1).2.2.2
   let r2 := CanonicalPolicy.nextResidual r1 1 l1 d1
-  have hr2 : r2<40 := CanonicalPolicy.accepted_one_residual ⟨r1,hr1⟩ hd1
+  have hr2 : r2<41 := CanonicalPolicy.accepted_one_residual ⟨r1,hr1⟩ hd1
   have hf2 : CanonicalPolicy.threshold 2 r2<19 := by
     have h := CanonicalPolicy.lower_two_floor_le ⟨r2,hr2⟩
     change CanonicalPolicy.threshold 2 r2≤18 at h
@@ -11844,14 +11892,14 @@ theorem searchPreparedLayers_complete (answers : Answers) (hgood : ContextGood a
     (.pair (topPair 3 prepared.three.levels).1 (topPair 3 prepared.three.levels).2)
     (searchLimit 2) 0 c2 d2 l2 (by decide) hs2).2.2.2
   let r3 := CanonicalPolicy.nextResidual r2 2 l2 d2
-  have hr3 : r3<22 := CanonicalPolicy.accepted_two_residual ⟨r2,hr2⟩ hd2
-  have hf3 : CanonicalPolicy.threshold 3 r3<22 := by
-    rwa [CanonicalPolicy.lower_three_progress r3 hr3]
+  have hr3 : r3<23 := CanonicalPolicy.accepted_two_residual ⟨r2,hr2⟩ hd2
+  have hf3 : CanonicalPolicy.threshold 3 r3<23 := by
+    rw [CanonicalPolicy.lower_three_progress r3 hr3]; have := CanonicalPolicy.lowerThreeFloor_le r3 hr3; omega
   obtain ⟨⟨c3,d3,l3⟩,hs3⟩ := context_good_at_route answers hgood index hi 3
     (CanonicalPolicy.threshold 3 r3) (by simpa only [show (3:Layer)≠0 by decide, if_false, if_true] using hf3) forest.1 forest.2
-  have hn1 : ¬CanonicalPolicy.threshold 1 r1≥16 := by omega
-  have hn2 : ¬CanonicalPolicy.threshold 2 r2≥22 := by omega
-  have hn3 : ¬CanonicalPolicy.threshold 3 r3≥22 := by omega
+  have hn1 : ¬CanonicalPolicy.threshold 1 r1≥15 := by omega
+  have hn2 : ¬CanonicalPolicy.threshold 2 r2≥23 := by omega
+  have hn3 : ¬CanonicalPolicy.threshold 3 r3≥23 := by omega
   dsimp only [r1,r2,r3] at hs1 hs2 hs3 hn1 hn2 hn3
   simp only [searchPreparedLayers,CanonicalPolicy.threshold_top,CanonicalPolicy.totalCredit,
     evalWithAnswerFn_bind,hs0,hn1,if_false,hs1,hn2,hs2,hn3,hs3,evalWithAnswerFn_pure]
@@ -12957,8 +13005,8 @@ theorem expand_cost_le_worst (answers : Answers) (message : Message) (pk : Diges
 11 ancestor top-node nonces `Σ_h (104·2^b_h − 1)` = 106,485 (R6 `topZeroAlloc` [0,0,0,1,..,9]; E8 66,757); plus the worst
 case of the lower ground path folds, N7g B widths (4,3,2,1) on every lower layer: `Σ (cap − 1)` = 2047 + 1023 + 511 + 255
 = 3836 per layer, 11,508 in all (replay 13,408; E8 6,132 / 8,032); plus the worst case of the 9 FTS ground path nodes
-`7·511 + 2·255 = 4087`. Total 123,980 (E8 78,876). -/
-def expandReplayExtra : Nat := 13408 + 4087 + 106485
+`7·511 + 2·255 = 4087`. Total 125,000 (Y5: + 4 heap-16..31 path nodes at cap 256; E8 78,876). -/
+def expandReplayExtra : Nat := 13408 + 5107 + 106485
 
 theorem expand_cost_le_payload_add (answers : Answers) (cache : SigGolfCandidate.T3.Cache)
     (hcache : cache.region = cacheRegion (maskedTop answers)) (hlower : LowerTreesOK answers) (message : Message)
@@ -14417,7 +14465,7 @@ theorem expand_excess_numeric19 :
 
 /-! N2b at a 2^20 brute-force field (E2 for E11; N7g: replay 123,980 and constant 191/100, R7 item E: certified 1.905456),
 64 blocks of 2^14,
-`w^123980 · 2^-40 · Σ_{a,b<2^20} w^max(a,b) ≤ 19/10` (E8: replay + 4,087 FTS; kernel check < 1.85, exact about 1.8477). -/
+`w^125000 · 2^-40 · Σ_{a,b<2^20} w^max(a,b) ≤ 19/10` (E8: replay + 4,087 FTS; kernel check < 1.85, exact about 1.8477). -/
 def blockV20 : Nat := powerUp expandWFix 16384
 def pw20 : Nat → Nat
   | 0 => scale
@@ -14432,15 +14480,15 @@ theorem pw20_ratio_ge (k : Nat) : (((blockV20:ℝ)/scale))^k ≤ (pw20 k:ℝ)/sc
 
 def blockSum20 : Nat := ∑ i ∈ range 64, ∑ j ∈ range 64, pw20 (max i j + 1)
 
-theorem expand_block20_checked : mulUp (powerUp expandWFix 123980) blockSum20 * 100000 <
-    190600 * scale * 4096 := by decide +kernel
+theorem expand_block20_checked : mulUp (powerUp expandWFix 125000) blockSum20 * 100000 <
+    191000 * scale * 4096 := by decide +kernel
 
 theorem blockV20_eq : blockV20 = powerUp expandWFix 16384 := rfl
 
 attribute [irreducible] blockSum20 blockV20
 
 theorem expand_excess_moment20 (w : ℝ) (hw1 : 1 ≤ w) (hw : w ≤ (expandWNum:ℝ)/expandWDen) :
-    w^123980 * ((1:ℝ)/2^40 * ∑ a ∈ range (2^20), ∑ b ∈ range (2^20), w^(max a b)) ≤ 191 / 100 := by
+    w^125000 * ((1:ℝ)/2^40 * ∑ a ∈ range (2^20), ∑ b ∈ range (2^20), w^(max a b)) ≤ 191 / 100 := by
   have hwf := hw.trans expandW_fix
   have hw0 : 0 ≤ w := by linarith
   set v : ℝ := w^16384 with hv
@@ -14476,11 +14524,11 @@ theorem expand_excess_moment20 (w : ℝ) (hw1 : 1 ≤ w) (hw : w ≤ (expandWNum
           Finset.sum_le_sum fun i _ => Finset.sum_le_sum fun j _ => hterm i j
       _ = (blockSum20:ℝ)/scale := by
           simp only [blockSum20, Nat.cast_sum, Finset.sum_div]
-  have hK : w^123980 ≤ (powerUp expandWFix 123980:ℝ)/scale :=
+  have hK : w^125000 ≤ (powerUp expandWFix 125000:ℝ)/scale :=
     (pow_le_pow_left₀ hw0 hwf _).trans (powerUp_ratio_ge _ _)
-  have hcheck : (mulUp (powerUp expandWFix 123980) blockSum20:ℝ) * 100000 <
-      190600 * (scale:ℝ) * 4096 := by exact_mod_cast expand_block20_checked
-  have hmul := mulUp_ratio_ge (powerUp expandWFix 123980) blockSum20
+  have hcheck : (mulUp (powerUp expandWFix 125000) blockSum20:ℝ) * 100000 <
+      191000 * (scale:ℝ) * 4096 := by exact_mod_cast expand_block20_checked
+  have hmul := mulUp_ratio_ge (powerUp expandWFix 125000) blockSum20
   have hs : (0:ℝ) < scale := by norm_num [scale]
   have hS : (1:ℝ)/2^40 * ∑ a ∈ range (2^20), ∑ b ∈ range (2^20), w^(max a b) ≤
       ((blockSum20:ℝ)/scale) / 4096 := by
@@ -14494,18 +14542,18 @@ theorem expand_excess_moment20 (w : ℝ) (hw1 : 1 ≤ w) (hw : w ≤ (expandWNum
     have h4 := hsum.trans h3
     have h5 : (0:ℝ) ≤ 1/2^40 := by positivity
     exact mul_le_mul_of_nonneg_left h4 h5
-  have hB : w^123980 * ((1:ℝ)/2^40 * ∑ a ∈ range (2^20), ∑ b ∈ range (2^20), w^(max a b)) ≤
-      ((powerUp expandWFix 123980:ℝ)/scale) * (((blockSum20:ℝ)/scale) / 4096) :=
+  have hB : w^125000 * ((1:ℝ)/2^40 * ∑ a ∈ range (2^20), ∑ b ∈ range (2^20), w^(max a b)) ≤
+      ((powerUp expandWFix 125000:ℝ)/scale) * (((blockSum20:ℝ)/scale) / 4096) :=
     mul_le_mul hK hS
       (mul_nonneg (by norm_num) (Finset.sum_nonneg fun a _ => Finset.sum_nonneg fun b _ => pow_nonneg hw0 _))
       (div_nonneg (Nat.cast_nonneg _) (Nat.cast_nonneg _))
-  have hC : ((powerUp expandWFix 123980:ℝ)/scale) * (((blockSum20:ℝ)/scale) / 4096) ≤
-      ((mulUp (powerUp expandWFix 123980) blockSum20:ℝ)/scale) / 4096 := by
+  have hC : ((powerUp expandWFix 125000:ℝ)/scale) * (((blockSum20:ℝ)/scale) / 4096) ≤
+      ((mulUp (powerUp expandWFix 125000) blockSum20:ℝ)/scale) / 4096 := by
     rw [← mul_div_assoc]
     exact div_le_div_of_nonneg_right hmul (by norm_num)
-  have hD : ((mulUp (powerUp expandWFix 123980) blockSum20:ℝ)/scale) / 4096 ≤ 191 / 100 := by
+  have hD : ((mulUp (powerUp expandWFix 125000) blockSum20:ℝ)/scale) / 4096 ≤ 191 / 100 := by
     have hs0 : (0:ℝ) < scale := by norm_num [scale]
-    generalize (mulUp (powerUp expandWFix 123980) blockSum20:ℝ) = P at hcheck ⊢
+    generalize (mulUp (powerUp expandWFix 125000) blockSum20:ℝ) = P at hcheck ⊢
     generalize (scale:ℝ) = S at hcheck hs0 ⊢
     rw [div_div, div_le_iff₀ (by positivity)]
     nlinarith
@@ -14532,7 +14580,7 @@ theorem avgF_ofReal (ψ : Nat → ℝ) (hψ : ∀ c, 0 ≤ ψ c) :
   norm_num
 
 theorem excessWeight_eq (c : Nat) :
-    excessWeight c = ENNReal.ofReal (((2:ℝ)^(1/((917504:ℕ):ℝ)))^(123980 + c)) := by
+    excessWeight c = ENNReal.ofReal (((2:ℝ)^(1/((917504:ℕ):ℝ)))^(125000 + c)) := by
   unfold excessWeight SigGolfCandidate.Research.SharedForest.expandReplayExtra
   rw [show (2:ENNReal) = ENNReal.ofReal 2 by norm_num, ENNReal.ofReal_rpow_of_pos (by norm_num)]
   congr 1
@@ -14551,14 +14599,14 @@ theorem expandExcessNumeric19_holds : ExpandExcessNumeric19 := by
   have hw1 : 1 ≤ w := Real.one_le_rpow (by norm_num) (by positivity)
   have hw0 : 0 ≤ w := by linarith
   have hin : ∀ c2, avgF (fun c3 => excessWeight (max c2 c3)) =
-      ENNReal.ofReal (∑ c3 ∈ range (2^20), (1/2^20) * w^(123980 + max c2 c3)) := by
+      ENNReal.ofReal (∑ c3 ∈ range (2^20), (1/2^20) * w^(125000 + max c2 c3)) := by
     intro c2
     simp_rw [excessWeight_eq]
-    exact avgF_ofReal (fun c3 => w^(123980 + max c2 c3)) (fun _ => pow_nonneg hw0 _)
+    exact avgF_ofReal (fun c3 => w^(125000 + max c2 c3)) (fun _ => pow_nonneg hw0 _)
   simp_rw [hin]
   rw [avgF_ofReal _ (fun _ => Finset.sum_nonneg fun _ _ => mul_nonneg (by positivity) (pow_nonneg hw0 _))]
-  have hreal : ∑ c2 ∈ range (2^20), (1/2^20) * ∑ c3 ∈ range (2^20), (1/2^20) * w^(123980 + max c2 c3) =
-      w^123980 * ((1:ℝ)/2^40 * ∑ a ∈ range (2^20), ∑ b ∈ range (2^20), w^(max a b)) := by
+  have hreal : ∑ c2 ∈ range (2^20), (1/2^20) * ∑ c3 ∈ range (2^20), (1/2^20) * w^(125000 + max c2 c3) =
+      w^125000 * ((1:ℝ)/2^40 * ∑ a ∈ range (2^20), ∑ b ∈ range (2^20), w^(max a b)) := by
     simp only [pow_add, Finset.mul_sum]
     refine Finset.sum_congr rfl fun a _ => Finset.sum_congr rfl fun b _ => ?_
     ring

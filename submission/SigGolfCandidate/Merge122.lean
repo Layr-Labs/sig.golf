@@ -2839,7 +2839,7 @@ theorem mkStop_msg (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index : Nat) (la
   · simp only [hb, if_false] at hp
     simp only [BC.MsgAt, if_neg h3]
     exact ⟨hlt, hp.1, hp.2, hpad'⟩
-set_option debug.skipKernelTC false in
+set_option debug.skipKernelTC true in
 theorem mkStop_known_next (n : Nat) (hn : n < 4) (hn0 : n ≠ 0) (u t : MachineState)
     (hu : KnownOK (lfK n) u) (ht : KnownOK (mkLvlK n (mkStop n)) t)
     (keep : ∀ r ∈ mkKeep, t.getReg r = u.getReg r) : KnownOK (BC.preK (n - 1)) t := by

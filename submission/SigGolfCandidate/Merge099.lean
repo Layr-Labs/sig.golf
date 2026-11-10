@@ -413,32 +413,22 @@ theorem coordVal_selCoordV_node (s : Secrets) (L : Labels) (n : TreeNode) :
   show Extract.Paired.proj (Node.node (withNonce n (selNonceV (coordVal s L) n))).toPos _ = _
   rw [CanonGraph.Paired.pairedProj_node, selNonceV_coordVal]
   rfl
-/-- E8: a level-3 FTS trial coordinate's value is the low half of its label. -/
-theorem coordVal_wTrial3 (s : Secrets) (L : Labels) (n : WctNodePos) (h3 : n.1.level.val = 3) (j : Nat) :
-    coordVal s L (wTrialCoord n j) = (L (.wctNode (wWithNonce n j))).extractLsb' 0 128 := by
+/-- E8: an FTS trial coordinate's value is the used half of its label (Y7: on every level). -/
+theorem coordVal_wTrial (s : Secrets) (L : Labels) (n : WctNodePos) (j : Nat) :
+    coordVal s L (wTrialCoord n j) = Extract.Paired.proj (Node.wctNode n).toPos (L (.wctNode (wWithNonce n j))) := by
   show Extract.Paired.proj (.wctNode n.1.index.val n.1.coord.val n.1.level.val n.1.idx.val) _ = _
-  rw [h3, Extract.Paired.proj_level3]
+  rfl
+theorem wTrialFailsV_coordVal (s : Secrets) (L : Labels) (n : WctNodePos) (j : Nat) :
+    wTrialFailsV (coordVal s L) n j ↔ wTrialFails L n j := by
+  unfold wTrialFailsV wTrialFails; rw [coordVal_wTrial s L n]
 theorem wSelNonceV_coordVal (s : Secrets) (L : Labels) (n : WctNodePos) :
     wSelNonceV (coordVal s L) n = wSelNonce L n := by
-  by_cases h3 : n.1.level.val = 3
-  · unfold wSelNonceV wSelNonce
-    congr 1
-    apply find?_congr'
-    intro j _
-    have hiff : wTrialFailsV (coordVal s L) n j ↔ wTrialFails L n j := by
-      unfold wTrialFailsV wTrialFails; rw [coordVal_wTrial3 s L n h3]
-    simp only [decide_eq_decide.mpr hiff]
-  · rw [wSelNonceV_cap_one (wTrialCap_off h3), wSelNonce_of_cap_one (wTrialCap_off h3)]
+  unfold wSelNonceV wSelNonce
+  congr 1
 theorem wActiveV_coordVal (s : Secrets) (L : Labels) (n : WctNodePos) :
     WActiveV (coordVal s L) n ↔ WActive L n := by
-  by_cases h3 : n.1.level.val = 3
-  · unfold WActiveV WActive
-    have hiff : ∀ j, wTrialFailsV (coordVal s L) n j ↔ wTrialFails L n j := fun j => by
-      unfold wTrialFailsV wTrialFails; rw [coordVal_wTrial3 s L n h3]
-    simp only [hiff]
-  · unfold WActiveV WActive
-    rw [wTrialCap_off h3]
-    exact ⟨fun h => ⟨h.1, fun j hj => by omega⟩, fun h => ⟨h.1, fun j hj => by omega⟩⟩
+  unfold WActiveV WActive
+  simp only [wTrialFailsV_coordVal]
 /-- E8: the value of an FTS-node coordinate's selected trial is the label of the selected trial node. -/
 theorem coordVal_selCoordV_wct (s : Secrets) (L : Labels) (n : WctNodePos) :
     coordVal s L (selCoordV (coordVal s L) (.inl (.wctNode n))) =
@@ -490,20 +480,21 @@ theorem ftsLabel_eq (s : Secrets) (L : Labels) (index : Fin (2^31)) (coord : Fin
 
 /-- E8: off the ground children (level `≠ 4`) an FTS child is its own selected trial. -/
 theorem selCoordV_ftsChild {v : Coord → Digest} {index : Fin (2^31)} {coord : Fin 9} {level c : Nat} {x : Coord}
-    (hx : ftsChild index coord level c = some x) (h4 : level ≠ 4) : selCoordV v x = x := by
+    (hx : ftsChild index coord level c = some x) (h4 : 4 < level) : selCoordV v x = x := by
   unfold ftsChild at hx
   split_ifs at hx with h0 hr
   · cases hx; rfl
   · obtain ⟨m, hm, rfl⟩ := Option.map_eq_some_iff.mp hx
     have hl := ftsNodeAt_level hm
-    have h1 : wTrialCap m.1.coord.val m.1.level.val = 1 := wTrialCap_off (by omega)
+    have h1 : wTrialCap m.1.coord.val m.1.level.val = 1 := wTrialCap_off (fun hg => by
+      have := Extract.Paired.ftsNonceLevel_le hg; omega)
     show Sum.inl (CanonGraph.Node.wctNode (wWithNonce m (wSelNonceV v m))) = _
     rw [wSelNonceV_cap_one h1]
     have hw := wWithNonce_self m
     rw [ftsNodeAt_nonce hm] at hw
     rw [hw]
 theorem ftsChildVal_plain {v : Coord → Digest} {index : Fin (2^31)} {coord : Fin 9} {level c : Nat}
-    (h4 : level ≠ 4) : ftsChildVal v index coord level c = ((ftsChild index coord level c).map v).getD 0 := by
+    (h4 : 4 < level) : ftsChildVal v index coord level c = ((ftsChild index coord level c).map v).getD 0 := by
   unfold ftsChildVal
   cases hx : ftsChild index coord level c with
   | none => rfl
@@ -516,7 +507,7 @@ theorem pads_eq (s : Secrets) (L : Labels) (index : Fin (2^31)) (coord : Fin 9) 
   all_goals
     dsimp only
     rw [ftsLabel_eq s,ftsLabel_eq s]
-    simp only [ftsChildVal_plain (show (5:Nat) ≠ 4 by decide), ftsChildVal_plain (show (6:Nat) ≠ 4 by decide),
+    simp only [ftsChildVal_plain (show 4 < (5:Nat) by decide), ftsChildVal_plain (show 4 < (6:Nat) by decide),
       Fin.val_zero,Fin.val_one,Nat.add_zero]
 
 theorem coordVal_wctItem (s : Secrets) (L : Labels) (a : WctAddr) (p : Nat) :
@@ -663,9 +654,11 @@ theorem cellValues_congr (N : CanonGraph.Node) (v v' : Coord → Digest)
         | none => unfold ftsChildVal; rw [hc]; rfl
         | some c => exact ftsChildVal_congr hc (h (c, 3) (by simp [childSlots, hc, hlt])) hdr
       have h3 : (if n.1.level.val = 4 then (padVals v n.1.index n.1.coord (n.1.idx.val/2)).2
-            else if n.1.level.val = 3 then BitVec.ofNat 128 (n.1.nonce.val % 2 ^ 64) else 0) =
+            else if Extract.Paired.ftsNonceLevel n.1.coord.val n.1.level.val then
+              BitVec.ofNat 128 (n.1.nonce.val % 2 ^ 64) else 0) =
           (if n.1.level.val = 4 then (padVals v' n.1.index n.1.coord (n.1.idx.val/2)).2
-            else if n.1.level.val = 3 then BitVec.ofNat 128 (n.1.nonce.val % 2 ^ 64) else 0) := by
+            else if Extract.Paired.ftsNonceLevel n.1.coord.val n.1.level.val then
+              BitVec.ofNat 128 (n.1.nonce.val % 2 ^ 64) else 0) := by
         split_ifs with hl
         · unfold padVals
           cases hc : padCoord n.1.index n.1.coord (n.1.idx.val/2) 1 with
@@ -766,7 +759,7 @@ def hintsOf (index : Nat) (digitsOf : Wots.LeafAddr→List Nat) (lowsOf : Wots.L
     (digitsOf (routeAddr index 0))
   let r2 := WCT9.CanonicalPolicy.nextResidual r1 1 (lowsOf (routeAddr index 1)) (digitsOf (routeAddr index 1))
   let r3 := WCT9.CanonicalPolicy.nextResidual r2 2 (lowsOf (routeAddr index 2)) (digitsOf (routeAddr index 2))
-  BitVec.ofNat 16 (484*WCT9.CanonicalPolicy.threshold 1 r1+22*WCT9.CanonicalPolicy.threshold 2 r2+
+  BitVec.ofNat 16 (529*WCT9.CanonicalPolicy.threshold 1 r1+23*WCT9.CanonicalPolicy.threshold 2 r2+
     WCT9.CanonicalPolicy.threshold 3 r3)
 
 def assembleSig (rho : Digest) (output : HashOutput) (v : Coord→Digest) (digitsOf : Wots.LeafAddr→List Nat)
@@ -1035,7 +1028,7 @@ step cost ~85 s and ~8 GiB of kernel replay. -/
   let r1 := WCT9.CanonicalPolicy.nextResidual WCT9.CanonicalPolicy.totalCredit 0 l0 d0
   have hr1 : r1<55 := WCT9.CanonicalPolicy.accepted_top_residual
     (by rwa [WCT9.CanonicalPolicy.threshold_top] at hd0)
-  have hf1 : WCT9.CanonicalPolicy.threshold 1 r1<16 := WCT9.CanonicalPolicy.lower_one_floor_lt ⟨r1,hr1⟩
+  have hf1 : WCT9.CanonicalPolicy.threshold 1 r1<15 := ClaudeWCT.W9.T3.CanonicalSearch.lower_one_floor_lt15 ⟨r1,hr1⟩
   have hc1 : referenceContext T (sourceMessages T) (sourceLeaf index 1)=some r1 := by
     apply context_parent_success (leaf:=sourceLeaf index 1) (by change 1≠0;decide)
     · rw [sourceLeaf_parent index 1 (by decide)];exact hc0
@@ -1048,8 +1041,8 @@ step cost ~85 s and ~8 GiB of kernel replay. -/
       (ClaudeWCT.WCT9.builtPair T 2 (route index 2).2).2)
     (WCT9.searchLimit 1) 0 c1 d1 l1 (ClaudeWCT.W9.T3.Security.Wots.searchLimit_fits _) hs1).2.2.2
   let r2 := WCT9.CanonicalPolicy.nextResidual r1 1 l1 d1
-  have hr2 : r2<40 := WCT9.CanonicalPolicy.accepted_one_residual ⟨r1,hr1⟩ hd1
-  have hf2 : WCT9.CanonicalPolicy.threshold 2 r2<22 := by
+  have hr2 : r2<41 := WCT9.CanonicalPolicy.accepted_one_residual ⟨r1,hr1⟩ hd1
+  have hf2 : WCT9.CanonicalPolicy.threshold 2 r2<23 := by
     have h := (WCT9.CanonicalPolicy.lower_two_progress ⟨r2,hr2⟩).1
     change WCT9.CanonicalPolicy.threshold 2 r2≤19 at h
     omega
@@ -1065,9 +1058,9 @@ step cost ~85 s and ~8 GiB of kernel replay. -/
       (ClaudeWCT.WCT9.builtPair T 3 (route index 3).2).2)
     (WCT9.searchLimit 2) 0 c2 d2 l2 (ClaudeWCT.W9.T3.Security.Wots.searchLimit_fits _) hs2).2.2.2
   let r3 := WCT9.CanonicalPolicy.nextResidual r2 2 l2 d2
-  have hr3 : r3<22 := WCT9.CanonicalPolicy.accepted_two_residual ⟨r2,hr2⟩ hd2
-  have hf3 : WCT9.CanonicalPolicy.threshold 3 r3<22 := by
-    rwa [WCT9.CanonicalPolicy.lower_three_progress r3 hr3]
+  have hr3 : r3<23 := WCT9.CanonicalPolicy.accepted_two_residual ⟨r2,hr2⟩ hd2
+  have hf3 : WCT9.CanonicalPolicy.threshold 3 r3<23 := by
+    rw [WCT9.CanonicalPolicy.lower_three_progress r3 hr3]; have := WCT9.CanonicalPolicy.lowerThreeFloor_le r3 hr3; omega
   have hc3 : referenceContext T (sourceMessages T) (sourceLeaf index 3)=some r3 := by
     apply context_parent_success (leaf:=sourceLeaf index 3) (by change 3≠0;decide)
     · rw [sourceLeaf_parent index 3 (by decide)];exact hc2
@@ -1086,9 +1079,9 @@ step cost ~85 s and ~8 GiB of kernel replay. -/
   have hs3' : evalWithAnswerFn T (WCT9.CanonicalPolicy.layerCounterSearchAt 3
       (WCT9.CanonicalPolicy.threshold 3 r3) (route index 3).2 (route index 3).1
       (.pair (SigGolfCandidate.Research.SharedForest.forestCommitment T index).1 (SigGolfCandidate.Research.SharedForest.forestCommitment T index).2) 0 (WCT9.searchLimit 3))=some (c3,d3,l3) := hs3
-  have hn1 : ¬WCT9.CanonicalPolicy.threshold 1 r1≥16 := by omega
-  have hn2 : ¬WCT9.CanonicalPolicy.threshold 2 r2≥22 := by omega
-  have hn3 : ¬WCT9.CanonicalPolicy.threshold 3 r3≥22 := by omega
+  have hn1 : ¬WCT9.CanonicalPolicy.threshold 1 r1≥15 := by omega
+  have hn2 : ¬WCT9.CanonicalPolicy.threshold 2 r2≥23 := by omega
+  have hn3 : ¬WCT9.CanonicalPolicy.threshold 3 r3≥23 := by omega
   dsimp only [r1,r2,r3] at hs1' hs2' hs3' hn1 hn2 hn3
   simp only [prepareRoots_result,searchPreparedLayers,fixedPrepared_pair,evalWithAnswerFn_bind]
   rw [hs0']
