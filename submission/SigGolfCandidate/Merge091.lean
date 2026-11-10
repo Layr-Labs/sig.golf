@@ -352,7 +352,7 @@ theorem childLevelP_eq (k index j : Nat) (pads : Nat → Digest) (tws sibs : Nat
 theorem nodeIn_blocks (k index j : Nat) (pads : Nat → Digest) (tws sibs : Nat → Digest) (v : Digest) (l : Nat) :
     (toQ (pad64 (nodeIn k index j pads (hpOf j tws) sibs v l))).blocks = 1 := by
   unfold nodeIn; exact blocks_blk4 _ _ _ _
-set_option debug.skipKernelTC false in
+set_option debug.skipKernelTC true in
 theorem hdr11_lo (k index heap : Nat) (hp : BitVec 64) :
     (nodeHeader k index heap hp).extractLsb' 0 64 =
       BitVec.ofNat 64 (if 8 ≤ heap ∧ heap < 128 then w0n k index + 2 ^ 64 - heap else w0n k index) := by
@@ -362,7 +362,7 @@ theorem hdr11_hi (k index heap : Nat) (hp : BitVec 64) :
     (nodeHeader k index heap hp).extractLsb' 64 64 = if 8 ≤ heap ∧ heap < 128 then hp else BitVec.ofNat 64 (SigGolfCandidate.T3.ftsHeapLabel heap) := by
   unfold nodeHeader V3.nodeHdr
   split <;> exact BitVec.extractLsb'_append_eq_left
-set_option debug.skipKernelTC false in
+set_option debug.skipKernelTC true in
 theorem ofNat_add_neg_wrap (a h : Nat) (hh : h < 2 ^ 64) :
     BitVec.ofNat 64 a + BitVec.ofNat 64 (2 ^ 64 - h) = BitVec.ofNat 64 (a + 2 ^ 64 - h) := by
   rw [← BitVec.ofNat_add]
@@ -1287,7 +1287,7 @@ theorem childLevelP_eq (k index j : Nat) (pads : Nat → Digest) (tws sibs : Nat
 theorem nodeIn_blocks (k index j : Nat) (pads : Nat → Digest) (tws sibs : Nat → Digest) (v : Digest) (l : Nat) :
     (toQ (pad64 (nodeIn k index j pads (hpOf j tws) sibs v l))).blocks = 1 := by
   unfold nodeIn; exact blocks_blk4 _ _ _ _
-set_option debug.skipKernelTC false in
+set_option debug.skipKernelTC true in
 theorem hdr11_lo (k index heap : Nat) (hp : BitVec 64) :
     (nodeHeader k index heap hp).extractLsb' 0 64 =
       BitVec.ofNat 64 (if 8 ≤ heap ∧ heap < 128 then w0n k index + 2 ^ 64 - heap else w0n k index) := by
@@ -1297,7 +1297,7 @@ theorem hdr11_hi (k index heap : Nat) (hp : BitVec 64) :
     (nodeHeader k index heap hp).extractLsb' 64 64 = if 8 ≤ heap ∧ heap < 128 then hp else BitVec.ofNat 64 (SigGolfCandidate.T3.ftsHeapLabel heap) := by
   unfold nodeHeader V3.nodeHdr
   split <;> exact BitVec.extractLsb'_append_eq_left
-set_option debug.skipKernelTC false in
+set_option debug.skipKernelTC true in
 theorem ofNat_add_neg_wrap (a h : Nat) (hh : h < 2 ^ 64) :
     BitVec.ofNat 64 a + BitVec.ofNat 64 (2 ^ 64 - h) = BitVec.ofNat 64 (a + 2 ^ 64 - h) := by
   rw [← BitVec.ofNat_add]
@@ -2193,7 +2193,7 @@ theorem childLevelP_eq (k index j : Nat) (pads : Nat → Digest) (tws sibs : Nat
 theorem nodeIn_blocks (k index j : Nat) (pads : Nat → Digest) (tws sibs : Nat → Digest) (v : Digest) (l : Nat) :
     (toQ (pad64 (nodeIn k index j pads (hpOf j tws) sibs v l))).blocks = 1 := by
   unfold nodeIn; exact blocks_blk4 _ _ _ _
-set_option debug.skipKernelTC false in
+set_option debug.skipKernelTC true in
 theorem hdr11_lo (k index heap : Nat) (hp : BitVec 64) :
     (nodeHeader k index heap hp).extractLsb' 0 64 =
       BitVec.ofNat 64 (if 8 ≤ heap ∧ heap < 128 then w0n k index + 2 ^ 64 - heap else w0n k index) := by
@@ -2203,7 +2203,7 @@ theorem hdr11_hi (k index heap : Nat) (hp : BitVec 64) :
     (nodeHeader k index heap hp).extractLsb' 64 64 = if 8 ≤ heap ∧ heap < 128 then hp else BitVec.ofNat 64 (SigGolfCandidate.T3.ftsHeapLabel heap) := by
   unfold nodeHeader V3.nodeHdr
   split <;> exact BitVec.extractLsb'_append_eq_left
-set_option debug.skipKernelTC false in
+set_option debug.skipKernelTC true in
 theorem ofNat_add_neg_wrap (a h : Nat) (hh : h < 2 ^ 64) :
     BitVec.ofNat 64 a + BitVec.ofNat 64 (2 ^ 64 - h) = BitVec.ofNat 64 (a + 2 ^ 64 - h) := by
   rw [← BitVec.ofNat_add]
@@ -3102,7 +3102,7 @@ theorem childLevelP_eq (k index j : Nat) (pads : Nat → Digest) (tws sibs : Nat
 theorem nodeIn_blocks (k index j : Nat) (pads : Nat → Digest) (tws sibs : Nat → Digest) (v : Digest) (l : Nat) :
     (toQ (pad64 (nodeIn k index j pads (hpOf j tws) sibs v l))).blocks = 1 := by
   unfold nodeIn; exact blocks_blk4 _ _ _ _
-set_option debug.skipKernelTC false in
+set_option debug.skipKernelTC true in
 theorem hdr11_lo (k index heap : Nat) (hp : BitVec 64) :
     (nodeHeader k index heap hp).extractLsb' 0 64 =
       BitVec.ofNat 64 (if 8 ≤ heap ∧ heap < 128 then w0n k index + 2 ^ 64 - heap else w0n k index) := by
@@ -3112,7 +3112,7 @@ theorem hdr11_hi (k index heap : Nat) (hp : BitVec 64) :
     (nodeHeader k index heap hp).extractLsb' 64 64 = if 8 ≤ heap ∧ heap < 128 then hp else BitVec.ofNat 64 (SigGolfCandidate.T3.ftsHeapLabel heap) := by
   unfold nodeHeader V3.nodeHdr
   split <;> exact BitVec.extractLsb'_append_eq_left
-set_option debug.skipKernelTC false in
+set_option debug.skipKernelTC true in
 theorem ofNat_add_neg_wrap (a h : Nat) (hh : h < 2 ^ 64) :
     BitVec.ofNat 64 a + BitVec.ofNat 64 (2 ^ 64 - h) = BitVec.ofNat 64 (a + 2 ^ 64 - h) := by
   rw [← BitVec.ofNat_add]

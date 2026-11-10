@@ -1732,6 +1732,21 @@ def witListF (output : HashOutput) (witness : SigGolfCandidate.Research.SharedFo
   (witListG output witness).mapIdx fun i b => ftsNonceByte output witness.ftsNonces i b
 def witEncF (output : HashOutput) (witness : SigGolfCandidate.Research.SharedForest.Witness) : WBytes :=
   BitVec.ofNat _ (readLE (witListF output witness))
+/-- Y5 #1: witness offset of the nonce of coordinate `k`'s level-2 (heap `16..31`) FTS path node: the pad of its
+level-2 block (coordinates `0..3`). -/
+def ftsNonce16Pos (output : HashOutput) (k : Nat) : Nat :=
+  W9Machine.V3.regionOffset k + W9Machine.SharedV3.blkOff (W9Machine.SharedV3.physical k
+    (SigGolfCandidate.Research.SharedForest.rawChildFromOutput output ⟨k % 9, Nat.mod_lt _ (by decide)⟩).val) 2 + 32
+/-- Y5 #1: byte `i` with the 4 heap-16..31 nonces written. -/
+def ftsNonce16Byte (output : HashOutput) (nonces : List Nat) (i : Nat) (b : UInt8) : UInt8 :=
+  match (List.range 4).find? (fun k => decide (ftsNonce16Pos output k ≤ i ∧ i < ftsNonce16Pos output k + 8)) with
+  | some k => (nonceWord nonces k).getD (i - ftsNonce16Pos output k) 0
+  | none => b
+/-- Y5 #1: `witListF` with the 4 heap-16..31 nonces written at their level-2 pads (`POST16`). -/
+def witListF16 (output : HashOutput) (witness : SigGolfCandidate.Research.SharedForest.Witness) : List UInt8 :=
+  (witListF output witness).mapIdx fun i b => ftsNonce16Byte output witness.ftsNonces16 i b
+def witEncF16 (output : HashOutput) (witness : SigGolfCandidate.Research.SharedForest.Witness) : WBytes :=
+  BitVec.ofNat _ (readLE (witListF16 output witness))
 
 @[simp] theorem forestBytes_length (output : HashOutput)
     (witness : SigGolfCandidate.Research.SharedForest.Witness) : (forestBytes output witness).length = 7664 := by
@@ -1741,7 +1756,7 @@ def witEncF (output : HashOutput) (witness : SigGolfCandidate.Research.SharedFor
 `SharedForest.expandFill`; `expand = expandFill ∘ normTop`). -/
 def expandN (message : Message) (pk : Digest) (sig : SigGolfCandidate.Research.SharedForest.Signature) :
     M (Option (HashOutput × SigGolfCandidate.Research.SharedForest.Witness)) := do
-  if sig.policyHints.toNat ≥ 7744 then return none
+  if sig.policyHints.toNat ≥ 8192 then return none
   let sig0 := fillTopSignature sig 0
   let some (counter, output) ← sharedDigestSearch sig0.rho message 0 WCT9.digestAttemptLimit | pure none
   let index := WCT9.digestIndex output
@@ -1751,15 +1766,16 @@ def expandN (message : Message) (pk : Digest) (sig : SigGolfCandidate.Research.S
   if !policyHintsValid sig0.policyHints layers.digits layers.lows then return none
   if layers.root = pk then
     return some (output, ⟨sig0, counter, fun lay => layers.counters.getD lay.val 0, !(layers.lows.getD 0 true), layers.nonces,
-      fun lay => layers.lowerNonces.getD lay.val [], forest.2⟩)
+      fun lay => layers.lowerNonces.getD lay.val [], forest.2.1, forest.2.2⟩)
   let some c ← WCT9.searchTop index layers.foldedTop ((sig0.layers 0).path WCT9.topJ) pk WCT9.searchFuel 1 | pure none
   pure (some (output, ⟨fillTopSignature sig0 c, counter, fun lay => layers.counters.getD lay.val 0,
-    !(layers.lows.getD 0 true), layers.nonces, fun lay => layers.lowerNonces.getD lay.val [], forest.2⟩))
+    !(layers.lows.getD 0 true), layers.nonces, fun lay => layers.lowerNonces.getD lay.val [], forest.2.1,
+    forest.2.2⟩))
 
 /-- img-v6: the expand output carries the top node nonces (`witEncN`; r3h HonestN); U16b: and the 9 ground fold nonces
-(`witEncG`). -/
+(`witEncG`); E8: the 9 FTS ground nonces (`witEncF`); Y5 #1: and the 4 heap-16..31 nonces (`witEncF16`). -/
 def expandB (message : Message) (pk : Digest) (sig : SigGolfCandidate.Research.SharedForest.Signature) :
-    M (Option WBytes) := (Option.map fun p => witEncF p.1 p.2) <$> expandN message pk sig
+    M (Option WBytes) := (Option.map fun p => witEncF16 p.1 p.2) <$> expandN message pk sig
 
 /-- Invalid ranks stop at their coordinate after the preceding coordinates' queries. -/
 def ftsStep (w : WBytes) (output : HashOutput) (state : Option (List (Digest × Digest)))
@@ -1771,7 +1787,7 @@ def ftsStep (w : WBytes) (output : HashOutput) (state : Option (List (Digest × 
   pure (some (pairs ++ [pair]))
 
 def ftsP (w : WBytes) (output : HashOutput) : M (Option (Digest × Digest)) := do
-  if !(decide (output.toNat / 2^242 % 16384 < 926) : Bool) then return none
+  if !(decide (output.toNat / 2^242 % 16384 < 929) : Bool) then return none
   let some pairs ← (List.finRange 9).foldlM (ftsStep w output) (some []) | pure none
   pure (some (pairs.getLastD (SharedV3.initialPair w)))
 
@@ -1883,14 +1899,14 @@ theorem fts_fold_success (answers : Answers) (w : WBytes) (output : HashOutput) 
 
 theorem ftsP_success (answers : Answers) (w : WBytes) (output : HashOutput) (top : Digest × Digest)
     (h : evalWithAnswerFn answers (ftsP w output) = some top) :
-    output.toNat / 2^242 % 16384 < 926 ∧
+    output.toNat / 2^242 % 16384 < 929 ∧
     (∀ coord : Fin 9, rawForestRank output coord.val < 563) ∧
     evalWithAnswerFn answers (SharedV3.forest w (WCT9.digestIndex output)
       (rawChildFromOutput output) (fun k => WCT9.embed (forestRank output k.val))) = top ∧
     queried answers (SharedV3.forest w (WCT9.digestIndex output)
       (rawChildFromOutput output) (fun k => WCT9.embed (forestRank output k.val))) =
       queried answers (ftsP w output) := by
-  have hg : output.toNat / 2^242 % 16384 < 926 := by
+  have hg : output.toNat / 2^242 % 16384 < 929 := by
     by_contra hn
     simp only [ftsP, hn, decide_false, Bool.not_false, ↓reduceIte, evalWithAnswerFn_pure] at h
     cases h
@@ -1989,7 +2005,7 @@ theorem expandN_selections (answers : Answers) (message : Message) (pk : Digest)
     (sig : SigGolfCandidate.Research.SharedForest.Signature) (output : HashOutput)
     (w : SigGolfCandidate.Research.SharedForest.Witness)
     (he : evalWithAnswerFn answers (expandN message pk sig) = some (output,w)) :
-    sig.policyHints.toNat < 7744 ∧ ∃ counter result c,
+    sig.policyHints.toNat < 8192 ∧ ∃ counter result c,
       evalWithAnswerFn answers (sharedDigestSearch sig.rho message 0 WCT9.digestAttemptLimit) =
         some (counter, output) ∧
       evalWithAnswerFn answers (recoverHintedLayers (fillTopSignature sig 0) (WCT9.digestIndex output)
@@ -2005,7 +2021,7 @@ theorem expandN_selections (answers : Answers) (message : Message) (pk : Digest)
   simp only [show (fillTopSignature sig 0).rho = sig.rho from rfl,
     show (fillTopSignature sig 0).forest = sig.forest from rfl,
     show (fillTopSignature sig 0).policyHints = sig.policyHints from rfl] at he
-  by_cases hh : sig.policyHints.toNat ≥ 7744
+  by_cases hh : sig.policyHints.toNat ≥ 8192
   · simp only [hh, if_true, evalWithAnswerFn_pure, reduceCtorEq] at he
   · simp only [hh, if_false, evalWithAnswerFn_bind] at he
     cases hd : evalWithAnswerFn answers (sharedDigestSearch sig.rho message 0 WCT9.digestAttemptLimit) with
@@ -5940,7 +5956,7 @@ theorem expandB_some (answers : Answers) (message : Message) (pk : Digest)
     (sig : SigGolfCandidate.Research.SharedForest.Signature) (wb : WBytes)
     (he : evalWithAnswerFn answers (expandB message pk sig) = some wb) :
     ∃ output w, evalWithAnswerFn answers (expandN message pk sig) = some (output,w) ∧
-      wb = witEncF output w := by
+      wb = witEncF16 output w := by
   unfold expandB at he
   rw [evalWithAnswerFn_map] at he
   cases hn : evalWithAnswerFn answers (expandN message pk sig) with
@@ -6680,4 +6696,210 @@ theorem witEncF_nonce_hi (output : HashOutput) (w : SigGolfCandidate.Research.Sh
   · have := ftsNoncePos_disjoint output c c' hc hc' (Ne.symm hne)
     omega
 end ClaudeWCT.W9.T3M.PairedNonce
+end
+
+/-! ### Y5 #1: `witEncF16` = `witEncF` with the 4 heap-16..31 nonces at the level-2 pads of coordinates `0..3` -/
+section
+namespace ClaudeWCT.W9.T3M.PairedNonce16
+open OracleComp OracleSpec SigGolfCandidate.T3
+open SigGolfCandidate.Research
+open ClaudeWCT.W9.T3M.Paired ClaudeWCT.W9.T3M.PairedReadout ClaudeWCT.W9.T3M.PairedNonce
+
+/-- The 16-byte pad slots (`block + 32`) of levels 2 and 3 of a child do not overlap. -/
+theorem block23_disjoint (j : Nat) :
+    SharedPathPacking.block j 2 + 16 ≤ SharedPathPacking.block j 3 ∨
+      SharedPathPacking.block j 3 + 16 ≤ SharedPathPacking.block j 2 := by
+  have h : ∀ c : Fin 32, SharedPathPacking.block c.val 2 + 16 ≤ SharedPathPacking.block c.val 3 ∨
+      SharedPathPacking.block c.val 3 + 16 ≤ SharedPathPacking.block c.val 2 := by decide
+  have e : ∀ l, SharedPathPacking.block j l = SharedPathPacking.block (j % 32) l := by
+    intro l; unfold SharedPathPacking.block; rw [Nat.mod_mod]
+  rw [e 2, e 3]
+  exact h ⟨j % 32, Nat.mod_lt _ (by decide)⟩
+
+theorem ftsNonce16Pos_lt (output : HashOutput) (k : Nat) (hk : k < 9) : ftsNonce16Pos output k + 8 ≤ 7664 := by
+  unfold ftsNonce16Pos W9Machine.SharedV3.blkOff W9Machine.V3.regionOffset
+  have hb := PairedReadout.block_bound ⟨W9Machine.SharedV3.physical k
+    (SigGolfCandidate.Research.SharedForest.rawChildFromOutput output ⟨k % 9, Nat.mod_lt _ (by decide)⟩).val,
+    W9Machine.SharedV3.physical_lt _ _ (Fin.isLt _)⟩ 2 (by decide)
+  simp only [show (2:Nat) < 5 by decide, ↓reduceIte]
+  dsimp only at hb
+  omega
+
+/-- The level-2 nonce windows of coordinates `0..3` avoid every level-3 nonce window and each other (16-byte pads). -/
+theorem ftsNonce16Pos_disjoint (output : HashOutput) (c c' : Nat) (hc : c < 9) (hc' : c' < 9) :
+    ftsNonce16Pos output c + 16 ≤ ftsNoncePos output c' ∨ ftsNoncePos output c' + 16 ≤ ftsNonce16Pos output c := by
+  have b1 := PairedReadout.block_bound ⟨W9Machine.SharedV3.physical c
+    (SigGolfCandidate.Research.SharedForest.rawChildFromOutput output ⟨c % 9, Nat.mod_lt _ (by decide)⟩).val,
+    W9Machine.SharedV3.physical_lt _ _ (Fin.isLt _)⟩ 2 (by decide)
+  have b2 := PairedReadout.block_bound ⟨W9Machine.SharedV3.physical c'
+    (SigGolfCandidate.Research.SharedForest.rawChildFromOutput output ⟨c' % 9, Nat.mod_lt _ (by decide)⟩).val,
+    W9Machine.SharedV3.physical_lt _ _ (Fin.isLt _)⟩ 3 (by decide)
+  unfold ftsNonce16Pos ftsNoncePos W9Machine.SharedV3.blkOff W9Machine.V3.regionOffset
+  simp only [show (2:Nat) < 5 by decide, show (3:Nat) < 5 by decide, ↓reduceIte]
+  dsimp only at b1 b2
+  rcases Nat.lt_trichotomy c c' with h | h | h
+  · right; omega
+  · subst h
+    rcases block23_disjoint (W9Machine.SharedV3.physical c
+      (SigGolfCandidate.Research.SharedForest.rawChildFromOutput output ⟨c % 9, Nat.mod_lt _ (by decide)⟩).val)
+      with h | h <;> omega
+  · left; omega
+
+theorem ftsNonce16Pos_self_disjoint (output : HashOutput) (c c' : Nat) (hc : c < 9) (hc' : c' < 9) (hne : c ≠ c') :
+    ftsNonce16Pos output c + 16 ≤ ftsNonce16Pos output c' ∨ ftsNonce16Pos output c' + 16 ≤ ftsNonce16Pos output c := by
+  have b1 := PairedReadout.block_bound ⟨W9Machine.SharedV3.physical c
+    (SigGolfCandidate.Research.SharedForest.rawChildFromOutput output ⟨c % 9, Nat.mod_lt _ (by decide)⟩).val,
+    W9Machine.SharedV3.physical_lt _ _ (Fin.isLt _)⟩ 2 (by decide)
+  have b2 := PairedReadout.block_bound ⟨W9Machine.SharedV3.physical c'
+    (SigGolfCandidate.Research.SharedForest.rawChildFromOutput output ⟨c' % 9, Nat.mod_lt _ (by decide)⟩).val,
+    W9Machine.SharedV3.physical_lt _ _ (Fin.isLt _)⟩ 2 (by decide)
+  unfold ftsNonce16Pos W9Machine.SharedV3.blkOff W9Machine.V3.regionOffset
+  simp only [show (2:Nat) < 5 by decide, ↓reduceIte]
+  dsimp only at b1 b2
+  rcases Nat.lt_or_gt_of_ne hne with h | h
+  · right; omega
+  · left; omega
+
+theorem ftsNonce16Byte_free (output : HashOutput) (nonces : List Nat) (i : Nat) (b : UInt8)
+    (h : ∀ k < 4, i < ftsNonce16Pos output k ∨ ftsNonce16Pos output k + 8 ≤ i) :
+    ftsNonce16Byte output nonces i b = b := by
+  unfold ftsNonce16Byte
+  rw [List.find?_eq_none.mpr]
+  intro k hk
+  have := h k (List.mem_range.mp hk)
+  simp only [decide_eq_true_eq, not_and, not_lt]
+  omega
+
+theorem witListF16_getElem? (output : HashOutput) (w : SigGolfCandidate.Research.SharedForest.Witness) (n : Nat) :
+    (witListF16 output w)[n]? = (witListF output w)[n]?.map (ftsNonce16Byte output w.ftsNonces16 n) := by
+  rw [witListF16, List.getElem?_mapIdx]
+
+theorem witListF16_length (output : HashOutput) (w : SigGolfCandidate.Research.SharedForest.Witness) :
+    (witListF16 output w).length = (witListG output w).length := by
+  simp [witListF16, witListF]
+
+theorem witListF16_window_free (output : HashOutput) (w : SigGolfCandidate.Research.SharedForest.Witness)
+    (off k : Nat) (h : ∀ c < 4, off + k ≤ ftsNonce16Pos output c ∨ ftsNonce16Pos output c + 8 ≤ off) :
+    ((witListF16 output w).drop off).take k = ((witListF output w).drop off).take k := by
+  apply List.ext_getElem?
+  intro n
+  rw [List.getElem?_take, List.getElem?_take, List.getElem?_drop, List.getElem?_drop, witListF16_getElem?]
+  split_ifs with hn
+  · cases (witListF output w)[off + n]? with
+    | none => rfl
+    | some b =>
+        simp only [Option.map_some]
+        rw [ftsNonce16Byte_free _ _ _ _ (fun c hc => by have := h c hc; omega)]
+  · rfl
+
+/-- Any window avoiding the 4 heap-16..31 nonce words reads the same in `witEncF16` and `witEncF`. -/
+theorem witEncF16_extract_free (output : HashOutput) (w : SigGolfCandidate.Research.SharedForest.Witness)
+    (off k : Nat) (hk : off + k ≤ 21756)
+    (h : ∀ c < 4, off + k ≤ ftsNonce16Pos output c ∨ ftsNonce16Pos output c + 8 ≤ off) :
+    (witEncF16 output w).extractLsb' (8 * off) (8 * k) = (witEncF output w).extractLsb' (8 * off) (8 * k) := by
+  unfold witEncF16 witEncF
+  rw [extract_readLE _ 21756 _ _ hk, extract_readLE _ 21756 _ _ hk, witListF16_window_free output w off k h]
+
+theorem witEncF16_getLsbD_free (output : HashOutput) (w : SigGolfCandidate.Research.SharedForest.Witness) (i : Nat)
+    (h : ∀ c < 4, i / 8 < ftsNonce16Pos output c ∨ ftsNonce16Pos output c + 8 ≤ i / 8) :
+    (witEncF16 output w).getLsbD i = (witEncF output w).getLsbD i := by
+  by_cases hlt : i < 8 * 21756
+  · have e : ∀ x : WBytes, x.getLsbD i = (x.extractLsb' (8 * (i / 8)) (8 * 1)).getLsbD (i % 8) := by
+      intro x
+      rw [BitVec.getLsbD_extractLsb']
+      simp [show i % 8 < 8 * 1 by omega, show 8 * (i / 8) + i % 8 = i by omega]
+    rw [e (witEncF16 output w), e (witEncF output w), witEncF16_extract_free output w (i / 8) 1 (by omega) (by
+      intro c hc
+      have := h c hc
+      omega)]
+  · rw [BitVec.getLsbD_of_ge _ _ (by omega), BitVec.getLsbD_of_ge _ _ (by omega)]
+
+theorem extract_witEncF16_free (output : HashOutput) (w : SigGolfCandidate.Research.SharedForest.Witness)
+    (off k m : Nat) (hm : m ≤ 8 * k)
+    (h : ∀ c < 4, off + k ≤ ftsNonce16Pos output c ∨ ftsNonce16Pos output c + 8 ≤ off) :
+    (witEncF16 output w).extractLsb' (8 * off) m = (witEncF output w).extractLsb' (8 * off) m := by
+  apply BitVec.eq_of_getLsbD_eq
+  intro i hi
+  rw [BitVec.getLsbD_extractLsb', BitVec.getLsbD_extractLsb']
+  simp only [hi, decide_true, Bool.true_and]
+  apply witEncF16_getLsbD_free
+  intro c hc
+  have := h c hc
+  omega
+
+/-- Reads at or above byte 7664 agree with `witEncF`. -/
+theorem extract_witEncF16_high (output : HashOutput) (w : SigGolfCandidate.Research.SharedForest.Witness)
+    (off m : Nat) (hoff : 7664 ≤ off) :
+    (witEncF16 output w).extractLsb' (8 * off) m = (witEncF output w).extractLsb' (8 * off) m := by
+  apply BitVec.eq_of_getLsbD_eq
+  intro i hi
+  rw [BitVec.getLsbD_extractLsb', BitVec.getLsbD_extractLsb']
+  simp only [hi, decide_true, Bool.true_and]
+  apply witEncF16_getLsbD_free
+  intro c hc
+  have := ftsNonce16Pos_lt output c (by omega)
+  omega
+
+@[simp] theorem wrho_witEncF16 (output : HashOutput) (w : SigGolfCandidate.Research.SharedForest.Witness) :
+    ClaudeWCT.W9.T3M.wrho (witEncF16 output w) = ClaudeWCT.W9.T3M.wrho (witEncF output w) :=
+  extract_witEncF16_high output w ClaudeWCT.W9.T3M.rhoOff 128 (by decide)
+
+theorem ftsNonce16Byte_in (output : HashOutput) (nonces : List Nat) (c : Nat) (hc : c < 4)
+    (i : Nat) (b : UInt8) (hi : ftsNonce16Pos output c ≤ i ∧ i < ftsNonce16Pos output c + 8) :
+    ftsNonce16Byte output nonces i b = (nonceWord nonces c).getD (i - ftsNonce16Pos output c) 0 := by
+  unfold ftsNonce16Byte
+  cases hf : (List.range 4).find? (fun k => decide (ftsNonce16Pos output k ≤ i ∧ i < ftsNonce16Pos output k + 8)) with
+  | none =>
+      have := List.find?_eq_none.mp hf c (List.mem_range.mpr hc)
+      simp only [decide_eq_true_eq] at this
+      exact absurd hi this
+  | some c' =>
+      have hp := List.find?_some hf
+      have hm := List.mem_range.mp (List.mem_of_find?_eq_some hf)
+      simp only [decide_eq_true_eq] at hp
+      have : c' = c := by
+        by_contra hne
+        have := ftsNonce16Pos_self_disjoint output c' c (by omega) (by omega) hne
+        omega
+      subst this
+      rfl
+
+theorem witListF16_nonce_window (output : HashOutput) (w : SigGolfCandidate.Research.SharedForest.Witness)
+    (c : Nat) (hc : c < 4) :
+    ((witListF16 output w).drop (ftsNonce16Pos output c)).take 8 = nonceWord w.ftsNonces16 c := by
+  have hb := ftsNonce16Pos_lt output c (by omega)
+  have hl8 : (nonceWord w.ftsNonces16 c).length = 8 := by simp [nonceWord, SphincsSecurity.bytesLE_length]
+  apply List.ext_getElem?
+  intro n
+  rw [List.getElem?_take, List.getElem?_drop, witListF16_getElem?]
+  split_ifs with hn
+  · have hlt : ftsNonce16Pos output c + n < (witListF output w).length := by
+      simp only [witListF, List.length_mapIdx, witListG_length]; omega
+    rw [List.getElem?_eq_getElem hlt, Option.map_some,
+      ftsNonce16Byte_in output w.ftsNonces16 c hc _ _ ⟨by omega, by omega⟩, Nat.add_sub_cancel_left,
+      List.getElem?_eq_getElem (by omega), List.getD_eq_getElem _ _ (by omega)]
+  · rw [List.getElem?_eq_none (by omega)]
+
+/-- The low word of coordinate `c`'s level-2 pad on `witEncF16` is its heap-16..31 nonce. -/
+theorem witEncF16_nonce_lo (output : HashOutput) (w : SigGolfCandidate.Research.SharedForest.Witness)
+    (c : Nat) (hc : c < 4) :
+    (witEncF16 output w).extractLsb' (8 * ftsNonce16Pos output c) (8 * 8) =
+      BitVec.ofNat 64 (w.ftsNonces16.getD c 0) := by
+  have hb := ftsNonce16Pos_lt output c (by omega)
+  unfold witEncF16
+  rw [extract_readLE _ 21756 _ _ (by omega),
+    witListF16_nonce_window output w c hc, nonceWord, SigGolfCandidate.T3M.readLE_bytesLE]
+  apply BitVec.eq_of_toNat_eq
+  simp [BitVec.toNat_ofNat]
+
+/-- Every level-3 nonce window reads the same in `witEncF16` as in `witEncF`. -/
+theorem witEncF16_fts_window (output : HashOutput) (w : SigGolfCandidate.Research.SharedForest.Witness)
+    (c : Nat) (hc : c < 9) (m : Nat) (hm : m ≤ 8 * 16) :
+    (witEncF16 output w).extractLsb' (8 * ftsNoncePos output c) m =
+      (witEncF output w).extractLsb' (8 * ftsNoncePos output c) m := by
+  apply extract_witEncF16_free output w _ 16 m hm
+  intro c' hc'
+  have := ftsNonce16Pos_disjoint output c' c (by omega) hc
+  omega
+end ClaudeWCT.W9.T3M.PairedNonce16
 end

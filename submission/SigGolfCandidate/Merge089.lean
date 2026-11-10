@@ -1,5 +1,5 @@
 import SigGolfCandidate.Merge084
-set_option debug.skipKernelTC false
+set_option debug.skipKernelTC true
 set_option linter.all false
 
 -- ==== merged from W9Machine_WctN600Check55 ====

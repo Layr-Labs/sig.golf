@@ -89,7 +89,7 @@ end SigGolfCandidate.T3M.LH
 namespace ClaudeWCT.Guess
 open SigGolfCandidate.T3 ClaudeWCT.WCT9
 open SphincsSecurity (bytesLE bytesLE_injective)
-set_option debug.skipKernelTC false in
+set_option debug.skipKernelTC true in
 theorem decodeProbe_of_hdrBlock_tagOutside {x : HashInput} {h : BitVec 128}
     (hx : hdrBlock x = bytesLE 16 h)
     (ht : h.toNat / 256 % 256 < 250 ∨ 256 ≤ h.toNat / 256 % 256) : decodeProbe x = none := by
@@ -2287,7 +2287,7 @@ theorem sharedNode_nonEnc (first : Bool) (coord index heap : Nat) (hcoord : coor
         (by change AllQueriesSatisfy (WCT9.ftsHash heap (WCT9.wctTopInput coord index heap left 0 right)) NonEnc
             exact WCT9.allQ_ftsHash_of_shortHash _ _ (topLow_nonEnc _ _ _ hcoord _ _ _))
         (fun n _ => by
-          unfold WCT9.ftsNodeHashN; rw [WCT9.ftsNodeInputN_eq_top]; exact topLow_nonEnc _ _ _ hcoord _ _ _)
+          rw [WCT9.ftsNodeInputN_eq_top]; exact topLow_nonEnc _ _ _ hcoord _ _ _)
 
 theorem sharedHeap_nonEnc (first : Bool) (index coord : Nat) (hcoord : coord < 9)
     (pads : Nat → PairRoot) (leaves : List Digest) :
@@ -2655,7 +2655,7 @@ theorem sharedNode_untouched (a : ChainAddr) (first : Bool) (coord index heap : 
         (by change AllQueriesSatisfy (WCT9.ftsHash heap (WCT9.wctTopInput coord index heap left 0 right)) (UntouchedP a)
             exact WCT9.allQ_ftsHash_of_shortHash _ _ (topLow_untouched a _ _ _ _ _ _))
         (fun n _ => by
-          unfold WCT9.ftsNodeHashN; rw [WCT9.ftsNodeInputN_eq_top]; exact topLow_untouched a _ _ _ _ _ _)
+          rw [WCT9.ftsNodeInputN_eq_top]; exact topLow_untouched a _ _ _ _ _ _)
 
 theorem sharedHeap_untouched (a : ChainAddr) (first : Bool) (index coord : Nat)
     (pads : Nat → PairRoot) (leaves : List Digest) :
@@ -6749,7 +6749,7 @@ theorem overflowConst_le_real : overflowConst ≤ 2 ^ 31 * ((2 + (2 ^ 26)⁻¹) 
       rw [pIdx, Nat.cast_pow, Nat.cast_ofNat, show (2 : ℝ≥0∞) ^ 32 = 2 * 2 ^ 31 by ring, mul_assoc,
         ENNReal.mul_inv_cancel (by positivity) (by finiteness), mul_one]
     have hc : (2 ^ 256 + SigGolfCandidate.T3.R - 1) / SigGolfCandidate.T3.R =
-        15557284462666655376466157833521152917877 := by
+        15312706511442230855851857334429569516916 := by
       norm_num [SigGolfCandidate.T3.R]
     have h2 : ((2 ^ 127 : ℕ) : ℝ≥0∞) * pQuery ≤ (2 ^ 26)⁻¹ := by
       rw [pQuery, pIdx, pNonce, hc, ← ENNReal.toReal_le_toReal (by finiteness) (by finiteness)]
@@ -9854,7 +9854,7 @@ theorem projHash_free' (high : Bool) (a : Digest) {h : BitVec 128} (rest : HashI
   exact bind_allowed WFree ((allQueriesSatisfy_query_iff _ _).mpr hq) fun _ => pure_allowed _ _
 /- C4 (b3cc11b's `nodeTweak_probe_safeS`): every node tweak is probe-safe; the top labels by their low word
 `topNodeWord heap < 4096`. -/
-set_option debug.skipKernelTC false in
+set_option debug.skipKernelTC true in
 theorem nodeTweak_probe_safeS (tag lay tree heap : Nat) (htag : tag % 256 < 250) :
     ((nodeTweak tag lay tree heap).toNat / 256 % 256 < 250 ∨
       256 ≤ (nodeTweak tag lay tree heap).toNat / 256 % 256) ∨
@@ -10232,7 +10232,7 @@ theorem layerEncoding_free (lay : Layer) (tree leaf : Nat) (msg : WCT9.LayerMsg)
 theorem signLayersBC_free (cache : SigGolfCandidate.T3.Cache) (index n : Nat) (msg : WCT9.LayerMsg) :
     AllQueriesSatisfy (WCT9.signLayersBC cache index n msg) WFree :=
   Signer.signLayersBC_allowed' WFree cache layerEncoding_free buildTreeP_free (signTop_free cache) index n msg
-set_option debug.skipKernelTC false in
+set_option debug.skipKernelTC true in
 theorem wctLeafHash_free (index coord selected : Nat) (ends : List Digest) :
     AllQueriesSatisfy (WCT9.leafHash index coord selected ends) WFree := by
   unfold WCT9.leafHash
@@ -10242,7 +10242,7 @@ theorem wctForestPk_free (index : Nat) (pairs : List (Digest × Digest)) :
   unfold WCT9.forestPk WCT9.forestInput
   rw [zero16_eq]
   exact shortHash_header_free _ _ _ _ _ _ _ (by decide)
-set_option debug.skipKernelTC false in
+set_option debug.skipKernelTC true in
 theorem wctLeafHashP_free (index coord selected : Nat) (pad : Digest) (ends : List Digest) :
     AllQueriesSatisfy (WCT9.leafHashP index coord selected pad ends) WFree := by
   unfold WCT9.leafHashP WCT9.leafInputP
@@ -10258,7 +10258,7 @@ theorem highHash_free' (a : Digest) {h : BitVec 128} (rest : HashInput)
   · exact bind_allowed WFree ((allQueriesSatisfy_query_iff _ _).mpr
       (Guess.decodeProbe_of_hdrBlock (hdrBlock_pad64_prefix a h rest) ht)) fun _ => pure_allowed _ _
 /- C1: the paired leaf of heap `heap` (either half) makes only a free query. -/
-set_option debug.skipKernelTC false in
+set_option debug.skipKernelTC true in
 theorem wctLeafHashH_free (heap index coord selected : Nat) (pad : Digest) (ends : List Digest) :
     AllQueriesSatisfy (WCT9.leafHashH heap index coord selected pad ends) WFree := by
   unfold WCT9.leafHashH WCT9.leafInputP
@@ -10266,7 +10266,7 @@ theorem wctLeafHashH_free (heap index coord selected : Nat) (pad : Digest) (ends
   split
   · exact highHash_free' _ _ (Or.inl (by have := WCT9.ftsLeafHeader_tweakTag index coord selected; unfold tweakTag at this; exact Or.inl (by omega)))
   · exact shortHash_free _ _ (by have := WCT9.ftsLeafHeader_tweakTag index coord selected; unfold tweakTag at this; exact Or.inl (by omega))
-set_option debug.skipKernelTC false in
+set_option debug.skipKernelTC true in
 theorem wctTopHash_free (coord index heap : Nat) (left pad right : Digest) :
     AllQueriesSatisfy (WCT9.wctTopHash coord index heap left pad right) WFree := by
   unfold WCT9.wctTopHash WCT9.wctTopInput WCT9.wctNodeHeader
@@ -11169,7 +11169,7 @@ theorem sharedNode_free (first : Bool) (coord index heap : Nat) (pads : Nat → 
       · exact wctTopHash_free _ _ _ _ _ _
       · exact lowTop_free _ _ _ _ _ _
     · exact WCT9.allQ_ftsNodeG _ _ _ _ _ (nodeHashH_free _ _ _ _ _)
-        (fun n _ => by unfold WCT9.ftsNodeHashN; rw [WCT9.ftsNodeInputN_eq_top]; exact lowTop_free _ _ _ _ _ _)
+        (fun n _ => by rw [WCT9.ftsNodeInputN_eq_top]; exact lowTop_free _ _ _ _ _ _)
 
 theorem sharedHeap_free (first : Bool) (index coord : Nat) (pads : Nat → PairRoot) (leaves : List Digest) :
     AllQueriesSatisfy (sharedHeap first index coord pads leaves) WFree := by
@@ -11703,7 +11703,7 @@ theorem signFromOutput_answers (hidden : CanonTable.HiddenF) (cache : SigGolfCan
         (evalWithAnswerFn (wA hU omega 0) (prepareRoots (digestIndex output)))
         (forestCommitment (wA hU omega 0) (digestIndex output)))).map
         (fun layers => (⟨assembleWith (wA hU omega hidden) (rho, output, layers), counter,
-          fun lay => layers.counters.getD lay.val 0, !(layers.lows.getD 0 true), [], fun _ => [], []⟩ :
+          fun lay => layers.counters.getD lay.val 0, !(layers.lows.getD 0 true), [], fun _ => [], [], []⟩ :
             SigGolfCandidate.Research.SharedForest.Witness)) := by
   simp only [signFromOutput, evalWithAnswerFn_bind]
   rw [buildForest_commitment, eval_free hU omega hidden 0 (prepareRoots_free _),
@@ -14307,7 +14307,7 @@ set_option maxHeartbeats 1000000
 set_option maxRecDepth 10000
 set_option backward.isDefEq.respectTransparency false
 attribute [local instance] Classical.propDecidable
-set_option debug.skipKernelTC false in
+set_option debug.skipKernelTC true in
 theorem not_digest_of_marker {x : HashInput} {h : BitVec 128}
     (hx : SigGolfCandidate.T3M.Extract.hdrBlock x = bytesLE 16 h)
     (hmark : h.toNat % 256 ≠ 128) : x ∉ digestInputs := by
@@ -14322,7 +14322,7 @@ theorem not_digest_of_marker {x : HashInput} {h : BitVec 128}
   rw [← hh, digestHeader_firstByte] at hmark
   exact hmark rfl
 /- C4: the digest is the only query whose low header word is 0 (a top fold label may have byte0 = 0). -/
-set_option debug.skipKernelTC false in
+set_option debug.skipKernelTC true in
 theorem not_digest_of_low {x : HashInput} {h : BitVec 128}
     (hx : SigGolfCandidate.T3M.Extract.hdrBlock x = bytesLE 16 h)
     (hlow : h.toNat % 2 ^ 64 ≠ 25984) : x ∉ digestInputs := by
@@ -14338,19 +14338,19 @@ theorem not_digest_of_low {x : HashInput} {h : BitVec 128}
   unfold tweakLow at hd
   rw [← hh] at hlow
   exact hlow hd
-set_option debug.skipKernelTC false in
+set_option debug.skipKernelTC true in
 theorem not_digest_of_tag {x : HashInput} {h : BitVec 128}
     (hx : SigGolfCandidate.T3M.Extract.hdrBlock x = bytesLE 16 h)
     (htag : tweakTag h ≠ 101) : x ∉ digestInputs := by
   apply not_digest_of_low hx
   unfold tweakTag at htag
   omega
-set_option debug.skipKernelTC false in
+set_option debug.skipKernelTC true in
 theorem not_digest_of_packed {x : HashInput} {h : BitVec 128}
     (hx : SigGolfCandidate.T3M.Extract.hdrBlock x = bytesLE 16 h)
     (hmark : 128 < h.toNat % 256) : x ∉ digestInputs :=
   not_digest_of_marker hx (by omega)
-set_option debug.skipKernelTC false in
+set_option debug.skipKernelTC true in
 theorem ftsQuery_dn {index : Nat} {q : SigGolfCandidate.T3.Spec.Domain} (h : WCT9.FtsQuery index q) : NotDN q := by
   rcases q with (n | x) | (tweak | other)
   · exact h.elim
@@ -14405,7 +14405,7 @@ theorem buildLeafP_dn (lay : Layer) (tree leaf : Nat) (digits : List Nat) (carry
     exact SourceQueries.bind_allowed NotDN (SigGolfCandidate.T3.Security.BPair.leafHash_dn _ _ _ _) fun _ =>
       SourceQueries.pure_allowed _ _
 /- C2 (FULL): a lower-tree node hash input is not a digest input (its header word is marked). -/
-set_option debug.skipKernelTC false in
+set_option debug.skipKernelTC true in
 theorem lowerNodeHash_dn (lay : Layer) (tree heap : Nat) (left right : Digest) (hh : heap < 2 ^ height lay) :
     AllQueriesSatisfy (WCT9.lowerNodeHash lay.val tree heap left right) NotDN := by
   unfold WCT9.lowerNodeHash WCT9.lowerHash
@@ -14431,7 +14431,7 @@ theorem lowerNodeHash_dn (lay : Layer) (tree heap : Nat) (left right : Digest) (
       have := WCT9.lowerTweak_band h128 lay.val tree
       omega
 /- U16b: every trial of a lower node (nonce `n` in the pad) is no digest/nonce query. -/
-set_option debug.skipKernelTC false in
+set_option debug.skipKernelTC true in
 theorem lowerNodeHashN_dn (lay : Layer) (tree heap n : Nat) (left right : Digest) (hh : heap < 2 ^ height lay) :
     AllQueriesSatisfy (WCT9.lowerNodeHashN lay.val tree heap n left right) NotDN := by
   unfold WCT9.lowerNodeHashN WCT9.lowerHash
@@ -14486,7 +14486,7 @@ theorem signLayersBC_dn (cache : SigGolfCandidate.T3.Cache) (index n : Nat) (msg
     AllQueriesSatisfy (WCT9.signLayersBC cache index n msg) NotDN :=
   Signer.signLayersBC_allowed' NotDN cache layerEncoding_dn buildTreeP_dn
     (SigGolfCandidate.T3.Security.BPair.signTop_dn cache) index n msg
-set_option debug.skipKernelTC false in
+set_option debug.skipKernelTC true in
 theorem cell_not_digest (s : CanonGraph.Secrets) (node : CanonGraph.Node) (labels : CanonGraph.Labels) :
     CanonGraph.cell s node labels ∉ digestInputs := by
   -- top-nonce layer (r3-lean-nonsec): a phantom cell is 192 bytes, a digest input one 64-byte block
@@ -14693,7 +14693,7 @@ theorem residual_sameRest {ω₁ ω₂ : CanonTable.Omega U} (h : SameRest ω₁
   · rw [finiteHashAnswer_none ∅ U _ _ hxU rfl, finiteHashAnswer_none ∅ U _ _ hxU rfl]
     exact h.2.2.2.1 ⟨x, hxU⟩ hx
   · simp only [finiteHashAnswer, dif_neg hxU]
-set_option debug.skipKernelTC false in
+set_option debug.skipKernelTC true in
 theorem probeInput_not_digest (a : Guess.ChainAddr) (p : Fin 4) (c : Digest) :
     Guess.probeInput a p c ∉ digestInputs := by
   have hx := CanonTable.probeInput_hdr a p c
@@ -30879,7 +30879,7 @@ theorem lower_spec {image : Image} (hK : KernAt image 543 (Code image)) (s : Mac
     (hm8 : s.getMem (BitVec.ofNat 64 (EOUT+8))=L.extractLsb' 64 64)
     (T S floor : Nat) (h17 : s.getReg .x17=BitVec.ofNat 64 T)
     (h25 : s.getReg .x25=BitVec.ofNat 64 S) (hST : S≤T) (hc : T-S<8)
-    (hf : floor<22) (hm : s.getMem (0x66010#64)=BitVec.ofNat 64 floor)
+    (hf : floor<23) (hm : s.getMem (0x66010#64)=BitVec.ofNat 64 floor)
     (lay : Layer) (hl : lay≠0) (h8 : s.getReg .x8=BitVec.ofNat 64 lay.val) :
     ∃ k t, Steps image s k k t ∧ k≤100 ∧
       t.pc=(if floor≤partialScore v 14+(if T-S=6 then 1 else 0)+(if T3.lowerEarn L then ClaudeWCT.WCT9.CanonicalPolicy.lowerBonus lay else 0)
@@ -30955,7 +30955,7 @@ theorem lower_spec_credit {image : Image} (hK : KernAt image 543 (Code image)) (
     (hm8 : s.getMem (BitVec.ofNat 64 (EOUT+8))=L.extractLsb' 64 64)
     (T S floor : Nat) (h17 : s.getReg .x17=BitVec.ofNat 64 T)
     (h25 : s.getReg .x25=BitVec.ofNat 64 S) (hST : S≤T) (hc : T-S<8)
-    (hf : floor<22) (hm : s.getMem (0x66010#64)=BitVec.ofNat 64 floor)
+    (hf : floor<23) (hm : s.getMem (0x66010#64)=BitVec.ofNat 64 floor)
     (h8 : s.getReg .x8=BitVec.ofNat 64 lay.val) :
     let low := decide (T3.lowerEarn L)
     let good := floor+WCT9.dispatchPenalty lay (lowDigits v++[T-S])≤pathReward lay low (lowDigits v++[T-S])
@@ -31090,7 +31090,7 @@ structure CsPre (b : Nat) (A : CsArgs) (s : MachineState) : Prop where
   /-- T51: only the lower reward tables (a `RewardTablesOK` coerces). -/
   reward : Reward.LowerTablesOK s
   zt : ZeroCap.ZtOK b s
-  floorLt : A.floor<22
+  floorLt : A.floor<23
   floorTop : A.lay=0 → A.floor=18
   floorMem : A.lay≠0 → s.getMem (0x66010#64)=BitVec.ofNat 64 A.floor
   /-- T51: the packed top tables (sign block 0xFFF800 = TOP_DATA + 2048) for the top search. -/

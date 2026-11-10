@@ -3253,7 +3253,7 @@ theorem tiny_boundFam (S : FamScheme) {Cmax : Nat} (H : CanonicalRef.Normalized.
   have h:=clean_probability_real_ofG adversary q hq (completed_split_canonical adversary q hq)
     (249/125) (18/5000) (by finiteness) (by finiteness) (by
       simpa (disch:=positivity) only [ENNReal.ofReal_div_of_pos,ENNReal.ofReal_ofNat,ENNReal.ofReal_one] using
-        ENNReal.ofReal_le_ofReal (by norm_num : (29249:ℝ)/2500000≤249/125))
+        ENNReal.ofReal_le_ofReal (by norm_num : (28883:ℝ)/2500000≤249/125))
     excess_tiny_actualG (by simpa only [ENNReal.toReal_div,ENNReal.toReal_ofNat] using! hp)
     (completed_incomplete_bound adversary q hq)
     (by simpa only [one_div] using FtsOverflow.Paired.cleanWin_noOverflow_le adversary q hq)

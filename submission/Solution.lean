@@ -5,7 +5,7 @@ namespace SigGolf.Challenge
 
 def submission : SigGolf.Submission := SigGolfCandidate.Transfer.currentOf SigGolfCandidate.T3M.Paired.submission
 
-theorem signature_bytes : submission.sizes.signature = 5187 := rfl
+theorem signature_bytes : submission.sizes.signature = 5186 := rfl
 
 theorem witness_bytes : submission.sizes.witness = 21756 := rfl
 
@@ -44,5 +44,7 @@ end SigGolf.Challenge
    codec, N7g-B ground widths, top zero-bit reallocation, Route C gate 926 (adm 29249/2500000).
    Y6 R-odd: odd FTS coordinates mask their child in place (child weight 2^26, instance field at
    bit 33; -3 per run).
-   Claimed S = 5187, W = 21756, K = 131072, C = 6962;
-   product = 36,111,894. Independent acceptance remains required. -/
+   Y5 #1: FTS heap-16..31 carriers on coordinates 0..3 (1 zero bit, sign S16 and expand SEARCH16), hint trim
+   to the 81a384e-style alphabet (radix 529/23, rho mod 2^131/360), L3 floors to 22, Route C gate 929.
+   Claimed S = 5186, W = 21756, K = 131072, C = 6962;
+   product = 36,104,932. Independent acceptance remains required. -/

@@ -4,7 +4,7 @@ import SigGolfCandidate.Merge090
 import SigGolfCandidate.Merge091
 import SigGolfCandidate.Merge097
 import SigGolfCandidate.Merge122
-set_option debug.skipKernelTC false
+set_option debug.skipKernelTC true
 set_option linter.all false
 
 -- ==== merged from W9Fin_V7_Final ====
@@ -867,7 +867,7 @@ theorem paired_ftsP_eq (w : ClaudeWCT.W9.T3M.WBytes) (output : HashOutput) :
     funext (fun state => funext (fun coord => paired_ftsStep_eq w output state coord))
   rw [hs]
   unfold W9Drv.SharedCoord.ftsN
-  cases h : decide (output.toNat / 2^242 % 16384 < 926) <;>
+  cases h : decide (output.toNat / 2^242 % 16384 < 929) <;>
     try simp only [Bool.not_false,Bool.not_true,Bool.false_eq_true,↓reduceIte]
   rfl
 

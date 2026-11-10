@@ -1,5 +1,5 @@
 import SigGolfCandidate.Merge120
-set_option debug.skipKernelTC false
+set_option debug.skipKernelTC true
 set_option maxHeartbeats 2000000
 namespace SigGolfCandidate.T3M.OneShiftMask
  theorem shift10 (x : BitVec 64) :

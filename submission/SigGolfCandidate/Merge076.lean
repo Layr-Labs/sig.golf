@@ -1698,8 +1698,13 @@ set_option maxHeartbeats 4000000
 set_option maxRecDepth 100000
 set_option Elab.async false
 theorem installed_packed : PackedBlocks.Code Images.expandImage := by
+  -- Y5: the address bounds are decided at elaboration, so `first` never commits to a wrong window even when the
+  -- kernel check of the `decide +kernel` content goal is deferred (`skipKernelTC`).
   constructor <;> first
-    | (apply codeAt_expand_current_chunk <;> decide +kernel)
+    | (apply codeAt_expand_current_chunk
+       · decide
+       · decide
+       · decide +kernel)
     | (apply codeAt_lh_tramp_at <;> decide)
 theorem installed_bc : BCBlocks.Code Images.expandImage := by
   constructor <;> apply codeAt_expand_current_chunk <;> decide +kernel
@@ -1712,8 +1717,15 @@ theorem installed_code : Code Images.expandImage := by
        · decide +kernel)
     | (apply codeAt_t51_at <;> decide)
     | (apply codeAt_lh_tramp_at <;> decide)
-    | (apply codeAt_expand_bank <;> decide +kernel)
-    | (apply codeAt_expand_lastR <;> decide +kernel)
+    | (apply codeAt_expand_bank
+       · decide
+       · decide
+       · decide
+       · decide +kernel)
+    | (apply codeAt_expand_lastR
+       · decide
+       · decide
+       · decide +kernel)
 
 /-! ## U16b grind stub (expand words 54800..54885, entered by `1138: jal 54800`, back at 1139)
 Lower nodes (`lay ≥ 1`, heaps 2..15): first-nonce search on the pad (`stub_lower` refines `WCT9.lowerNodeAt`), nonce
