@@ -57,8 +57,8 @@ section
 
 Entered from the pre-pass (`j 54569`). D1 (54569..54641) collects the 36-bit field `X` from the top `b_j` bits of the
 path nodes of heights `j = 3..10` (compact digests 168..175, high dwords at `aH j`), clears those bits and jumps to
-R6 (60919). R6 rejects a non-canonical `N = slot 0 + (X >> 29) * 2^128 ≥ R * 360` (`j 354`), divides `N` by 360
-(the quotient replaces slot 0), re-packs the remainder into the hint `packH (N % 360)` at `0x66000` and range-checks
+R6 (60919). R6 rejects a non-canonical `N = slot 0 + (X >> 29) * 2^128 ≥ R * 5852` (`j 354`), divides `N` by 5852
+(the quotient replaces slot 0), re-packs the remainder into the hint `packH (N % 5852)` at `0x66000` and range-checks
 it (54644: `hint < 7744`, else `j 354`). D3 (54648..54665) reads the tail (compact slot 324) into `s3`/`s4` (with
 `X % 2^29` at bit 70 of the sibling) and sets up the first move loop. L1..L5 move the compact slots `[c0, c0 + n]` up
 by `o` slots, top-down (176..323 by 8, 88..175 by 4, 63..87 by 3, 38..62 by 2, 13..37 by 1). D6 (54712..54738) zeroes
@@ -115,8 +115,8 @@ theorem d1_spec (s : MachineState) (hpc : s.pc = pcOf 54569) :
 
 /-! ## R6 unpack -/
 def cat32 (r w : Word) : Word := (r <<< 32) ||| w
-def dv (a : Word) : Word := rv64_divu a 360#64
-def rm (a : Word) : Word := rv64_remu a 360#64
+def dv (a : Word) : Word := rv64_divu a 5852#64
+def rm (a : Word) : Word := rv64_remu a 5852#64
 def r0W (T H : Word) : Word := rm (cat32 T (tb 32 H))
 def r1W (T H : Word) : Word := rm (cat32 (r0W T H) (clr 32 H))
 def r2W (T H L : Word) : Word := rm (cat32 (r1W T H) (tb 32 L))
@@ -130,42 +130,42 @@ theorem cat32_toNat (r w : Word) (hr : r.toNat < 4294967296) (hw : w.toNat < 429
   rw [BitVec.or_comm, toNat_or_shift w r 32 hw (by omega)]
   omega
 
-theorem dv_toNat (a : Word) : (dv a).toNat = a.toNat / 360 := by
+theorem dv_toNat (a : Word) : (dv a).toNat = a.toNat / 5852 := by
   unfold dv rv64_divu
   simp [BitVec.toNat_udiv]
 
-theorem rm_toNat (a : Word) : (rm a).toNat = a.toNat % 360 := by
+theorem rm_toNat (a : Word) : (rm a).toNat = a.toNat % 5852 := by
   unfold rm rv64_remu
   simp [BitVec.toNat_umod]
 
 theorem dm (a w B : Nat) :
-    (a * B + w) / 360 = a / 360 * B + (a % 360 * B + w) / 360 ∧
-      (a * B + w) % 360 = (a % 360 * B + w) % 360 := by
-  have e : a * B + w = (a % 360 * B + w) + 360 * (a / 360 * B) := by
-    have := Nat.mod_add_div a 360
-    calc a * B + w = (a % 360 + 360 * (a / 360)) * B + w := by rw [this]
+    (a * B + w) / 5852 = a / 5852 * B + (a % 5852 * B + w) / 5852 ∧
+      (a * B + w) % 5852 = (a % 5852 * B + w) % 5852 := by
+  have e : a * B + w = (a % 5852 * B + w) + 5852 * (a / 5852 * B) := by
+    have := Nat.mod_add_div a 5852
+    calc a * B + w = (a % 5852 + 5852 * (a / 5852)) * B + w := by rw [this]
       _ = _ := by ring
   rw [e, Nat.add_mul_div_left _ _ (by norm_num), Nat.add_mul_mod_self_left]
   exact ⟨by ring, rfl⟩
 
-theorem qb (r w : Nat) (hr : r < 360) (hw : w < 4294967296) : (r * 4294967296 + w) / 360 < 4294967296 := by omega
-theorem q0b (t x : Nat) (ht : t < 128) (hx : x < 4294967296) : (t * 4294967296 + x) / 360 * 4294967296 < 18446744073709551616 := by omega
+theorem qb (r w : Nat) (hr : r < 5852) (hw : w < 4294967296) : (r * 4294967296 + w) / 5852 < 4294967296 := by omega
+theorem q0b (t x : Nat) (ht : t < 128) (hx : x < 4294967296) : (t * 4294967296 + x) / 5852 * 4294967296 < 18446744073709551616 := by omega
 theorem split2 (q a b : Nat) (ha : a < 4294967296) (hb : b < 4294967296) :
     ((q * 4294967296 + a) * 4294967296 + b) / 18446744073709551616 = q ∧ ((q * 4294967296 + a) * 4294967296 + b) % 18446744073709551616 = a * 4294967296 + b := by
   omega
 
-theorem fin2 (N q a b : Nat) (hN : N / 360 = (q * 4294967296 + a) * 4294967296 + b) (ha : a < 4294967296) (hb : b < 4294967296) :
-    q = N / 360 / 18446744073709551616 ∧ a * 4294967296 + b = N / 360 % 18446744073709551616 := by
+theorem fin2 (N q a b : Nat) (hN : N / 5852 = (q * 4294967296 + a) * 4294967296 + b) (ha : a < 4294967296) (hb : b < 4294967296) :
+    q = N / 5852 / 18446744073709551616 ∧ a * 4294967296 + b = N / 5852 % 18446744073709551616 := by
   rw [hN]; exact ⟨(split2 q a b ha hb).1.symm, (split2 q a b ha hb).2.symm⟩
 
 theorem r6_nat (t h l : Nat) (hT : t < 128) (hH : h < 18446744073709551616) (hL : l < 18446744073709551616) :
-    ((((t * 4294967296 + h / 4294967296) % 360 * 4294967296 + h % 4294967296) % 360 * 4294967296 + l / 4294967296) % 360 * 4294967296 +
-        l % 4294967296) % 360 = (l + h * 18446744073709551616 + t * 340282366920938463463374607431768211456) % 360 ∧
-    (t * 4294967296 + h / 4294967296) / 360 * 4294967296 + ((t * 4294967296 + h / 4294967296) % 360 * 4294967296 + h % 4294967296) / 360 =
-      (l + h * 18446744073709551616 + t * 340282366920938463463374607431768211456) / 360 / 18446744073709551616 ∧
-    (((t * 4294967296 + h / 4294967296) % 360 * 4294967296 + h % 4294967296) % 360 * 4294967296 + l / 4294967296) / 360 * 4294967296 +
-        ((((t * 4294967296 + h / 4294967296) % 360 * 4294967296 + h % 4294967296) % 360 * 4294967296 + l / 4294967296) % 360 * 4294967296 +
-          l % 4294967296) / 360 = (l + h * 18446744073709551616 + t * 340282366920938463463374607431768211456) / 360 % 18446744073709551616 := by
+    ((((t * 4294967296 + h / 4294967296) % 5852 * 4294967296 + h % 4294967296) % 5852 * 4294967296 + l / 4294967296) % 5852 * 4294967296 +
+        l % 4294967296) % 5852 = (l + h * 18446744073709551616 + t * 340282366920938463463374607431768211456) % 5852 ∧
+    (t * 4294967296 + h / 4294967296) / 5852 * 4294967296 + ((t * 4294967296 + h / 4294967296) % 5852 * 4294967296 + h % 4294967296) / 5852 =
+      (l + h * 18446744073709551616 + t * 340282366920938463463374607431768211456) / 5852 / 18446744073709551616 ∧
+    (((t * 4294967296 + h / 4294967296) % 5852 * 4294967296 + h % 4294967296) % 5852 * 4294967296 + l / 4294967296) / 5852 * 4294967296 +
+        ((((t * 4294967296 + h / 4294967296) % 5852 * 4294967296 + h % 4294967296) % 5852 * 4294967296 + l / 4294967296) % 5852 * 4294967296 +
+          l % 4294967296) / 5852 = (l + h * 18446744073709551616 + t * 340282366920938463463374607431768211456) / 5852 % 18446744073709551616 := by
   obtain ⟨d1, m1⟩ := dm (t * 4294967296 + h / 4294967296) (h % 4294967296) (4294967296)
   have eB1 : (t * 4294967296 + h / 4294967296) * 4294967296 + h % 4294967296 = t * 18446744073709551616 + h := by omega
   rw [eB1] at d1 m1
@@ -187,9 +187,9 @@ theorem r6_nat (t h l : Nat) (hT : t < 128) (hH : h < 18446744073709551616) (hL 
   exact ⟨m3.symm, hf.1, hf.2⟩
 
 theorem r6_arith (T H L : Word) (hT : T.toNat < 128) :
-    (r3W T H L).toNat = (L.toNat + H.toNat * 18446744073709551616 + T.toNat * 340282366920938463463374607431768211456) % 360 ∧
-    (qHi T H).toNat = (L.toNat + H.toNat * 18446744073709551616 + T.toNat * 340282366920938463463374607431768211456) / 360 / 18446744073709551616 ∧
-    (qLo T H L).toNat = (L.toNat + H.toNat * 18446744073709551616 + T.toNat * 340282366920938463463374607431768211456) / 360 % 18446744073709551616 := by
+    (r3W T H L).toNat = (L.toNat + H.toNat * 18446744073709551616 + T.toNat * 340282366920938463463374607431768211456) % 5852 ∧
+    (qHi T H).toNat = (L.toNat + H.toNat * 18446744073709551616 + T.toNat * 340282366920938463463374607431768211456) / 5852 / 18446744073709551616 ∧
+    (qLo T H L).toNat = (L.toNat + H.toNat * 18446744073709551616 + T.toNat * 340282366920938463463374607431768211456) / 5852 % 18446744073709551616 := by
   have hH := H.isLt
   have hL := L.isLt
   norm_num at hH hL
@@ -203,18 +203,18 @@ theorem r6_arith (T H L : Word) (hT : T.toNat < 128) :
   -- the four limbs
   have a0 : (cat32 T (tb 32 H)).toNat = t * 4294967296 + h / 4294967296 := by
     rw [cat32_toNat _ _ (by omega) (by rw [th]; omega), th, ht]
-  have e0 : (r0W T H).toNat = (t * 4294967296 + h / 4294967296) % 360 := by rw [r0W, rm_toNat, a0]
-  have a1 : (cat32 (r0W T H) (clr 32 H)).toNat = (t * 4294967296 + h / 4294967296) % 360 * 4294967296 + h % 4294967296 := by
+  have e0 : (r0W T H).toNat = (t * 4294967296 + h / 4294967296) % 5852 := by rw [r0W, rm_toNat, a0]
+  have a1 : (cat32 (r0W T H) (clr 32 H)).toNat = (t * 4294967296 + h / 4294967296) % 5852 * 4294967296 + h % 4294967296 := by
     rw [cat32_toNat _ _ (by rw [e0]; omega) (by rw [ch]; omega), e0, ch]
-  have e1 : (r1W T H).toNat = ((t * 4294967296 + h / 4294967296) % 360 * 4294967296 + h % 4294967296) % 360 := by
+  have e1 : (r1W T H).toNat = ((t * 4294967296 + h / 4294967296) % 5852 * 4294967296 + h % 4294967296) % 5852 := by
     rw [r1W, rm_toNat, a1]
-  generalize hr1 : ((t * 4294967296 + h / 4294967296) % 360 * 4294967296 + h % 4294967296) % 360 = r1 at e1
+  generalize hr1 : ((t * 4294967296 + h / 4294967296) % 5852 * 4294967296 + h % 4294967296) % 5852 = r1 at e1
   have a2 : (cat32 (r1W T H) (tb 32 L)).toNat = r1 * 4294967296 + l / 4294967296 := by
     rw [cat32_toNat _ _ (by rw [e1]; omega) (by rw [tl]; omega), e1, tl]
-  have e2 : (r2W T H L).toNat = (r1 * 4294967296 + l / 4294967296) % 360 := by rw [r2W, rm_toNat, a2]
-  have a3 : (cat32 (r2W T H L) (clr 32 L)).toNat = (r1 * 4294967296 + l / 4294967296) % 360 * 4294967296 + l % 4294967296 := by
+  have e2 : (r2W T H L).toNat = (r1 * 4294967296 + l / 4294967296) % 5852 := by rw [r2W, rm_toNat, a2]
+  have a3 : (cat32 (r2W T H L) (clr 32 L)).toNat = (r1 * 4294967296 + l / 4294967296) % 5852 * 4294967296 + l % 4294967296 := by
     rw [cat32_toNat _ _ (by rw [e2]; omega) (by rw [cl]; omega), e2, cl]
-  have e3 : (r3W T H L).toNat = ((r1 * 4294967296 + l / 4294967296) % 360 * 4294967296 + l % 4294967296) % 360 := by
+  have e3 : (r3W T H L).toNat = ((r1 * 4294967296 + l / 4294967296) % 5852 * 4294967296 + l % 4294967296) % 5852 := by
     rw [r3W, rm_toNat, a3]
   -- the quotients
   have q0 := dv_toNat (cat32 T (tb 32 H)); rw [a0] at q0
@@ -223,7 +223,7 @@ theorem r6_arith (T H L : Word) (hT : T.toNat < 128) :
   have q3 := dv_toNat (cat32 (r2W T H L) (clr 32 L)); rw [a3] at q3
   have hq0 := q0b t (h / 4294967296) hT (Nat.div_lt_of_lt_mul (by omega))
   have hq1 := qb _ (h % 4294967296) (Nat.mod_lt (t * 4294967296 + h / 4294967296) (by norm_num)) (Nat.mod_lt _ (by norm_num))
-  have hr1lt : r1 < 360 := by rw [← hr1]; exact Nat.mod_lt _ (by norm_num)
+  have hr1lt : r1 < 5852 := by rw [← hr1]; exact Nat.mod_lt _ (by norm_num)
   have hq2 := Nat.mul_lt_mul_of_pos_right (qb r1 (l / 4294967296) hr1lt (Nat.div_lt_of_lt_mul (by omega)))
     (show 0 < 4294967296 by norm_num)
   have hq3 := qb _ (l % 4294967296) (Nat.mod_lt (r1 * 4294967296 + l / 4294967296) (by norm_num)) (Nat.mod_lt _ (by norm_num))
@@ -250,16 +250,16 @@ def cU3 : List (BitVec 32) := (Images.expandR6Code.drop 8).take 2
 sym_block eU3 := symRun cfgR6 cU3 (pcOf 60927) 10
 def cUR : List (BitVec 32) := (Images.expandR6Code.drop 10).take 1
 sym_block eUR := symRun cfgR6 cUR (pcOf 60929) 10
-def cU4 : List (BitVec 32) := (Images.expandR6Code.drop 11).take 31
+def cU4 : List (BitVec 32) := (Images.expandR6Code.drop 11).take 33
 sym_block eU4 := symRun cfgR6 cU4 (pcOf 60930) 40
-set_option maxRecDepth 100000 in
-theorem codeAt_y5 : CodeAt Images.expandImage (pcOf 84000) Images.expandY5Code := by
-  apply codeAt_expand_last <;> decide +kernel
-/-- Y5: the hint decode `DEC5` (expand 88000..88056): `t1 := packH t4` (`t4 = N mod 360`), stored at `0x66000`; `j 54644`. -/
-def cDec : List (BitVec 32) := (Images.expandY5Code.drop 4000).take 57
-theorem codeAt_dec : CodeAt Images.expandImage (pcOf 88000) cDec :=
-  codeAt_sub 4000 codeAt_y5 (by decide) rfl
-sym_block eDec := symRun cfgR6 cDec (pcOf 88000) 80
+def cU5 : List (BitVec 32) := (Images.expandR6Code.drop 57).take 4
+sym_block eU5 := symRun cfgR6 cU5 (pcOf 60976) 10
+def cU6 : List (BitVec 32) := (Images.expandR6Code.drop 61).take 2
+sym_block eU6 := symRun cfgR6 cU6 (pcOf 60980) 10
+def cU6b : List (BitVec 32) := (Images.expandR6Code.drop 62).take 1
+sym_block eU6b := symRun cfgR6 cU6b (pcOf 60981) 10
+def cU7 : List (BitVec 32) := (Images.expandR6Code.drop 46).take 3
+sym_block eU7 := symRun cfgR6 cU7 (pcOf 60965) 10
 def cH : List (BitVec 32) := (t51Code.drop 468).take 3
 theorem codeAt_H : CodeAt Images.expandImage (pcOf 54644) cH :=
   codeAt_t51_at 54644 (by decide) (by decide) (by decide)
@@ -267,13 +267,13 @@ sym_block eH := symRun cfgR6 cH (pcOf 54644) 10
 
 theorem u1_spec (s : MachineState) (hpc : s.pc = pcOf 60919) :
     ∃ t, Steps Images.expandImage s 6 6 t ∧
-      t.pc = (if s.getReg .x18 >>> 33 = 7#64 then pcOf 60925 else pcOf 60930) ∧
+      t.pc = (if s.getReg .x18 >>> 29 = 127#64 then pcOf 60925 else pcOf 60930) ∧
       t.getReg .x6 = s.getMem (BitVec.ofNat 64 0x7000) ∧ t.getReg .x7 = s.getMem (BitVec.ofNat 64 0x7008) ∧
-      t.getReg .x28 = BitVec.ofNat 64 0x7000 ∧ t.getReg .x29 = s.getReg .x18 >>> 33 ∧
+      t.getReg .x28 = BitVec.ofNat 64 0x7000 ∧ t.getReg .x29 = s.getReg .x18 >>> 29 ∧
       RegsExcept s t [.x6, .x7, .x28, .x29, .x30] ∧ ∀ A, t.getMem A = s.getMem A := by
   refine ⟨_, symRun_sound eU1 (r6_at 0 (by decide) rfl) s hpc trivial, ?_, rfl, rfl, rfl, rfl, ?_, fun A => rfl⟩
   · simp only [Result.toState_pc, eU1.res, E.eval, BinOp.eval, CmpOp.eval]
-    by_cases h : s.getReg .x18 >>> 33 = 7#64
+    by_cases h : s.getReg .x18 >>> 29 = 127#64
     · rw [if_pos h]; simp [h]
     · rw [if_neg h]; simp [h]
   · intro r hr
@@ -295,11 +295,11 @@ theorem u2_spec (s : MachineState) (hpc : s.pc = pcOf 60925) :
 
 theorem u3_spec (s : MachineState) (hpc : s.pc = pcOf 60927) :
     ∃ t, Steps Images.expandImage s 2 2 t ∧
-      t.pc = (if (s.getReg .x6).toNat < 18446744073709551368 then pcOf 60930 else pcOf 60929) ∧
+      t.pc = (if (s.getReg .x6).toNat < 18446744073709550572 then pcOf 60930 else pcOf 60929) ∧
       RegsExcept s t [.x30] ∧ ∀ A, t.getMem A = s.getMem A := by
   refine ⟨_, symRun_sound eU3 (r6_at 8 (by decide) rfl) s hpc trivial, ?_, ?_, fun A => rfl⟩
   · simp only [Result.toState_pc, eU3.res, E.eval, BinOp.eval, CmpOp.eval]
-    by_cases h : (s.getReg .x6).toNat < 18446744073709551368
+    by_cases h : (s.getReg .x6).toNat < 18446744073709550572
     · rw [if_pos h]; simp [BitVec.ult, h]
     · rw [if_neg h]; simp [BitVec.ult, h]
   · intro r hr
@@ -311,12 +311,13 @@ theorem uR_spec (s : MachineState) (hpc : s.pc = pcOf 60929) :
   ⟨_, symRun_sound eUR (r6_at 10 (by decide) rfl) s hpc trivial, rfl⟩
 
 theorem u4_spec (s : MachineState) (hpc : s.pc = pcOf 60930) (h28 : s.getReg .x28 = BitVec.ofNat 64 0x7000) :
-    ∃ t c, Steps Images.expandImage s 31 c t ∧ c ≤ 60 ∧ t.pc = pcOf 88000 ∧
+    ∃ t, Steps Images.expandImage s 33 60 t ∧ t.pc = pcOf 60976 ∧
       t.getReg .x29 = r3W (s.getReg .x29) (s.getReg .x7) (s.getReg .x6) ∧
+      t.getReg .x30 = rv64_divu (r3W (s.getReg .x29) (s.getReg .x7) (s.getReg .x6)) 418#64 ∧
       RegsExcept s t [.x19, .x20, .x29, .x30] ∧
       ∀ A, t.getMem A = if A = BitVec.ofNat 64 0x7000 then qLo (s.getReg .x29) (s.getReg .x7) (s.getReg .x6)
         else if A = BitVec.ofNat 64 0x7008 then qHi (s.getReg .x29) (s.getReg .x7) else s.getMem A := by
-  refine ⟨_, _, symRun_sound eU4 (r6_at 11 (by decide) rfl) s hpc ?_, by simp [eU4.res], rfl, rfl, ?_, ?_⟩
+  refine ⟨_, symRun_sound eU4 (r6_at 11 (by decide) rfl) s hpc ?_, rfl, rfl, rfl, ?_, ?_⟩
   · simp [eU4.res, rv_simp, h28, accessValid_iff, MEMORY_BYTES]
   · intro r hr
     rw [Result.toState_getReg]
@@ -326,61 +327,80 @@ theorem u4_spec (s : MachineState) (hpc : s.pc = pcOf 60930) (h28 : s.getReg .x2
     t3n [h28]
     rfl
 
-/-- Y5: the decode's value on the index code `r` (the symbolic result of `cDec`). -/
-def decVal (r : Word) : Word :=
-  let i3 := rv64_remu r 15#64
-  let q := rv64_divu r 15#64
-  let i2 := rv64_remu q 6#64
-  let i1 := rv64_divu q 6#64
-  let b (c : Bool) : Word := if c then 1#64 else 0#64
-  let s1 := (1#64 : Word).toNat % 64
-  let s2 := (2#64 : Word).toNat % 64
-  let s3 := (3#64 : Word).toNat % 64
-  i3 + 8#64 - b (i3.ult 1#64) <<< s1 +
-    ((b (i2.ult 1#64) ^^^ 1#64) + (b (i2.ult 5#64) ^^^ 1#64) +
-      ((b (i2.ult 1#64) ^^^ 1#64) <<< s3 + (b (i2.ult 2#64) ^^^ 1#64) <<< s2 +
-        (b (i2.ult 3#64) ^^^ 1#64) <<< s1 + (b (i2.ult 4#64) ^^^ 1#64) <<< s1)) * 23#64 +
-    ((b (i1.ult 1#64) ^^^ 1#64) <<< s3 + (b (i1.ult 2#64) ^^^ 1#64) <<< s2 +
-      (b (i1.ult 3#64) ^^^ 1#64) <<< s1) * 529#64
-
-theorem decVal_table : ∀ r : Fin 360,
-    decVal (BitVec.ofNat 64 r.val) = BitVec.ofNat 64 (ClaudeWCT.W9.T3M.SharedCodec.packH r.val) := by decide +kernel
-
-theorem dec_spec (s : MachineState) (hpc : s.pc = pcOf 88000) (r : Nat) (hr : r < 360)
-    (h29 : s.getReg .x29 = BitVec.ofNat 64 r) :
-    ∃ t c, Steps Images.expandImage s 57 c t ∧ c ≤ 75 ∧ t.pc = pcOf 54644 ∧
-      t.getReg .x6 = BitVec.ofNat 64 (ClaudeWCT.W9.T3M.SharedCodec.packH r) ∧
-      RegsExcept s t [.x6, .x7, .x19, .x20, .x28, .x29, .x30] ∧
-      ∀ A, t.getMem A = if A = BitVec.ofNat 64 417792 then BitVec.ofNat 64 (ClaudeWCT.W9.T3M.SharedCodec.packH r)
-        else s.getMem A := by
-  have hv : (eDec.res.toState s).getReg .x6 = decVal (s.getReg .x29) := by
-    simp only [Result.toState_getReg, eDec.res, rv_simp]; rfl
-  have hv' : decVal (s.getReg .x29) = BitVec.ofNat 64 (ClaudeWCT.W9.T3M.SharedCodec.packH r) := by
-    rw [h29]; exact decVal_table ⟨r, hr⟩
-  refine ⟨_, _, symRun_sound eDec codeAt_dec s hpc ?_, by simp [eDec.res], rfl, by rw [hv, hv'], ?_, ?_⟩
-  · simp [eDec.res, rv_simp, accessValid_iff, MEMORY_BYTES]
-  · intro q hq
+theorem u5_spec (s : MachineState) (hpc : s.pc = pcOf 60976) :
+    ∃ t, Steps Images.expandImage s 4 7 t ∧
+      t.pc = (if s.getReg .x30 * 66#64 = 0#64 then pcOf 60981 else pcOf 60980) ∧
+      t.getReg .x6 = s.getReg .x29 + s.getReg .x30 * 66#64 ∧
+      RegsExcept s t [.x6, .x19, .x30] ∧ ∀ A, t.getMem A = s.getMem A := by
+  refine ⟨_, symRun_sound eU5 (r6_at 57 (by decide) rfl) s hpc trivial, ?_, rfl, ?_, fun A => rfl⟩
+  · simp only [Result.toState_pc, eU5.res, E.eval, BinOp.eval, CmpOp.eval]
+    by_cases h : s.getReg .x30 * 66#64 = 0#64
+    · rw [if_pos h]; simp [h]
+    · rw [if_neg h]; simp [h]
+  · intro r hr
     rw [Result.toState_getReg]
-    cases q <;> first | exact (hq (by decide)).elim | rfl
+    cases r <;> first | exact (hr (by decide)).elim | rfl
+
+theorem u6_spec (s : MachineState) (hpc : s.pc = pcOf 60980) :
+    ∃ t, Steps Images.expandImage s 2 2 t ∧ t.pc = pcOf 60965 ∧ t.getReg .x6 = s.getReg .x6 + 968#64 ∧
+      RegsExcept s t [.x6] ∧ ∀ A, t.getMem A = s.getMem A := by
+  refine ⟨_, symRun_sound eU6 (r6_at 61 (by decide) rfl) s hpc trivial, rfl, rfl, ?_, fun A => rfl⟩
+  intro r hr
+  rw [Result.toState_getReg]
+  cases r <;> first | exact (hr (by decide)).elim | rfl
+
+theorem u6b_spec (s : MachineState) (hpc : s.pc = pcOf 60981) :
+    ∃ t, Steps Images.expandImage s 1 1 t ∧ t.pc = pcOf 60965 ∧ RegsExcept s t [] ∧ ∀ A, t.getMem A = s.getMem A := by
+  refine ⟨_, symRun_sound eU6b (r6_at 62 (by decide) rfl) s hpc trivial, rfl, ?_, fun A => rfl⟩
+  intro r hr
+  rw [Result.toState_getReg]
+  cases r <;> first | exact (hr (by decide)).elim | rfl
+
+theorem u7_spec (s : MachineState) (hpc : s.pc = pcOf 60965) :
+    ∃ t, Steps Images.expandImage s 3 3 t ∧ t.pc = pcOf 54644 ∧ RegsExcept s t [.x28] ∧
+      ∀ A, t.getMem A = if A = BitVec.ofNat 64 417792 then s.getReg .x6 else s.getMem A := by
+  refine ⟨_, symRun_sound eU7 (r6_at 46 (by decide) rfl) s hpc trivial, rfl, ?_, ?_⟩
+  · intro r hr
+    rw [Result.toState_getReg]
+    cases r <;> first | exact (hr (by decide)).elim | rfl
   · intro A
-    have hm : (eDec.res.toState s).getMem A =
-        if A = BitVec.ofNat 64 417792 then (eDec.res.toState s).getReg .x6 else s.getMem A := by
-      simp only [Result.toState_getMem, Result.toState_getReg, eDec.res]
-      t3n []
-    rw [hm, hv, hv']
+    simp only [Result.toState_getMem, eU7.res]
+    t3n []
+    rfl
 
 theorem h_spec (s : MachineState) (hpc : s.pc = pcOf 54644) :
     ∃ t, Steps Images.expandImage s 3 3 t ∧
-      t.pc = (if (s.getReg .x6).toNat < 8192 then pcOf 54648 else pcOf 54647) ∧
+      t.pc = (if (s.getReg .x6).toNat < 7744 then pcOf 54648 else pcOf 54647) ∧
       RegsExcept s t [.x7] ∧ ∀ A, t.getMem A = s.getMem A := by
   refine ⟨_, symRun_sound eH codeAt_H s hpc trivial, ?_, ?_, fun A => rfl⟩
   · simp only [Result.toState_pc, eH.res, E.eval, BinOp.eval, CmpOp.eval]
-    by_cases h : (s.getReg .x6).toNat < 8192
+    by_cases h : (s.getReg .x6).toNat < 7744
     · rw [if_pos h]; simp [BitVec.ult, h]
     · rw [if_neg h]; simp [BitVec.ult, h]
   · intro r hr
     rw [Result.toState_getReg]
     cases r <;> first | exact (hr (by decide)).elim | rfl
+
+theorem hint_word (r : Word) (hr : r.toNat < 5852) :
+    (if rv64_divu r 418#64 * 66#64 = 0#64 then r + rv64_divu r 418#64 * 66#64
+      else r + rv64_divu r 418#64 * 66#64 + 968#64).toNat = ClaudeWCT.W9.T3M.SharedCodec.packH r.toNat ∧
+    ClaudeWCT.W9.T3M.SharedCodec.packH r.toNat < 7744 := by
+  have hq : (rv64_divu r 418#64).toNat = r.toNat / 418 := by
+    unfold rv64_divu; simp [BitVec.toNat_udiv]
+  have hm : (rv64_divu r 418#64 * 66#64).toNat = r.toNat / 418 * 66 := by
+    rw [BitVec.toNat_mul, hq]; norm_num; omega
+  unfold ClaudeWCT.W9.T3M.SharedCodec.packH
+  by_cases hz : r.toNat / 418 = 0
+  · have e : rv64_divu r 418#64 * 66#64 = 0#64 := by
+      apply BitVec.eq_of_toNat_eq; rw [hm, hz]; rfl
+    rw [if_pos e, BitVec.toNat_add, hm, hz]
+    simp only [Nat.lt_irrefl, if_false]
+    omega
+  · have e : rv64_divu r 418#64 * 66#64 ≠ 0#64 := by
+      intro h; have := congrArg BitVec.toNat h; rw [hm] at this; simp at this; omega
+    rw [if_neg e, BitVec.toNat_add, BitVec.toNat_add, hm, if_pos (Nat.pos_of_ne_zero hz)]
+    norm_num
+    omega
 
 def r6Mem (M : Word → Word) (T H L : Word) (A : Word) : Word :=
   if A = BitVec.ofNat 64 417792 then BitVec.ofNat 64 (ClaudeWCT.W9.T3M.SharedCodec.packH (r3W T H L).toNat)
@@ -389,33 +409,62 @@ def r6Mem (M : Word → Word) (T H L : Word) (A : Word) : Word :=
 
 theorem tail_spec (s : MachineState) (hpc : s.pc = pcOf 60930) (h28 : s.getReg .x28 = BitVec.ofNat 64 0x7000)
     (hT : (s.getReg .x29).toNat < 128) :
-    ∃ t k c, Steps Images.expandImage s k c t ∧ c ≤ 138 ∧ t.pc = pcOf 54648 ∧
+    ∃ t k c, Steps Images.expandImage s k c t ∧ c ≤ 75 ∧ t.pc = pcOf 54648 ∧
       RegsExcept s t [.x6, .x7, .x19, .x20, .x28, .x29, .x30] ∧
       ∀ A, t.getMem A = r6Mem s.getMem (s.getReg .x29) (s.getReg .x7) (s.getReg .x6) A := by
-  obtain ⟨t4, c4, s4, hc4, p4, a29, g4, m4⟩ := u4_spec s hpc h28
-  have hr : (r3W (s.getReg .x29) (s.getReg .x7) (s.getReg .x6)).toNat < 360 := by
+  obtain ⟨t4, s4, p4, a29, a30, g4, m4⟩ := u4_spec s hpc h28
+  obtain ⟨t5, s5, p5, a6, g5, m5⟩ := u5_spec t4 p4
+  have hr : (r3W (s.getReg .x29) (s.getReg .x7) (s.getReg .x6)).toNat < 5852 := by
     rw [(r6_arith _ _ _ hT).1]; exact Nat.mod_lt _ (by norm_num)
-  obtain ⟨t5, c5, s5, hc5, p5, x5, g5, m5⟩ := dec_spec t4 p4 _ hr (by rw [a29, BitVec.ofNat_toNat, BitVec.setWidth_eq])
-  have hlt := ClaudeWCT.W9.T3M.SharedCodec.packH_le_7934 _ hr
-  obtain ⟨t8, s8, p8, g8, m8⟩ := h_spec t5 p5
-  refine ⟨t8, _, _, (s4.trans s5).trans s8, by omega, ?_, ?_, ?_⟩
-  · rw [p8, x5, BitVec.toNat_ofNat, Nat.mod_eq_of_lt (by omega), if_pos (by omega)]
-  · exact (g4.trans (g5.trans g8)).mono (by decide)
-  · intro A
-    rw [m8, m5, m4]
-    unfold r6Mem
-    by_cases hA : A = BitVec.ofNat 64 417792 <;> simp [hA]
+  obtain ⟨hw, hlt⟩ := hint_word _ hr
+  rw [a29, a30] at a6
+  rw [a30] at p5
+  have mem4 : ∀ A, t5.getMem A = if A = BitVec.ofNat 64 0x7000 then qLo (s.getReg .x29) (s.getReg .x7) (s.getReg .x6)
+      else if A = BitVec.ofNat 64 0x7008 then qHi (s.getReg .x29) (s.getReg .x7) else s.getMem A := by
+    intro A; rw [m5, m4]
+  -- common finish from the state before U7
+  have fin : ∀ (t6 : MachineState) (k c : Nat), Steps Images.expandImage s k c t6 → t6.pc = pcOf 60965 →
+      (t6.getReg .x6).toNat = ClaudeWCT.W9.T3M.SharedCodec.packH (r3W (s.getReg .x29) (s.getReg .x7) (s.getReg .x6)).toNat →
+      RegsExcept s t6 [.x6, .x19, .x20, .x29, .x30] → (∀ A, t6.getMem A = t5.getMem A) →
+      ∃ t, Steps Images.expandImage s (k + 3 + 3) (c + 3 + 3) t ∧ t.pc = pcOf 54648 ∧
+        RegsExcept s t [.x6, .x7, .x19, .x20, .x28, .x29, .x30] ∧
+        ∀ A, t.getMem A = r6Mem s.getMem (s.getReg .x29) (s.getReg .x7) (s.getReg .x6) A := by
+    intro t6 k c st6 p6 x6v g6 m6
+    obtain ⟨t7, s7, p7, g7, m7⟩ := u7_spec t6 p6
+    obtain ⟨t8, s8, p8, g8, m8⟩ := h_spec t7 p7
+    have x7v : t7.getReg .x6 = t6.getReg .x6 := g7.get (by decide)
+    refine ⟨t8, (st6.trans s7).trans s8, ?_, ?_, ?_⟩
+    · rw [p8, x7v, x6v, if_pos hlt]
+    · exact (g6.trans (g7.trans g8)).mono (by decide)
+    · intro A
+      rw [m8, m7, m6, mem4]
+      unfold r6Mem
+      by_cases hA : A = BitVec.ofNat 64 417792
+      · rw [if_pos hA, if_pos hA]
+        apply BitVec.eq_of_toNat_eq
+        rw [x6v, BitVec.toNat_ofNat]
+        omega
+      · rw [if_neg hA, if_neg hA]
+  by_cases hz : rv64_divu (r3W (s.getReg .x29) (s.getReg .x7) (s.getReg .x6)) 418#64 * 66#64 = 0#64
+  · rw [if_pos hz] at p5 hw
+    obtain ⟨t6, s6, p6, g6, m6⟩ := u6b_spec t5 p5
+    obtain ⟨t, st, pt, gt, mt⟩ := fin t6 _ _ ((s4.trans s5).trans s6) p6
+      (by rw [g6.get (by decide), a6]; exact hw) ((g4.trans (g5.trans g6)).mono (by decide))
+      (fun A => by rw [m6])
+    exact ⟨t, _, _, st, by omega, pt, gt, mt⟩
+  · rw [if_neg hz] at p5 hw
+    obtain ⟨t6, s6, p6, a6', g6, m6⟩ := u6_spec t5 p5
+    obtain ⟨t, st, pt, gt, mt⟩ := fin t6 _ _ ((s4.trans s5).trans s6) p6
+      (by rw [a6', a6]; exact hw) ((g4.trans (g5.trans g6)).mono (by decide))
+      (fun A => by rw [m6])
+    exact ⟨t, _, _, st, by omega, pt, gt, mt⟩
 
-theorem canon_iff (t h l : Nat) (ht : t < 8) (hh : h < 18446744073709551616) (hl : l < 18446744073709551616) :
-    l + h * 18446744073709551616 + t * 340282366920938463463374607431768211456 < 2722258935367507707706996859454145691400 ↔
-      ¬(t = 7 ∧ h = 18446744073709551615 ∧ 18446744073709551368 ≤ l) := by
+theorem canon_iff (t h l : Nat) (ht : t < 128) (hh : h < 18446744073709551616) (hl : l < 18446744073709551616) :
+    l + h * 18446744073709551616 + t * 340282366920938463463374607431768211456 < 43556142965880123323311949751266331065324 ↔
+      ¬(t = 127 ∧ h = 18446744073709551615 ∧ 18446744073709550572 ≤ l) := by
   omega
 
-theorem shr29_lt (X : Word) (hX : X.toNat < 68719476736) : (X >>> 33).toNat < 128 := by
-  rw [BitVec.toNat_ushiftRight, Nat.shiftRight_eq_div_pow]; norm_num; omega
-
-/-- Y5: the 131-bit field has 3 bits above 2^128 (X bits 33..35). -/
-theorem shr33_lt8 (X : Word) (hX : X.toNat < 68719476736) : (X >>> 33).toNat < 8 := by
+theorem shr29_lt (X : Word) (hX : X.toNat < 68719476736) : (X >>> 29).toNat < 128 := by
   rw [BitVec.toNat_ushiftRight, Nat.shiftRight_eq_div_pow]; norm_num; omega
 
 theorem allOnes_iff (H : Word) : H = 18446744073709551615#64 ↔ H.toNat = 18446744073709551615 := by
@@ -423,25 +472,25 @@ theorem allOnes_iff (H : Word) : H = 18446744073709551615#64 ↔ H.toNat = 18446
   · intro h; rw [h]; rfl
   · intro h; apply BitVec.eq_of_toNat_eq; rw [h]; rfl
 
-/-- The R6 canonical check, the division by 360 and the hint re-pack (canonical input). -/
+/-- The R6 canonical check, the division by 5852 and the hint re-pack (canonical input). -/
 theorem r6_ok (s : MachineState) (hpc : s.pc = pcOf 60919) (hX : (s.getReg .x18).toNat < 68719476736)
     (hc : (s.getMem (BitVec.ofNat 64 0x7000)).toNat + (s.getMem (BitVec.ofNat 64 0x7008)).toNat * 18446744073709551616 +
-      (s.getReg .x18 >>> 33).toNat * 340282366920938463463374607431768211456 < 2722258935367507707706996859454145691400) :
-    ∃ t k c, Steps Images.expandImage s k c t ∧ c ≤ 148 ∧ t.pc = pcOf 54648 ∧
+      (s.getReg .x18 >>> 29).toNat * 340282366920938463463374607431768211456 < 43556142965880123323311949751266331065324) :
+    ∃ t k c, Steps Images.expandImage s k c t ∧ c ≤ 85 ∧ t.pc = pcOf 54648 ∧
       RegsExcept s t [.x6, .x7, .x19, .x20, .x28, .x29, .x30] ∧
-      ∀ A, t.getMem A = r6Mem s.getMem (s.getReg .x18 >>> 33) (s.getMem (BitVec.ofNat 64 0x7008))
+      ∀ A, t.getMem A = r6Mem s.getMem (s.getReg .x18 >>> 29) (s.getMem (BitVec.ofNat 64 0x7008))
         (s.getMem (BitVec.ofNat 64 0x7000)) A := by
   obtain ⟨t1, s1, p1, a6, a7, a28, a29, g1, m1⟩ := u1_spec s hpc
   have hT := shr29_lt _ hX
   have go : ∀ (u : MachineState) (k c : Nat), Steps Images.expandImage s k c u → c ≤ 10 → u.pc = pcOf 60930 →
       RegsExcept t1 u [.x30] → (∀ A, u.getMem A = s.getMem A) →
-      ∃ t k c, Steps Images.expandImage s k c t ∧ c ≤ 148 ∧ t.pc = pcOf 54648 ∧
+      ∃ t k c, Steps Images.expandImage s k c t ∧ c ≤ 85 ∧ t.pc = pcOf 54648 ∧
         RegsExcept s t [.x6, .x7, .x19, .x20, .x28, .x29, .x30] ∧
-        ∀ A, t.getMem A = r6Mem s.getMem (s.getReg .x18 >>> 33) (s.getMem (BitVec.ofNat 64 0x7008))
+        ∀ A, t.getMem A = r6Mem s.getMem (s.getReg .x18 >>> 29) (s.getMem (BitVec.ofNat 64 0x7008))
           (s.getMem (BitVec.ofNat 64 0x7000)) A := by
     intro u k c su hcu pu gu mu
     have u28 : u.getReg .x28 = BitVec.ofNat 64 0x7000 := by rw [gu.get (by decide), a28]
-    have u29 : u.getReg .x29 = s.getReg .x18 >>> 33 := by rw [gu.get (by decide), a29]
+    have u29 : u.getReg .x29 = s.getReg .x18 >>> 29 := by rw [gu.get (by decide), a29]
     have u7 : u.getReg .x7 = s.getMem (BitVec.ofNat 64 0x7008) := by rw [gu.get (by decide), a7]
     have u6 : u.getReg .x6 = s.getMem (BitVec.ofNat 64 0x7000) := by rw [gu.get (by decide), a6]
     obtain ⟨t, k', c', st, hc', pt, gt, mt⟩ := tail_spec u pu u28 (by rw [u29]; exact hT)
@@ -451,65 +500,65 @@ theorem r6_ok (s : MachineState) (hpc : s.pc = pcOf 60919) (hX : (s.getReg .x18)
     unfold r6Mem
     rw [mu]
   have hT' := hT
-  by_cases h7 : s.getReg .x18 >>> 33 = 7#64
-  · rw [if_pos h7] at p1
+  by_cases h127 : s.getReg .x18 >>> 29 = 127#64
+  · rw [if_pos h127] at p1
     obtain ⟨t2, s2, p2, g2, m2⟩ := u2_spec t1 p1
     have hH := (s.getMem (BitVec.ofNat 64 0x7008)).isLt
     have hL := (s.getMem (BitVec.ofNat 64 0x7000)).isLt
     norm_num at hH hL
-    have ht : (s.getReg .x18 >>> 33).toNat = 7 := by rw [h7]; rfl
-    have hc2 := (canon_iff _ _ _ (shr33_lt8 _ hX) hH hL).1 hc
+    have ht : (s.getReg .x18 >>> 29).toNat = 127 := by rw [h127]; rfl
+    have hc2 := (canon_iff _ _ _ hT hH hL).1 hc
     rw [ht] at hc2
     by_cases hA : (s.getMem (BitVec.ofNat 64 0x7008)).toNat = 18446744073709551615
     · rw [a7, if_pos ((allOnes_iff _).2 hA)] at p2
       obtain ⟨t3, s3, p3, g3, m3⟩ := u3_spec t2 p2
-      have hl : (t2.getReg .x6).toNat < 18446744073709551368 := by
+      have hl : (t2.getReg .x6).toNat < 18446744073709550572 := by
         rw [g2.get (by decide), a6]; omega
       rw [if_pos hl] at p3
       exact go t3 _ _ ((s1.trans s2).trans s3) (by omega) p3 ((g2.trans g3).mono (by decide))
         (fun A => by rw [m3, m2, m1])
     · rw [a7, if_neg (fun e => hA ((allOnes_iff _).1 e))] at p2
       exact go t2 _ _ (s1.trans s2) (by omega) p2 g2 (fun A => by rw [m2, m1])
-  · rw [if_neg h7] at p1
+  · rw [if_neg h127] at p1
     exact go t1 _ _ s1 (by omega) p1 (RegsExcept.refl _ _) m1
 
 /-- Non-canonical input: the machine rejects (jumps to 354). -/
 theorem r6_bad (s : MachineState) (hpc : s.pc = pcOf 60919) (hX : (s.getReg .x18).toNat < 68719476736)
     (hc : ¬ (s.getMem (BitVec.ofNat 64 0x7000)).toNat + (s.getMem (BitVec.ofNat 64 0x7008)).toNat * 18446744073709551616 +
-      (s.getReg .x18 >>> 33).toNat * 340282366920938463463374607431768211456 < 2722258935367507707706996859454145691400) :
+      (s.getReg .x18 >>> 29).toNat * 340282366920938463463374607431768211456 < 43556142965880123323311949751266331065324) :
     ∃ t, Steps Images.expandImage s 11 11 t ∧ t.pc = pcOf 354 := by
   obtain ⟨t1, s1, p1, a6, a7, a28, a29, g1, m1⟩ := u1_spec s hpc
   have hT := shr29_lt _ hX
   have hH := (s.getMem (BitVec.ofNat 64 0x7008)).isLt
   have hL := (s.getMem (BitVec.ofNat 64 0x7000)).isLt
   norm_num at hH hL
-  have hb := not_not.1 (fun h => hc ((canon_iff _ _ _ (shr33_lt8 _ hX) hH hL).2 h))
-  have h7 : s.getReg .x18 >>> 33 = 7#64 := by apply BitVec.eq_of_toNat_eq; rw [hb.1]; rfl
-  rw [if_pos h7] at p1
+  have hb := not_not.1 (fun h => hc ((canon_iff _ _ _ hT hH hL).2 h))
+  have h127 : s.getReg .x18 >>> 29 = 127#64 := by apply BitVec.eq_of_toNat_eq; rw [hb.1]; rfl
+  rw [if_pos h127] at p1
   obtain ⟨t2, s2, p2, g2, m2⟩ := u2_spec t1 p1
   rw [a7, if_pos ((allOnes_iff _).2 hb.2.1)] at p2
   obtain ⟨t3, s3, p3, g3, m3⟩ := u3_spec t2 p2
-  have hl : ¬ (t2.getReg .x6).toNat < 18446744073709551368 := by
+  have hl : ¬ (t2.getReg .x6).toNat < 18446744073709550572 := by
     rw [g2.get (by decide), a6]; omega
   rw [if_neg hl] at p3
   obtain ⟨t4, s4, p4⟩ := uR_spec t3 p3
   exact ⟨t4, ((s1.trans s2).trans s3).trans s4, p4⟩
 
-/-- N7g, Y5: the sibling's high dword: tail bytes 8, 9 (2 bits: `V / 2^48`) and `X % 2^33` at bit 2. -/
+/-- N7g: the sibling's high dword: tail bytes 8, 9 (6 bits: `V / 2^40`) and `X % 2^29` at bit 6. -/
 def sibH (W X : Word) : Word :=
   (((extractByte W 0).zeroExtend 64 ||| ((extractByte W 1).zeroExtend 64 <<< 8)) |||
-    (((X <<< 31) >>> 31) <<< 2))
+    (((X <<< 35) >>> 35) <<< 6))
 
-theorem sibH_toNat (W X : Word) (hW : W.toNat % 65536 < 4) :
-    (sibH W X).toNat = W.toNat % 65536 + X.toNat % 8589934592 * 4 := by
+theorem sibH_toNat (W X : Word) (hW : W.toNat % 65536 < 64) :
+    (sibH W X).toNat = W.toNat % 65536 + X.toNat % 536870912 * 64 := by
   have hW' := W.isLt
   have e0 := zext_byte_toNat W 0
   have e1 := zext_byte_toNat W 1
-  have hx : ((X <<< 31) >>> 31).toNat = X.toNat % 2 ^ 33 := clr_toNat 31 (by omega) X
+  have hx : ((X <<< 35) >>> 35).toNat = X.toNat % 2 ^ 29 := clr_toNat 35 (by omega) X
   unfold sibH
   have s1 := toNat_or_shift ((extractByte W 0).zeroExtend 64) ((extractByte W 1).zeroExtend 64) 8
     (by rw [e0]; omega) (by rw [e1]; omega)
-  have s2 := toNat_or_shift _ ((X <<< 31) >>> 31) 2 (by rw [s1, e0, e1]; norm_num; omega) (by rw [hx]; omega)
+  have s2 := toNat_or_shift _ ((X <<< 35) >>> 35) 6 (by rw [s1, e0, e1]; norm_num; omega) (by rw [hx]; omega)
   rw [s2, s1, e0, e1, hx]
   norm_num
   omega
@@ -895,11 +944,11 @@ theorem fL_le (c0 n o k : Nat) : fL c0 n o k ≤ k := by unfold fL; split_ifs <;
 /-- N7g: the 135-bit field `N` DEC reads: slot 0 (`N mod 2^128`) and `X / 2^29` (`N / 2^128`). -/
 def nOfM (M : Word → Word) : Nat :=
   (M (BitVec.ofNat 64 0x7000)).toNat + (M (BitVec.ofNat 64 0x7008)).toNat * 18446744073709551616 +
-    (xR M).toNat / 8589934592 * 340282366920938463463374607431768211456
+    (xR M).toNat / 536870912 * 340282366920938463463374607431768211456
 
-/-- Memory after D1 and R6 (slot 0 holds `N / 360`, the hint word `packH (N % 360)`). -/
+/-- Memory after D1 and R6 (slot 0 holds `N / 5852`, the hint word `packH (N % 5852)`). -/
 def dMem (M : Word → Word) : Word → Word :=
-  r6Mem (d1Mem M) (xR M >>> 33) (d1Mem M (BitVec.ofNat 64 0x7008)) (d1Mem M (BitVec.ofNat 64 0x7000))
+  r6Mem (d1Mem M) (xR M >>> 29) (d1Mem M (BitVec.ofNat 64 0x7008)) (d1Mem M (BitVec.ofNat 64 0x7000))
 
 /-- DEC output: slot `k`, word `w`, as a function of the memory `M` at DEC entry. -/
 def decOut (M : Word → Word) (k w : Nat) : Word :=
@@ -968,13 +1017,13 @@ theorem xR_lt (M : Word → Word) : (xR M).toNat < 68719476736 := by
   norm_num at b1 b2 b3 b4 b5 b6 b7 b8 ⊢
   omega
 
-theorem xR_shr (M : Word → Word) : (xR M >>> 33).toNat = (xR M).toNat / 8589934592 := by
+theorem xR_shr (M : Word → Word) : (xR M >>> 29).toNat = (xR M).toNat / 536870912 := by
   rw [BitVec.toNat_ushiftRight, Nat.shiftRight_eq_div_pow]; try norm_num
 
 /-- D1 then R6 from DEC's entry: a canonical `N` reaches D3 (54648). -/
 theorem d1r6_ok (s : MachineState) (hpc : s.pc = pcOf 54569)
-    (hc : nOfM s.getMem < 2722258935367507707706996859454145691400) :
-    ∃ t k c, Steps Images.expandImage s (73 + k) (73 + c) t ∧ c ≤ 148 ∧ t.pc = pcOf 54648 ∧
+    (hc : nOfM s.getMem < 43556142965880123323311949751266331065324) :
+    ∃ t k c, Steps Images.expandImage s (73 + k) (73 + c) t ∧ c ≤ 85 ∧ t.pc = pcOf 54648 ∧
       t.getReg .x18 = xR s.getMem ∧
       RegsExcept s t [.x6, .x7, .x18, .x19, .x20, .x28, .x29, .x30] ∧ (∀ A, t.getMem A = dMem s.getMem A) ∧
       Frame s t (fun A => A = 417792 ∨ A = 0x7000 ∨ A = 0x7008 ∨ (31368 ≤ A ∧ A ≤ 31480)) := by
@@ -995,7 +1044,7 @@ theorem d1r6_ok (s : MachineState) (hpc : s.pc = pcOf 54569)
 
 /-- D1 then R6: a non-canonical `N` is rejected (word 354) after 84 steps. -/
 theorem d1r6_bad (s : MachineState) (hpc : s.pc = pcOf 54569)
-    (hc : ¬ nOfM s.getMem < 2722258935367507707706996859454145691400) :
+    (hc : ¬ nOfM s.getMem < 43556142965880123323311949751266331065324) :
     ∃ t, Steps Images.expandImage s 84 84 t ∧ t.pc = pcOf 354 := by
   obtain ⟨s1, st1, p1, x1, r1, m1⟩ := d1_spec s hpc
   have hm1 : s1.getMem = d1Mem s.getMem := funext m1
@@ -1008,23 +1057,23 @@ theorem d1r6_bad (s : MachineState) (hpc : s.pc = pcOf 54569)
   exact ⟨t, st1.trans st, pt⟩
 
 theorem dMem_hint (M : Word → Word) :
-    dMem M (BitVec.ofNat 64 417792) = BitVec.ofNat 64 (ClaudeWCT.W9.T3M.SharedCodec.packH (nOfM M % 360)) := by
+    dMem M (BitVec.ofNat 64 417792) = BitVec.ofNat 64 (ClaudeWCT.W9.T3M.SharedCodec.packH (nOfM M % 5852)) := by
   have l0 : d1Mem M (BitVec.ofNat 64 0x7000) = M (BitVec.ofNat 64 0x7000) := d1Mem_frame _ _ (by decide) (by decide)
   have l1 : d1Mem M (BitVec.ofNat 64 0x7008) = M (BitVec.ofNat 64 0x7008) := d1Mem_frame _ _ (by decide) (by decide)
-  have hT : (xR M >>> 33).toNat < 128 := shr29_lt _ (xR_lt M)
+  have hT : (xR M >>> 29).toNat < 128 := shr29_lt _ (xR_lt M)
   unfold dMem r6Mem
   rw [if_pos rfl, l0, l1, (r6_arith _ _ _ hT).1, xR_shr]
   rfl
 
-/-- DEC from its entry, canonical `N` (at most 2,148 cycles): the inflated layout (`decOut`), the hint at `0x66000`,
+/-- DEC from its entry, canonical `N` (at most 2,085 cycles): the inflated layout (`decOut`), the hint at `0x66000`,
 the temporaries zeroed, word 1 next; only the hint word and `[0x7000, 0x84c0)` are written. -/
 theorem dec_run (s : MachineState) (hpc : s.pc = pcOf 54569)
-    (hc : nOfM s.getMem < 2722258935367507707706996859454145691400) :
-    ∃ t k c, Steps Images.expandImage s k c t ∧ c ≤ 2148 ∧ t.pc = pcOf 1 ∧
+    (hc : nOfM s.getMem < 43556142965880123323311949751266331065324) :
+    ∃ t k c, Steps Images.expandImage s k c t ∧ c ≤ 2085 ∧ t.pc = pcOf 1 ∧
       (∀ r ∈ [.x6, .x7, .x18, .x19, .x20, .x28, .x29, .x30], t.getReg r = 0) ∧
       RegsExcept s t [.x6, .x7, .x18, .x19, .x20, .x28, .x29, .x30] ∧
       (∀ k w, k < 332 → w < 2 → t.getMem (slotA k w) = decOut s.getMem k w) ∧
-      t.getMem (BitVec.ofNat 64 417792) = BitVec.ofNat 64 (ClaudeWCT.W9.T3M.SharedCodec.packH (nOfM s.getMem % 360)) ∧
+      t.getMem (BitVec.ofNat 64 417792) = BitVec.ofNat 64 (ClaudeWCT.W9.T3M.SharedCodec.packH (nOfM s.getMem % 5852)) ∧
       Frame s t (fun A => A = 417792 ∨ (0x7000 ≤ A ∧ A < 0x84c0)) := by
   obtain ⟨s1, k1, c1, st1, hc1, pc1, x18_1, r1, m1, f1⟩ := d1r6_ok s hpc hc
   obtain ⟨s2, st2, pc2, x19_2, x20_2, x28_2, x30_2, r2, f2⟩ := d3_spec s1 pc1
@@ -1093,7 +1142,7 @@ theorem dec_run (s : MachineState) (hpc : s.pc = pcOf 54569)
 
 /-- DEC from its entry, non-canonical `N`: rejected at word 354. -/
 theorem dec_bad (s : MachineState) (hpc : s.pc = pcOf 54569)
-    (hc : ¬ nOfM s.getMem < 2722258935367507707706996859454145691400) :
+    (hc : ¬ nOfM s.getMem < 43556142965880123323311949751266331065324) :
     ∃ t, Steps Images.expandImage s 84 84 t ∧ t.pc = pcOf 354 := d1r6_bad s hpc hc
 
 end ClaudeWCT.W9.Machine.Expand.PrePass
@@ -1123,13 +1172,13 @@ def xOfB (b : CBytes) : Nat :=
   SharedCodec.topBits 1 (cDig b 168) + SharedCodec.topBits 2 (cDig b 169) * 2 ^ 1 + SharedCodec.topBits 3 (cDig b 170) * 2 ^ 3 +
   SharedCodec.topBits 4 (cDig b 171) * 2 ^ 6 + SharedCodec.topBits 5 (cDig b 172) * 2 ^ 10 + SharedCodec.topBits 6 (cDig b 173) * 2 ^ 15 +
   SharedCodec.topBits 7 (cDig b 174) * 2 ^ 21 + SharedCodec.topBits 8 (cDig b 175) * 2 ^ 28
-def nOfB (b : CBytes) : Nat := (cDig b 0).toNat + xOfB b / 2 ^ 33 * 2 ^ 128
+def nOfB (b : CBytes) : Nat := (cDig b 0).toNat + xOfB b / 2 ^ 29 * 2 ^ 128
 def digC (b : CBytes) (k : Nat) : SigGolfCandidate.T3.Digest :=
-  if k = 0 then BitVec.ofNat 128 (nOfB b / 360)
+  if k = 0 then BitVec.ofNat 128 (nOfB b / 5852)
   else if k < 176 then (if 166 ≤ k then SharedCodec.clearTop (topZeroBits (k - 165)) (cDig b k) else cDig b k)
-  else if k = 176 then BitVec.ofNat 128 (b.toNat / 2 ^ (128 * 324) % 2 ^ 66 + xOfB b % 2 ^ 33 * 2 ^ 66)
+  else if k = 176 then BitVec.ofNat 128 (b.toNat / 2 ^ (128 * 324) % 2 ^ 70 + xOfB b % 2 ^ 29 * 2 ^ 70)
   else cDig b (k - 1)
-def hints (b : CBytes) : BitVec 16 := BitVec.ofNat 16 (SharedCodec.packH (nOfB b % 360))
+def hints (b : CBytes) : BitVec 16 := BitVec.ofNat 16 (SharedCodec.packH (nOfB b % 5852))
 theorem topBits_lt' (j : Nat) (hj : j ≤ 128) (d : SigGolfCandidate.T3.Digest) : SharedCodec.topBits j d < 2 ^ j := by
   unfold SharedCodec.topBits
   rw [Nat.div_lt_iff_lt_mul (by positivity), ← Nat.pow_add, show j + (128 - j) = 128 by omega]
@@ -1158,7 +1207,7 @@ bytes hold V's top 6 bits). -/
 structure SigMem (M : Word → Word) (b : T1C.CBytes) : Prop where
   word : ∀ j, j < 649 → M (BitVec.ofNat 64 (0x7000 + 8 * j)) = b.extractLsb' (64 * j) 64
   tail : (M (BitVec.ofNat 64 0x8448)).toNat % 2 ^ 16 = b.toNat / 2 ^ (64 * 649) % 2 ^ 16
-  small : b.toNat / 2 ^ (64 * 649) < 4
+  small : b.toNat / 2 ^ (64 * 649) < 2 ^ 6
 
 theorem cDig_word (b : T1C.CBytes) (c w : Nat) (hw : w < 2) :
     (T1C.cDig b c).extractLsb' (64 * w) 64 = b.extractLsb' (64 * (2 * c + w)) 64 := by
@@ -1216,23 +1265,23 @@ theorem nOfM_eq {M : Word → Word} {b : T1C.CBytes} (h : SigMem M b) : nOfM M =
   rw [e0, e1, digest_split, xR_xOfB h]
   norm_num
 
-theorem packH_lt (t : Nat) (ht : t < 360) : SharedCodec.packH t < 8192 := by
-  have := SharedCodec.packH_le_7934 t ht; omega
+theorem packH_lt (t : Nat) (ht : t < 5852) : SharedCodec.packH t < 7744 := by
+  unfold SharedCodec.packH; split_ifs <;> omega
 
 theorem hint_eq {M : Word → Word} {b : T1C.CBytes} (h : SigMem M b) :
-    BitVec.ofNat 64 (SharedCodec.packH (nOfM M % 360)) = BitVec.ofNat 64 (T1C.hints b).toNat := by
-  have hl := packH_lt (T1C.nOfB b % 360) (Nat.mod_lt _ (by norm_num))
+    BitVec.ofNat 64 (SharedCodec.packH (nOfM M % 5852)) = BitVec.ofNat 64 (T1C.hints b).toNat := by
+  have hl := packH_lt (T1C.nOfB b % 5852) (Nat.mod_lt _ (by norm_num))
   rw [nOfM_eq h]
   unfold T1C.hints
-  rw [BitVec.toNat_ofNat, Nat.mod_eq_of_lt (show SharedCodec.packH (T1C.nOfB b % 360) < 2 ^ 16 by omega)]
+  rw [BitVec.toNat_ofNat, Nat.mod_eq_of_lt (show SharedCodec.packH (T1C.nOfB b % 5852) < 2 ^ 16 by omega)]
 
-theorem hint_lt {M : Word → Word} {b : T1C.CBytes} (h : SigMem M b) : (T1C.hints b).toNat < 8192 := by
-  have hl := packH_lt (T1C.nOfB b % 360) (Nat.mod_lt _ (by norm_num))
+theorem hint_lt {M : Word → Word} {b : T1C.CBytes} (h : SigMem M b) : (T1C.hints b).toNat < 7744 := by
+  have hl := packH_lt (T1C.nOfB b % 5852) (Nat.mod_lt _ (by norm_num))
   unfold T1C.hints
-  rw [BitVec.toNat_ofNat, Nat.mod_eq_of_lt (show SharedCodec.packH (T1C.nOfB b % 360) < 2 ^ 16 by omega)]
+  rw [BitVec.toNat_ofNat, Nat.mod_eq_of_lt (show SharedCodec.packH (T1C.nOfB b % 5852) < 2 ^ 16 by omega)]
   exact hl
 
-theorem nOfM_lt (M : Word → Word) : nOfM M < 2722258935367507707706996859454145691648 := by
+theorem nOfM_lt (M : Word → Word) : nOfM M < 43556142965880123323311949751266331066368 := by
   have h0 := (M (BitVec.ofNat 64 0x7000)).isLt
   have h1 := (M (BitVec.ofNat 64 0x7008)).isLt
   have hx := xR_lt M
@@ -1244,12 +1293,12 @@ theorem nOfM_lt (M : Word → Word) : nOfM M < 272225893536750770770699685945414
   omega
 
 theorem dMem_q (M : Word → Word) :
-    dMem M (BitVec.ofNat 64 0x7000) = BitVec.ofNat 64 (nOfM M / 360 % 18446744073709551616) ∧
-    dMem M (BitVec.ofNat 64 0x7008) = BitVec.ofNat 64 (nOfM M / 360 / 18446744073709551616) := by
+    dMem M (BitVec.ofNat 64 0x7000) = BitVec.ofNat 64 (nOfM M / 5852 % 18446744073709551616) ∧
+    dMem M (BitVec.ofNat 64 0x7008) = BitVec.ofNat 64 (nOfM M / 5852 / 18446744073709551616) := by
   have l0 : d1Mem M (BitVec.ofNat 64 0x7000) = M (BitVec.ofNat 64 0x7000) := d1Mem_frame _ _ (by decide) (by decide)
   have l1 : d1Mem M (BitVec.ofNat 64 0x7008) = M (BitVec.ofNat 64 0x7008) := d1Mem_frame _ _ (by decide) (by decide)
-  have hT : (xR M >>> 33).toNat < 128 := shr29_lt _ (xR_lt M)
-  obtain ⟨-, a1, a2⟩ := r6_arith (xR M >>> 33) (M (BitVec.ofNat 64 0x7008)) (M (BitVec.ofNat 64 0x7000)) hT
+  have hT : (xR M >>> 29).toNat < 128 := shr29_lt _ (xR_lt M)
+  obtain ⟨-, a1, a2⟩ := r6_arith (xR M >>> 29) (M (BitVec.ofNat 64 0x7008)) (M (BitVec.ofNat 64 0x7000)) hT
   rw [xR_shr] at a1 a2
   have hn := nOfM_lt M
   unfold nOfM at hn
@@ -1265,7 +1314,7 @@ theorem dMem_q (M : Word → Word) :
     rw [a1, BitVec.toNat_ofNat]
     unfold nOfM
     generalize (M (BitVec.ofNat 64 0x7000)).toNat + (M (BitVec.ofNat 64 0x7008)).toNat * 18446744073709551616 +
-      (xR M).toNat / 8589934592 * 340282366920938463463374607431768211456 = N at hn ⊢
+      (xR M).toNat / 536870912 * 340282366920938463463374607431768211456 = N at hn ⊢
     omega
 
 theorem clearTop_lo (t : Nat) (ht : t ≤ 64) (d : SigGolfCandidate.T3.Digest) :
@@ -1320,9 +1369,9 @@ theorem decOut_eq {M : Word → Word} {b : T1C.CBytes} (h : SigMem M b) (k w : N
         else sibH (M (BitVec.ofNat 64 0x8448)) (xR M)) := by
       unfold decOut; rw [if_neg hd, if_pos h180]
     rw [e, h180, show SharedCodec.externalFullIndex 180 = 176 from rfl]
-    have hd176 : T1C.digC b 176 = BitVec.ofNat 128 (b.toNat / 2 ^ (64 * 648) % 2 ^ 66 +
-        T1C.xOfB b % 2 ^ 33 * 2 ^ 66) := by
-      unfold T1C.digC; rw [if_neg (by omega), if_neg (by omega), if_pos rfl, show (128:Nat) * 324 = 64 * 648 by norm_num]
+    have hd176 : T1C.digC b 176 = BitVec.ofNat 128 (b.toNat / 2 ^ (64 * 648) % 2 ^ 70 +
+        T1C.xOfB b % 2 ^ 29 * 2 ^ 70) := by
+      unfold T1C.digC; rw [if_neg (by omega), if_neg (by omega), if_pos rfl]
     rw [hd176]
     apply BitVec.eq_of_toNat_eq
     have hX := T1C.xOfB_lt b
@@ -1353,7 +1402,7 @@ theorem decOut_eq {M : Word → Word} {b : T1C.CBytes} (h : SigMem M b) (k w : N
   have hk' : ¬ (k = 13 ∨ k = 39 ∨ k = 65 ∨ k = 91 ∨ k = 181 ∨ k = 182 ∨ k = 183) := hd
   by_cases h0 : k = 0
   · subst h0
-    have hd0 : T1C.digC b 0 = BitVec.ofNat 128 (T1C.nOfB b / 360) := by unfold T1C.digC; rw [if_pos rfl]
+    have hd0 : T1C.digC b 0 = BitVec.ofNat 128 (T1C.nOfB b / 5852) := by unfold T1C.digC; rw [if_pos rfl]
     rw [show SharedCodec.externalFullIndex 0 = 0 from rfl, show srcK 0 = 0 from rfl, hd0]
     have hn := T1C.nOfB_lt b
     apply BitVec.eq_of_toNat_eq
@@ -1427,16 +1476,14 @@ theorem decOut_eq {M : Word → Word} {b : T1C.CBytes} (h : SigMem M b) (k w : N
     rw [d1Mem_frame _ _ (by omega) (by omega)]
 
 
-/-! ## N7g pre-pass (expand words 87500..87716 (Y5; N7g: 60734..60918), entered by `0: j 87500`, then `j 54569` = DEC)
+/-! ## N7g pre-pass (expand words 60734..60918, entered by `0: j 60734`, then `j 54569` = DEC)
 The 21 ground slots' top `gBits` bits carry V (top sibling bits 24..69, 46 bits): the pre-pass moves them back
 (`pre_spec`): V's low 40 bits go to bytes 3..7 of dword `0x8440` (`ld; slli 40; srli 40; or V << 24; sd`), its high
 6 bits to bytes 0..1 of `0x8448` (`sh`), turning the 5,187-byte signature into DEC's T1 layout (`sigMem_pre`,
 `digC_unpack`, `xOfB_unpack`). -/
-def cPre : List (BitVec 32) := (Images.expandY5Code.drop 3500).take 217
-/-- Y5: the pre-pass runs at 87500 (expand word 0 jumps there): the 21 N7g slot moves, the 4 heap-16..31 slots, the T1
-store with the 16-bit tail. -/
-theorem code_pre : CodeAt Images.expandImage (pcOf 87500) cPre :=
-  codeAt_sub 3500 codeAt_y5 (by decide) rfl
+def cPre : List (BitVec 32) := (Images.expandE11Code.drop 734).take 185
+theorem code_pre : CodeAt Images.expandImage (pcOf 60734) cPre :=
+  codeAt_e11_at 60734 (by decide) (by decide) (by decide)
 theorem replaceHalfword_toNat (w : BitVec 64) (pos : Nat) (hp : pos < 4) (b : BitVec 16) :
     (replaceHalfword w pos b).toNat =
       w.toNat % 2 ^ (16 * pos) + 2 ^ (16 * pos) * b.toNat + 2 ^ (16 * pos + 16) * (w.toNat / 2 ^ (16 * pos + 16)) := by
@@ -1498,13 +1545,13 @@ theorem extractByte_toNat_p (w : Word) (b : Nat) :
   rw [Nat.mul_comm b 8]
 
 def cfgU : Config := { noAlias := true }
-sym_block ePre := symRun cfgU cPre (pcOf 87500) 250
+sym_block ePre := symRun cfgU cPre (pcOf 60734) 200
 
 /-- Word `w` with its top `g` bits cleared. -/
 def clrW (g : Nat) (w : Word) : Word := BitVec.ofNat 64 (w.toNat % 2 ^ (64 - g))
 /-- The high dword of compact slot `k` at `0x7000`. -/
 def hiA (k : Nat) : Nat := 0x7000 + 16 * k + 8
-/-- N7g, Y5: the 50-bit V field read from the top `gBits` bits of the 25 ground slots' high dwords. -/
+/-- N7g: the 46-bit V field read from the top `gBits` bits of the 21 ground slots' high dwords. -/
 def vOfM (M : Word → Word) : Nat :=
   (M (BitVec.ofNat 64 (hiA 225))).toNat / 2 ^ 60 * 2 ^ 0 +
   (M (BitVec.ofNat 64 (hiA 224))).toNat / 2 ^ 61 * 2 ^ 4 +
@@ -1526,22 +1573,14 @@ def vOfM (M : Word → Word) : Nat :=
   (M (BitVec.ofNat 64 (hiA 73))).toNat / 2 ^ 62 * 2 ^ 38 +
   (M (BitVec.ofNat 64 (hiA 86))).toNat / 2 ^ 62 * 2 ^ 40 +
   (M (BitVec.ofNat 64 (hiA 98))).toNat / 2 ^ 62 * 2 ^ 42 +
-  (M (BitVec.ofNat 64 (hiA 111))).toNat / 2 ^ 62 * 2 ^ 44 +
-  (M (BitVec.ofNat 64 (hiA 10))).toNat / 2 ^ 63 * 2 ^ 46 +
-  (M (BitVec.ofNat 64 (hiA 22))).toNat / 2 ^ 63 * 2 ^ 47 +
-  (M (BitVec.ofNat 64 (hiA 35))).toNat / 2 ^ 63 * 2 ^ 48 +
-  (M (BitVec.ofNat 64 (hiA 47))).toNat / 2 ^ 63 * 2 ^ 49
+  (M (BitVec.ofNat 64 (hiA 111))).toNat / 2 ^ 62 * 2 ^ 44
 /-- The pre-pass memory: the 21 ground high dwords lose their top bits; V's low 40 bits go to bytes 3..7 of the
 dword `0x8440` (above the 3 tail bytes), its high 6 bits to bytes 0..1 of `0x8448`. -/
 def preMem (M : Word → Word) (A : Word) : Word :=
   if A = BitVec.ofNat 64 0x8448 then
-    BitVec.ofNat 64 (vOfM M / 2 ^ 48 + (M A).toNat / 2 ^ 16 * 2 ^ 16)
+    BitVec.ofNat 64 (vOfM M / 2 ^ 40 + (M A).toNat / 2 ^ 16 * 2 ^ 16)
   else if A = BitVec.ofNat 64 0x8440 then
-    BitVec.ofNat 64 ((M A).toNat % 2 ^ 16 + vOfM M % 2 ^ 48 * 2 ^ 16)
-  else if A = BitVec.ofNat 64 (hiA 47) then clrW 1 (M A)
-  else if A = BitVec.ofNat 64 (hiA 35) then clrW 1 (M A)
-  else if A = BitVec.ofNat 64 (hiA 22) then clrW 1 (M A)
-  else if A = BitVec.ofNat 64 (hiA 10) then clrW 1 (M A)
+    BitVec.ofNat 64 ((M A).toNat % 2 ^ 24 + vOfM M % 2 ^ 40 * 2 ^ 24)
   else if A = BitVec.ofNat 64 (hiA 111) then clrW 2 (M A)
   else if A = BitVec.ofNat 64 (hiA 98) then clrW 2 (M A)
   else if A = BitVec.ofNat 64 (hiA 86) then clrW 2 (M A)
@@ -1592,7 +1631,7 @@ theorem clr_val (w : Word) (g : Nat) (hg1 : 1 ≤ g) (hg : g ≤ 4) :
 def tE (a sh off : Nat) : E :=
   .bin .sll (.bin .srl (.un (.ld .bu 7) (.ld (.c (BitVec.ofNat 64 a)))) (.c (BitVec.ofNat 64 sh))) (.c (BitVec.ofNat 64 off))
 def vE : E :=
-  .bin .or (.bin .or (.bin .or (.bin .or (.bin .or (.bin .or (.bin .or (.bin .or (.bin .or (.bin .or (.bin .or (.bin .or (.bin .or (.bin .or (.bin .or (.bin .or (.bin .or (.bin .or (.bin .or (.bin .or (.bin .or (.bin .or (.bin .or (.bin .or (.bin .or (.c 0) (tE 0x7e18 4 0)) (tE 0x7e08 5 4)) (tE 0x7df8 6 7)) (tE 0x7de8 7 9)) (tE 0x8128 4 10)) (tE 0x8118 5 14)) (tE 0x8108 6 17)) (tE 0x80f8 7 19)) (tE 0x8438 4 20)) (tE 0x8428 5 24)) (tE 0x8418 6 27)) (tE 0x8408 7 29)) (tE 0x70b8 7 30)) (tE 0x7178 7 31)) (tE 0x7248 6 32)) (tE 0x7308 6 34)) (tE 0x73d8 6 36)) (tE 0x7498 6 38)) (tE 0x7568 6 40)) (tE 0x7628 6 42)) (tE 0x76f8 6 44)) (tE 0x70a8 7 46)) (tE 0x7168 7 47)) (tE 0x7238 7 48)) (tE 0x72f8 7 49)
+  .bin .or (.bin .or (.bin .or (.bin .or (.bin .or (.bin .or (.bin .or (.bin .or (.bin .or (.bin .or (.bin .or (.bin .or (.bin .or (.bin .or (.bin .or (.bin .or (.bin .or (.bin .or (.bin .or (.bin .or (.bin .or (.c 0) (tE 0x7e18 4 0)) (tE 0x7e08 5 4)) (tE 0x7df8 6 7)) (tE 0x7de8 7 9)) (tE 0x8128 4 10)) (tE 0x8118 5 14)) (tE 0x8108 6 17)) (tE 0x80f8 7 19)) (tE 0x8438 4 20)) (tE 0x8428 5 24)) (tE 0x8418 6 27)) (tE 0x8408 7 29)) (tE 0x70b8 7 30)) (tE 0x7178 7 31)) (tE 0x7248 6 32)) (tE 0x7308 6 34)) (tE 0x73d8 6 36)) (tE 0x7498 6 38)) (tE 0x7568 6 40)) (tE 0x7628 6 42)) (tE 0x76f8 6 44)
 
 theorem tE_eval (s : MachineState) (a sh off : Nat) (hsh : sh < 8) (hoff : off < 64) :
     (tE a sh off).eval s = ((extractByte (s.getMem (BitVec.ofNat 64 a)) 7).zeroExtend 64 >>> sh) <<< off := by
@@ -1615,7 +1654,7 @@ theorem or_step (x w : Word) (g sh off : Nat) (hg1 : 1 ≤ g) (hg : g ≤ 4) (hs
   refine ⟨?_, by omega⟩
   rw [toNat_or_shl _ _ _ hx (by rw [ht]; omega), ht]
 
-theorem vE_eval (s : MachineState) : ((vE.eval s).toNat = vOfM s.getMem) ∧ (vE.eval s).toNat < 2 ^ 50 := by
+theorem vE_eval (s : MachineState) : ((vE.eval s).toNat = vOfM s.getMem) ∧ (vE.eval s).toNat < 2 ^ 46 := by
   simp only [vE, E.eval, BinOp.eval]
   simp only [tE_eval s _ _ _ (by norm_num : (4 : Nat) < 8) (by norm_num : (0 : Nat) < 64),
     tE_eval s _ _ _ (by norm_num : (5 : Nat) < 8) (by norm_num : (4 : Nat) < 64),
@@ -1637,11 +1676,7 @@ theorem vE_eval (s : MachineState) : ((vE.eval s).toNat = vOfM s.getMem) ∧ (vE
     tE_eval s _ _ _ (by norm_num : (6 : Nat) < 8) (by norm_num : (38 : Nat) < 64),
     tE_eval s _ _ _ (by norm_num : (6 : Nat) < 8) (by norm_num : (40 : Nat) < 64),
     tE_eval s _ _ _ (by norm_num : (6 : Nat) < 8) (by norm_num : (42 : Nat) < 64),
-    tE_eval s _ _ _ (by norm_num : (6 : Nat) < 8) (by norm_num : (44 : Nat) < 64),
-    tE_eval s _ _ _ (by norm_num : (7 : Nat) < 8) (by norm_num : (46 : Nat) < 64),
-    tE_eval s _ _ _ (by norm_num : (7 : Nat) < 8) (by norm_num : (47 : Nat) < 64),
-    tE_eval s _ _ _ (by norm_num : (7 : Nat) < 8) (by norm_num : (48 : Nat) < 64),
-    tE_eval s _ _ _ (by norm_num : (7 : Nat) < 8) (by norm_num : (49 : Nat) < 64)]
+    tE_eval s _ _ _ (by norm_num : (6 : Nat) < 8) (by norm_num : (44 : Nat) < 64)]
   obtain ⟨e1, b1⟩ := or_step 0 (s.getMem (BitVec.ofNat 64 0x7e18)) 4 4 0 (by norm_num) (by norm_num) (by norm_num) (by simp) (by norm_num)
   obtain ⟨e2, b2⟩ := or_step _ (s.getMem (BitVec.ofNat 64 0x7e08)) 3 5 4 (by norm_num) (by norm_num) (by norm_num) (by rw [e1]; exact b1) (by norm_num)
   obtain ⟨e3, b3⟩ := or_step _ (s.getMem (BitVec.ofNat 64 0x7df8)) 2 6 7 (by norm_num) (by norm_num) (by norm_num) (by rw [e2]; exact b2) (by norm_num)
@@ -1663,16 +1698,12 @@ theorem vE_eval (s : MachineState) : ((vE.eval s).toNat = vOfM s.getMem) ∧ (vE
   obtain ⟨e19, b19⟩ := or_step _ (s.getMem (BitVec.ofNat 64 0x7568)) 2 6 40 (by norm_num) (by norm_num) (by norm_num) (by rw [e18]; exact b18) (by norm_num)
   obtain ⟨e20, b20⟩ := or_step _ (s.getMem (BitVec.ofNat 64 0x7628)) 2 6 42 (by norm_num) (by norm_num) (by norm_num) (by rw [e19]; exact b19) (by norm_num)
   obtain ⟨e21, b21⟩ := or_step _ (s.getMem (BitVec.ofNat 64 0x76f8)) 2 6 44 (by norm_num) (by norm_num) (by norm_num) (by rw [e20]; exact b20) (by norm_num)
-  obtain ⟨e22, b22⟩ := or_step _ (s.getMem (BitVec.ofNat 64 0x70a8)) 1 7 46 (by norm_num) (by norm_num) (by norm_num) (by rw [e21]; exact b21) (by norm_num)
-  obtain ⟨e23, b23⟩ := or_step _ (s.getMem (BitVec.ofNat 64 0x7168)) 1 7 47 (by norm_num) (by norm_num) (by norm_num) (by rw [e22]; exact b22) (by norm_num)
-  obtain ⟨e24, b24⟩ := or_step _ (s.getMem (BitVec.ofNat 64 0x7238)) 1 7 48 (by norm_num) (by norm_num) (by norm_num) (by rw [e23]; exact b23) (by norm_num)
-  obtain ⟨e25, b25⟩ := or_step _ (s.getMem (BitVec.ofNat 64 0x72f8)) 1 7 49 (by norm_num) (by norm_num) (by norm_num) (by rw [e24]; exact b24) (by norm_num)
   refine ⟨?_, ?_⟩
-  · rw [e25, e24, e23, e22, e21, e20, e19, e18, e17, e16, e15, e14, e13, e12, e11, e10, e9, e8, e7, e6, e5, e4, e3, e2, e1]
+  · rw [e21, e20, e19, e18, e17, e16, e15, e14, e13, e12, e11, e10, e9, e8, e7, e6, e5, e4, e3, e2, e1]
     simp only [vOfM, hiA]
     norm_num
     rfl
-  · rw [e25]; exact b25
+  · rw [e21]; exact b21
 
 theorem clr_eval (s : MachineState) (a g m : Nat) (hg1 : 1 ≤ g) (hg : g ≤ 4) (hm : m = 2 ^ (8 - g) - 1) :
     E.eval s (.bin (.st .b 7) (.ld (.c (BitVec.ofNat 64 a)))
@@ -1683,8 +1714,8 @@ theorem clr_eval (s : MachineState) (a g m : Nat) (hg1 : 1 ≤ g) (hg : g ≤ 4)
   exact clr_val _ g hg1 hg
 
 theorem v8448_eval (s : MachineState) :
-    E.eval s (.bin (.st .h 0) (.ld (.c (BitVec.ofNat 64 0x8448))) (.bin .srl vE (.c 48))) =
-      BitVec.ofNat 64 (vOfM s.getMem / 2 ^ 48 +
+    E.eval s (.bin (.st .h 0) (.ld (.c (BitVec.ofNat 64 0x8448))) (.bin .srl vE (.c 40))) =
+      BitVec.ofNat 64 (vOfM s.getMem / 2 ^ 40 +
         (s.getMem (BitVec.ofNat 64 0x8448)).toNat / 2 ^ 16 * 2 ^ 16) := by
   obtain ⟨hv, hvb⟩ := vE_eval s
   simp only [E.eval, BinOp.eval, StoreKind.merge]
@@ -1697,21 +1728,21 @@ theorem v8448_eval (s : MachineState) :
   have hW := (s.getMem (BitVec.ofNat 64 0x8448)).isLt
   generalize (s.getMem (BitVec.ofNat 64 0x8448)).toNat = W at hW ⊢
   generalize (E.eval s vE).toNat = T at hvb ⊢
-  rw [show BitVec.toNat (48 : Word) % 64 = 48 from rfl]
+  rw [show BitVec.toNat (40 : Word) % 64 = 40 from rfl]
   norm_num at hvb hW ⊢
   omega
 
-theorem lo16_or (x v : Word) :
-    ((x <<< (48 : Nat)) >>> (48 : Nat) ||| v <<< (16 : Nat)) =
-      BitVec.ofNat 64 (x.toNat % 2 ^ 16 + v.toNat % 2 ^ 48 * 2 ^ 16) := by
-  have e1 : (x <<< (48 : Nat)) >>> (48 : Nat) = BitVec.ofNat 64 (x.toNat % 2 ^ 16) := by
+theorem lo24_or (x v : Word) :
+    ((x <<< (40 : Nat)) >>> (40 : Nat) ||| v <<< (24 : Nat)) =
+      BitVec.ofNat 64 (x.toNat % 2 ^ 24 + v.toNat % 2 ^ 40 * 2 ^ 24) := by
+  have e1 : (x <<< (40 : Nat)) >>> (40 : Nat) = BitVec.ofNat 64 (x.toNat % 2 ^ 24) := by
     apply BitVec.eq_of_toNat_eq
     simp only [BitVec.toNat_ushiftRight, BitVec.toNat_shiftLeft, Nat.shiftLeft_eq, Nat.shiftRight_eq_div_pow,
       BitVec.toNat_ofNat]
     have := x.isLt
     norm_num at this ⊢
     omega
-  have e2 : v <<< (16 : Nat) = BitVec.ofNat 64 (v.toNat % 2 ^ 48) <<< (16 : Nat) := by
+  have e2 : v <<< (24 : Nat) = BitVec.ofNat 64 (v.toNat % 2 ^ 40) <<< (24 : Nat) := by
     apply BitVec.eq_of_toNat_eq
     simp only [BitVec.toNat_shiftLeft, Nat.shiftLeft_eq, BitVec.toNat_ofNat]
     have := v.isLt
@@ -1727,12 +1758,12 @@ theorem lo16_or (x v : Word) :
   omega
 
 theorem v8440_eval (s : MachineState) :
-    E.eval s (.bin .or (.bin .srl (.bin .sll (.ld (.c (BitVec.ofNat 64 0x8440))) (.c 48)) (.c 48)) (.bin .sll vE (.c 16))) =
-      BitVec.ofNat 64 ((s.getMem (BitVec.ofNat 64 0x8440)).toNat % 2 ^ 16 + vOfM s.getMem % 2 ^ 48 * 2 ^ 16) := by
+    E.eval s (.bin .or (.bin .srl (.bin .sll (.ld (.c (BitVec.ofNat 64 0x8440))) (.c 40)) (.c 40)) (.bin .sll vE (.c 24))) =
+      BitVec.ofNat 64 ((s.getMem (BitVec.ofNat 64 0x8440)).toNat % 2 ^ 24 + vOfM s.getMem % 2 ^ 40 * 2 ^ 24) := by
   obtain ⟨hv, hvb⟩ := vE_eval s
   simp only [E.eval, BinOp.eval]
-  show (s.getMem (BitVec.ofNat 64 0x8440) <<< (48 : Nat)) >>> (48 : Nat) ||| E.eval s vE <<< (16 : Nat) = _
-  rw [lo16_or, hv]
+  show (s.getMem (BitVec.ofNat 64 0x8440) <<< (40 : Nat)) >>> (40 : Nat) ||| E.eval s vE <<< (24 : Nat) = _
+  rw [lo24_or, hv]
 
 theorem pre_mem (s : MachineState) (A : Word) : (ePre.res.toState s).getMem A = preMem s.getMem A := by
   simp only [Result.toState_getMem, ePre.res, memEval_cons, memEval_nil, Addr.eval]
@@ -1744,18 +1775,6 @@ theorem pre_mem (s : MachineState) (A : Word) : (ePre.res.toState s).getMem A = 
   by_cases h00 : A = BitVec.ofNat 64 0x8440
   · subst h00; simp only [↓reduceIte]; exact v8440_eval s
   simp only [h00, ↓reduceIte]
-  by_cases hy0 : A = BitVec.ofNat 64 0x72f8
-  · subst hy0; simp only [↓reduceIte]; exact clr_eval s _ 1 _ (by norm_num) (by norm_num) (by norm_num)
-  simp only [hy0, ↓reduceIte]
-  by_cases hy1 : A = BitVec.ofNat 64 0x7238
-  · subst hy1; simp only [↓reduceIte]; exact clr_eval s _ 1 _ (by norm_num) (by norm_num) (by norm_num)
-  simp only [hy1, ↓reduceIte]
-  by_cases hy2 : A = BitVec.ofNat 64 0x7168
-  · subst hy2; simp only [↓reduceIte]; exact clr_eval s _ 1 _ (by norm_num) (by norm_num) (by norm_num)
-  simp only [hy2, ↓reduceIte]
-  by_cases hy3 : A = BitVec.ofNat 64 0x70a8
-  · subst hy3; simp only [↓reduceIte]; exact clr_eval s _ 1 _ (by norm_num) (by norm_num) (by norm_num)
-  simp only [hy3, ↓reduceIte]
   by_cases h1 : A = BitVec.ofNat 64 0x76f8
   · subst h1; simp only [↓reduceIte]; exact clr_eval s _ 2 _ (by norm_num) (by norm_num) (by norm_num)
   simp only [h1, ↓reduceIte]
@@ -1820,8 +1839,8 @@ theorem pre_mem (s : MachineState) (A : Word) : (ePre.res.toState s).getMem A = 
   · subst h21; simp only [↓reduceIte]; exact clr_eval s _ 4 _ (by norm_num) (by norm_num) (by norm_num)
   simp only [h21, ↓reduceIte]
 
-theorem pre_spec (s : MachineState) (hpc : s.pc = pcOf 87500) :
-    ∃ u, Steps Images.expandImage s 217 217 u ∧ u.pc = pcOf 54569 ∧
+theorem pre_spec (s : MachineState) (hpc : s.pc = pcOf 60734) :
+    ∃ u, Steps Images.expandImage s 185 185 u ∧ u.pc = pcOf 54569 ∧
       (∀ r ∈ [Reg.x7, .x28, .x29, .x30, .x31], u.getReg r = 0) ∧ RegsExcept s u [.x7, .x28, .x29, .x30, .x31] ∧
       ∀ A, u.getMem A = preMem s.getMem A := by
   refine ⟨_, symRun_sound ePre code_pre s hpc trivial, rfl, ?_, ?_, pre_mem s⟩
@@ -1831,14 +1850,14 @@ theorem pre_spec (s : MachineState) (hpc : s.pc = pcOf 87500) :
   · intro x hx
     cases x <;> first | (exfalso; simp at hx; done) | rfl
 
-/-! N7g codec bridge: the 5,186-byte signature `b` vs DEC's T1 layout `unpackB b` (tail 16 bits | V 50 bits). -/
+/-! N7g codec bridge: the 5,187-byte signature `b` vs DEC's T1 layout `unpackB b` (tail 24 bits | V 46 bits). -/
 
 /-- The T1-layout signature DEC reads after the pre-pass: ground slots with their top bits cleared, tail
-`2 tail bytes | V` (V at bits 16..65 of the top sibling). -/
+`3 tail bytes | V` (V at bits 24..69 of the top sibling). -/
 def dN (b : SharedCodec.CBytes) (c : Nat) : SigGolfCandidate.T3.Digest :=
   if SharedCodec.gBits c = 0 then SharedCodec.cDig b c else SharedCodec.clearTop (SharedCodec.gBits c) (SharedCodec.cDig b c)
 def unpackN (b : SharedCodec.CBytes) : Nat :=
-  digNat ((List.range 324).map (dN b)) + 2 ^ (128 * 324) * (b.toNat / 2 ^ (128 * 324) + SharedCodec.vOfB b * 2 ^ 16)
+  digNat ((List.range 324).map (dN b)) + 2 ^ (128 * 324) * (b.toNat / 2 ^ (128 * 324) + SharedCodec.vOfB b * 2 ^ 24)
 def unpackB (b : SharedCodec.CBytes) : T1C.CBytes := BitVec.ofNat _ (unpackN b)
 
 theorem topBits_lt (j : Nat) (d : SigGolfCandidate.T3.Digest) (hj : j ≤ 128) : SharedCodec.topBits j d < 2 ^ j := by
@@ -1846,16 +1865,16 @@ theorem topBits_lt (j : Nat) (d : SigGolfCandidate.T3.Digest) (hj : j ≤ 128) :
   rw [Nat.div_lt_iff_lt_mul (by positivity), ← Nat.pow_add, show j + (128 - j) = 128 by omega]
   exact d.isLt
 
-theorem vOfB_lt (b : SharedCodec.CBytes) : SharedCodec.vOfB b < 2 ^ 50 := SharedCodec.vOfB_lt b
+theorem vOfB_lt (b : SharedCodec.CBytes) : SharedCodec.vOfB b < 2 ^ 46 := SharedCodec.vOfB_lt b
 
-theorem tailN_lt (b : SharedCodec.CBytes) : b.toNat / 2 ^ (128 * 324) < 2 ^ 16 := by
+theorem tailN_lt (b : SharedCodec.CBytes) : b.toNat / 2 ^ (128 * 324) < 2 ^ 24 := by
   rw [Nat.div_lt_iff_lt_mul (by positivity), ← Nat.pow_add]
   exact b.isLt
 
 theorem unpackN_lt (b : SharedCodec.CBytes) : unpackN b < 2 ^ (8 * 5194) := by
   have h1 := digNat_lt ((List.range 324).map (dN b))
   rw [List.length_map, List.length_range] at h1
-  have h2 : b.toNat / 2 ^ (128 * 324) + SharedCodec.vOfB b * 2 ^ 16 < 2 ^ 80 := by
+  have h2 : b.toNat / 2 ^ (128 * 324) + SharedCodec.vOfB b * 2 ^ 24 < 2 ^ 80 := by
     have ht := tailN_lt b; have hv := vOfB_lt b
     generalize b.toNat / 2 ^ (128 * 324) = x at ht ⊢
     generalize SharedCodec.vOfB b = y at hv ⊢
@@ -1877,7 +1896,7 @@ theorem cDig_unpack (b : SharedCodec.CBytes) (c : Nat) (hc : c < 324) : T1C.cDig
   rfl
 
 theorem tail_unpack (b : SharedCodec.CBytes) :
-    (unpackB b).toNat / 2 ^ (128 * 324) = b.toNat / 2 ^ (128 * 324) + SharedCodec.vOfB b * 2 ^ 16 := by
+    (unpackB b).toNat / 2 ^ (128 * 324) = b.toNat / 2 ^ (128 * 324) + SharedCodec.vOfB b * 2 ^ 24 := by
   have h1 := digNat_lt ((List.range 324).map (dN b))
   rw [List.length_map, List.length_range] at h1
   rw [unpackB_toNat, unpackN, split_div _ _ _ h1]
@@ -1952,27 +1971,26 @@ theorem topBits_hi {M : Word → Word} {b : SharedCodec.CBytes} (h : SigMemC M b
 
 theorem vOfM_eq {M : Word → Word} {b : SharedCodec.CBytes} (h : SigMemC M b) : vOfM M = SharedCodec.vOfB b := by
   unfold vOfM SharedCodec.vOfB
-  rw [topBits_hi h 225 4 (by norm_num) (by norm_num), topBits_hi h 224 3 (by norm_num) (by norm_num), topBits_hi h 223 2 (by norm_num) (by norm_num), topBits_hi h 222 1 (by norm_num) (by norm_num), topBits_hi h 274 4 (by norm_num) (by norm_num), topBits_hi h 273 3 (by norm_num) (by norm_num), topBits_hi h 272 2 (by norm_num) (by norm_num), topBits_hi h 271 1 (by norm_num) (by norm_num), topBits_hi h 323 4 (by norm_num) (by norm_num), topBits_hi h 322 3 (by norm_num) (by norm_num), topBits_hi h 321 2 (by norm_num) (by norm_num), topBits_hi h 320 1 (by norm_num) (by norm_num), topBits_hi h 11 1 (by norm_num) (by norm_num), topBits_hi h 23 1 (by norm_num) (by norm_num), topBits_hi h 36 2 (by norm_num) (by norm_num), topBits_hi h 48 2 (by norm_num) (by norm_num), topBits_hi h 61 2 (by norm_num) (by norm_num), topBits_hi h 73 2 (by norm_num) (by norm_num), topBits_hi h 86 2 (by norm_num) (by norm_num), topBits_hi h 98 2 (by norm_num) (by norm_num), topBits_hi h 111 2 (by norm_num) (by norm_num), topBits_hi h 10 1 (by norm_num) (by norm_num), topBits_hi h 22 1 (by norm_num) (by norm_num), topBits_hi h 35 1 (by norm_num) (by norm_num), topBits_hi h 47 1 (by norm_num) (by norm_num)]
+  rw [topBits_hi h 225 4 (by norm_num) (by norm_num), topBits_hi h 224 3 (by norm_num) (by norm_num), topBits_hi h 223 2 (by norm_num) (by norm_num), topBits_hi h 222 1 (by norm_num) (by norm_num), topBits_hi h 274 4 (by norm_num) (by norm_num), topBits_hi h 273 3 (by norm_num) (by norm_num), topBits_hi h 272 2 (by norm_num) (by norm_num), topBits_hi h 271 1 (by norm_num) (by norm_num), topBits_hi h 323 4 (by norm_num) (by norm_num), topBits_hi h 322 3 (by norm_num) (by norm_num), topBits_hi h 321 2 (by norm_num) (by norm_num), topBits_hi h 320 1 (by norm_num) (by norm_num), topBits_hi h 11 1 (by norm_num) (by norm_num), topBits_hi h 23 1 (by norm_num) (by norm_num), topBits_hi h 36 2 (by norm_num) (by norm_num), topBits_hi h 48 2 (by norm_num) (by norm_num), topBits_hi h 61 2 (by norm_num) (by norm_num), topBits_hi h 73 2 (by norm_num) (by norm_num), topBits_hi h 86 2 (by norm_num) (by norm_num), topBits_hi h 98 2 (by norm_num) (by norm_num), topBits_hi h 111 2 (by norm_num) (by norm_num)]
   try norm_num
 
-/-- `preMem` off the 27 written dwords. -/
+/-- `preMem` off the 23 written dwords. -/
 theorem preMem_other (M : Word → Word) (A : Nat) (hA : A < 2 ^ 64) (h0 : A ≠ 0x8448) (h00 : A ≠ 0x8440)
-    (hg : ∀ c ∈ [47, 35, 22, 10, 111, 98, 86, 73, 61, 48, 36, 23, 11, 320, 321, 322, 323, 271, 272, 273, 274, 222, 223, 224, 225], A ≠ hiA c) :
+    (hg : ∀ c ∈ [111, 98, 86, 73, 61, 48, 36, 23, 11, 320, 321, 322, 323, 271, 272, 273, 274, 222, 223, 224, 225], A ≠ hiA c) :
     preMem M (BitVec.ofNat 64 A) = M (BitVec.ofNat 64 A) := by
   simp only [List.mem_cons, List.not_mem_nil, or_false, forall_eq_or_imp, forall_eq] at hg
-  obtain ⟨g1, g2, g3, g4, g5, g6, g7, g8, g9, g10, g11, g12, g13, g14, g15, g16, g17, g18, g19, g20, g21, g22, g23, g24, g25⟩ := hg
+  obtain ⟨g1, g2, g3, g4, g5, g6, g7, g8, g9, g10, g11, g12, g13, g14, g15, g16, g17, g18, g19, g20, g21⟩ := hg
   unfold preMem
   have n : ∀ c, A ≠ c → c < 2 ^ 64 → ¬ BitVec.ofNat 64 A = BitVec.ofNat 64 c := fun c h hc e => h (ofNat64_inj hA hc e)
   rw [if_neg (n _ h0 (by norm_num)), if_neg (n _ h00 (by norm_num)),
-    if_neg (n _ g1 (by unfold hiA; norm_num)), if_neg (n _ g2 (by unfold hiA; norm_num)), if_neg (n _ g3 (by unfold hiA; norm_num)), if_neg (n _ g4 (by unfold hiA; norm_num)), if_neg (n _ g5 (by unfold hiA; norm_num)), if_neg (n _ g6 (by unfold hiA; norm_num)), if_neg (n _ g7 (by unfold hiA; norm_num)), if_neg (n _ g8 (by unfold hiA; norm_num)), if_neg (n _ g9 (by unfold hiA; norm_num)), if_neg (n _ g10 (by unfold hiA; norm_num)), if_neg (n _ g11 (by unfold hiA; norm_num)), if_neg (n _ g12 (by unfold hiA; norm_num)), if_neg (n _ g13 (by unfold hiA; norm_num)), if_neg (n _ g14 (by unfold hiA; norm_num)), if_neg (n _ g15 (by unfold hiA; norm_num)), if_neg (n _ g16 (by unfold hiA; norm_num)), if_neg (n _ g17 (by unfold hiA; norm_num)), if_neg (n _ g18 (by unfold hiA; norm_num)), if_neg (n _ g19 (by unfold hiA; norm_num)), if_neg (n _ g20 (by unfold hiA; norm_num)), if_neg (n _ g21 (by unfold hiA; norm_num)), if_neg (n _ g22 (by unfold hiA; norm_num)), if_neg (n _ g23 (by unfold hiA; norm_num)), if_neg (n _ g24 (by unfold hiA; norm_num)), if_neg (n _ g25 (by unfold hiA; norm_num))]
+    if_neg (n _ g1 (by unfold hiA; norm_num)), if_neg (n _ g2 (by unfold hiA; norm_num)), if_neg (n _ g3 (by unfold hiA; norm_num)), if_neg (n _ g4 (by unfold hiA; norm_num)), if_neg (n _ g5 (by unfold hiA; norm_num)), if_neg (n _ g6 (by unfold hiA; norm_num)), if_neg (n _ g7 (by unfold hiA; norm_num)), if_neg (n _ g8 (by unfold hiA; norm_num)), if_neg (n _ g9 (by unfold hiA; norm_num)), if_neg (n _ g10 (by unfold hiA; norm_num)), if_neg (n _ g11 (by unfold hiA; norm_num)), if_neg (n _ g12 (by unfold hiA; norm_num)), if_neg (n _ g13 (by unfold hiA; norm_num)), if_neg (n _ g14 (by unfold hiA; norm_num)), if_neg (n _ g15 (by unfold hiA; norm_num)), if_neg (n _ g16 (by unfold hiA; norm_num)), if_neg (n _ g17 (by unfold hiA; norm_num)), if_neg (n _ g18 (by unfold hiA; norm_num)), if_neg (n _ g19 (by unfold hiA; norm_num)), if_neg (n _ g20 (by unfold hiA; norm_num)), if_neg (n _ g21 (by unfold hiA; norm_num))]
 
 theorem preMem_hi (M : Word → Word) (c : Nat) (hc : SharedCodec.gBits c ≠ 0) :
     preMem M (BitVec.ofNat 64 (hiA c)) = clrW (SharedCodec.gBits c) (M (BitVec.ofNat 64 (hiA c))) := by
   have hc' : c = 225 ∨ c = 224 ∨ c = 223 ∨ c = 222 ∨ c = 274 ∨ c = 273 ∨ c = 272 ∨ c = 271 ∨ c = 323 ∨ c = 322 ∨
-      c = 321 ∨ c = 320 ∨ c = 11 ∨ c = 23 ∨ c = 36 ∨ c = 48 ∨ c = 61 ∨ c = 73 ∨ c = 86 ∨ c = 98 ∨ c = 111 ∨
-      c = 10 ∨ c = 22 ∨ c = 35 ∨ c = 47 := by
+      c = 321 ∨ c = 320 ∨ c = 11 ∨ c = 23 ∨ c = 36 ∨ c = 48 ∨ c = 61 ∨ c = 73 ∨ c = 86 ∨ c = 98 ∨ c = 111 := by
     unfold SharedCodec.gBits at hc; split at hc <;> first | omega | (exact absurd rfl hc)
-  rcases hc' with rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl <;>
+  rcases hc' with rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl <;>
     simp (config := { decide := true }) [preMem, hiA, SharedCodec.gBits]
 
 theorem clearTop_hiW (g : Nat) (hg : g ≤ 64) (d : SigGolfCandidate.T3.Digest) :
@@ -1986,7 +2004,7 @@ theorem gBits_le (c : Nat) : SharedCodec.gBits c ≤ 4 := by unfold SharedCodec.
 
 theorem unpack_w648 (b : SharedCodec.CBytes) :
     (unpackB b).toNat / 2 ^ (64 * 648) % 2 ^ 64 =
-      b.toNat / 2 ^ (128 * 324) + SharedCodec.vOfB b % 2 ^ 48 * 2 ^ 16 := by
+      b.toNat / 2 ^ (128 * 324) + SharedCodec.vOfB b % 2 ^ 40 * 2 ^ 24 := by
   rw [show 64 * 648 = 128 * 324 by norm_num, tail_unpack]
   have ht := tailN_lt b; have hv := vOfB_lt b
   generalize b.toNat / 2 ^ (128 * 324) = T at ht ⊢
@@ -1995,7 +2013,7 @@ theorem unpack_w648 (b : SharedCodec.CBytes) :
   omega
 
 theorem unpack_w649 (b : SharedCodec.CBytes) :
-    (unpackB b).toNat / 2 ^ (64 * 649) = SharedCodec.vOfB b / 2 ^ 48 := by
+    (unpackB b).toNat / 2 ^ (64 * 649) = SharedCodec.vOfB b / 2 ^ 40 := by
   rw [show 64 * 649 = 128 * 324 + 64 by norm_num, Nat.pow_add, ← Nat.div_div_eq_div_mul, tail_unpack]
   have ht := tailN_lt b; have hv := vOfB_lt b
   generalize b.toNat / 2 ^ (128 * 324) = T at ht ⊢
@@ -2003,7 +2021,7 @@ theorem unpack_w649 (b : SharedCodec.CBytes) :
   norm_num at ht hv ⊢
   omega
 
-/-- The pre-pass turns the 5,186-byte signature into DEC's T1 layout `unpackB b`. -/
+/-- The pre-pass turns the 5,187-byte signature into DEC's T1 layout `unpackB b`. -/
 theorem sigMem_pre {M : Word → Word} {b : SharedCodec.CBytes} (h : SigMemC M b) :
     ClaudeWCT.W9.Machine.Expand.PrePass.SigMem (preMem M) (unpackB b) := by
   constructor
@@ -2033,7 +2051,7 @@ theorem sigMem_pre {M : Word → Word} {b : SharedCodec.CBytes} (h : SigMemC M b
         have hne : j / 2 ≠ c := fun e => by
           rw [e] at hg
           simp only [List.mem_cons, List.not_mem_nil, or_false] at hc'
-          rcases hc' with rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl <;>
+          rcases hc' with rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl <;>
             simp [SharedCodec.gBits] at hg
         unfold hiA at he; omega
       · rw [dN, if_neg hg]

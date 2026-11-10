@@ -2072,8 +2072,8 @@ theorem uniform_hash_low_expectation (payoff : Digest → ENNReal) :
     (SphincsSecurity.evalDist_hashOutput_extract_uniform (by decide : 128 ≤ SphincsSecurity.hashOutputBits))) payoff
 /-- R6 (F2): the rho-law constant `κ = ⌈2^256 / R⌉ / 2^128` (= 45.71875 up to the ceiling). -/
 noncomputable def rhoKappa : ENNReal := (((2 ^ 256 + R - 1) / R : Nat) : ENNReal) / (2 : ENNReal) ^ 128
-theorem rhoKappa_eq : rhoKappa = (15312706511442230855851857334429569516916 : ENNReal) / 2 ^ 128 := by
-  rw [rhoKappa, show (2 ^ 256 + R - 1) / R = 15312706511442230855851857334429569516916 by decide, Nat.cast_ofNat]
+theorem rhoKappa_eq : rhoKappa = (15557284462666655376466157833521152917877 : ENNReal) / 2 ^ 128 := by
+  rw [rhoKappa, show (2 ^ 256 + R - 1) / R = 15557284462666655376466157833521152917877 by decide, Nat.cast_ofNat]
 /-- Each residue class `d` (as a 128-bit digest) has at most `⌈2^256 / R⌉` preimages under `h ↦ h mod R`:
 `h ↦ h / R` injects the fibre into `range ⌈2^256 / R⌉`. -/
 theorem rhoMod_fibre_card (d : Digest) :

@@ -9,7 +9,7 @@ set_option linter.all false
 
 namespace SigGolfCandidate.T3.Security.BPB
 open OracleComp OracleSpec
-set_option debug.skipKernelTC true in
+set_option debug.skipKernelTC false in
 theorem shortHash_ok_low {input : HashInput} {hdr : Digest}
     (h : SigGolfCandidate.T3M.Extract.hdrBlock (pad64 input) = SphincsSecurity.bytesLE 16 hdr)
     (hm : tweakLow hdr ≠ 25984) : AllQueriesSatisfy (shortHash input) NotDigestQ := by
@@ -203,7 +203,7 @@ noncomputable def honestLaw : Proposal → ENNReal :=
 
 theorem sum_producer (g : Proposal → ENNReal) :
     (∑ a : HashOutput, if producer a = true then g (proposal a) else 0) =
-      ((929*2^62 : Nat) : ENNReal) * ∑ p : Proposal, if capOk p.2 = true then g p else 0 := by
+      ((926*2^62 : Nat) : ENNReal) * ∑ p : Proposal, if capOk p.2 = true then g p else 0 := by
   rw [← sum_admissible (fun p => if capOk p.2 = true then g p else 0)]
   apply Finset.sum_congr rfl
   intro a _
@@ -267,7 +267,7 @@ theorem sum_capOk_prod_one :
 
 theorem producer_acceptance_eq :
     Pr[fun a : HashOutput => producer a = true | ($ᵗ HashOutput : ProbComp HashOutput)] =
-      ((929*2^62 : Nat) : ENNReal) * (((2^31 : Nat) : ENNReal) * (capSet.card : ENNReal)) /
+      ((926*2^62 : Nat) : ENNReal) * (((2^31 : Nat) : ENNReal) * (capSet.card : ENNReal)) /
         (Fintype.card HashOutput : ENNReal) := by
   rw [← expectedValue_ite_one, BPORS.expected_uniform_eq_finiteAverage]
   unfold SigGolfResearch.Gate6.Moments.finiteAverage
@@ -288,8 +288,8 @@ theorem acceptedProposalHonest (g : Proposal → ENNReal) :
   set K := ((2^31 : Nat) : ENNReal)*(capSet.card : ENNReal)
   set S := ∑ p : Proposal, if capOk p.2 = true then g p else 0
   simp only [div_eq_mul_inv]
-  calc ((929*2^62 : Nat) : ENNReal)*S*(Fintype.card HashOutput : ENNReal)⁻¹
-      = ((929*2^62 : Nat) : ENNReal)*S*(Fintype.card HashOutput : ENNReal)⁻¹*(K⁻¹*K) := by
+  calc ((926*2^62 : Nat) : ENNReal)*S*(Fintype.card HashOutput : ENNReal)⁻¹
+      = ((926*2^62 : Nat) : ENNReal)*S*(Fintype.card HashOutput : ENNReal)⁻¹*(K⁻¹*K) := by
         rw [ENNReal.inv_mul_cancel hK hK', mul_one]
     _ = _ := by ring
 
@@ -522,7 +522,7 @@ theorem predicate_card_nat (p : SharedDigestFields.Fields → Prop) [DecidablePr
   simpa only [Nat.card_eq_fintype_card] using SharedDigestFields.predicate_card p
 
 theorem producer_card_fields : Nat.card {a : HashOutput // producer a = true} =
-    fieldRetained*2^31*929*2^76 := by
+    fieldRetained*2^31*926*2^76 := by
   have he := congrArg (fun p : HashOutput → Bool => Nat.card {a : HashOutput // p a = true}) producer_fields_eq
   calc _ = Nat.card {a : HashOutput // SharedDigestFields.accepted (SharedDigestFields.fields a) = true} := he
        _ = Nat.card {f : SharedDigestFields.Fields // SharedDigestFields.accepted f = true} * 2^76 := predicate_card_nat (fun f => SharedDigestFields.accepted f = true)
@@ -533,7 +533,7 @@ theorem uniform_card_bool {α : Type} [Fintype α] [SampleableType α] (p : α �
   rw [probEvent_uniformSample, ← Fintype.card_subtype, Nat.card_eq_fintype_card]
 
 theorem producer_card : Nat.card {a : HashOutput // producer a = true} =
-    929*2^62*(2^31*capSet.card) := by
+    926*2^62*(2^31*capSet.card) := by
   have he := producer_acceptance_eq
   rw [uniform_card_bool producer] at he
   have hn : (Fintype.card HashOutput : ENNReal) ≠ 0 := by
@@ -547,12 +547,12 @@ theorem producer_card : Nat.card {a : HashOutput // producer a = true} =
 theorem capSet_card_fields : capSet.card = fieldRetained*2^14 := by
   have h := producer_card_fields
   rw [producer_card] at h
-  have he : (929*2^93)*capSet.card = (929*2^93)*(fieldRetained*2^14) := by
+  have he : (926*2^93)*capSet.card = (926*2^93)*(fieldRetained*2^14) := by
     calc
-      _ = 929*2^62*(2^31*capSet.card) := by ring
-      _ = fieldRetained*2^31*929*2^76 := h
+      _ = 926*2^62*(2^31*capSet.card) := by ring
+      _ = fieldRetained*2^31*926*2^76 := h
       _ = _ := by ring
-  exact Nat.eq_of_mul_eq_mul_left (by norm_num : 0<929*2^93) he
+  exact Nat.eq_of_mul_eq_mul_left (by norm_num : 0<926*2^93) he
 
 theorem capSet_card_scaled : capSet.card*16 = count := by
   rw [capSet_card_fields]
@@ -634,11 +634,11 @@ set_option backward.isDefEq.respectTransparency false
 attribute [local instance] Classical.propDecidable
 attribute [local irreducible] Finset.univ
 
-/-- R6 (F3): `κ · Pr[producer] ≤ 28883/2500000` (Route C admBound), from the exact acceptance
-`ftsNum/ftsDen` and `κ = 15312706511442230855851857334429569516916/2^128` (relative slack: Z5R referee). -/
+/-- R6 (F3): `κ · Pr[producer] ≤ 29249/2500000` (Route C admBound), from the exact acceptance
+`ftsNum/ftsDen` and `κ = 15557284462666655376466157833521152917877/2^128` (relative slack: Z5R referee). -/
 theorem producerAcceptanceBound :
     SigGolfCandidate.T3.Security.LazyPrivate.rhoKappa *
-      Pr[fun a : HashOutput => producer a = true | ($ᵗ HashOutput : ProbComp HashOutput)] ≤ 28883/2500000 := by
+      Pr[fun a : HashOutput => producer a = true | ($ᵗ HashOutput : ProbComp HashOutput)] ≤ 29249/2500000 := by
   rw [producer_acceptance_exact, SigGolfCandidate.T3.Security.LazyPrivate.rhoKappa_eq]
   apply (ENNReal.toReal_le_toReal (by unfold ftsDen; finiteness) (by finiteness)).mp
   norm_num [ftsNum, ftsDen, ENNReal.toReal_div, ENNReal.toReal_mul]
@@ -647,8 +647,8 @@ theorem producerAcceptanceBound :
 Its infinite excess bound is never a security certificate: it is used only
 for generic accepted-output and cached-search expectation identities. -/
 noncomputable def lawSpec : FtsBankSpec Proposal where
-  specTheta := 2471117/2500000
-  admBound := 28883/2500000
+  specTheta := 2470751/2500000
+  admBound := 29249/2500000
   theta_add_admBound := by
     apply (ENNReal.toReal_eq_toReal_iff' (by finiteness)
       (by unfold SigGolfCandidate.T3.Security.CaseC.theta; finiteness)).mp
@@ -2847,17 +2847,16 @@ theorem allQ_ftsNonceSearch {P : SigGolfCandidate.T3.Spec.Domain → Prop} (coor
 /-- E8: a canonical FTS node (`ftsNodeG`) is the plain node or (heaps `8..15`) `ftsNodeHashN` trials. -/
 theorem allQ_ftsNodeG {P : SigGolfCandidate.T3.Spec.Domain → Prop} (coord index heap : Nat) (left right : Digest)
     (h0 : AllQueriesSatisfy (wctNodeHashH coord index heap left right) P)
-    (h : ∀ n, ftsGround coord heap → AllQueriesSatisfy (shortHash (ftsNodeInputN coord index heap n left right)) P) :
+    (h : ∀ n, 8 ≤ heap ∧ heap < 16 → AllQueriesSatisfy (ftsNodeHashN coord index heap n left right) P) :
     AllQueriesSatisfy (ftsNodeG coord index heap left right) P := by
   unfold ftsNodeG ftsNodeAt
   refine SigGolfCandidate.T3M.allQ_map _ ?_
   split
   · exact SigGolfCandidate.T3M.allQ_map _ h0
   · rename_i hb
-    have hg : ftsGround coord heap := by
+    have hg : 8 ≤ heap ∧ heap < 16 := by
       by_contra hn; exact hb (ftsZeroBits_off hn)
-    exact allQ_ftsNonceSearch coord index heap left right
-      (fun n => by unfold ftsNodeHashN; exact allQ_ftsHash_of_shortHash heap _ (h n hg)) _ 0
+    exact allQ_ftsNonceSearch coord index heap left right (fun n => h n hg) _ 0
 theorem ftsNodeInputN_eq_top (coord index heap n : Nat) (left right : Digest) :
     ftsNodeInputN coord index heap n left right =
       wctTopInput coord index heap left (BitVec.ofNat 128 (n % 2 ^ 64)) right := rfl
@@ -3083,7 +3082,7 @@ theorem sharedNode_allowed (first : Bool) (coord index heap : Nat)
       · exact highHash_allowed P hpublic _
       · exact shortHash_allowed P hpublic _
     · exact WCT9.allQ_ftsNodeG _ _ _ _ _ (nodeHashH_allowed P hpublic _ _ _ _ _)
-        (fun _ _ => shortHash_allowed P hpublic _)
+        (fun _ _ => by unfold WCT9.ftsNodeHashN; exact shortHash_allowed P hpublic _)
 include hpublic in
 theorem heapBuild_allowed (index coord : Nat) (padR : Digest) (leaves : List Digest) :
     AllQueriesSatisfy (WCT9.heapBuild index coord padR leaves) P := by

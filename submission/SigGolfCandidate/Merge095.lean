@@ -1577,7 +1577,7 @@ set_option maxRecDepth 100000
 /- kfix: no `first | (… decide +kernel) | …` here: under `debug.skipKernelTC` a false `decide +kernel` side goal
 never fails, so `first` always took `codeAt_sign_last` (needs `21760 ≤ b`) even for the low addresses. The slice lemma
 is now chosen by address, and the kernel checks this theorem. -/
-set_option debug.skipKernelTC true in
+set_option debug.skipKernelTC false in
 theorem installed_code : Code Images.signImage 1013 := by
   constructor
   · rfl

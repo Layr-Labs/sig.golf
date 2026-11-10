@@ -1,8 +1,9 @@
+import SigGolfCandidate.AllRouteSavings
 import SigGolfCandidate.Merge005
 import SigGolfCandidate.Merge008
 import SigGolfCandidate.Merge009
 import SigGolfCandidate.Merge010
-set_option debug.skipKernelTC true
+set_option debug.skipKernelTC false
 set_option linter.all false
 
 -- ==== merged from ClaudeWCT_WCT9_Core ====
@@ -737,22 +738,15 @@ Every FTS node of heap `8..15` (level 3 of each 128-leaf coordinate tree) is the
 of `ftsNodeHashN coord index heap n left right` (the node input with the 64-bit nonce at the pad, bytes 32..39) whose
 kept low half has its top `ftsZeroBits coord heap` bits clear; if no trial passes, the last one is kept. Coordinates
 0 and 1 demand 1 zero bit, coordinates 2..8 demand 2 (16 carrier bits); every other node has `b = 0` and is the
-plain `wctNodeHashH`. `n = 0` is the plain node input. Y5: the heap-16..31 nodes (level 4) of coordinates 0..3 are
-ground nodes too, with 1 zero bit (cap 256). -/
-def ftsZeroBits (coord heap : Nat) : Nat :=
-  if 8 ≤ heap ∧ heap < 16 then (if coord ≤ 1 then 1 else 2) else if 16 ≤ heap ∧ heap < 32 ∧ coord < 4 then 1 else 0
-/-- Y5: the FTS ground nodes (heap 8..15 of every coordinate, heap 16..31 of coordinates 0..3). -/
-def ftsGround (coord heap : Nat) : Prop := (8 ≤ heap ∧ heap < 16) ∨ (16 ≤ heap ∧ heap < 32 ∧ coord < 4)
-instance (coord heap : Nat) : Decidable (ftsGround coord heap) := inferInstanceAs (Decidable (_ ∨ _))
+plain `wctNodeHashH`. `n = 0` is the plain node input. -/
+def ftsZeroBits (coord heap : Nat) : Nat := if 8 ≤ heap ∧ heap < 16 then (if coord ≤ 1 then 1 else 2) else 0
 def ftsNonceCap (coord heap : Nat) : Nat := 128 * 2 ^ ftsZeroBits coord heap
 def ftsZeroOk (coord heap : Nat) (value : Digest) : Bool :=
   value.toNat / 2 ^ (128 - ftsZeroBits coord heap) == 0
 def ftsNodeInputN (coord index heap n : Nat) (left right : Digest) : HashInput :=
   bytesLE 16 left ++ bytesLE 16 (wctNodeHeader coord index heap) ++ nonceBytes n ++ bytesLE 16 right
-/-- Y5 (Y4 amendment): the trial hash keeps the used half of the node (`ftsHash`: the high half on even heaps ≥ 16),
-as SEARCH16 and verify do; on heaps 8..15 it is the low half (`ftsNodeHashN_lt16`). -/
 def ftsNodeHashN (coord index heap n : Nat) (left right : Digest) : M Digest :=
-  ftsHash heap (ftsNodeInputN coord index heap n left right)
+  shortHash (ftsNodeInputN coord index heap n left right)
 /-- Nonce search from trial `n` with `fuel` trials left; the last trial is kept. -/
 def ftsNonceSearch (coord index heap : Nat) (left right : Digest) : Nat → Nat → M (Nat × Digest)
   | 0, n => do
@@ -768,16 +762,8 @@ def ftsNodeAt (coord index heap : Nat) (left right : Digest) : M (Nat × Digest)
 /-- The canonical FTS node value. -/
 def ftsNodeG (coord index heap : Nat) (left right : Digest) : M Digest :=
   Prod.snd <$> ftsNodeAt coord index heap left right
-theorem ftsNodeHashN_lt16 {coord index heap n : Nat} (h4 : 4 ≤ heap) (h16 : heap < 16) (left right : Digest) :
-    ftsNodeHashN coord index heap n left right = shortHash (ftsNodeInputN coord index heap n left right) :=
-  ftsHash_of_low (ftsHighHeap_mid h4 h16) _
-theorem ftsZeroBits_off {coord heap : Nat} (h : ¬ ftsGround coord heap) : ftsZeroBits coord heap = 0 := by
-  unfold ftsGround at h; unfold ftsZeroBits; split_ifs <;> omega
-theorem ftsGround_ge8 {coord heap : Nat} (h : ftsGround coord heap) : 8 ≤ heap := by
-  unfold ftsGround at h; omega
-theorem ftsZeroBits_pos {coord heap : Nat} (h : ftsGround coord heap) : ftsZeroBits coord heap ≠ 0 := by
-  unfold ftsGround at h; unfold ftsZeroBits; split_ifs <;> omega
-theorem ftsGround_of_low {coord heap : Nat} (h : 8 ≤ heap ∧ heap < 16) : ftsGround coord heap := Or.inl h
+theorem ftsZeroBits_off {coord heap : Nat} (h : ¬ (8 ≤ heap ∧ heap < 16)) : ftsZeroBits coord heap = 0 := by
+  simp [ftsZeroBits, h]
 theorem ftsNodeAt_of_zero {coord index heap : Nat} (h : ftsZeroBits coord heap = 0) (left right : Digest) :
     ftsNodeAt coord index heap left right = (fun value => (0, value)) <$> wctNodeHashH coord index heap left right := by
   simp [ftsNodeAt, h]
@@ -918,6 +904,12 @@ Defined before the encoding selector because the top producer choice uses the ca
   2 on the top layer (the d6b head reads the hint first: honest
   LOW costs 4 cycles, HIGH 6). -/
 namespace CanonicalPolicy
+/-- One address setup saved by the first two path windows when their side bits differ. -/
+def topPairSave (leaf : Nat) : Nat := if leaf % 4 = 1 ∨ leaf % 4 = 2 then 1 else 0
+/-- Savings of the two six-level chunks of the top authentication path. -/
+def topPathSave (leaf : Nat) : Nat := topPairSave leaf + topPairSave (leaf / 64)
+/-- Root credit determined by the canonical top WOTS address. -/
+def routePool (leaf : Nat) : Nat := max 72 (74 - topPathSave leaf)
 /-- The credit pool every canonical path must reach. -/
 def totalCredit : Nat := 72
 /-- The (fixed) top credit floor (on the path-aware credit). -/
@@ -1495,28 +1487,25 @@ open OracleComp OracleSpec SigGolfCandidate.T3
 completeness over every256-bit message. It does not change the moment model. -/
 def ftsSearchLimit : Nat := 2 ^ 21
 
-/-- Layer-1 floors by residual `r ≤ 54` (= 72 - 18). Y5 (hint trim): floors from the alphabet `f1 ∈ {0, 8, 12, 14}`
-(re-optimised by residual; `r - floor < 41`, the layer-2 table length). -/
+/-- Layer-1 floors by residual `r ≤ 54` (= 72 - 18). Z7: soispoke's f25ef952 table (R1 law; floors 1 and 2
+never occur, the skip-2 alphabet `f1 ∈ {0, 3..15}`). -/
 def lowerOneThresholds : List Nat :=
-  [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,8,8,8,8,8,8,8,8,12,12,12,12,14,14]
+  [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+   3,3,4,5,6,7,8,9,10,10,11,12,13,14,15]
 
-/-- Layer-2 floors by residual `r ≤ 40` (Y5: alphabet `f2 ∈ {0, 9, 13, 15, 17, 18}`; `r - floor < 23`). -/
+/-- Layer-2 floors by residual `r ≤ 39` (Z7: f25ef952's re-optimised table). -/
 def lowerTwoThresholds : List Nat :=
-  [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,9,9,9,9,9,9,9,9,9,13,13,13,15,15,15,17,17,18]
+  [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,2,3,3,4,5,6,7,8,9,10,11,12,13,13,14,15,16,17,18]
 
-/-- Y5 (hint trim): the layer-3 floor at residual `r ≤ 22`, the least element of the alphabet `{6, 9..22}` that is
-`≥ r`. -/
-def lowerThreeFloor (r : Nat) : Nat := if r ≤ 6 then 6 else if r ≤ 8 then 9 else r
-
-/-- Largest lower floor (L3 floors reach 22; Y5: policy hints use the mixed radix 529 / 23 / 1, bound 8192). -/
-def lowerFloorMax : Nat := 22
+/-- Largest lower floor (L3 floors reach 21; policy hints use the mixed radix 484 / 22 / 1, bound 7744). -/
+def lowerFloorMax : Nat := 21
 
 /-- Out-of-range lower residuals deliberately have an impossible threshold. -/
 def threshold (stage residual : Nat) : Nat :=
-  if stage = 0 then topFloor
+  if stage = 0 then max topFloor (residual - 54)
   else if stage = 1 then lowerOneThresholds.getD residual 301
   else if stage = 2 then lowerTwoThresholds.getD residual 301
-  else if stage = 3 ∧ residual ≤ 22 then lowerThreeFloor residual
+  else if stage = 3 ∧ residual ≤ 21 then residual
   else 301
 
 /-- Producer decode of a complete 256-bit answer: the canonically selected word's digits and the selected
@@ -1574,7 +1563,7 @@ theorem producerDecodeOut_credit {lay : Layer} {floor : Nat} {answer : HashOutpu
     {low : Bool} (h : producerDecodeOut lay floor answer = some (digits, low)) : floor ≤ credit lay low digits :=
   producerDecodeAt_credit (producerDecodeOut_spec h).2
 
-theorem threshold_top (residual : Nat) : threshold 0 residual = 18 := by
+theorem threshold_top (residual : Nat) : threshold 0 residual = max 18 (residual - 54) := by
   simp [threshold, topFloor]
 
 theorem nextResidual_le (residual : Nat) (lay : Layer) (low : Bool) (digits : List Nat) :
@@ -1586,7 +1575,7 @@ theorem residual_composition (residual : Nat) (lay₁ lay₂ : Layer) (low₁ lo
       residual - (credit lay₁ low₁ digits₁ + credit lay₂ low₂ digits₂) := by
   simp [nextResidual, Nat.sub_sub]
 
-theorem threshold_zero : threshold 1 0 = 0 ∧ threshold 2 0 = 0 ∧ threshold 3 0 = 6 := by
+theorem threshold_zero : threshold 1 0 = 0 ∧ threshold 2 0 = 0 ∧ threshold 3 0 = 0 := by
   decide
 
 end ClaudeWCT.WCT9.CanonicalPolicy
@@ -1597,24 +1586,27 @@ set_option maxRecDepth 10000
 set_option maxHeartbeats 1000000
 
 theorem lower_one_progress : ∀ r : Fin 55,
-    threshold 1 r.val ≤ 19 ∧ r.val - threshold 1 r.val < 41 := by decide +kernel
+    threshold 1 r.val ≤ 19 ∧ r.val - threshold 1 r.val < 40 := by decide +kernel
 
 /-- img-v6: every L1 floor is below 16 (the hint's leading digit `f1 ≤ 15`). -/
 theorem lower_one_floor_lt : ∀ r : Fin 55, threshold 1 r.val < 16 := by decide +kernel
 
-theorem lower_two_progress : ∀ r : Fin 41,
-    threshold 2 r.val ≤ 19 ∧ r.val - threshold 2 r.val < 23 := by decide +kernel
+theorem lower_two_progress : ∀ r : Fin 40,
+    threshold 2 r.val ≤ 19 ∧ r.val - threshold 2 r.val < 22 := by decide +kernel
 
 /-- P0: every L2 floor is at most 18 (the L1/L2 tail window `2^21` covers floors up to 18). -/
-theorem lower_two_floor_le : ∀ r : Fin 41, threshold 2 r.val ≤ 18 := by decide +kernel
+theorem lower_two_floor_le : ∀ r : Fin 40, threshold 2 r.val ≤ 18 := by decide +kernel
 
-theorem lower_three_progress (r : Nat) (hr : r < 23) :
-    threshold 3 r = lowerThreeFloor r := by simp [threshold, show r ≤ 22 by omega]
+theorem lower_three_progress (r : Nat) (hr : r < 22) :
+    threshold 3 r = r := by simp [threshold, show r ≤ 21 by omega]
 
-/-- Y5: the layer-3 floor covers the residual and stays at most 22. -/
-theorem lowerThreeFloor_ge (r : Nat) : r ≤ lowerThreeFloor r := by unfold lowerThreeFloor; split_ifs <;> omega
-theorem lowerThreeFloor_le (r : Nat) (hr : r < 23) : lowerThreeFloor r ≤ 22 := by
-  unfold lowerThreeFloor; split_ifs <;> omega
+theorem accepted_top_residual_pool (pool : Nat) {low : Bool} {answer : Digest} {digits : List Nat}
+    (h : producerDecodeAt 0 (max 18 (pool - 54)) low answer = some digits) :
+    nextResidual pool 0 low digits < 55 := by
+  have hc := producerDecodeAt_credit h
+  have hm := Nat.le_max_right 18 (pool - 54)
+  unfold nextResidual
+  omega
 
 theorem accepted_top_residual {answer : Digest} {low : Bool} {digits : List Nat}
     (h : producerDecodeAt 0 18 low answer = some digits) : nextResidual 72 0 low digits < 55 := by
@@ -1624,26 +1616,26 @@ theorem accepted_top_residual {answer : Digest} {low : Bool} {digits : List Nat}
 
 theorem accepted_one_residual (r : Fin 55) {answer : Digest} {low : Bool} {digits : List Nat}
     (h : producerDecodeAt 1 (threshold 1 r.val) low answer = some digits) :
-    nextResidual r.val 1 low digits < 41 := by
+    nextResidual r.val 1 low digits < 40 := by
   have hc := producerDecodeAt_credit h
   have hp := (lower_one_progress r).2
   unfold nextResidual
   omega
 
-theorem accepted_two_residual (r : Fin 41) {answer : Digest} {low : Bool} {digits : List Nat}
+theorem accepted_two_residual (r : Fin 40) {answer : Digest} {low : Bool} {digits : List Nat}
     (h : producerDecodeAt 2 (threshold 2 r.val) low answer = some digits) :
-    nextResidual r.val 2 low digits < 23 := by
+    nextResidual r.val 2 low digits < 22 := by
   have hc := producerDecodeAt_credit h
   have hp := (lower_two_progress r).2
   unfold nextResidual
   omega
 
-theorem accepted_three_residual (r : Fin 23) {answer : Digest} {low : Bool} {digits : List Nat}
+theorem accepted_three_residual (r : Fin 22) {answer : Digest} {low : Bool} {digits : List Nat}
     (h : producerDecodeAt 3 (threshold 3 r.val) low answer = some digits) :
     nextResidual r.val 3 low digits = 0 := by
   have hc := producerDecodeAt_credit h
   rw [lower_three_progress r.val r.isLt] at hc
-  exact Nat.sub_eq_zero_of_le ((lowerThreeFloor_ge _).trans hc)
+  exact Nat.sub_eq_zero_of_le hc
 
 end ClaudeWCT.WCT9.CanonicalPolicy
 end

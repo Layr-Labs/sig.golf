@@ -239,9 +239,9 @@ theorem large_closing_real (y excess : ℝ) (hlow : 1000 / 4194304 ≤ y)
     linarith
   nlinarith
 
-/-- Cap-777 large-query closing: the thinned excess envelope `(99076/100000)·y` on `y ≥ 3/2500`. -/
+/-- Cap-777 large-query closing: the thinned excess envelope `(98000/100000)·y` on `y ≥ 3/2500`. -/
 theorem large_closing_real_cap777 (y excess : ℝ) (hlow : 2163 / 1000000 ≤ y)
-    (hexcess : excess ≤ (99076 / 100000) * y) :
+    (hexcess : excess ≤ (98000 / 100000) * y) :
     (2 * y - y ^ 2) + y * excess + y * (1 / 2 ^ 25) +
       y * (1 / 2 ^ 50) + 1 / 2 ^ 131 +
       (y / 2 ^ 18 + 1 / 2 ^ 700 + 1 / 2 ^ 152 + y / 2 ^ 128) ≤ 2 * y := by

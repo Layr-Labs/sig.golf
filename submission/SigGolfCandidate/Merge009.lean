@@ -3,7 +3,7 @@ import SigGolfCandidate.Merge005
 import SigGolfCandidate.Merge006
 import SigGolfCandidate.Merge007
 import SigGolfCandidate.Merge008
-set_option debug.skipKernelTC true
+set_option debug.skipKernelTC false
 set_option linter.all false
 
 -- ==== merged from T3_Core ====
@@ -152,13 +152,13 @@ def privateMacKey : M SiggolfT3Mac4.MacKey := do
 def privateMac (region : Region) : M HashOutput := do
   let key ← privateMacKey
   pure (SiggolfT3Mac4.encodeTag (SiggolfT3Mac4.macTag key (List.ofFn region)))
-/-- R6 (F1), Y5 (hint trim): the rho modulus `R = ⌊2^131 / 360⌋ < 2^123`; the compact field `N = rho * 360 + t`
-(`t < 360`) then fits 131 bits, and `N < R * 360 = 2^131 - 248` is the canonical range. -/
-def R : Nat := 7561830376020854743630546831817071365
-theorem R_eq : R = 2 ^ 131 / 360 := by decide
+/-- R6 (F1): the rho modulus `R = ⌊2^135 / 5852⌋ < 2^123`; the compact field `N = rho * 5852 + t` (`t < 5852`) then
+fits 135 bits, and `N < R * 5852 = 2^135 - 1044` is the canonical range. -/
+def R : Nat := 7442949925816835837886525931521929437
+theorem R_eq : R = 2 ^ 135 / 5852 := by decide
 theorem R_pos : 0 < R := by decide
 theorem R_lt : R < 2 ^ 123 := by decide
-theorem R_mul_lt : R * 360 < 2 ^ 131 := by decide
+theorem R_mul_lt : R * 5852 < 2 ^ 135 := by decide
 /-- R6 (F1): rho is the full 256-bit private hash reduced mod `R`. -/
 def rhoMod (h : HashOutput) : Nat := h.toNat % R
 theorem rhoMod_lt (h : HashOutput) : rhoMod h < R := Nat.mod_lt _ R_pos

@@ -1,6 +1,6 @@
 import SigGolfCandidate.PathBlock
 import SigGolfCandidate.OneLabelArithmetic
-set_option debug.skipKernelTC true
+set_option debug.skipKernelTC false
 set_option maxHeartbeats 2000000
 set_option maxRecDepth 100000
 open SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64 SigGolfCandidate.Rv

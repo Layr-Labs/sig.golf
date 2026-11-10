@@ -5,7 +5,7 @@ set_option linter.all false
 
 /-! # E8 stage 2: completeness of the FTS ground nodes
 
-Every FTS node of heap `8..15` (Y5: and of heap `16..31` on coordinates `0..3`) is a first-nonce search (`ftsNodeAt`) with cap `128 · 2^b`; on exhaustion it keeps the
+Every FTS node of heap `8..15` is a first-nonce search (`ftsNodeAt`) with cap `128 · 2^b`; on exhaustion it keeps the
 last trial, whose top `b` bits may be set. The codec stores carrier bits there (`FtsPathOK`), so completeness needs
 `FtsTreesOK`: every heap-`8..15` node of every FTS forest index passes its zero test.
 
@@ -36,10 +36,9 @@ set_option backward.isDefEq.respectTransparency false
 
 /-! ## The check -/
 
-/-- Do the ground nodes (heaps `8..15`; Y5: and `16..31`, trivially on coordinates `4..8`) of one coordinate tree
-pass their zero tests? -/
+/-- Do the ground nodes (heaps `8..15`) of one coordinate tree pass their zero tests? -/
 def ftsTreeOK (coord : Nat) (nodes : Array Digest) : Bool :=
-  (List.range' 8 24).all fun heap => ftsZeroOk coord heap (nodes.getD heap 0)
+  (List.range' 8 8).all fun heap => ftsZeroOk coord heap (nodes.getD heap 0)
 
 /-- The child and rank at which `ftsCheck` builds a coordinate (the nodes do not depend on them). -/
 def child0 : Child := ⟨0, by decide⟩
@@ -86,7 +85,7 @@ open SigGolfCandidate.T3.Correctness
 attribute [local irreducible] sharedNodes
 
 theorem ftsTreeOK_at {coord : Nat} {nodes : Array Digest} (h : ftsTreeOK coord nodes = true) {heap : Nat}
-    (h8 : 8 ≤ heap) (h16 : heap < 32) : ftsZeroOk coord heap (nodes.getD heap 0) = true := by
+    (h8 : 8 ≤ heap) (h16 : heap < 16) : ftsZeroOk coord heap (nodes.getD heap 0) = true := by
   unfold ftsTreeOK at h
   rw [List.all_eq_true] at h
   exact h heap (List.mem_range'_1.mpr ⟨h8, by omega⟩)
@@ -177,10 +176,10 @@ theorem hoF_ftsNonceSearch (coord index heap : Nat) (left right : Digest) :
   induction fuel with
   | zero =>
       intro n; unfold ftsNonceSearch ftsNodeHashN
-      exact hashOnly_bind (hoF_ftsHash _ _) fun _ => hashOnly_pure _
+      exact hashOnly_bind (hashOnly_shortHash _) fun _ => hashOnly_pure _
   | succ fuel ih =>
       intro n; unfold ftsNonceSearch
-      refine hashOnly_bind (by unfold ftsNodeHashN; exact hoF_ftsHash _ _) fun _ => ?_
+      refine hashOnly_bind (by unfold ftsNodeHashN; exact hashOnly_shortHash _) fun _ => ?_
       split
       · exact hashOnly_pure _
       · exact ih _
@@ -245,7 +244,7 @@ theorem nodeHdr_ne_cross (hS : GroundSet j S) (hi : i < 2 ^ 31) (hij : i ≠ j) 
   intro c x hs he
   have hp := hS c x hs
   obtain ⟨-, e2, -⟩ := ClaudeWCT.WCT9.wctNodeHeader_injective hc hi hh hp.1 hp.2.1
-    (by have := hp.heap; omega) he
+    (by have := hp.2.2.2; omega) he
   exact hij e2
 
 theorem xF_chain (coord selected k start count : Nat) (value : Digest) (hi : k < 6) :
@@ -265,7 +264,7 @@ theorem xF_buildChildH (hS : GroundSet j S) (heap coord selected : Nat) (word : 
     unfold ClaudeWCT.WCT9.leafHashH
     refine notF_ftsHash heap (hdr := ClaudeWCT.WCT9.ftsLeafHeader i coord selected) ?_
       (fun c x hs he => ClaudeWCT.WCT9.ftsLeafHeader_ne_wctNodeHeader i coord selected (hS c x hs).1 j x
-        (by have := (hS c x hs).heap; omega) he)
+        (by have := (hS c x hs).2.2; omega) he)
     unfold ClaudeWCT.WCT9.leafInputP
     simpa only [List.append_assoc] using
       queryHeader_padded (bytesLE 16 (st.1.getD 0 0)) (bytesLE 16 pad ++ (st.1.drop 1).flatMap (bytesLE 16))
@@ -296,7 +295,8 @@ theorem xF_sharedNode (hS : GroundSet j S) (hi : i < 2 ^ 31) (hij : i ≠ j) (fi
     · refine ClaudeWCT.WCT9.allQ_ftsNodeG _ _ _ _ _ ?_ (fun n _ => ?_)
       · unfold ClaudeWCT.WCT9.wctNodeHashH
         exact notF_ftsHash heap (nodeH_header ..) hne
-      · exact notF_shortHash (fTrial_header coord i heap n left right) hne
+      · unfold ftsNodeHashN
+        exact notF_shortHash (fTrial_header coord i heap n left right) hne
 
 theorem allQ_foldlM_mem {α β : Type} {P : Spec.Domain → Prop} (f : α → β → M α) :
     ∀ (l : List β) (init : α), (∀ a, ∀ b ∈ l, AllQueriesSatisfy (f a b) P) →
@@ -344,7 +344,9 @@ noncomputable def fcap (b : Nat) : ℝ≥0∞ := (1 - ((2 : ℝ≥0∞) ^ b)⁻�
 /-- `(81/256)^128 = (3/4)^512`: a bound on every FTS ground cap failure (`b ∈ {1, 2}`). -/
 noncomputable def cF : ℝ≥0∞ := ENNReal.ofReal ((81 / 256 : ℝ) ^ 128)
 
-theorem fcap_le_of (b : Nat) (hb : b = 1 ∨ b = 2) : fcap b ≤ cF := by
+theorem fcap_le (coord : Nat) : fcap (ftsZeroBits coord 8) ≤ cF := by
+  have hb : ftsZeroBits coord 8 = 1 ∨ ftsZeroBits coord 8 = 2 := by
+    unfold ftsZeroBits; split_ifs <;> simp_all
   have key : ∀ b : Nat, fcap b = ENNReal.ofReal ((1 - 1 / 2 ^ b : ℝ) ^ (128 * 2 ^ b)) := by
     intro b
     unfold fcap
@@ -363,9 +365,6 @@ theorem fcap_le_of (b : Nat) (hb : b = 1 ∨ b = 2) : fcap b ≤ cF := by
   · rw [show 128 * 2 ^ 2 = 4 * 128 from rfl, pow_mul]
     exact pow_le_pow_left₀ (by norm_num) (by norm_num) 128
 
-theorem fcap_le (coord : Nat) : fcap (ftsZeroBits coord 8) ≤ cF :=
-  fcap_le_of _ (by unfold ftsZeroBits; split_ifs <;> simp_all)
-
 theorem capF_step (p B : ℝ≥0∞) (hp : p ≤ 1) (k : Nat) :
     p * B + (1 - p) * (B + (1 - p) ^ (k + 1)) ≤ B + (1 - p) ^ (k + 1 + 1) := by
   rw [mul_add, ← add_assoc, ← add_mul, add_tsub_cancel_of_le hp, one_mul, ← pow_succ']
@@ -374,7 +373,7 @@ theorem capF_tail (p B : ℝ≥0∞) (hp : p ≤ 1) : p * B + (1 - p) * 1 ≤ B 
   rw [mul_one, zero_add, pow_one]
   exact add_le_add (mul_le_of_le_one_left (by positivity) hp) le_rfl
 
-theorem ftsZeroOk_off {coord heap : Nat} (h : ¬ ClaudeWCT.WCT9.ftsGround coord heap) (v : Digest) :
+theorem ftsZeroOk_off {coord heap : Nat} (h : ¬ (8 ≤ heap ∧ heap < 16)) (v : Digest) :
     ftsZeroOk coord heap v = true := by
   unfold ftsZeroOk
   rw [ClaudeWCT.WCT9.ftsZeroBits_off h]
@@ -387,21 +386,16 @@ theorem ftsZeroOk_ground {coord heap : Nat} (h8 : 8 ≤ heap) (h16 : heap < 16) 
   unfold ftsZeroOk
   rw [ftsZeroBits_ground ⟨h8, h16⟩]
 
-theorem ftsZeroOk_ground16 {coord heap : Nat} (h16 : 16 ≤ heap) (h32 : heap < 32) (v : Digest) :
-    ftsZeroOk coord heap v = ftsZeroOk coord 16 v := by
-  unfold ftsZeroOk
-  rw [ftsZeroBits_ground16 ⟨h16, h32⟩]
-
 /-- Value-weighted FTS nonce-search bound, fuel-indexed (copy of U16b's `Ev_lowerNonceSearch_fuel`). -/
 theorem Ev_ftsNonceSearch_fuel {β : Type} (secret : BitVec 256) (coord index heap : Nat) (left right : Digest)
     (next : Nat × Digest → M β) (F : β × RCache → ℝ≥0∞) (G : RCache → Prop) (w : Digest → ℝ≥0∞) (b : Nat → ℝ≥0∞)
     (hG : ∀ cache, G cache → ∀ k answer, G (cache.cacheQuery (fTrial coord index heap k left right) answer))
     (hnext : ∀ cache, G cache → ∀ k answer,
-      Ev secret (next (k, fVal heap answer)) (cache.cacheQuery (fTrial coord index heap k left right) answer) F ≤
-        w (fVal heap answer))
+      Ev secret (next (k, fVal answer)) (cache.cacheQuery (fTrial coord index heap k left right) answer) F ≤
+        w (fVal answer))
     (hstep : ∀ k, expectedValue ($ᵗ HashOutput : ProbComp HashOutput)
-      (fun answer => if ftsZeroOk coord heap (fVal heap answer) then w (fVal heap answer) else b k) ≤ b (k + 1))
-    (htail : expectedValue ($ᵗ HashOutput : ProbComp HashOutput) (fun answer => w (fVal heap answer)) ≤ b 0) :
+      (fun answer => if ftsZeroOk coord heap (fVal answer) then w (fVal answer) else b k) ≤ b (k + 1))
+    (htail : expectedValue ($ᵗ HashOutput : ProbComp HashOutput) (fun answer => w (fVal answer)) ≤ b 0) :
     ∀ fuel n, n + fuel < 2 ^ 64 → ∀ cache, G cache →
       (∀ k, n ≤ k → k ≤ n + fuel → cache (fTrial coord index heap k left right) = none) →
       Ev secret (ftsNonceSearch coord index heap left right fuel n >>= next) cache F ≤ b fuel := by
@@ -434,13 +428,15 @@ theorem E_fnode {β : Type} (secret : BitVec 256) (coord index heap : Nat) (hp :
       FreshF index (fun c x => S c x ∧ ¬ (c = coord ∧ x = heap)) cache → Ev secret (next v) cache F ≤ B)
     (cache : RCache) (hfresh : FreshF index S cache) (hin : S coord heap) :
     Ev secret (ftsNodeG coord index heap left right >>= next) cache F ≤ B + fcap (ftsZeroBits coord heap) := by
+  have hg : 8 ≤ heap ∧ heap < 16 := ⟨hp.2.2.1, hp.2.2.2⟩
   have hpres : ∀ (c : RCache) k ans, FreshF index (fun c x => S c x ∧ ¬ (c = coord ∧ x = heap)) c →
       FreshF index (fun c x => S c x ∧ ¬ (c = coord ∧ x = heap))
         (c.cacheQuery (fTrial coord index heap k left right) ans) := by
     intro c k ans hc x y hxy n l r
     exact (QueryCache.cacheQuery_of_ne (cache := c) ans
       (fTrial_ne hp (hS x y hxy.1) hxy.2 k n left right l r)).trans (hc x y hxy n l r)
-  have hb : ftsZeroBits coord heap ≠ 0 := ClaudeWCT.WCT9.ftsZeroBits_pos hp.2.2
+  have hb : ftsZeroBits coord heap ≠ 0 := by
+    simp only [ftsZeroBits, if_pos hg]; split <;> omega
   unfold ftsNodeG
   rw [bind_map_left]
   unfold ftsNodeAt
@@ -472,28 +468,20 @@ theorem E_fnode {β : Type} (secret : BitVec 256) (coord index heap : Nat) (hp :
       exact hnext _ _ hok (hpres σ k ans hσ)
     · exact Ev_le_of_support secret _ _ (fun r _ => hF r)
   · intro k
-    have he : (fun answer => if ftsZeroOk coord heap (fVal heap answer) = true then
-        (if ftsZeroOk coord heap (fVal heap answer) = true then B else 1)
+    have he : (fun answer => if ftsZeroOk coord heap (fVal answer) = true then
+        (if ftsZeroOk coord heap (fVal answer) = true then B else 1)
         else B + (1 - p) ^ (k + 1)) =
-        fun a => if ftsZeroOk coord heap (fVal heap a) = true then B else B + (1 - p) ^ (k + 1) := by
+        fun a => if ftsZeroOk coord heap (fVal a) = true then B else B + (1 - p) ^ (k + 1) := by
       funext a; split <;> simp_all
-    rw [he, expectedValue_uniform_ite_F (fun a => ftsZeroOk coord heap (fVal heap a) = true), prob_fAccept]
+    rw [he, expectedValue_uniform_ite_F (fun a => ftsZeroOk coord heap (fVal a) = true), prob_fAccept]
     exact capF_step p B hp1 k
-  · have he : (fun answer => if ftsZeroOk coord heap (fVal heap answer) = true then B
-        else (1 : ℝ≥0∞)) = fun a => if ftsZeroOk coord heap (fVal heap a) = true then B else 1 := rfl
-    rw [he, expectedValue_uniform_ite_F (fun a => ftsZeroOk coord heap (fVal heap a) = true), prob_fAccept]
+  · have he : (fun answer => if ftsZeroOk coord heap (fVal answer) = true then B
+        else (1 : ℝ≥0∞)) = fun a => if ftsZeroOk coord heap (fVal a) = true then B else 1 := rfl
+    rw [he, expectedValue_uniform_ite_F (fun a => ftsZeroOk coord heap (fVal a) = true), prob_fAccept]
     exact capF_tail p B hp1
 
 /-- Per-heap cap failure of a shared node (`0` off the ground). -/
-noncomputable def gcap (coord heap : Nat) : ℝ≥0∞ :=
-  if ClaudeWCT.WCT9.ftsGround coord heap then fcap (ftsZeroBits coord heap) else 0
-
-theorem gcap_le (coord heap : Nat) : gcap coord heap ≤ cF := by
-  unfold gcap
-  split
-  · rename_i hg
-    exact fcap_le_of _ (by unfold ClaudeWCT.WCT9.ftsGround at hg; unfold ftsZeroBits; split_ifs <;> simp_all <;> omega)
-  · exact bot_le
+noncomputable def gcap (coord heap : Nat) : ℝ≥0∞ := if 8 ≤ heap ∧ heap < 16 then fcap (ftsZeroBits coord 8) else 0
 
 /-- **One shared node**: `B + gcap`. -/
 theorem E_snode {β : Type} (secret : BitVec 256) (first : Bool) (coord index heap : Nat) (hc : coord < 9)
@@ -502,14 +490,13 @@ theorem E_snode {β : Type} (secret : BitVec 256) (first : Bool) (coord index he
     (S : Nat → Nat → Prop) (hS : GroundSet index S) (B : ℝ≥0∞)
     (hnext : ∀ v cache, ftsZeroOk coord heap v = true →
       FreshF index (fun c x => S c x ∧ ¬ (c = coord ∧ x = heap)) cache → Ev secret (next v) cache F ≤ B)
-    (cache : RCache) (hfresh : FreshF index S cache) (hin : ClaudeWCT.WCT9.ftsGround coord heap → S coord heap) :
+    (cache : RCache) (hfresh : FreshF index S cache) (hin : 8 ≤ heap ∧ heap < 16 → S coord heap) :
     Ev secret (sharedNode first coord index heap pads left right >>= next) cache F ≤ B + gcap coord heap := by
   unfold gcap
-  by_cases hg : ClaudeWCT.WCT9.ftsGround coord heap
-  · have h8 := ClaudeWCT.WCT9.ftsGround_ge8 hg
-    have e : sharedNode first coord index heap pads left right = ftsNodeG coord index heap left right := by
+  by_cases hg : 8 ≤ heap ∧ heap < 16
+  · have e : sharedNode first coord index heap pads left right = ftsNodeG coord index heap left right := by
       simp only [sharedNode, if_neg (show ¬ heap < 4 by omega), if_neg (show ¬ heap < 8 by omega)]
-    rw [e, if_pos hg]
+    rw [e, if_pos hg, ← ftsZeroBits_ground (coord := coord) hg]
     exact E_fnode secret coord index heap ⟨hc, hidx, hg⟩ left right next F hF S hS B hnext cache hfresh (hin hg)
   · rw [if_neg hg, add_zero, Ev_bind]
     refine Ev_le_of_support secret _ cache (fun r hr => hnext r.1 r.2 (ftsZeroOk_off hg _) ?_)
@@ -518,15 +505,14 @@ theorem E_snode {β : Type} (secret : BitVec 256) (first : Bool) (coord index he
 
 /-- The ground nodes of the heaps `D` pass their zero tests. -/
 def OKAt (coord : Nat) (D : Nat → Prop) (nodes : Array Digest) : Prop :=
-  ∀ h, D h → 8 ≤ h → h < 32 → ftsZeroOk coord h (nodes.getD h 0) = true
+  ∀ h, D h → 8 ≤ h → h < 16 → ftsZeroOk coord h (nodes.getD h 0) = true
 
 /-- **A list of shared heap steps**: `B + Σ gcap`, the continuation seeing every ground node of the list pass. -/
 theorem E_heapList {β : Type} (secret : BitVec 256) (first : Bool) (index coord : Nat) (hc : coord < 9)
     (hidx : index < 2 ^ 31) (pads : Nat → PairRoot) (F : β × RCache → ℝ≥0∞) (hF : ∀ r, F r ≤ 1) :
     ∀ (l : List Nat), (∀ h ∈ l, 2 ≤ h ∧ h < 128) → l.Nodup →
     ∀ (S : Nat → Nat → Prop) (D : Nat → Prop) (init : Array Digest) (next : Array Digest → M β) (B : ℝ≥0∞),
-      GroundSet index S → (∀ h ∈ l, ClaudeWCT.WCT9.ftsGround coord h → S coord h) → (∀ h ∈ l, ¬ D h) →
-      32 ≤ init.size →
+      GroundSet index S → (∀ h ∈ l, 8 ≤ h ∧ h < 16 → S coord h) → (∀ h ∈ l, ¬ D h) → 16 ≤ init.size →
       OKAt coord D init →
       (∀ a cache, OKAt coord (fun h => D h ∨ h ∈ l) a →
         FreshF index (fun c' x => S c' x ∧ ¬ (c' = coord ∧ x ∈ l)) cache → Ev secret (next a) cache F ≤ B) →
@@ -577,52 +563,50 @@ theorem E_heapList {β : Type} (secret : BitVec 256) (first : Bool) (index coord
           exact hv
       · rw [List.map_cons, List.sum_cons]; ring
 
-theorem heapList_sum_le (coord a m : Nat) (ham : a + m = 8) :
-    (((List.range' a (m + (24 + 96))).reverse).map (gcap coord)).sum ≤ 24 * cF := by
-  rw [← List.range'_append_1 (s := a) (m := m) (n := 24 + 96), ham,
-    ← List.range'_append_1 (s := 8) (m := 24) (n := 96), List.reverse_append,
+theorem heapList_sum (coord a m : Nat) (ham : a + m = 8) :
+    (((List.range' a (m + (8 + 112))).reverse).map (gcap coord)).sum = 8 * fcap (ftsZeroBits coord 8) := by
+  rw [← List.range'_append_1 (s := a) (m := m) (n := 8 + 112), ham,
+    ← List.range'_append_1 (s := 8) (m := 8) (n := 112), List.reverse_append,
     List.reverse_append, List.map_append, List.map_append, List.sum_append, List.sum_append]
-  have z1 : ((List.range' (8 + 24) 96).reverse.map (gcap coord)).sum = 0 := by
+  have z1 : ((List.range' (8 + 8) 112).reverse.map (gcap coord)).sum = 0 := by
     rw [List.map_congr_left (g := fun _ => (0 : ℝ≥0∞)) (fun x hx => by
       rw [List.mem_reverse, List.mem_range'_1] at hx
-      unfold gcap; rw [if_neg (by unfold ClaudeWCT.WCT9.ftsGround; omega)])]
+      unfold gcap; rw [if_neg (by omega)])]
     simp
   have z3 : ((List.range' a m).reverse.map (gcap coord)).sum = 0 := by
     rw [List.map_congr_left (g := fun _ => (0 : ℝ≥0∞)) (fun x hx => by
       rw [List.mem_reverse, List.mem_range'_1] at hx
-      unfold gcap; rw [if_neg (by unfold ClaudeWCT.WCT9.ftsGround; omega)])]
+      unfold gcap; rw [if_neg (by omega)])]
     simp
-  have z2 : ((List.range' 8 24).reverse.map (gcap coord)).sum ≤ 24 * cF := by
-    refine (List.sum_le_card_nsmul _ cF (fun x hx => by
-      obtain ⟨y, -, rfl⟩ := List.mem_map.mp hx
-      exact gcap_le coord y)).trans (le_of_eq ?_)
-    simp only [List.length_map, List.length_reverse, List.length_range', nsmul_eq_mul]
+  have z2 : ((List.range' 8 8).reverse.map (gcap coord)).sum = 8 * fcap (ftsZeroBits coord 8) := by
+    rw [List.map_congr_left (g := fun _ => fcap (ftsZeroBits coord 8)) (fun x hx => by
+      rw [List.mem_reverse, List.mem_range'_1] at hx
+      unfold gcap; rw [if_pos (by omega)])]
+    simp only [List.map_const', List.sum_replicate, List.length_reverse, List.length_range', nsmul_eq_mul]
     norm_num
-  rw [z1, z3, zero_add, add_zero]
-  exact z2
+  rw [z1, z2, z3, zero_add, add_zero]
 
-/-- **The shared heap**: `B + 24 · cF`, the continuation seeing `ftsTreeOK`. -/
+/-- **The shared heap**: `B + 8 · fcap`, the continuation seeing `ftsTreeOK`. -/
 theorem E_sharedHeap {β : Type} (secret : BitVec 256) (first : Bool) (index coord : Nat) (hc : coord < 9)
     (hidx : index < 2 ^ 31) (pads : Nat → PairRoot) (leaves : List Digest) (F : β × RCache → ℝ≥0∞)
-    (hF : ∀ r, F r ≤ 1) (S : Nat → Nat → Prop) (hS : GroundSet index S)
-    (hin : ∀ h, ClaudeWCT.WCT9.ftsGround coord h → S coord h)
+    (hF : ∀ r, F r ≤ 1) (S : Nat → Nat → Prop) (hS : GroundSet index S) (hin : ∀ h, 8 ≤ h ∧ h < 16 → S coord h)
     (next : Array Digest → M β) (B : ℝ≥0∞)
     (hnext : ∀ a cache, ftsTreeOK coord a = true → FreshF index (fun c' x => S c' x ∧ c' ≠ coord) cache →
       Ev secret (next a) cache F ≤ B)
     (cache : RCache) (hfresh : FreshF index S cache) :
-    Ev secret (sharedHeap first index coord pads leaves >>= next) cache F ≤ B + 24 * cF := by
+    Ev secret (sharedHeap first index coord pads leaves >>= next) cache F ≤ B + 8 * fcap (ftsZeroBits coord 8) := by
   have key : ∀ (a m : Nat), a + m = 8 → 2 ≤ a →
-      Ev secret (((List.range' a (m + (24 + 96))).reverse.foldlM (heapStep first index coord pads)
+      Ev secret (((List.range' a (m + (8 + 112))).reverse.foldlM (heapStep first index coord pads)
         ((List.replicate 128 (0 : Digest) ++ leaves).toArray)) >>= next) cache F ≤
-        B + 24 * cF := by
+        B + 8 * fcap (ftsZeroBits coord 8) := by
     intro a m ham ha
-    have hmem : ∀ x, x ∈ (List.range' a (m + (24 + 96))).reverse ↔ a ≤ x ∧ x < 128 := by
+    have hmem : ∀ x, x ∈ (List.range' a (m + (8 + 112))).reverse ↔ a ≤ x ∧ x < 128 := by
       intro x; rw [List.mem_reverse, List.mem_range'_1]; omega
-    refine le_trans ?_ (add_le_add le_rfl (heapList_sum_le coord a m ham))
+    rw [← heapList_sum coord a m ham]
     refine E_heapList secret first index coord hc hidx pads F hF _
       (fun x hx => by have := (hmem x).mp hx; omega) (List.nodup_reverse.mpr (List.nodup_range' ..))
       S (fun _ => False) _ next B hS (fun x _ hg => hin x hg) (fun _ _ h => h)
-      (show 32 ≤ (List.replicate 128 (0 : Digest) ++ leaves).length by simp only [List.length_append, List.length_replicate]; omega)
+      (show 16 ≤ (List.replicate 128 (0 : Digest) ++ leaves).length by simp only [List.length_append, List.length_replicate]; omega)
       (fun _ h => h.elim)
       (fun nodes c hok hc' => hnext nodes c ?_ ?_) cache hfresh
     · unfold ftsTreeOK
@@ -634,21 +618,22 @@ theorem E_sharedHeap {β : Type} (secret : BitVec 256) (first : Bool) (index coo
   unfold sharedHeap
   cases first
   · simp only [Bool.false_eq_true, ↓reduceIte]
-    rw [show (126 : Nat) = 6 + (24 + 96) from rfl]
+    rw [show (126 : Nat) = 6 + (8 + 112) from rfl]
     exact key 2 6 rfl le_rfl
   · simp only [↓reduceIte]
-    rw [show (124 : Nat) = 4 + (24 + 96) from rfl]
+    rw [show (124 : Nat) = 4 + (8 + 112) from rfl]
     exact key 4 4 rfl (by omega)
 
-/-- **One coordinate tree**: `B + 24 · cF`, the continuation seeing `ftsTreeOK`. -/
+/-- **One coordinate tree**: `B + 8 · cF`, the continuation seeing `ftsTreeOK`. -/
 theorem E_coord {β : Type} (secret : BitVec 256) (first : Bool) (index coord : Nat) (hc : coord < 9)
     (hidx : index < 2 ^ 31) (selected : Child) (word : Rank) (pads : Nat → PairRoot)
-    (S : Nat → Nat → Prop) (hS : GroundSet index S) (hin : ∀ h, ClaudeWCT.WCT9.ftsGround coord h → S coord h)
+    (S : Nat → Nat → Prop) (hS : GroundSet index S) (hin : ∀ h, 8 ≤ h ∧ h < 16 → S coord h)
     (next : Array Digest × List Digest → M β) (F : β × RCache → ℝ≥0∞) (hF : ∀ r, F r ≤ 1) (B : ℝ≥0∞)
     (hnext : ∀ a cache, ftsTreeOK coord a.1 = true → FreshF index (fun c' x => S c' x ∧ c' ≠ coord) cache →
       Ev secret (next a) cache F ≤ B)
     (cache : RCache) (hfresh : FreshF index S cache) :
-    Ev secret (buildSharedCoordinate first index coord selected word pads >>= next) cache F ≤ B + 24 * cF := by
+    Ev secret (buildSharedCoordinate first index coord selected word pads >>= next) cache F ≤ B + 8 * cF := by
+  refine le_trans ?_ (add_le_add le_rfl (mul_le_mul' le_rfl (fcap_le coord)))
   unfold buildSharedCoordinate
   simp only [bind_assoc]
   rw [Ev_bind]
@@ -662,17 +647,17 @@ theorem E_coord {β : Type} (secret : BitVec 256) (first : Bool) (index coord : 
   exact E_sharedHeap secret first index coord hc hidx pads r2.1.1 F hF S hS hin _ B
     (fun nodes c3 hok h3 => by simpa only [pure_bind] using hnext (nodes, r2.1.2) c3 hok h3) r2.2 h2
 
-/-- **One FTS pair**: `B + 48 · cF`; the continuation sees the incoming flag kept. -/
+/-- **One FTS pair**: `B + 16 · cF`; the continuation sees the incoming flag kept. -/
 theorem E_pairCheck {β : Type} (secret : BitVec 256) (index pair : Nat) (hidx : index < 2 ^ 31) (hp : pair < 4)
     (st : Bool × PairRoot) (next : Bool × PairRoot → M β) (F : β × RCache → ℝ≥0∞) (hF : ∀ r, F r ≤ 1)
     (B : ℝ≥0∞) (hnext : ∀ r cache, r.1 = st.1 → FreshF index (Above (2 * pair + 2)) cache →
       Ev secret (next r) cache F ≤ B)
     (cache : RCache) (hfresh : FreshF index (Above (2 * pair)) cache) :
-    Ev secret (ftsPairCheck index pair st >>= next) cache F ≤ B + 48 * cF := by
+    Ev secret (ftsPairCheck index pair st >>= next) cache F ≤ B + 16 * cF := by
   unfold ftsPairCheck
   simp only [bind_assoc, pure_bind]
   refine le_trans (E_coord secret true index (2 * pair) (by omega) hidx child0 rank0 (fun _ => st.2)
-    (Above (2 * pair)) (groundSet_above _ hidx) (fun h hh => ⟨le_rfl, by omega, hh⟩) _ F hF (B + 24 * cF)
+    (Above (2 * pair)) (groundSet_above _ hidx) (fun h hh => ⟨le_rfl, by omega, hh⟩) _ F hF (B + 8 * cF)
     (fun a c1 hok1 h1 => ?_) cache hfresh) (le_of_eq (by ring))
   refine E_coord secret false index (2 * pair + 1) (by omega) hidx child0 rank0 (nodesPair a.1)
     (Above (2 * pair + 1)) (groundSet_above _ hidx) (fun h hh => ⟨le_rfl, by omega, hh⟩) _ F hF B
@@ -681,19 +666,19 @@ theorem E_pairCheck {β : Type} (secret : BitVec 256) (index pair : Nat) (hidx :
   exact hnext _ c2 (by simp [hok1, hok2])
     (h2.mono fun c' x hx => ⟨⟨by have := hx.1; omega, hx.2.1, hx.2.2⟩, by have := hx.1; omega⟩)
 
-/-- **One FTS forest**: `Pr[ftsForestCheck = false] ≤ 216 · cF`, its ground trials fresh. -/
+/-- **One FTS forest**: `Pr[ftsForestCheck = false] ≤ 72 · cF`, its ground trials fresh. -/
 theorem E_forestCheck (secret : BitVec 256) (index : Nat) (hidx : index < 2 ^ 31) (cache : RCache)
     (hfresh : FreshF index (Above 0) cache) :
-    Ev secret (ftsForestCheck index) cache (fun r => if r.1 then 0 else 1) ≤ 216 * cF := by
+    Ev secret (ftsForestCheck index) cache (fun r => if r.1 then 0 else 1) ≤ 72 * cF := by
   have hF : ∀ r : Bool × RCache, (if r.1 then (0 : ℝ≥0∞) else 1) ≤ 1 := fun r => by split <;> simp
   unfold ftsForestCheck
-  refine le_trans (E_pairCheck secret index 0 hidx (by decide) _ _ _ hF (24 * cF + 48 * cF + 48 * cF + 48 * cF)
+  refine le_trans (E_pairCheck secret index 0 hidx (by decide) _ _ _ hF (8 * cF + 16 * cF + 16 * cF + 16 * cF)
     (fun s1 c1 hs1 h1 => ?_) cache hfresh) (le_of_eq (by ring))
-  refine le_trans (E_pairCheck secret index 1 hidx (by decide) _ _ _ hF (24 * cF + 48 * cF + 48 * cF)
+  refine le_trans (E_pairCheck secret index 1 hidx (by decide) _ _ _ hF (8 * cF + 16 * cF + 16 * cF)
     (fun s2 c2 hs2 h2 => ?_) c1 h1) le_rfl
-  refine le_trans (E_pairCheck secret index 2 hidx (by decide) _ _ _ hF (24 * cF + 48 * cF)
+  refine le_trans (E_pairCheck secret index 2 hidx (by decide) _ _ _ hF (8 * cF + 16 * cF)
     (fun s3 c3 hs3 h3 => ?_) c2 h2) le_rfl
-  refine le_trans (E_pairCheck secret index 3 hidx (by decide) _ _ _ hF (24 * cF)
+  refine le_trans (E_pairCheck secret index 3 hidx (by decide) _ _ _ hF (8 * cF)
     (fun s4 c4 hs4 h4 => ?_) c3 h3) le_rfl
   refine le_trans (E_coord secret false index 8 (by decide) hidx child0 rank0 (fun _ => s4.2) (Above 8)
     (groundSet_above _ hidx) (fun h hh => ⟨le_rfl, by omega, hh⟩) _ _ hF 0 (fun a c5 hok _ => ?_) c4 h4)
@@ -701,13 +686,13 @@ theorem E_forestCheck (secret : BitVec 256) (index : Nat) (hidx : index < 2 ^ 31
   rw [Ev_pure]
   simp [hs4, hs3, hs2, hs1, hok]
 
-/-- **The fold of `ftsCheck`**: `E[1_{false}] ≤ 1_{¬acc} + |L| · 216 · cF` from a cache where the ground trials of
+/-- **The fold of `ftsCheck`**: `E[1_{false}] ≤ 1_{¬acc} + |L| · 72 · cF` from a cache where the ground trials of
 the remaining indices are fresh. -/
 theorem E_ftsCheckFold (secret : BitVec 256) :
     ∀ (L : List Nat) (acc : Bool) (cache : RCache), L.Nodup →
       (∀ index ∈ L, index < 2 ^ 31 ∧ FreshF index (Above 0) cache) →
       Ev secret (L.foldlM ftsCheckStep acc) cache (fun r => if r.1 then 0 else 1) ≤
-        (if acc then 0 else 1) + L.length * (216 * cF) := by
+        (if acc then 0 else 1) + L.length * (72 * cF) := by
   intro L
   induction L with
   | nil =>
@@ -723,7 +708,7 @@ theorem E_ftsCheckFold (secret : BitVec 256) :
       rw [Ev_bind]
       have hrest : ∀ r ∈ support (roRun secret (ftsForestCheck index) cache),
           Ev secret (L.foldlM ftsCheckStep (acc && r.1)) r.2 (fun r => if r.1 then 0 else 1) ≤
-          ((if acc then 0 else 1) + L.length * (216 * cF)) + (if r.1 then 0 else 1) := by
+          ((if acc then 0 else 1) + L.length * (72 * cF)) + (if r.1 then 0 else 1) := by
         intro r hr
         refine (ih _ r.2 (List.nodup_cons.mp hnd).2 fun j hj => ?_).trans ?_
         · obtain ⟨hj31, hfj⟩ := hL j (List.mem_cons_of_mem _ hj)
@@ -733,20 +718,20 @@ theorem E_ftsCheckFold (secret : BitVec 256) :
           cases acc <;> cases b <;> simp [add_comm]
       refine (expectedValue_mono_of_support hrest).trans ?_
       have hadd := expectedValue_add (roRun secret (ftsForestCheck index) cache)
-        (fun _ => (if acc then 0 else 1) + L.length * (216 * cF))
+        (fun _ => (if acc then 0 else 1) + L.length * (72 * cF))
         (fun r => if r.1 then (0 : ℝ≥0∞) else 1)
       refine (le_of_eq hadd).trans ?_
-      have h1 := Ev_const_le secret (ftsForestCheck index) cache ((if acc then 0 else 1) + L.length * (216 * cF))
+      have h1 := Ev_const_le secret (ftsForestCheck index) cache ((if acc then 0 else 1) + L.length * (72 * cF))
       have h2 := E_forestCheck secret index hidx cache hf
       refine (add_le_add h1 h2).trans (le_of_eq ?_)
       simp only [List.length_cons, Nat.cast_add, Nat.cast_one]
       ring
 
-theorem ftsCheck_sum_le : ((2 ^ 31 : ℕ) : ℝ≥0∞) * (216 * cF) ≤ ENNReal.ofReal (1 / 2 ^ 170) := by
+theorem ftsCheck_sum_le : ((2 ^ 31 : ℕ) : ℝ≥0∞) * (72 * cF) ≤ ENNReal.ofReal (1 / 2 ^ 170) := by
   unfold cF
-  have e : ((2 ^ 31 : ℕ) : ℝ≥0∞) * (216 * ENNReal.ofReal ((81 / 256 : ℝ) ^ 128)) =
-      ENNReal.ofReal (((2 ^ 31 : ℕ) : ℝ) * (216 * (81 / 256 : ℝ) ^ 128)) := by
-    rw [ENNReal.ofReal_mul (Nat.cast_nonneg _), ENNReal.ofReal_mul (by norm_num : (0 : ℝ) ≤ 216),
+  have e : ((2 ^ 31 : ℕ) : ℝ≥0∞) * (72 * ENNReal.ofReal ((81 / 256 : ℝ) ^ 128)) =
+      ENNReal.ofReal (((2 ^ 31 : ℕ) : ℝ) * (72 * (81 / 256 : ℝ) ^ 128)) := by
+    rw [ENNReal.ofReal_mul (Nat.cast_nonneg _), ENNReal.ofReal_mul (by norm_num : (0 : ℝ) ≤ 72),
       ENNReal.ofReal_natCast, ENNReal.ofReal_ofNat]
   rw [e]
   apply ENNReal.ofReal_le_ofReal
@@ -820,7 +805,7 @@ theorem signFromOutput_forest (answers : Answers) (cache : SigGolfCandidate.T3.C
 
 /-- The level-4 sibling of a selected child is a ground node (heap `8..15`). -/
 theorem authAt_four_ok {coord : Nat} {nodes : Array Digest} {selected : Nat} (hs : selected < 128)
-    (h : ∀ heap, 8 ≤ heap → heap < 32 → ftsZeroOk coord heap (nodes.getD heap 0) = true) :
+    (h : ∀ heap, 8 ≤ heap → heap < 16 → ftsZeroOk coord heap (nodes.getD heap 0) = true) :
     ftsZeroOk coord 8 (authAt nodes selected 4) = true := by
   unfold authAt
   have hk : 8 ≤ (128 + selected) / 2 ^ 4 ∧ (128 + selected) / 2 ^ 4 < 16 := by
@@ -830,21 +815,7 @@ theorem authAt_four_ok {coord : Nat} {nodes : Array Digest} {selected : Nat} (hs
     obtain ⟨h1, h2⟩ := hk
     interval_cases k <;> decide
   rw [← ftsZeroOk_ground hx.1 hx.2]
-  exact h _ hx.1 (by omega)
-
-/-- Y5: the level-3 sibling of a selected child is a heap-16..31 node. -/
-theorem authAt_three_ok {coord : Nat} {nodes : Array Digest} {selected : Nat} (hs : selected < 128)
-    (h : ∀ heap, 8 ≤ heap → heap < 32 → ftsZeroOk coord heap (nodes.getD heap 0) = true) :
-    ftsZeroOk coord 16 (authAt nodes selected 3) = true := by
-  unfold authAt
-  have hk : 16 ≤ (128 + selected) / 2 ^ 3 ∧ (128 + selected) / 2 ^ 3 < 32 := by
-    norm_num only [Nat.reducePow]; omega
-  have hx : 16 ≤ ((128 + selected) / 2 ^ 3) ^^^ 1 ∧ ((128 + selected) / 2 ^ 3) ^^^ 1 < 32 := by
-    generalize (128 + selected) / 2 ^ 3 = k at hk ⊢
-    obtain ⟨h1, h2⟩ := hk
-    interval_cases k <;> decide
-  rw [← ftsZeroOk_ground16 hx.1 hx.2]
-  exact h _ (by omega) hx.2
+  exact h _ hx.1 hx.2
 
 theorem signFromOutput_ftsPathOK (answers : Answers) (cache : SigGolfCandidate.T3.Cache)
     (hfts : FtsTreesOK answers) (rho : Digest) (counter : BitVec 32) (output : HashOutput)
@@ -854,16 +825,12 @@ theorem signFromOutput_ftsPathOK (answers : Answers) (cache : SigGolfCandidate.T
     FtsPathOK w.signature := by
   have hf := signFromOutput_forest answers cache rho counter output w he
   have hT := hfts (ClaudeWCT.WCT9.digestIndex output) (ClaudeWCT.WCT9.digestIndex_lt output)
-  refine ⟨fun p => ?_, ?_, fun p => ?_⟩
+  refine ⟨fun p => ?_, ?_⟩
   · rw [hf, buildForest_pairs]
     exact ⟨authAt_four_ok (firstChild _).isLt (fun heap h8 h16 => ((hT heap h8 h16).1 p.val p.isLt).1),
       authAt_four_ok (secondChild _).isLt (fun heap h8 h16 => ((hT heap h8 h16).1 p.val p.isLt).2)⟩
   · rw [hf, buildForest_singleton_path]
     exact authAt_four_ok (forestSelectionFromOutput output).singleton.isLt (fun heap h8 h16 => (hT heap h8 h16).2)
-  · rw [hf, buildForest_pairs]
-    have hp4 : p.val < 4 := by have := p.isLt; omega
-    exact ⟨authAt_three_ok (firstChild _).isLt (fun heap h8 h16 => ((hT heap h8 h16).1 p.val hp4).1),
-      authAt_three_ok (secondChild _).isLt (fun heap h8 h16 => ((hT heap h8 h16).1 p.val hp4).2)⟩
 
 /-- **E8 stage 2**: on oracles whose FTS ground nodes pass every zero test, the honest signature's opened level-4
 FTS siblings pass theirs (FTS analogue of `sign_lowerPathOK_U16`). -/

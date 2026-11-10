@@ -1390,11 +1390,11 @@ section
 
 /-! # T51 DEC from the real initial state
 
-E8 (P1): word 0 is `j 87500` (Y5: the pre-pass at 87500, 217 steps, then `j 54569` = DEC). From `w9init` with the 5,188-byte signature
+E8 (P1): word 0 is `j 60734` (the pre-pass, 185 steps, then `j 54569` = DEC). From `w9init` with the 5,188-byte signature
 `b`, the pre-pass rebuilds DEC's T1 layout (`unpackB b`) and DEC writes the expander's inflated slot layout
 `SharedCodec.inflatedRead 0 (SharedCodec.digC b)` (332 slots at `0x7000`) and the hint at `0x66000`, zeroes its
-temporaries and jumps to word 1 (`dec_init_r6`, at most 2,366 cycles). N7g: DEC divides the field `N` by 360 and
-rejects a non-canonical `N ≥ nCanon` at `j 354` (`dec_reject_nc`), which is exactly a decoded hint `≥ 8192`. -/
+temporaries and jumps to word 1 (`dec_init_r6`, at most 2,271 cycles). N7g: DEC divides the field `N` by 5852 and
+rejects a non-canonical `N ≥ nCanon` at `j 354` (`dec_reject_nc`), which is exactly a decoded hint `≥ 7744`. -/
 
 namespace ClaudeWCT.W9.Machine.Expand.PrePass
 open SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64 SigGolfCandidate.Rv SigGolfCandidate.T3M
@@ -1461,7 +1461,7 @@ theorem jalTo0_sound {w : BitVec 32} {n m : Nat} (h : jalTo0 w n = some m) :
     · cases h
   · cases h
 
-theorem entry_code0 : CodeAt Images.expandImage (pcOf 0) [0x7305506f] :=
+theorem entry_code0 : CodeAt Images.expandImage (pcOf 0) [0x4f83b06f] :=
   codeAt_expand_current_chunk (by decide) (by decide) (by decide +kernel)
 
 theorem w9_pc (im : Image) (m : Message) (pk : PublicKey) {n : Nat} (σ : Bytes n) :
@@ -1472,28 +1472,28 @@ theorem w9_pc (im : Image) (m : Message) (pk : PublicKey) {n : Nat} (σ : Bytes 
   rfl
 
 theorem entry_step0 (s : MachineState) (hpc : s.pc = pcOf 0) :
-    Steps Images.expandImage s 1 1 (s.setPC (pcOf 87500)) := by
-  obtain ⟨imm, hd, hoff⟩ := jalTo0_sound (show jalTo0 (0x7305506f#32) 0 = some 87500 by decide +kernel)
+    Steps Images.expandImage s 1 1 (s.setPC (pcOf 60734)) := by
+  obtain ⟨imm, hd, hoff⟩ := jalTo0_sound (show jalTo0 (0x4f83b06f#32) 0 = some 60734 by decide +kernel)
   exact jal_x0_step entry_code0 hd hoff s hpc
 
 /-- E11: word 0 + the pre-pass: from word 0 to DEC's entry 54569 with the T1-layout signature `unpackB b`. -/
 theorem pre_entry (s0 : MachineState) (b : SharedCodec.CBytes) (hpc : s0.pc = pcOf 0) (hsig : SigMemC s0.getMem b) :
-    ∃ u, Steps Images.expandImage s0 218 218 u ∧ u.pc = pcOf 54569 ∧
+    ∃ u, Steps Images.expandImage s0 186 186 u ∧ u.pc = pcOf 54569 ∧
       (∀ r ∈ [Reg.x7, .x28, .x29, .x30, .x31], u.getReg r = 0) ∧ RegsExcept s0 u [.x7, .x28, .x29, .x30, .x31] ∧
-      SigMem u.getMem (unpackB b) ∧ Frame s0 u (fun A => 0x70a8 ≤ A ∧ A < 0x84c0) := by
+      SigMem u.getMem (unpackB b) ∧ Frame s0 u (fun A => 0x70b0 ≤ A ∧ A < 0x84c0) := by
   have st0 := entry_step0 s0 hpc
-  obtain ⟨u, su, pu, zu, ru, mu⟩ := pre_spec (s0.setPC (pcOf 87500)) rfl
-  have e : (s0.setPC (pcOf 87500)).getMem = s0.getMem := funext fun _ => MachineState.getMem_setPC
+  obtain ⟨u, su, pu, zu, ru, mu⟩ := pre_spec (s0.setPC (pcOf 60734)) rfl
+  have e : (s0.setPC (pcOf 60734)).getMem = s0.getMem := funext fun _ => MachineState.getMem_setPC
   have em : u.getMem = preMem s0.getMem := funext fun A => by rw [mu, e]
   refine ⟨u, st0.trans su, pu, zu, fun r hr => (ru r hr).trans MachineState.getReg_setPC, by rw [em]; exact sigMem_pre hsig,
     fun A hA hn => ?_⟩
   rw [em]
-  have hn' : A < 0x70a8 ∨ 0x84c0 ≤ A := by omega
+  have hn' : A < 0x70b0 ∨ 0x84c0 ≤ A := by omega
   apply preMem_other s0.getMem A hA (by omega) (by omega)
   intro c hc he
   simp only [List.mem_cons, List.not_mem_nil, or_false] at hc
   unfold hiA at he
-  rcases hc with rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl <;> omega
+  rcases hc with rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl <;> omega
 
 /-- U16b: the T1-layout read of DEC's slots is the U16b codec's (`digC_unpack`). -/
 theorem inflated_unpack (b : SharedCodec.CBytes) (k : Nat) (hk : k < 332) :
@@ -1504,17 +1504,17 @@ theorem inflated_unpack (b : SharedCodec.CBytes) (k : Nat) (hk : k < 332) :
   · rfl
   · rw [digC_unpack b _ (by unfold SharedCodec.externalFullIndex; split_ifs <;> omega)]
 
-/-- The canonical bound DEC checks (N7g R6): the field `N = cDig 0 + X / 2^29 * 2^128` must be `< R * 360`. -/
-abbrev nCanon : Nat := 2722258935367507707706996859454145691400
+/-- The canonical bound DEC checks (N7g R6): the field `N = cDig 0 + X / 2^29 * 2^128` must be `< R * 5852`. -/
+abbrev nCanon : Nat := 43556142965880123323311949751266331065324
 
 theorem hints_unpack (b : SharedCodec.CBytes) (hc : SharedCodec.nOfB b < nCanon) :
     T1C.hints (unpackB b) = (SharedCodec.sigDecC b).policyHints := by
   apply BitVec.eq_of_toNat_eq
   rw [SharedCodec.policyHints_sigDecC_toNat]
   unfold T1C.hints SharedCodec.hintOfN
-  rw [nOfB_unpack, if_pos (by rw [SharedCodec.R_mul_360]; exact hc)]
-  have hl := packH_lt (SharedCodec.nOfB b % 360) (Nat.mod_lt _ (by norm_num))
-  rw [BitVec.toNat_ofNat, Nat.mod_eq_of_lt (show SharedCodec.packH (SharedCodec.nOfB b % 360) < 2 ^ 16 by omega)]
+  rw [nOfB_unpack, if_pos (by rw [SharedCodec.R_mul_5852]; exact hc)]
+  have hl := packH_lt (SharedCodec.nOfB b % 5852) (Nat.mod_lt _ (by norm_num))
+  rw [BitVec.toNat_ofNat, Nat.mod_eq_of_lt (show SharedCodec.packH (SharedCodec.nOfB b % 5852) < 2 ^ 16 by omega)]
 
 theorem dropTake_getD {α : Type} (l : List α) (d : α) (a i : Nat) (hi : i < 8) :
     ((l.drop a).take 8).getD i d = l.getD (a + i) d := by
@@ -1533,11 +1533,11 @@ theorem w9_sigMemC (m : Message) (pk : PublicKey) (b : SharedCodec.CBytes) :
   rw [w9_getMem _ _ _ (by decide) b _ (by omega), if_pos (by omega), show 0x7000 + 8 * j - 0x7000 = 8 * j by omega]
   exact SigGolfCandidate.T3M.Expand.bytesToWordLE_bytes_p b j (by omega)
 
-/-- DEC, accepting, from any state at word 0 holding the signature (N7g: word 0 + the pre-pass + DEC, at most 2,366
-cycles; DEC also rewrites slot 0 with `N / 360`). -/
+/-- DEC, accepting, from any state at word 0 holding the signature (N7g: word 0 + the pre-pass + DEC, at most 2,271
+cycles; DEC also rewrites slot 0 with `N / 5852`). -/
 theorem dec_gen (s0 : MachineState) (b : SharedCodec.CBytes) (hpc : s0.pc = pcOf 0) (hsig : SigMemC s0.getMem b)
     (hc : SharedCodec.nOfB b < nCanon) :
-    ∃ u k c, Steps Images.expandImage s0 k c u ∧ c ≤ 2366 ∧ u.pc = pcOf 1 ∧
+    ∃ u k c, Steps Images.expandImage s0 k c u ∧ c ≤ 2271 ∧ u.pc = pcOf 1 ∧
       (∀ r ∈ [.x6, .x7, .x18, .x19, .x20, .x28, .x29, .x30, .x31], u.getReg r = 0) ∧
       RegsExcept s0 u [.x6, .x7, .x18, .x19, .x20, .x28, .x29, .x30, .x31] ∧
       (∀ k, k < 332 → DigAt u (0x7000 + 16 * k)
@@ -1547,7 +1547,7 @@ theorem dec_gen (s0 : MachineState) (b : SharedCodec.CBytes) (hpc : s0.pc = pcOf
   obtain ⟨s1, st1, p1, z1, r1, hsig1, f1⟩ := pre_entry s0 b hpc hsig
   have hn : nOfM s1.getMem = SharedCodec.nOfB b := by rw [nOfM_eq hsig1, nOfB_unpack]
   obtain ⟨t, k, c, st, hcc, tp, tz, tr, tm, th, tf⟩ := dec_run s1 p1 (by rw [hn]; exact hc)
-  refine ⟨t, 218 + k, 218 + c, st1.trans st, by omega, tp, ?_, (r1.trans tr).mono (by decide), ?_,
+  refine ⟨t, 186 + k, 186 + c, st1.trans st, by omega, tp, ?_, (r1.trans tr).mono (by decide), ?_,
     by rw [th, hint_eq hsig1, hints_unpack b hc], (f1.trans tf).mono (fun A _ h => ?_)⟩
   · intro r hr
     by_cases hr' : r ∈ [Reg.x6, .x7, .x18, .x19, .x20, .x28, .x29, .x30]
@@ -1567,10 +1567,10 @@ theorem dec_gen (s0 : MachineState) (b : SharedCodec.CBytes) (hpc : s0.pc = pcOf
     · exact h
 
 /-- DEC, accepting (N7g): from the real initial state with a canonical field `N`, word 0 + the pre-pass + DEC reach
-word 1 (at most 2,366 cycles) with `w9init`'s registers, the inflated slot layout of the decoded signature at
+word 1 (at most 2,271 cycles) with `w9init`'s registers, the inflated slot layout of the decoded signature at
 `0x7000`, the hint at `0x66000`; only the hint word and `[0x7000, 0x84c0)` are written. -/
 theorem dec_init_r6 (m : Message) (pk : PublicKey) (b : SharedCodec.CBytes) (hc : SharedCodec.nOfB b < nCanon) :
-    ∃ u k c, Steps Images.expandImage (w9init Images.expandImage m pk b) k c u ∧ c ≤ 2366 ∧ u.pc = pcOf 1 ∧
+    ∃ u k c, Steps Images.expandImage (w9init Images.expandImage m pk b) k c u ∧ c ≤ 2271 ∧ u.pc = pcOf 1 ∧
       (∀ r, u.getReg r = (w9init Images.expandImage m pk b).getReg r) ∧
       (∀ k, k < 332 → DigAt u (0x7000 + 16 * k)
         (SharedCodec.inflatedRead (0 : SigGolfCandidate.T3.Digest) (SharedCodec.digC b) k)) ∧
@@ -1584,10 +1584,10 @@ theorem dec_init_r6 (m : Message) (pk : PublicKey) (b : SharedCodec.CBytes) (hc 
   · exact ur r hr
 
 
-/-- DEC, rejecting (N7g): a non-canonical field `N ≥ nCanon` sends the expander to word 354 after 302 steps (word 0,
+/-- DEC, rejecting (N7g): a non-canonical field `N ≥ nCanon` sends the expander to word 354 after 270 steps (word 0,
 the pre-pass, then DEC's 84). -/
 theorem dec_reject_nc (m : Message) (pk : PublicKey) (b : SharedCodec.CBytes) (hc : ¬ SharedCodec.nOfB b < nCanon) :
-    ∃ u, Steps Images.expandImage (w9init Images.expandImage m pk b) 302 302 u ∧ u.pc = pcOf 354 := by
+    ∃ u, Steps Images.expandImage (w9init Images.expandImage m pk b) 270 270 u ∧ u.pc = pcOf 354 := by
   generalize hs0 : w9init Images.expandImage m pk b = s0
   have hpc : s0.pc = pcOf 0 := by rw [← hs0]; exact w9_pc Images.expandImage m pk b
   have hsig : SigMemC s0.getMem b := by rw [← hs0]; exact w9_sigMemC m pk b
@@ -1595,13 +1595,13 @@ theorem dec_reject_nc (m : Message) (pk : PublicKey) (b : SharedCodec.CBytes) (h
   obtain ⟨t, st, tp⟩ := dec_bad s1 p1 (by rw [nOfM_eq hsig1, nOfB_unpack]; exact hc)
   exact ⟨t, st1.trans st, tp⟩
 
-/-- DEC, rejecting: a hint `≥ 8192` (on N7g exactly a non-canonical field, `policyHints_sigDecC_ge_iff`) sends the
-expander to word 354 after 302 steps (word 0, the pre-pass, then DEC's 84). -/
+/-- DEC, rejecting: a hint `≥ 7744` (on N7g exactly a non-canonical field, `policyHints_sigDecC_ge_iff`) sends the
+expander to word 354 after 270 steps (word 0, the pre-pass, then DEC's 84). -/
 theorem dec_reject (m : Message) (pk : PublicKey) (b : SharedCodec.CBytes)
-    (hh : 8192 ≤ (SharedCodec.sigDecC b).policyHints.toNat) :
-    ∃ u, Steps Images.expandImage (w9init Images.expandImage m pk b) 302 302 u ∧ u.pc = pcOf 354 :=
+    (hh : 7744 ≤ (SharedCodec.sigDecC b).policyHints.toNat) :
+    ∃ u, Steps Images.expandImage (w9init Images.expandImage m pk b) 270 270 u ∧ u.pc = pcOf 354 :=
   dec_reject_nc m pk b (by
-    rw [SharedCodec.policyHints_sigDecC_ge_iff, SharedCodec.R_mul_360] at hh
+    rw [SharedCodec.policyHints_sigDecC_ge_iff, SharedCodec.R_mul_5852] at hh
     exact Nat.not_lt.mpr hh)
 
 end ClaudeWCT.W9.Machine.Expand.PrePass

@@ -1,6 +1,6 @@
 import SigGolfCandidate.RvCore
 import SigGolfCandidate.SimCore
-set_option debug.skipKernelTC true
+set_option debug.skipKernelTC false
 set_option maxHeartbeats 0
 set_option maxRecDepth 100000
 namespace SigGolfCandidate.T3M.DigestLabel

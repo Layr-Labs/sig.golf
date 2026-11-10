@@ -1,3 +1,4 @@
+import SigGolfCandidate.TopRouteBank
 import SigGolfCandidate.OneRegisterMask
 import Mathlib.Data.Fin.Basic
 import Mathlib.Data.Nat.Bitwise
@@ -16,7 +17,7 @@ import SigGolfCandidate.Merge052
 import SigGolfCandidate.Merge053
 import SigGolfCandidate.FtsMoment
 import SigGolfCandidate.FtsComplete
-set_option debug.skipKernelTC true
+set_option debug.skipKernelTC false
 set_option linter.all false
 
 attribute [local irreducible] SigGolfCandidate.T3.maskedLevel
@@ -966,12 +967,12 @@ namespace ClaudeWCT.W9.T3M.Paired
 open SigGolfCandidate.Legacy
 
 def submission (I : Images) : Submission where
-  sizes := ⟨5186, 21756, 131072⟩
+  sizes := ⟨5187, 21756, 131072⟩
   layout := ⟨0x65A0, 0x80, 0xa0, 0x80000, 0x7000, 0x10A0⟩
   image := (ClaudeWCT.W9.T3M.submission I).image
 
 variable (I : Images)
-@[simp] theorem submission_sizes : (submission I).sizes = ⟨5186, 21756, 131072⟩ := rfl
+@[simp] theorem submission_sizes : (submission I).sizes = ⟨5187, 21756, 131072⟩ := rfl
 @[simp] theorem submission_layout : (submission I).layout = ⟨0x65A0, 0x80, 0xa0, 0x80000, 0x7000, 0x10A0⟩ := rfl
 @[simp] theorem submission_image : (submission I).image = (ClaudeWCT.W9.T3M.submission I).image := rfl
 @[simp] theorem submission_keygen : (submission I).image .keygen = SigGolfCandidate.T3M.Images.keygenImage := rfl
@@ -1790,7 +1791,7 @@ set_option backward.isDefEq.respectTransparency false
 remaining query domains are unchanged. -/
 def FtsQuery (index : Nat) (query : Query) : Prop :=
   ClaudeWCT.WCT9.FtsQuery index query ∨
-    ∃ (coord heap : Nat) (left pad right : Digest), coord<9 ∧ 2≤heap ∧ heap<32 ∧
+    ∃ (coord heap : Nat) (left pad right : Digest), coord<9 ∧ 2≤heap ∧ heap<16 ∧
       query=.inl (.inr (pad64 (wctTopInput coord index heap left pad right)))
 
 theorem lift_bound {index : Nat} {α : Type} {Post : α → Prop} {k : Nat} {oa : M α}
@@ -1820,19 +1821,17 @@ theorem bound_sharedOuterHash (coord index heap : Nat) (left right : Digest)
   · exact bound_highHashP _ 1 hq (by simp [pad64_length,wctTopInput_length])
 
 theorem bound_ftsNodeHashNQ (coord index heap n : Nat) (left right : Digest) (hc : coord<9) (hl : 2≤heap)
-    (hh : heap<32) : Bound (FtsQuery index) (fun _ => True) 1 (ftsNodeHashN coord index heap n left right) := by
+    (hh : heap<16) : Bound (FtsQuery index) (fun _ => True) 1 (ftsNodeHashN coord index heap n left right) := by
   have hq : FtsQuery index (.inl (.inr
       (pad64 (wctTopInput coord index heap left (BitVec.ofNat 128 (n % 2 ^ 64)) right)))) :=
     Or.inr ⟨coord,heap,left,_,right,hc,hl,hh,rfl⟩
   have e : ftsNodeHashN coord index heap n left right =
-      ClaudeWCT.WCT9.ftsHash heap (wctTopInput coord index heap left (BitVec.ofNat 128 (n % 2 ^ 64)) right) := rfl
-  rw [e, ClaudeWCT.WCT9.ftsHash_eq]
-  split
-  · exact bound_highHashP _ 1 hq (by simp [pad64_length,wctTopInput_length])
-  · exact bound_shortHashP _ 1 hq (by simp [pad64_length,wctTopInput_length])
+      shortHash (wctTopInput coord index heap left (BitVec.ofNat 128 (n % 2 ^ 64)) right) := rfl
+  rw [e]
+  exact bound_shortHashP _ 1 hq (by simp [pad64_length,wctTopInput_length])
 
 theorem bound_ftsNonceSearchQ (coord index heap : Nat) (left right : Digest) (hc : coord<9) (hl : 2≤heap)
-    (hh : heap<32) :
+    (hh : heap<16) :
     ∀ fuel n, Bound (FtsQuery index) (fun _ => True) (fuel + 1) (ftsNonceSearch coord index heap left right fuel n)
   | 0, n => by
       unfold ftsNonceSearch
@@ -1852,16 +1851,14 @@ theorem bound_sharedNode (first : Bool) (coord index heap : Nat) (pads : Nat →
     Bound (FtsQuery index) (fun _ => True) (sharedNodeCost coord heap)
       (sharedNode first coord index heap pads left right) := by
   unfold sharedNodeCost
-  by_cases hg : ftsGround coord heap
+  by_cases hg : 8 ≤ heap ∧ heap < 16
   · rw [if_pos hg]
-    have h8 := ftsGround_ge8 hg
     have e : sharedNode first coord index heap pads left right = ftsNodeG coord index heap left right := by
       simp only [sharedNode, if_neg (show ¬ heap < 4 by omega), if_neg (show ¬ heap < 8 by omega)]
     rw [e]
     unfold ftsNodeG ftsNodeAt
-    rw [if_neg (ftsZeroBits_pos hg)]
-    refine Bound.map _ ((bound_ftsNonceSearchQ coord index heap left right hc hl
-      (by unfold ftsGround at hg; omega) _ 0).mono_k ?_)
+    rw [if_neg (by simp only [ftsZeroBits, if_pos hg]; split <;> omega)]
+    refine Bound.map _ ((bound_ftsNonceSearchQ coord index heap left right hc hl hg.2 _ 0).mono_k ?_)
       (fun _ _ => trivial)
     have : 0 < 2 ^ ftsZeroBits coord heap := Nat.two_pow_pos _
     unfold ftsNonceCap; omega
@@ -1897,7 +1894,7 @@ theorem bound_heapSegQ (first : Bool) (index coord : Nat) (pads : Nat → PairRo
 set_option maxHeartbeats 1000000 in
 theorem bound_heapAllQ (first : Bool) (index coord : Nat) (pads : Nat → PairRoot) (hcoord : coord<9) (a m : Nat)
     (ham : a + m = 8) (ha : 2 ≤ a) (init : Array Digest) :
-    Bound (FtsQuery index) (fun _ => True) (m + 8 * ftsCapOf coord + 112 * ftsCapOf coord)
+    Bound (FtsQuery index) (fun _ => True) (m + 8 * ftsCapOf coord + 112)
       ((List.range' a (m + (8 + 112))).reverse.foldlM
       (fun (nodes : Array Digest) heap => do
         let value ← sharedNode first coord index heap pads
@@ -1910,18 +1907,18 @@ theorem bound_heapAllQ (first : Bool) (index coord : Nat) (pads : Nat → PairRo
       List.reverse_append, List.append_assoc]
   rw [hsplit]
   simp only [List.foldlM_append]
-  have one : ∀ heap, ¬ ftsGround coord heap → sharedNodeCost coord heap ≤ 1 := fun heap h => by
+  have one : ∀ heap, ¬ (8 ≤ heap ∧ heap < 16) → sharedNodeCost coord heap ≤ 1 := fun heap h => by
     unfold sharedNodeCost; rw [if_neg h]
-  refine (bound_heapSegQ first index coord pads hcoord (8 + 8) 112 (ftsCapOf coord) (by omega) (by omega)
-    (fun h _ _ => sharedNodeCost_le coord h) _).bind' (l := 8 * ftsCapOf coord + m) (fun nodes _ => ?_) (by omega)
+  refine (bound_heapSegQ first index coord pads hcoord (8 + 8) 112 1 (by omega) (by omega)
+    (fun h h1 _ => one h (by omega)) _).bind' (l := 8 * ftsCapOf coord + m) (fun nodes _ => ?_) (by omega)
   refine (bound_heapSegQ first index coord pads hcoord 8 8 (ftsCapOf coord) (by omega) (by omega)
     (fun h _ _ => sharedNodeCost_le coord h) _).bind' (l := m) (fun nodes _ => ?_) le_rfl
   exact (bound_heapSegQ first index coord pads hcoord a m 1 ha (by omega)
-    (fun h h1 h2 => one h (by unfold ftsGround; omega)) _).mono_k (by omega)
+    (fun h h1 h2 => one h (by omega)) _).mono_k (by omega)
 
 theorem bound_sharedHeap (first : Bool) (index coord : Nat) (pads : Nat → PairRoot)
     (leaves : List Digest) (hc : coord<9) :
-    Bound (FtsQuery index) (fun _ => True) ((if first then 124 else 126) + 120 * (ftsCapOf coord - 1))
+    Bound (FtsQuery index) (fun _ => True) ((if first then 124 else 126) + 8 * (ftsCapOf coord - 1))
       (sharedHeap first index coord pads leaves) := by
   have hcap : 1 ≤ ftsCapOf coord := by
     unfold ftsCapOf ftsNonceCap; have := Nat.two_pow_pos (ftsZeroBits coord 8); omega
@@ -3061,13 +3058,18 @@ theorem V_prepareRoots_U16 (secret : BitVec 256) (index : Nat) (hidx : index < 2
   unfold groundE
   ring
 
-/-- E8: the 72 FTS ground node factors (P1: 16 with `b = 1` on coordinates 0, 1; 56 with `b = 2`); Y5: and the 64
-heap-16..31 nodes of coordinates 0..3 (`b = 1`). -/
-noncomputable def ftsE : ℝ≥0∞ := mG 1 ^ 80 * mG 2 ^ 56
+/-- E8: the 72 FTS ground node factors (P1: 16 with `b = 1` on coordinates 0, 1; 56 with `b = 2`). -/
+noncomputable def ftsE : ℝ≥0∞ := mG 1 ^ 16 * mG 2 ^ 56
 
-theorem facFH_ok (b : Nat) (hb1 : 1 ≤ b) (hb3 : b ≤ 3) :
-    ClaudeWCT.W9.T3.Freshness.Paired.FtsFresh.FacFH SigGolfCandidate.T3.Budgets.signingZ b (mG b) := by
-  unfold ClaudeWCT.W9.T3.Freshness.Paired.FtsFresh.FacFH
+theorem facF_ok (c : Nat) :
+    ClaudeWCT.W9.T3.Freshness.Paired.FtsFresh.FacF SigGolfCandidate.T3.Budgets.signingZ c
+      (mG (ClaudeWCT.WCT9.ftsZeroBits c 8)) := by
+  have hb1 : 1 ≤ ClaudeWCT.WCT9.ftsZeroBits c 8 := by
+    unfold ClaudeWCT.WCT9.ftsZeroBits; rw [if_pos (by decide)]; split <;> omega
+  have hb3 : ClaudeWCT.WCT9.ftsZeroBits c 8 ≤ 3 := by
+    unfold ClaudeWCT.WCT9.ftsZeroBits; split_ifs <;> omega
+  unfold ClaudeWCT.W9.T3.Freshness.Paired.FtsFresh.FacF
+  generalize ClaudeWCT.WCT9.ftsZeroBits c 8 = b at hb1 hb3 ⊢
   set zr := SigGolfCandidate.T3.Budgets.signingZ.toReal with hzr
   have hz0 : 0 ≤ zr := ENNReal.toReal_nonneg
   have hzE : SigGolfCandidate.T3.Budgets.signingZ = ENNReal.ofReal zr := (ENNReal.ofReal_toReal signingZ_ne_top).symm
@@ -3084,44 +3086,19 @@ theorem facFH_ok (b : Nat) (hb1 : 1 ≤ b) (hb3 : b ≤ 3) :
     ← ENNReal.ofReal_add hq0 (by nlinarith), ← ENNReal.ofReal_mul hz0]
   exact ENNReal.ofReal_le_ofReal hk.1
 
-theorem facF_ok (c : Nat) :
-    ClaudeWCT.W9.T3.Freshness.Paired.FtsFresh.FacF SigGolfCandidate.T3.Budgets.signingZ c
-      (mG (ClaudeWCT.WCT9.ftsZeroBits c 8)) := by
-  have hb1 : 1 ≤ ClaudeWCT.WCT9.ftsZeroBits c 8 := by
-    unfold ClaudeWCT.WCT9.ftsZeroBits; rw [if_pos (by decide)]; split <;> omega
-  have hb3 : ClaudeWCT.WCT9.ftsZeroBits c 8 ≤ 3 := by
-    unfold ClaudeWCT.WCT9.ftsZeroBits; split_ifs <;> omega
-  exact facFH_ok _ hb1 hb3
-
-/-- Y5: the level-4 factors, `m_1` on coordinates 0..3 and `z` (plain) on 4..8. -/
-theorem facG_ok (c : Nat) :
-    ClaudeWCT.W9.T3.Freshness.Paired.FtsFresh.FacG SigGolfCandidate.T3.Budgets.signingZ c
-      (if c < 4 then mG 1 else SigGolfCandidate.T3.Budgets.signingZ) := by
-  unfold ClaudeWCT.W9.T3.Freshness.Paired.FtsFresh.FacG
-  split
-  · rename_i hc
-    have h1 : ClaudeWCT.WCT9.ftsZeroBits c 16 = 1 := by
-      unfold ClaudeWCT.WCT9.ftsZeroBits; split_ifs <;> omega
-    exact ⟨fun _ => h1 ▸ facFH_ok 1 le_rfl (by norm_num), (facFH_ok 1 le_rfl (by norm_num)).2⟩
-  · rename_i hc
-    exact ⟨fun h => absurd h hc, le_rfl⟩
-
-/-- **E8 forest moment**: `V buildForest ≤ z^31185 · ftsE` (31185 = 31321 − 72 − 64), its ground trials fresh. -/
+/-- **E8 forest moment**: `V buildForest ≤ z^31249 · ftsE` (31249 = 31321 − 72), its ground trials fresh. -/
 theorem V_buildForest_U16 (secret : BitVec 256) (index : Nat) (hidx : index < 2 ^ 31)
     (selected : SigGolfCandidate.Research.SharedForest.ForestSelection)
     (words : SigGolfCandidate.Research.SharedForest.ForestWords) (cache : RCache)
     (hf : ClaudeWCT.W9.T3.Freshness.Paired.FtsFresh.AllFFresh cache) :
     V secret SigGolfCandidate.T3.Budgets.signingZ
       (SigGolfCandidate.Research.SharedForest.buildForest index selected words) cache ≤
-      SigGolfCandidate.T3.Budgets.signingZ ^ 31185 * ftsE := by
+      SigGolfCandidate.T3.Budgets.signingZ ^ 31249 * ftsE := by
   refine (ClaudeWCT.W9.T3.Freshness.Paired.FtsFresh.V_buildForest secret _ (SigGolfCandidate.Budget.one_le_zOf _)
-    index hidx selected words (fun c => mG (ClaudeWCT.WCT9.ftsZeroBits c 8))
-    (fun c => if c < 4 then mG 1 else SigGolfCandidate.T3.Budgets.signingZ) (fun c _ => facF_ok c)
-    (fun c _ => facG_ok c) cache
+    index hidx selected words (fun c => mG (ClaudeWCT.WCT9.ftsZeroBits c 8)) (fun c _ => facF_ok c) cache
     (ClaudeWCT.W9.T3.Freshness.Paired.FtsFresh.freshF_of_all hidx hf)).trans
     (le_of_eq ((ClaudeWCT.W9.T3.Freshness.Paired.FtsFresh.forestCB_eq _
-      (fun c => mG (ClaudeWCT.WCT9.ftsZeroBits c 8))
-      (fun c => if c < 4 then mG 1 else SigGolfCandidate.T3.Budgets.signingZ)).trans ?_))
+      (fun c => mG (ClaudeWCT.WCT9.ftsZeroBits c 8))).trans ?_))
   unfold ftsE
   simp only [ClaudeWCT.WCT9.ftsZeroBits, show (8 ≤ 8 ∧ 8 < 16) from ⟨le_rfl, by decide⟩, if_true]
   norm_num
@@ -3981,7 +3958,7 @@ noncomputable def excessGB (levels : List (List Digest)) (b : Bool) : ℝ≥0∞
 
 theorem excessWeight_searchFuel_le : excessWeight ClaudeWCT.WCT9.searchFuel ≤ ENNReal.ofReal 4 := by
   unfold excessWeight expandReplayExtra ClaudeWCT.WCT9.searchFuel
-  calc (2 : ℝ≥0∞) ^ ((8 / 7 : ℝ) * ((13408 + 5107 + 106485 + 1048575 : ℕ) : ℝ) / 1048576)
+  calc (2 : ℝ≥0∞) ^ ((8 / 7 : ℝ) * ((13408 + 4087 + 106485 + 1048575 : ℕ) : ℝ) / 1048576)
       ≤ (2 : ℝ≥0∞) ^ ((2 : ℕ) : ℝ) :=
         ENNReal.rpow_le_rpow_of_exponent_le (by norm_num) (by push_cast; norm_num)
     _ = ENNReal.ofReal 4 := by rw [ENNReal.rpow_natCast]; norm_num
@@ -3989,7 +3966,7 @@ theorem excessWeight_searchFuel_le : excessWeight ClaudeWCT.WCT9.searchFuel ≤ 
 theorem excessWeight_worst_le :
     excessWeight SigGolfCandidate.Research.SharedForest.expandWorstCost ≤ ENNReal.ofReal (2 ^ 19) := by
   unfold excessWeight expandReplayExtra SigGolfCandidate.Research.SharedForest.expandWorstCost
-  calc (2 : ℝ≥0∞) ^ ((8 / 7 : ℝ) * ((13408 + 5107 + 106485 + 2 ^ 24 : ℕ) : ℝ) / 1048576)
+  calc (2 : ℝ≥0∞) ^ ((8 / 7 : ℝ) * ((13408 + 4087 + 106485 + 2 ^ 24 : ℕ) : ℝ) / 1048576)
       ≤ (2 : ℝ≥0∞) ^ ((19 : ℕ) : ℝ) :=
         ENNReal.rpow_le_rpow_of_exponent_le (by norm_num) (by push_cast; norm_num)
     _ = ENNReal.ofReal (2 ^ 19) := by
@@ -4219,17 +4196,17 @@ theorem V_signFromOutput_certified (secret : BitVec 256) (cache : SigGolfCandida
     (hf : ClaudeWCT.W9.T3.Freshness.Paired.FtsFresh.AllFFresh rcache) :
     V secret SigGolfCandidate.T3.Budgets.signingZ
       (signFromOutput cache rho counter output) rcache ≤
-      SigGolfCandidate.T3.Budgets.signingZ^112084 * (ClaudeWCT.W9.T3.Freshness.Paired.GroundFresh.groundE *
+      SigGolfCandidate.T3.Budgets.signingZ^112148 * (ClaudeWCT.W9.T3.Freshness.Paired.GroundFresh.groundE *
         (ClaudeWCT.W9.T3.Freshness.Paired.GroundFresh.ftsE *
-          ((ClaudeWCT.Numerics.TopZero.initialBound : ENNReal)/scale))) := by
+          ((ClaudeWCT.W9.T3.CanonicalSearch.AllRoute.initialValue (saveClass (digestIndex output)) (poolClass (digestIndex output)) : ENNReal)/scale))) := by
   have h := V_signFromOutput_fixed secret SigGolfCandidate.T3.Budgets.signingZ
-    (SigGolfCandidate.T3.Budgets.signingZ^168 * ((ClaudeWCT.Numerics.TopZero.initialBound : ENNReal)/scale))
+    (SigGolfCandidate.T3.Budgets.signingZ^168 * ((ClaudeWCT.W9.T3.CanonicalSearch.AllRoute.initialValue (saveClass (digestIndex output)) (poolClass (digestIndex output)) : ENNReal)/scale))
     (SigGolfCandidate.T3.Budgets.signingZ^80731 * ClaudeWCT.W9.T3.Freshness.Paired.GroundFresh.groundE)
     cache rho counter output rcache
     (ClaudeWCT.W9.T3.Freshness.Paired.GroundFresh.V_buildForest_U16 secret (digestIndex output)
       (digestIndex_lt output) _ _ rcache hf) ?_ ?_
   · refine h.trans (le_of_eq ?_)
-    rw [show 112084 = 31185 + 80731 + 168 by decide, pow_add, pow_add]
+    rw [show 112148 = 31249 + 80731 + 168 by decide, pow_add, pow_add]
     ac_rfl
   · intro forest hforest
     exact ClaudeWCT.W9.T3.Freshness.Paired.GroundFresh.V_prepareRoots_U16 secret (digestIndex output)
@@ -4376,10 +4353,10 @@ theorem hashOnly_ftsNonceSearch (coord index heap : Nat) (left right : Digest) :
   intro fuel
   induction fuel with
   | zero => intro n; unfold ftsNonceSearch ftsNodeHashN
-            exact hashOnly_bind (hashOnly_ftsHash _ _) fun _ => hashOnly_pure _
+            exact hashOnly_bind (hashOnly_shortHash _) fun _ => hashOnly_pure _
   | succ fuel ih =>
       intro n; unfold ftsNonceSearch
-      refine hashOnly_bind (by unfold ftsNodeHashN; exact hashOnly_ftsHash _ _) fun _ => ?_
+      refine hashOnly_bind (by unfold ftsNodeHashN; exact hashOnly_shortHash _) fun _ => ?_
       split
       · exact hashOnly_pure _
       · exact ih _
@@ -4437,28 +4414,27 @@ theorem hashOnly_recoverSharedOuter (index coord : Nat) (selected : Child) (word
   exact hashOnly_bind (hashOnly_foldlM _ _ (fun _ _ => hashOnly_bind (hashOnly_recoverPair _ _ _ _ _ _ _)
     fun _ => hashOnly_pure _) _) fun _ => hashOnly_bind (hashOnly_recoverSingleton _ _ _ _ _) fun _ => hashOnly_pure _
 theorem hashOnly_recoverSharedInnerN (first : Bool) (index coord : Nat) (selected : Child)
-    (word : Rank) (values : Fin 6 → Digest) (path : Nat → Digest) (n n16 : Nat) (prev : PairRoot) :
-    HashOnly (recoverSharedInnerN first index coord selected word values path n n16 prev) := by
+    (word : Rank) (values : Fin 6 → Digest) (path : Nat → Digest) (n : Nat) (prev : PairRoot) :
+    HashOnly (recoverSharedInnerN first index coord selected word values path n prev) := by
   unfold recoverSharedInnerN
   refine hashOnly_bind (hashOnly_mapM _ _ (fun _ => ClaudeWCT.W9.T3.SourceReplay.hashOnly_chain _ _ _ _ _ _ _)) fun _ => ?_
   refine hashOnly_bind (hashOnly_leafHashH _ _ _ _ _ _) fun _ => ?_
   refine hashOnly_foldlM _ _ (fun _ _ => ?_) _
   unfold sharedNodeN
   dsimp only
-  split_ifs <;> first | exact hashOnly_shortHash _ | (unfold ftsNodeHashN; exact hashOnly_ftsHash _ _) |
+  split_ifs <;> first | exact hashOnly_shortHash _ | (unfold ftsNodeHashN; exact hashOnly_shortHash _) |
     exact hashOnly_sharedNode _ _ _ _ _ _ _
 theorem hashOnly_recoverForestN (index : Nat) (selected : ForestSelection) (words : ForestWords)
-    (opened : ForestOpening) (nonces nonces16 : List Nat) :
-    HashOnly (recoverForestN index selected words opened nonces nonces16) := by
+    (opened : ForestOpening) (nonces : List Nat) : HashOnly (recoverForestN index selected words opened nonces) := by
   unfold recoverForestN
   refine hashOnly_bind (hashOnly_foldlM _ _ (fun _ _ => ?_) _) fun _ => ?_
   · unfold recoverPairN
-    refine hashOnly_bind (hashOnly_recoverSharedInnerN _ _ _ _ _ _ _ _ _ _) fun _ => ?_
+    refine hashOnly_bind (hashOnly_recoverSharedInnerN _ _ _ _ _ _ _ _ _) fun _ => ?_
     unfold recoverSharedOuterN
-    refine hashOnly_bind (hashOnly_recoverSharedInnerN _ _ _ _ _ _ _ _ _ _) fun _ => ?_
+    refine hashOnly_bind (hashOnly_recoverSharedInnerN _ _ _ _ _ _ _ _ _) fun _ => ?_
     exact hashOnly_bind (hashOnly_sharedOuterHash _ _ _ _ _) fun _ => hashOnly_pure _
   · unfold recoverSingletonN
-    refine hashOnly_bind (hashOnly_recoverSharedInnerN _ _ _ _ _ _ _ _ _ _) fun _ => ?_
+    refine hashOnly_bind (hashOnly_recoverSharedInnerN _ _ _ _ _ _ _ _ _) fun _ => ?_
     exact hashOnly_bind (hashOnly_sharedOuterHash _ _ _ _ _) fun _ => hashOnly_pure _
 @[aesop safe apply] theorem hashOnly_layerCounterSearchAt (lay : Layer) (floor tree leaf : Nat)
     (msg : LayerMsg) (counter fuel : Nat) :
@@ -4559,7 +4535,7 @@ theorem hashOnly_recoverForestN (index : Nat) (selected : ForestSelection) (word
   · refine hashOnly_bind (hashOnly_digest _ _ _) fun output => ?_
     split
     · exact hashOnly_pure _
-    · refine hashOnly_bind (hashOnly_recoverForestN _ _ _ _ _ _) fun forest => ?_
+    · refine hashOnly_bind (hashOnly_recoverForestN _ _ _ _ _) fun forest => ?_
       refine hashOnly_bind (hashOnly_verifyLayers _ _ _ _) fun root => ?_
       cases root <;> exact hashOnly_pure _
 end SigGolfCandidate.Research.SharedForest
@@ -4651,11 +4627,125 @@ set_option maxRecDepth 10000
 set_option maxHeartbeats 1000000
 set_option backward.isDefEq.respectTransparency false
 
+end SigGolfCandidate.Research.SharedSigningBudget
+open OracleComp OracleSpec
+set_option backward.isDefEq.respectTransparency false
+namespace ClaudeWCT.W9.T3.CanonicalSearch
+open ClaudeWCT.W9.T3.PairRows
+open SigGolfCandidate.T3 SigGolfCandidate.T3.Sampling
+set_option maxHeartbeats 1000000
+set_option maxRecDepth 100000
+
+theorem RowsFreshFrom.cacheQuery_digest {stage : Nat} {cache : RCache}
+    (h : RowsFreshFrom stage cache) (rho : Digest) (message : Message) (counter : Nat) (answer : HashOutput) :
+    RowsFreshFrom stage (cache.cacheQuery (digestTrial rho message counter) answer) := by
+  intro lay hl tree leaf left right c hc
+  rw [QueryCache.cacheQuery_of_ne]
+  · exact h lay hl tree leaf left right c hc
+  · exact pairTrial_ne_digestTrial lay tree leaf left right c rho message counter
+end ClaudeWCT.W9.T3.CanonicalSearch
+
+namespace ClaudeWCT.W9.T3.Freshness.Paired.GroundFresh
+open SigGolfCandidate.T3 SigGolfCandidate.T3.Sampling
+open SigGolfCandidate.T3.QuerySpace
+set_option maxHeartbeats 1000000
+set_option maxRecDepth 100000
+
+theorem AllGFresh.cacheQuery_digest {cache : RCache} (h : AllGFresh cache)
+    (rho : Digest) (message : Message) (counter : Nat) (answer : HashOutput) :
+    AllGFresh (cache.cacheQuery (digestTrial rho message counter) answer) := by
+  intro lay tree heap hp n left right
+  rw [QueryCache.cacheQuery_of_ne]
+  · exact h lay tree heap hp n left right
+  · exact (gq_ne (queryHeader_digest rho message counter)
+      (digestHeader_ne_ground _ (by have := hp.h16; omega))
+      (gQ_gTrial (by have := hp.l1; omega) tree heap n left right)).symm
+end ClaudeWCT.W9.T3.Freshness.Paired.GroundFresh
+
+namespace ClaudeWCT.W9.T3.Freshness.Paired.FtsFresh
+open SigGolfCandidate.T3 SigGolfCandidate.T3.Sampling
+open SigGolfCandidate.T3.QuerySpace
+set_option maxHeartbeats 1000000
+set_option maxRecDepth 100000
+
+theorem AllFFresh.cacheQuery_digest {cache : RCache} (h : AllFFresh cache)
+    (rho : Digest) (message : Message) (counter : Nat) (answer : HashOutput) :
+    AllFFresh (cache.cacheQuery (digestTrial rho message counter) answer) := by
+  intro coord index heap hp n left right
+  rw [QueryCache.cacheQuery_of_ne]
+  · exact h coord index heap hp n left right
+  · exact (fq_ne (queryHeader_digest rho message counter)
+      (digestHeader_ne_fts _ hp) (fTrial_header coord index heap n left right)).symm
+end ClaudeWCT.W9.T3.Freshness.Paired.FtsFresh
+
+namespace SigGolfCandidate.Research.SharedSigningBudget
+open OracleComp OracleSpec OracleComp.EvalDist ENNReal
+open SigGolfCandidate.T3 SigGolfCandidate.T3.Sampling SigGolfCandidate.T3.Cost
+open SigGolfCandidate.T3.Budgets (V_bind_bounded)
+open ClaudeWCT.WCT9 ClaudeWCT.W9.T3.CanonicalSearch
+open SphincsSecurity.Completeness
+set_option maxHeartbeats 2000000
+set_option maxRecDepth 100000
+set_option backward.isDefEq.respectTransparency false
+
+theorem V_signPayload_weighted (secret : BitVec 256) (z B : ENNReal) (hz : 1 ≤ z) (hB : 1 ≤ B)
+    (score : HashOutput → ENNReal) (G : RCache → Prop)
+    (cache : SigGolfCandidate.T3.Cache) (message : Message) (rcache : RCache)
+    (hG : ∀ rho rc, G rc → ∀ counter, counter < 2^32 → ∀ answer,
+      G (rc.cacheQuery (digestTrial rho message counter) answer))
+    (hnonce : ∀ nonce ∈ support (roRun secret (privateNonce message) rcache),
+      G nonce.2 ∧ ∀ c, c < 2^32 → nonce.2 (digestTrial nonce.1 message c) = none)
+    (hnext : ∀ rho counter output rc, G rc →
+      V secret z (SharedForest.signFromOutput cache rho counter output) rc ≤ score output)
+    (hstep : z * (acceptedWeight (DigestGeneric.decoder SharedForest.digestAccepted) score +
+      failMass (DigestGeneric.decoder SharedForest.digestAccepted) * B) ≤ B) :
+    V secret z (SharedForest.signPayload cache message) rcache ≤ z^2 * B := by
+  unfold SharedForest.signPayload
+  refine V_bind_bounded secret z _ _ rcache (z^2) B
+    (V_of_bound (bound_privateNonce message) secret z hz rcache) ?_
+  intro nonce hn
+  obtain ⟨hg, hfresh⟩ := hnonce nonce hn
+  rw [SharedForest.sharedDigestSearch_eq_run, DigestGeneric.run_public]
+  apply V_search_bind secret z B (digestTrial nonce.1 message)
+    (DigestGeneric.decoder SharedForest.digestAccepted)
+    (fun c value => (BitVec.ofNat 32 c, value)) _ score G (2^32)
+  · intro counter _
+    exact digestTrial_length nonce.1 message counter
+  · intro left right hl hr he
+    exact digestTrial_injective nonce.1 message hl hr he
+  · intro rc hrc counter hc answer
+    exact hG nonce.1 rc hrc counter hc answer
+  · intro rc _
+    simpa only [V_pure] using hB
+  · intro rc hrc counter hc answer value _
+    refine (V_bind_bounded secret z _ _ _ (score value) 1
+      (hnext nonce.1 (BitVec.ofNat 32 counter) value _ (hG nonce.1 rc hrc counter hc answer)) ?_).trans_eq (mul_one _)
+    intro result _
+    cases result.1 <;> simp only [V_pure, le_refl]
+  · exact hstep
+  · simp only [Nat.zero_add]
+    exact digestAttemptLimit_le
+  · exact hg
+  · intro c _ hc
+    exact hfresh c hc
+
+end SigGolfCandidate.Research.SharedSigningBudget
+namespace SigGolfCandidate.Research.SharedSigningBudget
+open OracleComp OracleSpec OracleComp.EvalDist ENNReal
+open ClaudeWCT.WCT9 (digestIndex digestIndex_lt)
+open SigGolfCandidate.T3 SigGolfCandidate.T3.Sampling
+open SigGolfCandidate.Research.SharedForest
+open SigGolfCandidate.T3.Budgets (signingZ signingZ_pow)
+open ClaudeWCT.W9.T3.CanonicalSearch ClaudeWCT.W9.T3.PairRows
+open ClaudeWCT.Numerics.CanonicalCompression
+set_option maxRecDepth 100000
+set_option maxHeartbeats 2000000
+set_option backward.isDefEq.respectTransparency false
 noncomputable def digestMoment : ENNReal := (ftsBound:ENNReal)/scale
 /-- U16b: 112322 − 42 fixed compressions, the 42 ground node factors and the initial bound. -/
 noncomputable def postMoment : ENNReal :=
-  signingZ^112084*(ClaudeWCT.W9.T3.Freshness.Paired.GroundFresh.groundE*(ClaudeWCT.W9.T3.Freshness.Paired.GroundFresh.ftsE*
-    ((ClaudeWCT.Numerics.TopZero.initialBound:ENNReal)/scale)))
+  signingZ^112148*(ClaudeWCT.W9.T3.Freshness.Paired.GroundFresh.groundE*(ClaudeWCT.W9.T3.Freshness.Paired.GroundFresh.ftsE*
+    ((ClaudeWCT.Numerics.AllRouteMean.meanInitial:ENNReal)/scale)))
 noncomputable def payloadMoment : ENNReal := signingZ^2*(digestMoment*postMoment)
 noncomputable def signingMoment : ENNReal := signingZ^2*payloadMoment
 
@@ -4683,7 +4773,7 @@ theorem postMoment_ge_one : 1 ≤ postMoment := by
   apply one_le_mul (one_le_pow₀ (SigGolfCandidate.Budget.one_le_zOf _))
   refine one_le_mul groundE_ge_one (one_le_mul ftsE_ge_one ?_)
   apply (ENNReal.toReal_le_toReal (by simp) (by unfold scale; finiteness)).mp
-  norm_num [ENNReal.toReal_div,ClaudeWCT.Numerics.TopZero.initialBound,scale]
+  norm_num [ENNReal.toReal_div,ClaudeWCT.Numerics.AllRouteMean.meanInitial,ClaudeWCT.Numerics.AllRoute.meanInitial,scale]
 
 theorem payloadMoment_ge_one : 1 ≤ payloadMoment :=
   one_le_mul (one_le_pow₀ (SigGolfCandidate.Budget.one_le_zOf _))
@@ -4712,25 +4802,42 @@ theorem V_signPayload_certified (secret : BitVec 256) (cache : SigGolfCandidate.
     (hg : ClaudeWCT.W9.T3.Freshness.Paired.GroundFresh.AllGFresh rcache)
     (hf : ClaudeWCT.W9.T3.Freshness.Paired.FtsFresh.AllFFresh rcache) :
     V secret signingZ (SharedForest.signPayload cache message) rcache ≤ payloadMoment := by
-  apply V_signPayload_fixed secret signingZ digestMoment postMoment
-    (SigGolfCandidate.Budget.one_le_zOf _) postMoment_ge_one cache message rcache
+  let factor : ENNReal := signingZ^112148 *
+    (ClaudeWCT.W9.T3.Freshness.Paired.GroundFresh.groundE *
+      ClaudeWCT.W9.T3.Freshness.Paired.GroundFresh.ftsE)
+  let G : RCache → Prop := fun rc => RowsFreshFrom 0 rc ∧
+    ClaudeWCT.W9.T3.Freshness.Paired.GroundFresh.AllGFresh rc ∧
+    ClaudeWCT.W9.T3.Freshness.Paired.FtsFresh.AllFFresh rc
+  have hB : 1 ≤ factor * ClaudeWCT.Bank.Paired.routeDigestBound := by
+    have he : factor * ClaudeWCT.Bank.Paired.routeDigestBound = digestMoment * postMoment := by
+      unfold factor ClaudeWCT.Bank.Paired.routeDigestBound digestMoment postMoment
+      ring
+    rw [he]
+    exact one_le_mul digestMoment_ge_one postMoment_ge_one
+  have h := V_signPayload_weighted secret signingZ
+    (factor * ClaudeWCT.Bank.Paired.routeDigestBound) (SigGolfCandidate.Budget.one_le_zOf _) hB
+    (fun a => factor * ClaudeWCT.Bank.Paired.routeInitial (ClaudeWCT.Bank.Paired.proposal a).1)
+    G cache message rcache ?_ ?_ ?_ ?_
+  · convert h using 1 <;> unfold payloadMoment digestMoment postMoment factor
+    all_goals unfold ClaudeWCT.Bank.Paired.routeDigestBound; ring
+  · intro rho rc hrc counter hc answer
+    exact ⟨hrc.1.cacheQuery_digest rho message counter answer,
+      hrc.2.1.cacheQuery_digest rho message counter answer,
+      hrc.2.2.cacheQuery_digest rho message counter answer⟩
   · intro nonce hn
     have hnonce := privateNonce_preserves_fresh secret message rcache hfresh nonce hn
-    exact V_sharedDigestSearch secret nonce.1 message _ _
-      (by have := ClaudeWCT.WCT9.digestAttemptLimit_le; omega) nonce.2
-      (fun c _ hc => hnonce.1 _ _ _ hc)
-  · intro nonce hn found hd counter output he
-    have hnonce := privateNonce_preserves_fresh secret message rcache hfresh nonce hn
-    have hrows : RowsFreshFrom 0 nonce.2 := fun lay _ => hnonce.2 lay lay.isLt
-    have hg2 := ClaudeWCT.W9.T3.Freshness.Paired.GroundFresh.digestSearch_allGFresh secret nonce.1 message 0 ClaudeWCT.WCT9.digestAttemptLimit nonce.2
-      (ClaudeWCT.W9.T3.Freshness.Paired.GroundFresh.privateNonce_allGFresh secret message rcache hg nonce hn) found hd
-    have hf2 := ClaudeWCT.W9.T3.Freshness.Paired.FtsFresh.digestSearch_allFFresh secret nonce.1 message 0
-      ClaudeWCT.WCT9.digestAttemptLimit nonce.2
-      (ClaudeWCT.W9.T3.Freshness.Paired.FtsFresh.privateNonce_allFFresh secret message rcache hf nonce hn) found hd
-    rw [sharedDigestSearch_eq_run] at hd
-    exact V_signFromOutput_certified secret cache nonce.1 counter output found.2
-      (DigestGeneric.run_preserves_rows digestAccepted secret 0 nonce.1 message 0
-        ClaudeWCT.WCT9.digestAttemptLimit nonce.2 hrows found hd) hg2 hf2
+    exact ⟨⟨(fun lay _ => hnonce.2 lay lay.isLt),
+      ClaudeWCT.W9.T3.Freshness.Paired.GroundFresh.privateNonce_allGFresh secret message rcache hg nonce hn,
+      ClaudeWCT.W9.T3.Freshness.Paired.FtsFresh.privateNonce_allFFresh secret message rcache hf nonce hn⟩,
+      fun c hc => hnonce.1 _ _ _ hc⟩
+  · intro rho counter output rc hrc
+    have hpoint := V_signFromOutput_certified secret cache rho counter output rc hrc.1 hrc.2.1 hrc.2.2
+    convert hpoint using 1
+    unfold factor ClaudeWCT.Bank.Paired.routeInitial
+    rw [ClaudeWCT.Bank.Paired.proposal_index]
+
+    ring
+  · exact scaled_step _ _ factor _ _ ClaudeWCT.Bank.Paired.routeDigest_step
 
 theorem V_sign_certified (secret : BitVec 256) (cache : SigGolfCandidate.T3.Cache)
     (message : Message) (rcache : RCache) (hfresh : AllSearchesFreshBC rcache)
@@ -4746,16 +4853,16 @@ theorem V_sign_certified (secret : BitVec 256) (cache : SigGolfCandidate.T3.Cach
     (ClaudeWCT.W9.T3.Freshness.Paired.FtsFresh.privateMac_allFFresh secret cache.region rcache hf checked hc)
 
 theorem signingMoment_eq : signingMoment =
-    signingZ^112088*(((ftsBound:ENNReal)/scale)*(ClaudeWCT.W9.T3.Freshness.Paired.GroundFresh.groundE*
-      (ClaudeWCT.W9.T3.Freshness.Paired.GroundFresh.ftsE*((ClaudeWCT.Numerics.TopZero.initialBound:ENNReal)/scale)))) := by
+    signingZ^112152*(((ftsBound:ENNReal)/scale)*(ClaudeWCT.W9.T3.Freshness.Paired.GroundFresh.groundE*
+      (ClaudeWCT.W9.T3.Freshness.Paired.GroundFresh.ftsE*((ClaudeWCT.Numerics.AllRouteMean.meanInitial:ENNReal)/scale)))) := by
   unfold signingMoment payloadMoment digestMoment postMoment
-  rw [show 112088=2+2+112084 by decide,pow_add,pow_add]
+  rw [show 112152=2+2+112148 by decide,pow_add,pow_add]
   ac_rfl
 
-/-- The fixed sign cost proved for the current Lean scheme (`signingMoment_eq`: 2 + 2 + 31185 + 80731 + 168 (E1: the 12 zero top-path masks cost nothing); U16b:
+/-- The fixed sign cost proved for the current Lean scheme (`signingMoment_eq`: 2 + 2 + 31249 + 80731 + 168 (E1: the 12 zero top-path masks cost nothing); U16b:
 the prepared roots' fixed part 80731 = 80821 − 90 (E11), the 90 ground node searches are the factors `groundE`; E8:
-the forest's fixed part 31185 = 31321 − 72 − 64, the 136 FTS ground node searches are the factors `ftsE`). -/
-def schemeFixedSignCost : Nat := 112088
+the forest's fixed part 31249 = 31321 − 72, the 72 FTS ground node searches are the factors `ftsE`). -/
+def schemeFixedSignCost : Nat := 112152
 
 /-- img-v6 open obligation (opus-crumbs PORT v6 C): the scheme's proved fixed sign cost is at most the certified img-v6
 value 112326 (`TopZero.fixedSignCost`). Discharged by `decide` once the lower 7-leaf / top 4-leaf seed-family scheme
@@ -4781,7 +4888,7 @@ theorem signingMoment_le_two (hfix : SchemeFixedCostV6) : signingMoment ≤ 2 :=
   have hFt : ClaudeWCT.W9.T3.Freshness.Paired.GroundFresh.ftsE ≠ ⊤ := by
     unfold ClaudeWCT.W9.T3.Freshness.Paired.GroundFresh.ftsE
     exact ENNReal.mul_ne_top (ENNReal.pow_ne_top (hmt 1)) (ENNReal.pow_ne_top (hmt 2))
-  have hzt : signingZ ^ 112088 ≠ ⊤ := ENNReal.pow_ne_top (by unfold signingZ SigGolfCandidate.Budget.zOf; finiteness)
+  have hzt : signingZ ^ 112152 ≠ ⊤ := ENNReal.pow_ne_top (by unfold signingZ SigGolfCandidate.Budget.zOf; finiteness)
   have hst : ∀ n : ℕ, (n : ℝ≥0∞) / (scale : ℝ≥0∞) ≠ ⊤ := fun n =>
     ENNReal.div_ne_top (ENNReal.natCast_ne_top n) (by unfold scale; simp)
   apply (ENNReal.toReal_le_toReal (ENNReal.mul_ne_top hzt (ENNReal.mul_ne_top (hst _)
@@ -4792,7 +4899,7 @@ theorem signingMoment_le_two (hfix : SchemeFixedCostV6) : signingMoment ≤ 2 :=
     have h1 : (1:ENNReal) ≤ signingZ := SigGolfCandidate.Budget.one_le_zOf _
     have h := ENNReal.toReal_mono (by unfold signingZ SigGolfCandidate.Budget.zOf; finiteness) h1
     simpa only [ENNReal.toReal_one] using h
-  have hfixed : signingZ.toReal^112088≤(ClaudeWCT.Numerics.TopZero.fixedBoundU16:ℝ)/scale :=
+  have hfixed : signingZ.toReal^112152≤(ClaudeWCT.Numerics.TopZero.fixedBoundU16:ℝ)/scale :=
     ((pow_le_pow_right₀ hz1 hfix).trans (pow_le_pow_left₀ ENNReal.toReal_nonneg hz _)).trans
       ClaudeWCT.Numerics.TopZero.fixed_ratio_bound_U16
   have hmG : ∀ b, (ClaudeWCT.W9.T3.Freshness.Paired.GroundFresh.mG b).toReal =
@@ -4803,29 +4910,29 @@ theorem signingMoment_le_two (hfix : SchemeFixedCostV6) : signingMoment ≤ 2 :=
     unfold ClaudeWCT.W9.T3.Freshness.Paired.GroundFresh.groundE ClaudeWCT.W9.T3.Freshness.Paired.GroundFresh.ftsE
     simp only [ENNReal.toReal_mul, ENNReal.toReal_pow, hmG]
     have h := ClaudeWCT.Numerics.TopZero.groundBound_ratio_ge
-    calc _ = ((ClaudeWCT.Numerics.TopZero.groundM 1:ℝ)/scale)^128 *
+    calc _ = ((ClaudeWCT.Numerics.TopZero.groundM 1:ℝ)/scale)^64 *
           (((ClaudeWCT.Numerics.TopZero.groundM 2:ℝ)/scale)^80 *
             (((ClaudeWCT.Numerics.TopZero.groundM 3:ℝ)/scale)^12 *
               ((ClaudeWCT.Numerics.TopZero.groundM 4:ℝ)/scale)^6)) := by ring
       _ ≤ _ := h
-  have he := ClaudeWCT.Numerics.TopZero.envelope_ratio_le_two_U16
+  have he := ClaudeWCT.Numerics.AllRouteMean.envelope_ratio_le_two
   have h0 : (0:ℝ) ≤ (ftsBound:ℝ)/scale := div_nonneg (Nat.cast_nonneg _) (Nat.cast_nonneg _)
-  have h0' : (0:ℝ) ≤ (ClaudeWCT.Numerics.TopZero.initialBound:ℝ)/scale :=
+  have h0' : (0:ℝ) ≤ (ClaudeWCT.Numerics.AllRouteMean.meanInitial:ℝ)/scale :=
     div_nonneg (Nat.cast_nonneg _) (Nat.cast_nonneg _)
   have hGn : (0:ℝ) ≤ ClaudeWCT.W9.T3.Freshness.Paired.GroundFresh.groundE.toReal *
       ClaudeWCT.W9.T3.Freshness.Paired.GroundFresh.ftsE.toReal :=
     mul_nonneg ENNReal.toReal_nonneg ENNReal.toReal_nonneg
   calc
-    _ = signingZ.toReal^112088 * ((ftsBound:ℝ)/scale * ((ClaudeWCT.W9.T3.Freshness.Paired.GroundFresh.groundE.toReal *
+    _ = signingZ.toReal^112152 * ((ftsBound:ℝ)/scale * ((ClaudeWCT.W9.T3.Freshness.Paired.GroundFresh.groundE.toReal *
           ClaudeWCT.W9.T3.Freshness.Paired.GroundFresh.ftsE.toReal) *
-          ((ClaudeWCT.Numerics.TopZero.initialBound:ℝ)/scale))) := by ring
+          ((ClaudeWCT.Numerics.AllRouteMean.meanInitial:ℝ)/scale))) := by ring
     _ ≤ ((ClaudeWCT.Numerics.TopZero.fixedBoundU16:ℝ)/scale)*(((ftsBound:ℝ)/scale)*
         (((ClaudeWCT.Numerics.TopZero.groundBound:ℝ)/scale)*
-          ((ClaudeWCT.Numerics.TopZero.initialBound:ℝ)/scale))) :=
+          ((ClaudeWCT.Numerics.AllRouteMean.meanInitial:ℝ)/scale))) :=
         mul_le_mul hfixed (mul_le_mul_of_nonneg_left (mul_le_mul_of_nonneg_right hG h0') h0)
           (mul_nonneg h0 (mul_nonneg hGn h0')) (div_nonneg (Nat.cast_nonneg _) (Nat.cast_nonneg _))
     _ = (((ClaudeWCT.Numerics.TopZero.fixedBoundU16:ℝ)/scale)*((ClaudeWCT.Numerics.TopZero.groundBound:ℝ)/scale))*
-        (((ftsBound:ℝ)/scale)*((ClaudeWCT.Numerics.TopZero.initialBound:ℝ)/scale)) := by ring
+        (((ftsBound:ℝ)/scale)*((ClaudeWCT.Numerics.AllRouteMean.meanInitial:ℝ)/scale)) := by ring
     _ ≤ 2 := he
 
 theorem V_sign_le_two (hfix : SchemeFixedCostV6) (secret : BitVec 256) (cache : SigGolfCandidate.T3.Cache)
@@ -5091,7 +5198,7 @@ open OracleComp OracleSpec SigGolfCandidate.Legacy ENNReal OracleComp.EvalDist
 open SigGolfCandidate.T3 (M Spec Cache Digest keygen)
 open SigGolfCandidate.T3M (mrealize countBoth countCalls cacheB cacheDec isHash)
 open SigGolfCandidate.Research.SharedForest (Signature Witness sign expand)
-open ClaudeWCT.W9.T3M.Paired (submission expandN expandB verifyP witEnc witEncN witEncG witEncF witEncF16)
+open ClaudeWCT.W9.T3M.Paired (submission expandN expandB verifyP witEnc witEncN witEncG witEncF)
 open ClaudeWCT.W9.T3M.SharedCodec (sigBC sigDecC)
 
 abbrev submission := ClaudeWCT.W9.T3M.Paired.submission
@@ -5106,8 +5213,8 @@ abbrev witEncN := ClaudeWCT.W9.T3M.Paired.witEncN
 /-- U16b: and the 9 ground lower fold nonces (`Paired.witEncG`). -/
 abbrev witEncG := ClaudeWCT.W9.T3M.Paired.witEncG
 
-def verifyCycleBound : Nat := 6877
-def claimedC : Nat := 6962
+def verifyCycleBound : Nat := 6875
+def claimedC : Nat := 6961
  def DigestCapOk (hash : Hash) (m : Message) (w : Bytes 21756) : Prop :=
   SigGolfCandidate.Research.SharedForest.jointAccountingCost
     (hash (SigGolfCandidate.T3M.toQ (SigGolfCandidate.T3.pad64
@@ -5131,11 +5238,11 @@ def KeygenRunWith : Prop := ∀ (hash : Hash) (sk : SecretKey),
  def SignTerminates : Prop := ∀ (hash : Hash) (sk : SecretKey) (cache : Bytes 131072) (m : Message),
   ((submission I).runWith hash .sign (sk,cache,m)).finished=true ∧
     ((submission I).runWith hash .sign (sk,cache,m)).cycles<CYCLE_LIMIT
- def ExpandRefines : Prop := ∀ (m : Message) (pk : PublicKey) (s : Bytes 5186),
+ def ExpandRefines : Prop := ∀ (m : Message) (pk : PublicKey) (s : Bytes 5187),
   (fun r => (r.value,r.hashCalls,r.hashCompressions)) <$> (submission I).run .expand (m,pk,s)=
-    (fun p => (p.1.map (fun x => witEncF16 x.1 x.2),p.2.1,p.2.2)) <$>
+    (fun p => (p.1.map (fun x => witEncF x.1 x.2),p.2.1,p.2.2)) <$>
       countBoth (mrealize 0 (expandN m pk (sigDecC s)))
- def ExpandTerminates : Prop := ∀ (hash : Hash) (m : Message) (pk : PublicKey) (s : Bytes 5186),
+ def ExpandTerminates : Prop := ∀ (hash : Hash) (m : Message) (pk : PublicKey) (s : Bytes 5187),
   ((submission I).runWith hash .expand (m,pk,s)).finished=true ∧
     ((submission I).runWith hash .expand (m,pk,s)).cycles<CYCLE_LIMIT
  def VerifyRefines : Prop := ∀ (m : Message) (pk : PublicKey) (w : Bytes 21756),
@@ -11814,7 +11921,7 @@ structure SetupMask (u : MachineState) : Prop where
   child : u.getMem (BitVec.ofNat 64 (dataBase7 + 368)) = BitVec.ofNat 64 0xf1b00
   jt : u.getMem (BitVec.ofNat 64 (dataBase7 + 376)) = BitVec.ofNat 64 0xfff01
   coord : u.getMem (BitVec.ofNat 64 (dataBase7 + 464)) = BitVec.ofNat 64 11120
-  gate : u.getMem (BitVec.ofNat 64 (dataBase7 + 352)) = BitVec.ofNat 64 (929 * 2^50)
+  gate : u.getMem (BitVec.ofNat 64 (dataBase7 + 352)) = BitVec.ofNat 64 (926 * 2^50)
   d0 : u.getMem (BitVec.ofNat 64 dataBase7) = BitVec.ofNat 64 0xfff
   aTable : u.getMem (BitVec.ofNat 64 (dataBase7 + 56)) = BitVec.ofNat 64 0xe3300
   singleton : u.getMem (BitVec.ofNat 64 (dataBase7 + 64)) = BitVec.ofNat 64 0xe7400
