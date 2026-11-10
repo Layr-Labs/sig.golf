@@ -152,8 +152,22 @@ def privateMacKey : M SiggolfT3Mac4.MacKey := do
 def privateMac (region : Region) : M HashOutput := do
   let key ← privateMacKey
   pure (SiggolfT3Mac4.encodeTag (SiggolfT3Mac4.macTag key (List.ofFn region)))
+/-- R6 (F1): the rho modulus `R = ⌊2^135 / 5852⌋ < 2^123`; the compact field `N = rho * 5852 + t` (`t < 5852`) then
+fits 135 bits, and `N < R * 5852 = 2^135 - 1044` is the canonical range. -/
+def R : Nat := 7442949925816835837886525931521929437
+theorem R_eq : R = 2 ^ 135 / 5852 := by decide
+theorem R_pos : 0 < R := by decide
+theorem R_lt : R < 2 ^ 123 := by decide
+theorem R_mul_lt : R * 5852 < 2 ^ 135 := by decide
+/-- R6 (F1): rho is the full 256-bit private hash reduced mod `R`. -/
+def rhoMod (h : HashOutput) : Nat := h.toNat % R
+theorem rhoMod_lt (h : HashOutput) : rhoMod h < R := Nat.mod_lt _ R_pos
+theorem rhoMod_lt_pow (h : HashOutput) : rhoMod h < 2 ^ 128 :=
+  lt_of_lt_of_le (rhoMod_lt h) (by decide)
+theorem rhoMod_toNat (h : HashOutput) : (BitVec.ofNat 128 (rhoMod h)).toNat = rhoMod h := by
+  rw [BitVec.toNat_ofNat]; exact Nat.mod_eq_of_lt (rhoMod_lt_pow h)
 def privateNonce (message : Message) : M Digest := do
-  pure ((← privateHash (.inr (.inl message))).extractLsb' 0 128)
+  pure (BitVec.ofNat 128 (rhoMod (← privateHash (.inr (.inl message)))))
 /-- Leaf-level cache values are public tree leaves; higher levels retain their private masks. -/
 def pairedMask (_level _pair : Nat) : M (Digest × Digest) := pure (0, 0)
 def mask (level index : Nat) : M Digest := do
@@ -306,15 +320,16 @@ Every top node at height `h ∈ 1..11` (level `h` of `buildTopLevels`; heap `2^(
 `n < topNonceCap h` of `topNodeHashN heap n left right` whose zero bits (`topZeroOk h`) are clear; if no trial
 passes, the last one (`n = topNonceCap h - 1`) is kept. The nonce is the 64-bit counter at bytes 32..39 of the node
 input (bytes 40..47 stay 0); `n = 0` gives the old zero pad. Zero bits: the top `topZeroBits h` bits of the 128-bit
-node value for `h ≤ 10`, bits 101..107 for `h = 11` (E11) (T51; #938: bits 98..108). The root (height 12) has no nonce.
+node value for `h ≤ 10`, bits 99..107 for `h = 11` (R6; E11: 101..107; #938: bits 98..108). The root (height 12) has no nonce.
 A height with `b_h = 0` passes its first trial (nonce 0). -/
-/-- Campaign T51: `b_1..b_11 = 0,0,1,1,2,3,4,5,6,7,8` (37 bits; #938 img-v6 had `b_h = h`, 66 bits). -/
-def topZeroAlloc : List Nat := [0, 0, 0, 2, 2, 3, 4, 5, 6, 7, 8, 7]
+/-- R6 (F5): `b_1..b_11 = 0,0,1,2,3,4,5,6,7,8,9` (h3 2 -> 1, h11 window 7 -> 9 bits at 99..107; E8 had
+`0,0,2,2,3,4,5,6,7,8,7`). -/
+def topZeroAlloc : List Nat := [0, 0, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
 def topZeroBits (h : Nat) : Nat := topZeroAlloc.getD h 0
 /-- Trial cap `104 << b`. -/
 def topNonceCap (h : Nat) : Nat := 104 * 2 ^ topZeroBits h
 def topZeroOk (h : Nat) (value : Digest) : Bool :=
-  if h = 11 then value.toNat / 2 ^ 101 % 2 ^ 7 == 0 else value.toNat / 2 ^ (128 - topZeroBits h) == 0
+  if h = 11 then value.toNat / 2 ^ 99 % 2 ^ 9 == 0 else value.toNat / 2 ^ (128 - topZeroBits h) == 0
 def nonceBytes (n : Nat) : HashInput := bytesLE 16 (BitVec.ofNat 128 (n % 2 ^ 64))
 def topNodeInput (heap n : Nat) (left right : Digest) : HashInput :=
   bytesLE 16 left ++ bytesLE 16 (nodeTweak 3 0 0 heap) ++ nonceBytes n ++ bytesLE 16 right

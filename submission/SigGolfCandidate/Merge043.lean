@@ -162,12 +162,6 @@ theorem producerAdmissible_zero : WCT9.producerAdmissible 0 = true := by
   rw [hz]
   exact capOkC_zero
 theorem exists_producer : ∃ x, WCT9.producerAdmissible x = true := ⟨0, producerAdmissible_zero⟩
-noncomputable def wctSpec' (horizon : Nat) (rate : ENNReal) (hexc : ExcessBound horizon rate) :
-    FtsBankSpec WProposal :=
-  wctSpec honestLawSum acceptedProposalHonest producerAcceptanceBound exists_producer horizon rate hexc
-theorem wctSpec'_eq (horizon : Nat) (rate : ENNReal) (hexc : ExcessBound horizon rate) :
-    wctSpec' horizon rate hexc =
-      wctSpec honestLawSum acceptedProposalHonest producerAcceptanceBound exists_producer horizon rate hexc := rfl
 set_option linter.constructorNameAsVariable false in
 theorem honestCoordLaw_eq_n4 : honestCoordLaw = ClaudeWCT.Numerics.N600Cap.honestLaw := by
   funext c
@@ -209,7 +203,7 @@ noncomputable def honestLaw : Proposal → ENNReal :=
 
 theorem sum_producer (g : Proposal → ENNReal) :
     (∑ a : HashOutput, if producer a = true then g (proposal a) else 0) =
-      ((934*2^62 : Nat) : ENNReal) * ∑ p : Proposal, if capOk p.2 = true then g p else 0 := by
+      ((926*2^62 : Nat) : ENNReal) * ∑ p : Proposal, if capOk p.2 = true then g p else 0 := by
   rw [← sum_admissible (fun p => if capOk p.2 = true then g p else 0)]
   apply Finset.sum_congr rfl
   intro a _
@@ -273,7 +267,7 @@ theorem sum_capOk_prod_one :
 
 theorem producer_acceptance_eq :
     Pr[fun a : HashOutput => producer a = true | ($ᵗ HashOutput : ProbComp HashOutput)] =
-      ((934*2^62 : Nat) : ENNReal) * (((2^31 : Nat) : ENNReal) * (capSet.card : ENNReal)) /
+      ((926*2^62 : Nat) : ENNReal) * (((2^31 : Nat) : ENNReal) * (capSet.card : ENNReal)) /
         (Fintype.card HashOutput : ENNReal) := by
   rw [← expectedValue_ite_one, BPORS.expected_uniform_eq_finiteAverage]
   unfold SigGolfResearch.Gate6.Moments.finiteAverage
@@ -294,8 +288,8 @@ theorem acceptedProposalHonest (g : Proposal → ENNReal) :
   set K := ((2^31 : Nat) : ENNReal)*(capSet.card : ENNReal)
   set S := ∑ p : Proposal, if capOk p.2 = true then g p else 0
   simp only [div_eq_mul_inv]
-  calc ((934*2^62 : Nat) : ENNReal)*S*(Fintype.card HashOutput : ENNReal)⁻¹
-      = ((934*2^62 : Nat) : ENNReal)*S*(Fintype.card HashOutput : ENNReal)⁻¹*(K⁻¹*K) := by
+  calc ((926*2^62 : Nat) : ENNReal)*S*(Fintype.card HashOutput : ENNReal)⁻¹
+      = ((926*2^62 : Nat) : ENNReal)*S*(Fintype.card HashOutput : ENNReal)⁻¹*(K⁻¹*K) := by
         rw [ENNReal.inv_mul_cancel hK hK', mul_one]
     _ = _ := by ring
 
@@ -317,7 +311,7 @@ theorem producer_zero : producer 0 = true := by
     · funext k; fin_cases k <;> rfl
   rw [producer, ha, Bool.true_and, hp, capOk_zero]
 
-theorem producerAcceptanceBound :
+theorem producerAcceptanceBound_e8 :
     Pr[fun a : HashOutput => producer a = true | ($ᵗ HashOutput : ProbComp HashOutput)] ≤ 1/1024 := by
   calc _ ≤ Pr[fun a : HashOutput => admissible a = true | ($ᵗ HashOutput : ProbComp HashOutput)] :=
         probEvent_mono (fun a _ h => (Bool.and_eq_true_iff.mp h).1)
@@ -476,40 +470,6 @@ theorem average_score (X : List HashOutput) :
   unfold price score
   rw [mul_comm, ENNReal.mul_div_cancel_right (by positivity) (by finiteness)]
 
-/-- The law-only bank packages the actual producer and exact proposal law.
-Its infinite excess bound is never a security certificate: it is used only
-for generic accepted-output and cached-search expectation identities. -/
-noncomputable def lawSpec : FtsBankSpec Proposal where
-  specTheta := 1023/1024
-  admBound := 1/1024
-  theta_add_admBound := by
-    apply (ENNReal.toReal_eq_toReal_iff' (by finiteness)
-      (by unfold SigGolfCandidate.T3.Security.CaseC.theta; finiteness)).mp
-    unfold SigGolfCandidate.T3.Security.CaseC.theta
-    simp (disch := finiteness) only [ENNReal.toReal_add, ENNReal.toReal_div, ENNReal.toReal_inv,
-      ENNReal.toReal_ofNat, ENNReal.toReal_one]
-    norm_num
-  admissible := admissible
-  producer := producer
-  exists_producer := ⟨0,producer_zero⟩
-  acceptance_le := producerAcceptanceBound
-  proposal := proposal
-  law := honestLaw
-  law_sum := honestLaw_sum
-  accepted_proposal := acceptedProposalHonest
-  score := score
-  covered := Covered
-  one_le_score := one_le_score
-  score_append_mono := score_append_mono
-  price := price
-  average_score := average_score
-  horizon := 2^32
-  excessRate := ⊤
-  excess_le := le_top
-
-theorem selected_proposal (g : Proposal → ENNReal) :
-    expectedValue lawSpec.accepted (fun a => g (proposal a)) = ∑ p, honestLaw p*g p :=
-  lawSpec.expected_accepted_proposal g
 
 end ClaudeWCT.Bank.Paired
 
@@ -562,7 +522,7 @@ theorem predicate_card_nat (p : SharedDigestFields.Fields → Prop) [DecidablePr
   simpa only [Nat.card_eq_fintype_card] using SharedDigestFields.predicate_card p
 
 theorem producer_card_fields : Nat.card {a : HashOutput // producer a = true} =
-    fieldRetained*2^31*934*2^76 := by
+    fieldRetained*2^31*926*2^76 := by
   have he := congrArg (fun p : HashOutput → Bool => Nat.card {a : HashOutput // p a = true}) producer_fields_eq
   calc _ = Nat.card {a : HashOutput // SharedDigestFields.accepted (SharedDigestFields.fields a) = true} := he
        _ = Nat.card {f : SharedDigestFields.Fields // SharedDigestFields.accepted f = true} * 2^76 := predicate_card_nat (fun f => SharedDigestFields.accepted f = true)
@@ -573,7 +533,7 @@ theorem uniform_card_bool {α : Type} [Fintype α] [SampleableType α] (p : α �
   rw [probEvent_uniformSample, ← Fintype.card_subtype, Nat.card_eq_fintype_card]
 
 theorem producer_card : Nat.card {a : HashOutput // producer a = true} =
-    934*2^62*(2^31*capSet.card) := by
+    926*2^62*(2^31*capSet.card) := by
   have he := producer_acceptance_eq
   rw [uniform_card_bool producer] at he
   have hn : (Fintype.card HashOutput : ENNReal) ≠ 0 := by
@@ -587,12 +547,12 @@ theorem producer_card : Nat.card {a : HashOutput // producer a = true} =
 theorem capSet_card_fields : capSet.card = fieldRetained*2^14 := by
   have h := producer_card_fields
   rw [producer_card] at h
-  have he : (934*2^93)*capSet.card = (934*2^93)*(fieldRetained*2^14) := by
+  have he : (926*2^93)*capSet.card = (926*2^93)*(fieldRetained*2^14) := by
     calc
-      _ = 934*2^62*(2^31*capSet.card) := by ring
-      _ = fieldRetained*2^31*934*2^76 := h
+      _ = 926*2^62*(2^31*capSet.card) := by ring
+      _ = fieldRetained*2^31*926*2^76 := h
       _ = _ := by ring
-  exact Nat.eq_of_mul_eq_mul_left (by norm_num : 0<934*2^93) he
+  exact Nat.eq_of_mul_eq_mul_left (by norm_num : 0<926*2^93) he
 
 theorem capSet_card_scaled : capSet.card*16 = count := by
   rw [capSet_card_fields]
@@ -663,6 +623,61 @@ theorem digestAccepted_acceptance_lower :
   have he : producer = SigGolfCandidate.Research.SharedForest.digestAccepted := funext producer_source
   rw [← he]
   exact producer_acceptance_lower
+end ClaudeWCT.Bank.Paired
+
+namespace ClaudeWCT.Bank.Paired
+open OracleComp OracleSpec OracleComp.EvalDist ENNReal
+open SigGolfCandidate.T3 ClaudeWCT.Numerics.CanonicalCompression
+set_option maxHeartbeats 0
+set_option maxRecDepth 100000
+set_option backward.isDefEq.respectTransparency false
+attribute [local instance] Classical.propDecidable
+attribute [local irreducible] Finset.univ
+
+/-- R6 (F3): `κ · Pr[producer] ≤ 29249/2500000` (Route C admBound), from the exact acceptance
+`ftsNum/ftsDen` and `κ = 15557284462666655376466157833521152917877/2^128` (relative slack: Z5R referee). -/
+theorem producerAcceptanceBound :
+    SigGolfCandidate.T3.Security.LazyPrivate.rhoKappa *
+      Pr[fun a : HashOutput => producer a = true | ($ᵗ HashOutput : ProbComp HashOutput)] ≤ 29249/2500000 := by
+  rw [producer_acceptance_exact, SigGolfCandidate.T3.Security.LazyPrivate.rhoKappa_eq]
+  apply (ENNReal.toReal_le_toReal (by unfold ftsDen; finiteness) (by finiteness)).mp
+  norm_num [ftsNum, ftsDen, ENNReal.toReal_div, ENNReal.toReal_mul]
+
+/-- The law-only bank packages the actual producer and exact proposal law.
+Its infinite excess bound is never a security certificate: it is used only
+for generic accepted-output and cached-search expectation identities. -/
+noncomputable def lawSpec : FtsBankSpec Proposal where
+  specTheta := 2470751/2500000
+  admBound := 29249/2500000
+  theta_add_admBound := by
+    apply (ENNReal.toReal_eq_toReal_iff' (by finiteness)
+      (by unfold SigGolfCandidate.T3.Security.CaseC.theta; finiteness)).mp
+    unfold SigGolfCandidate.T3.Security.CaseC.theta
+    simp (disch := finiteness) only [ENNReal.toReal_add, ENNReal.toReal_div, ENNReal.toReal_inv,
+      ENNReal.toReal_ofNat, ENNReal.toReal_one]
+    norm_num
+  admissible := admissible
+  producer := producer
+  exists_producer := ⟨0,producer_zero⟩
+  acceptance_le := producerAcceptanceBound
+  proposal := proposal
+  law := honestLaw
+  law_sum := honestLaw_sum
+  accepted_proposal := acceptedProposalHonest
+  score := score
+  covered := Covered
+  one_le_score := one_le_score
+  score_append_mono := score_append_mono
+  price := price
+  average_score := average_score
+  horizon := 2^32
+  excessRate := ⊤
+  excess_le := le_top
+
+theorem selected_proposal (g : Proposal → ENNReal) :
+    expectedValue lawSpec.accepted (fun a => g (proposal a)) = ∑ p, honestLaw p*g p :=
+  lawSpec.expected_accepted_proposal g
+
 end ClaudeWCT.Bank.Paired
 end
 -- ==== merged from T3_Secc_WotsTransportBase ====
@@ -2437,8 +2452,11 @@ noncomputable def envWith (rowSrc : HashInput → PMF HashOutput) (nonceSrc : Me
   auxiliary := auxWith rowSrc nonceSrc
   trial mem _ _ _ := mem
   disclosure mem _ _ := mem
+/-- R6 world split: the law of a nonce, `rhoMod` of a uniform 256-bit output (point masses `≤ κ / 2^128`). -/
+noncomputable def rhoLaw : PMF Digest :=
+  PMF.map (fun h : HashOutput => BitVec.ofNat 128 (rhoMod h)) (PMF.uniformOfFintype HashOutput)
 noncomputable def envL : SecretGuessObservation.Environment AuxSpecL FtsCoord Digest LazyMem :=
-  envWith (fun _ => PMF.uniformOfFintype HashOutput) (fun _ => PMF.uniformOfFintype Digest)
+  envWith (fun _ => PMF.uniformOfFintype HashOutput) (fun _ => rhoLaw)
 noncomputable def envE (D : digestInputs → HashOutput) (Nn : Message → Digest) :
     SecretGuessObservation.Environment AuxSpecL FtsCoord Digest LazyMem :=
   envWith (fun x => pure (rowVal D x)) (fun m => pure (Nn m))
@@ -2749,11 +2767,22 @@ theorem nonceHalf_not_secret (m : Message) : nonceHalf m ∉ Set.range CanonGrap
   | inl a => cases h1
   | inr f => cases h1
 def nonceOther (m : Message) : CanonGraph.OtherHalf := ⟨nonceHalf m, nonceHalf_not_secret m⟩
+/-- R6 world split: the high half of the nonce coordinate (also not secret). -/
+def nonceHalfHi (m : Message) : ChainGraph.HalfCoordinate := (.inr (.inl m), 1)
+theorem nonceHalfHi_not_secret (m : Message) : nonceHalfHi m ∉ Set.range CanonGraph.secretCoordinate := by
+  rintro ⟨i, hi⟩
+  have h1 := congrArg Prod.fst hi
+  cases i with
+  | inl a => cases h1
+  | inr f => cases h1
+def nonceOtherHi (m : Message) : CanonGraph.OtherHalf := ⟨nonceHalfHi m, nonceHalfHi_not_secret m⟩
 section Rest
 variable {U : Finset HashInput} (hU : CanonGraph.canonInputs ⊆ U)
 noncomputable local instance instDecidableEqCache_pairGuessLazyFree : DecidableEq T3.Cache := Classical.decEq _
 noncomputable def digestOf (ω : Omega U) : digestInputs → HashOutput := fun x => finiteHashAnswer ∅ U ω.residual x.val
-def nonceOf (ω : Omega U) : Message → Digest := fun m => ω.other (nonceOther m)
+/-- R6 world split: the world nonce is `rhoMod` of the full 256-bit nonce answer (both halves). -/
+noncomputable def nonceOf (ω : Omega U) : Message → Digest := fun m =>
+  BitVec.ofNat 128 (rhoMod (ChainGraph.joinOutput (ω.other (nonceOther m)) (ω.other (nonceOtherHi m))))
 end Rest
 end SigGolfCandidate.T3.Security.BPair
 end
@@ -4039,150 +4068,7 @@ theorem bpors_finiteAverage (g : BPORS.History.Proposal → ENNReal) :
 theorem bpors_law_sum : ∑ _p : BPORS.History.Proposal, (Fintype.card BPORS.History.Proposal : ENNReal)⁻¹ = 1 := by
   rw [Finset.sum_const, Finset.card_univ, nsmul_eq_mul,
     ENNReal.mul_inv_cancel (by exact_mod_cast Fintype.card_ne_zero) (ENNReal.natCast_ne_top _)]
-noncomputable def bporsSpec : FtsBankSpec BPORS.History.Proposal where
-  admissible := digestAdmissible
-  producer := digestAdmissible
-  exists_producer := bpors_exists_admissible
-  acceptance_le := bpors_acceptance_eq ▸ CaseC.expected_admInd_tight
-  proposal := CaseC.label
-  law := fun _ => (Fintype.card BPORS.History.Proposal : ENNReal)⁻¹
-  law_sum := bpors_law_sum
-  accepted_proposal g := by
-    rw [Sampling.digest_acceptanceProbability, ← bpors_finiteAverage]
-    exact accepted_samplingData g
-  score := CaseC.score
-  covered X N := ∀ c, CaseC.CoordCovered X N c
-  one_le_score := bpors_one_le_score
-  score_append_mono := CaseC.score_append_mono
-  price := BPORS.History.fullPrice
-  average_score := CaseC.average_score
-  horizon := BPORS.Numeric.proposalLength
-  excessRate := 11324 / 100000000
-  excess_le := (ClaudeWCT.Numerics.Law.lawAvg_uniform _ _).le.trans CaseC.excess_three_quarters
-theorem bpors_decode : bporsSpec.decode = Sampling.digestDecode := rfl
-theorem bpors_acceptance : bporsSpec.acceptance = acceptanceProbability := Sampling.digest_acceptanceProbability
-theorem bpors_freshPrice (w : HashOutput → ENNReal) :
-    bporsSpec.freshPrice w = Sampling.WeightedSelection.freshPrice w := by
-  unfold FtsBankSpec.freshPrice Sampling.WeightedSelection.freshPrice
-  rw [bpors_acceptance]
-  rfl
-theorem bpors_search (rho : Digest) (m : Message) (counter fuel : Nat) :
-    bporsSpec.search rho m counter fuel = digestSearch rho m counter fuel :=
-  (Sampling.digestSearch_public rho m fuel counter).symm
-theorem bpors_admissibleSet : bporsSpec.admissibleSet = CaseC.admissibleSet := by
-  ext x
-  simp [FtsBankSpec.admissibleSet, CaseC.admissibleSet, bporsSpec]
-theorem bpors_accepted : bporsSpec.accepted = CaseC.accepted := by
-  unfold FtsBankSpec.accepted CaseC.accepted
-  congr 1
-theorem bpors_forecast : bporsSpec.forecast = CaseC.forecast := by
-  funext R X N
-  unfold FtsBankSpec.forecast CaseC.forecast
-  rw [bpors_accepted]
-  rfl
-theorem bpors_excessForecast : bporsSpec.excessForecast = CaseC.excessForecast := by
-  funext R X
-  unfold FtsBankSpec.excessForecast CaseC.excessForecast
-  exact ClaudeWCT.Numerics.Law.lawAvg_uniform _ _
-theorem bpors_ledger : bporsSpec.ledger = CaseC.ledger := by
-  funext R targets X slack
-  unfold FtsBankSpec.ledger CaseC.ledger
-  rw [bpors_forecast, bpors_excessForecast]
-theorem bpors_corePotential : bporsSpec.corePotential = CaseC.corePotential := by
-  funext b
-  unfold FtsBankSpec.corePotential CaseC.corePotential
-  rw [bpors_ledger]
-  rfl
-theorem bpors_Reuse : bporsSpec.Reuse = CaseC.Reuse := rfl
-theorem bpors_admissibleEntry : bporsSpec.admissibleEntry = CaseC.admissibleEntry := by
-  funext cache input
-  unfold FtsBankSpec.admissibleEntry CaseC.admissibleEntry
-  cases cache input <;> simp [bporsSpec]
-theorem bpors_reuseMass : bporsSpec.reuseMass = CaseC.reuseMass := by
-  funext cache m
-  unfold FtsBankSpec.reuseMass CaseC.reuseMass
-  rw [bpors_admissibleEntry]
-theorem bpors_admInd : bporsSpec.admInd = CaseC.admInd := by
-  funext a
-  simp [FtsBankSpec.admInd, CaseC.admInd, bporsSpec]
-theorem bpors_recordForNonce (cache : T3.Cache) (rho : Digest) (m : Message) :
-    bporsSpec.recordForNonce payloadAfterDigest cache rho m = payloadRecordForNonce cache rho m := by
-  unfold FtsBankSpec.recordForNonce payloadRecordForNonce
-  rw [bpors_search]
-  apply bind_congr
-  intro found
-  rcases found with _ | ⟨_, output⟩ <;> rfl
-theorem bpors_record (published : T3.Cache) (request : Request) :
-    bporsSpec.authenticatedRecord payloadAfterDigest published request =
-      FullGame.authenticatedRecord published request := by
-  unfold FtsBankSpec.authenticatedRecord FullGame.authenticatedRecord
-  apply bind_congr
-  intro tag
-  by_cases h : request.cache = published
-  · simp only [h, if_true]
-    unfold FtsBankSpec.payloadRecord payloadRecord
-    apply bind_congr
-    intro rho
-    exact bpors_recordForNonce _ rho _
-  · simp only [h, if_false]
-theorem t3_core_sign (b : CaseC.BankCore) (cache : Sampling.RCache) (m : Message) (C' : ENNReal)
-    (hC : C' + CaseC.reuseMass cache m ≤ b.reuse) (secret : BitVec 256) (fuel : Nat) (hfuel : fuel ≤ 2 ^ 32) :
-    expectedValue ($ᵗ Digest : ProbComp Digest) (fun rho =>
-      if CaseC.Reuse cache rho m then CaseC.corePotential { b with reused := true, reuse := C' }
-      else expectedValue (Sampling.roRun secret (digestSearch rho m 0 fuel) cache)
-        (fun result => CaseC.corePotential (b.expose C' (result.1.map Prod.snd)))) ≤ CaseC.corePotential b := by
-  have h := bporsSpec.core_sign b cache m C' (by rw [bpors_reuseMass]; exact hC) secret fuel hfuel
-  simp only [bpors_corePotential, bpors_Reuse, bpors_search] at h
-  exact h
-theorem t3_core_birth (b : CaseC.BankCore) (s : Nat) (hs : b.slack = s + 1) (C' : HashOutput → ENNReal)
-    (hC : ∀ N, C' N ≤ b.reuse + CaseC.admInd N / 2 ^ 128) :
-    expectedValue ($ᵗ HashOutput : ProbComp HashOutput)
-        (fun N => CaseC.corePotential { b with targets := b.targets ++ [N], slack := s, reuse := C' N }) ≤
-      CaseC.corePotential b + (CaseC.theta + 1 / 64) / 2 ^ 128 := by
-  have h := bporsSpec.core_birth b s hs C' (by rw [bpors_admInd]; exact hC)
-  simp only [bpors_corePotential] at h
-  exact h
-theorem t3_core_initial (budget : Nat) :
-    CaseC.corePotential ⟨[], [], false, 0, budget⟩ ≤ (budget : ENNReal) * (11324 / 100000000) / 2 ^ 128 := by
-  have h := bporsSpec.core_initial budget
-  rw [bpors_corePotential] at h
-  exact h
-theorem t3_core_win (b : CaseC.BankCore) (halive : ¬BPORS.Numeric.proposalLength < b.exposures.length)
-    (h : b.reused = true ∨ ∃ N ∈ b.targets, admissible (selections N) = true ∧ digestGate N = true ∧
-      CaseC.CoveredBy b.exposures N) :
-    1 ≤ CaseC.corePotential b := by
-  rw [← bpors_corePotential]
-  apply bporsSpec.core_win b halive
-  rcases h with h | ⟨N, hN, hadm, hgate, hcov⟩
-  · exact Or.inl h
-  · refine Or.inr ⟨N, hN, ?_, ?_⟩
-    · change digestAdmissible N = true
-      unfold digestAdmissible
-      rw [Bool.and_eq_true]
-      exact ⟨hadm, hgate⟩
-    · exact fun c => CaseC.coordCovered_of_opened b.exposures N c fun j => hcov _ (CaseC.opened_mem N c j)
-theorem t3_fresh_signing_kernel (published : T3.Cache) (m : Message) (state : LazyPrivate.State)
-    (hfresh : state.1 (.inr (.inl m)) = none)
-    (F : (Option Signature × Option HashOutput) × LazyPrivate.State → ENNReal)
-    (w : HashOutput → ENNReal) (P : ENNReal) (hP : Sampling.WeightedSelection.freshPrice w ≤ P)
-    (hF : ∀ result ∈ support (LazyPrivate.run (FullGame.authenticatedRecord published ⟨m, published⟩) state),
-      F result ≤ if CaseC.Reuse state.2 (CaseC.nonceOf result.2 m) m then 1 else result.1.2.elim P w) :
-    expectedValue (LazyPrivate.run (FullGame.authenticatedRecord published ⟨m, published⟩) state) F ≤
-      P + CaseC.reuseMass state.2 m := by
-  have h := bporsSpec.fresh_signing_kernel payloadAfterDigest published m state hfresh F w P
-    (by rw [bpors_freshPrice]; exact hP) (by rw [bpors_record]; exact hF)
-  rw [bpors_record, bpors_reuseMass] at h
-  exact h
 theorem bpors_payNotDigest : PayNotDigest payloadAfterDigest := BPB.payloadAfterDigest_ok
-theorem bpors_source (published : T3.Cache) :
-    bporsSpec.source payloadAfterDigest published = MonitoredPrivate.interactionSource published := by
-  funext input
-  cases input with
-  | inl input => rfl
-  | inr request =>
-      change Prod.fst <$> bporsSpec.authenticatedRecord payloadAfterDigest published request =
-        FullGame.authenticatedSign published request
-      rw [bpors_record, FullGame.authenticatedRecord_erasure]
 end ClaudeWCT.Bank.BPORSRegression
 namespace ClaudeWCT.Bank.BPORSRegression
 open OracleComp OracleSpec OracleComp.EvalDist ENNReal
@@ -4199,17 +4085,6 @@ theorem bpors_payAvoids : PayAvoids payloadAfterDigest := by
     (add safe apply [(NonceFreshness.avoids_pure m), (NonceFreshness.avoids_bind m), (NonceFreshness.avoids_map m),
       (NonceFreshness.avoids_foldlM m), (NonceFreshness.avoids_mapM m), (NonceFreshness.avoids_buildFts m),
       (NonceFreshness.avoids_forestPk m), (NonceFreshness.avoids_signLayers m)])
-theorem bpors_recordedExperiment (adversary : SigGolfCandidate.T3M.Final.AdversaryP) (budget : Nat) (hbudget : budget ≤ 2 ^ 127) :
-    (fun r : PaddedGame.TraceResult => (r.1, r.2.2)) <$> PaddedGame.tracedExperiment adversary budget hbudget =
-      bporsSpec.recordedExperiment payloadAfterDigest (CreationGame.rest adversary) := by
-  rw [CreationGame.padded_trace_eq, FtsBankSpec.recordedExperiment, map_bind]
-  apply bind_congr
-  intro generated
-  have ht := (QueryRecorded.proposalModel generated.1.2 budget hbudget).traced_erasure
-    (CreationGame.rest adversary generated.1.1 generated.1.2) ([], generated.2)
-  rw [QueryRecorded.proposal_execution_erasure] at ht
-  rw [bpors_source]
-  exact ht
 theorem bpors_birthWeight (budget : Nat) (input : LazyPrivate.Interaction.Domain)
     (state : MonitoredPrivate.History × QueryRecorded.State) :
     birthWeight (Sig := Signature) budget input state.2 =
@@ -4225,32 +4100,6 @@ theorem bpors_birthWeight (budget : Nat) (input : LazyPrivate.Interaction.Domain
         fun h' => h ⟨h'.2.1, h'.2.2, h'.1⟩
       rw [if_neg h, if_neg h', Nat.cast_zero]
   · simp [birthWeight, CreationGame.classWeight]
-theorem bpors_expectedBirths (adversary : SigGolfCandidate.T3M.Final.AdversaryP) (budget : Nat) (hbudget : budget ≤ 2 ^ 127) :
-    bporsSpec.expectedBirths payloadAfterDigest (CreationGame.rest adversary) budget =
-      CreationGame.expectedBirths CaseC.IsDigestInput adversary budget hbudget := by
-  unfold FtsBankSpec.expectedBirths CreationGame.expectedBirths
-  congr 1
-  funext generated
-  have ht := BPORS.Adaptive.Creation.expectedCharges_project
-    (QueryRecorded.proposalModel generated.1.2 budget hbudget).traced
-    (bporsSpec.recordedImpl payloadAfterDigest generated.1.2) Prod.snd
-    (fun input st => by
-      rw [(QueryRecorded.proposalModel generated.1.2 budget hbudget).traced_query_erasure,
-        QueryRecorded.proposal_query_erasure, ← bpors_source]
-      rfl)
-    (birthWeight budget) (CreationGame.rest adversary generated.1.1 generated.1.2) ([], generated.2)
-  rw [← ht]
-  congr 1
-  funext input state
-  exact bpors_birthWeight budget input state
-theorem t3_bank_potential_le (adversary : SigGolfCandidate.T3M.Final.AdversaryP) (budget : Nat) (hbudget : budget ≤ 2 ^ 127) :
-    expectedValue (bporsSpec.bankExperiment payloadAfterDigest (CreationGame.rest adversary) budget)
-        (fun r => bporsSpec.potential budget r.2) ≤
-      (CaseC.theta + 1 / 64) / 2 ^ 128 * CreationGame.expectedBirths CaseC.IsDigestInput adversary budget hbudget +
-        (budget : ENNReal) * (11324 / 100000000) / 2 ^ 128 := by
-  rw [← bpors_expectedBirths adversary budget hbudget]
-  exact bporsSpec.bank_potential_le payloadAfterDigest bpors_payNotDigest bpors_payAvoids
-    (CreationGame.rest adversary) budget
 end ClaudeWCT.Bank.BPORSRegression
 end
 section
@@ -4267,57 +4116,9 @@ variable (horizon : Nat) (rate : ENNReal)
 noncomputable def authenticatedSign (published : T3.Cache) (request : Request) : M (Option WCT9.Signature) := do
   let _ ← privateMac request.cache.region
   if request.cache = published then WCT9.signPayload request.cache request.message else pure none
-theorem wct_record_erasure (published : T3.Cache) (request : Request) :
-    Prod.fst <$> (wctSpec' horizon rate hexc).authenticatedRecord payAfterDigest published request =
-      authenticatedSign published request := by
-  unfold FtsBankSpec.authenticatedRecord authenticatedSign
-  rw [map_bind]
-  apply bind_congr
-  intro tag
-  split_ifs
-  · exact payloadRecord_erasure _ rfl _ _
-  · rfl
-theorem wct_source_sign (published : T3.Cache) (request : Request) :
-    (wctSpec' horizon rate hexc).source payAfterDigest published (.inr request) =
-      authenticatedSign published request :=
-  wct_record_erasure horizon rate hexc published request
 noncomputable def interactionSource (published : T3.Cache) : QueryImpl (Interaction' WCT9.Signature) M
   | .inl input => forwardWorld input
   | .inr request => authenticatedSign published request
-theorem wct_source (published : T3.Cache) :
-    (wctSpec' horizon rate hexc).source payAfterDigest published = interactionSource published := by
-  funext input
-  cases input with
-  | inl input => rfl
-  | inr request => exact wct_source_sign horizon rate hexc published request
-theorem wct_recordedExperiment (rest : Digest → T3.Cache → OracleComp (Interaction' WCT9.Signature) Bool) :
-    (wctSpec' horizon rate hexc).recordedExperiment payAfterDigest rest = (do
-      let generated ← (liftM (QueryRecorded.run keygen QueryRecorded.initial) : PMF _)
-      (liftM (QueryRecorded.run (simulateQ (interactionSource generated.1.2) (rest generated.1.1 generated.1.2))
-        generated.2) : PMF _)) := by
-  unfold FtsBankSpec.recordedExperiment
-  simp only [wct_source]
-theorem wct_bank_potential_le (rest : Digest → T3.Cache → OracleComp (Interaction' WCT9.Signature) Bool)
-    (budget : Nat) :
-    expectedValue ((wctSpec' horizon rate hexc).bankExperiment payAfterDigest rest budget)
-        (fun r => (wctSpec' horizon rate hexc).potential budget r.2) ≤
-      (CaseC.theta + 1 / 64) / 2 ^ 128 * (wctSpec' horizon rate hexc).expectedBirths payAfterDigest rest budget +
-        (budget : ENNReal) * rate / 2 ^ 128 :=
-  (wctSpec' horizon rate hexc).bank_potential_le payAfterDigest wct_payNotDigest wct_payAvoids rest budget
-theorem wct_potential_win (budget : Nat) (st : BankState WCT9.Signature) (halive : st.1.dead = false)
-    (hcount : CaseC.countOf st.2 ≤ budget)
-    (h : st.1.reused = true ∨ ∃ N ∈ st.1.targets, WCT9.admissible N = true ∧ Covered st.1.exposures N) :
-    1 ≤ (wctSpec' horizon rate hexc).potential budget st :=
-  (wctSpec' horizon rate hexc).potential_win budget st halive hcount h
-theorem wct_event_le (rest : Digest → T3.Cache → OracleComp (Interaction' WCT9.Signature) Bool) (budget : Nat)
-    (weight : Bool × QueryRecorded.State → ENNReal) (hw : ∀ y, weight y ≤ 1)
-    (hwin : ∀ b ∈ ((wctSpec' horizon rate hexc).bankExperiment payAfterDigest rest budget).support,
-      weight (b.1, b.2.2) ≠ 0 → 1 ≤ (wctSpec' horizon rate hexc).potential budget b.2) :
-    expectedValue ((wctSpec' horizon rate hexc).recordedExperiment payAfterDigest rest) weight ≤
-      (CaseC.theta + 1 / 64) / 2 ^ 128 * (wctSpec' horizon rate hexc).expectedBirths payAfterDigest rest budget +
-        (budget : ENNReal) * rate / 2 ^ 128 :=
-  (wctSpec' horizon rate hexc).bank_event_le payAfterDigest wct_payNotDigest wct_payAvoids rest budget
-    weight hw hwin
 end ClaudeWCT.Bank.WCT
 end
 section
@@ -4375,14 +4176,6 @@ theorem wct_payRho : PayRho payAfterDigest WCT9.Signature.rho := by
   all_goals rfl
 variable (horizon : Nat) (rate : ENNReal)
   (hexc : ExcessBound horizon rate)
-theorem wct_bankInv_experiment (rest : Digest → T3.Cache → OracleComp (Interaction' WCT9.Signature) Bool)
-    (budget : Nat) (b : Bool × BankState WCT9.Signature)
-    (hb : b ∈ ((wctSpec' horizon rate hexc).bankExperiment payAfterDigest rest budget).support) :
-    ∃ generated ∈ support (QueryRecorded.run keygen QueryRecorded.initial),
-      (wctSpec' horizon rate hexc).BankInv payAfterDigest WCT9.Signature.rho generated.1.2 budget
-        generated.2.events b.2 :=
-  (wctSpec' horizon rate hexc).bankInv_experiment payAfterDigest WCT9.Signature.rho wct_payHashOnly
-    wct_payRho wct_payAvoids rest budget b hb
 end ClaudeWCT.Bank.WCT
 namespace ClaudeWCT.Bank.BPORSRegression
 open OracleComp OracleSpec OracleComp.EvalDist ENNReal
@@ -4454,64 +4247,10 @@ theorem payloadRecordL_erasure {P : Type} [Fintype P] [SampleableType P] (S : Ft
   · simp
   · simp only [map_bind, map_pure]
     exact bind_pure _
-noncomputable def wctSpecL (horizon : Nat) (rate : ENNReal) (hexc : ExcessBound horizon rate) :
-    FtsBankSpecL WProposal :=
-  (wctSpec' horizon rate hexc).atLimit WCT9.digestAttemptLimit WCT9.digestAttemptLimit_le
 variable (horizon : Nat) (rate : ENNReal) (hexc : ExcessBound horizon rate)
-@[simp] theorem wctSpecL_limit : (wctSpecL horizon rate hexc).limit = WCT9.digestAttemptLimit := rfl
-theorem wctSpecL_admissible : (wctSpecL horizon rate hexc).admissible = WCT9.admissible := rfl
-theorem wctSpecL_producer : (wctSpecL horizon rate hexc).producer = WCT9.producerAdmissible := rfl
-theorem wctSpecL_law : (wctSpecL horizon rate hexc).law = honestLaw := rfl
-@[simp] theorem wctSpecL_horizon : (wctSpecL horizon rate hexc).horizon = horizon := rfl
 noncomputable def rev3AuthenticatedSign (published : T3.Cache) (request : Request) : M (Option WCT9.Signature) := do
   let _ ← privateMac request.cache.region
   if request.cache = published then WCT9.Rev3.signPayload request.cache request.message else pure none
-theorem wctL_record_erasure (published : T3.Cache) (request : Request) :
-    Prod.fst <$> (wctSpecL horizon rate hexc).authenticatedRecord payAfterDigest published request =
-      rev3AuthenticatedSign published request := by
-  unfold FtsBankSpecL.authenticatedRecord rev3AuthenticatedSign
-  rw [map_bind]
-  apply bind_congr
-  intro tag
-  split_ifs
-  · exact payloadRecordL_erasure _ rfl _ _
-  · rfl
-theorem excess_of_excessBound (h : ExcessBound horizon rate) :
-    ClaudeWCT.Numerics.Law.lawAvg (wctSpecL horizon rate hexc).law (wctSpecL horizon rate hexc).horizon
-      (fun W : List WProposal => (wctSpecL horizon rate hexc).price W - 1023 / 1024) ≤ rate := h
-theorem wctL_bank_potential_le (rest : Digest → T3.Cache → OracleComp (Interaction' WCT9.Signature) Bool)
-    (budget : Nat) :
-    expectedValue ((wctSpecL horizon rate hexc).bankExperiment payAfterDigest rest budget)
-        (fun r => (wctSpecL horizon rate hexc).potential budget r.2) ≤
-      (CaseC.theta + 1 / 64) / 2 ^ 128 * (wctSpecL horizon rate hexc).expectedBirths payAfterDigest rest budget +
-        (budget : ENNReal) * rate / 2 ^ 128 :=
-  (wctSpecL horizon rate hexc).bank_potential_le payAfterDigest wct_payNotDigest wct_payAvoids rest budget
-theorem wctL_potential_win (budget : Nat) (st : BankState WCT9.Signature) (halive : st.1.dead = false)
-    (hcount : CaseC.countOf st.2 ≤ budget)
-    (h : st.1.reused = true ∨ ∃ N ∈ st.1.targets, WCT9.admissible N = true ∧ Covered st.1.exposures N) :
-    1 ≤ (wctSpecL horizon rate hexc).potential budget st :=
-  (wctSpecL horizon rate hexc).potential_win budget st halive hcount h
-theorem wctL_event_le (rest : Digest → T3.Cache → OracleComp (Interaction' WCT9.Signature) Bool) (budget : Nat)
-    (weight : Bool × QueryRecorded.State → ENNReal) (hw : ∀ y, weight y ≤ 1)
-    (hwin : ∀ b ∈ ((wctSpecL horizon rate hexc).bankExperiment payAfterDigest rest budget).support,
-      weight (b.1, b.2.2) ≠ 0 → 1 ≤ (wctSpecL horizon rate hexc).potential budget b.2) :
-    expectedValue ((wctSpecL horizon rate hexc).recordedExperiment payAfterDigest rest) weight ≤
-      (CaseC.theta + 1 / 64) / 2 ^ 128 * (wctSpecL horizon rate hexc).expectedBirths payAfterDigest rest budget +
-        (budget : ENNReal) * rate / 2 ^ 128 :=
-  (wctSpecL horizon rate hexc).bank_event_le payAfterDigest wct_payNotDigest wct_payAvoids rest budget
-    weight hw hwin
-theorem wctL_bankInv_experiment (rest : Digest → T3.Cache → OracleComp (Interaction' WCT9.Signature) Bool)
-    (budget : Nat) (b : Bool × BankState WCT9.Signature)
-    (hb : b ∈ ((wctSpecL horizon rate hexc).bankExperiment payAfterDigest rest budget).support) :
-    ∃ generated ∈ support (QueryRecorded.run keygen QueryRecorded.initial),
-      (wctSpecL horizon rate hexc).BankInv payAfterDigest WCT9.Signature.rho generated.1.2 budget
-        generated.2.events b.2 :=
-  (wctSpecL horizon rate hexc).bankInv_experiment payAfterDigest WCT9.Signature.rho wct_payHashOnly
-    wct_payRho wct_payAvoids rest budget b hb
-theorem wctL_search (rho : Digest) (m : Message) :
-    (wctSpecL horizon rate hexc).search rho m 0 (wctSpecL horizon rate hexc).limit =
-      WCT9.digestSearch rho m 0 WCT9.digestAttemptLimit :=
-  (wct_digestSearch_public (wctSpecL horizon rate hexc).toFtsBankSpec rfl rho m _ 0).symm
 end ClaudeWCT.Bank.WCT
 end
 

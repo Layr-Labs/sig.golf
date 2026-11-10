@@ -52,12 +52,12 @@ sym_block nbK := symRun { noAlias := true } nonce_K (pcOf 43240) 30
 sym_block nbS := symRun { noAlias := true } nonce_S (pcOf 43248) 30
 
 /-- Mask of the zero test on the high word of a top node of height `h` (`1 ≤ h ≤ 11`). T51: the top `b_h` bits
-(`b_h = topZeroBits h`; no bit for `b_h = 0`), bits 101..107 (high word bits 37..43, E11) for `h = 11`. -/
+(`b_h = topZeroBits h`; no bit for `b_h = 0`), bits 99..107 (high word bits 35..43, R6 F5) for `h = 11`. -/
 def maskE (h : Nat) : Nat :=
-  if h = 11 then 127 * 2 ^ 37 else (2 ^ topZeroBits h - 1) * 2 ^ (64 - topZeroBits h)
+  if h = 11 then 511 * 2 ^ 35 else (2 ^ topZeroBits h - 1) * 2 ^ (64 - topZeroBits h)
 /-- Cycles of ZB (54553..54568) at height `h`. -/
 def zbK (h : Nat) : Nat := if h < 3 then 5 else if h = 11 then 21 else 16
-def midBits (h : Nat) : Nat := if h = 3 then 2 else h - 2
+def midBits (h : Nat) : Nat := if h = 3 then 1 else h - 2
 /-- The nonce slots and the stored leaf (`0x66700 + 8 k`, `k < 11`, and `0x66758`). -/
 def NonceW (A : Nat) : Prop := 0x66700 ≤ A ∧ A < 0x66760
 
@@ -161,7 +161,7 @@ theorem zb3_spec (hpc : s.pc = pcOf 54560) (h : Nat) (h4 : 3 ≤ h) (h11 : h ≤
   · intro A _ _; simp [nbZ3.res, rv_simp]
 
 theorem zb4_spec (hpc : s.pc = pcOf 54566) :
-    ∃ t, Steps im s 2 2 t ∧ t.pc = pcOf 54745 ∧ t.getReg .x31 = BitVec.ofNat 64 127 ∧
+    ∃ t, Steps im s 2 2 t ∧ t.pc = pcOf 54745 ∧ t.getReg .x31 = BitVec.ofNat 64 511 ∧
       RegsExcept s t [.x31] ∧ Frame s t (fun _ => False) := by
   refine ⟨_, symRun_sound nbZ4 (Code.codeAt_nZ4 (im := im)) s hpc (by simp [nbZ4.res, rv_simp]), ?_, ?_, ?_, ?_⟩
   · simp [nbZ4.res, E.eval]
@@ -189,7 +189,7 @@ theorem za0_spec (hpc : s.pc = pcOf 54740) (h : Nat) (h3 : 3 ≤ h) (h11 : h ≤
   · intro A _ _; rfl
 
 theorem za1_spec (hpc : s.pc = pcOf 54741) :
-    ∃ t, Steps im s 2 2 t ∧ t.pc = pcOf 54560 ∧ t.getReg .x14 = 2 ∧
+    ∃ t, Steps im s 2 2 t ∧ t.pc = pcOf 54560 ∧ t.getReg .x14 = 1 ∧
       RegsExcept s t [.x14] ∧ Frame s t (fun _ => False) := by
   refine ⟨_, symRun_sound nbZA1 (Code.codeAt_nZA1 (im := im)) s hpc
     (by simp [nbZA1.res, rv_simp]), ?_, ?_, ?_, ?_⟩
@@ -211,8 +211,8 @@ theorem za2_spec (hpc : s.pc = pcOf 54743) (h : Nat) (h3 : 3 ≤ h) (h11 : h ≤
   · intro A _ _; rfl
 
 theorem za3_spec (hpc : s.pc = pcOf 54745) :
-    ∃ t, Steps im s 3 3 t ∧ t.pc = pcOf 54568 ∧ t.getReg .x14 = 7 ∧
-      t.getReg .x31 = s.getReg .x31 <<< 37 ∧
+    ∃ t, Steps im s 3 3 t ∧ t.pc = pcOf 54568 ∧ t.getReg .x14 = 9 ∧
+      t.getReg .x31 = s.getReg .x31 <<< 35 ∧
       RegsExcept s t [.x14, .x31] ∧ Frame s t (fun _ => False) := by
   refine ⟨_, symRun_sound nbZA3 (Code.codeAt_nZA3 (im := im)) s hpc
     (by simp [nbZA3.res, rv_simp]), ?_, ?_, ?_, ?_, ?_⟩
@@ -514,9 +514,9 @@ theorem ne_topZeroBits_eq (h : Nat) (h1 : 1 ≤ h) (h11 : h ≤ 11) :
     topZeroBits h = SigGolfCandidate.T3.topZeroAlloc.getD h 0 := rfl
 
 /-- The machine's zero test (43225..43227) is `topZeroOk`. -/
-theorem ne_zero_test_bits104 (v : BitVec 128) :
-    (v.extractLsb' 64 64 &&& BitVec.ofNat 64 ((2 ^ 7 - 1) * 2 ^ 37) = 0#64) ↔
-      v.toNat / 2 ^ 101 % 2 ^ 7 = 0 := by
+theorem ne_zero_test_bits99 (v : BitVec 128) :
+    (v.extractLsb' 64 64 &&& BitVec.ofNat 64 ((2 ^ 9 - 1) * 2 ^ 35) = 0#64) ↔
+      v.toNat / 2 ^ 99 % 2 ^ 9 = 0 := by
   rw [← BitVec.toNat_inj, BitVec.toNat_and, BitVec.toNat_ofNat, Nat.mod_eq_of_lt (by norm_num), ne_hiword_toNat,
     BitVec.toNat_zero, ne_land_mask_eq_zero, Nat.div_div_eq_div_mul, ← Nat.pow_add]
 /-- The machine's zero test (43225..43227, mask from ZB 54553) is `topZeroOk`. -/
@@ -524,7 +524,7 @@ theorem ne_zero_test (v : Digest) (h : Nat) (h1 : 1 ≤ h) (h11 : h ≤ 11) :
     (v.extractLsb' 64 64 &&& BitVec.ofNat 64 (maskE h) = 0#64) ↔ topZeroOk h v = true := by
   unfold maskE topZeroOk
   by_cases hc : h = 11
-  · rw [if_pos hc, if_pos hc, show (127 : Nat) * 2 ^ 37 = (2 ^ 7 - 1) * 2 ^ 37 by norm_num, ne_zero_test_bits104,
+  · rw [if_pos hc, if_pos hc, show (511 : Nat) * 2 ^ 35 = (2 ^ 9 - 1) * 2 ^ 35 by norm_num, ne_zero_test_bits99,
       beq_iff_eq]
   · have hb : topZeroBits h ≤ 64 := by interval_cases h <;> decide
     rw [if_neg hc, if_neg hc, ne_zero_test_hi v _ hb, beq_iff_eq]

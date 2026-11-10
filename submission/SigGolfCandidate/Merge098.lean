@@ -2947,7 +2947,7 @@ sym_block btOK := symRun { noAlias := true } ktOK (pcOf 760) 100
 /-- Mask of the zero test on the high word of a top node of height `h` (`1 ≤ h ≤ 11`). Campaign T51: `h = 11` tests
 node bits 104..111 (high-word mask `0xFF << 40`). -/
 def maskN (h : Nat) : Nat :=
-  if h = 11 then (2 ^ 7 - 1) * 2 ^ 37 else (2 ^ topZeroBits h - 1) * 2 ^ (64 - topZeroBits h)
+  if h = 11 then (2 ^ 9 - 1) * 2 ^ 35 else (2 ^ topZeroBits h - 1) * 2 ^ (64 - topZeroBits h)
 
 /-! ### Jumps -/
 theorem kt230_spec (s : MachineState) (hpc : s.pc = pcOf 230) :
@@ -3026,7 +3026,7 @@ theorem kult (a b : Nat) (ha : a < 2 ^ 64) (hb : b < 2 ^ 64) :
     (BitVec.ofNat 64 a).ult (BitVec.ofNat 64 b) = decide (a < b) := by
   simp only [BitVec.ult, BitVec.toNat_ofNat]
   rw [Nat.mod_eq_of_lt ha, Nat.mod_eq_of_lt hb]
-def midBits (h : Nat) : Nat := if h = 3 then 2 else h - 2
+def midBits (h : Nat) : Nat := if h = 3 then 1 else h - 2
 theorem ktC0_spec (s : MachineState) (hpc : s.pc = pcOf 727) (h : Nat) (hh : h < 2 ^ 64)
     (h13 : s.getReg .x13 = BitVec.ofNat 64 h) :
     ∃ t, Steps image s 2 2 t ∧ t.pc = (if h = 12 then pcOf 760 else pcOf 729) ∧ RegsExcept s t [.x28] ∧
@@ -3073,7 +3073,7 @@ theorem ktC2_spec (s : MachineState) (hpc : s.pc = pcOf 732) (b : Nat) (hb : b <
   · intro A _ _; simp [btC2.res, rv_simp]
 /-- 733..734 (campaign T51, `h = 3`): `a4 = 1`, `j 736`. -/
 theorem ktC3_spec (s : MachineState) (hpc : s.pc = pcOf 733) :
-    ∃ t, Steps image s 2 2 t ∧ t.pc = pcOf 736 ∧ t.getReg .x14 = BitVec.ofNat 64 2 ∧ RegsExcept s t [.x14] ∧
+    ∃ t, Steps image s 2 2 t ∧ t.pc = pcOf 736 ∧ t.getReg .x14 = BitVec.ofNat 64 1 ∧ RegsExcept s t [.x14] ∧
       Frame s t (fun _ => False) := by
   refine ⟨_, symRun_sound btC3 codeAt_ktC3 s hpc (by simp [btC3.res, rv_simp]), ?_, ?_, ?_, ?_⟩
   · simp [btC3.res, Result.toState_pc, E.eval]
@@ -3096,7 +3096,7 @@ theorem ktC5_spec (s : MachineState) (hpc : s.pc = pcOf 736) (b h : Nat) (hb : 1
   · intro r hr; simp at hr; cases r <;> simp_all [btC5.res, rv_simp] <;> rfl
   · intro A _ _; simp [btC5.res, rv_simp]
 theorem ktC6_head_spec (s : MachineState) (hpc : s.pc = pcOf 742) :
-    ∃ t, Steps image s 2 2 t ∧ t.pc = pcOf 1032 ∧ t.getReg .x16 = BitVec.ofNat 64 127 ∧
+    ∃ t, Steps image s 2 2 t ∧ t.pc = pcOf 1032 ∧ t.getReg .x16 = BitVec.ofNat 64 511 ∧
       RegsExcept s t [.x16] ∧ Frame s t (fun _ => False) := by
   refine ⟨_, symRun_sound btC6 codeAt_ktC6 s hpc (by simp [btC6.res, rv_simp]), ?_, ?_, ?_, ?_⟩
   · simp [btC6.res, Result.toState_pc, E.eval]
@@ -3126,9 +3126,9 @@ theorem ktC4_spec (s : MachineState) (hpc : s.pc = pcOf 735) (h : Nat)
   · intro r hr; simp at hr; cases r <;> simp_all [btC4.res, rv_simp] <;> rfl
   · intro A _ _; rfl
 
-theorem ktCA_spec (s : MachineState) (hpc : s.pc = pcOf 1032) (h16 : s.getReg .x16 = 127) :
-    ∃ t, Steps image s 3 3 t ∧ t.pc = pcOf 744 ∧ t.getReg .x14 = 7 ∧
-      t.getReg .x16 = BitVec.ofNat 64 ((2 ^ 7 - 1) * 2 ^ 37) ∧
+theorem ktCA_spec (s : MachineState) (hpc : s.pc = pcOf 1032) (h16 : s.getReg .x16 = 511) :
+    ∃ t, Steps image s 3 3 t ∧ t.pc = pcOf 744 ∧ t.getReg .x14 = 9 ∧
+      t.getReg .x16 = BitVec.ofNat 64 ((2 ^ 9 - 1) * 2 ^ 35) ∧
       RegsExcept s t [.x14, .x16] ∧ Frame s t (fun _ => False) := by
   refine ⟨_, symRun_sound btCA codeAt_ktCA s hpc (by simp [btCA.res, rv_simp]), ?_, ?_, ?_, ?_, ?_⟩
   · rfl
@@ -3138,8 +3138,8 @@ theorem ktCA_spec (s : MachineState) (hpc : s.pc = pcOf 1032) (h16 : s.getReg .x
   · intro A _ _; rfl
 
 theorem ktC6_spec (s : MachineState) (hpc : s.pc = pcOf 742) :
-    ∃ t, Steps image s 5 5 t ∧ t.pc = pcOf 744 ∧ t.getReg .x14 = 7 ∧
-      t.getReg .x16 = BitVec.ofNat 64 ((2 ^ 7 - 1) * 2 ^ 37) ∧
+    ∃ t, Steps image s 5 5 t ∧ t.pc = pcOf 744 ∧ t.getReg .x14 = 9 ∧
+      t.getReg .x16 = BitVec.ofNat 64 ((2 ^ 9 - 1) * 2 ^ 35) ∧
       RegsExcept s t [.x14, .x16] ∧ Frame s t (fun _ => False) := by
   obtain ⟨u, su, pu, xu, ru, fu⟩ := ktC6_head_spec s hpc
   obtain ⟨v, sv, pv, x14, x16, rv, fv⟩ := ktCA_spec u pu xu
@@ -3316,17 +3316,17 @@ theorem zero_test_hi (v : BitVec 128) (b : Nat) (hb : b ≤ 64) :
     rw [Nat.div_lt_iff_lt_mul (Nat.two_pow_pos _), ← Nat.pow_add, show b + (128 - b) = 128 by omega]
     exact v.isLt
   rw [Nat.mod_eq_of_lt hv]
-/-- Campaign T51: the `h = 11` zero test, high-word mask `0x7F << 37` = node bits 101..107 (E11). -/
-theorem zero_test_bits104 (v : BitVec 128) :
-    (v.extractLsb' 64 64 &&& BitVec.ofNat 64 ((2 ^ 7 - 1) * 2 ^ 37) = 0#64) ↔
-      v.toNat / 2 ^ 101 % 2 ^ 7 = 0 := by
+/-- R6 (F5): the `h = 11` zero test, high-word mask `0x1FF << 35` = node bits 99..107. -/
+theorem zero_test_bits99 (v : BitVec 128) :
+    (v.extractLsb' 64 64 &&& BitVec.ofNat 64 ((2 ^ 9 - 1) * 2 ^ 35) = 0#64) ↔
+      v.toNat / 2 ^ 99 % 2 ^ 9 = 0 := by
   rw [← BitVec.toNat_inj, BitVec.toNat_and, BitVec.toNat_ofNat, Nat.mod_eq_of_lt (by norm_num), hiword_toNat,
     BitVec.toNat_zero, land_mask_eq_zero, Nat.div_div_eq_div_mul, ← Nat.pow_add]
 /-- Campaign T51: `b_h = 0,0,1,1,2,3,4,5,6,7,8` (#938: `b_h = h`). -/
 theorem topZeroBits_eq (h : Nat) (h1 : 1 ≤ h) (h11 : h ≤ 11) : topZeroBits h = SigGolfCandidate.T3.topZeroAlloc.getD h 0 := rfl
-theorem topZeroBits_ge3 (h : Nat) (h3 : 3 ≤ h) (h11 : h ≤ 11) : topZeroBits h = if h = 3 then 2 else if h = 11 then 7 else h - 2 := by
+theorem topZeroBits_ge3 (h : Nat) (h3 : 3 ≤ h) (h11 : h ≤ 11) : topZeroBits h = if h = 3 then 1 else if h = 11 then 9 else h - 2 := by
   interval_cases h <;> rfl
-theorem ktopZeroBits_le (h : Nat) : topZeroBits h ≤ 8 := by
+theorem ktopZeroBits_le (h : Nat) : topZeroBits h ≤ 9 := by
   unfold topZeroBits T3.topZeroAlloc
   rcases h with _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | h <;> simp
 /-- The machine's zero test (KCHK 746..749) is `topZeroOk`. -/
@@ -3334,7 +3334,7 @@ theorem zero_test (v : Digest) (h : Nat) (h1 : 1 ≤ h) (h11 : h ≤ 11) :
     (v.extractLsb' 64 64 &&& BitVec.ofNat 64 (maskN h) = 0#64) ↔ topZeroOk h v = true := by
   unfold maskN topZeroOk
   by_cases hc : h = 11
-  · rw [if_pos hc, if_pos hc, zero_test_bits104, beq_iff_eq]
+  · rw [if_pos hc, if_pos hc, zero_test_bits99, beq_iff_eq]
   · rw [if_neg hc, if_neg hc, zero_test_hi v _ (by have := ktopZeroBits_le h; omega), beq_iff_eq]
 /-- Steps (= cycles) of the KCHK setup 727..745 at height `h ∈ 3..11` (campaign T51: `b = h - 3`, `h = 3` sets
 `b = 1` at 733..734). -/
@@ -4966,7 +4966,7 @@ open ClaudeWCT.W9.T3M (Images)
 variable (I : Images)
 theorem keygen_run_eq (hadm : (submission I).Admissible) (sk : SecretKey) :
     (submission I).run .keygen sk = SigGolfCandidate.T3M.submission.run .keygen sk := by
-  have hvA : ((submission I).image .keygen).Valid ⟨5188, 21756, 131072⟩ ⟨0x65A0, 0x80, 0xa0, 0x80000, 0x7000, 0x10A0⟩ :=
+  have hvA : ((submission I).image .keygen).Valid ⟨5187, 21756, 131072⟩ ⟨0x65A0, 0x80, 0xa0, 0x80000, 0x7000, 0x10A0⟩ :=
     hadm.2 .keygen
   have hvB : (SigGolfCandidate.T3M.submission.image .keygen).Valid
       ⟨SigGolfCandidate.T3M.submission.sizes.signature, SigGolfCandidate.T3M.submission.sizes.witness, 131072⟩
@@ -5179,7 +5179,7 @@ theorem prob_forall_mem {α β : Type} [Fintype α] [DecidableEq α] [Fintype β
 /-- Campaign T51: the top zero bits are `b_h = 0,0,1,1,2,3,4,5,6,7,8` (#938: `b_h = h`; restated). -/
 theorem topZeroBits_eq {h : Nat} (hh : h ≤ 11) : topZeroBits h = topZeroAlloc.getD h 0 := rfl
 
-theorem topZeroBits_le_eight (h : Nat) : topZeroBits h ≤ 8 := by
+theorem topZeroBits_le_eight (h : Nat) : topZeroBits h ≤ 9 := by
   unfold topZeroBits
   by_cases hh : h < 12
   · interval_cases h <;> decide
@@ -5191,9 +5191,9 @@ theorem card_pass_digest {h : Nat} (h11 : h ≤ 11) :
       (Finset.univ.filter (fun d : BitVec 128 => topZeroOk h d = true)).card := by
   by_cases he : h = 11
   · subst he
-    have hb : topZeroBits 11 = 7 := rfl
+    have hb : topZeroBits 11 = 9 := rfl
     rw [hb]
-    have hc : ((Finset.range (2 ^ 20)) ×ˢ (Finset.range (2 ^ 101))).card = 2 ^ (128 - 7) := by
+    have hc : ((Finset.range (2 ^ 20)) ×ˢ (Finset.range (2 ^ 99))).card = 2 ^ (128 - 9) := by
       rw [Finset.card_product, Finset.card_range, Finset.card_range]; norm_num
     rw [← hc]
     apply Finset.card_le_card_of_injOn (fun p : Nat × Nat => (BitVec.ofNat 128 (p.1 * 2 ^ 108 + p.2) :
@@ -10679,7 +10679,11 @@ abbrev AuxSpec : OracleSpec AuxQuery
 noncomputable def auxLaw (initLaw : PMF AuxData) : (input : AuxSpec.Domain) → PMF (AuxSpec.Range input)
   | .coin n => PMF.uniformOfFintype (Fin (n + 1))
   | .init => initLaw
-abbrev WCoord := Coord ⊕ Message
+abbrev WCoord := Coord ⊕ (Message × Fin 2)
+/-- R6: explicit equality on the world coordinates (with the two-half nonce labels the default instance search
+costs seconds per use and can time out). -/
+instance instDecidableEqWCoord : DecidableEq WCoord :=
+  @instDecidableEqSum Coord (Message × Fin 2) inferInstance (@instDecidableEqProd Message (Fin 2) inferInstance inferInstance)
 /-- Top-layer WOTS seed addresses as plain secrets: none since campaign T8D (top seeds are leaf-family evaluations);
 the empty type keeps the shape of the plain coordinates. -/
 abbrev WTopAddr := {_a : ChainGraph.Address // False}
@@ -10690,7 +10694,7 @@ abbrev LowerLeaf := {_L : Layer × Fin (2 ^ 31) × Fin 4096 // True}
 observable. -/
 abbrev WJunk := {a : ChainGraph.Address // WCT9.famSize a.layer a.leaf.val ≤ a.chain.val}
 /-- Plain (independently uniform) world coordinates: nodes, (no) top WOTS seeds, nonces. -/
-abbrev WPlain := (CanonGraph.Node ⊕ WTopAddr) ⊕ Message
+abbrev WPlain := (CanonGraph.Node ⊕ WTopAddr) ⊕ (Message × Fin 2)
 /-- Seed families: WOTS leaves (`famCount` coefficients) and FTS coordinates `(index, coord)` (54 coefficients). -/
 abbrev WFam := LowerLeaf ⊕ (Fin (2 ^ 31) × Fin 9)
 /-- Split of the world coordinates: WOTS seeds are their family `(layer, tree, famOf leaf)` at `famPoint layer leaf chain`
@@ -10826,6 +10830,11 @@ theorem keep_encodingHit (labels : WCoord → Digest) (lay : Layer) (target : Di
   simp [Probe.guessMiss, encodingHit, Hit.miss]
 
 abbrev RWorld (U : Finset HashInput) := World AuxSpec WCoord (Cell U)
+/-- R6: the signing nonce from the two halves of the nonce label. -/
+noncomputable def nonceRho (lo hi : Digest) : Digest :=
+  BitVec.ofNat 128 (rhoMod (SigGolfCandidate.T3.Security.ChainGraph.joinOutput lo hi))
+/-- R6: the nonce of `m` read from the nonce-half labels `nv (m, 0)`, `nv (m, 1)`. -/
+noncomputable def nonceVal (nv : Message × Fin 2 → Digest) (m : Message) : Digest := nonceRho (nv (m, 0)) (nv (m, 1))
 section Requests
 variable (U : Finset HashInput)
 def coinReq (n : Nat) : OracleComp (RWorld U) (Fin (n + 1)) := liftM ((RWorld U).query (.inl (.coin n)))
@@ -10837,6 +10846,11 @@ def probeReq (row : Cell U) (test : Probe WCoord) : OracleComp (RWorld U) HashOu
 def discloseReq (c : WCoord) (charge : Charge) : OracleComp (RWorld U) Digest :=
   liftM ((RWorld U).query (.inr (.disclose c charge)))
 def tickReq (charge : Charge) : OracleComp (RWorld U) Unit := liftM ((RWorld U).query (.inr (.tick charge)))
+/-- R6: the nonce of `m` is `rhoMod` of the full 256-bit label, disclosed as its two 128-bit halves `(m, 0)`, `(m, 1)`. -/
+noncomputable def discloseNonce (m : Message) : OracleComp (RWorld U) Digest := do
+  let lo ← discloseReq U (.inr (m, 0)) .none
+  let hi ← discloseReq U (.inr (m, 1)) .none
+  pure (nonceRho lo hi)
 def discloseAll : List Coord → OracleComp (RWorld U) (List (Coord × Digest))
   | [] => pure []
   | c :: rest => do
@@ -10982,26 +10996,6 @@ def trialRows (rho : Digest) (m : Message) (found : Option (BitVec 32 × HashOut
   (List.range (match found with | some (c, _) => c.toNat + 1 | none => WCT9.digestAttemptLimit)).map fun c =>
     pad64 (digestInput rho m (BitVec.ofNat 32 c))
 def RouterState.cache (st : RouterState) : Sampling.RCache := fun X => st.births.lookup X
-noncomputable def RouterState.signed (st : RouterState) (rho : Digest) (m : Message) (found : Option (BitVec 32 × HashOutput)) :
-    RouterState :=
-  if CaseC.bankSpec.Reuse st.cache rho m then
-    { st with
-      trials := st.trials ++ trialRows rho m found
-      memo := (m, found) :: st.memo
-      reused := true }
-  else
-    { st with
-      trials := st.trials ++ trialRows rho m found
-      memo := (m, found) :: st.memo
-      exposures := st.exposures ++ (found.map Prod.snd).toList }
-theorem RouterState.signed_fields (st : RouterState) (rho : Digest) (m : Message)
-    (found : Option (BitVec 32 × HashOutput)) :
-    (st.signed rho m found).disclosed = st.disclosed ∧ (st.signed rho m found).seen = st.seen ∧
-      (st.signed rho m found).calls = st.calls ∧ (st.signed rho m found).births = st.births ∧
-      (st.signed rho m found).trials = st.trials ++ trialRows rho m found ∧
-      (st.signed rho m found).memo = (m, found) :: st.memo := by
-  unfold RouterState.signed
-  split_ifs <;> exact ⟨rfl, rfl, rfl, rfl, rfl, rfl⟩
 noncomputable def signFinish (a : AuxData) (st : RouterState) (rho : Digest)
     (found : Option (BitVec 32 × HashOutput)) : OracleComp (RWorld U) (Option Signature × RouterState) :=
   match found with
@@ -11013,34 +11007,6 @@ noncomputable def signFinish (a : AuxData) (st : RouterState) (rho : Digest)
         pure (some (assembleSig rho N (lookupVal pairs) (routerDigits a)),
           { st with disclosed := st.disclosed ++ items })
       else pure (none, st)
-noncomputable def routeSign (a : AuxData) (published : SigGolfCandidate.T3.Cache) (st : RouterState)
-    (request : SigGolfCandidate.T3.Security.Request) : OracleComp (RWorld U) (Option Signature × RouterState) :=
-  if request.cache = published then do
-    let rho ← discloseReq U (.inr request.message) .none
-    match st.memo.lookup request.message with
-    | some found => signFinish U a st rho found
-    | none => do
-        let found ← simulateQ (readImpl U a) (WCT9.digestSearch rho request.message 0 WCT9.digestAttemptLimit)
-        signFinish U a (st.signed rho request.message found) rho found
-  else pure (none, st)
-noncomputable def routeInteraction (a : AuxData) (published : SigGolfCandidate.T3.Cache) (q : Nat) {α : Type}
-    (program : OracleComp LazyPrivate.Interaction α) :
-    RouterState → OracleComp (RWorld U) (Option ((α × QueryLog Requests) × RouterState)) :=
-  OracleComp.construct
-    (fun value st => pure (some ((value, []), st)))
-    (fun input _ next st => match input, next with
-      | .inl (.inl n), next => do
-          let c ← coinReq U n
-          next c st
-      | .inl (.inr X), next =>
-          if q ≤ st.calls then pure none else do
-            let r ← routeQuery U a st X
-            next r.1 r.2
-      | .inr request, next => do
-          let s ← routeSign U a published st request
-          let rest ← next s.1 s.2
-          pure (rest.map fun res => ((res.1.1, ⟨request, s.1⟩ :: res.1.2), res.2)))
-    program
 noncomputable def routeVerdict (a : AuxData) (q : Nat) {β : Type} (program : M β) :
     RouterState → OracleComp (RWorld U) (Option (β × RouterState)) :=
   OracleComp.construct
@@ -11055,19 +11021,6 @@ noncomputable def routeVerdict (a : AuxData) (q : Nat) {β : Type} (program : M 
             next r.1 r.2
       | .inr c, next => next (a.priv c) st)
     program
-noncomputable def routerWith (adversary : Final.AdversaryP) (q : Nat) (a : AuxData) :
-    OracleComp (RWorld U) (Option (Bool × RouterState)) := do
-  let pairs ← discloseAll U keygenDisclosed
-  let v := lookupVal pairs
-  let pk := v (.inl (.node rootNode))
-  let region := Correctness.cacheRegion fun level node => topValue v level node ^^^ maskOf a level node
-  let published : SigGolfCandidate.T3.Cache := ⟨macOf a region, region⟩
-  let r ← routeInteraction U a published q (adversary pk published) RouterState.initial
-  match r with
-  | none => pure none
-  | some (result, st) => routeVerdict U a q (GameWith.verdict PaddedGame.checker pk result) st
-noncomputable def router (adversary : Final.AdversaryP) (q : Nat) : OracleComp (RWorld U) (Option (Bool × RouterState)) :=
-  initReq U >>= routerWith U adversary q
 end Route
 end ClaudeWCT.W9.T3.Security.LargeResidual
 
@@ -11091,7 +11044,9 @@ attribute [local instance] Classical.propDecidable
 /-- Distinct type: never silently replace the installed WCoord instance. -/
 structure PairedCoord where
   value : WCoord
-  deriving DecidableEq, Fintype
+  deriving Fintype
+/-- R6: classical equality (deriving it over the two-half nonce `WCoord` times out in instance search). -/
+noncomputable instance instDecidableEqPairedCoord : DecidableEq PairedCoord := Classical.decEq _
 
 /-- The top family keeps its original identity; lower families share
 identity between adjacent leaves. -/
@@ -11231,6 +11186,11 @@ def probeReq (row : Cell U) (test : Probe WCoord) : OracleComp (RWorld U) HashOu
 def discloseReq (c : WCoord) (charge : Charge) : OracleComp (RWorld U) Digest :=
   liftM ((RWorld U).query (.inr (.disclose c charge)))
 def tickReq (charge : Charge) : OracleComp (RWorld U) Unit := liftM ((RWorld U).query (.inr (.tick charge)))
+/-- R6: the nonce of `m` is `rhoMod` of the full 256-bit label, disclosed as its two 128-bit halves `(m, 0)`, `(m, 1)`. -/
+noncomputable def discloseNonce (m : Message) : OracleComp (RWorld U) Digest := do
+  let lo ← discloseReq U (.inr (m, 0)) .none
+  let hi ← discloseReq U (.inr (m, 1)) .none
+  pure (nonceRho lo hi)
 def discloseAll : List Coord → OracleComp (RWorld U) (List (Coord × Digest))
   | [] => pure []
   | c::rest => do

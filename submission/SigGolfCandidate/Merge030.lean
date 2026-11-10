@@ -82,72 +82,10 @@ set_option backward.isDefEq.respectTransparency false
 attribute [local instance] Classical.propDecidable
 noncomputable local instance : DecidableEq T3.Cache := Classical.decEq _
 noncomputable local instance : DecidableEq SiggolfT3Mac4.Cache := Classical.decEq _
-theorem authenticated_completed_target_bound (published : T3.Cache) (request : Request)
-    (state : LazyPrivate.State) (hfresh : state.1 (.inr (.inl request.message))=none)
-    (targets : Finset DigestSampling.IndexBuckets) :
-    expectedValue (LazyPrivate.run (FullGame.authenticatedRecord published request) state)
-      (fun result => result.1.2.elim (BPORS.finiteAverage (Sampling.targetWeight targets))
-        (fun output => Sampling.targetWeight targets (DigestSampling.samplingData output).1)) ≤
-      targets.card/(2 : ENNReal)^59+Sampling.cachedTargetCount targets state.2/(2 : ENNReal)^128 := by
-  rw [FullGame.authenticatedRecord,LazyPrivate.run_bind,expectedValue_bind]
-  apply expectedValue_le_of_support
-  intro result hresult
-  have hp := LazyPrivate.privateMac_preserves_nonce request.cache.region request.message state result hresult
-  split_ifs
-  · have h := LazyPrivate.payload_completed_target_bound request.cache request.message result.2
-      (hp.1.trans hfresh) targets
-    rw [hp.2] at h
-    exact h
-  · simp only [LazyPrivate.run_pure,expectedValue_pure,Option.elim_none,Sampling.targetWeight_average]
-    exact le_add_right le_rfl
-theorem counted_completed_target_bound (published : T3.Cache) (request : Request)
-    (state : State) (hfresh : state.2.1 (.inr (.inl request.message))=none)
-    (targets : Finset DigestSampling.IndexBuckets) :
-    expectedValue (run (FullGame.authenticatedRecord published request) state)
-      (fun result => result.1.2.elim (BPORS.finiteAverage (Sampling.targetWeight targets))
-        (fun output => Sampling.targetWeight targets (DigestSampling.samplingData output).1)) ≤
-      targets.card/(2 : ENNReal)^59+Sampling.cachedTargetCount targets state.2.2/(2 : ENNReal)^128 := by
-  have h := congrArg (fun program => expectedValue program
-    (fun result : (Option Signature × Option HashOutput) × LazyPrivate.State =>
-      result.1.2.elim (BPORS.finiteAverage (Sampling.targetWeight targets))
-        (fun output => Sampling.targetWeight targets (DigestSampling.samplingData output).1)))
-    (run_erasure (FullGame.authenticatedRecord published request) state)
-  rw [expectedValue_map] at h
-  exact h.trans_le (authenticated_completed_target_bound published request state.2 hfresh targets)
 noncomputable def recordLaw (published : T3.Cache) (request : Request) (state : State) :
     PMF (((Option Signature × Option HashOutput) × State) × DigestSampling.IndexBuckets) :=
   liftM (Sampling.completeRecord (fun result => result.1.2)
     (run (FullGame.authenticatedRecord published request) state))
-theorem recordLaw_target_bound (published : T3.Cache) (request : Request) (state : State)
-    (hfresh : state.2.1 (.inr (.inl request.message))=none) (targets : Finset DigestSampling.IndexBuckets) :
-    Pr[fun result => result.2 ∈ targets | recordLaw published request state] ≤
-      targets.card/(2 : ENNReal)^59+Sampling.cachedTargetCount targets state.2.2/(2 : ENNReal)^128 := by
-  rw [← expectedValue_ite_one]
-  change expectedValue (Sampling.completeRecord (fun result => result.1.2)
-    (run (FullGame.authenticatedRecord published request) state))
-      (fun result => Sampling.targetWeight targets result.2) ≤ _
-  rw [Sampling.completeRecord_expected]
-  exact counted_completed_target_bound published request state hfresh targets
-theorem recordLaw_scaled_cap (published : T3.Cache) (request : Request) (state : State)
-    (hfresh : state.2.1 (.inr (.inl request.message))=none)
-    (hfinite : SphincsSecurity.Finite state.2.2) (budget : Nat)
-    (hsize : QueryCache.enncard state.2.2 ≤ budget) (hbudget : budget ≤ 2^127)
-    (hclean : ¬Sampling.TargetCacheExceptional state.2.2) (point : DigestSampling.IndexBuckets) :
-    (1024/1025 : ENNReal)*((recordLaw published request state).map Prod.snd) point ≤
-      (PMF.uniformOfFintype DigestSampling.IndexBuckets) point := by
-  have hc : Fintype.card DigestSampling.IndexBuckets=2^59 := by
-    norm_num [DigestSampling.IndexBuckets,Fintype.card_prod,Fintype.card_fun]
-  have h := recordLaw_target_bound published request state hfresh {point}
-  simp only [Finset.mem_singleton,Finset.card_singleton,Nat.cast_one] at h
-  have hpoint := h.trans (Sampling.clean_point_bound_arithmetic state.2.2 hfinite budget hsize hbudget
-    hclean Acceptance.acceptanceProbability_le_one_sixteenth point)
-  rw [← PMF.monad_map_eq_map,← PMF.probOutput_eq_apply,probOutput_map,
-    PMF.uniformOfFintype_apply,hc,Nat.cast_pow,Nat.cast_ofNat]
-  calc
-    _ ≤ (1024/1025 : ENNReal)*((1025/1024 : ENNReal)/(2 : ENNReal)^59) := mul_le_mul' le_rfl hpoint
-    _ = _ := by
-      apply (ENNReal.toReal_eq_toReal_iff' (by finiteness) (by finiteness)).mp
-      norm_num [ENNReal.toReal_mul,ENNReal.toReal_div,ENNReal.toReal_inv,ENNReal.toReal_pow]
 theorem recordLaw_erasure (published : T3.Cache) (request : Request) (state : State) :
     (recordLaw published request state).map (fun result => (result.1.1.1,result.1.2))=
       (liftM (run (FullGame.authenticatedSign published request) state) : PMF (Option Signature × State)) := by
@@ -196,59 +134,6 @@ noncomputable def active (budget : Nat) : Interaction.Domain → State → Bool
   | .inr request,state => decide (
       state.2.1 (.inr (.inl request.message))=none ∧ SphincsSecurity.Finite state.2.2 ∧
       QueryCache.enncard state.2.2 ≤ budget ∧ ¬Sampling.TargetCacheExceptional state.2.2)
-noncomputable def proposalModel (published : T3.Cache) (budget : Nat) (hbudget : budget ≤ 2^127) :
-    BPORS.Adaptive.ProposalModel Interaction State DigestSampling.IndexBuckets where
-  Outcome := Outcome
-  record := interactionRecord published
-  response := response
-  advance := advance
-  label := label
-  active := active budget
-  base := PMF.uniformOfFintype DigestSampling.IndexBuckets
-  accept := 1024/1025
-  positive := by norm_num
-  lt_one := by
-    apply (ENNReal.toReal_lt_toReal (by finiteness) (by finiteness)).mp
-    norm_num [ENNReal.toReal_div]
-  cap := by
-    intro input state hactive point
-    cases input with
-    | inl input => simp [active] at hactive
-    | inr request =>
-        change decide (_ ∧ _ ∧ _ ∧ _)=true at hactive
-        obtain ⟨hfresh,hfinite,hsize,hclean⟩ := of_decide_eq_true hactive
-        exact recordLaw_scaled_cap published request state hfresh hfinite budget hsize hbudget hclean point
-theorem proposal_query_erasure (published : T3.Cache) (budget : Nat) (hbudget : budget ≤ 2^127)
-    (input : Interaction.Domain) (state : State) :
-    (((proposalModel published budget hbudget).original input).run state)=
-      (liftM (run (interactionSource published input) state) : PMF (Interaction.Range input × State)) := by
-  cases input with
-  | inl input =>
-      change (fun result : SphincsSecurity.OracleWorld.Range input × State => (result.1,result.2)) <$>
-        (liftM (run (forwardWorld input) state) : PMF _)=_
-      change id <$> (liftM (run (forwardWorld input) state) : PMF _)=_
-      rw [id_map]
-      rfl
-  | inr request => exact recordLaw_erasure published request state
-theorem proposal_execution_erasure {α : Type} (published : T3.Cache) (budget : Nat)
-    (hbudget : budget ≤ 2^127) (program : OracleComp Interaction α) (state : State) :
-    (simulateQ (proposalModel published budget hbudget).original program).run state=
-      (liftM (run (simulateQ (interactionSource published) program) state) : PMF (α × State)) := by
-  induction program using OracleComp.inductionOn generalizing state with
-  | pure value => simp [run_pure]
-  | query_bind input next ih =>
-      rw [simulateQ_bind,simulateQ_spec_query,StateT.run_bind,proposal_query_erasure]
-      rw [simulateQ_bind,simulateQ_spec_query,run_bind,liftM_bind]
-      apply bind_congr
-      intro result
-      exact ih result.1 result.2
-theorem proposal_trace_erasure {α : Type} (published : T3.Cache) (budget : Nat)
-    (hbudget : budget ≤ 2^127) (program : OracleComp Interaction α)
-    (history : List DigestSampling.IndexBuckets) (state : State) :
-    Prod.map id Prod.snd <$>
-      (simulateQ (proposalModel published budget hbudget).traced program).run (history,state)=
-      (liftM (run (simulateQ (interactionSource published) program) state) : PMF (α × State)) := by
-  rw [(proposalModel published budget hbudget).traced_erasure,proposal_execution_erasure]
 theorem logged_source {α : Type} (published : T3.Cache) (program : OracleComp Interaction α) :
     simulateQ (interactionSource published) (ProposalOverflow.logged program)=
       FullGame.loggedWith (FullGame.authenticatedSign published) program := by
@@ -272,76 +157,6 @@ set_option maxHeartbeats 1000000
 set_option maxRecDepth 10000
 set_option backward.isDefEq.respectTransparency false
 attribute [local instance] Classical.propDecidable
-theorem signing_trace_overflow {Result : Type} (published : T3.Cache)
-    (budget : Nat) (hbudget : budget ≤ 2^127)
-    (program : OracleComp Interaction Result) (state : State) :
-    Pr[fun result => result.2.2.1 ≤ 2^32 ∧ BPORS.Numeric.proposalLength < result.2.1.length |
-      (simulateQ (counted (proposalModel published budget hbudget)).traced program).run ([],0,state)] ≤
-      (2 : ENNReal)⁻¹ ^ 700 :=
-  full_trace_overflow_bound (proposalModel published budget hbudget) rfl program state
-theorem signing_count_le_fragment (published : T3.Cache) (budget : Nat) (hbudget : budget ≤ 2^127)
-    (input : LazyPrivate.Interaction.Domain) (state : List DigestSampling.IndexBuckets × (Nat × State))
-    (result : LazyPrivate.Interaction.Range input × (List DigestSampling.IndexBuckets × (Nat × State)))
-    (hr : result ∈ (((counted (proposalModel published budget hbudget)).traced input).run state).support) :
-    result.2.2.1 ≤ state.2.1 + (logFragment input result.1).length := by
-  rw [counted_query_count _ input state result hr]
-  cases input with
-  | inl input => simp [proposalModel, active, logFragment]
-  | inr request => simp only [logFragment, List.length_singleton]; split <;> omega
-theorem signing_count_le_log {Result : Type} (published : T3.Cache) (budget : Nat) (hbudget : budget ≤ 2^127)
-    (program : OracleComp LazyPrivate.Interaction Result)
-    (state : List DigestSampling.IndexBuckets × (Nat × State))
-    (result : (Result × QueryLog Requests) × (List DigestSampling.IndexBuckets × (Nat × State)))
-    (hr : result ∈ ((simulateQ (counted (proposalModel published budget hbudget)).traced
-      (logged program)).run state).support) :
-    result.2.2.1 ≤ state.2.1 + result.1.2.length := by
-  induction program using OracleComp.inductionOn generalizing state result with
-  | pure value =>
-      rw [logged_pure, simulateQ_pure, StateT.run_pure, PMF.monad_pure_eq_pure, PMF.mem_support_pure_iff] at hr
-      subst result
-      simp
-  | query_bind input next ih =>
-      rw [logged_query_bind, simulateQ_bind, simulateQ_spec_query, StateT.run_bind,
-        PMF.monad_bind_eq_bind, PMF.mem_support_bind_iff] at hr
-      obtain ⟨middle, hm, hr⟩ := hr
-      have hstep := signing_count_le_fragment published budget hbudget input state middle hm
-      rw [simulateQ_bind, StateT.run_bind, PMF.monad_bind_eq_bind, PMF.mem_support_bind_iff] at hr
-      obtain ⟨last, hl, hr⟩ := hr
-      have hrest := ih middle.1 middle.2 last hl
-      rw [simulateQ_pure, StateT.run_pure, PMF.monad_pure_eq_pure, PMF.mem_support_pure_iff] at hr
-      subst result
-      simp only [List.length_append]
-      omega
-theorem signing_log_overflow {Result : Type} (published : T3.Cache) (budget : Nat) (hbudget : budget ≤ 2^127)
-    (program : OracleComp LazyPrivate.Interaction Result) (state : State) :
-    Pr[fun result => result.1.2.length ≤ 2^32 ∧ BPORS.Numeric.proposalLength < result.2.1.length |
-      (simulateQ (counted (proposalModel published budget hbudget)).traced
-        (logged program)).run ([],0,state)] ≤ (2 : ENNReal)⁻¹ ^ 700 := by
-  apply le_trans ?_ (signing_trace_overflow published budget hbudget (logged program) state)
-  classical
-  rw [probEvent_eq_tsum_ite, probEvent_eq_tsum_ite]
-  apply ENNReal.tsum_le_tsum
-  intro result
-  by_cases hr : result ∈ ((simulateQ (counted (proposalModel published budget hbudget)).traced
-      (logged program)).run ([],0,state)).support
-  · by_cases hb : result.1.2.length ≤ 2^32 ∧ BPORS.Numeric.proposalLength < result.2.1.length
-    · have hcount := signing_count_le_log published budget hbudget program ([],0,state) result hr
-      have hc : result.2.2.1 ≤ result.1.2.length := by simpa using hcount
-      simp only [hb, if_true, show result.2.2.1 ≤ 2^32 ∧
-        BPORS.Numeric.proposalLength < result.2.1.length from ⟨hc.trans hb.1,hb.2⟩, le_refl]
-    · simp only [hb, if_false, zero_le]
-  · have hz : ((simulateQ (counted (proposalModel published budget hbudget)).traced
-        (logged program)).run ([],0,state)) result = 0 := by
-      simpa only [PMF.mem_support_iff, not_not] using hr
-    simp only [PMF.probOutput_eq_apply, hz, ite_self, le_refl]
-theorem source_proposal_overflow {Result : Type} (published : T3.Cache) (budget : Nat) (hbudget : budget ≤ 2^127)
-    (program : OracleComp LazyPrivate.Interaction Result) (state : State) :
-    Pr[fun result => result.1.2.length ≤ 2^32 ∧ BPORS.Numeric.proposalLength < result.2.1.length |
-      (simulateQ (proposalModel published budget hbudget).traced (logged program)).run ([],state)] ≤
-      (2 : ENNReal)⁻¹ ^ 700 := by
-  rw [← counted_trace_erasure (proposalModel published budget hbudget) (logged program) ([],0,state),
-    probEvent_map]
-  exact signing_log_overflow published budget hbudget program state
 end SigGolfCandidate.T3.Security.CountedPrivate
 end
 section
@@ -352,43 +167,6 @@ set_option maxRecDepth 10000
 set_option backward.isDefEq.respectTransparency false
 attribute [local instance] Classical.propDecidable
 abbrev History := List DigestSampling.IndexBuckets
-noncomputable def tracedExperiment (adversary : Adversary) (budget : Nat)
-    (hbudget : budget ≤ 2^127) : PMF (Bool × (History × State)) := do
-  let generated ← (liftM (run keygen (0,∅,∅)) : PMF _)
-  let interaction ← (simulateQ (proposalModel generated.1.2 budget hbudget).traced
-    (ProposalOverflow.logged (adversary generated.1.1 generated.1.2))).run ([],generated.2)
-  let checked ← (liftM (run (FullGame.verdict generated.1.1 interaction.1) interaction.2.2) : PMF _)
-  pure (checked.1,interaction.2.1,checked.2)
-theorem tracedExperiment_erasure (adversary : Adversary) (budget : Nat)
-    (hbudget : budget ≤ 2^127) :
-    Prod.map id Prod.snd <$> tracedExperiment adversary budget hbudget=
-      (liftM (experiment adversary) : PMF (Bool × State)) := by
-  unfold tracedExperiment experiment FullGame.idealGame
-  simp only [run_bind,liftM_bind,map_bind,map_pure,Prod.map,id_eq,Prod.mk.eta]
-  apply bind_congr
-  intro generated
-  have h := proposal_trace_erasure generated.1.2 budget hbudget
-    (ProposalOverflow.logged (adversary generated.1.1 generated.1.2)) [] generated.2
-  rw [logged_source] at h
-  rw [← h,bind_map_left]
-  simp only [bind_pure,Prod.map,id_eq]
-theorem tracedExperiment_event (adversary : Adversary) (q : Nat) (hq : q ≤ 2^127) :
-    Pr[fun result => result.1=true ∧ result.2.2.1≤q | tracedExperiment adversary q hq]=
-      Pr[fun result => result.1=true ∧ result.2.1≤q | experiment adversary] := by
-  have h := congrArg (fun law : PMF (Bool × State) =>
-    Pr[fun result => result.1=true ∧ result.2.1≤q | law]) (tracedExperiment_erasure adversary q hq)
-  simp only [probEvent_map,Function.comp_def,Prod.map,id_eq] at h
-  calc
-    _ = Pr[fun result => result.1=true ∧ result.2.1≤q | (liftM (experiment adversary) : PMF _)] := h
-    _ = _ := by
-      simp only [probEvent_eq_tsum_ite]
-      rfl
-theorem real_to_traced (adversary : Adversary) (q : Nat) (hq : q ≤ 2^127) :
-    Pr[fun result => result.1=true ∧ result.2≤q | realExperiment adversary] ≤
-      Pr[fun result => result.1=true ∧ result.2.2.1≤q | tracedExperiment adversary q hq]+
-        ((2 : ENNReal)^152)⁻¹+q/((2^256 : Nat) : ENNReal) := by
-  rw [tracedExperiment_event]
-  exact real_to_counted_ideal adversary q (hq.trans_lt (by norm_num))
 theorem verdict_success_log (publicKey : Digest) (interaction : Option Forgery × QueryLog Requests)
     (state : State) (result : Bool × State)
     (hr : result ∈ support (run (FullGame.verdict publicKey interaction) state))
@@ -413,54 +191,6 @@ set_option maxHeartbeats 1000000
 set_option maxRecDepth 10000
 set_option backward.isDefEq.respectTransparency false
 attribute [local instance] Classical.propDecidable
-theorem winning_trace_overflow (adversary : Adversary) (budget : Nat)
-    (hbudget : budget ≤ 2^127) :
-    Pr[fun result => result.1=true ∧ BPORS.Numeric.proposalLength < result.2.1.length |
-      tracedExperiment adversary budget hbudget] ≤ (2 : ENNReal)⁻¹^700 := by
-  rw [← expectedValue_ite_one]
-  simp only [tracedExperiment,expectedValue_bind,expectedValue_pure]
-  change expectedValue (run keygen (0,∅,∅)) _ ≤ _
-  apply expectedValue_le_of_support
-  intro generated _
-  apply le_trans ?_ (source_proposal_overflow generated.1.2 budget hbudget
-    (adversary generated.1.1 generated.1.2) generated.2)
-  rw [← expectedValue_ite_one]
-  apply expectedValue_mono
-  intro interaction
-  change expectedValue (run (FullGame.verdict generated.1.1 interaction.1) interaction.2.2)
-    (fun checked => if checked.1=true ∧ BPORS.Numeric.proposalLength < interaction.2.1.length then 1 else 0) ≤ _
-  apply expectedValue_le_of_support
-  intro checked hchecked
-  by_cases h : checked.1=true ∧ BPORS.Numeric.proposalLength < interaction.2.1.length
-  · have hl := verdict_success_log generated.1.1 interaction.1 interaction.2.2 checked hchecked h.1
-    simp only [h,if_true,show interaction.1.2.length≤2^32 ∧
-      BPORS.Numeric.proposalLength < interaction.2.1.length from ⟨hl,h.2⟩,le_refl]
-  · simp only [h,if_false,zero_le]
-theorem split_winning_trace (adversary : Adversary) (q : Nat) (hq : q ≤ 2^127) :
-    Pr[fun result => result.1=true ∧ result.2.2.1≤q | tracedExperiment adversary q hq] ≤
-      Pr[fun result => result.1=true ∧ result.2.2.1≤q ∧
-        result.2.1.length≤BPORS.Numeric.proposalLength | tracedExperiment adversary q hq]+
-      Pr[fun result => result.1=true ∧ BPORS.Numeric.proposalLength < result.2.1.length |
-        tracedExperiment adversary q hq] := by
-  simp only [probEvent_eq_tsum_ite]
-  rw [← ENNReal.tsum_add]
-  apply ENNReal.tsum_le_tsum
-  intro result
-  by_cases hw : result.1=true ∧ result.2.2.1≤q
-  · by_cases hn : result.2.1.length≤BPORS.Numeric.proposalLength
-    · simp [hw,hw.1,hw.2,hn,Nat.not_lt.mpr hn]
-    · simp [hw,hw.1,hw.2,hn,Nat.lt_of_not_ge hn]
-  · simp only [hw,if_false,zero_le]
-theorem real_to_bounded_trace (adversary : Adversary) (q : Nat) (hq : q ≤ 2^127) :
-    Pr[fun result => result.1=true ∧ result.2≤q | realExperiment adversary] ≤
-      Pr[fun result => result.1=true ∧ result.2.2.1≤q ∧
-        result.2.1.length≤BPORS.Numeric.proposalLength | tracedExperiment adversary q hq]+
-        (2 : ENNReal)⁻¹^700+((2 : ENNReal)^152)⁻¹+q/((2^256 : Nat) : ENNReal) := by
-  apply (real_to_traced adversary q hq).trans
-  apply add_le_add_left
-  apply add_le_add_left
-  exact (split_winning_trace adversary q hq).trans
-    (add_le_add le_rfl (winning_trace_overflow adversary q hq))
 end SigGolfCandidate.T3.Security.CountedPrivate
 end
 section
@@ -1194,54 +924,10 @@ set_option backward.isDefEq.respectTransparency false
 attribute [local instance] Classical.propDecidable
 noncomputable local instance : DecidableEq T3.Cache := Classical.decEq _
 noncomputable local instance : DecidableEq SiggolfT3Mac4.Cache := Classical.decEq _
-theorem monitored_completed_target_bound (published : T3.Cache) (request : Request)
-    (state : State) (hfresh : state.source.2.1 (.inr (.inl request.message))=none)
-    (targets : Finset DigestSampling.IndexBuckets) :
-    expectedValue (run (FullGame.authenticatedRecord published request) state)
-      (fun result => result.1.2.elim (BPORS.finiteAverage (Sampling.targetWeight targets))
-        (fun output => Sampling.targetWeight targets (DigestSampling.samplingData output).1)) ≤
-      targets.card/(2 : ENNReal)^59+Sampling.cachedTargetCount targets state.source.2.2/(2 : ENNReal)^128 := by
-  have h := congrArg (fun program => expectedValue program
-    (fun result : (Option Signature × Option HashOutput) × CountedPrivate.State =>
-      result.1.2.elim (BPORS.finiteAverage (Sampling.targetWeight targets))
-        (fun output => Sampling.targetWeight targets (DigestSampling.samplingData output).1)))
-    (run_erasure (FullGame.authenticatedRecord published request) state)
-  rw [expectedValue_map] at h
-  exact h.trans_le (CountedPrivate.counted_completed_target_bound published request state.source hfresh targets)
 noncomputable def recordLaw (published : T3.Cache) (request : Request) (state : State) :
     PMF (((Option Signature × Option HashOutput) × State) × DigestSampling.IndexBuckets) :=
   liftM (Sampling.completeRecord (fun result => result.1.2)
     (run (FullGame.authenticatedRecord published request) state))
-theorem recordLaw_target_bound (published : T3.Cache) (request : Request) (state : State)
-    (hfresh : state.source.2.1 (.inr (.inl request.message))=none) (targets : Finset DigestSampling.IndexBuckets) :
-    Pr[fun result => result.2 ∈ targets | recordLaw published request state] ≤
-      targets.card/(2 : ENNReal)^59+Sampling.cachedTargetCount targets state.source.2.2/(2 : ENNReal)^128 := by
-  rw [← expectedValue_ite_one]
-  change expectedValue (Sampling.completeRecord (fun result => result.1.2)
-    (run (FullGame.authenticatedRecord published request) state))
-      (fun result => Sampling.targetWeight targets result.2) ≤ _
-  rw [Sampling.completeRecord_expected]
-  exact monitored_completed_target_bound published request state hfresh targets
-theorem recordLaw_scaled_cap (published : T3.Cache) (request : Request) (state : State)
-    (hfresh : state.source.2.1 (.inr (.inl request.message))=none)
-    (hfinite : SphincsSecurity.Finite state.source.2.2) (budget : Nat)
-    (hsize : QueryCache.enncard state.source.2.2 ≤ budget) (hbudget : budget ≤ 2^127)
-    (hclean : ¬Sampling.TargetCacheExceptional state.source.2.2) (point : DigestSampling.IndexBuckets) :
-    (1024/1025 : ENNReal)*((recordLaw published request state).map Prod.snd) point ≤
-      (PMF.uniformOfFintype DigestSampling.IndexBuckets) point := by
-  have hc : Fintype.card DigestSampling.IndexBuckets=2^59 := by
-    norm_num [DigestSampling.IndexBuckets,Fintype.card_prod,Fintype.card_fun]
-  have h := recordLaw_target_bound published request state hfresh {point}
-  simp only [Finset.mem_singleton,Finset.card_singleton,Nat.cast_one] at h
-  have hpoint := h.trans (Sampling.clean_point_bound_arithmetic state.source.2.2 hfinite budget hsize hbudget
-    hclean Acceptance.acceptanceProbability_le_one_sixteenth point)
-  rw [← PMF.monad_map_eq_map,← PMF.probOutput_eq_apply,probOutput_map,
-    PMF.uniformOfFintype_apply,hc,Nat.cast_pow,Nat.cast_ofNat]
-  calc
-    _ ≤ (1024/1025 : ENNReal)*((1025/1024 : ENNReal)/(2 : ENNReal)^59) := mul_le_mul' le_rfl hpoint
-    _ = _ := by
-      apply (ENNReal.toReal_eq_toReal_iff' (by finiteness) (by finiteness)).mp
-      norm_num [ENNReal.toReal_mul,ENNReal.toReal_div,ENNReal.toReal_inv,ENNReal.toReal_pow]
 theorem recordLaw_erasure (published : T3.Cache) (request : Request) (state : State) :
     (recordLaw published request state).map (fun result => (result.1.1.1,result.1.2))=
       (liftM (run (FullGame.authenticatedSign published request) state) : PMF (Option Signature × State)) := by
@@ -1290,59 +976,6 @@ noncomputable def active (budget : Nat) : Interaction.Domain → State → Bool
   | .inr request,state => decide (
       state.source.2.1 (.inr (.inl request.message))=none ∧ SphincsSecurity.Finite state.source.2.2 ∧
       QueryCache.enncard state.source.2.2 ≤ budget ∧ ¬Sampling.TargetCacheExceptional state.source.2.2)
-noncomputable def proposalModel (published : T3.Cache) (budget : Nat) (hbudget : budget ≤ 2^127) :
-    BPORS.Adaptive.ProposalModel Interaction State DigestSampling.IndexBuckets where
-  Outcome := Outcome
-  record := interactionRecord published
-  response := response
-  advance := advance
-  label := label
-  active := active budget
-  base := PMF.uniformOfFintype DigestSampling.IndexBuckets
-  accept := 1024/1025
-  positive := by norm_num
-  lt_one := by
-    apply (ENNReal.toReal_lt_toReal (by finiteness) (by finiteness)).mp
-    norm_num [ENNReal.toReal_div]
-  cap := by
-    intro input state hactive point
-    cases input with
-    | inl input => simp [active] at hactive
-    | inr request =>
-        change decide (_ ∧ _ ∧ _ ∧ _)=true at hactive
-        obtain ⟨hfresh,hfinite,hsize,hclean⟩ := of_decide_eq_true hactive
-        exact recordLaw_scaled_cap published request state hfresh hfinite budget hsize hbudget hclean point
-theorem proposal_query_erasure (published : T3.Cache) (budget : Nat) (hbudget : budget ≤ 2^127)
-    (input : Interaction.Domain) (state : State) :
-    (((proposalModel published budget hbudget).original input).run state)=
-      (liftM (run (interactionSource published input) state) : PMF (Interaction.Range input × State)) := by
-  cases input with
-  | inl input =>
-      change (fun result : SphincsSecurity.OracleWorld.Range input × State => (result.1,result.2)) <$>
-        (liftM (run (forwardWorld input) state) : PMF _)=_
-      change id <$> (liftM (run (forwardWorld input) state) : PMF _)=_
-      rw [id_map]
-      rfl
-  | inr request => exact recordLaw_erasure published request state
-theorem proposal_execution_erasure {α : Type} (published : T3.Cache) (budget : Nat)
-    (hbudget : budget ≤ 2^127) (program : OracleComp Interaction α) (state : State) :
-    (simulateQ (proposalModel published budget hbudget).original program).run state=
-      (liftM (run (simulateQ (interactionSource published) program) state) : PMF (α × State)) := by
-  induction program using OracleComp.inductionOn generalizing state with
-  | pure value => simp [run_pure]
-  | query_bind input next ih =>
-      rw [simulateQ_bind,simulateQ_spec_query,StateT.run_bind,proposal_query_erasure]
-      rw [simulateQ_bind,simulateQ_spec_query,run_bind,liftM_bind]
-      apply bind_congr
-      intro result
-      exact ih result.1 result.2
-theorem proposal_trace_erasure {α : Type} (published : T3.Cache) (budget : Nat)
-    (hbudget : budget ≤ 2^127) (program : OracleComp Interaction α)
-    (history : List DigestSampling.IndexBuckets) (state : State) :
-    Prod.map id Prod.snd <$>
-      (simulateQ (proposalModel published budget hbudget).traced program).run (history,state)=
-      (liftM (run (simulateQ (interactionSource published) program) state) : PMF (α × State)) := by
-  rw [(proposalModel published budget hbudget).traced_erasure,proposal_execution_erasure]
 theorem logged_source {α : Type} (published : T3.Cache) (program : OracleComp Interaction α) :
     simulateQ (interactionSource published) (ProposalOverflow.logged program)=
       FullGame.loggedWith (FullGame.authenticatedSign published) program := by
@@ -1366,76 +999,6 @@ set_option maxHeartbeats 1000000
 set_option maxRecDepth 10000
 set_option backward.isDefEq.respectTransparency false
 attribute [local instance] Classical.propDecidable
-theorem signing_trace_overflow {Result : Type} (published : T3.Cache)
-    (budget : Nat) (hbudget : budget ≤ 2^127)
-    (program : OracleComp Interaction Result) (state : State) :
-    Pr[fun result => result.2.2.1 ≤ 2^32 ∧ BPORS.Numeric.proposalLength < result.2.1.length |
-      (simulateQ (counted (proposalModel published budget hbudget)).traced program).run ([],0,state)] ≤
-      (2 : ENNReal)⁻¹ ^ 700 :=
-  full_trace_overflow_bound (proposalModel published budget hbudget) rfl program state
-theorem signing_count_le_fragment (published : T3.Cache) (budget : Nat) (hbudget : budget ≤ 2^127)
-    (input : LazyPrivate.Interaction.Domain) (state : List DigestSampling.IndexBuckets × (Nat × State))
-    (result : LazyPrivate.Interaction.Range input × (List DigestSampling.IndexBuckets × (Nat × State)))
-    (hr : result ∈ (((counted (proposalModel published budget hbudget)).traced input).run state).support) :
-    result.2.2.1 ≤ state.2.1 + (logFragment input result.1).length := by
-  rw [counted_query_count _ input state result hr]
-  cases input with
-  | inl input => simp [proposalModel, active, logFragment]
-  | inr request => simp only [logFragment, List.length_singleton]; split <;> omega
-theorem signing_count_le_log {Result : Type} (published : T3.Cache) (budget : Nat) (hbudget : budget ≤ 2^127)
-    (program : OracleComp LazyPrivate.Interaction Result)
-    (state : List DigestSampling.IndexBuckets × (Nat × State))
-    (result : (Result × QueryLog Requests) × (List DigestSampling.IndexBuckets × (Nat × State)))
-    (hr : result ∈ ((simulateQ (counted (proposalModel published budget hbudget)).traced
-      (logged program)).run state).support) :
-    result.2.2.1 ≤ state.2.1 + result.1.2.length := by
-  induction program using OracleComp.inductionOn generalizing state result with
-  | pure value =>
-      rw [logged_pure, simulateQ_pure, StateT.run_pure, PMF.monad_pure_eq_pure, PMF.mem_support_pure_iff] at hr
-      subst result
-      simp
-  | query_bind input next ih =>
-      rw [logged_query_bind, simulateQ_bind, simulateQ_spec_query, StateT.run_bind,
-        PMF.monad_bind_eq_bind, PMF.mem_support_bind_iff] at hr
-      obtain ⟨middle, hm, hr⟩ := hr
-      have hstep := signing_count_le_fragment published budget hbudget input state middle hm
-      rw [simulateQ_bind, StateT.run_bind, PMF.monad_bind_eq_bind, PMF.mem_support_bind_iff] at hr
-      obtain ⟨last, hl, hr⟩ := hr
-      have hrest := ih middle.1 middle.2 last hl
-      rw [simulateQ_pure, StateT.run_pure, PMF.monad_pure_eq_pure, PMF.mem_support_pure_iff] at hr
-      subst result
-      simp only [List.length_append]
-      omega
-theorem signing_log_overflow {Result : Type} (published : T3.Cache) (budget : Nat) (hbudget : budget ≤ 2^127)
-    (program : OracleComp LazyPrivate.Interaction Result) (state : State) :
-    Pr[fun result => result.1.2.length ≤ 2^32 ∧ BPORS.Numeric.proposalLength < result.2.1.length |
-      (simulateQ (counted (proposalModel published budget hbudget)).traced
-        (logged program)).run ([],0,state)] ≤ (2 : ENNReal)⁻¹ ^ 700 := by
-  apply le_trans ?_ (signing_trace_overflow published budget hbudget (logged program) state)
-  classical
-  rw [probEvent_eq_tsum_ite, probEvent_eq_tsum_ite]
-  apply ENNReal.tsum_le_tsum
-  intro result
-  by_cases hr : result ∈ ((simulateQ (counted (proposalModel published budget hbudget)).traced
-      (logged program)).run ([],0,state)).support
-  · by_cases hb : result.1.2.length ≤ 2^32 ∧ BPORS.Numeric.proposalLength < result.2.1.length
-    · have hcount := signing_count_le_log published budget hbudget program ([],0,state) result hr
-      have hc : result.2.2.1 ≤ result.1.2.length := by simpa using hcount
-      simp only [hb, if_true, show result.2.2.1 ≤ 2^32 ∧
-        BPORS.Numeric.proposalLength < result.2.1.length from ⟨hc.trans hb.1,hb.2⟩, le_refl]
-    · simp only [hb, if_false, zero_le]
-  · have hz : ((simulateQ (counted (proposalModel published budget hbudget)).traced
-        (logged program)).run ([],0,state)) result = 0 := by
-      simpa only [PMF.mem_support_iff, not_not] using hr
-    simp only [PMF.probOutput_eq_apply, hz, ite_self, le_refl]
-theorem source_proposal_overflow {Result : Type} (published : T3.Cache) (budget : Nat) (hbudget : budget ≤ 2^127)
-    (program : OracleComp LazyPrivate.Interaction Result) (state : State) :
-    Pr[fun result => result.1.2.length ≤ 2^32 ∧ BPORS.Numeric.proposalLength < result.2.1.length |
-      (simulateQ (proposalModel published budget hbudget).traced (logged program)).run ([],state)] ≤
-      (2 : ENNReal)⁻¹ ^ 700 := by
-  rw [← counted_trace_erasure (proposalModel published budget hbudget) (logged program) ([],0,state),
-    probEvent_map]
-  exact signing_log_overflow published budget hbudget program state
 end SigGolfCandidate.T3.Security.MonitoredPrivate
 end
 section
@@ -1462,43 +1025,6 @@ theorem real_to_monitored_ideal (adversary : Adversary) (q : Nat) (hq : q < 2^25
   rw [experiment_event]
   exact CountedPrivate.real_to_counted_ideal adversary q hq
 abbrev History := List DigestSampling.IndexBuckets
-noncomputable def tracedExperiment (adversary : Adversary) (budget : Nat)
-    (hbudget : budget ≤ 2^127) : PMF (Bool × (History × State)) := do
-  let generated ← (liftM (run keygen ⟨(0,∅,∅),false⟩) : PMF _)
-  let interaction ← (simulateQ (proposalModel generated.1.2 budget hbudget).traced
-    (ProposalOverflow.logged (adversary generated.1.1 generated.1.2))).run ([],generated.2)
-  let checked ← (liftM (run (FullGame.verdict generated.1.1 interaction.1) interaction.2.2) : PMF _)
-  pure (checked.1,interaction.2.1,checked.2)
-theorem tracedExperiment_erasure (adversary : Adversary) (budget : Nat)
-    (hbudget : budget ≤ 2^127) :
-    Prod.map id Prod.snd <$> tracedExperiment adversary budget hbudget=
-      (liftM (experiment adversary) : PMF (Bool × State)) := by
-  unfold tracedExperiment experiment FullGame.idealGame
-  simp only [run_bind,liftM_bind,map_bind,map_pure,Prod.map,id_eq,Prod.mk.eta]
-  apply bind_congr
-  intro generated
-  have h := proposal_trace_erasure generated.1.2 budget hbudget
-    (ProposalOverflow.logged (adversary generated.1.1 generated.1.2)) [] generated.2
-  rw [logged_source] at h
-  rw [← h,bind_map_left]
-  simp only [bind_pure,Prod.map,id_eq]
-theorem tracedExperiment_event (adversary : Adversary) (q : Nat) (hq : q ≤ 2^127) :
-    Pr[fun result => result.1=true ∧ result.2.2.source.1≤q | tracedExperiment adversary q hq]=
-      Pr[fun result => result.1=true ∧ result.2.source.1≤q | experiment adversary] := by
-  have h := congrArg (fun law : PMF (Bool × State) =>
-    Pr[fun result => result.1=true ∧ result.2.source.1≤q | law]) (tracedExperiment_erasure adversary q hq)
-  simp only [probEvent_map,Function.comp_def,Prod.map,id_eq] at h
-  calc
-    _ = Pr[fun result => result.1=true ∧ result.2.source.1≤q | (liftM (experiment adversary) : PMF _)] := h
-    _ = _ := by
-      simp only [probEvent_eq_tsum_ite]
-      rfl
-theorem real_to_traced (adversary : Adversary) (q : Nat) (hq : q ≤ 2^127) :
-    Pr[fun result => result.1=true ∧ result.2≤q | realExperiment adversary] ≤
-      Pr[fun result => result.1=true ∧ result.2.2.source.1≤q | tracedExperiment adversary q hq]+
-        ((2 : ENNReal)^152)⁻¹+q/((2^256 : Nat) : ENNReal) := by
-  rw [tracedExperiment_event]
-  exact real_to_monitored_ideal adversary q (hq.trans_lt (by norm_num))
 theorem verdict_success_log (publicKey : Digest) (interaction : Option Forgery × QueryLog Requests)
     (state : State) (result : Bool × State)
     (hr : result ∈ support (run (FullGame.verdict publicKey interaction) state))
@@ -1523,54 +1049,6 @@ set_option maxHeartbeats 1000000
 set_option maxRecDepth 10000
 set_option backward.isDefEq.respectTransparency false
 attribute [local instance] Classical.propDecidable
-theorem winning_trace_overflow (adversary : Adversary) (budget : Nat)
-    (hbudget : budget ≤ 2^127) :
-    Pr[fun result => result.1=true ∧ BPORS.Numeric.proposalLength < result.2.1.length |
-      tracedExperiment adversary budget hbudget] ≤ (2 : ENNReal)⁻¹^700 := by
-  rw [← expectedValue_ite_one]
-  simp only [tracedExperiment,expectedValue_bind,expectedValue_pure]
-  change expectedValue (run keygen ⟨(0,∅,∅),false⟩) _ ≤ _
-  apply expectedValue_le_of_support
-  intro generated _
-  apply le_trans ?_ (source_proposal_overflow generated.1.2 budget hbudget
-    (adversary generated.1.1 generated.1.2) generated.2)
-  rw [← expectedValue_ite_one]
-  apply expectedValue_mono
-  intro interaction
-  change expectedValue (run (FullGame.verdict generated.1.1 interaction.1) interaction.2.2)
-    (fun checked => if checked.1=true ∧ BPORS.Numeric.proposalLength < interaction.2.1.length then 1 else 0) ≤ _
-  apply expectedValue_le_of_support
-  intro checked hchecked
-  by_cases h : checked.1=true ∧ BPORS.Numeric.proposalLength < interaction.2.1.length
-  · have hl := verdict_success_log generated.1.1 interaction.1 interaction.2.2 checked hchecked h.1
-    simp only [h,if_true,show interaction.1.2.length≤2^32 ∧
-      BPORS.Numeric.proposalLength < interaction.2.1.length from ⟨hl,h.2⟩,le_refl]
-  · simp only [h,if_false,zero_le]
-theorem split_winning_trace (adversary : Adversary) (q : Nat) (hq : q ≤ 2^127) :
-    Pr[fun result => result.1=true ∧ result.2.2.source.1≤q | tracedExperiment adversary q hq] ≤
-      Pr[fun result => result.1=true ∧ result.2.2.source.1≤q ∧
-        result.2.1.length≤BPORS.Numeric.proposalLength | tracedExperiment adversary q hq]+
-      Pr[fun result => result.1=true ∧ BPORS.Numeric.proposalLength < result.2.1.length |
-        tracedExperiment adversary q hq] := by
-  simp only [probEvent_eq_tsum_ite]
-  rw [← ENNReal.tsum_add]
-  apply ENNReal.tsum_le_tsum
-  intro result
-  by_cases hw : result.1=true ∧ result.2.2.source.1≤q
-  · by_cases hn : result.2.1.length≤BPORS.Numeric.proposalLength
-    · simp [hw,hw.1,hw.2,hn,Nat.not_lt.mpr hn]
-    · simp [hw,hw.1,hw.2,hn,Nat.lt_of_not_ge hn]
-  · simp only [hw,if_false,zero_le]
-theorem real_to_bounded_trace (adversary : Adversary) (q : Nat) (hq : q ≤ 2^127) :
-    Pr[fun result => result.1=true ∧ result.2≤q | realExperiment adversary] ≤
-      Pr[fun result => result.1=true ∧ result.2.2.source.1≤q ∧
-        result.2.1.length≤BPORS.Numeric.proposalLength | tracedExperiment adversary q hq]+
-        (2 : ENNReal)⁻¹^700+((2 : ENNReal)^152)⁻¹+q/((2^256 : Nat) : ENNReal) := by
-  apply (real_to_traced adversary q hq).trans
-  apply add_le_add_left
-  apply add_le_add_left
-  exact (split_winning_trace adversary q hq).trans
-    (add_le_add le_rfl (winning_trace_overflow adversary q hq))
 end SigGolfCandidate.T3.Security.MonitoredPrivate
 end
 section
@@ -1588,43 +1066,6 @@ theorem experiment_exception_bound (adversary : Adversary) (q : Nat) (hq : q ≤
     Pr[fun result => result.2.source.1≤q ∧ result.2.exceptional=true | experiment adversary] ≤
       q/(2 : ENNReal)^146 := by
   exact gate6_run_empty_linear_charge (FullGame.idealGame adversary) q 146 hq (by decide)
-theorem traced_exception_bound (adversary : Adversary) (q : Nat) (hq : q ≤ 2^127) :
-    Pr[fun result => result.2.2.source.1≤q ∧ result.2.2.exceptional=true |
-      tracedExperiment adversary q hq] ≤ q/(2 : ENNReal)^146 := by
-  have h := congrArg (fun law : PMF (Bool × State) =>
-    Pr[fun result => result.2.source.1≤q ∧ result.2.exceptional=true | law])
-    (tracedExperiment_erasure adversary q hq)
-  simp only [probEvent_map,Function.comp_def,Prod.map,id_eq,event_lift] at h
-  rw [h]
-  exact experiment_exception_bound adversary q hq
-theorem split_bounded_trace (adversary : Adversary) (q : Nat) (hq : q ≤ 2^127) :
-    Pr[fun result => result.1=true ∧ result.2.2.source.1≤q ∧
-      result.2.1.length≤BPORS.Numeric.proposalLength | tracedExperiment adversary q hq] ≤
-      Pr[fun result => result.1=true ∧ result.2.2.source.1≤q ∧
-        result.2.1.length≤BPORS.Numeric.proposalLength ∧ result.2.2.exceptional=false |
-          tracedExperiment adversary q hq]+
-      Pr[fun result => result.2.2.source.1≤q ∧ result.2.2.exceptional=true |
-        tracedExperiment adversary q hq] := by
-  simp only [probEvent_eq_tsum_ite]
-  rw [← ENNReal.tsum_add]
-  apply ENNReal.tsum_le_tsum
-  intro result
-  by_cases hw : result.1=true ∧ result.2.2.source.1≤q ∧ result.2.1.length≤BPORS.Numeric.proposalLength
-  · cases hb : result.2.2.exceptional <;> simp [hw,hw.2.1,hb]
-  · simp only [hw,if_false,zero_le]
-theorem real_to_clean_bounded_trace (adversary : Adversary) (q : Nat) (hq : q ≤ 2^127) :
-    Pr[fun result => result.1=true ∧ result.2≤q | realExperiment adversary] ≤
-      Pr[fun result => result.1=true ∧ result.2.2.source.1≤q ∧
-        result.2.1.length≤BPORS.Numeric.proposalLength ∧ result.2.2.exceptional=false |
-          tracedExperiment adversary q hq]+
-        q/(2 : ENNReal)^146+(2 : ENNReal)⁻¹^700+
-        ((2 : ENNReal)^152)⁻¹+q/((2^256 : Nat) : ENNReal) := by
-  apply (real_to_bounded_trace adversary q hq).trans
-  apply add_le_add_left
-  apply add_le_add_left
-  apply add_le_add_left
-  exact (split_bounded_trace adversary q hq).trans
-    (add_le_add le_rfl (traced_exception_bound adversary q hq))
 end SigGolfCandidate.T3.Security.MonitoredPrivate
 end
 section
@@ -1635,60 +1076,6 @@ set_option maxRecDepth 10000
 set_option backward.isDefEq.respectTransparency false
 attribute [local instance] Classical.propDecidable
 attribute [local irreducible] BPORS.History.fullPrice BPORS.History.fullNearPrice
-theorem full_game_excess_price (adversary : Adversary) (budget : Nat)
-    (hbudget : budget ≤ 2^127) :
-    expectedValue (tracedExperiment adversary budget hbudget)
-      (fun result => if result.2.1.length≤BPORS.Numeric.proposalLength
-        then BPORS.History.fullPrice result.2.1-1 else 0) ≤ 11324/100000000 := by
-  simp only [tracedExperiment,expectedValue_bind,expectedValue_pure]
-  apply expectedValue_le_of_le
-  intro generated
-  apply le_trans ?_ (BPORS.History.adaptive_selected_full_excess
-    (proposalModel generated.1.2 budget hbudget) rfl
-    (ProposalOverflow.logged (adversary generated.1.1 generated.1.2)) generated.2
-    (fun result => result.2.1) (fun _ => List.Sublist.refl _))
-  apply expectedValue_mono
-  intro interaction
-  exact expectedValue_le_of_le _ (fun _ => le_rfl)
-theorem full_game_near_price (adversary : Adversary) (budget : Nat)
-    (hbudget : budget ≤ 2^127) :
-    expectedValue (tracedExperiment adversary budget hbudget)
-      (fun result => if result.2.1.length≤BPORS.Numeric.proposalLength
-        then BPORS.History.fullNearPrice result.2.1 else 0) ≤ 404 := by
-  simp only [tracedExperiment,expectedValue_bind,expectedValue_pure]
-  apply expectedValue_le_of_le
-  intro generated
-  apply le_trans ?_ (BPORS.History.adaptive_selected_near_price
-    (proposalModel generated.1.2 budget hbudget) rfl
-    (ProposalOverflow.logged (adversary generated.1.1 generated.1.2)) generated.2
-    (fun result => result.2.1) (fun _ => List.Sublist.refl _))
-  apply expectedValue_mono
-  intro interaction
-  exact expectedValue_le_of_le _ (fun _ => le_rfl)
-theorem full_game_selected_excess (adversary : Adversary) (budget : Nat)
-    (hbudget : budget ≤ 2^127) (selected : Bool × (History × State) → History)
-    (hselected : ∀ result,(selected result).Sublist result.2.1) :
-    expectedValue (tracedExperiment adversary budget hbudget)
-      (fun result => if result.2.1.length≤BPORS.Numeric.proposalLength
-        then BPORS.History.fullPrice (selected result)-1 else 0) ≤ 11324/100000000 := by
-  apply le_trans ?_ (full_game_excess_price adversary budget hbudget)
-  apply expectedValue_mono
-  intro result
-  split_ifs
-  · exact tsub_le_tsub_right (BPORS.History.fullPrice_sublist (hselected result)) 1
-  · exact le_rfl
-theorem full_game_selected_near (adversary : Adversary) (budget : Nat)
-    (hbudget : budget ≤ 2^127) (selected : Bool × (History × State) → History)
-    (hselected : ∀ result,(selected result).Sublist result.2.1) :
-    expectedValue (tracedExperiment adversary budget hbudget)
-      (fun result => if result.2.1.length≤BPORS.Numeric.proposalLength
-        then BPORS.History.fullNearPrice (selected result) else 0) ≤ 404 := by
-  apply le_trans ?_ (full_game_near_price adversary budget hbudget)
-  apply expectedValue_mono
-  intro result
-  split_ifs
-  · exact BPORS.History.fullNearPrice_sublist (hselected result)
-  · exact le_rfl
 end SigGolfCandidate.T3.Security.MonitoredPrivate
 end
 section
@@ -1764,25 +1151,6 @@ theorem recordLaw_support (published : T3.Cache) (request : Request) (state : St
   refine ⟨hs,?_⟩
   intro output houtput
   rw [Sampling.completeLabel,houtput,Option.elim_some,support_pure,Set.mem_singleton_iff] at hp
-  exact hp
-theorem active_request_record (published : T3.Cache) (budget : Nat) (hbudget : budget ≤ 2^127)
-    (request : Request) (before : History × State)
-    (ha : active budget (.inr request) before.2=true)
-    (result : Option Signature × (History × State))
-    (hr : result ∈ (((proposalModel published budget hbudget).traced (.inr request)).run before).support) :
-    ∃ observed : (Option Signature × Option HashOutput) × State,
-      observed ∈ support (run (FullGame.authenticatedRecord published request) before.2) ∧
-      observed.1.1=result.1 ∧ observed.2=result.2.2 ∧
-      ∀ output,observed.1.2=some output → (DigestSampling.samplingData output).1 ∈ result.2.1 := by
-  obtain ⟨record,ho,hresponse,hstate,_,hlabel⟩ :=
-    BPORS.Adaptive.ProposalModel.traced_query_record (proposalModel published budget hbudget)
-      (.inr request) before result hr
-  have hsource := recordLaw_support published request before.2 record ho
-  refine ⟨record.1,hsource.1,hresponse.symm,hstate.symm,?_⟩
-  intro output houtput
-  have hp := hlabel ha
-  change record.2 ∈ result.2.1 at hp
-  rw [hsource.2 output houtput] at hp
   exact hp
 theorem empty_cache_clean : ¬Sampling.TargetCacheExceptional ∅ := by
   intro h
@@ -1897,61 +1265,6 @@ theorem fresh_active (published : T3.Cache) (budget : Nat) (request : Request) (
   have hh := hc hb
   rw [hflag] at hh
   contradiction
-theorem traced_query_covers (published : T3.Cache) (budget : Nat) (hbudget : budget≤2^127)
-    (input : Interaction.Domain) (before : History × State)
-    (hcover : Covers published before.1 before.2) (hw : WellFormed before.2)
-    (hc : Coherent before.2) (hflag : before.2.exceptional=false) (hcount : before.2.source.1≤budget)
-    (result : Interaction.Range input × (History × State))
-    (hr : result ∈ (((proposalModel published budget hbudget).traced input).run before).support) :
-    Covers published result.2.1 result.2.2 := by
-  obtain ⟨record,ho,hresponse,hstate,hh,hlabel⟩ :=
-    BPORS.Adaptive.ProposalModel.traced_query_record (proposalModel published budget hbudget)
-      input before result hr
-  cases input with
-  | inl input =>
-      change record ∈ (liftM (run (forwardWorld input) before.2) : PMF _).support at ho
-      rw [pmf_support] at ho
-      change result.2.2=record.2 at hstate
-      intro message
-      have hext := run_extends _ before.2 record ho
-      have hnonce := run_nonce_preserves message _
-        (CountedPrivate.forwardWorld_avoids message input) before.2 record ho
-      rw [hstate]
-      exact covered_preserves published before.1 result.2.1 before.2 record.2 message
-        (hcover message) hext hh (fun hf => hnonce.trans hf)
-  | inr request =>
-      have hsource := recordLaw_support published request before.2 record ho
-      have hext := run_extends _ before.2 record.1 hsource.1
-      change result.2.2=record.1.2 at hstate
-      intro message
-      by_cases hsame : request.cache=published ∧ request.message=message
-      · rcases hcover message with hf | ⟨old,hresolve,oldLabels⟩
-        · have hactive := fresh_active published budget request before.2 hw hc hflag hcount
-            (by rw [hsame.2]; exact hf)
-          have hresolved := SourceReplay.resolves_of_run (FullGame.authenticatedRecord published request)
-            (CountedPrivate.authenticatedRecord_hashOnly published request) before.2.source.2
-            (record.1.1,record.1.2.source.2)
-            (run_lazy_support _ before.2 record.1 hsource.1)
-          have hreq : request=⟨message,published⟩ := by
-            cases request
-            simp_all
-          rw [hstate]
-          apply Or.inr
-          refine ⟨record.1.1,?_,?_⟩
-          · simpa only [hreq] using hresolved
-          · intro output houtput
-            have hp := hlabel hactive
-            change record.2 ∈ result.2.1 at hp
-            rw [hsource.2 output houtput] at hp
-            exact hp
-        · rw [hstate]
-          exact Or.inr ⟨old,hresolve.mono hext,fun output ho => hh.subset (oldLabels output ho)⟩
-      · have hdiff : request.cache≠published ∨ request.message≠message := by tauto
-        have hn := run_nonce_preserves message _ (authenticatedRecord_avoids message published request hdiff)
-          before.2 record.1 hsource.1
-        rw [hstate]
-        exact covered_preserves published before.1 result.2.1 before.2 record.1.2 message
-          (hcover message) hext hh (fun hf => hn.trans hf)
 end SigGolfCandidate.T3.Security.MonitoredPrivate
 end
 section
@@ -1961,22 +1274,6 @@ set_option maxHeartbeats 1000000
 set_option maxRecDepth 10000
 set_option backward.isDefEq.respectTransparency false
 attribute [local instance] Classical.propDecidable
-theorem traced_source_support {α : Type} (published : T3.Cache) (budget : Nat)
-    (hbudget : budget≤2^127) (program : OracleComp Interaction α)
-    (before : History × State) (result : α × (History × State))
-    (hr : result ∈ ((simulateQ (proposalModel published budget hbudget).traced program).run before).support) :
-    (result.1,result.2.2) ∈ support (run (simulateQ (interactionSource published) program) before.2) := by
-  rw [← pmf_support,← proposal_trace_erasure published budget hbudget program before.1 before.2]
-  rw [PMF.monad_map_eq_map,PMF.mem_support_map_iff]
-  exact ⟨result,hr,rfl⟩
-theorem traced_query_source_support (published : T3.Cache) (budget : Nat)
-    (hbudget : budget≤2^127) (input : Interaction.Domain)
-    (before : History × State) (result : Interaction.Range input × (History × State))
-    (hr : result ∈ (((proposalModel published budget hbudget).traced input).run before).support) :
-    (result.1,result.2.2) ∈ support (run (interactionSource published input) before.2) := by
-  simpa only [simulateQ_spec_query] using
-    traced_source_support published budget hbudget (liftM (Interaction.query input)) before result
-      (by simpa only [simulateQ_spec_query] using hr)
 theorem run_false_before {α : Type} (program : M α) (before : State) (result : α × State)
     (hr : result ∈ support (run program before)) (hflag : result.2.exceptional=false) :
     before.exceptional=false := by
@@ -1986,38 +1283,6 @@ theorem run_false_before {α : Type} (program : M α) (before : State) (result :
       have h := run_flag_monotone program before hb result hr
       rw [hflag] at h
       contradiction
-theorem traced_covers {α : Type} (published : T3.Cache) (budget : Nat) (hbudget : budget≤2^127)
-    (program : OracleComp Interaction α) (before : History × State)
-    (hcover : Covers published before.1 before.2) (hw : WellFormed before.2) (hc : Coherent before.2)
-    (result : α × (History × State))
-    (hr : result ∈ ((simulateQ (proposalModel published budget hbudget).traced program).run before).support)
-    (hcount : result.2.2.source.1≤budget) (hflag : result.2.2.exceptional=false) :
-    Covers published result.2.1 result.2.2 := by
-  induction program using OracleComp.inductionOn generalizing before result with
-  | pure value =>
-      rw [simulateQ_pure,StateT.run_pure,PMF.monad_pure_eq_pure,PMF.mem_support_pure_iff] at hr
-      subst result
-      exact hcover
-  | query_bind input next ih =>
-      have hsource := traced_source_support published budget hbudget _ before result hr
-      have hbefore := run_false_before _ before.2 (result.1,result.2.2) hsource hflag
-      have hbound := (run_count_monotone _ before.2 (result.1,result.2.2) hsource).trans hcount
-      rw [simulateQ_bind,simulateQ_spec_query,StateT.run_bind,PMF.monad_bind_eq_bind,
-        PMF.mem_support_bind_iff] at hr
-      obtain ⟨middle,hm,hr⟩ := hr
-      have hstep := traced_query_source_support published budget hbudget input before middle hm
-      have hmCover := traced_query_covers published budget hbudget input before hcover hw hc hbefore hbound middle hm
-      exact ih middle.1 middle.2 hmCover (run_wellFormed _ before.2 hw (middle.1,middle.2.2) hstep)
-        (run_coherent _ before.2 hc (middle.1,middle.2.2) hstep) result hr hcount hflag
-theorem actual_interaction_covers {α : Type} (generated : (Digest × T3.Cache) × State)
-    (hg : generated ∈ support (run keygen ⟨(0,∅,∅),false⟩)) (budget : Nat) (hbudget : budget≤2^127)
-    (program : OracleComp Interaction α) (result : α × (History × State))
-    (hr : result ∈ ((simulateQ (proposalModel generated.1.2 budget hbudget).traced program).run
-      ([],generated.2)).support) (hcount : result.2.2.source.1≤budget) (hflag : result.2.2.exceptional=false) :
-    Covers generated.1.2 result.2.1 result.2.2 :=
-  traced_covers generated.1.2 budget hbudget program ([],generated.2) (covers_keygen generated hg)
-    (run_wellFormed keygen ⟨(0,∅,∅),false⟩ CountedPrivate.initial_wellFormed generated hg)
-    (run_coherent keygen ⟨(0,∅,∅),false⟩ initial_coherent generated hg) result hr hcount hflag
 end SigGolfCandidate.T3.Security.MonitoredPrivate
 end
 section
@@ -2213,29 +1478,6 @@ theorem logged_records_resolve {α : Type} (published : T3.Cache) (program : Ora
             obtain ⟨selected,hs⟩ := sign_response_record published request before middle hm
             exact ⟨selected,hs.mono (run_extends _ middle.2 last hl)⟩
           · exact ih middle.1 middle.2 last hl entry he
-theorem traced_log_disclosures {α : Type} (generated : (Digest × T3.Cache) × State)
-    (hg : generated ∈ support (run keygen ⟨(0,∅,∅),false⟩)) (budget : Nat) (hbudget : budget≤2^127)
-    (program : OracleComp Interaction α) (result : (α × QueryLog Requests) × (History × State))
-    (hr : result ∈ ((simulateQ (proposalModel generated.1.2 budget hbudget).traced
-      (ProposalOverflow.logged program)).run ([],generated.2)).support)
-    (hcount : result.2.2.source.1≤budget) (hflag : result.2.2.exceptional=false) :
-    ∀ entry ∈ result.1.2,entry.2≠none → entry.1.cache=generated.1.2 ∧
-      ∃ output,SourceReplay.Resolves result.2.2.source.2
-        (FullGame.authenticatedRecord generated.1.2 entry.1) (entry.2,some output) ∧
-        admissible (selections output)=true ∧ (DigestSampling.samplingData output).1 ∈ result.2.1 := by
-  have hc := actual_interaction_covers generated hg budget hbudget
-    (ProposalOverflow.logged program) result hr hcount hflag
-  have hsource := traced_source_support generated.1.2 budget hbudget
-    (ProposalOverflow.logged program) ([],generated.2) result hr
-  rw [logged_source] at hsource
-  intro entry he hs
-  obtain ⟨selected,hresolve⟩ := logged_records_resolve generated.1.2 program generated.2
-    (result.1,result.2.2) hsource entry he
-  obtain ⟨hcache,output,houtput,hadmissible,hlabel⟩ :=
-    covered_record_label generated.1.2 result.2.1 result.2.2 hc entry.1 (entry.2,selected) hresolve hs
-  change selected=some output at houtput
-  rw [houtput] at hresolve
-  exact ⟨hcache,output,hresolve,hadmissible,hlabel⟩
 end SigGolfCandidate.T3.Security.MonitoredPrivate
 end
 section
@@ -2347,78 +1589,6 @@ theorem journal_append (published : T3.Cache) (beforeHistory afterHistory : Hist
       · exact Or.inl ((hother other he).trans hf)
       · exact Or.inr (by simp only [List.map_append,List.mem_append]; exact Or.inl hm)
   · cases hd : record.2 <;> simpa [journalLabels,hd] using hh
-theorem traced_query_journal (published : T3.Cache) (budget : Nat) (hbudget : budget≤2^127)
-    (input : Interaction.Domain) (before : History × State) (journal : Journal)
-    (hj : JournalOK published before.1 before.2 journal) (hw : WellFormed before.2)
-    (hc : Coherent before.2) (hflag : before.2.exceptional=false) (hcount : before.2.source.1≤budget)
-    (result : Interaction.Range input × (History × State))
-    (hr : result ∈ (((proposalModel published budget hbudget).traced input).run before).support) :
-    ∃ afterJournal,JournalOK published result.2.1 result.2.2 afterJournal := by
-  obtain ⟨record,ho,hresponse,hstate,added,hh,hlabel⟩ :=
-    BPORS.Adaptive.ProposalModel.traced_query_record_suffix (proposalModel published budget hbudget)
-      input before result hr
-  have hhistory : before.1.Sublist result.2.1 := by
-    rw [hh]
-    exact List.sublist_append_left before.1 added
-  cases input with
-  | inl input =>
-      change record ∈ (liftM (run (forwardWorld input) before.2) : PMF _).support at ho
-      rw [pmf_support] at ho
-      change result.2.2=record.2 at hstate
-      rw [hstate]
-      refine ⟨journal,journal_keeps published before.1 result.2.1 before.2 record.2 journal hj
-        (run_extends _ before.2 record ho) hhistory ?_⟩
-      intro message hf
-      exact Or.inl ((run_nonce_preserves message _ (CountedPrivate.forwardWorld_avoids message input)
-        before.2 record ho).trans hf)
-  | inr request =>
-      have hsource := recordLaw_support published request before.2 record ho
-      have hext := run_extends _ before.2 record.1 hsource.1
-      change result.2.2=record.1.2 at hstate
-      by_cases hcache : request.cache=published
-      · by_cases hfresh : before.2.source.2.1 (.inr (.inl request.message))=none
-        · have ha := fresh_active published budget request before.2 hw hc hflag hcount hfresh
-          obtain ⟨extras,hprefix⟩ := hlabel ha
-          have hres := SourceReplay.resolves_of_run (FullGame.authenticatedRecord published request)
-            (CountedPrivate.authenticatedRecord_hashOnly published request) before.2.source.2
-            (record.1.1,record.1.2.source.2) (run_lazy_support _ before.2 record.1 hsource.1)
-          have hreq : request=⟨request.message,published⟩ := by cases request; simp_all
-          have hn : ∀ other,other≠request.message →
-              record.1.2.source.2.1 (.inr (.inl other))=before.2.source.2.1 (.inr (.inl other)) := by
-            intro other hother
-            exact run_nonce_preserves other _
-              (authenticatedRecord_avoids other published request (Or.inr hother.symm)) before.2 record.1 hsource.1
-          have hsub : (journalLabels journal++(record.1.1.2.toList.map
-              fun output => (DigestSampling.samplingData output).1)).Sublist result.2.1 := by
-            rw [hh,hprefix]
-            cases hd : record.1.1.2 with
-            | none => simpa only [Option.toList_none,List.map_nil,List.append_nil] using
-                hj.2.2.2.trans (List.sublist_append_left before.1 (extras++[(proposalModel published budget hbudget).label (.inr request) record]))
-            | some output =>
-                have he := hsource.2 output hd
-                change record.2=(DigestSampling.samplingData output).1 at he
-                change (journalLabels journal++[ (DigestSampling.samplingData output).1 ]).Sublist
-                  (before.1++(extras++[record.2]))
-                rw [← he,← List.append_assoc]
-                exact (hj.2.2.2.trans (List.sublist_append_left before.1 extras)).append (List.Sublist.refl _)
-          rw [hreq] at hres
-          rw [hstate]
-          exact ⟨journal++[(request.message,record.1.1)],journal_append published before.1 result.2.1 before.2
-            record.1.2 journal hj hext request.message record.1.1 hfresh hres hn hsub⟩
-        · rw [hstate]
-          refine ⟨journal,journal_keeps published before.1 result.2.1 before.2 record.1.2 journal hj hext hhistory ?_⟩
-          intro message hf
-          by_cases he : message=request.message
-          · exact Or.inr (by rw [he]; exact (hj.2.2.1 request.message).resolve_left hfresh)
-          · exact Or.inl ((run_nonce_preserves message _
-              (authenticatedRecord_avoids message published request (Or.inr (fun h => he h.symm)))
-                before.2 record.1 hsource.1).trans hf)
-      · rw [hstate]
-        refine ⟨journal,journal_keeps published before.1 result.2.1 before.2 record.1.2 journal hj hext hhistory ?_⟩
-        intro message hf
-        exact Or.inl ((run_nonce_preserves message _
-          (authenticatedRecord_avoids message published request (Or.inl hcache))
-            before.2 record.1 hsource.1).trans hf)
 end SigGolfCandidate.T3.Security.MonitoredPrivate
 end
 section
@@ -2430,40 +1600,6 @@ set_option backward.isDefEq.respectTransparency false
 attribute [local instance] Classical.propDecidable
 noncomputable local instance : DecidableEq T3.Cache := Classical.decEq _
 noncomputable local instance : DecidableEq SiggolfT3Mac4.Cache := Classical.decEq _
-theorem traced_journal {α : Type} (published : T3.Cache) (budget : Nat) (hbudget : budget≤2^127)
-    (program : OracleComp Interaction α) (before : History × State) (journal : Journal)
-    (hj : JournalOK published before.1 before.2 journal) (hw : WellFormed before.2) (hc : Coherent before.2)
-    (result : α × (History × State))
-    (hr : result ∈ ((simulateQ (proposalModel published budget hbudget).traced program).run before).support)
-    (hcount : result.2.2.source.1≤budget) (hflag : result.2.2.exceptional=false) :
-    ∃ afterJournal,JournalOK published result.2.1 result.2.2 afterJournal := by
-  induction program using OracleComp.inductionOn generalizing before result journal with
-  | pure value =>
-      rw [simulateQ_pure,StateT.run_pure,PMF.monad_pure_eq_pure,PMF.mem_support_pure_iff] at hr
-      subst result
-      exact ⟨journal,hj⟩
-  | query_bind input next ih =>
-      have hsource := traced_source_support published budget hbudget _ before result hr
-      have hbefore := run_false_before _ before.2 (result.1,result.2.2) hsource hflag
-      have hbound := (run_count_monotone _ before.2 (result.1,result.2.2) hsource).trans hcount
-      rw [simulateQ_bind,simulateQ_spec_query,StateT.run_bind,PMF.monad_bind_eq_bind,
-        PMF.mem_support_bind_iff] at hr
-      obtain ⟨middle,hm,hr⟩ := hr
-      have hstep := traced_query_source_support published budget hbudget input before middle hm
-      obtain ⟨middleJournal,hmJournal⟩ :=
-        traced_query_journal published budget hbudget input before journal hj hw hc hbefore hbound middle hm
-      exact ih middle.1 middle.2 middleJournal hmJournal
-        (run_wellFormed _ before.2 hw (middle.1,middle.2.2) hstep)
-        (run_coherent _ before.2 hc (middle.1,middle.2.2) hstep) result hr hcount hflag
-theorem actual_interaction_journal {α : Type} (generated : (Digest × T3.Cache) × State)
-    (hg : generated ∈ support (run keygen ⟨(0,∅,∅),false⟩)) (budget : Nat) (hbudget : budget≤2^127)
-    (program : OracleComp Interaction α) (result : α × (History × State))
-    (hr : result ∈ ((simulateQ (proposalModel generated.1.2 budget hbudget).traced program).run
-      ([],generated.2)).support) (hcount : result.2.2.source.1≤budget) (hflag : result.2.2.exceptional=false) :
-    ∃ journal,JournalOK generated.1.2 result.2.1 result.2.2 journal :=
-  traced_journal generated.1.2 budget hbudget program ([],generated.2) [] (journal_keygen generated hg)
-    (run_wellFormed keygen ⟨(0,∅,∅),false⟩ CountedPrivate.initial_wellFormed generated hg)
-    (run_coherent keygen ⟨(0,∅,∅),false⟩ initial_coherent generated hg) result hr hcount hflag
 theorem journal_contains_success (published : T3.Cache) (history : History) (state : State) (journal : Journal)
     (hj : JournalOK published history state journal) (request : Request)
     (record : Option Signature × Option HashOutput)
@@ -2487,34 +1623,6 @@ theorem journal_contains_success (published : T3.Cache) (history : History) (sta
   have he' : entry=(request.message,record) := Prod.ext hkey heq
   rw [← he']
   exact he
-theorem actual_log_journal {α : Type} (generated : (Digest × T3.Cache) × State)
-    (hg : generated ∈ support (run keygen ⟨(0,∅,∅),false⟩)) (budget : Nat) (hbudget : budget≤2^127)
-    (program : OracleComp Interaction α) (result : (α × QueryLog Requests) × (History × State))
-    (hr : result ∈ ((simulateQ (proposalModel generated.1.2 budget hbudget).traced
-      (ProposalOverflow.logged program)).run ([],generated.2)).support)
-    (hcount : result.2.2.source.1≤budget) (hflag : result.2.2.exceptional=false) :
-    ∃ journal,JournalOK generated.1.2 result.2.1 result.2.2 journal ∧
-      ∀ entry ∈ result.1.2,entry.2≠none → entry.1.cache=generated.1.2 ∧
-        ∃ output,(entry.1.message,(entry.2,some output)) ∈ journal ∧ admissible (selections output)=true := by
-  obtain ⟨journal,hj⟩ := actual_interaction_journal generated hg budget hbudget
-    (ProposalOverflow.logged program) result hr hcount hflag
-  have hsource := traced_source_support generated.1.2 budget hbudget
-    (ProposalOverflow.logged program) ([],generated.2) result hr
-  rw [logged_source] at hsource
-  refine ⟨journal,hj,?_⟩
-  intro entry he hs
-  obtain ⟨selected,hresolve⟩ := logged_records_resolve generated.1.2 program generated.2
-    (result.1,result.2.2) hsource entry he
-  obtain ⟨hcache,hmem⟩ := journal_contains_success generated.1.2 result.2.1 result.2.2 journal hj
-    entry.1 (entry.2,selected) hresolve hs
-  have hd := (hresolve.success_record generated.1.2 entry.1 (entry.2,selected) hs).2.1
-  obtain ⟨output,houtput⟩ := Option.ne_none_iff_exists'.mp hd
-  change selected=some output at houtput
-  rw [houtput] at hmem hresolve
-  have heval := hresolve.eval (SourceReplay.answers result.2.2.source.2)
-    (SourceReplay.answers_known result.2.2.source.2)
-  exact ⟨hcache,output,hmem,(SigningRecords.authenticatedRecord_selected_valid
-    (SourceReplay.answers result.2.2.source.2) generated.1.2 entry.1 output (by rw [heval])).2⟩
 theorem journal_prices (published : T3.Cache) (history : History) (state : State) (journal : Journal)
     (hj : JournalOK published history state journal) :
     BPORS.History.fullPrice (journalLabels journal)≤BPORS.History.fullPrice history ∧
@@ -2732,35 +1840,6 @@ theorem journal_public_preserves {α : Type} (published : T3.Cache) (history : H
   intro message hf
   exact Or.inl ((run_nonce_preserves message program (PublicVerdict.only_avoids program hp message)
     before result hr).trans hf)
-theorem traced_game_journal (adversary : Adversary) (budget : Nat) (hbudget : budget≤2^127)
-    (result : Bool × (History × State)) (hr : result ∈ (tracedExperiment adversary budget hbudget).support)
-    (hcount : result.2.2.source.1≤budget) (hflag : result.2.2.exceptional=false) :
-    ∃ generated : Digest × T3.Cache,∃ journal,
-      SourceReplay.Resolves result.2.2.source.2 keygen generated ∧
-        JournalOK generated.2 result.2.1 result.2.2 journal := by
-  unfold tracedExperiment at hr
-  rw [PMF.monad_bind_eq_bind,PMF.mem_support_bind_iff] at hr
-  obtain ⟨generated,hg,hr⟩ := hr
-  rw [PMF.monad_bind_eq_bind,PMF.mem_support_bind_iff] at hr
-  obtain ⟨interaction,hi,hr⟩ := hr
-  rw [PMF.monad_bind_eq_bind,PMF.mem_support_bind_iff] at hr
-  obtain ⟨checked,hv,hr⟩ := hr
-  rw [PMF.monad_pure_eq_pure,PMF.mem_support_pure_iff] at hr
-  subst result
-  rw [pmf_support] at hg hv
-  have hbudgetBefore := (run_count_monotone _ interaction.2.2 checked hv).trans hcount
-  have hcleanBefore := run_false_before _ interaction.2.2 checked hv hflag
-  obtain ⟨journal,hj⟩ := actual_interaction_journal generated hg budget hbudget
-    (ProposalOverflow.logged (adversary generated.1.1 generated.1.2)) interaction hi hbudgetBefore hcleanBefore
-  have hsource := traced_source_support generated.1.2 budget hbudget
-    (ProposalOverflow.logged (adversary generated.1.1 generated.1.2)) ([],generated.2) interaction hi
-  have hgen := SourceReplay.resolves_of_run keygen SourceReplay.keygen_hashOnly (∅,∅)
-    (generated.1,generated.2.source.2) (run_lazy_support keygen ⟨(0,∅,∅),false⟩ generated hg)
-  refine ⟨generated.1,journal,hgen.mono ?_,?_⟩
-  · exact (run_extends _ generated.2 (interaction.1,interaction.2.2) hsource).trans
-      (run_extends _ interaction.2.2 checked hv)
-  · exact journal_public_preserves generated.1.2 interaction.2.1 interaction.2.2 journal hj
-      (FullGame.verdict generated.1.1 interaction.1) (PublicVerdict.verdict_public _ _) checked hv
 theorem journal_entry_openings (published : T3.Cache) (history : History) (state : State)
     (journal : Journal) (hj : JournalOK published history state journal)
     (message : Message) (sig : Signature) (output : HashOutput)
@@ -4023,25 +3102,6 @@ theorem interactionRecord_project (published : T3.Cache) (input : LazyPrivate.In
       rw [run_erasure]
       rfl
   | inr request => exact recordLaw_project published request state
-noncomputable def refinement (published : T3.Cache) (budget : Nat) (hbudget : budget ≤ 2^127) :
-    BPORS.Adaptive.ProposalModel.Refinement (MonitoredPrivate.proposalModel published budget hbudget) State where
-  project := State.base
-  Outcome := Outcome
-  outcome := outcome
-  record := interactionRecord published
-  advance := advance
-  record_project := interactionRecord_project published
-  advance_project := by intro input state result;cases input <;> rfl
-noncomputable def proposalModel (published : T3.Cache) (budget : Nat) (hbudget : budget ≤ 2^127) :=
-  (refinement published budget hbudget).model'
-theorem proposal_trace_project {α : Type} (published : T3.Cache) (budget : Nat)
-    (hbudget : budget ≤ 2^127) (program : OracleComp LazyPrivate.Interaction α)
-    (history : List DigestSampling.IndexBuckets) (state : State) :
-    Prod.map id (Prod.map id State.base) <$>
-      (simulateQ (proposalModel published budget hbudget).traced program).run (history,state)=
-        (simulateQ (MonitoredPrivate.proposalModel published budget hbudget).traced program).run
-          (history,state.base) :=
-  (refinement published budget hbudget).traced_project program (history,state)
 theorem recordLaw_erasure (published : T3.Cache) (request : Request) (state : State) :
     (recordLaw published request state).map (fun result => (result.1.1.1,result.1.2))=
       (liftM (run (FullGame.authenticatedSign published request) state) : PMF (Option Signature × State)) := by
@@ -4065,36 +3125,6 @@ theorem recordLaw_erasure (published : T3.Cache) (request : Request) (state : St
   have h := evalSPMF_ext_iff.mp hg response
   rw [probOutput_map] at h
   exact h
-theorem proposal_query_erasure (published : T3.Cache) (budget : Nat) (hbudget : budget ≤ 2^127)
-    (input : LazyPrivate.Interaction.Domain) (state : State) :
-    (((proposalModel published budget hbudget).original input).run state)=
-      (liftM (run (MonitoredPrivate.interactionSource published input) state) :
-        PMF (LazyPrivate.Interaction.Range input × State)) := by
-  cases input with
-  | inl input =>
-      change id <$> (liftM (run (forwardWorld input) state) : PMF _)=_
-      rw [id_map]
-      rfl
-  | inr request => exact recordLaw_erasure published request state
-theorem proposal_execution_erasure {α : Type} (published : T3.Cache) (budget : Nat)
-    (hbudget : budget ≤ 2^127) (program : OracleComp LazyPrivate.Interaction α) (state : State) :
-    (simulateQ (proposalModel published budget hbudget).original program).run state=
-      (liftM (run (simulateQ (MonitoredPrivate.interactionSource published) program) state) : PMF (α × State)) := by
-  induction program using OracleComp.inductionOn generalizing state with
-  | pure value => simp [run_pure]
-  | query_bind input next ih =>
-      rw [simulateQ_bind,simulateQ_spec_query,StateT.run_bind,proposal_query_erasure]
-      rw [simulateQ_bind,simulateQ_spec_query,run_bind,liftM_bind]
-      apply bind_congr
-      intro result
-      exact ih result.1 result.2
-theorem proposal_trace_erasure {α : Type} (published : T3.Cache) (budget : Nat)
-    (hbudget : budget ≤ 2^127) (program : OracleComp LazyPrivate.Interaction α)
-    (history : List DigestSampling.IndexBuckets) (state : State) :
-    Prod.map id Prod.snd <$>
-      (simulateQ (proposalModel published budget hbudget).traced program).run (history,state)=
-      (liftM (run (simulateQ (MonitoredPrivate.interactionSource published) program) state) : PMF (α × State)) := by
-  rw [(proposalModel published budget hbudget).traced_erasure,proposal_execution_erasure]
 end SigGolfCandidate.T3.Security.QueryRecorded
 end
 section
@@ -4111,120 +3141,8 @@ theorem lift_run_erasure {α : Type} (program : M α) (state : State) :
     Prod.map id State.base <$> (liftM (run program state) : PMF _)=
       (liftM (MonitoredPrivate.run program state.base) : PMF _) := by
   rw [← liftM_map,run_erasure]
-noncomputable def tracedExperiment (adversary : Adversary) (budget : Nat)
-    (hbudget : budget ≤ 2^127) : PMF (Bool × (MonitoredPrivate.History × State)) := do
-  let generated ← (liftM (run keygen initial) : PMF _)
-  let interaction ← (simulateQ (proposalModel generated.1.2 budget hbudget).traced
-    (ProposalOverflow.logged (adversary generated.1.1 generated.1.2))).run ([],generated.2)
-  let checked ← (liftM (run (FullGame.verdict generated.1.1 interaction.1) interaction.2.2) : PMF _)
-  pure (checked.1,interaction.2.1,checked.2)
-theorem traced_base_erasure (adversary : Adversary) (budget : Nat) (hbudget : budget ≤ 2^127) :
-    Prod.map id (Prod.map id State.base) <$> tracedExperiment adversary budget hbudget=
-      MonitoredPrivate.tracedExperiment adversary budget hbudget := by
-  unfold tracedExperiment MonitoredPrivate.tracedExperiment
-  simp only [map_bind,map_pure,Prod.map,id_eq]
-  have hk := lift_run_erasure keygen initial
-  change Prod.map id State.base <$> (liftM (run keygen initial) : PMF _)=
-    (liftM (MonitoredPrivate.run keygen ⟨(0,∅,∅),false⟩) : PMF _) at hk
-  rw [← hk,bind_map_left]
-  apply bind_congr
-  intro generated
-  simp only [Prod.map,id_eq]
-  rw [← proposal_trace_project generated.1.2 budget hbudget _ [] generated.2,bind_map_left]
-  apply bind_congr
-  intro interaction
-  simp only [Prod.map,id_eq]
-  rw [← lift_run_erasure (FullGame.verdict generated.1.1 interaction.1) interaction.2.2,bind_map_left]
-  rfl
-theorem traced_source_erasure (adversary : Adversary) (budget : Nat) (hbudget : budget ≤ 2^127) :
-    Prod.map id Prod.snd <$> tracedExperiment adversary budget hbudget=
-      (liftM (run (FullGame.idealGame adversary) initial) : PMF _) := by
-  unfold tracedExperiment FullGame.idealGame
-  simp only [run_bind,liftM_bind,map_bind,map_pure,Prod.map,id_eq,Prod.mk.eta]
-  apply bind_congr
-  intro generated
-  have h := proposal_trace_erasure generated.1.2 budget hbudget
-    (ProposalOverflow.logged (adversary generated.1.1 generated.1.2)) [] generated.2
-  rw [MonitoredPrivate.logged_source] at h
-  rw [← h,bind_map_left]
-  simp only [bind_pure,Prod.map,id_eq]
 def recordedTrace (result : Bool × (MonitoredPrivate.History × State)) : FirstHit.Recorded Bool :=
   recorded (result.1,result.2.2)
-theorem traced_record_erasure (adversary : Adversary) (budget : Nat) (hbudget : budget ≤ 2^127) :
-    recordedTrace <$> tracedExperiment adversary budget hbudget=
-      (liftM (FirstHit.record (FullGame.idealGame adversary) (∅,∅)) : PMF _) := by
-  have hr : recorded <$> run (FullGame.idealGame adversary) initial=
-      FirstHit.record (FullGame.idealGame adversary) (∅,∅) := by
-    rw [run_recorded]
-    have hp : prepend ([] : List FirstHit.QueryEvent)=(id : FirstHit.Recorded Bool → FirstHit.Recorded Bool) := by
-      funext result
-      rfl
-    change prepend [] <$> FirstHit.record (FullGame.idealGame adversary) (∅,∅)=_
-    rw [hp,id_map]
-  calc
-    _ = recorded <$> (Prod.map id Prod.snd <$> tracedExperiment adversary budget hbudget) := by
-      rw [Functor.map_map]
-      rfl
-    _ = recorded <$> (liftM (run (FullGame.idealGame adversary) initial) : PMF _) := by
-      rw [traced_source_erasure]
-    _ = (liftM (recorded <$> run (FullGame.idealGame adversary) initial) : PMF _) := (liftM_map _ _).symm
-    _ = _ := by rw [hr]
-theorem traced_cost_coherent (adversary : Adversary) (budget : Nat) (hbudget : budget ≤ 2^127)
-    (result : Bool × (MonitoredPrivate.History × State))
-    (hr : result ∈ (tracedExperiment adversary budget hbudget).support) : CostCoherent result.2.2 := by
-  have hp : (result.1,result.2.2) ∈
-      (Prod.map id Prod.snd <$> tracedExperiment adversary budget hbudget).support := by
-    rw [PMF.monad_map_eq_map,PMF.support_map]
-    exact ⟨result,hr,rfl⟩
-  rw [traced_source_erasure] at hp
-  rw [MonitoredPrivate.pmf_support] at hp
-  exact run_cost_coherent (FullGame.idealGame adversary) initial initial_cost
-    (result.1,result.2.2) hp
-theorem known_public_hit_bound (reference : FirstHit.Reference) (adversary : Adversary)
-    (q : Nat) (hq : q ≤ 2^127) :
-    Pr[fun result => result.2.2.base.source.1≤q ∧ FirstHit.KnownPublicHit reference (recordedTrace result) |
-      tracedExperiment adversary q hq] ≤ q/(2 : ENNReal)^128 := by
-  have h := FirstHit.recorded_known_public_hit_bound reference (FullGame.idealGame adversary) (∅,∅) q
-  have he := congrArg (fun law => Pr[fun result : FirstHit.Recorded Bool =>
-      (result.events.map (fun event => FullGame.queryCharge event.input)).sum≤q ∧
-      FirstHit.KnownPublicHit reference result | law]) (traced_record_erasure adversary q hq)
-  rw [probEvent_map,MonitoredPrivate.event_lift] at he
-  apply le_trans _ (he.le.trans h)
-  simp only [probEvent_eq_tsum_ite]
-  apply ENNReal.tsum_le_tsum
-  intro result
-  by_cases hr : result ∈ (tracedExperiment adversary q hq).support
-  · have hc := traced_cost_coherent adversary q hq result hr
-    simp only [Function.comp_def,recordedTrace,recorded]
-    rw [show result.2.2.base.source.1=
-      (result.2.2.events.map (fun event => FullGame.queryCharge event.input)).sum from hc]
-  · have hz : (tracedExperiment adversary q hq) result=0 := by
-      by_contra hn
-      exact hr (by simpa only [PMF.mem_support_iff] using hn)
-    simp only [PMF.probOutput_eq_apply,hz,ite_self,le_refl]
-theorem real_to_clean_trace (adversary : Adversary) (q : Nat) (hq : q ≤ 2^127) :
-    Pr[fun result => result.1=true ∧ result.2≤q | realExperiment adversary] ≤
-      Pr[fun result => result.1=true ∧ result.2.2.base.source.1≤q ∧
-        result.2.1.length≤BPORS.Numeric.proposalLength ∧ result.2.2.base.exceptional=false |
-          tracedExperiment adversary q hq]+
-      q/(2 : ENNReal)^146+(2 : ENNReal)⁻¹^700+((2 : ENNReal)^152)⁻¹+q/((2^256 : Nat) : ENNReal) := by
-  have h := MonitoredPrivate.real_to_clean_bounded_trace adversary q hq
-  rw [← traced_base_erasure adversary q hq,probEvent_map] at h
-  exact h
-theorem full_game_excess_price (adversary : Adversary) (budget : Nat) (hbudget : budget ≤ 2^127) :
-    expectedValue (tracedExperiment adversary budget hbudget)
-      (fun result => if result.2.1.length≤BPORS.Numeric.proposalLength
-        then BPORS.History.fullPrice result.2.1-1 else 0) ≤ 11324/100000000 := by
-  have h := MonitoredPrivate.full_game_excess_price adversary budget hbudget
-  rw [← traced_base_erasure adversary budget hbudget,expectedValue_map] at h
-  exact h
-theorem full_game_near_price (adversary : Adversary) (budget : Nat) (hbudget : budget ≤ 2^127) :
-    expectedValue (tracedExperiment adversary budget hbudget)
-      (fun result => if result.2.1.length≤BPORS.Numeric.proposalLength
-        then BPORS.History.fullNearPrice result.2.1 else 0) ≤ 404 := by
-  have h := MonitoredPrivate.full_game_near_price adversary budget hbudget
-  rw [← traced_base_erasure adversary budget hbudget,expectedValue_map] at h
-  exact h
 end SigGolfCandidate.T3.Security.QueryRecorded
 end
 section
@@ -4237,64 +3155,6 @@ attribute [local instance] Classical.propDecidable
 def CleanWin (q : Nat) (result : Bool × (MonitoredPrivate.History × State)) : Prop :=
   result.1=true ∧ result.2.2.base.source.1≤q ∧
     result.2.1.length≤BPORS.Numeric.proposalLength ∧ result.2.2.base.exceptional=false
-theorem split_known_hit (reference : FirstHit.Reference) (adversary : Adversary)
-    (q : Nat) (hq : q ≤ 2^127) :
-    Pr[CleanWin q | tracedExperiment adversary q hq] ≤
-      Pr[fun result => CleanWin q result ∧ ¬FirstHit.KnownPublicHit reference (recordedTrace result) |
-        tracedExperiment adversary q hq]+
-      Pr[fun result => result.2.2.base.source.1≤q ∧ FirstHit.KnownPublicHit reference (recordedTrace result) |
-        tracedExperiment adversary q hq] := by
-  simp only [probEvent_eq_tsum_ite]
-  rw [← ENNReal.tsum_add]
-  apply ENNReal.tsum_le_tsum
-  intro result
-  by_cases hw : CleanWin q result
-  · have hcount := hw.2.1
-    by_cases hh : FirstHit.KnownPublicHit reference (recordedTrace result)
-    · simp [hw,hcount,hh]
-    · simp [hw,hcount,hh]
-  · simp only [hw,if_false,zero_le]
-theorem real_to_clean_without_known (reference : FirstHit.Reference) (adversary : Adversary)
-    (q : Nat) (hq : q ≤ 2^127) :
-    Pr[fun result => result.1=true ∧ result.2≤q | realExperiment adversary] ≤
-      Pr[fun result => CleanWin q result ∧ ¬FirstHit.KnownPublicHit reference (recordedTrace result) |
-        tracedExperiment adversary q hq]+
-      q/(2 : ENNReal)^128+q/(2 : ENNReal)^146+(2 : ENNReal)⁻¹^700+
-      ((2 : ENNReal)^152)⁻¹+q/((2^256 : Nat) : ENNReal) := by
-  apply (real_to_clean_trace adversary q hq).trans
-  apply add_le_add _ le_rfl
-  apply add_le_add _ le_rfl
-  apply add_le_add _ le_rfl
-  apply add_le_add _ le_rfl
-  exact (split_known_hit reference adversary q hq).trans
-    (add_le_add le_rfl (known_public_hit_bound reference adversary q hq))
-theorem traced_base_support (adversary : Adversary) (budget : Nat) (hbudget : budget ≤ 2^127)
-    (result : Bool × (MonitoredPrivate.History × State))
-    (hr : result ∈ (tracedExperiment adversary budget hbudget).support) :
-    (result.1,result.2.1,result.2.2.base) ∈
-      (MonitoredPrivate.tracedExperiment adversary budget hbudget).support := by
-  rw [← traced_base_erasure,PMF.monad_map_eq_map,PMF.support_map]
-  exact ⟨result,hr,rfl⟩
-theorem traced_game_journal (adversary : Adversary) (budget : Nat) (hbudget : budget ≤ 2^127)
-    (result : Bool × (MonitoredPrivate.History × State))
-    (hr : result ∈ (tracedExperiment adversary budget hbudget).support)
-    (hcount : result.2.2.base.source.1≤budget) (hflag : result.2.2.base.exceptional=false) :
-    ∃ generated : Digest × T3.Cache,∃ journal,
-      SourceReplay.Resolves result.2.2.base.source.2 keygen generated ∧
-        MonitoredPrivate.JournalOK generated.2 result.2.1 result.2.2.base journal :=
-  MonitoredPrivate.traced_game_journal adversary budget hbudget (result.1,result.2.1,result.2.2.base)
-    (traced_base_support adversary budget hbudget result hr) hcount hflag
-theorem traced_journal_exposure (adversary : Adversary) (budget : Nat) (hbudget : budget ≤ 2^127)
-    (result : Bool × (MonitoredPrivate.History × State))
-    (hr : result ∈ (tracedExperiment adversary budget hbudget).support)
-    (hcount : result.2.2.base.source.1≤budget) (hflag : result.2.2.base.exceptional=false) :
-    ∃ generated : Digest × T3.Cache,∃ journal,
-      SourceReplay.Resolves result.2.2.base.source.2 keygen generated ∧
-        MonitoredPrivate.JournalOK generated.2 result.2.1 result.2.2.base journal ∧
-        BPORS.History.fullPrice (MonitoredPrivate.journalLabels journal)≤BPORS.History.fullPrice result.2.1 ∧
-        BPORS.History.fullNearPrice (MonitoredPrivate.journalLabels journal)≤BPORS.History.fullNearPrice result.2.1 := by
-  obtain ⟨generated,journal,hg,hj⟩ := traced_game_journal adversary budget hbudget result hr hcount hflag
-  exact ⟨generated,journal,hg,hj,MonitoredPrivate.journal_prices generated.2 result.2.1 result.2.2.base journal hj⟩
 end SigGolfCandidate.T3.Security.QueryRecorded
 end
 section
@@ -4691,43 +3551,6 @@ theorem real_to_monitored_ideal (checker : Checker Forgery) (adversary : Adversa
   rw [experiment_event]
   exact Counted.real_to_counted_ideal checker adversary q hq
 abbrev History := List DigestSampling.IndexBuckets
-noncomputable def tracedExperiment (checker : Checker Forgery) (adversary : AdversaryFor Forgery) (budget : Nat)
-    (hbudget : budget ≤ 2^127) : PMF (Bool × (History × State)) := do
-  let generated ← (liftM (run keygen ⟨(0,∅,∅),false⟩) : PMF _)
-  let interaction ← (simulateQ (proposalModel generated.1.2 budget hbudget).traced
-    (ProposalOverflow.logged (adversary generated.1.1 generated.1.2))).run ([],generated.2)
-  let checked ← (liftM (run (GameWith.verdict checker generated.1.1 interaction.1) interaction.2.2) : PMF _)
-  pure (checked.1,interaction.2.1,checked.2)
-theorem tracedExperiment_erasure (checker : Checker Forgery) (adversary : AdversaryFor Forgery) (budget : Nat)
-    (hbudget : budget ≤ 2^127) :
-    Prod.map id Prod.snd <$> tracedExperiment checker adversary budget hbudget=
-      (liftM (experiment checker adversary) : PMF (Bool × State)) := by
-  unfold tracedExperiment experiment GameWith.idealGame
-  simp only [run_bind,liftM_bind,map_bind,map_pure,Prod.map,id_eq,Prod.mk.eta]
-  apply bind_congr
-  intro generated
-  have h := proposal_trace_erasure generated.1.2 budget hbudget
-    (ProposalOverflow.logged (adversary generated.1.1 generated.1.2)) [] generated.2
-  rw [logged_source] at h
-  rw [← h,bind_map_left]
-  simp only [bind_pure,Prod.map,id_eq]
-theorem tracedExperiment_event (checker : Checker Forgery) (adversary : AdversaryFor Forgery) (q : Nat) (hq : q ≤ 2^127) :
-    Pr[fun result => result.1=true ∧ result.2.2.source.1≤q | tracedExperiment checker adversary q hq]=
-      Pr[fun result => result.1=true ∧ result.2.source.1≤q | experiment checker adversary] := by
-  have h := congrArg (fun law : PMF (Bool × State) =>
-    Pr[fun result => result.1=true ∧ result.2.source.1≤q | law]) (tracedExperiment_erasure checker adversary q hq)
-  simp only [probEvent_map,Function.comp_def,Prod.map,id_eq] at h
-  calc
-    _ = Pr[fun result => result.1=true ∧ result.2.source.1≤q | (liftM (experiment checker adversary) : PMF _)] := h
-    _ = _ := by
-      simp only [probEvent_eq_tsum_ite]
-      rfl
-theorem real_to_traced (checker : Checker Forgery) (adversary : AdversaryFor Forgery) (q : Nat) (hq : q ≤ 2^127) :
-    Pr[fun result => result.1=true ∧ result.2≤q | realExperiment checker adversary] ≤
-      Pr[fun result => result.1=true ∧ result.2.2.source.1≤q | tracedExperiment checker adversary q hq]+
-        ((2 : ENNReal)^152)⁻¹+q/((2^256 : Nat) : ENNReal) := by
-  rw [tracedExperiment_event]
-  exact real_to_monitored_ideal checker adversary q (hq.trans_lt (by norm_num))
 theorem verdict_success_log (checker : Checker Forgery) (publicKey : Digest) (interaction : Option Forgery × QueryLog Requests)
     (state : State) (result : Bool × State)
     (hr : result ∈ support (run (GameWith.verdict checker publicKey interaction) state))
@@ -4743,149 +3566,10 @@ theorem verdict_success_log (checker : Checker Forgery) (publicKey : Digest) (in
       obtain ⟨middle,_,rfl⟩ := hr
       simp only [Bool.and_eq_true,decide_eq_true_eq] at hwin
       exact hwin.1
-theorem winning_trace_overflow (checker : Checker Forgery) (adversary : AdversaryFor Forgery) (budget : Nat)
-    (hbudget : budget ≤ 2^127) :
-    Pr[fun result => result.1=true ∧ BPORS.Numeric.proposalLength < result.2.1.length |
-      tracedExperiment checker adversary budget hbudget] ≤ (2 : ENNReal)⁻¹^700 := by
-  rw [← expectedValue_ite_one]
-  simp only [tracedExperiment,expectedValue_bind,expectedValue_pure]
-  change expectedValue (run keygen ⟨(0,∅,∅),false⟩) _ ≤ _
-  apply expectedValue_le_of_support
-  intro generated _
-  apply le_trans ?_ (source_proposal_overflow generated.1.2 budget hbudget
-    (adversary generated.1.1 generated.1.2) generated.2)
-  rw [← expectedValue_ite_one]
-  apply expectedValue_mono
-  intro interaction
-  change expectedValue (run (GameWith.verdict checker generated.1.1 interaction.1) interaction.2.2)
-    (fun checked => if checked.1=true ∧ BPORS.Numeric.proposalLength < interaction.2.1.length then 1 else 0) ≤ _
-  apply expectedValue_le_of_support
-  intro checked hchecked
-  by_cases h : checked.1=true ∧ BPORS.Numeric.proposalLength < interaction.2.1.length
-  · have hl := verdict_success_log checker generated.1.1 interaction.1 interaction.2.2 checked hchecked h.1
-    simp only [h,if_true,show interaction.1.2.length≤2^32 ∧
-      BPORS.Numeric.proposalLength < interaction.2.1.length from ⟨hl,h.2⟩,le_refl]
-  · simp only [h,if_false,zero_le]
-theorem split_winning_trace (checker : Checker Forgery) (adversary : AdversaryFor Forgery) (q : Nat) (hq : q ≤ 2^127) :
-    Pr[fun result => result.1=true ∧ result.2.2.source.1≤q | tracedExperiment checker adversary q hq] ≤
-      Pr[fun result => result.1=true ∧ result.2.2.source.1≤q ∧
-        result.2.1.length≤BPORS.Numeric.proposalLength | tracedExperiment checker adversary q hq]+
-      Pr[fun result => result.1=true ∧ BPORS.Numeric.proposalLength < result.2.1.length |
-        tracedExperiment checker adversary q hq] := by
-  simp only [probEvent_eq_tsum_ite]
-  rw [← ENNReal.tsum_add]
-  apply ENNReal.tsum_le_tsum
-  intro result
-  by_cases hw : result.1=true ∧ result.2.2.source.1≤q
-  · by_cases hn : result.2.1.length≤BPORS.Numeric.proposalLength
-    · simp [hw,hw.1,hw.2,hn,Nat.not_lt.mpr hn]
-    · simp [hw,hw.1,hw.2,hn,Nat.lt_of_not_ge hn]
-  · simp only [hw,if_false,zero_le]
-theorem real_to_bounded_trace (checker : Checker Forgery) (adversary : AdversaryFor Forgery) (q : Nat) (hq : q ≤ 2^127) :
-    Pr[fun result => result.1=true ∧ result.2≤q | realExperiment checker adversary] ≤
-      Pr[fun result => result.1=true ∧ result.2.2.source.1≤q ∧
-        result.2.1.length≤BPORS.Numeric.proposalLength | tracedExperiment checker adversary q hq]+
-        (2 : ENNReal)⁻¹^700+((2 : ENNReal)^152)⁻¹+q/((2^256 : Nat) : ENNReal) := by
-  apply (real_to_traced checker adversary q hq).trans
-  apply add_le_add_left
-  apply add_le_add_left
-  exact (split_winning_trace checker adversary q hq).trans
-    (add_le_add le_rfl (winning_trace_overflow checker adversary q hq))
 theorem experiment_exception_bound (checker : Checker Forgery) (adversary : AdversaryFor Forgery) (q : Nat) (hq : q ≤ 2^127) :
     Pr[fun result => result.2.source.1≤q ∧ result.2.exceptional=true | experiment checker adversary] ≤
       q/(2 : ENNReal)^146 := by
   exact gate6_run_empty_linear_charge (GameWith.idealGame checker adversary) q 146 hq (by decide)
-theorem traced_exception_bound (checker : Checker Forgery) (adversary : AdversaryFor Forgery) (q : Nat) (hq : q ≤ 2^127) :
-    Pr[fun result => result.2.2.source.1≤q ∧ result.2.2.exceptional=true |
-      tracedExperiment checker adversary q hq] ≤ q/(2 : ENNReal)^146 := by
-  have h := congrArg (fun law : PMF (Bool × State) =>
-    Pr[fun result => result.2.source.1≤q ∧ result.2.exceptional=true | law])
-    (tracedExperiment_erasure checker adversary q hq)
-  simp only [probEvent_map,Function.comp_def,Prod.map,id_eq,event_lift] at h
-  rw [h]
-  exact experiment_exception_bound checker adversary q hq
-theorem split_bounded_trace (checker : Checker Forgery) (adversary : AdversaryFor Forgery) (q : Nat) (hq : q ≤ 2^127) :
-    Pr[fun result => result.1=true ∧ result.2.2.source.1≤q ∧
-      result.2.1.length≤BPORS.Numeric.proposalLength | tracedExperiment checker adversary q hq] ≤
-      Pr[fun result => result.1=true ∧ result.2.2.source.1≤q ∧
-        result.2.1.length≤BPORS.Numeric.proposalLength ∧ result.2.2.exceptional=false |
-          tracedExperiment checker adversary q hq]+
-      Pr[fun result => result.2.2.source.1≤q ∧ result.2.2.exceptional=true |
-        tracedExperiment checker adversary q hq] := by
-  simp only [probEvent_eq_tsum_ite]
-  rw [← ENNReal.tsum_add]
-  apply ENNReal.tsum_le_tsum
-  intro result
-  by_cases hw : result.1=true ∧ result.2.2.source.1≤q ∧ result.2.1.length≤BPORS.Numeric.proposalLength
-  · cases hb : result.2.2.exceptional <;> simp [hw,hw.2.1,hb]
-  · simp only [hw,if_false,zero_le]
-theorem real_to_clean_bounded_trace (checker : Checker Forgery) (adversary : AdversaryFor Forgery) (q : Nat) (hq : q ≤ 2^127) :
-    Pr[fun result => result.1=true ∧ result.2≤q | realExperiment checker adversary] ≤
-      Pr[fun result => result.1=true ∧ result.2.2.source.1≤q ∧
-        result.2.1.length≤BPORS.Numeric.proposalLength ∧ result.2.2.exceptional=false |
-          tracedExperiment checker adversary q hq]+
-        q/(2 : ENNReal)^146+(2 : ENNReal)⁻¹^700+
-        ((2 : ENNReal)^152)⁻¹+q/((2^256 : Nat) : ENNReal) := by
-  apply (real_to_bounded_trace checker adversary q hq).trans
-  apply add_le_add_left
-  apply add_le_add_left
-  apply add_le_add_left
-  exact (split_bounded_trace checker adversary q hq).trans
-    (add_le_add le_rfl (traced_exception_bound checker adversary q hq))
-theorem full_game_excess_price (checker : Checker Forgery) (adversary : AdversaryFor Forgery) (budget : Nat)
-    (hbudget : budget ≤ 2^127) :
-    expectedValue (tracedExperiment checker adversary budget hbudget)
-      (fun result => if result.2.1.length≤BPORS.Numeric.proposalLength
-        then BPORS.History.fullPrice result.2.1-1 else 0) ≤ 11324/100000000 := by
-  simp only [tracedExperiment,expectedValue_bind,expectedValue_pure]
-  apply expectedValue_le_of_le
-  intro generated
-  apply le_trans ?_ (BPORS.History.adaptive_selected_full_excess
-    (proposalModel generated.1.2 budget hbudget) rfl
-    (ProposalOverflow.logged (adversary generated.1.1 generated.1.2)) generated.2
-    (fun result => result.2.1) (fun _ => List.Sublist.refl _))
-  apply expectedValue_mono
-  intro interaction
-  exact expectedValue_le_of_le _ (fun _ => le_rfl)
-theorem full_game_near_price (checker : Checker Forgery) (adversary : AdversaryFor Forgery) (budget : Nat)
-    (hbudget : budget ≤ 2^127) :
-    expectedValue (tracedExperiment checker adversary budget hbudget)
-      (fun result => if result.2.1.length≤BPORS.Numeric.proposalLength
-        then BPORS.History.fullNearPrice result.2.1 else 0) ≤ 404 := by
-  simp only [tracedExperiment,expectedValue_bind,expectedValue_pure]
-  apply expectedValue_le_of_le
-  intro generated
-  apply le_trans ?_ (BPORS.History.adaptive_selected_near_price
-    (proposalModel generated.1.2 budget hbudget) rfl
-    (ProposalOverflow.logged (adversary generated.1.1 generated.1.2)) generated.2
-    (fun result => result.2.1) (fun _ => List.Sublist.refl _))
-  apply expectedValue_mono
-  intro interaction
-  exact expectedValue_le_of_le _ (fun _ => le_rfl)
-theorem full_game_selected_excess (checker : Checker Forgery) (adversary : AdversaryFor Forgery) (budget : Nat)
-    (hbudget : budget ≤ 2^127) (selected : Bool × (History × State) → History)
-    (hselected : ∀ result,(selected result).Sublist result.2.1) :
-    expectedValue (tracedExperiment checker adversary budget hbudget)
-      (fun result => if result.2.1.length≤BPORS.Numeric.proposalLength
-        then BPORS.History.fullPrice (selected result)-1 else 0) ≤ 11324/100000000 := by
-  apply le_trans ?_ (full_game_excess_price checker adversary budget hbudget)
-  apply expectedValue_mono
-  intro result
-  split_ifs
-  · exact tsub_le_tsub_right (BPORS.History.fullPrice_sublist (hselected result)) 1
-  · exact le_rfl
-theorem full_game_selected_near (checker : Checker Forgery) (adversary : AdversaryFor Forgery) (budget : Nat)
-    (hbudget : budget ≤ 2^127) (selected : Bool × (History × State) → History)
-    (hselected : ∀ result,(selected result).Sublist result.2.1) :
-    expectedValue (tracedExperiment checker adversary budget hbudget)
-      (fun result => if result.2.1.length≤BPORS.Numeric.proposalLength
-        then BPORS.History.fullNearPrice (selected result) else 0) ≤ 404 := by
-  apply le_trans ?_ (full_game_near_price checker adversary budget hbudget)
-  apply expectedValue_mono
-  intro result
-  split_ifs
-  · exact BPORS.History.fullNearPrice_sublist (hselected result)
-  · exact le_rfl
 end Monitored
 end SigGolfCandidate.T3.Security.GameWith
 end
@@ -4898,149 +3582,6 @@ set_option backward.isDefEq.respectTransparency false
 attribute [local instance] Classical.propDecidable
 attribute [local irreducible] keygen GameWith.idealGame
 variable {Forgery : Type}
-noncomputable def tracedExperiment (checker : Checker Forgery) (adversary : AdversaryFor Forgery) (budget : Nat)
-    (hbudget : budget ≤ 2^127) : PMF (Bool × (MonitoredPrivate.History × State)) := do
-  let generated ← (liftM (run keygen initial) : PMF _)
-  let interaction ← (simulateQ (proposalModel generated.1.2 budget hbudget).traced
-    (ProposalOverflow.logged (adversary generated.1.1 generated.1.2))).run ([],generated.2)
-  let checked ← (liftM (run (GameWith.verdict checker generated.1.1 interaction.1) interaction.2.2) : PMF _)
-  pure (checked.1,interaction.2.1,checked.2)
-theorem traced_base_erasure (checker : Checker Forgery) (adversary : AdversaryFor Forgery) (budget : Nat) (hbudget : budget ≤ 2^127) :
-    Prod.map id (Prod.map id State.base) <$> tracedExperiment checker adversary budget hbudget=
-      Monitored.tracedExperiment checker adversary budget hbudget := by
-  unfold tracedExperiment Monitored.tracedExperiment
-  simp only [map_bind,map_pure,Prod.map,id_eq]
-  have hk := lift_run_erasure keygen initial
-  change Prod.map id State.base <$> (liftM (run keygen initial) : PMF _)=
-    (liftM (MonitoredPrivate.run keygen ⟨(0,∅,∅),false⟩) : PMF _) at hk
-  rw [← hk,bind_map_left]
-  apply bind_congr
-  intro generated
-  simp only [Prod.map,id_eq]
-  rw [← proposal_trace_project generated.1.2 budget hbudget _ [] generated.2,bind_map_left]
-  apply bind_congr
-  intro interaction
-  simp only [Prod.map,id_eq]
-  rw [← lift_run_erasure (GameWith.verdict checker generated.1.1 interaction.1) interaction.2.2,bind_map_left]
-  rfl
-theorem traced_source_erasure (checker : Checker Forgery) (adversary : AdversaryFor Forgery) (budget : Nat) (hbudget : budget ≤ 2^127) :
-    Prod.map id Prod.snd <$> tracedExperiment checker adversary budget hbudget=
-      (liftM (run (GameWith.idealGame checker adversary) initial) : PMF _) := by
-  unfold tracedExperiment GameWith.idealGame
-  simp only [run_bind,liftM_bind,map_bind,map_pure,Prod.map,id_eq,Prod.mk.eta]
-  apply bind_congr
-  intro generated
-  have h := proposal_trace_erasure generated.1.2 budget hbudget
-    (ProposalOverflow.logged (adversary generated.1.1 generated.1.2)) [] generated.2
-  rw [MonitoredPrivate.logged_source] at h
-  rw [← h,bind_map_left]
-  simp only [bind_pure,Prod.map,id_eq]
-theorem traced_record_erasure (checker : Checker Forgery) (adversary : AdversaryFor Forgery) (budget : Nat) (hbudget : budget ≤ 2^127) :
-    recordedTrace <$> tracedExperiment checker adversary budget hbudget=
-      (liftM (FirstHit.record (GameWith.idealGame checker adversary) (∅,∅)) : PMF _) := by
-  have hr : recorded <$> run (GameWith.idealGame checker adversary) initial=
-      FirstHit.record (GameWith.idealGame checker adversary) (∅,∅) := by
-    rw [run_recorded]
-    have hp : prepend ([] : List FirstHit.QueryEvent)=(id : FirstHit.Recorded Bool → FirstHit.Recorded Bool) := by
-      funext result
-      rfl
-    change prepend [] <$> FirstHit.record (GameWith.idealGame checker adversary) (∅,∅)=_
-    rw [hp,id_map]
-  calc
-    _ = recorded <$> (Prod.map id Prod.snd <$> tracedExperiment checker adversary budget hbudget) := by
-      rw [Functor.map_map]
-      rfl
-    _ = recorded <$> (liftM (run (GameWith.idealGame checker adversary) initial) : PMF _) := by
-      rw [traced_source_erasure]
-    _ = (liftM (recorded <$> run (GameWith.idealGame checker adversary) initial) : PMF _) := (liftM_map _ _).symm
-    _ = _ := by rw [hr]
-theorem traced_cost_coherent (checker : Checker Forgery) (adversary : AdversaryFor Forgery) (budget : Nat) (hbudget : budget ≤ 2^127)
-    (result : Bool × (MonitoredPrivate.History × State))
-    (hr : result ∈ (tracedExperiment checker adversary budget hbudget).support) : CostCoherent result.2.2 := by
-  have hp : (result.1,result.2.2) ∈
-      (Prod.map id Prod.snd <$> tracedExperiment checker adversary budget hbudget).support := by
-    rw [PMF.monad_map_eq_map,PMF.support_map]
-    exact ⟨result,hr,rfl⟩
-  rw [traced_source_erasure] at hp
-  rw [MonitoredPrivate.pmf_support] at hp
-  exact run_cost_coherent (GameWith.idealGame checker adversary) initial initial_cost
-    (result.1,result.2.2) hp
-theorem known_public_hit_bound (checker : Checker Forgery) (reference : FirstHit.Reference) (adversary : AdversaryFor Forgery)
-    (q : Nat) (hq : q ≤ 2^127) :
-    Pr[fun result => result.2.2.base.source.1≤q ∧ FirstHit.KnownPublicHit reference (recordedTrace result) |
-      tracedExperiment checker adversary q hq] ≤ q/(2 : ENNReal)^128 := by
-  have h := FirstHit.recorded_known_public_hit_bound reference (GameWith.idealGame checker adversary) (∅,∅) q
-  have he := congrArg (fun law => Pr[fun result : FirstHit.Recorded Bool =>
-      (result.events.map (fun event => FullGame.queryCharge event.input)).sum≤q ∧
-      FirstHit.KnownPublicHit reference result | law]) (traced_record_erasure checker adversary q hq)
-  rw [probEvent_map,MonitoredPrivate.event_lift] at he
-  apply le_trans _ (he.le.trans h)
-  simp only [probEvent_eq_tsum_ite]
-  apply ENNReal.tsum_le_tsum
-  intro result
-  by_cases hr : result ∈ (tracedExperiment checker adversary q hq).support
-  · have hc := traced_cost_coherent checker adversary q hq result hr
-    simp only [Function.comp_def,recordedTrace,recorded]
-    rw [show result.2.2.base.source.1=
-      (result.2.2.events.map (fun event => FullGame.queryCharge event.input)).sum from hc]
-  · have hz : (tracedExperiment checker adversary q hq) result=0 := by
-      by_contra hn
-      exact hr (by simpa only [PMF.mem_support_iff] using hn)
-    simp only [PMF.probOutput_eq_apply,hz,ite_self,le_refl]
-theorem real_to_clean_trace (checker : Checker Forgery) (adversary : AdversaryFor Forgery) (q : Nat) (hq : q ≤ 2^127) :
-    Pr[fun result => result.1=true ∧ result.2≤q | realExperiment checker adversary] ≤
-      Pr[fun result => result.1=true ∧ result.2.2.base.source.1≤q ∧
-        result.2.1.length≤BPORS.Numeric.proposalLength ∧ result.2.2.base.exceptional=false |
-          tracedExperiment checker adversary q hq]+
-      q/(2 : ENNReal)^146+(2 : ENNReal)⁻¹^700+((2 : ENNReal)^152)⁻¹+q/((2^256 : Nat) : ENNReal) := by
-  have h := Monitored.real_to_clean_bounded_trace checker adversary q hq
-  rw [← traced_base_erasure checker adversary q hq,probEvent_map] at h
-  exact h
-theorem full_game_excess_price (checker : Checker Forgery) (adversary : AdversaryFor Forgery) (budget : Nat) (hbudget : budget ≤ 2^127) :
-    expectedValue (tracedExperiment checker adversary budget hbudget)
-      (fun result => if result.2.1.length≤BPORS.Numeric.proposalLength
-        then BPORS.History.fullPrice result.2.1-1 else 0) ≤ 11324/100000000 := by
-  have h := Monitored.full_game_excess_price checker adversary budget hbudget
-  rw [← traced_base_erasure checker adversary budget hbudget,expectedValue_map] at h
-  exact h
-theorem full_game_near_price (checker : Checker Forgery) (adversary : AdversaryFor Forgery) (budget : Nat) (hbudget : budget ≤ 2^127) :
-    expectedValue (tracedExperiment checker adversary budget hbudget)
-      (fun result => if result.2.1.length≤BPORS.Numeric.proposalLength
-        then BPORS.History.fullNearPrice result.2.1 else 0) ≤ 404 := by
-  have h := Monitored.full_game_near_price checker adversary budget hbudget
-  rw [← traced_base_erasure checker adversary budget hbudget,expectedValue_map] at h
-  exact h
-theorem split_known_hit (checker : Checker Forgery) (reference : FirstHit.Reference) (adversary : AdversaryFor Forgery)
-    (q : Nat) (hq : q ≤ 2^127) :
-    Pr[CleanWin q | tracedExperiment checker adversary q hq] ≤
-      Pr[fun result => CleanWin q result ∧ ¬FirstHit.KnownPublicHit reference (recordedTrace result) |
-        tracedExperiment checker adversary q hq]+
-      Pr[fun result => result.2.2.base.source.1≤q ∧ FirstHit.KnownPublicHit reference (recordedTrace result) |
-        tracedExperiment checker adversary q hq] := by
-  simp only [probEvent_eq_tsum_ite]
-  rw [← ENNReal.tsum_add]
-  apply ENNReal.tsum_le_tsum
-  intro result
-  by_cases hw : CleanWin q result
-  · have hcount := hw.2.1
-    by_cases hh : FirstHit.KnownPublicHit reference (recordedTrace result)
-    · simp [hw,hcount,hh]
-    · simp [hw,hcount,hh]
-  · simp only [hw,if_false,zero_le]
-theorem real_to_clean_without_known (checker : Checker Forgery) (reference : FirstHit.Reference) (adversary : AdversaryFor Forgery)
-    (q : Nat) (hq : q ≤ 2^127) :
-    Pr[fun result => result.1=true ∧ result.2≤q | realExperiment checker adversary] ≤
-      Pr[fun result => CleanWin q result ∧ ¬FirstHit.KnownPublicHit reference (recordedTrace result) |
-        tracedExperiment checker adversary q hq]+
-      q/(2 : ENNReal)^128+q/(2 : ENNReal)^146+(2 : ENNReal)⁻¹^700+
-      ((2 : ENNReal)^152)⁻¹+q/((2^256 : Nat) : ENNReal) := by
-  apply (real_to_clean_trace checker adversary q hq).trans
-  apply add_le_add _ le_rfl
-  apply add_le_add _ le_rfl
-  apply add_le_add _ le_rfl
-  apply add_le_add _ le_rfl
-  exact (split_known_hit checker reference adversary q hq).trans
-    (add_le_add le_rfl (known_public_hit_bound checker reference adversary q hq))
 end SigGolfCandidate.T3.Security.GameWith.Recorded
 end
 section
@@ -5098,45 +3639,6 @@ theorem verdict_public (publicKey : Digest) (result : Option ForgeryP × QueryLo
   | none => exact allQ_pure _
   | some forgery => exact allQ_bind (check_public publicKey result.2 forgery) fun _ => allQ_pure _
 abbrev TraceResult := Bool × (MonitoredPrivate.History × QueryRecorded.State)
-noncomputable def tracedExperiment (adversary : AdversaryP) (budget : Nat) (hbudget : budget ≤ 2^127) :
-    PMF TraceResult := GameWith.Recorded.tracedExperiment checker adversary budget hbudget
-theorem real_to_clean_trace (adversary : AdversaryP) (q : Nat) (hq : q ≤ 2^127) :
-    Pr[fun result => result.1=true ∧ result.2 ≤ q | realExperimentP adversary] ≤
-      Pr[QueryRecorded.CleanWin q | tracedExperiment adversary q hq]+
-      q/(2 : ENNReal)^146+(2 : ENNReal)⁻¹^700+((2 : ENNReal)^152)⁻¹+
-      q/((2^256 : Nat) : ENNReal) := by
-  rw [show (QueryRecorded.CleanWin q : TraceResult → Prop)=(fun result =>
-    result.1=true ∧ result.2.2.base.source.1 ≤ q ∧
-      result.2.1.length ≤ BPORS.Numeric.proposalLength ∧ result.2.2.base.exceptional=false) from rfl]
-  simpa only [realExperiment_eq,tracedExperiment] using
-    GameWith.Recorded.real_to_clean_trace checker adversary q hq
-theorem real_to_clean_without_known (reference : FirstHit.Reference) (adversary : AdversaryP)
-    (q : Nat) (hq : q ≤ 2^127) :
-    Pr[fun result => result.1=true ∧ result.2 ≤ q | realExperimentP adversary] ≤
-      Pr[fun result => QueryRecorded.CleanWin q result ∧
-        ¬FirstHit.KnownPublicHit reference (QueryRecorded.recordedTrace result) |
-        tracedExperiment adversary q hq]+
-      q/(2 : ENNReal)^128+q/(2 : ENNReal)^146+(2 : ENNReal)⁻¹^700+
-      ((2 : ENNReal)^152)⁻¹+q/((2^256 : Nat) : ENNReal) := by
-  simpa only [realExperiment_eq,tracedExperiment,QueryRecorded.CleanWin] using GameWith.Recorded.real_to_clean_without_known checker reference adversary q hq
-theorem full_game_excess_price (adversary : AdversaryP) (budget : Nat) (hbudget : budget ≤ 2^127) :
-    expectedValue (tracedExperiment adversary budget hbudget)
-      (fun result => if result.2.1.length ≤ BPORS.Numeric.proposalLength
-        then BPORS.History.fullPrice result.2.1-1 else 0) ≤ 11324/100000000 :=
-  GameWith.Recorded.full_game_excess_price checker adversary budget hbudget
-theorem full_game_near_price (adversary : AdversaryP) (budget : Nat) (hbudget : budget ≤ 2^127) :
-    expectedValue (tracedExperiment adversary budget hbudget)
-      (fun result => if result.2.1.length ≤ BPORS.Numeric.proposalLength
-        then BPORS.History.fullNearPrice result.2.1 else 0) ≤ 404 :=
-  GameWith.Recorded.full_game_near_price checker adversary budget hbudget
-theorem traced_record_erasure (adversary : AdversaryP) (budget : Nat) (hbudget : budget ≤ 2^127) :
-    QueryRecorded.recordedTrace <$> tracedExperiment adversary budget hbudget=
-      (liftM (FirstHit.record (GameWith.idealGame checker adversary) (∅,∅)) : PMF _) :=
-  GameWith.Recorded.traced_record_erasure checker adversary budget hbudget
-theorem traced_cost_coherent (adversary : AdversaryP) (budget : Nat) (hbudget : budget ≤ 2^127)
-    (result : TraceResult) (hr : result ∈ (tracedExperiment adversary budget hbudget).support) :
-    QueryRecorded.CostCoherent result.2.2 :=
-  GameWith.Recorded.traced_cost_coherent checker adversary budget hbudget result hr
 end SigGolfCandidate.T3.Security.PaddedGame
 end
 section
@@ -5147,55 +3649,6 @@ set_option maxHeartbeats 1000000
 set_option maxRecDepth 10000
 set_option backward.isDefEq.respectTransparency false
 attribute [local instance] Classical.propDecidable
-theorem monitored_journal (adversary : AdversaryP) (budget : Nat) (hbudget : budget≤2^127)
-    (result : Bool × (History × State)) (hr : result ∈ (GameWith.Monitored.tracedExperiment checker adversary budget hbudget).support)
-    (hcount : result.2.2.source.1≤budget) (hflag : result.2.2.exceptional=false) :
-    ∃ generated : Digest × T3.Cache,∃ journal,
-      SourceReplay.Resolves result.2.2.source.2 keygen generated ∧
-        JournalOK generated.2 result.2.1 result.2.2 journal := by
-  unfold GameWith.Monitored.tracedExperiment at hr
-  rw [PMF.monad_bind_eq_bind,PMF.mem_support_bind_iff] at hr
-  obtain ⟨generated,hg,hr⟩ := hr
-  rw [PMF.monad_bind_eq_bind,PMF.mem_support_bind_iff] at hr
-  obtain ⟨interaction,hi,hr⟩ := hr
-  rw [PMF.monad_bind_eq_bind,PMF.mem_support_bind_iff] at hr
-  obtain ⟨checked,hv,hr⟩ := hr
-  rw [PMF.monad_pure_eq_pure,PMF.mem_support_pure_iff] at hr
-  subst result
-  rw [pmf_support] at hg hv
-  have hbudgetBefore := (run_count_monotone _ interaction.2.2 checked hv).trans hcount
-  have hcleanBefore := run_false_before _ interaction.2.2 checked hv hflag
-  obtain ⟨journal,hj⟩ := actual_interaction_journal generated hg budget hbudget
-    (ProposalOverflow.logged (adversary generated.1.1 generated.1.2)) interaction hi hbudgetBefore hcleanBefore
-  have hsource := traced_source_support generated.1.2 budget hbudget
-    (ProposalOverflow.logged (adversary generated.1.1 generated.1.2)) ([],generated.2) interaction hi
-  have hgen := SourceReplay.resolves_of_run keygen SourceReplay.keygen_hashOnly (∅,∅)
-    (generated.1,generated.2.source.2) (run_lazy_support keygen ⟨(0,∅,∅),false⟩ generated hg)
-  refine ⟨generated.1,journal,hgen.mono ?_,?_⟩
-  · exact (run_extends _ generated.2 (interaction.1,interaction.2.2) hsource).trans
-      (run_extends _ interaction.2.2 checked hv)
-  · exact journal_public_preserves generated.1.2 interaction.2.1 interaction.2.2 journal hj
-      (GameWith.verdict checker generated.1.1 interaction.1) (verdict_public _ _) checked hv
-theorem traced_game_journal (adversary : AdversaryP) (budget : Nat) (hbudget : budget ≤ 2^127)
-    (result : TraceResult) (hr : result ∈ (tracedExperiment adversary budget hbudget).support)
-    (hcount : result.2.2.base.source.1 ≤ budget) (hflag : result.2.2.base.exceptional=false) :
-    ∃ generated : Digest × T3.Cache,∃ journal,
-      SourceReplay.Resolves result.2.2.base.source.2 keygen generated ∧
-        JournalOK generated.2 result.2.1 result.2.2.base journal := by
-  apply monitored_journal adversary budget hbudget (result.1,result.2.1,result.2.2.base) _ hcount hflag
-  rw [← GameWith.Recorded.traced_base_erasure checker adversary budget hbudget,
-    PMF.monad_map_eq_map,PMF.support_map]
-  exact ⟨result,hr,rfl⟩
-theorem traced_journal_exposure (adversary : AdversaryP) (budget : Nat) (hbudget : budget ≤ 2^127)
-    (result : TraceResult) (hr : result ∈ (tracedExperiment adversary budget hbudget).support)
-    (hcount : result.2.2.base.source.1 ≤ budget) (hflag : result.2.2.base.exceptional=false) :
-    ∃ generated : Digest × T3.Cache,∃ journal,
-      SourceReplay.Resolves result.2.2.base.source.2 keygen generated ∧
-        JournalOK generated.2 result.2.1 result.2.2.base journal ∧
-        BPORS.History.fullPrice (journalLabels journal) ≤ BPORS.History.fullPrice result.2.1 ∧
-        BPORS.History.fullNearPrice (journalLabels journal) ≤ BPORS.History.fullNearPrice result.2.1 := by
-  obtain ⟨generated,journal,hg,hj⟩ := traced_game_journal adversary budget hbudget result hr hcount hflag
-  exact ⟨generated,journal,hg,hj,journal_prices generated.2 result.2.1 result.2.2.base journal hj⟩
 end SigGolfCandidate.T3.Security.PaddedGame
 end
 section
@@ -5214,16 +3667,6 @@ theorem large_budget (adversary : AdversaryP) (q : Nat) (hq : 2^127 ≤ q) :
   calc
     (1 : ENNReal) = (2 : ENNReal)^127/(2 : ENNReal)^127 := (ENNReal.div_self (by positivity) (by finiteness)).symm
     _ ≤ _ := ENNReal.div_le_div_right hcast _
-theorem securityP_of_clean_bound
-    (hclean : ∀ (adversary : AdversaryP) (q : Nat), 1 ≤ q → ∀ hq : q ≤ 2^127,
-      Pr[QueryRecorded.CleanWin q | tracedExperiment adversary q hq]+
-        q/(2 : ENNReal)^146+(2 : ENNReal)⁻¹^700+((2 : ENNReal)^152)⁻¹+
-        q/((2^256 : Nat) : ENNReal) ≤ (q : ENNReal)/2^127) : SecurityP := by
-  intro adversary q hpositive
-  by_cases hq : 2^127 ≤ q
-  · exact large_budget adversary q hq
-  · have hsmall : q ≤ 2^127 := Nat.le_of_lt (Nat.lt_of_not_ge hq)
-    exact (real_to_clean_trace adversary q hsmall).trans (hclean adversary q hpositive hsmall)
 end SigGolfCandidate.T3.Security.PaddedGame
 end
 section
@@ -6251,35 +4694,6 @@ set_option maxRecDepth 10000
 set_option backward.isDefEq.respectTransparency false
 noncomputable def hiddenExperiment (adversary : AdversaryP) : ProbComp (FirstHit.Recorded Bool) :=
   ChainGraph.hiddenRecorded (GameWith.idealGame checker adversary)
-theorem traced_hidden_event (adversary : AdversaryP) (budget : Nat) (hbudget : budget ≤ 2^127)
-    (event : FirstHit.Recorded Bool → Prop) :
-    Pr[event ∘ QueryRecorded.recordedTrace | tracedExperiment adversary budget hbudget]=
-      Pr[event | hiddenExperiment adversary] := by
-  have h := congrArg (fun law : PMF (FirstHit.Recorded Bool) => Pr[event | law])
-    (traced_record_erasure adversary budget hbudget)
-  rw [probEvent_map,MonitoredPrivate.event_lift] at h
-  exact h.trans (probEvent_congr' (fun _ _ => Iff.rfl)
-    (ChainGraph.hiddenRecorded_eq (GameWith.idealGame checker adversary)).symm)
-theorem traced_hidden_cost_event (adversary : AdversaryP) (budget q : Nat)
-    (hbudget : budget ≤ 2^127) (event : FirstHit.Recorded Bool → Prop) :
-    Pr[fun result => result.2.2.base.source.1 ≤ q ∧ event (QueryRecorded.recordedTrace result) |
-      tracedExperiment adversary budget hbudget]=
-      Pr[fun result => (result.events.map (fun query => FullGame.queryCharge query.input)).sum ≤ q ∧
-        event result | hiddenExperiment adversary] := by
-  rw [← traced_hidden_event adversary budget hbudget
-    (fun result => (result.events.map (fun query => FullGame.queryCharge query.input)).sum ≤ q ∧ event result)]
-  rw [probEvent_eq_tsum_ite,probEvent_eq_tsum_ite]
-  apply tsum_congr
-  intro result
-  by_cases hr : result ∈ (tracedExperiment adversary budget hbudget).support
-  · have hc := traced_cost_coherent adversary budget hbudget result hr
-    change result.2.2.base.source.1=
-      (result.2.2.events.map (fun query => FullGame.queryCharge query.input)).sum at hc
-    simp only [Function.comp_def,QueryRecorded.recordedTrace,QueryRecorded.recorded,hc]
-  · have hz : (tracedExperiment adversary budget hbudget) result=0 := by
-      by_contra hn
-      exact hr (by simpa only [PMF.mem_support_iff] using hn)
-    simp only [PMF.probOutput_eq_apply,hz,ite_self]
 end SigGolfCandidate.T3.Security.PaddedGame
 end
 section
@@ -6820,43 +5234,6 @@ open BPORS.Adaptive
 set_option maxHeartbeats 1000000
 set_option maxRecDepth 10000
 set_option backward.isDefEq.respectTransparency false
-theorem adaptive_creation_full_charge {α : Type} (published : T3.Cache)
-    (budget : Nat) (hbudget : budget ≤ 2^127)
-    (weight : LazyPrivate.Interaction.Domain → (MonitoredPrivate.History × State) → Nat)
-    (cap : Nat) (program : OracleComp LazyPrivate.Interaction α) (state : State) :
-    Creation.expectedCharges ((proposalModel published budget hbudget).creationImpl weight cap)
-      (fun input before => (ProposalModel.creationStep weight cap input before : ENNReal) *
-        (proposalModel published budget hbudget).completionPotential BPORS.Numeric.proposalLength
-          BPORS.History.fullPrice before.2.1) program (0, [], state) ≤
-      Creation.expectedCharges ((proposalModel published budget hbudget).creationImpl weight cap)
-        (fun input before => (ProposalModel.creationStep weight cap input before : ENNReal))
-        program (0, [], state) + (cap : ENNReal) * (11324/100000000) := by
-  apply le_trans ((proposalModel published budget hbudget).creation_charge_split
-    weight cap BPORS.Numeric.proposalLength BPORS.History.fullPrice program state)
-  apply add_le_add le_rfl
-  apply mul_le_mul' le_rfl
-  change expectedValue (SphincsSecurity.Concrete.independentProposalWord
-    (PMF.uniformOfFintype DigestSampling.IndexBuckets) BPORS.Numeric.proposalLength)
-      (fun word => BPORS.History.fullPrice word - 1) ≤ _
-  rw [ProposalModel.uniform_word_expectation]
-  exact BPORS.History.fullPrice_excess_bound
-theorem adaptive_creation_near_charge {α : Type} (published : T3.Cache)
-    (budget : Nat) (hbudget : budget ≤ 2^127)
-    (weight : LazyPrivate.Interaction.Domain → (MonitoredPrivate.History × State) → Nat)
-    (cap : Nat) (program : OracleComp LazyPrivate.Interaction α) (state : State) :
-    Creation.expectedCharges ((proposalModel published budget hbudget).creationImpl weight cap)
-      (fun input before => (ProposalModel.creationStep weight cap input before : ENNReal) *
-        (proposalModel published budget hbudget).completionPotential BPORS.Numeric.proposalLength
-          BPORS.History.fullNearPrice before.2.1) program (0, [], state) ≤
-      (cap : ENNReal) * 404 := by
-  apply le_trans ((proposalModel published budget hbudget).creation_charge_from_empty
-    weight cap BPORS.Numeric.proposalLength BPORS.History.fullNearPrice program state)
-  apply mul_le_mul' le_rfl
-  change expectedValue (SphincsSecurity.Concrete.independentProposalWord
-    (PMF.uniformOfFintype DigestSampling.IndexBuckets) BPORS.Numeric.proposalLength)
-      BPORS.History.fullNearPrice ≤ _
-  rw [ProposalModel.uniform_word_expectation]
-  exact BPORS.History.fullNearPrice_bound
 end SigGolfCandidate.T3.Security.QueryRecorded
 end
 section
@@ -6894,147 +5271,12 @@ theorem publicProgram_bind {α β : Type} (program : M α) (next : α → M β) 
     publicProgram (program >>= next) =
       (publicProgram program >>= fun value => publicProgram (next value)) := by
   simp only [publicProgram, simulateQ_bind]
-theorem traced_world (published : T3.Cache) (budget : Nat) (hbudget : budget ≤ 2^127)
-    (input : SphincsSecurity.OracleWorld.Domain)
-    (state : MonitoredPrivate.History × QueryRecorded.State) :
-    ((QueryRecorded.proposalModel published budget hbudget).traced (.inl input)).run state =
-      (fun result => (result.1, (state.1, result.2))) <$>
-        (liftM (QueryRecorded.run (forwardWorld input) state.2) : PMF _) := by
-  rw [ProposalModel.traced_query_inactive _ _ _ (by rfl), QueryRecorded.proposal_query_erasure]
-  rfl
-theorem publicProgram_trace {α : Type} (published : T3.Cache) (budget : Nat)
-    (hbudget : budget ≤ 2^127) (program : M α) (hp : PublicVerdict.Only program)
-    (state : MonitoredPrivate.History × QueryRecorded.State) :
-    (simulateQ (QueryRecorded.proposalModel published budget hbudget).traced
-      (publicProgram program)).run state =
-      (fun result => (result.1, (state.1, result.2))) <$>
-        (liftM (QueryRecorded.run program state.2) : PMF _) := by
-  induction program using OracleComp.inductionOn generalizing state with
-  | pure value =>
-      simp only [publicProgram_pure, simulateQ_pure, StateT.run_pure, QueryRecorded.run_pure,
-        liftM_pure, PMF.monad_pure_eq_pure, PMF.monad_map_eq_map, PMF.pure_map]
-  | query_bind input next ih =>
-      change AllQueriesSatisfy _ PublicVerdict.IsPublicHash at hp
-      rw [allQueriesSatisfy_query_bind_iff] at hp
-      rcases input with (sample | input) | coordinate
-      · exact False.elim hp.1
-      · rw [publicProgram_bind]
-        simp only [publicProgram, simulateQ_spec_query, publicHandler, simulateQ_bind,
-          StateT.run_bind]
-        rw [traced_world, bind_map_left, QueryRecorded.run_bind, liftM_bind, map_bind]
-        apply bind_congr
-        intro middle
-        exact ih middle.1 (hp.2 middle.1) (state.1, middle.2)
-      · exact False.elim hp.1
 noncomputable def rest (adversary : AdversaryP) (publicKey : Digest) (published : T3.Cache) :
     OracleComp LazyPrivate.Interaction Bool := do
   let result ← ProposalOverflow.logged (adversary publicKey published)
   publicProgram (GameWith.verdict PaddedGame.checker publicKey result)
-theorem rest_trace (adversary : AdversaryP) (published : T3.Cache) (publicKey : Digest)
-    (budget : Nat) (hbudget : budget ≤ 2^127) (state : QueryRecorded.State) :
-    (simulateQ (QueryRecorded.proposalModel published budget hbudget).traced
-      (rest adversary publicKey published)).run ([], state) =
-      (do
-        let interaction ← (simulateQ (QueryRecorded.proposalModel published budget hbudget).traced
-          (ProposalOverflow.logged (adversary publicKey published))).run ([], state)
-        let checked ← (liftM (QueryRecorded.run
-          (GameWith.verdict PaddedGame.checker publicKey interaction.1) interaction.2.2) : PMF _)
-        pure (checked.1, interaction.2.1, checked.2)) := by
-  rw [rest, simulateQ_bind, StateT.run_bind]
-  apply bind_congr
-  intro interaction
-  rw [publicProgram_trace published budget hbudget _ (PaddedGame.verdict_public _ _)]
-  rfl
-theorem padded_trace_eq (adversary : AdversaryP) (budget : Nat) (hbudget : budget ≤ 2^127) :
-    PaddedGame.tracedExperiment adversary budget hbudget =
-      (do
-        let generated ← (liftM (QueryRecorded.run keygen QueryRecorded.initial) : PMF _)
-        (simulateQ (QueryRecorded.proposalModel generated.1.2 budget hbudget).traced
-          (rest adversary generated.1.1 generated.1.2)).run ([], generated.2)) := by
-  unfold PaddedGame.tracedExperiment GameWith.Recorded.tracedExperiment
-  apply bind_congr
-  intro generated
-  exact (rest_trace adversary generated.1.2 generated.1.1 budget hbudget generated.2).symm
 abbrev Weight := T3.Cache → LazyPrivate.Interaction.Domain →
   (MonitoredPrivate.History × QueryRecorded.State) → Nat
-noncomputable def experiment (weight : Weight) (cap : Nat)
-    (adversary : AdversaryP) (budget : Nat) (hbudget : budget ≤ 2^127) :
-    PMF (Bool × (Nat × (MonitoredPrivate.History × QueryRecorded.State))) := do
-  let generated ← (liftM (QueryRecorded.run keygen QueryRecorded.initial) : PMF _)
-  (simulateQ ((QueryRecorded.proposalModel generated.1.2 budget hbudget).creationImpl
-    (weight generated.1.2) cap) (rest adversary generated.1.1 generated.1.2)).run
-      (0, [], generated.2)
-theorem experiment_project (weight : Weight) (cap : Nat)
-    (adversary : AdversaryP) (budget : Nat) (hbudget : budget ≤ 2^127) :
-    Prod.map id Prod.snd <$> experiment weight cap adversary budget hbudget =
-      PaddedGame.tracedExperiment adversary budget hbudget := by
-  rw [experiment, map_bind, padded_trace_eq]
-  apply bind_congr
-  intro generated
-  exact (QueryRecorded.proposalModel generated.1.2 budget hbudget).creation_program_project
-    (weight generated.1.2) cap _ (0, [], generated.2)
-theorem experiment_mass_le (weight : Weight) (cap : Nat)
-    (adversary : AdversaryP) (budget : Nat) (hbudget : budget ≤ 2^127)
-    (result : Bool × (Nat × (MonitoredPrivate.History × QueryRecorded.State)))
-    (hr : result ∈ (experiment weight cap adversary budget hbudget).support) :
-    result.2.1 ≤ cap := by
-  rw [experiment, PMF.monad_bind_eq_bind, PMF.mem_support_bind_iff] at hr
-  obtain ⟨generated, _, hr⟩ := hr
-  exact (QueryRecorded.proposalModel generated.1.2 budget hbudget).creation_program_mass_le
-    (weight generated.1.2) cap _ (0, [], generated.2) (Nat.zero_le _) result hr
-noncomputable def expectedCharge (weight : Weight) (cap : Nat)
-    (payoff : MonitoredPrivate.History → ENNReal)
-    (adversary : AdversaryP) (budget : Nat) (hbudget : budget ≤ 2^127) : ENNReal :=
-  expectedValue (liftM (QueryRecorded.run keygen QueryRecorded.initial) : PMF _)
-    (fun generated =>
-      Creation.expectedCharges
-        ((QueryRecorded.proposalModel generated.1.2 budget hbudget).creationImpl
-          (weight generated.1.2) cap)
-        (fun input before =>
-          (ProposalModel.creationStep (weight generated.1.2) cap input before : ENNReal) *
-          (QueryRecorded.proposalModel generated.1.2 budget hbudget).completionPotential
-            BPORS.Numeric.proposalLength payoff before.2.1)
-        (rest adversary generated.1.1 generated.1.2) (0, [], generated.2))
-theorem full_charge_le_mass_excess (weight : Weight) (cap : Nat)
-    (adversary : AdversaryP) (budget : Nat) (hbudget : budget ≤ 2^127) :
-    expectedCharge weight cap BPORS.History.fullPrice adversary budget hbudget ≤
-      expectedValue (experiment weight cap adversary budget hbudget)
-        (fun result => (result.2.1 : ENNReal)) + (cap : ENNReal) * (11324/100000000) := by
-  unfold expectedCharge
-  calc
-    _ ≤ expectedValue (liftM (QueryRecorded.run keygen QueryRecorded.initial) : PMF _)
-        (fun generated =>
-          Creation.expectedCharges
-            ((QueryRecorded.proposalModel generated.1.2 budget hbudget).creationImpl
-              (weight generated.1.2) cap)
-            (fun input before =>
-              (ProposalModel.creationStep (weight generated.1.2) cap input before : ENNReal))
-            (rest adversary generated.1.1 generated.1.2) (0, [], generated.2) +
-          (cap : ENNReal) * (11324/100000000)) := by
-      apply expectedValue_mono
-      intro generated
-      exact QueryRecorded.adaptive_creation_full_charge generated.1.2 budget hbudget
-        (weight generated.1.2) cap _ generated.2
-    _ = _ := by
-      rw [expectedValue_add, expectedValue_const (by simp), experiment, expectedValue_bind]
-      congr 1
-      congr 1
-      funext generated
-      exact ((QueryRecorded.proposalModel generated.1.2 budget hbudget).creation_program_mass
-        (weight generated.1.2) cap _ ([], generated.2)).symm
-theorem near_charge_le (weight : Weight) (cap : Nat)
-    (adversary : AdversaryP) (budget : Nat) (hbudget : budget ≤ 2^127) :
-    expectedCharge weight cap BPORS.History.fullNearPrice adversary budget hbudget ≤
-      (cap : ENNReal) * 404 := by
-  unfold expectedCharge
-  calc
-    _ ≤ expectedValue (liftM (QueryRecorded.run keygen QueryRecorded.initial) : PMF _)
-        (fun _ => (cap : ENNReal) * 404) := by
-      apply expectedValue_mono
-      intro generated
-      exact QueryRecorded.adaptive_creation_near_charge generated.1.2 budget hbudget
-        (weight generated.1.2) cap _ generated.2
-    _ = _ := expectedValue_const (by simp) _
 end SigGolfCandidate.T3.Security.CreationGame
 end
 section
@@ -7139,18 +5381,6 @@ theorem class_creationStep_eq (cls : HashInput → Prop) (budget : Nat)
     · omega
     · exact Nat.zero_le _
   · exact Nat.zero_le _
-theorem traced_query_source_support (published : T3.Cache) (budget : Nat)
-    (hbudget : budget ≤ 2^127) (input : LazyPrivate.Interaction.Domain)
-    (before : MonitoredPrivate.History × QueryRecorded.State)
-    (result : LazyPrivate.Interaction.Range input × (MonitoredPrivate.History × QueryRecorded.State))
-    (hr : result ∈ (((QueryRecorded.proposalModel published budget hbudget).traced input).run before).support) :
-    (result.1, result.2.2) ∈ support
-      (QueryRecorded.run (MonitoredPrivate.interactionSource published input) before.2) := by
-  rw [← MonitoredPrivate.pmf_support,
-    ← QueryRecorded.proposal_query_erasure published budget hbudget input before.2,
-    ← (QueryRecorded.proposalModel published budget hbudget).traced_query_erasure input before,
-    PMF.monad_map_eq_map, PMF.mem_support_map_iff]
-  exact ⟨result, hr, rfl⟩
 theorem recorded_count_monotone {α : Type} (program : M α)
     (before : QueryRecorded.State) (result : α × QueryRecorded.State)
     (hr : result ∈ support (QueryRecorded.run program before)) :
@@ -7165,115 +5395,6 @@ theorem recorded_world_hash_count (input : HashInput) (before : QueryRecorded.St
   rw [QueryRecorded.run_query_explicit, support_map] at hr
   obtain ⟨middle, _, rfl⟩ := hr
   rfl
-theorem class_creation_query_cost (published : T3.Cache) (budget : Nat)
-    (hbudget : budget ≤ 2^127) (cls : HashInput → Prop)
-    (input : LazyPrivate.Interaction.Domain)
-    (before : Nat × (MonitoredPrivate.History × QueryRecorded.State))
-    (hcost : before.1 ≤ before.2.2.base.source.1)
-    (result : LazyPrivate.Interaction.Range input ×
-      (Nat × (MonitoredPrivate.History × QueryRecorded.State)))
-    (hr : result ∈ (((QueryRecorded.proposalModel published budget hbudget).creationImpl
-      (classWeight cls budget) budget input).run before).support) :
-    result.2.1 ≤ result.2.2.2.base.source.1 := by
-  rw [ProposalModel.creationImpl, StateT.run_mk, PMF.monad_map_eq_map,
-    PMF.mem_support_map_iff] at hr
-  obtain ⟨middle, hm, rfl⟩ := hr
-  have hs := traced_query_source_support published budget hbudget input before.2 middle hm
-  have hmon := recorded_count_monotone _ before.2.2 (middle.1, middle.2.2) hs
-  change before.1 + ProposalModel.creationStep (classWeight cls budget) budget input before ≤ _
-  rw [class_creationStep_eq cls budget input before hcost]
-  rcases input with (sample | input) | request
-  · simpa only [classWeight, Nat.add_zero] using hcost.trans hmon
-  · have hc := recorded_world_hash_count input before.2.2 (middle.1, middle.2.2) hs
-    rw [hc]
-    exact Nat.add_le_add hcost (classWeight_le_one cls budget (.inl (.inr input)) before.2)
-  · simpa only [classWeight, Nat.add_zero] using hcost.trans hmon
-theorem class_creation_program_cost {α : Type} (published : T3.Cache) (budget : Nat)
-    (hbudget : budget ≤ 2^127) (cls : HashInput → Prop)
-    (program : OracleComp LazyPrivate.Interaction α)
-    (before : Nat × (MonitoredPrivate.History × QueryRecorded.State))
-    (hcost : before.1 ≤ before.2.2.base.source.1)
-    (result : α × (Nat × (MonitoredPrivate.History × QueryRecorded.State)))
-    (hr : result ∈ ((simulateQ ((QueryRecorded.proposalModel published budget hbudget).creationImpl
-      (classWeight cls budget) budget) program).run before).support) :
-    result.2.1 ≤ result.2.2.2.base.source.1 := by
-  induction program using OracleComp.inductionOn generalizing before with
-  | pure value =>
-      simp only [simulateQ_pure, StateT.run_pure, PMF.monad_pure_eq_pure,
-        PMF.mem_support_pure_iff] at hr
-      subst result
-      exact hcost
-  | query_bind input next ih =>
-      rw [simulateQ_bind, simulateQ_spec_query, StateT.run_bind,
-        PMF.monad_bind_eq_bind, PMF.mem_support_bind_iff] at hr
-      obtain ⟨middle, hm, hr⟩ := hr
-      exact ih middle.1 middle.2
-        (class_creation_query_cost published budget hbudget cls input before hcost middle hm) hr
-theorem class_experiment_cost (cls : HashInput → Prop)
-    (adversary : SigGolfCandidate.T3M.Final.AdversaryP)
-    (budget : Nat) (hbudget : budget ≤ 2^127)
-    (result : Bool × (Nat × (MonitoredPrivate.History × QueryRecorded.State)))
-    (hr : result ∈ (experiment (fun _ => classWeight cls budget) budget adversary budget hbudget).support) :
-    result.2.1 ≤ result.2.2.2.base.source.1 := by
-  rw [experiment, PMF.monad_bind_eq_bind, PMF.mem_support_bind_iff] at hr
-  obtain ⟨generated, _, hr⟩ := hr
-  exact class_creation_program_cost generated.1.2 budget hbudget cls _
-    (0, [], generated.2) (Nat.zero_le _) result hr
-theorem class_program_mass_eq {α : Type} (published : T3.Cache) (budget : Nat)
-    (hbudget : budget ≤ 2^127) (cls : HashInput → Prop)
-    (program : OracleComp LazyPrivate.Interaction α)
-    (before : MonitoredPrivate.History × QueryRecorded.State) :
-    expectedValue ((simulateQ ((QueryRecorded.proposalModel published budget hbudget).creationImpl
-      (classWeight cls budget) budget) program).run (0, before))
-      (fun result => (result.2.1 : ENNReal)) =
-      Creation.expectedCharges (QueryRecorded.proposalModel published budget hbudget).traced
-        (fun input state => (classWeight cls budget input state : ENNReal)) program before := by
-  let model := QueryRecorded.proposalModel published budget hbudget
-  apply le_antisymm
-  · exact model.creation_mass_le_source_charges (classWeight cls budget) budget program before
-  · have hp := Creation.expectedCharges_project (model.creationImpl (classWeight cls budget) budget)
-      model.traced Prod.snd (model.creation_query_project (classWeight cls budget) budget)
-      (fun input state => (classWeight cls budget input state : ENNReal)) program (0, before)
-    calc
-      _ = Creation.expectedCharges (model.creationImpl (classWeight cls budget) budget)
-          (fun input state => (classWeight cls budget input state.2 : ENNReal))
-          program (0, before) := hp.symm
-      _ ≤ Creation.expectedCharges (model.creationImpl (classWeight cls budget) budget)
-          (fun input state => (ProposalModel.creationStep (classWeight cls budget) budget input state : ENNReal))
-          program (0, before) := by
-        apply Creation.expectedCharges_mono _ _ _
-          (fun state => state.1 ≤ state.2.2.base.source.1)
-          (class_creation_query_cost published budget hbudget cls) _ _ _ (Nat.zero_le _)
-        intro input state hcost
-        exact le_of_eq (congrArg (fun value : Nat => (value : ENNReal))
-          (class_creationStep_eq cls budget input state hcost)).symm
-      _ = _ := (model.creation_program_mass (classWeight cls budget) budget program before).symm
-noncomputable def expectedBirths (cls : HashInput → Prop)
-    (adversary : SigGolfCandidate.T3M.Final.AdversaryP)
-    (budget : Nat) (hbudget : budget ≤ 2^127) : ENNReal :=
-  expectedValue (liftM (QueryRecorded.run keygen QueryRecorded.initial) : PMF _)
-    (fun generated =>
-      Creation.expectedCharges (QueryRecorded.proposalModel generated.1.2 budget hbudget).traced
-        (fun input state => (classWeight cls budget input state : ENNReal))
-        (rest adversary generated.1.1 generated.1.2) ([], generated.2))
-theorem expectedBirths_eq_mass (cls : HashInput → Prop)
-    (adversary : SigGolfCandidate.T3M.Final.AdversaryP)
-    (budget : Nat) (hbudget : budget ≤ 2^127) :
-    expectedBirths cls adversary budget hbudget =
-      expectedValue (experiment (fun _ => classWeight cls budget) budget adversary budget hbudget)
-        (fun result => (result.2.1 : ENNReal)) := by
-  rw [expectedBirths, experiment, expectedValue_bind]
-  congr 1
-  funext generated
-  exact (class_program_mass_eq generated.1.2 budget hbudget cls _ ([], generated.2)).symm
-theorem full_charge_le_births_excess (cls : HashInput → Prop)
-    (adversary : SigGolfCandidate.T3M.Final.AdversaryP)
-    (budget : Nat) (hbudget : budget ≤ 2^127) :
-    expectedCharge (fun _ => classWeight cls budget) budget BPORS.History.fullPrice
-      adversary budget hbudget ≤
-      expectedBirths cls adversary budget hbudget + (budget : ENNReal) * (11324/100000000) := by
-  rw [expectedBirths_eq_mass]
-  exact full_charge_le_mass_excess (fun _ => classWeight cls budget) budget adversary budget hbudget
 end SigGolfCandidate.T3.Security.CreationGame
 end
 section
@@ -7399,113 +5520,6 @@ def CountInvariant (cls : HashInput → Prop) (budget : Nat)
     (state : Nat × (MonitoredPrivate.History × QueryRecorded.State)) : Prop :=
   QueryRecorded.CostCoherent state.2.2 ∧
     state.1 ≤ prefixCount (publicClass cls) budget state.2.2.events
-theorem class_creation_query_count (published : T3.Cache) (budget : Nat)
-    (hbudget : budget ≤ 2^127) (cls : HashInput → Prop)
-    (input : LazyPrivate.Interaction.Domain)
-    (before : Nat × (MonitoredPrivate.History × QueryRecorded.State))
-    (hinv : CountInvariant cls budget before)
-    (result : LazyPrivate.Interaction.Range input ×
-      (Nat × (MonitoredPrivate.History × QueryRecorded.State)))
-    (hr : result ∈ (((QueryRecorded.proposalModel published budget hbudget).creationImpl
-      (classWeight cls budget) budget input).run before).support) :
-    CountInvariant cls budget result.2 := by
-  rw [ProposalModel.creationImpl, StateT.run_mk, PMF.monad_map_eq_map,
-    PMF.mem_support_map_iff] at hr
-  obtain ⟨middle, hm, rfl⟩ := hr
-  have hs := traced_query_source_support published budget hbudget input before.2 middle hm
-  refine ⟨QueryRecorded.run_cost_coherent _ before.2.2 hinv.1 (middle.1, middle.2.2) hs, ?_⟩
-  exact (Nat.add_le_add hinv.2 (Nat.min_le_left _ _)).trans
-    (class_source_count_step published budget cls input before.2 hinv.1 (middle.1, middle.2.2) hs)
-theorem class_creation_program_count {α : Type} (published : T3.Cache) (budget : Nat)
-    (hbudget : budget ≤ 2^127) (cls : HashInput → Prop)
-    (program : OracleComp LazyPrivate.Interaction α)
-    (before : Nat × (MonitoredPrivate.History × QueryRecorded.State))
-    (hinv : CountInvariant cls budget before)
-    (result : α × (Nat × (MonitoredPrivate.History × QueryRecorded.State)))
-    (hr : result ∈ ((simulateQ ((QueryRecorded.proposalModel published budget hbudget).creationImpl
-      (classWeight cls budget) budget) program).run before).support) :
-    CountInvariant cls budget result.2 := by
-  induction program using OracleComp.inductionOn generalizing before with
-  | pure value =>
-      simp only [simulateQ_pure, StateT.run_pure, PMF.monad_pure_eq_pure,
-        PMF.mem_support_pure_iff] at hr
-      subst result
-      exact hinv
-  | query_bind input next ih =>
-      rw [simulateQ_bind, simulateQ_spec_query, StateT.run_bind,
-        PMF.monad_bind_eq_bind, PMF.mem_support_bind_iff] at hr
-      obtain ⟨middle, hm, hr⟩ := hr
-      exact ih middle.1 middle.2
-        (class_creation_query_count published budget hbudget cls input before hinv middle hm) hr
-theorem class_experiment_count (cls : HashInput → Prop)
-    (adversary : SigGolfCandidate.T3M.Final.AdversaryP)
-    (budget : Nat) (hbudget : budget ≤ 2^127)
-    (result : Bool × (Nat × (MonitoredPrivate.History × QueryRecorded.State)))
-    (hr : result ∈ (experiment (fun _ => classWeight cls budget) budget adversary budget hbudget).support) :
-    result.2.1 ≤ prefixCount (publicClass cls) budget result.2.2.2.events := by
-  rw [experiment, PMF.monad_bind_eq_bind, PMF.mem_support_bind_iff] at hr
-  obtain ⟨generated, hg, hr⟩ := hr
-  rw [MonitoredPrivate.pmf_support] at hg
-  have hc := QueryRecorded.run_cost_coherent keygen QueryRecorded.initial
-    QueryRecorded.initial_cost generated hg
-  exact (class_creation_program_count generated.1.2 budget hbudget cls _
-    (0, [], generated.2) ⟨hc, Nat.zero_le _⟩ result hr).2
-noncomputable def expectedClassCount (cls : T3.Spec.Domain → Prop)
-    (adversary : SigGolfCandidate.T3M.Final.AdversaryP)
-    (budget : Nat) (hbudget : budget ≤ 2^127) : ENNReal :=
-  expectedValue (PaddedGame.tracedExperiment adversary budget hbudget)
-    (fun result => (prefixCount cls budget result.2.2.events : ENNReal))
-theorem expectedBirths_le_classCount (cls : HashInput → Prop)
-    (adversary : SigGolfCandidate.T3M.Final.AdversaryP)
-    (budget : Nat) (hbudget : budget ≤ 2^127) :
-    expectedBirths cls adversary budget hbudget ≤
-      expectedClassCount (publicClass cls) adversary budget hbudget := by
-  rw [expectedBirths_eq_mass, expectedClassCount,
-    ← experiment_project (fun _ => classWeight cls budget) budget adversary budget hbudget,
-    expectedValue_map]
-  unfold expectedValue
-  apply ENNReal.tsum_le_tsum
-  intro result
-  by_cases hr : result ∈ (experiment (fun _ => classWeight cls budget) budget adversary budget hbudget).support
-  · apply mul_le_mul' le_rfl
-    change (result.2.1 : ENNReal) ≤
-      (prefixCount (publicClass cls) budget result.2.2.2.events : ENNReal)
-    exact_mod_cast class_experiment_count cls adversary budget hbudget result hr
-  · have hp : Pr[= result | experiment (fun _ => classWeight cls budget) budget adversary budget hbudget] = 0 := by
-      rw [PMF.probOutput_eq_apply, PMF.apply_eq_zero_iff]
-      exact hr
-    rw [hp, zero_mul, zero_mul]
-theorem full_charge_le_class_excess (cls : HashInput → Prop)
-    (adversary : SigGolfCandidate.T3M.Final.AdversaryP)
-    (budget : Nat) (hbudget : budget ≤ 2^127) :
-    expectedCharge (fun _ => classWeight cls budget) budget BPORS.History.fullPrice
-      adversary budget hbudget ≤
-      expectedClassCount (publicClass cls) adversary budget hbudget +
-        (budget : ENNReal) * (11324/100000000) :=
-  (full_charge_le_births_excess cls adversary budget hbudget).trans
-    (add_le_add (expectedBirths_le_classCount cls adversary budget hbudget) le_rfl)
-theorem expectedClassCount_le (cls : T3.Spec.Domain → Prop)
-    (adversary : SigGolfCandidate.T3M.Final.AdversaryP)
-    (budget : Nat) (hbudget : budget ≤ 2^127) :
-    expectedClassCount cls adversary budget hbudget ≤ (budget : ENNReal) := by
-  unfold expectedClassCount
-  calc
-    _ ≤ expectedValue (PaddedGame.tracedExperiment adversary budget hbudget)
-        (fun _ => (budget : ENNReal)) := by
-      apply expectedValue_mono
-      intro result
-      exact_mod_cast prefixCount_le cls budget result.2.2.events
-    _ = _ := expectedValue_const (by simp) _
-theorem expectedClassCount_disjoint (first second : T3.Spec.Domain → Prop)
-    (hdisjoint : ∀ input, ¬ (first input ∧ second input))
-    (adversary : SigGolfCandidate.T3M.Final.AdversaryP)
-    (budget : Nat) (hbudget : budget ≤ 2^127) :
-    expectedClassCount (fun input => first input ∨ second input) adversary budget hbudget =
-      expectedClassCount first adversary budget hbudget +
-        expectedClassCount second adversary budget hbudget := by
-  unfold expectedClassCount
-  simp_rw [prefixCount_disjoint first second hdisjoint, Nat.cast_add]
-  exact expectedValue_add _ _ _
 end SigGolfCandidate.T3.Security.CreationGame
 end
 end

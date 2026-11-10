@@ -2033,14 +2033,14 @@ theorem run_privateNonce_fresh (message : Message) (state : State)
     (hfresh : state.1 (.inr (.inl message))=none) :
     run (privateNonce message) state=(do
       let output ← ($ᵗ HashOutput : ProbComp HashOutput)
-      pure (output.extractLsb' 0 128,
+      pure (BitVec.ofNat 128 (rhoMod output),
         (state.1.cacheQuery (.inr (.inl message)) output,state.2))) := by
   unfold privateNonce privateHash
   rw [run_bind,run_query]
   change ((do
     let result ← (randomOracle (spec := Coordinate →ₒ HashOutput) (.inr (.inl message))).run state.1
     pure (result.1,(result.2,state.2))) >>= fun result =>
-      run (pure (result.1.extractLsb' 0 128)) result.2)=_
+      run (pure (BitVec.ofNat 128 (rhoMod result.1))) result.2)=_
   rw [QueryImpl.withCaching_run_none _ hfresh]
   simp only [map_eq_bind_pure_comp,bind_assoc,pure_bind,run_pure,Function.comp_apply]
   rfl
@@ -2070,31 +2070,55 @@ theorem uniform_hash_low_expectation (payoff : Digest → ENNReal) :
   rw [← expectedValue_map]
   exact expectedValue_congr (evalSPMF_ext_iff.mp
     (SphincsSecurity.evalDist_hashOutput_extract_uniform (by decide : 128 ≤ SphincsSecurity.hashOutputBits))) payoff
-theorem payload_completed_target_bound (cache : T3.Cache) (message : Message) (state : State)
-    (hfresh : state.1 (.inr (.inl message))=none) (targets : Finset DigestSampling.IndexBuckets) :
-    expectedValue (run (payloadRecord cache message) state)
-      (fun result => result.1.2.elim (BPORS.finiteAverage (Sampling.targetWeight targets))
-        (fun output => Sampling.targetWeight targets (DigestSampling.samplingData output).1)) ≤
-      targets.card/(2 : ENNReal)^59+Sampling.cachedTargetCount targets state.2/(2 : ENNReal)^128 := by
-  rw [payloadRecord,run_bind,run_privateNonce_fresh message state hfresh]
-  simp only [bind_assoc,pure_bind,expectedValue_bind]
-  calc
-    _ ≤ expectedValue ($ᵗ HashOutput : ProbComp HashOutput) (fun output =>
-        expectedValue (Sampling.roRun 0
-          (digestSearch (output.extractLsb' 0 128) message 0 attemptLimit) state.2)
-          (fun result => Sampling.completedTargetScore targets result.1)) :=
-      expectedValue_mono _ fun output => payloadForNonce_completed_label_le cache _ message
-        (state.1.cacheQuery (.inr (.inl message)) output,state.2)
-        (Sampling.targetWeight targets) (BPORS.finiteAverage (Sampling.targetWeight targets))
-    _ = expectedValue ($ᵗ Digest : ProbComp Digest) (fun rho =>
-        expectedValue (Sampling.roRun 0 (digestSearch rho message 0 attemptLimit) state.2)
-          (fun result => Sampling.completedTargetScore targets result.1)) :=
-      uniform_hash_low_expectation (fun rho =>
-        expectedValue (Sampling.roRun 0 (digestSearch rho message 0 attemptLimit) state.2)
-          (fun result => Sampling.completedTargetScore targets result.1))
-    _ ≤ targets.card/(2 : ENNReal)^59+Sampling.cachedTargetCount targets state.2/(2 : ENNReal)^128 := by
-      rw [← expectedValue_bind]
-      exact Sampling.uniform_nonce_completed_target_bound 0 message attemptLimit (by decide) state.2 targets
+/-- R6 (F2): the rho-law constant `κ = ⌈2^256 / R⌉ / 2^128` (= 45.71875 up to the ceiling). -/
+noncomputable def rhoKappa : ENNReal := (((2 ^ 256 + R - 1) / R : Nat) : ENNReal) / (2 : ENNReal) ^ 128
+theorem rhoKappa_eq : rhoKappa = (15557284462666655376466157833521152917877 : ENNReal) / 2 ^ 128 := by
+  rw [rhoKappa, show (2 ^ 256 + R - 1) / R = 15557284462666655376466157833521152917877 by decide, Nat.cast_ofNat]
+/-- Each residue class `d` (as a 128-bit digest) has at most `⌈2^256 / R⌉` preimages under `h ↦ h mod R`:
+`h ↦ h / R` injects the fibre into `range ⌈2^256 / R⌉`. -/
+theorem rhoMod_fibre_card (d : Digest) :
+    (Finset.univ.filter (fun h : HashOutput => BitVec.ofNat 128 (rhoMod h) = d)).card ≤
+      (2 ^ 256 + R - 1) / R := by
+  have hc : Finset.range ((2 ^ 256 + R - 1) / R) = Finset.range ((2 ^ 256 - 1) / R + 1) := by
+    rw [← Nat.add_div_right _ R_pos]; congr 2
+  rw [← Finset.card_range ((2 ^ 256 + R - 1) / R), hc]
+  apply Finset.card_le_card_of_injOn (fun h : HashOutput => h.toNat / R)
+  · intro h _
+    simp only [Finset.coe_range, Set.mem_Iio]
+    exact Nat.lt_succ_of_le (Nat.div_le_div_right (Nat.le_sub_one_of_lt h.isLt))
+  · intro a ha b hb hab
+    simp only [Finset.coe_filter, Finset.mem_univ, true_and, Set.mem_setOf_eq] at ha hb
+    have hm : a.toNat % R = b.toNat % R := by
+      have := congrArg BitVec.toNat (ha.trans hb.symm)
+      rwa [rhoMod_toNat, rhoMod_toNat] at this
+    apply BitVec.eq_of_toNat_eq
+    rw [← Nat.div_add_mod a.toNat R, ← Nat.div_add_mod b.toNat R, hm]
+    simp only at hab
+    rw [hab]
+/-- R6 (F2): reducing a uniform 256-bit hash mod `R` costs at most the factor `κ` against a uniform digest
+(each residue below `R` has at most `⌈2^256 / R⌉` preimages). -/
+theorem uniform_hash_mod_le (payoff : Digest → ENNReal) :
+    expectedValue ($ᵗ HashOutput : ProbComp HashOutput)
+      (fun output => payoff (BitVec.ofNat 128 (rhoMod output))) ≤
+      rhoKappa * expectedValue ($ᵗ Digest : ProbComp Digest) payoff := by
+  classical
+  unfold expectedValue rhoKappa
+  generalize hc : (2 ^ 256 + R - 1) / R = c
+  have hcard := rhoMod_fibre_card
+  rw [hc] at hcard
+  simp only [probOutput_uniformSample, tsum_fintype, Fintype.card_bitVec, Nat.cast_pow, Nat.cast_ofNat]
+  rw [← Finset.mul_sum, ← Finset.mul_sum,
+    ← Finset.sum_fiberwise Finset.univ (fun h : HashOutput => BitVec.ofNat 128 (rhoMod h))]
+  calc _ ≤ ((2 : ENNReal) ^ 256)⁻¹ * ∑ d : Digest, (c : ENNReal) * payoff d := by
+        gcongr with d
+        rw [Finset.sum_congr rfl (fun h hh => by rw [(Finset.mem_filter.mp hh).2]), Finset.sum_const,
+          nsmul_eq_mul]
+        gcongr
+        exact_mod_cast hcard d
+    _ = _ := by
+      rw [← Finset.mul_sum, show (2 : ENNReal) ^ 256 = 2 ^ 128 * 2 ^ 128 by rw [← pow_add],
+        ENNReal.mul_inv (Or.inl (by positivity)) (Or.inl (by finiteness)), div_eq_mul_inv]
+      ring
 theorem run_privateHash (coordinate : Coordinate) (state : State) :
     run (privateHash coordinate) state=(do
       let result ← (randomOracle (spec := Coordinate →ₒ HashOutput) coordinate).run state.1
@@ -2129,53 +2153,9 @@ theorem privateMac_preserves_nonce (region : Region) (message : Message)
   have h1 := privateHash_preserves_other (.inl (header 14 0 0 0 1))
     (.inr (.inl message)) (by simp) first.2 second hsecond
   exact ⟨h1.1.trans h0.1,h1.2.trans h0.2⟩
-theorem signing_completed_target_bound (cache : T3.Cache) (message : Message) (state : State)
-    (hfresh : state.1 (.inr (.inl message))=none) (targets : Finset DigestSampling.IndexBuckets) :
-    expectedValue (run (signingRecord cache message) state)
-      (fun result => result.1.2.elim (BPORS.finiteAverage (Sampling.targetWeight targets))
-        (fun output => Sampling.targetWeight targets (DigestSampling.samplingData output).1)) ≤
-      targets.card/(2 : ENNReal)^59+Sampling.cachedTargetCount targets state.2/(2 : ENNReal)^128 := by
-  rw [signingRecord,run_bind,expectedValue_bind]
-  apply expectedValue_le_of_support
-  intro result hresult
-  have hp := privateMac_preserves_nonce cache.region message state result hresult
-  split_ifs with htag
-  · simp only [run_pure,expectedValue_pure,Option.elim_none,Sampling.targetWeight_average]
-    exact le_add_right le_rfl
-  · have h := payload_completed_target_bound cache message result.2 (hp.1.trans hfresh) targets
-    rw [hp.2] at h
-    exact h
 noncomputable def signingRecordLaw (cache : T3.Cache) (message : Message) (state : State) :
     PMF (((Option Signature × Option HashOutput) × State) × DigestSampling.IndexBuckets) :=
   liftM (Sampling.completeRecord (fun result => result.1.2) (run (signingRecord cache message) state))
-theorem signingRecordLaw_target_bound (cache : T3.Cache) (message : Message) (state : State)
-    (hfresh : state.1 (.inr (.inl message))=none) (targets : Finset DigestSampling.IndexBuckets) :
-    Pr[fun result => result.2 ∈ targets | signingRecordLaw cache message state] ≤
-      targets.card/(2 : ENNReal)^59+Sampling.cachedTargetCount targets state.2/(2 : ENNReal)^128 := by
-  rw [← expectedValue_ite_one]
-  change expectedValue (Sampling.completeRecord (fun result => result.1.2)
-    (run (signingRecord cache message) state)) (fun result => Sampling.targetWeight targets result.2) ≤ _
-  rw [Sampling.completeRecord_expected]
-  exact signing_completed_target_bound cache message state hfresh targets
-theorem signingRecordLaw_scaled_cap (cache : T3.Cache) (message : Message) (state : State)
-    (hfresh : state.1 (.inr (.inl message))=none) (hfinite : SphincsSecurity.Finite state.2)
-    (budget : Nat) (hsize : QueryCache.enncard state.2 ≤ budget) (hbudget : budget ≤ 2^127)
-    (hclean : ¬Sampling.TargetCacheExceptional state.2) (point : DigestSampling.IndexBuckets) :
-    (1024/1025 : ENNReal)*((signingRecordLaw cache message state).map Prod.snd) point ≤
-      (PMF.uniformOfFintype DigestSampling.IndexBuckets) point := by
-  have hc : Fintype.card DigestSampling.IndexBuckets=2^59 := by
-    norm_num [DigestSampling.IndexBuckets,Fintype.card_prod,Fintype.card_fun]
-  have h := signingRecordLaw_target_bound cache message state hfresh {point}
-  simp only [Finset.mem_singleton,Finset.card_singleton,Nat.cast_one] at h
-  have hpoint := h.trans (Sampling.clean_point_bound_arithmetic state.2 hfinite budget hsize hbudget
-    hclean Acceptance.acceptanceProbability_le_one_sixteenth point)
-  rw [← PMF.monad_map_eq_map,← PMF.probOutput_eq_apply,probOutput_map,
-    PMF.uniformOfFintype_apply,hc,Nat.cast_pow,Nat.cast_ofNat]
-  calc
-    _ ≤ (1024/1025 : ENNReal)*((1025/1024 : ENNReal)/(2 : ENNReal)^59) := mul_le_mul' le_rfl hpoint
-    _ = _ := by
-      apply (ENNReal.toReal_eq_toReal_iff' (by finiteness) (by finiteness)).mp
-      norm_num [ENNReal.toReal_mul,ENNReal.toReal_div,ENNReal.toReal_inv,ENNReal.toReal_pow]
 theorem signingRecordLaw_erasure (cache : T3.Cache) (message : Message) (state : State) :
     (signingRecordLaw cache message state).map (fun result => (result.1.1.1,result.1.2))=
       (liftM (run (sign cache message) state) : PMF (Option Signature × State)) := by
@@ -2222,60 +2202,6 @@ noncomputable def interactionActive (budget : Nat) : Interaction.Domain → Stat
   | .inr request,state => decide (
       state.1 (.inr (.inl request.message))=none ∧ SphincsSecurity.Finite state.2 ∧
       QueryCache.enncard state.2 ≤ budget ∧ ¬Sampling.TargetCacheExceptional state.2)
-noncomputable def proposalModel (budget : Nat) (hbudget : budget ≤ 2^127) :
-    BPORS.Adaptive.ProposalModel Interaction State DigestSampling.IndexBuckets where
-  Outcome := InteractionOutcome
-  record := interactionRecord
-  response := interactionResponse
-  advance := interactionAdvance
-  label := interactionLabel
-  active := interactionActive budget
-  base := PMF.uniformOfFintype DigestSampling.IndexBuckets
-  accept := 1024/1025
-  positive := by norm_num
-  lt_one := by
-    apply (ENNReal.toReal_lt_toReal (by finiteness) (by finiteness)).mp
-    norm_num [ENNReal.toReal_div]
-  cap := by
-    intro input state hactive point
-    cases input with
-    | inl input => simp [interactionActive] at hactive
-    | inr request =>
-        change decide (_ ∧ _ ∧ _ ∧ _)=true at hactive
-        obtain ⟨hfresh,hfinite,hsize,hclean⟩ := of_decide_eq_true hactive
-        exact signingRecordLaw_scaled_cap request.cache request.message state
-          hfresh hfinite budget hsize hbudget hclean point
-theorem proposal_query_erasure (budget : Nat) (hbudget : budget ≤ 2^127)
-    (input : Interaction.Domain) (state : State) :
-    (((proposalModel budget hbudget).original input).run state)=
-      (liftM (run (interactionSource input) state) : PMF (Interaction.Range input × State)) := by
-  cases input with
-  | inl input =>
-      change (fun result : SphincsSecurity.OracleWorld.Range input × State => (result.1,result.2)) <$>
-        (liftM (run (forwardWorld input) state) : PMF _)=_
-      change id <$> (liftM (run (forwardWorld input) state) : PMF _)=_
-      rw [id_map]
-      rfl
-  | inr request =>
-      exact signingRecordLaw_erasure request.cache request.message state
-theorem proposal_execution_erasure {α : Type} (budget : Nat) (hbudget : budget ≤ 2^127)
-    (program : OracleComp Interaction α) (state : State) :
-    (simulateQ (proposalModel budget hbudget).original program).run state=
-      (liftM (run (simulateQ interactionSource program) state) : PMF (α × State)) := by
-  induction program using OracleComp.inductionOn generalizing state with
-  | pure value => simp [run_pure]
-  | query_bind input next ih =>
-      rw [simulateQ_bind,simulateQ_spec_query,StateT.run_bind,proposal_query_erasure]
-      rw [simulateQ_bind,simulateQ_spec_query,run_bind,liftM_bind]
-      apply bind_congr
-      intro result
-      exact ih result.1 result.2
-theorem proposal_trace_erasure {α : Type} (budget : Nat) (hbudget : budget ≤ 2^127)
-    (program : OracleComp Interaction α) (history : List DigestSampling.IndexBuckets) (state : State) :
-    Prod.map id Prod.snd <$>
-      (simulateQ (proposalModel budget hbudget).traced program).run (history,state)=
-      (liftM (run (simulateQ interactionSource program) state) : PMF (α × State)) := by
-  rw [(proposalModel budget hbudget).traced_erasure,proposal_execution_erasure]
 end SigGolfCandidate.T3.Security.LazyPrivate
 namespace SigGolfCandidate.T3.Security.NonceFreshness
 open OracleComp OracleSpec
@@ -5338,19 +5264,6 @@ theorem counted_source_erasure {Result : Type} (model : ProposalModel spec State
   rw [model.traced_erasure] at h
   change (fun a : Result × (List Label × (Nat × State)) => (a.1,a.2.2.2)) <$> _ = _
   simpa only [Functor.map_map, Function.comp_def, Prod.map, id_eq] using h
-theorem signing_trace_overflow {Result : Type} (budget : Nat) (hbudget : budget ≤ 2^127)
-    (program : OracleComp LazyPrivate.Interaction Result) (state : LazyPrivate.State) :
-    Pr[fun result => result.2.2.1 ≤ 2^32 ∧ BPORS.Numeric.proposalLength < result.2.1.length |
-      (simulateQ (counted (LazyPrivate.proposalModel budget hbudget)).traced program).run ([],0,state)] ≤
-      (2 : ENNReal)⁻¹ ^ 700 :=
-  full_trace_overflow_bound (LazyPrivate.proposalModel budget hbudget) rfl program state
-theorem signing_trace_erasure {Result : Type} (budget : Nat) (hbudget : budget ≤ 2^127)
-    (program : OracleComp LazyPrivate.Interaction Result) (state : LazyPrivate.State) :
-    Prod.map id (fun current => current.2.2) <$>
-      (simulateQ (counted (LazyPrivate.proposalModel budget hbudget)).traced program).run ([],0,state) =
-      (liftM (LazyPrivate.run (simulateQ LazyPrivate.interactionSource program) state) :
-        PMF (Result × LazyPrivate.State)) := by
-  rw [counted_source_erasure, LazyPrivate.proposal_execution_erasure]
 def logFragment : (input : LazyPrivate.Interaction.Domain) →
     LazyPrivate.Interaction.Range input → QueryLog Requests
   | .inl _, _ => []
@@ -5382,69 +5295,6 @@ theorem counted_query_count (model : ProposalModel spec State Label)
   · simp only [ha, Bool.false_eq_true, if_false, PMF.support_map, Set.mem_image] at hr
     obtain ⟨outcome, _, rfl⟩ := hr
     simp only [ha, Bool.false_eq_true, if_true, if_false]
-theorem signing_count_le_fragment (budget : Nat) (hbudget : budget ≤ 2^127)
-    (input : LazyPrivate.Interaction.Domain) (state : List DigestSampling.IndexBuckets × (Nat × LazyPrivate.State))
-    (result : LazyPrivate.Interaction.Range input × (List DigestSampling.IndexBuckets × (Nat × LazyPrivate.State)))
-    (hr : result ∈ (((counted (LazyPrivate.proposalModel budget hbudget)).traced input).run state).support) :
-    result.2.2.1 ≤ state.2.1 + (logFragment input result.1).length := by
-  rw [counted_query_count _ input state result hr]
-  cases input with
-  | inl input => simp [LazyPrivate.proposalModel, LazyPrivate.interactionActive, logFragment]
-  | inr request => simp only [logFragment, List.length_singleton]; split <;> omega
-theorem signing_count_le_log {Result : Type} (budget : Nat) (hbudget : budget ≤ 2^127)
-    (program : OracleComp LazyPrivate.Interaction Result)
-    (state : List DigestSampling.IndexBuckets × (Nat × LazyPrivate.State))
-    (result : (Result × QueryLog Requests) × (List DigestSampling.IndexBuckets × (Nat × LazyPrivate.State)))
-    (hr : result ∈ ((simulateQ (counted (LazyPrivate.proposalModel budget hbudget)).traced
-      (logged program)).run state).support) :
-    result.2.2.1 ≤ state.2.1 + result.1.2.length := by
-  induction program using OracleComp.inductionOn generalizing state result with
-  | pure value =>
-      rw [logged_pure, simulateQ_pure, StateT.run_pure, PMF.monad_pure_eq_pure, PMF.mem_support_pure_iff] at hr
-      subst result
-      simp
-  | query_bind input next ih =>
-      rw [logged_query_bind, simulateQ_bind, simulateQ_spec_query, StateT.run_bind,
-        PMF.monad_bind_eq_bind, PMF.mem_support_bind_iff] at hr
-      obtain ⟨middle, hm, hr⟩ := hr
-      have hstep := signing_count_le_fragment budget hbudget input state middle hm
-      rw [simulateQ_bind, StateT.run_bind, PMF.monad_bind_eq_bind, PMF.mem_support_bind_iff] at hr
-      obtain ⟨last, hl, hr⟩ := hr
-      have hrest := ih middle.1 middle.2 last hl
-      rw [simulateQ_pure, StateT.run_pure, PMF.monad_pure_eq_pure, PMF.mem_support_pure_iff] at hr
-      subst result
-      simp only [List.length_append]
-      omega
-theorem signing_log_overflow {Result : Type} (budget : Nat) (hbudget : budget ≤ 2^127)
-    (program : OracleComp LazyPrivate.Interaction Result) (state : LazyPrivate.State) :
-    Pr[fun result => result.1.2.length ≤ 2^32 ∧ BPORS.Numeric.proposalLength < result.2.1.length |
-      (simulateQ (counted (LazyPrivate.proposalModel budget hbudget)).traced
-        (logged program)).run ([],0,state)] ≤ (2 : ENNReal)⁻¹ ^ 700 := by
-  apply le_trans ?_ (signing_trace_overflow budget hbudget (logged program) state)
-  classical
-  rw [probEvent_eq_tsum_ite, probEvent_eq_tsum_ite]
-  apply ENNReal.tsum_le_tsum
-  intro result
-  by_cases hr : result ∈ ((simulateQ (counted (LazyPrivate.proposalModel budget hbudget)).traced
-      (logged program)).run ([],0,state)).support
-  · by_cases hb : result.1.2.length ≤ 2^32 ∧ BPORS.Numeric.proposalLength < result.2.1.length
-    · have hcount := signing_count_le_log budget hbudget program ([],0,state) result hr
-      have hc : result.2.2.1 ≤ result.1.2.length := by simpa using hcount
-      simp only [hb, if_true, show result.2.2.1 ≤ 2^32 ∧
-        BPORS.Numeric.proposalLength < result.2.1.length from ⟨hc.trans hb.1,hb.2⟩, le_refl]
-    · simp only [hb, if_false, zero_le]
-  · have hz : ((simulateQ (counted (LazyPrivate.proposalModel budget hbudget)).traced
-        (logged program)).run ([],0,state)) result = 0 := by
-      simpa only [PMF.mem_support_iff, not_not] using hr
-    simp only [PMF.probOutput_eq_apply, hz, ite_self, le_refl]
-theorem source_proposal_overflow {Result : Type} (budget : Nat) (hbudget : budget ≤ 2^127)
-    (program : OracleComp LazyPrivate.Interaction Result) (state : LazyPrivate.State) :
-    Pr[fun result => result.1.2.length ≤ 2^32 ∧ BPORS.Numeric.proposalLength < result.2.1.length |
-      (simulateQ (LazyPrivate.proposalModel budget hbudget).traced (logged program)).run ([],state)] ≤
-      (2 : ENNReal)⁻¹ ^ 700 := by
-  rw [← counted_trace_erasure (LazyPrivate.proposalModel budget hbudget) (logged program) ([],0,state),
-    probEvent_map]
-  exact signing_log_overflow budget hbudget program state
 theorem logged_source {Result : Type} (program : OracleComp LazyPrivate.Interaction Result) :
     simulateQ LazyPrivate.interactionSource (logged program) =
       (simulateQ

@@ -232,8 +232,8 @@ theorem V_node {β : Type} (secret : BitVec 256) (z m B : ℝ≥0∞) (h heap : 
   unfold topNodeAt
   have hcap : topNonceCap h - 1 < 2 ^ 64 := by
     unfold topNonceCap
-    have : (2 : Nat) ^ topZeroBits h ≤ 2 ^ 8 := Nat.pow_le_pow_right (by norm_num) (topZeroBits_le h h11)
-    have : (104 : Nat) * 2 ^ 8 < 2 ^ 64 := by norm_num
+    have : (2 : Nat) ^ topZeroBits h ≤ 2 ^ 9 := Nat.pow_le_pow_right (by norm_num) (topZeroBits_le h h11)
+    have : (104 : Nat) * 2 ^ 9 < 2 ^ 64 := by norm_num
     omega
   refine V_topNonceSearch_bind secret z h heap left right _ (FreshS (fun x => S x ∧ x ≠ heap)) B (m * B)
     ?_ ?_ ?_ ?_ (topNonceCap h - 1) 0 (by omega) cache (hfresh.mono (fun x hx => hx.1))
@@ -674,8 +674,8 @@ theorem E_node {β : Type} (secret : BitVec 256) (h heap : Nat) (h1 : 1 ≤ h) (
   unfold topNodeAt
   have hcap : topNonceCap h - 1 < 2 ^ 64 := by
     unfold topNonceCap
-    have : (2 : Nat) ^ topZeroBits h ≤ 2 ^ 8 := Nat.pow_le_pow_right (by norm_num) (topZeroBits_le h h11)
-    have : (104 : Nat) * 2 ^ 8 < 2 ^ 64 := by norm_num
+    have : (2 : Nat) ^ topZeroBits h ≤ 2 ^ 9 := Nat.pow_le_pow_right (by norm_num) (topZeroBits_le h h11)
+    have : (104 : Nat) * 2 ^ 9 < 2 ^ 64 := by norm_num
     omega
   have hcap1 : topNonceCap h - 1 + 1 = topNonceCap h := by
     unfold topNonceCap; have : 0 < 2 ^ topZeroBits h := by positivity
@@ -923,9 +923,9 @@ def keygenCode_0 : List (BitVec 32) := bv_list% 32 [0x293,0x8000e93,0x20f37,0xeb
 
 def keygenCode_1 : List (BitVec 32) := bv_list% 32 [0x1c7e93,0x4e9e93,0x20537,0x20050513,0x4000593,0x20637,0x24060613,0x73,0x73c0006f,0x2e0e33,0x41d60eb3,0x10eb303,0x18eb383,0x6e3023,0x7e3423,0x13,0x1c0c13,0xf69ff06f,0x7080006f,0xf59ff06f,0x8067,0x50137,0x10113,0xa000f13,0x1013303,0x1813383,0x6f3023,0x7f3423,0x80c37,0x20c0c13,0x1a37,0xa0a13,0xb13,0xb93,0x1a5d13,0x4a1a93,0x50137,0x10113,0x2a8ab3,0x1337,0xd0130313,0x20b1393,0x736333,0x20b9393,0x20e37,0xe0e13,0x6e3823,0x7e3c23,0x20537,0x50513,0x4000593,0x20637,0x6060613,0x3310006f,0xab303,0x63383,0x734333,0x6c3023,0x8ab303,0x863383,0x734333,0x6c3423,0x10ab303,0x1063383,0x734333,0x6c3823,0x18ab303,0x1863383,0x734333,0x6c3c23,0x20a8a93,0x20c0c13,0x1b8b93,0xf7abece3,0x1a5a13,0x1b0b13,0xc00313,0xf46b68e3,0x20e37,0xe0e13,0xeb7,0x80e8e93,0xeb303,0x6e3023,0x8eb303,0x6e3423,0x10eb303,0x26e3023,0x18eb303,0x26e3423,0x20e3823,0x20e3c23,0x1337,0xe0130313,0x6e3823,0xe3c23,0x20537,0x50513,0x4000593,0x70637,0x60613,0x73,0x100313,0x2031313,0x6e3c23,0x70637,0x2060613,0x73,0xfff00913,0x395913,0xa09b7,0x98993,0x70b37,0xb0b13,0x80cb7,0xc8c93,0xb3b83,0x12bfbb3,0x8b3c03,0x806b7,0x2068693,0x713,0x6e783,0xe787b3,0x377b833,0x37787b3,0x381813,0x3d7d893,0x1180833,0x127f7b3,0xf80833,0x3d85713,0x1287833,0x1070733,0x46e783,0xe787b3,0x377b833,0x37787b3,0x381813,0x3d7d893,0x1180833,0x127f7b3,0xf80833,0x3d85713,0x1287833,0x1070733,0x868693,0xf9369ee3,0x3d75793,0x1277733,0xf70733,0x12747b3,0x17b793,0xfff78793,0xf77733,0x1870733,0xecb023,0x10b0b13,0xb3b83,0x12bfbb3,0x8b3c03,0x806b7,0x2068693,0x713,0x6e783,0xe787b3,0x377b833,0x37787b3,0x381813,0x3d7d893,0x1180833,0x127f7b3,0xf80833,0x3d85713,0x1287833,0x1070733,0x46e783,0xe787b3,0x377b833,0x37787b3,0x381813,0x3d7d893,0x1180833,0x127f7b3,0xf80833,0x3d85713,0x1287833,0x1070733,0x868693,0xf9369ee3,0x3d75793,0x1277733,0xf70733,0x12747b3,0x17b793,0xfff78793,0xf77733,0x1870733,0xecb423,0x10b0b13,0xb3b83,0x12bfbb3,0x8b3c03,0x806b7,0x2068693,0x713,0x6e783,0xe787b3,0x377b833,0x37787b3,0x381813,0x3d7d893,0x1180833,0x127f7b3,0xf80833,0x3d85713,0x1287833,0x1070733,0x46e783,0xe787b3,0x377b833,0x37787b3,0x381813,0x3d7d893,0x1180833,0x127f7b3,0xf80833,0x3d85713,0x1287833,0x1070733,0x868693,0xf9369ee3,0x3d75793,0x1277733,0xf70733,0x12747b3,0x17b793,0xfff78793,0xf77733,0x1870733,0xecb823,0x10b0b13,0xb3b83,0x12bfbb3,0x8b3c03,0x806b7,0x2068693,0x713,0x6e783,0xe787b3,0x377b833,0x37787b3,0x381813,0x3d7d893,0x1180833,0x127f7b3]
 
-def keygenCode_2 : List (BitVec 32) := bv_list% 32 [16255027,64509715,19429427,17237811,4646787,15173555,58177587,58165171,3676179,64477331,18352179,19396531,16255027,64509715,19429427,17237811,8816275,0xf9369ee3,64444307,19363635,16189235,19351475,1554323,0xfff78793,16217907,25626419,15514659,1049235,1299,115]++List.replicate 45 19++bv_list% 32 [12583827,264803,1049491,7603299,915,6521747,7639859,19071795,134711,437128723,33772435,8272931,33755923,16995091,0x2f80006f,0x13,0x13,0x13,0x13,268071827,8622995,7562035,134865811,7562035,0x885ff06f,0x650006f,0x600f13,65603379,34019091,1533715,3731,132407,15022115,343075,67110291,67438099,115,67449347,4993059,75837955,4994083,84226563,4995107,92615171,4996131,34343955,1052435,34545427,31917875,2002579,0x1000f13,0xfbee98e3,2451,32871,19,0x3d0006f,1939,136503,0xc050513,136631,0xff050513,2067,3091,531,1555,429715,2031379,985187,15222835,16534579,12730931,66576147,1447443,31876659,66543379,1546131,31975347,1513235,2023059,0xfc0e96e3,1187603,32000051,2236179,32000051,7479059,32000051,4737075,343811,31999795,8732419,32262067,0xf8b512e3,134967,485439523,486489123,32871,19,5245587,28315411,0x85e9c6e3,4197011,0x1480006f]++bv_list% 32 [0x6041263,0x19f313,0x393,0x4731c63,0x3400393,0x533c863,0x10e3303,0x46e3023,0x18e3303,0x46e3423,0x40e3823,0x40e3c23,0x60e3023,0x60e3423,0x30e0513,0x4000593,0x20e0613,0xfffa8313,0x3300393,0x99463,0xa8313,0x6a1463,0x30e0613,0x73,0xf10ff06f,0x20e3023,0x20e3423,0xe0513,0x4000593,0x30e0613,0x73,0xef4ff06f] ++ bv_list% 32 [0x100a13,0x100693,0x851ff06f,0x1a5a13,0x168693,0x84dff06f,0xc00e13,0x9c68063,0xffd68713,0x300e13,0x7c6ca63,0x71663,0x200713,0x80006f,0x170713,0x4000e13,0x40ee0e33,0xfff00813,0x1c81833,0xb00e13,0x1c69663,0x7f00813,0x4840006f,0x6800893,0xe898b3,0x41d60f33,0x18f3f03,0x10f7f33,0x20f0663,0x20e37,0x220e3f03,0x1f0f13,0x11f7e63,0x23ee3023,0x20537,0x20050513,0x4000593,0x73,0xfcdff06f,0x20e37,0x220e3023,0x4c1e13,0x2e0e33,0x41d60eb3,0x10eb303,0x18eb383,0x6e3023]
+def keygenCode_2 : List (BitVec 32) := bv_list% 32 [16255027,64509715,19429427,17237811,4646787,15173555,58177587,58165171,3676179,64477331,18352179,19396531,16255027,64509715,19429427,17237811,8816275,0xf9369ee3,64444307,19363635,16189235,19351475,1554323,0xfff78793,16217907,25626419,15514659,1049235,1299,115]++List.replicate 45 19++bv_list% 32 [12583827,264803,1049491,7603299,915,6521747,7639859,19071795,134711,437128723,33772435,8272931,33755923,16995091,0x2f80006f,0x13,0x13,0x13,0x13,268071827,8622995,7562035,134865811,7562035,0x885ff06f,0x650006f,0x600f13,65603379,34019091,1533715,3731,132407,15022115,343075,67110291,67438099,115,67449347,4993059,75837955,4994083,84226563,4995107,92615171,4996131,34343955,1052435,34545427,31917875,2002579,0x1000f13,0xfbee98e3,2451,32871,19,0x3d0006f,1939,136503,0xc050513,136631,0xff050513,2067,3091,531,1555,429715,2031379,985187,15222835,16534579,12730931,66576147,1447443,31876659,66543379,1546131,31975347,1513235,2023059,0xfc0e96e3,1187603,32000051,2236179,32000051,7479059,32000051,4737075,343811,31999795,8732419,32262067,0xf8b512e3,134967,485439523,486489123,32871,19,5245587,28315411,0x85e9c6e3,4197011,0x1480006f]++bv_list% 32 [0x6041263,0x19f313,0x393,0x4731c63,0x3400393,0x533c863,0x10e3303,0x46e3023,0x18e3303,0x46e3423,0x40e3823,0x40e3c23,0x60e3023,0x60e3423,0x30e0513,0x4000593,0x20e0613,0xfffa8313,0x3300393,0x99463,0xa8313,0x6a1463,0x30e0613,0x73,0xf10ff06f,0x20e3023,0x20e3423,0xe0513,0x4000593,0x30e0613,0x73,0xef4ff06f] ++ bv_list% 32 [0x100a13,0x100693,0x851ff06f,0x1a5a13,0x168693,0x84dff06f,0xc00e13,0x9c68063,0xffd68713,0x300e13,0x7c6ca63,0x71663,0x100713,0x80006f,0x170713,0x4000e13,0x40ee0e33,0xfff00813,0x1c81833,0xb00e13,0x1c69663,0x1ff00813,0x4840006f,0x6800893,0xe898b3,0x41d60f33,0x18f3f03,0x10f7f33,0x20f0663,0x20e37,0x220e3f03,0x1f0f13,0x11f7e63,0x23ee3023,0x20537,0x20050513,0x4000593,0x73,0xfcdff06f,0x20e37,0x220e3023,0x4c1e13,0x2e0e33,0x41d60eb3,0x10eb303,0x18eb383,0x6e3023]
 def keygenCode_3 : List (BitVec 32) := bv_list% 32 [0x7e3423,0x83dff06f] ++ bv_list% 32 [0x3000f13,0xefe9cc63,0x600a93,0x3200f13,0xefe9c663,0x500a93,0xee4ff06f] ++ List.replicate 3 19 ++ bv_list% 32 [0x141f13,0x1e40433,0x840433,0x803f33,0x1f0f13,0x1cf1f13,0x8f1f33,0x1e36333,0x640413,0x345413,0xe08ff06f,0x141f13,0x1e40433,0x840433,0x803f33,0x1f0f13,0x1cf1f13,0x8f1f33,0x1e36333,0x640413,0x345413,0xcf5ff06f] ++ List.replicate 222 19
-def keygenCode_4 : List (BitVec 32) := bv_list% 32 [0xb1c63,0x63023,0x63423,0x63823,0x63c23,0xcc4ff06f,0x73,0xcbcff06f] ++ bv_list% 32 [0x700713,0x2581813,0xb79ff06f] ++ List.replicate 82 19 ++ bv_list% 32 [3148435,2579093091,4197011,2555375727,787347,267645715,8590099,8639379,6546355,7735,4043181587,29618995,4395795,4445075,29619123,6546355,15927,859704851,29618995,2298643,2347923,29619123,6546355,24119,1432227347,29618995,1250067,1299347,29619123,6546355,50566035,2706370671] ++ bv_list% 32 [0x397f13,0x40f1263,0x21c37,0x295f13,0x1f7e93,0x1f00713,0x2ef0733,0x1d70733,0x175713,0x2071713,0x176713,0xe8c63,0x1f0c3203,0x4c3023,0x1f8c3203,0x4c3423,0x10c0c13,0xf70ff06f,0x993,0x8067,0x397f13,0x6f1f13,0x1e686b3,0x713,0x793,0x215b7,0x1f058513,0xfbcff06f]
+def keygenCode_4 : List (BitVec 32) := bv_list% 32 [0xb1c63,0x63023,0x63423,0x63823,0x63c23,0xcc4ff06f,0x73,0xcbcff06f] ++ bv_list% 32 [0x900713,0x2381813,0xb79ff06f] ++ List.replicate 82 19 ++ bv_list% 32 [3148435,2579093091,4197011,2555375727,787347,267645715,8590099,8639379,6546355,7735,4043181587,29618995,4395795,4445075,29619123,6546355,15927,859704851,29618995,2298643,2347923,29619123,6546355,24119,1432227347,29618995,1250067,1299347,29619123,6546355,50566035,2706370671] ++ bv_list% 32 [0x397f13,0x40f1263,0x21c37,0x295f13,0x1f7e93,0x1f00713,0x2ef0733,0x1d70733,0x175713,0x2071713,0x176713,0xe8c63,0x1f0c3203,0x4c3023,0x1f8c3203,0x4c3423,0x10c0c13,0xf70ff06f,0x993,0x8067,0x397f13,0x6f1f13,0x1e686b3,0x713,0x793,0x215b7,0x1f058513,0xfbcff06f]
 def keygenCode : List (BitVec 32) :=
   [keygenCode_0, keygenCode_1, keygenCode_2, keygenCode_3, keygenCode_4].foldl (· ++ ·) [] ++ bv_list% 32 [0x1830333,0xfff30193,0x11b193,0xd13b7,0xfff38393,0x403001b3,0x71f1b3,0x330333,0xff930193,0x19663,0x7f337,0x968ff06f,0x13,0x960ff06f]
 def keygenData : List (BitVec 8) := [
@@ -966,12 +966,12 @@ namespace ClaudeWCT.W9.T3M.Paired
 open SigGolfCandidate.Legacy
 
 def submission (I : Images) : Submission where
-  sizes := ⟨5188, 21756, 131072⟩
+  sizes := ⟨5187, 21756, 131072⟩
   layout := ⟨0x65A0, 0x80, 0xa0, 0x80000, 0x7000, 0x10A0⟩
   image := (ClaudeWCT.W9.T3M.submission I).image
 
 variable (I : Images)
-@[simp] theorem submission_sizes : (submission I).sizes = ⟨5188, 21756, 131072⟩ := rfl
+@[simp] theorem submission_sizes : (submission I).sizes = ⟨5187, 21756, 131072⟩ := rfl
 @[simp] theorem submission_layout : (submission I).layout = ⟨0x65A0, 0x80, 0xa0, 0x80000, 0x7000, 0x10A0⟩ := rfl
 @[simp] theorem submission_image : (submission I).image = (ClaudeWCT.W9.T3M.submission I).image := rfl
 @[simp] theorem submission_keygen : (submission I).image .keygen = SigGolfCandidate.T3M.Images.keygenImage := rfl
@@ -2985,7 +2985,7 @@ theorem levFac_const (fac : Nat → ℝ≥0∞) (h a : Nat) (c : ℝ≥0∞) (hc
 
 theorem lzb_eq (lay heap : Nat) : ClaudeWCT.WCT9.lowerZeroBits lay heap =
     if lay = 0 ∨ heap < 2 ∨ 32 ≤ heap then 0 else if 16 ≤ heap then 1 else if 8 ≤ heap then 2
-    else if 4 ≤ heap then 3 else if lay = 1 then 3 else 4 := rfl
+    else if 4 ≤ heap then 3 else 4 := rfl
 
 theorem facS_of (lay heap k : Nat) (hk : ClaudeWCT.WCT9.lowerZeroBits lay heap = k) :
     facS lay heap = if k = 0 then SigGolfCandidate.T3.Budgets.signingZ else mG k := by
@@ -2997,7 +2997,7 @@ theorem levFac_of (lay h a k : Nat) (hk : ∀ i < 2 ^ (h - a), ClaudeWCT.WCT9.lo
 
 theorem levFac_one :
     ((List.range' 1 (height 1 - 1)).map (levFac (facS 1) (height 1))).prod =
-      SigGolfCandidate.T3.Budgets.signingZ ^ 96 * (mG 1 ^ 16 * mG 2 ^ 8 * mG 3 ^ 6) := by
+      SigGolfCandidate.T3.Budgets.signingZ ^ 96 * (mG 1 ^ 16 * mG 2 ^ 8 * mG 3 ^ 4 * mG 4 ^ 2) := by
   have hh : height (1 : Layer) = 7 := rfl
   rw [hh, show 7 - 1 = 6 from rfl]
   simp only [List.range'_succ, List.range'_zero, List.map_cons, List.map_nil, List.prod_cons, List.prod_nil]
@@ -3006,7 +3006,7 @@ theorem levFac_one :
     levFac_of 1 7 3 1 (fun i hi => by simp only [Nat.reduceSub, Nat.reducePow] at hi ⊢; interval_cases i <;> rfl),
     levFac_of 1 7 4 2 (fun i hi => by simp only [Nat.reduceSub, Nat.reducePow] at hi ⊢; interval_cases i <;> rfl),
     levFac_of 1 7 5 3 (fun i hi => by simp only [Nat.reduceSub, Nat.reducePow] at hi ⊢; interval_cases i <;> rfl),
-    levFac_of 1 7 6 3 (fun i hi => by simp only [Nat.reduceSub, Nat.reducePow] at hi ⊢; interval_cases i <;> rfl)]
+    levFac_of 1 7 6 4 (fun i hi => by simp only [Nat.reduceSub, Nat.reducePow] at hi ⊢; interval_cases i <;> rfl)]
   norm_num
   ring
 
@@ -3042,8 +3042,9 @@ theorem leafSum_three : ∑ leaf ∈ Finset.range (2 ^ height 3), ClaudeWCT.WCT9
   rw [Finset.sum_congr rfl (fun leaf _ => ClaudeWCT.WCT9.Cost.leafCostP_lower (by decide) leaf)]
   decide
 
-/-- The 90 ground node factors of the three signing trees (E11 V29). -/
-noncomputable def groundE : ℝ≥0∞ := mG 1 ^ 48 * mG 2 ^ 24 * mG 3 ^ 14 * mG 4 ^ 4
+/-- The 90 ground node factors of the three signing trees (N7g B widths (4,3,2,1) × 3): 48 with `b = 1`, 24 with
+`b = 2`, 12 with `b = 3`, 6 with `b = 4` (with `ftsE`: 64/80/12/6). -/
+noncomputable def groundE : ℝ≥0∞ := mG 1 ^ 48 * mG 2 ^ 24 * mG 3 ^ 12 * mG 4 ^ 6
 
 /-- **E11 prepared-roots moment**: `V prepareRoots ≤ z^80731 · Π m_b` (80731 = 80821 − 90). -/
 theorem V_prepareRoots_U16 (secret : BitVec 256) (index : Nat) (hidx : index < 2 ^ 31) (cache : RCache)
@@ -3618,12 +3619,12 @@ theorem treeCap_one_le : treeCap 1 ≤ 30 * cG := by
       levCap_of 1 7 3 1 (fun i hi => by simp only [Nat.reduceSub, Nat.reducePow] at hi ⊢; interval_cases i <;> rfl),
       levCap_of 1 7 4 2 (fun i hi => by simp only [Nat.reduceSub, Nat.reducePow] at hi ⊢; interval_cases i <;> rfl),
       levCap_of 1 7 5 3 (fun i hi => by simp only [Nat.reduceSub, Nat.reducePow] at hi ⊢; interval_cases i <;> rfl),
-      levCap_of 1 7 6 3 (fun i hi => by simp only [Nat.reduceSub, Nat.reducePow] at hi ⊢; interval_cases i <;> rfl)]
+      levCap_of 1 7 6 4 (fun i hi => by simp only [Nat.reduceSub, Nat.reducePow] at hi ⊢; interval_cases i <;> rfl)]
   simp only [Nat.reduceSub, Nat.reducePow, Nat.cast_ofNat, if_true, one_ne_zero, if_false,
     OfNat.ofNat_ne_zero, mul_zero, zero_add, add_zero]
-  have hle : ∀ x : ℝ≥0∞, x = 16 * capFailG 1 + 8 * capFailG 2 + 4 * capFailG 3 + 2 * capFailG 3 → x ≤ 30 * cG := by
+  have hle : ∀ x : ℝ≥0∞, x = 16 * capFailG 1 + 8 * capFailG 2 + 4 * capFailG 3 + 2 * capFailG 4 → x ≤ 30 * cG := by
     intro x hx; rw [hx]
-    calc 16 * capFailG 1 + 8 * capFailG 2 + 4 * capFailG 3 + 2 * capFailG 3 ≤ 16 * cG + 8 * cG + 4 * cG + 2 * cG := by gcongr
+    calc 16 * capFailG 1 + 8 * capFailG 2 + 4 * capFailG 3 + 2 * capFailG 4 ≤ 16 * cG + 8 * cG + 4 * cG + 2 * cG := by gcongr
       _ = 30 * cG := by ring
   exact hle _ (by ring)
 
@@ -3956,7 +3957,7 @@ noncomputable def excessGB (levels : List (List Digest)) (b : Bool) : ℝ≥0∞
 
 theorem excessWeight_searchFuel_le : excessWeight ClaudeWCT.WCT9.searchFuel ≤ ENNReal.ofReal 4 := by
   unfold excessWeight expandReplayExtra ClaudeWCT.WCT9.searchFuel
-  calc (2 : ℝ≥0∞) ^ ((8 / 7 : ℝ) * ((12384 + 4087 + 66757 + 1048575 : ℕ) : ℝ) / 1048576)
+  calc (2 : ℝ≥0∞) ^ ((8 / 7 : ℝ) * ((13408 + 4087 + 106485 + 1048575 : ℕ) : ℝ) / 1048576)
       ≤ (2 : ℝ≥0∞) ^ ((2 : ℕ) : ℝ) :=
         ENNReal.rpow_le_rpow_of_exponent_le (by norm_num) (by push_cast; norm_num)
     _ = ENNReal.ofReal 4 := by rw [ENNReal.rpow_natCast]; norm_num
@@ -3964,7 +3965,7 @@ theorem excessWeight_searchFuel_le : excessWeight ClaudeWCT.WCT9.searchFuel ≤ 
 theorem excessWeight_worst_le :
     excessWeight SigGolfCandidate.Research.SharedForest.expandWorstCost ≤ ENNReal.ofReal (2 ^ 19) := by
   unfold excessWeight expandReplayExtra SigGolfCandidate.Research.SharedForest.expandWorstCost
-  calc (2 : ℝ≥0∞) ^ ((8 / 7 : ℝ) * ((12384 + 4087 + 66757 + 2 ^ 24 : ℕ) : ℝ) / 1048576)
+  calc (2 : ℝ≥0∞) ^ ((8 / 7 : ℝ) * ((13408 + 4087 + 106485 + 2 ^ 24 : ℕ) : ℝ) / 1048576)
       ≤ (2 : ℝ≥0∞) ^ ((19 : ℕ) : ℝ) :=
         ENNReal.rpow_le_rpow_of_exponent_le (by norm_num) (by push_cast; norm_num)
     _ = ENNReal.ofReal (2 ^ 19) := by
@@ -3988,7 +3989,7 @@ theorem hashOnly_jointLB {ω : Type} (message : Message) (ex : Digest → Signat
 /-- `E[excessG]` over the top tree (img-v6, unchanged). -/
 theorem Ev_excessG_le (secret : BitVec 256) (hpre : TopPrefixOK secret) (hnum : ExpandExcessNumeric19) :
     Ev secret buildTopTree ∅ (fun r => excessG r.1) ≤
-      ENNReal.ofReal (19 / 10) + ENNReal.ofReal (1 / 2 ^ 135) * ENNReal.ofReal 4 := by
+      ENNReal.ofReal (191 / 100) + ENNReal.ofReal (1 / 2 ^ 135) * ENNReal.ofReal 4 := by
   classical
   have hsplitG : ∀ r : List (List Digest) × RCache, excessG r.1 ≤
       excessWeight (max (topFieldV ((r.1.getD 11 []).getD 0 0)) (topFieldV ((r.1.getD 11 []).getD 1 0))) +
@@ -4011,7 +4012,7 @@ theorem Ev_excessG_le (secret : BitVec 256) (hpre : TopPrefixOK secret) (hnum : 
   rw [hadd]
   have h1 : Ev secret buildTopTree ∅ (fun r =>
       excessWeight (max (topFieldV ((r.1.getD 11 []).getD 0 0)) (topFieldV ((r.1.getD 11 []).getD 1 0)))) ≤
-      ENNReal.ofReal (19 / 10) := by
+      ENNReal.ofReal (191 / 100) := by
     obtain ⟨γ, pre, sel, k, hsplit, hbound⟩ := hpre
     rw [hsplit]
     exact (Ev_buildTop_rootChildren secret pre sel k hbound excessWeight).trans hnum
@@ -4140,11 +4141,11 @@ theorem expand_excess_moment_of {ω : Type} (secret : BitVec 256) (message : Mes
   change Ev secret buildTopTree ∅ (fun r => excessG r.1 + ENNReal.ofReal (1 / 2 ^ 150) *
         excessWeight SigGolfCandidate.Research.SharedForest.expandWorstCost) ≤ 2
   rw [hadd]
-  calc _ ≤ (ENNReal.ofReal (19 / 10) + ENNReal.ofReal (1 / 2 ^ 135) * ENNReal.ofReal 4) +
+  calc _ ≤ (ENNReal.ofReal (191 / 100) + ENNReal.ofReal (1 / 2 ^ 135) * ENNReal.ofReal 4) +
         ENNReal.ofReal (1 / 2 ^ 150) * ENNReal.ofReal (2 ^ 19) :=
         add_le_add (Ev_excessG_le secret hpre hnum)
           ((Ev_const_le secret _ _ _).trans (mul_le_mul' le_rfl excessWeight_worst_le))
-    _ = ENNReal.ofReal (19 / 10 + 1 / 2 ^ 135 * 4 + 1 / 2 ^ 150 * 2 ^ 19) := by
+    _ = ENNReal.ofReal (191 / 100 + 1 / 2 ^ 135 * 4 + 1 / 2 ^ 150 * 2 ^ 19) := by
         rw [← ENNReal.ofReal_mul (by positivity), ← ENNReal.ofReal_mul (by positivity),
           ← ENNReal.ofReal_add (by norm_num) (by positivity),
           ← ENNReal.ofReal_add (by positivity) (by positivity)]
@@ -4647,7 +4648,7 @@ theorem groundE_ge_one : 1 ≤ ClaudeWCT.W9.T3.Freshness.Paired.GroundFresh.grou
   unfold ClaudeWCT.W9.T3.Freshness.Paired.GroundFresh.groundE
   exact one_le_mul (one_le_mul (one_le_mul (one_le_pow₀ (mG_ge_one 1 le_rfl (by norm_num)))
     (one_le_pow₀ (mG_ge_one 2 (by norm_num) (by norm_num)))) (one_le_pow₀ (mG_ge_one 3 (by norm_num) (by norm_num))))
-    (one_le_pow₀ (mG_ge_one 4 (by norm_num) le_rfl))
+    (one_le_pow₀ (mG_ge_one 4 (by norm_num) (by norm_num)))
 
 theorem ftsE_ge_one : 1 ≤ ClaudeWCT.W9.T3.Freshness.Paired.GroundFresh.ftsE := by
   unfold ClaudeWCT.W9.T3.Freshness.Paired.GroundFresh.ftsE
@@ -4779,8 +4780,8 @@ theorem signingMoment_le_two (hfix : SchemeFixedCostV6) : signingMoment ≤ 2 :=
     have h := ClaudeWCT.Numerics.TopZero.groundBound_ratio_ge
     calc _ = ((ClaudeWCT.Numerics.TopZero.groundM 1:ℝ)/scale)^64 *
           (((ClaudeWCT.Numerics.TopZero.groundM 2:ℝ)/scale)^80 *
-            (((ClaudeWCT.Numerics.TopZero.groundM 3:ℝ)/scale)^14 *
-              ((ClaudeWCT.Numerics.TopZero.groundM 4:ℝ)/scale)^4)) := by ring
+            (((ClaudeWCT.Numerics.TopZero.groundM 3:ℝ)/scale)^12 *
+              ((ClaudeWCT.Numerics.TopZero.groundM 4:ℝ)/scale)^6)) := by ring
       _ ≤ _ := h
   have he := ClaudeWCT.Numerics.TopZero.envelope_ratio_le_two_U16
   have h0 : (0:ℝ) ≤ (ftsBound:ℝ)/scale := div_nonneg (Nat.cast_nonneg _) (Nat.cast_nonneg _)
@@ -4997,6 +4998,7 @@ theorem sigDecC_sigBC_sign (answers : SigGolfCandidate.T3.Correctness.Answers) (
   exact ClaudeWCT.W9.T3M.SharedCodec.sigDecC_sigBC_normTop sig
     (ClaudeWCT.W9.T3M.SharedCodec.groundClear_of_lowerPathOK sig hp
       (ClaudeWCT.W9.T3M.SharedCodec.ftsSlotsClear_of_ftsPathOK sig (sign_ftsPathOK_U16 answers hlower message sig hs)))
+    (ClaudeWCT.W9.T3M.SharedCodec.rhoHintOK_sign answers _ message sig hs)
 
 theorem cost_expandN_normTop (answers : SigGolfCandidate.T3.Correctness.Answers) (message : Message) (pk : Digest)
     (sig : Signature) :
@@ -5104,11 +5106,11 @@ def KeygenRunWith : Prop := ∀ (hash : Hash) (sk : SecretKey),
  def SignTerminates : Prop := ∀ (hash : Hash) (sk : SecretKey) (cache : Bytes 131072) (m : Message),
   ((submission I).runWith hash .sign (sk,cache,m)).finished=true ∧
     ((submission I).runWith hash .sign (sk,cache,m)).cycles<CYCLE_LIMIT
- def ExpandRefines : Prop := ∀ (m : Message) (pk : PublicKey) (s : Bytes 5188),
+ def ExpandRefines : Prop := ∀ (m : Message) (pk : PublicKey) (s : Bytes 5187),
   (fun r => (r.value,r.hashCalls,r.hashCompressions)) <$> (submission I).run .expand (m,pk,s)=
     (fun p => (p.1.map (fun x => witEncF x.1 x.2),p.2.1,p.2.2)) <$>
       countBoth (mrealize 0 (expandN m pk (sigDecC s)))
- def ExpandTerminates : Prop := ∀ (hash : Hash) (m : Message) (pk : PublicKey) (s : Bytes 5188),
+ def ExpandTerminates : Prop := ∀ (hash : Hash) (m : Message) (pk : PublicKey) (s : Bytes 5187),
   ((submission I).runWith hash .expand (m,pk,s)).finished=true ∧
     ((submission I).runWith hash .expand (m,pk,s)).cycles<CYCLE_LIMIT
  def VerifyRefines : Prop := ∀ (m : Message) (pk : PublicKey) (w : Bytes 21756),
@@ -11767,7 +11769,7 @@ structure SetupMask (u : MachineState) : Prop where
   child : u.getMem (BitVec.ofNat 64 (dataBase7 + 368)) = BitVec.ofNat 64 0xf1b00
   jt : u.getMem (BitVec.ofNat 64 (dataBase7 + 376)) = BitVec.ofNat 64 0xfff01
   coord : u.getMem (BitVec.ofNat 64 (dataBase7 + 464)) = BitVec.ofNat 64 11120
-  gate : u.getMem (BitVec.ofNat 64 (dataBase7 + 352)) = BitVec.ofNat 64 (934 * 2^50)
+  gate : u.getMem (BitVec.ofNat 64 (dataBase7 + 352)) = BitVec.ofNat 64 (926 * 2^50)
   d0 : u.getMem (BitVec.ofNat 64 dataBase7) = BitVec.ofNat 64 0xfff
   aTable : u.getMem (BitVec.ofNat 64 (dataBase7 + 56)) = BitVec.ofNat 64 0xe3300
   singleton : u.getMem (BitVec.ofNat 64 (dataBase7 + 64)) = BitVec.ofNat 64 0xe7400

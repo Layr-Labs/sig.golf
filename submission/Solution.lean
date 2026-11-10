@@ -5,7 +5,7 @@ namespace SigGolf.Challenge
 
 def submission : SigGolf.Submission := SigGolfCandidate.Transfer.currentOf SigGolfCandidate.T3M.Paired.submission
 
-theorem signature_bytes : submission.sizes.signature = 5188 := rfl
+theorem signature_bytes : submission.sizes.signature = 5187 := rfl
 
 theorem witness_bytes : submission.sizes.witness = 21756 := rfl
 
@@ -40,5 +40,7 @@ end SigGolf.Challenge
    199a9c8 (mpjunior92): credit pool 71, top floor 18, top counter window 2^21.
    Z7 (port of soispoke's f25ef952): R1 chain-0 ladder-tail reward and f25's L1/L2 floor tables,
    credit pool 72.
-   Claimed S = 5188, W = 21756, K = 131072, C = 6965;
-   product = 36,134,420. Independent acceptance remains required. -/
+   Z7 stage 2 (port of soispoke's f25ef952): R6 rho/hint mixed radix (N = rho*5852 + t), skip-2 hint
+   codec, N7g-B ground widths, top zero-bit reallocation, Route C gate 926 (adm 29249/2500000).
+   Claimed S = 5187, W = 21756, K = 131072, C = 6965;
+   product = 36,127,455. Independent acceptance remains required. -/

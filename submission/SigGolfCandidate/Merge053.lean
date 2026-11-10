@@ -12667,7 +12667,7 @@ theorem signFromOutput_recovery_cost_le (answers : Answers) (cache : SigGolfCand
         (forestSelectionFromOutput output) (forestWordsFromOutput output) w.signature.forest)).1.1
         (evalWithAnswerFn answers (recoverForest (digestIndex output)
           (forestSelectionFromOutput output) (forestWordsFromOutput output) w.signature.forest)).1.2)) ≤
-      cost answers (signFromOutput cache rho counter output) + (12100 + 66757) := by
+      cost answers (signFromOutput cache rho counter output) + (13124 + 106485) := by
   let index := digestIndex output
   let built := evalWithAnswerFn answers (buildForest index (forestSelectionFromOutput output) (forestWordsFromOutput output))
   let prepared := evalWithAnswerFn answers (prepareRoots index)
@@ -12721,7 +12721,7 @@ theorem signFromOutput_recovery_cost_le_norm (answers : Answers) (cache : SigGol
         (forestSelectionFromOutput output) (forestWordsFromOutput output) w.signature.forest)).1.1
         (evalWithAnswerFn answers (recoverForest (digestIndex output)
           (forestSelectionFromOutput output) (forestWordsFromOutput output) w.signature.forest)).1.2)) ≤
-      cost answers (signFromOutput cache rho counter output) + (12100 + 66757) := by
+      cost answers (signFromOutput cache rho counter output) + (13124 + 106485) := by
   have hlow := signFromOutput_lowerPathOK answers cache hcache hlower rho counter output w he
   let index := digestIndex output
   let built := evalWithAnswerFn answers (buildForest index (forestSelectionFromOutput output) (forestWordsFromOutput output))
@@ -12954,10 +12954,11 @@ theorem expand_cost_le_worst (answers : Answers) (message : Message) (pk : Diges
 
 
 /-- Expand's pointwise excess over the signer (img-v6): replay 1,616 + 284 = 1,900 plus the worst-case re-derivation of the
-11 ancestor top-node nonces `Σ_h (104·2^b_h − 1) = 66,757` (E11: T51's `topZeroAlloc`; img-v6's `b_h = h` gave
-425,765); E11: plus the worst case of the 12 ground path folds, Z3 (E11 V29 widths): `Σ (cap − 1) = 2812 + 2·3836 = 10484`
-(replay 12,100 + 284 = 12,384); E8: plus the worst case of the 9 FTS ground path nodes `7·511 + 2·255 = 4087`. -/
-def expandReplayExtra : Nat := 12384 + 4087 + 66757
+11 ancestor top-node nonces `Σ_h (104·2^b_h − 1)` = 106,485 (R6 `topZeroAlloc` [0,0,0,1,..,9]; E8 66,757); plus the worst
+case of the lower ground path folds, N7g B widths (4,3,2,1) on every lower layer: `Σ (cap − 1)` = 2047 + 1023 + 511 + 255
+= 3836 per layer, 11,508 in all (replay 13,408; E8 6,132 / 8,032); plus the worst case of the 9 FTS ground path nodes
+`7·511 + 2·255 = 4087`. Total 123,980 (E8 78,876). -/
+def expandReplayExtra : Nat := 13408 + 4087 + 106485
 
 theorem expand_cost_le_payload_add (answers : Answers) (cache : SigGolfCandidate.T3.Cache)
     (hcache : cache.region = cacheRegion (maskedTop answers)) (hlower : LowerTreesOK answers) (message : Message)
@@ -13296,7 +13297,7 @@ theorem topVal_toNat (heap : Nat) (a : HashOutput) :
   cases nodeHalfHigh 3 0 heap <;> simp [BitVec.extractLsb'_toNat, Nat.shiftRight_eq_div_pow]
 
 /-- Start of the zero window of a height-`h` node value (img-v6, `b_h = h`). -/
-def zeroStart (h : Nat) : Nat := if h = 11 then 101 else 128 - topZeroBits h
+def zeroStart (h : Nat) : Nat := if h = 11 then 99 else 128 - topZeroBits h
 
 /-- Campaign T51: the top zero bits are `b_h = 0,0,1,1,2,3,4,5,6,7,8` (#938: `b_h = h`; restated, its users are sorried). -/
 theorem topZeroBits_eq {h : Nat} (h1 : 1 ≤ h) (h11 : h ≤ 11) : topZeroBits h = topZeroAlloc.getD h 0 := rfl
@@ -13306,14 +13307,14 @@ theorem window_of_half (x s k : Nat) (hsk : s + k ≤ 128) :
   have h128 : (2 : Nat) ^ 128 = 2 ^ s * 2 ^ (128 - s) := by rw [← pow_add]; congr 1; omega
   rw [h128, Nat.mod_mul_right_div_self, Nat.mod_mod_of_dvd _ (Nat.pow_dvd_pow 2 (by omega))]
 
-theorem topZeroBits_le (h : Nat) (h11 : h ≤ 11) : topZeroBits h ≤ 8 := by interval_cases h <;> decide
+theorem topZeroBits_le (h : Nat) (h11 : h ≤ 11) : topZeroBits h ≤ 9 := by interval_cases h <;> decide
 
-/-- Campaign T51: the zero test of a height-`h` node is the `b_h`-bit window at `zeroStart h` (bits 101..107 at h = 11). -/
+/-- Campaign T51: the zero test of a height-`h` node is the `b_h`-bit window at `zeroStart h` (bits 99..107 at h = 11, R6 F5). -/
 theorem topZeroOk_iff {h : Nat} (h1 : 1 ≤ h) (h11 : h ≤ 11) (v : Digest) :
     topZeroOk h v = true ↔ v.toNat / 2 ^ zeroStart h % 2 ^ topZeroBits h = 0 := by
   unfold topZeroOk zeroStart
   by_cases he : h = 11
-  · subst he; simp [show topZeroBits 11 = 7 from rfl]
+  · subst he; simp [show topZeroBits 11 = 9 from rfl]
   · rw [if_neg he, if_neg he]
     have hb := topZeroBits_le h h11
     have hv := v.isLt
@@ -13575,21 +13576,21 @@ theorem topFieldV_topVal (heap : Nat) (a : HashOutput) :
     Nat.div_div_eq_div_mul, ← pow_add]
 
 theorem window_split (y s c : Nat) :
-    (y / 2 ^ s % 2 ^ 7 = 0 ∧ y / 2 ^ (s + 7) % 2 ^ 20 = c) ↔ y / 2 ^ s % 2 ^ 27 = c * 2 ^ 7 := by
+    (y / 2 ^ s % 2 ^ 9 = 0 ∧ y / 2 ^ (s + 9) % 2 ^ 20 = c) ↔ y / 2 ^ s % 2 ^ 29 = c * 2 ^ 9 := by
   rw [pow_add, ← Nat.div_div_eq_div_mul]
   generalize y / 2 ^ s = x
-  have hm : x % 2 ^ 27 = x % 2 ^ 7 + 2 ^ 7 * (x / 2 ^ 7 % 2 ^ 20) := by
-    rw [show (2 : Nat) ^ 27 = 2 ^ 7 * 2 ^ 20 by norm_num, Nat.mod_mul]
-  have h1 := Nat.mod_lt x (show 0 < 2 ^ 7 by norm_num)
-  have h2 := Nat.mod_lt (x / 2 ^ 7) (show 0 < 2 ^ 20 by norm_num)
+  have hm : x % 2 ^ 29 = x % 2 ^ 9 + 2 ^ 9 * (x / 2 ^ 9 % 2 ^ 20) := by
+    rw [show (2 : Nat) ^ 29 = 2 ^ 9 * 2 ^ 20 by norm_num, Nat.mod_mul]
+  have h1 := Nat.mod_lt x (show 0 < 2 ^ 9 by norm_num)
+  have h2 := Nat.mod_lt (x / 2 ^ 9) (show 0 < 2 ^ 20 by norm_num)
   omega
 
 theorem ok_field_iff (heap : Nat) (a : HashOutput) (c : Nat) :
     (topZeroOk 11 (topVal heap a) = true ∧ topFieldV (topVal heap a) = c) ↔
-      a.toNat / 2 ^ (topOff heap + 101) % 2 ^ 27 = c * 2 ^ 7 := by
-  rw [topZeroOk_topVal_iff (by norm_num) (by norm_num), topFieldV_topVal, show zeroStart 11 = 101 from rfl,
-    show topZeroBits 11 = 7 from rfl, show topOff heap + 108 = topOff heap + 101 + 7 by omega]
-  exact window_split a.toNat (topOff heap + 101) c
+      a.toNat / 2 ^ (topOff heap + 99) % 2 ^ 29 = c * 2 ^ 9 := by
+  rw [topZeroOk_topVal_iff (by norm_num) (by norm_num), topFieldV_topVal, show zeroStart 11 = 99 from rfl,
+    show topZeroBits 11 = 9 from rfl, show topOff heap + 108 = topOff heap + 99 + 9 by omega]
+  exact window_split a.toNat (topOff heap + 99) c
 
 theorem expected_finite_sum {α ι : Type} [DecidableEq ι] (law : ProbComp α) (s : Finset ι) (f : ι → α → ℝ≥0∞) :
     expectedValue law (fun a => ∑ i ∈ s, f i a) = ∑ i ∈ s, expectedValue law (f i) := by
@@ -13612,7 +13613,7 @@ theorem prob_not (P : HashOutput → Prop) :
 theorem expected_ok_field (heap : Nat) (φ : Nat → ℝ≥0∞) (b : ℝ≥0∞) :
     expectedValue ($ᵗ HashOutput : ProbComp HashOutput)
       (fun a => if topZeroOk 11 (topVal heap a) = true then φ (topFieldV (topVal heap a)) else b) =
-      ((2 : ℝ≥0∞) ^ 7)⁻¹ * avgF φ + (1 - ((2 : ℝ≥0∞) ^ 7)⁻¹) * b := by
+      ((2 : ℝ≥0∞) ^ 9)⁻¹ * avgF φ + (1 - ((2 : ℝ≥0∞) ^ 9)⁻¹) * b := by
   have hpt : (fun a : HashOutput => if topZeroOk 11 (topVal heap a) = true then φ (topFieldV (topVal heap a)) else b) =
       fun a => (∑ c ∈ range (2 ^ 20), (if topZeroOk 11 (topVal heap a) = true ∧ topFieldV (topVal heap a) = c
           then 1 else 0) * φ c) + (if ¬ topZeroOk 11 (topVal heap a) = true then 1 else 0) * b := by
@@ -13628,20 +13629,20 @@ theorem expected_ok_field (heap : Nat) (φ : Nat → ℝ≥0∞) (b : ℝ≥0∞
       rw [Finset.sum_eq_zero (fun c _ => by rw [if_neg (fun h => hok h.1), zero_mul]), zero_add]
   have hsum : ∑ c ∈ range (2 ^ 20), expectedValue ($ᵗ HashOutput : ProbComp HashOutput)
       (fun a => (if topZeroOk 11 (topVal heap a) = true ∧ topFieldV (topVal heap a) = c then 1 else 0) * φ c) =
-      ((2 : ℝ≥0∞) ^ 7)⁻¹ * avgF φ := by
+      ((2 : ℝ≥0∞) ^ 9)⁻¹ * avgF φ := by
     unfold avgF
     rw [Finset.mul_sum]
     refine Finset.sum_congr rfl (fun c hc => ?_)
     rw [expectedValue_mul_const, expectedValue_ite_one]
     have hcl : c < 2 ^ 20 := mem_range.mp hc
     have hp : Pr[fun a : HashOutput => topZeroOk 11 (topVal heap a) = true ∧ topFieldV (topVal heap a) = c |
-        ($ᵗ HashOutput : ProbComp HashOutput)] = ((2 : ℝ≥0∞) ^ 27)⁻¹ := by
+        ($ᵗ HashOutput : ProbComp HashOutput)] = ((2 : ℝ≥0∞) ^ 29)⁻¹ := by
       simp only [ok_field_iff heap _ c]
       exact prob_window _ _ _ (by have := topOff_add_le heap; omega) (by omega)
     rw [hp, ← mul_assoc, ← ENNReal.mul_inv (Or.inl (by simp)) (Or.inl (by simp)), ← pow_add]
   have hnot : expectedValue ($ᵗ HashOutput : ProbComp HashOutput)
       (fun a => (if ¬ topZeroOk 11 (topVal heap a) = true then 1 else 0) * b) =
-      (1 - ((2 : ℝ≥0∞) ^ 7)⁻¹) * b := by
+      (1 - ((2 : ℝ≥0∞) ^ 9)⁻¹) * b := by
     rw [expectedValue_mul_const, expectedValue_ite_one, prob_not, prob_topAccept (by norm_num) (by norm_num)]
     rfl
   rw [hpt, expectedValue_add, expected_finite_sum, hsum, hnot]
@@ -13795,7 +13796,7 @@ theorem topTrial_ne_23 (n m : Nat) (l r l' r' : Digest) : topTrial 2 n l r ≠ t
   exact top_tweak_ne (a := 2) (b := 3) (by omega) (by omega) (by omega) (by omega) (by omega)
     (SphincsSecurity.bytesLE_injective (h2.symm.trans h3))
 
-theorem topNonceCap_11 : topNonceCap 11 = 104 * 2 ^ 7 := rfl
+theorem topNonceCap_11 : topNonceCap 11 = 104 * 2 ^ 9 := rfl
 
 /-- The level-11 step on a shape-10 level list: the two root children (heaps 2, 3), as explicit binds. -/
 theorem topStepL_11 (levels : List (List Digest)) (hlen10 : (levels.getD 10 []).length = 4) :
@@ -14414,8 +14415,9 @@ theorem expand_excess_numeric19 :
   have h := expand_excess_moment19 w hw1 (by rw [hw]; exact expand_w_le)
   exact ENNReal.ofReal_le_ofReal h
 
-/-! N2b at a 2^20 brute-force field (E2 for E11): replay R = 79,141, 64 blocks of 2^14,
-`w^83228 · 2^-40 · Σ_{a,b<2^20} w^max(a,b) ≤ 19/10` (Z3, E11 V29 lower widths: 12,384 + 4,087 FTS + 66,757 = 83,228; kernel check < 1.85, block value 1.8477). -/
+/-! N2b at a 2^20 brute-force field (E2 for E11; N7g: replay 123,980 and constant 191/100, R7 item E: certified 1.905456),
+64 blocks of 2^14,
+`w^123980 · 2^-40 · Σ_{a,b<2^20} w^max(a,b) ≤ 19/10` (E8: replay + 4,087 FTS; kernel check < 1.85, exact about 1.8477). -/
 def blockV20 : Nat := powerUp expandWFix 16384
 def pw20 : Nat → Nat
   | 0 => scale
@@ -14430,15 +14432,15 @@ theorem pw20_ratio_ge (k : Nat) : (((blockV20:ℝ)/scale))^k ≤ (pw20 k:ℝ)/sc
 
 def blockSum20 : Nat := ∑ i ∈ range 64, ∑ j ∈ range 64, pw20 (max i j + 1)
 
-theorem expand_block20_checked : mulUp (powerUp expandWFix 83228) blockSum20 * 100000 <
-    185000 * scale * 4096 := by decide +kernel
+theorem expand_block20_checked : mulUp (powerUp expandWFix 123980) blockSum20 * 100000 <
+    190600 * scale * 4096 := by decide +kernel
 
 theorem blockV20_eq : blockV20 = powerUp expandWFix 16384 := rfl
 
 attribute [irreducible] blockSum20 blockV20
 
 theorem expand_excess_moment20 (w : ℝ) (hw1 : 1 ≤ w) (hw : w ≤ (expandWNum:ℝ)/expandWDen) :
-    w^83228 * ((1:ℝ)/2^40 * ∑ a ∈ range (2^20), ∑ b ∈ range (2^20), w^(max a b)) ≤ 19 / 10 := by
+    w^123980 * ((1:ℝ)/2^40 * ∑ a ∈ range (2^20), ∑ b ∈ range (2^20), w^(max a b)) ≤ 191 / 100 := by
   have hwf := hw.trans expandW_fix
   have hw0 : 0 ≤ w := by linarith
   set v : ℝ := w^16384 with hv
@@ -14474,11 +14476,11 @@ theorem expand_excess_moment20 (w : ℝ) (hw1 : 1 ≤ w) (hw : w ≤ (expandWNum
           Finset.sum_le_sum fun i _ => Finset.sum_le_sum fun j _ => hterm i j
       _ = (blockSum20:ℝ)/scale := by
           simp only [blockSum20, Nat.cast_sum, Finset.sum_div]
-  have hK : w^83228 ≤ (powerUp expandWFix 83228:ℝ)/scale :=
+  have hK : w^123980 ≤ (powerUp expandWFix 123980:ℝ)/scale :=
     (pow_le_pow_left₀ hw0 hwf _).trans (powerUp_ratio_ge _ _)
-  have hcheck : (mulUp (powerUp expandWFix 83228) blockSum20:ℝ) * 100000 <
-      185000 * (scale:ℝ) * 4096 := by exact_mod_cast expand_block20_checked
-  have hmul := mulUp_ratio_ge (powerUp expandWFix 83228) blockSum20
+  have hcheck : (mulUp (powerUp expandWFix 123980) blockSum20:ℝ) * 100000 <
+      190600 * (scale:ℝ) * 4096 := by exact_mod_cast expand_block20_checked
+  have hmul := mulUp_ratio_ge (powerUp expandWFix 123980) blockSum20
   have hs : (0:ℝ) < scale := by norm_num [scale]
   have hS : (1:ℝ)/2^40 * ∑ a ∈ range (2^20), ∑ b ∈ range (2^20), w^(max a b) ≤
       ((blockSum20:ℝ)/scale) / 4096 := by
@@ -14492,18 +14494,18 @@ theorem expand_excess_moment20 (w : ℝ) (hw1 : 1 ≤ w) (hw : w ≤ (expandWNum
     have h4 := hsum.trans h3
     have h5 : (0:ℝ) ≤ 1/2^40 := by positivity
     exact mul_le_mul_of_nonneg_left h4 h5
-  have hB : w^83228 * ((1:ℝ)/2^40 * ∑ a ∈ range (2^20), ∑ b ∈ range (2^20), w^(max a b)) ≤
-      ((powerUp expandWFix 83228:ℝ)/scale) * (((blockSum20:ℝ)/scale) / 4096) :=
+  have hB : w^123980 * ((1:ℝ)/2^40 * ∑ a ∈ range (2^20), ∑ b ∈ range (2^20), w^(max a b)) ≤
+      ((powerUp expandWFix 123980:ℝ)/scale) * (((blockSum20:ℝ)/scale) / 4096) :=
     mul_le_mul hK hS
       (mul_nonneg (by norm_num) (Finset.sum_nonneg fun a _ => Finset.sum_nonneg fun b _ => pow_nonneg hw0 _))
       (div_nonneg (Nat.cast_nonneg _) (Nat.cast_nonneg _))
-  have hC : ((powerUp expandWFix 83228:ℝ)/scale) * (((blockSum20:ℝ)/scale) / 4096) ≤
-      ((mulUp (powerUp expandWFix 83228) blockSum20:ℝ)/scale) / 4096 := by
+  have hC : ((powerUp expandWFix 123980:ℝ)/scale) * (((blockSum20:ℝ)/scale) / 4096) ≤
+      ((mulUp (powerUp expandWFix 123980) blockSum20:ℝ)/scale) / 4096 := by
     rw [← mul_div_assoc]
     exact div_le_div_of_nonneg_right hmul (by norm_num)
-  have hD : ((mulUp (powerUp expandWFix 83228) blockSum20:ℝ)/scale) / 4096 ≤ 19 / 10 := by
+  have hD : ((mulUp (powerUp expandWFix 123980) blockSum20:ℝ)/scale) / 4096 ≤ 191 / 100 := by
     have hs0 : (0:ℝ) < scale := by norm_num [scale]
-    generalize (mulUp (powerUp expandWFix 83228) blockSum20:ℝ) = P at hcheck ⊢
+    generalize (mulUp (powerUp expandWFix 123980) blockSum20:ℝ) = P at hcheck ⊢
     generalize (scale:ℝ) = S at hcheck hs0 ⊢
     rw [div_div, div_le_iff₀ (by positivity)]
     nlinarith
@@ -14530,7 +14532,7 @@ theorem avgF_ofReal (ψ : Nat → ℝ) (hψ : ∀ c, 0 ≤ ψ c) :
   norm_num
 
 theorem excessWeight_eq (c : Nat) :
-    excessWeight c = ENNReal.ofReal (((2:ℝ)^(1/((917504:ℕ):ℝ)))^(83228 + c)) := by
+    excessWeight c = ENNReal.ofReal (((2:ℝ)^(1/((917504:ℕ):ℝ)))^(123980 + c)) := by
   unfold excessWeight SigGolfCandidate.Research.SharedForest.expandReplayExtra
   rw [show (2:ENNReal) = ENNReal.ofReal 2 by norm_num, ENNReal.ofReal_rpow_of_pos (by norm_num)]
   congr 1
@@ -14541,7 +14543,7 @@ theorem excessWeight_eq (c : Nat) :
 
 /-- N2b with slack: `E_{c₂,c₃}[2^((8/7)(K + max c₂ c₃)/2^20)] ≤ 1.9`. -/
 def ExpandExcessNumeric19 : Prop :=
-  avgF (fun c2 => avgF (fun c3 => excessWeight (max c2 c3))) ≤ ENNReal.ofReal (19 / 10)
+  avgF (fun c2 => avgF (fun c3 => excessWeight (max c2 c3))) ≤ ENNReal.ofReal (191 / 100)
 
 theorem expandExcessNumeric19_holds : ExpandExcessNumeric19 := by
   unfold ExpandExcessNumeric19
@@ -14549,14 +14551,14 @@ theorem expandExcessNumeric19_holds : ExpandExcessNumeric19 := by
   have hw1 : 1 ≤ w := Real.one_le_rpow (by norm_num) (by positivity)
   have hw0 : 0 ≤ w := by linarith
   have hin : ∀ c2, avgF (fun c3 => excessWeight (max c2 c3)) =
-      ENNReal.ofReal (∑ c3 ∈ range (2^20), (1/2^20) * w^(83228 + max c2 c3)) := by
+      ENNReal.ofReal (∑ c3 ∈ range (2^20), (1/2^20) * w^(123980 + max c2 c3)) := by
     intro c2
     simp_rw [excessWeight_eq]
-    exact avgF_ofReal (fun c3 => w^(83228 + max c2 c3)) (fun _ => pow_nonneg hw0 _)
+    exact avgF_ofReal (fun c3 => w^(123980 + max c2 c3)) (fun _ => pow_nonneg hw0 _)
   simp_rw [hin]
   rw [avgF_ofReal _ (fun _ => Finset.sum_nonneg fun _ _ => mul_nonneg (by positivity) (pow_nonneg hw0 _))]
-  have hreal : ∑ c2 ∈ range (2^20), (1/2^20) * ∑ c3 ∈ range (2^20), (1/2^20) * w^(83228 + max c2 c3) =
-      w^83228 * ((1:ℝ)/2^40 * ∑ a ∈ range (2^20), ∑ b ∈ range (2^20), w^(max a b)) := by
+  have hreal : ∑ c2 ∈ range (2^20), (1/2^20) * ∑ c3 ∈ range (2^20), (1/2^20) * w^(123980 + max c2 c3) =
+      w^123980 * ((1:ℝ)/2^40 * ∑ a ∈ range (2^20), ∑ b ∈ range (2^20), w^(max a b)) := by
     simp only [pow_add, Finset.mul_sum]
     refine Finset.sum_congr rfl fun a _ => Finset.sum_congr rfl fun b _ => ?_
     ring

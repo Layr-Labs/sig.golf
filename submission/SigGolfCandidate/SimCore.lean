@@ -574,7 +574,7 @@ theorem mrealize_privateMac (region : Region) :
   rw [mrealize_bind]
   simp only [mrealize_pure, bind_pure_comp]
 theorem mrealize_privateNonce (m : T3.Message) :
-    mrealize sk (privateNonce m) = (fun a : BitVec 256 => a.extractLsb' 0 128) <$>
+    mrealize sk (privateNonce m) = (fun a : BitVec 256 => BitVec.ofNat 128 (T3.rhoMod a)) <$>
       (liftM (HashSpec.query (toQ (privateInput sk (.inr (.inl m))))) : OracleComp HashSpec _) := by
   unfold privateNonce
   rw [mrealize_bind, mrealize_privateHash]
@@ -683,10 +683,10 @@ theorem TSim.privateNonce_bind {s : MachineState} {m : T3.Message} {k c n b : Na
     {f : Digest → M β} {Q : β → MachineState → Prop}
     (hf : fetch image s = some (.base .ECALL)) (ht0 : s.getReg .x5 = 0)
     (hv : hashArgumentsValid s = true) (hq : hashInput s = toQ (privateInput sk (.inr (.inl m))))
-    (h : ∀ a : BitVec 256, TSim image sk (writeHash s a) k c n b (f (a.extractLsb' 0 128)) Q) :
+    (h : ∀ a : BitVec 256, TSim image sk (writeHash s a) k c n b (f (BitVec.ofNat 128 (T3.rhoMod a))) Q) :
     TSim image sk s (1 + k) (8 * (toQ (privateInput sk (.inr (.inl m)))).blocks + c) (1 + n)
       ((toQ (privateInput sk (.inr (.inl m)))).blocks + b) (privateNonce m >>= f) Q := by
-  have : privateNonce m >>= f = privateHash (.inr (.inl m)) >>= fun a => f (a.extractLsb' 0 128) := by
+  have : privateNonce m >>= f = privateHash (.inr (.inl m)) >>= fun a => f (BitVec.ofNat 128 (T3.rhoMod a)) := by
     unfold privateNonce; rw [bind_assoc]; simp only [pure_bind]
   rw [this]
   exact TSim.privateHash_bind hf ht0 hv hq h

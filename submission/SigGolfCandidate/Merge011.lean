@@ -252,11 +252,12 @@ Every lower-tree node (`lay ≠ 0`) with heap `2..15` (the three levels below th
 `n < lowerNonceCap lay heap` of `lowerNodeHashN lay tree heap n left right` whose used half has its top
 `lowerZeroBits lay heap` bits clear (`lowerZeroOk`); if no trial passes, the last one (`n = cap - 1`) is kept. The nonce
 is the 64-bit counter at bytes 32..39 of the node input (the Merkle pad; bytes 40..47 stay 0); `n = 0` gives
-`merkleNodeInput`. Zero bits (E11 V29): heaps 16..31 -> 1, 8..15 -> 2, 4..7 -> 3, 2..3 -> 3 on layer 1, else 4; cap `128 · 2^b`.
-Every other node (the top tree, heaps 1 and ≥ 16) has `b = 0` and is the plain `lowerNodeHash`. -/
+`merkleNodeInput`. Zero bits (N7g B: (4,3,2,1) on every lower layer; R6 F6 was E8 P1 (3,2,1,1) × 3 plus one bit on
+layer-1 heaps 8..15): heaps 16..31 -> 1, 8..15 -> 2, 4..7 -> 3, 2..3 -> 4; cap `128 · 2^b`. Every other node (the top tree, heaps 1 and ≥ 32) has `b = 0` and is the
+plain `lowerNodeHash`. -/
 def lowerZeroBits (lay heap : Nat) : Nat :=
-  if lay = 0 ∨ heap < 2 ∨ 32 ≤ heap then 0 else if 16 ≤ heap then 1 else if 8 ≤ heap then 2 else if 4 ≤ heap then 3
-  else if lay = 1 then 3 else 4
+  if lay = 0 ∨ heap < 2 ∨ 32 ≤ heap then 0 else if 16 ≤ heap then 1 else if 8 ≤ heap then 2
+  else if 4 ≤ heap then 3 else 4
 def lowerNonceCap (lay heap : Nat) : Nat := 128 * 2 ^ lowerZeroBits lay heap
 def lowerZeroOk (lay heap : Nat) (value : Digest) : Bool :=
   value.toNat / 2 ^ (128 - lowerZeroBits lay heap) == 0

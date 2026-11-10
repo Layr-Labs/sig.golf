@@ -1490,18 +1490,26 @@ def gwB2 : List (BitVec 32) := bv_list% 32 [0x1cfd393,0x13,0x8038463]
 def gwB3 : List (BitVec 32) := bv_list% 32 [0x1f00006f,0xf8038393,0x1000e13,0x7c3fc63]
 /-- E11: word 25060 jumps to the tier routine at 25184 (the rest of the old tier block 25061..25073 is dead). -/
 def gwB3j : List (BitVec 32) := bv_list% 32 [0x1f00006f]
-/-! E11: the tier routine `25184..25203` (heaps `≥ 32` skip to 25093; `16..31 → 1`, `8..15 → 2`, `4..7 → 3`,
-`2..3 → 3` on layer 1 else 4; then `j 25074`). -/
+/-! E11: the tier routine `25184..25203` (heaps `≥ 32` skip to 25093). N7g-B (soispoke f25ef952, b rule): `16..31 → 1`;
+word 25191 jumps to the tail `25887..25894` (`8..15 → 2` on both branches of the layer test, else back to 25194);
+`4..7 → 3`, `2..3 → 4` (both branches of the layer test); then `j 25074`. -/
 def gwT1 : List (BitVec 32) := bv_list% 32 [0xffff393,0xf8038393,0x2000e13,0x5c3f063]
 def gwT2 : List (BitVec 32) := bv_list% 32 [0x100e93,0x1000e13,0x3c3f863]
-def gwT3 : List (BitVec 32) := bv_list% 32 [0x200e93,0x800e13,0x3c3f263]
+/-- N7g-B: word 25191 is `j 25887` (the tail); 25192/25193 are dead (`gwT3d`). -/
+def gwT3 : List (BitVec 32) := bv_list% 32 [0x2e10006f]
+def gwT3d : List (BitVec 32) := bv_list% 32 [0x800e13,0x3c3f263]
 def gwT4 : List (BitVec 32) := bv_list% 32 [0x300e93,0x400e13,0x1c3fc63]
 /-- L-hyper A: layer 1 (child layer 0) is `t6 >> 28 = 1`. -/
 def gwT5 : List (BitVec 32) := bv_list% 32 [0x400e93,0x1cfde13,0xfffe0e13,0xe1463]
-def gwT6 : List (BitVec 32) := bv_list% 32 [0x300e93]
+def gwT6 : List (BitVec 32) := bv_list% 32 [0x400e93]
 def gwTC : List (BitVec 32) := bv_list% 32 [0xe01ff06f]
 def gwTK : List (BitVec 32) := bv_list% 32 [0xe49ff06f]
-def tierWords : List (BitVec 32) := gwT1 ++ gwT2 ++ gwT3 ++ gwT4 ++ gwT5 ++ gwT6 ++ gwTC ++ gwTK
+def tierWords : List (BitVec 32) := gwT1 ++ gwT2 ++ gwT3 ++ gwT3d ++ gwT4 ++ gwT5 ++ gwT6 ++ gwTC ++ gwTK
+/-- N7g-B: the tier tail `25887..25894` (`b = 2`; `heap < 8` back to 25194; the A′ layer test; `j 25202`). -/
+def gwTa1 : List (BitVec 32) := bv_list% 32 [0x200e93,0x800e13,0xd3c3e263]
+def gwTa2 : List (BitVec 32) := bv_list% 32 [0x1cfde13,0xfffe0e13,0xd20e1c63]
+def gwTa3 : List (BitVec 32) := bv_list% 32 [0x200e93,0xd30ff06f]
+def tailWords : List (BitVec 32) := gwTa1 ++ gwTa2 ++ gwTa3
 def gwB4 : List (BitVec 32) := bv_list% 32 [0x100e93,0x800e13,0x3c3f063]
 def gwB5 : List (BitVec 32) := bv_list% 32 [0x200e93,0x400e13,0x1c3fa63]
 def gwB6 : List (BitVec 32) := bv_list% 32 [0x1cfde13,0xfffe0e13,0xe1463]
@@ -1522,6 +1530,8 @@ structure GrindCode (im : Image) : Prop where
   stub : CodeAt im (pcOf 25046) grindWords
   /-- E11: the tier routine appended at 25184. -/
   tiers : CodeAt im (pcOf 25184) tierWords
+  /-- N7g: the tier tail at 25887. -/
+  tail : CodeAt im (pcOf 25887) tailWords
 theorem codeAt_block {im : Image} {b o : Nat} {code seg : List (BitVec 32)} (h : CodeAt im (pcOf b) code)
     (hs : (code.drop o).take seg.length = seg) (ho : o + seg.length ≤ code.length) :
     CodeAt im (pcOf (b + o)) seg := by
@@ -1564,26 +1574,18 @@ open RiscvZkvm.Rv64 SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv SigGol
 open SigGolfCandidate.T3M SigGolfCandidate.T3M.Keygen
 set_option maxHeartbeats 2000000
 set_option maxRecDepth 100000
+/- kfix: no `first | (… decide +kernel) | …` here: under `debug.skipKernelTC` a false `decide +kernel` side goal
+never fails, so `first` always took `codeAt_sign_last` (needs `21760 ≤ b`) even for the low addresses. The slice lemma
+is now chosen by address, and the kernel checks this theorem. -/
+set_option debug.skipKernelTC false in
 theorem installed_code : Code Images.signImage 1013 := by
   constructor
   · rfl
-  · apply codeAt_sign_current_slice <;> decide +kernel
-  · apply codeAt_sign_current_slice <;> decide +kernel
-  · apply codeAt_sign_current_slice <;> decide +kernel
-  · apply codeAt_sign_current_slice <;> decide +kernel
-  · apply codeAt_sign_current_slice <;> decide +kernel
-  · apply codeAt_sign_current_slice <;> decide +kernel
-  · apply codeAt_sign_current_slice <;> decide +kernel
-  · exact ⟨by apply codeAt_sign_current_slice <;> decide +kernel,
-      by apply codeAt_sign_current_slice <;> decide +kernel,
-      by apply codeAt_sign_current_slice <;> decide +kernel⟩
-  · apply codeAt_sign_current_slice <;> decide +kernel
-  · apply codeAt_sign_current_slice <;> decide +kernel
-  · apply codeAt_sign_current_slice <;> decide +kernel
-  · apply codeAt_sign_current_slice <;> decide +kernel
-  · apply codeAt_sign_current_slice <;> decide +kernel
-  · apply codeAt_sign_current_slice <;> decide +kernel
-  · apply codeAt_sign_current_slice <;> decide +kernel
+  case grind =>
+    constructor
+    case jal => apply codeAt_sign_current_slice <;> decide +kernel
+    all_goals (apply codeAt_sign_last <;> decide +kernel)
+  all_goals (apply codeAt_sign_current_slice <;> decide +kernel)
 end SigGolfCandidate.T3M.Sign.SharedTreeCode
 end
 -- ==== merged from T3M_Sign_PairStep ====
@@ -6313,6 +6315,9 @@ sym_block gRunT5 := symRun { noAlias := true } gwT5 (pcOf 25197) 100
 sym_block gRunT6 := symRun { noAlias := true } gwT6 (pcOf 25201) 100
 sym_block gRunTC := symRun { noAlias := true } gwTC (pcOf 25202) 100
 sym_block gRunTK := symRun { noAlias := true } gwTK (pcOf 25203) 100
+sym_block gRunTa1 := symRun { noAlias := true } gwTa1 (pcOf 25887) 100
+sym_block gRunTa2 := symRun { noAlias := true } gwTa2 (pcOf 25890) 100
+sym_block gRunTa3 := symRun { noAlias := true } gwTa3 (pcOf 25893) 100
 sym_block gRunBb := symRun { noAlias := true } gwBb (pcOf 25074) 100
 sym_block gRunL := symRun { noAlias := true } gwL (pcOf 25084) 100
 sym_block gRunC := symRun { noAlias := true } gwC (pcOf 25086) 100
@@ -6344,6 +6349,12 @@ theorem GrindCode.cTC {im : Image} (h : GrindCode im) : CodeAt im (pcOf 25202) g
   codeAt_block h.tiers (o := 18) (by decide) (by decide)
 theorem GrindCode.cTK {im : Image} (h : GrindCode im) : CodeAt im (pcOf 25203) gwTK :=
   codeAt_block h.tiers (o := 19) (by decide) (by decide)
+theorem GrindCode.cTa1 {im : Image} (h : GrindCode im) : CodeAt im (pcOf 25887) gwTa1 :=
+  codeAt_block h.tail (o := 0) (by decide) (by decide)
+theorem GrindCode.cTa2 {im : Image} (h : GrindCode im) : CodeAt im (pcOf 25890) gwTa2 :=
+  codeAt_block h.tail (o := 3) (by decide) (by decide)
+theorem GrindCode.cTa3 {im : Image} (h : GrindCode im) : CodeAt im (pcOf 25893) gwTa3 :=
+  codeAt_block h.tail (o := 6) (by decide) (by decide)
 theorem GrindCode.cBb {im : Image} (h : GrindCode im) : CodeAt im (pcOf 25074) gwBb :=
   codeAt_block h.stub (o := 28) (by decide) (by decide)
 theorem GrindCode.cLb {im : Image} (h : GrindCode im) : CodeAt im (pcOf 25083) gwLb :=
@@ -6880,7 +6891,8 @@ theorem g_pre {lay tree heap : Nat} (hl : lay < 4) (htr : tree < 2 ^ SigGolfCand
 /-- E11 `25184..25187` (and `25203`): the heap test `heap ≥ 32` (then `j 25093`). -/
 theorem g_tier1 {lay tree heap : Nat} (hl : lay < 4) (htr : tree < 2 ^ SigGolfCandidate.T3.hyperW (lay - 1)) (hh : heap < 128) (u : MachineState)
     (hpc : u.pc = pcOf 25184) (h31 : u.getReg .x31 = BitVec.ofNat 64 (gN lay tree heap)) :
-    ∃ v k, Steps im u k k v ∧ k ≤ 5 ∧ v.pc = (if 32 ≤ heap then pcOf 25093 else pcOf 25188) ∧
+    ∃ v k, Steps im u k k v ∧ k ≤ (if 32 ≤ heap then 5 else 4) ∧
+      v.pc = (if 32 ≤ heap then pcOf 25093 else pcOf 25188) ∧
       v.getReg .x7 = BitVec.ofNat 64 heap ∧ v.getReg .x31 = BitVec.ofNat 64 (gN lay tree heap) ∧
       RegsExcept u v [.x7, .x28] ∧ (∀ A, v.getMem A = u.getMem A) := by
   have st4 := symRun_sound gRunT1 hg.cT1 u hpc (by simp [gRunT1.res, rv_simp])
@@ -6903,23 +6915,24 @@ theorem g_tier1 {lay tree heap : Nat} (hl : lay < 4) (htr : tree < 2 ^ SigGolfCa
     have st5 := symRun_sound gRunTK hg.cTK v4 p4 (by simp [gRunTK.res, rv_simp])
     have r5 : RegsExcept v4 (gRunTK.res.toState v4) [] := by
       intro x _; cases x <;> simp [gRunTK.res, rv_simp] <;> rfl
-    refine ⟨gRunTK.res.toState v4, 5, (st14.trans st5).of_eq (by simp [gRunTK.res]) (by simp [gRunTK.res]), le_refl _, ?_,
+    refine ⟨gRunTK.res.toState v4, 5, (st14.trans st5).of_eq (by simp [gRunTK.res]) (by simp [gRunTK.res]), by rw [if_pos h32], ?_,
       by rw [r5.get (by simp), v4x7], by rw [r5.get (by simp), v4x31], (r4.trans r5).mono (by simp),
       fun A => (Result.toState_getMem_frame _ _ A (by simp [gRunTK.res])).trans (m4 A)⟩
     rw [if_pos h32]; simp [gRunTK.res, rv_simp]
   · rw [if_neg h32] at p4
-    exact ⟨v4, 4, st14, by omega, by rw [if_neg h32]; exact p4, v4x7, v4x31, r4, m4⟩
+    exact ⟨v4, 4, st14, by rw [if_neg h32], by rw [if_neg h32]; exact p4, v4x7, v4x31, r4, m4⟩
 /-- `25052..25060`, `25184..25187`: the tweak checks (`byte1 = 7`, `byte7 = 0xc1`), the jump to the E11 tier routine and
 the heap test `heap ≥ 32` (then `j 25093` at 25203). -/
 theorem g_checks {lay tree heap : Nat} (hl : lay < 4) (htr : tree < 2 ^ SigGolfCandidate.T3.hyperW (lay - 1)) (hh : heap < 128) (u : MachineState)
     (hpc : u.pc = pcOf 25052) (h10 : u.getReg .x10 = BitVec.ofNat 64 NODE)
     (hW : u.getMem (BitVec.ofNat 64 (NODE + 16)) = BitVec.ofNat 64 (gN lay tree heap)) :
-    ∃ v k, Steps im u k k v ∧ k ≤ 14 ∧ v.pc = (if 32 ≤ heap then pcOf 25093 else pcOf 25188) ∧
+    ∃ v k, Steps im u k k v ∧ k ≤ (if 32 ≤ heap then 14 else 13) ∧
+      v.pc = (if 32 ≤ heap then pcOf 25093 else pcOf 25188) ∧
       v.getReg .x7 = BitVec.ofNat 64 heap ∧ v.getReg .x31 = BitVec.ofNat 64 (gN lay tree heap) ∧
       RegsExcept u v [.x7, .x28, .x31] ∧ (∀ A, v.getMem A = u.getMem A) := by
   obtain ⟨w, kw, sw, hkw, pw, w31, rw', mw⟩ := g_pre hg hl htr hh u hpc h10 hW
   obtain ⟨v, k, sv, hk, pv, v7, v31, rv, mv⟩ := g_tier1 hg hl htr hh w pw w31
-  exact ⟨v, kw + k, sw.trans sv, by omega, pv, v7, v31, (rw'.trans rv).mono (by simp),
+  exact ⟨v, kw + k, sw.trans sv, by split_ifs at hk ⊢ <;> omega, pv, v7, v31, (rw'.trans rv).mono (by simp),
     fun A => (mv A).trans (mw A)⟩
 /-- `g_b` (`25074..25082`): the used-half byte pointer, the trial cap `128 << b` and the shift `8 - b`. -/
 theorem g_Bb (u : MachineState) (hpc : u.pc = pcOf 25074) {heap b : Nat} (hb : b ≤ 4)
@@ -6943,22 +6956,23 @@ theorem g_Bb (u : MachineState) (hpc : u.pc = pcOf 25074) {heap b : Nat} (hb : b
     rw [toNat_ofNat_lt (by omega), Nat.mod_eq_of_lt (by omega), ofNat_shl]
   · intro x hx; simp at hx; cases x <;> simp_all [gRunBb.res, rv_simp] <;> rfl
   · intro A; simp [gRunBb.res, rv_simp]
-/-- E11 `25188..25202`: the zero-bit count `b` of heap `2..31` (`16..31 → 1`, `8..15 → 2`, `4..7 → 3`, `2..3 → 3` on
-layer 1 else 4), then `j 25074`. -/
+/-- E11 `25188..25202` with the N7g tail `25887..25849`: the zero-bit count `b` of heap `2..31` (`16..31 → 1`,
+`8..15 → 2`, `4..7 → 3`, `2..3 → 4`, both branches of each layer test), then `j 25074`. -/
 theorem g_bsel {lay tree heap : Nat} (hl1 : 1 ≤ lay) (hl : lay < 4) (htr : tree < 2 ^ SigGolfCandidate.T3.hyperW (lay - 1)) (hh2 : 2 ≤ heap)
     (hh : heap < 32) (u : MachineState) (hpc : u.pc = pcOf 25188) (h7 : u.getReg .x7 = BitVec.ofNat 64 heap)
     (h31 : u.getReg .x31 = BitVec.ofNat 64 (gN lay tree heap)) :
-    ∃ v k, Steps im u k k v ∧ k ≤ 15 ∧ v.pc = pcOf 25074 ∧
+    ∃ v k, Steps im u k k v ∧ k ≤ 16 ∧ v.pc = pcOf 25074 ∧
       v.getReg .x29 = BitVec.ofNat 64 (ClaudeWCT.WCT9.lowerZeroBits lay heap) ∧
       RegsExcept u v [.x28, .x29] ∧ (∀ A, v.getMem A = u.getMem A) := by
   have zb : ClaudeWCT.WCT9.lowerZeroBits lay heap =
-      if 16 ≤ heap then 1 else if 8 ≤ heap then 2 else if 4 ≤ heap then 3 else if lay = 1 then 3 else 4 := by
+      if 16 ≤ heap then 1 else if 8 ≤ heap then 2 else if 4 ≤ heap then 3 else 4 := by
     unfold ClaudeWCT.WCT9.lowerZeroBits; rw [if_neg (by omega)]
+  have e6 := g_t0 (lay := lay) (tree := tree) (heap := heap) hl htr (by omega)
   -- the final `j 25074` from 25202
-  have fin : ∀ (w : MachineState) (kw : Nat) (b : Nat), Steps im u kw kw w → kw ≤ 14 → w.pc = pcOf 25202 →
+  have fin : ∀ (w : MachineState) (kw : Nat) (b : Nat), Steps im u kw kw w → kw ≤ 15 → w.pc = pcOf 25202 →
       w.getReg .x29 = BitVec.ofNat 64 b → b = ClaudeWCT.WCT9.lowerZeroBits lay heap → RegsExcept u w [.x28, .x29] →
       (∀ A, w.getMem A = u.getMem A) →
-      ∃ v k, Steps im u k k v ∧ k ≤ 15 ∧ v.pc = pcOf 25074 ∧
+      ∃ v k, Steps im u k k v ∧ k ≤ 16 ∧ v.pc = pcOf 25074 ∧
         v.getReg .x29 = BitVec.ofNat 64 (ClaudeWCT.WCT9.lowerZeroBits lay heap) ∧
         RegsExcept u v [.x28, .x29] ∧ (∀ A, v.getMem A = u.getMem A) := by
     intro w kw b sw hkw pw w29 hb rw' mw
@@ -6968,6 +6982,7 @@ theorem g_bsel {lay tree heap : Nat} (hl1 : 1 ≤ lay) (hl : lay < 4) (htr : tre
     refine ⟨gRunTC.res.toState w, kw + 1, (sw.trans stc).of_eq (by simp [gRunTC.res]) (by simp [gRunTC.res]), by omega,
       by simp [gRunTC.res, rv_simp], by rw [rc.get (by simp), w29, hb], (rw'.trans rc).mono (by simp),
       fun A => (Result.toState_getMem_frame _ _ A (by simp [gRunTC.res])).trans (mw A)⟩
+  -- T2 (25188): `b = 1`, `heap ≥ 16 → 25202`
   have st2 := symRun_sound gRunT2 hg.cT2 u hpc (by simp [gRunT2.res, rv_simp])
   set v2 := gRunT2.res.toState u
   have r2 : RegsExcept u v2 [.x28, .x29] := by
@@ -6984,53 +6999,103 @@ theorem g_bsel {lay tree heap : Nat} (hl1 : 1 ≤ lay) (hl : lay < 4) (htr : tre
   · rw [if_pos h16] at p2
     exact fin v2 3 1 st2' (by omega) p2 v2x29 (by rw [zb, if_pos h16]) r2 m2
   rw [if_neg h16] at p2
-  have v2x7 : v2.getReg .x7 = BitVec.ofNat 64 heap := by rw [r2.get (by simp), h7]
+  -- T3 (25191): `j 25887`
   have st3 := symRun_sound gRunT3 hg.cT3 v2 p2 (by simp [gRunT3.res, rv_simp])
   set v3 := gRunT3.res.toState v2
-  have r3 : RegsExcept v2 v3 [.x28, .x29] := by
-    intro x hx; clear * - hx v3; simp at hx; cases x <;> simp_all [v3, gRunT3.res, rv_simp] <;> rfl
-  have v3x29 : v3.getReg .x29 = 2#64 := by simp [v3, gRunT3.res, rv_simp]
-  have m3 : ∀ A, v3.getMem A = u.getMem A := fun A => (Result.toState_getMem_frame _ _ A (by simp [gRunT3.res])).trans (m2 A)
-  have p3 : v3.pc = if 8 ≤ heap then pcOf 25202 else pcOf 25194 := by
-    simp only [v3, Result.toState_pc, gRunT3.res, E.eval, CmpOp.eval, v2x7]
+  have r3 : RegsExcept v2 v3 [] := by
+    intro x _; clear * - v3; cases x <;> simp [v3, gRunT3.res, rv_simp] <;> rfl
+  have m3 : ∀ A, v3.getMem A = u.getMem A :=
+    fun A => (Result.toState_getMem_frame _ _ A (by simp [gRunT3.res])).trans (m2 A)
+  have p3 : v3.pc = pcOf 25887 := by simp [v3, gRunT3.res, rv_simp]
+  have st23 : Steps im u 4 4 v3 := (st2'.trans st3).of_eq (by simp [gRunT3.res]) (by simp [gRunT3.res])
+  have r23 : RegsExcept u v3 [.x28, .x29] := (r2.trans r3).mono (by simp)
+  have v3x7 : v3.getReg .x7 = BitVec.ofNat 64 heap := by rw [r23.get (by simp), h7]
+  have v3x31 : v3.getReg .x31 = BitVec.ofNat 64 (gN lay tree heap) := by rw [r23.get (by simp), h31]
+  clear_value v3
+  -- Ta1 (25887): `b = 2`, `heap < 8 → 25194`
+  have sa := symRun_sound gRunTa1 hg.cTa1 v3 p3 (by simp [gRunTa1.res, rv_simp])
+  set va := gRunTa1.res.toState v3
+  have ra : RegsExcept v3 va [.x28, .x29] := by
+    intro x hx; clear * - hx va; simp at hx; cases x <;> simp_all [va, gRunTa1.res, rv_simp] <;> rfl
+  have vax29 : va.getReg .x29 = 2#64 := by simp [va, gRunTa1.res, rv_simp]
+  have ma : ∀ A, va.getMem A = u.getMem A :=
+    fun A => (Result.toState_getMem_frame _ _ A (by simp [gRunTa1.res])).trans (m3 A)
+  have pa : va.pc = if 8 ≤ heap then pcOf 25890 else pcOf 25194 := by
+    simp only [va, Result.toState_pc, gRunTa1.res, E.eval, CmpOp.eval, v3x7]
     rw [ClaudeWCT.W9.Machine.Sign.ofNat_ult (by omega) (by decide)]
     by_cases h : 8 ≤ heap <;> simp [h] <;> try omega
-  have st23 : Steps im u 6 6 v3 := (st2'.trans st3).of_eq (by simp [gRunT3.res]) (by simp [gRunT3.res])
-  have r23 : RegsExcept u v3 [.x28, .x29] := (r2.trans r3).mono (by simp)
-  clear_value v3
+  have st3a : Steps im u 7 7 va := (st23.trans sa).of_eq (by simp [gRunTa1.res]) (by simp [gRunTa1.res])
+  have r3a : RegsExcept u va [.x28, .x29] := (r23.trans ra).mono (by simp)
+  have vax7 : va.getReg .x7 = BitVec.ofNat 64 heap := by rw [r3a.get (by simp), h7]
+  have vax31 : va.getReg .x31 = BitVec.ofNat 64 (gN lay tree heap) := by rw [r3a.get (by simp), h31]
+  clear_value va
   by_cases h8 : 8 ≤ heap
-  · rw [if_pos h8] at p3
-    exact fin v3 6 2 st23 (by omega) p3 v3x29 (by rw [zb, if_neg h16, if_pos h8]) r23 m3
-  rw [if_neg h8] at p3
-  have v3x7 : v3.getReg .x7 = BitVec.ofNat 64 heap := by rw [r3.get (by simp), v2x7]
-  have st4 := symRun_sound gRunT4 hg.cT4 v3 p3 (by simp [gRunT4.res, rv_simp])
-  set v4 := gRunT4.res.toState v3
-  have r4 : RegsExcept v3 v4 [.x28, .x29] := by
+  · rw [if_pos h8] at pa
+    have hb2 : 2 = ClaudeWCT.WCT9.lowerZeroBits lay heap := by rw [zb, if_neg h16, if_pos h8]
+    -- Ta2 (25890): the layer test, `lay ≠ 1 → 25202`
+    have sb := symRun_sound gRunTa2 hg.cTa2 va pa (by simp [gRunTa2.res, rv_simp])
+    set vb := gRunTa2.res.toState va
+    have rb : RegsExcept va vb [.x28] := by
+      intro x hx; clear * - hx vb; simp at hx; cases x <;> simp_all [vb, gRunTa2.res, rv_simp] <;> rfl
+    have mb : ∀ A, vb.getMem A = u.getMem A :=
+      fun A => (Result.toState_getMem_frame _ _ A (by simp [gRunTa2.res])).trans (ma A)
+    have pb : vb.pc = if lay = 1 then pcOf 25893 else pcOf 25202 := by
+      simp only [vb, Result.toState_pc, gRunTa2.res, E.eval, BinOp.eval, CmpOp.eval, vax31]
+      by_cases h : lay = 1
+      · have he := e6.2 (by omega)
+        rw [if_pos h]
+        simp [he]
+      · have hne : ¬ (BitVec.ofNat 64 (gN lay tree heap) >>> 28 + 18446744073709551615#64 = 0#64) :=
+          fun he => h (by have := e6.1 he; omega)
+        rw [if_neg h]
+        simp [hne]
+    have stab : Steps im u 10 10 vb := (st3a.trans sb).of_eq (by simp [gRunTa2.res]) (by simp [gRunTa2.res])
+    have rab : RegsExcept u vb [.x28, .x29] := (r3a.trans rb).mono (by simp)
+    have vbx29 : vb.getReg .x29 = 2#64 := by rw [rb.get (by simp), vax29]
+    clear_value vb
+    by_cases hL : lay = 1
+    · rw [if_pos hL] at pb
+      -- Ta3 (25893): `b = 2`, `j 25202`
+      have sc := symRun_sound gRunTa3 hg.cTa3 vb pb (by simp [gRunTa3.res, rv_simp])
+      have rc : RegsExcept vb (gRunTa3.res.toState vb) [.x29] := by
+        intro x hx; clear * - hx; simp at hx; cases x <;> simp_all [gRunTa3.res, rv_simp] <;> rfl
+      exact fin _ 12 2 ((stab.trans sc).of_eq (by simp [gRunTa3.res]) (by simp [gRunTa3.res])) (by omega)
+        (by simp [gRunTa3.res, rv_simp]) (by simp [gRunTa3.res, rv_simp]) hb2 ((rab.trans rc).mono (by simp))
+        (fun A => (Result.toState_getMem_frame _ _ A (by simp [gRunTa3.res])).trans (mb A))
+    · rw [if_neg hL] at pb
+      exact fin vb 10 2 stab (by omega) pb vbx29 hb2 rab mb
+  rw [if_neg h8] at pa
+  -- T4 (25194): `b = 3`, `heap ≥ 4 → 25202`
+  have st4 := symRun_sound gRunT4 hg.cT4 va pa (by simp [gRunT4.res, rv_simp])
+  set v4 := gRunT4.res.toState va
+  have r4 : RegsExcept va v4 [.x28, .x29] := by
     intro x hx; clear * - hx v4; simp at hx; cases x <;> simp_all [v4, gRunT4.res, rv_simp] <;> rfl
   have v4x29 : v4.getReg .x29 = 3#64 := by simp [v4, gRunT4.res, rv_simp]
-  have m4 : ∀ A, v4.getMem A = u.getMem A := fun A => (Result.toState_getMem_frame _ _ A (by simp [gRunT4.res])).trans (m3 A)
+  have m4 : ∀ A, v4.getMem A = u.getMem A :=
+    fun A => (Result.toState_getMem_frame _ _ A (by simp [gRunT4.res])).trans (ma A)
   have p4 : v4.pc = if 4 ≤ heap then pcOf 25202 else pcOf 25197 := by
-    simp only [v4, Result.toState_pc, gRunT4.res, E.eval, CmpOp.eval, v3x7]
+    simp only [v4, Result.toState_pc, gRunT4.res, E.eval, CmpOp.eval, vax7]
     rw [ClaudeWCT.W9.Machine.Sign.ofNat_ult (by omega) (by decide)]
     by_cases h : 4 ≤ heap <;> simp [h] <;> try omega
-  have st34 : Steps im u 9 9 v4 := (st23.trans st4).of_eq (by simp [gRunT4.res]) (by simp [gRunT4.res])
-  have r34 : RegsExcept u v4 [.x28, .x29] := (r23.trans r4).mono (by simp)
+  have st34 : Steps im u 10 10 v4 := (st3a.trans st4).of_eq (by simp [gRunT4.res]) (by simp [gRunT4.res])
+  have r34 : RegsExcept u v4 [.x28, .x29] := (r3a.trans r4).mono (by simp)
   clear_value v4
   by_cases h4 : 4 ≤ heap
   · rw [if_pos h4] at p4
-    exact fin v4 9 3 st34 (by omega) p4 v4x29 (by rw [zb, if_neg h16, if_neg h8, if_pos h4]) r34 m4
+    exact fin v4 10 3 st34 (by omega) p4 v4x29 (by rw [zb, if_neg h16, if_neg h8, if_pos h4]) r34 m4
   rw [if_neg h4] at p4
-  have v4x31 : v4.getReg .x31 = BitVec.ofNat 64 (gN lay tree heap) := by
-    rw [r4.get (by simp), r3.get (by simp), r2.get (by simp), h31]
+  have hb4 : 4 = ClaudeWCT.WCT9.lowerZeroBits lay heap := by rw [zb, if_neg h16, if_neg h8, if_neg h4]
+  have v4x31 : v4.getReg .x31 = BitVec.ofNat 64 (gN lay tree heap) := by rw [r34.get (by simp), h31]
+  -- T5 (25197): `b = 4`, the layer test, `lay ≠ 1 → 25202`
   have st5 := symRun_sound gRunT5 hg.cT5 v4 p4 (by simp [gRunT5.res, rv_simp])
   set v5 := gRunT5.res.toState v4
   have r5 : RegsExcept v4 v5 [.x28, .x29] := by
     intro x hx; clear * - hx v5; simp at hx; cases x <;> simp_all [v5, gRunT5.res, rv_simp] <;> rfl
   have v5x29 : v5.getReg .x29 = 4#64 := by simp [v5, gRunT5.res, rv_simp]
-  have m5 : ∀ A, v5.getMem A = u.getMem A := fun A => (Result.toState_getMem_frame _ _ A (by simp [gRunT5.res])).trans (m4 A)
+  have m5 : ∀ A, v5.getMem A = u.getMem A :=
+    fun A => (Result.toState_getMem_frame _ _ A (by simp [gRunT5.res])).trans (m4 A)
   have p5 : v5.pc = if lay = 1 then pcOf 25201 else pcOf 25202 := by
     simp only [v5, Result.toState_pc, gRunT5.res, E.eval, BinOp.eval, CmpOp.eval, v4x31]
-    have e6 := g_t0 (lay := lay) (tree := tree) (heap := heap) hl htr (by omega)
     by_cases h : lay = 1
     · have he := e6.2 (by omega)
       rw [if_pos h]
@@ -7039,21 +7104,20 @@ theorem g_bsel {lay tree heap : Nat} (hl1 : 1 ≤ lay) (hl : lay < 4) (htr : tre
         fun he => h (by have := e6.1 he; omega)
       rw [if_neg h]
       simp [hne]
-  have st45 : Steps im u 13 13 v5 := (st34.trans st5).of_eq (by simp [gRunT5.res]) (by simp [gRunT5.res])
+  have st45 : Steps im u 14 14 v5 := (st34.trans st5).of_eq (by simp [gRunT5.res]) (by simp [gRunT5.res])
   have r45 : RegsExcept u v5 [.x28, .x29] := (r34.trans r5).mono (by simp)
   clear_value v5
   by_cases hL : lay = 1
   · rw [if_pos hL] at p5
+    -- T6 (25201): `b = 4`
     have st6 := symRun_sound gRunT6 hg.cT6 v5 p5 (by simp [gRunT6.res, rv_simp])
-    set v6 := gRunT6.res.toState v5
-    have r6 : RegsExcept v5 v6 [.x29] := by
-      intro x hx; clear * - hx v6; simp at hx; cases x <;> simp_all [v6, gRunT6.res, rv_simp] <;> rfl
-    exact fin v6 14 3 ((st45.trans st6).of_eq (by simp [gRunT6.res]) (by simp [gRunT6.res])) le_rfl
-      (by simp [v6, gRunT6.res, rv_simp]) (by simp [v6, gRunT6.res, rv_simp])
-      (by rw [zb, if_neg h16, if_neg h8, if_neg h4, if_pos hL]) ((r45.trans r6).mono (by simp))
+    have r6 : RegsExcept v5 (gRunT6.res.toState v5) [.x29] := by
+      intro x hx; clear * - hx; simp at hx; cases x <;> simp_all [gRunT6.res, rv_simp] <;> rfl
+    exact fin _ 15 4 ((st45.trans st6).of_eq (by simp [gRunT6.res]) (by simp [gRunT6.res])) le_rfl
+      (by simp [gRunT6.res, rv_simp]) (by simp [gRunT6.res, rv_simp]) hb4 ((r45.trans r6).mono (by simp))
       (fun A => (Result.toState_getMem_frame _ _ A (by simp [gRunT6.res])).trans (m5 A))
   · rw [if_neg hL] at p5
-    exact fin v5 13 4 st45 (by omega) p5 v5x29 (by rw [zb, if_neg h16, if_neg h8, if_neg h4, if_neg hL]) r45 m5
+    exact fin v5 14 4 st45 (by omega) p5 v5x29 hb4 r45 m5
 /-- Cycle bound of one lower node hash through the grind stub. -/
 def grindCost (lay heap : Nat) : Nat :=
   if ClaudeWCT.WCT9.lowerZeroBits lay heap = 0 then 39 else 71 + 16 * ClaudeWCT.WCT9.lowerNonceCap lay heap
@@ -7133,7 +7197,7 @@ theorem grind_node (sk : BitVec 256) {s : MachineState} {lay tree heap : Nat} {l
       (fun a => ?_))) (by rw [hblk]; simp [gRunJal.res, gRunA.res]) (fun _ _ h => h)
     obtain ⟨v, k, stv, hk, pv, -, -, rv, mv⟩ := g_checks hg hl4 htr hh (writeHash s2 a) (hpw a)
       (by rw [getReg_writeHash]; exact h10) (hW a)
-    rw [if_pos h16] at pv
+    rw [if_pos h16] at pv hk
     obtain ⟨rs, svs, fs, ds⟩ := post_of a v (rv.mono (by simp [gRegs])) mv
     obtain ⟨st', post⟩ := g_finish hg s v pv rs svs fs ds
     exact TBSim.mono (TBSim.pure_steps (stv.trans st') post) (by omega) (fun _ _ h => h)
@@ -7148,7 +7212,7 @@ theorem grind_node (sk : BitVec 256) {s : MachineState} {lay tree heap : Nat} {l
       (by rw [hblk]; simp [gRunJal.res, gRunA.res]; omega) (fun _ _ h => h)
     obtain ⟨v, k0, stv, hk0, pv, v7, v31, rv, mv⟩ := g_checks hg hl4 htr hh (writeHash s2 a) (hpw a)
       (by rw [getReg_writeHash]; exact h10) (hW a)
-    rw [if_neg h16] at pv
+    rw [if_neg h16] at pv hk0
     obtain ⟨v', k, stv', hk, pv', v'29, rv', mv'⟩ := g_bsel hg hl1 hl4 htr hh2 (by omega) v pv v7 v31
     obtain ⟨stB, pB, B29, B30, B31, rB, mB⟩ := g_Bb hg v' pv' (heap := heap) (g_zb_le lay heap)
       (by rw [rv'.get (by simp), v7]) (by rw [rv'.get (by simp), rv.get (by simp), getReg_writeHash]; exact h12) v'29
@@ -7978,9 +8042,9 @@ theorem heapH_sib {H sel i : Nat} (hi : i < H) :
   have h2 : 2 ^ H = 2 ^ (H - i) * 2 ^ i := by rw [← pow_add, Nat.sub_add_cancel hi.le]
   rw [h2, Nat.add_comm, Nat.add_mul_div_right _ _ (Nat.two_pow_pos i), Nat.add_comm,
     two_pow_add_xor_one (by omega)]
-/-- U16b: the level loop bound with the grind stub (E11 V29: layer 1: 240851, layers 2..3: 268298). -/
+/-- U16b: the level loop bound with the grind stub (N7g lower zero bits 4/3/2/1: layer 1: 273619, layers 2..3: 268298). -/
 theorem btLev_costs (lay : Layer) (hlay : lay ≠ 0) (tree : Nat) :
-    SharedTree.levWB (btLev lay tree) ≤ 268300 := by
+    SharedTree.levWB (btLev lay tree) ≤ 273619 := by
   have e : SharedTree.levWB (btLev lay tree) = SharedTree.levWB ⟨3, lay.val, 0, height lay, 0, 0⟩ := rfl
   have hv : lay.val = 1 ∨ lay.val = 2 ∨ lay.val = 3 := by
     have := lay.isLt; have : lay.val ≠ 0 := fun h => hlay (Fin.ext h); omega

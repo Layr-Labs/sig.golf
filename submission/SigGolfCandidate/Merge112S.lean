@@ -342,7 +342,7 @@ theorem preM_total
     symm
     exact ENNReal.tsum_eq_zero.mpr fun s => by simp [hs]
 
-/-- The split's middle-window closing at cap 776 / gate 934 (y_b = 2163/10^6, v = 407137/500000). -/
+/-- The split's middle-window closing at cap 776 / gate 926 (y_b = 2163/10^6, v = 407137/500000). -/
 theorem split_middle_real (y P E O pre post preM pc err pf pm ps pu ptc pmf pcf pte pr : ℝ)
     (hy0 : 0 ≤ y) (hy : y ≤ 2163 / 1000000)
     (hP : 0 ≤ P) (hE : 0 ≤ E) (hpre : 0 ≤ pre) (hpost : 0 ≤ post) (herr0 : 0 ≤ err) (hpc0 : 0 ≤ pc)

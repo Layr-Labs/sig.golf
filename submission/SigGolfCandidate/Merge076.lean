@@ -324,6 +324,8 @@ def eDecT1 : List (BitVec 32) := [0x23fde13,0x1c03e33,0x29fdf13,0x1e03f33,0x1ee0
 def eDecT2 : List (BitVec 32) := [0x23fde13,0x1c03e33,0x29fdf13,0x1e03f33,0x1ee0e33,0x2ffdf13,0x1ee0e33,0xf394506f]
 /-- E11: the grind tiers (60108..60127) and the post-grind nonce slot (60128..60141). -/
 def cE11s : List (BitVec 32) := (Images.expandE11Code.drop 108).take 34
+/-- N7g b rule (60968..60975, entered by `60115: jal 60968`): heaps 8..15 get `t4 = 2` on every lower layer. -/
+def cBR : List (BitVec 32) := (Images.expandR6Code.drop 49).take 8
 def seg_1140 : List (BitVec 32) := [4228647955,1706515,4020236399]
 def nonce_A : List (BitVec 32) := [0xc00e13,0xdc79863]
 def nonce_B : List (BitVec 32) := [0xb00e13,0xdca7463]
@@ -335,9 +337,9 @@ def nonce_Z0 : List (BitVec 32) := [0x00000713,0x00000f93,0x00300e13,0x03c6c863]
 def nonce_Z1 : List (BitVec 32) := [0xffd68713,0x2d80006f]
 def nonce_Z2 : List (BitVec 32) := [0x00100713,0x04000e13,0x40ee0e33,0xfff00f93,0x01cf9fb3,0x00b00e13,0x01c69663]
 def nonce_Z3 : List (BitVec 32) := [0x04000e13,0x40ee0e33,0xfff00f93,0x01cf9fb3,0x00b00e13,0x01c69663]
-def nonce_Z4 : List (BitVec 32) := [0x07f00f93,0x2c80006f,0xe9df406f]
-def nonce_Alloc0 : List (BitVec 32) := [0x71663,0x200713,0xd29ff06f,0x170713,0xd21ff06f]
-def nonce_Alloc1 : List (BitVec 32) := [0x700713,0x25f9f93,0xd35ff06f]
+def nonce_Z4 : List (BitVec 32) := [0x1ff00f93,0x2c80006f,0xe9df406f]
+def nonce_Alloc0 : List (BitVec 32) := [0x71663,0x100713,0xd29ff06f,0x170713,0xd21ff06f]
+def nonce_Alloc1 : List (BitVec 32) := [0x900713,0x23f9f93,0xd35ff06f]
 def nonce_ZA0 : List (BitVec 32) := nonce_Alloc0.take 1
 def nonce_ZA1 : List (BitVec 32) := (nonce_Alloc0.drop 1).take 2
 def nonce_ZA2 : List (BitVec 32) := nonce_Alloc0.drop 3
@@ -413,6 +415,7 @@ class Code (im : Image) : Prop where
   codeAt_dec1 : CodeAt im (pcOf 245358) eDecT1
   codeAt_dec2 : CodeAt im (pcOf 245366) eDecT2
   codeAt_e11s : CodeAt im (pcOf 60108) cE11s
+  codeAt_brule : CodeAt im (pcOf 60968) cBR
   codeAt_1139 : CodeAt im (pcOf 1139) seg_n1139
   codeAt_1140 : CodeAt im (pcOf 1140) seg_1140
   codeAt_nA : CodeAt im (pcOf 43195) nonce_A
@@ -1787,7 +1790,12 @@ sym_block gDn := symRun cfgS (sl 54875 54886) (pcOf 54875) 20
 def slE (a b : Nat) : List (BitVec 32) := (cE11s.drop (a - 60108)).take (b - a)
 sym_block tA := symRun cfgS (slE 60108 60112) (pcOf 60108) 20
 sym_block tB := symRun cfgS (slE 60112 60115) (pcOf 60112) 20
-sym_block tC := symRun cfgS (slE 60115 60118) (pcOf 60115) 20
+/-- N7g b-rule slice `[a, b)` of the code at 60968. -/
+def slB (a b : Nat) : List (BitVec 32) := (cBR.drop (a - 60968)).take (b - a)
+sym_block tC0 := symRun cfgS (slE 60115 60116) (pcOf 60115) 20
+sym_block tC1 := symRun cfgS (slB 60968 60971) (pcOf 60968) 20
+sym_block tC2 := symRun cfgS (slB 60971 60974) (pcOf 60971) 20
+sym_block tC3 := symRun cfgS (slB 60974 60976) (pcOf 60974) 20
 sym_block tD := symRun cfgS (slE 60118 60121) (pcOf 60118) 20
 sym_block tE := symRun cfgS (slE 60121 60125) (pcOf 60121) 20
 sym_block tF := symRun cfgS (slE 60125 60127) (pcOf 60125) 20
@@ -1810,6 +1818,11 @@ theorem code_slE {im : Image} (h : CodeAt im (pcOf 60108) cE11s) (a b : Nat) (ha
   have := codeAt_sub (a - 60108) h (seg := slE a b) (by simp [slE, show cE11s.length = 34 from rfl]; omega)
     (by simp [slE])
   rwa [show 60108 + (a - 60108) = a by omega] at this
+theorem code_slB {im : Image} (h : CodeAt im (pcOf 60968) cBR) (a b : Nat) (ha : 60968 ≤ a) (hb : b ≤ 60976)
+    (hab : a ≤ b) : CodeAt im (pcOf a) (slB a b) := by
+  have := codeAt_sub (a - 60968) h (seg := slB a b) (by simp [slB, show cBR.length = 8 from rfl]; omega)
+    (by simp [slB])
+  rwa [show 60968 + (a - 60968) = a by omega] at this
 
 theorem σK_toState (K : Nat) (s : MachineState) (h30 : s.getReg .x30 = s.getReg .x12 + BitVec.ofNat 64 K) :
     (σK K).toState s s.pc = s := by
@@ -1953,16 +1966,67 @@ theorem tB_spec (hpc : s.pc = pcOf 60112) :
   · intro r hr; simp at hr; cases r <;> simp_all [tB.res, rv_simp] <;> rfl
   · intro A _ _; simp [tB.res, rv_simp]
 
-theorem tC_spec (hpc : s.pc = pcOf 60115) :
-    ∃ t, Steps im s 3 3 t ∧ t.pc = (if (s.getReg .x7).ult 8#64 = true then pcOf 60118 else pcOf 60126) ∧
+theorem tC0_spec (hpc : s.pc = pcOf 60115) :
+    ∃ t, Steps im s 1 1 t ∧ t.pc = pcOf 60968 ∧ RegsExcept s t [] ∧ Frame s t (fun _ => False) := by
+  have hc := code_slE (Code.codeAt_e11s (im := im)) 60115 60116 (by norm_num) (by norm_num) (by norm_num)
+  refine ⟨_, symRun_sound tC0 hc s hpc (by simp [tC0.res, rv_simp]), ?_, ?_, ?_⟩
+  · simp [tC0.res, Result.toState_pc, E.eval]
+  · intro r hr; cases r <;> simp_all [tC0.res, rv_simp] <;> rfl
+  · intro A _ _; simp [tC0.res, rv_simp]
+theorem tC1_spec (hpc : s.pc = pcOf 60968) :
+    ∃ t, Steps im s 3 3 t ∧ t.pc = (if (s.getReg .x7).ult 8#64 = true then pcOf 60118 else pcOf 60971) ∧
       t.getReg .x29 = 2#64 ∧ RegsExcept s t [.x28, .x29] ∧ Frame s t (fun _ => False) := by
-  have hc := code_slE (Code.codeAt_e11s (im := im)) 60115 60118 (by norm_num) (by norm_num) (by norm_num)
-  refine ⟨_, symRun_sound tC hc s hpc (by simp [tC.res, rv_simp]), ?_, ?_, ?_, ?_⟩
+  have hc := code_slB (Code.codeAt_brule (im := im)) 60968 60971 (by norm_num) (by norm_num) (by norm_num)
+  refine ⟨_, symRun_sound tC1 hc s hpc (by simp [tC1.res, rv_simp]), ?_, ?_, ?_, ?_⟩
   · rw [Result.toState_pc]
-    by_cases hc : (s.getReg .x7).ult 8#64 = true <;> simp [tC.res, E.eval, CmpOp.eval, hc]
-  · simp only [Result.toState_getReg, tC.res]; t3n []
-  · intro r hr; simp at hr; cases r <;> simp_all [tC.res, rv_simp] <;> rfl
-  · intro A _ _; simp [tC.res, rv_simp]
+    by_cases hc : (s.getReg .x7).ult 8#64 = true <;> simp [tC1.res, E.eval, CmpOp.eval, hc]
+  · simp only [Result.toState_getReg, tC1.res]; t3n []
+  · intro r hr; simp at hr; cases r <;> simp_all [tC1.res, rv_simp] <;> rfl
+  · intro A _ _; simp [tC1.res, rv_simp]
+theorem tC2_spec (hpc : s.pc = pcOf 60971) :
+    ∃ t, Steps im s 3 3 t ∧ (t.pc = pcOf 60126 ∨ t.pc = pcOf 60974) ∧
+      RegsExcept s t [.x28] ∧ Frame s t (fun _ => False) := by
+  have hc := code_slB (Code.codeAt_brule (im := im)) 60971 60974 (by norm_num) (by norm_num) (by norm_num)
+  refine ⟨_, symRun_sound tC2 hc s hpc (by simp [tC2.res, rv_simp]), ?_, ?_, ?_⟩
+  · rw [Result.toState_pc]
+    simp only [tC2.res, E.eval]
+    by_cases hb : CmpOp.ne.eval (BinOp.add.eval (BinOp.srl.eval (s.getReg Reg.x31) 28#64) 18446744073709551615#64) 0#64 = true <;>
+      simp [hb]
+  · intro r hr; simp at hr; cases r <;> simp_all [tC2.res, rv_simp] <;> rfl
+  · intro A _ _; simp [tC2.res, rv_simp]
+theorem tC3_spec (hpc : s.pc = pcOf 60974) :
+    ∃ t, Steps im s 2 2 t ∧ t.pc = pcOf 60126 ∧ t.getReg .x29 = 2#64 ∧ RegsExcept s t [.x29] ∧
+      Frame s t (fun _ => False) := by
+  have hc := code_slB (Code.codeAt_brule (im := im)) 60974 60976 (by norm_num) (by norm_num) (by norm_num)
+  refine ⟨_, symRun_sound tC3 hc s hpc (by simp [tC3.res, rv_simp]), ?_, ?_, ?_, ?_⟩
+  · simp [tC3.res, Result.toState_pc, E.eval]
+  · simp only [Result.toState_getReg, tC3.res]; t3n []
+  · intro r hr; simp at hr; cases r <;> simp_all [tC3.res, rv_simp] <;> rfl
+  · intro A _ _; simp [tC3.res, rv_simp]
+/-- N7g tier C: `jal 60968`; heaps `< 8` back to 60118, heaps 8..15 to 60126 with `t4 = 2` (4 to 9 steps). -/
+theorem tC_spec (hpc : s.pc = pcOf 60115) :
+    ∃ t k, Steps im s k k t ∧ ((s.getReg .x7).ult 8#64 = true → k = 4) ∧ k ≤ 9 ∧
+      t.pc = (if (s.getReg .x7).ult 8#64 = true then pcOf 60118 else pcOf 60126) ∧
+      t.getReg .x29 = 2#64 ∧ RegsExcept s t [.x28, .x29] ∧ Frame s t (fun _ => False) := by
+  obtain ⟨t0, s0, p0, r0, f0⟩ := tC0_spec (im := im) s hpc
+  obtain ⟨t1, s1, p1, x1, r1, f1⟩ := tC1_spec (im := im) t0 p0
+  have e7 : t0.getReg .x7 = s.getReg .x7 := r0.get (by decide)
+  rw [e7] at p1
+  by_cases h8 : (s.getReg .x7).ult 8#64 = true
+  · rw [if_pos h8] at p1
+    exact ⟨t1, _, s0.trans s1, fun _ => rfl, by omega, by rw [p1, if_pos h8], x1, (r0.trans r1).mono (by decide),
+      (f0.trans f1).mono (fun _ _ h => by rcases h with h | h <;> exact h)⟩
+  rw [if_neg h8] at p1
+  obtain ⟨t2, s2, p2, r2, f2⟩ := tC2_spec (im := im) t1 p1
+  have x2 : t2.getReg .x29 = 2#64 := by rw [r2.get (by decide)]; exact x1
+  rcases p2 with p2 | p2
+  · exact ⟨t2, _, (s0.trans s1).trans s2, fun h => absurd h h8, by omega, by rw [p2, if_neg h8], x2,
+      ((r0.trans r1).trans r2).mono (by decide),
+      ((f0.trans f1).trans f2).mono (fun _ _ h => by rcases h with (h | h) | h <;> exact h)⟩
+  obtain ⟨t3, s3, p3, x3, r3, f3⟩ := tC3_spec (im := im) t2 p2
+  exact ⟨t3, _, ((s0.trans s1).trans s2).trans s3, fun h => absurd h h8, by omega, by rw [p3, if_neg h8], x3,
+    (((r0.trans r1).trans r2).trans r3).mono (by decide),
+    (((f0.trans f1).trans f2).trans f3).mono (fun _ _ h => by rcases h with ((h | h) | h) | h <;> exact h)⟩
 
 theorem tD_spec (hpc : s.pc = pcOf 60118) :
     ∃ t, Steps im s 3 3 t ∧ t.pc = (if (s.getReg .x7).ult 4#64 = true then pcOf 60121 else pcOf 60126) ∧
@@ -1989,7 +2053,7 @@ theorem tE_spec (hpc : s.pc = pcOf 60121) :
   · intro A _ _; simp [tE.res, rv_simp]
 
 theorem tF_spec (hpc : s.pc = pcOf 60125) :
-    ∃ t, Steps im s 2 2 t ∧ t.pc = pcOf 54838 ∧ t.getReg .x29 = 3#64 ∧ RegsExcept s t [.x29] ∧
+    ∃ t, Steps im s 2 2 t ∧ t.pc = pcOf 54838 ∧ t.getReg .x29 = 4#64 ∧ RegsExcept s t [.x29] ∧
       Frame s t (fun _ => False) := by
   have hc := code_slE (Code.codeAt_e11s (im := im)) 60125 60127 (by norm_num) (by norm_num) (by norm_num)
   refine ⟨_, symRun_sound tF hc s hpc (by simp [tF.res, rv_simp]), ?_, ?_, ?_, ?_⟩
@@ -2398,7 +2462,7 @@ variable {im : Image} [Code im]
 theorem tiers_spec (u : MachineState) (hpc : u.pc = pcOf 60108) (lay tree heap : Nat) (h1 : 1 ≤ lay) (h3 : lay ≤ 3)
     (ht : tree < 2 ^ T3.hyperW (lay - 1)) (hh2 : 2 ≤ heap) (hh : heap < 128)
     (h31 : u.getReg .x31 = BitVec.ofNat 64 (lowTw lay tree heap)) :
-    ∃ v k, Steps im u k k v ∧ k ≤ 19 ∧ v.pc = (if 32 ≤ heap then pcOf 54875 else pcOf 54838) ∧
+    ∃ v k, Steps im u k k v ∧ (k ≤ 19 ∨ (lay = 1 ∧ heap < 4 ∧ k ≤ 20)) ∧ v.pc = (if 32 ≤ heap then pcOf 54875 else pcOf 54838) ∧
       v.getReg .x7 = BitVec.ofNat 64 heap ∧
       (heap < 32 → v.getReg .x29 = BitVec.ofNat 64 (ClaudeWCT.WCT9.lowerZeroBits lay heap)) ∧
       RegsExcept u v [.x7, .x28, .x29] ∧ Frame u v (fun _ => False) := by
@@ -2409,7 +2473,7 @@ theorem tiers_spec (u : MachineState) (hpc : u.pc = pcOf 60108) (lay tree heap :
   by_cases h32 : 32 ≤ heap
   · rw [if_neg (by simp; omega)] at p1
     obtain ⟨v2, s2, p2, r2, f2⟩ := tK_spec (im := im) v1 p1
-    refine ⟨v2, 5, s1.trans s2, by omega, by rw [p2, if_pos h32], by rw [r2.get (by decide)]; exact x7,
+    refine ⟨v2, 5, s1.trans s2, Or.inl (by omega), by rw [p2, if_pos h32], by rw [r2.get (by decide)]; exact x7,
       fun h => absurd h32 (by omega), (r1.trans r2).mono (by decide),
       (f1.trans f2).mono (fun _ _ h => by rcases h with h | h <;> exact h)⟩
   rw [if_pos (by simp; omega)] at p1
@@ -2421,23 +2485,25 @@ theorem tiers_spec (u : MachineState) (hpc : u.pc = pcOf 60108) (lay tree heap :
   by_cases h16 : 16 ≤ heap
   · rw [if_neg (by simp; omega)] at p2
     obtain ⟨v3, s3, p3, r3, f3⟩ := tJ_spec (im := im) v2 p2
-    refine ⟨v3, 8, (s1.trans s2).trans s3, by omega, by rw [p3, if_neg h32], by rw [r3.get (by decide)]; exact g7,
+    refine ⟨v3, 8, (s1.trans s2).trans s3, Or.inl (by omega), by rw [p3, if_neg h32], by rw [r3.get (by decide)]; exact g7,
       zb _ ?_, ((r1.trans r2).trans r3).mono (by decide),
       ((f1.trans f2).trans f3).mono (fun _ _ h => by rcases h with (h | h) | h <;> exact h)⟩
     rw [r3.get (by decide), x29a]; simp [ClaudeWCT.WCT9.lowerZeroBits, show ¬ heap < 2 by omega, h16, h32,
       show lay ≠ 0 by omega]
   rw [if_pos (by simp; omega)] at p2
-  obtain ⟨v3, s3, p3, x29b, r3, f3⟩ := tC_spec (im := im) v2 p2
-  rw [g7, ult_ofNat heap 8 (by omega) (by omega)] at p3
+  obtain ⟨v3, k3, s3, hk3e, hk3, p3, x29b, r3, f3⟩ := tC_spec (im := im) v2 p2
+  rw [g7, ult_ofNat heap 8 (by omega) (by omega)] at p3 hk3e
   have g7' : v3.getReg .x7 = BitVec.ofNat 64 heap := by rw [r3.get (by decide)]; exact g7
   by_cases h8 : 8 ≤ heap
   · rw [if_neg (by simp; omega)] at p3
     obtain ⟨v4, s4, p4, r4, f4⟩ := tJ_spec (im := im) v3 p3
-    refine ⟨v4, 11, ((s1.trans s2).trans s3).trans s4, by omega, by rw [p4, if_neg h32],
+    refine ⟨v4, _, ((s1.trans s2).trans s3).trans s4, Or.inl (by omega), by rw [p4, if_neg h32],
       by rw [r4.get (by decide)]; exact g7', zb _ ?_, (((r1.trans r2).trans r3).trans r4).mono (by decide),
       (((f1.trans f2).trans f3).trans f4).mono (fun _ _ h => by rcases h with ((h | h) | h) | h <;> exact h)⟩
     rw [r4.get (by decide), x29b]; simp [ClaudeWCT.WCT9.lowerZeroBits, show ¬ heap < 2 by omega, h16, h32, h8,
       show lay ≠ 0 by omega]
+  have hk3' : k3 = 4 := hk3e (by simp; omega)
+  subst hk3'
   rw [if_pos (by simp; omega)] at p3
   obtain ⟨v4, s4, p4, x29c, r4, f4⟩ := tD_spec (im := im) v3 p3
   rw [g7', ult_ofNat heap 4 (by omega) (by omega)] at p4
@@ -2445,7 +2511,7 @@ theorem tiers_spec (u : MachineState) (hpc : u.pc = pcOf 60108) (lay tree heap :
   by_cases h4 : 4 ≤ heap
   · rw [if_neg (by simp; omega)] at p4
     obtain ⟨v5, s5, p5, r5, f5⟩ := tJ_spec (im := im) v4 p4
-    refine ⟨v5, 14, (((s1.trans s2).trans s3).trans s4).trans s5, by omega, by rw [p5, if_neg h32],
+    refine ⟨v5, _, (((s1.trans s2).trans s3).trans s4).trans s5, Or.inl (by omega), by rw [p5, if_neg h32],
       by rw [r5.get (by decide)]; exact g7'', zb _ ?_, ((((r1.trans r2).trans r3).trans r4).trans r5).mono (by decide),
       ((((f1.trans f2).trans f3).trans f4).trans f5).mono (fun _ _ h => by
         rcases h with (((h | h) | h) | h) | h <;> exact h)⟩
@@ -2461,7 +2527,8 @@ theorem tiers_spec (u : MachineState) (hpc : u.pc = pcOf 60108) (lay tree heap :
   · subst hl1
     rw [if_pos ((lowTw_t0 1 tree heap le_rfl (by omega) ht hh).2 rfl)] at p5
     obtain ⟨v6, s6, p6, x29e, r6, f6⟩ := tF_spec (im := im) v5 p5
-    refine ⟨v6, 19, ((((s1.trans s2).trans s3).trans s4).trans s5).trans s6, le_rfl, by rw [p6, if_neg h32],
+    refine ⟨v6, _, ((((s1.trans s2).trans s3).trans s4).trans s5).trans s6, Or.inr ⟨rfl, by omega, by omega⟩,
+      by rw [p6, if_neg h32],
       by rw [r6.get (by decide)]; exact g7''', zb _ ?_,
       (((((r1.trans r2).trans r3).trans r4).trans r5).trans r6).mono (by decide),
       (((((f1.trans f2).trans f3).trans f4).trans f5).trans f6).mono (fun _ _ h => by
@@ -2469,7 +2536,7 @@ theorem tiers_spec (u : MachineState) (hpc : u.pc = pcOf 60108) (lay tree heap :
     rw [x29e]; simp [ClaudeWCT.WCT9.lowerZeroBits, show ¬ heap < 2 by omega, h16, h32, h8, h4]
   · rw [if_neg (fun h => hl1 ((lowTw_t0 lay tree heap h1 h3 ht hh).1 h))] at p5
     obtain ⟨v6, s6, p6, r6, f6⟩ := tJ_spec (im := im) v5 p5
-    refine ⟨v6, 18, ((((s1.trans s2).trans s3).trans s4).trans s5).trans s6, by omega, by rw [p6, if_neg h32],
+    refine ⟨v6, _, ((((s1.trans s2).trans s3).trans s4).trans s5).trans s6, Or.inl (by omega), by rw [p6, if_neg h32],
       by rw [r6.get (by decide)]; exact g7''', zb _ ?_,
       (((((r1.trans r2).trans r3).trans r4).trans r5).trans r6).mono (by decide),
       (((((f1.trans f2).trans f3).trans f4).trans f5).trans f6).mono (fun _ _ h => by
@@ -2518,24 +2585,30 @@ theorem cls_spec (u : MachineState) (hpc : u.pc = pcOf 54806) (lay tree heap : N
       rw [p4]; simp [recThr, hl1]
   have g30 : v4.getReg .x30 = BitVec.ofNat 64 (recB lay) := by
     rw [r4.get (by decide), x30, ofNat_add_ofNat]; unfold recB; congr 1; omega
-  obtain ⟨v5, k5, s5, hk5, p5, r5, rec5, f5⟩ : ∃ v5 k5, Steps im v4 k5 k5 v5 ∧ k5 ≤ 2 ∧
+  obtain ⟨v5, k5, s5, hk5, hk5', p5, r5, rec5, f5⟩ : ∃ v5 k5, Steps im v4 k5 k5 v5 ∧ k5 ≤ 2 ∧ (heap < recThr lay → k5 ≤ 1) ∧
       v5.pc = pcOf 60108 ∧ RegsExcept v4 v5 [] ∧
       (recThr lay ≤ heap → v5.getMem (BitVec.ofNat 64 (recB lay + 24)) = BitVec.ofNat 64 heap) ∧
       Frame v4 v5 (fun A => recThr lay ≤ heap ∧ A = recB lay + 24) := by
     by_cases hr : heap < recThr lay
     · rw [if_pos hr] at p4
       obtain ⟨v5, s5, p5, r5, f5⟩ := b4b_spec (im := im) v4 p4
-      exact ⟨v5, 1, s5, by omega, p5, r5, fun h => absurd h (by omega), f5.mono (fun _ _ h => h.elim)⟩
+      exact ⟨v5, 1, s5, by omega, fun _ => le_rfl, p5, r5, fun h => absurd h (by omega), f5.mono (fun _ _ h => h.elim)⟩
     · rw [if_neg hr] at p4
       obtain ⟨v5, s5, p5, m5, r5, f5⟩ := b4a_spec (im := im) v4 p4 (recB lay) g30 (by unfold recB; omega)
         (by unfold recB; omega)
-      exact ⟨v5, 2, s5, le_rfl, p5, r5, fun _ => by rw [m5, x7'], f5.mono (fun _ _ h => ⟨by omega, h⟩)⟩
+      exact ⟨v5, 2, s5, le_rfl, fun h => absurd h hr, p5, r5, fun _ => by rw [m5, x7'], f5.mono (fun _ _ h => ⟨by omega, h⟩)⟩
   have g31' : v5.getReg .x31 = BitVec.ofNat 64 (lowTw lay tree heap) := by
     rw [r5.get (by decide), r4.get (by decide), r3.get (by decide)]; exact g31
   obtain ⟨v6, k6, s6, hk6, p6, x7v, x29v, r6, f6⟩ := tiers_spec (im := im) v5 p5 lay tree heap h1 h3 ht hh2 hh g31'
   have hrec6 : recThr lay ≤ heap → v6.getMem (BitVec.ofNat 64 (recB lay + 24)) = BitVec.ofNat 64 heap := fun h => by
     rw [f6.get (by unfold recB; omega) (fun h => h)]; exact rec5 h
-  refine ⟨v6, 5 + 3 + 16 + k4 + k5 + k6, ((((s1.trans s2).trans s3).trans s4).trans s5).trans s6, by omega, p6,
+  have hk : 5 + 3 + 16 + k4 + k5 + k6 ≤ 47 := by
+    rcases hk6 with hk6 | ⟨hl, hh4, hk6⟩
+    · omega
+    · have hr1 : recThr 1 = 64 := rfl
+      have := hk5' (by rw [hl, hr1]; omega)
+      omega
+  refine ⟨v6, 5 + 3 + 16 + k4 + k5 + k6, ((((s1.trans s2).trans s3).trans s4).trans s5).trans s6, hk, p6,
     x7v, ?_, x29v, ?_, hrec6, ?_⟩
   · rw [r6.get (by decide)]; exact g31'
   · exact (((((r1.trans r2).trans r3).trans r4).trans r5).trans r6).mono (by decide)
