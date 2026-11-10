@@ -13605,9 +13605,11 @@ theorem ftsPos_low {p : Extract.Pos} (hb : p.Bounded) (h : FtsPos p) :
       simp only [Extract.Pos.hdr, WCT9.ftsLeafHeader]
       rw [append64_lowNat, BitVec.toNat_ofNat, Nat.mod_eq_of_lt h2]
       have hn : WCT9.ftsLeafLow index coord child ≠ 520192 := by
+        have hm := WCT9.ftsSelMul_mul_facts coord child
         unfold WCT9.ftsLeafLow SigGolfCandidate.T3.ftsBiasN
         omega
       have hn1 : WCT9.ftsLeafLow index coord child ≠ 856064 := by
+        have hm := WCT9.ftsSelMul_mul_facts coord child
         unfold WCT9.ftsLeafLow SigGolfCandidate.T3.ftsBiasN
         omega
       exact ⟨h1, h2, hn, hn1⟩

@@ -223,7 +223,7 @@ theorem runCL_eq {c : Nat} (hc : c < 9) (b : Bool) : runCL c b = some (expCL c b
   · exact optBeq_eq h.1
 theorem runQ_eq {c i : Nat} (hc : c < 9) (hi : i < 6) : runQ c i = some (expQ c i) :=
   optBeq_eq (List.all_eq_true.mp (okCoord_parts hc).2.2.1 i (List.mem_range.mpr hi))
-theorem runS_eq {c i : Nat} (hc : c < 9) (hi : i < 6) : runS c i = some (expS c i) :=
+theorem runS_eq {c i : Nat} (hc : c < 9) (hi : i < 6) : runS c i = some (expSW c i) :=
   optBeq_eq (List.all_eq_true.mp (okCoord_parts hc).2.2.2.1 i (List.mem_range.mpr hi))
 theorem runChk_eq {c i s v : Nat} (hc : c < 9) (hi : i < 6) (hs : s < 5) (hv : v < 3) :
     runChk c i s v = some (expChk c i s v) :=
@@ -550,6 +550,21 @@ theorem eval_qE (s : MachineState) {c i j index : Nat} (h18 : s.getReg .x18 = Bi
   rw [binop_sll _ _ (by norm_num), binop_sll _ _ (by norm_num), h18, h22, ofNat_shl, ofNat_shl]
   simp only [BinOp.eval]
   rw [ofNat_or_add (j * 2 ^ 20) index 27 (by omega), ofNat_add_ofNat]
+/-- Y6 R-odd: the installed chain-word store (`SharedReuse.qEW`). -/
+theorem eval_qEW (s : MachineState) {c i j index : Nat} (h18 : s.getReg .x18 = BitVec.ofNat 64 j)
+    (h22 : s.getReg .x22 = BitVec.ofNat 64 index) (hj : j < 128) :
+    (SharedReuse.qEW c i).eval s =
+      BitVec.ofNat 64 (index * 2 ^ 33 + j * ClaudeWCT.WCT9.ftsSelMul c + chainK c i) := by
+  have hs : ClaudeWCT.WCT9.ftsSelShift c < 64 := by unfold ClaudeWCT.WCT9.ftsSelShift; split_ifs <;> decide
+  show BinOp.eval .add (BinOp.eval .or (BinOp.eval .sll (s.getReg .x22) (BitVec.ofNat 64 33))
+    (BinOp.eval .sll (s.getReg .x18) (BitVec.ofNat 64 (ClaudeWCT.WCT9.ftsSelShift c))))
+      (BitVec.ofNat 64 (chainK c i)) = _
+  rw [binop_sll _ _ (by norm_num), binop_sll _ _ hs, h18, h22, ofNat_shl, ofNat_shl,
+    ← ClaudeWCT.WCT9.ftsSelMul_eq]
+  have hm : j * ClaudeWCT.WCT9.ftsSelMul c < 2 ^ 33 := by
+    rcases ClaudeWCT.WCT9.ftsSelMul_cases c with h | h <;> rw [h] <;> omega
+  simp only [BinOp.eval]
+  rw [ofNat_or_add (j * ClaudeWCT.WCT9.ftsSelMul c) index 33 hm, ofNat_add_ofNat]
 theorem nodeK_lt (c : Nat) (hc : c < 9) : nodeK c < 2 ^ 32 := by unfold nodeK; omega
 theorem eval_nodeHiE (s : MachineState) {h : Nat} (h18 : s.getReg .x18 = BitVec.ofNat 64 h) (hh : h < 128) :
     nodeHiE.eval s = BitVec.ofNat 64 (if 8 ≤ h then 0 else h) := by
@@ -763,11 +778,14 @@ theorem headerE_eval (s : MachineState) {c j index : Nat}
     (h18:s.getReg .x18=BitVec.ofNat 64 j) (h22:s.getReg .x22=BitVec.ofNat 64 index) :
     (headerE c).eval s = BitVec.ofNat 64 (leafLo7 c index j) := by
   unfold headerE
-  rw [mkAdd_eval,eval_bin,eval_sll_reg s h22 27 (by decide),eval_sll_reg s h18 20 (by decide),eval_cE]
-  change (BitVec.ofNat 64 (index*2^27)+BitVec.ofNat 64 (j*2^20))+BitVec.ofNat 64 ((2^64-2048)+65536*c) = _
+  have hs : ClaudeWCT.WCT9.ftsSelShift c < 64 := by unfold ClaudeWCT.WCT9.ftsSelShift; split_ifs <;> decide
+  rw [mkAdd_eval,eval_bin,eval_sll_reg s h22 33 (by decide),eval_sll_reg s h18 _ hs,eval_cE]
+  change (BitVec.ofNat 64 (index*2^33)+BitVec.ofNat 64 (j*2^ClaudeWCT.WCT9.ftsSelShift c))+
+    BitVec.ofNat 64 ((2^64-2048)+65536*c) = _
   rw [ofNat_add_ofNat,ofNat_add_ofNat]
   apply congrArg (BitVec.ofNat 64)
   unfold leafLo7
+  rw [ClaudeWCT.WCT9.ftsSelMul_eq]
   ring
 
 end ClaudeWCT.W9.Machine.Sign.SharedLeaf
@@ -792,7 +810,7 @@ theorem loE_eval (s : MachineState) {c index : Nat} (h22:s.getReg .x22=BitVec.of
     (loE c).eval s=BitVec.ofNat 64 (nodeLo7 c index) := by
   unfold loE
   rw[mkAdd_eval,eval_bin,eval_cE,binop_sll _ _ (by decide)]
-  change ((s.getReg .x22) <<< 27)+BitVec.ofNat 64 ((2^64-2048)+65536*c)=_
+  change ((s.getReg .x22) <<< 33)+BitVec.ofNat 64 ((2^64-2048)+65536*c)=_
   rw[h22,ofNat_shl,ofNat_add_ofNat]
   apply congrArg (BitVec.ofNat 64)
   unfold nodeLo7

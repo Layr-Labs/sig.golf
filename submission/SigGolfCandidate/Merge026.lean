@@ -600,6 +600,36 @@ theorem chainHeader_firstByte (lay : Layer) (tree leaf i step : Nat) :
     split_ifs <;> omega
   · rw [chainHeaderLow_toNat_old hA]
     split_ifs <;> omega
+/-- Y6 R-odd: byte 0 of every chain header's low word is at least 128 (honest and legacy words). -/
+theorem chainHeaderLow_byte0_ge (lay : Layer) (tree leaf i step : Nat) :
+    128 ≤ (chainHeaderLow lay tree leaf i step).toNat % 256 := by
+  by_cases hA : chainHonest lay tree leaf
+  · rw [chainHeaderLow_toNat_honest hA]
+    have := Nat.mod_lt i (show 0 < 64 by decide)
+    generalize tree % 2^31 * 2^height lay + leaf % 4096 + 2^hyperW lay.val = X
+    omega
+  · rw [chainHeaderLow_toNat_old hA]
+    have := Nat.mod_lt i (show 0 < 64 by decide)
+    generalize (tree % 2^31 * 2^height lay + leaf % 4096) % 2^32 = R
+    generalize tree % 2^31 / 2^(32-height lay) + (leaf % 4096 / 2^height lay) * 2^(height lay-1) = E
+    omega
+/-- Y6 R-odd: byte 1 of every chain header's low word is the step modulo 8 (honest words: the step itself; legacy
+words: step + 8·extra). With FTS instance words reaching `2 ^ 64` this, not magnitude, separates legacy chain words
+from packed FTS node words (byte 1 = 247 = 7 mod 8) on bounded positions (step < 7). -/
+theorem chainHeaderLow_byte1_mod8 (lay : Layer) (tree leaf i step : Nat) :
+    (chainHeaderLow lay tree leaf i step).toNat / 256 % 256 % 8 = step % 8 := by
+  by_cases hA : chainHonest lay tree leaf
+  · rw [chainHeaderLow_toNat_honest hA]
+    have := Nat.mod_lt i (show 0 < 64 by decide)
+    have := Nat.mod_lt step (show 0 < 8 by decide)
+    generalize tree % 2^31 * 2^height lay + leaf % 4096 + 2^hyperW lay.val = X
+    omega
+  · rw [chainHeaderLow_toNat_old hA]
+    have := Nat.mod_lt i (show 0 < 64 by decide)
+    have := Nat.mod_lt step (show 0 < 8 by decide)
+    generalize (tree % 2^31 * 2^height lay + leaf % 4096) % 2^32 = R
+    generalize tree % 2^31 / 2^(32-height lay) + (leaf % 4096 / 2^height lay) * 2^(height lay-1) = E
+    omega
 theorem header_firstByte (tag lay tree position index : Nat) :
     (header tag lay tree position index).toNat % 256 = 1 := by
   rw [header_toNat]
@@ -641,7 +671,7 @@ theorem chainHeader_ne_rowTweak (lay : Layer) (tree leaf i step : Nat) (lay' : L
   rw [h] at hc
   have := rowTweak_marker lay' tree' leaf'
   omega
-theorem chainHeader_ne_nodeTweak (lay : Layer) (tree leaf i step : Nat) (tag lay' tree' heap : Nat) :
+theorem chainHeader_ne_nodeTweak (lay : Layer) (tree leaf i step : Nat) (hst : step < 7) (tag lay' tree' heap : Nat) :
     chainHeader lay tree leaf i step ≠ nodeTweak tag lay' tree' heap := by
   intro h
   by_cases hf : tag = 3 ∧ 4 ≤ lay' ∧ lay' < 13 ∧ FtsNew heap
@@ -656,8 +686,10 @@ theorem chainHeader_ne_nodeTweak (lay : Layer) (tree leaf i step : Nat) (tag lay
       have := Nat.mod_lt step (show 0 < 8 by decide)
       generalize tree % 2^31 * 2^height lay + leaf % 4096 + 2^hyperW lay.val = X at hw
       split_ifs at hw <;> omega
-    · have hb := chainHeaderLow_old_range hA i step
-      have := ftsNodeWordH_range (lay' - 4) tree' heap
+    · -- Y6 R-odd: a legacy chain word has byte 1 = step mod 8 (step < 7), a packed FTS word byte 1 = 247.
+      have hb := chainHeaderLow_byte1_mod8 lay tree leaf i step
+      have := ftsNodeWordH_tag hn (lay' - 4) tree'
+      generalize (chainHeaderLow lay tree leaf i step).toNat = W at hw hb
       split_ifs at hw <;> omega
   · by_cases ht : tag = 3 ∧ lay' = 0
     · -- C4 (adapted from b3cc11b): the top label is the low word `topNodeWord heap < 4096`, a chain word is `≥ 193 * 2^56`.

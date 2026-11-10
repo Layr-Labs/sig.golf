@@ -67,10 +67,26 @@ def digestSearch (rho : Digest) (message : Message) (counter : Nat) :
       let output ← digest rho message (BitVec.ofNat 32 counter)
       if producerAdmissible output then return some (BitVec.ofNat 32 counter, output)
       digestSearch rho message (counter + 1) fuel
-/-- FTS chain word. C4: coordinate nibble `coord + 1` (every FTS word is `≥ 2 ^ 16`, above every top label). -/
+/-- Y6 R-odd: the child field's weight in FTS chain and leaf words. Odd coordinates keep their child at bit 26, where
+the digest word carries it, so the verifier masks it in place instead of shifting it; even coordinates keep bit 20. -/
+def ftsSelShift (coord : Nat) : Nat := if coord % 2 = 1 then 26 else 20
+def ftsSelMul (coord : Nat) : Nat := if coord % 2 = 1 then 2 ^ 26 else 2 ^ 20
+theorem ftsSelMul_eq (coord : Nat) : ftsSelMul coord = 2 ^ ftsSelShift coord := by
+  unfold ftsSelMul ftsSelShift; split_ifs <;> rfl
+theorem ftsSelMul_cases (coord : Nat) : ftsSelMul coord = 2 ^ 26 ∨ ftsSelMul coord = 2 ^ 20 := by
+  unfold ftsSelMul; split_ifs <;> simp
+theorem ftsSelMul_mul_mod (coord s : Nat) : s * ftsSelMul coord % 2 ^ 20 = 0 := by
+  rcases ftsSelMul_cases coord with h | h <;> rw [h] <;> omega
+/-- The child field is a multiple of `2 ^ 20` below `2 ^ 33` (for `omega`, which cannot multiply). -/
+theorem ftsSelMul_mul_facts (coord s : Nat) :
+    ftsSelMul coord * (s % 128) % 2 ^ 20 = 0 ∧ ftsSelMul coord * (s % 128) < 2 ^ 33 := by
+  have := Nat.mod_lt s (show 0 < 128 by decide)
+  rcases ftsSelMul_cases coord with h | h <;> rw [h] <;> omega
+/-- FTS chain word. C4: coordinate nibble `coord + 1` (every FTS word is `≥ 2 ^ 16`, above every top label). Y6 R-odd:
+child weight `ftsSelMul coord`, instance at bit 33. -/
 def ftsChainLow (index coord selected chain step : Nat) : Nat :=
-  SigGolfCandidate.T3.ftsBias (chain % 8 * 2 ^ 8 + step % 4 + (coord + 1) % 16 * 2 ^ 16 + selected % 128 * 2 ^ 20 +
-    index % 2 ^ 31 * 2 ^ 27 + 1)
+  SigGolfCandidate.T3.ftsBias (chain % 8 * 2 ^ 8 + step % 4 + (coord + 1) % 16 * 2 ^ 16 + ftsSelMul coord * (selected % 128) +
+    index % 2 ^ 31 * 2 ^ 33 + 1)
 def ftsChainHeaderP (index coord selected chain step : Nat) (high : BitVec 64) : BitVec 128 :=
   high ++ BitVec.ofNat 64 (ftsChainLow index coord selected chain step)
 def ftsChainHeader (index coord selected chain step : Nat) : BitVec 128 :=
@@ -92,21 +108,30 @@ def chain (index coord selected i start count : Nat) (value : Digest) : M Digest
     (fun value step => projHash (ftsChainHigh i step) (ftsChainInputW index coord selected i step value)) value
 /-- FTS leaf word. C4: coordinate nibble `coord + 1`. -/
 def ftsLeafLow (index coord selected : Nat) : Nat :=
-  SigGolfCandidate.T3.ftsBiasN (1 + 6 * 2 ^ 8 + (coord + 1) % 16 * 2 ^ 16 + selected % 128 * 2 ^ 20 + index % 2 ^ 31 * 2 ^ 27)
+  SigGolfCandidate.T3.ftsBiasN (1 + 6 * 2 ^ 8 + (coord + 1) % 16 * 2 ^ 16 + ftsSelMul coord * (selected % 128) + index % 2 ^ 31 * 2 ^ 33)
+/-- Y6 R-odd: with child 0 (FTS node words) the child weight drops out. -/
+theorem ftsLeafLow_zero (index coord : Nat) :
+    ftsLeafLow index coord 0 =
+      SigGolfCandidate.T3.ftsBiasN (1 + 6 * 2 ^ 8 + (coord + 1) % 16 * 2 ^ 16 + index % 2 ^ 31 * 2 ^ 33) := by
+  unfold ftsLeafLow; simp
 theorem ftsChainLow_ge {coord : Nat} (hc : coord < 15) (index selected chain step : Nat) (hchain : chain < 6) :
     4096 ≤ ftsChainLow index coord selected chain step := by
   unfold ftsChainLow
   rw [Nat.mod_eq_of_lt (show coord + 1 < 16 by omega)]
-  rw [SigGolfCandidate.T3.ftsBias_eq _ (by omega)]
-  rw [Nat.mod_eq_of_lt (show chain < 8 by omega)]
-  split_ifs <;> omega
+  have := Nat.mod_lt selected (show 0 < 128 by decide)
+  have := Nat.mod_lt index (show 0 < 2 ^ 31 by decide)
+  rcases ftsSelMul_cases coord with hm | hm <;> rw [hm] <;>
+  rw [SigGolfCandidate.T3.ftsBias_eq _ (by omega)] <;>
+  rw [Nat.mod_eq_of_lt (show chain < 8 by omega)] <;> split_ifs <;> omega
 
 theorem ftsLeafLow_zero_or_ge {coord : Nat} (hc : coord < 15) (index selected : Nat) :
     ftsLeafLow index coord selected = 0 ∨ 4096 ≤ ftsLeafLow index coord selected := by
   unfold ftsLeafLow
   rw [Nat.mod_eq_of_lt (show coord + 1 < 16 by omega)]
-  rw [SigGolfCandidate.T3.ftsBiasN_eq _ (by omega)]
-  split_ifs <;> omega
+  have := Nat.mod_lt selected (show 0 < 128 by decide)
+  have := Nat.mod_lt index (show 0 < 2 ^ 31 by decide)
+  rcases ftsSelMul_cases coord with hm | hm <;> rw [hm] <;>
+  rw [SigGolfCandidate.T3.ftsBiasN_eq _ (by omega)] <;> split_ifs <;> omega
 
 def ftsLeafHeader (index coord selected : Nat) : BitVec 128 :=
   0#64 ++ BitVec.ofNat 64 (ftsLeafLow index coord selected)
@@ -2005,7 +2030,7 @@ theorem nodeTweak_ftsN {lay : Nat} (h4 : 4 ≤ lay) (h13 : lay < 13) (tree : Nat
   unfold nodeTweak
   rw [if_neg (show ¬ (3 = 3 ∧ lay < 4) by omega), if_pos (show (3 = 3 ∧ lay < 13) by omega), if_pos (show (8 ≤ heap ∧ heap < 128) from hn)]
 theorem ftsNodeWordH_toNat (coord index heap : Nat) :
-    (ftsNodeWordH coord index heap).toNat = ftsBiasN (1537 - heap + (coord + 1) % 16 * 2 ^ 16 + index % 2 ^ 31 * 2 ^ 27) := by
+    (ftsNodeWordH coord index heap).toNat = ftsBiasN (1537 - heap + (coord + 1) % 16 * 2 ^ 16 + index % 2 ^ 31 * 2 ^ 33) := by
   unfold ftsNodeWordH
   rw [BitVec.toNat_ofNat, Nat.mod_eq_of_lt (ftsBiasN_lt _)]
 
@@ -2015,11 +2040,6 @@ theorem ftsNodeWordH_lt (coord index heap : Nat) : (ftsNodeWordH coord index hea
   have := Nat.mod_lt index (show 0 < 2 ^ 31 by decide)
   omega
 /-- C4: every FTS word is `≥ 2 ^ 16` for coordinates `< 15` (coordinate nibble `coord + 1`). -/
-theorem ftsNodeWordH_range (coord index heap : Nat) :
-    (ftsNodeWordH coord index heap).toNat < 2^58 ∨ 2^64 - 69121 ≤ (ftsNodeWordH coord index heap).toNat := by
-  rw [ftsNodeWordH_toNat]
-  apply ftsBiasN_range
-  omega
 theorem ftsNodeWordH_zero_or_ge {coord : Nat} (hc : coord < 15) (index heap : Nat) :
     (ftsNodeWordH coord index heap).toNat = 0 ∨ 4096 ≤ (ftsNodeWordH coord index heap).toNat := by
   rw [ftsNodeWordH_toNat]
@@ -2050,15 +2070,10 @@ theorem nodeTweak_other {tag lay : Nat} (h : ¬ (tag = 3 ∧ lay < 13)) (tree he
   unfold nodeTweak
   rw [if_neg (show ¬ (tag = 3 ∧ lay < 4) by omega), if_neg h]
 theorem ftsNodeWord_toNat (coord index : Nat) :
-    (ftsNodeWord coord index).toNat = ftsBiasN (1 + 6 * 2 ^ 8 + (coord + 1) % 16 * 2 ^ 16 + index % 2 ^ 31 * 2 ^ 27) := by
+    (ftsNodeWord coord index).toNat = ftsBiasN (1 + 6 * 2 ^ 8 + (coord + 1) % 16 * 2 ^ 16 + index % 2 ^ 31 * 2 ^ 33) := by
   unfold ftsNodeWord
   rw [BitVec.toNat_ofNat, Nat.mod_eq_of_lt (ftsBiasN_lt _)]
 
-theorem ftsNodeWord_range (coord index : Nat) :
-    (ftsNodeWord coord index).toNat < 2^58 ∨ 2^64 - 69121 ≤ (ftsNodeWord coord index).toNat := by
-  rw [ftsNodeWord_toNat]
-  apply ftsBiasN_range
-  omega
 theorem ftsNodeWord_zero_or_ge {coord : Nat} (hc : coord < 15) (index : Nat) :
     (ftsNodeWord coord index).toNat = 0 ∨ 4096 ≤ (ftsNodeWord coord index).toNat := by
   rw [ftsNodeWord_toNat]

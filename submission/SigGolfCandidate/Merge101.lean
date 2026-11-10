@@ -212,7 +212,7 @@ private theorem low_ne_of_firstByte (x y : BitVec 128)
   simp only [BitVec.extractLsb'_toNat, Nat.shiftRight_eq_div_pow, pow_zero, Nat.div_one] at hv
   omega
 theorem posOf_chain_offgraph (lay : Layer) (tree leaf i step : Nat) (value : Digest)
-    (hoff : chainHeaderSpill tree leaf i step ≠ 0) :
+    (hoff : chainHeaderSpill tree leaf i step ≠ 0) (hst : step < 7) :
     Extract.posOf (pad64 (WCT9.chainInputW lay tree leaf i step value)) = none := by
   apply posOf_eq_none
   intro p hb _ he
@@ -240,7 +240,7 @@ theorem posOf_chain_offgraph (lay : Layer) (tree leaf i step : Nat) (value : Dig
   | wctChain index coord child c step' =>
       exact WCT9.ftsChainHeaderP_low_ne_chainHeader _ _ _ _ _ _ _ _ _ _ _ hlo.symm
   | wctNode index coord level nd =>
-      exact WCT9.wctNodeHeader_low_ne_chainHeader hb.2.1 _ _ _ _ _ _ _ hlo.symm
+      exact WCT9.wctNodeHeader_low_ne_chainHeader hb.2.1 _ _ _ _ _ _ _ hst hlo.symm
   | node lay' tree' level nd =>
       by_cases h0 : lay' = 0
       · -- C4: a top label's low word is below 4096, a chain header's carries type byte 193.
@@ -303,7 +303,7 @@ theorem sat_chain (T : Answers) (lay : Layer) (tree leaf i start count : Nat)
         exact honestQuery_honest T (.chain lay tree leaf i (start + count)) hg
       · refine Or.inl ?_
         rw [← WCT9.chainInputW_F hG]
-        exact posOf_chain_offgraph lay tree leaf i (start + count) _ hoff
+        exact posOf_chain_offgraph lay tree leaf i (start + count) _ hoff (by omega)
 theorem sat_halfHash {T : Answers} {Q : SigGolfCandidate.T3.Spec.Domain → Prop} (high : Bool) (input : HashInput)
     (h : Q (.inl (.inr (pad64 input)))) : QueriesSat T Q (WCT9.halfHash high input) := by
   intro q hq
@@ -336,7 +336,7 @@ theorem sat_chainW (T : Answers) (lay : Layer) (tree leaf i start count : Nat)
           omega
         refine Or.inr (Or.inl ⟨.chain lay tree leaf i (start + count), hg, ?_⟩)
         rfl
-      · exact Or.inl (posOf_chain_offgraph lay tree leaf i (start + count) _ hoff)
+      · exact Or.inl (posOf_chain_offgraph lay tree leaf i (start + count) _ hoff (by omega))
 /-! ### Top leaves (campaign T8D: family seeds through `topCoefs`, `buildLeafTop`, `buildTopTree`) -/
 theorem sat_topPairsFrom (T : Answers) (first start : Nat) (init : List Digest) :
     QueriesSat T (HonestQuery T) (topPairsFrom first start init) := by
@@ -1050,7 +1050,7 @@ private theorem low_ne_of_firstByte (x y : BitVec 128)
   simp only [BitVec.extractLsb'_toNat, Nat.shiftRight_eq_div_pow, pow_zero, Nat.div_one] at hv
   omega
 theorem posOf_chain_offgraph (lay : Layer) (tree leaf i step : Nat) (value : Digest)
-    (hoff : chainHeaderSpill tree leaf i step ≠ 0) :
+    (hoff : chainHeaderSpill tree leaf i step ≠ 0) (hst : step < 7) :
     Extract.posOf (pad64 (WCT9.chainInputW lay tree leaf i step value)) = none := by
   apply posOf_eq_none
   intro p hb _ he
@@ -1078,7 +1078,7 @@ theorem posOf_chain_offgraph (lay : Layer) (tree leaf i step : Nat) (value : Dig
   | wctChain index coord child c step' =>
       exact WCT9.ftsChainHeaderP_low_ne_chainHeader _ _ _ _ _ _ _ _ _ _ _ hlo.symm
   | wctNode index coord level nd =>
-      exact WCT9.wctNodeHeader_low_ne_chainHeader hb.2.1 _ _ _ _ _ _ _ hlo.symm
+      exact WCT9.wctNodeHeader_low_ne_chainHeader hb.2.1 _ _ _ _ _ _ _ hst hlo.symm
   | node lay' tree' level nd =>
       by_cases h0 : lay' = 0
       · -- C4: a top label's low word is below 4096, a chain header's carries type byte 193.
@@ -1141,7 +1141,7 @@ theorem sat_chain (T : Answers) (lay : Layer) (tree leaf i start count : Nat)
         exact honestQuery_honest T (.chain lay tree leaf i (start + count)) hg
       · refine Or.inl ?_
         rw [← WCT9.chainInputW_F hG]
-        exact posOf_chain_offgraph lay tree leaf i (start + count) _ hoff
+        exact posOf_chain_offgraph lay tree leaf i (start + count) _ hoff (by omega)
 theorem sat_halfHash {T : Answers} {Q : SigGolfCandidate.T3.Spec.Domain → Prop} (high : Bool) (input : HashInput)
     (h : Q (.inl (.inr (pad64 input)))) : QueriesSat T Q (WCT9.halfHash high input) := by
   intro q hq
@@ -1174,7 +1174,7 @@ theorem sat_chainW (T : Answers) (lay : Layer) (tree leaf i start count : Nat)
           omega
         refine Or.inr (Or.inl ⟨.chain lay tree leaf i (start + count), hg, ?_⟩)
         rfl
-      · exact Or.inl (posOf_chain_offgraph lay tree leaf i (start + count) _ hoff)
+      · exact Or.inl (posOf_chain_offgraph lay tree leaf i (start + count) _ hoff (by omega))
 /-! ### Top leaves (campaign T8D: family seeds through `topCoefs`, `buildLeafTop`, `buildTopTree`) -/
 theorem sat_topPairsFrom (T : Answers) (first start : Nat) (init : List Digest) :
     QueriesSat T (HonestQuery T) (topPairsFrom first start init) := by

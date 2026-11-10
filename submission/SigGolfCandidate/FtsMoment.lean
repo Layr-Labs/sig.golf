@@ -723,9 +723,9 @@ theorem hasTag_ne_fts {tag : Nat} {input target : HashInput} (hi : HasTag tag in
   obtain ⟨l, tr, p, ix, h⟩ := hi
   exact fq_ne h (fun he => ClaudeWCT.WCT9.wctNodeHeader_ne_header hp.1 index heap tag l tr p ix htag he.symm) ht
 
-theorem chainHeader_ne_fts (l : Layer) (t lf i step : Nat) (_hs : step < 7) {coord index heap : Nat}
+theorem chainHeader_ne_fts (l : Layer) (t lf i step : Nat) (hs : step < 7) {coord index heap : Nat}
     (_hp : FP coord index heap) : chainHeader l t lf i step ≠ wctNodeHeader coord index heap :=
-  fun he => ClaudeWCT.WCT9.wctNodeHeader_ne_chainHeader coord index heap l t lf i step he.symm
+  fun he => ClaudeWCT.WCT9.wctNodeHeader_ne_chainHeader coord index heap l t lf i step hs he.symm
 
 theorem leafTweak_ne_fts (l : Layer) (t lf : Nat) {coord index heap : Nat} (hp : FP coord index heap) :
     leafTweak l t lf ≠ wctNodeHeader coord index heap :=

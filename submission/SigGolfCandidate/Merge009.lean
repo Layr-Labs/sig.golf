@@ -260,16 +260,17 @@ theorem ftsBiasN_range {n : Nat} (hn : n < 2^58) :
     ftsBiasN n < 2^58 ∨ 2^64 - 69121 ≤ ftsBiasN n := by
   rw [ftsBiasN_eq n (lt_trans hn (by decide))]
   split_ifs <;> omega
-/-- FTS node word of the two-word labels. C4: coordinate nibble `coord + 1` (every FTS word is `≥ 2 ^ 16`). -/
+/-- FTS node word of the two-word labels. C4: coordinate nibble `coord + 1` (every FTS word is `≥ 2 ^ 16`). Y6 R-odd:
+the instance field sits at bit 33 (bits 26..32 carry the odd coordinates' child in chain and leaf words). -/
 -- A label permutation that makes heap7 use the existing hash-length constant.
 def ftsHeapLabel (heap : Nat) : Nat := if heap = 1 then 1048321 else if heap = 1048321 then 1 else if heap = 7 then 64 else if heap = 64 then 7 else heap
 def ftsNodeWord (coord index : Nat) : BitVec 64 :=
-  BitVec.ofNat 64 (ftsBiasN (1 + 6 * 2 ^ 8 + (coord + 1) % 16 * 2 ^ 16 + index % 2 ^ 31 * 2 ^ 27))
+  BitVec.ofNat 64 (ftsBiasN (1 + 6 * 2 ^ 8 + (coord + 1) % 16 * 2 ^ 16 + index % 2 ^ 31 * 2 ^ 33))
 /-- Packed FTS node word (heaps `8..127`, the four lower child levels): the heap is folded into the low word
 (`ftsNodeWord - heap`, byte0 `257 - heap >= 130`, byte1 `5`), so the header is marked and its high word is
 ignored by `canonicalHeader` (honest value 0). C4: coordinate nibble `coord + 1`. -/
 def ftsNodeWordH (coord index heap : Nat) : BitVec 64 :=
-  BitVec.ofNat 64 (ftsBiasN (1537 - heap + (coord + 1) % 16 * 2 ^ 16 + index % 2 ^ 31 * 2 ^ 27))
+  BitVec.ofNat 64 (ftsBiasN (1537 - heap + (coord + 1) % 16 * 2 ^ 16 + index % 2 ^ 31 * 2 ^ 33))
 /-- Node tweaks. C4: the top tree (`lay = 0`) has the one-word label `topNodeWord heap` (= heap) whose high word is a
 witness pad (honest 0); the legacy lower branch (`lay` 1..3) keeps its text. -/
 def nodeTweak (tag lay tree heap : Nat) : BitVec 128 :=

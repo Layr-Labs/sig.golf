@@ -5081,8 +5081,8 @@ abbrev witEncN := ClaudeWCT.W9.T3M.Paired.witEncN
 /-- U16b: and the 9 ground lower fold nonces (`Paired.witEncG`). -/
 abbrev witEncG := ClaudeWCT.W9.T3M.Paired.witEncG
 
-def verifyCycleBound : Nat := 6880
-def claimedC : Nat := 6965
+def verifyCycleBound : Nat := 6877
+def claimedC : Nat := 6962
  def DigestCapOk (hash : Hash) (m : Message) (w : Bytes 21756) : Prop :=
   SigGolfCandidate.Research.SharedForest.jointAccountingCost
     (hash (SigGolfCandidate.T3M.toQ (SigGolfCandidate.T3.pad64
@@ -6181,7 +6181,7 @@ structure Post (L : Layout) (k : Fin 9) (raw : Fin 128) (u : MachineState)
     (computed : Digest) (t : MachineState) : Prop where
   /-- A/B return with `jalr zero,300(ra)`; the singleton (Cm, stage 2) with `jalr zero,316(ra)`, i.e. to word 854 for
   `returnWord 8 = 775`, the L3 entry. -/
-  pc : t.pc = pcOf (L.returnWord k + (if k.val = 8 then 79 else 75))
+  pc : t.pc = pcOf (L.returnWord k + (if k.val = 8 then 79 else if k.val % 2 = 1 then 76 else 75))
   hashLen : t.getReg .x11 = 64
   top : DigAt t (handAddr L k raw) computed
   a2 : t.getReg .x12 = BitVec.ofNat 64 (outputAddr L k raw)
@@ -9365,23 +9365,32 @@ section
 set_option autoImplicit false
 namespace W9Machine
 open SigGolfCandidate.T3M SigGolfCandidate.Rv RiscvZkvm.Rv64
-theorem chainPrefix_shift (index coord child : Nat) :
-    V3.chainPrefix index coord child = ((index <<< 11) ||| (coord + 1) ||| (child <<< 4)) <<< 16 := by
-  have hi : index <<< 27 = (index <<< 11) <<< 16 := by
-    simp only [Nat.shiftLeft_eq]; omega
-  have hc : child <<< 20 = (child <<< 4) <<< 16 := by
-    simp only [Nat.shiftLeft_eq]; omega
-  rw [Nat.shiftLeft_or_distrib, Nat.shiftLeft_or_distrib]
-  simp only [V3.chainPrefix, hi, hc]
+/-- Y6 R-odd: the prefix is `index · 2^33 + child · ftsSelMul coord + (coord + 1) · 2^16`, all three fields disjoint. -/
 theorem chainPrefix_value (index coord child : Nat) (hk : coord < 9) (hj : child < 128) :
-    V3.chainPrefix index coord child = 65536 * (2048 * index + 16 * child + (coord + 1)) := by
-  rw [chainPrefix_shift, Nat.or_assoc, Nat.or_comm (coord + 1) (child <<< 4),
-    ← Nat.shiftLeft_add_eq_or_of_lt (by omega : coord + 1 < 2 ^ 4)]
-  have hl : (child <<< 4) + (coord + 1) < 2 ^ 11 := by
-    simp only [Nat.shiftLeft_eq]; omega
-  rw [← Nat.shiftLeft_add_eq_or_of_lt hl]
-  simp only [Nat.shiftLeft_eq]
-  omega
+    V3.chainPrefix index coord child = index * 2 ^ 33 + child * ClaudeWCT.WCT9.ftsSelMul coord + 65536 * (coord + 1) := by
+  unfold V3.chainPrefix
+  rw [ClaudeWCT.WCT9.ftsSelMul_eq]
+  have hs : ClaudeWCT.WCT9.ftsSelShift coord = 20 ∨ ClaudeWCT.WCT9.ftsSelShift coord = 26 := by
+    unfold ClaudeWCT.WCT9.ftsSelShift; split_ifs <;> simp
+  rcases hs with hs | hs <;> rw [hs]
+  · have hc : (coord + 1) <<< 16 ||| child <<< 20 = (coord + 1) * 2 ^ 16 + child * 2 ^ 20 := by
+      rw [Nat.or_comm, show child <<< 20 = (child <<< 4) <<< 16 by simp only [Nat.shiftLeft_eq]; ring,
+        ← Nat.shiftLeft_or_distrib, ← Nat.shiftLeft_add_eq_or_of_lt (by omega : coord + 1 < 2 ^ 4)]
+      simp only [Nat.shiftLeft_eq]; ring
+    have hi : index <<< 33 ||| ((coord + 1) * 2 ^ 16 + child * 2 ^ 20) =
+        index * 2 ^ 33 + ((coord + 1) * 2 ^ 16 + child * 2 ^ 20) := by
+      rw [← Nat.shiftLeft_add_eq_or_of_lt (by omega : (coord + 1) * 2 ^ 16 + child * 2 ^ 20 < 2 ^ 33),
+        Nat.shiftLeft_eq]
+    rw [Nat.or_assoc, hc, hi]; ring
+  · have hc : (coord + 1) <<< 16 ||| child <<< 26 = (coord + 1) * 2 ^ 16 + child * 2 ^ 26 := by
+      rw [Nat.or_comm, show child <<< 26 = (child <<< 10) <<< 16 by simp only [Nat.shiftLeft_eq]; ring,
+        ← Nat.shiftLeft_or_distrib, ← Nat.shiftLeft_add_eq_or_of_lt (by omega : coord + 1 < 2 ^ 10)]
+      simp only [Nat.shiftLeft_eq]; ring
+    have hi : index <<< 33 ||| ((coord + 1) * 2 ^ 16 + child * 2 ^ 26) =
+        index * 2 ^ 33 + ((coord + 1) * 2 ^ 16 + child * 2 ^ 26) := by
+      rw [← Nat.shiftLeft_add_eq_or_of_lt (by omega : (coord + 1) * 2 ^ 16 + child * 2 ^ 26 < 2 ^ 33),
+        Nat.shiftLeft_eq]
+    rw [Nat.or_assoc, hc, hi]; ring
 theorem chainLow_add (index coord child chain digit : Nat) (hc : chain < 6) (hd : digit < 4) :
     V3.chainLow index coord child chain digit =
       SigGolfCandidate.T3.ftsBias (V3.chainPrefix index coord child + (256 * chain + digit) + 1) := by
@@ -9389,15 +9398,24 @@ theorem chainLow_add (index coord child chain digit : Nat) (hc : chain < 6) (hd 
     rw [← Nat.shiftLeft_add_eq_or_of_lt (by omega : digit < 2^8), Nat.shiftLeft_eq]
     omega
   unfold V3.chainLow
-  rw [hlo, Nat.or_comm (256 * chain + digit), chainPrefix_shift,
-    ← Nat.shiftLeft_add_eq_or_of_lt (by omega : 256 * chain + digit < 2 ^ 16)]
+  -- Y6 R-odd: the prefix is a multiple of 2^16, so the OR with the low 16 bits is addition.
+  have hp0 : V3.chainPrefix index coord child % 2 ^ 16 = 0 := by
+    unfold V3.chainPrefix
+    have hs : 16 ≤ ClaudeWCT.WCT9.ftsSelShift coord := by unfold ClaudeWCT.WCT9.ftsSelShift; split_ifs <;> omega
+    apply Nat.eq_of_testBit_eq; intro i
+    simp only [Nat.testBit_mod_two_pow, Nat.testBit_or, Nat.testBit_shiftLeft, Nat.testBit_zero]
+    by_cases hi : i < 16 <;> simp [hi] <;> omega
+  have hp : V3.chainPrefix index coord child = (V3.chainPrefix index coord child / 2 ^ 16) <<< 16 := by
+    rw [Nat.shiftLeft_eq]; omega
+  rw [hlo, Nat.or_comm (256 * chain + digit), hp,
+    ← Nat.shiftLeft_add_eq_or_of_lt (by omega : 256 * chain + digit < 2 ^ 16), ← hp]
 theorem leafLow_eq (index coord child : Nat) (hi : index < 2 ^ 31) (hk : coord < 9) (hj : child < 128) :
     V3.leafLow index coord child = SigGolfCandidate.T3.ftsBiasN (1537 + V3.chainPrefix index coord child) := by
   rw [chainPrefix_value _ _ _ hk hj]
   unfold V3.leafLow ClaudeWCT.WCT9.ftsLeafLow
   rw [Nat.mod_eq_of_lt (by omega : coord + 1 < 16), Nat.mod_eq_of_lt hj, Nat.mod_eq_of_lt hi]
   apply congrArg SigGolfCandidate.T3.ftsBiasN
-  omega
+  ring
 theorem wordBias (n : Nat) :
     BitVec.ofNat 64 (SigGolfCandidate.T3.ftsBias n) =
       BitVec.ofNat 64 n + BitVec.ofNat 64 (2^64-67073) := by
@@ -9441,6 +9459,8 @@ theorem wct_header_step (k index child t old digit : Nat) (hk : k < 9)
   rw [chainLow_add _ _ _ _ _ ht ho, chainLow_add _ _ _ _ _ ht hd]
   have ha : (V3.chainPrefix index k child + 256*t) % 256 = 0 := by
     rw [chainPrefix_value _ _ _ hk hj]
+    have := ClaudeWCT.WCT9.ftsSelMul_mul_mod k child
+    generalize child * ClaudeWCT.WCT9.ftsSelMul k = X at *
     omega
   simpa only [Nat.add_assoc] using mergeByteBias
     (V3.chainPrefix index k child + 256*t) old digit ha (by omega) (by omega)
@@ -9467,7 +9487,7 @@ def childWord (coordinate child : Nat) : Nat :=
   else 246464 + 64 * child
 /-- `start k + length k` of the shared dispatcher (`W9Drv.SharedDispatch`); coordinate 8's dispatcher is 9 words
 (765..773) after the dispatch hoist, so its children receive `ra = pcOf 774` and return with `320(ra)`. -/
-def returnWord (k : Fin 9) : Nat := [96,183,266,351,436,521,605,690,775].getD k.val 0
+def returnWord (k : Fin 9) : Nat := [96,182,266,350,436,520,605,689,775].getD k.val 0
 def layout (coordinate : Fin 9) : W9Machine.Layout :=
   ⟨Frozen.image, Frozen.layout.chainWord, fun j => childWord coordinate.val j.val, returnWord, 0⟩
 theorem image_eq (k : Fin 9) : (layout k).image = Frozen.image := rfl

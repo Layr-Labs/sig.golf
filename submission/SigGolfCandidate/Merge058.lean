@@ -2623,7 +2623,7 @@ theorem topInput_untouched (a : ChainAddr) (coord index heap : Nat) (left pad ri
     UntouchedP a (.inl (.inr (pad64 (WCT9.wctTopInput coord index heap left pad right)))) := by
   apply ClaudeWCT.W9.T3.Security.Wots.Mask.untouchedP_of_hdr a _
     (WCT9.wctNodeHeader coord index heap) ?_
-    (fun _ _ _ _ _ _ => WCT9.wctNodeHeader_ne_chainHeader _ _ _ _ _ _ _ _)
+    (fun _ _ _ _ _ hs => WCT9.wctNodeHeader_ne_chainHeader _ _ _ _ _ _ _ _ hs)
   unfold WCT9.wctTopInput
   rw [List.append_assoc (SphincsSecurity.bytesLE 16 left ++ SphincsSecurity.bytesLE 16 _)]
   exact WCT9.hdrBlock_pad64_prefix _ _ _ (SphincsSecurity.bytesLE_length _ _)

@@ -1184,7 +1184,7 @@ open OracleComp SigGolfCandidate.T3 SigGolfCandidate.T3M
 open SphincsSecurity (bytesLE)
 /-- Campaign S2 (as S1): the coordinate nibble carries `coord + 1` (every FTS word is `≥ 2^16`). -/
 def chainPrefix (index coord child : Nat) : Nat :=
-  (index <<< 27) ||| ((coord + 1) <<< 16) ||| (child <<< 20)
+  (index <<< 33) ||| ((coord + 1) <<< 16) ||| (child <<< ClaudeWCT.WCT9.ftsSelShift coord)
 def chainLow (index coord child chain step : Nat) : Nat :=
   SigGolfCandidate.T3.ftsBias (((chain <<< 8) ||| step ||| chainPrefix index coord child) + 1)
 abbrev HeaderPad := BitVec 64

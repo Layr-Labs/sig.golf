@@ -7639,17 +7639,24 @@ theorem chainHeader_low_band (lay : Layer) (tree leaf i step : Nat) :
     split_ifs <;> omega
   · have hb := chainHeaderLow_old_range hA i step
     split_ifs <;> omega
+/-- Y6 R-odd: the two low bytes every chain header shares (both branches, flag bit 55 included): byte 0 at least 128
+and byte 1 equal to the step modulo 8. -/
+theorem chainHeader_low_bytes (lay : Layer) (tree leaf i step : Nat) :
+    128 ≤ ((chainHeader lay tree leaf i step).extractLsb' 0 64).toNat % 256 ∧
+      ((chainHeader lay tree leaf i step).extractLsb' 0 64).toNat / 256 % 256 % 8 = step % 8 := by
+  rw [chainHeader_low, chainHeaderFlaggedLow_toNat]
+  have h0 := chainHeaderLow_byte0_ge lay tree leaf i step
+  have h1 := chainHeaderLow_byte1_mod8 lay tree leaf i step
+  generalize (chainHeaderLow lay tree leaf i step).toNat = W at h0 h1
+  split_ifs <;> omega
 theorem ftsChainHeaderP_low_ne_chainHeader (index coord selected chain step : Nat) (high : BitVec 64)
     (lay : Layer) (tree leaf i st : Nat) :
     (ftsChainHeaderP index coord selected chain step high).extractLsb' 0 64 ≠
       (chainHeader lay tree leaf i st).extractLsb' 0 64 := by
   intro h
-  have hw := chainHeader_low_band lay tree leaf i st
+  have hw := (chainHeader_low_bytes lay tree leaf i st).1
   rw [← h, ftsChainHeaderP_low, BitVec.toNat_ofNat,
-    Nat.mod_eq_of_lt (ftsChainLow_lt ..)] at hw
-  have := ftsChainLow_range index coord selected chain step
-  have : ftsChainLow index coord selected chain step % 256 < 4 := by
-    unfold ftsChainLow SigGolfCandidate.T3.ftsBias; omega
+    Nat.mod_eq_of_lt (ftsChainLow_lt ..), ftsChainLow_byte0] at hw
   omega
 theorem ftsChainHeaderP_ne_chainHeader (index coord selected chain step : Nat) (high : BitVec 64)
     (lay : Layer) (tree leaf i st : Nat) :
@@ -7677,14 +7684,14 @@ theorem ftsLeafHeader_ne_ftsChainHeaderP (index coord selected : Nat) (i k j t s
   rw [Nat.mod_eq_of_lt (by omega : t < 8)] at hc
   omega
 
-theorem wctNodeHeader_ne_chainHeader (coord index heap : Nat) (lay : Layer) (tree leaf i st : Nat) :
+theorem wctNodeHeader_ne_chainHeader (coord index heap : Nat) (lay : Layer) (tree leaf i st : Nat) (hst : st < 7) :
     wctNodeHeader coord index heap ≠ chainHeader lay tree leaf i st := by
   intro h
   by_cases hn : coord < 9 ∧ FtsNew heap
-  · have hw := chainHeader_low_band lay tree leaf i st
+  · -- Y6 R-odd: byte 1 (247 = 7 mod 8 against the step mod 8), not magnitude.
+    have hw := (chainHeader_low_bytes lay tree leaf i st).2
     rw [← h, wctNodeHeader_low hn.1, if_pos hn.2, BitVec.toNat_ofNat,
       Nat.mod_eq_of_lt (ftsNodeLowN_lt ..)] at hw
-    have := ftsNodeLowN_range index coord heap
     have : ftsNodeLowN index coord heap / 256 % 256 = 247 := by
       obtain ⟨h8, h128⟩ := hn.2
       rw [ftsNodeLowN_eq]; unfold SigGolfCandidate.T3.ftsBiasN; omega
@@ -7698,16 +7705,14 @@ theorem wctNodeHeader_ne_chainHeader (coord index heap : Nat) (lay : Layer) (tre
     · rw [if_neg hk] at hc
       omega
 theorem wctNodeHeader_low_ne_chainHeader {coord : Nat} (hk : coord < 9) (index heap : Nat) (lay : Layer)
-    (tree leaf i st : Nat) :
+    (tree leaf i st : Nat) (hst : st < 7) :
     (wctNodeHeader coord index heap).extractLsb' 0 64 ≠ (chainHeader lay tree leaf i st).extractLsb' 0 64 := by
   intro h
-  have hw := chainHeader_low_band lay tree leaf i st
+  have hw := chainHeader_low_bytes lay tree leaf i st
   rw [← h, wctNodeHeader_low hk, BitVec.toNat_ofNat] at hw
-  have h1 := ftsNodeLowN_range index coord heap
-  have h2 := ftsLeafLow_range index coord 0
   have h1lt := ftsNodeLowN_lt index coord heap
   have h2lt := ftsLeafLow_lt index coord 0
-  have h3 : ftsLeafLow index coord 0 % 256 = 0 := by unfold ftsLeafLow SigGolfCandidate.T3.ftsBiasN; omega
+  have h3 : ftsLeafLow index coord 0 % 256 = 0 := by rw [ftsLeafLow_zero]; unfold SigGolfCandidate.T3.ftsBiasN; omega
   split at hw
   · have : ftsNodeLowN index coord heap / 256 % 256 = 247 := by
       rename_i hn
@@ -8157,8 +8162,7 @@ theorem lowerTweak_ne_ftsChainHeaderP {heap : Nat} (hh : heap < 128) (lay tree :
     rw [BitVec.extractLsb'_toNat]; simp
   rw [e, ftsChainHeaderP_low, BitVec.toNat_ofNat]
   have hlt := ftsChainLow_lt index coord selected chain step
-  rw [Nat.mod_eq_of_lt hlt]
-  unfold ftsChainLow SigGolfCandidate.T3.ftsBias; omega
+  rw [Nat.mod_eq_of_lt hlt, ftsChainLow_tag]; omega
 theorem lowerTweak_ne_wctNodeHeader {heap : Nat} (hh : heap < 128) (lay tree : Nat) {coord : Nat} (hk : coord < 9)
     (index heap' : Nat) : lowerTweak lay tree heap ≠ wctNodeHeader coord index heap' := by
   apply lowerTweak_ne_of_tag hh
@@ -8169,7 +8173,7 @@ theorem lowerTweak_ne_wctNodeHeader {heap : Nat} (hh : heap < 128) (lay tree : N
       rw [ftsNodeLowN_eq]; unfold SigGolfCandidate.T3.ftsBiasN; omega
     omega
   · have hlt := ftsLeafLow_lt index coord 0
-    have : ftsLeafLow index coord 0 / 256 % 256 ≠ 7 := by unfold ftsLeafLow SigGolfCandidate.T3.ftsBiasN; omega
+    have : ftsLeafLow index coord 0 / 256 % 256 ≠ 7 := by rw [ftsLeafLow_zero]; unfold SigGolfCandidate.T3.ftsBiasN; omega
     omega
 end ClaudeWCT.WCT9
 end

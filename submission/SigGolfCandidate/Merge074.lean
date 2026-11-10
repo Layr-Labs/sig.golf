@@ -101,7 +101,7 @@ theorem eD1_pc (s : MachineState) : eD1.res.pc.eval s = pcOf 60919 := rfl
 def cfgR6 : Config := { noAlias := true }
 set_option maxRecDepth 100000 in
 theorem codeAt_r6 : CodeAt Images.expandImage (pcOf 60919) Images.expandR6Code := by
-  apply codeAt_expand_lastR <;> decide +kernel
+  apply codeAt_expand_last <;> decide +kernel
 
 theorem d1_spec (s : MachineState) (hpc : s.pc = pcOf 54569) :
     ∃ t, Steps Images.expandImage s 73 73 t ∧ t.pc = pcOf 60919 ∧

@@ -3604,7 +3604,7 @@ theorem chainRowG_header (a : ChainAddr) (step : Nat) (value : Digest) :
 /-- Queries that are no row of chain `a` (F format `chainRow`, nor, pairing stage 1, G format `chainRowG`) and do
 not read `a`'s seed cell. -/
 def Untouched (a : ChainAddr) : Spec.Domain → Prop
-  | .inl (.inr input) => ∀ step value, step < 256 → input ≠ chainRow a step value ∧ input ≠ chainRowG a step value
+  | .inl (.inr input) => ∀ step value, step < 7 → input ≠ chainRow a step value ∧ input ≠ chainRowG a step value
   | .inr (.inl tweak) => tweak ≠ seedTweak a
   | _ => True
 theorem prefixStep_spec {answers : Answers} {a : ChainAddr} {input : HashInput} {step : Nat}
@@ -3658,6 +3658,24 @@ theorem untouched_of_hdr (a : ChainAddr) (input : HashInput) (h : BitVec 128)
   · intro heq
     rw [heq, chainRowG_header] at hblock
     exact htag _ _ _ _ _ (bytesLE_injective hblock).symm
+/-- Y6 R-odd: `untouched_of_hdr` for headers that differ from every chain header of a bounded step (`step < 7`, the
+range `Untouched` quantifies over). Packed FTS node headers need the bound: byte 1 separates them from legacy chain
+words only when the step is not 7 mod 8. -/
+theorem untouched_of_hdr7 (a : ChainAddr) (input : HashInput) (h : BitVec 128)
+    (hblock : Extract.hdrBlock input = bytesLE 16 h)
+    (htag : ∀ (l : Layer) tr leaf i step, step < 7 → h ≠ chainHeader l tr leaf i step) :
+    Untouched a (.inl (.inr input)) := by
+  intro step value hs
+  have hb : Extract.hdrBlock (chainRow a step value) =
+      bytesLE 16 (chainHeader a.key.lay a.key.tree a.key.leaf a.chain step) :=
+    chainInput_header _ _ _ _ _ _
+  constructor
+  · intro heq
+    rw [heq, hb] at hblock
+    exact htag _ _ _ _ _ hs (bytesLE_injective hblock).symm
+  · intro heq
+    rw [heq, chainRowG_header] at hblock
+    exact htag _ _ _ _ _ hs (bytesLE_injective hblock).symm
 theorem untouched_prefixed (a : ChainAddr) (x : Digest) (rest : HashInput) {t : Nat} (ht : t % 256 ≠ 1)
     (l tr p ix : Nat) :
     Untouched a (.inl (.inr (pad64 (bytesLE 16 x ++ bytesLE 16 (header t l tr p ix) ++ rest)))) := by
@@ -3675,8 +3693,8 @@ theorem respects_nodeHash (tag lay tree heap : Nat) (left right : Digest) (ht : 
   rw [nodeHash_eq_projHash]
   apply Respects.projHash
   rw [pad64_nodeInputP]
-  exact untouched_of_hdr a _ (nodeTweak tag lay tree heap) (Extract.hdrBlock_block4 left _ 0 right)
-    (fun _ _ _ _ _ => Ne.symm (chainHeader_ne_nodeTweak _ _ _ _ _ _ _ _ _))
+  exact untouched_of_hdr7 a _ (nodeTweak tag lay tree heap) (Extract.hdrBlock_block4 left _ 0 right)
+    (fun _ _ _ _ _ hs => Ne.symm (chainHeader_ne_nodeTweak _ _ _ _ _ hs _ _ _ _))
 theorem respects_buildLevel (tag lay tree h level : Nat) (nodes : List Digest) (ht : tag % 256 ≠ 1) :
     Respects (Untouched a) (buildLevel tag lay tree h level nodes) :=
   Respects.mapM _ _ fun _ _ => respects_nodeHash a _ _ _ _ _ _ ht
@@ -5449,7 +5467,7 @@ theorem Pos.hdr_injective {p p' : Pos} (hb : p.Bounded) (hb' : p'.Bounded) (hlen
       exact False.elim (WCT9.ftsChainHeaderP_low_ne_chainHeader _ _ _ _ _ _ _ _ _ _ _
         (congrArg (BitVec.extractLsb' 0 64) h.symm))
     case wctNode index coord level nd =>
-      exact False.elim (WCT9.wctNodeHeader_ne_chainHeader _ _ _ _ _ _ _ _ h.symm)
+      exact False.elim (WCT9.wctNodeHeader_ne_chainHeader _ _ _ _ _ _ _ _ (by omega) h.symm)
     case node lay' tree' level' nd' =>
       obtain ⟨-, -, -, -, hnd'⟩ := hb'
       by_cases hz' : lay' = 0
@@ -5574,7 +5592,7 @@ theorem Pos.hdr_injective {p p' : Pos} (hb : p.Bounded) (hb' : p'.Bounded) (hlen
       subst this x
       rfl
     case chain lay tree lf i step =>
-      exact False.elim (WCT9.wctNodeHeader_ne_chainHeader _ _ _ _ _ _ _ _ h)
+      exact False.elim (WCT9.wctNodeHeader_ne_chainHeader _ _ _ _ _ _ _ _ hb'.2.2.2 h)
     case wctChain index' coord' child t step =>
       exact False.elim (WCT9.wctNodeHeader_ne_ftsChainHeaderP _ _ _ _ _ _ _ _ 0 hb'.2.2.2.1 h)
     case node lay' tree' level' nd' =>
@@ -6924,8 +6942,8 @@ theorem respects_topNodeHashN (a : ChainAddr) (heap n : Nat) (left right : Diges
     Respects (Untouched a) (topNodeHashN heap n left right) := by
   unfold topNodeHashN
   apply Respects.projHash
-  refine untouched_of_hdr a _ (nodeTweak 3 0 0 heap) ?_
-    (fun _ _ _ _ _ => Ne.symm (chainHeader_ne_nodeTweak _ _ _ _ _ _ _ _ _))
+  refine untouched_of_hdr7 a _ (nodeTweak 3 0 0 heap) ?_
+    (fun _ _ _ _ _ hs => Ne.symm (chainHeader_ne_nodeTweak _ _ _ _ _ hs _ _ _ _))
   rw [Extract.hdrBlock_pad64 _ (by simp [topNodeInput, nonceBytes, bytesLE_length])]
   unfold topNodeInput
   rw [List.append_assoc]
@@ -8215,7 +8233,7 @@ theorem ftsQuery_untouched {index : Nat} (a : ChainAddr) {q : Query} (h : FtsQue
       ⟨coord, selected, t, step, ht6, hblock⟩ | ⟨coord, selected, -, -, hblock⟩ | ⟨coord, heap, -, -, -, hblock⟩ | hblock
     · exact Mask.untouched_of_hdr a input _ hblock (ftsChainHeader_ne_wots _ _ _ _ _)
     · exact Mask.untouched_of_hdr a input _ hblock (fun _ _ _ _ _ => ftsLeafHeader_ne_chainHeader _ _ _ _ _ _ _ _)
-    · exact Mask.untouched_of_hdr a input _ hblock (fun _ _ _ _ _ => wctNodeHeader_ne_chainHeader _ _ _ _ _ _ _ _)
+    · exact Mask.untouched_of_hdr7 a input _ hblock (fun _ _ _ _ _ hs => wctNodeHeader_ne_chainHeader _ _ _ _ _ _ _ _ hs)
     · exact Mask.untouched_of_hdr a input _ hblock
         (fun _ _ _ _ _ => Ne.symm (chainHeader_ne_header _ _ _ _ _ _ _ _ _ _))
   · obtain ⟨coord, selected, pair, -, -, -, rfl⟩ := (show FtsSeed index tweak from h)

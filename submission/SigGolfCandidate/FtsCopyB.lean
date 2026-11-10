@@ -137,7 +137,9 @@ theorem lvl_coreC {im : Image} {j : Nat} (hj : j < 128) (hcode : CopyCodeAt im j
   have hw0 : 0 ≤ w0n k index ∧ w0n k index < 2 ^ 64 := by
     have := Nat.mod_lt index (show 0 < 2 ^ 31 by norm_num)
     have := Nat.mod_lt k (show 0 < 16 by norm_num)
-    unfold w0n V3.nodeLow ClaudeWCT.WCT9.ftsLeafLow SigGolfCandidate.T3.ftsBiasN
+    unfold w0n V3.nodeLow
+    rw [ClaudeWCT.WCT9.ftsLeafLow_zero]
+    unfold SigGolfCandidate.T3.ftsBiasN
     omega
   have hhdr : DigAt t (B + blkO j l + 16) (nodeHeader k index (heapOf l j) (hpOf j tws l)) := by
     by_cases h3 : l ≤ 3
@@ -367,10 +369,10 @@ def childProgramC (k index j b : Nat) (leaf pads sibs tws : Nat → Digest) : M 
   let computed ← childLevelHi k index j pads (hpOf j tws) sibs v5
   pure (r.1, computed)
 
-/-- Back at the caller (`ra + 300`) after a copy routine: the bank's `HandPost`, plus the nonce record and the
+/-- Back at the caller (`ra + 304`, Y6 R-odd) after a copy routine: the bank's `HandPost`, plus the nonce record and the
 re-zeroed search scratch; the frame adds the record, the saves and `SCR`. -/
 structure HandPostC (B j : Nat) (u : MachineState) (res : Nat × Digest) (t : MachineState) : Prop where
-  pc : t.pc = (u.getReg .x1 + 300) &&& ~~~1#64
+  pc : t.pc = (u.getReg .x1 + 304) &&& ~~~1#64
   a1 : t.getReg .x11 = 64
   top : DigAt t (B - handO j + 16) res.2
   a2 : t.getReg .x12 = BitVec.ofNat 64 (B - handO j)
