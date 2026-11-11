@@ -952,7 +952,7 @@ structure LInv (sig : WCT9.Signature) (hints : BitVec 16) (index n : Nat) (value
 def stage (sig : WCT9.Signature) (hints : BitVec 16) (index n : Nat) (value : WCT9.LayerMsg) :
     SigGolfCandidate.T3.M (Option (BitVec 32 × List Nat × Bool × WCT9.LayerMsg × Digest × List Nat)) := do
   let lay : Layer := Fin.ofNat 4 n
-  let some (c,ds,low) ← WCT9.CanonicalPolicy.layerCounterSearchAt lay (hintFloor hints lay)
+  let some (c,ds,low) ← WCT9.CanonicalPolicy.layerCounterSearchAt lay (hintFloor (route index lay).1 hints lay)
     (route index lay).2 (route index lay).1 value 0 (WCT9.searchLimit lay) | pure none
   let mv ← BC.recoverMsg sig index lay ds
   pure (some (c,ds,low,mv.1,mv.2.1,mv.2.2))
@@ -975,7 +975,7 @@ def StagePost (im : Image) (s : MachineState) (sig : WCT9.Signature) (hints : Bi
     ds.length=chainCount lay ∧ (∃ a,WCT9.CanonicalPolicy.decode lay a=some ds) ∧
     (lay=0 → TopBlkG (WCT9.toT3Signature sig) index lay v t) ∧
     t.getMem (BitVec.ofNat 64 (lD lay))=replaceWord32 (s.getMem (BitVec.ofNat 64 (lD lay))) (lk lay) (BitVec.ofNat 32 c.toNat) ∧
-    hintFloor hints lay ≤ WCT9.CanonicalPolicy.credit lay low ds ∧
+    hintFloor (route index lay).1 hints lay ≤ WCT9.CanonicalPolicy.credit lay low ds ∧
     (lay=0 → t.getMem (BitVec.ofNat 64 Search.FLAG)=BitVec.ofNat 64 (if low then 0 else 128)) ∧
     (lay=0 → NoncesAt t nn (route index lay).1) ∧
     (lay≠0 → RecAt t lay (route index lay).1 nn)
@@ -1039,7 +1039,7 @@ theorem stage_good {sig : WCT9.Signature} {hints : BitVec 16} {index n : Nat} {v
   have g1 : ∀ A, A < 0xA0000 → t1.getMem (BitVec.ofNat 64 A) = s.getMem (BitVec.ofNat 64 A) :=
     fun A hA => f1.get (by omega) (fun h => by omega)
   obtain ⟨x, hx, hx32⟩ := hI.c32
-  have hcs : CsPre 354 ⟨lay, tree, leaf, value, lR1 lay, hintFloor hints lay, hints⟩ t1 :=
+  have hcs : CsPre 354 ⟨lay, tree, leaf, value, lR1 lay, hintFloor (route index lay).1 hints lay, hints⟩ t1 :=
     { pc := p1, x1 := x1, x5 := by rw [r1.get (by decide)]; exact hI.x5, x8 := x8, x9 := x9, x18 := x18,
       x17 := by convert x17 using 2; clear_value lay; fin_cases lay <;> rfl,
       x26 := x26, x27 := x27, htree := htree, hleaf := hleaf32, hroute := SigGolfCandidate.T3M.LH.route_honest index hI.hidx lay,
@@ -1055,8 +1055,12 @@ theorem stage_good {sig : WCT9.Signature} {hints : BitVec 16} {index n : Nat} {v
       reward := hI.reward.frame f1 (by intro i hi hi' h; simp only [Search.TOP_DATA] at h; omega),
       zt := hI.zt.frame f1 (by
         intro r hr h; rw [show SigGolfCandidate.T3M.Search.ZeroCap.ZT 354 = 16747280 from rfl] at h; omega),
-      floorLt := hintFloor_lt hints lay,
-      floorTop := fun he => by change lay = 0 at he; change hintFloor hints lay = 18; rw [he]; rfl,
+      floorLt := hintFloor_lt (route index lay).1 hints lay,
+      floorTop := fun he => by
+        change lay=0 at he
+        change hintFloor leaf hints lay = max 18 (WCT9.CanonicalPolicy.routePool leaf-54)
+        rw [he]
+        exact SigGolfCandidate.T3M.Search.CanonicalExpandHooks.hintFloor_top leaf hints,
       hintsLt := hI.hintsLt, floorEq := rfl,
       floorMem := by rw [g1 _ (by decide)]; exact hI.hintsMem,
       t51table := tab1 }
@@ -1374,7 +1378,7 @@ def Post (im : Image) (s : MachineState) (sig : WCT9.Signature) (hints : BitVec 
     (n=0 → t=s ∧ r.foldedTop=vin) ∧
     (n≠0 → TopBlkG (WCT9.toT3Signature sig) index 0 r.foldedTop t) ∧
     t.getMem (0x66000#64)=BitVec.ofNat 64 hints.toNat ∧
-    (∀ lay : Layer,lay.val<n → hintFloor hints lay ≤
+    (∀ lay : Layer,lay.val<n → hintFloor (route index lay).1 hints lay ≤
       WCT9.CanonicalPolicy.credit lay (r.lows.getD lay.val true) (r.digits.getD lay.val [])) ∧
     r.lows.length=n ∧
     (n≠0 → t.getMem (BitVec.ofNat 64 Search.FLAG)=BitVec.ofNat 64 (if r.lows.getD 0 true then 0 else 128)) ∧
@@ -1641,7 +1645,7 @@ theorem run_eq_recover (sig : SharedForest.Signature) (index : Nat) :
     intro hn msg vin nin
     conv_lhs => unfold run;unfold stage
     conv_rhs => unfold SharedForest.recoverHintedLayers
-    simp only [bind_assoc]
+    simp only [bind_assoc, Search.CanonicalExpandHooks.hintFloor_source]
     congr 1
     funext r
     rcases r with _|⟨c,ds,low⟩
@@ -1658,7 +1662,7 @@ theorem run_eq_recover (sig : SharedForest.Signature) (index : Nat) :
       omega
     conv_lhs => unfold run;unfold stage
     conv_rhs => unfold SharedForest.recoverHintedLayers
-    simp only [bind_assoc]
+    simp only [bind_assoc, Search.CanonicalExpandHooks.hintFloor_source]
     congr 1
     funext r
     rcases r with _|⟨c,ds,low⟩
@@ -1679,34 +1683,34 @@ open SigGolfCandidate.Research
 set_option maxHeartbeats 1000000
 set_option maxRecDepth 10000
 
-/-- Y5 machine policy check: pool 72, hints `529·f1 + 23·f2 + f3`; L1 residual < 55, L2 < 41, L3 < 23 with
-floor `lowerThreeFloor`. -/
-def policyCondition (hints : BitVec 16) (digits : List (List Nat)) (lows : List Bool) : Prop :=
-  let r1:=72-CanonicalPolicy.credit 0 (lows.getD 0 true) (digits.getD 0 [])
+/-- img-v6 machine policy check: pool 72, hints `529·f1 + 23·f2 + f3`; L1 residual < 55, L2 < 41, L3 < 23. -/
+def policyCondition (index : Nat) (hints : BitVec 16) (digits : List (List Nat)) (lows : List Bool) : Prop :=
+  let r1:=(SharedForest.requiredCredit index)-CanonicalPolicy.credit 0 (lows.getD 0 true) (digits.getD 0 [])
   let r2:=r1-CanonicalPolicy.credit 1 (lows.getD 1 true) (digits.getD 1 [])
   let r3:=r2-CanonicalPolicy.credit 2 (lows.getD 2 true) (digits.getD 2 [])
   r1<55 ∧ r2<41 ∧ r3<23 ∧
     hints.toNat/529=CanonicalPolicy.threshold 1 r1 ∧
     hints.toNat/23%23=CanonicalPolicy.threshold 2 r2 ∧ hints.toNat%23=CanonicalPolicy.lowerThreeFloor r3
 
-theorem policyCondition_iff (hints : BitVec 16) (digits : List (List Nat)) (lows : List Bool)
+theorem policyCondition_iff (index : Nat) (hints : BitVec 16) (digits : List (List Nat)) (lows : List Bool)
     (hh : hints.toNat<8000) (hlen : digits.length=4)
-    (hc0 : 18≤CanonicalPolicy.credit 0 (lows.getD 0 true) (digits.getD 0 []))
-    (hc1 : SharedForest.hintFloor hints 1≤CanonicalPolicy.credit 1 (lows.getD 1 true) (digits.getD 1 []))
-    (hc2 : SharedForest.hintFloor hints 2≤CanonicalPolicy.credit 2 (lows.getD 2 true) (digits.getD 2 [])) :
-    policyCondition hints digits lows ↔ SharedForest.policyHintsValid hints digits lows=true := by
-  have h1 : SharedForest.hintFloor hints 1=hints.toNat/529%23 := by
+    (hc0 : CanonicalPolicy.threshold 0 (SharedForest.requiredCredit index)≤CanonicalPolicy.credit 0 (lows.getD 0 true) (digits.getD 0 []))
+    (hc1 : SharedForest.hintFloor index hints 1≤CanonicalPolicy.credit 1 (lows.getD 1 true) (digits.getD 1 []))
+    (hc2 : SharedForest.hintFloor index hints 2≤CanonicalPolicy.credit 2 (lows.getD 2 true) (digits.getD 2 [])) :
+    policyCondition index hints digits lows ↔ SharedForest.policyHintsValid index hints digits lows=true := by
+  rw [CanonicalPolicy.threshold_top] at hc0
+  have h1 : SharedForest.hintFloor index hints 1=hints.toNat/529%23 := by
     simp only [SharedForest.hintFloor,show (1:Layer)≠0 by decide,ite_false]; rfl
-  have h2 : SharedForest.hintFloor hints 2=hints.toNat/23%23 := by
+  have h2 : SharedForest.hintFloor index hints 2=hints.toNat/23%23 := by
     simp only [SharedForest.hintFloor,show (2:Layer)≠0 by decide,ite_false]; rfl
-  have h3 : SharedForest.hintFloor hints 3=hints.toNat%23 := by
+  have h3 : SharedForest.hintFloor index hints 3=hints.toNat%23 := by
     simp only [SharedForest.hintFloor,show (3:Layer)≠0 by decide,ite_false]
     show hints.toNat/1%23=_
     rw [Nat.div_one]
   rw [h1] at hc1
   rw [h2] at hc2
   simp only [SharedForest.policyHintsValid,decide_eq_true_eq,CanonicalPolicy.nextResidual,
-    CanonicalPolicy.totalCredit,hlen,true_and,and_true,h1,h2,h3]
+    CanonicalPolicy.threshold_top,hlen,true_and,and_true,h1,h2,h3]
   unfold policyCondition
   constructor
   · rintro ⟨hR1,hR2,hR3,he1,he2,he3⟩
@@ -1716,16 +1720,16 @@ theorem policyCondition_iff (hints : BitVec 16) (digits : List (List Nat)) (lows
     rw [CanonicalPolicy.lower_three_progress _ hR3]
     exact he3
   · rintro ⟨hH,he1,he2,he3⟩
-    have hr1 : 72-CanonicalPolicy.credit 0 (lows.getD 0 true) (digits.getD 0 [])<55 := by omega
+    have hr1 : (SharedForest.requiredCredit index)-CanonicalPolicy.credit 0 (lows.getD 0 true) (digits.getD 0 [])<55 := by omega
     have ht1 := (CanonicalPolicy.lower_one_progress ⟨_,hr1⟩).2
     simp only [Fin.val_mk] at ht1
-    have hr2 : 72-CanonicalPolicy.credit 0 (lows.getD 0 true) (digits.getD 0 [])-
+    have hr2 : (SharedForest.requiredCredit index)-CanonicalPolicy.credit 0 (lows.getD 0 true) (digits.getD 0 [])-
         CanonicalPolicy.credit 1 (lows.getD 1 true) (digits.getD 1 [])<41 := by
       rw [←he1] at ht1
       omega
     have ht2 := (CanonicalPolicy.lower_two_progress ⟨_,hr2⟩).2
     simp only [Fin.val_mk] at ht2
-    have hr3 : 72-CanonicalPolicy.credit 0 (lows.getD 0 true) (digits.getD 0 [])-
+    have hr3 : (SharedForest.requiredCredit index)-CanonicalPolicy.credit 0 (lows.getD 0 true) (digits.getD 0 [])-
         CanonicalPolicy.credit 1 (lows.getD 1 true) (digits.getD 1 [])-
         CanonicalPolicy.credit 2 (lows.getD 2 true) (digits.getD 2 [])<23 := by
       rw [←he2] at ht2
@@ -5516,7 +5520,7 @@ sym_block zero0Run := symRun {noAlias:=true} zero0Code (pcOf 46937) 20
 def sub0Code : List (BitVec 32) := [0x406a8ab3]
 sym_block sub0Run := symRun {noAlias:=true} sub0Code (pcOf 46939) 20
 theorem first0_steps {im : Image} (hc : CodeAt im (pcOf 46933) first0Code)
-    (s : MachineState) (hp : s.pc=pcOf 46933) (R C : Nat) (hR : R≤72) (hC : C<2^64)
+    (s : MachineState) (hp : s.pc=pcOf 46933) (R C : Nat) (hR : R≤73) (hC : C<2^64)
     (h21 : s.getReg .x21=BitVec.ofNat 64 R) (hm : s.getMem 417856=BitVec.ofNat 64 C) :
     ∃t,Steps im s 4 4 t ∧ t.pc=(if C<R then pcOf 46939 else pcOf 46937) ∧
       t.getReg .x6=BitVec.ofNat 64 C ∧ RegsExcept s t [.x6,.x28] ∧ Frame s t (fun _=>False) := by
@@ -5542,7 +5546,7 @@ theorem zero0_steps {im : Image} (hc : CodeAt im (pcOf 46937) zero0Code)
   · intro A hA hn;rfl
 
 theorem sub0_steps {im : Image} (hc : CodeAt im (pcOf 46939) sub0Code)
-    (s : MachineState) (hp : s.pc=pcOf 46939) (R C : Nat) (hR : R≤72) (hC : C<R)
+    (s : MachineState) (hp : s.pc=pcOf 46939) (R C : Nat) (hR : R≤73) (hC : C<R)
     (h21 : s.getReg .x21=BitVec.ofNat 64 R) (h6 : s.getReg .x6=BitVec.ofNat 64 C) :
     ∃t,Steps im s 1 1 t ∧ t.pc=pcOf 46940 ∧ t.getReg .x21=BitVec.ofNat 64 (R-C) ∧
       RegsExcept s t [.x21] ∧ Frame s t (fun _=>False) := by
@@ -5560,7 +5564,7 @@ class Residual0Code (im : Image) : Prop where
   sub : CodeAt im (pcOf 46939) sub0Code
 
 theorem residual0_steps {im : Image} [hc : Residual0Code im]
-    (s : MachineState) (hp : s.pc=pcOf 46933) (R C : Nat) (hR : R≤72) (hC : C<2^64)
+    (s : MachineState) (hp : s.pc=pcOf 46933) (R C : Nat) (hR : R≤73) (hC : C<2^64)
     (h21 : s.getReg .x21=BitVec.ofNat 64 R) (hm : s.getMem 417856=BitVec.ofNat 64 C) :
     ∃t n,n≤6 ∧ Steps im s n n t ∧ t.pc=pcOf 46940 ∧ t.getReg .x21=BitVec.ofNat 64 (R-C) ∧
       RegsExcept s t [.x6,.x21,.x28] ∧ Frame s t (fun _=>False) := by
@@ -5580,7 +5584,7 @@ sym_block zero1Run := symRun {noAlias:=true} zero1Code (pcOf 46953) 20
 def sub1Code : List (BitVec 32) := [0x406a8ab3]
 sym_block sub1Run := symRun {noAlias:=true} sub1Code (pcOf 46955) 20
 theorem first1_steps {im : Image} (hc : CodeAt im (pcOf 46949) first1Code)
-    (s : MachineState) (hp : s.pc=pcOf 46949) (R C : Nat) (hR : R≤72) (hC : C<2^64)
+    (s : MachineState) (hp : s.pc=pcOf 46949) (R C : Nat) (hR : R≤73) (hC : C<2^64)
     (h21 : s.getReg .x21=BitVec.ofNat 64 R) (hm : s.getMem 417864=BitVec.ofNat 64 C) :
     ∃t,Steps im s 4 4 t ∧ t.pc=(if C<R then pcOf 46955 else pcOf 46953) ∧
       t.getReg .x6=BitVec.ofNat 64 C ∧ RegsExcept s t [.x6,.x28] ∧ Frame s t (fun _=>False) := by
@@ -5606,7 +5610,7 @@ theorem zero1_steps {im : Image} (hc : CodeAt im (pcOf 46953) zero1Code)
   · intro A hA hn;rfl
 
 theorem sub1_steps {im : Image} (hc : CodeAt im (pcOf 46955) sub1Code)
-    (s : MachineState) (hp : s.pc=pcOf 46955) (R C : Nat) (hR : R≤72) (hC : C<R)
+    (s : MachineState) (hp : s.pc=pcOf 46955) (R C : Nat) (hR : R≤73) (hC : C<R)
     (h21 : s.getReg .x21=BitVec.ofNat 64 R) (h6 : s.getReg .x6=BitVec.ofNat 64 C) :
     ∃t,Steps im s 1 1 t ∧ t.pc=pcOf 46956 ∧ t.getReg .x21=BitVec.ofNat 64 (R-C) ∧
       RegsExcept s t [.x21] ∧ Frame s t (fun _=>False) := by
@@ -5624,7 +5628,7 @@ class Residual1Code (im : Image) : Prop where
   sub : CodeAt im (pcOf 46955) sub1Code
 
 theorem residual1_steps {im : Image} [hc : Residual1Code im]
-    (s : MachineState) (hp : s.pc=pcOf 46949) (R C : Nat) (hR : R≤72) (hC : C<2^64)
+    (s : MachineState) (hp : s.pc=pcOf 46949) (R C : Nat) (hR : R≤73) (hC : C<2^64)
     (h21 : s.getReg .x21=BitVec.ofNat 64 R) (hm : s.getMem 417864=BitVec.ofNat 64 C) :
     ∃t n,n≤6 ∧ Steps im s n n t ∧ t.pc=pcOf 46956 ∧ t.getReg .x21=BitVec.ofNat 64 (R-C) ∧
       RegsExcept s t [.x6,.x21,.x28] ∧ Frame s t (fun _=>False) := by
@@ -5644,7 +5648,7 @@ sym_block zero2Run := symRun {noAlias:=true} zero2Code (pcOf 46970) 20
 def sub2Code : List (BitVec 32) := [0x406a8ab3]
 sym_block sub2Run := symRun {noAlias:=true} sub2Code (pcOf 46972) 20
 theorem first2_steps {im : Image} (hc : CodeAt im (pcOf 46966) first2Code)
-    (s : MachineState) (hp : s.pc=pcOf 46966) (R C : Nat) (hR : R≤72) (hC : C<2^64)
+    (s : MachineState) (hp : s.pc=pcOf 46966) (R C : Nat) (hR : R≤73) (hC : C<2^64)
     (h21 : s.getReg .x21=BitVec.ofNat 64 R) (hm : s.getMem 417872=BitVec.ofNat 64 C) :
     ∃t,Steps im s 4 4 t ∧ t.pc=(if C<R then pcOf 46972 else pcOf 46970) ∧
       t.getReg .x6=BitVec.ofNat 64 C ∧ RegsExcept s t [.x6,.x28] ∧ Frame s t (fun _=>False) := by
@@ -5670,7 +5674,7 @@ theorem zero2_steps {im : Image} (hc : CodeAt im (pcOf 46970) zero2Code)
   · intro A hA hn;rfl
 
 theorem sub2_steps {im : Image} (hc : CodeAt im (pcOf 46972) sub2Code)
-    (s : MachineState) (hp : s.pc=pcOf 46972) (R C : Nat) (hR : R≤72) (hC : C<R)
+    (s : MachineState) (hp : s.pc=pcOf 46972) (R C : Nat) (hR : R≤73) (hC : C<R)
     (h21 : s.getReg .x21=BitVec.ofNat 64 R) (h6 : s.getReg .x6=BitVec.ofNat 64 C) :
     ∃t,Steps im s 1 1 t ∧ t.pc=pcOf 46973 ∧ t.getReg .x21=BitVec.ofNat 64 (R-C) ∧
       RegsExcept s t [.x21] ∧ Frame s t (fun _=>False) := by
@@ -5688,7 +5692,7 @@ class Residual2Code (im : Image) : Prop where
   sub : CodeAt im (pcOf 46972) sub2Code
 
 theorem residual2_steps {im : Image} [hc : Residual2Code im]
-    (s : MachineState) (hp : s.pc=pcOf 46966) (R C : Nat) (hR : R≤72) (hC : C<2^64)
+    (s : MachineState) (hp : s.pc=pcOf 46966) (R C : Nat) (hR : R≤73) (hC : C<2^64)
     (h21 : s.getReg .x21=BitVec.ofNat 64 R) (hm : s.getMem 417872=BitVec.ofNat 64 C) :
     ∃t n,n≤6 ∧ Steps im s n n t ∧ t.pc=pcOf 46973 ∧ t.getReg .x21=BitVec.ofNat 64 (R-C) ∧
       RegsExcept s t [.x6,.x21,.x28] ∧ Frame s t (fun _=>False) := by
@@ -5708,7 +5712,7 @@ open SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64 SigGol
 set_option autoImplicit false
 set_option maxHeartbeats 1500000
 set_option maxRecDepth 10000
-def initCode : List (BitVec 32) := [0x66e37,0xe0e13,0xe3a03,0x4800a93]
+def initCode : List (BitVec 32) := [0x38c0706f]
 sym_block initRun := symRun {noAlias:=true} initCode (pcOf 46929) 100
 def range1Code : List (BitVec 32) := [0x3700393,0x87afc63]
 sym_block range1Run := symRun {noAlias:=true} range1Code (pcOf 46940) 100
@@ -5732,7 +5736,7 @@ sym_block goodRun := symRun {noAlias:=true} goodCode (pcOf 46978) 100
 def badCode : List (BitVec 32) := [0xf7cd206f]
 sym_block badRun := symRun {noAlias:=true} badCode (pcOf 46979) 100
 theorem range1_steps {im : Image} (hc : CodeAt im (pcOf 46940) range1Code)
-    (s : MachineState) (hp : s.pc=pcOf 46940) (R : Nat) (hR : R≤72)
+    (s : MachineState) (hp : s.pc=pcOf 46940) (R : Nat) (hR : R≤73)
     (h21 : s.getReg .x21=BitVec.ofNat 64 R) :
     ∃t,Steps im s 2 2 t ∧ t.pc=(if R<55 then pcOf 46942 else pcOf 46979) ∧
       RegsExcept s t [.x7] ∧ Frame s t (fun _=>False) := by
@@ -5744,7 +5748,7 @@ theorem range1_steps {im : Image} (hc : CodeAt im (pcOf 46940) range1Code)
   · intro r hr;cases r <;> first | exact (hr (by decide)).elim | rfl
   · intro A hA hn;rfl
 theorem range2_steps {im : Image} (hc : CodeAt im (pcOf 46956) range2Code)
-    (s : MachineState) (hp : s.pc=pcOf 46956) (R : Nat) (hR : R≤72)
+    (s : MachineState) (hp : s.pc=pcOf 46956) (R : Nat) (hR : R≤73)
     (h21 : s.getReg .x21=BitVec.ofNat 64 R) :
     ∃t,Steps im s 2 2 t ∧ t.pc=(if R<41 then pcOf 46958 else pcOf 46979) ∧
       RegsExcept s t [.x7] ∧ Frame s t (fun _=>False) := by
@@ -5756,7 +5760,7 @@ theorem range2_steps {im : Image} (hc : CodeAt im (pcOf 46956) range2Code)
   · intro r hr;cases r <;> first | exact (hr (by decide)).elim | rfl
   · intro A hA hn;rfl
 theorem range3_steps {im : Image} (hc : CodeAt im (pcOf 46973) range3Code)
-    (s : MachineState) (hp : s.pc=pcOf 46973) (R : Nat) (hR : R≤72)
+    (s : MachineState) (hp : s.pc=pcOf 46973) (R : Nat) (hR : R≤73)
     (h21 : s.getReg .x21=BitVec.ofNat 64 R) :
     ∃t,Steps im s 2 2 t ∧ t.pc=(if R<23 then pcOf 46975 else pcOf 46979) ∧
       RegsExcept s t [.x7] ∧ Frame s t (fun _=>False) := by
@@ -5768,14 +5772,30 @@ theorem range3_steps {im : Image} (hc : CodeAt im (pcOf 46973) range3Code)
   · intro r hr;cases r <;> first | exact (hr (by decide)).elim | rfl
   · intro A hA hn;rfl
 theorem init_steps {im : Image} (hc : CodeAt im (pcOf 46929) initCode)
-    (s : MachineState) (hp : s.pc=pcOf 46929) (hints : Nat)
-    (hm : s.getMem (0x66000#64)=BitVec.ofNat 64 hints) :
-    ∃t,Steps im s 4 4 t ∧ t.pc=pcOf 46933 ∧ t.getReg .x20=BitVec.ofNat 64 hints ∧
-      t.getReg .x21=72 ∧ RegsExcept s t [.x20,.x21,.x28] ∧ Frame s t (fun _=>False) := by
-  refine ⟨_,symRun_sound initRun hc s hp (by simp [initRun.res,rv_simp]),rfl,?_,rfl,?_,?_⟩
-  · simp [initRun.res,rv_simp,hm]
-  · intro r hr;cases r <;> first | exact (hr (by decide)).elim | rfl
-  · intro A hA hn;rfl
+    (hg : CodeAt im (pcOf 54324) TopRoutePool.expandIndexCode)
+    (s : MachineState) (hp : s.pc=pcOf 46929) (index H : Nat) (hi : index<2^31)
+    (hmidx : s.getMem (0x20550#64)=BitVec.ofNat 64 index)
+    (hm : s.getMem (0x66000#64)=BitVec.ofNat 64 H) :
+    ∃t,Steps im s 15 15 t ∧ t.pc=pcOf 46933 ∧ t.getReg .x20=BitVec.ofNat 64 H ∧
+      t.getReg .x21=BitVec.ofNat 64 (SigGolfCandidate.Research.SharedForest.requiredCredit index) ∧
+      RegsExcept s t [.x20,.x21,.x28] ∧ Frame s t (fun _=>False) := by
+  obtain ⟨u,su,pu,ru,fu⟩ := SigGolfCandidate.T3M.Search.T51.jump_hook (k:=46929) (t:=54324)
+    (off:=29580) (fun _=>rfl) hc (by norm_num [pcOf]) (by norm_num [pcOf])
+    (by norm_num [pcOf]) s hp
+  obtain ⟨t,ut,pt,tpool,tH,rt,ft⟩ := TopRoutePool.expandIndex_steps hg u pu index H hi
+    ((fu.get (by decide) (by simp)).trans hmidx) ((fu.get (by decide) (by simp)).trans hm)
+  refine ⟨t,su.trans ut,pt,tH,?_,(ru.trans rt).mono (by decide),(fu.trans ft).mono (by simp)⟩
+  have hr : (SigGolfCandidate.T3.route index 0).1=index/2^19 := by
+    change index/2^19%2^12=index/2^19
+    apply Nat.mod_eq_of_lt
+    omega
+  have he : SigGolfCandidate.Research.SharedForest.requiredCredit index =
+      ClaudeWCT.Numerics.TopRoute.rootPool (index/2^19) := by
+    unfold SigGolfCandidate.Research.SharedForest.requiredCredit
+    rw [hr]
+    rfl
+  rw [he]
+  exact tpool
 end ClaudeWCT.W9.Machine.Expand.SharedValidateV6
 
 namespace ClaudeWCT.W9.Machine.Expand.SharedValidateV6
@@ -6017,6 +6037,7 @@ set_option maxHeartbeats 2000000
 set_option maxRecDepth 20000
 structure Code (im : Image) : Prop where
   init : CodeAt im (pcOf 46929) initCode
+  poolHelper : CodeAt im (pcOf 54324) TopRoutePool.expandIndexCode
   r0 : Residual0Code im
   r1 : Residual1Code im
   r2 : Residual2Code im
@@ -6038,7 +6059,7 @@ structure Code (im : Image) : Prop where
 
 def regs : List Reg := [.x6,.x7,.x21,.x28,.x29]
 theorem phase1_steps {im : Image} (hc : Code im)
-    (s : MachineState) (hp : s.pc=pcOf 46933) (R C H : Nat) (hR : R≤72) (hC : C<2^64) (hH : H<8000)
+    (s : MachineState) (hp : s.pc=pcOf 46933) (R C H : Nat) (hR : R≤73) (hC : C<2^64) (hH : H<8000)
     (h21 : s.getReg .x21=BitVec.ofNat 64 R) (h20 : s.getReg .x20=BitVec.ofNat 64 H)
     (hm : s.getMem (417856#64)=BitVec.ofNat 64 C)
     (T : Nat→Nat) (hT : ∀ r,r<55 → T r<23)
@@ -6068,7 +6089,7 @@ theorem phase1_steps {im : Image} (hc : Code im)
     · exact (ru.trans rv).mono (by decide)
     · exact (fu.trans fv).mono (by simp)
 theorem phase2_steps {im : Image} (hc : Code im)
-    (s : MachineState) (hp : s.pc=pcOf 46949) (R C H : Nat) (hR : R≤72) (hC : C<2^64) (hH : H<8000)
+    (s : MachineState) (hp : s.pc=pcOf 46949) (R C H : Nat) (hR : R≤73) (hC : C<2^64) (hH : H<8000)
     (h21 : s.getReg .x21=BitVec.ofNat 64 R) (h20 : s.getReg .x20=BitVec.ofNat 64 H)
     (hm : s.getMem (417864#64)=BitVec.ofNat 64 C)
     (T : Nat→Nat) (hT : ∀ r,r<41 → T r<23)
@@ -6098,7 +6119,7 @@ theorem phase2_steps {im : Image} (hc : Code im)
     · exact (ru.trans rv).mono (by decide)
     · exact (fu.trans fv).mono (by simp)
 theorem phase3_steps {im : Image} (hc : Code im)
-    (s : MachineState) (hp : s.pc=pcOf 46966) (R C H : Nat) (hR : R≤72) (hC : C<2^64) (hH : H<8000)
+    (s : MachineState) (hp : s.pc=pcOf 46966) (R C H : Nat) (hR : R≤73) (hC : C<2^64) (hH : H<8000)
     (h21 : s.getReg .x21=BitVec.ofNat 64 R) (h20 : s.getReg .x20=BitVec.ofNat 64 H)
     (hm : s.getMem (417872#64)=BitVec.ofNat 64 C) :
     ∃t n c,n≤22 ∧ c≤38 ∧ Steps im s n c t ∧
@@ -6131,14 +6152,15 @@ set_option autoImplicit false
 set_option maxHeartbeats 2500000
 set_option maxRecDepth 20000
 
-abbrev Condition (H C0 C1 C2 : Nat) (T1 T2 : Nat→Nat) : Prop :=
-  let R1:=72-C0
+abbrev Condition (pool H C0 C1 C2 : Nat) (T1 T2 : Nat→Nat) : Prop :=
+  let R1:=pool-C0
   let R2:=R1-C1
   let R3:=R2-C2
   R1<55 ∧ R2<41 ∧ R3<23 ∧ H/529=T1 R1 ∧ H/23%23=T2 R2 ∧ H%23=ClaudeWCT.WCT9.CanonicalPolicy.lowerThreeFloor R3
 
 theorem validate_steps {im : Image} (hc : Code im)
-    (s : MachineState) (hp : s.pc=pcOf 46929) (H C0 C1 C2 : Nat)
+    (s : MachineState) (hp : s.pc=pcOf 46929) (index : Nat) (hi : index<2^31)
+    (hmidx : s.getMem (0x20550#64)=BitVec.ofNat 64 index) (H C0 C1 C2 : Nat)
     (hH : H<8000) (hC0 : C0<2^64) (hC1 : C1<2^64) (hC2 : C2<2^64)
     (hm : s.getMem (0x66000#64)=BitVec.ofNat 64 H)
     (hm0 : s.getMem (417856#64)=BitVec.ofNat 64 C0)
@@ -6147,50 +6169,51 @@ theorem validate_steps {im : Image} (hc : Code im)
     (T1 T2 : Nat→Nat) (ht1 : ∀r,r<55→T1 r<23) (ht2 : ∀r,r<41→T2 r<23)
     (hb1 : ∀r,r<55→s.getByte (BitVec.ofNat 64 (16749456+r))=BitVec.ofNat 8 (T1 r))
     (hb2 : ∀r,r<41→s.getByte (BitVec.ofNat 64 (16749520+r))=BitVec.ofNat 8 (T2 r)) :
-    ∃t n c,n≤58 ∧ c≤83 ∧ Steps im s n c t ∧
-      t.pc=(if Condition H C0 C1 C2 T1 T2 then pcOf 42795 else pcOf 354) ∧
+    ∃t n c,n≤69 ∧ c≤94 ∧ Steps im s n c t ∧
+      t.pc=(if Condition (SigGolfCandidate.Research.SharedForest.requiredCredit index) H C0 C1 C2 T1 T2 then pcOf 42795 else pcOf 354) ∧
       RegsExcept s t [.x6,.x7,.x20,.x21,.x28,.x29] ∧ Frame s t (fun _=>False) := by
-  obtain ⟨u,su,pu,u20,u21,ru,fu⟩:=init_steps hc.init s hp H hm
-  obtain ⟨v,n1,c1,hn1,hc1,sv,pv,v21,rv,fv⟩:=phase1_steps hc u pu 72 C0 H (by omega) hC0 hH u21 u20
+  obtain ⟨u,su,pu,u20,u21,ru,fu⟩:=init_steps hc.init hc.poolHelper s hp index H hi hmidx hm
+  have hpool := SigGolfCandidate.Research.SharedForest.requiredCredit_bounds index
+  obtain ⟨v,n1,c1,hn1,hc1,sv,pv,v21,rv,fv⟩:=phase1_steps hc u pu (SigGolfCandidate.Research.SharedForest.requiredCredit index) C0 H (by omega) hC0 hH u21 u20
     (by rw [fu.get (by decide) (by simp)];exact hm0) T1 ht1
     (fun r hr=>by rw [fu.getByte (by omega) (by simp)];exact hb1 r hr)
-  by_cases h1 : 72-C0<55 ∧ H/529=T1 (72-C0)
+  by_cases h1 : (SigGolfCandidate.Research.SharedForest.requiredCredit index)-C0<55 ∧ H/529=T1 ((SigGolfCandidate.Research.SharedForest.requiredCredit index)-C0)
   · rw [if_pos h1] at pv
-    obtain ⟨w,n2,c2,hn2,hc2,sw,pw,w21,rw_,fw⟩:=phase2_steps hc v pv (72-C0) C1 H (by omega) hC1 hH v21
+    obtain ⟨w,n2,c2,hn2,hc2,sw,pw,w21,rw_,fw⟩:=phase2_steps hc v pv ((SigGolfCandidate.Research.SharedForest.requiredCredit index)-C0) C1 H (by omega) hC1 hH v21
       (by rw [rv.get (by decide)];exact u20)
       (by rw [fv.get (by decide) (by simp),fu.get (by decide) (by simp)];exact hm1) T2 ht2
       (fun r hr=>by rw [fv.getByte (by omega) (by simp),fu.getByte (by omega) (by simp)];exact hb2 r hr)
-    by_cases h2 : 72-C0-C1<41 ∧ H/23%23=T2 (72-C0-C1)
+    by_cases h2 : (SigGolfCandidate.Research.SharedForest.requiredCredit index)-C0-C1<41 ∧ H/23%23=T2 ((SigGolfCandidate.Research.SharedForest.requiredCredit index)-C0-C1)
     · rw [if_pos h2] at pw
-      obtain ⟨x,n3,c3,hn3,hc3,sx,px,x21,rx,fx⟩:=phase3_steps hc w pw (72-C0-C1) C2 H (by omega) hC2 hH w21
+      obtain ⟨x,n3,c3,hn3,hc3,sx,px,x21,rx,fx⟩:=phase3_steps hc w pw ((SigGolfCandidate.Research.SharedForest.requiredCredit index)-C0-C1) C2 H (by omega) hC2 hH w21
         (by rw [rw_.get (by decide),rv.get (by decide)];exact u20)
         (by rw [fw.get (by decide) (by simp),fv.get (by decide) (by simp),fu.get (by decide) (by simp)];exact hm2)
-      by_cases h3 : 72-C0-C1-C2<23 ∧ H%23=ClaudeWCT.WCT9.CanonicalPolicy.lowerThreeFloor (72-C0-C1-C2)
+      by_cases h3 : (SigGolfCandidate.Research.SharedForest.requiredCredit index)-C0-C1-C2<23 ∧ H%23=ClaudeWCT.WCT9.CanonicalPolicy.lowerThreeFloor ((SigGolfCandidate.Research.SharedForest.requiredCredit index)-C0-C1-C2)
       · rw [if_pos h3] at px
         -- Y5: the L3 check at 87812 jumps to 42795 directly (word 46978 is not visited on success).
-        refine ⟨x,4+n1+n2+n3,4+c1+c2+c3,by omega,by omega,((su.trans sv).trans sw).trans sx,?_,?_,?_⟩
-        · have hcond : Condition H C0 C1 C2 T1 T2 := by exact ⟨h1.1,h2.1,h3.1,h1.2,h2.2,h3.2⟩
+        refine ⟨x,15+n1+n2+n3,15+c1+c2+c3,by omega,by omega,((su.trans sv).trans sw).trans sx,?_,?_,?_⟩
+        · have hcond : Condition (SigGolfCandidate.Research.SharedForest.requiredCredit index) H C0 C1 C2 T1 T2 := by exact ⟨h1.1,h2.1,h3.1,h1.2,h2.2,h3.2⟩
           simpa only [if_pos hcond] using px
         · exact (((ru.trans rv).trans rw_).trans rx).mono (by decide)
         · exact (((fu.trans fv).trans fw).trans fx).mono (by simp)
       · rw [if_neg h3] at px
         obtain ⟨t,st,pt,rt,ft⟩:=bad_steps hc.bad x px
-        refine ⟨t,4+n1+n2+n3+1,4+c1+c2+c3+1,by omega,by omega,(((su.trans sv).trans sw).trans sx).trans st,?_,?_,?_⟩
-        · have hcond : ¬Condition H C0 C1 C2 T1 T2 := by intro h;exact h3 ⟨h.2.2.1,h.2.2.2.2.2⟩
+        refine ⟨t,15+n1+n2+n3+1,15+c1+c2+c3+1,by omega,by omega,(((su.trans sv).trans sw).trans sx).trans st,?_,?_,?_⟩
+        · have hcond : ¬Condition (SigGolfCandidate.Research.SharedForest.requiredCredit index) H C0 C1 C2 T1 T2 := by intro h;exact h3 ⟨h.2.2.1,h.2.2.2.2.2⟩
           simpa [hcond] using pt
         · exact ((((ru.trans rv).trans rw_).trans rx).trans rt).mono (by decide)
         · exact ((((fu.trans fv).trans fw).trans fx).trans ft).mono (by simp)
     · rw [if_neg h2] at pw
       obtain ⟨t,st,pt,rt,ft⟩:=bad_steps hc.bad w pw
-      refine ⟨t,4+n1+n2+1,4+c1+c2+1,by omega,by omega,((su.trans sv).trans sw).trans st,?_,?_,?_⟩
-      · have hcond : ¬Condition H C0 C1 C2 T1 T2 := by intro h;exact h2 ⟨h.2.1,h.2.2.2.2.1⟩
+      refine ⟨t,15+n1+n2+1,15+c1+c2+1,by omega,by omega,((su.trans sv).trans sw).trans st,?_,?_,?_⟩
+      · have hcond : ¬Condition (SigGolfCandidate.Research.SharedForest.requiredCredit index) H C0 C1 C2 T1 T2 := by intro h;exact h2 ⟨h.2.1,h.2.2.2.2.1⟩
         simpa [hcond] using pt
       · exact (((ru.trans rv).trans rw_).trans rt).mono (by decide)
       · exact (((fu.trans fv).trans fw).trans ft).mono (by simp)
   · rw [if_neg h1] at pv
     obtain ⟨t,st,pt,rt,ft⟩:=bad_steps hc.bad v pv
-    refine ⟨t,4+n1+1,4+c1+1,by omega,by omega,(su.trans sv).trans st,?_,?_,?_⟩
-    · have hcond : ¬Condition H C0 C1 C2 T1 T2 := by intro h;exact h1 ⟨h.1,h.2.2.2.1⟩
+    refine ⟨t,15+n1+1,15+c1+1,by omega,by omega,(su.trans sv).trans st,?_,?_,?_⟩
+    · have hcond : ¬Condition (SigGolfCandidate.Research.SharedForest.requiredCredit index) H C0 C1 C2 T1 T2 := by intro h;exact h1 ⟨h.1,h.2.2.2.1⟩
       simpa [hcond] using pt
     · exact ((ru.trans rv).trans rt).mono (by decide)
     · exact ((fu.trans fv).trans ft).mono (by simp)
@@ -6203,9 +6226,11 @@ set_option maxRecDepth 100000
 set_option Elab.async false
 theorem code_of_driver {im : Image}
     (hc : CodeAt im (pcOf 45056) Images.expandSharedDriver)
-    (hy : CodeAt im (pcOf 84000) Images.expandY5Code) : Code im := by
+    (hy : CodeAt im (pcOf 84000) Images.expandY5Code)
+    (hp : CodeAt im (pcOf 54324) TopRoutePool.expandIndexCode) : Code im := by
   constructor
   · exact SharedCounterHooks.code_slice (off:=1873) hc (by decide +kernel) (by decide +kernel)
+  · exact hp
   · constructor
     · exact SharedCounterHooks.code_slice (off:=1877) hc (by decide +kernel) (by decide +kernel)
     · exact SharedCounterHooks.code_slice (off:=1881) hc (by decide +kernel) (by decide +kernel)
@@ -6233,8 +6258,9 @@ theorem code_of_driver {im : Image}
   · exact codeAt_sub 3813 hy (by decide) (by decide +kernel)
   · exact SharedCounterHooks.code_slice (off:=1922) hc (by decide +kernel) (by decide +kernel)
   · exact SharedCounterHooks.code_slice (off:=1923) hc (by decide +kernel) (by decide +kernel)
-theorem installed_code : Code Images.expandImage :=
-  code_of_driver codeAt_expand_shared_driver ClaudeWCT.W9.Machine.Expand.PrePass.codeAt_y5
+theorem installed_poolHelper : CodeAt Images.expandImage (pcOf 54324) TopRoutePool.expandIndexCode := by
+  apply codeAt_t51_at <;> decide +kernel
+theorem installed_code : Code Images.expandImage := code_of_driver codeAt_expand_shared_driver ClaudeWCT.W9.Machine.Expand.PrePass.codeAt_y5 installed_poolHelper
 end ClaudeWCT.W9.Machine.Expand.SharedValidateV6
 
 namespace ClaudeWCT.W9.Machine.Expand.SharedValidateV6
@@ -6259,9 +6285,10 @@ theorem credit_lt (lay : SigGolfCandidate.T3.Layer) (low : Bool) (digits : List 
   omega
 
 theorem validate_source_steps {im : Image} (hc : Code im)
-    (s : MachineState) (hp : s.pc=pcOf 46929) (hints : BitVec 16) (digits : List (List Nat)) (lows : List Bool)
+    (s : MachineState) (hp : s.pc=pcOf 46929) (index : Nat) (hi : index<2^31)
+    (hmidx : s.getMem (0x20550#64)=BitVec.ofNat 64 index) (hints : BitVec 16) (digits : List (List Nat)) (lows : List Bool)
     (hH : hints.toNat<8000) (hlen : digits.length=4)
-    (hfloor : ∀lay:SigGolfCandidate.T3.Layer, SharedForest.hintFloor hints lay≤
+    (hfloor : ∀lay:SigGolfCandidate.T3.Layer, SharedForest.hintFloor index hints lay≤
       CanonicalPolicy.credit lay (lows.getD lay.val true) (digits.getD lay.val []))
     (hm : s.getMem (0x66000#64)=BitVec.ofNat 64 hints.toNat)
     (hcredits : ∀lay:SigGolfCandidate.T3.Layer,s.getMem (BitVec.ofNat 64 (417856+8*lay.val))=
@@ -6270,10 +6297,10 @@ theorem validate_source_steps {im : Image} (hc : Code im)
     (ht2 : ∀r,r<41→CanonicalPolicy.threshold 2 r<23)
     (hb1 : ∀r,r<55→s.getByte (BitVec.ofNat 64 (16749456+r))=BitVec.ofNat 8 (CanonicalPolicy.threshold 1 r))
     (hb2 : ∀r,r<41→s.getByte (BitVec.ofNat 64 (16749520+r))=BitVec.ofNat 8 (CanonicalPolicy.threshold 2 r)) :
-    ∃t n c,n≤58 ∧ c≤83 ∧ Steps im s n c t ∧
-      t.pc=(if SharedForest.policyHintsValid hints digits lows then pcOf 42795 else pcOf 354) ∧
+    ∃t n c,n≤69 ∧ c≤94 ∧ Steps im s n c t ∧
+      t.pc=(if SharedForest.policyHintsValid index hints digits lows then pcOf 42795 else pcOf 354) ∧
       RegsExcept s t [.x6,.x7,.x20,.x21,.x28,.x29] ∧ Frame s t (fun _=>False) := by
-  obtain ⟨t,n,c,hn,hc',st,pt,rt,ft⟩:=validate_steps hc s hp hints.toNat
+  obtain ⟨t,n,c,hn,hc',st,pt,rt,ft⟩:=validate_steps hc s hp index hi hmidx hints.toNat
     (CanonicalPolicy.credit 0 (lows.getD 0 true) (digits.getD 0 []))
     (CanonicalPolicy.credit 1 (lows.getD 1 true) (digits.getD 1 []))
     (CanonicalPolicy.credit 2 (lows.getD 2 true) (digits.getD 2 [])) hH (credit_lt _ _ _) (credit_lt _ _ _)
@@ -6281,12 +6308,12 @@ theorem validate_source_steps {im : Image} (hc : Code im)
     (hcredits 0) (hcredits 1) (hcredits 2)
     (CanonicalPolicy.threshold 1) (CanonicalPolicy.threshold 2) ht1 ht2 hb1 hb2
   refine ⟨t,n,c,hn,hc',st,?_,rt,ft⟩
-  have hh:=SharedValidate.policyCondition_iff hints digits lows hH hlen (by simpa [SharedForest.hintFloor,CanonicalPolicy.topFloor] using hfloor 0)
+  have hh:=SharedValidate.policyCondition_iff index hints digits lows hH hlen (by simpa [SharedForest.hintFloor,CanonicalPolicy.topFloor] using hfloor 0)
     (hfloor 1) (hfloor 2)
-  change (Condition hints.toNat (CanonicalPolicy.credit 0 (lows.getD 0 true) (digits.getD 0 []))
+  change (Condition (SharedForest.requiredCredit index) hints.toNat (CanonicalPolicy.credit 0 (lows.getD 0 true) (digits.getD 0 []))
     (CanonicalPolicy.credit 1 (lows.getD 1 true) (digits.getD 1 []))
     (CanonicalPolicy.credit 2 (lows.getD 2 true) (digits.getD 2 []))
-    (CanonicalPolicy.threshold 1) (CanonicalPolicy.threshold 2) ↔ SharedForest.policyHintsValid hints digits lows=true) at hh
+    (CanonicalPolicy.threshold 1) (CanonicalPolicy.threshold 2) ↔ SharedForest.policyHintsValid index hints digits lows=true) at hh
   simpa only [hh] using pt
 end ClaudeWCT.W9.Machine.Expand.SharedValidateV6
 end

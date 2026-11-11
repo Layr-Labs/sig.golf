@@ -6,6 +6,34 @@ import SigGolfCandidate.Merge121
 set_option debug.skipKernelTC true
 set_option linter.all false
 
+namespace TopRouteQueryLeaf
+open SigGolfCandidate.Legacy SigGolfCandidate.T3 SigGolfCandidate.T3M
+open ClaudeWCT.WCT9 ClaudeWCT.W9.T3M.Final.Credit
+open SphincsSecurity (bytesLE bytesLE_length)
+set_option maxHeartbeats 2000000
+set_option maxRecDepth 100000
+theorem qLeaf_of_row (a : Digest) (leaf : Nat) (hl : leaf<4096) (hi : BitVec 64) (rest : List UInt8) :
+    qLeaf (toQ (pad64 (bytesLE 16 a ++ bytesLE 16 (hi ++ hyperWord 0 leaf) ++ rest))) = leaf := by
+  apply qLeaf_of_header _ (pad64_aligned' _ (by simp [bytesLE_length])) leaf hl hi
+  unfold pad64
+  rw [List.append_assoc, List.append_assoc, List.drop_left' (bytesLE_length 16 a),
+    List.take_left' (bytesLE_length 16 _)]
+attribute [local irreducible] qLeaf toQ
+theorem qLeaf_encodingP (leaf : Nat) (hl : leaf<4096) (M : LayerMsg) (c : BitVec 32) (pad : BitVec 96)
+    (padR : Digest) (hi : BitVec 64) :
+    qLeaf (toQ (pad64 (ClaudeWCT.W9.T3M.layerEncodingInputP 0 0 leaf M c pad padR hi))) = leaf := by
+  cases M with
+  | forest root =>
+    simpa only [ClaudeWCT.W9.T3M.layerEncodingInputP, pairEncodingInputH,
+      Fin.val_zero, Nat.zero_mul, Nat.zero_add, List.append_assoc] using
+      qLeaf_of_row root leaf hl hi (bytesLE 4 c ++ bytesLE 12 pad ++ bytesLE 16 padR)
+  | pair left right =>
+    simpa only [ClaudeWCT.W9.T3M.layerEncodingInputP, pairEncodingInputH,
+      Fin.val_zero, Nat.zero_mul, Nat.zero_add, List.append_assoc] using
+      qLeaf_of_row left leaf hl hi (bytesLE 4 c ++ bytesLE 12 pad ++ bytesLE 16 right)
+
+end TopRouteQueryLeaf
+
 -- ==== merged from T3M_Verify_LayerLower ====
 section
 
@@ -1336,10 +1364,10 @@ theorem layer_good_low (floors : Layer → Nat) (hbound : ∀ lay, floors lay �
               rw [hea, ClaudeWCT.WCT9.verificationLow_lower lay hlay] at hh
               apply hcf
               by_cases hsp : T3.lowerEarn (ansD a)
-              · simpa [ClaudeWCT.WCT9.dispatchPenalty, ClaudeWCT.WCT9.CanonicalPolicy.pathReward,
+              · simpa [queryPathSave, ClaudeWCT.WCT9.dispatchPenalty, ClaudeWCT.WCT9.CanonicalPolicy.pathReward,
                   ClaudeWCT.WCT9.CanonicalPolicy.pathBonus, ClaudeWCT.WCT9.CanonicalPolicy.reward, ClaudeWCT.WCT9.lowSelected,
                   hlay, hsp] using hh
-              · simpa [ClaudeWCT.WCT9.dispatchPenalty, ClaudeWCT.WCT9.CanonicalPolicy.pathReward,
+              · simpa [queryPathSave, ClaudeWCT.WCT9.dispatchPenalty, ClaudeWCT.WCT9.CanonicalPolicy.pathReward,
                   ClaudeWCT.WCT9.CanonicalPolicy.pathBonus, ClaudeWCT.WCT9.CanonicalPolicy.reward, ClaudeWCT.WCT9.lowSelected,
                   hlay, hsp] using hh
           · have hj := ClaudeWCT.WCT9.lowerFirstBad_lt (ansD (selectedView a)) hgood
@@ -1539,10 +1567,12 @@ theorem mkIn_blocks (w : ClaudeWCT.W9.T3M.WBytes) (index : Nat) (lay : Layer) (v
 def mkCi (lay k : Nat) : Nat := if lay = 0 ∧ 6 ≤ k then 1 else 0
 def mkSh (lay ci leaf : Nat) : Nat := leaf / 2 ^ mkLo lay ci % 2 ^ mkBits lay ci
 def mkEc (lay leaf k : Nat) : Nat :=
-  BC.mkShp lay (mkCi lay k) (mkSh lay (mkCi lay k) leaf) + mkOff lay (mkCi lay k) (k - mkLo lay (mkCi lay k)) + 1
+  BC.mkShp lay (mkCi lay k) (mkSh lay (mkCi lay k) leaf) + mkOffOpt lay (mkCi lay k) (mkSh lay (mkCi lay k) leaf) (k - mkLo lay (mkCi lay k)) + 1
 def mkFin (lay leaf : Nat) : Nat :=
-  BC.mkShp lay (mkNch lay - 1) (mkSh lay (mkNch lay - 1) leaf) + mkOff lay (mkNch lay - 1) (mkBits lay (mkNch lay - 1)) + (if lay = 0 then 0 else 1)
-def mkLvlSt (lay k : Nat) : Nat := mkBody lay k + mkMove lay k + (if lay = 0 ∧ k = 5 then 2 else 0)
+  BC.mkShp lay (mkNch lay - 1) (mkSh lay (mkNch lay - 1) leaf) + mkOffOpt lay (mkNch lay - 1) (mkSh lay (mkNch lay - 1) leaf) (mkBits lay (mkNch lay - 1)) + (if lay = 0 then 0 else 1)
+def mkLevelSkip (lay leaf k : Nat) : Nat :=
+  mkPairSkip lay (mkSh lay (mkCi lay k) leaf) (k - mkLo lay (mkCi lay k))
+def mkLvlSt (lay leaf k : Nat) : Nat := mkBody lay k + mkMove lay k - mkLevelSkip lay leaf k + (if lay = 0 ∧ k = 5 then 2 else 0)
 theorem mk_facts (lay k : Nat) (hlay : lay < 4) (hk : k < hL lay) :
     mkCi lay k < mkNch lay ∧ mkLo lay (mkCi lay k) ≤ k ∧ k - mkLo lay (mkCi lay k) < mkBits lay (mkCi lay k) ∧
     mkIsDisp lay (mkCi lay k) (k - mkLo lay (mkCi lay k)) = decide (lay = 0 ∧ k = 5) ∧
@@ -1558,7 +1588,7 @@ theorem mk_facts (lay k : Nat) (hlay : lay < 4) (hk : k < hL lay) :
   · change k < 6 at hk; interval_cases k <;> decide +kernel
 theorem mk_disp_facts : mkCi 0 5 = 0 ∧ mkLo 0 0 = 0 ∧ mkCi 0 6 = 1 ∧ mkLo 0 1 = 6 ∧ mkBits 0 0 = 6 ∧ mkBits 0 1 = 6 ∧
     mkNch 0 = 2 := by decide +kernel
-theorem mkLvlSt_ne (lay k : Nat) (h : ¬ (lay = 0 ∧ k = 5)) : mkLvlSt lay k = mkBody lay k + mkMove lay k := by
+theorem mkLvlSt_ne (lay leaf k : Nat) (h : ¬ (lay = 0 ∧ k = 5)) : mkLvlSt lay leaf k = mkBody lay k + mkMove lay k - mkLevelSkip lay leaf k := by
   simp [mkLvlSt, h]
 theorem mkBlk_bit (E b n k : Nat) (hk : k < n) : E / 2 ^ b % 2 ^ n / 2 ^ k % 2 = E / 2 ^ (b + k) % 2 := by
   have h1 : 2 ^ n = 2 ^ k * 2 ^ (n - k) := by rw [← Nat.pow_add]; congr 1; omega
@@ -2237,7 +2267,7 @@ theorem lvl_step (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index : Nat) (lay 
     (ht5 : lay.val ≠ 0 → u.getReg .x31 = BitVec.ofNat 64 ((route index lay).2 + 2 ^ T3.hyperW (lay.val - 1)))
     (k : Nat) (hk : k < hL lay.val) (hlive : k < hL lay.val - (if lay.val = 0 then 0 else 1)) (v : Digest) (s : MachineState)
     (hs : MAfter w pk lay.val (route index lay).1 u k v s) :
-    ∃ t, Steps image s (mkLvlSt lay.val k) (mkLvlSt lay.val k) t ∧ fetch image t = some (.base .ECALL) ∧
+    ∃ t, Steps image s (mkLvlSt lay.val (route index lay).1 k) (mkLvlSt lay.val (route index lay).1 k) t ∧ fetch image t = some (.base .ECALL) ∧
       t.getReg .x5 = 0 ∧ hashArgumentsValid t = true ∧ hashInput t = toQ (pad64 (mkIn w index lay v k)) ∧
       ∀ a : BitVec 256,
         (k + 1 < hL lay.val →
@@ -2258,7 +2288,7 @@ theorem lvl_step (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index : Nat) (lay 
     · simpa [mkCi, mkLo, mkBits, h0] using hlive
   have hlvl := BC.mkLvl_of hblk _ hliveChunk
   have hpc0 : s.pc = pcOf (BC.mkShp lay.val (mkCi lay.val k) (mkSh lay.val (mkCi lay.val k) (route index lay).1) +
-      mkOff lay.val (mkCi lay.val k) (k - mkLo lay.val (mkCi lay.val k)) + 2) := by rw [hs.pc]; rfl
+      mkOffOpt lay.val (mkCi lay.val k) (mkSh lay.val (mkCi lay.val k) (route index lay).1) (k - mkLo lay.val (mkCi lay.val k)) + 2) := by rw [hs.pc]; rfl
   have hkn0 : KnownOK (mkLvlK lay.val (mkLo lay.val (mkCi lay.val k) + (k - mkLo lay.val (mkCi lay.val k)))) s := by
     rw [hlk]; exact hs.known
   have hknAddr : KnownOK (mkLvlKN lay.val (mkCi lay.val k)
@@ -2298,10 +2328,10 @@ theorem lvl_step (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index : Nat) (lay 
           (by simp [mkLvlPostD, hl0, hk5, mkCi, mkLo, mkBlk, mkBo, mkPlan_top5])
     have hent := BC.mkEnt_of (BC.mkBlockCheck_at 0 1 (mkSh 0 1 (route index lay).1) (by decide +kernel) (by decide +kernel) (mkSh_lt _ _ _))
     obtain ⟨t, ht⟩ := mkSpec_run hent t1 hpc1 hkn1 (by simp [BC.mkEntSpec]) (by simp)
-    have hst : Steps image s (mkLvlSt lay.val k) (mkLvlSt lay.val k) t := by
+    have hst : Steps image s (mkLvlSt lay.val (route index lay).1 k) (mkLvlSt lay.val (route index lay).1 k) t := by
       have := ht1.steps.trans ht.steps
       simp only [mkLvlSpecD, BC.mkEntSpec, Nat.reduceEqDiff, and_self, if_true, hlk] at this
-      rw [show mkLvlSt lay.val k = mkBody lay.val k + 1 + 2 by simp [mkLvlSt,hl0,hk5,mkMove]]
+      rw [show mkLvlSt lay.val (route index lay).1 k = mkBody lay.val k + 1 + 2 by simp [mkLvlSt,hl0,hk5,mkMove,mkLevelSkip,mkPairSkip,mkCi,mkLo]]
       exact this
     have hmem : ∀ A, t.getMem A =
         memEval s (mkLvlMem lay.val (mkCi lay.val k) (mkSh lay.val (mkCi lay.val k) (route index lay).1) k) A := by
@@ -2370,10 +2400,10 @@ theorem lvl_step (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index : Nat) (lay 
       simp only [BC.mkLvlCheck, hdf, Bool.false_eq_true, if_false] at hlvl; exact hlvl
     have hknN := hknAddr
     obtain ⟨t, ht⟩ := mkSpec_run hN s hpc0 hknN (by simp [BC.mkLvlSpecN, mkLvlSpecN]) (by simp)
-    have hst : Steps image s (mkLvlSt lay.val k) (mkLvlSt lay.val k) t := by
+    have hst : Steps image s (mkLvlSt lay.val (route index lay).1 k) (mkLvlSt lay.val (route index lay).1 k) t := by
       have := ht.steps
       simp only [BC.mkLvlSpecN, mkLvlSpecN, hlk] at this
-      rw [mkLvlSt_ne _ _ hd]; exact this
+      rw [mkLvlSt_ne _ _ _ hd]; exact this
     have hmem : ∀ A, t.getMem A =
         memEval s (mkLvlMem lay.val (mkCi lay.val k) (mkSh lay.val (mkCi lay.val k) (route index lay).1) k) A := by
       intro A; rw [ht.mem]; simp only [BC.mkLvlSpecN, mkLvlSpecN, hlk]
@@ -2415,7 +2445,7 @@ theorem lvl_step (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index : Nat) (lay 
         rw [ht.keep .x28 (List.mem_append_right _ (List.mem_cons_of_mem _ hkp))]
         exact hs.x28 hk0 hl0
     have hpcT : t.pc = pcOf (BC.mkShp lay.val (mkCi lay.val k) (mkSh lay.val (mkCi lay.val k) (route index lay).1) +
-        mkOff lay.val (mkCi lay.val k) (k - mkLo lay.val (mkCi lay.val k) + 1) + mkMove lay.val k) := by
+        mkOffOpt lay.val (mkCi lay.val k) (mkSh lay.val (mkCi lay.val k) (route index lay).1) (k - mkLo lay.val (mkCi lay.val k) + 1) + mkMove lay.val k) := by
       have h := ht.pc rfl
       simpa only [BC.mkLvlSpecN, mkLvlSpecN,hlk] using h
     have hdst : ∃ d, t.getReg .x12 = BitVec.ofNat 64 d ∧ d % 8 = 0 ∧ d + 32 ≤ 2 ^ 24 := by
@@ -2483,12 +2513,34 @@ def mkStop (lay : Nat) : Nat := hL lay - (if lay = 0 then 0 else 1)
 def MkStop (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (lay leaf : Nat) (u : MachineState)
     (v : Digest) (s : MachineState) : Prop :=
   if lay = 0 then MkEnd w pk lay leaf u v s else MAfter w pk lay leaf u (mkStop lay) v s
-def mkCycR (lay : Nat) : Nat → Nat → Nat
+def mkCycR (lay leaf : Nat) : Nat → Nat → Nat
   | _, 0 => 0
-  | k, n + 1 => mkLvlSt lay k + 8 + mkCycR lay (k + 1) n
-def mkFuelR (lay : Nat) : Nat → Nat → Nat
+  | k, n + 1 => mkLvlSt lay leaf k + 8 + mkCycR lay leaf (k + 1) n
+def mkFuelR (lay leaf : Nat) : Nat → Nat → Nat
   | _, 0 => 0
-  | k, n + 1 => mkLvlSt lay k + 1 + mkFuelR lay (k + 1) n
+  | k, n + 1 => mkLvlSt lay leaf k + 1 + mkFuelR lay leaf (k + 1) n
+theorem mkLevelSkip_zero (lay k : Nat) : mkLevelSkip lay 0 k = 0 := by
+  simp [mkLevelSkip, mkSh, mkPairSkip, ClaudeWCT.WCT9.CanonicalPolicy.topPairSave]
+theorem mkLvlSt_le_zero (lay leaf k : Nat) : mkLvlSt lay leaf k ≤ mkLvlSt lay 0 k := by
+  unfold mkLvlSt
+  rw [mkLevelSkip_zero]
+  omega
+theorem mkCycR_le_zero (lay leaf k n : Nat) : mkCycR lay leaf k n ≤ mkCycR lay 0 k n := by
+  induction n generalizing k with
+  | zero => simp [mkCycR]
+  | succ n ih =>
+    simp only [mkCycR]
+    have := mkLvlSt_le_zero lay leaf k
+    have := ih (k+1)
+    omega
+theorem mkFuelR_le_zero (lay leaf k n : Nat) : mkFuelR lay leaf k n ≤ mkFuelR lay 0 k n := by
+  induction n generalizing k with
+  | zero => simp [mkFuelR]
+  | succ n ih =>
+    simp only [mkFuelR]
+    have := mkLvlSt_le_zero lay leaf k
+    have := ih (k+1)
+    omega
 theorem merkle_rest (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index : Nat) (lay : Layer) (u : MachineState) (hidx : index < 2 ^ 31)
     (hs7 : lay.val = 0 → u.getReg .x23 = BitVec.ofNat 64 (dispatchHeap lay.val (route index lay).1))
     (hx6 : lay.val = 0 → u.getReg .x6 = 520192)
@@ -2496,7 +2548,7 @@ theorem merkle_rest (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index : Nat) (l
     (K : Digest → OracleComp HashSpec Obs) (N C A : Nat) (Q : Prop)
     (hK : ∀ root t, MkStop w pk lay.val (route index lay).1 u root t → GoodQP P t N C Q A (K root)) :
     ∀ n k v s, k + n = mkStop lay.val → k < hL lay.val → MAfter w pk lay.val (route index lay).1 u k v s →
-      GoodQP P s (N + mkFuelR lay.val k n) (C + mkCycR lay.val k n) Q (A + mkCycR lay.val k n)
+      GoodQP P s (N + mkFuelR lay.val (route index lay).1 k n) (C + mkCycR lay.val (route index lay).1 k n) Q (A + mkCycR lay.val (route index lay).1 k n)
         (ccM ((List.range' k n).foldlM (mkStep w index lay) v) K) := by
   intro n
   induction n with
@@ -2511,8 +2563,8 @@ theorem merkle_rest (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index : Nat) (l
     have hlive : k < hL lay.val - (if lay.val = 0 then 0 else 1) := by change k < mkStop lay.val; omega
     obtain ⟨t, hst, hf, h5, hv, hin, hpost⟩ := lvl_step w pk index lay u hidx hs7 hx6 ht5 k hk hlive v s hs
     rw [List.range'_succ, List.foldlM_cons, mkStep_eq]
-    have H : ∀ a : BitVec 256, GoodQP P (writeHash t a) (N + mkFuelR lay.val (k + 1) m) (C + mkCycR lay.val (k + 1) m) Q
-        (A + mkCycR lay.val (k + 1) m)
+    have H : ∀ a : BitVec 256, GoodQP P (writeHash t a) (N + mkFuelR lay.val (route index lay).1 (k + 1) m) (C + mkCycR lay.val (route index lay).1 (k + 1) m) Q
+        (A + mkCycR lay.val (route index lay).1 (k + 1) m)
         (ccM ((fun v' => (List.range' (k + 1) m).foldlM (mkStep w index lay) v')
           (Verify.vHalf (ClaudeWCT.WCT9.lowerHigh lay.val (mkHp index lay k)) a)) K) := by
       intro a
@@ -2540,8 +2592,27 @@ theorem merkle_rest (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index : Nat) (l
     exact GoodQP.stepsQ hst hg (by omega) (by omega) (fun q => ⟨q, by omega⟩)
 def merklePrefix (w : ClaudeWCT.W9.T3M.WBytes) (index : Nat) (lay : Layer) (value : Digest) : T3.M Digest :=
   (List.range (mkStop lay.val)).foldlM (mkStep w index lay) value
-def mkFuel (lay : Nat) : Nat := 2 + mkFuelR lay 0 (mkStop lay)
-def mkCyc (lay : Nat) : Nat := 1 + 8 * lfBlocks lay + mkCycR lay 0 (mkStop lay)
+def mkFuel (lay : Nat) : Nat := 2 + mkFuelR lay 0 0 (mkStop lay)
+def mkCyc (lay : Nat) : Nat := 1 + 8 * lfBlocks lay + mkCycR lay 0 0 (mkStop lay)
+section
+set_option debug.skipKernelTC false
+set_option maxHeartbeats 0
+set_option maxRecDepth 1000000
+def mkCycAt (lay leaf : Nat) : Nat := 1 + 8 * lfBlocks lay + mkCycR lay leaf 0 (mkStop lay)
+theorem mkCycAt_top_checked : ∀ leaf : Fin 4096, mkCycAt 0 leaf.val =
+    248 - ClaudeWCT.WCT9.CanonicalPolicy.topPathSave leaf.val := by decide +kernel
+theorem mkLvlSt_eq_zero_lower (lay leaf k : Nat) (h0 : lay≠0) : mkLvlSt lay leaf k = mkLvlSt lay 0 k := by
+  simp [mkLvlSt,mkLevelSkip,mkPairSkip,h0]
+theorem mkCycR_eq_zero_lower (lay leaf k n : Nat) (h0 : lay≠0) :
+    mkCycR lay leaf k n = mkCycR lay 0 k n := by
+  induction n generalizing k with
+  | zero => rfl
+  | succ n ih => simp only [mkCycR,mkLvlSt_eq_zero_lower lay leaf k h0,ih]
+theorem mkCycAt_lower (lay leaf : Nat) (h0 : lay≠0) : mkCycAt lay leaf = mkCyc lay := by
+  unfold mkCycAt mkCyc
+  rw [mkCycR_eq_zero_lower lay leaf 0 (mkStop lay) h0]
+
+end
 /-- C4: the top path is 12 instructions shorter (one label store per fold): 268 -> 256 cycles, 73 -> 61 fuel.
 Campaign T51: the top leaf has 13 blocks (832 B), one fewer than #938: 248 cycles. -/
 theorem mkCyc_vals : mkCyc 0 = 248 ∧ mkCyc 1 = 163 ∧ mkCyc 2 = 151 ∧ mkCyc 3 = 151 := by decide +kernel
@@ -2552,7 +2623,7 @@ theorem merkle_good (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index : Nat) (l
     (hidx : index < 2 ^ 31) (hu : LeafOut w pk index lay ends u)
     (K : Digest → OracleComp HashSpec Obs) (N C A : Nat) (Q : Prop)
     (hK : ∀ root t, MkStop w pk lay.val (route index lay).1 u root t → GoodQP P t N C Q A (K root)) :
-    GoodQP P u (N + mkFuel lay.val) (C + mkCyc lay.val) Q (A + mkCyc lay.val)
+    GoodQP P u (N + mkFuel lay.val) (C + mkCyc lay.val) Q (A + mkCycAt lay.val (route index lay).1)
       (ccM (ClaudeWCT.WCT9.leafHashW lay (route index lay).2 (route index lay).1 (ClaudeWCT.W9.T3M.wtopLeafPad w)
         (ClaudeWCT.W9.T3M.wleafHigh w lay) ends >>= merklePrefix w index lay) K) := by
   have hlay := lay.isLt
@@ -2599,8 +2670,8 @@ theorem merkle_good (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index : Nat) (l
       (by fin_cases lay <;> decide +kernel) (by fin_cases lay <;> decide +kernel) (by fin_cases lay <;> decide +kernel)
       hc8 (by omega)
   have hG : Glob (gkL lay.val) w pk t := ht.glob _ _ _ hu.glob (RelOK.nil u)
-  have H : ∀ a : BitVec 256, GoodQP P (writeHash t a) (N + mkFuelR lay.val 0 (mkStop lay.val))
-      (C + mkCycR lay.val 0 (mkStop lay.val)) Q (A + mkCycR lay.val 0 (mkStop lay.val))
+  have H : ∀ a : BitVec 256, GoodQP P (writeHash t a) (N + mkFuelR lay.val (route index lay).1 0 (mkStop lay.val))
+      (C + mkCycR lay.val (route index lay).1 0 (mkStop lay.val)) Q (A + mkCycR lay.val (route index lay).1 0 (mkStop lay.val))
       (ccM (merklePrefix w index lay (Verify.vHalf (ClaudeWCT.WCT9.lowerHigh lay.val (route index lay).1) a)) K) := by
     intro a
     rw [mkHi_leaf]
@@ -2609,7 +2680,7 @@ theorem merkle_good (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index : Nat) (l
       refine ⟨?_, ?_, ?_, ?_, ?_, ?_, ?_, fun h => absurd rfl h, ?_⟩
       · rw [writeHash_pc, ht.pc rfl, pcOf_add4]
         simp only [BC.mkEntSpec, mkEc, show mkCi lay.val 0 = 0 by simp [mkCi], show mkLo lay.val 0 = 0 by simp [mkLo]]
-        rfl
+        simp [mkOffOpt, mkOff]
       · exact Glob_writeHash hG a _ h12 (safeDest_hi _ hcw hc8 (by omega))
       · intro p hp
         rw [writeHash_getReg]
@@ -2650,7 +2721,10 @@ theorem merkle_good (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index : Nat) (l
         (lfIn w lay (route index lay).2 (route index lay).1 ends) from (LCtx.vHash_eq_halfHash _ _).symm]
   have hst := ht.steps
   simp only [BC.mkEntSpec, Nat.reduceEqDiff, and_false, if_false] at hst
-  exact GoodQP.stepsQ hst hg (by unfold mkFuel; omega) (by unfold mkCyc; omega) (fun q => ⟨q, by unfold mkCyc; omega⟩)
+  have hfu := mkFuelR_le_zero lay.val (route index lay).1 0 (mkStop lay.val)
+  have hcy := mkCycR_le_zero lay.val (route index lay).1 0 (mkStop lay.val)
+  exact GoodQP.stepsQ hst hg (by unfold mkFuel; omega) (by unfold mkCyc; omega) (fun q => ⟨q, by unfold mkCycAt; omega⟩)
+
 open ClaudeWCT.WCT9 (LayerMsg)
 def mkMessage (w : ClaudeWCT.W9.T3M.WBytes) (index : Nat) (lay : Layer) (v : Digest) : LayerMsg :=
   if lay.val = 0 then .forest v else
@@ -2865,7 +2939,8 @@ theorem mkStop_pc (n leaf : Nat) (hn : n < 4) (h0 : n ≠ 0) (hleaf : leaf < 2 ^
   have hr : BC.childReturn n leaf = trPc (n - 1) leaf := by simpa [h0] using hc.2
   rw [← hr]
   simp only [mkEc, mkCi, h0, false_and, if_false, mkSh, mkLo, Nat.pow_zero, Nat.div_one,
-    hbits, Nat.mod_eq_of_lt hleaf, mkStop, BC.childReturn, Nat.sub_zero]
+    hbits, Nat.mod_eq_of_lt hleaf, mkStop, BC.childReturn, Nat.sub_zero,
+    mkOffOpt, h0, false_and, if_false, Nat.sub_zero]
 theorem mkStop_next_lower (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index : Nat) (hidx : index < 2 ^ 31)
     (lay : Layer) (h0 : lay.val ≠ 0) (ends : List Digest) (u : MachineState)
     (hu : LeafOut w pk index lay ends u) (v : Digest) (t : MachineState)
@@ -3105,8 +3180,11 @@ theorem mkEnd_top (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index : Nat) (u :
   have hpc : t.pc = pcOf (cmpPc (mkSh 0 1 (route index 0).1)) := by
     rw [ht.pc]
     congr 1
-    simp [mkFin, cmpPc, show mkNch 0 - 1 = 1 from rfl, show mkBits 0 1 = 6 from rfl,
+    simp [mkFin, cmpPc, mkOffOpt, show mkNch 0 - 1 = 1 from rfl, show mkBits 0 1 = 6 from rfl,
       show mkOff 0 1 6 = 27 from rfl, BC.mkShp, mkShp]
+    have hs : ClaudeWCT.WCT9.CanonicalPolicy.topPairSave (mkSh 0 1 (route index 0).1) ≤ 1 := by
+      unfold ClaudeWCT.WCT9.CanonicalPolicy.topPairSave
+      split_ifs <;> omega
     omega
   refine ⟨⟨mkSh 0 1 (route index 0).1, mkSh_lt _ _ _, ?_, ?_, ?_⟩, ht.glob.2.2.1⟩
   · exact hpc
@@ -3231,13 +3309,13 @@ theorem topEntry_data (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index c : Nat
     (safeDest_hi d (by unfold WLO WIT; omega) (by omega) (by omega))).2.2.2.2.2.congr
     (fun A hlo hA => he.frame.get (by omega) (by unfold TAB at hlo; omega))
 /-- Campaign T51: after the 51 top chains: the top leaf (7 cycles), the 12 folds and the root compare. -/
-theorem top_leaf_tail (floors : T3.Layer → Nat) (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index c : Nat)
+theorem top_leaf_tail (P : Hash → Prop) (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index c : Nat)
     (hc : c < nCopy 0) (hidx : index < 2 ^ 31) (t s0 : MachineState) (a : BitVec 256)
     (hpre : BC.EncPre w pk index 0 c t)
     (he : TopEntry (writeHash t a) (T3.TopChoice.read (ClaudeWCT.W9.T3M.wtopHigh w) a) (trPc 0 c) s0)
     (Q : Prop) (hQ : Q) (ends : List Digest) (z : MachineState)
     (hz : (nctxOf w index (T3.TopChoice.read (ClaudeWCT.W9.T3M.wtopHigh w) a) (trPc 0 c)).TopOut s0 ends z) :
-    GoodQP (HashOkBy floors (ClaudeWCT.W9.T3M.wtopHigh w)) z 77 263 Q 263
+    GoodQP P z 77 263 Q (263 - ClaudeWCT.WCT9.CanonicalPolicy.topPathSave (route index 0).1)
       (ccM (ClaudeWCT.WCT9.leafHashW 0 (route index 0).2 (route index 0).1 (ClaudeWCT.W9.T3M.wtopLeafPad w)
         (ClaudeWCT.W9.T3M.wleafHigh w 0) ends >>= merkleP w index 0)
         (fun r => kFin pk (some r))) := by
@@ -3254,7 +3332,7 @@ theorem top_leaf_tail (floors : T3.Layer → Nat) (w : ClaudeWCT.W9.T3M.WBytes) 
   have hready := topLeafReady_of w pk index c hc hidx t s0 z a ends hpre he hpc hregs hframe h15 htail.2.2 hlen
     (fun j hj => by have h := hend j (by omega); exact h)
   obtain ⟨u, st, hu⟩ := leafT_step w pk index c hc hidx ends z hready
-  have hm := merkle_good (P := HashOkBy floors (ClaudeWCT.W9.T3M.wtopHigh w)) w pk index 0 ends u hidx hu
+  have hm := merkle_good (P := P) w pk index 0 ends u hidx hu
     (fun r => kFin pk (some r)) 9 8 8 Q
     (fun root t ht => by
       rw [kFin_some]
@@ -3263,17 +3341,33 @@ theorem top_leaf_tail (floors : T3.Layer → Nat) (w : ClaudeWCT.W9.T3M.WBytes) 
     funext x; rw [merkleP_eq]; rfl
   rw [hmP]
   have := GoodQP.steps st hm
-  refine this.mono ?_ ?_ (fun h => ⟨h, ?_⟩) <;> simp [mkFuel_vals, mkCyc_vals]
+  have hl : (route index 0).1 < 4096 := by simpa [hL] using leaf_lt index 0
+  have hc := mkCycAt_top_checked ⟨(route index 0).1,hl⟩
+  change mkCycAt 0 (route index 0).1 = 248 - ClaudeWCT.WCT9.CanonicalPolicy.topPathSave (route index 0).1 at hc
+  have hsv : ClaudeWCT.WCT9.CanonicalPolicy.topPathSave (route index 0).1 ≤ 2 := by
+    unfold ClaudeWCT.WCT9.CanonicalPolicy.topPathSave ClaudeWCT.WCT9.CanonicalPolicy.topPairSave
+    split_ifs <;> omega
+  refine this.mono ?_ ?_ (fun h => ⟨h, ?_⟩)
+  · simp [mkFuel_vals]
+  · simp [mkCyc_vals]
+  · change 8 + mkCycAt 0 (route index 0).1 + 7 ≤ 263 - ClaudeWCT.WCT9.CanonicalPolicy.topPathSave (route index 0).1
+    rw [hc]
+    omega
+
 /-- Campaign T51 top layer after its encoding hash: selector + head (`selCost + 5`), the 16 groups, the r7 pair and
 the checksum chain (`chainsCost 0 51 + 77`; M0 P5: the checksum dispatch is 2), leaf/folds/compare (263): accepted cost
 `chainsCost 0 51 + 344 + selCost <= 1319 - floor` by the cost law (969 + penalty) and the policy's floor. -/
 theorem top_after_hash (floors : T3.Layer → Nat) (hbound : ∀ lay, floors lay ≤ 301) (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index c : Nat) (hc : c < nCopy 0) (hidx : index < 2 ^ 31)
     (t : MachineState) (hpre : BC.EncPre w pk index 0 c t) (Q : Prop) (hQ : Q) (q : Query) (hq : EncQ 0 q)
-    (a : BitVec 256) :
+    (a : BitVec 256) (hqs : queryPathSave 0 q = ClaudeWCT.WCT9.CanonicalPolicy.topPathSave (route index 0).1) :
     GoodQP (fun hash => hash q = a ∧ HashOkBy floors (ClaudeWCT.W9.T3M.wtopHigh w) hash) (writeHash t a) 2372 2693 Q
       (1319 - floors 0)
       (ccM (ClaudeWCT.W9.T3M.topLayerP w index (T3.TopChoice.read (ClaudeWCT.W9.T3M.wtopHigh w) a)) (kFin pk)) := by
   have hfloor := hbound 0
+  let saved := ClaudeWCT.WCT9.CanonicalPolicy.topPathSave (route index 0).1
+  have hsv : saved ≤ 2 := by
+    unfold saved ClaudeWCT.WCT9.CanonicalPolicy.topPathSave ClaudeWCT.WCT9.CanonicalPolicy.topPairSave
+    split_ifs <;> omega
   obtain ⟨n0, s0, st0, hn0, hn0e, he⟩ := topTransition w pk index c hc t hpre a
   set v := T3.TopChoice.read (ClaudeWCT.W9.T3M.wtopHigh w) a with hvdef
   have hsel := top_sel_bonus_le (ClaudeWCT.W9.T3M.wtopHigh w) a
@@ -3303,7 +3397,7 @@ theorem top_after_hash (floors : T3.Layer → Nat) (hbound : ∀ lay, floors lay
       ← nctx_prefix_eq w index v (trPc 0 c) _ 51 (le_refl _) (fun j hj => hdig j hj)]
     have hg0 := nctx_group0 w index v (trPc 0 c) _ s0 he (hval 0 (by omega))
     have body : GoodQP (HashOkBy floors (ClaudeWCT.W9.T3M.wtopHigh w)) (writeHash t a) 2372 2693 Q
-        (L.chainsCost 0 51 + 344 + Verify.Nonbinary.selCost (ClaudeWCT.W9.T3M.wtopHigh w) a)
+        (L.chainsCost 0 51 + 344 + Verify.Nonbinary.selCost (ClaudeWCT.W9.T3M.wtopHigh w) a - saved)
         (ccM ((List.range' 0 51).foldlM L.chainF [])
           (fun ends => ccM (ClaudeWCT.WCT9.leafHashW 0 (route index 0).2 (route index 0).1 (ClaudeWCT.W9.T3M.wtopLeafPad w)
             (ClaudeWCT.W9.T3M.wleafHigh w 0) ends >>= merkleP w index 0)
@@ -3311,16 +3405,17 @@ theorem top_after_hash (floors : T3.Layer → Nat) (hbound : ∀ lay, floors lay
       have H := L.top_full (P := HashOkBy floors (ClaudeWCT.W9.T3M.wtopHigh w)) hLok hds hck hkn hO hEnc hf hmask hval hin
         (fun ends => ccM (ClaudeWCT.WCT9.leafHashW 0 (route index 0).2 (route index 0).1 (ClaudeWCT.W9.T3M.wtopLeafPad w)
             (ClaudeWCT.W9.T3M.wleafHigh w 0) ends >>= merkleP w index 0)
-          (fun r => kFin pk (some r))) 77 263 263 Q
-        (fun ends z hz => top_leaf_tail floors w pk index c hc hidx t s0 a hpre he Q hQ ends z hz)
+          (fun r => kFin pk (some r))) 77 263 (263 - saved) Q
+        (fun ends z hz => top_leaf_tail (HashOkBy floors (ClaudeWCT.W9.T3M.wtopHigh w)) w pk index c hc hidx t s0 a hpre he Q hQ ends z hz)
         s0 hg0
       have H2 := GoodQP.steps st0 H
       refine H2.mono ?_ ?_ (fun h => ⟨h, ?_⟩) <;> omega
-    by_cases hcr : L.chainsCost 0 51 + Verify.Nonbinary.selCost (ClaudeWCT.W9.T3M.wtopHigh w) a ≤ 975 - floors 0
+    by_cases hcr : L.chainsCost 0 51 + Verify.Nonbinary.selCost (ClaudeWCT.W9.T3M.wtopHigh w) a ≤ 975 + saved - floors 0
     · exact (body.mono (le_refl _) (le_refl _) (fun h => ⟨h, by omega⟩)).pre_mono (fun _ h => h.2)
     · refine GoodQP.of_false_pre body ?_
       rintro hash ⟨hea, hok⟩
       have h7 := hok 0 q hq (dataDigits 0 v ++ [T3.target 0 - (dataDigits 0 v).sum]) (by rw [hea]; exact hdec)
+      rw [hqs] at h7
       have hlr0 : ClaudeWCT.WCT9.CanonicalPolicy.ladderReward 0
           (dataDigits 0 v ++ [T3.target 0 - (dataDigits 0 v).sum]) = 0 := by
         simp [ClaudeWCT.WCT9.CanonicalPolicy.ladderReward]
@@ -3371,6 +3466,7 @@ theorem top_after_hash (floors : T3.Layer → Nat) (hbound : ∀ lay, floors lay
         have hm := chainsCost_mono L (3 * j) (by omega)
         have hov := Nonbinary.NCtx.ov_le j (by omega)
         exact (GoodQP.steps st0 H).mono (by omega) (by omega) (fun h => h.elim)
+
 end SigGolfCandidate.T3M
 end
 section
@@ -3378,7 +3474,7 @@ namespace SigGolfCandidate.T3M
 variable {floors : SigGolfCandidate.T3.Layer → Nat}
 open SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64 SigGolfCandidate.Rv OracleComp
 open SigGolfCandidate.T3M.Verify
-open SigGolfCandidate.T3 (Digest HashOutput Layer route leafHash)
+open SigGolfCandidate.T3 (Digest HashOutput Layer route leafHash pad64)
 open ClaudeWCT.WCT9 (LayerMsg)
 set_option maxHeartbeats 1000000
 set_option linter.unusedSimpArgs false
@@ -3390,7 +3486,7 @@ def topFuel : Nat := 5 + 1 + 2372
 def topCyc : Nat := 5 + 8 + 2693
 def topCycA (floors : T3.Layer → Nat) : Nat := 5 + 8 + (1319 - floors 0)
 theorem top_layer_good (floors : T3.Layer → Nat) (hbound : ∀ lay, floors lay ≤ 301) (w : ClaudeWCT.W9.T3M.WBytes) (pk : Digest) (index : Nat) (hidx : index < 2 ^ 31) (Q : Prop) (hQ : Q)
-    (M : LayerMsg) (s : MachineState) (hs : LayerIn w pk index 0 M s) :
+    (M : ClaudeWCT.WCT9.LayerMsg) (s : MachineState) (hs : LayerIn w pk index 0 M s) :
     GoodQP (HashOkBy floors (ClaudeWCT.W9.T3M.wtopHigh w)) s topFuel topCyc Q (topCycA floors)
       (ccM (BC.layerLoop w index 1 M) (kFin pk)) := by
   rw [layerLoop_one]
@@ -3412,14 +3508,27 @@ theorem top_layer_good (floors : T3.Layer → Nat) (hbound : ∀ lay, floors lay
     have hblk := BC.encoding_blocks w index 0 (route index 0).2 (route index 0).1 M (ClaudeWCT.W9.T3M.wbcHigh w index 0)
     have hq := encQ_layer 0 (route index 0).2 (route index 0).1 M (ClaudeWCT.W9.T3M.wbcCtr w index 0)
       (ClaudeWCT.W9.T3M.wbcPad w index 0) (ClaudeWCT.W9.T3M.wbcRight w) (ClaudeWCT.W9.T3M.wbcHigh w index 0)
+    have hroot : (route index 0).2 = 0 := by
+      change index / 2^31 = 0
+      exact Nat.div_eq_of_lt hidx
+    have hleaf : (route index 0).1 < 4096 := by simpa [hL] using leaf_lt index 0
+    have hqsave : queryPathSave 0 (toQ (pad64 (ClaudeWCT.W9.T3M.layerEncodingInputP 0
+        (route index 0).2 (route index 0).1 M (ClaudeWCT.W9.T3M.wbcCtr w index 0)
+        (ClaudeWCT.W9.T3M.wbcPad w index 0) (ClaudeWCT.W9.T3M.wbcRight w)
+        (ClaudeWCT.W9.T3M.wbcHigh w index 0)))) =
+        ClaudeWCT.WCT9.CanonicalPolicy.topPathSave (route index 0).1 := by
+      simp only [queryPathSave, if_pos rfl, hroot]
+      rw [TopRouteQueryLeaf.qLeaf_encodingP _ hleaf]
+      simp only [if_true]
     have := GoodQP.verificationHash_bind_pre (lay := 0) (high := ClaudeWCT.W9.T3M.wtopHigh w)
       (f := ClaudeWCT.W9.T3M.topLayerP w index) hf h5 hv hin
       (fun a => by
         rw [show ClaudeWCT.WCT9.verificationAnswer 0 (ClaudeWCT.W9.T3M.wtopHigh w) a =
           T3.TopChoice.read (ClaudeWCT.W9.T3M.wtopHigh w) a from rfl]
-        exact top_after_hash floors hbound w pk index c hc hidx t hpre Q hQ _ hq a)
+        exact top_after_hash floors hbound w pk index c hc hidx t hpre Q hQ _ hq a hqsave)
     rw [hblk] at this
     exact (GoodQP.steps' hst this (by simp [topFuel]) (by simp [topCyc]) (by simp [topCycA]; omega))
+
 def lCyc : Nat → Nat
   | 0 => 8
   | 1 => topCyc
@@ -3481,6 +3590,7 @@ theorem layers_good (floors : T3.Layer → Nat) (hbound : ∀ lay, floors lay �
             rw [hv] at h
             exact h))
         simp only [ccM_bind, merkleMsg, ccM_pure, hv] at hm ⊢
+        rw [mkCycAt_lower n _ hn0] at hm
         exact hm)
     rw [hv] at hg
     obtain ⟨m, rfl⟩ : ∃ m, n = m + 1 := ⟨n - 1, by omega⟩
@@ -3490,7 +3600,7 @@ theorem layers_good (floors : T3.Layer → Nat) (hbound : ∀ lay, floors lay �
 theorem after_good (floors : T3.Layer → Nat) (hcredit : CreditFloors floors) (pk : Digest) (w : ClaudeWCT.W9.T3M.WBytes) (Q : Prop) (hQ : Q) (a : HashOutput)
     (top : Digest × Digest) (u : MachineState)
     (h : FtsOut ⟨pk, w, a⟩ top u) :
-    GoodQP (HashOkBy floors (ClaudeWCT.W9.T3M.wtopHigh w)) u 8050 13750 Q 5235
+    GoodQP (HashOkBy floors (ClaudeWCT.W9.T3M.wtopHigh w)) u 8050 13750 Q 5234
       (ccM (afterFts pk w (ClaudeWCT.WCT9.digestIndex a) (some top)) Kb) := by
   have hidx : ClaudeWCT.WCT9.digestIndex a < 2 ^ 31 := ClaudeWCT.WCT9.digestIndex_lt a
   obtain ⟨t, hst, hL3⟩ := layerIn_of_fts w pk _ top.1 top.2 u hidx h.glob h.idx h.pc h.left h.right h.wit h.base h.a1
@@ -3505,7 +3615,7 @@ theorem after_good (floors : T3.Layer → Nat) (hcredit : CreditFloors floors) (
   rw [lFuel_4, lCyc_4, lCycA_4 floors hcredit.1] at hg
   have htotal := hcredit.2
   exact GoodQP.stepsQ hst hg (by omega) (by omega) (fun q => ⟨q, by omega⟩)
-theorem after_good_budget : AfterGoodBudget 5235 :=
+theorem after_good_budget : AfterGoodBudget 5234 :=
   fun floors hcredit pk w Q hQ a top u h => after_good floors hcredit pk w Q hQ a top u h
 end SigGolfCandidate.T3M
 end

@@ -328,21 +328,14 @@ theorem u4_spec (s : MachineState) (hpc : s.pc = pcOf 60930) (h28 : s.getReg .x2
 
 /-- Y5: the decode's value on the index code `r` (the symbolic result of `cDec`). -/
 def decVal (r : Word) : Word :=
-  let i3 := rv64_remu r 15#64
   let q := rv64_divu r 15#64
+  let i3 := rv64_remu r 15#64
   let i2 := rv64_remu q 6#64
   let i1 := rv64_divu q 6#64
   let b (c : Bool) : Word := if c then 1#64 else 0#64
-  let s1 := (1#64 : Word).toNat % 64
-  let s2 := (2#64 : Word).toNat % 64
-  let s3 := (3#64 : Word).toNat % 64
-  i3 + 8#64 - b (i3.ult 1#64) <<< s1 +
-    ((b (i2.ult 1#64) ^^^ 1#64) + (b (i2.ult 5#64) ^^^ 1#64) +
-      ((b (i2.ult 1#64) ^^^ 1#64) <<< s3 + (b (i2.ult 2#64) ^^^ 1#64) <<< s2 +
-        (b (i2.ult 3#64) ^^^ 1#64) <<< s1 + (b (i2.ult 4#64) ^^^ 1#64) <<< s1)) * 23#64 +
-    ((b (i1.ult 1#64) ^^^ 1#64) <<< s3 + (b (i1.ult 2#64) ^^^ 1#64) <<< s2 +
-      (b (i1.ult 3#64) ^^^ 1#64) <<< s1) * 529#64
-
+  let a2 := (((b (i2.ult 1#64) ^^^ 1#64) <<< 2) + ((b (i2.ult 2#64) ^^^ 1#64) <<< 1) + ((b (i2.ult 3#64) ^^^ 1#64) <<< 1) + ((b (i2.ult 4#64) ^^^ 1#64) <<< 1) + ((b (i2.ult 5#64) ^^^ 1#64) <<< 1)) + 6#64
+  let a1 := (((b (i1.ult 1#64) ^^^ 1#64) <<< 2) + ((b (i1.ult 2#64) ^^^ 1#64) <<< 1) + ((b (i1.ult 3#64) ^^^ 1#64) <<< 1)) + 6#64
+  (((i3 - (b (i3.ult 1#64) <<< 1)) + 8#64) + a2 * 23#64) + a1 * 529#64
 theorem decVal_table : ∀ r : Fin 360,
     decVal (BitVec.ofNat 64 r.val) = BitVec.ofNat 64 (ClaudeWCT.W9.T3M.SharedCodec.packH r.val) := by decide +kernel
 

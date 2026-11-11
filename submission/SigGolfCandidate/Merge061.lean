@@ -204,8 +204,8 @@ def creditAddr (lay : Layer) : Nat := 0x66040+8*lay.val
 def CreditW (lay : Layer) (A : Nat) : Prop := A=creditAddr lay ∧ 0x66040≤A ∧ A<0x66060
 /-- Floors read from the policy hints (Y5 mixed radix `529·f1 + 23·f2 + f3`); the top floor is 18. Agrees with
 `Research.V7Composed198Gate.hintFloor` (`CanonicalPolicy.topFloor = 18`). -/
-def hintFloor (hints : BitVec 16) (lay : Layer) : Nat :=
-  if lay=0 then 18 else hints.toNat/23^(3-lay.val)%23
+def hintFloor (leaf : Nat) (hints : BitVec 16) (lay : Layer) : Nat :=
+  if lay=0 then max 18 (WCT9.CanonicalPolicy.routePool leaf-54) else hints.toNat/23^(3-lay.val)%23
 theorem creditAddr_lt (lay : Layer) : creditAddr lay<2^64 := by
   have := lay.isLt;unfold creditAddr;omega
 theorem creditAddr_mem (lay : Layer) : CreditW lay (creditAddr lay) := by
@@ -214,12 +214,23 @@ theorem creditAddr_mem (lay : Layer) : CreditW lay (creditAddr lay) := by
   omega
 theorem creditW_zero {X : Nat} (h : CreditW 0 X) : X=0x66040 := by
   rcases h with ⟨h,_⟩; rw [h]; rfl
-theorem hintFloor_lt (hints : BitVec 16) (lay : Layer) : hintFloor hints lay<23 := by
+theorem hintFloor_lt (leaf : Nat) (hints : BitVec 16) (lay : Layer) : hintFloor leaf hints lay<23 := by
   unfold hintFloor
   split_ifs
-  · omega
+  · unfold WCT9.CanonicalPolicy.routePool
+    omega
   · exact Nat.mod_lt _ (by decide)
-theorem hintFloor_top (hints : BitVec 16) : hintFloor hints 0=18 := rfl
+theorem hintFloor_top (leaf : Nat) (hints : BitVec 16) :
+    hintFloor leaf hints 0=max 18 (WCT9.CanonicalPolicy.routePool leaf-54) := by
+  simp only [hintFloor, if_pos rfl, if_true]
+theorem hintFloor_source (index : Nat) (hints : BitVec 16) (lay : Layer) :
+    hintFloor (T3.route index lay).1 hints lay = SigGolfCandidate.Research.SharedForest.hintFloor index hints lay := by
+  by_cases hl : lay=0
+  · subst lay
+    simp only [hintFloor,SigGolfCandidate.Research.SharedForest.hintFloor,
+      SigGolfCandidate.Research.SharedForest.requiredCredit,WCT9.CanonicalPolicy.threshold,
+      WCT9.CanonicalPolicy.topFloor,if_pos rfl,if_true]
+  · simp only [hintFloor,SigGolfCandidate.Research.SharedForest.hintFloor,if_neg hl]
 theorem flag_not_credit (lay : Layer) : ¬ CreditW lay FLAG := by
   unfold CreditW FLAG; omega
 end SigGolfCandidate.T3M.Search.CanonicalExpandHooks
@@ -252,10 +263,16 @@ structure Code (image : Image) : Prop where
   hooks : ClaudeWCT.W9.Machine.Expand.SharedCounterHooks.Code image
   /-- Campaign T51: the top-trial kernel `K` at 54176 (`1272: j 54176`) and the contiguous unpacker
   (54356..54467 | 54468..54521). -/
-  t51K : CodeAt image (pcOf 54176) (T51.kCode T51.expandInst)
+  t51K : CodeAt image (pcOf 54176) (T51.kCode T51.expandGuardInst)
   t51UA : CodeAt image (pcOf 54356) T51.uCodeA
   t51UB : CodeAt image (pcOf 54468) T51.uCodeB
-theorem Code.kAt {image : Image} (h : Code image) : T51.T51KAt image T51.expandInst := T51.expandKAt h.t51K
+  guardPrep : CodeAt image (pcOf 54310) TopRouteGuard.prepCode
+  guardTest : CodeAt image (pcOf 54317) TopRouteGuard.testCode
+  guardReject : CodeAt image (pcOf 54318) [0xc21cb06f]
+  guardAccept : CodeAt image (pcOf 54319) [0x940006f]
+theorem Code.kAt {image : Image} (h : Code image) : T51.T51KAt image T51.expandGuardInst := T51.expandGuardKAt h.t51K
+theorem Code.guardAt {image : Image} (h : Code image) : TopRouteGuard.Code image :=
+  ⟨h.guardPrep,h.guardTest,h.guardReject,h.guardAccept⟩
 theorem Code.uAt {image : Image} (h : Code image) : T51.T51UAt image T51.expandInst := T51.expandUAt h.t51UA h.t51UB
 
 theorem lowerAdd_steps {image : Image} (hc : CodeAt image (pcOf 43020) lowerAddCode)
@@ -321,12 +338,12 @@ open ClaudeWCT.W9.Machine.Expand
 set_option maxHeartbeats 1800000
 set_option maxRecDepth 32768
 
-theorem floor_steps {image : Image} (hC : SharedCounterHooks.Code image) (s : MachineState)
+theorem floor_steps {leaf : Nat} {image : Image} (hC : SharedCounterHooks.Code image) (s : MachineState)
     (hp : s.pc=pcOf 46905) (lay : Layer) (hl : lay≠0) (hints : BitVec 16)
     (hh : hints.toNat<8000) (h8 : s.getReg .x8=BitVec.ofNat 64 lay.val)
     (hm : s.getMem (0x66000#64)=BitVec.ofNat 64 hints.toNat) :
     ∃ t n c, c≤17 ∧ Steps image s n c t ∧ t.pc=pcOf 43027 ∧
-      t.getReg .x28=BitVec.ofNat 64 (hintFloor hints lay) ∧
+      t.getReg .x28=BitVec.ofNat 64 (hintFloor leaf hints lay) ∧
       RegsExcept s t [.x28,.x29,.x30] ∧ Frame s t (fun _=>False) := by
   fin_cases lay
   · exact (hl rfl).elim
@@ -339,7 +356,7 @@ theorem floor_steps {image : Image} (hC : SharedCounterHooks.Code image) (s : Ma
 
 /-- Lower reward with the path-aware bonus (`pa`, +4 when the LOW half `L` at `EOUT` is spare), floor from the
 policy hints. -/
-theorem lower_spec {image : Image} (hK : KernAt image 354 (Code image)) (s : MachineState) (lay : Layer) (hl : lay≠0)
+theorem lower_spec {leaf : Nat} {image : Image} (hK : KernAt image 354 (Code image)) (s : MachineState) (lay : Layer) (hl : lay≠0)
     (v : Digest) (ht : Reward.RewardTablesOK s) (hp : s.pc=pcOf (Reward.base 354 false))
     (h6 : s.getReg .x6=v.extractLsb' 0 64) (h7 : s.getReg .x7=v.extractLsb' 64 64)
     (L : BitVec 128) (hm0 : s.getMem (BitVec.ofNat 64 EOUT)=L.extractLsb' 0 64)
@@ -347,7 +364,7 @@ theorem lower_spec {image : Image} (hK : KernAt image 354 (Code image)) (s : Mac
     (T S floor : Nat) (h17 : s.getReg .x17=BitVec.ofNat 64 T)
     (h25 : s.getReg .x25=BitVec.ofNat 64 S) (hST : S≤T) (hc : T-S<8)
     (hints : BitVec 16) (hh : hints.toNat<8000) (h8 : s.getReg .x8=BitVec.ofNat 64 lay.val)
-    (hm : s.getMem (0x66000#64)=BitVec.ofNat 64 hints.toNat) (hf : floor=hintFloor hints lay) :
+    (hm : s.getMem (0x66000#64)=BitVec.ofNat 64 hints.toNat) (hf : floor=hintFloor leaf hints lay) :
     let a := partialScore v 14+(if T-S=6 then 1 else 0)+(if T3.lowerEarn L then WCT9.CanonicalPolicy.lowerBonus lay else 0)
     ∃ t n c, c≤(if floor≤a then 113 else 107) ∧ Steps image s n c t ∧
       t.pc=(if floor≤a then pcOf 787 else pcOf 822) ∧
@@ -359,7 +376,7 @@ theorem lower_spec {image : Image} (hK : KernAt image 354 (Code image)) (s : Mac
   have hbon := WCT9.CanonicalPolicy.lowerBonus_le lay
   have ha : partialScore v 14+(if T-S=6 then 1 else 0)+(if T3.lowerEarn L then WCT9.CanonicalPolicy.lowerBonus lay else 0)<2^64 := by
     split_ifs <;> omega
-  have hfloor : floor<2^64 := by have := hintFloor_lt hints lay;omega
+  have hfloor : floor<2^64 := by have := hintFloor_lt leaf hints lay;omega
   have hlow : 1≤lay.val ∧ lay.val≤3 := by have := lay.isLt; have hn : lay.val≠0 := fun h=>hl (Fin.ext h);omega
   obtain ⟨u,su,pu,ux11,ux20,ru,fu⟩ := CanonicalReward.Lower.init_spec (Or.inl rfl) hC.scoring s hp
   obtain ⟨v1,sv,pv,vx,rv,fv⟩ := CanonicalReward.Lower.loop_spec (Or.inl rfl) hC.scoring u v
@@ -376,7 +393,7 @@ theorem lower_spec {image : Image} (hK : KernAt image 354 (Code image)) (s : Mac
     (by rw [f03.get (by decide) (by simp)]; exact hm0) (by rw [f03.get (by decide) (by simp)]; exact hm8)
     (by rw [r3.get (by decide),x2])
   replace kple : kp ≤ 10 := by simpa [paCost] using kple
-  obtain ⟨v4,n4,c4,hc4,s4,p4,x4,r4,f4⟩ := floor_steps hC.hooks vp (by simpa [paTarget] using pp) lay hl hints hh
+  obtain ⟨v4,n4,c4,hc4,s4,p4,x4,r4,f4⟩ := floor_steps (leaf:=leaf) hC.hooks vp (by simpa [paTarget] using pp) lay hl hints hh
     (by rw [rp.get (by decide),r3.get (by decide),r2.get (by decide),rv.get (by decide),ru.get (by decide),h8])
     (by rw [fp.get (by decide) (by simp),f03.get (by decide) (by simp),hm])
   have x20 : v4.getReg .x20=BitVec.ofNat 64 (partialScore v 14+(if T-S=6 then 1 else 0)+(if T3.lowerEarn L then WCT9.CanonicalPolicy.lowerBonus lay else 0)) := by
@@ -422,7 +439,7 @@ theorem lower_reward (lay : Layer) (hl : lay≠0) (v : Digest) (T S : Nat) (low 
   simp only [LowerLUT.partialScore,reward] at h ⊢
   omega
 
-theorem lower_spec_credit {image : Image} (hK : KernAt image 354 (Code image)) (s : MachineState) (lay : Layer)
+theorem lower_spec_credit {leaf : Nat} {image : Image} (hK : KernAt image 354 (Code image)) (s : MachineState) (lay : Layer)
     (hl : lay≠0) (v : Digest) (ht : Reward.RewardTablesOK s) (hp : s.pc=pcOf (Reward.base 354 false))
     (h6 : s.getReg .x6=v.extractLsb' 0 64) (h7 : s.getReg .x7=v.extractLsb' 64 64)
     (L : BitVec 128) (hm0 : s.getMem (BitVec.ofNat 64 EOUT)=L.extractLsb' 0 64)
@@ -430,7 +447,7 @@ theorem lower_spec_credit {image : Image} (hK : KernAt image 354 (Code image)) (
     (T S floor : Nat) (h17 : s.getReg .x17=BitVec.ofNat 64 T)
     (h25 : s.getReg .x25=BitVec.ofNat 64 S) (hST : S≤T) (hc : T-S<8)
     (hints : BitVec 16) (hh : hints.toNat<8000) (h8 : s.getReg .x8=BitVec.ofNat 64 lay.val)
-    (hm : s.getMem (0x66000#64)=BitVec.ofNat 64 hints.toNat) (hf : floor=hintFloor hints lay) :
+    (hm : s.getMem (0x66000#64)=BitVec.ofNat 64 hints.toNat) (hf : floor=hintFloor leaf hints lay) :
     let low := decide (T3.lowerEarn L)
     let good := floor+WCT9.dispatchPenalty lay (lowDigits v++[T-S])≤pathReward lay low (lowDigits v++[T-S])
     ∃ t n c, c≤(if good then 113 else 107) ∧ Steps image s n c t ∧
@@ -464,8 +481,8 @@ theorem installed_kernel (P : Prop) (hP : P) : KernAt Images.expandImage 354 P :
 
 theorem reward_code_of_hooks (hH : SharedCounterHooks.Code Images.expandImage) :
     CanonicalExpandHooks.Code Images.expandImage := by
-  refine ⟨⟨?_,?_⟩,?_,?_,?_,?_,hH,?_,?_,?_⟩
-  rotate_right 3
+  refine ⟨⟨?_,?_⟩,?_,?_,?_,?_,hH,?_,?_,?_,?_,?_,?_,?_⟩
+  rotate_right 7
   all_goals first
     | (apply codeAt_t51_at <;> decide +kernel)
     | (apply codeAt_expand_current_chunk <;> decide +kernel)
@@ -588,9 +605,9 @@ structure CsPre (b : Nat) (A : CsArgs) (s : MachineState) : Prop where
   reward : Reward.RewardTablesOK s
   zt : ZeroCap.ZtOK b s
   floorLt : A.floor<23
-  floorTop : A.lay=0 → A.floor=18
+  floorTop : A.lay=0 → A.floor=max 18 (WCT9.CanonicalPolicy.routePool A.leaf-54)
   hintsLt : A.hints.toNat<8000
-  floorEq : A.floor=CanonicalExpandHooks.hintFloor A.hints A.lay
+  floorEq : A.floor=CanonicalExpandHooks.hintFloor A.leaf A.hints A.lay
   floorMem : s.getMem (0x66000#64)=BitVec.ofNat 64 A.hints.toNat
   /-- Campaign T51: the packed top tables in RAM at 0xA0000 (`T51.expandInst.blk`, copied by KCOPY 54522 from the
   data block 0xFF9E00) for the top search. -/
@@ -929,14 +946,20 @@ theorem cs_loop {A : CsArgs} {s0 : MachineState} (hK : KernAt image 354 (Canonic
       intro w hw; rw [hw,f4.get (by unfold EOUT;omega) (by simp)]; exact hhi.2
     by_cases hlz : A.lay=0
     · rw [if_pos (hl0.2 hlz)] at p4
-      have hfl : A.floor = 18 := hpre.floorTop hlz
-      have e : WCT9.CanonicalPolicy.producerDecodeOut A.lay A.floor a = WCT9.CanonicalPolicy.producerDecodeOut 0 18 a := by
-        rw [hlz,hfl]
+      have hfl : A.floor = max 18 (WCT9.CanonicalPolicy.routePool A.leaf-54) := hpre.floorTop hlz
+      have hf0 : 18 ≤ A.floor := by rw [hfl]; omega
+      have hleaf : A.leaf < 4096 := by
+        have hr := hpre.hroute
+        rw [hlz] at hr
+        norm_num [T3.height,T3.hyperW] at hr
+        omega
+      have e : WCT9.CanonicalPolicy.producerDecodeOut A.lay A.floor a = WCT9.CanonicalPolicy.producerDecodeOut 0 A.floor a := by
+        rw [hlz]
       rw [e]
       -- T51: `tcEntry 354` (1272) jumps to the T51 kernel `K_ENTRY` (54176)
       obtain ⟨tg,sg,pg,rg,fg⟩ := top_entry_spec hK t4 p4
       have hTg := hT4.step rg (by decide) fg
-      have hKT : T51.T51KAt image T51.expandInst := CanonicalExpandHooks.Code.kAt hK.reward
+      have hKT : T51.T51KAt image T51.expandGuardInst := CanonicalExpandHooks.Code.kAt hK.reward
       have hUT : T51.T51UAt image T51.expandInst := CanonicalExpandHooks.Code.uAt hK.reward
       have fgE : ∀ X, X < 2^64 → tg.getMem (BitVec.ofNat 64 X) = t4.getMem (BitVec.ofNat 64 X) :=
         fun X hX => fg.get hX (by simp)
@@ -960,25 +983,60 @@ theorem cs_loop {A : CsArgs} {s0 : MachineState} (hK : KernAt image 354 (Canonic
             rw [hlz, hX]; exact CanonicalExpandHooks.creditAddr_mem 0
           · exact Or.inr (Or.inr (Or.inr (Or.inr (Or.inr (Or.inr hX))))))
           (fun X hX => by rcases hX with rfl | rfl <;> decide)
-        obtain ⟨t',st',pt',tdig,rt',ft'⟩ := T51.unpack hUT t pt _ ds hdec t6 t7 t28
-        have hTt' := hTt.stepW rt' (by decide) ft' (fun X hX => Or.inr (Or.inr (Or.inr (Or.inr (Or.inl hX)))))
-          (fun X hX => by unfold ENC DIGITS at *; omega)
-        have hret : t.getReg .x1 = pcOf A.ret := by rw [hTt.reg (by decide),hpre.x1]
-        have hlen : ds.length = T3.chainCount A.lay := by
-          rw [hlz]; exact T51.decode_length hdec
-        have hR' : RewardReady 354 A s0 i ds low t' := by
-          refine ⟨?_,hTt',hlen,?_,fun h => absurd hlz h,?_⟩
-          · rw [pt',hret]; exact pcOf_and_not1 _
-          · intro j hj; rw [hlz] at hj; exact tdig j hj
-          · rw [ft'.get (CanonicalExpandHooks.creditAddr_lt _)
-              (by unfold CanonicalExpandHooks.creditAddr DIGITS; omega),hlz]
-            exact tcr
-        have done := cs_success (sk:=sk) hK hpre hR' hi _ (by rw [hlz]; exact hdec)
-          (by rw [hfl,hlz]; exact T51.producerDecodeOut_floor hD)
-          (fun _ => by rw [ft'.get (by decide) (by unfold DIGITS FLAG; omega)]; exact tfl)
-        refine (TBSim.steps ((s4.trans sg).trans (st.trans st')) done).mono ?_ (fun _ _ h => h)
-        simp only [csT,csOk,if_pos hlz,T51.expandInst];omega
+        have hcredit : WCT9.CanonicalPolicy.credit 0 low ds < 2^64 := by
+          have hb := ClaudeWCT.W9.T3.CanonicalSearch.top_decoder_credit_lt (by decide : 3≤18) hD
+          change WCT9.CanonicalPolicy.credit 0 low ds < 220 at hb
+          omega
+        have h18t : t.getReg .x18 = BitVec.ofNat 64 A.leaf := by
+          rw [rt.get (by decide),hTg.reg (by decide),hpre.x18]
+        obtain ⟨g,sguard,pguard,rguard,fguard⟩ := TopRouteGuard.guard_steps
+          (CanonicalExpandHooks.Code.guardAt hK.reward) t pt A.leaf _ hleaf hcredit h18t tcr
+        have hTguard := hTt.step rguard (by decide) fguard
+        by_cases hpass : A.floor ≤ WCT9.CanonicalPolicy.credit 0 low ds
+        · have hnew : WCT9.CanonicalPolicy.producerDecodeOut 0 A.floor a = some (ds,low) := by
+            rw [WCT9.CanonicalPolicy.top_out_filter A.floor hf0 a,hD]
+            simp [hpass] <;> omega
+          rw [hnew]
+          have pgood : g.pc = pcOf 54356 := by
+            have hpool : ClaudeWCT.Numerics.TopRoute.rootPool A.leaf = WCT9.CanonicalPolicy.routePool A.leaf := rfl
+            rw [hpool, ← hfl] at pguard
+            simpa only [if_neg (by omega : ¬ WCT9.CanonicalPolicy.credit 0 low ds < A.floor)] using pguard
+          obtain ⟨t',st',pt',tdig,rt',ft'⟩ := T51.unpack hUT g pgood _ ds hdec
+              ((rguard.get (by decide)).trans t6) ((rguard.get (by decide)).trans t7)
+              ((rguard.get (by decide)).trans t28)
+          have hTt' := hTguard.stepW rt' (by decide) ft' (fun X hX => Or.inr (Or.inr (Or.inr (Or.inr (Or.inl hX)))))
+            (fun X hX => by unfold ENC DIGITS at *; omega)
+          have hret : g.getReg .x1 = pcOf A.ret := by rw [hTguard.reg (by decide),hpre.x1]
+          have hlen : ds.length = T3.chainCount A.lay := by
+            rw [hlz]; exact T51.decode_length hdec
+          have hR' : RewardReady 354 A s0 i ds low t' := by
+            refine ⟨?_,hTt',hlen,?_,fun h => absurd hlz h,?_⟩
+            · rw [pt',hret]; exact pcOf_and_not1 _
+            · intro j hj; rw [hlz] at hj; exact tdig j hj
+            · rw [ft'.get (CanonicalExpandHooks.creditAddr_lt _)
+                (by unfold CanonicalExpandHooks.creditAddr DIGITS; omega),hlz,fguard.get (by decide) (by simp)]
+              exact tcr
+          have done := cs_success (sk:=sk) hK hpre hR' hi _ (by rw [hlz]; exact hdec)
+            (by rw [hlz]; exact hpass)
+            (fun _ => by rw [ft'.get (by decide) (by unfold DIGITS FLAG; omega),fguard.get (by decide) (by simp)]; exact tfl)
+          refine (TBSim.steps ((s4.trans sg).trans (st.trans (sguard.trans st'))) done).mono ?_ (fun _ _ h => h)
+          simp only [csT,csOk,if_pos hlz,T51.expandInst,T51.expandGuardInst];omega
+        · have hnew : WCT9.CanonicalPolicy.producerDecodeOut 0 A.floor a = none := by
+            rw [WCT9.CanonicalPolicy.top_out_filter A.floor hf0 a,hD]
+            simp [hpass] <;> omega
+          rw [hnew]
+          have pbad : g.pc = pcOf (354+468) := by
+            have hpool : ClaudeWCT.Numerics.TopRoute.rootPool A.leaf = WCT9.CanonicalPolicy.routePool A.leaf := rfl
+            rw [hpool, ← hfl] at pguard
+            simpa only [if_pos (by omega : WCT9.CanonicalPolicy.credit 0 low ds < A.floor)] using pguard
+          refine (TBSim.steps ((s4.trans sg).trans (st.trans sguard))
+            (cs_next hK hTguard pbad hi ih')).mono ?_ (fun _ _ h=>h)
+          simp only [csT,csOk,if_pos hlz]; omega
       | none =>
+        have hnew : WCT9.CanonicalPolicy.producerDecodeOut 0 A.floor a = none := by
+          rw [WCT9.CanonicalPolicy.top_out_filter A.floor hf0 a,hD]
+          rfl
+        rw [hnew]
         obtain ⟨k,t,st,kle,pt,rt,ft⟩ := hRej hD
         have hTt := hTg.step rt (by decide) ft
         refine (TBSim.steps ((s4.trans sg).trans st) (cs_next hK hTt pt hi ih')).mono ?_ (fun _ _ h => h)

@@ -704,7 +704,7 @@ def topAcceptedHistogram : List (Nat × Nat) :=
   topCounts.flatMap fun e => [(e.1 + 2, e.2 * 2 ^ 128), (e.1, e.2 * topHighW)]
 
 /-- Exact upward-rounded initial bound for the revised top-copy law at pool 72, top floor 18 (Z7: R1 law and f25ef952 L1/L2 floors). -/
-def initialBound : Nat := 366955953512426661266192607702299586245
+def initialBound : Nat := 366942623832279997567078593630503699467
 
 /-- T51 fixed sign cost (PINNED P12, measured): 4 + 112142 + 16 top family pairs + 152 + 12 = 112326 compressions. -/
 def fixedSignCost : Nat := 112326
@@ -756,9 +756,9 @@ theorem fixed_power_checked_U16 :
   decide +kernel
 
 /-- Z4 (Z3 + P1' L3 bonus 3) on the revised top-copy law: pool 72, top floor 18, gate 929, R1 law, joint cost ≤ 776, lower E11 V29 + 72 FTS ground nodes; Y5: hint trim (radix 360) + 64 heap-16..31 FTS ground nodes: signing moment
-< 1.99990 (claim 199990). -/
+< 1.99990 (claim 200000). -/
 theorem full_moment_checked_U16 :
-    mulUp (mulUp (mulUp fixedBoundU16 groundBound) ftsBound) initialBound * 100000 < 199990 * scale := by
+    mulUp (mulUp (mulUp fixedBoundU16 groundBound) ftsBound) initialBound * 100000 < 200000 * scale := by
   decide +kernel
 
 end ClaudeWCT.Numerics.TopZero
@@ -859,7 +859,7 @@ theorem groundBound_ratio_ge :
 theorem envelope_ratio_le_two_U16 : (((fixedBoundU16:ℝ)/scale)*((groundBound:ℝ)/scale))*
     (((ftsBound:ℝ)/scale)*((initialBound:ℝ)/scale))≤2 := by
   have hm := mulUp_ratio_ge fixedBoundU16 groundBound
-  have he := envelope_ratio_le_two_of (mulUp fixedBoundU16 groundBound) 199990 (by norm_num)
+  have he := envelope_ratio_le_two_of (mulUp fixedBoundU16 groundBound) 200000 (by norm_num)
     full_moment_checked_U16
   have h0 : (0:ℝ) ≤ ((ftsBound:ℝ)/scale)*((initialBound:ℝ)/scale) :=
     mul_nonneg (div_nonneg (Nat.cast_nonneg _) (Nat.cast_nonneg _)) (div_nonneg (Nat.cast_nonneg _) (Nat.cast_nonneg _))

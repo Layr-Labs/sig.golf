@@ -918,6 +918,12 @@ Defined before the encoding selector because the top producer choice uses the ca
   2 on the top layer (the d6b head reads the hint first: honest
   LOW costs 4 cycles, HIGH 6). -/
 namespace CanonicalPolicy
+/-- One address setup saved by the first two path windows when their side bits differ. -/
+def topPairSave (leaf : Nat) : Nat := if leaf % 4 = 1 ∨ leaf % 4 = 2 then 1 else 0
+/-- Savings of the two six-level chunks of the top authentication path. -/
+def topPathSave (leaf : Nat) : Nat := topPairSave leaf + topPairSave (leaf / 64)
+/-- Root credit determined by the canonical top WOTS address. -/
+def routePool (leaf : Nat) : Nat := 73 - topPathSave leaf
 /-- The credit pool every canonical path must reach. -/
 def totalCredit : Nat := 72
 /-- The (fixed) top credit floor (on the path-aware credit). -/
@@ -1495,14 +1501,14 @@ open OracleComp OracleSpec SigGolfCandidate.T3
 completeness over every256-bit message. It does not change the moment model. -/
 def ftsSearchLimit : Nat := 2 ^ 21
 
-/-- Layer-1 floors by residual `r ≤ 54` (= 72 - 18). Y5 (hint trim): floors from the alphabet `f1 ∈ {0, 8, 12, 14}`
+/-- Layer-1 floors by residual `r ≤ 54` (= 72 - 18). Y5 (hint trim): floors from the alphabet `f1 ∈ {6, 10, 12, 14}`
 (re-optimised by residual; `r - floor < 41`, the layer-2 table length). -/
 def lowerOneThresholds : List Nat :=
-  [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,8,8,8,8,8,8,8,8,12,12,12,12,14,14]
+  [6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,10,10,10,10,12,12,14,14]
 
-/-- Layer-2 floors by residual `r ≤ 40` (Y5: alphabet `f2 ∈ {0, 9, 13, 15, 17, 18}`; `r - floor < 23`). -/
+/-- Layer-2 floors by residual `r ≤ 40` (Y5: alphabet `f2 ∈ {6, 10, 12, 14, 16, 18}`; `r - floor < 23`). -/
 def lowerTwoThresholds : List Nat :=
-  [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,9,9,9,9,9,9,9,9,9,13,13,13,15,15,15,17,17,18]
+  [6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,10,10,10,12,12,14,14,14,16,16,18,18]
 
 /-- Y5 (hint trim): the layer-3 floor at residual `r ≤ 22`, the least element of the alphabet `{6, 9..22}` that is
 `≥ r`. -/
@@ -1513,7 +1519,7 @@ def lowerFloorMax : Nat := 22
 
 /-- Out-of-range lower residuals deliberately have an impossible threshold. -/
 def threshold (stage residual : Nat) : Nat :=
-  if stage = 0 then topFloor
+  if stage = 0 then max topFloor (residual - 54)
   else if stage = 1 then lowerOneThresholds.getD residual 301
   else if stage = 2 then lowerTwoThresholds.getD residual 301
   else if stage = 3 ∧ residual ≤ 22 then lowerThreeFloor residual
@@ -1574,7 +1580,7 @@ theorem producerDecodeOut_credit {lay : Layer} {floor : Nat} {answer : HashOutpu
     {low : Bool} (h : producerDecodeOut lay floor answer = some (digits, low)) : floor ≤ credit lay low digits :=
   producerDecodeAt_credit (producerDecodeOut_spec h).2
 
-theorem threshold_top (residual : Nat) : threshold 0 residual = 18 := by
+theorem threshold_top (residual : Nat) : threshold 0 residual = max 18 (residual - 54) := by
   simp [threshold, topFloor]
 
 theorem nextResidual_le (residual : Nat) (lay : Layer) (low : Bool) (digits : List Nat) :
@@ -1586,7 +1592,7 @@ theorem residual_composition (residual : Nat) (lay₁ lay₂ : Layer) (low₁ lo
       residual - (credit lay₁ low₁ digits₁ + credit lay₂ low₂ digits₂) := by
   simp [nextResidual, Nat.sub_sub]
 
-theorem threshold_zero : threshold 1 0 = 0 ∧ threshold 2 0 = 0 ∧ threshold 3 0 = 6 := by
+theorem threshold_zero : threshold 1 0 = 6 ∧ threshold 2 0 = 6 ∧ threshold 3 0 = 6 := by
   decide
 
 end ClaudeWCT.WCT9.CanonicalPolicy
@@ -1615,6 +1621,14 @@ theorem lower_three_progress (r : Nat) (hr : r < 23) :
 theorem lowerThreeFloor_ge (r : Nat) : r ≤ lowerThreeFloor r := by unfold lowerThreeFloor; split_ifs <;> omega
 theorem lowerThreeFloor_le (r : Nat) (hr : r < 23) : lowerThreeFloor r ≤ 22 := by
   unfold lowerThreeFloor; split_ifs <;> omega
+
+theorem accepted_top_residual_pool (pool : Nat) {low : Bool} {answer : Digest} {digits : List Nat}
+    (h : producerDecodeAt 0 (max 18 (pool - 54)) low answer = some digits) :
+    nextResidual pool 0 low digits < 55 := by
+  have hc := producerDecodeAt_credit h
+  have hm := Nat.le_max_right 18 (pool - 54)
+  unfold nextResidual
+  omega
 
 theorem accepted_top_residual {answer : Digest} {low : Bool} {digits : List Nat}
     (h : producerDecodeAt 0 18 low answer = some digits) : nextResidual 72 0 low digits < 55 := by

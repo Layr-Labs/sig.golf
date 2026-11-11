@@ -11558,14 +11558,16 @@ theorem assembleSig_digits (rho : Digest) (output : HashOutput) (v : Coord→Dig
     (h : ∀lay,d (routeAddr (digestIndex output).val lay)=d' (routeAddr (digestIndex output).val lay))
     (hl : ∀lay,l (routeAddr (digestIndex output).val lay)=l' (routeAddr (digestIndex output).val lay)) :
     LargeResidual.Paired.assembleSig rho output v d l=LargeResidual.Paired.assembleSig rho output v d' l' := by
-  unfold LargeResidual.Paired.assembleSig
-  congr 1
-  · unfold hintsOf
+  have hh : hintsOf (WCT9.digestIndex output) d l = hintsOf (WCT9.digestIndex output) d' l' := by
+    unfold hintsOf
     change ∀lay,d (routeAddr (WCT9.digestIndex output) lay)=d' (routeAddr (WCT9.digestIndex output) lay) at h
     change ∀lay,l (routeAddr (WCT9.digestIndex output) lay)=l' (routeAddr (WCT9.digestIndex output) lay) at hl
     rw [h 0,h 1,h 2,hl 0,hl 1,hl 2]
-  · funext lay
-    rw [layerChains_congr d d' _ lay (h lay)]
+  unfold LargeResidual.Paired.assembleSig
+  rw [hh]
+  congr 1
+  funext lay
+  rw [layerChains_congr d d' _ lay (h lay)]
 end Coherent
 end ClaudeWCT.W9.T3.Security.LargeCoupling.Paired
 

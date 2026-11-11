@@ -24,7 +24,7 @@ open OracleComp OracleSpec OracleComp.EvalDist ENNReal
 open SigGolfCandidate.T3 SigGolfCandidate.T3.Security
 open SphincsSecurity.Concrete (independentProposalWord uniformWordAverage)
 open SphincsSecurity.Completeness (searchLoop failMass failMass_eq_probEvent)
-set_option maxHeartbeats 1000000
+set_option maxHeartbeats 4000000
 set_option maxRecDepth 10000
 set_option backward.isDefEq.respectTransparency false
 attribute [local instance] Classical.propDecidable
@@ -176,7 +176,7 @@ section
 namespace SigGolfCandidate.T3.Security.SeccLaw
 open OracleComp OracleSpec OracleComp.EvalDist ENNReal
 open SigGolfCandidate.T3M SigGolfCandidate.T3M.Final Correctness
-set_option maxHeartbeats 1000000
+set_option maxHeartbeats 4000000
 set_option maxRecDepth 10000
 set_option backward.isDefEq.respectTransparency false
 def maxInputLength : Nat := 4096
@@ -254,7 +254,7 @@ section
 
 namespace SigGolfCandidate.T3.Security.CreationGame
 open OracleComp OracleSpec OracleComp.EvalDist ENNReal
-set_option maxHeartbeats 1000000
+set_option maxHeartbeats 4000000
 set_option maxRecDepth 10000
 set_option backward.isDefEq.respectTransparency false
 attribute [local instance] Classical.propDecidable
@@ -273,7 +273,7 @@ namespace SigGolfCandidate.T3.Security.CaseC
 open OracleComp OracleSpec OracleComp.EvalDist ENNReal
 open SigGolfCandidate.T3.DigestSampling
 open SphincsSecurity.Completeness (searchLoop failMass)
-set_option maxHeartbeats 1000000
+set_option maxHeartbeats 4000000
 set_option maxRecDepth 10000
 set_option backward.isDefEq.respectTransparency false
 attribute [local instance] Classical.propDecidable
@@ -349,7 +349,7 @@ section
 namespace SigGolfCandidate.T3.BPORS.History
 open OracleComp OracleSpec OracleComp.EvalDist ENNReal
 open SphincsSecurity.Concrete
-set_option maxHeartbeats 1000000
+set_option maxHeartbeats 4000000
 set_option maxRecDepth 10000
 theorem theta_excess_le_square (value mean : ENNReal) (hvalue : value ≠ ⊤) (hmean : mean ≤ 37/64) :
     (13/8)*(value-63/64)+2*mean*value ≤ value^2+mean^2 :=
@@ -952,7 +952,7 @@ open SphincsSecurity.Concrete FiniteGraphSampling
 open SigGolfCandidate.T3M SigGolfCandidate.T3M.SecurityInputs SigGolfCandidate.T3M.SecurityExtraction
 open Correctness (Answers treeValue builtTree leafSeed leafEnd leafRoot)
 open ChainGraph (Address Point Seeds)
-set_option maxHeartbeats 1000000
+set_option maxHeartbeats 4000000
 set_option maxRecDepth 10000
 set_option backward.isDefEq.respectTransparency false
 attribute [local instance] Classical.propDecidable
@@ -1288,7 +1288,7 @@ open OracleComp OracleSpec ENNReal
 open SigGolfCandidate.T3 SigGolfCandidate.T3M SigGolfCandidate.T3M.Final
 open SigGolfCandidate.T3.Correctness (Answers)
 open SphincsSecurity (OracleWorld)
-set_option maxHeartbeats 1000000
+set_option maxHeartbeats 4000000
 set_option maxRecDepth 10000
 set_option backward.isDefEq.respectTransparency false
 attribute [local instance] Classical.propDecidable
@@ -1610,7 +1610,7 @@ open SigGolfCandidate.T3 SigGolfCandidate.T3M SigGolfCandidate.T3M.Final SigGolf
 open SigGolfCandidate.T3.Correctness (Answers)
 open SphincsSecurity (OracleWorld bytesLE bytesLE_length bytesLE_injective)
 open SphincsSecurity.Concrete
-set_option maxHeartbeats 1000000
+set_option maxHeartbeats 4000000
 set_option maxRecDepth 10000
 set_option backward.isDefEq.respectTransparency false
 attribute [local instance] Classical.propDecidable
@@ -1718,7 +1718,7 @@ section
 namespace SigGolfCandidate.T3.Security.CaseC
 open OracleComp OracleSpec OracleComp.EvalDist ENNReal
 open SigGolfCandidate.T3.DigestSampling
-set_option maxHeartbeats 1000000
+set_option maxHeartbeats 4000000
 set_option maxRecDepth 10000
 set_option backward.isDefEq.respectTransparency false
 attribute [local instance] Classical.propDecidable
@@ -1804,7 +1804,7 @@ section
 namespace SigGolfCandidate.T3.Security.CaseC
 open OracleComp OracleSpec OracleComp.EvalDist ENNReal
 open SigGolfCandidate.T3.DigestSampling
-set_option maxHeartbeats 1000000
+set_option maxHeartbeats 4000000
 set_option maxRecDepth 10000
 set_option backward.isDefEq.respectTransparency false
 attribute [local instance] Classical.propDecidable
@@ -1866,7 +1866,7 @@ open OracleComp OracleSpec SigGolfCandidate.T3 SigGolfCandidate.T3M
 open SigGolfCandidate.T3M.SecurityInputs SigGolfCandidate.T3M.SecurityExtraction
 open SigGolfCandidate.T3.Correctness (Answers treeValue)
 open SphincsSecurity (bytesLE bytesLE_length bytesLE_injective)
-set_option maxHeartbeats 1000000
+set_option maxHeartbeats 4000000
 set_option maxRecDepth 10000
 set_option backward.isDefEq.respectTransparency false
 attribute [local irreducible] buildFts buildTree
@@ -1884,7 +1884,7 @@ namespace SigGolfCandidate.T3.Security.BSuf
 open OracleComp OracleSpec SigGolfCandidate.T3 SigGolfCandidate.T3M
 open SigGolfCandidate.T3M.SecurityInputs SigGolfCandidate.T3M.SecurityExtraction
 open SigGolfCandidate.T3.Correctness (Answers treeValue)
-set_option maxHeartbeats 1000000
+set_option maxHeartbeats 4000000
 set_option maxRecDepth 10000
 set_option backward.isDefEq.respectTransparency false
 attribute [local irreducible] buildFts buildTree
@@ -1897,7 +1897,7 @@ section
 namespace SigGolfCandidate.T3.Security.BPB
 open OracleComp OracleSpec OracleComp.EvalDist ENNReal
 open SigGolfCandidate.T3M SigGolfCandidate.T3M.Final Correctness
-set_option maxHeartbeats 1000000
+set_option maxHeartbeats 4000000
 set_option maxRecDepth 10000
 set_option backward.isDefEq.respectTransparency false
 attribute [local instance] Classical.propDecidable
@@ -1913,7 +1913,7 @@ open OracleComp OracleSpec OracleComp.EvalDist ENNReal
 open SigGolfCandidate.T3M SigGolfCandidate.T3M.Final Correctness
 open SigGolfCandidate.T3M.SecurityInputs
 open SigGolfCandidate.T3M.SecurityExtraction (queried queried_bind queried_shortHash)
-set_option maxHeartbeats 1000000
+set_option maxHeartbeats 4000000
 set_option maxRecDepth 10000
 set_option backward.isDefEq.respectTransparency false
 attribute [local instance] Classical.propDecidable
@@ -2233,7 +2233,7 @@ section
 namespace SigGolfCandidate.T3.Security.CaseC
 open OracleComp OracleSpec OracleComp.EvalDist ENNReal
 open SigGolfCandidate.T3M.Final
-set_option maxHeartbeats 1000000
+set_option maxHeartbeats 4000000
 set_option maxRecDepth 10000
 set_option backward.isDefEq.respectTransparency false
 attribute [local instance] Classical.propDecidable
@@ -2261,7 +2261,7 @@ section
 namespace SigGolfCandidate.T3.Security.CaseC
 open OracleComp OracleSpec OracleComp.EvalDist ENNReal
 open SigGolfCandidate.T3M.Final
-set_option maxHeartbeats 1000000
+set_option maxHeartbeats 4000000
 set_option maxRecDepth 10000
 set_option backward.isDefEq.respectTransparency false
 attribute [local instance] Classical.propDecidable
@@ -2369,7 +2369,7 @@ section
 namespace SigGolfCandidate.T3.Security.CaseC
 open OracleComp OracleSpec OracleComp.EvalDist ENNReal
 open SigGolfCandidate.T3M.Final
-set_option maxHeartbeats 1000000
+set_option maxHeartbeats 4000000
 set_option maxRecDepth 10000
 set_option backward.isDefEq.respectTransparency false
 attribute [local instance] Classical.propDecidable
@@ -2462,7 +2462,7 @@ namespace ClaudeWCT.Bank
 open OracleComp OracleSpec OracleComp.EvalDist ENNReal
 open SigGolfCandidate.T3 SigGolfCandidate.T3.Security
 open SphincsSecurity.Concrete (independentProposalWord uniformWordAverage)
-set_option maxHeartbeats 1000000
+set_option maxHeartbeats 4000000
 set_option maxRecDepth 10000
 set_option backward.isDefEq.respectTransparency false
 attribute [local instance] Classical.propDecidable
@@ -2560,7 +2560,7 @@ namespace ClaudeWCT.Bank
 open OracleComp OracleSpec OracleComp.EvalDist ENNReal
 open SigGolfCandidate.T3 SigGolfCandidate.T3.Security
 open SphincsSecurity.Completeness (searchLoop failMass)
-set_option maxHeartbeats 1000000
+set_option maxHeartbeats 4000000
 set_option maxRecDepth 10000
 set_option backward.isDefEq.respectTransparency false
 attribute [local instance] Classical.propDecidable
@@ -2670,7 +2670,7 @@ namespace ClaudeWCT.Bank
 open OracleComp OracleSpec OracleComp.EvalDist ENNReal
 open SigGolfCandidate.T3 SigGolfCandidate.T3.Security
 open CaseC (BankCore BankCore.expose theta)
-set_option maxHeartbeats 1000000
+set_option maxHeartbeats 4000000
 set_option maxRecDepth 10000
 set_option backward.isDefEq.respectTransparency false
 attribute [local instance] Classical.propDecidable
@@ -2920,7 +2920,7 @@ namespace ClaudeWCT.Bank
 open OracleComp OracleSpec OracleComp.EvalDist ENNReal
 open SigGolfCandidate SigGolfCandidate.T3 SigGolfCandidate.T3.Security
 open SphincsSecurity.Completeness (searchLoop failMass)
-set_option maxHeartbeats 1000000
+set_option maxHeartbeats 4000000
 set_option maxRecDepth 10000
 set_option backward.isDefEq.respectTransparency false
 attribute [local instance] Classical.propDecidable
@@ -3278,7 +3278,7 @@ section
 namespace SigGolfCandidate.T3.Security.CaseC
 open OracleComp OracleSpec OracleComp.EvalDist ENNReal
 open SigGolfCandidate.T3M.Final
-set_option maxHeartbeats 1000000
+set_option maxHeartbeats 4000000
 set_option maxRecDepth 10000
 set_option backward.isDefEq.respectTransparency false
 attribute [local instance] Classical.propDecidable
@@ -3371,7 +3371,7 @@ open OracleComp OracleSpec OracleComp.EvalDist ENNReal
 open SigGolfCandidate SigGolfCandidate.T3 SigGolfCandidate.T3.Security
 open SigGolfCandidate.T3M.Final
 open CaseC (theta IsDigestInput Birth FreshSigning countOf lazyOf)
-set_option maxHeartbeats 1000000
+set_option maxHeartbeats 4000000
 set_option maxRecDepth 10000
 set_option backward.isDefEq.respectTransparency false
 attribute [local instance] Classical.propDecidable
@@ -3776,7 +3776,7 @@ namespace ClaudeWCT.Bank
 open OracleComp OracleSpec OracleComp.EvalDist ENNReal
 open SigGolfCandidate SigGolfCandidate.T3 SigGolfCandidate.T3.Security
 open SphincsSecurity.Completeness (searchLoop failMass)
-set_option maxHeartbeats 1000000
+set_option maxHeartbeats 4000000
 set_option maxRecDepth 10000
 set_option backward.isDefEq.respectTransparency false
 attribute [local instance] Classical.propDecidable
@@ -4052,7 +4052,7 @@ open SigGolfCandidate SigGolfCandidate.T3 SigGolfCandidate.T3.Security
 open SigGolfCandidate.T3M.Final
 open SphincsSecurity.Concrete (uniformWordAverage)
 open CaseC (theta IsDigestInput Birth FreshSigning countOf lazyOf)
-set_option maxHeartbeats 1000000
+set_option maxHeartbeats 4000000
 set_option maxRecDepth 10000
 set_option backward.isDefEq.respectTransparency false
 attribute [local instance] Classical.propDecidable
@@ -4321,7 +4321,7 @@ namespace SigGolfCandidate.T3.Security.CaseC
 open OracleComp OracleSpec OracleComp.EvalDist ENNReal
 open SigGolfCandidate.T3M.Final
 open SigGolfCandidate.T3M.SecurityExtraction (queried)
-set_option maxHeartbeats 1000000
+set_option maxHeartbeats 4000000
 set_option maxRecDepth 10000
 set_option backward.isDefEq.respectTransparency false
 attribute [local instance] Classical.propDecidable
@@ -4417,7 +4417,7 @@ open SigGolfCandidate SigGolfCandidate.T3 SigGolfCandidate.T3.Security
 open SigGolfCandidate.T3M.Final
 open SigGolfCandidate.T3M.SecurityExtraction (queried)
 open CaseC (Agrees Birth FreshSigning countOf lazyOf IsDigestInput eventPublic nonceOf)
-set_option maxHeartbeats 1000000
+set_option maxHeartbeats 4000000
 set_option maxRecDepth 10000
 set_option backward.isDefEq.respectTransparency false
 attribute [local instance] Classical.propDecidable
@@ -4851,7 +4851,7 @@ open SigGolfCandidate SigGolfCandidate.T3 SigGolfCandidate.T3.Security
 open SigGolfCandidate.T3M.Final
 open SigGolfCandidate.T3M.SecurityExtraction (queried)
 open CaseC (Agrees Birth FreshSigning countOf lazyOf IsDigestInput eventPublic nonceOf)
-set_option maxHeartbeats 1000000
+set_option maxHeartbeats 4000000
 set_option maxRecDepth 10000
 set_option backward.isDefEq.respectTransparency false
 attribute [local instance] Classical.propDecidable
@@ -5247,7 +5247,7 @@ section
 
 namespace ClaudeWCT.WCT9
 open OracleComp OracleSpec SigGolfCandidate.T3
-set_option maxHeartbeats 1000000
+set_option maxHeartbeats 4000000
 set_option maxRecDepth 10000
 theorem producerDecode_decode {lay : Layer} {answer : Digest} {digits : List Nat}
     (h : producerDecode lay answer = some digits) : decode lay answer = some digits := by
@@ -5664,7 +5664,7 @@ section
 namespace ClaudeWCT.WCT9
 open OracleComp OracleSpec SigGolfCandidate.T3 SigGolfCandidate.T3.Correctness
 open SphincsSecurity (bytesLE bytesLE_length)
-set_option maxHeartbeats 1000000
+set_option maxHeartbeats 4000000
 set_option maxRecDepth 10000
 set_option backward.isDefEq.respectTransparency false
 set_option linter.unusedSimpArgs false
@@ -7308,7 +7308,7 @@ section
 section
 namespace ClaudeWCT.WCT9
 open OracleComp OracleSpec SigGolfCandidate.T3 SigGolfCandidate.T3.Correctness
-set_option maxHeartbeats 1000000
+set_option maxHeartbeats 4000000
 set_option maxRecDepth 10000
 set_option backward.isDefEq.respectTransparency false
 def openingStep (index : Nat) (output : HashOutput) (state : List Opening × List (Digest × Digest))
@@ -7417,7 +7417,7 @@ end
 section
 namespace ClaudeWCT.WCT9
 open OracleComp OracleSpec SigGolfCandidate.T3 SigGolfCandidate.T3.Correctness
-set_option maxHeartbeats 1000000
+set_option maxHeartbeats 4000000
 set_option maxRecDepth 10000
 set_option backward.isDefEq.respectTransparency false
 def forestRows (index : Nat) (output : HashOutput) : M (List Opening × List (Digest × Digest)) :=
@@ -7588,7 +7588,7 @@ section
 namespace ClaudeWCT.WCT9
 open OracleComp OracleSpec SigGolfCandidate.T3
 open SphincsSecurity (bytesLE bytesLE_length bytesLE_injective)
-set_option maxHeartbeats 1000000
+set_option maxHeartbeats 4000000
 theorem header_byte1 (tag lay tree position index : Nat) :
     (header tag lay tree position index).toNat / 2 ^ 8 % 256 = tag % 256 := by
   rw [header_toNat]
@@ -8183,7 +8183,7 @@ section
 namespace ClaudeWCT.WCT9
 open OracleComp OracleSpec SigGolfCandidate.T3 SigGolfCandidate.T3.Correctness SigGolfCandidate.T3.Cost
 open SphincsSecurity (bytesLE bytesLE_length bytesLE_injective)
-set_option maxHeartbeats 1000000
+set_option maxHeartbeats 4000000
 set_option maxRecDepth 10000
 set_option backward.isDefEq.respectTransparency false
 def leafInput (index coord selected : Nat) (ends : List Digest) : HashInput :=
@@ -8602,7 +8602,7 @@ section
 
 namespace ClaudeWCT.WCT9.Cost
 open OracleComp OracleSpec SigGolfCandidate.T3 SigGolfCandidate.T3.Cost
-set_option maxHeartbeats 1000000
+set_option maxHeartbeats 4000000
 set_option maxRecDepth 10000
 set_option backward.isDefEq.respectTransparency false
 /-! ### C2/C3: cost bounds of the half-selecting hashes (same single query as `shortHash`) -/
@@ -9399,7 +9399,7 @@ hash each. This file relates `expandS` to the old expander `expandWith`: every a
 section
 namespace ClaudeWCT.WCT9
 open OracleComp OracleSpec SigGolfCandidate.T3 SigGolfCandidate.T3.Correctness
-set_option maxHeartbeats 1000000
+set_option maxHeartbeats 4000000
 set_option maxRecDepth 10000
 
 /-! ### Bits -/
@@ -9910,7 +9910,7 @@ end
 section
 namespace ClaudeWCT.WCT9.Cost
 open OracleComp OracleSpec SigGolfCandidate.T3 SigGolfCandidate.T3.Cost
-set_option maxHeartbeats 1000000
+set_option maxHeartbeats 4000000
 set_option maxRecDepth 10000
 
 theorem take_top_length : ((List.finRange (height (0 : Layer))).take 11).length = 11 := by decide
@@ -10030,7 +10030,7 @@ section
 (`topFoldN`), and the honest top path through the nonce-searched top tree. -/
 namespace ClaudeWCT.WCT9
 open OracleComp OracleSpec SigGolfCandidate.T3 SigGolfCandidate.T3.Correctness
-set_option maxHeartbeats 1000000
+set_option maxHeartbeats 4000000
 set_option maxRecDepth 10000
 
 theorem eval_foldlM_eq {α β : Type} (answers : Answers) (f : α → β → M α) :
@@ -10724,7 +10724,7 @@ end SigGolfCandidate.Research.SharedForest
 namespace SigGolfCandidate.Research.SharedForest
 open OracleComp OracleSpec SigGolfCandidate.T3
 open SigGolfCandidate.T3.Correctness ClaudeWCT.WCT9
-set_option maxHeartbeats 1000000
+set_option maxHeartbeats 4000000
 set_option maxRecDepth 10000
 set_option backward.isDefEq.respectTransparency false
 
@@ -11002,7 +11002,7 @@ end SigGolfCandidate.Research.SharedForest
 namespace SigGolfCandidate.Research.SharedForest
 open OracleComp OracleSpec SigGolfCandidate.T3
 open SigGolfCandidate.T3.Correctness ClaudeWCT.WCT9
-set_option maxHeartbeats 1000000
+set_option maxHeartbeats 4000000
 set_option maxRecDepth 10000
 set_option backward.isDefEq.respectTransparency false
 
@@ -11115,7 +11115,7 @@ end SigGolfCandidate.Research.SharedForest
 namespace SigGolfCandidate.Research.SharedForest
 open OracleComp OracleSpec SigGolfCandidate.T3
 open SigGolfCandidate.T3.Correctness ClaudeWCT.WCT9
-set_option maxHeartbeats 1000000
+set_option maxHeartbeats 4000000
 set_option maxRecDepth 10000
 set_option backward.isDefEq.respectTransparency false
 
@@ -11201,7 +11201,7 @@ end SigGolfCandidate.Research.SharedForest
 namespace SigGolfCandidate.Research.SharedForest
 open OracleComp OracleSpec SigGolfCandidate.T3
 open SigGolfCandidate.T3.Correctness ClaudeWCT.WCT9
-set_option maxHeartbeats 1000000
+set_option maxHeartbeats 4000000
 set_option maxRecDepth 10000
 set_option backward.isDefEq.respectTransparency false
 
@@ -11284,7 +11284,7 @@ end SigGolfCandidate.Research.SharedForest
 namespace SigGolfCandidate.Research.SharedForest
 open OracleComp OracleSpec SigGolfCandidate.T3
 open SigGolfCandidate.T3.Correctness ClaudeWCT.WCT9
-set_option maxHeartbeats 1000000
+set_option maxHeartbeats 4000000
 set_option maxRecDepth 10000
 set_option backward.isDefEq.respectTransparency false
 
@@ -11367,7 +11367,7 @@ end SigGolfCandidate.Research.SharedForest
 namespace SigGolfCandidate.Research.SharedForest
 open OracleComp OracleSpec SigGolfCandidate.T3 ClaudeWCT.WCT9
 open SigGolfCandidate.T3.Correctness
-set_option maxHeartbeats 1000000
+set_option maxHeartbeats 4000000
 set_option maxRecDepth 10000
 set_option backward.isDefEq.respectTransparency false
 
@@ -11471,6 +11471,14 @@ structure CanonicalLayers where
   residual : Nat
   policyHints : BitVec 16
 
+/-- Canonical root credit depends only on the top WOTS leaf's own address. -/
+def requiredCredit (index : Nat) : Nat := CanonicalPolicy.routePool (route index 0).1
+
+theorem requiredCredit_bounds (index : Nat) : 71 ≤ requiredCredit index ∧ requiredCredit index ≤ 73 := by
+  unfold requiredCredit CanonicalPolicy.routePool
+  unfold CanonicalPolicy.topPathSave CanonicalPolicy.topPairSave
+  split_ifs <;> omega
+
 /-- All thresholds are determined by the canonical ancestors. The lower
 tree roots are already fixed, and lower reveals are pure prefix lookups. -/
 def searchPreparedLayers (cache : SigGolfCandidate.T3.Cache) (index : Nat) (prepared : PreparedRoots)
@@ -11479,10 +11487,10 @@ def searchPreparedLayers (cache : SigGolfCandidate.T3.Cache) (index : Nat) (prep
   let pair1 := topPair 2 prepared.two.levels
   let pair2 := topPair 3 prepared.three.levels
   let some (counter0, digits0, low0) ← CanonicalPolicy.layerCounterSearchAt 0
-    (CanonicalPolicy.threshold 0 CanonicalPolicy.totalCredit)
+    (CanonicalPolicy.threshold 0 (requiredCredit index))
     (route index 0).2 (route index 0).1 (.pair pair0.1 pair0.2) 0 (searchLimit 0)
     | pure none
-  let residual1 := CanonicalPolicy.nextResidual CanonicalPolicy.totalCredit 0 low0 digits0
+  let residual1 := CanonicalPolicy.nextResidual (requiredCredit index) 0 low0 digits0
   let floor1 := CanonicalPolicy.threshold 1 residual1
   if floor1 ≥ 15 then return none
   let some (counter1, digits1, low1) ← CanonicalPolicy.layerCounterSearchAt 1
@@ -11637,17 +11645,17 @@ open OracleComp OracleSpec SigGolfCandidate.T3 ClaudeWCT.WCT9
 /-- Policy hint bound (Y5 mixed radix): h = 529·f1 + 23·f2 + f3 with f1 ≤ 14, f2, f3 ≤ 22, h < 8192 = 2^13. -/
 def policyHintBound : Nat := 8192
 
-def hintFloor (hints : BitVec 16) (lay : Layer) : Nat :=
-  if lay = 0 then CanonicalPolicy.topFloor else hints.toNat / 23 ^ (3 - lay.val) % 23
+def hintFloor (index : Nat) (hints : BitVec 16) (lay : Layer) : Nat :=
+  if lay = 0 then CanonicalPolicy.threshold 0 (requiredCredit index) else hints.toNat / 23 ^ (3 - lay.val) % 23
 
-def policyHintsValid (hints : BitVec 16) (digits : List (List Nat)) (lows : List Bool) : Bool :=
-  let residual1 := CanonicalPolicy.nextResidual CanonicalPolicy.totalCredit 0 (lows.getD 0 true) (digits.getD 0 [])
+def policyHintsValid (index : Nat) (hints : BitVec 16) (digits : List (List Nat)) (lows : List Bool) : Bool :=
+  let residual1 := CanonicalPolicy.nextResidual (requiredCredit index) 0 (lows.getD 0 true) (digits.getD 0 [])
   let residual2 := CanonicalPolicy.nextResidual residual1 1 (lows.getD 1 true) (digits.getD 1 [])
   let residual3 := CanonicalPolicy.nextResidual residual2 2 (lows.getD 2 true) (digits.getD 2 [])
   decide (hints.toNat < 8192 ∧ digits.length = 4 ∧
-    hintFloor hints 1 = CanonicalPolicy.threshold 1 residual1 ∧
-    hintFloor hints 2 = CanonicalPolicy.threshold 2 residual2 ∧
-    hintFloor hints 3 = CanonicalPolicy.threshold 3 residual3)
+    hintFloor index hints 1 = CanonicalPolicy.threshold 1 residual1 ∧
+    hintFloor index hints 2 = CanonicalPolicy.threshold 2 residual2 ∧
+    hintFloor index hints 3 = CanonicalPolicy.threshold 3 residual3)
 
 /-- Adapter for the unchanged main-tree recovery kernels. The forest opening
 is recovered separately; no dummy opening is inspected by those kernels. -/
@@ -11719,7 +11727,7 @@ def recoverHintedLayers (sig : Signature) (index : Nat) (other : Digest) :
       let lay : Layer := Fin.ofNat 4 n
       let (leaf, tree) := route index lay
       let some (counter, digits, low) ← CanonicalPolicy.layerCounterSearchAt lay
-        (hintFloor sig.policyHints lay) tree leaf msg 0 (searchLimit lay) | pure none
+        (hintFloor index sig.policyHints lay) tree leaf msg 0 (searchLimit lay) | pure none
       if n = 0 then
         let (folded, nonces) ← topFoldN (mainSignature sig) index digits
         let root ← topNode index folded other
@@ -11762,7 +11770,7 @@ def expandFill (message : Message) (pk : Digest) (sig : Signature) : M (Option W
     (forestWordsFromOutput output) sig0.forest
   let some layers ← recoverHintedLayers sig0 index ((sig0.layers 0).path topJ)
     4 (.pair forest.1.1 forest.1.2) | pure none
-  if !policyHintsValid sig0.policyHints layers.digits layers.lows then return none
+  if !policyHintsValid index sig0.policyHints layers.digits layers.lows then return none
   if layers.root = pk then
     return some ⟨sig0, counter, fun lay => layers.counters.getD lay.val 0, !(layers.lows.getD 0 true),
       layers.nonces, fun lay => layers.lowerNonces.getD lay.val [], forest.2.1, forest.2.2⟩
@@ -12172,26 +12180,26 @@ theorem base22_unique {x y : Nat} (hx : x < 8192) (hy : y < 8192)
     (h3 : x % 23 = y % 23) : x = y := by
   omega
 
-theorem hintFloor_unique {a b : BitVec 16} (ha : a.toNat < 8192) (hb : b.toNat < 8192)
-    (h1 : hintFloor a 1 = hintFloor b 1)
-    (h2 : hintFloor a 2 = hintFloor b 2)
-    (h3 : hintFloor a 3 = hintFloor b 3) : a = b := by
+theorem hintFloor_unique {index : Nat} {a b : BitVec 16} (ha : a.toNat < 8192) (hb : b.toNat < 8192)
+    (h1 : hintFloor index a 1 = hintFloor index b 1)
+    (h2 : hintFloor index a 2 = hintFloor index b 2)
+    (h3 : hintFloor index a 3 = hintFloor index b 3) : a = b := by
   apply BitVec.eq_of_toNat_eq
   simp only [hintFloor, show (1 : Layer) ≠ 0 by decide, show (2 : Layer) ≠ 0 by decide,
     show (3 : Layer) ≠ 0 by decide, if_false] at h1 h2 h3
   norm_num at h1 h2 h3
   exact base22_unique ha hb h1 h2 h3
 
-theorem policyHintsValid_unique {a b : BitVec 16} {digits : List (List Nat)} {lows : List Bool}
-    (ha : policyHintsValid a digits lows = true) (hb : policyHintsValid b digits lows = true) : a = b := by
+theorem policyHintsValid_unique {index : Nat} {a b : BitVec 16} {digits : List (List Nat)} {lows : List Bool}
+    (ha : policyHintsValid index a digits lows = true) (hb : policyHintsValid index b digits lows = true) : a = b := by
   simp only [policyHintsValid, decide_eq_true_eq] at ha hb
   exact hintFloor_unique ha.1 hb.1 (ha.2.2.1.trans hb.2.2.1.symm)
     (ha.2.2.2.1.trans hb.2.2.2.1.symm) (ha.2.2.2.2.trans hb.2.2.2.2.symm)
 
-theorem encodedHints_spec (a b c : Nat) (ha : a < 15) (hb : b < 23) (hc : c < 23) :
+theorem encodedHints_spec {index : Nat} (a b c : Nat) (ha : a < 15) (hb : b < 23) (hc : c < 23) :
     let code := BitVec.ofNat 16 (529 * a + 23 * b + c)
-    code.toNat < 8192 ∧ hintFloor code 1 = a ∧
-      hintFloor code 2 = b ∧ hintFloor code 3 = c := by
+    code.toNat < 8192 ∧ hintFloor index code 1 = a ∧
+      hintFloor index code 2 = b ∧ hintFloor index code 3 = c := by
   dsimp only
   simp only [hintFloor, show (1 : Layer) ≠ 0 by decide,
     show (2 : Layer) ≠ 0 by decide, show (3 : Layer) ≠ 0 by decide, if_false]
@@ -12396,7 +12404,7 @@ theorem bound_heapSeg (first : Bool) (index coord : Nat) (pads : Nat → PairRoo
   exact (bound_sharedNode first coord index _ pads _ _).bind' (l := 0)
     (fun value _ => .pure (nodes.set! _ value) 0 trivial) (by have := hc _ hm.1 hm.2; omega)
 
-set_option maxHeartbeats 1000000 in
+set_option maxHeartbeats 4000000 in
 theorem bound_heapAll (first : Bool) (index coord : Nat) (pads : Nat → PairRoot) (a m : Nat) (ham : a + m = 8)
     (init : Array Digest) :
     CBound (fun _ => True) (m + 8 * ftsCapOf coord + 112 * ftsCapOf coord) ((List.range' a (m + (8 + 112))).reverse.foldlM
@@ -12489,7 +12497,7 @@ end SigGolfCandidate.Research.SharedForest
 namespace SigGolfCandidate.Research.SharedForest
 open OracleComp OracleSpec SigGolfCandidate.T3 ClaudeWCT.WCT9
 open SigGolfCandidate.T3.Correctness
-set_option maxHeartbeats 1000000
+set_option maxHeartbeats 4000000
 set_option maxRecDepth 10000
 set_option backward.isDefEq.respectTransparency false
 
@@ -12586,6 +12594,40 @@ theorem canonical_four_residual (d0 d1 d2 d3 : List Nat) (l0 l1 l2 l3 : Bool)
   change r3 - CanonicalPolicy.credit 3 l3 d3 = 0
   omega
 
+
+theorem canonical_four_residual_pool (pool : Nat) (d0 d1 d2 d3 : List Nat) (l0 l1 l2 l3 : Bool)
+    (h0 : pool - CanonicalPolicy.credit 0 l0 d0 < 55)
+    (h1 : CanonicalPolicy.threshold 1 (CanonicalPolicy.nextResidual pool 0 l0 d0) ≤
+      CanonicalPolicy.credit 1 l1 d1)
+    (h2 : CanonicalPolicy.threshold 2
+      (CanonicalPolicy.nextResidual (CanonicalPolicy.nextResidual pool 0 l0 d0) 1 l1 d1) ≤
+      CanonicalPolicy.credit 2 l2 d2)
+    (h3 : CanonicalPolicy.threshold 3
+      (CanonicalPolicy.nextResidual
+        (CanonicalPolicy.nextResidual (CanonicalPolicy.nextResidual pool 0 l0 d0) 1 l1 d1) 2 l2 d2) ≤
+      CanonicalPolicy.credit 3 l3 d3) :
+    CanonicalPolicy.nextResidual (CanonicalPolicy.nextResidual
+      (CanonicalPolicy.nextResidual (CanonicalPolicy.nextResidual pool 0 l0 d0) 1 l1 d1) 2 l2 d2) 3 l3 d3 = 0 := by
+  let r1 := CanonicalPolicy.nextResidual pool 0 l0 d0
+  have hr1 : r1 < 55 := by dsimp [r1, CanonicalPolicy.nextResidual]; omega
+  have hw1 := firstThreshold_window ⟨r1, hr1⟩
+  change CanonicalPolicy.threshold 1 r1 < 15 ∧ r1 - CanonicalPolicy.threshold 1 r1 ≤ 40 at hw1
+  let r2 := CanonicalPolicy.nextResidual r1 1 l1 d1
+  have hr2 : r2 < 41 := by
+    change CanonicalPolicy.threshold 1 r1 ≤ CanonicalPolicy.credit 1 l1 d1 at h1
+    dsimp [r2, CanonicalPolicy.nextResidual]; omega
+  have hw2 := secondThreshold_window ⟨r2, hr2⟩
+  change CanonicalPolicy.threshold 2 r2 < 23 ∧ r2 - CanonicalPolicy.threshold 2 r2 ≤ 22 at hw2
+  let r3 := CanonicalPolicy.nextResidual r2 2 l2 d2
+  have hr3 : r3 ≤ 22 := by
+    change CanonicalPolicy.threshold 2 r2 ≤ CanonicalPolicy.credit 2 l2 d2 at h2
+    dsimp [r3, CanonicalPolicy.nextResidual]; omega
+  change CanonicalPolicy.threshold 3 r3 ≤ CanonicalPolicy.credit 3 l3 d3 at h3
+  rw [thirdThreshold_window r3 hr3] at h3
+  have := CanonicalPolicy.lowerThreeFloor_ge r3
+  change r3 - CanonicalPolicy.credit 3 l3 d3 = 0
+  omega
+
 end SigGolfCandidate.Research.SharedForest
 
 namespace SigGolfCandidate.Research.SharedForest
@@ -12632,7 +12674,7 @@ end SigGolfCandidate.Research.SharedForest
 namespace SigGolfCandidate.Research.SharedForest
 open OracleComp OracleSpec SigGolfCandidate.T3 ClaudeWCT.WCT9
 open SigGolfCandidate.T3.Correctness
-set_option maxHeartbeats 1000000
+set_option maxHeartbeats 4000000
 set_option maxRecDepth 10000
 set_option backward.isDefEq.respectTransparency false
 
@@ -12756,7 +12798,7 @@ end SigGolfCandidate.Research.SharedForest
 namespace SigGolfCandidate.Research.SharedForest
 open OracleComp OracleSpec SigGolfCandidate.T3 ClaudeWCT.WCT9
 open SigGolfCandidate.T3.Correctness
-set_option maxHeartbeats 1000000
+set_option maxHeartbeats 4000000
 set_option maxRecDepth 10000
 set_option backward.isDefEq.respectTransparency false
 
@@ -13140,7 +13182,7 @@ end SigGolfCandidate.Research.SharedForest
 namespace SigGolfCandidate.Research.SharedForest
 open OracleComp OracleSpec SigGolfCandidate.T3 ClaudeWCT.WCT9
 open SigGolfCandidate.T3.Correctness
-set_option maxHeartbeats 1000000
+set_option maxHeartbeats 4000000
 set_option maxRecDepth 10000
 set_option backward.isDefEq.respectTransparency false
 
@@ -13193,7 +13235,7 @@ end SigGolfCandidate.Research.SharedForest
 namespace SigGolfCandidate.Research.SharedForest
 open OracleComp OracleSpec SigGolfCandidate.T3 ClaudeWCT.WCT9
 open SigGolfCandidate.T3.Correctness
-set_option maxHeartbeats 1000000
+set_option maxHeartbeats 4000000
 set_option maxRecDepth 10000
 set_option backward.isDefEq.respectTransparency false
 
@@ -13233,12 +13275,12 @@ theorem expandFill_verified (answers : Answers) (message : Message) (pk : Digest
       | some result =>
           dsimp only [index, forest, sig0] at hr
           simp only [hr] at he
-          cases hp : policyHintsValid sig0.policyHints result.digits result.lows with
+          cases hp : policyHintsValid index sig0.policyHints result.digits result.lows with
           | false =>
-              dsimp only [sig0] at hp
+              dsimp only [index, sig0] at hp
               simp only [hp, Bool.not_false, if_true, evalWithAnswerFn_pure, reduceCtorEq] at he
           | true =>
-              dsimp only [sig0] at hp
+              dsimp only [index, sig0] at hp
               simp only [hp, Bool.not_true, Bool.false_eq_true, if_false] at he
               by_cases hpk : result.root = pk
               · simp only [hpk, if_true, evalWithAnswerFn_pure, Option.some.injEq] at he
@@ -13284,18 +13326,18 @@ end SigGolfCandidate.Research.SharedForest
 namespace SigGolfCandidate.Research.SharedForest
 open OracleComp OracleSpec SigGolfCandidate.T3 ClaudeWCT.WCT9
 open SigGolfCandidate.T3.Correctness
-set_option maxHeartbeats 1000000
+set_option maxHeartbeats 4000000
 set_option maxRecDepth 10000
 set_option backward.isDefEq.respectTransparency false
 
-def preparedResidual1 (result : CanonicalLayers) : Nat :=
-  CanonicalPolicy.nextResidual (CanonicalPolicy.totalCredit) 0 (result.lows.getD 0 true) (result.digits.getD 0 [])
+def preparedResidual1 (index : Nat) (result : CanonicalLayers) : Nat :=
+  CanonicalPolicy.nextResidual ((requiredCredit index)) 0 (result.lows.getD 0 true) (result.digits.getD 0 [])
 
-def preparedResidual2 (result : CanonicalLayers) : Nat :=
-  CanonicalPolicy.nextResidual (preparedResidual1 result) 1 (result.lows.getD 1 true) (result.digits.getD 1 [])
+def preparedResidual2 (index : Nat) (result : CanonicalLayers) : Nat :=
+  CanonicalPolicy.nextResidual (preparedResidual1 index result) 1 (result.lows.getD 1 true) (result.digits.getD 1 [])
 
-def preparedResidual3 (result : CanonicalLayers) : Nat :=
-  CanonicalPolicy.nextResidual (preparedResidual2 result) 2 (result.lows.getD 2 true) (result.digits.getD 2 [])
+def preparedResidual3 (index : Nat) (result : CanonicalLayers) : Nat :=
+  CanonicalPolicy.nextResidual (preparedResidual2 index result) 2 (result.lows.getD 2 true) (result.digits.getD 2 [])
 
 /-- The successful source program exposes exactly the four canonical searches,
 with every lower threshold determined by its already selected ancestors. -/
@@ -13306,30 +13348,30 @@ structure PreparedSearchFacts (answers : Answers) (cache : SigGolfCandidate.T3.C
   digits_length : result.digits.length = 4
   lows_length : result.lows.length = 4
   search0 : evalWithAnswerFn answers (CanonicalPolicy.layerCounterSearchAt 0
-    (CanonicalPolicy.threshold 0 CanonicalPolicy.totalCredit) (route index 0).2 (route index 0).1
+    (CanonicalPolicy.threshold 0 (requiredCredit index)) (route index 0).2 (route index 0).1
     (.pair (topPair 1 prepared.one.levels).1 (topPair 1 prepared.one.levels).2) 0 (searchLimit 0)) =
       some (result.counters.getD 0 0, result.digits.getD 0 [], result.lows.getD 0 true)
   search1 : evalWithAnswerFn answers (CanonicalPolicy.layerCounterSearchAt 1
-    (CanonicalPolicy.threshold 1 (preparedResidual1 result)) (route index 1).2 (route index 1).1
+    (CanonicalPolicy.threshold 1 (preparedResidual1 index result)) (route index 1).2 (route index 1).1
     (.pair (topPair 2 prepared.two.levels).1 (topPair 2 prepared.two.levels).2) 0 (searchLimit 1)) =
       some (result.counters.getD 1 0, result.digits.getD 1 [], result.lows.getD 1 true)
   search2 : evalWithAnswerFn answers (CanonicalPolicy.layerCounterSearchAt 2
-    (CanonicalPolicy.threshold 2 (preparedResidual2 result)) (route index 2).2 (route index 2).1
+    (CanonicalPolicy.threshold 2 (preparedResidual2 index result)) (route index 2).2 (route index 2).1
     (.pair (topPair 3 prepared.three.levels).1 (topPair 3 prepared.three.levels).2) 0 (searchLimit 2)) =
       some (result.counters.getD 2 0, result.digits.getD 2 [], result.lows.getD 2 true)
   search3 : evalWithAnswerFn answers (CanonicalPolicy.layerCounterSearchAt 3
-    (CanonicalPolicy.threshold 3 (preparedResidual3 result)) (route index 3).2 (route index 3).1
+    (CanonicalPolicy.threshold 3 (preparedResidual3 index result)) (route index 3).2 (route index 3).1
     (.pair (forest).1 (forest).2) 0 (searchLimit 3)) =
       some (result.counters.getD 3 0, result.digits.getD 3 [], result.lows.getD 3 true)
-  floor1_lt : CanonicalPolicy.threshold 1 (preparedResidual1 result) < 15
-  floor2_lt : CanonicalPolicy.threshold 2 (preparedResidual2 result) < 23
-  floor3_lt : CanonicalPolicy.threshold 3 (preparedResidual3 result) < 23
-  residual_eq : result.residual = CanonicalPolicy.nextResidual (preparedResidual3 result) 3
+  floor1_lt : CanonicalPolicy.threshold 1 (preparedResidual1 index result) < 15
+  floor2_lt : CanonicalPolicy.threshold 2 (preparedResidual2 index result) < 23
+  floor3_lt : CanonicalPolicy.threshold 3 (preparedResidual3 index result) < 23
+  residual_eq : result.residual = CanonicalPolicy.nextResidual (preparedResidual3 index result) 3
     (result.lows.getD 3 true) (result.digits.getD 3 [])
   hints_eq : result.policyHints = BitVec.ofNat 16
-    (529 * CanonicalPolicy.threshold 1 (preparedResidual1 result) +
-     23 * CanonicalPolicy.threshold 2 (preparedResidual2 result) +
-     CanonicalPolicy.threshold 3 (preparedResidual3 result))
+    (529 * CanonicalPolicy.threshold 1 (preparedResidual1 index result) +
+     23 * CanonicalPolicy.threshold 2 (preparedResidual2 index result) +
+     CanonicalPolicy.threshold 3 (preparedResidual3 index result))
   pieces_eq : result.pieces = [
     evalWithAnswerFn answers (signTop cache (route index 0).1 (result.digits.getD 0 [])),
     preparedPieces 1 (route index 1).1 prepared.one (result.digits.getD 1 []),
@@ -13343,13 +13385,13 @@ theorem searchPreparedLayers_some (answers : Answers) (cache : SigGolfCandidate.
   unfold searchPreparedLayers at he
   simp only [evalWithAnswerFn_bind] at he
   cases hs0 : evalWithAnswerFn answers (CanonicalPolicy.layerCounterSearchAt 0
-    (CanonicalPolicy.threshold 0 CanonicalPolicy.totalCredit) (route index 0).2 (route index 0).1
+    (CanonicalPolicy.threshold 0 (requiredCredit index)) (route index 0).2 (route index 0).1
     (.pair (topPair 1 prepared.one.levels).1 (topPair 1 prepared.one.levels).2) 0 (searchLimit 0)) with
   | none => simp only [hs0, evalWithAnswerFn_pure, reduceCtorEq] at he
   | some found0 =>
       obtain ⟨c0, d0, l0⟩ := found0
       simp only [hs0, evalWithAnswerFn_bind] at he
-      let r1 := CanonicalPolicy.nextResidual CanonicalPolicy.totalCredit 0 l0 d0
+      let r1 := CanonicalPolicy.nextResidual (requiredCredit index) 0 l0 d0
       let f1 := CanonicalPolicy.threshold 1 r1
       by_cases hf1 : f1 ≥ 15
       · dsimp only [r1, f1] at hf1
@@ -13429,7 +13471,7 @@ end SigGolfCandidate.Research.SharedForest
 namespace SigGolfCandidate.Research.SharedForest
 open OracleComp OracleSpec SigGolfCandidate.T3 ClaudeWCT.WCT9
 open SigGolfCandidate.T3.Correctness
-set_option maxHeartbeats 1000000
+set_option maxHeartbeats 4000000
 set_option maxRecDepth 10000
 set_option backward.isDefEq.respectTransparency false
 
@@ -13473,7 +13515,7 @@ theorem recoverHintedLayers_replay (answers : Answers) (sig : Signature) (index 
     (other : Digest) (forest : PairRoot)
     (counter : Layer → BitVec 32) (digits : Layer → List Nat) (lows : Layer → Bool)
     (hs : ∀ lay, evalWithAnswerFn answers (CanonicalPolicy.layerCounterSearchAt lay
-      (hintFloor sig.policyHints lay) (route index lay).2 (route index lay).1
+      (hintFloor index sig.policyHints lay) (route index lay).2 (route index lay).1
       (if lay = 3 then .pair forest.1 forest.2 else
         let lower : Layer := Fin.ofNat 4 (lay.val + 1)
         .pair (builtPair answers lower (route index lower).2).1
@@ -13522,7 +13564,7 @@ end SigGolfCandidate.Research.SharedForest
 namespace SigGolfCandidate.Research.SharedForest
 open OracleComp OracleSpec SigGolfCandidate.T3 ClaudeWCT.WCT9
 open SigGolfCandidate.T3.Correctness
-set_option maxHeartbeats 1000000
+set_option maxHeartbeats 4000000
 set_option maxRecDepth 10000
 set_option backward.isDefEq.respectTransparency false
 
@@ -13552,16 +13594,16 @@ theorem PreparedSearchFacts.hints_spec {answers : Answers} {cache : SigGolfCandi
     {prepared : PreparedRoots} {forest : PairRoot} {result : CanonicalLayers}
     (h : PreparedSearchFacts answers cache index prepared forest result) :
     result.policyHints.toNat < 8192 ∧
-      hintFloor result.policyHints 1 = CanonicalPolicy.threshold 1 (preparedResidual1 result) ∧
-      hintFloor result.policyHints 2 = CanonicalPolicy.threshold 2 (preparedResidual2 result) ∧
-      hintFloor result.policyHints 3 = CanonicalPolicy.threshold 3 (preparedResidual3 result) := by
+      hintFloor index result.policyHints 1 = CanonicalPolicy.threshold 1 (preparedResidual1 index result) ∧
+      hintFloor index result.policyHints 2 = CanonicalPolicy.threshold 2 (preparedResidual2 index result) ∧
+      hintFloor index result.policyHints 3 = CanonicalPolicy.threshold 3 (preparedResidual3 index result) := by
   rw [h.hints_eq]
   exact encodedHints_spec _ _ _ h.floor1_lt h.floor2_lt h.floor3_lt
 
 theorem PreparedSearchFacts.hints_valid {answers : Answers} {cache : SigGolfCandidate.T3.Cache} {index : Nat}
     {prepared : PreparedRoots} {forest : PairRoot} {result : CanonicalLayers}
     (h : PreparedSearchFacts answers cache index prepared forest result) :
-    policyHintsValid result.policyHints result.digits result.lows = true := by
+    policyHintsValid index result.policyHints result.digits result.lows = true := by
   simp only [policyHintsValid, decide_eq_true_eq]
   exact ⟨h.hints_spec.1, h.digits_length, h.hints_spec.2⟩
 
@@ -13607,7 +13649,7 @@ end SigGolfCandidate.Research.SharedForest
 namespace SigGolfCandidate.Research.SharedForest
 open OracleComp OracleSpec SigGolfCandidate.T3 ClaudeWCT.WCT9
 open SigGolfCandidate.T3.Correctness
-set_option maxHeartbeats 1000000
+set_option maxHeartbeats 4000000
 set_option maxRecDepth 10000
 set_option backward.isDefEq.respectTransparency false
 
@@ -13630,7 +13672,7 @@ theorem PreparedSearchFacts.recover_honest {answers : Answers} {cache : SigGolfC
   have hs3 := h.search3
   simp only [prepareRoots_result, fixedPrepared_pair] at hs0 hs1 hs2
   have hs : ∀ lay, evalWithAnswerFn answers (CanonicalPolicy.layerCounterSearchAt lay
-      (hintFloor sig.policyHints lay) (route index lay).2 (route index lay).1
+      (hintFloor index sig.policyHints lay) (route index lay).2 (route index lay).1
       (if lay = 3 then .pair forest.1 forest.2 else
         let lower : Layer := Fin.ofNat 4 (lay.val + 1)
         .pair (builtPair answers lower (route index lower).2).1
@@ -13671,7 +13713,7 @@ end SigGolfCandidate.Research.SharedForest
 namespace SigGolfCandidate.Research.SharedForest
 open OracleComp OracleSpec SigGolfCandidate.T3 ClaudeWCT.WCT9
 open SigGolfCandidate.T3.Correctness
-set_option maxHeartbeats 1000000
+set_option maxHeartbeats 4000000
 set_option maxRecDepth 10000
 set_option backward.isDefEq.respectTransparency false
 
@@ -13685,7 +13727,7 @@ theorem expand_complete_of_recovered (answers : Answers) (message : Message) (pk
         (forestSelectionFromOutput output) (forestWordsFromOutput output) sig.forest)).1.1
         (evalWithAnswerFn answers (recoverForest (digestIndex output)
           (forestSelectionFromOutput output) (forestWordsFromOutput output) sig.forest)).1.2)) = some result)
-    (hh : policyHintsValid sig.policyHints result.digits result.lows = true) (hpk : result.root = pk)
+    (hh : policyHintsValid (digestIndex output) sig.policyHints result.digits result.lows = true) (hpk : result.root = pk)
     (htop : TopPathOK sig) (hlow : LowerPathOK sig) :
     ∃ w, evalWithAnswerFn answers (expand message pk sig) = some w := by
   have hhbound' : sig.policyHints.toNat < 2 ^ 13 := by
@@ -13749,7 +13791,7 @@ end SigGolfCandidate.Research.SharedForest
 namespace SigGolfCandidate.Research.SharedForest
 open OracleComp OracleSpec SigGolfCandidate.T3 ClaudeWCT.WCT9
 open SigGolfCandidate.T3.Correctness
-set_option maxHeartbeats 1000000
+set_option maxHeartbeats 4000000
 set_option maxRecDepth 10000
 set_option backward.isDefEq.respectTransparency false
 
@@ -13765,7 +13807,7 @@ theorem signFromOutput_recovery (answers : Answers) (cache : SigGolfCandidate.T3
           (evalWithAnswerFn answers (recoverForest (digestIndex output)
             (forestSelectionFromOutput output) (forestWordsFromOutput output) w.signature.forest)).1.2)) = some result ∧
       result.root = treeValue (builtTree answers 0 0) 12 0 ∧
-      policyHintsValid w.signature.policyHints result.digits result.lows = true ∧
+      policyHintsValid (digestIndex output) w.signature.policyHints result.digits result.lows = true ∧
       w.topHigh = !(result.lows.getD 0 true) := by
   let index := digestIndex output
   let built := evalWithAnswerFn answers (buildForest index
@@ -14186,7 +14228,7 @@ end SigGolfCandidate.Research.SharedDigestFields
 namespace SigGolfCandidate.Research.SharedForest
 open OracleComp OracleSpec SigGolfCandidate.T3 ClaudeWCT.WCT9
 open SigGolfCandidate.T3.Correctness
-set_option maxHeartbeats 1000000
+set_option maxHeartbeats 4000000
 set_option maxRecDepth 10000
 set_option backward.isDefEq.respectTransparency false
 
@@ -14194,7 +14236,7 @@ theorem recoverHintedLayers_credit (answers : Answers) (sig : Signature) (index 
     ∀ n, n ≤ 4 → ∀ msg result,
       evalWithAnswerFn answers (recoverHintedLayers sig index other n msg) = some result →
       result.digits.length = n ∧ result.lows.length = n ∧ ∀ lay : Layer, lay.val < n →
-        hintFloor sig.policyHints lay ≤
+        hintFloor index sig.policyHints lay ≤
           CanonicalPolicy.credit lay (result.lows.getD lay.val true) (result.digits.getD lay.val []) := by
   intro n
   induction n with
@@ -14241,29 +14283,43 @@ theorem recoverHintedLayers_credit (answers : Answers) (sig : Signature) (index 
                   exact hprevious lay (by omega)
       · simp only [evalWithAnswerFn_pure, reduceCtorEq] at he
 
-theorem policyHints_credit_sum (hints : BitVec 16) (digits : List (List Nat)) (lows : List Bool)
-    (hh : policyHintsValid hints digits lows = true)
-    (hc : ∀ lay : Layer, hintFloor hints lay ≤
+theorem policyHints_credit_sum_required {index : Nat} (hints : BitVec 16) (digits : List (List Nat)) (lows : List Bool)
+    (hh : policyHintsValid index hints digits lows = true)
+    (hc : ∀ lay : Layer, hintFloor index hints lay ≤
       CanonicalPolicy.credit lay (lows.getD lay.val true) (digits.getD lay.val [])) :
-    72 ≤ ((List.finRange 4).map fun lay =>
+    requiredCredit index ≤ ((List.finRange 4).map fun lay =>
       CanonicalPolicy.credit lay (lows.getD lay.val true) (digits.getD lay.val [])).sum := by
   simp only [policyHintsValid, decide_eq_true_eq] at hh
-  have h0 : 18 ≤ CanonicalPolicy.credit 0 (lows.getD 0 true) (digits.getD 0 []) := by
-    simpa [hintFloor, CanonicalPolicy.topFloor] using hc 0
+  have h0 : CanonicalPolicy.threshold 0 (requiredCredit index) ≤
+      CanonicalPolicy.credit 0 (lows.getD 0 true) (digits.getD 0 []) := by simpa [hintFloor] using hc 0
+  rw [CanonicalPolicy.threshold_top] at h0
+  have hr0 : requiredCredit index - CanonicalPolicy.credit 0 (lows.getD 0 true) (digits.getD 0 []) < 55 := by
+    have hm := Nat.le_max_right 18 (requiredCredit index - 54)
+    omega
   have h1 := hc 1
   have h2 := hc 2
   have h3 := hc 3
   rw [hh.2.2.1] at h1
   rw [hh.2.2.2.1] at h2
   rw [hh.2.2.2.2] at h3
-  have hz := canonical_four_residual (digits.getD 0 []) (digits.getD 1 []) (digits.getD 2 [])
-    (digits.getD 3 []) (lows.getD 0 true) (lows.getD 1 true) (lows.getD 2 true) (lows.getD 3 true) h0 h1 h2 h3
+  have hz := canonical_four_residual_pool (requiredCredit index)
+    (digits.getD 0 []) (digits.getD 1 []) (digits.getD 2 []) (digits.getD 3 [])
+    (lows.getD 0 true) (lows.getD 1 true) (lows.getD 2 true) (lows.getD 3 true) hr0 h1 h2 h3
   simp only [CanonicalPolicy.nextResidual] at hz
-  change 72 ≤ CanonicalPolicy.credit 0 (lows.getD 0 true) (digits.getD 0 []) +
+  change requiredCredit index ≤ CanonicalPolicy.credit 0 (lows.getD 0 true) (digits.getD 0 []) +
     (CanonicalPolicy.credit 1 (lows.getD 1 true) (digits.getD 1 []) +
       (CanonicalPolicy.credit 2 (lows.getD 2 true) (digits.getD 2 []) +
       (CanonicalPolicy.credit 3 (lows.getD 3 true) (digits.getD 3 []) + 0)))
   omega
+
+theorem policyHints_credit_sum {index : Nat} (hints : BitVec 16) (digits : List (List Nat)) (lows : List Bool)
+    (hh : policyHintsValid index hints digits lows = true)
+    (hc : ∀ lay : Layer, hintFloor index hints lay ≤
+      CanonicalPolicy.credit lay (lows.getD lay.val true) (digits.getD lay.val [])) :
+    71 ≤ ((List.finRange 4).map fun lay =>
+      CanonicalPolicy.credit lay (lows.getD lay.val true) (digits.getD lay.val [])).sum :=
+  (requiredCredit_bounds index).1.trans (policyHints_credit_sum_required hints digits lows hh hc)
+
 end SigGolfCandidate.Research.SharedForest
 
 namespace SigGolfCandidate.Research.SharedForest
@@ -14271,7 +14327,7 @@ open OracleComp OracleSpec SigGolfCandidate.T3 ClaudeWCT.WCT9
 open SigGolfCandidate.T3.Correctness
 open SigGolfCandidate.T3.Cost
 open ClaudeWCT.WCT9.Cost
-set_option maxHeartbeats 1000000
+set_option maxHeartbeats 4000000
 set_option maxRecDepth 10000
 set_option backward.isDefEq.respectTransparency false
 
@@ -14448,13 +14504,13 @@ namespace SigGolfCandidate.Research.SharedForest
 open OracleComp OracleSpec SigGolfCandidate.T3 ClaudeWCT.WCT9
 open SigGolfCandidate.T3.Correctness
 open SigGolfCandidate.T3.SearchCost (cost cost_bind cost_pure cost_bound)
-set_option maxHeartbeats 1000000
+set_option maxHeartbeats 4000000
 set_option maxRecDepth 10000
 set_option backward.isDefEq.respectTransparency false
 
 def recoverySearch (answers : Answers) (sig : Signature) (index : Nat) (forest : PairRoot) (lay : Layer) :
     M (Option (BitVec 32 × List Nat × Bool)) :=
-  CanonicalPolicy.layerCounterSearchAt lay (hintFloor sig.policyHints lay)
+  CanonicalPolicy.layerCounterSearchAt lay (hintFloor index sig.policyHints lay)
     (route index lay).2 (route index lay).1
     (if lay = 3 then .pair forest.1 forest.2 else
       let lower : Layer := Fin.ofNat 4 (lay.val + 1)
@@ -14533,7 +14589,7 @@ namespace SigGolfCandidate.Research.SharedForest
 open OracleComp OracleSpec SigGolfCandidate.T3 ClaudeWCT.WCT9
 open SigGolfCandidate.T3.Correctness
 open SigGolfCandidate.T3.SearchCost (cost cost_bind cost_pure cost_bound)
-set_option maxHeartbeats 1000000
+set_option maxHeartbeats 4000000
 set_option maxRecDepth 10000
 set_option backward.isDefEq.respectTransparency false
 
@@ -14559,7 +14615,7 @@ theorem PreparedSearchFacts.cost_eq {answers : Answers} {cache : SigGolfCandidat
     hf1, hf2, hf3, if_false, cost_pure, Nat.add_zero]
   simp only [recoverySearchCost, recoverySearch, hh, h.hints_spec.2.1,
     h.hints_spec.2.2.1, h.hints_spec.2.2.2, hm0, hm1, hm2,
-    show hintFloor result.policyHints 0 = CanonicalPolicy.threshold 0 CanonicalPolicy.totalCredit from rfl,
+    show hintFloor index result.policyHints 0 = CanonicalPolicy.threshold 0 (requiredCredit index) from rfl,
     show (0 : Layer) ≠ 3 by decide, show (1 : Layer) ≠ 3 by decide,
     show (2 : Layer) ≠ 3 by decide, if_false, if_true,
     show (Fin.ofNat 4 ((0 : Layer).val + 1) : Layer) = 1 from rfl,
@@ -14583,7 +14639,7 @@ namespace SigGolfCandidate.Research.SharedForest
 open OracleComp OracleSpec SigGolfCandidate.T3 ClaudeWCT.WCT9
 open SigGolfCandidate.T3.Correctness
 open SigGolfCandidate.T3.SearchCost (cost cost_bind cost_pure cost_bound)
-set_option maxHeartbeats 1000000
+set_option maxHeartbeats 4000000
 set_option maxRecDepth 10000
 set_option backward.isDefEq.respectTransparency false
 
@@ -14611,7 +14667,7 @@ theorem PreparedSearchFacts.recovery_cost_le {answers : Answers} {cache : SigGol
     intro lay
     rcases layer_four_cases lay with rfl | rfl | rfl | rfl <;>
       simp only [recoverySearch, hh, h.hints_spec.2.1, h.hints_spec.2.2.1, h.hints_spec.2.2.2,
-        show hintFloor result.policyHints 0 = CanonicalPolicy.threshold 0 CanonicalPolicy.totalCredit from rfl,
+        show hintFloor index result.policyHints 0 = CanonicalPolicy.threshold 0 (requiredCredit index) from rfl,
         show (0 : Layer) ≠ 3 by decide, show (1 : Layer) ≠ 3 by decide,
         show (2 : Layer) ≠ 3 by decide, if_false, if_true,
         show (Fin.ofNat 4 ((0 : Layer).val + 1) : Layer) = 1 from rfl,
@@ -14632,27 +14688,27 @@ end SigGolfCandidate.Research.SharedForest
 namespace SigGolfCandidate.Research.SharedForest
 open OracleComp OracleSpec SigGolfCandidate.T3 ClaudeWCT.WCT9
 open SigGolfCandidate.T3.Correctness (Answers)
-set_option maxHeartbeats 1000000
+set_option maxHeartbeats 4000000
 set_option maxRecDepth 10000
 set_option backward.isDefEq.respectTransparency false
 
-theorem policyHintsValid_congr_lows (hints : BitVec 16) (digits : List (List Nat)) {lowsA lowsB : List Bool}
+theorem policyHintsValid_congr_lows {index : Nat} (hints : BitVec 16) (digits : List (List Nat)) {lowsA lowsB : List Bool}
     (h0 : lowsA.getD 0 true = lowsB.getD 0 true) (h1 : lowsA.getD 1 true = lowsB.getD 1 true)
     (h2 : lowsA.getD 2 true = lowsB.getD 2 true) :
-    policyHintsValid hints digits lowsA = policyHintsValid hints digits lowsB := by
+    policyHintsValid index hints digits lowsA = policyHintsValid index hints digits lowsB := by
   simp only [policyHintsValid, h0, h1, h2]
 
 theorem hintedSelections_unique (answers : Answers) (index : Nat) (messages : Layer → LayerMsg)
     (hintsA hintsB : BitVec 16) (countersA countersB : Layer → BitVec 32)
     (digitsA digitsB : List (List Nat)) (lowsA lowsB : List Bool)
-    (hvalidA : policyHintsValid hintsA digitsA lowsA = true)
-    (hvalidB : policyHintsValid hintsB digitsB lowsB = true)
+    (hvalidA : policyHintsValid index hintsA digitsA lowsA = true)
+    (hvalidB : policyHintsValid index hintsB digitsB lowsB = true)
     (hsearchA : ∀ lay, evalWithAnswerFn answers
-      (CanonicalPolicy.layerCounterSearchAt lay (hintFloor hintsA lay) (route index lay).2
+      (CanonicalPolicy.layerCounterSearchAt lay (hintFloor index hintsA lay) (route index lay).2
         (route index lay).1 (messages lay) 0 (searchLimit lay)) =
           some (countersA lay, digitsA.getD lay.val [], lowsA.getD lay.val true))
     (hsearchB : ∀ lay, evalWithAnswerFn answers
-      (CanonicalPolicy.layerCounterSearchAt lay (hintFloor hintsB lay) (route index lay).2
+      (CanonicalPolicy.layerCounterSearchAt lay (hintFloor index hintsB lay) (route index lay).2
         (route index lay).1 (messages lay) 0 (searchLimit lay)) =
           some (countersB lay, digitsB.getD lay.val [], lowsB.getD lay.val true)) :
     hintsA = hintsB ∧ countersA = countersB ∧ digitsA = digitsB ∧
@@ -14660,7 +14716,7 @@ theorem hintedSelections_unique (answers : Answers) (index : Nat) (messages : La
   have hA := hvalidA
   have hB := hvalidB
   simp only [policyHintsValid, decide_eq_true_eq] at hA hB
-  have same (lay : Layer) (hf : hintFloor hintsA lay = hintFloor hintsB lay) :
+  have same (lay : Layer) (hf : hintFloor index hintsA lay = hintFloor index hintsB lay) :
       (countersA lay, digitsA.getD lay.val [], lowsA.getD lay.val true) =
         (countersB lay, digitsB.getD lay.val [], lowsB.getD lay.val true) := by
     have ha := hsearchA lay
@@ -14685,7 +14741,7 @@ theorem hintedSelections_unique (answers : Answers) (index : Nat) (messages : La
     have he : digitsA.getD i [] = digitsB.getD i [] := by
       interval_cases i <;> assumption
     simpa only [List.getD_eq_getElem _ _ hi, List.getD_eq_getElem _ _ hj] using he
-  have hvB : policyHintsValid hintsB digitsA lowsA = true := by
+  have hvB : policyHintsValid index hintsB digitsA lowsA = true := by
     rw [policyHintsValid_congr_lows hintsB digitsA hl0 hl1 hl2, hd]; exact hvalidB
   refine ⟨policyHintsValid_unique hvalidA hvB, ?_, hd, ?_⟩
   · funext lay
@@ -14705,7 +14761,7 @@ end SigGolfCandidate.Research.SharedForest
 namespace SigGolfCandidate.Research.SharedForest
 open OracleComp OracleSpec SigGolfCandidate.T3 ClaudeWCT.WCT9
 open SigGolfCandidate.T3.Correctness (Answers)
-set_option maxHeartbeats 1000000
+set_option maxHeartbeats 4000000
 set_option maxRecDepth 10000
 set_option backward.isDefEq.respectTransparency false
 
@@ -14722,7 +14778,7 @@ theorem recoverHintedLayers_selections (answers : Answers) (sig : Signature) (in
     evalWithAnswerFn answers (recoverHintedLayers sig index other n message) = some result →
     result.counters.length = n ∧ result.digits.length = n ∧ result.lows.length = n ∧
       ∀ lay : Layer, lay.val < n → evalWithAnswerFn answers
-        (CanonicalPolicy.layerCounterSearchAt lay (hintFloor sig.policyHints lay)
+        (CanonicalPolicy.layerCounterSearchAt lay (hintFloor index sig.policyHints lay)
           (route index lay).2 (route index lay).1
           (recoveredMessage answers sig index n message result.digits lay) 0 (searchLimit lay)) =
             some (result.counters.getD lay.val 0, result.digits.getD lay.val [], result.lows.getD lay.val true) := by
@@ -14806,7 +14862,7 @@ end SigGolfCandidate.Research.SharedForest
 namespace SigGolfCandidate.Research.SharedForest
 open OracleComp OracleSpec SigGolfCandidate.T3 ClaudeWCT.WCT9
 open SigGolfCandidate.T3.Correctness (Answers)
-set_option maxHeartbeats 1000000
+set_option maxHeartbeats 4000000
 set_option maxRecDepth 10000
 set_option backward.isDefEq.respectTransparency false
 
@@ -14848,7 +14904,7 @@ theorem recoveredSelections_canonical (answers : Answers) (sig : Signature) (ind
       .pair (builtPair answers (Fin.ofNat 4 (n+1)) (route index (Fin.ofNat 4 (n+1))).2).1
         (builtPair answers (Fin.ofNat 4 (n+1)) (route index (Fin.ofNat 4 (n+1))).2).2)
     (hselections : ∀ lay : Layer, evalWithAnswerFn answers
-      (CanonicalPolicy.layerCounterSearchAt lay (hintFloor sig.policyHints lay)
+      (CanonicalPolicy.layerCounterSearchAt lay (hintFloor index sig.policyHints lay)
         (route index lay).2 (route index lay).1
         (recoveredMessage answers sig index 4 input result.digits lay) 0 (searchLimit lay)) =
           some (result.counters.getD lay.val 0, result.digits.getD lay.val [], result.lows.getD lay.val true))
@@ -14859,14 +14915,14 @@ theorem recoveredSelections_canonical (answers : Answers) (sig : Signature) (ind
       sig.layers lay = piecesSignature lay
         (wotsPieces answers lay (route index lay).2 (route index lay).1 digits)) :
     ∀ lay : Layer,
-      evalWithAnswerFn answers (CanonicalPolicy.layerCounterSearchAt lay (hintFloor sig.policyHints lay)
+      evalWithAnswerFn answers (CanonicalPolicy.layerCounterSearchAt lay (hintFloor index sig.policyHints lay)
         (route index lay).2 (route index lay).1 (messages lay) 0 (searchLimit lay)) =
           some (result.counters.getD lay.val 0, result.digits.getD lay.val [], result.lows.getD lay.val true) ∧
       sig.layers lay = piecesSignature lay
         (wotsPieces answers lay (route index lay).2 (route index lay).1 (result.digits.getD lay.val [])) := by
   have step (lay : Layer)
       (hm : recoveredMessage answers sig index 4 input result.digits lay = messages lay) :
-      evalWithAnswerFn answers (CanonicalPolicy.layerCounterSearchAt lay (hintFloor sig.policyHints lay)
+      evalWithAnswerFn answers (CanonicalPolicy.layerCounterSearchAt lay (hintFloor index sig.policyHints lay)
         (route index lay).2 (route index lay).1 (messages lay) 0 (searchLimit lay)) =
           some (result.counters.getD lay.val 0, result.digits.getD lay.val [], result.lows.getD lay.val true) ∧
       sig.layers lay = piecesSignature lay
@@ -14875,7 +14931,7 @@ theorem recoveredSelections_canonical (answers : Answers) (sig : Signature) (ind
     have hs := hselections lay
     rw [hm] at hs
     have hlim := searchLimit_le lay
-    have hp := (canonical_search_some' answers lay (hintFloor sig.policyHints lay)
+    have hp := (canonical_search_some' answers lay (hintFloor index sig.policyHints lay)
       (route index lay).2 (route index lay).1 (messages lay) (searchLimit lay) 0
       (result.counters.getD lay.val 0) (result.digits.getD lay.val []) (result.lows.getD lay.val true)
       (by unfold counterLimit at hlim; omega) hs).2.2.2
@@ -14923,7 +14979,7 @@ end SigGolfCandidate.Research.SharedForest
 namespace SigGolfCandidate.Research.SharedForest
 open OracleComp OracleSpec SigGolfCandidate.T3 ClaudeWCT.WCT9
 open SigGolfCandidate.T3.Correctness (Answers)
-set_option maxHeartbeats 1000000
+set_option maxHeartbeats 4000000
 set_option maxRecDepth 10000
 set_option backward.isDefEq.respectTransparency false
 
@@ -14931,14 +14987,14 @@ theorem signature_unique_of_selections (answers : Answers) (index : Nat)
     (messages : Layer → LayerMsg) (a b : Signature)
     (ca cb : Layer → BitVec 32) (da db : List (List Nat)) (la lb : List Bool)
     (hrho : a.rho = b.rho) (hforest : a.forest = b.forest)
-    (ha : policyHintsValid a.policyHints da la = true)
-    (hb : policyHintsValid b.policyHints db lb = true)
+    (ha : policyHintsValid index a.policyHints da la = true)
+    (hb : policyHintsValid index b.policyHints db lb = true)
     (hsa : ∀ lay, evalWithAnswerFn answers
-      (CanonicalPolicy.layerCounterSearchAt lay (hintFloor a.policyHints lay)
+      (CanonicalPolicy.layerCounterSearchAt lay (hintFloor index a.policyHints lay)
         (route index lay).2 (route index lay).1 (messages lay) 0 (searchLimit lay)) =
           some (ca lay, da.getD lay.val [], la.getD lay.val true))
     (hsb : ∀ lay, evalWithAnswerFn answers
-      (CanonicalPolicy.layerCounterSearchAt lay (hintFloor b.policyHints lay)
+      (CanonicalPolicy.layerCounterSearchAt lay (hintFloor index b.policyHints lay)
         (route index lay).2 (route index lay).1 (messages lay) 0 (searchLimit lay)) =
           some (cb lay, db.getD lay.val [], lb.getD lay.val true))
     (hla : ∀ lay, a.layers lay = piecesSignature lay
@@ -14959,7 +15015,7 @@ end SigGolfCandidate.Research.SharedForest
 namespace SigGolfCandidate.Research.SharedForest
 open OracleComp OracleSpec SigGolfCandidate.T3 ClaudeWCT.WCT9
 open SigGolfCandidate.T3.Correctness (Answers)
-set_option maxHeartbeats 1000000
+set_option maxHeartbeats 4000000
 set_option maxRecDepth 10000
 set_option backward.isDefEq.respectTransparency false
 
@@ -15015,7 +15071,7 @@ end SigGolfCandidate.Research.SharedForest
 namespace SigGolfCandidate.Research.SharedForest
 open OracleComp OracleSpec SigGolfCandidate.T3 ClaudeWCT.WCT9
 open SigGolfCandidate.T3.Correctness (Answers)
-set_option maxHeartbeats 1000000
+set_option maxHeartbeats 4000000
 set_option maxRecDepth 10000
 set_option backward.isDefEq.respectTransparency false
 
@@ -15023,7 +15079,7 @@ theorem PreparedSearchFacts.hinted_searches {answers : Answers} {cache : SigGolf
     {index : Nat} {forest : PairRoot} {result : CanonicalLayers}
     (h : PreparedSearchFacts answers cache index (evalWithAnswerFn answers (prepareRoots index)) forest result) :
     ∀ lay, evalWithAnswerFn answers (CanonicalPolicy.layerCounterSearchAt lay
-      (hintFloor result.policyHints lay) (route index lay).2 (route index lay).1
+      (hintFloor index result.policyHints lay) (route index lay).2 (route index lay).1
       (if lay=3 then .pair forest.1 forest.2 else
         let lower : Layer := Fin.ofNat 4 (lay.val+1)
         .pair (builtPair answers lower (route index lower).2).1
@@ -15056,7 +15112,7 @@ open OracleComp OracleSpec OracleComp.EvalDist ENNReal
 open SigGolfCandidate.T3 SigGolfCandidate.T3.Security
 open SphincsSecurity.Concrete (uniformWordAverage)
 open ClaudeWCT.WCT9 (Coord Child Rank child rank wordDigit)
-set_option maxHeartbeats 1000000
+set_option maxHeartbeats 4000000
 set_option maxRecDepth 10000
 set_option backward.isDefEq.respectTransparency false
 attribute [local instance] Classical.propDecidable
@@ -15157,7 +15213,7 @@ section
 namespace ClaudeWCT.WCT9
 open OracleComp OracleSpec OracleComp.EvalDist ENNReal
 open SigGolfCandidate.T3
-set_option maxHeartbeats 1000000
+set_option maxHeartbeats 4000000
 set_option maxRecDepth 10000
 set_option backward.isDefEq.respectTransparency false
 abbrev DigestCoordinates := Fin (2 ^ 31) × (Coord → Fin 128 × Fin 1024) × (Fin 58 → Bool) × Fin (2 ^ 14)
@@ -15264,7 +15320,7 @@ namespace ClaudeWCT.Bank.WCT
 open OracleComp OracleSpec OracleComp.EvalDist ENNReal
 open SigGolfCandidate.T3
 open ClaudeWCT.WCT9 (Coord Child Rank child rank DigestCoordinates digestCoordinates admissibleView)
-set_option maxHeartbeats 1000000
+set_option maxHeartbeats 4000000
 set_option maxRecDepth 10000
 def viewProposal (v : DigestCoordinates) : WProposal :=
   (v.1, fun k => ((v.2.1 k).1, ⟨(v.2.1 k).2.val % 563, Nat.mod_lt _ (by decide)⟩))

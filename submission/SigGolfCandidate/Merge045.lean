@@ -54,17 +54,15 @@ def xOfB (b : CBytes) : Nat :=
   topBits 1 (cDig b 168) + topBits 2 (cDig b 169) * 2 ^ 1 + topBits 3 (cDig b 170) * 2 ^ 3 +
   topBits 4 (cDig b 171) * 2 ^ 6 + topBits 5 (cDig b 172) * 2 ^ 10 + topBits 6 (cDig b 173) * 2 ^ 15 +
   topBits 7 (cDig b 174) * 2 ^ 21 + topBits 8 (cDig b 175) * 2 ^ 28
-/-- Y5 (hint trim): the hint alphabets `A1 = {0, 8, 12, 14}`, `A2 = {0, 9, 13, 15, 17, 18}`, `A3 = {6, 9..22}`, read
+/-- Y5 (hint trim): the hint alphabets `A1 = {6, 10, 12, 14}`, `A2 = {6, 10, 12, 14, 16, 18}`, `A3 = {6, 9..22}`, read
 from an index (the expand decode's additive form). -/
-def hintA1 (i : Nat) : Nat := (if 1 ≤ i then 8 else 0) + (if 2 ≤ i then 4 else 0) + (if 3 ≤ i then 2 else 0)
-def hintA2 (i : Nat) : Nat :=
-  (if 1 ≤ i then 9 else 0) + (if 2 ≤ i then 4 else 0) + (if 3 ≤ i then 2 else 0) + (if 4 ≤ i then 2 else 0) +
-    (if 5 ≤ i then 1 else 0)
+def hintA1 (i : Nat) : Nat := 6 + (if 1 ≤ i then 4 else 0) + (if 2 ≤ i then 2 else 0) + (if 3 ≤ i then 2 else 0)
+def hintA2 (i : Nat) : Nat := 6 + (if 1 ≤ i then 4 else 0) + (if 2 ≤ i then 2 else 0) + (if 3 ≤ i then 2 else 0) + (if 4 ≤ i then 2 else 0) + (if 5 ≤ i then 2 else 0)
 def hintA3 (i : Nat) : Nat := if i = 0 then 6 else i + 8
 /-- Y5: the index of a digit in its alphabet (the sign tail's counting form; `A3`: `f - 8` on `9..22`, 0 on 6). -/
-def hintI1 (f : Nat) : Nat := (if 8 ≤ f then 1 else 0) + (if 12 ≤ f then 1 else 0) + (if 14 ≤ f then 1 else 0)
+def hintI1 (f : Nat) : Nat := (if 10 ≤ f then 1 else 0) + (if 12 ≤ f then 1 else 0) + (if 14 ≤ f then 1 else 0)
 def hintI2 (f : Nat) : Nat :=
-  (if 9 ≤ f then 1 else 0) + (if 13 ≤ f then 1 else 0) + (if 15 ≤ f then 1 else 0) + (if 17 ≤ f then 1 else 0) +
+  (if 10 ≤ f then 1 else 0) + (if 12 ≤ f then 1 else 0) + (if 14 ≤ f then 1 else 0) + (if 16 ≤ f then 1 else 0) +
     (if 18 ≤ f then 1 else 0)
 def hintI3 (f : Nat) : Nat := if 8 ≤ f then f - 8 else 0
 /-- Y5 (hint trim; C13R68 skip-2 had `t = 418 f1' + 22 f2 + f3 < 5852`): the hint digits `h = 529 f1 + 23 f2 + f3`
