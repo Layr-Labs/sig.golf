@@ -12,6 +12,7 @@ import SigGolfCandidate.Merge028
 import SigGolfCandidate.Merge029
 import SigGolfCandidate.Merge030
 import SigGolfCandidate.Merge031
+import SigGolfCandidate.LocalRouteAddress
 import SigGolfCandidate.Merge032
 set_option debug.skipKernelTC true
 set_option linter.all false
@@ -11471,13 +11472,41 @@ structure CanonicalLayers where
   residual : Nat
   policyHints : BitVec 16
 
-/-- Canonical root credit depends only on the top WOTS leaf's own address. -/
-def requiredCredit (index : Nat) : Nat := CanonicalPolicy.routePool (route index 0).1
+end SigGolfCandidate.Research.SharedForest
 
-theorem requiredCredit_bounds (index : Nat) : 71 ≤ requiredCredit index ∧ requiredCredit index ≤ 73 := by
-  unfold requiredCredit CanonicalPolicy.routePool
-  unfold CanonicalPolicy.topPathSave CanonicalPolicy.topPairSave
+namespace SigGolfCandidate.Research.SharedForest.LocalRoute
+open SigGolfCandidate.T3 ClaudeWCT.WCT9
+
+def ownSave (index lay : Nat) : Nat := CanonicalPolicy.lowerPathSave lay (route index (Fin.ofNat 4 lay)).1
+
+def pool (index : Nat) : Nat := 74-CanonicalPolicy.topPathSave (route index 0).1
+
+def r1 (index c0 : Nat) : Nat := pool index-c0-ownSave index 1
+def r2 (index c0 c1 : Nat) : Nat := r1 index c0-c1-ownSave index 2
+def r3 (index c0 c1 c2 : Nat) : Nat := r2 index c0 c1-c2-ownSave index 3
+
+theorem pool_bounds (index : Nat) : 72≤pool index ∧ pool index≤74 := by
+  unfold pool CanonicalPolicy.topPathSave CanonicalPolicy.topPairSave
   split_ifs <;> omega
+
+theorem ownSave_le_one (index lay : Nat) : ownSave index lay≤1 :=
+  CanonicalPolicy.lowerPathSave_le_one _ _
+
+end SigGolfCandidate.Research.SharedForest.LocalRoute
+
+namespace SigGolfCandidate.Research.SharedForest
+open OracleComp OracleSpec SigGolfCandidate.T3 ClaudeWCT.WCT9
+open SigGolfCandidate.T3.Correctness
+
+/-- Canonical root credit depends only on the top WOTS leaf's own address. -/
+def requiredCredit (index : Nat) : Nat := LocalRoute.pool index
+
+theorem requiredCredit_bounds (index : Nat) : 72 ≤ requiredCredit index ∧ requiredCredit index ≤ 74 :=
+  LocalRoute.pool_bounds index
+
+/-- The next lower floor credits only that key's own public leaf address. -/
+def routeResidual (index residual : Nat) (lay : Layer) (low : Bool) (digits : List Nat) : Nat :=
+  CanonicalPolicy.nextResidual residual lay low digits - LocalRoute.ownSave index (lay.val+1)
 
 /-- All thresholds are determined by the canonical ancestors. The lower
 tree roots are already fixed, and lower reveals are pure prefix lookups. -/
@@ -11490,21 +11519,21 @@ def searchPreparedLayers (cache : SigGolfCandidate.T3.Cache) (index : Nat) (prep
     (CanonicalPolicy.threshold 0 (requiredCredit index))
     (route index 0).2 (route index 0).1 (.pair pair0.1 pair0.2) 0 (searchLimit 0)
     | pure none
-  let residual1 := CanonicalPolicy.nextResidual (requiredCredit index) 0 low0 digits0
+  let residual1 := routeResidual index (requiredCredit index) 0 low0 digits0
   let floor1 := CanonicalPolicy.threshold 1 residual1
   if floor1 ≥ 15 then return none
   let some (counter1, digits1, low1) ← CanonicalPolicy.layerCounterSearchAt 1
     floor1
     (route index 1).2 (route index 1).1 (.pair pair1.1 pair1.2) 0 (searchLimit 1)
     | pure none
-  let residual2 := CanonicalPolicy.nextResidual residual1 1 low1 digits1
+  let residual2 := routeResidual index residual1 1 low1 digits1
   let floor2 := CanonicalPolicy.threshold 2 residual2
   if floor2 ≥ 23 then return none
   let some (counter2, digits2, low2) ← CanonicalPolicy.layerCounterSearchAt 2
     floor2
     (route index 2).2 (route index 2).1 (.pair pair2.1 pair2.2) 0 (searchLimit 2)
     | pure none
-  let residual3 := CanonicalPolicy.nextResidual residual2 2 low2 digits2
+  let residual3 := routeResidual index residual2 2 low2 digits2
   let floor3 := CanonicalPolicy.threshold 3 residual3
   if floor3 ≥ 23 then return none
   let some (counter3, digits3, low3) ← CanonicalPolicy.layerCounterSearchAt 3
@@ -11649,9 +11678,9 @@ def hintFloor (index : Nat) (hints : BitVec 16) (lay : Layer) : Nat :=
   if lay = 0 then CanonicalPolicy.threshold 0 (requiredCredit index) else hints.toNat / 23 ^ (3 - lay.val) % 23
 
 def policyHintsValid (index : Nat) (hints : BitVec 16) (digits : List (List Nat)) (lows : List Bool) : Bool :=
-  let residual1 := CanonicalPolicy.nextResidual (requiredCredit index) 0 (lows.getD 0 true) (digits.getD 0 [])
-  let residual2 := CanonicalPolicy.nextResidual residual1 1 (lows.getD 1 true) (digits.getD 1 [])
-  let residual3 := CanonicalPolicy.nextResidual residual2 2 (lows.getD 2 true) (digits.getD 2 [])
+  let residual1 := routeResidual index (requiredCredit index) 0 (lows.getD 0 true) (digits.getD 0 [])
+  let residual2 := routeResidual index residual1 1 (lows.getD 1 true) (digits.getD 1 [])
+  let residual3 := routeResidual index residual2 2 (lows.getD 2 true) (digits.getD 2 [])
   decide (hints.toNat < 8192 ∧ digits.length = 4 ∧
     hintFloor index hints 1 = CanonicalPolicy.threshold 1 residual1 ∧
     hintFloor index hints 2 = CanonicalPolicy.threshold 2 residual2 ∧
@@ -13331,13 +13360,13 @@ set_option maxRecDepth 10000
 set_option backward.isDefEq.respectTransparency false
 
 def preparedResidual1 (index : Nat) (result : CanonicalLayers) : Nat :=
-  CanonicalPolicy.nextResidual ((requiredCredit index)) 0 (result.lows.getD 0 true) (result.digits.getD 0 [])
+  routeResidual index ((requiredCredit index)) 0 (result.lows.getD 0 true) (result.digits.getD 0 [])
 
 def preparedResidual2 (index : Nat) (result : CanonicalLayers) : Nat :=
-  CanonicalPolicy.nextResidual (preparedResidual1 index result) 1 (result.lows.getD 1 true) (result.digits.getD 1 [])
+  routeResidual index (preparedResidual1 index result) 1 (result.lows.getD 1 true) (result.digits.getD 1 [])
 
 def preparedResidual3 (index : Nat) (result : CanonicalLayers) : Nat :=
-  CanonicalPolicy.nextResidual (preparedResidual2 index result) 2 (result.lows.getD 2 true) (result.digits.getD 2 [])
+  routeResidual index (preparedResidual2 index result) 2 (result.lows.getD 2 true) (result.digits.getD 2 [])
 
 /-- The successful source program exposes exactly the four canonical searches,
 with every lower threshold determined by its already selected ancestors. -/
@@ -13391,7 +13420,7 @@ theorem searchPreparedLayers_some (answers : Answers) (cache : SigGolfCandidate.
   | some found0 =>
       obtain ⟨c0, d0, l0⟩ := found0
       simp only [hs0, evalWithAnswerFn_bind] at he
-      let r1 := CanonicalPolicy.nextResidual (requiredCredit index) 0 l0 d0
+      let r1 := routeResidual index (requiredCredit index) 0 l0 d0
       let f1 := CanonicalPolicy.threshold 1 r1
       by_cases hf1 : f1 ≥ 15
       · dsimp only [r1, f1] at hf1
@@ -13410,7 +13439,7 @@ theorem searchPreparedLayers_some (answers : Answers) (cache : SigGolfCandidate.
           obtain ⟨c1, d1, l1⟩ := found1
           dsimp only [r1, f1] at hs1
           simp only [hs1, evalWithAnswerFn_bind] at he
-          let r2 := CanonicalPolicy.nextResidual r1 1 l1 d1
+          let r2 := routeResidual index r1 1 l1 d1
           let f2 := CanonicalPolicy.threshold 2 r2
           by_cases hf2 : f2 ≥ 23
           · dsimp only [r1, f1, r2, f2] at hf2
@@ -13429,7 +13458,7 @@ theorem searchPreparedLayers_some (answers : Answers) (cache : SigGolfCandidate.
               obtain ⟨c2, d2, l2⟩ := found2
               dsimp only [r1, f1, r2, f2] at hs2
               simp only [hs2, evalWithAnswerFn_bind] at he
-              let r3 := CanonicalPolicy.nextResidual r2 2 l2 d2
+              let r3 := routeResidual index r2 2 l2 d2
               let f3 := CanonicalPolicy.threshold 3 r3
               by_cases hf3 : f3 ≥ 23
               · dsimp only [r1, f1, r2, f2, r3, f3] at hf3
@@ -14283,42 +14312,81 @@ theorem recoverHintedLayers_credit (answers : Answers) (sig : Signature) (index 
                   exact hprevious lay (by omega)
       · simp only [evalWithAnswerFn_pure, reduceCtorEq] at he
 
+end SigGolfCandidate.Research.SharedForest
+namespace SigGolfCandidate.Research.SharedForest.LocalRoute
+open SigGolfCandidate.T3 ClaudeWCT.WCT9
+theorem residual_credit_pool (index c0 c1 c2 c3 : Nat)
+    (h0 : CanonicalPolicy.threshold 0 (pool index)≤c0)
+    (h1 : CanonicalPolicy.threshold 1 (r1 index c0)≤c1)
+    (h2 : CanonicalPolicy.threshold 2 (r2 index c0 c1)≤c2)
+    (h3 : CanonicalPolicy.threshold 3 (r3 index c0 c1 c2)≤c3) :
+    74 ≤ c0+c1+c2+c3+CanonicalPolicy.topPathSave (route index 0).1+
+      ownSave index 1+ownSave index 2+ownSave index 3 := by
+  have hp := pool_bounds index
+  rw [CanonicalPolicy.threshold_top] at h0
+  have hmax := Nat.le_max_right 18 (pool index-54)
+  have hr1 : r1 index c0<55 := by unfold r1;omega
+  have hf1 := firstThreshold_window ⟨r1 index c0,hr1⟩
+  change CanonicalPolicy.threshold 1 (r1 index c0)<15 ∧
+    r1 index c0-CanonicalPolicy.threshold 1 (r1 index c0)≤40 at hf1
+  have hr2 : r2 index c0 c1<41 := by unfold r2;omega
+  have hf2 := secondThreshold_window ⟨r2 index c0 c1,hr2⟩
+  change CanonicalPolicy.threshold 2 (r2 index c0 c1)<23 ∧
+    r2 index c0 c1-CanonicalPolicy.threshold 2 (r2 index c0 c1)≤22 at hf2
+  have hr3 : r3 index c0 c1 c2≤22 := by unfold r3;omega
+  rw [thirdThreshold_window _ hr3] at h3
+  have hf3 := CanonicalPolicy.lowerThreeFloor_ge (r3 index c0 c1 c2)
+  have hs : CanonicalPolicy.topPathSave (route index 0).1≤2 := by
+    unfold CanonicalPolicy.topPathSave CanonicalPolicy.topPairSave
+    split_ifs <;> omega
+  unfold r3 r2 r1 pool at *
+  omega
+#print axioms residual_credit_pool
+end SigGolfCandidate.Research.SharedForest.LocalRoute
+
+namespace SigGolfCandidate.Research.SharedForest
+open OracleComp OracleSpec SigGolfCandidate.T3 ClaudeWCT.WCT9
+open SigGolfCandidate.T3.Correctness
 theorem policyHints_credit_sum_required {index : Nat} (hints : BitVec 16) (digits : List (List Nat)) (lows : List Bool)
     (hh : policyHintsValid index hints digits lows = true)
     (hc : ∀ lay : Layer, hintFloor index hints lay ≤
       CanonicalPolicy.credit lay (lows.getD lay.val true) (digits.getD lay.val [])) :
     requiredCredit index ≤ ((List.finRange 4).map fun lay =>
-      CanonicalPolicy.credit lay (lows.getD lay.val true) (digits.getD lay.val [])).sum := by
+      CanonicalPolicy.credit lay (lows.getD lay.val true) (digits.getD lay.val [])).sum + LocalRoute.ownSave index 1 + LocalRoute.ownSave index 2 + LocalRoute.ownSave index 3 := by
   simp only [policyHintsValid, decide_eq_true_eq] at hh
-  have h0 : CanonicalPolicy.threshold 0 (requiredCredit index) ≤
-      CanonicalPolicy.credit 0 (lows.getD 0 true) (digits.getD 0 []) := by simpa [hintFloor] using hc 0
-  rw [CanonicalPolicy.threshold_top] at h0
-  have hr0 : requiredCredit index - CanonicalPolicy.credit 0 (lows.getD 0 true) (digits.getD 0 []) < 55 := by
-    have hm := Nat.le_max_right 18 (requiredCredit index - 54)
-    omega
+  let c0 := CanonicalPolicy.credit 0 (lows.getD 0 true) (digits.getD 0 [])
+  let c1 := CanonicalPolicy.credit 1 (lows.getD 1 true) (digits.getD 1 [])
+  let c2 := CanonicalPolicy.credit 2 (lows.getD 2 true) (digits.getD 2 [])
+  let c3 := CanonicalPolicy.credit 3 (lows.getD 3 true) (digits.getD 3 [])
+  have h0 : CanonicalPolicy.threshold 0 (LocalRoute.pool index) ≤ c0 := by
+    simpa [hintFloor,requiredCredit,c0] using hc 0
   have h1 := hc 1
   have h2 := hc 2
   have h3 := hc 3
   rw [hh.2.2.1] at h1
   rw [hh.2.2.2.1] at h2
   rw [hh.2.2.2.2] at h3
-  have hz := canonical_four_residual_pool (requiredCredit index)
-    (digits.getD 0 []) (digits.getD 1 []) (digits.getD 2 []) (digits.getD 3 [])
-    (lows.getD 0 true) (lows.getD 1 true) (lows.getD 2 true) (lows.getD 3 true) hr0 h1 h2 h3
-  simp only [CanonicalPolicy.nextResidual] at hz
-  change requiredCredit index ≤ CanonicalPolicy.credit 0 (lows.getD 0 true) (digits.getD 0 []) +
-    (CanonicalPolicy.credit 1 (lows.getD 1 true) (digits.getD 1 []) +
-      (CanonicalPolicy.credit 2 (lows.getD 2 true) (digits.getD 2 []) +
-      (CanonicalPolicy.credit 3 (lows.getD 3 true) (digits.getD 3 []) + 0)))
+  have h1' : CanonicalPolicy.threshold 1 (LocalRoute.r1 index c0) ≤ c1 := h1
+  have h2' : CanonicalPolicy.threshold 2 (LocalRoute.r2 index c0 c1) ≤ c2 := h2
+  have h3' : CanonicalPolicy.threshold 3 (LocalRoute.r3 index c0 c1 c2) ≤ c3 := h3
+  have hz := LocalRoute.residual_credit_pool index c0 c1 c2 c3 h0 h1' h2' h3'
+  change requiredCredit index ≤ c0 + (c1 + (c2 + (c3 + 0))) +
+    LocalRoute.ownSave index 1 + LocalRoute.ownSave index 2 + LocalRoute.ownSave index 3
+  unfold requiredCredit LocalRoute.pool
   omega
 
 theorem policyHints_credit_sum {index : Nat} (hints : BitVec 16) (digits : List (List Nat)) (lows : List Bool)
     (hh : policyHintsValid index hints digits lows = true)
     (hc : ∀ lay : Layer, hintFloor index hints lay ≤
       CanonicalPolicy.credit lay (lows.getD lay.val true) (digits.getD lay.val [])) :
-    71 ≤ ((List.finRange 4).map fun lay =>
-      CanonicalPolicy.credit lay (lows.getD lay.val true) (digits.getD lay.val [])).sum :=
-  (requiredCredit_bounds index).1.trans (policyHints_credit_sum_required hints digits lows hh hc)
+    69 ≤ ((List.finRange 4).map fun lay =>
+      CanonicalPolicy.credit lay (lows.getD lay.val true) (digits.getD lay.val [])).sum := by
+  have h := policyHints_credit_sum_required hints digits lows hh hc
+  have hb := requiredCredit_bounds index
+  have hs1 := LocalRoute.ownSave_le_one index 1
+  have hs2 := LocalRoute.ownSave_le_one index 2
+  have hs3 := LocalRoute.ownSave_le_one index 3
+  omega
 
 end SigGolfCandidate.Research.SharedForest
 

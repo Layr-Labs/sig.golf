@@ -3300,13 +3300,13 @@ G chain at `+16`, F chain at `+40`; `= W9.T3M.chainSlot 0 i`). -/
 def topSlot (i : Nat) : Nat := if i = 50 then 144 else if i % 2 = 0 then 224 + 104 * (24 - i / 2) else 248 + 104 * (24 - i / 2)
 /-- Top chain format (T51): chain `i` is G (value first) iff it is even and `i ≤ 50` (`= T3.topIsG`). -/
 def topG (i : Nat) : Bool := decide (i%2=0 ∧ i ≤ 50)
-def off (i : Nat) : Word := BitVec.ofNat 64 (topSlot i)-BitVec.ofNat 64 1664
+def off (i : Nat) : Word := BitVec.ofNat 64 (topSlot i)-BitVec.ofNat 64 1872
 /-- T51 endpad top leaf: `end_0` at 15288 (tp + 512), the tweak at 15304, `end_i` at `15304 + 16 i` (i ≥ 1). -/
 def slot (i : Nat) : Nat := if i=0 then 15288 else 15304+16*i
 /-- Target of chain `i`'s terminal hash: chain 0 (c0hi) writes its last 32-byte answer at `slot 0 - 16 = 15272`
 (the HIGH half lands on `end_0`); every other chain at its slot. -/
 def termSlot (i : Nat) : Nat := if i=0 then 15272 else slot i
-def slotOffset (a : Nat) : Nat := a-14776
+def slotOffset (a : Nat) : Nat := a-14336
 def rungR (d : Nat) (sl : Option Nat) (p : Nat) : Result :=
   T3M.rungRB d (sl.map slotOffset) p
 def copyN (rb : Reg) (o : Word) (sl tgt : Nat) (g : Bool := false) : Result :=
@@ -3470,10 +3470,10 @@ def tailsOK (q sl p : Nat) : Bool :=
   (List.range (mx q)).all fun m =>
     rOK (vrun (p+2*m+1) 2) (tailR (if m+1=mx q then some sl else none) (p+2*m+1))
 def partOK (q i d p : Nat) (skip : Bool := false) : Bool :=
-  if d=mx q then (if skip then rOK (vrun p 0) (emptyR p) else rOK (vrun p 4) (copyFH .x8 (off i) (slot i) p (topG i)))
+  if d=mx q then (if skip then rOK (vrun p 0) (emptyR p) else rOK (vrun p 4) (copyFH .x4 (off i) (slot i) p (topG i)))
   else rOK (vrun p 8)
-      (if d+1=mx q then headRHT .x8 (off i) d (slot i) p i
-       else headRH .x8 (off i) d none p i (topG i)) &&
+      (if d+1=mx q then headRHT .x4 (off i) d (slot i) p i
+       else headRH .x4 (off i) d none p i (topG i)) &&
     rungsOK q (d+1) (slot i) (p+5)
 def s8Check (q k : Nat) : Bool := if q=16 ∧ k=0 then rOK (vrun (entW q k) 0) (emptyR (entW q k)) else
   (if q=0 then rOK (vrun (entW 0 k) 1) (guardR k) else rOK (vrun (entW q k) 1) (s8R (kss q k) (entW q k)))
@@ -3491,11 +3491,11 @@ def inlineCheck (q k : Nat) : Bool :=
   s8Check q k &&
   (if dA=mx q then
     (if skipA q k then rOK (vrun (leadPc q k) 0) (emptyR (leadPc q k))
-     else rOK (vrun (leadPc q k) 4) (copyFH .x8 (off (3*q)) (slot (3*q)) (leadPc q k) (topG (3*q))))
+     else rOK (vrun (leadPc q k) 4) (copyFH .x4 (off (3*q)) (slot (3*q)) (leadPc q k) (topG (3*q))))
    else
     rOK (vrun (leadPc q k) (if dA+1=mx q then 3 else 4))
-      (if dA+1=mx q then headJDTermF .x8 (off (3*q)) (gbase q k+2*dA+1) (3*q) dA
-       else headJDF .x8 (off (3*q)) (gbase q k+2*dA+1) (3*q) dA (topG (3*q))) &&
+      (if dA+1=mx q then headJDTermF .x4 (off (3*q)) (gbase q k+2*dA+1) (3*q) dA
+       else headJDF .x4 (off (3*q)) (gbase q k+2*dA+1) (3*q) dA (topG (3*q))) &&
     rOK (vrun (gbase q k+2*dA+1) 2)
       (tailR (if dA+1=mx q then some (termSlot (3*q)) else none) (gbase q k+2*dA+1)) &&
     rungsOK q (dA+1) (termSlot (3*q)) (gbase q k+2*(dA+1))) &&
@@ -3506,14 +3506,13 @@ def entCheck (q k : Nat) : Bool :=
   let dA := kdig q k 0
   if dA=mx q then
     (if q=0 then rOK (vrun (leadPc q k) 1) (T3M.skipJB (gB q k))
-     else rOK (vrun (leadPc q k) 7) (copyN .x8 (off (3*q)) (slot (3*q)) (gB q k) (topG (3*q))))
+     else rOK (vrun (leadPc q k) 7) (copyN .x4 (off (3*q)) (slot (3*q)) (gB q k) (topG (3*q))))
   else rOK (vrun (leadPc q k) 7)
-    (if dA+1=mx q then headJDTerm .x8 (off (3*q)) (gbase q k+2*dA+1) (3*q) dA
-     else headJD .x8 (off (3*q)) (gbase q k+2*dA+1) (3*q) dA (topG (3*q)))
-/-- Live shared blocks: every block of an r6 group; the r7 pair's 7 bodies (`x = dB`); for #938's non-inline r5
-groups only the blocks with `dB + dC < 3` (a row with `kss ≥ 3` is inline; the dead blocks are not checked). -/
+    (if dA+1=mx q then headJDTerm .x4 (off (3*q)) (gbase q k+2*dA+1) (3*q) dA
+     else headJD .x4 (off (3*q)) (gbase q k+2*dA+1) (3*q) dA (topG (3*q)))
+/-- Live shared blocks: r6 groups and non-inline r5 rows. Every r7 rank is inline (`rowInl 16 k = true`), so its retired shared bodies are never executed and impose no machine-code obligations. -/
 def liveBlock (q x : Nat) : Bool :=
-  if q=16 then blockCheck 16 x 0
+  if q=16 then true
   else if q<9 ∨ x/(mx q+1)+x%(mx q+1) < 3 then blockCheck q (x/(mx q+1)) (x%(mx q+1)) else true
 /-- Number of ranks of group `q` (`216` r6, `125` r5, `49` the r7 pair). -/
 def nRank (q : Nat) : Nat := if q=16 then 49 else (mx q+1)^3
@@ -3566,8 +3565,8 @@ structure NCtx where
   digits : Nat → Nat
   ret : Nat
 namespace NCtx
-/-- Charge 85: chain `i`'s block (`= WIT + chainBlock 0 i` for `S3 = 14128`). -/
-def blk (c : NCtx) (i : Nat) : Nat := c.S3 - 1664 + topSlot i
+/-- Charge 85: chain `i`'s block (`= WIT + chainBlock 0 i` for `S3 = 14336`). -/
+def blk (c : NCtx) (i : Nat) : Nat := c.S3 - 1872 + topSlot i
 /-- Address of the supplied value (G: block start, F: block + 48). -/
 def vAt (c : NCtx) (i : Nat) : Nat := c.blk i + 48 * (i % 2)
 /-- Hash destination of an interior step (G: block - 16, so the high half lands on the value; F: block + 48). -/
@@ -3593,11 +3592,11 @@ def pad1 (c : NCtx) (i : Nat) : Digest := ClaudeWCT.W9.T3M.wdig c.w (c.pad1At i 
 def padHeader (c : NCtx) (i : Nat) : Word := (ClaudeWCT.W9.T3M.wdig c.w (c.blk i - Verify.WIT + 16)).extractLsb' 64 64
 def val (c : NCtx) (i : Nat) : Digest := ClaudeWCT.W9.T3M.wdig c.w (c.vAt i - Verify.WIT)
 def ok (c : NCtx) : Prop :=
-  c.tree = 0 ∧ c.leaf < 4096 ∧ c.S3 % 8 = 0 ∧ Verify.WIT + 8208 + 1664 ≤ c.S3 ∧ c.S3 + 1144 ≤ 15272 ∧
+  c.tree = 0 ∧ c.leaf < 4096 ∧ c.S3 % 8 = 0 ∧ Verify.WIT + 8208 + 1872 ≤ c.S3 ∧ c.S3 + 936 ≤ 15272 ∧
     c.ret < 209920
 def known (c : NCtx) : List (Reg × Word) :=
   [(.x5, 0), (.x11, 64), (.x9, 0x7fc01), (.x13, 2), (.x19, 3), (.x20, 4), (.x21, 5), (.x26, 6),
-   (.x28, BitVec.ofNat 64 c.pre0), (.x8, BitVec.ofNat 64 c.S3), (.x2, BitVec.ofNat 64 0xffbde0), (.x4, 14776)]
+   (.x28, BitVec.ofNat 64 c.pre0), (.x4, BitVec.ofNat 64 c.S3), (.x2, BitVec.ofNat 64 0xffbde0), (.x4, 14336)]
 /-- Rank of top group `q`: the digit triple in radix `mx q + 1`; group 16 (the r7 pair, chains 48 and 49) has only two
 digits, `d48 + 7 d49`. -/
 def kOf (c : NCtx) (q : Nat) : Nat :=
@@ -3644,9 +3643,9 @@ spills its junk 16 bytes into pair `p - 1`, chain 1 past the area), and the G ha
 when `i` is odd. -/
 def Wr (c : NCtx) (i : Nat) (A : Nat) : Prop :=
   (slot 1 ≤ A ∧ A < c.bufferEnd i) ∨ (0 < i ∧ slot 0 - 16 ≤ A ∧ A < slot 0 + 16) ∨
-    (c.S3 + 104 * (27 - i / 2) ≤ A + 1664 ∧ A < c.S3 + 1160) ∨
-    (i % 2 = 1 ∧ c.S3 + 104 * (26 - i / 2) + 24 * (i / 51 % 2) ≤ A + 1664 ∧
-      A + 1664 < c.S3 + 104 * (26 - i / 2) + 40 + 24 * (i / 51 % 2))
+    (c.S3 + 104 * (27 - i / 2) ≤ A + 1872 ∧ A < c.S3 + 952) ∨
+    (i % 2 = 1 ∧ c.S3 + 104 * (26 - i / 2) + 24 * (i / 51 % 2) ≤ A + 1872 ∧
+      A + 1872 < c.S3 + 104 * (26 - i / 2) + 40 + 24 * (i / 51 % 2))
 /-- Chain `i`'s own writes: its header word and the 32-byte destination of its interior steps. -/
 def WrIn (c : NCtx) (i : Nat) (A : Nat) : Prop :=
   c.Wr i A ∨ (c.blk i + 16 ≤ A ∧ A < c.blk i + 24) ∨ (c.oAt i ≤ A ∧ A < c.oAt i + 32)
@@ -3689,10 +3688,10 @@ theorem blk_props (c : NCtx) (hc : c.ok) (i : Nat) (hi : i < 51) :
   obtain ⟨-, -, h64, hlo, hhi, -⟩ := hc
   have := topSlot_props i hi
   unfold blk Verify.WIT at *; refine ⟨?_, ?_, ?_⟩ <;> omega
-/-- Chain `i`'s block lies in pair `i / 2` (`[pair, pair + 104)` with `pair = S3 - 1664 + 104 (26 - i / 2)`;
+/-- Chain `i`'s block lies in pair `i / 2` (`[pair, pair + 104)` with `pair = S3 - 1872 + 104 (26 - i / 2)`;
 the checksum chain 50 sits 24 bytes higher in pair 25, so it starts on the old top path's last word). -/
 theorem blk_eq (c : NCtx) (i : Nat) (hi : i < 51) :
-    c.blk i = c.S3 - 1664 + 104 * (26 - i / 2) + 16 + 24 * (i % 2) + 24 * (i / 50) := by
+    c.blk i = c.S3 - 1872 + 104 * (26 - i / 2) + 16 + 24 * (i % 2) + 24 * (i / 50) := by
   unfold blk topSlot; split_ifs <;> omega
 theorem vAt_props (c : NCtx) (hc : c.ok) (i : Nat) (hi : i < 51) :
     c.vAt i % 8 = 0 ∧ c.vAt i = c.blk i + 48 * (i % 2) := by
@@ -3742,14 +3741,14 @@ theorem base_off (c : NCtx) (hc : c.ok) (i : Nat) (hi : i < 51) (k : Nat) (hk : 
   obtain ⟨-, -, -, hlo, hhi, -⟩ := hc
   have := topSlot_props i hi
   unfold off blk
-  rw [ofNat_add_off _ _ _ _ (by omega) (by omega), show c.S3 + topSlot i - 1664 = c.S3 - 1664 + topSlot i by
+  rw [ofNat_add_off _ _ _ _ (by omega) (by omega), show c.S3 + topSlot i - 1872 = c.S3 - 1872 + topSlot i by
     omega]
 theorem base_off0 (c : NCtx) (hc : c.ok) (i : Nat) (hi : i < 51) :
     BitVec.ofNat 64 c.S3 + off i = BitVec.ofNat 64 (c.blk i) := by
   obtain ⟨-, -, -, hlo, hhi, -⟩ := hc
   have := topSlot_props i hi
   unfold off blk
-  rw [ofNat_add_off0 _ _ _ (by omega) (by omega), show c.S3 + topSlot i - 1664 = c.S3 - 1664 + topSlot i by
+  rw [ofNat_add_off0 _ _ _ (by omega) (by omega), show c.S3 + topSlot i - 1872 = c.S3 - 1872 + topSlot i by
     omega]
 /-- The hash destination register of an interior step (`gOut`). -/
 theorem oAt_eval (c : NCtx) (hc : c.ok) (i : Nat) (hi : i < 51) (x : Word) (hx : x = BitVec.ofNat 64 (c.blk i)) :
@@ -4025,7 +4024,7 @@ theorem bufferSafe_end (c : NCtx) (i : Nat) (hs : c.bufferSafe i) :
   · simp [bufferEnd, h.2.2.2]
 
 theorem bufferSafe_protected (c : NCtx) (i A : Nat) (hs : c.bufferSafe i)
-    (hb : c.S3 + 1160 ≤ slot 0) (ha : slot i ≤ A) : ¬ c.Wr i A := by
+    (hb : c.S3 + 952 ≤ slot 0) (ha : slot i ≤ A) : ¬ c.Wr i A := by
   rw [Wr, c.bufferSafe_end i hs]
   by_cases hi : i = 0
   · subst hi; rw [slot0, slot1] at *; omega
@@ -4034,7 +4033,7 @@ theorem bufferSafe_protected (c : NCtx) (i A : Nat) (hs : c.bufferSafe i)
 
 theorem bufferVal_at {c : NCtx} {s0 t : MachineState} (h0 : c.bufferOrig s0)
     {i : Nat} (hi : i < 51) (hs : c.bufferSafe i)
-    (hb : c.S3 + 1160 ≤ slot 0) (hF : Frame s0 t (c.Wr i)) :
+    (hb : c.S3 + 952 ≤ slot 0) (hF : Frame s0 t (c.Wr i)) :
     DigAt t (slot i) (c.bufferVal i) := by
   have hp := slot_props i hi
   have hi50 : i < 50 := by rcases hs.2 with h | h <;> omega
@@ -4064,7 +4063,7 @@ theorem bufferSlot_source (i : Nat) :
   split_ifs <;> simp_all <;> omega
 theorem bufferVal_source (c : NCtx) (digits : List Nat)
     (hd : ∀ j, j < 51 → digits.getD j 0 = c.dig j)
-    (hS : c.S3 = 14128) (i : Nat) (hi : i < 51) :
+    (hS : c.S3 = 14336) (i : Nat) (hi : i < 51) :
     c.bufferVal i = ClaudeWCT.W9.T3M.wvalueFor c.w 0 digits i := by
   unfold bufferVal ClaudeWCT.W9.T3M.wvalueFor
   simp only [← c.bufferSafe_source digits hd i hi, bufferSlot_source]

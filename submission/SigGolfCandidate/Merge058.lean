@@ -1,3 +1,4 @@
+import SigGolfCandidate.LocalRouteMachineHelpers
 import Mathlib.Algebra.Polynomial.Coeff
 import Mathlib.Data.ENNReal.Inv
 import Mathlib.Data.Nat.Factorial.Basic
@@ -2486,11 +2487,14 @@ theorem context_parent_success {answers : Answers} {messages : LeafAddr → WCT9
     (hcontext : referenceContext answers messages (parent leaf) = some remaining)
     (hsearch : referenceSearch answers messages (parent leaf) = some (counter, digits, low)) :
     referenceContext answers messages leaf =
-      some (WCT9.CanonicalPolicy.nextResidual remaining (parent leaf).lay low digits) := by
-  change (if leaf.lay.val = 0 then some (WCT9.CanonicalPolicy.routePool leaf.leaf) else
-    after (searchOf answers messages) WCT9.CanonicalPolicy.credit (parent leaf)) = _
-  exact (if_neg hpositive).trans ((after_eq _ _ _).trans
-    (bind_map_at_some _ _ _ hcontext hsearch))
+      some (WCT9.CanonicalPolicy.nextResidual remaining (parent leaf).lay low digits-
+        WCT9.CanonicalPolicy.lowerPathSave leaf.lay.val leaf.leaf) := by
+  change context (searchOf answers messages) WCT9.CanonicalPolicy.credit leaf = _
+  change context (searchOf answers messages) WCT9.CanonicalPolicy.credit (parent leaf)=some remaining at hcontext
+  change selected (searchOf answers messages) WCT9.CanonicalPolicy.credit (parent leaf)=some (counter,digits,low) at hsearch
+  rw [selected,hcontext,Option.bind_some] at hsearch
+  rw [context_parent _ _ leaf hpositive,after_eq,hcontext,Option.bind_some,hsearch,Option.map_some,Option.map_some]
+  simp only [WCT9.CanonicalPolicy.nextResidual]
 
 end ClaudeWCT.W9.T3.Security.Wots.CanonicalRef
 
@@ -3037,7 +3041,7 @@ theorem searchPreparedLayers_runEq {T T' : Answers} {messages : LeafAddr → Lay
     rcases found0 with ⟨counter0,digits0,low0⟩
     have href0 := referenceSearch_of_run hc0 hr0
     have hc1 : referenceContext T messages (sourceLeaf index 1)=
-        some (CanonicalPolicy.nextResidual (requiredCredit index) 0 low0 digits0) := by
+        some (routeResidual index (requiredCredit index) 0 low0 digits0) := by
       apply context_parent_success (leaf:=sourceLeaf index 1) (by change 1 ≠ 0; decide)
       · rw [sourceLeaf_parent index 1 (by decide)]; exact hc0
       · rw [sourceLeaf_parent index 1 (by decide)]; exact href0
@@ -3052,7 +3056,7 @@ theorem searchPreparedLayers_runEq {T T' : Answers} {messages : LeafAddr → Lay
         rcases found1 with ⟨counter1,digits1,low1⟩
         have href1 := referenceSearch_of_run hc1 hr1
         have hc2 : referenceContext T messages (sourceLeaf index 2)=
-            some (CanonicalPolicy.nextResidual (CanonicalPolicy.nextResidual (requiredCredit index) 0 low0 digits0) 1 low1 digits1) := by
+            some (routeResidual index (routeResidual index (requiredCredit index) 0 low0 digits0) 1 low1 digits1) := by
           apply context_parent_success (leaf:=sourceLeaf index 2) (by change 2 ≠ 0; decide)
           · rw [sourceLeaf_parent index 2 (by decide)]; exact hc1
           · rw [sourceLeaf_parent index 2 (by decide)]; exact href1
@@ -3067,8 +3071,8 @@ theorem searchPreparedLayers_runEq {T T' : Answers} {messages : LeafAddr → Lay
             rcases found2 with ⟨counter2,digits2,low2⟩
             have href2 := referenceSearch_of_run hc2 hr2
             have hc3 : referenceContext T messages (sourceLeaf index 3)=
-                some (CanonicalPolicy.nextResidual
-                  (CanonicalPolicy.nextResidual (CanonicalPolicy.nextResidual (requiredCredit index) 0 low0 digits0) 1 low1 digits1) 2 low2 digits2) := by
+                some (routeResidual index
+                  (routeResidual index (routeResidual index (requiredCredit index) 0 low0 digits0) 1 low1 digits1) 2 low2 digits2) := by
               apply context_parent_success (leaf:=sourceLeaf index 3) (by change 3 ≠ 0; decide)
               · rw [sourceLeaf_parent index 3 (by decide)]; exact hc2
               · rw [sourceLeaf_parent index 3 (by decide)]; exact href2
@@ -3538,7 +3542,7 @@ theorem searchPreparedLayers_maskEq (T : Answers) (a : ChainAddr)
     rcases found0 with ⟨counter0,digits0,low0⟩
     have href0 := referenceSearch_of_run hc0 hr0
     have hc1 : referenceContext T messages (sourceLeaf index 1)=
-        some (CanonicalPolicy.nextResidual (requiredCredit index) 0 low0 digits0) := by
+        some (routeResidual index (requiredCredit index) 0 low0 digits0) := by
       apply context_parent_success (leaf:=sourceLeaf index 1) (by change 1 ≠ 0; decide)
       · rw [sourceLeaf_parent index 1 (by decide)]; exact hc0
       · rw [sourceLeaf_parent index 1 (by decide)]; exact href0
@@ -3553,7 +3557,7 @@ theorem searchPreparedLayers_maskEq (T : Answers) (a : ChainAddr)
         rcases found1 with ⟨counter1,digits1,low1⟩
         have href1 := referenceSearch_of_run hc1 hr1
         have hc2 : referenceContext T messages (sourceLeaf index 2)=
-            some (CanonicalPolicy.nextResidual (CanonicalPolicy.nextResidual (requiredCredit index) 0 low0 digits0) 1 low1 digits1) := by
+            some (routeResidual index (routeResidual index (requiredCredit index) 0 low0 digits0) 1 low1 digits1) := by
           apply context_parent_success (leaf:=sourceLeaf index 2) (by change 2 ≠ 0; decide)
           · rw [sourceLeaf_parent index 2 (by decide)]; exact hc1
           · rw [sourceLeaf_parent index 2 (by decide)]; exact href1
@@ -3568,8 +3572,8 @@ theorem searchPreparedLayers_maskEq (T : Answers) (a : ChainAddr)
             rcases found2 with ⟨counter2,digits2,low2⟩
             have href2 := referenceSearch_of_run hc2 hr2
             have hc3 : referenceContext T messages (sourceLeaf index 3)=
-                some (CanonicalPolicy.nextResidual
-                  (CanonicalPolicy.nextResidual (CanonicalPolicy.nextResidual (requiredCredit index) 0 low0 digits0) 1 low1 digits1) 2 low2 digits2) := by
+                some (routeResidual index
+                  (routeResidual index (routeResidual index (requiredCredit index) 0 low0 digits0) 1 low1 digits1) 2 low2 digits2) := by
               apply context_parent_success (leaf:=sourceLeaf index 3) (by change 3 ≠ 0; decide)
               · rw [sourceLeaf_parent index 3 (by decide)]; exact hc2
               · rw [sourceLeaf_parent index 3 (by decide)]; exact href2
@@ -29026,15 +29030,15 @@ set_option exponentiation.threshold 10000000
 set_option Elab.async false
 def poolWord (n : Nat) : Word :=
   let d := (BitVec.ofNat 64 n >>> 1) ^^^ BitVec.ofNat 64 n
-  73#64 - ((d &&& 1#64) + ((d >>> 6) &&& 1#64))
-theorem pool_checked : ∀ n : Fin 4096, poolWord n.val = BitVec.ofNat 64 (ClaudeWCT.Numerics.TopRoute.rootPool n.val) := by decide +kernel
-def signCode : List (BitVec 32) := [0x195313,0x1234333,0x137e13,0x635313,0x137313,0x1c30333,0x40600333,0x4930313,0x66e37,0x6e3423,0x4691306f]
+  74#64 - ((d &&& 1#64) + ((d >>> 6) &&& 1#64))
+theorem pool_checked : ∀ n : Fin 4096, poolWord n.val = BitVec.ofNat 64 (LocalRouteMachineHelpers.poolForLeaf n.val) := by decide +kernel
+def signCode : List (BitVec 32) := [0x195313,0x1234333,0x137e13,0x635313,0x137313,0x1c30333,0x40600333,0x4a30313,0x66e37,0x6e3423,0x4691306f]
 sym_block sign := symRun {noAlias:=true} signCode (pcOf 1970) 12
 theorem sign_steps {im : Image} (hc : CodeAt im (pcOf 1970) signCode)
     (s : MachineState) (hp : s.pc=pcOf 1970) (leaf : Nat) (hl : leaf<4096)
     (h18 : s.getReg .x18=BitVec.ofNat 64 leaf) :
     ∃ t, Steps im s 11 11 t ∧ t.pc=pcOf 22230 ∧
-      t.getMem 0x66008=BitVec.ofNat 64 (ClaudeWCT.Numerics.TopRoute.rootPool leaf) ∧
+      t.getMem 0x66008=BitVec.ofNat 64 (LocalRouteMachineHelpers.poolForLeaf leaf) ∧
       RegsExcept s t [.x6,.x28] ∧ Frame s t (fun A=>A=0x66008) := by
   let t := sign.res.toState s
   refine ⟨t, symRun_sound sign hc s hp (by simp [sign.res,rv_simp]), rfl, ?_, ?_, ?_⟩
@@ -29047,7 +29051,7 @@ theorem sign_steps {im : Image} (hc : CodeAt im (pcOf 1970) signCode)
     change A ≠ 417800 at hn
     norm_num at ha
     rw [Nat.mod_eq_of_lt ha, if_neg hn]
-def expandIndexCode : List (BitVec 32) := [0x20e37,0x550e3a83,0x13ada93,0x1ada13,0x15a4ab3,0x1afa13,0x6ada93,0x1afa93,0x14a8ab3,0x41500ab3,0x49a8a93,0x66e37,0xe3a03,0xc51f806f]
+def expandIndexCode : List (BitVec 32) := [0x20e37,0x550e3a83,0x13ada93,0x1ada13,0x15a4ab3,0x1afa13,0x6ada93,0x1afa93,0x14a8ab3,0x41500ab3,0x4aa8a93,0x66e37,0xe3a03,0xc51f806f]
 sym_block expandIndex := symRun {noAlias:=true} expandIndexCode (pcOf 54324) 20
 theorem root_word (index : Nat) (hi : index<2^31) :
     BitVec.ofNat 64 index >>> 19 = BitVec.ofNat 64 (index/2^19) := by
@@ -29058,7 +29062,7 @@ theorem expandIndex_steps {im : Image} (hc : CodeAt im (pcOf 54324) expandIndexC
     (s : MachineState) (hp : s.pc=pcOf 54324) (index H : Nat) (hi : index<2^31)
     (hmidx : s.getMem 0x20550=BitVec.ofNat 64 index) (hm : s.getMem 0x66000=BitVec.ofNat 64 H) :
     ∃ t, Steps im s 14 14 t ∧ t.pc=pcOf 46933 ∧
-      t.getReg .x21=BitVec.ofNat 64 (ClaudeWCT.Numerics.TopRoute.rootPool (index/2^19)) ∧
+      t.getReg .x21=BitVec.ofNat 64 (LocalRouteMachineHelpers.poolForLeaf (index/2^19)) ∧
       t.getReg .x20=BitVec.ofNat 64 H ∧ RegsExcept s t [.x20,.x21,.x28] ∧ Frame s t (fun _=>False) := by
   let t := expandIndex.res.toState s
   refine ⟨t,symRun_sound expandIndex hc s hp (by simp [expandIndex.res,rv_simp]),rfl,?_,?_,?_,?_⟩
@@ -29079,6 +29083,136 @@ theorem expandIndex_steps {im : Image} (hc : CodeAt im (pcOf 54324) expandIndexC
   · intro r hr; cases r <;> simp at hr <;> rfl
   · intro A ha hn; rfl
 end TopRoutePool
+namespace TopRouteGuardV2
+open RiscvZkvm.Rv64 SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv SigGolfCandidate.Rv
+open SigGolfCandidate.T3M
+def prepCode : List (BitVec 32) := [0x7e52006f]
+structure Code (im : Image) : Prop where
+  prep : CodeAt im (pcOf 54310) prepCode
+  helper : CodeAt im (pcOf 88095) LocalRouteMachineHelpers.expandRootCode
+  test : CodeAt im (pcOf 54317) TopRouteGuard.testCode
+  reject : CodeAt im (pcOf 54318) [0xc21cb06f]
+  accept : CodeAt im (pcOf 54319) [0x940006f]
+theorem prep_steps {im : Image} (hc : Code im)
+    (s : MachineState) (hp : s.pc=pcOf 54310) (leaf credit : Nat)
+    (hleaf : leaf<4096) (h18 : s.getReg .x18=BitVec.ofNat 64 leaf)
+    (hm : s.getMem 417856=BitVec.ofNat 64 credit) :
+    ∃ t, Steps im s 12 12 t ∧ t.pc=pcOf 54317 ∧
+      t.getReg .x29=BitVec.ofNat 64 (LocalRouteMachineHelpers.rootFloor leaf) ∧
+      t.getReg .x30=BitVec.ofNat 64 credit ∧
+      RegsExcept s t [.x29,.x30] ∧ Frame s t (fun _=>False) := by
+  obtain ⟨u,su,pu,ru,fu⟩ := SigGolfCandidate.T3M.Search.T51.jump_hook
+    (k:=54310) (t:=88095) (off:=135140) (fun _=>rfl) hc.prep
+    (by norm_num [pcOf]) (by norm_num [pcOf]) (by norm_num [pcOf]) s hp
+  have hu18 : u.getReg .x18=BitVec.ofNat 64 leaf := (ru .x18 (by decide)).trans h18
+  have hum : u.getMem 417856=BitVec.ofNat 64 credit := by
+    simpa only [BitVec.ofNat_eq_ofNat] using (fu 417856 (by norm_num) (by simp)).trans hm
+  obtain ⟨t,st,pt,t29,t30,rt,ft⟩ := LocalRouteMachineHelpers.expandRoot_steps hc.helper u pu leaf credit hleaf hu18 hum
+  refine ⟨t,su.trans st,pt,?_,t30,(ru.trans rt).mono (by decide),(fu.trans ft).mono (by simp)⟩
+  simpa only [LocalRouteMachineHelpers.rootFloor_eq] using t29
+#print axioms prep_steps
+theorem guard_steps {im : Image} (hc : Code im)
+    (s : MachineState) (hp : s.pc=pcOf 54310) (leaf credit : Nat)
+    (hleaf : leaf<4096) (hcredit : credit<2^64)
+    (h18 : s.getReg .x18=BitVec.ofNat 64 leaf)
+    (hm : s.getMem 0x66040=BitVec.ofNat 64 credit) :
+    ∃ t, Steps im s 14 14 t ∧
+      t.pc=(if credit < LocalRouteMachineHelpers.rootFloor leaf then pcOf 822 else pcOf 54356) ∧
+      RegsExcept s t [.x29,.x30] ∧ Frame s t (fun _=>False) := by
+  let floor := LocalRouteMachineHelpers.rootFloor leaf
+  have hfloor : floor<2^64 := by
+    unfold floor LocalRouteMachineHelpers.rootFloor LocalRouteMachineHelpers.poolForLeaf
+    omega
+  obtain ⟨u,su,pu,u29,u30,ru,fu⟩ := prep_steps hc s hp leaf credit hleaf h18 hm
+  obtain ⟨v,sv,pv,rv,fv⟩ := TopRouteGuard.test_steps hc.test u pu floor credit hfloor hcredit u29 u30
+  by_cases h : credit<floor
+  · rw [if_pos h] at pv
+    obtain ⟨t,st,pt,rt,ft⟩ := SigGolfCandidate.T3M.Search.T51.jump_hook
+      (k := 54318) (t := 822) (off := 18446744073709337632) (fun _=>rfl) hc.reject (by norm_num [pcOf])
+      (by norm_num [pcOf]) (by norm_num [pcOf]) v pv
+    refine ⟨t, (su.trans sv).trans st, ?_, ((ru.trans rv).trans rt).mono (by decide), ?_⟩
+    · change t.pc = (if credit < floor then pcOf 822 else pcOf 54356)
+      rw [if_pos h]
+      exact pt
+    · exact ((fu.trans fv).trans ft).mono (by simp)
+  · rw [if_neg h] at pv
+    obtain ⟨t,st,pt,rt,ft⟩ := SigGolfCandidate.T3M.Search.T51.jump_hook
+      (k := 54319) (t := 54356) (off := 148) (fun _=>rfl) hc.accept (by norm_num [pcOf])
+      (by norm_num [pcOf]) (by norm_num [pcOf]) v pv
+    refine ⟨t, (su.trans sv).trans st, ?_, ((ru.trans rv).trans rt).mono (by decide), ?_⟩
+    · change t.pc = (if credit < floor then pcOf 822 else pcOf 54356)
+      rw [if_neg h]
+      exact pt
+    · exact ((fu.trans fv).trans ft).mono (by simp)
+
+#print axioms guard_steps
+end TopRouteGuardV2
+namespace TopRouteGuardSignV2
+open RiscvZkvm.Rv64 SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv SigGolfCandidate.Rv
+open SigGolfCandidate.T3M
+def prepCode : List (BitVec 32) := [0x7e01706f]
+structure Code (im : Image) : Prop where
+  prep : CodeAt im (pcOf 1952) prepCode
+  helper : CodeAt im (pcOf 26008) LocalRouteMachineHelpers.guardCode
+  test : CodeAt im (pcOf 1959) TopRouteGuardSign.testCode
+  reject : CodeAt im (pcOf 1960) [0x92cff06f]
+  accept : CodeAt im (pcOf 1961) [0x5151206f]
+theorem prep_steps {im : Image} (hc : Code im)
+    (s : MachineState) (hp : s.pc=pcOf 1952) (leaf credit : Nat)
+    (hleaf : leaf<4096) (h18 : s.getReg .x18=BitVec.ofNat 64 leaf)
+    (hm : s.getMem 417816=BitVec.ofNat 64 credit) :
+    ∃ t, Steps im s 12 12 t ∧ t.pc=pcOf 1959 ∧
+      t.getReg .x29=BitVec.ofNat 64 (LocalRouteMachineHelpers.rootFloor leaf) ∧
+      t.getReg .x30=BitVec.ofNat 64 credit ∧
+      RegsExcept s t [.x29,.x30] ∧ Frame s t (fun _=>False) := by
+  obtain ⟨u,su,pu,ru,fu⟩ := SigGolfCandidate.T3M.Search.T51.jump_hook
+    (k:=1952) (t:=26008) (off:=96224) (fun _=>rfl) hc.prep
+    (by norm_num [pcOf]) (by norm_num [pcOf]) (by norm_num [pcOf]) s hp
+  have hu18 : u.getReg .x18=BitVec.ofNat 64 leaf := (ru .x18 (by decide)).trans h18
+  have hum : u.getMem 417816=BitVec.ofNat 64 credit := by
+    simpa only [BitVec.ofNat_eq_ofNat] using (fu 417816 (by norm_num) (by simp)).trans hm
+  obtain ⟨t,st,pt,t29,t30,rt,ft⟩ := LocalRouteMachineHelpers.guard_steps hc.helper u pu leaf credit hleaf hu18 hum
+  refine ⟨t,su.trans st,pt,?_,t30,(ru.trans rt).mono (by decide),(fu.trans ft).mono (by simp)⟩
+  simpa only [LocalRouteMachineHelpers.rootFloor_eq] using t29
+#print axioms prep_steps
+theorem guard_steps {im : Image} (hc : Code im)
+    (s : MachineState) (hp : s.pc=pcOf 1952) (leaf credit : Nat)
+    (hleaf : leaf<4096) (hcredit : credit<2^64)
+    (h18 : s.getReg .x18=BitVec.ofNat 64 leaf)
+    (hm : s.getMem 0x66018=BitVec.ofNat 64 credit) :
+    ∃ t, Steps im s 14 14 t ∧
+      t.pc=(if credit < LocalRouteMachineHelpers.rootFloor leaf then pcOf 1011 else pcOf 21230) ∧
+      RegsExcept s t [.x29,.x30] ∧ Frame s t (fun _=>False) := by
+  let floor := LocalRouteMachineHelpers.rootFloor leaf
+  have hfloor : floor<2^64 := by
+    unfold floor LocalRouteMachineHelpers.rootFloor LocalRouteMachineHelpers.poolForLeaf
+    omega
+  obtain ⟨u,su,pu,u29,u30,ru,fu⟩ := prep_steps hc s hp leaf credit hleaf h18 hm
+  obtain ⟨v,sv,pv,rv,fv⟩ := TopRouteGuardSign.test_steps hc.test u pu floor credit hfloor hcredit u29 u30
+  by_cases h : credit<floor
+  · rw [if_pos h] at pv
+    obtain ⟨t,st,pt,rt,ft⟩ := SigGolfCandidate.T3M.Search.T51.jump_hook
+      (k := 1960) (t := 1011) (off := 18446744073709547820) (fun _=>rfl) hc.reject (by norm_num [pcOf])
+      (by norm_num [pcOf]) (by norm_num [pcOf]) v pv
+    refine ⟨t, (su.trans sv).trans st, ?_, ((ru.trans rv).trans rt).mono (by decide), ?_⟩
+    · change t.pc = (if credit < floor then pcOf 1011 else pcOf 21230)
+      rw [if_pos h]
+      exact pt
+    · exact ((fu.trans fv).trans ft).mono (by simp)
+  · rw [if_neg h] at pv
+    obtain ⟨t,st,pt,rt,ft⟩ := SigGolfCandidate.T3M.Search.T51.jump_hook
+      (k := 1961) (t := 21230) (off := 77076) (fun _=>rfl) hc.accept (by norm_num [pcOf])
+      (by norm_num [pcOf]) (by norm_num [pcOf]) v pv
+    refine ⟨t, (su.trans sv).trans st, ?_, ((ru.trans rv).trans rt).mono (by decide), ?_⟩
+    · change t.pc = (if credit < floor then pcOf 1011 else pcOf 21230)
+      rw [if_neg h]
+      exact pt
+    · exact ((fu.trans fv).trans ft).mono (by simp)
+
+#print axioms guard_steps
+end TopRouteGuardSignV2
+
+
 end
 section
 set_option debug.skipKernelTC false
@@ -31061,13 +31195,14 @@ structure Code (image : Image) : Prop where
   t51UA : CodeAt image (pcOf 21230) T51.uCodeA
   t51UJ : CodeAt image (pcOf 21342) T51.uJumpS
   t51UB : CodeAt image (pcOf 21852) T51.uCodeB
-  guardPrep : CodeAt image (pcOf 1952) TopRouteGuardSign.prepCode
+  guardPrep : CodeAt image (pcOf 1952) TopRouteGuardSignV2.prepCode
+  guardHelper : CodeAt image (pcOf 26008) LocalRouteMachineHelpers.guardCode
   guardTest : CodeAt image (pcOf 1959) TopRouteGuardSign.testCode
   guardReject : CodeAt image (pcOf 1960) [0x92cff06f]
   guardAccept : CodeAt image (pcOf 1961) [0x5151206f]
 theorem Code.kAt {image : Image} (h : Code image) : T51.T51KAt image T51.signGuardInst := T51.signGuardKAt h.t51K
-theorem Code.guardAt {image : Image} (h : Code image) : TopRouteGuardSign.Code image :=
-  ⟨h.guardPrep,h.guardTest,h.guardReject,h.guardAccept⟩
+theorem Code.guardAt {image : Image} (h : Code image) : TopRouteGuardSignV2.Code image :=
+  ⟨h.guardPrep,h.guardHelper,h.guardTest,h.guardReject,h.guardAccept⟩
 theorem Code.uAt {image : Image} (h : Code image) : T51.T51UAt image T51.signInst :=
   T51.signUAt h.t51UA h.t51UJ h.t51UB
 
@@ -31303,7 +31438,7 @@ structure CsArgs where
   msg : WCT9.LayerMsg
   ret : Nat
   floor : Nat
-def csT (lay : Layer) : Nat := if lay = 0 then 350 else 391
+def csT (lay : Layer) : Nat := if lay = 0 then 355 else 391
 def csOk (lay : Layer) : Nat := if lay = 0 then 4096 else 4096
 theorem capLimit_le (n : Nat) : capLimit n ≤ 2 ^ 22 := by unfold capLimit; split_ifs <;> omega
 theorem capLimit_eq (lay : Layer) : capLimit lay.val = WCT9.searchLimit lay := by
@@ -31403,7 +31538,7 @@ structure CsPre (b : Nat) (A : CsArgs) (s : MachineState) : Prop where
   reward : Reward.LowerTablesOK s
   zt : ZeroCap.ZtOK b s
   floorLt : A.floor<23
-  floorTop : A.lay=0 → A.floor=max 18 (WCT9.CanonicalPolicy.routePool A.leaf-54)
+  floorTop : A.lay=0 → A.floor=LocalRouteMachineHelpers.rootFloor A.leaf
   floorMem : A.lay≠0 → s.getMem (0x66010#64)=BitVec.ofNat 64 A.floor
   /-- T51: the packed top tables (sign block 0xFFF800 = TOP_DATA + 2048) for the top search. -/
   t51table : A.lay=0 → T51.T51TableW 0xFFF800 s
@@ -31738,8 +31873,8 @@ theorem cs_loop {A : CsArgs} {s0 : MachineState} (hK : KernAt image 543 (Canonic
       intro w hw; rw [hw,f4.get (by unfold EOUT;omega) (by simp)]; exact hhi.2
     by_cases hlz : A.lay=0
     · rw [if_pos (hl0.2 hlz)] at p4
-      have hfl : A.floor = max 18 (WCT9.CanonicalPolicy.routePool A.leaf-54) := hpre.floorTop hlz
-      have hf0 : 18 ≤ A.floor := by rw [hfl]; omega
+      have hfl : A.floor = LocalRouteMachineHelpers.rootFloor A.leaf := hpre.floorTop hlz
+      have hf0 : 18 ≤ A.floor := by rw [hfl];unfold LocalRouteMachineHelpers.rootFloor;omega
       have hleaf : A.leaf < 4096 := by
         have hr := hpre.hroute
         rw [hlz] at hr
@@ -31780,7 +31915,7 @@ theorem cs_loop {A : CsArgs} {s0 : MachineState} (hK : KernAt image 543 (Canonic
           omega
         have h18t : t.getReg .x18 = BitVec.ofNat 64 A.leaf := by
           rw [rt.get (by decide),hTg.reg (by decide),hpre.x18]
-        obtain ⟨g,sguard,pguard,rguard,fguard⟩ := TopRouteGuardSign.guard_steps
+        obtain ⟨g,sguard,pguard,rguard,fguard⟩ := TopRouteGuardSignV2.guard_steps
           (CanonicalHooks.Code.guardAt hK.2.2.2.2.2.2.2) t pt A.leaf _ hleaf hcredit h18t tcr
         have hTguard := hTt.step rguard (by decide) fguard
         by_cases hpass : A.floor ≤ WCT9.CanonicalPolicy.credit 0 low ds
@@ -31789,8 +31924,7 @@ theorem cs_loop {A : CsArgs} {s0 : MachineState} (hK : KernAt image 543 (Canonic
             simp [hpass] <;> omega
           rw [hnew]
           have pgood : g.pc = pcOf 21230 := by
-            have hpool : ClaudeWCT.Numerics.TopRoute.rootPool A.leaf = WCT9.CanonicalPolicy.routePool A.leaf := rfl
-            rw [hpool, ← hfl] at pguard
+            rw [← hfl] at pguard
             simpa only [if_neg (by omega : ¬ WCT9.CanonicalPolicy.credit 0 low ds < A.floor)] using pguard
           obtain ⟨t',st',pt',tdig,rt',ft'⟩ := T51.unpack hUT g pgood _ ds hdec
               ((rguard.get (by decide)).trans t6) ((rguard.get (by decide)).trans t7)
@@ -31815,8 +31949,7 @@ theorem cs_loop {A : CsArgs} {s0 : MachineState} (hK : KernAt image 543 (Canonic
             simp [hpass] <;> omega
           rw [hnew]
           have pbad : g.pc = pcOf (543+468) := by
-            have hpool : ClaudeWCT.Numerics.TopRoute.rootPool A.leaf = WCT9.CanonicalPolicy.routePool A.leaf := rfl
-            rw [hpool, ← hfl] at pguard
+            rw [← hfl] at pguard
             simpa only [if_pos (by omega : WCT9.CanonicalPolicy.credit 0 low ds < A.floor)] using pguard
           refine (TBSim.steps ((s4.trans sg).trans (st.trans sguard))
             (cs_next hK hTguard pbad hi ih')).mono ?_ (fun _ _ h=>h)

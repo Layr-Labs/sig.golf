@@ -755,10 +755,10 @@ def assembleForest (output : HashOutput) (v : Coord→Digest) : SigGolfCandidate
 
 /-- Policy hints (radix 20) from the path-aware residual chain (`lowsOf` = selected halves). -/
 def hintsOf (index : Nat) (digitsOf : Wots.LeafAddr→List Nat) (lowsOf : Wots.LeafAddr→Bool) : BitVec 16 :=
-  let r1 := WCT9.CanonicalPolicy.nextResidual (SigGolfCandidate.Research.SharedForest.requiredCredit index) 0 (lowsOf (routeAddr index 0))
+  let r1 := SigGolfCandidate.Research.SharedForest.routeResidual index (SigGolfCandidate.Research.SharedForest.requiredCredit index) 0 (lowsOf (routeAddr index 0))
     (digitsOf (routeAddr index 0))
-  let r2 := WCT9.CanonicalPolicy.nextResidual r1 1 (lowsOf (routeAddr index 1)) (digitsOf (routeAddr index 1))
-  let r3 := WCT9.CanonicalPolicy.nextResidual r2 2 (lowsOf (routeAddr index 2)) (digitsOf (routeAddr index 2))
+  let r2 := SigGolfCandidate.Research.SharedForest.routeResidual index r1 1 (lowsOf (routeAddr index 1)) (digitsOf (routeAddr index 1))
+  let r3 := SigGolfCandidate.Research.SharedForest.routeResidual index r2 2 (lowsOf (routeAddr index 2)) (digitsOf (routeAddr index 2))
   BitVec.ofNat 16 (529*WCT9.CanonicalPolicy.threshold 1 r1+23*WCT9.CanonicalPolicy.threshold 2 r2+
     WCT9.CanonicalPolicy.threshold 3 r3)
 
@@ -1025,9 +1025,12 @@ step cost ~85 s and ~8 GiB of kernel replay. -/
     (.pair (ClaudeWCT.WCT9.builtPair T 1 (route index 1).2).1
       (ClaudeWCT.WCT9.builtPair T 1 (route index 1).2).2)
     (WCT9.searchLimit 0) 0 c0 d0 l0 (ClaudeWCT.W9.T3.Security.Wots.searchLimit_fits _) hs0).2.2.2
-  let r1 := WCT9.CanonicalPolicy.nextResidual (SigGolfCandidate.Research.SharedForest.requiredCredit index) 0 l0 d0
-  have hr1 : r1<55 := WCT9.CanonicalPolicy.accepted_top_residual_pool (SigGolfCandidate.Research.SharedForest.requiredCredit index)
-    (by rwa [WCT9.CanonicalPolicy.threshold_top] at hd0)
+  let r1 := SigGolfCandidate.Research.SharedForest.routeResidual index (SigGolfCandidate.Research.SharedForest.requiredCredit index) 0 l0 d0
+  have hr1 : r1<55 := by
+    have h := WCT9.CanonicalPolicy.accepted_top_residual_pool (SigGolfCandidate.Research.SharedForest.requiredCredit index)
+      (by rwa [WCT9.CanonicalPolicy.threshold_top] at hd0)
+    dsimp only [r1,SigGolfCandidate.Research.SharedForest.routeResidual]
+    omega
   have hf1 : WCT9.CanonicalPolicy.threshold 1 r1<15 := ClaudeWCT.W9.T3.CanonicalSearch.lower_one_floor_lt15 ⟨r1,hr1⟩
   have hc1 : referenceContext T (sourceMessages T) (sourceLeaf index 1)=some r1 := by
     apply context_parent_success (leaf:=sourceLeaf index 1) (by change 1≠0;decide)
@@ -1040,8 +1043,12 @@ step cost ~85 s and ~8 GiB of kernel replay. -/
     (.pair (ClaudeWCT.WCT9.builtPair T 2 (route index 2).2).1
       (ClaudeWCT.WCT9.builtPair T 2 (route index 2).2).2)
     (WCT9.searchLimit 1) 0 c1 d1 l1 (ClaudeWCT.W9.T3.Security.Wots.searchLimit_fits _) hs1).2.2.2
-  let r2 := WCT9.CanonicalPolicy.nextResidual r1 1 l1 d1
-  have hr2 : r2<41 := WCT9.CanonicalPolicy.accepted_one_residual ⟨r1,hr1⟩ hd1
+  let r2 := SigGolfCandidate.Research.SharedForest.routeResidual index r1 1 l1 d1
+  have hr2 : r2<41 := by
+    have h := WCT9.CanonicalPolicy.accepted_one_residual ⟨r1,hr1⟩ hd1
+    simp only [Fin.val_mk] at h
+    dsimp only [r2,SigGolfCandidate.Research.SharedForest.routeResidual]
+    omega
   have hf2 : WCT9.CanonicalPolicy.threshold 2 r2<23 := by
     have h := (WCT9.CanonicalPolicy.lower_two_progress ⟨r2,hr2⟩).1
     change WCT9.CanonicalPolicy.threshold 2 r2≤19 at h
@@ -1057,8 +1064,12 @@ step cost ~85 s and ~8 GiB of kernel replay. -/
     (.pair (ClaudeWCT.WCT9.builtPair T 3 (route index 3).2).1
       (ClaudeWCT.WCT9.builtPair T 3 (route index 3).2).2)
     (WCT9.searchLimit 2) 0 c2 d2 l2 (ClaudeWCT.W9.T3.Security.Wots.searchLimit_fits _) hs2).2.2.2
-  let r3 := WCT9.CanonicalPolicy.nextResidual r2 2 l2 d2
-  have hr3 : r3<23 := WCT9.CanonicalPolicy.accepted_two_residual ⟨r2,hr2⟩ hd2
+  let r3 := SigGolfCandidate.Research.SharedForest.routeResidual index r2 2 l2 d2
+  have hr3 : r3<23 := by
+    have h := WCT9.CanonicalPolicy.accepted_two_residual ⟨r2,hr2⟩ hd2
+    simp only [Fin.val_mk] at h
+    dsimp only [r3,SigGolfCandidate.Research.SharedForest.routeResidual]
+    omega
   have hf3 : WCT9.CanonicalPolicy.threshold 3 r3<23 := by
     rw [WCT9.CanonicalPolicy.lower_three_progress r3 hr3]; have := WCT9.CanonicalPolicy.lowerThreeFloor_le r3 hr3; omega
   have hc3 : referenceContext T (sourceMessages T) (sourceLeaf index 3)=some r3 := by

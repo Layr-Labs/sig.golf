@@ -10267,7 +10267,7 @@ theorem searchPreparedLayers_famEq (hC : FamCongr S (sourceMessages T) F T T') (
     rcases found0 with ⟨counter0, digits0, low0⟩
     have href0 := referenceSearch_of_run hc0 hr0
     have hc1 : referenceContext T messages (sourceLeaf index 1) =
-        some (CanonicalPolicy.nextResidual (SigGolfCandidate.Research.SharedForest.requiredCredit index) 0 low0 digits0) := by
+        some (SigGolfCandidate.Research.SharedForest.routeResidual index (SigGolfCandidate.Research.SharedForest.requiredCredit index) 0 low0 digits0) := by
       apply context_parent_success (leaf := sourceLeaf index 1) (by change 1 ≠ 0; decide)
       · rw [sourceLeaf_parent index 1 (by decide)]; exact hc0
       · rw [sourceLeaf_parent index 1 (by decide)]; exact href0
@@ -10282,7 +10282,7 @@ theorem searchPreparedLayers_famEq (hC : FamCongr S (sourceMessages T) F T T') (
         rcases found1 with ⟨counter1, digits1, low1⟩
         have href1 := referenceSearch_of_run hc1 hr1
         have hc2 : referenceContext T messages (sourceLeaf index 2) =
-            some (CanonicalPolicy.nextResidual (CanonicalPolicy.nextResidual (SigGolfCandidate.Research.SharedForest.requiredCredit index) 0 low0
+            some (SigGolfCandidate.Research.SharedForest.routeResidual index (SigGolfCandidate.Research.SharedForest.routeResidual index (SigGolfCandidate.Research.SharedForest.requiredCredit index) 0 low0
               digits0) 1 low1 digits1) := by
           apply context_parent_success (leaf := sourceLeaf index 2) (by change 2 ≠ 0; decide)
           · rw [sourceLeaf_parent index 2 (by decide)]; exact hc1
@@ -10298,8 +10298,8 @@ theorem searchPreparedLayers_famEq (hC : FamCongr S (sourceMessages T) F T T') (
             rcases found2 with ⟨counter2, digits2, low2⟩
             have href2 := referenceSearch_of_run hc2 hr2
             have hc3 : referenceContext T messages (sourceLeaf index 3) =
-                some (CanonicalPolicy.nextResidual
-                  (CanonicalPolicy.nextResidual (CanonicalPolicy.nextResidual (SigGolfCandidate.Research.SharedForest.requiredCredit index) 0 low0
+                some (SigGolfCandidate.Research.SharedForest.routeResidual index
+                  (SigGolfCandidate.Research.SharedForest.routeResidual index (SigGolfCandidate.Research.SharedForest.routeResidual index (SigGolfCandidate.Research.SharedForest.requiredCredit index) 0 low0
                     digits0) 1 low1 digits1) 2 low2 digits2) := by
               apply context_parent_success (leaf := sourceLeaf index 3) (by change 3 ≠ 0; decide)
               · rw [sourceLeaf_parent index 3 (by decide)]; exact hc2

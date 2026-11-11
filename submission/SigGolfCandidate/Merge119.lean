@@ -370,14 +370,6 @@ theorem blockCheck_at (q dB dC : Nat) (hq : q<16) (hn : inl q=false) (hB : dB �
   unfold liveBlock at hb
   rw [if_neg h16, e1, e2, if_pos (by omega)] at hb
   exact hb
-/-- The r7 pair's 7 bodies (ladder of chain 48, chain 49 with digit `dB`, checksum dispatch). -/
-theorem pairBlockCheck_at (dB : Nat) (hB : dB ≤ 6) : blockCheck 16 dB 0=true := by
-  have h := tripleCheck_16
-  simp only [tripleCheck,Bool.and_eq_true] at h
-  have hb := List.all_eq_true.mp h.2 dB (List.mem_range.mpr (by unfold nBlock; simp; omega))
-  unfold liveBlock at hb
-  rw [if_pos rfl] at hb
-  exact hb
 theorem s8Run_at (q k : Nat) (hq : q<17) (hk : k<nRank q) :
     (if q=16 ∧ k=0 then rOK (vrun (entW q k) 0) (emptyR (entW q k)) else
       if q=0 then rOK (vrun (entW 0 k) 1) (guardR k) else rOK (vrun (entW q k) 1) (s8R (kss q k) (entW q k)))=true := by

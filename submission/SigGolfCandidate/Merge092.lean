@@ -1,3 +1,5 @@
+import SigGolfCandidate.LocalRouteResiduals
+import SigGolfCandidate.LocalRouteIndexExtra
 import SigGolfCandidate.Merge052
 import SigGolfCandidate.Merge054
 import SigGolfCandidate.Merge056
@@ -1058,7 +1060,7 @@ theorem stage_good {sig : WCT9.Signature} {hints : BitVec 16} {index n : Nat} {v
       floorLt := hintFloor_lt (route index lay).1 hints lay,
       floorTop := fun he => by
         change lay=0 at he
-        change hintFloor leaf hints lay = max 18 (WCT9.CanonicalPolicy.routePool leaf-54)
+        change hintFloor leaf hints lay = max 18 (LocalRouteMachineHelpers.poolForLeaf leaf-54)
         rw [he]
         exact SigGolfCandidate.T3M.Search.CanonicalExpandHooks.hintFloor_top leaf hints,
       hintsLt := hI.hintsLt, floorEq := rfl,
@@ -1685,9 +1687,9 @@ set_option maxRecDepth 10000
 
 /-- img-v6 machine policy check: pool 72, hints `529·f1 + 23·f2 + f3`; L1 residual < 55, L2 < 41, L3 < 23. -/
 def policyCondition (index : Nat) (hints : BitVec 16) (digits : List (List Nat)) (lows : List Bool) : Prop :=
-  let r1:=(SharedForest.requiredCredit index)-CanonicalPolicy.credit 0 (lows.getD 0 true) (digits.getD 0 [])
-  let r2:=r1-CanonicalPolicy.credit 1 (lows.getD 1 true) (digits.getD 1 [])
-  let r3:=r2-CanonicalPolicy.credit 2 (lows.getD 2 true) (digits.getD 2 [])
+  let r1:=(SharedForest.requiredCredit index)-CanonicalPolicy.credit 0 (lows.getD 0 true) (digits.getD 0 [])-SharedForest.LocalRoute.ownSave index 1
+  let r2:=r1-CanonicalPolicy.credit 1 (lows.getD 1 true) (digits.getD 1 [])-SharedForest.LocalRoute.ownSave index 2
+  let r3:=r2-CanonicalPolicy.credit 2 (lows.getD 2 true) (digits.getD 2 [])-SharedForest.LocalRoute.ownSave index 3
   r1<55 ∧ r2<41 ∧ r3<23 ∧
     hints.toNat/529=CanonicalPolicy.threshold 1 r1 ∧
     hints.toNat/23%23=CanonicalPolicy.threshold 2 r2 ∧ hints.toNat%23=CanonicalPolicy.lowerThreeFloor r3
@@ -1709,8 +1711,9 @@ theorem policyCondition_iff (index : Nat) (hints : BitVec 16) (digits : List (Li
     rw [Nat.div_one]
   rw [h1] at hc1
   rw [h2] at hc2
-  simp only [SharedForest.policyHintsValid,decide_eq_true_eq,CanonicalPolicy.nextResidual,
+  simp only [SharedForest.policyHintsValid,decide_eq_true_eq,SharedForest.routeResidual,CanonicalPolicy.nextResidual,Fin.val_zero,Fin.val_one,show (2:SigGolfCandidate.T3.Layer).val=2 by rfl,
     CanonicalPolicy.threshold_top,hlen,true_and,and_true,h1,h2,h3]
+  norm_num only at *
   unfold policyCondition
   constructor
   · rintro ⟨hR1,hR2,hR3,he1,he2,he3⟩
@@ -1720,18 +1723,18 @@ theorem policyCondition_iff (index : Nat) (hints : BitVec 16) (digits : List (Li
     rw [CanonicalPolicy.lower_three_progress _ hR3]
     exact he3
   · rintro ⟨hH,he1,he2,he3⟩
-    have hr1 : (SharedForest.requiredCredit index)-CanonicalPolicy.credit 0 (lows.getD 0 true) (digits.getD 0 [])<55 := by omega
+    have hr1 : (SharedForest.requiredCredit index)-CanonicalPolicy.credit 0 (lows.getD 0 true) (digits.getD 0 [])-SharedForest.LocalRoute.ownSave index 1<55 := by omega
     have ht1 := (CanonicalPolicy.lower_one_progress ⟨_,hr1⟩).2
     simp only [Fin.val_mk] at ht1
-    have hr2 : (SharedForest.requiredCredit index)-CanonicalPolicy.credit 0 (lows.getD 0 true) (digits.getD 0 [])-
-        CanonicalPolicy.credit 1 (lows.getD 1 true) (digits.getD 1 [])<41 := by
+    have hr2 : (SharedForest.requiredCredit index)-CanonicalPolicy.credit 0 (lows.getD 0 true) (digits.getD 0 [])-SharedForest.LocalRoute.ownSave index 1-
+        CanonicalPolicy.credit 1 (lows.getD 1 true) (digits.getD 1 [])-SharedForest.LocalRoute.ownSave index 2<41 := by
       rw [←he1] at ht1
       omega
     have ht2 := (CanonicalPolicy.lower_two_progress ⟨_,hr2⟩).2
     simp only [Fin.val_mk] at ht2
-    have hr3 : (SharedForest.requiredCredit index)-CanonicalPolicy.credit 0 (lows.getD 0 true) (digits.getD 0 [])-
-        CanonicalPolicy.credit 1 (lows.getD 1 true) (digits.getD 1 [])-
-        CanonicalPolicy.credit 2 (lows.getD 2 true) (digits.getD 2 [])<23 := by
+    have hr3 : (SharedForest.requiredCredit index)-CanonicalPolicy.credit 0 (lows.getD 0 true) (digits.getD 0 [])-SharedForest.LocalRoute.ownSave index 1-
+        CanonicalPolicy.credit 1 (lows.getD 1 true) (digits.getD 1 [])-SharedForest.LocalRoute.ownSave index 2-
+        CanonicalPolicy.credit 2 (lows.getD 2 true) (digits.getD 2 [])-SharedForest.LocalRoute.ownSave index 3<23 := by
       rw [←he2] at ht2
       omega
     refine ⟨hr1,hr2,hr3,by omega,he2,?_⟩
@@ -5736,7 +5739,7 @@ sym_block goodRun := symRun {noAlias:=true} goodCode (pcOf 46978) 100
 def badCode : List (BitVec 32) := [0xf7cd206f]
 sym_block badRun := symRun {noAlias:=true} badCode (pcOf 46979) 100
 theorem range1_steps {im : Image} (hc : CodeAt im (pcOf 46940) range1Code)
-    (s : MachineState) (hp : s.pc=pcOf 46940) (R : Nat) (hR : R≤73)
+    (s : MachineState) (hp : s.pc=pcOf 46940) (R : Nat) (hR : R≤74)
     (h21 : s.getReg .x21=BitVec.ofNat 64 R) :
     ∃t,Steps im s 2 2 t ∧ t.pc=(if R<55 then pcOf 46942 else pcOf 46979) ∧
       RegsExcept s t [.x7] ∧ Frame s t (fun _=>False) := by
@@ -5748,7 +5751,7 @@ theorem range1_steps {im : Image} (hc : CodeAt im (pcOf 46940) range1Code)
   · intro r hr;cases r <;> first | exact (hr (by decide)).elim | rfl
   · intro A hA hn;rfl
 theorem range2_steps {im : Image} (hc : CodeAt im (pcOf 46956) range2Code)
-    (s : MachineState) (hp : s.pc=pcOf 46956) (R : Nat) (hR : R≤73)
+    (s : MachineState) (hp : s.pc=pcOf 46956) (R : Nat) (hR : R≤74)
     (h21 : s.getReg .x21=BitVec.ofNat 64 R) :
     ∃t,Steps im s 2 2 t ∧ t.pc=(if R<41 then pcOf 46958 else pcOf 46979) ∧
       RegsExcept s t [.x7] ∧ Frame s t (fun _=>False) := by
@@ -5760,7 +5763,7 @@ theorem range2_steps {im : Image} (hc : CodeAt im (pcOf 46956) range2Code)
   · intro r hr;cases r <;> first | exact (hr (by decide)).elim | rfl
   · intro A hA hn;rfl
 theorem range3_steps {im : Image} (hc : CodeAt im (pcOf 46973) range3Code)
-    (s : MachineState) (hp : s.pc=pcOf 46973) (R : Nat) (hR : R≤73)
+    (s : MachineState) (hp : s.pc=pcOf 46973) (R : Nat) (hR : R≤74)
     (h21 : s.getReg .x21=BitVec.ofNat 64 R) :
     ∃t,Steps im s 2 2 t ∧ t.pc=(if R<23 then pcOf 46975 else pcOf 46979) ∧
       RegsExcept s t [.x7] ∧ Frame s t (fun _=>False) := by
@@ -5790,8 +5793,8 @@ theorem init_steps {im : Image} (hc : CodeAt im (pcOf 46929) initCode)
     apply Nat.mod_eq_of_lt
     omega
   have he : SigGolfCandidate.Research.SharedForest.requiredCredit index =
-      ClaudeWCT.Numerics.TopRoute.rootPool (index/2^19) := by
-    unfold SigGolfCandidate.Research.SharedForest.requiredCredit
+      LocalRouteMachineHelpers.poolForLeaf (index/2^19) := by
+    unfold SigGolfCandidate.Research.SharedForest.requiredCredit SigGolfCandidate.Research.SharedForest.LocalRoute.pool
     rw [hr]
     rfl
   rw [he]
@@ -6038,9 +6041,9 @@ set_option maxRecDepth 20000
 structure Code (im : Image) : Prop where
   init : CodeAt im (pcOf 46929) initCode
   poolHelper : CodeAt im (pcOf 54324) TopRoutePool.expandIndexCode
-  r0 : Residual0Code im
-  r1 : Residual1Code im
-  r2 : Residual2Code im
+  r0 : LocalRouteResiduals.Code0 im
+  r1 : LocalRouteResiduals.Code1 im
+  r2 : LocalRouteResiduals.Code2 im
   range1 : CodeAt im (pcOf 46940) range1Code
   range2 : CodeAt im (pcOf 46956) range2Code
   range3 : CodeAt im (pcOf 46973) range3Code
@@ -6059,21 +6062,23 @@ structure Code (im : Image) : Prop where
 
 def regs : List Reg := [.x6,.x7,.x21,.x28,.x29]
 theorem phase1_steps {im : Image} (hc : Code im)
-    (s : MachineState) (hp : s.pc=pcOf 46933) (R C H : Nat) (hR : R≤73) (hC : C<2^64) (hH : H<8000)
+    (s : MachineState) (hp : s.pc=pcOf 46933) (index R C H : Nat) (hi : index<2^64) (hR : R≤74) (hC : C<2^64) (hH : H<8000)
     (h21 : s.getReg .x21=BitVec.ofNat 64 R) (h20 : s.getReg .x20=BitVec.ofNat 64 H)
+    (hindex : s.getMem (0x20550#64)=BitVec.ofNat 64 index)
     (hm : s.getMem (417856#64)=BitVec.ofNat 64 C)
     (T : Nat→Nat) (hT : ∀ r,r<55 → T r<23)
     (hbytes : ∀ r,r<55 → s.getByte (BitVec.ofNat 64 (16749456+r))=BitVec.ofNat 8 (T r)) :
-    ∃t n c,n≤15 ∧ c≤18 ∧ Steps im s n c t ∧
-      t.pc=(if R-C<55 ∧ H/529=T (R-C) then pcOf 46949 else pcOf 46979) ∧
-      t.getReg .x21=BitVec.ofNat 64 (R-C) ∧ RegsExcept s t regs ∧ Frame s t (fun _=>False) := by
-  letI:=hc.r0
-  obtain ⟨u,n,hn,su,pu,u21,ru,fu⟩:=residual0_steps (im:=im) s hp R C hR hC h21 hm
-  obtain ⟨v,sv,pv,rv,fv⟩:=range1_steps hc.range1 u pu (R-C) (by omega) u21
-  by_cases hlt : R-C<55
+    ∃t n c,n≤27 ∧ c≤30 ∧ Steps im s n c t ∧
+      t.pc=(if (R-C-SigGolfCandidate.Research.SharedForest.LocalRoute.ownSave index 1)<55 ∧ H/529=T ((R-C-SigGolfCandidate.Research.SharedForest.LocalRoute.ownSave index 1)) then pcOf 46949 else pcOf 46979) ∧
+      t.getReg .x21=BitVec.ofNat 64 ((R-C-SigGolfCandidate.Research.SharedForest.LocalRoute.ownSave index 1)) ∧ RegsExcept s t regs ∧ Frame s t (fun _=>False) := by
+  obtain ⟨u,n,hn,su,pu,u21,ru,fu⟩:=LocalRouteResiduals.residual0_steps hc.r0 s hp index R C hi hR hC h21 hm hindex
+  simp only [Nat.reducePow,Nat.div_one] at u21
+  rw [← SigGolfCandidate.Research.SharedForest.LocalRoute.ownSave_one_div] at u21
+  obtain ⟨v,sv,pv,rv,fv⟩:=range1_steps hc.range1 u pu ((R-C-SigGolfCandidate.Research.SharedForest.LocalRoute.ownSave index 1)) (by omega) u21
+  by_cases hlt : (R-C-SigGolfCandidate.Research.SharedForest.LocalRoute.ownSave index 1)<55
   · rw [if_pos hlt] at pv
     obtain ⟨t,st,pt,rt,ft⟩:=lookup1_steps hc.lookup1Pre hc.lookup1Load hc.lookup1Post v pv
-      (R-C) H (T (R-C)) hlt hH (hT _ hlt)
+      ((R-C-SigGolfCandidate.Research.SharedForest.LocalRoute.ownSave index 1)) H (T ((R-C-SigGolfCandidate.Research.SharedForest.LocalRoute.ownSave index 1))) hlt hH (hT _ hlt)
       (by rw [rv.get (by decide)];exact u21)
       (by rw [rv.get (by decide),ru.get (by decide)];exact h20)
       (by rw [fv.getByte (by omega) (by simp),fu.getByte (by omega) (by simp)];exact hbytes _ hlt)
@@ -6089,21 +6094,23 @@ theorem phase1_steps {im : Image} (hc : Code im)
     · exact (ru.trans rv).mono (by decide)
     · exact (fu.trans fv).mono (by simp)
 theorem phase2_steps {im : Image} (hc : Code im)
-    (s : MachineState) (hp : s.pc=pcOf 46949) (R C H : Nat) (hR : R≤73) (hC : C<2^64) (hH : H<8000)
+    (s : MachineState) (hp : s.pc=pcOf 46949) (index R C H : Nat) (hi : index<2^64) (hR : R≤74) (hC : C<2^64) (hH : H<8000)
     (h21 : s.getReg .x21=BitVec.ofNat 64 R) (h20 : s.getReg .x20=BitVec.ofNat 64 H)
+    (hindex : s.getMem (0x20550#64)=BitVec.ofNat 64 index)
     (hm : s.getMem (417864#64)=BitVec.ofNat 64 C)
     (T : Nat→Nat) (hT : ∀ r,r<41 → T r<23)
     (hbytes : ∀ r,r<41 → s.getByte (BitVec.ofNat 64 (16749520+r))=BitVec.ofNat 8 (T r)) :
-    ∃t n c,n≤16 ∧ c≤22 ∧ Steps im s n c t ∧
-      t.pc=(if R-C<41 ∧ H/23%23=T (R-C) then pcOf 46966 else pcOf 46979) ∧
-      t.getReg .x21=BitVec.ofNat 64 (R-C) ∧ RegsExcept s t regs ∧ Frame s t (fun _=>False) := by
-  letI:=hc.r1
-  obtain ⟨u,n,hn,su,pu,u21,ru,fu⟩:=residual1_steps (im:=im) s hp R C hR hC h21 hm
-  obtain ⟨v,sv,pv,rv,fv⟩:=range2_steps hc.range2 u pu (R-C) (by omega) u21
-  by_cases hlt : R-C<41
+    ∃t n c,n≤28 ∧ c≤34 ∧ Steps im s n c t ∧
+      t.pc=(if (R-C-SigGolfCandidate.Research.SharedForest.LocalRoute.ownSave index 2)<41 ∧ H/23%23=T ((R-C-SigGolfCandidate.Research.SharedForest.LocalRoute.ownSave index 2)) then pcOf 46966 else pcOf 46979) ∧
+      t.getReg .x21=BitVec.ofNat 64 ((R-C-SigGolfCandidate.Research.SharedForest.LocalRoute.ownSave index 2)) ∧ RegsExcept s t regs ∧ Frame s t (fun _=>False) := by
+  obtain ⟨u,n,hn,su,pu,u21,ru,fu⟩:=LocalRouteResiduals.residual1_steps hc.r1 s hp index R C hi hR hC h21 hm hindex
+  simp only [Nat.reducePow,Nat.div_one] at u21
+  rw [← SigGolfCandidate.Research.SharedForest.LocalRoute.ownSave_two_div] at u21
+  obtain ⟨v,sv,pv,rv,fv⟩:=range2_steps hc.range2 u pu ((R-C-SigGolfCandidate.Research.SharedForest.LocalRoute.ownSave index 2)) (by omega) u21
+  by_cases hlt : (R-C-SigGolfCandidate.Research.SharedForest.LocalRoute.ownSave index 2)<41
   · rw [if_pos hlt] at pv
     obtain ⟨t,st,pt,rt,ft⟩:=lookup2_steps hc.lookup2Pre hc.lookup2Load hc.lookup2Post v pv
-      (R-C) H (T (R-C)) hlt hH (hT _ hlt)
+      ((R-C-SigGolfCandidate.Research.SharedForest.LocalRoute.ownSave index 2)) H (T ((R-C-SigGolfCandidate.Research.SharedForest.LocalRoute.ownSave index 2))) hlt hH (hT _ hlt)
       (by rw [rv.get (by decide)];exact u21)
       (by rw [rv.get (by decide),ru.get (by decide)];exact h20)
       (by rw [fv.getByte (by omega) (by simp),fu.getByte (by omega) (by simp)];exact hbytes _ hlt)
@@ -6119,18 +6126,20 @@ theorem phase2_steps {im : Image} (hc : Code im)
     · exact (ru.trans rv).mono (by decide)
     · exact (fu.trans fv).mono (by simp)
 theorem phase3_steps {im : Image} (hc : Code im)
-    (s : MachineState) (hp : s.pc=pcOf 46966) (R C H : Nat) (hR : R≤73) (hC : C<2^64) (hH : H<8000)
+    (s : MachineState) (hp : s.pc=pcOf 46966) (index R C H : Nat) (hi : index<2^64) (hR : R≤74) (hC : C<2^64) (hH : H<8000)
     (h21 : s.getReg .x21=BitVec.ofNat 64 R) (h20 : s.getReg .x20=BitVec.ofNat 64 H)
+    (hindex : s.getMem (0x20550#64)=BitVec.ofNat 64 index)
     (hm : s.getMem (417872#64)=BitVec.ofNat 64 C) :
-    ∃t n c,n≤22 ∧ c≤38 ∧ Steps im s n c t ∧
-      t.pc=(if R-C<23 ∧ H%23=ClaudeWCT.WCT9.CanonicalPolicy.lowerThreeFloor (R-C) then pcOf 42795 else pcOf 46979) ∧
-      t.getReg .x21=BitVec.ofNat 64 (R-C) ∧ RegsExcept s t regs ∧ Frame s t (fun _=>False) := by
-  letI:=hc.r2
-  obtain ⟨u,n,hn,su,pu,u21,ru,fu⟩:=residual2_steps (im:=im) s hp R C hR hC h21 hm
-  obtain ⟨v,sv,pv,rv,fv⟩:=range3_steps hc.range3 u pu (R-C) (by omega) u21
-  by_cases hlt : R-C<23
+    ∃t n c,n≤33 ∧ c≤49 ∧ Steps im s n c t ∧
+      t.pc=(if (R-C-SigGolfCandidate.Research.SharedForest.LocalRoute.ownSave index 3)<23 ∧ H%23=ClaudeWCT.WCT9.CanonicalPolicy.lowerThreeFloor ((R-C-SigGolfCandidate.Research.SharedForest.LocalRoute.ownSave index 3)) then pcOf 42795 else pcOf 46979) ∧
+      t.getReg .x21=BitVec.ofNat 64 ((R-C-SigGolfCandidate.Research.SharedForest.LocalRoute.ownSave index 3)) ∧ RegsExcept s t regs ∧ Frame s t (fun _=>False) := by
+  obtain ⟨u,n,hn,su,pu,u21,ru,fu⟩:=LocalRouteResiduals.residual2_steps hc.r2 s hp index R C hi hR hC h21 hm hindex
+  simp only [Nat.reducePow,Nat.div_one] at u21
+  rw [← SigGolfCandidate.Research.SharedForest.LocalRoute.ownSave_three_div] at u21
+  obtain ⟨v,sv,pv,rv,fv⟩:=range3_steps hc.range3 u pu ((R-C-SigGolfCandidate.Research.SharedForest.LocalRoute.ownSave index 3)) (by omega) u21
+  by_cases hlt : (R-C-SigGolfCandidate.Research.SharedForest.LocalRoute.ownSave index 3)<23
   · rw [if_pos hlt] at pv
-    obtain ⟨t,c3,st,hc3,pt,rt,ft⟩:=last_steps hc.last hc.l3e hc.l3Ok hc.l3Bad v pv (R-C) H (by omega) hH
+    obtain ⟨t,c3,st,hc3,pt,rt,ft⟩:=last_steps hc.last hc.l3e hc.l3Ok hc.l3Bad v pv ((R-C-SigGolfCandidate.Research.SharedForest.LocalRoute.ownSave index 3)) H (by omega) hH
       (by rw [rv.get (by decide)];exact u21)
       (by rw [rv.get (by decide),ru.get (by decide)];exact h20)
     refine ⟨t,n+2+14,n+2+c3,by omega,by omega,(su.trans sv).trans st,?_,?_,?_,?_⟩
@@ -6152,10 +6161,10 @@ set_option autoImplicit false
 set_option maxHeartbeats 2500000
 set_option maxRecDepth 20000
 
-abbrev Condition (pool H C0 C1 C2 : Nat) (T1 T2 : Nat→Nat) : Prop :=
-  let R1:=pool-C0
-  let R2:=R1-C1
-  let R3:=R2-C2
+abbrev Condition (index H C0 C1 C2 : Nat) (T1 T2 : Nat→Nat) : Prop :=
+  let R1:=(SigGolfCandidate.Research.SharedForest.requiredCredit index)-C0-SigGolfCandidate.Research.SharedForest.LocalRoute.ownSave index 1
+  let R2:=R1-C1-SigGolfCandidate.Research.SharedForest.LocalRoute.ownSave index 2
+  let R3:=R2-C2-SigGolfCandidate.Research.SharedForest.LocalRoute.ownSave index 3
   R1<55 ∧ R2<41 ∧ R3<23 ∧ H/529=T1 R1 ∧ H/23%23=T2 R2 ∧ H%23=ClaudeWCT.WCT9.CanonicalPolicy.lowerThreeFloor R3
 
 theorem validate_steps {im : Image} (hc : Code im)
@@ -6169,51 +6178,54 @@ theorem validate_steps {im : Image} (hc : Code im)
     (T1 T2 : Nat→Nat) (ht1 : ∀r,r<55→T1 r<23) (ht2 : ∀r,r<41→T2 r<23)
     (hb1 : ∀r,r<55→s.getByte (BitVec.ofNat 64 (16749456+r))=BitVec.ofNat 8 (T1 r))
     (hb2 : ∀r,r<41→s.getByte (BitVec.ofNat 64 (16749520+r))=BitVec.ofNat 8 (T2 r)) :
-    ∃t n c,n≤69 ∧ c≤94 ∧ Steps im s n c t ∧
-      t.pc=(if Condition (SigGolfCandidate.Research.SharedForest.requiredCredit index) H C0 C1 C2 T1 T2 then pcOf 42795 else pcOf 354) ∧
+    ∃t n c,n≤104 ∧ c≤129 ∧ Steps im s n c t ∧
+      t.pc=(if Condition index H C0 C1 C2 T1 T2 then pcOf 42795 else pcOf 354) ∧
       RegsExcept s t [.x6,.x7,.x20,.x21,.x28,.x29] ∧ Frame s t (fun _=>False) := by
   obtain ⟨u,su,pu,u20,u21,ru,fu⟩:=init_steps hc.init hc.poolHelper s hp index H hi hmidx hm
   have hpool := SigGolfCandidate.Research.SharedForest.requiredCredit_bounds index
-  obtain ⟨v,n1,c1,hn1,hc1,sv,pv,v21,rv,fv⟩:=phase1_steps hc u pu (SigGolfCandidate.Research.SharedForest.requiredCredit index) C0 H (by omega) hC0 hH u21 u20
+  obtain ⟨v,n1,c1,hn1,hc1,sv,pv,v21,rv,fv⟩:=phase1_steps hc u pu index (SigGolfCandidate.Research.SharedForest.requiredCredit index) C0 H (by omega) (by omega) hC0 hH u21 u20
+    (by rw [fu.get (by decide) (by simp)];exact hmidx)
     (by rw [fu.get (by decide) (by simp)];exact hm0) T1 ht1
     (fun r hr=>by rw [fu.getByte (by omega) (by simp)];exact hb1 r hr)
-  by_cases h1 : (SigGolfCandidate.Research.SharedForest.requiredCredit index)-C0<55 ∧ H/529=T1 ((SigGolfCandidate.Research.SharedForest.requiredCredit index)-C0)
+  by_cases h1 : (SigGolfCandidate.Research.SharedForest.requiredCredit index)-C0-SigGolfCandidate.Research.SharedForest.LocalRoute.ownSave index 1<55 ∧ H/529=T1 ((SigGolfCandidate.Research.SharedForest.requiredCredit index)-C0-SigGolfCandidate.Research.SharedForest.LocalRoute.ownSave index 1)
   · rw [if_pos h1] at pv
-    obtain ⟨w,n2,c2,hn2,hc2,sw,pw,w21,rw_,fw⟩:=phase2_steps hc v pv ((SigGolfCandidate.Research.SharedForest.requiredCredit index)-C0) C1 H (by omega) hC1 hH v21
+    obtain ⟨w,n2,c2,hn2,hc2,sw,pw,w21,rw_,fw⟩:=phase2_steps hc v pv index ((SigGolfCandidate.Research.SharedForest.requiredCredit index)-C0-SigGolfCandidate.Research.SharedForest.LocalRoute.ownSave index 1) C1 H (by omega) (by omega) hC1 hH v21
       (by rw [rv.get (by decide)];exact u20)
+      (by rw [fv.get (by decide) (by simp),fu.get (by decide) (by simp)];exact hmidx)
       (by rw [fv.get (by decide) (by simp),fu.get (by decide) (by simp)];exact hm1) T2 ht2
       (fun r hr=>by rw [fv.getByte (by omega) (by simp),fu.getByte (by omega) (by simp)];exact hb2 r hr)
-    by_cases h2 : (SigGolfCandidate.Research.SharedForest.requiredCredit index)-C0-C1<41 ∧ H/23%23=T2 ((SigGolfCandidate.Research.SharedForest.requiredCredit index)-C0-C1)
+    by_cases h2 : (SigGolfCandidate.Research.SharedForest.requiredCredit index)-C0-SigGolfCandidate.Research.SharedForest.LocalRoute.ownSave index 1-C1-SigGolfCandidate.Research.SharedForest.LocalRoute.ownSave index 2<41 ∧ H/23%23=T2 ((SigGolfCandidate.Research.SharedForest.requiredCredit index)-C0-SigGolfCandidate.Research.SharedForest.LocalRoute.ownSave index 1-C1-SigGolfCandidate.Research.SharedForest.LocalRoute.ownSave index 2)
     · rw [if_pos h2] at pw
-      obtain ⟨x,n3,c3,hn3,hc3,sx,px,x21,rx,fx⟩:=phase3_steps hc w pw ((SigGolfCandidate.Research.SharedForest.requiredCredit index)-C0-C1) C2 H (by omega) hC2 hH w21
+      obtain ⟨x,n3,c3,hn3,hc3,sx,px,x21,rx,fx⟩:=phase3_steps hc w pw index ((SigGolfCandidate.Research.SharedForest.requiredCredit index)-C0-SigGolfCandidate.Research.SharedForest.LocalRoute.ownSave index 1-C1-SigGolfCandidate.Research.SharedForest.LocalRoute.ownSave index 2) C2 H (by omega) (by omega) hC2 hH w21
         (by rw [rw_.get (by decide),rv.get (by decide)];exact u20)
+        (by rw [fw.get (by decide) (by simp),fv.get (by decide) (by simp),fu.get (by decide) (by simp)];exact hmidx)
         (by rw [fw.get (by decide) (by simp),fv.get (by decide) (by simp),fu.get (by decide) (by simp)];exact hm2)
-      by_cases h3 : (SigGolfCandidate.Research.SharedForest.requiredCredit index)-C0-C1-C2<23 ∧ H%23=ClaudeWCT.WCT9.CanonicalPolicy.lowerThreeFloor ((SigGolfCandidate.Research.SharedForest.requiredCredit index)-C0-C1-C2)
+      by_cases h3 : (SigGolfCandidate.Research.SharedForest.requiredCredit index)-C0-SigGolfCandidate.Research.SharedForest.LocalRoute.ownSave index 1-C1-SigGolfCandidate.Research.SharedForest.LocalRoute.ownSave index 2-C2-SigGolfCandidate.Research.SharedForest.LocalRoute.ownSave index 3<23 ∧ H%23=ClaudeWCT.WCT9.CanonicalPolicy.lowerThreeFloor ((SigGolfCandidate.Research.SharedForest.requiredCredit index)-C0-SigGolfCandidate.Research.SharedForest.LocalRoute.ownSave index 1-C1-SigGolfCandidate.Research.SharedForest.LocalRoute.ownSave index 2-C2-SigGolfCandidate.Research.SharedForest.LocalRoute.ownSave index 3)
       · rw [if_pos h3] at px
         -- Y5: the L3 check at 87812 jumps to 42795 directly (word 46978 is not visited on success).
         refine ⟨x,15+n1+n2+n3,15+c1+c2+c3,by omega,by omega,((su.trans sv).trans sw).trans sx,?_,?_,?_⟩
-        · have hcond : Condition (SigGolfCandidate.Research.SharedForest.requiredCredit index) H C0 C1 C2 T1 T2 := by exact ⟨h1.1,h2.1,h3.1,h1.2,h2.2,h3.2⟩
+        · have hcond : Condition index H C0 C1 C2 T1 T2 := by exact ⟨h1.1,h2.1,h3.1,h1.2,h2.2,h3.2⟩
           simpa only [if_pos hcond] using px
         · exact (((ru.trans rv).trans rw_).trans rx).mono (by decide)
         · exact (((fu.trans fv).trans fw).trans fx).mono (by simp)
       · rw [if_neg h3] at px
         obtain ⟨t,st,pt,rt,ft⟩:=bad_steps hc.bad x px
         refine ⟨t,15+n1+n2+n3+1,15+c1+c2+c3+1,by omega,by omega,(((su.trans sv).trans sw).trans sx).trans st,?_,?_,?_⟩
-        · have hcond : ¬Condition (SigGolfCandidate.Research.SharedForest.requiredCredit index) H C0 C1 C2 T1 T2 := by intro h;exact h3 ⟨h.2.2.1,h.2.2.2.2.2⟩
+        · have hcond : ¬Condition index H C0 C1 C2 T1 T2 := by intro h;exact h3 ⟨h.2.2.1,h.2.2.2.2.2⟩
           simpa [hcond] using pt
         · exact ((((ru.trans rv).trans rw_).trans rx).trans rt).mono (by decide)
         · exact ((((fu.trans fv).trans fw).trans fx).trans ft).mono (by simp)
     · rw [if_neg h2] at pw
       obtain ⟨t,st,pt,rt,ft⟩:=bad_steps hc.bad w pw
       refine ⟨t,15+n1+n2+1,15+c1+c2+1,by omega,by omega,((su.trans sv).trans sw).trans st,?_,?_,?_⟩
-      · have hcond : ¬Condition (SigGolfCandidate.Research.SharedForest.requiredCredit index) H C0 C1 C2 T1 T2 := by intro h;exact h2 ⟨h.2.1,h.2.2.2.2.1⟩
+      · have hcond : ¬Condition index H C0 C1 C2 T1 T2 := by intro h;exact h2 ⟨h.2.1,h.2.2.2.2.1⟩
         simpa [hcond] using pt
       · exact (((ru.trans rv).trans rw_).trans rt).mono (by decide)
       · exact (((fu.trans fv).trans fw).trans ft).mono (by simp)
   · rw [if_neg h1] at pv
     obtain ⟨t,st,pt,rt,ft⟩:=bad_steps hc.bad v pv
     refine ⟨t,15+n1+1,15+c1+1,by omega,by omega,(su.trans sv).trans st,?_,?_,?_⟩
-    · have hcond : ¬Condition (SigGolfCandidate.Research.SharedForest.requiredCredit index) H C0 C1 C2 T1 T2 := by intro h;exact h1 ⟨h.1,h.2.2.2.1⟩
+    · have hcond : ¬Condition index H C0 C1 C2 T1 T2 := by intro h;exact h1 ⟨h.1,h.2.2.2.1⟩
       simpa [hcond] using pt
     · exact ((ru.trans rv).trans rt).mono (by decide)
     · exact ((fu.trans fv).trans ft).mono (by simp)
@@ -6227,20 +6239,30 @@ set_option Elab.async false
 theorem code_of_driver {im : Image}
     (hc : CodeAt im (pcOf 45056) Images.expandSharedDriver)
     (hy : CodeAt im (pcOf 84000) Images.expandY5Code)
-    (hp : CodeAt im (pcOf 54324) TopRoutePool.expandIndexCode) : Code im := by
+    (hp : CodeAt im (pcOf 54324) TopRoutePool.expandIndexCode)
+    (hh0 : CodeAt im (pcOf 88060) LocalRouteMachineHelpers.expand1Code)
+    (hh1 : CodeAt im (pcOf 88072) LocalRouteMachineHelpers.expand2Code)
+    (hh2 : CodeAt im (pcOf 88084) LocalRouteMachineHelpers.expand3Code)
+    : Code im := by
   constructor
   · exact SharedCounterHooks.code_slice (off:=1873) hc (by decide +kernel) (by decide +kernel)
   · exact hp
   · constructor
     · exact SharedCounterHooks.code_slice (off:=1877) hc (by decide +kernel) (by decide +kernel)
+    · exact hh0
+    · exact SharedCounterHooks.code_slice (off:=1880) hc (by decide +kernel) (by decide +kernel)
     · exact SharedCounterHooks.code_slice (off:=1881) hc (by decide +kernel) (by decide +kernel)
     · exact SharedCounterHooks.code_slice (off:=1883) hc (by decide +kernel) (by decide +kernel)
   · constructor
     · exact SharedCounterHooks.code_slice (off:=1893) hc (by decide +kernel) (by decide +kernel)
+    · exact hh1
+    · exact SharedCounterHooks.code_slice (off:=1896) hc (by decide +kernel) (by decide +kernel)
     · exact SharedCounterHooks.code_slice (off:=1897) hc (by decide +kernel) (by decide +kernel)
     · exact SharedCounterHooks.code_slice (off:=1899) hc (by decide +kernel) (by decide +kernel)
   · constructor
     · exact SharedCounterHooks.code_slice (off:=1910) hc (by decide +kernel) (by decide +kernel)
+    · exact hh2
+    · exact SharedCounterHooks.code_slice (off:=1913) hc (by decide +kernel) (by decide +kernel)
     · exact SharedCounterHooks.code_slice (off:=1914) hc (by decide +kernel) (by decide +kernel)
     · exact SharedCounterHooks.code_slice (off:=1916) hc (by decide +kernel) (by decide +kernel)
   · exact SharedCounterHooks.code_slice (off:=1884) hc (by decide +kernel) (by decide +kernel)
@@ -6261,6 +6283,9 @@ theorem code_of_driver {im : Image}
 theorem installed_poolHelper : CodeAt Images.expandImage (pcOf 54324) TopRoutePool.expandIndexCode := by
   apply codeAt_t51_at <;> decide +kernel
 theorem installed_code : Code Images.expandImage := code_of_driver codeAt_expand_shared_driver ClaudeWCT.W9.Machine.Expand.PrePass.codeAt_y5 installed_poolHelper
+  (by apply codeAt_expand_lastR <;> decide +kernel)
+  (by apply codeAt_expand_lastR <;> decide +kernel)
+  (by apply codeAt_expand_lastR <;> decide +kernel)
 end ClaudeWCT.W9.Machine.Expand.SharedValidateV6
 
 namespace ClaudeWCT.W9.Machine.Expand.SharedValidateV6
@@ -6297,7 +6322,7 @@ theorem validate_source_steps {im : Image} (hc : Code im)
     (ht2 : ∀r,r<41→CanonicalPolicy.threshold 2 r<23)
     (hb1 : ∀r,r<55→s.getByte (BitVec.ofNat 64 (16749456+r))=BitVec.ofNat 8 (CanonicalPolicy.threshold 1 r))
     (hb2 : ∀r,r<41→s.getByte (BitVec.ofNat 64 (16749520+r))=BitVec.ofNat 8 (CanonicalPolicy.threshold 2 r)) :
-    ∃t n c,n≤69 ∧ c≤94 ∧ Steps im s n c t ∧
+    ∃t n c,n≤104 ∧ c≤129 ∧ Steps im s n c t ∧
       t.pc=(if SharedForest.policyHintsValid index hints digits lows then pcOf 42795 else pcOf 354) ∧
       RegsExcept s t [.x6,.x7,.x20,.x21,.x28,.x29] ∧ Frame s t (fun _=>False) := by
   obtain ⟨t,n,c,hn,hc',st,pt,rt,ft⟩:=validate_steps hc s hp index hi hmidx hints.toNat
@@ -6310,7 +6335,7 @@ theorem validate_source_steps {im : Image} (hc : Code im)
   refine ⟨t,n,c,hn,hc',st,?_,rt,ft⟩
   have hh:=SharedValidate.policyCondition_iff index hints digits lows hH hlen (by simpa [SharedForest.hintFloor,CanonicalPolicy.topFloor] using hfloor 0)
     (hfloor 1) (hfloor 2)
-  change (Condition (SharedForest.requiredCredit index) hints.toNat (CanonicalPolicy.credit 0 (lows.getD 0 true) (digits.getD 0 []))
+  change (Condition index hints.toNat (CanonicalPolicy.credit 0 (lows.getD 0 true) (digits.getD 0 []))
     (CanonicalPolicy.credit 1 (lows.getD 1 true) (digits.getD 1 []))
     (CanonicalPolicy.credit 2 (lows.getD 2 true) (digits.getD 2 []))
     (CanonicalPolicy.threshold 1) (CanonicalPolicy.threshold 2) ↔ SharedForest.policyHintsValid index hints digits lows=true) at hh

@@ -205,7 +205,7 @@ def CreditW (lay : Layer) (A : Nat) : Prop := A=creditAddr lay ∧ 0x66040≤A �
 /-- Floors read from the policy hints (Y5 mixed radix `529·f1 + 23·f2 + f3`); the top floor is 18. Agrees with
 `Research.V7Composed198Gate.hintFloor` (`CanonicalPolicy.topFloor = 18`). -/
 def hintFloor (leaf : Nat) (hints : BitVec 16) (lay : Layer) : Nat :=
-  if lay=0 then max 18 (WCT9.CanonicalPolicy.routePool leaf-54) else hints.toNat/23^(3-lay.val)%23
+  if lay=0 then max 18 (LocalRouteMachineHelpers.poolForLeaf leaf-54) else hints.toNat/23^(3-lay.val)%23
 theorem creditAddr_lt (lay : Layer) : creditAddr lay<2^64 := by
   have := lay.isLt;unfold creditAddr;omega
 theorem creditAddr_mem (lay : Layer) : CreditW lay (creditAddr lay) := by
@@ -217,18 +217,19 @@ theorem creditW_zero {X : Nat} (h : CreditW 0 X) : X=0x66040 := by
 theorem hintFloor_lt (leaf : Nat) (hints : BitVec 16) (lay : Layer) : hintFloor leaf hints lay<23 := by
   unfold hintFloor
   split_ifs
-  · unfold WCT9.CanonicalPolicy.routePool
+  · unfold LocalRouteMachineHelpers.poolForLeaf
     omega
   · exact Nat.mod_lt _ (by decide)
 theorem hintFloor_top (leaf : Nat) (hints : BitVec 16) :
-    hintFloor leaf hints 0=max 18 (WCT9.CanonicalPolicy.routePool leaf-54) := by
+    hintFloor leaf hints 0=max 18 (LocalRouteMachineHelpers.poolForLeaf leaf-54) := by
   simp only [hintFloor, if_pos rfl, if_true]
 theorem hintFloor_source (index : Nat) (hints : BitVec 16) (lay : Layer) :
     hintFloor (T3.route index lay).1 hints lay = SigGolfCandidate.Research.SharedForest.hintFloor index hints lay := by
   by_cases hl : lay=0
   · subst lay
     simp only [hintFloor,SigGolfCandidate.Research.SharedForest.hintFloor,
-      SigGolfCandidate.Research.SharedForest.requiredCredit,WCT9.CanonicalPolicy.threshold,
+      SigGolfCandidate.Research.SharedForest.requiredCredit,SigGolfCandidate.Research.SharedForest.LocalRoute.pool,
+      LocalRouteMachineHelpers.poolForLeaf,WCT9.CanonicalPolicy.threshold,
       WCT9.CanonicalPolicy.topFloor,if_pos rfl,if_true]
   · simp only [hintFloor,SigGolfCandidate.Research.SharedForest.hintFloor,if_neg hl]
 theorem flag_not_credit (lay : Layer) : ¬ CreditW lay FLAG := by
@@ -266,13 +267,14 @@ structure Code (image : Image) : Prop where
   t51K : CodeAt image (pcOf 54176) (T51.kCode T51.expandGuardInst)
   t51UA : CodeAt image (pcOf 54356) T51.uCodeA
   t51UB : CodeAt image (pcOf 54468) T51.uCodeB
-  guardPrep : CodeAt image (pcOf 54310) TopRouteGuard.prepCode
+  guardPrep : CodeAt image (pcOf 54310) TopRouteGuardV2.prepCode
+  guardHelper : CodeAt image (pcOf 88095) LocalRouteMachineHelpers.expandRootCode
   guardTest : CodeAt image (pcOf 54317) TopRouteGuard.testCode
   guardReject : CodeAt image (pcOf 54318) [0xc21cb06f]
   guardAccept : CodeAt image (pcOf 54319) [0x940006f]
 theorem Code.kAt {image : Image} (h : Code image) : T51.T51KAt image T51.expandGuardInst := T51.expandGuardKAt h.t51K
-theorem Code.guardAt {image : Image} (h : Code image) : TopRouteGuard.Code image :=
-  ⟨h.guardPrep,h.guardTest,h.guardReject,h.guardAccept⟩
+theorem Code.guardAt {image : Image} (h : Code image) : TopRouteGuardV2.Code image :=
+  ⟨h.guardPrep,h.guardHelper,h.guardTest,h.guardReject,h.guardAccept⟩
 theorem Code.uAt {image : Image} (h : Code image) : T51.T51UAt image T51.expandInst := T51.expandUAt h.t51UA h.t51UB
 
 theorem lowerAdd_steps {image : Image} (hc : CodeAt image (pcOf 43020) lowerAddCode)
@@ -481,7 +483,7 @@ theorem installed_kernel (P : Prop) (hP : P) : KernAt Images.expandImage 354 P :
 
 theorem reward_code_of_hooks (hH : SharedCounterHooks.Code Images.expandImage) :
     CanonicalExpandHooks.Code Images.expandImage := by
-  refine ⟨⟨?_,?_⟩,?_,?_,?_,?_,hH,?_,?_,?_,?_,?_,?_,?_⟩
+  refine ⟨⟨?_,?_⟩,?_,?_,?_,?_,hH,?_,?_,?_,?_,codeAt_expand_root_guard_helper,?_,?_,?_⟩
   rotate_right 7
   all_goals first
     | (apply codeAt_t51_at <;> decide +kernel)
@@ -507,7 +509,7 @@ structure CsArgs where
   ret : Nat
   floor : Nat
   hints : BitVec 16
-def csT (lay : Layer) : Nat := if lay = 0 then 350 else 407
+def csT (lay : Layer) : Nat := if lay = 0 then 355 else 407
 def csOk (lay : Layer) : Nat := if lay = 0 then 4096 else 4096
 theorem capLimit_le (n : Nat) : capLimit n ≤ 2 ^ 22 := by unfold capLimit; split_ifs <;> omega
 theorem capLimit_eq (lay : Layer) : capLimit lay.val = WCT9.searchLimit lay := by
@@ -605,7 +607,7 @@ structure CsPre (b : Nat) (A : CsArgs) (s : MachineState) : Prop where
   reward : Reward.RewardTablesOK s
   zt : ZeroCap.ZtOK b s
   floorLt : A.floor<23
-  floorTop : A.lay=0 → A.floor=max 18 (WCT9.CanonicalPolicy.routePool A.leaf-54)
+  floorTop : A.lay=0 → A.floor=LocalRouteMachineHelpers.rootFloor A.leaf
   hintsLt : A.hints.toNat<8000
   floorEq : A.floor=CanonicalExpandHooks.hintFloor A.leaf A.hints A.lay
   floorMem : s.getMem (0x66000#64)=BitVec.ofNat 64 A.hints.toNat
@@ -946,8 +948,8 @@ theorem cs_loop {A : CsArgs} {s0 : MachineState} (hK : KernAt image 354 (Canonic
       intro w hw; rw [hw,f4.get (by unfold EOUT;omega) (by simp)]; exact hhi.2
     by_cases hlz : A.lay=0
     · rw [if_pos (hl0.2 hlz)] at p4
-      have hfl : A.floor = max 18 (WCT9.CanonicalPolicy.routePool A.leaf-54) := hpre.floorTop hlz
-      have hf0 : 18 ≤ A.floor := by rw [hfl]; omega
+      have hfl : A.floor = LocalRouteMachineHelpers.rootFloor A.leaf := hpre.floorTop hlz
+      have hf0 : 18 ≤ A.floor := by rw [hfl];unfold LocalRouteMachineHelpers.rootFloor;omega
       have hleaf : A.leaf < 4096 := by
         have hr := hpre.hroute
         rw [hlz] at hr
@@ -989,7 +991,7 @@ theorem cs_loop {A : CsArgs} {s0 : MachineState} (hK : KernAt image 354 (Canonic
           omega
         have h18t : t.getReg .x18 = BitVec.ofNat 64 A.leaf := by
           rw [rt.get (by decide),hTg.reg (by decide),hpre.x18]
-        obtain ⟨g,sguard,pguard,rguard,fguard⟩ := TopRouteGuard.guard_steps
+        obtain ⟨g,sguard,pguard,rguard,fguard⟩ := TopRouteGuardV2.guard_steps
           (CanonicalExpandHooks.Code.guardAt hK.reward) t pt A.leaf _ hleaf hcredit h18t tcr
         have hTguard := hTt.step rguard (by decide) fguard
         by_cases hpass : A.floor ≤ WCT9.CanonicalPolicy.credit 0 low ds
@@ -998,8 +1000,7 @@ theorem cs_loop {A : CsArgs} {s0 : MachineState} (hK : KernAt image 354 (Canonic
             simp [hpass] <;> omega
           rw [hnew]
           have pgood : g.pc = pcOf 54356 := by
-            have hpool : ClaudeWCT.Numerics.TopRoute.rootPool A.leaf = WCT9.CanonicalPolicy.routePool A.leaf := rfl
-            rw [hpool, ← hfl] at pguard
+            rw [← hfl] at pguard
             simpa only [if_neg (by omega : ¬ WCT9.CanonicalPolicy.credit 0 low ds < A.floor)] using pguard
           obtain ⟨t',st',pt',tdig,rt',ft'⟩ := T51.unpack hUT g pgood _ ds hdec
               ((rguard.get (by decide)).trans t6) ((rguard.get (by decide)).trans t7)
@@ -1026,8 +1027,7 @@ theorem cs_loop {A : CsArgs} {s0 : MachineState} (hK : KernAt image 354 (Canonic
             simp [hpass] <;> omega
           rw [hnew]
           have pbad : g.pc = pcOf (354+468) := by
-            have hpool : ClaudeWCT.Numerics.TopRoute.rootPool A.leaf = WCT9.CanonicalPolicy.routePool A.leaf := rfl
-            rw [hpool, ← hfl] at pguard
+            rw [← hfl] at pguard
             simpa only [if_pos (by omega : WCT9.CanonicalPolicy.credit 0 low ds < A.floor)] using pguard
           refine (TBSim.steps ((s4.trans sg).trans (st.trans sguard))
             (cs_next hK hTguard pbad hi ih')).mono ?_ (fun _ _ h=>h)

@@ -15,7 +15,7 @@ theorem layout_offsets : submission.layout =
   { message := 26016, secretKey := 128, publicKey := 160,
     cache := 524288, signature := 28672, witness := 4256 } := rfl
 
-theorem certificate : SigGolf.Certificate submission 6961 := by
+theorem certificate : SigGolf.Certificate submission 6958 := by
   exact SigGolfCandidate.Packaging.certificate_ready
 
 end SigGolf.Challenge
@@ -26,27 +26,10 @@ end SigGolf.Challenge
 #print axioms SigGolf.Challenge.layout_offsets
 #print axioms SigGolf.Challenge.certificate
 
-/- Development candidate based on Z4 (f8127b2): use FTS node bias -67073
-   and the aligned chain-label translation, remap FTS heap 7 to 64 and
-   Top label 7 to 520192, and separate digest queries with low word 25984.
-   The target removes three verifier setup instructions.
-   Z6: mpjunior92's dedicated-one elimination (8cff05d) on dda3ccf1: the
-   verifier's `addi t2,zero,1` is removed (step-one stores use s1 with
-   control words 0xfff01/0x7fc01, top root label 856064, FTS root label
-   0xfff01).
-   Y4: L-hyper A' (marker label words; -2 per run).
-   Z6: option F (marker-only label words; the FTS node and leaf low
-   words move by -2048, so no `ori 0x201`; -3 per run).
-   199a9c8 (mpjunior92): credit pool 71, top floor 18, top counter window 2^21.
-   Z7 (port of soispoke's f25ef952): R1 chain-0 ladder-tail reward and f25's L1/L2 floor tables,
-   credit pool 72.
-   Z7 stage 2 (port of soispoke's f25ef952): R6 rho/hint mixed radix (N = rho*5852 + t), skip-2 hint
-   codec, N7g-B ground widths, top zero-bit reallocation, Route C gate 926 (adm 29249/2500000).
-   Y6 R-odd: odd FTS coordinates mask their child in place (child weight 2^26, instance field at
-   bit 33; -3 per run).
-   Y5 #1: FTS heap-16..31 carriers on coordinates 0..3 (1 zero bit, sign S16 and expand SEARCH16), hint trim
-   to the 81a384e-style alphabet (radix 529/23, rho mod 2^131/360), L3 floors to 22, Route C gate 929.
-   Claimed S = 5186, W = 21756, K = 131072, C = 6961;
-   Balanced root-route: required credit 73 minus the two-chunk path saving;
-   lower alphabets {6,10,12,14}, {6,10,12,14,16,18}, {6,9..22}.
-   product = 36,099,746. Independent acceptance remains required. -/
+/- Development candidate extending promoted root-route submission 63bbf59e.
+   Lower path address savings are charged to their own canonical keys, with
+   root pool 74 minus the root path savings. The complete top selector HIGH
+   blocks are relocated consistently with the compacted lower paths.
+   The top setup omits its redundant marker OR because the routed index
+   already includes that marker. S = 5186, W = 21756, K = 131072, C = 6958.
+   Independent official acceptance is required before submitting this candidate. -/

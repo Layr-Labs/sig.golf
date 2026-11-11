@@ -1,3 +1,4 @@
+import SigGolfCandidate.LocalRouteIndexExtra
 import SigGolfCandidate.Merge033
 import SigGolfCandidate.Merge051
 import SigGolfCandidate.Merge052
@@ -4704,20 +4705,29 @@ theorem queryPathSave_source (index : Nat) (hi : index<2^31) (lay : Layer)
     (msg : ClaudeWCT.WCT9.LayerMsg) (c : BitVec 32) :
     queryPathSave lay (toQ (pad64 (ClaudeWCT.WCT9.layerEncodingInput lay (route index lay).2
       (route index lay).1 msg c))) =
-      if lay=0 then ClaudeWCT.WCT9.CanonicalPolicy.topPathSave (route index 0).1 else 0 := by
+      if lay=0 then ClaudeWCT.WCT9.CanonicalPolicy.topPathSave (route index 0).1 else SigGolfCandidate.Research.SharedForest.LocalRoute.ownSave index lay.val := by
   by_cases hl : lay=0
   · subst lay
-    simp only [queryPathSave, if_pos rfl, if_true]
+    simp only [queryPathSave,if_pos rfl,if_true]
     congr 1
     apply TopRouteQueryLeaf.qLeaf_of_header _ (pad64_aligned' _ (encInput_pos 0 _ _ msg c))
-      (route index 0).1 (by change index/2^19%4096<4096; exact Nat.mod_lt _ (by decide)) 1
+      (route index 0).1 (by change index/2^19%4096<4096;exact Nat.mod_lt _ (by decide)) 1
     rw [encInput_hdr]
     have hr : (route index 0).2=0 := by
       change index/2^31=0
       exact Nat.div_eq_of_lt hi
-    simp only [SigGolfCandidate.T3.rowTweak, hr, Nat.zero_mul, Nat.zero_add]
+    simp only [SigGolfCandidate.T3.rowTweak,hr,Nat.zero_mul,Nat.zero_add]
     rfl
-  · simp only [queryPathSave, if_neg hl]
+  · simp only [queryPathSave,if_neg hl]
+    rw [SigGolfCandidate.Research.SharedForest.LocalRoute.ownSave_layer]
+    apply ClaudeWCT.WCT9.CanonicalPolicy.lowerPathSave_mod8
+    have hh := TopRouteQueryLeaf.qLeaf_mod8_of_header
+      (pad64 (ClaudeWCT.WCT9.layerEncodingInput lay (route index lay).2 (route index lay).1 msg c))
+      (pad64_aligned' _ (encInput_pos lay _ _ msg c)) lay
+      ((route index lay).2*2^height lay+(route index lay).1)
+      (by fin_cases lay <;> simp [SigGolfCandidate.T3.route, SigGolfCandidate.T3.height, SigGolfCandidate.T3.hyperW] <;> omega) 1 (by rw [encInput_hdr];rfl)
+    rw [hh]
+    fin_cases lay <;> norm_num [height] <;> omega
 
 theorem okHashBy_accepted_credit (floors : Layer → Nat) (high : Bool) (hash : Hash) (lay : Layer)
     (floor tree leaf : Nat) (msg : ClaudeWCT.WCT9.LayerMsg) (c : BitVec 32)
@@ -4771,7 +4781,7 @@ theorem agree_layers (floors : Layer → Nat) (hash : Hash) (sig : SigGolfCandid
         (recoverHintedLayers sig index ((sig.layers 0).path topJ) n msg) = some result →
       (∀ lay : Layer, lay.val < n →
         floors lay ≤ CanonicalPolicy.credit lay (result.lows.getD lay.val true) (result.digits.getD lay.val []) +
-          (if lay=0 then CanonicalPolicy.topPathSave (route index 0).1 else 0)) →
+          (if lay=0 then CanonicalPolicy.topPathSave (route index 0).1 else LocalRoute.ownSave index lay.val)) →
       ∀ w : SigGolfCandidate.Research.SharedForest.Witness, w.signature = sig →
         (∀ lay : Layer, lay.val < n → w.counters lay = result.counters.getD lay.val 0) →
         w.topHigh = !(result.lows.getD 0 true) →
@@ -5078,26 +5088,24 @@ theorem recovered_credit_floors (answers : SigGolfCandidate.T3.Correctness.Answe
     (msg : LayerMsg) (result : RecoveredLayers)
     (he : evalWithAnswerFn answers (recoverHintedLayers sig index other 4 msg) = some result)
     (hh : policyHintsValid index sig.policyHints result.digits result.lows = true) :
-    CreditFloors (fun lay => min 73
+    CreditFloors (fun lay => min 74
       (CanonicalPolicy.credit lay (result.lows.getD lay.val true) (result.digits.getD lay.val []) +
-        if lay=0 then CanonicalPolicy.topPathSave (route index 0).1 else 0)) := by
+        if lay=0 then CanonicalPolicy.topPathSave (route index 0).1 else LocalRoute.ownSave index lay.val)) := by
   let credits : Layer → Nat := fun lay =>
     CanonicalPolicy.credit lay (result.lows.getD lay.val true) (result.digits.getD lay.val [])
   let saved := CanonicalPolicy.topPathSave (route index 0).1
   have ht := policyHints_credit_sum_required _ _ _ hh (fun lay =>
     (recoverHintedLayers_credit answers sig index other 4 le_rfl msg result he).2.2 lay lay.isLt)
-  change requiredCredit index ≤ ((List.finRange 4).map credits).sum at ht
-  have hp : 73 ≤ requiredCredit index + saved := by
-    unfold requiredCredit saved CanonicalPolicy.routePool
+  change requiredCredit index ≤ ((List.finRange 4).map credits).sum+
+    LocalRoute.ownSave index 1+LocalRoute.ownSave index 2+LocalRoute.ownSave index 3 at ht
+  have hp : 74≤requiredCredit index+saved := by
+    unfold requiredCredit saved LocalRoute.pool
     omega
   apply creditFloors_clip
-  change 73 ≤ ((List.finRange 4).map (fun lay => credits lay + if lay=0 then saved else 0)).sum
-  have hsum : ((List.finRange 4).map (fun lay => credits lay + if lay=0 then saved else 0)).sum =
-      ((List.finRange 4).map credits).sum + saved := by
-    change (credits 0+saved)+((credits 1+0)+((credits 2+0)+((credits 3+0)+0))) =
-      credits 0+(credits 1+(credits 2+(credits 3+0)))+saved
-    omega
-  rw [hsum]
+  change 74≤(credits 0+saved)+((credits 1+LocalRoute.ownSave index 1)+
+    ((credits 2+LocalRoute.ownSave index 2)+((credits 3+LocalRoute.ownSave index 3)+0)))
+  change requiredCredit index ≤ credits 0+(credits 1+(credits 2+(credits 3+0)))+
+    LocalRoute.ownSave index 1+LocalRoute.ownSave index 2+LocalRoute.ownSave index 3 at ht
   omega
 
 theorem agree_verify (hash : Hash) (message : SigGolfCandidate.T3.Message) (pk : Digest)
@@ -5121,8 +5129,8 @@ theorem agree_verify (hash : Hash) (message : SigGolfCandidate.T3.Message) (pk :
       Agree hash (okHashBy floors w.topHigh hash)
         (mrealize 0 (SigGolfCandidate.Research.SharedForest.verify message pk w)) := by
   let floors : Layer → Nat := fun lay =>
-    min 73 (CanonicalPolicy.credit lay (result.lows.getD lay.val true) (result.digits.getD lay.val []) +
-      if lay=0 then CanonicalPolicy.topPathSave (route (digestIndex output) 0).1 else 0)
+    min 74 (CanonicalPolicy.credit lay (result.lows.getD lay.val true) (result.digits.getD lay.val []) +
+      if lay=0 then CanonicalPolicy.topPathSave (route (digestIndex output) 0).1 else LocalRoute.ownSave (digestIndex output) lay.val)
   refine ⟨floors, recovered_credit_floors _ _ _ _ _ result hr hh, ?_⟩
   unfold SigGolfCandidate.Research.SharedForest.verify
   split
