@@ -9,26 +9,21 @@ set_option maxHeartbeats 0
 set_option maxRecDepth 1000000
 set_option exponentiation.threshold 10000000
 set_option Elab.async false
-def poolForLeaf (leaf : Nat) : Nat := 74-ClaudeWCT.WCT9.CanonicalPolicy.topPathSave leaf
-def rootFloor (leaf : Nat) : Nat := max 18 (poolForLeaf leaf-54)
-theorem rootFloor_eq (leaf : Nat) : rootFloor leaf=20-ClaudeWCT.WCT9.CanonicalPolicy.topPathSave leaf := by
-  have hs : ClaudeWCT.WCT9.CanonicalPolicy.topPathSave leaf≤2 := by
-    unfold ClaudeWCT.WCT9.CanonicalPolicy.topPathSave ClaudeWCT.WCT9.CanonicalPolicy.topPairSave
-    split_ifs <;> omega
+def poolForLeaf (leaf : Nat) : Nat  := 75-ClaudeWCT.WCT9.CanonicalPolicy.topPathSave leaf
+def rootFloor (leaf : Nat) : Nat := max 18 (poolForLeaf leaf-57)
+theorem rootFloor_eq (leaf : Nat) : rootFloor leaf=18 := by
   unfold rootFloor poolForLeaf
   omega
-def guardCode : List (BitVec 32) := [0x195e93,0x12eceb3,0x1eff13,0x6ede93,0x1efe93,0x1ee8eb3,0x41d00eb3,0x14e8e93,0x66f37,0x18f3f03,0x815e806f]
+def guardCode : List (BitVec 32) := [0x13,0x13,0x13,0x13,0x13,0x13,0x13,0x1200e93,0x66f37,0x18f3f03,0x815e806f]
 sym_block rootGuardBlock := symRun {noAlias:=true} guardCode (pcOf 26008) 20
-def guardWord (n : Nat) : Word :=
-  let d := (BitVec.ofNat 64 n >>> 1) ^^^ BitVec.ofNat 64 n
-  20#64 - ((d &&& 1#64) + ((d >>> 6) &&& 1#64))
+def guardWord (_ : Nat) : Word := 18#64
 theorem guard_checked : ∀ n : Fin 4096, guardWord n.val =
-    BitVec.ofNat 64 (20-ClaudeWCT.WCT9.CanonicalPolicy.topPathSave n.val) := by decide +kernel
+    BitVec.ofNat 64 (18) := by decide +kernel
 theorem guard_steps {im : Image} (hc : CodeAt im (pcOf 26008) guardCode)
     (s : MachineState) (hp : s.pc=pcOf 26008) (leaf credit : Nat) (hl : leaf<4096)
     (h18 : s.getReg .x18=BitVec.ofNat 64 leaf) (hm : s.getMem 0x66018=BitVec.ofNat 64 credit) :
     ∃ t, Steps im s 11 11 t ∧ t.pc=pcOf 1959 ∧
-      t.getReg .x29=BitVec.ofNat 64 (20-ClaudeWCT.WCT9.CanonicalPolicy.topPathSave leaf) ∧
+      t.getReg .x29=BitVec.ofNat 64 (18) ∧
       t.getReg .x30=BitVec.ofNat 64 credit ∧ RegsExcept s t [.x29,.x30] ∧ Frame s t (fun _=>False) := by
   let t := rootGuardBlock.res.toState s
   refine ⟨t,symRun_sound rootGuardBlock hc s hp (by simp [rootGuardBlock.res,rv_simp]),rfl,?_,?_,?_,?_⟩
@@ -38,13 +33,13 @@ theorem guard_steps {im : Image} (hc : CodeAt im (pcOf 26008) guardCode)
   · intro r hr;cases r <;> simp at hr <;> rfl
   · intro A ha hn;rfl
 #print axioms guard_steps
-def expandRootCode : List (BitVec 32) := [0x195e93,0x12eceb3,0x1eff13,0x6ede93,0x1efe93,0x1ee8eb3,0x41d00eb3,0x14e8e93,0x66f37,0x40f3f03,0x810df06f]
+def expandRootCode : List (BitVec 32) := [0x13,0x13,0x13,0x13,0x13,0x13,0x13,0x1200e93,0x66f37,0x40f3f03,0x810df06f]
 sym_block expandRoot := symRun {noAlias:=true} expandRootCode (pcOf 88095) 20
 theorem expandRoot_steps {im : Image} (hc : CodeAt im (pcOf 88095) expandRootCode)
     (s : MachineState) (hp : s.pc=pcOf 88095) (leaf credit : Nat) (hl : leaf<4096)
     (h18 : s.getReg .x18=BitVec.ofNat 64 leaf) (hm : s.getMem 0x66040=BitVec.ofNat 64 credit) :
     ∃ t, Steps im s 11 11 t ∧ t.pc=pcOf 54317 ∧
-      t.getReg .x29=BitVec.ofNat 64 (20-ClaudeWCT.WCT9.CanonicalPolicy.topPathSave leaf) ∧
+      t.getReg .x29=BitVec.ofNat 64 (18) ∧
       t.getReg .x30=BitVec.ofNat 64 credit ∧ RegsExcept s t [.x29,.x30] ∧ Frame s t (fun _=>False) := by
   let t := expandRoot.res.toState s
   refine ⟨t,symRun_sound expandRoot hc s hp (by simp [expandRoot.res,rv_simp]),rfl,?_,?_,?_,?_⟩

@@ -1756,7 +1756,7 @@ def witEncF16 (output : HashOutput) (witness : SigGolfCandidate.Research.SharedF
 `SharedForest.expandFill`; `expand = expandFill ∘ normTop`). -/
 def expandN (message : Message) (pk : Digest) (sig : SigGolfCandidate.Research.SharedForest.Signature) :
     M (Option (HashOutput × SigGolfCandidate.Research.SharedForest.Witness)) := do
-  if sig.policyHints.toNat ≥ 8192 then return none
+  if sig.policyHints.toNat ≥ 12288 then return none
   let sig0 := fillTopSignature sig 0
   let some (counter, output) ← sharedDigestSearch sig0.rho message 0 WCT9.digestAttemptLimit | pure none
   let index := WCT9.digestIndex output
@@ -2005,7 +2005,7 @@ theorem expandN_selections (answers : Answers) (message : Message) (pk : Digest)
     (sig : SigGolfCandidate.Research.SharedForest.Signature) (output : HashOutput)
     (w : SigGolfCandidate.Research.SharedForest.Witness)
     (he : evalWithAnswerFn answers (expandN message pk sig) = some (output,w)) :
-    sig.policyHints.toNat < 8192 ∧ ∃ counter result c,
+    sig.policyHints.toNat < 12288 ∧ ∃ counter result c,
       evalWithAnswerFn answers (sharedDigestSearch sig.rho message 0 WCT9.digestAttemptLimit) =
         some (counter, output) ∧
       evalWithAnswerFn answers (recoverHintedLayers (fillTopSignature sig 0) (WCT9.digestIndex output)
@@ -2021,7 +2021,7 @@ theorem expandN_selections (answers : Answers) (message : Message) (pk : Digest)
   simp only [show (fillTopSignature sig 0).rho = sig.rho from rfl,
     show (fillTopSignature sig 0).forest = sig.forest from rfl,
     show (fillTopSignature sig 0).policyHints = sig.policyHints from rfl] at he
-  by_cases hh : sig.policyHints.toNat ≥ 8192
+  by_cases hh : sig.policyHints.toNat ≥ 12288
   · simp only [hh, if_true, evalWithAnswerFn_pure, reduceCtorEq] at he
   · simp only [hh, if_false, evalWithAnswerFn_bind] at he
     cases hd : evalWithAnswerFn answers (sharedDigestSearch sig.rho message 0 WCT9.digestAttemptLimit) with

@@ -7,7 +7,7 @@ import SigGolfCandidate.Merge058
 import SigGolfCandidate.Merge105
 import SigGolfCandidate.Merge107
 import SigGolfCandidate.Merge108
-set_option debug.skipKernelTC true
+set_option debug.skipKernelTC false
 set_option linter.all false
 
 -- ==== merged from T3_Secc_LargeCouplingKeygen ====
@@ -727,7 +727,7 @@ attribute [local irreducible] keygen
 noncomputable local instance instDecidableEqCache_w9largeCouplingTable_families : DecidableEq SigGolfCandidate.T3.Cache :=
   Classical.decEq _
 def LogNoOverflow (T : Answers) (log : QueryLog ClaudeWCT.W9.T3M.Final.Paired.Requests) : Prop :=
-  ∀j : Fin (2^31),((WPair.Paired.loggedOutputs T log).toFinset.filter fun out => ClaudeWCT.Bank.WCT.outIdx out=j).card≤50
+  ∀j : Fin (2^31),((WPair.Paired.loggedOutputs T log).toFinset.filter fun out => ClaudeWCT.Bank.WCT.outIdx out=j).card≤39
 section Overflow
 /-- FTS seeds of family `f` opened by the signatures of a log (digit 4 words open the seed; T8: at most one per word). -/
 @[irreducible] noncomputable def logSeeds (T : Answers) (log : QueryLog ClaudeWCT.W9.T3M.Final.Paired.Requests) (f : Fin (2 ^ 31) × Fin 9) :
@@ -742,7 +742,7 @@ theorem mem_logSeeds (T : Answers) (log : QueryLog ClaudeWCT.W9.T3M.Final.Paired
 theorem digitThree_card (r : WCT9.Rank) : (Finset.univ.filter fun t : Fin 6 => WCT9.wordDigit r t = 4).card ≤ 1 :=
   WCT9.f8_seedDisclosures_card_le _
 theorem logSeeds_card (T : Answers) (log : QueryLog ClaudeWCT.W9.T3M.Final.Paired.Requests) (hno : LogNoOverflow T log)
-    (f : Fin (2 ^ 31) × Fin 9) : (logSeeds T log f).card ≤ 50 := by
+    (f : Fin (2 ^ 31) × Fin 9) : (logSeeds T log f).card ≤ 39 := by
   set S := (WPair.Paired.loggedOutputs T log).toFinset.filter fun out => ClaudeWCT.Bank.WCT.outIdx out = f.1
   have hsub : logSeeds T log f ⊆ S.biUnion fun N =>
       (Finset.univ.filter fun t : Fin 6 => WCT9.wordDigit (SigGolfCandidate.Research.SharedForest.forestRank N f.2.val) t = 4).image
@@ -758,7 +758,7 @@ theorem logSeeds_card (T : Answers) (log : QueryLog ClaudeWCT.W9.T3M.Final.Paire
   refine (Finset.card_le_card hsub).trans (Finset.card_biUnion_le.trans ?_)
   calc _ ≤ ∑ N ∈ S, 1 := Finset.sum_le_sum fun N _ => Finset.card_image_le.trans (digitThree_card _)
     _ = 1 * S.card := by rw [Finset.sum_const, smul_eq_mul, mul_comm]
-    _ ≤ 1 * 50 := Nat.mul_le_mul_left _ (hno f.1)
+    _ ≤ 1 * 39 := Nat.mul_le_mul_left _ (hno f.1)
 variable {U : Finset HashInput} {T : Answers} {vals : Coord → Digest} {nv : Message × Fin 2 → Digest}
   {τ : Cell U → HashOutput} {a : AuxData}
 /-- The seeds a sign step discloses are opened by the logged signature of that step. -/
@@ -969,7 +969,7 @@ theorem leafZeroCap_size (lay : Layer) (f : Nat) :
   split_ifs with h
   · have := min_le_left 4 (2 ^ height lay - 4 * f)
     simp only [SigGolfCandidate.T3.topCoefCount]; omega
-  · exact le_rfl
+  · omega
 
 /-- At most `famSize − 3` revealed seeds per family (v6 lower: `5 r + 3` coefficients for `r` real members). -/
 theorem lowerZeros_card (T : Answers) (L : LowerLeaf) : (lowerZeros T L).card + 3 ≤ WCT9.famSize L.1.1 L.1.2.2.val :=
@@ -1663,7 +1663,7 @@ def famOfSec (sec : Secrets) : (f : WFam) → ClaudeWCT.W9.T3.Security.FamResidu
   | .inl L => fun j => sec (.inl ⟨L.1.1, L.1.2.1, L.1.2.2,
       ⟨j.val, by
         have hj : j.val < WCT9.famSize L.1.1 L.1.2.2.val - 1 + 1 := j.isLt
-        have := WCT9.famSize_lt_58 L.1.1 L.1.2.2.val
+        have := WCT9.famSize_lt_128 L.1.1 L.1.2.2.val
         omega⟩⟩)
   | .inr f => fun j => sec (.inr (f.1, f.2, j))
 noncomputable def worldEquiv : Secrets × ((Message × Fin 2 → Digest) × LowLabels) ≃
@@ -1856,7 +1856,7 @@ theorem selectionAt_prefix_congr
     (hfg : ∀ x, rowPrefix f x → f x=g x) (L : EncLeaf) (remaining : Nat)
     (hctx : rowsContext (Function.curry f) L.toWots=some remaining) :
     selectionAt (Function.curry g) L remaining=selectionAt (Function.curry f) L remaining := by
-  apply select_congr_prefix L (WCT9.CanonicalPolicy.threshold L.1.lay.val remaining)
+  apply select_congr_prefix L (WCT9.Policy75Safe23.threshold L.1.lay.val remaining)
   intro c hc hs
   exact hfg (L,c) ⟨remaining,hctx,hc,hs⟩
 
@@ -8322,7 +8322,7 @@ theorem queried_length_buildChildH (T : Answers) (heap index coord selected : Na
   unfold leafHashH ftsHash
   split <;> rfl
 theorem queried_length_ftsCoefs (T : Answers) (index coord : Nat) :
-    (SourceReplay.queried T (ftsCoefs index coord)).length = 27 := by
+    (SourceReplay.queried T (ftsCoefs index coord)).length = 21 := by
   unfold ftsCoefs
   rw [queried_length_foldlM T _ _ (fun _ => 1) (fun _ _ _ => by
     rw [queried_length_bind, queried_length_pure]
@@ -8347,22 +8347,22 @@ theorem queried_length_heapBuild (T : Answers) (index coord : Nat) (pad : Digest
   simp
 theorem queried_length_buildCoordinateF (T : Answers) (index : Nat) (coord : Coord) (selected : Child)
     (word : Rank) (prev : Digest × Digest) :
-    (SourceReplay.queried T (buildCoordinateF index coord selected word prev)).length = 3353 := by
+    (SourceReplay.queried T (buildCoordinateF index coord selected word prev)).length = 3347 := by
   rw [buildCoordinateF_factor, queried_length_bind, queried_length_ftsCoefs,
     queried_length_bind, queried_length_coordRows, queried_length_bind, queried_length_heapBuild,
     queried_length_pure]
 theorem queried_length_openingStep (T : Answers) (index : Nat) (output : HashOutput)
     (state : List Opening × List (Digest × Digest)) (coord : Coord) :
-    (SourceReplay.queried T (openingStep index output state coord)).length = 3353 := by
+    (SourceReplay.queried T (openingStep index output state coord)).length = 3347 := by
   unfold openingStep
   rw [queried_length_bind, queried_length_buildCoordinateF, queried_length_pure]
 theorem queried_length_forestRows (T : Answers) (index : Nat) (output : HashOutput) :
-    (SourceReplay.queried T (forestRows index output)).length = 30177 := by
+    (SourceReplay.queried T (forestRows index output)).length = 30123 := by
   unfold forestRows
-  rw [queried_length_foldlM T _ _ (fun _ => 3353) (fun _ _ _ => queried_length_openingStep _ _ _ _ _)]
+  rw [queried_length_foldlM T _ _ (fun _ => 3347) (fun _ _ _ => queried_length_openingStep _ _ _ _ _)]
   decide
 theorem queried_length_signForest (T : Answers) (index : Nat) (output : HashOutput) :
-    (SourceReplay.queried T (signForest index output)).length = 30177 := by
+    (SourceReplay.queried T (signForest index output)).length = 30123 := by
   unfold signForest
   rw [queried_length_bind, queried_length_forestRows, queried_length_pure]
 
@@ -10232,7 +10232,7 @@ theorem sharedRows_roots_eq (A : Answers) (first : Bool) (index coord : Nat) (se
 theorem queried_length_buildSharedCoordinate_eq (A : Answers) (first : Bool) (index coord : Nat)
     (selected : Child) (word : Rank) (pads : Nat → PairRoot) :
     (SourceReplay.queried A (buildSharedCoordinate first index coord selected word pads)).length =
-      27 + (3200 + ((SourceReplay.queried A (sharedHeap first index coord pads
+      21 + (3200 + ((SourceReplay.queried A (sharedHeap first index coord pads
         (sharedLeaves A first index coord pads))).length + 0)) := by
   rw [buildSharedCoordinate_rows, queried_length_bind, queried_length_ftsCoefs, queried_length_bind,
     queried_length_sharedRows, eval_ftsCoefs, sharedRows_roots_eq, queried_length_bind, queried_length_pure]
@@ -10959,12 +10959,12 @@ attribute [local instance] Classical.propDecidable
 variable {P : Type} [Fintype P] [SampleableType P] (S : FtsBankSpec P)
 def Replays (S : FtsBankSpec P) (rows : Sampling.RCache) (rho : Digest) (m : Message) (found : Option (BitVec 32 × HashOutput)) : Prop :=
   ∀ cache', Extends rows cache' →
-    ∀ r' ∈ support (Sampling.roRun 0 (S.search rho m 0 (2^21)) cache'), r' = (found, cache')
+    ∀ r' ∈ support (Sampling.roRun 0 (S.search rho m 0 ((11*2^17))) cache'), r' = (found, cache')
 theorem Replays.mono {S : FtsBankSpec P} {rows rows' : Sampling.RCache} {rho : Digest} {m : Message} {found}
     (h : (Replays S) rows rho m found) (hext : Extends rows rows') : (Replays S) rows' rho m found :=
   fun cache' hc => h cache' (hext.trans hc)
 theorem replays_of_search (S : FtsBankSpec P) (rho : Digest) (m : Message) (rows : Sampling.RCache) (r)
-    (hr : r ∈ support (Sampling.roRun 0 (S.search rho m 0 (2^21)) rows)) :
+    (hr : r ∈ support (Sampling.roRun 0 (S.search rho m 0 ((11*2^17))) rows)) :
     Extends rows r.2 ∧ (Replays S) r.2 rho m r.1 := by
   unfold ClaudeWCT.Bank.FtsBankSpec.search at hr
   obtain ⟨h1, h2⟩ := search_replays_gen 0 (Sampling.digestTrial rho m) S.decode _ _ 0 rows r hr
@@ -11128,12 +11128,12 @@ set_option backward.isDefEq.respectTransparency false
 attribute [local instance] Classical.propDecidable
 variable {P : Type} [Fintype P] [SampleableType P] (S : FtsBankSpec P)
 theorem search_support (S : FtsBankSpec P) (slot : Nat) (rho : Digest) (m : Message) (s : GState) (r)
-    (hr : SecretGuessObservation.runWith ((implG S) slot) ((searchL S) rho m 0 (2^21)) s r ≠ 0) :
+    (hr : SecretGuessObservation.runWith ((implG S) slot) ((searchL S) rho m 0 ((11*2^17))) s r ≠ 0) :
     (r.1, r.2.memory.1.rows) ∈
-      support (Sampling.roRun 0 (S.search rho m 0 (2^21)) s.memory.1.rows) := by
+      support (Sampling.roRun 0 (S.search rho m 0 ((11*2^17))) s.memory.1.rows) := by
   have hlaw := (search_law S) slot rho m (fun f rows =>
-    if (f, rows) ∈ support (Sampling.roRun 0 (S.search rho m 0 (2^21)) s.memory.1.rows)
-    then 0 else 1) (2^21) 0 s
+    if (f, rows) ∈ support (Sampling.roRun 0 (S.search rho m 0 ((11*2^17))) s.memory.1.rows)
+    then 0 else 1) ((11*2^17)) 0 s
   simp only [Prod.mk.eta] at hlaw
   rw [pc_ev_offsupport] at hlaw
   have h0 := spmf_ev_zero _ hlaw r hr
@@ -11186,7 +11186,7 @@ noncomputable def searchWithNonce (S : FtsBankSpec P) {β : Type} (m : Message)
     (finish : Digest → Option (BitVec 32 × HashOutput) → OracleComp WPair.WSpecL β) :
     OracleComp WPair.WSpecL β := do
   let rho ← WPair.nonceReq m
-  let found ← (searchL S) rho m 0 (2^21)
+  let found ← (searchL S) rho m 0 ((11*2^17))
   let _ ← WPair.exposeReq (found.map Prod.snd)
   finish rho found
 
@@ -11209,7 +11209,7 @@ theorem searchWithNonce_ΦI (S : FtsBankSpec P) {β : Type} (slot q : Nat) (m : 
       refine ((ev_expose_finish_le S) slot q finish hfinish rho r.1 r.2).trans ?_
       obtain ⟨found0, hrep, hf0⟩ := hI3 m rho hn
       have hsupp := (search_support S) slot rho m _ r hr
-      obtain ⟨-, -, -, -, hg, hnon, hbir, hexp⟩ := (search_frame S) slot rho m (2^21) 0 _ r hr
+      obtain ⟨-, -, -, -, hg, hnon, hbir, hexp⟩ := (search_frame S) slot rho m ((11*2^17)) 0 _ r hr
       have hrr := hrep s.memory.1.rows (Extends.refl _) _ hsupp
       simp only [Prod.mk.injEq] at hrr
       obtain ⟨hfound, hrows⟩ := hrr
@@ -11246,7 +11246,7 @@ theorem searchWithNonce_ΦI (S : FtsBankSpec P) {β : Type} (slot q : Nat) (m : 
       rw [hbir', hrows, hnon']
   | none =>
       rw [(ev_nonce_fresh S) slot m _ s hn, hΦs]
-      refine le_trans ?_ (NearMemory.mem_sign_fresh S q _ _ _ _ _ m hn 0 (2^21) (by decide))
+      refine le_trans ?_ (NearMemory.mem_sign_fresh S q _ _ _ _ _ m hn 0 ((11*2^17)) (by decide))
       apply expectedValue_mono
       intro v
       rw [runWith_bind', expectedValue_bind]
@@ -11258,13 +11258,13 @@ theorem searchWithNonce_ΦI (S : FtsBankSpec P) {β : Type} (slot q : Nat) (m : 
       refine le_of_le_of_eq ?_ ((search_law S) slot v m (fun found rows' =>
         NearMemory.nearMemPotential S q s.memory.1.births (s.memory.2.fresh ++ (found.map Prod.snd).toList)
           (s.memory.2.reused || decide (S.Reuse s.memory.1.rows v m)) rows'
-          (Function.update s.memory.1.nonces m (some v))) (2^21) 0 s1)
+          (Function.update s.memory.1.nonces m (some v))) ((11*2^17)) 0 s1)
       apply spmf_ev_mono
       intro r hr
       refine ((ev_expose_finish_le S) slot q finish hfinish v r.1 r.2).trans (le_of_eq ?_)
       have hsupp := (search_support S) slot v m s1 r hr
       obtain ⟨hext, hrep⟩ := (replays_of_search S) v m _ _ hsupp
-      obtain ⟨-, -, -, -, hg, hnon, hbir, hexp⟩ := (search_frame S) slot v m (2^21) 0 s1 r hr
+      obtain ⟨-, -, -, -, hg, hnon, hbir, hexp⟩ := (search_frame S) slot v m ((11*2^17)) 0 s1 r hr
       have hnon1 : r.2.memory.1.nonces = Function.update s.memory.1.nonces m (some v) := hnon
       have hbir1 : r.2.memory.1.births = s.memory.1.births := hbir
       have hexp1 : r.2.memory.1.exposures = s.memory.1.exposures := hexp

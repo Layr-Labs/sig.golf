@@ -10734,13 +10734,13 @@ instance instDecidableEqWCoord : DecidableEq WCoord :=
   @instDecidableEqSum Coord (Message × Fin 2) inferInstance (@instDecidableEqProd Message (Fin 2) inferInstance inferInstance)
 /-- Top-layer WOTS seed addresses as plain secrets: none since campaign T8D (top seeds are leaf-family evaluations);
 the empty type keeps the shape of the plain coordinates. -/
-abbrev WTopAddr := {_a : ChainGraph.Address // False}
+abbrev WTopAddr := {_a : CanonGraph.CoefficientAddress // False}
 /-- WOTS seed families `(layer, tree, f)` (`f = famOf layer leaf`, `famSize layer f` coefficients; today one family per
 leaf). The name is kept from stage B. -/
 abbrev LowerLeaf := {_L : Layer × Fin (2 ^ 31) × Fin 4096 // True}
 /-- Secret cells that are not coefficients (address `(lay, tree, f, j)` with `j ≥ famSize lay f`): unused, not
 observable. -/
-abbrev WJunk := {a : ChainGraph.Address // WCT9.famSize a.layer a.leaf.val ≤ a.chain.val}
+abbrev WJunk := {a : CanonGraph.CoefficientAddress // WCT9.famSize a.layer a.leaf.val ≤ a.chain.val}
 /-- Plain (independently uniform) world coordinates: nodes, (no) top WOTS seeds, nonces. -/
 abbrev WPlain := (CanonGraph.Node ⊕ WTopAddr) ⊕ (Message × Fin 2)
 /-- Seed families: WOTS leaves (`famCount` coefficients) and FTS coordinates `(index, coord)` (54 coefficients). -/
@@ -10757,7 +10757,7 @@ def wsplit : WCoord → WPlain ⊕ (WFam × ℕ)
 /-- Embedding of the plain coordinates. -/
 def wembed : WPlain → WCoord
   | .inl (.inl N) => .inl (.inl N)
-  | .inl (.inr a) => .inl (.inr (.inl a.1))
+  | .inl (.inr a) => False.elim a.2
   | .inr m => .inr m
 theorem wsplit_addr (a : ChainGraph.Address) :
     wsplit (.inl (.inr (.inl a))) =
@@ -10794,7 +10794,7 @@ noncomputable instance instSeedsWCoord : ClaudeWCT.W9.T3.Security.FamResidual.Se
   Fam := WFam
   plainDec := Classical.decEq _
   famDec := Classical.decEq _
-  deg := Sum.elim (fun L => WCT9.famSize L.1.1 L.1.2.2.val - 1) (fun _ => 53)
+  deg := Sum.elim (fun L => WCT9.famSize L.1.1 L.1.2.2.val - 1) (fun _ => 41)
   split := wsplit
   embed := wembed
   split_embed p := by
@@ -11141,7 +11141,7 @@ def pairedEmbed (p : WPlain) : PairedCoord := ⟨wembed p⟩
 /-- Top degree23, lower-pair degree13, FTS degree53. -/
 def pairedDegree : WFam → Nat
   | .inl L => if L.1.1=0 then 23 else 13
-  | .inr _ => 53
+  | .inr _ => 41
 
 noncomputable instance instPairedSeeds : FamResidual.Seeds PairedCoord where
   Plain := WPlain

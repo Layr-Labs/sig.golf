@@ -1394,7 +1394,7 @@ E8 (P1): word 0 is `j 87500` (Y5: the pre-pass at 87500, 217 steps, then `j 5456
 `b`, the pre-pass rebuilds DEC's T1 layout (`unpackB b`) and DEC writes the expander's inflated slot layout
 `SharedCodec.inflatedRead 0 (SharedCodec.digC b)` (332 slots at `0x7000`) and the hint at `0x66000`, zeroes its
 temporaries and jumps to word 1 (`dec_init_r6`, at most 2,366 cycles). N7g: DEC divides the field `N` by 360 and
-rejects a non-canonical `N ≥ nCanon` at `j 354` (`dec_reject_nc`), which is exactly a decoded hint `≥ 8192`. -/
+rejects a non-canonical `N ≥ nCanon` at `j 354` (`dec_reject_nc`), which is exactly a decoded hint `≥ 12288`. -/
 
 namespace ClaudeWCT.W9.Machine.Expand.PrePass
 open SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64 SigGolfCandidate.Rv SigGolfCandidate.T3M
@@ -1595,10 +1595,10 @@ theorem dec_reject_nc (m : Message) (pk : PublicKey) (b : SharedCodec.CBytes) (h
   obtain ⟨t, st, tp⟩ := dec_bad s1 p1 (by rw [nOfM_eq hsig1, nOfB_unpack]; exact hc)
   exact ⟨t, st1.trans st, tp⟩
 
-/-- DEC, rejecting: a hint `≥ 8192` (on N7g exactly a non-canonical field, `policyHints_sigDecC_ge_iff`) sends the
+/-- DEC, rejecting: a hint `≥ 12288` (on N7g exactly a non-canonical field, `policyHints_sigDecC_ge_iff`) sends the
 expander to word 354 after 302 steps (word 0, the pre-pass, then DEC's 84). -/
 theorem dec_reject (m : Message) (pk : PublicKey) (b : SharedCodec.CBytes)
-    (hh : 8192 ≤ (SharedCodec.sigDecC b).policyHints.toNat) :
+    (hh : 12288 ≤ (SharedCodec.sigDecC b).policyHints.toNat) :
     ∃ u, Steps Images.expandImage (w9init Images.expandImage m pk b) 302 302 u ∧ u.pc = pcOf 354 :=
   dec_reject_nc m pk b (by
     rw [SharedCodec.policyHints_sigDecC_ge_iff, SharedCodec.R_mul_360] at hh

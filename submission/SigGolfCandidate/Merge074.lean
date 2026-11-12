@@ -327,15 +327,19 @@ theorem u4_spec (s : MachineState) (hpc : s.pc = pcOf 60930) (h28 : s.getReg .x2
     rfl
 
 /-- Y5: the decode's value on the index code `r` (the symbolic result of `cDec`). -/
-def decVal (r : Word) : Word :=
-  let q := rv64_divu r 15#64
-  let i3 := rv64_remu r 15#64
+def decVal (v : Word) : Word :=
+  let q := rv64_divu v 15#64
+  let i3 := rv64_remu v 15#64
   let i2 := rv64_remu q 6#64
   let i1 := rv64_divu q 6#64
   let b (c : Bool) : Word := if c then 1#64 else 0#64
-  let a2 := (((b (i2.ult 1#64) ^^^ 1#64) <<< 2) + ((b (i2.ult 2#64) ^^^ 1#64) <<< 1) + ((b (i2.ult 3#64) ^^^ 1#64) <<< 1) + ((b (i2.ult 4#64) ^^^ 1#64) <<< 1) + ((b (i2.ult 5#64) ^^^ 1#64) <<< 1)) + 6#64
-  let a1 := (((b (i1.ult 1#64) ^^^ 1#64) <<< 2) + ((b (i1.ult 2#64) ^^^ 1#64) <<< 1) + ((b (i1.ult 3#64) ^^^ 1#64) <<< 1)) + 6#64
-  (((i3 - (b (i3.ult 1#64) <<< 1)) + 8#64) + a2 * 23#64) + a1 * 529#64
+  let f (x : Word) (n : Word) := b (x.ult n) ^^^ 1#64
+  let a2 := ((f i2 1#64) <<< 2) + ((f i2 2#64) <<< 1) + ((f i2 3#64) <<< 1) + ((f i2 4#64) <<< 1) + ((f i2 5#64) <<< 1) + 6#64
+  let a1 := (f i1 1#64 + ((f i1 1#64) <<< 2)) + ((0#64 - f i1 2#64) &&& 3#64) + ((f i1 3#64) <<< 1) + 6#64
+  let a3 := (i3 - (b (i3.ult 1#64) <<< 1)) + 8#64
+  let a3 := a3 + (b (a3.ult 10#64) ^^^ 1#64)
+  (a3 + a2 * 24#64) + a1 * 576#64
+
 theorem decVal_table : ∀ r : Fin 360,
     decVal (BitVec.ofNat 64 r.val) = BitVec.ofNat 64 (ClaudeWCT.W9.T3M.SharedCodec.packH r.val) := by decide +kernel
 
@@ -364,11 +368,11 @@ theorem dec_spec (s : MachineState) (hpc : s.pc = pcOf 88000) (r : Nat) (hr : r 
 
 theorem h_spec (s : MachineState) (hpc : s.pc = pcOf 54644) :
     ∃ t, Steps Images.expandImage s 3 3 t ∧
-      t.pc = (if (s.getReg .x6).toNat < 8192 then pcOf 54648 else pcOf 54647) ∧
+      t.pc = (if (s.getReg .x6).toNat < 12288 then pcOf 54648 else pcOf 54647) ∧
       RegsExcept s t [.x7] ∧ ∀ A, t.getMem A = s.getMem A := by
   refine ⟨_, symRun_sound eH codeAt_H s hpc trivial, ?_, ?_, fun A => rfl⟩
   · simp only [Result.toState_pc, eH.res, E.eval, BinOp.eval, CmpOp.eval]
-    by_cases h : (s.getReg .x6).toNat < 8192
+    by_cases h : (s.getReg .x6).toNat < 12288
     · rw [if_pos h]; simp [BitVec.ult, h]
     · rw [if_neg h]; simp [BitVec.ult, h]
   · intro r hr
@@ -389,7 +393,7 @@ theorem tail_spec (s : MachineState) (hpc : s.pc = pcOf 60930) (h28 : s.getReg .
   have hr : (r3W (s.getReg .x29) (s.getReg .x7) (s.getReg .x6)).toNat < 360 := by
     rw [(r6_arith _ _ _ hT).1]; exact Nat.mod_lt _ (by norm_num)
   obtain ⟨t5, c5, s5, hc5, p5, x5, g5, m5⟩ := dec_spec t4 p4 _ hr (by rw [a29, BitVec.ofNat_toNat, BitVec.setWidth_eq])
-  have hlt := ClaudeWCT.W9.T3M.SharedCodec.packH_le_7934 _ hr
+  have hlt := ClaudeWCT.W9.T3M.SharedCodec.packH_le_9671 _ hr
   obtain ⟨t8, s8, p8, g8, m8⟩ := h_spec t5 p5
   refine ⟨t8, _, _, (s4.trans s5).trans s8, by omega, ?_, ?_, ?_⟩
   · rw [p8, x5, BitVec.toNat_ofNat, Nat.mod_eq_of_lt (by omega), if_pos (by omega)]
@@ -1209,8 +1213,8 @@ theorem nOfM_eq {M : Word → Word} {b : T1C.CBytes} (h : SigMem M b) : nOfM M =
   rw [e0, e1, digest_split, xR_xOfB h]
   norm_num
 
-theorem packH_lt (t : Nat) (ht : t < 360) : SharedCodec.packH t < 8192 := by
-  have := SharedCodec.packH_le_7934 t ht; omega
+theorem packH_lt (t : Nat) (ht : t < 360) : SharedCodec.packH t < 12288 := by
+  have := SharedCodec.packH_le_9671 t ht; omega
 
 theorem hint_eq {M : Word → Word} {b : T1C.CBytes} (h : SigMem M b) :
     BitVec.ofNat 64 (SharedCodec.packH (nOfM M % 360)) = BitVec.ofNat 64 (T1C.hints b).toNat := by
@@ -1219,7 +1223,7 @@ theorem hint_eq {M : Word → Word} {b : T1C.CBytes} (h : SigMem M b) :
   unfold T1C.hints
   rw [BitVec.toNat_ofNat, Nat.mod_eq_of_lt (show SharedCodec.packH (T1C.nOfB b % 360) < 2 ^ 16 by omega)]
 
-theorem hint_lt {M : Word → Word} {b : T1C.CBytes} (h : SigMem M b) : (T1C.hints b).toNat < 8192 := by
+theorem hint_lt {M : Word → Word} {b : T1C.CBytes} (h : SigMem M b) : (T1C.hints b).toNat < 12288 := by
   have hl := packH_lt (T1C.nOfB b % 360) (Nat.mod_lt _ (by norm_num))
   unfold T1C.hints
   rw [BitVec.toNat_ofNat, Nat.mod_eq_of_lt (show SharedCodec.packH (T1C.nOfB b % 360) < 2 ^ 16 by omega)]

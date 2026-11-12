@@ -1935,7 +1935,7 @@ theorem bound_sharedHeap (first : Bool) (index coord : Nat) (pads : Nat → Pair
 
 theorem bound_buildSharedCoordinate (first : Bool) (index coord : Nat)
     (hcoord : coord<9) (selected : Child) (word : Rank) (pads : Nat → PairRoot) :
-    Bound (FtsQuery index) (fun _ => True) ((if first then 3479 else 3481) + ftsCoordExtra)
+    Bound (FtsQuery index) (fun _ => True) ((if first then 3473 else 3475) + ftsCoordExtra)
       (buildSharedCoordinate first index coord selected word pads) := by
   have hc := ftsCapOf_le coord
   unfold buildSharedCoordinate
@@ -1953,27 +1953,27 @@ theorem bound_buildSharedCoordinate (first : Bool) (index coord : Nat)
 
 theorem bound_buildPair (index pair : Nat) (hpair : pair<4) (s : SigGolfCandidate.Research.SharedForest.Selection)
     (aWord bWord : Rank) (prev : PairRoot) :
-    Bound (FtsQuery index) (fun _ => True) (6960 + 2 * ftsCoordExtra) (buildPair index pair s aWord bWord prev) := by
+    Bound (FtsQuery index) (fun _ => True) (6948 + 2 * ftsCoordExtra) (buildPair index pair s aWord bWord prev) := by
   unfold buildPair
   refine (bound_buildSharedCoordinate true index (2*pair) (by omega)
-    (firstChild s) aWord (fun _ => prev)).bind' (l:=3481 + ftsCoordExtra) (fun a _ => ?_)
+    (firstChild s) aWord (fun _ => prev)).bind' (l:=3475 + ftsCoordExtra) (fun a _ => ?_)
       (by simp only [if_true]; omega)
   exact (bound_buildSharedCoordinate false index (2*pair+1) (by omega)
     (secondChild s) bWord (nodesPair a.1)).bind' (l:=0)
     (fun b _ => .pure _ 0 trivial) (by simp only [Bool.false_eq_true, if_false]; omega)
 
 theorem bound_buildSingleton (index : Nat) (selected : Child) (word : Rank) (prev : PairRoot) :
-    Bound (FtsQuery index) (fun _ => True) (3481 + ftsCoordExtra) (buildSingleton index selected word prev) := by
+    Bound (FtsQuery index) (fun _ => True) (3475 + ftsCoordExtra) (buildSingleton index selected word prev) := by
   unfold buildSingleton
   exact (bound_buildSharedCoordinate false index 8 (by decide) selected word (fun _ => prev)).bind'
     (l:=0) (fun built _ => .pure _ 0 trivial) (by simp only [Bool.false_eq_true, if_false]; omega)
 
 theorem bound_buildForest (index : Nat) (selected : ForestSelection) (words : ForestWords) :
-    Bound (FtsQuery index) (fun _ => True) (31321 + 9 * ftsCoordExtra) (buildForest index selected words) := by
+    Bound (FtsQuery index) (fun _ => True) (31267 + 9 * ftsCoordExtra) (buildForest index selected words) := by
   unfold buildForest
   refine (Bound.foldlM_list (P:=FtsQuery index) (List.finRange 4) _ (fun _ _ => True)
-    (fun _ => 6960 + 2 * ftsCoordExtra) ([],ftsStart) trivial (fun i hi state _ => ?_)).bind'
-    (l:=3481 + ftsCoordExtra) (fun state _ => ?_) (by simp [ftsCoordExtra])
+    (fun _ => 6948 + 2 * ftsCoordExtra) ([],ftsStart) trivial (fun i hi state _ => ?_)).bind'
+    (l:=3475 + ftsCoordExtra) (fun state _ => ?_) (by simp [ftsCoordExtra])
   · exact (bound_buildPair index _ ((List.finRange 4)[i]'hi).isLt _ _ _ state.2).bind'
       (l:=0) (fun built _ => .pure _ 0 trivial) (by decide)
   · exact (bound_buildSingleton index selected.singleton words.singleton state.2).bind'
@@ -3037,15 +3037,15 @@ theorem levFac_three :
     ((List.range' 1 (height 3 - 1)).map (levFac (facS 3) (height 3))).prod =
       SigGolfCandidate.T3.Budgets.signingZ ^ 32 * (mG 1 ^ 16 * mG 2 ^ 8 * mG 3 ^ 4 * mG 4 ^ 2) := levFac_23 3 (Or.inr rfl)
 
-theorem leafSum_one : ∑ leaf ∈ Finset.range (2 ^ height 1), ClaudeWCT.WCT9.Cost.leafCostP 1 leaf = 40285 := by
+theorem leafSum_one : ∑ leaf ∈ Finset.range (2 ^ height 1), ClaudeWCT.WCT9.Cost.leafCostP 1 leaf = 40272 := by
   rw [Finset.sum_congr rfl (fun leaf _ => ClaudeWCT.WCT9.Cost.leafCostP_lower (by decide) leaf)]
   decide
 
-theorem leafSum_two : ∑ leaf ∈ Finset.range (2 ^ height 2), ClaudeWCT.WCT9.Cost.leafCostP 2 leaf = 20143 := by
+theorem leafSum_two : ∑ leaf ∈ Finset.range (2 ^ height 2), ClaudeWCT.WCT9.Cost.leafCostP 2 leaf = 20136 := by
   rw [Finset.sum_congr rfl (fun leaf _ => ClaudeWCT.WCT9.Cost.leafCostP_lower (by decide) leaf)]
   decide
 
-theorem leafSum_three : ∑ leaf ∈ Finset.range (2 ^ height 3), ClaudeWCT.WCT9.Cost.leafCostP 3 leaf = 20143 := by
+theorem leafSum_three : ∑ leaf ∈ Finset.range (2 ^ height 3), ClaudeWCT.WCT9.Cost.leafCostP 3 leaf = 20136 := by
   rw [Finset.sum_congr rfl (fun leaf _ => ClaudeWCT.WCT9.Cost.leafCostP_lower (by decide) leaf)]
   decide
 
@@ -3053,14 +3053,15 @@ theorem leafSum_three : ∑ leaf ∈ Finset.range (2 ^ height 3), ClaudeWCT.WCT9
 `b = 2`, 12 with `b = 3`, 6 with `b = 4` (with `ftsE`: 64/80/12/6). -/
 noncomputable def groundE : ℝ≥0∞ := mG 1 ^ 48 * mG 2 ^ 24 * mG 3 ^ 12 * mG 4 ^ 6
 
-/-- **E11 prepared-roots moment**: `V prepareRoots ≤ z^80731 · Π m_b` (80731 = 80821 − 90). -/
+/-- **E11 prepared-roots moment**: `V prepareRoots ≤ z^80704 · Π m_b` (80704 = 80821 − 90). -/
 theorem V_prepareRoots_U16 (secret : BitVec 256) (index : Nat) (hidx : index < 2 ^ 31) (cache : RCache)
     (hfresh : PrepFresh index cache) :
     V secret SigGolfCandidate.T3.Budgets.signingZ (SigGolfCandidate.Research.SharedForest.prepareRoots index) cache ≤
-      SigGolfCandidate.T3.Budgets.signingZ ^ 80731 * groundE := by
+      SigGolfCandidate.T3.Budgets.signingZ ^ 80704 * groundE := by
   refine (V_prepareRoots secret _ (SigGolfCandidate.Budget.one_le_zOf _) index hidx facS
-    (fun l _ => facS_ok l.val) cache hfresh).trans (le_of_eq ?_)
+    (fun l _ => facS_ok l.val) cache hfresh).trans ?_
   rw [levFac_one, levFac_two, levFac_three, leafSum_one, leafSum_two, leafSum_three]
+  apply le_of_eq
   unfold groundE
   ring
 
@@ -3109,14 +3110,14 @@ theorem facG_ok (c : Nat) :
   · rename_i hc
     exact ⟨fun h => absurd h hc, le_rfl⟩
 
-/-- **E8 forest moment**: `V buildForest ≤ z^31185 · ftsE` (31185 = 31321 − 72 − 64), its ground trials fresh. -/
+/-- **E8 forest moment**: `V buildForest ≤ z^31131 · ftsE` (31131 = 31267 − 72 − 64), its ground trials fresh. -/
 theorem V_buildForest_U16 (secret : BitVec 256) (index : Nat) (hidx : index < 2 ^ 31)
     (selected : SigGolfCandidate.Research.SharedForest.ForestSelection)
     (words : SigGolfCandidate.Research.SharedForest.ForestWords) (cache : RCache)
     (hf : ClaudeWCT.W9.T3.Freshness.Paired.FtsFresh.AllFFresh cache) :
     V secret SigGolfCandidate.T3.Budgets.signingZ
       (SigGolfCandidate.Research.SharedForest.buildForest index selected words) cache ≤
-      SigGolfCandidate.T3.Budgets.signingZ ^ 31185 * ftsE := by
+      SigGolfCandidate.T3.Budgets.signingZ ^ 31131 * ftsE := by
   refine (ClaudeWCT.W9.T3.Freshness.Paired.FtsFresh.V_buildForest secret _ (SigGolfCandidate.Budget.one_le_zOf _)
     index hidx selected words (fun c => mG (ClaudeWCT.WCT9.ftsZeroBits c 8))
     (fun c => if c < 4 then mG 1 else SigGolfCandidate.T3.Budgets.signingZ) (fun c _ => facF_ok c)
@@ -4215,14 +4216,14 @@ theorem buildForest_preserves_rows (secret : BitVec 256) (index stage : Nat)
   exact hfresh lay hl tree leaf left right counter hc
 
 /-- Fixed forest/root preparation and the certified canonical searches compose (U16b: the prepared roots cost
-`z^80731` and the 42 ground node factors `groundE`). -/
+`z^80704` and the 42 ground node factors `groundE`). -/
 theorem V_signFromOutput_certified (secret : BitVec 256) (cache : SigGolfCandidate.T3.Cache)
     (rho : Digest) (counter : BitVec 32) (output : HashOutput) (rcache : RCache)
     (hfresh : RowsFreshFrom 0 rcache) (hg : ClaudeWCT.W9.T3.Freshness.Paired.GroundFresh.AllGFresh rcache)
     (hf : ClaudeWCT.W9.T3.Freshness.Paired.FtsFresh.AllFFresh rcache) :
     V secret SigGolfCandidate.T3.Budgets.signingZ
       (signFromOutput cache rho counter output) rcache ≤
-      SigGolfCandidate.T3.Budgets.signingZ^112084 * (ClaudeWCT.W9.T3.Freshness.Paired.GroundFresh.groundE *
+      SigGolfCandidate.T3.Budgets.signingZ^112003 * (ClaudeWCT.W9.T3.Freshness.Paired.GroundFresh.groundE *
         (ClaudeWCT.W9.T3.Freshness.Paired.GroundFresh.ftsE *
           (ClaudeWCT.W9.T3.CanonicalSearch.LocalRoute.initialValue (requiredCredit (digestIndex output))
             (SigGolfCandidate.Research.SharedForest.LocalRoute.ownSave (digestIndex output) 1)
@@ -4233,12 +4234,12 @@ theorem V_signFromOutput_certified (secret : BitVec 256) (cache : SigGolfCandida
             (SigGolfCandidate.Research.SharedForest.LocalRoute.ownSave (digestIndex output) 1)
             (SigGolfCandidate.Research.SharedForest.LocalRoute.ownSave (digestIndex output) 2)
             (SigGolfCandidate.Research.SharedForest.LocalRoute.ownSave (digestIndex output) 3)))
-    (SigGolfCandidate.T3.Budgets.signingZ^80731 * ClaudeWCT.W9.T3.Freshness.Paired.GroundFresh.groundE)
+    (SigGolfCandidate.T3.Budgets.signingZ^80704 * ClaudeWCT.W9.T3.Freshness.Paired.GroundFresh.groundE)
     cache rho counter output rcache
     (ClaudeWCT.W9.T3.Freshness.Paired.GroundFresh.V_buildForest_U16 secret (digestIndex output)
       (digestIndex_lt output) _ _ rcache hf) ?_ ?_
   · refine h.trans (le_of_eq ?_)
-    rw [show 112084 = 31185 + 80731 + 168 by decide, pow_add, pow_add]
+    rw [show 112003 = 31131 + 80704 + 168 by decide, pow_add, pow_add]
     ac_rfl
   · intro forest hforest
     exact ClaudeWCT.W9.T3.Freshness.Paired.GroundFresh.V_prepareRoots_U16 secret (digestIndex output)
@@ -4777,7 +4778,7 @@ set_option backward.isDefEq.respectTransparency false
 noncomputable def digestMoment : ENNReal := (ftsBound:ENNReal)/scale
 /-- U16b: 112322 − 42 fixed compressions, the 42 ground node factors and the initial bound. -/
 noncomputable def postMoment : ENNReal :=
-  signingZ^112084*(ClaudeWCT.W9.T3.Freshness.Paired.GroundFresh.groundE*(ClaudeWCT.W9.T3.Freshness.Paired.GroundFresh.ftsE*
+  signingZ^112003*(ClaudeWCT.W9.T3.Freshness.Paired.GroundFresh.groundE*(ClaudeWCT.W9.T3.Freshness.Paired.GroundFresh.ftsE*
     ((ClaudeWCT.Numerics.LocalRoute.Tables.meanInitial:ENNReal)/scale)))
 noncomputable def payloadMoment : ENNReal := signingZ^2*(digestMoment*postMoment)
 noncomputable def signingMoment : ENNReal := signingZ^2*payloadMoment
@@ -4835,7 +4836,7 @@ theorem V_signPayload_certified (secret : BitVec 256) (cache : SigGolfCandidate.
     (hg : ClaudeWCT.W9.T3.Freshness.Paired.GroundFresh.AllGFresh rcache)
     (hf : ClaudeWCT.W9.T3.Freshness.Paired.FtsFresh.AllFFresh rcache) :
     V secret signingZ (SharedForest.signPayload cache message) rcache ≤ payloadMoment := by
-  let factor : ENNReal := signingZ^112084 *
+  let factor : ENNReal := signingZ^112003 *
     (ClaudeWCT.W9.T3.Freshness.Paired.GroundFresh.groundE *
       ClaudeWCT.W9.T3.Freshness.Paired.GroundFresh.ftsE)
   let G : RCache → Prop := fun rc => RowsFreshFrom 0 rc ∧
@@ -4887,25 +4888,25 @@ theorem V_sign_certified (secret : BitVec 256) (cache : SigGolfCandidate.T3.Cach
     (ClaudeWCT.W9.T3.Freshness.Paired.FtsFresh.privateMac_allFFresh secret cache.region rcache hf checked hc)
 
 theorem signingMoment_eq : signingMoment =
-    signingZ^112088*(((ftsBound:ENNReal)/scale)*(ClaudeWCT.W9.T3.Freshness.Paired.GroundFresh.groundE*
+    signingZ^112007*(((ftsBound:ENNReal)/scale)*(ClaudeWCT.W9.T3.Freshness.Paired.GroundFresh.groundE*
       (ClaudeWCT.W9.T3.Freshness.Paired.GroundFresh.ftsE*((ClaudeWCT.Numerics.LocalRoute.Tables.meanInitial:ENNReal)/scale)))) := by
   unfold signingMoment payloadMoment digestMoment postMoment
-  rw [show 112088=2+2+112084 by decide,pow_add,pow_add]
+  rw [show 112007=2+2+112003 by decide,pow_add,pow_add]
   ac_rfl
 
-/-- The fixed sign cost proved for the current Lean scheme (`signingMoment_eq`: 2 + 2 + 31185 + 80731 + 168 (E1: the 12 zero top-path masks cost nothing); U16b:
-the prepared roots' fixed part 80731 = 80821 − 90 (E11), the 90 ground node searches are the factors `groundE`; E8:
-the forest's fixed part 31185 = 31321 − 72 − 64, the 136 FTS ground node searches are the factors `ftsE`). -/
-def schemeFixedSignCost : Nat := 112088
+/-- The fixed sign cost proved for the current Lean scheme (`signingMoment_eq`: 2 + 2 + 31131 + 80704 + 168 (E1: the 12 zero top-path masks cost nothing); U16b:
+the prepared roots' fixed part 80704 = 80821 − 90 (E11), the 90 ground node searches are the factors `groundE`; E8:
+the forest's fixed part 31131 = 31267 − 72 − 64, the 136 FTS ground node searches are the factors `ftsE`). -/
+def schemeFixedSignCost : Nat := 112007
 
 /-- img-v6 open obligation (opus-crumbs PORT v6 C): the scheme's proved fixed sign cost is at most the certified img-v6
 value 112326 (`TopZero.fixedSignCost`). Discharged by `decide` once the lower 7-leaf / top 4-leaf seed-family scheme
 ports land (they lower `bound_buildForest` / `prepared_roots_cost`); the v6 envelope has slack ≈ +100 compressions. -/
-def SchemeFixedCostV6 : Prop := schemeFixedSignCost ≤ ClaudeWCT.Numerics.TopZero.fixedSignCostU16
+def SchemeFixedCostV6 : Prop := schemeFixedSignCost ≤ ClaudeWCT.Numerics.LocalRoute.Moment.fixedCost
 
 /-- Discharged by the v6 seed-family scheme (r3-lean-seedfam). -/
 theorem schemeFixedCostV6_holds : SchemeFixedCostV6 := by
-  unfold SchemeFixedCostV6 schemeFixedSignCost ClaudeWCT.Numerics.TopZero.fixedSignCostU16
+  unfold SchemeFixedCostV6 schemeFixedSignCost ClaudeWCT.Numerics.LocalRoute.Moment.fixedCost
   decide
 
 /-- Z3: the signing moment with the 90 lower (E11 V29) and 72 FTS ground factors (`groundE * ftsE`). -/
@@ -4922,7 +4923,7 @@ theorem signingMoment_le_two (hfix : SchemeFixedCostV6) : signingMoment ≤ 2 :=
   have hFt : ClaudeWCT.W9.T3.Freshness.Paired.GroundFresh.ftsE ≠ ⊤ := by
     unfold ClaudeWCT.W9.T3.Freshness.Paired.GroundFresh.ftsE
     exact ENNReal.mul_ne_top (ENNReal.pow_ne_top (hmt 1)) (ENNReal.pow_ne_top (hmt 2))
-  have hzt : signingZ ^ 112088 ≠ ⊤ := ENNReal.pow_ne_top (by unfold signingZ SigGolfCandidate.Budget.zOf; finiteness)
+  have hzt : signingZ ^ 112007 ≠ ⊤ := ENNReal.pow_ne_top (by unfold signingZ SigGolfCandidate.Budget.zOf; finiteness)
   have hst : ∀ n : ℕ, (n : ℝ≥0∞) / (scale : ℝ≥0∞) ≠ ⊤ := fun n =>
     ENNReal.div_ne_top (ENNReal.natCast_ne_top n) (by unfold scale; simp)
   apply (ENNReal.toReal_le_toReal (ENNReal.mul_ne_top hzt (ENNReal.mul_ne_top (hst _)
@@ -4933,9 +4934,9 @@ theorem signingMoment_le_two (hfix : SchemeFixedCostV6) : signingMoment ≤ 2 :=
     have h1 : (1:ENNReal) ≤ signingZ := SigGolfCandidate.Budget.one_le_zOf _
     have h := ENNReal.toReal_mono (by unfold signingZ SigGolfCandidate.Budget.zOf; finiteness) h1
     simpa only [ENNReal.toReal_one] using h
-  have hfixed : signingZ.toReal^112088≤(ClaudeWCT.Numerics.TopZero.fixedBoundU16:ℝ)/scale :=
+  have hfixed : signingZ.toReal^112007≤(ClaudeWCT.Numerics.LocalRoute.Moment.fixedBound:ℝ)/scale :=
     ((pow_le_pow_right₀ hz1 hfix).trans (pow_le_pow_left₀ ENNReal.toReal_nonneg hz _)).trans
-      ClaudeWCT.Numerics.TopZero.fixed_ratio_bound_U16
+      ClaudeWCT.Numerics.LocalRoute.Moment.fixed_ratio_bound
   have hmG : ∀ b, (ClaudeWCT.W9.T3.Freshness.Paired.GroundFresh.mG b).toReal =
       (ClaudeWCT.Numerics.TopZero.groundM b:ℝ)/scale := fun b => by
     unfold ClaudeWCT.W9.T3.Freshness.Paired.GroundFresh.mG; exact ENNReal.toReal_ofReal (by positivity)
@@ -4957,15 +4958,15 @@ theorem signingMoment_le_two (hfix : SchemeFixedCostV6) : signingMoment ≤ 2 :=
       ClaudeWCT.W9.T3.Freshness.Paired.GroundFresh.ftsE.toReal :=
     mul_nonneg ENNReal.toReal_nonneg ENNReal.toReal_nonneg
   calc
-    _ = signingZ.toReal^112088 * ((ftsBound:ℝ)/scale * ((ClaudeWCT.W9.T3.Freshness.Paired.GroundFresh.groundE.toReal *
+    _ = signingZ.toReal^112007 * ((ftsBound:ℝ)/scale * ((ClaudeWCT.W9.T3.Freshness.Paired.GroundFresh.groundE.toReal *
           ClaudeWCT.W9.T3.Freshness.Paired.GroundFresh.ftsE.toReal) *
           ((ClaudeWCT.Numerics.LocalRoute.Tables.meanInitial:ℝ)/scale))) := by ring
-    _ ≤ ((ClaudeWCT.Numerics.TopZero.fixedBoundU16:ℝ)/scale)*(((ftsBound:ℝ)/scale)*
+    _ ≤ ((ClaudeWCT.Numerics.LocalRoute.Moment.fixedBound:ℝ)/scale)*(((ftsBound:ℝ)/scale)*
         (((ClaudeWCT.Numerics.TopZero.groundBound:ℝ)/scale)*
           ((ClaudeWCT.Numerics.LocalRoute.Tables.meanInitial:ℝ)/scale))) :=
         mul_le_mul hfixed (mul_le_mul_of_nonneg_left (mul_le_mul_of_nonneg_right hG h0') h0)
           (mul_nonneg h0 (mul_nonneg hGn h0')) (div_nonneg (Nat.cast_nonneg _) (Nat.cast_nonneg _))
-    _ = (((ClaudeWCT.Numerics.TopZero.fixedBoundU16:ℝ)/scale)*((ClaudeWCT.Numerics.TopZero.groundBound:ℝ)/scale))*
+    _ = (((ClaudeWCT.Numerics.LocalRoute.Moment.fixedBound:ℝ)/scale)*((ClaudeWCT.Numerics.TopZero.groundBound:ℝ)/scale))*
         (((ftsBound:ℝ)/scale)*((ClaudeWCT.Numerics.LocalRoute.Tables.meanInitial:ℝ)/scale)) := by ring
     _ ≤ 2 := he
 
@@ -5247,8 +5248,8 @@ abbrev witEncN := ClaudeWCT.W9.T3M.Paired.witEncN
 /-- U16b: and the 9 ground lower fold nonces (`Paired.witEncG`). -/
 abbrev witEncG := ClaudeWCT.W9.T3M.Paired.witEncG
 
-def verifyCycleBound : Nat := 6873
-def claimedC : Nat := 6958
+def verifyCycleBound : Nat := 6872
+def claimedC : Nat := 6957
  def DigestCapOk (hash : Hash) (m : Message) (w : Bytes 21756) : Prop :=
   SigGolfCandidate.Research.SharedForest.jointAccountingCost
     (hash (SigGolfCandidate.T3M.toQ (SigGolfCandidate.T3.pad64

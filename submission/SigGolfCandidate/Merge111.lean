@@ -13,7 +13,9 @@ import SigGolfCandidate.Merge107
 import SigGolfCandidate.Merge108
 import SigGolfCandidate.Merge109
 import SigGolfCandidate.Merge110
-set_option debug.skipKernelTC true
+import SigGolfCandidate.QueryOverflow40
+import SigGolfCandidate.OverflowScalar
+set_option debug.skipKernelTC false
 set_option linter.all false
 
 -- ==== merged from ClaudeWCT_W9_T3_Secc_WotsLeafRef ====
@@ -3509,7 +3511,7 @@ theorem markEntry_rejected_le (T : Answers) (messages : LeafAddr → WCT9.LayerM
       88/(2:ENNReal)^128 := by
   obtain ⟨value,hvalue⟩ := referenceDigits_decode T messages a.key
   apply le_trans (probEvent_mono ?_) (WCT9.CanonicalRates.marker_rejected_le a.key.lay
-    (WCT9.CanonicalPolicy.threshold a.key.lay.val remaining)
+    (WCT9.Policy75Safe23.threshold a.key.lay.val remaining)
     (referenceDigits T messages a.key) value hvalue a.chain)
   rintro answer - ⟨message,counter,pad,digits,hfit,he,hne,hd,hlow,hrest⟩
   exact ⟨digits,hd,hlow,hrest⟩
@@ -3616,7 +3618,7 @@ theorem reached_valid_reference {T : Answers} {messages : LeafAddr→WCT9.LayerM
     {remaining : Nat} (hctx : referenceContext T messages L=some remaining)
     {digits : List Nat × Bool}
     (hv : WCT9.CanonicalPolicy.producerDecodeOut L.lay
-      (WCT9.CanonicalPolicy.threshold L.lay.val remaining) (T (.inl (.inr input)))=some digits) :
+      (WCT9.Policy75Safe23.threshold L.lay.val remaining) (T (.inl (.inr input)))=some digits) :
     referenceInput T messages L=some input := by
   obtain ⟨c,⟨hc,oldRemaining,hctx',hprev⟩,rfl⟩ := hr
   rw [hctx] at hctx'
@@ -3654,14 +3656,14 @@ theorem referenceInput_eq_of_noncell (T : Answers) (messages : LeafAddr → WCT9
     exact hfree
   obtain ⟨c,hreach,hxrow⟩ := hreached
   obtain ⟨hc,remaining,hctx,hprev⟩ := hreach
-  cases hs : decodeRow T (Enc.leafOf L) (WCT9.CanonicalPolicy.threshold L.lay.val remaining)
+  cases hs : decodeRow T (Enc.leafOf L) (WCT9.Policy75Safe23.threshold L.lay.val remaining)
       (messages (Enc.leafOf L)) c with
   | none =>
       exact False.elim (hnc (Or.inr
         ⟨c,remaining,⟨hc,remaining,hctx,hprev⟩,hin.trans hxrow,hctx,hs⟩))
   | some ds =>
       have hvalid : WCT9.CanonicalPolicy.producerDecodeOut L.lay
-          (WCT9.CanonicalPolicy.threshold L.lay.val remaining) (T (.inl (.inr x)))=some ds := by
+          (WCT9.Policy75Safe23.threshold L.lay.val remaining) (T (.inl (.inr x)))=some ds := by
         rw [decodeRow_answer,←hxrow] at hs
         exact hs
       have href := reached_valid_reference ⟨c,⟨hc,remaining,hctx,hprev⟩,hxrow⟩ hctx hvalid
@@ -3716,7 +3718,7 @@ private theorem bind_at_some {α β : Type} (o : Option α) (f : α → Option �
 theorem referenceSearch_producerDecode (T : Answers) (messages : LeafAddr → WCT9.LayerMsg)
     (L : LeafAddr) {remaining : Nat} (hctx : referenceContext T messages L=some remaining)
     {c : BitVec 32} {digits : List Nat} {low : Bool} (hs : referenceSearch T messages L=some (c,digits,low)) :
-    WCT9.CanonicalPolicy.producerDecodeOut L.lay (WCT9.CanonicalPolicy.threshold L.lay.val remaining)
+    WCT9.CanonicalPolicy.producerDecodeOut L.lay (WCT9.Policy75Safe23.threshold L.lay.val remaining)
       (T (.inl (.inr (encRow L (messages L) c 0))))=some (digits,low) := by
   have hs' : searchOf T messages L remaining=some (c,digits,low) := by
     exact bind_at_some _ _ hctx hs
@@ -3730,7 +3732,7 @@ theorem reference_accepted (T : Answers) (messages : LeafAddr → WCT9.LayerMsg)
     (L : LeafAddr) {remaining : Nat} (hctx : referenceContext T messages L=some remaining)
     (hs : referenceSearch T messages L≠none) :
     ∃ (word : Digest) (low : Bool), WCT9.CanonicalPolicy.producerDecodeAt L.lay
-      (WCT9.CanonicalPolicy.threshold L.lay.val remaining) low word=some (referenceDigits T messages L) := by
+      (WCT9.Policy75Safe23.threshold L.lay.val remaining) low word=some (referenceDigits T messages L) := by
   obtain ⟨⟨c,digits,low⟩,hfound⟩ := Option.ne_none_iff_exists'.mp hs
   have href : referenceDigits T messages L=digits := by
     simp only [referenceDigits,hfound,Option.map_some,Option.getD_some]
@@ -3738,9 +3740,9 @@ theorem reference_accepted (T : Answers) (messages : LeafAddr → WCT9.LayerMsg)
   exact ⟨_,_,(WCT9.CanonicalPolicy.producerDecodeOut_spec (referenceSearch_producerDecode T messages L hctx hfound)).2⟩
 
 theorem threshold_top_floor_le (lay : Layer) (remaining : Nat) :
-    lay = 0 → WCT9.CanonicalPolicy.topFloor ≤ WCT9.CanonicalPolicy.threshold lay.val remaining := by
+    lay = 0 → WCT9.CanonicalPolicy.topFloor ≤ WCT9.Policy75Safe23.threshold lay.val remaining := by
   rintro rfl
-  simp [WCT9.CanonicalPolicy.threshold]
+  simp [WCT9.Policy75Safe23.threshold,WCT9.CanonicalPolicy.topFloor]
 
 theorem matchEntry_init_le (T : Answers) (messages : LeafAddr → WCT9.LayerMsg)
     (e : (cellKey T messages).cells) :
@@ -5693,29 +5695,7 @@ theorem pairTerm_leW9 (q : Nat) (hs : q ≤ SeccClosingW9.budgetSplit) :
           ENNReal.toReal_ofNat, ENNReal.toReal_one]
         norm_num
 end SmallR
-/-- The clean win splits into cases A/B, case C without FTS overflow, signer incompleteness, and the FTS overflow
-event (campaign X1 stage A; bounded by `fts_overflow_le`). -/
-theorem cleanWin_le_cases (adversary : AdversaryP) (q : Nat) (hq : q ≤ 2 ^ 127) :
-    Pr[QueryRecorded.CleanWin q | PaddedGame.tracedExperiment adversary q hq] ≤
-      Pr[fun z => QueryRecorded.CleanWin q z.1 ∧ CaseABSrc adversary z | SeccLaw.completedExperiment adversary q hq] +
-      Pr[fun z => QueryRecorded.CleanWin q z.1 ∧ CaseC.CaseCFreshPinned adversary z ∧ WPair.NoOverflow adversary z |
-        SeccLaw.completedExperiment adversary q hq] +
-      Pr[fun z => ¬BPB.SignerComplete z.2 | SeccLaw.completedExperiment adversary q hq] +
-      Pr[fun z => QueryRecorded.CleanWin q z.1 ∧ ClaudeWCT.W9.T3.Security.FtsOverflow z.1 |
-        SeccLaw.completedExperiment adversary q hq] := by
-  rw [← SeccLaw.completed_trace_event adversary q hq (QueryRecorded.CleanWin q)]
-  refine le_trans (Ref.pmf_probEvent_mono _ ?_) ((probEvent_or_le _ _ _).trans
-    (add_le_add ((probEvent_or_le _ _ _).trans (add_le_add (probEvent_or_le _ _ _) le_rfl)) le_rfl))
-  intro z hz hclean
-  by_cases hov : ClaudeWCT.W9.T3.Security.FtsOverflow z.1
-  · exact Or.inr ⟨hclean, hov⟩
-  by_cases hcomp : BPB.SignerComplete z.2
-  · rcases completed_split_src adversary q hq z hz hclean hcomp with h | h | h
-    · exact Or.inl (Or.inl (Or.inl ⟨hclean, h⟩))
-    · exact Or.inl (Or.inl (Or.inr ⟨hclean, h, WPair.noOverflow_of_outIdx adversary z fun g i c hs =>
-        ClaudeWCT.W9.T3.Security.logNoOverflow_of_not_ftsOverflow adversary q hq z hz hov g i c hs⟩))
-    · exact absurd h (CaseC.caseCSignedPinned_impossible adversary q hq z hz hclean)
-  · exact Or.inl (Or.inr hcomp)
+/- The unused unpaired51-overflow bridge was retired: it does not imply the installed39-output guard. -/
 end ClaudeWCT.W9.T3.Security.Wots
 end
 section
@@ -8313,15 +8293,15 @@ attribute [local instance] Classical.propDecidable
 
 theorem clean_noOvR_failure (adversary : Final.Paired.AdversaryP) (q : Nat) (hq:q≤2^127) :
     Pr[fun z=>QueryRecorded.CleanWin q z.1 ∧ ¬NoOvR adversary (QueryRecorded.recordedTrace z.1) z.2 |
-      PairedSeccLaw.completedExperiment adversary q hq]≤1/(2:ENNReal)^137 := by
-  simpa only [one_div] using! FtsOverflow.Paired.cleanWin_logOverflow_le adversary q hq
+      PairedSeccLaw.completedExperiment adversary q hq]≤1/(2:ENNReal)^88 := by
+  simpa only [one_div] using! QueryChargeResearch.ValidPotential40.cleanWin_logOverflow_lifetime adversary q hq
 
 theorem clean_le_contact_cert (adversary : Final.Paired.AdversaryP) (q : Nat) (hq:q≤2^127) :
     Pr[QueryRecorded.CleanWin q | PairedOuter.PaddedGame.tracedExperiment adversary q hq] ≤
       Pr[ContactNO adversary q | PairedSeccLaw.completedExperiment adversary q hq] +
       Pr[fun z=>CertR adversary q (QueryRecorded.recordedTrace z.1) z.2 ∧
         NoOvR adversary (QueryRecorded.recordedTrace z.1) z.2 | PairedSeccLaw.completedExperiment adversary q hq] +
-      1/(2:ENNReal)^139+1/(2:ENNReal)^138+1/(2:ENNReal)^137 := by
+      1/(2:ENNReal)^139+1/(2:ENNReal)^138+1/(2:ENNReal)^88 := by
   rw [←PairedSeccLaw.completed_trace_event adversary q hq (QueryRecorded.CleanWin q)]
   have hs : Pr[fun z=>QueryRecorded.CleanWin q z.1 | PairedSeccLaw.completedExperiment adversary q hq] ≤
       Pr[fun z=> ContactNO adversary q z ∨
@@ -8373,7 +8353,7 @@ theorem large_clean_closing (adversary : Final.Paired.AdversaryP) (q : Nat) (hq:
       ENNReal.ofReal (2*((q:ℝ)/2^128)-((q:ℝ)/2^128)^2)+
       (q:ENNReal)*ENNReal.ofReal ((99076/100000)*((q:ℝ)/2^128))/2^128+
       ((2 ^ 142 : ENNReal)⁻¹+(2 ^ 142 : ENNReal)⁻¹)+
-      1/(2:ENNReal)^139+1/(2:ENNReal)^138+1/(2:ENNReal)^137) :
+      1/(2:ENNReal)^139+1/(2:ENNReal)^138+1/(2:ENNReal)^88) :
     Pr[QueryRecorded.CleanWin q | PairedOuter.PaddedGame.tracedExperiment adversary q hq]+
       q/(2:ENNReal)^146+(2:ENNReal)⁻¹^700+((2:ENNReal)^152)⁻¹+
       q/((2^256:Nat):ENNReal)≤(q:ENNReal)/2^127 := by
@@ -8395,12 +8375,12 @@ theorem large_clean_closing (adversary : Final.Paired.AdversaryP) (q : Nat) (hq:
   -- top-nonce layer (r3-lean-nonsec): the large route carries 2·Pr[CapFail] ≤ 2·(2^142)⁻¹
   change _ ≤ ENNReal.toReal (ENNReal.ofReal (2*y-y^2))+
     (q:ℝ)*ENNReal.toReal (ENNReal.ofReal ((99076/100000)*y))/2^128+(((2:ℝ)^142)⁻¹+((2:ℝ)^142)⁻¹)+
-    1/2^139+1/2^138+1/2^137 at hr
+    1/2^139+1/2^138+1/2^88 at hr
   rw [ENNReal.toReal_ofReal hpoly,ENNReal.toReal_ofReal hrate] at hr
   have hmul : (q:ℝ)*((99076/100000)*y)/2^128=y*((99076/100000)*y) := by dsimp [y];ring
   rw [hmul] at hr
-  have hc := ContinuousPricing.large_closing_real_cap777 y ((99076/100000)*y) hlow le_rfl
-  have he : ((2:ℝ)^142)⁻¹+((2:ℝ)^142)⁻¹+1/2^139+1/2^138+1/2^137≤1/2^131 := by norm_num
+  have hc := QueryChargeResearch.OverflowClosing.large_absolute88 y ((99076/100000)*y) hlow le_rfl
+  have he : ((2:ℝ)^142)⁻¹+((2:ℝ)^142)⁻¹+1/2^139+1/2^138+1/2^88≤1/2^87 := by norm_num
   have hp1 : 0≤y*((1:ℝ)/2^25) := mul_nonneg hy (by positivity)
   have hp2 : 0≤y*((1:ℝ)/2^50) := mul_nonneg hy (by positivity)
   change _+ (y/2^18+1/2^700+1/2^152+y/2^128)≤2*y
@@ -10235,9 +10215,9 @@ theorem searchPreparedLayers_famEq (hC : FamCongr S (sourceMessages T) F T T') (
     rw [wotsTree_congrF hC hF]
   have hs (lay : Layer) (remaining : Nat)
       (_hc : referenceContext T messages (sourceLeaf index lay) = some remaining) :
-      ExecEq T T' (WCT9.CanonicalPolicy.layerCounterSearchAt lay (CanonicalPolicy.threshold lay.val remaining)
+      ExecEq T T' (WCT9.CanonicalPolicy.layerCounterSearchAt lay (WCT9.Policy75Safe23.threshold lay.val remaining)
         (sourceLeaf index lay).tree (sourceLeaf index lay).leaf (messages (sourceLeaf index lay)) 0 (searchLimit lay))
-        (WCT9.CanonicalPolicy.layerCounterSearchAt lay (CanonicalPolicy.threshold lay.val remaining)
+        (WCT9.CanonicalPolicy.layerCounterSearchAt lay (WCT9.Policy75Safe23.threshold lay.val remaining)
         (sourceLeaf index lay).tree (sourceLeaf index lay).leaf (messages (sourceLeaf index lay)) 0 (searchLimit lay)) :=
     let h := respects_famOut S (fun a => CanonicalRef.Mask.respects_layerCounterSearchAt a _ _ _ _ _ _ _) F
     ⟨h.eval_eq hC.out, congrArg List.length (h.queried_eq hC.out)⟩
@@ -11185,7 +11165,14 @@ def layoutCaps : FamCaps layoutScheme where
     · -- T51: 4-leaf top families, 7 · 4 + 3 = 31 = topCoefCount (img-v6: 9 · 4 + 3 = 39)
       have := min_le_left 4 (2 ^ height lay - 4 * f)
       simp only [SigGolfCandidate.T3.topCoefCount]; omega
-    · exact le_rfl
+    · omega
+
+theorem layout_lower_four (lay : Layer) (f : Nat) (hl : lay ≠ 0) :
+    layoutCaps.zcap lay * famMembers layoutScheme lay f + 4 ≤ layoutScheme.size lay f := by
+    show (if lay = 0 then 7 else 5) * min (WCT9.famGrp lay) (2 ^ height lay - WCT9.famGrp lay * f) + 4 ≤ WCT9.famSize lay f
+    simp only [WCT9.famGrp, WCT9.famSize, hl, if_false]
+    exact le_rfl
 
 end ClaudeWCT.W9.T3.Security.Wots.FamRestart
 end
+

@@ -641,7 +641,7 @@ def buildCoordinate (index : Nat) (coord : Coord) (selected : Child) (word : Ran
 The 54 coefficients are the halves of `ftsSeedPair index coord j`, `j < 27`, low half first; the seed of chain
 `chain` of child `child` is `familyEval coefs (ftsPoint child chain)`. Used by `signPayload` and by `Rev3.sign`
 (through `signPayloadWith`). -/
-def ftsCoefPairs : Nat := 27
+def ftsCoefPairs : Nat := 21
 def ftsCoefs (index coord : Nat) : M (List Digest) :=
   (List.range ftsCoefPairs).foldlM (fun acc j => do
     let p ← ftsSeedPair index coord j
@@ -897,12 +897,12 @@ def producerDecode (lay : Layer) (answer : Digest) : Option (List Nat) :=
   | some digits => if producerFloor lay + dispatchPenalty lay digits ≤ wordCredit lay digits + 4 * savedCopies lay digits ∧ producerZeroBound lay digits ∧ producerRankBound lay answer then some digits else none
   | none => none
 /-- The smallest lower-layer window (L1, L2). -/
-def lowerSearchLimit : Nat := 2 ^ 21
+def lowerSearchLimit : Nat := 7 * 2 ^ 18
 /-- Enlarged top counter window 2^21 (top-bytes layer). The legacy `T3.counterLimit` (2^22, the legacy T3 scheme and the
 presampling key space) is unchanged; the canonical searches use `searchLimit`. -/
 def topSearchLimit : Nat := 2 ^ 21
 /-- Per-layer counter windows: `((s0 < 3) xor 3) << 20`; top and L1/L2 use 2^21, L3 uses 3·2^20. -/
-def searchLimit (lay : Layer) : Nat := if lay = 3 then 3 * 2 ^ 20 else 2 ^ 21
+def searchLimit (lay : Layer) : Nat := if lay = 0 then 2 ^ 21 else if lay = 3 then 27 * 2 ^ 17 else 7 * 2 ^ 18
 /-- The verifier accepts every 32-bit counter: its window is the whole `BitVec 32` range, so the layer check
 never rejects. The signer still searches `searchLimit`. -/
 def verifyWindow : Nat := 2 ^ 32
@@ -1159,10 +1159,10 @@ Lower (v6): families of 7 leaves, base 38, size `5 · min 7 (2^height − 7 f) +
 family `f` reads exactly the pairs `19 f + j`, `j < ⌈famSize / 2⌉` (no carry). Top: one family per leaf (24
 coefficients … ) — v6 top: families of 4 leaves, 39 coefficients (`T3.topCoefCount`, carry-packed), points
 `(leaf % 4) · 64 + i + 1` (= `T3.topPoint`). -/
-def famGrp (lay : Layer) : Nat := if lay = 0 then 4 else 7
-def famBase (lay : Layer) : Nat := if lay = 0 then SigGolfCandidate.T3.topCoefCount else 38
+def famGrp (lay : Layer) : Nat := if lay = 0 then 4 else 16
+def famBase (lay : Layer) : Nat := if lay = 0 then SigGolfCandidate.T3.topCoefCount else 84
 def famSize (lay : Layer) (f : Nat) : Nat :=
-  if lay = 0 then SigGolfCandidate.T3.topCoefCount else 5 * min 7 (2 ^ height lay - 7 * f) + 3
+  if lay = 0 then SigGolfCandidate.T3.topCoefCount else 5 * min 16 (2 ^ height lay - 16 * f) + 4
 def famStride (lay : Layer) : Nat := if lay = 0 then 64 else 43
 def famOf (lay : Layer) (leaf : Nat) : Nat := leaf / famGrp lay
 def famPoint (lay : Layer) (leaf i : Nat) : Nat :=
@@ -1499,7 +1499,7 @@ open OracleComp OracleSpec SigGolfCandidate.T3
 
 /-- The paired gate needs this larger finite search window for simultaneous
 completeness over every256-bit message. It does not change the moment model. -/
-def ftsSearchLimit : Nat := 2 ^ 21
+def ftsSearchLimit : Nat := 11 * 2 ^ 17
 
 /-- Layer-1 floors by residual `r ≤ 54` (= 72 - 18). Y5 (hint trim): floors from the alphabet `f1 ∈ {6, 10, 12, 14}`
 (re-optimised by residual; `r - floor < 41`, the layer-2 table length). -/

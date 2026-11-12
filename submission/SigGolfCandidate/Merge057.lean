@@ -3019,7 +3019,7 @@ theorem referenceSearch_decode (answers : Answers) (messages : LeafAddr → WCT9
       (WCT9.encodingAnswer L.lay (answers (.inl (.inr (encRow L (messages L) c 0))))) = some digits := by
   obtain ⟨remaining, _, hs⟩ := Option.bind_eq_some_iff.mp h
   have hd := counterSearch_decode answers L.lay
-    (WCT9.CanonicalPolicy.threshold L.lay.val remaining) L.tree L.leaf (messages L)
+    (WCT9.Policy75Safe23.threshold L.lay.val remaining) L.tree L.leaf (messages L)
     (WCT9.searchLimit L.lay) 0 c (digits, low) hs
   rw [encRow_zero]
   exact (WCT9.CanonicalPolicy.producerDecodeAt_spec (WCT9.CanonicalPolicy.producerDecodeOut_spec hd).2).1
@@ -4411,7 +4411,7 @@ include hTT
 theorem eval_congr {α : Type} {p : M α} (hp : AllQueriesSatisfy p (FtsQuery index)) :
     evalWithAnswerFn T p = evalWithAnswerFn T' p :=
   (respects_of_allQueriesSatisfy hp T T' hTT).1
-theorem ftsCoef_congr (coord : Coord) (j : Fin 54) : ftsCoef T index coord.val j = ftsCoef T' index coord.val j := by
+theorem ftsCoef_congr (coord : Coord) (j : Fin 42) : ftsCoef T index coord.val j = ftsCoef T' index coord.val j := by
   unfold ftsCoef
   rw [eval_congr hTT (allQueriesSatisfy_of_bound (ftsBound_seedPair index coord.val _ coord.isLt
     (by have := j.isLt; unfold ftsCoefPairs; omega)))]
@@ -5684,7 +5684,7 @@ theorem famSize_pos (lay : Layer) (f : Nat) : 0 < famSize lay f := by
   · decide
   · omega
 
-theorem famSize_lt_58 (lay : Layer) (f : Nat) : famSize lay f < 58 := by
+theorem famSize_lt_128 (lay : Layer) (f : Nat) : famSize lay f < 128 := by
   have := famSize_le_base lay f; have := famBase_le lay; omega
 
 theorem famOf_le (lay : Layer) (leaf : Nat) : famOf lay leaf ≤ leaf := Nat.div_le_self _ _
@@ -5826,16 +5826,25 @@ def Node.depth : Node → Nat
   | .wctNode n => 512 * (5 + 7 * n.1.coord.val + n.1.level.val) + n.1.nonce.val
   | .forest _ => 512 * 70
 /-- Coefficient index of the FTS seed families (campaign X1, stage A): `(index, coord, j)`, `j < 54`. -/
-abbrev WctCoef := Fin (2 ^ 31) × Fin 9 × Fin 54
-/-- Hidden secrets: leaf-family coefficients (by address: an address with chain `j < famCount layer` is coefficient
-`j` of its leaf, campaign X1 stage B for lower leaves, campaign T8D for top leaves) and FTS family coefficients. WOTS and
-FTS seeds are not secrets themselves but evaluations (`seedsOf`, `wctSeedsOf`) of the coefficient families. -/
-abbrev SecretIndex := Address ⊕ WctCoef
+abbrev WctCoef := Fin (2 ^ 31) × Fin 9 × Fin 42
+/-- Coefficient storage has its own index space; real WOTS chain addresses remain `Fin 58`. -/
+structure CoefficientAddress where
+  layer : Layer
+  tree : Fin (2^31)
+  leaf : Fin 4096
+  chain : Fin 128
+  deriving DecidableEq, Fintype
+attribute [local irreducible] instFintypeCoefficientAddress
+@[ext] theorem CoefficientAddress.ext {left right : CoefficientAddress}
+    (hlayer : left.layer = right.layer) (htree : left.tree = right.tree)
+    (hleaf : left.leaf = right.leaf) (hchain : left.chain = right.chain) : left = right := by
+  cases left; cases right; simp_all
+abbrev SecretIndex := CoefficientAddress ⊕ WctCoef
 abbrev Secrets := SecretIndex → Digest
 abbrev Labels := Node → HashOutput
 theorem chainCount_lower {lay : Layer} (h : lay ≠ 0) : chainCount lay = 43 := by
   revert h; fin_cases lay <;> decide
-theorem famCount_lt_58 (lay : Layer) : WCT9.famCount lay < 58 := by
+theorem famCount_lt_128 (lay : Layer) : WCT9.famCount lay < 128 := by
   have := WCT9.famCount_le lay; omega
 /-- The family of a leaf, as an address slot (secret coefficient `j` of family `f` sits at address
 `(lay, tree, f, j)`; today one family per leaf, `famOf_today`). -/
@@ -5848,13 +5857,13 @@ theorem famOrdinal_eq (lay : Layer) (leaf j : Nat) :
 /-- The coefficient family of leaf `(lay, tree, leaf)`: the secrets `(lay, tree, famOf leaf, j)`, `j < famSize`. -/
 def leafFamily (secrets : Secrets) (lay : Layer) (tree : Fin (2 ^ 31)) (leaf : Fin 4096) :
     Fin (WCT9.famSize lay (WCT9.famOf lay leaf.val)) → Digest :=
-  fun j => secrets (.inl ⟨lay, tree, famSlot lay leaf, ⟨j.val, lt_trans j.isLt (WCT9.famSize_lt_58 lay _)⟩⟩)
+  fun j => secrets (.inl ⟨lay, tree, famSlot lay leaf, ⟨j.val, lt_trans j.isLt (WCT9.famSize_lt_128 lay _)⟩⟩)
 /-- WOTS seeds: the leaf family at `famPoint layer leaf chain` (every layer). -/
 def seedsOf (secrets : Secrets) : Seeds := fun a =>
   ClaudeWCT.Arith.familyEval (List.ofFn (leafFamily secrets a.layer a.tree a.leaf))
     (WCT9.famPoint a.layer a.leaf.val a.chain.val)
 /-- The coefficient family of FTS coordinate `(index, coord)`. -/
-def wctFamily (secrets : Secrets) (index : Fin (2 ^ 31)) (coord : Fin 9) : Fin 54 → Digest :=
+def wctFamily (secrets : Secrets) (index : Fin (2 ^ 31)) (coord : Fin 9) : Fin 42 → Digest :=
   fun j => secrets (.inr (index, coord, j))
 /-- FTS seed of chain `a`: its family evaluated at `ftsPoint child chain` in GF(2^128). -/
 def wctSeedsOf (secrets : Secrets) : WctAddr → Digest := fun a =>
@@ -7028,6 +7037,7 @@ theorem ftsLabel_top (labels : Labels) (index : Fin (2^31)) (coord : Fin 9) (b :
 noncomputable def canonInputs : Finset HashInput :=
   (Finset.univ : Finset (Secrets × Labels × Node)).image fun x => cell x.1 x.2.2 x.2.1
 attribute [irreducible] canonInputs
+set_option maxRecDepth 100000 in
 theorem cell_mem (secrets : Secrets) (node : Node) (labels : Labels) : cell secrets node labels ∈ canonInputs := by
   rw [canonInputs]
   exact Finset.mem_image.mpr ⟨(secrets, labels, node), Finset.mem_univ _, rfl⟩
@@ -7203,17 +7213,17 @@ def wctCoefCoordinate (c : WctCoef) : ChainGraph.HalfCoordinate :=
 /-- Half-cell of secret `a`: for an address `(lay, tree, f, j)` with `j < famSize lay f` it is the packed half
 `famOrd lay f j` of `lowerSeedPair lay tree` (coefficient `j` of family `f`); other addresses get distinct unused
 cells. -/
-def seedCoordinateP (a : Address) : ChainGraph.HalfCoordinate :=
+def seedCoordinateP (a : CoefficientAddress) : ChainGraph.HalfCoordinate :=
   if a.chain.val < WCT9.famSize a.layer a.leaf.val then
     (.inl (WCT9.lowerSeedHeader a.layer a.tree.val (famOrd a.layer a.leaf.val a.chain.val / 2)),
       fullHalf (famOrd a.layer a.leaf.val a.chain.val))
   else (.inl (header 0 a.layer.val a.tree.val (a.chain.val / 2) (a.leaf.val + 1)), fullHalf a.chain.val)
 def secretCoordinate : SecretIndex → ChainGraph.HalfCoordinate := Sum.elim seedCoordinateP wctCoefCoordinate
 theorem fullHalf_val (n : Nat) : (fullHalf n).val = n % 2 := rfl
-theorem famOrd_pair_lt' (a : Address) : famOrd a.layer a.leaf.val a.chain.val / 2 < 2 ^ 32 := by
+theorem famOrd_pair_lt' (a : CoefficientAddress) : famOrd a.layer a.leaf.val a.chain.val / 2 < 2 ^ 32 := by
   have h1 := a.leaf.isLt; have h2 := a.chain.isLt
   have h3 := WCT9.famBase_le a.layer
-  have : WCT9.famBase a.layer * a.leaf.val ≤ 39 * 4096 := Nat.mul_le_mul h3 (by omega)
+  have : WCT9.famBase a.layer * a.leaf.val ≤ 88 * 4096 := Nat.mul_le_mul h3 (by omega)
   unfold famOrd
   omega
 theorem famOrd_inj {lay : Layer} {f f' j j' : Nat} (hj : j < WCT9.famBase lay) (hj' : j' < WCT9.famBase lay)
@@ -7268,7 +7278,7 @@ theorem seedCoordinateP_injective : Function.Injective seedCoordinateP := by
         famOrd right.layer right.leaf.val right.chain.val := by omega
     obtain ⟨e4, e5⟩ := famOrd_inj (lt_of_lt_of_le hc (WCT9.famSize_le_base _ _))
       (lt_of_lt_of_le hc' (WCT9.famSize_le_base _ _)) eo
-    exact ChainGraph.Address.ext elay (Fin.ext e2) (Fin.ext e4) (Fin.ext e5)
+    exact CoefficientAddress.ext elay (Fin.ext e2) (Fin.ext e4) (Fin.ext e5)
   · exfalso
     rw [if_pos hc, if_neg hc'] at hp
     simp only [Sum.inl.injEq, WCT9.lowerSeedHeader] at hp
@@ -7285,8 +7295,8 @@ theorem seedCoordinateP_injective : Function.Injective seedCoordinateP := by
     simp only [fullHalf_val, Sum.inl.injEq] at hp hh
     obtain ⟨-, e1, e2, e3, e4⟩ := header_injective (by decide) (by omega) (by omega) (by omega) (by omega)
       (by decide) (by omega) (by omega) (by omega) (by omega) hp
-    exact ChainGraph.Address.ext (Fin.ext e1) (Fin.ext e2) (Fin.ext (by omega)) (Fin.ext (by omega))
-theorem seedCoordinateP_ne_wct (a : Address) (g : WctCoef) : seedCoordinateP a ≠ wctCoefCoordinate g := by
+    exact CoefficientAddress.ext (Fin.ext e1) (Fin.ext e2) (Fin.ext (by omega)) (Fin.ext (by omega))
+theorem seedCoordinateP_ne_wct (a : CoefficientAddress) (g : WctCoef) : seedCoordinateP a ≠ wctCoefCoordinate g := by
   intro heq
   have hp := congrArg Prod.fst heq
   unfold seedCoordinateP wctCoefCoordinate at hp
@@ -7544,7 +7554,7 @@ def famCoefF (answers : Answers) (lay : Layer) (tree f j : Nat) : Digest :=
 theorem famCoefN_eq (answers : Answers) (lay : Layer) (tree leaf j : Nat) :
     WCT9.famCoefN answers lay tree leaf j = famCoefF answers lay tree (WCT9.famOf lay leaf) j := rfl
 /-- A coefficient secret is the packed half the signer reads (stage B lower, T8D top). -/
-theorem secretsOf_fam (answers : Answers) (a : Address) (hc : a.chain.val < WCT9.famSize a.layer a.leaf.val) :
+theorem secretsOf_fam (answers : Answers) (a : CoefficientAddress) (hc : a.chain.val < WCT9.famSize a.layer a.leaf.val) :
     secretsOf answers (.inl a) = famCoefF answers a.layer a.tree.val a.leaf.val a.chain.val := by
   change halfAnswer answers (seedCoordinateP a) = _
   unfold seedCoordinateP famCoefF WCT9.seedHalf WCT9.lowerSeedHeader WCT9.lowerSeedPair
@@ -7552,7 +7562,7 @@ theorem secretsOf_fam (answers : Answers) (a : Address) (hc : a.chain.val < WCT9
 theorem leafFamily_secretsOf (answers : Answers) (lay : Layer) (tree : Fin (2 ^ 31)) (leaf : Fin 4096) :
     leafFamily (secretsOf answers) lay tree leaf = WCT9.famCoef answers lay tree.val leaf.val :=
   funext fun j => secretsOf_fam answers
-    ⟨lay, tree, famSlot lay leaf, ⟨j.val, lt_trans j.isLt (WCT9.famSize_lt_58 lay _)⟩⟩ j.isLt
+    ⟨lay, tree, famSlot lay leaf, ⟨j.val, lt_trans j.isLt (WCT9.famSize_lt_128 lay _)⟩⟩ j.isLt
 theorem seedsOf_secretsOf (answers : Answers) (a : Address) :
     seedsOf (secretsOf answers) a = WCT9.wotsSeed answers a.layer a.tree.val a.leaf.val a.chain.val := by
   unfold seedsOf
@@ -7814,6 +7824,7 @@ theorem cell_length_le (secrets : Secrets) (node : Node) (labels : Labels) :
   | wctChain v=>exact CanonGraph.cell_length_le secrets (.wctChain v) labels
   | forest v=>exact CanonGraph.cell_length_le secrets (.forest v) labels
 
+set_option maxRecDepth 100000 in
 theorem cell_mem (secrets : Secrets) (node : Node) (labels : Labels) : cell secrets node labels∈canonInputs := by
   rw [canonInputs]
   exact SeccLaw.mem_publicUniverse _ (cell_length_le secrets node labels)
@@ -9958,7 +9969,7 @@ theorem decodeProbe_none {x : HashInput} (h : Guess.decodeProbe x = none) (a : W
   rw [hx, decodeProbe_probe] at h
   cases h
 theorem probeInput_mem (a : WctAddr) (p : Fin 4) (c : Digest) : Guess.probeInput a p c ∈ canonInputs := by
-  obtain ⟨K, hK⟩ := ClaudeWCT.Arith.familyEval_surjective (n := 54) (t := 1) (by decide)
+  obtain ⟨K, hK⟩ := ClaudeWCT.Arith.familyEval_surjective (n := 42) (t := 1) (by decide)
     (fun _ => WCT9.ftsPoint a.2.2.1.val a.2.2.2.val) (fun i j _ => Subsingleton.elim i j)
     (fun _ => Guess.Fam.ftsPoint_lt a.2.2.1 a.2.2.2) (fun _ => c)
   have hK0 := congrFun hK 0
@@ -10102,7 +10113,7 @@ theorem wctFamily_worldSecrets (secrets : Secrets) (K : Guess.Fam.FamIdx → Gue
     (k : Fin 9) : wctFamily (worldSecrets secrets K) i k = K (i, k) := by
   funext j
   exact worldSecrets_inr secrets K (i, k, j)
-theorem worldSecrets_inl (secrets : Secrets) (K : Guess.Fam.FamIdx → Guess.Fam.Coefs) (a : ChainGraph.Address) :
+theorem worldSecrets_inl (secrets : Secrets) (K : Guess.Fam.FamIdx → Guess.Fam.Coefs) (a : CoefficientAddress) :
     worldSecrets secrets K (.inl a) = secrets (.inl a) := by
   unfold worldSecrets
   rw [Function.extend_apply']

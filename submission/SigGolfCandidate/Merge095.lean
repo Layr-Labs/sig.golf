@@ -98,7 +98,7 @@ carry the v6 seed words; the live lower-seed proofs are in `SharedSeed` below. -
 def hdrB (lay pair : Nat) : Nat := 1 + 65536 * lay + 2 ^ 32 * pair
 
 /-- Cycle bound of one v6 lower seed (SEED spills + `qp` + `jal HK`: 19 steps, 25 cycles; at most 38 Horner steps; RET). -/
-def lowerSeedC : Nat := 25 + (hornStepC * 38 + 5) + 13
+def lowerSeedC : Nat := 25 + (hornStepC * 84 + 5) + 13
 
 theorem familyEval_nil (d : Nat) : familyEval [] d = 0 := rfl
 
@@ -122,11 +122,11 @@ def blockTail : List (BitVec 32) := [0x04040e63,0x00098463,0xb91f706f,0x7690306f
   0x02031313,0x01041513,0x00a36333,0x00136313,0xf69f606f,0x00000013,0xbd0ed06f,0xbf9ec06f]
 /-- v6 sign words `24807..24850`: the lower family prologue `qd` (`24807..24842`) and the seed point `qp`
 (`24843..24850`). -/
-def blockQ : List (BitVec 32) := [0x00700313,0x026973b3,0x08039263,0x02695533,0x026503b3,0x04000e93,0x00100f13,
-  0x01e41463,0x08000e93,0x407e8eb3,0x006ee463,0x00700e93,0x002e9f13,0x01df0f33,0x003f0f13,0x00051e37,0x800e0e13,
-  0x004f1393,0x01c383b3,0x36038393,0x5c7e3823,0x001f0f13,0x001f5f13,0x005f1f13,0x360e0e93,0x01df0f33,0x01300313,
-  0x02650333,0x02031313,0x01041513,0x00a36333,0x00136313,0x00100893,0x02089893,0xfd1f206f,0xb99f306f,0x00700313,
-  0x026976b3,0x02b00713,0x02e686b3,0x01368333,0x00130313,0x360e0e13,0xb99f306f]
+def blockQ : List (BitVec 32) := [0x1000313,0x026973b3,0x08039263,0x02695533,0x026503b3,0x04000e93,0x00100f13,
+  0x01e41463,0x08000e93,0x407e8eb3,0x006ee463,0x1000e93,0x002e9f13,0x01df0f33,0x4f0f13,0x00051e37,0x800e0e13,
+  0x004f1393,0x01c383b3,0x26038393,0x7a7e3823,0x001f0f13,0x001f5f13,0x005f1f13,0x260e0e93,0x01df0f33,0x2a00313,
+  0x02650333,0x02031313,0x01041513,0x00a36333,0x00136313,0x00100893,0x02089893,0xfd1f206f,0xb99f306f,0x1000313,
+  0x026976b3,0x02b00713,0x02e686b3,0x01368333,0x00130313,0x260e0e13,0xb99f306f]
 def piece (base : Nat) (code : List (BitVec 32)) (n : Nat) := if base ≤ n then code[n-base]? else none
 def coordLook (c : Nat) := if c=0 then piece 11187 block0 else piece 12239 block1
 def tailLook := piece 20746 blockTail
@@ -155,6 +155,8 @@ theorem seedLook_ok {im : Image} (h : Code im) : LookOK im seedLook := by
   · exact qLook_ok h n w hw
   · exact PackedLeaf.lookOK_of_codeAt h.c1 (by decide +kernel) n w hw
 
+/-- Entry to the installed42-coefficient FTS Horner loop. -/
+def expH0 : PRes := pres [(.x7, cE (COEF + 672)), (.x10, cE 0), (.x11, cE 0), (.x28, cE COEF)] [] [] hkI false 6 []
 def runH0 : Option PRes := run (coordLook 0) [hkI] hornI []
 def runHK : Option PRes := run (coordLook 0) [hbI] hkI []
 def runHB (b1 b2 : Bool) : Option PRes := run (coordLook 0) [hbI, hfI] hbI [.br b1, .br b2]
@@ -167,7 +169,7 @@ theorem runHF_eq (b : Bool) : runHF b = some (expHF b) := by cases b <;> apply o
 def hornRegs : List Reg := [.x7, .x10, .x11, .x12, .x13, .x14, .x15, .x16, .x17, .x28, .x29]
 /-- The coefficient buffer. -/
 def CoefAt (t : MachineState) (coefs : List Digest) : Prop :=
-  ∀ k < 54, DigAt t (COEF + 16 * k) (coefs.getD k 0)
+  ∀ k < 42, DigAt t (COEF + 16 * k) (coefs.getD k 0)
 
 theorem CoefAt.frame {s t : MachineState} {coefs : List Digest} {W : Nat → Prop} (h : CoefAt s coefs)
     (hf : Frame s t W) (hW : ∀ A, COEF ≤ A → A < COEF + 864 → ¬ W A) : CoefAt t coefs :=
@@ -179,7 +181,7 @@ variable {im : Image}
 theorem horn_look (hcode : Code im) : LookOK im (coordLook 0) := coordLook_ok hcode (c := 0) (by norm_num)
 
 theorem step_H0 (hcode : Code im) (s : MachineState) (hpc : s.pc = pcOf hornI) :
-    ∃ t, Steps im s 6 6 t ∧ t.pc = pcOf hkI ∧ t.getReg .x7 = BitVec.ofNat 64 (COEF + 16 * 54) ∧
+    ∃ t, Steps im s 6 6 t ∧ t.pc = pcOf hkI ∧ t.getReg .x7 = BitVec.ofNat 64 (COEF + 16 * 42) ∧
       t.getReg .x10 = BitVec.ofNat 64 0 ∧ t.getReg .x11 = BitVec.ofNat 64 0 ∧
       t.getReg .x28 = BitVec.ofNat 64 COEF ∧ RegsExcept s t [.x7, .x10, .x11, .x28] ∧
       Frame s t (fun _ => False) := by
@@ -477,7 +479,7 @@ theorem coef_limbs {B N : Nat} (hBN : B + 16 * N < 2 ^ 64) {s0 u : MachineState}
   rw [hf.get (by omega) id, hf.get (by omega) id, h.1, h.2, lim2_toNat]
 
 /-- The Horner loop over the first `N` coefficients of the buffer at base `B` (`B = COEF`, `N = 54`: HORN of
-stage A; `B = COEF + 864`, `N ≤ 38`: the v6 lower family seeds, entered at `HK` with `x7 = B + 16 N`). -/
+stage A; `B = COEF + 864`, `N ≤ 84`: the v6 lower family seeds, entered at `HK` with `x7 = B + 16 N`). -/
 theorem horner_loopB (hcode : Code im) {s0 : MachineState} {B d : Nat} {coefs : List Digest} {N : Nat}
     (hB8 : B % 8 = 0) (hBN : B + 16 * N + 16 ≤ MEMORY_BYTES) (hd : d < 2 ^ 10) (hlen : coefs.length = N)
     (hcoef : CoefAtB B N s0 coefs) :
@@ -532,17 +534,17 @@ theorem horner_loop (hcode : Code im) {s0 : MachineState} {d : Nat} {coefs : Lis
 def hornC : Nat := 6 + (hornStepC * 54 + 5)
 
 theorem horn_run (hcode : Code im) (s : MachineState) (hpc : s.pc = pcOf hornI) {d : Nat} (hd : d < 2 ^ 10)
-    (h6 : s.getReg .x6 = BitVec.ofNat 64 d) {coefs : List Digest} (hlen : coefs.length = 54)
+    (h6 : s.getReg .x6 = BitVec.ofNat 64 d) {coefs : List Digest} (hlen : coefs.length = 42)
     (hcoef : CoefAt s coefs) :
     ∃ u n c, Steps im s n c u ∧ c ≤ hornC ∧ u.pc = s.getReg .x1 &&& BitVec.ofNat 64 (2 ^ 64 - 2) ∧
       DigAt u (CHAINW + 48) (familyEval coefs d) ∧ RegsExcept s u hornRegs ∧
       Frame s u (fun A => A = CHAINW + 48 ∨ A = CHAINW + 56) := by
   obtain ⟨t, st, tpc, t7, t10, t11, t28, tregs, tframe⟩ := step_H0 hcode s hpc
-  have ht : HkSt s COEF d coefs (53 + 1) t := by
+  have ht : HkSt s COEF d coefs (41 + 1) t := by
     refine ⟨tpc, by rw [tregs.get (by simp)]; exact h6, t7, t28, ?_, tregs.mono (by simp [hornRegs]), tframe⟩
     rw [t10, t11, List.drop_eq_nil_of_le (by omega)]
     rfl
-  obtain ⟨u, n, c, su, hc, upc, ud, uregs, uframe⟩ := horner_loop hcode (le_refl 54) hd hlen hcoef 53 (by norm_num) t ht
+  obtain ⟨u, n, c, su, hc, upc, ud, uregs, uframe⟩ := horner_loop hcode (by decide : 42 ≤ 54) hd hlen hcoef 41 (by norm_num) t ht
   exact ⟨u, _, _, st.trans su, by unfold hornC; omega, upc, ud, uregs, uframe⟩
 
 end loops
@@ -560,20 +562,20 @@ def ld28 (off : Nat) : E := .ld (.bin .add (.reg .x28) (cE off))
 
 /-! ### v6 lower families: the family buffer and the new code words -/
 
-/-- The v6 lower family buffer `FB = COEF + 864` (at most 38 coefficients) and its end pointer `[COEF + 1488]`. -/
-def FB : Nat := COEF + 864
-def FEND : Nat := COEF + 1488
+/-- The v6 lower family buffer `FB = COEF + 864` (at most 84 coefficients) and its end pointer `[COEF + 1968]`. -/
+def FB : Nat := COEF + 608
+def FEND : Nat := COEF + 1968
 /-- The family prologue `qd` (`20749 → 24807`). -/
 def qdI : Nat := 24807
 /-- `2^height` as computed by `qd` (`t4 = 64`, `128` for layer 1). -/
 def Pb (b1 : Bool) : Nat := if b1 then 64 else 128
-/-- The family size `5 · min 7 (2^h − 7 f) + 3` computed by `qd` for leaf `L` of layer `lay`. -/
-def famN (lay L : Nat) : Nat := 5 * min 7 ((if lay = 1 then 128 else 64) - 7 * (L / 7)) + 3
+/-- The family size `5 · min 16 (2^h − 7 f) + 3` computed by `qd` for leaf `L` of layer `lay`. -/
+def famN (lay L : Nat) : Nat := 5 * min 16 ((if lay = 1 then 128 else 64) - 16 * (L / 16)) + 4
 
 /-- The coefficient buffer state carried across the leaves of a family. -/
 structure FamBuf (t : MachineState) (coefs : List Digest) : Prop where
   pos : 0 < coefs.length
-  le : coefs.length ≤ 38
+  le : coefs.length ≤ 84
   coef : CoefAtB FB coefs.length t coefs
   fend : t.getMem (BitVec.ofNat 64 FEND) = BitVec.ofNat 64 (FB + 16 * coefs.length)
 
@@ -585,26 +587,26 @@ theorem FamBuf.frame {s t : MachineState} {coefs : List Digest} {W : Nat → Pro
       (hW _ (by omega) (by unfold FB FEND COEF at *; omega))
   · rw [hf.get (by unfold FEND COEF; omega) (hW _ (by unfold FB FEND; omega) (by omega)), h.fend]
 
-def remE : E := .bin .remu (.reg .x18) (cE 7)
-def divE : E := .bin .divu (.reg .x18) (cE 7)
-def dE (b1 : Bool) : E := .bin .sub (cE (Pb b1)) (.bin .mul divE (cE 7))
-def nE (b1 : Bool) : E := .bin .add (.bin .add (.bin .sll (dE b1) (cE 2)) (dE b1)) (cE 3)
-def endE (b1 b2 : Bool) : E := if b2 then .bin .add (.bin .sll (nE b1) (cE 4)) (cE FB) else cE (FB + 16 * 38)
+def remE : E := .bin .remu (.reg .x18) (cE 16)
+def divE : E := .bin .divu (.reg .x18) (cE 16)
+def dE (b1 : Bool) : E := .bin .sub (cE (Pb b1)) (.bin .mul divE (cE 16))
+def nE (b1 : Bool) : E := .bin .add (.bin .add (.bin .sll (dE b1) (cE 2)) (dE b1)) (cE 4)
+def endE (b1 b2 : Bool) : E := if b2 then .bin .add (.bin .sll (nE b1) (cE 4)) (cE FB) else cE (FB + 16 * 84)
 def topE (b1 b2 : Bool) : E :=
-  if b2 then .bin .add (.bin .sll (.bin .srl (.bin .add (.bin .add (.bin .sll (dE b1) (cE 2)) (dE b1)) (cE 4)) (cE 1))
-    (cE 5)) (cE FB) else cE (FB + 32 * 19)
+  if b2 then .bin .add (.bin .sll (.bin .srl (.bin .add (.bin .add (.bin .sll (dE b1) (cE 2)) (dE b1)) (cE 5)) (cE 1))
+    (cE 5)) (cE FB) else cE (FB + 32 * 42)
 def hdrQE : E :=
-  .bin .or (.bin .or (.bin .sll (.bin .mul divE (cE 19)) (cE 32)) (.bin .sll (.reg .x8) (cE 16))) (cE 1)
+  .bin .or (.bin .or (.bin .sll (.bin .mul divE (cE 42)) (cE 32)) (.bin .sll (.reg .x8) (cE 16))) (cE 1)
 def ptE : E := .bin .add (.bin .add (.bin .mul remE (cE 43)) (.reg .x19)) (cE 1)
 
 def expD1 : PRes := pres [] [] [] seedI false 3 [⟨.eq, .reg .x19, cE 0, false⟩, ⟨.eq, .reg .x8, cE 0, false⟩]
 def expD0 : PRes := pres [] [] [] qdI false 3 [⟨.eq, .reg .x19, cE 0, true⟩, ⟨.eq, .reg .x8, cE 0, false⟩]
-def expQS : PRes := pres2 [(.x6, cE 7), (.x7, remE)] [] [] seedI false 4 7 [⟨.ne, remE, cE 0, true⟩]
+def expQS : PRes := pres2 [(.x6, cE 16), (.x7, remE)] [] [] seedI false 4 7 [⟨.ne, remE, cE 0, true⟩]
 def expQL (b1 b2 : Bool) : PRes :=
   pres2 [(.x6, hdrQE), (.x7, endE b1 b2), (.x10, .bin .sll (.reg .x8) (cE 16)), (.x17, cE (2 ^ 32)),
       (.x28, cE COEF), (.x29, cE FB), (.x30, topE b1 b2)] [mwc FEND (endE b1 b2)] [] cqI false
     (33 + (if b1 then 0 else 1) + (if b2 then 0 else 1)) (45 + (if b1 then 0 else 1) + (if b2 then 0 else 1))
-    [⟨.ltu, dE b1, cE 7, b2⟩, ⟨.ne, .reg .x8, cE 1, b1⟩, ⟨.ne, remE, cE 0, false⟩]
+    [⟨.ltu, dE b1, cE 16, b2⟩, ⟨.ne, .reg .x8, cE 1, b1⟩, ⟨.ne, remE, cE 0, false⟩]
 def expCQ : PRes :=
   pres [(.x10, cE 0x20000), (.x11, cE 64), (.x12, cE 0x20040), (.x28, cE 0x20000)]
     [mwc 0x20018 (.reg .x9), mwc 0x20010 (.reg .x6)] [] cqeI true 6 []
@@ -619,11 +621,11 @@ def expCP (back : Bool) : PRes :=
 def expSP : PRes :=
   pres2 [(.x1, cE (0x1000 + 4 * retI)), (.x6, ptE), (.x7, ldc FEND), (.x10, cE 0), (.x11, cE 0),
       (.x13, .bin .mul remE (cE 43)), (.x14, cE 43), (.x28, cE FB)]
-    [mwc (COEF + 1528) (.reg .x16), mwc (COEF + 1520) (.reg .x15), mwc (COEF + 1512) (.reg .x14),
-      mwc (COEF + 1504) (.reg .x13)] [] hkI false 19 25 []
+    [mwc (COEF + 2008) (.reg .x16), mwc (COEF + 2000) (.reg .x15), mwc (COEF + 1992) (.reg .x14),
+      mwc (COEF + 1984) (.reg .x13)] [] hkI false 19 25 []
 def expSR : PRes :=
-  pres [(.x6, ldc (CHAINW + 48)), (.x7, ldc (CHAINW + 56)), (.x13, ldc (COEF + 1504)), (.x14, ldc (COEF + 1512)),
-      (.x15, ldc (COEF + 1520)), (.x16, ldc (COEF + 1528)), (.x28, cE 0)]
+  pres [(.x6, ldc (CHAINW + 48)), (.x7, ldc (CHAINW + 56)), (.x13, ldc (COEF + 1984)), (.x14, ldc (COEF + 1992)),
+      (.x15, ldc (COEF + 2000)), (.x16, ldc (COEF + 2008)), (.x28, cE 0)]
     [mwc 0x20048 (ldc (CHAINW + 56)), mwc 0x20040 (ldc (CHAINW + 48))] [] 1074 false 13 []
 def runD1 : Option PRes := run tailLook [seedI] 20746 [.br false, .br false]
 def runD0 : Option PRes := run tailLook [qdI] 20746 [.br false, .br true]
@@ -684,50 +686,50 @@ theorem ofNat_sub_ofNat' (a b : Nat) (hb : b ≤ a) (ha : a < 2 ^ 64) :
 section evals
 variable (s : MachineState) {L : Nat} (h18 : s.getReg .x18 = BitVec.ofNat 64 L)
 include h18
-theorem eval_remE (hL : L < 2 ^ 64) : remE.eval s = BitVec.ofNat 64 (L % 7) := by
-  show rv64_remu (s.getReg .x18) (BitVec.ofNat 64 7) = _
-  rw [h18]; exact remu_ofNat L 7 hL (by norm_num) (by norm_num)
-theorem eval_divE (hL : L < 2 ^ 64) : divE.eval s = BitVec.ofNat 64 (L / 7) := by
-  show rv64_divu (s.getReg .x18) (BitVec.ofNat 64 7) = _
-  rw [h18]; exact divu_ofNat L 7 hL (by norm_num) (by norm_num)
-theorem eval_dE (b1 : Bool) (hL : L < Pb b1) : (dE b1).eval s = BitVec.ofNat 64 (Pb b1 - 7 * (L / 7)) := by
+theorem eval_remE (hL : L < 2 ^ 64) : remE.eval s = BitVec.ofNat 64 (L % 16) := by
+  show rv64_remu (s.getReg .x18) (BitVec.ofNat 64 16) = _
+  rw [h18]; exact remu_ofNat L 16 hL (by norm_num) (by norm_num)
+theorem eval_divE (hL : L < 2 ^ 64) : divE.eval s = BitVec.ofNat 64 (L / 16) := by
+  show rv64_divu (s.getReg .x18) (BitVec.ofNat 64 16) = _
+  rw [h18]; exact divu_ofNat L 16 hL (by norm_num) (by norm_num)
+theorem eval_dE (b1 : Bool) (hL : L < Pb b1) : (dE b1).eval s = BitVec.ofNat 64 (Pb b1 - 16 * (L / 16)) := by
   have hP : Pb b1 ≤ 128 := by unfold Pb; split <;> omega
-  show BinOp.eval .sub (BitVec.ofNat 64 (Pb b1)) (BinOp.eval .mul (divE.eval s) (BitVec.ofNat 64 7)) = _
+  show BinOp.eval .sub (BitVec.ofNat 64 (Pb b1)) (BinOp.eval .mul (divE.eval s) (BitVec.ofNat 64 16)) = _
   rw [eval_divE s h18 (by omega)]
   simp only [BinOp.eval]
   rw [BitVec.ofNat_mul_ofNat, ofNat_sub_ofNat' _ _ (by omega) (by omega)]
   congr 1; omega
 theorem eval_nE (b1 : Bool) (hL : L < Pb b1) :
-    (nE b1).eval s = BitVec.ofNat 64 (5 * (Pb b1 - 7 * (L / 7)) + 3) := by
+    (nE b1).eval s = BitVec.ofNat 64 (5 * (Pb b1 - 16 * (L / 16)) + 4) := by
   show BinOp.eval .add (BinOp.eval .add (BinOp.eval .sll ((dE b1).eval s) (BitVec.ofNat 64 2)) ((dE b1).eval s))
-    (BitVec.ofNat 64 3) = _
+    (BitVec.ofNat 64 4) = _
   rw [eval_dE s h18 b1 hL, binop_sll _ _ (by norm_num), ofNat_shl]
   simp only [BinOp.eval]
   rw [ofNat_add_ofNat, ofNat_add_ofNat]
   congr 1; simp only [show (2 : Nat) ^ 2 = 4 from rfl]; omega
-theorem eval_endE (b1 b2 : Bool) (hL : L < Pb b1) (hb2 : decide (Pb b1 - 7 * (L / 7) < 7) = b2) :
-    (endE b1 b2).eval s = BitVec.ofNat 64 (FB + 16 * (5 * min 7 (Pb b1 - 7 * (L / 7)) + 3)) := by
+theorem eval_endE (b1 b2 : Bool) (hL : L < Pb b1) (hb2 : decide (Pb b1 - 16 * (L / 16) < 16) = b2) :
+    (endE b1 b2).eval s = BitVec.ofNat 64 (FB + 16 * (5 * min 16 (Pb b1 - 16 * (L / 16)) + 4)) := by
   have hP : Pb b1 ≤ 128 := by unfold Pb; split <;> omega
   cases b2
-  · have h7 : ¬ (Pb b1 - 7 * (L / 7) < 7) := by simpa using hb2
-    show BitVec.ofNat 64 (FB + 16 * 38) = _
+  · have h7 : ¬ (Pb b1 - 16 * (L / 16) < 16) := by simpa using hb2
+    show BitVec.ofNat 64 (FB + 16 * 84) = _
     congr 1; omega
-  · have h7 : Pb b1 - 7 * (L / 7) < 7 := by simpa using hb2
+  · have h7 : Pb b1 - 16 * (L / 16) < 16 := by simpa using hb2
     show BinOp.eval .add (BinOp.eval .sll ((nE b1).eval s) (BitVec.ofNat 64 4)) (BitVec.ofNat 64 FB) = _
     rw [eval_nE s h18 b1 hL, binop_sll _ _ (by norm_num), ofNat_shl]
     simp only [BinOp.eval]
     rw [ofNat_add_ofNat]
     congr 1; simp only [show (2 : Nat) ^ 4 = 16 from rfl]; omega
-theorem eval_topE (b1 b2 : Bool) (hL : L < Pb b1) (hb2 : decide (Pb b1 - 7 * (L / 7) < 7) = b2) :
-    (topE b1 b2).eval s = BitVec.ofNat 64 (FB + 32 * ((5 * min 7 (Pb b1 - 7 * (L / 7)) + 3 + 1) / 2)) := by
+theorem eval_topE (b1 b2 : Bool) (hL : L < Pb b1) (hb2 : decide (Pb b1 - 16 * (L / 16) < 16) = b2) :
+    (topE b1 b2).eval s = BitVec.ofNat 64 (FB + 32 * ((5 * min 16 (Pb b1 - 16 * (L / 16)) + 4 + 1) / 2)) := by
   have hP : Pb b1 ≤ 128 := by unfold Pb; split <;> omega
   cases b2
-  · have h7 : ¬ (Pb b1 - 7 * (L / 7) < 7) := by simpa using hb2
-    show BitVec.ofNat 64 (FB + 32 * 19) = _
+  · have h7 : ¬ (Pb b1 - 16 * (L / 16) < 16) := by simpa using hb2
+    show BitVec.ofNat 64 (FB + 32 * 42) = _
     congr 1; omega
-  · have h7 : Pb b1 - 7 * (L / 7) < 7 := by simpa using hb2
+  · have h7 : Pb b1 - 16 * (L / 16) < 16 := by simpa using hb2
     show BinOp.eval .add (BinOp.eval .sll (BinOp.eval .srl (BinOp.eval .add (BinOp.eval .add
-      (BinOp.eval .sll ((dE b1).eval s) (BitVec.ofNat 64 2)) ((dE b1).eval s)) (BitVec.ofNat 64 4))
+      (BinOp.eval .sll ((dE b1).eval s) (BitVec.ofNat 64 2)) ((dE b1).eval s)) (BitVec.ofNat 64 5))
       (BitVec.ofNat 64 1)) (BitVec.ofNat 64 5)) (BitVec.ofNat 64 FB) = _
     rw [eval_dE s h18 b1 hL, binop_sll _ 5 (by norm_num), binop_srl _ _ (by norm_num), binop_sll _ 2 (by norm_num),
       ofNat_shl]
@@ -735,17 +737,17 @@ theorem eval_topE (b1 b2 : Bool) (hL : L < Pb b1) (hb2 : decide (Pb b1 - 7 * (L 
     rw [ofNat_add_ofNat, ofNat_add_ofNat, ofNat_shr _ _ (by omega), ofNat_shl, ofNat_add_ofNat]
     congr 1; simp only [show (2 : Nat) ^ 5 = 32 from rfl, show (2 : Nat) ^ 2 = 4 from rfl, pow_one]; omega
 theorem eval_hdrQE {lay : Nat} (h8 : s.getReg .x8 = BitVec.ofNat 64 lay) (hlay : lay < 256) (hL : L < 2 ^ 20) :
-    hdrQE.eval s = BitVec.ofNat 64 (hdrB lay (19 * (L / 7))) := by
-  show BinOp.eval .or (BinOp.eval .or (BinOp.eval .sll (BinOp.eval .mul (divE.eval s) (BitVec.ofNat 64 19))
+    hdrQE.eval s = BitVec.ofNat 64 (hdrB lay (42 * (L / 16))) := by
+  show BinOp.eval .or (BinOp.eval .or (BinOp.eval .sll (BinOp.eval .mul (divE.eval s) (BitVec.ofNat 64 42))
     (BitVec.ofNat 64 32)) (BinOp.eval .sll (s.getReg .x8) (BitVec.ofNat 64 16))) (BitVec.ofNat 64 1) = _
   rw [binop_sll _ 32 (by norm_num), binop_sll _ 16 (by norm_num), eval_divE s h18 (by omega), h8]
   simp only [BinOp.eval]
-  rw [BitVec.ofNat_mul_ofNat, ofNat_shl, ofNat_shl, BitVec.or_comm (BitVec.ofNat 64 (L / 7 * 19 * 2 ^ 32)),
+  rw [BitVec.ofNat_mul_ofNat, ofNat_shl, ofNat_shl, BitVec.or_comm (BitVec.ofNat 64 (L / 16 * 42 * 2 ^ 32)),
     PackedLeaf.hdr_or lay _ hlay (by omega)]
   simp only [hdrB, ClaudeWCT.W9.Machine.Sign.hdrB]
   congr 1; ring
 theorem eval_ptE {j : Nat} (h19 : s.getReg .x19 = BitVec.ofNat 64 j) (hL : L < 2 ^ 32) (hj : j < 2 ^ 32) :
-    ptE.eval s = BitVec.ofNat 64 (L % 7 * 43 + j + 1) := by
+    ptE.eval s = BitVec.ofNat 64 (L % 16 * 43 + j + 1) := by
   show BinOp.eval .add (BinOp.eval .add (BinOp.eval .mul (remE.eval s) (BitVec.ofNat 64 43)) (s.getReg .x19))
     (BitVec.ofNat 64 1) = _
   rw [eval_remE s h18 (by omega), h19]
@@ -781,32 +783,32 @@ theorem step_D0 (hcode : Code im) (s : MachineState) (hpc : s.pc = pcOf 20746) {
     · exact eq_br_false s (.reg .x8) h8 (by omega) hlay)
   exact ⟨_, hst, rfl, pres_regsExcept _ _ _ _ _ _ _ s, fun A _ _ => rfl⟩
 
-/-- `qd` for a non-first leaf of a family (`L % 7 ≠ 0`): straight to `SEED`. -/
+/-- `qd` for a non-first leaf of a family (`L % 16 ≠ 0`): straight to `SEED`. -/
 theorem step_QS (hcode : Code im) (s : MachineState) (hpc : s.pc = pcOf qdI) {L : Nat}
-    (h18 : s.getReg .x18 = BitVec.ofNat 64 L) (hL : L < 2 ^ 32) (hL7 : L % 7 ≠ 0) :
+    (h18 : s.getReg .x18 = BitVec.ofNat 64 L) (hL : L < 2 ^ 32) (hL7 : L % 16 ≠ 0) :
     ∃ t, Steps im s 4 7 t ∧ t.pc = pcOf seedI ∧ RegsExcept s t [.x6, .x7] ∧ Frame s t (fun _ => False) := by
   obtain ⟨hst, -⟩ := run_sound (qLook_ok hcode) runQS_eq s hpc (no_obl s) (by
     intro b hb
     simp only [expQS, pres2, List.mem_singleton] at hb
     subst hb
     rw [br_ne_holds, eval_remE s h18 (by omega)]
-    show (BitVec.ofNat 64 (L % 7) != BitVec.ofNat 64 0) = true
+    show (BitVec.ofNat 64 (L % 16) != BitVec.ofNat 64 0) = true
     rw [ofNat_bne (by omega) (by norm_num)]; simpa using hL7)
   exact ⟨_, hst, rfl, pres2_regsExcept _ _ _ _ _ _ _ _ s, fun A _ _ => rfl⟩
 
-/-- `qd` for the first leaf of a family (`L % 7 = 0`): the family size `N`, the end pointer, the pair loop bounds
+/-- `qd` for the first leaf of a family (`L % 16 = 0`): the family size `N`, the end pointer, the pair loop bounds
 `x29 = FB`, `x30 = FB + 32 ⌈N/2⌉`, the header of pair `19 f`, then `CQ`. -/
 theorem step_QL (hcode : Code im) (s : MachineState) (hpc : s.pc = pcOf qdI) {lay L : Nat}
     (h8 : s.getReg .x8 = BitVec.ofNat 64 lay) (hlay : lay < 256) (h18 : s.getReg .x18 = BitVec.ofNat 64 L)
-    (hL : L < (if lay = 1 then 128 else 64)) (hL7 : L % 7 = 0) :
+    (hL : L < (if lay = 1 then 128 else 64)) (hL7 : L % 16 = 0) :
     ∃ t k c, Steps im s k c t ∧ c ≤ 47 ∧ t.pc = pcOf cqI ∧
-      t.getReg .x6 = BitVec.ofNat 64 (hdrB lay (19 * (L / 7))) ∧ t.getReg .x17 = BitVec.ofNat 64 (2 ^ 32) ∧
+      t.getReg .x6 = BitVec.ofNat 64 (hdrB lay (42 * (L / 16))) ∧ t.getReg .x17 = BitVec.ofNat 64 (2 ^ 32) ∧
       t.getReg .x29 = BitVec.ofNat 64 FB ∧ t.getReg .x30 = BitVec.ofNat 64 (FB + 32 * ((famN lay L + 1) / 2)) ∧
       t.getMem (BitVec.ofNat 64 FEND) = BitVec.ofNat 64 (FB + 16 * famN lay L) ∧
       RegsExcept s t [.x6, .x7, .x10, .x17, .x28, .x29, .x30] ∧ Frame s t (fun A => A = FEND) := by
-  have key : ∀ b1 b2 : Bool, decide (lay ≠ 1) = b1 → decide (Pb b1 - 7 * (L / 7) < 7) = b2 →
+  have key : ∀ b1 b2 : Bool, decide (lay ≠ 1) = b1 → decide (Pb b1 - 16 * (L / 16) < 16) = b2 →
       ∃ t k c, Steps im s k c t ∧ c ≤ 47 ∧ t.pc = pcOf cqI ∧
-        t.getReg .x6 = BitVec.ofNat 64 (hdrB lay (19 * (L / 7))) ∧ t.getReg .x17 = BitVec.ofNat 64 (2 ^ 32) ∧
+        t.getReg .x6 = BitVec.ofNat 64 (hdrB lay (42 * (L / 16))) ∧ t.getReg .x17 = BitVec.ofNat 64 (2 ^ 32) ∧
         t.getReg .x29 = BitVec.ofNat 64 FB ∧ t.getReg .x30 = BitVec.ofNat 64 (FB + 32 * ((famN lay L + 1) / 2)) ∧
         t.getMem (BitVec.ofNat 64 FEND) = BitVec.ofNat 64 (FB + 16 * famN lay L) ∧
         RegsExcept s t [.x6, .x7, .x10, .x17, .x28, .x29, .x30] ∧ Frame s t (fun A => A = FEND) := by
@@ -814,7 +816,7 @@ theorem step_QL (hcode : Code im) (s : MachineState) (hpc : s.pc = pcOf qdI) {la
     have hP : Pb b1 = (if lay = 1 then 128 else 64) := by
       subst hb1; by_cases h : lay = 1 <;> simp [Pb, h]
     have hLb : L < Pb b1 := by rw [hP]; exact hL
-    have hN : famN lay L = 5 * min 7 (Pb b1 - 7 * (L / 7)) + 3 := by unfold famN; rw [hP]
+    have hN : famN lay L = 5 * min 16 (Pb b1 - 16 * (L / 16)) + 4 := by unfold famN; rw [hP]
     have hL128 : L < 128 := by rw [hP] at hLb; split at hLb <;> omega
     obtain ⟨hst, -⟩ := run_sound (qLook_ok hcode) (runQL_eq b1 b2) s hpc (by
       intro o ho; simp [expQL, pres2] at ho) (by
@@ -828,7 +830,7 @@ theorem step_QL (hcode : Code im) (s : MachineState) (hpc : s.pc = pcOf qdI) {la
         show (s.getReg .x8 != BitVec.ofNat 64 1) = b1
         rw [h8, ofNat_bne (by omega) (by norm_num)]; exact hb1
       · rw [br_ne_holds, eval_remE s h18 (by omega)]
-        show (BitVec.ofNat 64 (L % 7) != BitVec.ofNat 64 0) = false
+        show (BitVec.ofNat 64 (L % 16) != BitVec.ofNat 64 0) = false
         rw [ofNat_bne (by omega) (by norm_num)]; simpa using hL7)
     refine ⟨_, _, _, hst, by cases b1 <;> cases b2 <;> simp [expQL, pres2], rfl, ?_, ?_, ?_, ?_, ?_,
       pres2_regsExcept _ _ _ _ _ _ _ _ s, ?_⟩
@@ -940,20 +942,20 @@ theorem step_CP (hcode : Code im) (s : MachineState) (hpc : s.pc = pcOf (cqeI + 
   · intro A hA hn
     rw [hmem A hA, if_neg (by omega), if_neg (by omega), if_neg (by omega), if_neg (by omega)]
 
-/-- `SEED` + `qp`: spill `x13..x16` to `COEF + 1504`, `x7 = [FEND]`, `x6 = (L % 7) · 43 + j + 1`, `x28 = FB`,
+/-- `SEED` + `qp`: spill `x13..x16` to `COEF + 1984`, `x7 = [FEND]`, `x6 = (L % 16) · 43 + j + 1`, `x28 = FB`,
 `x10 = x11 = 0`, `jal ra,HK`. -/
 theorem step_SP (hcode : Code im) (s : MachineState) (hpc : s.pc = pcOf seedI) {L j : Nat}
     (h18 : s.getReg .x18 = BitVec.ofNat 64 L) (hL : L < 2 ^ 32)
     (h19 : s.getReg .x19 = BitVec.ofNat 64 j) (hj : j < 2 ^ 32) :
     ∃ t, Steps im s 19 25 t ∧ t.pc = pcOf hkI ∧ t.getReg .x1 = pcOf retI ∧
-      t.getReg .x6 = BitVec.ofNat 64 (L % 7 * 43 + j + 1) ∧ t.getReg .x7 = s.getMem (BitVec.ofNat 64 FEND) ∧
+      t.getReg .x6 = BitVec.ofNat 64 (L % 16 * 43 + j + 1) ∧ t.getReg .x7 = s.getMem (BitVec.ofNat 64 FEND) ∧
       t.getReg .x10 = BitVec.ofNat 64 0 ∧ t.getReg .x11 = BitVec.ofNat 64 0 ∧ t.getReg .x28 = BitVec.ofNat 64 FB ∧
-      t.getMem (BitVec.ofNat 64 (COEF + 1504)) = s.getReg .x13 ∧
-      t.getMem (BitVec.ofNat 64 (COEF + 1512)) = s.getReg .x14 ∧
-      t.getMem (BitVec.ofNat 64 (COEF + 1520)) = s.getReg .x15 ∧
-      t.getMem (BitVec.ofNat 64 (COEF + 1528)) = s.getReg .x16 ∧
+      t.getMem (BitVec.ofNat 64 (COEF + 1984)) = s.getReg .x13 ∧
+      t.getMem (BitVec.ofNat 64 (COEF + 1992)) = s.getReg .x14 ∧
+      t.getMem (BitVec.ofNat 64 (COEF + 2000)) = s.getReg .x15 ∧
+      t.getMem (BitVec.ofNat 64 (COEF + 2008)) = s.getReg .x16 ∧
       RegsExcept s t [.x1, .x6, .x7, .x10, .x11, .x13, .x14, .x28] ∧
-      Frame s t (fun A => COEF + 1504 ≤ A ∧ A < COEF + 1536) := by
+      Frame s t (fun A => COEF + 1984 ≤ A ∧ A < COEF + 2016) := by
   obtain ⟨hst, -⟩ := run_sound (seedLook_ok hcode) runSP_eq s hpc (no_obl s) (no_br s)
   refine ⟨_, hst, rfl, by rw [PRes.toState_getReg']; rfl, ?_, by rw [PRes.toState_getReg']; rfl, by rw [PRes.toState_getReg']; rfl,
     by rw [PRes.toState_getReg']; rfl, by rw [PRes.toState_getReg']; rfl, ?_, ?_, ?_, ?_, pres2_regsExcept _ _ _ _ _ _ _ _ s, ?_⟩
@@ -974,10 +976,10 @@ theorem step_SP (hcode : Code im) (s : MachineState) (hpc : s.pc = pcOf seedI) {
 
 theorem step_SR (hcode : Code im) (s : MachineState) (hpc : s.pc = pcOf retI) :
     ∃ t, Steps im s 13 13 t ∧ t.pc = pcOf 1074 ∧ t.getReg .x28 = BitVec.ofNat 64 0 ∧
-      t.getReg .x13 = s.getMem (BitVec.ofNat 64 (COEF + 1504)) ∧
-      t.getReg .x14 = s.getMem (BitVec.ofNat 64 (COEF + 1512)) ∧
-      t.getReg .x15 = s.getMem (BitVec.ofNat 64 (COEF + 1520)) ∧
-      t.getReg .x16 = s.getMem (BitVec.ofNat 64 (COEF + 1528)) ∧
+      t.getReg .x13 = s.getMem (BitVec.ofNat 64 (COEF + 1984)) ∧
+      t.getReg .x14 = s.getMem (BitVec.ofNat 64 (COEF + 1992)) ∧
+      t.getReg .x15 = s.getMem (BitVec.ofNat 64 (COEF + 2000)) ∧
+      t.getReg .x16 = s.getMem (BitVec.ofNat 64 (COEF + 2008)) ∧
       (∀ d, DigAt s (CHAINW + 48) d → DigAt t 0x20040 d) ∧
       RegsExcept s t [.x6, .x7, .x13, .x14, .x15, .x16, .x28] ∧
       Frame s t (fun A => A = 0x20048 ∨ A = 0x20040) := by
@@ -996,18 +998,18 @@ theorem step_SR (hcode : Code im) (s : MachineState) (hpc : s.pc = pcOf retI) :
 
 end steps
 
-/-- Cycle bound of one lower seed (SEED + `qp` 25 cycles, at most 38 Horner steps, RET). -/
+/-- Cycle bound of one lower seed (SEED + `qp` 25 cycles, at most 84 Horner steps, RET). -/
 abbrev lowerSeedC := ClaudeWCT.W9.Machine.Sign.lowerSeedC
 
 /-- One v6 lower seed: from `SEED` (leaf `L`, chain `j`, the family coefficients in `FB`) to `1074` with
-`familyEval coefs ((L % 7) · 43 + j + 1)` at `SEEDS`, `x13..x16` restored. -/
+`familyEval coefs ((L % 16) · 43 + j + 1)` at `SEEDS`, `x13..x16` restored. -/
 theorem lower_seed {im : Image} (hcode : Code im) (s : MachineState) (hpc : s.pc = pcOf seedI) {L j : Nat}
     (h18 : s.getReg .x18 = BitVec.ofNat 64 L) (hL : L < 2 ^ 32)
     (h19 : s.getReg .x19 = BitVec.ofNat 64 j) (hj : j < 43) {coefs : List Digest} (hcoef : FamBuf s coefs) :
     ∃ u k c, Steps im s k c u ∧ c ≤ lowerSeedC ∧ u.pc = pcOf 1074 ∧ u.getReg .x28 = BitVec.ofNat 64 0 ∧
-      DigAt u 0x20040 (familyEval coefs (L % 7 * 43 + j + 1)) ∧
+      DigAt u 0x20040 (familyEval coefs (L % 16 * 43 + j + 1)) ∧
       RegsExcept s u [.x1, .x6, .x7, .x10, .x11, .x12, .x17, .x28, .x29] ∧
-      Frame s u (fun A => (COEF + 1504 ≤ A ∧ A < COEF + 1536) ∨ A = CHAINW + 48 ∨ A = CHAINW + 56 ∨
+      Frame s u (fun A => (COEF + 1984 ≤ A ∧ A < COEF + 2016) ∨ A = CHAINW + 48 ∨ A = CHAINW + 56 ∨
         A = 0x20048 ∨ A = 0x20040) := by
   obtain ⟨t, st, tpc, t1, t6, t7, t10, t11, t28, m13, m14, m15, m16, tr, tf⟩ :=
     step_SP hcode s hpc h18 hL h19 (by omega)
@@ -1016,7 +1018,7 @@ theorem lower_seed {im : Image} (hcode : Code im) (s : MachineState) (hpc : s.pc
   have hcoef' : CoefAtB FB (n + 1) t coefs := fun k hk =>
     (hcoef.coef k (by omega)).frame tf (by unfold FB COEF; omega) (by unfold FB COEF; omega)
       (by unfold FB COEF; omega)
-  have hk : HkSt t FB (L % 7 * 43 + j + 1) coefs (n + 1) t := by
+  have hk : HkSt t FB (L % 16 * 43 + j + 1) coefs (n + 1) t := by
     refine ⟨tpc, t6, ?_, t28, ?_, RegsExcept.refl _ _, Frame.refl _ _⟩
     · rw [t7, hcoef.fend, hn]
     · rw [t10, t11, List.drop_eq_nil_of_le (by omega), familyEval_nil]
@@ -1025,7 +1027,7 @@ theorem lower_seed {im : Image} (hcode : Code im) (s : MachineState) (hpc : s.pc
     (by unfold FB COEF; omega) (by unfold FB COEF MEMORY_BYTES; omega) (by omega) hn hcoef' n (by omega) t hk
   rw [t1, show pcOf retI &&& BitVec.ofNat 64 (2 ^ 64 - 2) = pcOf retI from pcOf_and_max retI] at upc
   obtain ⟨v, sv, vpc, v28, v13, v14, v15, v16, vd, vr, vf⟩ := step_SR hcode u upc
-  have mu : ∀ A, COEF + 1504 ≤ A → A < COEF + 1536 →
+  have mu : ∀ A, COEF + 1984 ≤ A → A < COEF + 2016 →
       u.getMem (BitVec.ofNat 64 A) = t.getMem (BitVec.ofNat 64 A) :=
     fun A h1 h2 => uf.get (by aoc) (by aoc)
   refine ⟨v, 19 + (n' + 13), 25 + (c + 13), st.trans (su.trans sv), ?_, vpc, v28, vd _ ud, fun r hr => ?_, ?_⟩
@@ -7865,7 +7867,7 @@ def topPair (lay : Layer) (levels : List (List Digest)) : Digest × Digest :=
   ((levels.getD (height lay - 1) []).getD 0 0, (levels.getD (height lay - 1) []).getD 1 0)
 /-- Cycle bound of one lower leaf (v6: the family prologue (≤ 19 pairs), 43 Horner seeds over ≤ 38 coefficients,
 43 chains). L-hyper A: every chain header runs the marker trampoline (+7 per rung, `chainC` 6769 -> 6818). -/
-def lowLeafC : Nat := 294000
+def lowLeafC : Nat := 620000
 def PackedLeafSpec (leafFn : LeafFn) : Prop :=
   ∀ (sk : SecretKey) (A : LeafArgs) (s : MachineState) (carry : Digest),
     A.lay ≠ 0 → A.so = false → LeafPreS sk s A → s.pc = pcOf (1013 + 27) →
@@ -8024,7 +8026,7 @@ structure BtPost (sk : SecretKey) (cache : Bytes 131072) (lay : Layer) (tree sel
   base : Base (cfFlag := cfFlag) sk cache u
   regs : RegsExcept s u btAllRegs
   frame : Frame s u (BtAllW lay tree sb)
-def btCost : Nat := 37920000
+def btCost : Nat := 80000000
 theorem sumTo_le_mul (f : Nat → Nat) (b : Nat) : ∀ n, (∀ j < n, f j ≤ b) → sumTo f n ≤ n * b
   | 0, _ => by simp [sumTo]
   | n + 1, h => by

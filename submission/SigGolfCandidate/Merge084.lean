@@ -1205,7 +1205,7 @@ theorem eval_pairWE (s : MachineState) {j index : Nat} (h7 : s.getReg .x7 = BitV
   rw [eval_x7p1 s h7, binop_sll _ _ (by norm_num), ofNat_shl, h22]
   exact ofNat_or_hi index (j + 1) hidx
 theorem step_CLc (hcode : Fetch im) {c : Nat} (hc : c < 9) (s : MachineState) (hpc : s.pc = pcOf (paI c))
-    {j index B : Nat} (h7 : s.getReg .x7 = BitVec.ofNat 64 j) (hj : j + 1 < 27)
+    {j index B : Nat} (h7 : s.getReg .x7 = BitVec.ofNat 64 j) (hj : j + 1 < 21)
     (h12 : s.getReg .x12 = BitVec.ofNat 64 B) (h22 : s.getReg .x22 = BitVec.ofNat 64 index)
     (hidx : index < 2 ^ 32) :
     ∃ t, Steps im s 10 10 t ∧ fetch im t = some (.base .ECALL) ∧ t.pc = pcOf (ecI c) ∧
@@ -1228,7 +1228,7 @@ theorem step_CLc (hcode : Fetch im) {c : Nat} (hc : c < 9) (s : MachineState) (h
     simp only [expCL, if_true, pres, List.mem_cons, List.not_mem_nil, or_false] at hq
     subst hq; exact ⟨rfl, by rw [off_mwc _ _ (by ao)]⟩
 theorem step_CLx (hcode : Fetch im) {c : Nat} (hc : c < 9) (s : MachineState) (hpc : s.pc = pcOf (paI c))
-    {j : Nat} (h7 : s.getReg .x7 = BitVec.ofNat 64 j) (hj : j + 1 = 27) :
+    {j : Nat} (h7 : s.getReg .x7 = BitVec.ofNat 64 j) (hj : j + 1 = 21) :
     ∃ t, Steps im s 6 6 t ∧ t.pc = pcOf (leafI c) ∧ t.getReg .x18 = BitVec.ofNat 64 0 ∧
       RegsExcept s t [.x6, .x7, .x12, .x18] ∧ Frame s t (fun _ => False) := by
   have hb : ∀ b ∈ (expCL c false).brs, b.holds s := by
@@ -2595,20 +2595,20 @@ theorem field_eval (s : MachineState) (a : BitVec 256) (ha:OutAt s NBUF a)
   omega
 
 theorem head_spec (m : Bool) (hl:LookOK im (look m)) (s : MachineState) (hpc:s.pc=pcOf (trial m))
-    (i : Nat) (hi:i ≤ 2^21) (h19:s.getReg .x19=BitVec.ofNat 64 i) :
-    ∃ t,Steps im s 3 3 t ∧ t.pc=(if i < 2^21 then pcOf (trial m+3) else pcOf (fail m)) ∧
+    (i : Nat) (hi:i ≤ (11*2^17)) (h19:s.getReg .x19=BitVec.ofNat 64 i) :
+    ∃ t,Steps im s 3 3 t ∧ t.pc=(if i < (11*2^17) then pcOf (trial m+3) else pcOf (fail m)) ∧
       RegsExcept s t [.x6] ∧ Frame s t (fun _=>False) := by
-  have hbr : ∀b∈(expectedHead m (decide (2^21 ≤ i))).brs,b.holds s := by
+  have hbr : ∀b∈(expectedHead m (decide ((11*2^17) ≤ i))).brs,b.holds s := by
     intro b hb
     simp only[expectedHead,pres,pres2,List.mem_singleton] at hb
     subst hb
     simp only [Br.holds,CmpOp.eval,E.eval,cE,h19,BitVec.ult,toNat_ofNat_lt (by omega : i < 2^64),
-      toNat_ofNat_lt (by decide : 2^21 < 2^64)]
-    change (!decide (i < 2097152))=decide (2097152 ≤ i)
-    by_cases h:i < 2097152
-    · have h2:¬2097152 ≤ i:=by omega
+      toNat_ofNat_lt (by decide : (11*2^17) < 2^64)]
+    change (!decide (i < 1441792))=decide (1441792 ≤ i)
+    by_cases h:i < 1441792
+    · have h2:¬1441792 ≤ i:=by omega
       simp [h,h2]
-    · have h2:2097152 ≤ i:=by omega
+    · have h2:1441792 ≤ i:=by omega
       simp [h,h2]
   obtain ⟨hs,hp,-,hr,hm⟩:=SearchM.piece hl (head_run m _) s hpc rfl hbr rfl
   refine ⟨_,hs,?_,?_,fun A _ _=>by rw[hm];rfl⟩
@@ -3224,7 +3224,7 @@ structure Pre (m : Bool) (rho : BitVec 128) (msg : SigGolfCandidate.T3.Message) 
   tables : TablesAt m s
 structure LoopInv (m : Bool) (s0 : MachineState) (i : Nat) (t : MachineState) : Prop where
   pc : t.pc=pcOf (trial m)
-  hi : i ≤ 2^21
+  hi : i ≤ (11*2^17)
   x19 : t.getReg .x19=BitVec.ofNat 64 i
   regs : RegsExcept s0 t regs
   frame : Frame s0 t writes
@@ -3233,9 +3233,9 @@ structure Post (m : Bool) (s0 : MachineState) (r : Option (BitVec 32 × BitVec 2
   regs : RegsExcept s0 t regs
   frame : Frame s0 t writes
   result : match r with
-    | none => t.pc=pcOf (fail m) ∧ t.getReg .x19=BitVec.ofNat 64 (2^21)
+    | none => t.pc=pcOf (fail m) ∧ t.getReg .x19=BitVec.ofNat 64 ((11*2^17))
     | some (c,a) => t.pc=pcOf (accepted m) ∧ t.getReg .x19=BitVec.ofNat 64 c.toNat ∧
-      c.toNat < 2^21 ∧ SharedForest.digestAccepted a=true ∧ OutAt t NBUF a
+      c.toNat < (11*2^17) ∧ SharedForest.digestAccepted a=true ∧ OutAt t NBUF a
 
   resultR17 : match r with
     | none => True
@@ -3244,7 +3244,7 @@ structure Post (m : Bool) (s0 : MachineState) (r : Option (BitVec 32 × BitVec 2
 variable {im : Image} {sk : BitVec 256}
 theorem loop (m : Bool) [DigestLabel.Code im m] (hl : LookOK im (look m)) {s0 : MachineState} {rho : BitVec 128} {msg : SigGolfCandidate.T3.Message}
     (hpre : Pre m rho msg s0) :
-    ∀F i t,i+F=2^21 → LoopInv m s0 i t →
+    ∀F i t,i+F=(11*2^17) → LoopInv m s0 i t →
       TBSim im sk t (F*200+10) (SharedForest.sharedDigestSearch rho msg i F) (Post m s0) := by
   intro F
   induction F with
@@ -3255,12 +3255,12 @@ theorem loop (m : Bool) [DigestLabel.Code im m] (hl : LookOK im (look m)) {s0 : 
     have rr : RegsExcept s0 t1 regs := (hI.regs.trans r1).mono (by simp[regs])
     have ff : Frame s0 t1 writes := (hI.frame.trans f1).mono (fun A _ hh=>hh.elim id False.elim)
     have hp : Post m s0 none t1 := ⟨by rw[rr.get (by decide),hpre.x5],rr,ff,⟨p1,by
-      have hiEq:i=2^21:=by omega
+      have hiEq:i=(11*2^17):=by omega
       rw[r1.get (by decide),hI.x19,hiEq]⟩,trivial⟩
     exact (TBSim.pure_steps' (sk:=sk) s1 hp).mono (by omega) (fun _ _ hh=>hh)
   | succ F ih =>
     intro i t h hI
-    have hi:i < 2^21:=by omega
+    have hi:i < (11*2^17):=by omega
     have hc:(BitVec.ofNat 32 i).toNat=i:=by rw[BitVec.toNat_ofNat];omega
     obtain ⟨t1,s1,p1,r1,f1⟩:=head_spec m hl t hI.pc i hI.hi hI.x19
     rw[if_pos hi]at p1
@@ -3360,10 +3360,10 @@ theorem entry_spec (m : Bool) (hl:LookOK im (look m)) (s : MachineState)
 theorem search_good (m : Bool) [DigestLabel.Code im m] (hl:LookOK im (look m)) {s0 : MachineState}
     {rho : BitVec 128} {msg : SigGolfCandidate.T3.Message} (hpre:Pre m rho msg s0)
     (hpc:s0.pc=pcOf (base m)) :
-    TBSim im sk s0 (2^21*200+12) (SharedForest.sharedDigestSearch rho msg 0 (2^21)) (Post m s0) := by
+    TBSim im sk s0 ((11*2^17)*200+12) (SharedForest.sharedDigestSearch rho msg 0 ((11*2^17))) (Post m s0) := by
   obtain ⟨t,ss,hp,h19,rr,ff⟩:=entry_spec m hl s0 hpc hpre.x5
   have hi:LoopInv m s0 0 t:=⟨hp,by decide,h19,rr.mono (by simp[regs]),ff.mono (fun _ _ h=>h.elim)⟩
-  exact (TBSim.steps ss (loop m hl hpre (2^21) 0 t (by omega) hi)).mono (by omega) (fun _ _ h=>h)
+  exact (TBSim.steps ss (loop m hl hpre ((11*2^17)) 0 t (by omega) hi)).mono (by omega) (fun _ _ h=>h)
 
 end ClaudeWCT.W9.Machine.Sign.SharedDigest
 

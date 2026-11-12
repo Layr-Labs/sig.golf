@@ -8,12 +8,12 @@ import SigGolfCandidate.Merge053
 import SigGolfCandidate.Merge057
 import SigGolfCandidate.Merge058
 import SigGolfCandidate.Merge100
-set_option debug.skipKernelTC true
+set_option debug.skipKernelTC false
 set_option linter.all false
 
 namespace SigGolfCandidate.T3M.Extract
 open SigGolfCandidate.T3 SphincsSecurity
-set_option debug.skipKernelTC true in
+set_option debug.skipKernelTC false in
 theorem canonicalHeader_digest (counter : BitVec 32) :
     canonicalHeader (bytesLE 16 (digestHeader counter)) = bytesLE 16 (digestHeader counter) := by
   have hd : digestHeader counter = (digestHeader counter).extractLsb' 64 64 ++ (25984#64) := by
@@ -89,7 +89,7 @@ theorem posOf_eq_none {x : HashInput}
   Extract.posOf_eq_none h
 /- A 64-byte input whose header is an encoding row tweak with any high word (D6: the high word is a witness pad)
 decodes to no position: every 64-byte position differs from the row tweak in the low word. -/
-set_option debug.skipKernelTC true in
+set_option debug.skipKernelTC false in
 theorem posOf_row_none {x : HashInput} {lay : Layer} {tree leaf : Nat} {hi : BitVec 64} (hlen : x.length = 64)
     (hx' : Extract.hdrBlock x = bytesLE 16 (WCT9.rowTweakW lay tree leaf hi)) :
     Extract.posOf x = none := by
@@ -135,7 +135,7 @@ theorem posOf_layerEncodingP (lay : Layer) (tree leaf : Nat) (msg : WCT9.LayerMs
     Extract.posOf (pad64 (layerEncodingInputP lay tree leaf msg counter pad padR hi)) = none :=
   posOf_row_none (BC.layerEncodingRow_length lay tree leaf msg counter pad padR hi)
     (BC.hdrBlock_layerEncodingInputP lay tree leaf msg counter pad padR hi)
-set_option debug.skipKernelTC true in
+set_option debug.skipKernelTC false in
 theorem posOf_digest (rho : Digest) (message : Message) (counter : BitVec 32) :
     Extract.posOf (pad64 (digestInput rho message counter)) = none := by
   unfold digestInput
@@ -927,7 +927,7 @@ theorem posOf_eq_none {x : HashInput}
   Extract.posOf_eq_none h
 /- A 64-byte input whose header is an encoding row tweak with any high word (D6: the high word is a witness pad)
 decodes to no position: every 64-byte position differs from the row tweak in the low word. -/
-set_option debug.skipKernelTC true in
+set_option debug.skipKernelTC false in
 theorem posOf_row_none {x : HashInput} {lay : Layer} {tree leaf : Nat} {hi : BitVec 64} (hlen : x.length = 64)
     (hx' : Extract.hdrBlock x = bytesLE 16 (WCT9.rowTweakW lay tree leaf hi)) :
     Extract.posOf x = none := by
@@ -973,7 +973,7 @@ theorem posOf_layerEncodingP (lay : Layer) (tree leaf : Nat) (msg : WCT9.LayerMs
     Extract.posOf (pad64 (layerEncodingInputP lay tree leaf msg counter pad padR hi)) = none :=
   posOf_row_none (BC.layerEncodingRow_length lay tree leaf msg counter pad padR hi)
     (BC.hdrBlock_layerEncodingInputP lay tree leaf msg counter pad padR hi)
-set_option debug.skipKernelTC true in
+set_option debug.skipKernelTC false in
 theorem posOf_digest (rho : Digest) (message : Message) (counter : BitVec 32) :
     Extract.posOf (pad64 (digestInput rho message counter)) = none := by
   unfold digestInput
@@ -1731,7 +1731,7 @@ theorem sat_searchPreparedLayers (T : Answers) (cache : SigGolfCandidate.T3.Cach
   unfold searchPreparedLayers
   refine QueriesSat.bind (sat_canonical_search T _ _ _ _ _ _ _) ?_
   cases hs : evalWithAnswerFn T (CanonicalPolicy.layerCounterSearchAt 0
-      (CanonicalPolicy.threshold 0 (requiredCredit index)) (route index 0).2
+      (Policy75Safe23.threshold 0 (requiredCredit index)) (route index 0).2
       (route index 0).1 (.pair (topPair 1 prepared.one.levels).1 (topPair 1 prepared.one.levels).2)
       0 (searchLimit 0)) with
   | none => exact QueriesSat.pure' _

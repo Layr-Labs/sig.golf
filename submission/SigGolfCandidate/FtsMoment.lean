@@ -10,7 +10,7 @@ trial `n` hashes `ftsNodeInputN` (the nonce in the pad) until the kept low half 
 With every trial fresh, one ground node of width `b` contributes a geometric factor `f` with
 `z · (2^-b + (1 - 2^-b) f) ≤ f`, `z ≤ f` (copy of U16b's `V_gnode`), and `buildForest` is bounded by
 `z^31249 · Π_c f_c^8` (31,321 fixed queries minus the 72 ground nodes). Y5: heaps `16..31` of coordinates `0..3` are ground
-nodes too (width 1, `FacG`), so the bound is `z^31105 · Π_c f_c^8 · Π_c g_c^16` (`g_c = z` on coordinates `4..8`). -/
+nodes too (width 1, `FacG`), so the bound is `z^31051 · Π_c f_c^8 · Π_c g_c^16` (`g_c = z` on coordinates `4..8`). -/
 
 namespace ClaudeWCT.W9.T3.Freshness.Paired.FtsFresh
 open OracleComp OracleSpec OracleComp.EvalDist ENNReal
@@ -651,7 +651,7 @@ theorem V_sharedHeap {β : Type} (secret : BitVec 256) (z f g : ℝ≥0∞) (hz 
 
 /-- The moment bound of one coordinate before its continuation `B`. -/
 noncomputable def CB (z : ℝ≥0∞) (first : Bool) (f g B : ℝ≥0∞) : ℝ≥0∞ :=
-  z ^ 27 * (z ^ 3328 * (z ^ 96 * (g ^ 16 * (f ^ 8 * (z ^ (if first then 4 else 6) * B)))))
+  z ^ 21 * (z ^ 3328 * (z ^ 96 * (g ^ 16 * (f ^ 8 * (z ^ (if first then 4 else 6) * B)))))
 
 theorem V_buildSharedCoordinate {β : Type} (secret : BitVec 256) (z f g : ℝ≥0∞) (hz : 1 ≤ z) (first : Bool)
     (index coord : Nat) (hc : coord < 9) (hidx : index < 2 ^ 31) (selected : Child) (word : Rank)
@@ -748,16 +748,16 @@ theorem V_buildForest (secret : BitVec 256) (z : ℝ≥0∞) (hz : 1 ≤ z) (ind
   simp only [V_pure, le_refl]
 
 theorem CB_eq (z f g B : ℝ≥0∞) (first : Bool) :
-    CB z first f g B = z ^ (if first then 3455 else 3457) * f ^ 8 * g ^ 16 * B := by
+    CB z first f g B = z ^ (if first then 3449 else 3451) * f ^ 8 * g ^ 16 * B := by
   unfold CB
   cases first <;> simp only [Bool.false_eq_true, ↓reduceIte] <;> ring
 
-/-- The forest moment in closed form: `z^31105 · Π_c f_c^8 · Π_c g_c^16`. -/
+/-- The forest moment in closed form: `z^31051 · Π_c f_c^8 · Π_c g_c^16`. -/
 theorem forestCB_eq (z : ℝ≥0∞) (fc gc : Nat → ℝ≥0∞) :
     CB z true (fc 0) (gc 0) (CB z false (fc 1) (gc 1) (CB z true (fc 2) (gc 2) (CB z false (fc 3) (gc 3)
       (CB z true (fc 4) (gc 4) (CB z false (fc 5) (gc 5) (CB z true (fc 6) (gc 6) (CB z false (fc 7) (gc 7)
         (CB z false (fc 8) (gc 8) 1)))))))) =
-      z ^ 31105 * (fc 0 * fc 1 * fc 2 * fc 3 * fc 4 * fc 5 * fc 6 * fc 7 * fc 8) ^ 8 *
+      z ^ 31051 * (fc 0 * fc 1 * fc 2 * fc 3 * fc 4 * fc 5 * fc 6 * fc 7 * fc 8) ^ 8 *
         (gc 0 * gc 1 * gc 2 * gc 3 * gc 4 * gc 5 * gc 6 * gc 7 * gc 8) ^ 16 := by
   simp only [CB_eq, Bool.false_eq_true, ↓reduceIte]
   ring

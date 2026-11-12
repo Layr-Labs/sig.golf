@@ -13,6 +13,7 @@ import SigGolfCandidate.Merge029
 import SigGolfCandidate.Merge030
 import SigGolfCandidate.Merge031
 import SigGolfCandidate.LocalRouteAddress
+import SigGolfCandidate.Policy75Safe23
 import SigGolfCandidate.Merge032
 set_option debug.skipKernelTC true
 set_option linter.all false
@@ -5373,9 +5374,9 @@ theorem searchLimit_lower {lay : Layer} (h : lay ≠ 0) : lowerSearchLimit ≤ s
 theorem searchLimit_le (lay : Layer) : searchLimit lay ≤ counterLimit := by
   unfold searchLimit counterLimit
   fin_cases lay <;> simp
-theorem searchLimit_values : searchLimit 0 = 2 ^ 21 ∧ searchLimit 1 = 2 ^ 21 ∧ searchLimit 2 = 2 ^ 21 ∧
-    searchLimit 3 = 3 * 2 ^ 20 := by decide
-theorem lowerSearchLimit_eq : lowerSearchLimit = 2 ^ 21 := rfl
+theorem searchLimit_values : searchLimit 0 = 2 ^ 21 ∧ searchLimit 1 = 7 * 2 ^ 18 ∧ searchLimit 2 = 7 * 2 ^ 18 ∧
+    searchLimit 3 = 27 * 2 ^ 17 := by decide
+theorem lowerSearchLimit_eq : lowerSearchLimit = 7 * 2 ^ 18 := rfl
 theorem chainCount_top : chainCount 0 = 51 := rfl
 theorem dataDigits_top_length (answer : Digest) : (dataDigits 0 answer).length = 50 := by
   simp [dataDigits, dataCount]
@@ -6505,12 +6506,12 @@ def famCoefN (answers : Answers) (lay : Layer) (tree leaf j : Nat) : Digest :=
 def famCoef (answers : Answers) (lay : Layer) (tree leaf : Nat) (j : Fin (famSize lay (famOf lay leaf))) : Digest :=
   famCoefN answers lay tree leaf j.val
 theorem famGrp_pos (lay : Layer) : 0 < famGrp lay := by unfold famGrp; split_ifs <;> decide
-theorem famGrp_le (lay : Layer) : famGrp lay ≤ 7 := by unfold famGrp; split_ifs <;> decide
+theorem famGrp_le (lay : Layer) : famGrp lay ≤ 17 := by unfold famGrp; split_ifs <;> decide
 theorem famSize_le_base (lay : Layer) (f : Nat) : famSize lay f ≤ famBase lay := by
   unfold famSize famBase; split_ifs
   · exact le_rfl
-  · have := min_le_left 7 (2 ^ height lay - 7 * f); omega
-theorem famBase_le (lay : Layer) : famBase lay ≤ 39 := by
+  · have := min_le_left 16 (2 ^ height lay - 16 * f); omega
+theorem famBase_le (lay : Layer) : famBase lay ≤ 88 := by
   unfold famBase; split_ifs <;> decide
 theorem famStride_ge (lay : Layer) : chainCount lay ≤ famStride lay := by
   unfold famStride; split_ifs with h
@@ -6518,17 +6519,17 @@ theorem famStride_ge (lay : Layer) : chainCount lay ≤ famStride lay := by
   · fin_cases lay <;> first | exact absurd rfl h | decide
 theorem famStride_top : 58 ≤ famStride 0 := by decide
 theorem famPoint_lt (lay : Layer) (leaf i : Nat) (hi : i < 58) : famPoint lay leaf i < 1024 := by
-  have hg := famGrp_le lay
-  have hm : leaf % famGrp lay < famGrp lay := Nat.mod_lt _ (famGrp_pos lay)
-  have hc : chainCount lay ≤ 54 := by fin_cases lay <;> decide
-  have hs : famStride lay ≤ 64 := by unfold famStride; split_ifs <;> decide
-  have h1 : leaf % famGrp lay * famStride lay ≤ 6 * 64 := Nat.mul_le_mul (by omega) hs
-  have h2 : famGrp lay * famStride lay ≤ 7 * 64 := Nat.mul_le_mul hg hs
-  have h3 : leaf % famGrp lay * (58 - chainCount lay) ≤ 6 * 58 := Nat.mul_le_mul (by omega) (by omega)
-  unfold famPoint
-  split_ifs <;> omega
-theorem famBase_lower {lay : Layer} (h : lay ≠ 0) : famBase lay = 38 := by unfold famBase; rw [if_neg h]
-theorem famGrp_lower {lay : Layer} (h : lay ≠ 0) : famGrp lay = 7 := by unfold famGrp; rw [if_neg h]
+  by_cases h : lay = 0
+  · subst lay
+    have hm := Nat.mod_lt leaf (by decide : 0 < 4)
+    simp [famPoint, famGrp, famStride]
+    omega
+  · have hc : chainCount lay = 43 := by fin_cases lay <;> simp_all [chainCount]
+    have hm := Nat.mod_lt leaf (by decide : 0 < 16)
+    simp only [famPoint, famGrp, famStride, h, if_false, false_or, hc]
+    split_ifs <;> omega
+theorem famBase_lower {lay : Layer} (h : lay ≠ 0) : famBase lay = 84 := by unfold famBase; rw [if_neg h]
+theorem famGrp_lower {lay : Layer} (h : lay ≠ 0) : famGrp lay = 16 := by unfold famGrp; rw [if_neg h]
 /-! Top-layer identities (v6: families of 4 leaves, `T3.topCoefOrdinal` / `T3.topPoint`). -/
 theorem famOf_top (leaf : Nat) : famOf 0 leaf = leaf / 4 := by unfold famOf famGrp; simp
 theorem famPoint_top (leaf i : Nat) : famPoint 0 leaf i = topPoint leaf i := by
@@ -6540,12 +6541,12 @@ theorem famCount_top : famCount 0 = 31 := rfl
 
 theorem famCount_ge (lay : Layer) : 8 ≤ famCount lay := by
   unfold famCount famBase; split_ifs <;> decide
-theorem famCount_le (lay : Layer) : famCount lay ≤ 39 := famBase_le lay
+theorem famCount_le (lay : Layer) : famCount lay ≤ 88 := famBase_le lay
 theorem famOrdinal_div_lt {lay : Layer} {leaf j : Nat} (hl : leaf < 2 ^ 24) (hj : j < famBase lay) :
     famOrdinal lay leaf j / 2 < 2 ^ 32 := by
   have h39 := famBase_le lay
   have hf : famOf lay leaf ≤ leaf := Nat.div_le_self _ _
-  have : famBase lay * famOf lay leaf ≤ 39 * leaf := Nat.mul_le_mul h39 hf
+  have : famBase lay * famOf lay leaf ≤ 88 * leaf := Nat.mul_le_mul h39 hf
   unfold famOrdinal
   omega
 /-- Family ordinals determine the family and the coefficient (generic layout). -/
@@ -6665,7 +6666,7 @@ theorem eval_lowerFamCoefs (answers : Answers) {lay : Layer} (hlay : lay ≠ 0) 
   intro k h1 h2
   simp only [List.length_take, List.length_map, List.length_range] at h1
   simp only [List.getElem_take, List.getElem_map, List.getElem_range, famCoefL, g, seedHalf, hb]
-  rw [show 38 * f / 2 + k / 2 = (38 * f + k) / 2 by omega]
+  rw [show 84 * f / 2 + k / 2 = (84 * f + k) / 2 by omega]
   split_ifs <;> first | rfl | omega
 /-- The coefficient state after leaf `leaf`: its family's coefficients. -/
 def leafCarryOut (answers : Answers) (lay : Layer) (tree leaf : Nat) : List Digest :=
@@ -7156,14 +7157,12 @@ section
 
 namespace ClaudeWCT.WCT9
 open OracleComp OracleSpec SigGolfCandidate.T3
-def digestAttemptLimit : Nat := 2 ^ 21
+def digestAttemptLimit : Nat := 11 * 2 ^ 17
 /- The verifier can accept the full serialized counter range without changing
 the signer's bounded search.  The machine normalizes the upper padding word. -/
 def digestVerifyWindow : Nat := 2 ^ 32
-theorem digestAttemptLimit_eq : digestAttemptLimit = 2097152 := by
+theorem digestAttemptLimit_eq : digestAttemptLimit = 1441792 := by
   norm_num [digestAttemptLimit]
-theorem digestAttemptLimit_eq_two_mul : digestAttemptLimit = 2 * SigGolfCandidate.T3.attemptLimit := by
-  norm_num [digestAttemptLimit, SigGolfCandidate.T3.attemptLimit]
 theorem digestAttemptLimit_le : digestAttemptLimit ≤ 2 ^ 32 := by
   norm_num [digestAttemptLimit]
 theorem attemptLimit_le_digestAttemptLimit : SigGolfCandidate.T3.attemptLimit ≤ digestAttemptLimit := by
@@ -8495,7 +8494,7 @@ theorem ftsBound_heapBuild (coord : Nat) (hcoord : coord < 9) (padR : Digest) (l
     (fun _ _ => .pure _ 0 trivial) (by omega)
 /-- Per coordinate: 51 coefficient pairs, 128 children of 26, 126 heap nodes. -/
 theorem ftsBound_buildCoordinateF (coord : Coord) (selected : Child) (word : Rank) (prev : Digest × Digest) :
-    Bound (FtsQuery index) (fun _ => True) 3481 (buildCoordinateF index coord selected word prev) := by
+    Bound (FtsQuery index) (fun _ => True) 3475 (buildCoordinateF index coord selected word prev) := by
   rw [buildCoordinateF_factor]
   refine (ftsBound_ftsCoefs index coord.val coord.isLt).bind' (l := 3454) (fun coefs _ => ?_)
     (by simp [ftsCoefPairs])
@@ -8506,18 +8505,18 @@ theorem ftsBound_buildCoordinateF (coord : Coord) (selected : Child) (word : Ran
 theorem ftsBound_forestRows (output : HashOutput) :
     Bound (FtsQuery index)
       (fun state : List Opening × List (Digest × Digest) => state.1.length = 9 ∧ state.2.length = 9)
-      31329 (forestRows index output) := by
+      31275 (forestRows index output) := by
   unfold forestRows
   refine ((Bound.foldlM_list (P := FtsQuery index) (List.finRange 9) _
     (fun i (state : List Opening × List (Digest × Digest)) => state.1.length = i ∧ state.2.length = i)
-    (fun _ => 3481) ([], []) ⟨rfl, rfl⟩ (fun i hi state hstate => ?_)).mono (fun _ h => h)
+    (fun _ => 3475) ([], []) ⟨rfl, rfl⟩ (fun i hi state hstate => ?_)).mono (fun _ h => h)
     (fun state h => by simpa using h)).mono_k (by simp)
   unfold openingStep
   exact (ftsBound_buildCoordinateF index _ _ _ _).bind' (l := 0)
     (fun result _ => .pure _ 0 ⟨by simp [hstate.1], by simp [hstate.2]⟩) (by decide)
-/-- The nested FTS needs 31329 compressions; the stated bound keeps the old 31334 (5 to spare). -/
+/-- The nested FTS needs 31275 compressions; the stated bound keeps the old 31280 (5 to spare). -/
 theorem ftsBound_signForest (output : HashOutput) :
-    Bound (FtsQuery index) (fun result : List Opening × (Digest × Digest) => result.1.length = 9) 31334
+    Bound (FtsQuery index) (fun result : List Opening × (Digest × Digest) => result.1.length = 9) 31280
       (signForest index output) := by
   unfold signForest
   exact (ftsBound_forestRows index output).bind' (l := 0) (fun state hstate => .pure _ 0 hstate.1) (by decide)
@@ -8692,17 +8691,17 @@ theorem bound_buildChildH (heap index coord selected : Nat) (word : Rank) (coefs
   cbound_of_ftsBound (ftsBound_buildChildH index heap coord selected word coefs pad hcoord hsel)
 theorem bound_buildCoordinateF (index : Nat) (coord : Coord) (selected : Child) (word : Rank)
     (prev : Digest × Digest) :
-    CBound (fun _ => True) 3481 (buildCoordinateF index coord selected word prev) :=
+    CBound (fun _ => True) 3475 (buildCoordinateF index coord selected word prev) :=
   cbound_of_ftsBound (ftsBound_buildCoordinateF index coord selected word prev)
 theorem bound_forestPk (index : Nat) (pairs : List (Digest × Digest)) (hlen : pairs.length = 9) :
     CBound (fun _ => True) 5 (WCT9.forestPk index pairs) :=
   cbound_of_ftsBound (ftsBound_forestPk index pairs hlen)
 theorem bound_forestRows (index : Nat) (output : HashOutput) :
-    CBound (fun state : List Opening × List (Digest × Digest) => state.1.length = 9 ∧ state.2.length = 9) 31329
+    CBound (fun state : List Opening × List (Digest × Digest) => state.1.length = 9 ∧ state.2.length = 9) 31275
       (forestRows index output) :=
   cbound_of_ftsBound (ftsBound_forestRows index output)
 theorem bound_signForest (index : Nat) (output : HashOutput) :
-    CBound (fun result : List Opening × (Digest × Digest) => result.1.length = 9) 31334 (signForest index output) :=
+    CBound (fun result : List Opening × (Digest × Digest) => result.1.length = 9) 31280 (signForest index output) :=
   cbound_of_ftsBound (ftsBound_signForest index output)
 theorem bound_recoverCoordinate (sig : Signature) (index : Nat) (output : HashOutput) (coord : Coord)
     (prev : Digest × Digest) :
@@ -8713,7 +8712,7 @@ theorem bound_recoverFts (sig : Signature) (index : Nat) (output : HashOutput) :
   cbound_of_ftsBound (ftsBound_recoverFts index sig output)
 /-- Stage-A FTS signing (T8 child code): per coordinate 51 coefficient pairs, 128 children of 24 chain steps + a
 2-block leaf, and 126 heap nodes; then the 5-block forest key. -/
-theorem signForest_blocks : 9 * (27 + 128 * (24 + 2) + 126) + 5 = 31334 := by norm_num
+theorem signForest_blocks : 9 * (21 + 128 * (24 + 2) + 126) + 5 = 31280 := by norm_num
 theorem verifyFts_blocks : 9 * (7 + 2 + 6) + 5 + 1 = 141 := by norm_num
 def DigestResult (out : Option (BitVec 32 × HashOutput)) : Prop :=
   ∀ counter output, out = some (counter, output) → producerAdmissible output = true
@@ -8862,24 +8861,24 @@ theorem leafCostP_lower {lay : Layer} (hlay : lay ≠ 0) (leaf : Nat) :
   rw [digitTotal_lower hlay]
   simp [leafHashCost, hlay]
 /-- v6 lower trees: L1 reads 349 pairs (18 families of 19 + a 7-pair remainder), L2/L3 175 (9 · 19 + 4). -/
-theorem treeCostP_one : treeCostP 1 = 56765 := by
+theorem treeCostP_one : treeCostP 1 = 56752 := by
   unfold treeCostP
   rw [Finset.sum_congr rfl (fun leaf _ => leafCostP_lower (by decide) leaf),
     show belowCost ((1 : Layer)).val (height 1) = 16480 from belowCost_one]
   decide
-theorem treeCostP_two : treeCostP 2 = 36559 := by
+theorem treeCostP_two : treeCostP 2 = 36552 := by
   unfold treeCostP
   rw [Finset.sum_congr rfl (fun leaf _ => leafCostP_lower (by decide) leaf),
     show belowCost ((2 : Layer)).val (height 2) = 16416 from belowCost_two]
   decide
-theorem treeCostP_three : treeCostP 3 = 36559 := by
+theorem treeCostP_three : treeCostP 3 = 36552 := by
   unfold treeCostP
   rw [Finset.sum_congr rfl (fun leaf _ => leafCostP_lower (by decide) leaf),
     show belowCost ((3 : Layer)).val (height 3) = 16416 from belowCost_three]
   decide
 /-- U16b: the ground searches add 6144 − 14 (L1) / 5120 − 14 (L2, L3) trials to the T1 lower trees. -/
 theorem treeCostP_lower :
-    treeCostP 1 = treeCost 1 + 13886 ∧ treeCostP 2 = treeCost 2 + 15120 ∧ treeCostP 3 = treeCost 3 + 15120 := by
+    treeCostP 1 = treeCost 1 + 13873 ∧ treeCostP 2 = treeCost 2 + 15113 ∧ treeCostP 3 = treeCost 3 + 15113 := by
   rw [treeCostP_one, treeCostP_two, treeCostP_three]
   decide
 def layerFixedCostP : Nat → Nat
@@ -8892,7 +8891,7 @@ theorem layerFixedCostP_succ_succ (n : Nat) :
     layerFixedCostP (n + 2) = treeCostP (Fin.ofNat 4 (n + 1)) + layerFixedCostP (n + 1) := rfl
 theorem layerFixedCost_succ_succ (n : Nat) :
     layerFixedCost (n + 2) = treeCost (Fin.ofNat 4 (n + 1)) + layerFixedCost (n + 1) := rfl
-theorem layerFixedCostP_four : layerFixedCostP 4 = layerFixedCost 4 + 44126 := by
+theorem layerFixedCostP_four : layerFixedCostP 4 = layerFixedCost 4 + 44099 := by
   obtain ⟨h1, h2, h3⟩ := treeCostP_lower
   have e3 : (Fin.ofNat 4 3 : Layer) = 3 := rfl
   have e2 : (Fin.ofNat 4 2 : Layer) = 2 := rfl
@@ -9157,8 +9156,8 @@ theorem bound_expandLayersBC (sig : Signature) (index : Nat) :
               (by simp only [recoveryLayersCostBC, hn, ite_false]; omega)
             refine (ih _).bind' (l := 0) (fun result _ => ?_) (by omega)
             cases result <;> exact .pure _ 0 trivial
-def signPayloadFixed : Nat := 2 + 31334 + layerFixedCostP 4
-theorem signPayloadFixed_eq : signPayloadFixed = 2 + 31910 + layerFixedCost 4 + 43550 := by
+def signPayloadFixed : Nat := 2 + 31280 + layerFixedCostP 4
+theorem signPayloadFixed_eq : signPayloadFixed = 2 + 31856 + layerFixedCost 4 + 43523 := by
   have h := layerFixedCostP_four
   unfold signPayloadFixed
   omega
@@ -11479,13 +11478,13 @@ open SigGolfCandidate.T3 ClaudeWCT.WCT9
 
 def ownSave (index lay : Nat) : Nat := CanonicalPolicy.lowerPathSave lay (route index (Fin.ofNat 4 lay)).1
 
-def pool (index : Nat) : Nat := 74-CanonicalPolicy.topPathSave (route index 0).1
+def pool (index : Nat) : Nat := 75-CanonicalPolicy.topPathSave (route index 0).1
 
 def r1 (index c0 : Nat) : Nat := pool index-c0-ownSave index 1
 def r2 (index c0 c1 : Nat) : Nat := r1 index c0-c1-ownSave index 2
 def r3 (index c0 c1 c2 : Nat) : Nat := r2 index c0 c1-c2-ownSave index 3
 
-theorem pool_bounds (index : Nat) : 72≤pool index ∧ pool index≤74 := by
+theorem pool_bounds (index : Nat) : 73≤pool index ∧ pool index≤75 := by
   unfold pool CanonicalPolicy.topPathSave CanonicalPolicy.topPairSave
   split_ifs <;> omega
 
@@ -11501,7 +11500,7 @@ open SigGolfCandidate.T3.Correctness
 /-- Canonical root credit depends only on the top WOTS leaf's own address. -/
 def requiredCredit (index : Nat) : Nat := LocalRoute.pool index
 
-theorem requiredCredit_bounds (index : Nat) : 72 ≤ requiredCredit index ∧ requiredCredit index ≤ 74 :=
+theorem requiredCredit_bounds (index : Nat) : 73 ≤ requiredCredit index ∧ requiredCredit index ≤ 75 :=
   LocalRoute.pool_bounds index
 
 /-- The next lower floor credits only that key's own public leaf address. -/
@@ -11516,26 +11515,26 @@ def searchPreparedLayers (cache : SigGolfCandidate.T3.Cache) (index : Nat) (prep
   let pair1 := topPair 2 prepared.two.levels
   let pair2 := topPair 3 prepared.three.levels
   let some (counter0, digits0, low0) ← CanonicalPolicy.layerCounterSearchAt 0
-    (CanonicalPolicy.threshold 0 (requiredCredit index))
+    (Policy75Safe23.threshold 0 (requiredCredit index))
     (route index 0).2 (route index 0).1 (.pair pair0.1 pair0.2) 0 (searchLimit 0)
     | pure none
   let residual1 := routeResidual index (requiredCredit index) 0 low0 digits0
-  let floor1 := CanonicalPolicy.threshold 1 residual1
-  if floor1 ≥ 15 then return none
+  let floor1 := Policy75Safe23.threshold 1 residual1
+  if floor1 ≥ 17 then return none
   let some (counter1, digits1, low1) ← CanonicalPolicy.layerCounterSearchAt 1
     floor1
     (route index 1).2 (route index 1).1 (.pair pair1.1 pair1.2) 0 (searchLimit 1)
     | pure none
   let residual2 := routeResidual index residual1 1 low1 digits1
-  let floor2 := CanonicalPolicy.threshold 2 residual2
-  if floor2 ≥ 23 then return none
+  let floor2 := Policy75Safe23.threshold 2 residual2
+  if floor2 ≥ 24 then return none
   let some (counter2, digits2, low2) ← CanonicalPolicy.layerCounterSearchAt 2
     floor2
     (route index 2).2 (route index 2).1 (.pair pair2.1 pair2.2) 0 (searchLimit 2)
     | pure none
   let residual3 := routeResidual index residual2 2 low2 digits2
-  let floor3 := CanonicalPolicy.threshold 3 residual3
-  if floor3 ≥ 23 then return none
+  let floor3 := Policy75Safe23.threshold 3 residual3
+  if floor3 ≥ 24 then return none
   let some (counter3, digits3, low3) ← CanonicalPolicy.layerCounterSearchAt 3
     floor3
     (route index 3).2 (route index 3).1 (.pair forest.1 forest.2) 0 (searchLimit 3)
@@ -11548,7 +11547,7 @@ def searchPreparedLayers (cache : SigGolfCandidate.T3.Cache) (index : Nat) (prep
     [counter0, counter1, counter2, counter3], [digits0, digits1, digits2, digits3],
     [low0, low1, low2, low3],
     CanonicalPolicy.nextResidual residual3 3 low3 digits3,
-    BitVec.ofNat 16 (529 * floor1 + 23 * floor2 + floor3)⟩)
+    BitVec.ofNat 16 (576 * floor1 + 24 * floor2 + floor3)⟩)
 
 /-- Source signing continuation after the FTS digest search has selected an
 output. The enclosing producer supplies the accepted output and its counter. -/
@@ -11671,20 +11670,20 @@ bits are retained; the hints are checked again after bottom-up recovery. -/
 namespace SigGolfCandidate.Research.SharedForest
 open OracleComp OracleSpec SigGolfCandidate.T3 ClaudeWCT.WCT9
 
-/-- Policy hint bound (Y5 mixed radix): h = 529·f1 + 23·f2 + f3 with f1 ≤ 14, f2, f3 ≤ 22, h < 8192 = 2^13. -/
-def policyHintBound : Nat := 8192
+/-- Policy hint bound (Y5 mixed radix): h = 529·f1 + 23·f2 + f3 with f1 ≤ 14, f2, f3 ≤ 22, h < 12288 = 2^13. -/
+def policyHintBound : Nat := 12288
 
 def hintFloor (index : Nat) (hints : BitVec 16) (lay : Layer) : Nat :=
-  if lay = 0 then CanonicalPolicy.threshold 0 (requiredCredit index) else hints.toNat / 23 ^ (3 - lay.val) % 23
+  if lay = 0 then Policy75Safe23.threshold 0 (requiredCredit index) else hints.toNat / 24 ^ (3 - lay.val) % 24
 
 def policyHintsValid (index : Nat) (hints : BitVec 16) (digits : List (List Nat)) (lows : List Bool) : Bool :=
   let residual1 := routeResidual index (requiredCredit index) 0 (lows.getD 0 true) (digits.getD 0 [])
   let residual2 := routeResidual index residual1 1 (lows.getD 1 true) (digits.getD 1 [])
   let residual3 := routeResidual index residual2 2 (lows.getD 2 true) (digits.getD 2 [])
-  decide (hints.toNat < 8192 ∧ digits.length = 4 ∧
-    hintFloor index hints 1 = CanonicalPolicy.threshold 1 residual1 ∧
-    hintFloor index hints 2 = CanonicalPolicy.threshold 2 residual2 ∧
-    hintFloor index hints 3 = CanonicalPolicy.threshold 3 residual3)
+  decide (hints.toNat < 12288 ∧ digits.length = 4 ∧
+    hintFloor index hints 1 = Policy75Safe23.threshold 1 residual1 ∧
+    hintFloor index hints 2 = Policy75Safe23.threshold 2 residual2 ∧
+    hintFloor index hints 3 = Policy75Safe23.threshold 3 residual3)
 
 /-- Adapter for the unchanged main-tree recovery kernels. The forest opening
 is recovered separately; no dummy opening is inspected by those kernels. -/
@@ -11713,7 +11712,7 @@ def normLayer (lay : Layer) (ls : LayerSignature lay) : LayerSignature lay :=
 
 /-- What the compact codec keeps (13-bit hint, normalized top path; T51: 5,195 bytes); `expand` applies it first. -/
 def normTop (sig : Signature) : Signature :=
-  { sig with policyHints := BitVec.ofNat 16 (sig.policyHints.toNat % 2 ^ 13)
+  { sig with policyHints := BitVec.ofNat 16 (sig.policyHints.toNat % 2 ^ 14)
              layers := fun lay => normLayer lay (sig.layers lay) }
 
 /-- U16b: the lower path nodes pass their zero tests (no ground search hit its cap). -/
@@ -11791,7 +11790,7 @@ def sign (cache : SigGolfCandidate.T3.Cache) (message : Message) : M (Option Sig
 
 /-- The pre-v6 expansion kernel (hint check, top sibling field cleared, brute force). -/
 def expandFill (message : Message) (pk : Digest) (sig : Signature) : M (Option Witness) := do
-  if sig.policyHints.toNat ≥ 8192 then return none
+  if sig.policyHints.toNat ≥ 12288 then return none
   let sig0 := fillTopSignature sig 0
   let some (counter, output) ← sharedDigestSearch sig0.rho message 0 digestAttemptLimit | pure none
   let index := digestIndex output
@@ -11905,16 +11904,16 @@ theorem normTop_layers_ne (sig : Signature) (lay : Layer) (h : lay ≠ 0) (hz : 
   funext j
   exact normLowerPathD_ok lay j.val _ (hz lay h j)
 
-theorem normTop_hints (sig : Signature) (h : sig.policyHints.toNat < 2 ^ 13) :
+theorem normTop_hints (sig : Signature) (h : sig.policyHints.toNat < 2 ^ 14) :
     (normTop sig).policyHints = sig.policyHints := by
   apply BitVec.eq_of_toNat_eq
-  show (BitVec.ofNat 16 (sig.policyHints.toNat % 2 ^ 13)).toNat = _
+  show (BitVec.ofNat 16 (sig.policyHints.toNat % 2 ^ 14)).toNat = _
   rw [BitVec.toNat_ofNat, Nat.mod_eq_of_lt h, Nat.mod_eq_of_lt sig.policyHints.isLt]
 
 theorem normTop_normTop (sig : Signature) : normTop (normTop sig) = normTop sig := by
   unfold normTop
   congr 1
-  · exact ofNat_mod_pow_idem 16 13 sig.policyHints.toNat (by omega)
+  · exact ofNat_mod_pow_idem 16 14 sig.policyHints.toNat (by omega)
   · funext lay
     unfold normLayer
     congr 1
@@ -11937,7 +11936,7 @@ theorem normTop_fill (sig : Signature) (c : Nat) : normTop (fillTopSignature sig
   · simp only [h0, false_and, if_false]
 
 /-- Honest signatures (top path zero tests passed, 13-bit hint) normalize to the old `fillTopSignature sig 0`. -/
-theorem normTop_eq_fill (sig : Signature) (hh : sig.policyHints.toNat < 2 ^ 13) (hz : TopPathOK sig)
+theorem normTop_eq_fill (sig : Signature) (hh : sig.policyHints.toNat < 2 ^ 14) (hz : TopPathOK sig)
     (hl : LowerPathOK sig) : normTop sig = fillTopSignature sig 0 := by
   unfold normTop fillTopSignature
   congr 1
@@ -11976,7 +11975,7 @@ theorem expandFill_fill (message : Message) (pk : Digest) (sig : Signature) (c :
 
 /-- On an honest signature (13-bit hint, top path zero tests passed) `expand` is the old kernel. -/
 theorem expand_eq_expandFill (message : Message) (pk : Digest) (sig : Signature)
-    (hh : sig.policyHints.toNat < 2 ^ 13) (htop : TopPathOK sig) (hlow : LowerPathOK sig) :
+    (hh : sig.policyHints.toNat < 2 ^ 14) (htop : TopPathOK sig) (hlow : LowerPathOK sig) :
     expand message pk sig = expandFill message pk sig := by
   unfold expand
   rw [normTop_eq_fill sig hh htop hlow, expandFill_fill]
@@ -12204,12 +12203,12 @@ end SigGolfCandidate.Research.SharedForest
 namespace SigGolfCandidate.Research.SharedForest
 open SigGolfCandidate.T3 ClaudeWCT.WCT9
 
-theorem base22_unique {x y : Nat} (hx : x < 8192) (hy : y < 8192)
-    (h1 : x / 529 % 23 = y / 529 % 23) (h2 : x / 23 % 23 = y / 23 % 23)
-    (h3 : x % 23 = y % 23) : x = y := by
+theorem base22_unique {x y : Nat} (hx : x < 12288) (hy : y < 12288)
+    (h1 : x / 576 % 24 = y / 576 % 24) (h2 : x / 24 % 24 = y / 24 % 24)
+    (h3 : x % 24 = y % 24) : x = y := by
   omega
 
-theorem hintFloor_unique {index : Nat} {a b : BitVec 16} (ha : a.toNat < 8192) (hb : b.toNat < 8192)
+theorem hintFloor_unique {index : Nat} {a b : BitVec 16} (ha : a.toNat < 12288) (hb : b.toNat < 12288)
     (h1 : hintFloor index a 1 = hintFloor index b 1)
     (h2 : hintFloor index a 2 = hintFloor index b 2)
     (h3 : hintFloor index a 3 = hintFloor index b 3) : a = b := by
@@ -12225,15 +12224,15 @@ theorem policyHintsValid_unique {index : Nat} {a b : BitVec 16} {digits : List (
   exact hintFloor_unique ha.1 hb.1 (ha.2.2.1.trans hb.2.2.1.symm)
     (ha.2.2.2.1.trans hb.2.2.2.1.symm) (ha.2.2.2.2.trans hb.2.2.2.2.symm)
 
-theorem encodedHints_spec {index : Nat} (a b c : Nat) (ha : a < 15) (hb : b < 23) (hc : c < 23) :
-    let code := BitVec.ofNat 16 (529 * a + 23 * b + c)
-    code.toNat < 8192 ∧ hintFloor index code 1 = a ∧
+theorem encodedHints_spec {index : Nat} (a b c : Nat) (ha : a < 17) (hb : b < 24) (hc : c < 24) :
+    let code := BitVec.ofNat 16 (576 * a + 24 * b + c)
+    code.toNat < 12288 ∧ hintFloor index code 1 = a ∧
       hintFloor index code 2 = b ∧ hintFloor index code 3 = c := by
   dsimp only
   simp only [hintFloor, show (1 : Layer) ≠ 0 by decide,
     show (2 : Layer) ≠ 0 by decide, show (3 : Layer) ≠ 0 by decide, if_false]
   norm_num [BitVec.toNat_ofNat]
-  have hn : 529 * a + 23 * b + c < 65536 := by omega
+  have hn : 576 * a + 24 * b + c < 65536 := by omega
   rw [Nat.mod_eq_of_lt hn]
   omega
 
@@ -12242,19 +12241,19 @@ end SigGolfCandidate.Research.SharedForest
 namespace SigGolfCandidate.Research.SharedForest
 open SigGolfCandidate.T3 ClaudeWCT.WCT9
 
-theorem firstThreshold_window : ∀ r : Fin 55,
-    CanonicalPolicy.threshold 1 r.val < 15 ∧
-      r.val - CanonicalPolicy.threshold 1 r.val ≤ 40 := by
+theorem firstThreshold_window : ∀ r : Fin 58,
+    Policy75Safe23.threshold 1 r.val < 17 ∧
+      r.val - Policy75Safe23.threshold 1 r.val ≤ 41 := by
   decide +kernel
 
-theorem secondThreshold_window : ∀ r : Fin 41,
-    CanonicalPolicy.threshold 2 r.val < 23 ∧
-      r.val - CanonicalPolicy.threshold 2 r.val ≤ 22 := by
+theorem secondThreshold_window : ∀ r : Fin 42,
+    Policy75Safe23.threshold 2 r.val < 24 ∧
+      r.val - Policy75Safe23.threshold 2 r.val ≤ 23 := by
   decide +kernel
 
-theorem thirdThreshold_window (r : Nat) (hr : r ≤ 22) :
-    CanonicalPolicy.threshold 3 r = CanonicalPolicy.lowerThreeFloor r := by
-  simp [CanonicalPolicy.threshold, hr]
+theorem thirdThreshold_window (r : Nat) (hr : r ≤ 23) :
+    Policy75Safe23.threshold 3 r = Policy75Safe23.lowerThreeFloor r := by
+  simp [Policy75Safe23.threshold, hr]
 
 end SigGolfCandidate.Research.SharedForest
 
@@ -12332,7 +12331,7 @@ theorem bound_prepareRoots (index : Nat) :
     (l := 0) (fun three _ => .pure (PreparedRoots.mk one two three) 0 trivial) (by omega)
 
 /-- v6 lower families: 81146 − 325 (L1 349 + L2/L3 175 family pairs instead of 4 per leaf). -/
-theorem prepared_roots_cost : treeCostP 1 + treeCostP 2 + treeCostP 3 = 129883 := by
+theorem prepared_roots_cost : treeCostP 1 + treeCostP 2 + treeCostP 3 = 129856 := by
   rw [treeCostP_one, treeCostP_two, treeCostP_three]
 
 end SigGolfCandidate.Research.SharedForest
@@ -12475,7 +12474,7 @@ def ftsCoordExtra : Nat := 120 * 511
 
 theorem bound_buildSharedCoordinate (first : Bool) (index coord : Nat)
     (hcoord : coord < 9) (selected : Child) (word : Rank) (pads : Nat → PairRoot) :
-    CBound (fun _ => True) ((if first then 3479 else 3481) + ftsCoordExtra)
+    CBound (fun _ => True) ((if first then 3473 else 3475) + ftsCoordExtra)
       (buildSharedCoordinate first index coord selected word pads) := by
   have hc := ftsCapOf_le coord
   unfold buildSharedCoordinate
@@ -12493,18 +12492,18 @@ theorem bound_buildSharedCoordinate (first : Bool) (index coord : Nat)
 
 theorem bound_buildPair (index pair : Nat) (hpair : pair < 4) (s : Selection)
     (aWord bWord : Rank) (prev : PairRoot) :
-    CBound (fun _ => True) (6960 + 2 * ftsCoordExtra) (buildPair index pair s aWord bWord prev) := by
+    CBound (fun _ => True) (6948 + 2 * ftsCoordExtra) (buildPair index pair s aWord bWord prev) := by
   unfold buildPair
   have h1 := ftsCapOf_le (2 * pair); have h2 := ftsCapOf_le (2 * pair + 1)
   refine (bound_buildSharedCoordinate true index (2 * pair) (by omega)
-    (firstChild s) aWord (fun _ => prev)).bind' (l := 3481 + ftsCoordExtra) (fun a _ => ?_)
+    (firstChild s) aWord (fun _ => prev)).bind' (l := 3475 + ftsCoordExtra) (fun a _ => ?_)
       (by simp only [if_true]; omega)
   exact (bound_buildSharedCoordinate false index (2 * pair + 1) (by omega)
     (secondChild s) bWord (nodesPair a.1)).bind' (l := 0)
     (fun b _ => .pure _ 0 trivial) (by simp only [Bool.false_eq_true, if_false]; omega)
 
 theorem bound_buildSingleton (index : Nat) (selected : Child) (word : Rank) (prev : PairRoot) :
-    CBound (fun _ => True) (3481 + ftsCoordExtra) (buildSingleton index selected word prev) := by
+    CBound (fun _ => True) (3475 + ftsCoordExtra) (buildSingleton index selected word prev) := by
   unfold buildSingleton
   have h1 := ftsCapOf_le 8
   exact (bound_buildSharedCoordinate false index 8 (by decide) selected word (fun _ => prev)).bind'
@@ -12514,8 +12513,8 @@ theorem bound_buildForest (index : Nat) (selected : ForestSelection) (words : Fo
     CBound (fun _ => True) (31321 + 9 * ftsCoordExtra) (buildForest index selected words) := by
   unfold buildForest
   refine (Bound.foldlM_list (P := GoodQuery) (List.finRange 4) _ (fun _ _ => True)
-    (fun _ => 6960 + 2 * ftsCoordExtra) ([], ftsStart) trivial (fun i hi state _ => ?_)).bind'
-    (l := 3481 + ftsCoordExtra) (fun state _ => ?_) (by simp [ftsCoordExtra])
+    (fun _ => 6948 + 2 * ftsCoordExtra) ([], ftsStart) trivial (fun i hi state _ => ?_)).bind'
+    (l := 3475 + ftsCoordExtra) (fun state _ => ?_) (by simp [ftsCoordExtra])
   · exact (bound_buildPair index _ ((List.finRange 4)[i]'hi).isLt _ _ _ state.2).bind'
       (l := 0) (fun built _ => .pure _ 0 trivial) (by decide)
   · exact (bound_buildSingleton index selected.singleton words.singleton state.2).bind'
@@ -12592,68 +12591,68 @@ theorem canonical_search_valid_credit (answers : Answers) (lay : Layer) (floor t
 
 theorem canonical_four_residual (d0 d1 d2 d3 : List Nat) (l0 l1 l2 l3 : Bool)
     (h0 : 18 ≤ CanonicalPolicy.credit 0 l0 d0)
-    (h1 : CanonicalPolicy.threshold 1 (CanonicalPolicy.nextResidual 72 0 l0 d0) ≤
+    (h1 : Policy75Safe23.threshold 1 (CanonicalPolicy.nextResidual 72 0 l0 d0) ≤
       CanonicalPolicy.credit 1 l1 d1)
-    (h2 : CanonicalPolicy.threshold 2
+    (h2 : Policy75Safe23.threshold 2
       (CanonicalPolicy.nextResidual (CanonicalPolicy.nextResidual 72 0 l0 d0) 1 l1 d1) ≤
       CanonicalPolicy.credit 2 l2 d2)
-    (h3 : CanonicalPolicy.threshold 3
+    (h3 : Policy75Safe23.threshold 3
       (CanonicalPolicy.nextResidual
         (CanonicalPolicy.nextResidual (CanonicalPolicy.nextResidual 72 0 l0 d0) 1 l1 d1) 2 l2 d2) ≤
       CanonicalPolicy.credit 3 l3 d3) :
     CanonicalPolicy.nextResidual (CanonicalPolicy.nextResidual
       (CanonicalPolicy.nextResidual (CanonicalPolicy.nextResidual 72 0 l0 d0) 1 l1 d1) 2 l2 d2) 3 l3 d3 = 0 := by
   let r1 := CanonicalPolicy.nextResidual 72 0 l0 d0
-  have hr1 : r1 < 55 := by dsimp [r1, CanonicalPolicy.nextResidual]; omega
+  have hr1 : r1 < 58 := by dsimp [r1, CanonicalPolicy.nextResidual]; omega
   have hw1 := firstThreshold_window ⟨r1, hr1⟩
-  change CanonicalPolicy.threshold 1 r1 < 15 ∧ r1 - CanonicalPolicy.threshold 1 r1 ≤ 40 at hw1
+  change Policy75Safe23.threshold 1 r1 < 17 ∧ r1 - Policy75Safe23.threshold 1 r1 ≤ 41 at hw1
   let r2 := CanonicalPolicy.nextResidual r1 1 l1 d1
-  have hr2 : r2 < 41 := by
-    change CanonicalPolicy.threshold 1 r1 ≤ CanonicalPolicy.credit 1 l1 d1 at h1
+  have hr2 : r2 < 42 := by
+    change Policy75Safe23.threshold 1 r1 ≤ CanonicalPolicy.credit 1 l1 d1 at h1
     dsimp [r2, CanonicalPolicy.nextResidual]; omega
   have hw2 := secondThreshold_window ⟨r2, hr2⟩
-  change CanonicalPolicy.threshold 2 r2 < 23 ∧ r2 - CanonicalPolicy.threshold 2 r2 ≤ 22 at hw2
+  change Policy75Safe23.threshold 2 r2 < 24 ∧ r2 - Policy75Safe23.threshold 2 r2 ≤ 23 at hw2
   let r3 := CanonicalPolicy.nextResidual r2 2 l2 d2
-  have hr3 : r3 ≤ 22 := by
-    change CanonicalPolicy.threshold 2 r2 ≤ CanonicalPolicy.credit 2 l2 d2 at h2
+  have hr3 : r3 ≤ 23 := by
+    change Policy75Safe23.threshold 2 r2 ≤ CanonicalPolicy.credit 2 l2 d2 at h2
     dsimp [r3, CanonicalPolicy.nextResidual]; omega
-  change CanonicalPolicy.threshold 3 r3 ≤ CanonicalPolicy.credit 3 l3 d3 at h3
+  change Policy75Safe23.threshold 3 r3 ≤ CanonicalPolicy.credit 3 l3 d3 at h3
   rw [thirdThreshold_window r3 hr3] at h3
-  have := CanonicalPolicy.lowerThreeFloor_ge r3
+  have := Policy75Safe23.lowerThreeFloor_ge r3
   change r3 - CanonicalPolicy.credit 3 l3 d3 = 0
   omega
 
 
 theorem canonical_four_residual_pool (pool : Nat) (d0 d1 d2 d3 : List Nat) (l0 l1 l2 l3 : Bool)
-    (h0 : pool - CanonicalPolicy.credit 0 l0 d0 < 55)
-    (h1 : CanonicalPolicy.threshold 1 (CanonicalPolicy.nextResidual pool 0 l0 d0) ≤
+    (h0 : pool - CanonicalPolicy.credit 0 l0 d0 < 58)
+    (h1 : Policy75Safe23.threshold 1 (CanonicalPolicy.nextResidual pool 0 l0 d0) ≤
       CanonicalPolicy.credit 1 l1 d1)
-    (h2 : CanonicalPolicy.threshold 2
+    (h2 : Policy75Safe23.threshold 2
       (CanonicalPolicy.nextResidual (CanonicalPolicy.nextResidual pool 0 l0 d0) 1 l1 d1) ≤
       CanonicalPolicy.credit 2 l2 d2)
-    (h3 : CanonicalPolicy.threshold 3
+    (h3 : Policy75Safe23.threshold 3
       (CanonicalPolicy.nextResidual
         (CanonicalPolicy.nextResidual (CanonicalPolicy.nextResidual pool 0 l0 d0) 1 l1 d1) 2 l2 d2) ≤
       CanonicalPolicy.credit 3 l3 d3) :
     CanonicalPolicy.nextResidual (CanonicalPolicy.nextResidual
       (CanonicalPolicy.nextResidual (CanonicalPolicy.nextResidual pool 0 l0 d0) 1 l1 d1) 2 l2 d2) 3 l3 d3 = 0 := by
   let r1 := CanonicalPolicy.nextResidual pool 0 l0 d0
-  have hr1 : r1 < 55 := by dsimp [r1, CanonicalPolicy.nextResidual]; omega
+  have hr1 : r1 < 58 := by dsimp [r1, CanonicalPolicy.nextResidual]; omega
   have hw1 := firstThreshold_window ⟨r1, hr1⟩
-  change CanonicalPolicy.threshold 1 r1 < 15 ∧ r1 - CanonicalPolicy.threshold 1 r1 ≤ 40 at hw1
+  change Policy75Safe23.threshold 1 r1 < 17 ∧ r1 - Policy75Safe23.threshold 1 r1 ≤ 41 at hw1
   let r2 := CanonicalPolicy.nextResidual r1 1 l1 d1
-  have hr2 : r2 < 41 := by
-    change CanonicalPolicy.threshold 1 r1 ≤ CanonicalPolicy.credit 1 l1 d1 at h1
+  have hr2 : r2 < 42 := by
+    change Policy75Safe23.threshold 1 r1 ≤ CanonicalPolicy.credit 1 l1 d1 at h1
     dsimp [r2, CanonicalPolicy.nextResidual]; omega
   have hw2 := secondThreshold_window ⟨r2, hr2⟩
-  change CanonicalPolicy.threshold 2 r2 < 23 ∧ r2 - CanonicalPolicy.threshold 2 r2 ≤ 22 at hw2
+  change Policy75Safe23.threshold 2 r2 < 24 ∧ r2 - Policy75Safe23.threshold 2 r2 ≤ 23 at hw2
   let r3 := CanonicalPolicy.nextResidual r2 2 l2 d2
-  have hr3 : r3 ≤ 22 := by
-    change CanonicalPolicy.threshold 2 r2 ≤ CanonicalPolicy.credit 2 l2 d2 at h2
+  have hr3 : r3 ≤ 23 := by
+    change Policy75Safe23.threshold 2 r2 ≤ CanonicalPolicy.credit 2 l2 d2 at h2
     dsimp [r3, CanonicalPolicy.nextResidual]; omega
-  change CanonicalPolicy.threshold 3 r3 ≤ CanonicalPolicy.credit 3 l3 d3 at h3
+  change Policy75Safe23.threshold 3 r3 ≤ CanonicalPolicy.credit 3 l3 d3 at h3
   rw [thirdThreshold_window r3 hr3] at h3
-  have := CanonicalPolicy.lowerThreeFloor_ge r3
+  have := Policy75Safe23.lowerThreeFloor_ge r3
   change r3 - CanonicalPolicy.credit 3 l3 d3 = 0
   omega
 
@@ -13277,7 +13276,7 @@ theorem expandFill_verified (answers : Answers) (message : Message) (pk : Digest
     (he : evalWithAnswerFn answers (expandFill message pk sig) = some w) :
     evalWithAnswerFn answers (verify message pk w) = true := by
   unfold expandFill at he
-  by_cases hh : sig.policyHints.toNat ≥ 8192
+  by_cases hh : sig.policyHints.toNat ≥ 12288
   · simp only [hh, if_true, evalWithAnswerFn_pure, reduceCtorEq] at he
   simp only [hh, if_false, evalWithAnswerFn_bind] at he
   let sig0 := fillTopSignature sig 0
@@ -13377,30 +13376,30 @@ structure PreparedSearchFacts (answers : Answers) (cache : SigGolfCandidate.T3.C
   digits_length : result.digits.length = 4
   lows_length : result.lows.length = 4
   search0 : evalWithAnswerFn answers (CanonicalPolicy.layerCounterSearchAt 0
-    (CanonicalPolicy.threshold 0 (requiredCredit index)) (route index 0).2 (route index 0).1
+    (Policy75Safe23.threshold 0 (requiredCredit index)) (route index 0).2 (route index 0).1
     (.pair (topPair 1 prepared.one.levels).1 (topPair 1 prepared.one.levels).2) 0 (searchLimit 0)) =
       some (result.counters.getD 0 0, result.digits.getD 0 [], result.lows.getD 0 true)
   search1 : evalWithAnswerFn answers (CanonicalPolicy.layerCounterSearchAt 1
-    (CanonicalPolicy.threshold 1 (preparedResidual1 index result)) (route index 1).2 (route index 1).1
+    (Policy75Safe23.threshold 1 (preparedResidual1 index result)) (route index 1).2 (route index 1).1
     (.pair (topPair 2 prepared.two.levels).1 (topPair 2 prepared.two.levels).2) 0 (searchLimit 1)) =
       some (result.counters.getD 1 0, result.digits.getD 1 [], result.lows.getD 1 true)
   search2 : evalWithAnswerFn answers (CanonicalPolicy.layerCounterSearchAt 2
-    (CanonicalPolicy.threshold 2 (preparedResidual2 index result)) (route index 2).2 (route index 2).1
+    (Policy75Safe23.threshold 2 (preparedResidual2 index result)) (route index 2).2 (route index 2).1
     (.pair (topPair 3 prepared.three.levels).1 (topPair 3 prepared.three.levels).2) 0 (searchLimit 2)) =
       some (result.counters.getD 2 0, result.digits.getD 2 [], result.lows.getD 2 true)
   search3 : evalWithAnswerFn answers (CanonicalPolicy.layerCounterSearchAt 3
-    (CanonicalPolicy.threshold 3 (preparedResidual3 index result)) (route index 3).2 (route index 3).1
+    (Policy75Safe23.threshold 3 (preparedResidual3 index result)) (route index 3).2 (route index 3).1
     (.pair (forest).1 (forest).2) 0 (searchLimit 3)) =
       some (result.counters.getD 3 0, result.digits.getD 3 [], result.lows.getD 3 true)
-  floor1_lt : CanonicalPolicy.threshold 1 (preparedResidual1 index result) < 15
-  floor2_lt : CanonicalPolicy.threshold 2 (preparedResidual2 index result) < 23
-  floor3_lt : CanonicalPolicy.threshold 3 (preparedResidual3 index result) < 23
+  floor1_lt : Policy75Safe23.threshold 1 (preparedResidual1 index result) < 17
+  floor2_lt : Policy75Safe23.threshold 2 (preparedResidual2 index result) < 24
+  floor3_lt : Policy75Safe23.threshold 3 (preparedResidual3 index result) < 24
   residual_eq : result.residual = CanonicalPolicy.nextResidual (preparedResidual3 index result) 3
     (result.lows.getD 3 true) (result.digits.getD 3 [])
   hints_eq : result.policyHints = BitVec.ofNat 16
-    (529 * CanonicalPolicy.threshold 1 (preparedResidual1 index result) +
-     23 * CanonicalPolicy.threshold 2 (preparedResidual2 index result) +
-     CanonicalPolicy.threshold 3 (preparedResidual3 index result))
+    (576 * Policy75Safe23.threshold 1 (preparedResidual1 index result) +
+     24 * Policy75Safe23.threshold 2 (preparedResidual2 index result) +
+     Policy75Safe23.threshold 3 (preparedResidual3 index result))
   pieces_eq : result.pieces = [
     evalWithAnswerFn answers (signTop cache (route index 0).1 (result.digits.getD 0 [])),
     preparedPieces 1 (route index 1).1 prepared.one (result.digits.getD 1 []),
@@ -13414,15 +13413,15 @@ theorem searchPreparedLayers_some (answers : Answers) (cache : SigGolfCandidate.
   unfold searchPreparedLayers at he
   simp only [evalWithAnswerFn_bind] at he
   cases hs0 : evalWithAnswerFn answers (CanonicalPolicy.layerCounterSearchAt 0
-    (CanonicalPolicy.threshold 0 (requiredCredit index)) (route index 0).2 (route index 0).1
+    (Policy75Safe23.threshold 0 (requiredCredit index)) (route index 0).2 (route index 0).1
     (.pair (topPair 1 prepared.one.levels).1 (topPair 1 prepared.one.levels).2) 0 (searchLimit 0)) with
   | none => simp only [hs0, evalWithAnswerFn_pure, reduceCtorEq] at he
   | some found0 =>
       obtain ⟨c0, d0, l0⟩ := found0
       simp only [hs0, evalWithAnswerFn_bind] at he
       let r1 := routeResidual index (requiredCredit index) 0 l0 d0
-      let f1 := CanonicalPolicy.threshold 1 r1
-      by_cases hf1 : f1 ≥ 15
+      let f1 := Policy75Safe23.threshold 1 r1
+      by_cases hf1 : f1 ≥ 17
       · dsimp only [r1, f1] at hf1
         simp only [hf1, if_true,
           evalWithAnswerFn_pure, reduceCtorEq] at he
@@ -13440,8 +13439,8 @@ theorem searchPreparedLayers_some (answers : Answers) (cache : SigGolfCandidate.
           dsimp only [r1, f1] at hs1
           simp only [hs1, evalWithAnswerFn_bind] at he
           let r2 := routeResidual index r1 1 l1 d1
-          let f2 := CanonicalPolicy.threshold 2 r2
-          by_cases hf2 : f2 ≥ 23
+          let f2 := Policy75Safe23.threshold 2 r2
+          by_cases hf2 : f2 ≥ 24
           · dsimp only [r1, f1, r2, f2] at hf2
             simp only [hf2, if_true,
               evalWithAnswerFn_pure, reduceCtorEq] at he
@@ -13459,8 +13458,8 @@ theorem searchPreparedLayers_some (answers : Answers) (cache : SigGolfCandidate.
               dsimp only [r1, f1, r2, f2] at hs2
               simp only [hs2, evalWithAnswerFn_bind] at he
               let r3 := routeResidual index r2 2 l2 d2
-              let f3 := CanonicalPolicy.threshold 3 r3
-              by_cases hf3 : f3 ≥ 23
+              let f3 := Policy75Safe23.threshold 3 r3
+              by_cases hf3 : f3 ≥ 24
               · dsimp only [r1, f1, r2, f2, r3, f3] at hf3
                 simp only [hf3, if_true,
                   evalWithAnswerFn_pure, reduceCtorEq] at he
@@ -13622,10 +13621,10 @@ theorem PreparedSearchFacts.validDigits {answers : Answers} {cache : SigGolfCand
 theorem PreparedSearchFacts.hints_spec {answers : Answers} {cache : SigGolfCandidate.T3.Cache} {index : Nat}
     {prepared : PreparedRoots} {forest : PairRoot} {result : CanonicalLayers}
     (h : PreparedSearchFacts answers cache index prepared forest result) :
-    result.policyHints.toNat < 8192 ∧
-      hintFloor index result.policyHints 1 = CanonicalPolicy.threshold 1 (preparedResidual1 index result) ∧
-      hintFloor index result.policyHints 2 = CanonicalPolicy.threshold 2 (preparedResidual2 index result) ∧
-      hintFloor index result.policyHints 3 = CanonicalPolicy.threshold 3 (preparedResidual3 index result) := by
+    result.policyHints.toNat < 12288 ∧
+      hintFloor index result.policyHints 1 = Policy75Safe23.threshold 1 (preparedResidual1 index result) ∧
+      hintFloor index result.policyHints 2 = Policy75Safe23.threshold 2 (preparedResidual2 index result) ∧
+      hintFloor index result.policyHints 3 = Policy75Safe23.threshold 3 (preparedResidual3 index result) := by
   rw [h.hints_eq]
   exact encodedHints_spec _ _ _ h.floor1_lt h.floor2_lt h.floor3_lt
 
@@ -13759,12 +13758,12 @@ theorem expand_complete_of_recovered (answers : Answers) (message : Message) (pk
     (hh : policyHintsValid (digestIndex output) sig.policyHints result.digits result.lows = true) (hpk : result.root = pk)
     (htop : TopPathOK sig) (hlow : LowerPathOK sig) :
     ∃ w, evalWithAnswerFn answers (expand message pk sig) = some w := by
-  have hhbound' : sig.policyHints.toNat < 2 ^ 13 := by
+  have hhbound' : sig.policyHints.toNat < 2 ^ 14 := by
     simp only [policyHintsValid, decide_eq_true_eq] at hh
     have := hh.1
     omega
   rw [expand_eq_expandFill message pk sig hhbound' htop hlow]
-  have hhbound : sig.policyHints.toNat < 8192 := by
+  have hhbound : sig.policyHints.toNat < 12288 := by
     simp only [policyHintsValid, decide_eq_true_eq] at hh
     exact hh.1
   let index := digestIndex output
@@ -13788,7 +13787,7 @@ theorem expand_complete_of_recovered (answers : Answers) (message : Message) (pk
     have he' := congrArg RecoveredLayers.root he
     exact he'.symm.trans hpk
   unfold expandFill
-  simp only [show ¬sig.policyHints.toNat ≥ 8192 by omega, if_false, evalWithAnswerFn_bind]
+  simp only [show ¬sig.policyHints.toNat ≥ 12288 by omega, if_false, evalWithAnswerFn_bind]
   simp only [nonce_retained, hd, evalWithAnswerFn_bind]
   dsimp only [sig0, index, forest] at hr0
   simp only [show (fillTopSignature sig 0).forest = sig.forest from rfl]
@@ -14316,26 +14315,26 @@ end SigGolfCandidate.Research.SharedForest
 namespace SigGolfCandidate.Research.SharedForest.LocalRoute
 open SigGolfCandidate.T3 ClaudeWCT.WCT9
 theorem residual_credit_pool (index c0 c1 c2 c3 : Nat)
-    (h0 : CanonicalPolicy.threshold 0 (pool index)≤c0)
-    (h1 : CanonicalPolicy.threshold 1 (r1 index c0)≤c1)
-    (h2 : CanonicalPolicy.threshold 2 (r2 index c0 c1)≤c2)
-    (h3 : CanonicalPolicy.threshold 3 (r3 index c0 c1 c2)≤c3) :
-    74 ≤ c0+c1+c2+c3+CanonicalPolicy.topPathSave (route index 0).1+
+    (h0 : Policy75Safe23.threshold 0 (pool index)≤c0)
+    (h1 : Policy75Safe23.threshold 1 (r1 index c0)≤c1)
+    (h2 : Policy75Safe23.threshold 2 (r2 index c0 c1)≤c2)
+    (h3 : Policy75Safe23.threshold 3 (r3 index c0 c1 c2)≤c3) :
+    75 ≤ c0+c1+c2+c3+CanonicalPolicy.topPathSave (route index 0).1+
       ownSave index 1+ownSave index 2+ownSave index 3 := by
   have hp := pool_bounds index
-  rw [CanonicalPolicy.threshold_top] at h0
-  have hmax := Nat.le_max_right 18 (pool index-54)
-  have hr1 : r1 index c0<55 := by unfold r1;omega
+  rw [Policy75Safe23.threshold_top] at h0
+  have hmax := Nat.le_max_right 18 (pool index-57)
+  have hr1 : r1 index c0<58 := by unfold r1;omega
   have hf1 := firstThreshold_window ⟨r1 index c0,hr1⟩
-  change CanonicalPolicy.threshold 1 (r1 index c0)<15 ∧
-    r1 index c0-CanonicalPolicy.threshold 1 (r1 index c0)≤40 at hf1
-  have hr2 : r2 index c0 c1<41 := by unfold r2;omega
+  change Policy75Safe23.threshold 1 (r1 index c0)<17 ∧
+    r1 index c0-Policy75Safe23.threshold 1 (r1 index c0)≤41 at hf1
+  have hr2 : r2 index c0 c1<42 := by unfold r2;omega
   have hf2 := secondThreshold_window ⟨r2 index c0 c1,hr2⟩
-  change CanonicalPolicy.threshold 2 (r2 index c0 c1)<23 ∧
-    r2 index c0 c1-CanonicalPolicy.threshold 2 (r2 index c0 c1)≤22 at hf2
-  have hr3 : r3 index c0 c1 c2≤22 := by unfold r3;omega
+  change Policy75Safe23.threshold 2 (r2 index c0 c1)<24 ∧
+    r2 index c0 c1-Policy75Safe23.threshold 2 (r2 index c0 c1)≤23 at hf2
+  have hr3 : r3 index c0 c1 c2≤23 := by unfold r3;omega
   rw [thirdThreshold_window _ hr3] at h3
-  have hf3 := CanonicalPolicy.lowerThreeFloor_ge (r3 index c0 c1 c2)
+  have hf3 := Policy75Safe23.lowerThreeFloor_ge (r3 index c0 c1 c2)
   have hs : CanonicalPolicy.topPathSave (route index 0).1≤2 := by
     unfold CanonicalPolicy.topPathSave CanonicalPolicy.topPairSave
     split_ifs <;> omega
@@ -14358,7 +14357,7 @@ theorem policyHints_credit_sum_required {index : Nat} (hints : BitVec 16) (digit
   let c1 := CanonicalPolicy.credit 1 (lows.getD 1 true) (digits.getD 1 [])
   let c2 := CanonicalPolicy.credit 2 (lows.getD 2 true) (digits.getD 2 [])
   let c3 := CanonicalPolicy.credit 3 (lows.getD 3 true) (digits.getD 3 [])
-  have h0 : CanonicalPolicy.threshold 0 (LocalRoute.pool index) ≤ c0 := by
+  have h0 : Policy75Safe23.threshold 0 (LocalRoute.pool index) ≤ c0 := by
     simpa [hintFloor,requiredCredit,c0] using hc 0
   have h1 := hc 1
   have h2 := hc 2
@@ -14366,9 +14365,9 @@ theorem policyHints_credit_sum_required {index : Nat} (hints : BitVec 16) (digit
   rw [hh.2.2.1] at h1
   rw [hh.2.2.2.1] at h2
   rw [hh.2.2.2.2] at h3
-  have h1' : CanonicalPolicy.threshold 1 (LocalRoute.r1 index c0) ≤ c1 := h1
-  have h2' : CanonicalPolicy.threshold 2 (LocalRoute.r2 index c0 c1) ≤ c2 := h2
-  have h3' : CanonicalPolicy.threshold 3 (LocalRoute.r3 index c0 c1 c2) ≤ c3 := h3
+  have h1' : Policy75Safe23.threshold 1 (LocalRoute.r1 index c0) ≤ c1 := h1
+  have h2' : Policy75Safe23.threshold 2 (LocalRoute.r2 index c0 c1) ≤ c2 := h2
+  have h3' : Policy75Safe23.threshold 3 (LocalRoute.r3 index c0 c1 c2) ≤ c3 := h3
   have hz := LocalRoute.residual_credit_pool index c0 c1 c2 c3 h0 h1' h2' h3'
   change requiredCredit index ≤ c0 + (c1 + (c2 + (c3 + 0))) +
     LocalRoute.ownSave index 1 + LocalRoute.ownSave index 2 + LocalRoute.ownSave index 3
@@ -14683,7 +14682,7 @@ theorem PreparedSearchFacts.cost_eq {answers : Answers} {cache : SigGolfCandidat
     hf1, hf2, hf3, if_false, cost_pure, Nat.add_zero]
   simp only [recoverySearchCost, recoverySearch, hh, h.hints_spec.2.1,
     h.hints_spec.2.2.1, h.hints_spec.2.2.2, hm0, hm1, hm2,
-    show hintFloor index result.policyHints 0 = CanonicalPolicy.threshold 0 (requiredCredit index) from rfl,
+    show hintFloor index result.policyHints 0 = Policy75Safe23.threshold 0 (requiredCredit index) from rfl,
     show (0 : Layer) ≠ 3 by decide, show (1 : Layer) ≠ 3 by decide,
     show (2 : Layer) ≠ 3 by decide, if_false, if_true,
     show (Fin.ofNat 4 ((0 : Layer).val + 1) : Layer) = 1 from rfl,
@@ -14735,7 +14734,7 @@ theorem PreparedSearchFacts.recovery_cost_le {answers : Answers} {cache : SigGol
     intro lay
     rcases layer_four_cases lay with rfl | rfl | rfl | rfl <;>
       simp only [recoverySearch, hh, h.hints_spec.2.1, h.hints_spec.2.2.1, h.hints_spec.2.2.2,
-        show hintFloor index result.policyHints 0 = CanonicalPolicy.threshold 0 (requiredCredit index) from rfl,
+        show hintFloor index result.policyHints 0 = Policy75Safe23.threshold 0 (requiredCredit index) from rfl,
         show (0 : Layer) ≠ 3 by decide, show (1 : Layer) ≠ 3 by decide,
         show (2 : Layer) ≠ 3 by decide, if_false, if_true,
         show (Fin.ofNat 4 ((0 : Layer).val + 1) : Layer) = 1 from rfl,

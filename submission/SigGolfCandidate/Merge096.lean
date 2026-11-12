@@ -8,7 +8,7 @@ import SigGolfCandidate.Merge094
 import SigGolfCandidate.Merge095
 import SigGolfCandidate.FtsSignGrind
 import SigGolfCandidate.FtsBridge
-set_option debug.skipKernelTC true
+set_option debug.skipKernelTC false
 set_option linter.all false
 
 -- ==== merged from ClaudeWCT_W9_New_Machine_Sign_PackedLeaf ====
@@ -197,7 +197,7 @@ the iteration querying pair `19 f + j`, or at `SEED` once all `⌈N/2⌉` pairs 
 structure CoefSt (t : MachineState) (lay f N j : Nat) (acc : List Digest) (u : MachineState) : Prop where
   pc : u.pc = pcOf (if j < (N + 1) / 2 then cqI else seedI)
   x29 : u.getReg .x29 = BitVec.ofNat 64 (SharedSeed.FB + 32 * j)
-  x6 : u.getReg .x6 = BitVec.ofNat 64 (hdrB lay (19 * f + j))
+  x6 : u.getReg .x6 = BitVec.ofNat 64 (hdrB lay (42 * f + j))
   x17 : u.getReg .x17 = BitVec.ofNat 64 (2 ^ 32)
   x30 : u.getReg .x30 = BitVec.ofNat 64 (SharedSeed.FB + 32 * ((N + 1) / 2))
   regs : RegsExcept t u coefRegs
@@ -207,7 +207,7 @@ structure CoefSt (t : MachineState) (lay f N j : Nat) (acc : List Digest) (u : M
   fend : u.getMem (BitVec.ofNat 64 SharedSeed.FEND) = BitVec.ofNat 64 (SharedSeed.FB + 16 * N)
 
 /-- Cycle bound of the chain-0 coefficient phase (sub41, hook, `20746..20749`, `qd` ≤ 47 cycles, ≤ 19 pairs). -/
-def coefC : Nat := 1 + 1 + 3 + 47 + 19 * 26
+def coefC : Nat := 1 + 1 + 3 + 47 + 42 * 26
 
 theorem getD_append_last {l : List Digest} {d : Digest} {i : Nat} (hl : l.length = i) :
     (l ++ [d]).getD i 0 = d := by
@@ -224,16 +224,16 @@ theorem pow_height_low {lay : Layer} (h : lay ≠ 0) :
   · exact absurd rfl h
   all_goals decide
 theorem famSize_low {lay : Layer} (h : lay ≠ 0) (L : Nat) :
-    WCT9.famSize lay (L / 7) = SharedSeed.famN lay.val L := by
+    WCT9.famSize lay (L / 16) = SharedSeed.famN lay.val L := by
   unfold WCT9.famSize SharedSeed.famN
   rw [if_neg h, pow_height_low h]
-theorem famGrp_low {lay : Layer} (h : lay ≠ 0) : WCT9.famGrp lay = 7 := by
+theorem famGrp_low {lay : Layer} (h : lay ≠ 0) : WCT9.famGrp lay = 16 := by
   unfold WCT9.famGrp; rw [if_neg h]
-theorem famBase_low {lay : Layer} (h : lay ≠ 0) : WCT9.famBase lay = 38 := by
+theorem famBase_low {lay : Layer} (h : lay ≠ 0) : WCT9.famBase lay = 84 := by
   unfold WCT9.famBase; rw [if_neg h]
-/-- The v6 lower family seed of chain `j < 43` is the family at `(leaf % 7) · 43 + j + 1`. -/
+/-- The v6 lower family seed of chain `j < 43` is the family at `(leaf % 16) · 43 + j + 1`. -/
 theorem lowerFamilySeed_eq {lay : Layer} (h : lay ≠ 0) (coefs : List Digest) (leaf : Nat) {j : Nat} (hj : j < 43) :
-    WCT9.lowerFamilySeed coefs lay leaf j = familyEval coefs (leaf % 7 * 43 + j + 1) := by
+    WCT9.lowerFamilySeed coefs lay leaf j = familyEval coefs (leaf % 16 * 43 + j + 1) := by
   unfold WCT9.lowerFamilySeed WCT9.famPoint
   rw [if_pos (Or.inr (by rw [lower_n h]; exact hj)), famGrp_low h]
   unfold WCT9.famStride; rw [if_neg h]
@@ -645,7 +645,7 @@ include hpre hsub hnew hhook
 
 theorem coef_phase (hlay : A.lay ≠ 0) (ht : LeafInv s A 0 ([], []) t) (hs : HybOf s0 s t)
     (hpc : t.pc = pcOf (1013 + 41)) {carry : List Digest}
-    (hcar : A.leaf % 7 ≠ 0 → SharedSeed.FamBuf t carry) :
+    (hcar : A.leaf % 16 ≠ 0 → SharedSeed.FamBuf t carry) :
     TBSim im sk t coefC (WCT9.lowerCoefs A.lay A.tree A.leaf carry)
       (fun r u => u.pc = pcOf seedI ∧ SharedSeed.FamBuf u r.1 ∧ r.2 = r.1 ∧
         RegsExcept t u PackedLeaf.coefRegs ∧ Frame t u CoefW) := by
@@ -686,7 +686,7 @@ theorem coef_phase (hlay : A.lay ≠ 0) (ht : LeafInv s A 0 ([], []) t) (hs : Hy
   have q8 : t3.getReg .x8 = BitVec.ofNat 64 A.lay.val := by rw [e13.get (by simp), r8]
   unfold WCT9.lowerCoefs
   rw [famGrp_low hlay]
-  by_cases h7 : A.leaf % 7 = 0
+  by_cases h7 : A.leaf % 16 = 0
   swap
   · -- a later leaf of the family: the coefficients stay in `FB`
     rw [if_neg h7]
@@ -701,13 +701,13 @@ theorem coef_phase (hlay : A.lay ≠ 0) (ht : LeafInv s A 0 ([], []) t) (hs : Hy
   obtain ⟨t4, k4, c4, st4, hc4, t4pc, t4x6, t4x17, t4x29, t4x30, t4end, t4r, t4f⟩ :=
     SharedSeed.step_QL hnew t3 t3pc q8 hlay' q18 hleaf h7
   rw [← hN] at t4x30 t4end
-  have hNs : WCT9.famSize A.lay (A.leaf / 7) = N := by rw [hN]; exact famSize_low hlay A.leaf
-  have hNb : 8 ≤ N ∧ N ≤ 38 := by
-    have h7f : 7 * (A.leaf / 7) ≤ A.leaf := by omega
+  have hNs : WCT9.famSize A.lay (A.leaf / 16) = N := by rw [hN]; exact famSize_low hlay A.leaf
+  have hNb : 8 ≤ N ∧ N ≤ 84 := by
+    have h7f : 16 * (A.leaf / 16) ≤ A.leaf := by omega
     rw [hN]; unfold SharedSeed.famN
     by_cases hl1 : A.lay.val = 1 <;> simp only [hl1, if_true, if_false] at hleaf ⊢ <;> omega
-  have hPairs : WCT9.famPairs A.lay (A.leaf / 7) = (N + 1) / 2 := by unfold WCT9.famPairs; rw [hNs]
-  have h0 : CoefSt t A.lay.val (A.leaf / 7) N 0 [] t4 := by
+  have hPairs : WCT9.famPairs A.lay (A.leaf / 16) = (N + 1) / 2 := by unfold WCT9.famPairs; rw [hNs]
+  have h0 : CoefSt t A.lay.val (A.leaf / 16) N 0 [] t4 := by
     refine ⟨?_, ?_, ?_, t4x17, t4x30, ?_, ?_, rfl, fun i hi => absurd hi (by omega), t4end⟩
     · rw [t4pc, if_pos (by omega)]
     · rw [t4x29, Nat.mul_zero, Nat.add_zero]
@@ -721,8 +721,8 @@ theorem coef_phase (hlay : A.lay ≠ 0) (ht : LeafInv s A 0 ([], []) t) (hs : Hy
   rw [hPairs, hNs]
   have hloop := TBSim.foldlM_range' (image := im) (sk := sk) 0 ((N + 1) / 2)
     (fun (acc : List Digest) j => do
-      let p ← WCT9.lowerSeedPair A.lay A.tree (WCT9.famBase A.lay * (A.leaf / 7) / 2 + j)
-      pure (acc ++ [p.1, p.2])) [] (fun j acc u => CoefSt t A.lay.val (A.leaf / 7) N j acc u) 26
+      let p ← WCT9.lowerSeedPair A.lay A.tree (WCT9.famBase A.lay * (A.leaf / 16) / 2 + j)
+      pure (acc ++ [p.1, p.2])) [] (fun j acc u => CoefSt t A.lay.val (A.leaf / 16) N j acc u) 26
     (fun j hj acc u hu => ?_) h0
   · rw [show List.range' 0 ((N + 1) / 2) = List.range ((N + 1) / 2) from List.range_eq_range'.symm] at hloop
     refine TBSim.mono (TBSim.steps (st1.trans (st2.trans (st3.trans st4)))
@@ -738,14 +738,14 @@ theorem coef_phase (hlay : A.lay ≠ 0) (ht : LeafInv s A 0 ([], []) t) (hs : Hy
     · rw [hu.fend, hlen]
   -- one pair `19 f + j`
   simp only [Nat.zero_add]
-  rw [famBase_low hlay, show 38 * (A.leaf / 7) / 2 + j = 19 * (A.leaf / 7) + j by omega]
+  rw [famBase_low hlay, show 84 * (A.leaf / 16) / 2 + j = 42 * (A.leaf / 16) + j by omega]
   unfold WCT9.lowerSeedPair
   have g4 : ∀ r, r ∉ PackedLeaf.coefRegs → r ∉ leafRegs → u.getReg r = s0.getReg r := fun r h1 h2 => by
     rw [hu.regs.get h1, g r h2]
   obtain ⟨u1, su1, e1, u1pc, u1x10, u1x11, u1x12, u1x28, m16, m24, u1r, u1f⟩ :=
     SharedSeed.step_CQ hnew u (by rw [hu.pc, if_pos hj])
   have hm16 : u1.getMem (BitVec.ofNat 64 (PRIV + 16)) =
-      BitVec.ofNat 64 (SigGolfCandidate.T3M.hdr0 0 A.lay.val A.tree (19 * (A.leaf / 7) + j)) := by
+      BitVec.ofNat 64 (SigGolfCandidate.T3M.hdr0 0 A.lay.val A.tree (42 * (A.leaf / 16) + j)) := by
     show u1.getMem (BitVec.ofNat 64 0x20010) = _
     rw [m16, hu.x6, hdr0_eq 0 _ _ _ (by norm_num) hlay' htree (by omega)]
     (try simp only [hdrB, ClaudeWCT.W9.Machine.Sign.hdrB]); (try congr 1); (try ring)
@@ -760,7 +760,7 @@ theorem coef_phase (hlay : A.lay ≠ 0) (ht : LeafInv s A 0 ([], []) t) (hs : Hy
         (by unfold CoefW; simp only [SharedSeed.FB, SharedSeed.FEND, COEF, PRIV, SEEDS] at *; omega),
       frT X hX]
   have hqin : hashInput u1 =
-      toQ (privateInput sk (.inl (header 0 A.lay.val A.tree (19 * (A.leaf / 7) + j) 0))) := by
+      toQ (privateInput sk (.inl (header 0 A.lay.val A.tree (42 * (A.leaf / 16) + j) 0))) := by
     refine hashInput_toQ u1 _ 0 PRIV (privateInput_tweak_length _ _) u1x10 (by decide) (by decide) u1x11
       (by decide) ?_
     rw [wordsOf_privateInput_tweak, header_lo, header_hi, SigGolfCandidate.T3M.readWords_eight, fr PRIV (by simp),
@@ -1322,7 +1322,7 @@ theorem buildLeafPrefixes_precise {im : Image} (hsub : Sign.SharedLeafCode.Code 
     (h15 : s0.getReg .x15 = BitVec.ofNat 64 (SigGolfCandidate.T3.height A.lay))
     (hvS : A.valp+16*A.n≤0x50000) (hdS : A.digp+A.n≤0x50000) (hdestS : A.dest+16≤0x50000)
     (hvi : A.valp+16*A.n≤0x20550 ∨ 0x20558≤A.valp)
-    (carry : List Digest) (hcar : A.leaf % 7 ≠ 0 → SharedSeed.FamBuf s0 carry) :
+    (carry : List Digest) (hcar : A.leaf % 16 ≠ 0 → SharedSeed.FamBuf s0 carry) :
     TBSim im sk s0 lowLeafC (buildLeafPrefixes A.lay A.tree A.leaf carry)
       (fun r t => t.pc=pcOf A.ret ∧ DigAt t A.dest r.1.1 ∧ r.1.2.length=43 ∧
         SharedSeed.FamBuf t r.2 ∧ RegsExcept s0 t leafRegs ∧
@@ -1347,7 +1347,7 @@ theorem buildLeafPrefixes_precise {im : Image} (hsub : Sign.SharedLeafCode.Code 
     · unfold LeafW; rw [if_neg hlay]; omega
   have hs1 : HybOf s0 s0 t1 := HybOf.refl_of (t1f.mono (fun X _ h => by
     rcases h with h | h <;> (subst h; unfold BScr; omega)))
-  have hc1 : A.leaf % 7 ≠ 0 → SharedSeed.FamBuf t1 carry := fun h =>
+  have hc1 : A.leaf % 16 ≠ 0 → SharedSeed.FamBuf t1 carry := fun h =>
     (hcar h).frame t1f (fun X h1 h2 hx => by
       simp only [SharedSeed.FB, SharedSeed.FEND, COEF] at h1 h2; omega)
   unfold SigGolfCandidate.Research.SharedForest.buildLeafPrefixes
@@ -1469,7 +1469,7 @@ structure Inv (s1 : MachineState) (lay : Layer) (sb sel l : Nat)
   roots : DigsAt t (LOW+16*2^height lay) st.1
   saved : sel<l → st.2.1.length=43 ∧ ∀ i, i<43 → ∀ k,k≤7 →
     DigAt t (SharedPrefixes.buffer lay.val i k) ((st.2.1.getD i []).getD k 0)
-  carry : l % 7 ≠ 0 → SharedSeed.FamBuf t st.2.2
+  carry : l % 16 ≠ 0 → SharedSeed.FamBuf t st.2.2
   z : Seed.Z32 t
 
 def body (lay : Layer) (tree sel : Nat) (st : List Digest × List (List Digest) × List Digest) (leaf : Nat) :
@@ -1530,7 +1530,7 @@ theorem body_step
       (fun X _ h => by rcases h with h | h; exact h; exact h.elim)) t4x1
       (by rw [t4r.get (by simp), t3r.get (by simp)]; exact t2x18)
       (by rw [t4r.get (by simp)]; exact t3x22) (by rw [t4r.get (by simp)]; exact t3x23) t4x25
-  have hcarry : l % 7 ≠ 0 → SharedSeed.FamBuf t4 st.2.2 := fun hp =>
+  have hcarry : l % 16 ≠ 0 → SharedSeed.FamBuf t4 st.2.2 := fun hp =>
     (htp.carry hp).frame f14 (fun _ _ _ h => h)
   have hvi : (btLeaf lay tree sel ds sb l).valp+16*(btLeaf lay tree sel ds sb l).n≤0x20550 ∨
       0x20558≤(btLeaf lay tree sel ds sb l).valp := by
@@ -1903,12 +1903,21 @@ variable {im : Image} (hc : SharedLowCode.Code im)
     (hcopy : CodeAt im (pcOf (1013+61)) Seed.sub61)
     (hchain : SharedChain.Code im) (hpref : SharedChain.PrefixCode im)
     (hseed : SharedSeed.Code im) (hhook : CodeAt im (pcOf 1055) seedHookCode)
+/-- Actual signing-tree allowance: one128-leaf tree and two64-leaf trees. -/
+def treeCycleBound (lay : Layer) : Nat := if lay = 1 then btCost else btCost / 2
+
+theorem treeCycleBound_total :
+    (treeCycleBound 1 + 47) + ((treeCycleBound 2 + 47) + (treeCycleBound 3 + 47)) ≤ 2*btCost+3*47 := by
+  norm_num [treeCycleBound, SigGolfCandidate.T3M.Sign.Packed.btCost,
+    show (2 : Layer) ≠ 1 by decide, show (3 : Layer) ≠ 1 by decide]
+
 include hc hlevels hsub hcopy hchain hpref hseed hhook
+
 theorem tree_tbsim {sk : SecretKey} {cache : Bytes 131072} {lay : Layer} {tree sel : Nat} {ds : List Nat}
     {sb ret : Nat} {s : MachineState} (hs : BtPre (cfFlag := cfFlag) sk cache lay tree sel ds sb s) (hpc : s.pc = pcOf 1173)
     (h1 : s.getReg .x1 = pcOf ret)
     (hselection : SharedPrefixes.selectionWord (s.getMem 0x20550) lay.val=BitVec.ofNat 64 sel) :
-    TBSim im sk s btCost (treeProgram lay tree sel) (Post (cfFlag := cfFlag) sk cache lay tree sel sb ret s) := by
+    TBSim im sk s (treeCycleBound lay) (treeProgram lay tree sel) (Post (cfFlag := cfFlag) sk cache lay tree sel sb ret s) := by
   have hlay := hs.hlay
   have hH := height_low hlay
   have hHp : 2 ^ height lay ≤ 128 := by rcases hH with h | h <;> rw [h] <;> norm_num
@@ -1947,10 +1956,10 @@ theorem tree_tbsim {sk : SecretKey} {cache : Bytes 131072} {lay : Layer} {tree s
     (body lay tree sel) ([],[],[]) (Inv s1 lay sb sel)
     (lowLeafC + 18)
     (fun l hl st t ht => by simpa using body_step hc hsub hcopy hchain hpref hseed hhook hs1 hselection1 hl ht) h0
-  have hcost : 2 + (2 ^ height lay * (lowLeafC + 18) + 280700) ≤ btCost := by
+  have hcost : 2 + (2 ^ height lay * (lowLeafC + 18) + 280700) ≤ treeCycleBound lay := by
     fin_cases lay
     · exact absurd rfl hlay
-    all_goals decide
+    all_goals norm_num [treeCycleBound, SigGolfCandidate.T3M.Sign.Packed.btCost, SigGolfCandidate.T3M.Sign.Packed.lowLeafC, height]
   unfold treeProgram
   have heq : List.range' 0 (2 ^ height lay) = List.range (2 ^ height lay) := List.range_eq_range'.symm
   rw [heq] at hloop
@@ -2019,11 +2028,11 @@ theorem buildTreePrefixes_tbsim {im : Image} (hc : SharedLowCode.Code im)
     {sb ret : Nat} {s : MachineState} (hs : BtPre (cfFlag := cfFlag) sk cache lay tree sel ds sb s)
     (hpc : s.pc = pcOf 1173) (h1 : s.getReg .x1 = pcOf ret)
     (hselection : SharedPrefixes.selectionWord (s.getMem 0x20550) lay.val=BitVec.ofNat 64 sel) :
-    TBSim im sk s btCost (buildTreePrefixes lay tree sel)
+    TBSim im sk s (treeCycleBound lay) (buildTreePrefixes lay tree sel)
       (fun r => Post (cfFlag := cfFlag) sk cache lay tree sel sb ret s (r.levels,r.prefixes)) := by
   have h := tree_tbsim hc hlevels hsub hcopy hchain hpref hseed hhook hs hpc h1 hselection
   rw [← treeProgram_eq lay hs.hlay tree sel]
-  have ht : TBSim im sk s (btCost+0)
+  have ht : TBSim im sk s (treeCycleBound lay+0)
       (treeProgram lay tree sel >>= fun r => pure (PreparedLower.mk r.1 r.2))
       (fun r => Post (cfFlag := cfFlag) sk cache lay tree sel sb ret s (r.levels,r.prefixes)) :=
     TBSim.bind (W₂:=0) h (fun r t ht => TBSim.pure ht)
@@ -4520,7 +4529,7 @@ def coefStep (index coord : Nat) (acc : List Digest) (j : Nat) : M (List Digest)
   pure (acc ++ [p.1, p.2])
 
 theorem ftsCoefs_eq (index coord : Nat) :
-    WCT9.ftsCoefs index coord = (List.range' 0 27).foldlM (coefStep index coord) [] := by
+    WCT9.ftsCoefs index coord = (List.range' 0 21).foldlM (coefStep index coord) [] := by
   unfold WCT9.ftsCoefs WCT9.ftsCoefPairs
   rw [List.range_eq_range']
   rfl
@@ -4934,9 +4943,9 @@ variable {im : Image}
 variable {sk : BitVec 256}
 theorem step_unit (hcode : Fetch im) {c i j index sel w : Nat} {word : WCT9.Rank} {coefs : List Digest}
     (hc : c < 9) (hi : i < 6) (hj : j < 128) (hsel : sel < 128) (hidx : index < 2 ^ 31) (hw : w < 2 ^ 64)
-    (hword : ∀ i : Fin 6, w / 8 ^ i.val % 8 = WCT9.wordDigit word i) (hlen : coefs.length = 54)
+    (hword : ∀ i : Fin 6, w / 8 ^ i.val % 8 = WCT9.wordDigit word i) (hlen : coefs.length = 42)
     {rows : List Digest × List Digest} {s : MachineState} (hpc : s.pc = pcOf (qI c i))
-    (hb : BodySt sk j index sel w s) (hr : RowsAt c j sel i rows s) (hcoef : CoefAt s coefs) :
+    (hb : BodySt sk j index sel w s) (hr : RowsAt c j sel i rows s) (hcoef : ClaudeWCT.W9.Machine.Sign.SharedReuse.CoefAt s coefs) :
     TBSim im sk s stepC (fChildStep index c j word coefs rows ⟨i, hi⟩) (fun rows' t =>
       t.pc = pcOf (lcEnd c i) ∧ BodySt sk j index sel w t ∧ RowsAt c j sel (i + 1) rows' t ∧
         RegsExcept s t bodyRegs ∧ Frame s t (bodyW c) ∧
@@ -5020,8 +5029,8 @@ variable {im : Image} {sk : BitVec 256}
 /-- Compute six complete FTS chains and retain exactly the selected openings, ending before the new leaf hook. -/
 theorem rows_unit (hcode : Fetch im) {c j index sel w : Nat} {word : WCT9.Rank} {coefs : List Digest}
     (hc : c < 9) (hj : j < 128) (hsel : sel < 128) (hidx : index < 2 ^ 31) (hw : w < 2 ^ 64)
-    (hword : ∀ i : Fin 6, w / 8 ^ i.val % 8 = WCT9.wordDigit word i) (hlen : coefs.length = 54) {s : MachineState}
-    (hpc : s.pc = pcOf (leafI c)) (hb : BodySt sk j index sel w s) (hcoef : CoefAt s coefs) :
+    (hword : ∀ i : Fin 6, w / 8 ^ i.val % 8 = WCT9.wordDigit word i) (hlen : coefs.length = 42) {s : MachineState}
+    (hpc : s.pc = pcOf (leafI c)) (hb : BodySt sk j index sel w s) (hcoef : ClaudeWCT.W9.Machine.Sign.SharedReuse.CoefAt s coefs) :
     TBSim im sk s (6 * stepC) (fChildRows index c j word coefs) (StepInv sk c j index sel w s 6) := by
   rw [fChildRows_fold]
   have h0 : StepInv sk c j index sel w s 0 ([], []) s :=
@@ -5056,12 +5065,12 @@ def coefRegs : List Reg := [.x6, .x7, .x10, .x11, .x12, .x18, .x29]
 def coefW (A : Nat) : Prop := A = PRIVW + 16 ∨ A = PRIVW + 24 ∨ (COEF ≤ A ∧ A < COEF + 864)
 structure CoefInv (im : Image) (c index : Nat) (s0 : MachineState) (j : Nat) (acc : List Digest)
     (t : MachineState) : Prop where
-  pc : t.pc = pcOf (if j < 27 then ecI c else leafI c)
-  run : j < 27 → fetch im t = some (.base .ECALL) ∧ t.getReg .x7 = BitVec.ofNat 64 j ∧
+  pc : t.pc = pcOf (if j < 21 then ecI c else leafI c)
+  run : j < 21 → fetch im t = some (.base .ECALL) ∧ t.getReg .x7 = BitVec.ofNat 64 j ∧
     t.getReg .x10 = BitVec.ofNat 64 PRIVW ∧ t.getReg .x11 = BitVec.ofNat 64 64 ∧
     t.getReg .x12 = BitVec.ofNat 64 (COEF + 32 * j) ∧
     t.getMem (BitVec.ofNat 64 (PRIVW + 24)) = BitVec.ofNat 64 (index + 2 ^ 32 * j)
-  done : 27 ≤ j → t.getReg .x18 = BitVec.ofNat 64 0
+  done : 21 ≤ j → t.getReg .x18 = BitVec.ofNat 64 0
   p16 : t.getMem (BitVec.ofNat 64 (PRIVW + 16)) = BitVec.ofNat 64 (hdr8 c)
   len : acc.length = 2 * j
   coef : ∀ k < 2 * j, DigAt t (COEF + 16 * k) (acc.getD k 0)
@@ -5086,7 +5095,7 @@ theorem coef_step (hcode : Fetch im) {c index : Nat} (hc : c < 9) (hidx : index 
     (p32 : s0.getMem (BitVec.ofNat 64 (PRIVW + 32)) = sk.extractLsb' 128 64)
     (p40 : s0.getMem (BitVec.ofNat 64 (PRIVW + 40)) = sk.extractLsb' 192 64)
     (p48 : s0.getMem (BitVec.ofNat 64 (PRIVW + 48)) = 0) (p56 : s0.getMem (BitVec.ofNat 64 (PRIVW + 56)) = 0)
-    (j : Nat) (hj : j < 27) (acc : List Digest) (t : MachineState) (h : CoefInv im c index s0 j acc t) :
+    (j : Nat) (hj : j < 21) (acc : List Digest) (t : MachineState) (h : CoefInv im c index s0 j acc t) :
     TBSim im sk t coefStepC (coefStep index c acc (0 + j)) (CoefInv im c index s0 (j + 1)) := by
   obtain ⟨ec, x7, x10, x11, x12, m24⟩ := h.run hj
   have gm : ∀ A, A < 2 ^ 64 → ¬ coefW A → t.getMem (BitVec.ofNat 64 A) = s0.getMem (BitVec.ofNat 64 A) :=
@@ -5132,7 +5141,7 @@ theorem coef_step (hcode : Fetch im) {c index : Nat} (hc : c < 9) (hidx : index 
     rcases hA with hA | hA
     · exact hA
     · unfold coefW; right; right; simp only [COEF] at *; omega)
-  by_cases hj1 : j + 1 < 27
+  by_cases hj1 : j + 1 < 21
   · obtain ⟨v, sv, ev, vpc, v7, v10, v11, v12, v24, vregs, vframe⟩ := step_CLc hcode hc u upc
       (by rw [hu, getReg_writeHash]; exact x7) hj1 (by rw [hu, getReg_writeHash]; exact x12)
       (by rw [hu, getReg_writeHash]; exact t22) (by omega)
@@ -5168,8 +5177,8 @@ variable {im : Image} {sk : BitVec 256}
 /-- The unchanged coefficient prologue accepts any prior raw-child counter. -/
 theorem coefs_unit (hcode : Fetch im) {c old index sel w : Nat} (hc:c<9) (hidx:index<2^31)
     {s : MachineState} (hpc:s.pc=pcOf (lwuI c+1)) (hb:BodySt sk old index sel w s) :
-    TBSim im sk s (14+27*coefStepC) (WCT9.ftsCoefs index c) (fun coefs t =>
-      t.pc=pcOf (leafI c) ∧ BodySt sk 0 index sel w t ∧ coefs.length=54 ∧ CoefAt t coefs ∧
+    TBSim im sk s (14+21*coefStepC) (WCT9.ftsCoefs index c) (fun coefs t =>
+      t.pc=pcOf (leafI c) ∧ BodySt sk 0 index sel w t ∧ coefs.length=42 ∧ ClaudeWCT.W9.Machine.Sign.SharedReuse.CoefAt t coefs ∧
       RegsExcept s t coefRegs ∧ Frame s t coefW) := by
   obtain ⟨u,su,ec,upc,x7,x10,x11,x12,m16,m24,ru,fu⟩ := step_Z hcode hc s hpc hb.x22
   have h0 : CoefInv im c index s 0 [] u :=
@@ -5178,7 +5187,7 @@ theorem coefs_unit (hcode : Fetch im) {c old index sel w : Nat} (hc:c<9) (hidx:i
      ru.mono (by simp [coefRegs]),fu.mono (fun A _ hA=>by unfold coefW;rcases hA with h|h<;>simp[h])⟩
   rw [ftsCoefs_eq]
   refine (TBSim.steps su
-    (TBSim.foldlM_range' 0 27 (coefStep index c) [] (CoefInv im c index s) coefStepC
+    (TBSim.foldlM_range' 0 21 (coefStep index c) [] (CoefInv im c index s) coefStepC
       (fun j hj acc t ht=>coef_step hcode hc hidx hb.x5 hb.x22 hb.p0 hb.p8 hb.p32 hb.p40 hb.p48 hb.p56 j hj acc t ht) h0)).mono
       (by omega) (fun coefs t ht=>?_)
   have hp:t.pc=pcOf (leafI c) := by rw[ht.pc,if_neg (by omega)]
@@ -5334,9 +5343,9 @@ theorem child_unit {im : Image} {sk : BitVec 256} (hfetch:SharedReuse.Fetch im)
     {c j index sel w : Nat} {word : WCT9.Rank} {coefs : List Digest} {pad : Digest}
     (hlook:LookOK im (look c)) (hhook:LookOK im (hookLook c))
     (hc:c<9) (hj:j<128) (hsel:sel<128) (hidx:index<2^31) (hw:w<2^64)
-    (hword:∀i:Fin 6,w/8^i.val%8=WCT9.wordDigit word i) (hlen:coefs.length=54)
+    (hword:∀i:Fin 6,w/8^i.val%8=WCT9.wordDigit word i) (hlen:coefs.length=42)
     {s : MachineState} (hpc:s.pc=pcOf (leafI c)) (hb:BodySt sk j index sel w s)
-    (hcoef:CoefAt s coefs) (hpad:PadAt c j pad s) :
+    (hcoef:ClaudeWCT.W9.Machine.Sign.SharedReuse.CoefAt s coefs) (hpad:PadAt c j pad s) :
     TBSim im sk s (6*stepC+49) (WCT9.buildChildH (128+physical c j) index c j word coefs pad) (fun rv t=>
       t.pc=pcOf (hashPc c)+4 ∧ BodySt sk j index sel w t ∧
       t.getReg .x12=BitVec.ofNat 64 (HEAPW+16*(128+physical c j)) ∧
@@ -5443,8 +5452,8 @@ theorem body_with18 {j j' index sel w : Nat} {u v : MachineState} {W : Nat → P
 theorem step (hf:SharedReuse.Fetch im) {c index sel w : Nat} {word : WCT9.Rank} {coefs : List Digest}
     (hl:LookOK im (SharedLeaf.look c)) (hh:LookOK im (SharedLeaf.hookLook c))
     (hn:LookOK im (SharedNext.look c)) (hc:c<9) (hsel:sel<128) (hi:index<2^31) (hw:w<2^64)
-    (hword:∀i:Fin 6,w/8^i.val%8=WCT9.wordDigit word i) (hlen:coefs.length=54)
-    {s0 : MachineState} (hcoef:CoefAt s0 coefs) {pads : Nat→Digest}
+    (hword:∀i:Fin 6,w/8^i.val%8=WCT9.wordDigit word i) (hlen:coefs.length=42)
+    {s0 : MachineState} (hcoef:ClaudeWCT.W9.Machine.Sign.SharedReuse.CoefAt s0 coefs) {pads : Nat→Digest}
     (hpad:∀j,j<128→SharedLeaf.PadAt c (raw c j) (pads j) s0)
     (j : Nat) (hj:j<128) (acc : List Digest×List Digest) (t : MachineState)
     (h:Inv sk c index sel w s0 j acc t) :
@@ -5542,8 +5551,8 @@ theorem Inv.init {c index sel w : Nat} {s0 : MachineState}
 theorem leaf_loop (hf:SharedReuse.Fetch im) {c index sel w : Nat} {word : WCT9.Rank} {coefs : List Digest}
     (hl:LookOK im (SharedLeaf.look c)) (hh:LookOK im (SharedLeaf.hookLook c))
     (hn:LookOK im (SharedNext.look c)) (hc:c<9) (hsel:sel<128) (hi:index<2^31) (hw:w<2^64)
-    (hword:∀i:Fin 6,w/8^i.val%8=WCT9.wordDigit word i) (hlen:coefs.length=54)
-    {s0 : MachineState} (hcoef:CoefAt s0 coefs) {pads : Nat→Digest}
+    (hword:∀i:Fin 6,w/8^i.val%8=WCT9.wordDigit word i) (hlen:coefs.length=42)
+    {s0 : MachineState} (hcoef:ClaudeWCT.W9.Machine.Sign.SharedReuse.CoefAt s0 coefs) {pads : Nat→Digest}
     (hpad:∀j,j<128→SharedLeaf.PadAt c (raw c j) (pads j) s0)
     (h0:Inv sk c index sel w s0 0 ([],[]) s0) :
     TBSim im sk s0 (128*cost) (leafRows index c sel word coefs pads)
@@ -6131,8 +6140,8 @@ theorem rows_heap (hf:SharedReuse.Fetch im) {c index sel w : Nat} {word : WCT9.R
     (hn:LookOK im (SharedNext.look c)) (hnode:LookOK im (SharedNode.look c)) (ht:LookOK im (SharedTail.look c))
     (hg:SharedNode.GrindCode im)
     (hc:c < 9) (hsel:sel < 128) (hi:index < 2^31) (hw:w < 2^64)
-    (hword:∀i:Fin 6,w/8^i.val%8=WCT9.wordDigit word i) (hlen:coefs.length=54)
-    {s : MachineState} (hcoef:CoefAt s coefs) {leftPads rightPads : Nat → Digest}
+    (hword:∀i:Fin 6,w/8^i.val%8=WCT9.wordDigit word i) (hlen:coefs.length=42)
+    {s : MachineState} (hcoef:ClaudeWCT.W9.Machine.Sign.SharedReuse.CoefAt s coefs) {leftPads rightPads : Nat → Digest}
     (hpadL:∀j, j < 128  →  SharedLeaf.PadAt c (SharedNext.raw c j) (leftPads j) s)
     (hpadR:∀h, h < 128  →  SharedNode.PadAt c h (rightPads h) s)
     (hpc:s.pc=pcOf (leafI c)) (hb:BodySt sk 0 index (SharedNext.raw c sel) w s) (hz:SharedNode.SaveZ s) :
@@ -6309,8 +6318,8 @@ theorem rows_finish (hf:SharedReuse.Fetch im) {c index sel w : Nat} {word : WCT9
     (hfinish:LookOK im (SharedFinish.look c)) (hpath:LookOK im (SharedPath.look c)) (hend:LookOK im (SharedEnd.look c))
     (hg:SharedNode.GrindCode im)
     (hc:c < 9) (hsel:sel < 128) (hi:index < 2^31) (hw:w < 2^64)
-    (hword:∀i:Fin 6,w/8^i.val%8=WCT9.wordDigit word i) (hlen:coefs.length=54)
-    {s : MachineState} (hcoef:CoefAt s coefs) {leftPads rightPads : Nat → Digest}
+    (hword:∀i:Fin 6,w/8^i.val%8=WCT9.wordDigit word i) (hlen:coefs.length=42)
+    {s : MachineState} (hcoef:ClaudeWCT.W9.Machine.Sign.SharedReuse.CoefAt s coefs) {leftPads rightPads : Nat → Digest}
     (hpadL:∀j, j < 128 → SharedLeaf.PadAt c (SharedNext.raw c j) (leftPads j) s)
     (hpadR:∀h, h < 128 → SharedNode.PadAt c h (rightPads h) s)
     (hpc:s.pc=pcOf (leafI c)) (hb:BodySt sk 0 index (SharedNext.raw c sel) w s) (hz:SharedNode.SaveZ s) :
@@ -6385,7 +6394,7 @@ theorem coefs_rows_finish (hf:SharedReuse.Fetch im) {c old index sel w : Nat} {w
     (hpadL:∀j, j < 128 → SharedLeaf.PadAt c (SharedNext.raw c j) (leftPads j) s)
     (hpadR:∀h, h < 128 → SharedNode.PadAt c h (rightPads h) s)
     (hpc:s.pc=pcOf (lwuI c+1)) (hb:BodySt sk old index (SharedNext.raw c sel) w s) (hz:SharedNode.SaveZ s) :
-    TBSim im sk s (14+27*coefStepC+(128*SharedLeaves.cost+SharedTree.count c*SharedNode.unitC+110))
+    TBSim im sk s (14+21*coefStepC+(128*SharedLeaves.cost+SharedTree.count c*SharedNode.unitC+110))
       (program index c sel word leftPads rightPads) (fun rv t=>FullOut c index s rv sel t) := by
   unfold program
   refine TBSim.bind (SharedReuse.coefs_unit hf hc hi hpc hb) (fun coefs u hu=>?_)
@@ -6486,7 +6495,7 @@ theorem raw_chosen (c : Nat) (a : BitVec 256) : SharedNext.raw c (chosen c a)=a.
   unfold chosen SharedLeaf.physical SharedNext.raw SharedLeaf.first SharedNext.first
   split_ifs <;> omega
 
-def cost (c : Nat) : Nat := 19+(14+27*SharedReuse.coefStepC+(128*SharedLeaves.cost+SharedTree.count c*SharedNode.unitC+110))
+def cost (c : Nat) : Nat := 19+(14+21*SharedReuse.coefStepC+(128*SharedLeaves.cost+SharedTree.count c*SharedNode.unitC+110))
 
 theorem coordinate (hf:SharedReuse.Fetch im) {c : Nat} (hc:c < 9) (hcode:Code im c)
     (a : BitVec 256) (hrank:rank c a < 563) (s : MachineState) (hpc:s.pc=pcOf (cbase c))
@@ -6761,7 +6770,7 @@ theorem getD_append_new {α : Type} (xs : List α) (v z : α) : (xs++[v]).getD x
   rw[List.getD_eq_getElem?_getD,List.getElem?_append_right (by omega),Nat.sub_self]
   rfl
 
-def forestStepBound : Nat := 19+(14+27*SharedReuse.coefStepC+(128*SharedLeaves.cost+126*SharedNode.unitC+110))
+def forestStepBound : Nat := 19+(14+21*SharedReuse.coefStepC+(128*SharedLeaves.cost+126*SharedNode.unitC+110))
 theorem cost_le (c : Nat) : cost c ≤ forestStepBound := by
   have:=SharedTree.limit_bounds c
   have hm : (127-SharedTail.limit c)*SharedNode.unitC ≤ 126*SharedNode.unitC := Nat.mul_le_mul_right _ (by omega)
@@ -7829,7 +7838,7 @@ theorem one_tbsim {im : Image} (hc : Code im) (he : ExtraCode im)
     (hi : index<2^31) (s : MachineState) (hpc : s.pc=pcOf 22128)
     (h8 : s.getReg .x8=BitVec.ofNat 64 lay.val) (hidx : s.getMem 0x20550=BitVec.ofNat 64 index)
     (hb : Base (cfFlag := cfFlag) sk cache s) (hz : ∀ i,i<43 → s.getByte (BitVec.ofNat 64 (DIGITS+i))=0) :
-    TBSim im sk s (btCost+47) (buildTreePrefixes lay (route index lay).2 (route index lay).1)
+    TBSim im sk s (SharedLowTree.treeCycleBound lay+47) (buildTreePrefixes lay (route index lay).2 (route index lay).1)
       (OnePost (cfFlag := cfFlag) sk cache lay index s) := by
   have h0 : lay.val≠0 := fun h => hlay (Fin.ext h)
   have hl := lay.isLt
@@ -8114,7 +8123,7 @@ theorem prepareRoots_tbsim {im : Image} (hc : Code im) (he : ExtraCode im)
     (hi : index<2^31) (s : MachineState) (hpc : s.pc=pcOf 22128)
     (h8 : s.getReg .x8=1) (hidx : s.getMem 0x20550=BitVec.ofNat 64 index)
     (hb : Base (cfFlag := cfFlag) sk cache s) (hz : ∀ i,i<43 → s.getByte (BitVec.ofNat 64 (DIGITS+i))=0) :
-    TBSim im sk s (3*(btCost+47)) (prepareRoots index) (RootsPost (cfFlag := cfFlag) sk cache index s) := by
+    TBSim im sk s ((2*btCost+3*47)) (prepareRoots index) (RootsPost (cfFlag := cfFlag) sk cache index s) := by
   have r1 := one_tbsim hc he hlow hlevels hsub hcopy hchain hpref hseed hhook
     (lay := 1) (by decide) hi s hpc h8 hidx hb hz
   unfold prepareRoots
@@ -8124,7 +8133,7 @@ theorem prepareRoots_tbsim {im : Image} (hc : Code im) (he : ExtraCode im)
       (fun p2 t2 h2 => TBSim.bind
         (one_tbsim hc he hlow hlevels hsub hcopy hchain hpref hseed hhook
           (lay := 3) (by decide) hi t2 (by simpa using h2.pc) h2.layer h2.indexMem h2.base h2.zero)
-        (fun p3 t3 h3 => TBSim.pure ?_)))) (by omega) (fun _ _ h => h)
+        (fun p3 t3 h3 => TBSim.pure ?_)))) (by simpa only [Nat.add_zero] using SharedLowTree.treeCycleBound_total) (fun _ _ h => h)
   refine ⟨by simpa using h3.pc,by simpa using h3.layer,h3.base,h3.indexMem,?_,?_,h3.stored,?_,?_⟩
   · exact (h1.stored.after (by decide) (by decide) (by decide) h2).after
       (by decide) (by decide) (by decide) h3
@@ -8458,7 +8467,7 @@ theorem entry_roots_tbsim {im : Image} (hc : Code im) (he : ExtraCode im)
     (forest : Digest×Digest) (s : MachineState) (hpc : s.pc=pcOf 22100)
     (hidx : s.getMem 0x20550=BitVec.ofNat 64 index) (hb : Base (cfFlag := cfFlag) sk cache s)
     (hl : DigAt s ENC forest.1) (hr : DigAt s (ENC+48) forest.2) :
-    TBSim im sk s (28+3*(btCost+47)) (prepareRoots index) (BuiltPost (cfFlag := cfFlag) sk cache index forest s) := by
+    TBSim im sk s (28+(2*btCost+3*47)) (prepareRoots index) (BuiltPost (cfFlag := cfFlag) sk cache index forest s) := by
   obtain ⟨a,sa,ap,a8,al,ar,az,ad,ars,af⟩ := entry_steps he s hpc forest.1 forest.2 hl hr
   have af' : Frame s a EntryWrites := af.mono (by unfold EntryWrites; intros A hA h; exact h)
   have abase : Base (cfFlag := cfFlag) sk cache a := hb.frame af' ars (by decide) (by
@@ -8530,26 +8539,27 @@ set_option maxHeartbeats 2000000
 set_option maxRecDepth 100000
 def cst (n : Nat) : E := .c (BitVec.ofNat 64 n)
 def rfs (l : List (Reg × E)) : RegFile := l.foldl (fun rf p => rf.set p.1 p.2) RegFile.init
-def thCode : List (BitVec 32) := bv_list% 32 [0xfff40313,0x30e63,0xffe40313,0xc030c63,0x1700313,0x1c6a7263,0x14c0106f,0x1c00006f,0x3700313,0x1a6a7a63,0xe93,0x313,0x1a6a6663,0x100e93,0x313,0x1a6a6063,0x200e93,0x313,0x186a6a63,0x300e93,0x313,0x186a6463,0x400e93,0x313,0x166a6e63,0x500e93,0x313,0x166a6863,0x600e93,0x2f00313,0x166a6263,0x700e93,0x2f00313,0x146a6c63,0x800e93,0x2f00313,0x146a6663,0x900e93,0x2f00313,0x146a6063,0xa00e93,0x3300313,0x126a6a63,0xb00e93,0x3300313,0x126a6463,0xc00e93,0x3500313,0x106a6e63,0xd00e93,0x3500313,0x106a6863,0xe00e93,0x3700313,0x106a6263,0xf00e93,0xfc0006f,0x2900313,0xe6a7863,0xe93,0x313,0xe6a6463,0x100e93,0x313,0xc6a6e63,0x200e93,0x313,0xc6a6863,0x300e93,0x313,0xc6a6263,0x400e93,0x313,0xa6a6c63,0x500e93,0x313,0xa6a6663,0x600e93,0x1d00313,0xa6a6063,0x700e93,0x1d00313,0x86a6a63,0x800e93,0x1d00313,0x86a6463,0x900e93,0x1d00313,0x66a6e63,0xa00e93,0x2000313,0x66a6863,0xb00e93,0x2000313,0x66a6263,0xc00e93,0x2200313,0x46a6c63,0xd00e93,0x2200313,0x46a6663,0xe00e93,0x2500313,0x46a6063,0xf00e93,0x2500313,0x26a6a63,0x1000e93,0x2700313,0x26a6463,0x1100e93,0x2700313,0x6a6e63,0x1200e93,0x140006f,0x13,0x13,0x13,0x945fd06f,0xf44fd06f]
+def thCode : List (BitVec 32) := bv_list% 32 [0xfff40313,0x30e63,0xffe40313,0xc030c63,0x1800313,0x1c6a7263,0x14c0106f,0x1c00006f,0x3a00313,0x1a6a7a63,0xe93,0x313,0x1a6a6663,0x100e93,0x313,0x1a6a6063,0x200e93,0x313,0x186a6a63,0x300e93,0x313,0x186a6463,0x400e93,0x313,0x166a6e63,0x500e93,0x313,0x166a6863,0x600e93,0x3000313,0x166a6263,0x700e93,0x3000313,0x146a6c63,0x800e93,0x3000313,0x146a6663,0x900e93,0x3000313,0x146a6063,0xa00e93,0x3000313,0x126a6a63,0xb00e93,0x3500313,0x126a6463,0xc00e93,0x3500313,0x106a6e63,0xd00e93,0x3500313,0x106a6863,0xe00e93,0x3800313,0x106a6263,0x1000e93,0xfc0006f,0x2a00313,0xe6a7863,0xe93,0x313,0xe6a6463,0x100e93,0x313,0xc6a6e63,0x200e93,0x313,0xc6a6863,0x300e93,0x313,0xc6a6263,0x400e93,0x313,0xa6a6c63,0x500e93,0x313,0xa6a6663,0x600e93,0x1d00313,0xa6a6063,0x700e93,0x1d00313,0x86a6a63,0x800e93,0x1d00313,0x86a6463,0x900e93,0x1d00313,0x66a6e63,0xa00e93,0x2000313,0x66a6863,0xb00e93,0x2000313,0x66a6263,0xc00e93,0x2300313,0x46a6c63,0xd00e93,0x2300313,0x46a6663,0xe00e93,0x2500313,0x46a6063,0xf00e93,0x2500313,0x26a6a63,0x1000e93,0x2800313,0x26a6463,0x1100e93,0x2800313,0x6a6e63,0x1200e93,0x140006f,0x13,0x13,0x13,0x945fd06f,0xf44fd06f]
 /-- The img-v6 threshold routine `th` (appended, 24851..24970): `t4 := threshold(s0, s4)`; L1 cascade at 24859
-(residual < 55), L2 at 24908 (residual < 41), L3 at 24855 (residual < 23; Y5: the floor routine `l3` at 25964..25971,
+(residual < 58), L2 at 24908 (residual < 42), L3 at 24855 (residual < 24; Y5: the floor routine `l3` at 25964..25971,
 `t4 := lowerThreeFloor residual`), failure 24969 (`jal 22490`), result 24970 (`jal 22363`). -/
-def l3Code : List (BitVec 32) := bv_list% 32 [0xa0e93,0x900313,0x6a7a63,0x900e93,0x700313,0x6a7463,0x600e93,0x85cff06f]
+def l3Code : List (BitVec 32) := bv_list% 32 [0xa0e93,0x900313,0x6a7a63,0x900e93,0x700313,0x6a7463,0x600e93,0x2380006f,0x66f37,0xf3f03,0x21100593,0x2bf5633,0x2bf7f33,0x1700593,0x2bf56b3,0x2bf7733,0x300793,0xa63e13,0x41c787b3,0xc63e13,0x41c787b3,0xe63e13,0x41c787b3,0x500593,0xa6be13,0x41c585b3,0xc6be13,0x41c585b3,0xe6be13,0x41c585b3,0x106be13,0x41c585b3,0x126be13,0x41c585b3,0xff870713,0xf73e13,0x3c70733,0x600e13,0x3c787b3,0xb787b3,0xf00e13,0x3c787b3,0xe78f33,0xdb9ff06f,0x13,0x13,0x13,0x13,0x13,0x13,0x13,0x1200e93,0x66f37,0x18f3f03,0x815e806f,0x18e3383,0x20e37,0x550e3e03,0xce5e13,0x7e7e13,0x2e00193,0x1c1de33,0x1e7e13,0x63b1b3,0x3e7e33,0x1c383b3,0x66e37,0xcacfc06f,0x18e3383,0x100193,0x340863,0x200193,0x2340c63,0xffcfc06f,0x20e37,0x550e3e03,0x6e5e13,0x3e7e13,0x1e5193,0x3e4e33,0x1e7e13,0x63b1b3,0x3e7e33,0x1c383b3,0x66e37,0xfccfc06f,0x20e37,0x550e3e03,0x3e7e13,0x1e5193,0x3e4e33,0x1e7e13,0x63b1b3,0x3e7e33,0x1c383b3,0x66e37,0xfa0fc06f,0xa80006f,0x13,0x13,0x69e463,0x80006f,0xb00e706f,0xfd0e706f,0xffae0e13,0x1e3e13,0x3fe1e13,0xfff00a13,0x1a5a13,0x700a93,0x35a5a33,0x135e93,0x235f13,0x1eefeb3,0xfff34f13,0x1eefeb3,0x14efeb3,0x1de6e33,0x13de93,0x23df13,0x1eefeb3,0xfff3cf13,0x1eefeb3,0x14efeb3,0x1e9e93,0x1de6e33,0xfffe0e93,0x1de7e33,0xffd40f13,0x663,0xfffe0e93,0x1de7e33,0xfffe0e93,0x1de7e33,0xfffe0e93,0x1de7e33,0xe0463,0xdadfa06f,0xff4e706f,0x143313,0x31a63,0x343313,0x31a63,0x360337,0xf51ff06f,0x200337,0xf49ff06f,0x1c0337,0xf41ff06f,0xaec313,0x133313,0x6e8eb3,0xe19fe06f]
 def lookT (n : Nat) : Option (BitVec 32) :=
   if 25964 ≤ n then l3Code[n-25964]? else if 24851 ≤ n then thCode[n-24851]? else none
-def ends1 : List Nat := [0, 0, 0, 0, 0, 0, 47, 47, 47, 47, 51, 51, 53, 53, 55]
-def ends2 : List Nat := [0, 0, 0, 0, 0, 0, 29, 29, 29, 29, 32, 32, 34, 34, 37, 37, 39, 39]
+def ends1 : List Nat := [0, 0, 0, 0, 0, 0, 48, 48, 48, 48, 48, 53, 53, 53, 56]
+def ends2 : List Nat := [0, 0, 0, 0, 0, 0, 29, 29, 29, 29, 32, 32, 35, 35, 37, 37, 40, 40]
 def dirs (m v : Nat) : List Dir := [.br false] ++ List.replicate v (.br false) ++ (if v < m then [.br true] else [])
+def resFloor (m v : Nat) : Nat := if m=15 ∧ v=15 then 16 else v
 def resL (ends : List Nat) (m bound v : Nat) : PRes :=
-  ⟨⟨rfs [(.x6,cst (ends.getD (if v < m then v else m-1) 0)),(.x29,cst v)],[],[]⟩,pcOf 22363,false,
+  ⟨⟨rfs [(.x6,cst (ends.getD (if v < m then v else m-1) 0)),(.x29,cst (resFloor m v))],[],[]⟩,pcOf 22363,false,
     (if v < m then 6+3*v else 5+3*m),(if v < m then 6+3*v else 5+3*m),
     (if v < m then [⟨.ltu,.reg .x20,cst (ends.getD v 0),true⟩] else []) ++
     ((List.range v).reverse.map (fun i => ⟨.ltu,.reg .x20,cst (ends.getD i 0),false⟩)) ++
     [⟨.geu,.reg .x20,cst bound,false⟩],none⟩
 theorem checked1 : (List.range 16).all (fun v =>
-    optBeq (run lookT [22363] 24859 (dirs 15 v)) (resL ends1 15 55 v)) = true := by decide +kernel
+    optBeq (run lookT [22363] 24859 (dirs 15 v)) (resL ends1 15 58 v)) = true := by decide +kernel
 theorem checked2 : (List.range 19).all (fun v =>
-    optBeq (run lookT [22363] 24908 (dirs 18 v)) (resL ends2 18 41 v)) = true := by decide +kernel
+    optBeq (run lookT [22363] 24908 (dirs 18 v)) (resL ends2 18 42 v)) = true := by decide +kernel
 theorem code_lookT {im : Image} (hc : CodeAt im (pcOf 24851) thCode) (hl : CodeAt im (pcOf 25964) l3Code) :
     LookOK im lookT := by
   intro n w hw
@@ -8582,7 +8592,7 @@ theorem floorL_steps {im : Image} (hc : CodeAt im (pcOf 24851) thCode) (hl : Cod
     (hlower : ∀ i,i < v → ends.getD i 0≤r)
     (h20 : s.getReg .x20=BitVec.ofNat 64 r) :
     ∃ t k, Steps im s k k t ∧ k≤5+3*m ∧ t.pc=pcOf 22363 ∧
-      t.getReg .x29=BitVec.ofNat 64 v ∧ RegsExcept s t [.x6,.x29] ∧ Frame s t (fun _ => False) := by
+      t.getReg .x29=BitVec.ofNat 64 (resFloor m v) ∧ RegsExcept s t [.x6,.x29] ∧ Frame s t (fun _ => False) := by
   have hh := optBeq_eq (List.all_eq_true.mp hchk v (List.mem_range.mpr (by omega)))
   have hob : ∀ o∈(resL ends m bound v).st.obl,o.holds s := by simp [resL]
   have hbr : ∀ b∈(resL ends m bound v).brs,b.holds s := by
@@ -8648,22 +8658,23 @@ def dispACode : List (BitVec 32) := bv_list% 32 [0xfff40313,0x30e63]
 sym_block dispA := symRun { noAlias := true } dispACode (pcOf 24851) 100
 def selectBCode : List (BitVec 32) := bv_list% 32 [0xffe40313,0xc030c63]
 sym_block selectB := symRun { noAlias := true } selectBCode (pcOf 24853) 100
-def guard3Code : List (BitVec 32) := bv_list% 32 [0x1700313,0x1c6a7263]
+def guard3Code : List (BitVec 32) := bv_list% 32 [0x1800313,0x1c6a7263]
 sym_block guard3 := symRun { noAlias := true } guard3Code (pcOf 24855) 100
 /-- Y5: word 24857 jumps to the L3 floor routine (25964..25971), which returns to 24970. -/
+def correction (v : E) : E := .bin .sltu (.bin .xor v (cst 10)) (cst 1)
 def l3Res (v : Nat) : PRes :=
   if v ≥ 9 then
-    ⟨⟨rfs [(.x29,.reg .x20),(.x6,cst 9)],[],[]⟩,pcOf 22363,false,6,6,
+    ⟨⟨rfs [(.x29,.bin .add (.reg .x20) (correction (.reg .x20))),(.x6,correction (.reg .x20))],[],[]⟩,pcOf 22363,false,10,10,
       [⟨.geu,.reg .x20,cst 9,true⟩],none⟩
   else if v ≥ 7 then
-    ⟨⟨rfs [(.x29,cst 9),(.x6,cst 7)],[],[]⟩,pcOf 22363,false,9,9,
+    ⟨⟨rfs [(.x29,cst 9),(.x6,cst 0)],[],[]⟩,pcOf 22363,false,13,13,
       [⟨.geu,.reg .x20,cst 7,true⟩,⟨.geu,.reg .x20,cst 9,false⟩],none⟩
   else
-    ⟨⟨rfs [(.x29,cst 6),(.x6,cst 7)],[],[]⟩,pcOf 22363,false,10,10,
+    ⟨⟨rfs [(.x29,cst 6),(.x6,cst 0)],[],[]⟩,pcOf 22363,false,14,14,
       [⟨.geu,.reg .x20,cst 7,false⟩,⟨.geu,.reg .x20,cst 9,false⟩],none⟩
 def l3Dirs (v : Nat) : List Dir :=
   if v ≥ 9 then [.br true] else if v ≥ 7 then [.br false,.br true] else [.br false,.br false]
-theorem checked3 : (List.range 23).all (fun v =>
+theorem checked3 : (List.range 24).all (fun v =>
     optBeq (run lookT [22363] 24857 (l3Dirs v)) (l3Res v)) = true := by decide +kernel
 def finCode : List (BitVec 32) := bv_list% 32 [0xf44fd06f]
 sym_block fin := symRun { noAlias := true } finCode (pcOf 24970) 100
@@ -8701,7 +8712,7 @@ theorem selectB_steps {im : Image} (hc : CodeAt im (pcOf 24853) selectBCode)
   · intro A hA hn;rfl
 
 theorem guard3_steps {im : Image} (hc : CodeAt im (pcOf 24855) guard3Code)
-    (s : MachineState) (hp : s.pc=pcOf 24855) (r : Nat) (hr : r<23)
+    (s : MachineState) (hp : s.pc=pcOf 24855) (r : Nat) (hr : r<24)
     (h20 : s.getReg .x20=BitVec.ofNat 64 r) :
     ∃ t,Steps im s 2 2 t ∧ t.pc=pcOf 24857 ∧ RegsExcept s t [.x6] ∧ Frame s t (fun _ => False) := by
   refine ⟨_,symRun_sound guard3 hc s hp (by simp [guard3.res,rv_simp]),?_,?_,?_⟩
@@ -8711,10 +8722,10 @@ theorem guard3_steps {im : Image} (hc : CodeAt im (pcOf 24855) guard3Code)
 
 /-- Y5: from 24857 the L3 floor routine sets `t4 := lowerThreeFloor r` and returns through 24970 to 22363. -/
 theorem return3_steps {im : Image} (hc : CodeAt im (pcOf 24851) thCode) (hl : CodeAt im (pcOf 25964) l3Code)
-    (s : MachineState) (hp : s.pc=pcOf 24857) (r : Nat) (hr : r<23)
+    (s : MachineState) (hp : s.pc=pcOf 24857) (r : Nat) (hr : r<24)
     (h20 : s.getReg .x20=BitVec.ofNat 64 r) :
-    ∃ t k,Steps im s k k t ∧ k≤10 ∧ t.pc=pcOf 22363 ∧
-      t.getReg .x29=BitVec.ofNat 64 (ClaudeWCT.WCT9.CanonicalPolicy.lowerThreeFloor r) ∧
+    ∃ t k,Steps im s k k t ∧ k≤14 ∧ t.pc=pcOf 22363 ∧
+      t.getReg .x29=BitVec.ofNat 64 (ClaudeWCT.WCT9.Policy75Safe23.lowerThreeFloor r) ∧
       RegsExcept s t [.x6,.x29] ∧ Frame s t (fun _ => False) := by
   have hh := optBeq_eq (List.all_eq_true.mp checked3 r (List.mem_range.mpr hr))
   have hr64 : r < 2^64 := by omega
@@ -8732,10 +8743,10 @@ theorem return3_steps {im : Image} (hc : CodeAt im (pcOf 24851) thCode) (hl : Co
   refine ⟨(l3Res r).toState s,_,hrun,?_,?_,?_,?_,?_⟩
   · unfold l3Res; split_ifs <;> decide
   · unfold l3Res; split_ifs <;> rfl
-  · unfold l3Res ClaudeWCT.WCT9.CanonicalPolicy.lowerThreeFloor
-    split_ifs <;> first | omega |
-      (simp only [PRes.toState,SymState.toState_getReg,rfs,cst,List.foldl]
-       rw [RegFile.get_set_ne _ _ (by decide), RegFile.get_set_self _ _ (by decide)]; simp [E.eval,h20]; done)
+  · interval_cases r <;>
+      simp [l3Res,correction,ClaudeWCT.WCT9.Policy75Safe23.lowerThreeFloor,PRes.toState,
+        SymState.toState_getReg,rfs,RegFile.get_set_ne,RegFile.get_set_self,
+        E.eval,cst,BinOp.eval,h20]
   · intro q hq; unfold l3Res; split_ifs <;> (cases q <;> simp at hq <;> rfl)
   · intro A hA hn; unfold l3Res; split_ifs <;> rfl
 
@@ -8754,12 +8765,14 @@ open SigGolfCandidate.T3M.Keygen
 open ClaudeWCT.WCT9
 set_option maxHeartbeats 2000000
 set_option maxRecDepth 100000
-theorem threshold1_range : ∀ r,r<55 →
-    CanonicalPolicy.threshold 1 r≤15 ∧ (CanonicalPolicy.threshold 1 r<15 → r<ends1.getD (CanonicalPolicy.threshold 1 r) 0) ∧
-      ∀ i,i<CanonicalPolicy.threshold 1 r → ends1.getD i 0≤r := by decide +kernel
-theorem threshold2_range : ∀ r,r<41 →
-    CanonicalPolicy.threshold 2 r≤18 ∧ (CanonicalPolicy.threshold 2 r<18 → r<ends2.getD (CanonicalPolicy.threshold 2 r) 0) ∧
-      ∀ i,i<CanonicalPolicy.threshold 2 r → ends2.getD i 0≤r := by decide +kernel
+def index1 (r : Nat) : Nat := min (ClaudeWCT.WCT9.Policy75Safe23.threshold 1 r) 15
+theorem threshold1_range : ∀ r,r<58 →
+    index1 r≤15 ∧ (index1 r<15 → r<ends1.getD (index1 r) 0) ∧
+      (∀ i : Nat, i < index1 r → ends1.getD i 0≤r) ∧
+      resFloor 15 (index1 r)=ClaudeWCT.WCT9.Policy75Safe23.threshold 1 r := by decide +kernel
+theorem threshold2_range : ∀ r,r<42 →
+    ClaudeWCT.WCT9.Policy75Safe23.threshold 2 r≤18 ∧ (ClaudeWCT.WCT9.Policy75Safe23.threshold 2 r<18 → r<ends2.getD (ClaudeWCT.WCT9.Policy75Safe23.threshold 2 r) 0) ∧
+      ∀ i,i<ClaudeWCT.WCT9.Policy75Safe23.threshold 2 r → ends2.getD i 0≤r := by decide +kernel
 theorem ends1_lt : ∀ i, i<15 → ends1.getD i 0<2^64 := by decide +kernel
 theorem ends2_lt : ∀ i, i<18 → ends2.getD i 0<2^64 := by decide +kernel
 
@@ -8774,11 +8787,11 @@ structure DispatchCode (im : Image) : Prop where
 
 theorem threshold_steps {im : Image} (hc : DispatchCode im)
     (s : MachineState) (hp : s.pc=pcOf 22240) (lay r : Nat) (hl : 1≤lay ∧ lay≤3)
-    (hr : r < if lay=1 then 55 else if lay=2 then 41 else 23)
+    (hr : r < if lay=1 then 58 else if lay=2 then 42 else 24)
     (h8 : s.getReg .x8=BitVec.ofNat 64 lay)
     (hrm : s.getMem (0x66008#64)=BitVec.ofNat 64 r) :
     ∃ t k,Steps im s k k t ∧ k≤70 ∧ t.pc=pcOf 22363 ∧
-      t.getReg .x29=BitVec.ofNat 64 (CanonicalPolicy.threshold lay r) ∧
+      t.getReg .x29=BitVec.ofNat 64 (ClaudeWCT.WCT9.Policy75Safe23.threshold lay r) ∧
       RegsExcept s t [.x6,.x20,.x28,.x29] ∧ Frame s t (fun _ => False) := by
   obtain ⟨a,sa,ap,a20,ar,af⟩ := selectA_steps hc.selectA s hp r hrm
   have a8 := (ar.get (by decide : RiscvZkvm.Rv64.Reg.x8 ∉ [.x20,.x28])).trans h8
@@ -8788,28 +8801,28 @@ theorem threshold_steps {im : Image} (hc : DispatchCode im)
   rcases hl with ⟨hlo,hhi⟩
   interval_cases lay
   · have ht := threshold1_range r (by simpa using hr)
-    obtain ⟨t,k,bt,hk,tp,t29,tr,tf⟩ := floorL_steps hc.th hc.l3 ends1 15 55 24859 checked1 (by decide) rfl ends1_lt
-      (by decide) b (by simpa using bp) r _ ht.1 (by simpa using hr) ht.2.1 ht.2.2 b20
-    exact ⟨t,4+2+k,(sa.trans ab).trans bt,by omega,tp,t29,((ar.trans br).trans tr).mono (by simp),
+    obtain ⟨t,k,bt,hk,tp,t29,tr,tf⟩ := floorL_steps hc.th hc.l3 ends1 15 58 24859 checked1 (by decide) rfl ends1_lt
+      (by decide) b (by simpa using bp) r _ ht.1 (by simpa using hr) ht.2.1 ht.2.2.1 b20
+    exact ⟨t,4+2+k,(sa.trans ab).trans bt,by omega,tp,by simpa only [ht.2.2.2] using t29,((ar.trans br).trans tr).mono (by simp),
       ((af.trans bf).trans tf).mono (by tauto)⟩
   · obtain ⟨c,bc,cp,cr,cf⟩ := selectB_steps hc.selectB b (by simpa using bp) 2 (by simp) b8
     have c20 := (cr.get (by decide : RiscvZkvm.Rv64.Reg.x20 ∉ [.x6])).trans b20
     have ht := threshold2_range r (by simpa using hr)
-    obtain ⟨t,k,ct,hk,tp,t29,tr,tf⟩ := floorL_steps hc.th hc.l3 ends2 18 41 24908 checked2 (by decide) rfl ends2_lt
+    obtain ⟨t,k,ct,hk,tp,t29,tr,tf⟩ := floorL_steps hc.th hc.l3 ends2 18 42 24908 checked2 (by decide) rfl ends2_lt
       (by decide) c (by simpa using cp) r _ ht.1 (by simpa using hr) ht.2.1 ht.2.2 c20
-    exact ⟨t,4+2+2+k,((sa.trans ab).trans bc).trans ct,by omega,tp,t29,
+    exact ⟨t,4+2+2+k,((sa.trans ab).trans bc).trans ct,by omega,tp,by simpa only [resFloor,show (18:Nat)≠15 by decide, false_and,if_false] using t29,
       (((ar.trans br).trans cr).trans tr).mono (by simp),(((af.trans bf).trans cf).trans tf).mono (by tauto)⟩
   · obtain ⟨c,bc,cp,cr,cf⟩ := selectB_steps hc.selectB b (by simpa using bp) 3 (by simp) b8
     have c20 := (cr.get (by decide : RiscvZkvm.Rv64.Reg.x20 ∉ [.x6])).trans b20
     obtain ⟨d,cd,dp,dr,df⟩ := guard3_steps hc.guard3 c (by simpa using cp) r (by simpa using hr) c20
     have d20 := (dr.get (by decide : RiscvZkvm.Rv64.Reg.x20 ∉ [.x6])).trans c20
-    have hr3 : r < 23 := by simpa using hr
+    have hr3 : r < 24 := by simpa using hr
     obtain ⟨t,k,dt,hk,tp,t29,tr,tf⟩ := return3_steps hc.th hc.l3 d dp r hr3 d20
     refine ⟨t,4+2+2+2+k,(((sa.trans ab).trans bc).trans cd).trans dt,by omega,tp,?_,
       ((((ar.trans br).trans cr).trans dr).trans tr).mono (by simp),
       ((((af.trans bf).trans cf).trans df).trans tf).mono (by tauto)⟩
     rw [t29]
-    simp [CanonicalPolicy.threshold,show r≤22 by omega]
+    simp [ClaudeWCT.WCT9.Policy75Safe23.threshold,show r≤23 by omega]
 end SigGolfCandidate.T3M.Sign.SharedFloor
 
 namespace SigGolfCandidate.T3M.Sign.SharedHints
@@ -8817,9 +8830,9 @@ open RiscvZkvm.Rv64 SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv SigGol
 open SigGolfCandidate.T3M.Keygen
 set_option maxHeartbeats 2000000
 set_option maxRecDepth 100000
-def firstCode : List (BitVec 32) := bv_list% 32 [0x66e37,0xe0e13,0x1de3823,0xe3303,0x21100393,0xfff40f13,0xf0a63]
+def firstCode : List (BitVec 32) := bv_list% 32 [0x66e37,0xe0e13,0x1de3823,0xe3303,0x24000393,0xfff40f13,0xf0a63]
 sym_block first := symRun { noAlias := true } firstCode (pcOf 22363) 100
-def secondCode : List (BitVec 32) := bv_list% 32 [0x1700393,0xffe40f13,0xf0463]
+def secondCode : List (BitVec 32) := bv_list% 32 [0x1800393,0xffe40f13,0xf0463]
 sym_block second := symRun { noAlias := true } secondCode (pcOf 22370) 100
 def thirdCode : List (BitVec 32) := bv_list% 32 [0x100393]
 sym_block third := symRun { noAlias := true } thirdCode (pcOf 22373) 100
@@ -8831,7 +8844,7 @@ theorem first_steps {im : Image} (hc : CodeAt im (pcOf 22363) firstCode)
     (h8 : s.getReg .x8=BitVec.ofNat 64 lay) (h29 : s.getReg .x29=BitVec.ofNat 64 f)
     (hm : s.getMem (0x66000#64)=BitVec.ofNat 64 h) :
     ∃ t,Steps im s 7 7 t ∧ t.pc=(if lay=1 then pcOf 22374 else pcOf 22370) ∧
-      t.getReg .x6=BitVec.ofNat 64 h ∧ t.getReg .x7=529 ∧ t.getReg .x28=0x66000 ∧
+      t.getReg .x6=BitVec.ofNat 64 h ∧ t.getReg .x7=576 ∧ t.getReg .x28=0x66000 ∧
       t.getMem (0x66010#64)=BitVec.ofNat 64 f ∧
       RegsExcept s t [.x3,.x6,.x7,.x28,.x30] ∧ Frame s t (fun A => A=0x66010) := by
   refine ⟨_,symRun_sound first hc s hp (by simp [first.res,rv_simp];try decide),?_,?_,?_,?_,?_,?_,?_⟩
@@ -8849,7 +8862,7 @@ theorem second_steps {im : Image} (hc : CodeAt im (pcOf 22370) secondCode)
     (s : MachineState) (hp : s.pc=pcOf 22370) (lay : Nat) (hl : lay=2 ∨ lay=3)
     (h8 : s.getReg .x8=BitVec.ofNat 64 lay) :
     ∃ t,Steps im s 3 3 t ∧ t.pc=(if lay=2 then pcOf 22374 else pcOf 22373) ∧
-      t.getReg .x7=23 ∧ RegsExcept s t [.x7,.x30] ∧ Frame s t (fun _ => False) := by
+      t.getReg .x7=24 ∧ RegsExcept s t [.x7,.x30] ∧ Frame s t (fun _ => False) := by
   refine ⟨_,symRun_sound second hc s hp (by simp [second.res,rv_simp]),?_,?_,?_,?_⟩
   · rcases hl with rfl|rfl <;> simp [second.res,rv_simp,h8]
   · simp [second.res,rv_simp]
@@ -8895,8 +8908,8 @@ structure Code (im : Image) : Prop where
   third : CodeAt im (pcOf 22373) thirdCode
   add : CodeAt im (pcOf 22374) addHintCode
 
-/-- Hint weight of layer `lay` (img-v4/v6 radix 484 / 22 / 1; Y5: 529 / 23 / 1). -/
-def hintWeight (lay : Nat) : Nat := if lay = 1 then 529 else if lay = 2 then 23 else 1
+/-- Hint weight of layer `lay` (img-v4/v6 radix 484 / 22 / 1; Y5: 576 / 24 / 1). -/
+def hintWeight (lay : Nat) : Nat := if lay = 1 then 576 else if lay = 2 then 24 else 1
 theorem steps {im : Image} (hc : Code im) (s : MachineState) (hp : s.pc=pcOf 22363)
     (lay h f : Nat) (hl : 1≤lay ∧ lay≤3)
     (h8 : s.getReg .x8=BitVec.ofNat 64 lay) (h29 : s.getReg .x29=BitVec.ofNat 64 f)
@@ -8910,12 +8923,12 @@ theorem steps {im : Image} (hc : Code im) (s : MachineState) (hp : s.pc=pcOf 223
   have a29 := (ar.get (by decide : Reg.x29 ∉ [.x3,.x6,.x7,.x28,.x30])).trans h29
   rcases hl with ⟨hlo,hhi⟩
   interval_cases lay
-  · obtain ⟨t,aToT,tp,tm,tr,tf⟩ := add_steps hc.add a (by simpa using ap) h f 529 a6 a7 a29 a28
+  · obtain ⟨t,aToT,tp,tm,tr,tf⟩ := add_steps hc.add a (by simpa using ap) h f 576 a6 a7 a29 a28
     exact ⟨t,10,sa.trans aToT,by decide,tp,by simpa [hintWeight] using tm,
       (tf.get (A:=0x66010) (by decide) (by decide)).trans am,
       (ar.trans tr).mono (by simp),(af.trans tf).mono (by tauto)⟩
   · obtain ⟨b,ab,bp,b7,br,bf⟩ := second_steps hc.second a (by simpa using ap) 2 (by simp) a8
-    obtain ⟨t,bt,tp,tm,tr,tf⟩ := add_steps hc.add b (by simpa using bp) h f 23
+    obtain ⟨t,bt,tp,tm,tr,tf⟩ := add_steps hc.add b (by simpa using bp) h f 24
       ((br.get (by decide)).trans a6) b7 ((br.get (by decide)).trans a29) ((br.get (by decide)).trans a28)
     exact ⟨t,13,sa.trans (ab.trans bt),by decide,tp,by simpa [hintWeight] using tm,
       (tf.get (A:=0x66010) (by decide) (by decide)).trans ((bf.get (by decide) (by simp)).trans am),
@@ -9303,8 +9316,8 @@ structure CallPost (lay index residual hints : Nat) (s t : MachineState) : Prop 
   leftHi : t.getMem (BitVec.ofNat 64 (ENC+8))=s.getMem (BitVec.ofNat 64 (0x66048+32*lay))
   rightLo : t.getMem (BitVec.ofNat 64 (ENC+48))=s.getMem (BitVec.ofNat 64 (0x66050+32*lay))
   rightHi : t.getMem (BitVec.ofNat 64 (ENC+56))=s.getMem (BitVec.ofNat 64 (0x66058+32*lay))
-  floor : t.getMem (0x66010#64)=BitVec.ofNat 64 (ClaudeWCT.WCT9.CanonicalPolicy.threshold lay residual)
-  hints : t.getMem (0x66000#64)=BitVec.ofNat 64 (hints+SharedHints.hintWeight lay*ClaudeWCT.WCT9.CanonicalPolicy.threshold lay residual)
+  floor : t.getMem (0x66010#64)=BitVec.ofNat 64 (ClaudeWCT.WCT9.Policy75Safe23.threshold lay residual)
+  hints : t.getMem (0x66000#64)=BitVec.ofNat 64 (hints+SharedHints.hintWeight lay*ClaudeWCT.WCT9.Policy75Safe23.threshold lay residual)
   layer : t.getReg .x8=BitVec.ofNat 64 lay
   regs : RegsExcept s t [.x1,.x3,.x6,.x7,.x9,.x14,.x15,.x17,.x18,.x20,.x26,.x27,.x28,.x29,.x30]
   frame : Frame s t (fun A => A=0x66000 ∨ A=0x66010 ∨ A=ENC ∨ A=ENC+8 ∨ A=ENC+48 ∨ A=ENC+56)
@@ -9313,7 +9326,7 @@ structure CallPost (lay index residual hints : Nat) (s t : MachineState) : Prop 
 theorem call_steps {im : Image} (hf : SharedFloor.DispatchCode im) (hh : SharedHints.Code im)
     (hc : SharedLowerRegisters.Code im) (s : MachineState) (hp : s.pc=pcOf 22240)
     (lay index residual hints : Nat) (hl : 1≤lay ∧ lay≤3) (hi : index<2^31)
-    (hr : residual < if lay=1 then 55 else if lay=2 then 41 else 23)
+    (hr : residual < if lay=1 then 58 else if lay=2 then 42 else 24)
     (h8 : s.getReg .x8=BitVec.ofNat 64 lay)
     (hidx : s.getMem (0x20550#64)=BitVec.ofNat 64 index)
     (hrm : s.getMem (0x66008#64)=BitVec.ofNat 64 residual)
@@ -9561,7 +9574,7 @@ theorem Tables.frame {s t : MachineState} {W : Nat→Prop} {regs : List Reg}
   · exact h.t51.frame hf (by decide) (by decide) (fun k hk => hw _ (Or.inr (Or.inl (by unfold TOP_DATA;omega))))
 
 def topArgs (index : Nat) (pair : Digest×Digest) : Canonical.CsArgs :=
-  ⟨0,(route index 0).2,(route index 0).1,.pair pair.1 pair.2,22208,CanonicalPolicy.threshold 0 (requiredCredit index)⟩
+  ⟨0,(route index 0).2,(route index 0).1,.pair pair.1 pair.2,22208,ClaudeWCT.WCT9.Policy75Safe23.threshold 0 (requiredCredit index)⟩
 
 theorem top_pre (index : Nat) (hi : index<2^31) (pair : Digest×Digest)
     (s t : MachineState) (h : SharedTopSetup.Post index pair.1 pair.2 s t)
@@ -9571,8 +9584,8 @@ theorem top_pre (index : Nat) (hi : index<2^31) (pair : Digest×Digest)
   have hl : (route index 0).1=index/2^19 := by
     change index/2^19%2^12=index/2^19
     exact Nat.mod_eq_of_lt (by omega)
-  have hf : CanonicalPolicy.threshold 0 (requiredCredit index) < 23 := by
-    rw [CanonicalPolicy.threshold_top]
+  have hf : ClaudeWCT.WCT9.Policy75Safe23.threshold 0 (requiredCredit index) < 24 := by
+    rw [ClaudeWCT.WCT9.Policy75Safe23.threshold_top]
     have hb := requiredCredit_bounds index
     omega
   refine ⟨h.pc,h.ret,ht.x5,h.x8,?_,?_,h.x17,h.x26,h.x27,?_,?_,?_,Or.inl hr,
@@ -9593,8 +9606,8 @@ theorem lower_pre (lay : Layer) (hl : lay≠0) (index residual hints : Nat) (hi 
     (ht : Tables t) (hc : ∃ c<2^32,t.getMem (BitVec.ofNat 64 (ENC+32))=BitVec.ofNat 64 c)
     (hp0 : DigAt s (0x66040+32*lay.val) pair.1)
     (hp1 : DigAt s (0x66050+32*lay.val) pair.2)
-    (hf : CanonicalPolicy.threshold lay.val residual<23) :
-    Canonical.CsPre 543 (lowerArgs lay index (CanonicalPolicy.threshold lay.val residual) pair) t := by
+    (hf : ClaudeWCT.WCT9.Policy75Safe23.threshold lay.val residual<24) :
+    Canonical.CsPre 543 (lowerArgs lay index (ClaudeWCT.WCT9.Policy75Safe23.threshold lay.val residual) pair) t := by
   have htree : (route index lay).2<2^32 := by fin_cases lay <;> simp_all [T3.route,T3.height] <;> omega
   have hleaf : (route index lay).1<2^32 := by fin_cases lay <;> simp_all [T3.route,T3.height] <;> omega
   have hroute : (route index lay).2*2^height lay+(route index lay).1<2^T3.hyperW lay.val := by
@@ -9816,9 +9829,9 @@ theorem top_tail {im : Image} (hc : TopTailSteps im)
       · exact h.elim)
 
 theorem top_residual_small (index : Nat) {low : Bool} {ds : List Nat}
-    (h : CanonicalPolicy.threshold 0 (requiredCredit index) ≤ CanonicalPolicy.credit 0 low ds) :
-    routeResidual index (requiredCredit index) 0 low ds<55 := by
-  rw [CanonicalPolicy.threshold_top] at h
+    (h : ClaudeWCT.WCT9.Policy75Safe23.threshold 0 (requiredCredit index) ≤ CanonicalPolicy.credit 0 low ds) :
+    routeResidual index (requiredCredit index) 0 low ds<58 := by
+  rw [ClaudeWCT.WCT9.Policy75Safe23.threshold_top] at h
   unfold routeResidual CanonicalPolicy.nextResidual
   omega
 
@@ -10093,7 +10106,7 @@ structure TopReady (index : Nat) (p : PreparedRoots) (forest : Digest×Digest) (
   pc : t.pc=pcOf 22240
   layer : t.getReg .x8=1
   residual : t.getMem (0x66008#64)=BitVec.ofNat 64 (routeResidual index (requiredCredit index) 0 low ds)
-  small : routeResidual index (requiredCredit index) 0 low ds<55
+  small : routeResidual index (requiredCredit index) 0 low ds<58
   hints : t.getMem (0x66000#64)=0
   c32 : ∃ c<2^32,t.getMem (BitVec.ofNat 64 (ENC+32))=BitVec.ofNat 64 c
   stable : Stable index p forest t
@@ -10117,7 +10130,7 @@ theorem top_stage {im : Image} {sk : BitVec 256} (hs : SearchCalls im sk)
     (hh : s.getMem (0x66000#64)=0)
     (hc32 : ∃ c<2^32,s.getMem (BitVec.ofNat 64 (ENC+32))=BitVec.ofNat 64 c) :
     TBSim im sk s (Canonical.csCost 0+78)
-      (CanonicalPolicy.layerCounterSearchAt 0 (CanonicalPolicy.threshold 0 (requiredCredit index)) (route index 0).2 (route index 0).1
+      (CanonicalPolicy.layerCounterSearchAt 0 (ClaudeWCT.WCT9.Policy75Safe23.threshold 0 (requiredCredit index)) (route index 0).2 (route index 0).1
         (.pair (topPair 1 p.one.levels).1 (topPair 1 p.one.levels).2) 0 (searchLimit 0))
       (TopStagePost im index p forest s) := by
   obtain ⟨a,sa,ha⟩ := ht.setup s hp index hi hstable.indexMem _ _ hstable.one.left hstable.one.right
@@ -10128,7 +10141,7 @@ theorem top_stage {im : Image} {sk : BitVec 256} (hs : SearchCalls im sk)
     exact ⟨c,hc,(ha.frame.get (by unfold ENC;omega) (by unfold ENC;omega)).trans hcv⟩
   have H := hs.call (topArgs index (topPair 1 p.one.levels)) a (top_pre index hi _ s a ha hsta.tables hac)
   have Htail : TBSim im sk a (Canonical.csCost 0+52)
-      (CanonicalPolicy.layerCounterSearchAt 0 (CanonicalPolicy.threshold 0 (requiredCredit index)) (route index 0).2 (route index 0).1
+      (CanonicalPolicy.layerCounterSearchAt 0 (ClaudeWCT.WCT9.Policy75Safe23.threshold 0 (requiredCredit index)) (route index 0).2 (route index 0).1
         (.pair (topPair 1 p.one.levels).1 (topPair 1 p.one.levels).2) 0 (searchLimit 0))
       (TopStagePost im index p forest s) := by
     have hb := TBSim.bind H (f:=fun r=>pure r) (W₂:=52) (Q₂:=TopStagePost im index p forest s) (by
@@ -10171,7 +10184,7 @@ open ClaudeWCT.WCT9
 set_option maxHeartbeats 1500000
 set_option maxRecDepth 32768
 
-def stageBound (lay : Layer) : Nat := if lay.val=1 then 55 else if lay.val=2 then 41 else 23
+def stageBound (lay : Layer) : Nat := if lay.val=1 then 58 else if lay.val=2 then 42 else 24
 
 def preparedAt (p : PreparedRoots) (lay : Layer) : PreparedLower :=
   if lay.val=1 then p.one else if lay.val=2 then p.two else p.three
@@ -10195,43 +10208,43 @@ theorem Stable.message {index : Nat} {p : PreparedRoots} {forest : Digest×Diges
   · exact ⟨h.forestL,h.forestR⟩
 
 theorem floor_small (lay : Layer) (hl : lay≠0) (r : Nat) (hr : r<stageBound lay) :
-    CanonicalPolicy.threshold lay.val r<23 ∧ (lay.val=1 → CanonicalPolicy.threshold lay.val r<15) := by
+    ClaudeWCT.WCT9.Policy75Safe23.threshold lay.val r<24 ∧ (lay.val=1 → ClaudeWCT.WCT9.Policy75Safe23.threshold lay.val r<17) := by
   fin_cases lay
   · exact (hl rfl).elim
-  · change CanonicalPolicy.threshold 1 r<23 ∧ (1=1 → CanonicalPolicy.threshold 1 r<15)
-    have : CanonicalPolicy.threshold 1 r<15 := ClaudeWCT.W9.T3.CanonicalSearch.lower_one_floor_lt15 ⟨r,hr⟩
+  · change ClaudeWCT.WCT9.Policy75Safe23.threshold 1 r<24 ∧ (1=1 → ClaudeWCT.WCT9.Policy75Safe23.threshold 1 r<17)
+    have : ClaudeWCT.WCT9.Policy75Safe23.threshold 1 r<17 := ClaudeWCT.WCT9.Policy75Safe23.lower_one_floor_lt ⟨r,hr⟩
     exact ⟨by omega, fun _ => this⟩
-  · change CanonicalPolicy.threshold 2 r<23 ∧ (2=1 → _)
-    have : CanonicalPolicy.threshold 2 r≤19 := (CanonicalPolicy.lower_two_progress ⟨r,hr⟩).1
+  · change ClaudeWCT.WCT9.Policy75Safe23.threshold 2 r<24 ∧ (2=1 → _)
+    have : ClaudeWCT.WCT9.Policy75Safe23.threshold 2 r≤19 := (ClaudeWCT.WCT9.Policy75Safe23.lower_two_progress ⟨r,hr⟩).1
     exact ⟨by omega, fun h => absurd h (by decide)⟩
-  · change CanonicalPolicy.threshold 3 r<23 ∧ (3=1 → _)
-    rw [CanonicalPolicy.lower_three_progress r hr]
-    exact ⟨by have := CanonicalPolicy.lowerThreeFloor_le r hr; omega, fun h => absurd h (by decide)⟩
+  · change ClaudeWCT.WCT9.Policy75Safe23.threshold 3 r<24 ∧ (3=1 → _)
+    rw [ClaudeWCT.WCT9.Policy75Safe23.lower_three_progress r hr]
+    exact ⟨by have := ClaudeWCT.WCT9.Policy75Safe23.lowerThreeFloor_le r hr; omega, fun h => absurd h (by decide)⟩
 
 theorem next_stage_bound (index : Nat) (lay : Layer) (hl : lay≠0) (r : Nat) (hr : r<stageBound lay)
-    (low : Bool) (ds : List Nat) (hd : CanonicalPolicy.threshold lay.val r≤CanonicalPolicy.credit lay low ds) :
+    (low : Bool) (ds : List Nat) (hd : ClaudeWCT.WCT9.Policy75Safe23.threshold lay.val r≤CanonicalPolicy.credit lay low ds) :
     (∀ hnext : lay.val<3, routeResidual index r lay low ds<stageBound ⟨lay.val+1,by omega⟩) ∧
     (lay.val=3 → routeResidual index r lay low ds=0) := by
   fin_cases lay
   · exact (hl rfl).elim
-  · change CanonicalPolicy.threshold 1 r≤CanonicalPolicy.credit 1 low ds at hd
-    change (∀ hnext : 1<3, r-CanonicalPolicy.credit 1 low ds-LocalRoute.ownSave index 2<41) ∧ (1=3 → r-CanonicalPolicy.credit 1 low ds-LocalRoute.ownSave index 2=0)
-    have h : r-CanonicalPolicy.threshold 1 r<41 := (CanonicalPolicy.lower_one_progress ⟨r,hr⟩).2
+  · change ClaudeWCT.WCT9.Policy75Safe23.threshold 1 r≤CanonicalPolicy.credit 1 low ds at hd
+    change (∀ hnext : 1<3, r-CanonicalPolicy.credit 1 low ds-LocalRoute.ownSave index 2<42) ∧ (1=3 → r-CanonicalPolicy.credit 1 low ds-LocalRoute.ownSave index 2=0)
+    have h : r-ClaudeWCT.WCT9.Policy75Safe23.threshold 1 r<42 := (ClaudeWCT.WCT9.Policy75Safe23.lower_one_progress ⟨r,hr⟩).2
     constructor <;> intro hnext <;> omega
-  · change CanonicalPolicy.threshold 2 r≤CanonicalPolicy.credit 2 low ds at hd
-    change (∀ hnext : 2<3, r-CanonicalPolicy.credit 2 low ds-LocalRoute.ownSave index 3<23) ∧ (2=3 → r-CanonicalPolicy.credit 2 low ds-LocalRoute.ownSave index 3=0)
-    have h : r-CanonicalPolicy.threshold 2 r<23 := (CanonicalPolicy.lower_two_progress ⟨r,hr⟩).2
+  · change ClaudeWCT.WCT9.Policy75Safe23.threshold 2 r≤CanonicalPolicy.credit 2 low ds at hd
+    change (∀ hnext : 2<3, r-CanonicalPolicy.credit 2 low ds-LocalRoute.ownSave index 3<24) ∧ (2=3 → r-CanonicalPolicy.credit 2 low ds-LocalRoute.ownSave index 3=0)
+    have h : r-ClaudeWCT.WCT9.Policy75Safe23.threshold 2 r<24 := (ClaudeWCT.WCT9.Policy75Safe23.lower_two_progress ⟨r,hr⟩).2
     constructor <;> intro hnext <;> omega
-  · change CanonicalPolicy.threshold 3 r≤CanonicalPolicy.credit 3 low ds at hd
-    rw [CanonicalPolicy.lower_three_progress r hr] at hd
+  · change ClaudeWCT.WCT9.Policy75Safe23.threshold 3 r≤CanonicalPolicy.credit 3 low ds at hd
+    rw [ClaudeWCT.WCT9.Policy75Safe23.lower_three_progress r hr] at hd
     change (∀ hnext : 3<3, _) ∧ (3=3 → r-CanonicalPolicy.credit 3 low ds-LocalRoute.ownSave index 4=0)
     constructor
     · intro hh;omega
-    · intro _;have hz:=Nat.sub_eq_zero_of_le ((CanonicalPolicy.lowerThreeFloor_ge r).trans hd);omega
+    · intro _;have hz:=Nat.sub_eq_zero_of_le ((ClaudeWCT.WCT9.Policy75Safe23.lowerThreeFloor_ge r).trans hd);omega
 
 structure LowerSetupSteps (im : Image) : Prop where
   setup : ∀ s : MachineState,s.pc=pcOf 22240 → ∀ lay index residual hints : Nat,
-    (1≤lay ∧ lay≤3) → index<2^31 → (residual<(if lay=1 then 55 else if lay=2 then 41 else 23)) →
+    (1≤lay ∧ lay≤3) → index<2^31 → (residual<(if lay=1 then 58 else if lay=2 then 42 else 24)) →
     s.getReg .x8=BitVec.ofNat 64 lay → s.getMem (0x20550#64)=BitVec.ofNat 64 index →
     s.getMem (0x66008#64)=BitVec.ofNat 64 residual → s.getMem (0x66000#64)=BitVec.ofNat 64 hints →
     ∃ t k c,Steps im s k c t ∧ c≤120 ∧ SharedLowerSetup.CallPost lay index residual hints s t
@@ -10241,12 +10254,12 @@ structure LowerReady (lay : Layer) (index residual hints : Nat) (p : PreparedRoo
   pc : t.pc=if lay.val<3 then pcOf 22240 else pcOf 22460
   layer : t.getReg .x8=BitVec.ofNat 64 (lay.val+1)
   residualMem : t.getMem (0x66008#64)=BitVec.ofNat 64 (routeResidual index residual lay low ds)
-  hints : t.getMem (0x66000#64)=BitVec.ofNat 64 (hints+SharedHints.hintWeight lay.val*CanonicalPolicy.threshold lay.val residual)
+  hints : t.getMem (0x66000#64)=BitVec.ofNat 64 (hints+SharedHints.hintWeight lay.val*ClaudeWCT.WCT9.Policy75Safe23.threshold lay.val residual)
   c32 : ∃ c<2^32,t.getMem (BitVec.ofNat 64 (ENC+32))=BitVec.ofNat 64 c
   stable : Stable index p forest t
   values : DigsAt t (SharedRootControl.sigBase lay.val) (preparedPieces lay (route index lay).1 (preparedAt p lay) ds).1
   path : DigsAt t (SharedRootControl.sigBase lay.val+688) (preparedPieces lay (route index lay).1 (preparedAt p lay) ds).2
-  floor : CanonicalPolicy.threshold lay.val residual≤CanonicalPolicy.credit lay low ds
+  floor : ClaudeWCT.WCT9.Policy75Safe23.threshold lay.val residual≤CanonicalPolicy.credit lay low ds
   sum : (t.getReg .x25).toNat≤201
   frame : Frame s t (LowerWrites lay)
 
@@ -10263,7 +10276,7 @@ theorem lower_stage {im : Image} {sk : BitVec 256} (hs : SearchCalls im sk)
     (hrm : s.getMem (0x66008#64)=BitVec.ofNat 64 residual) (hhm : s.getMem (0x66000#64)=BitVec.ofNat 64 hints)
     (hc32 : ∃ c<2^32,s.getMem (BitVec.ofNat 64 (ENC+32))=BitVec.ofNat 64 c) :
     TBSim im sk s (Canonical.csCost lay+723)
-      (CanonicalPolicy.layerCounterSearchAt lay (CanonicalPolicy.threshold lay.val residual)
+      (CanonicalPolicy.layerCounterSearchAt lay (ClaudeWCT.WCT9.Policy75Safe23.threshold lay.val residual)
         (route index lay).2 (route index lay).1 (.pair (messageAt p forest lay).1 (messageAt p forest lay).2) 0 (searchLimit lay))
       (LowerStagePost im lay index residual hints p forest s) := by
   have hln : 1≤lay.val ∧ lay.val≤3 := by have := lay.isLt;have : lay.val≠0 := fun h=>hl (Fin.ext h);omega
@@ -10274,7 +10287,7 @@ theorem lower_stage {im : Image} {sk : BitVec 256} (hs : SearchCalls im sk)
     obtain ⟨c,hc,hcv⟩ := hc32
     exact ⟨c,hc,(ha.frame.get (by unfold ENC;omega) (by unfold ENC;omega)).trans hcv⟩
   obtain ⟨hp0,hp1⟩ := hstable.message lay hl
-  have H := hs.call (lowerArgs lay index (CanonicalPolicy.threshold lay.val residual) (messageAt p forest lay)) a
+  have H := hs.call (lowerArgs lay index (ClaudeWCT.WCT9.Policy75Safe23.threshold lay.val residual) (messageAt p forest lay)) a
     (lower_pre lay hl index residual hints hi _ s a ha hsta.tables hac hp0 hp1 (floor_small lay hl residual hr).1)
   have HB := TBSim.bind H (f:=fun r=>pure r) (W₂:=603) (Q₂:=LowerStagePost im lay index residual hints p forest s) (by
     intro r u hu
@@ -10419,10 +10432,10 @@ theorem stateBase_frame {sk : SecretKey} {cache : Bytes 131072} {s t : MachineSt
 
 end SigGolfCandidate.T3M.Sign.SharedSearches
 
-namespace ClaudeWCT.WCT9.CanonicalPolicy
+namespace ClaudeWCT.WCT9.Policy75Safe23
 /-- Skip-2 hint codec (soispoke f25ef952): layer-1 floors 1 and 2 never occur. -/
-theorem lower_one_floor_ne : ∀ r : Fin 55, threshold 1 r.val ≠ 1 ∧ threshold 1 r.val ≠ 2 := by decide +kernel
-end ClaudeWCT.WCT9.CanonicalPolicy
+theorem lower_one_floor_ne : ∀ r : Fin 58, threshold 1 r.val ≠ 1 ∧ threshold 1 r.val ≠ 2 := by decide +kernel
+end ClaudeWCT.WCT9.Policy75Safe23
 namespace SigGolfCandidate.T3M.Sign.SharedSearches
 open RiscvZkvm.Rv64 SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv SigGolfCandidate.Rv
 open SigGolfCandidate.T3M.Search
@@ -10449,25 +10462,25 @@ structure Choices where
 def Choices.r1 (a : Choices) (index : Nat) := routeResidual index (requiredCredit index) 0 a.l0 a.d0
 def Choices.r2 (a : Choices) (index : Nat) := routeResidual index (a.r1 index) 1 a.l1 a.d1
 def Choices.r3 (a : Choices) (index : Nat) := routeResidual index (a.r2 index) 2 a.l2 a.d2
-def Choices.hints (a : Choices) (index : Nat) := 529*CanonicalPolicy.threshold 1 (a.r1 index) +
-  23*CanonicalPolicy.threshold 2 (a.r2 index) + CanonicalPolicy.threshold 3 (a.r3 index)
+def Choices.hints (a : Choices) (index : Nat) := 576*ClaudeWCT.WCT9.Policy75Safe23.threshold 1 (a.r1 index) +
+  24*ClaudeWCT.WCT9.Policy75Safe23.threshold 2 (a.r2 index) + ClaudeWCT.WCT9.Policy75Safe23.threshold 3 (a.r3 index)
 
 def prefixSearch (index : Nat) (p : PreparedRoots) (forest : Digest×Digest) : T3.M (Option Choices) := do
-  let some (c0,d0,l0) ← CanonicalPolicy.layerCounterSearchAt 0 (CanonicalPolicy.threshold 0 (requiredCredit index)) (route index 0).2 (route index 0).1
+  let some (c0,d0,l0) ← CanonicalPolicy.layerCounterSearchAt 0 (ClaudeWCT.WCT9.Policy75Safe23.threshold 0 (requiredCredit index)) (route index 0).2 (route index 0).1
     (.pair (topPair 1 p.one.levels).1 (topPair 1 p.one.levels).2) 0 (searchLimit 0) | pure none
   let r1 := routeResidual index (requiredCredit index) 0 l0 d0
-  let f1 := CanonicalPolicy.threshold 1 r1
-  if f1≥15 then return none
+  let f1 := ClaudeWCT.WCT9.Policy75Safe23.threshold 1 r1
+  if f1≥17 then return none
   let some (c1,d1,l1) ← CanonicalPolicy.layerCounterSearchAt 1 f1 (route index 1).2 (route index 1).1
     (.pair (topPair 2 p.two.levels).1 (topPair 2 p.two.levels).2) 0 (searchLimit 1) | pure none
   let r2 := routeResidual index r1 1 l1 d1
-  let f2 := CanonicalPolicy.threshold 2 r2
-  if f2≥23 then return none
+  let f2 := ClaudeWCT.WCT9.Policy75Safe23.threshold 2 r2
+  if f2≥24 then return none
   let some (c2,d2,l2) ← CanonicalPolicy.layerCounterSearchAt 2 f2 (route index 2).2 (route index 2).1
     (.pair (topPair 3 p.three.levels).1 (topPair 3 p.three.levels).2) 0 (searchLimit 2) | pure none
   let r3 := routeResidual index r2 2 l2 d2
-  let f3 := CanonicalPolicy.threshold 3 r3
-  if f3≥23 then return none
+  let f3 := ClaudeWCT.WCT9.Policy75Safe23.threshold 3 r3
+  if f3≥24 then return none
   let some (c3,d3,l3) ← CanonicalPolicy.layerCounterSearchAt 3 f3 (route index 3).2 (route index 3).1
     (.pair forest.1 forest.2) 0 (searchLimit 3) | pure none
   pure (some ⟨c0,c1,c2,c3,d0,d1,d2,d3,l0,l1,l2,l3⟩)
@@ -10494,8 +10507,8 @@ structure PrefixReady (index : Nat) (p : PreparedRoots) (forest : Digest×Digest
   residual : t.getMem (0x66008#64)=0
   credit : routeResidual index (a.r3 index) 3 a.l3 a.d3=0
   frame : Frame s t WorkWrites
-  /-- N7g: the hint digits are in range (`f1 < 16`, `f2, f3 < 23`), so the hint is `< 8192` (mod-R pack). -/
-  hintsLt : (a.hints index)<8192
+  /-- N7g: the hint digits are in range (`f1 < 16`, `f2, f3 < 24`), so the hint is `< 12288` (mod-R pack). -/
+  hintsLt : (a.hints index)<12288
   hintsOK : ClaudeWCT.W9.T3M.SharedCodec.HintOK (a.hints index)
 
 def PrefixPost (im : Image) (index : Nat) (p : PreparedRoots) (forest : Digest×Digest)
@@ -10523,8 +10536,8 @@ theorem prefix_good {im : Image} {sk : BitVec 256} (hs : SearchCalls im sk)
     obtain ⟨c0,d0,l0⟩ := a0
     change TopReady index p forest l0 d0 s t0 at h0
     let r1 := routeResidual index (requiredCredit index) 0 l0 d0
-    let f1 := CanonicalPolicy.threshold 1 r1
-    have hf1 : f1<15 := (floor_small 1 (by decide) r1 h0.small).2 rfl
+    let f1 := ClaudeWCT.WCT9.Policy75Safe23.threshold 1 r1
+    have hf1 : f1<17 := (floor_small 1 (by decide) r1 h0.small).2 rfl
     dsimp only [f1,r1] at hf1
     simp only [if_neg (Nat.not_le.mpr hf1)]
     have H1 := lower_stage hs hlower hltail 1 (by decide) index r1 0 hi h0.small p forest t0
@@ -10537,14 +10550,14 @@ theorem prefix_good {im : Image} {sk : BitVec 256} (hs : SearchCalls im sk)
       obtain ⟨c1,d1,l1⟩ := a1
       change LowerReady 1 index r1 0 p forest l1 d1 t0 t1 at h1
       let r2 := routeResidual index r1 1 l1 d1
-      let f2 := CanonicalPolicy.threshold 2 r2
-      have hr2 : r2<41 := (next_stage_bound index 1 (by decide) r1 h0.small l1 d1 h1.floor).1 (by decide)
-      have hf2 : f2<23 := (floor_small 2 (by decide) r2 hr2).1
-      have hints1 : t1.getMem (0x66000#64)=BitVec.ofNat 64 (529*f1) := by simpa [SharedHints.hintWeight] using h1.hints
+      let f2 := ClaudeWCT.WCT9.Policy75Safe23.threshold 2 r2
+      have hr2 : r2<42 := (next_stage_bound index 1 (by decide) r1 h0.small l1 d1 h1.floor).1 (by decide)
+      have hf2 : f2<24 := (floor_small 2 (by decide) r2 hr2).1
+      have hints1 : t1.getMem (0x66000#64)=BitVec.ofNat 64 (576*f1) := by simpa [SharedHints.hintWeight] using h1.hints
       have saved1 : SavedTop d0 t1 := h0.saved.frame h1.frame (lowerWrites_saved 1)
       dsimp only [f2,r2,r1] at hf2
       simp only [if_neg (Nat.not_le.mpr hf2)]
-      have H2 := lower_stage hs hlower hltail 2 (by decide) index r2 (529*f1) hi hr2 p forest t1
+      have H2 := lower_stage hs hlower hltail 2 (by decide) index r2 (576*f1) hi hr2 p forest t1
         h1.pc h1.layer h1.stable h1.residualMem hints1 h1.c32
       refine (TBSim.bind H2 (W₂:=(Canonical.csCost 3+723)+30) (Q₂:=PrefixPost im index p forest s) ?_).mono (W':=(Canonical.csCost 2+723)+((Canonical.csCost 3+723)+30)) (by omega) (fun _ _ h=>h)
       intro r2out t2 h2
@@ -10552,19 +10565,19 @@ theorem prefix_good {im : Image} {sk : BitVec 256} (hs : SearchCalls im sk)
       | none => exact (TBSim.pure (a:=none) (s:=t2) (Q:=PrefixPost im index p forest s) h2).mono (by omega) (fun _ _ h=>h)
       | some a2 =>
         obtain ⟨c2,d2,l2⟩ := a2
-        change LowerReady 2 index r2 (529*f1) p forest l2 d2 t1 t2 at h2
+        change LowerReady 2 index r2 (576*f1) p forest l2 d2 t1 t2 at h2
         let r3 := routeResidual index r2 2 l2 d2
-        let f3 := CanonicalPolicy.threshold 3 r3
-        have hr3 : r3<23 := (next_stage_bound index 2 (by decide) r2 hr2 l2 d2 h2.floor).1 (by decide)
-        have hf3 : f3<23 := (floor_small 3 (by decide) r3 hr3).1
-        have hints2 : t2.getMem (0x66000#64)=BitVec.ofNat 64 (529*f1+23*f2) := by simpa [SharedHints.hintWeight] using h2.hints
+        let f3 := ClaudeWCT.WCT9.Policy75Safe23.threshold 3 r3
+        have hr3 : r3<24 := (next_stage_bound index 2 (by decide) r2 hr2 l2 d2 h2.floor).1 (by decide)
+        have hf3 : f3<24 := (floor_small 3 (by decide) r3 hr3).1
+        have hints2 : t2.getMem (0x66000#64)=BitVec.ofNat 64 (576*f1+24*f2) := by simpa [SharedHints.hintWeight] using h2.hints
         have saved2 : SavedTop d0 t2 := saved1.frame h2.frame (lowerWrites_saved 2)
         have one1 : PiecesStored 1 (preparedPieces 1 (route index 1).1 p.one d1) t1 := ⟨h1.values,h1.path⟩
         have one2 := one1.frame_lower (current:=2) (by decide) (by decide) (by decide)
           (prepared_length 1 (by decide) _ _ _).1 (prepared_length 1 (by decide) _ _ _).2 h2.frame
         dsimp only [f3,r3,r2,r1] at hf3
         simp only [if_neg (Nat.not_le.mpr hf3)]
-        have H3 := lower_stage hs hlower hltail 3 (by decide) index r3 (529*f1+23*f2) hi hr3 p forest t2
+        have H3 := lower_stage hs hlower hltail 3 (by decide) index r3 (576*f1+24*f2) hi hr3 p forest t2
           h2.pc h2.layer h2.stable h2.residualMem hints2 h2.c32
         refine (TBSim.bind H3 (W₂:=30) (Q₂:=PrefixPost im index p forest s) ?_).mono (W':=(Canonical.csCost 3+723)+30) (by omega) (fun _ _ h=>h)
         intro r3out t3 h3
@@ -10572,7 +10585,7 @@ theorem prefix_good {im : Image} {sk : BitVec 256} (hs : SearchCalls im sk)
         | none => exact (TBSim.pure (a:=none) (s:=t3) (Q:=PrefixPost im index p forest s) h3).mono (by omega) (fun _ _ h=>h)
         | some a3 =>
           obtain ⟨c3,d3,l3⟩ := a3
-          change LowerReady 3 index r3 (529*f1+23*f2) p forest l3 d3 t2 t3 at h3
+          change LowerReady 3 index r3 (576*f1+24*f2) p forest l3 d3 t2 t3 at h3
           have hz : routeResidual index r3 3 l3 d3=0 :=
             (next_stage_bound index 3 (by decide) r3 hr3 l3 d3 h3.floor).2 rfl
           have saved3 : SavedTop d0 t3 := saved2.frame h3.frame (lowerWrites_saved 3)
@@ -10590,7 +10603,7 @@ theorem prefix_good {im : Image} {sk : BitVec 256} (hs : SearchCalls im sk)
           · exact two3.frame_finish (by decide) (prepared_length 2 (by decide) _ _ _).1 (prepared_length 2 (by decide) _ _ _).2 ht.frame
           · exact three3.frame_finish (by decide) (prepared_length 3 (by decide) _ _ _).1 (prepared_length 3 (by decide) _ _ _).2 ht.frame
           · have hm := (ht.frame.get (A:=0x66000) (by decide) (by unfold DIGITS;omega)).trans h3.hints
-            change t.getMem (0x66000#64)=BitVec.ofNat 64 (529*f1+23*f2+f3)
+            change t.getMem (0x66000#64)=BitVec.ofNat 64 (576*f1+24*f2+f3)
             simpa [SharedHints.hintWeight] using hm
           · have hm := (ht.frame.get (A:=0x66008) (by decide) (by unfold DIGITS;omega)).trans h3.residualMem
             change t.getMem (0x66008#64)=BitVec.ofNat 64 0
@@ -10629,7 +10642,7 @@ theorem searchPreparedLayers_prefix (cache : SigGolfCandidate.T3.Cache) (index :
         | none => pure none
         | some a => finishSource cache index p a := by
   unfold searchPreparedLayers prefixSearch
-  simp only [CanonicalPolicy.totalCredit,CanonicalPolicy.threshold_top]
+  simp only [CanonicalPolicy.totalCredit,ClaudeWCT.WCT9.Policy75Safe23.threshold_top]
   simp only [bind_assoc]
   congr 1
   funext o0
@@ -10737,7 +10750,7 @@ structure Completed (index : Nat) (p : PreparedRoots) (a : Choices) (top : T3.Pi
   hints : t.getMem (0x66000#64)=BitVec.ofNat 64 (a.hints index)
   residual : t.getMem (0x66008#64)=0
   credit : routeResidual index (a.r3 index) 3 a.l3 a.d3=0
-  hintsLt : (a.hints index)<8192
+  hintsLt : (a.hints index)<12288
   hintsOK : ClaudeWCT.W9.T3M.SharedCodec.HintOK (a.hints index)
 
 def LayersPost (im : Image) (index : Nat) (p : PreparedRoots) : Option CanonicalLayers→MachineState→Prop
@@ -11215,7 +11228,7 @@ open SigGolfCandidate.Legacy SigGolfCandidate.Legacy.Riscv RiscvZkvm.Rv64 SigGol
 set_option maxHeartbeats 4000000
 set_option maxRecDepth 100000
 set_option Elab.async false
-set_option debug.skipKernelTC true in
+set_option debug.skipKernelTC false in
 instance digestLabelCode : DigestLabel.Code Images.signImage false where
   hook_at := by
     change CodeAt Images.signImage (pcOf 22614) [0x80306f]
@@ -11342,7 +11355,7 @@ theorem prepareRoots_framed {im : Image} (hc : Code im) (he : ExtraCode im)
     (hi : index<2^31) (s : MachineState) (hpc : s.pc=pcOf 22128)
     (h8 : s.getReg .x8=1) (hidx : s.getMem 0x20550=BitVec.ofNat 64 index)
     (hb : Base (cfFlag := cfFlag) sk cache s) (hz : ∀ i,i<43 → s.getByte (BitVec.ofNat 64 (DIGITS+i))=0) :
-    TBSim im sk s (3*(btCost+47)) (prepareRoots index) (fun p t => RootsPost (cfFlag := cfFlag) sk cache index s p t ∧ LowFrame s t) := by
+    TBSim im sk s ((2*btCost+3*47)) (prepareRoots index) (fun p t => RootsPost (cfFlag := cfFlag) sk cache index s p t ∧ LowFrame s t) := by
   have r1 := one_tbsim hc he hlow hlevels hsub hcopy hchain hpref hseed hhook
     (lay := 1) (by decide) hi s hpc h8 hidx hb hz
   unfold prepareRoots
@@ -11352,7 +11365,7 @@ theorem prepareRoots_framed {im : Image} (hc : Code im) (he : ExtraCode im)
       (fun p2 t2 h2 => TBSim.bind
         (one_tbsim hc he hlow hlevels hsub hcopy hchain hpref hseed hhook
           (lay := 3) (by decide) hi t2 (by simpa using h2.pc) h2.layer h2.indexMem h2.base h2.zero)
-        (fun p3 t3 h3 => TBSim.pure ?_)))) (by omega) (fun _ _ h => h)
+        (fun p3 t3 h3 => TBSim.pure ?_)))) (by simpa only [Nat.add_zero] using SharedLowTree.treeCycleBound_total) (fun _ _ h => h)
   refine ⟨?_, ((h1.lowFrame (by decide)).trans (h2.lowFrame (by decide))).trans (h3.lowFrame (by decide))⟩
   refine ⟨by simpa using h3.pc,by simpa using h3.layer,h3.base,h3.indexMem,?_,?_,h3.stored,?_,?_⟩
   · exact (h1.stored.after (by decide) (by decide) (by decide) h2).after
@@ -11371,7 +11384,7 @@ theorem entry_roots_framed {im : Image} (hc : Code im) (he : ExtraCode im)
     (forest : Digest×Digest) (s : MachineState) (hpc : s.pc=pcOf 22100)
     (hidx : s.getMem 0x20550=BitVec.ofNat 64 index) (hb : Base (cfFlag := cfFlag) sk cache s)
     (hl : DigAt s ENC forest.1) (hr : DigAt s (ENC+48) forest.2) :
-    TBSim im sk s (28+3*(btCost+47)) (prepareRoots index) (fun p t => BuiltPost (cfFlag := cfFlag) sk cache index forest s p t ∧ LowFrame s t) := by
+    TBSim im sk s (28+(2*btCost+3*47)) (prepareRoots index) (fun p t => BuiltPost (cfFlag := cfFlag) sk cache index forest s p t ∧ LowFrame s t) := by
   obtain ⟨a,sa,ap,a8,al,ar,az,ad,ars,af⟩ := entry_steps he s hpc forest.1 forest.2 hl hr
   have af' : Frame s a EntryWrites := af.mono (by unfold EntryWrites; intros A hA h; exact h)
   have abase : Base (cfFlag := cfFlag) sk cache a := hb.frame af' ars (by decide) (by
@@ -12121,16 +12134,16 @@ theorem setup_steps {im : Image} (hc : CodeAt im (pcOf 22504) setupWords)
 /-- N7g (C, mod-R hint pack): finish block (22526..22532): slot 324 = sibling words `656`, `657 & (2^6-1)`; `t2` = word
 657; `j 25852`. -/
 def finishWords : List (BitVec 32) := bv_list% 32 [0xe3303,0x8e3383,0x3e39e13,0x3ee5e13,0x6eb023,0x1ceb423,0x3e00306f]
-/-- Y5: `t2 = (t2 << 29) >> 31` (sibling bits 66..98); `j 25972` (the index-code routine). -/
-def nxW1 : List (BitVec 32) := bv_list% 32 [0x1d39393,0x1f3d393,0x1d80006f]
+/-- Y5: `t2 = (t2 << 29) >> 31` (sibling bits 66..98); `j 26117` (the index-code routine). -/
+def nxW1 : List (BitVec 32) := bv_list% 32 [0x1d39393,0x1f3d393,0x41c0006f]
 /-- Y5: the index code `t = (i1 · 6 + i2) · 15 + i3` of the hint `h` at `0x66000` into `t5` (branch-free; `a1..a5`,
 `t3` scratch); `j 25861`. -/
-def ntW : List (BitVec 32) := bv_list% 32 [0x66f37,0xf3f03,0x21100593,0x2bf5633,0x2bf7f33,0x1700593,0x2bf56b3,0x2bf7733,0x300793,0xa63e13,0x41c787b3,0xc63e13,0x41c787b3,0xe63e13,0x41c787b3,0x500593,0xa6be13,0x41c585b3,0xc6be13,0x41c585b3,0xe6be13,0x41c585b3,0x106be13,0x41c585b3,0x126be13,0x41c585b3,0xff870713,0xf73e13,0x3c70733,0x600e13,0x3c787b3,0xb787b3,0xf00e13,0x3c787b3,0xe78f33,0xdb9ff06f]
+def ntW : List (BitVec 32) := bv_list% 32 [0x66f37,0xf3f03,0x24000593,0x2bf5633,0x2bf7f33,0x1800593,0x2bf56b3,0x2bf7733,0x300793,0xb63e13,0x41c787b3,0xe63e13,0x41c787b3,0x1063e13,0x41c787b3,0x500593,0xa6be13,0x41c585b3,0xc6be13,0x41c585b3,0xe6be13,0x41c585b3,0x106be13,0x41c585b3,0x126be13,0x41c585b3,0xff870713,0x1073e13,0x3c70733,0x373e13,0x1e4e13,0x41c70733,0x600e13,0x3c787b3,0xb787b3,0xf00e13,0x3c787b3,0xe78f33,0xb69ff06f]
 /-- N7g, Y5: `N = (hi 2^64 + lo) 360 + t` into slot 0 (`mul`/`mulhu`/`sltu`); `t1 = t2 | (N >> 128) << 33`; `j 24665`. -/
 def nxW3 : List (BitVec 32) := bv_list% 32 [0x7fb7,0xfb583,0x8fb603,0x16800693,0x13,0x2d58733,0x2d5b7b3,0x1e70733,0x1e73e33,0x1c787b3,0x2d60e33,0x2d635b3,0x1c787b3,0x1c7be33,0x1c585b3,0xefb023,0xffb423,0x2159593,0xb3e333,0x593,0x613,0x693,0x713,0x793,0xf93,0xcedfe06f]
 sym_block finishRun := symRun {noAlias:=true} finishWords (pcOf 22526) 20
 sym_block nxRun1 := symRun {noAlias:=true} nxW1 (pcOf 25852) 20
-sym_block ntRun := symRun {noAlias:=true} ntW (pcOf 25972) 60
+sym_block ntRun := symRun {noAlias:=true} ntW (pcOf 26117) 60
 sym_block nxRun3 := symRun {noAlias:=true} nxW3 (pcOf 25861) 40
 
 theorem finish_steps {im : Image} (hc : CodeAt im (pcOf 22526) finishWords)
@@ -12218,28 +12231,28 @@ theorem nx_mac (lo hi t : Word) :
       Nat.mod_mod] <;> omega
 
 /-- Y5: the index-code routine's value on a hint word `hv` (the symbolic result of `ntW`). -/
-def ntVal (hv : Word) : Word :=
-  let f1 := rv64_divu hv 529#64
-  let r := rv64_remu hv 529#64
-  let f2 := rv64_divu r 23#64
-  let f3 := rv64_remu r 23#64
-  let i1 := 3#64 - (if f1.ult 10#64 then 1#64 else 0#64) - (if f1.ult 12#64 then 1#64 else 0#64) -
-    (if f1.ult 14#64 then 1#64 else 0#64)
-  let i2 := 5#64 - (if f2.ult 10#64 then 1#64 else 0#64) - (if f2.ult 12#64 then 1#64 else 0#64) -
-    (if f2.ult 14#64 then 1#64 else 0#64) - (if f2.ult 16#64 then 1#64 else 0#64) - (if f2.ult 18#64 then 1#64 else 0#64)
-  let i3 := (f3 - 8#64) * (if (f3 - 8#64).ult 15#64 then 1#64 else 0#64)
-  (i1 * 6#64 + i2) * 15#64 + i3
+def ntVal (v : Word) : Word :=
+  let a := rv64_divu v 576#64
+  let b := rv64_divu (rv64_remu v 576#64) 24#64
+  let c := rv64_remu (rv64_remu v 576#64) 24#64
+  let bit (x : Bool) : Word := if x then 1#64 else 0#64
+  let ia := ((3#64-bit (a.ult 11#64))-bit (a.ult 14#64))-bit (a.ult 16#64)
+  let ib := ((((5#64-bit (b.ult 10#64))-bit (b.ult 12#64))-bit (b.ult 14#64))-bit (b.ult 16#64))-bit (b.ult 18#64)
+  let ic := (c+18446744073709551608#64)*bit ((c+18446744073709551608#64).ult 16#64)
+  let ic := ic - (bit (ic.ult 3#64) ^^^ 1#64)
+  (ia*6#64+ib)*15#64+ic
+
 
 /-- Y5: on every in-alphabet hint (`packH t`, `t < 360`) the routine computes the index code `t`. -/
 theorem ntVal_table : ∀ t : Fin 360,
     ntVal (BitVec.ofNat 64 (ClaudeWCT.W9.T3M.SharedCodec.packH t.val)) = BitVec.ofNat 64 t.val := by decide +kernel
 
 set_option maxHeartbeats 4000000 in
-theorem nx_steps {im : Image} (c1 : CodeAt im (pcOf 25852) nxW1) (cn : CodeAt im (pcOf 25972) ntW)
+theorem nx_steps {im : Image} (c1 : CodeAt im (pcOf 25852) nxW1) (cn : CodeAt im (pcOf 26117) ntW)
     (c3 : CodeAt im (pcOf 25861) nxW3)
     (s : MachineState) (hp : s.pc = pcOf 25852) (h : Nat) (hok : ClaudeWCT.W9.T3M.SharedCodec.HintOK h)
     (hm : s.getMem (BitVec.ofNat 64 417792) = BitVec.ofNat 64 h) :
-    ∃ n c t, Steps im s n c t ∧ c ≤ 98 ∧ t.pc = pcOf 24665 ∧
+    ∃ n c t, Steps im s n c t ∧ c ≤ 101 ∧ t.pc = pcOf 24665 ∧
       t.getReg .x6 = Xn (s.getReg .x7)
         (nN (s.getMem (BitVec.ofNat 64 SIG)) (s.getMem (BitVec.ofNat 64 (SIG+8))) h / 2 ^ 128) ∧
       t.getMem (BitVec.ofNat 64 SIG) =
@@ -12252,7 +12265,7 @@ theorem nx_steps {im : Image} (c1 : CodeAt im (pcOf 25852) nxW1) (cn : CodeAt im
   have sa := symRun_sound nxRun1 c1 s hp (by simp [nxRun1.res, rv_simp])
   obtain ⟨a, ha⟩ : ∃ a, a = nxRun1.res.toState s := ⟨_, rfl⟩
   rw [← ha] at sa
-  have ap : a.pc = pcOf 25972 := by rw [ha]; simp [nxRun1.res, rv_simp]
+  have ap : a.pc = pcOf 26117 := by rw [ha]; simp [nxRun1.res, rv_simp]
   have a7 : a.getReg .x7 = (s.getReg .x7 <<< 29) >>> 31 := by rw [ha]; simp [nxRun1.res, rv_simp]
   have am : ∀ A : Word, a.getMem A = s.getMem A := fun A => by rw [ha]; simp [nxRun1.res, rv_simp]
   have sb := symRun_sound ntRun cn a ap (by simp [ntRun.res, rv_simp, accessValid_iff, MEMORY_BYTES])
@@ -12278,7 +12291,7 @@ theorem nx_steps {im : Image} (c1 : CodeAt im (pcOf 25852) nxW1) (cn : CodeAt im
   obtain ⟨mlo, mhi, mtop⟩ := nx_mac (c.getMem 28672#64) (c.getMem 28680#64) (c.getReg .x30)
   rw [hT, hlo, hhi] at mlo mhi mtop
   refine ⟨_, _, t, (sa.trans sb).trans st, ?_, ?_, ?_, ?_, ?_, ?_⟩
-  · have : nxRun1.res.cycles + ntRun.res.cycles + nxRun3.res.cycles ≤ 98 := by
+  · have : nxRun1.res.cycles + ntRun.res.cycles + nxRun3.res.cycles ≤ 101 := by
       simp [nxRun1.res, ntRun.res, nxRun3.res]
     omega
   · rw [ht]; simp [nxRun3.res, rv_simp]
@@ -13229,9 +13242,9 @@ structure Code (im : Image) : Prop where
   setup : CodeAt im (pcOf 22504) setupWords
   loop : CodeAt im (pcOf 22509) tailWords
   finish : CodeAt im (pcOf 22526) finishWords
-  /-- N7g (C), Y5: the mod-R hint pack `N = rho * 360 + t` (25852.., the index code 25972.., 25861..). -/
+  /-- N7g (C), Y5: the mod-R hint pack `N = rho * 360 + t` (25852.., the index code 26117.., 25861..). -/
   nx1 : CodeAt im (pcOf 25852) nxW1
-  nt : CodeAt im (pcOf 25972) ntW
+  nt : CodeAt im (pcOf 26117) ntW
   nx3 : CodeAt im (pcOf 25861) nxW3
   post : CodeAt im (pcOf 24665) postWords
   /-- U16b: the success HALT `20744` is `jal 25385` (E8 P1 pack routine, ends `addi a0,zero,0; ecall`). -/
@@ -14234,7 +14247,7 @@ set_option maxRecDepth 100000
 
 def JoinedPost (im : Image) (s : MachineState) : Option (BitVec 32×BitVec 256)→MachineState→Prop
   | none,t => t.pc=pcOf 545 ∧ t.getReg .x5=1 ∧ t.getReg .x10=1 ∧ fetch im t=some (.base .ECALL)
-  | some (c,a),t => c.toNat<2^21 ∧ SharedForest.digestAccepted a=true ∧
+  | some (c,a),t => c.toNat<(11*2^17) ∧ SharedForest.digestAccepted a=true ∧
       t.pc=pcOf 11175 ∧ t.getReg .x5=0 ∧
       t.getReg .x22=BitVec.ofNat 64 (WCT9.digestIndex a) ∧
       t.getMem 0x20550=BitVec.ofNat 64 (WCT9.digestIndex a) ∧ OutAt t NBUF a ∧
@@ -14248,8 +14261,8 @@ theorem search_to_forest {im : Image} {sk : BitVec 256} [DigestLabel.Code im fal
     (he : CodeAt im (pcOf 545) [0x73])
     {s : MachineState} {rho : BitVec 128} {msg : SigGolfCandidate.T3.Message}
     (hp : SharedDigest.Pre false rho msg s) (hpc : s.pc=pcOf 22600) :
-    TBSim im sk s (2^21*200+20) (SharedForest.sharedDigestSearch rho msg 0 (2^21)) (JoinedPost im s) := by
-  rw [←bind_pure (SharedForest.sharedDigestSearch rho msg 0 (2^21))]
+    TBSim im sk s ((11*2^17)*200+20) (SharedForest.sharedDigestSearch rho msg 0 ((11*2^17))) (JoinedPost im s) := by
+  rw [←bind_pure (SharedForest.sharedDigestSearch rho msg 0 ((11*2^17)))]
   refine (TBSim.bind (SharedDigest.search_good false hl hp hpc) (W₂:=8) ?_).mono (by omega) (fun _ _ h=>h)
   intro r u hu
   cases r with
@@ -14405,11 +14418,11 @@ theorem nonce_search {sk : SecretKey} {cache : Bytes 131072} {msg : SigGolfCandi
     (hfail : ∀t,JoinedPost Images.signImage t none t → Q none t)
     (hrest : ∀rho s,NoncePost sk cache msg rho s → ∀c a t,
       JoinedPost Images.signImage s (some (c,a)) t → TBSim Images.signImage sk t W (K rho c a) Q) :
-    TBSim Images.signImage sk (sinit sk cache msg) (SigGolfCandidate.T3M.Sign.frontC+(1+(2^21*200+20+W))) (do
+    TBSim Images.signImage sk (sinit sk cache msg) (SigGolfCandidate.T3M.Sign.frontC+(1+((11*2^17)*200+20+W))) (do
       let tag ← SigGolfCandidate.T3.privateMac (cacheDec cache).region
       if tag ≠ (cacheDec cache).tag then pure none else do
         let rho ← SigGolfCandidate.T3.privateNonce msg
-        let r ← SharedForest.sharedDigestSearch rho msg 0 (2^21)
+        let r ← SharedForest.sharedDigestSearch rho msg 0 ((11*2^17))
         match r with
         | none => pure none
         | some (c,a) => K rho c a) Q := by
@@ -14584,7 +14597,7 @@ open SigGolfCandidate.T3M.Keygen SigGolfCandidate.Research.SharedForest
 theorem roots_good {sk : SecretKey} {cache : Bytes 131072} {index : Nat}
     (hi : index<2^31) {forest : BitVec 128×BitVec 128} {s : MachineState}
     (h : Ready sk cache index forest s) :
-    TBSim Images.signImage sk s (28+3*(Packed.btCost+47)) (prepareRoots index)
+    TBSim Images.signImage sk s (28+(2*Packed.btCost+3*47)) (prepareRoots index)
       (fun p t => SharedRootControl.BuiltPost (cfFlag:=0) sk cache index forest s p t ∧
         SharedRootControl.LowFrame s t) :=
   SharedRootControl.entry_roots_framed SharedRootControl.installed_code
@@ -14749,7 +14762,7 @@ open SigGolfCandidate.T3M.Sign SigGolfCandidate.T3M.Sign.SharedSearches
 open SigGolfCandidate.Research.SharedForest
 open ClaudeWCT.W9.T3M.SharedCodec SharedSerializer
 
-def tailCost : Nat := 13+((28+3*(Packed.btCost+47))+((prefixCost+335006)+8549))
+def tailCost : Nat := 13+((28+(2*Packed.btCost+3*47))+((prefixCost+335006)+8549))
 
 theorem after_forest {sk : SecretKey} {cache : Bytes 131072} {cfFlag index : Nat}
     (hib : index<2^31) {rho : Digest} {forest : ForestOpening×(Digest×Digest)}
@@ -14787,7 +14800,7 @@ theorem sign_program (cache : Bytes 131072) (msg : SigGolfCandidate.T3.Message) 
       let tag ← SigGolfCandidate.T3.privateMac (cacheDec cache).region
       if tag ≠ (cacheDec cache).tag then pure none else do
         let rho ← SigGolfCandidate.T3.privateNonce msg
-        let r ← sharedDigestSearch rho msg 0 (2^21)
+        let r ← sharedDigestSearch rho msg 0 ((11*2^17))
         match r with
         | none => pure none
         | some (_,a) => outputProgram cache rho a) := by
@@ -14836,7 +14849,7 @@ theorem sign_tbsim_with {W : Nat}
       t.getMem 0x20550=BitVec.ofNat 64 (WCT9.digestIndex a) →
       (∀k,k<9 → SharedCoordinate.rank k a<563) →
       TBSim Images.signImage sk t W (outputProgram cache rho a) (FinalPost Images.signImage)) :
-    TBSim Images.signImage sk (sinit sk cache msg) (SigGolfCandidate.T3M.Sign.frontC+(1+(2^21*200+20+W)))
+    TBSim Images.signImage sk (sinit sk cache msg) (SigGolfCandidate.T3M.Sign.frontC+(1+((11*2^17)*200+20+W)))
       (SigGolfCandidate.Research.SharedForest.sign (cacheDec cache) msg) (FinalPost Images.signImage) := by
   rw [sign_program]
   refine SharedFront.nonce_search hlook hs hj hf he htables (fun rho _ a=>outputProgram cache rho a)
@@ -14857,7 +14870,7 @@ set_option maxHeartbeats 1500000
 set_option maxRecDepth 100000
 
 def restCost : Nat := (9*SharedCoordinate.forestStepBound+23)+tailCost
-def signCost : Nat := SigGolfCandidate.T3M.Sign.frontC+(1+(2^21*200+20+restCost))
+def signCost : Nat := SigGolfCandidate.T3M.Sign.frontC+(1+((11*2^17)*200+20+restCost))
 
 theorem forest_tbsim {sk a : BitVec 256} {cache : Bytes 131072} {rho : Digest}
     (s : MachineState) (hp : SharedCoordinate.Entry sk a s) (hb : Base sk cache s)

@@ -15,7 +15,7 @@ theorem layout_offsets : submission.layout =
   { message := 26016, secretKey := 128, publicKey := 160,
     cache := 524288, signature := 28672, witness := 4256 } := rfl
 
-theorem certificate : SigGolf.Certificate submission 6958 := by
+theorem certificate : SigGolf.Certificate submission 6957 := by
   exact SigGolfCandidate.Packaging.certificate_ready
 
 end SigGolf.Challenge
@@ -26,10 +26,9 @@ end SigGolf.Challenge
 #print axioms SigGolf.Challenge.layout_offsets
 #print axioms SigGolf.Challenge.certificate
 
-/- Development candidate extending promoted root-route submission 63bbf59e.
-   Lower path address savings are charged to their own canonical keys, with
-   root pool 74 minus the root path savings. The complete top selector HIGH
-   blocks are relocated consistently with the compacted lower paths.
-   The top setup omits its redundant marker OR because the routed index
-   already includes that marker. S = 5186, W = 21756, K = 131072, C = 6958.
-   Independent official acceptance is required before submitting this candidate. -/
+/- Development candidate extending promoted submission836ec21a.
+   Root pool75 minus root path savings; safe23 lower floors and radix24 hints.
+   Lower families use84coefficients for16-key groups (42pairs); FTS
+   families use42coefficients (21pairs). Search fuels
+   are reallocated with400/440/440 failure exponents checked independently.
+   Target S=5186,W=21756,K=131072,C=6957 remains unverified officially. -/

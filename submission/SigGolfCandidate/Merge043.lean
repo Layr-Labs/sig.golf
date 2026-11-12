@@ -5912,7 +5912,7 @@ set_option maxHeartbeats 1000000
 set_option maxRecDepth 10000
 
 abbrev FamIdx := Fin (2 ^ 31) × Fin 9
-abbrev Coefs := Fin 54 → Digest
+abbrev Coefs := Fin 42 → Digest
 abbrev LabelIdx := ChainAddr × Fin 3
 /-- The family of chain `a`. -/
 def famOf (a : ChainAddr) : FamIdx := (a.1, a.2.1)
@@ -6280,8 +6280,8 @@ theorem mem_freeRetired (state : State GCoord Digest Memory) (f : FamIdx) (p : F
     p ∈ freeRetired state f ↔
       ((member f p.1 p.2, 0) : GCoord) ∈ state.retired ∧ ((member f p.1 p.2, 0) : GCoord) ∉ state.guesses := by
   simp [freeRetired, retiredSeeds]
-/-- FTS overflow in the engine: some family has more than 51 seeds retired without a guess. -/
-def Bad (state : State GCoord Digest Memory) : Prop := ∃ f, 51 < (freeRetired state f).card
+/-- FTS overflow in the engine: some family has more than 39 seeds retired without a guess. -/
+def Bad (state : State GCoord Digest Memory) : Prop := ∃ f, 39 < (freeRetired state f).card
 /-- Values excluded from the fresh seeds of family `f` (one per failed guess). -/
 noncomputable def missCount (state : State GCoord Digest Memory) (f : FamIdx) : Nat :=
   ∑ p : Fin 128 × Fin 6, if ((member f p.1 p.2, 0) : GCoord) ∈ state.retired then 0
@@ -6322,7 +6322,7 @@ theorem seedK_member (K : Coefs) (f : FamIdx) (j : Fin 128) (t : Fin 6) :
     seedK K (member f j t) = ClaudeWCT.Arith.familyEval (List.ofFn K) (WCT9.ftsPoint j.val t.val) := rfl
 set_option linter.constructorNameAsVariable false in
 theorem famPostA_eq (state : State GCoord Digest Memory) (hs : Inv state) (f : FamIdx) :
-    famPostA state.allowed f = ClaudeWCT.Arith.famPost (m := 53) (knownOf state f) (missesOf state f) := by
+    famPostA state.allowed f = ClaudeWCT.Arith.famPost (m := 41) (knownOf state f) (missesOf state f) := by
   ext K
   rw [mem_famPostA]
   simp only [ClaudeWCT.Arith.famPost, ClaudeWCT.Arith.famAffine, Finset.mem_filter, Finset.mem_univ, true_and,
@@ -6407,10 +6407,10 @@ theorem hazard_seed (state : State GCoord Digest Memory) (hs : Inv state) (hbad 
     trialBy (famPostA state.allowed) (famOf a) (fun K => decide (seedK K a = v)) true ≤
       ((2 ^ 128 - budget : Nat) : ℝ≥0∞)⁻¹ := by
   rw [trialBy_true_eq _ _ _ hs.fam]
-  have hfree : (freeRetired state (famOf a)).card ≤ 51 := by
+  have hfree : (freeRetired state (famOf a)).card ≤ 39 := by
     by_contra h
     exact hbad ⟨famOf a, by omega⟩
-  have hknown : (knownOf state (famOf a)).card ≤ 53 :=
+  have hknown : (knownOf state (famOf a)).card ≤ 41 :=
     (knownOf_card_le state hs _).trans ((retiredSeeds_card_le state _).trans (by omega))
   have hpts : ∀ p ∈ knownOf state (famOf a), p.1 < 1024 := by
     intro p hp
@@ -6423,7 +6423,7 @@ theorem hazard_seed (state : State GCoord Digest Memory) (hs : Inv state) (hbad 
     obtain ⟨⟨j, t⟩, -, v, -, rfl⟩ := hp
     exact ftsPoint_lt j t
   have hb : ptOf a < 1024 := ftsPoint_lt a.2.2.1 a.2.2.2
-  have h := ClaudeWCT.Arith.fam_hazard_prob (m := 53) hknown hpts hmpts hb (notMem_known state a ha) v
+  have h := ClaudeWCT.Arith.fam_hazard_prob (m := 41) hknown hpts hmpts hb (notMem_known state a ha) v
     ((missesOf_card_le state hs _).trans hp.le)
   rw [← famPostA_eq state hs] at h
   have hf : ((famPostA state.allowed (famOf a)).filter fun K => true = decide (seedK K a = v)) =

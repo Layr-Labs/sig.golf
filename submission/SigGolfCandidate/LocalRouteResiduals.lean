@@ -25,7 +25,7 @@ structure Code0 (im : Image) : Prop where
 
 theorem first0_steps {im : Image} (hc : Code0 im)
     (s : MachineState) (hp : s.pc=pcOf 46933) (index R C : Nat)
-    (hi : index<2^64) (hR : R≤74) (hC : C<2^64)
+    (hi : index<2^64) (hR : R≤75) (hC : C<2^64)
     (h21 : s.getReg .x21=BitVec.ofNat 64 R) (hm : s.getMem 417856#64=BitVec.ofNat 64 C)
     (hindex : s.getMem 0x20550#64=BitVec.ofNat 64 index) :
     ∃ t, Steps im s 16 16 t ∧
@@ -75,7 +75,7 @@ structure Code1 (im : Image) : Prop where
 
 theorem first1_steps {im : Image} (hc : Code1 im)
     (s : MachineState) (hp : s.pc=pcOf 46949) (index R C : Nat)
-    (hi : index<2^64) (hR : R≤74) (hC : C<2^64)
+    (hi : index<2^64) (hR : R≤75) (hC : C<2^64)
     (h21 : s.getReg .x21=BitVec.ofNat 64 R) (hm : s.getMem 417864#64=BitVec.ofNat 64 C)
     (hindex : s.getMem 0x20550#64=BitVec.ofNat 64 index) :
     ∃ t, Steps im s 16 16 t ∧
@@ -125,7 +125,7 @@ structure Code2 (im : Image) : Prop where
 
 theorem first2_steps {im : Image} (hc : Code2 im)
     (s : MachineState) (hp : s.pc=pcOf 46966) (index R C : Nat)
-    (hi : index<2^64) (hR : R≤74) (hC : C<2^64)
+    (hi : index<2^64) (hR : R≤75) (hC : C<2^64)
     (h21 : s.getReg .x21=BitVec.ofNat 64 R) (hm : s.getMem 417872#64=BitVec.ofNat 64 C)
     (hindex : s.getMem 0x20550#64=BitVec.ofNat 64 index) :
     ∃ t, Steps im s 15 15 t ∧
@@ -160,7 +160,7 @@ theorem first2_steps {im : Image} (hc : Code2 im)
 #print axioms first2_steps
 theorem residual0_steps {im : Image} (hc : Code0 im)
     (s : MachineState) (hp : s.pc=pcOf 46933) (index R C : Nat)
-    (hi : index<2^64) (hR : R≤74) (hC : C<2^64)
+    (hi : index<2^64) (hR : R≤75) (hC : C<2^64)
     (h21 : s.getReg .x21=BitVec.ofNat 64 R) (hm : s.getMem 417856#64=BitVec.ofNat 64 C)
     (hindex : s.getMem 0x20550#64=BitVec.ofNat 64 index) :
     ∃ t n, n≤18 ∧ Steps im s n n t ∧ t.pc=pcOf 46940 ∧
@@ -194,7 +194,7 @@ theorem residual0_steps {im : Image} (hc : Code0 im)
 #print axioms residual0_steps
 theorem residual1_steps {im : Image} (hc : Code1 im)
     (s : MachineState) (hp : s.pc=pcOf 46949) (index R C : Nat)
-    (hi : index<2^64) (hR : R≤74) (hC : C<2^64)
+    (hi : index<2^64) (hR : R≤75) (hC : C<2^64)
     (h21 : s.getReg .x21=BitVec.ofNat 64 R) (hm : s.getMem 417864#64=BitVec.ofNat 64 C)
     (hindex : s.getMem 0x20550#64=BitVec.ofNat 64 index) :
     ∃ t n, n≤18 ∧ Steps im s n n t ∧ t.pc=pcOf 46956 ∧
@@ -228,7 +228,7 @@ theorem residual1_steps {im : Image} (hc : Code1 im)
 #print axioms residual1_steps
 theorem residual2_steps {im : Image} (hc : Code2 im)
     (s : MachineState) (hp : s.pc=pcOf 46966) (index R C : Nat)
-    (hi : index<2^64) (hR : R≤74) (hC : C<2^64)
+    (hi : index<2^64) (hR : R≤75) (hC : C<2^64)
     (h21 : s.getReg .x21=BitVec.ofNat 64 R) (hm : s.getMem 417872#64=BitVec.ofNat 64 C)
     (hindex : s.getMem 0x20550#64=BitVec.ofNat 64 index) :
     ∃ t n, n≤17 ∧ Steps im s n n t ∧ t.pc=pcOf 46973 ∧

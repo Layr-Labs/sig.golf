@@ -1,3 +1,4 @@
+import SigGolfCandidate.MachineCounterCaps
 import SigGolfCandidate.LocalRouteMachineHelpers
 import Mathlib.Algebra.Polynomial.Coeff
 import Mathlib.Data.ENNReal.Inv
@@ -1797,11 +1798,11 @@ structure CellKey where
 
 noncomputable def rejectedAnswers (lay : Layer) (remaining : Nat) : Finset HashOutput :=
   Finset.univ.filter fun answer => WCT9.CanonicalPolicy.producerDecodeOut lay
-    (WCT9.CanonicalPolicy.threshold lay.val remaining) answer = none
+    (WCT9.Policy75Safe23.threshold lay.val remaining) answer = none
 
 theorem mem_rejectedAnswers (lay : Layer) (remaining : Nat) (answer : HashOutput) :
     answer ∈ rejectedAnswers lay remaining ↔ WCT9.CanonicalPolicy.producerDecodeOut lay
-      (WCT9.CanonicalPolicy.threshold lay.val remaining) answer = none := by
+      (WCT9.Policy75Safe23.threshold lay.val remaining) answer = none := by
   simp only [rejectedAnswers, Finset.mem_filter, Finset.mem_univ, true_and]
 
 theorem rejectedAnswers_nonempty (lay : Layer) (remaining : Nat) :
@@ -1840,7 +1841,7 @@ def ReachedCounter (answers : Answers) (messages : LeafAddr → WCT9.LayerMsg)
   counter < WCT9.searchLimit leaf.lay ∧ ∃ remaining,
     referenceContext answers messages leaf = some remaining ∧
       ∀ earlier < counter, decodeRow answers leaf
-        (WCT9.CanonicalPolicy.threshold leaf.lay.val remaining) (messages leaf) earlier = none
+        (WCT9.Policy75Safe23.threshold leaf.lay.val remaining) (messages leaf) earlier = none
 
 def Reached (answers : Answers) (messages : LeafAddr → WCT9.LayerMsg)
     (leaf : LeafAddr) (input : HashInput) : Prop :=
@@ -1886,9 +1887,9 @@ theorem reached_congr_of_decisions (answers answers' : Answers)
       referenceContext answers messages leaf = some remaining →
       ∀ counter < WCT9.searchLimit leaf.lay,
         (∀ earlier < counter, decodeRow answers leaf
-          (WCT9.CanonicalPolicy.threshold leaf.lay.val remaining) (messages leaf) earlier = none) →
-        decodeRow answers' leaf (WCT9.CanonicalPolicy.threshold leaf.lay.val remaining) (messages leaf) counter =
-          decodeRow answers leaf (WCT9.CanonicalPolicy.threshold leaf.lay.val remaining) (messages leaf) counter)
+          (WCT9.Policy75Safe23.threshold leaf.lay.val remaining) (messages leaf) earlier = none) →
+        decodeRow answers' leaf (WCT9.Policy75Safe23.threshold leaf.lay.val remaining) (messages leaf) counter =
+          decodeRow answers leaf (WCT9.Policy75Safe23.threshold leaf.lay.val remaining) (messages leaf) counter)
     {leaf : LeafAddr} (hleaf : allowed leaf) (input : HashInput) :
     Reached answers' messages' leaf input ↔ Reached answers messages leaf input := by
   have hctx := (reference_congr_of_decisions answers answers' messages messages' allowed
@@ -1918,7 +1919,7 @@ noncomputable def rejectedSet (answers : Answers) (messages : LeafAddr → WCT9.
       (BitVec.ofNat 32 counter) 0 ∧
     referenceContext answers messages (Enc.leafOf entry.1.1) = some remaining ∧
     decodeRow answers (Enc.leafOf entry.1.1)
-      (WCT9.CanonicalPolicy.threshold entry.1.1.lay.val remaining)
+      (WCT9.Policy75Safe23.threshold entry.1.1.lay.val remaining)
       (messages (Enc.leafOf entry.1.1)) counter = none}
 
 noncomputable def cellKey (answers : Answers) (messages : LeafAddr → WCT9.LayerMsg) : CellKey :=
@@ -1948,9 +1949,9 @@ theorem source_reference_congr (answers answers' : Answers)
       referenceContext answers messages leaf = some remaining →
       ∀ counter < WCT9.searchLimit leaf.lay,
         (∀ earlier < counter, decodeRow answers leaf
-          (WCT9.CanonicalPolicy.threshold leaf.lay.val remaining) (messages leaf) earlier = none) →
-        decodeRow answers' leaf (WCT9.CanonicalPolicy.threshold leaf.lay.val remaining) (messages leaf) counter =
-          decodeRow answers leaf (WCT9.CanonicalPolicy.threshold leaf.lay.val remaining) (messages leaf) counter)
+          (WCT9.Policy75Safe23.threshold leaf.lay.val remaining) (messages leaf) earlier = none) →
+        decodeRow answers' leaf (WCT9.Policy75Safe23.threshold leaf.lay.val remaining) (messages leaf) counter =
+          decodeRow answers leaf (WCT9.Policy75Safe23.threshold leaf.lay.val remaining) (messages leaf) counter)
     {leaf : LeafAddr} (hleaf : WotsExtract.SourceLeaf7 leaf) :
     referenceContext answers' messages' leaf = referenceContext answers messages leaf ∧
       referenceSearch answers' messages' leaf = referenceSearch answers messages leaf :=
@@ -1973,9 +1974,9 @@ def DecisionsAgree (answers answers' : Answers) (messages : LeafAddr → WCT9.La
     referenceContext answers messages leaf = some remaining →
     ∀ counter < WCT9.searchLimit leaf.lay,
       (∀ earlier < counter, decodeRow answers leaf
-        (WCT9.CanonicalPolicy.threshold leaf.lay.val remaining) (messages leaf) earlier = none) →
-      decodeRow answers' leaf (WCT9.CanonicalPolicy.threshold leaf.lay.val remaining) (messages leaf) counter =
-        decodeRow answers leaf (WCT9.CanonicalPolicy.threshold leaf.lay.val remaining) (messages leaf) counter
+        (WCT9.Policy75Safe23.threshold leaf.lay.val remaining) (messages leaf) earlier = none) →
+      decodeRow answers' leaf (WCT9.Policy75Safe23.threshold leaf.lay.val remaining) (messages leaf) counter =
+        decodeRow answers leaf (WCT9.Policy75Safe23.threshold leaf.lay.val remaining) (messages leaf) counter
 
 theorem reachedCounter_congr {answers answers' : Answers}
     {messages messages' : LeafAddr → WCT9.LayerMsg}
@@ -2025,7 +2026,7 @@ theorem cellKey_congr {answers answers' : Answers}
     apply and_congr_right
     intro hremaining
     have hprev : ∀ earlier < counter, decodeRow answers (Enc.leafOf entry.1.1)
-        (WCT9.CanonicalPolicy.threshold entry.1.1.lay.val remaining)
+        (WCT9.Policy75Safe23.threshold entry.1.1.lay.val remaining)
         (messages (Enc.leafOf entry.1.1)) earlier = none := by
       obtain ⟨_, oldRemaining, hold, hp⟩ := hreach
       rw [hremaining] at hold
@@ -2074,7 +2075,7 @@ theorem rejected_answer {answers : Answers} {messages : LeafAddr → WCT9.LayerM
     {entry : Enc.EncIndex} (hr : entry ∈ rejectedSet answers messages) {remaining : Nat}
     (hctx : referenceContext answers messages (Enc.leafOf entry.1.1) = some remaining) :
     WCT9.CanonicalPolicy.producerDecodeOut entry.1.1.lay
-      (WCT9.CanonicalPolicy.threshold entry.1.1.lay.val remaining)
+      (WCT9.Policy75Safe23.threshold entry.1.1.lay.val remaining)
       (answers (.inl (.inr (Enc.encInput entry)))) = none := by
   obtain ⟨counter, oldRemaining, _, hin, hold, hnone⟩ := hr
   rw [hctx] at hold
@@ -2520,7 +2521,7 @@ theorem searchOf_route_lower (answers : Answers) (index : Nat) (lay : Layer)
       let pair := WCT9.builtPair answers ⟨lay.val + 1, by omega⟩
         (route index ⟨lay.val + 1, by omega⟩).2
       evalWithAnswerFn answers (WCT9.CanonicalPolicy.layerCounterSearchAt lay
-        (WCT9.CanonicalPolicy.threshold lay.val remaining) (route index lay).2 (route index lay).1
+        (WCT9.Policy75Safe23.threshold lay.val remaining) (route index lay).2 (route index lay).1
         (.pair pair.1 pair.2) 0 (WCT9.searchLimit lay)) := by
   unfold searchOf
   rw [sourceMessages_route_lower answers index lay hlay]
@@ -2530,7 +2531,7 @@ theorem searchOf_route_bottom (answers : Answers) (index : Nat) (hindex : index 
     (remaining : Nat) :
     searchOf answers (sourceMessages answers) (sourceLeaf index 3) remaining =
       evalWithAnswerFn answers (WCT9.CanonicalPolicy.layerCounterSearchAt 3
-        (WCT9.CanonicalPolicy.threshold 3 remaining) (route index 3).2 (route index 3).1
+        (WCT9.Policy75Safe23.threshold 3 remaining) (route index 3).2 (route index 3).1
         (.pair (forestCommitment answers index).1 (forestCommitment answers index).2)
         0 (WCT9.searchLimit 3)) := by
   unfold searchOf
@@ -2562,7 +2563,7 @@ theorem searchPreparedLayers_reference (answers : Answers) (cache : SigGolfCandi
       some (result.counters.getD 0 0, result.digits.getD 0 [], result.lows.getD 0 true) := by
     rw [searchOf_route_lower answers index 0 (by decide)]
     change evalWithAnswerFn answers (WCT9.CanonicalPolicy.layerCounterSearchAt 0
-      (WCT9.CanonicalPolicy.threshold 0 (requiredCredit index)) (route index 0).2 (route index 0).1
+      (WCT9.Policy75Safe23.threshold 0 (requiredCredit index)) (route index 0).2 (route index 0).1
       (.pair (WCT9.builtPair answers 1 (route index 1).2).1
         (WCT9.builtPair answers 1 (route index 1).2).2) 0 (WCT9.searchLimit 0)) = _
     simpa only [fixedPrepared_pair, Fin.isValue, Nat.reduceAdd] using hf.search0
@@ -2576,7 +2577,7 @@ theorem searchPreparedLayers_reference (answers : Answers) (cache : SigGolfCandi
       some (result.counters.getD 1 0, result.digits.getD 1 [], result.lows.getD 1 true) := by
     rw [searchOf_route_lower answers index 1 (by decide)]
     change evalWithAnswerFn answers (WCT9.CanonicalPolicy.layerCounterSearchAt 1
-      (WCT9.CanonicalPolicy.threshold 1 (preparedResidual1 index result)) (route index 1).2 (route index 1).1
+      (WCT9.Policy75Safe23.threshold 1 (preparedResidual1 index result)) (route index 1).2 (route index 1).1
       (.pair (WCT9.builtPair answers 2 (route index 2).2).1
         (WCT9.builtPair answers 2 (route index 2).2).2) 0 (WCT9.searchLimit 1)) = _
     simpa only [fixedPrepared_pair, Fin.isValue, Nat.reduceAdd] using hf.search1
@@ -2590,7 +2591,7 @@ theorem searchPreparedLayers_reference (answers : Answers) (cache : SigGolfCandi
       some (result.counters.getD 2 0, result.digits.getD 2 [], result.lows.getD 2 true) := by
     rw [searchOf_route_lower answers index 2 (by decide)]
     change evalWithAnswerFn answers (WCT9.CanonicalPolicy.layerCounterSearchAt 2
-      (WCT9.CanonicalPolicy.threshold 2 (preparedResidual2 index result)) (route index 2).2 (route index 2).1
+      (WCT9.Policy75Safe23.threshold 2 (preparedResidual2 index result)) (route index 2).2 (route index 2).1
       (.pair (WCT9.builtPair answers 3 (route index 3).2).1
         (WCT9.builtPair answers 3 (route index 3).2).2) 0 (WCT9.searchLimit 2)) = _
     simpa only [fixedPrepared_pair, Fin.isValue, Nat.reduceAdd] using hf.search2
@@ -2983,13 +2984,13 @@ theorem search_runEq {T T' : Answers} {messages : LeafAddr → LayerMsg}
     (hleaf : WotsExtract.SourceLeaf7 leaf) (remaining : Nat)
     (hc : referenceContext T messages leaf=some remaining) :
     RunEq T T' (CanonicalPolicy.layerCounterSearchAt leaf.lay
-      (CanonicalPolicy.threshold leaf.lay.val remaining) leaf.tree leaf.leaf
+      (ClaudeWCT.WCT9.Policy75Safe23.threshold leaf.lay.val remaining) leaf.tree leaf.leaf
       (messages leaf) 0 (searchLimit leaf.lay)) := by
   have hd : ∀ c<searchLimit leaf.lay,
-      (∀ c'<c, decodeRow T leaf (CanonicalPolicy.threshold leaf.lay.val remaining)
+      (∀ c'<c, decodeRow T leaf (ClaudeWCT.WCT9.Policy75Safe23.threshold leaf.lay.val remaining)
         (messages leaf) (0+c')=none) →
-      decodeRow T' leaf (CanonicalPolicy.threshold leaf.lay.val remaining) (messages leaf) (0+c)=
-        decodeRow T leaf (CanonicalPolicy.threshold leaf.lay.val remaining) (messages leaf) (0+c) := by
+      decodeRow T' leaf (ClaudeWCT.WCT9.Policy75Safe23.threshold leaf.lay.val remaining) (messages leaf) (0+c)=
+        decodeRow T leaf (ClaudeWCT.WCT9.Policy75Safe23.threshold leaf.lay.val remaining) (messages leaf) (0+c) := by
     simpa only [Nat.zero_add] using hdecisions leaf hleaf remaining hc
   exact ⟨search_congr T T' leaf _ _ _ _ hd,search_queries_congr T T' leaf _ _ _ _ hd⟩
 
@@ -2997,7 +2998,7 @@ theorem referenceSearch_of_run {T : Answers} {messages : LeafAddr → LayerMsg}
     {leaf : LeafAddr} {remaining : Nat} {counter : BitVec 32} {digits : List Nat} {low : Bool}
     (hc : referenceContext T messages leaf=some remaining)
     (hr : evalWithAnswerFn T (CanonicalPolicy.layerCounterSearchAt leaf.lay
-      (CanonicalPolicy.threshold leaf.lay.val remaining) leaf.tree leaf.leaf
+      (ClaudeWCT.WCT9.Policy75Safe23.threshold leaf.lay.val remaining) leaf.tree leaf.leaf
       (messages leaf) 0 (searchLimit leaf.lay))= some (counter,digits,low)) :
     referenceSearch T messages leaf= some (counter,digits,low) :=
   referenceSearch_of_context hc hr
@@ -3510,9 +3511,9 @@ theorem searchPreparedLayers_maskEq (T : Answers) (a : ChainAddr)
     rw [Mask.wotsTree_maskAt T messages a lay _ (Wots.Mask.maskOK_of_lt hleaf)]
   have hs (lay : Layer) (remaining : Nat)
       (_hc : referenceContext T messages (sourceLeaf index lay)=some remaining) :
-      ExecEq T T' (WCT9.CanonicalPolicy.layerCounterSearchAt lay (CanonicalPolicy.threshold lay.val remaining)
+      ExecEq T T' (WCT9.CanonicalPolicy.layerCounterSearchAt lay (ClaudeWCT.WCT9.Policy75Safe23.threshold lay.val remaining)
         (sourceLeaf index lay).tree (sourceLeaf index lay).leaf (messages (sourceLeaf index lay)) 0 (searchLimit lay))
-        (WCT9.CanonicalPolicy.layerCounterSearchAt lay (CanonicalPolicy.threshold lay.val remaining)
+        (WCT9.CanonicalPolicy.layerCounterSearchAt lay (ClaudeWCT.WCT9.Policy75Safe23.threshold lay.val remaining)
         (sourceLeaf index lay).tree (sourceLeaf index lay).leaf (messages (sourceLeaf index lay)) 0 (searchLimit lay)) :=
     ⟨Mask.eval_maskAt_of_respects T messages a (Mask.respectsP_layerCounterSearchAt a _ _ _ _ _ _ _),
       congrArg List.length (Mask.queried_maskAt_of_respects T messages a (Mask.respectsP_layerCounterSearchAt a _ _ _ _ _ _ _))⟩
@@ -4116,12 +4117,12 @@ theorem encLeafOf_self (L : EncLeaf) (h : WotsExtract.SourceLeaf7 L.toWots) :
 abbrev Rows := EncLeaf → Fin (2^22) → HashOutput
 noncomputable def selectionAt (rows : Rows) (L : EncLeaf) (remaining : Nat) : Selection :=
   capSel L (FirstSuccessTable.select
-    (decodeAt L (WCT9.CanonicalPolicy.threshold L.1.lay.val remaining)) (rows L))
+    (decodeAt L (WCT9.Policy75Safe23.threshold L.1.lay.val remaining)) (rows L))
 noncomputable def searchRows (rows : Rows) : Wots.CanonicalRef.Search := fun L remaining =>
   if h : WotsExtract.SourceLeaf7 L then
     (selectionAt rows (encLeafOf L h) remaining).bind fun r =>
       (WCT9.CanonicalPolicy.producerDecodeOut L.lay
-        (WCT9.CanonicalPolicy.threshold L.lay.val remaining) (rows (encLeafOf L h) r.1)).map fun found =>
+        (WCT9.Policy75Safe23.threshold L.lay.val remaining) (rows (encLeafOf L h) r.1)).map fun found =>
           (BitVec.ofNat 32 r.1.val,found)
   else none
 noncomputable def rowsContext (rows : Rows) : Wots.LeafAddr → Option Nat :=
@@ -4146,7 +4147,7 @@ attribute [local instance] Classical.propDecidable
 theorem searchRows_toWots (rows : Rows) (L : EncLeaf) (remaining : Nat) :
     searchRows rows L.toWots remaining = (selectionAt rows L remaining).bind fun r =>
       (WCT9.CanonicalPolicy.producerDecodeOut L.1.lay
-        (WCT9.CanonicalPolicy.threshold L.1.lay.val remaining) (rows L r.1)).map fun found =>
+        (WCT9.Policy75Safe23.threshold L.1.lay.val remaining) (rows L r.1)).map fun found =>
           (BitVec.ofNat 32 r.1.val,found) := by
   simp only [searchRows, dif_pos (source_toWots L), encLeafOf_self]
   rfl
@@ -4161,9 +4162,9 @@ theorem searchOf_eq_selectionAt (answers : Answers) (messages : Wots.LeafAddr �
     Wots.CanonicalRef.searchOf answers messages L.toWots remaining =
       (selectionAt rows L remaining).bind fun r =>
         (WCT9.CanonicalPolicy.producerDecodeOut L.1.lay
-          (WCT9.CanonicalPolicy.threshold L.1.lay.val remaining) (rows L r.1)).map fun found =>
+          (WCT9.Policy75Safe23.threshold L.1.lay.val remaining) (rows L r.1)).map fun found =>
             (BitVec.ofNat 32 r.1.val,found) := by
-  let floor := WCT9.CanonicalPolicy.threshold L.1.lay.val remaining
+  let floor := WCT9.Policy75Safe23.threshold L.1.lay.val remaining
   change evalWithAnswerFn answers (WCT9.CanonicalPolicy.layerCounterSearchAt L.1.lay floor
     L.1.tree.val L.1.leaf.val (messages L.toWots) 0 (WCT9.searchLimit L.1.lay)) = _
   rw [counterSearch_select answers L.1.lay floor L.1.tree.val L.1.leaf.val (messages L.toWots)
@@ -4211,7 +4212,7 @@ noncomputable def decodedSelection (rows : Rows) (L : EncLeaf) : Option (BitVec 
   (rowsContext rows L.toWots).bind fun remaining =>
     (selectionAt rows L remaining).bind fun r =>
       (WCT9.CanonicalPolicy.producerDecodeOut L.1.lay
-        (WCT9.CanonicalPolicy.threshold L.1.lay.val remaining) (rows L r.1)).map fun found =>
+        (WCT9.Policy75Safe23.threshold L.1.lay.val remaining) (rows L r.1)).map fun found =>
           (BitVec.ofNat 32 r.1.val,found)
 
 theorem referenceSearch_eq_rows (answers : Answers) (messages : Wots.LeafAddr → WCT9.LayerMsg)
@@ -4238,11 +4239,11 @@ set_option backward.isDefEq.respectTransparency false
 theorem selectionAt_producer {rows : Rows} {L : EncLeaf} {remaining : Nat}
     {r : Fin (2^22) × Digest} (hsel : selectionAt rows L remaining = some r) :
     WCT9.encodingAnswer L.1.lay (rows L r.1) = r.2 ∧ ∃ found, WCT9.CanonicalPolicy.producerDecodeOut L.1.lay
-      (WCT9.CanonicalPolicy.threshold L.1.lay.val remaining) (rows L r.1) = some found := by
+      (WCT9.Policy75Safe23.threshold L.1.lay.val remaining) (rows L r.1) = some found := by
   have hs := (capSel_eq_some.mp hsel).1
   have hd := (FirstSuccessTable.select_some_iff _ _ r.1 r.2).mp hs |>.1
   cases he : WCT9.CanonicalPolicy.producerDecodeOut L.1.lay
-      (WCT9.CanonicalPolicy.threshold L.1.lay.val remaining) (rows L r.1) with
+      (WCT9.Policy75Safe23.threshold L.1.lay.val remaining) (rows L r.1) with
   | none => simp [decodeAt, he] at hd
   | some found =>
       have hv : WCT9.encodingAnswer L.1.lay (rows L r.1)=r.2 := by
@@ -4252,7 +4253,7 @@ theorem selectionAt_producer {rows : Rows} {L : EncLeaf} {remaining : Nat}
 theorem selectionAt_decoder (rows : Rows) (L : EncLeaf) (remaining : Nat) :
     ((selectionAt rows L remaining).bind fun r =>
       (WCT9.CanonicalPolicy.producerDecodeOut L.1.lay
-        (WCT9.CanonicalPolicy.threshold L.1.lay.val remaining) (rows L r.1)).map fun found =>
+        (WCT9.Policy75Safe23.threshold L.1.lay.val remaining) (rows L r.1)).map fun found =>
           (BitVec.ofNat 32 r.1.val,found)) =
     ((selectionAt rows L remaining).bind fun r =>
       (WCT9.CanonicalPolicy.decode L.1.lay r.2).map fun ds =>
@@ -10594,11 +10595,11 @@ theorem ftsPoint_child_injective (j : Fin 128) : Function.Injective fun t : Fin 
   fun t t' h => (Guess.Fam.ftsPoint_inj (j := j) (j' := j) h).2
 /-- Coefficients whose seeds at the 6 chains of child `j` are `v` (the name is kept from the 7-chain code). -/
 noncomputable def interp7 (v : Fin 6 → Digest) (j : Fin 128) : Guess.Fam.Coefs :=
-  Classical.choose (ClaudeWCT.Arith.familyEval_surjective (n := 54) (t := 6) (by decide)
+  Classical.choose (ClaudeWCT.Arith.familyEval_surjective (n := 42) (t := 6) (by decide)
     (fun t => WCT9.ftsPoint j.val t.val) (ftsPoint_child_injective j) (fun t => Guess.Fam.ftsPoint_lt j t) v)
 theorem interp7_spec (v : Fin 6 → Digest) (j : Fin 128) (t : Fin 6) :
     ClaudeWCT.Arith.familyEval (List.ofFn (interp7 v j)) (WCT9.ftsPoint j.val t.val) = v t :=
-  congrFun (Classical.choose_spec (ClaudeWCT.Arith.familyEval_surjective (n := 54) (t := 6) (by decide)
+  congrFun (Classical.choose_spec (ClaudeWCT.Arith.familyEval_surjective (n := 42) (t := 6) (by decide)
     (fun t => WCT9.ftsPoint j.val t.val) (ftsPoint_child_injective j) (fun t => Guess.Fam.ftsPoint_lt j t) v)) t
 /-- A hidden value whose table agrees with `v` on the coordinates revealed by `output`. -/
 noncomputable def liftH (v : Guess.GCoord → Digest) (output : HashOutput) : CanonTable.HiddenF :=
@@ -11067,12 +11068,12 @@ theorem worldGame_tracking (g : CanonTable.HiddenF) (adversary : AdversaryP)
   exact t.guess (by simp [init, SecretGuessObservation.initialState]) c hc.1 hc.2
 /-- FTS overflow in a signing log: more than 50 distinct signed outputs share an index (campaign X1). -/
 def OverflowIn (A : Answers) (log : QueryLog Requests) : Prop :=
-  ∃ i : Nat, 50 < ((loggedOutputs A log).toFinset.filter fun out => WCT9.digestIndex out = i).card
+  ∃ i : Nat, 39 < ((loggedOutputs A log).toFinset.filter fun out => WCT9.digestIndex out = i).card
 theorem rank_three_card_le (w : WCT9.Rank) :
     ((Finset.univ : Finset (Fin 6)).filter fun t => WCT9.wordDigit w t = 4).card ≤ 1 :=
   WCT9.f8_seedDisclosures_card_le _
 /-- Without overflow in the log, the engine never flags `Bad`: retired-but-unguessed seeds were disclosed by at most
-50 signatures per index, at most two seeds per signature and family (campaign T8: at most one, the digit-4 chain). -/
+39 signatures per index, at most two seeds per signature and family (campaign T8: at most one, the digit-4 chain). -/
 theorem worldGame_noBad (g : CanonTable.HiddenF) (adversary : AdversaryP)
     (result : (Bool × QueryLog Requests × List Wots.Entry) × WState)
     (hr : fixedRun env (Guess.Fam.phi g.1 g.2) (worldGame hU ω adversary) init result ≠ 0)
@@ -11086,10 +11087,10 @@ theorem worldGame_noBad (g : CanonTable.HiddenF) (adversary : AdversaryP)
     (programW_tracks hU ω g _ (PaddedGame.verdict_public _ _) _ verdict hv)
   rw [List.append_nil] at t
   rintro ⟨f, hf⟩
-  have hf' : 51 < (Guess.Fam.freeRetired verdict.2 f).card := hf
+  have hf' : 39 < (Guess.Fam.freeRetired verdict.2 f).card := hf
   have hno' : ¬OverflowIn (wA hU ω g) interaction.1.2.1 := hno
   set X := loggedOutputs (wA hU ω g) interaction.1.2.1
-  have hcount : ((X.toFinset.filter fun out => WCT9.digestIndex out = f.1.val)).card ≤ 50 := by
+  have hcount : ((X.toFinset.filter fun out => WCT9.digestIndex out = f.1.val)).card ≤ 39 := by
     by_contra hc
     exact hno' ⟨f.1.val, Nat.lt_of_not_le hc⟩
   let S : Finset (Fin 128 × Fin 6) := (X.toFinset.filter fun out => WCT9.digestIndex out = f.1.val).biUnion
@@ -11113,14 +11114,14 @@ theorem worldGame_noBad (g : CanonTable.HiddenF) (adversary : AdversaryP)
       · change 4 - WCT9.wordDigit (WCT9.rank out f.2) p.2 ≤ 0 at h3
         omega
       · exact Prod.ext h2 rfl
-  have hS : S.card ≤ 50 := by
+  have hS : S.card ≤ 39 := by
     refine Finset.card_biUnion_le.trans ?_
     calc (∑ out ∈ X.toFinset.filter (fun out => WCT9.digestIndex out = f.1.val),
           (((Finset.univ : Finset (Fin 6)).filter fun t => WCT9.wordDigit (WCT9.rank out f.2) t = 4).image
             fun t => (WCT9.child out f.2, t)).card)
         ≤ ∑ out ∈ X.toFinset.filter (fun out => WCT9.digestIndex out = f.1.val), 1 :=
           Finset.sum_le_sum fun out _ => Finset.card_image_le.trans (rank_three_card_le _)
-      _ ≤ 50 := by rw [Finset.sum_const, smul_eq_mul]; omega
+      _ ≤ 39 := by rw [Finset.sum_const, smul_eq_mul]; omega
   have := Finset.card_le_card hsub
   omega
 end Tracking
@@ -12188,16 +12189,16 @@ theorem programW_tracks (g : CanonTable.HiddenF) {β : Type} (program : M β) (h
       · exact hi.elim
 
 def OverflowIn (A : Answers) (log : QueryLog Paired.Requests) : Prop :=
-  ∃ i : Nat, 50 < ((loggedOutputs A log).toFinset.filter fun out => WCT9.digestIndex out = i).card
+  ∃ i : Nat, 39 < ((loggedOutputs A log).toFinset.filter fun out => WCT9.digestIndex out = i).card
 
 theorem tracked_noBad (g : CanonTable.HiddenF) (state : WState)
     (log : QueryLog Paired.Requests) (entries : List Wots.Entry)
     (ht : Tracks hU ω g init state log entries)
     (hno : ¬OverflowIn (wA hU ω g) log) : ¬Guess.Fam.Bad state := by
   rintro ⟨family, hbad⟩
-  have hbad' : 51 < (Guess.Fam.freeRetired state family).card := hbad
+  have hbad' : 39 < (Guess.Fam.freeRetired state family).card := hbad
   have hcount : (((loggedOutputs (wA hU ω g) log).toFinset.filter
-      fun output => WCT9.digestIndex output = family.1.val)).card ≤ 50 := by
+      fun output => WCT9.digestIndex output = family.1.val)).card ≤ 39 := by
     by_contra hc
     exact hno ⟨family.1.val, Nat.lt_of_not_le hc⟩
   have hsub : Guess.Fam.freeRetired state family ⊆
@@ -13205,7 +13206,7 @@ def NoOverflow (adversary : AdversaryP) (z : PaddedGame.TraceResult × Answers) 
 /-- Bridge from A6's `LogNoOverflow` (stated unfolded here: `FtsOverflow` imports this tree). -/
 theorem not_overflowIn_of_outIdx (A : Answers) (log : QueryLog Requests)
     (h : ∀ j : Fin (2 ^ 31),
-      ((loggedOutputs A log).toFinset.filter fun out => ClaudeWCT.Bank.WCT.outIdx out = j).card ≤ 50) :
+      ((loggedOutputs A log).toFinset.filter fun out => ClaudeWCT.Bank.WCT.outIdx out = j).card ≤ 39) :
     ¬OverflowIn A log := by
   rintro ⟨i, hi⟩
   by_cases hlt : i < 2 ^ 31
@@ -13228,7 +13229,7 @@ theorem noOverflow_of_outIdx (adversary : AdversaryP) (z : PaddedGame.TraceResul
     (h : ∀ generated interaction checked,
       CaseC.GameSplit adversary (QueryRecorded.recordedTrace z.1) generated interaction checked →
         ∀ j : Fin (2 ^ 31), ((loggedOutputs z.2 interaction.value.2).toFinset.filter
-          fun out => ClaudeWCT.Bank.WCT.outIdx out = j).card ≤ 50) :
+          fun out => ClaudeWCT.Bank.WCT.outIdx out = j).card ≤ 39) :
     NoOverflow adversary z :=
   fun g i c hs => not_overflowIn_of_outIdx _ _ (h g i c hs)
 /-- `PairGuessBound` restricted to runs without FTS overflow (same right-hand side). -/
@@ -14078,27 +14079,7 @@ set_option maxHeartbeats 1000000
 set_option maxRecDepth 10000
 attribute [local instance] Classical.propDecidable
 
-theorem LogNoOverflow.noOverflow {A : Correctness.Answers}
-    {log : QueryLog ClaudeWCT.W9.T3M.Final.Paired.Requests} (h : LogNoOverflow A log) :
-    ¬WPair.Paired.OverflowIn A log := by
-  rintro ⟨i,hi⟩
-  obtain ⟨out,hout⟩:=Finset.card_pos.mp (lt_trans (by decide : 0 < 50) hi)
-  have he:WCT9.digestIndex out=i:=(Finset.mem_filter.mp hout).2
-  have hib:i < 2^31:=he ▸ WCT9.digestIndex_lt out
-  have hj:=h ⟨i,hib⟩
-  have hp:∀out,ClaudeWCT.Bank.WCT.outIdx out=⟨i,hib⟩ ↔ WCT9.digestIndex out=i:=fun out=>Fin.ext_iff
-  simp only[hp] at hj
-  exact (not_lt_of_ge hj) hi
-
-theorem cleanWin_noOverflow_le (adversary : ClaudeWCT.W9.T3M.Final.Paired.AdversaryP)
-    (q : Nat) (hq:q ≤ 2^127) :
-    Pr[fun z=>QueryRecorded.CleanWin q z.1 ∧ ¬WPair.Paired.NoOverflow adversary z |
-      PairedSeccLaw.completedExperiment adversary q hq] ≤ (2^137)⁻¹ := by
-  refine le_trans (pmf_mono _ ?_) (cleanWin_logOverflow_le adversary q hq)
-  intro z hz
-  refine ⟨hz.1,fun h=>hz.2 ?_⟩
-  intro g i c hs
-  exact (h g i c hs).noOverflow
+-- The39-output engine guard is supplied by QueryOverflow40 after this base module.
 
 end ClaudeWCT.W9.T3.Security.FtsOverflow.Paired
 end
@@ -20109,8 +20090,8 @@ def k_103 (b : Nat) : List (BitVec 32) := if b = 354 then k_103e else k_103s
 /-- Top choice retry hook (r3-lean-sign): the top sum check fails into `b + 104`, which jumps to `choice_r`. -/
 def k_104 (b : Nat) : List (BitVec 32) := (if b = 354 then [0x1652906f] else [0x6911306f]) ++ [19,19,19,19,19,19,19]
 def k_112 : List (BitVec 32) := [2451]
-def k_113s : List (BitVec 32) := [617689199,0x4c698c63]
-def k_113e : List (BitVec 32) := [634548335,0x4c698c63]
+def k_113s : List (BitVec 32) := [1330741359,0x4c698c63]
+def k_113e : List (BitVec 32) := [760565871,0x4c698c63]
 def k_113 (b : Nat) : List (BitVec 32) := if b = 354 then k_113e else k_113s
 def k_115 : List (BitVec 32) := [134711,638455315,54403107,132407,637863187,67110291,132663,705037843]
 def k_123 : List (BitVec 32) := [115]
@@ -20144,33 +20125,38 @@ def k_461 : List (BitVec 32) := [265315]
 def k_462 : List (BitVec 32) := [0x41988e33,134839,0x420e8e93,22974131]
 def k_466 : List (BitVec 32) := [30310435]
 def k_467 (_b : Nat) : List (BitVec 32) := [0x8067]
-def k_468s : List (BitVec 32) := [1673619,0x4bc1306f]
-def k_468e : List (BitVec 32) := [1673619,0x4cc2706f]
+def k_468s : List (BitVec 32) := [1673619,0x7641806f]
+def k_468e : List (BitVec 32) := [1673619,0x5445506f]
 def k_468 (b : Nat) : List (BitVec 32) := if b = 354 then k_468e else k_468s
 def kernL (b : Nat) : Rv.Layout := [(0, k_0), (2, k_2), (3, k_3), (7, k_7), (9, k_9), (31, k_31), (40, k_40), (43, k_43), (44, k_44), (47, k_47), (48, k_48), (51, k_51), (52, k_52), (53, k_53), (97, k_97), (99, k_99), (101, k_101), (103, k_103 b), (104, k_104 b), (112, k_112), (113, k_113 b), (115, k_115), (123, k_123), (124, k_124 b), (130, k_130 b), (132, k_132), (259, k_259 b), (263, k_263), (265, k_265 b), (438, k_438), (440, k_440), (441, k_441), (442, k_442), (443, k_443), (446, k_446), (448, k_448), (452, k_452), (453, k_453), (461, k_461), (462, k_462), (466, k_466), (467, k_467 b), (468, k_468 b)]
 def kernCode (b : Nat) : List (BitVec 32) := layoutCode (kernL b)
 theorem kernL_ok {b : Nat} (hb : b = 354 ∨ b = 543) : layoutOk 0 (kernL b) = true := by
   rcases hb with rfl | rfl <;> decide +kernel
-def capBase (b : Nat) : Nat := if b = 354 then 41066 else 20771
-/-- img-v4/v6 per-layer counter-limit check: `t1 := ((s0 + 3) >> 1) << 20; bltu s3,t1,+5` (continue), then `jal +6` (fail). -/
-def a_0 : List (BitVec 32) := [0x343313,0x334313,0x1431313,0x0069e463]
+def capBase (b : Nat) : Nat := if b = 354 then 88200 else 26061
+/-- Counter-limit entry: jump to the three-way fuel selector, then compare the counter. -/
+def a_0 : List (BitVec 32) := [0xa80006f,0x13,0x13,0x0069e463]
 def a_4 : List (BitVec 32) := [0x0080006f]
-def a_5s : List (BitVec 32) := [0xda8ec06f]
-def a_5e : List (BitVec 32) := [0xd98d806f]
+def a_5s : List (BitVec 32) := [0xb00e706f]
+def a_5e : List (BitVec 32) := [0xd20aa06f]
 def a_5 (b : Nat) : List (BitVec 32) := if b = 354 then a_5e else a_5s
-def a_6s : List (BitVec 32) := [0xa79ec06f]
-def a_6e : List (BitVec 32) := [0xa69d806f]
+def a_6s : List (BitVec 32) := [0xfd0e706f]
+def a_6e : List (BitVec 32) := [0x9f1aa06f]
 def a_6 (b : Nat) : List (BitVec 32) := if b = 354 then a_6e else a_6s
 def a_7 : List (BitVec 32) := [0xffae0e13,1981971,66985491,0xfff00a13,1726995,7342739,56252979,1269395,2318099,32439987,0xfff34f13,32439987,21954227,31354419,1302163,2350867,32439987,0xfff3cf13,32439987,21954227,2006675,31354419,0xfffe0e93,31358515,0xffd40f13,1635]
 def a_33 : List (BitVec 32) := [0xfffe0e93,31358515]
 def a_35 : List (BitVec 32) := [0xfffe0e93,31358515,0xfffe0e93,31358515,918627]
-def a_40s : List (BitVec 32) := [88080495]
-def a_40e : List (BitVec 32) := [835719279]
+def a_40s : List (BitVec 32) := [0xdadfa06f]
+def a_40e : List (BitVec 32) := [0xaa5d306f]
 def a_40 (b : Nat) : List (BitVec 32) := if b = 354 then a_40e else a_40s
-def a_41s : List (BitVec 32) := [0xa9dec06f]
-def a_41e : List (BitVec 32) := [0xa8dd806f]
+def a_41s : List (BitVec 32) := [0xff4e706f]
+def a_41e : List (BitVec 32) := [0xa15aa06f]
 def a_41 (b : Nat) : List (BitVec 32) := if b = 354 then a_41e else a_41s
-def appL (b : Nat) : Rv.Layout := [(0, a_0), (4, a_4), (5, a_5 b), (6, a_6 b), (7, a_7), (33, a_33), (35, a_35), (40, a_40 b), (41, a_41 b)]
+def cap_first : List (BitVec 32) := MachineCounterCaps.sign.firstCode
+def cap_second : List (BitVec 32) := MachineCounterCaps.sign.secondCode
+def cap_last : List (BitVec 32) := MachineCounterCaps.sign.lastCode
+def cap_top : List (BitVec 32) := MachineCounterCaps.sign.topCode
+def cap_mid : List (BitVec 32) := MachineCounterCaps.sign.midCode
+def appL (b : Nat) : Rv.Layout := [(0, a_0), (4, a_4), (5, a_5 b), (6, a_6 b), (7, a_7), (33, a_33), (35, a_35), (40, a_40 b), (41, a_41 b), (42, cap_first), (44, cap_second), (46, cap_last), (48, cap_top), (50, cap_mid)]
 def appCode (b : Nat) : List (BitVec 32) := layoutCode (appL b)
 theorem appL_ok {b : Nat} (hb : b = 354 ∨ b = 543) : layoutOk 0 (appL b) = true := by
   rcases hb with rfl | rfl <;> decide +kernel
@@ -20889,18 +20875,8 @@ theorem run_gateJump {b : Nat} (hb : b = 354 ∨ b = 543) :
   rcases hb with rfl | rfl
   · exact blkGateJE.trans (congrArg some (by kernel_rfl))
   · exact blkGateJS.trans (congrArg some (by kernel_rfl))
-sym_block blkA354_0 := symRun { noAlias := true } a_0 (pcOf (41066 + 0)) 200
-sym_block blkA543_0 := symRun { noAlias := true } a_0 (pcOf (20771 + 0)) 200
-def sta_0 : SymState := blkA354_0.res.st
-def pcEa_0 (b : Nat) : E := rebase blkA354_0.res.pc (pcOf (capBase b + 5)) (pcOf (capBase b + 4))
-theorem runa_0 {b : Nat} (hb : b = 354 ∨ b = 543) :
-    symRun { noAlias := true } a_0 (pcOf (capBase b + 0)) 200 =
-      some ⟨sta_0, pcEa_0 b, blkA354_0.res.stop, blkA354_0.res.steps, blkA354_0.res.cycles⟩ := by
-  rcases hb with rfl | rfl
-  · exact blkA354_0.trans (congrArg some (by kernel_rfl))
-  · exact blkA543_0.trans (congrArg some (by kernel_rfl))
-sym_block blkA354_4 := symRun { noAlias := true } a_4 (pcOf (41066 + 4)) 200
-sym_block blkA543_4 := symRun { noAlias := true } a_4 (pcOf (20771 + 4)) 200
+sym_block blkA354_4 := symRun { noAlias := true } a_4 (pcOf (88200 + 4)) 200
+sym_block blkA543_4 := symRun { noAlias := true } a_4 (pcOf (26061 + 4)) 200
 def sta_4 : SymState := blkA354_4.res.st
 def pcEa_4 (b : Nat) : E := .c (pcOf (capBase b + 6))
 theorem runa_4 {b : Nat} (hb : b = 354 ∨ b = 543) :
@@ -20909,8 +20885,8 @@ theorem runa_4 {b : Nat} (hb : b = 354 ∨ b = 543) :
   rcases hb with rfl | rfl
   · exact blkA354_4.trans (congrArg some (by kernel_rfl))
   · exact blkA543_4.trans (congrArg some (by kernel_rfl))
-sym_block blkA354_5 := symRun { noAlias := true } a_5e (pcOf (41066 + 5)) 200
-sym_block blkA543_5 := symRun { noAlias := true } a_5s (pcOf (20771 + 5)) 200
+sym_block blkA354_5 := symRun { noAlias := true } a_5e (pcOf (88200 + 5)) 200
+sym_block blkA543_5 := symRun { noAlias := true } a_5s (pcOf (26061 + 5)) 200
 def sta_5 : SymState := blkA354_5.res.st
 def pcEa_5 (b : Nat) : E := .c (pcOf (b + 115))
 theorem runa_5 {b : Nat} (hb : b = 354 ∨ b = 543) :
@@ -20919,8 +20895,8 @@ theorem runa_5 {b : Nat} (hb : b = 354 ∨ b = 543) :
   rcases hb with rfl | rfl
   · exact blkA354_5.trans (congrArg some (by kernel_rfl))
   · exact blkA543_5.trans (congrArg some (by kernel_rfl))
-sym_block blkA354_6 := symRun { noAlias := true } a_6e (pcOf (41066 + 6)) 200
-sym_block blkA543_6 := symRun { noAlias := true } a_6s (pcOf (20771 + 6)) 200
+sym_block blkA354_6 := symRun { noAlias := true } a_6e (pcOf (88200 + 6)) 200
+sym_block blkA543_6 := symRun { noAlias := true } a_6s (pcOf (26061 + 6)) 200
 def sta_6 : SymState := blkA354_6.res.st
 def pcEa_6 (b : Nat) : E := .c (pcOf (b + 424))
 theorem runa_6 {b : Nat} (hb : b = 354 ∨ b = 543) :
@@ -20929,8 +20905,8 @@ theorem runa_6 {b : Nat} (hb : b = 354 ∨ b = 543) :
   rcases hb with rfl | rfl
   · exact blkA354_6.trans (congrArg some (by kernel_rfl))
   · exact blkA543_6.trans (congrArg some (by kernel_rfl))
-sym_block blkA354_7 := symRun { noAlias := true } a_7 (pcOf (41066 + 7)) 200
-sym_block blkA543_7 := symRun { noAlias := true } a_7 (pcOf (20771 + 7)) 200
+sym_block blkA354_7 := symRun { noAlias := true } a_7 (pcOf (88200 + 7)) 200
+sym_block blkA543_7 := symRun { noAlias := true } a_7 (pcOf (26061 + 7)) 200
 def sta_7 : SymState := blkA354_7.res.st
 def pcEa_7 (b : Nat) : E := .c (pcOf (capBase b + 35))
 theorem runa_7 {b : Nat} (hb : b = 354 ∨ b = 543) :
@@ -20939,8 +20915,8 @@ theorem runa_7 {b : Nat} (hb : b = 354 ∨ b = 543) :
   rcases hb with rfl | rfl
   · exact blkA354_7.trans (congrArg some (by kernel_rfl))
   · exact blkA543_7.trans (congrArg some (by kernel_rfl))
-sym_block blkA354_33 := symRun { noAlias := true } a_33 (pcOf (41066 + 33)) 200
-sym_block blkA543_33 := symRun { noAlias := true } a_33 (pcOf (20771 + 33)) 200
+sym_block blkA354_33 := symRun { noAlias := true } a_33 (pcOf (88200 + 33)) 200
+sym_block blkA543_33 := symRun { noAlias := true } a_33 (pcOf (26061 + 33)) 200
 def sta_33 : SymState := blkA354_33.res.st
 def pcEa_33 (b : Nat) : E := .c (pcOf (capBase b + 35))
 theorem runa_33 {b : Nat} (hb : b = 354 ∨ b = 543) :
@@ -20949,8 +20925,8 @@ theorem runa_33 {b : Nat} (hb : b = 354 ∨ b = 543) :
   rcases hb with rfl | rfl
   · exact blkA354_33.trans (congrArg some (by kernel_rfl))
   · exact blkA543_33.trans (congrArg some (by kernel_rfl))
-sym_block blkA354_35 := symRun { noAlias := true } a_35 (pcOf (41066 + 35)) 200
-sym_block blkA543_35 := symRun { noAlias := true } a_35 (pcOf (20771 + 35)) 200
+sym_block blkA354_35 := symRun { noAlias := true } a_35 (pcOf (88200 + 35)) 200
+sym_block blkA543_35 := symRun { noAlias := true } a_35 (pcOf (26061 + 35)) 200
 def sta_35 : SymState := blkA354_35.res.st
 def pcEa_35 (b : Nat) : E := rebase blkA354_35.res.pc (pcOf (capBase b + 41)) (pcOf (capBase b + 40))
 theorem runa_35 {b : Nat} (hb : b = 354 ∨ b = 543) :
@@ -20959,8 +20935,8 @@ theorem runa_35 {b : Nat} (hb : b = 354 ∨ b = 543) :
   rcases hb with rfl | rfl
   · exact blkA354_35.trans (congrArg some (by kernel_rfl))
   · exact blkA543_35.trans (congrArg some (by kernel_rfl))
-sym_block blkA354_40 := symRun { noAlias := true } a_40e (pcOf (41066 + 40)) 200
-sym_block blkA543_40 := symRun { noAlias := true } a_40s (pcOf (20771 + 40)) 200
+sym_block blkA354_40 := symRun { noAlias := true } a_40e (pcOf (88200 + 40)) 200
+sym_block blkA543_40 := symRun { noAlias := true } a_40s (pcOf (26061 + 40)) 200
 def sta_40 : SymState := blkA354_40.res.st
 def pcEa_40 (b : Nat) : E := .c (pcOf (zBase b))
 theorem runa_40 {b : Nat} (hb : b = 354 ∨ b = 543) :
@@ -20969,8 +20945,8 @@ theorem runa_40 {b : Nat} (hb : b = 354 ∨ b = 543) :
   rcases hb with rfl | rfl
   · exact blkA354_40.trans (congrArg some (by kernel_rfl))
   · exact blkA543_40.trans (congrArg some (by kernel_rfl))
-sym_block blkA354_41 := symRun { noAlias := true } a_41e (pcOf (41066 + 41)) 200
-sym_block blkA543_41 := symRun { noAlias := true } a_41s (pcOf (20771 + 41)) 200
+sym_block blkA354_41 := symRun { noAlias := true } a_41e (pcOf (88200 + 41)) 200
+sym_block blkA543_41 := symRun { noAlias := true } a_41s (pcOf (26061 + 41)) 200
 def sta_41 : SymState := blkA354_41.res.st
 def pcEa_41 (b : Nat) : E := .c (pcOf (b + 468))
 theorem runa_41 {b : Nat} (hb : b = 354 ∨ b = 543) :
@@ -29030,9 +29006,9 @@ set_option exponentiation.threshold 10000000
 set_option Elab.async false
 def poolWord (n : Nat) : Word :=
   let d := (BitVec.ofNat 64 n >>> 1) ^^^ BitVec.ofNat 64 n
-  74#64 - ((d &&& 1#64) + ((d >>> 6) &&& 1#64))
+  75#64 - ((d &&& 1#64) + ((d >>> 6) &&& 1#64))
 theorem pool_checked : ∀ n : Fin 4096, poolWord n.val = BitVec.ofNat 64 (LocalRouteMachineHelpers.poolForLeaf n.val) := by decide +kernel
-def signCode : List (BitVec 32) := [0x195313,0x1234333,0x137e13,0x635313,0x137313,0x1c30333,0x40600333,0x4a30313,0x66e37,0x6e3423,0x4691306f]
+def signCode : List (BitVec 32) := [0x195313,0x1234333,0x137e13,0x635313,0x137313,0x1c30333,0x40600333,0x4b30313,0x66e37,0x6e3423,0x4691306f]
 sym_block sign := symRun {noAlias:=true} signCode (pcOf 1970) 12
 theorem sign_steps {im : Image} (hc : CodeAt im (pcOf 1970) signCode)
     (s : MachineState) (hp : s.pc=pcOf 1970) (leaf : Nat) (hl : leaf<4096)
@@ -29051,7 +29027,7 @@ theorem sign_steps {im : Image} (hc : CodeAt im (pcOf 1970) signCode)
     change A ≠ 417800 at hn
     norm_num at ha
     rw [Nat.mod_eq_of_lt ha, if_neg hn]
-def expandIndexCode : List (BitVec 32) := [0x20e37,0x550e3a83,0x13ada93,0x1ada13,0x15a4ab3,0x1afa13,0x6ada93,0x1afa93,0x14a8ab3,0x41500ab3,0x4aa8a93,0x66e37,0xe3a03,0xc51f806f]
+def expandIndexCode : List (BitVec 32) := [0x20e37,0x550e3a83,0x13ada93,0x1ada13,0x15a4ab3,0x1afa13,0x6ada93,0x1afa93,0x14a8ab3,0x41500ab3,0x4ba8a93,0x66e37,0xe3a03,0xc51f806f]
 sym_block expandIndex := symRun {noAlias:=true} expandIndexCode (pcOf 54324) 20
 theorem root_word (index : Nat) (hi : index<2^31) :
     BitVec.ofNat 64 index >>> 19 = BitVec.ofNat 64 (index/2^19) := by
@@ -30048,7 +30024,7 @@ set_option linter.unnecessarySeqFocus false
 set_option Elab.async false
 set_option maxRecDepth 8192
 /-- Per-layer window of the three-instruction test `((s0 < 3) xor 3) << 20`. -/
-def capLimit (lay : Nat) : Nat := if min lay 3 = 3 then 3 * 2 ^ 20 else 2 ^ 21
+def capLimit (lay : Nat) : Nat := if min lay 3 = 0 then 2 ^ 21 else if min lay 3 = 3 then 27 * 2 ^ 17 else 7 * 2 ^ 18
 def scanM : BitVec 64 := 1317624576693539401#64
 def lanes6 (x : BitVec 64) : BitVec 64 := x >>> 1 &&& x >>> 2 &&& (x ^^^ 18446744073709551615#64) &&& scanM
 def scanX (c lo hi : BitVec 64) : BitVec 64 :=
@@ -30563,52 +30539,62 @@ theorem zero_count_spec {rewardCondition : Prop} (hK : KernAt image b rewardCond
   · exact (((((((f0.trans f1).trans f2).trans f3).trans f4).trans f5).trans fu)).mono
       (fun _ _ h => by simp at h)
 
-theorem capA0_thr (x : Word) (lay : Nat) (hl : lay < 4) (h8 : x = BitVec.ofNat 64 lay) :
-    BinOp.eval .sll (BinOp.eval .xor (BinOp.eval .sltu x 3#64) 3#64) 20#64 = BitVec.ofNat 64 (capLimit lay) := by
-  subst h8
-  rcases (by omega : lay = 0 ∨ lay = 1 ∨ lay = 2 ∨ lay = 3) with h | h | h | h <;> subst h <;> rfl
-def capThrE : E := .bin .sll (.bin .xor (.bin .sltu (.reg .x8) (.c 3#64)) (.c 3#64)) (.c 20#64)
-theorem pcEa_0_eq (b : Nat) :
-    pcEa_0 b = .ite .ltu (.reg .x19) capThrE (.c (pcOf (capBase b + 5))) (.c (pcOf (capBase b + 4))) := by
-  unfold pcEa_0
-  rw [show blkA354_0.res.pc = .ite .ltu (.reg .x19) capThrE (.c (pcOf (41066 + 5))) (.c (pcOf (41066 + 4))) by
-    kernel_rfl]
-  rfl
-theorem capA0_frame (s : MachineState) (b : Nat) :
-    Frame s (Result.toState ⟨sta_0, pcEa_0 b, blkA354_0.res.stop, blkA354_0.res.steps,
-      blkA354_0.res.cycles⟩ s) (fun _ => False) := by
-  intro A _ _; simp [sta_0, blkA354_0.res, rv_simp]
-theorem capA0_pc (s : MachineState) (b lay i : Nat) (hl : lay < 4) (hi : i < 2 ^ 64)
-    (h8 : s.getReg .x8 = BitVec.ofNat 64 lay) (h19 : s.getReg .x19 = BitVec.ofNat 64 i) :
-    (pcEa_0 b).eval s = (if i < capLimit lay then pcOf (capBase b + 5) else pcOf (capBase b + 4)) := by
-  have hcl : capLimit lay < 2 ^ 64 := by unfold capLimit; split_ifs <;> omega
-  rw [pcEa_0_eq]
-  simp only [E.eval, capThrE]
-  rw [capA0_thr (s.getReg .x8) lay hl h8, h19]
-  by_cases h : i < capLimit lay
-  · have : (BitVec.ofNat 64 i).ult (BitVec.ofNat 64 (capLimit lay)) = true := by
-      simp only [BitVec.ult, BitVec.toNat_ofNat, Nat.mod_eq_of_lt hi, Nat.mod_eq_of_lt hcl]; simpa using h
-    simp [CmpOp.eval, this, h]
-  · have : (BitVec.ofNat 64 i).ult (BitVec.ofNat 64 (capLimit lay)) = false := by
-      simp only [BitVec.ult, BitVec.toNat_ofNat, Nat.mod_eq_of_lt hi, Nat.mod_eq_of_lt hcl]; simp; omega
-    simp [CmpOp.eval, this, h]
-theorem capA0_regs (s : MachineState) (b : Nat) :
-    RegsExcept s (Result.toState ⟨sta_0, pcEa_0 b, blkA354_0.res.stop, blkA354_0.res.steps,
-      blkA354_0.res.cycles⟩ s) [.x6] := by
-  intro r hr; simp at hr; cases r <;> simp_all [sta_0, blkA354_0.res, rv_simp] <;> rfl
-theorem capA0_steps : blkA354_0.res.steps = 4 ∧ blkA354_0.res.cycles = 4 := by
-  constructor <;> kernel_rfl
-set_option maxHeartbeats 1000000 in
 theorem capA0_spec {rewardCondition : Prop} (hK : KernAt image b rewardCondition) (s : MachineState) (hpc : s.pc = pcOf (capBase b + 0)) (lay i : Nat)
     (hl : lay < 4) (hi : i < 2 ^ 64) (h8 : s.getReg .x8 = BitVec.ofNat 64 lay) (h19 : s.getReg .x19 = BitVec.ofNat 64 i) :
-    ∃ t, Steps image s 4 4 t ∧
+    ∃ k t, Steps image s k k t ∧ k ≤ 8 ∧
       t.pc = (if i < capLimit lay then pcOf (capBase b + 5) else pcOf (capBase b + 4)) ∧
       RegsExcept s t [.x6] ∧ Frame s t (fun _ => False) := by
-  have hS := symRun_sound (runa_0 hK.2.1) (codeAt_a_0 hK) s hpc (by simp [sta_0, blkA354_0.res, rv_simp])
-  rw [capA0_steps.1, capA0_steps.2] at hS
-  refine ⟨_, hS, ?_, capA0_regs s b, capA0_frame s b⟩
-  rw [Result.toState_pc]
-  exact capA0_pc s b lay i hl hi h8 h19
+  have hc0 := codeAt_a_0 hK
+  have hh := CodeAt.drop_prefix (pre:=[]) (seg:=MachineCounterCaps.sign.hookCode)
+    (post:=[0x13,0x13,0x0069e463]) hc0
+  have hc := CodeAt.drop_prefix (pre:=[0xa80006f,0x13,0x13])
+    (seg:=MachineCounterCaps.sign.cmpCode) (post:=[]) hc0
+  have hc_first : CodeAt image (pcOf (capBase b + 42)) cap_first := codeAt_sublayout hK.1.2 (appL_ok hK.2.1) (i:=9) rfl
+  have hc_second : CodeAt image (pcOf (capBase b + 44)) cap_second := codeAt_sublayout hK.1.2 (appL_ok hK.2.1) (i:=10) rfl
+  have hc_last : CodeAt image (pcOf (capBase b + 46)) cap_last := codeAt_sublayout hK.1.2 (appL_ok hK.2.1) (i:=11) rfl
+  have hc_top : CodeAt image (pcOf (capBase b + 48)) cap_top := codeAt_sublayout hK.1.2 (appL_ok hK.2.1) (i:=12) rfl
+  have hc_mid : CodeAt image (pcOf (capBase b + 50)) cap_mid := codeAt_sublayout hK.1.2 (appL_ok hK.2.1) (i:=13) rfl
+  have heq : (if lay=0 then 2^21 else if lay=3 then 27*2^17 else 7*2^18) = capLimit lay := by unfold capLimit; interval_cases lay <;> rfl
+  have hcl : capLimit lay < 2^64 := by unfold capLimit; split_ifs <;> omega
+  rcases hK.2.1 with rfl | rfl
+  · obtain ⟨k,u,hs,hk,hpu,h6,hr,hf⟩ := MachineCounterCaps.expand.selector_steps s lay hl
+      (by simpa [capBase,pcOf,MachineCounterCaps.sign.hookCode,MachineCounterCaps.expand.hookCode] using hh) hc_first hc_second hc_last hc_top hc_mid (by simpa [capBase,pcOf,MachineCounterCaps.sign.cmpCode,MachineCounterCaps.expand.cmpCode] using hc)
+      (by simpa [capBase] using hpc) h8
+    rw [heq] at h6
+    have h19u := hr .x19 (by decide)
+    rw [h19] at h19u
+    have hsc := symRun_sound MachineCounterCaps.expand.cmp (by simpa [capBase,pcOf,MachineCounterCaps.sign.cmpCode,MachineCounterCaps.expand.cmpCode] using hc) u hpu (by simp [MachineCounterCaps.expand.cmp.res,rv_simp])
+    refine ⟨k+1, _, hs.trans hsc, by omega, ?_, ?_, ?_⟩
+    · simp only [Result.toState_pc,MachineCounterCaps.expand.cmp.res,rv_simp]
+      simp only [h6,h19u]
+      by_cases h : i < capLimit lay
+      · have hu : (BitVec.ofNat 64 i).ult (BitVec.ofNat 64 (capLimit lay)) = true := by
+          simp only [BitVec.ult, BitVec.toNat_ofNat, Nat.mod_eq_of_lt hi, Nat.mod_eq_of_lt hcl]; simpa using h
+        simp [hu,h,capBase]
+      · have hu : (BitVec.ofNat 64 i).ult (BitVec.ofNat 64 (capLimit lay)) = false := by
+          simp only [BitVec.ult, BitVec.toNat_ofNat, Nat.mod_eq_of_lt hi, Nat.mod_eq_of_lt hcl]; simp; omega
+        simp [hu,h,capBase]
+    · intro r h; have hreg := hr r h; cases r <;> simp_all [MachineCounterCaps.expand.cmp.res,rv_simp] <;> rfl
+    · intro A hA hn; simpa [MachineCounterCaps.expand.cmp.res,rv_simp] using hf A hA hn
+  · obtain ⟨k,u,hs,hk,hpu,h6,hr,hf⟩ := MachineCounterCaps.sign.selector_steps s lay hl
+      (by simpa [capBase,pcOf,MachineCounterCaps.sign.hookCode,MachineCounterCaps.expand.hookCode] using hh) hc_first hc_second hc_last hc_top hc_mid (by simpa [capBase,pcOf,MachineCounterCaps.sign.cmpCode,MachineCounterCaps.expand.cmpCode] using hc)
+      (by simpa [capBase] using hpc) h8
+    rw [heq] at h6
+    have h19u := hr .x19 (by decide)
+    rw [h19] at h19u
+    have hsc := symRun_sound MachineCounterCaps.sign.cmp (by simpa [capBase,pcOf,MachineCounterCaps.sign.cmpCode,MachineCounterCaps.expand.cmpCode] using hc) u hpu (by simp [MachineCounterCaps.sign.cmp.res,rv_simp])
+    refine ⟨k+1, _, hs.trans hsc, by omega, ?_, ?_, ?_⟩
+    · simp only [Result.toState_pc,MachineCounterCaps.sign.cmp.res,rv_simp]
+      simp only [h6,h19u]
+      by_cases h : i < capLimit lay
+      · have hu : (BitVec.ofNat 64 i).ult (BitVec.ofNat 64 (capLimit lay)) = true := by
+          simp only [BitVec.ult, BitVec.toNat_ofNat, Nat.mod_eq_of_lt hi, Nat.mod_eq_of_lt hcl]; simpa using h
+        simp [hu,h,capBase]
+      · have hu : (BitVec.ofNat 64 i).ult (BitVec.ofNat 64 (capLimit lay)) = false := by
+          simp only [BitVec.ult, BitVec.toNat_ofNat, Nat.mod_eq_of_lt hi, Nat.mod_eq_of_lt hcl]; simp; omega
+        simp [hu,h,capBase]
+    · intro r h; have hreg := hr r h; cases r <;> simp_all [MachineCounterCaps.sign.cmp.res,rv_simp] <;> rfl
+    · intro A hA hn; simpa [MachineCounterCaps.sign.cmp.res,rv_simp] using hf A hA hn
 theorem capA4_spec {rewardCondition : Prop} (hK : KernAt image b rewardCondition) (s : MachineState) (hpc : s.pc = pcOf (capBase b + 4)) :
     ∃ t, Steps image s 1 1 t ∧ t.pc = pcOf (capBase b + 6) ∧ RegsExcept s t [] ∧ Frame s t (fun _ => False) := by
   refine ⟨_, symRun_sound (runa_4 hK.2.1) (codeAt_a_4 hK) s hpc (by simp [sta_4, blkA354_4.res, rv_simp]),
@@ -30630,17 +30616,17 @@ theorem capA6_spec {rewardCondition : Prop} (hK : KernAt image b rewardCondition
   · simp [pcEa_6, blkA354_6.res, E.eval]
   · intro r hr; simp at hr; cases r <;> simp_all [sta_6, blkA354_6.res, rv_simp] <;> rfl
   · intro A _ _; simp [sta_6, blkA354_6.res, rv_simp]
-theorem capLimit_lt (lay : Nat) (hl : lay < 4) : capLimit lay ≤ 3 * 2 ^ 20 := by
+theorem capLimit_lt (lay : Nat) (hl : lay < 4) : capLimit lay ≤ 2 ^ 22 := by
   unfold capLimit; interval_cases lay <;> decide
 theorem cap_spec {rewardCondition : Prop} (hK : KernAt image b rewardCondition) (s : MachineState) (hpc : s.pc = pcOf (capBase b)) (lay i : Nat)
     (hl : lay < 4) (hi : i ≤ capLimit lay) (h8 : s.getReg .x8 = BitVec.ofNat 64 lay)
     (h19 : s.getReg .x19 = BitVec.ofNat 64 i) :
-    ∃ k t, Steps image s k k t ∧ k ≤ 6 ∧
+    ∃ k t, Steps image s k k t ∧ k ≤ 10 ∧
       t.pc = (if i = capLimit lay then pcOf (b + 424) else pcOf (b + 115)) ∧
       RegsExcept s t [.x6] ∧ Frame s t (fun _ => False) := by
   have hcl := capLimit_lt lay hl
   have hi64 : i < 2 ^ 64 := by omega
-  obtain ⟨t0, s0, p0, r0, f0⟩ := capA0_spec hK s (by simpa using hpc) lay i hl hi64 h8 h19
+  obtain ⟨k0, t0, s0, k0le, p0, r0, f0⟩ := capA0_spec hK s (by simpa using hpc) lay i hl hi64 h8 h19
   by_cases hlow : i < capLimit lay
   · rw [if_pos hlow] at p0
     obtain ⟨t1, s1, p1, r1, f1⟩ := capA5_spec hK t0 p0
@@ -31326,7 +31312,7 @@ theorem lower_spec {image : Image} (hK : KernAt image 543 (Code image)) (s : Mac
     (hm8 : s.getMem (BitVec.ofNat 64 (EOUT+8))=L.extractLsb' 64 64)
     (T S floor : Nat) (h17 : s.getReg .x17=BitVec.ofNat 64 T)
     (h25 : s.getReg .x25=BitVec.ofNat 64 S) (hST : S≤T) (hc : T-S<8)
-    (hf : floor<23) (hm : s.getMem (0x66010#64)=BitVec.ofNat 64 floor)
+    (hf : floor<24) (hm : s.getMem (0x66010#64)=BitVec.ofNat 64 floor)
     (lay : Layer) (hl : lay≠0) (h8 : s.getReg .x8=BitVec.ofNat 64 lay.val) :
     ∃ k t, Steps image s k k t ∧ k≤100 ∧
       t.pc=(if floor≤partialScore v 14+(if T-S=6 then 1 else 0)+(if T3.lowerEarn L then ClaudeWCT.WCT9.CanonicalPolicy.lowerBonus lay else 0)
@@ -31402,7 +31388,7 @@ theorem lower_spec_credit {image : Image} (hK : KernAt image 543 (Code image)) (
     (hm8 : s.getMem (BitVec.ofNat 64 (EOUT+8))=L.extractLsb' 64 64)
     (T S floor : Nat) (h17 : s.getReg .x17=BitVec.ofNat 64 T)
     (h25 : s.getReg .x25=BitVec.ofNat 64 S) (hST : S≤T) (hc : T-S<8)
-    (hf : floor<23) (hm : s.getMem (0x66010#64)=BitVec.ofNat 64 floor)
+    (hf : floor<24) (hm : s.getMem (0x66010#64)=BitVec.ofNat 64 floor)
     (h8 : s.getReg .x8=BitVec.ofNat 64 lay.val) :
     let low := decide (T3.lowerEarn L)
     let good := floor+WCT9.dispatchPenalty lay (lowDigits v++[T-S])≤pathReward lay low (lowDigits v++[T-S])
@@ -31438,7 +31424,7 @@ structure CsArgs where
   msg : WCT9.LayerMsg
   ret : Nat
   floor : Nat
-def csT (lay : Layer) : Nat := if lay = 0 then 355 else 391
+def csT (lay : Layer) : Nat := if lay = 0 then 359 else 395
 def csOk (lay : Layer) : Nat := if lay = 0 then 4096 else 4096
 theorem capLimit_le (n : Nat) : capLimit n ≤ 2 ^ 22 := by unfold capLimit; split_ifs <;> omega
 theorem capLimit_eq (lay : Layer) : capLimit lay.val = WCT9.searchLimit lay := by
@@ -31537,7 +31523,7 @@ structure CsPre (b : Nat) (A : CsArgs) (s : MachineState) : Prop where
   /-- T51: only the lower reward tables (a `RewardTablesOK` coerces). -/
   reward : Reward.LowerTablesOK s
   zt : ZeroCap.ZtOK b s
-  floorLt : A.floor<23
+  floorLt : A.floor<24
   floorTop : A.lay=0 → A.floor=LocalRouteMachineHelpers.rootFloor A.leaf
   floorMem : A.lay≠0 → s.getMem (0x66010#64)=BitVec.ofNat 64 A.floor
   /-- T51: the packed top tables (sign block 0xFFF800 = TOP_DATA + 2048) for the top search. -/
@@ -31735,7 +31721,7 @@ theorem TrialSt.zt {A : CsArgs} {s0 u : MachineState} {i : Nat} {b' : Nat} (hb' 
       simp only [ZeroCap.ZT, CsW, CanonicalHooks.CreditW, DigW, ENC, EOUT, DIGITS, FLAG] <;> norm_num <;> omega)
 theorem cs_answer {A : CsArgs} {s0 t : MachineState} {i : Nat} {rewardCondition : Prop} (hK : KernAt image b rewardCondition) (hpre : CsPre b A s0)
     (hI : CsInv b A s0 i t) (hi : i < capLimit A.lay.val) :
-    ∃ k t2, Steps image t k k t2 ∧ k ≤ 14 ∧ t2.pc = pcOf (b + 123) ∧
+    ∃ k t2, Steps image t k k t2 ∧ k ≤ 18 ∧ t2.pc = pcOf (b + 123) ∧
       fetch image t2 = some (.base .ECALL) ∧
       t2.getReg .x5 = 0 ∧ hashArgumentsValid t2 = true ∧
       hashInput t2 = toQ (T3.pad64 (WCT9.layerEncodingInput A.lay A.tree A.leaf A.msg (BitVec.ofNat 32 i))) ∧
@@ -31760,7 +31746,7 @@ theorem cs_answer {A : CsArgs} {s0 t : MachineState} {i : Nat} {rewardCondition 
         hI.h16]
     · rw [f2.get (by simp only [ENC]; omega) (by simp only [ENC]; omega), f1.get (by simp only [ENC]; omega) (by simp),
         hI.h24]
-  have hk : k1 + 8 ≤ 14 := by omega
+  have hk : k1 + 8 ≤ 18 := by omega
   refine ⟨_, t2, s1.trans s2, hk, p2, (codeAt_k_123 hK).fetch _ p2, by rw [hT.reg (by decide), hpre.x5],
     hashArgs_const t2 ENC 64 EOUT h10 h11 h12 (by decide) (by decide) (by decide) (by decide) (by decide),
     ?_, h12, hT⟩
@@ -31795,7 +31781,7 @@ theorem cs_exhaust {A : CsArgs} {s0 t : MachineState} {i : Nat}
   obtain ⟨k1,t1,s1,k1le,p1,r1,f1⟩ := cap_spec hK t hI.pc A.lay.val i A.lay.isLt hI.hi
     (by rw [hI.regs.get (by decide),hpre.x8]) hI.x19
   rw [if_pos hi] at p1
-  have hk1 : k1≤6 := k1le
+  have hk1 : k1≤10 := k1le
   have h8 : t1.getReg .x8=BitVec.ofNat 64 A.lay.val := by
     rw [r1.get (by decide),hI.regs.get (by decide),hpre.x8]
   have fr1 : Frame s0 t1 CsW := (hI.frame.trans f1).mono (fun A _ h=>by simpa using h)
@@ -31846,7 +31832,7 @@ theorem cs_loop {A : CsArgs} {s0 : MachineState} (hK : KernAt image 543 (Canonic
       fun t ht => ih (i+1) t (by omega) ht
     rw [prog]
     refine (TBSim.steps s2 (TBSim.publicHash_bindC hf h5 hv hq
-      (W:=F*csT A.lay+csOk A.lay+(csT A.lay-22)) (fun a => ?_))).mono ?_ (fun _ _ h => h)
+      (W:=F*csT A.lay+csOk A.lay+(csT A.lay-26)) (fun a => ?_))).mono ?_ (fun _ _ h => h)
     swap
     · rw [BC.blocks_encodingInput,Nat.succ_mul];unfold csT at *;split_ifs at k2le ⊢ <;> omega
     have hT3 := hT.hash h12 a

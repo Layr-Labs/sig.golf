@@ -1404,8 +1404,8 @@ structure Stable (output : HashOutput) (b : SharedCodec.CBytes) (pk : Digest) (s
   scatterPlan : SharedScatter.PlanAt s
   pk : DigAt s 0xA0 pk
   index : s.getMem (0x20550#64)=BitVec.ofNat 64 (WCT9.digestIndex output)
-  threshold1 : ∀r,r<55 → s.getByte (BitVec.ofNat 64 (16749456+r))=BitVec.ofNat 8 (WCT9.CanonicalPolicy.threshold 1 r)
-  threshold2 : ∀r,r<41 → s.getByte (BitVec.ofNat 64 (16749520+r))=BitVec.ofNat 8 (WCT9.CanonicalPolicy.threshold 2 r)
+  threshold1 : ∀r,r<58 → s.getByte (BitVec.ofNat 64 (16749456+r))=BitVec.ofNat 8 (WCT9.Policy75Safe23.threshold 1 r)
+  threshold2 : ∀r,r<42 → s.getByte (BitVec.ofNat 64 (16749520+r))=BitVec.ofNat 8 (WCT9.Policy75Safe23.threshold 2 r)
   zt : SigGolfCandidate.T3M.Search.ZeroCap.ZtOK 354 s
   t51src : SigGolfCandidate.T3M.Search.T51.T51TableW 0xFF9E00 s
 
@@ -1886,7 +1886,7 @@ theorem forestSig_top (sig : SharedForest.Signature) : ∀ j, ((forestSig sig).l
 structure ForestMemory (output : HashOutput) (b : SharedCodec.CBytes) (counter : BitVec 32) (pk : Digest) (s : MachineState) : Prop where
   stable : Stable output b pk s
   inflated : SharedCompact.InflatedAt s b
-  hintsLt : (SharedCodec.sigDecC b).policyHints.toNat<8192
+  hintsLt : (SharedCodec.sigDecC b).policyHints.toNat<12288
   hints : s.getMem 0x66000=BitVec.ofNat 64 (SharedCodec.sigDecC b).policyHints.toNat
   dc : s.getMem 0x66008=BitVec.ofNat 64 counter.toNat
   c32 : ∃x<2^32,s.getMem (BitVec.ofNat 64 (ENC+32))=BitVec.ofNat 64 x
@@ -1999,17 +1999,17 @@ set_option maxRecDepth 20000
 theorem expandN_source (message : Message) (pk : Digest) (b : SharedCodec.CBytes)
     (hfill : SharedForest.fillTopSignature (SharedCodec.sigDecC b) 0=SharedCodec.sigDecC b) :
     Paired.expandN message pk (SharedCodec.sigDecC b)=
-      if (SharedCodec.sigDecC b).policyHints.toNat ≥ 8192 then pure none else
-        SharedForest.sharedDigestSearch (SharedCodec.sigDecC b).rho message 0 (2^21) >>= fun result=>
+      if (SharedCodec.sigDecC b).policyHints.toNat ≥ 12288 then pure none else
+        SharedForest.sharedDigestSearch (SharedCodec.sigDecC b).rho message 0 ((11*2^17)) >>= fun result=>
           match result with
           | none => pure none
           | some (counter,output)=>forestProgram output b counter pk := by
   unfold Paired.expandN
   rw [hfill]
-  by_cases bad:(SharedCodec.sigDecC b).policyHints.toNat ≥ 8192
+  by_cases bad:(SharedCodec.sigDecC b).policyHints.toNat ≥ 12288
   · simp only [bad,ite_true]
   rw [if_neg bad,if_neg bad]
-  apply congrArg (fun k=>SharedForest.sharedDigestSearch (SharedCodec.sigDecC b).rho message 0 (2^21) >>= k)
+  apply congrArg (fun k=>SharedForest.sharedDigestSearch (SharedCodec.sigDecC b).rho message 0 ((11*2^17)) >>= k)
   funext result
   cases result with
   | none => rfl
@@ -2055,10 +2055,10 @@ structure InitialMemory (b : SharedCodec.CBytes) (pk : Digest) (s : MachineState
   toptab : Compact2.TopTabAt s
   scatterPlan : SharedScatter.PlanAt s
   pk : DigAt s 0xA0 pk
-  threshold1 : ∀r,r<55 → s.getByte (BitVec.ofNat 64 (16749456+r))=
-    BitVec.ofNat 8 (ClaudeWCT.WCT9.CanonicalPolicy.threshold 1 r)
-  threshold2 : ∀r,r<41 → s.getByte (BitVec.ofNat 64 (16749520+r))=
-    BitVec.ofNat 8 (ClaudeWCT.WCT9.CanonicalPolicy.threshold 2 r)
+  threshold1 : ∀r,r<58 → s.getByte (BitVec.ofNat 64 (16749456+r))=
+    BitVec.ofNat 8 (ClaudeWCT.WCT9.Policy75Safe23.threshold 1 r)
+  threshold2 : ∀r,r<42 → s.getByte (BitVec.ofNat 64 (16749520+r))=
+    BitVec.ofNat 8 (ClaudeWCT.WCT9.Policy75Safe23.threshold 2 r)
   zt : SigGolfCandidate.T3M.Search.ZeroCap.ZtOK 354 s
   c32 : ∃x<2^32,s.getMem (BitVec.ofNat 64 (ENC+32))=BitVec.ofNat 64 x
   zero : SigGolfCandidate.T3M.Expand.BC.LZero s
@@ -2236,7 +2236,7 @@ def ClearWrites (A:Nat) : Prop := A=0x66020 ∨ A=0x66008 ∨ A=0x66010 ∨ A=0x
 theorem memory_after_clear {s0 s t:MachineState} {output:HashOutput} {b:SharedCodec.CBytes}
     {counter:BitVec 32} {pk:Digest}
     (initial:InitialMemory b pk s0) (hin:SharedCompact.InflatedAt s b)
-    (hh:(SharedCodec.sigDecC b).policyHints.toNat<8192)
+    (hh:(SharedCodec.sigDecC b).policyHints.toNat<12288)
     (hhmem:s.getMem 0x66000=BitVec.ofNat 64 (SharedCodec.sigDecC b).policyHints.toNat)
     (hs:Frame s0 s SharedFront.SearchWrites)
     (hsetup:∀A,A=0x59B0 ∨ A=0x59B8 ∨ A=0x59C0 ∨ A=0x59C8 → s.getMem (BitVec.ofNat 64 A)=0)
@@ -2326,7 +2326,7 @@ set_option maxRecDepth 20000
 theorem cleared_front {s0 s:MachineState} {output:HashOutput} {b:SharedCodec.CBytes}
     {counter:BitVec 32} {pk:Digest}
     (initial:InitialMemory b pk s0) (hin:SharedCompact.InflatedAt s b)
-    (hh:(SharedCodec.sigDecC b).policyHints.toNat<8192)
+    (hh:(SharedCodec.sigDecC b).policyHints.toNat<12288)
     (hhmem:s.getMem 0x66000=BitVec.ofNat 64 (SharedCodec.sigDecC b).policyHints.toNat)
     (hs:Frame s0 s SharedFront.SearchWrites)
     (hsetup:∀A,A=0x59B0 ∨ A=0x59B8 ∨ A=0x59C0 ∨ A=0x59C8 → s.getMem (BitVec.ofNat 64 A)=0)
@@ -2362,7 +2362,7 @@ set_option maxRecDepth 20000
 theorem accepted_front {s0 s:MachineState} {output:HashOutput} {b:SharedCodec.CBytes}
     {counter:BitVec 32} {pk:Digest}
     (initial:InitialMemory b pk s0) (hin:SharedCompact.InflatedAt s b)
-    (hh:(SharedCodec.sigDecC b).policyHints.toNat<8192)
+    (hh:(SharedCodec.sigDecC b).policyHints.toNat<12288)
     (hhmem:s.getMem 0x66000=BitVec.ofNat 64 (SharedCodec.sigDecC b).policyHints.toNat)
     (hs:Frame s0 s SharedFront.SearchWrites)
     (hsetup:∀A,A=0x59B0 ∨ A=0x59B8 ∨ A=0x59C0 ∨ A=0x59C8 → s.getMem (BitVec.ofNat 64 A)=0)
@@ -2409,7 +2409,7 @@ theorem initial_x5 (message : Message) (pk : PublicKey) (b : SharedCodec.CBytes)
 def searchedW : Nat := 3821746570 + suffixW
 
 theorem searched_continue {sk : BitVec 256} {s0 s : MachineState} {pk : Digest} {b : SharedCodec.CBytes}
-    (initial : InitialMemory b pk s0) (hh:(SharedCodec.sigDecC b).policyHints.toNat<8192)
+    (initial : InitialMemory b pk s0) (hh:(SharedCodec.sigDecC b).policyHints.toNat<12288)
     {r : Option (BitVec 32 × HashOutput)} (hs : SharedFront.Searched s0 b r s) :
     TBSim Images.expandImage sk s searchedW
       (match r with | none=>pure none | some (counter,output)=>forestProgram output b counter pk) PairedExpPost := by
@@ -2444,19 +2444,19 @@ set_option Elab.async false
 theorem paired_expand_tbsim : PairedExpandSimulation := by
   intro sk message pk b
   -- T51: word 0 jumps to DEC (54569), which writes the inflated slot layout of the 5,195-byte signature at `0x7000`
-  -- and the hint at `0x66000` (a hint `≥ 8192` exits at word 354), then `j 1`; the front runs from word 1 on the
+  -- and the hint at `0x66000` (a hint `≥ 12288` exits at word 354), then `j 1`; the front runs from word 1 on the
   -- real initial state `w9init .. b`.
   have hfill : SharedForest.fillTopSignature (SharedCodec.sigDecC b) 0=SharedCodec.sigDecC b :=
     SharedCodec.fill_sigDecC b
   rw [expandN_source message pk _ hfill]
-  by_cases bad:8192≤(SharedCodec.sigDecC b).policyHints.toNat
+  by_cases bad:12288≤(SharedCodec.sigDecC b).policyHints.toNat
   · rw [if_pos bad]
     obtain ⟨t,st,tp⟩:=PrePass.dec_reject message pk b bad
     exact (TBSim.steps st (suffix_done (r:=none) (Or.inl tp))).mono
       (by unfold pairedExpandCost suffixW; omega) (fun _ _ h=>h)
   · rw [if_neg bad]
-    have hh:(SharedCodec.sigDecC b).policyHints.toNat<8192:=by omega
-    -- N7g: a hint `< 8192` is exactly a canonical field `N < R * 360` (`policyHints_sigDecC_ge_iff`)
+    have hh:(SharedCodec.sigDecC b).policyHints.toNat<12288:=by omega
+    -- N7g: a hint `< 12288` is exactly a canonical field `N < R * 360` (`policyHints_sigDecC_ge_iff`)
     have hc:SharedCodec.nOfB b<PrePass.nCanon:=by
       have h1:=(SharedCodec.policyHints_sigDecC_ge_iff b).not.mp bad
       rw [SharedCodec.R_mul_360] at h1; unfold PrePass.nCanon; omega
@@ -7154,13 +7154,21 @@ set_option maxRecDepth 100000
 set_option linter.unusedSimpArgs false
 variable {im : Image}
 open Gf ClaudeWCT.Arith
+/-- The installed FTS coefficient buffer has42entries. -/
+def CoefAt (t : MachineState) (coefs : List Digest) : Prop :=
+  ∀ k < 42, DigAt t (COEF + 16 * k) (coefs.getD k 0)
+
+theorem CoefAt.frame {s t : MachineState} {coefs : List Digest} {W : Nat → Prop} (h : CoefAt s coefs)
+    (hf : Frame s t W) (hW : ∀ A, COEF ≤ A → A < COEF + 864 → ¬ W A) : CoefAt t coefs :=
+  fun k hk => (h k hk).frame hf (by unfold COEF; omega) (hW _ (by omega) (by omega)) (hW _ (by omega) (by omega))
+
 section steps
 variable {im : Image}
 
 theorem horn_look (hcode : Fetch im) : LookOK im (coordLook 0) := coordLook_ok hcode (by norm_num)
 
 theorem step_H0 (hcode : Fetch im) (s : MachineState) (hpc : s.pc = pcOf hornI) :
-    ∃ t, Steps im s 6 6 t ∧ t.pc = pcOf hkI ∧ t.getReg .x7 = BitVec.ofNat 64 (COEF + 16 * 54) ∧
+    ∃ t, Steps im s 6 6 t ∧ t.pc = pcOf hkI ∧ t.getReg .x7 = BitVec.ofNat 64 (COEF + 16 * 42) ∧
       t.getReg .x10 = BitVec.ofNat 64 0 ∧ t.getReg .x11 = BitVec.ofNat 64 0 ∧
       t.getReg .x28 = BitVec.ofNat 64 COEF ∧ RegsExcept s t [.x7, .x10, .x11, .x28] ∧
       Frame s t (fun _ => False) := by
@@ -7499,17 +7507,17 @@ theorem horner_loop (hcode : Fetch im) {s0 : MachineState} {d : Nat} {coefs : Li
 def hornC : Nat := 6 + (hornStepC * 54 + 5)
 
 theorem horn_run (hcode : Fetch im) (s : MachineState) (hpc : s.pc = pcOf hornI) {d : Nat} (hd : d < 2 ^ 10)
-    (h6 : s.getReg .x6 = BitVec.ofNat 64 d) {coefs : List Digest} (hlen : coefs.length = 54)
+    (h6 : s.getReg .x6 = BitVec.ofNat 64 d) {coefs : List Digest} (hlen : coefs.length = 42)
     (hcoef : CoefAt s coefs) :
     ∃ u n c, Steps im s n c u ∧ c ≤ hornC ∧ u.pc = s.getReg .x1 &&& BitVec.ofNat 64 (2 ^ 64 - 2) ∧
       DigAt u (CHAINW + 48) (familyEval coefs d) ∧ RegsExcept s u hornRegs ∧
       Frame s u (fun A => A = CHAINW + 48 ∨ A = CHAINW + 56) := by
   obtain ⟨t, st, tpc, t7, t10, t11, t28, tregs, tframe⟩ := step_H0 hcode s hpc
-  have ht : HkSt s d coefs (53 + 1) t := by
+  have ht : HkSt s d coefs (41 + 1) t := by
     refine ⟨tpc, by rw [tregs.get (by simp)]; exact h6, t7, t28, ?_, tregs.mono (by simp [hornRegs]), tframe⟩
     rw [t10, t11, List.drop_eq_nil_of_le (by omega)]
     rfl
-  obtain ⟨u, n, c, su, hc, upc, ud, uregs, uframe⟩ := horner_loop hcode (le_refl 54) hd hlen hcoef 53 (by norm_num) t ht
+  obtain ⟨u, n, c, su, hc, upc, ud, uregs, uframe⟩ := horner_loop hcode (by decide : 42 ≤ 54) hd hlen hcoef 41 (by norm_num) t ht
   exact ⟨u, _, _, st.trans su, by unfold hornC; omega, upc, ud, uregs, uframe⟩
 
 end loops

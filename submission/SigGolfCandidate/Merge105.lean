@@ -9911,11 +9911,11 @@ theorem mem_DiscLower (st : RouterState) (L : LowerLeaf) (a : ChainGraph.Address
       (a.layer, a.tree, CanonGraph.famSlot a.layer a.leaf) = L.1 ∧ (.inr (.inl a) : Coord) ∈ st.disclosed := by
   unfold DiscLower
   simp only [Finset.mem_filter, Finset.mem_univ, true_and]
-/-- No seed family is determined by the router's disclosures: FTS families have at most 53 disclosed seeds, WOTS
+/-- No seed family is determined by the router's disclosures: FTS families have at most 41 disclosed seeds, WOTS
 leaf families at most `famCount − 1` (structurally at most `famCount − 3`: 14 lower, `lower_zero_count_le`; 21 top of
 31 coefficients, `top_zero_count_le`, campaign T51). -/
 def FamOK (st : RouterState) : Prop :=
-  (∀ f, (DiscSeeds st f).card ≤ 53) ∧ ∀ L : LowerLeaf, (DiscLower st L).card ≤ WCT9.famSize L.1.1 L.1.2.2.val - 1
+  (∀ f, (DiscSeeds st f).card ≤ 41) ∧ ∀ L : LowerLeaf, (DiscLower st L).card ≤ WCT9.famSize L.1.1 L.1.2.2.val - 1
 theorem DiscSeeds_mono {st st' : RouterState} (h : ∀ x ∈ st.disclosed, x ∈ st'.disclosed)
     (f : Fin (2 ^ 31) × Fin 9) : DiscSeeds st f ⊆ DiscSeeds st' f := by
   intro w hw
